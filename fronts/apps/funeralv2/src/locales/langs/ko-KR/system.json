@@ -1,0 +1,73 @@
+{
+  "title": "시스템 관리",
+  "dept": {
+    "name": "부서",
+    "title": "부서 관리",
+    "deptName": "부서명",
+    "status": "상태",
+    "createTime": "생성 시간",
+    "remark": "비고",
+    "operation": "작업",
+    "parentDept": "상위 부서"
+  },
+  "menu": {
+    "title": "메뉴 관리",
+    "parent": "상위 메뉴",
+    "menuTitle": "제목",
+    "menuName": "메뉴명",
+    "name": "메뉴",
+    "type": "유형",
+    "typeCatalog": "디렉토리",
+    "typeMenu": "메뉴",
+    "typeButton": "버튼",
+    "typeLink": "링크",
+    "typeEmbedded": "내장 페이지",
+    "icon": "아이콘",
+    "activeIcon": "활성 아이콘",
+    "activePath": "활성 경로",
+    "path": "라우트 경로",
+    "component": "컴포넌트",
+    "status": "상태",
+    "authCode": "권한 코드",
+    "badge": "배지",
+    "operation": "작업",
+    "linkSrc": "링크 주소",
+    "affixTab": "탭 고정",
+    "keepAlive": "Keep Alive",
+    "hideInMenu": "메뉴에서 숨김",
+    "hideInTab": "탭 바에서 숨김",
+    "hideChildrenInMenu": "하위 메뉴 숨기기",
+    "hideInBreadcrumb": "브레드크럼에서 숨김",
+    "advancedSettings": "기타 설정",
+    "activePathMustExist": "경로에서 유효한 메뉴를 찾을 수 없습니다",
+    "activePathHelp": "현재 라우트로 이동할 때, 내비게이션 메뉴에 표시되지 않는 경우 활성화할 메뉴 경로를 지정해야 합니다.",
+    "badgeType": {
+      "title": "배지 유형",
+      "dot": "점",
+      "normal": "텍스트",
+      "none": "없음"
+    },
+    "badgeVariants": "배지 스타일"
+  },
+  "role": {
+    "title": "역할 관리",
+    "list": "역할 목록",
+    "name": "역할",
+    "roleName": "역할명",
+    "id": "역할 ID",
+    "status": "상태",
+    "remark": "비고",
+    "createTime": "생성 시간",
+    "operation": "작업",
+    "permissions": "권한",
+    "setPermissions": "권한 설정"
+  },
+  "company": {
+    "title": "회사 관리",
+    "name": "회사",
+    "businessNumber": "사업자번호",
+    "representative": "대표자",
+    "status": "상태",
+    "remark": "비고"
+  }
+}
