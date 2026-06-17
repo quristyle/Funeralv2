@@ -11,6 +11,12 @@ using Spectre.Console;
 
 var builder = WebApplication.CreateBuilder(args);
 
+
+
+// 로컬 개별 설정을 위한 appsettings.Local.json 추가 (Git 제외)
+builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: true);
+
+
 // ============================================================
 // 1. Serilog 구성 (로깅)
 // ============================================================

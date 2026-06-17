@@ -21,9 +21,9 @@ defineOptions({
 
 withDefaults(defineProps<Props>(), {
   description:
-    '是一个现代化开箱即用的中后台解决方案，采用最新的技术栈，包括 Vue 3.0、Vite、TailwindCSS 和 TypeScript 等前沿技术，代码规范严谨，提供丰富的配置选项，旨在为中大型项目的开发提供现成的开箱即用解决方案及丰富的示例，同时，它也是学习和深入前端技术的一个极佳示例。',
+    '최신 기술 스택(Vue 3.0, Vite, TailwindCSS, TypeScript 등)을 활용한 현대적이고 즉시 사용 가능한 엔터프라이즈급 관리 솔루션입니다. 엄격한 코드 규범과 풍부한 설정 옵션을 제공하며, 중대형 프로젝트 개발을 위한 즉각적인 솔루션과 다양한 예제를 제공하는 동시에 프론트엔드 기술을 깊이 있게 학습하기 위한 훌륭한 예제입니다.',
   name: 'Vben Admin',
-  title: '关于项目',
+  title: '프로젝트 정보',
 });
 
 declare global {
@@ -59,36 +59,36 @@ const {
   homepage,
   license,
   version,
-  // vite inject-metadata 插件注入的全局变量
+  // vite inject-metadata 플러그인이 주입한 전역 변수
 } = __VBEN_ADMIN_METADATA__ || {};
 
 const vbenDescriptionItems: DescriptionItem[] = [
   {
     content: version,
-    title: '版本号',
+    title: '버전',
   },
   {
     content: license,
-    title: '开源许可协议',
+    title: '오픈 소스 라이선스',
   },
   {
     content: buildTime,
-    title: '最后构建时间',
+    title: '최종 빌드 시간',
   },
   {
-    content: renderLink(homepage, '点击查看'),
-    title: '主页',
+    content: renderLink(homepage, '클릭하여 확인'),
+    title: '홈페이지',
   },
   {
-    content: renderLink(VBEN_DOC_URL, '点击查看'),
-    title: '文档地址',
+    content: renderLink(VBEN_DOC_URL, '클릭하여 확인'),
+    title: '문서 주소',
   },
   {
-    content: renderLink(VBEN_PREVIEW_URL, '点击查看'),
-    title: '预览地址',
+    content: renderLink(VBEN_PREVIEW_URL, '클릭하여 확인'),
+    title: '미리보기 주소',
   },
   {
-    content: renderLink(VBEN_GITHUB_URL, '点击查看'),
+    content: renderLink(VBEN_GITHUB_URL, '클릭하여 확인'),
     title: 'Github',
   },
   {
@@ -96,7 +96,7 @@ const vbenDescriptionItems: DescriptionItem[] = [
       renderLink(authorUrl, `${authorName}  `),
       renderLink(`mailto:${authorEmail}`, authorEmail),
     ]),
-    title: '作者',
+    title: '작성자',
   },
 ];
 

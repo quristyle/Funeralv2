@@ -1,3 +1,267 @@
+
+# FuneralV2 Frontend Project Context
+
+## Project Overview
+
+FuneralV2는 장례식장 관리 시스템을 위한 프론트엔드 프로젝트이다.
+
+본 프로젝트는 Vue3 기반의 Monorepo 구조로 구성되어 있으며, Vben Admin 5.x 아키텍처를 기반으로 개발되고 있다.
+
+---
+
+# Technology Stack
+
+## Core Framework
+
+* Vue 3.5.x
+* TypeScript 5.9.x
+* Vite 8.x
+* pnpm Workspace
+* Turbo Repo
+
+## UI Framework
+
+* Ant Design Vue 4.x
+* TailwindCSS 4.x
+
+## Data Grid
+
+* VXETable
+* vxe-table-plugin-export-xlsx
+
+## Chart
+
+* Apache ECharts 6.x
+
+## Excel Processing
+
+* ExcelJS
+
+---
+
+# Monorepo Architecture
+
+This repository uses:
+
+* pnpm Workspace
+* Turbo Repo
+
+Workspace count:
+
+* 39 projects
+
+Internal packages:
+
+* @vben/eslint-config
+* @vben/vite-config
+* @vben/tailwind-config
+* @vben/tsconfig
+* @vben/commitlint-config
+* @vben/stylelint-config
+* @vben/oxlint-config
+* @vben/oxfmt-config
+* @vben/turbo-run
+* @vben/vsh
+
+---
+
+# Build System
+
+## Bundler
+
+* Vite
+
+## Build Tools
+
+* tsdown
+* esbuild
+
+## Environment
+
+* Node.js
+* pnpm
+
+Package Manager:
+
+* pnpm 10.x
+
+---
+
+# Development Standards
+
+## Language
+
+* TypeScript only
+* Composition API preferred
+
+## Vue Style
+
+Prefer:
+
+```ts
+<script setup lang="ts">
+```
+
+Avoid:
+
+```ts
+export default {
+}
+```
+
+unless legacy code requires it.
+
+---
+
+# Code Quality
+
+## Lint
+
+* ESLint
+* Oxlint
+* Oxfmt
+* Stylelint
+
+## Git Hooks
+
+* Lefthook
+
+## Commit Convention
+
+* Changesets
+* Conventional Commit
+
+---
+
+# Testing
+
+## Unit Test
+
+* Vitest
+* Vue Test Utils
+* Happy DOM
+
+## E2E Test
+
+* Playwright
+
+---
+
+# Recommended Coding Patterns
+
+## Vue Component
+
+Prefer:
+
+* Composition API
+* Script Setup
+* TypeScript Interfaces
+
+Example:
+
+```ts
+interface SearchForm {
+  keyword: string;
+  startDate?: string;
+  endDate?: string;
+}
+```
+
+---
+
+# State Management
+
+Check repository before introducing new state libraries.
+
+Prefer existing project patterns.
+
+Potential candidates:
+
+* Pinia
+* Vue Composables
+
+Do not introduce Vuex.
+
+---
+
+# Styling
+
+Primary styling technologies:
+
+* TailwindCSS
+* Ant Design Vue
+
+Prefer utility-first CSS.
+
+Avoid custom CSS unless necessary.
+
+---
+
+# Table Development
+
+When implementing large data grids:
+
+Prefer:
+
+* VXETable
+
+Features commonly used:
+
+* Virtual Scroll
+* Fixed Columns
+* Export Excel
+* Server Pagination
+
+---
+
+# API Communication
+
+Follow existing project API wrapper patterns.
+
+Before creating:
+
+* axios instance
+* fetch wrapper
+
+Check repository for existing implementations.
+
+---
+
+# AI Agent Instructions
+
+Before generating code:
+
+1. Search existing implementation first.
+2. Follow existing project conventions.
+3. Reuse existing composables.
+4. Reuse existing UI components.
+5. Do not introduce new libraries unless required.
+6. Keep TypeScript strict mode compatible.
+7. Maintain Vben Admin architecture consistency.
+8. Prefer Ant Design Vue components.
+9. Prefer TailwindCSS utilities.
+10. Prefer VXETable for complex grids.
+
+---
+
+# Important Notes
+
+This project is a production business application.
+
+Priorities:
+
+1. Maintainability
+2. Consistency
+3. Type Safety
+4. Performance
+5. Reusability
+
+Avoid experimental architectures unless explicitly requested.
+
+
+
+
+
 # 다국어(i18n) 시스템 관리 가이드
 
 본 프로젝트는 **Vben Admin** 프레임워크를 기반으로 하며, 초기 로딩 성능을 보장하면서도 운영 중 실시간으로 번역문을 수정할 수 있도록 **로컬 JSON 파일과 데이터베이스(DB)를 병합하는 하이브리드 방식**을 채택하고 있습니다.

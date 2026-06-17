@@ -10,8 +10,17 @@ using System.Reflection;
 
 var builder = WebApplication.CreateBuilder(args);
 
+
+
+// 로컬 개별 설정을 위한 appsettings.Local.json 추가 (Git 제외)
+builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: true);
+
+
+
 // 1. 데이터베이스 구성 (PostgreSQL & EF Core)
-var connectionString = builder.Configuration["jsinicore"] ?? Environment.GetEnvironmentVariable("jsinicore");
+var connectionString = builder.Configuration.GetConnectionString("jsinicore") 
+                    ?? builder.Configuration["jsinicore"] 
+                    ?? Environment.GetEnvironmentVariable("jsinicore");
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(connectionString, x => x.MigrationsHistoryTable("__EFMigrationsHistory", "scom")));
 
