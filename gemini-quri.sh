@@ -2,7 +2,7 @@
 
 set -e
 
-RULES_FILE="prompts/coding_agent_system.md"
+RULES_FILE="docs/prompts/coding_agent_system.md"
 
 if [ ! -f "$RULES_FILE" ]; then
   echo "❌ 규칙 파일을 찾을 수 없습니다: $RULES_FILE"
@@ -10,28 +10,28 @@ if [ ! -f "$RULES_FILE" ]; then
 fi
 
 
-RULES_FILE2="prompts/coding_agent_typescript.md"
+RULES_FILE2="docs/prompts/coding_agent_typescript.md"
 if [ ! -f "$RULES_FILE2" ]; then
   echo "❌ 규칙 파일을 찾을 수 없습니다: $RULES_FILE2"
   exit 1
 fi
 
 
-RULES_FILE3="prompts/coding_agent_vue3_script.md"
+RULES_FILE3="docs/prompts/coding_agent_vue3_script.md"
 if [ ! -f "$RULES_FILE3" ]; then
   echo "❌ 규칙 파일을 찾을 수 없습니다: $RULES_FILE3"
   exit 1
 fi
 
 
-RULES_FILE4="prompts/3.AI.md"
+RULES_FILE4="docs/prompts/3.AI.md"
 if [ ! -f "$RULES_FILE4" ]; then
   echo "❌ 규칙 파일을 찾을 수 없습니다: $RULES_FILE4"
   exit 1
 fi
 
 
-RULES_FILE5="prompts/5.dev.md"
+RULES_FILE5="docs/prompts/5.dev.md"
 if [ ! -f "$RULES_FILE5" ]; then
   echo "❌ 규칙 파일을 찾을 수 없습니다: $RULES_FILE5"
   exit 1
