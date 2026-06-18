@@ -1,7 +1,7 @@
 ## Vue 3 Script Rules (Non-TypeScript)
 
 ### Script Setup
-- 모든 컴포넌트는 `<script setup>` 사용
+- 모든 컴포넌트는 `<script lang="ts" setup>` 사용
 - Options API 사용 금지
 - 암묵적 전역 변수 사용 금지
 
