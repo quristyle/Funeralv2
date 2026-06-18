@@ -1,13 +1,15 @@
 <script lang="ts" setup>
-import { ref, onMounted } from 'vue';
-import { Page, useVbenVxeGrid } from '@vben/common-ui';
+import { ref, onMounted, h } from 'vue';
+import { Page } from '@vben/common-ui';
+import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { Button, Card, Col, Row, Space, Popconfirm, message } from 'ant-design-vue';
-import { PlusOutlined, EditOutlined, DeleteOutlined } from '@vben/icons';
+import { Plus, IconifyIcon } from '@vben/icons';
 import { groupGridOptions, codeGridOptions } from './data';
 import { 
   getCommonCodeGroups, 
   getCommonCodes, 
-  deleteCommonCode 
+  deleteCommonCode,
+  deleteCommonCodeGroup
 } from '#/api/system/common-code';
 import GroupForm from './modules/group-form.vue';
 import CodeForm from './modules/code-form.vue';
@@ -45,10 +47,22 @@ async function loadGroups() {
     if (data.length > 0 && !currentGroup.value) {
       currentGroup.value = data[0];
       loadCodes();
+    } else if (data.length === 0) {
+      currentGroup.value = null;
     }
   } finally {
     groupGridApi.setLoading(false);
   }
+}
+
+/**
+ * 그룹 삭제 처리
+ */
+async function handleGroupDelete(id: string) {
+  await deleteCommonCodeGroup(id);
+  message.success('그룹이 삭제되었습니다.');
+  currentGroup.value = null; // 선택 해제
+  loadGroups();
 }
 
 /**
@@ -89,11 +103,25 @@ onMounted(() => {
       <Col :span="8">
         <Card title="코드 그룹" :bordered="false">
           <template #extra>
-            <Button type="primary" :icon="h(PlusOutlined)" @click="groupFormRef.openModal()">
+            <Button type="primary" @click="groupFormRef.openModal()">
+              <Plus class="mr-1 size-4" />
               추가
             </Button>
           </template>
-          <GroupGrid />
+          <GroupGrid>
+            <template #action="{ row }">
+              <Space>
+                <Button type="link" size="small" @click="groupFormRef.openModal(row)">
+                  <IconifyIcon icon="lucide:edit" class="size-4" />
+                </Button>
+                <Popconfirm title="그룹을 삭제하시겠습니까?" @confirm="handleGroupDelete(row.id)">
+                  <Button type="link" size="small" danger>
+                    <IconifyIcon icon="lucide:trash-2" class="size-4" />
+                  </Button>
+                </Popconfirm>
+              </Space>
+            </template>
+          </GroupGrid>
         </Card>
       </Col>
 
@@ -101,7 +129,8 @@ onMounted(() => {
       <Col :span="16">
         <Card :title="currentGroup ? `[${currentGroup.groupName}] 코드 목록` : '코드 목록'" :bordered="false">
           <template #extra v-if="currentGroup">
-            <Button type="primary" :icon="h(PlusOutlined)" @click="codeFormRef.openModal(currentGroup.id)">
+            <Button type="primary" @click="codeFormRef.openModal(currentGroup.id)">
+              <Plus class="mr-1 size-4" />
               코드 추가
             </Button>
           </template>
@@ -118,11 +147,11 @@ onMounted(() => {
                   하위추가
                 </Button>
                 <Button type="link" size="small" @click="codeFormRef.openModal(currentGroup.id, row)">
-                  <EditOutlined />
+                  <IconifyIcon icon="lucide:edit" class="size-4" />
                 </Button>
                 <Popconfirm title="정말 삭제하시겠습니까?" @confirm="handleDelete(row.id)">
                   <Button type="link" size="small" danger>
-                    <DeleteOutlined />
+                    <IconifyIcon icon="lucide:trash-2" class="size-4" />
                   </Button>
                 </Popconfirm>
               </Space>

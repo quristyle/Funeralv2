@@ -7,6 +7,7 @@ set "FRONTEND_DIR=%ROOT_DIR%fronts"
 set "GATEWAY_DIR=%ROOT_DIR%ApiGateway"
 set "AUTH_SERVER_DIR=%ROOT_DIR%microservices\AuthServer"
 set "MICROSERVICE_DIR=%ROOT_DIR%microservices\funeralv2Api"
+set "AI_AGENT_DIR=%ROOT_DIR%microservices\AIAgentServer"
 
 echo ====================================================
 echo    Funeral V2 시스템 초기화 및 시작 (MS Architecture)
@@ -19,6 +20,7 @@ echo ^> [0/3] 기존 실행 중인 서비스 종료 중...
 taskkill /F /FI "WINDOWTITLE eq Auth Server*" /T > nul 2>&1
 taskkill /F /FI "WINDOWTITLE eq Microservice*" /T > nul 2>&1
 taskkill /F /FI "WINDOWTITLE eq API Gateway*" /T > nul 2>&1
+taskkill /F /FI "WINDOWTITLE eq AI Agent Server*" /T > nul 2>&1
 :: taskkill /F /FI "WINDOWTITLE eq Frontend*" /T > nul 2>&1
 
 echo [SUCCESS] 기존 프로세스 정리 완료.
@@ -48,7 +50,18 @@ if %ERRORLEVEL% neq 0 (
 )
 popd
 
-echo 3. API Gateway 빌드...
+echo 3. AI Agent Server 빌드...
+pushd "%AI_AGENT_DIR%"
+dotnet build
+if %ERRORLEVEL% neq 0 (
+    echo [ERROR] AI Agent Server 빌드 실패! 실행을 중단합니다.
+    popd
+    pause
+    exit /b 1
+)
+popd
+
+echo 4. API Gateway 빌드...
 pushd "%GATEWAY_DIR%"
 dotnet build
 if %ERRORLEVEL% neq 0 (
@@ -65,15 +78,19 @@ echo [SUCCESS] 모든 백엔드 빌드 성공!
 echo ^> [2/3] 서비스 실행 중... (각 서비스는 별도 창에서 실행됩니다)
 
 :: Auth Server 실행
-start "Auth Server" cmd /k "cd /d %AUTH_SERVER_DIR% && dotnet run --no-build"
+start "Auth Server" cmd /k "cd /d %AUTH_SERVER_DIR% && set SERVER_NAME=AUTH && dotnet run --no-build"
 timeout /t 2 /nobreak > nul
 
 :: Microservice 실행
-start "Microservice" cmd /k "cd /d %MICROSERVICE_DIR% && dotnet run --no-build"
+start "Microservice" cmd /k "cd /d %MICROSERVICE_DIR% && set SERVER_NAME=FUNERALV2 && dotnet run --no-build"
+timeout /t 2 /nobreak > nul
+
+:: AI Agent Server 실행
+start "AI Agent Server" cmd /k "cd /d %AI_AGENT_DIR% && set SERVER_NAME=AI_AGENT && dotnet run --no-build"
 timeout /t 2 /nobreak > nul
 
 :: API Gateway 실행
-start "API Gateway" cmd /k "cd /d %GATEWAY_DIR% && dotnet run --no-build"
+start "API Gateway" cmd /k "cd /d %GATEWAY_DIR% && set SERVER_NAME=GATEWAY && dotnet run --no-build"
 timeout /t 3 /nobreak > nul
 
 :: [단계 3] 프론트엔드 실행 (필요 시 주석 해제)

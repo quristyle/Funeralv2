@@ -8,6 +8,7 @@ using Microsoft.OpenApi.Models;
 using funeralv2Api.Services;
 using funeralv2Api.Endpoints;
 using Spectre.Console;
+using Funeralv2.Shared.Infrastructure.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -79,6 +80,8 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+
+app.UseGlobalExceptionHandler();
 
 app.UseSerilogRequestLogging();
 app.UseHttpsRedirection();

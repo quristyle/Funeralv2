@@ -86,11 +86,24 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
   });
 
   // 반환된 응답 데이터 형식 처리
+  client.addResponseInterceptor({
+    fulfilled: (response) => {
+      const { data } = response;
+      if (data && data.code && data.code !== 'S000') {
+        console.warn(
+          `[Business Error] Code: ${data.code}, Message: ${data.message}`,
+          data,
+        );
+      }
+      return response;
+    },
+  });
+
   client.addResponseInterceptor(
     defaultResponseInterceptor({
       codeField: 'code',
       dataField: 'data',
-      successCode: 0,
+      successCode: 'S000',
     }),
   );
 

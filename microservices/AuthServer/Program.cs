@@ -7,6 +7,7 @@ using AuthServer.Services;
 using System.Text;
 using Spectre.Console;
 using System.Reflection;
+using Funeralv2.Shared.Infrastructure.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -72,6 +73,8 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+
+app.UseGlobalExceptionHandler();
 
 app.UseAuthentication();
 app.UseAuthorization();

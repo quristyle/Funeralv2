@@ -6,6 +6,7 @@ FRONTEND_DIR="$ROOT_DIR/fronts"
 GATEWAY_DIR="$ROOT_DIR/ApiGateway"
 AUTH_SERVER_DIR="$ROOT_DIR/microservices/AuthServer"
 MICROSERVICE_DIR="$ROOT_DIR/microservices/funeralv2Api"
+AI_AGENT_DIR="$ROOT_DIR/microservices/AIAgentServer"
 
 echo "===================================================="
 echo "   Funeral V2 시스템 빌드 및 시작 (MS Architecture)"
@@ -34,13 +35,19 @@ if ! (cd "$MICROSERVICE_DIR" && dotnet build); then
     exit 1
 fi
 
-echo "3. API Gateway 빌드..."
+echo "3. AI Agent Server 빌드..."
+if ! (cd "$AI_AGENT_DIR" && dotnet build); then
+    echo "❌ AI Agent Server 빌드 실패! 실행을 중단합니다."
+    exit 1
+fi
+
+echo "4. API Gateway 빌드..."
 if ! (cd "$GATEWAY_DIR" && dotnet build); then
     echo "❌ API Gateway 빌드 실패! 실행을 중단합니다."
     exit 1
 fi
 
-echo "4. 프론트엔드 빌드..."
+echo "5. 프론트엔드 빌드..."
 cd "$ROOT_DIR"
 
 
@@ -56,6 +63,7 @@ cd "$ROOT_DIR"
 
 gnome-terminal -- bash -c "trap ':' INT; cd $AUTH_SERVER_DIR && SERVER_NAME=AUTH DOTNET_WATCH_HOT_RELOAD=0 dotnet watch run --no-hot-reload; exec bash"
 gnome-terminal -- bash -c "trap ':' INT; cd $MICROSERVICE_DIR && SERVER_NAME=FUNERALV2 DOTNET_WATCH_HOT_RELOAD=0 dotnet watch run --no-hot-reload; exec bash"
+gnome-terminal -- bash -c "trap ':' INT; cd $AI_AGENT_DIR && SERVER_NAME=AI_AGENT DOTNET_WATCH_HOT_RELOAD=0 dotnet watch run --no-hot-reload; exec bash"
 gnome-terminal -- bash -c "trap ':' INT; cd $GATEWAY_DIR && SERVER_NAME=GATEWAY DOTNET_WATCH_HOT_RELOAD=0 dotnet watch run --no-hot-reload; exec bash"
 
 

@@ -24,6 +24,12 @@ public static class CommonCodeEndpoints
             return Results.Ok(ApiResponse<CommonCodeGroupDto>.Ok(result, "그룹이 생성되었습니다."));
         });
 
+        group.MapDelete("/groups/{id}", async (string id, ICommonCodeService codeService) =>
+        {
+            var success = await codeService.DeleteGroupAsync(id);
+            return success ? Results.Ok(ApiResponse<bool>.Ok(true)) : Results.NotFound(ApiResponse<object>.Fail("그룹을 찾을 수 없습니다.", "404"));
+        });
+
         // --- 코드 관리 ---
         group.MapGet("/{groupCode}", async (string groupCode, [FromQuery] bool hierarchical, ICommonCodeService codeService) =>
         {

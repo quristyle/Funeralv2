@@ -28,6 +28,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Common\Funeralv2.Shared.Domain\Funeralv2.Shared.Domain.csproj" />
     <ProjectReference Include="..\Common\Funeralv2.Shared.DTOs\Funeralv2.Shared.DTOs.csproj" />
+    <ProjectReference Include="..\Common\Funeralv2.Shared.Infrastructure\Funeralv2.Shared.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>
