@@ -25,4 +25,9 @@
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\Common\Funeralv2.Shared.Domain\Funeralv2.Shared.Domain.csproj" />
+    <ProjectReference Include="..\Common\Funeralv2.Shared.DTOs\Funeralv2.Shared.DTOs.csproj" />
+  </ItemGroup>
+
 </Project>

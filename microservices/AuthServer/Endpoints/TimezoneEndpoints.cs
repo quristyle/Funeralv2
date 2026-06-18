@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using AuthServer.Entities;
 using AuthServer.Services;
 using AuthServer.DTOs;
+using Funeralv2.Shared.DTOs;
 
 namespace AuthServer.Endpoints;
 
@@ -15,7 +16,7 @@ public static class TimezoneEndpoints
         {
             if (user is null) return Results.Unauthorized();
             var timezone = await timezoneService.GetCurrentTimezoneAsync(user.UserId);
-            return Results.Ok(ApiResponse<string>.Success(timezone));
+            return Results.Ok(ApiResponse<string>.Ok(timezone));
         })
         .WithName("GetTimezone")
         .WithOpenApi();
@@ -23,7 +24,7 @@ public static class TimezoneEndpoints
         group.MapGet("/getTimezoneOptions", async ([FromServices] ITimezoneService timezoneService) =>
         {
             var options = await timezoneService.GetTimezoneOptionsAsync();
-            return Results.Ok(ApiResponse<List<TimezoneOptionDto>>.Success(options));
+            return Results.Ok(ApiResponse<List<TimezoneOptionDto>>.Ok(options));
         })
         .WithName("GetTimezoneOptions")
         .WithOpenApi();

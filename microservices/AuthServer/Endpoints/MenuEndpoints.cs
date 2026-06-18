@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using AuthServer.Entities;
 using AuthServer.Services;
 using AuthServer.DTOs;
+using Funeralv2.Shared.DTOs;
 
 namespace AuthServer.Endpoints;
 
@@ -15,7 +16,7 @@ public static class MenuEndpoints
         {
             if (user is null) return Results.Unauthorized();
             var menus = await menuService.GetAllMenusAsync(user.UserId);
-            return Results.Ok(ApiResponse<List<MenuDto>>.Success(menus));
+            return Results.Ok(ApiResponse<List<MenuDto>>.Ok(menus));
         })
         .WithName("GetAllMenus")
         .WithOpenApi();

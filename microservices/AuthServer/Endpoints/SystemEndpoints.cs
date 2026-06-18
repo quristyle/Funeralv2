@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using AuthServer.Entities;
 using AuthServer.Services;
 using AuthServer.DTOs;
+using Funeralv2.Shared.DTOs;
 
 namespace AuthServer.Endpoints;
 
@@ -15,7 +16,7 @@ public static class SystemEndpoints
         group.MapGet("/role/list", async ([FromServices] IRoleService roleService) =>
         {
             var roles = await roleService.GetRoleListAsync();
-            return Results.Ok(ApiResponse<PagedResult<RoleDto>>.Success(roles.ToPagedResult()));
+            return Results.Ok(ApiResponse<PagedResult<RoleDto>>.Ok(roles.ToPagedResult()));
         })
         .WithName("GetRoleList")
         .WithOpenApi();
@@ -23,7 +24,7 @@ public static class SystemEndpoints
         group.MapPost("/role", async ([FromBody] CreateRoleDto request, [FromServices] IRoleService roleService) =>
         {
             var role = await roleService.CreateRoleAsync(request);
-            return Results.Ok(ApiResponse<RoleDto>.Success(role));
+            return Results.Ok(ApiResponse<RoleDto>.Ok(role));
         })
         .WithName("CreateRole")
         .WithOpenApi();
@@ -31,7 +32,7 @@ public static class SystemEndpoints
         group.MapPut("/role/{id}", async (string id, [FromBody] CreateRoleDto request, [FromServices] IRoleService roleService) =>
         {
             var success = await roleService.UpdateRoleAsync(id, request);
-            return success ? Results.Ok(ApiResponse<bool>.Success(true)) : Results.NotFound(ApiResponse<object>.Errors(404, "역할을 찾을 수 없습니다."));
+            return success ? Results.Ok(ApiResponse<bool>.Ok(true)) : Results.NotFound(ApiResponse<object>.Fail("역할을 찾을 수 없습니다.", "404"));
         })
         .WithName("UpdateRole")
         .WithOpenApi();
@@ -39,7 +40,7 @@ public static class SystemEndpoints
         group.MapDelete("/role/{id}", async (string id, [FromServices] IRoleService roleService) =>
         {
             var success = await roleService.DeleteRoleAsync(id);
-            return success ? Results.Ok(ApiResponse<bool>.Success(true)) : Results.NotFound(ApiResponse<object>.Errors(404, "역할을 찾을 수 없습니다."));
+            return success ? Results.Ok(ApiResponse<bool>.Ok(true)) : Results.NotFound(ApiResponse<object>.Fail("역할을 찾을 수 없습니다.", "404"));
         })
         .WithName("DeleteRole")
         .WithOpenApi();
@@ -48,7 +49,7 @@ public static class SystemEndpoints
         group.MapGet("/dept/list", async (UserContext? userContext, [FromServices] IDepartmentService deptService) =>
         {
             var depts = await deptService.GetDeptListAsync(userContext);
-            return Results.Ok(ApiResponse<List<DepartmentDto>>.Success(depts));
+            return Results.Ok(ApiResponse<List<DepartmentDto>>.Ok(depts));
         })
         .WithName("GetDeptList")
         .WithOpenApi();
@@ -56,7 +57,7 @@ public static class SystemEndpoints
         group.MapPost("/dept", async (UserContext? userContext, [FromBody] CreateDepartmentDto request, [FromServices] IDepartmentService deptService) =>
         {
             var dept = await deptService.CreateDeptAsync(request, userContext);
-            return Results.Ok(ApiResponse<DepartmentDto>.Success(dept));
+            return Results.Ok(ApiResponse<DepartmentDto>.Ok(dept));
         })
         .WithName("CreateDept")
         .WithOpenApi();
@@ -64,7 +65,7 @@ public static class SystemEndpoints
         group.MapPut("/dept/{id}", async (string id, UserContext? userContext, [FromBody] CreateDepartmentDto request, [FromServices] IDepartmentService deptService) =>
         {
             var success = await deptService.UpdateDeptAsync(id, request, userContext);
-            return success ? Results.Ok(ApiResponse<bool>.Success(true)) : Results.NotFound(ApiResponse<object>.Errors(404, "부서를 찾을 수 없습니다."));
+            return success ? Results.Ok(ApiResponse<bool>.Ok(true)) : Results.NotFound(ApiResponse<object>.Fail("부서를 찾을 수 없습니다.", "404"));
         })
         .WithName("UpdateDept")
         .WithOpenApi();
@@ -72,7 +73,7 @@ public static class SystemEndpoints
         group.MapDelete("/dept/{id}", async (string id, UserContext? userContext, [FromServices] IDepartmentService deptService) =>
         {
             var success = await deptService.DeleteDeptAsync(id, userContext);
-            return success ? Results.Ok(ApiResponse<bool>.Success(true)) : Results.NotFound(ApiResponse<object>.Errors(404, "부서를 찾을 수 없습니다."));
+            return success ? Results.Ok(ApiResponse<bool>.Ok(true)) : Results.NotFound(ApiResponse<object>.Fail("부서를 찾을 수 없습니다.", "404"));
         })
         .WithName("DeleteDept")
         .WithOpenApi();
@@ -81,7 +82,7 @@ public static class SystemEndpoints
         group.MapGet("/menu/list", async ([FromServices] ISystemMenuService menuService) =>
         {
             var menus = await menuService.GetMenuListAsync();
-            return Results.Ok(ApiResponse<List<SystemMenuDto>>.Success(menus));
+            return Results.Ok(ApiResponse<List<SystemMenuDto>>.Ok(menus));
         })
         .WithName("GetSystemMenuList")
         .WithOpenApi();
@@ -89,7 +90,7 @@ public static class SystemEndpoints
         group.MapGet("/menu/name-exists", async ([FromQuery] string name, [FromQuery] string? id, [FromServices] ISystemMenuService menuService) =>
         {
             var exists = await menuService.IsNameExistsAsync(name, id);
-            return Results.Ok(ApiResponse<bool>.Success(exists));
+            return Results.Ok(ApiResponse<bool>.Ok(exists));
         })
         .WithName("IsMenuNameExists")
         .WithOpenApi();
@@ -97,7 +98,7 @@ public static class SystemEndpoints
         group.MapGet("/menu/path-exists", async ([FromQuery] string path, [FromQuery] string? id, [FromServices] ISystemMenuService menuService) =>
         {
             var exists = await menuService.IsPathExistsAsync(path, id);
-            return Results.Ok(ApiResponse<bool>.Success(exists));
+            return Results.Ok(ApiResponse<bool>.Ok(exists));
         })
         .WithName("IsMenuPathExists")
         .WithOpenApi();
@@ -105,7 +106,7 @@ public static class SystemEndpoints
         group.MapPost("/menu", async ([FromBody] CreateSystemMenuDto request, [FromServices] ISystemMenuService menuService) =>
         {
             var menu = await menuService.CreateMenuAsync(request);
-            return Results.Ok(ApiResponse<SystemMenuDto>.Success(menu));
+            return Results.Ok(ApiResponse<SystemMenuDto>.Ok(menu));
         })
         .WithName("CreateSystemMenu")
         .WithOpenApi();
@@ -113,7 +114,7 @@ public static class SystemEndpoints
         group.MapPut("/menu/{id}", async (string id, [FromBody] CreateSystemMenuDto request, [FromServices] ISystemMenuService menuService) =>
         {
             var success = await menuService.UpdateMenuAsync(id, request);
-            return success ? Results.Ok(ApiResponse<bool>.Success(true)) : Results.NotFound(ApiResponse<object>.Errors(404, "메뉴를 찾을 수 없습니다."));
+            return success ? Results.Ok(ApiResponse<bool>.Ok(true)) : Results.NotFound(ApiResponse<object>.Fail("메뉴를 찾을 수 없습니다.", "404"));
         })
         .WithName("UpdateSystemMenu")
         .WithOpenApi();
@@ -121,7 +122,7 @@ public static class SystemEndpoints
         group.MapDelete("/menu/{id}", async (string id, [FromServices] ISystemMenuService menuService) =>
         {
             var success = await menuService.DeleteMenuAsync(id);
-            return success ? Results.Ok(ApiResponse<bool>.Success(true)) : Results.NotFound(ApiResponse<object>.Errors(404, "메뉴를 찾을 수 없습니다."));
+            return success ? Results.Ok(ApiResponse<bool>.Ok(true)) : Results.NotFound(ApiResponse<object>.Fail("메뉴를 찾을 수 없습니다.", "404"));
         })
         .WithName("DeleteSystemMenu")
         .WithOpenApi();
@@ -130,7 +131,7 @@ public static class SystemEndpoints
         group.MapGet("/i18n/list", async ([FromServices] II18nResourceService i18nService) =>
         {
             var resources = await i18nService.GetAllResourcesAsync();
-            return Results.Ok(ApiResponse<PagedResult<I18nResourceDto>>.Success(resources.ToPagedResult()));
+            return Results.Ok(ApiResponse<PagedResult<I18nResourceDto>>.Ok(resources.ToPagedResult()));
         })
         .WithName("GetI18nList")
         .WithOpenApi();
@@ -139,7 +140,7 @@ public static class SystemEndpoints
         {
             var searchParams = new SearchI18nParams { Page = page, PageSize = pageSize, Locale = locale, Key = key, Value = value, Category = category };
             var result = await i18nService.GetPagedResourcesAsync(searchParams);
-            return Results.Ok(ApiResponse<PagedI18nResourceDto>.Success(result));
+            return Results.Ok(ApiResponse<PagedI18nResourceDto>.Ok(result));
         })
         .WithName("GetI18nPaged")
         .WithOpenApi();
@@ -147,7 +148,7 @@ public static class SystemEndpoints
         group.MapGet("/i18n/{locale}", async (string locale, [FromServices] II18nResourceService i18nService) =>
         {
             var resources = await i18nService.GetResourcesByLocaleAsync(locale);
-            return Results.Ok(ApiResponse<List<I18nResourceDto>>.Success(resources));
+            return Results.Ok(ApiResponse<List<I18nResourceDto>>.Ok(resources));
         })
         .WithName("GetI18nByLocale")
         .WithOpenApi();
@@ -155,7 +156,7 @@ public static class SystemEndpoints
         group.MapPost("/i18n", async ([FromBody] CreateI18nResourceDto request, [FromServices] II18nResourceService i18nService) =>
         {
             var resource = await i18nService.CreateResourceAsync(request);
-            return Results.Ok(ApiResponse<I18nResourceDto>.Success(resource));
+            return Results.Ok(ApiResponse<I18nResourceDto>.Ok(resource));
         })
         .WithName("CreateI18nResource")
         .WithOpenApi();
@@ -163,7 +164,7 @@ public static class SystemEndpoints
         group.MapPut("/i18n/{id}", async (int id, [FromBody] CreateI18nResourceDto request, [FromServices] II18nResourceService i18nService) =>
         {
             var success = await i18nService.UpdateResourceAsync(id, request);
-            return success ? Results.Ok(ApiResponse<bool>.Success(true)) : Results.NotFound(ApiResponse<object>.Errors(404, "다국어 자원을 찾을 수 없습니다."));
+            return success ? Results.Ok(ApiResponse<bool>.Ok(true)) : Results.NotFound(ApiResponse<object>.Fail("다국어 자원을 찾을 수 없습니다.", "404"));
         })
         .WithName("UpdateI18nResource")
         .WithOpenApi();
@@ -171,7 +172,7 @@ public static class SystemEndpoints
         group.MapDelete("/i18n/{id}", async (int id, [FromServices] II18nResourceService i18nService) =>
         {
             var success = await i18nService.DeleteResourceAsync(id);
-            return success ? Results.Ok(ApiResponse<bool>.Success(true)) : Results.NotFound(ApiResponse<object>.Errors(404, "다국어 자원을 찾을 수 없습니다."));
+            return success ? Results.Ok(ApiResponse<bool>.Ok(true)) : Results.NotFound(ApiResponse<object>.Fail("다국어 자원을 찾을 수 없습니다.", "404"));
         })
         .WithName("DeleteI18nResource")
         .WithOpenApi();
@@ -179,7 +180,7 @@ public static class SystemEndpoints
         group.MapPost("/i18n/ensure", async ([FromBody] EnsureI18nRequest request, [FromServices] II18nResourceService i18nService) =>
         {
             await i18nService.EnsureResourceExistsAsync(request.Locale, request.Key, request.DefaultValue);
-            return Results.Ok(ApiResponse<bool>.Success(true));
+            return Results.Ok(ApiResponse<bool>.Ok(true));
         })
         .WithName("EnsureI18nResource")
         .WithOpenApi();

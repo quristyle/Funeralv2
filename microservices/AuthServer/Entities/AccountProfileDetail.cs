@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using Funeralv2.Shared.Domain;
 
 namespace AuthServer.Entities;
 
@@ -7,10 +8,12 @@ namespace AuthServer.Entities;
 /// 사용자 계정의 확장 속성 (이메일, 전화번호, 사진 등)
 /// </summary>
 [Table("account_profile_details", Schema = "scom")]
-public class AccountProfileDetail : BaseEntity
+public class AccountProfileDetail : BaseEntity<string>
 {
-    [Key]
-    public string Id { get; set; } = Guid.NewGuid().ToString();
+    public AccountProfileDetail()
+    {
+        Id = Guid.NewGuid().ToString();
+    }
 
     [Required]
     public string AccountId { get; set; } = string.Empty;

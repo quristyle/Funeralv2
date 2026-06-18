@@ -1,6 +1,7 @@
 using AuthServer.DTOs;
 using AuthServer.Services;
 using Microsoft.AspNetCore.Mvc;
+using Funeralv2.Shared.DTOs;
 
 namespace AuthServer.Endpoints;
 
@@ -15,7 +16,7 @@ public static class CompanyEndpoints
         group.MapGet("/", async (ICompanyService companyService) =>
         {
             var companies = await companyService.GetAllCompaniesAsync();
-            return Results.Ok(ApiResponse<PagedResult<CompanyDto>>.Success(companies.ToPagedResult()));
+            return Results.Ok(ApiResponse<PagedResult<CompanyDto>>.Ok(companies.ToPagedResult()));
         })
         .WithName("GetAllCompanies")
         .WithOpenApi();
@@ -25,8 +26,8 @@ public static class CompanyEndpoints
         {
             var company = await companyService.GetCompanyByIdAsync(id);
             return company is not null 
-                ? Results.Ok(ApiResponse<CompanyDto>.Success(company)) 
-                : Results.NotFound(ApiResponse<object>.Errors(404, "회사를 찾을 수 없습니다."));
+                ? Results.Ok(ApiResponse<CompanyDto>.Ok(company)) 
+                : Results.NotFound(ApiResponse<object>.Fail("회사를 찾을 수 없습니다.", "404"));
         })
         .WithName("GetCompanyById")
         .WithOpenApi();
@@ -35,7 +36,7 @@ public static class CompanyEndpoints
         group.MapPost("/", async (CompanyCreateDto createDto, ICompanyService companyService) =>
         {
             var result = await companyService.CreateCompanyAsync(createDto);
-            return Results.Ok(ApiResponse<CompanyDto>.Success(result, "회사가 성공적으로 등록되었습니다."));
+            return Results.Ok(ApiResponse<CompanyDto>.Ok(result, "회사가 성공적으로 등록되었습니다."));
         })
         .WithName("CreateCompany")
         .WithOpenApi();
@@ -45,8 +46,8 @@ public static class CompanyEndpoints
         {
             var success = await companyService.UpdateCompanyAsync(id, updateDto);
             return success 
-                ? Results.Ok(ApiResponse<bool>.Success(true, "회사 정보가 수정되었습니다.")) 
-                : Results.NotFound(ApiResponse<object>.Errors(404, "회사를 찾을 수 없습니다."));
+                ? Results.Ok(ApiResponse<bool>.Ok(true, "회사 정보가 수정되었습니다.")) 
+                : Results.NotFound(ApiResponse<object>.Fail("회사를 찾을 수 없습니다.", "404"));
         })
         .WithName("UpdateCompany")
         .WithOpenApi();
@@ -56,8 +57,8 @@ public static class CompanyEndpoints
         {
             var success = await companyService.DeleteCompanyAsync(id);
             return success 
-                ? Results.Ok(ApiResponse<bool>.Success(true, "회사가 삭제되었습니다.")) 
-                : Results.NotFound(ApiResponse<object>.Errors(404, "회사를 찾을 수 없습니다."));
+                ? Results.Ok(ApiResponse<bool>.Ok(true, "회사가 삭제되었습니다.")) 
+                : Results.NotFound(ApiResponse<object>.Fail("회사를 찾을 수 없습니다.", "404"));
         })
         .WithName("DeleteCompany")
         .WithOpenApi();

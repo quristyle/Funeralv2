@@ -2,6 +2,7 @@ using AuthServer.Data;
 using AuthServer.DTOs;
 using AuthServer.Entities;
 using Microsoft.EntityFrameworkCore;
+using Mapster;
 
 namespace AuthServer.Services;
 
@@ -21,60 +22,24 @@ public class CompanyService : ICompanyService
     {
         return await _context.Companies
             .OrderByDescending(c => c.CreatedAt)
-            .Select(c => new CompanyDto
-            {
-                Id = c.Id,
-                Name = c.Name,
-                BusinessNumber = c.BusinessNumber,
-                Representative = c.Representative,
-                Status = c.Status,
-                Remark = c.Remark,
-                CreatedAt = c.CreatedAt
-            })
+            .ProjectToType<CompanyDto>()
             .ToListAsync();
     }
 
     public async Task<CompanyDto?> GetCompanyByIdAsync(string id)
     {
         var company = await _context.Companies.FindAsync(id);
-        if (company == null) return null;
-
-        return new CompanyDto
-        {
-            Id = company.Id,
-            Name = company.Name,
-            BusinessNumber = company.BusinessNumber,
-            Representative = company.Representative,
-            Status = company.Status,
-            Remark = company.Remark,
-            CreatedAt = company.CreatedAt
-        };
+        return company?.Adapt<CompanyDto>();
     }
 
     public async Task<CompanyDto> CreateCompanyAsync(CompanyCreateDto createDto)
     {
-        var company = new Company
-        {
-            Name = createDto.Name,
-            BusinessNumber = createDto.BusinessNumber,
-            Representative = createDto.Representative,
-            Status = createDto.Status,
-            Remark = createDto.Remark
-        };
+        var company = createDto.Adapt<Company>();
 
         _context.Companies.Add(company);
         await _context.SaveChangesAsync();
 
-        return new CompanyDto
-        {
-            Id = company.Id,
-            Name = company.Name,
-            BusinessNumber = company.BusinessNumber,
-            Representative = company.Representative,
-            Status = company.Status,
-            Remark = company.Remark,
-            CreatedAt = company.CreatedAt
-        };
+        return company.Adapt<CompanyDto>();
     }
 
     public async Task<bool> UpdateCompanyAsync(string id, CompanyCreateDto updateDto)
@@ -82,11 +47,7 @@ public class CompanyService : ICompanyService
         var company = await _context.Companies.FindAsync(id);
         if (company == null) return false;
 
-        company.Name = updateDto.Name;
-        company.BusinessNumber = updateDto.BusinessNumber;
-        company.Representative = updateDto.Representative;
-        company.Status = updateDto.Status;
-        company.Remark = updateDto.Remark;
+        updateDto.Adapt(company);
 
         await _context.SaveChangesAsync();
         return true;

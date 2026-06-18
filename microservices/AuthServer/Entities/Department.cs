@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using Funeralv2.Shared.Domain;
 
 namespace AuthServer.Entities;
 
@@ -7,12 +8,12 @@ namespace AuthServer.Entities;
 /// 조직/부서 정보 엔티티 클래스
 /// </summary>
 [Table("departments", Schema = "scom")]
-public class Department : BaseEntity
+public class Department : BaseEntity<string>
 {
-    /// <summary>부서 고유 ID (Primary Key)</summary>
-    [Key]
-    [Column("id")]
-    public string Id { get; set; } = Guid.NewGuid().ToString();
+    public Department()
+    {
+        Id = Guid.NewGuid().ToString();
+    }
 
     /// <summary>부서 명칭</summary>
     [Required]

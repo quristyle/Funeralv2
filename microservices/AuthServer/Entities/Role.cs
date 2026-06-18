@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using Funeralv2.Shared.Domain;
 
 namespace AuthServer.Entities;
 
@@ -7,12 +8,12 @@ namespace AuthServer.Entities;
 /// 사용자 권한/역할 엔티티 클래스
 /// </summary>
 [Table("roles", Schema = "scom")]
-public class Role : BaseEntity
+public class Role : BaseEntity<string>
 {
-    /// <summary>역할 고유 ID (Primary Key)</summary>
-    [Key]
-    [Column("id")]
-    public string Id { get; set; } = Guid.NewGuid().ToString();
+    public Role()
+    {
+        Id = Guid.NewGuid().ToString();
+    }
 
     /// <summary>역할 명칭</summary>
     [Required]

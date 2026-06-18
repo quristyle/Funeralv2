@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using AuthServer.Entities;
 using System.Security.Claims;
 using System.Text.RegularExpressions;
+using Funeralv2.Shared.Domain;
 
 namespace AuthServer.Data;
 
@@ -22,6 +23,8 @@ public class AppDbContext : DbContext
     public DbSet<Department> Departments { get; set; }
     public DbSet<SystemMenu> SystemMenus { get; set; }
     public DbSet<I18nResource> I18nResources { get; set; }
+    public DbSet<CommonCodeGroup> CommonCodeGroups { get; set; }
+    public DbSet<CommonCode> CommonCodes { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -67,13 +70,35 @@ public class AppDbContext : DbContext
                      ?? "System";
 
         var entries = ChangeTracker.Entries()
-            .Where(e => e.Entity is BaseEntity && (e.State == EntityState.Added || e.State == EntityState.Modified));
+            .Where(e => e.State == EntityState.Added || e.State == EntityState.Modified);
 
         var now = DateTime.UtcNow;
 
         foreach (var entry in entries)
         {
-            var entity = (BaseEntity)entry.Entity;
+            // 엔티티가 BaseEntity (int형) 이거나 BaseEntity<TKey>를 상속받았는지 확인
+            var entityType = entry.Entity.GetType();
+            bool isBaseEntity = false;
+            
+            var currentType = entityType;
+            while (currentType != null && currentType != typeof(object))
+            {
+                if (currentType.IsGenericType && currentType.GetGenericTypeDefinition() == typeof(BaseEntity<>))
+                {
+                    isBaseEntity = true;
+                    break;
+                }
+                if (currentType == typeof(BaseEntity))
+                {
+                    isBaseEntity = true;
+                    break;
+                }
+                currentType = currentType.BaseType;
+            }
+
+            if (!isBaseEntity) continue;
+
+            dynamic entity = entry.Entity;
 
             if (entry.State == EntityState.Added)
             {

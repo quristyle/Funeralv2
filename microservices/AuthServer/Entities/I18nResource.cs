@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using Funeralv2.Shared.Domain;
 
 namespace AuthServer.Entities;
 
@@ -9,9 +10,6 @@ namespace AuthServer.Entities;
 [Table("i18n_resources", Schema = "scom")]
 public class I18nResource : BaseEntity
 {
-    [Key]
-    public int Id { get; set; }
-
     /// <summary>다국어 키 (예: common.expandAll)</summary>
     [Required]
     [MaxLength(200)]

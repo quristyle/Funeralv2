@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using Funeralv2.Shared.Domain;
 
 namespace AuthServer.Entities;
 
@@ -7,12 +8,12 @@ namespace AuthServer.Entities;
 /// 시스템 메뉴 정보 엔티티 클래스
 /// </summary>
 [Table("system_menus", Schema = "scom")]
-public class SystemMenu : BaseEntity
+public class SystemMenu : BaseEntity<string>
 {
-    /// <summary>메뉴 고유 ID (Primary Key)</summary>
-    [Key]
-    [Column("id")]
-    public string Id { get; set; } = Guid.NewGuid().ToString();
+    public SystemMenu()
+    {
+        Id = Guid.NewGuid().ToString();
+    }
 
     /// <summary>메뉴 이름 (다국어 키 또는 명칭)</summary>
     [Required]

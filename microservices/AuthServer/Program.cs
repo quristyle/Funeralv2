@@ -61,6 +61,7 @@ builder.Services.AddScoped<IDepartmentService, DepartmentService>();
 builder.Services.AddScoped<ISystemMenuService, SystemMenuService>();
 builder.Services.AddScoped<II18nResourceService, I18nResourceService>();
 builder.Services.AddScoped<ICompanyService, CompanyService>();
+builder.Services.AddScoped<ICommonCodeService, CommonCodeService>();
 
 
 
@@ -84,6 +85,7 @@ app.MapMenuEndpoints();
 app.MapTimezoneEndpoints();
 app.MapSystemEndpoints();
 app.MapCompanyEndpoints();
+app.MapCommonCodeEndpoints();
 
 
 string GetServerName()
