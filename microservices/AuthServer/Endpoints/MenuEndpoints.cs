@@ -20,5 +20,26 @@ public static class MenuEndpoints
         })
         .WithName("GetAllMenus")
         .WithOpenApi();
+        group.MapPost("/move", async ([FromBody] MoveMenuRequest request, [FromServices] IMenuService menuService) =>
+        {
+            try
+            {
+                var success = await menuService.MoveMenuAsync(request.MenuId, request.NewParentId, request.NewOrderNo);
+                return Results.Ok(ApiResponse<bool>.Ok(true));
+            }
+            catch (Exception ex)
+            {
+                return Results.BadRequest(ApiResponse<bool>.Fail("메뉴 이동 실패", "B400", realMessage: ex.Message));
+            }
+        })
+        .WithName("MoveMenu")
+        .WithOpenApi();
     }
+}
+
+public class MoveMenuRequest
+{
+    public string MenuId { get; set; } = string.Empty;
+    public string? NewParentId { get; set; }
+    public int NewOrderNo { get; set; }
 }

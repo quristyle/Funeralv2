@@ -148,11 +148,22 @@ async function deleteMenu(id: string) {
   return requestClient.delete(`/auth/system/menu/${id}`);
 }
 
+/**
+ * 메뉴 이동 및 순서 변경
+ * @param menuId 이동할 메뉴 ID
+ * @param newParentId 새 부모 ID
+ * @param newOrderNo 새 순서
+ */
+async function moveMenu(menuId: string, newParentId: string | null, newOrderNo: number) {
+  return requestClient.post('/auth/system/menu/move', { menuId, newParentId, newOrderNo });
+}
+
 export {
   createMenu,
   deleteMenu,
   getMenuList,
   isMenuNameExists,
   isMenuPathExists,
+  moveMenu,
   updateMenu,
 };

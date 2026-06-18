@@ -8,10 +8,12 @@
     "createTime": "생성 시간",
     "remark": "비고",
     "operation": "작업",
-    "parentDept": "상위 부서"
+    "parentDept": "상위 부서",
+    "order": "정렬 순서"
   },
   "menu": {
     "title": "메뉴 관리",
+    "order": "정렬 순서",
     "parent": "상위 메뉴",
     "menuTitle": "제목",
     "menuName": "메뉴명",

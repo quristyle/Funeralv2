@@ -34,6 +34,51 @@ public class MenuService : IMenuService
         return menuTree;
     }
 
+    /// <summary>
+    /// 메뉴의 위치(부모)와 순서를 변경합니다.
+    /// </summary>
+    public async Task<bool> MoveMenuAsync(string menuId, string? newParentId, int newOrderNo)
+    {
+        var menu = await _context.SystemMenus.FindAsync(menuId);
+        if (menu == null)
+        {
+            throw new KeyNotFoundException($"메뉴 ID '{menuId}'에 해당하는 메뉴를 찾을 수 없습니다.");
+        }
+
+        // 1. 부모 정보 변경
+        menu.Pid = newParentId;
+        // 임시 순서 설정
+        menu.OrderNo = newOrderNo;
+
+        // 2. 새 부모 아래의 모든 형제 노드 조회 (변경 대상 포함)
+        var siblings = await _context.SystemMenus
+            .Where(m => m.Pid == newParentId)
+            .ToListAsync();
+
+        // 3. 정렬 적용
+        // targetNode는 새 newOrderNo를 기준으로 두고, 다른 형제들은 기존 OrderNo를 기준으로 정렬하되
+        // newOrderNo보다 크거나 같은 노드들은 뒤로 밀리도록 값을 보정해 순차적인 순서를 만듭니다.
+        var sortedSiblings = siblings
+            .OrderBy(m => {
+                if (m.Id == menuId)
+                {
+                    return newOrderNo;
+                }
+                return m.OrderNo >= newOrderNo ? m.OrderNo + 1 : m.OrderNo;
+            })
+            .ThenBy(m => m.Id == menuId ? 0 : 1) // 동일 값일 때 이동된 노드를 우선 배치
+            .ToList();
+
+        // 4. 순서대로 0부터 1씩 증가시키며 OrderNo를 새로 할당
+        for (int i = 0; i < sortedSiblings.Count; i++)
+        {
+            sortedSiblings[i].OrderNo = i;
+        }
+
+        await _context.SaveChangesAsync();
+        return true;
+    }
+
     private List<MenuDto> BuildMenuTree(List<Entities.SystemMenu> allMenus, string? pid)
     {
         return allMenus

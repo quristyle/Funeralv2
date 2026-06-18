@@ -42,7 +42,8 @@ public class GlobalExceptionMiddleware
 
         var response = ApiResponse<object>.Fail(
             message: "서버 내부 오류가 발생했습니다. 관리자에게 문의하세요.",
-            code: "E500"
+            code: "E500",
+            realMessage: exception.ToString()
         );
 
         // 메타데이터 추가

@@ -33,6 +33,10 @@ public class ApiResponse<T>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public IEnumerable<ErrorDetail>? Errors { get; set; }
 
+    /// <summary>실제 예외 메시지 (디버깅용)</summary>
+    [JsonPropertyName("realmessage")]
+    public string? RealMessage { get; set; }
+
     // --- 정적 팩토리 메서드 ---
 
     /// <summary>
@@ -52,14 +56,15 @@ public class ApiResponse<T>
     /// <summary>
     /// 실패 응답 객체를 생성합니다.
     /// </summary>
-    public static ApiResponse<T> Fail(string message, string code = "E500", IEnumerable<ErrorDetail>? errors = null)
+    public static ApiResponse<T> Fail(string message, string code = "E500", IEnumerable<ErrorDetail>? errors = null, string? realMessage = null)
     {
         return new ApiResponse<T>
         {
             Success = false,
             Code = code,
             Message = message,
-            Errors = errors
+            Errors = errors,
+            RealMessage = realMessage
         };
     }
 }

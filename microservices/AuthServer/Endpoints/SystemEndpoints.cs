@@ -111,6 +111,21 @@ public static class SystemEndpoints
         .WithName("CreateSystemMenu")
         .WithOpenApi();
 
+        group.MapPost("/menu/move", async ([FromBody] MoveSystemMenuRequest request, [FromServices] IMenuService menuService) =>
+        {
+            try
+            {
+                var success = await menuService.MoveMenuAsync(request.MenuId, request.NewParentId, request.NewOrderNo);
+                return Results.Ok(ApiResponse<bool>.Ok(true));
+            }
+            catch (Exception ex)
+            {
+                return Results.BadRequest(ApiResponse<bool>.Fail("메뉴 이동 실패", "B400", realMessage: ex.Message));
+            }
+        })
+        .WithName("MoveSystemMenu")
+        .WithOpenApi();
+
         group.MapPut("/menu/{id}", async (string id, [FromBody] CreateSystemMenuDto request, [FromServices] ISystemMenuService menuService) =>
         {
             var success = await menuService.UpdateMenuAsync(id, request);
@@ -192,4 +207,11 @@ public class EnsureI18nRequest
     public string Locale { get; set; } = string.Empty;
     public string Key { get; set; } = string.Empty;
     public string? DefaultValue { get; set; }
+}
+
+public class MoveSystemMenuRequest
+{
+    public string MenuId { get; set; } = string.Empty;
+    public string? NewParentId { get; set; }
+    public int NewOrderNo { get; set; }
 }

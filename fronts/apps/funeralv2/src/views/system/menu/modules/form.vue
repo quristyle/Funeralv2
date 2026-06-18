@@ -35,6 +35,13 @@ const formData = ref<SystemMenuApi.SystemMenu>();
 const titleSuffix = ref<string>();
 const schema: VbenFormSchema[] = [
   {
+    component: 'InputNumber',
+    fieldName: 'orderNo',
+    label: $t('system.menu.order'),
+    defaultValue: 0,
+    rules: 'required',
+  },
+  {
     component: 'RadioGroup',
     componentProps: {
       buttonStyle: 'solid',
