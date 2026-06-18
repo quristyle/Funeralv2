@@ -12,6 +12,19 @@ public static class AIEndpoints
         // 클라이언트가 /api/ai/suggest-code 호출 시, 이 백엔드로는 /suggest-code 가 전달됩니다.
         var group = app.MapGroup("/").WithTags("AI Agent Services");
 
+        group.MapPost("/chat", async ([FromBody] AIAgentServer.DTOs.ChatRequestDto request, [FromServices] ILLMService llmService) =>
+        {
+            if (request.Messages == null || request.Messages.Count == 0)
+            {
+                return Results.BadRequest(ApiResponse<object>.Fail("메시지 내역이 없습니다.", "C400"));
+            }
+
+            var reply = await llmService.ChatAsync(request.Messages);
+            return Results.Ok(ApiResponse<string>.Ok(reply));
+        })
+        .WithName("GeneralChat")
+        .WithOpenApi();
+
         group.MapGet("/suggest-code", async ([FromQuery] string word, [FromServices] ILLMService llmService) =>
         {
             if (string.IsNullOrWhiteSpace(word))

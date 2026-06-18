@@ -7,6 +7,7 @@ namespace AIAgentServer.Services;
 public interface ILLMService
 {
     Task<string> SuggestCommonCodeAsync(string koreanName);
+    Task<string> ChatAsync(List<Message> messages);
 }
 
 public class LLMService : ILLMService
@@ -20,6 +21,56 @@ public class LLMService : ILLMService
         _httpClient = httpClient;
         _config = config;
         _logger = logger;
+    }
+
+    public async Task<string> ChatAsync(List<Message> messages)
+    {
+        var apiBase = _config["LLM:ApiBase"];
+        var apiKey = _config["LLM:ApiKey"];
+        var model = _config["LLM:Model"];
+
+        if (string.IsNullOrEmpty(apiBase) || string.IsNullOrEmpty(apiKey) || string.IsNullOrEmpty(model))
+        {
+            throw new Exception("LLM configuration is missing.");
+        }
+
+        // 시스템 프롬프트가 없다면 기본값 주입
+        if (!messages.Any(m => m.role == "system"))
+        {
+            messages.Insert(0, new Message 
+            { 
+                role = "system", 
+                content = "당신은 시스템 관리를 돕는 친절하고 전문적인 AI 어시스턴트입니다. 한국어로 자연스럽게 답변해주세요." 
+            });
+        }
+
+        var requestDto = new OpenAIRequest
+        {
+            model = model,
+            temperature = 0.7, // 일반 채팅은 약간의 창의성 허용
+            max_tokens = 2000, // 긴 답변을 위해 넉넉히 설정
+            messages = messages
+        };
+
+        var request = new HttpRequestMessage(HttpMethod.Post, apiBase);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+        request.Content = JsonContent.Create(requestDto);
+
+        var response = await _httpClient.SendAsync(request);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var error = await response.Content.ReadAsStringAsync();
+            _logger.LogError("LLM API failed. Status: {StatusCode}, Error: {Error}", response.StatusCode, error);
+            throw new Exception("LLM API request failed.");
+        }
+
+        var resultString = await response.Content.ReadAsStringAsync();
+        var resultDto = JsonSerializer.Deserialize<OpenAIResponse>(resultString, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        var reply = resultDto?.choices?.FirstOrDefault()?.message?.content?.Trim();
+
+        return string.IsNullOrEmpty(reply) ? "죄송합니다. 응답을 생성하지 못했습니다." : reply;
     }
 
     public async Task<string> SuggestCommonCodeAsync(string koreanName)

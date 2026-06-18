@@ -1,5 +1,10 @@
 namespace AIAgentServer.DTOs;
 
+public class ChatRequestDto
+{
+    public List<Message> Messages { get; set; } = new();
+}
+
 public class OpenAIRequest
 {
     public string model { get; set; } = string.Empty;

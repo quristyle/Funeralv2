@@ -2,7 +2,13 @@ using AIAgentServer.Endpoints;
 using AIAgentServer.Services;
 using Funeralv2.Shared.Infrastructure.Middleware;
 
+using System.Reflection;
+using Spectre.Console;
+
 var builder = WebApplication.CreateBuilder(args);
+
+// 로컬 개별 설정을 위한 appsettings.Local.json 추가 (Git 제외)
+builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: true);
 
 // Add services to the container.
 builder.Services.AddEndpointsApiExplorer();
@@ -35,5 +41,80 @@ app.UseHttpsRedirection();
 app.UseCors("AllowAll");
 
 app.MapAIEndpoints();
+
+string GetServerName()
+{
+    return Environment.GetEnvironmentVariable("SERVER_NAME")
+        ?? Assembly.GetEntryAssembly()?.GetName().Name
+        ?? typeof(Program).Namespace
+        ?? "API";
+}
+
+app.Lifetime.ApplicationStarted.Register(() =>
+{
+    var serverName = GetServerName();
+    var env = app.Environment.EnvironmentName;
+    var pid = Environment.ProcessId;
+
+    // 🔥 서버명 기반 색상 자동 매핑
+    var color = serverName.ToUpper() switch
+    {
+        "GATEWAY" => Color.Cyan,
+        "FUNERALV2" => Color.Green,
+        "PAYMENT" => Color.Yellow,
+        "AUTH" => Color.Magenta,
+        "AI_AGENT" => Color.Aqua,
+        _ => Color.White
+    };
+
+    // 🔥 환경 색상
+    var envColor = env switch
+    {
+        "Development" => Color.Green,
+        "Staging" => Color.Yellow,
+        "Production" => Color.Red,
+        _ => Color.Grey
+    };
+
+    // 🚀 Figlet 배너
+    AnsiConsole.Write(
+        new FigletText(serverName + "")
+            .Color(color)
+            .Centered());
+
+    // 🌐 URL + PORT
+    var urlLines = app.Urls.Select(url =>
+    {
+        try
+        {
+            var uri = new Uri(url);
+            return $"[blue]🌐 {url}[/]  [grey](PORT: {uri.Port})[/]";
+        }
+        catch
+        {
+            return $"[blue]🌐 {url}[/]";
+        }
+    });
+
+    // 📦 패널 내용
+    var panelContent =
+        $"[bold {color}]{serverName} SERVICE STARTED[/]\n" +
+        $"[yellow]PID:[/] {pid}\n" +
+        $"[bold {envColor}]ENV:[/] {env}\n\n" +
+        string.Join("\n", urlLines);
+
+    var panel = new Panel(panelContent)
+        .Border(BoxBorder.Double)
+        .BorderColor(color)
+        .Padding(1, 1);
+
+    AnsiConsole.Write(panel);
+
+    // 하단 구분선
+    AnsiConsole.Write(
+        new Rule($"[bold {color}]READY[/]")
+            .RuleStyle(color.ToString())
+            .Centered());
+});
 
 app.Run();
