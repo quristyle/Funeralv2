@@ -21,6 +21,8 @@
     "deleteConfirm": "정말로 {0}을(를) 삭제하시겠습니까?",
     "deleting": "{0} 삭제 중...",
     "deleteSuccess": "{0}이(가) 성공적으로 삭제되었습니다",
+    "updateSuccess": "{0} 정보가 성공적으로 수정되었습니다",
+    "createSuccess": "{0}이(가) 성공적으로 등록되었습니다",
     "operationSuccess": "작업 성공",
     "operationFailed": "작업 실패"
   },

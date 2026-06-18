@@ -8,6 +8,7 @@ public interface ILLMService
 {
     Task<string> SuggestCommonCodeAsync(string koreanName);
     Task<string> ChatAsync(List<Message> messages);
+    IAsyncEnumerable<string> StreamChatAsync(List<Message> messages);
 }
 
 public class LLMService : ILLMService
@@ -21,6 +22,77 @@ public class LLMService : ILLMService
         _httpClient = httpClient;
         _config = config;
         _logger = logger;
+    }
+
+    public async IAsyncEnumerable<string> StreamChatAsync(List<Message> messages)
+    {
+        var apiBase = _config["LLM:ApiBase"];
+        var apiKey = _config["LLM:ApiKey"];
+        var model = _config["LLM:Model"];
+
+        // 시스템 프롬프트 주입 (기존과 동일)
+        if (!messages.Any(m => m.role == "system"))
+        {
+            messages.Insert(0, new Message 
+            { 
+                role = "system", 
+                content = "당신은 시스템 관리를 돕는 친절하고 전문적인 AI 어시스턴트입니다. 한국어로 자연스럽게 답변해주세요." 
+            });
+        }
+
+        var requestDto = new OpenAIRequest
+        {
+            model = model,
+            temperature = 0.7,
+            max_tokens = 2000,
+            messages = messages,
+            stream = true // 스트리밍 활성화
+        };
+
+        var request = new HttpRequestMessage(HttpMethod.Post, apiBase);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+        request.Content = JsonContent.Create(requestDto);
+
+        var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var error = await response.Content.ReadAsStringAsync();
+            _logger.LogError("LLM Streaming API failed. Status: {StatusCode}, Error: {Error}", response.StatusCode, error);
+            yield return "⚠️ 오류가 발생했습니다.";
+            yield break;
+        }
+
+        using var stream = await response.Content.ReadAsStreamAsync();
+        using var reader = new StreamReader(stream);
+
+        while (!reader.EndOfStream)
+        {
+            var line = await reader.ReadLineAsync();
+            if (string.IsNullOrWhiteSpace(line)) continue;
+            if (line.StartsWith("data: "))
+            {
+                var json = line.Substring(6).Trim();
+                if (json == "[DONE]") break;
+
+                OpenAIStreamResponse? chunk = null;
+                try 
+                {
+                    chunk = JsonSerializer.Deserialize<OpenAIStreamResponse>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning("Failed to deserialize chunk: {Error}, JSON: {Json}", ex.Message, json);
+                    continue;
+                }
+
+                var content = chunk?.choices?.FirstOrDefault()?.delta?.content;
+                if (!string.IsNullOrEmpty(content))
+                {
+                    yield return content;
+                }
+            }
+        }
     }
 
     public async Task<string> ChatAsync(List<Message> messages)

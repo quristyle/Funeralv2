@@ -63,11 +63,12 @@
     "setPermissions": "Permissions"
   },
   "company": {
-    "title": "회사 관리",
-    "name": "회사",
-    "businessNumber": "사업자번호",
-    "representative": "대표자",
-    "status": "상태",
-    "remark": "비고"
+    "title": "Company Management",
+    "name": "Company",
+    "businessNumber": "Business Number",
+    "representative": "Representative",
+    "status": "Status",
+    "remark": "Remark",
+    "listTitle": "Company List"
   }
 }

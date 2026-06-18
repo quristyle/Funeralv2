@@ -68,6 +68,7 @@
     "businessNumber": "사업자번호",
     "representative": "대표자",
     "status": "상태",
-    "remark": "비고"
+    "remark": "비고",
+    "listTitle": "회사 목록"
   }
 }
