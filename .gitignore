@@ -16,3 +16,4 @@ Migrations/
 **/.vs/
 **/.antigravitycli/
 **/appsettings.Local.json
+.agents/
