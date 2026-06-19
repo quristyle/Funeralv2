@@ -13,11 +13,11 @@ echo "   Funeral V2 시스템 빌드 및 시작 (MS Architecture)"
 echo "===================================================="
 
 # 종료 시 모든 프로세스 정리 함수
-# cleanup() {
-#    echo ""
-#    echo ">>> 모든 서비스를 종료하는 중입니다..."
-#    kill 0
-# } 
+cleanup() {
+   echo ""
+   echo ">>> 모든 서비스를 종료하는 중입니다..."
+   kill 0
+} 
 # trap cleanup EXIT
 
 # [단계 1] 빌드 확인 (Build Phase)
@@ -61,10 +61,15 @@ echo ">>> [2/3] 서비스 실행 중..."
 
 cd "$ROOT_DIR"
 
-gnome-terminal -- bash -c "trap ':' INT; cd $AUTH_SERVER_DIR && SERVER_NAME=AUTH DOTNET_WATCH_HOT_RELOAD=0 dotnet watch run --no-hot-reload; exec bash"
-gnome-terminal -- bash -c "trap ':' INT; cd $MICROSERVICE_DIR && SERVER_NAME=FUNERALV2 DOTNET_WATCH_HOT_RELOAD=0 dotnet watch run --no-hot-reload; exec bash"
-gnome-terminal -- bash -c "trap ':' INT; cd $AI_AGENT_DIR && SERVER_NAME=AI_AGENT DOTNET_WATCH_HOT_RELOAD=0 dotnet watch run --no-hot-reload; exec bash"
-gnome-terminal -- bash -c "trap ':' INT; cd $GATEWAY_DIR && SERVER_NAME=GATEWAY DOTNET_WATCH_HOT_RELOAD=0 dotnet watch run --no-hot-reload; exec bash"
+TERMINAL=$(readlink -f /etc/alternatives/x-terminal-emulator)
+
+echo "$TERMINAL" ">>> 으로 새창 실행..."
+
+
+xdg-terminal-exec bash -c "trap ':' INT; cd $AUTH_SERVER_DIR && SERVER_NAME=AUTH DOTNET_WATCH_HOT_RELOAD=0 dotnet watch run --no-hot-reload; exec bash"
+xdg-terminal-exec bash -c "trap ':' INT; cd $MICROSERVICE_DIR && SERVER_NAME=FUNERALV2 DOTNET_WATCH_HOT_RELOAD=0 dotnet watch run --no-hot-reload; exec bash"
+xdg-terminal-exec bash -c "trap ':' INT; cd $AI_AGENT_DIR && SERVER_NAME=AI_AGENT DOTNET_WATCH_HOT_RELOAD=0 dotnet watch run --no-hot-reload; exec bash"
+xdg-terminal-exec bash -c "trap ':' INT; cd $GATEWAY_DIR && SERVER_NAME=GATEWAY DOTNET_WATCH_HOT_RELOAD=0 dotnet watch run --no-hot-reload; exec bash"
 
 
 
@@ -79,7 +84,7 @@ gnome-terminal -- bash -c "trap ':' INT; cd $GATEWAY_DIR && SERVER_NAME=GATEWAY 
 
 # [단계 3] 프론트엔드 실행
 
-gnome-terminal -- bash -c "trap ':' INT; cd $FRONTEND_DIR && pnpm dev; exec bash"
+xdg-terminal-exec bash -c "trap ':' INT; cd $FRONTEND_DIR && pnpm dev; exec bash"
 
 
 #echo ">>> [3/3] 프론트엔드 (Vben Admin) 실행 중..."
