@@ -21,7 +21,7 @@ taskkill /F /FI "WINDOWTITLE eq Auth Server*" /T > nul 2>&1
 taskkill /F /FI "WINDOWTITLE eq Microservice*" /T > nul 2>&1
 taskkill /F /FI "WINDOWTITLE eq API Gateway*" /T > nul 2>&1
 taskkill /F /FI "WINDOWTITLE eq AI Agent Server*" /T > nul 2>&1
-:: taskkill /F /FI "WINDOWTITLE eq Frontend*" /T > nul 2>&1
+taskkill /F /FI "WINDOWTITLE eq Frontend*" /T > nul 2>&1
 
 echo [SUCCESS] 기존 프로세스 정리 완료.
 
@@ -95,7 +95,7 @@ timeout /t 3 /nobreak > nul
 
 :: [단계 3] 프론트엔드 실행 (필요 시 주석 해제)
 :: echo ^> [3/3] 프론트엔드 (Vben Admin) 실행 중...
-:: start "Frontend" cmd /k "cd /d %FRONTEND_DIR% && pnpm dev"
+start "Frontend" cmd /k "cd /d %FRONTEND_DIR% && pnpm dev"
 
 echo ====================================================
 echo 모든 서비스가 시작되었습니다. 

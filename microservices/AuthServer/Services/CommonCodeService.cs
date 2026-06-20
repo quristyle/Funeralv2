@@ -58,23 +58,20 @@ public class CommonCodeService : ICommonCodeService
             .Include(c => c.Group)
             .Where(c => c.Group!.GroupCode == groupCode && c.Status == 1);
 
+        var entities = await query
+            .OrderBy(c => c.Level)
+            .ThenBy(c => c.SortOrder)
+            .ToListAsync();
+
+        var dtoList = entities.Adapt<List<CommonCodeDto>>();
+
         if (!hierarchical)
         {
-            return await query
-                .OrderBy(c => c.Level)
-                .ThenBy(c => c.SortOrder)
-                .ProjectToType<CommonCodeDto>()
-                .ToListAsync();
+            return dtoList;
         }
 
         // 계층 구조 (트리) 생성 로직
-        var allCodes = await query
-            .OrderBy(c => c.Level)
-            .ThenBy(c => c.SortOrder)
-            .ProjectToType<CommonCodeDto>()
-            .ToListAsync();
-
-        return BuildTree(allCodes, null);
+        return BuildTree(dtoList, null);
     }
 
     public async Task<CommonCodeDto> CreateCodeAsync(CommonCodeCreateDto createDto)

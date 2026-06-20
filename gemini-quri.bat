@@ -25,8 +25,20 @@ echo [OK] All rule files found. Merging into .agents\AGENTS.md ...
 powershell -NoProfile -ExecutionPolicy Bypass -Command "[Console]::InputEncoding = [Console]::OutputEncoding = $OutputEncoding = [System.Text.Encoding]::UTF8; $files = '%RULES_FILES%'.Split(' '); $rules = foreach ($f in $files) { Get-Content (Join-Path '%RULES_DIR%' $f) -Encoding utf8 -Raw }; $combined = '아래 규칙은 이 세션 전체에 대해 **최우선으로 적용**된다.`n모든 응답은 반드시 이 규칙을 준수해야 한다.`n규칙을 위반하려는 경우, 응답을 중단하고 규칙을 재적용한다.`n`n====================`n' + ($rules -join '`n') + '`n====================`n`n# REQUIREMENTS`n- 모든 코드에는 주석을 달아야 한다.`n`n이제부터 사용자 입력을 기다린다.'; [System.IO.File]::WriteAllText('.agents\AGENTS.md', $combined, [System.Text.Encoding]::UTF8)"
 
 echo [OK] Rules successfully loaded into Workspace Customization (.agents/AGENTS.md).
-echo Starting agy...
+echo.
+echo ==================================================
+echo agy 실행 방식을 선택하세요:
+echo [1] 현재 창에서 실행 (기본값)
+echo [2] 새로운 창에서 실행
+echo ==================================================
+set "CHOICE=1"
+set /p CHOICE="선택 (1 또는 2): "
 
-:: 이제 긴 프롬프트 인수를 넘길 필요 없이 자동 감지되는 워크스페이스 규칙으로 agy를 안전하게 기동합니다.
-agy --dangerously-skip-permissions
+if "%CHOICE%"=="2" (
+    echo [OK] Starting agy in a new window...
+    start "agy" agy --dangerously-skip-permissions
+) else (
+    echo [OK] Starting agy in the current window...
+    agy --dangerously-skip-permissions
+)
 

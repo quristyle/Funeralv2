@@ -11,7 +11,8 @@ public static class MapsterConfig
     {
         // 전역 설정: 이름이 같은 필드는 자동으로 매핑
         TypeAdapterConfig.GlobalSettings.Default
-            .NameMatchingStrategy(NameMatchingStrategy.Flexible);
+            .NameMatchingStrategy(NameMatchingStrategy.Flexible)
+            .MaxDepth(3); // 순환 참조로 인한 무한 루프 및 매핑 컴파일 오류 전역 방지
 
         // 공통 변환 규칙 (예: DateTime -> String)
         // TypeAdapterConfig<DateTime, string>.NewConfig()
