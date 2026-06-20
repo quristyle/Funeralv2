@@ -4,7 +4,7 @@ import type { RouteLocationNormalizedLoaded } from 'vue-router';
 
 import type { MenuRecordRaw } from '@vben/types';
 
-import { computed, onMounted, useSlots, watch } from 'vue';
+import { computed, onMounted, useSlots, watch, ref } from 'vue';
 import { useRoute } from 'vue-router';
 
 import { useRefresh } from '@vben/hooks';
@@ -19,6 +19,9 @@ import { cloneDeep, mapTree } from '@vben/utils';
 
 import { VbenAdminLayout } from '@vben-core/layout-ui';
 import { VbenBackTop, VbenLogo } from '@vben-core/shadcn-ui';
+
+import { isAiChatPinned } from '../widgets/ai-chat/state';
+import AiChatContent from '../widgets/ai-chat/ai-chat-content.vue';
 
 import { Breadcrumb, CheckUpdates, Preferences } from '../widgets';
 import { LayoutContent, LayoutContentSpinner } from './content';
@@ -211,6 +214,70 @@ const slots: SetupContext['slots'] = useSlots();
 const headerSlots = computed(() => {
   return Object.keys(slots).filter((key) => key.startsWith('header-'));
 });
+
+// 헤더와 탭바 높이를 감산한 동적 뷰포트 높이 계산식
+const contentHeightStyle = computed(() => {
+  const headerHeight = preferences.header.enable ? preferences.header.height : 0;
+  const tabbarHeight = preferences.tabbar.enable ? preferences.tabbar.height : 0;
+  return {
+    height: `calc(100vh - ${headerHeight + tabbarHeight}px)`,
+  };
+});
+
+// AI 고정 사이드바 마우스 드래그 너비 조절 로직
+const STORAGE_KEY = 'vben_ai_chat_sidebar_width';
+
+function getSavedWidth(): number {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      const width = parseInt(saved, 10);
+      if (!isNaN(width) && width >= 280 && width <= 800) {
+        return width;
+      }
+    }
+  } catch (e) {
+    console.error('Failed to read AI chat sidebar width from localStorage:', e);
+  }
+  return 384; // 기본 너비 384px (w-96)
+}
+
+const aiChatWidth = ref(getSavedWidth());
+const isResizing = ref(false);
+
+function startResize(e: MouseEvent) {
+  isResizing.value = true;
+  const startX = e.clientX;
+  const startWidth = aiChatWidth.value;
+
+  function doResize(moveEvent: MouseEvent) {
+    if (!isResizing.value) return;
+    // 우측 고정형이므로 마우스가 왼쪽으로 갈수록 사이드바 너비가 커짐
+    const deltaX = startX - moveEvent.clientX;
+    const newWidth = startWidth + deltaX;
+
+    // 최소 280px, 최대 800px 범위 제한
+    if (newWidth >= 280 && newWidth <= 800) {
+      aiChatWidth.value = newWidth;
+    }
+  }
+
+  function stopResize() {
+    isResizing.value = false;
+    window.removeEventListener('mousemove', doResize);
+    window.removeEventListener('mouseup', stopResize);
+
+    // 드래그가 완료되었을 때 최종 너비 상태를 로컬 저장소에 영속화
+    try {
+      localStorage.setItem(STORAGE_KEY, String(aiChatWidth.value));
+    } catch (e) {
+      console.error('Failed to save AI chat sidebar width to localStorage:', e);
+    }
+  }
+
+  window.addEventListener('mousemove', doResize);
+  window.addEventListener('mouseup', stopResize);
+}
 </script>
 
 <template>
@@ -391,7 +458,36 @@ const headerSlots = computed(() => {
 
     <!-- 본문 내용 -->
     <template #content>
-      <LayoutContent />
+      <div 
+        :style="contentHeightStyle" 
+        :class="{ 'select-none': isResizing }" 
+        class="flex w-full overflow-hidden"
+      >
+        <!-- 메인 콘텐츠 영역 -->
+        <div class="flex-1 min-w-0 h-full overflow-auto">
+          <LayoutContent />
+        </div>
+
+        <!-- 마우스 드래그를 이용한 사이드바 너비 조절용 스플리터 바 -->
+        <div
+          v-if="isAiChatPinned"
+          :class="[
+            'w-1 hover:w-1.5 cursor-col-resize shrink-0 h-full transition-all duration-150',
+            isResizing ? 'bg-primary' : 'bg-border/60 hover:bg-primary/50'
+          ]"
+          @mousedown="startResize"
+        ></div>
+
+        <!-- 핀 고정된 AI 채팅 사이드바 (반응형 너비 스타일 바인딩, 드래그 랙 방지를 위해 트랜지션 제외) -->
+        <div 
+          v-if="isAiChatPinned" 
+          :style="{ width: `${aiChatWidth}px` }"
+          class="border-l bg-background shrink-0 h-full flex flex-col shadow-md"
+        >
+          <!-- 핀 고정 모드로 AiChatContent를 렌더링 -->
+          <AiChatContent mode="pinned" />
+        </div>
+      </div>
     </template>
 
     <template v-if="preferences.transition.loading" #content-overlay>

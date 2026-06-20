@@ -10,3 +10,4 @@ export * from './preferences';
 export * from './theme-toggle';
 export * from './timezone';
 export * from './user-dropdown';
+export * from './ai-chat';

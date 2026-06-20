@@ -11,16 +11,21 @@ export const groupGridOptions: VxeGridProps<any> = {
     { type: 'seq', width: 50 },
     { field: 'groupCode', title: '그룹코드', width: 120 },
     { field: 'groupName', title: '그룹명', minWidth: 150 },
+    { field: 'sortOrder', title: '순서', width: 80 },
     { 
       field: 'isHierarchical', 
       title: '계층구조', 
       width: 100,
-      cellRender: {
-        name: 'ASwitch',
-        props: { disabled: true }
+      slots: {
+        default: ({ row }) => {
+          return h(
+            Tag,
+            { color: row.isHierarchical ? 'blue' : 'default' },
+            { default: () => (row.isHierarchical ? '계층형' : '단일형') }
+          );
+        }
       }
     },
-    { field: 'remark', title: '비고' },
     {
       field: 'action',
       title: '작업',
@@ -50,13 +55,15 @@ export const codeGridOptions: VxeGridProps<any> = {
       field: 'status',
       title: '상태',
       width: 80,
-      cellRender: {
-        name: 'Tag',
-        props: (row: any) => ({
-          color: row.status === 1 ? 'green' : 'red',
-        }),
-        content: (row: any) => (row.status === 1 ? '사용' : '미사용'),
-      },
+      slots: {
+        default: ({ row }) => {
+          return h(
+            Tag,
+            { color: row.status === 1 ? 'green' : 'red' },
+            { default: () => (row.status === 1 ? '사용' : '미사용') }
+          );
+        }
+      }
     },
     {
       field: 'action',
@@ -98,7 +105,18 @@ export const groupFormSchema: VbenFormProps = {
       defaultValue: false,
     },
     {
-      component: 'InputTextArea',
+      component: 'InputNumber',
+      componentProps: {
+        min: 0,
+        step: 1,
+        precision: 0,
+      },
+      fieldName: 'sortOrder',
+      label: '정렬순서',
+      defaultValue: 0,
+    },
+    {
+      component: 'Textarea',
       fieldName: 'remark',
       label: '비고',
     },
@@ -140,25 +158,25 @@ export const codeFormSchema: VbenFormProps = {
       component: 'InputNumber',
       componentProps: {
         min: 0,
+        step: 1,
+        precision: 0,
       },
       fieldName: 'sortOrder',
       label: '정렬순서',
       defaultValue: 0,
     },
     {
-      component: 'Select',
+      component: 'Switch',
       componentProps: {
-        options: [
-          { label: '사용', value: 1 },
-          { label: '미사용', value: 0 },
-        ],
+        checkedChildren: '사용',
+        unCheckedChildren: '미사용',
       },
       fieldName: 'status',
       label: '상태',
-      defaultValue: 1,
+      defaultValue: true,
     },
     {
-      component: 'InputTextArea',
+      component: 'Textarea',
       fieldName: 'remark',
       label: '비고',
     },

@@ -1,8 +1,9 @@
 <script lang="ts" setup>
 import type { NotificationItem } from '@vben/layouts';
 
-import { computed, onBeforeMount, ref, watch } from 'vue';
+import { computed, onBeforeMount, ref, watch, provide } from 'vue';
 import { useRouter } from 'vue-router';
+import { streamChatMessage } from '#/api/ai/chat';
 
 import { AuthenticationLoginExpiredModal } from '@vben/common-ui';
 import { VBEN_DOC_URL, VBEN_GITHUB_URL } from '@vben/constants';
@@ -23,6 +24,7 @@ import { useAuthStore } from '#/store';
 import LoginForm from '#/views/_core/authentication/login.vue';
 
 const { setMenuList } = useTabbarStore();
+provide('AI_CHAT_STREAM_API', streamChatMessage);
 setMenuList([
   'close',
   'affix',

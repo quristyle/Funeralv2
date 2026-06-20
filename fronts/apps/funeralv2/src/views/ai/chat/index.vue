@@ -318,13 +318,13 @@ watch(currentSessionId, () => {
             >
               <div 
                 :class="[
-                  'max-w-[80%] p-4 rounded-2xl shadow-sm text-sm leading-relaxed border', 
+                  'max-w-[80%] p-4 rounded-2xl shadow-sm  leading-relaxed border', 
                   msg.role === 'user' 
                     ? 'bg-primary text-primary-foreground rounded-br-sm border-primary' 
                     : 'bg-card text-card-foreground rounded-bl-sm border-border'
                 ]"
               >
-                <pre class="whitespace-pre-wrap text-sm m-0 text-inherit">{{ msg.content }}</pre>
+                <pre class="whitespace-pre-wrap  m-0 text-inherit">{{ msg.content }}</pre>
               </div>
             </div>
           </template>
@@ -335,7 +335,7 @@ watch(currentSessionId, () => {
               class="p-4 rounded-2xl rounded-bl-sm shadow-sm flex items-center gap-3 border bg-card border-border"
             >
               <Spin size="small" /> 
-              <span class="text-sm font-medium animate-pulse text-muted-foreground">답변을 작성하는 중...</span>
+              <span class=" font-medium animate-pulse text-muted-foreground">답변을 작성하는 중...</span>
             </div>
           </div>
         </div>

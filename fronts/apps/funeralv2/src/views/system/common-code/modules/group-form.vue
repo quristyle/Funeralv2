@@ -1,36 +1,17 @@
 <script lang="ts" setup>
-import { ref } from 'vue';
-import { useVbenModal } from '@vben/common-ui';
+import { ref, nextTick } from 'vue';
+import { useBaseModal } from '#/adapter/modal';
 import { useVbenForm } from '#/adapter/form';
-import { createCommonCodeGroup, suggestCommonCodeByAI } from '#/api/system/common-code';
-import { message, Tag, Spin } from 'ant-design-vue';
-import { useDebounceFn } from '@vueuse/core';
+import { createCommonCodeGroup, updateCommonCodeGroup, type CommonCodeGroupParams } from '#/api/system/common-code';
+import { message } from 'ant-design-vue';
 import type { VbenFormSchema } from '#/adapter/form';
+import AiCodeSuggester from '#/components/ai-code-suggester/ai-code-suggester.vue';
 
 const emit = defineEmits(['success']);
 
-const suggestedCode = ref('');
-const isSuggesting = ref(false);
-
-// 한글 그룹명 변경 감지 및 AI 추천 호출 (500ms 디바운스)
-const handleGroupNameChange = useDebounceFn(async (e: any) => {
-  const newName = e?.target?.value || e;
-  if (!newName || typeof newName !== 'string' || newName.trim().length === 0) {
-    suggestedCode.value = '';
-    return;
-  }
-  
-  isSuggesting.value = true;
-  try {
-    const code = await suggestCommonCodeByAI(newName);
-    suggestedCode.value = code;
-  } catch (error) {
-    console.error('AI 추천 실패:', error);
-    suggestedCode.value = '';
-  } finally {
-    isSuggesting.value = false;
-  }
-}, 500);
+const groupNameVal = ref('');
+const editRecordId = ref<string | null>(null);
+const isEdit = ref(false);
 
 const schema: VbenFormSchema[] = [
   {
@@ -46,8 +27,12 @@ const schema: VbenFormSchema[] = [
     component: 'Input',
     componentProps: {
       placeholder: '그룹명을 입력하세요',
-      onChange: handleGroupNameChange,
-      onInput: handleGroupNameChange,
+      onChange: (e: any) => {
+        groupNameVal.value = e?.target?.value || e;
+      },
+      onInput: (e: any) => {
+        groupNameVal.value = e?.target?.value || e;
+      },
     },
     fieldName: 'groupName',
     label: '그룹명',
@@ -58,6 +43,17 @@ const schema: VbenFormSchema[] = [
     fieldName: 'isHierarchical',
     label: '계층구조 여부',
     defaultValue: false,
+  },
+  {
+    component: 'InputNumber',
+    componentProps: {
+      min: 0,
+      step: 1,
+      precision: 0,
+    },
+    fieldName: 'sortOrder',
+    label: '정렬순서',
+    defaultValue: 0,
   },
   {
     component: 'Textarea',
@@ -72,21 +68,20 @@ const [Form, formApi] = useVbenForm({
   showDefaultActions: false,
 });
 
-function applySuggestedCode() {
-  if (suggestedCode.value) {
-    formApi.setFieldValue('groupCode', suggestedCode.value);
-  }
-}
-
-const [Modal, modalApi] = useVbenModal({
+const [BaseModal, modalApi] = useBaseModal({
   async onConfirm() {
     const { valid } = await formApi.validate();
     if (valid) {
       modalApi.lock();
-      const values = await formApi.getValues();
+      const values = (await formApi.getValues()) as unknown as CommonCodeGroupParams;
       try {
-        await createCommonCodeGroup(values);
-        message.success('그룹이 생성되었습니다.');
+        if (isEdit.value && editRecordId.value) {
+          await updateCommonCodeGroup(editRecordId.value, values);
+          message.success('그룹이 수정되었습니다.');
+        } else {
+          await createCommonCodeGroup(values);
+          message.success('그룹이 생성되었습니다.');
+        }
         modalApi.close();
         emit('success');
       } finally {
@@ -96,13 +91,70 @@ const [Modal, modalApi] = useVbenModal({
   },
   onOpenChange(isOpen) {
     if (isOpen) {
+      if (!isEdit.value) {
+        formApi.resetForm();
+        groupNameVal.value = '';
+        formApi.updateSchema([
+          {
+            fieldName: 'groupCode',
+            componentProps: {
+              disabled: false,
+              placeholder: '그룹코드를 입력하세요',
+            },
+          },
+        ]);
+      }
+    } else {
+      isEdit.value = false;
+      editRecordId.value = null;
+      groupNameVal.value = '';
       formApi.resetForm();
-      suggestedCode.value = '';
+      formApi.updateSchema([
+        {
+          fieldName: 'groupCode',
+          componentProps: {
+            disabled: false,
+            placeholder: '그룹코드를 입력하세요',
+          },
+        },
+      ]);
     }
   },
 });
 
-function openModal() {
+function openModal(record?: any) {
+  if (record && record.id) {
+    isEdit.value = true;
+    editRecordId.value = record.id;
+    groupNameVal.value = record.groupName || '';
+    nextTick(() => {
+      formApi.setValues(record);
+      formApi.updateSchema([
+        {
+          fieldName: 'groupCode',
+          componentProps: {
+            disabled: true,
+            placeholder: '수정 시 그룹코드는 변경할 수 없습니다.',
+          },
+        },
+      ]);
+    });
+  } else {
+    isEdit.value = false;
+    editRecordId.value = null;
+    groupNameVal.value = '';
+    nextTick(() => {
+      formApi.updateSchema([
+        {
+          fieldName: 'groupCode',
+          componentProps: {
+            disabled: false,
+            placeholder: '그룹코드를 입력하세요',
+          },
+        },
+      ]);
+    });
+  }
   modalApi.open();
 }
 
@@ -110,22 +162,17 @@ defineExpose({ openModal });
 </script>
 
 <template>
-  <Modal title="코드 그룹 추가">
+  <BaseModal :title="isEdit ? '코드 그룹 수정' : '코드 그룹 추가'">
     <Form class="mx-4">
       <template #groupName-suffix>
         <!-- 추후 폼 스키마에 슬롯을 열어주면 삽입 가능 -->
       </template>
     </Form>
-    <!-- 입력 폼 하단에 추천 코드 표시 -->
-    <div class="mx-4 mt-2 px-1 text-sm" style="min-height: 24px;">
-      <Spin v-if="isSuggesting" size="small" />
-      <div v-else-if="suggestedCode" class="flex items-center gap-2">
-        <span class="text-gray-500">💡 AI 추천 코드:</span>
-        <Tag color="blue" class="cursor-pointer hover:opacity-80" @click="applySuggestedCode">
-          {{ suggestedCode }}
-        </Tag>
-        <span class="text-xs text-gray-400">(클릭하여 적용)</span>
-      </div>
-    </div>
-  </Modal>
+    <!-- 입력 폼 하단에 추천 코드 표시 (수정 모드가 아닐 때만 렌더링) -->
+    <AiCodeSuggester 
+      v-if="!isEdit"
+      :input-text="groupNameVal" 
+      @select="(code) => formApi.setFieldValue('groupCode', code)" 
+    />
+  </BaseModal>
 </template>

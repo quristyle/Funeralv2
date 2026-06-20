@@ -20,7 +20,6 @@ export function getMenuTypeOptions() {
 
 export function useColumns( onActionClick: OnActionClickFn<SystemMenuApi.SystemMenu>,): VxeTableGridColumns<SystemMenuApi.SystemMenu> {
   return [
-    { width: 40, slots: { default: 'drag' }, drag: true }, // drag: true 속성 추가
     { align: 'left', field: 'meta.title', fixed: 'left', slots: { default: 'title' },
       title: $t('system.menu.menuTitle'), treeNode: true, width: 250,
     },

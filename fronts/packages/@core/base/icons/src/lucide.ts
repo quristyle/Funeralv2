@@ -60,6 +60,8 @@ export {
   SearchX,
   Settings,
   Shrink,
+  Sparkles,
+  Bot,
   Square,
   SquareCheckBig,
   SquareMinus,
@@ -68,4 +70,9 @@ export {
   SwatchBook,
   UserRoundPen,
   X,
+  MessageSquare,
+  Trash2,
+  AlertCircle,
+  History,
+  Send,
 } from 'lucide-vue-next';

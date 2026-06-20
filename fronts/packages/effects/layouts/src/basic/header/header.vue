@@ -9,6 +9,7 @@ import { useAccessStore } from '@vben/stores';
 import { VbenFullScreen, VbenIconButton } from '@vben-core/shadcn-ui';
 
 import {
+  AiChatButton,
   GlobalSearch,
   LanguageToggle,
   PreferencesButton,
@@ -55,6 +56,11 @@ const rightSlots = computed(() => {
       name: 'preferences',
     });
   }
+  // AI 어시스턴트 아이콘 추가
+  list.push({
+    index: REFERENCE_VALUE + 15,
+    name: 'ai-chat',
+  });
   if (preferences.widget.themeToggle) {
     list.push({
       index: REFERENCE_VALUE + 20,
@@ -163,6 +169,9 @@ function clearPreferencesAndLogout() {
             class="mr-1"
             @clear-preferences-and-logout="clearPreferencesAndLogout"
           />
+        </template>
+        <template v-else-if="slot.name === 'ai-chat'">
+          <AiChatButton class="mr-1" />
         </template>
         <template v-else-if="slot.name === 'theme-toggle'">
           <ThemeToggle class="mt-0.5 mr-1" />

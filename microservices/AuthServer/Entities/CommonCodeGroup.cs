@@ -28,6 +28,9 @@ public class CommonCodeGroup : BaseEntity<string>
     /// <summary>계층 구조 여부</summary>
     public bool IsHierarchical { get; set; } = false;
 
+    /// <summary>정렬 순서</summary>
+    public int SortOrder { get; set; } = 0;
+
     /// <summary>비고</summary>
     public string? Remark { get; set; }
 

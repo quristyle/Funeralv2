@@ -8,6 +8,7 @@ export interface CommonCodeGroup {
   groupCode: string;
   groupName: string;
   isHierarchical: boolean;
+  sortOrder: number;
   remark?: string;
   createdAt: string;
 }
@@ -37,6 +38,7 @@ export interface CommonCodeGroupParams {
   groupCode: string;
   groupName: string;
   isHierarchical: boolean;
+  sortOrder: number;
   remark?: string;
 }
 
@@ -66,6 +68,13 @@ export function getCommonCodeGroups() {
  */
 export function createCommonCodeGroup(params: CommonCodeGroupParams) {
   return requestClient.post('/auth/system/common-code/groups', params);
+}
+
+/**
+ * 공통코드 그룹 수정
+ */
+export function updateCommonCodeGroup(id: string, params: CommonCodeGroupParams) {
+  return requestClient.put(`/auth/system/common-code/groups/${id}`, params);
 }
 
 /**
