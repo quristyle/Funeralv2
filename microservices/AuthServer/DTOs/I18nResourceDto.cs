@@ -20,11 +20,7 @@ public class CreateI18nResourceDto
     public string? Category { get; set; }
 }
 
-public class PagedI18nResourceDto
-{
-    public List<I18nResourceDto> Items { get; set; } = new();
-    public int Total { get; set; }
-}
+
 
 public class SearchI18nParams
 {

@@ -208,8 +208,11 @@ const [Grid, gridApi] = useVbenVxeGrid({
       ajax: {
         query: async (_params) => {
           const list = await getMenuList();
-          const flat = flattenTree(list);
-          return { items: flat, total: flat.length };
+          console.log('Fetched Menu list response snapshot:', JSON.parse(JSON.stringify(list)));
+
+          //const flat = flattenTree(list);
+          //return { items: flat, total: flat.length };
+          return list;
         },
       },
     },

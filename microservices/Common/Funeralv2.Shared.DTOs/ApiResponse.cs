@@ -18,7 +18,12 @@ public class ApiResponse<T>
     public string Message { get; set; } = string.Empty;
 
     /// <summary>실제 반환 데이터</summary>
+    [JsonIgnore]
     public T? Data { get; set; }
+
+    /// <summary>직렬화용 데이터 구조</summary>
+    [JsonPropertyName("data")]
+    public object? SerializedData => BuildSerializedData(Data);
 
     /// <summary>응답 생성 시간 (UTC)</summary>
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
@@ -66,6 +71,94 @@ public class ApiResponse<T>
             Errors = errors,
             RealMessage = realMessage
         };
+    }
+
+    private static object? BuildSerializedData(T? data)
+    {
+        if (data is null)
+            return null;
+
+        if (TryBuildPagedShape(data, out var result, out var total))
+        {
+            return new
+            {
+                result,
+                page = new { total }
+            };
+        }
+
+        if (data is System.Collections.IEnumerable enumerable && data is not string)
+        {
+            var resultList = new List<object?>();
+            foreach (var item in enumerable)
+            {
+                resultList.Add(item);
+            }
+
+            return new
+            {
+                result = resultList,
+                page = new { total = resultList.Count }
+            };
+        }
+
+        return new
+        {
+            result = new object?[] { data },
+            page = new { total = 1 }
+        };
+    }
+
+    private static bool TryBuildPagedShape(T? data, out IEnumerable<object?> result, out int total)
+    {
+        result = Array.Empty<object?>();
+        total = 0;
+
+        var dataType = data!.GetType();
+
+        var itemsProperty = dataType.GetProperty("Items");
+        var totalProperty = dataType.GetProperty("Total");
+        if (itemsProperty is not null && totalProperty is not null)
+        {
+            var itemsValue = itemsProperty.GetValue(data);
+            if (itemsValue is System.Collections.IEnumerable itemsEnumerable && itemsValue is not string)
+            {
+                var list = new List<object?>();
+                foreach (var item in itemsEnumerable)
+                {
+                    list.Add(item);
+                }
+
+                result = list;
+                total = Convert.ToInt32(totalProperty.GetValue(data));
+                return true;
+            }
+        }
+
+        var resultProperty = dataType.GetProperty("Result");
+        var pageProperty = dataType.GetProperty("Page");
+        if (resultProperty is not null && pageProperty is not null)
+        {
+            var resultValue = resultProperty.GetValue(data);
+            if (resultValue is System.Collections.IEnumerable resultEnumerable && resultValue is not string)
+            {
+                var list = new List<object?>();
+                foreach (var item in resultEnumerable)
+                {
+                    list.Add(item);
+                }
+
+                var pageValue = pageProperty.GetValue(data);
+                var pageType = pageValue?.GetType();
+                var totalFromPage = pageType?.GetProperty("Total")?.GetValue(pageValue);
+
+                result = list;
+                total = totalFromPage is null ? list.Count : Convert.ToInt32(totalFromPage);
+                return true;
+            }
+        }
+
+        return false;
     }
 }
 

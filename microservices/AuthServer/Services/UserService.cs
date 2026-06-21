@@ -43,4 +43,211 @@ public class UserService : IUserService
             Roles = new List<string> { "super" } // 기본 관리자 권한 부여
         };
     }
+
+    /// <summary>
+    /// 전체 계정 목록을 조회합니다.
+    /// </summary>
+    public async Task<List<AccountDto>> GetAccountsAsync()
+    {
+        var accounts = await _db.Accounts
+            .Include(a => a.Department)
+            .Include(a => a.ProfileDetails)
+            .ToListAsync();
+
+        return accounts.Select(a => {
+            var emailDetail = a.ProfileDetails?.FirstOrDefault(p => p.DetailType == "Email");
+            var phoneDetail = a.ProfileDetails?.FirstOrDefault(p => p.DetailType == "Phone");
+            var statusDetail = a.ProfileDetails?.FirstOrDefault(p => p.DetailType == "Status");
+
+            return new AccountDto
+            {
+                Id = a.Id,
+                LoginId = a.UserId,
+                UserName = a.UserName ?? string.Empty,
+                Email = emailDetail?.Content,
+                Phone = phoneDetail?.Content,
+                Status = statusDetail?.Content ?? "ACTIVE",
+                DeptId = a.DepartmentId,
+                DeptName = a.Department?.Name,
+                CreatedAt = a.CreatedAt
+            };
+        }).ToList();
+    }
+
+    /// <summary>
+    /// 신규 계정을 생성합니다.
+    /// </summary>
+    public async Task<AccountDto> CreateAccountAsync(CreateAccountDto dto)
+    {
+        var account = new Account
+        {
+            UserId = dto.LoginId,
+            UserName = dto.UserName,
+            RealName = dto.UserName,
+            Password = "1234", // 기본 비밀번호 설정
+            DepartmentId = dto.DeptId
+        };
+
+        _db.Accounts.Add(account);
+
+        if (!string.IsNullOrEmpty(dto.Email))
+        {
+            _db.AccountProfileDetails.Add(new AccountProfileDetail
+            {
+                AccountId = account.Id,
+                DetailType = "Email",
+                Content = dto.Email,
+                IsPrimary = true
+            });
+        }
+
+        if (!string.IsNullOrEmpty(dto.Phone))
+        {
+            _db.AccountProfileDetails.Add(new AccountProfileDetail
+            {
+                AccountId = account.Id,
+                DetailType = "Phone",
+                Content = dto.Phone,
+                IsPrimary = true
+            });
+        }
+
+        _db.AccountProfileDetails.Add(new AccountProfileDetail
+        {
+            AccountId = account.Id,
+            DetailType = "Status",
+            Content = dto.Status ?? "ACTIVE",
+            IsPrimary = true
+        });
+
+        await _db.SaveChangesAsync();
+
+        string? deptName = null;
+        if (!string.IsNullOrEmpty(dto.DeptId))
+        {
+            var dept = await _db.Departments.FindAsync(dto.DeptId);
+            deptName = dept?.Name;
+        }
+
+        return new AccountDto
+        {
+            Id = account.Id,
+            LoginId = account.UserId,
+            UserName = account.UserName,
+            Email = dto.Email,
+            Phone = dto.Phone,
+            Status = dto.Status ?? "ACTIVE",
+            DeptId = account.DepartmentId,
+            DeptName = deptName,
+            CreatedAt = account.CreatedAt
+        };
+    }
+
+    /// <summary>
+    /// 기존 계정 정보를 수정합니다.
+    /// </summary>
+    public async Task<bool> UpdateAccountAsync(string id, UpdateAccountDto dto)
+    {
+        var account = await _db.Accounts
+            .Include(a => a.ProfileDetails)
+            .FirstOrDefaultAsync(a => a.Id == id);
+
+        if (account == null) return false;
+
+        account.UserName = dto.UserName;
+        account.RealName = dto.UserName;
+        account.DepartmentId = dto.DeptId;
+
+        // Email 업데이트
+        var emailDetail = account.ProfileDetails?.FirstOrDefault(p => p.DetailType == "Email");
+        if (emailDetail != null)
+        {
+            if (string.IsNullOrEmpty(dto.Email))
+            {
+                _db.AccountProfileDetails.Remove(emailDetail);
+            }
+            else
+            {
+                emailDetail.Content = dto.Email;
+                _db.Entry(emailDetail).State = EntityState.Modified;
+            }
+        }
+        else if (!string.IsNullOrEmpty(dto.Email))
+        {
+            _db.AccountProfileDetails.Add(new AccountProfileDetail
+            {
+                AccountId = account.Id,
+                DetailType = "Email",
+                Content = dto.Email,
+                IsPrimary = true
+            });
+        }
+
+        // Phone 업데이트
+        var phoneDetail = account.ProfileDetails?.FirstOrDefault(p => p.DetailType == "Phone");
+        if (phoneDetail != null)
+        {
+            if (string.IsNullOrEmpty(dto.Phone))
+            {
+                _db.AccountProfileDetails.Remove(phoneDetail);
+            }
+            else
+            {
+                phoneDetail.Content = dto.Phone;
+                _db.Entry(phoneDetail).State = EntityState.Modified;
+            }
+        }
+        else if (!string.IsNullOrEmpty(dto.Phone))
+        {
+            _db.AccountProfileDetails.Add(new AccountProfileDetail
+            {
+                AccountId = account.Id,
+                DetailType = "Phone",
+                Content = dto.Phone,
+                IsPrimary = true
+            });
+        }
+
+        // Status 업데이트
+        var statusDetail = account.ProfileDetails?.FirstOrDefault(p => p.DetailType == "Status");
+        if (statusDetail != null)
+        {
+            statusDetail.Content = dto.Status ?? "ACTIVE";
+            _db.Entry(statusDetail).State = EntityState.Modified;
+        }
+        else
+        {
+            _db.AccountProfileDetails.Add(new AccountProfileDetail
+            {
+                AccountId = account.Id,
+                DetailType = "Status",
+                Content = dto.Status ?? "ACTIVE",
+                IsPrimary = true
+            });
+        }
+
+        await _db.SaveChangesAsync();
+        return true;
+    }
+
+    /// <summary>
+    /// 계정을 삭제합니다.
+    /// </summary>
+    public async Task<bool> DeleteAccountAsync(string id)
+    {
+        var account = await _db.Accounts
+            .Include(a => a.ProfileDetails)
+            .FirstOrDefaultAsync(a => a.Id == id);
+
+        if (account == null) return false;
+
+        if (account.ProfileDetails != null)
+        {
+            _db.AccountProfileDetails.RemoveRange(account.ProfileDetails);
+        }
+
+        _db.Accounts.Remove(account);
+        await _db.SaveChangesAsync();
+        return true;
+    }
 }

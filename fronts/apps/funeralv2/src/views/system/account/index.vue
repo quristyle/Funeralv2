@@ -57,9 +57,19 @@ const [Grid, gridApi] = useVbenVxeGrid({
     ],
     height: 'auto',
     proxyConfig: {
+      
+          response: {
+          //  result: 'items',
+          list: (res: any) => res,
+          //  result: '',
+          //  total: 'total',
+          //  list: '',
+          },
       ajax: {
         query: async () => {
-          return await getAccounts();
+          var bbb = await getAccounts();
+          console.log('bbb', bbb);
+          return bbb;
         },
       },
     },

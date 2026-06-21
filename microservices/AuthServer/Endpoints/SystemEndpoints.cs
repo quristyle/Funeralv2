@@ -12,11 +12,45 @@ public static class SystemEndpoints
     {
         var group = app.MapGroup("/system");
 
+        // 사용자 계정(Account) 관리
+        group.MapGet("/account/list", async ([FromServices] IUserService userService) =>
+        {
+            var accounts = await userService.GetAccountsAsync();
+            return Results.Ok(ApiResponse<List<AccountDto>>.Ok(accounts));
+        })
+        .WithName("GetAccountList")
+        .WithOpenApi();
+
+        group.MapPost("/account", async ([FromBody] CreateAccountDto request, [FromServices] IUserService userService) =>
+        {
+            var account = await userService.CreateAccountAsync(request);
+            return Results.Ok(ApiResponse<AccountDto>.Ok(account));
+        })
+        .WithName("CreateAccount")
+        .WithOpenApi();
+
+        group.MapPut("/account/{id}", async (string id, [FromBody] UpdateAccountDto request, [FromServices] IUserService userService) =>
+        {
+            var success = await userService.UpdateAccountAsync(id, request);
+            return success ? Results.Ok(ApiResponse<bool>.Ok(true)) : Results.NotFound(ApiResponse<object>.Fail("계정을 찾을 수 없습니다.", "404"));
+        })
+        .WithName("UpdateAccount")
+        .WithOpenApi();
+
+        group.MapDelete("/account/{id}", async (string id, [FromServices] IUserService userService) =>
+        {
+            var success = await userService.DeleteAccountAsync(id);
+            return success ? Results.Ok(ApiResponse<bool>.Ok(true)) : Results.NotFound(ApiResponse<object>.Fail("계정을 찾을 수 없습니다.", "404"));
+        })
+        .WithName("DeleteAccount")
+        .WithOpenApi();
+
         // 역할(Role) 관리
         group.MapGet("/role/list", async ([FromServices] IRoleService roleService) =>
         {
             var roles = await roleService.GetRoleListAsync();
-            return Results.Ok(ApiResponse<PagedResult<RoleDto>>.Ok(roles.ToPagedResult()));
+            //return Results.Ok(ApiResponse<PagedResult<RoleDto>>.Ok(roles.ToPagedResult()));
+            return Results.Ok(ApiResponse<List<RoleDto>>.Ok(roles));
         })
         .WithName("GetRoleList")
         .WithOpenApi();
@@ -146,7 +180,8 @@ public static class SystemEndpoints
         group.MapGet("/i18n/list", async ([FromServices] II18nResourceService i18nService) =>
         {
             var resources = await i18nService.GetAllResourcesAsync();
-            return Results.Ok(ApiResponse<PagedResult<I18nResourceDto>>.Ok(resources.ToPagedResult()));
+            //return Results.Ok(ApiResponse<PagedResult<I18nResourceDto>>.Ok(resources.ToPagedResult()));
+            return Results.Ok(ApiResponse<List<I18nResourceDto>>.Ok(resources));
         })
         .WithName("GetI18nList")
         .WithOpenApi();
@@ -155,7 +190,7 @@ public static class SystemEndpoints
         {
             var searchParams = new SearchI18nParams { Page = page, PageSize = pageSize, Locale = locale, Key = key, Value = value, Category = category };
             var result = await i18nService.GetPagedResourcesAsync(searchParams);
-            return Results.Ok(ApiResponse<PagedI18nResourceDto>.Ok(result));
+            return Results.Ok(ApiResponse<List<I18nResourceDto>>.Ok(result));
         })
         .WithName("GetI18nPaged")
         .WithOpenApi();

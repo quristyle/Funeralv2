@@ -16,7 +16,8 @@ public static class CompanyEndpoints
         group.MapGet("/", async (ICompanyService companyService) =>
         {
             var companies = await companyService.GetAllCompaniesAsync();
-            return Results.Ok(ApiResponse<PagedResult<CompanyDto>>.Ok(companies.ToPagedResult()));
+            //return Results.Ok(ApiResponse<PagedResult<CompanyDto>>.Ok(companies.ToPagedResult()));
+            return Results.Ok(ApiResponse<IEnumerable<CompanyDto>>.Ok(companies));
         })
         .WithName("GetAllCompanies")
         .WithOpenApi();

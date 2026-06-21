@@ -18,26 +18,28 @@ export namespace SystemAccountApi {
  * 계정(사용자) 목록 조회
  */
 export async function getAccounts() {
-  return requestClient.get<SystemAccountApi.Account[]>('/system/account/list');
+   var aaa = await requestClient.get<SystemAccountApi.Account[]>('/auth/system/account/list');
+console.log('aaaaaaaaaaaaaaaaaaaa', aaa);
+   return aaa;
 }
 
 /**
  * 계정 생성
  */
 export async function createAccount(data: Omit<SystemAccountApi.Account, 'id' | 'createdAt'>) {
-  return requestClient.post('/system/account', data);
+  return requestClient.post('/auth/system/account', data);
 }
 
 /**
  * 계정 수정
  */
 export async function updateAccount(id: string, data: Partial<Omit<SystemAccountApi.Account, 'id' | 'createdAt'>>) {
-  return requestClient.put(`/system/account/${id}`, data);
+  return requestClient.put(`/auth/system/account/${id}`, data);
 }
 
 /**
  * 계정 삭제
  */
 export async function deleteAccount(id: string) {
-  return requestClient.delete(`/system/account/${id}`);
+  return requestClient.delete(`/auth/system/account/${id}`);
 }

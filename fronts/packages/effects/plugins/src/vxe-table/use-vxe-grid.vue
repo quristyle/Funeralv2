@@ -222,10 +222,10 @@ const options = computed(() => {
       pagerConfig: { enabled:false, pageSize: 15, },
       proxyConfig: {
         autoLoad: true, // 자동 로딩 활성화
-        response: {
-          result: 'items', // vxe-table 최신 권장 속성
-          total: 'total',
-        },
+        //response: {
+        //  result: 'items', // vxe-table 최신 권장 속성
+        //  total: 'total',
+        //},
      },
     },
     simple: { // 테두리가 없는 심플한 스타일
