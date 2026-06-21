@@ -1,4 +1,4 @@
-import type { PluginOption } from 'vite';
+import type { Plugin, PluginOption } from 'vite';
 
 import type {
   ApplicationPluginOptions,
@@ -45,6 +45,37 @@ async function loadConditionPlugins(conditionPlugins: ConditionPlugin[]) {
 }
 
 /**
+ * fronts/packages 및 node_modules 하위 파일들의 컴파일 최종 결과물에서
+ * Vue DevTools용 __file 속성과 Vue Inspector용 data-v-inspector 속성을 소거하여 에디터 이동을 차단하는 플러그인입니다.
+ */
+function excludePackagesFromInspectorPlugin(): Plugin {
+  return {
+    name: 'exclude-packages-from-inspector-plugin',
+    enforce: 'post',
+    transform(code, id) {
+      const normalizedId = id.replace(/\\/g, '/');
+      
+      // fronts/packages 하위 파일이거나 node_modules 내 외부 모듈인 경우
+      if (normalizedId.includes('fronts/packages') || normalizedId.includes('node_modules')) {
+        let modifiedCode = code;
+
+        // 1. Vue SFC 컴파일러가 개발 편의를 위해 컴포넌트에 주입하는 __file 경로 속성을 빈 값으로 치환하여 문법 깨짐(SyntaxError)을 방지합니다.
+        modifiedCode = modifiedCode.replace(/__file\s*=\s*["'][^"']+["']/g, '__file = ""');
+
+        // 2. Vue Inspector 플러그인이 DOM에 삽입하는 data-v-inspector 속성 코드 역시 빈 문자열로 치환하여 문법 깨짐을 방지합니다.
+        modifiedCode = modifiedCode.replace(/data-v-inspector\s*=\s*["'][^"']+["']/g, 'data-v-inspector=""');
+
+        return {
+          code: modifiedCode,
+          map: null,
+        };
+      }
+      return null;
+    },
+  };
+}
+
+/**
  * 조건에 따라 공통 Vite 플러그인을 가져옵니다.
  */
 async function loadCommonPlugins(
@@ -64,6 +95,7 @@ async function loadCommonPlugins(
         viteVueJsx(),
         viteTailwindReferencePlugin(),
         tailwindcss(),
+        excludePackagesFromInspectorPlugin(),
       ],
     },
 

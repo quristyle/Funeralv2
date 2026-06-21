@@ -3,7 +3,7 @@ import type { OnActionClickParams, VxeTableGridOptions, } from '#/adapter/vxe-ta
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
 import { IconifyIcon, Plus } from '@vben/icons';
-import { onMounted, ref } from 'vue';
+import { onMounted, ref, watch } from 'vue';
 
 import { MenuBadge } from '@vben-core/menu-ui';
 
@@ -11,13 +11,14 @@ import { Button, message, Tooltip, Tabs, Tree, Popconfirm } from 'ant-design-vue
 import type { TreeProps } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import { deleteMenu, getMenuList, moveMenu, SystemMenuApi } from '#/api/system/menu';
+import { deleteMenu, getMenuList, moveMenu, SystemMenuApi, updateMenu } from '#/api/system/menu';
 import { $t } from '#/locales';
+import I18nEditModal from '#/components/i18n/I18nEditModal.vue';
 
 import { useColumns } from './data';
-import Form from './modules/form.vue';
+import MenuForm from './modules/form.vue';
 
-const [FormDrawer, formDrawerApi] = useVbenDrawer({ connectedComponent: Form, destroyOnClose: true, });
+const [FormDrawer, formDrawerApi] = useVbenDrawer({ connectedComponent: MenuForm, destroyOnClose: true, });
 const activeTab = ref('grid');
 const treeData = ref<any[]>([]);
 const expandedKeys = ref<any[]>([]);
@@ -78,13 +79,39 @@ function getAllKeys(list: any[]): any[] {
  * @param init true인 경우 전체 노드를 강제 확장합니다.
  */
 async function onRefresh(init = false) {
-  gridApi.query();
-  const list = await getMenuList();
-  treeData.value = mapToTree(list);
   if (init) {
-    expandedKeys.value = getAllKeys(treeData.value);
+    if (activeTab.value === 'grid') {
+      gridApi.query();
+    } else {
+      const list = await getMenuList();
+      treeData.value = mapToTree(list);
+      expandedKeys.value = getAllKeys(treeData.value);
+    }
+    return;
+  }
+
+  // 현재 활성화된 탭만 조건부 재조회하여 서버 리소스 낭비 방지
+  if (activeTab.value === 'grid') {
+    gridApi.query();
+  } else if (activeTab.value === 'tree') {
+    const list = await getMenuList();
+    treeData.value = mapToTree(list);
   }
 }
+
+// 탭 전환 감시 및 전환 시 활성 탭 데이터 동기화 리프레시
+watch(activeTab, (newTab) => {
+  if (newTab === 'grid') {
+    gridApi.query();
+  } else if (newTab === 'tree') {
+    getMenuList().then((list) => {
+      treeData.value = mapToTree(list);
+      if (expandedKeys.value.length === 0) {
+        expandedKeys.value = getAllKeys(treeData.value);
+      }
+    });
+  }
+});
 
 function onTreeExpandAll() {
   expandedKeys.value = getAllKeys(treeData.value);
@@ -100,8 +127,8 @@ function onTreeCollapseAll() {
 const onDrop: TreeProps['onDrop'] = async (info) => {
   const dropKey = info.node.key;
   const dragKey = info.dragNode.key;
-  const dropPos = info.node.pos.split('-');
-  const dropPosition = info.dropPosition - Number(dropPos[dropPos.length - 1]);
+  const dropPos = info.node.pos ? info.node.pos.split('-') : [];
+  const dropPosition = info.dropPosition - Number(dropPos[dropPos.length - 1] || 0);
 
   const targetNode = info.node;
   const targetPid = targetNode.pid || targetNode.dataRef?.pid || null;
@@ -136,11 +163,11 @@ const onDrop: TreeProps['onDrop'] = async (info) => {
 const [Grid, gridApi] = useVbenVxeGrid({
   gridEvents: {
     // 드래그 시작 시 이벤트 로그 확인
-    dragstart: (params: any) => {
+    rowDragstart: (params: any) => {
       console.log('Drag started:', params);
     },
     // 드래그 앤 드롭 종료 시 이벤트 핸들러
-    dragend: async (params: any) => {
+    rowDragend: async (params: any) => {
       const { dragRow, targetRow, dropType } = params;
       let newParentId = targetRow.pid;
       let newOrderNo = targetRow.meta?.order || 0;
@@ -237,6 +264,39 @@ function onDelete(row: SystemMenuApi.SystemMenu) {
 
 const getPopupContainer = () => document.body;
 
+const i18nEditModalRef = ref<any>(null);
+
+/**
+ * 다국어 편집 모달을 엽니다.
+ */
+function onOpenI18nModal(row: SystemMenuApi.SystemMenu) {
+  const key = row.meta?.title || `menu.title.${row.id}`;
+  i18nEditModalRef.value?.open({
+    id: row.id,
+    key,
+    category: 'menu',
+    onSuccess: async (updatedKey: string) => {
+      if (row.meta?.title !== updatedKey) {
+        const updateData = {
+          name: row.name,
+          path: row.path,
+          pid: row.pid,
+          type: row.type,
+          authCode: row.authCode,
+          redirect: row.redirect,
+          meta: {
+            ...row.meta,
+            title: updatedKey
+          },
+          status: row.status,
+        };
+        await updateMenu(row.id, updateData);
+      }
+      onRefresh();
+    }
+  });
+}
+
 onMounted(() => {
     onRefresh(true);
 });
@@ -275,10 +335,10 @@ onMounted(() => {
             </div>
           </template>
           <template #title="{ row }">
-            <div class="flex w-full items-center gap-1">
+            <div class="flex w-full items-center gap-1 group">
               <div class="size-5 shrink-0">
                 <IconifyIcon
-                  v-if="row.type === 'button'"
+                  v-if="row.type === 'BUTTON'"
                   icon="carbon:security"
                   class="size-full"
                 />
@@ -289,7 +349,15 @@ onMounted(() => {
                 />
               </div>
               <span class="flex-auto">{{ $t(row.meta?.title) }}</span>
-              <div class="items-center justify-end"></div>
+              <div class="flex items-center justify-end shrink-0">
+                <Tooltip title="다국어 번역 수정">
+                  <Button size="small" type="link" class="p-0.5 opacity-0 group-hover:opacity-100 transition-opacity" @click.stop="onOpenI18nModal(row)">
+                    <template #icon>
+                      <IconifyIcon icon="lucide:globe" class="size-3.5 text-primary" />
+                    </template>
+                  </Button>
+                </Tooltip>
+              </div>
             </div>
             <MenuBadge
               v-if="row.meta?.badgeType"
@@ -335,7 +403,7 @@ onMounted(() => {
                 <div class="flex items-center justify-between w-full group pr-4">
                   <div class="flex items-center gap-2">
                     <IconifyIcon
-                      v-if="node.icon || node.type === 'button'"
+                      v-if="node.icon || node.type === 'BUTTON'"
                       :icon="node.icon || 'carbon:security'"
                       class="size-4 shrink-0"
                     />
@@ -344,7 +412,7 @@ onMounted(() => {
                       icon="carbon:circle-dash"
                       class="size-4 shrink-0 text-muted-foreground"
                     />
-                    <span>{{ node.title }} ({{ node.orderNo }})</span>
+                    <span>{{ node.title }}</span>
                   </div>
                   <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <!-- 하위 추가 -->
@@ -352,6 +420,14 @@ onMounted(() => {
                       <Button size="small" type="link" class="p-1" @click.stop="onAppend(node.dataRef)">
                         <template #icon>
                           <IconifyIcon icon="lucide:plus" class="size-4 text-primary" />
+                        </template>
+                      </Button>
+                    </Tooltip>
+                    <!-- 다국어 수정 -->
+                    <Tooltip title="다국어 번역 수정">
+                      <Button size="small" type="link" class="p-1" @click.stop="onOpenI18nModal(node.dataRef)">
+                        <template #icon>
+                          <IconifyIcon icon="lucide:globe" class="size-4 text-primary" />
                         </template>
                       </Button>
                     </Tooltip>
@@ -387,6 +463,9 @@ onMounted(() => {
         </div>
       </Tabs.TabPane>
     </Tabs>
+
+    <!-- 다국어 편집 공통 모달 -->
+    <I18nEditModal ref="i18nEditModalRef" @success="() => onRefresh()" />
   </Page>
 </template>
 <style lang="scss" scoped>

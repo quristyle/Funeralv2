@@ -10,11 +10,11 @@ import { Button, Popconfirm, Tooltip } from 'ant-design-vue';
 
 export function getMenuTypeOptions() {
   return [
-    { color: 'processing', label: $t('system.menu.typeCatalog'), value: 'catalog', },
-    { color: 'default', label: $t('system.menu.typeMenu'), value: 'menu' },
-    { color: 'error', label: $t('system.menu.typeButton'), value: 'button' },
-    { color: 'success', label: $t('system.menu.typeEmbedded'), value: 'embedded', },
-    { color: 'warning', label: $t('system.menu.typeLink'), value: 'link' },
+    { color: 'processing', label: $t('system.menu.typeCatalog'), value: 'CATALOG', },
+    { color: 'default', label: $t('system.menu.typeMenu'), value: 'MENU' },
+    { color: 'error', label: $t('system.menu.typeButton'), value: 'BUTTON' },
+    { color: 'success', label: $t('system.menu.typeEmbedded'), value: 'EMBEDDED', },
+    { color: 'warning', label: $t('system.menu.typeLink'), value: 'LINK' },
   ];
 }
 
@@ -36,10 +36,10 @@ export function useColumns( onActionClick: OnActionClickFn<SystemMenuApi.SystemM
 
       formatter: ({ row }) => {
         switch (row.type) {
-          case 'catalog':
-          case 'menu': { return row.component ?? ''; }
-          case 'embedded': { return row.meta?.iframeSrc ?? ''; }
-          case 'link': { return row.meta?.link ?? ''; }
+          case 'CATALOG':
+          case 'MENU': { return row.component ?? ''; }
+          case 'EMBEDDED': { return row.meta?.iframeSrc ?? ''; }
+          case 'LINK': { return row.meta?.link ?? ''; }
         }
         return '';
       },

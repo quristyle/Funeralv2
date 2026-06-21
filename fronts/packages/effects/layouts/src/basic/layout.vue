@@ -472,7 +472,7 @@ function startResize(e: MouseEvent) {
         <div
           v-if="isAiChatPinned"
           :class="[
-            'w-1 hover:w-1.5 cursor-col-resize shrink-0 h-full transition-all duration-150',
+            'w-1 cursor-col-resize shrink-0 h-full transition-all duration-150',
             isResizing ? 'bg-primary' : 'bg-border/60 hover:bg-primary/50'
           ]"
           @mousedown="startResize"

@@ -1,4 +1,5 @@
 @echo off
+chcp 65001 > nul
 setlocal enabledelayedexpansion
 
 :: 프로젝트 루트 경로 설정 (스크립트가 위치한 디렉토리)

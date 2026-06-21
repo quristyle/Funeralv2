@@ -36,7 +36,7 @@ const titleSuffix = ref<string>();
 const schema: VbenFormSchema[] = [
   {
     component: 'InputNumber',
-    fieldName: 'orderNo',
+    fieldName: 'meta.order',
     label: $t('system.menu.order'),
     defaultValue: 0,
     rules: 'required',
@@ -48,7 +48,7 @@ const schema: VbenFormSchema[] = [
       options: getMenuTypeOptions(),
       optionType: 'button',
     },
-    defaultValue: 'menu',
+    defaultValue: 'MENU',
     fieldName: 'type',
     formItemClass: 'col-span-2 md:col-span-2',
     label: $t('system.menu.type'),
@@ -111,13 +111,43 @@ const schema: VbenFormSchema[] = [
   },
   {
     component: 'Input',
-    componentProps() {
-      // 다국어 처리가 필요하지 않은 경우에는 이렇게 할 필요가 없습니다.
+    componentProps: {
+      onChange({ target: { value } }: ChangeEvent) {
+        titleSuffix.value = value && $te(value) ? $t(value) : undefined;
+      },
+    },
+    renderComponentContent() {
       return {
-        ...(titleSuffix.value && { addonAfter: titleSuffix.value }),
-        onChange({ target: { value } }: ChangeEvent) {
-          titleSuffix.value = value && $te(value) ? $t(value) : undefined;
-        },
+        addonAfter: () => {
+          const btnNodes = [];
+          
+          if (titleSuffix.value) {
+            btnNodes.push(h('span', { class: 'mr-2 text-muted-foreground' }, titleSuffix.value));
+          }
+          
+          if (formData.value?.id) {
+            btnNodes.push(
+              h(
+                Button,
+                {
+                  size: 'small',
+                  type: 'link',
+                  class: 'p-0 flex items-center justify-center',
+                  onClick: (e: MouseEvent) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    openI18nModal();
+                  }
+                },
+                {
+                  icon: () => h(IconifyIcon, { icon: 'lucide:globe', class: 'size-4 text-primary' })
+                }
+              )
+            );
+          }
+          
+          return btnNodes.length > 0 ? h('div', { class: 'flex items-center gap-1' }, btnNodes) : null;
+        }
       };
     },
     fieldName: 'meta.title',
@@ -128,7 +158,7 @@ const schema: VbenFormSchema[] = [
     component: 'Input',
     dependencies: {
       show: (values) => {
-        return ['catalog', 'embedded', 'menu'].includes(values.type);
+        return ['CATALOG', 'EMBEDDED', 'MENU'].includes(values.type);
       },
       triggerFields: ['type'],
     },
@@ -160,7 +190,7 @@ const schema: VbenFormSchema[] = [
     component: 'Input',
     dependencies: {
       show: (values) => {
-        return ['embedded', 'menu'].includes(values.type);
+        return ['EMBEDDED', 'MENU'].includes(values.type);
       },
       triggerFields: ['type'],
     },
@@ -189,7 +219,7 @@ const schema: VbenFormSchema[] = [
     },
     dependencies: {
       show: (values) => {
-        return ['catalog', 'embedded', 'link', 'menu'].includes(values.type);
+        return ['CATALOG', 'EMBEDDED', 'LINK', 'MENU'].includes(values.type);
       },
       triggerFields: ['type'],
     },
@@ -203,7 +233,7 @@ const schema: VbenFormSchema[] = [
     },
     dependencies: {
       show: (values) => {
-        return ['catalog', 'embedded', 'menu'].includes(values.type);
+        return ['CATALOG', 'EMBEDDED', 'MENU'].includes(values.type);
       },
       triggerFields: ['type'],
     },
@@ -222,10 +252,10 @@ const schema: VbenFormSchema[] = [
     },
     dependencies: {
       rules: (values) => {
-        return values.type === 'menu' ? 'required' : null;
+        return values.type === 'MENU' ? 'required' : null;
       },
       show: (values) => {
-        return values.type === 'menu';
+        return values.type === 'MENU';
       },
       triggerFields: ['type'],
     },
@@ -236,7 +266,7 @@ const schema: VbenFormSchema[] = [
     component: 'Input',
     dependencies: {
       show: (values) => {
-        return ['embedded', 'link'].includes(values.type);
+        return ['EMBEDDED', 'LINK'].includes(values.type);
       },
       triggerFields: ['type'],
     },
@@ -248,10 +278,10 @@ const schema: VbenFormSchema[] = [
     component: 'Input',
     dependencies: {
       rules: (values) => {
-        return values.type === 'button' ? 'required' : null;
+        return values.type === 'BUTTON' ? 'required' : null;
       },
       show: (values) => {
-        return ['button', 'catalog', 'embedded', 'menu'].includes(values.type);
+        return ['BUTTON', 'CATALOG', 'EMBEDDED', 'MENU'].includes(values.type);
       },
       triggerFields: ['type'],
     },
@@ -284,7 +314,7 @@ const schema: VbenFormSchema[] = [
     },
     dependencies: {
       show: (values) => {
-        return values.type !== 'button';
+        return values.type !== 'BUTTON';
       },
       triggerFields: ['type'],
     },
@@ -302,7 +332,7 @@ const schema: VbenFormSchema[] = [
     },
     dependencies: {
       show: (values) => {
-        return values.type !== 'button';
+        return values.type !== 'BUTTON';
       },
       triggerFields: ['type'],
     },
@@ -321,7 +351,7 @@ const schema: VbenFormSchema[] = [
     },
     dependencies: {
       show: (values) => {
-        return values.type !== 'button';
+        return values.type !== 'BUTTON';
       },
       triggerFields: ['type'],
     },
@@ -332,7 +362,7 @@ const schema: VbenFormSchema[] = [
     component: 'Divider',
     dependencies: {
       show: (values) => {
-        return !['button', 'link'].includes(values.type);
+        return !['BUTTON', 'LINK'].includes(values.type);
       },
       triggerFields: ['type'],
     },
@@ -349,7 +379,7 @@ const schema: VbenFormSchema[] = [
     component: 'Checkbox',
     dependencies: {
       show: (values) => {
-        return ['menu'].includes(values.type);
+        return ['MENU'].includes(values.type);
       },
       triggerFields: ['type'],
     },
@@ -364,7 +394,7 @@ const schema: VbenFormSchema[] = [
     component: 'Checkbox',
     dependencies: {
       show: (values) => {
-        return ['embedded', 'menu'].includes(values.type);
+        return ['EMBEDDED', 'MENU'].includes(values.type);
       },
       triggerFields: ['type'],
     },
@@ -379,7 +409,7 @@ const schema: VbenFormSchema[] = [
     component: 'Checkbox',
     dependencies: {
       show: (values) => {
-        return !['button'].includes(values.type);
+        return !['BUTTON'].includes(values.type);
       },
       triggerFields: ['type'],
     },
@@ -394,7 +424,7 @@ const schema: VbenFormSchema[] = [
     component: 'Checkbox',
     dependencies: {
       show: (values) => {
-        return ['catalog', 'menu'].includes(values.type);
+        return ['CATALOG', 'MENU'].includes(values.type);
       },
       triggerFields: ['type'],
     },
@@ -409,7 +439,7 @@ const schema: VbenFormSchema[] = [
     component: 'Checkbox',
     dependencies: {
       show: (values) => {
-        return !['button', 'link'].includes(values.type);
+        return !['BUTTON', 'LINK'].includes(values.type);
       },
       triggerFields: ['type'],
     },
@@ -424,7 +454,7 @@ const schema: VbenFormSchema[] = [
     component: 'Checkbox',
     dependencies: {
       show: (values) => {
-        return !['button', 'link'].includes(values.type);
+        return !['BUTTON', 'LINK'].includes(values.type);
       },
       triggerFields: ['type'],
     },
@@ -436,6 +466,28 @@ const schema: VbenFormSchema[] = [
     },
   },
 ];
+
+import { Button } from 'ant-design-vue';
+import I18nEditModal from '#/components/i18n/I18nEditModal.vue';
+
+const i18nEditModalRef = ref<any>(null);
+
+async function openI18nModal() {
+  if (!formData.value?.id) return;
+  
+  const values = await formApi.getValues();
+  const key = values?.meta?.title || `menu.title.${formData.value.id}`;
+  
+  i18nEditModalRef.value?.open({
+    id: formData.value.id,
+    key,
+    category: 'menu',
+    onSuccess: (updatedKey: string) => {
+      formApi.setFieldValue('meta.title', updatedKey);
+      titleSuffix.value = $t(updatedKey);
+    }
+  });
+}
 
 const breakpoints = useBreakpoints(breakpointsTailwind);
 const isHorizontal = computed(() => breakpoints.greaterOrEqual('md').value);
@@ -454,9 +506,9 @@ const [Drawer, drawerApi] = useVbenDrawer({
   onOpenChange(isOpen) {
     if (isOpen) {
       const data = drawerApi.getData<SystemMenuApi.SystemMenu>();
-      if (data?.type === 'link') {
+      if (data?.type === 'LINK') {
         data.linkSrc = data.meta?.link;
-      } else if (data?.type === 'embedded') {
+      } else if (data?.type === 'EMBEDDED') {
         data.linkSrc = data.meta?.iframeSrc;
       }
       if (data) {
@@ -481,9 +533,9 @@ async function onSubmit() {
       await formApi.getValues<
         Omit<SystemMenuApi.SystemMenu, 'children' | 'id'>
       >();
-    if (data.type === 'link') {
+    if (data.type === 'LINK') {
       data.meta = { ...data.meta, link: data.linkSrc };
-    } else if (data.type === 'embedded') {
+    } else if (data.type === 'EMBEDDED') {
       data.meta = { ...data.meta, iframeSrc: data.linkSrc };
     }
     delete data.linkSrc;
@@ -508,4 +560,5 @@ const getDrawerTitle = computed(() =>
   <Drawer class="w-full max-w-200" :title="getDrawerTitle">
     <Form class="mx-4" :layout="isHorizontal ? 'horizontal' : 'vertical'" />
   </Drawer>
+  <I18nEditModal ref="i18nEditModalRef" />
 </template>

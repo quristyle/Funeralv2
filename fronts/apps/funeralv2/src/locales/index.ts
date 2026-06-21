@@ -286,5 +286,46 @@ async function setupI18n(app: App, options: LocaleSetupOptions = {}) {
 
   */
 }
+/**
+ * 로컬 메모리에 보관된 특정 다국어 키의 번역 값을 즉시 갱신하고 화면을 리렌더링합니다.
+ * @param locale 언어셋 (ko-KR, en-US 등)
+ * @param key 다국어 번역 키
+ * @param value 변경된 번역 값
+ */
+export function updateLocalI18n(locale: string, key: string, value: string) {
+  try {
+    const keys = key.split('.');
+    const messages = i18n.global.getLocaleMessage(locale) as Record<string, any>;
+    
+    if (messages) {
+      let current = messages;
+      for (let i = 0; i < keys.length; i++) {
+        const k = keys[i]!;
+        if (i === keys.length - 1) {
+          current[k] = value;
+        } else {
+          if (!current[k] || typeof current[k] !== 'object') {
+            current[k] = {};
+          }
+          current = current[k];
+        }
+      }
+      
+      // vue-i18n 인스턴스에 수정된 메시지 세트를 강제 등록
+      i18n.global.setLocaleMessage(locale, messages);
+      
+      // 반응성 강제 트리거: locale 값을 흔들어 화면을 동적으로 리렌더링합니다.
+      const currentLocale = i18n.global.locale.value;
+      if (currentLocale === locale) {
+        i18n.global.locale.value = '' as any;
+        nextTick(() => {
+          i18n.global.locale.value = locale as any;
+        });
+      }
+    }
+  } catch (error) {
+    console.error(`[I18n Local Update Error] Failed to update key: ${key} for locale: ${locale}`, error);
+  }
+}
 
 export { $t, $te, antdLocale, setupI18n };

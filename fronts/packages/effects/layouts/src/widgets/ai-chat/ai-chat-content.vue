@@ -35,6 +35,18 @@ const inputMessage = ref('');
 const isLoading = ref(false);
 const showHistoryList = ref(false);
 const chatContainer = ref<HTMLElement | null>(null);
+const textareaRef = ref<{ focus: () => void } | null>(null);
+
+/**
+ * 질문 입력창에 포커스를 맞춥니다.
+ */
+function focusInput() {
+  nextTick(() => {
+    if (textareaRef.value) {
+      textareaRef.value.focus();
+    }
+  });
+}
 
 const currentSession = computed(() =>
   sessions.value.find((s) => s.id === currentSessionId.value)
@@ -97,6 +109,7 @@ function createNewChat() {
   currentSessionId.value = newId;
   saveSessions();
   showHistoryList.value = false;
+  focusInput();
 }
 
 function selectSession(id: string) {
@@ -108,6 +121,7 @@ function selectSession(id: string) {
   showHistoryList.value = false;
   nextTick(() => {
     scrollToBottom(true);
+    focusInput();
   });
 }
 
@@ -229,6 +243,7 @@ onMounted(() => {
   window.addEventListener('storage', handleStorageChange);
   nextTick(() => {
     scrollToBottom(true);
+    focusInput();
   });
 });
 
@@ -236,6 +251,12 @@ watch(currentSessionId, () => {
   nextTick(() => {
     scrollToBottom(true);
   });
+});
+
+watch(showHistoryList, (newVal) => {
+  if (!newVal) {
+    focusInput();
+  }
 });
 </script>
 
@@ -358,6 +379,7 @@ watch(currentSessionId, () => {
         <!-- 입력 영역 -->
         <div class="p-3 flex gap-2 items-end border-t border-border bg-card shrink-0">
           <Input.TextArea
+            ref="textareaRef"
             v-model:value="inputMessage"
             :auto-size="{ minRows: 1, maxRows: 4 }"
             placeholder="메시지 입력 (Enter로 전송)"
