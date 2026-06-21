@@ -40,10 +40,19 @@ public class PagedResultDto<T>
     /// <summary>
     /// 실제 데이터 목록
     /// </summary>
-    public List<T> Items { get; set; } = new();
+    public List<T> Result { get; set; } = new();
 
     /// <summary>
     /// 전체 데이터 건수
     /// </summary>
+    public PageInfo Page { get; set; } = new();
+}
+
+/// <summary>
+/// 페이징 정보
+/// </summary>
+public class PageInfo
+{
+    /// <summary>전체 데이터 건수</summary>
     public int Total { get; set; }
 }

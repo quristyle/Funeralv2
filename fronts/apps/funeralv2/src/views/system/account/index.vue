@@ -1,75 +1,77 @@
 <script lang="ts" setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, nextTick } from 'vue';
 import { Page, useVbenModal } from '@vben/common-ui';
-import { Plus } from '@vben/icons';
-import { Button, message, Popconfirm, Form, Input, Select, Badge } from 'ant-design-vue';
+import { Plus, IconifyIcon } from '@vben/icons';
+import { Button, message, Popconfirm, Badge, Tooltip } from 'ant-design-vue';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import { getAccounts, createAccount, updateAccount, deleteAccount } from '#/api/system/account';
+import { useVbenForm } from '#/adapter/form';
+import { type SystemAccountApi, getAccounts, createAccount, updateAccount, deleteAccount } from '#/api/system/account';
 import { getDeptList } from '#/api/system/dept';
+import { $t } from '#/locales';
+import { useColumns, useSchema } from './data';
 
 const departments = ref<any[]>([]);
+const isUpdate = ref(false);
+const currentId = ref('');
+
+// useVbenForm 설정
+const [Form, formApi] = useVbenForm({
+  schema: useSchema(),
+  showDefaultActions: false,
+  handleSubmit: handleSave,
+});
+
+// useVbenModal 설정
 const [AccountModal, accountModalApi] = useVbenModal({
   title: '사용자 계정 정보 설정',
   destroyOnClose: true,
+  onCancel() {
+    accountModalApi.close();
+  },
+  onConfirm: async () => {
+    await formApi.validateAndSubmitForm();
+  },
+  onOpenChange(isOpen) {
+    if (!isOpen) {
+      isUpdate.value = false;
+      currentId.value = '';
+      formApi.resetForm();
+    }
+  }
 });
 
-const formModel = ref({
-  id: '',
-  loginId: '',
-  userName: '',
-  email: '',
-  phone: '',
-  status: 'ACTIVE' as 'ACTIVE' | 'LOCKED' | 'DISABLED',
-  deptId: '',
-});
-
-// 부서 목록 로드
+// 부서 목록 로드 및 Form Schema 업데이트
 async function fetchDepts() {
   try {
     const list = await getDeptList();
     departments.value = list || [];
+    
+    // Form Schema의 부서 목록 options 업데이트
+    formApi.updateSchema([
+      {
+        fieldName: 'deptId',
+        componentProps: {
+          options: departments.value.map(d => ({ label: d.name, value: d.id })),
+        },
+      },
+    ]);
   } catch (error) {
     message.error('부서 목록 로드 실패');
   }
 }
 
+// Grid 설정
 const [Grid, gridApi] = useVbenVxeGrid({
   gridOptions: {
-    columns: [
-      { field: 'userName', title: '사용자명', minWidth: 120 },
-      { field: 'loginId', title: '로그인 ID', minWidth: 120 },
-      { field: 'deptName', title: '소속 부서', minWidth: 150 },
-      { field: 'email', title: '이메일', minWidth: 180 },
-      { field: 'phone', title: '연락처', minWidth: 130 },
-      {
-        field: 'status',
-        title: '계정 상태',
-        minWidth: 120,
-        slots: { default: 'status-tag' }
-      },
-      {
-        field: 'action',
-        title: '작업',
-        width: 150,
-        fixed: 'right',
-        slots: { default: 'action' }
-      }
-    ],
+    columns: useColumns(),
     height: 'auto',
     proxyConfig: {
-      
-          response: {
-          //  result: 'items',
-          list: (res: any) => res,
-          //  result: '',
-          //  total: 'total',
-          //  list: '',
-          },
+      response: {
+        list: (res: any) => res,
+      },
       ajax: {
         query: async () => {
-          var bbb = await getAccounts();
-          console.log('bbb', bbb);
-          return bbb;
+          return await getAccounts();
         },
       },
     },
@@ -77,22 +79,44 @@ const [Grid, gridApi] = useVbenVxeGrid({
 });
 
 function onCreate() {
-  formModel.value = {
-    id: '',
-    loginId: '',
-    userName: '',
-    email: '',
-    phone: '',
-    status: 'ACTIVE',
-    deptId: '',
-  };
+  isUpdate.value = false;
+  currentId.value = '';
+  
   accountModalApi.open();
+  
+  nextTick(() => {
+    formApi.resetForm();
+    formApi.updateSchema([
+      {
+        fieldName: 'loginId',
+        componentProps: {
+          disabled: false,
+        },
+      },
+    ]);
+  });
 }
 
 function onEdit(row: any) {
-  formModel.value = { ...row };
+  isUpdate.value = true;
+  currentId.value = row.id;
+  
   accountModalApi.open();
+  
+  nextTick(() => {
+    formApi.setValues(row);
+    formApi.updateSchema([
+      {
+        fieldName: 'loginId',
+        componentProps: {
+          disabled: true,
+        },
+      },
+    ]);
+  });
 }
+
+const getPopupContainer = () => document.body;
 
 async function onDelete(row: any) {
   try {
@@ -104,20 +128,21 @@ async function onDelete(row: any) {
   }
 }
 
-async function handleSave() {
+async function handleSave(values: Record<string, any>) {
   try {
-    if (!formModel.value.loginId || !formModel.value.userName) {
-      message.warning('로그인 ID와 사용자명은 필수 기입 사항입니다.');
-      return;
-    }
-    const dept = departments.value.find(d => d.id === formModel.value.deptId);
-    const postData = {
-      ...formModel.value,
-      deptName: dept?.name || ''
+    const dept = departments.value.find(d => d.id === values.deptId);
+    const postData: Omit<SystemAccountApi.Account, 'id' | 'createdAt'> = {
+      loginId: values.loginId || '',
+      userName: values.userName || '',
+      status: values.status || 'ACTIVE',
+      email: values.email,
+      phone: values.phone,
+      deptId: values.deptId,
+      deptName: dept?.name || '',
     };
 
-    if (formModel.value.id) {
-      await updateAccount(formModel.value.id, postData);
+    if (isUpdate.value && currentId.value) {
+      await updateAccount(currentId.value, postData);
       message.success('계정 정보가 변경되었습니다.');
     } else {
       await createAccount(postData);
@@ -164,49 +189,40 @@ onMounted(() => {
       </template>
 
       <template #action="{ row }">
-        <div class="flex gap-2">
-          <Button type="link" size="small" @click="onEdit(row)">수정</Button>
-          <Popconfirm title="해당 계정을 삭제하시겠습니까?" @confirm="onDelete(row)">
-            <Button type="link" size="small" danger>삭제</Button>
+        <div class="flex justify-center gap-2">
+          <!-- 수정 버튼: Tooltip 및 Icon 사용 -->
+          <Tooltip :title="$t('common.edit')">
+            <Button type="link" size="small" @click="onEdit(row)">
+              <template #icon>
+                <IconifyIcon class="size-4" icon="lucide:edit" />
+              </template>
+            </Button>
+          </Tooltip>
+          
+          <!-- 삭제 버튼: Popconfirm을 통한 확인 절차 포함 -->
+          <Popconfirm
+            :get-popup-container="getPopupContainer"
+            placement="topLeft"
+            :title="$t('ui.actionMessage.deleteConfirm', [row.userName])"
+            @confirm="onDelete(row)"
+          >
+            <Tooltip :title="$t('common.delete')">
+              <Button type="link" size="small" danger>
+                <template #icon>
+                  <IconifyIcon class="size-4" icon="lucide:trash-2" />
+                </template>
+              </Button>
+            </Tooltip>
           </Popconfirm>
         </div>
       </template>
     </Grid>
 
-    <AccountModal @ok="handleSave">
+    <AccountModal>
       <div class="p-6">
-        <Form layout="vertical">
-          <Form.Item label="로그인 ID" required>
-            <Input v-model:value="formModel.loginId" placeholder="아이디 기입" :disabled="!!formModel.id" />
-          </Form.Item>
-          
-          <Form.Item label="사용자명(성명)" required>
-            <Input v-model:value="formModel.userName" placeholder="이름 기입" />
-          </Form.Item>
-
-          <Form.Item label="소속 부서">
-            <Select v-model:value="formModel.deptId" placeholder="부서 선택">
-              <Select.Option v-for="d in departments" :key="d.id" :value="d.id">{{ d.name }}</Select.Option>
-            </Select>
-          </Form.Item>
-
-          <Form.Item label="이메일">
-            <Input v-model:value="formModel.email" placeholder="example@email.com" />
-          </Form.Item>
-
-          <Form.Item label="연락처">
-            <Input v-model:value="formModel.phone" placeholder="전화번호 기입" />
-          </Form.Item>
-
-          <Form.Item label="계정 잠금 상태">
-            <Select v-model:value="formModel.status">
-              <Select.Option value="ACTIVE">정상 (ACTIVE)</Select.Option>
-              <Select.Option value="LOCKED">잠금 (LOCKED)</Select.Option>
-              <Select.Option value="DISABLED">영구정지 (DISABLED)</Select.Option>
-            </Select>
-          </Form.Item>
-        </Form>
+        <Form />
       </div>
     </AccountModal>
   </Page>
 </template>
+

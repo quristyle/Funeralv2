@@ -47,7 +47,8 @@ export function useCommonCode() {
   async function loadGroups() {
     groupGridApi.setLoading(true);
     try {
-      const data = await getCommonCodeGroups();
+      const response = await getCommonCodeGroups();
+      const data = (response as any)?.result || (Array.isArray(response) ? response : []);
       groupGridApi.setGridOptions({ data });
       if (data.length > 0 && !currentGroup.value) {
         currentGroup.value = data[0];
@@ -77,10 +78,11 @@ export function useCommonCode() {
     if (!currentGroup.value) return;
     codeGridApi.setLoading(true);
     try {
-      const data = await getCommonCodes(
+      const response = await getCommonCodes(
         currentGroup.value.groupCode, 
         currentGroup.value.isHierarchical
       );
+      const data = (response as any)?.result || (Array.isArray(response) ? response : []);
       codeGridApi.setGridOptions({ data });
     } finally {
       codeGridApi.setLoading(false);

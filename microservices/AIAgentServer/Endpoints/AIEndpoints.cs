@@ -57,14 +57,14 @@ public static class AIEndpoints
         .WithName("StreamChat")
         .WithOpenApi();
 
-        group.MapGet("/suggest-code", async ([FromQuery] string word, [FromServices] ILLMService llmService) =>
+        group.MapGet("/suggest-code", async ([FromQuery] string word, [FromQuery] bool? natural, [FromServices] ILLMService llmService) =>
         {
             if (string.IsNullOrWhiteSpace(word))
             {
                 return Results.BadRequest(ApiResponse<object>.Fail("입력값이 없습니다.", "C400"));
             }
 
-            var suggestedCode = await llmService.SuggestCommonCodeAsync(word);
+            var suggestedCode = await llmService.SuggestCommonCodeAsync(word, natural ?? false);
             return Results.Ok(ApiResponse<string>.Ok(suggestedCode));
         })
         .WithName("SuggestCommonCode")

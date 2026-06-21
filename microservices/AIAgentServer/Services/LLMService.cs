@@ -6,7 +6,7 @@ namespace AIAgentServer.Services;
 
 public interface ILLMService
 {
-    Task<string> SuggestCommonCodeAsync(string koreanName);
+    Task<string> SuggestCommonCodeAsync(string koreanName, bool natural = false);
     Task<string> ChatAsync(List<Message> messages);
     IAsyncEnumerable<string> StreamChatAsync(List<Message> messages);
 }
@@ -145,7 +145,7 @@ public class LLMService : ILLMService
         return string.IsNullOrEmpty(reply) ? "죄송합니다. 응답을 생성하지 못했습니다." : reply;
     }
 
-    public async Task<string> SuggestCommonCodeAsync(string koreanName)
+    public async Task<string> SuggestCommonCodeAsync(string koreanName, bool natural = false)
     {
         var apiBase = _config["LLM:ApiBase"];
         var apiKey = _config["LLM:ApiKey"];
@@ -155,6 +155,10 @@ public class LLMService : ILLMService
         {
             throw new Exception("LLM configuration is missing.");
         }
+
+        var systemPrompt = natural 
+            ? "당신은 전문 번역가입니다. 입력된 한글 명칭을 보고, 소프트웨어 UI나 설명에 적합한 자연스럽고 매끄러운 영어 단어 또는 문장으로 번역하세요. 번역 시 적절하게 첫 글자 대문자화(Title Case) 등을 적용하고, 부연 설명 없이 오직 번역된 결과만 한 줄로 출력하세요."
+            : "당신은 소프트웨어 엔지니어입니다. 입력된 한글 명칭을 보고, 프로그래밍 변수명으로 적합한 '영어 대문자 스네이크 케이스(SNAKE_CASE)' 코드로 변환하세요. 부연 설명 없이 오직 결과 코드만 한 줄로 출력하세요.";
 
         var requestDto = new OpenAIRequest
         {
@@ -166,7 +170,7 @@ public class LLMService : ILLMService
                 new Message
                 {
                     role = "system",
-                    content = "당신은 소프트웨어 엔지니어입니다. 입력된 한글 명칭을 보고, 프로그래밍 변수명으로 적합한 '영어 대문자 스네이크 케이스(SNAKE_CASE)' 코드로 변환하세요. 부연 설명 없이 오직 결과 코드만 한 줄로 출력하세요."
+                    content = systemPrompt
                 },
                 new Message
                 {

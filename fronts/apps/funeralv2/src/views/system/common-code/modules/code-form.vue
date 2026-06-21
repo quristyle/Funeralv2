@@ -140,7 +140,7 @@ defineExpose({ openModal });
   <BaseModal :title="isUpdate ? '코드 수정' : '코드 추가'">
     <Form class="mx-4" />
     <AiCodeSuggester 
-      v-if="!isUpdate"
+      v-if="!isUpdate && codeNameVal"
       :input-text="codeNameVal" 
       @select="(code) => formApi.setFieldValue('codeValue', code)" 
     />

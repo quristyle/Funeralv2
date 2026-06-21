@@ -43,7 +43,7 @@ public class I18nResourceService : II18nResourceService
             .ToListAsync();
     }
 
-    public async Task<List<I18nResourceDto>> GetPagedResourcesAsync(SearchI18nParams searchParams)
+    public async Task<PagedResourceDto<I18nResourceDto>> GetPagedResourcesAsync(SearchI18nParams searchParams)
     {
         var query = _context.I18nResources.AsQueryable();
 
@@ -77,12 +77,12 @@ public class I18nResourceService : II18nResourceService
                 Category = r.Category
             })
             .ToListAsync();
-return items;
-        // return new PagedI18nResourceDto
-        // {
-        //     Items = items,
-        //     Total = total
-        // };
+
+         return new PagedResourceDto<I18nResourceDto>
+         {
+             Result = items,
+             TotalCount = total
+         };
     }
 
     public async Task<I18nResourceDto> CreateResourceAsync(CreateI18nResourceDto request)
@@ -174,5 +174,13 @@ return items;
             _context.I18nResources.Add(resource);
             await _context.SaveChangesAsync();
         }
+    }
+
+
+
+    public class PagedResourceDto<T>
+    {
+        public List<T> Result { get; set; } = new List<T>();
+        public int TotalCount { get; set; }
     }
 }

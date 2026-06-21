@@ -3,6 +3,7 @@ using AuthServer.Entities;
 using AuthServer.Services;
 using AuthServer.DTOs;
 using Funeralv2.Shared.DTOs;
+using static AuthServer.Services.I18nResourceService;
 
 namespace AuthServer.Endpoints;
 
@@ -180,7 +181,7 @@ public static class SystemEndpoints
         group.MapGet("/i18n/list", async ([FromServices] II18nResourceService i18nService) =>
         {
             var resources = await i18nService.GetAllResourcesAsync();
-            //return Results.Ok(ApiResponse<PagedResult<I18nResourceDto>>.Ok(resources.ToPagedResult()));
+            //return Results.Ok(ApiResponse<PagedResult<I18nResourceDto>>.Ok(resources.ToPagedResult())); // 실제 페이징처리할 페이지의 경우 pagedResult 를 사용.
             return Results.Ok(ApiResponse<List<I18nResourceDto>>.Ok(resources));
         })
         .WithName("GetI18nList")
@@ -190,7 +191,8 @@ public static class SystemEndpoints
         {
             var searchParams = new SearchI18nParams { Page = page, PageSize = pageSize, Locale = locale, Key = key, Value = value, Category = category };
             var result = await i18nService.GetPagedResourcesAsync(searchParams);
-            return Results.Ok(ApiResponse<List<I18nResourceDto>>.Ok(result));
+            //return Results.Ok(ApiResponse<List<I18nResourceDto>>.Ok(result));
+            return Results.Ok(ApiResponse<PagedResourceDto<I18nResourceDto>>.Ok(result));
         })
         .WithName("GetI18nPaged")
         .WithOpenApi();

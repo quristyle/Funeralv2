@@ -21,8 +21,11 @@ public class DemoService : IDemoService
 
         return Task.FromResult(new PagedResultDto<DemoTableDto>
         {
-            Items = items,
-            Total = 100 // 전체 데이터 개수 가상값
+            Result = items,
+            Page = new PageInfo
+            {
+                Total = 100 // 전체 데이터 개수 가상값
+            }
         });
     }
 }

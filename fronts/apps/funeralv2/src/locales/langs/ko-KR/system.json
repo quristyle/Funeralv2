@@ -72,5 +72,28 @@
     "status": "상태",
     "remark": "비고",
     "listTitle": "회사 목록"
+  },
+  "account": {
+    "title": "계정 관리",
+    "name": "계정",
+    "userName": "사용자명",
+    "loginId": "로그인 ID",
+    "deptName": "소속 부서",
+    "email": "이메일",
+    "phone": "연락처",
+    "status": "계정 상태",
+    "lockStatus": "계정 잠금 상태",
+    "remark": "비고",
+    "dept": "부서",
+    "placeholder": {
+      "loginId": "아이디 기입",
+      "userName": "이름 기입",
+      "dept": "부서 선택",
+      "email": "example{'@'}email.com",
+      "phone": "전화번호 기입"
+    },
+    "statusActive": "정상 (ACTIVE)",
+    "statusLocked": "잠금 (LOCKED)",
+    "statusDisabled": "영구정지 (DISABLED)"
   }
 }

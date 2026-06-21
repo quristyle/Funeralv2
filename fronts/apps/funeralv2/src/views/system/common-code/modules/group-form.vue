@@ -4,8 +4,8 @@ import { useBaseModal } from '#/adapter/modal';
 import { useVbenForm } from '#/adapter/form';
 import { createCommonCodeGroup, updateCommonCodeGroup, type CommonCodeGroupParams } from '#/api/system/common-code';
 import { message } from 'ant-design-vue';
-import type { VbenFormSchema } from '#/adapter/form';
 import AiCodeSuggester from '#/components/ai-code-suggester/ai-code-suggester.vue';
+import { groupFormSchema } from '../data';
 
 const emit = defineEmits(['success']);
 
@@ -13,54 +13,23 @@ const groupNameVal = ref('');
 const editRecordId = ref<string | null>(null);
 const isEdit = ref(false);
 
-const schema: VbenFormSchema[] = [
-  {
-    component: 'Input',
-    componentProps: {
-      placeholder: '그룹코드를 입력하세요',
-    },
-    fieldName: 'groupCode',
-    label: '그룹코드',
-    rules: 'required',
-  },
-  {
-    component: 'Input',
-    componentProps: {
-      placeholder: '그룹명을 입력하세요',
-      onChange: (e: any) => {
-        groupNameVal.value = e?.target?.value || e;
+const schema = (groupFormSchema.schema ?? []).map((item) => {
+  if (item.fieldName === 'groupName') {
+    return {
+      ...item,
+      componentProps: {
+        ...item.componentProps,
+        onChange: (e: any) => {
+          groupNameVal.value = e?.target?.value || e;
+        },
+        onInput: (e: any) => {
+          groupNameVal.value = e?.target?.value || e;
+        },
       },
-      onInput: (e: any) => {
-        groupNameVal.value = e?.target?.value || e;
-      },
-    },
-    fieldName: 'groupName',
-    label: '그룹명',
-    rules: 'required',
-  },
-  {
-    component: 'Switch',
-    fieldName: 'isHierarchical',
-    label: '계층구조 여부',
-    defaultValue: false,
-  },
-  {
-    component: 'InputNumber',
-    componentProps: {
-      min: 0,
-      step: 1,
-      precision: 0,
-    },
-    fieldName: 'sortOrder',
-    label: '정렬순서',
-    defaultValue: 0,
-  },
-  {
-    component: 'Textarea',
-    fieldName: 'remark',
-    label: '비고',
-  },
-];
+    };
+  }
+  return item;
+});
 
 const [Form, formApi] = useVbenForm({
   layout: 'vertical',
@@ -170,7 +139,7 @@ defineExpose({ openModal });
     </Form>
     <!-- 입력 폼 하단에 추천 코드 표시 (수정 모드가 아닐 때만 렌더링) -->
     <AiCodeSuggester 
-      v-if="!isEdit"
+      v-if="!isEdit && groupNameVal"
       :input-text="groupNameVal" 
       @select="(code) => formApi.setFieldValue('groupCode', code)" 
     />

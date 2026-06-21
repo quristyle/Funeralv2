@@ -120,11 +120,11 @@ export function deleteCommonCode(id: string) {
  * AI 기반 공통코드 영문 추천
  * @param word 한글 명칭
  */
-export function suggestCommonCodeByAI(word: string) {
+export function suggestCommonCodeByAI(word: string, natural: boolean = false) {
   // Gateway의 YARP 룰에 따라 /api/ai/ai/suggest-code 형태로 호출되거나, 
   // ApiGateway 설정이 /api/ai -> / 경로로 매핑되므로 /auth/ai 가 아니라 바로 게이트웨이를 바라보는 /ai 로 호출
   // 프로젝트 프록시 설정에 따라 다를 수 있으나, 기존 auth 호출처럼 prefix를 맞춥니다.
-  return requestClient.get<string>('/ai/suggest-code', {
-    params: { word },
+  return requestClient.get<unknown>('/ai/suggest-code', {
+    params: { word, natural },
   });
 }

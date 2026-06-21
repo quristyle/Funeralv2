@@ -3,6 +3,7 @@ import { ref } from 'vue';
 import { Modal, Form, Input, message } from 'ant-design-vue';
 import { getI18nPaged, createI18nResource, updateI18nResource } from '#/api/system/i18n';
 import { updateLocalI18n } from '#/locales';
+import AiCodeSuggester from '#/components/ai-code-suggester/ai-code-suggester.vue';
 
 interface OpenParams {
   id: string;
@@ -154,6 +155,12 @@ defineExpose({
       </Form.Item>
       <Form.Item label="한국어 (ko-KR)">
         <Input v-model:value="i18nValues['ko-KR'].value" placeholder="한국어 명칭을 입력하세요" />
+        <AiCodeSuggester 
+          v-if="i18nValues['ko-KR'].value"
+          :input-text="i18nValues['ko-KR'].value" 
+          :natural="true"
+          @select="(val) => i18nValues['en-US'].value = val" 
+        />
       </Form.Item>
       <Form.Item label="영어 (en-US)">
         <Input v-model:value="i18nValues['en-US'].value" placeholder="영어 명칭을 입력하세요 (English)" />

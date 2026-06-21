@@ -70,5 +70,28 @@
     "status": "Status",
     "remark": "Remark",
     "listTitle": "Company List"
+  },
+  "account": {
+    "title": "Account Management",
+    "name": "Account",
+    "userName": "Username",
+    "loginId": "Login ID",
+    "deptName": "Department",
+    "email": "Email",
+    "phone": "Phone",
+    "status": "Account Status",
+    "lockStatus": "Lock Status",
+    "remark": "Remark",
+    "dept": "Department",
+    "placeholder": {
+      "loginId": "Enter Login ID",
+      "userName": "Enter Username",
+      "dept": "Select Department",
+      "email": "example{'@'}email.com",
+      "phone": "Enter Phone Number"
+    },
+    "statusActive": "Active",
+    "statusLocked": "Locked",
+    "statusDisabled": "Disabled"
   }
 }

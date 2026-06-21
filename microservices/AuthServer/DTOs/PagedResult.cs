@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
 using System.Linq;
 
 namespace AuthServer.DTOs;
@@ -8,16 +9,28 @@ namespace AuthServer.DTOs;
 /// </summary>
 public class PagedResult<T>
 {
-    public IEnumerable<T> Items { get; set; } = new List<T>();
-    public int Total { get; set; }
+    [JsonPropertyName("result")]
+    public IEnumerable<T> Result { get; set; } = new List<T>();
+
+    [JsonPropertyName("page")]
+    public PageInfo Page { get; set; } = new();
 
     public PagedResult() { }
 
     public PagedResult(IEnumerable<T> items, int total)
     {
-        Items = items;
-        Total = total;
+        Result = items;
+        Page = new PageInfo
+        {
+            Total = total,
+        };
     }
+}
+
+public class PageInfo
+{
+    [JsonPropertyName("total")]
+    public int Total { get; set; }
 }
 
 public static class PagedResultExtensions
