@@ -7,6 +7,7 @@ namespace AIAgentServer.Services;
 public interface ILLMService
 {
     Task<string> SuggestCommonCodeAsync(string koreanName, bool natural = false);
+    Task<string> SuggestI18nTranslationAsync(string key, string targetLang);
     Task<string> ChatAsync(List<Message> messages);
     IAsyncEnumerable<string> StreamChatAsync(List<Message> messages);
 }
@@ -207,5 +208,74 @@ public class LLMService : ILLMService
         suggestedCode = suggestedCode.Replace("`", "").Trim();
         
         return suggestedCode;
+    }
+
+    public async Task<string> SuggestI18nTranslationAsync(string key, string targetLang)
+    {
+        var apiBase = _config["LLM:ApiBase"];
+        var apiKey = _config["LLM:ApiKey"];
+        var model = _config["LLM:Model"];
+
+        if (string.IsNullOrEmpty(apiBase) || string.IsNullOrEmpty(apiKey) || string.IsNullOrEmpty(model))
+        {
+            throw new Exception("LLM configuration is missing.");
+        }
+
+        string systemPrompt;
+        if (targetLang.Equals("ko-KR", StringComparison.OrdinalIgnoreCase))
+        {
+            systemPrompt = "당신은 다국어화(i18n) 번역 전문가입니다. 소프트웨어의 번역키를 입력받아, 이에 가장 어울리는 자연스럽고 표준적인 한국어 번역 결과(예: 번역키가 'ui.system.title'이면 '시스템 제목')를 한 줄로 추천하세요. 부연 설명 없이 오직 추천 결과 한 단어/문장만 출력하세요. 마크다운 기호 등을 붙이지 마세요.";
+        }
+        else
+        {
+            systemPrompt = "당신은 다국어화(i18n) 번역 전문가입니다. 소프트웨어의 번역키를 입력받아, 이에 가장 어울리는 자연스럽고 표준적인 영어 번역 결과(예: 번역키가 'ui.system.title'이면 'System Title')를 한 줄로 추천하세요. 부연 설명 없이 오직 추천 결과 한 단어/문장만 출력하세요. 마크다운 기호 등을 붙이지 마세요.";
+        }
+
+        var requestDto = new OpenAIRequest
+        {
+            model = model,
+            temperature = 0.1,
+            max_tokens = 1000,
+            messages = new List<Message>
+            {
+                new Message
+                {
+                    role = "system",
+                    content = systemPrompt
+                },
+                new Message
+                {
+                    role = "user",
+                    content = key
+                }
+            }
+        };
+
+        var request = new HttpRequestMessage(HttpMethod.Post, apiBase);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+        request.Content = JsonContent.Create(requestDto);
+
+        var response = await _httpClient.SendAsync(request);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var error = await response.Content.ReadAsStringAsync();
+            _logger.LogError("LLM API failed. Status: {StatusCode}, Error: {Error}", response.StatusCode, error);
+            throw new Exception("LLM API request failed.");
+        }
+
+        var resultString = await response.Content.ReadAsStringAsync();
+        var resultDto = JsonSerializer.Deserialize<OpenAIResponse>(resultString, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        var suggestedTranslation = resultDto?.choices?.FirstOrDefault()?.message?.content?.Trim();
+
+        if (string.IsNullOrEmpty(suggestedTranslation))
+        {
+            throw new Exception("LLM returned empty result.");
+        }
+
+        suggestedTranslation = suggestedTranslation.Replace("`", "").Trim();
+        
+        return suggestedTranslation;
     }
 }

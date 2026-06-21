@@ -69,5 +69,18 @@ public static class AIEndpoints
         })
         .WithName("SuggestCommonCode")
         .WithOpenApi();
+
+        group.MapGet("/suggest-i18n", async ([FromQuery] string key, [FromQuery] string targetLang, [FromServices] ILLMService llmService) =>
+        {
+            if (string.IsNullOrWhiteSpace(key) || string.IsNullOrWhiteSpace(targetLang))
+            {
+                return Results.BadRequest(ApiResponse<object>.Fail("필수 파라미터가 누락되었습니다.", "C400"));
+            }
+
+            var suggested = await llmService.SuggestI18nTranslationAsync(key, targetLang);
+            return Results.Ok(ApiResponse<string>.Ok(suggested));
+        })
+        .WithName("SuggestI18nTranslation")
+        .WithOpenApi();
     }
 }

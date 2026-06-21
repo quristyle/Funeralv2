@@ -73,3 +73,12 @@ export async function ensureI18nResource(data: { locale: string; key: string; de
   //return requestClient.post<boolean>('/auth/system/i18n/ensure', data);
   return null;
 }
+
+/**
+ * 다국어 키를 바탕으로 번역(한글/영문) 추천 받기
+ */
+export async function suggestI18nTranslation(key: string, targetLang: string) {
+  return requestClient.get<unknown>('/ai/suggest-i18n', {
+    params: { key, targetLang },
+  });
+}

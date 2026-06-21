@@ -79,13 +79,23 @@ public class UserService : IUserService
     /// </summary>
     public async Task<AccountDto> CreateAccountAsync(CreateAccountDto dto)
     {
+        string? validDeptId = null;
+        if (!string.IsNullOrEmpty(dto.DeptId))
+        {
+            var deptExists = await _db.Departments.AnyAsync(d => d.Id == dto.DeptId);
+            if (deptExists)
+            {
+                validDeptId = dto.DeptId;
+            }
+        }
+
         var account = new Account
         {
             UserId = dto.LoginId,
             UserName = dto.UserName,
             RealName = dto.UserName,
             Password = "1234", // 기본 비밀번호 설정
-            DepartmentId = dto.DeptId
+            DepartmentId = validDeptId
         };
 
         _db.Accounts.Add(account);
@@ -156,7 +166,17 @@ public class UserService : IUserService
 
         account.UserName = dto.UserName;
         account.RealName = dto.UserName;
-        account.DepartmentId = dto.DeptId;
+
+        // 부서 ID 검증
+        if (!string.IsNullOrEmpty(dto.DeptId))
+        {
+            var deptExists = await _db.Departments.AnyAsync(d => d.Id == dto.DeptId);
+            account.DepartmentId = deptExists ? dto.DeptId : null;
+        }
+        else
+        {
+            account.DepartmentId = null;
+        }
 
         // Email 업데이트
         var emailDetail = account.ProfileDetails?.FirstOrDefault(p => p.DetailType == "Email");

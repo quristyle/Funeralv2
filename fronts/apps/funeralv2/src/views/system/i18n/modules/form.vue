@@ -1,12 +1,63 @@
 <script lang="ts" setup>
-import { nextTick } from 'vue';
+import { ref, nextTick } from 'vue';
 import { useVbenForm, type VbenFormProps } from '#/adapter/form';
 import { useVbenDrawer } from '@vben/common-ui';
 import { $t } from '@vben/locales';
 import { message } from 'ant-design-vue';
-import { createI18nResource, updateI18nResource, type SystemI18nApi } from '#/api/system/i18n';
+import { createI18nResource, updateI18nResource, type SystemI18nApi, suggestI18nTranslation } from '#/api/system/i18n';
+import AiCodeSuggester from '#/components/ai-code-suggester/ai-code-suggester.vue';
 
 const emit = defineEmits(['success']);
+
+const localeVal = ref('');
+const keyVal = ref('');
+
+const schema = [
+  {
+    component: 'Select',
+    componentProps: {
+      options: [
+        { label: $t('ui.i18n.koKR'), value: 'ko-KR' },
+        { label: $t('ui.i18n.enUS'), value: 'en-US' },
+      ],
+      onChange: (val: any) => {
+        localeVal.value = val;
+      },
+    },
+    fieldName: 'locale',
+    label: $t('ui.i18n.locale'),
+    rules: 'required',
+  },
+  {
+    component: 'Input',
+    fieldName: 'category',
+    label: $t('ui.i18n.category'),
+    rules: 'required',
+  },
+  {
+    component: 'Input',
+    componentProps: {
+      onChange: (e: any) => {
+        keyVal.value = e?.target?.value || e;
+      },
+      onInput: (e: any) => {
+        keyVal.value = e?.target?.value || e;
+      },
+    },
+    fieldName: 'key',
+    label: $t('ui.i18n.key'),
+    rules: 'required',
+  },
+  {
+    component: 'Textarea',
+    fieldName: 'value',
+    label: $t('ui.i18n.value'),
+    rules: 'required',
+    componentProps: {
+      rows: 4,
+    },
+  },
+];
 
 const [Form, formApi] = useVbenForm({
   commonConfig: {
@@ -15,22 +66,7 @@ const [Form, formApi] = useVbenForm({
     },
     labelWidth: 100,
   },
-  schema: [
-    {
-      component: 'Select',
-      componentProps: {
-        options: [
-          { label: $t('ui.i18n.koKR'), value: 'ko-KR' },
-          { label: $t('ui.i18n.enUS'), value: 'en-US' },
-        ],
-      },
-      fieldName: 'locale', label: $t('ui.i18n.locale'), rules: 'required', },
-    { component: 'Input', fieldName: 'category', label: $t('ui.i18n.category'), rules: 'required', },
-    { component: 'Input', fieldName: 'key', label: $t('ui.i18n.key'), rules: 'required', },
-    { component: 'Textarea', fieldName: 'value', label: $t('ui.i18n.value'), rules: 'required',
-      componentProps: { rows: 4, },
-    },
-  ],
+  schema: schema,
   showDefaultActions: false,
 } as VbenFormProps);
 
@@ -74,10 +110,17 @@ const [Drawer, drawerApi] = useVbenDrawer({
       if (data?.id) {
         drawerApi.setState({ title: $t('ui.actionTitle.edit', ['I18n']) });
         formApi.setValues(data);
+        localeVal.value = data.locale || '';
+        keyVal.value = data.key || '';
       } else {
         drawerApi.setState({ title: $t('ui.actionTitle.create', ['I18n']) });
         formApi.resetForm();
+        localeVal.value = '';
+        keyVal.value = '';
       }
+    } else {
+      localeVal.value = '';
+      keyVal.value = '';
     }
   },
 });
@@ -86,5 +129,13 @@ const [Drawer, drawerApi] = useVbenDrawer({
 <template>
   <Drawer>
     <Form />
+    <AiCodeSuggester
+      v-if="keyVal && localeVal"
+      :key="localeVal + '_' + keyVal"
+      :input-text="keyVal"
+      :suggest-api="(text) => suggestI18nTranslation(text, localeVal)"
+      :label="localeVal === 'ko-KR' ? 'AI 추천 한글' : 'AI 추천 영문'"
+      @select="(val) => formApi.setFieldValue('value', val)"
+    />
   </Drawer>
 </template>

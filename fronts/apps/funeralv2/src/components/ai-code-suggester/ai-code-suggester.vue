@@ -17,12 +17,15 @@ interface Props {
   debounceMs?: number;
   /** 자연스러운 영문 추천 제공 여부 */
   natural?: boolean;
+  /** 추천 정보 라벨명 */
+  label?: string;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   suggestApi: suggestCommonCodeByAI,
   debounceMs: 500,
   natural: false,
+  label: '',
 });
 
 const emit = defineEmits<{
@@ -149,7 +152,7 @@ function handleSelect() {
   <div class="mx-4 mt-2 px-1 text-sm" style="min-height: 24px;">
     <Spin v-if="isSuggesting" size="small" />
     <div v-else-if="suggestedCode" class="flex items-center gap-2">
-      <span class="text-gray-500">💡 {{ props.natural ? 'AI 추천 영문' : 'AI 추천 코드' }}:</span>
+      <span class="text-gray-500">💡 {{ props.label || (props.natural ? 'AI 추천 영문' : 'AI 추천 코드') }}:</span>
       <Tag color="blue" class="cursor-pointer hover:opacity-80" @click="handleSelect">
         {{ suggestedCode }}
       </Tag>
