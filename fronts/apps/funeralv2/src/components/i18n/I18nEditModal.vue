@@ -24,6 +24,26 @@ const i18nValues = ref({
   'en-US': { id: null as number | null, value: '' }
 });
 
+function normalizeI18nItems(response: any): any[] {
+  if (Array.isArray(response?.result)) {
+    return response.result;
+  }
+
+  if (Array.isArray(response?.items)) {
+    return response.items;
+  }
+
+  if (Array.isArray(response?.data?.result)) {
+    return response.data.result;
+  }
+
+  if (Array.isArray(response?.data?.items)) {
+    return response.data.items;
+  }
+
+  return [];
+}
+
 let successCallback: ((key: string) => Promise<void> | void) | undefined = undefined;
 
 /**
@@ -43,7 +63,7 @@ async function open(params: OpenParams) {
   try {
     // 성능 최적화: 특정 key에 연관된 리소스만 조회
     const result = await getI18nPaged({ page: 1, pageSize: 50, key: i18nKey.value });
-    const matches = (result?.items || []).filter((item: any) => item.key === i18nKey.value);
+    const matches = normalizeI18nItems(result).filter((item: any) => item.key === i18nKey.value);
 
     matches.forEach((item: any) => {
       if (item.locale === 'ko-KR' || item.locale === 'en-US') {

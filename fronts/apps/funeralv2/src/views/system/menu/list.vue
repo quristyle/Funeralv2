@@ -23,6 +23,22 @@ const activeTab = ref('grid');
 const treeData = ref<any[]>([]);
 const expandedKeys = ref<any[]>([]);
 
+function getMenuItems(response: any): SystemMenuApi.SystemMenu[] {
+  if (Array.isArray(response)) {
+    return response;
+  }
+
+  if (Array.isArray(response?.result)) {
+    return response.result;
+  }
+
+  if (Array.isArray(response?.data?.result)) {
+    return response.data.result;
+  }
+
+  return [];
+}
+
 /**
  * API에서 가져온 메뉴 데이터를 Tree 컴포넌트 형식으로 변환
  */
@@ -39,23 +55,6 @@ function mapToTree(list: SystemMenuApi.SystemMenu[]): any[] {
   }));
 }
 
-/**
- * 계층형 메뉴 목록을 평탄화(Flat)하여 반환
- */
-function flattenTree(tree: any[]): any[] {
-  const result: any[] = [];
-  function traverse(nodes: any[]) {
-    for (const node of nodes) {
-      const { children, ...rest } = node;
-      result.push(rest);
-      if (children && children.length > 0) {
-        traverse(children);
-      }
-    }
-  }
-  traverse(tree);
-  return result;
-}
 
 /**
  * 모든 트리 키를 수집하는 헬퍼 함수
@@ -83,7 +82,7 @@ async function onRefresh(init = false) {
     if (activeTab.value === 'grid') {
       gridApi.query();
     } else {
-      const list = await getMenuList();
+      const list = getMenuItems(await getMenuList());
       treeData.value = mapToTree(list);
       expandedKeys.value = getAllKeys(treeData.value);
     }
@@ -94,7 +93,7 @@ async function onRefresh(init = false) {
   if (activeTab.value === 'grid') {
     gridApi.query();
   } else if (activeTab.value === 'tree') {
-    const list = await getMenuList();
+    const list = getMenuItems(await getMenuList());
     treeData.value = mapToTree(list);
   }
 }
@@ -104,8 +103,8 @@ watch(activeTab, (newTab) => {
   if (newTab === 'grid') {
     gridApi.query();
   } else if (newTab === 'tree') {
-    getMenuList().then((list) => {
-      treeData.value = mapToTree(list);
+    getMenuList().then((response) => {
+      treeData.value = mapToTree(getMenuItems(response));
       if (expandedKeys.value.length === 0) {
         expandedKeys.value = getAllKeys(treeData.value);
       }
@@ -207,24 +206,18 @@ const [Grid, gridApi] = useVbenVxeGrid({
     proxyConfig: {
       ajax: {
         query: async (_params) => {
-          const list = await getMenuList();
-          console.log('Fetched Menu list response snapshot:', JSON.parse(JSON.stringify(list)));
-
-          //const flat = flattenTree(list);
-          //return { items: flat, total: flat.length };
-          return list;
+         return await getMenuList();
         },
       },
     },
     rowConfig: {
       keyField: 'id',
-      drag: true,
       isHover: true,
     },
     treeConfig: {
       parentField: 'pid',
       rowField: 'id',
-      transform: true,
+      transform: false,
     },
   } as VxeTableGridOptions,
 });

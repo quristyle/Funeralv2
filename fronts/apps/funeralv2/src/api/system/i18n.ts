@@ -22,7 +22,8 @@ export namespace SystemI18nApi {
  */
 export async function getI18nListByLocale(locale: string) {
   try {
-    return await requestClient.get<SystemI18nApi.I18nResource[]>(`/auth/system/i18n/${locale}`);
+    var a = await requestClient.get<SystemI18nApi.I18nResource[]>(`/auth/system/i18n/${locale}`);
+    return a.result;
   } catch (error) {
     console.warn(`[I18n API] 서버 접근 불가. 로컬 다국어 파일로 대체합니다. (${locale})`, error);
     return [] as SystemI18nApi.I18nResource[];

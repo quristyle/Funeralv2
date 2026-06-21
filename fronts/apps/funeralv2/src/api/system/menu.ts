@@ -97,7 +97,6 @@ async function getMenuList(): Promise<Array<SystemMenuApi.SystemMenu>> {
   const response = await requestClient.get<any>(
     '/auth/system/menu/list',
   );
-  console.log('Menu list response snapshot:', JSON.parse(JSON.stringify(response)));
     return response;
 }
 
