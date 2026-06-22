@@ -2,6 +2,9 @@
 
 ## [Unreleased] - 2026-06-22
 ### Fixed
+- `index.vue` 내 `fetchDepts()`에서 `getDeptList()`의 응답 객체(ApiResponse) 중 `result`를 풀지 않아 발생하던 바인딩 배열 탐색 오류(`TypeError: departments.value.find is not a function`) 수정 완료
+- 사용자 계정 수정 시 팝업 폼 데이터가 빈 칸으로 표시되어 채워지지 않던 현상을 Vben Modal의 생명주기 이벤트(`onOpenChange`) 내부에서 비동기 렌더링 동기화 및 `setValues`가 수행되도록 리팩토링하여 데이터 소실 버그 해결 완료
+- 사용자 계정 관리 등록/수정 폼의 부서 단독 선택 콤보박스를 회사 및 부서 2단계 동적 연동(`BizSelect` 활용)으로 변경하고 기존에 수동으로 주입하던 옵션 로직과 중복 처리를 제거 완료
 - 메뉴명/경로 존재 검사 시 백엔드 응답 `result` 가 단일 원소 배열(`[false]`/`[true]`) 구조로 감싸져 반환되어 자바스크립트 Truthy 조건(배열 자체는 항상 참)에 의해 오진되던 문제를 배열 인덱스 `[0]`의 값을 직접 엄격 검사하도록 수정 완료
 - 메뉴 관리 이름/경로 중복 체크 시, API 응답 객체(ApiResponse)의 래핑된 `result` 데이터(Boolean)를 꺼내지 않아 느슨한(Truthy) 객체 조건 평가로 인해 언제나 "존재하는 명칭" 에러가 발생하던 버그 수정 (`isMenuNameExists`/`isMenuPathExists`에서 `.result`를 언래핑하여 실제 Boolean을 리턴하도록 수정)
 - `scom.biz_select_configs` 테이블에서 `dept` 설정의 `result_path`가 `null`이더라도, 백엔드 응답이 `ApiResponse` 공통 형태일 때 자동으로 `result`에서 목록을 추출하도록 Fallback 로직을 `BizSelect.vue`에 반영하여 상위 부서 목록이 출력되지 않던 문제 해결 완료

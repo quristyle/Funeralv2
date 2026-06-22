@@ -26,10 +26,20 @@ public class AppDbContext : DbContext
     public DbSet<CommonCodeGroup> CommonCodeGroups { get; set; }
     public DbSet<CommonCode> CommonCodes { get; set; }
     public DbSet<BizSelectConfig> BizSelectConfigs { get; set; }
+    public DbSet<RoleAccount> RoleAccounts { get; set; }
+    public DbSet<RoleMenu> RoleMenus { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+
+        modelBuilder.Entity<RoleAccount>()
+            .HasIndex(ra => new { ra.RoleId, ra.AccountId })
+            .IsUnique();
+
+        modelBuilder.Entity<RoleMenu>()
+            .HasIndex(rm => new { rm.RoleId, rm.MenuId })
+            .IsUnique();
 
         foreach (var entity in modelBuilder.Model.GetEntityTypes())
         {

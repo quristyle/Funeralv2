@@ -37,6 +37,11 @@ public class RoleDto
 public class CreateRoleDto
 {
     /// <summary>
+    /// 생성할 역할 아이디
+    /// </summary>
+    public string? Id { get; set; }
+
+    /// <summary>
     /// 생성할 역할 명칭
     /// </summary>
     public string Name { get; set; } = string.Empty;

@@ -2,10 +2,20 @@ import type { VbenFormSchema } from '#/adapter/form';
 import type { OnActionClickFn, VxeTableGridColumns } from '#/adapter/vxe-table';
 import type { SystemRoleApi } from '#/api';
 
+import { h } from 'vue';
+import { z } from '#/adapter/form';
+import { IconifyIcon } from '@vben/icons';
 import { $t } from '#/locales';
+import { Button, Popconfirm, Tooltip } from 'ant-design-vue';
 
 export function useFormSchema(): VbenFormSchema[] {
   return [
+    {
+      component: 'Input',
+      fieldName: 'id',
+      label: $t('system.role.id'),
+      rules: z.string({ required_error: '역할 ID를 입력해주세요' }).min(1, '역할 ID를 입력해주세요'),
+    },
     {
       component: 'Input',
       fieldName: 'name',
@@ -109,19 +119,74 @@ export function useColumns<T = SystemRoleApi.SystemRole>(
       width: 200,
     },
     {
+      title: $t('system.role.operation'), fixed: 'right', width: 130,
       align: 'center',
-      cellRender: {
-        attrs: {
-          nameField: 'name',
-          nameTitle: $t('system.role.name'),
-          onClick: onActionClick,
+      slots: {
+        default: (record) => {
+          return h('div', { class: 'flex justify-center gap-2' }, [
+            /** 수정 버튼: Tooltip 및 Icon 사용 */
+            h(
+              Tooltip,
+              { title: $t('common.edit') },
+              {
+                default: () =>
+                  h(
+                    Button,
+                    {
+                      size: 'small',
+                      type: 'link',
+                      onClick: () =>
+                        onActionClick({ code: 'edit', row: record.row }),
+                    },
+                    {
+                      icon: () =>
+                        h(IconifyIcon, {
+                          class: 'size-4',
+                          icon: 'lucide:edit',
+                        }),
+                    },
+                  ),
+              },
+            ),
+            /** 삭제 버튼: Popconfirm을 통한 확인 절차 포함 */
+            h(
+              Popconfirm,
+              {
+                getPopupContainer: () => document.body,
+                onConfirm: () =>
+                  onActionClick({ code: 'delete', row: record.row }),
+                placement: 'topLeft',
+                title: $t('ui.actionMessage.deleteConfirm', [record.row.name]),
+              },
+              {
+                default: () =>
+                  h(
+                    Tooltip,
+                    { title: $t('common.delete') },
+                    {
+                      default: () =>
+                        h(
+                          Button,
+                          {
+                            danger: true,
+                            size: 'small',
+                            type: 'link',
+                          },
+                          {
+                            icon: () =>
+                              h(IconifyIcon, {
+                                class: 'size-4',
+                                icon: 'lucide:trash-2',
+                              }),
+                          },
+                        ),
+                    },
+                  ),
+              },
+            ),
+          ]);
         },
-        name: 'CellOperation',
       },
-      field: 'operation',
-      fixed: 'right',
-      title: $t('system.role.operation'),
-      width: 130,
     },
   ];
 }

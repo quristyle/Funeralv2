@@ -27,7 +27,7 @@ async function getRoleList(params: Recordable<any>) {
  * 역할 생성
  * @param data 역할 데이터
  */
-async function createRole(data: Omit<SystemRoleApi.SystemRole, 'id'>) {
+async function createRole(data: SystemRoleApi.SystemRole) {
   return requestClient.post('/auth/system/role', data);
 }
 
@@ -52,4 +52,19 @@ async function deleteRole(id: string) {
   return requestClient.delete(`/auth/system/role/${id}`);
 }
 
-export { createRole, deleteRole, getRoleList, updateRole };
+/**
+ * 역할 ID 중복 체크
+ * @param id 역할 ID
+ */
+async function isRoleIdExists(id: string): Promise<boolean> {
+  const res = await requestClient.get<any>('/auth/system/role/id-exists', {
+    params: { id },
+  });
+  const result = res?.result ?? res;
+  if (Array.isArray(result)) {
+    return result[0] === true;
+  }
+  return result === true;
+}
+
+export { createRole, deleteRole, getRoleList, updateRole, isRoleIdExists };

@@ -31,12 +31,31 @@ public class RoleService : IRoleService
         }).ToList();
     }
 
+    /// <summary>역할 ID 중복 검사</summary>
+    public async Task<bool> IsIdExistsAsync(string id)
+    {
+        return await _db.Roles.AnyAsync(r => r.Id == id);
+    }
+
     /// <summary>역할 생성</summary>
     public async Task<RoleDto> CreateRoleAsync(CreateRoleDto request)
     {
+        var roleId = request.Id?.Trim();
+        if (string.IsNullOrEmpty(roleId))
+        {
+            roleId = Guid.NewGuid().ToString();
+        }
+        else
+        {
+            if (await IsIdExistsAsync(roleId))
+            {
+                throw new ArgumentException("이미 존재하는 역할 ID입니다.");
+            }
+        }
+
         var role = new Role
         {
-            Id = Guid.NewGuid().ToString(),
+            Id = roleId,
             Name = request.Name,
             Status = request.Status,
             Remark = request.Remark

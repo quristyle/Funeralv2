@@ -13,6 +13,8 @@ public class AccountDto
     public string? Email { get; set; }
     public string? Phone { get; set; }
     public string Status { get; set; } = "ACTIVE";
+    public string? CompanyId { get; set; }
+    public string? CompanyName { get; set; }
     public string? DeptId { get; set; }
     public string? DeptName { get; set; }
     public DateTime CreatedAt { get; set; }

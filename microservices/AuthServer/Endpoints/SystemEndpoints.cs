@@ -47,6 +47,14 @@ public static class SystemEndpoints
         .WithOpenApi();
 
         // 역할(Role) 관리
+        group.MapGet("/role/id-exists", async ([FromQuery] string id, [FromServices] IRoleService roleService) =>
+        {
+            var exists = await roleService.IsIdExistsAsync(id);
+            return Results.Ok(ApiResponse<bool>.Ok(exists));
+        })
+        .WithName("IsRoleIdExists")
+        .WithOpenApi();
+
         group.MapGet("/role/list", async ([FromServices] IRoleService roleService) =>
         {
             var roles = await roleService.GetRoleListAsync();
@@ -58,8 +66,15 @@ public static class SystemEndpoints
 
         group.MapPost("/role", async ([FromBody] CreateRoleDto request, [FromServices] IRoleService roleService) =>
         {
-            var role = await roleService.CreateRoleAsync(request);
-            return Results.Ok(ApiResponse<RoleDto>.Ok(role));
+            try
+            {
+                var role = await roleService.CreateRoleAsync(request);
+                return Results.Ok(ApiResponse<RoleDto>.Ok(role));
+            }
+            catch (ArgumentException ex)
+            {
+                return Results.BadRequest(ApiResponse<object>.Fail(ex.Message, "400"));
+            }
         })
         .WithName("CreateRole")
         .WithOpenApi();

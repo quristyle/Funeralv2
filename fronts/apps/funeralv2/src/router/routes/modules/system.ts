@@ -22,6 +22,15 @@ const routes: RouteRecordRaw[] = [
         component: () => import('#/views/system/role/list.vue'),
       },
       {
+        path: '/system/role-custom',
+        name: 'SystemRoleCustom',
+        meta: {
+          icon: 'mdi:account-key',
+          title: '역할 권한 지정',
+        },
+        component: () => import('#/views/system/role-custom/index.vue'),
+      },
+      {
         path: '/system/menu',
         name: 'SystemMenu',
         meta: {

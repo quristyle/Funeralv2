@@ -50,6 +50,7 @@ public class UserService : IUserService
     public async Task<List<AccountDto>> GetAccountsAsync()
     {
         var accounts = await _db.Accounts
+            .Include(a => a.Company)
             .Include(a => a.Department)
             .Include(a => a.ProfileDetails)
             .ToListAsync();
@@ -67,6 +68,8 @@ public class UserService : IUserService
                 Email = emailDetail?.Content,
                 Phone = phoneDetail?.Content,
                 Status = statusDetail?.Content ?? "ACTIVE",
+                CompanyId = a.CompanyId,
+                CompanyName = a.Company?.Name,
                 DeptId = a.DepartmentId,
                 DeptName = a.Department?.Name,
                 CreatedAt = a.CreatedAt
@@ -80,12 +83,14 @@ public class UserService : IUserService
     public async Task<AccountDto> CreateAccountAsync(CreateAccountDto dto)
     {
         string? validDeptId = null;
+        string? companyId = null;
         if (!string.IsNullOrEmpty(dto.DeptId))
         {
-            var deptExists = await _db.Departments.AnyAsync(d => d.Id == dto.DeptId);
-            if (deptExists)
+            var dept = await _db.Departments.FindAsync(dto.DeptId);
+            if (dept != null)
             {
                 validDeptId = dto.DeptId;
+                companyId = dept.CompanyId;
             }
         }
 
@@ -95,7 +100,8 @@ public class UserService : IUserService
             UserName = dto.UserName,
             RealName = dto.UserName,
             Password = "1234", // 기본 비밀번호 설정
-            DepartmentId = validDeptId
+            DepartmentId = validDeptId,
+            CompanyId = companyId
         };
 
         _db.Accounts.Add(account);
@@ -167,15 +173,25 @@ public class UserService : IUserService
         account.UserName = dto.UserName;
         account.RealName = dto.UserName;
 
-        // 부서 ID 검증
+        // 부서 ID 검증 및 소속 회사 자동 할당
         if (!string.IsNullOrEmpty(dto.DeptId))
         {
-            var deptExists = await _db.Departments.AnyAsync(d => d.Id == dto.DeptId);
-            account.DepartmentId = deptExists ? dto.DeptId : null;
+            var dept = await _db.Departments.FindAsync(dto.DeptId);
+            if (dept != null)
+            {
+                account.DepartmentId = dto.DeptId;
+                account.CompanyId = dept.CompanyId;
+            }
+            else
+            {
+                account.DepartmentId = null;
+                account.CompanyId = null;
+            }
         }
         else
         {
             account.DepartmentId = null;
+            account.CompanyId = null;
         }
 
         // Email 업데이트

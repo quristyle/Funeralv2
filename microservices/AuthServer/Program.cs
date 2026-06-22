@@ -65,6 +65,7 @@ builder.Services.AddScoped<II18nResourceService, I18nResourceService>();
 builder.Services.AddScoped<ICompanyService, CompanyService>();
 builder.Services.AddScoped<ICommonCodeService, CommonCodeService>();
 builder.Services.AddScoped<IBizSelectConfigService, BizSelectConfigService>();
+builder.Services.AddScoped<IRolePermissionService, RolePermissionService>();
 
 
 
@@ -91,6 +92,7 @@ app.MapTimezoneEndpoints();
 app.MapSystemEndpoints();
 app.MapCompanyEndpoints();
 app.MapCommonCodeEndpoints();
+app.MapRolePermissionEndpoints();
 
 
 string GetServerName()

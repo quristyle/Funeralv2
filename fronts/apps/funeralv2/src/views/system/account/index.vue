@@ -31,8 +31,46 @@ const [AccountModal, accountModalApi] = useVbenModal({
   onConfirm: async () => {
     await formApi.validateAndSubmitForm();
   },
-  onOpenChange(isOpen) {
-    if (!isOpen) {
+  onOpenChange: async (isOpen) => {
+    if (isOpen) {
+      const data = accountModalApi.getData();
+      if (data?.id) {
+        isUpdate.value = true;
+        currentId.value = data.id;
+        
+        await nextTick();
+        
+        const dept = departments.value.find(d => d.id === data.deptId);
+        const formValues = {
+          ...data,
+          companyId: dept?.companyId || '',
+        };
+        formApi.setValues(formValues);
+        formApi.updateSchema([
+          {
+            fieldName: 'loginId',
+            componentProps: {
+              disabled: true,
+            },
+          },
+        ]);
+      } else {
+        isUpdate.value = false;
+        currentId.value = '';
+        
+        await nextTick();
+        
+        formApi.resetForm();
+        formApi.updateSchema([
+          {
+            fieldName: 'loginId',
+            componentProps: {
+              disabled: false,
+            },
+          },
+        ]);
+      }
+    } else {
       isUpdate.value = false;
       currentId.value = '';
       formApi.resetForm();
@@ -43,18 +81,9 @@ const [AccountModal, accountModalApi] = useVbenModal({
 // 부서 목록 로드 및 Form Schema 업데이트
 async function fetchDepts() {
   try {
-    const list = await getDeptList();
-    departments.value = list || [];
-    
-    // Form Schema의 부서 목록 options 업데이트
-    formApi.updateSchema([
-      {
-        fieldName: 'deptId',
-        componentProps: {
-          options: departments.value.map(d => ({ label: d.name, value: d.id })),
-        },
-      },
-    ]);
+    const response = await getDeptList();
+    const list = (response as any)?.result ?? response;
+    departments.value = Array.isArray(list) ? list : [];
   } catch (error) {
     message.error('부서 목록 로드 실패');
   }
@@ -79,41 +108,11 @@ const [Grid, gridApi] = useVbenVxeGrid({
 });
 
 function onCreate() {
-  isUpdate.value = false;
-  currentId.value = '';
-  
-  accountModalApi.open();
-  
-  nextTick(() => {
-    formApi.resetForm();
-    formApi.updateSchema([
-      {
-        fieldName: 'loginId',
-        componentProps: {
-          disabled: false,
-        },
-      },
-    ]);
-  });
+  accountModalApi.setData({}).open();
 }
 
 function onEdit(row: any) {
-  isUpdate.value = true;
-  currentId.value = row.id;
-  
-  accountModalApi.open();
-  
-  nextTick(() => {
-    formApi.setValues(row);
-    formApi.updateSchema([
-      {
-        fieldName: 'loginId',
-        componentProps: {
-          disabled: true,
-        },
-      },
-    ]);
-  });
+  accountModalApi.setData(row).open();
 }
 
 const getPopupContainer = () => document.body;

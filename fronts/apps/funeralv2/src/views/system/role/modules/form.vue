@@ -12,19 +12,39 @@ import { IconifyIcon } from '@vben/icons';
 
 import { Spin } from 'ant-design-vue';
 
-import { useVbenForm } from '#/adapter/form';
+import { useVbenForm, z } from '#/adapter/form';
 import { getMenuList } from '#/api/system/menu';
-import { createRole, updateRole } from '#/api/system/role';
+import { createRole, updateRole, isRoleIdExists } from '#/api/system/role';
 import { $t } from '#/locales';
+import AiCodeSuggester from '#/components/ai-code-suggester/ai-code-suggester.vue';
 
 import { useFormSchema } from '../data';
 
 const emits = defineEmits(['success']);
 
 const formData = ref<SystemRoleApi.SystemRole>();
+const roleNameVal = ref('');
+
+const schema = useFormSchema().map((item) => {
+  if (item.fieldName === 'name') {
+    return {
+      ...item,
+      componentProps: {
+        ...item.componentProps,
+        onChange: (e: any) => {
+          roleNameVal.value = e?.target?.value || e;
+        },
+        onInput: (e: any) => {
+          roleNameVal.value = e?.target?.value || e;
+        },
+      },
+    };
+  }
+  return item;
+});
 
 const [Form, formApi] = useVbenForm({
-  schema: useFormSchema(),
+  schema: schema,
   showDefaultActions: false,
 });
 
@@ -38,7 +58,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
     if (!valid) return;
     const values = await formApi.getValues();
     drawerApi.lock();
-    (id.value ? updateRole(id.value, values) : createRole(values))
+    (id.value ? updateRole(id.value, values as any) : createRole(values as any))
       .then(() => {
         emits('success');
         drawerApi.close();
@@ -53,11 +73,40 @@ const [Drawer, drawerApi] = useVbenDrawer({
       const data = drawerApi.getData<SystemRoleApi.SystemRole>();
       formApi.resetForm();
 
-      if (data) {
+      if (data && data.id) {
         formData.value = data;
         id.value = data.id;
+        roleNameVal.value = data.name || '';
+        formApi.updateSchema([
+          {
+            fieldName: 'id',
+            componentProps: {
+              disabled: true,
+            },
+            rules: z.string(),
+          },
+        ]);
       } else {
         id.value = undefined;
+        roleNameVal.value = '';
+        formApi.updateSchema([
+          {
+            fieldName: 'id',
+            componentProps: {
+              disabled: false,
+            },
+            rules: z.string()
+              .min(1, '역할 ID를 입력해주세요')
+              .refine(
+                async (val) => {
+                  return !(await isRoleIdExists(val));
+                },
+                (val) => ({
+                  message: `이미 존재하는 역할 ID입니다: ${val}`
+                })
+              ),
+          },
+        ]);
       }
 
       if (permissions.value.length === 0) {
@@ -121,6 +170,11 @@ function getNodeClass(node: Recordable<any>) {
         </Spin>
       </template>
     </Form>
+    <AiCodeSuggester 
+      v-if="!id && roleNameVal"
+      :input-text="roleNameVal" 
+      @select="(code) => formApi.setFieldValue('id', code)" 
+    />
   </Drawer>
 </template>
 <style lang="css" scoped>

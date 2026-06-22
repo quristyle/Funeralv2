@@ -1,13 +1,17 @@
+import { markRaw } from 'vue';
 import type { VbenFormSchema } from '#/adapter/form';
 import type { VxeGridProps } from '#/adapter/vxe-table';
 
 import { $t } from '#/locales';
+import { z } from '#/adapter/form';
+import BizSelect from '#/components/BizSelect.vue';
 
 /**
  * 사용자 계정 관리 테이블 컬럼 정의
  */
 export const useColumns = (): VxeGridProps['columns'] => [
   { field: 'userName', title: $t('system.account.userName'), minWidth: 120 },
+  { field: 'companyName', title: '소속 회사명', minWidth: 150 },
   { field: 'loginId', title: $t('system.account.loginId'), minWidth: 120 },
   { field: 'deptName', title: $t('system.account.deptName'), minWidth: 150 },
   { field: 'email', title: $t('system.account.email'), minWidth: 180 },
@@ -50,13 +54,36 @@ export const useSchema = (): VbenFormSchema[] => [
     rules: 'required',
   },
   {
-    component: 'Select',
+    component: markRaw(BizSelect),
     componentProps: {
-      options: [],
-      placeholder: $t('system.account.placeholder.dept'),
+      type: 'company',
+      placeholder: '회사를 선택해주세요',
+    },
+    fieldName: 'companyId',
+    label: '소속 회사',
+    rules: z.string({ required_error: '회사를 선택해주세요' }),
+  },
+  {
+    component: markRaw(BizSelect),
+    componentProps: {
+      type: 'dept',
+      placeholder: '부서를 선택해주세요',
+      allowClear: true,
+      class: 'w-full',
+    },
+    dependencies: {
+      componentProps(values) {
+        return {
+          params: {
+            companyId: values.companyId,
+          },
+        };
+      },
+      triggerFields: ['companyId'],
     },
     fieldName: 'deptId',
     label: $t('system.account.dept'),
+    rules: z.string({ required_error: '부서를 선택해주세요' }),
   },
   {
     component: 'Input',
