@@ -1,5 +1,6 @@
 using AuthServer.Data;
 using AuthServer.Endpoints;
+using AuthServer.Entities;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -63,6 +64,7 @@ builder.Services.AddScoped<ISystemMenuService, SystemMenuService>();
 builder.Services.AddScoped<II18nResourceService, I18nResourceService>();
 builder.Services.AddScoped<ICompanyService, CompanyService>();
 builder.Services.AddScoped<ICommonCodeService, CommonCodeService>();
+builder.Services.AddScoped<IBizSelectConfigService, BizSelectConfigService>();
 
 
 
@@ -165,6 +167,40 @@ app.Lifetime.ApplicationStarted.Register(() =>
 });
 
 
-
+// 4. DB 메타데이터 초기 Seed 데이터 주입
+using (var scope = app.Services.CreateScope())
+{
+    var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    if (!dbContext.BizSelectConfigs.Any())
+    {
+        dbContext.BizSelectConfigs.AddRange(new List<BizSelectConfig>
+        {
+            new BizSelectConfig
+            {
+                Id = "1",
+                BizType = "company",
+                ApiUrl = "/auth/system/companies",
+                HttpMethod = "GET",
+                LabelField = "name",
+                ValueField = "id",
+                ResultPath = "result",
+                Remark = "회사 목록"
+            },
+            new BizSelectConfig
+            {
+                Id = "2",
+                BizType = "dept",
+                ApiUrl = "/auth/system/dept/list",
+                HttpMethod = "GET",
+                LabelField = "name",
+                ValueField = "id",
+                ResultPath = null,
+                ProcessorType = "FLATTEN",
+                Remark = "부서 목록"
+            }
+        });
+        dbContext.SaveChanges();
+    }
+}
 
 app.Run();

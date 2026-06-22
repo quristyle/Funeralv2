@@ -48,6 +48,15 @@ const routes: RouteRecordRaw[] = [
         },
         component: () => import('#/views/system/company/list.vue'),
       },
+      {
+        path: '/system/biz-select-config',
+        name: 'SystemBizSelectConfig',
+        meta: {
+          icon: 'mdi:format-list-bulleted-type',
+          title: 'BizSelect 설정',
+        },
+        component: () => import('#/views/system/biz-select-config/list.vue'),
+      },
     ],
   },
 ];

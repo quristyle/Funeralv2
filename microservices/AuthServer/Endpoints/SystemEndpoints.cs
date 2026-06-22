@@ -81,9 +81,9 @@ public static class SystemEndpoints
         .WithOpenApi();
 
         // 부서(Department) 관리
-        group.MapGet("/dept/list", async (UserContext? userContext, [FromServices] IDepartmentService deptService) =>
+        group.MapGet("/dept/list", async ([FromQuery] string? companyId, UserContext? userContext, [FromServices] IDepartmentService deptService) =>
         {
-            var depts = await deptService.GetDeptListAsync(userContext);
+            var depts = await deptService.GetDeptListAsync(companyId, userContext);
             return Results.Ok(ApiResponse<List<DepartmentDto>>.Ok(depts));
         })
         .WithName("GetDeptList")
@@ -235,6 +235,39 @@ public static class SystemEndpoints
             return Results.Ok(ApiResponse<bool>.Ok(true));
         })
         .WithName("EnsureI18nResource")
+        .WithOpenApi();
+
+        // BizSelect 설정 관리
+        group.MapGet("/biz-select/configs", async ([FromServices] IBizSelectConfigService configService) =>
+        {
+            var configs = await configService.GetAllConfigsAsync();
+            return Results.Ok(ApiResponse<List<BizSelectConfigDto>>.Ok(configs.ToList()));
+        })
+        .WithName("GetBizSelectConfigs")
+        .WithOpenApi();
+
+        group.MapPost("/biz-select/config", async ([FromBody] BizSelectConfigCreateDto request, [FromServices] IBizSelectConfigService configService) =>
+        {
+            var config = await configService.CreateConfigAsync(request);
+            return Results.Ok(ApiResponse<BizSelectConfigDto>.Ok(config));
+        })
+        .WithName("CreateBizSelectConfig")
+        .WithOpenApi();
+
+        group.MapPut("/biz-select/config/{id}", async (string id, [FromBody] BizSelectConfigCreateDto request, [FromServices] IBizSelectConfigService configService) =>
+        {
+            var success = await configService.UpdateConfigAsync(id, request);
+            return success ? Results.Ok(ApiResponse<bool>.Ok(true)) : Results.NotFound(ApiResponse<object>.Fail("설정을 찾을 수 없습니다.", "404"));
+        })
+        .WithName("UpdateBizSelectConfig")
+        .WithOpenApi();
+
+        group.MapDelete("/biz-select/config/{id}", async (string id, [FromServices] IBizSelectConfigService configService) =>
+        {
+            var success = await configService.DeleteConfigAsync(id);
+            return success ? Results.Ok(ApiResponse<bool>.Ok(true)) : Results.NotFound(ApiResponse<object>.Fail("설정을 찾을 수 없습니다.", "404"));
+        })
+        .WithName("DeleteBizSelectConfig")
         .WithOpenApi();
     }
 }

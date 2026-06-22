@@ -1,4 +1,4 @@
-import { h } from 'vue';
+import { h, markRaw } from 'vue';
 
 import { IconifyIcon } from '@vben/icons';
 import { $t } from '#/locales';
@@ -11,13 +11,23 @@ import type { OnActionClickFn } from '#/adapter/vxe-table';
 import type { SystemDeptApi } from '#/api/system/dept';
 
 import { z } from '#/adapter/form';
-import { getDeptList } from '#/api/system/dept';
+import BizSelect from '#/components/BizSelect.vue';
 
 /**
  * 편집 폼의 필드 구성을 가져옵니다. 다국어를 사용하지 않는 경우 배열 상수를 직접 export할 수 있습니다.
  */
 export function useSchema(): VbenFormSchema[] {
   return [
+    {
+      component: markRaw(BizSelect),
+      componentProps: {
+        type: 'company',
+        placeholder: '회사를 선택해주세요',
+      },
+      fieldName: 'companyId',
+      label: '소속 회사',
+      rules: z.string({ required_error: '회사를 선택해주세요' }),
+    },
     {
       component: 'Input',
       fieldName: 'name',
@@ -31,14 +41,22 @@ export function useSchema(): VbenFormSchema[] {
         ),
     },
     {
-      component: 'ApiTreeSelect',
+      component: markRaw(BizSelect),
       componentProps: {
+        type: 'dept',
+        placeholder: '상위 부서를 선택해주세요',
         allowClear: true,
-        api: getDeptList,
         class: 'w-full',
-        labelField: 'name',
-        valueField: 'id',
-        childrenField: 'children',
+      },
+      dependencies: {
+        componentProps(values) {
+          return {
+            params: {
+              companyId: values.companyId,
+            },
+          };
+        },
+        triggerFields: ['companyId'],
       },
       fieldName: 'pid',
       label: $t('system.dept.parentDept'),
@@ -92,6 +110,11 @@ export function useColumns(
       width: 150,
     },
     {
+      field: 'companyName',
+      title: '회사명',
+      width: 150,
+    },
+    {
       cellRender: { name: 'CellTag' },
       field: 'status',
       title: $t('system.dept.status'),
@@ -108,7 +131,6 @@ export function useColumns(
     },
     {
       align: 'right',
-      field: 'operation',
       fixed: 'right',
       headerAlign: 'center',
       showOverflow: false,
@@ -205,7 +227,7 @@ export function useColumns(
           ]);
         },
       },
-      title: $t('system.dept.operation'),
+      title: $t('common.action'),
       width: 150,
     },
   ];

@@ -50,6 +50,15 @@ async function bootstrap(namespace: string) {
   // pinia-store 설정 (i18n보다 먼저 호출하여 API 호출 시 스토어 접근 가능하게 함)
   await initStores(app, { namespace });
 
+  // DB 메타데이터 기반 BizSelect 설정 프리로드
+  try {
+    const { useBizSelectStore } = await import('#/store/biz-select-config');
+    const bizSelectStore = useBizSelectStore();
+    await bizSelectStore.loadConfigs();
+  } catch (error) {
+    console.error('Failed to preload BizSelect configs during bootstrap:', error);
+  }
+
   // 국제화 i18n 설정
   await setupI18n(app);
 

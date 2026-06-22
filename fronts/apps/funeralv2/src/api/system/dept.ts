@@ -6,6 +6,8 @@ export namespace SystemDeptApi {
     children?: SystemDept[];
     id: string;
     name: string;
+    companyId?: string;
+    companyName?: string;
     remark?: string;
     status: 0 | 1;
   }
@@ -14,9 +16,10 @@ export namespace SystemDeptApi {
 /**
  * 부서 목록 데이터 가져오기
  */
-async function getDeptList() {
+async function getDeptList(companyId?: string) {
   return requestClient.get<Array<SystemDeptApi.SystemDept>>(
     '/auth/system/dept/list',
+    { params: { companyId } }
   );
 }
 

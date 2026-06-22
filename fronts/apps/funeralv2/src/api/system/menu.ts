@@ -103,19 +103,29 @@ async function getMenuList(): Promise<Array<SystemMenuApi.SystemMenu>> {
 async function isMenuNameExists(
   name: string,
   id?: SystemMenuApi.SystemMenu['id'],
-) {
-  return requestClient.get<boolean>('/auth/system/menu/name-exists', {
+): Promise<boolean> {
+  const res = await requestClient.get<any>('/auth/system/menu/name-exists', {
     params: { id, name },
   });
+  const result = res?.result ?? res;
+  if (Array.isArray(result)) {
+    return result[0] === true;
+  }
+  return result === true;
 }
 
 async function isMenuPathExists(
   path: string,
   id?: SystemMenuApi.SystemMenu['id'],
-) {
-  return requestClient.get<boolean>('/auth/system/menu/path-exists', {
+): Promise<boolean> {
+  const res = await requestClient.get<any>('/auth/system/menu/path-exists', {
     params: { id, path },
   });
+  const result = res?.result ?? res;
+  if (Array.isArray(result)) {
+    return result[0] === true;
+  }
+  return result === true;
 }
 
 /**

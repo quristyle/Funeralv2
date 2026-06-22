@@ -21,6 +21,16 @@ public class DepartmentDto
     public string? Pid { get; set; }
 
     /// <summary>
+    /// 소속 회사 아이디
+    /// </summary>
+    public string? CompanyId { get; set; }
+
+    /// <summary>
+    /// 소속 회사명
+    /// </summary>
+    public string? CompanyName { get; set; }
+
+    /// <summary>
     /// 부서 설명/메모
     /// </summary>
     public string? Remark { get; set; }
@@ -50,6 +60,11 @@ public class CreateDepartmentDto
     /// 상위 부서 아이디
     /// </summary>
     public string? Pid { get; set; }
+
+    /// <summary>
+    /// 소속 회사 아이디
+    /// </summary>
+    public string? CompanyId { get; set; }
 
     /// <summary>
     /// 부서 설명/메모

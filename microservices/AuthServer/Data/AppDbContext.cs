@@ -25,6 +25,7 @@ public class AppDbContext : DbContext
     public DbSet<I18nResource> I18nResources { get; set; }
     public DbSet<CommonCodeGroup> CommonCodeGroups { get; set; }
     public DbSet<CommonCode> CommonCodes { get; set; }
+    public DbSet<BizSelectConfig> BizSelectConfigs { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

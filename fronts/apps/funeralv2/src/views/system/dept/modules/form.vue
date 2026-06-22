@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import type { SystemDeptApi } from '#/api/system/dept';
 
-import { computed, ref } from 'vue';
+import { computed, nextTick, ref } from 'vue';
 
 import { useVbenModal } from '@vben/common-ui';
 
@@ -57,7 +57,9 @@ const [Modal, modalApi] = useVbenModal({
           data.pid = undefined;
         }
         formData.value = data;
-        formApi.setValues(formData.value);
+        nextTick(() => {
+          formApi.setValues(formData.value || {});
+        });
       }
     }
   },

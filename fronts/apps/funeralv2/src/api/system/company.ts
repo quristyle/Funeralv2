@@ -87,7 +87,6 @@ async function deleteCompany(id: string) {
 }
 
 export {  
-  SystemCompanyApi,
   createCompany,
   deleteCompany,
   getCompanyList,

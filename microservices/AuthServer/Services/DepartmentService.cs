@@ -18,12 +18,19 @@ public class DepartmentService : IDepartmentService
     }
 
     /// <summary>부서 목록 트리 구조 조회</summary>
-    public async Task<List<DepartmentDto>> GetDeptListAsync(UserContext? userContext)
+    public async Task<List<DepartmentDto>> GetDeptListAsync(string? companyId, UserContext? userContext)
     {
-        var companyId = userContext?.CompanyId;
-        var departments = await _db.Departments
-            .Where(d => d.CompanyId == companyId)
-            .ToListAsync();
+        var targetCompanyId = companyId ?? userContext?.CompanyId;
+        var query = _db.Departments
+            .Include(d => d.Company)
+            .AsQueryable();
+
+        if (!string.IsNullOrEmpty(targetCompanyId))
+        {
+            query = query.Where(d => d.CompanyId == targetCompanyId);
+        }
+
+        var departments = await query.ToListAsync();
         return BuildDeptTree(departments, null);
     }
 
@@ -39,6 +46,8 @@ public class DepartmentService : IDepartmentService
                 Pid = d.ParentId,
                 Status = d.Status,
                 Remark = d.Remark,
+                CompanyId = d.CompanyId,
+                CompanyName = d.Company?.Name,
                 Children = BuildDeptTree(depts, d.Id).Any() ? BuildDeptTree(depts, d.Id) : null
             })
             .ToList();
@@ -54,12 +63,20 @@ public class DepartmentService : IDepartmentService
             ParentId = request.Pid,
             Status = request.Status,
             Remark = request.Remark,
-            CompanyId = userContext?.CompanyId
+            CompanyId = request.CompanyId ?? userContext?.CompanyId
         };
         _db.Departments.Add(dept);
         await _db.SaveChangesAsync();
         
-        return new DepartmentDto { Id = dept.Id, Name = dept.Name, Pid = dept.ParentId, Status = dept.Status, Remark = dept.Remark };
+        return new DepartmentDto 
+        { 
+            Id = dept.Id, 
+            Name = dept.Name, 
+            Pid = dept.ParentId, 
+            Status = dept.Status, 
+            Remark = dept.Remark,
+            CompanyId = dept.CompanyId
+        };
     }
 
     /// <summary>부서 수정</summary>
@@ -67,7 +84,7 @@ public class DepartmentService : IDepartmentService
     {
         var companyId = userContext?.CompanyId;
         var dept = await _db.Departments
-            .FirstOrDefaultAsync(d => d.Id == id && d.CompanyId == companyId);
+            .FirstOrDefaultAsync(d => d.Id == id && (string.IsNullOrEmpty(companyId) || d.CompanyId == companyId));
         
         if (dept == null) return false;
 
@@ -75,6 +92,10 @@ public class DepartmentService : IDepartmentService
         dept.ParentId = request.Pid;
         dept.Status = request.Status;
         dept.Remark = request.Remark;
+        if (!string.IsNullOrEmpty(request.CompanyId))
+        {
+            dept.CompanyId = request.CompanyId;
+        }
         
         await _db.SaveChangesAsync();
         return true;
@@ -85,7 +106,7 @@ public class DepartmentService : IDepartmentService
     {
         var companyId = userContext?.CompanyId;
         var dept = await _db.Departments
-            .FirstOrDefaultAsync(d => d.Id == id && d.CompanyId == companyId);
+            .FirstOrDefaultAsync(d => d.Id == id && (string.IsNullOrEmpty(companyId) || d.CompanyId == companyId));
             
         if (dept == null) return false;
 

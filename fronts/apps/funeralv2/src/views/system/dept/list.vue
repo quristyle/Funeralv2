@@ -5,17 +5,26 @@ import type {
 } from '#/adapter/vxe-table';
 import type { SystemDeptApi } from '#/api/system/dept';
 
+import { ref } from 'vue';
+
 import { Page, useVbenModal } from '@vben/common-ui';
 import { Plus } from '@vben/icons';
 
 import { Button, message } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
+import BizSelect from '#/components/BizSelect.vue';
 import { deleteDept, getDeptList } from '#/api/system/dept';
 import { $t } from '#/locales';
 
 import { useColumns } from './data';
 import Form from './modules/form.vue';
+
+const selectedCompanyId = ref<string | undefined>(undefined);
+
+function onCompanyChange() {
+  refreshGrid();
+}
 
 const [FormModal, formModalApi] = useVbenModal({
   connectedComponent: Form,
@@ -35,14 +44,14 @@ function onEdit(row: SystemDeptApi.SystemDept) {
  * @param row
  */
 function onAppend(row: SystemDeptApi.SystemDept) {
-  formModalApi.setData({ pid: row.id }).open();
+  formModalApi.setData({ pid: row.id, companyId: selectedCompanyId.value }).open();
 }
 
 /**
  * 새 부서 생성
  */
 function onCreate() {
-  formModalApi.setData(null).open();
+  formModalApi.setData({ companyId: selectedCompanyId.value }).open();
 }
 
 /**
@@ -97,7 +106,7 @@ const [Grid, gridApi] = useVbenVxeGrid({
     proxyConfig: {
       ajax: {
         query: async (_params) => {
-          return await getDeptList();
+          return await getDeptList(selectedCompanyId.value);
         },
       },
     },
@@ -125,6 +134,20 @@ function refreshGrid() {
 <template>
   <Page auto-content-height>
     <FormModal @success="refreshGrid" />
+    <div class="mb-4 flex items-center gap-4 bg-card p-4 rounded-lg shadow-sm border border-border">
+      <span class="text-sm font-medium">회사 선택 :</span>
+      <BizSelect
+        v-model:value="selectedCompanyId"
+        type="company"
+        auto-select-first
+        show-all
+        placeholder="회사를 선택해주세요"
+        class="w-64"
+        show-search
+        option-filter-prop="label"
+        @change="onCompanyChange"
+      />
+    </div>
     <Grid table-title="부서 목록">
       <template #toolbar-tools>
         <Button type="primary" @click="onCreate">
