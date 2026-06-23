@@ -76,6 +76,16 @@ export function resetAllStores() {
   }
   const allStores = (pinia as any)._s;
   for (const [_key, store] of allStores) {
-    store.$reset();
+    try {
+      if (typeof store.$reset === 'function') {
+        store.$reset();
+      }
+    } catch (error) {
+      console.warn(`Failed to reset store ${_key}:`, error);
+      // setup 스토어 형식이라 $reset()에서 에러가 발생한 경우 clearCache 등이 있으면 호출
+      if (store && typeof (store as any).clearCache === 'function') {
+        (store as any).clearCache();
+      }
+    }
   }
 }

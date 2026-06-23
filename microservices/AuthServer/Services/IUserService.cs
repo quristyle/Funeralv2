@@ -33,4 +33,19 @@ public interface IUserService
     /// 계정을 삭제합니다.
     /// </summary>
     Task<bool> DeleteAccountAsync(string id);
+
+    /// <summary>
+    /// 로그인한 사용자의 프로필 정보를 업데이트합니다.
+    /// </summary>
+    Task<bool> UpdateProfileAsync(string userId, UpdateProfileDto dto);
+
+    /// <summary>
+    /// 로그인한 사용자의 비밀번호를 변경합니다.
+    /// </summary>
+    Task<bool> ChangePasswordAsync(string userId, ChangePasswordDto dto);
+
+    /// <summary>
+    /// 로그인한 사용자의 설정을 업데이트합니다.
+    /// </summary>
+    Task<bool> UpdateSettingAsync(string userId, UpdateSettingDto dto);
 }

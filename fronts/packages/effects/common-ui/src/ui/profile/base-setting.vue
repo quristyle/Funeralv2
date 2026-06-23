@@ -15,7 +15,36 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  formSchema: () => [],
+  formSchema: () => [
+    {
+      fieldName: 'realName',
+      component: 'Input',
+      label: '이름',
+    },
+    {
+      fieldName: 'username',
+      component: 'Input',
+      componentProps: {
+        disabled: true,
+      },
+      label: '사용자명',
+    },
+    {
+      fieldName: 'email',
+      component: 'Input',
+      label: '이메일',
+    },
+    {
+      fieldName: 'phone',
+      component: 'Input',
+      label: '전화번호',
+    },
+    {
+      fieldName: 'introduction',
+      component: 'Textarea',
+      label: '자기소개',
+    },
+  ],
 });
 
 const emit = defineEmits<{
@@ -51,6 +80,8 @@ defineExpose({
 <template>
   <div @keydown.enter.prevent="handleSubmit">
     <Form />
+
+    <p>권한관리가 마무리 되면 homePath 도 여기서 관리 할수 있도록 해야함.</p>
     <VbenButton type="submit" class="mt-4" @click="handleSubmit">
       {{ $t('profile.updateBasicProfile') }}
     </VbenButton>

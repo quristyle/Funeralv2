@@ -23,7 +23,10 @@ import { refreshTokenApi } from './core';
 
 const { apiURL } = useAppConfig(import.meta.env, import.meta.env.PROD);
 
-function createRequestClient(baseURL: string, options?: RequestClientOptions) {
+function createRequestClient(
+  baseURL: string,
+  options?: RequestClientOptions & { dataField?: string },
+) {
   const client = new RequestClient({
     ...options,
     baseURL,
@@ -102,7 +105,7 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
   client.addResponseInterceptor(
     defaultResponseInterceptor({
       codeField: 'code',
-      dataField: 'data',
+      dataField: options?.dataField || 'data',
       successCode: 'S000',
     }),
   );
@@ -134,6 +137,12 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
 }
 
 export const requestClient = createRequestClient(apiURL, {
+  dataField: 'data',
+  responseReturn: 'data',
+});
+
+export const requestListClient = createRequestClient(apiURL, {
+  dataField: 'data.result',
   responseReturn: 'data',
 });
 

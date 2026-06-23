@@ -74,10 +74,15 @@ cd "$ROOT_DIR"
 # 범용적인 xdg-terminal-exec를 사용하여 시스템 기본 터미널에서 서비스를 실행합니다.
 # 명령어 마지막의 '; exec bash'를 제거하여, 프로세스 종료 시 터미널 창이 자동으로 닫히도록 합니다.
 # 각 명령 끝에 '&'를 추가하여 백그라운드에서 실행하고, 스크립트가 다음 명령으로 즉시 진행하도록 합니다.
+xdg-terminal-exec bash -c "cd $GATEWAY_DIR && SERVER_NAME=GATEWAY DOTNET_WATCH_HOT_RELOAD=0 dotnet watch run --no-hot-reload" &
+
+NVM_INIT_COMMAND="export NVM_DIR=\"\$HOME/.nvm\"; [ -s \"\$NVM_DIR/nvm.sh\" ] && \. \"\$NVM_DIR/nvm.sh\";"
+xdg-terminal-exec bash -c "trap ':' INT; ${NVM_INIT_COMMAND} cd $FRONTEND_DIR && pnpm dev" &
+
+
 xdg-terminal-exec bash -c "cd $AUTH_SERVER_DIR && SERVER_NAME=AUTH DOTNET_WATCH_HOT_RELOAD=0 dotnet watch run --no-hot-reload" &
 xdg-terminal-exec bash -c "cd $MICROSERVICE_DIR && SERVER_NAME=FUNERALV2 DOTNET_WATCH_HOT_RELOAD=0 dotnet watch run --no-hot-reload" &
 xdg-terminal-exec bash -c "cd $AI_AGENT_DIR && SERVER_NAME=AI_AGENT DOTNET_WATCH_HOT_RELOAD=0 dotnet watch run --no-hot-reload" &
-xdg-terminal-exec bash -c "cd $GATEWAY_DIR && SERVER_NAME=GATEWAY DOTNET_WATCH_HOT_RELOAD=0 dotnet watch run --no-hot-reload" &
 
 # [단계 3] 프론트엔드 실행 - 단계 번호 수정
 echo ">>> [3/4] 프론트엔드 (Vben Admin) 실행 중..."
@@ -96,8 +101,6 @@ echo ">>> [3/4] 프론트엔드 (Vben Admin) 실행 중..."
 # nvm 환경을 로드하고 프론트엔드를 실행합니다.
 # 새로운 터미널(non-login, non-interactive shell)은 .bashrc를 자동으로 로드하지 않으므로,
 # nvm 스크립트를 수동으로 source하여 node와 pnpm 경로를 설정해줍니다.
-NVM_INIT_COMMAND="export NVM_DIR=\"\$HOME/.nvm\"; [ -s \"\$NVM_DIR/nvm.sh\" ] && \. \"\$NVM_DIR/nvm.sh\";"
-xdg-terminal-exec bash -c "trap ':' INT; ${NVM_INIT_COMMAND} cd $FRONTEND_DIR && pnpm dev" &
 
 
 #echo ">>> [3/3] 프론트엔드 (Vben Admin) 실행 중..."

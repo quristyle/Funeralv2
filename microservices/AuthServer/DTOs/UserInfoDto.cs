@@ -30,4 +30,18 @@ public class UserInfoDto
 
     /// <summary>추가 토큰 정보 (필요 시)</summary>
     public string Token { get; set; } = string.Empty;
+
+    // 프로필 확장 필드 (기본 설정, 보안 설정, 알림 설정 값 바인딩용)
+    public string? Introduction { get; set; }
+    public string? Phone { get; set; }
+    public string? Email { get; set; }
+    
+    public bool SecurityPhone { get; set; }
+    public bool SecurityQuestion { get; set; }
+    public bool SecurityEmail { get; set; }
+    public bool SecurityMfa { get; set; }
+    
+    public bool SystemMessage { get; set; }
+    public bool TodoTask { get; set; }
+    public bool AccountPasswordNotify { get; set; }
 }

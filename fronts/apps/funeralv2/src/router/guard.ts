@@ -129,7 +129,7 @@ function setupAccessGuard(router: Router) {
     // 라우트 테이블 생성
     // 현재 로그인한 사용자가 보유한 역할 식별자 목록
     const userInfo = userStore.userInfo || (await authStore.fetchUserInfo());
-    const userRoles = userInfo.roles ?? [];
+    const userRoles = userInfo?.roles ?? [];
 
     // 메뉴 및 라우트 생성
     const { accessibleMenus, accessibleRoutes } = await generateAccess({
@@ -148,7 +148,7 @@ function setupAccessGuard(router: Router) {
       redirectPath = from.query.redirect as string;
     } else if (to.fullPath === preferences.app.defaultHomePath) {
       redirectPath = preferences.app.defaultHomePath;
-    } else if (userInfo.homePath && to.fullPath === userInfo.homePath) {
+    } else if (userInfo?.homePath && to.fullPath === userInfo.homePath) {
       redirectPath = userInfo.homePath;
     } else {
       redirectPath = to.fullPath;

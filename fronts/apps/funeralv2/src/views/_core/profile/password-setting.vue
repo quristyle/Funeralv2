@@ -7,6 +7,8 @@ import { ProfilePasswordSetting, z } from '@vben/common-ui';
 
 import { message } from 'ant-design-vue';
 
+import { changePasswordApi } from '#/api';
+
 const formSchema = computed((): VbenFormSchema[] => {
   return [
     {
@@ -50,8 +52,16 @@ const formSchema = computed((): VbenFormSchema[] => {
   ];
 });
 
-function handleSubmit() {
-  message.success('비밀번호가 성공적으로 변경되었습니다');
+async function handleSubmit(values: any) {
+  try {
+    await changePasswordApi({
+      oldPassword: values.oldPassword,
+      newPassword: values.newPassword,
+    });
+    message.success('비밀번호가 성공적으로 변경되었습니다');
+  } catch (error) {
+    message.error('비밀번호 변경에 실패했습니다. 이전 비밀번호를 확인해주세요.');
+  }
 }
 </script>
 <template>

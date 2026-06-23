@@ -53,7 +53,7 @@ export async function refreshTokenApi() {
  * 로그아웃
  */
 export async function logoutApi() {
-  return baseRequestClient.post('/auth/logout', null, {
+  return requestClient.post('/auth/logout', null, {
     withCredentials: true,
   });
 }

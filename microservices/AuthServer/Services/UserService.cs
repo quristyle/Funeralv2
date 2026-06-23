@@ -28,9 +28,24 @@ public class UserService : IUserService
     {
         // 아이디 또는 UserId로 계정 조회
         var account = await _db.Accounts
+            .Include(a => a.ProfileDetails)
             .FirstOrDefaultAsync(a => a.UserId == userIdOrKey || a.Id == userIdOrKey);
 
         if (account == null) return null;
+
+        var introduction = account.ProfileDetails?.FirstOrDefault(p => p.DetailType == "Introduction")?.Content;
+        var phone = account.ProfileDetails?.FirstOrDefault(p => p.DetailType == "Phone")?.Content;
+        var email = account.ProfileDetails?.FirstOrDefault(p => p.DetailType == "Email")?.Content;
+        var homePath = account.ProfileDetails?.FirstOrDefault(p => p.DetailType == "HomePath")?.Content;
+
+        var securityPhone = account.ProfileDetails?.FirstOrDefault(p => p.DetailType == "SecurityPhone")?.Content == "true";
+        var securityQuestion = account.ProfileDetails?.FirstOrDefault(p => p.DetailType == "SecurityQuestion")?.Content == "true";
+        var securityEmail = account.ProfileDetails?.FirstOrDefault(p => p.DetailType == "SecurityEmail")?.Content == "true";
+        var securityMfa = account.ProfileDetails?.FirstOrDefault(p => p.DetailType == "SecurityMfa")?.Content == "true";
+
+        var systemMessage = account.ProfileDetails?.FirstOrDefault(p => p.DetailType == "SystemMessage")?.Content == "true";
+        var todoTask = account.ProfileDetails?.FirstOrDefault(p => p.DetailType == "TodoTask")?.Content == "true";
+        var accountPasswordNotify = account.ProfileDetails?.FirstOrDefault(p => p.DetailType == "AccountPasswordNotify")?.Content == "true";
 
         // 프론트엔드 요구사항에 맞춰 DTO 구성
         return new UserInfoDto
@@ -39,8 +54,19 @@ public class UserService : IUserService
             UserId = account.UserId,
             Username = account.UserId,
             RealName = account.UserName,
-            //Desc = account.Email ?? "등록된 설명이 없습니다.",
-            Roles = new List<string> { "super" } // 기본 관리자 권한 부여
+            Desc = email ?? "등록된 설명이 없습니다.",
+            HomePath = homePath ?? "/dashboard/workspace",
+            Roles = new List<string> { "super" }, // 기본 관리자 권한 부여
+            Introduction = introduction,
+            Phone = phone,
+            Email = email,
+            SecurityPhone = securityPhone,
+            SecurityQuestion = securityQuestion,
+            SecurityEmail = securityEmail,
+            SecurityMfa = securityMfa,
+            SystemMessage = systemMessage,
+            TodoTask = todoTask,
+            AccountPasswordNotify = accountPasswordNotify
         };
     }
 
@@ -133,6 +159,14 @@ public class UserService : IUserService
             AccountId = account.Id,
             DetailType = "Status",
             Content = dto.Status ?? "ACTIVE",
+            IsPrimary = true
+        });
+
+        _db.AccountProfileDetails.Add(new AccountProfileDetail
+        {
+            AccountId = account.Id,
+            DetailType = "HomePath",
+            Content = "/dashboard/workspace",
             IsPrimary = true
         });
 
@@ -283,6 +317,143 @@ public class UserService : IUserService
         }
 
         _db.Accounts.Remove(account);
+        await _db.SaveChangesAsync();
+        return true;
+    }
+
+    /// <summary>
+    /// 로그인한 사용자의 프로필 정보를 업데이트합니다.
+    /// </summary>
+    public async Task<bool> UpdateProfileAsync(string userId, UpdateProfileDto dto)
+    {
+        var account = await _db.Accounts
+            .Include(a => a.ProfileDetails)
+            .FirstOrDefaultAsync(a => a.UserId == userId || a.Id == userId);
+
+        if (account == null) return false;
+
+        // UserName(RealName) 업데이트
+        if (!string.IsNullOrEmpty(dto.RealName))
+        {
+            account.UserName = dto.RealName;
+            account.RealName = dto.RealName;
+        }
+
+        // Introduction 업데이트
+        var introDetail = account.ProfileDetails?.FirstOrDefault(p => p.DetailType == "Introduction");
+        if (introDetail != null)
+        {
+            introDetail.Content = dto.Introduction ?? string.Empty;
+            _db.Entry(introDetail).State = EntityState.Modified;
+        }
+        else
+        {
+            _db.AccountProfileDetails.Add(new AccountProfileDetail
+            {
+                AccountId = account.Id,
+                DetailType = "Introduction",
+                Content = dto.Introduction ?? string.Empty,
+                IsPrimary = true
+            });
+        }
+
+        // Email 업데이트
+        if (dto.Email != null)
+        {
+            var emailDetail = account.ProfileDetails?.FirstOrDefault(p => p.DetailType == "Email");
+            if (emailDetail != null)
+            {
+                emailDetail.Content = dto.Email;
+                _db.Entry(emailDetail).State = EntityState.Modified;
+            }
+            else
+            {
+                _db.AccountProfileDetails.Add(new AccountProfileDetail
+                {
+                    AccountId = account.Id,
+                    DetailType = "Email",
+                    Content = dto.Email,
+                    IsPrimary = true
+                });
+            }
+        }
+
+        // Phone 업데이트
+        if (dto.Phone != null)
+        {
+            var phoneDetail = account.ProfileDetails?.FirstOrDefault(p => p.DetailType == "Phone");
+            if (phoneDetail != null)
+            {
+                phoneDetail.Content = dto.Phone;
+                _db.Entry(phoneDetail).State = EntityState.Modified;
+            }
+            else
+            {
+                _db.AccountProfileDetails.Add(new AccountProfileDetail
+                {
+                    AccountId = account.Id,
+                    DetailType = "Phone",
+                    Content = dto.Phone,
+                    IsPrimary = true
+                });
+            }
+        }
+
+        await _db.SaveChangesAsync();
+        return true;
+    }
+
+    /// <summary>
+    /// 로그인한 사용자의 비밀번호를 변경합니다.
+    /// </summary>
+    public async Task<bool> ChangePasswordAsync(string userId, ChangePasswordDto dto)
+    {
+        var account = await _db.Accounts
+            .FirstOrDefaultAsync(a => a.UserId == userId || a.Id == userId);
+
+        if (account == null) return false;
+
+        // 이전 비밀번호 검증 (현 보안 구조상 평문 비교)
+        if (account.Password != dto.OldPassword)
+        {
+            return false;
+        }
+
+        account.Password = dto.NewPassword;
+        await _db.SaveChangesAsync();
+        return true;
+    }
+
+    /// <summary>
+    /// 로그인한 사용자의 설정을 업데이트합니다.
+    /// </summary>
+    public async Task<bool> UpdateSettingAsync(string userId, UpdateSettingDto dto)
+    {
+        var account = await _db.Accounts
+            .Include(a => a.ProfileDetails)
+            .FirstOrDefaultAsync(a => a.UserId == userId || a.Id == userId);
+
+        if (account == null) return false;
+
+        var settingDetail = account.ProfileDetails?.FirstOrDefault(p => p.DetailType == dto.FieldName);
+        var valStr = dto.Value ? "true" : "false";
+
+        if (settingDetail != null)
+        {
+            settingDetail.Content = valStr;
+            _db.Entry(settingDetail).State = EntityState.Modified;
+        }
+        else
+        {
+            _db.AccountProfileDetails.Add(new AccountProfileDetail
+            {
+                AccountId = account.Id,
+                DetailType = dto.FieldName,
+                Content = valStr,
+                IsPrimary = true
+            });
+        }
+
         await _db.SaveChangesAsync();
         return true;
     }
