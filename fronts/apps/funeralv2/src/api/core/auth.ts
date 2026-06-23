@@ -22,9 +22,18 @@ export namespace AuthApi {
  * 로그인
  */
 export async function loginApi(data: AuthApi.LoginParams) {
-  return requestClient.post<AuthApi.LoginResult>('/auth/login', data, {
+  // requestClient는 응답의 'data' 필드를 자동으로 추출합니다.
+  // 백엔드 응답이 { data: { result: [{ accessToken: '...' }] } } 구조를 가지므로,
+  // response 변수에는 { result: [{ accessToken: '...' }] } 객체가 할당됩니다.
+  const response = await requestClient.post<any>('/auth/login', data, {
     withCredentials: true,
   });
+
+  // 새로운 응답 구조에 맞춰 accessToken을 추출합니다.
+  // response.result가 배열이고 첫 번째 요소가 존재하는지 확인합니다.
+  const accessToken = response?.result?.[0]?.accessToken || null;
+
+  return { accessToken };
 }
 
 /**
