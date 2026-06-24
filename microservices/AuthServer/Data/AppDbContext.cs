@@ -41,6 +41,18 @@ public class AppDbContext : DbContext
             .HasIndex(rm => new { rm.RoleId, rm.MenuId })
             .IsUnique();
 
+        // Department 엔티티에 (CompanyId, Id) 복합 고유 키(AlternateKey) 설정
+        modelBuilder.Entity<Department>()
+            .HasAlternateKey(d => new { d.CompanyId, d.Id });
+
+        // Account 엔티티에 복합 외래키 설정 (회사-부서 데이터 무결성 보장)
+        modelBuilder.Entity<Account>()
+            .HasOne(a => a.Department)
+            .WithMany(d => d.Accounts)
+            .HasForeignKey(a => new { a.CompanyId, a.DepartmentId })
+            .HasPrincipalKey(d => new { d.CompanyId, d.Id })
+            .OnDelete(DeleteBehavior.Restrict);
+
         foreach (var entity in modelBuilder.Model.GetEntityTypes())
         {
             // 테이블명 snake_case 변환

@@ -49,7 +49,6 @@ public class Account : BaseEntity<string>
     [Column("department_id")]
     public string? DepartmentId { get; set; }
 
-    [ForeignKey("DepartmentId")]
     public Department? Department { get; set; }
 
     // 관계 설정: 1(Account) : N(AccountProfileDetail)

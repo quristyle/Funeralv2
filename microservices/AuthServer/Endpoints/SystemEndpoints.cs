@@ -128,6 +128,56 @@ public static class SystemEndpoints
         .WithName("DeleteDept")
         .WithOpenApi();
 
+        // 부서 소속 사용자 매핑 관리
+        group.MapGet("/dept/{id}/users", async (string id, [FromServices] IDepartmentService deptService) =>
+        {
+            var users = await deptService.GetDeptUsersAsync(id);
+            return Results.Ok(ApiResponse<IEnumerable<AccountDto>>.Ok(users));
+        })
+        .WithName("GetDeptUsers")
+        .WithOpenApi();
+
+        group.MapGet("/dept/eligible-users", async ([FromQuery] string? companyId, [FromServices] IDepartmentService deptService) =>
+        {
+            var users = await deptService.GetEligibleUsersAsync(companyId);
+            return Results.Ok(ApiResponse<IEnumerable<AccountDto>>.Ok(users));
+        })
+        .WithName("GetEligibleUsersForDept")
+        .WithOpenApi();
+
+        group.MapPost("/dept/{id}/users", async (string id, [FromBody] List<string> userIds, [FromServices] IDepartmentService deptService) =>
+        {
+            var success = await deptService.AssignUsersToDeptAsync(id, userIds);
+            return Results.Ok(ApiResponse<bool>.Ok(success, "사용자가 부서에 등록되었습니다."));
+        })
+        .WithName("AssignUsersToDept")
+        .WithOpenApi();
+
+        group.MapPost("/dept/users/remove", async ([FromBody] List<string> userIds, [FromServices] IDepartmentService deptService) =>
+        {
+            var success = await deptService.RemoveUsersFromDeptAsync(userIds);
+            return Results.Ok(ApiResponse<bool>.Ok(success, "사용자의 부서 소속이 해제되었습니다."));
+        })
+        .WithName("RemoveUsersFromDept")
+        .WithOpenApi();
+
+        // 부서 및 사용자 노드 이동 (조직도 드래그앤드롭용)
+        group.MapPost("/dept/{id}/move", async (string id, [FromQuery] string? parentId, UserContext? userContext, [FromServices] IDepartmentService deptService) =>
+        {
+            var success = await deptService.MoveDeptAsync(id, parentId, userContext);
+            return success ? Results.Ok(ApiResponse<bool>.Ok(true, "부서가 이동되었습니다.")) : Results.BadRequest(ApiResponse<object>.Fail("부서 이동에 실패했습니다. (순환 참조 등이 의심됩니다.)", "400"));
+        })
+        .WithName("MoveDept")
+        .WithOpenApi();
+
+        group.MapPost("/dept/user/move", async ([FromQuery] string accountId, [FromQuery] string? departmentId, UserContext? userContext, [FromServices] IDepartmentService deptService) =>
+        {
+            var success = await deptService.MoveUserDeptAsync(accountId, departmentId, userContext);
+            return success ? Results.Ok(ApiResponse<bool>.Ok(true, "사용자 부서가 이동되었습니다.")) : Results.BadRequest(ApiResponse<object>.Fail("사용자 부서 이동에 실패했습니다.", "400"));
+        })
+        .WithName("MoveUserDept")
+        .WithOpenApi();
+
         // 시스템 메뉴 관리
         group.MapGet("/menu/list", async ([FromServices] ISystemMenuService menuService) =>
         {

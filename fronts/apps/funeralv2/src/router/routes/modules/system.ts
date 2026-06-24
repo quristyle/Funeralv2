@@ -67,6 +67,15 @@ const routes: RouteRecordRaw[] = [
         component: () => import('#/views/system/company-user/index.vue'),
       },
       {
+        path: '/system/org-chart',
+        name: 'SystemOrgChart',
+        meta: {
+          icon: 'mdi:sitemap-outline',
+          title: '조직도 관리',
+        },
+        component: () => import('#/views/system/company-user/org-chart.vue'),
+      },
+      {
         path: '/system/biz-select-config',
         name: 'SystemBizSelectConfig',
         meta: {
