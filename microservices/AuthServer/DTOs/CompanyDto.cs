@@ -20,6 +20,16 @@ public class CompanyDto
 
     public string? Remark { get; set; }
 
+    public string? ShortName { get; set; }
+
+    public string? ZipCode { get; set; }
+
+    public string? Address { get; set; }
+
+    public string? AddressDetail { get; set; }
+
+    public DateTime? ApprovalDate { get; set; }
+
     public DateTime CreatedAt { get; set; }
 }
 
@@ -35,4 +45,14 @@ public class CompanyCreateDto
     public int Status { get; set; } = 1;
 
     public string? Remark { get; set; }
+
+    public string? ShortName { get; set; }
+
+    public string? ZipCode { get; set; }
+
+    public string? Address { get; set; }
+
+    public string? AddressDetail { get; set; }
+
+    public DateTime? ApprovalDate { get; set; }
 }

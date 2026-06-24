@@ -1,4 +1,5 @@
 import { requestClient } from '#/api/request';
+import type { SystemRolePermissionApi } from './role-permission';
 
 /**
  * 시스템 회사(System Company) 관련 API 및 타입 정의
@@ -20,6 +21,16 @@ export namespace SystemCompanyApi {
     status: number;
     /** 비고/설명 */
     remark?: string;
+    /** 짧은명칭 */
+    shortName?: string;
+    /** 우편번호 */
+    zipCode?: string;
+    /** 주소 */
+    address?: string;
+    /** 상세주소 */
+    addressDetail?: string;
+    /** 승인일 */
+    approvalDate?: string;
     /** 생성 일시 */
     createdAt: string;
   }
@@ -38,6 +49,16 @@ export namespace SystemCompanyApi {
     status: number;
     /** 비고/설명 */
     remark?: string;
+    /** 짧은명칭 */
+    shortName?: string;
+    /** 우편번호 */
+    zipCode?: string;
+    /** 주소 */
+    address?: string;
+    /** 상세주소 */
+    addressDetail?: string;
+    /** 승인일 */
+    approvalDate?: string;
   }
 
   /**
@@ -86,9 +107,45 @@ async function deleteCompany(id: string) {
   return requestClient.delete(`/auth/system/companies/${id}`);
 }
 
+/**
+ * 특정 회사 소속 사용자 목록 조회
+ */
+async function getCompanyUsers(companyId: string) {
+  return requestClient.get<SystemRolePermissionApi.RoleUser[]>(
+    `/auth/system/companies/${companyId}/users`
+  );
+}
+
+/**
+ * 소속 회사가 없는 사용자 목록 조회
+ */
+async function getEligibleCompanyUsers() {
+  return requestClient.get<SystemRolePermissionApi.RoleUser[]>(
+    `/auth/system/companies/eligible-users`
+  );
+}
+
+/**
+ * 사용자들을 회사에 할당
+ */
+async function assignCompanyUsers(companyId: string, userIds: string[]) {
+  return requestClient.post(`/auth/system/companies/${companyId}/users`, userIds);
+}
+
+/**
+ * 사용자의 회사 소속 해제
+ */
+async function removeCompanyUsers(userIds: string[]) {
+  return requestClient.post('/auth/system/companies/users/remove', userIds);
+}
+
 export {  
   createCompany,
   deleteCompany,
   getCompanyList,
   updateCompany,
+  getCompanyUsers,
+  getEligibleCompanyUsers,
+  assignCompanyUsers,
+  removeCompanyUsers,
 };

@@ -9,4 +9,8 @@ public interface ICompanyService
     Task<CompanyDto> CreateCompanyAsync(CompanyCreateDto createDto);
     Task<bool> UpdateCompanyAsync(string id, CompanyCreateDto updateDto);
     Task<bool> DeleteCompanyAsync(string id);
+    Task<IEnumerable<AccountDto>> GetCompanyUsersAsync(string companyId);
+    Task<IEnumerable<AccountDto>> GetEligibleUsersAsync();
+    Task<bool> AssignUsersToCompanyAsync(string companyId, List<string> userIds);
+    Task<bool> RemoveUsersFromCompanyAsync(List<string> userIds);
 }

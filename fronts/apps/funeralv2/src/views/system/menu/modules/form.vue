@@ -1,11 +1,11 @@
 <script lang="ts" setup>
-import type { ChangeEvent } from 'ant-design-vue/es/_util/EventInterface';
+
 
 import type { Recordable } from '@vben/types';
 
 import type { VbenFormSchema } from '#/adapter/form';
 
-import { computed, h, ref } from 'vue';
+import { computed, h, ref, defineComponent, markRaw, nextTick, watch } from 'vue';
 
 import { useVbenDrawer } from '@vben/common-ui';
 import { IconifyIcon } from '@vben/icons';
@@ -33,14 +33,130 @@ const emit = defineEmits<{
 }>();
 const formData = ref<SystemMenuApi.SystemMenu>();
 const titleSuffix = ref<string>();
-const schema: VbenFormSchema[] = [
-  {
-    component: 'InputNumber',
-    fieldName: 'meta.order',
-    label: $t('system.menu.order'),
-    defaultValue: 0,
-    rules: 'required',
+const isBinding = ref(false);
+
+const CustomTitleInput = defineComponent({
+  name: 'CustomTitleInput',
+  props: {
+    value: {
+      type: String,
+      default: '',
+    },
+    modelValue: {
+      type: String,
+      default: '',
+    },
   },
+  emits: ['update:value', 'update:modelValue', 'change'],
+  setup(props, { emit, attrs }) {
+    const computedValue = computed(() => {
+      return props.value !== undefined && props.value !== '' ? props.value : props.modelValue;
+    });
+
+    watch(computedValue, (val) => {
+      titleSuffix.value = val && $te(val) ? $t(val) : undefined;
+    }, { immediate: true });
+
+    return () => {
+      const { size, ...restAttrs } = attrs as any;
+      const inputNode = h(Input, {
+        ...restAttrs,
+        value: computedValue.value,
+        'onUpdate:value': (val: string) => {
+          emit('update:value', val);
+          emit('update:modelValue', val);
+        },
+        onChange: (e: any) => {
+          const val = e.target.value;
+          titleSuffix.value = val && $te(val) ? $t(val) : undefined;
+          emit('update:value', val);
+          emit('update:modelValue', val);
+          emit('change', e);
+        },
+      }, {
+        addonAfter: () => {
+          if (formData.value?.id) {
+            return h(
+              Button,
+              {
+                size: 'small',
+                type: 'link',
+                class: 'p-0 flex items-center justify-center',
+                onClick: (e: MouseEvent) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  openI18nModal();
+                }
+              },
+              {
+                icon: () => h(IconifyIcon, { icon: 'lucide:globe', class: 'size-4 text-primary' })
+              }
+            );
+          }
+          return null;
+        }
+      });
+
+      const textNode = titleSuffix.value
+        ? h('div', { class: 'text-xs text-gray-400 mt-1 pl-1 text-left' }, titleSuffix.value)
+        : null;
+
+      return h('div', { class: 'w-full' }, [inputNode, textNode]);
+    };
+  }
+});
+
+const CustomComponentInput = defineComponent({
+  name: 'CustomComponentInput',
+  props: {
+    value: {
+      type: String,
+      default: '',
+    },
+    modelValue: {
+      type: String,
+      default: '',
+    },
+  },
+  emits: ['update:value', 'update:modelValue', 'change'],
+  setup(props, { emit, attrs }) {
+    const computedValue = computed(() => {
+      return props.value !== undefined && props.value !== '' ? props.value : props.modelValue;
+    });
+
+    return () => {
+      const { size, ...restAttrs } = attrs as any;
+      return h('div', { class: 'ant-input-group-wrapper w-full' }, [
+        h('div', { class: 'ant-input-wrapper ant-input-group flex w-full' }, [
+          h('span', { class: 'ant-input-group-addon flex items-center justify-center bg-gray-50 border border-r-0 rounded-l px-3 text-gray-500 text-sm whitespace-nowrap' }, '#/views'),
+          h(AutoComplete, {
+            ...restAttrs,
+            value: computedValue.value,
+            'onUpdate:value': (val: string) => {
+              emit('update:value', val);
+              emit('update:modelValue', val);
+            },
+            onChange: (val: any) => {
+              emit('update:value', val);
+              emit('update:modelValue', val);
+              emit('change', val);
+            },
+            class: 'w-full',
+            style: {
+              borderTopLeftRadius: '0px',
+              borderBottomLeftRadius: '0px',
+              borderTopRightRadius: '0px',
+              borderBottomRightRadius: '0px',
+            }
+          }),
+          h('span', { class: 'ant-input-group-addon flex items-center justify-center bg-gray-50 border border-l-0 rounded-r px-3 text-gray-500 text-sm whitespace-nowrap' }, '.vue'),
+        ])
+      ]);
+    };
+  }
+});
+
+const schema: VbenFormSchema[] = [
   {
     component: 'RadioGroup',
     componentProps: {
@@ -63,6 +179,12 @@ const schema: VbenFormSchema[] = [
       .max(30, $t('ui.formRules.maxLength', [$t('system.menu.menuName'), 30]))
       .refine(
         async (value: string) => {
+          if (isBinding.value) {
+            return true;
+          }
+          if (!value || value.trim().length < 2) {
+            return true;
+          }
           if (formData.value?.id && value === formData.value.name) {
             return true;
           }
@@ -113,47 +235,9 @@ const schema: VbenFormSchema[] = [
     },
   },
   {
-    component: 'Input',
-    componentProps: {
-      onChange({ target: { value } }: ChangeEvent) {
-        titleSuffix.value = value && $te(value) ? $t(value) : undefined;
-      },
-    },
-    renderComponentContent() {
-      return {
-        addonAfter: () => {
-          const btnNodes = [];
-          
-          if (titleSuffix.value) {
-            btnNodes.push(h('span', { class: 'mr-2 text-muted-foreground' }, titleSuffix.value));
-          }
-          
-          if (formData.value?.id) {
-            btnNodes.push(
-              h(
-                Button,
-                {
-                  size: 'small',
-                  type: 'link',
-                  class: 'p-0 flex items-center justify-center',
-                  onClick: (e: MouseEvent) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    openI18nModal();
-                  }
-                },
-                {
-                  icon: () => h(IconifyIcon, { icon: 'lucide:globe', class: 'size-4 text-primary' })
-                }
-              )
-            );
-          }
-          
-          return btnNodes.length > 0 ? h('div', { class: 'flex items-center gap-1' }, btnNodes) : null;
-        }
-      };
-    },
+    component: markRaw(CustomTitleInput),
     fieldName: 'meta.title',
+    formItemClass: 'col-span-2 md:col-span-2',
     label: $t('system.menu.menuTitle'),
     rules: 'required',
   },
@@ -179,6 +263,12 @@ const schema: VbenFormSchema[] = [
       )
       .refine(
         async (value: string) => {
+          if (isBinding.value) {
+            return true;
+          }
+          if (!value || value.trim().length < 2 || !value.startsWith('/')) {
+            return true;
+          }
           if (formData.value?.id && value === formData.value.path) {
             return true;
           }
@@ -247,7 +337,7 @@ const schema: VbenFormSchema[] = [
     label: $t('system.menu.activeIcon'),
   },
   {
-    component: 'AutoComplete',
+    component: markRaw(CustomComponentInput),
     componentProps: {
       allowClear: true,
       class: 'w-full',
@@ -266,6 +356,7 @@ const schema: VbenFormSchema[] = [
       triggerFields: ['type'],
     },
     fieldName: 'component',
+    formItemClass: 'col-span-2 md:col-span-2',
     label: $t('system.menu.component'),
   },
   {
@@ -295,18 +386,26 @@ const schema: VbenFormSchema[] = [
     label: $t('system.menu.authCode'),
   },
   {
-    component: 'RadioGroup',
+    component: 'Switch',
     componentProps: {
-      buttonStyle: 'solid',
-      options: [
-        { label: $t('common.enabled'), value: 1 },
-        { label: $t('common.disabled'), value: 0 },
-      ],
-      optionType: 'button',
+      checkedChildren: $t('common.enabled'),
+      unCheckedChildren: $t('common.disabled'),
+      checkedValue: 1,
+      unCheckedValue: 0,
     },
     defaultValue: 1,
     fieldName: 'status',
     label: $t('system.menu.status'),
+  },
+  {
+    component: 'InputNumber',
+    componentProps: {
+      class: 'w-full',
+    },
+    fieldName: 'meta.order',
+    label: $t('system.menu.order'),
+    defaultValue: 0,
+    rules: 'required',
   },
   {
     component: 'Select',
@@ -473,7 +572,7 @@ const schema: VbenFormSchema[] = [
   },
 ];
 
-import { Button } from 'ant-design-vue';
+import { Button, Input, AutoComplete } from 'ant-design-vue';
 import I18nEditModal from '#/components/i18n/I18nEditModal.vue';
 
 const i18nEditModalRef = ref<any>(null);
@@ -511,6 +610,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
   onConfirm: onSubmit,
   onOpenChange(isOpen) {
     if (isOpen) {
+      isBinding.value = true;
       const data = drawerApi.getData<SystemMenuApi.SystemMenu>();
       if (data?.type === 'LINK') {
         data.linkSrc = data.meta?.link;
@@ -519,13 +619,33 @@ const [Drawer, drawerApi] = useVbenDrawer({
       }
       if (data) {
         formData.value = data;
-        formApi.setValues(formData.value);
+        
+        const rawComponent = formData.value.component || '';
+        let parsedComponent = rawComponent;
+        if (rawComponent.startsWith('#/views') && rawComponent.endsWith('.vue')) {
+          parsedComponent = rawComponent.substring('#/views'.length, rawComponent.length - '.vue'.length);
+        }
+        
+        const formValues = {
+          ...formData.value,
+          component: parsedComponent
+        };
+        
+        nextTick(async () => {
+          await formApi.setValues(formValues);
+          await formApi.resetValidate();
+          isBinding.value = false;
+        });
         titleSuffix.value = formData.value.meta?.title
           ? $t(formData.value.meta.title)
           : '';
       } else {
         formApi.resetForm();
         titleSuffix.value = '';
+        nextTick(async () => {
+          await formApi.resetValidate();
+          isBinding.value = false;
+        });
       }
     }
   },
@@ -545,6 +665,20 @@ async function onSubmit() {
       data.meta = { ...data.meta, iframeSrc: data.linkSrc };
     }
     delete data.linkSrc;
+    
+    if (data.component) {
+      let comp = data.component.trim();
+      if (comp) {
+        if (!comp.startsWith('#/views')) {
+          comp = `#/views${comp}`;
+        }
+        if (!comp.endsWith('.vue')) {
+          comp = `${comp}.vue`;
+        }
+        data.component = comp;
+      }
+    }
+    
     try {
       await (formData.value?.id
         ? updateMenu(formData.value.id, data)

@@ -17,6 +17,12 @@ export const useColumns = (): VxeGridProps['columns'] => [
   { field: 'email', title: $t('system.account.email'), minWidth: 180 },
   { field: 'phone', title: $t('system.account.phone'), minWidth: 130 },
   {
+    field: 'roleNames',
+    title: '역할',
+    minWidth: 150,
+    slots: { default: 'role-tag' },
+  },
+  {
     field: 'status',
     title: $t('system.account.status'),
     minWidth: 120,
@@ -100,6 +106,17 @@ export const useSchema = (): VbenFormSchema[] => [
     },
     fieldName: 'phone',
     label: $t('system.account.phone'),
+  },
+  {
+    component: 'Select',
+    componentProps: {
+      mode: 'multiple',
+      placeholder: '역할을 선택해주세요',
+      options: [],
+      allowClear: true,
+    },
+    fieldName: 'roleIds',
+    label: '역할 권한',
   },
   {
     component: 'Select',

@@ -2,15 +2,17 @@
 import { ref, onMounted, nextTick } from 'vue';
 import { Page, useVbenModal } from '@vben/common-ui';
 import { Plus, IconifyIcon } from '@vben/icons';
-import { Button, message, Popconfirm, Badge, Tooltip } from 'ant-design-vue';
+import { Button, message, Popconfirm, Badge, Tooltip, Tag } from 'ant-design-vue';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { useVbenForm } from '#/adapter/form';
 import { type SystemAccountApi, getAccounts, createAccount, updateAccount, deleteAccount } from '#/api/system/account';
 import { getDeptList } from '#/api/system/dept';
+import { getRoleList } from '#/api/system/role';
 import { $t } from '#/locales';
 import { useColumns, useSchema } from './data';
 
 const departments = ref<any[]>([]);
+const roles = ref<any[]>([]);
 const isUpdate = ref(false);
 const currentId = ref('');
 
@@ -20,6 +22,26 @@ const [Form, formApi] = useVbenForm({
   showDefaultActions: false,
   handleSubmit: handleSave,
 });
+
+// 역할 목록 로드 및 Form Schema 업데이트
+async function fetchRoles() {
+  try {
+    const response = await getRoleList({});
+    const list = (response as any)?.result ?? response;
+    roles.value = Array.isArray(list) ? list : [];
+    
+    formApi.updateSchema([
+      {
+        fieldName: 'roleIds',
+        componentProps: {
+          options: roles.value.map(r => ({ label: r.name, value: r.id })),
+        },
+      },
+    ]);
+  } catch (error) {
+    message.error('역할 목록 로드 실패');
+  }
+}
 
 // useVbenModal 설정
 const [AccountModal, accountModalApi] = useVbenModal({
@@ -33,6 +55,7 @@ const [AccountModal, accountModalApi] = useVbenModal({
   },
   onOpenChange: async (isOpen) => {
     if (isOpen) {
+      await fetchRoles();
       const data = accountModalApi.getData();
       if (data?.id) {
         isUpdate.value = true;
@@ -44,6 +67,7 @@ const [AccountModal, accountModalApi] = useVbenModal({
         const formValues = {
           ...data,
           companyId: dept?.companyId || '',
+          roleIds: data.roleIds || [],
         };
         formApi.setValues(formValues);
         formApi.updateSchema([
@@ -138,6 +162,7 @@ async function handleSave(values: Record<string, any>) {
       phone: values.phone,
       deptId: values.deptId,
       deptName: dept?.name || '',
+      roleIds: values.roleIds || [],
     };
 
     if (isUpdate.value && currentId.value) {
@@ -156,6 +181,7 @@ async function handleSave(values: Record<string, any>) {
 
 onMounted(() => {
   fetchDepts();
+  fetchRoles();
 });
 </script>
 
@@ -167,6 +193,18 @@ onMounted(() => {
           <Plus class="size-5 mr-1" />
           신규 계정 등록
         </Button>
+      </template>
+
+      <template #role-tag="{ row }">
+        <div class="flex flex-wrap gap-1">
+          <Tag
+            v-for="roleName in row.roleNames"
+            :key="roleName"
+            color="blue"
+          >
+            {{ roleName }}
+          </Tag>
+        </div>
       </template>
 
       <template #status-tag="{ row }">

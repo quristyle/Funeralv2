@@ -18,6 +18,8 @@ public class AccountDto
     public string? DeptId { get; set; }
     public string? DeptName { get; set; }
     public DateTime CreatedAt { get; set; }
+    public List<string> RoleIds { get; set; } = new();
+    public List<string> RoleNames { get; set; } = new();
 }
 
 /// <summary>
@@ -31,6 +33,7 @@ public class CreateAccountDto
     public string? Phone { get; set; }
     public string Status { get; set; } = "ACTIVE";
     public string? DeptId { get; set; }
+    public List<string> RoleIds { get; set; } = new();
 }
 
 /// <summary>
@@ -43,4 +46,5 @@ public class UpdateAccountDto
     public string? Phone { get; set; }
     public string Status { get; set; } = "ACTIVE";
     public string? DeptId { get; set; }
+    public List<string> RoleIds { get; set; } = new();
 }

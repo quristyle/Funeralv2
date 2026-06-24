@@ -81,10 +81,29 @@ public class UserService : IUserService
             .Include(a => a.ProfileDetails)
             .ToListAsync();
 
+        // 모든 역할 매핑 정보 조회
+        var roleAccounts = await _db.RoleAccounts
+            .Include(ra => ra.Role)
+            .ToListAsync();
+
+        // accountId 별로 역할 그룹화
+        var roleMap = roleAccounts
+            .Where(ra => ra.Role != null)
+            .GroupBy(ra => ra.AccountId)
+            .ToDictionary(
+                g => g.Key,
+                g => new {
+                    RoleIds = g.Select(ra => ra.RoleId).ToList(),
+                    RoleNames = g.Select(ra => ra.Role!.Name).ToList()
+                }
+            );
+
         return accounts.Select(a => {
             var emailDetail = a.ProfileDetails?.FirstOrDefault(p => p.DetailType == "Email");
             var phoneDetail = a.ProfileDetails?.FirstOrDefault(p => p.DetailType == "Phone");
             var statusDetail = a.ProfileDetails?.FirstOrDefault(p => p.DetailType == "Status");
+
+            roleMap.TryGetValue(a.Id, out var rolesInfo);
 
             return new AccountDto
             {
@@ -98,7 +117,9 @@ public class UserService : IUserService
                 CompanyName = a.Company?.Name,
                 DeptId = a.DepartmentId,
                 DeptName = a.Department?.Name,
-                CreatedAt = a.CreatedAt
+                CreatedAt = a.CreatedAt,
+                RoleIds = rolesInfo?.RoleIds ?? new List<string>(),
+                RoleNames = rolesInfo?.RoleNames ?? new List<string>()
             };
         }).ToList();
     }
@@ -170,6 +191,19 @@ public class UserService : IUserService
             IsPrimary = true
         });
 
+        // 역할 매핑 추가
+        if (dto.RoleIds != null && dto.RoleIds.Any())
+        {
+            foreach (var roleId in dto.RoleIds)
+            {
+                _db.RoleAccounts.Add(new RoleAccount
+                {
+                    AccountId = account.Id,
+                    RoleId = roleId
+                });
+            }
+        }
+
         await _db.SaveChangesAsync();
 
         string? deptName = null;
@@ -177,6 +211,16 @@ public class UserService : IUserService
         {
             var dept = await _db.Departments.FindAsync(dto.DeptId);
             deptName = dept?.Name;
+        }
+
+        // 반환할 역할명 조회
+        var roleNames = new List<string>();
+        if (dto.RoleIds != null && dto.RoleIds.Any())
+        {
+            roleNames = await _db.Roles
+                .Where(r => dto.RoleIds.Contains(r.Id))
+                .Select(r => r.Name)
+                .ToListAsync();
         }
 
         return new AccountDto
@@ -189,7 +233,9 @@ public class UserService : IUserService
             Status = dto.Status ?? "ACTIVE",
             DeptId = account.DepartmentId,
             DeptName = deptName,
-            CreatedAt = account.CreatedAt
+            CreatedAt = account.CreatedAt,
+            RoleIds = dto.RoleIds ?? new List<string>(),
+            RoleNames = roleNames
         };
     }
 
@@ -294,6 +340,25 @@ public class UserService : IUserService
                 Content = dto.Status ?? "ACTIVE",
                 IsPrimary = true
             });
+        }
+
+        // 역할 매핑 업데이트
+        var existingRoleAccounts = await _db.RoleAccounts
+            .Where(ra => ra.AccountId == id)
+            .ToListAsync();
+        
+        _db.RoleAccounts.RemoveRange(existingRoleAccounts);
+
+        if (dto.RoleIds != null && dto.RoleIds.Any())
+        {
+            foreach (var roleId in dto.RoleIds)
+            {
+                _db.RoleAccounts.Add(new RoleAccount
+                {
+                    AccountId = id,
+                    RoleId = roleId
+                });
+            }
         }
 
         await _db.SaveChangesAsync();

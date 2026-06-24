@@ -7,14 +7,18 @@ import { getTimezoneApi, getTimezoneOptionsApi, setTimezoneApi } from '#/api';
  */
 export function initTimezone() {
   setTimezoneHandler({
-    getTimezone() {
-      return getTimezoneApi();
+    async getTimezone() {
+      const res = await getTimezoneApi();
+      const timezone = (res as any)?.result?.[0] ?? (res as any)?.result ?? res;
+      return typeof timezone === 'string' ? timezone : null;
     },
     setTimezone(timezone: string) {
       return setTimezoneApi(timezone);
     },
-    getTimezoneOptions() {
-      return getTimezoneOptionsApi();
+    async getTimezoneOptions() {
+      const res = await getTimezoneOptionsApi();
+      const list = (res as any)?.result ?? res;
+      return Array.isArray(list) ? list : [];
     },
   });
 }

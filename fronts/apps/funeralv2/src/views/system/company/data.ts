@@ -1,9 +1,10 @@
 import type { VbenFormProps } from '#/adapter/form';
 import type { VxeGridProps } from '#/adapter/vxe-table';
 
-import { h } from 'vue';
+import { h, markRaw } from 'vue';
 
 import { IconifyIcon } from '@vben/icons';
+import AddressSearchInput from '#/components/AddressSearchInput.vue';
 import { $t } from '@vben/locales';
 
 import { Button, Popconfirm, Tooltip } from 'ant-design-vue';
@@ -17,6 +18,8 @@ export const useColumns = (onActionClick: (params: any) => void): VxeGridProps['
   { type: 'seq', width: 50 },
   /** 회사명 - 수정 가능(VxeInput 사용) */
   { field: 'name', title: $t('system.company.name'), minWidth: 150, editRender: { name: 'VxeInput' } },
+  /** 짧은명칭 - 수정 가능 */
+  { field: 'shortName', title: '짧은명칭', width: 120, editRender: { name: 'VxeInput' } },
   /** 사업자번호 - 수정 가능 */
   { field: 'businessNumber', title: $t('system.company.businessNumber'), width: 150, editRender: { name: 'VxeInput' } },
   /** 대표자 - 데이터 기반 그룹핑 필터 지원 */
@@ -44,8 +47,35 @@ export const useColumns = (onActionClick: (params: any) => void): VxeGridProps['
       ],
     },
   },
+  /** 주소 - 포맷팅 출력 */
+  { 
+    field: 'address', 
+    title: '주소', 
+    minWidth: 250, 
+    formatter: ({ row }) => row.address ? `[${row.zipCode || ''}] ${row.address} ${row.addressDetail || ''}` : '' 
+  },
   /** 비고 */
   { field: 'remark', title: $t('system.company.remark'), minWidth: 200, editRender: { name: 'VxeInput' } },
+  /** 승인일 */
+  { 
+    field: 'approvalDate', 
+    title: '승인일', 
+    width: 150, 
+    formatter: ({ cellValue }) => {
+      if (!cellValue) return '';
+      const date = new Date(cellValue);
+      if (isNaN(date.getTime())) return '';
+      
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    },
+    editRender: { 
+      name: 'input',
+      attrs: { type: 'date' }
+    }
+  },
   /** 
    * 생성일시 - formatDate 포매터 사용
    * extendsDefaultFormatter에 등록된 형식으로 출력됩니다.
@@ -139,10 +169,22 @@ export const formSchema: VbenFormProps = {
   schema: [
     /** 회사명: 필수 입력 항목 */
     { fieldName: 'name', label: $t('system.company.name'), component: 'Input', rules: 'required', },
+    /** 짧은명칭 */
+    { fieldName: 'shortName', label: '짧은명칭', component: 'Input', },
     /** 사업자 등록 번호 */
     { fieldName: 'businessNumber', label: $t('system.company.businessNumber'), component: 'Input', },
     /** 대표자 성함 */
     { fieldName: 'representative', label: $t('system.company.representative'), component: 'Input', },
+    /** 우편번호 */
+    { 
+      fieldName: 'zipCode', 
+      label: '우편번호', 
+      component: markRaw(AddressSearchInput), 
+    },
+    /** 주소 */
+    { fieldName: 'address', label: '주소', component: 'Input', },
+    /** 상세주소 */
+    { fieldName: 'addressDetail', label: '상세주소', component: 'Input', },
     /** 상태: 라디오 그룹 사용 (기본값: 활성) */
     { fieldName: 'status', label: $t('system.company.status'), component: 'RadioGroup', defaultValue: 1,
       componentProps: {
@@ -152,6 +194,8 @@ export const formSchema: VbenFormProps = {
         ],
       },
     },
+    /** 승인일 */
+    { fieldName: 'approvalDate', label: '승인일', component: 'DatePicker', componentProps: { valueFormat: 'YYYY-MM-DD' } },
     /** 비고: 멀티라인 텍스트 입력 */
     { fieldName: 'remark', label: $t('system.company.remark'), component: 'Textarea', },
   ],

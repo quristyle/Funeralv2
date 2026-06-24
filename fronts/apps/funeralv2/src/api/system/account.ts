@@ -11,6 +11,8 @@ export namespace SystemAccountApi {
     deptId?: string;
     deptName?: string;
     createdAt: string;
+    roleIds?: string[];
+    roleNames?: string[];
   }
 }
 

@@ -23,6 +23,19 @@ const resolvedSchema = typeof formSchema === 'function'
   ? formSchema() 
   : (Array.isArray(formSchema) ? formSchema : (formSchema as any).schema || []);
 
+// 우편번호 찾기 컴포넌트 이벤트 맵핑 바인딩
+const zipCodeField = resolvedSchema.find((item: any) => item.fieldName === 'zipCode');
+if (zipCodeField) {
+  zipCodeField.componentProps = {
+    onSelected: (result: { zipCode: string; address: string }) => {
+      formApi.setValues({
+        zipCode: result.zipCode,
+        address: result.address,
+      });
+    }
+  };
+}
+
 /** VbenForm 설정 */
 const [Form, formApi] = useVbenForm({
   schema: resolvedSchema,

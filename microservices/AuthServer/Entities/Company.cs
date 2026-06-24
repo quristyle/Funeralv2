@@ -31,6 +31,21 @@ public class Company : BaseEntity<string>
     [Column("remark")]
     public string? Remark { get; set; }
 
+    [Column("short_name")]
+    public string? ShortName { get; set; } // 짧은명칭
+
+    [Column("zip_code")]
+    public string? ZipCode { get; set; } // 우편번호
+
+    [Column("address")]
+    public string? Address { get; set; } // 주소
+
+    [Column("address_detail")]
+    public string? AddressDetail { get; set; } // 상세주소
+
+    [Column("approval_date")]
+    public DateTime? ApprovalDate { get; set; } // 승인일
+
     // 관계 설정: 1(Company) : N(Department)
     public ICollection<Department>? Departments { get; set; }
 }

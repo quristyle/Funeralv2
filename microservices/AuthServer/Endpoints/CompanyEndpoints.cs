@@ -22,6 +22,42 @@ public static class CompanyEndpoints
         .WithName("GetAllCompanies")
         .WithOpenApi();
 
+        // 소속 회사가 없는 사용자 조회 (추가 모달용)
+        group.MapGet("/eligible-users", async (ICompanyService companyService) =>
+        {
+            var users = await companyService.GetEligibleUsersAsync();
+            return Results.Ok(ApiResponse<IEnumerable<AccountDto>>.Ok(users));
+        })
+        .WithName("GetEligibleUsersForCompany")
+        .WithOpenApi();
+
+        // 소속 회사 해제 (일괄)
+        group.MapPost("/users/remove", async ([FromBody] List<string> userIds, ICompanyService companyService) =>
+        {
+            var success = await companyService.RemoveUsersFromCompanyAsync(userIds);
+            return Results.Ok(ApiResponse<bool>.Ok(success, "사용자 소속이 성공적으로 해제되었습니다."));
+        })
+        .WithName("RemoveUsersFromCompany")
+        .WithOpenApi();
+
+        // 특정 회사 소속 사용자 목록 조회
+        group.MapGet("/{companyId}/users", async (string companyId, ICompanyService companyService) =>
+        {
+            var users = await companyService.GetCompanyUsersAsync(companyId);
+            return Results.Ok(ApiResponse<IEnumerable<AccountDto>>.Ok(users));
+        })
+        .WithName("GetCompanyUsers")
+        .WithOpenApi();
+
+        // 회사에 사용자 추가 등록 (일괄)
+        group.MapPost("/{companyId}/users", async (string companyId, [FromBody] List<string> userIds, ICompanyService companyService) =>
+        {
+            var success = await companyService.AssignUsersToCompanyAsync(companyId, userIds);
+            return Results.Ok(ApiResponse<bool>.Ok(success, "사용자가 회사에 등록되었습니다."));
+        })
+        .WithName("AssignUsersToCompany")
+        .WithOpenApi();
+
         // 특정 회사 상세 조회
         group.MapGet("/{id}", async (string id, ICompanyService companyService) =>
         {

@@ -58,6 +58,15 @@ const routes: RouteRecordRaw[] = [
         component: () => import('#/views/system/company/list.vue'),
       },
       {
+        path: '/system/company-user',
+        name: 'SystemCompanyUser',
+        meta: {
+          icon: 'mdi:office-building-cog',
+          title: '회사 사용자 지정',
+        },
+        component: () => import('#/views/system/company-user/index.vue'),
+      },
+      {
         path: '/system/biz-select-config',
         name: 'SystemBizSelectConfig',
         meta: {

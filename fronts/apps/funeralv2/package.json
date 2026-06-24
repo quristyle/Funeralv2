@@ -47,6 +47,7 @@
     "json-bigint": "catalog:",
     "pinia": "catalog:",
     "vue": "catalog:",
+    "vue-daum-postcode": "^1.2.2",
     "vue-router": "catalog:",
     "vxe-table": "catalog:"
   },
