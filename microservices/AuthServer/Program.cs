@@ -203,6 +203,23 @@ using (var scope = app.Services.CreateScope())
         });
         dbContext.SaveChanges();
     }
+
+    // building 설정이 없는 경우 추가
+    if (!dbContext.BizSelectConfigs.Any(c => c.BizType == "building"))
+    {
+        dbContext.BizSelectConfigs.Add(new BizSelectConfig
+        {
+            Id = "3",
+            BizType = "building",
+            ApiUrl = "/funeral/building/info/list",
+            HttpMethod = "GET",
+            LabelField = "name",
+            ValueField = "id",
+            ResultPath = "result",
+            Remark = "건물 목록"
+        });
+        dbContext.SaveChanges();
+    }
 }
 
 app.Run();

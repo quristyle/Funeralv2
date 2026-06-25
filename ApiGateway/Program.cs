@@ -93,7 +93,18 @@ app.Use(async (context, next) =>
         context.Response.StatusCode == StatusCodes.Status504GatewayTimeout)
     {
         context.Response.ContentType = "application/json";
-        await context.Response.WriteAsJsonAsync(new { code = 502, message = "서비스 연결 실패" });
+        var response = new
+        {
+            success = false,
+            code = "E502",
+            message = "서비스 연결에 실패했습니다. 잠시 후 다시 시도해 주세요.",
+            data = (object?)null,
+            timestamp = DateTime.UtcNow,
+            traceId = context.TraceIdentifier,
+            path = context.Request.Path.Value,
+            realmessage = "Gateway: Bad Gateway or Gateway Timeout."
+        };
+        await context.Response.WriteAsJsonAsync(response);
     }
 });
 
@@ -101,6 +112,23 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapReverseProxy();
+
+app.MapFallback(async (HttpContext context) =>
+{
+    var response = new
+    {
+        success = false,
+        code = "E404",
+        message = "요청하신 경로를 찾을 수 없습니다.",
+        data = (object?)null,
+        timestamp = DateTime.UtcNow,
+        traceId = context.TraceIdentifier,
+        path = context.Request.Path.Value,
+        realmessage = "Gateway: Route not found."
+    };
+    
+    return Results.Json(response, statusCode: StatusCodes.Status404NotFound);
+});
 
 
 string GetServerName()

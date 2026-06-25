@@ -3,9 +3,12 @@ import { requestClient } from '#/api/request';
 export namespace BuildingApi {
   export interface Building {
     id: string;
+    companyId: string;
     name: string;
-    code: string;
+    shortName?: string;
     address?: string;
+    zipCode?: string;
+    addressDetail?: string;
     remark?: string;
     createdAt: string;
   }
@@ -15,7 +18,6 @@ export namespace BuildingApi {
     buildingId: string;
     buildingName?: string;
     name: string;
-    code: string;
     sortOrder: number;
     remark?: string;
   }
@@ -26,7 +28,6 @@ export namespace BuildingApi {
     floorId: string;
     floorName?: string;
     name: string;
-    code: string;
     roomType: string; // 빈소, 안치실, 참관실 등
     status: 'ACTIVE' | 'INACTIVE';
     remark?: string;
@@ -81,45 +82,45 @@ export namespace BuildingApi {
 }
 
 // === 건물 API ===
-export async function getBuildings() {
-  return requestClient.get<BuildingApi.Building[]>('/building/info/list');
+export async function getBuildings(companyId?: string) {
+  return requestClient.get<BuildingApi.Building[]>('/funeral/building/info/list', { params: { companyId } });
 }
 export async function createBuilding(data: Omit<BuildingApi.Building, 'id' | 'createdAt'>) {
-  return requestClient.post('/building/info', data);
+  return requestClient.post('/funeral/building/info', data);
 }
 export async function updateBuilding(id: string, data: Omit<BuildingApi.Building, 'id' | 'createdAt'>) {
-  return requestClient.put(`/building/info/${id}`, data);
+  return requestClient.put(`/funeral/building/info/${id}`, data);
 }
 export async function deleteBuilding(id: string) {
-  return requestClient.delete(`/building/info/${id}`);
+  return requestClient.delete(`/funeral/building/info/${id}`);
 }
 
 // === 층 API ===
 export async function getFloors(buildingId?: string) {
-  return requestClient.get<BuildingApi.Floor[]>('/building/floor/list', { params: { buildingId } });
+  return requestClient.get<BuildingApi.Floor[]>('/funeral/building/floor/list', { params: { buildingId } });
 }
 export async function createFloor(data: Omit<BuildingApi.Floor, 'id'>) {
-  return requestClient.post('/building/floor', data);
+  return requestClient.post('/funeral/building/floor', data);
 }
 export async function updateFloor(id: string, data: Omit<BuildingApi.Floor, 'id'>) {
-  return requestClient.put(`/building/floor/${id}`, data);
+  return requestClient.put(`/funeral/building/floor/${id}`, data);
 }
 export async function deleteFloor(id: string) {
-  return requestClient.delete(`/building/floor/${id}`);
+  return requestClient.delete(`/funeral/building/floor/${id}`);
 }
 
 // === 호실 API ===
 export async function getRooms(floorId?: string) {
-  return requestClient.get<BuildingApi.Room[]>('/building/room/list', { params: { floorId } });
+  return requestClient.get<BuildingApi.Room[]>('/funeral/building/room/list', { params: { floorId } });
 }
 export async function createRoom(data: Omit<BuildingApi.Room, 'id'>) {
-  return requestClient.post('/building/room', data);
+  return requestClient.post('/funeral/building/room', data);
 }
 export async function updateRoom(id: string, data: Omit<BuildingApi.Room, 'id'>) {
-  return requestClient.put(`/building/room/${id}`, data);
+  return requestClient.put(`/funeral/building/room/${id}`, data);
 }
 export async function deleteRoom(id: string) {
-  return requestClient.delete(`/building/room/${id}`);
+  return requestClient.delete(`/funeral/building/room/${id}`);
 }
 
 // === 장비 API ===

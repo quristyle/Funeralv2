@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using funeralv2Api.Entities;
 
 namespace funeralv2Api.Data;
 
@@ -14,6 +15,22 @@ public class AppDbContext : DbContext
     public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
     {
     }
+
+    /// <summary>
+    /// 건물 DbSet
+    /// </summary>
+    public DbSet<Building> Buildings { get; set; } = null!;
+
+    /// <summary>
+    /// 층 DbSet
+    /// </summary>
+    public DbSet<Floor> Floors { get; set; } = null!;
+
+    /// <summary>
+    /// 호실 DbSet
+    /// </summary>
+    public DbSet<Room> Rooms { get; set; } = null!;
+
 
 
     /// <summary>

@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { Select } from 'ant-design-vue';
 import { useBizSelectStore } from '#/store/biz-select-config';
 import { requestClient } from '#/api/request';
@@ -50,8 +50,14 @@ function flattenDepts(depts: any[]): any[] {
 async function loadOptions() {
   if (!props.type) return;
 
-  // 부서 조회 시 회사 ID가 지정되지 않았다면 API 요청을 보내지 않고 대기
-  if (props.type === 'dept' && !props.params?.companyId) {
+  // 부서·건물 조회: companyId가 지정되었으나 값이 비어있으면 API 요청 대기
+  if ((props.type === 'dept' || props.type === 'building') && props.params && 'companyId' in props.params && !props.params.companyId) {
+    options.value = [];
+    return;
+  }
+
+  // 층 조회: buildingId가 지정되었으나 값이 비어있으면 API 요청 대기
+  if (props.type === 'floor' && props.params && 'buildingId' in props.params && !props.params.buildingId) {
     options.value = [];
     return;
   }
@@ -107,8 +113,10 @@ async function loadOptions() {
       options.value = mappedList;
     }
 
-    // value와 modelValue 모두 비어있을 때만 자동 선택 처리
-    if (props.autoSelectFirst && options.value.length > 0 && props.value === undefined && props.modelValue === undefined) {
+    // value와 modelValue 모두 비어있거나 빈 문자열일 때만 자동 선택 처리
+    const isValEmpty = props.value === undefined || props.value === null || props.value === '';
+    const isModelValEmpty = props.modelValue === undefined || props.modelValue === null || props.modelValue === '';
+    if (props.autoSelectFirst && options.value.length > 0 && isValEmpty && isModelValEmpty) {
       const firstVal = options.value[0]?.value;
       emit('update:value', firstVal);
       emit('update:modelValue', firstVal);

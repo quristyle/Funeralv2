@@ -1,5 +1,70 @@
 # Changelog
 
+## v1.3.0 (2026-06-25)
+- feat: 호실 관리에서 불필요한 호실코드(`code`) 필드 제거
+  - 백엔드 `Room` 엔티티, `RoomDto`/`RoomCreateDto`/`RoomUpdateDto` DTO에서 `Code` 속성 제거
+  - `RoomService` CRUD 매핑 및 로그 구문에서 `Code` 참조 완전 삭제
+  - EF Core 마이그레이션 `RemoveCodeFromRoom` 생성 및 DB 반영(`ALTER TABLE smfr.rooms DROP COLUMN code`)
+  - 프론트엔드 `BuildingApi.Room` 인터페이스에서 `code` 속성 제거
+  - `room/index.vue` formModel 초기값, 그리드 컬럼, 모달 Form.Item에서 호실코드 항목 완전 제거
+
+## v1.2.9 (2026-06-25)
+- feat: 층 관리 그리드 작업컬럼 아이콘 변경 및 호실 관리 상단필터 BizSelect 계층 연동
+  - `floor/index.vue` 그리드 작업컬럼 수정/삭제 버튼을 아이콘(`lucide:edit`, `lucide:trash-2`) + Tooltip 방식으로 개편 (건물관리와 동일한 UX 통일)
+  - `room/index.vue` 상단 필터를 회사 → 건물 → 층 계층형 BizSelect로 전면 개편
+    - 기존 `Select` + `getFloors()` 직접 호출 방식 → `BizSelect` 공통 컴포넌트로 전환
+    - 회사 변경 시 건물 ID 초기화, 건물 변경 시 층 ID 초기화 watch 바인딩 적용
+    - 모달 폼 내 배정 층 선택도 BizSelect(type="floor", buildingId 파라미터 종속)로 전환
+    - 수정/삭제 작업 버튼 아이콘화 처리 (Tooltip 포함)
+  - `BizSelect.vue` 파라미터 가드 확장: `floor` type에 `buildingId` 미선택 시 API 요청 차단 로직 추가
+  - AuthServer EF Core 마이그레이션(`AddFloorBizSelectConfig`): `biz_select_configs` 테이블에 `building` 및 `floor` 타입 메타정보 시드 데이터 INSERT 완료 (PostgreSQL 실 DB 반영)
+
+## v1.2.7 (2026-06-25)
+- feat: 층(Floor) 및 호실(Room) 백엔드 CRUD 기능 구현 및 DB 마이그레이션
+  - `funeralv2Api` 프로젝트 내에 `Floor` 및 `Room` 엔티티 정의, DbSet 추가 (`AppDbContext`)
+  - `dotnet ef` CLI 도구를 통해 `AddFloorAndRoom` 마이그레이션 생성 및 로컬 DB 테이블(`smfr.floors`, `smfr.rooms`) 생성 완료
+  - 층 및 호실 관리를 위한 서비스(`IFloorService`/`FloorService`, `IRoomService`/`RoomService`) 작성 및 DI 컨테이너에 등록
+  - `/building/floor`, `/building/room` Minimal API 엔드포인트 구현 및 공통 API 응답 필터 적용
+  - 프론트엔드 API 클라이언트(`src/api/building/index.ts`) 내 층 및 호실 관련 URL 경로에 `/funeral` 접두사 추가하여 게이트웨이 프록시 라우팅 연동
+
+## v1.2.6 (2026-06-25)
+- feat: 건물 관리 모달 팝업의 회사 선택, AI 코드 추천 및 Daum 우편번호 주소 연동
+  - 백엔드 `Building` 엔티티 및 DTO(`BuildingDto`, `BuildingCreateDto`, `BuildingUpdateDto`)에 우편번호(`ZipCode`), 상세주소(`AddressDetail`) 속성 연동
+  - `BuildingService` 내부의 엔티티-DTO 간 양방향 매핑 처리부 갱신
+  - `dotnet ef`를 통해 `AddBuildingAddressDetails` 신규 마이그레이션 생성 및 PostgreSQL 적용 완료
+  - 프론트엔드 `Building` API 스키마 인터페이스에 `zipCode` 및 `addressDetail` 추가
+  - 건물 관리 화면([index.vue](file:///C:/Funeralv2/fronts/apps/funeralv2/src/views/building/info/index.vue))의 팝업 폼 내부 개선:
+    - 소속 회사 변경이 가능하도록 상단에 `BizSelect` (type="company") 추가
+    - 건물명 작성 시 즉각적으로 AI 추천 코드를 제공받을 수 있도록 `AiCodeSuggester` 연동
+    - 주소 체계를 우편번호, 주소, 상세주소로 분리하고, Daum Postcode 연계 컴포넌트인 `AddressSearchInput` 연동 및 바인딩 완료
+
+## v1.2.5 (2026-06-25)
+- feat: API Gateway 미정의 경로 호출 및 타임아웃 에러 응답 규격 포맷 통일
+  - `ApiGateway/Program.cs` 내에 `MapFallback`을 추가하여 게이트웨이에 매핑되지 않은 경로 호출 시 `ApiResponse` 규격과 일관된 포맷(`E404` 코드 및 "요청하신 경로를 찾을 수 없습니다." 메시지)의 JSON 에러 응답을 직접 반환하도록 구현
+  - 502 Bad Gateway 및 504 Gateway Timeout 오류 발생 시 반환하는 응답 구조 역시 `ApiResponse` 규격에 맞는 필드 구성(`success`, `code`, `message`, `timestamp`, `traceId`, `path`, `realmessage`)으로 통일되도록 에러 포맷 개선
+
+## v1.2.4 (2026-06-25)
+- fix: 건물 정보 API 호출 경로에 `/funeral` 접두사 추가 연동
+  - API Gateway(`funeral-service-route`)의 프록시 라우팅 규칙(`/api/funeral/` -> `funeralv2Api`)에 맞추어, 프론트엔드의 건물(Building) API 호출 경로를 `/funeral/building/info`로 수정하여 백엔드로 정상 라우팅되도록 수정
+
+## v1.2.3 (2026-06-25)
+- feat: 모든 MSA API 성공 응답 규격 포맷팅의 공통화를 위한 Endpoint Filter 및 확장 기능 구현
+  - 공통 인프라(`Funeralv2.Shared.Infrastructure`)에 `ApiResponseFilter` 엔드포인트 필터 구현
+    - 핸들러 실행 결과를 인터셉트하여 `null`인 경우, `ApiResponse<object>.Ok(null)`로 자동 변환
+    - 반환값이 일반 비즈니스 데이터 객체인 경우 `ApiResponse<object>.Ok(data)`로 래핑하여 `Results.Ok(...)` 형식으로 자동 변환 처리
+    - 이미 `ApiResponse<T>` 규격이거나 `ApiResponse<T>`가 들어간 `IResult` 등은 이중 래핑 방지를 위한 예외 패스스루 처리
+  - 필터 등록 간소화를 위한 `RouteHandlerBuilder` 및 `RouteGroupBuilder`용 `AddApiResponseWrapper()` 확장 메서드 구현
+  - `funeralv2Api` 및 `AuthServer` 의 엔드포인트(`ExampleEndpoints.cs`, `BuildingEndpoints.cs`, `CompanyEndpoints.cs`)에 공통 필터를 탑재하고, 개별 핸들러 내부의 수동 래핑 코드를 걷어내는 리팩토링 진행
+
+## v1.2.2 (2026-06-25)
+- feat: 건물 관리의 회사(Company) 소속 연동 개발
+  - 백엔드(funeralv2Api)에 `Building` 엔티티 정의 (`BaseEntity<string>` 상속) 및 DB DbSet 등록 (`AppDbContext`)
+  - `dotnet ef` CLI 도구를 통해 `AddBuilding` 마이그레이션 생성 및 PostgreSQL 로컬 DB 업데이트 적용 (`appsettings.Local.json` 기준)
+  - 건물 생성, 수정, 삭제 및 회사 필터링 조회를 지원하는 `IBuildingService`, `BuildingService` 작성 및 DI 등록
+  - `/building/info` Minimal API 엔드포인트 구현 및 로깅(`ILogger<BuildingService>`)을 통한 임계 경로의 Observability 확보
+  - 프론트엔드 API 클라이언트(`src/api/building/index.ts`)에 `companyId` 쿼리 파라미터 연동 및 DTO 스키마 갱신
+  - 건물 정보 관리 뷰(`src/views/building/info/index.vue`) 상단에 `BizSelect` (type="company") 연동하여 선택된 회사 기준 건물 데이터 그리드 표출 및 신규 생성 시 해당 회사 ID 귀속 처리 구현
+
 ## v1.2.1 (2026-06-25)
 - feat: 이미지 크기별 규격화 보관 및 WebP 지연 생성(Lazy Generation) 기능 구현
   - 이미지 규격화: `Thumbnail` (150x150), `Medium` (600x600), `Large` (1200x1200) 규격으로 별도 보관하도록 개선

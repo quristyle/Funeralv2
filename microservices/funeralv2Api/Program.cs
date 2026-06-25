@@ -35,6 +35,9 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(connectionString, x => x.MigrationsHistoryTable("__EFMigrationsHistory", "smfr")));
 
 builder.Services.AddScoped<IDemoService, DemoService>();
+builder.Services.AddScoped<IBuildingService, BuildingService>();
+builder.Services.AddScoped<IFloorService, FloorService>();
+builder.Services.AddScoped<IRoomService, RoomService>();
 
 // ============================================================
 // 5. CORS 구성 (Cross-Origin Resource Sharing)
@@ -91,6 +94,9 @@ app.UseCors("AllowAll");
 // 9. API 엔드포인트 등록 (분리된 파일에서 로드)
 // ============================================================
 app.MapExampleEndpoints();
+app.MapBuildingEndpoints();
+app.MapFloorEndpoints();
+app.MapRoomEndpoints();
 
 
 
