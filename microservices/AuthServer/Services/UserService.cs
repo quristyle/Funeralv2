@@ -37,6 +37,7 @@ public class UserService : IUserService
         var phone = account.ProfileDetails?.FirstOrDefault(p => p.DetailType == "Phone")?.Content;
         var email = account.ProfileDetails?.FirstOrDefault(p => p.DetailType == "Email")?.Content;
         var homePath = account.ProfileDetails?.FirstOrDefault(p => p.DetailType == "HomePath")?.Content;
+        var avatar = account.ProfileDetails?.FirstOrDefault(p => p.DetailType == "Avatar")?.Content;
 
         var securityPhone = account.ProfileDetails?.FirstOrDefault(p => p.DetailType == "SecurityPhone")?.Content == "true";
         var securityQuestion = account.ProfileDetails?.FirstOrDefault(p => p.DetailType == "SecurityQuestion")?.Content == "true";
@@ -54,6 +55,7 @@ public class UserService : IUserService
             UserId = account.UserId,
             Username = account.UserId,
             RealName = account.UserName,
+            Avatar = !string.IsNullOrEmpty(avatar) ? avatar : "https://gw.alipayobjects.com/zos/antfincdn/XAosXuNZyF/BiazfanxmamNRoxxVxka.png",
             Desc = email ?? "등록된 설명이 없습니다.",
             HomePath = homePath ?? "/dashboard/workspace",
             Roles = new List<string> { "super" }, // 기본 관리자 권한 부여
@@ -459,6 +461,27 @@ public class UserService : IUserService
                     AccountId = account.Id,
                     DetailType = "Phone",
                     Content = dto.Phone,
+                    IsPrimary = true
+                });
+            }
+        }
+
+        // Avatar 업데이트
+        if (dto.Avatar != null)
+        {
+            var avatarDetail = account.ProfileDetails?.FirstOrDefault(p => p.DetailType == "Avatar");
+            if (avatarDetail != null)
+            {
+                avatarDetail.Content = dto.Avatar;
+                _db.Entry(avatarDetail).State = EntityState.Modified;
+            }
+            else
+            {
+                _db.AccountProfileDetails.Add(new AccountProfileDetail
+                {
+                    AccountId = account.Id,
+                    DetailType = "Avatar",
+                    Content = dto.Avatar,
                     IsPrimary = true
                 });
             }

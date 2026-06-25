@@ -8,10 +8,9 @@ import {
   Tabs,
   TabsList,
   TabsTrigger,
-  VbenAvatar,
 } from '@vben-core/shadcn-ui';
 
-import { Page } from '../../components';
+import { Page, FileUpload } from '../../components';
 
 defineOptions({
   name: 'ProfileUI',
@@ -22,16 +21,21 @@ withDefaults(defineProps<Props>(), {
   tabs: () => [],
 });
 
+const emit = defineEmits<{
+  (e: 'change-avatar', url: string): void;
+}>();
+
 const tabsValue = defineModel<string>('modelValue');
 </script>
 <template>
   <Page auto-content-height>
     <div class="flex size-full">
       <Card class="w-1/6 flex-none">
-        <div class="mt-4 flex-col-center h-40 gap-4">
-          <VbenAvatar
-            :src="userInfo?.avatar ?? preferences.app.defaultAvatar"
-            class="size-20"
+        <div class="mt-4 flex flex-col items-center justify-center gap-4 h-48">
+          <FileUpload
+            mode="avatar"
+            :value="(userInfo?.avatar ?? preferences.app.defaultAvatar) || ''"
+            @change="(val) => emit('change-avatar', Array.isArray(val) ? val[0] as string : val as string)"
           />
           <span class="text-lg font-semibold">
             {{ userInfo?.realName ?? '' }}

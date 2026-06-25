@@ -7,6 +7,7 @@ GATEWAY_DIR="$ROOT_DIR/ApiGateway"
 AUTH_SERVER_DIR="$ROOT_DIR/microservices/AuthServer"
 MICROSERVICE_DIR="$ROOT_DIR/microservices/funeralv2Api"
 AI_AGENT_DIR="$ROOT_DIR/microservices/AIAgentServer"
+FILE_SERVER_DIR="$ROOT_DIR/microservices/FileServer"
 
 echo "===================================================="
 echo "   Funeral V2 시스템 빌드 및 시작 (MS Architecture)"
@@ -51,7 +52,13 @@ if ! (cd "$AI_AGENT_DIR" && dotnet build); then
     exit 1
 fi
 
-echo "4. API Gateway 빌드..."
+echo "4. File Server 빌드..."
+if ! (cd "$FILE_SERVER_DIR" && dotnet build); then
+    echo "❌ File Server 빌드 실패! 실행을 중단합니다."
+    exit 1
+fi
+
+echo "5. API Gateway 빌드..."
 if ! (cd "$GATEWAY_DIR" && dotnet build); then
     echo "❌ API Gateway 빌드 실패! 실행을 중단합니다."
     exit 1
@@ -83,6 +90,7 @@ xdg-terminal-exec bash -c "trap ':' INT; ${NVM_INIT_COMMAND} cd $FRONTEND_DIR &&
 xdg-terminal-exec bash -c "cd $AUTH_SERVER_DIR && SERVER_NAME=AUTH DOTNET_WATCH_HOT_RELOAD=0 dotnet watch run --no-hot-reload" &
 xdg-terminal-exec bash -c "cd $MICROSERVICE_DIR && SERVER_NAME=FUNERALV2 DOTNET_WATCH_HOT_RELOAD=0 dotnet watch run --no-hot-reload" &
 xdg-terminal-exec bash -c "cd $AI_AGENT_DIR && SERVER_NAME=AI_AGENT DOTNET_WATCH_HOT_RELOAD=0 dotnet watch run --no-hot-reload" &
+xdg-terminal-exec bash -c "cd $FILE_SERVER_DIR && SERVER_NAME=FILE_API DOTNET_WATCH_HOT_RELOAD=0 dotnet watch run --no-hot-reload" &
 
 # [단계 3] 프론트엔드 실행 - 단계 번호 수정
 echo ">>> [3/4] 프론트엔드 (Vben Admin) 실행 중..."

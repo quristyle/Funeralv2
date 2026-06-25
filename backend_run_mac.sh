@@ -7,6 +7,7 @@ GATEWAY_DIR="$ROOT_DIR/ApiGateway"
 AUTH_SERVER_DIR="$ROOT_DIR/microservices/AuthServer"
 MICROSERVICE_DIR="$ROOT_DIR/microservices/funeralv2Api"
 AI_AGENT_DIR="$ROOT_DIR/microservices/AIAgentServer"
+FILE_SERVER_DIR="$ROOT_DIR/microservices/FileServer"
 
 echo "===================================================="
 echo "   Funeral V2 시스템 빌드 및 시작 (MS Architecture)"
@@ -33,7 +34,13 @@ if ! (cd "$AI_AGENT_DIR" && dotnet build); then
     exit 1
 fi
 
-echo "4. API Gateway 빌드..."
+echo "4. File Server 빌드..."
+if ! (cd "$FILE_SERVER_DIR" && dotnet build); then
+    echo "❌ File Server 빌드 실패! 실행을 중단합니다."
+    exit 1
+fi
+
+echo "5. API Gateway 빌드..."
 if ! (cd "$GATEWAY_DIR" && dotnet build); then
     echo "❌ API Gateway 빌드 실패! 실행을 중단합니다."
     exit 1
@@ -79,6 +86,7 @@ EOF
 run_tab $MICROSERVICE_DIR
 run_tab $AUTH_SERVER_DIR
 run_tab $AI_AGENT_DIR
+run_tab $FILE_SERVER_DIR
 run_tab $GATEWAY_DIR
 
 

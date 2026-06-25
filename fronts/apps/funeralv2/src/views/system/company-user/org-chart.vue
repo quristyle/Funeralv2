@@ -472,7 +472,7 @@ onMounted(async () => {
       <!-- 메인 2D 무한 마인드맵 영역 -->
       <div 
         ref="canvasRef"
-        class="flex-1 border rounded-xl overflow-hidden bg-gray-50 relative select-none cursor-grab"
+        class="flex-1 border rounded-xl overflow-hidden relative select-none cursor-grab"
         :class="{ 'cursor-grabbing': isPanning }"
         @mousedown="onCanvasMouseDown"
         @mousemove="onCanvasMouseMove"
@@ -480,7 +480,7 @@ onMounted(async () => {
         @mouseleave="onCanvasMouseUp"
         @wheel="onCanvasWheel"
       >
-        <div class="absolute top-4 left-4 z-10 bg-white/80 backdrop-blur px-3 py-1.5 rounded-md border text-xs text-gray-500 pointer-events-none">
+        <div class="absolute top-4 left-4 z-10 backdrop-blur px-3 py-1.5 rounded-md border text-xs text-gray-500 pointer-events-none">
           💡 노드를 드래그하여 다른 부서에 소속시킬 수 있습니다. (확대: 휠 / 이동: 마우스 드래그)
         </div>
 
@@ -513,7 +513,7 @@ onMounted(async () => {
                   v-if="node.type === 'COMPANY'"
                   @dragover="onDragOver"
                   @drop.stop="onCompanyDrop($event)"
-                  class="node-card border-2 border-primary bg-blue-50/95 shadow-md rounded-lg p-2.5 flex items-center gap-2.5 h-[50px] w-[180px] hover:shadow-lg transition-shadow"
+                  class="node-card border-2 border-primary  shadow-md rounded-lg p-2.5 flex items-center gap-2.5 h-[50px] w-[180px] hover:shadow-lg transition-shadow"
                 >
                   <div class="bg-primary/10 p-1.5 rounded text-primary flex items-center justify-center shrink-0">
                     <IconifyIcon icon="lucide:building-2" class="size-5" />
@@ -531,9 +531,9 @@ onMounted(async () => {
                   @dragstart="onNodeDragStart($event, DRAG_TYPE_DEPT, node.id)"
                   @dragover="onDragOver"
                   @drop.stop="onNodeDrop($event, node.id)"
-                  class="node-card border border-teal-500 bg-white/95 shadow rounded-lg p-2 flex items-center gap-2 h-[50px] w-[180px] hover:border-teal-600 hover:shadow-md transition-all cursor-move active:opacity-65"
+                  class="node-card border border-teal-500 shadow rounded-lg p-2 flex items-center gap-2 h-[50px] w-[180px] hover:border-teal-600 hover:shadow-md transition-all cursor-move active:opacity-65"
                 >
-                  <div class="bg-teal-50 p-1.5 rounded text-teal-600 flex items-center justify-center shrink-0">
+                  <div class=" p-1.5 rounded text-teal-600 flex items-center justify-center shrink-0">
                     <IconifyIcon icon="lucide:folder-open" class="size-4" />
                   </div>
                   <div class="overflow-hidden flex-1">
@@ -563,7 +563,7 @@ onMounted(async () => {
         </svg>
 
         <!-- 로딩 표시 -->
-        <div v-if="loading" class="absolute inset-0 bg-white/60 flex items-center justify-center pointer-events-none">
+        <div v-if="loading" class="absolute inset-0 flex items-center justify-center pointer-events-none">
           <div class="flex flex-col items-center gap-2">
             <IconifyIcon icon="lucide:loader-2" class="size-8 text-primary animate-spin" />
             <span class="text-xs font-semibold text-gray-500">조직도 분석 중...</span>

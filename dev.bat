@@ -9,6 +9,7 @@ set "GATEWAY_DIR=%ROOT_DIR%ApiGateway"
 set "AUTH_SERVER_DIR=%ROOT_DIR%microservices\AuthServer"
 set "MICROSERVICE_DIR=%ROOT_DIR%microservices\funeralv2Api"
 set "AI_AGENT_DIR=%ROOT_DIR%microservices\AIAgentServer"
+set "FILE_SERVER_DIR=%ROOT_DIR%microservices\FileServer"
 
 echo ====================================================
 echo    Funeral V2 시스템 초기화 및 시작 (MS Architecture)
@@ -62,7 +63,18 @@ if %ERRORLEVEL% neq 0 (
 )
 popd
 
-echo 4. API Gateway 빌드...
+echo 4. File Server 빌드...
+pushd "%FILE_SERVER_DIR%"
+dotnet build
+if %ERRORLEVEL% neq 0 (
+    echo [ERROR] File Server 빌드 실패! 실행을 중단합니다.
+    popd
+    pause
+    exit /b 1
+)
+popd
+
+echo 5. API Gateway 빌드...
 pushd "%GATEWAY_DIR%"
 dotnet build
 if %ERRORLEVEL% neq 0 (
@@ -88,6 +100,10 @@ timeout /t 2 /nobreak > nul
 
 :: AI Agent Server 실행
 start "AI Agent Server" cmd /k "cd /d %AI_AGENT_DIR% && set SERVER_NAME=AI_AGENT && dotnet run --no-build"
+timeout /t 2 /nobreak > nul
+
+:: File Server 실행
+start "File Server" cmd /k "cd /d %FILE_SERVER_DIR% && set SERVER_NAME=FILE_API && dotnet run --no-build"
 timeout /t 2 /nobreak > nul
 
 :: API Gateway 실행

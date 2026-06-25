@@ -23,7 +23,7 @@ export async function getUserInfoApi() {
 /**
  * 사용자 기본 프로필 수정
  */
-export async function updateProfileApi(data: { realName?: string; introduction?: string; email?: string; phone?: string }) {
+export async function updateProfileApi(data: { realName?: string; introduction?: string; email?: string; phone?: string; avatar?: string }) {
   return requestClient.post('/auth/user/profile', data);
 }
 

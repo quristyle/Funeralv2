@@ -1,5 +1,24 @@
 # Changelog
- 
+
+## v1.2.1 (2026-06-25)
+- feat: 이미지 크기별 규격화 보관 및 WebP 지연 생성(Lazy Generation) 기능 구현
+  - 이미지 규격화: `Thumbnail` (150x150), `Medium` (600x600), `Large` (1200x1200) 규격으로 별도 보관하도록 개선
+  - 지연 생성 (Lazy Generation): 조회 요청 시점에 파일 유무를 검사하여 없을 때만 원본을 리사이징하여 각 규격 폴더에 `WebP` 포맷으로 인코딩 및 캐싱
+  - 공간 절약: 생성본은 고효율 `WebP` 포맷으로 자동 변환해 보관하고, 최초 연산 이후에는 스토리지에서 직접 조회하므로 CPU 연산 차단 및 최적의 입출력 성능 확보
+  - 파일 삭제 시 정합성 유지: 원본 이미지 및 각 규격별로 지연 생성된 모든 캐시 파일(`[id].webp`, `[id]_*`)을 일괄 물리 삭제 처리
+  - API 엔드포인트 `/medium/{id}` 및 `/large/{id}` 추가 연동 및 게이트웨이 / 예외 리다이렉션 연계 탑재
+  - `FileServer.http` 명세 내 규격별 테스트 추가
+
+## v1.2.0 (2026-06-25)
+- feat: 파일 관리를 위한 파일 마이크로서비스 추가
+  - 신규 마이크로서비스 프로젝트 `microservices/FileServer` 추가
+  - 파일 업로드(`POST /upload`), 원본 다운로드(`GET /download/{id}`), 썸네일 다운로드(`GET /thumbnail/{id}`), 이미지 크기별 다운로드(`GET /resize/{id}`), 파일 메타조회(`GET /metadata/{id}`), 파일 삭제(`DELETE /{id}`) API 기능 구현
+  - `SixLabors.ImageSharp` 2.1.9 라이브러리를 활용한 크로스플랫폼 이미지 썸네일 생성 및 가로/세로 리사이징, 캐싱 기능 구현
+  - `DbContext.Database.EnsureCreated()`를 활용해 구동 시 `smfr.file_metadata` 테이블 자동 생성 기능 구현
+  - API Gateway(`ApiGateway/appsettings.json`)에 `/api/file` 라우트 및 `file-cluster` 목적지(`http://localhost:5350`) 설정 추가
+  - `dev.bat`, `backend_run_ubuntu.sh`, `backend_run_mac.sh` 구동 및 빌드 스크립트에 `FileServer` 프로젝트 등록
+  - API 개발 사양 및 수동 테스트를 위한 `FileServer.http` 스펙 정의 파일 추가
+
 ## v1.1.0 (2026-06-24)
 - feat: 조직도 화면 진입 시 첫 번째 회사 자동 선택, 레이아웃 센터링 개선 및 인터랙션 강화
   - `org-chart.vue` 화면 진입 시 `getCompanyList` API를 직접 호출하여 첫 번째 회사를 자동으로 감지하고 `selectedCompanyId`에 바인딩

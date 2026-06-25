@@ -13,6 +13,7 @@ export * from './tippy';
 export * from './tree';
 export * from '@vben-core/form-ui';
 export * from '@vben-core/popup-ui';
+export { default as FileUpload } from './file-upload/file-upload.vue';
 
 // 문서용
 export {

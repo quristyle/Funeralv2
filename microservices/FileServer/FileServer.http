@@ -1,0 +1,84 @@
+@FileServer_HostAddress = http://localhost:5350
+@Gateway_HostAddress = http://localhost:5555
+
+# ============================================================
+# 1. 파일 업로드 (직접 호출)
+# ============================================================
+POST {{FileServer_HostAddress}}/upload
+Content-Type: multipart/form-data; boundary=boundary
+
+--boundary
+Content-Disposition: form-data; name="file"; filename="test_image.png"
+Content-Type: image/png
+
+< ./test_image.png
+--boundary--
+
+###
+
+# ============================================================
+# 2. 파일 메타데이터 조회
+# ============================================================
+# id 부분에 업로드 후 반환된 UUID 입력
+@fileId = 00000000-0000-0000-0000-000000000000
+GET {{FileServer_HostAddress}}/metadata/{{fileId}}
+Accept: application/json
+
+###
+
+# ============================================================
+# 3. 원본 파일 다운로드
+# ============================================================
+GET {{FileServer_HostAddress}}/download/{{fileId}}
+
+###
+
+# ============================================================
+# 4. 이미지 썸네일 조회 (기본 150x150 WebP)
+# ============================================================
+GET {{FileServer_HostAddress}}/thumbnail/{{fileId}}
+
+###
+
+# ============================================================
+# 4-1. 이미지 중간 크기 조회 (기본 600x600 WebP)
+# ============================================================
+GET {{FileServer_HostAddress}}/medium/{{fileId}}
+
+###
+
+# ============================================================
+# 4-2. 이미지 큰 크기 조회 (기본 1200x1200 WebP)
+# ============================================================
+GET {{FileServer_HostAddress}}/large/{{fileId}}
+
+###
+
+# ============================================================
+# 5. 이미지 크기 조절 (예: 800x600)
+# ============================================================
+GET {{FileServer_HostAddress}}/resize/{{fileId}}?width=800&height=600
+
+###
+
+# ============================================================
+# 6. 파일 삭제
+# ============================================================
+DELETE {{FileServer_HostAddress}}/{{fileId}}
+
+###
+
+# ============================================================
+# 7. Gateway(YARP)를 통한 파일 업로드 호출 예시
+# ============================================================
+POST {{Gateway_HostAddress}}/api/file/upload
+Content-Type: multipart/form-data; boundary=boundary
+X-User-Id: test-user-123
+X-User-Role: Admin
+
+--boundary
+Content-Disposition: form-data; name="file"; filename="test_file.txt"
+Content-Type: text/plain
+
+Hello, this is a test file.
+--boundary--

@@ -3,6 +3,7 @@ import { ref } from 'vue';
 
 import { Profile } from '@vben/common-ui';
 import { useUserStore } from '@vben/stores';
+import { updateProfileApi } from '#/api';
 
 import ProfileBase from './base-setting.vue';
 import ProfileNotificationSetting from './notification-setting.vue';
@@ -31,6 +32,22 @@ const tabs = ref([
     value: 'notice',
   },
 ]);
+
+const handleAvatarChange = async (avatarUrl: string) => {
+  try {
+    // 1. 백엔드 API 호출하여 DB에 아바타 저장
+    await updateProfileApi({
+      avatar: avatarUrl
+    });
+    
+    // 2. 전역 스토어 상태 변경하여 화면 즉시 갱신
+    if (userStore.userInfo) {
+      userStore.userInfo.avatar = avatarUrl;
+    }
+  } catch (err: any) {
+    console.error('아바타 변경 실패:', err);
+  }
+};
 </script>
 <template>
   <Profile
@@ -38,6 +55,7 @@ const tabs = ref([
     title="개인 센터"
     :user-info="userStore.userInfo"
     :tabs="tabs"
+    @change-avatar="handleAvatarChange"
   >
     <template #content>
       <ProfileBase v-if="tabsValue === 'basic'" />
