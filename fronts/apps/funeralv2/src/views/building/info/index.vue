@@ -1,8 +1,8 @@
 <script lang="ts" setup>
 import { ref, watch } from 'vue';
 import { Page, useVbenModal } from '@vben/common-ui';
-import { IconifyIcon, Plus } from '@vben/icons';
-import { Button, message, Popconfirm, Form, Input, Tooltip } from 'ant-design-vue';
+import { IconifyIcon, Plus } from '@vben/icons'; 
+import { Button, message, Popconfirm, Form, Input, Tooltip, InputNumber } from 'ant-design-vue';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { getBuildings, createBuilding, updateBuilding, deleteBuilding } from '#/api/building';
 import BizSelect from '#/components/BizSelect.vue';
@@ -24,6 +24,7 @@ const formModel = ref({
   companyId: '',
   name: '',
   shortName: '',
+  sortOrder: 1,
   zipCode: '',
   address: '',
   addressDetail: '',
@@ -35,6 +36,7 @@ const [Grid, gridApi] = useVbenVxeGrid({
     columns: [
       { field: 'name', title: '건물명', minWidth: 150 },
       { field: 'shortName', title: '짧은건물명', minWidth: 120 },
+      { field: 'sortOrder', title: '정렬 순서', width: 100 },
       { field: 'address', title: '주소', minWidth: 200 },
       { field: 'remark', title: '설명', minWidth: 200 },
       {
@@ -84,6 +86,7 @@ function onCreate() {
     companyId: selectedCompanyId.value,
     name: '',
     shortName: '',
+    sortOrder: 1,
     zipCode: '',
     address: '',
     addressDetail: '',
@@ -184,6 +187,9 @@ async function handleSave() {
           </Form.Item>
           <Form.Item label="짧은건물명">
             <Input v-model:value="formModel.shortName" placeholder="예: 본관, 신관 등 짧은 명칭" />
+          </Form.Item>
+          <Form.Item label="정렬 순서">
+            <InputNumber v-model:value="formModel.sortOrder" :min="1" style="width: 100%" />
           </Form.Item>
           <Form.Item label="우편번호">
             <AddressSearchInput

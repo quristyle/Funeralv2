@@ -8,9 +8,9 @@ namespace funeralv2Api.Services;
 public interface IRoomService
 {
     /// <summary>
-    /// 호실 목록 조회 (층 필터 적용)
+    /// 호실 목록 조회 (회사, 건물, 층 필터 적용)
     /// </summary>
-    Task<List<RoomDto>> GetRoomsAsync(string? floorId);
+    Task<List<RoomDto>> GetRoomsAsync(string? companyId, string? buildingId, string? floorId);
 
     /// <summary>
     /// 단일 호실 상세 조회

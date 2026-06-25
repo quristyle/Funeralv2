@@ -1,8 +1,8 @@
 <script lang="ts" setup>
 import { ref, watch, onMounted } from 'vue';
 import { Page, useVbenModal } from '@vben/common-ui';
-import { IconifyIcon, Plus } from '@vben/icons';
-import { Button, message, Popconfirm, Form, Input, Select, Tooltip } from 'ant-design-vue';
+import { IconifyIcon, Plus } from '@vben/icons'; 
+import { Button, message, Popconfirm, Form, Input, Select, Tooltip, InputNumber } from 'ant-design-vue';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { getRooms, createRoom, updateRoom, deleteRoom } from '#/api/building';
 import { getCommonCodes } from '#/api/system/common-code';
@@ -47,6 +47,7 @@ const formModel = ref({
   floorId: '',
   name: '',
   roomType: 'FUNERAL_HALL' as string,
+  sortOrder: 1,
   status: 'ACTIVE' as 'ACTIVE' | 'INACTIVE',
   remark: ''
 });
@@ -62,6 +63,7 @@ const [Grid, gridApi] = useVbenVxeGrid({
         minWidth: 120,
         slots: { default: 'room-type-label' }
       },
+      { field: 'sortOrder', title: '정렬 순서', width: 100 },
       {
         field: 'status',
         title: '상태',
@@ -81,7 +83,19 @@ const [Grid, gridApi] = useVbenVxeGrid({
     proxyConfig: {
       ajax: {
         query: async () => {
-          return await getRooms(filterFloorId.value || undefined);
+          // 최소한 회사는 선택되어야 조회
+          if (!selectedCompanyId.value) {
+            return [];
+          }
+
+          const params: { companyId: string; buildingId?: string; floorId?: string } = {
+            companyId: selectedCompanyId.value,
+          };
+
+          if (selectedBuildingId.value) params.buildingId = selectedBuildingId.value;
+          if (filterFloorId.value) params.floorId = filterFloorId.value;
+
+          return await getRooms(params);
         },
       },
     },
@@ -112,6 +126,7 @@ function onCreate() {
     floorId: filterFloorId.value,
     name: '',
     roomType: 'FUNERAL_HALL',
+    sortOrder: 1,
     status: 'ACTIVE',
     remark: ''
   };
@@ -265,6 +280,9 @@ async function handleSave() {
               placeholder="호실 유형을 선택해주세요"
               style="width: 100%"
             />
+          </Form.Item>
+          <Form.Item label="정렬 순서">
+            <InputNumber v-model:value="formModel.sortOrder" :min="1" style="width: 100%" />
           </Form.Item>
           <Form.Item label="사용 여부">
             <Select v-model:value="formModel.status">

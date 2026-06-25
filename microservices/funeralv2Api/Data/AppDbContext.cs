@@ -31,6 +31,11 @@ public class AppDbContext : DbContext
     /// </summary>
     public DbSet<Room> Rooms { get; set; } = null!;
 
+    /// <summary>
+    /// 장비 DbSet
+    /// </summary>
+    public DbSet<Device> Devices { get; set; } = null!;
+
 
 
     /// <summary>

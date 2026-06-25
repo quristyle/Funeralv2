@@ -21,11 +21,11 @@ public class RoomService : IRoomService
     }
 
     /// <summary>
-    /// 호실 목록 조회 (층 필터 적용)
+    /// 호실 목록 조회 (회사, 건물, 층 필터 적용)
     /// </summary>
-    public async Task<List<RoomDto>> GetRoomsAsync(string? floorId)
+    public async Task<List<RoomDto>> GetRoomsAsync(string? companyId, string? buildingId, string? floorId)
     {
-        _logger.LogInformation("Retrieving rooms list for FloorId: {FloorId}", floorId);
+        _logger.LogInformation("Retrieving rooms list. CompanyId: {CompanyId}, BuildingId: {BuildingId}, FloorId: {FloorId}", companyId, buildingId, floorId);
         
         var query = _context.Rooms
             .Include(r => r.Floor)
@@ -34,6 +34,20 @@ public class RoomService : IRoomService
         if (!string.IsNullOrEmpty(floorId))
         {
             query = query.Where(r => r.FloorId == floorId);
+        }
+        else if (!string.IsNullOrEmpty(buildingId))
+        {
+            query = query.Where(r => r.BuildingId == buildingId);
+        }
+        else if (!string.IsNullOrEmpty(companyId))
+        {
+            // Room 엔터티에 CompanyId가 없으므로 Building을 통해 조인
+            var buildingIds = await _context.Buildings
+                .Where(b => b.CompanyId == companyId && !b.IsDeleted)
+                .Select(b => b.Id)
+                .ToListAsync();
+            
+            query = query.Where(r => buildingIds.Contains(r.BuildingId));
         }
 
         var list = await query

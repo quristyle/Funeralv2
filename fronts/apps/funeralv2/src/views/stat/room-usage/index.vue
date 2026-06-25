@@ -14,7 +14,7 @@ const searchRange = ref<[any, any]>([dayjs().subtract(30, 'day'), dayjs()]);
 // 호실 정보 로드
 async function fetchRooms() {
   try {
-    const list = await getRooms();
+    const list = await getRooms({});
     rooms.value = list || [];
   } catch (error) {
     message.error('호실 정보 로드 실패');

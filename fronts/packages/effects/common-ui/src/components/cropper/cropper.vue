@@ -909,7 +909,7 @@ defineExpose({ getCropImage });
 
 /* 자르기 상자 드래그 영역 */
 .cropper-move-area {
-  @apply absolute top-0 left-0 block h-full w-full cursor-move bg-white/10;
+  @apply absolute top-0 left-0 block h-full w-full cursor-move ;
 }
 
 /* 테두리 드래그 선 */
@@ -942,7 +942,7 @@ defineExpose({ getCropImage });
 }
 
 .cropper-point-inner {
-  @apply block h-1.5 w-1.5 bg-white;
+  @apply block h-1.5 w-1.5 ;
 }
 
 /* 모서리 드래그 포인트 위치 및 커서 */

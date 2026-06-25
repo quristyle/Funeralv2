@@ -395,7 +395,7 @@ onMounted(() => {
         <!-- 카드 우측 상단 삭제 버튼 -->
         <button 
           @click="deleteFile(file.id)"
-          class="absolute top-2 right-2 size-6 rounded-full bg-white/90 hover:bg-red-500 hover:text-white border flex items-center justify-center text-muted-foreground shadow-sm transition-all duration-200 z-10"
+          class="absolute top-2 right-2 size-6 rounded-full  hover:bg-red-500 hover:text-white border flex items-center justify-center text-muted-foreground shadow-sm transition-all duration-200 z-10"
         >
           <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />

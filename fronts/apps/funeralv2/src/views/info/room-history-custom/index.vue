@@ -13,7 +13,7 @@ const timelineLogs = ref<any[]>([]);
 // 호실 로드
 async function fetchRooms() {
   try {
-    const list = await getRooms();
+    const list = await getRooms({});
     rooms.value = list || [];
     if (rooms.value.length > 0 && rooms.value[0]?.id) {
       filterRoomId.value = rooms.value[0].id;

@@ -130,7 +130,7 @@ onMounted(() => {
     </div>
 
     <!-- 지정 사용자 그리드 -->
-    <div class="flex-1 overflow-auto border rounded-lg bg-white">
+    <div class="flex-1 overflow-auto border rounded-lg ">
       <Table
         :columns="mappedColumns"
         :data-source="mappedUsers"

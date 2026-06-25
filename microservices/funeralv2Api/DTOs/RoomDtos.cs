@@ -45,6 +45,12 @@ public class RoomCreateDto
 /// </summary>
 public class RoomUpdateDto
 {
+    [Required(ErrorMessage = "건물 ID는 필수입니다.")]
+    public string BuildingId { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "층 ID는 필수입니다.")]
+    public string FloorId { get; set; } = string.Empty;
+
     [Required(ErrorMessage = "호실 명칭은 필수입니다.")]
     public string Name { get; set; } = string.Empty;
 

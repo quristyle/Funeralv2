@@ -1,0 +1,74 @@
+using System.ComponentModel.DataAnnotations;
+
+namespace funeralv2Api.DTOs;
+
+/// <summary>
+/// 장비 정보 응답 DTO
+/// </summary>
+public class DeviceDto
+{
+    public string Id { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string Code { get; set; } = string.Empty;
+    public string DeviceType { get; set; } = "DID";
+    public string? IpAddress { get; set; }
+    public string? MacAddress { get; set; }
+    public string Status { get; set; } = "UNKNOWN";
+
+    public string? CompanyId { get; set; }
+    public string? BuildingId { get; set; }
+    public string? FloorId { get; set; }
+    public string? RoomId { get; set; }
+    
+    // For display
+    public string? CompanyName { get; set; }
+    public string? BuildingName { get; set; }
+    public string? FloorName { get; set; }
+    public string? RoomName { get; set; }
+}
+
+/// <summary>
+/// 장비 생성 DTO
+/// </summary>
+public class DeviceCreateDto
+{
+    [Required(ErrorMessage = "장비명은 필수입니다.")]
+    public string Name { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "장비코드는 필수입니다.")]
+    public string Code { get; set; } = string.Empty;
+
+    public string DeviceType { get; set; } = "DID";
+    public string? IpAddress { get; set; }
+    public string? MacAddress { get; set; }
+    public string Status { get; set; } = "UNKNOWN";
+    
+    [Required]
+    public string CompanyId { get; set; }
+
+    // A device can be associated with a building, a floor, or a room.
+    public string? BuildingId { get; set; }
+    public string? FloorId { get; set; }
+    public string? RoomId { get; set; }
+}
+
+/// <summary>
+/// 장비 수정 DTO
+/// </summary>
+public class DeviceUpdateDto
+{
+    [Required(ErrorMessage = "장비명은 필수입니다.")]
+    public string Name { get; set; } = string.Empty;
+
+    public string DeviceType { get; set; } = "DID";
+    public string? IpAddress { get; set; }
+    public string? MacAddress { get; set; }
+    public string Status { get; set; } = "UNKNOWN";
+    
+    [Required]
+    public string CompanyId { get; set; }
+
+    public string? BuildingId { get; set; }
+    public string? FloorId { get; set; }
+    public string? RoomId { get; set; }
+}

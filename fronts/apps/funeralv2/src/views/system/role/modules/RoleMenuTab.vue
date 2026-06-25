@@ -158,7 +158,7 @@ onMounted(() => {
     </div>
 
     <!-- 트리 그리드 영역 -->
-    <div class="flex-1 overflow-auto border rounded-lg bg-white relative">
+    <div class="flex-1 overflow-auto border rounded-lg  relative">
       <Grid class="h-full w-full">
         <!-- 각 권한 체크박스 셀 슬롯 정의 -->
         <template #canView="{ row }">

@@ -34,7 +34,7 @@ const burialDateVal = ref<any>(null);
 // 호실 정보 로드
 async function fetchRooms() {
   try {
-    const list = await getRooms();
+    const list = await getRooms({});
     rooms.value = list || [];
   } catch (error) {
     message.error('호실 목록을 가져올 수 없습니다.');

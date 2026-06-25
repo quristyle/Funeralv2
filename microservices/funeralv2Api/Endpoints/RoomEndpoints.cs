@@ -15,10 +15,14 @@ public static class RoomEndpoints
     {
         var group = app.MapGroup("/building/room").AddApiResponseWrapper();
 
-        // 호실 목록 조회 (층 필터 적용)
-        group.MapGet("/list", async ([FromQuery] string? floorId, [FromServices] IRoomService roomService) =>
+        // 호실 목록 조회 (회사, 건물, 층 필터 적용)
+        group.MapGet("/list", async (
+            [FromQuery] string? companyId, 
+            [FromQuery] string? buildingId, 
+            [FromQuery] string? floorId, 
+            [FromServices] IRoomService roomService) =>
         {
-            return await roomService.GetRoomsAsync(floorId);
+            return await roomService.GetRoomsAsync(companyId, buildingId, floorId);
         })
         .WithName("GetRooms")
         .WithOpenApi();
