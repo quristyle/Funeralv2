@@ -130,8 +130,13 @@ export async function deleteRoom(id: string) {
 }
 
 // === 장비 API ===
-export async function getDevices() {
-  return requestClient.get<BuildingApi.Device[]>('/funeral/building/device/list');
+export async function getDevices(params?: {
+  companyId?: string;
+  buildingId?: string;
+  floorId?: string;
+  roomId?: string;
+}) {
+  return requestClient.get<BuildingApi.Device[]>('/funeral/building/device/list', { params });
 }
 export async function createDevice(data: Omit<BuildingApi.Device, 'id'>) {
   return requestClient.post('/funeral/building/device', data);
@@ -144,8 +149,8 @@ export async function deleteDevice(id: string) {
 }
 
 // === 장비설정 API ===
-export async function getDeviceConfigs() {
-  return requestClient.get<BuildingApi.DeviceConfig[]>('/building/device-config/list');
+export async function getDeviceConfigs(params?: { deviceId?: string }) {
+  return requestClient.get<BuildingApi.DeviceConfig[]>('/building/device-config/list', { params });
 }
 export async function updateDeviceConfig(id: string, data: Partial<BuildingApi.DeviceConfig>) {
   return requestClient.put(`/building/device-config/${id}`, data);

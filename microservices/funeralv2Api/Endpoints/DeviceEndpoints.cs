@@ -13,10 +13,10 @@ public static class DeviceEndpoints
 {
     public static void MapDeviceEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/devices").WithTags("Devices").AddApiResponseWrapper();
+        var group = app.MapGroup("/building/device").WithTags("Devices").AddApiResponseWrapper();
 
         // 장비 목록 조회 (회사, 건물, 층, 호실 필터 적용)
-        group.MapGet("/", async (
+        group.MapGet("/list", async (
             [FromQuery] string? companyId,
             [FromQuery] string? buildingId,
             [FromQuery] string? floorId,
@@ -25,12 +25,12 @@ public static class DeviceEndpoints
         {
             if (string.IsNullOrEmpty(companyId) && string.IsNullOrEmpty(buildingId) && string.IsNullOrEmpty(floorId) && string.IsNullOrEmpty(roomId))
             {
-                 var result = await service.GetAllAsync();
-                 return Results.Ok(result.Data);
+                var result = await service.GetAllAsync();
+                return Results.Ok(result);
             }
-            
+
             var filteredResult = await service.GetByFilterAsync(companyId, buildingId, floorId, roomId);
-            return Results.Ok(filteredResult.Data);
+            return Results.Ok(filteredResult);
 
         }).WithName("GetDevices").WithOpenApi();
 
@@ -38,7 +38,7 @@ public static class DeviceEndpoints
         group.MapGet("/{id}", async (string id, [FromServices] IDeviceService service) =>
         {
             var result = await service.GetByIdAsync(id);
-            if (!result.IsSuccess || result.Data == null)
+            if (result == null)
             {
                 return Results.NotFound(ApiResponse<DeviceDto>.Fail("장비 정보를 찾을 수 없습니다."));
             }
@@ -48,29 +48,30 @@ public static class DeviceEndpoints
         // 장비 생성
         group.MapPost("/", async ([FromBody] DeviceCreateDto dto, [FromServices] IDeviceService service) =>
         {
-            return await service.CreateAsync(dto);
+            var newId = await service.CreateAsync(dto);
+            return Results.Ok(newId);
         }).WithName("CreateDevice").WithOpenApi();
 
         // 장비 수정
         group.MapPut("/{id}", async (string id, [FromBody] DeviceUpdateDto dto, [FromServices] IDeviceService service) =>
         {
-            var result = await service.UpdateAsync(id, dto);
-            if (!result.IsSuccess)
+            var success = await service.UpdateAsync(id, dto);
+            if (!success)
             {
                 return Results.NotFound(ApiResponse<DeviceDto>.Fail("수정할 장비 정보를 찾을 수 없습니다."));
             }
-            return Results.Ok(result);
+            return Results.Ok(success);
         }).WithName("UpdateDevice").WithOpenApi();
 
         // 장비 삭제
         group.MapDelete("/{id}", async (string id, [FromServices] IDeviceService service) =>
         {
-            var result = await service.DeleteAsync(id);
-            if (!result.IsSuccess)
+            var success = await service.DeleteAsync(id);
+            if (!success)
             {
                 return Results.NotFound(ApiResponse<bool>.Fail("삭제할 장비 정보를 찾을 수 없습니다."));
             }
-            return Results.Ok(result);
+            return Results.Ok(success);
         }).WithName("DeleteDevice").WithOpenApi();
     }
 }

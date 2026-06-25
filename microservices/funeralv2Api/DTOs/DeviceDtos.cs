@@ -44,7 +44,7 @@ public class DeviceCreateDto
     public string Status { get; set; } = "UNKNOWN";
     
     [Required]
-    public string CompanyId { get; set; }
+    public string? CompanyId { get; set; }
 
     // A device can be associated with a building, a floor, or a room.
     public string? BuildingId { get; set; }
@@ -66,7 +66,7 @@ public class DeviceUpdateDto
     public string Status { get; set; } = "UNKNOWN";
     
     [Required]
-    public string CompanyId { get; set; }
+    public string? CompanyId { get; set; }
 
     public string? BuildingId { get; set; }
     public string? FloorId { get; set; }
