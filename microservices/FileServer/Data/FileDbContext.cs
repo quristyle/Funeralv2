@@ -13,10 +13,18 @@ public class FileDbContext : DbContext
     }
 
     public DbSet<FileMetadata> FileMetadatas => Set<FileMetadata>();
+    public DbSet<FileGroup> FileGroups => Set<FileGroup>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+
+        // FileGroup과 FileMetadata 관계 설정 (Cascade Delete)
+        modelBuilder.Entity<FileMetadata>()
+            .HasOne(f => f.FileGroup)
+            .WithMany(g => g.Files)
+            .HasForeignKey(f => f.FileGroupId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         // 모든 엔티티에 대해 공통 규칙 적용
         foreach (var entity in modelBuilder.Model.GetEntityTypes())

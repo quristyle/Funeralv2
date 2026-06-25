@@ -137,7 +137,11 @@ const menus = computed(() => [
 ]);
 
 const avatar = computed(() => {
-  return userStore.userInfo?.avatar ?? preferences.app.defaultAvatar;
+  const rawAvatar = userStore.userInfo?.avatar ?? preferences.app.defaultAvatar;
+  if (rawAvatar && rawAvatar.includes('/api/file/download/')) {
+    return rawAvatar.replace('/api/file/download/', '/api/file/thumbnail/');
+  }
+  return rawAvatar;
 });
 
 async function handleLogout() {
@@ -203,8 +207,7 @@ onBeforeMount(() => {
         :avatar
         :menus
         :text="userStore.userInfo?.realName"
-        description="ann.vben@gmail.com"
-        tag-text="Pro"
+        :description="userStore.userInfo?.email"
         trigger="both"
         @logout="handleLogout"
       />

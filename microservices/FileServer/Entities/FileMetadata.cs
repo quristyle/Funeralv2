@@ -37,4 +37,24 @@ public class FileMetadata : BaseEntity<Guid>
     /// 이미지 파일 여부
     /// </summary>
     public bool IsImage { get; set; }
+
+    /// <summary>
+    /// 파일 그룹 ID (Nullable)
+    /// </summary>
+    public Guid? FileGroupId { get; set; }
+
+    /// <summary>
+    /// 대표 파일 여부
+    /// </summary>
+    public bool IsRepresentative { get; set; }
+
+    /// <summary>
+    /// 정렬 순서
+    /// </summary>
+    public int SortOrder { get; set; }
+
+    /// <summary>
+    /// 파일 그룹 탐색 속성
+    /// </summary>
+    public FileGroup? FileGroup { get; set; }
 }

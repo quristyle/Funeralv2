@@ -43,6 +43,7 @@
     "@vueuse/integrations": "catalog:",
     "json-bigint": "catalog:",
     "qrcode": "catalog:",
+    "secure-ls": "catalog:",
     "tippy.js": "catalog:",
     "vue": "catalog:",
     "vue-json-viewer": "catalog:",

@@ -50,4 +50,19 @@ public interface IFileService
     /// 파일 메타데이터 조회
     /// </summary>
     Task<FileMetadata?> GetMetadataAsync(Guid id);
+
+    /// <summary>
+    /// 파일 그룹에 속하는 다중 파일 업로드
+    /// </summary>
+    Task<List<FileMetadata>> UploadGroupFilesAsync(List<IFormFile> files, Guid? groupId, string bizType, string? userId);
+
+    /// <summary>
+    /// 파일 그룹 내의 파일 목록 조회
+    /// </summary>
+    Task<List<FileMetadata>> GetGroupFilesAsync(Guid groupId);
+
+    /// <summary>
+    /// 파일 그룹 내의 대표 파일 지정
+    /// </summary>
+    Task<bool> SetRepresentativeFileAsync(Guid groupId, Guid fileId);
 }

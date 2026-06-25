@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
+import SecureLS from 'secure-ls';
 
 interface Props {
   mode?: 'avatar' | 'image' | 'file';
@@ -122,15 +123,40 @@ const uploadFile = async (file: File) => {
   isUploading.value = true;
   uploadProgress.value = 0;
 
-  // 로컬 스토리지에서 액세스 토큰 조회 (피니아 영속화 스토어의 키를 직접 추출)
-  const storeData = localStorage.getItem('core-access');
+  // 로컬 스토리지에서 액세스 토큰 조회 (네임스페이스 및 SecureLS 대응)
   let token = '';
-  if (storeData) {
-    try {
-      token = JSON.parse(storeData).accessToken || '';
-    } catch (e) {
-      console.error('로컬 스토리지 토큰 파싱 에러:', e);
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && (key === 'core-access' || key.endsWith('-core-access'))) {
+        const rawValue = localStorage.getItem(key);
+        if (rawValue) {
+          if (import.meta.env.DEV) {
+            try {
+              const parsed = JSON.parse(rawValue);
+              token = parsed.accessToken || '';
+            } catch {
+              // 평문 JSON 파싱 실패 시 무시
+            }
+          } else {
+            try {
+              const ls = new SecureLS({
+                encodingType: 'aes',
+                encryptionSecret: import.meta.env.VITE_APP_STORE_SECURE_KEY,
+                isCompression: true,
+              });
+              const decrypted = ls.get(key);
+              token = decrypted?.accessToken || '';
+            } catch (secErr) {
+              console.error('로컬 스토리지 SecureLS 복호화 에러:', secErr);
+            }
+          }
+          if (token) break;
+        }
+      }
     }
+  } catch (e) {
+    console.error('액세스 토큰 로드 중 오류 발생:', e);
   }
 
   // 1. 임시 프리뷰 카드 추가
@@ -171,11 +197,16 @@ const uploadFile = async (file: File) => {
           const res = JSON.parse(xhr.responseText);
           // ApiResponse<T> 형식에서 결과 추출
           if (res.code === 0 || res.success || res.result) {
-            const data = res.result || res.data;
+            let data = res.result || res.data;
             emit('upload-success', data);
             
+            // 만약 data.result가 배열인 경우 단일 객체 데이터 추출 (백엔드 ApiResponse 래핑 대응)
+            if (data && Array.isArray(data.result) && data.result.length > 0) {
+              data = data.result[0];
+            }
+            
             // 이미지 또는 파일의 다운로드 주소
-            const fileUrl = data.downloadUrl || `/api/file/download/${data.id}`;
+            const fileUrl = data?.downloadUrl || `/api/file/download/${data?.id}`;
             
             let newValue: string | string[];
             if (props.multiple) {

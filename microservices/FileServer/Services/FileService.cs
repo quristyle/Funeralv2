@@ -289,5 +289,133 @@ public class FileService : IFileService
         return await _dbContext.FileMetadatas
             .FirstOrDefaultAsync(x => x.Id == id && !x.IsDeleted);
     }
+
+    /// <inheritdoc />
+    public async Task<List<FileMetadata>> UploadGroupFilesAsync(List<IFormFile> files, Guid? groupId, string bizType, string? userId)
+    {
+        if (files == null || files.Count == 0)
+        {
+            throw new ArgumentException("업로드할 파일이 존재하지 않습니다.");
+        }
+
+        // 1. 그룹 ID가 제공되지 않은 경우 생성 및 저장
+        FileGroup? group = null;
+        if (groupId == null || groupId == Guid.Empty)
+        {
+            groupId = Guid.NewGuid();
+            group = new FileGroup
+            {
+                Id = groupId.Value,
+                BizType = bizType,
+                CreatedBy = userId ?? "System",
+                CreatedAt = DateTime.UtcNow,
+                IsDeleted = false
+            };
+            _dbContext.FileGroups.Add(group);
+            await _dbContext.SaveChangesAsync();
+        }
+        else
+        {
+            group = await _dbContext.FileGroups.FirstOrDefaultAsync(x => x.Id == groupId && !x.IsDeleted);
+            if (group == null)
+            {
+                throw new InvalidOperationException("지정된 파일 그룹을 찾을 수 없습니다.");
+            }
+        }
+
+        var uploadedFiles = new List<FileMetadata>();
+        
+        // 현재 그룹에 이미 존재하는 대표 파일이 있는지 검사
+        var hasRepresentative = await _dbContext.FileMetadatas
+            .AnyAsync(x => x.FileGroupId == groupId && x.IsRepresentative && !x.IsDeleted);
+
+        // 현재 그룹의 최대 SortOrder 획득
+        var maxSortOrder = 0;
+        var existingFiles = await _dbContext.FileMetadatas
+            .Where(x => x.FileGroupId == groupId && !x.IsDeleted)
+            .ToListAsync();
+        if (existingFiles.Any())
+        {
+            maxSortOrder = existingFiles.Max(x => x.SortOrder);
+        }
+
+        for (int i = 0; i < files.Count; i++)
+        {
+            var file = files[i];
+            var fileId = Guid.NewGuid();
+            var extension = Path.GetExtension(file.FileName);
+            var storedName = $"{fileId}{extension}";
+            var physicalPath = Path.Combine(_baseUploadPath, storedName);
+
+            // 로컬 파일 디스크 저장
+            using (var stream = new FileStream(physicalPath, FileMode.Create))
+            {
+                await file.CopyToAsync(stream);
+            }
+
+            var contentType = file.ContentType;
+            var isImage = contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase);
+
+            // 이 파일이 대표 사진이 되어야 하는가?
+            // 그룹에 아직 대표 사진이 없고, 업로드하려는 파일 중 첫 번째 파일인 경우 대표 사진으로 지정
+            var isRepresentative = !hasRepresentative && i == 0;
+
+            var metadata = new FileMetadata
+            {
+                Id = fileId,
+                FileGroupId = groupId,
+                OriginalName = file.FileName,
+                StoredName = storedName,
+                Path = Path.Combine("Original", storedName),
+                Size = file.Length,
+                ContentType = contentType,
+                IsImage = isImage,
+                IsRepresentative = isRepresentative,
+                SortOrder = maxSortOrder + i + 1,
+                CreatedBy = userId ?? "System",
+                CreatedAt = DateTime.UtcNow,
+                IsDeleted = false
+            };
+
+            _dbContext.FileMetadatas.Add(metadata);
+            uploadedFiles.Add(metadata);
+        }
+
+        await _dbContext.SaveChangesAsync();
+        return uploadedFiles;
+    }
+
+    /// <inheritdoc />
+    public async Task<List<FileMetadata>> GetGroupFilesAsync(Guid groupId)
+    {
+        return await _dbContext.FileMetadatas
+            .Where(x => x.FileGroupId == groupId && !x.IsDeleted)
+            .OrderBy(x => x.SortOrder)
+            .ToListAsync();
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> SetRepresentativeFileAsync(Guid groupId, Guid fileId)
+    {
+        var groupExists = await _dbContext.FileGroups.AnyAsync(x => x.Id == groupId && !x.IsDeleted);
+        if (!groupExists) return false;
+
+        var files = await _dbContext.FileMetadatas
+            .Where(x => x.FileGroupId == groupId && !x.IsDeleted)
+            .ToListAsync();
+
+        var targetFile = files.FirstOrDefault(x => x.Id == fileId);
+        if (targetFile == null) return false;
+
+        foreach (var file in files)
+        {
+            file.IsRepresentative = (file.Id == fileId);
+            file.UpdatedAt = DateTime.UtcNow;
+            file.UpdatedBy = "System";
+        }
+
+        await _dbContext.SaveChangesAsync();
+        return true;
+    }
 }
 

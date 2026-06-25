@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 
-import { Profile } from '@vben/common-ui';
+import { Profile, ImageGroupManager } from '@vben/common-ui';
 import { useUserStore } from '@vben/stores';
 import { updateProfileApi } from '#/api';
 
@@ -13,6 +13,15 @@ import ProfileSecuritySetting from './security-setting.vue';
 const userStore = useUserStore();
 
 const tabsValue = ref<string>('basic');
+
+const avatarGroupId = computed<string | null>({
+  get: () => (userStore.userInfo as any)?.avatarGroupId || null,
+  set: (val) => {
+    if (userStore.userInfo) {
+      (userStore.userInfo as any).avatarGroupId = val;
+    }
+  }
+});
 
 const tabs = ref([
   {
@@ -31,13 +40,36 @@ const tabs = ref([
     label: '새 메시지 알림',
     value: 'notice',
   },
+  {
+    label: '프로필 사진 관리',
+    value: 'avatar',
+  },
 ]);
+
+const handleGroupIdChange = async (newGroupId: string) => {
+  console.log('[Profile Index Debug] handleGroupIdChange triggered. newGroupId:', newGroupId);
+  avatarGroupId.value = newGroupId;
+  try {
+    console.log('[Profile Index Debug] Calling updateProfileApi with:', {
+      avatarGroupId: newGroupId,
+      avatar: userStore.userInfo?.avatar || undefined
+    });
+    const res = await updateProfileApi({
+      avatarGroupId: newGroupId,
+      avatar: userStore.userInfo?.avatar || undefined
+    });
+    console.log('[Profile Index Debug] updateProfileApi response:', res);
+  } catch (err: any) {
+    console.error('[Profile Index Debug] 아바타 그룹 ID 저장 실패:', err);
+  }
+};
 
 const handleAvatarChange = async (avatarUrl: string) => {
   try {
     // 1. 백엔드 API 호출하여 DB에 아바타 저장
     await updateProfileApi({
-      avatar: avatarUrl
+      avatar: avatarUrl,
+      avatarGroupId: avatarGroupId.value || undefined
     });
     
     // 2. 전역 스토어 상태 변경하여 화면 즉시 갱신
@@ -62,6 +94,14 @@ const handleAvatarChange = async (avatarUrl: string) => {
       <ProfileSecuritySetting v-if="tabsValue === 'security'" />
       <ProfilePasswordSetting v-if="tabsValue === 'password'" />
       <ProfileNotificationSetting v-if="tabsValue === 'notice'" />
+      <ImageGroupManager
+        v-if="tabsValue === 'avatar'"
+        v-model="avatarGroupId"
+        :limit="30"
+        biz-type="PROFILE"
+        @update:modelValue="handleGroupIdChange"
+        @change-representative="handleAvatarChange"
+      />
     </template>
   </Profile>
 </template>

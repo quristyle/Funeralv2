@@ -51,6 +51,10 @@ public class Account : BaseEntity<string>
 
     public Department? Department { get; set; }
 
+    /// <summary>아바타 이미지 파일 그룹 ID</summary>
+    [Column("avatar_group_id")]
+    public string? AvatarGroupId { get; set; }
+
     // 관계 설정: 1(Account) : N(AccountProfileDetail)
     public ICollection<AccountProfileDetail>? ProfileDetails { get; set; }
 }

@@ -16,8 +16,17 @@ public class UserInfoDto
     /// <summary>사용자 실명</summary>
     public string? RealName { get; set; }
 
+    /// <summary>소속 회사명</summary>
+    public string? CompanyName { get; set; }
+
+    /// <summary>부서명</summary>
+    public string? DeptName { get; set; }
+
     /// <summary>아바타 이미지 URL</summary>
     public string Avatar { get; set; } = "https://gw.alipayobjects.com/zos/antfincdn/XAosXuNZyF/BiazfanxmamNRoxxVxka.png";
+
+    /// <summary>아바타 이미지 파일 그룹 ID</summary>
+    public string? AvatarGroupId { get; set; }
 
     /// <summary>사용자 설명 또는 이메일</summary>
     public string? Desc { get; set; }

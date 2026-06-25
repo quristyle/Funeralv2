@@ -1303,6 +1303,9 @@ importers:
       qrcode:
         specifier: 'catalog:'
         version: 1.5.4
+      secure-ls:
+        specifier: 'catalog:'
+        version: 2.0.0
       tippy.js:
         specifier: 'catalog:'
         version: 6.3.7

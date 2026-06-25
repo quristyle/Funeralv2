@@ -25,6 +25,7 @@ import {
 } from '#/api/system/menu';
 import { $t } from '#/locales';
 import { componentKeys } from '#/router/routes';
+import AiCodeSuggester from '#/components/ai-code-suggester/ai-code-suggester.vue';
 
 import { getMenuTypeOptions } from '../data';
 
@@ -34,6 +35,17 @@ const emit = defineEmits<{
 const formData = ref<SystemMenuApi.SystemMenu>();
 const titleSuffix = ref<string>();
 const isBinding = ref(false);
+const menuNameVal = ref('');
+
+const handleSelectTranslationKey = (code: string) => {
+  if (!code) return;
+  const cleanKey = code
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-');
+  formApi.setFieldValue('meta.title', cleanKey);
+  titleSuffix.value = $t(cleanKey);
+};
 
 const CustomTitleInput = defineComponent({
   name: 'CustomTitleInput',
@@ -171,6 +183,14 @@ const schema: VbenFormSchema[] = [
   },
   {
     component: 'Input',
+    componentProps: {
+      onChange: (e: any) => {
+        menuNameVal.value = e?.target?.value || e;
+      },
+      onInput: (e: any) => {
+        menuNameVal.value = e?.target?.value || e;
+      },
+    },
     fieldName: 'name',
     label: $t('system.menu.menuName'),
     rules: z
@@ -636,11 +656,13 @@ const [Drawer, drawerApi] = useVbenDrawer({
           await formApi.resetValidate();
           isBinding.value = false;
         });
+        menuNameVal.value = formData.value.name || '';
         titleSuffix.value = formData.value.meta?.title
           ? $t(formData.value.meta.title)
           : '';
       } else {
         formApi.resetForm();
+        menuNameVal.value = '';
         titleSuffix.value = '';
         nextTick(async () => {
           await formApi.resetValidate();
@@ -699,6 +721,13 @@ const getDrawerTitle = computed(() =>
 <template>
   <Drawer class="w-full max-w-200" :title="getDrawerTitle">
     <Form class="mx-4" :layout="isHorizontal ? 'horizontal' : 'vertical'" />
+    <AiCodeSuggester 
+      v-if="!formData?.id && menuNameVal"
+      :input-text="menuNameVal" 
+      :natural="true"
+      label="AI 번역키 영문"
+      @select="handleSelectTranslationKey" 
+    />
   </Drawer>
   <I18nEditModal ref="i18nEditModalRef" />
 </template>

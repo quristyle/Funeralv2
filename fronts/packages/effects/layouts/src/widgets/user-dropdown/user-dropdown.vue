@@ -9,7 +9,7 @@ import { useHoverToggle } from '@vben/hooks';
 import { LockKeyhole, LogOut } from '@vben/icons';
 import { $t } from '@vben/locales';
 import { preferences, usePreferences } from '@vben/preferences';
-import { useAccessStore } from '@vben/stores';
+import { useAccessStore, useUserStore } from '@vben/stores';
 import { isWindowsOs } from '@vben/utils';
 
 import { useVbenModal } from '@vben-core/popup-ui';
@@ -87,6 +87,20 @@ const emit = defineEmits<{ logout: [] }>();
 const { globalLockScreenShortcutKey, globalLogoutShortcutKey } =
   usePreferences();
 const accessStore = useAccessStore();
+const userStore = useUserStore();
+
+const companyName = computed(() => {
+  return userStore.userInfo?.companyName || '';
+});
+
+const deptName = computed(() => {
+  return userStore.userInfo?.deptName || '';
+});
+
+const userEmail = computed(() => {
+  return userStore.userInfo?.email || props.description;
+});
+
 const [LockModal, lockModalApi] = useVbenModal({
   connectedComponent: LockScreenModal,
 });
@@ -213,20 +227,21 @@ if (enableShortcutKey.value) {
             dot
             dot-class="bottom-0 right-1 border-2 size-4 bg-green-500"
           />
-          <div class="ml-2 w-full">
+          <div class="ml-2 w-full flex flex-col gap-1">
             <div
-              v-if="tagText || text || $slots.tagText"
-              class="mb-1 flex items-center text-sm font-medium text-foreground"
+              v-if="text"
+              class="flex flex-wrap items-center gap-1.5 text-sm font-semibold text-foreground leading-none"
             >
-              {{ text }}
-              <slot name="tagText">
-                <Badge v-if="tagText" class="ml-2 text-green-400">
-                  {{ tagText }}
-                </Badge>
-              </slot>
+              <span class="mr-0.5">{{ text }}</span>
+              <Badge v-if="companyName" class="text-[9px] px-1.5 py-0.5 bg-primary/10 text-primary border-primary/20 max-w-[90px] truncate shrink-0">
+                {{ companyName }}
+              </Badge>
+              <Badge v-if="deptName" class="text-[9px] px-1.5 py-0.5 bg-muted text-muted-foreground border max-w-[90px] truncate shrink-0">
+                {{ deptName }}
+              </Badge>
             </div>
-            <div class="text-xs font-normal text-muted-foreground">
-              {{ description }}
+            <div class="text-xs font-normal text-muted-foreground/80 truncate max-w-[180px]">
+              {{ userEmail }}
             </div>
           </div>
         </DropdownMenuLabel>

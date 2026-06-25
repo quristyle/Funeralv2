@@ -244,5 +244,127 @@ public static class FileEndpoints
         })
         .WithName("DeleteFile")
         .WithOpenApi();
+
+        // 7. 파일 그룹 내 다중 파일 업로드
+        group.MapPost("/group/upload", async Task<IResult> (
+            HttpContext context, 
+            [FromServices] IFileService fileService, 
+            UserContext? userContext) =>
+        {
+            var request = context.Request;
+            if (!request.HasFormContentType)
+            {
+                return Results.BadRequest(ApiResponse<object>.Fail("ERR_INVALID_CONTENT_TYPE", "Multipart Form-Data 형식이어야 합니다."));
+            }
+
+            var form = await request.ReadFormAsync();
+            var files = form.Files.GetFiles("files");
+            
+            if (files == null || files.Count == 0)
+            {
+                files = form.Files;
+            }
+
+            if (files == null || files.Count == 0)
+            {
+                return Results.BadRequest(ApiResponse<object>.Fail("ERR_FILE_UPLOAD", "업로드할 파일이 존재하지 않습니다."));
+            }
+
+            Guid? groupId = null;
+            if (form.TryGetValue("groupId", out var groupIdStr) && Guid.TryParse(groupIdStr, out var parsedGroupId))
+            {
+                groupId = parsedGroupId;
+            }
+
+            string bizType = "GENERAL";
+            if (form.TryGetValue("bizType", out var bizTypeStr))
+            {
+                bizType = bizTypeStr.ToString();
+            }
+
+            try
+            {
+                var userId = userContext?.UserId;
+                var metadataList = await fileService.UploadGroupFilesAsync(files.ToList(), groupId, bizType, userId);
+                
+                var actualGroupId = metadataList.FirstOrDefault()?.FileGroupId ?? Guid.Empty;
+
+                return Results.Ok(ApiResponse<object>.Ok(new
+                {
+                    groupId = actualGroupId,
+                    files = metadataList.Select(m => new
+                    {
+                        id = m.Id,
+                        originalName = m.OriginalName,
+                        size = m.Size,
+                        contentType = m.ContentType,
+                        isImage = m.IsImage,
+                        isRepresentative = m.IsRepresentative,
+                        sortOrder = m.SortOrder,
+                        createdAt = m.CreatedAt,
+                        downloadUrl = $"/api/file/download/{m.Id}"
+                    }).ToList()
+                }));
+            }
+            catch (Exception ex)
+            {
+                return Results.Json(ApiResponse<object>.Fail("ERR_GROUP_UPLOAD_FAILED", ex.Message), statusCode: StatusCodes.Status500InternalServerError);
+            }
+        })
+        .WithName("UploadGroupFiles")
+        .WithOpenApi()
+        .DisableAntiforgery();
+
+        // 8. 파일 그룹 내 대표 파일 지정
+        group.MapPut("/group/{groupId:guid}/representative/{fileId:guid}", async Task<IResult> (
+            Guid groupId, 
+            Guid fileId, 
+            [FromServices] IFileService fileService) =>
+        {
+            try
+            {
+                var success = await fileService.SetRepresentativeFileAsync(groupId, fileId);
+                if (!success)
+                {
+                    return Results.NotFound(ApiResponse<object>.Fail("ERR_SET_REPRESENTATIVE_FAILED", "지정된 그룹이나 파일을 찾을 수 없습니다."));
+                }
+                return Results.Ok(ApiResponse<object>.Ok(new { message = "성공적으로 대표 파일이 설정되었습니다." }));
+            }
+            catch (Exception ex)
+            {
+                return Results.Json(ApiResponse<object>.Fail("ERR_SET_REPRESENTATIVE_FAILED", ex.Message), statusCode: StatusCodes.Status500InternalServerError);
+            }
+        })
+        .WithName("SetRepresentativeFile")
+        .WithOpenApi();
+
+        // 9. 파일 그룹 내 파일 목록 조회
+        group.MapGet("/group/{groupId:guid}", async Task<IResult> (
+            Guid groupId, 
+            [FromServices] IFileService fileService) =>
+        {
+            try
+            {
+                var metadataList = await fileService.GetGroupFilesAsync(groupId);
+                return Results.Ok(ApiResponse<object>.Ok(metadataList.Select(m => new
+                {
+                    id = m.Id,
+                    originalName = m.OriginalName,
+                    size = m.Size,
+                    contentType = m.ContentType,
+                    isImage = m.IsImage,
+                    isRepresentative = m.IsRepresentative,
+                    sortOrder = m.SortOrder,
+                    createdAt = m.CreatedAt,
+                    downloadUrl = $"/api/file/download/{m.Id}"
+                }).ToList()));
+            }
+            catch (Exception ex)
+            {
+                return Results.Json(ApiResponse<object>.Fail("ERR_GET_GROUP_FILES_FAILED", ex.Message), statusCode: StatusCodes.Status500InternalServerError);
+            }
+        })
+        .WithName("GetGroupFiles")
+        .WithOpenApi();
     }
 }

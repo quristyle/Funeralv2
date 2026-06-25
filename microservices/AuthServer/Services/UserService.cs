@@ -28,6 +28,8 @@ public class UserService : IUserService
     {
         // 아이디 또는 UserId로 계정 조회
         var account = await _db.Accounts
+            .Include(a => a.Company)
+            .Include(a => a.Department)
             .Include(a => a.ProfileDetails)
             .FirstOrDefaultAsync(a => a.UserId == userIdOrKey || a.Id == userIdOrKey);
 
@@ -38,6 +40,7 @@ public class UserService : IUserService
         var email = account.ProfileDetails?.FirstOrDefault(p => p.DetailType == "Email")?.Content;
         var homePath = account.ProfileDetails?.FirstOrDefault(p => p.DetailType == "HomePath")?.Content;
         var avatar = account.ProfileDetails?.FirstOrDefault(p => p.DetailType == "Avatar")?.Content;
+        var avatarGroupId = account.AvatarGroupId;
 
         var securityPhone = account.ProfileDetails?.FirstOrDefault(p => p.DetailType == "SecurityPhone")?.Content == "true";
         var securityQuestion = account.ProfileDetails?.FirstOrDefault(p => p.DetailType == "SecurityQuestion")?.Content == "true";
@@ -55,7 +58,10 @@ public class UserService : IUserService
             UserId = account.UserId,
             Username = account.UserId,
             RealName = account.UserName,
+            CompanyName = account.Company?.Name,
+            DeptName = account.Department?.Name,
             Avatar = !string.IsNullOrEmpty(avatar) ? avatar : "https://gw.alipayobjects.com/zos/antfincdn/XAosXuNZyF/BiazfanxmamNRoxxVxka.png",
+            AvatarGroupId = avatarGroupId,
             Desc = email ?? "등록된 설명이 없습니다.",
             HomePath = homePath ?? "/dashboard/workspace",
             Roles = new List<string> { "super" }, // 기본 관리자 권한 부여
@@ -393,6 +399,8 @@ public class UserService : IUserService
     /// </summary>
     public async Task<bool> UpdateProfileAsync(string userId, UpdateProfileDto dto)
     {
+        System.Console.WriteLine($"[UpdateProfile Debug] UserId: {userId}, Avatar: {dto.Avatar}, AvatarGroupId: {dto.AvatarGroupId}");
+
         var account = await _db.Accounts
             .Include(a => a.ProfileDetails)
             .FirstOrDefaultAsync(a => a.UserId == userId || a.Id == userId);
@@ -485,6 +493,13 @@ public class UserService : IUserService
                     IsPrimary = true
                 });
             }
+        }
+
+        // AvatarGroupId 업데이트
+        if (dto.AvatarGroupId != null)
+        {
+            account.AvatarGroupId = dto.AvatarGroupId;
+            _db.Entry(account).State = EntityState.Modified;
         }
 
         await _db.SaveChangesAsync();

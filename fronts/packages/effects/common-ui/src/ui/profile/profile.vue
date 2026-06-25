@@ -10,7 +10,7 @@ import {
   TabsTrigger,
 } from '@vben-core/shadcn-ui';
 
-import { Page, FileUpload } from '../../components';
+import { Page } from '../../components';
 
 defineOptions({
   name: 'ProfileUI',
@@ -32,11 +32,19 @@ const tabsValue = defineModel<string>('modelValue');
     <div class="flex size-full">
       <Card class="w-1/6 flex-none">
         <div class="mt-4 flex flex-col items-center justify-center gap-4 h-48">
-          <FileUpload
-            mode="avatar"
-            :value="(userInfo?.avatar ?? preferences.app.defaultAvatar) || ''"
-            @change="(val) => emit('change-avatar', Array.isArray(val) ? val[0] as string : val as string)"
-          />
+          <div 
+            class="relative size-24 cursor-pointer overflow-hidden rounded-full border-2 border-dashed border-muted-foreground/30 transition-all hover:border-primary hover:scale-105"
+            @click="tabsValue = 'avatar'"
+          >
+            <img 
+              :src="(userInfo?.avatar ?? preferences.app.defaultAvatar) || ''" 
+              alt="Avatar Preview" 
+              class="size-full object-cover"
+            />
+            <div class="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity duration-200 hover:opacity-100 text-white text-[10px] font-medium text-center p-1">
+              사진 관리
+            </div>
+          </div>
           <span class="text-lg font-semibold">
             {{ userInfo?.realName ?? '' }}
           </span>
