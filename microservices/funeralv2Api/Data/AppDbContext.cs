@@ -36,6 +36,11 @@ public class AppDbContext : DbContext
     /// </summary>
     public DbSet<Device> Devices { get; set; } = null!;
 
+    /// <summary>
+    /// 장비 속성 DbSet
+    /// </summary>
+    public DbSet<DeviceAttribute> DeviceAttributes { get; set; } = null!;
+
 
 
     /// <summary>

@@ -79,6 +79,40 @@ export namespace BuildingApi {
     roomName?: string;
     status: 'IN_HOSPITAL' | 'DISCHARGED' | 'COMPLETED';
   }
+
+  export interface DeviceAttribute {
+    id: string;
+    deviceId: string;
+    // 공통 표시 설정
+    displayOrientation: 'LANDSCAPE' | 'PORTRAIT';
+    contentIntervalSec: number;
+    isScreensaverEnabled: boolean;
+    screensaverTimeoutSec: number;
+    // 영정사진/추모 콘텐츠 설정
+    isMemorialPhotoEnabled: boolean;
+    memorialPhotoEffect: 'FADE' | 'SLIDE' | 'NONE';
+    isDeceasedNameVisible: boolean;
+    isFamilyContactVisible: boolean;
+    // 멀티미디어 콘텐츠 설정
+    isVideoEnabled: boolean;
+    isMusicEnabled: boolean;
+    musicVolume: number | null;
+    isMediaLoop: boolean;
+    isMuted: boolean;
+    // 층별 안내 설정
+    isFloorGuideEnabled: boolean;
+    isRoomAssignmentVisible: boolean;
+    isActiveRoomsOnly: boolean;
+    floorGuideRefreshSec: number;
+    // 입구 정보/키오스크 설정
+    isTouchEnabled: boolean;
+    isQrCodeVisible: boolean;
+    isBuildingMapVisible: boolean;
+    entranceGreeting: string | null;
+    isNoticeVisible: boolean;
+    noticeScrollSpeed: number;
+    remark: string | null;
+  }
 }
 
 // === 건물 API ===
@@ -150,33 +184,44 @@ export async function deleteDevice(id: string) {
 
 // === 장비설정 API ===
 export async function getDeviceConfigs(params?: { deviceId?: string }) {
-  return requestClient.get<BuildingApi.DeviceConfig[]>('/building/device-config/list', { params });
+  return requestClient.get<BuildingApi.DeviceConfig[]>('/funeral/building/device-config/list', { params });
 }
 export async function updateDeviceConfig(id: string, data: Partial<BuildingApi.DeviceConfig>) {
-  return requestClient.put(`/building/device-config/${id}`, data);
+  return requestClient.put(`/funeral/building/device-config/${id}`, data);
 }
 
 // === 미디어 소스/영상/음원 API ===
 export async function getMediaSources(type?: 'VIDEO' | 'AUDIO' | 'IMAGE') {
-  return requestClient.get<BuildingApi.MediaSource[]>('/building/source/list', { params: { type } });
+  return requestClient.get<BuildingApi.MediaSource[]>('/funeral/building/source/list', { params: { type } });
 }
 export async function createMediaSource(data: Omit<BuildingApi.MediaSource, 'id'>) {
-  return requestClient.post('/building/source', data);
+  return requestClient.post('/funeral/building/source', data);
 }
 export async function deleteMediaSource(id: string) {
-  return requestClient.delete(`/building/source/${id}`);
+  return requestClient.delete(`/funeral/building/source/${id}`);
 }
 
 // === 고인 API ===
 export async function getDeceasedList() {
-  return requestClient.get<BuildingApi.Deceased[]>('/building/deceased/list');
+  return requestClient.get<BuildingApi.Deceased[]>('/funeral/building/deceased/list');
 }
 export async function createDeceased(data: Omit<BuildingApi.Deceased, 'id'>) {
-  return requestClient.post('/building/deceased', data);
+  return requestClient.post('/funeral/building/deceased', data);
 }
 export async function updateDeceased(id: string, data: Omit<BuildingApi.Deceased, 'id'>) {
-  return requestClient.put(`/building/deceased/${id}`, data);
+  return requestClient.put(`/funeral/building/deceased/${id}`, data);
 }
 export async function deleteDeceased(id: string) {
-  return requestClient.delete(`/building/deceased/${id}`);
+  return requestClient.delete(`/funeral/building/deceased/${id}`);
+}
+
+// === 장비 속성 API ===
+export async function getDeviceAttribute(deviceId: string) {
+  return requestClient.get<BuildingApi.DeviceAttribute>(`/funeral/building/device-attribute/${deviceId}`);
+}
+export async function upsertDeviceAttribute(data: Omit<BuildingApi.DeviceAttribute, 'id'>) {
+  return requestClient.put<BuildingApi.DeviceAttribute>('/funeral/building/device-attribute/', data);
+}
+export async function deleteDeviceAttribute(deviceId: string) {
+  return requestClient.delete(`/funeral/building/device-attribute/${deviceId}`);
 }
