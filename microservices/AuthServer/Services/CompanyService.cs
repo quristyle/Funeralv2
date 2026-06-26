@@ -21,7 +21,8 @@ public class CompanyService : ICompanyService
     public async Task<IEnumerable<CompanyDto>> GetAllCompaniesAsync()
     {
         return await _context.Companies
-            .OrderByDescending(c => c.CreatedAt)
+            .OrderBy(c => c.SortOrder)
+            .ThenByDescending(c => c.CreatedAt)
             .ProjectToType<CompanyDto>()
             .ToListAsync();
     }

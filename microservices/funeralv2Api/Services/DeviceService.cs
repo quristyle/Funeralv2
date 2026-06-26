@@ -28,6 +28,8 @@ public class DeviceService : IDeviceService
 
         var devices = await _context.Devices
             .AsNoTracking()
+            .OrderBy(d => d.SortOrder)
+            .ThenBy(d => d.Name)
             .ToListAsync();
 
         return devices.Select(MapToDto).ToList();
@@ -69,7 +71,10 @@ public class DeviceService : IDeviceService
             return [];
         }
 
-        var devices = await query.ToListAsync();
+        var devices = await query
+            .OrderBy(d => d.SortOrder)
+            .ThenBy(d => d.Name)
+            .ToListAsync();
         return devices.Select(MapToDto).ToList();
     }
 
@@ -105,6 +110,7 @@ public class DeviceService : IDeviceService
             IpAddress = item.IpAddress,
             MacAddress = item.MacAddress,
             Status = item.Status,
+            SortOrder = item.SortOrder,
             BuildingId = item.BuildingId,
             FloorId = item.FloorId,
             RoomId = item.RoomId,
@@ -136,6 +142,7 @@ public class DeviceService : IDeviceService
         entity.IpAddress = item.IpAddress;
         entity.MacAddress = item.MacAddress;
         entity.Status = item.Status;
+        entity.SortOrder = item.SortOrder;
         entity.BuildingId = item.BuildingId;
         entity.FloorId = item.FloorId;
         entity.RoomId = item.RoomId;
@@ -196,6 +203,7 @@ public class DeviceService : IDeviceService
         IpAddress = d.IpAddress,
         MacAddress = d.MacAddress,
         Status = d.Status,
+        SortOrder = d.SortOrder,
         BuildingId = d.BuildingId,
         FloorId = d.FloorId,
         RoomId = d.RoomId,

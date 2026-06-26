@@ -40,6 +40,7 @@ builder.Services.AddScoped<IFloorService, FloorService>();
 builder.Services.AddScoped<IRoomService, RoomService>();
 builder.Services.AddScoped<IDeviceService, DeviceService>();
 builder.Services.AddScoped<IDeviceAttributeService, DeviceAttributeService>();
+builder.Services.AddScoped<IDeviceConfigService, DeviceConfigService>();
 
 // ============================================================
 // 5. CORS 구성 (Cross-Origin Resource Sharing)
@@ -101,6 +102,7 @@ app.MapFloorEndpoints();
 app.MapRoomEndpoints();
 app.MapDeviceEndpoints();
 app.MapDeviceAttributeEndpoints();
+app.MapDeviceConfigEndpoints();
 
 
 

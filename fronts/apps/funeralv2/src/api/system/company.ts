@@ -31,6 +31,8 @@ export namespace SystemCompanyApi {
     addressDetail?: string;
     /** 승인일 */
     approvalDate?: string;
+    /** 정렬 순서 */
+    sortOrder: number;
     /** 생성 일시 */
     createdAt: string;
   }
@@ -59,6 +61,8 @@ export namespace SystemCompanyApi {
     addressDetail?: string;
     /** 승인일 */
     approvalDate?: string;
+    /** 정렬 순서 */
+    sortOrder?: number;
   }
 
   /**

@@ -62,6 +62,17 @@ export function useSchema(): VbenFormSchema[] {
       label: $t('system.dept.parentDept'),
     },
     {
+      component: 'InputNumber',
+      componentProps: {
+        min: 0,
+        step: 1,
+        precision: 0,
+      },
+      defaultValue: 0,
+      fieldName: 'sortOrder',
+      label: '정렬 순서',
+    },
+    {
       component: 'RadioGroup',
       componentProps: {
         buttonStyle: 'solid',
@@ -113,6 +124,11 @@ export function useColumns(
       field: 'companyName',
       title: '회사명',
       width: 150,
+    },
+    {
+      field: 'sortOrder',
+      title: '정렬 순서',
+      width: 100,
     },
     {
       cellRender: { name: 'CellTag' },

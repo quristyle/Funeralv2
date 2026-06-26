@@ -41,6 +41,11 @@ public class DepartmentDto
     public int Status { get; set; }
 
     /// <summary>
+    /// 정렬 순서
+    /// </summary>
+    public int SortOrder { get; set; }
+
+    /// <summary>
     /// 하위 부서 목록 (트리 구조용)
     /// </summary>
     public List<DepartmentDto>? Children { get; set; }
@@ -75,4 +80,9 @@ public class CreateDepartmentDto
     /// 부서 상태 (0: 비활성, 1: 활성)
     /// </summary>
     public int Status { get; set; }
+
+    /// <summary>
+    /// 정렬 순서
+    /// </summary>
+    public int SortOrder { get; set; }
 }

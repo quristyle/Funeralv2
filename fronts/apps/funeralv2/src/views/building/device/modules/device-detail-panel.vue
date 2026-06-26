@@ -24,7 +24,7 @@ const emit = defineEmits<{
   (e: 'close'): void;
   (e: 'update:activeTab', val: string): void;
   (e: 'configSave'): void;
-  (e: 'configReload'): void;
+  (e: 'configReset'): void;
   (e: 'update:powerOnTimeVal', val: any): void;
   (e: 'update:powerOffTimeVal', val: any): void;
   (e: 'update:rebootTimeVal', val: any): void;
@@ -92,7 +92,7 @@ const emit = defineEmits<{
           :reboot-time-val="rebootTimeVal"
           :device-id="device.id"
           @save="emit('configSave')"
-          @reload="emit('configReload')"
+          @reset="emit('configReset')"
           @update:powerOnTimeVal="(val) => emit('update:powerOnTimeVal', val)"
           @update:powerOffTimeVal="(val) => emit('update:powerOffTimeVal', val)"
           @update:rebootTimeVal="(val) => emit('update:rebootTimeVal', val)"

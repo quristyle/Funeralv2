@@ -15,6 +15,8 @@ public class DeviceDto
     public string? MacAddress { get; set; }
     public string Status { get; set; } = "UNKNOWN";
 
+    public int SortOrder { get; set; }
+
     public string? CompanyId { get; set; }
     public string? BuildingId { get; set; }
     public string? FloorId { get; set; }
@@ -42,6 +44,7 @@ public class DeviceCreateDto
     public string? IpAddress { get; set; }
     public string? MacAddress { get; set; }
     public string Status { get; set; } = "UNKNOWN";
+    public int SortOrder { get; set; }
     
     [Required]
     public string? CompanyId { get; set; }
@@ -64,7 +67,8 @@ public class DeviceUpdateDto
     public string? IpAddress { get; set; }
     public string? MacAddress { get; set; }
     public string Status { get; set; } = "UNKNOWN";
-    
+    public int SortOrder { get; set; }
+
     [Required]
     public string? CompanyId { get; set; }
 

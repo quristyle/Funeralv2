@@ -30,6 +30,8 @@ public class CompanyDto
 
     public DateTime? ApprovalDate { get; set; }
 
+    public int SortOrder { get; set; } = 0;
+
     public DateTime CreatedAt { get; set; }
 }
 
@@ -55,4 +57,6 @@ public class CompanyCreateDto
     public string? AddressDetail { get; set; }
 
     public DateTime? ApprovalDate { get; set; }
+
+    public int SortOrder { get; set; } = 0;
 }

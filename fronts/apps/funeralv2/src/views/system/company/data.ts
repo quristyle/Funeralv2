@@ -30,6 +30,16 @@ export const useColumns = (onActionClick: (params: any) => void): VxeGridProps['
     params: { filterList: true },
     editRender: { name: 'VxeInput' }
   },
+  /** 정렬 순서 - 수정 가능 */
+  {
+    field: 'sortOrder',
+    title: '정렬 순서',
+    width: 100,
+    editRender: {
+      name: 'input',
+      attrs: { type: 'number', min: 0 },
+    },
+  },
   /** 상태 - 태그 형태로 렌더링 및 필터 지원 */
   {
     field: 'status',
@@ -185,6 +195,18 @@ export const formSchema: VbenFormProps = {
     { fieldName: 'address', label: '주소', component: 'Input', },
     /** 상세주소 */
     { fieldName: 'addressDetail', label: '상세주소', component: 'Input', },
+    /** 정렬 순서 */
+    {
+      fieldName: 'sortOrder',
+      label: '정렬 순서',
+      component: 'InputNumber',
+      defaultValue: 0,
+      componentProps: {
+        min: 0,
+        step: 1,
+        precision: 0,
+      },
+    },
     /** 상태: 라디오 그룹 사용 (기본값: 활성) */
     { fieldName: 'status', label: $t('system.company.status'), component: 'RadioGroup', defaultValue: 1,
       componentProps: {

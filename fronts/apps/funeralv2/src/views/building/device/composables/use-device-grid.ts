@@ -22,6 +22,7 @@ export function useDeviceGrid(
       columns: [
         { field: 'name', title: '장비명', minWidth: 120 },
         { field: 'code', title: '코드', minWidth: 100 },
+        { field: 'sortOrder', title: '정렬 순서', minWidth: 100 },
         {
           field: 'deviceType',
           title: '유형',
@@ -125,6 +126,7 @@ export function useDeviceGrid(
       buildingId: string;
       floorId: string;
       roomId: string;
+      sortOrder: number;
     },
     onSuccess: () => void,
   ) {

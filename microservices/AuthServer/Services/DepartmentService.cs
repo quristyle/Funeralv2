@@ -39,6 +39,8 @@ public class DepartmentService : IDepartmentService
     {
         return depts
             .Where(d => d.ParentId == parentId)
+            .OrderBy(d => d.SortOrder)
+            .ThenBy(d => d.Name)
             .Select(d => new DepartmentDto
             {
                 Id = d.Id,
@@ -46,6 +48,7 @@ public class DepartmentService : IDepartmentService
                 Pid = d.ParentId,
                 Status = d.Status,
                 Remark = d.Remark,
+                SortOrder = d.SortOrder,
                 CompanyId = d.CompanyId,
                 CompanyName = d.Company?.Name,
                 Children = BuildDeptTree(depts, d.Id).Any() ? BuildDeptTree(depts, d.Id) : null
@@ -63,6 +66,7 @@ public class DepartmentService : IDepartmentService
             ParentId = request.Pid,
             Status = request.Status,
             Remark = request.Remark,
+            SortOrder = request.SortOrder,
             CompanyId = request.CompanyId ?? userContext?.CompanyId
         };
         _db.Departments.Add(dept);
@@ -75,6 +79,7 @@ public class DepartmentService : IDepartmentService
             Pid = dept.ParentId, 
             Status = dept.Status, 
             Remark = dept.Remark,
+            SortOrder = dept.SortOrder,
             CompanyId = dept.CompanyId
         };
     }
@@ -92,6 +97,7 @@ public class DepartmentService : IDepartmentService
         dept.ParentId = request.Pid;
         dept.Status = request.Status;
         dept.Remark = request.Remark;
+        dept.SortOrder = request.SortOrder;
         if (!string.IsNullOrEmpty(request.CompanyId))
         {
             dept.CompanyId = request.CompanyId;

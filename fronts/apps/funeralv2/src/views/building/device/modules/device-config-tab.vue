@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import {
-  Button, Divider, Empty, Form, Slider, Spin, Switch, TimePicker,
+  Alert, Button, Divider, Form, Slider, Spin, Switch, TimePicker,
 } from 'ant-design-vue';
 import type { BuildingApi } from '#/api/building';
 
@@ -16,7 +16,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'save'): void;
-  (e: 'reload'): void;
+  (e: 'reset'): void;
   (e: 'update:powerOnTimeVal', val: any): void;
   (e: 'update:powerOffTimeVal', val: any): void;
   (e: 'update:rebootTimeVal', val: any): void;
@@ -29,12 +29,18 @@ const emit = defineEmits<{
     <div v-if="configLoading" class="flex flex-1 items-center justify-center py-16">
       <Spin tip="설정 불러오는 중..." />
     </div>
-    <!-- 설정 없음 -->
-    <div v-else-if="!deviceConfig" class="flex flex-1 items-center justify-center py-10">
-      <Empty description="등록된 기본 설정이 없습니다." />
-    </div>
+
     <!-- 설정 폼 -->
-    <div v-else class="flex-1 overflow-auto px-4 py-3">
+    <div v-else-if="deviceConfig" class="flex-1 overflow-auto px-4 py-3">
+      <Alert
+        v-if="!deviceConfig.id"
+        type="info"
+        show-icon
+        class="mb-4"
+        message="아직 저장된 기본 설정이 없습니다."
+        description="아래 항목을 설정한 뒤 저장하면 장비 기본 설정이 등록됩니다."
+      />
+
       <Form layout="vertical" size="small">
         <Form.Item label="기기 음량 (Volume)">
           <Slider v-model:value="deviceConfig.volume" :min="0" :max="100" />
@@ -83,12 +89,13 @@ const emit = defineEmits<{
         </Form.Item>
       </Form>
     </div>
+
     <!-- 저장 버튼 -->
     <div
       v-if="deviceConfig && !configLoading"
       class="flex shrink-0 justify-end gap-2 border-t border-border bg-muted/40 px-4 py-2"
     >
-      <Button @click="emit('reload')">초기화</Button>
+      <Button @click="emit('reset')">기본값으로 초기화</Button>
       <Button type="primary" :loading="configSaving" @click="emit('save')">
         설정 저장
       </Button>

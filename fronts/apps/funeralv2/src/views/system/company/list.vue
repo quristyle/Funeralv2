@@ -63,10 +63,10 @@ async function onEditClosed({ row }: any) {
   // 행의 데이터 변경 여부 확인 (VXETable 내장 기능)
   if (!grid.isUpdateByRow(row)) { return; }
 
-  const { id, name, businessNumber, representative, status, remark, shortName, zipCode, address, addressDetail, approvalDate } = row;
+  const { id, name, businessNumber, representative, status, remark, shortName, zipCode, address, addressDetail, approvalDate, sortOrder } = row;
   try {
     // 서버에 업데이트 요청 전송
-    await updateCompany(id, { name, businessNumber, representative, status, remark, shortName, zipCode, address, addressDetail, approvalDate, });
+    await updateCompany(id, { name, businessNumber, representative, status, remark, shortName, zipCode, address, addressDetail, approvalDate, sortOrder: Number(sortOrder ?? 0) });
     message.success($t('ui.actionMessage.updateSuccess', [name]));
     // 저장 성공 시 변경 상태 마크(삼각형) 제거를 위해 행 데이터 동기화
     grid.reloadRow(row, null);

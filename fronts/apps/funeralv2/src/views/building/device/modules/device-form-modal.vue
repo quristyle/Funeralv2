@@ -2,7 +2,7 @@
 import { ref } from 'vue';
 import { useVbenModal } from '@vben/common-ui';
 import { message } from 'ant-design-vue';
-import { Button, Form, Input } from 'ant-design-vue';
+import { Button, Form, Input, InputNumber } from 'ant-design-vue';
 import { createDevice, updateDevice } from '#/api/building';
 import BizSelect from '#/components/BizSelect.vue';
 import DictSelect from '#/components/DictSelect.vue';
@@ -30,6 +30,7 @@ const formModel = ref({
   buildingId: '',
   floorId: '',
   roomId: '',
+  sortOrder: 0,
 });
 
 const [DeviceModal, deviceModalApi] = useVbenModal({
@@ -54,13 +55,17 @@ function openCreate() {
     buildingId: props.selectedBuildingId,
     floorId: props.selectedFloorId,
     roomId: props.selectedRoomId,
+    sortOrder: 0,
   };
   deviceModalApi.open();
 }
 
 /** 수정 모달 열기 */
 function openEdit(row: any) {
-  formModel.value = { ...row };
+  formModel.value = {
+    sortOrder: 0,
+    ...row,
+  };
   deviceModalApi.open();
 }
 
@@ -124,6 +129,14 @@ defineExpose({ openCreate, openEdit });
             v-model:value="formModel.deviceType"
             dict-code="EQUIPMENT_TYPE"
             placeholder="장비 유형 선택"
+            style="width: 100%"
+          />
+        </Form.Item>
+        <Form.Item label="정렬 순서">
+          <InputNumber
+            v-model:value="formModel.sortOrder"
+            :min="0"
+            :precision="0"
             style="width: 100%"
           />
         </Form.Item>

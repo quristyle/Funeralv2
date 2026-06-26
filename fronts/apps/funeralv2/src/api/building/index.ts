@@ -41,6 +41,10 @@ export namespace BuildingApi {
     ipAddress?: string;
     macAddress?: string;
     status: 'ONLINE' | 'OFFLINE' | 'UNKNOWN';
+    sortOrder: number;
+    companyId?: string;
+    buildingId?: string;
+    floorId?: string;
     roomId?: string;
     roomName?: string;
   }
@@ -186,7 +190,13 @@ export async function deleteDevice(id: string) {
 export async function getDeviceConfigs(params?: { deviceId?: string }) {
   return requestClient.get<BuildingApi.DeviceConfig[]>('/funeral/building/device-config/list', { params });
 }
-export async function updateDeviceConfig(id: string, data: Partial<BuildingApi.DeviceConfig>) {
+export async function getDeviceConfig(deviceId: string) {
+  return requestClient.get<BuildingApi.DeviceConfig>(`/funeral/building/device-config/${deviceId}`);
+}
+export async function upsertDeviceConfig(data: Omit<BuildingApi.DeviceConfig, 'id' | 'deviceName'>) {
+  return requestClient.put<BuildingApi.DeviceConfig>('/funeral/building/device-config/', data);
+}
+export async function updateDeviceConfig(id: string, data: Omit<BuildingApi.DeviceConfig, 'id' | 'deviceName'>) {
   return requestClient.put(`/funeral/building/device-config/${id}`, data);
 }
 

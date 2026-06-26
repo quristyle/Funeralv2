@@ -59,6 +59,7 @@ const {
   rebootTimeVal,
   loadDeviceConfig,
   handleConfigSave,
+  handleConfigReset,
 } = configComposable;
 
 const {
@@ -117,8 +118,8 @@ const {
         :attr-saving="attrSaving"
         @close="closePanel"
         @update:activeTab="(val) => activeTab = val"
-        @config-save="handleConfigSave"
-        @config-reload="loadDeviceConfig(selectedDevice!.id)"
+        @config-save="handleConfigSave(selectedDevice!.id)"
+        @config-reset="handleConfigReset(selectedDevice!.id)"
         @update:powerOnTimeVal="(val) => powerOnTimeVal = val"
         @update:powerOffTimeVal="(val) => powerOffTimeVal = val"
         @update:rebootTimeVal="(val) => rebootTimeVal = val"

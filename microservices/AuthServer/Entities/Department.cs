@@ -39,6 +39,10 @@ public class Department : BaseEntity<string>
     [Column("remark")]
     public string? Remark { get; set; }
 
+    /// <summary>정렬 순서</summary>
+    [Column("sort_order")]
+    public int SortOrder { get; set; } = 0;
+
     // 관계 설정: 1(Department) : N(Account)
     public ICollection<Account>? Accounts { get; set; }
 }

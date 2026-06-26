@@ -58,7 +58,10 @@ const [Modal, modalApi] = useVbenModal({
         }
         formData.value = data;
         nextTick(() => {
-          formApi.setValues(formData.value || {});
+          formApi.setValues({
+            sortOrder: 0,
+            ...formData.value,
+          });
         });
       }
     }

@@ -41,6 +41,11 @@ public class AppDbContext : DbContext
     /// </summary>
     public DbSet<DeviceAttribute> DeviceAttributes { get; set; } = null!;
 
+    /// <summary>
+    /// 장비 기본 설정 DbSet
+    /// </summary>
+    public DbSet<DeviceConfig> DeviceConfigs { get; set; } = null!;
+
 
 
     /// <summary>
@@ -67,5 +72,9 @@ public class AppDbContext : DbContext
                 property.SetColumnName(property.GetColumnName().ToLower());
             }
         }
+
+        modelBuilder.Entity<DeviceConfig>()
+            .HasIndex(c => c.DeviceId)
+            .IsUnique();
     }
 }

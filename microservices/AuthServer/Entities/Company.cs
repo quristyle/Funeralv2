@@ -46,6 +46,9 @@ public class Company : BaseEntity<string>
     [Column("approval_date")]
     public DateTime? ApprovalDate { get; set; } // 승인일
 
+    [Column("sort_order")]
+    public int SortOrder { get; set; } = 0; // 정렬 순서
+
     // 관계 설정: 1(Company) : N(Department)
     public ICollection<Department>? Departments { get; set; }
 }

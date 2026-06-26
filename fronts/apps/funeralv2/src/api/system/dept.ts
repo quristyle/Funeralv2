@@ -9,6 +9,7 @@ export namespace SystemDeptApi {
     companyId?: string;
     companyName?: string;
     remark?: string;
+    sortOrder?: number;
     status: 0 | 1;
   }
 }

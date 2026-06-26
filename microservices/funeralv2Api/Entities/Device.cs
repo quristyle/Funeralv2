@@ -41,6 +41,12 @@ public class Device : BaseEntity<string>
     [MaxLength(20)]
     public string Status { get; set; } = "UNKNOWN"; // ONLINE, OFFLINE, UNKNOWN
 
+    /// <summary>
+    /// 정렬 순서
+    /// </summary>
+    [Column("sort_order")]
+    public int SortOrder { get; set; }
+
     [Column("room_id")]
     public string? RoomId { get; set; }
     [ForeignKey(nameof(RoomId))]
