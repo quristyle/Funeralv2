@@ -1,113 +1,94 @@
 <script lang="ts" setup>
-import { ref } from 'vue';
-import { useVbenModal } from '@vben/common-ui';
-import { message } from 'ant-design-vue';
-import { Button, Form, Input, InputNumber } from 'ant-design-vue';
-import { createDevice, updateDevice } from '#/api/building';
+import { ref, watch } from 'vue';
+import { Button, Form, Input, InputNumber, message } from 'ant-design-vue';
+import { updateDevice } from '#/api/building';
+import type { BuildingApi } from '#/api/building';
 import BizSelect from '#/components/BizSelect.vue';
 import DictSelect from '#/components/DictSelect.vue';
 
 const props = defineProps<{
-  selectedCompanyId: string;
-  selectedBuildingId: string;
-  selectedFloorId: string;
-  selectedRoomId: string;
+  device: BuildingApi.Device;
 }>();
 
 const emit = defineEmits<{
   (e: 'saved'): void;
 }>();
 
-const formModel = ref({
-  id: '',
-  name: '',
-  code: '',
-  deviceType: 'FUNERAL_PORTRAIT',
-  ipAddress: '',
-  macAddress: '',
-  status: 'UNKNOWN' as 'ONLINE' | 'OFFLINE' | 'UNKNOWN',
-  companyId: '',
-  buildingId: '',
-  floorId: '',
-  roomId: '',
-  sortOrder: 0,
-});
+const formModel = ref<Partial<BuildingApi.Device>>({});
+const isSaving = ref(false);
 
-const [DeviceModal, deviceModalApi] = useVbenModal({
-  title: '장비 정보 설정',
-  destroyOnClose: true,
-  onConfirm: async () => {
-    await handleSave();
-  },
-});
-
-/** 등록 모달 열기 */
-function openCreate() {
-  formModel.value = {
-    id: '',
-    name: '',
-    code: '',
-    deviceType: 'FUNERAL_PORTRAIT',
-    ipAddress: '',
-    macAddress: '',
-    status: 'UNKNOWN',
-    companyId: props.selectedCompanyId,
-    buildingId: props.selectedBuildingId,
-    floorId: props.selectedFloorId,
-    roomId: props.selectedRoomId,
-    sortOrder: 0,
-  };
-  deviceModalApi.open();
-}
-
-/** 수정 모달 열기 */
-function openEdit(row: any) {
-  formModel.value = {
-    sortOrder: 0,
-    ...row,
-  };
-  deviceModalApi.open();
-}
-
-async function handleSave() {
-  try {
-    // code는 자동생성되므로 전송 객체에서 제외
-    const { code, ...dataToSend } = formModel.value;
-
-    if (formModel.value.id) {
-      await updateDevice(formModel.value.id, dataToSend);
-      message.success('장비 정보가 수정되었습니다.');
-    } else {
-      await createDevice(dataToSend);
-      message.success('장비가 성공적으로 등록되었습니다.');
+// Props로 받은 device 데이터가 변경될 때마다 formModel을 동기화합니다.
+watch(
+  () => props.device,
+  (newDevice) => {
+    if (newDevice) {
+      formModel.value = { ...newDevice };
     }
-    deviceModalApi.close();
+  },
+  { immediate: true, deep: true },
+);
+
+/**
+ * 장비 정보 저장 처리
+ */
+async function handleSave() {
+  if (!formModel.value.id) return;
+  isSaving.value = true;
+  try {
+    // code는 수정 불가 항목이므로 전송 객체에서 제외
+    const { code, ...dataToSend } = formModel.value;
+    await updateDevice(formModel.value.id, dataToSend);
+    message.success('장비 정보가 수정되었습니다.');
     emit('saved');
   } catch {
     message.error('저장 실패');
+  } finally {
+    isSaving.value = false;
   }
 }
-
-defineExpose({ openCreate, openEdit });
 </script>
 
 <template>
-  <DeviceModal @ok="handleSave">
-    <div class="p-6">
-      <Form layout="vertical">
+  <div class="flex h-full flex-col">
+    <!-- 설정 폼 -->
+    <div class="flex-1 overflow-auto px-4 py-3">
+      <Form layout="vertical" :model="formModel">
         <Form.Item label="장비 소속 위치" required>
           <div class="grid grid-cols-2 gap-4">
             <BizSelect
+              v-model:value="formModel.companyId"
+              type="company"
+              placeholder="회사 선택"
+              @change="
+                () => {
+                  formModel.buildingId = undefined;
+                  formModel.floorId = undefined;
+                  formModel.roomId = undefined;
+                }
+              "
+            />
+            <BizSelect
               v-model:value="formModel.buildingId"
               type="building"
-              :params="{ companyId: formModel.companyId || selectedCompanyId }"
+              :params="{ companyId: formModel.companyId }"
               placeholder="건물 선택"
+              @change="
+                () => {
+                  formModel.floorId = undefined;
+                  formModel.roomId = undefined;
+                }
+              "
             />
             <BizSelect
               v-model:value="formModel.floorId"
               type="floor"
               :params="{ buildingId: formModel.buildingId }"
               placeholder="층 선택"
+              @change="
+                () => {
+                  formModel.roomId = undefined;
+                }
+              "
             />
             <BizSelect
               v-model:value="formModel.roomId"
@@ -123,7 +104,7 @@ defineExpose({ openCreate, openEdit });
         <Form.Item label="장비코드">
           <Input
             v-model:value="formModel.code"
-            placeholder="저장 시 자동으로 생성됩니다."
+            placeholder="자동 생성된 고유 코드"
             :disabled="true"
           />
         </Form.Item>
@@ -151,5 +132,9 @@ defineExpose({ openCreate, openEdit });
         </Form.Item>
       </Form>
     </div>
-  </DeviceModal>
+    <!-- 저장 버튼 -->
+    <div class="flex shrink-0 justify-end gap-2 border-t border-border bg-muted/40 px-4 py-2">
+      <Button type="primary" :loading="isSaving" @click="handleSave">정보 저장</Button>
+    </div>
+  </div>
 </template>

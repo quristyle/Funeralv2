@@ -98,14 +98,37 @@ public class DeviceService : IDeviceService
     /// <summary>
     /// 장비 생성 - 생성된 장비 ID 반환
     /// </summary>
-    public async Task<string> CreateAsync(DeviceCreateDto item)
+    public async Task<DeviceDto> CreateAsync(DeviceCreateDto item)
     {
-        _logger.LogInformation("새 장비를 생성합니다. Name: {Name}, Code: {Code}", item.Name, item.Code);
+        _logger.LogInformation("새 장비를 생성합니다. Name: {Name}", item.Name);
 
+        if (string.IsNullOrEmpty(item.BuildingId) || string.IsNullOrEmpty(item.CompanyId))
+        {
+            throw new ArgumentException("장비 코드를 생성하려면 회사와 건물이 지정되어야 합니다.");
+        }
+
+        // 1. 건물 약어 조회
+        var building = await _context.Buildings.FindAsync(item.BuildingId);
+        if (building == null || string.IsNullOrEmpty(building.Abbreviation))
+        {
+            throw new InvalidOperationException("건물을 찾을 수 없거나 건물 약어가 설정되지 않았습니다.");
+        }
+        var buildingAbbr = building.Abbreviation;
+
+        // 2. 생성 월(MM)
+        var creationMonth = DateTime.UtcNow.ToString("MM");
+
+        // 3. 회사별 장비 인덱스 계산
+        var deviceCountInCompany = await _context.Devices.CountAsync(d => d.CompanyId == item.CompanyId);
+        var nextIndex = (deviceCountInCompany + 1).ToString("D4");
+
+        // 4. 코드 조합: [건물약어]-[생성월]-[4자리인덱스]
+        var generatedCode = $"{buildingAbbr}-{creationMonth}-{nextIndex}";
+        
         var entity = new Device
         {
             Name = item.Name,
-            Code = item.Code,
+            Code = generatedCode,
             DeviceType = item.DeviceType,
             IpAddress = item.IpAddress,
             MacAddress = item.MacAddress,
@@ -114,27 +137,27 @@ public class DeviceService : IDeviceService
             BuildingId = item.BuildingId,
             FloorId = item.FloorId,
             RoomId = item.RoomId,
+            CompanyId = item.CompanyId,
         };
 
         _context.Devices.Add(entity);
         await _context.SaveChangesAsync();
 
-        _logger.LogInformation("장비 생성 완료. Id: {Id}", entity.Id);
-        return entity.Id;
+        _logger.LogInformation("장비 생성 완료. Id: {Id}, Code: {Code}", entity.Id, entity.Code);
+        return MapToDto(entity);
     }
 
     /// <summary>
     /// 장비 수정 - 성공 여부 반환
     /// </summary>
-    public async Task<bool> UpdateAsync(string id, DeviceUpdateDto item)
+    public async Task<DeviceDto?> UpdateAsync(string id, DeviceUpdateDto item)
     {
-        _logger.LogInformation("장비 정보를 수정합니다. Id: {Id}, Name: {Name}", id, item.Name);
+        _logger.LogInformation("장비 정보를 수정합니다. Id: {Id}", id);
 
         var entity = await _context.Devices.FindAsync(id);
         if (entity == null)
         {
-            _logger.LogWarning("수정할 장비를 찾을 수 없습니다. Id: {Id}", id);
-            return false;
+            return null;
         }
 
         entity.Name = item.Name;
@@ -146,6 +169,7 @@ public class DeviceService : IDeviceService
         entity.BuildingId = item.BuildingId;
         entity.FloorId = item.FloorId;
         entity.RoomId = item.RoomId;
+        entity.CompanyId = item.CompanyId;
         entity.UpdatedAt = DateTime.UtcNow;
 
         try
@@ -153,7 +177,7 @@ public class DeviceService : IDeviceService
             _context.Entry(entity).State = EntityState.Modified;
             await _context.SaveChangesAsync();
             _logger.LogInformation("장비 수정 완료. Id: {Id}", id);
-            return true;
+            return MapToDto(entity);
         }
         catch (Exception ex)
         {
@@ -207,5 +231,6 @@ public class DeviceService : IDeviceService
         BuildingId = d.BuildingId,
         FloorId = d.FloorId,
         RoomId = d.RoomId,
+        CompanyId = d.CompanyId,
     };
 }

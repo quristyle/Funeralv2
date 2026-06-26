@@ -17,10 +17,10 @@ public interface IDeviceService
     Task<DeviceDto?> GetByIdAsync(string id);
 
     /// <summary>장비 생성</summary>
-    Task<string> CreateAsync(DeviceCreateDto item);
+    Task<DeviceDto> CreateAsync(DeviceCreateDto item);
 
     /// <summary>장비 수정</summary>
-    Task<bool> UpdateAsync(string id, DeviceUpdateDto item);
+    Task<DeviceDto?> UpdateAsync(string id, DeviceUpdateDto item);
 
     /// <summary>장비 삭제</summary>
     Task<bool> DeleteAsync(string id);

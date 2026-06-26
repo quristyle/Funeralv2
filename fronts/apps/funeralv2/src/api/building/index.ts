@@ -6,6 +6,7 @@ export namespace BuildingApi {
     companyId: string;
     name: string;
     shortName?: string;
+    abbreviation?: string;
     address?: string;
     zipCode?: string;
     addressDetail?: string;
@@ -176,11 +177,14 @@ export async function getDevices(params?: {
 }) {
   return requestClient.get<BuildingApi.Device[]>('/funeral/building/device/list', { params });
 }
+export async function getDevice(id: string) {
+  return requestClient.get<BuildingApi.Device>(`/funeral/building/device/${id}`);
+}
 export async function createDevice(data: Omit<BuildingApi.Device, 'id'>) {
   return requestClient.post('/funeral/building/device', data);
 }
-export async function updateDevice(id: string, data: Omit<BuildingApi.Device, 'id'>) {
-  return requestClient.put(`/funeral/building/device/${id}`, data);
+export async function updateDevice(id: string, data: Partial<BuildingApi.Device>) {
+  return requestClient.put<BuildingApi.Device>(`/funeral/building/device/${id}`, data);
 }
 export async function deleteDevice(id: string) {
   return requestClient.delete(`/funeral/building/device/${id}`);

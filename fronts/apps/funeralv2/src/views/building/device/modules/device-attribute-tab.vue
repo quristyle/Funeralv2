@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import {
-  Button, Divider, Form, Input, InputNumber, Select, Slider, Spin, Switch,
+  Alert, Button, Divider, Form, Input, InputNumber, Select, Slider, Spin, Switch,
 } from 'ant-design-vue';
 import { IconifyIcon } from '@vben/icons';
 import type { BuildingApi } from '#/api/building';
@@ -26,6 +26,15 @@ const emit = defineEmits<{
 
     <!-- 속성 폼 -->
     <div v-else-if="deviceAttr" class="flex-1 overflow-auto px-4 py-3">
+      <Alert
+        v-if="!deviceAttr.id"
+        type="info"
+        show-icon
+        class="mb-4"
+        message="아직 저장된 장비 속성이 없습니다."
+        description="아래 항목을 설정한 뒤 저장하면 장비의 고유 속성이 등록됩니다."
+      />
+
       <Form layout="vertical" size="small">
 
         <!-- ① 공통 표시 설정 -->

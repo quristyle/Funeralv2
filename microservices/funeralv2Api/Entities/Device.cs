@@ -62,7 +62,6 @@ public class Device : BaseEntity<string>
     [ForeignKey(nameof(BuildingId))]
     public Building? Building { get; set; }
     
-    // Building, Floor, Room으로부터 CompanyId를 추상화하기 위한 속성
-    [NotMapped]
+    [Column("company_id")]
     public string? CompanyId { get; set; }
 }

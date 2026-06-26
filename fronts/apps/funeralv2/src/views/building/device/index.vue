@@ -6,6 +6,7 @@ import type { BuildingApi } from '#/api/building';
 import { useDeviceGrid } from './composables/use-device-grid';
 import { useDeviceConfig } from './composables/use-device-config';
 import { useDeviceAttribute } from './composables/use-device-attribute';
+import { getDevice } from '#/api/building';
 import DeviceListPanel from './modules/device-list-panel.vue';
 import DeviceDetailPanel from './modules/device-detail-panel.vue';
 import DeviceFormModal from './modules/device-form-modal.vue';
@@ -32,10 +33,20 @@ function closePanel() {
 function onRowClick(row: BuildingApi.Device) {
   if (selectedDevice.value?.id === row.id) return;
   selectedDevice.value = row;
-  activeTab.value = 'config';
   gridComposable.setCurrentRow(row);
   configComposable.loadDeviceConfig(row.id);
   attrComposable.loadDeviceAttribute(row.id);
+}
+
+/** 장비 관리 탭에서 정보 저장 후 호출되는 함수 */
+async function onDeviceManaged() {
+  // 그리드 목록 새로고침
+  gridComposable.gridApi.query();
+  if (selectedDevice.value) {
+    // 현재 선택된 장비의 최신 정보를 다시 불러와 패널에 반영
+    const updatedDevice = await getDevice(selectedDevice.value.id);
+    selectedDevice.value = updatedDevice;
+  }
 }
 
 const gridComposable = useDeviceGrid(selectedDevice, onRowClick, closePanel);
@@ -123,6 +134,7 @@ const {
         @update:powerOnTimeVal="(val) => powerOnTimeVal = val"
         @update:powerOffTimeVal="(val) => powerOffTimeVal = val"
         @update:rebootTimeVal="(val) => rebootTimeVal = val"
+        @device-managed="onDeviceManaged"
         @attr-save="handleAttrSave(selectedDevice!.id)"
         @attr-reset="handleAttrReset(selectedDevice!.id)"
       />

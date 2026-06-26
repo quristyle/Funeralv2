@@ -2,6 +2,7 @@
 import { Badge, Button, Tabs, Tooltip } from 'ant-design-vue';
 import { IconifyIcon } from '@vben/icons';
 import { getDeviceTypeInfo } from '../constants/device-type';
+import DeviceManagementTab from './device-management-tab.vue';
 import DeviceConfigTab from './device-config-tab.vue';
 import DeviceAttributeTab from './device-attribute-tab.vue';
 import type { BuildingApi } from '#/api/building';
@@ -28,6 +29,7 @@ const emit = defineEmits<{
   (e: 'update:powerOnTimeVal', val: any): void;
   (e: 'update:powerOffTimeVal', val: any): void;
   (e: 'update:rebootTimeVal', val: any): void;
+  (e: 'deviceManaged'): void;
   (e: 'attrSave'): void;
   (e: 'attrReset'): void;
 }>();
@@ -75,12 +77,23 @@ const emit = defineEmits<{
       :tab-bar-style="{ margin: 0, paddingLeft: '12px', paddingRight: '12px', flexShrink: 0 }"
       @update:activeKey="(val) => emit('update:activeTab', val as string)"
     >
-      <!-- 탭1: 기본 설정 -->
+      <!-- 탭1: 장비 관리 -->
+      <Tabs.TabPane key="management">
+        <template #tab>
+          <span class="flex items-center gap-1.5">
+            <IconifyIcon icon="lucide:edit" class="size-3.5" />
+            장비 관리
+          </span>
+        </template>
+        <DeviceManagementTab :device="device" @saved="emit('deviceManaged')" />
+      </Tabs.TabPane>
+
+      <!-- 탭2: 장비 설정 -->
       <Tabs.TabPane key="config">
         <template #tab>
           <span class="flex items-center gap-1.5">
             <IconifyIcon icon="lucide:settings-2" class="size-3.5" />
-            기본 설정
+            장비 설정
           </span>
         </template>
         <DeviceConfigTab
@@ -99,7 +112,7 @@ const emit = defineEmits<{
         />
       </Tabs.TabPane>
 
-      <!-- 탭2: 장비 속성 -->
+      <!-- 탭3: 장비 속성 -->
       <Tabs.TabPane key="attribute">
         <template #tab>
           <span class="flex items-center gap-1.5">

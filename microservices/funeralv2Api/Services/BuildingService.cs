@@ -44,6 +44,7 @@ public class BuildingService : IBuildingService
             CompanyId = b.CompanyId,
             Name = b.Name,
             ShortName = b.ShortName,
+            Abbreviation = b.Abbreviation,
             Address = b.Address,
             ZipCode = b.ZipCode,
             AddressDetail = b.AddressDetail,
@@ -69,6 +70,7 @@ public class BuildingService : IBuildingService
             CompanyId = b.CompanyId,
             Name = b.Name,
             ShortName = b.ShortName,
+            Abbreviation = b.Abbreviation,
             Address = b.Address,
             ZipCode = b.ZipCode,
             AddressDetail = b.AddressDetail,
@@ -88,6 +90,7 @@ public class BuildingService : IBuildingService
             CompanyId = dto.CompanyId,
             Name = dto.Name,
             ShortName = dto.ShortName,
+            Abbreviation = dto.Abbreviation,
             Address = dto.Address,
             ZipCode = dto.ZipCode,
             AddressDetail = dto.AddressDetail,
@@ -103,6 +106,7 @@ public class BuildingService : IBuildingService
             CompanyId = b.CompanyId,
             Name = b.Name,
             ShortName = b.ShortName,
+            Abbreviation = b.Abbreviation,
             Address = b.Address,
             ZipCode = b.ZipCode,
             AddressDetail = b.AddressDetail,
@@ -124,6 +128,7 @@ public class BuildingService : IBuildingService
 
         b.Name = dto.Name;
         b.ShortName = dto.ShortName;
+        b.Abbreviation = dto.Abbreviation;
         b.Address = dto.Address;
         b.ZipCode = dto.ZipCode;
         b.AddressDetail = dto.AddressDetail;
@@ -138,6 +143,7 @@ public class BuildingService : IBuildingService
             CompanyId = b.CompanyId,
             Name = b.Name,
             ShortName = b.ShortName,
+            Abbreviation = b.Abbreviation,
             Address = b.Address,
             ZipCode = b.ZipCode,
             AddressDetail = b.AddressDetail,

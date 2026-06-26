@@ -11,6 +11,7 @@ public class BuildingDto
     public string CompanyId { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string? ShortName { get; set; }
+    public string? Abbreviation { get; set; }
     public int SortOrder { get; set; }
     public string? Address { get; set; }
     public string? ZipCode { get; set; }
@@ -30,6 +31,9 @@ public class BuildingCreateDto
     [Required(ErrorMessage = "건물명은 필수입니다.")]
     public string Name { get; set; } = string.Empty;
 
+    [Required(ErrorMessage = "약어는 필수입니다.")] 
+    public string? Abbreviation { get; set; }
+
     public string? ShortName { get; set; }
     public int SortOrder { get; set; }
     public string? Address { get; set; }
@@ -45,6 +49,9 @@ public class BuildingUpdateDto
 {
     [Required(ErrorMessage = "건물명은 필수입니다.")]
     public string Name { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "약어는 필수입니다.")]
+    public string? Abbreviation { get; set; }
 
     public string? ShortName { get; set; }
     public int SortOrder { get; set; }

@@ -37,9 +37,6 @@ public class DeviceCreateDto
     [Required(ErrorMessage = "장비명은 필수입니다.")]
     public string Name { get; set; } = string.Empty;
 
-    [Required(ErrorMessage = "장비코드는 필수입니다.")]
-    public string Code { get; set; } = string.Empty;
-
     public string DeviceType { get; set; } = "DID";
     public string? IpAddress { get; set; }
     public string? MacAddress { get; set; }

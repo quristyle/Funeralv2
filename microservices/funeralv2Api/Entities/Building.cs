@@ -36,6 +36,14 @@ public class Building : BaseEntity<string>
     public string? ShortName { get; set; }
 
     /// <summary>
+    /// 건물 약어 (3자리 영문 대문자)
+    /// </summary>
+    [Column("abbreviation")]
+    [MaxLength(3)]
+    //[RegularExpression("^[A-Z]{3}$")]
+    public string? Abbreviation { get; set; }
+
+    /// <summary>
     /// 정렬 순서
     /// </summary>
     [Required]

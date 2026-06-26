@@ -30,10 +30,10 @@ public static class DeviceConfigEndpoints
             [FromServices] IDeviceConfigService service) =>
         {
             var result = await service.GetByDeviceIdAsync(deviceId);
-            if (result == null)
-            {
-                return Results.NotFound(ApiResponse<DeviceConfigDto>.Fail("장비 기본 설정 정보를 찾을 수 없습니다."));
-            }
+            //if (result == null)
+            //{
+            //    return Results.NotFound(ApiResponse<DeviceConfigDto>.Fail("장비 기본 설정 정보를 찾을 수 없습니다."));
+            //}
             return Results.Ok(result);
         }).WithName("GetDeviceConfigByDeviceId").WithOpenApi();
 

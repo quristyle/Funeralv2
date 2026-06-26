@@ -1,15 +1,13 @@
 <script lang="ts" setup>
 import { ref, watch } from 'vue';
 import { Page, useVbenModal } from '@vben/common-ui';
-import { IconifyIcon, Plus } from '@vben/icons'; 
-import { Button, message, Popconfirm, Form, Input, Tooltip, InputNumber } from 'ant-design-vue';
+import { IconifyIcon, Plus } from '@vben/icons';
+import { Button, message, Popconfirm, Form, Input, Tooltip } from 'ant-design-vue';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { getBuildings, createBuilding, updateBuilding, deleteBuilding } from '#/api/building';
 import BizSelect from '#/components/BizSelect.vue';
 
-import AddressSearchInput from '#/components/AddressSearchInput.vue';
-
-const selectedCompanyId = ref<string>('');
+const filterCompanyId = ref<string>('');
 
 const [BuildingModal, buildingModalApi] = useVbenModal({
   title: '건물 정보 설정',
@@ -24,9 +22,9 @@ const formModel = ref({
   companyId: '',
   name: '',
   shortName: '',
-  sortOrder: 1,
-  zipCode: '',
+  abbreviation: '',
   address: '',
+  zipCode: '',
   addressDetail: '',
   remark: ''
 });
@@ -35,10 +33,9 @@ const [Grid, gridApi] = useVbenVxeGrid({
   gridOptions: {
     columns: [
       { field: 'name', title: '건물명', minWidth: 150 },
-      { field: 'shortName', title: '짧은건물명', minWidth: 120 },
-      { field: 'sortOrder', title: '정렬 순서', width: 100 },
-      { field: 'address', title: '주소', minWidth: 200 },
-      { field: 'remark', title: '설명', minWidth: 200 },
+      { field: 'shortName', title: '짧은명칭', minWidth: 120 },
+      { field: 'abbreviation', title: '약어', minWidth: 100 },
+      { field: 'address', title: '주소', minWidth: 250 },
       {
         field: 'action',
         title: '작업',
@@ -51,44 +48,26 @@ const [Grid, gridApi] = useVbenVxeGrid({
     proxyConfig: {
       ajax: {
         query: async () => {
-          if (!selectedCompanyId.value) {
-            return [];
-          }
-          return await getBuildings(selectedCompanyId.value);
+          return await getBuildings(filterCompanyId.value);
         },
       },
     },
   },
 });
 
-function onCompanyChange() {
+watch(filterCompanyId, () => {
   gridApi.query();
-}
-
-watch(selectedCompanyId, (newVal) => {
-  if (newVal) {
-    gridApi.query();
-  }
 });
 
-function onAddressSelected(data: { zipCode: string; address: string }) {
-  formModel.value.zipCode = data.zipCode;
-  formModel.value.address = data.address;
-}
-
 function onCreate() {
-  if (!selectedCompanyId.value) {
-    message.warning('회사를 먼저 선택해주세요.');
-    return;
-  }
   formModel.value = {
     id: '',
-    companyId: selectedCompanyId.value,
+    companyId: filterCompanyId.value,
     name: '',
     shortName: '',
-    sortOrder: 1,
-    zipCode: '',
+    abbreviation: '',
     address: '',
+    zipCode: '',
     addressDetail: '',
     remark: ''
   };
@@ -112,9 +91,6 @@ async function onDelete(row: any) {
 
 async function handleSave() {
   try {
-    if (!formModel.value.companyId && selectedCompanyId.value) {
-      formModel.value.companyId = selectedCompanyId.value;
-    }
     if (formModel.value.id) {
       await updateBuilding(formModel.value.id, formModel.value);
       message.success('건물 정보가 수정되었습니다.');
@@ -132,28 +108,28 @@ async function handleSave() {
 
 <template>
   <Page auto-content-height>
-    <div class="mb-4 flex items-center gap-4 bg-card p-4 rounded-lg shadow-sm border border-border">
-      <span class="text-sm font-medium">회사 선택 :</span>
-      <BizSelect
-        v-model:value="selectedCompanyId"
-        type="company"
-        auto-select-first
-        placeholder="회사를 선택해주세요"
-        class="w-64"
-        show-search
-        option-filter-prop="label"
-        @change="onCompanyChange"
-      />
+    <div class="mb-4 flex items-center justify-between bg-card p-4 rounded-lg shadow-sm border border-border">
+      <div class="flex items-center gap-4">
+        <div class="flex items-center gap-2">
+          <span class="font-semibold text-sm">회사 필터:</span>
+          <BizSelect
+            v-model:value="filterCompanyId"
+            type="company"
+            auto-select-first
+            placeholder="회사 선택"
+            class="w-64"
+            show-search
+            option-filter-prop="label"
+          />
+        </div>
+      </div>
+      <Button type="primary" @click="onCreate">
+        <Plus class="size-5 mr-1" />
+        신규 건물 등록
+      </Button>
     </div>
 
     <Grid table-title="건물 정보 목록">
-      <template #toolbar-tools>
-        <Button type="primary" @click="onCreate">
-          <Plus class="size-5 mr-1" />
-          신규 건물 등록
-        </Button>
-      </template>
-
       <template #action="{ row }">
         <div class="flex gap-2 justify-center">
           <Tooltip title="수정">
@@ -183,29 +159,21 @@ async function handleSave() {
             />
           </Form.Item>
           <Form.Item label="건물명" required>
-            <Input v-model:value="formModel.name" placeholder="예: 본관, 신관 등" />
+            <Input v-model:value="formModel.name" placeholder="예: 본관, 신관, 장례식장 A동" />
           </Form.Item>
-          <Form.Item label="짧은건물명">
-            <Input v-model:value="formModel.shortName" placeholder="예: 본관, 신관 등 짧은 명칭" />
-          </Form.Item>
-          <Form.Item label="정렬 순서">
-            <InputNumber v-model:value="formModel.sortOrder" :min="1" style="width: 100%" />
-          </Form.Item>
-          <Form.Item label="우편번호">
-            <AddressSearchInput
-              v-model="formModel.zipCode"
-              @selected="onAddressSelected"
-              placeholder="우편번호"
-            />
-          </Form.Item>
+          <div class="grid grid-cols-2 gap-x-4">
+            <Form.Item label="짧은 명칭">
+              <Input v-model:value="formModel.shortName" placeholder="예: 본관" />
+            </Form.Item>
+            <Form.Item label="약어 (3자리 영문)">
+              <Input v-model:value="formModel.abbreviation" placeholder="예: MAN" :maxlength="3" />
+            </Form.Item>
+          </div>
           <Form.Item label="주소">
-            <Input v-model:value="formModel.address" placeholder="기본 주소" disabled />
-          </Form.Item>
-          <Form.Item label="상세주소">
-            <Input v-model:value="formModel.addressDetail" placeholder="상세 주소를 입력하세요" />
+            <Input v-model:value="formModel.address" placeholder="주소 입력" />
           </Form.Item>
           <Form.Item label="비고/설명">
-            <Input.TextArea v-model:value="formModel.remark" placeholder="건물 특이 사항 입력" />
+            <Input.TextArea v-model:value="formModel.remark" placeholder="특이 사항 입력" />
           </Form.Item>
         </Form>
       </div>

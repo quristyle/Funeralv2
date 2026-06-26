@@ -48,19 +48,19 @@ public static class DeviceEndpoints
         // 장비 생성
         group.MapPost("/", async ([FromBody] DeviceCreateDto dto, [FromServices] IDeviceService service) =>
         {
-            var newId = await service.CreateAsync(dto);
-            return Results.Ok(newId);
+            var newDevice = await service.CreateAsync(dto);
+            return Results.Ok(newDevice);
         }).WithName("CreateDevice").WithOpenApi();
 
         // 장비 수정
         group.MapPut("/{id}", async (string id, [FromBody] DeviceUpdateDto dto, [FromServices] IDeviceService service) =>
         {
-            var success = await service.UpdateAsync(id, dto);
-            if (!success)
+            var updatedDevice = await service.UpdateAsync(id, dto);
+            if (updatedDevice == null)
             {
                 return Results.NotFound(ApiResponse<DeviceDto>.Fail("수정할 장비 정보를 찾을 수 없습니다."));
             }
-            return Results.Ok(success);
+            return Results.Ok(updatedDevice);
         }).WithName("UpdateDevice").WithOpenApi();
 
         // 장비 삭제
