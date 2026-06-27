@@ -46,6 +46,11 @@ public class AppDbContext : DbContext
     /// </summary>
     public DbSet<DeviceConfig> DeviceConfigs { get; set; } = null!;
 
+    /// <summary>
+    /// 미디어 소스 DbSet
+    /// </summary>
+    public DbSet<MediaSource> MediaSources { get; set; } = null!;
+
 
 
     /// <summary>

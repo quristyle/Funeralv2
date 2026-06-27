@@ -69,6 +69,9 @@ export namespace BuildingApi {
     url: string;
     fileSize?: number;
     remark?: string;
+    shortName?: string;
+    sortOrder?: number;
+    thumbnailUrl?: string;
   }
 
   export interface Deceased {

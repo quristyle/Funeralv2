@@ -26,6 +26,11 @@ public static class FileEndpoints
             {
                 var userId = userContext?.UserId;
                 var metadata = await fileService.UploadFileAsync(file, userId);
+                var isVideo = metadata.ContentType.StartsWith("video/", StringComparison.OrdinalIgnoreCase) || 
+                              metadata.OriginalName.EndsWith(".mp4", StringComparison.OrdinalIgnoreCase) ||
+                              metadata.OriginalName.EndsWith(".mkv", StringComparison.OrdinalIgnoreCase) ||
+                              metadata.OriginalName.EndsWith(".avi", StringComparison.OrdinalIgnoreCase);
+
                 return Results.Ok(ApiResponse<object>.Ok(new
                 {
                     id = metadata.Id,
@@ -33,8 +38,10 @@ public static class FileEndpoints
                     size = metadata.Size,
                     contentType = metadata.ContentType,
                     isImage = metadata.IsImage,
+                    isVideo = isVideo,
                     createdAt = metadata.CreatedAt,
-                    downloadUrl = $"/api/file/download/{metadata.Id}"
+                    downloadUrl = $"/api/file/download/{metadata.Id}",
+                    thumbnailLink = isVideo ? $"/api/file/download/{metadata.Id}.jpg" : null
                 }));
             }
             catch (Exception ex)
@@ -47,21 +54,41 @@ public static class FileEndpoints
         .DisableAntiforgery();
 
         // 2. 파일 다운로드
-        group.MapGet("/download/{id:guid}", async Task<IResult> (Guid id, [FromServices] IFileService fileService, [FromServices] Microsoft.Extensions.Configuration.IConfiguration configuration) =>
+        group.MapGet("/download/{fileName}", async Task<IResult> (string fileName, [FromServices] IFileService fileService, [FromServices] Microsoft.Extensions.Configuration.IConfiguration configuration) =>
         {
             try
             {
-                var (fileStream, contentType, originalName) = await fileService.DownloadFileAsync(id);
-                
-                // 브라우저에서 인라인 표시 대신 다운로드 팝업 유도 시 Content-Disposition 설정
-                return Results.File(fileStream, contentType, fileDownloadName: originalName, enableRangeProcessing: true);
+                // .jpg 썸네일 요청인 경우 (예: {guid}.jpg)
+                if (fileName.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) && Guid.TryParse(fileName.Substring(0, fileName.Length - 4), out var mediaId))
+                {
+                    var metadata = await fileService.GetMetadataAsync(mediaId);
+                    if (metadata != null)
+                    {
+                        var localPath = configuration["Storage:LocalPath"] ?? Path.Combine(AppContext.BaseDirectory, "Uploads");
+                        var folderName = metadata.Path.StartsWith("Video", StringComparison.OrdinalIgnoreCase) ? "Video" : "Original";
+                        var thumbFile = Path.Combine(localPath, folderName, $"{mediaId}.jpg");
+                        if (File.Exists(thumbFile))
+                        {
+                            var thumbStream = new FileStream(thumbFile, FileMode.Open, FileAccess.Read);
+                            return Results.File(thumbStream, "image/jpeg");
+                        }
+                    }
+                }
+
+                if (Guid.TryParse(fileName, out var id))
+                {
+                    var (fileStream, contentType, originalName) = await fileService.DownloadFileAsync(id);
+                    return Results.File(fileStream, contentType, fileDownloadName: originalName, enableRangeProcessing: true);
+                }
+
+                return Results.BadRequest(ApiResponse<object>.Fail("ERR_INVALID_FILE_ID", "유효하지 않은 파일 식별자입니다."));
             }
             catch (FileNotFoundException ex)
             {
                 var fallbackUrl = configuration["Storage:FallbackUrl"];
-                if (!string.IsNullOrEmpty(fallbackUrl))
+                if (!string.IsNullOrEmpty(fallbackUrl) && Guid.TryParse(fileName.Replace(".jpg", ""), out var parseId))
                 {
-                    return Results.Redirect($"{fallbackUrl.TrimEnd('/')}/api/file/download/{id}");
+                    return Results.Redirect($"{fallbackUrl.TrimEnd('/')}/api/file/download/{fileName}");
                 }
                 return Results.NotFound(ApiResponse<object>.Fail("ERR_FILE_NOT_FOUND", ex.Message));
             }

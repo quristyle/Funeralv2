@@ -8,6 +8,20 @@ using System.Reflection;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Kestrel 요청 본문 크기 제한 해제 (예: 500MB)
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.Limits.MaxRequestBodySize = 500 * 1024 * 1024; // 500MB
+});
+
+// Multipart Form 제한 해제 (대용량 비디오 업로드 대응)
+builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(options =>
+{
+    options.MultipartBodyLengthLimit = 500 * 1024 * 1024; // 500MB
+    options.ValueLengthLimit = 500 * 1024 * 1024;
+});
+
+
 // 1. JWT 검증 설정 (1차 검증)
 var jwtKey = builder.Configuration["Jwt:Key"] ?? "a-very-secret-key-that-is-long-enough-for-security";
 var key = Encoding.ASCII.GetBytes(jwtKey);

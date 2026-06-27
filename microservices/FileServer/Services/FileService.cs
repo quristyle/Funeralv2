@@ -18,6 +18,7 @@ public class FileService : IFileService
 {
     private readonly FileDbContext _dbContext;
     private readonly string _baseUploadPath;
+    private readonly string _videoUploadPath;
     private readonly string _thumbnailPath;
     private readonly string _mediumPath;
     private readonly string _largePath;
@@ -30,6 +31,7 @@ public class FileService : IFileService
         // 설정에서 파일 저장소 경로 획득, 없으면 실행 경로 기준 Uploads로 폴백
         var localPath = configuration["Storage:LocalPath"] ?? Path.Combine(AppContext.BaseDirectory, "Uploads");
         _baseUploadPath = Path.Combine(localPath, "Original");
+        _videoUploadPath = Path.Combine(localPath, "Video");
         _thumbnailPath = Path.Combine(localPath, "Thumbnail");
         _mediumPath = Path.Combine(localPath, "Medium");
         _largePath = Path.Combine(localPath, "Large");
@@ -37,6 +39,7 @@ public class FileService : IFileService
 
         // 각 규격별 폴더 자동 생성
         if (!Directory.Exists(_baseUploadPath)) Directory.CreateDirectory(_baseUploadPath);
+        if (!Directory.Exists(_videoUploadPath)) Directory.CreateDirectory(_videoUploadPath);
         if (!Directory.Exists(_thumbnailPath)) Directory.CreateDirectory(_thumbnailPath);
         if (!Directory.Exists(_mediumPath)) Directory.CreateDirectory(_mediumPath);
         if (!Directory.Exists(_largePath)) Directory.CreateDirectory(_largePath);
@@ -54,17 +57,84 @@ public class FileService : IFileService
         var fileId = Guid.NewGuid();
         var extension = Path.GetExtension(file.FileName);
         var storedName = $"{fileId}{extension}";
-        var physicalPath = Path.Combine(_baseUploadPath, storedName);
 
-        // 로컬 디스크에 물리적 파일 저장 (원본 보존)
+        // 비디오 파일 여부 선제 판단
+        var contentType = file.ContentType;
+        var isImage = contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase);
+        var isVideo = contentType.StartsWith("video/", StringComparison.OrdinalIgnoreCase) || 
+                      extension.Equals(".mp4", StringComparison.OrdinalIgnoreCase) ||
+                      extension.Equals(".mkv", StringComparison.OrdinalIgnoreCase) ||
+                      extension.Equals(".avi", StringComparison.OrdinalIgnoreCase);
+
+        // 업로드 저장 대상 폴더 동적 변경 (비디오는 Video 폴더, 나머지는 Original)
+        var targetFolder = isVideo ? _videoUploadPath : _baseUploadPath;
+        var physicalPath = Path.Combine(targetFolder, storedName);
+
+        // 로컬 디스크에 물리적 파일 저장
         using (var stream = new FileStream(physicalPath, FileMode.Create))
         {
             await file.CopyToAsync(stream);
         }
 
-        // 이미지 파일 여부 판단
-        var contentType = file.ContentType;
-        var isImage = contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase);
+        // 동영상인 경우 WebM 파일로 변환 및 첫 프레임 이미지(썸네일) 추출 처리
+        if (isVideo)
+        {
+            try
+            {
+                var webmStoredName = $"{fileId}.webm";
+                var webmPath = Path.Combine(_videoUploadPath, webmStoredName);
+                
+                var thumbnailImageName = $"{fileId}.jpg";
+                var thumbnailImagePath = Path.Combine(_videoUploadPath, thumbnailImageName);
+                
+                // ffmpeg 및 ffprobe CLI 명령이 운영체제 PATH에 노출되어 있어야 정상 작동
+                _ = Task.Run(() =>
+                {
+                    try
+                    {
+                        // 1. WebM 트랜스코딩 프로세스 시작
+                        var webmProcessInfo = new System.Diagnostics.ProcessStartInfo
+                        {
+                            FileName = "ffmpeg",
+                            Arguments = $"-i \"{physicalPath}\" -c:v libvpx-vp9 -crf 30 -b:v 0 -c:a libopus \"{webmPath}\" -y",
+                            RedirectStandardOutput = true,
+                            RedirectStandardError = true,
+                            UseShellExecute = false,
+                            CreateNoWindow = true
+                        };
+
+                        using (var process = System.Diagnostics.Process.Start(webmProcessInfo))
+                        {
+                            process?.WaitForExit();
+                        }
+
+                        // 2. 영상 첫 프레임 추출 프로세스 시작 (빠르게 첫 프레임 한 장만 캡처)
+                        var thumbProcessInfo = new System.Diagnostics.ProcessStartInfo
+                        {
+                            FileName = "ffmpeg",
+                            Arguments = $"-ss 00:00:00 -i \"{physicalPath}\" -vframes 1 -q:v 2 \"{thumbnailImagePath}\" -y",
+                            RedirectStandardOutput = true,
+                            RedirectStandardError = true,
+                            UseShellExecute = false,
+                            CreateNoWindow = true
+                        };
+
+                        using (var process = System.Diagnostics.Process.Start(thumbProcessInfo))
+                        {
+                            process?.WaitForExit();
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[Exception] FFmpeg process execution failed: {ex.Message}");
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Warning] Failed to initiate video processing: {ex.Message}");
+            }
+        }
 
         // DB에 메타데이터 저장
         var metadata = new FileMetadata
@@ -72,7 +142,7 @@ public class FileService : IFileService
             Id = fileId,
             OriginalName = file.FileName,
             StoredName = storedName,
-            Path = Path.Combine("Original", storedName),
+            Path = Path.Combine(isVideo ? "Video" : "Original", storedName),
             Size = file.Length,
             ContentType = contentType,
             IsImage = isImage,
@@ -98,7 +168,10 @@ public class FileService : IFileService
             throw new FileNotFoundException("파일 메타데이터를 찾을 수 없습니다.");
         }
 
-        var physicalPath = Path.Combine(_baseUploadPath, metadata.StoredName);
+        // DB에 기록된 경로 타입에 따라 로드 디렉토리 분기
+        var targetFolder = metadata.Path.StartsWith("Video", StringComparison.OrdinalIgnoreCase) ? _videoUploadPath : _baseUploadPath;
+        var physicalPath = Path.Combine(targetFolder, metadata.StoredName);
+
         if (!File.Exists(physicalPath))
         {
             throw new FileNotFoundException("서버 물리 스토리지에 파일이 존재하지 않습니다.");

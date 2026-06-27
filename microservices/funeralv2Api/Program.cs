@@ -12,6 +12,20 @@ using Funeralv2.Shared.Infrastructure.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Kestrel 요청 본문 크기 제한 해제 (예: 500MB)
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.Limits.MaxRequestBodySize = 500 * 1024 * 1024; // 500MB
+});
+
+// Multipart Form 제한 해제
+builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(options =>
+{
+    options.MultipartBodyLengthLimit = 500 * 1024 * 1024; // 500MB
+    options.ValueLengthLimit = 500 * 1024 * 1024;
+});
+
+
 
 
 // 로컬 개별 설정을 위한 appsettings.Local.json 추가 (Git 제외)
@@ -41,6 +55,8 @@ builder.Services.AddScoped<IRoomService, RoomService>();
 builder.Services.AddScoped<IDeviceService, DeviceService>();
 builder.Services.AddScoped<IDeviceAttributeService, DeviceAttributeService>();
 builder.Services.AddScoped<IDeviceConfigService, DeviceConfigService>();
+builder.Services.AddScoped<IMediaSourceService, MediaSourceService>();
+
 
 // ============================================================
 // 5. CORS 구성 (Cross-Origin Resource Sharing)
@@ -103,6 +119,8 @@ app.MapRoomEndpoints();
 app.MapDeviceEndpoints();
 app.MapDeviceAttributeEndpoints();
 app.MapDeviceConfigEndpoints();
+app.MapMediaSourceEndpoints();
+
 
 
 
