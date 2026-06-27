@@ -49,10 +49,19 @@ public class MediaSourceService : IMediaSourceService
             SourceType = x.SourceType,
             Url = x.Url,
             ThumbnailUrl = x.ThumbnailUrl,
+            ThumbnailFileId = x.ThumbnailFileId,
             WebmUrl = x.WebmUrl,
+            WebmFileId = x.WebmFileId,
+            OggUrl = x.OggUrl,
+            OggFileId = x.OggFileId,
+            AacUrl = x.AacUrl,
+            AacFileId = x.AacFileId,
+            OriginalFileId = x.OriginalFileId,
             Status = x.Status,
             HasWebm = x.HasWebm,
             HasThumbnail = x.HasThumbnail,
+            HasOgg = x.HasOgg,
+            HasAac = x.HasAac,
             FileSize = x.FileSize,
             SortOrder = x.SortOrder,
             Remark = x.Remark
@@ -64,6 +73,16 @@ public class MediaSourceService : IMediaSourceService
     {
         _logger.LogInformation("Creating new media source. Name: {Name}, Type: {Type}", dto.Name, dto.SourceType);
         
+        Guid? parsedOriginalFileId = null;
+        if (!string.IsNullOrEmpty(dto.Url))
+        {
+            var match = Regex.Match(dto.Url, @"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}");
+            if (match.Success && Guid.TryParse(match.Value, out var fileId))
+            {
+                parsedOriginalFileId = fileId;
+            }
+        }
+
         var source = new MediaSource
         {
             Name = dto.Name,
@@ -71,10 +90,19 @@ public class MediaSourceService : IMediaSourceService
             SourceType = dto.SourceType,
             Url = dto.Url,
             ThumbnailUrl = dto.ThumbnailUrl,
+            ThumbnailFileId = dto.ThumbnailFileId,
             WebmUrl = dto.WebmUrl,
+            WebmFileId = dto.WebmFileId,
+            OggUrl = dto.OggUrl,
+            OggFileId = dto.OggFileId,
+            AacUrl = dto.AacUrl,
+            AacFileId = dto.AacFileId,
+            OriginalFileId = parsedOriginalFileId ?? dto.OriginalFileId,
             Status = dto.Status ?? "PROCESSING",
             HasWebm = dto.HasWebm,
             HasThumbnail = dto.HasThumbnail,
+            HasOgg = dto.HasOgg,
+            HasAac = dto.HasAac,
             FileSize = dto.FileSize,
             SortOrder = dto.SortOrder,
             Remark = dto.Remark,
@@ -85,30 +113,27 @@ public class MediaSourceService : IMediaSourceService
         _context.Set<MediaSource>().Add(source);
         await _context.SaveChangesAsync();
 
-        // 비디오 소스인 경우 업로드된 파일 ID를 추출하여 FileServer에 트랜스코딩 작업 트리거
-        if (dto.SourceType == "VIDEO" && !string.IsNullOrEmpty(dto.Url))
+        // 비디오 혹은 오디오 소스인 경우 업로드된 파일 ID를 추출하여 FileServer에 트랜스코딩 작업 트리거
+        if ((dto.SourceType == "VIDEO" || dto.SourceType == "AUDIO") && parsedOriginalFileId.HasValue)
         {
-            var match = Regex.Match(dto.Url, @"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}");
-            if (match.Success && Guid.TryParse(match.Value, out var fileId))
+            var fileId = parsedOriginalFileId.Value;
+            _ = Task.Run(async () =>
             {
-                _ = Task.Run(async () =>
+                try
                 {
-                    try
-                    {
-                        var fileServerUrl = _configuration["FileServer:BaseUrl"] ?? "http://localhost:5350";
-                        using var client = new HttpClient();
-                        var triggerUrl = $"{fileServerUrl.TrimEnd('/')}/transcode/{fileId}";
-                        _logger.LogInformation("Triggering video transcoding at FileServer: {Url}", triggerUrl);
-                        
-                        var response = await client.PostAsync(triggerUrl, null);
-                        _logger.LogInformation("FileServer transcoding trigger response: {StatusCode}", response.StatusCode);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Failed to trigger video transcoding on FileServer for fileId: {FileId}", fileId);
-                    }
-                });
-            }
+                    var fileServerUrl = _configuration["FileServer:BaseUrl"] ?? "http://localhost:5350";
+                    using var client = new HttpClient();
+                    var triggerUrl = $"{fileServerUrl.TrimEnd('/')}/transcode/{fileId}";
+                    _logger.LogInformation("Triggering media transcoding at FileServer: {Url}", triggerUrl);
+                    
+                    var response = await client.PostAsync(triggerUrl, null);
+                    _logger.LogInformation("FileServer transcoding trigger response: {StatusCode}", response.StatusCode);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to trigger media transcoding on FileServer for fileId: {FileId}", fileId);
+                }
+            });
         }
 
         return new MediaSourceDto
@@ -119,10 +144,19 @@ public class MediaSourceService : IMediaSourceService
             SourceType = source.SourceType,
             Url = source.Url,
             ThumbnailUrl = source.ThumbnailUrl,
+            ThumbnailFileId = source.ThumbnailFileId,
             WebmUrl = source.WebmUrl,
+            WebmFileId = source.WebmFileId,
+            OggUrl = source.OggUrl,
+            OggFileId = source.OggFileId,
+            AacUrl = source.AacUrl,
+            AacFileId = source.AacFileId,
+            OriginalFileId = source.OriginalFileId,
             Status = source.Status,
             HasWebm = source.HasWebm,
             HasThumbnail = source.HasThumbnail,
+            HasOgg = source.HasOgg,
+            HasAac = source.HasAac,
             FileSize = source.FileSize,
             SortOrder = source.SortOrder,
             Remark = source.Remark
@@ -159,16 +193,54 @@ public class MediaSourceService : IMediaSourceService
         if (source == null) return null;
 
         source.Status = dto.Status;
-        source.HasWebm = dto.HasWebm;
-        source.HasThumbnail = dto.HasThumbnail;
+        if (dto.HasWebm.HasValue)
+        {
+            source.HasWebm = dto.HasWebm.Value;
+        }
+        if (dto.HasThumbnail.HasValue)
+        {
+            source.HasThumbnail = dto.HasThumbnail.Value;
+        }
+        if (dto.HasOgg.HasValue)
+        {
+            source.HasOgg = dto.HasOgg.Value;
+        }
+        if (dto.HasAac.HasValue)
+        {
+            source.HasAac = dto.HasAac.Value;
+        }
         
         if (dto.ThumbnailUrl != null)
         {
             source.ThumbnailUrl = dto.ThumbnailUrl;
         }
+        if (dto.ThumbnailFileId.HasValue)
+        {
+            source.ThumbnailFileId = dto.ThumbnailFileId.Value;
+        }
         if (dto.WebmUrl != null)
         {
             source.WebmUrl = dto.WebmUrl;
+        }
+        if (dto.WebmFileId.HasValue)
+        {
+            source.WebmFileId = dto.WebmFileId.Value;
+        }
+        if (dto.OggUrl != null)
+        {
+            source.OggUrl = dto.OggUrl;
+        }
+        if (dto.OggFileId.HasValue)
+        {
+            source.OggFileId = dto.OggFileId.Value;
+        }
+        if (dto.AacUrl != null)
+        {
+            source.AacUrl = dto.AacUrl;
+        }
+        if (dto.AacFileId.HasValue)
+        {
+            source.AacFileId = dto.AacFileId.Value;
         }
 
         source.UpdatedAt = DateTime.UtcNow;
@@ -184,10 +256,19 @@ public class MediaSourceService : IMediaSourceService
             SourceType = source.SourceType,
             Url = source.Url,
             ThumbnailUrl = source.ThumbnailUrl,
+            ThumbnailFileId = source.ThumbnailFileId,
             WebmUrl = source.WebmUrl,
+            WebmFileId = source.WebmFileId,
+            OggUrl = source.OggUrl,
+            OggFileId = source.OggFileId,
+            AacUrl = source.AacUrl,
+            AacFileId = source.AacFileId,
+            OriginalFileId = source.OriginalFileId,
             Status = source.Status,
             HasWebm = source.HasWebm,
             HasThumbnail = source.HasThumbnail,
+            HasOgg = source.HasOgg,
+            HasAac = source.HasAac,
             FileSize = source.FileSize,
             SortOrder = source.SortOrder,
             Remark = source.Remark

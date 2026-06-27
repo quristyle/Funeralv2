@@ -51,15 +51,49 @@ public class MediaSource : BaseEntity<string>
     public string? Remark { get; set; }
 
     /// <summary>
+    /// 원본 파일의 FileMetadata 식별자
+    /// </summary>
+    public Guid? OriginalFileId { get; set; }
+
+    /// <summary>
     /// 동영상인 경우 첫 클립 썸네일 이미지의 파일 URL 경로
     /// </summary>
     public string? ThumbnailUrl { get; set; }
+
+    /// <summary>
+    /// 썸네일 이미지 파일의 FileMetadata 식별자
+    /// </summary>
+    public Guid? ThumbnailFileId { get; set; }
     
     /// <summary>
     /// 동영상인 경우 WebM 파일의 파일 URL 경로
     /// </summary>
     public string? WebmUrl { get; set; }
 
+    /// <summary>
+    /// WebM 파일의 FileMetadata 식별자
+    /// </summary>
+    public Guid? WebmFileId { get; set; }
+
+    /// <summary>
+    /// 음원인 경우 OGG 파일의 파일 URL 경로
+    /// </summary>
+    public string? OggUrl { get; set; }
+
+    /// <summary>
+    /// OGG 파일의 FileMetadata 식별자
+    /// </summary>
+    public Guid? OggFileId { get; set; }
+
+    /// <summary>
+    /// 음원인 경우 AAC 파일의 파일 URL 경로
+    /// </summary>
+    public string? AacUrl { get; set; }
+
+    /// <summary>
+    /// AAC 파일의 FileMetadata 식별자
+    /// </summary>
+    public Guid? AacFileId { get; set; }
 
     /// <summary>
     /// 미디어 변환 상태 (PROCESSING, COMPLETED, FAILED)
@@ -75,4 +109,14 @@ public class MediaSource : BaseEntity<string>
     /// 썸네일 이미지 생성 완료 여부
     /// </summary>
     public bool HasThumbnail { get; set; }
+
+    /// <summary>
+    /// OGG 파일 변환 완료 여부
+    /// </summary>
+    public bool HasOgg { get; set; }
+
+    /// <summary>
+    /// AAC 파일 변환 완료 여부
+    /// </summary>
+    public bool HasAac { get; set; }
 }

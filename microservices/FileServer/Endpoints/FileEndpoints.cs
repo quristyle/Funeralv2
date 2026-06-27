@@ -15,8 +15,25 @@ public static class FileEndpoints
         var group = app.MapGroup("/");
 
         // 1. 파일 업로드
-        group.MapPost("/upload", async Task<IResult> (IFormFile file, [FromServices] IFileService fileService, UserContext? userContext) =>
+        group.MapPost("/upload", async Task<IResult> (
+            HttpContext context, 
+            [FromServices] IFileService fileService, 
+            UserContext? userContext) =>
         {
+            var request = context.Request;
+            var bizType = request.Query["bizType"].ToString();
+            
+            IFormFile? file = null;
+            if (request.HasFormContentType)
+            {
+                var form = await request.ReadFormAsync();
+                file = form.Files.GetFiles("file").FirstOrDefault() ?? form.Files.FirstOrDefault();
+                if (form.TryGetValue("bizType", out var formBizType))
+                {
+                    bizType = formBizType.ToString();
+                }
+            }
+
             if (file == null || file.Length == 0)
             {
                 return Results.BadRequest(ApiResponse<object>.Fail("ERR_FILE_UPLOAD", "업로드할 파일이 존재하지 않거나 빈 파일입니다."));
@@ -25,7 +42,7 @@ public static class FileEndpoints
             try
             {
                 var userId = userContext?.UserId;
-                var metadata = await fileService.UploadFileAsync(file, userId);
+                var metadata = await fileService.UploadFileAsync(file, userId, bizType);
                 var isVideo = metadata.ContentType.StartsWith("video/", StringComparison.OrdinalIgnoreCase) || 
                               metadata.OriginalName.EndsWith(".mp4", StringComparison.OrdinalIgnoreCase) ||
                               metadata.OriginalName.EndsWith(".mkv", StringComparison.OrdinalIgnoreCase) ||
@@ -65,8 +82,9 @@ public static class FileEndpoints
                     if (metadata != null)
                     {
                         var localPath = configuration["Storage:LocalPath"] ?? Path.Combine(AppContext.BaseDirectory, "Uploads");
-                        var folderName = metadata.Path.StartsWith("Video", StringComparison.OrdinalIgnoreCase) ? "Video" : "Original";
-                        var thumbFile = Path.Combine(localPath, folderName, $"{mediaId}.jpg");
+                        var physicalPath = Path.Combine(localPath, metadata.Path.Replace('/', Path.DirectorySeparatorChar));
+                        var dir = Path.GetDirectoryName(physicalPath);
+                        var thumbFile = Path.Combine(dir ?? "", $"{mediaId}.jpg");
                         if (File.Exists(thumbFile))
                         {
                             var thumbStream = new FileStream(thumbFile, FileMode.Open, FileAccess.Read);
@@ -394,13 +412,41 @@ public static class FileEndpoints
         .WithName("GetGroupFiles")
         .WithOpenApi();
 
-        // 10. 비디오 트랜스코딩 트리거 API
+        // 10. 미디어 트랜스코딩 트리거 API (비디오 및 오디오 공용)
         group.MapPost("/transcode/{id:guid}", async Task<IResult> (Guid id, [FromServices] IFileService fileService) =>
         {
             try
             {
-                await fileService.StartVideoTranscodingAsync(id);
-                return Results.Ok(ApiResponse<object>.Ok(new { message = "비디오 트랜스코딩 작업이 성공적으로 트리거되었습니다." }));
+                var metadata = await fileService.GetMetadataAsync(id);
+                if (metadata == null)
+                {
+                    return Results.NotFound(ApiResponse<object>.Fail("ERR_FILE_NOT_FOUND", "변환할 파일 메타데이터를 찾을 수 없습니다."));
+                }
+
+                var extension = Path.GetExtension(metadata.OriginalName);
+                var isVideo = metadata.ContentType.StartsWith("video/", StringComparison.OrdinalIgnoreCase) || 
+                              extension.Equals(".mp4", StringComparison.OrdinalIgnoreCase) ||
+                              extension.Equals(".mkv", StringComparison.OrdinalIgnoreCase) ||
+                              extension.Equals(".avi", StringComparison.OrdinalIgnoreCase);
+
+                var isAudio = metadata.ContentType.StartsWith("audio/", StringComparison.OrdinalIgnoreCase) || 
+                              extension.Equals(".mp3", StringComparison.OrdinalIgnoreCase) ||
+                              extension.Equals(".wav", StringComparison.OrdinalIgnoreCase) ||
+                              extension.Equals(".mpeg", StringComparison.OrdinalIgnoreCase) ||
+                              extension.Equals(".ogg", StringComparison.OrdinalIgnoreCase);
+
+                if (isVideo)
+                {
+                    await fileService.StartVideoTranscodingAsync(id);
+                    return Results.Ok(ApiResponse<object>.Ok(new { message = "비디오 트랜스코딩 작업이 성공적으로 트리거되었습니다." }));
+                }
+                else if (isAudio)
+                {
+                    await fileService.StartAudioTranscodingAsync(id);
+                    return Results.Ok(ApiResponse<object>.Ok(new { message = "오디오 트랜스코딩 작업이 성공적으로 트리거되었습니다." }));
+                }
+
+                return Results.BadRequest(ApiResponse<object>.Fail("ERR_UNSUPPORTED_MEDIA_TYPE", "트랜스코딩을 지원하지 않는 미디어 형식입니다."));
             }
             catch (FileNotFoundException ex)
             {
@@ -408,14 +454,14 @@ public static class FileEndpoints
             }
             catch (InvalidOperationException ex)
             {
-                return Results.BadRequest(ApiResponse<object>.Fail("ERR_NOT_VIDEO", ex.Message));
+                return Results.BadRequest(ApiResponse<object>.Fail("ERR_INVALID_OPERATION", ex.Message));
             }
             catch (Exception ex)
             {
                 return Results.Json(ApiResponse<object>.Fail("ERR_TRANSCODE_TRIGGER_FAILED", ex.Message), statusCode: StatusCodes.Status500InternalServerError);
             }
         })
-        .WithName("TriggerVideoTranscoding")
+        .WithName("TriggerMediaTranscoding")
         .WithOpenApi();
     }
 }

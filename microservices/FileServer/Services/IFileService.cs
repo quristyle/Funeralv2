@@ -14,7 +14,7 @@ public interface IFileService
     /// <summary>
     /// 파일 업로드 및 DB 메타데이터 등록
     /// </summary>
-    Task<FileMetadata> UploadFileAsync(IFormFile file, string? userId);
+    Task<FileMetadata> UploadFileAsync(IFormFile file, string? userId, string? bizType = null);
 
     /// <summary>
     /// 파일 다운로드 정보 획득
@@ -70,4 +70,9 @@ public interface IFileService
     /// 비디오 파일의 비동기 트랜스코딩 및 썸네일 추출 시작
     /// </summary>
     Task StartVideoTranscodingAsync(Guid fileId);
+
+    /// <summary>
+    /// 오디오 파일의 비동기 트랜스코딩(OGG 및 AAC 변환) 시작
+    /// </summary>
+    Task StartAudioTranscodingAsync(Guid fileId);
 }

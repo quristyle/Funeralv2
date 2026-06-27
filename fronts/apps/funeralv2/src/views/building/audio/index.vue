@@ -1,30 +1,25 @@
 <script lang="ts" setup>
 import { ref } from 'vue';
-import { Page, useVbenModal } from '@vben/common-ui';
+import { Page } from '@vben/common-ui';
 import { Plus } from '@vben/icons';
-import { Button, message, Popconfirm, Form, Input, Modal } from 'ant-design-vue';
+import { Button, message, Popconfirm, Modal, Image } from 'ant-design-vue';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import { getMediaSources, createMediaSource, deleteMediaSource } from '#/api/building';
+import { getMediaSources, deleteMediaSource } from '#/api/building';
+import AudioUploadModal from './modules/audio-upload-modal.vue';
 
-const [UploadModal, uploadModalApi] = useVbenModal({
-  title: '새 음원 리소스 등록',
-  destroyOnClose: true,
-});
+const uploadModalRef = ref<InstanceType<typeof AudioUploadModal> | null>(null);
 
 const showPlayModal = ref<boolean>(false);
 const currentAudioUrl = ref<string>('');
 const currentAudioName = ref<string>('');
-const formModel = ref({
-  name: '',
-  sourceType: 'AUDIO' as const,
-  url: '',
-  remark: ''
-});
+const currentAudioThumbnail = ref<string>('');
 
 const [Grid, gridApi] = useVbenVxeGrid({
   gridOptions: {
     columns: [
+      { field: 'thumbnailUrl', title: '커버', width: 80, slots: { default: 'thumbnail' } },
       { field: 'name', title: '음원/배경음악 명칭', minWidth: 180 },
+      { field: 'sortOrder', title: '순서', width: 80 },
       { field: 'url', title: '음원 URL 경로', minWidth: 280 },
       { field: 'remark', title: '설명', minWidth: 200 },
       {
@@ -47,27 +42,8 @@ const [Grid, gridApi] = useVbenVxeGrid({
 });
 
 function openUpload() {
-  formModel.value = {
-    name: '',
-    sourceType: 'AUDIO',
-    url: '',
-    remark: ''
-  };
-  uploadModalApi.open();
-}
-
-async function handleSave() {
-  try {
-    if (!formModel.value.name || !formModel.value.url) {
-      message.warning('음원 명칭과 음원 URL 경로는 필수 기입 사항입니다.');
-      return;
-    }
-    await createMediaSource(formModel.value);
-    message.success('음원 소스가 성공적으로 등록되었습니다.');
-    uploadModalApi.close();
-    gridApi.query();
-  } catch (error) {
-    message.error('음원 리소스 등록 실패');
+  if (uploadModalRef.value) {
+    uploadModalRef.value.open();
   }
 }
 
@@ -85,11 +61,13 @@ async function handleDelete(row: any) {
 function handlePlay(row: any) {
   currentAudioUrl.value = row.url;
   currentAudioName.value = row.name;
+  currentAudioThumbnail.value = row.thumbnailUrl || '';
   showPlayModal.value = true;
 }
 
 function handleClosePlayer() {
   currentAudioUrl.value = '';
+  currentAudioThumbnail.value = '';
   showPlayModal.value = false;
 }
 </script>
@@ -104,6 +82,25 @@ function handleClosePlayer() {
         </Button>
       </template>
 
+      <template #thumbnail="{ row }">
+        <div class="flex items-center justify-center p-0.5">
+          <Image
+            v-if="row.thumbnailUrl"
+            :src="row.thumbnailUrl"
+            :width="40"
+            :height="40"
+            class="object-cover rounded shadow border cursor-zoom-in"
+            alt="Cover"
+          />
+          <div
+            v-else
+            class="w-10 h-10 bg-muted rounded flex items-center justify-center text-xs text-muted-foreground border"
+          >
+            🎵
+          </div>
+        </div>
+      </template>
+
       <template #action="{ row }">
         <div class="flex gap-2">
           <Button type="link" size="small" @click="handlePlay(row)">음원 청취</Button>
@@ -114,21 +111,8 @@ function handleClosePlayer() {
       </template>
     </Grid>
 
-    <UploadModal @ok="handleSave">
-      <div class="p-6">
-        <Form layout="vertical">
-          <Form.Item label="음원 명칭" required>
-            <Input v-model:value="formModel.name" placeholder="예: 상례 추모 음악 1번, 관내 백그라운드 재즈" />
-          </Form.Item>
-          <Form.Item label="음원 URL 경로" required>
-            <Input v-model:value="formModel.url" placeholder="예: https://cdn.funeralv2.com/audio/mourn01.mp3" />
-          </Form.Item>
-          <Form.Item label="설명/비고">
-            <Input.TextArea v-model:value="formModel.remark" placeholder="음원 장르 및 상세 용도 작성" />
-          </Form.Item>
-        </Form>
-      </div>
-    </UploadModal>
+    <!-- 음원 등록/업로드 모달 컴포넌트 -->
+    <AudioUploadModal ref="uploadModalRef" @saved="gridApi.query()" />
 
     <!-- 오디오 플레이어 모달 -->
     <Modal
@@ -139,14 +123,27 @@ function handleClosePlayer() {
       @cancel="handleClosePlayer"
       width="400px"
     >
-      <div class="p-6 flex flex-col items-center gap-4 bg-accent rounded">
-        <div class="text-sm font-semibold text-center truncate max-w-full text-primary">{{ currentAudioName }}</div>
+      <div class="p-6 flex flex-col items-center gap-4 bg-accent/20 rounded border">
+        <!-- 앨범 아트워크 표출 -->
+        <img
+          v-if="currentAudioThumbnail"
+          :src="currentAudioThumbnail"
+          class="w-48 h-48 object-cover rounded-lg shadow-lg border-2 border-primary/10"
+          alt="Album Cover"
+        />
+        <div
+          v-else
+          class="w-48 h-48 bg-muted rounded-lg flex items-center justify-center border text-muted-foreground text-4xl shadow"
+        >
+          🎵
+        </div>
+        <div class="text-sm font-semibold text-center truncate max-w-full text-primary mt-2">{{ currentAudioName }}</div>
         <audio
           v-if="currentAudioUrl"
           :src="currentAudioUrl"
           controls
           autoplay
-          class="w-full"
+          class="w-full mt-2"
         ></audio>
       </div>
     </Modal>

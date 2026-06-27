@@ -13,10 +13,19 @@ public class MediaSourceDto
     public string SourceType { get; set; } = "VIDEO";
     public string Url { get; set; } = string.Empty;
     public string? ThumbnailUrl { get; set; }
+    public Guid? ThumbnailFileId { get; set; }
     public string? WebmUrl { get; set; }
+    public Guid? WebmFileId { get; set; }
+    public string? OggUrl { get; set; }
+    public Guid? OggFileId { get; set; }
+    public string? AacUrl { get; set; }
+    public Guid? AacFileId { get; set; }
+    public Guid? OriginalFileId { get; set; }
     public string Status { get; set; } = "COMPLETED";
     public bool HasWebm { get; set; }
     public bool HasThumbnail { get; set; }
+    public bool HasOgg { get; set; }
+    public bool HasAac { get; set; }
     public long? FileSize { get; set; }
     public int SortOrder { get; set; }
     public string? Remark { get; set; }
@@ -39,10 +48,19 @@ public class MediaSourceCreateDto
     public string Url { get; set; } = string.Empty;
 
     public string? ThumbnailUrl { get; set; }
+    public Guid? ThumbnailFileId { get; set; }
     public string? WebmUrl { get; set; }
+    public Guid? WebmFileId { get; set; }
+    public string? OggUrl { get; set; }
+    public Guid? OggFileId { get; set; }
+    public string? AacUrl { get; set; }
+    public Guid? AacFileId { get; set; }
+    public Guid? OriginalFileId { get; set; }
     public string Status { get; set; } = "READY";
     public bool HasWebm { get; set; }
     public bool HasThumbnail { get; set; }
+    public bool HasOgg { get; set; }
+    public bool HasAac { get; set; }
 
     public long? FileSize { get; set; }
     public int SortOrder { get; set; }
@@ -55,8 +73,16 @@ public class MediaSourceCreateDto
 public class MediaSourceStatusUpdateDto
 {
     public string Status { get; set; } = "COMPLETED";
-    public bool HasWebm { get; set; }
-    public bool HasThumbnail { get; set; }
+    public bool? HasWebm { get; set; }
+    public bool? HasThumbnail { get; set; }
+    public bool? HasOgg { get; set; }
+    public bool? HasAac { get; set; }
     public string? ThumbnailUrl { get; set; }
+    public Guid? ThumbnailFileId { get; set; }
     public string? WebmUrl { get; set; }
+    public Guid? WebmFileId { get; set; }
+    public string? OggUrl { get; set; }
+    public Guid? OggFileId { get; set; }
+    public string? AacUrl { get; set; }
+    public Guid? AacFileId { get; set; }
 }

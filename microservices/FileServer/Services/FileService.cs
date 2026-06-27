@@ -7,8 +7,10 @@ using Microsoft.EntityFrameworkCore;
 using FileServer.Data;
 using FileServer.Entities;
 using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Processing;using System.Diagnostics;
+using SixLabors.ImageSharp.Processing;
+using System.Diagnostics;
 using System.Text;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace FileServer.Services;
 
@@ -18,37 +20,38 @@ namespace FileServer.Services;
 public class FileService : IFileService
 {
     private readonly FileDbContext _dbContext;
-    private readonly string _baseUploadPath;
-    private readonly string _videoUploadPath;
-    private readonly string _thumbnailPath;
-    private readonly string _mediumPath;
-    private readonly string _largePath;
-    private readonly string _cachePath;
+    private readonly IServiceScopeFactory _scopeFactory;
+    private readonly string _localPathRoot;
 
-    public FileService(FileDbContext dbContext, Microsoft.Extensions.Configuration.IConfiguration configuration)
+    public FileService(
+        FileDbContext dbContext, 
+        Microsoft.Extensions.Configuration.IConfiguration configuration, 
+        IServiceScopeFactory scopeFactory)
     {
         _dbContext = dbContext;
-        
+        _scopeFactory = scopeFactory;
         // 설정에서 파일 저장소 경로 획득, 없으면 실행 경로 기준 Uploads로 폴백
-        var localPath = configuration["Storage:LocalPath"] ?? Path.Combine(AppContext.BaseDirectory, "Uploads");
-        _baseUploadPath = Path.Combine(localPath, "Original");
-        _videoUploadPath = Path.Combine(localPath, "Video");
-        _thumbnailPath = Path.Combine(localPath, "Thumbnail");
-        _mediumPath = Path.Combine(localPath, "Medium");
-        _largePath = Path.Combine(localPath, "Large");
-        _cachePath = Path.Combine(localPath, "Cache");
+        _localPathRoot = configuration["Storage:LocalPath"] ?? Path.Combine(AppContext.BaseDirectory, "Uploads");
+    }
 
-        // 각 규격별 폴더 자동 생성
-        if (!Directory.Exists(_baseUploadPath)) Directory.CreateDirectory(_baseUploadPath);
-        if (!Directory.Exists(_videoUploadPath)) Directory.CreateDirectory(_videoUploadPath);
-        if (!Directory.Exists(_thumbnailPath)) Directory.CreateDirectory(_thumbnailPath);
-        if (!Directory.Exists(_mediumPath)) Directory.CreateDirectory(_mediumPath);
-        if (!Directory.Exists(_largePath)) Directory.CreateDirectory(_largePath);
-        if (!Directory.Exists(_cachePath)) Directory.CreateDirectory(_cachePath);
+    private string GetBizFolder(string? bizType)
+    {
+        return string.IsNullOrEmpty(bizType) ? "basecom" : bizType.Trim().ToLower();
+    }
+
+    private string GetPath(string? bizType, string folderName)
+    {
+        var bizFolder = GetBizFolder(bizType);
+        var targetDir = Path.Combine(_localPathRoot, bizFolder, folderName);
+        if (!Directory.Exists(targetDir))
+        {
+            Directory.CreateDirectory(targetDir);
+        }
+        return targetDir;
     }
 
     /// <inheritdoc />
-    public async Task<FileMetadata> UploadFileAsync(IFormFile file, string? userId)
+    public async Task<FileMetadata> UploadFileAsync(IFormFile file, string? userId, string? bizType = null)
     {
         if (file == null || file.Length == 0)
         {
@@ -59,7 +62,7 @@ public class FileService : IFileService
         var extension = Path.GetExtension(file.FileName);
         var storedName = $"{fileId}{extension}";
 
-        // 비디오 파일 여부 선제 판단
+        // 비디오/오디오 여부 선제 판단
         var contentType = file.ContentType;
         var isImage = contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase);
         var isVideo = contentType.StartsWith("video/", StringComparison.OrdinalIgnoreCase) || 
@@ -67,9 +70,20 @@ public class FileService : IFileService
                       extension.Equals(".mkv", StringComparison.OrdinalIgnoreCase) ||
                       extension.Equals(".avi", StringComparison.OrdinalIgnoreCase);
 
-        // 업로드 저장 대상 폴더 동적 변경 (비디오는 Video 폴더, 나머지는 Original)
-        var targetFolder = isVideo ? _videoUploadPath : _baseUploadPath;
-        var physicalPath = Path.Combine(targetFolder, storedName);
+        var isAudio = contentType.StartsWith("audio/", StringComparison.OrdinalIgnoreCase) ||
+                      extension.Equals(".mp3", StringComparison.OrdinalIgnoreCase) ||
+                      extension.Equals(".wav", StringComparison.OrdinalIgnoreCase) ||
+                      extension.Equals(".mpeg", StringComparison.OrdinalIgnoreCase) ||
+                      extension.Equals(".ogg", StringComparison.OrdinalIgnoreCase) ||
+                      extension.Equals(".aac", StringComparison.OrdinalIgnoreCase) ||
+                      extension.Equals(".m4a", StringComparison.OrdinalIgnoreCase);
+
+        // 업무 영역(bizType) 획득
+        var bizFolder = GetBizFolder(bizType);
+        
+        // 업로드 저장 대상 폴더 동적 변경 (비디오는 Video 폴더, 오디오는 Audio 폴더, 나머지는 Original)
+        var folderName = isVideo ? "Video" : (isAudio ? "Audio" : "Original");
+        var physicalPath = Path.Combine(GetPath(bizType, folderName), storedName);
 
         // 로컬 디스크에 물리적 파일 저장
         using (var stream = new FileStream(physicalPath, FileMode.Create))
@@ -77,13 +91,13 @@ public class FileService : IFileService
             await file.CopyToAsync(stream);
         }
 
-        // DB에 메타데이터 저장
+        // DB에 메타데이터 저장 (웹 URL 형태 슬래시 호환)
         var metadata = new FileMetadata
         {
             Id = fileId,
             OriginalName = file.FileName,
             StoredName = storedName,
-            Path = Path.Combine(isVideo ? "Video" : "Original", storedName),
+            Path = $"{bizFolder}/{folderName}/{storedName}",
             Size = file.Length,
             ContentType = contentType,
             IsImage = isImage,
@@ -118,15 +132,20 @@ public class FileService : IFileService
             throw new InvalidOperationException("비디오 파일만 트랜스코딩 처리가 가능합니다.");
         }
 
-        var physicalPath = Path.Combine(_videoUploadPath, metadata.StoredName);
+        var physicalPath = Path.Combine(_localPathRoot, metadata.Path.Replace('/', Path.DirectorySeparatorChar));
+        var pathSegments = metadata.Path.Split('/');
+        var bizType = pathSegments.Length > 0 ? pathSegments[0] : "basecom";
+        var videoFolder = GetPath(bizType, "Video");
 
         try
         {
-            var webmStoredName = $"{fileId}.webm";
-            var webmPath = Path.Combine(_videoUploadPath, webmStoredName);
+            var thumbFileId = Guid.NewGuid();
+            var thumbStoredName = $"{thumbFileId}.jpg";
+            var thumbnailImagePath = Path.Combine(videoFolder, thumbStoredName);
 
-            var thumbnailImageName = $"{fileId}.jpg";
-            var thumbnailImagePath = Path.Combine(_videoUploadPath, thumbnailImageName);
+            var webmFileId = Guid.NewGuid();
+            var webmStoredName = $"{webmFileId}.webm";
+            var webmPath = Path.Combine(videoFolder, webmStoredName);
 
             //--------------------------------------------------
             // Thumbnail
@@ -146,7 +165,30 @@ public class FileService : IFileService
                         return;
                     }
 
-                    await NotifyStatusAsync(fileId, "PROCESSING", true, false, thumbnailUrl: $"/api/file/download/{fileId}.jpg");
+                    var fileInfo = new FileInfo(thumbnailImagePath);
+                    var thumbMetadata = new FileMetadata
+                    {
+                        Id = thumbFileId,
+                        OriginalName = Path.GetFileNameWithoutExtension(metadata.OriginalName) + "_thumb.jpg",
+                        StoredName = thumbStoredName,
+                        Path = $"{GetBizFolder(bizType)}/Video/{thumbStoredName}",
+                        Size = fileInfo.Exists ? fileInfo.Length : 0,
+                        ContentType = "image/jpeg",
+                        CreatedBy = "System",
+                        CreatedAt = DateTime.UtcNow,
+                        IsDeleted = false
+                    };
+
+                    using (var scope = _scopeFactory.CreateScope())
+                    {
+                        var dbContext = scope.ServiceProvider.GetRequiredService<FileDbContext>();
+                        dbContext.FileMetadatas.Add(thumbMetadata);
+                        await dbContext.SaveChangesAsync();
+                    }
+
+                    await NotifyStatusAsync(fileId, "PROCESSING", true, false, 
+                        thumbnailUrl: $"/api/file/download/{thumbFileId}", 
+                        thumbnailFileId: thumbFileId);
                 }
                 catch (Exception ex)
                 {
@@ -178,7 +220,235 @@ public class FileService : IFileService
                         Console.WriteLine(result.StdErr);
                     }
 
-                    await NotifyStatusAsync(fileId, result.Success ? "COMPLETED" : "FAILED", true, result.Success, webmUrl: result.Success ? $"/api/file/download/{fileId}.webm" : null);
+                    if (result.Success)
+                    {
+                        var fileInfo = new FileInfo(webmPath);
+                        var webmMetadata = new FileMetadata
+                        {
+                            Id = webmFileId,
+                            OriginalName = Path.GetFileNameWithoutExtension(metadata.OriginalName) + ".webm",
+                            StoredName = webmStoredName,
+                            Path = $"{GetBizFolder(bizType)}/Video/{webmStoredName}",
+                            Size = fileInfo.Exists ? fileInfo.Length : 0,
+                            ContentType = "video/webm",
+                            CreatedBy = "System",
+                            CreatedAt = DateTime.UtcNow,
+                            IsDeleted = false
+                        };
+
+                        using (var scope = _scopeFactory.CreateScope())
+                        {
+                            var dbContext = scope.ServiceProvider.GetRequiredService<FileDbContext>();
+                            dbContext.FileMetadatas.Add(webmMetadata);
+                            await dbContext.SaveChangesAsync();
+                        }
+                    }
+
+                    await NotifyStatusAsync(fileId, result.Success ? "COMPLETED" : "FAILED", true, result.Success, 
+                        webmUrl: result.Success ? $"/api/file/download/{webmFileId}" : null, 
+                        webmFileId: result.Success ? webmFileId : null);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(ex);
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex);
+            throw;
+        }
+    }
+
+
+    /// <inheritdoc />
+    public async Task StartAudioTranscodingAsync(Guid fileId)
+    {
+        var metadata = await _dbContext.FileMetadatas.FirstOrDefaultAsync(x => x.Id == fileId && !x.IsDeleted);
+        if (metadata == null)
+        {
+            throw new FileNotFoundException("변환할 오디오 파일의 메타데이터를 찾을 수 없습니다.");
+        }
+
+        var extension = Path.GetExtension(metadata.OriginalName);
+        var isAudio = metadata.ContentType.StartsWith("audio/", StringComparison.OrdinalIgnoreCase) || 
+                      extension.Equals(".mp3", StringComparison.OrdinalIgnoreCase) ||
+                      extension.Equals(".wav", StringComparison.OrdinalIgnoreCase) ||
+                      extension.Equals(".mpeg", StringComparison.OrdinalIgnoreCase) ||
+                      extension.Equals(".ogg", StringComparison.OrdinalIgnoreCase);
+
+        if (!isAudio)
+        {
+            throw new InvalidOperationException("오디오 파일만 트랜스코딩 처리가 가능합니다.");
+        }
+
+        var physicalPath = Path.Combine(_localPathRoot, metadata.Path.Replace('/', Path.DirectorySeparatorChar));
+        var pathSegments = metadata.Path.Split('/');
+        var bizType = pathSegments.Length > 0 ? pathSegments[0] : "basecom";
+        var audioFolder = GetPath(bizType, "Audio");
+
+        try
+        {
+            var oggFileId = Guid.NewGuid();
+            var oggStoredName = $"{oggFileId}.ogg";
+            var oggPath = Path.Combine(audioFolder, oggStoredName);
+
+            var aacFileId = Guid.NewGuid();
+            var aacStoredName = $"{aacFileId}.aac";
+            var aacPath = Path.Combine(audioFolder, aacStoredName);
+
+            var thumbFileId = Guid.NewGuid();
+            var thumbStoredName = $"{thumbFileId}.jpg";
+            var thumbnailImagePath = Path.Combine(audioFolder, thumbStoredName);
+
+            //--------------------------------------------------
+            // 앨범 아트 추출 시도
+            //--------------------------------------------------
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    // 오디오 파일에서 앨범 아트를 단독 추출해 jpeg 파일로 변환 저장 시도
+                    var args = $"-i \"{physicalPath}\" -an -vcodec copy \"{thumbnailImagePath}\" -y";
+                    Console.WriteLine("[Audio AlbumArt Extract] Start");
+                    var result = await RunFfmpegAsync(args, TimeSpan.FromSeconds(20));
+                    Console.WriteLine($"[Audio AlbumArt Extract] Success={result.Success}");
+
+                    if (result.Success && File.Exists(thumbnailImagePath))
+                    {
+                        var fileInfo = new FileInfo(thumbnailImagePath);
+                        
+                        // 크기가 0바이트인 빈 파일인 경우는 제외
+                        if (fileInfo.Exists && fileInfo.Length > 0)
+                        {
+                            var thumbMetadata = new FileMetadata
+                            {
+                                Id = thumbFileId,
+                                OriginalName = Path.GetFileNameWithoutExtension(metadata.OriginalName) + "_thumb.jpg",
+                                StoredName = thumbStoredName,
+                                Path = $"{GetBizFolder(bizType)}/Audio/{thumbStoredName}",
+                                Size = fileInfo.Length,
+                                ContentType = "image/jpeg",
+                                CreatedBy = "System",
+                                CreatedAt = DateTime.UtcNow,
+                                IsDeleted = false
+                            };
+
+                            using (var scope = _scopeFactory.CreateScope())
+                            {
+                                var dbContext = scope.ServiceProvider.GetRequiredService<FileDbContext>();
+                                dbContext.FileMetadatas.Add(thumbMetadata);
+                                await dbContext.SaveChangesAsync();
+                            }
+
+                            await NotifyStatusAsync(fileId, "PROCESSING", 
+                                hasThumbnail: true, 
+                                thumbnailUrl: $"/api/file/download/{thumbFileId}", 
+                                thumbnailFileId: thumbFileId);
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"앨범 아트 추출 건너뜀 (이미지 미포함 음원 가능성): {ex.Message}");
+                }
+            });
+
+            //--------------------------------------------------
+            // OGG 변환 (Libopus 코덱 사용, 96k, 앨범아트 비디오 스트림을 배제하기 위해 -vn 추가)
+            //--------------------------------------------------
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    var args = $"-i \"{physicalPath}\" -c:a libopus -b:a 96k -vn \"{oggPath}\" -y";
+                    Console.WriteLine("[OGG Audio] Start");
+                    var result = await RunFfmpegAsync(args, TimeSpan.FromMinutes(3));
+                    Console.WriteLine($"[OGG Audio] Success={result.Success}");
+
+                    if (result.Success)
+                    {
+                        var fileInfo = new FileInfo(oggPath);
+                        var oggMetadata = new FileMetadata
+                        {
+                            Id = oggFileId,
+                            OriginalName = Path.GetFileNameWithoutExtension(metadata.OriginalName) + ".ogg",
+                            StoredName = oggStoredName,
+                            Path = $"{GetBizFolder(bizType)}/Audio/{oggStoredName}",
+                            Size = fileInfo.Exists ? fileInfo.Length : 0,
+                            ContentType = "audio/ogg",
+                            CreatedBy = "System",
+                            CreatedAt = DateTime.UtcNow,
+                            IsDeleted = false
+                        };
+
+                        using (var scope = _scopeFactory.CreateScope())
+                        {
+                            var dbContext = scope.ServiceProvider.GetRequiredService<FileDbContext>();
+                            dbContext.FileMetadatas.Add(oggMetadata);
+                            await dbContext.SaveChangesAsync();
+                        }
+
+                        await NotifyStatusAsync(fileId, "PROCESSING", false, false, hasOgg: true, 
+                            oggUrl: $"/api/file/download/{oggFileId}", 
+                            oggFileId: oggFileId);
+                    }
+                    else
+                    {
+                        Console.WriteLine(result.StdErr);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(ex);
+                }
+            });
+
+            //--------------------------------------------------
+            // AAC 변환 (128k, 앨범아트 비디오 스트림을 배제하기 위해 -vn 추가)
+            //--------------------------------------------------
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    var args = $"-i \"{physicalPath}\" -c:a aac -b:a 128k -vn \"{aacPath}\" -y";
+                    Console.WriteLine("[AAC Audio] Start");
+                    var result = await RunFfmpegAsync(args, TimeSpan.FromMinutes(3));
+                    Console.WriteLine($"[AAC Audio] Success={result.Success}");
+
+                    if (result.Success)
+                    {
+                        var fileInfo = new FileInfo(aacPath);
+                        var aacMetadata = new FileMetadata
+                        {
+                            Id = aacFileId,
+                            OriginalName = Path.GetFileNameWithoutExtension(metadata.OriginalName) + ".aac",
+                            StoredName = aacStoredName,
+                            Path = $"{GetBizFolder(bizType)}/Audio/{aacStoredName}",
+                            Size = fileInfo.Exists ? fileInfo.Length : 0,
+                            ContentType = "audio/aac",
+                            CreatedBy = "System",
+                            CreatedAt = DateTime.UtcNow,
+                            IsDeleted = false
+                        };
+
+                        using (var scope = _scopeFactory.CreateScope())
+                        {
+                            var dbContext = scope.ServiceProvider.GetRequiredService<FileDbContext>();
+                            dbContext.FileMetadatas.Add(aacMetadata);
+                            await dbContext.SaveChangesAsync();
+                        }
+
+                        await NotifyStatusAsync(fileId, "COMPLETED", false, false, hasAac: true, 
+                            aacUrl: $"/api/file/download/{aacFileId}", 
+                            aacFileId: aacFileId);
+                    }
+                    else
+                    {
+                        Console.WriteLine(result.StdErr);
+                        await NotifyStatusAsync(fileId, "FAILED", false, false);
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -253,12 +523,25 @@ private async Task<(bool Success, string StdOut, string StdErr)> RunFfmpegAsync(
 private async Task NotifyStatusAsync(
     Guid fileId,
     string status,
-    bool hasThumbnail,
-    bool hasWebm,
+    bool? hasThumbnail = null,
+    bool? hasWebm = null,
     string? thumbnailUrl = null,
-    string? webmUrl = null)
+    string? webmUrl = null,
+    bool? hasOgg = null,
+    bool? hasAac = null,
+    string? oggUrl = null,
+    string? aacUrl = null,
+    Guid? thumbnailFileId = null,
+    Guid? webmFileId = null,
+    Guid? oggFileId = null,
+    Guid? aacFileId = null)
 {
     using var client = new HttpClient();
+
+    var jsonOptions = new System.Text.Json.JsonSerializerOptions
+    {
+        DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
+    };
 
     var content = new StringContent(
         System.Text.Json.JsonSerializer.Serialize(new
@@ -266,9 +549,17 @@ private async Task NotifyStatusAsync(
             status,
             hasThumbnail,
             hasWebm,
+            hasOgg,
+            hasAac,
             thumbnailUrl,
-            webmUrl
-        }),
+            webmUrl,
+            oggUrl,
+            aacUrl,
+            thumbnailFileId,
+            webmFileId,
+            oggFileId,
+            aacFileId
+        }, jsonOptions),
         Encoding.UTF8,
         "application/json");
 
@@ -278,10 +569,6 @@ private async Task NotifyStatusAsync(
 
     Console.WriteLine($"Notify Status : {response.StatusCode}");
 }
-
-
-
-
 
     /// <inheritdoc />
     public async Task<(Stream FileStream, string ContentType, string OriginalName)> DownloadFileAsync(Guid id)
@@ -294,9 +581,7 @@ private async Task NotifyStatusAsync(
             throw new FileNotFoundException("파일 메타데이터를 찾을 수 없습니다.");
         }
 
-        // DB에 기록된 경로 타입에 따라 로드 디렉토리 분기
-        var targetFolder = metadata.Path.StartsWith("Video", StringComparison.OrdinalIgnoreCase) ? _videoUploadPath : _baseUploadPath;
-        var physicalPath = Path.Combine(targetFolder, metadata.StoredName);
+        var physicalPath = Path.Combine(_localPathRoot, metadata.Path.Replace('/', Path.DirectorySeparatorChar));
 
         if (!File.Exists(physicalPath))
         {
@@ -311,27 +596,27 @@ private async Task NotifyStatusAsync(
     public async Task<(Stream FileStream, string ContentType)> GetThumbnailAsync(Guid id)
     {
         // 썸네일 규격: 150x150
-        return await GetPresetImageAsync(id, _thumbnailPath, 150, 150);
+        return await GetPresetImageAsync(id, "Thumbnail", 150, 150);
     }
 
     /// <inheritdoc />
     public async Task<(Stream FileStream, string ContentType)> GetMediumImageAsync(Guid id)
     {
         // 미디움 규격: 600x600
-        return await GetPresetImageAsync(id, _mediumPath, 600, 600);
+        return await GetPresetImageAsync(id, "Medium", 600, 600);
     }
 
     /// <inheritdoc />
     public async Task<(Stream FileStream, string ContentType)> GetLargeImageAsync(Guid id)
     {
         // 라지 규격: 1200x1200
-        return await GetPresetImageAsync(id, _largePath, 1200, 1200);
+        return await GetPresetImageAsync(id, "Large", 1200, 1200);
     }
 
     /// <summary>
     /// 지정된 크기 규격(Preset)의 이미지를 조회 혹은 Lazy Generation 방식으로 WebP 포맷 생성하여 반환
     /// </summary>
-    private async Task<(Stream FileStream, string ContentType)> GetPresetImageAsync(Guid id, string targetFolderPath, int width, int height)
+    private async Task<(Stream FileStream, string ContentType)> GetPresetImageAsync(Guid id, string folderName, int width, int height)
     {
         var metadata = await _dbContext.FileMetadatas
             .FirstOrDefaultAsync(x => x.Id == id && !x.IsDeleted);
@@ -346,6 +631,10 @@ private async Task NotifyStatusAsync(
             throw new InvalidOperationException("이미지 파일만 크기를 변환할 수 있습니다.");
         }
 
+        var pathSegments = metadata.Path.Split('/');
+        var bizType = pathSegments.Length > 0 ? pathSegments[0] : "basecom";
+        var targetFolderPath = GetPath(bizType, folderName);
+
         var targetFileName = $"{id}.webp";
         var targetFilePath = Path.Combine(targetFolderPath, targetFileName);
 
@@ -356,8 +645,8 @@ private async Task NotifyStatusAsync(
             return (existingStream, "image/webp");
         }
 
-        // 2. 미존재 시 Lazy Generation (원본 기준 썸네일/미디움/라지 WebP 생성)
-        var originalPath = Path.Combine(_baseUploadPath, metadata.StoredName);
+        // 2. 미존재 시 Lazy Generation (원본 기준 WebP 생성)
+        var originalPath = Path.Combine(_localPathRoot, metadata.Path.Replace('/', Path.DirectorySeparatorChar));
         if (!File.Exists(originalPath))
         {
             throw new FileNotFoundException("서버 물리 스토리지에 원본 파일이 존재하지 않습니다.");
@@ -395,15 +684,19 @@ private async Task NotifyStatusAsync(
             throw new InvalidOperationException("이미지 파일만 크기를 변환할 수 있습니다.");
         }
 
-        var originalPath = Path.Combine(_baseUploadPath, metadata.StoredName);
+        var originalPath = Path.Combine(_localPathRoot, metadata.Path.Replace('/', Path.DirectorySeparatorChar));
         if (!File.Exists(originalPath))
         {
             throw new FileNotFoundException("서버 물리 스토리지에 원본 파일이 존재하지 않습니다.");
         }
 
+        var pathSegments = metadata.Path.Split('/');
+        var bizType = pathSegments.Length > 0 ? pathSegments[0] : "basecom";
+        var cacheFolderPath = GetPath(bizType, "Cache");
+
         // 임의 크기도 WebP 캐시로 관리
         var cacheFileName = $"{id}_{width}_{height}.webp";
-        var cachePath = Path.Combine(_cachePath, cacheFileName);
+        var cachePath = Path.Combine(cacheFolderPath, cacheFileName);
 
         // 캐시가 있으면 즉시 반환
         if (File.Exists(cachePath))
@@ -446,8 +739,11 @@ private async Task NotifyStatusAsync(
 
         await _dbContext.SaveChangesAsync();
 
+        var pathSegments = metadata.Path.Split('/');
+        var bizType = pathSegments.Length > 0 ? pathSegments[0] : "basecom";
+
         // 1. 원본 파일 삭제 시도
-        var originalPath = Path.Combine(_baseUploadPath, metadata.StoredName);
+        var originalPath = Path.Combine(_localPathRoot, metadata.Path.Replace('/', Path.DirectorySeparatorChar));
         if (File.Exists(originalPath))
         {
             try
@@ -460,19 +756,20 @@ private async Task NotifyStatusAsync(
         // 2. 각 규격 폴더 내 WebP 파일들 삭제 시도
         var webpFileName = $"{id}.webp";
         
-        var thumbnailFilePath = Path.Combine(_thumbnailPath, webpFileName);
+        var thumbnailFilePath = Path.Combine(GetPath(bizType, "Thumbnail"), webpFileName);
         if (File.Exists(thumbnailFilePath)) try { File.Delete(thumbnailFilePath); } catch {}
 
-        var mediumFilePath = Path.Combine(_mediumPath, webpFileName);
+        var mediumFilePath = Path.Combine(GetPath(bizType, "Medium"), webpFileName);
         if (File.Exists(mediumFilePath)) try { File.Delete(mediumFilePath); } catch {}
 
-        var largeFilePath = Path.Combine(_largePath, webpFileName);
+        var largeFilePath = Path.Combine(GetPath(bizType, "Large"), webpFileName);
         if (File.Exists(largeFilePath)) try { File.Delete(largeFilePath); } catch {}
 
         // 3. 임의 캐시 삭제 시도
-        if (Directory.Exists(_cachePath))
+        var cacheFolderPath = GetPath(bizType, "Cache");
+        if (Directory.Exists(cacheFolderPath))
         {
-            var cachedFiles = Directory.GetFiles(_cachePath, $"{id}_*");
+            var cachedFiles = Directory.GetFiles(cacheFolderPath, $"{id}_*");
             foreach (var cachedFile in cachedFiles)
             {
                 try { File.Delete(cachedFile); } catch { }
@@ -538,13 +835,16 @@ private async Task NotifyStatusAsync(
             maxSortOrder = existingFiles.Max(x => x.SortOrder);
         }
 
+        var bizFolder = GetBizFolder(bizType);
+        var originalFolderPath = GetPath(bizType, "Original");
+
         for (int i = 0; i < files.Count; i++)
         {
             var file = files[i];
             var fileId = Guid.NewGuid();
             var extension = Path.GetExtension(file.FileName);
             var storedName = $"{fileId}{extension}";
-            var physicalPath = Path.Combine(_baseUploadPath, storedName);
+            var physicalPath = Path.Combine(originalFolderPath, storedName);
 
             // 로컬 파일 디스크 저장
             using (var stream = new FileStream(physicalPath, FileMode.Create))
@@ -565,7 +865,7 @@ private async Task NotifyStatusAsync(
                 FileGroupId = groupId,
                 OriginalName = file.FileName,
                 StoredName = storedName,
-                Path = Path.Combine("Original", storedName),
+                Path = $"{bizFolder}/Original/{storedName}",
                 Size = file.Length,
                 ContentType = contentType,
                 IsImage = isImage,
@@ -617,4 +917,3 @@ private async Task NotifyStatusAsync(
         return true;
     }
 }
-

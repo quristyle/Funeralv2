@@ -16,16 +16,14 @@ const selectedFileName = ref<string>('');
 
 const formModel = ref({
   name: '',
-  shortName: '',
-  sourceType: 'VIDEO' as const,
+  sourceType: 'AUDIO' as const,
   url: '',
-  thumbnailUrl: '',
   sortOrder: 0,
   remark: ''
 });
 
 const [UploadModal, uploadModalApi] = useVbenModal({
-  title: '새 비디오 리소스 등록',
+  title: '새 음원 리소스 등록',
   destroyOnClose: true,
   onConfirm: async () => {
     await handleSave();
@@ -35,10 +33,8 @@ const [UploadModal, uploadModalApi] = useVbenModal({
 function open() {
   formModel.value = {
     name: '',
-    shortName: '',
-    sourceType: 'VIDEO',
+    sourceType: 'AUDIO',
     url: '',
-    thumbnailUrl: '',
     sortOrder: 0,
     remark: ''
   };
@@ -50,17 +46,17 @@ function open() {
 async function handleSave() {
   try {
     if (!formModel.value.name || !formModel.value.url) {
-      message.warning('동영상 명칭과 동영상 파일은 필수 사항입니다.');
+      message.warning('음원 명칭과 음원 파일은 필수 사항입니다.');
       return;
     }
 
     uploadModalApi.lock();
     await createMediaSource(formModel.value);
-    message.success('동영상 소스가 성공적으로 등록되었습니다.');
+    message.success('음원 소스가 성공적으로 등록되었습니다.');
     uploadModalApi.close();
     emit('saved');
   } catch (error) {
-    message.error('비디오 리소스 등록 실패');
+    message.error('음원 리소스 등록 실패');
   } finally {
     uploadModalApi.unlock();
   }
@@ -72,9 +68,9 @@ async function customUploadRequest(options: any) {
   uploadPercent.value = 0;
   selectedFileName.value = options.file.name;
 
-  const fileLimit = 500 * 1024 * 1024; // 500MB 한도
+  const fileLimit = 100 * 1024 * 1024; // 100MB 한도
   if (options.file.size > fileLimit) {
-    message.error('업로드 가능한 비디오 파일 최대 용량은 500MB입니다.');
+    message.error('업로드 가능한 음원 파일 최대 용량은 100MB입니다.');
     options.onError(new Error('File size limit exceeded'));
     isUploading.value = false;
     return;
@@ -133,15 +129,15 @@ defineExpose({ open });
   <UploadModal :confirm-loading="isUploading">
     <div class="p-6">
       <Form layout="vertical">
-        <Form.Item label="영상 파일 업로드 (최대 500MB)" required>
+        <Form.Item label="음원 파일 업로드 (최대 100MB)" required>
           <Upload
-            accept="video/mp4,video/mkv,video/avi,video/webm"
+            accept="audio/mp3,audio/wav,audio/mpeg,audio/ogg"
             :custom-request="customUploadRequest"
             :show-upload-list="false"
             @change="handleUploadChange"
           >
             <Button :loading="isUploading" type="dashed" class="w-full">
-              {{ isUploading ? '서버로 업로드 중...' : '클릭하여 동영상 파일 선택' }}
+              {{ isUploading ? '서버로 업로드 중...' : '클릭하여 음원 파일 선택' }}
             </Button>
           </Upload>
           
@@ -155,17 +151,12 @@ defineExpose({ open });
           </div>
 
           <div v-if="formModel.url" class="mt-2 text-xs text-muted-foreground break-all bg-muted p-2 rounded">
-            <div>업로드된 경로: {{ formModel.url }}</div>
-            <div class="mt-1 text-primary font-medium">※ 비디오 썸네일 및 WebM 변환은 저장 완료 시점 이후에 비동기로 순차 진행됩니다.</div>
+            업로드된 경로: {{ formModel.url }}
           </div>
         </Form.Item>
 
-        <Form.Item label="동영상 명칭" required>
-          <Input v-model:value="formModel.name" placeholder="예: [안내] 장례식장 이용안내 영상" />
-        </Form.Item>
-
-        <Form.Item label="영상 짧은 명칭">
-          <Input v-model:value="formModel.shortName" placeholder="예: 이용안내" />
+        <Form.Item label="음원 명칭" required>
+          <Input v-model:value="formModel.name" placeholder="예: 상례 추모 음악 1번, 관내 백그라운드 재즈" />
         </Form.Item>
 
         <Form.Item label="순서">
@@ -173,7 +164,7 @@ defineExpose({ open });
         </Form.Item>
 
         <Form.Item label="설명/비고">
-          <Input.TextArea v-model:value="formModel.remark" placeholder="동영상 내용 및 타겟 DID 위치 등 적재" />
+          <Input.TextArea v-model:value="formModel.remark" placeholder="음원 장르 및 상세 용도 작성" />
         </Form.Item>
       </Form>
     </div>
