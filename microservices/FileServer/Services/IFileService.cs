@@ -65,4 +65,9 @@ public interface IFileService
     /// 파일 그룹 내의 대표 파일 지정
     /// </summary>
     Task<bool> SetRepresentativeFileAsync(Guid groupId, Guid fileId);
+
+    /// <summary>
+    /// 비디오 파일의 비동기 트랜스코딩 및 썸네일 추출 시작
+    /// </summary>
+    Task StartVideoTranscodingAsync(Guid fileId);
 }

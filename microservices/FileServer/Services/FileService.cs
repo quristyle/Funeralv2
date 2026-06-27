@@ -7,7 +7,8 @@ using Microsoft.EntityFrameworkCore;
 using FileServer.Data;
 using FileServer.Entities;
 using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Processing;
+using SixLabors.ImageSharp.Processing;using System.Diagnostics;
+using System.Text;
 
 namespace FileServer.Services;
 
@@ -76,66 +77,6 @@ public class FileService : IFileService
             await file.CopyToAsync(stream);
         }
 
-        // 동영상인 경우 WebM 파일로 변환 및 첫 프레임 이미지(썸네일) 추출 처리
-        if (isVideo)
-        {
-            try
-            {
-                var webmStoredName = $"{fileId}.webm";
-                var webmPath = Path.Combine(_videoUploadPath, webmStoredName);
-                
-                var thumbnailImageName = $"{fileId}.jpg";
-                var thumbnailImagePath = Path.Combine(_videoUploadPath, thumbnailImageName);
-                
-                // ffmpeg 및 ffprobe CLI 명령이 운영체제 PATH에 노출되어 있어야 정상 작동
-                _ = Task.Run(() =>
-                {
-                    try
-                    {
-                        // 1. WebM 트랜스코딩 프로세스 시작
-                        var webmProcessInfo = new System.Diagnostics.ProcessStartInfo
-                        {
-                            FileName = "ffmpeg",
-                            Arguments = $"-i \"{physicalPath}\" -c:v libvpx-vp9 -crf 30 -b:v 0 -c:a libopus \"{webmPath}\" -y",
-                            RedirectStandardOutput = true,
-                            RedirectStandardError = true,
-                            UseShellExecute = false,
-                            CreateNoWindow = true
-                        };
-
-                        using (var process = System.Diagnostics.Process.Start(webmProcessInfo))
-                        {
-                            process?.WaitForExit();
-                        }
-
-                        // 2. 영상 첫 프레임 추출 프로세스 시작 (빠르게 첫 프레임 한 장만 캡처)
-                        var thumbProcessInfo = new System.Diagnostics.ProcessStartInfo
-                        {
-                            FileName = "ffmpeg",
-                            Arguments = $"-ss 00:00:00 -i \"{physicalPath}\" -vframes 1 -q:v 2 \"{thumbnailImagePath}\" -y",
-                            RedirectStandardOutput = true,
-                            RedirectStandardError = true,
-                            UseShellExecute = false,
-                            CreateNoWindow = true
-                        };
-
-                        using (var process = System.Diagnostics.Process.Start(thumbProcessInfo))
-                        {
-                            process?.WaitForExit();
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"[Exception] FFmpeg process execution failed: {ex.Message}");
-                    }
-                });
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[Warning] Failed to initiate video processing: {ex.Message}");
-            }
-        }
-
         // DB에 메타데이터 저장
         var metadata = new FileMetadata
         {
@@ -156,6 +97,191 @@ public class FileService : IFileService
 
         return metadata;
     }
+
+    /// <inheritdoc />
+    public async Task StartVideoTranscodingAsync(Guid fileId)
+    {
+        var metadata = await _dbContext.FileMetadatas.FirstOrDefaultAsync(x => x.Id == fileId && !x.IsDeleted);
+        if (metadata == null)
+        {
+            throw new FileNotFoundException("변환할 비디오 파일의 메타데이터를 찾을 수 없습니다.");
+        }
+
+        var extension = Path.GetExtension(metadata.OriginalName);
+        var isVideo = metadata.ContentType.StartsWith("video/", StringComparison.OrdinalIgnoreCase) || 
+                      extension.Equals(".mp4", StringComparison.OrdinalIgnoreCase) ||
+                      extension.Equals(".mkv", StringComparison.OrdinalIgnoreCase) ||
+                      extension.Equals(".avi", StringComparison.OrdinalIgnoreCase);
+
+        if (!isVideo)
+        {
+            throw new InvalidOperationException("비디오 파일만 트랜스코딩 처리가 가능합니다.");
+        }
+
+        var physicalPath = Path.Combine(_videoUploadPath, metadata.StoredName);
+
+        try
+        {
+            var webmStoredName = $"{fileId}.webm";
+            var webmPath = Path.Combine(_videoUploadPath, webmStoredName);
+
+            var thumbnailImageName = $"{fileId}.jpg";
+            var thumbnailImagePath = Path.Combine(_videoUploadPath, thumbnailImageName);
+
+            //--------------------------------------------------
+            // Thumbnail
+            //--------------------------------------------------
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    var args = $"-ss 00:00:00 -i \"{physicalPath}\" -vframes 1 -q:v 2 \"{thumbnailImagePath}\" -y";
+                    Console.WriteLine("[Thumbnail] Start");
+                    var result = await RunFfmpegAsync(args, TimeSpan.FromSeconds(30));
+                    Console.WriteLine($"[Thumbnail] Success={result.Success}");
+
+                    if (!result.Success)
+                    {
+                        Console.WriteLine(result.StdErr);
+                        return;
+                    }
+
+                    await NotifyStatusAsync(fileId, "PROCESSING", true, false, thumbnailUrl: $"/api/file/download/{fileId}.jpg");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(ex);
+                }
+            });
+
+            //--------------------------------------------------
+            // WEBM
+            //--------------------------------------------------
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    var args = $"-i \"{physicalPath}\" " +
+                               "-c:v libvpx-vp9 " +
+                               "-crf 30 " +
+                               "-b:v 0 " +
+                               "-threads 2 " +
+                               "-c:a libopus " +
+                               $"\"{webmPath}\" -y";
+
+                    Console.WriteLine("[WebM] Start");
+                    var result = await RunFfmpegAsync(args, TimeSpan.FromMinutes(6));
+                    Console.WriteLine($"[WebM] Success={result.Success}");
+
+                    if (!result.Success)
+                    {
+                        Console.WriteLine(result.StdErr);
+                    }
+
+                    await NotifyStatusAsync(fileId, result.Success ? "COMPLETED" : "FAILED", true, result.Success, webmUrl: result.Success ? $"/api/file/download/{fileId}.webm" : null);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(ex);
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex);
+            throw;
+        }
+    }
+
+
+private async Task<(bool Success, string StdOut, string StdErr)> RunFfmpegAsync(
+    string arguments,
+    TimeSpan timeout)
+{
+    var psi = new ProcessStartInfo
+    {
+        FileName = "ffmpeg",
+        Arguments = arguments,
+        RedirectStandardOutput = true,
+        RedirectStandardError = true,
+        UseShellExecute = false,
+        CreateNoWindow = true
+    };
+
+    using var process = Process.Start(psi);
+
+    if (process == null)
+    {
+        return (false, "", "Failed to start ffmpeg process.");
+    }
+
+    var stdoutTask = process.StandardOutput.ReadToEndAsync();
+    var stderrTask = process.StandardError.ReadToEndAsync();
+
+    var waitTask = process.WaitForExitAsync();
+
+    var completedTask = await Task.WhenAny(waitTask, Task.Delay(timeout));
+
+    if (completedTask != waitTask)
+    {
+        try
+        {
+            process.Kill(true);
+        }
+        catch
+        {
+        }
+
+        await process.WaitForExitAsync();
+
+        return (false,
+            await stdoutTask,
+            "FFmpeg timed out.");
+    }
+
+    await Task.WhenAll(stdoutTask, stderrTask);
+
+    return
+    (
+        process.ExitCode == 0,
+        await stdoutTask,
+        await stderrTask
+    );
+}
+
+
+private async Task NotifyStatusAsync(
+    Guid fileId,
+    string status,
+    bool hasThumbnail,
+    bool hasWebm,
+    string? thumbnailUrl = null,
+    string? webmUrl = null)
+{
+    using var client = new HttpClient();
+
+    var content = new StringContent(
+        System.Text.Json.JsonSerializer.Serialize(new
+        {
+            status,
+            hasThumbnail,
+            hasWebm,
+            thumbnailUrl,
+            webmUrl
+        }),
+        Encoding.UTF8,
+        "application/json");
+
+    using var response = await client.PatchAsync(
+        $"http://localhost:5320/building/source/{fileId}/status",
+        content);
+
+    Console.WriteLine($"Notify Status : {response.StatusCode}");
+}
+
+
+
+
 
     /// <inheritdoc />
     public async Task<(Stream FileStream, string ContentType, string OriginalName)> DownloadFileAsync(Guid id)

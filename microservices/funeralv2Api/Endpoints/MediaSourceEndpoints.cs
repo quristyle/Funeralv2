@@ -43,5 +43,18 @@ public static class MediaSourceEndpoints
         })
         .WithName("DeleteMediaSource")
         .WithOpenApi();
+
+        // 미디어 소스 변환 상태 업데이트 (FileServer 등에서 비동기 처리 완료 후 알림용)
+        group.MapPatch("/{id}/status", async (string id, [FromBody] MediaSourceStatusUpdateDto dto, [FromServices] IMediaSourceService service) =>
+        {
+            var result = await service.UpdateMediaSourceStatusAsync(id, dto);
+            if (result == null)
+            {
+                return Results.NotFound(ApiResponse<MediaSourceDto>.Fail("상태를 업데이트할 미디어 소스를 찾을 수 없습니다."));
+            }
+            return Results.Ok(result);
+        })
+        .WithName("UpdateMediaSourceStatus")
+        .WithOpenApi();
     }
 }

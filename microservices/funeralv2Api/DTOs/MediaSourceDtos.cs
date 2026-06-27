@@ -13,6 +13,10 @@ public class MediaSourceDto
     public string SourceType { get; set; } = "VIDEO";
     public string Url { get; set; } = string.Empty;
     public string? ThumbnailUrl { get; set; }
+    public string? WebmUrl { get; set; }
+    public string Status { get; set; } = "COMPLETED";
+    public bool HasWebm { get; set; }
+    public bool HasThumbnail { get; set; }
     public long? FileSize { get; set; }
     public int SortOrder { get; set; }
     public string? Remark { get; set; }
@@ -35,8 +39,24 @@ public class MediaSourceCreateDto
     public string Url { get; set; } = string.Empty;
 
     public string? ThumbnailUrl { get; set; }
+    public string? WebmUrl { get; set; }
+    public string Status { get; set; } = "READY";
+    public bool HasWebm { get; set; }
+    public bool HasThumbnail { get; set; }
 
     public long? FileSize { get; set; }
     public int SortOrder { get; set; }
     public string? Remark { get; set; }
+}
+
+/// <summary>
+/// 미디어 소스 변환 상태 업데이트 DTO
+/// </summary>
+public class MediaSourceStatusUpdateDto
+{
+    public string Status { get; set; } = "COMPLETED";
+    public bool HasWebm { get; set; }
+    public bool HasThumbnail { get; set; }
+    public string? ThumbnailUrl { get; set; }
+    public string? WebmUrl { get; set; }
 }

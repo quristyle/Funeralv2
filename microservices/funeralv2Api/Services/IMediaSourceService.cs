@@ -21,4 +21,9 @@ public interface IMediaSourceService
     /// 미디어 리소스 삭제
     /// </summary>
     Task<bool> DeleteMediaSourceAsync(string id);
+
+    /// <summary>
+    /// 미디어 리소스 변환 상태 업데이트
+    /// </summary>
+    Task<MediaSourceDto?> UpdateMediaSourceStatusAsync(string id, MediaSourceStatusUpdateDto dto);
 }

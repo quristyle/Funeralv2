@@ -393,5 +393,29 @@ public static class FileEndpoints
         })
         .WithName("GetGroupFiles")
         .WithOpenApi();
+
+        // 10. 비디오 트랜스코딩 트리거 API
+        group.MapPost("/transcode/{id:guid}", async Task<IResult> (Guid id, [FromServices] IFileService fileService) =>
+        {
+            try
+            {
+                await fileService.StartVideoTranscodingAsync(id);
+                return Results.Ok(ApiResponse<object>.Ok(new { message = "비디오 트랜스코딩 작업이 성공적으로 트리거되었습니다." }));
+            }
+            catch (FileNotFoundException ex)
+            {
+                return Results.NotFound(ApiResponse<object>.Fail("ERR_FILE_NOT_FOUND", ex.Message));
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Results.BadRequest(ApiResponse<object>.Fail("ERR_NOT_VIDEO", ex.Message));
+            }
+            catch (Exception ex)
+            {
+                return Results.Json(ApiResponse<object>.Fail("ERR_TRANSCODE_TRIGGER_FAILED", ex.Message), statusCode: StatusCodes.Status500InternalServerError);
+            }
+        })
+        .WithName("TriggerVideoTranscoding")
+        .WithOpenApi();
     }
 }

@@ -54,4 +54,25 @@ public class MediaSource : BaseEntity<string>
     /// 동영상인 경우 첫 클립 썸네일 이미지의 파일 URL 경로
     /// </summary>
     public string? ThumbnailUrl { get; set; }
+    
+    /// <summary>
+    /// 동영상인 경우 WebM 파일의 파일 URL 경로
+    /// </summary>
+    public string? WebmUrl { get; set; }
+
+
+    /// <summary>
+    /// 미디어 변환 상태 (PROCESSING, COMPLETED, FAILED)
+    /// </summary>
+    public string Status { get; set; } = "COMPLETED";
+
+    /// <summary>
+    /// WebM 파일 변환 완료 여부
+    /// </summary>
+    public bool HasWebm { get; set; }
+
+    /// <summary>
+    /// 썸네일 이미지 생성 완료 여부
+    /// </summary>
+    public bool HasThumbnail { get; set; }
 }
