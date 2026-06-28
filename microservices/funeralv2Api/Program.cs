@@ -56,6 +56,7 @@ builder.Services.AddScoped<IDeviceService, DeviceService>();
 builder.Services.AddScoped<IDeviceAttributeService, DeviceAttributeService>();
 builder.Services.AddScoped<IDeviceConfigService, DeviceConfigService>();
 builder.Services.AddScoped<IMediaSourceService, MediaSourceService>();
+builder.Services.AddScoped<IDeceasedService, DeceasedService>();
 
 
 // ============================================================
@@ -120,6 +121,7 @@ app.MapDeviceEndpoints();
 app.MapDeviceAttributeEndpoints();
 app.MapDeviceConfigEndpoints();
 app.MapMediaSourceEndpoints();
+app.MapDeceasedEndpoints();
 
 
 

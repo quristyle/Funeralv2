@@ -51,6 +51,11 @@ public class AppDbContext : DbContext
     /// </summary>
     public DbSet<MediaSource> MediaSources { get; set; } = null!;
 
+    /// <summary>
+    /// 고인 DbSet
+    /// </summary>
+    public DbSet<Deceased> Deceaseds { get; set; } = null!;
+
 
 
     /// <summary>

@@ -1,45 +1,13 @@
 <script lang="ts" setup>
-import { ref, onMounted } from 'vue';
-import { Page, useVbenModal } from '@vben/common-ui';
+import { ref } from 'vue';
+import { Page } from '@vben/common-ui';
 import { Plus } from '@vben/icons';
-import { Button, message, Popconfirm, Form, Input, InputNumber, Select, DatePicker } from 'ant-design-vue';
+import { Button, message, Popconfirm, Tag } from 'ant-design-vue';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import { getDeceasedList, createDeceased, updateDeceased, deleteDeceased, getRooms } from '#/api/building';
-import dayjs from 'dayjs';
+import { getDeceasedList, deleteDeceased } from '#/api/building';
+import DeceasedFormModal from './modules/deceased-form-modal.vue';
 
-const rooms = ref<any[]>([]);
-const [DeceasedModal, deceasedModalApi] = useVbenModal({
-  title: '고인 정보 설정',
-  destroyOnClose: true,
-});
-
-const formModel = ref({
-  id: '',
-  name: '',
-  gender: 'MALE' as 'MALE' | 'FEMALE',
-  age: 80,
-  religion: '',
-  deathDate: '',
-  funeralDate: '',
-  burialDate: '',
-  roomId: '',
-  status: 'IN_HOSPITAL' as 'IN_HOSPITAL' | 'DISCHARGED' | 'COMPLETED',
-});
-
-// 날짜 바인딩용
-const deathDateVal = ref<any>(null);
-const funeralDateVal = ref<any>(null);
-const burialDateVal = ref<any>(null);
-
-// 호실 정보 로드
-async function fetchRooms() {
-  try {
-    const list = await getRooms({});
-    rooms.value = list || [];
-  } catch (error) {
-    message.error('호실 목록을 가져올 수 없습니다.');
-  }
-}
+const formModalRef = ref<InstanceType<typeof DeceasedFormModal> | null>(null);
 
 const [Grid, gridApi] = useVbenVxeGrid({
   gridOptions: {
@@ -54,7 +22,7 @@ const [Grid, gridApi] = useVbenVxeGrid({
       { field: 'age', title: '연세', minWidth: 80, formatter: ({ cellValue }: { cellValue: any }) => `${cellValue}세` },
       { field: 'religion', title: '종교', minWidth: 100 },
       { field: 'roomName', title: '배정 빈소', minWidth: 120 },
-      { field: 'deathDate', title: '작고 일시', minWidth: 160 },
+      { field: 'deathDate', title: '작고 일시', minWidth: 160, formatter: ({ cellValue }: { cellValue: any }) => formatDate(cellValue) },
       {
         field: 'status',
         title: '장례 상태',
@@ -81,30 +49,15 @@ const [Grid, gridApi] = useVbenVxeGrid({
 });
 
 function onCreate() {
-  formModel.value = {
-    id: '',
-    name: '',
-    gender: 'MALE',
-    age: 80,
-    religion: '',
-    deathDate: '',
-    funeralDate: '',
-    burialDate: '',
-    roomId: '',
-    status: 'IN_HOSPITAL',
-  };
-  deathDateVal.value = null;
-  funeralDateVal.value = null;
-  burialDateVal.value = null;
-  deceasedModalApi.open();
+  if (formModalRef.value) {
+    formModalRef.value.open();
+  }
 }
 
 function onEdit(row: any) {
-  formModel.value = { ...row };
-  deathDateVal.value = row.deathDate ? dayjs(row.deathDate) : null;
-  funeralDateVal.value = row.funeralDate ? dayjs(row.funeralDate) : null;
-  burialDateVal.value = row.burialDate ? dayjs(row.burialDate) : null;
-  deceasedModalApi.open();
+  if (formModalRef.value) {
+    formModalRef.value.open(row);
+  }
 }
 
 async function onDelete(row: any) {
@@ -117,29 +70,14 @@ async function onDelete(row: any) {
   }
 }
 
-async function handleSave() {
+function formatDate(dateStr?: string) {
+  if (!dateStr) return '-';
   try {
-    formModel.value.deathDate = deathDateVal.value ? deathDateVal.value.format('YYYY-MM-DD HH:mm:ss') : '';
-    formModel.value.funeralDate = funeralDateVal.value ? funeralDateVal.value.format('YYYY-MM-DD HH:mm:ss') : '';
-    formModel.value.burialDate = burialDateVal.value ? burialDateVal.value.format('YYYY-MM-DD HH:mm:ss') : '';
-
-    if (formModel.value.id) {
-      await updateDeceased(formModel.value.id, formModel.value);
-      message.success('고인 정보가 수정되었습니다.');
-    } else {
-      await createDeceased(formModel.value);
-      message.success('고인 정보가 성공적으로 등록되었습니다.');
-    }
-    deceasedModalApi.close();
-    gridApi.query();
-  } catch (error) {
-    message.error('저장 실패');
+    return new Date(dateStr).toLocaleString('ko-KR');
+  } catch {
+    return dateStr;
   }
 }
-
-onMounted(() => {
-  fetchRooms();
-});
 </script>
 
 <template>
@@ -153,24 +91,9 @@ onMounted(() => {
       </template>
 
       <template #status-tag="{ row }">
-        <span
-          v-if="row.status === 'IN_HOSPITAL'"
-          class="px-2 py-1 rounded text-xs font-semibold bg-blue-100 text-blue-800"
-        >
-          장례 진행중
-        </span>
-        <span
-          v-else-if="row.status === 'DISCHARGED'"
-          class="px-2 py-1 rounded text-xs font-semibold bg-orange-100 text-orange-800"
-        >
-          발인 완료
-        </span>
-        <span
-          v-else
-          class="px-2 py-1 rounded text-xs font-semibold bg-gray-100 text-gray-800"
-        >
-          정산 완료
-        </span>
+        <Tag v-if="row.status === 'IN_HOSPITAL'" color="processing">장례 진행중</Tag>
+        <Tag v-else-if="row.status === 'DISCHARGED'" color="warning">발인 완료</Tag>
+        <Tag v-else color="success">정산 완료</Tag>
       </template>
 
       <template #action="{ row }">
@@ -183,58 +106,7 @@ onMounted(() => {
       </template>
     </Grid>
 
-    <DeceasedModal @ok="handleSave" class="w-[600px]">
-      <div class="p-6">
-        <Form layout="vertical">
-          <div class="grid grid-cols-2 gap-4">
-            <Form.Item label="고인명" required>
-              <Input v-model:value="formModel.name" placeholder="고인 성명" />
-            </Form.Item>
-            <Form.Item label="성별">
-              <Select v-model:value="formModel.gender">
-                <Select.Option value="MALE">남성</Select.Option>
-                <Select.Option value="FEMALE">여성</Select.Option>
-              </Select>
-            </Form.Item>
-          </div>
-
-          <div class="grid grid-cols-2 gap-4">
-            <Form.Item label="연령/연세" required>
-              <InputNumber v-model:value="formModel.age" :min="0" style="width: 100%" />
-            </Form.Item>
-            <Form.Item label="종교">
-              <Input v-model:value="formModel.religion" placeholder="예: 기독교, 불교, 천주교 등" />
-            </Form.Item>
-          </div>
-
-          <div class="grid grid-cols-2 gap-4">
-            <Form.Item label="배정 호실(빈소)">
-              <Select v-model:value="formModel.roomId" placeholder="빈소 선택">
-                <Select.Option v-for="r in rooms" :key="r.id" :value="r.id">{{ r.name }}</Select.Option>
-              </Select>
-            </Form.Item>
-            <Form.Item label="장례 상태">
-              <Select v-model:value="formModel.status">
-                <Select.Option value="IN_HOSPITAL">장례 진행중</Select.Option>
-                <Select.Option value="DISCHARGED">발인 완료</Select.Option>
-                <Select.Option value="COMPLETED">정산 완료</Select.Option>
-              </Select>
-            </Form.Item>
-          </div>
-
-          <div class="grid grid-cols-3 gap-4">
-            <Form.Item label="작고 일시">
-              <DatePicker v-model:value="deathDateVal" show-time format="YYYY-MM-DD HH:mm:ss" style="width: 100%" />
-            </Form.Item>
-            <Form.Item label="입관 일시">
-              <DatePicker v-model:value="funeralDateVal" show-time format="YYYY-MM-DD HH:mm:ss" style="width: 100%" />
-            </Form.Item>
-            <Form.Item label="발인 일시">
-              <DatePicker v-model:value="burialDateVal" show-time format="YYYY-MM-DD HH:mm:ss" style="width: 100%" />
-            </Form.Item>
-          </div>
-        </Form>
-      </div>
-    </DeceasedModal>
+    <!-- 고인 정보 입력 폼 모달 (독립 분리 컴포넌트) -->
+    <DeceasedFormModal ref="formModalRef" @saved="gridApi.query()" />
   </Page>
 </template>
