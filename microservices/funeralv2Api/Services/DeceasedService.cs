@@ -25,31 +25,124 @@ public class DeceasedService : IDeceasedService
     }
 
     /// <inheritdoc />
-    public async Task<List<DeceasedDto>> GetDeceasedListAsync()
+    public async Task<List<DeceasedDto>> GetDeceasedListAsync(DeceasedSearchDto searchDto)
     {
-        _logger.LogInformation("Fetching deceased list");
+        _logger.LogInformation("Fetching deceased list with filters");
 
-        var query = from d in _context.Deceaseds.Where(x => !x.IsDeleted)
-                    join r in _context.Rooms.Where(x => !x.IsDeleted) on d.RoomId equals r.Id into rooms
-                    from room in rooms.DefaultIfEmpty()
-                    orderby d.CreatedAt descending
-                    select new DeceasedDto
-                    {
-                        Id = d.Id,
-                        Name = d.Name,
-                        Gender = d.Gender,
-                        Age = d.Age,
-                        Religion = d.Religion,
-                        DeathDate = d.DeathDate,
-                        FuneralDate = d.FuneralDate,
-                        BurialDate = d.BurialDate,
-                        RoomId = d.RoomId,
-                        RoomName = room != null ? room.Name : null,
-                        Status = d.Status,
-                        Remark = d.Remark
-                    };
+        // 1. 기본 고인 쿼리 시작 (삭제되지 않은 고인)
+        var query = _context.Deceaseds.AsNoTracking().Where(x => !x.IsDeleted);
 
-        return await query.ToListAsync();
+        // 2. 회사, 건물, 층, 호실 필터 적용
+        // DeceasedRoom 배정 이력 테이블과 조인하여 조건에 맞는 이력이 하나라도 존재하는 고인만 골라냄
+        if (!string.IsNullOrEmpty(searchDto.CompanyId) || 
+            !string.IsNullOrEmpty(searchDto.BuildingId) || 
+            !string.IsNullOrEmpty(searchDto.FloorId) || 
+            !string.IsNullOrEmpty(searchDto.RoomId))
+        {
+            var matchedDeceasedIdsQuery = from dr in _context.DeceasedRooms.Where(x => !x.IsDeleted)
+                                         join r in _context.Rooms.Where(x => !x.IsDeleted) on dr.RoomId equals r.Id
+                                         join b in _context.Buildings.Where(x => !x.IsDeleted) on r.BuildingId equals b.Id
+                                         select new { dr.DeceasedId, dr.RoomId, r.BuildingId, r.FloorId, b.CompanyId };
+
+            if (!string.IsNullOrEmpty(searchDto.CompanyId))
+                matchedDeceasedIdsQuery = matchedDeceasedIdsQuery.Where(x => x.CompanyId == searchDto.CompanyId);
+            if (!string.IsNullOrEmpty(searchDto.BuildingId))
+                matchedDeceasedIdsQuery = matchedDeceasedIdsQuery.Where(x => x.BuildingId == searchDto.BuildingId);
+            if (!string.IsNullOrEmpty(searchDto.FloorId))
+                matchedDeceasedIdsQuery = matchedDeceasedIdsQuery.Where(x => x.FloorId == searchDto.FloorId);
+            if (!string.IsNullOrEmpty(searchDto.RoomId))
+                matchedDeceasedIdsQuery = matchedDeceasedIdsQuery.Where(x => x.RoomId == searchDto.RoomId);
+
+            var matchedIds = await matchedDeceasedIdsQuery.Select(x => x.DeceasedId).Distinct().ToListAsync();
+            query = query.Where(x => matchedIds.Contains(x.Id));
+        }
+
+        // 3. 인적 정보 필터링 적용
+        if (!string.IsNullOrEmpty(searchDto.Name))
+            query = query.Where(x => x.Name.Contains(searchDto.Name));
+        if (!string.IsNullOrEmpty(searchDto.Gender))
+            query = query.Where(x => x.Gender == searchDto.Gender);
+        if (searchDto.MinAge.HasValue)
+            query = query.Where(x => x.Age >= searchDto.MinAge.Value);
+        if (searchDto.MaxAge.HasValue)
+            query = query.Where(x => x.Age <= searchDto.MaxAge.Value);
+        if (!string.IsNullOrEmpty(searchDto.Religion))
+            query = query.Where(x => x.Religion == searchDto.Religion);
+
+        // 4. 기간 검색 필터 적용
+        if (searchDto.RoomEnterStartDate.HasValue)
+            query = query.Where(x => x.FuneralDate >= SpecifyUtc(searchDto.RoomEnterStartDate.Value));
+        if (searchDto.RoomEnterEndDate.HasValue)
+            query = query.Where(x => x.FuneralDate <= SpecifyUtc(searchDto.RoomEnterEndDate.Value));
+        if (searchDto.FuneralStartDate.HasValue)
+            query = query.Where(x => x.BurialDate >= SpecifyUtc(searchDto.FuneralStartDate.Value));
+        if (searchDto.FuneralEndDate.HasValue)
+            query = query.Where(x => x.BurialDate <= SpecifyUtc(searchDto.FuneralEndDate.Value));
+
+        // 5. 장례 상태 필터 적용
+        if (!string.IsNullOrEmpty(searchDto.Status))
+            query = query.Where(x => x.Status == searchDto.Status);
+
+        // 6. 고인 목록 순서 정렬 및 1차 로드
+        var deceasedList = await query
+            .OrderByDescending(x => x.CreatedAt)
+            .ToListAsync();
+
+        if (!deceasedList.Any())
+        {
+            return new List<DeceasedDto>();
+        }
+
+        // 7. 배정된 호실 이력을 메모리 조인을 통해 텍스트로 합성하기 위해 모든 배정 이력, 호실, 건물, 층 정보를 일괄 로드
+        var deceasedIds = deceasedList.Select(x => x.Id).ToList();
+        
+        var deceasedRooms = await (from dr in _context.DeceasedRooms.Where(x => !x.IsDeleted && deceasedIds.Contains(x.DeceasedId))
+                                   join r in _context.Rooms.Where(x => !x.IsDeleted) on dr.RoomId equals r.Id
+                                   join b in _context.Buildings.Where(x => !x.IsDeleted) on r.BuildingId equals b.Id
+                                   join f in _context.Floors.Where(x => !x.IsDeleted) on r.FloorId equals f.Id into floors
+                                   from floor in floors.DefaultIfEmpty()
+                                   select new
+                                   {
+                                       dr.DeceasedId,
+                                       BuildingName = b.Name,
+                                       FloorName = floor != null ? floor.Name : "",
+                                       RoomName = r.Name
+                                   }).ToListAsync();
+
+        // 8. DTO 매핑 및 배정된 건물, 층, 호실 정보 문자열 결합 (예: "본관 2층 201호, 신관 3층 302호")
+        var dtoList = deceasedList.Select(d =>
+        {
+            var roomsInfo = deceasedRooms.Where(r => r.DeceasedId == d.Id).ToList();
+            var roomNamesCombined = string.Join(", ", roomsInfo.Select(r => 
+            {
+                var parts = new List<string>();
+                if (!string.IsNullOrEmpty(r.BuildingName)) parts.Add(r.BuildingName);
+                if (!string.IsNullOrEmpty(r.FloorName)) parts.Add(r.FloorName);
+                if (!string.IsNullOrEmpty(r.RoomName)) parts.Add(r.RoomName);
+                return string.Join(" ", parts);
+            }));
+
+            return new DeceasedDto
+            {
+                Id = d.Id,
+                Name = d.Name,
+                Gender = d.Gender,
+                Age = d.Age,
+                Religion = d.Religion,
+                DeathDate = d.DeathDate,
+                FuneralDate = d.FuneralDate,
+                BurialDate = d.BurialDate,
+                RoomId = d.RoomId,
+                RoomName = string.IsNullOrEmpty(roomNamesCombined) ? null : roomNamesCombined,
+                Status = d.Status,
+                Remark = d.Remark,
+                MemorialPhotoUrl = d.MemorialPhotoUrl,
+                MemorialPhotoFileId = d.MemorialPhotoFileId,
+                FamilyPhotoGroupId = d.FamilyPhotoGroupId
+            };
+        }).ToList();
+
+        return dtoList;
     }
 
     /// <inheritdoc />
@@ -65,9 +158,9 @@ public class DeceasedService : IDeceasedService
             Gender = dto.Gender,
             Age = dto.Age,
             Religion = dto.Religion,
-            DeathDate = dto.DeathDate,
-            FuneralDate = dto.FuneralDate,
-            BurialDate = dto.BurialDate,
+            DeathDate = SpecifyUtc(dto.DeathDate),
+            FuneralDate = SpecifyUtc(dto.FuneralDate),
+            BurialDate = SpecifyUtc(dto.BurialDate),
             RoomId = dto.RoomId,
             Status = dto.Status,
             Remark = dto.Remark,
@@ -119,9 +212,9 @@ public class DeceasedService : IDeceasedService
         deceased.Gender = dto.Gender;
         deceased.Age = dto.Age;
         deceased.Religion = dto.Religion;
-        deceased.DeathDate = dto.DeathDate;
-        deceased.FuneralDate = dto.FuneralDate;
-        deceased.BurialDate = dto.BurialDate;
+        deceased.DeathDate = SpecifyUtc(dto.DeathDate);
+        deceased.FuneralDate = SpecifyUtc(dto.FuneralDate);
+        deceased.BurialDate = SpecifyUtc(dto.BurialDate);
         deceased.RoomId = dto.RoomId;
         deceased.Status = dto.Status;
         deceased.Remark = dto.Remark;
@@ -306,9 +399,9 @@ public class DeceasedService : IDeceasedService
         deceased.Gender = dto.Gender;
         deceased.Age = dto.Age;
         deceased.Religion = dto.Religion;
-        deceased.DeathDate = dto.DeathDate;
-        deceased.FuneralDate = dto.FuneralDate;
-        deceased.BurialDate = dto.BurialDate;
+        deceased.DeathDate = SpecifyUtc(dto.DeathDate);
+        deceased.FuneralDate = SpecifyUtc(dto.FuneralDate);
+        deceased.BurialDate = SpecifyUtc(dto.BurialDate);
         deceased.RoomId = dto.RoomId;
         deceased.Status = dto.Status;
         deceased.Remark = dto.Remark;
@@ -450,8 +543,8 @@ public class DeceasedService : IDeceasedService
                     Id = Guid.NewGuid().ToString(),
                     DeceasedId = id,
                     FacilityType = fDto.FacilityType,
-                    StartTime = fDto.StartTime,
-                    EndTime = fDto.EndTime,
+                    StartTime = SpecifyUtc(fDto.StartTime),
+                    EndTime = SpecifyUtc(fDto.EndTime),
                     UseHours = fDto.UseHours,
                     UnitPrice = fDto.UnitPrice,
                     TotalPrice = fDto.TotalPrice,
@@ -465,8 +558,8 @@ public class DeceasedService : IDeceasedService
                 if (existing != null)
                 {
                     existing.FacilityType = fDto.FacilityType;
-                    existing.StartTime = fDto.StartTime;
-                    existing.EndTime = fDto.EndTime;
+                    existing.StartTime = SpecifyUtc(fDto.StartTime);
+                    existing.EndTime = SpecifyUtc(fDto.EndTime);
                     existing.UseHours = fDto.UseHours;
                     existing.UnitPrice = fDto.UnitPrice;
                     existing.TotalPrice = fDto.TotalPrice;
@@ -493,8 +586,8 @@ public class DeceasedService : IDeceasedService
                     Id = Guid.NewGuid().ToString(),
                     DeceasedId = id,
                     RoomId = rDto.RoomId,
-                    StartTime = rDto.StartTime,
-                    EndTime = rDto.EndTime,
+                    StartTime = SpecifyUtc(rDto.StartTime),
+                    EndTime = SpecifyUtc(rDto.EndTime),
                     IsDeleted = false
                 };
                 _context.DeceasedRooms.Add(newRoom);
@@ -505,8 +598,8 @@ public class DeceasedService : IDeceasedService
                 if (existing != null)
                 {
                     existing.RoomId = rDto.RoomId;
-                    existing.StartTime = rDto.StartTime;
-                    existing.EndTime = rDto.EndTime;
+                    existing.StartTime = SpecifyUtc(rDto.StartTime);
+                    existing.EndTime = SpecifyUtc(rDto.EndTime);
                     existing.IsDeleted = false;
                 }
             }
@@ -515,5 +608,16 @@ public class DeceasedService : IDeceasedService
         await _context.SaveChangesAsync();
 
         return await GetDeceasedDetailAsync(id);
+    }
+
+    private static DateTime SpecifyUtc(DateTime dt)
+    {
+        return dt.Kind == DateTimeKind.Unspecified ? DateTime.SpecifyKind(dt, DateTimeKind.Utc) : dt;
+    }
+
+    private static DateTime? SpecifyUtc(DateTime? dt)
+    {
+        if (!dt.HasValue) return null;
+        return dt.Value.Kind == DateTimeKind.Unspecified ? DateTime.SpecifyKind(dt.Value, DateTimeKind.Utc) : dt;
     }
 }

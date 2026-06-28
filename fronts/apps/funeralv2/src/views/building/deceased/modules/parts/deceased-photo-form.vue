@@ -3,6 +3,7 @@ import { computed, ref } from 'vue';
 import { Upload, message } from 'ant-design-vue';
 import { Plus } from '@vben/icons';
 import { ImageGroupManager } from '@vben/common-ui';
+import { useAccessStore } from '@vben/stores';
 
 const props = defineProps({
   modelValue: {
@@ -20,6 +21,24 @@ const model = computed({
 
 const isUploading = ref(false);
 
+const accessStore = useAccessStore();
+
+const uploadHeaders = computed(() => {
+  const token = accessStore.accessToken;
+  const headers: Record<string, string> = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  return headers;
+});
+
+const thumbnailUrl = computed(() => {
+  if (model.value?.memorialPhotoFileId) {
+    return `/api/file/thumbnail/${model.value.memorialPhotoFileId}`;
+  }
+  return model.value?.memorialPhotoUrl || '';
+});
+
 // 영정사진 단건 업로드 핸들러
 async function handlePhotoUpload(info: any) {
   const { file } = info;
@@ -35,11 +54,21 @@ async function handlePhotoUpload(info: any) {
     const res = file.response;
     if (res && (res.code === 'S000' || res.success)) {
       const rawData = res.result || res.data;
-      const fileData = Array.isArray(rawData) ? rawData[0] : rawData;
-      
+      let fileData: any = null;
+
+      if (rawData) {
+        if (Array.isArray(rawData)) {
+          fileData = rawData[0];
+        } else if (rawData.result && Array.isArray(rawData.result)) {
+          fileData = rawData.result[0];
+        } else {
+          fileData = rawData;
+        }
+      }
+
       if (fileData) {
         model.value.memorialPhotoFileId = fileData.id;
-        model.value.memorialPhotoUrl = `/api/file/download/${fileData.id}`;
+        model.value.memorialPhotoUrl = fileData.downloadUrl || `/api/file/download/${fileData.id}`;
         message.success('영정사진이 등록되었습니다.');
       }
     } else {
@@ -63,8 +92,8 @@ async function handlePhotoUpload(info: any) {
       <div class="flex gap-6 items-center">
         <div class="w-32 h-40 bg-gray-100 rounded border border-gray-200 flex items-center justify-center overflow-hidden relative">
           <img
-            v-if="model.memorialPhotoUrl"
-            :src="model.memorialPhotoUrl"
+            v-if="thumbnailUrl"
+            :src="thumbnailUrl"
             class="w-full h-full object-cover"
             alt="영정사진"
           />
@@ -76,7 +105,8 @@ async function handlePhotoUpload(info: any) {
             name="file"
             action="/api/file/upload"
             :show-upload-list="false"
-            data-biz-type="DECEASED"
+            :headers="uploadHeaders"
+            :data="{ bizType: 'DECEASED' }"
             @change="handlePhotoUpload"
           >
             <button class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm transition-colors flex items-center gap-1">

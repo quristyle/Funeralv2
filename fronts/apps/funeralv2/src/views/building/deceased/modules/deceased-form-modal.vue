@@ -1,7 +1,7 @@
 <script lang="ts" setup>
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, onMounted, onUnmounted, nextTick } from 'vue';
 import { useVbenModal } from '@vben/common-ui';
-import { message, Form, DatePicker } from 'ant-design-vue';
+import { message, Form } from 'ant-design-vue';
 import { getDeceasedDetail, saveDeceasedDetail, getRooms } from '#/api/building';
 import dayjs from 'dayjs';
 import DictSelect from '#/components/DictSelect.vue';
@@ -14,6 +14,7 @@ import DeceasedManagerForm from './parts/deceased-manager-form.vue';
 import DeceasedFacilitiesForm from './parts/deceased-facilities-form.vue';
 import DeceasedPhotoForm from './parts/deceased-photo-form.vue';
 import DeceasedRoomsForm from './parts/deceased-rooms-form.vue';
+import AutoDatePicker from '#/components/AutoDatePicker.vue';
 
 const emit = defineEmits<{
   (e: 'saved'): void;
@@ -24,6 +25,9 @@ const isEditMode = ref<boolean>(false);
 const currentId = ref<string>('');
 const activeSection = ref<string>('basic');
 const scrollContainerRef = ref<HTMLElement | null>(null);
+const isScrollingByClick = ref<boolean>(false);
+const basicFormRef = ref<any>(null);
+const deathDatePickerRef = ref<any>(null);
 let observer: IntersectionObserver | null = null;
 
 onMounted(() => {
@@ -47,19 +51,30 @@ onUnmounted(() => {
 });
 
 function setupObserver() {
-  if (!scrollContainerRef.value) return;
+  if (observer) {
+    observer.disconnect();
+  }
+  if (!scrollContainerRef.value) {
+    console.warn('[deceased-form-modal] scrollContainerRef is not defined when setting up observer');
+    return;
+  }
 
   observer = new IntersectionObserver(
     (entries) => {
+      if (isScrollingByClick.value) return;
+
       // 뷰포트 안에 여러 섹션이 있을 경우, 가장 위에 있는 섹션을 활성화합니다.
-      const intersectingEntries = entries.filter(e => e.isIntersecting);
+      const intersectingEntries = entries.filter((e) => e.isIntersecting);
 
       if (intersectingEntries.length > 0) {
         // top 위치를 기준으로 정렬하여 가장 위에 있는 섹션을 찾습니다.
         const sortedEntries = intersectingEntries.sort(
-          (a, b) => a.target.getBoundingClientRect().top - b.target.getBoundingClientRect().top
+          (a, b) => a.target.getBoundingClientRect().top - b.target.getBoundingClientRect().top,
         );
-        activeSection.value = sortedEntries[0].target.id.replace('section-', '');
+        const topEntry = sortedEntries[0];
+        if (topEntry?.target?.id) {
+          activeSection.value = topEntry.target.id.replace('section-', '');
+        }
       }
     },
     {
@@ -96,14 +111,14 @@ const navItems = [
 const formModel = ref<any>({
   id: '',
   name: '',
-  gender: 'MALE',
+  gender: 'M',
   age: 80,
-  religion: '',
+  religion: 'NONE',
   deathDate: '',
   funeralDate: '',
   burialDate: '',
   roomId: '',
-  status: 'IN_HOSPITAL',
+  status: 'FUNERAL_IN_PROGRESS',
   remark: '',
   ssn: '',
   causeOfDeath: '',
@@ -158,10 +173,14 @@ async function fetchRooms() {
 // 앵커 스크롤 이동
 function scrollToSection(sectionId: string) {
   activeSection.value = sectionId;
+  isScrollingByClick.value = true;
   const el = document.getElementById(`section-${sectionId}`);
   if (el) {
     el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
+  setTimeout(() => {
+    isScrollingByClick.value = false;
+  }, 800);
 }
 
 // 상세 정보 로드
@@ -178,18 +197,19 @@ async function open(row?: any) {
       deceasedModalApi.lock();
       // 백엔드 통합 상세 조회 호출
       const detail = await getDeceasedDetail(row.id);
-      if (detail) {
+      const detailData = (detail as any)?.result?.[0] || detail;
+      if (detailData) {
         formModel.value = {
-          ...detail,
-          contractor: detail.contractor || { name: '', contact: '', relation: '', address: '', remark: '', signatureFileId: '' },
-          manager: detail.manager || { directorName: '', directorContact: '', mutualAidCompany: '', staffName: '', staffContact: '' },
-          mourners: detail.mourners || [],
-          facilities: detail.facilities || [],
-          rooms: detail.rooms || []
+          ...detailData,
+          contractor: detailData.contractor || { name: '', contact: '', relation: '', address: '', remark: '', signatureFileId: '' },
+          manager: detailData.manager || { directorName: '', directorContact: '', mutualAidCompany: '', staffName: '', staffContact: '' },
+          mourners: detailData.mourners || [],
+          facilities: detailData.facilities || [],
+          rooms: detailData.rooms || []
         };
-        deathDateVal.value = detail.deathDate ? dayjs(detail.deathDate) : null;
-        funeralDateVal.value = detail.funeralDate ? dayjs(detail.funeralDate) : null;
-        burialDateVal.value = detail.burialDate ? dayjs(detail.burialDate) : null;
+        deathDateVal.value = detailData.deathDate ? dayjs(detailData.deathDate) : null;
+        funeralDateVal.value = detailData.funeralDate ? dayjs(detailData.funeralDate) : null;
+        burialDateVal.value = detailData.burialDate ? dayjs(detailData.burialDate) : null;
       }
     } catch (err) {
       message.error('고인 상세 정보를 로드할 수 없습니다.');
@@ -205,14 +225,14 @@ async function open(row?: any) {
     formModel.value = {
       id: '',
       name: '',
-      gender: 'MALE',
+      gender: 'M',
       age: 80,
-      religion: '',
+      religion: 'NONE',
       deathDate: '',
       funeralDate: '',
       burialDate: '',
       roomId: '',
-      status: 'IN_HOSPITAL',
+      status: 'FUNERAL_IN_PROGRESS',
       remark: '',
       ssn: '',
       causeOfDeath: '',
@@ -233,6 +253,10 @@ async function open(row?: any) {
   }
   
   deceasedModalApi.open();
+
+  nextTick(() => {
+    setupObserver();
+  });
 }
 
 async function handleSave() {
@@ -240,12 +264,23 @@ async function handleSave() {
     if (!formModel.value.name) {
       message.warning('고인 성명은 필수 입력 사항입니다.');
       scrollToSection('basic');
+      nextTick(() => {
+        basicFormRef.value?.focusName();
+      });
+      return;
+    }
+    if (!deathDateVal.value) {
+      message.warning('작고 일시는 필수 입력 사항입니다.');
+      scrollToSection('basic');
+      nextTick(() => {
+        deathDatePickerRef.value?.focus();
+      });
       return;
     }
 
-    formModel.value.deathDate = deathDateVal.value ? deathDateVal.value.format('YYYY-MM-DD HH:mm:ss') : '';
-    formModel.value.funeralDate = funeralDateVal.value ? funeralDateVal.value.format('YYYY-MM-DD HH:mm:ss') : '';
-    formModel.value.burialDate = burialDateVal.value ? burialDateVal.value.format('YYYY-MM-DD HH:mm:ss') : '';
+    formModel.value.deathDate = deathDateVal.value ? deathDateVal.value.format('YYYY-MM-DDTHH:mm:ss') : null;
+    formModel.value.funeralDate = funeralDateVal.value ? funeralDateVal.value.format('YYYY-MM-DDTHH:mm:ss') : null;
+    formModel.value.burialDate = burialDateVal.value ? burialDateVal.value.format('YYYY-MM-DDTHH:mm:ss') : null;
 
     deceasedModalApi.lock();
     
@@ -289,28 +324,28 @@ defineExpose({ open });
       </div>
 
       <!-- 우측 통합 스크롤 컨테이너 -->
-      <div class="flex-1 overflow-y-auto p-6 space-y-6 scroll-smooth ">
+      <div ref="scrollContainerRef" class="flex-1 overflow-y-auto p-6 space-y-6 scroll-smooth ">
         <Form layout="vertical">
           <!-- 1. 기본 정보 섹션 -->
           <div id="section-basic" class=" p-6 rounded-xl border border-gray-200 shadow-sm space-y-4">
             <h2 class="text-base font-semibold text-gray-800 border-b pb-2 mb-4">기본 정보</h2>
-            <DeceasedBasicForm v-model="formModel" />
+            <DeceasedBasicForm ref="basicFormRef" v-model="formModel" />
             
             <div class="grid grid-cols-2 gap-4">
               <Form.Item label="장례 상태">
                 <DictSelect dict-code="FUNERAL_STATUS" v-model:value="formModel.status" />
               </Form.Item>
               <Form.Item label="작고 일시">
-                <DatePicker v-model:value="deathDateVal" show-time format="YYYY-MM-DD HH:mm:ss" style="width: 100%" />
+                <AutoDatePicker ref="deathDatePickerRef" v-model:value="deathDateVal" />
               </Form.Item>
             </div>
             
             <div class="grid grid-cols-2 gap-4">
               <Form.Item label="입관 일시">
-                <DatePicker v-model:value="funeralDateVal" show-time format="YYYY-MM-DD HH:mm:ss" style="width: 100%" />
+                <AutoDatePicker v-model:value="funeralDateVal" />
               </Form.Item>
               <Form.Item label="발인 일시">
-                <DatePicker v-model:value="burialDateVal" show-time format="YYYY-MM-DD HH:mm:ss" style="width: 100%" />
+                <AutoDatePicker v-model:value="burialDateVal" :offset-days="3" />
               </Form.Item>
             </div>
           </div>

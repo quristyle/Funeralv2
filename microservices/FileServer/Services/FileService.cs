@@ -49,8 +49,13 @@ public class FileService : IFileService
             return "basecom";
         }
 
-        // 경로 탐색(/, \, ..) 등의 비정상 문자 제거 및 소문자 정화
-        var safeFolder = trimmed.Replace("/", "").Replace("\\", "").Replace("..", "");
+        if (trimmed.Equals("DECEASED", StringComparison.OrdinalIgnoreCase))
+        {
+            return "funeralv2/deceased";
+        }
+
+        // 경로 탐색(..) 등의 비정상 문자 제거 및 소문자 정화 (하위 비즈니스 폴더 슬래시는 허용)
+        var safeFolder = trimmed.Replace("..", "").Trim('/', '\\');
         return string.IsNullOrEmpty(safeFolder) ? "basecom" : safeFolder.ToLower();
     }
 
@@ -1078,7 +1083,15 @@ private async Task NotifyStatusAsync(
         }
 
         var pathSegments = metadata.Path.Split('/');
-        var bizType = pathSegments.Length > 0 ? pathSegments[0] : "basecom";
+        string bizType = "basecom";
+        if (pathSegments.Length >= 3)
+        {
+            bizType = string.Join("/", pathSegments.Take(pathSegments.Length - 2));
+        }
+        else if (pathSegments.Length > 0)
+        {
+            bizType = pathSegments[0];
+        }
         var targetFolderPath = GetPath(bizType, folderName);
 
         var targetFileName = $"{id}.webp";

@@ -4,6 +4,27 @@ using System.Collections.Generic;
 namespace funeralv2Api.DTOs;
 
 /// <summary>
+/// 고인 검색 필터 조건 DTO
+/// </summary>
+public class DeceasedSearchDto
+{
+    public string? CompanyId { get; set; }
+    public string? BuildingId { get; set; }
+    public string? FloorId { get; set; }
+    public string? RoomId { get; set; }
+    public string? Name { get; set; }
+    public string? Gender { get; set; }
+    public int? MinAge { get; set; }
+    public int? MaxAge { get; set; }
+    public string? Religion { get; set; }
+    public DateTime? RoomEnterStartDate { get; set; }
+    public DateTime? RoomEnterEndDate { get; set; }
+    public DateTime? FuneralStartDate { get; set; }
+    public DateTime? FuneralEndDate { get; set; }
+    public string? Status { get; set; }
+}
+
+/// <summary>
 /// 고인 정보 반환 DTO (기본 목록 조회용)
 /// </summary>
 public class DeceasedDto

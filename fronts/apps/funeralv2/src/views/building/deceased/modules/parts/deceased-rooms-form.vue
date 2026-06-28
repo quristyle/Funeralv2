@@ -1,8 +1,10 @@
 <script lang="ts" setup>
 import { computed, ref, onMounted } from 'vue';
-import { Button, Form, Select, DatePicker, message } from 'ant-design-vue';
+import { Button, Form, message } from 'ant-design-vue';
 import { Plus, Trash2 } from '@vben/icons';
-import { getRooms } from '#/api/building';
+import { getRooms, getBuildings } from '#/api/building';
+import BizSelect from '#/components/BizSelect.vue';
+import AutoDatePicker from '#/components/AutoDatePicker.vue';
 
 const props = defineProps({
   modelValue: {
@@ -19,13 +21,40 @@ const rooms = computed({
 });
 
 const roomList = ref<any[]>([]);
+const buildingList = ref<any[]>([]);
 
-async function fetchRoomList() {
+async function fetchInitialData() {
   try {
-    const list = await getRooms({});
-    roomList.value = list || [];
+    const [roomsRes, buildingsRes] = await Promise.all([
+      getRooms({}),
+      getBuildings()
+    ]);
+    
+    const rawRooms = (roomsRes as any)?.result ?? roomsRes;
+    roomList.value = Array.isArray(rawRooms) ? rawRooms : [];
+
+    const rawBuildings = (buildingsRes as any)?.result ?? buildingsRes;
+    buildingList.value = Array.isArray(rawBuildings) ? rawBuildings : [];
+
+    initializeHistoricalSelections();
   } catch (error) {
-    message.error('호실 목록을 가져올 수 없습니다.');
+    message.error('기초 정보 목록을 가져올 수 없습니다.');
+  }
+}
+
+function initializeHistoricalSelections() {
+  for (const r of rooms.value) {
+    if (r.roomId && !r.floorId) {
+      const rm = roomList.value.find((x) => x.id === r.roomId);
+      if (rm) {
+        r.floorId = rm.floorId;
+        r.buildingId = rm.buildingId;
+        const bld = buildingList.value.find((x) => x.id === rm.buildingId);
+        if (bld) {
+          r.companyId = bld.companyId;
+        }
+      }
+    }
   }
 }
 
@@ -35,6 +64,9 @@ function addRoomHistory() {
     {
       id: '',
       roomId: '',
+      companyId: '',
+      buildingId: '',
+      floorId: '',
       startTime: '',
       endTime: ''
     }
@@ -47,8 +79,23 @@ function removeRoomHistory(index: number) {
   rooms.value = list;
 }
 
+function onCompanyChange(r: any) {
+  r.buildingId = '';
+  r.floorId = '';
+  r.roomId = '';
+}
+
+function onBuildingChange(r: any) {
+  r.floorId = '';
+  r.roomId = '';
+}
+
+function onFloorChange(r: any) {
+  r.roomId = '';
+}
+
 onMounted(() => {
-  fetchRoomList();
+  fetchInitialData();
 });
 </script>
 
@@ -61,7 +108,7 @@ onMounted(() => {
       </Button>
     </div>
 
-    <div v-if="rooms.length === 0" class="text-center py-6 text-gray-400  rounded border border-dashed">
+    <div v-if="rooms.length === 0" class="text-center py-6 text-gray-400 rounded border border-dashed">
       배정된 호실 이력이 없습니다. 빈소 배정을 추가하십시오.
     </div>
 
@@ -69,7 +116,7 @@ onMounted(() => {
       <div
         v-for="(r, index) in rooms"
         :key="index"
-        class="p-4  rounded border border-gray-150 relative space-y-3"
+        class="p-4 rounded border border-gray-150 relative space-y-3"
       >
         <div class="absolute top-2 right-2 z-10">
           <Button type="text" size="small" danger @click="removeRoomHistory(index)">
@@ -77,27 +124,65 @@ onMounted(() => {
           </Button>
         </div>
 
-        <div class="grid grid-cols-3 gap-4 pt-4">
-          <Form.Item label="배정 빈소" required>
-            <Select v-model:value="r.roomId" placeholder="빈소 선택">
-              <Select.Option v-for="rm in roomList" :key="rm.id" :value="rm.id">{{ rm.name }}</Select.Option>
-            </Select>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 pt-4">
+          <!-- 1. 회사 선택 -->
+          <Form.Item label="소속 회사" required>
+            <BizSelect
+              v-model:value="r.companyId"
+              type="company"
+              placeholder="회사 선택"
+              @change="onCompanyChange(r)"
+            />
           </Form.Item>
+
+          <!-- 2. 건물 선택 -->
+          <Form.Item label="소속 건물" required>
+            <BizSelect
+              v-model:value="r.buildingId"
+              type="building"
+              :params="{ companyId: r.companyId }"
+              placeholder="건물 선택"
+              @change="onBuildingChange(r)"
+            />
+          </Form.Item>
+
+          <!-- 3. 층 선택 -->
+          <Form.Item label="배정 층" required>
+            <BizSelect
+              v-model:value="r.floorId"
+              type="floor"
+              :params="{ buildingId: r.buildingId }"
+              placeholder="층 선택"
+              @change="onFloorChange(r)"
+            />
+          </Form.Item>
+
+          <!-- 4. 호실(빈소) 선택 -->
+          <Form.Item label="호실(빈소)" required>
+            <BizSelect
+              v-model:value="r.roomId"
+              type="room"
+              :params="{ floorId: r.floorId }"
+              placeholder="호실 선택"
+            />
+          </Form.Item>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- 5. 시작일시 -->
           <Form.Item label="배정 시작일시" required>
-            <DatePicker
+            <AutoDatePicker
               v-model:value="r.startTime"
               show-time
-              format="YYYY-MM-DD HH:mm:ss"
-              value-format="YYYY-MM-DD HH:mm:ss"
               style="width: 100%"
             />
           </Form.Item>
+
+          <!-- 6. 종료일시 -->
           <Form.Item label="배정 종료(발인)일시">
-            <DatePicker
+            <AutoDatePicker
               v-model:value="r.endTime"
               show-time
-              format="YYYY-MM-DD HH:mm:ss"
-              value-format="YYYY-MM-DD HH:mm:ss"
               style="width: 100%"
             />
           </Form.Item>

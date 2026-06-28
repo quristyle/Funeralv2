@@ -52,6 +52,7 @@ export {
   Palette,
   PanelLeft,
   PanelRight,
+  Pencil,
   Pin,
   PinOff,
   Plus,
@@ -75,4 +76,5 @@ export {
   AlertCircle,
   History,
   Send,
+  Image,
 } from 'lucide-vue-next';

@@ -308,8 +308,10 @@ export async function retryAudio(id: string) {
 }
 
 // === 고인 API ===
-export async function getDeceasedList() {
-  return requestClient.get<BuildingApi.Deceased[]>('/funeral/building/deceased/list');
+export async function getDeceasedList(params?: Record<string, any>) {
+  return requestClient.get<BuildingApi.Deceased[]>('/funeral/building/deceased/list', {
+    params
+  });
 }
 export async function createDeceased(data: Omit<BuildingApi.Deceased, 'id'>) {
   return requestClient.post('/funeral/building/deceased', data);
@@ -324,7 +326,8 @@ export async function getDeceasedDetail(id: string) {
   return requestClient.get<BuildingApi.DeceasedDetail>(`/funeral/building/deceased/${id}/detail`);
 }
 export async function saveDeceasedDetail(id: string, data: BuildingApi.DeceasedDetail) {
-  return requestClient.put<BuildingApi.DeceasedDetail>(`/funeral/building/deceased/${id}/detail`, data);
+  const url = id ? `/funeral/building/deceased/${id}/detail` : '/funeral/building/deceased/detail';
+  return requestClient.put<BuildingApi.DeceasedDetail>(url, data);
 }
 
 // === 장비 속성 API ===

@@ -46,6 +46,7 @@
     "dayjs": "catalog:",
     "json-bigint": "catalog:",
     "pinia": "catalog:",
+    "tui-image-editor": "^3.15.3",
     "vue": "catalog:",
     "vue-daum-postcode": "^1.2.2",
     "vue-router": "catalog:",

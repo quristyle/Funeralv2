@@ -12,7 +12,7 @@ public interface IDeceasedService
     /// <summary>
     /// 고인 목록 조회 (필터링 가능)
     /// </summary>
-    Task<List<DeceasedDto>> GetDeceasedListAsync();
+    Task<List<DeceasedDto>> GetDeceasedListAsync(DeceasedSearchDto searchDto);
 
     /// <summary>
     /// 고인 등록

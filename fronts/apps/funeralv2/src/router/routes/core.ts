@@ -113,6 +113,17 @@ const coreRoutes: RouteRecordRaw[] = [
       },
     ],
   },
+  {
+    path: '/building/deceased/photo-editor',
+    name: 'DeceasedPhotoEditor',
+    component: () => import('#/views/building/deceased/photo-editor.vue'),
+    meta: {
+      hideInBreadcrumb: true,
+      hideInMenu: true,
+      hideInTab: true,
+      title: '고인 영정사진 편집기',
+    },
+  },
   MaintenanceRoute,
 ];
 

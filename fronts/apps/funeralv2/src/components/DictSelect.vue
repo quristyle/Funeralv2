@@ -8,6 +8,7 @@ interface Props {
   dictCode: string;
   value?: any;
   modelValue?: any; // Vben Form 커스텀 컴포넌트 모델 바인딩 수용
+  showAll?: boolean; // 검색 콤보박스에 '전체' 표현용 옵션
 }
 
 const props = defineProps<Props>();
@@ -25,14 +26,19 @@ async function loadOptions() {
   loading.value = true;
   try {
     const res = await getCommonCodes(props.dictCode);
-    // requestClient는 HTTP 응답의 최상위 data 필드를 언래핑하여 { result: [...] } 형태로 반환
-    // result 필드를 우선 추출하고, 없으면 res 자체를 배열로 사용 (fallback)
     const raw = (res as any)?.result ?? res;
     const list: any[] = Array.isArray(raw) ? raw : [];
-    options.value = list.map((item: any) => ({
+    
+    const mappedList = list.map((item: any) => ({
       label: item.i18nKey ? $t(item.i18nKey) : item.codeName,
       value: item.codeValue,
     }));
+
+    if (props.showAll) {
+      options.value = [{ label: '전체', value: '' }, ...mappedList];
+    } else {
+      options.value = mappedList;
+    }
   } catch (error) {
     console.error(`공통코드 [${props.dictCode}] 로드 실패:`, error);
   } finally {

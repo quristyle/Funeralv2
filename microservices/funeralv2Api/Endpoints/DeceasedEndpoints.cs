@@ -15,10 +15,10 @@ public static class DeceasedEndpoints
     {
         var group = app.MapGroup("/building/deceased").AddApiResponseWrapper();
 
-        // 고인 목록 조회
-        group.MapGet("/list", async ([FromServices] IDeceasedService service) =>
+        // 고인 목록 조회 (필터링 조건 수용)
+        group.MapGet("/list", async ([AsParameters] DeceasedSearchDto searchDto, [FromServices] IDeceasedService service) =>
         {
-            return await service.GetDeceasedListAsync();
+            return await service.GetDeceasedListAsync(searchDto);
         })
         .WithName("GetDeceasedList")
         .WithOpenApi();
@@ -81,6 +81,19 @@ public static class DeceasedEndpoints
             return Results.Ok(result);
         })
         .WithName("SaveDeceasedDetail")
+        .WithOpenApi();
+
+        // 고인 종합 상세 정보 저장 (신규 등록 시 ID가 없을 때)
+        group.MapPut("/detail", async ([FromBody] DeceasedDetailDto dto, [FromServices] IDeceasedService service) =>
+        {
+            var result = await service.SaveDeceasedDetailAsync(string.Empty, dto);
+            if (result == null)
+            {
+                return Results.NotFound(ApiResponse<DeceasedDetailDto>.Fail("저장할 고인 정보를 찾을 수 없습니다."));
+            }
+            return Results.Ok(result);
+        })
+        .WithName("SaveDeceasedDetailNew")
         .WithOpenApi();
     }
 }

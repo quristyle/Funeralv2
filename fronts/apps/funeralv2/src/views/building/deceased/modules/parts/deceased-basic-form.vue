@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import { Form, Input, InputNumber } from 'ant-design-vue';
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import DictSelect from '#/components/DictSelect.vue';
 
 const props = defineProps({
@@ -16,13 +16,25 @@ const model = computed({
   get: () => props.modelValue,
   set: (val) => emit('update:modelValue', val)
 });
+
+const nameInputRef = ref<any>(null);
+
+function focusName() {
+  if (nameInputRef.value) {
+    nameInputRef.value.focus();
+  }
+}
+
+defineExpose({
+  focusName
+});
 </script>
 
 <template>
   <div class="space-y-4">
     <div class="grid grid-cols-2 gap-4">
       <Form.Item label="고인명" required>
-        <Input v-model:value="model.name" placeholder="고인 성명" />
+        <Input ref="nameInputRef" v-model:value="model.name" placeholder="고인 성명" />
       </Form.Item>
       <Form.Item label="성별">
         <DictSelect dict-code="SEX" v-model:value="model.gender" />
