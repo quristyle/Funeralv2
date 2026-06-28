@@ -1,10 +1,11 @@
 <script lang="ts" setup>
 import { ref } from 'vue';
 import { Page } from '@vben/common-ui';
-import { Plus } from '@vben/icons';
-import { Button, message, Popconfirm, Modal, Tag } from 'ant-design-vue';
+import { Plus ,IconifyIcon} from '@vben/icons';
+import { Button, message, Popconfirm, Modal, Tag, Tooltip } from 'ant-design-vue';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import { getMediaSources, deleteMediaSource } from '#/api/building';
+import { getMediaSources, deleteMediaSource, retryThumbnail, retryWebm } from '#/api/building';
+import ImagePreview from '#/components/ImagePreview.vue';
 import VideoUploadModal from './modules/video-upload-modal.vue';
 
 const uploadModalRef = ref<InstanceType<typeof VideoUploadModal> | null>(null);
@@ -58,6 +59,12 @@ function openUpload() {
   }
 }
 
+function handleEdit(row: any) {
+  if (uploadModalRef.value) {
+    uploadModalRef.value.open(row);
+  }
+}
+
 async function handleDelete(row: any) {
   try {
     await deleteMediaSource(row.id);
@@ -68,16 +75,54 @@ async function handleDelete(row: any) {
   }
 }
 
-// 플레이 시뮬레이터 팝업
+// 플레이 시뮬레이터 팝업 (원본)
 function handlePlay(row: any) {
   currentVideoUrl.value = row.url;
   currentVideoName.value = row.name;
   showPlayModal.value = true;
 }
 
+// 플레이 시뮬레이터 팝업 (WebM 변환본)
+function handlePlayWebm(row: any) {
+  currentVideoUrl.value = row.webmUrl;
+  currentVideoName.value = row.name + ' (WebM)';
+  showPlayModal.value = true;
+}
+
+// 썸네일 재추출 처리
+async function handleRetryThumbnail(row: any) {
+  try {
+    await retryThumbnail(row.id);
+    message.success('썸네일 재추출이 요청되었습니다.');
+    gridApi.query();
+  } catch (error) {
+    message.error('재추출 요청 실패');
+  }
+}
+
+// WebM 재변환 처리
+async function handleRetryWebm(row: any) {
+  try {
+    await retryWebm(row.id);
+    message.success('WebM 재변환이 요청되었습니다.');
+    gridApi.query();
+  } catch (error) {
+    message.error('재변환 요청 실패');
+  }
+}
+
 function handleClosePlayer() {
   currentVideoUrl.value = '';
   showPlayModal.value = false;
+}
+
+function formatDate(dateStr?: string) {
+  if (!dateStr) return '-';
+  try {
+    return new Date(dateStr).toLocaleString('ko-KR');
+  } catch {
+    return dateStr;
+  }
 }
 </script>
 
@@ -93,16 +138,12 @@ function handleClosePlayer() {
 
       <!-- 썸네일 컬럼 슬롯 렌더러 -->
       <template #thumbnail="{ row }">
-        <div class="flex items-center justify-center p-1 bg-muted rounded border overflow-hidden w-16 h-10">
-          <img 
-            v-if="row.thumbnailUrl"
-            :src="row.thumbnailUrl" 
-            class="w-full h-full object-cover" 
-            alt="thumb" 
-            @error="(e: any) => { if (e.target) e.target.style.display = 'none'; }"
-          />
-          <span v-else class="text-[10px] text-muted-foreground font-mono">No Image</span>
-        </div>
+        <ImagePreview
+          :src="row.thumbnailUrl"
+          :width="64"
+          :height="40"
+          fallback-text="No Image"
+        />
       </template>
 
       <!-- 변환 상태 컬럼 슬롯 렌더러 -->
@@ -110,15 +151,44 @@ function handleClosePlayer() {
         <Tag v-if="row.status === 'COMPLETED'" color="success">완료</Tag>
         <Tag v-else-if="row.status === 'READY'" color="ready">준비</Tag>
         <Tag v-else-if="row.status === 'PROCESSING'" color="processing">변환 중</Tag>
-        <Tag v-else-if="row.status === 'FAILED'" color="error">변환 실패</Tag>
+        <Tooltip v-else-if="row.status === 'FAILED'">
+          <template #title>
+            <div class="text-xs space-y-1 p-1 max-w-[360px] break-all">
+              <p><strong>오류 메시지:</strong> {{ row.errorMessage || '상세 에러 정보 없음' }}</p>
+              <div v-if="row.conversionCommand" class="mt-1">
+                <strong>실행 명령:</strong>
+                <pre class="bg-black/20 p-1 rounded text-[10px] whitespace-pre-wrap select-all font-mono">{{ row.conversionCommand }}</pre>
+              </div>
+              <p v-if="row.conversionStartedAt"><strong>시작 시간:</strong> {{ formatDate(row.conversionStartedAt) }}</p>
+              <p v-if="row.conversionCompletedAt"><strong>완료 시간:</strong> {{ formatDate(row.conversionCompletedAt) }}</p>
+            </div>
+          </template>
+          <Tag color="error" class="cursor-help">변환 실패</Tag>
+        </Tooltip>
         <Tag v-else color="default">{{ row.status }}</Tag>
       </template>
 
       <template #action="{ row }">
         <div class="flex gap-2">
-          <Button type="link" size="small" @click="handlePlay(row)">재생 미리보기</Button>
+          <Button type="link" size="small" @click="handlePlay(row)" title="원본 영상 재생">
+            <IconifyIcon icon="lucide:play" class="size-4" />
+          </Button>
+          <Button type="link" size="small" @click="handleEdit(row)" title="동영상 정보 수정">
+            <IconifyIcon icon="lucide:edit-3" class="size-4" />
+          </Button>
+          <Button v-if="row.hasWebm && row.webmUrl" type="link" size="small" @click="handlePlayWebm(row)" title="변환 영상(WebM) 재생">
+            <IconifyIcon icon="lucide:film" class="size-4 text-success" />
+          </Button>
+          <Button v-if="row.status === 'FAILED'" type="link" size="small" @click="handleRetryThumbnail(row)" title="썸네일 재추출">
+            <IconifyIcon icon="lucide:image" class="size-4" />
+          </Button>
+          <Button v-if="row.status === 'FAILED'" type="link" size="small" @click="handleRetryWebm(row)" title="WebM 재변환">
+            <IconifyIcon icon="lucide:refresh-cw" class="size-4" />
+          </Button>
           <Popconfirm title="해당 동영상을 삭제하시겠습니까?" @confirm="handleDelete(row)">
-            <Button type="link" size="small" danger>삭제</Button>
+            <Button type="link" size="small" danger>
+              <IconifyIcon icon="lucide:trash-2" class="size-4" />
+            </Button>
           </Popconfirm>
         </div>
       </template>
@@ -146,6 +216,7 @@ function handleClosePlayer() {
         ></video>
       </div>
     </Modal>
+
   </Page>
 </template>
 

@@ -1,10 +1,11 @@
 <script lang="ts" setup>
 import { ref } from 'vue';
 import { Page } from '@vben/common-ui';
-import { Plus } from '@vben/icons';
-import { Button, message, Popconfirm, Modal, Image } from 'ant-design-vue';
+import { Plus, IconifyIcon } from '@vben/icons';
+import { Button, message, Popconfirm, Modal, Tag, Tooltip } from 'ant-design-vue';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import { getMediaSources, deleteMediaSource } from '#/api/building';
+import { getMediaSources, deleteMediaSource, retryThumbnail, retryAudio } from '#/api/building';
+import ImagePreview from '#/components/ImagePreview.vue';
 import AudioUploadModal from './modules/audio-upload-modal.vue';
 
 const uploadModalRef = ref<InstanceType<typeof AudioUploadModal> | null>(null);
@@ -19,6 +20,7 @@ const [Grid, gridApi] = useVbenVxeGrid({
     columns: [
       { field: 'thumbnailUrl', title: '커버', width: 80, slots: { default: 'thumbnail' } },
       { field: 'name', title: '음원/배경음악 명칭', minWidth: 180 },
+      { field: 'status', title: '상태', width: 100, slots: { default: 'status' } },
       { field: 'sortOrder', title: '순서', width: 80 },
       { field: 'url', title: '음원 URL 경로', minWidth: 280 },
       { field: 'remark', title: '설명', minWidth: 200 },
@@ -47,6 +49,39 @@ function openUpload() {
   }
 }
 
+function handleEdit(row: any) {
+  if (uploadModalRef.value) {
+    uploadModalRef.value.open(row);
+  }
+}
+
+function handlePlayOgg(row: any) {
+  currentAudioUrl.value = row.oggUrl;
+  currentAudioName.value = row.name + ' (OGG)';
+  currentAudioThumbnail.value = row.thumbnailUrl || '';
+  showPlayModal.value = true;
+}
+
+async function handleRetryCover(row: any) {
+  try {
+    await retryThumbnail(row.id);
+    message.success('커버이미지 재추출 요청이 처리되었습니다.');
+    gridApi.query();
+  } catch (error) {
+    message.error('커버 재추출 요청 실패');
+  }
+}
+
+async function handleRetryAudio(row: any) {
+  try {
+    await retryAudio(row.id);
+    message.success('오디오 재변환(OGG/AAC) 요청이 처리되었습니다. 변환이 백그라운드에서 실행됩니다.');
+    gridApi.query();
+  } catch (error) {
+    message.error('오디오 재변환 요청 실패');
+  }
+}
+
 async function handleDelete(row: any) {
   try {
     await deleteMediaSource(row.id);
@@ -70,6 +105,15 @@ function handleClosePlayer() {
   currentAudioThumbnail.value = '';
   showPlayModal.value = false;
 }
+
+function formatDate(dateStr?: string) {
+  if (!dateStr) return '-';
+  try {
+    return new Date(dateStr).toLocaleString('ko-KR');
+  } catch {
+    return dateStr;
+  }
+}
 </script>
 
 <template>
@@ -83,29 +127,57 @@ function handleClosePlayer() {
       </template>
 
       <template #thumbnail="{ row }">
-        <div class="flex items-center justify-center p-0.5">
-          <Image
-            v-if="row.thumbnailUrl"
-            :src="row.thumbnailUrl"
-            :width="40"
-            :height="40"
-            class="object-cover rounded shadow border cursor-zoom-in"
-            alt="Cover"
-          />
-          <div
-            v-else
-            class="w-10 h-10 bg-muted rounded flex items-center justify-center text-xs text-muted-foreground border"
-          >
-            🎵
-          </div>
-        </div>
+        <ImagePreview
+          :src="row.thumbnailUrl"
+          :width="40"
+          :height="40"
+          fallback-text="🎵"
+        />
+      </template>
+
+      <!-- 변환 상태 컬럼 슬롯 렌더러 -->
+      <template #status="{ row }">
+        <Tag v-if="row.status === 'COMPLETED'" color="success">완료</Tag>
+        <Tag v-else-if="row.status === 'READY'" color="ready">준비</Tag>
+        <Tag v-else-if="row.status === 'PROCESSING'" color="processing">변환 중</Tag>
+        <Tooltip v-else-if="row.status === 'FAILED'">
+          <template #title>
+            <div class="text-xs space-y-1 p-1 max-w-[360px] break-all">
+              <p><strong>오류 메시지:</strong> {{ row.errorMessage || '상세 에러 정보 없음' }}</p>
+              <div v-if="row.conversionCommand" class="mt-1">
+                <strong>실행 명령:</strong>
+                <pre class="bg-black/20 p-1 rounded text-[10px] whitespace-pre-wrap select-all font-mono">{{ row.conversionCommand }}</pre>
+              </div>
+              <p v-if="row.conversionStartedAt"><strong>시작 시간:</strong> {{ formatDate(row.conversionStartedAt) }}</p>
+              <p v-if="row.conversionCompletedAt"><strong>완료 시간:</strong> {{ formatDate(row.conversionCompletedAt) }}</p>
+            </div>
+          </template>
+          <Tag color="error" class="cursor-help">변환 실패</Tag>
+        </Tooltip>
+        <Tag v-else color="default">{{ row.status }}</Tag>
       </template>
 
       <template #action="{ row }">
         <div class="flex gap-2">
-          <Button type="link" size="small" @click="handlePlay(row)">음원 청취</Button>
+          <Button type="link" size="small" @click="handlePlay(row)" title="원본 음원 재생">
+            <IconifyIcon icon="lucide:play" class="size-4" />
+          </Button>
+          <Button type="link" size="small" @click="handleEdit(row)" title="음원 정보 수정">
+            <IconifyIcon icon="lucide:edit-3" class="size-4" />
+          </Button>
+          <Button v-if="row.hasOgg && row.oggUrl" type="link" size="small" @click="handlePlayOgg(row)" title="변환 음원(OGG) 청취">
+            <IconifyIcon icon="lucide:music" class="size-4 text-success" />
+          </Button>
+          <Button v-if="row.status === 'FAILED'" type="link" size="small" @click="handleRetryCover(row)" title="커버이미지 재추출">
+            <IconifyIcon icon="lucide:image" class="size-4" />
+          </Button>
+          <Button v-if="row.status === 'FAILED'" type="link" size="small" @click="handleRetryAudio(row)" title="음원(OGG/AAC) 재변환">
+            <IconifyIcon icon="lucide:refresh-cw" class="size-4" />
+          </Button>
           <Popconfirm title="해당 음원을 삭제하시겠습니까?" @confirm="handleDelete(row)">
-            <Button type="link" size="small" danger>삭제</Button>
+            <Button type="link" size="small" danger>
+              <IconifyIcon icon="lucide:trash-2" class="size-4" />
+            </Button>
           </Popconfirm>
         </div>
       </template>

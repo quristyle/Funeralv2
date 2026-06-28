@@ -214,8 +214,23 @@ export async function getMediaSources(type?: 'VIDEO' | 'AUDIO' | 'IMAGE') {
 export async function createMediaSource(data: Omit<BuildingApi.MediaSource, 'id'>) {
   return requestClient.post('/funeral/building/source', data);
 }
+export async function updateMediaSource(id: string, data: Omit<BuildingApi.MediaSource, 'id' | 'url' | 'thumbnailUrl' | 'status' | 'errorMessage'>) {
+  return requestClient.put(`/funeral/building/source/${id}`, data);
+}
 export async function deleteMediaSource(id: string) {
   return requestClient.delete(`/funeral/building/source/${id}`);
+}
+
+export async function retryThumbnail(id: string) {
+  return requestClient.post(`/funeral/building/source/${id}/retry/thumbnail`);
+}
+
+export async function retryWebm(id: string) {
+  return requestClient.post(`/funeral/building/source/${id}/retry/webm`);
+}
+
+export async function retryAudio(id: string) {
+  return requestClient.post(`/funeral/building/source/${id}/retry/audio`);
 }
 
 // === 고인 API ===

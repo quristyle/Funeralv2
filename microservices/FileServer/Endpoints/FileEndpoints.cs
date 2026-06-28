@@ -47,6 +47,49 @@ public static class FileEndpoints
                               metadata.OriginalName.EndsWith(".mp4", StringComparison.OrdinalIgnoreCase) ||
                               metadata.OriginalName.EndsWith(".mkv", StringComparison.OrdinalIgnoreCase) ||
                               metadata.OriginalName.EndsWith(".avi", StringComparison.OrdinalIgnoreCase);
+                var isAudio = metadata.ContentType.StartsWith("audio/", StringComparison.OrdinalIgnoreCase) ||
+                              metadata.OriginalName.EndsWith(".mp3", StringComparison.OrdinalIgnoreCase) ||
+                              metadata.OriginalName.EndsWith(".wav", StringComparison.OrdinalIgnoreCase) ||
+                              metadata.OriginalName.EndsWith(".ogg", StringComparison.OrdinalIgnoreCase) ||
+                              metadata.OriginalName.EndsWith(".aac", StringComparison.OrdinalIgnoreCase) ||
+                              metadata.OriginalName.EndsWith(".flac", StringComparison.OrdinalIgnoreCase) ||
+                              metadata.OriginalName.EndsWith(".m4a", StringComparison.OrdinalIgnoreCase);
+
+                Guid? thumbnailFileId = null;
+                string? thumbnailUrl = null;
+
+                if (isVideo)
+                {
+                    try
+                    {
+                        var thumbMeta = await fileService.ExtractVideoThumbnailAsync(metadata.Id);
+                        if (thumbMeta != null)
+                        {
+                            thumbnailFileId = thumbMeta.Id;
+                            thumbnailUrl = $"/api/file/download/{thumbMeta.Id}";
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[Upload Direct Thumbnail Extraction Failed] {ex.Message}");
+                    }
+                }
+                else if (isAudio)
+                {
+                    try
+                    {
+                        var thumbMeta = await fileService.ExtractAudioAlbumArtAsync(metadata.Id);
+                        if (thumbMeta != null)
+                        {
+                            thumbnailFileId = thumbMeta.Id;
+                            thumbnailUrl = $"/api/file/download/{thumbMeta.Id}";
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[Upload Direct AlbumArt Extraction Failed] {ex.Message}");
+                    }
+                }
 
                 return Results.Ok(ApiResponse<object>.Ok(new
                 {
@@ -56,9 +99,11 @@ public static class FileEndpoints
                     contentType = metadata.ContentType,
                     isImage = metadata.IsImage,
                     isVideo = isVideo,
+                    isAudio = isAudio,
                     createdAt = metadata.CreatedAt,
                     downloadUrl = $"/api/file/download/{metadata.Id}",
-                    thumbnailLink = isVideo ? $"/api/file/download/{metadata.Id}.jpg" : null
+                    thumbnailFileId = thumbnailFileId,
+                    thumbnailUrl = thumbnailUrl
                 }));
             }
             catch (Exception ex)
@@ -321,7 +366,7 @@ public static class FileEndpoints
                 groupId = parsedGroupId;
             }
 
-            string bizType = "GENERAL";
+            string bizType = "basecom";
             if (form.TryGetValue("bizType", out var bizTypeStr))
             {
                 bizType = bizTypeStr.ToString();
@@ -462,6 +507,54 @@ public static class FileEndpoints
             }
         })
         .WithName("TriggerMediaTranscoding")
+        .WithOpenApi();
+
+        // 10-1. 썸네일 단독 재추출 API
+        group.MapPost("/transcode/thumbnail/{id:guid}", async Task<IResult> (Guid id, [FromServices] IFileService fileService) =>
+        {
+            try
+            {
+                await fileService.StartVideoThumbnailExtractionAsync(id);
+                return Results.Ok(ApiResponse<object>.Ok(new { message = "썸네일 추출 작업이 트리거되었습니다." }));
+            }
+            catch (Exception ex)
+            {
+                return Results.Json(ApiResponse<object>.Fail("ERR_THUMBNAIL_TRIGGER_FAILED", ex.Message), statusCode: StatusCodes.Status500InternalServerError);
+            }
+        })
+        .WithName("TriggerThumbnailExtraction")
+        .WithOpenApi();
+
+        // 10-2. WebM 단독 재변환 API
+        group.MapPost("/transcode/webm/{id:guid}", async Task<IResult> (Guid id, [FromServices] IFileService fileService) =>
+        {
+            try
+            {
+                await fileService.StartVideoWebmTranscodingAsync(id);
+                return Results.Ok(ApiResponse<object>.Ok(new { message = "WebM 트랜스코딩 작업이 트리거되었습니다." }));
+            }
+            catch (Exception ex)
+            {
+                return Results.Json(ApiResponse<object>.Fail("ERR_WEBM_TRIGGER_FAILED", ex.Message), statusCode: StatusCodes.Status500InternalServerError);
+            }
+        })
+        .WithName("TriggerWebmTranscoding")
+        .WithOpenApi();
+
+        // 10-3. Audio 단독 인코딩 API (앨범아트 추출 생략)
+        group.MapPost("/transcode/audio-only/{id:guid}", async Task<IResult> (Guid id, [FromServices] IFileService fileService) =>
+        {
+            try
+            {
+                await fileService.StartAudioEncodingOnlyAsync(id);
+                return Results.Ok(ApiResponse<object>.Ok(new { message = "오디오 단독 트랜스코딩 작업이 트리거되었습니다." }));
+            }
+            catch (Exception ex)
+            {
+                return Results.Json(ApiResponse<object>.Fail("ERR_AUDIO_ONLY_TRIGGER_FAILED", ex.Message), statusCode: StatusCodes.Status500InternalServerError);
+            }
+        })
+        .WithName("TriggerAudioOnlyTranscoding")
         .WithOpenApi();
     }
 }

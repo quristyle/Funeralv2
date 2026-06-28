@@ -58,6 +58,10 @@ public class MediaSourceService : IMediaSourceService
             AacFileId = x.AacFileId,
             OriginalFileId = x.OriginalFileId,
             Status = x.Status,
+            ErrorMessage = x.ErrorMessage,
+            ConversionStartedAt = x.ConversionStartedAt,
+            ConversionCompletedAt = x.ConversionCompletedAt,
+            ConversionCommand = x.ConversionCommand,
             HasWebm = x.HasWebm,
             HasThumbnail = x.HasThumbnail,
             HasOgg = x.HasOgg,
@@ -99,8 +103,12 @@ public class MediaSourceService : IMediaSourceService
             AacFileId = dto.AacFileId,
             OriginalFileId = parsedOriginalFileId ?? dto.OriginalFileId,
             Status = dto.Status ?? "PROCESSING",
+            ErrorMessage = dto.ErrorMessage,
+            ConversionStartedAt = dto.ConversionStartedAt,
+            ConversionCompletedAt = dto.ConversionCompletedAt,
+            ConversionCommand = dto.ConversionCommand,
             HasWebm = dto.HasWebm,
-            HasThumbnail = dto.HasThumbnail,
+            HasThumbnail = dto.ThumbnailFileId.HasValue || !string.IsNullOrEmpty(dto.ThumbnailUrl) || dto.HasThumbnail,
             HasOgg = dto.HasOgg,
             HasAac = dto.HasAac,
             FileSize = dto.FileSize,
@@ -123,7 +131,15 @@ public class MediaSourceService : IMediaSourceService
                 {
                     var fileServerUrl = _configuration["FileServer:BaseUrl"] ?? "http://localhost:5350";
                     using var client = new HttpClient();
-                    var triggerUrl = $"{fileServerUrl.TrimEnd('/')}/transcode/{fileId}";
+                    
+                    // 비디오 소스인 경우 썸네일은 이미 업로드 시점에 생성되었으므로 WebM 변환만 트리거
+                    // 오디오 소스인 경우 앨범아트는 이미 업로드 시점에 생성되었으므로 오디오 단독 인코딩만 트리거
+                    var triggerUrl = dto.SourceType == "VIDEO"
+                        ? $"{fileServerUrl.TrimEnd('/')}/transcode/webm/{fileId}"
+                        : dto.SourceType == "AUDIO"
+                            ? $"{fileServerUrl.TrimEnd('/')}/transcode/audio-only/{fileId}"
+                            : $"{fileServerUrl.TrimEnd('/')}/transcode/{fileId}";
+                        
                     _logger.LogInformation("Triggering media transcoding at FileServer: {Url}", triggerUrl);
                     
                     var response = await client.PostAsync(triggerUrl, null);
@@ -153,6 +169,10 @@ public class MediaSourceService : IMediaSourceService
             AacFileId = source.AacFileId,
             OriginalFileId = source.OriginalFileId,
             Status = source.Status,
+            ErrorMessage = source.ErrorMessage,
+            ConversionStartedAt = source.ConversionStartedAt,
+            ConversionCompletedAt = source.ConversionCompletedAt,
+            ConversionCommand = source.ConversionCommand,
             HasWebm = source.HasWebm,
             HasThumbnail = source.HasThumbnail,
             HasOgg = source.HasOgg,
@@ -192,7 +212,27 @@ public class MediaSourceService : IMediaSourceService
 
         if (source == null) return null;
 
-        source.Status = dto.Status;
+        if (dto.Status != null)
+        {
+            source.Status = dto.Status;
+        }
+        
+        // 에러메시지는 상태가 변경되거나 값이 넘어왔을 때 업데이트
+        source.ErrorMessage = dto.ErrorMessage;
+
+        if (dto.ConversionStartedAt.HasValue)
+        {
+            source.ConversionStartedAt = dto.ConversionStartedAt.Value;
+        }
+        if (dto.ConversionCompletedAt.HasValue)
+        {
+            source.ConversionCompletedAt = dto.ConversionCompletedAt.Value;
+        }
+        if (dto.ConversionCommand != null)
+        {
+            source.ConversionCommand = dto.ConversionCommand;
+        }
+        
         if (dto.HasWebm.HasValue)
         {
             source.HasWebm = dto.HasWebm.Value;
@@ -265,6 +305,202 @@ public class MediaSourceService : IMediaSourceService
             AacFileId = source.AacFileId,
             OriginalFileId = source.OriginalFileId,
             Status = source.Status,
+            ErrorMessage = source.ErrorMessage,
+            ConversionStartedAt = source.ConversionStartedAt,
+            ConversionCompletedAt = source.ConversionCompletedAt,
+            ConversionCommand = source.ConversionCommand,
+            HasWebm = source.HasWebm,
+            HasThumbnail = source.HasThumbnail,
+            HasOgg = source.HasOgg,
+            HasAac = source.HasAac,
+            FileSize = source.FileSize,
+            SortOrder = source.SortOrder,
+            Remark = source.Remark
+        };
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> RetryThumbnailAsync(string id)
+    {
+        _logger.LogInformation("Retrying media thumbnail extraction. Id: {Id}", id);
+        
+        var source = await _context.Set<MediaSource>()
+            .FirstOrDefaultAsync(x => x.Id == id && !x.IsDeleted);
+
+        if (source == null || !source.OriginalFileId.HasValue)
+        {
+            _logger.LogWarning("Media source not found or has no OriginalFileId. Id: {Id}", id);
+            return false;
+        }
+
+        // 썸네일 정보 리셋 (상태 status는 유지)
+        source.HasThumbnail = false;
+        source.ThumbnailUrl = null;
+        source.ThumbnailFileId = null;
+
+        source.UpdatedAt = DateTime.UtcNow;
+        source.UpdatedBy = "System";
+
+        await _context.SaveChangesAsync();
+
+        // FileServer에 썸네일 재추출 작업 요청 트리거
+        var fileId = source.OriginalFileId.Value;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                var fileServerUrl = _configuration["FileServer:BaseUrl"] ?? "http://localhost:5350";
+                using var client = new HttpClient();
+                var triggerUrl = $"{fileServerUrl.TrimEnd('/')}/transcode/thumbnail/{fileId}";
+                _logger.LogInformation("Triggering media thumbnail extraction at FileServer: {Url}", triggerUrl);
+                
+                var response = await client.PostAsync(triggerUrl, null);
+                _logger.LogInformation("FileServer thumbnail trigger response: {StatusCode}", response.StatusCode);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to trigger media thumbnail extraction on FileServer for fileId: {FileId}", fileId);
+            }
+        });
+
+        return true;
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> RetryWebmAsync(string id)
+    {
+        _logger.LogInformation("Retrying media webm transcoding. Id: {Id}", id);
+        
+        var source = await _context.Set<MediaSource>()
+            .FirstOrDefaultAsync(x => x.Id == id && !x.IsDeleted);
+
+        if (source == null || !source.OriginalFileId.HasValue)
+        {
+            _logger.LogWarning("Media source not found or has no OriginalFileId. Id: {Id}", id);
+            return false;
+        }
+
+        // webm 변환 재시도 상태로 설정
+        source.Status = "PROCESSING";
+        source.ErrorMessage = null;
+        source.HasWebm = false;
+
+        source.UpdatedAt = DateTime.UtcNow;
+        source.UpdatedBy = "System";
+
+        await _context.SaveChangesAsync();
+
+        // FileServer에 webm 변환 작업 요청 트리거
+        var fileId = source.OriginalFileId.Value;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                var fileServerUrl = _configuration["FileServer:BaseUrl"] ?? "http://localhost:5350";
+                using var client = new HttpClient();
+                var triggerUrl = $"{fileServerUrl.TrimEnd('/')}/transcode/webm/{fileId}";
+                _logger.LogInformation("Triggering media webm transcoding at FileServer: {Url}", triggerUrl);
+                
+                var response = await client.PostAsync(triggerUrl, null);
+                _logger.LogInformation("FileServer webm trigger response: {StatusCode}", response.StatusCode);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to trigger media webm transcoding on FileServer for fileId: {FileId}", fileId);
+            }
+        });
+
+        return true;
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> RetryAudioAsync(string id)
+    {
+        _logger.LogInformation("Retrying media audio transcoding. Id: {Id}", id);
+        
+        var source = await _context.Set<MediaSource>()
+            .FirstOrDefaultAsync(x => x.Id == id && !x.IsDeleted);
+
+        if (source == null || !source.OriginalFileId.HasValue)
+        {
+            _logger.LogWarning("Media source not found or has no OriginalFileId. Id: {Id}", id);
+            return false;
+        }
+
+        // audio 변환 재시도 상태로 설정
+        source.Status = "PROCESSING";
+        source.ErrorMessage = null;
+        source.HasOgg = false;
+        source.HasAac = false;
+
+        source.UpdatedAt = DateTime.UtcNow;
+        source.UpdatedBy = "System";
+
+        await _context.SaveChangesAsync();
+
+        // FileServer에 audio 변환 작업 요청 트리거
+        var fileId = source.OriginalFileId.Value;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                var fileServerUrl = _configuration["FileServer:BaseUrl"] ?? "http://localhost:5350";
+                using var client = new HttpClient();
+                var triggerUrl = $"{fileServerUrl.TrimEnd('/')}/transcode/{fileId}";
+                _logger.LogInformation("Triggering media audio transcoding at FileServer: {Url}", triggerUrl);
+                
+                var response = await client.PostAsync(triggerUrl, null);
+                _logger.LogInformation("FileServer audio trigger response: {StatusCode}", response.StatusCode);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to trigger media audio transcoding on FileServer for fileId: {FileId}", fileId);
+            }
+        });
+
+        return true;
+    }
+
+    /// <inheritdoc />
+    public async Task<MediaSourceDto?> UpdateMediaSourceAsync(string id, MediaSourceUpdateDto dto)
+    {
+        _logger.LogInformation("Updating media source info. Id: {Id}", id);
+
+        var source = await _context.Set<MediaSource>()
+            .FirstOrDefaultAsync(x => x.Id == id && !x.IsDeleted);
+
+        if (source == null) return null;
+
+        source.Name = dto.Name;
+        source.ShortName = dto.ShortName;
+        source.SortOrder = dto.SortOrder;
+        source.Remark = dto.Remark;
+        source.UpdatedAt = DateTime.UtcNow;
+        source.UpdatedBy = "System";
+
+        await _context.SaveChangesAsync();
+
+        return new MediaSourceDto
+        {
+            Id = source.Id,
+            Name = source.Name,
+            ShortName = source.ShortName,
+            SourceType = source.SourceType,
+            Url = source.Url,
+            ThumbnailUrl = source.ThumbnailUrl,
+            ThumbnailFileId = source.ThumbnailFileId,
+            WebmUrl = source.WebmUrl,
+            WebmFileId = source.WebmFileId,
+            OggUrl = source.OggUrl,
+            OggFileId = source.OggFileId,
+            AacUrl = source.AacUrl,
+            AacFileId = source.AacFileId,
+            OriginalFileId = source.OriginalFileId,
+            Status = source.Status,
+            ErrorMessage = source.ErrorMessage,
+            ConversionStartedAt = source.ConversionStartedAt,
+            ConversionCompletedAt = source.ConversionCompletedAt,
+            ConversionCommand = source.ConversionCommand,
             HasWebm = source.HasWebm,
             HasThumbnail = source.HasThumbnail,
             HasOgg = source.HasOgg,

@@ -22,6 +22,10 @@ public class MediaSourceDto
     public Guid? AacFileId { get; set; }
     public Guid? OriginalFileId { get; set; }
     public string Status { get; set; } = "COMPLETED";
+    public string? ErrorMessage { get; set; }
+    public DateTime? ConversionStartedAt { get; set; }
+    public DateTime? ConversionCompletedAt { get; set; }
+    public string? ConversionCommand { get; set; }
     public bool HasWebm { get; set; }
     public bool HasThumbnail { get; set; }
     public bool HasOgg { get; set; }
@@ -56,7 +60,11 @@ public class MediaSourceCreateDto
     public string? AacUrl { get; set; }
     public Guid? AacFileId { get; set; }
     public Guid? OriginalFileId { get; set; }
-    public string Status { get; set; } = "READY";
+    public string Status { get; set; } = "PROCESSING";
+    public string? ErrorMessage { get; set; }
+    public DateTime? ConversionStartedAt { get; set; }
+    public DateTime? ConversionCompletedAt { get; set; }
+    public string? ConversionCommand { get; set; }
     public bool HasWebm { get; set; }
     public bool HasThumbnail { get; set; }
     public bool HasOgg { get; set; }
@@ -72,7 +80,11 @@ public class MediaSourceCreateDto
 /// </summary>
 public class MediaSourceStatusUpdateDto
 {
-    public string Status { get; set; } = "COMPLETED";
+    public string? Status { get; set; }
+    public string? ErrorMessage { get; set; }
+    public DateTime? ConversionStartedAt { get; set; }
+    public DateTime? ConversionCompletedAt { get; set; }
+    public string? ConversionCommand { get; set; }
     public bool? HasWebm { get; set; }
     public bool? HasThumbnail { get; set; }
     public bool? HasOgg { get; set; }
@@ -85,4 +97,15 @@ public class MediaSourceStatusUpdateDto
     public Guid? OggFileId { get; set; }
     public string? AacUrl { get; set; }
     public Guid? AacFileId { get; set; }
+}
+
+/// <summary>
+/// 미디어 소스 정보 수정 DTO
+/// </summary>
+public class MediaSourceUpdateDto
+{
+    public string Name { get; set; } = null!;
+    public string? ShortName { get; set; }
+    public int SortOrder { get; set; }
+    public string? Remark { get; set; }
 }

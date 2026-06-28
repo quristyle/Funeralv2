@@ -56,5 +56,57 @@ public static class MediaSourceEndpoints
         })
         .WithName("UpdateMediaSourceStatus")
         .WithOpenApi();
+
+        // 미디어 소스 썸네일 재추출
+        group.MapPost("/{id}/retry/thumbnail", async (string id, [FromServices] IMediaSourceService service) =>
+        {
+            var success = await service.RetryThumbnailAsync(id);
+            if (!success)
+            {
+                return Results.BadRequest(ApiResponse<bool>.Fail("썸네일 재추출 처리에 실패했습니다."));
+            }
+            return Results.Ok(true);
+        })
+        .WithName("RetryMediaSourceThumbnail")
+        .WithOpenApi();
+
+        // 미디어 소스 WebM 재변환
+        group.MapPost("/{id}/retry/webm", async (string id, [FromServices] IMediaSourceService service) =>
+        {
+            var success = await service.RetryWebmAsync(id);
+            if (!success)
+            {
+                return Results.BadRequest(ApiResponse<bool>.Fail("WebM 재변환 처리에 실패했습니다."));
+            }
+            return Results.Ok(true);
+        })
+        .WithName("RetryMediaSourceWebm")
+        .WithOpenApi();
+
+        // 미디어 소스 정보 수정
+        group.MapPut("/{id}", async (string id, [FromBody] MediaSourceUpdateDto dto, [FromServices] IMediaSourceService service) =>
+        {
+            var result = await service.UpdateMediaSourceAsync(id, dto);
+            if (result == null)
+            {
+                return Results.NotFound(ApiResponse<MediaSourceDto>.Fail("수정할 미디어 소스를 찾을 수 없습니다."));
+            }
+            return Results.Ok(result);
+        })
+        .WithName("UpdateMediaSource")
+        .WithOpenApi();
+
+        // 미디어 소스 Audio 재변환
+        group.MapPost("/{id}/retry/audio", async (string id, [FromServices] IMediaSourceService service) =>
+        {
+            var success = await service.RetryAudioAsync(id);
+            if (!success)
+            {
+                return Results.BadRequest(ApiResponse<bool>.Fail("오디오 재변환 처리에 실패했습니다."));
+            }
+            return Results.Ok(true);
+        })
+        .WithName("RetryMediaSourceAudio")
+        .WithOpenApi();
     }
 }

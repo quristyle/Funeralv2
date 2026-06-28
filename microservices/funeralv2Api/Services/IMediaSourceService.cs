@@ -26,4 +26,24 @@ public interface IMediaSourceService
     /// 미디어 리소스 변환 상태 업데이트
     /// </summary>
     Task<MediaSourceDto?> UpdateMediaSourceStatusAsync(string id, MediaSourceStatusUpdateDto dto);
+
+    /// <summary>
+    /// 미디어 리소스 썸네일 재추출
+    /// </summary>
+    Task<bool> RetryThumbnailAsync(string id);
+
+    /// <summary>
+    /// 미디어 리소스 webm 재변환
+    /// </summary>
+    Task<bool> RetryWebmAsync(string id);
+
+    /// <summary>
+    /// 미디어 리소스 audio 재변환
+    /// </summary>
+    Task<bool> RetryAudioAsync(string id);
+
+    /// <summary>
+    /// 미디어 리소스 정보 수정
+    /// </summary>
+    Task<MediaSourceDto?> UpdateMediaSourceAsync(string id, MediaSourceUpdateDto dto);
 }

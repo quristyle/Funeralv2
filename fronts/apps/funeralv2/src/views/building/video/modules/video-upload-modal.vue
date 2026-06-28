@@ -2,7 +2,7 @@
 import { ref } from 'vue';
 import { useVbenModal } from '@vben/common-ui';
 import { Button, message, Form, Input, Upload, InputNumber, Progress } from 'ant-design-vue';
-import { createMediaSource } from '#/api/building';
+import { createMediaSource, updateMediaSource } from '#/api/building';
 import { upload_file } from '#/api/examples/upload';
 import type { UploadChangeParam } from 'ant-design-vue';
 
@@ -13,6 +13,8 @@ const emit = defineEmits<{
 const isUploading = ref<boolean>(false);
 const uploadPercent = ref<number>(0);
 const selectedFileName = ref<string>('');
+const isEditMode = ref<boolean>(false);
+const currentSourceId = ref<string>('');
 
 const formModel = ref({
   name: '',
@@ -20,6 +22,7 @@ const formModel = ref({
   sourceType: 'VIDEO' as const,
   url: '',
   thumbnailUrl: '',
+  thumbnailFileId: null as string | null,
   sortOrder: 0,
   remark: ''
 });
@@ -32,18 +35,40 @@ const [UploadModal, uploadModalApi] = useVbenModal({
   }
 });
 
-function open() {
-  formModel.value = {
-    name: '',
-    shortName: '',
-    sourceType: 'VIDEO',
-    url: '',
-    thumbnailUrl: '',
-    sortOrder: 0,
-    remark: ''
-  };
-  selectedFileName.value = '';
-  uploadPercent.value = 0;
+function open(row?: any) {
+  if (row) {
+    isEditMode.value = true;
+    currentSourceId.value = row.id;
+    formModel.value = {
+      name: row.name || '',
+      shortName: row.shortName || '',
+      sourceType: 'VIDEO',
+      url: row.url || '',
+      thumbnailUrl: row.thumbnailUrl || '',
+      thumbnailFileId: row.thumbnailFileId || null,
+      sortOrder: row.sortOrder || 0,
+      remark: row.remark || ''
+    };
+    selectedFileName.value = '';
+    uploadPercent.value = 0;
+    uploadModalApi.setState({ title: '동영상 리소스 수정' });
+  } else {
+    isEditMode.value = false;
+    currentSourceId.value = '';
+    formModel.value = {
+      name: '',
+      shortName: '',
+      sourceType: 'VIDEO',
+      url: '',
+      thumbnailUrl: '',
+      thumbnailFileId: null,
+      sortOrder: 0,
+      remark: ''
+    };
+    selectedFileName.value = '';
+    uploadPercent.value = 0;
+    uploadModalApi.setState({ title: '새 비디오 리소스 등록' });
+  }
   uploadModalApi.open();
 }
 
@@ -55,12 +80,17 @@ async function handleSave() {
     }
 
     uploadModalApi.lock();
-    await createMediaSource(formModel.value);
-    message.success('동영상 소스가 성공적으로 등록되었습니다.');
+    if (isEditMode.value) {
+      await updateMediaSource(currentSourceId.value, formModel.value);
+      message.success('동영상 소스가 성공적으로 수정되었습니다.');
+    } else {
+      await createMediaSource(formModel.value);
+      message.success('동영상 소스가 성공적으로 등록되었습니다.');
+    }
     uploadModalApi.close();
     emit('saved');
   } catch (error) {
-    message.error('비디오 리소스 등록 실패');
+    message.error(isEditMode.value ? '비디오 리소스 수정 실패' : '비디오 리소스 등록 실패');
   } finally {
     uploadModalApi.unlock();
   }
@@ -91,9 +121,15 @@ async function customUploadRequest(options: any) {
       onSuccess: (res, file) => {
         const fileItem = res?.result?.[0] || res?.[0] || res;
         const fileUrl = fileItem?.downloadUrl || fileItem?.url;
+        const thumbnailFileId = fileItem?.thumbnailFileId;
+        const thumbnailUrl = fileItem?.thumbnailUrl;
 
         if (fileUrl && typeof fileUrl === 'string') {
           formModel.value.url = fileUrl;
+          if (thumbnailUrl) {
+            formModel.value.thumbnailUrl = thumbnailUrl;
+            formModel.value.thumbnailFileId = thumbnailFileId;
+          }
           
           if (!formModel.value.name) {
             formModel.value.name = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
@@ -133,7 +169,8 @@ defineExpose({ open });
   <UploadModal :confirm-loading="isUploading">
     <div class="p-6">
       <Form layout="vertical">
-        <Form.Item label="영상 파일 업로드 (최대 500MB)" required>
+        <!-- 등록 모드일 때만 업로드 기능 허용 -->
+        <Form.Item v-if="!isEditMode" label="영상 파일 업로드 (최대 500MB)" required>
           <Upload
             accept="video/mp4,video/mkv,video/avi,video/webm"
             :custom-request="customUploadRequest"
@@ -154,9 +191,25 @@ defineExpose({ open });
             <Progress :percent="uploadPercent" size="small" status="active" />
           </div>
 
-          <div v-if="formModel.url" class="mt-2 text-xs text-muted-foreground break-all bg-muted p-2 rounded">
-            <div>업로드된 경로: {{ formModel.url }}</div>
-            <div class="mt-1 text-primary font-medium">※ 비디오 썸네일 및 WebM 변환은 저장 완료 시점 이후에 비동기로 순차 진행됩니다.</div>
+          <div v-if="formModel.url" class="mt-2 text-xs text-muted-foreground break-all bg-muted p-3 rounded border flex gap-3 items-center">
+            <img v-if="formModel.thumbnailUrl" :src="formModel.thumbnailUrl" class="w-24 h-16 object-cover rounded border shadow-sm" alt="추출된 썸네일" />
+            <div v-else class="w-24 h-16 bg-black/5 rounded border flex items-center justify-center text-[10px]">썸네일 없음</div>
+            <div class="flex-1 space-y-1">
+              <div>업로드된 경로: {{ formModel.url }}</div>
+              <div class="text-primary font-medium text-[10px]">※ 비디오 업로드 후 썸네일이 즉시 추출되었습니다. WebM 변환은 저장 후 백그라운드에서 실행됩니다.</div>
+            </div>
+          </div>
+        </Form.Item>
+
+        <!-- 수정 모드일 때 업로드 경로 정보만 조회 -->
+        <Form.Item v-else label="등록된 영상 파일 정보">
+          <div class="mt-2 text-xs text-muted-foreground break-all bg-muted p-3 rounded border flex gap-3 items-center">
+            <img v-if="formModel.thumbnailUrl" :src="formModel.thumbnailUrl" class="w-24 h-16 object-cover rounded border shadow-sm" alt="추출된 썸네일" />
+            <div v-else class="w-24 h-16 bg-black/5 rounded border flex items-center justify-center text-[10px]">썸네일 없음</div>
+            <div class="flex-1 space-y-1">
+              <div>파일 경로: {{ formModel.url }}</div>
+              <div class="text-primary font-medium text-[10px]">※ 수정 모드에서는 원본 영상 파일을 변경할 수 없습니다.</div>
+            </div>
           </div>
         </Form.Item>
 

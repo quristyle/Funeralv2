@@ -101,6 +101,26 @@ public class MediaSource : BaseEntity<string>
     public string Status { get; set; } = "COMPLETED";
 
     /// <summary>
+    /// 미디어 변환 실패 시 발생한 에러 메시지
+    /// </summary>
+    public string? ErrorMessage { get; set; }
+
+    /// <summary>
+    /// 변환 시작 일시
+    /// </summary>
+    public DateTime? ConversionStartedAt { get; set; }
+
+    /// <summary>
+    /// 변환 완료 일시
+    /// </summary>
+    public DateTime? ConversionCompletedAt { get; set; }
+
+    /// <summary>
+    /// 변환 시 사용된 FFmpeg 명령어
+    /// </summary>
+    public string? ConversionCommand { get; set; }
+
+    /// <summary>
     /// WebM 파일 변환 완료 여부
     /// </summary>
     public bool HasWebm { get; set; }

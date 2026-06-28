@@ -36,7 +36,22 @@ public class FileService : IFileService
 
     private string GetBizFolder(string? bizType)
     {
-        return string.IsNullOrEmpty(bizType) ? "basecom" : bizType.Trim().ToLower();
+        if (string.IsNullOrWhiteSpace(bizType))
+        {
+            return "basecom";
+        }
+
+        var trimmed = bizType.Trim();
+        if (trimmed.Equals("null", StringComparison.OrdinalIgnoreCase) || 
+            trimmed.Equals("undefined", StringComparison.OrdinalIgnoreCase) || 
+            trimmed.Equals("general", StringComparison.OrdinalIgnoreCase))
+        {
+            return "basecom";
+        }
+
+        // 경로 탐색(/, \, ..) 등의 비정상 문자 제거 및 소문자 정화
+        var safeFolder = trimmed.Replace("/", "").Replace("\\", "").Replace("..", "");
+        return string.IsNullOrEmpty(safeFolder) ? "basecom" : safeFolder.ToLower();
     }
 
     private string GetPath(string? bizType, string folderName)
@@ -201,19 +216,23 @@ public class FileService : IFileService
             //--------------------------------------------------
             _ = Task.Run(async () =>
             {
+                var conversionStartedAt = DateTime.UtcNow;
+                var args = $"-i \"{physicalPath}\" " +
+                           "-vf \"scale='min(1920,iw)':'min(1080,ih)':force_original_aspect_ratio=decrease,scale=trunc(iw/2)*2:trunc(ih/2)*2\" " +
+                           "-c:v libvpx-vp9 " +
+                           "-crf 30 " +
+                           "-b:v 0 " +
+                           "-row-mt 1 " +
+                           "-cpu-used 4 " +
+                           "-threads 2 " +
+                           "-c:a libopus " +
+                           $"\"{webmPath}\" -y";
                 try
                 {
-                    var args = $"-i \"{physicalPath}\" " +
-                               "-c:v libvpx-vp9 " +
-                               "-crf 30 " +
-                               "-b:v 0 " +
-                               "-threads 2 " +
-                               "-c:a libopus " +
-                               $"\"{webmPath}\" -y";
-
                     Console.WriteLine("[WebM] Start");
-                    var result = await RunFfmpegAsync(args, TimeSpan.FromMinutes(6));
+                    var result = await RunFfmpegAsync(args, TimeSpan.FromMinutes(30));
                     Console.WriteLine($"[WebM] Success={result.Success}");
+                    var conversionCompletedAt = DateTime.UtcNow;
 
                     if (!result.Success)
                     {
@@ -246,11 +265,207 @@ public class FileService : IFileService
 
                     await NotifyStatusAsync(fileId, result.Success ? "COMPLETED" : "FAILED", true, result.Success, 
                         webmUrl: result.Success ? $"/api/file/download/{webmFileId}" : null, 
-                        webmFileId: result.Success ? webmFileId : null);
+                        webmFileId: result.Success ? webmFileId : null,
+                        errorMessage: result.Success ? null : result.StdErr,
+                        conversionStartedAt: conversionStartedAt,
+                        conversionCompletedAt: conversionCompletedAt,
+                        conversionCommand: args);
                 }
                 catch (Exception ex)
                 {
                     Console.WriteLine(ex);
+                    try
+                    {
+                        await NotifyStatusAsync(fileId, "FAILED", errorMessage: ex.Message,
+                            conversionStartedAt: conversionStartedAt,
+                            conversionCompletedAt: DateTime.UtcNow,
+                            conversionCommand: args);
+                    }
+                    catch (Exception notifyEx)
+                    {
+                        Console.WriteLine($"Failed to notify FAILED status in catch block: {notifyEx.Message}");
+                    }
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex);
+            throw;
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task StartVideoThumbnailExtractionAsync(Guid fileId)
+    {
+        var metadata = await _dbContext.FileMetadatas.FirstOrDefaultAsync(x => x.Id == fileId && !x.IsDeleted);
+        if (metadata == null)
+        {
+            throw new FileNotFoundException("변환할 비디오 파일의 메타데이터를 찾을 수 없습니다.");
+        }
+
+        var physicalPath = Path.Combine(_localPathRoot, metadata.Path.Replace('/', Path.DirectorySeparatorChar));
+        var pathSegments = metadata.Path.Split('/');
+        var bizType = pathSegments.Length > 0 ? pathSegments[0] : "basecom";
+        var videoFolder = GetPath(bizType, "Video");
+
+        try
+        {
+            var thumbFileId = Guid.NewGuid();
+            var thumbStoredName = $"{thumbFileId}.jpg";
+            var thumbnailImagePath = Path.Combine(videoFolder, thumbStoredName);
+
+            //--------------------------------------------------
+            // Thumbnail Extraction
+            //--------------------------------------------------
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    var args = $"-ss 00:00:00 -i \"{physicalPath}\" -vframes 1 -q:v 2 \"{thumbnailImagePath}\" -y";
+                    Console.WriteLine("[Thumbnail Extraction] Start");
+                    var result = await RunFfmpegAsync(args, TimeSpan.FromSeconds(30));
+                    Console.WriteLine($"[Thumbnail Extraction] Success={result.Success}");
+
+                    if (!result.Success)
+                    {
+                        Console.WriteLine(result.StdErr);
+                        return;
+                    }
+
+                    var fileInfo = new FileInfo(thumbnailImagePath);
+                    var thumbMetadata = new FileMetadata
+                    {
+                        Id = thumbFileId,
+                        OriginalName = Path.GetFileNameWithoutExtension(metadata.OriginalName) + "_thumb.jpg",
+                        StoredName = thumbStoredName,
+                        Path = $"{GetBizFolder(bizType)}/Video/{thumbStoredName}",
+                        Size = fileInfo.Exists ? fileInfo.Length : 0,
+                        ContentType = "image/jpeg",
+                        CreatedBy = "System",
+                        CreatedAt = DateTime.UtcNow,
+                        IsDeleted = false
+                    };
+
+                    using (var scope = _scopeFactory.CreateScope())
+                    {
+                        var dbContext = scope.ServiceProvider.GetRequiredService<FileDbContext>();
+                        dbContext.FileMetadatas.Add(thumbMetadata);
+                        await dbContext.SaveChangesAsync();
+                    }
+
+                    await NotifyStatusAsync(fileId, null!, hasThumbnail: true, 
+                        thumbnailUrl: $"/api/file/download/{thumbFileId}", 
+                        thumbnailFileId: thumbFileId);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(ex);
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex);
+            throw;
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task StartVideoWebmTranscodingAsync(Guid fileId)
+    {
+        var metadata = await _dbContext.FileMetadatas.FirstOrDefaultAsync(x => x.Id == fileId && !x.IsDeleted);
+        if (metadata == null)
+        {
+            throw new FileNotFoundException("변환할 비디오 파일의 메타데이터를 찾을 수 없습니다.");
+        }
+
+        var physicalPath = Path.Combine(_localPathRoot, metadata.Path.Replace('/', Path.DirectorySeparatorChar));
+        var pathSegments = metadata.Path.Split('/');
+        var bizType = pathSegments.Length > 0 ? pathSegments[0] : "basecom";
+        var videoFolder = GetPath(bizType, "Video");
+
+        try
+        {
+            var webmFileId = Guid.NewGuid();
+            var webmStoredName = $"{webmFileId}.webm";
+            var webmPath = Path.Combine(videoFolder, webmStoredName);
+
+            //--------------------------------------------------
+            // WEBM Transcoding
+            //--------------------------------------------------
+            _ = Task.Run(async () =>
+            {
+                var conversionStartedAt = DateTime.UtcNow;
+                var args = $"-i \"{physicalPath}\" " +
+                           "-vf \"scale='min(1920,iw)':'min(1080,ih)':force_original_aspect_ratio=decrease,scale=trunc(iw/2)*2:trunc(ih/2)*2\" " +
+                           "-c:v libvpx-vp9 " +
+                           "-crf 30 " +
+                           "-b:v 0 " +
+                           "-row-mt 1 " +
+                           "-cpu-used 4 " +
+                           "-threads 2 " +
+                           "-c:a libopus " +
+                           $"\"{webmPath}\" -y";
+                try
+                {
+                    Console.WriteLine("[WebM Transcoding] Start");
+                    var result = await RunFfmpegAsync(args, TimeSpan.FromMinutes(30));
+                    Console.WriteLine($"[WebM Transcoding] Success={result.Success}");
+                    var conversionCompletedAt = DateTime.UtcNow;
+
+                    if (!result.Success)
+                    {
+                        Console.WriteLine(result.StdErr);
+                    }
+
+                    if (result.Success)
+                    {
+                        var fileInfo = new FileInfo(webmPath);
+                        var webmMetadata = new FileMetadata
+                        {
+                            Id = webmFileId,
+                            OriginalName = Path.GetFileNameWithoutExtension(metadata.OriginalName) + ".webm",
+                            StoredName = webmStoredName,
+                            Path = $"{GetBizFolder(bizType)}/Video/{webmStoredName}",
+                            Size = fileInfo.Exists ? fileInfo.Length : 0,
+                            ContentType = "video/webm",
+                            CreatedBy = "System",
+                            CreatedAt = DateTime.UtcNow,
+                            IsDeleted = false
+                        };
+
+                        using (var scope = _scopeFactory.CreateScope())
+                        {
+                            var dbContext = scope.ServiceProvider.GetRequiredService<FileDbContext>();
+                            dbContext.FileMetadatas.Add(webmMetadata);
+                            await dbContext.SaveChangesAsync();
+                        }
+                    }
+
+                    await NotifyStatusAsync(fileId, result.Success ? "COMPLETED" : "FAILED", 
+                        hasWebm: result.Success, 
+                        webmUrl: result.Success ? $"/api/file/download/{webmFileId}" : null, 
+                        webmFileId: result.Success ? webmFileId : null,
+                        errorMessage: result.Success ? null : result.StdErr,
+                        conversionStartedAt: conversionStartedAt,
+                        conversionCompletedAt: conversionCompletedAt,
+                        conversionCommand: args);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(ex);
+                    try
+                    {
+                        await NotifyStatusAsync(fileId, "FAILED", errorMessage: ex.Message,
+                            conversionStartedAt: conversionStartedAt,
+                            conversionCompletedAt: DateTime.UtcNow,
+                            conversionCommand: args);
+                    }
+                    catch (Exception notifyEx)
+                    {
+                        Console.WriteLine($"Failed to notify FAILED status in catch block: {notifyEx.Message}");
+                    }
                 }
             });
         }
@@ -360,12 +575,14 @@ public class FileService : IFileService
             //--------------------------------------------------
             _ = Task.Run(async () =>
             {
+                var conversionStartedAt = DateTime.UtcNow;
+                var args = $"-i \"{physicalPath}\" -c:a libopus -b:a 96k -vn \"{oggPath}\" -y";
                 try
                 {
-                    var args = $"-i \"{physicalPath}\" -c:a libopus -b:a 96k -vn \"{oggPath}\" -y";
                     Console.WriteLine("[OGG Audio] Start");
                     var result = await RunFfmpegAsync(args, TimeSpan.FromMinutes(3));
                     Console.WriteLine($"[OGG Audio] Success={result.Success}");
+                    var conversionCompletedAt = DateTime.UtcNow;
 
                     if (result.Success)
                     {
@@ -392,16 +609,34 @@ public class FileService : IFileService
 
                         await NotifyStatusAsync(fileId, "PROCESSING", false, false, hasOgg: true, 
                             oggUrl: $"/api/file/download/{oggFileId}", 
-                            oggFileId: oggFileId);
+                            oggFileId: oggFileId,
+                            conversionStartedAt: conversionStartedAt,
+                            conversionCompletedAt: conversionCompletedAt,
+                            conversionCommand: args);
                     }
                     else
                     {
                         Console.WriteLine(result.StdErr);
+                        await NotifyStatusAsync(fileId, "FAILED", errorMessage: result.StdErr,
+                            conversionStartedAt: conversionStartedAt,
+                            conversionCompletedAt: conversionCompletedAt,
+                            conversionCommand: args);
                     }
                 }
                 catch (Exception ex)
                 {
                     Console.WriteLine(ex);
+                    try
+                    {
+                        await NotifyStatusAsync(fileId, "FAILED", errorMessage: ex.Message,
+                            conversionStartedAt: conversionStartedAt,
+                            conversionCompletedAt: DateTime.UtcNow,
+                            conversionCommand: args);
+                    }
+                    catch (Exception notifyEx)
+                    {
+                        Console.WriteLine($"Failed to notify FAILED status in catch block: {notifyEx.Message}");
+                    }
                 }
             });
 
@@ -410,12 +645,14 @@ public class FileService : IFileService
             //--------------------------------------------------
             _ = Task.Run(async () =>
             {
+                var conversionStartedAt = DateTime.UtcNow;
+                var args = $"-i \"{physicalPath}\" -c:a aac -b:a 128k -vn \"{aacPath}\" -y";
                 try
                 {
-                    var args = $"-i \"{physicalPath}\" -c:a aac -b:a 128k -vn \"{aacPath}\" -y";
                     Console.WriteLine("[AAC Audio] Start");
                     var result = await RunFfmpegAsync(args, TimeSpan.FromMinutes(3));
                     Console.WriteLine($"[AAC Audio] Success={result.Success}");
+                    var conversionCompletedAt = DateTime.UtcNow;
 
                     if (result.Success)
                     {
@@ -442,17 +679,218 @@ public class FileService : IFileService
 
                         await NotifyStatusAsync(fileId, "COMPLETED", false, false, hasAac: true, 
                             aacUrl: $"/api/file/download/{aacFileId}", 
-                            aacFileId: aacFileId);
+                            aacFileId: aacFileId,
+                            conversionStartedAt: conversionStartedAt,
+                            conversionCompletedAt: conversionCompletedAt,
+                            conversionCommand: args);
                     }
                     else
                     {
                         Console.WriteLine(result.StdErr);
-                        await NotifyStatusAsync(fileId, "FAILED", false, false);
+                        await NotifyStatusAsync(fileId, "FAILED", false, false, errorMessage: result.StdErr,
+                            conversionStartedAt: conversionStartedAt,
+                            conversionCompletedAt: conversionCompletedAt,
+                            conversionCommand: args);
                     }
                 }
                 catch (Exception ex)
                 {
                     Console.WriteLine(ex);
+                    try
+                    {
+                        await NotifyStatusAsync(fileId, "FAILED", errorMessage: ex.Message,
+                            conversionStartedAt: conversionStartedAt,
+                            conversionCompletedAt: DateTime.UtcNow,
+                            conversionCommand: args);
+                    }
+                    catch (Exception notifyEx)
+                    {
+                        Console.WriteLine($"Failed to notify FAILED status in catch block: {notifyEx.Message}");
+                    }
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex);
+            throw;
+        }
+    }
+
+
+    /// <inheritdoc />
+    public async Task StartAudioEncodingOnlyAsync(Guid fileId)
+    {
+        var metadata = await _dbContext.FileMetadatas.FirstOrDefaultAsync(x => x.Id == fileId && !x.IsDeleted);
+        if (metadata == null)
+        {
+            throw new FileNotFoundException("변환할 오디오 파일의 메타데이터를 찾을 수 없습니다.");
+        }
+
+        var extension = Path.GetExtension(metadata.OriginalName);
+        var isAudio = metadata.ContentType.StartsWith("audio/", StringComparison.OrdinalIgnoreCase) || 
+                      extension.Equals(".mp3", StringComparison.OrdinalIgnoreCase) ||
+                      extension.Equals(".wav", StringComparison.OrdinalIgnoreCase) ||
+                      extension.Equals(".mpeg", StringComparison.OrdinalIgnoreCase) ||
+                      extension.Equals(".ogg", StringComparison.OrdinalIgnoreCase);
+
+        if (!isAudio)
+        {
+            throw new InvalidOperationException("오디오 파일만 트랜스코딩 처리가 가능합니다.");
+        }
+
+        var physicalPath = Path.Combine(_localPathRoot, metadata.Path.Replace('/', Path.DirectorySeparatorChar));
+        var pathSegments = metadata.Path.Split('/');
+        var bizType = pathSegments.Length > 0 ? pathSegments[0] : "basecom";
+        var audioFolder = GetPath(bizType, "Audio");
+
+        try
+        {
+            var oggFileId = Guid.NewGuid();
+            var oggStoredName = $"{oggFileId}.ogg";
+            var oggPath = Path.Combine(audioFolder, oggStoredName);
+
+            var aacFileId = Guid.NewGuid();
+            var aacStoredName = $"{aacFileId}.aac";
+            var aacPath = Path.Combine(audioFolder, aacStoredName);
+
+            //--------------------------------------------------
+            // OGG 변환 (Libopus 코덱 사용, 96k, 앨범아트 비디오 스트림을 배제하기 위해 -vn 추가)
+            //--------------------------------------------------
+            _ = Task.Run(async () =>
+            {
+                var conversionStartedAt = DateTime.UtcNow;
+                var args = $"-i \"{physicalPath}\" -c:a libopus -b:a 96k -vn \"{oggPath}\" -y";
+                try
+                {
+                    Console.WriteLine("[OGG Audio Only] Start");
+                    var result = await RunFfmpegAsync(args, TimeSpan.FromMinutes(3));
+                    Console.WriteLine($"[OGG Audio Only] Success={result.Success}");
+                    var conversionCompletedAt = DateTime.UtcNow;
+
+                    if (result.Success)
+                    {
+                        var fileInfo = new FileInfo(oggPath);
+                        var oggMetadata = new FileMetadata
+                        {
+                            Id = oggFileId,
+                            OriginalName = Path.GetFileNameWithoutExtension(metadata.OriginalName) + ".ogg",
+                            StoredName = oggStoredName,
+                            Path = $"{GetBizFolder(bizType)}/Audio/{oggStoredName}",
+                            Size = fileInfo.Exists ? fileInfo.Length : 0,
+                            ContentType = "audio/ogg",
+                            CreatedBy = "System",
+                            CreatedAt = DateTime.UtcNow,
+                            IsDeleted = false
+                        };
+
+                        using (var scope = _scopeFactory.CreateScope())
+                        {
+                            var dbContext = scope.ServiceProvider.GetRequiredService<FileDbContext>();
+                            dbContext.FileMetadatas.Add(oggMetadata);
+                            await dbContext.SaveChangesAsync();
+                        }
+
+                        await NotifyStatusAsync(fileId, "PROCESSING", false, false, hasOgg: true, 
+                            oggUrl: $"/api/file/download/{oggFileId}", 
+                            oggFileId: oggFileId,
+                            conversionStartedAt: conversionStartedAt,
+                            conversionCompletedAt: conversionCompletedAt,
+                            conversionCommand: args);
+                    }
+                    else
+                    {
+                        Console.WriteLine(result.StdErr);
+                        await NotifyStatusAsync(fileId, "FAILED", errorMessage: result.StdErr,
+                            conversionStartedAt: conversionStartedAt,
+                            conversionCompletedAt: conversionCompletedAt,
+                            conversionCommand: args);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(ex);
+                    try
+                    {
+                        await NotifyStatusAsync(fileId, "FAILED", errorMessage: ex.Message,
+                            conversionStartedAt: conversionStartedAt,
+                            conversionCompletedAt: DateTime.UtcNow,
+                            conversionCommand: args);
+                    }
+                    catch (Exception notifyEx)
+                    {
+                        Console.WriteLine($"Failed to notify FAILED status in catch block: {notifyEx.Message}");
+                    }
+                }
+            });
+
+            //--------------------------------------------------
+            // AAC 변환 (128k, 앨범아트 비디오 스트림을 배제하기 위해 -vn 추가)
+            //--------------------------------------------------
+            _ = Task.Run(async () =>
+            {
+                var conversionStartedAt = DateTime.UtcNow;
+                var args = $"-i \"{physicalPath}\" -c:a aac -b:a 128k -vn \"{aacPath}\" -y";
+                try
+                {
+                    Console.WriteLine("[AAC Audio Only] Start");
+                    var result = await RunFfmpegAsync(args, TimeSpan.FromMinutes(3));
+                    Console.WriteLine($"[AAC Audio Only] Success={result.Success}");
+                    var conversionCompletedAt = DateTime.UtcNow;
+
+                    if (result.Success)
+                    {
+                        var fileInfo = new FileInfo(aacPath);
+                        var aacMetadata = new FileMetadata
+                        {
+                            Id = aacFileId,
+                            OriginalName = Path.GetFileNameWithoutExtension(metadata.OriginalName) + ".aac",
+                            StoredName = aacStoredName,
+                            Path = $"{GetBizFolder(bizType)}/Audio/{aacStoredName}",
+                            Size = fileInfo.Exists ? fileInfo.Length : 0,
+                            ContentType = "audio/aac",
+                            CreatedBy = "System",
+                            CreatedAt = DateTime.UtcNow,
+                            IsDeleted = false
+                        };
+
+                        using (var scope = _scopeFactory.CreateScope())
+                        {
+                            var dbContext = scope.ServiceProvider.GetRequiredService<FileDbContext>();
+                            dbContext.FileMetadatas.Add(aacMetadata);
+                            await dbContext.SaveChangesAsync();
+                        }
+
+                        await NotifyStatusAsync(fileId, "COMPLETED", false, false, hasAac: true, 
+                            aacUrl: $"/api/file/download/{aacFileId}", 
+                            aacFileId: aacFileId,
+                            conversionStartedAt: conversionStartedAt,
+                            conversionCompletedAt: conversionCompletedAt,
+                            conversionCommand: args);
+                    }
+                    else
+                    {
+                        Console.WriteLine(result.StdErr);
+                        await NotifyStatusAsync(fileId, "FAILED", false, false, errorMessage: result.StdErr,
+                            conversionStartedAt: conversionStartedAt,
+                            conversionCompletedAt: conversionCompletedAt,
+                            conversionCommand: args);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(ex);
+                    try
+                    {
+                        await NotifyStatusAsync(fileId, "FAILED", errorMessage: ex.Message,
+                            conversionStartedAt: conversionStartedAt,
+                            conversionCompletedAt: DateTime.UtcNow,
+                            conversionCommand: args);
+                    }
+                    catch (Exception notifyEx)
+                    {
+                        Console.WriteLine($"Failed to notify FAILED status in catch block: {notifyEx.Message}");
+                    }
                 }
             });
         }
@@ -522,7 +960,7 @@ private async Task<(bool Success, string StdOut, string StdErr)> RunFfmpegAsync(
 
 private async Task NotifyStatusAsync(
     Guid fileId,
-    string status,
+    string? status,
     bool? hasThumbnail = null,
     bool? hasWebm = null,
     string? thumbnailUrl = null,
@@ -534,7 +972,11 @@ private async Task NotifyStatusAsync(
     Guid? thumbnailFileId = null,
     Guid? webmFileId = null,
     Guid? oggFileId = null,
-    Guid? aacFileId = null)
+    Guid? aacFileId = null,
+    string? errorMessage = null,
+    DateTime? conversionStartedAt = null,
+    DateTime? conversionCompletedAt = null,
+    string? conversionCommand = null)
 {
     using var client = new HttpClient();
 
@@ -547,6 +989,10 @@ private async Task NotifyStatusAsync(
         System.Text.Json.JsonSerializer.Serialize(new
         {
             status,
+            errorMessage,
+            conversionStartedAt,
+            conversionCompletedAt,
+            conversionCommand,
             hasThumbnail,
             hasWebm,
             hasOgg,
@@ -915,5 +1361,98 @@ private async Task NotifyStatusAsync(
 
         await _dbContext.SaveChangesAsync();
         return true;
+    }
+
+    /// <inheritdoc />
+    public async Task<FileMetadata?> ExtractVideoThumbnailAsync(Guid fileId)
+    {
+        var metadata = await _dbContext.FileMetadatas.FirstOrDefaultAsync(x => x.Id == fileId && !x.IsDeleted);
+        if (metadata == null) return null;
+
+        var physicalPath = Path.Combine(_localPathRoot, metadata.Path.Replace('/', Path.DirectorySeparatorChar));
+        var pathSegments = metadata.Path.Split('/');
+        var bizType = pathSegments.Length > 0 ? pathSegments[0] : "basecom";
+        var videoFolder = GetPath(bizType, "Video");
+
+        var thumbFileId = Guid.NewGuid();
+        var thumbStoredName = $"{thumbFileId}.jpg";
+        var thumbnailImagePath = Path.Combine(videoFolder, thumbStoredName);
+
+        var args = $"-ss 00:00:00 -i \"{physicalPath}\" -vframes 1 -q:v 2 \"{thumbnailImagePath}\" -y";
+        Console.WriteLine("[Direct Thumbnail Extraction] Start");
+        var result = await RunFfmpegAsync(args, TimeSpan.FromSeconds(30));
+        Console.WriteLine($"[Direct Thumbnail Extraction] Success={result.Success}");
+
+        if (!result.Success)
+        {
+            Console.WriteLine(result.StdErr);
+            return null;
+        }
+
+        var fileInfo = new FileInfo(thumbnailImagePath);
+        var thumbMetadata = new FileMetadata
+        {
+            Id = thumbFileId,
+            OriginalName = Path.GetFileNameWithoutExtension(metadata.OriginalName) + "_thumb.jpg",
+            StoredName = thumbStoredName,
+            Path = $"{GetBizFolder(bizType)}/Video/{thumbStoredName}",
+            Size = fileInfo.Exists ? fileInfo.Length : 0,
+            ContentType = "image/jpeg",
+            CreatedBy = "System",
+            CreatedAt = DateTime.UtcNow,
+            IsDeleted = false
+        };
+
+        _dbContext.FileMetadatas.Add(thumbMetadata);
+        await _dbContext.SaveChangesAsync();
+
+        return thumbMetadata;
+    }
+
+    /// <inheritdoc />
+    public async Task<FileMetadata?> ExtractAudioAlbumArtAsync(Guid fileId)
+    {
+        var metadata = await _dbContext.FileMetadatas.FirstOrDefaultAsync(x => x.Id == fileId && !x.IsDeleted);
+        if (metadata == null) return null;
+
+        var physicalPath = Path.Combine(_localPathRoot, metadata.Path.Replace('/', Path.DirectorySeparatorChar));
+        var pathSegments = metadata.Path.Split('/');
+        var bizType = pathSegments.Length > 0 ? pathSegments[0] : "basecom";
+        var audioFolder = GetPath(bizType, "Audio");
+
+        var thumbFileId = Guid.NewGuid();
+        var thumbStoredName = $"{thumbFileId}.jpg";
+        var thumbnailImagePath = Path.Combine(audioFolder, thumbStoredName);
+
+        var args = $"-i \"{physicalPath}\" -an -vcodec copy \"{thumbnailImagePath}\" -y";
+        Console.WriteLine("[Direct Audio AlbumArt Extract] Start");
+        var result = await RunFfmpegAsync(args, TimeSpan.FromSeconds(20));
+        Console.WriteLine($"[Direct Audio AlbumArt Extract] Success={result.Success}");
+
+        if (result.Success && File.Exists(thumbnailImagePath))
+        {
+            var fileInfo = new FileInfo(thumbnailImagePath);
+            if (fileInfo.Exists && fileInfo.Length > 0)
+            {
+                var thumbMetadata = new FileMetadata
+                {
+                    Id = thumbFileId,
+                    OriginalName = Path.GetFileNameWithoutExtension(metadata.OriginalName) + "_thumb.jpg",
+                    StoredName = thumbStoredName,
+                    Path = $"{GetBizFolder(bizType)}/Audio/{thumbStoredName}",
+                    Size = fileInfo.Length,
+                    ContentType = "image/jpeg",
+                    CreatedBy = "System",
+                    CreatedAt = DateTime.UtcNow,
+                    IsDeleted = false
+                };
+
+                _dbContext.FileMetadatas.Add(thumbMetadata);
+                await _dbContext.SaveChangesAsync();
+                return thumbMetadata;
+            }
+        }
+
+        return null;
     }
 }

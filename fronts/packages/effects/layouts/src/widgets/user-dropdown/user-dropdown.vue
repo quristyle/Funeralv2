@@ -101,6 +101,10 @@ const userEmail = computed(() => {
   return userStore.userInfo?.email || props.description;
 });
 
+const computedAvatar = computed(() => {
+  return props.avatar || userStore.userInfo?.avatar || preferences.app.defaultAvatar;
+});
+
 const [LockModal, lockModalApi] = useVbenModal({
   connectedComponent: LockScreenModal,
 });
@@ -191,7 +195,7 @@ if (enableShortcutKey.value) {
 <template>
   <LockModal
     v-if="preferences.widget.lockScreen"
-    :avatar="avatar"
+    :avatar="computedAvatar"
     :text="text"
     @submit="handleSubmitLock"
   />
@@ -213,7 +217,7 @@ if (enableShortcutKey.value) {
     <DropdownMenuTrigger ref="refTrigger" :disabled="props.trigger === 'hover'">
       <div class="mr-2 ml-1 cursor-pointer rounded-full p-1.5 hover:bg-accent">
         <div class="flex-center hover:text-accent-foreground">
-          <VbenAvatar :alt="text" :src="avatar" class="size-8" dot />
+          <VbenAvatar :alt="text" :src="computedAvatar" class="size-8" dot />
         </div>
       </div>
     </DropdownMenuTrigger>
@@ -222,7 +226,7 @@ if (enableShortcutKey.value) {
         <DropdownMenuLabel class="flex items-center p-3">
           <VbenAvatar
             :alt="text"
-            :src="avatar"
+            :src="computedAvatar"
             class="size-12"
             dot
             dot-class="bottom-0 right-1 border-2 size-4 bg-green-500"

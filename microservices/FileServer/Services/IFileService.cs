@@ -72,7 +72,32 @@ public interface IFileService
     Task StartVideoTranscodingAsync(Guid fileId);
 
     /// <summary>
+    /// 비디오 파일의 썸네일 단독 재추출
+    /// </summary>
+    Task StartVideoThumbnailExtractionAsync(Guid fileId);
+
+    /// <summary>
+    /// 비디오 파일의 WebM 단독 재변환
+    /// </summary>
+    Task StartVideoWebmTranscodingAsync(Guid fileId);
+
+    /// <summary>
     /// 오디오 파일의 비동기 트랜스코딩(OGG 및 AAC 변환) 시작
     /// </summary>
     Task StartAudioTranscodingAsync(Guid fileId);
+
+    /// <summary>
+    /// 오디오 파일의 앨범아트 추출을 제외한 인코딩(OGG 및 AAC 변환)만 단독 시작
+    /// </summary>
+    Task StartAudioEncodingOnlyAsync(Guid fileId);
+
+    /// <summary>
+    /// 비디오 파일의 썸네일 동기식 추출 및 메타데이터 반환
+    /// </summary>
+    Task<FileMetadata?> ExtractVideoThumbnailAsync(Guid fileId);
+
+    /// <summary>
+    /// 오디오 파일의 앨범아트 동기식 추출 및 메타데이터 반환
+    /// </summary>
+    Task<FileMetadata?> ExtractAudioAlbumArtAsync(Guid fileId);
 }
