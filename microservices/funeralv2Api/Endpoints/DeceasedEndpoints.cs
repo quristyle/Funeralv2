@@ -56,5 +56,31 @@ public static class DeceasedEndpoints
         })
         .WithName("DeleteDeceased")
         .WithOpenApi();
+
+        // 고인 종합 상세 정보 조회
+        group.MapGet("/{id}/detail", async (string id, [FromServices] IDeceasedService service) =>
+        {
+            var result = await service.GetDeceasedDetailAsync(id);
+            if (result == null)
+            {
+                return Results.NotFound(ApiResponse<DeceasedDetailDto>.Fail("해당 고인의 상세 정보를 찾을 수 없습니다."));
+            }
+            return Results.Ok(result);
+        })
+        .WithName("GetDeceasedDetail")
+        .WithOpenApi();
+
+        // 고인 종합 상세 정보 저장
+        group.MapPut("/{id}/detail", async (string id, [FromBody] DeceasedDetailDto dto, [FromServices] IDeceasedService service) =>
+        {
+            var result = await service.SaveDeceasedDetailAsync(id, dto);
+            if (result == null)
+            {
+                return Results.NotFound(ApiResponse<DeceasedDetailDto>.Fail("저장할 고인 정보를 찾을 수 없습니다."));
+            }
+            return Results.Ok(result);
+        })
+        .WithName("SaveDeceasedDetail")
+        .WithOpenApi();
     }
 }

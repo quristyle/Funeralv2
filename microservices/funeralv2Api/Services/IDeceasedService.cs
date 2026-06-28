@@ -28,4 +28,14 @@ public interface IDeceasedService
     /// 고인 삭제 (Soft Delete)
     /// </summary>
     Task<bool> DeleteDeceasedAsync(string id);
+
+    /// <summary>
+    /// 고인 종합 상세 정보 조회
+    /// </summary>
+    Task<DeceasedDetailDto?> GetDeceasedDetailAsync(string id);
+
+    /// <summary>
+    /// 고인 종합 상세 정보 저장 및 일괄 갱신
+    /// </summary>
+    Task<DeceasedDetailDto?> SaveDeceasedDetailAsync(string id, DeceasedDetailDto dto);
 }

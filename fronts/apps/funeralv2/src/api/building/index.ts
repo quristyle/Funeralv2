@@ -88,6 +88,80 @@ export namespace BuildingApi {
     status: 'IN_HOSPITAL' | 'DISCHARGED' | 'COMPLETED';
   }
 
+  export interface DeceasedMourner {
+    id?: string;
+    name: string;
+    relation: string;
+    contact: string;
+    email?: string;
+    address?: string;
+    isChief: boolean;
+    sortOrder: number;
+  }
+
+  export interface DeceasedContractor {
+    name: string;
+    contact: string;
+    relation?: string;
+    address?: string;
+    remark?: string;
+    signatureFileId?: string;
+  }
+
+  export interface DeceasedManager {
+    directorName?: string;
+    directorContact?: string;
+    mutualAidCompany?: string;
+    staffName?: string;
+    staffContact?: string;
+  }
+
+  export interface DeceasedFacility {
+    id?: string;
+    facilityType: string;
+    startTime?: string;
+    endTime?: string;
+    useHours: number;
+    unitPrice: number;
+    totalPrice: number;
+    remark?: string;
+  }
+
+  export interface DeceasedRoom {
+    id?: string;
+    roomId: string;
+    roomName?: string;
+    startTime: string;
+    endTime?: string;
+  }
+
+  export interface DeceasedDetail {
+    id: string;
+    name: string;
+    gender: 'MALE' | 'FEMALE';
+    age: number;
+    religion?: string;
+    deathDate: string;
+    funeralDate?: string;
+    burialDate?: string;
+    roomId?: string;
+    roomName?: string;
+    status: 'IN_HOSPITAL' | 'DISCHARGED' | 'COMPLETED';
+    remark?: string;
+    ssn?: string;
+    causeOfDeath?: string;
+    burialPlot?: string;
+    memorialPhotoUrl?: string;
+    memorialPhotoFileId?: string;
+    familyPhotoGroupId?: string;
+
+    mourners: DeceasedMourner[];
+    contractor?: DeceasedContractor;
+    manager?: DeceasedManager;
+    facilities: DeceasedFacility[];
+    rooms: DeceasedRoom[];
+  }
+
   export interface DeviceAttribute {
     id: string;
     deviceId: string;
@@ -245,6 +319,12 @@ export async function updateDeceased(id: string, data: Omit<BuildingApi.Deceased
 }
 export async function deleteDeceased(id: string) {
   return requestClient.delete(`/funeral/building/deceased/${id}`);
+}
+export async function getDeceasedDetail(id: string) {
+  return requestClient.get<BuildingApi.DeceasedDetail>(`/funeral/building/deceased/${id}/detail`);
+}
+export async function saveDeceasedDetail(id: string, data: BuildingApi.DeceasedDetail) {
+  return requestClient.put<BuildingApi.DeceasedDetail>(`/funeral/building/deceased/${id}/detail`, data);
 }
 
 // === 장비 속성 API ===

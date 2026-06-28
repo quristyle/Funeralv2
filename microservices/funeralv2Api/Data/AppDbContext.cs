@@ -56,6 +56,31 @@ public class AppDbContext : DbContext
     /// </summary>
     public DbSet<Deceased> Deceaseds { get; set; } = null!;
 
+    /// <summary>
+    /// 고인 상주 DbSet
+    /// </summary>
+    public DbSet<DeceasedMourner> DeceasedMourners { get; set; } = null!;
+
+    /// <summary>
+    /// 고인 계약자 DbSet
+    /// </summary>
+    public DbSet<DeceasedContractor> DeceasedContractors { get; set; } = null!;
+
+    /// <summary>
+    /// 고인 장례 담당자 DbSet
+    /// </summary>
+    public DbSet<DeceasedManager> DeceasedManagers { get; set; } = null!;
+
+    /// <summary>
+    /// 고인 시설 이용 내역 DbSet
+    /// </summary>
+    public DbSet<DeceasedFacility> DeceasedFacilities { get; set; } = null!;
+
+    /// <summary>
+    /// 고인 호실 배정 이력 DbSet
+    /// </summary>
+    public DbSet<DeceasedRoom> DeceasedRooms { get; set; } = null!;
+
 
 
     /// <summary>

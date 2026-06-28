@@ -55,6 +55,30 @@ public class Deceased
     [MaxLength(500)]
     public string? Remark { get; set; }
 
+    [Column("ssn")]
+    [MaxLength(50)]
+    public string? Ssn { get; set; } // 주민등록번호
+
+    [Column("cause_of_death")]
+    [MaxLength(200)]
+    public string? CauseOfDeath { get; set; } // 사망원인
+
+    [Column("burial_plot")]
+    [MaxLength(200)]
+    public string? BurialPlot { get; set; } // 장지 위치
+
+    [Column("memorial_photo_url")]
+    [MaxLength(500)]
+    public string? MemorialPhotoUrl { get; set; } // 영정사진 주소
+
+    [Column("memorial_photo_file_id")]
+    [MaxLength(50)]
+    public string? MemorialPhotoFileId { get; set; } // 영정사진 파일 ID
+
+    [Column("family_photo_group_id")]
+    [MaxLength(50)]
+    public string? FamilyPhotoGroupId { get; set; } // 유족 추모용 사진 그룹 ID
+
     [Column("created_by")]
     [MaxLength(50)]
     public string CreatedBy { get; set; } = null!;
