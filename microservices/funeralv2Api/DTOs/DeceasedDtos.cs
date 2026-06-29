@@ -46,6 +46,8 @@ public class DeceasedDto
     public string? BurialPlot { get; set; }
     public string? MemorialPhotoUrl { get; set; }
     public string? MemorialPhotoFileId { get; set; }
+    public string? MemorialEditedPhotoUrl { get; set; }
+    public string? MemorialEditedPhotoFileId { get; set; }
     public string? FamilyPhotoGroupId { get; set; }
 }
 
@@ -179,6 +181,8 @@ public class DeceasedDetailDto
     public string? BurialPlot { get; set; }
     public string? MemorialPhotoUrl { get; set; }
     public string? MemorialPhotoFileId { get; set; }
+    public string? MemorialEditedPhotoUrl { get; set; }
+    public string? MemorialEditedPhotoFileId { get; set; }
     public string? FamilyPhotoGroupId { get; set; }
 
     // 관계 리스트 및 단일 속성들

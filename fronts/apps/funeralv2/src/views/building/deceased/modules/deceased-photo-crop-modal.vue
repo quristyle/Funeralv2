@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import { ref, nextTick, onUnmounted, watch, computed } from 'vue';
-import { Modal, Button, Upload, message, Select, Slider } from 'ant-design-vue';
+import { Modal, Button, Upload, message, Select, Slider, Switch } from 'ant-design-vue';
 import type { UploadChangeParam } from 'ant-design-vue';
 import { fabric } from 'fabric';
 import Cropper from 'cropperjs';
@@ -22,6 +22,9 @@ const canvasRef = ref<HTMLCanvasElement | null>(null);
 const canvasMountRef = ref<HTMLDivElement | null>(null);
 let canvas: fabric.Canvas | null = null;
 const currentMode = ref<EditMode>('select');
+
+// 영역 밖 자르기(클리핑) 스위치 상태
+const isClipEnabled = ref(true);
 
 // 히스토리 관리
 const undoStack = ref<string[]>([]);
@@ -103,6 +106,7 @@ function handleUndo() {
   const previous = undoStack.value[undoStack.value.length - 1];
   if (previous) {
     canvas.loadFromJSON(previous, () => {
+      updateClipPath(); // 캔버스 복원 시 클리핑 복구
       canvas?.requestRenderAll();
       isHistoryProcessing.value = false;
     });
@@ -120,6 +124,7 @@ function handleRedo() {
   if (next) {
     undoStack.value.push(next);
     canvas.loadFromJSON(next, () => {
+      updateClipPath(); // 캔버스 복원 시 클리핑 복구
       canvas?.requestRenderAll();
       isHistoryProcessing.value = false;
     });
@@ -252,6 +257,7 @@ function loadImageToCanvas(url: string) {
     canvas.add(img);
     canvas.sendToBack(img);
     
+    updateClipPath(); // 이미지 로드 직후 클리핑 상태 적용
     // 화면에 맞춰 자동 축소 줌 및 중앙 배치 실행
     fitImageToScreen();
 
@@ -259,6 +265,13 @@ function loadImageToCanvas(url: string) {
     currentFilter.value = 'none';
 
     initHistory();
+
+    // 모달 팝업이 활성화 모션을 마치고 에디터 가용 크기가 완전히 고정된 후 정확한 측정을 위한 2차 딜레이 피팅
+    nextTick(() => {
+      setTimeout(() => {
+        fitImageToScreen();
+      }, 150);
+    });
   }, { crossOrigin: 'anonymous' });
 }
 
@@ -462,6 +475,7 @@ function applyCrop() {
     canvas.add(img);
     canvas.sendToBack(img);
     
+    updateClipPath(); // 크롭 완료 후 캔버스 변경에 의한 클리핑 재조정
     // 화면 맞춤 및 중앙 배치
     fitImageToScreen();
 
@@ -633,12 +647,38 @@ function fitImageToScreen() {
 
   const vpt = canvas.viewportTransform;
   if (vpt) {
-    vpt[4] = (parentWidth - canvasWidth * fitScale) / 2;
-    vpt[5] = (parentHeight - canvasHeight * fitScale) / 2;
+    // Flexbox 배치로 캔버스 돔의 중앙이 이미 부모 중앙에 있으므로, 캔버스 돔 내부 드로잉 오프셋만 중앙 핏팅
+    vpt[4] = (canvasWidth - canvasWidth * fitScale) / 2;
+    vpt[5] = (canvasHeight - canvasHeight * fitScale) / 2;
     canvas.setViewportTransform(vpt); // 뷰포트 트랜스폼 설정 명시적 강제 반영
   }
   canvas.requestRenderAll();
 }
+
+// 캔버스 클리핑(이미지 영역 밖 마스킹) 처리
+function updateClipPath() {
+  if (!canvas) return;
+
+  if (isClipEnabled.value) {
+    const canvasWidth = canvas.width ?? 800;
+    const canvasHeight = canvas.height ?? 600;
+
+    canvas.clipPath = new fabric.Rect({
+      left: 0,
+      top: 0,
+      width: canvasWidth,
+      height: canvasHeight,
+      absolutePositioned: true,
+    });
+  } else {
+    canvas.clipPath = undefined;
+  }
+  canvas.requestRenderAll();
+}
+
+watch(isClipEnabled, () => {
+  updateClipPath();
+});
 
 // 줌 배율 드롭다운 목록 구성
 const currentZoomOptions = computed(() => {
@@ -663,10 +703,11 @@ function handleZoomSelectChange(value: number | 'fit') {
   }
 
   const zoomFactor = value / 100;
-  const parentWidth = canvasMountRef.value?.clientWidth ?? 740;
-  const parentHeight = canvasMountRef.value?.clientHeight ?? 440;
+  const canvasWidth = canvas.width ?? 800;
+  const canvasHeight = canvas.height ?? 600;
 
-  canvas.zoomToPoint({ x: parentWidth / 2, y: parentHeight / 2 }, zoomFactor);
+  // 캔버스 자체의 물리적 기하 중심점을 줌의 축으로 지정
+  canvas.zoomToPoint({ x: canvasWidth / 2, y: canvasHeight / 2 }, zoomFactor);
   zoomRatio.value = value;
   canvas.requestRenderAll();
 }
@@ -682,7 +723,11 @@ function open(row: any) {
   visible.value = true;
 
   let initialImage = '';
-  if (row.memorialPhotoFileId) {
+  if (row.memorialEditedPhotoFileId) {
+    initialImage = `/api/file/download/${row.memorialEditedPhotoFileId}`;
+  } else if (row.memorialEditedPhotoUrl) {
+    initialImage = row.memorialEditedPhotoUrl;
+  } else if (row.memorialPhotoFileId) {
     initialImage = `/api/file/download/${row.memorialPhotoFileId}`;
   } else if (row.memorialPhotoUrl) {
     initialImage = row.memorialPhotoUrl;
@@ -698,6 +743,41 @@ function open(row: any) {
   nextTick(() => {
     initEditor(initialImage);
   });
+}
+
+const hasOriginalPhoto = computed(() => !!(deceasedData.value?.memorialPhotoFileId || deceasedData.value?.memorialPhotoUrl));
+const hasEditedPhoto = computed(() => !!(deceasedData.value?.memorialEditedPhotoFileId || deceasedData.value?.memorialEditedPhotoUrl));
+
+function loadOriginalPhoto() {
+  if (!deceasedData.value) return;
+  let url = '';
+  if (deceasedData.value.memorialPhotoFileId) {
+    url = `/api/file/download/${deceasedData.value.memorialPhotoFileId}`;
+  } else if (deceasedData.value.memorialPhotoUrl) {
+    url = deceasedData.value.memorialPhotoUrl;
+  }
+  if (url) {
+    loadImageToCanvas(url);
+    message.success('원본 영정사진을 불러왔습니다.');
+  } else {
+    message.warning('등록된 원본 영정사진이 없습니다.');
+  }
+}
+
+function loadEditedPhoto() {
+  if (!deceasedData.value) return;
+  let url = '';
+  if (deceasedData.value.memorialEditedPhotoFileId) {
+    url = `/api/file/download/${deceasedData.value.memorialEditedPhotoFileId}`;
+  } else if (deceasedData.value.memorialEditedPhotoUrl) {
+    url = deceasedData.value.memorialEditedPhotoUrl;
+  }
+  if (url) {
+    loadImageToCanvas(url);
+    message.success('편집 완료된 영정사진을 불러왔습니다.');
+  } else {
+    message.warning('등록된 편집 영정사진이 없습니다.');
+  }
 }
 
 // 외부 파일 로드
@@ -776,8 +856,8 @@ const handleSave = async () => {
 
     const updateParams = {
       ...deceasedData.value,
-      memorialPhotoFileId: newFileId,
-      memorialPhotoUrl: newDownloadUrl,
+      memorialEditedPhotoFileId: newFileId,
+      memorialEditedPhotoUrl: newDownloadUrl,
     };
 
     await saveDeceasedDetail(deceasedData.value.id, updateParams);
@@ -867,6 +947,11 @@ defineExpose({ open });
           <Button size="small" :type="currentMode === 'crop' ? 'primary' : 'default'" @click="changeMode('crop')" class="!rounded-none">자르기</Button>
           <Button size="small" :type="currentMode === 'draw' ? 'primary' : 'default'" @click="changeMode('draw')" class="!rounded-none">그리기</Button>
           <Button size="small" :type="currentMode === 'text' ? 'primary' : 'default'" @click="changeMode('text')" class="!rounded-none">글자 추가</Button>
+          <!-- 영역 밖 자르기 스위치 -->
+          <div class="flex items-center gap-1 ml-1 border-l border-gray-200 pl-2">
+            <span class="text-xs text-gray-500 font-medium select-none">영역 밖 자르기:</span>
+            <Switch v-model:checked="isClipEnabled" size="small" />
+          </div>
         </div>
 
         <!-- 세부 옵션 상황판 -->
@@ -926,7 +1011,10 @@ defineExpose({ open });
         </div>
 
         <div class="canvas-border-box shadow-none border border-gray-300 relative max-w-full max-h-full overflow-hidden flex items-center justify-center checkerboard-bg rounded-none">
-          <div :style="{ opacity: currentMode === 'crop' ? 0 : 1, pointerEvents: currentMode === 'crop' ? 'none' : 'auto' }">
+          <div 
+            :style="{ opacity: currentMode === 'crop' ? 0 : 1, pointerEvents: currentMode === 'crop' ? 'none' : 'auto' }"
+            class="flex items-center justify-center max-w-full max-h-full overflow-visible"
+          >
             <canvas ref="canvasRef"></canvas>
           </div>
 
@@ -941,6 +1029,25 @@ defineExpose({ open });
       <div class="flex items-center justify-between border-t border-gray-100 pt-2 mt-2">
         <!-- 파일 교체 및 Undo/Redo 컴팩트 툴바 -->
         <div class="flex items-center gap-2">
+          <div class="flex items-center gap-1.5 mr-1 border-r border-gray-200 pr-2">
+            <Button 
+              size="small" 
+              class="!rounded-none" 
+              :disabled="!hasOriginalPhoto" 
+              @click="loadOriginalPhoto"
+            >
+              원본사진 불러오기
+            </Button>
+            <Button 
+              size="small" 
+              class="!rounded-none" 
+              :disabled="!hasEditedPhoto" 
+              @click="loadEditedPhoto"
+            >
+              편집사진 불러오기
+            </Button>
+          </div>
+
           <Upload
             :max-count="1"
             :show-upload-list="false"

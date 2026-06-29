@@ -75,6 +75,14 @@ public class Deceased
     [MaxLength(50)]
     public string? MemorialPhotoFileId { get; set; } // 영정사진 파일 ID
 
+    [Column("memorial_edited_photo_url")]
+    [MaxLength(500)]
+    public string? MemorialEditedPhotoUrl { get; set; } // 편집된 영정사진 주소
+
+    [Column("memorial_edited_photo_file_id")]
+    [MaxLength(50)]
+    public string? MemorialEditedPhotoFileId { get; set; } // 편집된 영정사진 파일 ID
+
     [Column("family_photo_group_id")]
     [MaxLength(50)]
     public string? FamilyPhotoGroupId { get; set; } // 유족 추모용 사진 그룹 ID

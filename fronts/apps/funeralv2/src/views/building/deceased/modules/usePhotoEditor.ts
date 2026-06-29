@@ -45,6 +45,9 @@ export function usePhotoEditor(params: {
   const selectedShape = ref<ShapeType>('rect');
   const shapeColor = ref('#0000ff');
 
+  // 영역 밖 자르기(클리핑) 스위치 상태
+  const isClipEnabled = ref(true);
+
   // 크롭 설정
   const cropRatio = ref<number | undefined>(3 / 4);
   const cropRatios = [
@@ -112,6 +115,7 @@ export function usePhotoEditor(params: {
     const previous = undoStack.value[undoStack.value.length - 1];
     if (previous) {
       canvas.loadFromJSON(previous, () => {
+        updateClipPath(); // 캔버스 복원 시 클리핑 복구
         canvas?.requestRenderAll();
         isHistoryProcessing.value = false;
       });
@@ -128,6 +132,7 @@ export function usePhotoEditor(params: {
     if (next) {
       undoStack.value.push(next);
       canvas.loadFromJSON(next, () => {
+        updateClipPath(); // 캔버스 복원 시 클리핑 복구
         canvas?.requestRenderAll();
         isHistoryProcessing.value = false;
       });
@@ -263,6 +268,7 @@ export function usePhotoEditor(params: {
       canvas.add(img);
       canvas.sendToBack(img);
       
+      updateClipPath(); // 이미지 로드 직후 클리핑 상태 적용
       fitImageToScreen();
 
       currentMode.value = 'select';
@@ -270,6 +276,13 @@ export function usePhotoEditor(params: {
 
       initHistory();
       pageLoading.value = false;
+
+      // 로딩 스피너가 해제되고 에디터 최종 크기 레이아웃이 브라우저에 안착한 후 정확한 측정을 위한 2차 딜레이 피팅
+      nextTick(() => {
+        setTimeout(() => {
+          fitImageToScreen();
+        }, 150);
+      });
     }, { crossOrigin: 'anonymous' });
   }
 
@@ -545,6 +558,7 @@ export function usePhotoEditor(params: {
       canvas.add(img);
       canvas.sendToBack(img);
       
+      updateClipPath(); // 크롭 완료 후 캔버스 변경에 의한 클리핑 재조정
       fitImageToScreen();
 
       changeMode('select');
@@ -687,12 +701,38 @@ export function usePhotoEditor(params: {
 
     const vpt = canvas.viewportTransform;
     if (vpt) {
-      vpt[4] = (parentWidth - canvasWidth * fitScale) / 2;
-      vpt[5] = (parentHeight - canvasHeight * fitScale) / 2;
+      // Flexbox 배치로 캔버스 돔의 중앙이 이미 부모 중앙에 있으므로, 캔버스 돔 내부 드로잉 오프셋만 중앙 핏팅
+      vpt[4] = (canvasWidth - canvasWidth * fitScale) / 2;
+      vpt[5] = (canvasHeight - canvasHeight * fitScale) / 2;
       canvas.setViewportTransform(vpt);
     }
     canvas.requestRenderAll();
   }
+
+  // 캔버스 클리핑(이미지 영역 밖 마스킹) 처리
+  function updateClipPath() {
+    if (!canvas) return;
+
+    if (isClipEnabled.value) {
+      const canvasWidth = canvas.width ?? 800;
+      const canvasHeight = canvas.height ?? 600;
+
+      canvas.clipPath = new fabric.Rect({
+        left: 0,
+        top: 0,
+        width: canvasWidth,
+        height: canvasHeight,
+        absolutePositioned: true,
+      });
+    } else {
+      canvas.clipPath = undefined;
+    }
+    canvas.requestRenderAll();
+  }
+
+  watch(isClipEnabled, () => {
+    updateClipPath();
+  });
 
   const currentZoomOptions = computed(() => {
     const defaults = [25, 50, 75, 100, 150, 200];
@@ -715,10 +755,11 @@ export function usePhotoEditor(params: {
     }
 
     const zoomFactor = value / 100;
-    const parentWidth = editorContainerRef.value?.clientWidth ?? 800;
-    const parentHeight = editorContainerRef.value?.clientHeight ?? 600;
+    const canvasWidth = canvas.width ?? 800;
+    const canvasHeight = canvas.height ?? 600;
 
-    canvas.zoomToPoint({ x: parentWidth / 2, y: parentHeight / 2 }, zoomFactor);
+    // 캔버스 자체의 물리적 기하 중심점을 줌의 축으로 지정
+    canvas.zoomToPoint({ x: canvasWidth / 2, y: canvasHeight / 2 }, zoomFactor);
     zoomRatio.value = value;
     canvas.requestRenderAll();
   }
@@ -741,7 +782,11 @@ export function usePhotoEditor(params: {
       deceasedData.value = detail;
 
       let initialImage = '';
-      if (detail.memorialPhotoFileId) {
+      if (detail.memorialEditedPhotoFileId) {
+        initialImage = `/api/file/download/${detail.memorialEditedPhotoFileId}`;
+      } else if (detail.memorialEditedPhotoUrl) {
+        initialImage = detail.memorialEditedPhotoUrl;
+      } else if (detail.memorialPhotoFileId) {
         initialImage = `/api/file/download/${detail.memorialPhotoFileId}`;
       } else if (detail.memorialPhotoUrl) {
         initialImage = detail.memorialPhotoUrl;
@@ -761,6 +806,41 @@ export function usePhotoEditor(params: {
       console.error('고인 정보 로드 실패:', error);
       message.error('고인 상세 정보를 불러오지 못했습니다.');
       pageLoading.value = false;
+    }
+  }
+
+  const hasOriginalPhoto = computed(() => !!(deceasedData.value?.memorialPhotoFileId || deceasedData.value?.memorialPhotoUrl));
+  const hasEditedPhoto = computed(() => !!(deceasedData.value?.memorialEditedPhotoFileId || deceasedData.value?.memorialEditedPhotoUrl));
+
+  function loadOriginalPhoto() {
+    if (!deceasedData.value) return;
+    let url = '';
+    if (deceasedData.value.memorialPhotoFileId) {
+      url = `/api/file/download/${deceasedData.value.memorialPhotoFileId}`;
+    } else if (deceasedData.value.memorialPhotoUrl) {
+      url = deceasedData.value.memorialPhotoUrl;
+    }
+    if (url) {
+      loadImageToCanvas(url);
+      message.success('원본 영정사진을 불러왔습니다.');
+    } else {
+      message.warning('등록된 원본 영정사진이 없습니다.');
+    }
+  }
+
+  function loadEditedPhoto() {
+    if (!deceasedData.value) return;
+    let url = '';
+    if (deceasedData.value.memorialEditedPhotoFileId) {
+      url = `/api/file/download/${deceasedData.value.memorialEditedPhotoFileId}`;
+    } else if (deceasedData.value.memorialEditedPhotoUrl) {
+      url = deceasedData.value.memorialEditedPhotoUrl;
+    }
+    if (url) {
+      loadImageToCanvas(url);
+      message.success('편집 완료된 영정사진을 불러왔습니다.');
+    } else {
+      message.warning('등록된 편집 영정사진이 없습니다.');
     }
   }
 
@@ -837,8 +917,8 @@ export function usePhotoEditor(params: {
 
       const updateParams = {
         ...deceasedData.value,
-        memorialPhotoFileId: newFileId,
-        memorialPhotoUrl: newDownloadUrl,
+        memorialEditedPhotoFileId: newFileId,
+        memorialEditedPhotoUrl: newDownloadUrl,
       };
 
       await saveDeceasedDetail(deceasedId.value, updateParams);
@@ -921,6 +1001,8 @@ export function usePhotoEditor(params: {
     fontSize,
     selectedShape,
     shapeColor,
+    isClipEnabled,
+    updateClipPath,
     cropRatio,
     cropRatios,
     currentFilter,
@@ -932,6 +1014,10 @@ export function usePhotoEditor(params: {
     resetZoomAndPan,
     loadDeceasedInfo,
     selectImgFile,
+    hasOriginalPhoto,
+    hasEditedPhoto,
+    loadOriginalPhoto,
+    loadEditedPhoto,
     handleSave,
     handleClose,
     changeMode,

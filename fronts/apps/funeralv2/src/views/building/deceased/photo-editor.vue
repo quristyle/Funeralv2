@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { onMounted, onUnmounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
-import { Button, Upload, Card, Slider, Select, Tooltip } from 'ant-design-vue';
+import { Button, Upload, Card, Slider, Select, Tooltip, Switch } from 'ant-design-vue';
 import { usePhotoEditor } from './modules/usePhotoEditor';
 import 'cropperjs/dist/cropper.css';
 
@@ -25,6 +25,7 @@ const {
   fontSize,
   selectedShape,
   shapeColor,
+  isClipEnabled,
   cropRatio,
   cropRatios,
   currentFilter,
@@ -35,6 +36,10 @@ const {
   resetZoomAndPan,
   loadDeceasedInfo,
   selectImgFile,
+  hasOriginalPhoto,
+  hasEditedPhoto,
+  loadOriginalPhoto,
+  loadEditedPhoto,
   handleSave,
   handleClose,
   changeMode,
@@ -102,6 +107,25 @@ onUnmounted(() => {
             </Button>
           </div>
           
+          <div class="flex items-center gap-1.5 mr-1 border-r border-gray-200 pr-2">
+            <Button 
+              size="small" 
+              class="!rounded-none" 
+              :disabled="!hasOriginalPhoto" 
+              @click="loadOriginalPhoto"
+            >
+              원본사진 불러오기
+            </Button>
+            <Button 
+              size="small" 
+              class="!rounded-none" 
+              :disabled="!hasEditedPhoto" 
+              @click="loadEditedPhoto"
+            >
+              편집사진 불러오기
+            </Button>
+          </div>
+          
           <Upload
             :max-count="1"
             :show-upload-list="false"
@@ -110,6 +134,10 @@ onUnmounted(() => {
           >
             <Button type="dashed" size="small" class="!rounded-none">새 이미지 불러오기</Button>
           </Upload>
+          <div class="flex items-center gap-1.5 ml-1 border-l border-gray-200 pl-2 pr-1">
+            <span class="text-xs text-gray-500 font-medium select-none">영역 밖 자르기:</span>
+            <Switch v-model:checked="isClipEnabled" size="small" />
+          </div>
           <Button size="small" @click="handleClose" class="!rounded-none">닫기</Button>
           <Button
             type="primary"
@@ -365,7 +393,10 @@ onUnmounted(() => {
 
           <!-- 실제 캔버스 고정을 위한 컨테이너 -->
           <div ref="editorContainerRef" class="canvas-workspace-box shadow-none border border-gray-300 relative max-w-full max-h-full overflow-hidden flex items-center justify-center checkerboard-bg rounded-none">
-            <div :style="{ opacity: currentMode === 'crop' ? 0 : 1, pointerEvents: currentMode === 'crop' ? 'none' : 'auto' }">
+            <div 
+              :style="{ opacity: currentMode === 'crop' ? 0 : 1, pointerEvents: currentMode === 'crop' ? 'none' : 'auto' }"
+              class="flex items-center justify-center max-w-full max-h-full overflow-visible"
+            >
               <canvas ref="canvasRef"></canvas>
             </div>
 

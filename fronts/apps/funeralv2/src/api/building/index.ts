@@ -153,6 +153,8 @@ export namespace BuildingApi {
     burialPlot?: string;
     memorialPhotoUrl?: string;
     memorialPhotoFileId?: string;
+    memorialEditedPhotoUrl?: string;
+    memorialEditedPhotoFileId?: string;
     familyPhotoGroupId?: string;
 
     mourners: DeceasedMourner[];

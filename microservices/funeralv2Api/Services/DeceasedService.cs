@@ -135,9 +135,10 @@ public class DeceasedService : IDeceasedService
                 RoomId = d.RoomId,
                 RoomName = string.IsNullOrEmpty(roomNamesCombined) ? null : roomNamesCombined,
                 Status = d.Status,
-                Remark = d.Remark,
                 MemorialPhotoUrl = d.MemorialPhotoUrl,
                 MemorialPhotoFileId = d.MemorialPhotoFileId,
+                MemorialEditedPhotoUrl = d.MemorialEditedPhotoUrl,
+                MemorialEditedPhotoFileId = d.MemorialEditedPhotoFileId,
                 FamilyPhotoGroupId = d.FamilyPhotoGroupId
             };
         }).ToList();
@@ -291,10 +292,11 @@ public class DeceasedService : IDeceasedService
             Status = deceased.Status,
             Remark = deceased.Remark,
             Ssn = deceased.Ssn,
-            CauseOfDeath = deceased.CauseOfDeath,
             BurialPlot = deceased.BurialPlot,
             MemorialPhotoUrl = deceased.MemorialPhotoUrl,
             MemorialPhotoFileId = deceased.MemorialPhotoFileId,
+            MemorialEditedPhotoUrl = deceased.MemorialEditedPhotoUrl,
+            MemorialEditedPhotoFileId = deceased.MemorialEditedPhotoFileId,
             FamilyPhotoGroupId = deceased.FamilyPhotoGroupId
         };
 
@@ -407,9 +409,10 @@ public class DeceasedService : IDeceasedService
         deceased.Remark = dto.Remark;
         deceased.Ssn = dto.Ssn;
         deceased.CauseOfDeath = dto.CauseOfDeath;
-        deceased.BurialPlot = dto.BurialPlot;
         deceased.MemorialPhotoUrl = dto.MemorialPhotoUrl;
         deceased.MemorialPhotoFileId = dto.MemorialPhotoFileId;
+        deceased.MemorialEditedPhotoUrl = dto.MemorialEditedPhotoUrl;
+        deceased.MemorialEditedPhotoFileId = dto.MemorialEditedPhotoFileId;
         deceased.FamilyPhotoGroupId = dto.FamilyPhotoGroupId;
         deceased.UpdatedBy = "System";
         deceased.UpdatedAt = DateTime.UtcNow;
