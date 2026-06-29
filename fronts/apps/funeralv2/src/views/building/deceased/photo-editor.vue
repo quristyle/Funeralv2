@@ -1,356 +1,380 @@
 <script lang="ts" setup>
-import { ref, onMounted, onUnmounted, nextTick } from 'vue';
+import { onMounted, onUnmounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
-import { Button, Upload, message, Card } from 'ant-design-vue';
-import type { UploadChangeParam } from 'ant-design-vue';
-import ImageEditor from 'tui-image-editor';
-import { requestClient } from '#/api/request';
-import { getDeceasedDetail, saveDeceasedDetail } from '#/api/building';
-
-import 'tui-image-editor/dist/tui-image-editor.css';
+import { Button, Upload, Card, Slider, Select, Tooltip } from 'ant-design-vue';
+import { usePhotoEditor } from './modules/usePhotoEditor';
+import 'cropperjs/dist/cropper.css';
 
 const route = useRoute();
-const deceasedId = ref<string>('');
-const deceasedData = ref<any>(null);
-const uploadMimeType = ref<string>('image/png'); // 투명도 유지용 MIME type 기록
 
+// DOM Refs 주입 선언 (TS6133 미사용 오류 해결)
+const canvasRef = ref<HTMLCanvasElement | null>(null);
 const editorContainerRef = ref<HTMLDivElement | null>(null);
-const editorInstance = ref<ImageEditor | null>(null);
-const saveLoading = ref(false);
-const pageLoading = ref(true);
-// TUI Image Editor 하단 서브메뉴에 직접 세로 크롭 비율 preset 버튼들을 주입
-function injectCustomCropRatios() {
-  if (!editorContainerRef.value || !editorInstance.value) return;
+const cropperImgRef = ref<HTMLImageElement | null>(null);
 
-  const cropMenu = editorContainerRef.value.querySelector('.tui-image-editor-menu-crop');
-  if (!cropMenu) {
-    // includeUI 하단 툴바 메뉴 DOM이 생성되기 전이면 지연 대기 후 재실행
-    setTimeout(injectCustomCropRatios, 150);
-    return;
-  }
-
-  const presetContainer = cropMenu.querySelector('.tui-image-editor-submenu-item') 
-    || cropMenu.querySelector('.tui-image-editor-submenu-align');
-
-  if (!presetContainer) return;
-
-  // 중복 삽입 차단
-  if (presetContainer.querySelector('.custom-vertical-ratio')) return;
-
-  const verticalRatios = [
-    { label: '3:4 (영정)', ratio: 3 / 4 },
-    { label: '2:3 (세로)', ratio: 2 / 3 },
-    { label: '5:7 (세로)', ratio: 5 / 7 },
-    { label: '9:16 (세로)', ratio: 9 / 16 },
-  ];
-
-  verticalRatios.forEach((item) => {
-    const isLi = presetContainer.tagName.toLowerCase() === 'ul';
-    const btn = document.createElement(isLi ? 'li' : 'div');
-    btn.className = 'tui-image-editor-button preset custom-vertical-ratio';
-    btn.setAttribute('data-ratio', String(item.ratio));
-    
-    // TUI Image Editor UI의 고유 레이아웃에 통합 어우러지도록 레이블 설정
-    const label = document.createElement('label');
-    label.style.cursor = 'pointer';
-    label.innerText = item.label;
-    btn.appendChild(label);
-
-    btn.addEventListener('click', (e) => {
-      e.preventDefault();
-      // 기존 비율 프리셋들의 active 해제
-      presetContainer.querySelectorAll('.tui-image-editor-button, .preset, li').forEach((el) => {
-        el.classList.remove('active', 'checked');
-      });
-      btn.classList.add('active');
-
-      // TUI 이미지 에디터 크롭 셋 비율 동적 부여
-      const editor = editorInstance.value as any;
-      editor.startDrawingMode('CROPPER');
-      editor.setCropzoneAspectRatio(item.ratio);
-    });
-
-    presetContainer.appendChild(btn);
-  });
-
-  // TUI 기본 가로 비율 버튼 클릭 시, 우리가 인젝션한 세로 비율 버튼들의 active를 소멸시킴
-  const originalBtns = presetContainer.querySelectorAll('.tui-image-editor-button.preset:not(.custom-vertical-ratio), li:not(.custom-vertical-ratio)');
-  originalBtns.forEach((btn) => {
-    btn.addEventListener('click', () => {
-      presetContainer.querySelectorAll('.custom-vertical-ratio').forEach((cb) => {
-        cb.classList.remove('active');
-      });
-    });
-  });
-}
-
-// 에디터 정리
-function destroyEditor() {
-  if (editorInstance.value) {
-    editorInstance.value.destroy();
-    editorInstance.value = null;
-  }
-}
-
-// TUI 에디터 초기화
-function initEditor(imageSrc: string) {
-  destroyEditor();
-  if (!editorContainerRef.value) return;
-
-  const options: any = {
-    includeUI: {
-      theme: {
-        'common.bi.image': '', // 로고 제거
-        'common.bisize.width': '0px',
-        'common.bisize.height': '0px',
-        'common.backgroundColor': '#ffffff',
-        'common.border': '1px solid #e5e7eb',
-        'header.backgroundImage': 'none',
-        'header.backgroundColor': '#ffffff',
-        'header.border': '0px',
-      },
-      initMenu: 'crop',
-      menuBarPosition: 'left',
-    },
-    cssMaxWidth: 1600,
-    cssMaxHeight: 900,
-    usageStatistics: false,
-  };
-
-  if (imageSrc) {
-    options.includeUI.loadImage = {
-      path: imageSrc,
-      name: 'DeceasedPhoto',
-    };
-  }
-
-  try {
-    editorInstance.value = new ImageEditor(editorContainerRef.value, options);
-    
-    // UI 마운팅 이후 하단 Crop 툴바 영역에 커스텀 세로 비율 버튼 강제 주입
-    setTimeout(injectCustomCropRatios, 200);
-  } catch (error) {
-    console.error('TUI Image Editor 초기화 에러:', error);
-  }
-}
-
-// 데이터 로드 및 초기화
-async function loadDeceasedInfo() {
-  const idVal = route.query.id as string;
-  if (!idVal) {
-    message.error('고인 정보 식별자(ID)가 누락되었습니다.');
-    pageLoading.value = false;
-    return;
-  }
-  deceasedId.value = idVal;
-
-  try {
-    const res = await getDeceasedDetail(idVal);
-    const detail = (res as any)?.result?.[0] ?? res;
-    if (!detail) {
-      throw new Error('고인 상세 정보를 찾을 수 없습니다.');
-    }
-    deceasedData.value = detail;
-
-    // 기존 영정사진 체크
-    let initialImage = '';
-    if (detail.memorialPhotoFileId) {
-      initialImage = `/api/file/download/${detail.memorialPhotoFileId}`;
-    } else if (detail.memorialPhotoUrl) {
-      initialImage = detail.memorialPhotoUrl;
-    }
-
-    // 파일 타입 판단
-    const lowerUrl = initialImage.toLowerCase();
-    if (lowerUrl.endsWith('.png') || lowerUrl.includes('png')) {
-      uploadMimeType.value = 'image/png';
-    } else {
-      uploadMimeType.value = 'image/jpeg';
-    }
-
-    nextTick(() => {
-      initEditor(initialImage);
-    });
-  } catch (error) {
-    console.error('고인 정보 로드 실패:', error);
-    message.error('고인 상세 정보를 불러오지 못했습니다.');
-  } finally {
-    pageLoading.value = false;
-  }
-}
-
-// 새 파일 선택 시 에디터 로드
-const selectImgFile = (event: UploadChangeParam) => {
-  const file = event.fileList[0]?.originFileObj;
-  if (!file) return;
-
-  if (!file.type.startsWith('image/')) {
-    message.error('이미지 파일을 업로드해 주세요.');
-    return;
-  }
-
-  uploadMimeType.value = file.type;
-
-  const reader = new FileReader();
-  reader.addEventListener('load', (e) => {
-    const dataUrl = e.target?.result as string;
-    if (editorInstance.value) {
-      editorInstance.value.loadImageFromURL(dataUrl, file.name).then(() => {
-        editorInstance.value?.clearUndoStack();
-        editorInstance.value?.clearRedoStack();
-      }).catch((err) => {
-        console.error('이미지 로드 실패:', err);
-        message.error('에디터에 이미지를 로드하지 못했습니다.');
-      });
-    } else {
-      initEditor(dataUrl);
-    }
-  });
-  reader.readAsDataURL(file);
-};
-
-// DataURL -> Blob
-function dataURLtoBlob(dataurl: string) {
-  const arr = dataurl.split(',');
-  const mime = arr[0]?.match(/:(.*?);/)?.[1] || 'image/png';
-  const bstr = atob(arr[1] || '');
-  let n = bstr.length;
-  const u8arr = new Uint8Array(n);
-  while (n--) {
-    u8arr[n] = bstr.charCodeAt(n);
-  }
-  return new Blob([u8arr], { type: mime });
-}
-
-// 편집 내용 업로드 및 저장
-const handleSave = async () => {
-  if (!editorInstance.value) {
-    message.warning('편집기에 로드된 이미지가 없습니다.');
-    return;
-  }
-  if (!deceasedData.value) return;
-
-  saveLoading.value = true;
-  try {
-    const isPng = uploadMimeType.value === 'image/png';
-    const dataURL = editorInstance.value.toDataURL({
-      format: isPng ? 'png' : 'jpeg',
-      quality: 0.95,
-    });
-
-    if (!dataURL) {
-      throw new Error('편집 이미지 추출 실패');
-    }
-
-    const croppedBlob = dataURLtoBlob(dataURL);
-    const fileName = isPng ? 'deceased_photo_edited.png' : 'deceased_photo_edited.jpg';
-    const file = new File([croppedBlob], fileName, {
-      type: uploadMimeType.value,
-    });
-
-    const res = await requestClient.upload('/file/upload?bizType=DECEASED', {
-      file,
-    });
-
-    const rawData = (res as any)?.result?.[0] ?? res;
-    if (!rawData || !rawData.id) {
-      throw new Error('파일 업로드 응답 ID가 존재하지 않습니다.');
-    }
-
-    const newFileId = rawData.id;
-    const newDownloadUrl = rawData.downloadUrl ?? `/api/file/download/${newFileId}`;
-
-    const updateParams = {
-      ...deceasedData.value,
-      memorialPhotoFileId: newFileId,
-      memorialPhotoUrl: newDownloadUrl,
-    };
-
-    await saveDeceasedDetail(deceasedId.value, updateParams);
-
-    message.success({
-      content: '고인 영정사진 편집 및 저장이 완료되었습니다.',
-      duration: 2,
-    });
-    
-    // 부모창 새로고침 통보 (window.opener 가 있을 시)
-    if (window.opener) {
-      try {
-        window.opener.postMessage('deceased-photo-saved', '*');
-      } catch (err) {
-        console.warn('부모창 메시지 송신 실패:', err);
-      }
-    }
-
-    setTimeout(() => {
-      window.close();
-    }, 1000);
-  } catch (error) {
-    console.error('영정사진 가공 저장 오류:', error);
-    message.error('영정사진 가공 저장 중 오류가 발생했습니다.');
-  } finally {
-    saveLoading.value = false;
-  }
-};
-
-// 창 닫기
-function handleClose() {
-  window.close();
-}
+const {
+  deceasedData,
+  saveLoading,
+  pageLoading,
+  currentMode,
+  undoStack,
+  redoStack,
+  brushColor,
+  brushWidth,
+  textColor,
+  fontSize,
+  selectedShape,
+  shapeColor,
+  cropRatio,
+  cropRatios,
+  currentFilter,
+  filterOptions,
+  zoomRatio,
+  currentZoomOptions,
+  handleZoomSelectChange,
+  resetZoomAndPan,
+  loadDeceasedInfo,
+  selectImgFile,
+  handleSave,
+  handleClose,
+  changeMode,
+  rotateCanvas,
+  flipCanvas,
+  applyFilter,
+  deleteSelectedObject,
+  applyCrop,
+  addText,
+  addShape,
+  handleKeyDown,
+  handleGlobalKeyDown,
+  handleGlobalKeyUp,
+  destroyEditor,
+  handleUndo,
+  handleRedo,
+} = usePhotoEditor({ canvasRef, editorContainerRef, cropperImgRef });
 
 onMounted(() => {
-  loadDeceasedInfo();
+  const idVal = route.query.id as string;
+  if (idVal) {
+    loadDeceasedInfo(idVal);
+  }
+  window.addEventListener('keydown', handleKeyDown);
+  window.addEventListener('keydown', handleGlobalKeyDown);
+  window.addEventListener('keyup', handleGlobalKeyUp);
 });
 
 onUnmounted(() => {
   destroyEditor();
+  window.removeEventListener('keydown', handleKeyDown);
+  window.removeEventListener('keydown', handleGlobalKeyDown);
+  window.removeEventListener('keyup', handleGlobalKeyUp);
 });
 </script>
 
 <template>
-  <div class="photo-editor-page-wrapper p-2 bg-gray-100 h-screen flex flex-col overflow-hidden">
-    <Card class="flex-1 flex flex-col h-full overflow-hidden shadow-sm" :body-style="{ padding: '12px', display: 'flex', flexDirection: 'column', height: '100%' }">
-      <!-- 헤더 툴바 영역 -->
-      <div class="flex items-center justify-between mb-2 border-b border-gray-100 pb-2">
+  <div class="photo-editor-page-wrapper p-1 h-screen flex flex-col overflow-hidden">
+    <Card class="flex-1 flex flex-col h-full overflow-hidden border border-gray-300 rounded-none" :body-style="{ padding: '8px', display: 'flex', flexDirection: 'column', height: '100%' }">
+      <!-- 상단 헤더 영역 -->
+      <div class="flex items-center justify-between mb-2 border-b border-gray-200 pb-2 flex-shrink-0">
         <div class="flex flex-col gap-0.5">
-          <h1 class="text-base font-bold text-gray-800 flex items-center gap-2 m-0">
-            <span>고인 영정사진 고급 편집기</span>
-            <span v-if="deceasedData" class="text-xs font-normal text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
-              대상 고인: {{ deceasedData.name }} ({{ deceasedData.gender === 'M' ? '남' : '여' }}, {{ deceasedData.age }}세)
+          <h1 class="text-sm font-bold text-gray-800 flex items-center gap-1.5 m-0 leading-none">
+            <span>고인 영정사진 편집기 (Fabric.js + Cropper.js)</span>
+            <span v-if="deceasedData" class="text-[10px] font-semibold text-blue-600 px-2 py-0.5 rounded-none border border-blue-200">
+              대상: {{ deceasedData.name }} ({{ deceasedData.gender === 'M' ? '남' : '여' }}, {{ deceasedData.age }}세)
             </span>
           </h1>
-          <div class="text-xxs text-gray-400">
-            * 원본 이미지의 투명도(PNG)를 감지해 보존합니다. (현재 자동 감지: {{ uploadMimeType }})
+          <div class="text-[10px] text-gray-400">
+            * [Space + 드래그] 캔버스 이동, [Alt + 휠] 배율 조절
           </div>
         </div>
         <div class="flex items-center gap-2">
+          <!-- Undo / Redo -->
+          <div class="flex items-center border border-gray-300">
+            <Button type="text" size="small" :disabled="undoStack.length <= 1" @click="handleUndo" title="실행 취소 (Ctrl+Z)" class="!rounded-none">
+              <template #icon>
+                <svg class="w-3.5 h-3.5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12.066 11.2a1 1 0 000 1.6l5.334 4A1 1 0 0019 16V8a1 1 0 00-1.6-.8l-5.334 4zM4.066 11.2a1 1 0 000 1.6l5.334 4A1 1 0 0011 16V8a1 1 0 00-1.6-.8l-5.334 4z" /></svg>
+              </template>
+            </Button>
+            <Button type="text" size="small" :disabled="redoStack.length === 0" @click="handleRedo" title="다시 실행 (Ctrl+Y)" class="!rounded-none">
+              <template #icon>
+                <svg class="w-3.5 h-3.5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.934 12.8a1 1 0 000-1.6l-5.334-4A1 1 0 005 8v8a1 1 0 001.6.8l5.334-4zM19.934 12.8a1 1 0 000-1.6l-5.334-4A1 1 0 0013 8v8a1 1 0 001.6.8l5.334-4z" /></svg>
+              </template>
+            </Button>
+          </div>
+          
           <Upload
             :max-count="1"
             :show-upload-list="false"
             :before-upload="() => false"
             @change="selectImgFile"
           >
-            <Button type="dashed" size="small">새 이미지 불러오기</Button>
+            <Button type="dashed" size="small" class="!rounded-none">새 이미지 불러오기</Button>
           </Upload>
-          <Button size="small" @click="handleClose">닫기</Button>
+          <Button size="small" @click="handleClose" class="!rounded-none">닫기</Button>
           <Button
             type="primary"
             size="small"
             :loading="saveLoading"
             :disabled="pageLoading"
             @click="handleSave"
+            class="!rounded-none"
           >
             편집 완료 후 저장
           </Button>
         </div>
       </div>
 
-      <!-- 편집 영역 -->
-      <div class="editor-workspace flex-1 w-full border border-gray-200 rounded overflow-hidden bg-gray-50 flex items-center justify-center relative">
-        <div v-if="pageLoading" class="text-gray-400 text-sm absolute z-10">
-          고인 정보 로딩 및 편집 환경 초기화 중...
+      <!-- 편집 작업대 3단 구성 -->
+      <div class="flex-1 flex overflow-hidden border border-gray-300 rounded-none relative">
+        <!-- 1단: 좌측 메인 툴바 -->
+        <div class="w-12 text-white flex flex-col items-center py-2 gap-2 flex-shrink-0 border-r border-gray-850">
+          <Button
+            type="text"
+            class="toolbar-btn"
+            :class="{ active: currentMode === 'select' }"
+            @click="changeMode('select')"
+            title="선택 및 이동"
+          >
+            <svg class="w-4.5 h-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" /></svg>
+            <span class="text-[8px] mt-0.5 block leading-none">이동</span>
+          </Button>
+
+          <Button
+            type="text"
+            class="toolbar-btn"
+            :class="{ active: currentMode === 'crop' }"
+            @click="changeMode('crop')"
+            title="이미지 자르기"
+          >
+            <svg class="w-4.5 h-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12.243 18.657H3m18-6V21M3 3h6m0 0v6M9 3v13a2 2 0 002 2h10M9 9H3" /></svg>
+            <span class="text-[8px] mt-0.5 block leading-none">자르기</span>
+          </Button>
+
+          <Button
+            type="text"
+            class="toolbar-btn"
+            :class="{ active: currentMode === 'draw' }"
+            @click="changeMode('draw')"
+            title="그리기 모드"
+          >
+            <svg class="w-4.5 h-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+            <span class="text-[8px] mt-0.5 block leading-none">그리기</span>
+          </Button>
+
+          <Button
+            type="text"
+            class="toolbar-btn"
+            :class="{ active: currentMode === 'text' }"
+            @click="changeMode('text')"
+            title="텍스트 추가"
+          >
+            <svg class="w-4.5 h-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7" /></svg>
+            <span class="text-[8px] mt-0.5 block leading-none">글자</span>
+          </Button>
+
+          <Button
+            type="text"
+            class="toolbar-btn"
+            :class="{ active: currentMode === 'shape' }"
+            @click="changeMode('shape')"
+            title="도형 추가"
+          >
+            <svg class="w-4.5 h-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v14a1 1 0 01-1 1H5a1 1 0 01-1-1V5z" /></svg>
+            <span class="text-[8px] mt-0.5 block leading-none">도형</span>
+          </Button>
         </div>
-        <div ref="editorContainerRef" class="tui-editor-mount-point" style="height: calc(100vh - 100px); width: 100%;"></div>
+
+        <!-- 2. 단: 서브 세부 설정 제어창 (가로 w-12 세로형 컴팩트 레이아웃) -->
+        <div class="w-12 border-r border-gray-200 py-3 px-1 flex flex-col items-center gap-4 overflow-y-auto flex-shrink-0 rounded-none">
+          <!-- 선택/기본 모드 상세설정 -->
+          <div v-if="currentMode === 'select'" class="flex flex-col items-center gap-3 w-full">
+            <!-- 회전 제어 -->
+            <Tooltip title="시계 반대 방향 90° 회전" placement="right">
+              <Button size="small" class="flex items-center justify-center !w-8 !h-8 !p-0 !rounded-none" @click="rotateCanvas(-90)">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg>
+              </Button>
+            </Tooltip>
+            
+            <Tooltip title="시계 방향 90° 회전" placement="right">
+              <Button size="small" class="flex items-center justify-center !w-8 !h-8 !p-0 !rounded-none" @click="rotateCanvas(90)">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 10H11a8 8 0 00-8 8v2m18-10l-6 6m6-6l-6-6" /></svg>
+              </Button>
+            </Tooltip>
+
+            <!-- 반전 제어 -->
+            <Tooltip title="좌우 대칭 반전" placement="right">
+              <Button size="small" class="flex items-center justify-center !w-8 !h-8 !p-0 !rounded-none" @click="flipCanvas('X')">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
+              </Button>
+            </Tooltip>
+
+            <Tooltip title="상하 대칭 반전" placement="right">
+              <Button size="small" class="flex items-center justify-center !w-8 !h-8 !p-0 !rounded-none" @click="flipCanvas('Y')">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8v12m0 0l-4-4m4 4l4-4m6 0V4m0 0l4 4m-4-4l-4 4" /></svg>
+              </Button>
+            </Tooltip>
+
+            <!-- 이미지 필터 적용 (세로형 아이콘 나열) -->
+            <div class="w-full h-px bg-gray-200 my-1"></div>
+
+            <Tooltip v-for="opt in filterOptions" :key="opt.value" :title="opt.label" placement="right">
+              <Button
+                size="small"
+                class="!w-8 !h-8 !p-0 !rounded-none"
+                :type="currentFilter === opt.value ? 'primary' : 'default'"
+                @click="applyFilter(opt.value)"
+              >
+                <span class="text-[9px] font-bold uppercase">{{ opt.value.slice(0, 2) }}</span>
+              </Button>
+            </Tooltip>
+
+            <!-- 삭제 버튼 -->
+            <div class="w-full h-px bg-gray-200 my-1"></div>
+            <Tooltip title="선택한 오브젝트 삭제 (Delete)" placement="right">
+              <Button danger type="primary" size="small" class="flex items-center justify-center !w-8 !h-8 !p-0 !rounded-none" @click="deleteSelectedObject">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+              </Button>
+            </Tooltip>
+          </div>
+
+          <!-- 자르기 모드 상세설정 -->
+          <div v-if="currentMode === 'crop'" class="flex flex-col items-center gap-3 w-full">
+            <!-- 가로세로 비율 아이콘식 나열 -->
+            <Tooltip v-for="opt in cropRatios" :key="opt.label" :title="opt.label" placement="right">
+              <Button
+                size="small"
+                class="!w-8 !h-8 !p-0 !rounded-none text-[9px]"
+                :type="cropRatio === opt.value ? 'primary' : 'default'"
+                @click="cropRatio = opt.value"
+              >
+                <span>{{ opt.value ? (opt.label.includes('1:1') ? '1:1' : opt.label.split(' ')[0]) : '자유' }}</span>
+              </Button>
+            </Tooltip>
+
+            <div class="w-full h-px bg-gray-200 my-1"></div>
+
+            <Tooltip title="자르기 실행" placement="right">
+              <Button type="primary" class="bg-red-500 hover:bg-red-600 border-none flex items-center justify-center !w-8 !h-8 !p-0 !rounded-none" size="small" @click="applyCrop">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+              </Button>
+            </Tooltip>
+            <Tooltip title="취소" placement="right">
+              <Button size="small" class="flex items-center justify-center !w-8 !h-8 !p-0 !rounded-none" @click="changeMode('select')">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+              </Button>
+            </Tooltip>
+          </div>
+
+          <!-- 그리기 모드 상세설정 -->
+          <div v-if="currentMode === 'draw'" class="flex flex-col items-center gap-3 w-full">
+            <!-- 브러쉬 색상 -->
+            <Tooltip title="펜 색상 선택" placement="right">
+              <div class="relative w-8 h-8 border border-gray-300 rounded-none overflow-hidden cursor-pointer">
+                <input type="color" v-model="brushColor" class="absolute -inset-1 w-12 h-12 p-0 border-none cursor-pointer" />
+              </div>
+            </Tooltip>
+
+            <div class="w-full h-px bg-gray-200 my-1"></div>
+
+            <!-- 브러쉬 두께 (세로형 슬라이더 적용) -->
+            <Tooltip :title="`펜 두께: ${brushWidth}px`" placement="right">
+              <div class="flex flex-col items-center h-40 py-1">
+                <Slider vertical v-model:value="brushWidth" :min="1" :max="50" class="!m-0" />
+              </div>
+            </Tooltip>
+          </div>
+
+          <!-- 글자 모드 상세설정 -->
+          <div v-if="currentMode === 'text'" class="flex flex-col items-center gap-3 w-full">
+            <!-- 글자 색상 -->
+            <Tooltip title="글자 색상 선택" placement="right">
+              <div class="relative w-8 h-8 border border-gray-300 rounded-none overflow-hidden cursor-pointer">
+                <input type="color" v-model="textColor" class="absolute -inset-1 w-12 h-12 p-0 border-none cursor-pointer" />
+              </div>
+            </Tooltip>
+
+            <div class="w-full h-px bg-gray-200 my-1"></div>
+
+            <!-- 글자 크기 (세로형 슬라이더 적용) -->
+            <Tooltip :title="`글자 크기: ${fontSize}px`" placement="right">
+              <div class="flex flex-col items-center h-40 py-1">
+                <Slider vertical v-model:value="fontSize" :min="10" :max="150" class="!m-0" />
+              </div>
+            </Tooltip>
+
+            <div class="w-full h-px bg-gray-200 my-1"></div>
+
+            <Tooltip title="새 텍스트 상자 추가" placement="right">
+              <Button type="primary" size="small" class="flex items-center justify-center !w-8 !h-8 !p-0 !rounded-none" @click="addText">
+                <span class="text-xs font-bold font-serif">T+</span>
+              </Button>
+            </Tooltip>
+          </div>
+
+          <!-- 도형 모드 상세설정 -->
+          <div v-if="currentMode === 'shape'" class="flex flex-col items-center gap-3 w-full">
+            <Tooltip :title="selectedShape === 'rect' ? '사각형 형태 선택됨' : '원형 형태 선택됨'" placement="right">
+              <Button
+                size="small"
+                class="flex items-center justify-center !w-8 !h-8 !p-0 !rounded-none"
+                @click="selectedShape = selectedShape === 'rect' ? 'circle' : 'rect'"
+              >
+                <svg v-if="selectedShape === 'rect'" class="w-4.5 h-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v14a1 1 0 01-1 1H5a1 1 0 01-1-1V5z" /></svg>
+                <svg v-else class="w-4.5 h-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><circle cx="12" cy="12" r="8" stroke-width="2" /></svg>
+              </Button>
+            </Tooltip>
+
+            <!-- 내부 채우기 색상 -->
+            <Tooltip title="도형 색상 선택" placement="right">
+              <div class="relative w-8 h-8 border border-gray-300 rounded-none overflow-hidden cursor-pointer">
+                <input type="color" v-model="shapeColor" class="absolute -inset-1 w-12 h-12 p-0 border-none cursor-pointer" />
+              </div>
+            </Tooltip>
+
+            <div class="w-full h-px bg-gray-200 my-1"></div>
+
+            <Tooltip title="도형 생성 후 삽입" placement="right">
+              <Button type="primary" size="small" class="flex items-center justify-center !w-8 !h-8 !p-0 !rounded-none" @click="addShape">
+                <span class="text-xs font-bold">+</span>
+              </Button>
+            </Tooltip>
+          </div>
+        </div>
+
+        <!-- 3단: 중앙 캔버스 작업 공간 -->
+        <div class="flex-1 flex items-center justify-center p-2 relative overflow-hidden">
+          <div v-if="pageLoading" class="text-gray-500 text-xs font-semibold absolute z-20 flex flex-col items-center gap-2 p-3 rounded-none border border-gray-300">
+            <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+            <span>편집 환경 구성 중...</span>
+          </div>
+
+          <!-- 배율 배지 및 뷰포트 리셋 버튼 -->
+          <div class="absolute bottom-2 right-2 z-10 flex items-center gap-1 bg-gray-900 bg-opacity-85 text-white text-[10px] px-1.5 py-0.5 rounded-none shadow-sm select-none border border-gray-700">
+            <span class="text-gray-400 pl-1">배율:</span>
+            <Select
+              v-model:value="zoomRatio"
+              size="small"
+              :options="currentZoomOptions"
+              class="zoom-select-dropdown w-20"
+              :bordered="false"
+              @change="(val) => handleZoomSelectChange(val as number | 'fit')"
+            />
+            <span class="text-gray-500">|</span>
+            <button class="hover:text-blue-400 font-medium focus:outline-none pr-1" @click="resetZoomAndPan">초기화</button>
+          </div>
+
+          <!-- 실제 캔버스 고정을 위한 컨테이너 -->
+          <div ref="editorContainerRef" class="canvas-workspace-box shadow-none border border-gray-300 relative max-w-full max-h-full overflow-hidden flex items-center justify-center checkerboard-bg rounded-none">
+            <div :style="{ opacity: currentMode === 'crop' ? 0 : 1, pointerEvents: currentMode === 'crop' ? 'none' : 'auto' }">
+              <canvas ref="canvasRef"></canvas>
+            </div>
+
+            <!-- Cropper.js 이미지 래퍼 오버레이 -->
+            <div v-show="currentMode === 'crop'" class="absolute inset-0 z-30 checkerboard-bg flex items-center justify-center">
+              <img ref="cropperImgRef" style="display: block; max-width: 100%; max-height: 100%;" />
+            </div>
+          </div>
+        </div>
       </div>
     </Card>
   </div>
@@ -361,17 +385,80 @@ onUnmounted(() => {
   width: 100vw;
   box-sizing: border-box;
 }
-:deep(.tui-image-editor-container) {
-  border: none !important;
-  height: 100% !important;
+
+/* 툴바 커스텀 스타일 */
+.toolbar-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 0px !important;
+  color: #9ca3af;
+  padding: 0;
+  transition: all 0.2s;
 }
-:deep(.tui-image-editor-main-container) {
-  height: 100% !important;
+
+.toolbar-btn:hover {
+  color: #ffffff;
+  background-color: #1f2937;
 }
-:deep(.tui-image-editor-header) {
-  display: none !important; /* 상단 불필요 헤더 생략 */
+
+.toolbar-btn.active {
+  color: #3b82f6;
+  border: 1px solid #3b82f6;
 }
-:deep(.tui-image-editor-help-menu) {
-  background-color: #f9fafb !important;
+
+.bg-gray-250 {
+  background-color: #eef1f6;
+}
+
+/* 모든 내부 UI 요소의 모서리 라운딩 완전 제거 (Flat) */
+:deep(*) {
+  border-radius: 0px !important;
+}
+
+/* 줌 셀렉트 스타일 커스텀 */
+:deep(.zoom-select-dropdown .ant-select-selector) {
+  color: #ffffff !important;
+  background-color: transparent !important;
+  font-size: 12px !important;
+  padding: 0 4px !important;
+}
+:deep(.zoom-select-dropdown .ant-select-arrow) {
+  color: #9ca3af !important;
+}
+
+/* 투명 영역 시각화용 격자(Checkerboard) 패턴 */
+.checkerboard-bg {
+  background-color: #f3f4f6;
+  background-image: linear-gradient(45deg, #e5e7eb 25%, transparent 25%), 
+                    linear-gradient(-45deg, #e5e7eb 25%, transparent 25%), 
+                    linear-gradient(45deg, transparent 75%, #e5e7eb 75%), 
+                    linear-gradient(-45deg, transparent 75%, #e5e7eb 75%);
+  background-size: 16px 16px;
+  background-position: 0 0, 0 8px, 8px -8px, -8px 0px;
+}
+
+/* Fabric 캔버스 및 Cropper.js 반응형 대응 */
+:deep(.canvas-container) {
+  max-width: 100% !important;
+  max-height: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+:deep(.canvas-container canvas) {
+  max-width: 100% !important;
+  max-height: 100% !important;
+  object-fit: contain !important;
+}
+
+/* Cropper 컨테이너 래퍼 오버라이드 */
+:deep(.cropper-container) {
+  max-width: 100% !important;
+  max-height: 100% !important;
 }
 </style>

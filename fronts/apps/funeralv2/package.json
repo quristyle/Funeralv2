@@ -46,13 +46,15 @@
     "dayjs": "catalog:",
     "json-bigint": "catalog:",
     "pinia": "catalog:",
-    "tui-image-editor": "^3.15.3",
+    "fabric": "^5.3.0",
+    "cropperjs": "^1.6.2",
     "vue": "catalog:",
     "vue-daum-postcode": "^1.2.2",
     "vue-router": "catalog:",
     "vxe-table": "catalog:"
   },
   "devDependencies": {
+    "@types/fabric": "^5.3.0",
     "@types/json-bigint": "catalog:",
     "vite-plugin-vue-devtools": "catalog:"
   }
