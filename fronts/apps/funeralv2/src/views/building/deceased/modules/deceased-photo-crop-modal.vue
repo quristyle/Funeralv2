@@ -826,11 +826,36 @@ const handleSave = async () => {
 
   saveLoading.value = true;
   try {
-    // 항상 png로 추출하여 투명도 강제 보장
-    const dataURL = canvas.toDataURL({
+    // 1. 현재의 줌과 뷰포트 오프셋 임시 백업 (저장 시 줌 왜곡 여백 원천 차단)
+    const originalZoom = canvas.getZoom();
+    const originalVpt = canvas.viewportTransform ? [...canvas.viewportTransform] : null;
+
+    // 2. 캔버스를 100% 줌(1) 및 원점(0,0)으로 리셋하여 순수 실측 크기로 이미지 추출
+    canvas.setZoom(1);
+    canvas.setViewportTransform([1, 0, 0, 1, 0, 0]);
+    canvas.requestRenderAll();
+
+    // 3. 영역밖자르기(isClipEnabled) 활성화 여부에 따른 toDataURL 옵션 차등 적용
+    const toDataUrlOptions: any = {
       format: 'png',
       quality: 1.0,
-    });
+    };
+
+    if (isClipEnabled.value) {
+      toDataUrlOptions.left = 0;
+      toDataUrlOptions.top = 0;
+      toDataUrlOptions.width = canvas.width;
+      toDataUrlOptions.height = canvas.height;
+    }
+
+    const dataURL = canvas.toDataURL(toDataUrlOptions);
+
+    // 4. 데이터 추출 완료 즉시 원래의 줌과 뷰포트 오프셋으로 원상 복원
+    canvas.setZoom(originalZoom);
+    if (originalVpt) {
+      canvas.setViewportTransform(originalVpt);
+    }
+    canvas.requestRenderAll();
 
     if (!dataURL) {
       throw new Error('편집 이미지 추출 실패');
