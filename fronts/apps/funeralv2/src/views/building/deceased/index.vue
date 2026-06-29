@@ -31,14 +31,22 @@ const funeralDates = ref<[Dayjs, Dayjs] | undefined>(undefined);
 
 const [Grid, gridApi] = useVbenVxeGrid({
   gridOptions: {
+    rowConfig: {
+      isHover: true,
+    },
+    scrollY: {
+      enabled: false,
+    },
     columns: [
       {
         field: 'memorialPhotoUrl',
         title: '고인사진',
         width: 80,
+        className: 'photo-column',
         slots: { default: 'photo' }
       },
       { field: 'name', title: '고인명', minWidth: 100 },
+      { field: 'chiefMourner', title: '대표상주', minWidth: 100 },
       {
         field: 'gender',
         title: '성별',
@@ -47,8 +55,9 @@ const [Grid, gridApi] = useVbenVxeGrid({
       },
       { field: 'age', title: '연세', minWidth: 80, formatter: ({ cellValue }: { cellValue: any }) => `${cellValue}세` },
       { field: 'religion', title: '종교', minWidth: 100 },
-      { field: 'roomName', title: '배정 빈소', minWidth: 120 },
-      { field: 'deathDate', title: '작고 일시', minWidth: 160, formatter: ({ cellValue }: { cellValue: any }) => formatDate(cellValue) },
+      { field: 'roomName', title: '배정 빈소', minWidth: 120, slots: { default: 'room-badge' } },
+      { field: 'deathDate', title: '작고 일시', minWidth: 160, formatter: ({ cellValue }: { cellValue: any }) => formatYmdDate(cellValue) },
+      { field: 'funeralDate', title: '발인일자', minWidth: 120, formatter: ({ cellValue }: { cellValue: any }) => formatYmdDate(cellValue) },
       {
         field: 'status',
         title: '장례 상태',
@@ -174,10 +183,15 @@ function onSearch() {
   gridApi.query();
 }
 
-function formatDate(dateStr?: string) {
+
+function formatYmdDate(dateStr?: string) {
   if (!dateStr) return '-';
   try {
-    return new Date(dateStr).toLocaleString('ko-KR');
+    const date = new Date(dateStr);
+    const yyyy = date.getFullYear();
+    const mm = String(date.getMonth() + 1).padStart(2, '0');
+    const dd = String(date.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
   } catch {
     return dateStr;
   }
@@ -188,10 +202,10 @@ function formatDate(dateStr?: string) {
   <Page auto-content-height>
     <!-- ── 상단 고급 검색 바 ─────────────────────────────────────────── -->
     <div class="mb-4 bg-card p-5 rounded-lg shadow-sm border border-border">
-      <Form layout="vertical" class="space-y-4">
+      <Form layout="horizontal" class="space-y-4">
         <!-- 1행: 계층 분류 선택 및 인적 정보 -->
         <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-          <Form.Item label="회사 필터" class="mb-0">
+          <Form.Item label="회사 필터" class="mb-0 flex items-center" :label-col="{ style: 'width: 75px; text-align: right; margin-right: 8px;' }" :wrapper-col="{ style: 'flex: 1' }">
             <BizSelect
               v-model:value="searchForm.companyId"
               type="company"
@@ -200,7 +214,7 @@ function formatDate(dateStr?: string) {
               @change="onCompanyChange"
             />
           </Form.Item>
-          <Form.Item label="건물 필터" class="mb-0">
+          <Form.Item label="건물 필터" class="mb-0 flex items-center" :label-col="{ style: 'width: 75px; text-align: right; margin-right: 8px;' }" :wrapper-col="{ style: 'flex: 1' }">
             <BizSelect
               v-model:value="searchForm.buildingId"
               type="building"
@@ -210,7 +224,7 @@ function formatDate(dateStr?: string) {
               @change="onBuildingChange"
             />
           </Form.Item>
-          <Form.Item label="층 필터" class="mb-0">
+          <Form.Item label="층 필터" class="mb-0 flex items-center" :label-col="{ style: 'width: 75px; text-align: right; margin-right: 8px;' }" :wrapper-col="{ style: 'flex: 1' }">
             <BizSelect
               v-model:value="searchForm.floorId"
               type="floor"
@@ -220,7 +234,7 @@ function formatDate(dateStr?: string) {
               @change="onFloorChange"
             />
           </Form.Item>
-          <Form.Item label="호실 필터" class="mb-0">
+          <Form.Item label="호실 필터" class="mb-0 flex items-center" :label-col="{ style: 'width: 75px; text-align: right; margin-right: 8px;' }" :wrapper-col="{ style: 'flex: 1' }">
             <BizSelect
               v-model:value="searchForm.roomId"
               type="room"
@@ -233,10 +247,10 @@ function formatDate(dateStr?: string) {
               show-all
             />
           </Form.Item>
-          <Form.Item label="고인명" class="mb-0">
+          <Form.Item label="고인명" class="mb-0 flex items-center" :label-col="{ style: 'width: 75px; text-align: right; margin-right: 8px;' }" :wrapper-col="{ style: 'flex: 1' }">
             <Input v-model:value="searchForm.name" placeholder="고인명 입력" allow-clear @press-enter="onSearch" />
           </Form.Item>
-          <Form.Item label="성별" class="mb-0">
+          <Form.Item label="성별" class="mb-0 flex items-center" :label-col="{ style: 'width: 75px; text-align: right; margin-right: 8px;' }" :wrapper-col="{ style: 'flex: 1' }">
             <DictSelect
               dict-code="SEX"
               v-model:value="searchForm.gender"
@@ -247,15 +261,15 @@ function formatDate(dateStr?: string) {
         </div>
 
         <!-- 2행: 세부 필터 (나이범위, 종교, 기간, 상태) -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 items-end">
-          <Form.Item label="나이 범위" class="mb-0">
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 items-center">
+          <Form.Item label="나이 범위" class="mb-0 flex items-center" :label-col="{ style: 'width: 75px; text-align: right; margin-right: 8px;' }" :wrapper-col="{ style: 'flex: 1' }">
             <div class="flex items-center gap-1">
               <InputNumber v-model:value="searchForm.minAge" placeholder="최소" :min="0" class="w-full" />
               <span class="text-gray-400">~</span>
               <InputNumber v-model:value="searchForm.maxAge" placeholder="최대" :min="0" class="w-full" />
             </div>
           </Form.Item>
-          <Form.Item label="종교" class="mb-0">
+          <Form.Item label="종교" class="mb-0 flex items-center" :label-col="{ style: 'width: 75px; text-align: right; margin-right: 8px;' }" :wrapper-col="{ style: 'flex: 1' }">
             <DictSelect
               dict-code="RELIGION"
               v-model:value="searchForm.religion"
@@ -263,7 +277,7 @@ function formatDate(dateStr?: string) {
               show-all
             />
           </Form.Item>
-          <Form.Item label="장례 상태" class="mb-0">
+          <Form.Item label="장례 상태" class="mb-0 flex items-center" :label-col="{ style: 'width: 75px; text-align: right; margin-right: 8px;' }" :wrapper-col="{ style: 'flex: 1' }">
             <DictSelect
               dict-code="FUNERAL_STATUS"
               v-model:value="searchForm.status"
@@ -271,15 +285,15 @@ function formatDate(dateStr?: string) {
               show-all
             />
           </Form.Item>
-          <Form.Item label="입관 기간" class="mb-0">
+          <Form.Item label="입관 기간" class="mb-0 flex items-center" :label-col="{ style: 'width: 75px; text-align: right; margin-right: 8px;' }" :wrapper-col="{ style: 'flex: 1' }">
             <RangePicker v-model:value="roomEnterDates" class="w-full" />
           </Form.Item>
-          <Form.Item label="발인 기간" class="mb-0">
+          <Form.Item label="발인 기간" class="mb-0 flex items-center" :label-col="{ style: 'width: 75px; text-align: right; margin-right: 8px;' }" :wrapper-col="{ style: 'flex: 1' }">
             <RangePicker v-model:value="funeralDates" class="w-full" />
           </Form.Item>
           
           <!-- 버튼 영역 -->
-          <div class="flex gap-2 justify-end">
+          <div class="flex gap-2 justify-end pl-[83px]">
             <Button @click="onReset" class="w-full">초기화</Button>
             <Button type="primary" @click="onSearch" class="w-full">검색</Button>
           </div>
@@ -297,15 +311,35 @@ function formatDate(dateStr?: string) {
       </template>
 
       <template #photo="{ row }">
-        <div class="w-10 h-12 bg-gray-100 rounded border border-gray-200 flex items-center justify-center overflow-hidden">
+        <div class="w-full bg-gray-100 flex items-center justify-center overflow-hidden">
           <img
-            v-if="row.memorialPhotoFileId || row.memorialPhotoUrl"
-            :src="row.memorialPhotoFileId ? `/api/file/thumbnail/${row.memorialPhotoFileId}` : row.memorialPhotoUrl"
-            class="w-full h-full object-cover"
+            v-if="row.memorialEditedPhotoFileId || row.memorialEditedPhotoUrl || row.memorialPhotoFileId || row.memorialPhotoUrl"
+            :src="row.memorialEditedPhotoFileId 
+              ? `/api/file/thumbnail/${row.memorialEditedPhotoFileId}` 
+              : (row.memorialEditedPhotoUrl 
+                ? row.memorialEditedPhotoUrl 
+                : (row.memorialPhotoFileId 
+                  ? `/api/file/thumbnail/${row.memorialPhotoFileId}` 
+                  : row.memorialPhotoUrl))"
+            class="w-full h-auto object-contain"
             alt="영정"
           />
-          <span v-else class="text-gray-400 text-[10px]">미등록</span>
+          <span v-else class="text-gray-400 text-[10px] py-4">미등록</span>
         </div>
+      </template>
+
+      <template #room-badge="{ row }">
+        <div v-if="row.roomName" class="flex flex-wrap gap-1">
+          <Tag 
+            v-for="room in row.roomName.split(',').filter(Boolean)" 
+            :key="room" 
+            color="blue" 
+            class="m-0 select-none"
+          >
+            {{ room }}
+          </Tag>
+        </div>
+        <span v-else class="text-gray-400">-</span>
       </template>
 
       <template #status-tag="{ row }">
@@ -335,3 +369,21 @@ function formatDate(dateStr?: string) {
     <DeceasedFormModal ref="formModalRef" @saved="gridApi.query()" />
   </Page>
 </template>
+
+<style scoped>
+/* VXETable 썸네일 표시 컬럼 행 및 셀의 고정 높이 제약 강제 해제 */
+:deep(.vxe-body--row) {
+  height: auto !important;
+}
+/* 영정사진 셀의 패딩만 완전히 제거하여 밀착시킴 */
+:deep(.vxe-body--column.photo-column) {
+  height: auto !important;
+  padding: 0 !important;
+}
+:deep(.vxe-body--column.photo-column .vxe-cell) {
+  max-height: none !important;
+  height: auto !important;
+  padding: 0 !important;
+  overflow: visible !important;
+}
+</style>

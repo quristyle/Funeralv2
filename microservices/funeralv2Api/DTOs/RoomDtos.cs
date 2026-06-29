@@ -12,6 +12,7 @@ public class RoomDto
     public string FloorId { get; set; } = string.Empty;
     public string? FloorName { get; set; }
     public string Name { get; set; } = string.Empty;
+    public string? ShortName { get; set; }
     public string RoomType { get; set; } = string.Empty;
     public int SortOrder { get; set; }
     public string Status { get; set; } = "ACTIVE";
@@ -31,6 +32,7 @@ public class RoomCreateDto
 
     [Required(ErrorMessage = "호실 명칭은 필수입니다.")]
     public string Name { get; set; } = string.Empty;
+    public string? ShortName { get; set; }
 
     [Required(ErrorMessage = "호실 타입은 필수입니다.")]
     public string RoomType { get; set; } = string.Empty;
@@ -53,6 +55,7 @@ public class RoomUpdateDto
 
     [Required(ErrorMessage = "호실 명칭은 필수입니다.")]
     public string Name { get; set; } = string.Empty;
+    public string? ShortName { get; set; }
 
     [Required(ErrorMessage = "호실 타입은 필수입니다.")]
     public string RoomType { get; set; } = string.Empty;

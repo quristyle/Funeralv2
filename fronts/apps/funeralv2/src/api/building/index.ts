@@ -29,6 +29,7 @@ export namespace BuildingApi {
     floorId: string;
     floorName?: string;
     name: string;
+    shortName?: string;
     roomType: string; // 빈소, 안치실, 참관실 등
     status: 'ACTIVE' | 'INACTIVE';
     remark?: string;
@@ -37,6 +38,7 @@ export namespace BuildingApi {
   export interface Device {
     id: string;
     name: string;
+    shortName?: string;
     code: string;
     deviceType: string; // DID, 키오스크, 현판 등
     ipAddress?: string;
@@ -156,6 +158,7 @@ export namespace BuildingApi {
     memorialEditedPhotoUrl?: string;
     memorialEditedPhotoFileId?: string;
     familyPhotoGroupId?: string;
+    chiefMourner?: string;
 
     mourners: DeceasedMourner[];
     contractor?: DeceasedContractor;

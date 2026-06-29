@@ -2,7 +2,7 @@
 import { ref } from 'vue';
 import { useVbenModal } from '@vben/common-ui';
 import { message } from 'ant-design-vue';
-import { Button, Form, Input, InputNumber } from 'ant-design-vue';
+import { Form, Input, InputNumber } from 'ant-design-vue';
 import { createDevice, updateDevice } from '#/api/building';
 import BizSelect from '#/components/BizSelect.vue';
 import DictSelect from '#/components/DictSelect.vue';
@@ -21,6 +21,7 @@ const emit = defineEmits<{
 const formModel = ref({
   id: '',
   name: '',
+  shortName: '',
   code: '',
   deviceType: 'FUNERAL_PORTRAIT',
   ipAddress: '',
@@ -46,6 +47,7 @@ function openCreate() {
   formModel.value = {
     id: '',
     name: '',
+    shortName: '',
     code: '',
     deviceType: 'FUNERAL_PORTRAIT',
     ipAddress: '',
@@ -71,8 +73,10 @@ function openEdit(row: any) {
 
 async function handleSave() {
   try {
-    // code는 자동생성되므로 전송 객체에서 제외
-    const { code, ...dataToSend } = formModel.value;
+    const dataToSend = {
+      ...formModel.value,
+      code: formModel.value.code || '',
+    };
 
     if (formModel.value.id) {
       await updateDevice(formModel.value.id, dataToSend);
@@ -119,6 +123,9 @@ defineExpose({ openCreate, openEdit });
         </Form.Item>
         <Form.Item label="장비명" required>
           <Input v-model:value="formModel.name" placeholder="예: 로비 대형 DID, 102호 현판" />
+        </Form.Item>
+        <Form.Item label="짧은 명칭">
+          <Input v-model:value="formModel.shortName" placeholder="예: 로비 DID, 102호 등" />
         </Form.Item>
         <Form.Item label="장비코드">
           <Input

@@ -153,6 +153,15 @@ function onChange(val: any) {
     :options="options"
     :value="selectValue"
     v-bind="$attrs"
+    class="w-full"
+    style="min-width: 100px; width: 100%"
     @change="onChange"
   />
 </template>
+
+<style scoped>
+/* BizSelect 컴포넌트의 가로 찌그러짐 방지를 위해 최소 너비 100px 강제 적용 */
+:deep(.ant-select) {
+  min-width: 100px !important;
+}
+</style>

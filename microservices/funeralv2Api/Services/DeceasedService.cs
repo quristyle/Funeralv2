@@ -106,21 +106,23 @@ public class DeceasedService : IDeceasedService
                                        dr.DeceasedId,
                                        BuildingName = b.Name,
                                        FloorName = floor != null ? floor.Name : "",
-                                       RoomName = r.Name
+                                       RoomName = r.Name,
+                                       RoomShortName = r.ShortName
                                    }).ToListAsync();
+
+        // 7-2. 대표상주 목록 일괄 로드 (N+1 성능 저하 방지)
+        var chiefMourners = await _context.DeceasedMourners
+            .Where(x => !x.IsDeleted && x.IsChief && deceasedIds.Contains(x.DeceasedId))
+            .Select(x => new { x.DeceasedId, x.Name })
+            .ToListAsync();
 
         // 8. DTO 매핑 및 배정된 건물, 층, 호실 정보 문자열 결합 (예: "본관 2층 201호, 신관 3층 302호")
         var dtoList = deceasedList.Select(d =>
         {
             var roomsInfo = deceasedRooms.Where(r => r.DeceasedId == d.Id).ToList();
-            var roomNamesCombined = string.Join(", ", roomsInfo.Select(r => 
-            {
-                var parts = new List<string>();
-                if (!string.IsNullOrEmpty(r.BuildingName)) parts.Add(r.BuildingName);
-                if (!string.IsNullOrEmpty(r.FloorName)) parts.Add(r.FloorName);
-                if (!string.IsNullOrEmpty(r.RoomName)) parts.Add(r.RoomName);
-                return string.Join(" ", parts);
-            }));
+            var roomNamesCombined = string.Join(",", roomsInfo.Select(r => !string.IsNullOrEmpty(r.RoomShortName) ? r.RoomShortName : r.RoomName).Where(name => !string.IsNullOrEmpty(name)));
+
+            var chief = chiefMourners.FirstOrDefault(c => c.DeceasedId == d.Id);
 
             return new DeceasedDto
             {
@@ -139,7 +141,8 @@ public class DeceasedService : IDeceasedService
                 MemorialPhotoFileId = d.MemorialPhotoFileId,
                 MemorialEditedPhotoUrl = d.MemorialEditedPhotoUrl,
                 MemorialEditedPhotoFileId = d.MemorialEditedPhotoFileId,
-                FamilyPhotoGroupId = d.FamilyPhotoGroupId
+                FamilyPhotoGroupId = d.FamilyPhotoGroupId,
+                ChiefMourner = chief?.Name
             };
         }).ToList();
 
@@ -315,6 +318,8 @@ public class DeceasedService : IDeceasedService
                 IsChief = m.IsChief,
                 SortOrder = m.SortOrder
             }).ToListAsync();
+
+        detail.ChiefMourner = detail.Mourners.FirstOrDefault(m => m.IsChief)?.Name;
 
         // 2. 계약자 조회
         var contractor = await _context.DeceasedContractors.FirstOrDefaultAsync(c => c.DeceasedId == id);

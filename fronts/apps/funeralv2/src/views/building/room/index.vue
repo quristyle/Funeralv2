@@ -46,6 +46,7 @@ const formModel = ref({
   buildingId: '',
   floorId: '',
   name: '',
+  shortName: '',
   roomType: 'FUNERAL_HALL' as string,
   sortOrder: 1,
   status: 'ACTIVE' as 'ACTIVE' | 'INACTIVE',
@@ -57,6 +58,7 @@ const [Grid, gridApi] = useVbenVxeGrid({
   gridOptions: {
     columns: [
       { field: 'name', title: '호실명', minWidth: 150 },
+      { field: 'shortName', title: '짧은 명칭', minWidth: 100 },
       {
         field: 'roomType',
         title: '호실 유형',
@@ -125,6 +127,7 @@ function onCreate() {
     buildingId: selectedBuildingId.value,
     floorId: filterFloorId.value,
     name: '',
+    shortName: '',
     roomType: 'FUNERAL_HALL',
     sortOrder: 1,
     status: 'ACTIVE',
@@ -272,6 +275,9 @@ async function handleSave() {
           </Form.Item>
           <Form.Item label="호실명" required>
             <Input v-model:value="formModel.name" placeholder="예: 101호 빈소, 안치실 A 등" />
+          </Form.Item>
+          <Form.Item label="짧은 명칭">
+            <Input v-model:value="formModel.shortName" placeholder="예: 101호, 특실 등" />
           </Form.Item>
           <Form.Item label="호실 유형">
             <DictSelect

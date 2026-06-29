@@ -37,6 +37,12 @@ public class Room : BaseEntity<string>
     public string Name { get; set; } = string.Empty;
 
     /// <summary>
+    /// 짧은 명칭
+    /// </summary>
+    [Column("short_name")]
+    public string? ShortName { get; set; }
+
+    /// <summary>
     /// 호실 타입 (예: 빈소, 안치실, 참관실 등)
     /// </summary>
     [Required]

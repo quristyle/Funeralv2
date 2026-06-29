@@ -128,6 +128,7 @@ public class DeviceService : IDeviceService
         var entity = new Device
         {
             Name = item.Name,
+            ShortName = item.ShortName,
             Code = generatedCode,
             DeviceType = item.DeviceType,
             IpAddress = item.IpAddress,
@@ -161,6 +162,7 @@ public class DeviceService : IDeviceService
         }
 
         entity.Name = item.Name;
+        entity.ShortName = item.ShortName;
         entity.DeviceType = item.DeviceType;
         entity.IpAddress = item.IpAddress;
         entity.MacAddress = item.MacAddress;
@@ -222,6 +224,7 @@ public class DeviceService : IDeviceService
     {
         Id = d.Id,
         Name = d.Name,
+        ShortName = d.ShortName,
         Code = d.Code,
         DeviceType = d.DeviceType,
         IpAddress = d.IpAddress,

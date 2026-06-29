@@ -20,6 +20,10 @@ public class Device : BaseEntity<string>
     [MaxLength(100)]
     public string Name { get; set; } = string.Empty;
 
+    [Column("short_name")]
+    [MaxLength(100)]
+    public string? ShortName { get; set; }
+
     [Required]
     [Column("code")]
     [MaxLength(50)]

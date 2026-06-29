@@ -70,6 +70,15 @@ function onChange(val: any) {
     :options="options"
     :value="selectValue"
     v-bind="$attrs"
+    class="w-full"
+    style="min-width: 80px; width: 100%"
     @change="onChange"
   />
 </template>
+
+<style scoped>
+/* DictSelect 컴포넌트의 가로 찌그러짐 방지를 위해 최소 너비 80px 강제 적용 */
+:deep(.ant-select) {
+  min-width: 80px !important;
+}
+</style>

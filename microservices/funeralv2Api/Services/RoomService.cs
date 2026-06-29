@@ -61,6 +61,7 @@ public class RoomService : IRoomService
             FloorId = r.FloorId,
             FloorName = r.Floor?.Name,
             Name = r.Name,
+            ShortName = r.ShortName,
             RoomType = r.RoomType,
             Status = r.Status,
             Remark = r.Remark
@@ -87,6 +88,7 @@ public class RoomService : IRoomService
             FloorId = r.FloorId,
             FloorName = r.Floor?.Name,
             Name = r.Name,
+            ShortName = r.ShortName,
             RoomType = r.RoomType,
             Status = r.Status,
             Remark = r.Remark
@@ -105,6 +107,7 @@ public class RoomService : IRoomService
             BuildingId = dto.BuildingId,
             FloorId = dto.FloorId,
             Name = dto.Name,
+            ShortName = dto.ShortName,
             RoomType = dto.RoomType,
             Status = dto.Status,
             Remark = dto.Remark
@@ -120,6 +123,7 @@ public class RoomService : IRoomService
             BuildingId = r.BuildingId,
             FloorId = r.FloorId,
             Name = r.Name,
+            ShortName = r.ShortName,
             RoomType = r.RoomType,
             Status = r.Status,
             Remark = r.Remark
@@ -139,6 +143,7 @@ public class RoomService : IRoomService
         if (r == null) return null;
 
         r.Name = dto.Name;
+        r.ShortName = dto.ShortName;
         r.RoomType = dto.RoomType;
         r.Status = dto.Status;
         r.Remark = dto.Remark;

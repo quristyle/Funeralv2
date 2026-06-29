@@ -35,8 +35,10 @@ async function handleSave() {
   if (!formModel.value.id) return;
   isSaving.value = true;
   try {
-    // code는 수정 불가 항목이므로 전송 객체에서 제외
-    const { code, ...dataToSend } = formModel.value;
+    const dataToSend = {
+      ...formModel.value,
+      code: formModel.value.code || '',
+    };
     await updateDevice(formModel.value.id, dataToSend);
     message.success('장비 정보가 수정되었습니다.');
     emit('saved');
@@ -100,6 +102,9 @@ async function handleSave() {
         </Form.Item>
         <Form.Item label="장비명" required>
           <Input v-model:value="formModel.name" placeholder="예: 로비 대형 DID, 102호 현판" />
+        </Form.Item>
+        <Form.Item label="짧은 명칭">
+          <Input v-model:value="formModel.shortName" placeholder="예: 로비 DID, 102호 등" />
         </Form.Item>
         <Form.Item label="장비코드">
           <Input
