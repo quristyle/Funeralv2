@@ -104,6 +104,7 @@ public class DeceasedService : IDeceasedService
                                    select new
                                    {
                                        dr.DeceasedId,
+                                       RoomId = r.Id,
                                        BuildingName = b.Name,
                                        FloorName = floor != null ? floor.Name : "",
                                        RoomName = r.Name,
@@ -134,7 +135,7 @@ public class DeceasedService : IDeceasedService
                 DeathDate = d.DeathDate,
                 FuneralDate = d.FuneralDate,
                 BurialDate = d.BurialDate,
-                RoomId = d.RoomId,
+                RoomId = roomsInfo.FirstOrDefault()?.RoomId ?? d.RoomId,
                 RoomName = string.IsNullOrEmpty(roomNamesCombined) ? null : roomNamesCombined,
                 Status = d.Status,
                 MemorialPhotoUrl = d.MemorialPhotoUrl,
