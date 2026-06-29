@@ -716,6 +716,54 @@ function resetZoomAndPan() {
   fitImageToScreen();
 }
 
+function resizeImageIfNeeded(dataUrl: string, maxDimension: number): Promise<string> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.src = dataUrl;
+    img.onload = () => {
+      const width = img.width;
+      const height = img.height;
+
+      if (width <= maxDimension && height <= maxDimension) {
+        resolve(dataUrl);
+        return;
+      }
+
+      let targetWidth = width;
+      let targetHeight = height;
+
+      if (width > height) {
+        if (width > maxDimension) {
+          targetHeight = Math.round((height * maxDimension) / width);
+          targetWidth = maxDimension;
+        }
+      } else {
+        if (height > maxDimension) {
+          targetWidth = Math.round((width * maxDimension) / height);
+          targetHeight = maxDimension;
+        }
+      }
+
+      const canvasElement = document.createElement('canvas');
+      canvasElement.width = targetWidth;
+      canvasElement.height = targetHeight;
+
+      const ctx = canvasElement.getContext('2d');
+      if (ctx) {
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+        resolve(canvasElement.toDataURL('image/png'));
+      } else {
+        resolve(dataUrl);
+      }
+    };
+    img.onerror = () => {
+      resolve(dataUrl);
+    };
+  });
+}
+
 // 모달 조작 핸들러
 function open(row: any) {
   deceasedData.value = { ...row };
@@ -837,7 +885,7 @@ const handleSave = async () => {
 
     // 3. 영역밖자르기(isClipEnabled) 활성화 여부에 따른 toDataURL 옵션 차등 적용
     const toDataUrlOptions: any = {
-      format: 'png',
+      format: 'image/png',
       quality: 1.0,
     };
 
@@ -861,7 +909,10 @@ const handleSave = async () => {
       throw new Error('편집 이미지 추출 실패');
     }
 
-    const croppedBlob = dataURLtoBlob(dataURL);
+    // 최대 가로/세로 1200px 제한 리사이징 픽셀 다운샘플링
+    const finalDataURL = await resizeImageIfNeeded(dataURL, 1200);
+
+    const croppedBlob = dataURLtoBlob(finalDataURL);
     const fileName = 'deceased_photo_edited.png';
     const file = new File([croppedBlob], fileName, {
       type: 'image/png',

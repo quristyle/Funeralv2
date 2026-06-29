@@ -111,6 +111,41 @@ public class FileService : IFileService
             await file.CopyToAsync(stream);
         }
 
+        long finalFileSize = file.Length;
+
+        // DECEASED 이미지 파일일 경우 FFmpeg 압축 및 리사이징 적용
+        if (isImage && !string.IsNullOrEmpty(bizType) && bizType.Equals("DECEASED", StringComparison.OrdinalIgnoreCase))
+        {
+            var webpStoredName = $"{fileId}.webp";
+            var webpPhysicalPath = Path.Combine(GetPath(bizType, folderName), webpStoredName);
+
+            var success = await ConvertAndResizeImageWithFFmpegAsync(physicalPath, webpPhysicalPath, 1200);
+            if (success)
+            {
+                try
+                {
+                    if (File.Exists(physicalPath))
+                    {
+                        File.Delete(physicalPath);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[FFmpeg Clean Original Failed] {ex.Message}");
+                }
+
+                storedName = webpStoredName;
+                physicalPath = webpPhysicalPath;
+                contentType = "image/webp";
+
+                var fileInfo = new FileInfo(webpPhysicalPath);
+                if (fileInfo.Exists)
+                {
+                    finalFileSize = fileInfo.Length;
+                }
+            }
+        }
+
         // DB에 메타데이터 저장 (웹 URL 형태 슬래시 호환)
         var metadata = new FileMetadata
         {
@@ -118,7 +153,7 @@ public class FileService : IFileService
             OriginalName = file.FileName,
             StoredName = storedName,
             Path = $"{bizFolder}/{folderName}/{storedName}",
-            Size = file.Length,
+            Size = finalFileSize,
             ContentType = contentType,
             IsImage = isImage,
             CreatedBy = userId ?? "System",
@@ -1467,5 +1502,49 @@ private async Task NotifyStatusAsync(
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// FFmpeg를 기동하여 영정사진 이미지의 최대 해상도를 1200px로 제한 및 WebP 포맷 압축 변환 처리합니다.
+    /// </summary>
+    private async Task<bool> ConvertAndResizeImageWithFFmpegAsync(string inputPath, string outputPath, int maxDimension = 1200)
+    {
+        try
+        {
+            // 가로세로 중 긴 쪽을 maxDimension(1200px)으로 란초스 다운샘플링하는 vf 스케일 필터
+            var videoFilter = $"scale='if(gt(iw,ih),min(iw,{maxDimension}),-1)':'if(gt(iw,ih),-1,min(ih,{maxDimension}))':flags=lanczos";
+
+            var processStartInfo = new ProcessStartInfo
+            {
+                FileName = "ffmpeg",
+                Arguments = $"-y -i \"{inputPath}\" -vf \"{videoFilter}\" -codec:v libwebp -quality 80 \"{outputPath}\"",
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+
+            using (var process = new Process { StartInfo = processStartInfo })
+            {
+                process.Start();
+
+                var completedTask = Task.Run(() => process.WaitForExit());
+                var timeoutTask = Task.Delay(15000); // 최대 15초 제한 타임아웃 방어
+
+                if (await Task.WhenAny(completedTask, timeoutTask) == timeoutTask)
+                {
+                    process.Kill();
+                    Console.WriteLine("[FFmpeg Deceased Image Compression] Process timeout killed.");
+                    return false;
+                }
+
+                return process.ExitCode == 0;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[FFmpeg Deceased Image Compression Exception] {ex.Message}");
+            return false;
+        }
     }
 }
