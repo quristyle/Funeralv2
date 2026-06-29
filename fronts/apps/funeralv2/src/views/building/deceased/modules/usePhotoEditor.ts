@@ -53,6 +53,7 @@ export function usePhotoEditor(params: {
     { label: '2:3 (세로)', value: 2 / 3 },
     { label: '5:7 (세로)', value: 5 / 7 },
     { label: '9:16 (세로)', value: 9 / 16 },
+    { label: '10:16 (세로)', value: 10 / 16 },
     { label: '1:1 (정방)', value: 1 },
   ];
 
@@ -296,10 +297,38 @@ export function usePhotoEditor(params: {
       canvas.isDrawingMode = true;
       setupBrush();
     } else if (mode === 'crop') {
+      // 1. 현재의 줌과 뷰포트 오프셋 임시 백업 (줌 왜곡 원천 차단)
+      const originalZoom = canvas.getZoom();
+      const originalVpt = canvas.viewportTransform ? [...canvas.viewportTransform] : null;
+
+      // 2. 캔버스를 100% 줌(1) 및 원점(0,0)으로 리셋하여 순수 원본 비율로 이미지 추출
+      canvas.setZoom(1);
+      if (canvas.viewportTransform) {
+        canvas.viewportTransform[0] = 1;
+        canvas.viewportTransform[3] = 1;
+        canvas.viewportTransform[4] = 0;
+        canvas.viewportTransform[5] = 0;
+      }
+      canvas.requestRenderAll();
+
+      // 3. 줌의 영향을 받지 않는 순수한 실측 크기 이미지 추출
       const dataUrl = canvas.toDataURL({
         format: 'png',
         quality: 1,
       });
+
+      // 4. 데이터 추출 완료 즉시 원래의 줌과 뷰포트 오프셋으로 원상 복원
+      canvas.setZoom(originalZoom);
+      if (originalVpt && canvas.viewportTransform) {
+        canvas.viewportTransform[0] = originalVpt[0];
+        canvas.viewportTransform[1] = originalVpt[1];
+        canvas.viewportTransform[2] = originalVpt[2];
+        canvas.viewportTransform[3] = originalVpt[3];
+        canvas.viewportTransform[4] = originalVpt[4];
+        canvas.viewportTransform[5] = originalVpt[5];
+      }
+      canvas.requestRenderAll();
+
       if (cropperImgRef.value) {
         // 캐시 로드 타이밍을 놓치지 않기 위해 onload를 src 지정보다 먼저 선언
         cropperImgRef.value.onload = () => {
@@ -410,8 +439,9 @@ export function usePhotoEditor(params: {
 
     cropperInstance = new Cropper(cropperImgRef.value, {
       aspectRatio: cropRatio.value !== undefined ? cropRatio.value : undefined,
-      viewMode: 1,
-      dragMode: 'move',
+      viewMode: 2, // 이미지 전체 노출 보장 및 경계 이탈 방지
+      dragMode: 'none', // 이미지 밀림 방지
+      background: false, // 이미지 영역 밖 격자 노출 방지
       autoCropArea: 0.8,
       restore: false,
       guides: true,
