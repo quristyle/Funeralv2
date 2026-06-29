@@ -303,12 +303,7 @@ export function usePhotoEditor(params: {
 
       // 2. 캔버스를 100% 줌(1) 및 원점(0,0)으로 리셋하여 순수 원본 비율로 이미지 추출
       canvas.setZoom(1);
-      if (canvas.viewportTransform) {
-        canvas.viewportTransform[0] = 1;
-        canvas.viewportTransform[3] = 1;
-        canvas.viewportTransform[4] = 0;
-        canvas.viewportTransform[5] = 0;
-      }
+      canvas.setViewportTransform([1, 0, 0, 1, 0, 0]);
       canvas.requestRenderAll();
 
       // 3. 줌의 영향을 받지 않는 순수한 실측 크기 이미지 추출
@@ -319,13 +314,8 @@ export function usePhotoEditor(params: {
 
       // 4. 데이터 추출 완료 즉시 원래의 줌과 뷰포트 오프셋으로 원상 복원
       canvas.setZoom(originalZoom);
-      if (originalVpt && canvas.viewportTransform) {
-        canvas.viewportTransform[0] = originalVpt[0];
-        canvas.viewportTransform[1] = originalVpt[1];
-        canvas.viewportTransform[2] = originalVpt[2];
-        canvas.viewportTransform[3] = originalVpt[3];
-        canvas.viewportTransform[4] = originalVpt[4];
-        canvas.viewportTransform[5] = originalVpt[5];
+      if (originalVpt) {
+        canvas.setViewportTransform(originalVpt);
       }
       canvas.requestRenderAll();
 
@@ -430,6 +420,56 @@ export function usePhotoEditor(params: {
     updateSelectedText();
   });
 
+  // 크롭 조절박스를 이미지의 가로/세로 한쪽 면이 꽉 차는 최대 크기로 정밀 핏팅
+  function fitCropBoxToImage() {
+    if (!cropperInstance) return;
+
+    const imageData = cropperInstance.getImageData();
+    const imgWidth = imageData.naturalWidth;
+    const imgHeight = imageData.naturalHeight;
+    const ratio = cropRatio.value;
+
+    if (ratio === undefined) {
+      // 자유 비율일 때는 이미지 전체 영역 100% 할당
+      cropperInstance.setData({
+        x: 0,
+        y: 0,
+        width: imgWidth,
+        height: imgHeight,
+      });
+      return;
+    }
+
+    const heightIfWidthMax = imgWidth / ratio;
+    const widthIfHeightMax = imgHeight * ratio;
+
+    let targetWidth = imgWidth;
+    let targetHeight = imgHeight;
+    let targetX = 0;
+    let targetY = 0;
+
+    if (heightIfWidthMax <= imgHeight) {
+      // 가로가 100% 꽉 차고 세로에 여유가 생기는 상태
+      targetWidth = imgWidth;
+      targetHeight = heightIfWidthMax;
+      targetX = 0;
+      targetY = (imgHeight - heightIfWidthMax) / 2;
+    } else {
+      // 세로가 100% 꽉 차고 가로에 여유가 생기는 상태
+      targetWidth = widthIfHeightMax;
+      targetHeight = imgHeight;
+      targetX = (imgWidth - widthIfHeightMax) / 2;
+      targetY = 0;
+    }
+
+    cropperInstance.setData({
+      x: targetX,
+      y: targetY,
+      width: targetWidth,
+      height: targetHeight,
+    });
+  }
+
   // Cropper 초기화 및 실행
   function initCropper() {
     if (cropperInstance) {
@@ -442,7 +482,7 @@ export function usePhotoEditor(params: {
       viewMode: 2, // 이미지 전체 노출 보장 및 경계 이탈 방지
       dragMode: 'none', // 이미지 밀림 방지
       background: false, // 이미지 영역 밖 격자 노출 방지
-      autoCropArea: 0.8,
+      autoCropArea: 1, // 최대 영역으로 오토 크롭 설정
       restore: false,
       guides: true,
       center: true,
@@ -450,12 +490,16 @@ export function usePhotoEditor(params: {
       cropBoxMovable: true,
       cropBoxResizable: true,
       toggleDragModeOnDblclick: false,
+      ready() {
+        fitCropBoxToImage();
+      }
     });
   }
 
   watch(cropRatio, (newRatio) => {
     if (currentMode.value === 'crop' && cropperInstance) {
       cropperInstance.setAspectRatio(newRatio !== undefined ? newRatio : NaN);
+      fitCropBoxToImage();
     }
   });
 
