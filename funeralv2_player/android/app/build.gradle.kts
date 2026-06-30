@@ -7,7 +7,7 @@ plugins {
 android {
     namespace = "com.quristyle.funeralv2_player"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = flutter.ndkVersion
+    ndkVersion = "27.0.12077973" // 보다 안정적인 NDK 버전으로 고정
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17

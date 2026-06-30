@@ -1,6 +1,8 @@
-using 'package:path/path.dart';
-using 'package:sqflite/sqflite.dart';
-using '../../models/device_models.dart';
+import 'package:flutter/foundation.dart'; // kIsWeb 사용을 위해 추가
+import 'package:path/path.dart';
+import 'package:sqflite/sqflite.dart';
+import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart'; // Web용 추가
+import '../../models/device_models.dart';
 
 class LocalDbService {
   static final LocalDbService _instance = LocalDbService._internal();
@@ -16,53 +18,66 @@ class LocalDbService {
   }
 
   Future<Database> _initDb() async {
-    final dbPath = await getDatabasesPath();
-    final path = join(dbPath, 'funeral_signage.db');
+    try {
+      // Web 환경일 경우 팩토리 설정
+      if (kIsWeb) {
+        databaseFactory = databaseFactoryFfiWeb;
+      }
 
-    return await openDatabase(
-      path,
-      version: 1,
-      onCreate: (db, version) async {
-        // 장비 테이블 생성
-        await db.execute('''
-          CREATE TABLE devices (
-            id TEXT PRIMARY KEY,
-            code TEXT,
-            name TEXT,
-            roomId TEXT,
-            videoId TEXT,
-            musicId TEXT,
-            isVideoEnabled INTEGER,
-            isMusicEnabled INTEGER,
-            videoName TEXT,
-            musicName TEXT,
-            musicVolume REAL,
-            isMemorialPhotoEnabled INTEGER,
-            isDeceasedNameVisible INTEGER,
-            isFamilyContactVisible INTEGER
-          )
-        ''');
+      final dbPath = await getDatabasesPath();
+      final path = join(dbPath, 'funeral_signage.db');
 
-        // 고인 테이블 생성
-        await db.execute('''
-          CREATE TABLE deceased (
-            id TEXT PRIMARY KEY,
-            name TEXT,
-            gender TEXT,
-            age INTEGER,
-            religion TEXT,
-            deathDate TEXT,
-            funeralDate TEXT,
-            burialDate TEXT,
-            roomId TEXT,
-            roomName TEXT,
-            chiefMourner TEXT,
-            memorialPhotoUrl TEXT,
-            memorialEditedPhotoUrl TEXT
-          )
-        ''');
-      },
-    );
+      return await openDatabase(
+        path,
+        version: 1,
+        onCreate: _onCreate,
+      );
+    } catch (e) {
+      print('DB 초기화 실패 (웹 환경 또는 바이너리 누락): $e');
+      // DB 초기화 실패 시 더미(In-memory) DB 또는 예외를 던져 API 서비스에서 처리하도록 함
+      rethrow;
+    }
+  }
+
+  Future<void> _onCreate(Database db, int version) async {
+    // 장비 테이블 생성
+    await db.execute('''
+      CREATE TABLE devices (
+        id TEXT PRIMARY KEY,
+        code TEXT,
+        name TEXT,
+        roomId TEXT,
+        videoId TEXT,
+        musicId TEXT,
+        isVideoEnabled INTEGER,
+        isMusicEnabled INTEGER,
+        videoName TEXT,
+        musicName TEXT,
+        musicVolume REAL,
+        isMemorialPhotoEnabled INTEGER,
+        isDeceasedNameVisible INTEGER,
+        isFamilyContactVisible INTEGER
+      )
+    ''');
+
+    // 고인 테이블 생성
+    await db.execute('''
+      CREATE TABLE deceased (
+        id TEXT PRIMARY KEY,
+        name TEXT,
+        gender TEXT,
+        age INTEGER,
+        religion TEXT,
+        deathDate TEXT,
+        funeralDate TEXT,
+        burialDate TEXT,
+        roomId TEXT,
+        roomName TEXT,
+        chiefMourner TEXT,
+        memorialPhotoUrl TEXT,
+        memorialEditedPhotoUrl TEXT
+      )
+    ''');
   }
 
   // 장비 캐시 저장

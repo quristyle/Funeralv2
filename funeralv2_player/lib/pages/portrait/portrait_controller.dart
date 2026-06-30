@@ -45,8 +45,10 @@ class PortraitController extends ChangeNotifier {
       statusMessage = '고인 정보를 동기화하는 중...';
       notifyListeners();
       deceased = await _apiService.fetchDeceased(apiServerUrl, device!.roomId!);
+      notifyListeners(); // 데이터 로드 후 즉시 UI 반영
     } else {
       deceased = null;
+      notifyListeners();
     }
 
     // 3. 미디어 파일 로컬 캐싱 처리 (오프라인 대비 선다운로드)

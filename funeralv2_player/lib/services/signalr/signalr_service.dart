@@ -1,4 +1,5 @@
-import 'package:signalr_netcore/signalr_netcore.dart';
+import 'package:signalr_netcore/hub_connection.dart';
+import 'package:signalr_netcore/hub_connection_builder.dart';
 
 class SignalRService {
   HubConnection? _connection;

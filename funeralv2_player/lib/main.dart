@@ -49,8 +49,8 @@ class _MainRouterState extends State<MainRouter> {
   Future<void> _loadConfiguration() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
-      apiServerUrl = prefs.getString('apiServerUrl') ?? 'http://10.0.2.2:5000'; // 에뮬레이터 기본 백엔드 루프백
-      fileServerUrl = prefs.getString('fileServerUrl') ?? 'http://10.0.2.2:5001'; // 에뮬레이터 기본 파일서버 루프백
+      apiServerUrl = prefs.getString('apiServerUrl') ?? 'http://localhost:5320'; // 에뮬레이터 기본 백엔드 루프백
+      fileServerUrl = prefs.getString('fileServerUrl') ?? 'http://localhost:5350'; // 에뮬레이터 기본 파일서버 루프백
       deviceCode = prefs.getString('deviceCode');
       
       // 장비 코드가 입력되어 있으면 정상 재생 모드로 진입
@@ -86,8 +86,8 @@ class _MainRouterState extends State<MainRouter> {
 
     if (!isConfigured) {
       return SettingsScreen(
-        initialApi: apiServerUrl ?? 'http://10.0.2.2:5000',
-        initialFile: fileServerUrl ?? 'http://10.0.2.2:5001',
+        initialApi: apiServerUrl ?? 'http://localhost:5320',
+        initialFile: fileServerUrl ?? 'http://localhost:5350',
         initialCode: deviceCode ?? '',
         onSave: _saveConfiguration,
       );
@@ -211,7 +211,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       labelText: 'API 서버 주소 (REST/SignalR)',
                       labelStyle: TextStyle(color: Colors.white60),
                       border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.link, color: Colors.white50),
+                      prefixIcon: Icon(Icons.link, color: Colors.white54),
                     ),
                     validator: (v) => (v == null || v.isEmpty) ? 'API 주소를 입력해 주십시오.' : null,
                   ),
@@ -224,7 +224,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       labelText: '미디어 파일 서버 주소',
                       labelStyle: TextStyle(color: Colors.white60),
                       border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.cloud_download, color: Colors.white50),
+                      prefixIcon: Icon(Icons.cloud_download, color: Colors.white54),
                     ),
                     validator: (v) => (v == null || v.isEmpty) ? '파일 서버 주소를 입력해 주십시오.' : null,
                   ),
@@ -237,7 +237,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       labelText: '장비 식별 코드 (예: DID-001)',
                       labelStyle: TextStyle(color: Colors.white60),
                       border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.developer_board, color: Colors.white50),
+                      prefixIcon: Icon(Icons.developer_board, color: Colors.white54),
                     ),
                     validator: (v) => (v == null || v.isEmpty) ? '장비코드를 입력해 주십시오.' : null,
                   ),

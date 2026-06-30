@@ -32,10 +32,18 @@ class DeviceDto {
   });
 
   factory DeviceDto.fromJson(Map<String, dynamic> json) {
-    // result 리스트 래핑 대응
-    final data = json['result'] != null && json['result'] is List && (json['result'] as List).isNotEmpty
-        ? json['result'][0]
-        : json;
+    // 백엔드 응답 구조(data.result[0]) 및 로컬 DB 구조 모두 대응
+    Map<String, dynamic> data;
+    
+    if (json.containsKey('data') && json['data'] is Map && json['data'].containsKey('result')) {
+      final list = json['data']['result'] as List;
+      data = list.isNotEmpty ? list[0] : json;
+    } else if (json.containsKey('result') && json['result'] is List) {
+      final list = json['result'] as List;
+      data = list.isNotEmpty ? list[0] : json;
+    } else {
+      data = json;
+    }
 
     return DeviceDto(
       id: data['id'] ?? '',
@@ -44,14 +52,14 @@ class DeviceDto {
       roomId: data['roomId'],
       videoId: data['videoId'],
       musicId: data['musicId'],
-      isVideoEnabled: data['isVideoEnabled'] ?? false,
-      isMusicEnabled: data['isMusicEnabled'] ?? false,
+      isVideoEnabled: (data['isVideoEnabled'] == 1 || data['isVideoEnabled'] == true),
+      isMusicEnabled: (data['isMusicEnabled'] == 1 || data['isMusicEnabled'] == true),
       videoName: data['videoName'],
       musicName: data['musicName'],
       musicVolume: (data['musicVolume'] ?? 50).toDouble(),
-      isMemorialPhotoEnabled: data['isMemorialPhotoEnabled'] ?? false,
-      isDeceasedNameVisible: data['isDeceasedNameVisible'] ?? false,
-      isFamilyContactVisible: data['isFamilyContactVisible'] ?? false,
+      isMemorialPhotoEnabled: (data['isMemorialPhotoEnabled'] == 1 || data['isMemorialPhotoEnabled'] == true),
+      isDeceasedNameVisible: (data['isDeceasedNameVisible'] == 1 || data['isDeceasedNameVisible'] == true),
+      isFamilyContactVisible: (data['isFamilyContactVisible'] == 1 || data['isFamilyContactVisible'] == true),
     );
   }
 
@@ -107,10 +115,18 @@ class DeceasedDto {
   });
 
   factory DeceasedDto.fromJson(Map<String, dynamic> json) {
-    // result 리스트 래핑 대응
-    final data = json['result'] != null && json['result'] is List && (json['result'] as List).isNotEmpty
-        ? json['result'][0]
-        : json;
+    // 백엔드 응답 구조(data.result[0]) 및 로컬 DB 구조 모두 대응
+    Map<String, dynamic> data;
+
+    if (json.containsKey('data') && json['data'] is Map && json['data'].containsKey('result')) {
+      final list = json['data']['result'] as List;
+      data = list.isNotEmpty ? list[0] : json;
+    } else if (json.containsKey('result') && json['result'] is List) {
+      final list = json['result'] as List;
+      data = list.isNotEmpty ? list[0] : json;
+    } else {
+      data = json;
+    }
 
     return DeceasedDto(
       id: data['id'] ?? '',

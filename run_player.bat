@@ -6,7 +6,9 @@ echo [1/4] Flutter Environment Configuration
 echo ==================================================
 set "PATH=C:\dev\flutter\bin;%PATH%"
 cd /d "%~dp0"
-if exist "funeralv2_player" cd "funeralv2_player"
+if exist "funeralv2_player" (
+    cd "funeralv2_player"
+)
 
 echo.
 echo ==================================================
@@ -14,30 +16,47 @@ echo [2/4] Detecting Android Emulator / Device
 echo ==================================================
 set "PATH=C:\Users\jjstyle\AppData\Local\Android\Sdk\platform-tools;C:\Users\jjstyle\AppData\Local\Android\Sdk\emulator;%PATH%"
 
-:: 현재 연결된 실기기나 이미 켜진 에뮬레이터가 있는지 검사
+rem Check if there is already an active running emulator or device
 adb devices > temp_devices.txt
-findstr /r /c:"emulator-" temp_devices.txt > nul
-if %errorlevel% equ 0 goto RE_CHECK
-findstr /r /c:"[0-9]" temp_devices.txt > nul
+findstr /v /i "List" temp_devices.txt | findstr /i "device" > nul
 if %errorlevel% equ 0 goto RE_CHECK
 
 echo [INFO] No active devices detected. Checking Android Studio Emulator...
 
-:: 에뮬레이터 목록을 파일로 임시 저장하여 안전하게 검사 (구문 오류 원천 차단)
+rem List avds to temp file
 emulator -list-avds > temp_avds.txt 2>nul
 if errorlevel 1 goto NO_AVD
 
-:: 파일 크기가 0인지 확인 (등록된 가상 기기가 없는 경우)
+rem Check if temp file is empty
 for %%A in (temp_avds.txt) do if %%~zA==0 goto NO_AVD
 
-:: 첫 번째 줄의 에뮬레이터 이름을 안전하게 가져옴
+rem Read the first avd name
 set /p AVD_NAME=<temp_avds.txt
 if "%AVD_NAME%"=="" goto NO_AVD
 
 echo [INFO] Launching Emulator: %AVD_NAME%
 start "" emulator -avd "%AVD_NAME%"
-echo [INFO] Waiting for emulator to boot (20s)...
-timeout /t 20 /nobreak
+
+echo [INFO] Waiting for emulator to establish ADB connection...
+adb wait-for-device
+
+echo [INFO] Emulator ADB connected. Waiting for Android OS boot to complete...
+set /a BOOT_WAIT_SEC=0
+
+:BOOT_LOOP
+if %BOOT_WAIT_SEC% gtr 60 goto BOOT_TIMEOUT
+adb shell getprop sys.boot_completed | findstr "1" > nul
+if %errorlevel% equ 0 goto BOOT_SUCCESS
+timeout /t 2 /nobreak > nul
+set /a BOOT_WAIT_SEC+=2
+goto BOOT_LOOP
+
+:BOOT_TIMEOUT
+echo [WARNING] Emulator boot verification timeout. Proceeding to execution...
+goto RE_CHECK
+
+:BOOT_SUCCESS
+echo [INFO] Emulator boot completed successfully.
 goto RE_CHECK
 
 :NO_AVD
