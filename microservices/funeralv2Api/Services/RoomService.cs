@@ -64,7 +64,8 @@ public class RoomService : IRoomService
             ShortName = r.ShortName,
             RoomType = r.RoomType,
             Status = r.Status,
-            Remark = r.Remark
+            Remark = r.Remark,
+            SortOrder = r.SortOrder
         }).ToList();
     }
 
@@ -91,7 +92,8 @@ public class RoomService : IRoomService
             ShortName = r.ShortName,
             RoomType = r.RoomType,
             Status = r.Status,
-            Remark = r.Remark
+            Remark = r.Remark,
+            SortOrder = r.SortOrder
         };
     }
 
@@ -149,6 +151,7 @@ public class RoomService : IRoomService
         r.RoomType = dto.RoomType;
         r.Status = dto.Status;
         r.Remark = dto.Remark;
+        r.SortOrder = dto.SortOrder;
         r.UpdatedAt = DateTime.UtcNow;
 
         await _context.SaveChangesAsync();

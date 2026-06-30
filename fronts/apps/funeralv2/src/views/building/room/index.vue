@@ -57,6 +57,7 @@ const formModel = ref({
 const [Grid, gridApi] = useVbenVxeGrid({
   gridOptions: {
     columns: [
+      { field: 'floorName', title: '층', minWidth: 100 },
       { field: 'name', title: '호실명', minWidth: 150 },
       { field: 'shortName', title: '짧은 명칭', minWidth: 100 },
       {
