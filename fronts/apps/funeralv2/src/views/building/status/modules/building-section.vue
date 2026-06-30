@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import { computed } from 'vue';
-import { Tag, Badge } from 'ant-design-vue';
+import { Tag, Badge, Dropdown, Menu } from 'ant-design-vue';
 import { IconifyIcon } from '@vben/icons';
 import RoomCard from './room-card.vue';
 
@@ -11,6 +11,8 @@ const props = defineProps<{
   };
   rooms: any[];
   devices: any[];
+  videos: any[];
+  musics: any[];
   collapsed: boolean;
   summary: {
     total: number;
@@ -22,6 +24,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'toggle'): void;
+  (e: 'update-media', payload: { deviceId: string; type: 'video' | 'music'; mediaId: string }): void;
 }>();
 
 interface FloorGroup {
@@ -147,16 +150,55 @@ const deviceTypeMap: Record<string, { label: string; color: string }> = {
           <div 
             v-for="device in getBuildingCommonDevices()"
             :key="device.id"
-            class="flex items-center gap-3 bg-card p-3 rounded-lg border border-border shadow-sm text-xs min-w-[200px]"
+            class="flex flex-col gap-3 bg-card p-4 rounded-xl border border-border shadow-sm text-xs min-w-[260px] max-w-[320px]"
           >
-            <IconifyIcon icon="mdi:monitor-dashboard" class="size-5 text-muted-foreground" />
-            <div class="flex flex-col flex-1">
-               <span class="font-bold text-foreground">{{ device.name }}</span>
-               <span class="text-[10px] text-muted-foreground/60">{{ device.code }}</span>
+            <!-- 상단 장비명 & 상태 -->
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <IconifyIcon icon="mdi:monitor-dashboard" class="size-5 text-primary/70" />
+                <div class="flex flex-col">
+                  <span class="font-bold text-foreground leading-tight">{{ device.name }}</span>
+                  <span class="text-[10px] text-muted-foreground/50">{{ device.code }}</span>
+                </div>
+              </div>
+              <Tag :color="device.status === 'ONLINE' ? 'green' : 'red'" class="m-0 select-none">
+                {{ device.status === 'ONLINE' ? '온라인' : '오프라인' }}
+              </Tag>
             </div>
-            <Tag :color="device.status === 'ONLINE' ? 'green' : 'red'">
-              {{ device.status === 'ONLINE' ? '온라인' : '오프라인' }}
-            </Tag>
+            
+            <!-- 드롭다운 영역 -->
+            <div class="flex gap-2 text-[10px] text-muted-foreground select-none border-t border-border/40 pt-2.5">
+              <Dropdown :trigger="['click']">
+                <span class="hover:text-primary cursor-pointer border border-border/80 bg-muted/15 px-2 py-1 rounded flex items-center gap-1">
+                  🎬 {{ device.videoName || '영상 없음' }}
+                  <IconifyIcon icon="lucide:chevron-down" class="size-3" />
+                </span>
+                <template #overlay>
+                  <Menu @click="({ key }) => emit('update-media', { deviceId: device.id, type: 'video', mediaId: key as string })">
+                    <Menu.Item key="">🚫 미사용 (해제)</Menu.Item>
+                    <Menu.Divider />
+                    <Menu.Item v-for="v in videos" :key="v.value">
+                      {{ v.label }}
+                    </Menu.Item>
+                  </Menu>
+                </template>
+              </Dropdown>
+              <Dropdown :trigger="['click']">
+                <span class="hover:text-primary cursor-pointer border border-border/80 bg-muted/15 px-2 py-1 rounded flex items-center gap-1">
+                  🎵 {{ device.musicName || '음원 없음' }}
+                  <IconifyIcon icon="lucide:chevron-down" class="size-3" />
+                </span>
+                <template #overlay>
+                  <Menu @click="({ key }) => emit('update-media', { deviceId: device.id, type: 'music', mediaId: key as string })">
+                    <Menu.Item key="">🚫 미사용 (해제)</Menu.Item>
+                    <Menu.Divider />
+                    <Menu.Item v-for="m in musics" :key="m.value">
+                      {{ m.label }}
+                    </Menu.Item>
+                  </Menu>
+                </template>
+              </Dropdown>
+            </div>
           </div>
         </div>
       </div>
@@ -188,17 +230,52 @@ const deviceTypeMap: Record<string, { label: string; color: string }> = {
                   <Tag color="purple" class="m-0 select-none text-xs font-semibold">공용</Tag>
                 </div>
                 
-                <div class="space-y-1.5 py-1">
+                <div class="space-y-3 py-1">
                   <div 
                     v-for="device in getFloorCommonDevices(floorGroup.floorId)"
                     :key="device.id"
-                    class="flex items-center justify-between bg-card px-2.5 py-1.5 rounded-lg border border-border/80 text-xs"
+                    class="flex flex-col gap-2 bg-card p-2.5 rounded-lg border border-border/80 text-xs"
                   >
-                    <div class="flex flex-col">
-                      <span class="font-semibold text-muted-foreground leading-tight">{{ device.name }}</span>
-                      <span class="text-[9px] text-muted-foreground/50 mt-0.5">{{ device.code }}</span>
+                    <div class="flex items-center justify-between">
+                      <div class="flex flex-col">
+                        <span class="font-semibold text-foreground leading-tight">{{ device.name }}</span>
+                        <span class="text-[9px] text-muted-foreground/50 mt-0.5">{{ device.code }}</span>
+                      </div>
+                      <Badge :status="device.status === 'ONLINE' ? 'success' : 'error'" class="scale-75" />
                     </div>
-                    <Badge :status="device.status === 'ONLINE' ? 'success' : 'error'" class="scale-75 mb-0.5" />
+                    <!-- 드롭다운 -->
+                    <div class="flex gap-1.5 text-[9px] text-muted-foreground select-none border-t border-border/40 pt-1.5">
+                      <Dropdown :trigger="['click']">
+                        <span class="hover:text-primary cursor-pointer border border-border/80 bg-muted/15 px-1.5 py-0.5 rounded flex items-center gap-1 max-w-[100px] truncate">
+                          🎬 {{ device.videoName || '영상 없음' }}
+                          <IconifyIcon icon="lucide:chevron-down" class="size-2.5" />
+                        </span>
+                        <template #overlay>
+                          <Menu @click="({ key }) => emit('update-media', { deviceId: device.id, type: 'video', mediaId: key as string })">
+                            <Menu.Item key="">🚫 미사용 (해제)</Menu.Item>
+                            <Menu.Divider />
+                            <Menu.Item v-for="v in videos" :key="v.value">
+                              {{ v.label }}
+                            </Menu.Item>
+                          </Menu>
+                        </template>
+                      </Dropdown>
+                      <Dropdown :trigger="['click']">
+                        <span class="hover:text-primary cursor-pointer border border-border/80 bg-muted/15 px-1.5 py-0.5 rounded flex items-center gap-1 max-w-[100px] truncate">
+                          🎵 {{ device.musicName || '음원 없음' }}
+                          <IconifyIcon icon="lucide:chevron-down" class="size-2.5" />
+                        </span>
+                        <template #overlay>
+                          <Menu @click="({ key }) => emit('update-media', { deviceId: device.id, type: 'music', mediaId: key as string })">
+                            <Menu.Item key="">🚫 미사용 (해제)</Menu.Item>
+                            <Menu.Divider />
+                            <Menu.Item v-for="m in musics" :key="m.value">
+                              {{ m.label }}
+                            </Menu.Item>
+                          </Menu>
+                        </template>
+                      </Dropdown>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -213,6 +290,9 @@ const deviceTypeMap: Record<string, { label: string; color: string }> = {
               v-for="room in floorGroup.rooms" 
               :key="room.id" 
               :room="room" 
+              :videos="videos"
+              :musics="musics"
+              @update-media="(payload) => emit('update-media', payload)"
             />
           </div>
         </div>

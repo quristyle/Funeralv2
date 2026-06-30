@@ -2,6 +2,8 @@ import { ref, computed, watch } from 'vue';
 import type { Dayjs } from 'dayjs';
 import { getBuildings, getFloors, getRooms, getDevices, getDeceasedList } from '#/api/building';
 import type { BuildingApi } from '#/api/building';
+import { useBizSelectStore } from '#/store/biz-select-config';
+import { requestClient } from '#/api/request';
 
 export function useStatusData() {
   // ─── 검색 필터 상태 ─────────────────────────────────────────────
@@ -22,6 +24,10 @@ export function useStatusData() {
   const floors = ref<BuildingApi.Floor[]>([]);
   const roomStatuses = ref<any[]>([]);
   const devices = ref<BuildingApi.Device[]>([]);
+  const videos = ref<{ label: string; value: any }[]>([]);
+  const musics = ref<{ label: string; value: any }[]>([]);
+  
+  const bizSelectStore = useBizSelectStore();
 
   // ─── 아코디언 토글 상태 ──────────────────────────────────────────
   const collapsedBuildings = ref<Record<string, boolean>>({});
@@ -58,11 +64,39 @@ export function useStatusData() {
     }
   );
 
+  async function loadMultimediaOptions() {
+    if (videos.value.length > 0 && musics.value.length > 0) return;
+    try {
+      const videoConfig = await bizSelectStore.getConfigByType('video');
+      if (videoConfig) {
+        const res = await requestClient.get<any>(videoConfig.apiUrl);
+        const list = (res as any)?.result ?? res;
+        videos.value = (Array.isArray(list) ? list : []).map((item: any) => ({
+          label: item[videoConfig.labelField || 'name'] ?? '',
+          value: item[videoConfig.valueField || 'id'],
+        }));
+      }
+      
+      const musicConfig = await bizSelectStore.getConfigByType('music');
+      if (musicConfig) {
+        const res = await requestClient.get<any>(musicConfig.apiUrl);
+        const list = (res as any)?.result ?? res;
+        musics.value = (Array.isArray(list) ? list : []).map((item: any) => ({
+          label: item[musicConfig.labelField || 'name'] ?? '',
+          value: item[musicConfig.valueField || 'id'],
+        }));
+      }
+    } catch (err) {
+      console.error('멀티미디어 드롭다운 로드 실패:', err);
+    }
+  }
+
   // ─── 데이터 로드 및 구조화 ──────────────────────────────────────
   async function loadData() {
     loading.value = true;
     hasLoaded.value = true;
     try {
+      await loadMultimediaOptions();
       // 1. 건물 목록 로드
       const buildingsRes = await getBuildings(searchForm.value.companyId || undefined);
       buildings.value = (buildingsRes as any)?.result ?? buildingsRes;
@@ -200,5 +234,7 @@ export function useStatusData() {
     getRoomsByBuilding,
     getBuildingSummary,
     devices,
+    videos,
+    musics,
   };
 }

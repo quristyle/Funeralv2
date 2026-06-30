@@ -1,9 +1,10 @@
 <script lang="ts" setup>
 import { Page } from '@vben/common-ui';
-import { Empty, Spin } from 'ant-design-vue';
+import { Empty, Spin, message } from 'ant-design-vue';
 import { useStatusData } from './composables/use-status-data';
 import StatusSearchForm from './modules/status-search-form.vue';
 import BuildingSection from './modules/building-section.vue';
+import { upsertDeviceAttribute, getDeviceAttribute } from '#/api/building';
 
 const {
   searchForm,
@@ -19,7 +20,69 @@ const {
   getRoomsByBuilding,
   getBuildingSummary,
   devices,
+  videos,
+  musics,
 } = useStatusData();
+
+// 장비의 동영상/음악 즉시 변경 처리
+async function handleUpdateDeviceMedia(payload: { deviceId: string; type: 'video' | 'music'; mediaId: string }) {
+  const { deviceId, type, mediaId } = payload;
+  const hide = message.loading('설정을 저장하는 중...', 0);
+  try {
+    // 1. 기존 속성 조회
+    let attr: any;
+    try {
+      const res = await getDeviceAttribute(deviceId);
+      // ApiResponse 언래핑: { result: [...] } 구조에서 데이터 추출
+      const raw = (res as any)?.result ?? res;
+      attr = Array.isArray(raw) ? raw[0] : raw;
+    } catch {
+      // 속성이 아직 없을 수 있음
+    }
+    
+    if (!attr) {
+      attr = {
+        deviceId,
+        displayOrientation: 'LANDSCAPE',
+        contentIntervalSec: 10,
+        isScreensaverEnabled: false,
+        screensaverTimeoutSec: 300,
+        isMemorialPhotoEnabled: false,
+        memorialPhotoEffect: 'FADE',
+        isDeceasedNameVisible: true,
+        isFamilyContactVisible: false,
+        isVideoEnabled: false,
+        isMusicEnabled: false,
+        isMediaLoop: true,
+        isMuted: false,
+      };
+    }
+    
+    // 2. 값 설정 및 즉시 사용(Enabled = true) 변경
+    if (type === 'video') {
+      attr.videoId = mediaId || null;
+      attr.isVideoEnabled = true; // 선택 시 즉시 사용 활성화
+    } else {
+      attr.musicId = mediaId || null;
+      attr.isMusicEnabled = true; // 선택 시 즉시 사용 활성화
+    }
+    
+    // id가 있으면 Omit<DeviceAttribute, 'id'> 형태에서 id 속성을 명시적으로 제거
+    const savePayload = { ...attr };
+    delete savePayload.id;
+    
+    await upsertDeviceAttribute(savePayload);
+    message.success('장비 멀티미디어 설정이 즉시 변경되었습니다.');
+    
+    // 3. 목록 재조회로 뷰 갱신
+    onSearch();
+  } catch (err) {
+    console.error('장비 미디어 변경 실패:', err);
+    message.error('장비 미디어 설정 변경 실패');
+  } finally {
+    hide();
+  }
+}
 </script>
 
 <template>
@@ -55,9 +118,12 @@ const {
           :building="building"
           :rooms="getRoomsByBuilding(building.id)"
           :devices="devices"
+          :videos="videos"
+          :musics="musics"
           :collapsed="!!collapsedBuildings[building.id]"
           :summary="getBuildingSummary(building.id)"
           @toggle="toggleBuilding(building.id)"
+          @update-media="handleUpdateDeviceMedia"
         />
       </div>
     </div>

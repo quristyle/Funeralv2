@@ -1,8 +1,8 @@
 <script lang="ts" setup>
-import { Tag, Badge, Tooltip } from 'ant-design-vue';
+import { Tag, Badge, Dropdown, Menu } from 'ant-design-vue';
 import { IconifyIcon } from '@vben/icons';
 
-defineProps<{
+const props = defineProps<{
   room: {
     id: string;
     name: string;
@@ -10,6 +10,12 @@ defineProps<{
     deceased?: any;
     devices: any[];
   };
+  videos?: any[];
+  musics?: any[];
+}>();
+
+const emit = defineEmits<{
+  (e: 'update-media', payload: { deviceId: string; type: 'video' | 'music'; mediaId: string }): void;
 }>();
 
 const deviceTypeMap: Record<string, { label: string; color: string }> = {
@@ -82,20 +88,61 @@ const deviceTypeMap: Record<string, { label: string; color: string }> = {
         <IconifyIcon icon="mdi:monitor-cellphone" class="size-3.5 text-muted-foreground/75" />
         <span>서비스 제공 장비 ({{ room.devices.length }})</span>
       </div>
-      <div v-if="room.devices.length > 0" class="flex flex-wrap gap-1">
-        <Tooltip 
+      <div v-if="room.devices.length > 0" class="space-y-2 mt-1">
+        <div 
           v-for="device in room.devices" 
           :key="device.id"
-          :title="`${device.name} (${device.code}) [${device.status === 'ONLINE' ? '온라인' : '오프라인'}]`"
+          class="flex flex-col gap-1.5 bg-muted/30 p-2 rounded-lg border border-border/60 text-xs"
         >
-          <Tag 
-            :color="deviceTypeMap[device.deviceType]?.color || 'default'"
-            class="m-0 text-[10px] py-0 px-1.5 flex items-center gap-1 font-medium cursor-help"
-          >
-            <Badge :status="device.status === 'ONLINE' ? 'success' : 'error'" class="mb-0.5 scale-75" />
-            {{ deviceTypeMap[device.deviceType]?.label || device.deviceType }}
-          </Tag>
-        </Tooltip>
+          <!-- 장비명 & 타입 뱃지 & 온라인 상태 -->
+          <div class="flex items-center justify-between">
+            <span class="font-bold text-foreground truncate max-w-[120px]">{{ device.name }}</span>
+            <div class="flex items-center gap-1">
+              <Tag 
+                :color="deviceTypeMap[device.deviceType]?.color || 'default'"
+                class="m-0 text-[9px] py-0 px-1 font-semibold select-none scale-90"
+              >
+                {{ deviceTypeMap[device.deviceType]?.label || device.deviceType }}
+              </Tag>
+              <Badge :status="device.status === 'ONLINE' ? 'success' : 'error'" class="scale-75" />
+            </div>
+          </div>
+          
+          <!-- 미디어 드롭다운 선택 영역 -->
+          <div class="flex gap-1.5 text-[9px] text-muted-foreground select-none border-t border-border/40 pt-1.5">
+            <Dropdown :trigger="['click']">
+              <span class="hover:text-primary cursor-pointer border border-border/80 bg-card px-1.5 py-0.5 rounded flex items-center gap-1 max-w-[100px] truncate">
+                🎬 {{ device.videoName || '영상 없음' }}
+                <IconifyIcon icon="lucide:chevron-down" class="size-2.5" />
+              </span>
+              <template #overlay>
+                <Menu @click="({ key }) => emit('update-media', { deviceId: device.id, type: 'video', mediaId: key as string })">
+                  <Menu.Item key="">🚫 미사용 (해제)</Menu.Item>
+                  <Menu.Divider />
+                  <Menu.Item v-for="v in videos" :key="v.value">
+                    {{ v.label }}
+                  </Menu.Item>
+                </Menu>
+              </template>
+            </Dropdown>
+            
+            <Dropdown :trigger="['click']">
+              <span class="hover:text-primary cursor-pointer border border-border/80 bg-card px-1.5 py-0.5 rounded flex items-center gap-1 max-w-[100px] truncate">
+                🎵 {{ device.musicName || '음원 없음' }}
+                <IconifyIcon icon="lucide:chevron-down" class="size-2.5" />
+              </span>
+              <template #overlay>
+                <Menu @click="({ key }) => emit('update-media', { deviceId: device.id, type: 'music', mediaId: key as string })">
+                  <Menu.Item key="">🚫 미사용 (해제)</Menu.Item>
+                  <Menu.Divider />
+                  <Menu.Item v-for="m in musics" :key="m.value">
+                    {{ m.label }}
+                  </Menu.Item>
+                </Menu>
+              </template>
+            </Dropdown>
+          </div>
+        </div>
       </div>
       <span v-else class="text-[10px] text-muted-foreground/60 italic">연결된 IoT 장비가 없습니다.</span>
     </div>

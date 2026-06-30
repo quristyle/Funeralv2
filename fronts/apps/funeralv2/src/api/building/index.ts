@@ -53,6 +53,12 @@ export namespace BuildingApi {
     buildingShortName?: string;
     floorShortName?: string;
     roomShortName?: string;
+    videoId?: string;
+    musicId?: string;
+    isVideoEnabled?: boolean;
+    isMusicEnabled?: boolean;
+    videoName?: string;
+    musicName?: string;
   }
 
   export interface DeviceConfig {

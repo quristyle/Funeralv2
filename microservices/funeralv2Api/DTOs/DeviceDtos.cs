@@ -31,6 +31,12 @@ public class DeviceDto
     public string? BuildingShortName { get; set; }
     public string? FloorShortName { get; set; }
     public string? RoomShortName { get; set; }
+    public string? VideoId { get; set; }
+    public string? MusicId { get; set; }
+    public bool IsVideoEnabled { get; set; }
+    public bool IsMusicEnabled { get; set; }
+    public string? VideoName { get; set; }
+    public string? MusicName { get; set; }
 }
 
 /// <summary>

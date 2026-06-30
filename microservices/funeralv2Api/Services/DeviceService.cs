@@ -24,7 +24,7 @@ public class DeviceService : IDeviceService
     /// </summary>
     public async Task<List<DeviceDto>> GetAllAsync()
     {
-        _logger.LogInformation("장비 전체 목록을 조회합니다.");
+        _logger.LogInformation("모든 장비 목록을 조회합니다.");
 
         var devices = await _context.Devices
             .AsNoTracking()
@@ -35,7 +35,33 @@ public class DeviceService : IDeviceService
             .ThenBy(d => d.Name)
             .ToListAsync();
 
-        return devices.Select(MapToDto).ToList();
+        var deviceIds = devices.Select(d => d.Id).ToList();
+        var attributes = await _context.DeviceAttributes
+            .Where(a => deviceIds.Contains(a.DeviceId) && !a.IsDeleted)
+            .ToListAsync();
+
+        var videoIds = attributes.Where(a => !string.IsNullOrEmpty(a.VideoId)).Select(a => a.VideoId!).Distinct().ToList();
+        var musicIds = attributes.Where(a => !string.IsNullOrEmpty(a.MusicId)).Select(a => a.MusicId!).Distinct().ToList();
+        var mediaIds = videoIds.Concat(musicIds).Distinct().ToList();
+        
+        var mediaMap = await _context.MediaSources
+            .Where(m => mediaIds.Contains(m.Id) && !m.IsDeleted)
+            .ToDictionaryAsync(m => m.Id, m => m.ShortName ?? m.Name);
+
+        return devices.Select(d => {
+            var dto = MapToDto(d);
+            var attr = attributes.FirstOrDefault(a => a.DeviceId == d.Id);
+            if (attr != null)
+            {
+                dto.VideoId = attr.VideoId;
+                dto.MusicId = attr.MusicId;
+                dto.IsVideoEnabled = attr.IsVideoEnabled;
+                dto.IsMusicEnabled = attr.IsMusicEnabled;
+                dto.VideoName = !string.IsNullOrEmpty(attr.VideoId) && mediaMap.TryGetValue(attr.VideoId, out var vName) ? vName : null;
+                dto.MusicName = !string.IsNullOrEmpty(attr.MusicId) && mediaMap.TryGetValue(attr.MusicId, out var mName) ? mName : null;
+            }
+            return dto;
+        }).ToList();
     }
 
     /// <summary>
@@ -81,7 +107,34 @@ public class DeviceService : IDeviceService
             .OrderBy(d => d.SortOrder)
             .ThenBy(d => d.Name)
             .ToListAsync();
-        return devices.Select(MapToDto).ToList();
+
+        var deviceIds = devices.Select(d => d.Id).ToList();
+        var attributes = await _context.DeviceAttributes
+            .Where(a => deviceIds.Contains(a.DeviceId) && !a.IsDeleted)
+            .ToListAsync();
+
+        var videoIds = attributes.Where(a => !string.IsNullOrEmpty(a.VideoId)).Select(a => a.VideoId!).Distinct().ToList();
+        var musicIds = attributes.Where(a => !string.IsNullOrEmpty(a.MusicId)).Select(a => a.MusicId!).Distinct().ToList();
+        var mediaIds = videoIds.Concat(musicIds).Distinct().ToList();
+        
+        var mediaMap = await _context.MediaSources
+            .Where(m => mediaIds.Contains(m.Id) && !m.IsDeleted)
+            .ToDictionaryAsync(m => m.Id, m => m.ShortName ?? m.Name);
+
+        return devices.Select(d => {
+            var dto = MapToDto(d);
+            var attr = attributes.FirstOrDefault(a => a.DeviceId == d.Id);
+            if (attr != null)
+            {
+                dto.VideoId = attr.VideoId;
+                dto.MusicId = attr.MusicId;
+                dto.IsVideoEnabled = attr.IsVideoEnabled;
+                dto.IsMusicEnabled = attr.IsMusicEnabled;
+                dto.VideoName = !string.IsNullOrEmpty(attr.VideoId) && mediaMap.TryGetValue(attr.VideoId, out var vName) ? vName : null;
+                dto.MusicName = !string.IsNullOrEmpty(attr.MusicId) && mediaMap.TryGetValue(attr.MusicId, out var mName) ? mName : null;
+            }
+            return dto;
+        }).ToList();
     }
 
     /// <summary>
@@ -102,7 +155,30 @@ public class DeviceService : IDeviceService
             return null;
         }
 
-        return MapToDto(device);
+        var dto = MapToDto(device);
+        
+        var attr = await _context.DeviceAttributes
+            .FirstOrDefaultAsync(a => a.DeviceId == id && !a.IsDeleted);
+        if (attr != null)
+        {
+            dto.VideoId = attr.VideoId;
+            dto.MusicId = attr.MusicId;
+            dto.IsVideoEnabled = attr.IsVideoEnabled;
+            dto.IsMusicEnabled = attr.IsMusicEnabled;
+            
+            if (!string.IsNullOrEmpty(attr.VideoId))
+            {
+                var video = await _context.MediaSources.FindAsync(attr.VideoId);
+                dto.VideoName = video?.ShortName ?? video?.Name;
+            }
+            if (!string.IsNullOrEmpty(attr.MusicId))
+            {
+                var music = await _context.MediaSources.FindAsync(attr.MusicId);
+                dto.MusicName = music?.ShortName ?? music?.Name;
+            }
+        }
+
+        return dto;
     }
 
     /// <summary>
