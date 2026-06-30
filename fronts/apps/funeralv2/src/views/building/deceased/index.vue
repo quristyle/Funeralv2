@@ -343,9 +343,10 @@ function formatYmdDate(dateStr?: string) {
       </template>
 
       <template #status-tag="{ row }">
-        <Tag v-if="row.status === 'IN_HOSPITAL'" color="processing">장례 진행중</Tag>
-        <Tag v-else-if="row.status === 'DISCHARGED'" color="warning">발인 완료</Tag>
-        <Tag v-else color="success">정산 완료</Tag>
+        <Tag v-if="row.status === 'FUNERAL_IN_PROGRESS'" color="processing">장례 진행중</Tag>
+        <Tag v-else-if="row.status === 'FUNERAL_DEPARTURE_COMPLETED'" color="warning">발인 완료</Tag>
+        <Tag v-else-if="row.status === 'SETTLEMENT_COMPLETED'" color="success">정산 완료</Tag>
+        <Tag v-else color="default">상태 미지정</Tag>
       </template>
 
       <template #action="{ row }">

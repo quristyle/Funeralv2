@@ -69,6 +69,16 @@ public class DeviceAttribute : BaseEntity<string>
     [Column("is_music_enabled")]
     public bool IsMusicEnabled { get; set; } = false;
 
+    /// <summary>재생 동영상 ID</summary>
+    [Column("video_id")]
+    [MaxLength(50)]
+    public string? VideoId { get; set; }
+
+    /// <summary>재생 음악 ID</summary>
+    [Column("music_id")]
+    [MaxLength(50)]
+    public string? MusicId { get; set; }
+
     /// <summary>음악 재생 볼륨 (0-100, null이면 장비 기본값 사용)</summary>
     [Column("music_volume")]
     public int? MusicVolume { get; set; }

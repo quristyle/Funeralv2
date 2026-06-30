@@ -28,6 +28,9 @@ public class DeviceDto
     public string? BuildingName { get; set; }
     public string? FloorName { get; set; }
     public string? RoomName { get; set; }
+    public string? BuildingShortName { get; set; }
+    public string? FloorShortName { get; set; }
+    public string? RoomShortName { get; set; }
 }
 
 /// <summary>

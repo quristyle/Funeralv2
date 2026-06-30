@@ -142,6 +142,8 @@ public class RoomService : IRoomService
 
         if (r == null) return null;
 
+        r.BuildingId = dto.BuildingId;
+        r.FloorId = dto.FloorId;
         r.Name = dto.Name;
         r.ShortName = dto.ShortName;
         r.RoomType = dto.RoomType;

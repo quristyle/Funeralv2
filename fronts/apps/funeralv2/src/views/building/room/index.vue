@@ -216,6 +216,7 @@ async function handleSave() {
             placeholder="층 선택"
             class="w-48 md:w-64"
             show-search
+            allow-clear
             option-filter-prop="label"
           />
         </div>

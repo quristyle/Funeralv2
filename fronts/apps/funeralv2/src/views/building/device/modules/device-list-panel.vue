@@ -64,6 +64,7 @@ const emit = defineEmits<{
             type="floor"
             :params="{ buildingId: selectedBuildingId }"
             auto-select-first
+            allow-clear
             placeholder="층 선택"
             class="w-32"
             show-search

@@ -25,6 +25,8 @@ public class DeviceAttributeDto
     // 멀티미디어 콘텐츠 설정
     public bool IsVideoEnabled { get; set; } = false;
     public bool IsMusicEnabled { get; set; } = false;
+    public string? VideoId { get; set; }
+    public string? MusicId { get; set; }
     public int? MusicVolume { get; set; }
     public bool IsMediaLoop { get; set; } = true;
     public bool IsMuted { get; set; } = false;
@@ -69,6 +71,8 @@ public class DeviceAttributeUpsertDto
     // 멀티미디어 콘텐츠 설정
     public bool IsVideoEnabled { get; set; } = false;
     public bool IsMusicEnabled { get; set; } = false;
+    public string? VideoId { get; set; }
+    public string? MusicId { get; set; }
     public int? MusicVolume { get; set; }
     public bool IsMediaLoop { get; set; } = true;
     public bool IsMuted { get; set; } = false;

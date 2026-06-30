@@ -72,6 +72,8 @@ public class DeviceAttributeService : IDeviceAttributeService
         // 멀티미디어 콘텐츠 설정 적용
         existing.IsVideoEnabled = dto.IsVideoEnabled;
         existing.IsMusicEnabled = dto.IsMusicEnabled;
+        existing.VideoId = dto.VideoId;
+        existing.MusicId = dto.MusicId;
         existing.MusicVolume = dto.MusicVolume;
         existing.IsMediaLoop = dto.IsMediaLoop;
         existing.IsMuted = dto.IsMuted;
@@ -138,6 +140,8 @@ public class DeviceAttributeService : IDeviceAttributeService
         IsFamilyContactVisible = a.IsFamilyContactVisible,
         IsVideoEnabled = a.IsVideoEnabled,
         IsMusicEnabled = a.IsMusicEnabled,
+        VideoId = a.VideoId,
+        MusicId = a.MusicId,
         MusicVolume = a.MusicVolume,
         IsMediaLoop = a.IsMediaLoop,
         IsMuted = a.IsMuted,

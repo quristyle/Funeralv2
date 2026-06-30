@@ -18,6 +18,7 @@ const currentSourceId = ref<string>('');
 
 const formModel = ref({
   name: '',
+  shortName: '',
   sourceType: 'AUDIO' as const,
   url: '',
   thumbnailUrl: '',
@@ -40,13 +41,14 @@ function open(row?: any) {
     currentSourceId.value = row.id;
     formModel.value = {
       name: row.name || '',
+      shortName: row.shortName || '',
       sourceType: 'AUDIO',
       url: row.url || '',
       thumbnailUrl: row.thumbnailUrl || '',
       thumbnailFileId: row.thumbnailFileId || null,
       sortOrder: row.sortOrder || 0,
       remark: row.remark || ''
-    };
+     };
     selectedFileName.value = '';
     uploadPercent.value = 0;
     uploadModalApi.setState({ title: '음원 리소스 수정' });
@@ -55,6 +57,7 @@ function open(row?: any) {
     currentSourceId.value = '';
     formModel.value = {
       name: '',
+      shortName: '',
       sourceType: 'AUDIO',
       url: '',
       thumbnailUrl: '',
@@ -213,6 +216,10 @@ defineExpose({ open });
 
         <Form.Item label="음원 명칭" required>
           <Input v-model:value="formModel.name" placeholder="예: 상례 추모 음악 1번, 관내 백그라운드 재즈" />
+        </Form.Item>
+
+        <Form.Item label="짧은 명칭">
+          <Input v-model:value="formModel.shortName" placeholder="예: 추모음악1, 백그라운드재즈 (장비 DID 화면 등에 노출)" />
         </Form.Item>
 
         <Form.Item label="순서">

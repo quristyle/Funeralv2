@@ -21,6 +21,7 @@ export function useStatusData() {
   const buildings = ref<BuildingApi.Building[]>([]);
   const floors = ref<BuildingApi.Floor[]>([]);
   const roomStatuses = ref<any[]>([]);
+  const devices = ref<BuildingApi.Device[]>([]);
 
   // ─── 아코디언 토글 상태 ──────────────────────────────────────────
   const collapsedBuildings = ref<Record<string, boolean>>({});
@@ -82,7 +83,7 @@ export function useStatusData() {
         floorId: searchForm.value.floorId || undefined,
       };
       const devicesRes = await getDevices(devicesParams);
-      const devices = (devicesRes as any)?.result ?? devicesRes;
+      devices.value = (devicesRes as any)?.result ?? devicesRes;
 
       // 4. 고인 목록 로드 (검색어 및 기간 포함)
       const deceasedParams: Record<string, any> = {};
@@ -105,7 +106,7 @@ export function useStatusData() {
         const currentDeceased = deceasedList.find(
           (d: any) => d.roomId === room.id && d.status !== 'COMPLETED'
         );
-        const roomDevices = devices.filter((d: BuildingApi.Device) => d.roomId === room.id);
+        const roomDevices = devices.value.filter((d: BuildingApi.Device) => d.roomId === room.id);
 
         return {
           ...room,
@@ -198,5 +199,6 @@ export function useStatusData() {
     filteredBuildings,
     getRoomsByBuilding,
     getBuildingSummary,
+    devices,
   };
 }

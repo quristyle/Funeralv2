@@ -1,14 +1,16 @@
 <script lang="ts" setup>
+import { computed } from 'vue';
 import { Tag, Badge } from 'ant-design-vue';
 import { IconifyIcon } from '@vben/icons';
 import RoomCard from './room-card.vue';
 
-defineProps<{
+const props = defineProps<{
   building: {
     id: string;
     name: string;
   };
   rooms: any[];
+  devices: any[];
   collapsed: boolean;
   summary: {
     total: number;
@@ -21,6 +23,49 @@ defineProps<{
 const emit = defineEmits<{
   (e: 'toggle'): void;
 }>();
+
+interface FloorGroup {
+  floorId: string;
+  floorName: string;
+  rooms: any[];
+}
+
+// 층별 호실 그룹화 및 순서 유지
+const groupedFloors = computed(() => {
+  const groupsMap = new Map<string, FloorGroup>();
+  
+  for (const room of props.rooms) {
+    const floorId = room.floorId || 'unknown';
+    const floorName = room.floorName || '기타';
+    
+    if (!groupsMap.has(floorId)) {
+      groupsMap.set(floorId, {
+        floorId,
+        floorName,
+        rooms: [],
+      });
+    }
+    groupsMap.get(floorId)!.rooms.push(room);
+  }
+  
+  return Array.from(groupsMap.values());
+});
+
+// 건물 공용 장비 필터링
+function getBuildingCommonDevices() {
+  if (!Array.isArray(props.devices)) return [];
+  return props.devices.filter(
+    (d) => d.buildingId === props.building.id && !d.floorId && !d.roomId
+  );
+}
+
+// 층 공용 장비 필터링
+function getFloorCommonDevices(floorId: string) {
+  if (!Array.isArray(props.devices)) return [];
+  return props.devices.filter(
+    (d) => d.buildingId === props.building.id && d.floorId === floorId && !d.roomId
+  );
+}
 
 const deviceTypeMap: Record<string, { label: string; color: string }> = {
   FUNERAL_PORTRAIT: { label: '영정', color: 'purple' },
@@ -88,16 +133,89 @@ const deviceTypeMap: Record<string, { label: string; color: string }> = {
         </div>
       </div>
 
-      <!-- 건물 하위 호실 카드 그리드 -->
+      <!-- 건물 공용 장비 목록 (배정 장비가 존재할 때만 표시) -->
       <div 
-        v-if="rooms.length > 0"
-        class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"
+        v-if="getBuildingCommonDevices().length > 0"
+        class="border border-primary/20 bg-primary/5 rounded-xl p-4 flex flex-col gap-3"
       >
-        <RoomCard 
-          v-for="room in rooms" 
-          :key="room.id" 
-          :room="room" 
-        />
+        <div class="flex items-center gap-2 select-none">
+          <IconifyIcon icon="mdi:office-building-cog" class="size-5 text-primary" />
+          <span class="text-sm font-bold text-foreground">건물 공용 서비스 장비</span>
+          <span class="text-xs text-muted-foreground">({{ getBuildingCommonDevices().length }}대)</span>
+        </div>
+        <div class="flex flex-wrap gap-4">
+          <div 
+            v-for="device in getBuildingCommonDevices()"
+            :key="device.id"
+            class="flex items-center gap-3 bg-card p-3 rounded-lg border border-border shadow-sm text-xs min-w-[200px]"
+          >
+            <IconifyIcon icon="mdi:monitor-dashboard" class="size-5 text-muted-foreground" />
+            <div class="flex flex-col flex-1">
+               <span class="font-bold text-foreground">{{ device.name }}</span>
+               <span class="text-[10px] text-muted-foreground/60">{{ device.code }}</span>
+            </div>
+            <Tag :color="device.status === 'ONLINE' ? 'green' : 'red'">
+              {{ device.status === 'ONLINE' ? '온라인' : '오프라인' }}
+            </Tag>
+          </div>
+        </div>
+      </div>
+
+      <!-- 건물 하위 층별 섹션 및 호실 카드 배치 -->
+      <div v-if="groupedFloors.length > 0" class="space-y-6">
+        <div 
+          v-for="floorGroup in groupedFloors" 
+          :key="floorGroup.floorId"
+          class="border border-border/40 bg-muted/5 rounded-xl p-4 shadow-sm"
+        >
+          <!-- 층 헤더 -->
+          <div class="flex items-center gap-2 mb-3 border-b border-border/30 pb-2 select-none">
+            <IconifyIcon icon="lucide:layers" class="size-4.5 text-primary/80" />
+            <h3 class="text-sm font-bold text-foreground">{{ floorGroup.floorName }}</h3>
+            <span class="text-xs text-muted-foreground font-medium">({{ floorGroup.rooms.length }}개 호실)</span>
+          </div>
+          
+          <!-- 해당 층의 호실 카드 그리드 -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            <!-- 층 공용 장비 카드 -->
+            <div 
+              v-if="getFloorCommonDevices(floorGroup.floorId).length > 0"
+              class="bg-muted/15 rounded-xl border border-dashed border-primary/40 p-5 shadow-sm flex flex-col justify-between min-h-[180px]"
+            >
+              <div>
+                <div class="flex items-center justify-between mb-3 select-none">
+                  <span class="font-bold text-base text-foreground leading-none">층 공용 장비</span>
+                  <Tag color="purple" class="m-0 select-none text-xs font-semibold">공용</Tag>
+                </div>
+                
+                <div class="space-y-1.5 py-1">
+                  <div 
+                    v-for="device in getFloorCommonDevices(floorGroup.floorId)"
+                    :key="device.id"
+                    class="flex items-center justify-between bg-card px-2.5 py-1.5 rounded-lg border border-border/80 text-xs"
+                  >
+                    <div class="flex flex-col">
+                      <span class="font-semibold text-muted-foreground leading-tight">{{ device.name }}</span>
+                      <span class="text-[9px] text-muted-foreground/50 mt-0.5">{{ device.code }}</span>
+                    </div>
+                    <Badge :status="device.status === 'ONLINE' ? 'success' : 'error'" class="scale-75 mb-0.5" />
+                  </div>
+                </div>
+              </div>
+              <div class="border-t border-border/60 pt-2.5 mt-auto flex items-center gap-1 select-none text-[10px] text-muted-foreground/75 font-semibold">
+                <IconifyIcon icon="mdi:monitor-cellphone" class="size-3.5" />
+                <span>공용 장비 ({{ getFloorCommonDevices(floorGroup.floorId).length }}대)</span>
+              </div>
+            </div>
+
+            <!-- 호실 카드 리스트 -->
+            <RoomCard 
+              v-for="room in floorGroup.rooms" 
+              :key="room.id" 
+              :room="room" 
+            />
+          </div>
+        </div>
       </div>
 
       <div v-else class="py-12 text-center text-muted-foreground text-sm">

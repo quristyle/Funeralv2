@@ -3,6 +3,7 @@ import {
   Alert, Button, Divider, Form, Input, InputNumber, Select, Slider, Spin, Switch,
 } from 'ant-design-vue';
 import { IconifyIcon } from '@vben/icons';
+import BizSelect from '#/components/BizSelect.vue';
 import type { BuildingApi } from '#/api/building';
 
 const props = defineProps<{
@@ -147,6 +148,27 @@ const emit = defineEmits<{
                 v-model:checked="deviceAttr.isMusicEnabled"
                 checked-children="사용"
                 un-checked-children="사용안함"
+              />
+            </Form.Item>
+          </div>
+          <div
+            v-if="deviceAttr.isVideoEnabled || deviceAttr.isMusicEnabled"
+            class="grid grid-cols-2 gap-3"
+          >
+            <Form.Item v-if="deviceAttr.isVideoEnabled" label="동영상 선택">
+              <BizSelect
+                type="video"
+                v-model:value="deviceAttr.videoId"
+                placeholder="동영상을 선택하세요"
+                style="width: 100%"
+              />
+            </Form.Item>
+            <Form.Item v-if="deviceAttr.isMusicEnabled" label="음악 선택">
+              <BizSelect
+                type="music"
+                v-model:value="deviceAttr.musicId"
+                placeholder="음악을 선택하세요"
+                style="width: 100%"
               />
             </Form.Item>
           </div>

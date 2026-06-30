@@ -25,8 +25,8 @@ export namespace BuildingApi {
 
   export interface Room {
     id: string;
-    buildingId: string;
-    floorId: string;
+    buildingId?: string;
+    floorId?: string;
     floorName?: string;
     name: string;
     shortName?: string;
@@ -50,6 +50,9 @@ export namespace BuildingApi {
     floorId?: string;
     roomId?: string;
     roomName?: string;
+    buildingShortName?: string;
+    floorShortName?: string;
+    roomShortName?: string;
   }
 
   export interface DeviceConfig {
@@ -183,6 +186,8 @@ export namespace BuildingApi {
     // 멀티미디어 콘텐츠 설정
     isVideoEnabled: boolean;
     isMusicEnabled: boolean;
+    videoId: string | null;
+    musicId: string | null;
     musicVolume: number | null;
     isMediaLoop: boolean;
     isMuted: boolean;

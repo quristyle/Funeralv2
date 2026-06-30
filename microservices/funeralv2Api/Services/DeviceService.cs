@@ -28,6 +28,9 @@ public class DeviceService : IDeviceService
 
         var devices = await _context.Devices
             .AsNoTracking()
+            .Include(d => d.Building)
+            .Include(d => d.Floor)
+            .Include(d => d.Room)
             .OrderBy(d => d.SortOrder)
             .ThenBy(d => d.Name)
             .ToListAsync();
@@ -72,6 +75,9 @@ public class DeviceService : IDeviceService
         }
 
         var devices = await query
+            .Include(d => d.Building)
+            .Include(d => d.Floor)
+            .Include(d => d.Room)
             .OrderBy(d => d.SortOrder)
             .ThenBy(d => d.Name)
             .ToListAsync();
@@ -85,7 +91,11 @@ public class DeviceService : IDeviceService
     {
         _logger.LogInformation("장비 상세 정보를 조회합니다. Id: {Id}", id);
 
-        var device = await _context.Devices.FindAsync(id);
+        var device = await _context.Devices
+            .Include(d => d.Building)
+            .Include(d => d.Floor)
+            .Include(d => d.Room)
+            .FirstOrDefaultAsync(d => d.Id == id);
         if (device == null)
         {
             _logger.LogWarning("장비를 찾을 수 없습니다. Id: {Id}", id);
@@ -235,5 +245,11 @@ public class DeviceService : IDeviceService
         FloorId = d.FloorId,
         RoomId = d.RoomId,
         CompanyId = d.CompanyId,
+        BuildingName = d.Building?.Name,
+        FloorName = d.Floor?.Name,
+        RoomName = d.Room?.Name,
+        BuildingShortName = d.Building?.ShortName ?? d.Building?.Name,
+        FloorShortName = d.Floor?.Name,
+        RoomShortName = d.Room?.ShortName ?? d.Room?.Name,
     };
 }

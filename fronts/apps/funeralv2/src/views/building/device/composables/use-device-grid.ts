@@ -22,6 +22,26 @@ export function useDeviceGrid(
       columns: [
         { field: 'name', title: '장비명', minWidth: 120 },
         { field: 'shortName', title: '짧은 명칭', minWidth: 100 },
+        {
+          field: 'locationPath',
+          title: '소속 위치',
+          minWidth: 150,
+          formatter: ({ row }: { row: BuildingApi.Device }) => {
+            const b = row.buildingShortName || '';
+            const f = row.floorShortName || '';
+            const r = row.roomShortName || '';
+            if (row.roomId) {
+              return `${b} ${r}`.trim() || '-';
+            }
+            if (row.floorId) {
+              return `${b} ${f}`.trim() || '-';
+            }
+            if (row.buildingId) {
+              return b || '-';
+            }
+            return '-';
+          },
+        },
         { field: 'code', title: '코드', minWidth: 100 },
         { field: 'sortOrder', title: '정렬 순서', minWidth: 100 },
         {

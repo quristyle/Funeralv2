@@ -18,6 +18,7 @@ const {
   filteredBuildings,
   getRoomsByBuilding,
   getBuildingSummary,
+  devices,
 } = useStatusData();
 </script>
 
@@ -53,6 +54,7 @@ const {
           :key="building.id"
           :building="building"
           :rooms="getRoomsByBuilding(building.id)"
+          :devices="devices"
           :collapsed="!!collapsedBuildings[building.id]"
           :summary="getBuildingSummary(building.id)"
           @toggle="toggleBuilding(building.id)"

@@ -20,6 +20,7 @@ const [Grid, gridApi] = useVbenVxeGrid({
     columns: [
       { field: 'thumbnailUrl', title: '커버', width: 80, slots: { default: 'thumbnail' } },
       { field: 'name', title: '음원/배경음악 명칭', minWidth: 180 },
+      { field: 'shortName', title: '짧은 명칭', width: 120 },
       { field: 'status', title: '상태', width: 100, slots: { default: 'status' } },
       { field: 'sortOrder', title: '순서', width: 80 },
       { field: 'url', title: '음원 URL 경로', minWidth: 280 },

@@ -86,6 +86,7 @@ async function handleSave() {
               type="floor"
               :params="{ buildingId: formModel.buildingId }"
               placeholder="층 선택"
+              allow-clear
               @change="
                 () => {
                   formModel.roomId = undefined;
@@ -97,6 +98,7 @@ async function handleSave() {
               type="room"
               :params="{ floorId: formModel.floorId }"
               placeholder="호실 선택"
+              allow-clear
             />
           </div>
         </Form.Item>
