@@ -24,4 +24,7 @@ public interface IDeviceService
 
     /// <summary>장비 삭제</summary>
     Task<bool> DeleteAsync(string id);
+
+    /// <summary>장비 코드로 조회</summary>
+    Task<DeviceDto?> GetByCodeAsync(string code);
 }

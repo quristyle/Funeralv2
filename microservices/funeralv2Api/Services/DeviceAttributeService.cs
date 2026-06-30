@@ -13,11 +13,13 @@ public class DeviceAttributeService : IDeviceAttributeService
 {
     private readonly AppDbContext _context;
     private readonly ILogger<DeviceAttributeService> _logger;
+    private readonly IDeviceHubSender _deviceHubSender;
 
-    public DeviceAttributeService(AppDbContext context, ILogger<DeviceAttributeService> logger)
+    public DeviceAttributeService(AppDbContext context, ILogger<DeviceAttributeService> logger, IDeviceHubSender deviceHubSender)
     {
         _context = context;
         _logger = logger;
+        _deviceHubSender = deviceHubSender;
     }
 
     /// <summary>
@@ -95,6 +97,16 @@ public class DeviceAttributeService : IDeviceAttributeService
         existing.Remark = dto.Remark;
 
         await _context.SaveChangesAsync();
+
+        // 실시간 변경 알림 송신
+        try
+        {
+            await _deviceHubSender.SendDeviceChangedByDeviceIdAsync(dto.DeviceId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "SignalR 장비 속성 변경 알림 전송 중 에러 발생");
+        }
 
         return MapToDto(existing);
     }

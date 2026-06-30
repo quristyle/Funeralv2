@@ -37,6 +37,10 @@ public class DeviceDto
     public bool IsMusicEnabled { get; set; }
     public string? VideoName { get; set; }
     public string? MusicName { get; set; }
+    public bool IsMemorialPhotoEnabled { get; set; }
+    public bool IsDeceasedNameVisible { get; set; }
+    public bool IsFamilyContactVisible { get; set; }
+    public double MusicVolume { get; set; }
 }
 
 /// <summary>

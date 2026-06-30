@@ -54,6 +54,11 @@ public class FileService : IFileService
             return "funeralv2/deceased";
         }
 
+        if (trimmed.Equals("DECORATION", StringComparison.OrdinalIgnoreCase))
+        {
+            return "funeralv2/decoration";
+        }
+
         // 경로 탐색(..) 등의 비정상 문자 제거 및 소문자 정화 (하위 비즈니스 폴더 슬래시는 허용)
         var safeFolder = trimmed.Replace("..", "").Trim('/', '\\');
         return string.IsNullOrEmpty(safeFolder) ? "basecom" : safeFolder.ToLower();

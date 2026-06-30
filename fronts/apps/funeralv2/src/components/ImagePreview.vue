@@ -7,6 +7,8 @@ import { Image as AImage } from 'ant-design-vue';
 interface Props {
   /** 이미지 URL 경로 */
   src?: string | null;
+  /** 클릭 시 크게 볼 원본 이미지 URL 경로 */
+  previewSrc?: string | null;
   /** 이미지 너비 (기본값: 40) */
   width?: number | string;
   /** 이미지 높이 (기본값: 40) */
@@ -19,6 +21,7 @@ interface Props {
 
 withDefaults(defineProps<Props>(), {
   src: null,
+  previewSrc: null,
   width: 40,
   height: 40,
   fallbackText: '📷',
@@ -34,8 +37,9 @@ withDefaults(defineProps<Props>(), {
       :src="src"
       :width="width"
       :height="height"
-      class="object-cover rounded shadow border cursor-zoom-in"
+      class="object-contain rounded shadow border cursor-zoom-in"
       :alt="alt"
+      :preview="previewSrc ? { src: previewSrc } : true"
     />
     <!-- 이미지가 없는 경우 폴백 UI 표출 -->
     <div

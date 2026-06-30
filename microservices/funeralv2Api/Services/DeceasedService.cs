@@ -17,11 +17,13 @@ public class DeceasedService : IDeceasedService
 {
     private readonly AppDbContext _context;
     private readonly ILogger<DeceasedService> _logger;
+    private readonly IDeviceHubSender _deviceHubSender;
 
-    public DeceasedService(AppDbContext context, ILogger<DeceasedService> logger)
+    public DeceasedService(AppDbContext context, ILogger<DeceasedService> logger, IDeviceHubSender deviceHubSender)
     {
         _context = context;
         _logger = logger;
+        _deviceHubSender = deviceHubSender;
     }
 
     /// <inheritdoc />
@@ -177,6 +179,11 @@ public class DeceasedService : IDeceasedService
         _context.Deceaseds.Add(deceased);
         await _context.SaveChangesAsync();
 
+        if (!string.IsNullOrEmpty(deceased.RoomId))
+        {
+            try { await _deviceHubSender.SendDeviceChangedByRoomIdAsync(deceased.RoomId); } catch (Exception ex) { _logger.LogError(ex, "SignalR 알림 전송 중 에러"); }
+        }
+
         // 룸 이름 조회를 위한 개별 바인딩
         string? roomName = null;
         if (!string.IsNullOrEmpty(dto.RoomId))
@@ -213,6 +220,8 @@ public class DeceasedService : IDeceasedService
             return null;
         }
 
+        var oldRoomId = deceased.RoomId;
+
         deceased.Name = dto.Name;
         deceased.Gender = dto.Gender;
         deceased.Age = dto.Age;
@@ -227,6 +236,13 @@ public class DeceasedService : IDeceasedService
         deceased.UpdatedAt = DateTime.UtcNow;
 
         await _context.SaveChangesAsync();
+
+        try 
+        { 
+            if (!string.IsNullOrEmpty(oldRoomId)) await _deviceHubSender.SendDeviceChangedByRoomIdAsync(oldRoomId);
+            if (!string.IsNullOrEmpty(deceased.RoomId) && deceased.RoomId != oldRoomId) await _deviceHubSender.SendDeviceChangedByRoomIdAsync(deceased.RoomId);
+        } 
+        catch (Exception ex) { _logger.LogError(ex, "SignalR 알림 전송 중 에러"); }
 
         string? roomName = null;
         if (!string.IsNullOrEmpty(dto.RoomId))
@@ -615,6 +631,18 @@ public class DeceasedService : IDeceasedService
         }
 
         await _context.SaveChangesAsync();
+
+        try
+        {
+            var roomIdsToNotify = existingRooms.Select(x => x.RoomId).Distinct().ToList();
+            if (!string.IsNullOrEmpty(deceased.RoomId)) roomIdsToNotify.Add(deceased.RoomId);
+            
+            foreach (var rId in roomIdsToNotify.Distinct())
+            {
+                await _deviceHubSender.SendDeviceChangedByRoomIdAsync(rId);
+            }
+        }
+        catch (Exception ex) { _logger.LogError(ex, "SignalR 알림 전송 중 에러"); }
 
         return await GetDeceasedDetailAsync(id);
     }

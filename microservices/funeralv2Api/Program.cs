@@ -57,6 +57,9 @@ builder.Services.AddScoped<IDeviceAttributeService, DeviceAttributeService>();
 builder.Services.AddScoped<IDeviceConfigService, DeviceConfigService>();
 builder.Services.AddScoped<IMediaSourceService, MediaSourceService>();
 builder.Services.AddScoped<IDeceasedService, DeceasedService>();
+builder.Services.AddScoped<IDeviceHubSender, DeviceHubSender>();
+
+builder.Services.AddSignalR();
 
 
 // ============================================================
@@ -66,9 +69,10 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
     {
-        policy.AllowAnyOrigin()
+        policy.SetIsOriginAllowed(_ => true)
               .AllowAnyHeader()
-              .AllowAnyMethod();
+              .AllowAnyMethod()
+              .AllowCredentials();
     });
 });
 
@@ -122,6 +126,8 @@ app.MapDeviceAttributeEndpoints();
 app.MapDeviceConfigEndpoints();
 app.MapMediaSourceEndpoints();
 app.MapDeceasedEndpoints();
+
+app.MapHub<funeralv2Api.Hubs.DeviceHub>("/hubs/device");
 
 
 

@@ -45,6 +45,17 @@ public static class DeviceEndpoints
             return Results.Ok(result);
         }).WithName("GetDeviceById").WithOpenApi();
 
+        // 장비 코드로 상세 조회
+        group.MapGet("/code/{code}", async (string code, [FromServices] IDeviceService service) =>
+        {
+            var result = await service.GetByCodeAsync(code);
+            if (result == null)
+            {
+                return Results.NotFound(ApiResponse<DeviceDto>.Fail("장비 정보를 찾을 수 없습니다."));
+            }
+            return Results.Ok(result);
+        }).WithName("GetDeviceByCode").WithOpenApi();
+
         // 장비 생성
         group.MapPost("/", async ([FromBody] DeviceCreateDto dto, [FromServices] IDeviceService service) =>
         {

@@ -182,6 +182,55 @@ public class DeviceService : IDeviceService
     }
 
     /// <summary>
+    /// 장비 코드로 상세 조회
+    /// </summary>
+    public async Task<DeviceDto?> GetByCodeAsync(string code)
+    {
+        _logger.LogInformation("장비 코드로 상세 정보를 조회합니다. Code: {Code}", code);
+
+        var device = await _context.Devices
+            .Include(d => d.Building)
+            .Include(d => d.Floor)
+            .Include(d => d.Room)
+            .FirstOrDefaultAsync(d => d.Code == code && !d.IsDeleted);
+            
+        if (device == null)
+        {
+            _logger.LogWarning("장비를 찾을 수 없습니다. Code: {Code}", code);
+            return null;
+        }
+
+        var dto = MapToDto(device);
+        
+        var attr = await _context.DeviceAttributes
+            .FirstOrDefaultAsync(a => a.DeviceId == device.Id && !a.IsDeleted);
+        if (attr != null)
+        {
+            dto.VideoId = attr.VideoId;
+            dto.MusicId = attr.MusicId;
+            dto.IsVideoEnabled = attr.IsVideoEnabled;
+            dto.IsMusicEnabled = attr.IsMusicEnabled;
+            dto.IsMemorialPhotoEnabled = attr.IsMemorialPhotoEnabled;
+            dto.IsDeceasedNameVisible = attr.IsDeceasedNameVisible;
+            dto.IsFamilyContactVisible = attr.IsFamilyContactVisible;
+            dto.MusicVolume = attr.MusicVolume ?? 50;
+            
+            if (!string.IsNullOrEmpty(attr.VideoId))
+            {
+                var video = await _context.MediaSources.FindAsync(attr.VideoId);
+                dto.VideoName = video?.ShortName ?? video?.Name;
+            }
+            if (!string.IsNullOrEmpty(attr.MusicId))
+            {
+                var music = await _context.MediaSources.FindAsync(attr.MusicId);
+                dto.MusicName = music?.ShortName ?? music?.Name;
+            }
+        }
+
+        return dto;
+    }
+
+    /// <summary>
     /// 장비 생성 - 생성된 장비 ID 반환
     /// </summary>
     public async Task<DeviceDto> CreateAsync(DeviceCreateDto item)
