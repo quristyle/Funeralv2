@@ -16,14 +16,14 @@ class DeviceDto {
   final String displayOrientation;
   final String portraitOrientation;
   final String videoOrientation;
+  final String photoVerticalAlignment;
+  final String photoHorizontalAlignment; // 추가
 
-  // 화면 여백 (백분율 %)
   final double displayPaddingTop;
   final double displayPaddingLeft;
   final double displayPaddingRight;
   final double displayPaddingBottom;
 
-  // 영정사진 여백 (백분율 %)
   final double memorialPaddingTop;
   final double memorialPaddingLeft;
   final double memorialPaddingRight;
@@ -47,6 +47,8 @@ class DeviceDto {
     required this.displayOrientation,
     required this.portraitOrientation,
     required this.videoOrientation,
+    required this.photoVerticalAlignment,
+    required this.photoHorizontalAlignment,
     required this.displayPaddingTop,
     required this.displayPaddingLeft,
     required this.displayPaddingRight,
@@ -87,6 +89,8 @@ class DeviceDto {
       displayOrientation: data['displayOrientation'] ?? 'LANDSCAPE',
       portraitOrientation: data['portraitOrientation'] ?? 'HORIZONTAL',
       videoOrientation: data['videoOrientation'] ?? 'HORIZONTAL',
+      photoVerticalAlignment: (data['photoVerticalAlignment'] == null || data['photoVerticalAlignment'].toString().isEmpty) ? 'CENTER' : data['photoVerticalAlignment'],
+      photoHorizontalAlignment: (data['photoHorizontalAlignment'] == null || data['photoHorizontalAlignment'].toString().isEmpty) ? 'CENTER' : data['photoHorizontalAlignment'],
       displayPaddingTop: (data['displayPaddingTop'] ?? 0).toDouble(),
       displayPaddingLeft: (data['displayPaddingLeft'] ?? 0).toDouble(),
       displayPaddingRight: (data['displayPaddingRight'] ?? 0).toDouble(),
@@ -117,6 +121,8 @@ class DeviceDto {
       'displayOrientation': displayOrientation,
       'portraitOrientation': portraitOrientation,
       'videoOrientation': videoOrientation,
+      'photoVerticalAlignment': photoVerticalAlignment,
+      'photoHorizontalAlignment': photoHorizontalAlignment,
       'displayPaddingTop': displayPaddingTop,
       'displayPaddingLeft': displayPaddingLeft,
       'displayPaddingRight': displayPaddingRight,
@@ -160,8 +166,8 @@ class DeceasedDto {
     this.chiefMourner,
     this.memorialPhotoUrl,
     this.memorialPhotoFileId,
-    this.memorialEditedPhotoUrl,
-    this.memorialEditedPhotoFileId,
+    required this.memorialEditedPhotoUrl,
+    required this.memorialEditedPhotoFileId,
   });
 
   factory DeceasedDto.fromJson(Map<String, dynamic> json) {
@@ -190,8 +196,8 @@ class DeceasedDto {
       chiefMourner: data['chiefMourner'],
       memorialPhotoUrl: data['memorialPhotoUrl'],
       memorialPhotoFileId: data['memorialPhotoFileId'],
-      memorialEditedPhotoUrl: data['memorialEditedPhotoUrl'],
-      memorialEditedPhotoFileId: data['memorialEditedPhotoFileId'],
+      memorialEditedPhotoUrl: data['memorialEditedPhotoUrl'] ?? '',
+      memorialEditedPhotoFileId: data['memorialEditedPhotoFileId'] ?? '',
     );
   }
 
