@@ -12,6 +12,12 @@ public class DeviceAttributeDto
 
     // 공통 표시 설정
     public string DisplayOrientation { get; set; } = "LANDSCAPE";
+    public string PortraitOrientation { get; set; } = "HORIZONTAL";
+    public string VideoOrientation { get; set; } = "HORIZONTAL";
+    public decimal? DisplayPaddingTop { get; set; } = 0;
+    public decimal? DisplayPaddingLeft { get; set; } = 0;
+    public decimal? DisplayPaddingRight { get; set; } = 0;
+    public decimal? DisplayPaddingBottom { get; set; } = 0;
     public int ContentIntervalSec { get; set; } = 10;
     public bool IsScreensaverEnabled { get; set; } = false;
     public int ScreensaverTimeoutSec { get; set; } = 300;
@@ -21,6 +27,10 @@ public class DeviceAttributeDto
     public string MemorialPhotoEffect { get; set; } = "FADE";
     public bool IsDeceasedNameVisible { get; set; } = true;
     public bool IsFamilyContactVisible { get; set; } = false;
+    public decimal? MemorialPaddingTop { get; set; } = 0;
+    public decimal? MemorialPaddingLeft { get; set; } = 0;
+    public decimal? MemorialPaddingRight { get; set; } = 0;
+    public decimal? MemorialPaddingBottom { get; set; } = 0;
 
     // 멀티미디어 콘텐츠 설정
     public bool IsVideoEnabled { get; set; } = false;
@@ -58,6 +68,12 @@ public class DeviceAttributeUpsertDto
 
     // 공통 표시 설정
     public string DisplayOrientation { get; set; } = "LANDSCAPE";
+    public string PortraitOrientation { get; set; } = "HORIZONTAL";
+    public string VideoOrientation { get; set; } = "HORIZONTAL";
+    public decimal? DisplayPaddingTop { get; set; } = 0;
+    public decimal? DisplayPaddingLeft { get; set; } = 0;
+    public decimal? DisplayPaddingRight { get; set; } = 0;
+    public decimal? DisplayPaddingBottom { get; set; } = 0;
     public int ContentIntervalSec { get; set; } = 10;
     public bool IsScreensaverEnabled { get; set; } = false;
     public int ScreensaverTimeoutSec { get; set; } = 300;
@@ -67,6 +83,10 @@ public class DeviceAttributeUpsertDto
     public string MemorialPhotoEffect { get; set; } = "FADE";
     public bool IsDeceasedNameVisible { get; set; } = true;
     public bool IsFamilyContactVisible { get; set; } = false;
+    public decimal? MemorialPaddingTop { get; set; } = 0;
+    public decimal? MemorialPaddingLeft { get; set; } = 0;
+    public decimal? MemorialPaddingRight { get; set; } = 0;
+    public decimal? MemorialPaddingBottom { get; set; } = 0;
 
     // 멀티미디어 콘텐츠 설정
     public bool IsVideoEnabled { get; set; } = false;

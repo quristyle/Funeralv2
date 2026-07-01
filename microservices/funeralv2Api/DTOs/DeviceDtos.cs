@@ -41,6 +41,17 @@ public class DeviceDto
     public bool IsDeceasedNameVisible { get; set; }
     public bool IsFamilyContactVisible { get; set; }
     public double MusicVolume { get; set; }
+    public string DisplayOrientation { get; set; } = "LANDSCAPE";
+    public string PortraitOrientation { get; set; } = "HORIZONTAL";
+    public string VideoOrientation { get; set; } = "HORIZONTAL";
+    public decimal? DisplayPaddingTop { get; set; } = 0;
+    public decimal? DisplayPaddingLeft { get; set; } = 0;
+    public decimal? DisplayPaddingRight { get; set; } = 0;
+    public decimal? DisplayPaddingBottom { get; set; } = 0;
+    public decimal? MemorialPaddingTop { get; set; } = 0;
+    public decimal? MemorialPaddingLeft { get; set; } = 0;
+    public decimal? MemorialPaddingRight { get; set; } = 0;
+    public decimal? MemorialPaddingBottom { get; set; } = 0;
 }
 
 /// <summary>

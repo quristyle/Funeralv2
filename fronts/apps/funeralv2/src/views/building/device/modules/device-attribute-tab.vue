@@ -51,6 +51,44 @@ const emit = defineEmits<{
                 <Select.Option value="PORTRAIT">세로 (Portrait)</Select.Option>
               </Select>
             </Form.Item>
+            <Form.Item label="화면 표현">
+              <Select v-model:value="deviceAttr.portraitOrientation" style="width: 100%">
+                <Select.Option value="HORIZONTAL">가로형 모습</Select.Option>
+                <Select.Option value="VERTICAL_LEFT">좌90도 세로형 모습</Select.Option>
+                <Select.Option value="VERTICAL_RIGHT">우90도 세로형 모습</Select.Option>
+                <Select.Option value="INVERTED">뒤집기 모습</Select.Option>
+              </Select>
+            </Form.Item>
+          </div>
+          <div class="grid grid-cols-2 gap-3 mt-2">
+            <Form.Item label="전체 화면 여백 (위)">
+              <div class="flex items-center gap-3">
+                <Slider v-model:value="deviceAttr.displayPaddingTop" :min="0" :max="40" class="flex-1" />
+                <InputNumber v-model:value="deviceAttr.displayPaddingTop" :min="0" :max="40" addon-after="%" style="width: 85px" />
+              </div>
+            </Form.Item>
+            <Form.Item label="전체 화면 여백 (아래)">
+              <div class="flex items-center gap-3">
+                <Slider v-model:value="deviceAttr.displayPaddingBottom" :min="0" :max="40" class="flex-1" />
+                <InputNumber v-model:value="deviceAttr.displayPaddingBottom" :min="0" :max="40" addon-after="%" style="width: 85px" />
+              </div>
+            </Form.Item>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <Form.Item label="전체 화면 여백 (좌)">
+              <div class="flex items-center gap-3">
+                <Slider v-model:value="deviceAttr.displayPaddingLeft" :min="0" :max="40" class="flex-1" />
+                <InputNumber v-model:value="deviceAttr.displayPaddingLeft" :min="0" :max="40" addon-after="%" style="width: 85px" />
+              </div>
+            </Form.Item>
+            <Form.Item label="전체 화면 여백 (우)">
+              <div class="flex items-center gap-3">
+                <Slider v-model:value="deviceAttr.displayPaddingRight" :min="0" :max="40" class="flex-1" />
+                <InputNumber v-model:value="deviceAttr.displayPaddingRight" :min="0" :max="40" addon-after="%" style="width: 85px" />
+              </div>
+            </Form.Item>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
             <Form.Item label="콘텐츠 전환 간격(초)">
               <InputNumber
                 v-model:value="deviceAttr.contentIntervalSec"
@@ -123,6 +161,34 @@ const emit = defineEmits<{
                 />
               </Form.Item>
             </div>
+            <div class="grid grid-cols-2 gap-3 mt-2">
+              <Form.Item label="영정사진 여백 (위)">
+                <div class="flex items-center gap-3">
+                  <Slider v-model:value="deviceAttr.memorialPaddingTop" :min="0" :max="40" class="flex-1" />
+                  <InputNumber v-model:value="deviceAttr.memorialPaddingTop" :min="0" :max="40" addon-after="%" style="width: 85px" />
+                </div>
+              </Form.Item>
+              <Form.Item label="영정사진 여백 (아래)">
+                <div class="flex items-center gap-3">
+                  <Slider v-model:value="deviceAttr.memorialPaddingBottom" :min="0" :max="40" class="flex-1" />
+                  <InputNumber v-model:value="deviceAttr.memorialPaddingBottom" :min="0" :max="40" addon-after="%" style="width: 85px" />
+                </div>
+              </Form.Item>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <Form.Item label="영정사진 여백 (좌)">
+                <div class="flex items-center gap-3">
+                  <Slider v-model:value="deviceAttr.memorialPaddingLeft" :min="0" :max="40" class="flex-1" />
+                  <InputNumber v-model:value="deviceAttr.memorialPaddingLeft" :min="0" :max="40" addon-after="%" style="width: 85px" />
+                </div>
+              </Form.Item>
+              <Form.Item label="영정사진 여백 (우)">
+                <div class="flex items-center gap-3">
+                  <Slider v-model:value="deviceAttr.memorialPaddingRight" :min="0" :max="40" class="flex-1" />
+                  <InputNumber v-model:value="deviceAttr.memorialPaddingRight" :min="0" :max="40" addon-after="%" style="width: 85px" />
+                </div>
+              </Form.Item>
+            </div>
           </template>
         </div>
 
@@ -170,6 +236,14 @@ const emit = defineEmits<{
                 placeholder="음악을 선택하세요"
                 style="width: 100%"
               />
+            </Form.Item>
+          </div>
+          <div v-if="deviceAttr.isVideoEnabled" class="grid grid-cols-2 gap-3">
+            <Form.Item label="영상 표현">
+              <Select v-model:value="deviceAttr.videoOrientation" style="width: 100%">
+                <Select.Option value="HORIZONTAL">가로형 모습</Select.Option>
+                <Select.Option value="VERTICAL">세로형 모습</Select.Option>
+              </Select>
             </Form.Item>
           </div>
           <template v-if="deviceAttr.isMusicEnabled">

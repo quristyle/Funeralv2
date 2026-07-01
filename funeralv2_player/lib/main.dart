@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:media_kit/media_kit.dart'; // 추가
 import 'pages/portrait/portrait_page.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  MediaKit.ensureInitialized(); // 추가
   runApp(const FuneralPlayerApp());
 }
 
@@ -33,8 +35,7 @@ class MainRouter extends StatefulWidget {
 }
 
 class _MainRouterState extends State<MainRouter> {
-  String? apiServerUrl;
-  String? fileServerUrl;
+  String? serverBaseUrl;
   String? deviceCode;
   bool isConfigured = false;
   bool isLoading = true;
@@ -49,26 +50,22 @@ class _MainRouterState extends State<MainRouter> {
   Future<void> _loadConfiguration() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
-      apiServerUrl = prefs.getString('apiServerUrl') ?? 'http://localhost:5320'; // 에뮬레이터 기본 백엔드 루프백
-      fileServerUrl = prefs.getString('fileServerUrl') ?? 'http://localhost:5350'; // 에뮬레이터 기본 파일서버 루프백
+      serverBaseUrl = prefs.getString('serverBaseUrl') ?? 'http://localhost:5265';
       deviceCode = prefs.getString('deviceCode');
       
-      // 장비 코드가 입력되어 있으면 정상 재생 모드로 진입
       isConfigured = deviceCode != null && deviceCode!.isNotEmpty;
       isLoading = false;
     });
   }
 
   // 설정 저장 처리
-  Future<void> _saveConfiguration(String api, String file, String code) async {
+  Future<void> _saveConfiguration(String server, String code) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('apiServerUrl', api);
-    await prefs.setString('fileServerUrl', file);
+    await prefs.setString('serverBaseUrl', server);
     await prefs.setString('deviceCode', code);
 
     setState(() {
-      apiServerUrl = api;
-      fileServerUrl = file;
+      serverBaseUrl = server;
       deviceCode = code;
       isConfigured = true;
     });
@@ -86,37 +83,33 @@ class _MainRouterState extends State<MainRouter> {
 
     if (!isConfigured) {
       return SettingsScreen(
-        initialApi: apiServerUrl ?? 'http://localhost:5320',
-        initialFile: fileServerUrl ?? 'http://localhost:5350',
+        initialServer: serverBaseUrl ?? 'http://localhost:5265',
         initialCode: deviceCode ?? '',
         onSave: _saveConfiguration,
       );
     }
 
     return PortraitPage(
-      apiServerUrl: apiServerUrl!,
-      fileServerUrl: fileServerUrl!,
+      serverBaseUrl: serverBaseUrl!,
       deviceCode: deviceCode!,
       onOpenSettings: () {
         setState(() {
-          isConfigured = false; // 설정을 열기 위해 분기 전환
+          isConfigured = false;
         });
       },
     );
   }
 }
 
-/// 플레이어 환경 설정 화면 (장비 코드 및 서버 주소 변경용)
+/// 플레이어 환경 설정 화면 (통합 게이트웨이 주소 사용)
 class SettingsScreen extends StatefulWidget {
-  final String initialApi;
-  final String initialFile;
+  final String initialServer;
   final String initialCode;
-  final Function(String api, String file, String code) onSave;
+  final Function(String server, String code) onSave;
 
   const SettingsScreen({
     super.key,
-    required this.initialApi,
-    required this.initialFile,
+    required this.initialServer,
     required this.initialCode,
     required this.onSave,
   });
@@ -127,22 +120,19 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   final _formKey = GlobalKey<FormState>();
-  late TextEditingController _apiController;
-  late TextEditingController _fileController;
+  late TextEditingController _serverController;
   late TextEditingController _codeController;
 
   @override
   void initState() {
     super.initState();
-    _apiController = TextEditingController(text: widget.initialApi);
-    _fileController = TextEditingController(text: widget.initialFile);
+    _serverController = TextEditingController(text: widget.initialServer);
     _codeController = TextEditingController(text: widget.initialCode);
   }
 
   @override
   void dispose() {
-    _apiController.dispose();
-    _fileController.dispose();
+    _serverController.dispose();
     _codeController.dispose();
     super.dispose();
   }
@@ -188,7 +178,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   const SizedBox(height: 24),
                   const Text(
-                    '디바이스 및 서버 초기화',
+                    '통합 서버 초기화',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: Colors.white,
@@ -198,43 +188,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   const SizedBox(height: 8),
                   const Text(
-                    '사이니지 구동에 필요한 주소와 장비코드를 입력해 주십시오.',
+                    '게이트웨이 주소와 장비코드를 입력해 주십시오.',
                     textAlign: TextAlign.center,
                     style: TextStyle(color: Colors.white38, fontSize: 13),
                   ),
                   const SizedBox(height: 32),
 
-                  // 1. API 서버 주소
+                  // 통합 서버 주소
                   TextFormField(
-                    controller: _apiController,
+                    controller: _serverController,
                     decoration: const InputDecoration(
-                      labelText: 'API 서버 주소 (REST/SignalR)',
+                      labelText: '통합 서버 주소 (Gateway)',
                       labelStyle: TextStyle(color: Colors.white60),
                       border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.link, color: Colors.white54),
+                      prefixIcon: Icon(Icons.lan, color: Colors.white54),
                     ),
-                    validator: (v) => (v == null || v.isEmpty) ? 'API 주소를 입력해 주십시오.' : null,
+                    validator: (v) => (v == null || v.isEmpty) ? '서버 주소를 입력해 주십시오.' : null,
                   ),
                   const SizedBox(height: 20),
 
-                  // 2. 파일 서버 주소
-                  TextFormField(
-                    controller: _fileController,
-                    decoration: const InputDecoration(
-                      labelText: '미디어 파일 서버 주소',
-                      labelStyle: TextStyle(color: Colors.white60),
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.cloud_download, color: Colors.white54),
-                    ),
-                    validator: (v) => (v == null || v.isEmpty) ? '파일 서버 주소를 입력해 주십시오.' : null,
-                  ),
-                  const SizedBox(height: 20),
-
-                  // 3. 장비 식별 코드
+                  // 장비 식별 코드
                   TextFormField(
                     controller: _codeController,
                     decoration: const InputDecoration(
-                      labelText: '장비 식별 코드 (예: DID-001)',
+                      labelText: '장비 식별 코드',
                       labelStyle: TextStyle(color: Colors.white60),
                       border: OutlineInputBorder(),
                       prefixIcon: Icon(Icons.developer_board, color: Colors.white54),
@@ -257,8 +234,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     onPressed: () {
                       if (_formKey.currentState!.validate()) {
                         widget.onSave(
-                          _apiController.text.trim(),
-                          _fileController.text.trim(),
+                          _serverController.text.trim(),
                           _codeController.text.trim(),
                         );
                       }

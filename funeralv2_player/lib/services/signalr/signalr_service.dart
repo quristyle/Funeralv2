@@ -4,57 +4,63 @@ import 'package:signalr_netcore/hub_connection_builder.dart';
 class SignalRService {
   HubConnection? _connection;
   bool _isConnecting = false;
+  bool _isInitialized = false; // 추가: 리스너 중복 등록 방지용
 
   // SignalR 연결 수립
   Future<void> connect(
-    String apiServerUrl, 
+    String serverBaseUrl, 
     String deviceCode, 
     Function() onDeviceChanged,
   ) async {
-    if (_isConnecting) return;
+    // 이미 연결 중이거나 초기화되었다면 중복 실행 방지
+    if (_isConnecting || (_connection != null && _connection!.state == HubConnectionState.Connected)) {
+      return;
+    }
+    
     _isConnecting = true;
 
     try {
-      // 백엔드 SignalR 허브 주소: {apiServerUrl}/hubs/device
-      final hubUrl = '$apiServerUrl/hubs/device';
+      final baseUrl = serverBaseUrl.endsWith('/') ? serverBaseUrl.substring(0, serverBaseUrl.length - 1) : serverBaseUrl;
+      final hubUrl = '$baseUrl/api/funeral/hubs/device';
       
       _connection = HubConnectionBuilder()
           .withUrl(hubUrl)
           .withAutomaticReconnect()
           .build();
 
-      // 연결이 끊어졌을 때 다시 그룹 등록을 수행하도록 리액션 추가
       _connection!.onreconnected(({connectionId}) async {
-        print('SignalR 재연결 완료. 그룹 재등록 수행.');
+        print('[SignalR] 재연결 완료. 그룹 재등록 수행.');
         await _registerDevice(deviceCode);
       });
 
-      // 변경 이벤트 리스너 등록
-      _connection!.on('DeviceChanged', (arguments) {
-        print('SignalR 실시간 변경 이벤트 수신! 데이터 동기화 개시.');
-        onDeviceChanged();
-      });
+      // 리스너는 단 한 번만 등록
+      if (!_isInitialized) {
+        _connection!.on('DeviceChanged', (arguments) {
+          print('[SignalR Event] DeviceChanged 수신!');
+          onDeviceChanged();
+        });
+        _isInitialized = true;
+      }
 
+      print('[SignalR Connection] 연결 시도 중...');
       await _connection!.start();
-      print('SignalR 소켓 연결 성공!');
+      print('[SignalR Connection] 소켓 연결 성공!');
       
       await _registerDevice(deviceCode);
     } catch (e) {
-      print('SignalR 소켓 연결 에러 (오프라인 상태일 수 있음): $e');
+      print('[SignalR Error] 소켓 연결 에러: $e');
     } finally {
       _isConnecting = false;
     }
   }
 
-  // 장비 등록 수행
   Future<void> _registerDevice(String deviceCode) async {
     if (_connection != null && _connection!.state == HubConnectionState.Connected) {
       await _connection!.invoke('RegisterDevice', args: [deviceCode]);
-      print('RegisterDevice 그룹 구독 호출 완료: $deviceCode');
+      print('[SignalR] RegisterDevice 그룹 구독 완료: $deviceCode');
     }
   }
 
-  // 연결 종료
   Future<void> disconnect(String deviceCode) async {
     if (_connection != null) {
       try {
@@ -62,7 +68,8 @@ class SignalRService {
       } catch (_) {}
       await _connection!.stop();
       _connection = null;
-      print('SignalR 소켓 연결 종료.');
+      _isInitialized = false; // 초기화 상태 리셋
+      print('[SignalR] 소켓 연결 종료.');
     }
   }
 }

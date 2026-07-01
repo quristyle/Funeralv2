@@ -181,6 +181,12 @@ export namespace BuildingApi {
     deviceId: string;
     // 공통 표시 설정
     displayOrientation: 'LANDSCAPE' | 'PORTRAIT';
+    portraitOrientation: 'HORIZONTAL' | 'VERTICAL_LEFT' | 'VERTICAL_RIGHT' | 'INVERTED';
+    videoOrientation: 'HORIZONTAL' | 'VERTICAL';
+    displayPaddingTop: number;
+    displayPaddingLeft: number;
+    displayPaddingRight: number;
+    displayPaddingBottom: number;
     contentIntervalSec: number;
     isScreensaverEnabled: boolean;
     screensaverTimeoutSec: number;
@@ -189,6 +195,10 @@ export namespace BuildingApi {
     memorialPhotoEffect: 'FADE' | 'SLIDE' | 'NONE';
     isDeceasedNameVisible: boolean;
     isFamilyContactVisible: boolean;
+    memorialPaddingTop: number;
+    memorialPaddingLeft: number;
+    memorialPaddingRight: number;
+    memorialPaddingBottom: number;
     // 멀티미디어 콘텐츠 설정
     isVideoEnabled: boolean;
     isMusicEnabled: boolean;

@@ -30,6 +30,48 @@ public class DeviceAttribute : BaseEntity<string>
     [MaxLength(20)]
     public string DisplayOrientation { get; set; } = "LANDSCAPE";
 
+    /// <summary>화면 표현 (HORIZONTAL / VERTICAL)</summary>
+    [Column("portrait_orientation")]
+    [MaxLength(20)]
+    public string PortraitOrientation { get; set; } = "HORIZONTAL";
+
+    /// <summary>영상 표현 (HORIZONTAL / VERTICAL)</summary>
+    [Column("video_orientation")]
+    [MaxLength(20)]
+    public string VideoOrientation { get; set; } = "HORIZONTAL";
+
+    /// <summary>전체 화면 여백 (위 %)</summary>
+    [Column("display_padding_top")]
+    public decimal? DisplayPaddingTop { get; set; } = 0;
+
+    /// <summary>전체 화면 여백 (아래 %)</summary>
+    [Column("display_padding_bottom")]
+    public decimal? DisplayPaddingBottom { get; set; } = 0;
+
+    /// <summary>전체 화면 여백 (좌 %)</summary>
+    [Column("display_padding_left")]
+    public decimal? DisplayPaddingLeft { get; set; } = 0;
+
+    /// <summary>전체 화면 여백 (우 %)</summary>
+    [Column("display_padding_right")]
+    public decimal? DisplayPaddingRight { get; set; } = 0;
+
+    /// <summary>영정사진 여백 (위 %)</summary>
+    [Column("memorial_padding_top")]
+    public decimal? MemorialPaddingTop { get; set; } = 0;
+
+    /// <summary>영정사진 여백 (아래 %)</summary>
+    [Column("memorial_padding_bottom")]
+    public decimal? MemorialPaddingBottom { get; set; } = 0;
+
+    /// <summary>영정사진 여백 (좌 %)</summary>
+    [Column("memorial_padding_left")]
+    public decimal? MemorialPaddingLeft { get; set; } = 0;
+
+    /// <summary>영정사진 여백 (우 %)</summary>
+    [Column("memorial_padding_right")]
+    public decimal? MemorialPaddingRight { get; set; } = 0;
+
     /// <summary>콘텐츠 전환 간격(초)</summary>
     [Column("content_interval_sec")]
     public int ContentIntervalSec { get; set; } = 10;

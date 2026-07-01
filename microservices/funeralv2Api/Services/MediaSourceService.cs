@@ -73,6 +73,49 @@ public class MediaSourceService : IMediaSourceService
     }
 
     /// <inheritdoc />
+    public async Task<MediaSourceDto?> GetMediaSourceByIdAsync(string id)
+    {
+        _logger.LogInformation("Retrieving media source for ID: {Id}", id);
+        var source = await _context.Set<MediaSource>()
+            .FirstOrDefaultAsync(x => x.Id == id && !x.IsDeleted);
+
+        if (source == null)
+        {
+            return null;
+        }
+
+        return new MediaSourceDto
+        {
+            Id = source.Id,
+            Name = source.Name,
+            ShortName = source.ShortName,
+            SourceType = source.SourceType,
+            Url = source.Url,
+            ThumbnailUrl = source.ThumbnailUrl,
+            ThumbnailFileId = source.ThumbnailFileId,
+            WebmUrl = source.WebmUrl,
+            WebmFileId = source.WebmFileId,
+            OggUrl = source.OggUrl,
+            OggFileId = source.OggFileId,
+            AacUrl = source.AacUrl,
+            AacFileId = source.AacFileId,
+            OriginalFileId = source.OriginalFileId,
+            Status = source.Status,
+            ErrorMessage = source.ErrorMessage,
+            ConversionStartedAt = source.ConversionStartedAt,
+            ConversionCompletedAt = source.ConversionCompletedAt,
+            ConversionCommand = source.ConversionCommand,
+            HasWebm = source.HasWebm,
+            HasThumbnail = source.HasThumbnail,
+            HasOgg = source.HasOgg,
+            HasAac = source.HasAac,
+            FileSize = source.FileSize,
+            SortOrder = source.SortOrder,
+            Remark = source.Remark
+        };
+    }
+
+    /// <inheritdoc />
     public async Task<MediaSourceDto> CreateMediaSourceAsync(MediaSourceCreateDto dto)
     {
         _logger.LogInformation("Creating new media source. Name: {Name}, Type: {Type}", dto.Name, dto.SourceType);

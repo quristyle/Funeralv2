@@ -163,6 +163,31 @@ public static class FileEndpoints
         .WithName("DownloadFile")
         .WithOpenApi();
 
+        // 2-1. 파일 아이디로 다운로드
+        group.MapGet("/download/id/{id:guid}", async Task<IResult> (Guid id, [FromServices] IFileService fileService, [FromServices] Microsoft.Extensions.Configuration.IConfiguration configuration) =>
+        {
+            try
+            {
+                var (fileStream, contentType, originalName) = await fileService.DownloadFileAsync(id);
+                return Results.File(fileStream, contentType, fileDownloadName: originalName, enableRangeProcessing: true);
+            }
+            catch (FileNotFoundException ex)
+            {
+                var fallbackUrl = configuration["Storage:FallbackUrl"];
+                if (!string.IsNullOrEmpty(fallbackUrl))
+                {
+                    return Results.Redirect($"{fallbackUrl.TrimEnd('/')}/api/file/download/id/{id}");
+                }
+                return Results.NotFound(ApiResponse<object>.Fail("ERR_FILE_NOT_FOUND", ex.Message));
+            }
+            catch (Exception ex)
+            {
+                return Results.Json(ApiResponse<object>.Fail("ERR_DOWNLOAD_FAILED", ex.Message), statusCode: StatusCodes.Status500InternalServerError);
+            }
+        })
+        .WithName("DownloadFileById")
+        .WithOpenApi();
+
         // 3. 이미지 썸네일 조회 (기본 150x150)
         group.MapGet("/thumbnail/{id:guid}", async Task<IResult> (Guid id, [FromServices] IFileService fileService, [FromServices] Microsoft.Extensions.Configuration.IConfiguration configuration) =>
         {

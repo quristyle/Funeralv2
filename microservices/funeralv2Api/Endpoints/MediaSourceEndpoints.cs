@@ -23,6 +23,19 @@ public static class MediaSourceEndpoints
         .WithName("GetMediaSources")
         .WithOpenApi();
 
+        // 미디어 소스 상세 조회
+        group.MapGet("/{id}", async (string id, [FromServices] IMediaSourceService service) =>
+        {
+            var result = await service.GetMediaSourceByIdAsync(id);
+            if (result == null)
+            {
+                return Results.NotFound(ApiResponse<MediaSourceDto>.Fail("미디어 소스 정보를 찾을 수 없습니다."));
+            }
+            return Results.Ok(result);
+        })
+        .WithName("GetMediaSourceById")
+        .WithOpenApi();
+
         // 미디어 소스 생성
         group.MapPost("/", async ([FromBody] MediaSourceCreateDto dto, [FromServices] IMediaSourceService service) =>
         {

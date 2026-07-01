@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import {
-  Form, Input, InputNumber, Select, Switch, Divider,
+  Form, Input, InputNumber, Select, Slider, Switch, Divider,
 } from 'ant-design-vue';
 import { IconifyIcon } from '@vben/icons';
 import type { BuildingApi } from '#/api/building';
@@ -24,6 +24,44 @@ defineProps<{
           <Select.Option value="PORTRAIT">세로 (Portrait)</Select.Option>
         </Select>
       </Form.Item>
+      <Form.Item label="화면 표현">
+        <Select v-model:value="deviceAttr.portraitOrientation" style="width: 100%">
+          <Select.Option value="HORIZONTAL">가로형 모습</Select.Option>
+          <Select.Option value="VERTICAL_LEFT">좌90도 세로형 모습</Select.Option>
+          <Select.Option value="VERTICAL_RIGHT">우90도 세로형 모습</Select.Option>
+          <Select.Option value="INVERTED">뒤집기 모습</Select.Option>
+        </Select>
+      </Form.Item>
+    </div>
+    <div class="grid grid-cols-2 gap-3 mt-2">
+      <Form.Item label="전체 화면 여백 (위)">
+        <div class="flex items-center gap-3">
+          <Slider v-model:value="deviceAttr.displayPaddingTop" :min="0" :max="40" class="flex-1" />
+          <InputNumber v-model:value="deviceAttr.displayPaddingTop" :min="0" :max="40" addon-after="%" style="width: 85px" />
+        </div>
+      </Form.Item>
+      <Form.Item label="전체 화면 여백 (아래)">
+        <div class="flex items-center gap-3">
+          <Slider v-model:value="deviceAttr.displayPaddingBottom" :min="0" :max="40" class="flex-1" />
+          <InputNumber v-model:value="deviceAttr.displayPaddingBottom" :min="0" :max="40" addon-after="%" style="width: 85px" />
+        </div>
+      </Form.Item>
+    </div>
+    <div class="grid grid-cols-2 gap-3">
+      <Form.Item label="전체 화면 여백 (좌)">
+        <div class="flex items-center gap-3">
+          <Slider v-model:value="deviceAttr.displayPaddingLeft" :min="0" :max="40" class="flex-1" />
+          <InputNumber v-model:value="deviceAttr.displayPaddingLeft" :min="0" :max="40" addon-after="%" style="width: 85px" />
+        </div>
+      </Form.Item>
+      <Form.Item label="전체 화면 여백 (우)">
+        <div class="flex items-center gap-3">
+          <Slider v-model:value="deviceAttr.displayPaddingRight" :min="0" :max="40" class="flex-1" />
+          <InputNumber v-model:value="deviceAttr.displayPaddingRight" :min="0" :max="40" addon-after="%" style="width: 85px" />
+        </div>
+      </Form.Item>
+    </div>
+    <div class="grid grid-cols-2 gap-3">
       <Form.Item label="콘텐츠 전환 간격(초)">
         <InputNumber
           v-model:value="deviceAttr.contentIntervalSec"

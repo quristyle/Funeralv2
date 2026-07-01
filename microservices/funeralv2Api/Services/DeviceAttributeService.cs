@@ -61,6 +61,12 @@ public class DeviceAttributeService : IDeviceAttributeService
 
         // 공통 표시 설정 적용
         existing.DisplayOrientation = dto.DisplayOrientation;
+        existing.PortraitOrientation = dto.PortraitOrientation;
+        existing.VideoOrientation = dto.VideoOrientation;
+        existing.DisplayPaddingTop = dto.DisplayPaddingTop;
+        existing.DisplayPaddingLeft = dto.DisplayPaddingLeft;
+        existing.DisplayPaddingRight = dto.DisplayPaddingRight;
+        existing.DisplayPaddingBottom = dto.DisplayPaddingBottom;
         existing.ContentIntervalSec = dto.ContentIntervalSec;
         existing.IsScreensaverEnabled = dto.IsScreensaverEnabled;
         existing.ScreensaverTimeoutSec = dto.ScreensaverTimeoutSec;
@@ -70,6 +76,10 @@ public class DeviceAttributeService : IDeviceAttributeService
         existing.MemorialPhotoEffect = dto.MemorialPhotoEffect;
         existing.IsDeceasedNameVisible = dto.IsDeceasedNameVisible;
         existing.IsFamilyContactVisible = dto.IsFamilyContactVisible;
+        existing.MemorialPaddingTop = dto.MemorialPaddingTop;
+        existing.MemorialPaddingLeft = dto.MemorialPaddingLeft;
+        existing.MemorialPaddingRight = dto.MemorialPaddingRight;
+        existing.MemorialPaddingBottom = dto.MemorialPaddingBottom;
 
         // 멀티미디어 콘텐츠 설정 적용
         existing.IsVideoEnabled = dto.IsVideoEnabled;
@@ -143,6 +153,12 @@ public class DeviceAttributeService : IDeviceAttributeService
         Id = a.Id,
         DeviceId = a.DeviceId,
         DisplayOrientation = a.DisplayOrientation,
+        PortraitOrientation = a.PortraitOrientation,
+        VideoOrientation = a.VideoOrientation,
+        DisplayPaddingTop = a.DisplayPaddingTop,
+        DisplayPaddingLeft = a.DisplayPaddingLeft,
+        DisplayPaddingRight = a.DisplayPaddingRight,
+        DisplayPaddingBottom = a.DisplayPaddingBottom,
         ContentIntervalSec = a.ContentIntervalSec,
         IsScreensaverEnabled = a.IsScreensaverEnabled,
         ScreensaverTimeoutSec = a.ScreensaverTimeoutSec,
@@ -150,6 +166,10 @@ public class DeviceAttributeService : IDeviceAttributeService
         MemorialPhotoEffect = a.MemorialPhotoEffect,
         IsDeceasedNameVisible = a.IsDeceasedNameVisible,
         IsFamilyContactVisible = a.IsFamilyContactVisible,
+        MemorialPaddingTop = a.MemorialPaddingTop,
+        MemorialPaddingLeft = a.MemorialPaddingLeft,
+        MemorialPaddingRight = a.MemorialPaddingRight,
+        MemorialPaddingBottom = a.MemorialPaddingBottom,
         IsVideoEnabled = a.IsVideoEnabled,
         IsMusicEnabled = a.IsMusicEnabled,
         VideoId = a.VideoId,

@@ -13,6 +13,21 @@ class DeviceDto {
   final bool isMemorialPhotoEnabled;
   final bool isDeceasedNameVisible;
   final bool isFamilyContactVisible;
+  final String displayOrientation;
+  final String portraitOrientation;
+  final String videoOrientation;
+
+  // 화면 여백 (백분율 %)
+  final double displayPaddingTop;
+  final double displayPaddingLeft;
+  final double displayPaddingRight;
+  final double displayPaddingBottom;
+
+  // 영정사진 여백 (백분율 %)
+  final double memorialPaddingTop;
+  final double memorialPaddingLeft;
+  final double memorialPaddingRight;
+  final double memorialPaddingBottom;
 
   DeviceDto({
     required this.id,
@@ -29,12 +44,21 @@ class DeviceDto {
     required this.isMemorialPhotoEnabled,
     required this.isDeceasedNameVisible,
     required this.isFamilyContactVisible,
+    required this.displayOrientation,
+    required this.portraitOrientation,
+    required this.videoOrientation,
+    required this.displayPaddingTop,
+    required this.displayPaddingLeft,
+    required this.displayPaddingRight,
+    required this.displayPaddingBottom,
+    required this.memorialPaddingTop,
+    required this.memorialPaddingLeft,
+    required this.memorialPaddingRight,
+    required this.memorialPaddingBottom,
   });
 
   factory DeviceDto.fromJson(Map<String, dynamic> json) {
-    // 백엔드 응답 구조(data.result[0]) 및 로컬 DB 구조 모두 대응
     Map<String, dynamic> data;
-    
     if (json.containsKey('data') && json['data'] is Map && json['data'].containsKey('result')) {
       final list = json['data']['result'] as List;
       data = list.isNotEmpty ? list[0] : json;
@@ -60,6 +84,17 @@ class DeviceDto {
       isMemorialPhotoEnabled: (data['isMemorialPhotoEnabled'] == 1 || data['isMemorialPhotoEnabled'] == true),
       isDeceasedNameVisible: (data['isDeceasedNameVisible'] == 1 || data['isDeceasedNameVisible'] == true),
       isFamilyContactVisible: (data['isFamilyContactVisible'] == 1 || data['isFamilyContactVisible'] == true),
+      displayOrientation: data['displayOrientation'] ?? 'LANDSCAPE',
+      portraitOrientation: data['portraitOrientation'] ?? 'HORIZONTAL',
+      videoOrientation: data['videoOrientation'] ?? 'HORIZONTAL',
+      displayPaddingTop: (data['displayPaddingTop'] ?? 0).toDouble(),
+      displayPaddingLeft: (data['displayPaddingLeft'] ?? 0).toDouble(),
+      displayPaddingRight: (data['displayPaddingRight'] ?? 0).toDouble(),
+      displayPaddingBottom: (data['displayPaddingBottom'] ?? 0).toDouble(),
+      memorialPaddingTop: (data['memorialPaddingTop'] ?? 0).toDouble(),
+      memorialPaddingLeft: (data['memorialPaddingLeft'] ?? 0).toDouble(),
+      memorialPaddingRight: (data['memorialPaddingRight'] ?? 0).toDouble(),
+      memorialPaddingBottom: (data['memorialPaddingBottom'] ?? 0).toDouble(),
     );
   }
 
@@ -79,6 +114,17 @@ class DeviceDto {
       'isMemorialPhotoEnabled': isMemorialPhotoEnabled ? 1 : 0,
       'isDeceasedNameVisible': isDeceasedNameVisible ? 1 : 0,
       'isFamilyContactVisible': isFamilyContactVisible ? 1 : 0,
+      'displayOrientation': displayOrientation,
+      'portraitOrientation': portraitOrientation,
+      'videoOrientation': videoOrientation,
+      'displayPaddingTop': displayPaddingTop,
+      'displayPaddingLeft': displayPaddingLeft,
+      'displayPaddingRight': displayPaddingRight,
+      'displayPaddingBottom': displayPaddingBottom,
+      'memorialPaddingTop': memorialPaddingTop,
+      'memorialPaddingLeft': memorialPaddingLeft,
+      'memorialPaddingRight': memorialPaddingRight,
+      'memorialPaddingBottom': memorialPaddingBottom,
     };
   }
 }
@@ -96,7 +142,9 @@ class DeceasedDto {
   final String? roomName;
   final String? chiefMourner;
   final String? memorialPhotoUrl;
+  final String? memorialPhotoFileId;
   final String? memorialEditedPhotoUrl;
+  final String? memorialEditedPhotoFileId;
 
   DeceasedDto({
     required this.id,
@@ -111,13 +159,13 @@ class DeceasedDto {
     this.roomName,
     this.chiefMourner,
     this.memorialPhotoUrl,
+    this.memorialPhotoFileId,
     this.memorialEditedPhotoUrl,
+    this.memorialEditedPhotoFileId,
   });
 
   factory DeceasedDto.fromJson(Map<String, dynamic> json) {
-    // 백엔드 응답 구조(data.result[0]) 및 로컬 DB 구조 모두 대응
     Map<String, dynamic> data;
-
     if (json.containsKey('data') && json['data'] is Map && json['data'].containsKey('result')) {
       final list = json['data']['result'] as List;
       data = list.isNotEmpty ? list[0] : json;
@@ -141,7 +189,9 @@ class DeceasedDto {
       roomName: data['roomName'],
       chiefMourner: data['chiefMourner'],
       memorialPhotoUrl: data['memorialPhotoUrl'],
+      memorialPhotoFileId: data['memorialPhotoFileId'],
       memorialEditedPhotoUrl: data['memorialEditedPhotoUrl'],
+      memorialEditedPhotoFileId: data['memorialEditedPhotoFileId'],
     );
   }
 
@@ -159,7 +209,9 @@ class DeceasedDto {
       'roomName': roomName,
       'chiefMourner': chiefMourner,
       'memorialPhotoUrl': memorialPhotoUrl,
+      'memorialPhotoFileId': memorialPhotoFileId,
       'memorialEditedPhotoUrl': memorialEditedPhotoUrl,
+      'memorialEditedPhotoFileId': memorialEditedPhotoFileId,
     };
   }
 }

@@ -165,6 +165,21 @@ public class DeviceService : IDeviceService
             dto.MusicId = attr.MusicId;
             dto.IsVideoEnabled = attr.IsVideoEnabled;
             dto.IsMusicEnabled = attr.IsMusicEnabled;
+            dto.IsMemorialPhotoEnabled = attr.IsMemorialPhotoEnabled;
+            dto.IsDeceasedNameVisible = attr.IsDeceasedNameVisible;
+            dto.IsFamilyContactVisible = attr.IsFamilyContactVisible;
+            dto.MusicVolume = attr.MusicVolume ?? 50;
+            dto.DisplayOrientation = attr.DisplayOrientation;
+            dto.PortraitOrientation = attr.PortraitOrientation ?? "HORIZONTAL";
+            dto.VideoOrientation = attr.VideoOrientation ?? "HORIZONTAL";
+            dto.DisplayPaddingTop = attr.DisplayPaddingTop ?? 0;
+            dto.DisplayPaddingLeft = attr.DisplayPaddingLeft ?? 0;
+            dto.DisplayPaddingRight = attr.DisplayPaddingRight ?? 0;
+            dto.DisplayPaddingBottom = attr.DisplayPaddingBottom ?? 0;
+            dto.MemorialPaddingTop = attr.MemorialPaddingTop ?? 0;
+            dto.MemorialPaddingLeft = attr.MemorialPaddingLeft ?? 0;
+            dto.MemorialPaddingRight = attr.MemorialPaddingRight ?? 0;
+            dto.MemorialPaddingBottom = attr.MemorialPaddingBottom ?? 0;
             
             if (!string.IsNullOrEmpty(attr.VideoId))
             {
@@ -214,6 +229,17 @@ public class DeviceService : IDeviceService
             dto.IsDeceasedNameVisible = attr.IsDeceasedNameVisible;
             dto.IsFamilyContactVisible = attr.IsFamilyContactVisible;
             dto.MusicVolume = attr.MusicVolume ?? 50;
+            dto.DisplayOrientation = attr.DisplayOrientation;
+            dto.PortraitOrientation = attr.PortraitOrientation ?? "HORIZONTAL";
+            dto.VideoOrientation = attr.VideoOrientation ?? "HORIZONTAL";
+            dto.DisplayPaddingTop = attr.DisplayPaddingTop ?? 0;
+            dto.DisplayPaddingLeft = attr.DisplayPaddingLeft ?? 0;
+            dto.DisplayPaddingRight = attr.DisplayPaddingRight ?? 0;
+            dto.DisplayPaddingBottom = attr.DisplayPaddingBottom ?? 0;
+            dto.MemorialPaddingTop = attr.MemorialPaddingTop ?? 0;
+            dto.MemorialPaddingLeft = attr.MemorialPaddingLeft ?? 0;
+            dto.MemorialPaddingRight = attr.MemorialPaddingRight ?? 0;
+            dto.MemorialPaddingBottom = attr.MemorialPaddingBottom ?? 0;
             
             if (!string.IsNullOrEmpty(attr.VideoId))
             {

@@ -22,8 +22,7 @@ class PortraitController extends ChangeNotifier {
 
   // 메인 데이터 로딩 및 동기화 루프
   Future<void> init(
-    String apiServerUrl, 
-    String fileServerUrl, 
+    String serverBaseUrl, 
     String deviceCode,
     Function() onVideoInitialized,
   ) async {
@@ -31,72 +30,93 @@ class PortraitController extends ChangeNotifier {
     statusMessage = '장비 정보를 불러오는 중...';
     notifyListeners();
 
-    // 1. 장비 상세 데이터 로드 (오프라인 캐싱 대응)
-    device = await _apiService.fetchDevice(apiServerUrl, deviceCode);
-    if (device == null) {
+    // 1. 장비 상세 데이터 로드
+    final newDevice = await _apiService.fetchDevice(serverBaseUrl, deviceCode);
+    if (newDevice == null) {
       statusMessage = '장비 정보를 불러오지 못했습니다 (오프라인 상태)';
       isLoading = false;
       notifyListeners();
       return;
     }
+    device = newDevice;
 
-    // 2. 고인 정보 로드 (호실이 존재할 때)
+    // 즉시 반응: 설정에서 꺼진 기능은 데이터 동기화 전이라도 즉시 정지
+    if (!device!.isMusicEnabled) {
+      await playerService.stopMusic();
+      localMusicPath = null;
+    }
+    if (!device!.isVideoEnabled) {
+      await playerService.stopVideo();
+      localVideoPath = null;
+    }
+    notifyListeners();
+
+    // 2. 고인 정보 로드
     if (device!.roomId != null && device!.roomId!.isNotEmpty) {
       statusMessage = '고인 정보를 동기화하는 중...';
-      notifyListeners();
-      deceased = await _apiService.fetchDeceased(apiServerUrl, device!.roomId!);
-      notifyListeners(); // 데이터 로드 후 즉시 UI 반영
+      deceased = await _apiService.fetchDeceased(serverBaseUrl, device!.roomId!);
+      notifyListeners(); 
     } else {
       deceased = null;
       notifyListeners();
     }
 
-    // 3. 미디어 파일 로컬 캐싱 처리 (오프라인 대비 선다운로드)
+    // 3. 미디어 파일 동기화 처리
     statusMessage = '미디어 자원을 동기화하는 중...';
     notifyListeners();
 
-    // 비디오 캐싱
+    // 비디오 동기화
+    String? nextVideoPath;
     if (device!.isVideoEnabled && device!.videoId != null) {
-      localVideoPath = await _cacheManager.getCachedFile(fileServerUrl, device!.videoId);
-    } else {
-      localVideoPath = null;
+      final sourcePath = await _apiService.fetchSourcePath(serverBaseUrl, device!.videoId!);
+      nextVideoPath = await _cacheManager.getCachedFileByPath(serverBaseUrl, sourcePath);
     }
 
-    // 음악 캐싱
+    // 음악 동기화 (musicId를 사용하도록 수정)
+    String? nextMusicPath;
     if (device!.isMusicEnabled && device!.musicId != null) {
-      localMusicPath = await _cacheManager.getCachedFile(fileServerUrl, device!.musicId);
-    } else {
-      localMusicPath = null;
+      final sourcePath = await _apiService.fetchSourcePath(serverBaseUrl, device!.musicId!);
+      nextMusicPath = await _cacheManager.getCachedFileByPath(serverBaseUrl, sourcePath);
     }
 
-    // 영정사진 캐싱
+    // 영정사진 동기화 (EditedUrl 우선순위 적용)
     if (device!.isMemorialPhotoEnabled && deceased != null) {
-      final photoId = deceased!.memorialEditedPhotoFileId ?? deceased!.memorialPhotoFileId;
-      // 파일명이 Guid 형태이므로 확장자는 이미지에 맞게 빈 값으로 둠
-      localPhotoPath = await _cacheManager.getCachedFile(fileServerUrl, photoId);
+      final photoPath = (deceased!.memorialEditedPhotoUrl != null && deceased!.memorialEditedPhotoUrl!.isNotEmpty)
+          ? deceased!.memorialEditedPhotoUrl
+          : deceased!.memorialPhotoUrl;
+      
+      print('[Photo] 영정사진 경로 확인: $photoPath');
+      localPhotoPath = await _cacheManager.getCachedFileByPath(serverBaseUrl, photoPath);
     } else {
       localPhotoPath = null;
     }
 
-    // 4. 무한 반복 재생 구동
-    if (localVideoPath != null) {
-      await playerService.playVideo(localVideoPath!, onVideoInitialized);
+    // 4. 최종 재생 상태 적용 (변경 시에만 재생 컨트롤)
+    if (device!.isVideoEnabled && nextVideoPath != null) {
+      if (localVideoPath != nextVideoPath) {
+        localVideoPath = nextVideoPath;
+        await playerService.playVideo(localVideoPath!, onVideoInitialized);
+      }
     } else {
       await playerService.stopVideo();
+      localVideoPath = null;
     }
 
-    if (localMusicPath != null) {
-      await playerService.playMusic(localMusicPath!, device!.musicVolume);
+    if (device!.isMusicEnabled && nextMusicPath != null) {
+      if (localMusicPath != nextMusicPath) {
+        localMusicPath = nextMusicPath;
+        await playerService.playMusic(localMusicPath!, device!.musicVolume);
+      }
     } else {
       await playerService.stopMusic();
+      localMusicPath = null;
     }
 
     // 5. SignalR 실시간 변경 통신 소켓 연결
     statusMessage = '실시간 이벤트 서버 연결 중...';
     notifyListeners();
-    await _signalRService.connect(apiServerUrl, deviceCode, () {
-      // 알림 수신 시 동적 재호출
-      init(apiServerUrl, fileServerUrl, deviceCode, onVideoInitialized);
+    await _signalRService.connect(serverBaseUrl, deviceCode, () {
+      init(serverBaseUrl, deviceCode, onVideoInitialized);
     });
 
     isLoading = false;
@@ -104,33 +124,11 @@ class PortraitController extends ChangeNotifier {
     notifyListeners();
   }
 
-  // 확장 메서드 백업 대응용 도우미 getter
   String? get deceasedPhotoPath => localPhotoPath;
 
   @override
   void dispose() {
     playerService.dispose();
     super.dispose();
-  }
-}
-
-// DTO 내부 필드 유실 방지용 확장 Helper
-extension DeceasedDtoHelper on DeceasedDto {
-  String? get memorialPhotoFileId {
-    if (memorialPhotoUrl == null) return null;
-    final uri = Uri.parse(memorialPhotoUrl!);
-    if (uri.pathSegments.isNotEmpty) {
-      return uri.pathSegments.last;
-    }
-    return null;
-  }
-
-  String? get memorialEditedPhotoFileId {
-    if (memorialEditedPhotoUrl == null) return null;
-    final uri = Uri.parse(memorialEditedPhotoUrl!);
-    if (uri.pathSegments.isNotEmpty) {
-      return uri.pathSegments.last;
-    }
-    return null;
   }
 }

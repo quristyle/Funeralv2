@@ -1,34 +1,39 @@
 import 'dart:io' as io;
 import 'package:flutter/foundation.dart';
 import 'package:audioplayers/audioplayers.dart';
-import 'package:video_player/video_player.dart';
+import 'package:media_kit/media_kit.dart';
+import 'package:media_kit_video/media_kit_video.dart';
 
 class MediaPlayerService {
-  VideoPlayerController? videoController;
+  // MediaKit 관련 객체
+  late final Player player = Player();
+  late final VideoController videoController = VideoController(player);
+  
   final AudioPlayer _audioPlayer = AudioPlayer();
 
   // 비디오 플레이어 초기화 및 재생
   Future<void> playVideo(String path, Function() onInitialized) async {
-    await stopVideo();
-
     try {
-      if (kIsWeb || path.startsWith('http')) {
-        // 웹이거나 URL인 경우
-        videoController = VideoPlayerController.networkUrl(Uri.parse(path));
-      } else {
-        // 네이티브 파일인 경우
-        final file = io.File(path);
-        if (!await file.exists()) return;
-        videoController = VideoPlayerController.file(file);
-      }
+      // 반복 재생 설정
+      await player.setPlaylistMode(PlaylistMode.loop);
+      // 볼륨 0 (배경음악과 중복 방지)
+      await player.setVolume(0.0);
 
-      await videoController!.initialize();
-      await videoController!.setLooping(true);
-      await videoController!.setVolume(0); 
-      await videoController!.play();
+      if (kIsWeb || path.startsWith('http')) {
+        await player.open(Media(path));
+      } else {
+        final file = io.File(path);
+        if (!await file.exists()) {
+          print('[Video] 파일이 존재하지 않음: $path');
+          return;
+        }
+        await player.open(Media(file.path));
+      }
+      
       onInitialized();
+      print('[Video] MediaKit 재생 시작: $path');
     } catch (e) {
-      print('비디오 재생 실패: $e');
+      print('[Video Error] MediaKit 초기화 실패: $e');
     }
   }
 
@@ -46,17 +51,14 @@ class MediaPlayerService {
       } else {
         await _audioPlayer.play(DeviceFileSource(path));
       }
+      print('[Music] 재생 시작 (볼륨: $vol): $path');
     } catch (e) {
-      print('음악 재생 실패: $e');
+      print('[Music Error] 재생 실패: $e');
     }
   }
 
   Future<void> stopVideo() async {
-    if (videoController != null) {
-      await videoController!.pause();
-      await videoController!.dispose();
-      videoController = null;
-    }
+    await player.stop();
   }
 
   Future<void> stopMusic() async {
@@ -64,7 +66,7 @@ class MediaPlayerService {
   }
 
   Future<void> dispose() async {
-    await stopVideo();
+    await player.dispose();
     await stopMusic();
     await _audioPlayer.dispose();
   }

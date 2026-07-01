@@ -43,6 +43,11 @@ public interface IMediaSourceService
     Task<bool> RetryAudioAsync(string id);
 
     /// <summary>
+    /// 지정한 미디어 리소스 상세 조회
+    /// </summary>
+    Task<MediaSourceDto?> GetMediaSourceByIdAsync(string id);
+
+    /// <summary>
     /// 미디어 리소스 정보 수정
     /// </summary>
     Task<MediaSourceDto?> UpdateMediaSourceAsync(string id, MediaSourceUpdateDto dto);

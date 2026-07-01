@@ -1,7 +1,9 @@
-import 'package:flutter/foundation.dart'; // kIsWeb 사용을 위해 추가
+import 'dart:io' as io;
+import 'package:flutter/foundation.dart'; 
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
-import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart'; // Web용 추가
+import 'package:sqflite_common_ffi/sqflite_ffi.dart'; // Windows용 추가
+import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart'; 
 import '../../models/device_models.dart';
 
 class LocalDbService {
@@ -19,9 +21,12 @@ class LocalDbService {
 
   Future<Database> _initDb() async {
     try {
-      // Web 환경일 경우 팩토리 설정
       if (kIsWeb) {
         databaseFactory = databaseFactoryFfiWeb;
+      } else if (io.Platform.isWindows || io.Platform.isLinux) {
+        // Windows/Linux용 FFI 초기화
+        sqfliteFfiInit();
+        databaseFactory = databaseFactoryFfi;
       }
 
       final dbPath = await getDatabasesPath();
@@ -29,8 +34,29 @@ class LocalDbService {
 
       return await openDatabase(
         path,
-        version: 1,
+        version: 3,
         onCreate: _onCreate,
+        onUpgrade: (db, oldVersion, newVersion) async {
+          if (oldVersion < 2) {
+            try {
+              await db.execute('ALTER TABLE devices ADD COLUMN displayOrientation TEXT');
+              await db.execute('ALTER TABLE devices ADD COLUMN portraitOrientation TEXT');
+              await db.execute('ALTER TABLE devices ADD COLUMN videoOrientation TEXT');
+            } catch (_) {}
+          }
+          if (oldVersion < 3) {
+            try {
+              await db.execute('ALTER TABLE devices ADD COLUMN displayPaddingTop REAL');
+              await db.execute('ALTER TABLE devices ADD COLUMN displayPaddingLeft REAL');
+              await db.execute('ALTER TABLE devices ADD COLUMN displayPaddingRight REAL');
+              await db.execute('ALTER TABLE devices ADD COLUMN displayPaddingBottom REAL');
+              await db.execute('ALTER TABLE devices ADD COLUMN memorialPaddingTop REAL');
+              await db.execute('ALTER TABLE devices ADD COLUMN memorialPaddingLeft REAL');
+              await db.execute('ALTER TABLE devices ADD COLUMN memorialPaddingRight REAL');
+              await db.execute('ALTER TABLE devices ADD COLUMN memorialPaddingBottom REAL');
+            } catch (_) {}
+          }
+        },
       );
     } catch (e) {
       print('DB 초기화 실패 (웹 환경 또는 바이너리 누락): $e');
@@ -56,7 +82,18 @@ class LocalDbService {
         musicVolume REAL,
         isMemorialPhotoEnabled INTEGER,
         isDeceasedNameVisible INTEGER,
-        isFamilyContactVisible INTEGER
+        isFamilyContactVisible INTEGER,
+        displayOrientation TEXT,
+        portraitOrientation TEXT,
+        videoOrientation TEXT,
+        displayPaddingTop REAL,
+        displayPaddingLeft REAL,
+        displayPaddingRight REAL,
+        displayPaddingBottom REAL,
+        memorialPaddingTop REAL,
+        memorialPaddingLeft REAL,
+        memorialPaddingRight REAL,
+        memorialPaddingBottom REAL
       )
     ''');
 

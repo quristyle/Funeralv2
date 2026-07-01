@@ -7,43 +7,52 @@ class ApiService {
   final LocalDbService _dbService = LocalDbService();
 
   // 장비 정보 패치 (실패 시 로컬 DB Fallback)
-  Future<DeviceDto?> fetchDevice(String apiServerUrl, String deviceCode) async {
-    final url = Uri.parse('$apiServerUrl/building/device/code/$deviceCode');
+  Future<DeviceDto?> fetchDevice(String serverBaseUrl, String deviceCode) async {
+    final baseUrl = serverBaseUrl.endsWith('/') ? serverBaseUrl.substring(0, serverBaseUrl.length - 1) : serverBaseUrl;
+    final url = Uri.parse('$baseUrl/api/funeral/building/device/code/$deviceCode');
+    print('[API Request] fetchDevice: $url');
     try {
       final response = await http.get(url).timeout(const Duration(seconds: 4));
+      print('[API Response] fetchDevice Status: ${response.statusCode}');
+      
       if (response.statusCode == 200) {
+        print('[API Response] body: ${response.body}');
         final json = jsonDecode(response.body);
         final device = DeviceDto.fromJson(json);
         
-        // 로컬 DB 캐싱 갱신 (실패해도 앱 실행은 계속됨)
         try {
           await _dbService.saveDevice(device);
         } catch (e) {
-          print('캐시 저장 실패 (무시): $e');
+          print('[Cache] 장비 저장 실패 (무시): $e');
         }
         return device;
       }
     } catch (e) {
-      print('API 호출 실패: $e');
+      print('[API Error] fetchDevice: $e');
     }
     
-    // 오프라인 Fallback (DB 에러 발생 시 null 반환)
     try {
-      return await _dbService.getDevice(deviceCode);
+      final cached = await _dbService.getDevice(deviceCode);
+      if (cached != null) print('[Cache] 로컬 캐시 데이터 반환 성공');
+      return cached;
     } catch (e) {
       return null;
     }
   }
 
-  // 호실 소속 고인 정보 패치 (실패 시 로컬 DB Fallback)
-  Future<DeceasedDto?> fetchDeceased(String apiServerUrl, String roomId) async {
-    final url = Uri.parse('$apiServerUrl/building/deceased/list?roomId=$roomId');
+  // 호실 소속 고인 정보 패치
+  Future<DeceasedDto?> fetchDeceased(String serverBaseUrl, String roomId) async {
+    final baseUrl = serverBaseUrl.endsWith('/') ? serverBaseUrl.substring(0, serverBaseUrl.length - 1) : serverBaseUrl;
+    final url = Uri.parse('$baseUrl/api/funeral/building/deceased/list?roomId=$roomId');
+    print('[API Request] fetchDeceased: $url');
     try {
       final response = await http.get(url).timeout(const Duration(seconds: 4));
+      print('[API Response] fetchDeceased Status: ${response.statusCode}');
+      
       if (response.statusCode == 200) {
+        print('[API Response] body: ${response.body}');
         final json = jsonDecode(response.body);
         
-        // 데이터 존재 여부 확인 (data.result 또는 result)
         bool hasData = false;
         if (json.containsKey('data') && json['data'] is Map && json['data'].containsKey('result')) {
           hasData = (json['data']['result'] as List).isNotEmpty;
@@ -53,24 +62,65 @@ class ApiService {
 
         if (hasData) {
           final deceased = DeceasedDto.fromJson(json);
-          // 로컬 DB 캐싱 갱신 (실패해도 진행)
           try {
             await _dbService.saveDeceased(deceased);
           } catch (e) {
-            print('고인 캐시 저장 실패 (무시): $e');
+            print('[Cache] 고인 저장 실패 (무시): $e');
           }
           return deceased;
         }
       }
     } catch (e) {
-      print('API 고인 조회 실패: $e');
+      print('[API Error] fetchDeceased: $e');
     }
 
-    // 오프라인 Fallback
     try {
       return await _dbService.getDeceasedByRoom(roomId);
     } catch (e) {
       return null;
     }
+  }
+
+  // 소스(미디어) 정보 패치 (비디오/음악 경로 확인용)
+  Future<String?> fetchSourcePath(String serverBaseUrl, String sourceId) async {
+    final baseUrl = serverBaseUrl.endsWith('/') ? serverBaseUrl.substring(0, serverBaseUrl.length - 1) : serverBaseUrl;
+    final url = Uri.parse('$baseUrl/api/funeral/building/source/$sourceId');
+    print('[API Request] fetchSourcePath: $url');
+    try {
+      final response = await http.get(url).timeout(const Duration(seconds: 4));
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body);
+        print('[API Response] fetchSourcePath body: ${response.body}');
+
+        Map<String, dynamic>? data;
+        if (json.containsKey('data') && json['data'] is Map && json['data'].containsKey('result')) {
+          final list = json['data']['result'] as List;
+          if (list.isNotEmpty) data = list[0];
+        } else if (json.containsKey('result') && json['result'] is List) {
+          final list = json['result'] as List;
+          if (list.isNotEmpty) data = list[0];
+        } else {
+          data = json['data'] ?? json;
+        }
+
+        if (data == null) return null;
+
+        // 1. 동영상 처리: webm 우선순위
+        if (data['hasWebm'] == true && data['webmUrl'] != null) {
+          return data['webmUrl'];
+        }
+
+        // 2. 음악 처리: aac 우선순위
+        if (data['hasAac'] == true && data['aacUrl'] != null) {
+          return data['aacUrl'];
+        }
+
+        // 3. 공통 폴백 (기본 url 또는 경로)
+        return data['url'] ?? data['filePath'] ?? data['path'];
+      }
+    } catch (e) {
+      print('[API Error] fetchSourcePath: $e');
+    }
+    return null;
   }
 }
