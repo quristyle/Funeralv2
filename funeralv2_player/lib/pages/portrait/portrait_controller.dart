@@ -39,6 +39,7 @@ class PortraitController extends ChangeNotifier {
       return;
     }
     device = newDevice;
+    print('[Controller] 장비 설정 로드 완료: orientation=${device!.portraitOrientation}, display=${device!.displayOrientation}');
 
     // 즉시 반응: 설정에서 꺼진 기능은 데이터 동기화 전이라도 즉시 정지
     if (!device!.isMusicEnabled) {

@@ -144,8 +144,22 @@ const emit = defineEmits<{
                   <Select.Option value="NONE">효과 없음</Select.Option>
                 </Select>
               </Form.Item>
+              <Form.Item label="사진 세로 정렬">
+                <Select v-model:value="deviceAttr.photoVerticalAlignment" style="width: 100%">
+                  <Select.Option value="TOP">상단</Select.Option>
+                  <Select.Option value="CENTER">중앙</Select.Option>
+                  <Select.Option value="BOTTOM">하단</Select.Option>
+                </Select>
+              </Form.Item>
             </div>
             <div class="grid grid-cols-2 gap-3">
+              <Form.Item label="사진 가로 정렬">
+                <Select v-model:value="deviceAttr.photoHorizontalAlignment" style="width: 100%">
+                  <Select.Option value="LEFT">좌측</Select.Option>
+                  <Select.Option value="CENTER">중앙</Select.Option>
+                  <Select.Option value="RIGHT">우측</Select.Option>
+                </Select>
+              </Form.Item>
               <Form.Item label="고인 이름 표시">
                 <Switch
                   v-model:checked="deviceAttr.isDeceasedNameVisible"
@@ -153,6 +167,8 @@ const emit = defineEmits<{
                   un-checked-children="숨김"
                 />
               </Form.Item>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
               <Form.Item label="유족 연락처 표시">
                 <Switch
                   v-model:checked="deviceAttr.isFamilyContactVisible"
