@@ -2,7 +2,7 @@ import 'dart:io' as io;
 import 'package:flutter/foundation.dart'; 
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
-import 'package:sqflite_common_ffi/sqflite_ffi.dart'; // Windows용 추가
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart'; 
 import '../../models/device_models.dart';
 
@@ -24,7 +24,6 @@ class LocalDbService {
       if (kIsWeb) {
         databaseFactory = databaseFactoryFfiWeb;
       } else if (io.Platform.isWindows || io.Platform.isLinux) {
-        // Windows/Linux용 FFI 초기화
         sqfliteFfiInit();
         databaseFactory = databaseFactoryFfi;
       }
@@ -34,7 +33,7 @@ class LocalDbService {
 
       return await openDatabase(
         path,
-        version: 3,
+        version: 5,
         onCreate: _onCreate,
         onUpgrade: (db, oldVersion, newVersion) async {
           if (oldVersion < 2) {
@@ -56,11 +55,15 @@ class LocalDbService {
               await db.execute('ALTER TABLE devices ADD COLUMN memorialPaddingBottom REAL');
             } catch (_) {}
           }
+          if (oldVersion < 5) {
+            try {
+              await db.execute('ALTER TABLE devices ADD COLUMN photoHorizontalAlignment TEXT');
+            } catch (_) {}
+          }
         },
       );
     } catch (e) {
-      print('DB 초기화 실패 (웹 환경 또는 바이너리 누락): $e');
-      // DB 초기화 실패 시 더미(In-memory) DB 또는 예외를 던져 API 서비스에서 처리하도록 함
+      print('DB 초기화 실패: $e');
       rethrow;
     }
   }
@@ -93,7 +96,9 @@ class LocalDbService {
         memorialPaddingTop REAL,
         memorialPaddingLeft REAL,
         memorialPaddingRight REAL,
-        memorialPaddingBottom REAL
+        memorialPaddingBottom REAL,
+        photoVerticalAlignment TEXT,
+        photoHorizontalAlignment TEXT
       )
     ''');
 
@@ -112,7 +117,9 @@ class LocalDbService {
         roomName TEXT,
         chiefMourner TEXT,
         memorialPhotoUrl TEXT,
-        memorialEditedPhotoUrl TEXT
+        memorialPhotoFileId TEXT,
+        memorialEditedPhotoUrl TEXT,
+        memorialEditedPhotoFileId TEXT
       )
     ''');
   }
