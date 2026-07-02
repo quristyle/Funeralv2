@@ -16,6 +16,7 @@ const emit = defineEmits<{
 
 const formModel = ref<Partial<BuildingApi.Device>>({});
 const isSaving = ref(false);
+const debounceTimer = ref<NodeJS.Timeout | null>(null);
 
 // Props로 받은 device 데이터가 변경될 때마다 formModel을 동기화합니다.
 watch(
@@ -26,6 +27,30 @@ watch(
     }
   },
   { immediate: true, deep: true },
+);
+
+// formModel의 변경을 감지하여 1.5초 후 자동 저장 실행
+watch(
+  () => JSON.stringify(formModel.value),
+  (newValue, oldValue) => {
+    // 초기화 단계이거나, 실제 값의 변경이 없으면 실행하지 않음
+    if (newValue === oldValue || oldValue === '{}') {
+      return;
+    }
+
+    // 기존 디바운스 타이머가 있다면 취소
+    if (debounceTimer.value) {
+      clearTimeout(debounceTimer.value);
+    }
+
+    // 1.5초(1500ms) 후에 handleSave 함수를 호출하는 새로운 타이머 설정
+    debounceTimer.value = setTimeout(() => {
+      // 수동 저장 버튼이 이미 로딩 중이면 자동 저장 실행 안 함
+      if (!isSaving.value) {
+        handleSave();
+      }
+    }, 1500);
+  },
 );
 
 /**
@@ -41,7 +66,7 @@ async function handleSave() {
     };
     await updateDevice(formModel.value.id, dataToSend);
     message.success('장비 정보가 수정되었습니다.');
-    emit('saved');
+    //emit('saved');
   } catch {
     message.error('저장 실패');
   } finally {

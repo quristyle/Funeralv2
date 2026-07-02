@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 class DeviceDto {
   final String id;
   final String code;
@@ -17,7 +19,8 @@ class DeviceDto {
   final String portraitOrientation;
   final String videoOrientation;
   final String photoVerticalAlignment;
-  final String photoHorizontalAlignment; // 추가
+  final String photoHorizontalAlignment;
+  final String deviceType;
 
   final double displayPaddingTop;
   final double displayPaddingLeft;
@@ -49,6 +52,7 @@ class DeviceDto {
     required this.videoOrientation,
     required this.photoVerticalAlignment,
     required this.photoHorizontalAlignment,
+    required this.deviceType,
     required this.displayPaddingTop,
     required this.displayPaddingLeft,
     required this.displayPaddingRight,
@@ -91,6 +95,7 @@ class DeviceDto {
       videoOrientation: data['videoOrientation'] ?? 'HORIZONTAL',
       photoVerticalAlignment: (data['photoVerticalAlignment'] == null || data['photoVerticalAlignment'].toString().isEmpty) ? 'CENTER' : data['photoVerticalAlignment'],
       photoHorizontalAlignment: (data['photoHorizontalAlignment'] == null || data['photoHorizontalAlignment'].toString().isEmpty) ? 'CENTER' : data['photoHorizontalAlignment'],
+      deviceType: data['deviceType'] ?? 'UNKNOWN',
       displayPaddingTop: (data['displayPaddingTop'] ?? 0).toDouble(),
       displayPaddingLeft: (data['displayPaddingLeft'] ?? 0).toDouble(),
       displayPaddingRight: (data['displayPaddingRight'] ?? 0).toDouble(),
@@ -123,6 +128,7 @@ class DeviceDto {
       'videoOrientation': videoOrientation,
       'photoVerticalAlignment': photoVerticalAlignment,
       'photoHorizontalAlignment': photoHorizontalAlignment,
+      'deviceType': deviceType,
       'displayPaddingTop': displayPaddingTop,
       'displayPaddingLeft': displayPaddingLeft,
       'displayPaddingRight': displayPaddingRight,
@@ -133,6 +139,28 @@ class DeviceDto {
       'memorialPaddingBottom': memorialPaddingBottom,
     };
   }
+}
+
+class MournerDto {
+  final String? name;
+  final String? relation;
+  final bool isChief;
+
+  MournerDto({this.name, this.relation, required this.isChief});
+
+  factory MournerDto.fromJson(Map<String, dynamic> json) {
+    return MournerDto(
+      name: json['name'],
+      relation: json['relation'],
+      isChief: json['isChief'] ?? false,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'name': name,
+    'relation': relation,
+    'isChief': isChief,
+  };
 }
 
 class DeceasedDto {
@@ -147,6 +175,7 @@ class DeceasedDto {
   final String? roomId;
   final String? roomName;
   final String? chiefMourner;
+  final List<MournerDto> mourners; // 추가
   final String? memorialPhotoUrl;
   final String? memorialPhotoFileId;
   final String? memorialEditedPhotoUrl;
@@ -164,10 +193,11 @@ class DeceasedDto {
     this.roomId,
     this.roomName,
     this.chiefMourner,
+    required this.mourners,
     this.memorialPhotoUrl,
     this.memorialPhotoFileId,
-    required this.memorialEditedPhotoUrl,
-    required this.memorialEditedPhotoFileId,
+    this.memorialEditedPhotoUrl,
+    this.memorialEditedPhotoFileId,
   });
 
   factory DeceasedDto.fromJson(Map<String, dynamic> json) {
@@ -182,6 +212,11 @@ class DeceasedDto {
       data = json;
     }
 
+    var mournerList = <MournerDto>[];
+    if (data['mourners'] != null) {
+      mournerList = (data['mourners'] as List).map((i) => MournerDto.fromJson(i)).toList();
+    }
+
     return DeceasedDto(
       id: data['id'] ?? '',
       name: data['name'] ?? '',
@@ -194,10 +229,11 @@ class DeceasedDto {
       roomId: data['roomId'],
       roomName: data['roomName'],
       chiefMourner: data['chiefMourner'],
+      mourners: mournerList,
       memorialPhotoUrl: data['memorialPhotoUrl'],
       memorialPhotoFileId: data['memorialPhotoFileId'],
-      memorialEditedPhotoUrl: data['memorialEditedPhotoUrl'] ?? '',
-      memorialEditedPhotoFileId: data['memorialEditedPhotoFileId'] ?? '',
+      memorialEditedPhotoUrl: data['memorialEditedPhotoUrl'],
+      memorialEditedPhotoFileId: data['memorialEditedPhotoFileId'],
     );
   }
 
@@ -214,6 +250,7 @@ class DeceasedDto {
       'roomId': roomId,
       'roomName': roomName,
       'chiefMourner': chiefMourner,
+      'mourners': jsonEncode(mourners.map((e) => e.toJson()).toList()), // SQLite 저장을 위해 JSON 문자열화
       'memorialPhotoUrl': memorialPhotoUrl,
       'memorialPhotoFileId': memorialPhotoFileId,
       'memorialEditedPhotoUrl': memorialEditedPhotoUrl,

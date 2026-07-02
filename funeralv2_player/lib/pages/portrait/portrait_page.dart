@@ -85,6 +85,7 @@ class _PortraitPageState extends State<PortraitPage> {
                         child: Video(
                           controller: _controller.playerService.videoController,
                           fit: BoxFit.cover,
+                          controls: NoVideoControls,
                         ),
                       ),
                       

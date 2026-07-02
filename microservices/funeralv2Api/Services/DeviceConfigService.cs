@@ -1,6 +1,7 @@
 using funeralv2Api.Data;
 using funeralv2Api.DTOs;
 using funeralv2Api.Entities;
+using funeralv2Api.Services;
 using Microsoft.EntityFrameworkCore;
 
 namespace funeralv2Api.Services;
@@ -12,11 +13,13 @@ public class DeviceConfigService : IDeviceConfigService
 {
     private readonly AppDbContext _context;
     private readonly ILogger<DeviceConfigService> _logger;
+    private readonly IDeviceHubSender _deviceHubSender;
 
-    public DeviceConfigService(AppDbContext context, ILogger<DeviceConfigService> logger)
+    public DeviceConfigService(AppDbContext context, ILogger<DeviceConfigService> logger, IDeviceHubSender deviceHubSender)
     {
         _context = context;
         _logger = logger;
+        _deviceHubSender = deviceHubSender;
     }
 
     /// <inheritdoc />
@@ -72,10 +75,21 @@ public class DeviceConfigService : IDeviceConfigService
         ApplyDto(existing, dto);
         await _context.SaveChangesAsync();
 
+        // 실시간 변경 알림 송신
+        try
+        {
+            await _deviceHubSender.SendDeviceChangedByDeviceIdAsync(dto.DeviceId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "SignalR 장비 설정 변경 알림 전송 중 에러 발생");
+        }
+
         if (existing.Device == null)
         {
             existing.Device = await _context.Devices.FindAsync(dto.DeviceId);
         }
+
 
         return MapToDto(existing);
     }
@@ -99,6 +113,17 @@ public class DeviceConfigService : IDeviceConfigService
         existing.UpdatedAt = DateTime.UtcNow;
         ApplyDto(existing, dto);
         await _context.SaveChangesAsync();
+
+        // 실시간 변경 알림 송신
+        try
+        {
+            await _deviceHubSender.SendDeviceChangedByDeviceIdAsync(dto.DeviceId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "SignalR 장비 설정 변경 알림 전송 중 에러 발생");
+        }
+
         return true;
     }
 

@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:media_kit/media_kit.dart'; // 추가
-import 'pages/portrait/portrait_page.dart';
+import 'package:media_kit/media_kit.dart';
+import 'pages/device_dispatcher.dart'; // 수정됨
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  MediaKit.ensureInitialized(); // 추가
+  MediaKit.ensureInitialized();
   runApp(const FuneralPlayerApp());
 }
 
@@ -51,7 +51,7 @@ class _MainRouterState extends State<MainRouter> {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       serverBaseUrl = prefs.getString('serverBaseUrl') ?? 'http://localhost:5265';
-      deviceCode = prefs.getString('deviceCode');
+      deviceCode = prefs.getString('deviceCode')??'JSI-06-0001';
       
       isConfigured = deviceCode != null && deviceCode!.isNotEmpty;
       isLoading = false;
@@ -89,7 +89,7 @@ class _MainRouterState extends State<MainRouter> {
       );
     }
 
-    return PortraitPage(
+    return DeviceDispatcher(
       serverBaseUrl: serverBaseUrl!,
       deviceCode: deviceCode!,
       onOpenSettings: () {

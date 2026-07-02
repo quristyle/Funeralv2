@@ -12,64 +12,84 @@ class LocalDbService {
   LocalDbService._internal();
 
   Database? _database;
+  bool _isWebError = false; // 웹 워커 에러 발생 여부 체크
 
-  Future<Database> get database async {
+  Future<Database?> get database async {
+    if (kIsWeb && _isWebError) return null; // 웹 에러 상태면 바로 null 반환
     if (_database != null) return _database!;
-    _database = await _initDb();
-    return _database!;
-  }
-
-  Future<Database> _initDb() async {
+    
     try {
-      if (kIsWeb) {
-        databaseFactory = databaseFactoryFfiWeb;
-      } else if (io.Platform.isWindows || io.Platform.isLinux) {
-        sqfliteFfiInit();
-        databaseFactory = databaseFactoryFfi;
-      }
-
-      final dbPath = await getDatabasesPath();
-      final path = join(dbPath, 'funeral_signage.db');
-
-      return await openDatabase(
-        path,
-        version: 5,
-        onCreate: _onCreate,
-        onUpgrade: (db, oldVersion, newVersion) async {
-          if (oldVersion < 2) {
-            try {
-              await db.execute('ALTER TABLE devices ADD COLUMN displayOrientation TEXT');
-              await db.execute('ALTER TABLE devices ADD COLUMN portraitOrientation TEXT');
-              await db.execute('ALTER TABLE devices ADD COLUMN videoOrientation TEXT');
-            } catch (_) {}
-          }
-          if (oldVersion < 3) {
-            try {
-              await db.execute('ALTER TABLE devices ADD COLUMN displayPaddingTop REAL');
-              await db.execute('ALTER TABLE devices ADD COLUMN displayPaddingLeft REAL');
-              await db.execute('ALTER TABLE devices ADD COLUMN displayPaddingRight REAL');
-              await db.execute('ALTER TABLE devices ADD COLUMN displayPaddingBottom REAL');
-              await db.execute('ALTER TABLE devices ADD COLUMN memorialPaddingTop REAL');
-              await db.execute('ALTER TABLE devices ADD COLUMN memorialPaddingLeft REAL');
-              await db.execute('ALTER TABLE devices ADD COLUMN memorialPaddingRight REAL');
-              await db.execute('ALTER TABLE devices ADD COLUMN memorialPaddingBottom REAL');
-            } catch (_) {}
-          }
-          if (oldVersion < 5) {
-            try {
-              await db.execute('ALTER TABLE devices ADD COLUMN photoHorizontalAlignment TEXT');
-            } catch (_) {}
-          }
-        },
-      );
+      _database = await _initDb();
+      return _database;
     } catch (e) {
-      print('DB 초기화 실패: $e');
-      rethrow;
+      print('[DB] Database access failed: $e');
+      if (kIsWeb) _isWebError = true;
+      return null;
     }
   }
 
+  Future<Database> _initDb() async {
+    if (kIsWeb) {
+      try {
+        // 웹 워커 설정을 시도하지만 실패해도 치명적 에러가 되지 않도록 함
+        databaseFactory = databaseFactoryFfiWeb;
+      } catch (e) {
+        _isWebError = true;
+        print('[DB] Web SQL initialization failed, running without cache.');
+        rethrow;
+      }
+    } else if (io.Platform.isWindows || io.Platform.isLinux) {
+      sqfliteFfiInit();
+      databaseFactory = databaseFactoryFfi;
+    }
+
+    final dbPath = await getDatabasesPath();
+    final path = join(dbPath, 'funeral_signage.db');
+
+    return await openDatabase(
+      path,
+      version: 6,
+      onCreate: _onCreate,
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 2) {
+          try {
+            await db.execute('ALTER TABLE devices ADD COLUMN displayOrientation TEXT');
+            await db.execute('ALTER TABLE devices ADD COLUMN portraitOrientation TEXT');
+            await db.execute('ALTER TABLE devices ADD COLUMN videoOrientation TEXT');
+          } catch (_) {}
+        }
+        if (oldVersion < 3) {
+          try {
+            await db.execute('ALTER TABLE devices ADD COLUMN displayPaddingTop REAL');
+            await db.execute('ALTER TABLE devices ADD COLUMN displayPaddingLeft REAL');
+            await db.execute('ALTER TABLE devices ADD COLUMN displayPaddingRight REAL');
+            await db.execute('ALTER TABLE devices ADD COLUMN displayPaddingBottom REAL');
+            await db.execute('ALTER TABLE devices ADD COLUMN memorialPaddingTop REAL');
+            await db.execute('ALTER TABLE devices ADD COLUMN memorialPaddingLeft REAL');
+            await db.execute('ALTER TABLE devices ADD COLUMN memorialPaddingRight REAL');
+            await db.execute('ALTER TABLE devices ADD COLUMN memorialPaddingBottom REAL');
+          } catch (_) {}
+        }
+        if (oldVersion < 4) {
+          try {
+            await db.execute('ALTER TABLE devices ADD COLUMN photoVerticalAlignment TEXT');
+          } catch (_) {}
+        }
+        if (oldVersion < 5) {
+          try {
+            await db.execute('ALTER TABLE devices ADD COLUMN photoHorizontalAlignment TEXT');
+          } catch (_) {}
+        }
+        if (oldVersion < 6) {
+          try {
+            await db.execute('ALTER TABLE deceased ADD COLUMN mourners TEXT');
+          } catch (_) {}
+        }
+      },
+    );
+  }
+
   Future<void> _onCreate(Database db, int version) async {
-    // 장비 테이블 생성
     await db.execute('''
       CREATE TABLE devices (
         id TEXT PRIMARY KEY,
@@ -98,11 +118,11 @@ class LocalDbService {
         memorialPaddingRight REAL,
         memorialPaddingBottom REAL,
         photoVerticalAlignment TEXT,
-        photoHorizontalAlignment TEXT
+        photoHorizontalAlignment TEXT,
+        deviceType TEXT
       )
     ''');
 
-    // 고인 테이블 생성
     await db.execute('''
       CREATE TABLE deceased (
         id TEXT PRIMARY KEY,
@@ -116,6 +136,7 @@ class LocalDbService {
         roomId TEXT,
         roomName TEXT,
         chiefMourner TEXT,
+        mourners TEXT,
         memorialPhotoUrl TEXT,
         memorialPhotoFileId TEXT,
         memorialEditedPhotoUrl TEXT,
@@ -124,48 +145,30 @@ class LocalDbService {
     ''');
   }
 
-  // 장비 캐시 저장
-  Future<void> saveDevice(DeviceDto device) async {
+  Future<void> saveDevice(DeviceDto deviceDto) async {
     final db = await database;
-    await db.insert(
-      'devices',
-      device.toMap(),
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    if (db == null) return;
+    await db.insert('devices', deviceDto.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
-  // 장비 캐시 조회
   Future<DeviceDto?> getDevice(String code) async {
     final db = await database;
-    final List<Map<String, dynamic>> maps = await db.query(
-      'devices',
-      where: 'code = ?',
-      whereArgs: [code],
-    );
-
+    if (db == null) return null;
+    final List<Map<String, dynamic>> maps = await db.query('devices', where: 'code = ?', whereArgs: [code]);
     if (maps.isEmpty) return null;
     return DeviceDto.fromJson(maps.first);
   }
 
-  // 고인 캐시 저장
   Future<void> saveDeceased(DeceasedDto deceased) async {
     final db = await database;
-    await db.insert(
-      'deceased',
-      deceased.toMap(),
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    if (db == null) return;
+    await db.insert('deceased', deceased.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
-  // 고인 캐시 조회 (룸 ID 기반)
   Future<DeceasedDto?> getDeceasedByRoom(String roomId) async {
     final db = await database;
-    final List<Map<String, dynamic>> maps = await db.query(
-      'deceased',
-      where: 'roomId = ?',
-      whereArgs: [roomId],
-    );
-
+    if (db == null) return null;
+    final List<Map<String, dynamic>> maps = await db.query('deceased', where: 'roomId = ?', whereArgs: [roomId]);
     if (maps.isEmpty) return null;
     return DeceasedDto.fromJson(maps.first);
   }

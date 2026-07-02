@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { ref, watch } from 'vue';
 import {
   Alert, Button, Divider, Form, Input, InputNumber, Select, Slider, Spin, Switch,
 } from 'ant-design-vue';
@@ -16,6 +17,37 @@ const emit = defineEmits<{
   (e: 'save'): void;
   (e: 'reset'): void;
 }>();
+
+// 자동 저장을 위한 디바운스 타이머
+const debounceTimer = ref<NodeJS.Timeout | null>(null);
+
+// deviceAttr 객체의 모든 속성 변경을 감지하여 자동 저장 실행
+watch(
+  // 객체를 문자열로 변환하여 실제 값의 변경을 감지 (참조 문제 회피)
+  () => JSON.stringify(props.deviceAttr),
+  (newValue, oldValue) => {
+    // 컴포넌트 마운트 초기, 데이터 로딩 중, 또는 부모로부터 새 데이터를 받는 시점에는 실행하지 않음
+    const oldData = oldValue ? JSON.parse(oldValue) : null;
+    if (!newValue || !oldValue || !oldData?.id) {
+      return;
+    }
+
+    // 문자열로 직접 비교하여 변경 여부 확인
+    if (newValue === oldValue) {
+      return;
+    }
+
+    // 기존에 설정된 타이머가 있다면 취소 (연속 변경 시 마지막 변경만 저장하기 위함)
+    if (debounceTimer.value) {
+      clearTimeout(debounceTimer.value);
+    }
+
+    // 1초(1000ms) 후에 'save' 이벤트를 발생시키는 새로운 타이머 설정
+    debounceTimer.value = setTimeout(() => {
+      emit('save');
+    }, 1000);
+  },
+);
 </script>
 
 <template>
@@ -434,6 +466,7 @@ const emit = defineEmits<{
         속성 저장
       </Button>
     </div>
+
   </div>
 </template>
 

@@ -12,11 +12,13 @@ public class DeviceService : IDeviceService
 {
     private readonly AppDbContext _context;
     private readonly ILogger<DeviceService> _logger;
+    private readonly IDeviceHubSender _deviceHubSender;
 
-    public DeviceService(AppDbContext context, ILogger<DeviceService> logger)
+    public DeviceService(AppDbContext context, ILogger<DeviceService> logger, IDeviceHubSender deviceHubSender)
     {
         _context = context;
         _logger = logger;
+        _deviceHubSender = deviceHubSender;
     }
 
     /// <summary>
@@ -305,6 +307,16 @@ public class DeviceService : IDeviceService
         _context.Devices.Add(entity);
         await _context.SaveChangesAsync();
 
+        // 실시간 변경 알림 송신
+        try
+        {
+            await _deviceHubSender.SendDeviceChangedByDeviceIdAsync(entity.Id);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "SignalR 장비 생성 알림 전송 중 에러 발생");
+        }
+
         _logger.LogInformation("장비 생성 완료. Id: {Id}, Code: {Code}", entity.Id, entity.Code);
         return MapToDto(entity);
     }
@@ -339,6 +351,17 @@ public class DeviceService : IDeviceService
         {
             _context.Entry(entity).State = EntityState.Modified;
             await _context.SaveChangesAsync();
+
+            // 실시간 변경 알림 송신
+            try
+            {
+                await _deviceHubSender.SendDeviceChangedByDeviceIdAsync(id);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "SignalR 장비 수정 알림 전송 중 에러 발생");
+            }
+
             _logger.LogInformation("장비 수정 완료. Id: {Id}", id);
             return MapToDto(entity);
         }

@@ -70,6 +70,20 @@ public static class DeceasedEndpoints
         .WithName("GetDeceasedDetail")
         .WithOpenApi();
 
+        // 호실 ID로 현재 고인 상세 정보 조회
+        group.MapGet("/roomId/{roomId}", async (string roomId, [FromServices] IDeceasedService service) =>
+        {
+            var result = await service.GetDeceasedDetailByRoomIdAsync(roomId);
+            if (result == null)
+            {
+                // 데이터가 없는 것을 오류가 아닌 정상 응답(null)으로 처리
+                return Results.Ok(ApiResponse<DeceasedDetailDto?>.Ok(null, "해당 호실에 배정된 고인 정보가 없습니다."));
+            }
+            return Results.Ok(result);
+        })
+        .WithName("GetDeceasedDetailByRoomId")
+        .WithOpenApi();
+
         // 고인 종합 상세 정보 저장
         group.MapPut("/{id}/detail", async (string id, [FromBody] DeceasedDetailDto dto, [FromServices] IDeceasedService service) =>
         {

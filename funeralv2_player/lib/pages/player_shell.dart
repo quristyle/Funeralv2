@@ -8,6 +8,7 @@ class PlayerShell extends StatelessWidget {
   final MediaPlayerService playerService;
   final VoidCallback onOpenSettings;
   final Widget child; // 각 장비별 특화된 View (PortraitView, MultimediaView 등)
+  final String? debugFileName; // 추가: 디버그용 파일명
 
   const PlayerShell({
     super.key,
@@ -15,6 +16,7 @@ class PlayerShell extends StatelessWidget {
     required this.playerService,
     required this.onOpenSettings,
     required this.child,
+    this.debugFileName,
   });
 
   @override
@@ -65,6 +67,20 @@ class PlayerShell extends StatelessWidget {
                     child: IconButton(
                       icon: const Icon(Icons.settings, color: Colors.white, size: 28),
                       onPressed: onOpenSettings,
+                    ),
+                  ),
+                ),
+
+                // [개발 전용] 화면 타입 디버그 라벨 (우측 하단)
+                Positioned(
+                  bottom: 10,
+                  right: 10,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    color: Colors.black54,
+                    child: Text(
+                      'DEBUG: ${device.deviceType}${debugFileName != null ? " ($debugFileName)" : ""}',
+                      style: const TextStyle(color: Colors.yellow, fontSize: 10, fontWeight: FontWeight.bold),
                     ),
                   ),
                 ),

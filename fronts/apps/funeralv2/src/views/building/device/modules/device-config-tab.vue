@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { ref, watch } from 'vue';
 import {
   Alert, Button, Divider, Form, Slider, Spin, Switch, TimePicker,
 } from 'ant-design-vue';
@@ -21,6 +22,45 @@ const emit = defineEmits<{
   (e: 'update:powerOffTimeVal', val: any): void;
   (e: 'update:rebootTimeVal', val: any): void;
 }>();
+
+// 자동 저장을 위한 디바운스 타이머
+const debounceTimer = ref<NodeJS.Timeout | null>(null);
+
+// 설정 값 변경을 감지하여 자동 저장 실행
+watch(
+  // 감시할 모든 데이터를 배열로 묶고 JSON.stringify로 실제 값 변경 감지
+  () => JSON.stringify([
+    props.deviceConfig,
+    props.powerOnTimeVal,
+    props.powerOffTimeVal,
+    props.rebootTimeVal,
+  ]),
+  (newValue, oldValue) => {
+    // 초기화 단계이거나, 실제 값의 변경이 없으면 실행하지 않음
+    if (!oldValue || newValue === oldValue) {
+      return;
+    }
+
+    // 부모로부터 받은 초기 데이터인지 확인 (deviceConfig.id가 없을 때)
+    const oldConfig = JSON.parse(oldValue)[0];
+    if (!oldConfig?.id) {
+      return;
+    }
+
+    // 기존에 설정된 타이머가 있다면 취소
+    if (debounceTimer.value) {
+      clearTimeout(debounceTimer.value);
+    }
+
+    // 1.5초(1500ms) 후에 'save' 이벤트를 발생시키는 새로운 타이머 설정
+    debounceTimer.value = setTimeout(() => {
+      // 수동 저장이 진행 중이면 자동 저장 실행 안 함
+      if (!props.configSaving) {
+        emit('save');
+      }
+    }, 1500);
+  },
+);
 </script>
 
 <template>

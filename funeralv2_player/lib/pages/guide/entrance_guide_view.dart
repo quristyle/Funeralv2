@@ -51,6 +51,7 @@ class _EntranceGuideViewState extends State<EntranceGuideView> {
           device: dev,
           playerService: _controller.playerService,
           onOpenSettings: widget.onOpenSettings,
+          debugFileName: 'entrance_guide_view.dart',
           child: const Center(
             child: Text(
               "입구 안내 화면 (준비 중)",

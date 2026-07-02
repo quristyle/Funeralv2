@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import '../models/device_models.dart';
 import '../services/api/api_service.dart';
+import '../services/signalr/signalr_service.dart'; // 추가
 import 'portrait/portrait_view.dart';
+import 'guide/room_guide_view.dart';
+import 'guide/entrance_guide_view.dart';
 
 /// 장비 타입에 따라 어떤 화면(View)을 보여줄지 결정하는 허브 컨트롤러
 class DeviceDispatcher extends StatefulWidget {
@@ -21,6 +24,7 @@ class DeviceDispatcher extends StatefulWidget {
 }
 
 class _DeviceDispatcherState extends State<DeviceDispatcher> {
+  final SignalRService _signalRService = SignalRService(); // 추가
   DeviceDto? device;
   bool isLoading = true;
   String? error;
@@ -28,16 +32,23 @@ class _DeviceDispatcherState extends State<DeviceDispatcher> {
   @override
   void initState() {
     super.initState();
-    _loadDeviceType();
+    _loadDevice();
   }
 
-  Future<void> _loadDeviceType() async {
+  // 장비 정보 로드 및 SignalR 연결
+  Future<void> _loadDevice() async {
     try {
       final fetched = await ApiService().fetchDevice(widget.serverBaseUrl, widget.deviceCode);
       if (fetched != null) {
         setState(() {
           device = fetched;
           isLoading = false;
+        });
+
+        // [핵심] SignalR 연결: 타입 변경 알림 시 다시 로드하여 화면 갱신
+        await _signalRService.connect(widget.serverBaseUrl, widget.deviceCode, () {
+          print('[Dispatcher] 장비 정보 변경 알림 수신 - 다시 로드합니다.');
+          _loadDevice();
         });
       } else {
         setState(() {
@@ -54,6 +65,12 @@ class _DeviceDispatcherState extends State<DeviceDispatcher> {
   }
 
   @override
+  void dispose() {
+    _signalRService.disconnect(widget.deviceCode); // 해제
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     if (isLoading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator(color: Color(0xFFC0A060))));
@@ -65,8 +82,10 @@ class _DeviceDispatcherState extends State<DeviceDispatcher> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text(error ?? "알 수 없는 오류"),
+              const Icon(Icons.error_outline, color: Colors.red, size: 60),
               const SizedBox(height: 20),
+              Text(error ?? "알 수 없는 오류", style: const TextStyle(color: Colors.white, fontSize: 18)),
+              const SizedBox(height: 40),
               ElevatedButton(onPressed: widget.onOpenSettings, child: const Text("설정으로 돌아가기")),
             ],
           ),
@@ -74,8 +93,8 @@ class _DeviceDispatcherState extends State<DeviceDispatcher> {
       );
     }
 
-    // 장비 타입별 분기 처리
-    switch (device!.code.contains('JSI-06') ? 'FUNERAL_PORTRAIT' : 'UNKNOWN') { // 예시: 코드로 분기하거나 deviceType 필드 사용
+    // [동적 분기] deviceType이 바뀌면 build가 다시 호출되면서 다른 View가 반환됨
+    switch (device!.deviceType) {
       case 'FUNERAL_PORTRAIT':
         return PortraitView(
           serverBaseUrl: widget.serverBaseUrl,
@@ -83,12 +102,22 @@ class _DeviceDispatcherState extends State<DeviceDispatcher> {
           onOpenSettings: widget.onOpenSettings,
         );
       
-      // 향후 여기에 추가
-      // case 'MULTIMEDIA': return MultimediaView(...);
-      // case 'ROOM_GUIDE': return RoomGuideView(...);
+      case 'ROOM_GUIDE':
+        return RoomGuideView(
+          serverBaseUrl: widget.serverBaseUrl,
+          deviceCode: widget.deviceCode,
+          onOpenSettings: widget.onOpenSettings,
+        );
+
+      case 'ENTRANCE_GUIDE':
+        return EntranceGuideView(
+          serverBaseUrl: widget.serverBaseUrl,
+          deviceCode: widget.deviceCode,
+          onOpenSettings: widget.onOpenSettings,
+        );
 
       default:
-        return PortraitView( // 기본값
+        return PortraitView(
           serverBaseUrl: widget.serverBaseUrl,
           deviceCode: widget.deviceCode,
           onOpenSettings: widget.onOpenSettings,

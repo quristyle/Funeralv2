@@ -60,6 +60,7 @@ class _PortraitViewState extends State<PortraitView> {
           device: dev!,
           playerService: _controller.playerService,
           onOpenSettings: widget.onOpenSettings,
+          debugFileName: 'portrait_view.dart',
           child: Stack(
             fit: StackFit.expand,
             children: [

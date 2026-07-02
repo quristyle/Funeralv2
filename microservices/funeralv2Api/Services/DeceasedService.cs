@@ -647,6 +647,52 @@ public class DeceasedService : IDeceasedService
         return await GetDeceasedDetailAsync(id);
     }
 
+    /// <inheritdoc />
+    public async Task<DeceasedDetailDto?> GetDeceasedDetailByRoomIdAsync(string roomId)
+    {
+        _logger.LogInformation("Fetching current deceased detail info by Room ID: {RoomId}", roomId);
+
+        if (string.IsNullOrEmpty(roomId))
+        {
+            return null;
+        }
+
+        // DeceasedRooms 이력 테이블을 기준으로 현재 호실에 배정된 고인을 찾습니다.
+        var deceasedId = await (from dr in _context.DeceasedRooms
+                                join d in _context.Deceaseds on dr.DeceasedId equals d.Id
+                                where dr.RoomId == roomId && !dr.IsDeleted && !d.IsDeleted && d.Status != "COMPLETED"
+                                orderby dr.StartTime descending
+                                select d.Id).FirstOrDefaultAsync();
+
+        var deceased = deceasedId == null ? null : await _context.Deceaseds.AsNoTracking()
+            .Where(d => d.Id == deceasedId)
+            .FirstOrDefaultAsync();
+        
+        if (deceased == null) return null;
+
+        // 기존 GetDeceasedDetailAsync를 재사용하면 불필요한 쿼리가 많으므로,
+        // 이 엔드포인트에 최적화된 DTO를 직접 구성합니다.
+        var detailDto = await GetDeceasedDetailAsync(deceased.Id);
+
+        if (detailDto == null) return null;
+
+        // 상주 목록을 명시적으로 조회하여 채워줍니다.
+        detailDto.Mourners = await _context.DeceasedMourners
+            .AsNoTracking()
+            .Where(m => m.DeceasedId == deceased.Id && !m.IsDeleted)
+            .OrderBy(m => m.SortOrder)
+            .ThenBy(m => m.Name)
+            .Select(m => new DeceasedMournerDto
+            {
+                // 필요한 필드만 매핑
+                Name = m.Name,
+                Relation = m.Relation,
+                IsChief = m.IsChief,
+            }).ToListAsync();
+
+        return detailDto;
+    }
+
     private static DateTime SpecifyUtc(DateTime dt)
     {
         return dt.Kind == DateTimeKind.Unspecified ? DateTime.SpecifyKind(dt, DateTimeKind.Utc) : dt;

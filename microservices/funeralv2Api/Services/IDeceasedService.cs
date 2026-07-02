@@ -38,4 +38,9 @@ public interface IDeceasedService
     /// 고인 종합 상세 정보 저장 및 일괄 갱신
     /// </summary>
     Task<DeceasedDetailDto?> SaveDeceasedDetailAsync(string id, DeceasedDetailDto dto);
+
+    /// <summary>
+    /// 호실 ID로 현재 배정된 고인의 종합 상세 정보 조회
+    /// </summary>
+    Task<DeceasedDetailDto?> GetDeceasedDetailByRoomIdAsync(string roomId);
 }
