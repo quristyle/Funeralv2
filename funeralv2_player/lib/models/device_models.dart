@@ -163,6 +163,53 @@ class MournerDto {
   };
 }
 
+class DeviceRibbonDto {
+  final String id;
+  final String deviceId;
+  final String mediaSourceId;
+  final String? mediaSourceUrl;
+  final double positionLeft;
+  final double positionTop;
+  final double width;
+  final double height;
+
+  DeviceRibbonDto({
+    required this.id,
+    required this.deviceId,
+    required this.mediaSourceId,
+    this.mediaSourceUrl,
+    required this.positionLeft,
+    required this.positionTop,
+    required this.width,
+    required this.height,
+  });
+
+  factory DeviceRibbonDto.fromJson(Map<String, dynamic> json) {
+    return DeviceRibbonDto(
+      id: json['id'],
+      deviceId: json['deviceId'],
+      mediaSourceId: json['mediaSourceId'],
+      mediaSourceUrl: json['mediaSourceUrl'],
+      positionLeft: (json['positionLeft'] ?? 0).toDouble(),
+      positionTop: (json['positionTop'] ?? 0).toDouble(),
+      width: (json['width'] ?? 0).toDouble(),
+      height: (json['height'] ?? 0).toDouble(),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'deviceId': deviceId,
+    'mediaSourceId': mediaSourceId,
+    'mediaSourceUrl': mediaSourceUrl,
+    'positionLeft': positionLeft,
+    'positionTop': positionTop,
+    'width': width,
+    'height': height,
+  };
+}
+
+
 class DeceasedDto {
   final String id;
   final String name;
@@ -180,6 +227,7 @@ class DeceasedDto {
   final String? memorialPhotoFileId;
   final String? memorialEditedPhotoUrl;
   final String? memorialEditedPhotoFileId;
+  final List<DeviceRibbonDto> deviceRibbons;
 
   DeceasedDto({
     required this.id,
@@ -198,13 +246,14 @@ class DeceasedDto {
     this.memorialPhotoFileId,
     this.memorialEditedPhotoUrl,
     this.memorialEditedPhotoFileId,
+    required this.deviceRibbons,
   });
 
   factory DeceasedDto.fromJson(Map<String, dynamic> json) {
     Map<String, dynamic> data;
     if (json.containsKey('data') && json['data'] is Map && json['data'].containsKey('result')) {
       final list = json['data']['result'] as List;
-      data = list.isNotEmpty ? list[0] : json;
+      data = list.isNotEmpty ? list[0] : json['data'];
     } else if (json.containsKey('result') && json['result'] is List) {
       final list = json['result'] as List;
       data = list.isNotEmpty ? list[0] : json;
@@ -215,6 +264,11 @@ class DeceasedDto {
     var mournerList = <MournerDto>[];
     if (data['mourners'] != null) {
       mournerList = (data['mourners'] as List).map((i) => MournerDto.fromJson(i)).toList();
+    }
+
+    var deviceRibbonList = <DeviceRibbonDto>[];
+    if (data['deviceRibbons'] != null) {
+      deviceRibbonList = (data['deviceRibbons'] as List).map((i) => DeviceRibbonDto.fromJson(i)).toList();
     }
 
     return DeceasedDto(
@@ -234,6 +288,7 @@ class DeceasedDto {
       memorialPhotoFileId: data['memorialPhotoFileId'],
       memorialEditedPhotoUrl: data['memorialEditedPhotoUrl'],
       memorialEditedPhotoFileId: data['memorialEditedPhotoFileId'],
+      deviceRibbons: deviceRibbonList,
     );
   }
 
@@ -250,11 +305,12 @@ class DeceasedDto {
       'roomId': roomId,
       'roomName': roomName,
       'chiefMourner': chiefMourner,
-      'mourners': jsonEncode(mourners.map((e) => e.toJson()).toList()), // SQLite 저장을 위해 JSON 문자열화
+      'mourners': jsonEncode(mourners.map((e) => e.toJson()).toList()), 
       'memorialPhotoUrl': memorialPhotoUrl,
       'memorialPhotoFileId': memorialPhotoFileId,
       'memorialEditedPhotoUrl': memorialEditedPhotoUrl,
       'memorialEditedPhotoFileId': memorialEditedPhotoFileId,
+      'deviceRibbons': jsonEncode(deviceRibbons.map((e) => e.toJson()).toList()),
     };
   }
 }

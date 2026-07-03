@@ -137,7 +137,7 @@ public class DeceasedService : IDeceasedService
                 DeathDate = d.DeathDate,
                 FuneralDate = d.FuneralDate,
                 BurialDate = d.BurialDate,
-                RoomId = roomsInfo.FirstOrDefault()?.RoomId ?? d.RoomId,
+                RoomId = roomsInfo.FirstOrDefault()?.RoomId,
                 RoomName = string.IsNullOrEmpty(roomNamesCombined) ? null : roomNamesCombined,
                 Status = d.Status,
                 MemorialPhotoUrl = d.MemorialPhotoUrl,
@@ -168,7 +168,7 @@ public class DeceasedService : IDeceasedService
             DeathDate = SpecifyUtc(dto.DeathDate),
             FuneralDate = SpecifyUtc(dto.FuneralDate),
             BurialDate = SpecifyUtc(dto.BurialDate),
-            RoomId = dto.RoomId,
+            // RoomId = dto.RoomId, // 직접 할당 대신 DeceasedRooms 테이블 사용
             Status = dto.Status,
             Remark = dto.Remark,
             CreatedBy = "System",
@@ -177,11 +177,25 @@ public class DeceasedService : IDeceasedService
         };
 
         _context.Deceaseds.Add(deceased);
+
+        if (!string.IsNullOrEmpty(dto.RoomId))
+        {
+            var newRoomAssignment = new DeceasedRoom
+            {
+                Id = Guid.NewGuid().ToString(),
+                DeceasedId = id,
+                RoomId = dto.RoomId,
+                StartTime = DateTime.UtcNow,
+                IsDeleted = false
+            };
+            _context.DeceasedRooms.Add(newRoomAssignment);
+        }
+
         await _context.SaveChangesAsync();
 
-        if (!string.IsNullOrEmpty(deceased.RoomId))
+        if (!string.IsNullOrEmpty(dto.RoomId))
         {
-            try { await _deviceHubSender.SendDeviceChangedByRoomIdAsync(deceased.RoomId); } catch (Exception ex) { _logger.LogError(ex, "SignalR 알림 전송 중 에러"); }
+            try { await _deviceHubSender.SendDeviceChangedByRoomIdAsync(dto.RoomId); } catch (Exception ex) { _logger.LogError(ex, "SignalR 알림 전송 중 에러"); }
         }
 
         // 룸 이름 조회를 위한 개별 바인딩
@@ -202,7 +216,7 @@ public class DeceasedService : IDeceasedService
             DeathDate = deceased.DeathDate,
             FuneralDate = deceased.FuneralDate,
             BurialDate = deceased.BurialDate,
-            RoomId = deceased.RoomId,
+            RoomId = dto.RoomId,
             RoomName = roomName,
             Status = deceased.Status,
             Remark = deceased.Remark
@@ -220,7 +234,35 @@ public class DeceasedService : IDeceasedService
             return null;
         }
 
-        var oldRoomId = deceased.RoomId;
+        var currentRoomAssignment = await _context.DeceasedRooms
+            .Where(dr => dr.DeceasedId == id && !dr.IsDeleted)
+            .OrderByDescending(dr => dr.StartTime)
+            .FirstOrDefaultAsync();
+
+        var oldRoomId = currentRoomAssignment?.RoomId;
+
+        // 호실 변경 감지 및 처리
+        if (oldRoomId != dto.RoomId)
+        {
+            if (currentRoomAssignment != null)
+            {
+                currentRoomAssignment.EndTime = DateTime.UtcNow;
+                currentRoomAssignment.IsDeleted = true; // 이전 배정은 비활성화
+            }
+
+            if (!string.IsNullOrEmpty(dto.RoomId))
+            {
+                var newRoomAssignment = new DeceasedRoom
+                {
+                    Id = Guid.NewGuid().ToString(),
+                    DeceasedId = id,
+                    RoomId = dto.RoomId,
+                    StartTime = DateTime.UtcNow,
+                    IsDeleted = false
+                };
+                _context.DeceasedRooms.Add(newRoomAssignment);
+            }
+        }
 
         deceased.Name = dto.Name;
         deceased.Gender = dto.Gender;
@@ -229,7 +271,7 @@ public class DeceasedService : IDeceasedService
         deceased.DeathDate = SpecifyUtc(dto.DeathDate);
         deceased.FuneralDate = SpecifyUtc(dto.FuneralDate);
         deceased.BurialDate = SpecifyUtc(dto.BurialDate);
-        deceased.RoomId = dto.RoomId;
+        // deceased.RoomId = dto.RoomId; // 직접 업데이트 대신 DeceasedRooms 사용
         deceased.Status = dto.Status;
         deceased.Remark = dto.Remark;
         deceased.UpdatedBy = "System";
@@ -240,7 +282,7 @@ public class DeceasedService : IDeceasedService
         try 
         { 
             if (!string.IsNullOrEmpty(oldRoomId)) await _deviceHubSender.SendDeviceChangedByRoomIdAsync(oldRoomId);
-            if (!string.IsNullOrEmpty(deceased.RoomId) && deceased.RoomId != oldRoomId) await _deviceHubSender.SendDeviceChangedByRoomIdAsync(deceased.RoomId);
+            if (!string.IsNullOrEmpty(dto.RoomId) && dto.RoomId != oldRoomId) await _deviceHubSender.SendDeviceChangedByRoomIdAsync(dto.RoomId);
         } 
         catch (Exception ex) { _logger.LogError(ex, "SignalR 알림 전송 중 에러"); }
 
@@ -261,7 +303,7 @@ public class DeceasedService : IDeceasedService
             DeathDate = deceased.DeathDate,
             FuneralDate = deceased.FuneralDate,
             BurialDate = deceased.BurialDate,
-            RoomId = deceased.RoomId,
+            RoomId = dto.RoomId,
             RoomName = roomName,
             Status = deceased.Status,
             Remark = deceased.Remark
@@ -288,14 +330,25 @@ public class DeceasedService : IDeceasedService
     }
 
     /// <inheritdoc />
-    public async Task<DeceasedDetailDto?> GetDeceasedDetailAsync(string id)
+    public async Task<DeceasedDetailDto?> GetDeceasedDetailAsync(string deceased_id)
     {
-        _logger.LogInformation("Fetching deceased detail info: {Id}", id);
+        _logger.LogInformation("Fetching deceased detail info: {Id}", deceased_id);
 
-        var deceased = await _context.Deceaseds.FirstOrDefaultAsync(x => x.Id == id && !x.IsDeleted);
+        var deceased = await _context.Deceaseds.FirstOrDefaultAsync(x => x.Id == deceased_id && !x.IsDeleted);
+
+        
+
+
+
         if (deceased == null) return null;
 
-        var room = await _context.Rooms.FirstOrDefaultAsync(r => r.Id == deceased.RoomId && !r.IsDeleted);
+        var currentRoomAssignment = await _context.DeceasedRooms
+            .Where(dr => dr.DeceasedId == deceased_id && !dr.IsDeleted)
+            .OrderByDescending(dr => dr.StartTime)
+            .FirstOrDefaultAsync();
+
+        var roomId = currentRoomAssignment?.RoomId;
+        var room = roomId != null ? await _context.Rooms.FirstOrDefaultAsync(r => r.Id == roomId && !r.IsDeleted) : null;
 
         var detail = new DeceasedDetailDto
         {
@@ -307,7 +360,7 @@ public class DeceasedService : IDeceasedService
             DeathDate = deceased.DeathDate,
             FuneralDate = deceased.FuneralDate,
             BurialDate = deceased.BurialDate,
-            RoomId = deceased.RoomId,
+            RoomId = roomId, // 올바른 RoomId 사용
             RoomName = room?.Name,
             Status = deceased.Status,
             Remark = deceased.Remark,
@@ -320,9 +373,11 @@ public class DeceasedService : IDeceasedService
             FamilyPhotoGroupId = deceased.FamilyPhotoGroupId
         };
 
+        // ... (상주, 계약자, 담당자, 시설이용, 호실이력 등 나머지 조회 로직은 동일)
+
         // 1. 상주 목록 조회
         detail.Mourners = await _context.DeceasedMourners
-            .Where(m => m.DeceasedId == id && !m.IsDeleted)
+            .Where(m => m.DeceasedId == deceased_id && !m.IsDeleted)
             .OrderBy(m => m.SortOrder)
             .Select(m => new DeceasedMournerDto
             {
@@ -339,7 +394,7 @@ public class DeceasedService : IDeceasedService
         detail.ChiefMourner = detail.Mourners.FirstOrDefault(m => m.IsChief)?.Name;
 
         // 2. 계약자 조회
-        var contractor = await _context.DeceasedContractors.FirstOrDefaultAsync(c => c.DeceasedId == id);
+        var contractor = await _context.DeceasedContractors.FirstOrDefaultAsync(c => c.DeceasedId == deceased_id);
         if (contractor != null)
         {
             detail.Contractor = new DeceasedContractorDto
@@ -354,7 +409,7 @@ public class DeceasedService : IDeceasedService
         }
 
         // 3. 담당자 조회
-        var manager = await _context.DeceasedManagers.FirstOrDefaultAsync(m => m.DeceasedId == id);
+        var manager = await _context.DeceasedManagers.FirstOrDefaultAsync(m => m.DeceasedId == deceased_id);
         if (manager != null)
         {
             detail.Manager = new DeceasedManagerDto
@@ -369,7 +424,7 @@ public class DeceasedService : IDeceasedService
 
         // 4. 시설이용 목록 조회
         detail.Facilities = await _context.DeceasedFacilities
-            .Where(f => f.DeceasedId == id)
+            .Where(f => f.DeceasedId == deceased_id)
             .Select(f => new DeceasedFacilityDto
             {
                 Id = f.Id,
@@ -383,7 +438,7 @@ public class DeceasedService : IDeceasedService
             }).ToListAsync();
 
         // 5. 호실지정 이력 조회
-        detail.Rooms = await (from dr in _context.DeceasedRooms.Where(dr => dr.DeceasedId == id && !dr.IsDeleted)
+        detail.Rooms = await (from dr in _context.DeceasedRooms.Where(dr => dr.DeceasedId == deceased_id && !dr.IsDeleted)
                              join r in _context.Rooms on dr.RoomId equals r.Id into rooms
                              from roomInfo in rooms.DefaultIfEmpty()
                              orderby dr.StartTime descending
@@ -395,6 +450,7 @@ public class DeceasedService : IDeceasedService
                                  StartTime = dr.StartTime,
                                  EndTime = dr.EndTime
                              }).ToListAsync();
+
 
         return detail;
     }
@@ -426,7 +482,6 @@ public class DeceasedService : IDeceasedService
         deceased.DeathDate = SpecifyUtc(dto.DeathDate);
         deceased.FuneralDate = SpecifyUtc(dto.FuneralDate);
         deceased.BurialDate = SpecifyUtc(dto.BurialDate);
-        deceased.RoomId = dto.RoomId;
         deceased.Status = dto.Status;
         deceased.Remark = dto.Remark;
         deceased.Ssn = dto.Ssn;
@@ -635,7 +690,6 @@ public class DeceasedService : IDeceasedService
         try
         {
             var roomIdsToNotify = existingRooms.Select(x => x.RoomId).Distinct().ToList();
-            if (!string.IsNullOrEmpty(deceased.RoomId)) roomIdsToNotify.Add(deceased.RoomId);
             
             foreach (var rId in roomIdsToNotify.Distinct())
             {
@@ -648,31 +702,67 @@ public class DeceasedService : IDeceasedService
     }
 
     /// <inheritdoc />
-    public async Task<DeceasedDetailDto?> GetDeceasedDetailByRoomIdAsync(string roomId)
+    public async Task<DeceasedDetailDto?> GetDeceasedDetailByDeviceCodeAsync(string deviceCode)
     {
-        _logger.LogInformation("Fetching current deceased detail info by Room ID: {RoomId}", roomId);
+        _logger.LogInformation("GetDeceasedDetailByDeviceCodeAsync ID: {DeviceCode}", deviceCode);
 
-        if (string.IsNullOrEmpty(roomId))
+        if (string.IsNullOrEmpty(deviceCode))
         {
             return null;
         }
 
+// 1. 장비 코드로 장비 조회
+        var device = await _context.Devices
+            .Where(d => d.Code == deviceCode )
+            .FirstOrDefaultAsync();
+
+
+        _logger.LogInformation("1111111111111111device: {device}", device);
+        if (device == null)
+        {
+        _logger.LogInformation(" 2222222222 device: {device}", device);
+            return null;
+        }
+
+
+
         // DeceasedRooms 이력 테이블을 기준으로 현재 호실에 배정된 고인을 찾습니다.
         var deceasedId = await (from dr in _context.DeceasedRooms
                                 join d in _context.Deceaseds on dr.DeceasedId equals d.Id
-                                where dr.RoomId == roomId && !dr.IsDeleted && !d.IsDeleted && d.Status != "COMPLETED"
+                                where dr.RoomId == device.RoomId && !dr.IsDeleted && !d.IsDeleted 
                                 orderby dr.StartTime descending
                                 select d.Id).FirstOrDefaultAsync();
 
+                                
+        _logger.LogInformation("33333333333333: {deceasedId}", deceasedId);
+
+
+
+
+// 2. 고인 상세 정보 조회
         var deceased = deceasedId == null ? null : await _context.Deceaseds.AsNoTracking()
             .Where(d => d.Id == deceasedId)
             .FirstOrDefaultAsync();
+
+                               
+        _logger.LogInformation("444444444444: {deceased}", deceased);
+
+
+
+
+
         
         if (deceased == null) return null;
 
         // 기존 GetDeceasedDetailAsync를 재사용하면 불필요한 쿼리가 많으므로,
         // 이 엔드포인트에 최적화된 DTO를 직접 구성합니다.
-        var detailDto = await GetDeceasedDetailAsync(deceased.Id);
+        var detailDto = await GetDeceasedDetailAsync(deceasedId);
+
+        
+        _logger.LogInformation("55555555555: {detailDto}", detailDto);
+
+
+
 
         if (detailDto == null) return null;
 
@@ -689,6 +779,49 @@ public class DeceasedService : IDeceasedService
                 Relation = m.Relation,
                 IsChief = m.IsChief,
             }).ToListAsync();
+
+
+
+
+        // 6. 현재 호실의 장비에 설정된 장식 정보 조회
+   
+      
+        _logger.LogInformation("ㅇㅇㅇㅇㅇㅇㅇㅇㅇㅇdevice: {device}", device);
+
+
+
+
+            if (device != null)
+            {
+        _logger.LogInformation("ㅇㅇㅇㅇㅇㅇㅇㅇㅇㅇdevice: {device.Code}", device.Code);
+
+                detailDto.DeviceRibbons = await (from dr in _context.DeviceRibbons.Where(r => r.DeviceId == device.Id && !r.IsDeleted)
+                                              join ms in _context.MediaSources on dr.MediaSourceId equals ms.Id
+                                              orderby dr.SortOrder
+                                              select new DeviceRibbonDto
+                                              {
+                                                  Id = dr.Id,
+                                                  DeviceId = dr.DeviceId,
+                                                  MediaSourceId = dr.MediaSourceId,
+                                                  MediaSourceName = ms.Name,
+                                                  MediaSourceUrl = ms.Url,
+                                                  MediaSourceThumbnailUrl = ms.ThumbnailUrl,
+                                                  PositionLeft = dr.PositionLeft,
+                                                  PositionTop = dr.PositionTop,
+                                                  Width = dr.Width,
+                                                  Height = dr.Height,
+                                                  SortOrder = dr.SortOrder,
+                                                  Remark = dr.Remark
+                                              }).ToListAsync();
+            }
+        
+
+
+
+
+
+
+
 
         return detailDto;
     }

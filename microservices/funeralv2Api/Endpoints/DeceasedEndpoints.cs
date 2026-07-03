@@ -71,9 +71,9 @@ public static class DeceasedEndpoints
         .WithOpenApi();
 
         // 호실 ID로 현재 고인 상세 정보 조회
-        group.MapGet("/roomId/{roomId}", async (string roomId, [FromServices] IDeceasedService service) =>
+        group.MapGet("/deviceCode/{deviceCode}", async (string deviceCode, [FromServices] IDeceasedService service) =>
         {
-            var result = await service.GetDeceasedDetailByRoomIdAsync(roomId);
+            var result = await service.GetDeceasedDetailByDeviceCodeAsync(deviceCode);
             if (result == null)
             {
                 // 데이터가 없는 것을 오류가 아닌 정상 응답(null)으로 처리
@@ -81,7 +81,7 @@ public static class DeceasedEndpoints
             }
             return Results.Ok(result);
         })
-        .WithName("GetDeceasedDetailByRoomId")
+        .WithName("GetDeceasedDetailByDeviceCode")
         .WithOpenApi();
 
         // 고인 종합 상세 정보 저장

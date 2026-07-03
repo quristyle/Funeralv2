@@ -221,6 +221,39 @@ export namespace BuildingApi {
     noticeScrollSpeed: number;
     remark: string | null;
   }
+
+  export interface DeviceRibbon {
+    id: string;
+    deviceId: string;
+    mediaSourceId: string;
+    // 장식 이미지 정보 (조인)
+    mediaSourceName?: string;
+    mediaSourceUrl?: string;
+    mediaSourceThumbnailUrl?: string;
+    // 위치 및 크기 (%, 소수점 3자리)
+    positionLeft: number;
+    positionTop: number;
+    width: number;
+    height: number;
+    sortOrder: number;
+    remark?: string;
+  }
+
+  export interface DeviceRibbonUpsert {
+    deviceId: string;
+    mediaSourceId: string;
+    positionLeft: number;
+    positionTop: number;
+    width: number;
+    height: number;
+    sortOrder: number;
+    remark?: string;
+  }
+
+  export interface DeviceRibbonBulkSave {
+    deviceId: string;
+    ribbons: DeviceRibbonUpsert[];
+  }
 }
 
 // === 건물 API ===
@@ -365,4 +398,21 @@ export async function upsertDeviceAttribute(data: Omit<BuildingApi.DeviceAttribu
 }
 export async function deleteDeviceAttribute(deviceId: string) {
   return requestClient.delete(`/funeral/building/device-attribute/${deviceId}`);
+}
+
+// === 장비 리본 설정 API ===
+export async function getDeviceRibbons(deviceId: string) {
+  return requestClient.get<BuildingApi.DeviceRibbon[]>(`/funeral/building/device-ribbon/by-device/${deviceId}`);
+}
+export async function createDeviceRibbon(data: BuildingApi.DeviceRibbonUpsert) {
+  return requestClient.post<BuildingApi.DeviceRibbon>('/funeral/building/device-ribbon/', data);
+}
+export async function updateDeviceRibbon(id: string, data: BuildingApi.DeviceRibbonUpsert) {
+  return requestClient.put<BuildingApi.DeviceRibbon>(`/funeral/building/device-ribbon/${id}`, data);
+}
+export async function deleteDeviceRibbon(id: string) {
+  return requestClient.delete(`/funeral/building/device-ribbon/${id}`);
+}
+export async function bulkSaveDeviceRibbons(data: BuildingApi.DeviceRibbonBulkSave) {
+  return requestClient.put<BuildingApi.DeviceRibbon[]>('/funeral/building/device-ribbon/bulk-save', data);
 }

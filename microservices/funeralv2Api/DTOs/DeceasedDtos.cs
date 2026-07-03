@@ -193,4 +193,7 @@ public class DeceasedDetailDto
     public DeceasedManagerDto? Manager { get; set; }
     public List<DeceasedFacilityDto> Facilities { get; set; } = new();
     public List<DeceasedRoomDto> Rooms { get; set; } = new();
+
+    // 장비에 설정된 장식 정보
+    public List<DeviceRibbonDto> DeviceRibbons { get; set; } = new();
 }

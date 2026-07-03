@@ -45,7 +45,7 @@ class RoomGuideController extends ChangeNotifier {
       notifyListeners();
 
       if (device!.roomId != null) {
-        deceased = await _apiService.fetchDeceased(serverBaseUrl, device!.roomId!);
+        deceased = await _apiService.fetchDeceased(serverBaseUrl, deviceCode);
       }
 
       if (device!.isVideoEnabled && device!.videoId != null) {

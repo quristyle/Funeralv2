@@ -165,10 +165,10 @@ class LocalDbService {
     await db.insert('deceased', deceased.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
-  Future<DeceasedDto?> getDeceasedByRoom(String roomId) async {
+  Future<DeceasedDto?> getDeceasedByRoom(String deviceCode) async {
     final db = await database;
     if (db == null) return null;
-    final List<Map<String, dynamic>> maps = await db.query('deceased', where: 'roomId = ?', whereArgs: [roomId]);
+    final List<Map<String, dynamic>> maps = await db.query('deceased', where: 'deviceCode = ?', whereArgs: [deviceCode]);
     if (maps.isEmpty) return null;
     return DeceasedDto.fromJson(maps.first);
   }

@@ -55,6 +55,7 @@ builder.Services.AddScoped<IRoomService, RoomService>();
 builder.Services.AddScoped<IDeviceService, DeviceService>();
 builder.Services.AddScoped<IDeviceAttributeService, DeviceAttributeService>();
 builder.Services.AddScoped<IDeviceConfigService, DeviceConfigService>();
+builder.Services.AddScoped<IDeviceRibbonService, DeviceRibbonService>();
 builder.Services.AddScoped<IMediaSourceService, MediaSourceService>();
 builder.Services.AddScoped<IDeceasedService, DeceasedService>();
 builder.Services.AddScoped<IDeviceHubSender, DeviceHubSender>();
@@ -124,6 +125,7 @@ app.MapRoomEndpoints();
 app.MapDeviceEndpoints();
 app.MapDeviceAttributeEndpoints();
 app.MapDeviceConfigEndpoints();
+app.MapDeviceRibbonEndpoints();
 app.MapMediaSourceEndpoints();
 app.MapDeceasedEndpoints();
 

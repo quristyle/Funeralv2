@@ -72,7 +72,7 @@ class PortraitController extends ChangeNotifier {
     // 2. 고인 정보 로드
     if (device!.roomId != null && device!.roomId!.isNotEmpty) {
       statusMessage = '고인 정보를 동기화하는 중...';
-      deceased = await _apiService.fetchDeceased(serverBaseUrl, device!.roomId!);
+      deceased = await _apiService.fetchDeceased(serverBaseUrl, deviceCode);
       notifyListeners(); 
     } else {
       deceased = null;

@@ -81,6 +81,11 @@ public class AppDbContext : DbContext
     /// </summary>
     public DbSet<DeceasedRoom> DeceasedRooms { get; set; } = null!;
 
+    /// <summary>
+    /// 장비 리본 설정 DbSet
+    /// </summary>
+    public DbSet<DeviceRibbon> DeviceRibbons { get; set; } = null!;
+
 
 
     /// <summary>

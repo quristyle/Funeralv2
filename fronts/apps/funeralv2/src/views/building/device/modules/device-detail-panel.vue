@@ -5,6 +5,7 @@ import { getDeviceTypeInfo } from '../constants/device-type';
 import DeviceManagementTab from './device-management-tab.vue';
 import DeviceConfigTab from './device-config-tab.vue';
 import DeviceAttributeTab from './device-attribute-tab.vue';
+import DeviceRibbonTab from './device-ribbon-tab.vue';
 import type { BuildingApi } from '#/api/building';
 
 const props = defineProps<{
@@ -126,6 +127,20 @@ const emit = defineEmits<{
           :attr-saving="attrSaving"
           @save="emit('attrSave')"
           @reset="emit('attrReset')"
+        />
+      </Tabs.TabPane>
+
+      <!-- 탭4: 리본 설정 -->
+      <Tabs.TabPane key="ribbon">
+        <template #tab>
+          <span class="flex items-center gap-1.5">
+            <IconifyIcon icon="lucide:image-plus" class="size-3.5" />
+            리본 설정
+          </span>
+        </template>
+        <DeviceRibbonTab
+          :device-id="device.id"
+          :display-orientation="deviceAttr?.displayOrientation"
         />
       </Tabs.TabPane>
     </Tabs>

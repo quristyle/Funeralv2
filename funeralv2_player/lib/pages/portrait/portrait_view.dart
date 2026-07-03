@@ -66,6 +66,8 @@ class _PortraitViewState extends State<PortraitView> {
             children: [
               // 영정사진 레이어
               _buildPortraitPhotoLayer(dev),
+              // 장식 레이어
+              _buildDecorationsLayer(dev),
               // 정보 레이아웃 레이어
               _buildUILayoutLayer(dev),
             ],
@@ -77,10 +79,40 @@ class _PortraitViewState extends State<PortraitView> {
 
   // --- Portrait 전용 UI 로직 (기존 로직 그대로 유지) ---
 
+  Widget _buildDecorationsLayer(DeviceDto dev) {
+    final ribbons = _controller.deceased?.deviceRibbons;
+    if (ribbons == null || ribbons.isEmpty) {
+      return const SizedBox();
+    }
+
+    return LayoutBuilder(builder: (context, constraints) {
+      final width = constraints.maxWidth;
+      final height = constraints.maxHeight;
+
+      return Stack(
+        children: ribbons.map((ribbon) {
+          if (ribbon.mediaSourceUrl == null) return const SizedBox();
+          return Positioned(
+            left: width * ribbon.positionLeft / 100,
+            top: height * ribbon.positionTop / 100,
+            width: width * ribbon.width / 100,
+            height: height * ribbon.height / 100,
+            child: Image.network(
+              '${widget.serverBaseUrl}${ribbon.mediaSourceUrl}',
+              fit: BoxFit.fill,
+              errorBuilder: (c, e, s) => const SizedBox(), // 에러 발생 시 빈 공간
+            ),
+          );
+        }).toList(),
+      );
+    });
+  }
+
   Widget _buildPortraitPhotoLayer(DeviceDto dev) {
     if (!dev.isMemorialPhotoEnabled || _controller.deceasedPhotoPath == null) {
       return const SizedBox();
     }
+
 
     double x = 0;
     double y = (dev.photoVerticalAlignment == 'TOP') ? -1 : (dev.photoVerticalAlignment == 'CENTER' ? 0 : 1);

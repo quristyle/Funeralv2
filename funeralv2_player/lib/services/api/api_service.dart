@@ -41,9 +41,9 @@ class ApiService {
   }
 
   // 호실 소속 고인 정보 패치
-  Future<DeceasedDto?> fetchDeceased(String serverBaseUrl, String roomId) async {
+  Future<DeceasedDto?> fetchDeceased(String serverBaseUrl, String deviceCode) async {
     final baseUrl = serverBaseUrl.endsWith('/') ? serverBaseUrl.substring(0, serverBaseUrl.length - 1) : serverBaseUrl;
-    final url = Uri.parse('$baseUrl/api/funeral/building/deceased/roomId/$roomId');
+    final url = Uri.parse('$baseUrl/api/funeral/building/deceased/deviceCode/$deviceCode');
     print('[API Request] fetchDeceased: $url');
     try {
       final response = await http.get(url).timeout(const Duration(seconds: 4));
@@ -75,7 +75,7 @@ class ApiService {
     }
 
     try {
-      return await _dbService.getDeceasedByRoom(roomId);
+      return await _dbService.getDeceasedByRoom(deviceCode);
     } catch (e) {
       return null;
     }

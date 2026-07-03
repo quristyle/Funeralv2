@@ -42,10 +42,6 @@ public class Deceased
     [Column("burial_date")]
     public DateTime? BurialDate { get; set; }
 
-    [Column("room_id")]
-    [MaxLength(50)]
-    public string? RoomId { get; set; }
-
     [Required]
     [Column("status")]
     [MaxLength(20)]
