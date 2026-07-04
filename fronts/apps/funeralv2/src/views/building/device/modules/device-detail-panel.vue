@@ -6,7 +6,6 @@ import DeviceManagementTab from './device-management-tab.vue';
 import DeviceConfigTab from './device-config-tab.vue';
 import DeviceAttributeTab from './device-attribute-tab.vue';
 import DeviceRibbonTab from './device-ribbon-tab.vue';
-import DeviceTextOverlayTab from './device-text-overlay-tab.vue';
 import type { BuildingApi } from '#/api/building';
 
 const props = defineProps<{
@@ -131,29 +130,15 @@ const emit = defineEmits<{
         />
       </Tabs.TabPane>
 
-      <!-- 탭4: 리본 설정 -->
+      <!-- 탭4: 화면 구성 (리본 이미지 + 텍스트 오버레이 통합) -->
       <Tabs.TabPane key="ribbon">
         <template #tab>
           <span class="flex items-center gap-1.5">
-            <IconifyIcon icon="lucide:image-plus" class="size-3.5" />
-            리본 설정
+            <IconifyIcon icon="lucide:layout" class="size-3.5" />
+            화면 구성
           </span>
         </template>
         <DeviceRibbonTab
-          :device-id="device.id"
-          :display-orientation="deviceAttr?.displayOrientation"
-        />
-      </Tabs.TabPane>
-
-      <!-- 탭5: 텍스트 오버레이 -->
-      <Tabs.TabPane key="text-overlay">
-        <template #tab>
-          <span class="flex items-center gap-1.5">
-            <IconifyIcon icon="lucide:type" class="size-3.5" />
-            텍스트 오버레이
-          </span>
-        </template>
-        <DeviceTextOverlayTab
           :device-id="device.id"
           :display-orientation="deviceAttr?.displayOrientation"
         />
