@@ -108,4 +108,10 @@ public class MediaSourceUpdateDto
     public string? ShortName { get; set; }
     public int SortOrder { get; set; }
     public string? Remark { get; set; }
+
+    // 이미지 교체 시 파일 정보 업데이트용 (선택적)
+    public string? Url { get; set; }
+    public string? ThumbnailUrl { get; set; }
+    public Guid? ThumbnailFileId { get; set; }
+    public Guid? OriginalFileId { get; set; }
 }

@@ -86,6 +86,11 @@ public class AppDbContext : DbContext
     /// </summary>
     public DbSet<DeviceRibbon> DeviceRibbons { get; set; } = null!;
 
+    /// <summary>
+    /// 장비 텍스트 오버레이 DbSet
+    /// </summary>
+    public DbSet<DeviceTextOverlay> DeviceTextOverlays { get; set; } = null!;
+
 
 
     /// <summary>

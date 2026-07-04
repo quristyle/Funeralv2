@@ -518,6 +518,31 @@ public class MediaSourceService : IMediaSourceService
         source.ShortName = dto.ShortName;
         source.SortOrder = dto.SortOrder;
         source.Remark = dto.Remark;
+
+        // 이미지 교체 시: Url/ThumbnailUrl/ThumbnailFileId/OriginalFileId 업데이트
+        if (!string.IsNullOrEmpty(dto.Url))
+        {
+            source.Url = dto.Url;
+        }
+        if (dto.ThumbnailUrl != null)
+        {
+            source.ThumbnailUrl = dto.ThumbnailUrl;
+            source.HasThumbnail = !string.IsNullOrEmpty(dto.ThumbnailUrl);
+        }
+        if (dto.ThumbnailFileId.HasValue)
+        {
+            source.ThumbnailFileId = dto.ThumbnailFileId.Value;
+        }
+        if (dto.OriginalFileId.HasValue)
+        {
+            source.OriginalFileId = dto.OriginalFileId.Value;
+            // 이미지 교체 시 파일 연결이 변경되었으므로 상태 초기화
+            if (source.SourceType == "IMAGE")
+            {
+                source.Status = "COMPLETED";
+            }
+        }
+
         source.UpdatedAt = DateTime.UtcNow;
         source.UpdatedBy = "System";
 

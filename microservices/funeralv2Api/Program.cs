@@ -56,6 +56,7 @@ builder.Services.AddScoped<IDeviceService, DeviceService>();
 builder.Services.AddScoped<IDeviceAttributeService, DeviceAttributeService>();
 builder.Services.AddScoped<IDeviceConfigService, DeviceConfigService>();
 builder.Services.AddScoped<IDeviceRibbonService, DeviceRibbonService>();
+builder.Services.AddScoped<IDeviceTextOverlayService, DeviceTextOverlayService>();
 builder.Services.AddScoped<IMediaSourceService, MediaSourceService>();
 builder.Services.AddScoped<IDeceasedService, DeceasedService>();
 builder.Services.AddScoped<IDeviceHubSender, DeviceHubSender>();
@@ -126,6 +127,7 @@ app.MapDeviceEndpoints();
 app.MapDeviceAttributeEndpoints();
 app.MapDeviceConfigEndpoints();
 app.MapDeviceRibbonEndpoints();
+app.MapDeviceTextOverlayEndpoints();
 app.MapMediaSourceEndpoints();
 app.MapDeceasedEndpoints();
 

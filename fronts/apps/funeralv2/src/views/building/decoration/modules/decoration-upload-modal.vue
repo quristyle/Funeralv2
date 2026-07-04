@@ -23,6 +23,8 @@ const formModel = ref({
   url: '',
   thumbnailUrl: '',
   thumbnailFileId: null as string | null,
+  // 백엔드가 파일 연결 기준으로 사용하는 원본 파일 ID
+  originalFileId: null as string | null,
   sortOrder: 0,
   remark: ''
 });
@@ -46,6 +48,7 @@ function open(row?: any) {
       url: row.url || '',
       thumbnailUrl: row.thumbnailUrl || '',
       thumbnailFileId: row.thumbnailFileId || null,
+      originalFileId: row.originalFileId || null,
       sortOrder: row.sortOrder || 0,
       remark: row.remark || ''
      };
@@ -62,6 +65,7 @@ function open(row?: any) {
       url: '',
       thumbnailUrl: '',
       thumbnailFileId: null,
+      originalFileId: null,
       sortOrder: 0,
       remark: ''
     };
@@ -81,7 +85,18 @@ async function handleSave() {
 
     uploadModalApi.lock();
     if (isEditMode.value) {
-      await updateMediaSource(currentSourceId.value, formModel.value);
+      // 수정 모드: originalFileId 포함 전체 필드 전달 (백엔드 파일 연결 기준)
+      await updateMediaSource(currentSourceId.value, {
+        name: formModel.value.name,
+        shortName: formModel.value.shortName,
+        sourceType: formModel.value.sourceType,
+        url: formModel.value.url,
+        thumbnailUrl: formModel.value.thumbnailUrl,
+        thumbnailFileId: formModel.value.thumbnailFileId,
+        originalFileId: formModel.value.originalFileId,
+        sortOrder: formModel.value.sortOrder,
+        remark: formModel.value.remark
+      });
       message.success('장식 소스가 성공적으로 수정되었습니다.');
     } else {
       await createMediaSource(formModel.value);
@@ -122,12 +137,19 @@ async function customUploadRequest(options: any) {
           if (fileId) {
             formModel.value.thumbnailUrl = `/api/file/thumbnail/${fileId}`;
             formModel.value.thumbnailFileId = fileId;
+            // 백엔드 파일 연결 기준 originalFileId를 새 파일 ID로 교체
+            formModel.value.originalFileId = fileId;
           } else {
             formModel.value.thumbnailUrl = fileUrl;
             formModel.value.thumbnailFileId = null;
+            formModel.value.originalFileId = null;
           }
           
-          if (!formModel.value.name) {
+          if (isEditMode.value) {
+            // 수정 모드: 이미지 교체 시 명칭을 새 파일명으로 자동 갱신
+            formModel.value.name = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
+          } else if (!formModel.value.name) {
+            // 신규 등록: 명칭이 비어있을 때만 파일명으로 자동 설정
             formModel.value.name = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
           }
           message.success('장식 이미지 업로드 성공');

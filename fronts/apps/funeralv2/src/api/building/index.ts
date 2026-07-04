@@ -83,6 +83,8 @@ export namespace BuildingApi {
     shortName?: string;
     sortOrder?: number;
     thumbnailUrl?: string;
+    thumbnailFileId?: string | null;
+    originalFileId?: string | null;
   }
 
   export interface Deceased {
@@ -254,6 +256,45 @@ export namespace BuildingApi {
     deviceId: string;
     ribbons: DeviceRibbonUpsert[];
   }
+
+  // === 텍스트 오버레이 ===
+  export interface DeviceTextOverlay {
+    id: string;
+    deviceId: string;
+    textContent: string;
+    fontSize: number;
+    fontColor: string;
+    backgroundColor: string;
+    textAlign: 'left' | 'center' | 'right';
+    fontWeight: 'normal' | 'bold';
+    positionLeft: number;
+    positionTop: number;
+    width: number;
+    height: number;
+    sortOrder: number;
+    remark?: string;
+  }
+
+  export interface DeviceTextOverlayUpsert {
+    deviceId: string;
+    textContent: string;
+    fontSize: number;
+    fontColor: string;
+    backgroundColor: string;
+    textAlign: 'left' | 'center' | 'right';
+    fontWeight: 'normal' | 'bold';
+    positionLeft: number;
+    positionTop: number;
+    width: number;
+    height: number;
+    sortOrder: number;
+    remark?: string;
+  }
+
+  export interface DeviceTextOverlayBulkSave {
+    deviceId: string;
+    overlays: DeviceTextOverlayUpsert[];
+  }
 }
 
 // === 건물 API ===
@@ -347,7 +388,7 @@ export async function getMediaSources(type?: 'VIDEO' | 'AUDIO' | 'IMAGE') {
 export async function createMediaSource(data: Omit<BuildingApi.MediaSource, 'id'>) {
   return requestClient.post('/funeral/building/source', data);
 }
-export async function updateMediaSource(id: string, data: Omit<BuildingApi.MediaSource, 'id' | 'url' | 'thumbnailUrl' | 'status' | 'errorMessage'>) {
+export async function updateMediaSource(id: string, data: Omit<BuildingApi.MediaSource, 'id'>) {
   return requestClient.put(`/funeral/building/source/${id}`, data);
 }
 export async function deleteMediaSource(id: string) {
@@ -415,4 +456,15 @@ export async function deleteDeviceRibbon(id: string) {
 }
 export async function bulkSaveDeviceRibbons(data: BuildingApi.DeviceRibbonBulkSave) {
   return requestClient.put<BuildingApi.DeviceRibbon[]>('/funeral/building/device-ribbon/bulk-save', data);
+}
+
+// === 텍스트 오버레이 API ===
+export async function getDeviceTextOverlays(deviceId: string) {
+  return requestClient.get<BuildingApi.DeviceTextOverlay[]>(`/funeral/building/device-text-overlay/by-device/${deviceId}`);
+}
+export async function bulkSaveDeviceTextOverlays(data: BuildingApi.DeviceTextOverlayBulkSave) {
+  return requestClient.put<BuildingApi.DeviceTextOverlay[]>('/funeral/building/device-text-overlay/bulk-save', data);
+}
+export async function deleteDeviceTextOverlay(id: string) {
+  return requestClient.delete(`/funeral/building/device-text-overlay/${id}`);
 }

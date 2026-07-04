@@ -6,6 +6,7 @@ import DeviceManagementTab from './device-management-tab.vue';
 import DeviceConfigTab from './device-config-tab.vue';
 import DeviceAttributeTab from './device-attribute-tab.vue';
 import DeviceRibbonTab from './device-ribbon-tab.vue';
+import DeviceTextOverlayTab from './device-text-overlay-tab.vue';
 import type { BuildingApi } from '#/api/building';
 
 const props = defineProps<{
@@ -139,6 +140,20 @@ const emit = defineEmits<{
           </span>
         </template>
         <DeviceRibbonTab
+          :device-id="device.id"
+          :display-orientation="deviceAttr?.displayOrientation"
+        />
+      </Tabs.TabPane>
+
+      <!-- 탭5: 텍스트 오버레이 -->
+      <Tabs.TabPane key="text-overlay">
+        <template #tab>
+          <span class="flex items-center gap-1.5">
+            <IconifyIcon icon="lucide:type" class="size-3.5" />
+            텍스트 오버레이
+          </span>
+        </template>
+        <DeviceTextOverlayTab
           :device-id="device.id"
           :display-orientation="deviceAttr?.displayOrientation"
         />

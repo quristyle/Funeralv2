@@ -13,7 +13,7 @@ const uploadModalRef = ref<InstanceType<typeof DecorationUploadModal> | null>(nu
 const [Grid, gridApi] = useVbenVxeGrid({
   gridOptions: {
     columns: [
-      { field: 'url', title: '미리보기', width: 100, slots: { default: 'preview' } },
+      { field: 'thumbnailUrl', title: '미리보기', width: 100, slots: { default: 'preview' } },
       { field: 'name', title: '장식/리본 명칭', minWidth: 180 },
       { field: 'shortName', title: '짧은 명칭', width: 120 },
       { field: 'sortOrder', title: '순서', width: 80 },
