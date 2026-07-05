@@ -94,6 +94,16 @@ public class DeviceAttribute : BaseEntity<string>
     [MaxLength(20)]
     public string MemorialPhotoEffect { get; set; } = "FADE";
 
+    /// <summary>사진 세로 정렬 (TOP / CENTER / BOTTOM) - 기본값: 상단</summary>
+    [Column("photo_vertical_alignment")]
+    [MaxLength(20)]
+    public string PhotoVerticalAlignment { get; set; } = "TOP";
+
+    /// <summary>사진 가로 정렬 (LEFT / CENTER / RIGHT) - 기본값: 중앙</summary>
+    [Column("photo_horizontal_alignment")]
+    [MaxLength(20)]
+    public string PhotoHorizontalAlignment { get; set; } = "CENTER";
+
     /// <summary>고인 이름 표시 여부</summary>
     [Column("is_deceased_name_visible")]
     public bool IsDeceasedNameVisible { get; set; } = true;

@@ -182,6 +182,8 @@ public class DeviceService : IDeviceService
             dto.MemorialPaddingLeft = attr.MemorialPaddingLeft ?? 0;
             dto.MemorialPaddingRight = attr.MemorialPaddingRight ?? 0;
             dto.MemorialPaddingBottom = attr.MemorialPaddingBottom ?? 0;
+            dto.PhotoVerticalAlignment = attr.PhotoVerticalAlignment;
+            dto.PhotoHorizontalAlignment = attr.PhotoHorizontalAlignment;
             
             if (!string.IsNullOrEmpty(attr.VideoId))
             {
@@ -242,6 +244,8 @@ public class DeviceService : IDeviceService
             dto.MemorialPaddingLeft = attr.MemorialPaddingLeft ?? 0;
             dto.MemorialPaddingRight = attr.MemorialPaddingRight ?? 0;
             dto.MemorialPaddingBottom = attr.MemorialPaddingBottom ?? 0;
+            dto.PhotoVerticalAlignment = attr.PhotoVerticalAlignment;
+            dto.PhotoHorizontalAlignment = attr.PhotoHorizontalAlignment;
             
             if (!string.IsNullOrEmpty(attr.VideoId))
             {
@@ -355,7 +359,8 @@ public class DeviceService : IDeviceService
             // 실시간 변경 알림 송신
             try
             {
-                await _deviceHubSender.SendDeviceChangedByDeviceIdAsync(entity.Code);
+                await _deviceHubSender.SendDeviceChangedByDeviceIdAsync(id);
+                _logger.LogInformation("장비 수정 완료 SignalR 알림 송신. Code: {Code}", entity.Code);
             }
             catch (Exception ex)
             {

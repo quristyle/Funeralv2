@@ -54,8 +54,12 @@ public class DeviceHubSender : IDeviceHubSender
         if (string.IsNullOrEmpty(deviceId)) return;
 
         var device = await _context.Devices.AsNoTracking().FirstOrDefaultAsync(d => d.Id == deviceId);
+       
+        _logger.LogInformation("SignalR [DeviceChanged] find: {device}", device);
+       
         if (device != null)
         {
+        _logger.LogInformation("SignalR [DeviceChanged] fined: {device}", device);
             await SendDeviceChangedAsync(device.Code);
         }
     }

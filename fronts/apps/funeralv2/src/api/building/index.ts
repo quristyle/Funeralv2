@@ -195,6 +195,10 @@ export namespace BuildingApi {
     // 영정사진/추모 콘텐츠 설정
     isMemorialPhotoEnabled: boolean;
     memorialPhotoEffect: 'FADE' | 'SLIDE' | 'NONE';
+    /** 사진 세로 정렬: 상단(기본값) / 중앙 / 하단 */
+    photoVerticalAlignment: 'TOP' | 'CENTER' | 'BOTTOM';
+    /** 사진 가로 정렬: 좌측 / 중앙(기본값) / 우측 */
+    photoHorizontalAlignment: 'LEFT' | 'CENTER' | 'RIGHT';
     isDeceasedNameVisible: boolean;
     isFamilyContactVisible: boolean;
     memorialPaddingTop: number;

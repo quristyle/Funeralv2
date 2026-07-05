@@ -106,6 +106,13 @@ class _PortraitViewState extends State<PortraitView> {
                   fontSize: width * (text.fontSize / 100), // 화면 너비 대비 비율 폰트 크기
                   color: _parseColor(text.fontColor),
                   fontWeight: text.fontWeight == 'bold' ? FontWeight.bold : FontWeight.normal,
+                  shadows: [
+                    Shadow(
+                      offset: const Offset(2.0, 2.0),
+                      blurRadius: 4.0,
+                      color: _getShadowColor(text.fontColor),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -132,6 +139,14 @@ class _PortraitViewState extends State<PortraitView> {
     } catch (_) {
       return Colors.white;
     }
+  }
+
+  Color _getShadowColor(String fontColorStr) {
+    Color fontColor = _parseColor(fontColorStr);
+    // 글자색이 밝으면(흰색 계열) 검정 그림자, 어두우면(검정 계열) 흰색 그림자 적용
+    return fontColor.computeLuminance() > 0.5 
+        ? Colors.black.withOpacity(0.8) 
+        : Colors.white.withOpacity(0.8);
   }
 
   Widget _buildDecorationsLayer(DeviceDto dev) {

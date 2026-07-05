@@ -25,6 +25,8 @@ public class DeviceAttributeDto
     // 영정사진/추모 콘텐츠 설정
     public bool IsMemorialPhotoEnabled { get; set; } = false;
     public string MemorialPhotoEffect { get; set; } = "FADE";
+    public string PhotoVerticalAlignment { get; set; } = "TOP";
+    public string PhotoHorizontalAlignment { get; set; } = "CENTER";
     public bool IsDeceasedNameVisible { get; set; } = true;
     public bool IsFamilyContactVisible { get; set; } = false;
     public decimal? MemorialPaddingTop { get; set; } = 0;
@@ -81,6 +83,8 @@ public class DeviceAttributeUpsertDto
     // 영정사진/추모 콘텐츠 설정
     public bool IsMemorialPhotoEnabled { get; set; } = false;
     public string MemorialPhotoEffect { get; set; } = "FADE";
+    public string PhotoVerticalAlignment { get; set; } = "TOP";
+    public string PhotoHorizontalAlignment { get; set; } = "CENTER";
     public bool IsDeceasedNameVisible { get; set; } = true;
     public bool IsFamilyContactVisible { get; set; } = false;
     public decimal? MemorialPaddingTop { get; set; } = 0;

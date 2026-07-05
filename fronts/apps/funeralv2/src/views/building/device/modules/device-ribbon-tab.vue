@@ -54,6 +54,8 @@ const draggingDecoration = ref<BuildingApi.MediaSource | null>(null);
 /** 드래그/리사이즈 공통 상태 */
 const isDragging = ref(false);
 const isResizing = ref(false);
+/** 실제 마우스 이동(드래그/리사이즈)이 발생했는지 여부 — 단순 클릭 선택과 구분하기 위해 사용 */
+const hasMoved = ref(false);
 const dragTargetId = ref<string | null>(null);
 const dragTargetType = ref<SelectedType>(null);
 const dragStartX = ref(0);
@@ -74,6 +76,9 @@ const monitorHeight = ref(0);
 
 /** 초기 데이터 로드 완료 여부 (로드 직후 watch 트리거 방지) */
 const isDataReady = ref(false);
+
+/** 저장 처리 중 플래그 — 저장 완료 후 서버 응답으로 데이터 교체 시 watch 재트리거로 인한 2중 저장 방지 */
+const isProcessingSave = ref(false);
 
 /** 자동 저장 디바운스 타이머 */
 const autoSaveTimer = ref<NodeJS.Timeout | null>(null);
@@ -205,6 +210,8 @@ watch(
     if (!isDataReady.value) return;
     // 드래그 중에는 저장하지 않음 (mouseUp에서 처리)
     if (isDragging.value || isResizing.value) return;
+    // 저장 완료 후 서버 응답으로 데이터 교체 시 발생하는 재트리거는 무시
+    if (isProcessingSave.value) return;
 
     if (autoSaveTimer.value) clearTimeout(autoSaveTimer.value);
     autoSaveTimer.value = setTimeout(() => {
@@ -217,8 +224,21 @@ watch(
 // 저장 (리본 + 오버레이 동시)
 // ────────────────────────────────────────────────────────────────────
 async function handleSave(silent = false) {
+  isProcessingSave.value = true;
   saving.value = true;
   try {
+    // silent 저장 시 선택 아이템 복원을 위해 현재 선택 인덱스(sortOrder)를 미리 기억
+    const prevSelectedId = selectedItemId.value;
+    const prevSelectedType = selectedItemType.value;
+    let prevSortOrder = -1;
+    if (prevSelectedId && prevSelectedType) {
+      if (prevSelectedType === 'ribbon') {
+        prevSortOrder = placedRibbons.value.findIndex((r) => r.id === prevSelectedId);
+      } else {
+        prevSortOrder = placedOverlays.value.findIndex((o) => o.id === prevSelectedId);
+      }
+    }
+
     const [ribbonRes, overlayRes] = await Promise.all([
       bulkSaveDeviceRibbons({
         deviceId: props.deviceId,
@@ -264,11 +284,23 @@ async function handleSave(silent = false) {
       selectedItemId.value = null;
       selectedItemType.value = null;
       message.success('저장되었습니다.');
+    } else if (prevSelectedId && prevSelectedType && prevSortOrder >= 0) {
+      // silent 저장: 서버 응답 배열에서 동일 인덱스(sortOrder)의 아이템으로 선택 복원
+      // (temp id → 실제 서버 id 교체에 대응)
+      const list = prevSelectedType === 'ribbon' ? placedRibbons.value : placedOverlays.value;
+      const restored = list[prevSortOrder];
+      if (restored) {
+        selectedItemId.value = restored.id;
+        selectedItemType.value = prevSelectedType;
+      }
     }
   } catch {
     message.error('저장 실패');
   } finally {
     saving.value = false;
+    // nextTick 후 플래그 해제하여 데이터 교체로 인한 watch 재트리거가 완전히 소화된 뒤 차단 해제
+    await nextTick();
+    isProcessingSave.value = false;
   }
 }
 
@@ -376,6 +408,7 @@ function onItemMouseDown(id: string, type: 'ribbon' | 'overlay', evt: MouseEvent
   if (!item || !monitorRef.value) return;
 
   isDragging.value = true;
+  hasMoved.value = false; // 마우스 이동 여부 초기화
   dragTargetId.value = id;
   dragTargetType.value = type;
   dragStartX.value = evt.clientX;
@@ -398,6 +431,7 @@ function onResizeMouseDown(id: string, type: 'ribbon' | 'overlay', evt: MouseEve
   if (!item || !monitorRef.value) return;
 
   isResizing.value = true;
+  hasMoved.value = false; // 마우스 이동 여부 초기화
   dragTargetId.value = id;
   dragTargetType.value = type;
   dragStartX.value = evt.clientX;
@@ -411,6 +445,7 @@ function onResizeMouseDown(id: string, type: 'ribbon' | 'overlay', evt: MouseEve
 
 function onMouseMove(evt: MouseEvent) {
   if (!monitorRef.value || !dragTargetId.value || !dragTargetType.value) return;
+  hasMoved.value = true; // 실제 마우스 이동 발생 표시
   const rect = monitorRef.value.getBoundingClientRect();
   const dxPct = ((evt.clientX - dragStartX.value) / rect.width) * 100;
   const dyPct = ((evt.clientY - dragStartY.value) / rect.height) * 100;
@@ -457,16 +492,18 @@ function onMouseMove(evt: MouseEvent) {
 }
 
 function onMouseUp() {
-  const wasDraggingOrResizing = isDragging.value || isResizing.value;
+  // hasMoved가 true인 경우에만 실제 드래그/리사이즈로 간주 (단순 클릭 선택 제외)
+  const didMove = hasMoved.value;
   isDragging.value = false;
   isResizing.value = false;
+  hasMoved.value = false;
   dragTargetId.value = null;
   dragTargetType.value = null;
   window.removeEventListener('mousemove', onMouseMove);
   window.removeEventListener('mouseup', onMouseUp);
 
-  // 드래그/리사이즈 완료 후 위치 변경이 있었다면 즉시 저장 트리거
-  if (wasDraggingOrResizing && isDataReady.value) {
+  // 실제 위치/크기 변경이 있었을 때만 저장 트리거 (단순 클릭 선택 시에는 저장하지 않음)
+  if (didMove && isDataReady.value) {
     if (autoSaveTimer.value) clearTimeout(autoSaveTimer.value);
     autoSaveTimer.value = setTimeout(() => {
       handleSave(true);

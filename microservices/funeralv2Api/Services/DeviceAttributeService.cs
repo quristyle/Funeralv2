@@ -74,6 +74,8 @@ public class DeviceAttributeService : IDeviceAttributeService
         // 영정사진/추모 콘텐츠 설정 적용
         existing.IsMemorialPhotoEnabled = dto.IsMemorialPhotoEnabled;
         existing.MemorialPhotoEffect = dto.MemorialPhotoEffect;
+        existing.PhotoVerticalAlignment = dto.PhotoVerticalAlignment;
+        existing.PhotoHorizontalAlignment = dto.PhotoHorizontalAlignment;
         existing.IsDeceasedNameVisible = dto.IsDeceasedNameVisible;
         existing.IsFamilyContactVisible = dto.IsFamilyContactVisible;
         existing.MemorialPaddingTop = dto.MemorialPaddingTop;
@@ -164,6 +166,8 @@ public class DeviceAttributeService : IDeviceAttributeService
         ScreensaverTimeoutSec = a.ScreensaverTimeoutSec,
         IsMemorialPhotoEnabled = a.IsMemorialPhotoEnabled,
         MemorialPhotoEffect = a.MemorialPhotoEffect,
+        PhotoVerticalAlignment = a.PhotoVerticalAlignment,
+        PhotoHorizontalAlignment = a.PhotoHorizontalAlignment,
         IsDeceasedNameVisible = a.IsDeceasedNameVisible,
         IsFamilyContactVisible = a.IsFamilyContactVisible,
         MemorialPaddingTop = a.MemorialPaddingTop,

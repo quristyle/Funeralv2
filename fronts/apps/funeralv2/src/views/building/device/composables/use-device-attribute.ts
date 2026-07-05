@@ -19,6 +19,8 @@ export function defaultAttr(deviceId: string): Omit<BuildingApi.DeviceAttribute,
     screensaverTimeoutSec: 300,
     isMemorialPhotoEnabled: false,
     memorialPhotoEffect: 'FADE',
+    photoVerticalAlignment: 'TOP',    // 기본값: 상단
+    photoHorizontalAlignment: 'CENTER', // 기본값: 중앙
     isDeceasedNameVisible: true,
     isFamilyContactVisible: false,
     memorialPaddingTop: 0,
@@ -61,6 +63,14 @@ export function useDeviceAttribute() {
       deviceAttr.value = raw ?? null;
       if (!deviceAttr.value) {
         deviceAttr.value = { id: '', ...defaultAttr(deviceId) };
+      } else {
+        // 기존 DB 레코드에 신규 필드가 없는 경우(null/undefined) 기본값으로 폴백
+        if (!deviceAttr.value.photoVerticalAlignment) {
+          deviceAttr.value.photoVerticalAlignment = 'TOP';
+        }
+        if (!deviceAttr.value.photoHorizontalAlignment) {
+          deviceAttr.value.photoHorizontalAlignment = 'CENTER';
+        }
       }
     } catch {
       // 404인 경우 기본값으로 초기화 (신규 장비는 속성이 없을 수 있음)
@@ -89,6 +99,8 @@ export function useDeviceAttribute() {
         screensaverTimeoutSec: deviceAttr.value.screensaverTimeoutSec,
         isMemorialPhotoEnabled: deviceAttr.value.isMemorialPhotoEnabled,
         memorialPhotoEffect: deviceAttr.value.memorialPhotoEffect,
+        photoVerticalAlignment: deviceAttr.value.photoVerticalAlignment,
+        photoHorizontalAlignment: deviceAttr.value.photoHorizontalAlignment,
         isDeceasedNameVisible: deviceAttr.value.isDeceasedNameVisible,
         isFamilyContactVisible: deviceAttr.value.isFamilyContactVisible,
         memorialPaddingTop: deviceAttr.value.memorialPaddingTop,
