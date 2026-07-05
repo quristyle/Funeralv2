@@ -45,11 +45,15 @@ class _DeviceDispatcherState extends State<DeviceDispatcher> {
           isLoading = false;
         });
 
-        // [핵심] SignalR 연결: 타입 변경 알림 시 다시 로드하여 화면 갱신
-        await _signalRService.connect(widget.serverBaseUrl, widget.deviceCode, () {
-          print('[Dispatcher] 장비 정보 변경 알림 수신 - 다시 로드합니다.');
-          _loadDevice();
-        });
+        // SignalR 연결: 타입 변경 알림 시 다시 로드하여 화면 갱신
+        await _signalRService.connect(
+          serverUrl: widget.serverBaseUrl,
+          deviceCode: widget.deviceCode,
+          onDeviceChanged: () {
+            print('[Dispatcher] 장비 정보 변경 알림 수신 - 다시 로드합니다.');
+            _loadDevice();
+          },
+        );
       } else {
         setState(() {
           error = "장비 정보를 불러올 수 없습니다.";

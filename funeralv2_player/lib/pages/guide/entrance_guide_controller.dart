@@ -42,9 +42,13 @@ class EntranceGuideController extends ChangeNotifier {
         }
       }
 
-      await _signalRService.connect(serverBaseUrl, deviceCode, () {
-        if (!_isDisposed) init(serverBaseUrl, deviceCode, onVideoInitialized);
-      });
+      await _signalRService.connect(
+        serverUrl: serverBaseUrl,
+        deviceCode: deviceCode,
+        onDeviceChanged: () {
+          if (!_isDisposed) init(serverBaseUrl, deviceCode, onVideoInitialized);
+        },
+      );
     }
 
     isLoading = false;

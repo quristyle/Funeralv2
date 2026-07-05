@@ -66,9 +66,13 @@ class RoomGuideController extends ChangeNotifier {
         deceasedPhotoPath = await _cacheManager.getCachedFileByPath(serverBaseUrl, photoPath);
       }
 
-      await _signalRService.connect(serverBaseUrl, deviceCode, () {
-        if (!_isDisposed) init(serverBaseUrl, deviceCode, onRefresh);
-      });
+      await _signalRService.connect(
+        serverUrl: serverBaseUrl,
+        deviceCode: deviceCode,
+        onDeviceChanged: () {
+          if (!_isDisposed) init(serverBaseUrl, deviceCode, onRefresh);
+        },
+      );
     }
 
     isLoading = false;

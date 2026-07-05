@@ -310,7 +310,7 @@ public class DeviceService : IDeviceService
         // 실시간 변경 알림 송신
         try
         {
-            await _deviceHubSender.SendDeviceChangedByDeviceIdAsync(entity.Id);
+            await _deviceHubSender.SendDeviceChangedByDeviceIdAsync(entity.Code);
         }
         catch (Exception ex)
         {
@@ -355,19 +355,19 @@ public class DeviceService : IDeviceService
             // 실시간 변경 알림 송신
             try
             {
-                await _deviceHubSender.SendDeviceChangedByDeviceIdAsync(id);
+                await _deviceHubSender.SendDeviceChangedByDeviceIdAsync(entity.Code);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "SignalR 장비 수정 알림 전송 중 에러 발생");
             }
 
-            _logger.LogInformation("장비 수정 완료. Id: {Id}", id);
+            _logger.LogInformation("장비 수정 완료. Code: {Code}", entity.Code);
             return MapToDto(entity);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "장비 수정 중 오류가 발생했습니다. Id: {Id}", id);
+            _logger.LogError(ex, "장비 수정 중 오류가 발생했습니다. Code: {Code}", entity.Code);
             throw;
         }
     }
@@ -390,12 +390,12 @@ public class DeviceService : IDeviceService
         {
             _context.Devices.Remove(entity);
             await _context.SaveChangesAsync();
-            _logger.LogInformation("장비 삭제 완료. Id: {Id}", id);
+            _logger.LogInformation("장비 삭제 완료. Code: {Code}", entity.Code);
             return true;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "장비 삭제 중 오류가 발생했습니다. Id: {Id}", id);
+            _logger.LogError(ex, "장비 삭제 중 오류가 발생했습니다. Code: {Code}", entity.Code);
             throw;
         }
     }

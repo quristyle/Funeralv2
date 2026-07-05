@@ -137,11 +137,15 @@ class PortraitController extends ChangeNotifier {
     // 5. SignalR 실시간 변경 통신 소켓 연결
     statusMessage = '실시간 이벤트 서버 연결 중...';
     notifyListeners();
-    await _signalRService.connect(serverBaseUrl, deviceCode, () {
-      if (!_isDisposed) {
-        init(serverBaseUrl, deviceCode, onVideoInitialized);
-      }
-    });
+    await _signalRService.connect(
+      serverUrl: serverBaseUrl,
+      deviceCode: deviceCode,
+      onDeviceChanged: () {
+        if (!_isDisposed) {
+          init(serverBaseUrl, deviceCode, onVideoInitialized);
+        }
+      },
+    );
 
     isLoading = false;
     statusMessage = '재생 중';
