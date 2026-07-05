@@ -813,6 +813,29 @@ public class DeceasedService : IDeceasedService
                                                   SortOrder = dr.SortOrder,
                                                   Remark = dr.Remark
                                               }).ToListAsync();
+
+                // 7. 현재 호실의 장비에 설정된 글자(텍스트 오버레이) 정보 조회
+                detailDto.DeviceTextOverlays = await _context.DeviceTextOverlays
+                    .Where(t => t.DeviceId == device.Id && !t.IsDeleted)
+                    .OrderBy(t => t.SortOrder)
+                    .Select(t => new DeviceTextOverlayDto
+                    {
+                        Id = t.Id,
+                        DeviceId = t.DeviceId,
+                        TextContent = t.TextContent,
+                        FontSize = t.FontSize,
+                        FontColor = t.FontColor,
+                        BackgroundColor = t.BackgroundColor,
+                        TextAlign = t.TextAlign,
+                        FontWeight = t.FontWeight,
+                        PositionLeft = t.PositionLeft,
+                        PositionTop = t.PositionTop,
+                        Width = t.Width,
+                        Height = t.Height,
+                        SortOrder = t.SortOrder,
+                        Remark = t.Remark
+                    })
+                    .ToListAsync();
             }
         
 

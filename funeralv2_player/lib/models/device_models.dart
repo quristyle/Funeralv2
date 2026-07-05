@@ -50,9 +50,9 @@ class DeviceDto {
     required this.displayOrientation,
     required this.portraitOrientation,
     required this.videoOrientation,
+    required this.deviceType,
     required this.photoVerticalAlignment,
     required this.photoHorizontalAlignment,
-    required this.deviceType,
     required this.displayPaddingTop,
     required this.displayPaddingLeft,
     required this.displayPaddingRight,
@@ -209,6 +209,67 @@ class DeviceRibbonDto {
   };
 }
 
+class DeviceTextOverlayDto {
+  final String id;
+  final String deviceId;
+  final String textContent;
+  final double fontSize;
+  final String fontColor;
+  final String backgroundColor;
+  final String textAlign;
+  final String fontWeight;
+  final double positionLeft;
+  final double positionTop;
+  final double width;
+  final double height;
+
+  DeviceTextOverlayDto({
+    required this.id,
+    required this.deviceId,
+    required this.textContent,
+    required this.fontSize,
+    required this.fontColor,
+    required this.backgroundColor,
+    required this.textAlign,
+    required this.fontWeight,
+    required this.positionLeft,
+    required this.positionTop,
+    required this.width,
+    required this.height,
+  });
+
+  factory DeviceTextOverlayDto.fromJson(Map<String, dynamic> json) {
+    return DeviceTextOverlayDto(
+      id: json['id'],
+      deviceId: json['deviceId'],
+      textContent: json['textContent'] ?? '',
+      fontSize: (json['fontSize'] ?? 0).toDouble(),
+      fontColor: json['fontColor'] ?? '#FFFFFF',
+      backgroundColor: json['backgroundColor'] ?? 'transparent',
+      textAlign: json['textAlign'] ?? 'center',
+      fontWeight: json['fontWeight'] ?? 'normal',
+      positionLeft: (json['positionLeft'] ?? 0).toDouble(),
+      positionTop: (json['positionTop'] ?? 0).toDouble(),
+      width: (json['width'] ?? 0).toDouble(),
+      height: (json['height'] ?? 0).toDouble(),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'deviceId': deviceId,
+    'textContent': textContent,
+    'fontSize': fontSize,
+    'fontColor': fontColor,
+    'backgroundColor': backgroundColor,
+    'textAlign': textAlign,
+    'fontWeight': fontWeight,
+    'positionLeft': positionLeft,
+    'positionTop': positionTop,
+    'width': width,
+    'height': height,
+  };
+}
 
 class DeceasedDto {
   final String id;
@@ -222,12 +283,13 @@ class DeceasedDto {
   final String? roomId;
   final String? roomName;
   final String? chiefMourner;
-  final List<MournerDto> mourners; // 추가
+  final List<MournerDto> mourners;
   final String? memorialPhotoUrl;
   final String? memorialPhotoFileId;
   final String? memorialEditedPhotoUrl;
   final String? memorialEditedPhotoFileId;
   final List<DeviceRibbonDto> deviceRibbons;
+  final List<DeviceTextOverlayDto> deviceTextOverlays; // 추가
 
   DeceasedDto({
     required this.id,
@@ -247,6 +309,7 @@ class DeceasedDto {
     this.memorialEditedPhotoUrl,
     this.memorialEditedPhotoFileId,
     required this.deviceRibbons,
+    required this.deviceTextOverlays, // 추가
   });
 
   factory DeceasedDto.fromJson(Map<String, dynamic> json) {
@@ -271,6 +334,11 @@ class DeceasedDto {
       deviceRibbonList = (data['deviceRibbons'] as List).map((i) => DeviceRibbonDto.fromJson(i)).toList();
     }
 
+    var deviceTextOverlayList = <DeviceTextOverlayDto>[]; // 추가
+    if (data['deviceTextOverlays'] != null) {
+      deviceTextOverlayList = (data['deviceTextOverlays'] as List).map((i) => DeviceTextOverlayDto.fromJson(i)).toList();
+    }
+
     return DeceasedDto(
       id: data['id'] ?? '',
       name: data['name'] ?? '',
@@ -289,6 +357,7 @@ class DeceasedDto {
       memorialEditedPhotoUrl: data['memorialEditedPhotoUrl'],
       memorialEditedPhotoFileId: data['memorialEditedPhotoFileId'],
       deviceRibbons: deviceRibbonList,
+      deviceTextOverlays: deviceTextOverlayList, // 추가
     );
   }
 
@@ -311,6 +380,7 @@ class DeceasedDto {
       'memorialEditedPhotoUrl': memorialEditedPhotoUrl,
       'memorialEditedPhotoFileId': memorialEditedPhotoFileId,
       'deviceRibbons': jsonEncode(deviceRibbons.map((e) => e.toJson()).toList()),
+      'deviceTextOverlays': jsonEncode(deviceTextOverlays.map((e) => e.toJson()).toList()), // 추가
     };
   }
 }

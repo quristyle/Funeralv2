@@ -13,11 +13,13 @@ public class DeviceTextOverlayService : IDeviceTextOverlayService
 {
     private readonly AppDbContext _context;
     private readonly ILogger<DeviceTextOverlayService> _logger;
+    private readonly IDeviceHubSender _deviceHubSender;
 
-    public DeviceTextOverlayService(AppDbContext context, ILogger<DeviceTextOverlayService> logger)
+    public DeviceTextOverlayService(AppDbContext context, ILogger<DeviceTextOverlayService> logger, IDeviceHubSender deviceHubSender)
     {
         _context = context;
         _logger = logger;
+        _deviceHubSender = deviceHubSender;
     }
 
     /// <summary>장비 ID로 텍스트 오버레이 목록 조회</summary>
@@ -172,6 +174,17 @@ public class DeviceTextOverlayService : IDeviceTextOverlayService
             .ToListAsync();
 
         _logger.LogInformation("텍스트 오버레이 일괄 저장 완료. DeviceId: {DeviceId}, Count: {Count}", dto.DeviceId, result.Count);
+
+        // 실시간 변경 알림 송신
+        try
+        {
+            await _deviceHubSender.SendDeviceChangedByDeviceIdAsync(dto.DeviceId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "SignalR 텍스트 오버레이 변경 알림 전송 중 에러 발생");
+        }
+
         return result.Select(MapToDto).ToList();
     }
 

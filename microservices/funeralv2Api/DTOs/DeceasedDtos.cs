@@ -196,4 +196,7 @@ public class DeceasedDetailDto
 
     // 장비에 설정된 장식 정보
     public List<DeviceRibbonDto> DeviceRibbons { get; set; } = new();
+
+    // 장비에 설정된 글자(텍스트 오버레이) 정보
+    public List<DeviceTextOverlayDto> DeviceTextOverlays { get; set; } = new();
 }

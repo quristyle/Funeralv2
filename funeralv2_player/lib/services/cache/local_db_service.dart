@@ -31,7 +31,6 @@ class LocalDbService {
   Future<Database> _initDb() async {
     if (kIsWeb) {
       try {
-        // 웹 워커 설정을 시도하지만 실패해도 치명적 에러가 되지 않도록 함
         databaseFactory = databaseFactoryFfiWeb;
       } catch (e) {
         _isWebError = true;
@@ -48,7 +47,7 @@ class LocalDbService {
 
     return await openDatabase(
       path,
-      version: 6,
+      version: 7, // 버전 7로 상향
       onCreate: _onCreate,
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) {
@@ -83,6 +82,12 @@ class LocalDbService {
         if (oldVersion < 6) {
           try {
             await db.execute('ALTER TABLE deceased ADD COLUMN mourners TEXT');
+          } catch (_) {}
+        }
+        if (oldVersion < 7) {
+          try {
+            await db.execute('ALTER TABLE deceased ADD COLUMN deviceRibbons TEXT');
+            await db.execute('ALTER TABLE deceased ADD COLUMN deviceTextOverlays TEXT');
           } catch (_) {}
         }
       },
@@ -140,7 +145,9 @@ class LocalDbService {
         memorialPhotoUrl TEXT,
         memorialPhotoFileId TEXT,
         memorialEditedPhotoUrl TEXT,
-        memorialEditedPhotoFileId TEXT
+        memorialEditedPhotoFileId TEXT,
+        deviceRibbons TEXT,
+        deviceTextOverlays TEXT
       )
     ''');
   }
@@ -165,10 +172,10 @@ class LocalDbService {
     await db.insert('deceased', deceased.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
-  Future<DeceasedDto?> getDeceasedByRoom(String deviceCode) async {
+  Future<DeceasedDto?> getDeceasedByRoom(String roomId) async {
     final db = await database;
     if (db == null) return null;
-    final List<Map<String, dynamic>> maps = await db.query('deceased', where: 'deviceCode = ?', whereArgs: [deviceCode]);
+    final List<Map<String, dynamic>> maps = await db.query('deceased', where: 'roomId = ?', whereArgs: [roomId]);
     if (maps.isEmpty) return null;
     return DeceasedDto.fromJson(maps.first);
   }

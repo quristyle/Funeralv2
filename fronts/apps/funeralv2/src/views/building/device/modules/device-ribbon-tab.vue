@@ -72,6 +72,12 @@ const monitorAreaRef = ref<HTMLElement | null>(null);
 const monitorWidth = ref(0);
 const monitorHeight = ref(0);
 
+/** 초기 데이터 로드 완료 여부 (로드 직후 watch 트리거 방지) */
+const isDataReady = ref(false);
+
+/** 자동 저장 디바운스 타이머 */
+const autoSaveTimer = ref<NodeJS.Timeout | null>(null);
+
 const LANDSCAPE_RATIO = 16 / 9;
 const PORTRAIT_RATIO = 9 / 16;
 const isPortrait = computed(() => props.displayOrientation === 'PORTRAIT');
@@ -131,6 +137,7 @@ function attachResizeObserver() {
 // 데이터 로드
 // ────────────────────────────────────────────────────────────────────
 async function loadAll() {
+  isDataReady.value = false;
   loading.value = true;
   try {
     const [ribbonRes, overlayRes] = await Promise.all([
@@ -143,6 +150,9 @@ async function loadAll() {
     message.error('데이터 로드 실패');
   } finally {
     loading.value = false;
+    // 데이터 로드 완료 후 watch 활성화 (nextTick으로 watch 첫 실행 방지)
+    await nextTick();
+    isDataReady.value = true;
   }
 }
 
@@ -159,7 +169,11 @@ async function loadDecorations() {
 }
 
 onMounted(() => { loadAll(); loadDecorations(); });
-onUnmounted(() => { resizeObserver?.disconnect(); resizeObserver = null; });
+onUnmounted(() => {
+  resizeObserver?.disconnect();
+  resizeObserver = null;
+  if (autoSaveTimer.value) clearTimeout(autoSaveTimer.value);
+});
 
 watch(monitorAreaRef, async (el) => {
   if (el) { await nextTick(); attachResizeObserver(); }
@@ -182,9 +196,27 @@ watch(isPortrait, () => {
 });
 
 // ────────────────────────────────────────────────────────────────────
+// 자동 저장: 리본 또는 오버레이 목록이 변경되면 디바운스 후 저장
+// ────────────────────────────────────────────────────────────────────
+watch(
+  [() => JSON.stringify(placedRibbons.value), () => JSON.stringify(placedOverlays.value)],
+  () => {
+    // 초기 로드 중이거나 로드 직후는 저장하지 않음
+    if (!isDataReady.value) return;
+    // 드래그 중에는 저장하지 않음 (mouseUp에서 처리)
+    if (isDragging.value || isResizing.value) return;
+
+    if (autoSaveTimer.value) clearTimeout(autoSaveTimer.value);
+    autoSaveTimer.value = setTimeout(() => {
+      handleSave(true);
+    }, 1500);
+  },
+);
+
+// ────────────────────────────────────────────────────────────────────
 // 저장 (리본 + 오버레이 동시)
 // ────────────────────────────────────────────────────────────────────
-async function handleSave() {
+async function handleSave(silent = false) {
   saving.value = true;
   try {
     const [ribbonRes, overlayRes] = await Promise.all([
@@ -220,11 +252,19 @@ async function handleSave() {
         })),
       }),
     ]);
+
+    // 저장 완료 후 서버 응답으로 상태 갱신 (temp id → 실제 id 교체)
+    isDataReady.value = false;
     placedRibbons.value = Array.isArray(ribbonRes) ? ribbonRes : (ribbonRes as any)?.result ?? [];
     placedOverlays.value = Array.isArray(overlayRes) ? overlayRes : (overlayRes as any)?.result ?? [];
-    selectedItemId.value = null;
-    selectedItemType.value = null;
-    message.success('저장되었습니다.');
+    await nextTick();
+    isDataReady.value = true;
+
+    if (!silent) {
+      selectedItemId.value = null;
+      selectedItemType.value = null;
+      message.success('저장되었습니다.');
+    }
   } catch {
     message.error('저장 실패');
   } finally {
@@ -417,12 +457,21 @@ function onMouseMove(evt: MouseEvent) {
 }
 
 function onMouseUp() {
+  const wasDraggingOrResizing = isDragging.value || isResizing.value;
   isDragging.value = false;
   isResizing.value = false;
   dragTargetId.value = null;
   dragTargetType.value = null;
   window.removeEventListener('mousemove', onMouseMove);
   window.removeEventListener('mouseup', onMouseUp);
+
+  // 드래그/리사이즈 완료 후 위치 변경이 있었다면 즉시 저장 트리거
+  if (wasDraggingOrResizing && isDataReady.value) {
+    if (autoSaveTimer.value) clearTimeout(autoSaveTimer.value);
+    autoSaveTimer.value = setTimeout(() => {
+      handleSave(true);
+    }, 800);
+  }
 }
 
 // ────────────────────────────────────────────────────────────────────
@@ -500,6 +549,7 @@ const FONT_WEIGHT_OPTIONS = [
 </script>
 
 <template>
+
   <div class="ribbon-tab flex h-full flex-col">
     <!-- 로딩 -->
     <div v-if="loading" class="flex flex-1 items-center justify-center py-16">
@@ -914,7 +964,7 @@ const FONT_WEIGHT_OPTIONS = [
         </div>
         <div class="flex gap-2">
           <Button @click="handleReset">초기화</Button>
-          <Button type="primary" :loading="saving" @click="handleSave">
+          <Button type="primary" :loading="saving" @click="handleSave(false)">
             <IconifyIcon icon="lucide:save" class="mr-1 size-4" />
             모두 저장
           </Button>

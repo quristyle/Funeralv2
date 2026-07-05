@@ -70,6 +70,8 @@ class _PortraitViewState extends State<PortraitView> {
               _buildDecorationsLayer(dev),
               // 정보 레이아웃 레이어
               _buildUILayoutLayer(dev),
+              // 텍스트 오버레이 레이어 (deviceTextOverlays) - 추가됨
+              _buildTextOverlaysLayer(dev),
             ],
           ),
         );
@@ -77,7 +79,60 @@ class _PortraitViewState extends State<PortraitView> {
     );
   }
 
-  // --- Portrait 전용 UI 로직 (기존 로직 그대로 유지) ---
+  // --- 레이어별 구현부 ---
+
+  // [레이어 4] 텍스트 오버레이 레이어
+  Widget _buildTextOverlaysLayer(DeviceDto dev) {
+    final overlays = _controller.deceased?.deviceTextOverlays;
+    if (overlays == null || overlays.isEmpty) return const SizedBox();
+
+    return LayoutBuilder(builder: (context, constraints) {
+      final width = constraints.maxWidth;
+      final height = constraints.maxHeight;
+
+      return Stack(
+        children: overlays.map((text) {
+          return Positioned(
+            left: width * text.positionLeft / 100,
+            top: height * text.positionTop / 100,
+            width: width * text.width / 100,
+            height: height * text.height / 100,
+            child: Container(
+              alignment: _getTextAlignment(text.textAlign),
+              color: _parseColor(text.backgroundColor),
+              child: Text(
+                text.textContent,
+                style: TextStyle(
+                  fontSize: width * (text.fontSize / 100), // 화면 너비 대비 비율 폰트 크기
+                  color: _parseColor(text.fontColor),
+                  fontWeight: text.fontWeight == 'bold' ? FontWeight.bold : FontWeight.normal,
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      );
+    });
+  }
+
+  Alignment _getTextAlignment(String align) {
+    switch (align.toLowerCase()) {
+      case 'left': return Alignment.centerLeft;
+      case 'right': return Alignment.centerRight;
+      case 'center':
+      default: return Alignment.center;
+    }
+  }
+
+  Color _parseColor(String colorStr) {
+    if (colorStr == 'transparent') return Colors.transparent;
+    try {
+      final hex = colorStr.replaceAll('#', '');
+      return Color(int.parse('FF$hex', radix: 16));
+    } catch (_) {
+      return Colors.white;
+    }
+  }
 
   Widget _buildDecorationsLayer(DeviceDto dev) {
     final ribbons = _controller.deceased?.deviceRibbons;

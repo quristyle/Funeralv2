@@ -13,11 +13,13 @@ public class DeviceRibbonService : IDeviceRibbonService
 {
     private readonly AppDbContext _context;
     private readonly ILogger<DeviceRibbonService> _logger;
+    private readonly IDeviceHubSender _deviceHubSender;
 
-    public DeviceRibbonService(AppDbContext context, ILogger<DeviceRibbonService> logger)
+    public DeviceRibbonService(AppDbContext context, ILogger<DeviceRibbonService> logger, IDeviceHubSender deviceHubSender)
     {
         _context = context;
         _logger = logger;
+        _deviceHubSender = deviceHubSender;
     }
 
     /// <summary>
@@ -181,6 +183,17 @@ public class DeviceRibbonService : IDeviceRibbonService
             .ToListAsync();
 
         _logger.LogInformation("리본 일괄 저장 완료. DeviceId: {DeviceId}, Count: {Count}", dto.DeviceId, result.Count);
+
+        // 실시간 변경 알림 송신
+        try
+        {
+            await _deviceHubSender.SendDeviceChangedByDeviceIdAsync(dto.DeviceId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "SignalR 리본 변경 알림 전송 중 에러 발생");
+        }
+
         return result.Select(MapToDto).ToList();
     }
 
