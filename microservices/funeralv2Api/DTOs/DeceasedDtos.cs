@@ -100,6 +100,7 @@ public class DeceasedMournerDto
     public string? Id { get; set; }
     public string Name { get; set; } = null!;
     public string Relation { get; set; } = null!;
+    public string? RelationName { get; set; } // 관계명 추가 (FAM_TYPE 매핑)
     public string Contact { get; set; } = null!;
     public string? Email { get; set; }
     public string? Address { get; set; }
@@ -199,4 +200,15 @@ public class DeceasedDetailDto
 
     // 장비에 설정된 글자(텍스트 오버레이) 정보
     public List<DeviceTextOverlayDto> DeviceTextOverlays { get; set; } = new();
+}
+
+/// <summary>
+/// 입구 안내용 호실 및 고인 상세 정보 DTO
+/// </summary>
+public class EntranceGuideRoomDto
+{
+    public string RoomId { get; set; } = string.Empty;
+    public string RoomName { get; set; } = string.Empty;
+    public int SortOrder { get; set; }
+    public DeceasedDetailDto? DeceasedDetail { get; set; }
 }

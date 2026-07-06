@@ -84,6 +84,15 @@ public static class DeceasedEndpoints
         .WithName("GetDeceasedDetailByDeviceCode")
         .WithOpenApi();
 
+        // 장비코드로 입구 안내용 호실 및 고인 종합 상세 정보 목록 조회
+        group.MapGet("/guide/deviceCode/{deviceCode}", async (string deviceCode, [FromServices] IDeceasedService service) =>
+        {
+            var result = await service.GetEntranceGuideRoomsByDeviceCodeAsync(deviceCode);
+            return Results.Ok(result);
+        })
+        .WithName("GetEntranceGuideRoomsByDeviceCode")
+        .WithOpenApi();
+
         // 고인 종합 상세 정보 저장
         group.MapPut("/{id}/detail", async (string id, [FromBody] DeceasedDetailDto dto, [FromServices] IDeceasedService service) =>
         {

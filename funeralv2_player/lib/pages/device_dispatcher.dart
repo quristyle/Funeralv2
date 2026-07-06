@@ -5,6 +5,7 @@ import '../services/signalr/signalr_service.dart'; // 추가
 import 'portrait/portrait_view.dart';
 import 'guide/room_guide_view.dart';
 import 'guide/entrance_guide_view.dart';
+import 'kiosk/kiosk_view.dart'; // 추가
 
 /// 장비 타입에 따라 어떤 화면(View)을 보여줄지 결정하는 허브 컨트롤러
 class DeviceDispatcher extends StatefulWidget {
@@ -115,6 +116,13 @@ class _DeviceDispatcherState extends State<DeviceDispatcher> {
 
       case 'ENTRANCE_GUIDE':
         return EntranceGuideView(
+          serverBaseUrl: widget.serverBaseUrl,
+          deviceCode: widget.deviceCode,
+          onOpenSettings: widget.onOpenSettings,
+        );
+
+      case 'KIOSK':
+        return KioskView(
           serverBaseUrl: widget.serverBaseUrl,
           deviceCode: widget.deviceCode,
           onOpenSettings: widget.onOpenSettings,

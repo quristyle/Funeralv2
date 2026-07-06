@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.Http;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using funeralv2Api.Data;
 using funeralv2Api.DTOs;
@@ -18,12 +20,18 @@ public class DeceasedService : IDeceasedService
     private readonly AppDbContext _context;
     private readonly ILogger<DeceasedService> _logger;
     private readonly IDeviceHubSender _deviceHubSender;
+    private readonly IConfiguration _configuration;
 
-    public DeceasedService(AppDbContext context, ILogger<DeceasedService> logger, IDeviceHubSender deviceHubSender)
+    public DeceasedService(
+        AppDbContext context, 
+        ILogger<DeceasedService> logger, 
+        IDeviceHubSender deviceHubSender,
+        IConfiguration configuration)
     {
         _context = context;
         _logger = logger;
         _deviceHubSender = deviceHubSender;
+        _configuration = configuration;
     }
 
     /// <inheritdoc />
@@ -376,7 +384,8 @@ public class DeceasedService : IDeceasedService
         // ... (상주, 계약자, 담당자, 시설이용, 호실이력 등 나머지 조회 로직은 동일)
 
         // 1. 상주 목록 조회
-        detail.Mourners = await _context.DeceasedMourners
+        var mourners = await _context.DeceasedMourners
+            .AsNoTracking()
             .Where(m => m.DeceasedId == deceased_id && !m.IsDeleted)
             .OrderBy(m => m.SortOrder)
             .Select(m => new DeceasedMournerDto
@@ -390,6 +399,21 @@ public class DeceasedService : IDeceasedService
                 IsChief = m.IsChief,
                 SortOrder = m.SortOrder
             }).ToListAsync();
+
+        var famTypes = await GetFamTypeRelationNamesAsync();
+        foreach (var m in mourners)
+        {
+            if (famTypes.TryGetValue(m.Relation, out var codeName))
+            {
+                m.RelationName = codeName;
+            }
+            else
+            {
+                m.RelationName = m.Relation;
+            }
+        }
+
+        detail.Mourners = mourners;
 
         detail.ChiefMourner = detail.Mourners.FirstOrDefault(m => m.IsChief)?.Name;
 
@@ -767,18 +791,32 @@ public class DeceasedService : IDeceasedService
         if (detailDto == null) return null;
 
         // 상주 목록을 명시적으로 조회하여 채워줍니다.
-        detailDto.Mourners = await _context.DeceasedMourners
+        var mourners = await _context.DeceasedMourners
             .AsNoTracking()
             .Where(m => m.DeceasedId == deceased.Id && !m.IsDeleted)
             .OrderBy(m => m.SortOrder)
             .ThenBy(m => m.Name)
             .Select(m => new DeceasedMournerDto
             {
-                // 필요한 필드만 매핑
                 Name = m.Name,
                 Relation = m.Relation,
                 IsChief = m.IsChief,
             }).ToListAsync();
+
+        var famTypes = await GetFamTypeRelationNamesAsync();
+        foreach (var m in mourners)
+        {
+            if (famTypes.TryGetValue(m.Relation, out var codeName))
+            {
+                m.RelationName = codeName;
+            }
+            else
+            {
+                m.RelationName = m.Relation;
+            }
+        }
+
+        detailDto.Mourners = mourners;
 
 
 
@@ -847,6 +885,150 @@ public class DeceasedService : IDeceasedService
 
 
         return detailDto;
+    }
+
+    /// <inheritdoc />
+    public async Task<List<EntranceGuideRoomDto>> GetEntranceGuideRoomsByDeviceCodeAsync(string deviceCode)
+    {
+        _logger.LogInformation("GetEntranceGuideRoomsByDeviceCodeAsync: {DeviceCode}", deviceCode);
+
+        if (string.IsNullOrEmpty(deviceCode))
+        {
+            return new List<EntranceGuideRoomDto>();
+        }
+
+        // 1. 장비 코드로 장비 조회
+        var device = await _context.Devices
+            .Where(d => d.Code == deviceCode)
+            .FirstOrDefaultAsync();
+
+        if (device == null)
+        {
+            _logger.LogWarning("Device not found for code: {DeviceCode}", deviceCode);
+            return new List<EntranceGuideRoomDto>();
+        }
+
+        // 2. 장비의 층 ID 또는 건물 ID에 속한 모든 호실 조회
+        List<Room> rooms = new List<Room>();
+        if (!string.IsNullOrEmpty(device.FloorId))
+        {
+            _logger.LogInformation("Fetching rooms for FloorId: {FloorId}", device.FloorId);
+            rooms = await _context.Rooms
+                .Where(r => r.FloorId == device.FloorId && r.Status == "ACTIVE" && !r.IsDeleted)
+                .OrderBy(r => r.SortOrder)
+                .ToListAsync();
+        }
+        else if (!string.IsNullOrEmpty(device.BuildingId))
+        {
+            _logger.LogInformation("Fetching rooms for BuildingId: {BuildingId}", device.BuildingId);
+            rooms = await _context.Rooms
+                .Where(r => r.BuildingId == device.BuildingId && r.Status == "ACTIVE" && !r.IsDeleted)
+                .OrderBy(r => r.SortOrder)
+                .ToListAsync();
+        }
+
+        var result = new List<EntranceGuideRoomDto>();
+
+        // 3. 각 호실별로 현재 배정된 고인 정보 조회
+        foreach (var room in rooms)
+        {
+            var deceasedId = await (from dr in _context.DeceasedRooms
+                                    join d in _context.Deceaseds on dr.DeceasedId equals d.Id
+                                    where dr.RoomId == room.Id && !dr.IsDeleted && !d.IsDeleted && d.Status != "COMPLETED"
+                                    orderby dr.StartTime descending
+                                    select d.Id).FirstOrDefaultAsync();
+
+            DeceasedDetailDto? detailDto = null;
+            if (deceasedId != null)
+            {
+                detailDto = await GetDeceasedDetailAsync(deceasedId);
+                if (detailDto != null)
+                {
+                    // 상주 목록 채우기 (GetDeceasedDetailByDeviceCodeAsync 와 동일한 스펙)
+                    var mourners = await _context.DeceasedMourners
+                        .AsNoTracking()
+                        .Where(m => m.DeceasedId == deceasedId && !m.IsDeleted)
+                        .OrderBy(m => m.SortOrder)
+                        .ThenBy(m => m.Name)
+                        .Select(m => new DeceasedMournerDto
+                        {
+                            Name = m.Name,
+                            Relation = m.Relation,
+                            IsChief = m.IsChief,
+                        }).ToListAsync();
+
+                    var famTypes = await GetFamTypeRelationNamesAsync();
+                    foreach (var m in mourners)
+                    {
+                        if (famTypes.TryGetValue(m.Relation, out var codeName))
+                        {
+                            m.RelationName = codeName;
+                        }
+                        else
+                        {
+                            m.RelationName = m.Relation;
+                        }
+                    }
+
+                    detailDto.Mourners = mourners;
+                }
+            }
+
+            result.Add(new EntranceGuideRoomDto
+            {
+                RoomId = room.Id,
+                RoomName = room.Name,
+                SortOrder = room.SortOrder,
+                DeceasedDetail = detailDto
+            });
+        }
+
+        return result;
+    }
+
+    private async Task<Dictionary<string, string>> GetFamTypeRelationNamesAsync()
+    {
+        var relationNames = new Dictionary<string, string>();
+        var authServerUrl = _configuration["Services:AuthServer"] ?? "http://localhost:5264";
+        var requestUrl = $"{authServerUrl.TrimEnd('/')}/system/common-code/FAM_TYPE?hierarchical=false";
+
+        using var client = new HttpClient();
+        try
+        {
+            _logger.LogInformation("Requesting FAM_TYPE codes from AuthServer: {RequestUrl}", requestUrl);
+            var response = await client.GetAsync(requestUrl);
+            if (response.IsSuccessStatusCode)
+            {
+                var responseContent = await response.Content.ReadAsStringAsync();
+                var jsonNode = System.Text.Json.Nodes.JsonNode.Parse(responseContent);
+                if (jsonNode != null && jsonNode["success"]?.GetValue<bool>() == true)
+                {
+                    var dataArray = jsonNode["data"]?["result"]?.AsArray();
+                    if (dataArray != null)
+                    {
+                        foreach (var item in dataArray)
+                        {
+                            var codeValue = item?["codeValue"]?.GetValue<string>() ?? item?["CodeValue"]?.GetValue<string>();
+                            var codeName = item?["codeName"]?.GetValue<string>() ?? item?["CodeName"]?.GetValue<string>();
+                            if (!string.IsNullOrEmpty(codeValue) && !string.IsNullOrEmpty(codeName))
+                            {
+                                relationNames[codeValue] = codeName;
+                            }
+                        }
+                    }
+                }
+            }
+            else
+            {
+                _logger.LogWarning("Failed to fetch FAM_TYPE codes. Status: {Status}", response.StatusCode);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error fetching FAM_TYPE codes from AuthServer");
+        }
+
+        return relationNames;
     }
 
     private static DateTime SpecifyUtc(DateTime dt)

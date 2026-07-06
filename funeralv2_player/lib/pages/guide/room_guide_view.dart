@@ -148,7 +148,7 @@ class _RoomGuideViewState extends State<RoomGuideView> {
     String mournerDisplay = "-";
     if (dec.mourners.isNotEmpty) {
       mournerDisplay = dec.mourners.map((m) {
-        final rel = _getRelationName(m.relation);
+        final rel = m.relationName ?? m.relation ?? '';
         return "$rel ${m.name ?? ''}";
       }).join('\n');
     } else if (dec.chiefMourner != null) {
@@ -222,29 +222,6 @@ class _RoomGuideViewState extends State<RoomGuideView> {
         ],
       ),
     );
-  }
-
-  String _getRelationName(String? code) {
-    switch (code?.toUpperCase()) {
-      case 'FATH': return '부';
-      case 'MOTH': return '모';
-      case 'SON': return '자';
-      case 'DAUG': return '녀';
-      case 'BROT': return '형제';
-      case 'SIST': return '자매';
-      case 'G_FATH': return '조부';
-      case 'G_MOTH': return '조모';
-      case 'S_IN_L': return '사위';
-      case 'D_IN_L': return '며느리';
-      case 'F_IN_L': return '장인';
-      case 'M_IN_L': return '장모';
-      case 'FRND': return '친구';
-      case 'NEIG': return '이웃';
-      case 'COLL': return '동료';
-      case 'ACQU': return '지인';
-      case 'ETC': return '기타';
-      default: return '';
-    }
   }
 
   String _formatDate(String? dateStr) {

@@ -123,4 +123,36 @@ class ApiService {
     }
     return null;
   }
+
+  // 건물/층 입구 안내용 호실 목록과 고인/상주 정보 패치
+  Future<List<EntranceGuideRoomDto>> fetchEntranceGuideRooms(String serverBaseUrl, String deviceCode) async {
+    final baseUrl = serverBaseUrl.endsWith('/') ? serverBaseUrl.substring(0, serverBaseUrl.length - 1) : serverBaseUrl;
+    final url = Uri.parse('$baseUrl/api/funeral/building/deceased/guide/deviceCode/$deviceCode');
+    print('[API Request] fetchEntranceGuideRooms: $url');
+    try {
+      final response = await http.get(url).timeout(const Duration(seconds: 4));
+      print('[API Response] fetchEntranceGuideRooms Status: ${response.statusCode}');
+      
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body);
+        print('[API Response] fetchEntranceGuideRooms body: ${response.body}');
+        
+        List<dynamic> resultList = [];
+        if (json.containsKey('data') && json['data'] is Map && json['data'].containsKey('result')) {
+          resultList = json['data']['result'] as List;
+        } else if (json.containsKey('result') && json['result'] is List) {
+          resultList = json['result'] as List;
+        } else if (json.containsKey('data') && json['data'] is List) {
+          resultList = json['data'] as List;
+        } else if (json is List) {
+          resultList = json;
+        }
+
+        return resultList.map((item) => EntranceGuideRoomDto.fromJson(item)).toList();
+      }
+    } catch (e) {
+      print('[API Error] fetchEntranceGuideRooms: $e');
+    }
+    return [];
+  }
 }

@@ -6,6 +6,10 @@ class DeviceDto {
   final String name;
   final String? roomId;
   final String? roomName;
+  final String? floorId; // 추가
+  final String? floorName; // 추가
+  final String? buildingId; // 추가
+  final String? buildingName; // 추가
   final String? videoId;
   final String? musicId;
   final bool isVideoEnabled;
@@ -40,6 +44,10 @@ class DeviceDto {
     required this.name,
     this.roomId,
     this.roomName,
+    this.floorId,
+    this.floorName,
+    this.buildingId,
+    this.buildingName,
     this.videoId,
     this.musicId,
     required this.isVideoEnabled,
@@ -85,6 +93,10 @@ class DeviceDto {
       name: data['name'] ?? '',
       roomId: data['roomId'],
       roomName: data['roomName'],
+      floorId: data['floorId'],
+      floorName: data['floorName'],
+      buildingId: data['buildingId'],
+      buildingName: data['buildingName'],
       videoId: data['videoId'],
       musicId: data['musicId'],
       isVideoEnabled: (data['isVideoEnabled'] == 1 || data['isVideoEnabled'] == true),
@@ -152,14 +164,16 @@ class DeviceDto {
 class MournerDto {
   final String? name;
   final String? relation;
+  final String? relationName;
   final bool isChief;
 
-  MournerDto({this.name, this.relation, required this.isChief});
+  MournerDto({this.name, this.relation, this.relationName, required this.isChief});
 
   factory MournerDto.fromJson(Map<String, dynamic> json) {
     return MournerDto(
       name: json['name'],
       relation: json['relation'],
+      relationName: json['relationName'],
       isChief: json['isChief'] ?? false,
     );
   }
@@ -167,6 +181,7 @@ class MournerDto {
   Map<String, dynamic> toJson() => {
     'name': name,
     'relation': relation,
+    'relationName': relationName,
     'isChief': isChief,
   };
 }
@@ -390,5 +405,30 @@ class DeceasedDto {
       'deviceRibbons': jsonEncode(deviceRibbons.map((e) => e.toJson()).toList()),
       'deviceTextOverlays': jsonEncode(deviceTextOverlays.map((e) => e.toJson()).toList()),
     };
+  }
+}
+
+class EntranceGuideRoomDto {
+  final String roomId;
+  final String roomName;
+  final int sortOrder;
+  final DeceasedDto? deceasedDetail;
+
+  EntranceGuideRoomDto({
+    required this.roomId,
+    required this.roomName,
+    required this.sortOrder,
+    this.deceasedDetail,
+  });
+
+  factory EntranceGuideRoomDto.fromJson(Map<String, dynamic> json) {
+    return EntranceGuideRoomDto(
+      roomId: json['roomId'] ?? '',
+      roomName: json['roomName'] ?? '',
+      sortOrder: json['sortOrder'] ?? 0,
+      deceasedDetail: json['deceasedDetail'] != null
+          ? DeceasedDto.fromJson(json['deceasedDetail'])
+          : null,
+    );
   }
 }

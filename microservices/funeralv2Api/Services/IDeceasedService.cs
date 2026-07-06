@@ -43,4 +43,9 @@ public interface IDeceasedService
     /// 호실 ID로 현재 배정된 고인의 종합 상세 정보 조회
     /// </summary>
     Task<DeceasedDetailDto?> GetDeceasedDetailByDeviceCodeAsync(string deviceCode);
+
+    /// <summary>
+    /// 장비코드로 입구 안내용 호실 및 고인 상세 정보 목록 조회
+    /// </summary>
+    Task<List<EntranceGuideRoomDto>> GetEntranceGuideRoomsByDeviceCodeAsync(string deviceCode);
 }

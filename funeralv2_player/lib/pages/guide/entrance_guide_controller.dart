@@ -12,6 +12,7 @@ class EntranceGuideController extends ChangeNotifier {
   final SignalRService _signalRService = SignalRService();
 
   DeviceDto? device;
+  List<EntranceGuideRoomDto> guideRooms = [];
   bool isLoading = false;
   bool _isDisposed = false;
 
@@ -34,6 +35,9 @@ class EntranceGuideController extends ChangeNotifier {
 
     device = await _apiService.fetchDevice(serverBaseUrl, deviceCode);
     if (device != null && !_isDisposed) {
+      // 층/건물 내 호실 및 고인/상주 안내 데이터 로드
+      guideRooms = await _apiService.fetchEntranceGuideRooms(serverBaseUrl, deviceCode);
+
       if (device!.isVideoEnabled && device!.videoId != null) {
         final sourcePath = await _apiService.fetchSourcePath(serverBaseUrl, device!.videoId!);
         final localVideoPath = await _cacheManager.getCachedFileByPath(serverBaseUrl, sourcePath);

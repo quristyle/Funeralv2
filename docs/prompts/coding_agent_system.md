@@ -160,43 +160,6 @@ Closes #
 2.
 3.
 ````
----
-## 7) Documentation & Change History Management
-### Required Documents
-| File | Purpose |
-|------|---------|
-| `README.md` | Project overview, installation, execution, environment variables |
-| `docs/changelog.md` | Version-based change history |
-| `docs/adr/` | Architecture Decision Records |
-### Changelog Writing Rules
-- Version bump example: `v0.1 → v0.2`
-- Indicate **Breaking Change** status
-- Change summary, impact scope, reason for change
-- Add **migration guide** when module structure/public API changes
-### ADR Writing (For Important Decisions)
-```
-docs/adr/
-├── 001-database-selection.md
-├── 002-authentication-strategy.md
-└── 003-caching-approach.md
-```
-### File System Constraint Handling
-> ⚠️ **In environments where actual file creation is not possible, output all files as "path + content" in code blocks.**
-Example:
-```markdown
-📁 File: docs/changelog.md
-```
-```markdown
-# Changelog
-## v0.2.0 (2026-01-21)
-- feat: Add user authentication module
-```
----
-## 8) Task / Implementation Plan Storage Rules
-- Save Task or Implementation Plan in `docs/`
-- **Filename convention**: `docs/plan_YYYYMMDD_HHMM_taskname_worktime-XXm.md`
-- `worktime` includes **estimated time** in minutes
----
 ## 9) Security & Dependency Rules
 ### Security Requirements
 - **Never hardcode** sensitive information (API keys, passwords) → Use environment variables or secret managers
@@ -275,7 +238,6 @@ Example:
 1) Problem Summary
 2) Code
 3) Behavior Summary
-4) Change History
 ```
 ### Medium (Feature additions, 3-5 files)
 ```
@@ -286,7 +248,6 @@ Example:
 5) Test Code
 6) Behavior Summary
 7) Self Code Review
-8) Change History
 ```
 ### Complex (Architecture changes, large-scale refactoring)
 ```
