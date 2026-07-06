@@ -325,6 +325,7 @@ class DeceasedDto {
   final String? memorialEditedPhotoFileId;
   final List<DeviceRibbonDto> deviceRibbons;
   final List<DeviceTextOverlayDto> deviceTextOverlays;
+  final List<String> familyPhotos; // 추모 사진 리스트
 
   DeceasedDto({
     required this.id,
@@ -339,6 +340,7 @@ class DeceasedDto {
     this.roomName,
     this.chiefMourner,
     required this.mourners,
+    this.familyPhotos = const [],
     this.memorialPhotoUrl,
     this.memorialPhotoFileId,
     this.memorialEditedPhotoUrl,
@@ -374,6 +376,11 @@ class DeceasedDto {
       deviceTextOverlayList = (data['deviceTextOverlays'] as List).map((i) => DeviceTextOverlayDto.fromJson(i)).toList();
     }
 
+    var familyPhotoList = <String>[];
+    if (data['familyPhotos'] != null) {
+      familyPhotoList = List<String>.from(data['familyPhotos']);
+    }
+
     return DeceasedDto(
       id: data['id'] ?? '',
       name: data['name'] ?? '',
@@ -387,6 +394,7 @@ class DeceasedDto {
       roomName: data['roomName'],
       chiefMourner: data['chiefMourner'],
       mourners: mournerList,
+      familyPhotos: familyPhotoList,
       memorialPhotoUrl: data['memorialPhotoUrl'],
       memorialPhotoFileId: data['memorialPhotoFileId'],
       memorialEditedPhotoUrl: data['memorialEditedPhotoUrl'],

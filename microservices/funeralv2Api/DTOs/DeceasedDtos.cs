@@ -186,6 +186,7 @@ public class DeceasedDetailDto
     public string? MemorialEditedPhotoUrl { get; set; }
     public string? MemorialEditedPhotoFileId { get; set; }
     public string? FamilyPhotoGroupId { get; set; }
+    public List<string> FamilyPhotos { get; set; } = new();
     public string? ChiefMourner { get; set; }
 
     // 관계 리스트 및 단일 속성들

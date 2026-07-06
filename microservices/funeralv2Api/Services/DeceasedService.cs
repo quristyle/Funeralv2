@@ -381,6 +381,8 @@ public class DeceasedService : IDeceasedService
             FamilyPhotoGroupId = deceased.FamilyPhotoGroupId
         };
 
+        detail.FamilyPhotos = await GetFileUrlsFromGroupAsync(deceased.FamilyPhotoGroupId);
+
         // ... (상주, 계약자, 담당자, 시설이용, 호실이력 등 나머지 조회 로직은 동일)
 
         // 1. 상주 목록 조회

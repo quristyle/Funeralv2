@@ -60,12 +60,11 @@ class _MultimediaViewState extends State<MultimediaView> {
   }
 
   Widget _buildPhotoLayer(DeviceDto dev, DeceasedDto? dec) {
-    if (dec == null || dec.deviceRibbons.isEmpty) {
+    if (dec == null || dec.familyPhotos.isEmpty) {
       return const Center(child: Text("추모 사진이 없습니다.", style: TextStyle(color: Colors.white54, fontSize: 24)));
     }
 
-    final currentPhoto = dec.deviceRibbons[_controller.currentPhotoIndex];
-    final imageUrl = "${widget.serverBaseUrl}${currentPhoto.mediaSourceUrl}";
+    final imageUrl = "${widget.serverBaseUrl}${dec.familyPhotos[_controller.currentPhotoIndex]}";
 
     // 효과 분기 처리
     if (dev.memorialPhotoEffect == 'SLIDE') {
@@ -86,6 +85,12 @@ class _MultimediaViewState extends State<MultimediaView> {
       // 기본값 FADE
       return AnimatedSwitcher(
         duration: const Duration(milliseconds: 1500),
+        transitionBuilder: (Widget child, Animation<double> animation) {
+          return FadeTransition(
+            opacity: animation,
+            child: child,
+          );
+        },
         child: _buildImage(imageUrl, ValueKey(_controller.currentPhotoIndex)),
       );
     }

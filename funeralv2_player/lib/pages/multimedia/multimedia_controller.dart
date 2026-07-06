@@ -49,9 +49,11 @@ class MultimediaController extends ChangeNotifier {
       if (device!.isVideoEnabled && device!.videoId != null) {
         final sourcePath = await _apiService.fetchSourcePath(serverBaseUrl, device!.videoId!);
         final localVideoPath = await _cacheManager.getCachedFileByPath(serverBaseUrl, sourcePath);
-        if (localVideoPath != null && !_isDisposed) {
+        if (localVideoPath != null && !_isDisposed && device!.isVideoEnabled) {
           await playerService.playVideo(localVideoPath, onRefresh);
         }
+      } else {
+        await playerService.stopVideo();
       }
 
       // 배경 음악 설정 (Mute 반영)
@@ -82,12 +84,12 @@ class MultimediaController extends ChangeNotifier {
 
   void _startPhotoRotation() {
     _rotationTimer?.cancel();
-    if (deceased == null || deceased!.deviceRibbons.isEmpty) return;
+    if (deceased == null || deceased!.familyPhotos.isEmpty) return;
 
     final interval = device?.contentIntervalSec ?? 10;
     _rotationTimer = Timer.periodic(Duration(seconds: interval), (timer) {
-      if (!_isDisposed && deceased!.deviceRibbons.isNotEmpty) {
-        currentPhotoIndex = (currentPhotoIndex + 1) % deceased!.deviceRibbons.length;
+      if (!_isDisposed && deceased!.familyPhotos.isNotEmpty) {
+        currentPhotoIndex = (currentPhotoIndex + 1) % deceased!.familyPhotos.length;
         notifyListeners();
       }
     });
