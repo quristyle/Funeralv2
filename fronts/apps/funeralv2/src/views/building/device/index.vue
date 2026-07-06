@@ -68,7 +68,6 @@ const {
   powerOnTimeVal,
   powerOffTimeVal,
   rebootTimeVal,
-  loadDeviceConfig,
   handleConfigSave,
   handleConfigReset,
 } = configComposable;

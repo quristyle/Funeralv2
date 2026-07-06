@@ -16,7 +16,7 @@ class MediaPlayerService {
     try {
       // 반복 재생 설정
       await player.setPlaylistMode(PlaylistMode.loop);
-      // 볼륨 0 (배경음악과 중복 방지)
+      // isMuted 여부에 따라 초기 볼륨 설정 (비디오는 기본적으로 0.0이지만 명시적 처리)
       await player.setVolume(0.0);
 
       if (kIsWeb || path.startsWith('http')) {
@@ -38,12 +38,13 @@ class MediaPlayerService {
   }
 
   // 배경 음악 초기화 및 재생
-  Future<void> playMusic(String path, double volume) async {
+  Future<void> playMusic(String path, double volume, {bool isMuted = false}) async {
     try {
       await _audioPlayer.stop();
       await _audioPlayer.setReleaseMode(ReleaseMode.loop);
       
-      final double vol = (volume / 100.0).clamp(0.0, 1.0);
+      // 음소거 상태면 볼륨 0, 아니면 설정된 볼륨 적용
+      final double vol = isMuted ? 0.0 : (volume / 100.0).clamp(0.0, 1.0);
       await _audioPlayer.setVolume(vol);
 
       if (kIsWeb || path.startsWith('http')) {
@@ -55,6 +56,12 @@ class MediaPlayerService {
     } catch (e) {
       print('[Music Error] 재생 실패: $e');
     }
+  }
+
+  // 음악 볼륨/음소거 즉시 업데이트
+  Future<void> updateMusicVolume(double volume, {bool isMuted = false}) async {
+    final double vol = isMuted ? 0.0 : (volume / 100.0).clamp(0.0, 1.0);
+    await _audioPlayer.setVolume(vol);
   }
 
   Future<void> stopVideo() async {

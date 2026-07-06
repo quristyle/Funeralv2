@@ -66,6 +66,8 @@ class _RoomGuideViewState extends State<RoomGuideView> {
       return const Center(child: Text("빈소 준비 중입니다.", style: TextStyle(color: Colors.white70, fontSize: 32)));
     }
 
+    final bool isPortrait = dev.displayOrientation == 'PORTRAIT';
+
     return Padding(
       padding: const EdgeInsets.all(40.0),
       child: Column(
@@ -78,63 +80,88 @@ class _RoomGuideViewState extends State<RoomGuideView> {
               borderRadius: BorderRadius.circular(50),
             ),
             child: Text(
-              dec.roomName ?? dev.name,
+              dev.roomName ?? dev.name,
               style: const TextStyle(color: Colors.black, fontSize: 36, fontWeight: FontWeight.w900),
             ),
           ),
           const SizedBox(height: 40),
 
-          // 2. 메인 콘텐츠 (사진 + 정보)
+          // 2. 메인 콘텐츠
           Expanded(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // 좌측: 영정 사진 (설정 시에만 표시)
-                if (dev.isMemorialPhotoEnabled) ...[
-                  Expanded(
-                    flex: 4,
-                    child: _buildPhotoSection(),
-                  ),
-                  const SizedBox(width: 40),
-                ],
-                
-                // 우측/전체: 상세 정보
-                Expanded(
-                  flex: 6,
-                  child: Column(
-                    crossAxisAlignment: dev.isMemorialPhotoEnabled ? CrossAxisAlignment.start : CrossAxisAlignment.center,
-                    children: [
-                      _buildDeceasedName(dec, isCentered: !dev.isMemorialPhotoEnabled),
-                      const Divider(color: Colors.white24, thickness: 1.5, height: 40),
-                      
-                      // 정보 섹션: 사진이 없을 때 중앙 정렬을 위해 너비가 제한된 컨테이너 사용
-                      SizedBox(
-                        width: dev.isMemorialPhotoEnabled ? double.infinity : 700,
-                        child: Column(
-                          children: [
-                            _buildInfoRow(
-                              "상 주", 
-                              dec.mourners.isNotEmpty 
-                                ? dec.mourners.map((m) => m.name ?? '').where((n) => n.isNotEmpty).join(', ')
-                                : (dec.chiefMourner ?? "-"), 
-                            ),
-                            _buildInfoRow("발 인", _formatDate(dec.funeralDate)),
-                            _buildInfoRow("장 지", dec.burialDate != null ? _formatDate(dec.burialDate!) : "-"),
-                          ],
-                        ),
-                      ),
-                      const Spacer(),
-                      // 하단 안내 문구
-                      Text(
-                        "삼가 고인의 명복을 빕니다.",
-                        style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 24),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+            child: isPortrait ? _buildVerticalContent(dev, dec) : _buildHorizontalContent(dev, dec),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHorizontalContent(DeviceDto dev, DeceasedDto dec) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (dev.isMemorialPhotoEnabled) ...[
+          Expanded(flex: 4, child: _buildPhotoSection()),
+          const SizedBox(width: 40),
+        ],
+        Expanded(
+          flex: 6,
+          child: Column(
+            crossAxisAlignment: dev.isMemorialPhotoEnabled ? CrossAxisAlignment.start : CrossAxisAlignment.center,
+            children: [
+              _buildDeceasedName(dec, isCentered: !dev.isMemorialPhotoEnabled),
+              const Divider(color: Colors.white24, thickness: 1.5, height: 40),
+              _buildInfoSection(dev, dec, width: dev.isMemorialPhotoEnabled ? double.infinity : 700),
+              const Spacer(),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildVerticalContent(DeviceDto dev, DeceasedDto dec) {
+    return Column(
+      children: [
+        _buildDeceasedName(dec, isCentered: true),
+        const SizedBox(height: 30),
+        
+        if (dev.isMemorialPhotoEnabled) ...[
+          Expanded(
+            flex: 5,
+            child: _buildPhotoSection(),
+          ),
+          const SizedBox(height: 40),
+        ],
+
+        // 하단 정보 섹션 (전체 중앙 정렬)
+        Center(
+          child: _buildInfoSection(dev, dec, width: 700),
+        ),
+        const Spacer(),
+      ],
+    );
+  }
+
+  // 상주 리스트를 [관계 성명] 형식으로 세로 나열하여 렌더링
+  Widget _buildInfoSection(DeviceDto dev, DeceasedDto dec, {required double width}) {
+    // 상주 리스트 문자열화 (세로 나열)
+    String mournerDisplay = "-";
+    if (dec.mourners.isNotEmpty) {
+      mournerDisplay = dec.mourners.map((m) {
+        final rel = _getRelationName(m.relation);
+        return "$rel ${m.name ?? ''}";
+      }).join('\n');
+    } else if (dec.chiefMourner != null) {
+      mournerDisplay = dec.chiefMourner!;
+    }
+
+    return SizedBox(
+      width: width,
+      child: Column(
+        children: [
+          _buildInfoRow("상 주", mournerDisplay),
+          _buildInfoRow("발 인", _formatDate(dec.funeralDate)),
+          _buildInfoRow("장 지", dec.burialDate != null ? _formatDate(dec.burialDate!) : "-"),
         ],
       ),
     );
@@ -150,8 +177,8 @@ class _RoomGuideViewState extends State<RoomGuideView> {
       child: path == null
           ? const Icon(Icons.person, size: 200, color: Colors.white10)
           : kIsWeb
-              ? Image.network(path, fit: BoxFit.cover)
-              : Image.file(io.File(path), fit: BoxFit.cover),
+              ? Image.network(path, fit: BoxFit.contain)
+              : Image.file(io.File(path), fit: BoxFit.contain),
     );
   }
 
@@ -176,7 +203,7 @@ class _RoomGuideViewState extends State<RoomGuideView> {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 12.0),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start, // 상주가 여러 명일 때 라벨이 상단에 고정되도록 함
         mainAxisAlignment: MainAxisAlignment.start,
         children: [
           Container(
@@ -189,7 +216,7 @@ class _RoomGuideViewState extends State<RoomGuideView> {
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w500),
+              style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w500, height: 1.4), // height 추가로 줄간격 조절
             ),
           ),
         ],
@@ -197,11 +224,34 @@ class _RoomGuideViewState extends State<RoomGuideView> {
     );
   }
 
+  String _getRelationName(String? code) {
+    switch (code?.toUpperCase()) {
+      case 'FATH': return '부';
+      case 'MOTH': return '모';
+      case 'SON': return '자';
+      case 'DAUG': return '녀';
+      case 'BROT': return '형제';
+      case 'SIST': return '자매';
+      case 'G_FATH': return '조부';
+      case 'G_MOTH': return '조모';
+      case 'S_IN_L': return '사위';
+      case 'D_IN_L': return '며느리';
+      case 'F_IN_L': return '장인';
+      case 'M_IN_L': return '장모';
+      case 'FRND': return '친구';
+      case 'NEIG': return '이웃';
+      case 'COLL': return '동료';
+      case 'ACQU': return '지인';
+      case 'ETC': return '기타';
+      default: return '';
+    }
+  }
+
   String _formatDate(String? dateStr) {
     if (dateStr == null || dateStr.isEmpty) return "-";
     try {
       final date = DateTime.parse(dateStr).toLocal();
-      return "${date.year}년 ${date.month}월 ${date.day}일 ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}";
+      return "${date.year}년 ${date.month}월 ${date.day}일";
     } catch (e) {
       return dateStr;
     }

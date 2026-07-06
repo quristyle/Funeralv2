@@ -54,6 +54,7 @@ public class DeviceDto
     public decimal? MemorialPaddingBottom { get; set; } = 0;
     public string PhotoVerticalAlignment { get; set; } = "TOP";
     public string PhotoHorizontalAlignment { get; set; } = "CENTER";
+    public bool IsMuted { get; set; } = false;
 }
 
 /// <summary>

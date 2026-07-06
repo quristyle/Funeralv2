@@ -246,6 +246,7 @@ public class DeviceService : IDeviceService
             dto.MemorialPaddingBottom = attr.MemorialPaddingBottom ?? 0;
             dto.PhotoVerticalAlignment = attr.PhotoVerticalAlignment;
             dto.PhotoHorizontalAlignment = attr.PhotoHorizontalAlignment;
+            dto.IsMuted = attr.IsMuted;
             
             if (!string.IsNullOrEmpty(attr.VideoId))
             {

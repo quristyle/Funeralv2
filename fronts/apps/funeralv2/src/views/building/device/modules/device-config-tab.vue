@@ -25,41 +25,92 @@ const emit = defineEmits<{
 
 // 자동 저장을 위한 디바운스 타이머
 const debounceTimer = ref<NodeJS.Timeout | null>(null);
+const lastSavedData = ref<string>('');
 
-// 설정 값 변경을 감지하여 자동 저장 실행
+// 장비가 변경되면 기존 타이머를 즉시 취소하여 잘못된 자동 저장 방지
 watch(
-  // 감시할 모든 데이터를 배열로 묶고 JSON.stringify로 실제 값 변경 감지
-  () => JSON.stringify([
-    props.deviceConfig,
-    props.powerOnTimeVal,
-    props.powerOffTimeVal,
-    props.rebootTimeVal,
-  ]),
-  (newValue, oldValue) => {
-    // 초기화 단계이거나, 실제 값의 변경이 없으면 실행하지 않음
-    if (!oldValue || newValue === oldValue) {
-      return;
-    }
-
-    // 부모로부터 받은 초기 데이터인지 확인 (deviceConfig.id가 없을 때)
-    const oldConfig = JSON.parse(oldValue)[0];
-    if (!oldConfig?.id) {
-      return;
-    }
-
-    // 기존에 설정된 타이머가 있다면 취소
+  () => props.deviceId,
+  () => {
     if (debounceTimer.value) {
       clearTimeout(debounceTimer.value);
+      debounceTimer.value = null;
+    }
+  },
+);
+
+// 설정 값 및 로딩/저장 상태 변경을 하나의 watch에서 일관되게 관리
+watch(
+  () => [
+    props.configLoading,
+    props.configSaving,
+    JSON.stringify([
+      props.deviceConfig,
+      props.powerOnTimeVal,
+      props.powerOffTimeVal,
+      props.rebootTimeVal,
+    ]),
+  ] as const,
+  ([loading, saving, currentDataJson], oldState) => {
+    // 최초 실행 시 안전 처리
+    if (!oldState) {
+      if (loading || saving) {
+        return;
+      }
+      if (props.deviceConfig) {
+        lastSavedData.value = currentDataJson;
+      }
+      return;
     }
 
-    // 1.5초(1500ms) 후에 'save' 이벤트를 발생시키는 새로운 타이머 설정
-    debounceTimer.value = setTimeout(() => {
-      // 수동 저장이 진행 중이면 자동 저장 실행 안 함
-      if (!props.configSaving) {
-        emit('save');
+    const [oldLoading, oldSaving, oldDataJson] = oldState;
+
+    // 1. 로딩 중이거나 저장 중일 때는 기존 타이머를 취소하고 자동 저장을 하지 않음
+    if (loading || saving) {
+      if (debounceTimer.value) {
+        clearTimeout(debounceTimer.value);
+        debounceTimer.value = null;
       }
-    }, 1500);
+      return;
+    }
+
+    // 2. 로딩 완료 또는 저장 완료 시점에는 최종 데이터를 원본 기준으로 설정하고 타이머 취소
+    const justFinishedLoading = oldLoading && !loading;
+    const justFinishedSaving = oldSaving && !saving;
+
+    if (justFinishedLoading || justFinishedSaving) {
+      lastSavedData.value = currentDataJson;
+      if (debounceTimer.value) {
+        clearTimeout(debounceTimer.value);
+        debounceTimer.value = null;
+      }
+      return;
+    }
+
+    // 3. 실제 설정 값이 변경된 경우
+    if (currentDataJson !== oldDataJson) {
+      // 백업된 기준 데이터가 없거나, 현재 데이터가 기준 데이터와 일치하면 타이머 취소 후 종료
+      if (!lastSavedData.value || currentDataJson === lastSavedData.value) {
+        if (debounceTimer.value) {
+          clearTimeout(debounceTimer.value);
+          debounceTimer.value = null;
+        }
+        return;
+      }
+
+      // 기존에 설정된 타이머 취소
+      if (debounceTimer.value) {
+        clearTimeout(debounceTimer.value);
+      }
+
+      // 1.5초(1500ms) 후에 'save' 이벤트를 발생시키는 새로운 타이머 설정
+      debounceTimer.value = setTimeout(() => {
+        if (!props.configSaving) {
+          emit('save');
+        }
+      }, 1500);
+    }
   },
+  { immediate: true },
 );
 </script>
 

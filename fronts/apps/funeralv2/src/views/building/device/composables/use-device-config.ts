@@ -69,7 +69,8 @@ export function useDeviceConfig() {
         rebootTime: rebootTimeVal.value ? rebootTimeVal.value.format('HH:mm') : '',
       };
       const result = await upsertDeviceConfig(payload);
-      const saved = (result as any)?.result ?? result;
+      const raw = (result as any)?.result ?? result;
+      const saved = Array.isArray(raw) ? (raw[0] ?? null) : raw;
       if (saved && typeof saved === 'object') {
         deviceConfig.value = saved as BuildingApi.DeviceConfig;
         applyTimeValues(deviceConfig.value);

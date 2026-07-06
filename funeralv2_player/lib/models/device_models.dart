@@ -5,10 +5,12 @@ class DeviceDto {
   final String code;
   final String name;
   final String? roomId;
+  final String? roomName;
   final String? videoId;
   final String? musicId;
   final bool isVideoEnabled;
   final bool isMusicEnabled;
+  final bool isMuted; // 추가: 전체 음소거 여부
   final String? videoName;
   final String? musicName;
   final double musicVolume;
@@ -18,9 +20,9 @@ class DeviceDto {
   final String displayOrientation;
   final String portraitOrientation;
   final String videoOrientation;
+  final String deviceType;
   final String photoVerticalAlignment;
   final String photoHorizontalAlignment;
-  final String deviceType;
 
   final double displayPaddingTop;
   final double displayPaddingLeft;
@@ -37,10 +39,12 @@ class DeviceDto {
     required this.code,
     required this.name,
     this.roomId,
+    this.roomName,
     this.videoId,
     this.musicId,
     required this.isVideoEnabled,
     required this.isMusicEnabled,
+    required this.isMuted,
     this.videoName,
     this.musicName,
     required this.musicVolume,
@@ -80,10 +84,12 @@ class DeviceDto {
       code: data['code'] ?? '',
       name: data['name'] ?? '',
       roomId: data['roomId'],
+      roomName: data['roomName'],
       videoId: data['videoId'],
       musicId: data['musicId'],
       isVideoEnabled: (data['isVideoEnabled'] == 1 || data['isVideoEnabled'] == true),
       isMusicEnabled: (data['isMusicEnabled'] == 1 || data['isMusicEnabled'] == true),
+      isMuted: (data['isMuted'] == 1 || data['isMuted'] == true), // 파싱 추가
       videoName: data['videoName'],
       musicName: data['musicName'],
       musicVolume: (data['musicVolume'] ?? 50).toDouble(),
@@ -113,10 +119,12 @@ class DeviceDto {
       'code': code,
       'name': name,
       'roomId': roomId,
+      'roomName': roomName,
       'videoId': videoId,
       'musicId': musicId,
       'isVideoEnabled': isVideoEnabled ? 1 : 0,
       'isMusicEnabled': isMusicEnabled ? 1 : 0,
+      'isMuted': isMuted ? 1 : 0, // 저장 추가
       'videoName': videoName,
       'musicName': musicName,
       'musicVolume': musicVolume,
@@ -289,7 +297,7 @@ class DeceasedDto {
   final String? memorialEditedPhotoUrl;
   final String? memorialEditedPhotoFileId;
   final List<DeviceRibbonDto> deviceRibbons;
-  final List<DeviceTextOverlayDto> deviceTextOverlays; // 추가
+  final List<DeviceTextOverlayDto> deviceTextOverlays;
 
   DeceasedDto({
     required this.id,
@@ -309,7 +317,7 @@ class DeceasedDto {
     this.memorialEditedPhotoUrl,
     this.memorialEditedPhotoFileId,
     required this.deviceRibbons,
-    required this.deviceTextOverlays, // 추가
+    required this.deviceTextOverlays,
   });
 
   factory DeceasedDto.fromJson(Map<String, dynamic> json) {
@@ -334,7 +342,7 @@ class DeceasedDto {
       deviceRibbonList = (data['deviceRibbons'] as List).map((i) => DeviceRibbonDto.fromJson(i)).toList();
     }
 
-    var deviceTextOverlayList = <DeviceTextOverlayDto>[]; // 추가
+    var deviceTextOverlayList = <DeviceTextOverlayDto>[];
     if (data['deviceTextOverlays'] != null) {
       deviceTextOverlayList = (data['deviceTextOverlays'] as List).map((i) => DeviceTextOverlayDto.fromJson(i)).toList();
     }
@@ -357,7 +365,7 @@ class DeceasedDto {
       memorialEditedPhotoUrl: data['memorialEditedPhotoUrl'],
       memorialEditedPhotoFileId: data['memorialEditedPhotoFileId'],
       deviceRibbons: deviceRibbonList,
-      deviceTextOverlays: deviceTextOverlayList, // 추가
+      deviceTextOverlays: deviceTextOverlayList,
     );
   }
 
@@ -380,7 +388,7 @@ class DeceasedDto {
       'memorialEditedPhotoUrl': memorialEditedPhotoUrl,
       'memorialEditedPhotoFileId': memorialEditedPhotoFileId,
       'deviceRibbons': jsonEncode(deviceRibbons.map((e) => e.toJson()).toList()),
-      'deviceTextOverlays': jsonEncode(deviceTextOverlays.map((e) => e.toJson()).toList()), // 추가
+      'deviceTextOverlays': jsonEncode(deviceTextOverlays.map((e) => e.toJson()).toList()),
     };
   }
 }

@@ -127,11 +127,16 @@ class PortraitController extends ChangeNotifier {
     if (device!.isMusicEnabled && nextMusicPath != null) {
       if (localMusicPath != nextMusicPath) {
         localMusicPath = nextMusicPath;
-        await playerService.playMusic(localMusicPath!, device!.musicVolume);
+        await playerService.playMusic(localMusicPath!, device!.musicVolume, isMuted: device!.isMuted);
       }
     } else {
       await playerService.stopMusic();
       localMusicPath = null;
+    }
+
+    // 재생 중인 음악의 볼륨/음소거 즉시 업데이트 (경로가 바뀌지 않았더라도)
+    if (device!.isMusicEnabled && localMusicPath != null) {
+       await playerService.updateMusicVolume(device!.musicVolume, isMuted: device!.isMuted);
     }
 
     // 5. SignalR 실시간 변경 통신 소켓 연결
