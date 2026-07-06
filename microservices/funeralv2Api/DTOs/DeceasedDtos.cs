@@ -209,6 +209,17 @@ public class EntranceGuideRoomDto
 {
     public string RoomId { get; set; } = string.Empty;
     public string RoomName { get; set; } = string.Empty;
+    public string FloorName { get; set; } = string.Empty; // 층 안내용
     public int SortOrder { get; set; }
     public DeceasedDetailDto? DeceasedDetail { get; set; }
+}
+
+/// <summary>
+/// 키오스크용 건물 전체 호실 및 이미지 정보 응답 DTO
+/// </summary>
+public class KioskGuideResponseDto
+{
+    public List<EntranceGuideRoomDto> Rooms { get; set; } = new();
+    public List<string> BuildingPhotos { get; set; } = new();
+    public List<string> ParkingPhotos { get; set; } = new();
 }

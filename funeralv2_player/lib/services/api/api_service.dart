@@ -155,4 +155,39 @@ class ApiService {
     }
     return [];
   }
+
+  Future<KioskGuideResponseDto> fetchKioskRooms(String baseUrl, String deviceCode) async {
+    final url = Uri.parse('$baseUrl/api/funeral/building/deceased/kiosk/deviceCode/$deviceCode');
+    print('[API Request] fetchKioskRooms: $url');
+    try {
+      final response = await http.get(url).timeout(const Duration(seconds: 4));
+      print('[API Response] fetchKioskRooms Status: ${response.statusCode}');
+      
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body);
+        print('[API Response] fetchKioskRooms body: ${response.body}');
+        
+        Map<String, dynamic>? targetMap;
+        if (json.containsKey('data') && json['data'] is Map) {
+          final dataMap = json['data'] as Map<String, dynamic>;
+          if (dataMap.containsKey('result') && dataMap['result'] is List) {
+            final list = dataMap['result'] as List;
+            if (list.isNotEmpty && list[0] is Map) {
+              targetMap = list[0] as Map<String, dynamic>;
+            }
+          }
+          targetMap ??= dataMap;
+        } else if (json is Map) {
+          targetMap = json as Map<String, dynamic>;
+        }
+
+        if (targetMap != null) {
+          return KioskGuideResponseDto.fromJson(targetMap);
+        }
+      }
+    } catch (e) {
+      print('[API Error] fetchKioskRooms: $e');
+    }
+    return KioskGuideResponseDto(rooms: [], buildingPhotos: [], parkingPhotos: []);
+  }
 }

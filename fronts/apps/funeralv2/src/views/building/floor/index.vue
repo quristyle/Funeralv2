@@ -30,11 +30,27 @@ const formModel = ref({
 
 const [Grid, gridApi] = useVbenVxeGrid({
   gridOptions: {
+    editConfig: { trigger: 'click', mode: 'cell' },
     columns: [
       { field: 'buildingName', title: '건물명', minWidth: 150 },
-      { field: 'name', title: '층 명칭', minWidth: 120 },
-      { field: 'sortOrder', title: '정렬 순서', minWidth: 100 },
-      { field: 'remark', title: '비고', minWidth: 200 },
+      { 
+        field: 'name', 
+        title: '층 명칭', 
+        minWidth: 120, 
+        editRender: { name: 'input', autofocus: true } 
+      },
+      { 
+        field: 'sortOrder', 
+        title: '정렬 순서', 
+        minWidth: 100, 
+        editRender: { name: 'VxeInput', props: { type: 'integer', min: 1 } } 
+      },
+      { 
+        field: 'remark', 
+        title: '비고', 
+        minWidth: 200, 
+        editRender: { name: 'input' } 
+      },
       {
         field: 'action',
         title: '작업',
@@ -52,6 +68,22 @@ const [Grid, gridApi] = useVbenVxeGrid({
       },
     },
   },
+  gridEvents: {
+    'edit-closed': async ({ row }) => {
+      try {
+        await updateFloor(row.id, {
+          buildingId: row.buildingId,
+          name: row.name,
+          sortOrder: Number(row.sortOrder) || 1,
+          remark: row.remark || ''
+        });
+        message.success('층 정보가 즉시 저장되었습니다.');
+      } catch (error) {
+        message.error('즉시 저장 실패');
+        gridApi.query();
+      }
+    }
+  }
 });
 
 // 필터링 건물 변경 시 그리드 갱신

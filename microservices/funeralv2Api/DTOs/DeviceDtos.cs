@@ -55,6 +55,8 @@ public class DeviceDto
     public string PhotoVerticalAlignment { get; set; } = "TOP";
     public string PhotoHorizontalAlignment { get; set; } = "CENTER";
     public bool IsMuted { get; set; } = false;
+    public string MemorialPhotoEffect { get; set; } = "FADE";
+    public int ContentIntervalSec { get; set; } = 10;
 }
 
 /// <summary>

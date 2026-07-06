@@ -51,7 +51,9 @@ public class RoomService : IRoomService
         }
 
         var list = await query
-            .OrderBy(r => r.Name)
+            .OrderBy(r => r.Floor != null ? r.Floor.SortOrder : 0)
+            .ThenBy(r => r.SortOrder)
+            .ThenBy(r => r.Name)
             .ToListAsync();
 
         return list.Select(r => new RoomDto

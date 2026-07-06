@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Configuration;
 using funeralv2Api.Data;
 using funeralv2Api.DTOs;
 using funeralv2Api.Entities;
@@ -13,11 +14,13 @@ public class BuildingService : IBuildingService
 {
     private readonly AppDbContext _context;
     private readonly ILogger<BuildingService> _logger;
+    private readonly IConfiguration _configuration;
 
-    public BuildingService(AppDbContext context, ILogger<BuildingService> logger)
+    public BuildingService(AppDbContext context, ILogger<BuildingService> logger, IConfiguration configuration)
     {
         _context = context;
         _logger = logger;
+        _configuration = configuration;
     }
 
     /// <summary>
@@ -38,19 +41,32 @@ public class BuildingService : IBuildingService
             .OrderBy(b => b.Name)
             .ToListAsync();
 
-        return list.Select(b => new BuildingDto
+        var dtoList = new List<BuildingDto>();
+        foreach (var b in list)
         {
-            Id = b.Id,
-            CompanyId = b.CompanyId,
-            Name = b.Name,
-            ShortName = b.ShortName,
-            Abbreviation = b.Abbreviation,
-            Address = b.Address,
-            ZipCode = b.ZipCode,
-            AddressDetail = b.AddressDetail,
-            Remark = b.Remark,
-            CreatedAt = b.CreatedAt
-        }).ToList();
+            var dto = new BuildingDto
+            {
+                Id = b.Id,
+                CompanyId = b.CompanyId,
+                Name = b.Name,
+                ShortName = b.ShortName,
+                Abbreviation = b.Abbreviation,
+                Address = b.Address,
+                ZipCode = b.ZipCode,
+                AddressDetail = b.AddressDetail,
+                Remark = b.Remark,
+                BuildingPhotoGroupId = b.BuildingPhotoGroupId,
+                ParkingPhotoGroupId = b.ParkingPhotoGroupId,
+                CreatedAt = b.CreatedAt
+            };
+
+            dto.BuildingPhotos = await GetThumbnailUrlsFromGroupAsync(b.BuildingPhotoGroupId);
+            dto.ParkingPhotos = await GetThumbnailUrlsFromGroupAsync(b.ParkingPhotoGroupId);
+
+            dtoList.Add(dto);
+        }
+
+        return dtoList;
     }
 
     /// <summary>
@@ -64,7 +80,7 @@ public class BuildingService : IBuildingService
 
         if (b == null) return null;
 
-        return new BuildingDto
+        var dto = new BuildingDto
         {
             Id = b.Id,
             CompanyId = b.CompanyId,
@@ -75,8 +91,15 @@ public class BuildingService : IBuildingService
             ZipCode = b.ZipCode,
             AddressDetail = b.AddressDetail,
             Remark = b.Remark,
+            BuildingPhotoGroupId = b.BuildingPhotoGroupId,
+            ParkingPhotoGroupId = b.ParkingPhotoGroupId,
             CreatedAt = b.CreatedAt
         };
+
+        dto.BuildingPhotos = await GetThumbnailUrlsFromGroupAsync(b.BuildingPhotoGroupId);
+        dto.ParkingPhotos = await GetThumbnailUrlsFromGroupAsync(b.ParkingPhotoGroupId);
+
+        return dto;
     }
 
     /// <summary>
@@ -94,13 +117,15 @@ public class BuildingService : IBuildingService
             Address = dto.Address,
             ZipCode = dto.ZipCode,
             AddressDetail = dto.AddressDetail,
-            Remark = dto.Remark
+            Remark = dto.Remark,
+            BuildingPhotoGroupId = dto.BuildingPhotoGroupId,
+            ParkingPhotoGroupId = dto.ParkingPhotoGroupId
         };
 
         _context.Buildings.Add(b);
         await _context.SaveChangesAsync();
 
-        return new BuildingDto
+        var retDto = new BuildingDto
         {
             Id = b.Id,
             CompanyId = b.CompanyId,
@@ -111,8 +136,15 @@ public class BuildingService : IBuildingService
             ZipCode = b.ZipCode,
             AddressDetail = b.AddressDetail,
             Remark = b.Remark,
+            BuildingPhotoGroupId = b.BuildingPhotoGroupId,
+            ParkingPhotoGroupId = b.ParkingPhotoGroupId,
             CreatedAt = b.CreatedAt
         };
+
+        retDto.BuildingPhotos = await GetThumbnailUrlsFromGroupAsync(b.BuildingPhotoGroupId);
+        retDto.ParkingPhotos = await GetThumbnailUrlsFromGroupAsync(b.ParkingPhotoGroupId);
+
+        return retDto;
     }
 
     /// <summary>
@@ -133,11 +165,13 @@ public class BuildingService : IBuildingService
         b.ZipCode = dto.ZipCode;
         b.AddressDetail = dto.AddressDetail;
         b.Remark = dto.Remark;
+        b.BuildingPhotoGroupId = dto.BuildingPhotoGroupId;
+        b.ParkingPhotoGroupId = dto.ParkingPhotoGroupId;
         b.UpdatedAt = DateTime.UtcNow;
 
         await _context.SaveChangesAsync();
 
-        return new BuildingDto
+        var retDto = new BuildingDto
         {
             Id = b.Id,
             CompanyId = b.CompanyId,
@@ -148,8 +182,15 @@ public class BuildingService : IBuildingService
             ZipCode = b.ZipCode,
             AddressDetail = b.AddressDetail,
             Remark = b.Remark,
+            BuildingPhotoGroupId = b.BuildingPhotoGroupId,
+            ParkingPhotoGroupId = b.ParkingPhotoGroupId,
             CreatedAt = b.CreatedAt
         };
+
+        retDto.BuildingPhotos = await GetThumbnailUrlsFromGroupAsync(b.BuildingPhotoGroupId);
+        retDto.ParkingPhotos = await GetThumbnailUrlsFromGroupAsync(b.ParkingPhotoGroupId);
+
+        return retDto;
     }
 
     /// <summary>
@@ -168,5 +209,50 @@ public class BuildingService : IBuildingService
 
         await _context.SaveChangesAsync();
         return true;
+    }
+
+    private async Task<List<string>> GetThumbnailUrlsFromGroupAsync(string? groupId)
+    {
+        var urls = new List<string>();
+        if (string.IsNullOrEmpty(groupId) || !Guid.TryParse(groupId, out _))
+        {
+            return urls;
+        }
+
+        var fileServerUrl = _configuration["Services:FileServer"] ?? "http://localhost:5350";
+        var requestUrl = $"{fileServerUrl.TrimEnd('/')}/group/{groupId}";
+
+        using var client = new HttpClient();
+        try
+        {
+            var response = await client.GetAsync(requestUrl);
+            if (response.IsSuccessStatusCode)
+            {
+                var body = await response.Content.ReadAsStringAsync();
+                var jsonNode = System.Text.Json.Nodes.JsonNode.Parse(body);
+                var success = jsonNode?["success"]?.GetValue<bool>() ?? false;
+                if (success)
+                {
+                    var dataArray = jsonNode?["data"]?["result"]?.AsArray() ?? jsonNode?["data"]?.AsArray();
+                    if (dataArray != null)
+                    {
+                        foreach (var item in dataArray)
+                        {
+                            var fileId = item?["id"]?.GetValue<string>();
+                            if (!string.IsNullOrEmpty(fileId))
+                            {
+                                urls.Add($"/api/file/thumbnail/{fileId}");
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to fetch thumbnail urls for groupId: {GroupId}", groupId);
+        }
+
+        return urls;
     }
 }

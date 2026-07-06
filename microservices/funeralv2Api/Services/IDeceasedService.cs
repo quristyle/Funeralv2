@@ -48,4 +48,9 @@ public interface IDeceasedService
     /// 장비코드로 입구 안내용 호실 및 고인 상세 정보 목록 조회
     /// </summary>
     Task<List<EntranceGuideRoomDto>> GetEntranceGuideRoomsByDeviceCodeAsync(string deviceCode);
+
+    /// <summary>
+    /// 장비코드를 이용해 키오스크용 건물 전체 호실 및 이미지 리스트 조회
+    /// </summary>
+    Task<KioskGuideResponseDto> GetKioskRoomsByDeviceCodeAsync(string deviceCode);
 }

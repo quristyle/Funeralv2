@@ -140,7 +140,9 @@ export function useStatusData() {
         const currentDeceased = deceasedList.find(
           (d: any) => d.roomId === room.id && d.status !== 'COMPLETED'
         );
-        const roomDevices = devices.value.filter((d: BuildingApi.Device) => d.roomId === room.id);
+        const roomDevices = devices.value
+          .filter((d: BuildingApi.Device) => d.roomId === room.id)
+          .sort((a: any, b: any) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
 
         return {
           ...room,

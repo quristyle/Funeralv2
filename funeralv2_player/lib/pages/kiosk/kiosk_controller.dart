@@ -12,6 +12,9 @@ class KioskController extends ChangeNotifier {
   final SignalRService _signalRService = SignalRService();
 
   DeviceDto? device;
+  List<EntranceGuideRoomDto> rooms = []; // 전체 호실 정보 보관
+  List<String> buildingPhotos = [];      // 건물 전경 사진 리스트
+  List<String> parkingPhotos = [];       // 주차장 안내 사진 리스트
   bool isLoading = false;
   bool _isDisposed = false;
 
@@ -34,6 +37,12 @@ class KioskController extends ChangeNotifier {
 
     device = await _apiService.fetchDevice(serverBaseUrl, deviceCode);
     if (device != null && !_isDisposed) {
+      // 건물 내 전체 호실 안내 정보 조회 (키오스크 전용 API 호출)
+      final kioskData = await _apiService.fetchKioskRooms(serverBaseUrl, deviceCode);
+      rooms = kioskData.rooms;
+      buildingPhotos = kioskData.buildingPhotos;
+      parkingPhotos = kioskData.parkingPhotos;
+
       // 배경 영상 설정
       if (device!.isVideoEnabled && device!.videoId != null) {
         final sourcePath = await _apiService.fetchSourcePath(serverBaseUrl, device!.videoId!);

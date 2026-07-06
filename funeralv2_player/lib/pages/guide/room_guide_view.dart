@@ -144,13 +144,16 @@ class _RoomGuideViewState extends State<RoomGuideView> {
 
   // 상주 리스트를 [관계 성명] 형식으로 세로 나열하여 렌더링
   Widget _buildInfoSection(DeviceDto dev, DeceasedDto dec, {required double width}) {
-    // 상주 리스트 문자열화 (세로 나열)
+    // 상주 리스트 관계별로 그룹화하여 세로 나열
     String mournerDisplay = "-";
     if (dec.mourners.isNotEmpty) {
-      mournerDisplay = dec.mourners.map((m) {
-        final rel = m.relationName ?? m.relation ?? '';
-        return "$rel ${m.name ?? ''}";
-      }).join('\n');
+      final Map<String, List<String>> grouped = {};
+      for (var m in dec.mourners) {
+        if (m.name == null || m.name!.isEmpty) continue;
+        final relName = m.relationName ?? m.relation ?? '';
+        grouped.putIfAbsent(relName, () => []).add(m.isChief ? "[상주] ${m.name}" : m.name!);
+      }
+      mournerDisplay = grouped.entries.map((e) => "${e.key}: ${e.value.join(', ')}").join("\n");
     } else if (dec.chiefMourner != null) {
       mournerDisplay = dec.chiefMourner!;
     }

@@ -914,6 +914,7 @@ public class DeceasedService : IDeceasedService
         {
             _logger.LogInformation("Fetching rooms for FloorId: {FloorId}", device.FloorId);
             rooms = await _context.Rooms
+                .Include(r => r.Floor)
                 .Where(r => r.FloorId == device.FloorId && r.Status == "ACTIVE" && !r.IsDeleted)
                 .OrderBy(r => r.SortOrder)
                 .ToListAsync();
@@ -922,6 +923,7 @@ public class DeceasedService : IDeceasedService
         {
             _logger.LogInformation("Fetching rooms for BuildingId: {BuildingId}", device.BuildingId);
             rooms = await _context.Rooms
+                .Include(r => r.Floor)
                 .Where(r => r.BuildingId == device.BuildingId && r.Status == "ACTIVE" && !r.IsDeleted)
                 .OrderBy(r => r.SortOrder)
                 .ToListAsync();
@@ -978,12 +980,178 @@ public class DeceasedService : IDeceasedService
             {
                 RoomId = room.Id,
                 RoomName = room.Name,
+                FloorName = room.Floor?.Name ?? string.Empty,
                 SortOrder = room.SortOrder,
                 DeceasedDetail = detailDto
             });
         }
 
         return result;
+    }
+
+    /// <inheritdoc />
+    /// <inheritdoc />
+    public async Task<KioskGuideResponseDto> GetKioskRoomsByDeviceCodeAsync(string deviceCode)
+    {
+        _logger.LogInformation("GetKioskRoomsByDeviceCodeAsync: {DeviceCode}", deviceCode);
+        var responseDto = new KioskGuideResponseDto();
+
+        if (string.IsNullOrEmpty(deviceCode))
+        {
+            return responseDto;
+        }
+
+        // 1. 장비 코드로 장비 조회
+        var device = await _context.Devices
+            .Where(d => d.Code == deviceCode)
+            .FirstOrDefaultAsync();
+
+        if (device == null)
+        {
+            _logger.LogWarning("Device not found for code: {DeviceCode}", deviceCode);
+            return responseDto;
+        }
+
+        // 2. 장비가 속한 건물 ID 파악
+        var buildingId = device.BuildingId;
+        if (string.IsNullOrEmpty(buildingId) && !string.IsNullOrEmpty(device.FloorId))
+        {
+            // FloorId가 있으면 Floor 엔티티를 조회하여 BuildingId를 구함
+            var floor = await _context.Floors.FindAsync(device.FloorId);
+            if (floor != null)
+            {
+                buildingId = floor.BuildingId;
+            }
+        }
+
+        if (string.IsNullOrEmpty(buildingId))
+        {
+            _logger.LogWarning("BuildingId not found for device: {DeviceCode}", deviceCode);
+            return responseDto;
+        }
+
+        // 3. 건물의 전경 이미지 및 주차장 이미지 URL 목록 가져오기
+        var building = await _context.Buildings
+            .Where(b => b.Id == buildingId && !b.IsDeleted)
+            .FirstOrDefaultAsync();
+        if (building != null)
+        {
+            responseDto.BuildingPhotos = await GetFileUrlsFromGroupAsync(building.BuildingPhotoGroupId);
+            responseDto.ParkingPhotos = await GetFileUrlsFromGroupAsync(building.ParkingPhotoGroupId);
+        }
+
+        // 4. 해당 건물의 모든 호실 조회 (층 필터링 없음, 오직 건물 기준)
+        _logger.LogInformation("Fetching rooms for BuildingId: {BuildingId}", buildingId);
+        var rooms = await _context.Rooms
+            .Include(r => r.Floor)
+            .Where(r => r.BuildingId == buildingId && r.Status == "ACTIVE" && !r.IsDeleted)
+            .OrderBy(r => r.SortOrder)
+            .ToListAsync();
+
+        var roomList = new List<EntranceGuideRoomDto>();
+
+        // 5. 각 호실별로 현재 배정된 고인 정보 조회 및 DTO 매핑
+        foreach (var room in rooms)
+        {
+            var deceasedId = await (from dr in _context.DeceasedRooms
+                                    join d in _context.Deceaseds on dr.DeceasedId equals d.Id
+                                    where dr.RoomId == room.Id && !dr.IsDeleted && !d.IsDeleted && d.Status != "COMPLETED"
+                                    orderby dr.StartTime descending
+                                    select d.Id).FirstOrDefaultAsync();
+
+            DeceasedDetailDto? detailDto = null;
+            if (deceasedId != null)
+            {
+                detailDto = await GetDeceasedDetailAsync(deceasedId);
+                if (detailDto != null)
+                {
+                    // 상주 목록 채우기 (GetDeceasedDetailByDeviceCodeAsync 와 동일한 스펙)
+                    var mourners = await _context.DeceasedMourners
+                        .AsNoTracking()
+                        .Where(m => m.DeceasedId == deceasedId && !m.IsDeleted)
+                        .OrderBy(m => m.SortOrder)
+                        .ThenBy(m => m.Name)
+                        .Select(m => new DeceasedMournerDto
+                        {
+                            Name = m.Name,
+                            Relation = m.Relation,
+                            IsChief = m.IsChief,
+                        }).ToListAsync();
+
+                    var famTypes = await GetFamTypeRelationNamesAsync();
+                    foreach (var m in mourners)
+                    {
+                        if (famTypes.TryGetValue(m.Relation, out var codeName))
+                        {
+                            m.RelationName = codeName;
+                        }
+                        else
+                        {
+                            m.RelationName = m.Relation;
+                        }
+                    }
+
+                    detailDto.Mourners = mourners;
+                }
+            }
+
+            roomList.Add(new EntranceGuideRoomDto
+            {
+                RoomId = room.Id,
+                RoomName = room.Name,
+                FloorName = room.Floor?.Name ?? string.Empty,
+                SortOrder = room.SortOrder,
+                DeceasedDetail = detailDto
+            });
+        }
+
+        responseDto.Rooms = roomList;
+        return responseDto;
+    }
+
+    private async Task<List<string>> GetFileUrlsFromGroupAsync(string? groupId)
+    {
+        var urls = new List<string>();
+        if (string.IsNullOrEmpty(groupId) || !Guid.TryParse(groupId, out _))
+        {
+            return urls;
+        }
+
+        var fileServerUrl = _configuration["Services:FileServer"] ?? "http://localhost:5350";
+        var requestUrl = $"{fileServerUrl.TrimEnd('/')}/group/{groupId}";
+
+        using var client = new HttpClient();
+        try
+        {
+            var response = await client.GetAsync(requestUrl);
+            if (response.IsSuccessStatusCode)
+            {
+                var body = await response.Content.ReadAsStringAsync();
+                var jsonNode = System.Text.Json.Nodes.JsonNode.Parse(body);
+                var success = jsonNode?["success"]?.GetValue<bool>() ?? false;
+                if (success)
+                {
+                    var dataArray = jsonNode?["data"]?["result"]?.AsArray() ?? jsonNode?["data"]?.AsArray();
+                    if (dataArray != null)
+                    {
+                        foreach (var item in dataArray)
+                        {
+                            var downloadUrl = item?["downloadUrl"]?.GetValue<string>();
+                            if (!string.IsNullOrEmpty(downloadUrl))
+                            {
+                                urls.Add(downloadUrl);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to fetch file urls for groupId: {GroupId}", groupId);
+        }
+
+        return urls;
     }
 
     private async Task<Dictionary<string, string>> GetFamTypeRelationNamesAsync()

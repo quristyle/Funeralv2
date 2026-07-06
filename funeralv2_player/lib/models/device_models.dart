@@ -6,15 +6,15 @@ class DeviceDto {
   final String name;
   final String? roomId;
   final String? roomName;
-  final String? floorId; // 추가
-  final String? floorName; // 추가
-  final String? buildingId; // 추가
-  final String? buildingName; // 추가
+  final String? floorId;
+  final String? floorName;
+  final String? buildingId;
+  final String? buildingName;
   final String? videoId;
   final String? musicId;
   final bool isVideoEnabled;
   final bool isMusicEnabled;
-  final bool isMuted; // 추가: 전체 음소거 여부
+  final bool isMuted;
   final String? videoName;
   final String? musicName;
   final double musicVolume;
@@ -27,6 +27,8 @@ class DeviceDto {
   final String deviceType;
   final String photoVerticalAlignment;
   final String photoHorizontalAlignment;
+  final String memorialPhotoEffect; // 추가
+  final int contentIntervalSec;     // 추가
 
   final double displayPaddingTop;
   final double displayPaddingLeft;
@@ -65,6 +67,8 @@ class DeviceDto {
     required this.deviceType,
     required this.photoVerticalAlignment,
     required this.photoHorizontalAlignment,
+    required this.memorialPhotoEffect,
+    required this.contentIntervalSec,
     required this.displayPaddingTop,
     required this.displayPaddingLeft,
     required this.displayPaddingRight,
@@ -101,7 +105,7 @@ class DeviceDto {
       musicId: data['musicId'],
       isVideoEnabled: (data['isVideoEnabled'] == 1 || data['isVideoEnabled'] == true),
       isMusicEnabled: (data['isMusicEnabled'] == 1 || data['isMusicEnabled'] == true),
-      isMuted: (data['isMuted'] == 1 || data['isMuted'] == true), // 파싱 추가
+      isMuted: (data['isMuted'] == 1 || data['isMuted'] == true),
       videoName: data['videoName'],
       musicName: data['musicName'],
       musicVolume: (data['musicVolume'] ?? 50).toDouble(),
@@ -114,6 +118,8 @@ class DeviceDto {
       photoVerticalAlignment: (data['photoVerticalAlignment'] == null || data['photoVerticalAlignment'].toString().isEmpty) ? 'CENTER' : data['photoVerticalAlignment'],
       photoHorizontalAlignment: (data['photoHorizontalAlignment'] == null || data['photoHorizontalAlignment'].toString().isEmpty) ? 'CENTER' : data['photoHorizontalAlignment'],
       deviceType: data['deviceType'] ?? 'UNKNOWN',
+      memorialPhotoEffect: data['memorialPhotoEffect'] ?? 'FADE',
+      contentIntervalSec: (data['contentIntervalSec'] ?? 10).toInt(),
       displayPaddingTop: (data['displayPaddingTop'] ?? 0).toDouble(),
       displayPaddingLeft: (data['displayPaddingLeft'] ?? 0).toDouble(),
       displayPaddingRight: (data['displayPaddingRight'] ?? 0).toDouble(),
@@ -132,11 +138,15 @@ class DeviceDto {
       'name': name,
       'roomId': roomId,
       'roomName': roomName,
+      'floorId': floorId,
+      'floorName': floorName,
+      'buildingId': buildingId,
+      'buildingName': buildingName,
       'videoId': videoId,
       'musicId': musicId,
       'isVideoEnabled': isVideoEnabled ? 1 : 0,
       'isMusicEnabled': isMusicEnabled ? 1 : 0,
-      'isMuted': isMuted ? 1 : 0, // 저장 추가
+      'isMuted': isMuted ? 1 : 0,
       'videoName': videoName,
       'musicName': musicName,
       'musicVolume': musicVolume,
@@ -149,6 +159,8 @@ class DeviceDto {
       'photoVerticalAlignment': photoVerticalAlignment,
       'photoHorizontalAlignment': photoHorizontalAlignment,
       'deviceType': deviceType,
+      'memorialPhotoEffect': memorialPhotoEffect,
+      'contentIntervalSec': contentIntervalSec,
       'displayPaddingTop': displayPaddingTop,
       'displayPaddingLeft': displayPaddingLeft,
       'displayPaddingRight': displayPaddingRight,
@@ -411,12 +423,14 @@ class DeceasedDto {
 class EntranceGuideRoomDto {
   final String roomId;
   final String roomName;
+  final String floorName;
   final int sortOrder;
   final DeceasedDto? deceasedDetail;
 
   EntranceGuideRoomDto({
     required this.roomId,
     required this.roomName,
+    required this.floorName,
     required this.sortOrder,
     this.deceasedDetail,
   });
@@ -425,10 +439,35 @@ class EntranceGuideRoomDto {
     return EntranceGuideRoomDto(
       roomId: json['roomId'] ?? '',
       roomName: json['roomName'] ?? '',
+      floorName: json['floorName'] ?? '',
       sortOrder: json['sortOrder'] ?? 0,
       deceasedDetail: json['deceasedDetail'] != null
           ? DeceasedDto.fromJson(json['deceasedDetail'])
           : null,
+    );
+  }
+}
+
+class KioskGuideResponseDto {
+  final List<EntranceGuideRoomDto> rooms;
+  final List<String> buildingPhotos;
+  final List<String> parkingPhotos;
+
+  KioskGuideResponseDto({
+    required this.rooms,
+    required this.buildingPhotos,
+    required this.parkingPhotos,
+  });
+
+  factory KioskGuideResponseDto.fromJson(Map<String, dynamic> json) {
+    var roomsList = json['rooms'] as List? ?? [];
+    var buildingPhotosList = json['buildingPhotos'] as List? ?? [];
+    var parkingPhotosList = json['parkingPhotos'] as List? ?? [];
+
+    return KioskGuideResponseDto(
+      rooms: roomsList.map((e) => EntranceGuideRoomDto.fromJson(e)).toList(),
+      buildingPhotos: buildingPhotosList.map((e) => e.toString()).toList(),
+      parkingPhotos: parkingPhotosList.map((e) => e.toString()).toList(),
     );
   }
 }

@@ -47,7 +47,7 @@ class LocalDbService {
 
     return await openDatabase(
       path,
-      version: 7, // 버전 7로 상향
+      version: 8,
       onCreate: _onCreate,
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) {
@@ -90,6 +90,13 @@ class LocalDbService {
             await db.execute('ALTER TABLE deceased ADD COLUMN deviceTextOverlays TEXT');
           } catch (_) {}
         }
+        if (oldVersion < 8) {
+          try {
+            await db.execute('ALTER TABLE devices ADD COLUMN memorialPhotoEffect TEXT');
+            await db.execute('ALTER TABLE devices ADD COLUMN contentIntervalSec INTEGER');
+            await db.execute('ALTER TABLE devices ADD COLUMN isMuted INTEGER');
+          } catch (_) {}
+        }
       },
     );
   }
@@ -124,7 +131,10 @@ class LocalDbService {
         memorialPaddingBottom REAL,
         photoVerticalAlignment TEXT,
         photoHorizontalAlignment TEXT,
-        deviceType TEXT
+        deviceType TEXT,
+        memorialPhotoEffect TEXT,
+        contentIntervalSec INTEGER,
+        isMuted INTEGER
       )
     ''');
 

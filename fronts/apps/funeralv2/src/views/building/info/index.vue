@@ -1,11 +1,12 @@
 <script lang="ts" setup>
 import { ref, watch } from 'vue';
-import { Page, useVbenModal } from '@vben/common-ui';
+import { Page, useVbenModal, ImageGroupManager } from '@vben/common-ui';
 import { IconifyIcon, Plus } from '@vben/icons';
 import { Button, message, Popconfirm, Form, Input, Tooltip } from 'ant-design-vue';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { getBuildings, createBuilding, updateBuilding, deleteBuilding } from '#/api/building';
 import BizSelect from '#/components/BizSelect.vue';
+import ImagePreview from '#/components/ImagePreview.vue';
 
 const filterCompanyId = ref<string>('');
 
@@ -26,7 +27,9 @@ const formModel = ref({
   address: '',
   zipCode: '',
   addressDetail: '',
-  remark: ''
+  remark: '',
+  buildingPhotoGroupId: '',
+  parkingPhotoGroupId: ''
 });
 
 const [Grid, gridApi] = useVbenVxeGrid({
@@ -36,6 +39,8 @@ const [Grid, gridApi] = useVbenVxeGrid({
       { field: 'shortName', title: '짧은명칭', minWidth: 120 },
       { field: 'abbreviation', title: '약어', minWidth: 100 },
       { field: 'address', title: '주소', minWidth: 250 },
+      { field: 'buildingPhotos', title: '건물전경사진', minWidth: 160, slots: { default: 'buildingPhotos' } },
+      { field: 'parkingPhotos', title: '주차장이미지', minWidth: 160, slots: { default: 'parkingPhotos' } },
       {
         field: 'action',
         title: '작업',
@@ -69,13 +74,19 @@ function onCreate() {
     address: '',
     zipCode: '',
     addressDetail: '',
-    remark: ''
+    remark: '',
+    buildingPhotoGroupId: '',
+    parkingPhotoGroupId: ''
   };
   buildingModalApi.open();
 }
 
 function onEdit(row: any) {
-  formModel.value = { ...row };
+  formModel.value = {
+    ...row,
+    buildingPhotoGroupId: row.buildingPhotoGroupId || '',
+    parkingPhotoGroupId: row.parkingPhotoGroupId || ''
+  };
   buildingModalApi.open();
 }
 
@@ -130,6 +141,38 @@ async function handleSave() {
     </div>
 
     <Grid table-title="건물 정보 목록">
+      <template #buildingPhotos="{ row }">
+        <div class="flex gap-1 items-center overflow-x-auto py-1">
+          <template v-if="row.buildingPhotos && row.buildingPhotos.length">
+            <ImagePreview
+              v-for="(url, idx) in row.buildingPhotos"
+              :key="idx"
+              :src="url"
+              :preview-src="url.replace('/thumbnail/', '/download/')"
+              :width="40"
+              :height="40"
+            />
+          </template>
+          <span v-else class="text-xs text-muted-foreground">미등록</span>
+        </div>
+      </template>
+
+      <template #parkingPhotos="{ row }">
+        <div class="flex gap-1 items-center overflow-x-auto py-1">
+          <template v-if="row.parkingPhotos && row.parkingPhotos.length">
+            <ImagePreview
+              v-for="(url, idx) in row.parkingPhotos"
+              :key="idx"
+              :src="url"
+              :preview-src="url.replace('/thumbnail/', '/download/')"
+              :width="40"
+              :height="40"
+            />
+          </template>
+          <span v-else class="text-xs text-muted-foreground">미등록</span>
+        </div>
+      </template>
+
       <template #action="{ row }">
         <div class="flex gap-2 justify-center">
           <Tooltip title="수정">
@@ -175,6 +218,36 @@ async function handleSave() {
           <Form.Item label="비고/설명">
             <Input.TextArea v-model:value="formModel.remark" placeholder="특이 사항 입력" />
           </Form.Item>
+
+          <div class="grid grid-cols-2 gap-4 mt-6">
+            <div class="p-4 rounded border border-border bg-card/10">
+              <h3 class="text-sm font-semibold mb-1 text-foreground">
+                건물 전경 사진 등록 (다중)
+              </h3>
+              <p class="text-xs text-muted-foreground mb-4">
+                * 종합 현판, DID에 노출되는 전경 이미지 그룹입니다.
+              </p>
+              <ImageGroupManager
+                v-model="formModel.buildingPhotoGroupId"
+                :limit="10"
+                biz-type="funeralv2/building"
+              />
+            </div>
+            
+            <div class="p-4 rounded border border-border bg-card/10">
+              <h3 class="text-sm font-semibold mb-1 text-foreground">
+                주차장 안내 이미지 등록 (다중)
+              </h3>
+              <p class="text-xs text-muted-foreground mb-4">
+                * 종합 안내 키오스크의 주차안내 화면에 슬라이드로 표시됩니다.
+              </p>
+              <ImageGroupManager
+                v-model="formModel.parkingPhotoGroupId"
+                :limit="10"
+                biz-type="funeralv2/building"
+              />
+            </div>
+          </div>
         </Form>
       </div>
     </BuildingModal>

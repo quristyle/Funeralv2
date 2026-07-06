@@ -132,6 +132,15 @@ public class DeviceService : IDeviceService
                 dto.MusicId = attr.MusicId;
                 dto.IsVideoEnabled = attr.IsVideoEnabled;
                 dto.IsMusicEnabled = attr.IsMusicEnabled;
+                dto.IsMemorialPhotoEnabled = attr.IsMemorialPhotoEnabled;
+                dto.IsDeceasedNameVisible = attr.IsDeceasedNameVisible;
+                dto.IsFamilyContactVisible = attr.IsFamilyContactVisible;
+                dto.MusicVolume = attr.MusicVolume ?? 50;
+                dto.DisplayOrientation = attr.DisplayOrientation;
+                dto.PortraitOrientation = attr.PortraitOrientation ?? "HORIZONTAL";
+                dto.VideoOrientation = attr.VideoOrientation ?? "HORIZONTAL";
+                dto.MemorialPhotoEffect = attr.MemorialPhotoEffect;
+                dto.ContentIntervalSec = attr.ContentIntervalSec;
                 dto.VideoName = !string.IsNullOrEmpty(attr.VideoId) && mediaMap.TryGetValue(attr.VideoId, out var vName) ? vName : null;
                 dto.MusicName = !string.IsNullOrEmpty(attr.MusicId) && mediaMap.TryGetValue(attr.MusicId, out var mName) ? mName : null;
             }
@@ -184,6 +193,9 @@ public class DeviceService : IDeviceService
             dto.MemorialPaddingBottom = attr.MemorialPaddingBottom ?? 0;
             dto.PhotoVerticalAlignment = attr.PhotoVerticalAlignment;
             dto.PhotoHorizontalAlignment = attr.PhotoHorizontalAlignment;
+            dto.IsMuted = attr.IsMuted;
+            dto.MemorialPhotoEffect = attr.MemorialPhotoEffect;
+            dto.ContentIntervalSec = attr.ContentIntervalSec;
             
             if (!string.IsNullOrEmpty(attr.VideoId))
             {
@@ -247,6 +259,8 @@ public class DeviceService : IDeviceService
             dto.PhotoVerticalAlignment = attr.PhotoVerticalAlignment;
             dto.PhotoHorizontalAlignment = attr.PhotoHorizontalAlignment;
             dto.IsMuted = attr.IsMuted;
+            dto.MemorialPhotoEffect = attr.MemorialPhotoEffect;
+            dto.ContentIntervalSec = attr.ContentIntervalSec;
             
             if (!string.IsNullOrEmpty(attr.VideoId))
             {

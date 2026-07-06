@@ -17,6 +17,10 @@ public class BuildingDto
     public string? ZipCode { get; set; }
     public string? AddressDetail { get; set; }
     public string? Remark { get; set; }
+    public string? BuildingPhotoGroupId { get; set; } // 건물전경사진 파일그룹 ID
+    public string? ParkingPhotoGroupId { get; set; }  // 주차장안내이미지 파일그룹 ID
+    public List<string> BuildingPhotos { get; set; } = new(); // 건물전경사진 썸네일 URL 목록
+    public List<string> ParkingPhotos { get; set; } = new();  // 주차장안내이미지 썸네일 URL 목록
     public DateTime CreatedAt { get; set; }
 }
 
@@ -40,6 +44,8 @@ public class BuildingCreateDto
     public string? ZipCode { get; set; }
     public string? AddressDetail { get; set; }
     public string? Remark { get; set; }
+    public string? BuildingPhotoGroupId { get; set; } // 건물전경사진 파일그룹 ID
+    public string? ParkingPhotoGroupId { get; set; }  // 주차장안내이미지 파일그룹 ID
 }
 
 /// <summary>
@@ -59,4 +65,6 @@ public class BuildingUpdateDto
     public string? ZipCode { get; set; }
     public string? AddressDetail { get; set; }
     public string? Remark { get; set; }
+    public string? BuildingPhotoGroupId { get; set; } // 건물전경사진 파일그룹 ID
+    public string? ParkingPhotoGroupId { get; set; }  // 주차장안내이미지 파일그룹 ID
 }

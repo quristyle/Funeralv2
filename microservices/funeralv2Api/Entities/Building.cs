@@ -73,4 +73,16 @@ public class Building : BaseEntity<string>
     /// </summary>
     [Column("remark")]
     public string? Remark { get; set; }
+
+    /// <summary>
+    /// 건물 전경 사진 파일그룹 ID
+    /// </summary>
+    [Column("building_photo_group_id")]
+    public string? BuildingPhotoGroupId { get; set; }
+
+    /// <summary>
+    /// 주차장 안내 이미지 파일그룹 ID
+    /// </summary>
+    [Column("parking_photo_group_id")]
+    public string? ParkingPhotoGroupId { get; set; }
 }

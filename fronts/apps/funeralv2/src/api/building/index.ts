@@ -11,6 +11,8 @@ export namespace BuildingApi {
     zipCode?: string;
     addressDetail?: string;
     remark?: string;
+    buildingPhotoGroupId?: string;
+    parkingPhotoGroupId?: string;
     createdAt: string;
   }
 
