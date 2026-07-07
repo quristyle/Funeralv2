@@ -115,6 +115,7 @@ export function useStatusData() {
         companyId: searchForm.value.companyId || undefined,
         buildingId: searchForm.value.buildingId || undefined,
         floorId: searchForm.value.floorId || undefined,
+        _t: Date.now(),
       };
       const devicesRes = await getDevices(devicesParams);
       devices.value = (devicesRes as any)?.result ?? devicesRes;
@@ -138,7 +139,7 @@ export function useStatusData() {
       // 5. 프론트엔드 조인 결합
       roomStatuses.value = rooms.map((room: BuildingApi.Room) => {
         const currentDeceased = deceasedList.find(
-          (d: any) => d.roomId === room.id && d.status !== 'COMPLETED'
+          (d: any) => d.roomId === room.id && d.status !== 'COMPLETED' && d.status !== 'FUNERAL_DEPARTURE_COMPLETED'
         );
         const roomDevices = devices.value
           .filter((d: BuildingApi.Device) => d.roomId === room.id)
@@ -157,11 +158,11 @@ export function useStatusData() {
     }
   }
 
-  function onSearch() {
-    loadData();
+  async function onSearch() {
+    await loadData();
   }
 
-  function onReset() {
+  async function onReset() {
     searchForm.value = {
       companyId: searchForm.value.companyId,
       buildingId: '',
@@ -170,7 +171,7 @@ export function useStatusData() {
     };
     roomEnterDates.value = undefined;
     funeralDates.value = undefined;
-    loadData();
+    await loadData();
   }
 
   // ─── 필터링된 건물 목록 ──────────────────────────────────────────
@@ -219,6 +220,47 @@ export function useStatusData() {
     };
   }
 
+  // ─── 장비 미디어 상태 로컬 갱신 (전체 재조회 깜빡임 방지) ───────────────────
+  function updateDeviceMediaState(
+    deviceId: string,
+    type: 'video' | 'music',
+    mediaId: string | null,
+    mediaName: string | null
+  ) {
+    // 1. 장비 목록(devices) 갱신
+    devices.value = devices.value.map((d) => {
+      if (d.id === deviceId) {
+        if (type === 'video') {
+          return {
+            ...d,
+            videoId: mediaId || null,
+            videoName: mediaName || null,
+            isVideoEnabled: !!mediaId,
+          } as any;
+        } else {
+          return {
+            ...d,
+            musicId: mediaId || null,
+            musicName: mediaName || null,
+            isMusicEnabled: !!mediaId,
+          } as any;
+        }
+      }
+      return d;
+    });
+
+    // 2. 호실현황(roomStatuses) 조인 데이터 동시 갱신
+    roomStatuses.value = roomStatuses.value.map((room) => {
+      const roomDevices = devices.value
+        .filter((d: BuildingApi.Device) => d.roomId === room.id)
+        .sort((a: any, b: any) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+      return {
+        ...room,
+        devices: roomDevices,
+      };
+    });
+  }
+
   return {
     searchForm,
     roomEnterDates,
@@ -238,5 +280,6 @@ export function useStatusData() {
     devices,
     videos,
     musics,
+    updateDeviceMediaState,
   };
 }

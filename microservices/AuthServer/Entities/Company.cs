@@ -5,50 +5,88 @@ using Funeralv2.Shared.Domain;
 namespace AuthServer.Entities;
 
 /// <summary>
-/// 회사 엔티티
+/// 회사 엔티티 클래스
 /// </summary>
 [Table("companies", Schema = "scom")]
 public class Company : BaseEntity<string>
 {
+    /// <summary>
+    /// Company 클래스의 새 인스턴스를 초기화하고 고유 식별자(GUID)를 생성합니다.
+    /// </summary>
     public Company()
     {
         Id = Guid.NewGuid().ToString();
     }
 
+    /// <summary>
+    /// 회사 명칭
+    /// </summary>
     [Required]
     [Column("name")]
     public string Name { get; set; } = string.Empty;
 
+    /// <summary>
+    /// 사업자 등록 번호
+    /// </summary>
     [Column("business_number")]
-    public string? BusinessNumber { get; set; } // 사업자 번호
+    public string? BusinessNumber { get; set; }
 
+    /// <summary>
+    /// 대표자명
+    /// </summary>
     [Column("representative")]
-    public string? Representative { get; set; } // 대표자명
+    public string? Representative { get; set; }
 
+    /// <summary>
+    /// 회사 사용 상태 (1: 활성, 0: 비활성)
+    /// </summary>
     [Column("status")]
-    public int Status { get; set; } = 1; // 1: 활성, 0: 비활성
+    public int Status { get; set; } = 1;
 
+    /// <summary>
+    /// 비고 및 추가 설명
+    /// </summary>
     [Column("remark")]
     public string? Remark { get; set; }
 
+    /// <summary>
+    /// 회사 약칭
+    /// </summary>
     [Column("short_name")]
-    public string? ShortName { get; set; } // 짧은명칭
+    public string? ShortName { get; set; }
 
+    /// <summary>
+    /// 우편번호
+    /// </summary>
     [Column("zip_code")]
-    public string? ZipCode { get; set; } // 우편번호
+    public string? ZipCode { get; set; }
 
+    /// <summary>
+    /// 회사 주소
+    /// </summary>
     [Column("address")]
-    public string? Address { get; set; } // 주소
+    public string? Address { get; set; }
 
+    /// <summary>
+    /// 회사 상세 주소
+    /// </summary>
     [Column("address_detail")]
-    public string? AddressDetail { get; set; } // 상세주소
+    public string? AddressDetail { get; set; }
 
+    /// <summary>
+    /// 회사 승인 일자
+    /// </summary>
     [Column("approval_date")]
-    public DateTime? ApprovalDate { get; set; } // 승인일
+    public DateTime? ApprovalDate { get; set; }
 
+    /// <summary>
+    /// 정렬 순서
+    /// </summary>
     [Column("sort_order")]
-    public int SortOrder { get; set; } = 0; // 정렬 순서
+    public int SortOrder { get; set; } = 0;
 
-    // 관계 설정: 1(Company) : N(Department)
+    /// <summary>
+    /// 회사 소속 부서 목록 탐색 속성 (1:N 관계)
+    /// </summary>
     public ICollection<Department>? Departments { get; set; }
 }

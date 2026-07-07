@@ -1,6 +1,7 @@
 <script lang="ts" setup>
-import { Tag, Badge, Dropdown, Menu } from 'ant-design-vue';
+import { Tag, Badge, Dropdown, Menu, Tooltip, Button, Modal, message } from 'ant-design-vue';
 import { IconifyIcon } from '@vben/icons';
+import { updateDeceased } from '#/api/building';
 
 const props = defineProps<{
   room: {
@@ -16,7 +17,42 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'update-media', payload: { deviceId: string; type: 'video' | 'music'; mediaId: string }): void;
+  (e: 'show-detail', deviceId: string): void;
+  (e: 'refresh'): void;
 }>();
+
+async function handleDepart() {
+  if (!props.room.deceased) return;
+  const deceased = props.room.deceased;
+
+  Modal.confirm({
+    title: '출상 처리 확인',
+    content: `고인 [고 ${deceased.name}] 님의 출상(장례 종료 및 배정 해제) 처리를 진행하시겠습니까?`,
+    okText: '진행',
+    cancelText: '취소',
+    okButtonProps: { danger: true },
+    onOk: async () => {
+      try {
+        await updateDeceased(deceased.id, {
+          name: deceased.name,
+          gender: deceased.gender,
+          age: deceased.age,
+          religion: deceased.religion,
+          deathDate: deceased.deathDate,
+          funeralDate: deceased.funeralDate,
+          burialDate: deceased.burialDate,
+          status: 'FUNERAL_DEPARTURE_COMPLETED',
+          roomId: '',
+        });
+        message.success('출상 처리가 정상적으로 완료되었습니다.');
+        emit('refresh');
+      } catch (err) {
+        console.error('출상 처리 실패:', err);
+        message.error('출상 처리 중 오류가 발생했습니다.');
+      }
+    }
+  });
+}
 
 const deviceTypeMap: Record<string, { label: string; color: string }> = {
   FUNERAL_PORTRAIT: { label: '영정', color: 'purple' },
@@ -41,38 +77,51 @@ const deviceTypeMap: Record<string, { label: string; color: string }> = {
       </div>
 
       <!-- 고인 정보 표출부 (입실중) -->
-      <div v-if="room.deceased" class="flex gap-3 mb-4 p-3 bg-primary/5 rounded-lg border border-primary/10">
-        <!-- 영정 썸네일 -->
-        <div class="w-[60px] h-[75px] bg-muted rounded border border-border flex items-center justify-center overflow-hidden shrink-0">
-          <img 
-            v-if="room.deceased.memorialEditedPhotoFileId || room.deceased.memorialEditedPhotoUrl || room.deceased.memorialPhotoFileId || room.deceased.memorialPhotoUrl"
-            :src="room.deceased.memorialEditedPhotoFileId 
-              ? `/api/file/thumbnail/${room.deceased.memorialEditedPhotoFileId}` 
-              : (room.deceased.memorialEditedPhotoUrl 
-                ? room.deceased.memorialEditedPhotoUrl 
-                : (room.deceased.memorialPhotoFileId 
-                  ? `/api/file/thumbnail/${room.deceased.memorialPhotoFileId}` 
-                  : room.deceased.memorialPhotoUrl))"
-            class="w-full h-full object-cover"
-            alt="영정"
-          />
-          <IconifyIcon v-else icon="mdi:account" class="size-8 text-muted-foreground/40" />
-        </div>
+      <div v-if="room.deceased" class="flex items-center justify-between mb-4 p-3 bg-primary/5 rounded-lg border border-primary/10 gap-3">
+        <div class="flex gap-3 min-w-0">
+          <!-- 영정 썸네일 -->
+          <div class="w-[60px] h-[75px] bg-muted rounded border border-border flex items-center justify-center overflow-hidden shrink-0">
+            <img 
+              v-if="room.deceased.memorialEditedPhotoFileId || room.deceased.memorialEditedPhotoUrl || room.deceased.memorialPhotoFileId || room.deceased.memorialPhotoUrl"
+              :src="room.deceased.memorialEditedPhotoFileId 
+                ? `/api/file/thumbnail/${room.deceased.memorialEditedPhotoFileId}` 
+                : (room.deceased.memorialEditedPhotoUrl 
+                  ? room.deceased.memorialEditedPhotoUrl 
+                  : (room.deceased.memorialPhotoFileId 
+                    ? `/api/file/thumbnail/${room.deceased.memorialPhotoFileId}` 
+                    : room.deceased.memorialPhotoUrl))"
+              class="w-full h-full object-cover"
+              alt="영정"
+            />
+            <IconifyIcon v-else icon="mdi:account" class="size-8 text-muted-foreground/40" />
+          </div>
 
-        <!-- 고인 인적 사항 -->
-        <div class="flex flex-col justify-between py-0.5">
-          <div>
-            <div class="font-bold text-base text-foreground">고 {{ room.deceased.name }}</div>
-            <div class="text-xs text-muted-foreground mt-0.5">
-              {{ room.deceased.gender === 'M' ? '남성' : '여성' }} / {{ room.deceased.age }}세
+          <!-- 고인 인적 사항 -->
+          <div class="flex flex-col justify-between py-0.5 min-w-0">
+            <div>
+              <div class="font-bold text-base text-foreground truncate">고 {{ room.deceased.name }}</div>
+              <div class="text-xs text-muted-foreground mt-0.5">
+                {{ room.deceased.gender === 'M' || room.deceased.gender === 'MALE' ? '남성' : '여성' }} / {{ room.deceased.age }}세
+              </div>
+            </div>
+            <div>
+              <Tag v-if="room.deceased.status === 'IN_HOSPITAL'" color="processing" class="m-0 text-[10px] py-0 px-1.5">장례 진행중</Tag>
+              <Tag v-else-if="room.deceased.status === 'DISCHARGED'" color="warning" class="m-0 text-[10px] py-0 px-1.5">발인 완료</Tag>
+              <Tag v-else color="success" class="m-0 text-[10px] py-0 px-1.5">정산 완료</Tag>
             </div>
           </div>
-          <div>
-            <Tag v-if="room.deceased.status === 'IN_HOSPITAL'" color="processing" class="m-0 text-[10px] py-0 px-1.5">장례 진행중</Tag>
-            <Tag v-else-if="room.deceased.status === 'DISCHARGED'" color="warning" class="m-0 text-[10px] py-0 px-1.5">발인 완료</Tag>
-            <Tag v-else color="success" class="m-0 text-[10px] py-0 px-1.5">정산 완료</Tag>
-          </div>
         </div>
+
+        <!-- 출상 처리 버튼 -->
+        <Button 
+          type="primary" 
+          danger 
+          size="small" 
+          class="shrink-0 text-[11px] h-7 px-2 font-medium"
+          @click="handleDepart"
+        >
+          출상
+        </Button>
       </div>
 
       <!-- 공실 상태 표출부 -->
@@ -96,7 +145,16 @@ const deviceTypeMap: Record<string, { label: string; color: string }> = {
         >
           <!-- 장비명 & 타입 뱃지 & 온라인 상태 -->
           <div class="flex items-center justify-between">
-            <span class="font-bold text-foreground truncate max-w-[120px]">{{ device.name }}</span>
+            <div class="flex items-center gap-1 min-w-0">
+              <span class="font-bold text-foreground truncate max-w-[120px]">{{ device.name }}</span>
+              <Tooltip :title="device.code">
+                <IconifyIcon 
+                  icon="lucide:info" 
+                  class="size-3.5 text-muted-foreground/60 hover:text-primary cursor-pointer shrink-0 transition-colors"
+                  @click="emit('show-detail', device.id)"
+                />
+              </Tooltip>
+            </div>
             <div class="flex items-center gap-1">
               <Tag 
                 :color="deviceTypeMap[device.deviceType]?.color || 'default'"

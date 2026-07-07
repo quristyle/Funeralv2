@@ -100,7 +100,7 @@ export namespace BuildingApi {
     burialDate?: string;
     roomId?: string;
     roomName?: string;
-    status: 'IN_HOSPITAL' | 'DISCHARGED' | 'COMPLETED';
+    status: 'IN_HOSPITAL' | 'DISCHARGED' | 'COMPLETED' | 'FUNERAL_DEPARTURE_COMPLETED';
   }
 
   export interface DeceasedMourner {
@@ -161,7 +161,7 @@ export namespace BuildingApi {
     burialDate?: string;
     roomId?: string;
     roomName?: string;
-    status: 'IN_HOSPITAL' | 'DISCHARGED' | 'COMPLETED';
+    status: 'IN_HOSPITAL' | 'DISCHARGED' | 'COMPLETED' | 'FUNERAL_DEPARTURE_COMPLETED';
     remark?: string;
     ssn?: string;
     causeOfDeath?: string;
@@ -434,6 +434,9 @@ export async function getDeceasedDetail(id: string) {
 export async function saveDeceasedDetail(id: string, data: BuildingApi.DeceasedDetail) {
   const url = id ? `/funeral/building/deceased/${id}/detail` : '/funeral/building/deceased/detail';
   return requestClient.put<BuildingApi.DeceasedDetail>(url, data);
+}
+export async function cancelDeceasedDeparture(id: string) {
+  return requestClient.put<boolean>(`/funeral/building/deceased/${id}/cancel-departure`);
 }
 
 // === 장비 속성 API ===

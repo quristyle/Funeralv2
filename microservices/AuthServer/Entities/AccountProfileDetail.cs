@@ -10,14 +10,23 @@ namespace AuthServer.Entities;
 [Table("account_profile_details", Schema = "scom")]
 public class AccountProfileDetail : BaseEntity<string>
 {
+    /// <summary>
+    /// AccountProfileDetail 클래스의 새 인스턴스를 초기화하고 고유 식별자(GUID)를 생성합니다.
+    /// </summary>
     public AccountProfileDetail()
     {
         Id = Guid.NewGuid().ToString();
     }
 
+    /// <summary>
+    /// 연관된 사용자 계정 식별자 (ID)
+    /// </summary>
     [Required]
     public string AccountId { get; set; } = string.Empty;
 
+    /// <summary>
+    /// 연관된 사용자 계정 엔티티 탐색 속성
+    /// </summary>
     [ForeignKey("AccountId")]
     public Account? Account { get; set; }
 
@@ -43,5 +52,8 @@ public class AccountProfileDetail : BaseEntity<string>
     /// </summary>
     public string? Label { get; set; }
 
+    /// <summary>
+    /// 비고 및 추가 설명
+    /// </summary>
     public string? Remark { get; set; }
 }

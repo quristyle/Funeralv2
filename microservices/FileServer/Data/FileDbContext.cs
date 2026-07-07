@@ -42,5 +42,7 @@ public class FileDbContext : DbContext
                 property.SetColumnName(property.GetColumnName().ToLower());
             }
         }
+
+        modelBuilder.ApplyXmlComments();
     }
 }

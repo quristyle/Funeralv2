@@ -5,18 +5,21 @@ using Funeralv2.Shared.Domain;
 namespace funeralv2Api.Entities;
 
 /// <summary>
-/// 건물 엔티티
+/// 건물(시설물) 정보 엔티티 클래스
 /// </summary>
 [Table("buildings", Schema = "smfr")]
 public class Building : BaseEntity<string>
 {
+    /// <summary>
+    /// Building 클래스의 새 인스턴스를 초기화하고 고유 식별자(GUID)를 생성합니다.
+    /// </summary>
     public Building()
     {
         Id = Guid.NewGuid().ToString();
     }
 
     /// <summary>
-    /// 소속 회사 ID
+    /// 소속 회사 식별자 (ID)
     /// </summary>
     [Required]
     [Column("company_id")]
@@ -30,7 +33,7 @@ public class Building : BaseEntity<string>
     public string Name { get; set; } = string.Empty;
 
     /// <summary>
-    /// 짧은건물명
+    /// 건물 약칭
     /// </summary>
     [Column("short_name")]
     public string? ShortName { get; set; }
@@ -51,7 +54,7 @@ public class Building : BaseEntity<string>
     public int SortOrder { get; set; }
 
     /// <summary>
-    /// 주소
+    /// 건물 주소
     /// </summary>
     [Column("address")]
     public string? Address { get; set; }
@@ -63,25 +66,25 @@ public class Building : BaseEntity<string>
     public string? ZipCode { get; set; }
 
     /// <summary>
-    /// 상세주소
+    /// 상세 주소
     /// </summary>
     [Column("address_detail")]
     public string? AddressDetail { get; set; }
 
     /// <summary>
-    /// 비고/설명
+    /// 비고 및 추가 설명
     /// </summary>
     [Column("remark")]
     public string? Remark { get; set; }
 
     /// <summary>
-    /// 건물 전경 사진 파일그룹 ID
+    /// 건물 전경 사진 파일 그룹 식별자 (ID)
     /// </summary>
     [Column("building_photo_group_id")]
     public string? BuildingPhotoGroupId { get; set; }
 
     /// <summary>
-    /// 주차장 안내 이미지 파일그룹 ID
+    /// 주차장 안내 이미지 파일 그룹 식별자 (ID)
     /// </summary>
     [Column("parking_photo_group_id")]
     public string? ParkingPhotoGroupId { get; set; }

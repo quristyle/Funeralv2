@@ -1211,4 +1211,57 @@ public class DeceasedService : IDeceasedService
         if (!dt.HasValue) return null;
         return dt.Value.Kind == DateTimeKind.Unspecified ? DateTime.SpecifyKind(dt.Value, DateTimeKind.Utc) : dt;
     }
+    /// <inheritdoc />
+    public async Task<bool> CancelDepartureAsync(string deceasedId)
+    {
+        _logger.LogInformation("Cancelling departure for deceased: {DeceasedId}", deceasedId);
+
+        var deceased = await _context.Deceaseds.FirstOrDefaultAsync(x => x.Id == deceasedId && !x.IsDeleted);
+        if (deceased == null)
+        {
+            _logger.LogWarning("Deceased not found for cancelling departure: {DeceasedId}", deceasedId);
+            return false;
+        }
+
+        // 1. 고인 상태를 FUNERAL_IN_PROGRESS로 복구
+        deceased.Status = "FUNERAL_IN_PROGRESS";
+        deceased.UpdatedBy = "System";
+        deceased.UpdatedAt = DateTime.UtcNow;
+
+        // 2. 가장 최근에 삭제 처리(IsDeleted == true)된 배정 이력을 가져옴
+        var lastRoomAssignment = await _context.DeceasedRooms
+            .Where(dr => dr.DeceasedId == deceasedId && dr.IsDeleted)
+            .OrderByDescending(dr => dr.StartTime)
+            .FirstOrDefaultAsync();
+
+        if (lastRoomAssignment != null)
+        {
+            // 삭제 아닌 상태로 복구 및 종료 시간 초기화
+            lastRoomAssignment.IsDeleted = false;
+            lastRoomAssignment.EndTime = null;
+
+            // DID 장비 화면 리로드 등을 위해 SignalR 알림 발송용 RoomId 기억
+            var roomId = lastRoomAssignment.RoomId;
+            await _context.SaveChangesAsync();
+
+            try
+            {
+                if (!string.IsNullOrEmpty(roomId))
+                {
+                    await _deviceHubSender.SendDeviceChangedByRoomIdAsync(roomId);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "SignalR 알림 전송 중 에러");
+            }
+        }
+        else
+        {
+            await _context.SaveChangesAsync();
+            _logger.LogWarning("No deleted room assignment history found to restore for deceased: {DeceasedId}", deceasedId);
+        }
+
+        return true;
+    }
 }

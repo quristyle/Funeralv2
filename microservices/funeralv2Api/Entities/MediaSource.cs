@@ -10,6 +10,9 @@ namespace funeralv2Api.Entities;
 [Table("media_sources", Schema = "smfr")]
 public class MediaSource : BaseEntity<string>
 {
+    /// <summary>
+    /// MediaSource 클래스의 새 인스턴스를 초기화하고 고유 식별자(GUID)를 생성합니다.
+    /// </summary>
     public MediaSource()
     {
         Id = Guid.NewGuid().ToString("N");

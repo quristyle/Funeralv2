@@ -1,9 +1,11 @@
 <script lang="ts" setup>
+import { onMounted, ref } from 'vue';
 import { Page } from '@vben/common-ui';
 import { Empty, Spin, message } from 'ant-design-vue';
 import { useStatusData } from './composables/use-status-data';
 import StatusSearchForm from './modules/status-search-form.vue';
 import BuildingSection from './modules/building-section.vue';
+import DeviceDetailModal from './modules/device-detail-modal.vue';
 import { upsertDeviceAttribute, getDeviceAttribute } from '#/api/building';
 
 const {
@@ -22,7 +24,14 @@ const {
   devices,
   videos,
   musics,
+  updateDeviceMediaState,
 } = useStatusData();
+
+const deviceDetailModalRef = ref<InstanceType<typeof DeviceDetailModal> | null>(null);
+
+onMounted(() => {
+  onSearch();
+});
 
 // 장비의 동영상/음악 즉시 변경 처리
 async function handleUpdateDeviceMedia(payload: { deviceId: string; type: 'video' | 'music'; mediaId: string }) {
@@ -33,11 +42,23 @@ async function handleUpdateDeviceMedia(payload: { deviceId: string; type: 'video
     let attr: any;
     try {
       const res = await getDeviceAttribute(deviceId);
+
+      console.log('getDeviceAttribute res:', res);
+
       // ApiResponse 언래핑: { result: [...] } 구조에서 데이터 추출
       const raw = (res as any)?.result ?? res;
+      
+      console.log('getDeviceAttribute raw:', raw);
+
       attr = Array.isArray(raw) ? raw[0] : raw;
-    } catch {
+      
+      console.log('getDeviceAttribute attr:', attr);
+
+    } catch (eee){
       // 속성이 아직 없을 수 있음
+      
+      console.log('getDeviceAttribute err:', eee);
+
     }
     
     if (!attr) {
@@ -57,7 +78,7 @@ async function handleUpdateDeviceMedia(payload: { deviceId: string; type: 'video
         isMuted: false,
       };
     }
-    
+
     // 2. 값 설정 및 즉시 사용(Enabled = true) 변경
     if (type === 'video') {
       attr.videoId = mediaId || null;
@@ -71,11 +92,22 @@ async function handleUpdateDeviceMedia(payload: { deviceId: string; type: 'video
     const savePayload = { ...attr };
     delete savePayload.id;
     
-    await upsertDeviceAttribute(savePayload);
+    // 업데이트 처리를 위해 upsertDeviceAttribute 호출
+    const res = await upsertDeviceAttribute(savePayload);
     message.success('장비 멀티미디어 설정이 즉시 변경되었습니다.');
     
-    // 3. 목록 재조회로 뷰 갱신
-    onSearch();
+    // 3. 로컬 상태 즉시 갱신 (전체 API 재조회 없이 변경된 미디어 명칭만 화면에 갱신)
+    const raw = (res as any)?.result ?? res;
+    const updatedAttr = Array.isArray(raw) ? raw[0] : raw;
+    if (updatedAttr) {
+      if (type === 'video') {
+        const mediaName = updatedAttr.videoId ? (videos.value.find((v) => v.value === updatedAttr.videoId)?.label ?? '') : null;
+        updateDeviceMediaState(deviceId, 'video', updatedAttr.videoId, mediaName);
+      } else {
+        const mediaName = updatedAttr.musicId ? (musics.value.find((m) => m.value === updatedAttr.musicId)?.label ?? '') : null;
+        updateDeviceMediaState(deviceId, 'music', updatedAttr.musicId, mediaName);
+      }
+    }
   } catch (err) {
     console.error('장비 미디어 변경 실패:', err);
     message.error('장비 미디어 설정 변경 실패');
@@ -124,8 +156,11 @@ async function handleUpdateDeviceMedia(payload: { deviceId: string; type: 'video
           :summary="getBuildingSummary(building.id)"
           @toggle="toggleBuilding(building.id)"
           @update-media="handleUpdateDeviceMedia"
+          @show-detail="(id) => deviceDetailModalRef?.open(id)"
+          @refresh="onSearch"
         />
       </div>
     </div>
+    <DeviceDetailModal ref="deviceDetailModalRef" />
   </Page>
 </template>

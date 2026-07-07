@@ -127,5 +127,18 @@ public static class DeceasedEndpoints
         })
         .WithName("SaveDeceasedDetailNew")
         .WithOpenApi();
+
+        // 고인 출상 취소 처리
+        group.MapPut("/{id}/cancel-departure", async (string id, [FromServices] IDeceasedService service) =>
+        {
+            var success = await service.CancelDepartureAsync(id);
+            if (!success)
+            {
+                return Results.NotFound(ApiResponse<bool>.Fail("출상 취소할 고인 정보를 찾을 수 없습니다."));
+            }
+            return Results.Ok(true);
+        })
+        .WithName("CancelDeparture")
+        .WithOpenApi();
     }
 }

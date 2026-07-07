@@ -53,4 +53,9 @@ public interface IDeceasedService
     /// 장비코드를 이용해 키오스크용 건물 전체 호실 및 이미지 리스트 조회
     /// </summary>
     Task<KioskGuideResponseDto> GetKioskRoomsByDeviceCodeAsync(string deviceCode);
+
+    /// <summary>
+    /// 고인의 출상 취소 처리
+    /// </summary>
+    Task<bool> CancelDepartureAsync(string deceasedId);
 }

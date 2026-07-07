@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import { computed } from 'vue';
-import { Tag, Badge, Dropdown, Menu } from 'ant-design-vue';
+import { Tag, Badge, Dropdown, Menu, Tooltip } from 'ant-design-vue';
 import { IconifyIcon } from '@vben/icons';
 import RoomCard from './room-card.vue';
 
@@ -25,6 +25,8 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'toggle'): void;
   (e: 'update-media', payload: { deviceId: string; type: 'video' | 'music'; mediaId: string }): void;
+  (e: 'show-detail', deviceId: string): void;
+  (e: 'refresh'): void;
 }>();
 
 interface FloorGroup {
@@ -154,10 +156,19 @@ const deviceTypeMap: Record<string, { label: string; color: string }> = {
           >
             <!-- 상단 장비명 & 상태 -->
             <div class="flex items-center justify-between">
-              <div class="flex items-center gap-2">
-                <IconifyIcon icon="mdi:monitor-dashboard" class="size-5 text-primary/70" />
-                <div class="flex flex-col">
-                  <span class="font-bold text-foreground leading-tight">{{ device.name }}</span>
+              <div class="flex items-center gap-2 min-w-0">
+                <IconifyIcon icon="mdi:monitor-dashboard" class="size-5 text-primary/70 shrink-0" />
+                <div class="flex flex-col min-w-0">
+                  <span class="font-bold text-foreground leading-tight truncate flex items-center gap-1">
+                    {{ device.name }}
+                    <Tooltip :title="device.code">
+                      <IconifyIcon 
+                        icon="lucide:info" 
+                        class="size-3.5 text-muted-foreground/60 hover:text-primary cursor-pointer shrink-0 transition-colors"
+                        @click="emit('show-detail', device.id)"
+                      />
+                    </Tooltip>
+                  </span>
                   <span class="text-[10px] text-muted-foreground/50">{{ device.code }}</span>
                 </div>
               </div>
@@ -237,8 +248,17 @@ const deviceTypeMap: Record<string, { label: string; color: string }> = {
                     class="flex flex-col gap-2 bg-card p-2.5 rounded-lg border border-border/80 text-xs"
                   >
                     <div class="flex items-center justify-between">
-                      <div class="flex flex-col">
-                        <span class="font-semibold text-foreground leading-tight">{{ device.name }}</span>
+                      <div class="flex flex-col min-w-0">
+                        <span class="font-semibold text-foreground leading-tight truncate flex items-center gap-1">
+                          {{ device.name }}
+                          <Tooltip :title="device.code">
+                            <IconifyIcon 
+                              icon="lucide:info" 
+                              class="size-3.5 text-muted-foreground/60 hover:text-primary cursor-pointer shrink-0 transition-colors"
+                              @click="emit('show-detail', device.id)"
+                            />
+                          </Tooltip>
+                        </span>
                         <span class="text-[9px] text-muted-foreground/50 mt-0.5">{{ device.code }}</span>
                       </div>
                       <Badge :status="device.status === 'ONLINE' ? 'success' : 'error'" class="scale-75" />
@@ -293,6 +313,8 @@ const deviceTypeMap: Record<string, { label: string; color: string }> = {
               :videos="videos"
               :musics="musics"
               @update-media="(payload) => emit('update-media', payload)"
+              @show-detail="(id) => emit('show-detail', id)"
+              @refresh="() => emit('refresh')"
             />
           </div>
         </div>

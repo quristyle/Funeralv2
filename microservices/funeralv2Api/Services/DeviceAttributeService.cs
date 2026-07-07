@@ -113,6 +113,7 @@ public class DeviceAttributeService : IDeviceAttributeService
         // 실시간 변경 알림 송신
         try
         {
+            _logger.LogInformation("deviceAttr changed signalR 전송 시작. DeviceId: {DeviceId}", dto.DeviceId);
             await _deviceHubSender.SendDeviceChangedByDeviceIdAsync(dto.DeviceId);
         }
         catch (Exception ex)

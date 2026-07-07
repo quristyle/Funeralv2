@@ -65,6 +65,8 @@ public class AppDbContext : DbContext
                 property.SetColumnName(ToSnakeCase(property.Name));
             }
         }
+
+        modelBuilder.ApplyXmlComments();
     }
 
     // PascalCase -> snake_case 변환 헬퍼

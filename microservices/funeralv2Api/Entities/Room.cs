@@ -5,25 +5,28 @@ using Funeralv2.Shared.Domain;
 namespace funeralv2Api.Entities;
 
 /// <summary>
-/// 호실 엔티티
+/// 호실(빈소, 안치실, 참관실 등) 정보 엔티티 클래스
 /// </summary>
 [Table("rooms", Schema = "smfr")]
 public class Room : BaseEntity<string>
 {
+    /// <summary>
+    /// Room 클래스의 새 인스턴스를 초기화하고 고유 식별자(GUID)를 생성합니다.
+    /// </summary>
     public Room()
     {
         Id = Guid.NewGuid().ToString();
     }
 
     /// <summary>
-    /// 소속 건물 ID
+    /// 소속 건물 식별자 (ID)
     /// </summary>
     [Required]
     [Column("building_id")]
     public string BuildingId { get; set; } = string.Empty;
 
     /// <summary>
-    /// 소속 층 ID
+    /// 소속 층 식별자 (ID)
     /// </summary>
     [Required]
     [Column("floor_id")]
@@ -37,13 +40,13 @@ public class Room : BaseEntity<string>
     public string Name { get; set; } = string.Empty;
 
     /// <summary>
-    /// 짧은 명칭
+    /// 호실 약칭
     /// </summary>
     [Column("short_name")]
     public string? ShortName { get; set; }
 
     /// <summary>
-    /// 호실 타입 (예: 빈소, 안치실, 참관실 등)
+    /// 호실 유형 (예: 빈소, 안치실, 참관실, 영결식장 등)
     /// </summary>
     [Required]
     [Column("room_type")]
@@ -57,19 +60,21 @@ public class Room : BaseEntity<string>
     public int SortOrder { get; set; }
 
     /// <summary>
-    /// 상태 (ACTIVE, INACTIVE)
+    /// 사용 상태 (예: ACTIVE, INACTIVE 등, 기본값: ACTIVE)
     /// </summary>
     [Required]
     [Column("status")]
     public string Status { get; set; } = "ACTIVE";
 
     /// <summary>
-    /// 비고/설명
+    /// 비고 및 추가 설명
     /// </summary>
     [Column("remark")]
     public string? Remark { get; set; }
 
-    // 네비게이션 프로퍼티
+    /// <summary>
+    /// 소속 층 엔티티 탐색 속성
+    /// </summary>
     [ForeignKey(nameof(FloorId))]
     public Floor? Floor { get; set; }
 }

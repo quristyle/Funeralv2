@@ -22,6 +22,8 @@ export function useDeviceGrid(
       columns: [
         { field: 'name', title: '장비명', minWidth: 120 },
         { field: 'shortName', title: '짧은 명칭', minWidth: 100 },
+        { field: 'floorShortName', title: '층', minWidth: 80 },
+        { field: 'roomShortName', title: '호실', minWidth: 100 },
         {
           field: 'locationPath',
           title: '소속 위치',

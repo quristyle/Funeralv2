@@ -121,5 +121,7 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<DeviceConfig>()
             .HasIndex(c => c.DeviceId)
             .IsUnique();
+
+        modelBuilder.ApplyXmlComments();
     }
 }

@@ -1,8 +1,8 @@
 <script lang="ts" setup>
 import { ref, onMounted, onUnmounted, nextTick } from 'vue';
 import { useVbenModal } from '@vben/common-ui';
-import { message, Form } from 'ant-design-vue';
-import { getDeceasedDetail, saveDeceasedDetail, getRooms } from '#/api/building';
+import { message, Form, Modal, Button } from 'ant-design-vue';
+import { getDeceasedDetail, saveDeceasedDetail, getRooms, cancelDeceasedDeparture } from '#/api/building';
 import dayjs from 'dayjs';
 import DictSelect from '#/components/DictSelect.vue';
 
@@ -297,6 +297,31 @@ async function handleSave() {
   }
 }
 
+async function handleCancelDeparture() {
+  if (!currentId.value) return;
+
+  Modal.confirm({
+    title: '출상 취소 확인',
+    content: '고인의 출상(장례 완료) 처리를 취소하고 다시 장례를 진행하시겠습니까? 이전 호실 배정 이력도 복구됩니다.',
+    okText: '진행',
+    cancelText: '취소',
+    onOk: async () => {
+      try {
+        deceasedModalApi.lock();
+        await cancelDeceasedDeparture(currentId.value);
+        message.success('출상 취소 처리가 완료되었습니다.');
+        deceasedModalApi.close();
+        emit('saved');
+      } catch (err) {
+        console.error('출상 취소 실패:', err);
+        message.error('출상 취소 중 오류가 발생했습니다.');
+      } finally {
+        deceasedModalApi.unlock();
+      }
+    }
+  });
+}
+
 defineExpose({ open });
 </script>
 
@@ -388,5 +413,17 @@ defineExpose({ open });
         </Form>
       </div>
     </div>
+
+    <template #prepend-footer>
+      <Button 
+        v-if="isEditMode && formModel.status === 'FUNERAL_DEPARTURE_COMPLETED'" 
+        type="primary" 
+        danger 
+        ghost
+        @click="handleCancelDeparture"
+      >
+        출상 취소
+      </Button>
+    </template>
   </DeceasedModal>
 </template>
