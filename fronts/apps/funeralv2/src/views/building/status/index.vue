@@ -79,13 +79,13 @@ async function handleUpdateDeviceMedia(payload: { deviceId: string; type: 'video
       };
     }
 
-    // 2. 값 설정 및 즉시 사용(Enabled = true) 변경
+    // 2. 값 설정 및 즉시 사용 활성화 상태 자동 설정
     if (type === 'video') {
       attr.videoId = mediaId || null;
-      attr.isVideoEnabled = true; // 선택 시 즉시 사용 활성화
+      attr.isVideoEnabled = !!mediaId; // 미사용 시 false, 선택 시 true
     } else {
       attr.musicId = mediaId || null;
-      attr.isMusicEnabled = true; // 선택 시 즉시 사용 활성화
+      attr.isMusicEnabled = !!mediaId; // 미사용 시 false, 선택 시 true
     }
     
     // id가 있으면 Omit<DeviceAttribute, 'id'> 형태에서 id 속성을 명시적으로 제거

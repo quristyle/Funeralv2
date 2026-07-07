@@ -47,9 +47,11 @@ class KioskController extends ChangeNotifier {
       if (device!.isVideoEnabled && device!.videoId != null) {
         final sourcePath = await _apiService.fetchSourcePath(serverBaseUrl, device!.videoId!);
         final localVideoPath = await _cacheManager.getCachedFileByPath(serverBaseUrl, sourcePath);
-        if (localVideoPath != null && !_isDisposed) {
+        if (localVideoPath != null && !_isDisposed && device!.isVideoEnabled) {
           await playerService.playVideo(localVideoPath, onVideoInitialized);
         }
+      } else {
+        await playerService.stopVideo();
       }
 
       // SignalR 연결 (키오스크는 상시 연결 유지)
