@@ -45,6 +45,7 @@ export namespace BuildingApi {
     deviceType: string; // DID, 키오스크, 현판 등
     ipAddress?: string;
     macAddress?: string;
+    publicIpAddress?: string;
     status: 'ONLINE' | 'OFFLINE' | 'UNKNOWN';
     sortOrder: number;
     companyId?: string;

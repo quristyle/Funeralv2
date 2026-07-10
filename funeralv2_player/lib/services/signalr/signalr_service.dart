@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:signalr_netcore/signalr_client.dart';
+import 'package:http/http.dart' as http;
 
 class SignalRService {
   HubConnection? _hubConnection;
@@ -19,6 +20,9 @@ class SignalRService {
   Future<void> connect({
     required String serverUrl,
     required String deviceCode,
+    String? ipAddress,
+    String? macAddress,
+    String? publicIpAddress,
     required Function() onDeviceChanged,
   }) async {
     if (_isConnecting) {
@@ -52,7 +56,7 @@ class SignalRService {
     _hubConnection!.onreconnected(({connectionId}) {
       print('[SignalR] 자동 재연결 성공. ConnectionId: $connectionId');
       _reconnectAttempt = 0; // 성공 시 카운터 초기화
-      _registerDevice(deviceCode);
+      _registerDevice(deviceCode, ipAddress, macAddress, publicIpAddress);
     });
 
     // 2. 자동 재연결 실패 후 연결이 완전히 종료되었을 때
@@ -63,6 +67,9 @@ class SignalRService {
       _scheduleManualReconnect(
         serverUrl: serverUrl,
         deviceCode: deviceCode,
+        ipAddress: ipAddress,
+        macAddress: macAddress,
+        publicIpAddress: publicIpAddress,
         onDeviceChanged: onDeviceChanged,
       );
     });
@@ -81,7 +88,7 @@ class SignalRService {
       await _hubConnection!.start();
       print('[SignalR] 연결 성공!');
       _reconnectAttempt = 0; // 연결 성공 시 카운터 초기화
-      await _registerDevice(deviceCode);
+      await _registerDevice(deviceCode, ipAddress, macAddress, publicIpAddress);
     } catch (e) {
       print('[SignalR] 연결 시작 중 에러: $e');
       // start() 실패 시 onclose가 호출되지 않을 수 있으므로 여기서도 처리
@@ -89,6 +96,9 @@ class SignalRService {
       _scheduleManualReconnect(
         serverUrl: serverUrl,
         deviceCode: deviceCode,
+        ipAddress: ipAddress,
+        macAddress: macAddress,
+        publicIpAddress: publicIpAddress,
         onDeviceChanged: onDeviceChanged,
       );
       return;
@@ -97,11 +107,11 @@ class SignalRService {
     }
   }
 
-  Future<void> _registerDevice(String deviceCode) async {
+  Future<void> _registerDevice(String deviceCode, String? ipAddress, String? macAddress, String? publicIpAddress) async {
     if (isConnected) {
       try {
-        await _hubConnection!.invoke('RegisterDevice', args: [deviceCode]);
-        print('[SignalR] >> RegisterDevice 그룹 구독 완료: $deviceCode');
+        await _hubConnection!.invoke('RegisterDevice', args: [deviceCode, ipAddress ?? "", macAddress ?? "", publicIpAddress ?? ""]);
+        print('[SignalR] >> RegisterDevice 그룹 구독 완료: $deviceCode (IP: $ipAddress, MAC: $macAddress, PublicIP: $publicIpAddress)');
       } catch (e) {
         print('[SignalR] 장치 등록 중 에러: $e');
       }
@@ -115,6 +125,9 @@ class SignalRService {
   void _scheduleManualReconnect({
     required String serverUrl,
     required String deviceCode,
+    String? ipAddress,
+    String? macAddress,
+    String? publicIpAddress,
     required Function() onDeviceChanged,
   }) {
     _reconnectTimer?.cancel();
@@ -131,6 +144,8 @@ class SignalRService {
       connect(
         serverUrl: serverUrl,
         deviceCode: deviceCode,
+        ipAddress: ipAddress,
+        macAddress: macAddress,
         onDeviceChanged: onDeviceChanged,
       );
     });

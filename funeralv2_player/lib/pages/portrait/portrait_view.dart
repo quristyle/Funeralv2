@@ -55,24 +55,29 @@ class _PortraitViewState extends State<PortraitView> {
           return _buildErrorView();
         }
 
-        // 2. 정상 상태일 때 PlayerShell 호출
+        // 2. 정상 상태일 때 PlayerShell 호출 (설정 아이콘을 숨기고, 화면 전체 터치 이벤트 연동)
         return PlayerShell(
           device: dev!,
           playerService: _controller.playerService,
           onOpenSettings: widget.onOpenSettings,
           debugFileName: 'portrait_view.dart',
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              // 영정사진 레이어
-              _buildPortraitPhotoLayer(dev),
-              // 장식 레이어
-              _buildDecorationsLayer(dev),
-              // 정보 레이아웃 레이어
-              _buildUILayoutLayer(dev),
-              // 텍스트 오버레이 레이어 (deviceTextOverlays) - 추가됨
-              _buildTextOverlaysLayer(dev),
-            ],
+          showSettingsIcon: false,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque, // 투명한 빈 영역 클릭도 모두 감지
+            onTap: widget.onOpenSettings,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                // 영정사진 레이어
+                _buildPortraitPhotoLayer(dev),
+                // 장식 레이어
+                _buildDecorationsLayer(dev),
+                // 정보 레이아웃 레이어
+                _buildUILayoutLayer(dev),
+                // 텍스트 오버레이 레이어 (deviceTextOverlays) - 추가됨
+                _buildTextOverlaysLayer(dev),
+              ],
+            ),
           ),
         );
       },

@@ -27,4 +27,7 @@ public interface IDeviceService
 
     /// <summary>장비 코드로 조회</summary>
     Task<DeviceDto?> GetByCodeAsync(string code);
+
+    /// <summary>장비 상태 및 마지막 확인 시간 업데이트</summary>
+    Task<bool> UpdateStatusAsync(string deviceCode, string status, string? ipAddress = null, string? macAddress = null, string? publicIpAddress = null);
 }

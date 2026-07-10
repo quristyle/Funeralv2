@@ -316,6 +316,7 @@ public class DeviceService : IDeviceService
             IpAddress = item.IpAddress,
             MacAddress = item.MacAddress,
             Status = item.Status,
+            LastSeenAt = item.Status == "ONLINE" ? DateTime.UtcNow : null,
             SortOrder = item.SortOrder,
             BuildingId = item.BuildingId,
             FloorId = item.FloorId,
@@ -359,6 +360,10 @@ public class DeviceService : IDeviceService
         entity.IpAddress = item.IpAddress;
         entity.MacAddress = item.MacAddress;
         entity.Status = item.Status;
+        if (item.Status == "ONLINE")
+        {
+            entity.LastSeenAt = DateTime.UtcNow;
+        }
         entity.SortOrder = item.SortOrder;
         entity.BuildingId = item.BuildingId;
         entity.FloorId = item.FloorId;
@@ -420,6 +425,102 @@ public class DeviceService : IDeviceService
         }
     }
 
+    /// <summary>
+    /// 장비 상태 및 마지막 확인 시간 업데이트
+    /// </summary>
+    public async Task<bool> UpdateStatusAsync(string deviceCode, string status, string? ipAddress = null, string? macAddress = null, string? publicIpAddress = null)
+    {
+        _logger.LogInformation("장비 상태를 업데이트합니다. Code: {Code}, Status: {Status}, IP: {IP}, MAC: {MAC}, PublicIP: {PublicIP}", deviceCode, status, ipAddress, macAddress, publicIpAddress);
+
+        var entity = await _context.Devices.FirstOrDefaultAsync(d => d.Code == deviceCode && !d.IsDeleted);
+        if (entity == null)
+        {
+            _logger.LogWarning("상태를 업데이트할 장비를 찾을 수 없습니다. Code: {Code}", deviceCode);
+            return false;
+        }
+
+        entity.Status = status;
+        entity.LastSeenAt = DateTime.UtcNow;
+        entity.UpdatedAt = DateTime.UtcNow;
+
+        if (!string.IsNullOrEmpty(ipAddress))
+        {
+            entity.IpAddress = ipAddress;
+        }
+        if (!string.IsNullOrEmpty(macAddress))
+        {
+            entity.MacAddress = macAddress;
+        }
+        if (!string.IsNullOrEmpty(publicIpAddress) && publicIpAddress != "::1" && publicIpAddress != "127.0.0.1")
+        {
+            entity.PublicIpAddress = publicIpAddress;
+        }
+
+        try
+        {
+            _context.Entry(entity).State = EntityState.Modified;
+            await _context.SaveChangesAsync();
+
+            // 동일한 물리 기기(IP 또는 MAC)를 공유하는 다른 기기코드가 있다면 즉시 OFFLINE 전환
+            if (status == "ONLINE")
+            {
+                var otherDevicesQuery = _context.Devices.Where(d => d.Id != entity.Id && d.Status == "ONLINE" && !d.IsDeleted);
+                List<Device> otherDevices = new();
+
+                if (!string.IsNullOrEmpty(entity.MacAddress))
+                {
+                    otherDevices = await otherDevicesQuery.Where(d => d.MacAddress == entity.MacAddress).ToListAsync();
+                }
+                else if (!string.IsNullOrEmpty(entity.IpAddress))
+                {
+                    otherDevices = await otherDevicesQuery.Where(d => d.IpAddress == entity.IpAddress).ToListAsync();
+                }
+
+                foreach (var other in otherDevices)
+                {
+                    other.Status = "OFFLINE";
+                    other.UpdatedAt = DateTime.UtcNow;
+                    _context.Entry(other).State = EntityState.Modified;
+
+                    _logger.LogInformation("동일 기기(IP/MAC) 감지로 기존 장비 즉시 오프라인 처리. OldCode: {OtherCode}", other.Code);
+
+                    try
+                    {
+                        await _deviceHubSender.SendDeviceStatusChangedAsync(other.Code, "OFFLINE");
+                        await _deviceHubSender.SendDeviceChangedByDeviceIdAsync(other.Id);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "이전 장비 상태 변경 알림 전송 실패. Code: {OtherCode}", other.Code);
+                    }
+                }
+
+                if (otherDevices.Any())
+                {
+                    await _context.SaveChangesAsync();
+                }
+            }
+            
+            // 실시간 변경 알림 송신
+            try
+            {
+                await _deviceHubSender.SendDeviceStatusChangedAsync(entity.Code, status);
+                await _deviceHubSender.SendDeviceChangedByDeviceIdAsync(entity.Id);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "SignalR 장비 상태 변경 알림 전송 중 에러 발생");
+            }
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "장비 상태 업데이트 중 오류 발생. Code: {Code}", deviceCode);
+            throw;
+        }
+    }
+
     // ────────────────────────────────────────────────────────
     // private helper
     // ────────────────────────────────────────────────────────
@@ -433,7 +534,9 @@ public class DeviceService : IDeviceService
         DeviceType = d.DeviceType,
         IpAddress = d.IpAddress,
         MacAddress = d.MacAddress,
+        PublicIpAddress = d.PublicIpAddress,
         Status = d.Status,
+        LastSeenAt = d.LastSeenAt,
         SortOrder = d.SortOrder,
         BuildingId = d.BuildingId,
         FloorId = d.FloorId,

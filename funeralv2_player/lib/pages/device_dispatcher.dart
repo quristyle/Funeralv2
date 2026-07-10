@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/device_models.dart';
 import '../services/api/api_service.dart';
 import '../services/signalr/signalr_service.dart'; // 추가
@@ -8,16 +9,24 @@ import 'guide/entrance_guide_view.dart';
 import 'kiosk/kiosk_view.dart';
 import 'multimedia/multimedia_view.dart'; // 추가 // 추가
 
+import 'package:http/http.dart' as http;
+
 /// 장비 타입에 따라 어떤 화면(View)을 보여줄지 결정하는 허브 컨트롤러
 class DeviceDispatcher extends StatefulWidget {
   final String serverBaseUrl;
   final String deviceCode;
+  final String ipAddress;
+  final String macAddress;
+  final String publicIpAddress;
   final VoidCallback onOpenSettings;
 
   const DeviceDispatcher({
     super.key,
     required this.serverBaseUrl,
     required this.deviceCode,
+    required this.ipAddress,
+    required this.macAddress,
+    required this.publicIpAddress,
     required this.onOpenSettings,
   });
 
@@ -41,7 +50,17 @@ class _DeviceDispatcherState extends State<DeviceDispatcher> {
   Future<void> _loadDevice() async {
     try {
       final fetched = await ApiService().fetchDevice(widget.serverBaseUrl, widget.deviceCode);
+      if (!mounted) return; // 위젯이 사라졌다면 중단
+
       if (fetched != null) {
+        // SharedPreferences에 장비 화면 오리엔테이션 캐시 보관
+        try {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('displayOrientation', fetched.displayOrientation ?? 'LANDSCAPE');
+        } catch (e) {
+          print('[Dispatcher] 오리엔테이션 캐싱 에러: $e');
+        }
+
         setState(() {
           device = fetched;
           isLoading = false;
@@ -51,9 +70,14 @@ class _DeviceDispatcherState extends State<DeviceDispatcher> {
         await _signalRService.connect(
           serverUrl: widget.serverBaseUrl,
           deviceCode: widget.deviceCode,
+          ipAddress: widget.ipAddress,
+          macAddress: widget.macAddress,
+          publicIpAddress: widget.publicIpAddress,
           onDeviceChanged: () {
-            print('[Dispatcher] 장비 정보 변경 알림 수신 - 다시 로드합니다.');
-            _loadDevice();
+            if (mounted) {
+              print('[Dispatcher] 장비 정보 변경 알림 수신 - 다시 로드합니다.');
+              _loadDevice();
+            }
           },
         );
       } else {
@@ -63,10 +87,12 @@ class _DeviceDispatcherState extends State<DeviceDispatcher> {
         });
       }
     } catch (e) {
-      setState(() {
-        error = e.toString();
-        isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          error = e.toString();
+          isLoading = false;
+        });
+      }
     }
   }
 

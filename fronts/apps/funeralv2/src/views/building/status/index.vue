@@ -1,7 +1,8 @@
 <script lang="ts" setup>
-import { onMounted, ref } from 'vue';
+import { onMounted, onUnmounted, ref } from 'vue';
 import { Page } from '@vben/common-ui';
 import { Empty, Spin, message } from 'ant-design-vue';
+import * as signalR from '@microsoft/signalr';
 import { useStatusData } from './composables/use-status-data';
 import StatusSearchForm from './modules/status-search-form.vue';
 import BuildingSection from './modules/building-section.vue';
@@ -25,12 +26,51 @@ const {
   videos,
   musics,
   updateDeviceMediaState,
+  updateDeviceStatusState,
 } = useStatusData();
 
 const deviceDetailModalRef = ref<InstanceType<typeof DeviceDetailModal> | null>(null);
 
+let signalRConnection: signalR.HubConnection | null = null;
+
+function initSignalR() {
+  const hubUrl = '/api/funeral/hubs/device';
+  signalRConnection = new signalR.HubConnectionBuilder()
+    .withUrl(hubUrl)
+    .withAutomaticReconnect({
+      nextRetryDelayInMilliseconds: (retryContext) => {
+        if (retryContext.previousRetryCount === 0) return 0;
+        if (retryContext.previousRetryCount === 1) return 2000;
+        if (retryContext.previousRetryCount === 2) return 5000;
+        return 10000;
+      }
+    })
+    .build();
+
+  signalRConnection.on('DeviceStatusChanged', (deviceCode: string, status: string) => {
+    console.log(`[SignalR Status Event] Device: ${deviceCode} -> ${status}`);
+    updateDeviceStatusState(deviceCode, status);
+  });
+
+  signalRConnection.start()
+    .then(() => {
+      console.log('[SignalR Connected] Device Status Monitor active');
+    })
+    .catch((err) => {
+      console.error('[SignalR Connection Error]', err);
+    });
+}
+
 onMounted(() => {
   onSearch();
+  initSignalR();
+});
+
+onUnmounted(() => {
+  if (signalRConnection) {
+    signalRConnection.stop();
+    signalRConnection = null;
+  }
 });
 
 // 장비의 동영상/음악 즉시 변경 처리

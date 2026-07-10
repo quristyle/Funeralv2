@@ -9,6 +9,7 @@ class PlayerShell extends StatelessWidget {
   final VoidCallback onOpenSettings;
   final Widget child; // 각 장비별 특화된 View (PortraitView, MultimediaView 등)
   final String? debugFileName; // 추가: 디버그용 파일명
+  final bool showSettingsIcon; // 추가
 
   const PlayerShell({
     super.key,
@@ -17,6 +18,7 @@ class PlayerShell extends StatelessWidget {
     required this.onOpenSettings,
     required this.child,
     this.debugFileName,
+    this.showSettingsIcon = true,
   });
 
   @override
@@ -59,17 +61,18 @@ class PlayerShell extends StatelessWidget {
                 child,
 
                 // 설정 버튼 (최상단)
-                Positioned(
-                  top: 20,
-                  right: 20,
-                  child: Opacity(
-                    opacity: 0.1,
-                    child: IconButton(
-                      icon: const Icon(Icons.settings, color: Colors.white, size: 28),
-                      onPressed: onOpenSettings,
+                if (showSettingsIcon)
+                  Positioned(
+                    top: 20,
+                    right: 20,
+                    child: Opacity(
+                      opacity: 0.1,
+                      child: IconButton(
+                        icon: const Icon(Icons.settings, color: Colors.white, size: 28),
+                        onPressed: onOpenSettings,
+                      ),
                     ),
                   ),
-                ),
 
                 // [개발 전용] 화면 타입 디버그 라벨 (우측 하단)
                 Positioned(

@@ -156,11 +156,14 @@ async function handleSave() {
             style="width: 100%"
           />
         </Form.Item>
-        <Form.Item label="IP 주소">
-          <Input v-model:value="formModel.ipAddress" placeholder="예: 192.168.1.100" />
+        <Form.Item label="사설 IP 주소">
+          <Input v-model:value="formModel.ipAddress" :disabled="true" placeholder="자동 감지 대기 중..." />
+        </Form.Item>
+        <Form.Item label="공인 IP 주소">
+          <Input v-model:value="formModel.publicIpAddress" :disabled="true" placeholder="자동 감지 대기 중..." />
         </Form.Item>
         <Form.Item label="MAC 주소">
-          <Input v-model:value="formModel.macAddress" placeholder="예: 00:0a:95:9d:68:16" />
+          <Input v-model:value="formModel.macAddress" :disabled="true" placeholder="자동 감지 대기 중..." />
         </Form.Item>
       </Form>
     </div>

@@ -261,6 +261,31 @@ export function useStatusData() {
     });
   }
 
+  // ─── 장비 온라인 상태 실시간 로컬 갱신 ───────────────────────────────────
+  function updateDeviceStatusState(deviceCode: string, status: string) {
+    // 1. 장비 목록(devices) 갱신
+    devices.value = devices.value.map((d) => {
+      if (d.code === deviceCode) {
+        return {
+          ...d,
+          status,
+        } as any;
+      }
+      return d;
+    });
+
+    // 2. 호실현황(roomStatuses) 조인 데이터 동시 갱신
+    roomStatuses.value = roomStatuses.value.map((room) => {
+      const roomDevices = devices.value
+        .filter((d: BuildingApi.Device) => d.roomId === room.id)
+        .sort((a: any, b: any) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+      return {
+        ...room,
+        devices: roomDevices,
+      };
+    });
+  }
+
   return {
     searchForm,
     roomEnterDates,
@@ -281,5 +306,6 @@ export function useStatusData() {
     videos,
     musics,
     updateDeviceMediaState,
+    updateDeviceStatusState,
   };
 }

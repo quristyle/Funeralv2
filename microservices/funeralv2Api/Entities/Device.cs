@@ -63,11 +63,24 @@ public class Device : BaseEntity<string>
     public string? MacAddress { get; set; }
 
     /// <summary>
+    /// 공인 IP 주소
+    /// </summary>
+    [Column("public_ip_address")]
+    [MaxLength(50)]
+    public string? PublicIpAddress { get; set; }
+
+    /// <summary>
     /// 장비 상태 (예: ONLINE, OFFLINE, UNKNOWN 등, 기본값: UNKNOWN)
     /// </summary>
     [Column("status")]
     [MaxLength(20)]
     public string Status { get; set; } = "UNKNOWN";
+
+    /// <summary>
+    /// 마지막 상태 확인 시간
+    /// </summary>
+    [Column("last_seen_at")]
+    public DateTime? LastSeenAt { get; set; }
 
     /// <summary>
     /// 정렬 순서

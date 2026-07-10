@@ -14,6 +14,7 @@ public interface IDeviceHubSender
     Task SendDeviceChangedAsync(string deviceCode);
     Task SendDeviceChangedByDeviceIdAsync(string deviceId);
     Task SendDeviceChangedByRoomIdAsync(string roomId);
+    Task SendDeviceStatusChangedAsync(string deviceCode, string status);
 }
 
 /// <summary>
@@ -47,6 +48,17 @@ public class DeviceHubSender : IDeviceHubSender
     }
 
     /// <summary>
+    /// 장비 상태 변경 정보를 모든 관리자에게 실시간 전송
+    /// </summary>
+    public async Task SendDeviceStatusChangedAsync(string deviceCode, string status)
+    {
+        if (string.IsNullOrEmpty(deviceCode)) return;
+        
+        await _hubContext.Clients.All.SendAsync("DeviceStatusChanged", deviceCode, status);
+        _logger.LogInformation("SignalR [DeviceStatusChanged] sent. Code: {DeviceCode}, Status: {Status}", deviceCode, status);
+    }
+
+    /// <summary>
     /// 장비 ID를 조회하여 해당 장비코드로 SignalR 변경 이벤트 브로드캐스팅
     /// </summary>
     public async Task SendDeviceChangedByDeviceIdAsync(string deviceId)
@@ -59,7 +71,7 @@ public class DeviceHubSender : IDeviceHubSender
        
         if (device != null)
         {
-        _logger.LogInformation("SignalR [DeviceChanged] fined: {device}", device);
+            _logger.LogInformation("SignalR [DeviceChanged] fined: {device}", device);
             await SendDeviceChangedAsync(device.Code);
         }
     }
