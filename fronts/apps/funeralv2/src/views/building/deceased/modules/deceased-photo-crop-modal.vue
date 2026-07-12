@@ -975,6 +975,9 @@ function handleGlobalKeyDown(e: KeyboardEvent) {
     e.preventDefault();
     isSpacePressed = true;
     if (canvas) canvas.defaultCursor = 'grab';
+  }
+}
+
 function handleGlobalKeyUp(e: KeyboardEvent) {
   if (e.code === 'Space') {
     isSpacePressed = false;

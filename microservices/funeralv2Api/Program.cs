@@ -61,6 +61,10 @@ builder.Services.AddScoped<IMediaSourceService, MediaSourceService>();
 builder.Services.AddScoped<IDeceasedService, DeceasedService>();
 builder.Services.AddScoped<IDeviceHubSender, DeviceHubSender>();
 
+// 장비 상태 자동 정리 백그라운드 서비스 등록
+// last_seen_at 기준으로 응답 없는 ONLINE 장비를 주기적으로 OFFLINE 처리합니다.
+builder.Services.AddHostedService<DeviceStatusCleanupService>();
+
 builder.Services.AddSignalR();
 
 
@@ -147,10 +151,53 @@ string GetServerName()
         ?? "API";
 }
 
-app.Lifetime.ApplicationStarted.Register(() =>
-{var serverName = GetServerName();
+app.Lifetime.ApplicationStarted.Register(async () =>
+{
+    // ============================================================
+    // 앱 재기동 시 잔류 ONLINE 장비 일괄 OFFLINE 초기화
+    // 서버/장비가 갑작스럽게 종료된 경우 DB에 ONLINE이 잔류할 수 있으므로,
+    // 재기동 직후 모든 ONLINE 장비를 OFFLINE으로 초기화합니다.
+    // 장비들은 이후 SignalR을 통해 재접속 시 다시 ONLINE으로 갱신됩니다.
+    // ============================================================
+    try
+    {
+        using var scope = app.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<funeralv2Api.Data.AppDbContext>();
+        var startupLogger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+
+        var onlineDevices = await db.Devices
+            .Where(d => d.Status == "ONLINE" && !d.IsDeleted)
+            .ToListAsync();
+
+        if (onlineDevices.Count > 0)
+        {
+            foreach (var device in onlineDevices)
+            {
+                device.Status = "OFFLINE";
+                device.UpdatedAt = DateTime.UtcNow;
+            }
+            await db.SaveChangesAsync();
+            startupLogger.LogWarning(
+                "[Startup] 앱 재기동 감지: 잔류 ONLINE 장비 {Count}개를 OFFLINE으로 초기화함. " +
+                "(장비 재접속 시 자동으로 ONLINE 전환됩니다)",
+                onlineDevices.Count);
+        }
+        else
+        {
+            startupLogger.LogInformation("[Startup] 잔류 ONLINE 장비 없음. 초기화 불필요.");
+        }
+    }
+    catch (Exception ex)
+    {
+        // 초기화 실패 시 서버 기동을 막지 않고 경고 로그만 남김
+        var fallbackLogger = app.Services.GetRequiredService<ILogger<Program>>();
+        fallbackLogger.LogError(ex, "[Startup] ONLINE 장비 초기화 중 오류 발생. 서버 기동은 계속 진행됩니다.");
+    }
+
+    var serverName = GetServerName();
     var env = app.Environment.EnvironmentName;
     var pid = Environment.ProcessId;
+
 
     // 🔥 서버명 기반 색상 자동 매핑
     var color = serverName.ToUpper() switch
