@@ -12,17 +12,15 @@ class LocalDbService {
   LocalDbService._internal();
 
   Database? _database;
-  bool _isWebError = false; // 웹 워커 에러 발생 여부 체크
+  bool _isWebError = false;
 
   Future<Database?> get database async {
-    if (kIsWeb && _isWebError) return null; // 웹 에러 상태면 바로 null 반환
+    if (kIsWeb && _isWebError) return null;
     if (_database != null) return _database!;
-    
     try {
       _database = await _initDb();
       return _database;
     } catch (e) {
-      print('[DB] Database access failed: $e');
       if (kIsWeb) _isWebError = true;
       return null;
     }
@@ -30,71 +28,27 @@ class LocalDbService {
 
   Future<Database> _initDb() async {
     if (kIsWeb) {
-      try {
-        databaseFactory = databaseFactoryFfiWeb;
-      } catch (e) {
-        _isWebError = true;
-        print('[DB] Web SQL initialization failed, running without cache.');
-        rethrow;
-      }
+      try { databaseFactory = databaseFactoryFfiWeb; } catch (e) { _isWebError = true; rethrow; }
     } else if (io.Platform.isWindows || io.Platform.isLinux) {
       sqfliteFfiInit();
       databaseFactory = databaseFactoryFfi;
     }
 
     final dbPath = await getDatabasesPath();
-    final path = join(dbPath, 'funeral_signage.db');
+    final fullPath = join(dbPath, 'funeral_signage_v2.db');
 
     return await openDatabase(
-      path,
-      version: 8,
+      fullPath,
+      version: 10, // 버전 10으로 상향
       onCreate: _onCreate,
       onUpgrade: (db, oldVersion, newVersion) async {
-        if (oldVersion < 2) {
+        // 기존 업그레이드 로직 유지 및 10 버전 추가
+        if (oldVersion < 10) {
           try {
-            await db.execute('ALTER TABLE devices ADD COLUMN displayOrientation TEXT');
-            await db.execute('ALTER TABLE devices ADD COLUMN portraitOrientation TEXT');
-            await db.execute('ALTER TABLE devices ADD COLUMN videoOrientation TEXT');
-          } catch (_) {}
-        }
-        if (oldVersion < 3) {
-          try {
-            await db.execute('ALTER TABLE devices ADD COLUMN displayPaddingTop REAL');
-            await db.execute('ALTER TABLE devices ADD COLUMN displayPaddingLeft REAL');
-            await db.execute('ALTER TABLE devices ADD COLUMN displayPaddingRight REAL');
-            await db.execute('ALTER TABLE devices ADD COLUMN displayPaddingBottom REAL');
-            await db.execute('ALTER TABLE devices ADD COLUMN memorialPaddingTop REAL');
-            await db.execute('ALTER TABLE devices ADD COLUMN memorialPaddingLeft REAL');
-            await db.execute('ALTER TABLE devices ADD COLUMN memorialPaddingRight REAL');
-            await db.execute('ALTER TABLE devices ADD COLUMN memorialPaddingBottom REAL');
-          } catch (_) {}
-        }
-        if (oldVersion < 4) {
-          try {
-            await db.execute('ALTER TABLE devices ADD COLUMN photoVerticalAlignment TEXT');
-          } catch (_) {}
-        }
-        if (oldVersion < 5) {
-          try {
-            await db.execute('ALTER TABLE devices ADD COLUMN photoHorizontalAlignment TEXT');
-          } catch (_) {}
-        }
-        if (oldVersion < 6) {
-          try {
-            await db.execute('ALTER TABLE deceased ADD COLUMN mourners TEXT');
-          } catch (_) {}
-        }
-        if (oldVersion < 7) {
-          try {
-            await db.execute('ALTER TABLE deceased ADD COLUMN deviceRibbons TEXT');
-            await db.execute('ALTER TABLE deceased ADD COLUMN deviceTextOverlays TEXT');
-          } catch (_) {}
-        }
-        if (oldVersion < 8) {
-          try {
-            await db.execute('ALTER TABLE devices ADD COLUMN memorialPhotoEffect TEXT');
-            await db.execute('ALTER TABLE devices ADD COLUMN contentIntervalSec INTEGER');
-            await db.execute('ALTER TABLE devices ADD COLUMN isMuted INTEGER');
+            // 미디어 소스 경로 캐시 테이블
+            await db.execute('CREATE TABLE IF NOT EXISTS media_sources (id TEXT PRIMARY KEY, path TEXT)');
+            // 입구 안내 호실 목록 캐시 테이블
+            await db.execute('CREATE TABLE IF NOT EXISTS entrance_guide (deviceCode TEXT PRIMARY KEY, jsonData TEXT)');
           } catch (_) {}
         }
       },
@@ -104,89 +58,83 @@ class LocalDbService {
   Future<void> _onCreate(Database db, int version) async {
     await db.execute('''
       CREATE TABLE devices (
-        id TEXT PRIMARY KEY,
-        code TEXT,
-        name TEXT,
-        roomId TEXT,
-        videoId TEXT,
-        musicId TEXT,
-        isVideoEnabled INTEGER,
-        isMusicEnabled INTEGER,
-        videoName TEXT,
-        musicName TEXT,
-        musicVolume REAL,
-        isMemorialPhotoEnabled INTEGER,
-        isDeceasedNameVisible INTEGER,
-        isFamilyContactVisible INTEGER,
-        displayOrientation TEXT,
-        portraitOrientation TEXT,
-        videoOrientation TEXT,
-        displayPaddingTop REAL,
-        displayPaddingLeft REAL,
-        displayPaddingRight REAL,
-        displayPaddingBottom REAL,
-        memorialPaddingTop REAL,
-        memorialPaddingLeft REAL,
-        memorialPaddingRight REAL,
-        memorialPaddingBottom REAL,
-        photoVerticalAlignment TEXT,
-        photoHorizontalAlignment TEXT,
-        deviceType TEXT,
-        memorialPhotoEffect TEXT,
-        contentIntervalSec INTEGER,
-        isMuted INTEGER
+        id TEXT PRIMARY KEY, code TEXT, name TEXT, roomId TEXT, roomName TEXT,
+        floorId TEXT, floorName TEXT, buildingId TEXT, buildingName TEXT,
+        videoId TEXT, musicId TEXT, isVideoEnabled INTEGER, isMusicEnabled INTEGER,
+        isMuted INTEGER, videoName TEXT, musicName TEXT, musicVolume REAL,
+        isMemorialPhotoEnabled INTEGER, isDeceasedNameVisible INTEGER,
+        isFamilyContactVisible INTEGER, displayOrientation TEXT,
+        portraitOrientation TEXT, videoOrientation TEXT, displayPaddingTop REAL,
+        displayPaddingLeft REAL, displayPaddingRight REAL, displayPaddingBottom REAL,
+        memorialPaddingTop REAL, memorialPaddingLeft REAL, memorialPaddingRight REAL,
+        memorialPaddingBottom REAL, photoVerticalAlignment TEXT,
+        photoHorizontalAlignment TEXT, deviceType TEXT, memorialPhotoEffect TEXT,
+        contentIntervalSec INTEGER
       )
     ''');
 
     await db.execute('''
       CREATE TABLE deceased (
-        id TEXT PRIMARY KEY,
-        name TEXT,
-        gender TEXT,
-        age INTEGER,
-        religion TEXT,
-        deathDate TEXT,
-        funeralDate TEXT,
-        burialDate TEXT,
-        roomId TEXT,
-        roomName TEXT,
-        chiefMourner TEXT,
-        mourners TEXT,
-        memorialPhotoUrl TEXT,
-        memorialPhotoFileId TEXT,
-        memorialEditedPhotoUrl TEXT,
-        memorialEditedPhotoFileId TEXT,
-        deviceRibbons TEXT,
-        deviceTextOverlays TEXT
+        id TEXT PRIMARY KEY, deviceCode TEXT, name TEXT, gender TEXT, age INTEGER,
+        religion TEXT, deathDate TEXT, funeralDate TEXT, burialDate TEXT,
+        roomId TEXT, roomName TEXT, chiefMourner TEXT, mourners TEXT,
+        memorialPhotoUrl TEXT, memorialPhotoFileId TEXT, memorialEditedPhotoUrl TEXT,
+        memorialEditedPhotoFileId TEXT, deviceRibbons TEXT, deviceTextOverlays TEXT
       )
     ''');
+
+    await db.execute('CREATE TABLE media_sources (id TEXT PRIMARY KEY, path TEXT)');
+    await db.execute('CREATE TABLE entrance_guide (deviceCode TEXT PRIMARY KEY, jsonData TEXT)');
   }
 
+  // --- 장비 정보 ---
   Future<void> saveDevice(DeviceDto deviceDto) async {
     final db = await database;
-    if (db == null) return;
-    await db.insert('devices', deviceDto.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
+    if (db != null) await db.insert('devices', deviceDto.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
   }
-
   Future<DeviceDto?> getDevice(String code) async {
     final db = await database;
     if (db == null) return null;
     final List<Map<String, dynamic>> maps = await db.query('devices', where: 'code = ?', whereArgs: [code]);
-    if (maps.isEmpty) return null;
-    return DeviceDto.fromJson(maps.first);
+    return maps.isEmpty ? null : DeviceDto.fromJson(maps.first);
   }
 
-  Future<void> saveDeceased(DeceasedDto deceased) async {
+  // --- 고인 정보 ---
+  Future<void> saveDeceased(DeceasedDto deceased, String deviceCode) async {
     final db = await database;
     if (db == null) return;
-    await db.insert('deceased', deceased.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
+    final map = deceased.toMap();
+    map['deviceCode'] = deviceCode;
+    await db.insert('deceased', map, conflictAlgorithm: ConflictAlgorithm.replace);
   }
-
-  Future<DeceasedDto?> getDeceasedByRoom(String roomId) async {
+  Future<DeceasedDto?> getDeceasedByDeviceCode(String deviceCode) async {
     final db = await database;
     if (db == null) return null;
-    final List<Map<String, dynamic>> maps = await db.query('deceased', where: 'roomId = ?', whereArgs: [roomId]);
-    if (maps.isEmpty) return null;
-    return DeceasedDto.fromJson(maps.first);
+    final List<Map<String, dynamic>> maps = await db.query('deceased', where: 'deviceCode = ?', whereArgs: [deviceCode]);
+    return maps.isEmpty ? null : DeceasedDto.fromJson(maps.first);
+  }
+
+  // --- 미디어 소스 경로 ---
+  Future<void> saveSourcePath(String sourceId, String path) async {
+    final db = await database;
+    if (db != null) await db.insert('media_sources', {'id': sourceId, 'path': path}, conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+  Future<String?> getSourcePath(String sourceId) async {
+    final db = await database;
+    if (db == null) return null;
+    final List<Map<String, dynamic>> maps = await db.query('media_sources', where: 'id = ?', whereArgs: [sourceId]);
+    return maps.isEmpty ? null : maps.first['path'] as String;
+  }
+
+  // --- 입구 안내 호실 목록 ---
+  Future<void> saveEntranceGuide(String deviceCode, String json) async {
+    final db = await database;
+    if (db != null) await db.insert('entrance_guide', {'deviceCode': deviceCode, 'jsonData': json}, conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+  Future<String?> getEntranceGuide(String deviceCode) async {
+    final db = await database;
+    if (db == null) return null;
+    final List<Map<String, dynamic>> maps = await db.query('entrance_guide', where: 'deviceCode = ?', whereArgs: [deviceCode]);
+    return maps.isEmpty ? null : maps.first['jsonData'] as String;
   }
 }
