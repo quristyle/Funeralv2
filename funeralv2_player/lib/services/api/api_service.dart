@@ -31,13 +31,19 @@ class ApiService {
       print('[API Error] fetchDevice: $e');
     }
     
+    // 오프라인 Fallback
     try {
-      final cached = await _dbService.getDevice(deviceCode);
-      if (cached != null) print('[Cache] 로컬 캐시 데이터 반환 성공');
+      final cached = await getCachedDevice(deviceCode);
+      if (cached != null) print('[Cache] 네트워크 오류로 로컬 캐시 데이터를 반환합니다.');
       return cached;
     } catch (e) {
       return null;
     }
+  }
+
+  // 로컬 캐시에서 장비 정보 조회
+  Future<DeviceDto?> getCachedDevice(String deviceCode) async {
+    return await _dbService.getDevice(deviceCode);
   }
 
   // 호실 소속 고인 정보 패치

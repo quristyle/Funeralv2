@@ -87,19 +87,24 @@ class _MainRouterState extends State<MainRouter> {
 
   // SharedPreferences에서 로컬 설정 정보 로드
   Future<void> _loadConfiguration() async {
+    print('[Main] _loadConfiguration() 시작');
     final prefs = await SharedPreferences.getInstance();
     var savedPublicIp = prefs.getString('publicIpAddress') ?? '';
 
+    print('[Main] 초기 설정 읽기 완료. 공인IP 캐시: $savedPublicIp');
+
     // 만약 로컬 캐시된 공인 IP가 비어 있다면, 비동기로 3초 타임아웃 룰 하에 1회 백그라운드 스캔 시도
     if (savedPublicIp.isEmpty) {
+      print('[Main] 공인 IP가 없습니다. api.ipify.org 조회를 시도합니다.');
       try {
         final res = await http.get(Uri.parse('https://api.ipify.org')).timeout(const Duration(seconds: 3));
         if (res.statusCode == 200) {
           savedPublicIp = res.body.trim();
           await prefs.setString('publicIpAddress', savedPublicIp);
+          print('[Main] 공인 IP 조회 성공: $savedPublicIp');
         }
       } catch (e) {
-        print('[MainRouter] 초기 공인 IP 백그라운드 조회 실패: $e');
+        print('[Main] 초기 공인 IP 백그라운드 조회 실패 (무시): $e');
       }
     }
 
@@ -114,10 +119,12 @@ class _MainRouterState extends State<MainRouter> {
       isConfigured = deviceCode != null && deviceCode!.isNotEmpty;
       isLoading = false;
     });
+    print('[Main] 설정 로드 완료: isConfigured=$isConfigured, deviceCode=$deviceCode');
   }
 
   // 설정 저장 처리
   Future<void> _saveConfiguration(String server, String code, String ip, String mac, String publicIp) async {
+    print('[Main] _saveConfiguration() 시작: $server / $code');
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('serverBaseUrl', server);
     await prefs.setString('deviceCode', code);
@@ -133,10 +140,12 @@ class _MainRouterState extends State<MainRouter> {
       publicIpAddress = publicIp;
       isConfigured = true;
     });
+    print('[Main] 설정 저장 완료');
   }
 
   @override
   Widget build(BuildContext context) {
+    print('[Main] build() 호출: isLoading=$isLoading, isConfigured=$isConfigured');
     if (isLoading) {
       return const Scaffold(
         body: Center(
@@ -146,6 +155,7 @@ class _MainRouterState extends State<MainRouter> {
     }
 
     if (!isConfigured) {
+      print('[Main] 설정되지 않은 상태입니다. SettingsScreen을 표시합니다.');
       return SettingsScreen(
         initialServer: serverBaseUrl ?? 'http://localhost:5265',
         initialCode: deviceCode ?? '',
@@ -156,6 +166,7 @@ class _MainRouterState extends State<MainRouter> {
       );
     }
 
+    print('[Main] 설정 완료 상태. DeviceDispatcher를 호출합니다. (BaseURL: $serverBaseUrl, Code: $deviceCode)');
     return DeviceDispatcher(
       serverBaseUrl: serverBaseUrl!,
       deviceCode: deviceCode!,
@@ -163,6 +174,7 @@ class _MainRouterState extends State<MainRouter> {
       macAddress: macAddress ?? '',
       publicIpAddress: publicIpAddress ?? '',
       onOpenSettings: () async {
+        print('[Main] 설정 화면 열기 요청 수신');
         final prefs = await SharedPreferences.getInstance();
         setState(() {
           displayOrientation = prefs.getString('displayOrientation') ?? 'LANDSCAPE';

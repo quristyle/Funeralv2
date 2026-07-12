@@ -1,17 +1,15 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/device_models.dart';
 import '../services/api/api_service.dart';
-import '../services/signalr/signalr_service.dart'; // 추가
+import '../services/signalr/signalr_service.dart';
 import 'portrait/portrait_view.dart';
 import 'guide/room_guide_view.dart';
 import 'guide/entrance_guide_view.dart';
 import 'kiosk/kiosk_view.dart';
-import 'multimedia/multimedia_view.dart'; // 추가 // 추가
+import 'multimedia/multimedia_view.dart';
 
-import 'package:http/http.dart' as http;
-
-/// 장비 타입에 따라 어떤 화면(View)을 보여줄지 결정하는 허브 컨트롤러
 class DeviceDispatcher extends StatefulWidget {
   final String serverBaseUrl;
   final String deviceCode;
@@ -35,77 +33,155 @@ class DeviceDispatcher extends StatefulWidget {
 }
 
 class _DeviceDispatcherState extends State<DeviceDispatcher> {
-  final SignalRService _signalRService = SignalRService(); // 추가
+  final SignalRService _signalRService = SignalRService();
   DeviceDto? device;
   bool isLoading = true;
   String? error;
+  bool _isRefreshing = false;
+
+  Timer? _retryTimer;
+  int _retryCountdown = 20;
 
   @override
   void initState() {
     super.initState();
+    print('[Dispatcher] initState() - 데이터 로드 프로세스 개시');
     _loadDevice();
-  }
-
-  // 장비 정보 로드 및 SignalR 연결
-  Future<void> _loadDevice() async {
-    try {
-      final fetched = await ApiService().fetchDevice(widget.serverBaseUrl, widget.deviceCode);
-      if (!mounted) return; // 위젯이 사라졌다면 중단
-
-      if (fetched != null) {
-        // SharedPreferences에 장비 화면 오리엔테이션 캐시 보관
-        try {
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setString('displayOrientation', fetched.displayOrientation ?? 'LANDSCAPE');
-        } catch (e) {
-          print('[Dispatcher] 오리엔테이션 캐싱 에러: $e');
-        }
-
-        setState(() {
-          device = fetched;
-          isLoading = false;
-        });
-
-        // SignalR 연결: 타입 변경 알림 시 다시 로드하여 화면 갱신
-        await _signalRService.connect(
-          serverUrl: widget.serverBaseUrl,
-          deviceCode: widget.deviceCode,
-          ipAddress: widget.ipAddress,
-          macAddress: widget.macAddress,
-          publicIpAddress: widget.publicIpAddress,
-          onDeviceChanged: () {
-            if (mounted) {
-              print('[Dispatcher] 장비 정보 변경 알림 수신 - 다시 로드합니다.');
-              _loadDevice();
-            }
-          },
-        );
-      } else {
-        setState(() {
-          error = "장비 정보를 불러올 수 없습니다.";
-          isLoading = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          error = e.toString();
-          isLoading = false;
-        });
-      }
-    }
   }
 
   @override
   void dispose() {
-    _signalRService.disconnect(widget.deviceCode); // 해제
+    print('[Dispatcher] dispose() - 리소스 정리');
+    _retryTimer?.cancel();
     super.dispose();
+  }
+
+  Future<void> _loadDevice() async {
+    if (_isRefreshing) {
+      print('[Dispatcher] _loadDevice() 스킵: 이미 로딩 중');
+      return;
+    }
+    _isRefreshing = true;
+
+    print('[Dispatcher] _loadDevice() 시작: ${widget.deviceCode}');
+    _retryTimer?.cancel(); 
+    setState(() {
+      isLoading = device == null; 
+      error = null;
+      _retryCountdown = 20;
+    });
+
+    try {
+      print('[Dispatcher] API 호출 시도: ${widget.serverBaseUrl}');
+      final fetched = await ApiService().fetchDevice(widget.serverBaseUrl, widget.deviceCode);
+      
+      Future.delayed(const Duration(seconds: 2), () {
+        _isRefreshing = false;
+      });
+
+      if (!mounted) return;
+
+      if (fetched != null) {
+        print('[Dispatcher] 서버로부터 데이터 수신 성공: type=${fetched.deviceType}');
+        _handleDeviceLoaded(fetched);
+      } else {
+        print('[Dispatcher] 서버 응답 없음. 캐시 조회를 시도합니다.');
+        _loadFromCache();
+      }
+    } catch (e) {
+      print('[Dispatcher] API 예외 발생: $e');
+      _isRefreshing = false;
+      if (mounted) _loadFromCache();
+    }
+  }
+
+  Future<void> _loadFromCache() async {
+    print('[Dispatcher] 로컬 DB(캐시) 조회 시작');
+    final cached = await ApiService().getCachedDevice(widget.deviceCode);
+    if (!mounted) return;
+
+    if (cached != null) {
+      print('[Dispatcher] 캐시 데이터 로드 성공: type=${cached.deviceType}');
+      _handleDeviceLoaded(cached);
+    } else {
+      print('[Dispatcher] 캐시 데이터도 없습니다. 에러 화면을 표시합니다.');
+      setState(() {
+        error = "서버에 연결할 수 없으며 저장된 로컬 데이터도 없습니다.";
+        isLoading = false;
+      });
+      _startRetryTimer();
+    }
+  }
+
+  void _startRetryTimer() {
+    print('[Dispatcher] 20초 자동 재시도 타이머 가동');
+    _retryTimer?.cancel();
+    _retryCountdown = 20;
+    _retryTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      setState(() {
+        if (_retryCountdown > 1) {
+          _retryCountdown--;
+        } else {
+          print('[Dispatcher] 타이머 만료 - 재시도 실행');
+          timer.cancel();
+          _loadDevice();
+        }
+      });
+    });
+  }
+
+  void _handleDeviceLoaded(DeviceDto loadedDevice) {
+    print('[Dispatcher] _handleDeviceLoaded: 화면 갱신 및 SignalR 대기 시작');
+    _saveOrientationCache(loadedDevice.displayOrientation);
+    setState(() {
+      device = loadedDevice;
+      isLoading = false;
+    });
+
+    print('[Dispatcher] SignalR 연결 프로세스 백그라운드 호출');
+    _signalRService.connect(
+      serverUrl: widget.serverBaseUrl,
+      deviceCode: widget.deviceCode,
+      ipAddress: widget.ipAddress,
+      macAddress: widget.macAddress,
+      publicIpAddress: widget.publicIpAddress,
+      onDeviceChanged: () {
+        if (mounted) {
+          print('[Dispatcher] << SignalR 알림 수신: 최신 정보로 갱신합니다.');
+          _loadDevice();
+        }
+      },
+    );
+  }
+
+  Future<void> _saveOrientationCache(String orientation) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('displayOrientation', orientation);
+    } catch (_) {}
   }
 
   @override
   Widget build(BuildContext context) {
+    print('[Dispatcher] build(): isLoading=$isLoading, hasDevice=${device != null}, error=$error');
+    
     if (isLoading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator(color: Color(0xFFC0A060))));
+      return const Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(color: Color(0xFFC0A060)),
+              SizedBox(height: 20),
+              Text("장비 정보를 구성하고 있습니다...", style: TextStyle(color: Colors.white54)),
+            ],
+          ),
+        ),
+      );
     }
 
     if (error != null || device == null) {
@@ -114,60 +190,42 @@ class _DeviceDispatcherState extends State<DeviceDispatcher> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.error_outline, color: Colors.red, size: 60),
-              const SizedBox(height: 20),
-              Text(error ?? "알 수 없는 오류", style: const TextStyle(color: Colors.white, fontSize: 18)),
+              const Icon(Icons.cloud_off, color: Colors.white24, size: 80),
+              const SizedBox(height: 24),
+              Text(error ?? "연결 오류", textAlign: TextAlign.center, style: const TextStyle(color: Colors.white, fontSize: 18)),
               const SizedBox(height: 40),
-              ElevatedButton(onPressed: widget.onOpenSettings, child: const Text("설정으로 돌아가기")),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFC0A060), foregroundColor: Colors.black),
+                onPressed: widget.onOpenSettings, 
+                child: const Text("설정 확인")
+              ),
+              const SizedBox(height: 24),
+              TextButton.icon(
+                onPressed: _loadDevice, 
+                icon: const Icon(Icons.refresh, size: 18),
+                label: Text("즉시 재시도 ($_retryCountdown초 후 자동 시도)", style: const TextStyle(color: Colors.white54)),
+              ),
             ],
           ),
         ),
       );
     }
 
-    // [동적 분기] deviceType이 바뀌면 build가 다시 호출되면서 다른 View가 반환됨
+    print('[Dispatcher] 최종 화면 렌더링 타입: ${device!.deviceType}');
+
     switch (device!.deviceType) {
       case 'FUNERAL_PORTRAIT':
-        return PortraitView(
-          serverBaseUrl: widget.serverBaseUrl,
-          deviceCode: widget.deviceCode,
-          onOpenSettings: widget.onOpenSettings,
-        );
-      
+        return PortraitView(serverBaseUrl: widget.serverBaseUrl, deviceCode: widget.deviceCode, onOpenSettings: widget.onOpenSettings);
       case 'ROOM_GUIDE':
-        return RoomGuideView(
-          serverBaseUrl: widget.serverBaseUrl,
-          deviceCode: widget.deviceCode,
-          onOpenSettings: widget.onOpenSettings,
-        );
-
+        return RoomGuideView(serverBaseUrl: widget.serverBaseUrl, deviceCode: widget.deviceCode, onOpenSettings: widget.onOpenSettings);
       case 'ENTRANCE_GUIDE':
-        return EntranceGuideView(
-          serverBaseUrl: widget.serverBaseUrl,
-          deviceCode: widget.deviceCode,
-          onOpenSettings: widget.onOpenSettings,
-        );
-
+        return EntranceGuideView(serverBaseUrl: widget.serverBaseUrl, deviceCode: widget.deviceCode, onOpenSettings: widget.onOpenSettings);
       case 'KIOSK':
-        return KioskView(
-          serverBaseUrl: widget.serverBaseUrl,
-          deviceCode: widget.deviceCode,
-          onOpenSettings: widget.onOpenSettings,
-        );
-
+        return KioskView(serverBaseUrl: widget.serverBaseUrl, deviceCode: widget.deviceCode, onOpenSettings: widget.onOpenSettings);
       case 'MULTIMEDIA':
-        return MultimediaView(
-          serverBaseUrl: widget.serverBaseUrl,
-          deviceCode: widget.deviceCode,
-          onOpenSettings: widget.onOpenSettings,
-        );
-
+        return MultimediaView(serverBaseUrl: widget.serverBaseUrl, deviceCode: widget.deviceCode, onOpenSettings: widget.onOpenSettings);
       default:
-        return PortraitView(
-          serverBaseUrl: widget.serverBaseUrl,
-          deviceCode: widget.deviceCode,
-          onOpenSettings: widget.onOpenSettings,
-        );
+        return PortraitView(serverBaseUrl: widget.serverBaseUrl, deviceCode: widget.deviceCode, onOpenSettings: widget.onOpenSettings);
     }
   }
 }
