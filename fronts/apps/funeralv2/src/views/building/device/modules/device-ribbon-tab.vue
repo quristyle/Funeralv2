@@ -149,8 +149,16 @@ async function loadAll() {
       getDeviceRibbons(props.deviceId),
       getDeviceTextOverlays(props.deviceId),
     ]);
-    placedRibbons.value = Array.isArray(ribbonRes) ? ribbonRes : (ribbonRes as any)?.result ?? [];
-    placedOverlays.value = Array.isArray(overlayRes) ? overlayRes : (overlayRes as any)?.result ?? [];
+    const ribbonsData = Array.isArray(ribbonRes) ? ribbonRes : (ribbonRes as any)?.result ?? [];
+    placedRibbons.value = ribbonsData.map((r: any) => ({
+      ...r,
+      rotation: parseRotation(r.remark),
+    }));
+    const overlaysData = Array.isArray(overlayRes) ? overlayRes : (overlayRes as any)?.result ?? [];
+    placedOverlays.value = overlaysData.map((o: any) => ({
+      ...o,
+      rotation: parseRotation(o.remark),
+    }));
   } catch {
     message.error('데이터 로드 실패');
   } finally {
@@ -242,7 +250,7 @@ async function handleSave(silent = false) {
     const [ribbonRes, overlayRes] = await Promise.all([
       bulkSaveDeviceRibbons({
         deviceId: props.deviceId,
-        ribbons: placedRibbons.value.map((r, idx) => ({
+        ribbons: placedRibbons.value.map((r: any, idx) => ({
           deviceId: props.deviceId,
           mediaSourceId: r.mediaSourceId,
           positionLeft: round3(r.positionLeft),
@@ -250,12 +258,12 @@ async function handleSave(silent = false) {
           width: round3(r.width),
           height: round3(r.height),
           sortOrder: idx,
-          remark: r.remark,
+          remark: r.rotation ? `rotation:${r.rotation}` : '',
         })),
       }),
       bulkSaveDeviceTextOverlays({
         deviceId: props.deviceId,
-        overlays: placedOverlays.value.map((o, idx) => ({
+        overlays: placedOverlays.value.map((o: any, idx) => ({
           deviceId: props.deviceId,
           textContent: o.textContent,
           fontSize: round3(o.fontSize),
@@ -268,15 +276,23 @@ async function handleSave(silent = false) {
           width: round3(o.width),
           height: round3(o.height),
           sortOrder: idx,
-          remark: o.remark,
+          remark: o.rotation ? `rotation:${o.rotation}` : '',
         })),
       }),
     ]);
 
     // 저장 완료 후 서버 응답으로 상태 갱신 (temp id → 실제 id 교체)
     isDataReady.value = false;
-    placedRibbons.value = Array.isArray(ribbonRes) ? ribbonRes : (ribbonRes as any)?.result ?? [];
-    placedOverlays.value = Array.isArray(overlayRes) ? overlayRes : (overlayRes as any)?.result ?? [];
+    const savedRibbons = Array.isArray(ribbonRes) ? ribbonRes : (ribbonRes as any)?.result ?? [];
+    placedRibbons.value = savedRibbons.map((r: any) => ({
+      ...r,
+      rotation: parseRotation(r.remark),
+    }));
+    const savedOverlays = Array.isArray(overlayRes) ? overlayRes : (overlayRes as any)?.result ?? [];
+    placedOverlays.value = savedOverlays.map((o: any) => ({
+      ...o,
+      rotation: parseRotation(o.remark),
+    }));
     await nextTick();
     isDataReady.value = true;
 
@@ -348,7 +364,7 @@ function onMonitorDrop(evt: DragEvent) {
   const posLeft = round3((x / rect.width) * 100 - 5);
   const posTop = round3((y / rect.height) * 100 - 5);
   const dec = draggingDecoration.value;
-  const newRibbon: BuildingApi.DeviceRibbon = {
+  const newRibbon: any = {
     id: `temp-${Date.now()}`,
     deviceId: props.deviceId,
     mediaSourceId: dec.id,
@@ -360,6 +376,7 @@ function onMonitorDrop(evt: DragEvent) {
     width: 10,
     height: 10,
     sortOrder: placedRibbons.value.length,
+    rotation: 0,
   };
   placedRibbons.value = [...placedRibbons.value, newRibbon];
   selectItem(newRibbon.id, 'ribbon');
@@ -372,7 +389,7 @@ function onMonitorDrop(evt: DragEvent) {
 function addTextOverlay() {
   const text = newTextContent.value.trim();
   if (!text) { message.warning('추가할 텍스트를 입력해 주세요.'); return; }
-  const newOverlay: BuildingApi.DeviceTextOverlay = {
+  const newOverlay: any = {
     id: `temp-${Date.now()}`,
     deviceId: props.deviceId,
     textContent: text,
@@ -386,6 +403,7 @@ function addTextOverlay() {
     width: 30,
     height: 10,
     sortOrder: placedOverlays.value.length,
+    rotation: 0,
   };
   placedOverlays.value = [...placedOverlays.value, newOverlay];
   selectItem(newOverlay.id, 'overlay');
@@ -534,6 +552,13 @@ function updateRibbon(field: keyof BuildingApi.DeviceRibbon, value: number) {
   );
 }
 
+function updateRibbonRotation(value: number) {
+  if (!selectedItemId.value) return;
+  placedRibbons.value = placedRibbons.value.map((r) =>
+    r.id === selectedItemId.value ? { ...r, rotation: value } : r,
+  );
+}
+
 function updateOverlay<K extends keyof BuildingApi.DeviceTextOverlay>(
   field: K, value: BuildingApi.DeviceTextOverlay[K],
 ) {
@@ -542,6 +567,13 @@ function updateOverlay<K extends keyof BuildingApi.DeviceTextOverlay>(
     o.id === selectedItemId.value
       ? { ...o, [field]: typeof value === 'number' ? round3(value as number) : value }
       : o,
+  );
+}
+
+function updateOverlayRotation(value: number) {
+  if (!selectedItemId.value) return;
+  placedOverlays.value = placedOverlays.value.map((o) =>
+    o.id === selectedItemId.value ? { ...o, rotation: value } : o,
   );
 }
 
@@ -562,6 +594,7 @@ function overlayStyle(o: BuildingApi.DeviceTextOverlay): Record<string, string> 
     backgroundColor: o.backgroundColor === 'transparent' ? 'transparent' : o.backgroundColor,
     textAlign: o.textAlign,
     fontWeight: o.fontWeight,
+    transform: `rotate(${(o as any).rotation || 0}deg)`,
     cursor: isDragging.value && dragTargetId.value === o.id ? 'grabbing' : 'grab',
   };
 }
@@ -569,6 +602,12 @@ function overlayStyle(o: BuildingApi.DeviceTextOverlay): Record<string, string> 
 // ────────────────────────────────────────────────────────────────────
 // 유틸
 // ────────────────────────────────────────────────────────────────────
+function parseRotation(remark?: string): number {
+  if (!remark) return 0;
+  const match = remark.match(/rotation:(\d+)/);
+  return match ? parseInt(match[1] || '0', 10) : 0;
+}
+
 function round3(val: number): number {
   return Math.round(val * 1000) / 1000;
 }
@@ -747,6 +786,7 @@ const FONT_WEIGHT_OPTIONS = [
                 top: `${ribbon.positionTop}%`,
                 width: `${ribbon.width}%`,
                 height: `${ribbon.height}%`,
+                transform: `rotate(${(ribbon as any).rotation || 0}deg)`,
                 cursor: isDragging && dragTargetId === ribbon.id ? 'grabbing' : 'grab',
               }"
               @mousedown="onItemMouseDown(ribbon.id, 'ribbon', $event)"
@@ -875,10 +915,20 @@ const FONT_WEIGHT_OPTIONS = [
                 <label class="mb-1 block text-[11px] text-muted-foreground">높이 (%)</label>
                 <InputNumber :value="selectedRibbon.height" :min="1" :max="100" :precision="3" :step="0.5" size="small" addon-after="%" style="width:100%" @change="(v) => updateRibbon('height', v as number)" />
               </div>
+              <div>
+                <label class="mb-1 block text-[11px] text-muted-foreground">회전 각도 (도)</label>
+                <Select :value="(selectedRibbon as any).rotation || 0" size="small" style="width:100%" @change="(v) => updateRibbonRotation(v as number)">
+                  <Select.Option :value="0">0도 (기본)</Select.Option>
+                  <Select.Option :value="90">90도 (우회전)</Select.Option>
+                  <Select.Option :value="180">180도 회전</Select.Option>
+                  <Select.Option :value="270">270도 (좌회전)</Select.Option>
+                </Select>
+              </div>
               <div class="rounded bg-muted p-2 text-[10px] text-muted-foreground leading-5">
                 <div>Left: {{ selectedRibbon.positionLeft.toFixed(3) }}%</div>
                 <div>Top: {{ selectedRibbon.positionTop.toFixed(3) }}%</div>
                 <div>W: {{ selectedRibbon.width.toFixed(3) }}% / H: {{ selectedRibbon.height.toFixed(3) }}%</div>
+                <div>Rotation: {{ (selectedRibbon as any).rotation || 0 }}°</div>
               </div>
               <Popconfirm title="이 장식을 제거하시겠습니까?" @confirm="removeRibbon(selectedRibbon!.id)">
                 <Button danger block size="small">
@@ -965,6 +1015,15 @@ const FONT_WEIGHT_OPTIONS = [
                   <label class="mb-1 block text-[11px] text-muted-foreground">글자 굵기</label>
                   <Select :value="selectedOverlay.fontWeight" :options="FONT_WEIGHT_OPTIONS" size="small" style="width:100%" @change="(v) => updateOverlay('fontWeight', v as 'normal' | 'bold')" />
                 </div>
+                <div class="mb-2">
+                  <label class="mb-1 block text-[11px] text-muted-foreground">회전 각도 (도)</label>
+                  <Select :value="(selectedOverlay as any).rotation || 0" size="small" style="width:100%" @change="(v) => updateOverlayRotation(v as number)">
+                    <Select.Option :value="0">0도 (기본)</Select.Option>
+                    <Select.Option :value="90">90도 (우회전)</Select.Option>
+                    <Select.Option :value="180">180도 회전</Select.Option>
+                    <Select.Option :value="270">270도 (좌회전)</Select.Option>
+                  </Select>
+                </div>
               </div>
 
               <!-- 수치 요약 -->
@@ -973,6 +1032,7 @@ const FONT_WEIGHT_OPTIONS = [
                 <div>Top: {{ selectedOverlay.positionTop.toFixed(3) }}%</div>
                 <div>W: {{ selectedOverlay.width.toFixed(3) }}% / H: {{ selectedOverlay.height.toFixed(3) }}%</div>
                 <div>Font: {{ selectedOverlay.fontSize }}%</div>
+                <div>Rotation: {{ (selectedOverlay as any).rotation || 0 }}°</div>
               </div>
 
               <Popconfirm title="이 텍스트 오버레이를 제거하시겠습니까?" @confirm="removeOverlay(selectedOverlay!.id)">

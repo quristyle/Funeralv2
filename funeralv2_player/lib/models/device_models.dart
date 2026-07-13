@@ -149,13 +149,27 @@ class DeviceRibbonDto {
   final double positionTop;
   final double width;
   final double height;
-  DeviceRibbonDto({required this.id, required this.deviceId, required this.mediaSourceId, this.mediaSourceUrl, required this.positionLeft, required this.positionTop, required this.width, required this.height});
+  final String? remark;
+
+  DeviceRibbonDto({required this.id, required this.deviceId, required this.mediaSourceId, this.mediaSourceUrl, required this.positionLeft, required this.positionTop, required this.width, required this.height, this.remark});
+
   factory DeviceRibbonDto.fromJson(Map<String, dynamic> json) => DeviceRibbonDto(
     id: json['id'] ?? '', deviceId: json['deviceId'] ?? '', mediaSourceId: json['mediaSourceId'] ?? '', mediaSourceUrl: json['mediaSourceUrl'],
     positionLeft: (json['positionLeft'] ?? 0).toDouble(), positionTop: (json['positionTop'] ?? 0).toDouble(),
     width: (json['width'] ?? 0).toDouble(), height: (json['height'] ?? 0).toDouble(),
+    remark: json['remark'],
   );
-  Map<String, dynamic> toJson() => {'id': id, 'deviceId': deviceId, 'mediaSourceId': mediaSourceId, 'mediaSourceUrl': mediaSourceUrl, 'positionLeft': positionLeft, 'positionTop': positionTop, 'width': width, 'height': height};
+
+  Map<String, dynamic> toJson() => {'id': id, 'deviceId': deviceId, 'mediaSourceId': mediaSourceId, 'mediaSourceUrl': mediaSourceUrl, 'positionLeft': positionLeft, 'positionTop': positionTop, 'width': width, 'height': height, 'remark': remark};
+
+  int get rotation {
+    if (remark == null || remark!.isEmpty) return 0;
+    final match = RegExp(r'rotation:(\d+)').firstMatch(remark!);
+    if (match != null) {
+      return int.tryParse(match.group(1) ?? '0') ?? 0;
+    }
+    return 0;
+  }
 }
 
 class DeviceTextOverlayDto {
@@ -171,15 +185,29 @@ class DeviceTextOverlayDto {
   final double positionTop;
   final double width;
   final double height;
-  DeviceTextOverlayDto({required this.id, required this.deviceId, required this.textContent, required this.fontSize, required this.fontColor, required this.backgroundColor, required this.textAlign, required this.fontWeight, required this.positionLeft, required this.positionTop, required this.width, required this.height});
+  final String? remark;
+
+  DeviceTextOverlayDto({required this.id, required this.deviceId, required this.textContent, required this.fontSize, required this.fontColor, required this.backgroundColor, required this.textAlign, required this.fontWeight, required this.positionLeft, required this.positionTop, required this.width, required this.height, this.remark});
+
   factory DeviceTextOverlayDto.fromJson(Map<String, dynamic> json) => DeviceTextOverlayDto(
     id: json['id'] ?? '', deviceId: json['deviceId'] ?? '', textContent: json['textContent'] ?? '',
     fontSize: (json['fontSize'] ?? 0).toDouble(), fontColor: json['fontColor'] ?? '#FFFFFF', backgroundColor: json['backgroundColor'] ?? 'transparent',
     textAlign: json['textAlign'] ?? 'center', fontWeight: json['fontWeight'] ?? 'normal',
     positionLeft: (json['positionLeft'] ?? 0).toDouble(), positionTop: (json['positionTop'] ?? 0).toDouble(),
     width: (json['width'] ?? 0).toDouble(), height: (json['height'] ?? 0).toDouble(),
+    remark: json['remark'],
   );
-  Map<String, dynamic> toJson() => {'id': id, 'deviceId': deviceId, 'textContent': textContent, 'fontSize': fontSize, 'fontColor': fontColor, 'backgroundColor': backgroundColor, 'textAlign': textAlign, 'fontWeight': fontWeight, 'positionLeft': positionLeft, 'positionTop': positionTop, 'width': width, 'height': height};
+
+  Map<String, dynamic> toJson() => {'id': id, 'deviceId': deviceId, 'textContent': textContent, 'fontSize': fontSize, 'fontColor': fontColor, 'backgroundColor': backgroundColor, 'textAlign': textAlign, 'fontWeight': fontWeight, 'positionLeft': positionLeft, 'positionTop': positionTop, 'width': width, 'height': height, 'remark': remark};
+
+  int get rotation {
+    if (remark == null || remark!.isEmpty) return 0;
+    final match = RegExp(r'rotation:(\d+)').firstMatch(remark!);
+    if (match != null) {
+      return int.tryParse(match.group(1) ?? '0') ?? 0;
+    }
+    return 0;
+  }
 }
 
 class DeceasedDto {

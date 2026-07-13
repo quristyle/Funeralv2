@@ -55,29 +55,25 @@ class _PortraitViewState extends State<PortraitView> {
           return _buildErrorView();
         }
 
-        // 2. 정상 상태일 때 PlayerShell 호출 (설정 아이콘을 숨기고, 화면 전체 터치 이벤트 연동)
+        // 2. 정상 상태일 때 PlayerShell 호출
         return PlayerShell(
           device: dev!,
           playerService: _controller.playerService,
           onOpenSettings: widget.onOpenSettings,
           debugFileName: 'portrait_view.dart',
-          showSettingsIcon: false,
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque, // 투명한 빈 영역 클릭도 모두 감지
-            onTap: widget.onOpenSettings,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                // 영정사진 레이어
-                _buildPortraitPhotoLayer(dev),
-                // 장식 레이어
-                _buildDecorationsLayer(dev),
-                // 정보 레이아웃 레이어
-                _buildUILayoutLayer(dev),
-                // 텍스트 오버레이 레이어 (deviceTextOverlays) - 추가됨
-                _buildTextOverlaysLayer(dev),
-              ],
-            ),
+          showSettingsIcon: true,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              // 영정사진 레이어
+              _buildPortraitPhotoLayer(dev),
+              // 장식 레이어 (리본 등)
+              _buildDecorationsLayer(dev),
+              // 정보 레이아웃 레이어 (성함, 상주 등)
+              _buildUILayoutLayer(dev),
+              // 텍스트 오버레이 레이어 (커스텀 텍스트)
+              _buildTextOverlaysLayer(dev),
+            ],
           ),
         );
       },
@@ -91,33 +87,48 @@ class _PortraitViewState extends State<PortraitView> {
     final overlays = _controller.deceased?.deviceTextOverlays;
     if (overlays == null || overlays.isEmpty) return const SizedBox();
 
+    // 장비 방향에 따른 기본 회전 수 계산
+    int deviceTurns = 0;
+    switch (dev.portraitOrientation) {
+      case 'VERTICAL_LEFT': deviceTurns = 3; break;
+      case 'VERTICAL_RIGHT': deviceTurns = 1; break;
+      case 'INVERTED': deviceTurns = 2; break;
+      default: deviceTurns = 0; break;
+    }
+
     return LayoutBuilder(builder: (context, constraints) {
       final width = constraints.maxWidth;
       final height = constraints.maxHeight;
 
       return Stack(
         children: overlays.map((text) {
+          final itemTurns = (text.rotation / 90).round();
+          final finalTurns = (itemTurns + deviceTurns) % 4;
+
           return Positioned(
             left: width * text.positionLeft / 100,
             top: height * text.positionTop / 100,
             width: width * text.width / 100,
             height: height * text.height / 100,
-            child: Container(
-              alignment: _getTextAlignment(text.textAlign),
-              color: _parseColor(text.backgroundColor),
-              child: Text(
-                text.textContent,
-                style: TextStyle(
-                  fontSize: width * (text.fontSize / 100), // 화면 너비 대비 비율 폰트 크기
-                  color: _parseColor(text.fontColor),
-                  fontWeight: text.fontWeight == 'bold' ? FontWeight.bold : FontWeight.normal,
-                  shadows: [
-                    Shadow(
-                      offset: const Offset(2.0, 2.0),
-                      blurRadius: 4.0,
-                      color: _getShadowColor(text.fontColor),
-                    ),
-                  ],
+            child: RotatedBox(
+              quarterTurns: finalTurns,
+              child: Container(
+                alignment: _getTextAlignment(text.textAlign),
+                color: _parseColor(text.backgroundColor),
+                child: Text(
+                  text.textContent,
+                  style: TextStyle(
+                    fontSize: width * (text.fontSize / 100), // 화면 너비 대비 비율 폰트 크기
+                    color: _parseColor(text.fontColor),
+                    fontWeight: text.fontWeight == 'bold' ? FontWeight.bold : FontWeight.normal,
+                    shadows: [
+                      Shadow(
+                        offset: const Offset(2.0, 2.0),
+                        blurRadius: 4.0,
+                        color: _getShadowColor(text.fontColor),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -161,6 +172,15 @@ class _PortraitViewState extends State<PortraitView> {
       return const SizedBox();
     }
 
+    // 장비 방향에 따른 기본 회전 수 계산
+    int deviceTurns = 0;
+    switch (dev.portraitOrientation) {
+      case 'VERTICAL_LEFT': deviceTurns = 3; break;
+      case 'VERTICAL_RIGHT': deviceTurns = 1; break;
+      case 'INVERTED': deviceTurns = 2; break;
+      default: deviceTurns = 0; break;
+    }
+
     return LayoutBuilder(builder: (context, constraints) {
       final width = constraints.maxWidth;
       final height = constraints.maxHeight;
@@ -172,12 +192,18 @@ class _PortraitViewState extends State<PortraitView> {
           // 컨트롤러에서 다운로드한 로컬 경로 조회
           final String? localPath = _controller.ribbonPaths[ribbon.id];
 
+          final itemTurns = (ribbon.rotation / 90).round();
+          final finalTurns = (itemTurns + deviceTurns) % 4;
+
           return Positioned(
             left: width * ribbon.positionLeft / 100,
             top: height * ribbon.positionTop / 100,
             width: width * ribbon.width / 100,
             height: height * ribbon.height / 100,
-            child: _buildDynamicImage(localPath, ribbon.mediaSourceUrl!),
+            child: RotatedBox(
+              quarterTurns: finalTurns,
+              child: _buildDynamicImage(localPath, ribbon.mediaSourceUrl!),
+            ),
           );
         }).toList(),
       );
@@ -233,11 +259,10 @@ class _PortraitViewState extends State<PortraitView> {
             left: constraints.maxWidth * (dev.memorialPaddingLeft / 100),
             right: constraints.maxWidth * (dev.memorialPaddingRight / 100),
           ),
-          child: Align(
-            alignment: Alignment(x, y),
+          child: SizedBox.expand(
             child: RotatedBox(
               quarterTurns: turns,
-              child: _buildDeceasedImage(),
+              child: _buildDeceasedImage(Alignment(x, y)),
             ),
           ),
         );
@@ -322,11 +347,26 @@ class _PortraitViewState extends State<PortraitView> {
     );
   }
 
-  Widget _buildDeceasedImage() {
+  Widget _buildDeceasedImage(Alignment alignment) {
     final path = _controller.deceasedPhotoPath;
-    if (path == null) return const Icon(Icons.person, color: Colors.white24, size: 120);
-    if (kIsWeb) return Image.network(path, fit: BoxFit.contain, errorBuilder: (c, e, s) => const Icon(Icons.person, color: Colors.white24, size: 120));
-    return Image.file(io.File(path), fit: BoxFit.contain, errorBuilder: (c, e, s) => const Icon(Icons.person, color: Colors.white24, size: 120));
+    const placeholder = Icon(Icons.person, color: Colors.white24, size: 120);
+
+    if (path == null) return placeholder;
+
+    if (kIsWeb) {
+      return Image.network(
+        path, 
+        fit: BoxFit.contain, 
+        alignment: alignment,
+        errorBuilder: (c, e, s) => placeholder
+      );
+    }
+    return Image.file(
+      io.File(path), 
+      fit: BoxFit.contain, 
+      alignment: alignment,
+      errorBuilder: (c, e, s) => placeholder
+    );
   }
 
   Widget _buildLoadingView() {

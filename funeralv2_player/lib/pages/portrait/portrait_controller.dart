@@ -16,8 +16,6 @@ class PortraitController extends ChangeNotifier {
   String? localVideoPath;
   String? localMusicPath;
   String? localPhotoPath;
-  
-  // 리본 장식 로컬 경로 보관용 (Key: Ribbon ID, Value: Local Path)
   Map<String, String> ribbonPaths = {};
 
   bool isLoading = false;
@@ -33,116 +31,114 @@ class PortraitController extends ChangeNotifier {
 
   @override
   void notifyListeners() {
-    if (!_isDisposed) {
-      super.notifyListeners();
-    }
+    if (!_isDisposed) super.notifyListeners();
   }
 
-  Future<void> init(
-    String serverBaseUrl, 
-    String deviceCode,
-    Function() onVideoInitialized,
-  ) async {
+  Future<void> init(String serverBaseUrl, String deviceCode, Function() onVideoInitialized) async {
     if (_isDisposed) return;
 
     isLoading = true;
     statusMessage = '장비 정보를 불러오는 중...';
     notifyListeners();
 
-    final newDevice = await _apiService.fetchDevice(serverBaseUrl, deviceCode);
-    if (newDevice == null || _isDisposed) {
-      statusMessage = '장비 정보를 불러오지 못했습니다 (오프라인 상태)';
-      isLoading = false;
+    try {
+      // 1. 장비 상세 데이터 로드
+      final newDevice = await _apiService.fetchDevice(serverBaseUrl, deviceCode);
+      if (newDevice == null) {
+        statusMessage = '장비 정보를 불러오지 못했습니다.';
+        isLoading = false;
+        notifyListeners();
+        return;
+      }
+      device = newDevice;
+
+      // 즉시 반응 (음소거 및 비디오 정지)
+      if (!device!.isMusicEnabled) { await playerService.stopMusic(); localMusicPath = null; }
+      if (!device!.isVideoEnabled) { await playerService.stopVideo(); localVideoPath = null; }
       notifyListeners();
-      return;
-    }
-    device = newDevice;
 
-    if (!device!.isMusicEnabled) {
-      await playerService.stopMusic();
-      localMusicPath = null;
-    }
-    if (!device!.isVideoEnabled) {
-      await playerService.stopVideo();
-      localVideoPath = null;
-    }
-    notifyListeners();
-
-    if (device!.roomId != null && device!.roomId!.isNotEmpty) {
+      // 2. 고인 정보 로드
       statusMessage = '고인 정보를 동기화하는 중...';
+      print('[PortraitController] 고인 정보 API 호출: $deviceCode');
       deceased = await _apiService.fetchDeceased(serverBaseUrl, deviceCode);
-      notifyListeners(); 
-    } else {
-      deceased = null;
+      print('[PortraitController] 고인 정보 로드 완료: ${deceased?.name}');
       notifyListeners();
-    }
 
-    if (_isDisposed) return;
+      if (_isDisposed) return;
 
-    statusMessage = '미디어 자원을 동기화하는 중...';
-    notifyListeners();
+      // 3. 미디어 파일 동기화
+      // 비디오
+      String? nextVideoPath;
+      if (device!.isVideoEnabled && device!.videoId != null) {
+        final sourcePath = await _apiService.fetchSourcePath(serverBaseUrl, device!.videoId!);
+        nextVideoPath = await _cacheManager.getCachedFileByPath(serverBaseUrl, sourcePath);
+      }
 
-    // 1. 비디오 동기화
-    String? nextVideoPath;
-    if (device!.isVideoEnabled && device!.videoId != null) {
-      final sourcePath = await _apiService.fetchSourcePath(serverBaseUrl, device!.videoId!);
-      nextVideoPath = await _cacheManager.getCachedFileByPath(serverBaseUrl, sourcePath);
-    }
+      // 음악
+      String? nextMusicPath;
+      if (device!.isMusicEnabled && device!.musicId != null) {
+        final sourcePath = await _apiService.fetchSourcePath(serverBaseUrl, device!.musicId!);
+        nextMusicPath = await _cacheManager.getCachedFileByPath(serverBaseUrl, sourcePath);
+      }
 
-    // 2. 음악 동기화
-    String? nextMusicPath;
-    if (device!.isMusicEnabled && device!.musicId != null) {
-      final sourcePath = await _apiService.fetchSourcePath(serverBaseUrl, device!.musicId!);
-      nextMusicPath = await _cacheManager.getCachedFileByPath(serverBaseUrl, sourcePath);
-    }
+      // 영정사진
+      if (device!.isMemorialPhotoEnabled && deceased != null) {
+        final photoPath = (deceased!.memorialEditedPhotoUrl != null && deceased!.memorialEditedPhotoUrl!.isNotEmpty)
+            ? deceased!.memorialEditedPhotoUrl
+            : deceased!.memorialPhotoUrl;
+        localPhotoPath = await _cacheManager.getCachedFileByPath(serverBaseUrl, photoPath);
+      } else {
+        localPhotoPath = null;
+      }
 
-    // 3. 영정사진 동기화
-    if (device!.isMemorialPhotoEnabled && deceased != null) {
-      final photoPath = (deceased!.memorialEditedPhotoUrl != null && deceased!.memorialEditedPhotoUrl!.isNotEmpty)
-          ? deceased!.memorialEditedPhotoUrl
-          : deceased!.memorialPhotoUrl;
-      localPhotoPath = await _cacheManager.getCachedFileByPath(serverBaseUrl, photoPath);
-    } else {
-      localPhotoPath = null;
-    }
-
-    // 4. 리본 장식 동기화 (추가됨)
-    ribbonPaths.clear();
-    if (deceased != null && deceased!.deviceRibbons.isNotEmpty) {
-      for (var ribbon in deceased!.deviceRibbons) {
-        if (ribbon.mediaSourceUrl != null) {
-          final lp = await _cacheManager.getCachedFileByPath(serverBaseUrl, ribbon.mediaSourceUrl);
-          if (lp != null) ribbonPaths[ribbon.id] = lp;
+      // 리본 장식
+      ribbonPaths.clear();
+      if (deceased != null) {
+        for (var ribbon in deceased!.deviceRibbons) {
+          if (ribbon.mediaSourceUrl != null) {
+            final lp = await _cacheManager.getCachedFileByPath(serverBaseUrl, ribbon.mediaSourceUrl);
+            if (lp != null) ribbonPaths[ribbon.id] = lp;
+          }
         }
       }
-    }
 
-    if (_isDisposed) return;
+      if (_isDisposed) return;
 
-    if (device!.isVideoEnabled && nextVideoPath != null) {
-      if (localVideoPath != nextVideoPath) {
-        localVideoPath = nextVideoPath;
-        await playerService.playVideo(localVideoPath!, onVideoInitialized);
+      // 4. 재생 상태 적용
+      if (device!.isVideoEnabled && nextVideoPath != null) {
+        if (localVideoPath != nextVideoPath) {
+          localVideoPath = nextVideoPath;
+          await playerService.playVideo(localVideoPath!, onVideoInitialized);
+        }
+      } else {
+        await playerService.stopVideo();
+        localVideoPath = null;
       }
-    } else {
-      await playerService.stopVideo();
-      localVideoPath = null;
-    }
 
-    if (device!.isMusicEnabled && nextMusicPath != null) {
-      if (localMusicPath != nextMusicPath) {
-        localMusicPath = nextMusicPath;
-        await playerService.playMusic(localMusicPath!, device!.musicVolume, isMuted: device!.isMuted);
+      if (device!.isMusicEnabled && nextMusicPath != null) {
+        if (localMusicPath != nextMusicPath) {
+          localMusicPath = nextMusicPath;
+          await playerService.playMusic(localMusicPath!, device!.musicVolume, isMuted: device!.isMuted);
+        }
+      } else {
+        await playerService.stopMusic();
+        localMusicPath = null;
       }
-    } else {
-      await playerService.stopMusic();
-      localMusicPath = null;
+
+      if (device!.isMusicEnabled && localMusicPath != null) {
+        await playerService.updateMusicVolume(device!.musicVolume, isMuted: device!.isMuted);
+      }
+
+    } catch (e) {
+      print('[PortraitController] 오류 발생: $e');
+      statusMessage = '데이터 로딩 중 오류가 발생했습니다.';
+    } finally {
+      isLoading = false;
+      statusMessage = '재생 중';
+      notifyListeners();
     }
 
-    if (device!.isMusicEnabled && localMusicPath != null) {
-       await playerService.updateMusicVolume(device!.musicVolume, isMuted: device!.isMuted);
-    }
-
+    // SignalR 연결 (성공할 때까지 시도)
     await _signalRService.connect(
       serverUrl: serverBaseUrl,
       deviceCode: deviceCode,
@@ -150,10 +146,6 @@ class PortraitController extends ChangeNotifier {
         if (!_isDisposed) init(serverBaseUrl, deviceCode, onVideoInitialized);
       },
     );
-
-    isLoading = false;
-    statusMessage = '재생 중';
-    notifyListeners();
   }
 
   String? get deceasedPhotoPath => localPhotoPath;

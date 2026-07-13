@@ -39,16 +39,22 @@ class LocalDbService {
 
     return await openDatabase(
       fullPath,
-      version: 10, // 버전 10으로 상향
+      version: 11, // 버전 11로 상향
       onCreate: _onCreate,
       onUpgrade: (db, oldVersion, newVersion) async {
-        // 기존 업그레이드 로직 유지 및 10 버전 추가
+        if (oldVersion < 9) {
+          try { await db.execute('ALTER TABLE deceased ADD COLUMN deviceCode TEXT'); } catch (_) {}
+        }
         if (oldVersion < 10) {
           try {
-            // 미디어 소스 경로 캐시 테이블
             await db.execute('CREATE TABLE IF NOT EXISTS media_sources (id TEXT PRIMARY KEY, path TEXT)');
-            // 입구 안내 호실 목록 캐시 테이블
             await db.execute('CREATE TABLE IF NOT EXISTS entrance_guide (deviceCode TEXT PRIMARY KEY, jsonData TEXT)');
+          } catch (_) {}
+        }
+        if (oldVersion < 11) {
+          try {
+            // 누락된 familyPhotos 컬럼 추가
+            await db.execute('ALTER TABLE deceased ADD COLUMN familyPhotos TEXT');
           } catch (_) {}
         }
       },
@@ -75,11 +81,26 @@ class LocalDbService {
 
     await db.execute('''
       CREATE TABLE deceased (
-        id TEXT PRIMARY KEY, deviceCode TEXT, name TEXT, gender TEXT, age INTEGER,
-        religion TEXT, deathDate TEXT, funeralDate TEXT, burialDate TEXT,
-        roomId TEXT, roomName TEXT, chiefMourner TEXT, mourners TEXT,
-        memorialPhotoUrl TEXT, memorialPhotoFileId TEXT, memorialEditedPhotoUrl TEXT,
-        memorialEditedPhotoFileId TEXT, deviceRibbons TEXT, deviceTextOverlays TEXT
+        id TEXT PRIMARY KEY,
+        deviceCode TEXT,
+        name TEXT,
+        gender TEXT,
+        age INTEGER,
+        religion TEXT,
+        deathDate TEXT,
+        funeralDate TEXT,
+        burialDate TEXT,
+        roomId TEXT,
+        roomName TEXT,
+        chiefMourner TEXT,
+        mourners TEXT,
+        familyPhotos TEXT,
+        memorialPhotoUrl TEXT,
+        memorialPhotoFileId TEXT,
+        memorialEditedPhotoUrl TEXT,
+        memorialEditedPhotoFileId TEXT,
+        deviceRibbons TEXT,
+        deviceTextOverlays TEXT
       )
     ''');
 
@@ -87,7 +108,6 @@ class LocalDbService {
     await db.execute('CREATE TABLE entrance_guide (deviceCode TEXT PRIMARY KEY, jsonData TEXT)');
   }
 
-  // --- 장비 정보 ---
   Future<void> saveDevice(DeviceDto deviceDto) async {
     final db = await database;
     if (db != null) await db.insert('devices', deviceDto.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
@@ -99,22 +119,31 @@ class LocalDbService {
     return maps.isEmpty ? null : DeviceDto.fromJson(maps.first);
   }
 
-  // --- 고인 정보 ---
   Future<void> saveDeceased(DeceasedDto deceased, String deviceCode) async {
     final db = await database;
     if (db == null) return;
-    final map = deceased.toMap();
-    map['deviceCode'] = deviceCode;
-    await db.insert('deceased', map, conflictAlgorithm: ConflictAlgorithm.replace);
+    try {
+      final map = deceased.toMap();
+      map['deviceCode'] = deviceCode;
+      await db.insert('deceased', map, conflictAlgorithm: ConflictAlgorithm.replace);
+    } catch (e) {
+      print('[DB Cache] saveDeceased 에러: $e');
+    }
   }
+
   Future<DeceasedDto?> getDeceasedByDeviceCode(String deviceCode) async {
     final db = await database;
     if (db == null) return null;
-    final List<Map<String, dynamic>> maps = await db.query('deceased', where: 'deviceCode = ?', whereArgs: [deviceCode]);
-    return maps.isEmpty ? null : DeceasedDto.fromJson(maps.first);
+    try {
+      final List<Map<String, dynamic>> maps = await db.query('deceased', where: 'deviceCode = ?', whereArgs: [deviceCode]);
+      if (maps.isEmpty) return null;
+      return DeceasedDto.fromJson(maps.first);
+    } catch (e) {
+      print('[DB Cache] getDeceasedByDeviceCode 에러: $e');
+      return null;
+    }
   }
 
-  // --- 미디어 소스 경로 ---
   Future<void> saveSourcePath(String sourceId, String path) async {
     final db = await database;
     if (db != null) await db.insert('media_sources', {'id': sourceId, 'path': path}, conflictAlgorithm: ConflictAlgorithm.replace);
@@ -126,7 +155,6 @@ class LocalDbService {
     return maps.isEmpty ? null : maps.first['path'] as String;
   }
 
-  // --- 입구 안내 호실 목록 ---
   Future<void> saveEntranceGuide(String deviceCode, String json) async {
     final db = await database;
     if (db != null) await db.insert('entrance_guide', {'deviceCode': deviceCode, 'jsonData': json}, conflictAlgorithm: ConflictAlgorithm.replace);
