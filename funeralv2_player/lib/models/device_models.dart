@@ -27,8 +27,8 @@ class DeviceDto {
   final String deviceType;
   final String photoVerticalAlignment;
   final String photoHorizontalAlignment;
-  final String memorialPhotoEffect; // 추가
-  final int contentIntervalSec;     // 추가
+  final String memorialPhotoEffect;
+  final int contentIntervalSec;
 
   final double displayPaddingTop;
   final double displayPaddingLeft;
@@ -41,42 +41,17 @@ class DeviceDto {
   final double memorialPaddingBottom;
 
   DeviceDto({
-    required this.id,
-    required this.code,
-    required this.name,
-    this.roomId,
-    this.roomName,
-    this.floorId,
-    this.floorName,
-    this.buildingId,
-    this.buildingName,
-    this.videoId,
-    this.musicId,
-    required this.isVideoEnabled,
-    required this.isMusicEnabled,
-    required this.isMuted,
-    this.videoName,
-    this.musicName,
-    required this.musicVolume,
-    required this.isMemorialPhotoEnabled,
-    required this.isDeceasedNameVisible,
-    required this.isFamilyContactVisible,
-    required this.displayOrientation,
-    required this.portraitOrientation,
-    required this.videoOrientation,
-    required this.deviceType,
-    required this.photoVerticalAlignment,
-    required this.photoHorizontalAlignment,
-    required this.memorialPhotoEffect,
-    required this.contentIntervalSec,
-    required this.displayPaddingTop,
-    required this.displayPaddingLeft,
-    required this.displayPaddingRight,
-    required this.displayPaddingBottom,
-    required this.memorialPaddingTop,
-    required this.memorialPaddingLeft,
-    required this.memorialPaddingRight,
-    required this.memorialPaddingBottom,
+    required this.id, required this.code, required this.name,
+    this.roomId, this.roomName, this.floorId, this.floorName,
+    this.buildingId, this.buildingName, this.videoId, this.musicId,
+    required this.isVideoEnabled, required this.isMusicEnabled, required this.isMuted,
+    this.videoName, this.musicName, required this.musicVolume,
+    required this.isMemorialPhotoEnabled, required this.isDeceasedNameVisible, required this.isFamilyContactVisible,
+    required this.displayOrientation, required this.portraitOrientation, required this.videoOrientation,
+    required this.deviceType, required this.photoVerticalAlignment, required this.photoHorizontalAlignment,
+    required this.memorialPhotoEffect, required this.contentIntervalSec,
+    required this.displayPaddingTop, required this.displayPaddingLeft, required this.displayPaddingRight, required this.displayPaddingBottom,
+    required this.memorialPaddingTop, required this.memorialPaddingLeft, required this.memorialPaddingRight, required this.memorialPaddingBottom,
   });
 
   factory DeviceDto.fromJson(Map<String, dynamic> json) {
@@ -133,42 +108,22 @@ class DeviceDto {
 
   Map<String, dynamic> toMap() {
     return {
-      'id': id,
-      'code': code,
-      'name': name,
-      'roomId': roomId,
-      'roomName': roomName,
-      'floorId': floorId,
-      'floorName': floorName,
-      'buildingId': buildingId,
-      'buildingName': buildingName,
-      'videoId': videoId,
-      'musicId': musicId,
-      'isVideoEnabled': isVideoEnabled ? 1 : 0,
-      'isMusicEnabled': isMusicEnabled ? 1 : 0,
-      'isMuted': isMuted ? 1 : 0,
-      'videoName': videoName,
-      'musicName': musicName,
-      'musicVolume': musicVolume,
+      'id': id, 'code': code, 'name': name, 'roomId': roomId, 'roomName': roomName,
+      'floorId': floorId, 'floorName': floorName, 'buildingId': buildingId, 'buildingName': buildingName,
+      'videoId': videoId, 'musicId': musicId, 'isVideoEnabled': isVideoEnabled ? 1 : 0,
+      'isMusicEnabled': isMusicEnabled ? 1 : 0, 'isMuted': isMuted ? 1 : 0,
+      'videoName': videoName, 'musicName': musicName, 'musicVolume': musicVolume,
       'isMemorialPhotoEnabled': isMemorialPhotoEnabled ? 1 : 0,
       'isDeceasedNameVisible': isDeceasedNameVisible ? 1 : 0,
       'isFamilyContactVisible': isFamilyContactVisible ? 1 : 0,
-      'displayOrientation': displayOrientation,
-      'portraitOrientation': portraitOrientation,
-      'videoOrientation': videoOrientation,
-      'photoVerticalAlignment': photoVerticalAlignment,
-      'photoHorizontalAlignment': photoHorizontalAlignment,
-      'deviceType': deviceType,
-      'memorialPhotoEffect': memorialPhotoEffect,
-      'contentIntervalSec': contentIntervalSec,
-      'displayPaddingTop': displayPaddingTop,
-      'displayPaddingLeft': displayPaddingLeft,
-      'displayPaddingRight': displayPaddingRight,
-      'displayPaddingBottom': displayPaddingBottom,
-      'memorialPaddingTop': memorialPaddingTop,
-      'memorialPaddingLeft': memorialPaddingLeft,
-      'memorialPaddingRight': memorialPaddingRight,
-      'memorialPaddingBottom': memorialPaddingBottom,
+      'displayOrientation': displayOrientation, 'portraitOrientation': portraitOrientation,
+      'videoOrientation': videoOrientation, 'photoVerticalAlignment': photoVerticalAlignment,
+      'photoHorizontalAlignment': photoHorizontalAlignment, 'deviceType': deviceType,
+      'memorialPhotoEffect': memorialPhotoEffect, 'contentIntervalSec': contentIntervalSec,
+      'displayPaddingTop': displayPaddingTop, 'displayPaddingLeft': displayPaddingLeft,
+      'displayPaddingRight': displayPaddingRight, 'displayPaddingBottom': displayPaddingBottom,
+      'memorialPaddingTop': memorialPaddingTop, 'memorialPaddingLeft': memorialPaddingLeft,
+      'memorialPaddingRight': memorialPaddingRight, 'memorialPaddingBottom': memorialPaddingBottom,
     };
   }
 }
@@ -178,24 +133,11 @@ class MournerDto {
   final String? relation;
   final String? relationName;
   final bool isChief;
-
   MournerDto({this.name, this.relation, this.relationName, required this.isChief});
-
-  factory MournerDto.fromJson(Map<String, dynamic> json) {
-    return MournerDto(
-      name: json['name'],
-      relation: json['relation'],
-      relationName: json['relationName'],
-      isChief: json['isChief'] ?? false,
-    );
-  }
-
-  Map<String, dynamic> toJson() => {
-    'name': name,
-    'relation': relation,
-    'relationName': relationName,
-    'isChief': isChief,
-  };
+  factory MournerDto.fromJson(Map<String, dynamic> json) => MournerDto(
+    name: json['name'], relation: json['relation'], relationName: json['relationName'], isChief: (json['isChief'] == 1 || json['isChief'] == true),
+  );
+  Map<String, dynamic> toJson() => {'name': name, 'relation': relation, 'relationName': relationName, 'isChief': isChief};
 }
 
 class DeviceRibbonDto {
@@ -207,41 +149,13 @@ class DeviceRibbonDto {
   final double positionTop;
   final double width;
   final double height;
-
-  DeviceRibbonDto({
-    required this.id,
-    required this.deviceId,
-    required this.mediaSourceId,
-    this.mediaSourceUrl,
-    required this.positionLeft,
-    required this.positionTop,
-    required this.width,
-    required this.height,
-  });
-
-  factory DeviceRibbonDto.fromJson(Map<String, dynamic> json) {
-    return DeviceRibbonDto(
-      id: json['id'],
-      deviceId: json['deviceId'],
-      mediaSourceId: json['mediaSourceId'],
-      mediaSourceUrl: json['mediaSourceUrl'],
-      positionLeft: (json['positionLeft'] ?? 0).toDouble(),
-      positionTop: (json['positionTop'] ?? 0).toDouble(),
-      width: (json['width'] ?? 0).toDouble(),
-      height: (json['height'] ?? 0).toDouble(),
-    );
-  }
-
-  Map<String, dynamic> toJson() => {
-    'id': id,
-    'deviceId': deviceId,
-    'mediaSourceId': mediaSourceId,
-    'mediaSourceUrl': mediaSourceUrl,
-    'positionLeft': positionLeft,
-    'positionTop': positionTop,
-    'width': width,
-    'height': height,
-  };
+  DeviceRibbonDto({required this.id, required this.deviceId, required this.mediaSourceId, this.mediaSourceUrl, required this.positionLeft, required this.positionTop, required this.width, required this.height});
+  factory DeviceRibbonDto.fromJson(Map<String, dynamic> json) => DeviceRibbonDto(
+    id: json['id'] ?? '', deviceId: json['deviceId'] ?? '', mediaSourceId: json['mediaSourceId'] ?? '', mediaSourceUrl: json['mediaSourceUrl'],
+    positionLeft: (json['positionLeft'] ?? 0).toDouble(), positionTop: (json['positionTop'] ?? 0).toDouble(),
+    width: (json['width'] ?? 0).toDouble(), height: (json['height'] ?? 0).toDouble(),
+  );
+  Map<String, dynamic> toJson() => {'id': id, 'deviceId': deviceId, 'mediaSourceId': mediaSourceId, 'mediaSourceUrl': mediaSourceUrl, 'positionLeft': positionLeft, 'positionTop': positionTop, 'width': width, 'height': height};
 }
 
 class DeviceTextOverlayDto {
@@ -257,53 +171,15 @@ class DeviceTextOverlayDto {
   final double positionTop;
   final double width;
   final double height;
-
-  DeviceTextOverlayDto({
-    required this.id,
-    required this.deviceId,
-    required this.textContent,
-    required this.fontSize,
-    required this.fontColor,
-    required this.backgroundColor,
-    required this.textAlign,
-    required this.fontWeight,
-    required this.positionLeft,
-    required this.positionTop,
-    required this.width,
-    required this.height,
-  });
-
-  factory DeviceTextOverlayDto.fromJson(Map<String, dynamic> json) {
-    return DeviceTextOverlayDto(
-      id: json['id'],
-      deviceId: json['deviceId'],
-      textContent: json['textContent'] ?? '',
-      fontSize: (json['fontSize'] ?? 0).toDouble(),
-      fontColor: json['fontColor'] ?? '#FFFFFF',
-      backgroundColor: json['backgroundColor'] ?? 'transparent',
-      textAlign: json['textAlign'] ?? 'center',
-      fontWeight: json['fontWeight'] ?? 'normal',
-      positionLeft: (json['positionLeft'] ?? 0).toDouble(),
-      positionTop: (json['positionTop'] ?? 0).toDouble(),
-      width: (json['width'] ?? 0).toDouble(),
-      height: (json['height'] ?? 0).toDouble(),
-    );
-  }
-
-  Map<String, dynamic> toJson() => {
-    'id': id,
-    'deviceId': deviceId,
-    'textContent': textContent,
-    'fontSize': fontSize,
-    'fontColor': fontColor,
-    'backgroundColor': backgroundColor,
-    'textAlign': textAlign,
-    'fontWeight': fontWeight,
-    'positionLeft': positionLeft,
-    'positionTop': positionTop,
-    'width': width,
-    'height': height,
-  };
+  DeviceTextOverlayDto({required this.id, required this.deviceId, required this.textContent, required this.fontSize, required this.fontColor, required this.backgroundColor, required this.textAlign, required this.fontWeight, required this.positionLeft, required this.positionTop, required this.width, required this.height});
+  factory DeviceTextOverlayDto.fromJson(Map<String, dynamic> json) => DeviceTextOverlayDto(
+    id: json['id'] ?? '', deviceId: json['deviceId'] ?? '', textContent: json['textContent'] ?? '',
+    fontSize: (json['fontSize'] ?? 0).toDouble(), fontColor: json['fontColor'] ?? '#FFFFFF', backgroundColor: json['backgroundColor'] ?? 'transparent',
+    textAlign: json['textAlign'] ?? 'center', fontWeight: json['fontWeight'] ?? 'normal',
+    positionLeft: (json['positionLeft'] ?? 0).toDouble(), positionTop: (json['positionTop'] ?? 0).toDouble(),
+    width: (json['width'] ?? 0).toDouble(), height: (json['height'] ?? 0).toDouble(),
+  );
+  Map<String, dynamic> toJson() => {'id': id, 'deviceId': deviceId, 'textContent': textContent, 'fontSize': fontSize, 'fontColor': fontColor, 'backgroundColor': backgroundColor, 'textAlign': textAlign, 'fontWeight': fontWeight, 'positionLeft': positionLeft, 'positionTop': positionTop, 'width': width, 'height': height};
 }
 
 class DeceasedDto {
@@ -325,29 +201,9 @@ class DeceasedDto {
   final String? memorialEditedPhotoFileId;
   final List<DeviceRibbonDto> deviceRibbons;
   final List<DeviceTextOverlayDto> deviceTextOverlays;
-  final List<String> familyPhotos; // 추모 사진 리스트
+  final List<String> familyPhotos;
 
-  DeceasedDto({
-    required this.id,
-    required this.name,
-    required this.gender,
-    required this.age,
-    this.religion,
-    this.deathDate,
-    this.funeralDate,
-    this.burialDate,
-    this.roomId,
-    this.roomName,
-    this.chiefMourner,
-    required this.mourners,
-    this.familyPhotos = const [],
-    this.memorialPhotoUrl,
-    this.memorialPhotoFileId,
-    this.memorialEditedPhotoUrl,
-    this.memorialEditedPhotoFileId,
-    required this.deviceRibbons,
-    required this.deviceTextOverlays,
-  });
+  DeceasedDto({required this.id, required this.name, required this.gender, required this.age, this.religion, this.deathDate, this.funeralDate, this.burialDate, this.roomId, this.roomName, this.chiefMourner, required this.mourners, this.familyPhotos = const [], this.memorialPhotoUrl, this.memorialPhotoFileId, this.memorialEditedPhotoUrl, this.memorialEditedPhotoFileId, required this.deviceRibbons, required this.deviceTextOverlays});
 
   factory DeceasedDto.fromJson(Map<String, dynamic> json) {
     Map<String, dynamic> data;
@@ -361,31 +217,25 @@ class DeceasedDto {
       data = json;
     }
 
-    var mournerList = <MournerDto>[];
-    if (data['mourners'] != null) {
-      mournerList = (data['mourners'] as List).map((i) => MournerDto.fromJson(i)).toList();
-    }
-
-    var deviceRibbonList = <DeviceRibbonDto>[];
-    if (data['deviceRibbons'] != null) {
-      deviceRibbonList = (data['deviceRibbons'] as List).map((i) => DeviceRibbonDto.fromJson(i)).toList();
-    }
-
-    var deviceTextOverlayList = <DeviceTextOverlayDto>[];
-    if (data['deviceTextOverlays'] != null) {
-      deviceTextOverlayList = (data['deviceTextOverlays'] as List).map((i) => DeviceTextOverlayDto.fromJson(i)).toList();
-    }
-
-    var familyPhotoList = <String>[];
-    if (data['familyPhotos'] != null) {
-      familyPhotoList = List<String>.from(data['familyPhotos']);
+    List<dynamic> _flexibleList(dynamic input) {
+      if (input == null) return [];
+      if (input is String) {
+        try {
+          final decoded = jsonDecode(input);
+          return (decoded is List) ? decoded : [];
+        } catch (_) {
+          return [];
+        }
+      }
+      if (input is List) return input;
+      return [];
     }
 
     return DeceasedDto(
       id: data['id'] ?? '',
       name: data['name'] ?? '',
       gender: data['gender'] ?? '',
-      age: data['age'] ?? 0,
+      age: (data['age'] ?? 0).toInt(),
       religion: data['religion'],
       deathDate: data['deathDate'],
       funeralDate: data['funeralDate'],
@@ -393,35 +243,23 @@ class DeceasedDto {
       roomId: data['roomId'],
       roomName: data['roomName'],
       chiefMourner: data['chiefMourner'],
-      mourners: mournerList,
-      familyPhotos: familyPhotoList,
+      mourners: _flexibleList(data['mourners']).map((i) => MournerDto.fromJson(i)).toList(),
+      familyPhotos: _flexibleList(data['familyPhotos']).map((i) => i.toString()).toList(),
       memorialPhotoUrl: data['memorialPhotoUrl'],
       memorialPhotoFileId: data['memorialPhotoFileId'],
       memorialEditedPhotoUrl: data['memorialEditedPhotoUrl'],
       memorialEditedPhotoFileId: data['memorialEditedPhotoFileId'],
-      deviceRibbons: deviceRibbonList,
-      deviceTextOverlays: deviceTextOverlayList,
+      deviceRibbons: _flexibleList(data['deviceRibbons']).map((i) => DeviceRibbonDto.fromJson(i)).toList(),
+      deviceTextOverlays: _flexibleList(data['deviceTextOverlays']).map((i) => DeviceTextOverlayDto.fromJson(i)).toList(),
     );
   }
 
   Map<String, dynamic> toMap() {
     return {
-      'id': id,
-      'name': name,
-      'gender': gender,
-      'age': age,
-      'religion': religion,
-      'deathDate': deathDate,
-      'funeralDate': funeralDate,
-      'burialDate': burialDate,
-      'roomId': roomId,
-      'roomName': roomName,
-      'chiefMourner': chiefMourner,
+      'id': id, 'name': name, 'gender': gender, 'age': age, 'religion': religion, 'deathDate': deathDate, 'funeralDate': funeralDate, 'burialDate': burialDate, 'roomId': roomId, 'roomName': roomName, 'chiefMourner': chiefMourner,
       'mourners': jsonEncode(mourners.map((e) => e.toJson()).toList()), 
-      'memorialPhotoUrl': memorialPhotoUrl,
-      'memorialPhotoFileId': memorialPhotoFileId,
-      'memorialEditedPhotoUrl': memorialEditedPhotoUrl,
-      'memorialEditedPhotoFileId': memorialEditedPhotoFileId,
+      'familyPhotos': jsonEncode(familyPhotos),
+      'memorialPhotoUrl': memorialPhotoUrl, 'memorialPhotoFileId': memorialPhotoFileId, 'memorialEditedPhotoUrl': memorialEditedPhotoUrl, 'memorialEditedPhotoFileId': memorialEditedPhotoFileId,
       'deviceRibbons': jsonEncode(deviceRibbons.map((e) => e.toJson()).toList()),
       'deviceTextOverlays': jsonEncode(deviceTextOverlays.map((e) => e.toJson()).toList()),
     };
@@ -434,44 +272,22 @@ class EntranceGuideRoomDto {
   final String floorName;
   final int sortOrder;
   final DeceasedDto? deceasedDetail;
-
-  EntranceGuideRoomDto({
-    required this.roomId,
-    required this.roomName,
-    required this.floorName,
-    required this.sortOrder,
-    this.deceasedDetail,
-  });
-
-  factory EntranceGuideRoomDto.fromJson(Map<String, dynamic> json) {
-    return EntranceGuideRoomDto(
-      roomId: json['roomId'] ?? '',
-      roomName: json['roomName'] ?? '',
-      floorName: json['floorName'] ?? '',
-      sortOrder: json['sortOrder'] ?? 0,
-      deceasedDetail: json['deceasedDetail'] != null
-          ? DeceasedDto.fromJson(json['deceasedDetail'])
-          : null,
-    );
-  }
+  EntranceGuideRoomDto({required this.roomId, required this.roomName, required this.floorName, required this.sortOrder, this.deceasedDetail});
+  factory EntranceGuideRoomDto.fromJson(Map<String, dynamic> json) => EntranceGuideRoomDto(
+    roomId: json['roomId'] ?? '', roomName: json['roomName'] ?? '', floorName: json['floorName'] ?? '', sortOrder: (json['sortOrder'] ?? 0).toInt(),
+    deceasedDetail: json['deceasedDetail'] != null ? DeceasedDto.fromJson(json['deceasedDetail']) : null,
+  );
 }
 
 class KioskGuideResponseDto {
   final List<EntranceGuideRoomDto> rooms;
   final List<String> buildingPhotos;
   final List<String> parkingPhotos;
-
-  KioskGuideResponseDto({
-    required this.rooms,
-    required this.buildingPhotos,
-    required this.parkingPhotos,
-  });
-
+  KioskGuideResponseDto({required this.rooms, required this.buildingPhotos, required this.parkingPhotos});
   factory KioskGuideResponseDto.fromJson(Map<String, dynamic> json) {
     var roomsList = json['rooms'] as List? ?? [];
     var buildingPhotosList = json['buildingPhotos'] as List? ?? [];
     var parkingPhotosList = json['parkingPhotos'] as List? ?? [];
-
     return KioskGuideResponseDto(
       rooms: roomsList.map((e) => EntranceGuideRoomDto.fromJson(e)).toList(),
       buildingPhotos: buildingPhotosList.map((e) => e.toString()).toList(),

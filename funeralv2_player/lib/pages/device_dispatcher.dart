@@ -45,14 +45,16 @@ class _DeviceDispatcherState extends State<DeviceDispatcher> {
   @override
   void initState() {
     super.initState();
-    print('[Dispatcher] initState() - 데이터 로드 프로세스 개시');
+    print('[Dispatcher] initState() - 새로운 장비 코드 데이터 로드 시작: ${widget.deviceCode}');
     _loadDevice();
   }
 
   @override
   void dispose() {
-    print('[Dispatcher] dispose() - 리소스 정리');
+    print('[Dispatcher] dispose() - 기존 장치 연결 해제: ${widget.deviceCode}');
     _retryTimer?.cancel();
+    // 현재 장비 코드로 명시적 연결 해제 신호 전송
+    _signalRService.disconnect(widget.deviceCode);
     super.dispose();
   }
 

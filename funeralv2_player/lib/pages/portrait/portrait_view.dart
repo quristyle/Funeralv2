@@ -154,6 +154,7 @@ class _PortraitViewState extends State<PortraitView> {
         : Colors.white.withOpacity(0.8);
   }
 
+  // [레이어 3] 장식 레이어 (리본 등)
   Widget _buildDecorationsLayer(DeviceDto dev) {
     final ribbons = _controller.deceased?.deviceRibbons;
     if (ribbons == null || ribbons.isEmpty) {
@@ -167,20 +168,41 @@ class _PortraitViewState extends State<PortraitView> {
       return Stack(
         children: ribbons.map((ribbon) {
           if (ribbon.mediaSourceUrl == null) return const SizedBox();
+          
+          // 컨트롤러에서 다운로드한 로컬 경로 조회
+          final String? localPath = _controller.ribbonPaths[ribbon.id];
+
           return Positioned(
             left: width * ribbon.positionLeft / 100,
             top: height * ribbon.positionTop / 100,
             width: width * ribbon.width / 100,
             height: height * ribbon.height / 100,
-            child: Image.network(
-              '${widget.serverBaseUrl}${ribbon.mediaSourceUrl}',
-              fit: BoxFit.fill,
-              errorBuilder: (c, e, s) => const SizedBox(), // 에러 발생 시 빈 공간
-            ),
+            child: _buildDynamicImage(localPath, ribbon.mediaSourceUrl!),
           );
         }).toList(),
       );
     });
+  }
+
+  // 로컬 경로가 있으면 파일로, 없으면 네트워크로 시도하는 범용 이미지 빌더
+  Widget _buildDynamicImage(String? localPath, String networkUrl) {
+    if (localPath != null && !kIsWeb) {
+      return Image.file(
+        io.File(localPath),
+        fit: BoxFit.fill,
+        errorBuilder: (c, e, s) => _buildNetworkImage(networkUrl),
+      );
+    }
+    return _buildNetworkImage(networkUrl);
+  }
+
+  Widget _buildNetworkImage(String url) {
+    final fullUrl = url.startsWith('http') ? url : '${widget.serverBaseUrl}$url';
+    return Image.network(
+      fullUrl,
+      fit: BoxFit.fill,
+      errorBuilder: (c, e, s) => const SizedBox(),
+    );
   }
 
   Widget _buildPortraitPhotoLayer(DeviceDto dev) {

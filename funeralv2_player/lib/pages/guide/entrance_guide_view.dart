@@ -1,3 +1,4 @@
+import 'dart:io' as io;
 import 'package:flutter/material.dart';
 import '../player_shell.dart';
 import 'entrance_guide_controller.dart';
@@ -28,6 +29,7 @@ class _EntranceGuideViewState extends State<EntranceGuideView> {
   @override
   void initState() {
     super.initState();
+    print('[EntranceView] initState() 호출');
     _controller.init(
       widget.serverBaseUrl,
       widget.deviceCode,
@@ -38,6 +40,7 @@ class _EntranceGuideViewState extends State<EntranceGuideView> {
 
   @override
   void dispose() {
+    print('[EntranceView] dispose() 호출');
     _controller.dispose();
     super.dispose();
   }
@@ -66,26 +69,14 @@ class _EntranceGuideViewState extends State<EntranceGuideView> {
       animation: _controller,
       builder: (context, child) {
         final dev = _controller.device;
+        print('[EntranceView] build() - isLoading=${_controller.isLoading}, hasDevice=${dev != null}, roomsCount=${_controller.guideRooms.length}');
 
         if (_controller.isLoading && dev == null) {
-          return const Scaffold(
-            backgroundColor: Color(0xFF111827),
-            body: Center(
-              child: CircularProgressIndicator(color: Colors.white),
-            ),
-          );
+          return const Center(child: CircularProgressIndicator(color: Color(0xFFC0A060)));
         }
 
         if (dev == null) {
-          return const Scaffold(
-            backgroundColor: Color(0xFF111827),
-            body: Center(
-              child: Text(
-                "데이터 로드 실패",
-                style: TextStyle(color: Colors.white, fontSize: 20),
-              ),
-            ),
-          );
+          return const Center(child: Text("장치 정보 없음", style: TextStyle(color: Colors.red, fontSize: 20)));
         }
 
         return PlayerShell(
@@ -93,44 +84,43 @@ class _EntranceGuideViewState extends State<EntranceGuideView> {
           playerService: _controller.playerService,
           onOpenSettings: widget.onOpenSettings,
           debugFileName: 'entrance_guide_view.dart',
-          child: Scaffold(
-            backgroundColor: Colors.transparent,
-            body: SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // 1. 헤더 영역 (타이틀 & 실시간 시계)
-                    _buildHeader(dev),
-                    const SizedBox(height: 24),
+          child: Container(
+            color: Colors.blue.withOpacity(0.1), // [디버그] 레이아웃 영역 확인용 배경색
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 1. 헤더 영역
+                _buildHeader(dev),
+                const SizedBox(height: 24),
 
-                    // 2. 호실 그리드 목록 영역
-                    Expanded(
-                      child: _controller.guideRooms.isEmpty
-                          ? const Center(
-                              child: Text(
-                                "안내할 호실 정보가 없습니다.",
-                                style: TextStyle(color: Colors.white60, fontSize: 24),
-                              ),
-                            )
-                          : GridView.builder(
-                              itemCount: _controller.guideRooms.length,
-                              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                                maxCrossAxisExtent: 450,
-                                mainAxisSpacing: 20,
-                                crossAxisSpacing: 20,
-                                childAspectRatio: 1.4,
-                              ),
-                              itemBuilder: (context, index) {
-                                final room = _controller.guideRooms[index];
-                                return _buildRoomCard(room);
-                              },
+                // 2. 호실 그리드 목록 영역
+                Expanded(
+                  child: _controller.guideRooms.isEmpty
+                      ? const Center(
+                          child: Text(
+                            "안내할 호실 정보가 없습니다.",
+                            style: TextStyle(color: Colors.white60, fontSize: 24),
+                          ),
+                        )
+                      : Container(
+                          color: Colors.red.withOpacity(0.05), // [디버그] 그리드 영역 확인용
+                          child: GridView.builder(
+                            itemCount: _controller.guideRooms.length,
+                            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                              maxCrossAxisExtent: 450,
+                              mainAxisSpacing: 20,
+                              crossAxisSpacing: 20,
+                              childAspectRatio: 1.4,
                             ),
-                    ),
-                  ],
+                            itemBuilder: (context, index) {
+                              final room = _controller.guideRooms[index];
+                              return _buildRoomCard(room);
+                            },
+                          ),
+                        ),
                 ),
-              ),
+              ],
             ),
           ),
         );
@@ -139,7 +129,6 @@ class _EntranceGuideViewState extends State<EntranceGuideView> {
   }
 
   Widget _buildHeader(DeviceDto dev) {
-    // 층 정보 우선, 없으면 건물 정보, 그것도 없으면 장비명 사용
     String locationTitle = "";
     if (dev.floorId != null && dev.floorId!.isNotEmpty) {
       locationTitle = dev.floorName ?? "층";
@@ -165,12 +154,7 @@ class _EntranceGuideViewState extends State<EntranceGuideView> {
             const SizedBox(width: 12),
             Text(
               "$locationTitle 안내",
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1.5,
-              ),
+              style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold, letterSpacing: 1.5),
             ),
           ],
         ),
@@ -180,20 +164,9 @@ class _EntranceGuideViewState extends State<EntranceGuideView> {
             final now = snapshot.data ?? DateTime.now();
             return Row(
               children: [
-                Text(
-                  _formatDate(now),
-                  style: const TextStyle(color: Colors.white70, fontSize: 18),
-                ),
+                Text(_formatDate(now), style: const TextStyle(color: Colors.white70, fontSize: 18)),
                 const SizedBox(width: 16),
-                Text(
-                  _formatTime(now),
-                  style: const TextStyle(
-                    color: Color(0xFFC5A880),
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    fontFamily: 'monospace',
-                  ),
-                ),
+                Text(_formatTime(now), style: const TextStyle(color: Color(0xFFC5A880), fontSize: 22, fontWeight: FontWeight.bold, fontFamily: 'monospace')),
               ],
             );
           },
@@ -210,17 +183,8 @@ class _EntranceGuideViewState extends State<EntranceGuideView> {
       decoration: BoxDecoration(
         color: const Color(0xAA1F2937),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: hasDeceased ? const Color(0x4DC5A880) : Colors.white10,
-          width: 1.5,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.3),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        border: Border.all(color: hasDeceased ? const Color(0x4DC5A880) : Colors.white10, width: 1.5),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 4))],
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(16),
@@ -233,14 +197,7 @@ class _EntranceGuideViewState extends State<EntranceGuideView> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    room.roomName,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+                  Text(room.roomName, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
                   if (hasDeceased)
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -249,24 +206,10 @@ class _EntranceGuideViewState extends State<EntranceGuideView> {
                         borderRadius: BorderRadius.circular(4),
                         border: Border.all(color: const Color(0xFFC5A880), width: 0.5),
                       ),
-                      child: const Text(
-                        "사용 중",
-                        style: TextStyle(
-                          color: Color(0xFFC5A880),
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                      child: const Text("사용 중", style: TextStyle(color: Color(0xFFC5A880), fontSize: 12, fontWeight: FontWeight.bold)),
                     )
                   else
-                    const Text(
-                      "빈 소",
-                      style: TextStyle(
-                        color: Colors.white38,
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
+                    const Text("빈 소", style: TextStyle(color: Colors.white38, fontSize: 14, fontWeight: FontWeight.bold)),
                 ],
               ),
             ),
@@ -286,30 +229,10 @@ class _EntranceGuideViewState extends State<EntranceGuideView> {
                               children: [
                                 Row(
                                   children: [
-                                    const Text(
-                                      "故 ",
-                                      style: TextStyle(
-                                        color: Colors.white54,
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    Text(
-                                      deceased.name,
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 22,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
+                                    const Text("故 ", style: TextStyle(color: Colors.white54, fontSize: 18, fontWeight: FontWeight.bold)),
+                                    Text(deceased.name, style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
                                     const SizedBox(width: 8),
-                                    Text(
-                                      "(${deceased.age}세/${deceased.gender == 'MALE' ? '남' : '여'})",
-                                      style: const TextStyle(
-                                        color: Colors.white70,
-                                        fontSize: 14,
-                                      ),
-                                    ),
+                                    Text("(${deceased.age}세/${deceased.gender == 'MALE' ? '남' : '여'})", style: const TextStyle(color: Colors.white70, fontSize: 14)),
                                   ],
                                 ),
                                 const SizedBox(height: 6),
@@ -334,11 +257,7 @@ class _EntranceGuideViewState extends State<EntranceGuideView> {
                                             _getMournersString(deceased.mourners),
                                             maxLines: 5,
                                             overflow: TextOverflow.ellipsis,
-                                            style: const TextStyle(
-                                              color: Colors.white70,
-                                              fontSize: 14,
-                                              height: 1.4,
-                                            ),
+                                            style: const TextStyle(color: Colors.white70, fontSize: 14, height: 1.4),
                                           ),
                                         ),
                                       ],
@@ -350,15 +269,9 @@ class _EntranceGuideViewState extends State<EntranceGuideView> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     if (deceased.funeralDate != null)
-                                      _buildInfoRow(
-                                        "발인",
-                                        _formatDateTimeString(deceased.funeralDate!),
-                                      ),
+                                      _buildInfoRow("발인", _formatDateTimeString(deceased.funeralDate!)),
                                     if (deceased.burialDate != null)
-                                      _buildInfoRow(
-                                        "장지",
-                                        _formatDateTimeString(deceased.burialDate!),
-                                      ),
+                                      _buildInfoRow("장지", _formatDateTimeString(deceased.burialDate!)),
                                   ],
                                 )
                               ],
@@ -366,12 +279,7 @@ class _EntranceGuideViewState extends State<EntranceGuideView> {
                           ),
                         ],
                       )
-                    : const Center(
-                        child: Text(
-                          "사용 가능한 장례가 없습니다.",
-                          style: TextStyle(color: Colors.white30, fontSize: 16),
-                        ),
-                      ),
+                    : const Center(child: Text("사용 가능한 장례가 없습니다.", style: TextStyle(color: Colors.white30, fontSize: 16))),
               ),
             ),
           ],
@@ -382,36 +290,20 @@ class _EntranceGuideViewState extends State<EntranceGuideView> {
 
   Widget _buildMemorialPhoto(DeceasedDto deceased) {
     final photoUrl = deceased.memorialEditedPhotoUrl ?? deceased.memorialPhotoUrl;
-
     return Container(
-      width: 80,
-      height: 105,
-      decoration: BoxDecoration(
-        border: Border.all(color: const Color(0xFFC5A880), width: 1.5),
-        borderRadius: BorderRadius.circular(8),
-        color: Colors.black26,
-      ),
+      width: 80, height: 105,
+      decoration: BoxDecoration(border: Border.all(color: const Color(0xFFC5A880), width: 1.5), borderRadius: BorderRadius.circular(8), color: Colors.black26),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(6),
-        child: photoUrl != null && photoUrl.isNotEmpty
-            ? Image.network(
-                "${widget.serverBaseUrl}$photoUrl",
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => _buildPlaceholderPhoto(),
-              )
+        child: (photoUrl != null && photoUrl.isNotEmpty)
+            ? Image.network("${widget.serverBaseUrl}$photoUrl", fit: BoxFit.cover, errorBuilder: (c, e, s) => _buildPlaceholderPhoto())
             : _buildPlaceholderPhoto(),
       ),
     );
   }
 
   Widget _buildPlaceholderPhoto() {
-    return const Center(
-      child: Icon(
-        Icons.person_outline,
-        color: Color(0xFFC5A880),
-        size: 40,
-      ),
-    );
+    return const Center(child: Icon(Icons.person_outline, color: Color(0xFFC5A880), size: 40));
   }
 
   Widget _buildInfoRow(String label, String value) {
@@ -422,24 +314,11 @@ class _EntranceGuideViewState extends State<EntranceGuideView> {
         children: [
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-            decoration: BoxDecoration(
-              color: Colors.black45,
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Text(
-              label,
-              style: const TextStyle(color: Color(0xFFC5A880), fontSize: 11, fontWeight: FontWeight.bold),
-            ),
+            decoration: BoxDecoration(color: Colors.black45, borderRadius: BorderRadius.circular(4)),
+            child: Text(label, style: const TextStyle(color: Color(0xFFC5A880), fontSize: 11, fontWeight: FontWeight.bold)),
           ),
           const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(color: Colors.white, fontSize: 13),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
+          Expanded(child: Text(value, style: const TextStyle(color: Colors.white, fontSize: 13), maxLines: 1, overflow: TextOverflow.ellipsis)),
         ],
       ),
     );
@@ -447,14 +326,12 @@ class _EntranceGuideViewState extends State<EntranceGuideView> {
 
   String _getMournersString(List<MournerDto> mourners) {
     if (mourners.isEmpty) return "";
-
     final Map<String, List<String>> grouped = {};
     for (var m in mourners) {
       if (m.name == null || m.name!.isEmpty) continue;
       final relName = m.relationName ?? m.relation ?? '';
       grouped.putIfAbsent(relName, () => []).add(m.isChief ? "[상주] ${m.name}" : m.name!);
     }
-
     return grouped.entries.map((e) => "${e.key}: ${e.value.join(', ')}").join("\n");
   }
 }

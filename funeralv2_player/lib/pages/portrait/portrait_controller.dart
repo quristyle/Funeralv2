@@ -16,6 +16,9 @@ class PortraitController extends ChangeNotifier {
   String? localVideoPath;
   String? localMusicPath;
   String? localPhotoPath;
+  
+  // 리본 장식 로컬 경로 보관용 (Key: Ribbon ID, Value: Local Path)
+  Map<String, String> ribbonPaths = {};
 
   bool isLoading = false;
   String statusMessage = '준비 중...';
@@ -35,7 +38,6 @@ class PortraitController extends ChangeNotifier {
     }
   }
 
-  // 메인 데이터 로딩 및 동기화 루프
   Future<void> init(
     String serverBaseUrl, 
     String deviceCode,
@@ -47,7 +49,6 @@ class PortraitController extends ChangeNotifier {
     statusMessage = '장비 정보를 불러오는 중...';
     notifyListeners();
 
-    // 1. 장비 상세 데이터 로드
     final newDevice = await _apiService.fetchDevice(serverBaseUrl, deviceCode);
     if (newDevice == null || _isDisposed) {
       statusMessage = '장비 정보를 불러오지 못했습니다 (오프라인 상태)';
@@ -56,9 +57,7 @@ class PortraitController extends ChangeNotifier {
       return;
     }
     device = newDevice;
-    print('[Controller] 장비 설정 로드 완료: orientation=${device!.portraitOrientation}, display=${device!.displayOrientation}');
 
-    // 즉시 반응
     if (!device!.isMusicEnabled) {
       await playerService.stopMusic();
       localMusicPath = null;
@@ -69,7 +68,6 @@ class PortraitController extends ChangeNotifier {
     }
     notifyListeners();
 
-    // 2. 고인 정보 로드
     if (device!.roomId != null && device!.roomId!.isNotEmpty) {
       statusMessage = '고인 정보를 동기화하는 중...';
       deceased = await _apiService.fetchDeceased(serverBaseUrl, deviceCode);
@@ -81,39 +79,46 @@ class PortraitController extends ChangeNotifier {
 
     if (_isDisposed) return;
 
-    // 3. 미디어 파일 동기화 처리
     statusMessage = '미디어 자원을 동기화하는 중...';
     notifyListeners();
 
-    // 비디오 동기화
+    // 1. 비디오 동기화
     String? nextVideoPath;
     if (device!.isVideoEnabled && device!.videoId != null) {
       final sourcePath = await _apiService.fetchSourcePath(serverBaseUrl, device!.videoId!);
       nextVideoPath = await _cacheManager.getCachedFileByPath(serverBaseUrl, sourcePath);
     }
 
-    // 음악 동기화
+    // 2. 음악 동기화
     String? nextMusicPath;
     if (device!.isMusicEnabled && device!.musicId != null) {
       final sourcePath = await _apiService.fetchSourcePath(serverBaseUrl, device!.musicId!);
       nextMusicPath = await _cacheManager.getCachedFileByPath(serverBaseUrl, sourcePath);
     }
 
-    // 영정사진 동기화
+    // 3. 영정사진 동기화
     if (device!.isMemorialPhotoEnabled && deceased != null) {
       final photoPath = (deceased!.memorialEditedPhotoUrl != null && deceased!.memorialEditedPhotoUrl!.isNotEmpty)
           ? deceased!.memorialEditedPhotoUrl
           : deceased!.memorialPhotoUrl;
-      
-      print('[Photo] 영정사진 경로 확인: $photoPath');
       localPhotoPath = await _cacheManager.getCachedFileByPath(serverBaseUrl, photoPath);
     } else {
       localPhotoPath = null;
     }
 
+    // 4. 리본 장식 동기화 (추가됨)
+    ribbonPaths.clear();
+    if (deceased != null && deceased!.deviceRibbons.isNotEmpty) {
+      for (var ribbon in deceased!.deviceRibbons) {
+        if (ribbon.mediaSourceUrl != null) {
+          final lp = await _cacheManager.getCachedFileByPath(serverBaseUrl, ribbon.mediaSourceUrl);
+          if (lp != null) ribbonPaths[ribbon.id] = lp;
+        }
+      }
+    }
+
     if (_isDisposed) return;
 
-    // 4. 최종 재생 상태 적용
     if (device!.isVideoEnabled && nextVideoPath != null) {
       if (localVideoPath != nextVideoPath) {
         localVideoPath = nextVideoPath;
@@ -134,21 +139,15 @@ class PortraitController extends ChangeNotifier {
       localMusicPath = null;
     }
 
-    // 재생 중인 음악의 볼륨/음소거 즉시 업데이트 (경로가 바뀌지 않았더라도)
     if (device!.isMusicEnabled && localMusicPath != null) {
        await playerService.updateMusicVolume(device!.musicVolume, isMuted: device!.isMuted);
     }
 
-    // 5. SignalR 실시간 변경 통신 소켓 연결
-    statusMessage = '실시간 이벤트 서버 연결 중...';
-    notifyListeners();
     await _signalRService.connect(
       serverUrl: serverBaseUrl,
       deviceCode: deviceCode,
       onDeviceChanged: () {
-        if (!_isDisposed) {
-          init(serverBaseUrl, deviceCode, onVideoInitialized);
-        }
+        if (!_isDisposed) init(serverBaseUrl, deviceCode, onVideoInitialized);
       },
     );
 

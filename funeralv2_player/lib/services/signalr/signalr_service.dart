@@ -92,13 +92,16 @@ class SignalRService {
   }
 
   Future<void> _registerDevice(String deviceCode, String? ip, String? mac, String? pip) async {
+    print('[SignalR] _registerDevice 호출됨: code=$deviceCode, ip=$ip, mac=$mac');
     if (isConnected) {
       try {
         await _hubConnection!.invoke('RegisterDevice', args: [deviceCode, ip ?? "", mac ?? "", pip ?? ""]);
-        print('[SignalR] >> RegisterDevice 그룹 구독 완료: $deviceCode');
+        print('[SignalR] >> RegisterDevice 서버 전송 완료 (Online 처리 기대): $deviceCode');
       } catch (e) {
-        print('[SignalR] 장치 등록 에러: $e');
+        print('[SignalR] !! RegisterDevice 서버 전송 에러: $e');
       }
+    } else {
+      print('[SignalR] !! 서버에 연결되지 않은 상태라 RegisterDevice를 보낼 수 없습니다.');
     }
   }
 
@@ -126,19 +129,37 @@ class SignalRService {
   }
 
   Future<void> disconnect(String deviceCode) async {
+    print('[SignalR] !!! 장치 구독 해제 및 모든 타이머 중단: $deviceCode');
+    
+    // 1. 모든 타이머 및 상태 초기화 (재연결 방지)
     _reconnectTimer?.cancel();
+    _reconnectTimer = null;
     _onDeviceChanged = null;
+    _isConnecting = false;
+    _reconnectAttempt = 0;
+
     if (_hubConnection != null) {
       if (isConnected) {
-        try { await _hubConnection!.invoke('UnregisterDevice', args: [deviceCode]); } catch (_) {}
+        try {
+          await _hubConnection!.invoke('UnregisterDevice', args: [deviceCode]);
+          print('[SignalR] >> UnregisterDevice 서버 전송 완료');
+        } catch (e) {
+          print('[SignalR] 구독 해제 호출 에러: $e');
+        }
       }
+      
+      // 2. 소켓 연결 해제
       await _disposeConnection();
+      print('[SignalR] 소켓 물리적 연결 종료됨.');
     }
   }
 
   Future<void> _disposeConnection() async {
     if (_hubConnection != null) {
-      try { await _hubConnection!.stop(); } catch (_) {}
+      try {
+        // onclose 핸들러를 제거하거나 무시하도록 처리하여 재연결 트리거 방지
+        await _hubConnection!.stop();
+      } catch (_) {}
       _hubConnection = null;
     }
   }
