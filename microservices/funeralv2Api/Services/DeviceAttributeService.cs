@@ -91,6 +91,9 @@ public class DeviceAttributeService : IDeviceAttributeService
         existing.MusicVolume = dto.MusicVolume;
         existing.IsMediaLoop = dto.IsMediaLoop;
         existing.IsMuted = dto.IsMuted;
+        existing.IsBackgroundImageEnabled = dto.IsBackgroundImageEnabled;
+        existing.BackgroundImageId = dto.BackgroundImageId;
+        existing.BackgroundOrientation = dto.BackgroundOrientation;
 
         // 층별 안내 설정 적용
         existing.IsFloorGuideEnabled = dto.IsFloorGuideEnabled;
@@ -182,6 +185,9 @@ public class DeviceAttributeService : IDeviceAttributeService
         MusicVolume = a.MusicVolume,
         IsMediaLoop = a.IsMediaLoop,
         IsMuted = a.IsMuted,
+        IsBackgroundImageEnabled = a.IsBackgroundImageEnabled,
+        BackgroundImageId = a.BackgroundImageId,
+        BackgroundOrientation = a.BackgroundOrientation,
         IsFloorGuideEnabled = a.IsFloorGuideEnabled,
         IsRoomAssignmentVisible = a.IsRoomAssignmentVisible,
         IsActiveRoomsOnly = a.IsActiveRoomsOnly,

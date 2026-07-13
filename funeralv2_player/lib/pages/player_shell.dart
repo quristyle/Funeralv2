@@ -50,7 +50,7 @@ class PlayerShell extends StatelessWidget {
                       quarterTurns: _getVideoTurns(device),
                       child: Video(
                         controller: playerService.videoController,
-                        fit: BoxFit.cover,
+                        fit: BoxFit.fill,
                         controls: NoVideoControls,
                       ),
                     ),
@@ -75,14 +75,24 @@ class PlayerShell extends StatelessWidget {
                   Positioned(
                     bottom: 10,
                     right: 10,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      color: Colors.black54,
-                      child: Text(
-                        'DEBUG: ${device.deviceType}${debugFileName != null ? " ($debugFileName)" : ""}',
-                        style: const TextStyle(color: Colors.yellow, fontSize: 10, fontWeight: FontWeight.bold),
+                    child: GestureDetector(
+                      onTap: onOpenSettings, // 디버그 영역 단순 탭 시에도 설정 열기
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        color: Colors.black54,
+                        child: Text(
+                          'DEBUG: ${device.deviceType} | v:${device.isVideoEnabled} | m:${device.isMusicEnabled}${debugFileName != null ? " ($debugFileName)" : ""}',
+                          style: const TextStyle(color: Colors.yellow, fontSize: 10, fontWeight: FontWeight.bold),
+                        ),
                       ),
                     ),
+                  ),
+
+                  // [레이어 4] 전체 화면 더블 탭 제스처 (어디서나 더블 탭 시 설정 오픈)
+                  GestureDetector(
+                    behavior: HitTestBehavior.translucent,
+                    onDoubleTap: onOpenSettings,
+                    child: const SizedBox.expand(),
                   ),
                 ],
               ),
@@ -95,8 +105,33 @@ class PlayerShell extends StatelessWidget {
 
   int _getVideoTurns(DeviceDto dev) {
     if (dev.displayOrientation == 'PORTRAIT') {
-      return (dev.videoOrientation == 'HORIZONTAL') ? 3 : 0;
+      switch (dev.videoOrientation) {
+        case 'HORIZONTAL':
+          return 3;
+        case 'VERTICAL':
+        case 'VERTICAL_LEFT':
+          return 0;
+        case 'VERTICAL_RIGHT':
+          return 2;
+        case 'INVERTED':
+          return 1;
+        default:
+          return 0;
+      }
+    } else {
+      switch (dev.videoOrientation) {
+        case 'HORIZONTAL':
+          return 0;
+        case 'VERTICAL':
+        case 'VERTICAL_LEFT':
+          return 1;
+        case 'VERTICAL_RIGHT':
+          return 3;
+        case 'INVERTED':
+          return 2;
+        default:
+          return 0;
+      }
     }
-    return (dev.videoOrientation == 'VERTICAL') ? 1 : 0;
   }
 }

@@ -268,6 +268,26 @@ public class DeviceAttribute : BaseEntity<string>
     [Column("notice_scroll_speed")]
     public int NoticeScrollSpeed { get; set; } = 2;
 
+    /// <summary>
+    /// 배경 이미지 사용 여부
+    /// </summary>
+    [Column("is_background_image_enabled")]
+    public bool IsBackgroundImageEnabled { get; set; } = false;
+
+    /// <summary>
+    /// 재생 배경 이미지 식별자 (ID)
+    /// </summary>
+    [Column("background_image_id")]
+    [MaxLength(50)]
+    public string? BackgroundImageId { get; set; }
+
+    /// <summary>
+    /// 배경 이미지 방향 (HORIZONTAL, VERTICAL_LEFT, VERTICAL_RIGHT, INVERTED)
+    /// </summary>
+    [Column("background_orientation")]
+    [MaxLength(20)]
+    public string BackgroundOrientation { get; set; } = "HORIZONTAL";
+
     // ─── 기타 확장 속성 ──────────────────────────────────────────
     /// <summary>
     /// 비고 및 추가 설명

@@ -44,11 +44,16 @@ public class DeviceService : IDeviceService
 
         var videoIds = attributes.Where(a => !string.IsNullOrEmpty(a.VideoId)).Select(a => a.VideoId!).Distinct().ToList();
         var musicIds = attributes.Where(a => !string.IsNullOrEmpty(a.MusicId)).Select(a => a.MusicId!).Distinct().ToList();
-        var mediaIds = videoIds.Concat(musicIds).Distinct().ToList();
+        var backgroundIds = attributes.Where(a => !string.IsNullOrEmpty(a.BackgroundImageId)).Select(a => a.BackgroundImageId!).Distinct().ToList();
+        var mediaIds = videoIds.Concat(musicIds).Concat(backgroundIds).Distinct().ToList();
         
         var mediaMap = await _context.MediaSources
             .Where(m => mediaIds.Contains(m.Id) && !m.IsDeleted)
             .ToDictionaryAsync(m => m.Id, m => m.ShortName ?? m.Name);
+
+        var mediaUrlMap = await _context.MediaSources
+            .Where(m => mediaIds.Contains(m.Id) && !m.IsDeleted)
+            .ToDictionaryAsync(m => m.Id, m => m.Url);
 
         return devices.Select(d => {
             var dto = MapToDto(d);
@@ -59,8 +64,13 @@ public class DeviceService : IDeviceService
                 dto.MusicId = attr.MusicId;
                 dto.IsVideoEnabled = attr.IsVideoEnabled;
                 dto.IsMusicEnabled = attr.IsMusicEnabled;
+                dto.IsBackgroundImageEnabled = attr.IsBackgroundImageEnabled;
+                dto.BackgroundImageId = attr.BackgroundImageId;
+                dto.BackgroundOrientation = attr.BackgroundOrientation ?? "HORIZONTAL";
                 dto.VideoName = !string.IsNullOrEmpty(attr.VideoId) && mediaMap.TryGetValue(attr.VideoId, out var vName) ? vName : null;
                 dto.MusicName = !string.IsNullOrEmpty(attr.MusicId) && mediaMap.TryGetValue(attr.MusicId, out var mName) ? mName : null;
+                dto.BackgroundImageName = !string.IsNullOrEmpty(attr.BackgroundImageId) && mediaMap.TryGetValue(attr.BackgroundImageId, out var bgName) ? bgName : null;
+                dto.BackgroundImageUrl = !string.IsNullOrEmpty(attr.BackgroundImageId) && mediaUrlMap.TryGetValue(attr.BackgroundImageId, out var bgUrl) ? bgUrl : null;
             }
             return dto;
         }).ToList();
@@ -117,11 +127,16 @@ public class DeviceService : IDeviceService
 
         var videoIds = attributes.Where(a => !string.IsNullOrEmpty(a.VideoId)).Select(a => a.VideoId!).Distinct().ToList();
         var musicIds = attributes.Where(a => !string.IsNullOrEmpty(a.MusicId)).Select(a => a.MusicId!).Distinct().ToList();
-        var mediaIds = videoIds.Concat(musicIds).Distinct().ToList();
+        var backgroundIds = attributes.Where(a => !string.IsNullOrEmpty(a.BackgroundImageId)).Select(a => a.BackgroundImageId!).Distinct().ToList();
+        var mediaIds = videoIds.Concat(musicIds).Concat(backgroundIds).Distinct().ToList();
         
         var mediaMap = await _context.MediaSources
             .Where(m => mediaIds.Contains(m.Id) && !m.IsDeleted)
             .ToDictionaryAsync(m => m.Id, m => m.ShortName ?? m.Name);
+
+        var mediaUrlMap = await _context.MediaSources
+            .Where(m => mediaIds.Contains(m.Id) && !m.IsDeleted)
+            .ToDictionaryAsync(m => m.Id, m => m.Url);
 
         return devices.Select(d => {
             var dto = MapToDto(d);
@@ -141,8 +156,13 @@ public class DeviceService : IDeviceService
                 dto.VideoOrientation = attr.VideoOrientation ?? "HORIZONTAL";
                 dto.MemorialPhotoEffect = attr.MemorialPhotoEffect;
                 dto.ContentIntervalSec = attr.ContentIntervalSec;
+                dto.IsBackgroundImageEnabled = attr.IsBackgroundImageEnabled;
+                dto.BackgroundImageId = attr.BackgroundImageId;
+                dto.BackgroundOrientation = attr.BackgroundOrientation ?? "HORIZONTAL";
                 dto.VideoName = !string.IsNullOrEmpty(attr.VideoId) && mediaMap.TryGetValue(attr.VideoId, out var vName) ? vName : null;
                 dto.MusicName = !string.IsNullOrEmpty(attr.MusicId) && mediaMap.TryGetValue(attr.MusicId, out var mName) ? mName : null;
+                dto.BackgroundImageName = !string.IsNullOrEmpty(attr.BackgroundImageId) && mediaMap.TryGetValue(attr.BackgroundImageId, out var bgName) ? bgName : null;
+                dto.BackgroundImageUrl = !string.IsNullOrEmpty(attr.BackgroundImageId) && mediaUrlMap.TryGetValue(attr.BackgroundImageId, out var bgUrl) ? bgUrl : null;
             }
             return dto;
         }).ToList();
@@ -196,6 +216,9 @@ public class DeviceService : IDeviceService
             dto.IsMuted = attr.IsMuted;
             dto.MemorialPhotoEffect = attr.MemorialPhotoEffect;
             dto.ContentIntervalSec = attr.ContentIntervalSec;
+            dto.IsBackgroundImageEnabled = attr.IsBackgroundImageEnabled;
+            dto.BackgroundImageId = attr.BackgroundImageId;
+            dto.BackgroundOrientation = attr.BackgroundOrientation ?? "HORIZONTAL";
             
             if (!string.IsNullOrEmpty(attr.VideoId))
             {
@@ -206,6 +229,12 @@ public class DeviceService : IDeviceService
             {
                 var music = await _context.MediaSources.FindAsync(attr.MusicId);
                 dto.MusicName = music?.ShortName ?? music?.Name;
+            }
+            if (!string.IsNullOrEmpty(attr.BackgroundImageId))
+            {
+                var bgImage = await _context.MediaSources.FindAsync(attr.BackgroundImageId);
+                dto.BackgroundImageName = bgImage?.ShortName ?? bgImage?.Name;
+                dto.BackgroundImageUrl = bgImage?.Url;
             }
         }
 
@@ -261,6 +290,9 @@ public class DeviceService : IDeviceService
             dto.IsMuted = attr.IsMuted;
             dto.MemorialPhotoEffect = attr.MemorialPhotoEffect;
             dto.ContentIntervalSec = attr.ContentIntervalSec;
+            dto.IsBackgroundImageEnabled = attr.IsBackgroundImageEnabled;
+            dto.BackgroundImageId = attr.BackgroundImageId;
+            dto.BackgroundOrientation = attr.BackgroundOrientation ?? "HORIZONTAL";
             
             if (!string.IsNullOrEmpty(attr.VideoId))
             {
@@ -271,6 +303,12 @@ public class DeviceService : IDeviceService
             {
                 var music = await _context.MediaSources.FindAsync(attr.MusicId);
                 dto.MusicName = music?.ShortName ?? music?.Name;
+            }
+            if (!string.IsNullOrEmpty(attr.BackgroundImageId))
+            {
+                var bgImage = await _context.MediaSources.FindAsync(attr.BackgroundImageId);
+                dto.BackgroundImageName = bgImage?.ShortName ?? bgImage?.Name;
+                dto.BackgroundImageUrl = bgImage?.Url;
             }
         }
 

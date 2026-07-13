@@ -39,7 +39,7 @@ class LocalDbService {
 
     return await openDatabase(
       fullPath,
-      version: 11, // 버전 11로 상향
+      version: 13, // 버전 13으로 상향 (배경 이미지 방향 설정 추가)
       onCreate: _onCreate,
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 9) {
@@ -55,6 +55,19 @@ class LocalDbService {
           try {
             // 누락된 familyPhotos 컬럼 추가
             await db.execute('ALTER TABLE deceased ADD COLUMN familyPhotos TEXT');
+          } catch (_) {}
+        }
+        if (oldVersion < 12) {
+          try {
+            await db.execute('ALTER TABLE devices ADD COLUMN isBackgroundImageEnabled INTEGER DEFAULT 0');
+            await db.execute('ALTER TABLE devices ADD COLUMN backgroundImageId TEXT');
+            await db.execute('ALTER TABLE devices ADD COLUMN backgroundImageName TEXT');
+            await db.execute('ALTER TABLE devices ADD COLUMN backgroundImageUrl TEXT');
+          } catch (_) {}
+        }
+        if (oldVersion < 13) {
+          try {
+            await db.execute('ALTER TABLE devices ADD COLUMN backgroundOrientation TEXT DEFAULT "HORIZONTAL"');
           } catch (_) {}
         }
       },
@@ -75,7 +88,12 @@ class LocalDbService {
         memorialPaddingTop REAL, memorialPaddingLeft REAL, memorialPaddingRight REAL,
         memorialPaddingBottom REAL, photoVerticalAlignment TEXT,
         photoHorizontalAlignment TEXT, deviceType TEXT, memorialPhotoEffect TEXT,
-        contentIntervalSec INTEGER
+        contentIntervalSec INTEGER,
+        isBackgroundImageEnabled INTEGER,
+        backgroundImageId TEXT,
+        backgroundImageName TEXT,
+        backgroundImageUrl TEXT,
+        backgroundOrientation TEXT
       )
     ''');
 

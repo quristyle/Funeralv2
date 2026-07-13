@@ -23,10 +23,12 @@ void main() async {
         titleBarStyle: TitleBarStyle.hidden,
       );
       await windowManager.waitUntilReadyToShow(windowOptions, () async {
-        await windowManager.setFullScreen(true);
-        await windowManager.setAlwaysOnTop(true);
         await windowManager.show();
         await windowManager.focus();
+        Future.delayed(const Duration(milliseconds: 200), () async {
+          await windowManager.setFullScreen(true);
+          await windowManager.setAlwaysOnTop(true);
+        });
       });
     } catch (e) {
       print('[Main] 창 설정 실패: $e');

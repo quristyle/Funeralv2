@@ -16,6 +16,7 @@ class PortraitController extends ChangeNotifier {
   String? localVideoPath;
   String? localMusicPath;
   String? localPhotoPath;
+  String? localBackgroundPath;
   Map<String, String> ribbonPaths = {};
 
   bool isLoading = false;
@@ -89,6 +90,13 @@ class PortraitController extends ChangeNotifier {
         localPhotoPath = await _cacheManager.getCachedFileByPath(serverBaseUrl, photoPath);
       } else {
         localPhotoPath = null;
+      }
+
+      // 배경 이미지
+      if (device!.isBackgroundImageEnabled && device!.backgroundImageUrl != null && device!.backgroundImageUrl!.isNotEmpty) {
+        localBackgroundPath = await _cacheManager.getCachedFileByPath(serverBaseUrl, device!.backgroundImageUrl);
+      } else {
+        localBackgroundPath = null;
       }
 
       // 리본 장식

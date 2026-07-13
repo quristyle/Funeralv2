@@ -79,7 +79,7 @@ export namespace BuildingApi {
   export interface MediaSource {
     id: string;
     name: string;
-    sourceType: 'VIDEO' | 'AUDIO' | 'IMAGE';
+    sourceType: 'VIDEO' | 'AUDIO' | 'IMAGE' | 'BACKGROUND';
     url: string;
     fileSize?: number;
     remark?: string;
@@ -216,6 +216,9 @@ export namespace BuildingApi {
     musicVolume: number | null;
     isMediaLoop: boolean;
     isMuted: boolean;
+    isBackgroundImageEnabled: boolean;
+    backgroundImageId: string | null;
+    backgroundOrientation: 'HORIZONTAL' | 'VERTICAL_LEFT' | 'VERTICAL_RIGHT' | 'INVERTED';
     // 층별 안내 설정
     isFloorGuideEnabled: boolean;
     isRoomAssignmentVisible: boolean;
@@ -389,7 +392,7 @@ export async function updateDeviceConfig(id: string, data: Omit<BuildingApi.Devi
 }
 
 // === 미디어 소스/영상/음원 API ===
-export async function getMediaSources(type?: 'VIDEO' | 'AUDIO' | 'IMAGE') {
+export async function getMediaSources(type?: 'VIDEO' | 'AUDIO' | 'IMAGE' | 'BACKGROUND') {
   return requestClient.get<BuildingApi.MediaSource[]>('/funeral/building/source/list', { params: { type } });
 }
 export async function createMediaSource(data: Omit<BuildingApi.MediaSource, 'id'>) {

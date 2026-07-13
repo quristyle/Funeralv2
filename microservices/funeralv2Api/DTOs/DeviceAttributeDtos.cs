@@ -42,6 +42,9 @@ public class DeviceAttributeDto
     public int? MusicVolume { get; set; }
     public bool IsMediaLoop { get; set; } = true;
     public bool IsMuted { get; set; } = false;
+    public bool IsBackgroundImageEnabled { get; set; } = false;
+    public string? BackgroundImageId { get; set; }
+    public string BackgroundOrientation { get; set; } = "HORIZONTAL";
 
     // 층별 안내 설정
     public bool IsFloorGuideEnabled { get; set; } = false;
@@ -100,6 +103,9 @@ public class DeviceAttributeUpsertDto
     public int? MusicVolume { get; set; }
     public bool IsMediaLoop { get; set; } = true;
     public bool IsMuted { get; set; } = false;
+    public bool IsBackgroundImageEnabled { get; set; } = false;
+    public string? BackgroundImageId { get; set; }
+    public string BackgroundOrientation { get; set; } = "HORIZONTAL";
 
     // 층별 안내 설정
     public bool IsFloorGuideEnabled { get; set; } = false;

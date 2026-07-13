@@ -43,6 +43,11 @@ public class DeviceDto
     public bool IsDeceasedNameVisible { get; set; }
     public bool IsFamilyContactVisible { get; set; }
     public double MusicVolume { get; set; }
+    public bool IsBackgroundImageEnabled { get; set; }
+    public string? BackgroundImageId { get; set; }
+    public string? BackgroundImageName { get; set; }
+    public string? BackgroundImageUrl { get; set; }
+    public string BackgroundOrientation { get; set; } = "HORIZONTAL";
     public string DisplayOrientation { get; set; } = "LANDSCAPE";
     public string PortraitOrientation { get; set; } = "HORIZONTAL";
     public string VideoOrientation { get; set; } = "HORIZONTAL";

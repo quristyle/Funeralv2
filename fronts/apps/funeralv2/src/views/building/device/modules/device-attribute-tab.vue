@@ -249,7 +249,7 @@ watch(
             <span>사진 · 영상 · 음악</span>
             <span class="attr-device-tag">멀티미디어 DID</span>
           </div>
-          <div class="grid grid-cols-2 gap-3">
+          <div class="grid grid-cols-3 gap-3">
             <Form.Item label="동영상 재생">
               <Switch
                 v-model:checked="deviceAttr.isVideoEnabled"
@@ -264,10 +264,17 @@ watch(
                 un-checked-children="사용안함"
               />
             </Form.Item>
+            <Form.Item label="배경 이미지 사용">
+              <Switch
+                v-model:checked="deviceAttr.isBackgroundImageEnabled"
+                checked-children="사용"
+                un-checked-children="사용안함"
+              />
+            </Form.Item>
           </div>
           <div
-            v-if="deviceAttr.isVideoEnabled || deviceAttr.isMusicEnabled"
-            class="grid grid-cols-2 gap-3"
+            v-if="deviceAttr.isVideoEnabled || deviceAttr.isMusicEnabled || deviceAttr.isBackgroundImageEnabled"
+            class="grid grid-cols-3 gap-3"
           >
             <Form.Item v-if="deviceAttr.isVideoEnabled" label="동영상 선택">
               <BizSelect
@@ -285,10 +292,29 @@ watch(
                 style="width: 100%"
               />
             </Form.Item>
+            <Form.Item v-if="deviceAttr.isBackgroundImageEnabled" label="배경 이미지 선택">
+              <BizSelect
+                type="background"
+                v-model:value="deviceAttr.backgroundImageId"
+                placeholder="배경 이미지를 선택하세요"
+                style="width: 100%"
+              />
+            </Form.Item>
           </div>
-          <div v-if="deviceAttr.isVideoEnabled" class="grid grid-cols-2 gap-3">
-            <Form.Item label="영상 표현">
+          <div
+            v-if="deviceAttr.isVideoEnabled || deviceAttr.isBackgroundImageEnabled"
+            class="grid grid-cols-2 gap-3"
+          >
+            <Form.Item v-if="deviceAttr.isVideoEnabled" label="영상 표현">
               <Select v-model:value="deviceAttr.videoOrientation" style="width: 100%">
+                <Select.Option value="HORIZONTAL">가로형 모습 (0도)</Select.Option>
+                <Select.Option value="VERTICAL_LEFT">세로형 모습 (좌로 90도)</Select.Option>
+                <Select.Option value="VERTICAL_RIGHT">세로형 모습 (우로 90도)</Select.Option>
+                <Select.Option value="INVERTED">가로형 모습 (180도 회전)</Select.Option>
+              </Select>
+            </Form.Item>
+            <Form.Item v-if="deviceAttr.isBackgroundImageEnabled" label="배경 이미지 표현">
+              <Select v-model:value="deviceAttr.backgroundOrientation" style="width: 100%">
                 <Select.Option value="HORIZONTAL">가로형 모습 (0도)</Select.Option>
                 <Select.Option value="VERTICAL_LEFT">세로형 모습 (좌로 90도)</Select.Option>
                 <Select.Option value="VERTICAL_RIGHT">세로형 모습 (우로 90도)</Select.Option>

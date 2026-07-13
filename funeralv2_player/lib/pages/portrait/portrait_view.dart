@@ -65,6 +65,8 @@ class _PortraitViewState extends State<PortraitView> {
           child: Stack(
             fit: StackFit.expand,
             children: [
+              // 배경 이미지 레이어 (동영상 바로 위, 영정사진 아래)
+              _buildBackgroundImageLayer(dev),
               // 영정사진 레이어
               _buildPortraitPhotoLayer(dev),
               // 장식 레이어 (리본 등)
@@ -226,6 +228,51 @@ class _PortraitViewState extends State<PortraitView> {
     final fullUrl = url.startsWith('http') ? url : '${widget.serverBaseUrl}$url';
     return Image.network(
       fullUrl,
+      fit: BoxFit.fill,
+      errorBuilder: (c, e, s) => const SizedBox(),
+    );
+  }
+
+  // [레이어 0] 배경 이미지 레이어
+  Widget _buildBackgroundImageLayer(DeviceDto dev) {
+    if (!dev.isBackgroundImageEnabled || _controller.localBackgroundPath == null) {
+      return const SizedBox();
+    }
+
+    // 배경 이미지 방향 설정에 따른 회전 적용
+    int turns = 0;
+    switch (dev.backgroundOrientation) {
+      case 'VERTICAL_LEFT': turns = 3; break;
+      case 'VERTICAL_RIGHT': turns = 1; break;
+      case 'INVERTED': turns = 2; break;
+      default: turns = 0; break;
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SizedBox.expand(
+          child: RotatedBox(
+            quarterTurns: turns,
+            child: _buildBackgroundImage(),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildBackgroundImage() {
+    final path = _controller.localBackgroundPath;
+    if (path == null) return const SizedBox();
+
+    if (kIsWeb) {
+      return Image.network(
+        path,
+        fit: BoxFit.fill,
+        errorBuilder: (c, e, s) => const SizedBox(),
+      );
+    }
+    return Image.file(
+      io.File(path),
       fit: BoxFit.fill,
       errorBuilder: (c, e, s) => const SizedBox(),
     );

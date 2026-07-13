@@ -15,8 +15,13 @@ class DeviceDto {
   final bool isVideoEnabled;
   final bool isMusicEnabled;
   final bool isMuted;
+  final bool isBackgroundImageEnabled;
   final String? videoName;
   final String? musicName;
+  final String? backgroundImageId;
+  final String? backgroundImageName;
+  final String? backgroundImageUrl;
+  final String backgroundOrientation;
   final double musicVolume;
   final bool isMemorialPhotoEnabled;
   final bool isDeceasedNameVisible;
@@ -45,7 +50,10 @@ class DeviceDto {
     this.roomId, this.roomName, this.floorId, this.floorName,
     this.buildingId, this.buildingName, this.videoId, this.musicId,
     required this.isVideoEnabled, required this.isMusicEnabled, required this.isMuted,
-    this.videoName, this.musicName, required this.musicVolume,
+    required this.isBackgroundImageEnabled,
+    this.videoName, this.musicName, this.backgroundImageId, this.backgroundImageName, this.backgroundImageUrl,
+    required this.backgroundOrientation,
+    required this.musicVolume,
     required this.isMemorialPhotoEnabled, required this.isDeceasedNameVisible, required this.isFamilyContactVisible,
     required this.displayOrientation, required this.portraitOrientation, required this.videoOrientation,
     required this.deviceType, required this.photoVerticalAlignment, required this.photoHorizontalAlignment,
@@ -81,8 +89,13 @@ class DeviceDto {
       isVideoEnabled: (data['isVideoEnabled'] == 1 || data['isVideoEnabled'] == true),
       isMusicEnabled: (data['isMusicEnabled'] == 1 || data['isMusicEnabled'] == true),
       isMuted: (data['isMuted'] == 1 || data['isMuted'] == true),
+      isBackgroundImageEnabled: (data['isBackgroundImageEnabled'] == 1 || data['isBackgroundImageEnabled'] == true),
       videoName: data['videoName'],
       musicName: data['musicName'],
+      backgroundImageId: data['backgroundImageId'],
+      backgroundImageName: data['backgroundImageName'],
+      backgroundImageUrl: data['backgroundImageUrl'],
+      backgroundOrientation: data['backgroundOrientation'] ?? 'HORIZONTAL',
       musicVolume: (data['musicVolume'] ?? 50).toDouble(),
       isMemorialPhotoEnabled: (data['isMemorialPhotoEnabled'] == 1 || data['isMemorialPhotoEnabled'] == true),
       isDeceasedNameVisible: (data['isDeceasedNameVisible'] == 1 || data['isDeceasedNameVisible'] == true),
@@ -112,7 +125,11 @@ class DeviceDto {
       'floorId': floorId, 'floorName': floorName, 'buildingId': buildingId, 'buildingName': buildingName,
       'videoId': videoId, 'musicId': musicId, 'isVideoEnabled': isVideoEnabled ? 1 : 0,
       'isMusicEnabled': isMusicEnabled ? 1 : 0, 'isMuted': isMuted ? 1 : 0,
-      'videoName': videoName, 'musicName': musicName, 'musicVolume': musicVolume,
+      'isBackgroundImageEnabled': isBackgroundImageEnabled ? 1 : 0,
+      'videoName': videoName, 'musicName': musicName, 'backgroundImageId': backgroundImageId,
+      'backgroundImageName': backgroundImageName, 'backgroundImageUrl': backgroundImageUrl,
+      'backgroundOrientation': backgroundOrientation,
+      'musicVolume': musicVolume,
       'isMemorialPhotoEnabled': isMemorialPhotoEnabled ? 1 : 0,
       'isDeceasedNameVisible': isDeceasedNameVisible ? 1 : 0,
       'isFamilyContactVisible': isFamilyContactVisible ? 1 : 0,

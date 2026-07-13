@@ -11,6 +11,7 @@ class SignalRService {
   HubConnection? _hubConnection;
   bool _isConnecting = false;
   Timer? _reconnectTimer;
+  Timer? _debounceTimer;
   int _reconnectAttempt = 0;
   static const int _maxReconnectDelaySec = 60;
 
@@ -66,9 +67,13 @@ class SignalRService {
     // 서버 메시지 수신 (리스너는 HubConnection 객체 생성 시 한 번만 등록됨)
     _hubConnection!.on('DeviceChanged', (arguments) {
       print('[SignalR] << DeviceChanged 이벤트 수신');
-      if (_onDeviceChanged != null) {
-        _onDeviceChanged!();
-      }
+      _debounceTimer?.cancel();
+      _debounceTimer = Timer(const Duration(milliseconds: 1000), () {
+        if (_onDeviceChanged != null) {
+          print('[SignalR] DeviceChanged 콜백 실행 (Debounced 1s)');
+          _onDeviceChanged!();
+        }
+      });
     });
 
     try {
@@ -134,6 +139,8 @@ class SignalRService {
     // 1. 모든 타이머 및 상태 초기화 (재연결 방지)
     _reconnectTimer?.cancel();
     _reconnectTimer = null;
+    _debounceTimer?.cancel();
+    _debounceTimer = null;
     _onDeviceChanged = null;
     _isConnecting = false;
     _reconnectAttempt = 0;
