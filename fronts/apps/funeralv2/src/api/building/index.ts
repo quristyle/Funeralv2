@@ -187,7 +187,7 @@ export namespace BuildingApi {
     // 공통 표시 설정
     displayOrientation: 'LANDSCAPE' | 'PORTRAIT';
     portraitOrientation: 'HORIZONTAL' | 'VERTICAL_LEFT' | 'VERTICAL_RIGHT' | 'INVERTED';
-    videoOrientation: 'HORIZONTAL' | 'VERTICAL';
+    videoOrientation: 'HORIZONTAL' | 'VERTICAL_LEFT' | 'VERTICAL_RIGHT' | 'INVERTED';
     displayPaddingTop: number;
     displayPaddingLeft: number;
     displayPaddingRight: number;

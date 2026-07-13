@@ -289,8 +289,10 @@ watch(
           <div v-if="deviceAttr.isVideoEnabled" class="grid grid-cols-2 gap-3">
             <Form.Item label="영상 표현">
               <Select v-model:value="deviceAttr.videoOrientation" style="width: 100%">
-                <Select.Option value="HORIZONTAL">가로형 모습</Select.Option>
-                <Select.Option value="VERTICAL">세로형 모습</Select.Option>
+                <Select.Option value="HORIZONTAL">가로형 모습 (0도)</Select.Option>
+                <Select.Option value="VERTICAL_LEFT">세로형 모습 (좌로 90도)</Select.Option>
+                <Select.Option value="VERTICAL_RIGHT">세로형 모습 (우로 90도)</Select.Option>
+                <Select.Option value="INVERTED">가로형 모습 (180도 회전)</Select.Option>
               </Select>
             </Form.Item>
           </div>

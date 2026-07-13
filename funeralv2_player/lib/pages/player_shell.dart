@@ -95,11 +95,36 @@ class PlayerShell extends StatelessWidget {
     );
   }
 
-  // 비디오 회전 각도 계산 (기존 로직 유지)
+  // 비디오 회전 각도 계산 (가로, 좌세로, 우세로, 반전 대응)
   int _getVideoTurns(DeviceDto dev) {
     if (dev.displayOrientation == 'PORTRAIT') {
-      return (dev.videoOrientation == 'HORIZONTAL') ? 3 : 0;
+      switch (dev.videoOrientation) {
+        case 'HORIZONTAL':
+          return 3;
+        case 'VERTICAL':
+        case 'VERTICAL_LEFT':
+          return 0;
+        case 'VERTICAL_RIGHT':
+          return 2;
+        case 'INVERTED':
+          return 1;
+        default:
+          return 0;
+      }
+    } else {
+      switch (dev.videoOrientation) {
+        case 'HORIZONTAL':
+          return 0;
+        case 'VERTICAL':
+        case 'VERTICAL_LEFT':
+          return 1;
+        case 'VERTICAL_RIGHT':
+          return 3;
+        case 'INVERTED':
+          return 2;
+        default:
+          return 0;
+      }
     }
-    return (dev.videoOrientation == 'VERTICAL') ? 1 : 0;
   }
 }

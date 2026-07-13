@@ -243,8 +243,35 @@ class _PortraitPageState extends State<PortraitPage> {
   }
 
   int _getVideoTurns(DeviceDto dev) {
-    if (dev.displayOrientation == 'PORTRAIT') return (dev.videoOrientation == 'HORIZONTAL') ? 3 : 0;
-    return (dev.videoOrientation == 'VERTICAL') ? 1 : 0;
+    if (dev.displayOrientation == 'PORTRAIT') {
+      switch (dev.videoOrientation) {
+        case 'HORIZONTAL':
+          return 3;
+        case 'VERTICAL':
+        case 'VERTICAL_LEFT':
+          return 0;
+        case 'VERTICAL_RIGHT':
+          return 2;
+        case 'INVERTED':
+          return 1;
+        default:
+          return 0;
+      }
+    } else {
+      switch (dev.videoOrientation) {
+        case 'HORIZONTAL':
+          return 0;
+        case 'VERTICAL':
+        case 'VERTICAL_LEFT':
+          return 1;
+        case 'VERTICAL_RIGHT':
+          return 3;
+        case 'INVERTED':
+          return 2;
+        default:
+          return 0;
+      }
+    }
   }
 
   Widget _buildLoadingView() {
