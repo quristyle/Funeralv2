@@ -208,6 +208,13 @@ watch(
                   un-checked-children="숨김"
                 />
               </Form.Item>
+              <Form.Item label="영정사진 비율 유지">
+                <Switch
+                  v-model:checked="deviceAttr.isMemorialPhotoKeepAspectRatio"
+                  checked-children="유지"
+                  un-checked-children="늘림"
+                />
+              </Form.Item>
             </div>
             <div class="grid grid-cols-2 gap-3 mt-2">
               <Form.Item label="영정사진 여백 (위)">

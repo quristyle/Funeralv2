@@ -204,6 +204,7 @@ export namespace BuildingApi {
     photoHorizontalAlignment: 'LEFT' | 'CENTER' | 'RIGHT';
     isDeceasedNameVisible: boolean;
     isFamilyContactVisible: boolean;
+    isMemorialPhotoKeepAspectRatio: boolean; // 영정사진 비율 유지 여부
     memorialPaddingTop: number;
     memorialPaddingLeft: number;
     memorialPaddingRight: number;

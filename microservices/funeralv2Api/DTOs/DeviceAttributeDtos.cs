@@ -29,6 +29,7 @@ public class DeviceAttributeDto
     public string PhotoHorizontalAlignment { get; set; } = "CENTER";
     public bool IsDeceasedNameVisible { get; set; } = true;
     public bool IsFamilyContactVisible { get; set; } = false;
+    public bool IsMemorialPhotoKeepAspectRatio { get; set; } = true;
     public decimal? MemorialPaddingTop { get; set; } = 0;
     public decimal? MemorialPaddingLeft { get; set; } = 0;
     public decimal? MemorialPaddingRight { get; set; } = 0;
@@ -90,6 +91,7 @@ public class DeviceAttributeUpsertDto
     public string PhotoHorizontalAlignment { get; set; } = "CENTER";
     public bool IsDeceasedNameVisible { get; set; } = true;
     public bool IsFamilyContactVisible { get; set; } = false;
+    public bool IsMemorialPhotoKeepAspectRatio { get; set; } = true;
     public decimal? MemorialPaddingTop { get; set; } = 0;
     public decimal? MemorialPaddingLeft { get; set; } = 0;
     public decimal? MemorialPaddingRight { get; set; } = 0;

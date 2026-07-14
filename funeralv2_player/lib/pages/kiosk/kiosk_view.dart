@@ -3,10 +3,14 @@ import '../player_shell.dart';
 import 'kiosk_controller.dart';
 import '../../models/device_models.dart';
 
+/// [종합 안내 키오스크 뷰 위젯]
+/// 방문 조문객들을 위한 터치 스크린 방식의 종합 안내판 화면입니다.
+/// 전체 호실 찾기/검색(층별 필터 및 6개 카드 단위 터치 페이지네이션) 및
+/// 주차 안내(약도 이미지 터치 슬라이더)의 두 가지 탭 기능을 탑재하고 있습니다.
 class KioskView extends StatefulWidget {
-  final String serverBaseUrl;
-  final String deviceCode;
-  final VoidCallback onOpenSettings;
+  final String serverBaseUrl; // 통합 서버 Base URL
+  final String deviceCode; // 장비 식별 코드
+  final VoidCallback onOpenSettings; // 환경 설정 진입 콜백
 
   const KioskView({
     super.key,
@@ -20,22 +24,28 @@ class KioskView extends StatefulWidget {
 }
 
 class _KioskViewState extends State<KioskView> {
+  // 키오스크 데이터를 관리하는 비즈니스 로직 컨트롤러
   final KioskController _controller = KioskController();
 
-  // 상단 탭 상태 ("ROOM_GUIDE" 또는 "PARKING_GUIDE")
+  // 현재 선택된 상단 탭 키 ("ROOM_GUIDE" 또는 "PARKING_GUIDE")
   String _selectedTab = "ROOM_GUIDE";
 
-  // 층 필터 상태 ("전체" 또는 특정 층 이름)
+  // 현재 선택된 필터용 층 이름 ("전체" 또는 특정 층 명칭)
   String _selectedFloor = "전체";
 
-  // 페이지네이션 상태
+  // 호실 그리드 페이징 인덱스 (0-indexed)
   int _currentPage = 0;
-  static const int _itemsPerPage = 6; // 한 페이지에 노출할 호실 카드 수
+  // 한 화면에 표출할 호실 카드의 수 (터치 환경을 고려해 6개로 스로틀)
+  static const int _itemsPerPage = 6;
 
-  // 주차장 이미지 슬라이더 제어용
+  // 주차 약도 슬라이드를 제어하는 페이지 뷰 컨트롤러
   late PageController _parkingPageController;
+  // 현재 슬라이딩된 주차 이미지 인덱스
   int _currentParkingPageIndex = 0;
 
+  /// [위젯 초기 구동]
+  /// 컨트롤러 `init`를 동작시켜 장비 및 키오스크 데이터를 서버에서 호출해 오고,
+  /// 주차장 페이지 제어를 위한 `PageController` 세션을 엽니다.
   @override
   void initState() {
     super.initState();
@@ -43,10 +53,11 @@ class _KioskViewState extends State<KioskView> {
     _controller.init(
       widget.serverBaseUrl,
       widget.deviceCode,
-      () => setState(() {}),
+      () => setState(() {}), // 배경 비디오 첫 프레임 준비 시 화면을 리프레시합니다.
     );
   }
 
+  /// [자원 소멸]
   @override
   void dispose() {
     _parkingPageController.dispose();
@@ -54,6 +65,8 @@ class _KioskViewState extends State<KioskView> {
     super.dispose();
   }
 
+  /// [위젯 빌드]
+  /// 로딩 상태 분기 및 공통 셸(`PlayerShell`)을 바탕에 입히고 탭에 맞는 메인 콘텐츠 뷰를 주입합니다.
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
@@ -87,11 +100,13 @@ class _KioskViewState extends State<KioskView> {
           onOpenSettings: widget.onOpenSettings,
           debugFileName: 'kiosk_view.dart',
           child: Scaffold(
-            backgroundColor: Colors.transparent,
+            backgroundColor: Colors.transparent, // 배경 비디오 노출을 위해 투명 처리
             body: SafeArea(
               child: Column(
                 children: [
+                  // 1. 상단 타이틀 및 대형 터치형 탭 버튼 바
                   _buildHeader(dev),
+                  // 2. 탭에 매핑된 상세 콘텐츠 영역
                   Expanded(
                     child: _selectedTab == "ROOM_GUIDE"
                         ? _buildRoomGuideContent()
@@ -106,7 +121,8 @@ class _KioskViewState extends State<KioskView> {
     );
   }
 
-  // 상단 헤더 영역 (로고/타이틀 + 대형 탭 바)
+  /// [상단 헤더 영역 빌더]
+  /// 장례식장 명칭과 터치 기반의 2단 대형 탭 버튼("호실안내", "주차안내")을 렌더링합니다.
   Widget _buildHeader(DeviceDto dev) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
@@ -143,7 +159,6 @@ class _KioskViewState extends State<KioskView> {
               ),
             ],
           ),
-          // 대형 탭 바 (터치 기반)
           Row(
             children: [
               _buildTabButton("호실안내(검색)", "ROOM_GUIDE"),
@@ -156,6 +171,7 @@ class _KioskViewState extends State<KioskView> {
     );
   }
 
+  /// [개별 탭 전환 버튼 빌더]
   Widget _buildTabButton(String label, String tabKey) {
     final isSelected = _selectedTab == tabKey;
     return InkWell(
@@ -199,7 +215,8 @@ class _KioskViewState extends State<KioskView> {
     );
   }
 
-  // 호실안내(검색) 콘텐츠 빌더
+  /// [호실 안내(검색) 콘텐츠 영역 빌더]
+  /// 좌측에는 층별 필터 터치 패널을 배치하고, 우측에는 해당 층에 안치된 빈소 카드 그리드를 페이징 컨트롤러와 함께 렌더링합니다.
   Widget _buildRoomGuideContent() {
     if (_controller.rooms.isEmpty) {
       return const Center(
@@ -210,27 +227,27 @@ class _KioskViewState extends State<KioskView> {
       );
     }
 
-    // 층 목록 구성 (중복 제거 및 정렬)
+    // 1) 수집된 전체 호실 목록에서 존재하는 모든 '층 명칭'을 추출하고 중복을 제거합니다.
     final floors = <String>["전체"];
     for (var r in _controller.rooms) {
       if (r.floorName.isNotEmpty && !floors.contains(r.floorName)) {
         floors.add(r.floorName);
       }
     }
-    // 층 순서 정렬
+    // '전체' 항목이 맨 위에 오도록 조절하며 층별 이름을 정렬합니다.
     floors.sort((a, b) {
       if (a == "전체") return -1;
       if (b == "전체") return 1;
       return a.compareTo(b);
     });
 
-    // 선택된 층으로 필터링
+    // 2) 선택된 층을 기준으로 호실 목록을 필터링합니다.
     final filteredRooms = _controller.rooms.where((r) {
       if (_selectedFloor == "전체") return true;
       return r.floorName == _selectedFloor;
     }).toList();
 
-    // 페이지네이션 처리
+    // 3) 필터링된 결과물에 대해 6개 카드 단위로 페이징 연산을 처리합니다.
     final totalRooms = filteredRooms.length;
     final maxPage = (totalRooms / _itemsPerPage).ceil();
     final startIndex = _currentPage * _itemsPerPage;
@@ -243,7 +260,7 @@ class _KioskViewState extends State<KioskView> {
 
     return Row(
       children: [
-        // 1. 왼쪽: 층 선택 터치 패널 (드래그 대신 클릭 터치 구조)
+        // [사이드 패널] 층 필터 터치 패널 (키오스크 환경이므로 드래그 스크롤을 억제하고 고정 버튼 터치 구조 적용)
         Container(
           width: 220,
           padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 15),
@@ -269,7 +286,7 @@ class _KioskViewState extends State<KioskView> {
               ),
               Expanded(
                 child: ListView.builder(
-                  physics: const NeverScrollableScrollPhysics(), // 드래그 완전 방지
+                  physics: const NeverScrollableScrollPhysics(), // 드래그 억제
                   itemCount: floors.length,
                   itemBuilder: (context, index) {
                     final floorName = floors[index]!;
@@ -280,7 +297,7 @@ class _KioskViewState extends State<KioskView> {
                         onTap: () {
                           setState(() {
                             _selectedFloor = floorName;
-                            _currentPage = 0;
+                            _currentPage = 0; // 필터링 조건 변경 시 페이지는 0번으로 초기화
                           });
                         },
                         borderRadius: BorderRadius.circular(10),
@@ -317,14 +334,13 @@ class _KioskViewState extends State<KioskView> {
           ),
         ),
 
-        // 2. 오른쪽: 호실 카드 그리드 & 터치 기반 페이지네이션
+        // [메인 콘텐츠 패널] 호실 정보 그리드 렌더링 및 이전/다음 페이징 터치 바
         Expanded(
           child: Container(
             padding: const EdgeInsets.all(30),
             color: Colors.black.withOpacity(0.1),
             child: Column(
               children: [
-                // 그리드 영역 (드래그 스크롤 금지)
                 Expanded(
                   child: paginatedRooms.isEmpty
                       ? const Center(
@@ -335,6 +351,7 @@ class _KioskViewState extends State<KioskView> {
                         )
                       : LayoutBuilder(
                           builder: (context, constraints) {
+                            // 모니터 해상도 및 상위 레이아웃 가용 너비/높이에 맞춰 가로 3열, 세로 2줄 카드의 비율을 자동 보정합니다.
                             final double availableWidth = constraints.maxWidth;
                             final double availableHeight = constraints.maxHeight;
 
@@ -343,15 +360,12 @@ class _KioskViewState extends State<KioskView> {
                             const double mainAxisSpacing = 18.0;
                             const int rowCount = 2;
 
-                            // 가용 영역에 기초하여 카드의 가로/세로 길이 계산
                             final double cardWidth = (availableWidth - (crossAxisSpacing * (crossAxisCount - 1))) / crossAxisCount;
                             final double cardHeight = (availableHeight - (mainAxisSpacing * (rowCount - 1))) / rowCount;
-
-                            // 세로 길이가 0 이하인 극단적 예외 상황 방어
                             final double dynamicAspectRatio = (cardHeight > 0) ? (cardWidth / cardHeight) : 1.05;
 
                             return GridView.builder(
-                              physics: const NeverScrollableScrollPhysics(), // 드래그 완전 방지
+                              physics: const NeverScrollableScrollPhysics(), // 드래그 차단
                               gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                                 crossAxisCount: crossAxisCount,
                                 childAspectRatio: dynamicAspectRatio,
@@ -361,19 +375,18 @@ class _KioskViewState extends State<KioskView> {
                               itemCount: paginatedRooms.length,
                               itemBuilder: (context, index) {
                                 final room = paginatedRooms[index];
-                                return _buildRoomCard(room);
+                                return _buildRoomCard(room); // 개별 호실 카드 빌드
                               },
                             );
                           },
                         ),
                 ),
                 const SizedBox(height: 20),
-                // 페이지네이션 컨트롤러 (이전/다음 클릭 버튼)
+                // 이전/다음 페이지네이션 터치 버튼 (페이지가 2개 이상일 때 노출)
                 if (maxPage > 1)
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      // 이전 페이지 버튼
                       InkWell(
                         onTap: _currentPage > 0
                             ? () => setState(() => _currentPage--)
@@ -412,7 +425,6 @@ class _KioskViewState extends State<KioskView> {
                         ),
                       ),
                       const SizedBox(width: 40),
-                      // 페이지 표시
                       Text(
                         "${_currentPage + 1} / $maxPage",
                         style: const TextStyle(
@@ -422,7 +434,6 @@ class _KioskViewState extends State<KioskView> {
                         ),
                       ),
                       const SizedBox(width: 40),
-                      // 다음 페이지 버튼
                       InkWell(
                         onTap: (_currentPage + 1) < maxPage
                             ? () => setState(() => _currentPage++)
@@ -470,7 +481,8 @@ class _KioskViewState extends State<KioskView> {
     );
   }
 
-  // 개별 호실 안내 카드 빌드 (Glassmorphism + Gold border)
+  /// [개별 호실 카드 빌더 (Glassmorphism 적용)]
+  /// 호실 사용 상태에 따라 색상을 분기하고, 사용 중인 호실의 고인, 대표상주, 발인일정, 영정 사진을 밀도 높게 채웁니다.
   Widget _buildRoomCard(EntranceGuideRoomDto room) {
     final deceased = room.deceasedDetail;
     final isOccupied = deceased != null;
@@ -495,7 +507,7 @@ class _KioskViewState extends State<KioskView> {
       ),
       child: Column(
         children: [
-          // 호실 번호 & 운영 상태 헤더
+          // 1) 카드 내부 호실명 표시 상단 띠
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
@@ -550,7 +562,7 @@ class _KioskViewState extends State<KioskView> {
               ],
             ),
           ),
-          // 빈소 정보 본문
+          // 2) 카드 내부 바디 영역 (고인 이미지 + 세부 사항 인적사항 목록)
           Expanded(
             child: Padding(
               padding: const EdgeInsets.all(12.0),
@@ -627,6 +639,7 @@ class _KioskViewState extends State<KioskView> {
     );
   }
 
+  /// [고인 보정 영정 이미지 컴포넌트 빌더]
   Widget _buildMemorialPhoto(DeceasedDto deceased) {
     final photoUrl = deceased.memorialEditedPhotoUrl ?? deceased.memorialPhotoUrl;
 
@@ -651,6 +664,7 @@ class _KioskViewState extends State<KioskView> {
     );
   }
 
+  /// [영정 실루엣 플레이스홀더]
   Widget _buildPlaceholderPhoto() {
     return const Center(
       child: Icon(
@@ -661,6 +675,7 @@ class _KioskViewState extends State<KioskView> {
     );
   }
 
+  /// [카드 내부 한 줄 세부일정 항목 빌더]
   Widget _buildInfoRow(String label, String value) {
     return Padding(
       padding: const EdgeInsets.only(top: 3.0),
@@ -692,6 +707,7 @@ class _KioskViewState extends State<KioskView> {
     );
   }
 
+  /// [상주 관계형 라인 텍스트 압축화 포맷터]
   String _getMournersString(List<MournerDto> mourners) {
     if (mourners.isEmpty) return "등록된 상주 정보 없음";
 
@@ -716,6 +732,7 @@ class _KioskViewState extends State<KioskView> {
     return parts.join(", ");
   }
 
+  /// [일정 날짜/시간 가공 헬퍼]
   String _formatDateTimeString(String dateTimeStr) {
     try {
       final dt = DateTime.parse(dateTimeStr).toLocal();
@@ -732,7 +749,8 @@ class _KioskViewState extends State<KioskView> {
     }
   }
 
-  // 주차안내 콘텐츠 빌더 (실제 주차장 이미지 롤링 또는 플레이스홀더)
+  /// [주차 안내 탭 콘텐츠 영역 빌더]
+  /// 서버에 등록된 주차 약도 사진 목록을 PageView 기반 터치 슬라이더(좌우 넘김 화살표 제공)로 매핑합니다.
   Widget _buildParkingGuideContent() {
     final parkingPhotos = _controller.parkingPhotos;
 
@@ -774,7 +792,7 @@ class _KioskViewState extends State<KioskView> {
 
     return Stack(
       children: [
-        // 1. 대형 주차 이미지 슬라이더 (PageView, 드래그 차단)
+        // 1) 대형 약도 이미지 롤링 뷰어 (PageView 적용, 터치 슬라이딩 스와이프 제어)
         Positioned.fill(
           child: Container(
             color: Colors.black45,
@@ -810,7 +828,7 @@ class _KioskViewState extends State<KioskView> {
           ),
         ),
 
-        // 2. 왼쪽 이전 이동 터치 버튼
+        // 2) 이전 이미지 터치 화살표 (첫 페이지 아닐 때 표출)
         if (_currentParkingPageIndex > 0)
           Positioned(
             left: 30,
@@ -839,7 +857,7 @@ class _KioskViewState extends State<KioskView> {
             ),
           ),
 
-        // 3. 오른쪽 다음 이동 터치 버튼
+        // 3) 다음 이미지 터치 화살표 (마지막 페이지 아닐 때 표출)
         if (_currentParkingPageIndex < parkingPhotos.length - 1)
           Positioned(
             right: 30,
@@ -868,7 +886,7 @@ class _KioskViewState extends State<KioskView> {
             ),
           ),
 
-        // 4. 하단 중앙 페이지네이션 표시
+        // 4) 하단 페이지 네비게이션 뱃지 오버레이
         Positioned(
           bottom: 25,
           left: 0,

@@ -65,6 +65,7 @@ public class DeviceService : IDeviceService
                 dto.IsVideoEnabled = attr.IsVideoEnabled;
                 dto.IsMusicEnabled = attr.IsMusicEnabled;
                 dto.IsBackgroundImageEnabled = attr.IsBackgroundImageEnabled;
+                dto.IsMemorialPhotoKeepAspectRatio = attr.IsMemorialPhotoKeepAspectRatio;
                 dto.BackgroundImageId = attr.BackgroundImageId;
                 dto.BackgroundOrientation = attr.BackgroundOrientation ?? "HORIZONTAL";
                 dto.VideoName = !string.IsNullOrEmpty(attr.VideoId) && mediaMap.TryGetValue(attr.VideoId, out var vName) ? vName : null;
@@ -150,6 +151,7 @@ public class DeviceService : IDeviceService
                 dto.IsMemorialPhotoEnabled = attr.IsMemorialPhotoEnabled;
                 dto.IsDeceasedNameVisible = attr.IsDeceasedNameVisible;
                 dto.IsFamilyContactVisible = attr.IsFamilyContactVisible;
+                dto.IsMemorialPhotoKeepAspectRatio = attr.IsMemorialPhotoKeepAspectRatio;
                 dto.MusicVolume = attr.MusicVolume ?? 50;
                 dto.DisplayOrientation = attr.DisplayOrientation;
                 dto.PortraitOrientation = attr.PortraitOrientation ?? "HORIZONTAL";
@@ -199,6 +201,7 @@ public class DeviceService : IDeviceService
             dto.IsMemorialPhotoEnabled = attr.IsMemorialPhotoEnabled;
             dto.IsDeceasedNameVisible = attr.IsDeceasedNameVisible;
             dto.IsFamilyContactVisible = attr.IsFamilyContactVisible;
+            dto.IsMemorialPhotoKeepAspectRatio = attr.IsMemorialPhotoKeepAspectRatio;
             dto.MusicVolume = attr.MusicVolume ?? 50;
             dto.DisplayOrientation = attr.DisplayOrientation;
             dto.PortraitOrientation = attr.PortraitOrientation ?? "HORIZONTAL";
@@ -273,6 +276,7 @@ public class DeviceService : IDeviceService
             dto.IsMemorialPhotoEnabled = attr.IsMemorialPhotoEnabled;
             dto.IsDeceasedNameVisible = attr.IsDeceasedNameVisible;
             dto.IsFamilyContactVisible = attr.IsFamilyContactVisible;
+            dto.IsMemorialPhotoKeepAspectRatio = attr.IsMemorialPhotoKeepAspectRatio;
             dto.MusicVolume = attr.MusicVolume ?? 50;
             dto.DisplayOrientation = attr.DisplayOrientation;
             dto.PortraitOrientation = attr.PortraitOrientation ?? "HORIZONTAL";

@@ -1,30 +1,43 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:http/http.dart' as http;
 import 'package:media_kit/media_kit.dart';
 import 'package:window_manager/window_manager.dart';
 import 'pages/device_dispatcher.dart';
+import 'pages/settings_screen.dart'; // 분리된 환경설정 화면 임포트
 
+/// [앱의 시작점] main 함수
+/// Flutter 앱이 구동될 때 가장 먼저 호출되는 함수입니다.
+/// async 키워드는 이 함수 내부에서 비동기(기다림이 필요한) 작업을 수행함을 의미합니다.
 void main() async {
+  // Flutter 프레임워크가 위젯을 그릴 준비가 될 때까지 기다립니다.
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // 동영상 재생 엔진인 MediaKit을 초기화합니다.
   MediaKit.ensureInitialized();
 
   print('[Main] 프로그램 구동 시작');
 
+  // 현재 실행되는 운영체제가 Windows 또는 Linux인 경우 창 설정을 진행합니다.
   if (Platform.isWindows || Platform.isLinux) {
     try {
+      // 창 관리자(window_manager)를 초기화합니다.
       await windowManager.ensureInitialized();
+      
+      // 창의 초기 옵션을 설정합니다. (중앙 정렬, 검은 배경, 제목 표시줄 숨김 등)
       WindowOptions windowOptions = const WindowOptions(
         center: true,
         backgroundColor: Colors.black,
         skipTaskbar: false,
         titleBarStyle: TitleBarStyle.hidden,
       );
+      
+      // 설정한 옵션으로 창이 준비되면 화면에 표시합니다.
       await windowManager.waitUntilReadyToShow(windowOptions, () async {
         await windowManager.show();
         await windowManager.focus();
+        
+        // 창이 뜬 후 아주 짧은 시간(0.2초) 뒤에 전체화면과 최상단 고정 설정을 적용합니다.
         Future.delayed(const Duration(milliseconds: 200), () async {
           await windowManager.setFullScreen(true);
           await windowManager.setAlwaysOnTop(true);
@@ -35,9 +48,12 @@ void main() async {
     }
   }
 
+  // 실제 앱 위젯 트리를 실행합니다.
   runApp(const FuneralPlayerApp());
 }
 
+/// [앱 루트 위젯]
+/// 앱의 전체 테마와 제목, 그리고 첫 화면을 설정합니다.
 class FuneralPlayerApp extends StatelessWidget {
   const FuneralPlayerApp({super.key});
 
@@ -45,17 +61,20 @@ class FuneralPlayerApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Funeral Signage Player',
-      debugShowCheckedModeBanner: false,
+      debugShowCheckedModeBanner: false, // 오른쪽 상단 디버그 띠를 숨깁니다.
       theme: ThemeData(
-        brightness: Brightness.dark,
-        scaffoldBackgroundColor: Colors.black,
-        primaryColor: const Color(0xFFC0A060),
+        brightness: Brightness.dark, // 어두운 테마 사용
+        scaffoldBackgroundColor: Colors.black, // 기본 배경색은 검정
+        primaryColor: const Color(0xFFC0A060), // 금색 포인트 컬러
       ),
+      // 앱의 실제 관문 역할을 하는 MainRouter를 홈 화면으로 설정합니다.
       home: const MainRouter(),
     );
   }
 }
 
+/// [메인 라우터 위젯]
+/// 저장된 설정값 유무에 따라 '설정 화면'을 보여줄지, '플레이어 화면'을 보여줄지 결정합니다.
 class MainRouter extends StatefulWidget {
   const MainRouter({super.key});
   @override
@@ -69,20 +88,25 @@ class _MainRouterState extends State<MainRouter> {
   String? macAddress;
   String? publicIpAddress;
   String? displayOrientation;
-  bool isConfigured = false;
-  bool isLoading = true;
+  int displayRotationTurns = 0; // [추가] 화면 회전 상태 수치 (0: 0도, 1: 90도, 2: 180도, 3: 270도)
+  bool isConfigured = false; // 설정 완료 여부 플래그
+  bool isLoading = true;     // 데이터 로딩 중 여부 플래그
 
+  /// 위젯이 처음 생성될 때 실행되는 초기화 함수입니다.
   @override
   void initState() {
     super.initState();
+    // 저장된 설정 정보를 불러옵니다.
     _loadConfiguration();
   }
 
+  /// 기기 로컬 저장소(SharedPreferences)에서 설정 정보를 읽어오는 함수입니다.
   Future<void> _loadConfiguration() async {
     print('[MainRouter] 설정 정보 로드 중...');
     final prefs = await SharedPreferences.getInstance();
     
     setState(() {
+      // 저장된 값이 없으면 기본값을 사용하거나 빈 값을 할당합니다.
       serverBaseUrl = prefs.getString('serverBaseUrl') ?? 'http://localhost:5265';
       deviceCode = prefs.getString('deviceCode');
       ipAddress = prefs.getString('ipAddress') ?? '';
@@ -90,20 +114,30 @@ class _MainRouterState extends State<MainRouter> {
       publicIpAddress = prefs.getString('publicIpAddress') ?? '';
       displayOrientation = prefs.getString('displayOrientation') ?? 'LANDSCAPE';
       
+      // 로컬 회전 각도 로드 (없을 경우 displayOrientation이 PORTRAIT이면 1로 하위 호환 매핑)
+      displayRotationTurns = prefs.getInt('displayRotationTurns') ?? (displayOrientation == 'PORTRAIT' ? 1 : 0);
+      
+      // 장비 코드가 로컬에 존재하면 이미 설정된 것으로 간주합니다.
       isConfigured = deviceCode != null && deviceCode!.isNotEmpty;
-      isLoading = false;
+      isLoading = false; // 로딩 완료
     });
-    print('[MainRouter] 로드 완료: isConfigured=$isConfigured, code=$deviceCode');
+    print('[MainRouter] 로드 완료: isConfigured=$isConfigured, code=$deviceCode, rotationTurns=$displayRotationTurns');
   }
 
-  Future<void> _saveConfiguration(String server, String code, String ip, String mac, String publicIp) async {
-    print('[MainRouter] 설정 저장: code=$code');
+  /// 사용자가 입력한 새로운 설정 정보를 로컬 저장소에 저장하는 함수입니다.
+  Future<void> _saveConfiguration(String server, String code, String ip, String mac, String publicIp, int rotationTurns) async {
+    print('[MainRouter] 설정 저장: code=$code, rotationTurns=$rotationTurns');
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('serverBaseUrl', server);
     await prefs.setString('deviceCode', code);
     await prefs.setString('ipAddress', ip);
     await prefs.setString('macAddress', mac);
     await prefs.setString('publicIpAddress', publicIp);
+    
+    // 화면 회전 상태를 저장하고 이에 맞추어 displayOrientation 문자열 매핑 저장
+    await prefs.setInt('displayRotationTurns', rotationTurns);
+    final String mappedOrientation = (rotationTurns % 2 == 1) ? 'PORTRAIT' : 'LANDSCAPE';
+    await prefs.setString('displayOrientation', mappedOrientation);
 
     setState(() {
       serverBaseUrl = server;
@@ -111,29 +145,40 @@ class _MainRouterState extends State<MainRouter> {
       ipAddress = ip;
       macAddress = mac;
       publicIpAddress = publicIp;
-      isConfigured = true;
+      displayRotationTurns = rotationTurns;
+      displayOrientation = mappedOrientation;
+      isConfigured = true; // 저장 완료 시 설정 상태를 true로 변경하여 화면을 전환시킵니다.
     });
   }
 
+  /// 화면의 모습을 그리는 함수입니다. 상태가 바뀔 때마다 다시 호출됩니다.
   @override
   Widget build(BuildContext context) {
     print('[MainRouter] build() 진입: isLoading=$isLoading, isConfigured=$isConfigured');
     
+    // 아직 로딩 중이라면 로딩 바만 중앙에 띄웁니다.
     if (isLoading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator(color: Color(0xFFC0A060))));
     }
 
+    // 설정이 안 되어 있다면 '환경 설정' 화면을 반환합니다.
     if (!isConfigured) {
       return SettingsScreen(
         initialServer: serverBaseUrl ?? 'http://localhost:5265',
         initialCode: deviceCode ?? '',
         initialIp: ipAddress ?? '',
         initialMac: macAddress ?? '',
+        initialPublicIp: publicIpAddress ?? '',
         initialOrientation: displayOrientation ?? 'LANDSCAPE',
-        onSave: _saveConfiguration,
+        initialRotationTurns: displayRotationTurns, // 회전 초기값 제공
+        onSave: _saveConfiguration, // 저장을 누르면 실행될 동작을 전달합니다.
+        onCancel: (deviceCode != null && deviceCode!.isNotEmpty) 
+            ? () => setState(() => isConfigured = true) 
+            : null, // 이전에 설정된 이력이 있는 경우에만 취소 버튼 활성화
       );
     }
 
+    // 설정이 완료되었다면 '장비 디스패처'를 반환하여 실제 콘텐츠 화면을 띄웁니다.
     print('[MainRouter] DeviceDispatcher로 분기합니다.');
     return DeviceDispatcher(
       serverBaseUrl: serverBaseUrl!,
@@ -142,155 +187,10 @@ class _MainRouterState extends State<MainRouter> {
       macAddress: macAddress ?? '',
       publicIpAddress: publicIpAddress ?? '',
       onOpenSettings: () {
+        // 플레이어 구동 중에 설정을 다시 열고 싶을 때 이 함수가 실행됩니다.
         print('[MainRouter] 설정 변경 요청 수신');
         setState(() => isConfigured = false);
       },
-    );
-  }
-}
-
-class SettingsScreen extends StatefulWidget {
-  final String initialServer;
-  final String initialCode;
-  final String initialIp;
-  final String initialMac;
-  final String initialOrientation;
-  final Function(String server, String code, String ip, String mac, String publicIp) onSave;
-
-  const SettingsScreen({
-    super.key,
-    required this.initialServer,
-    required this.initialCode,
-    required this.initialIp,
-    required this.initialMac,
-    required this.initialOrientation,
-    required this.onSave,
-  });
-
-  @override
-  State<SettingsScreen> createState() => _SettingsScreenState();
-}
-
-class _SettingsScreenState extends State<SettingsScreen> {
-  final _formKey = GlobalKey<FormState>();
-  late TextEditingController _serverController;
-  late TextEditingController _codeController;
-  late TextEditingController _ipController;
-  late TextEditingController _macController;
-  late TextEditingController _publicIpController;
-
-  String _connectionStatus = 'IDLE'; 
-  String _statusMessage = '서버 연결 상태를 확인해 주십시오.';
-
-  @override
-  void initState() {
-    super.initState();
-    _serverController = TextEditingController(text: widget.initialServer);
-    _codeController = TextEditingController(text: widget.initialCode);
-    _ipController = TextEditingController(text: widget.initialIp);
-    _macController = TextEditingController(text: widget.initialMac);
-    _publicIpController = TextEditingController(text: '대기 중...');
-    
-    WidgetsBinding.instance.addPostFrameCallback((_) => _testConnection());
-  }
-
-  Future<void> _testConnection() async {
-    final url = _serverController.text.trim();
-    if (url.isEmpty) return;
-
-    print('[Settings] 서버 연결 테스트 시도: $url');
-    setState(() {
-      _connectionStatus = 'TESTING';
-      _statusMessage = '서버 연결 확인 중...';
-    });
-
-    try {
-      final baseUrl = url.endsWith('/') ? url.substring(0, url.length - 1) : url;
-      final response = await http.get(Uri.parse('$baseUrl/api/funeral/building/device/code/HEALTH_CHECK'))
-          .timeout(const Duration(seconds: 4));
-
-      setState(() {
-        if (response.statusCode < 500) {
-          print('[Settings] 서버 연결 성공 (Status: ${response.statusCode})');
-          _connectionStatus = 'SUCCESS';
-          _statusMessage = '서버 통신 가능 (정상)';
-        } else {
-          print('[Settings] 서버 응답 오류: ${response.statusCode}');
-          _connectionStatus = 'FAIL';
-          _statusMessage = '서버 응답 오류 (HTTP ${response.statusCode})';
-        }
-      });
-    } catch (e) {
-      print('[Settings] 연결 실패 예외: $e');
-      setState(() {
-        _connectionStatus = 'FAIL';
-        _statusMessage = '접속 실패: 서버가 꺼져있거나 주소가 잘못되었습니다.';
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final bool isPortrait = widget.initialOrientation == 'PORTRAIT';
-    Color statusColor = _connectionStatus == 'SUCCESS' ? Colors.greenAccent : (_connectionStatus == 'FAIL' ? Colors.redAccent : Colors.orangeAccent);
-
-    return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(title: const Text('환경 설정'), centerTitle: true, backgroundColor: Colors.black),
-      body: Center(
-        child: Container(
-          constraints: const BoxConstraints(maxWidth: 600),
-          padding: const EdgeInsets.all(32),
-          decoration: BoxDecoration(
-            border: Border.all(color: const Color(0xFFC0A060).withOpacity(0.3)),
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // 연결 상태 뱃지
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(color: statusColor.withOpacity(0.1), borderRadius: BorderRadius.circular(8), border: Border.all(color: statusColor.withOpacity(0.3))),
-                  child: Row(
-                    children: [
-                      Icon(_connectionStatus == 'SUCCESS' ? Icons.check_circle : Icons.error, color: statusColor, size: 20),
-                      const SizedBox(width: 12),
-                      Expanded(child: Text(_statusMessage, style: TextStyle(color: statusColor, fontWeight: FontWeight.bold))),
-                      IconButton(icon: const Icon(Icons.refresh), onPressed: _testConnection, color: statusColor),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 24),
-                TextFormField(
-                  controller: _serverController,
-                  decoration: const InputDecoration(labelText: '통합 서버 주소', border: OutlineInputBorder()),
-                  onChanged: (_) => setState(() => _connectionStatus = 'IDLE'),
-                  validator: (v) => (v == null || v.isEmpty) ? '서버 주소 필수' : null,
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _codeController,
-                  decoration: const InputDecoration(labelText: '장비 코드', border: OutlineInputBorder()),
-                  validator: (v) => (v == null || v.isEmpty) ? '장비 코드 필수' : null,
-                ),
-                const SizedBox(height: 32),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFC0A060), foregroundColor: Colors.black, minimumSize: const Size(double.infinity, 50)),
-                  onPressed: () {
-                    if (_formKey.currentState!.validate()) {
-                      widget.onSave(_serverController.text.trim(), _codeController.text.trim(), '', '', '');
-                    }
-                  },
-                  child: const Text('저장 및 실행', style: TextStyle(fontWeight: FontWeight.bold)),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
     );
   }
 }

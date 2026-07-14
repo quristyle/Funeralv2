@@ -42,6 +42,7 @@ public class DeviceDto
     public bool IsMemorialPhotoEnabled { get; set; }
     public bool IsDeceasedNameVisible { get; set; }
     public bool IsFamilyContactVisible { get; set; }
+    public bool IsMemorialPhotoKeepAspectRatio { get; set; } = true;
     public double MusicVolume { get; set; }
     public bool IsBackgroundImageEnabled { get; set; }
     public string? BackgroundImageId { get; set; }

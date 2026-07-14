@@ -78,6 +78,7 @@ public class DeviceAttributeService : IDeviceAttributeService
         existing.PhotoHorizontalAlignment = dto.PhotoHorizontalAlignment;
         existing.IsDeceasedNameVisible = dto.IsDeceasedNameVisible;
         existing.IsFamilyContactVisible = dto.IsFamilyContactVisible;
+        existing.IsMemorialPhotoKeepAspectRatio = dto.IsMemorialPhotoKeepAspectRatio;
         existing.MemorialPaddingTop = dto.MemorialPaddingTop;
         existing.MemorialPaddingLeft = dto.MemorialPaddingLeft;
         existing.MemorialPaddingRight = dto.MemorialPaddingRight;
@@ -174,6 +175,7 @@ public class DeviceAttributeService : IDeviceAttributeService
         PhotoHorizontalAlignment = a.PhotoHorizontalAlignment,
         IsDeceasedNameVisible = a.IsDeceasedNameVisible,
         IsFamilyContactVisible = a.IsFamilyContactVisible,
+        IsMemorialPhotoKeepAspectRatio = a.IsMemorialPhotoKeepAspectRatio,
         MemorialPaddingTop = a.MemorialPaddingTop,
         MemorialPaddingLeft = a.MemorialPaddingLeft,
         MemorialPaddingRight = a.MemorialPaddingRight,

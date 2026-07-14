@@ -5,10 +5,13 @@ import '../player_shell.dart';
 import 'room_guide_controller.dart';
 import '../../models/device_models.dart';
 
+/// [호실 입구 안내 뷰 위젯]
+/// 특정 빈소(호실)의 정문에 매칭하여 배치하는 입구 안내 사이니지 화면입니다.
+/// 고인명, 향년, 종교, 영정 이미지, 상주 목록, 발인일 및 장지 일정을 미려하게 표출합니다.
 class RoomGuideView extends StatefulWidget {
-  final String serverBaseUrl;
-  final String deviceCode;
-  final VoidCallback onOpenSettings;
+  final String serverBaseUrl; // 통합 서버 Base URL
+  final String deviceCode; // 장비 식별 코드
+  final VoidCallback onOpenSettings; // 환경 설정 진입 콜백
 
   const RoomGuideView({
     super.key,
@@ -22,8 +25,11 @@ class RoomGuideView extends StatefulWidget {
 }
 
 class _RoomGuideViewState extends State<RoomGuideView> {
+  // 호실 데이터 및 미디어 로드를 관장하는 컨트롤러
   final RoomGuideController _controller = RoomGuideController();
 
+  /// [위젯 초기 상태 설정]
+  /// 컨트롤러의 `init`을 기동하여 데이터를 끌어오며, 비디오 로드 완료 콜백 수신 시 상태를 재갱신합니다.
   @override
   void initState() {
     super.initState();
@@ -34,12 +40,15 @@ class _RoomGuideViewState extends State<RoomGuideView> {
     );
   }
 
+  /// [자원 해제]
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
   }
 
+  /// [위젯 빌드]
+  /// 컨트롤러 상태를 구독하며 로딩 및 에러 처리 후 공통 셸(`PlayerShell`)에 콘텐츠 위젯을 주입합니다.
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
@@ -61,6 +70,9 @@ class _RoomGuideViewState extends State<RoomGuideView> {
     );
   }
 
+  /// [콘텐츠 레이아웃 빌더]
+  /// 호실 안내 정보(고인 미등록 시 빈소 준비 중 메시지)를 띄우며,
+  /// 모니터 방향(가로/세로)에 맞는 반응형 하위 조립 함수로 분기합니다.
   Widget _buildContent(DeviceDto dev, DeceasedDto? dec) {
     if (dec == null) {
       return const Center(child: Text("빈소 준비 중입니다.", style: TextStyle(color: Colors.white70, fontSize: 32)));
@@ -72,7 +84,7 @@ class _RoomGuideViewState extends State<RoomGuideView> {
       padding: const EdgeInsets.all(40.0),
       child: Column(
         children: [
-          // 1. 상단 호실 이름 영역
+          // 1. 상단 호실 이름 뱃지
           Container(
             padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 40),
             decoration: BoxDecoration(
@@ -86,7 +98,7 @@ class _RoomGuideViewState extends State<RoomGuideView> {
           ),
           const SizedBox(height: 40),
 
-          // 2. 메인 콘텐츠
+          // 2. 메인 안내판 영역
           Expanded(
             child: isPortrait ? _buildVerticalContent(dev, dec) : _buildHorizontalContent(dev, dec),
           ),
@@ -95,6 +107,8 @@ class _RoomGuideViewState extends State<RoomGuideView> {
     );
   }
 
+  /// [가로형 모니터 화면 구성]
+  /// 좌측에 고인 보정 영정사진을 크게 배치하고, 우측에 고인명 정보 및 일정/상주 테이블을 나열합니다.
   Widget _buildHorizontalContent(DeviceDto dev, DeceasedDto dec) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -119,6 +133,8 @@ class _RoomGuideViewState extends State<RoomGuideView> {
     );
   }
 
+  /// [세로형 모니터 화면 구성]
+  /// 위에서 아래 방향으로 고인명 -> 영정사진 -> 일정/상주 테이블을 일렬 배치하고 수평 중앙 정렬합니다.
   Widget _buildVerticalContent(DeviceDto dev, DeceasedDto dec) {
     return Column(
       children: [
@@ -142,9 +158,9 @@ class _RoomGuideViewState extends State<RoomGuideView> {
     );
   }
 
-  // 상주 리스트를 [관계 성명] 형식으로 세로 나열하여 렌더링
+  /// [상세 일정 및 상주 리스트 뷰 빌더]
+  /// 상주를 관계별로 묶어 줄바꿈하고, 발인일 및 장지 행을 생성해 최종 테이블 위젯을 리턴합니다.
   Widget _buildInfoSection(DeviceDto dev, DeceasedDto dec, {required double width}) {
-    // 상주 리스트 관계별로 그룹화하여 세로 나열
     String mournerDisplay = "-";
     if (dec.mourners.isNotEmpty) {
       final Map<String, List<String>> grouped = {};
@@ -170,6 +186,9 @@ class _RoomGuideViewState extends State<RoomGuideView> {
     );
   }
 
+  /// [영정사진 렌더러]
+  /// 캐싱된 로컬 파일 경로를 확인하여 존재하면 로컬 이미지 파일 위젯(`Image.file`)으로,
+  /// Web 환경이거나 경로 로딩 중이면 기본 네트워크 이미지를 표출합니다.
   Widget _buildPhotoSection() {
     final path = _controller.deceasedPhotoPath;
     return Container(
@@ -185,6 +204,8 @@ class _RoomGuideViewState extends State<RoomGuideView> {
     );
   }
 
+  /// [고인명 및 세부 신원 빌더]
+  /// 고인 한글 성함 뒤에 나이, 성별, 종교 정보 등을 포맷팅하여 그립니다.
   Widget _buildDeceasedName(DeceasedDto dec, {bool isCentered = false}) {
     return Column(
       crossAxisAlignment: isCentered ? CrossAxisAlignment.center : CrossAxisAlignment.start,
@@ -202,11 +223,13 @@ class _RoomGuideViewState extends State<RoomGuideView> {
     );
   }
 
+  /// [테이블 행(Row) 컴포넌트 구성]
+  /// 좌측에 금색 박스로 라벨을 얹고 우측에 흰색 큰 텍스트로 상세 값(상주 명단 등)을 매핑합니다.
   Widget _buildInfoRow(String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 12.0),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start, // 상주가 여러 명일 때 라벨이 상단에 고정되도록 함
+        crossAxisAlignment: CrossAxisAlignment.start, // 여러 줄 상주 텍스트 정렬 시 라벨 상단 고정
         mainAxisAlignment: MainAxisAlignment.start,
         children: [
           Container(
@@ -219,7 +242,7 @@ class _RoomGuideViewState extends State<RoomGuideView> {
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w500, height: 1.4), // height 추가로 줄간격 조절
+              style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w500, height: 1.4),
             ),
           ),
         ],
@@ -227,6 +250,7 @@ class _RoomGuideViewState extends State<RoomGuideView> {
     );
   }
 
+  /// [날짜 포맷 가공 헬퍼]
   String _formatDate(String? dateStr) {
     if (dateStr == null || dateStr.isEmpty) return "-";
     try {

@@ -160,6 +160,12 @@ public class DeviceAttribute : BaseEntity<string>
     [Column("is_family_contact_visible")]
     public bool IsFamilyContactVisible { get; set; } = false;
 
+    /// <summary>
+    /// 영정사진 비율 유지 여부
+    /// </summary>
+    [Column("is_memorial_photo_keep_aspect_ratio")]
+    public bool IsMemorialPhotoKeepAspectRatio { get; set; } = true;
+
     // ─── 멀티미디어 콘텐츠 설정 (DID_MULTIMEDIA) ─────────────────
     /// <summary>
     /// 동영상 재생 활성화 여부
