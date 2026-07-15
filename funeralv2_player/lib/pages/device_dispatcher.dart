@@ -43,10 +43,14 @@ class _DeviceDispatcherState extends State<DeviceDispatcher> {
   // 서버 또는 로컬 DB에서 불러온 장비의 메타데이터 및 레이아웃 설정 정보
   DeviceDto? device;
   
+  // 하위 뷰 갱신 제어를 위한 고유 키
+  Key _viewKey = UniqueKey();
+  
   // 로딩 플래그 및 오류 발생 시 메시지 보관 변수
   bool isLoading = true;
   String? error;
   bool _isRefreshing = false; // 새로고침 중복 기동 제어 플래그 (디바운스 목적)
+  bool _isLastConnectionFailed = false; // 직전 백엔드 서버 연결 실패 상태인지 여부 기록
 
   // 서버 연결 실패 시 백그라운드 자동 재시도 처리를 위한 타이머
   Timer? _retryTimer;
@@ -71,9 +75,9 @@ class _DeviceDispatcherState extends State<DeviceDispatcher> {
     super.dispose();
   }
 
-  /// [장비 정보 로드 핵심 제어 루틴]
-  /// 서버 API에서 최신 데이터를 비동기로 조회하며, 성공 시 소켓을 맺고 화면 전환 처리를 진행합니다.
-  /// 네트워크 불통 또는 서버 오프라인 시 로컬 저장소 캐시로 복구를 유도합니다.
+  /// [장비 정보 로드 핵심 제어 루틴 (Offline-First 적용)]
+  /// 앱 구동 즉시 로컬 캐시 DB에서 장비 정보를 불러와 화면을 100ms 이내에 표출합니다. (TTV 최소화)
+  /// 화면이 준비된 직후 백그라운드 비동기로 백엔드 서버에 접속하여, 데이터 변경 감지 시에만 화면을 리프레시합니다.
   Future<void> _loadDevice() async {
     if (_isRefreshing) {
       print('[Dispatcher] _loadDevice() 스킵: 이미 진행 중입니다.');
@@ -83,14 +87,30 @@ class _DeviceDispatcherState extends State<DeviceDispatcher> {
     _retryTimer?.cancel(); 
 
     print('[Dispatcher] 데이터 로드 루틴 시작 (장비코드: ${widget.deviceCode})');
-    setState(() {
-      isLoading = (device == null);
-      error = null;
-      _retryCountdown = 20;
-    });
+    
+    // 1. 즉시 로컬 캐시 DB 조회 시도 (TTV 최적화)
+    final cached = await ApiService().getCachedDevice(widget.deviceCode);
+    if (cached != null) {
+      print('[Dispatcher] [Cache-First] 로컬 캐시 조회 성공! 화면을 먼저 기동합니다.');
+      if (mounted) {
+        setState(() {
+          device = cached;
+          isLoading = false;
+          error = null;
+        });
+      }
+    } else {
+      // 캐시조차 없는 경우 연결에 성공할 때까지 최초 1회만 로딩바 노출
+      if (mounted) {
+        setState(() {
+          isLoading = (device == null);
+          error = null;
+        });
+      }
+    }
 
     try {
-      print('[Dispatcher] API 서버에 최신 장비 정보 요청 중...');
+      print('[Dispatcher] [Background] API 서버에 최신 장비 정보 요청 중...');
       final fetched = await ApiService().fetchDevice(widget.serverBaseUrl, widget.deviceCode);
       
       // 잦은 새로고침을 막기 위해 2초의 방어 대기 후 스로틀을 해제합니다.
@@ -99,38 +119,55 @@ class _DeviceDispatcherState extends State<DeviceDispatcher> {
       if (!mounted) return;
 
       if (fetched != null) {
-        print('[Dispatcher] 서버 데이터 수신 성공: 타입=${fetched.deviceType}');
-        _handleDeviceLoaded(fetched);
+        // 기존 캐시 정보와 서버의 최신 정보에 변동 사항이 있는지 검사
+        final isDifferent = device == null || 
+            _isLastConnectionFailed || // 서버 오프라인 복구 시에는 강제 갱신 유도
+            device!.id != fetched.id ||
+            device!.deviceType != fetched.deviceType ||
+            device!.roomId != fetched.roomId ||
+            device!.displayOrientation != fetched.displayOrientation || // 화면 방향 갱신 조건 추가
+            device!.portraitOrientation != fetched.portraitOrientation || // 영정 방향 갱신 조건 추가
+            device!.videoOrientation != fetched.videoOrientation || // 동영상 방향 갱신 조건 추가
+            device!.isVideoEnabled != fetched.isVideoEnabled ||
+            device!.isMusicEnabled != fetched.isMusicEnabled ||
+            device!.isMuted != fetched.isMuted ||
+            device!.contentIntervalSec != fetched.contentIntervalSec ||
+            device!.memorialPhotoEffect != fetched.memorialPhotoEffect ||
+            device!.isBackgroundImageEnabled != fetched.isBackgroundImageEnabled ||
+            device!.backgroundImageUrl != fetched.backgroundImageUrl;
+
+        _isLastConnectionFailed = false; // 연결에 성공했으므로 실패 플래그 해제
+
+        if (isDifferent) {
+          print('[Dispatcher] [Background] 서버 데이터 갱신 및 차이 발견 -> 화면을 업데이트합니다.');
+          _handleDeviceLoaded(fetched);
+        } else {
+          print('[Dispatcher] [Background] 데이터 일치 -> 화면 갱신을 생략하고 기존 재생 상태를 유지합니다.');
+          _connectSignalR();
+        }
       } else {
-        print('[Dispatcher] 서버 응답이 없습니다. 로컬 캐시(저장된 데이터)를 확인합니다.');
-        _loadFromCache();
+        print('[Dispatcher] [Background] 서버 응답 없음 -> 기존 로컬 캐시 화면 상태를 계속 유지합니다.');
+        _isLastConnectionFailed = true; // 서버 응답 실패 마킹
+        if (device == null) {
+          // 화면도 없고 캐시도 없고 서버 통신도 실패한 예외적 최악의 케이스에만 에러 표출
+          setState(() {
+            error = "서버 연결에 실패했으며 저장된 로컬 정보가 없습니다.";
+            isLoading = false;
+          });
+          _startRetryTimer();
+        }
       }
     } catch (e) {
-      print('[Dispatcher] 로드 중 예외 발생: $e');
+      print('[Dispatcher] [Background] 서버 조회 중 예외 발생: $e');
       _isRefreshing = false;
-      if (mounted) _loadFromCache();
-    }
-  }
-
-  /// [로컬 데이터베이스 캐시 기반 복구]
-  /// 서버 오프라인 시 기기 내부에 보관하고 있던 마지막 장비 설정 정보로 기기를 기동합니다.
-  /// 캐시조차 없는 경우 화면에 에러를 표시하고 20초 간격 자동 재시도 스케줄러를 구동합니다.
-  Future<void> _loadFromCache() async {
-    print('[Dispatcher] 로컬 DB(SQLite) 조회 시도...');
-    final cached = await ApiService().getCachedDevice(widget.deviceCode);
-    
-    if (!mounted) return;
-
-    if (cached != null) {
-      print('[Dispatcher] 로컬 데이터 복구 성공! 오프라인 모드로 구동합니다.');
-      _handleDeviceLoaded(cached);
-    } else {
-      print('[Dispatcher] 저장된 로컬 데이터가 없습니다. 복구 불가능.');
-      setState(() {
-        error = "서버 연결에 실패했으며 저장된 로컬 정보가 없습니다.";
-        isLoading = false;
-      });
-      _startRetryTimer();
+      _isLastConnectionFailed = true; // 서버 조회 예외 실패 마킹
+      if (mounted && device == null) {
+        setState(() {
+          error = "서버 연결에 실패했으며 저장된 로컬 정보가 없습니다.";
+          isLoading = false;
+        });
+        _startRetryTimer();
+      }
     }
   }
 
@@ -154,7 +191,7 @@ class _DeviceDispatcherState extends State<DeviceDispatcher> {
 
   /// [장비 정보 로딩 후속 처리]
   /// 장비 DTO가 확보되면 화면 방향(가로/세로) 정보를 캐싱하고,
-  /// 웹소켓 허브에 연결하여 'DeviceChanged' 실시간 설정을 구독합니다.
+  /// 뷰 갱신용 고유 키를 변경한 후 웹소켓 연결을 기동합니다.
   void _handleDeviceLoaded(DeviceDto loadedDevice) {
     print('[Dispatcher] 최종 데이터 할당 및 화면 준비 완료');
     
@@ -162,9 +199,15 @@ class _DeviceDispatcherState extends State<DeviceDispatcher> {
 
     setState(() {
       device = loadedDevice;
+      _viewKey = UniqueKey(); // 새로운 장비 정보 수신 시 뷰 키 갱신 -> 하위 위젯 리로드 유도
       isLoading = false;
     });
 
+    _connectSignalR();
+  }
+
+  /// [실시간 서버 알림 서비스 연결]
+  void _connectSignalR() {
     _signalRService.connect(
       serverUrl: widget.serverBaseUrl,
       deviceCode: widget.deviceCode,
@@ -185,6 +228,9 @@ class _DeviceDispatcherState extends State<DeviceDispatcher> {
   Future<void> _saveOrientationCache(String orientation) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('displayOrientation', orientation);
+    // 방향성에 따른 90도 회전 턴수(Turns) 자동 동기화 매핑저장 (PORTRAIT = 1턴, LANDSCAPE = 0턴)
+    final int targetTurns = (orientation == 'PORTRAIT') ? 1 : 0;
+    await prefs.setInt('displayRotationTurns', targetTurns);
   }
 
   /// [위젯 빌드]
@@ -237,22 +283,22 @@ class _DeviceDispatcherState extends State<DeviceDispatcher> {
     
     switch (device!.deviceType) {
       case 'FUNERAL_PORTRAIT':
-        return PortraitView(serverBaseUrl: widget.serverBaseUrl, deviceCode: widget.deviceCode, onOpenSettings: widget.onOpenSettings);
+        return PortraitView(key: _viewKey, serverBaseUrl: widget.serverBaseUrl, deviceCode: widget.deviceCode, onOpenSettings: widget.onOpenSettings);
       
       case 'ROOM_GUIDE':
-        return RoomGuideView(serverBaseUrl: widget.serverBaseUrl, deviceCode: widget.deviceCode, onOpenSettings: widget.onOpenSettings);
+        return RoomGuideView(key: _viewKey, serverBaseUrl: widget.serverBaseUrl, deviceCode: widget.deviceCode, onOpenSettings: widget.onOpenSettings);
       
       case 'ENTRANCE_GUIDE':
-        return EntranceGuideView(serverBaseUrl: widget.serverBaseUrl, deviceCode: widget.deviceCode, onOpenSettings: widget.onOpenSettings);
+        return EntranceGuideView(key: _viewKey, serverBaseUrl: widget.serverBaseUrl, deviceCode: widget.deviceCode, onOpenSettings: widget.onOpenSettings);
       
       case 'KIOSK':
-        return KioskView(serverBaseUrl: widget.serverBaseUrl, deviceCode: widget.deviceCode, onOpenSettings: widget.onOpenSettings);
+        return KioskView(key: _viewKey, serverBaseUrl: widget.serverBaseUrl, deviceCode: widget.deviceCode, onOpenSettings: widget.onOpenSettings);
       
       case 'MULTIMEDIA':
-        return MultimediaView(serverBaseUrl: widget.serverBaseUrl, deviceCode: widget.deviceCode, onOpenSettings: widget.onOpenSettings);
+        return MultimediaView(key: _viewKey, serverBaseUrl: widget.serverBaseUrl, deviceCode: widget.deviceCode, onOpenSettings: widget.onOpenSettings);
       
       default:
-        return PortraitView(serverBaseUrl: widget.serverBaseUrl, deviceCode: widget.deviceCode, onOpenSettings: widget.onOpenSettings);
+        return PortraitView(key: _viewKey, serverBaseUrl: widget.serverBaseUrl, deviceCode: widget.deviceCode, onOpenSettings: widget.onOpenSettings);
     }
   }
 }

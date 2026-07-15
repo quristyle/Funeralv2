@@ -3,6 +3,7 @@ import '../../models/device_models.dart';
 import '../../services/api/api_service.dart';
 import '../../services/cache/cache_manager.dart';
 import '../../services/player/media_player_service.dart';
+import '../../services/cache/local_db_service.dart';
 
 /// [영정 화면 및 제례 제어 컨트롤러]
 /// 빈소 내부 제단에 놓이는 대형 영정 사이니지 화면(`FUNERAL_PORTRAIT`)에 
@@ -11,6 +12,7 @@ class PortraitController extends ChangeNotifier {
   final ApiService _apiService = ApiService(); // 서버 API 서비스
   final CacheManager _cacheManager = CacheManager(); // 미디어 캐시 매니저
   final MediaPlayerService playerService = MediaPlayerService(); // 비디오/오디오 엔진 서비스
+  final LocalDbService _dbService = LocalDbService(); // 로컬 DB 캐시 서비스
 
   DeviceDto? device; // 장비 설정 정보
   DeceasedDto? deceased; // 빈소에 안치된 고인의 정보
@@ -38,122 +40,177 @@ class PortraitController extends ChangeNotifier {
     if (!_isDisposed) super.notifyListeners();
   }
 
-  /// [영정 화면 데이터 및 미디어 로드 핵심 루틴]
-  /// 서버에서 장비 사양을 가져오고, 이에 속한 고인 정보를 동기화합니다.
-  /// 그 뒤 비디오, 오디오(추모음악), 영정사진, 배경 스킨, 근조 리본 장식 파일들을 차례대로 로컬 캐싱하고,
-  /// 플레이어 엔진에 기동을 위임한 뒤 SignalR 허브 채널을 오픈하여 실시간 이벤트 대기를 탑재합니다.
+  /// [영정 화면 데이터 및 미디어 로드 핵심 루틴 (Cache-First)]
+  /// 앱 시작 즉시 로컬 DB 캐시 리소스를 메모리에 즉각 세팅하여 영정과 BGM을 구동하고 로딩을 정지시킵니다.
+  /// 그 직후 백그라운드 비동기로 최신 정보를 조회하고 갱신을 확인합니다.
   Future<void> init(String serverBaseUrl, String deviceCode, Function() onVideoInitialized) async {
     if (_isDisposed) return;
 
     isLoading = true;
-    statusMessage = '장비 정보를 불러오는 중...';
+    statusMessage = '로컬 설정 조회 중...';
     notifyListeners();
 
-    try {
-      // 1. 장비 사양 획득
-      final newDevice = await _apiService.fetchDevice(serverBaseUrl, deviceCode);
-      if (newDevice == null) {
-        statusMessage = '장비 정보를 불러오지 못했습니다.';
-        isLoading = false;
-        notifyListeners();
-        return;
-      }
-      device = newDevice;
+    // 1. 로컬 캐시 즉시 구동 (TTV 최소화)
+    final cachedDevice = await _dbService.getDevice(deviceCode);
+    if (cachedDevice != null && !_isDisposed) {
+      device = cachedDevice;
+      deceased = await _dbService.getDeceasedByDeviceCode(deviceCode);
 
-      // 설정값 변경에 즉각적으로 음소거 및 비디오 정지를 물리적으로 반영합니다.
-      if (!device!.isMusicEnabled) { await playerService.stopMusic(); localMusicPath = null; }
-      if (!device!.isVideoEnabled) { await playerService.stopVideo(); localVideoPath = null; }
-      notifyListeners();
-
-      // 2. 해당 기기 빈소의 고인 상세 데이터 로드
-      statusMessage = '고인 정보를 동기화하는 중...';
-      print('[PortraitController] 고인 정보 API 호출: $deviceCode');
-      deceased = await _apiService.fetchDeceased(serverBaseUrl, deviceCode);
-      print('[PortraitController] 고인 정보 로드 완료: ${deceased?.name}');
-      notifyListeners();
-
-      if (_isDisposed) return;
-
-      // 3. 다양한 종류의 연동 미디어 리소스 다운로드 및 로컬 캐싱 동기화
-      // 3-1) 백그라운드 영상 경로
-      String? nextVideoPath;
-      if (device!.isVideoEnabled && device!.videoId != null) {
-        final sourcePath = await _apiService.fetchSourcePath(serverBaseUrl, device!.videoId!);
-        nextVideoPath = await _cacheManager.getCachedFileByPath(serverBaseUrl, sourcePath);
+      // 로컬 배경 이미지 셋업
+      if (device!.isBackgroundImageEnabled && device!.backgroundImageUrl != null && device!.backgroundImageUrl!.isNotEmpty) {
+        localBackgroundPath = await _cacheManager.getLocalFile(device!.backgroundImageUrl);
       }
 
-      // 3-2) 추모 음악 경로
-      String? nextMusicPath;
-      if (device!.isMusicEnabled && device!.musicId != null) {
-        final sourcePath = await _apiService.fetchSourcePath(serverBaseUrl, device!.musicId!);
-        nextMusicPath = await _cacheManager.getCachedFileByPath(serverBaseUrl, sourcePath);
-      }
-
-      // 3-3) 고인 영정사진 경로 (보정 이미지 우선 적용)
+      // 로컬 영정사진 셋업
       if (device!.isMemorialPhotoEnabled && deceased != null) {
         final photoPath = (deceased!.memorialEditedPhotoUrl != null && deceased!.memorialEditedPhotoUrl!.isNotEmpty)
             ? deceased!.memorialEditedPhotoUrl
             : deceased!.memorialPhotoUrl;
-        localPhotoPath = await _cacheManager.getCachedFileByPath(serverBaseUrl, photoPath);
-      } else {
-        localPhotoPath = null;
+        localPhotoPath = await _cacheManager.getLocalFile(photoPath);
       }
 
-      // 3-4) 배경 스킨 이미지 경로
-      if (device!.isBackgroundImageEnabled && device!.backgroundImageUrl != null && device!.backgroundImageUrl!.isNotEmpty) {
-        localBackgroundPath = await _cacheManager.getCachedFileByPath(serverBaseUrl, device!.backgroundImageUrl);
-      } else {
-        localBackgroundPath = null;
-      }
-
-      // 3-5) 근조 리본 장식 이미지 경로 일괄 다운로드
+      // 로컬 근조 리본 장식 셋업
       ribbonPaths.clear();
       if (deceased != null) {
         for (var ribbon in deceased!.deviceRibbons) {
           if (ribbon.mediaSourceUrl != null) {
-            final lp = await _cacheManager.getCachedFileByPath(serverBaseUrl, ribbon.mediaSourceUrl);
+            final lp = await _cacheManager.getLocalFile(ribbon.mediaSourceUrl);
             if (lp != null) ribbonPaths[ribbon.id] = lp;
           }
         }
       }
 
-      if (_isDisposed) return;
-
-      // 4. 캐싱된 리소스를 바탕으로 실제 플레이 가동 설정 적용
-      // 4-1) 비디오 플레이 기동
-      if (device!.isVideoEnabled && nextVideoPath != null) {
-        if (localVideoPath != nextVideoPath) {
-          localVideoPath = nextVideoPath;
-          await playerService.playVideo(localVideoPath!, onVideoInitialized);
+      // 로컬 미디어 재생 가동
+      // 비디오
+      if (device!.isVideoEnabled && device!.videoId != null) {
+        final cachedVideoPath = await _dbService.getSourcePath(device!.videoId!);
+        if (cachedVideoPath != null) {
+          final cachedLocalVideo = await _cacheManager.getLocalFile(cachedVideoPath);
+          if (cachedLocalVideo != null && !_isDisposed) {
+            localVideoPath = cachedLocalVideo;
+            await playerService.playVideo(localVideoPath!, onVideoInitialized);
+          }
         }
-      } else {
-        await playerService.stopVideo();
-        localVideoPath = null;
       }
 
-      // 4-2) 배경 음악 플레이 기동
-      if (device!.isMusicEnabled && nextMusicPath != null) {
-        if (localMusicPath != nextMusicPath) {
-          localMusicPath = nextMusicPath;
-          await playerService.playMusic(localMusicPath!, device!.musicVolume, isMuted: device!.isMuted);
+      // 오디오(BGM)
+      if (device!.isMusicEnabled && device!.musicId != null) {
+        final cachedMusicPath = await _dbService.getSourcePath(device!.musicId!);
+        if (cachedMusicPath != null) {
+          final cachedLocalMusic = await _cacheManager.getLocalFile(cachedMusicPath);
+          if (cachedLocalMusic != null && !_isDisposed) {
+            localMusicPath = cachedLocalMusic;
+            await playerService.playMusic(localMusicPath!, device!.musicVolume, isMuted: device!.isMuted);
+          }
         }
-      } else {
-        await playerService.stopMusic();
-        localMusicPath = null;
       }
 
-      // 4-3) 음악이 재생 중인 상태라면 실시간 볼륨 업데이트 처리 진행
-      if (device!.isMusicEnabled && localMusicPath != null) {
-        await playerService.updateMusicVolume(device!.musicVolume, isMuted: device!.isMuted);
-      }
-
-    } catch (e) {
-      print('[PortraitController] 오류 발생: $e');
-      statusMessage = '데이터 로딩 중 오류가 발생했습니다.';
-    } finally {
       isLoading = false;
-      statusMessage = '재생 중';
+      statusMessage = '재생 중 (로컬 캐시)';
       notifyListeners();
+    }
+
+    // 2. 백그라운드 서버 동기화 작업 기동
+    _syncWithServer(serverBaseUrl, deviceCode, onVideoInitialized);
+  }
+
+  /// [백그라운드 비동기 서버 동기화 루틴]
+  Future<void> _syncWithServer(String serverBaseUrl, String deviceCode, Function() onVideoInitialized) async {
+    try {
+      print('[PortraitController] [Background Sync] 시작');
+      final fetchedDevice = await _apiService.fetchDevice(serverBaseUrl, deviceCode);
+      if (fetchedDevice != null && !_isDisposed) {
+        DeceasedDto? fetchedDeceased;
+        if (fetchedDevice.roomId != null) {
+          fetchedDeceased = await _apiService.fetchDeceased(serverBaseUrl, deviceCode);
+        }
+
+        // 핵심 정보 변경점 대조
+        bool isChanged = device == null ||
+            device!.id != fetchedDevice.id ||
+            device!.roomId != fetchedDevice.roomId ||
+            device!.isVideoEnabled != fetchedDevice.isVideoEnabled ||
+            device!.videoId != fetchedDevice.videoId ||
+            device!.isMusicEnabled != fetchedDevice.isMusicEnabled ||
+            device!.musicId != fetchedDevice.musicId ||
+            device!.backgroundImageUrl != fetchedDevice.backgroundImageUrl ||
+            deceased?.id != fetchedDeceased?.id ||
+            deceased?.name != fetchedDeceased?.name;
+
+        if (isChanged) {
+          print('[PortraitController] [Background Sync] 변경점 발견 -> UI 리프레시');
+          device = fetchedDevice;
+          deceased = fetchedDeceased;
+
+          // 설정 기반 미디어 드라이버 즉각 갱신
+          if (!device!.isMusicEnabled) { await playerService.stopMusic(); localMusicPath = null; }
+          if (!device!.isVideoEnabled) { await playerService.stopVideo(); localVideoPath = null; }
+
+          // 비디오 캐싱 및 갱신
+          if (device!.isVideoEnabled && device!.videoId != null) {
+            final sourcePath = await _apiService.fetchSourcePath(serverBaseUrl, device!.videoId!);
+            final nextVideoPath = await _cacheManager.getCachedFileByPath(serverBaseUrl, sourcePath);
+            if (nextVideoPath != null && !_isDisposed && localVideoPath != nextVideoPath) {
+              localVideoPath = nextVideoPath;
+              await playerService.playVideo(localVideoPath!, onVideoInitialized);
+            }
+          }
+
+          // 음악 캐싱 및 갱신
+          if (device!.isMusicEnabled && device!.musicId != null) {
+            final sourcePath = await _apiService.fetchSourcePath(serverBaseUrl, device!.musicId!);
+            final nextMusicPath = await _cacheManager.getCachedFileByPath(serverBaseUrl, sourcePath);
+            if (nextMusicPath != null && !_isDisposed && localMusicPath != nextMusicPath) {
+              localMusicPath = nextMusicPath;
+              await playerService.playMusic(localMusicPath!, device!.musicVolume, isMuted: device!.isMuted);
+            }
+          }
+
+          // 영정사진 갱신
+          if (device!.isMemorialPhotoEnabled && deceased != null) {
+            final photoPath = (deceased!.memorialEditedPhotoUrl != null && deceased!.memorialEditedPhotoUrl!.isNotEmpty)
+                ? deceased!.memorialEditedPhotoUrl
+                : deceased!.memorialPhotoUrl;
+            localPhotoPath = await _cacheManager.getCachedFileByPath(serverBaseUrl, photoPath);
+          } else {
+            localPhotoPath = null;
+          }
+
+          // 배경 스킨 이미지 갱신
+          if (device!.isBackgroundImageEnabled && device!.backgroundImageUrl != null && device!.backgroundImageUrl!.isNotEmpty) {
+            localBackgroundPath = await _cacheManager.getCachedFileByPath(serverBaseUrl, device!.backgroundImageUrl);
+          } else {
+            localBackgroundPath = null;
+          }
+
+          // 근조 리본 장식 갱신
+          ribbonPaths.clear();
+          if (deceased != null) {
+            for (var ribbon in deceased!.deviceRibbons) {
+              if (ribbon.mediaSourceUrl != null) {
+                final lp = await _cacheManager.getCachedFileByPath(serverBaseUrl, ribbon.mediaSourceUrl);
+                if (lp != null) ribbonPaths[ribbon.id] = lp;
+              }
+            }
+          }
+
+          notifyListeners();
+        } else {
+          print('[PortraitController] [Background Sync] 변동 사항 없음 -> 기존 뷰 유지');
+          // 볼륨 및 음소거 설정 최종 갱신 대응
+          if (device!.isMusicEnabled && localMusicPath != null) {
+            await playerService.updateMusicVolume(device!.musicVolume, isMuted: device!.isMuted);
+          }
+        }
+      }
+    } catch (e) {
+      print('[PortraitController] [Background Sync] 에러: $e');
+    } finally {
+      if (!_isDisposed) {
+        isLoading = false;
+        statusMessage = '재생 중';
+        notifyListeners();
+      }
     }
   }
 

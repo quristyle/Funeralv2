@@ -70,6 +70,12 @@ class SignalRService {
       _reconnectAttempt = 0;
       // 재연결 후 다시 장비를 허브에 등록
       _registerDevice(deviceCode, ipAddress, macAddress, publicIpAddress);
+      
+      // 자동 재연결 성공 시 서버 측 변경 데이터 수신 강제 동기화 트리거
+      if (_onDeviceChanged != null) {
+        print('[SignalR] 재연결 완료에 따른 화면 데이터 갱신 트리거 호출');
+        _onDeviceChanged!();
+      }
     });
 
     // 2) 연결 세션이 완전히 끊어졌을 때의 예외 콜백 등록
@@ -106,6 +112,12 @@ class SignalRService {
       _reconnectAttempt = 0;
       // 기동 후 즉시 허브에 현재 장비를 등록(그룹 바인딩)합니다.
       await _registerDevice(deviceCode, ipAddress, macAddress, publicIpAddress);
+
+      // 소켓 연결 및 수동 재연결 성공 시 즉각 서버로부터 설정을 동기화하도록 유도합니다.
+      if (_onDeviceChanged != null) {
+        print('[SignalR] 최초/수동 연결 성공에 따른 화면 데이터 갱신 트리거 호출');
+        _onDeviceChanged!();
+      }
     } catch (e) {
       print('[SignalR] 연결 시작 중 에러: $e');
       _isConnecting = false;

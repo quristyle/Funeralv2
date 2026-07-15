@@ -1,3 +1,5 @@
+import 'dart:io' as io;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../player_shell.dart';
 import 'kiosk_controller.dart';
@@ -240,29 +242,24 @@ class _KioskViewState extends State<KioskView> {
       );
     }
 
-    // 1) 수집된 전체 호실 목록에서 존재하는 모든 '층 명칭'을 추출하고 중복을 제거합니다.
     final floors = <String>["전체"];
     for (var r in _controller.rooms) {
       if (r.floorName.isNotEmpty && !floors.contains(r.floorName)) {
         floors.add(r.floorName);
       }
     }
-    // '전체' 항목이 맨 위에 오도록 조절하며 층별 이름을 정렬합니다.
     floors.sort((a, b) {
       if (a == "전체") return -1;
       if (b == "전체") return 1;
       return a.compareTo(b);
     });
 
-    // 2) 선택된 층을 기준으로 호실 목록을 필터링합니다.
     final filteredRooms = _controller.rooms.where((r) {
       if (_selectedFloor == "전체") return true;
       return r.floorName == _selectedFloor;
     }).toList();
 
-    // 3) 필터링된 결과물에 대해 6개 카드 단위로 페이징 연산을 처리합니다.
     final totalRooms = filteredRooms.length;
-    final maxPage = (totalRooms / _itemsPerPage).ceil();
     final startIndex = _currentPage * _itemsPerPage;
     final endIndex = (startIndex + _itemsPerPage < totalRooms)
         ? startIndex + _itemsPerPage
@@ -271,226 +268,326 @@ class _KioskViewState extends State<KioskView> {
         ? filteredRooms.sublist(startIndex, endIndex)
         : <EntranceGuideRoomDto>[];
 
-    return Row(
-      children: [
-        // [사이드 패널] 층 필터 터치 패널 (키오스크 환경이므로 드래그 스크롤을 억제하고 고정 버튼 터치 구조 적용)
-        Container(
-          width: 220,
-          padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 15),
-          decoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.4),
-            border: const Border(
-              right: BorderSide(color: Colors.white10, width: 1),
+    final bool isPortrait = _controller.device?.displayOrientation == 'PORTRAIT';
+
+    if (isPortrait) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _buildTopFloorFilterBar(floors),
+          Expanded(
+            child: _buildGridContentPanel(paginatedRooms),
+          ),
+        ],
+      );
+    } else {
+      return Row(
+        children: [
+          _buildSideFloorFilterBar(floors),
+          Expanded(
+            child: _buildGridContentPanel(paginatedRooms),
+          ),
+        ],
+      );
+    }
+  }
+
+  /// [세로 모드 대응 상단 수평 스크롤 층 필터 바 빌더]
+  Widget _buildTopFloorFilterBar(List<String> floors) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 30),
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.4),
+        border: const Border(
+          bottom: BorderSide(color: Colors.white10, width: 1),
+        ),
+      ),
+      child: Row(
+        children: [
+          const Text(
+            "층별 안내",
+            style: TextStyle(
+              color: Color(0xFFC5A880),
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
             ),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Padding(
-                padding: EdgeInsets.only(left: 10, bottom: 15),
-                child: Text(
-                  "층별 안내",
-                  style: TextStyle(
+          const SizedBox(width: 25),
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: floors.map((floorName) {
+                  final isSelected = _selectedFloor == floorName;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 12),
+                    child: InkWell(
+                      onTap: () {
+                        setState(() {
+                          _selectedFloor = floorName;
+                          _currentPage = 0;
+                        });
+                      },
+                      borderRadius: BorderRadius.circular(10),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 150),
+                        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 28),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? const Color(0xFFC5A880).withOpacity(0.2)
+                              : Colors.white.withOpacity(0.03),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: isSelected ? const Color(0xFFC5A880) : Colors.white10,
+                            width: 1.5,
+                          ),
+                        ),
+                        child: Text(
+                          floorName,
+                          style: TextStyle(
+                            color: isSelected ? const Color(0xFFC5A880) : Colors.white70,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// [가로 모드 대응 좌측 사이드 층 필터 바 빌더]
+  Widget _buildSideFloorFilterBar(List<String> floors) {
+    return Container(
+      width: 220,
+      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 15),
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.4),
+        border: const Border(
+          right: BorderSide(color: Colors.white10, width: 1),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(left: 10, bottom: 15),
+            child: Text(
+              "층별 안내",
+              style: TextStyle(
+                color: Color(0xFFC5A880),
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          Expanded(
+            child: ListView.builder(
+              physics: const NeverScrollableScrollPhysics(), // 드래그 억제
+              itemCount: floors.length,
+              itemBuilder: (context, index) {
+                final floorName = floors[index];
+                final isSelected = _selectedFloor == floorName;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: InkWell(
+                    onTap: () {
+                      setState(() {
+                        _selectedFloor = floorName;
+                        _currentPage = 0; // 필터링 조건 변경 시 페이지는 0번으로 초기화
+                      });
+                    },
+                    borderRadius: BorderRadius.circular(10),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 150),
+                      padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 15),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? const Color(0xFFC5A880).withOpacity(0.2)
+                            : Colors.white.withOpacity(0.03),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: isSelected ? const Color(0xFFC5A880) : Colors.white10,
+                          width: 1.5,
+                        ),
+                      ),
+                      child: Center(
+                        child: Text(
+                          floorName,
+                          style: TextStyle(
+                            color: isSelected ? const Color(0xFFC5A880) : Colors.white70,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// [메인 그리드 콘텐츠 패널 빌더]
+  Widget _buildGridContentPanel(List<EntranceGuideRoomDto> paginatedRooms) {
+    final filteredRooms = _controller.rooms.where((r) {
+      if (_selectedFloor == "전체") return true;
+      return r.floorName == _selectedFloor;
+    }).toList();
+    final totalFilteredRooms = filteredRooms.length;
+    final maxPage = (totalFilteredRooms / _itemsPerPage).ceil();
+
+    return Container(
+      padding: const EdgeInsets.all(30),
+      color: Colors.black.withOpacity(0.1),
+      child: Column(
+        children: [
+          Expanded(
+            child: paginatedRooms.isEmpty
+                ? const Center(
+                    child: Text(
+                      "해당 층에 운영 중인 빈소가 없습니다.",
+                      style: TextStyle(color: Colors.white30, fontSize: 18),
+                    ),
+                  )
+                : LayoutBuilder(
+                    builder: (context, constraints) {
+                      final bool isPortrait = _controller.device?.displayOrientation == 'PORTRAIT';
+                      
+                      final int crossAxisCount = isPortrait ? 2 : 3;
+                      final int rowCount = isPortrait ? 3 : 2;
+
+                      final double availableWidth = constraints.maxWidth;
+                      final double availableHeight = constraints.maxHeight;
+
+                      const double crossAxisSpacing = 18.0;
+                      const double mainAxisSpacing = 18.0;
+
+                      final double cardWidth = (availableWidth - (crossAxisSpacing * (crossAxisCount - 1))) / crossAxisCount;
+                      final double cardHeight = (availableHeight - (mainAxisSpacing * (rowCount - 1))) / rowCount;
+                      final double dynamicAspectRatio = (cardHeight > 0) ? (cardWidth / cardHeight) : 1.05;
+
+                      return GridView.builder(
+                        physics: const NeverScrollableScrollPhysics(), // 드래그 차단
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: crossAxisCount,
+                          childAspectRatio: dynamicAspectRatio,
+                          crossAxisSpacing: crossAxisSpacing,
+                          mainAxisSpacing: mainAxisSpacing,
+                        ),
+                        itemCount: paginatedRooms.length,
+                        itemBuilder: (context, index) {
+                          final room = paginatedRooms[index];
+                          return _buildRoomCard(room); // 개별 호실 카드 빌드
+                        },
+                      );
+                    },
+                  ),
+          ),
+          const SizedBox(height: 20),
+          // 이전/다음 페이지네이션 터치 버튼 (페이지가 2개 이상일 때 노출)
+          if (maxPage > 1)
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                InkWell(
+                  onTap: _currentPage > 0
+                      ? () => setState(() => _currentPage--)
+                      : null,
+                  borderRadius: BorderRadius.circular(10),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 15),
+                    decoration: BoxDecoration(
+                      color: _currentPage > 0
+                          ? Colors.white.withOpacity(0.1)
+                          : Colors.white.withOpacity(0.02),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: _currentPage > 0 ? Colors.white30 : Colors.white10,
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.arrow_back_ios,
+                          size: 16,
+                          color: _currentPage > 0 ? Colors.white : Colors.white30,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          "이전",
+                          style: TextStyle(
+                            color: _currentPage > 0 ? Colors.white : Colors.white30,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 40),
+                Text(
+                  "${_currentPage + 1} / $maxPage",
+                  style: const TextStyle(
                     color: Color(0xFFC5A880),
-                    fontSize: 16,
+                    fontSize: 18,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-              ),
-              Expanded(
-                child: ListView.builder(
-                  physics: const NeverScrollableScrollPhysics(), // 드래그 억제
-                  itemCount: floors.length,
-                  itemBuilder: (context, index) {
-                    final floorName = floors[index]!;
-                    final isSelected = _selectedFloor == floorName;
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: InkWell(
-                        onTap: () {
-                          setState(() {
-                            _selectedFloor = floorName;
-                            _currentPage = 0; // 필터링 조건 변경 시 페이지는 0번으로 초기화
-                          });
-                        },
-                        borderRadius: BorderRadius.circular(10),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 150),
-                          padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 15),
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? const Color(0xFFC5A880).withOpacity(0.2)
-                                : Colors.white.withOpacity(0.03),
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                              color: isSelected ? const Color(0xFFC5A880) : Colors.white10,
-                              width: 1.5,
-                            ),
-                          ),
-                          child: Center(
-                            child: Text(
-                              floorName,
-                              style: TextStyle(
-                                color: isSelected ? const Color(0xFFC5A880) : Colors.white70,
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ),
+                const SizedBox(width: 40),
+                InkWell(
+                  onTap: (_currentPage + 1) < maxPage
+                      ? () => setState(() => _currentPage++)
+                      : null,
+                  borderRadius: BorderRadius.circular(10),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 15),
+                    decoration: BoxDecoration(
+                      color: (_currentPage + 1) < maxPage
+                          ? Colors.white.withOpacity(0.1)
+                          : Colors.white.withOpacity(0.02),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: (_currentPage + 1) < maxPage ? Colors.white30 : Colors.white10,
+                        width: 1,
                       ),
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
-        ),
-
-        // [메인 콘텐츠 패널] 호실 정보 그리드 렌더링 및 이전/다음 페이징 터치 바
-        Expanded(
-          child: Container(
-            padding: const EdgeInsets.all(30),
-            color: Colors.black.withOpacity(0.1),
-            child: Column(
-              children: [
-                Expanded(
-                  child: paginatedRooms.isEmpty
-                      ? const Center(
-                          child: Text(
-                            "해당 층에 운영 중인 빈소가 없습니다.",
-                            style: TextStyle(color: Colors.white30, fontSize: 18),
-                          ),
-                        )
-                      : LayoutBuilder(
-                          builder: (context, constraints) {
-                            // 모니터 해상도 및 상위 레이아웃 가용 너비/높이에 맞춰 가로 3열, 세로 2줄 카드의 비율을 자동 보정합니다.
-                            final double availableWidth = constraints.maxWidth;
-                            final double availableHeight = constraints.maxHeight;
-
-                            const int crossAxisCount = 3;
-                            const double crossAxisSpacing = 18.0;
-                            const double mainAxisSpacing = 18.0;
-                            const int rowCount = 2;
-
-                            final double cardWidth = (availableWidth - (crossAxisSpacing * (crossAxisCount - 1))) / crossAxisCount;
-                            final double cardHeight = (availableHeight - (mainAxisSpacing * (rowCount - 1))) / rowCount;
-                            final double dynamicAspectRatio = (cardHeight > 0) ? (cardWidth / cardHeight) : 1.05;
-
-                            return GridView.builder(
-                              physics: const NeverScrollableScrollPhysics(), // 드래그 차단
-                              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: crossAxisCount,
-                                childAspectRatio: dynamicAspectRatio,
-                                crossAxisSpacing: crossAxisSpacing,
-                                mainAxisSpacing: mainAxisSpacing,
-                              ),
-                              itemCount: paginatedRooms.length,
-                              itemBuilder: (context, index) {
-                                final room = paginatedRooms[index];
-                                return _buildRoomCard(room); // 개별 호실 카드 빌드
-                              },
-                            );
-                          },
-                        ),
-                ),
-                const SizedBox(height: 20),
-                // 이전/다음 페이지네이션 터치 버튼 (페이지가 2개 이상일 때 노출)
-                if (maxPage > 1)
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      InkWell(
-                        onTap: _currentPage > 0
-                            ? () => setState(() => _currentPage--)
-                            : null,
-                        borderRadius: BorderRadius.circular(10),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 15),
-                          decoration: BoxDecoration(
-                            color: _currentPage > 0
-                                ? Colors.white.withOpacity(0.1)
-                                : Colors.white.withOpacity(0.02),
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                              color: _currentPage > 0 ? Colors.white30 : Colors.white10,
-                              width: 1,
-                            ),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.arrow_back_ios,
-                                size: 16,
-                                color: _currentPage > 0 ? Colors.white : Colors.white30,
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                "이전",
-                                style: TextStyle(
-                                  color: _currentPage > 0 ? Colors.white : Colors.white30,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
+                    ),
+                    child: Row(
+                      children: [
+                        Text(
+                          "다음",
+                          style: TextStyle(
+                            color: (_currentPage + 1) < maxPage ? Colors.white : Colors.white30,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 40),
-                      Text(
-                        "${_currentPage + 1} / $maxPage",
-                        style: const TextStyle(
-                          color: Color(0xFFC5A880),
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
+                        const SizedBox(width: 8),
+                        Icon(
+                          Icons.arrow_forward_ios,
+                          size: 16,
+                          color: (_currentPage + 1) < maxPage ? Colors.white : Colors.white30,
                         ),
-                      ),
-                      const SizedBox(width: 40),
-                      InkWell(
-                        onTap: (_currentPage + 1) < maxPage
-                            ? () => setState(() => _currentPage++)
-                            : null,
-                        borderRadius: BorderRadius.circular(10),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 15),
-                          decoration: BoxDecoration(
-                            color: (_currentPage + 1) < maxPage
-                                ? Colors.white.withOpacity(0.1)
-                                : Colors.white.withOpacity(0.02),
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                              color: (_currentPage + 1) < maxPage ? Colors.white30 : Colors.white10,
-                              width: 1,
-                            ),
-                          ),
-                          child: Row(
-                            children: [
-                              Text(
-                                "다음",
-                                style: TextStyle(
-                                  color: (_currentPage + 1) < maxPage ? Colors.white : Colors.white30,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Icon(
-                                Icons.arrow_forward_ios,
-                                size: 16,
-                                color: (_currentPage + 1) < maxPage ? Colors.white : Colors.white30,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
+                ),
               ],
             ),
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -655,6 +752,7 @@ class _KioskViewState extends State<KioskView> {
   /// [고인 보정 영정 이미지 컴포넌트 빌더]
   Widget _buildMemorialPhoto(DeceasedDto deceased) {
     final photoUrl = deceased.memorialEditedPhotoUrl ?? deceased.memorialPhotoUrl;
+    final localPath = _controller.deceasedPhotoPaths[deceased.id];
 
     return Container(
       width: 60,
@@ -666,13 +764,23 @@ class _KioskViewState extends State<KioskView> {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(4),
-        child: photoUrl != null && photoUrl.isNotEmpty
-            ? Image.network(
-                "${widget.serverBaseUrl}$photoUrl",
+        child: (localPath != null && localPath.isNotEmpty && !kIsWeb)
+            ? Image.file(
+                io.File(localPath),
                 fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => _buildPlaceholderPhoto(),
+                errorBuilder: (c, e, s) => Image.network(
+                  "${widget.serverBaseUrl}$photoUrl",
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) => _buildPlaceholderPhoto(),
+                ),
               )
-            : _buildPlaceholderPhoto(),
+            : photoUrl != null && photoUrl.isNotEmpty
+                ? Image.network(
+                    "${widget.serverBaseUrl}$photoUrl",
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => _buildPlaceholderPhoto(),
+                  )
+                : _buildPlaceholderPhoto(),
       ),
     );
   }
@@ -821,19 +929,35 @@ class _KioskViewState extends State<KioskView> {
               },
               itemBuilder: (context, index) {
                 final photoUrl = parkingPhotos[index];
+                final localPath = _controller.localParkingPhotos.length > index
+                    ? _controller.localParkingPhotos[index]
+                    : null;
+
                 return ClipRRect(
                   borderRadius: BorderRadius.circular(15),
                   child: Container(
                     decoration: BoxDecoration(
                       border: Border.all(color: const Color(0xFFC5A880).withOpacity(0.5), width: 1.5),
                     ),
-                    child: Image.network(
-                      "${widget.serverBaseUrl}$photoUrl",
-                      fit: BoxFit.contain,
-                      errorBuilder: (context, error, stackTrace) => const Center(
-                        child: Icon(Icons.broken_image, size: 80, color: Colors.white24),
-                      ),
-                    ),
+                    child: (localPath != null && localPath.isNotEmpty && !kIsWeb)
+                        ? Image.file(
+                            io.File(localPath),
+                            fit: BoxFit.contain,
+                            errorBuilder: (c, e, s) => Image.network(
+                              "${widget.serverBaseUrl}$photoUrl",
+                              fit: BoxFit.contain,
+                              errorBuilder: (context, error, stackTrace) => const Center(
+                                child: Icon(Icons.broken_image, size: 80, color: Colors.white24),
+                              ),
+                            ),
+                          )
+                        : Image.network(
+                            "${widget.serverBaseUrl}$photoUrl",
+                            fit: BoxFit.contain,
+                            errorBuilder: (context, error, stackTrace) => const Center(
+                              child: Icon(Icons.broken_image, size: 80, color: Colors.white24),
+                            ),
+                          ),
                   ),
                 );
               },

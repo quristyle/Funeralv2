@@ -60,6 +60,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
   // 로컬 수동 화면 회전값 (0: 0도, 1: 90도, 2: 180도, 3: 270도)
   late int _screenRotationTurns;
 
+  /// [화면 방향성과 회전 각도 턴수 정합성 보정]
+  /// displayOrientation 속성값에 맞추어 수동 회전 각도 상태(_screenRotationTurns)가 모순되지 않도록 맞춥니다.
+  /// (LANDSCAPE 시에는 짝수 0 또는 2턴, PORTRAIT 시에는 홀수 1 또는 3턴으로 강제 유도)
+  void _alignRotationTurnsWithOrientation() {
+    final bool isPortrait = widget.initialOrientation == 'PORTRAIT';
+    if (isPortrait) {
+      if (_screenRotationTurns % 2 == 0) {
+        _screenRotationTurns = 1; // 세로인데 가로 회전값으로 되어 있다면 기본 90도 회전 적용
+      }
+    } else {
+      if (_screenRotationTurns % 2 == 1) {
+        _screenRotationTurns = 0; // 가로인데 세로 회전값으로 되어 있다면 기본 0도 회전 적용
+      }
+    }
+  }
+
   /// [초기 상태 설정]
   /// 부모로부터 전달받은 초기값을 각 텍스트 컨트롤러와 수동 회전 상태에 채우고, 헬스체크 및 네트워크 상태 감지를 기동합니다.
   @override
@@ -71,14 +87,39 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _macController = TextEditingController(text: widget.initialMac.isEmpty ? '조회 중...' : widget.initialMac);
     _publicIpController = TextEditingController(text: widget.initialPublicIp.isEmpty ? '조회 중...' : widget.initialPublicIp);
     
-    // 수동 회전 초기값 설정
+    // 수동 회전 초기값 설정 및 방향성 정합성 교정
     _screenRotationTurns = widget.initialRotationTurns;
+    _alignRotationTurnsWithOrientation();
+
+    print('[SettingsScreen] initState() 완료: '
+          'initialOrientation=${widget.initialOrientation}, '
+          'initialRotationTurns=${widget.initialRotationTurns} '
+          '-> _screenRotationTurns=$_screenRotationTurns');
     
     // 첫 프레임이 다 그려진 후 자동으로 헬스체크 및 네트워크 정보 조회를 시도합니다.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _testConnection();
       _fetchNetworkDetails();
     });
+  }
+
+  /// [위젯 설정값 변경 감지 수신]
+  /// 부모 위젯이 리빌드되면서 새로운 회전 설정값(initialRotationTurns)이 도달하면
+  /// 내부 상태값(_screenRotationTurns)을 동기화하여 화면 방향을 즉각 물리적으로 재정렬합니다.
+  @override
+  void didUpdateWidget(covariant SettingsScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    print('[SettingsScreen] didUpdateWidget() 감지: '
+          'oldWidget.initialRotationTurns=${oldWidget.initialRotationTurns} '
+          '-> widget.initialRotationTurns=${widget.initialRotationTurns}');
+    if (oldWidget.initialRotationTurns != widget.initialRotationTurns ||
+        oldWidget.initialOrientation != widget.initialOrientation) {
+      setState(() {
+        _screenRotationTurns = widget.initialRotationTurns;
+        _alignRotationTurnsWithOrientation();
+      });
+      print('[SettingsScreen] didUpdateWidget() 회전값 동기화 완료: _screenRotationTurns=$_screenRotationTurns');
+    }
   }
 
   /// [네트워크 상세 정보 조회]
@@ -192,26 +233,83 @@ class _SettingsScreenState extends State<SettingsScreen> {
   /// 상위 위젯 전체를 `RotatedBox`로 감싸주어 우측 상단 수동 회전 버튼을 누를 때마다 전체 레이아웃이 90도씩 물리적으로 회전 연출되게 렌더합니다.
   /// 로컬 IP, 공인 IP, MAC 주소는 `readOnly: true` 옵션을 인가하여 확인용 읽기 전용 필드로 렌더링합니다.
   /// Scaffold body 영역에 Stack 구조를 인가하여 우하단 겹침 포지션에 노란색 텍스트 디버그 박스를 배치합니다.
-  /// 취소 가능 여부에 따라 버튼 영역에 '취소(OutlinedButton)' 와 '저장 및 실행(ElevatedButton)'이 나란히 표시되도록 정렬합니다.
+  /// [서버 주소 입력 필드 빌더]
+  Widget _buildServerField() {
+    return TextFormField(
+      controller: _serverController,
+      style: const TextStyle(fontSize: 14, color: Colors.white),
+      decoration: const InputDecoration(
+        labelText: '통합 서버 주소',
+        border: OutlineInputBorder(),
+        contentPadding: EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+      ),
+      onChanged: (_) => setState(() => _connectionStatus = 'IDLE'),
+      validator: (v) => (v == null || v.isEmpty) ? '서버 주소 필수' : null,
+    );
+  }
+
+  /// [장비 식별 코드 입력 필드 빌더]
+  Widget _buildCodeField() {
+    return TextFormField(
+      controller: _codeController,
+      style: const TextStyle(fontSize: 14, color: Colors.white),
+      decoration: const InputDecoration(
+        labelText: '장비 코드',
+        border: OutlineInputBorder(),
+        contentPadding: EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+      ),
+      validator: (v) => (v == null || v.isEmpty) ? '장비 코드 필수' : null,
+    );
+  }
+
+  /// [네트워크 정보 표출 행 빌더]
+  Widget _buildInfoRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: const TextStyle(color: Colors.white38, fontSize: 13)),
+          Text(
+            value,
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+              fontFamily: 'Consolas', // 고정폭 글꼴로 정밀 출력
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// [화면 빌드]
+  /// 상위 위젯 전체를 `RotatedBox`로 감싸주어 우측 상단 수동 회전 버튼을 누를 때마다 전체 레이아웃이 90도씩 물리적으로 회전 연출되게 렌더합니다.
+  /// 저해상도 모니터 대응 컨셉(No Scroll)을 유지하기 위해 가로형 레이아웃에서는 입력 폼을 2열로 자동 스위칭하고 여백을 극대화 축소합니다.
   @override
   Widget build(BuildContext context) {
-    // 접속 연결 상태별 테마 색상 지정
+    print('[SettingsScreen] build() 진입 - 현재 적용할 _screenRotationTurns=$_screenRotationTurns');
     Color statusColor = _connectionStatus == 'SUCCESS' 
         ? Colors.greenAccent 
         : (_connectionStatus == 'FAIL' ? Colors.redAccent : Colors.orangeAccent);
+
+    // 가로 방향 모드(0도, 180도 회전) 여부 판별
+    final bool isFormHorizontal = _screenRotationTurns % 2 == 0;
 
     return RotatedBox(
       quarterTurns: _screenRotationTurns, // 수동 설정 회전값 바인딩 (0, 1, 2, 3)
       child: Scaffold(
         backgroundColor: Colors.black,
         appBar: AppBar(
-          title: const Text('환경 설정'), 
+          title: const Text('환경 설정', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)), 
           centerTitle: true, 
           backgroundColor: Colors.black,
+          toolbarHeight: 46, // 헤더 높이 축소로 가용 면적 확보
           actions: [
             // 수동 화면 시계방향 회전 버튼
             IconButton(
-              icon: const Icon(Icons.rotate_right, color: Color(0xFFC0A060), size: 28),
+              icon: const Icon(Icons.rotate_right, color: Color(0xFFC0A060), size: 24),
               tooltip: '화면 회전',
               onPressed: () {
                 setState(() {
@@ -225,168 +323,147 @@ class _SettingsScreenState extends State<SettingsScreen> {
         body: Stack(
           fit: StackFit.expand,
           children: [
-            // 중앙 영역: 환경설정 카드 및 텍스트 폼 구성요소들
             Center(
-              child: SingleChildScrollView( // 필드 추가로 인해 화면 높이가 꽉 찼을 경우를 대비한 스크롤 탑재
-                child: Container(
-                  constraints: const BoxConstraints(maxWidth: 600), // 모니터가 너무 가로로 길 때를 대비한 최대폭 고정
-                  padding: const EdgeInsets.all(32),
-                  margin: const EdgeInsets.symmetric(vertical: 24),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: const Color(0xFFC0A060).withOpacity(0.3)),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // 1) 서버 연결 상태 알림 바
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: statusColor.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: statusColor.withOpacity(0.3)),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                _connectionStatus == 'SUCCESS' ? Icons.check_circle : Icons.error,
-                                color: statusColor,
-                                size: 20,
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Text(
-                                  _statusMessage,
-                                  style: TextStyle(color: statusColor, fontWeight: FontWeight.bold),
-                                ),
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.refresh),
-                                onPressed: _testConnection,
-                                color: statusColor,
-                              ),
-                            ],
-                          ),
+              child: Container(
+                constraints: const BoxConstraints(maxWidth: 580), // 카드 최대 폭 제한
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  border: Border.all(color: const Color(0xFFC0A060).withOpacity(0.2)),
+                  borderRadius: BorderRadius.circular(12),
+                  color: Colors.white.withOpacity(0.01),
+                ),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // 1) 서버 연결 상태 알림 바 (콤팩트화)
+                      Container(
+                        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                        decoration: BoxDecoration(
+                          color: statusColor.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: statusColor.withOpacity(0.2)),
                         ),
-                        const SizedBox(height: 24),
-                        // 2) 통합 서버 주소 텍스트 필드
-                        TextFormField(
-                          controller: _serverController,
-                          decoration: const InputDecoration(labelText: '통합 서버 주소', border: OutlineInputBorder()),
-                          onChanged: (_) => setState(() => _connectionStatus = 'IDLE'), // 수정 시 수동 테스트 재유도
-                          validator: (v) => (v == null || v.isEmpty) ? '서버 주소 필수' : null,
-                        ),
-                        const SizedBox(height: 16),
-                        // 3) 장비 고유 식별 코드 텍스트 필드
-                        TextFormField(
-                          controller: _codeController,
-                          decoration: const InputDecoration(labelText: '장비 코드', border: OutlineInputBorder()),
-                          validator: (v) => (v == null || v.isEmpty) ? '장비 코드 필수' : null,
-                        ),
-                        const SizedBox(height: 24),
-                        const Divider(color: Colors.white24, height: 1),
-                        const SizedBox(height: 16),
-                        
-                        // 기기 고유 네트워크 식별 정보 헤더 라벨
-                        const Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            '기기 정보 (확인용 / 수정 불가)',
-                            style: TextStyle(color: Color(0xFFC0A060), fontWeight: FontWeight.bold, fontSize: 14),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        
-                        // 4) 로컬 IP 주소 (읽기 전용)
-                        TextFormField(
-                          controller: _ipController,
-                          readOnly: true,
-                          decoration: const InputDecoration(
-                            labelText: '로컬 IP 주소',
-                            border: OutlineInputBorder(),
-                            filled: true,
-                            fillColor: Colors.black26,
-                            prefixIcon: Icon(Icons.settings_ethernet, color: Colors.white30),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        
-                        // 5) 공인 IP 주소 (읽기 전용)
-                        TextFormField(
-                          controller: _publicIpController,
-                          readOnly: true,
-                          decoration: const InputDecoration(
-                            labelText: '공인 IP 주소',
-                            border: OutlineInputBorder(),
-                            filled: true,
-                            fillColor: Colors.black26,
-                            prefixIcon: Icon(Icons.public, color: Colors.white30),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        
-                        // 6) MAC 주소 (읽기 전용)
-                        TextFormField(
-                          controller: _macController,
-                          readOnly: true,
-                          decoration: const InputDecoration(
-                            labelText: 'MAC 주소',
-                            border: OutlineInputBorder(),
-                            filled: true,
-                            fillColor: Colors.black26,
-                            prefixIcon: Icon(Icons.fingerprint, color: Colors.white30),
-                          ),
-                        ),
-                        const SizedBox(height: 32),
-                        
-                        // 7) 버튼 제어 영역 (취소 활성화 시 1:1 배치)
-                        Row(
+                        child: Row(
                           children: [
-                            if (widget.onCancel != null) ...[
-                              Expanded(
-                                child: OutlinedButton(
-                                  style: OutlinedButton.styleFrom(
-                                    foregroundColor: Colors.white70,
-                                    side: const BorderSide(color: Colors.white24),
-                                    minimumSize: const Size(0, 50),
-                                  ),
-                                  onPressed: widget.onCancel,
-                                  child: const Text('취소', style: TextStyle(fontWeight: FontWeight.bold)),
-                                ),
-                              ),
-                              const SizedBox(width: 16),
-                            ],
+                            Icon(
+                              _connectionStatus == 'SUCCESS' ? Icons.check_circle : Icons.error,
+                              color: statusColor,
+                              size: 18,
+                            ),
+                            const SizedBox(width: 10),
                             Expanded(
-                              flex: widget.onCancel != null ? 1 : 2,
-                              child: ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFFC0A060),
-                                  foregroundColor: Colors.black,
-                                  minimumSize: const Size(double.infinity, 50),
-                                ),
-                                onPressed: () {
-                                  // 유효성 체크 통과 시 부모 콜백 호출을 통해 상태 저장 및 화면 변경
-                                  if (_formKey.currentState!.validate()) {
-                                    widget.onSave(
-                                      _serverController.text.trim(), 
-                                      _codeController.text.trim(), 
-                                      _ipController.text.trim(), 
-                                      _macController.text.trim(), 
-                                      _publicIpController.text.trim(),
-                                      _screenRotationTurns, // 수동 회전 각도 함께 인계
-                                    );
-                                  }
-                                },
-                                child: const Text('저장 및 실행', style: TextStyle(fontWeight: FontWeight.bold)),
+                              child: Text(
+                                _statusMessage,
+                                style: TextStyle(color: statusColor, fontSize: 13, fontWeight: FontWeight.bold),
                               ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.refresh, size: 18),
+                              onPressed: _testConnection,
+                              color: statusColor,
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
                             ),
                           ],
                         ),
-                      ],
-                    ),
+                      ),
+                      const SizedBox(height: 14),
+
+                      // 2) 통합 서버 주소 및 장비 코드 분기형 배치 (가로 모드 2열, 세로 모드 1열)
+                      if (isFormHorizontal)
+                        Row(
+                          children: [
+                            Expanded(child: _buildServerField()),
+                            const SizedBox(width: 12),
+                            Expanded(child: _buildCodeField()),
+                          ],
+                        )
+                      else
+                        Column(
+                          children: [
+                            _buildServerField(),
+                            const SizedBox(height: 12),
+                            _buildCodeField(),
+                          ],
+                        ),
+                      const SizedBox(height: 14),
+                      const Divider(color: Colors.white12, height: 1),
+                      const SizedBox(height: 10),
+                      
+                      // 3) 기기 고유 네트워크 식별 정보 콤팩트 테이블 영역 (기존의 무거운 TextFormField 3개를 완전 제거하여 압축)
+                      const Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          '기기 식별 정보 (수정 불가)',
+                          style: TextStyle(color: Color(0xFFC0A060), fontWeight: FontWeight.bold, fontSize: 13),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 14),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.02),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.white.withOpacity(0.05)),
+                        ),
+                        child: Column(
+                          children: [
+                            _buildInfoRow("로컬 IP 주소", _ipController.text),
+                            _buildInfoRow("공인 IP 주소", _publicIpController.text),
+                            _buildInfoRow("MAC 주소", _macController.text),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      
+                      // 4) 버튼 제어 영역
+                      Row(
+                        children: [
+                          if (widget.onCancel != null) ...[
+                            Expanded(
+                              child: OutlinedButton(
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: Colors.white70,
+                                  side: const BorderSide(color: Colors.white24),
+                                  minimumSize: const Size(0, 44),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                ),
+                                onPressed: widget.onCancel,
+                                child: const Text('취소', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                          ],
+                          Expanded(
+                            flex: widget.onCancel != null ? 1 : 2,
+                            child: ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFFC0A060),
+                                foregroundColor: Colors.black,
+                                minimumSize: const Size(double.infinity, 44),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                              onPressed: () {
+                                if (_formKey.currentState!.validate()) {
+                                  widget.onSave(
+                                    _serverController.text.trim(), 
+                                    _codeController.text.trim(), 
+                                    _ipController.text.trim(), 
+                                    _macController.text.trim(), 
+                                    _publicIpController.text.trim(),
+                                    _screenRotationTurns, 
+                                  );
+                                }
+                              },
+                              child: const Text('저장 및 실행', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -394,17 +471,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
             
             // 우하단 레이어: 디버그 모니터링 텍스트 오버레이 박스
             Positioned(
-              bottom: 10,
-              right: 10,
+              bottom: 8,
+              right: 8,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 color: Colors.black54,
                 child: AnimatedBuilder(
                   animation: Listenable.merge([_codeController, _ipController]),
                   builder: (context, _) {
                     return Text(
                       'DEBUG: settings_screen.dart | Code: ${_codeController.text} | IP: ${_ipController.text}',
-                      style: const TextStyle(color: Colors.yellow, fontSize: 10, fontWeight: FontWeight.bold),
+                      style: const TextStyle(color: Colors.yellow, fontSize: 9, fontWeight: FontWeight.bold),
                     );
                   }
                 ),

@@ -155,21 +155,55 @@ class ApiService {
     try {
       final response = await http.get(url).timeout(const Duration(seconds: 4));
       if (response.statusCode == 200) {
-        final json = jsonDecode(response.body);
+        final body = response.body;
+        final json = jsonDecode(body);
         Map<String, dynamic>? targetMap;
         if (json.containsKey('data') && json['data'] is Map) {
           final dataMap = json['data'] as Map<String, dynamic>;
           if (dataMap.containsKey('result') && dataMap['result'] is List) {
             final list = dataMap['result'] as List;
-            if (list.isNotEmpty && list[0] is Map) targetMap = list[0] as Map<String, dynamic>;
+            if (list.isNotEmpty && list[0] is Map) {
+              targetMap = list[0] as Map<String, dynamic>;
+            }
           }
           targetMap ??= dataMap;
         }
-        if (targetMap != null) return KioskGuideResponseDto.fromJson(targetMap);
+
+        if (targetMap != null) {
+          // 조회 성공 시 로컬 캐시 DB에 저장
+          await _dbService.saveKioskGuide(deviceCode, body);
+          return KioskGuideResponseDto.fromJson(targetMap);
+        }
       }
     } catch (e) {
       print('[API Error] fetchKioskRooms: $e');
     }
+
+    // 오프라인 캐시 로드
+    print('[Cache] 키오스크 안내 목록 오프라인 캐시 조회를 시도합니다.');
+    final cachedBody = await _dbService.getKioskGuide(deviceCode);
+    if (cachedBody != null) {
+      try {
+        final json = jsonDecode(cachedBody);
+        Map<String, dynamic>? targetMap;
+        if (json.containsKey('data') && json['data'] is Map) {
+          final dataMap = json['data'] as Map<String, dynamic>;
+          if (dataMap.containsKey('result') && dataMap['result'] is List) {
+            final list = dataMap['result'] as List;
+            if (list.isNotEmpty && list[0] is Map) {
+              targetMap = list[0] as Map<String, dynamic>;
+            }
+          }
+          targetMap ??= dataMap;
+        }
+        if (targetMap != null) {
+          return KioskGuideResponseDto.fromJson(targetMap);
+        }
+      } catch (e) {
+        print('[Cache Error] 키오스크 캐시 디코딩 에러: $e');
+      }
+    }
+
     // 실패 시 빈 정보 구조 반환
     return KioskGuideResponseDto(rooms: [], buildingPhotos: [], parkingPhotos: []);
   }

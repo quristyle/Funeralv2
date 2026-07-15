@@ -119,7 +119,7 @@ class _MainRouterState extends State<MainRouter> {
 
   /// 기기 로컬 저장소(SharedPreferences)에서 설정 정보를 읽어오는 함수입니다.
   Future<void> _loadConfiguration() async {
-    print('[MainRouter] 설정 정보 로드 중...');
+    print('[MainRouter] _loadConfiguration() 호출됨 - 로컬 SharedPreferences 스캔 시작');
     final prefs = await SharedPreferences.getInstance();
     
     setState(() {
@@ -138,12 +138,12 @@ class _MainRouterState extends State<MainRouter> {
       isConfigured = deviceCode != null && deviceCode!.isNotEmpty;
       isLoading = false; // 로딩 완료
     });
-    print('[MainRouter] 로드 완료: isConfigured=$isConfigured, code=$deviceCode, rotationTurns=$displayRotationTurns');
+    print('[MainRouter] _loadConfiguration() 완료: isConfigured=$isConfigured, code=$deviceCode, displayOrientation=$displayOrientation, displayRotationTurns=$displayRotationTurns');
   }
 
   /// 사용자가 입력한 새로운 설정 정보를 로컬 저장소에 저장하는 함수입니다.
   Future<void> _saveConfiguration(String server, String code, String ip, String mac, String publicIp, int rotationTurns) async {
-    print('[MainRouter] 설정 저장: code=$code, rotationTurns=$rotationTurns');
+    print('[MainRouter] _saveConfiguration() 저장 진입: code=$code, rotationTurns=$rotationTurns');
     
     // 기존 장비코드가 존재하고, 새로 입력한 장비코드와 다를 경우 백엔드에 즉시 OFFLINE 처리 요청
     final oldCode = deviceCode;
@@ -170,6 +170,7 @@ class _MainRouterState extends State<MainRouter> {
     await prefs.setInt('displayRotationTurns', rotationTurns);
     final String mappedOrientation = (rotationTurns % 2 == 1) ? 'PORTRAIT' : 'LANDSCAPE';
     await prefs.setString('displayOrientation', mappedOrientation);
+    print('[MainRouter] SharedPreferences 쓰기 완료: displayOrientation=$mappedOrientation, displayRotationTurns=$rotationTurns');
 
     setState(() {
       serverBaseUrl = server;
@@ -186,7 +187,7 @@ class _MainRouterState extends State<MainRouter> {
   /// 화면의 모습을 그리는 함수입니다. 상태가 바뀔 때마다 다시 호출됩니다.
   @override
   Widget build(BuildContext context) {
-    print('[MainRouter] build() 진입: isLoading=$isLoading, isConfigured=$isConfigured');
+    print('[MainRouter] build() 진입: isLoading=$isLoading, isConfigured=$isConfigured, displayOrientation=$displayOrientation, displayRotationTurns=$displayRotationTurns');
     
     // 아직 로딩 중이라면 로딩 바만 중앙에 띄웁니다.
     if (isLoading) {
@@ -195,6 +196,9 @@ class _MainRouterState extends State<MainRouter> {
 
     // 설정이 안 되어 있다면 '환경 설정' 화면을 반환합니다.
     if (!isConfigured) {
+      print('[MainRouter] SettingsScreen 생성 및 전달: '
+            'initialOrientation=${displayOrientation ?? 'LANDSCAPE'}, '
+            'initialRotationTurns=$displayRotationTurns');
       return SettingsScreen(
         initialServer: serverBaseUrl ?? 'http://localhost:5265',
         initialCode: deviceCode ?? '',
@@ -211,17 +215,38 @@ class _MainRouterState extends State<MainRouter> {
     }
 
     // 설정이 완료되었다면 '장비 디스패처'를 반환하여 실제 콘텐츠 화면을 띄웁니다.
-    print('[MainRouter] DeviceDispatcher로 분기합니다.');
+    print('[MainRouter] DeviceDispatcher로 분기합니다. (코드: $deviceCode)');
     return DeviceDispatcher(
       serverBaseUrl: serverBaseUrl!,
       deviceCode: deviceCode!,
       ipAddress: ipAddress ?? '',
       macAddress: macAddress ?? '',
       publicIpAddress: publicIpAddress ?? '',
-      onOpenSettings: () {
+      onOpenSettings: () async {
         // 플레이어 구동 중에 설정을 다시 열고 싶을 때 이 함수가 실행됩니다.
-        print('[MainRouter] 설정 변경 요청 수신');
-        setState(() => isConfigured = false);
+        print('[MainRouter] 설정 변경 요청 수신 -> 로컬 영속 캐시 동기화 리로드');
+        final prefs = await SharedPreferences.getInstance();
+        final server = prefs.getString('serverBaseUrl');
+        final code = prefs.getString('deviceCode');
+        final ip = prefs.getString('ipAddress');
+        final mac = prefs.getString('macAddress');
+        final publicIp = prefs.getString('publicIpAddress');
+        final orientation = prefs.getString('displayOrientation') ?? 'LANDSCAPE';
+        final rotation = prefs.getInt('displayRotationTurns') ?? (orientation == 'PORTRAIT' ? 1 : 0);
+
+        print('[MainRouter] 동기화 완료 후 설정 화면 오픈: '
+              'orientation=$orientation, rotation=$rotation');
+
+        setState(() {
+          serverBaseUrl = server;
+          deviceCode = code;
+          ipAddress = ip;
+          macAddress = mac;
+          publicIpAddress = publicIp;
+          displayOrientation = orientation;
+          displayRotationTurns = rotation;
+          isConfigured = false;
+        });
       },
     );
   }

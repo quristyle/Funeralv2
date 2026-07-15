@@ -4,6 +4,7 @@ import '../../models/device_models.dart';
 import '../../services/api/api_service.dart';
 import '../../services/player/media_player_service.dart';
 import '../../services/cache/cache_manager.dart';
+import '../../services/cache/local_db_service.dart';
 
 /// [멀티미디어 추모 롤링 컨트롤러]
 /// 빈소 유족들이 업로드한 가족/추모 사진 목록([familyPhotos])을 순차적으로 롤링(슬라이드)하고,
@@ -11,7 +12,8 @@ import '../../services/cache/cache_manager.dart';
 class MultimediaController extends ChangeNotifier {
   final ApiService _apiService = ApiService(); // 서버 API 서비스
   final MediaPlayerService playerService = MediaPlayerService(); // 미디어 재생 서비스
-  final CacheManager _cacheManager = CacheManager(); // 캐시 관리 매니저
+  final CacheManager _cacheManager = CacheManager(); // 미디어 캐시 매니저
+  final LocalDbService _dbService = LocalDbService(); // 로컬 DB 캐시 서비스
 
   DeviceDto? device; // 장비 설정 정보
   DeceasedDto? deceased; // 고인 상세 정보
@@ -42,62 +44,148 @@ class MultimediaController extends ChangeNotifier {
     if (!_isDisposed) super.notifyListeners();
   }
 
-  /// [멀티미디어 화면 초기화 루틴]
-  /// 서버에서 장비 정보, 고인 정보 및 가족 추모 사진 리스트를 가져와 준비합니다.
-  /// 배경 영상과 배경 음악(볼륨 및 음소거 설정 포함)을 다운로드하여 동시에 구동하며,
-  /// 사진 슬라이더 회전을 개시하고 웹소켓 변경 노티를 구독합니다.
+  /// [멀티미디어 화면 초기화 루틴 (Cache-First)]
+  /// 앱 구동 즉시 로컬 DB 캐시 리소스를 로드하여 사진 슬라이드 롤러와 비디오/BGM을 가동합니다.
+  /// 그 뒤 백그라운드 비동기로 최신 미디어를 동기화합니다.
   Future<void> init(String serverBaseUrl, String deviceCode, Function() onRefresh) async {
     if (_isDisposed) return;
     isLoading = true;
     notifyListeners();
 
-    // 1. 장비 스펙 획득
-    device = await _apiService.fetchDevice(serverBaseUrl, deviceCode);
-    if (device != null && !_isDisposed) {
-      // 2. 장비가 속한 빈소의 고인 상세 데이터 획득 (가족 추모 사진 목록 포함)
-      if (device!.roomId != null) {
-        deceased = await _apiService.fetchDeceased(serverBaseUrl, deviceCode);
-      }
+    // 1. [Cache-First] 로컬 DB에서 즉각 데이터 복구
+    final cachedDevice = await _dbService.getDevice(deviceCode);
+    if (cachedDevice != null && !_isDisposed) {
+      device = cachedDevice;
+      deceased = await _dbService.getDeceasedByDeviceCode(deviceCode);
 
-      // 3. 백그라운드 영상 물리 경로 캐싱 및 루프 구동
+      // 로컬 비디오 캐시 구동
       if (device!.isVideoEnabled && device!.videoId != null) {
-        final sourcePath = await _apiService.fetchSourcePath(serverBaseUrl, device!.videoId!);
-        final localVideoPath = await _cacheManager.getCachedFileByPath(serverBaseUrl, sourcePath);
-        if (localVideoPath != null && !_isDisposed && device!.isVideoEnabled) {
-          await playerService.playVideo(localVideoPath, onRefresh);
-        }
-      } else {
-        await playerService.stopVideo();
-      }
-
-      // 4. 백그라운드 오디오 음원(BGM) 캐싱 및 재생 시작 (음소거 및 볼륨 조절 적용)
-      if (device!.isMusicEnabled && device!.musicId != null) {
-        final sourcePath = await _apiService.fetchSourcePath(serverBaseUrl, device!.musicId!);
-        final localMusicPath = await _cacheManager.getCachedFileByPath(serverBaseUrl, sourcePath);
-        if (localMusicPath != null && !_isDisposed) {
-          await playerService.playMusic(localMusicPath, device!.musicVolume, isMuted: device!.isMuted);
-        }
-      }
-
-      // 5. 가족 사진 캐싱 동기화
-      localPhotoPaths.clear();
-      if (deceased != null) {
-        for (var photoPath in deceased!.familyPhotos) {
-          final lp = await _cacheManager.getCachedFileByPath(serverBaseUrl, photoPath);
-          if (lp != null) {
-            localPhotoPaths.add(lp);
-          } else {
-            localPhotoPaths.add('');
+        final cachedVideoPath = await _dbService.getSourcePath(device!.videoId!);
+        if (cachedVideoPath != null) {
+          final cachedLocalVideo = await _cacheManager.getCachedFileByPath(serverBaseUrl, cachedVideoPath);
+          if (cachedLocalVideo != null && !_isDisposed) {
+            await playerService.playVideo(cachedLocalVideo, onRefresh);
           }
         }
       }
 
-      // 6. 사진 자동 롤링 슬라이드 타이머 기동
+      // 로컬 오디오(BGM) 캐시 구동
+      if (device!.isMusicEnabled && device!.musicId != null) {
+        final cachedMusicPath = await _dbService.getSourcePath(device!.musicId!);
+        if (cachedMusicPath != null) {
+          final cachedLocalMusic = await _cacheManager.getCachedFileByPath(serverBaseUrl, cachedMusicPath);
+          if (cachedLocalMusic != null && !_isDisposed) {
+            await playerService.playMusic(cachedLocalMusic, device!.musicVolume, isMuted: device!.isMuted);
+          }
+        }
+      }
+
+      // 로컬 가족사진 캐시 매핑 (getLocalFile을 사용하여 네트워크 대기 차단)
+      localPhotoPaths.clear();
+      if (deceased != null) {
+        for (var photoPath in deceased!.familyPhotos) {
+          final lp = await _cacheManager.getLocalFile(photoPath);
+          localPhotoPaths.add(lp ?? '');
+        }
+      }
+
+      // 사진 자동 롤링 슬라이드 타이머 즉시 구동
       _startPhotoRotation();
+
+      // UI 렌더링 시작
+      isLoading = false;
+      notifyListeners();
     }
 
-    isLoading = false;
-    notifyListeners();
+    // 2. 백그라운드 서버 동기화 작업 기동
+    _syncWithServer(serverBaseUrl, deviceCode, onRefresh);
+  }
+
+  /// [백그라운드 비동기 서버 동기화 루틴]
+  Future<void> _syncWithServer(String serverBaseUrl, String deviceCode, Function() onRefresh) async {
+    try {
+      print('[MultimediaController] [Background Sync] 시작');
+      final fetchedDevice = await _apiService.fetchDevice(serverBaseUrl, deviceCode);
+      if (fetchedDevice != null && !_isDisposed) {
+        DeceasedDto? fetchedDeceased;
+        if (fetchedDevice.roomId != null) {
+          fetchedDeceased = await _apiService.fetchDeceased(serverBaseUrl, deviceCode);
+        }
+
+        // 변경점 검사
+        bool isChanged = device == null ||
+            device!.id != fetchedDevice.id ||
+            device!.isVideoEnabled != fetchedDevice.isVideoEnabled ||
+            device!.videoId != fetchedDevice.videoId ||
+            device!.isMusicEnabled != fetchedDevice.isMusicEnabled ||
+            device!.musicId != fetchedDevice.musicId ||
+            deceased?.id != fetchedDeceased?.id ||
+            deceased?.familyPhotos.length != fetchedDeceased?.familyPhotos.length;
+
+        if (!isChanged && deceased != null && fetchedDeceased != null) {
+          // 세부 이미지 매핑 목록 비교
+          for (int i = 0; i < deceased!.familyPhotos.length; i++) {
+            if (deceased!.familyPhotos[i] != fetchedDeceased.familyPhotos[i]) {
+              isChanged = true;
+              break;
+            }
+          }
+        }
+
+        if (isChanged) {
+          print('[MultimediaController] [Background Sync] 변경점 발견 -> UI 리프레시');
+          device = fetchedDevice;
+          deceased = fetchedDeceased;
+
+          // 비디오 재생 갱신
+          if (device!.isVideoEnabled && device!.videoId != null) {
+            final sourcePath = await _apiService.fetchSourcePath(serverBaseUrl, device!.videoId!);
+            final localVideoPath = await _cacheManager.getCachedFileByPath(serverBaseUrl, sourcePath);
+            if (localVideoPath != null && !_isDisposed) {
+              await playerService.playVideo(localVideoPath, onRefresh);
+            }
+          } else {
+            await playerService.stopVideo();
+          }
+
+          // 오디오 BGM 갱신
+          if (device!.isMusicEnabled && device!.musicId != null) {
+            final sourcePath = await _apiService.fetchSourcePath(serverBaseUrl, device!.musicId!);
+            final localMusicPath = await _cacheManager.getCachedFileByPath(serverBaseUrl, sourcePath);
+            if (localMusicPath != null && !_isDisposed) {
+              await playerService.playMusic(localMusicPath, device!.musicVolume, isMuted: device!.isMuted);
+            }
+          } else {
+            await playerService.stopMusic();
+          }
+
+          // 가족 사진 캐싱 동기화
+          localPhotoPaths.clear();
+          if (deceased != null) {
+            for (var photoPath in deceased!.familyPhotos) {
+              final lp = await _cacheManager.getCachedFileByPath(serverBaseUrl, photoPath);
+              localPhotoPaths.add(lp ?? '');
+            }
+          }
+
+          _startPhotoRotation();
+          notifyListeners();
+        } else {
+          print('[MultimediaController] [Background Sync] 변동 사항 없음 -> 기존 뷰 유지');
+          // 볼륨 및 음소거 설정 최종 갱신 대응
+          if (device!.isMusicEnabled) {
+            await playerService.updateMusicVolume(device!.musicVolume, isMuted: device!.isMuted);
+          }
+        }
+      }
+    } catch (e) {
+      print('[MultimediaController] [Background Sync] 에러: $e');
+    } finally {
+      if (!_isDisposed) {
+        isLoading = false;
+        notifyListeners();
+      }
+    }
   }
 
   /// [사진 자동 회전/롤링 기동]

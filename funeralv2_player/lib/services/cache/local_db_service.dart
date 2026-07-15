@@ -49,7 +49,7 @@ class LocalDbService {
 
     return await openDatabase(
       fullPath,
-      version: 14, // 데이터베이스 버전 관리 (최신 마이그레이션 반영)
+      version: 15, // 데이터베이스 버전 관리 (최신 마이그레이션 반영)
       onCreate: _onCreate,
       onUpgrade: (db, oldVersion, newVersion) async {
         // 기존 테이블에 순차적으로 신규 스키마 컬럼을 주입하는 마이그레이션 과정
@@ -87,6 +87,12 @@ class LocalDbService {
           try {
             // 영정사진 비율 유지 여부 설정 추가
             await db.execute('ALTER TABLE devices ADD COLUMN isMemorialPhotoKeepAspectRatio INTEGER DEFAULT 1');
+          } catch (_) {}
+        }
+        if (oldVersion < 15) {
+          try {
+            // 키오스크 종합 안내 JSON 응답 캐싱 테이블 추가
+            await db.execute('CREATE TABLE IF NOT EXISTS kiosk_guide (deviceCode TEXT PRIMARY KEY, jsonData TEXT)');
           } catch (_) {}
         }
       },
@@ -149,6 +155,8 @@ class LocalDbService {
     await db.execute('CREATE TABLE media_sources (id TEXT PRIMARY KEY, path TEXT)');
     // 입구 안내 전체 목록 응답 문자열 캐싱 테이블
     await db.execute('CREATE TABLE entrance_guide (deviceCode TEXT PRIMARY KEY, jsonData TEXT)');
+    // 키오스크 종합 안내 JSON 응답 캐싱 테이블
+    await db.execute('CREATE TABLE kiosk_guide (deviceCode TEXT PRIMARY KEY, jsonData TEXT)');
   }
 
   /// [장비 정보 캐시 저장]
@@ -217,6 +225,20 @@ class LocalDbService {
     final db = await database;
     if (db == null) return null;
     final List<Map<String, dynamic>> maps = await db.query('entrance_guide', where: 'deviceCode = ?', whereArgs: [deviceCode]);
+    return maps.isEmpty ? null : maps.first['jsonData'] as String;
+  }
+
+  /// [키오스크 안내 JSON 응답 캐시 저장]
+  Future<void> saveKioskGuide(String deviceCode, String json) async {
+    final db = await database;
+    if (db != null) await db.insert('kiosk_guide', {'deviceCode': deviceCode, 'jsonData': json}, conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  /// [키오스크 안내 JSON 응답 캐시 조회]
+  Future<String?> getKioskGuide(String deviceCode) async {
+    final db = await database;
+    if (db == null) return null;
+    final List<Map<String, dynamic>> maps = await db.query('kiosk_guide', where: 'deviceCode = ?', whereArgs: [deviceCode]);
     return maps.isEmpty ? null : maps.first['jsonData'] as String;
   }
 }

@@ -99,8 +99,8 @@ class CacheManager {
         return localFilePath;
       }
 
-      // 서버 다운로드 진행
-      final response = await http.get(Uri.parse(downloadUrl)).timeout(const Duration(seconds: 30));
+      // 서버 다운로드 진행 (타임아웃을 30초에서 4초로 단축하여 지연 최소화)
+      final response = await http.get(Uri.parse(downloadUrl)).timeout(const Duration(seconds: 4));
       if (response.statusCode == 200) {
         await localFile.writeAsBytes(response.bodyBytes);
         return localFilePath;
@@ -108,6 +108,24 @@ class CacheManager {
     } catch (e) {
       print('[CacheManager] 경로 캐싱 에러: $e');
     }
+    return null;
+  }
+
+  /// [네트워크 요청이 없는 순수 로컬 파일 즉시 검사]
+  /// 서버 통신 없이 오직 로컬 디렉터리에 기보관된 캐시 파일이 존재하는지만 판단하여 경로를 리턴합니다. (지연 시간 0초 보장)
+  Future<String?> getLocalFile(String? relativePath) async {
+    if (relativePath == null || relativePath.isEmpty) return null;
+    try {
+      final docDir = await getApplicationDocumentsDirectory();
+      final cacheDir = io.Directory(path.join(docDir.path, 'media_cache'));
+      final fileName = relativePath.split('/').last;
+      final localFilePath = path.join(cacheDir.path, fileName);
+      final localFile = io.File(localFilePath);
+
+      if (await localFile.exists() && await localFile.length() > 0) {
+        return localFilePath;
+      }
+    } catch (_) {}
     return null;
   }
 }

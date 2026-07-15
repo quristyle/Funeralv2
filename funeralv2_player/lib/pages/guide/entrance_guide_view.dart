@@ -1,4 +1,5 @@
 import 'dart:io' as io;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../player_shell.dart';
 import 'entrance_guide_controller.dart';
@@ -331,14 +332,26 @@ class _EntranceGuideViewState extends State<EntranceGuideView> {
   /// 엑박이 나거나 주소가 없을 경우 실루엣 아이콘 플레이스홀더를 매핑합니다.
   Widget _buildMemorialPhoto(DeceasedDto deceased) {
     final photoUrl = deceased.memorialEditedPhotoUrl ?? deceased.memorialPhotoUrl;
+    final localPath = _controller.deceasedPhotoPaths[deceased.id];
+
     return Container(
       width: 80, height: 105,
       decoration: BoxDecoration(border: Border.all(color: const Color(0xFFC5A880), width: 1.5), borderRadius: BorderRadius.circular(8), color: Colors.black26),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(6),
-        child: (photoUrl != null && photoUrl.isNotEmpty)
-            ? Image.network("${widget.serverBaseUrl}$photoUrl", fit: BoxFit.cover, errorBuilder: (c, e, s) => _buildPlaceholderPhoto())
-            : _buildPlaceholderPhoto(),
+        child: (localPath != null && localPath.isNotEmpty && !kIsWeb)
+            ? Image.file(
+                io.File(localPath),
+                fit: BoxFit.cover,
+                errorBuilder: (c, e, s) => Image.network(
+                  "${widget.serverBaseUrl}$photoUrl",
+                  fit: BoxFit.cover,
+                  errorBuilder: (c, e, s) => _buildPlaceholderPhoto(),
+                ),
+              )
+            : (photoUrl != null && photoUrl.isNotEmpty)
+                ? Image.network("${widget.serverBaseUrl}$photoUrl", fit: BoxFit.cover, errorBuilder: (c, e, s) => _buildPlaceholderPhoto())
+                : _buildPlaceholderPhoto(),
       ),
     );
   }
