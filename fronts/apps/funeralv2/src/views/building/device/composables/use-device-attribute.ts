@@ -47,6 +47,7 @@ export function defaultAttr(deviceId: string): Omit<BuildingApi.DeviceAttribute,
     entranceGreeting: null,
     isNoticeVisible: true,
     noticeScrollSpeed: 2,
+    isMemorialPhotoKeepAspectRatio: true,
     remark: null,
   };
 }
@@ -130,6 +131,7 @@ export function useDeviceAttribute() {
         entranceGreeting: deviceAttr.value.entranceGreeting,
         isNoticeVisible: deviceAttr.value.isNoticeVisible,
         noticeScrollSpeed: deviceAttr.value.noticeScrollSpeed,
+        isMemorialPhotoKeepAspectRatio: deviceAttr.value.isMemorialPhotoKeepAspectRatio,
         remark: deviceAttr.value.remark,
       };
       const result = await upsertDeviceAttribute(payload);

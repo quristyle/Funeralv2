@@ -84,5 +84,15 @@ public static class DeviceEndpoints
             }
             return Results.Ok(success);
         }).WithName("DeleteDevice").WithOpenApi();
+
+        // 장비 상태 직접 업데이트 (기기코드 기준)
+        group.MapPut("/status/{code}", async (
+            string code,
+            [FromQuery] string status,
+            [FromServices] IDeviceService service) =>
+        {
+            var success = await service.UpdateStatusAsync(code, status);
+            return Results.Ok(ApiResponse<bool>.Ok(success));
+        }).WithName("UpdateDeviceStatus").WithOpenApi();
     }
 }

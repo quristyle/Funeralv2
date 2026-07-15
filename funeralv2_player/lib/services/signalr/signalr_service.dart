@@ -17,6 +17,7 @@ class SignalRService {
   Timer? _debounceTimer; // DeviceChanged 푸시 폭주 방지용 디바운스 타이머
   int _reconnectAttempt = 0; // 재연결 시도 횟수
   static const int _maxReconnectDelaySec = 60; // 최대 재연결 대기 시간 (60초)
+  String? _currentDeviceCode; // 현재 연결된 장비 코드 추적용 변수
 
   // 업데이트가 필요한 경우 화면 컴포넌트(Controller)에서 주입받아 호출할 콜백 함수
   Function()? _onDeviceChanged;
@@ -38,12 +39,20 @@ class SignalRService {
     // 실시간 이벤트 수신 시 실행할 리프레시 콜백을 최신화합니다.
     _onDeviceChanged = onDeviceChanged;
 
+    // 장비코드가 변경된 경우 기존 소켓 및 타이머를 먼저 강제 정리하고 새롭게 재연결합니다.
+    if (_currentDeviceCode != null && _currentDeviceCode != deviceCode) {
+      print('[SignalR] 장비코드 변경 감지: $_currentDeviceCode -> $deviceCode. 기존 세션 정리 후 재시도.');
+      await disconnect(_currentDeviceCode!);
+    }
+
     // 이미 접속 중이거나 시도 중이면 중복 요청을 무시합니다.
     if (_isConnecting || isConnected) {
+      print('[SignalR] 이미 연결 진행 중이거나 연결된 상태입니다. 연결 요청 스킵.');
       return;
     }
 
     _isConnecting = true;
+    _currentDeviceCode = deviceCode; // 현재 접속 코드 등록
     print('[SignalR] 연결 프로세스 시작...');
 
     // 기존의 접속 정보가 있다면 안전하게 먼저 종료 처리합니다.
@@ -160,6 +169,7 @@ class SignalRService {
   /// 서버에 UnregisterDevice 메서드를 날리고 모든 백그라운드 재연결 타이머를 정지합니다.
   Future<void> disconnect(String deviceCode) async {
     print('[SignalR] !!! 장치 구독 해제 및 모든 타이머 중단: $deviceCode');
+    _currentDeviceCode = null; // 현재 매핑 코드 제거
     
     // 1. 모든 타이머 및 상태 초기화 (재연결 방지)
     _reconnectTimer?.cancel();

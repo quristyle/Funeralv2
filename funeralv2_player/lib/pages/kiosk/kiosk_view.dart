@@ -65,6 +65,19 @@ class _KioskViewState extends State<KioskView> {
     super.dispose();
   }
 
+  /// [위젯 설정 갱신 대응]
+  @override
+  void didUpdateWidget(covariant KioskView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.deviceCode != widget.deviceCode || oldWidget.serverBaseUrl != widget.serverBaseUrl) {
+      _controller.init(
+        widget.serverBaseUrl,
+        widget.deviceCode,
+        () => setState(() {}),
+      );
+    }
+  }
+
   /// [위젯 빌드]
   /// 로딩 상태 분기 및 공통 셸(`PlayerShell`)을 바탕에 입히고 탭에 맞는 메인 콘텐츠 뷰를 주입합니다.
   @override

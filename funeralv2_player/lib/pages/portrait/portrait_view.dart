@@ -48,6 +48,19 @@ class _PortraitViewState extends State<PortraitView> {
     super.dispose();
   }
 
+  /// [위젯 설정 갱신 대응]
+  @override
+  void didUpdateWidget(covariant PortraitView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.deviceCode != widget.deviceCode || oldWidget.serverBaseUrl != widget.serverBaseUrl) {
+      _controller.init(
+        widget.serverBaseUrl,
+        widget.deviceCode,
+        () => setState(() {}),
+      );
+    }
+  }
+
   /// [위젯 빌드]
   /// 로딩 상태에 따라 분기하며, 정상 상태 도달 시 공통 골조 셸(`PlayerShell`) 하단에 적층 스택 구조를 주입합니다.
   /// 설정 아이콘 숨김([showSettingsIcon] = false) 처리를 하고, 단일 탭 제스처 감지기([GestureDetector])를 연동합니다.

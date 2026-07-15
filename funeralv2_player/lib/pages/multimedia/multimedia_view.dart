@@ -1,3 +1,5 @@
+import 'dart:io' as io;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../player_shell.dart';
 import 'multimedia_controller.dart';
@@ -44,6 +46,19 @@ class _MultimediaViewState extends State<MultimediaView> {
     super.dispose();
   }
 
+  /// [위젯 설정 갱신 대응]
+  @override
+  void didUpdateWidget(covariant MultimediaView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.deviceCode != widget.deviceCode || oldWidget.serverBaseUrl != widget.serverBaseUrl) {
+      _controller.init(
+        widget.serverBaseUrl,
+        widget.deviceCode,
+        () => setState(() {}),
+      );
+    }
+  }
+
   /// [위젯 빌드]
   @override
   Widget build(BuildContext context) {
@@ -75,6 +90,11 @@ class _MultimediaViewState extends State<MultimediaView> {
       return const Center(child: Text("추모 사진이 없습니다.", style: TextStyle(color: Colors.white54, fontSize: 24)));
     }
 
+    // 현재 인덱스의 로컬 파일 경로 확인
+    final localPath = _controller.localPhotoPaths.length > _controller.currentPhotoIndex
+        ? _controller.localPhotoPaths[_controller.currentPhotoIndex]
+        : null;
+
     // 현재 인덱스에 해당하는 패밀리 포토 이미지 서버 주소 획득
     final imageUrl = "${widget.serverBaseUrl}${dec.familyPhotos[_controller.currentPhotoIndex]}";
 
@@ -92,7 +112,7 @@ class _MultimediaViewState extends State<MultimediaView> {
           );
         },
         // 이미지 객체의 갱신 및 스위칭 감지를 위해 ValueKey 주입
-        child: _buildImage(imageUrl, ValueKey(_controller.currentPhotoIndex)),
+        child: _buildImage(localPath, imageUrl, ValueKey(_controller.currentPhotoIndex)),
       );
     } else {
       // 2) 기본값 FADE 교차 효과 처리 (불투명도가 점점 살아남)
@@ -104,18 +124,34 @@ class _MultimediaViewState extends State<MultimediaView> {
             child: child,
           );
         },
-        child: _buildImage(imageUrl, ValueKey(_controller.currentPhotoIndex)),
+        child: _buildImage(localPath, imageUrl, ValueKey(_controller.currentPhotoIndex)),
       );
     }
   }
 
-  /// [네트워크 이미지 렌더러 구성]
-  /// 서버에서 사진 데이터를 안전하게 불러오며, 엑박 발생 시 경고 플레이스홀더 아이콘을 매핑합니다.
-  Widget _buildImage(String url, Key key) {
+  /// [이미지 렌더러 구성]
+  /// 로컬 파일 캐시 경로([localPath])가 존재하는 경우 `Image.file`로 렌더링하고,
+  /// 없거나 로딩 실패 시 네트워크 이미지([networkUrl])로 폴백합니다.
+  Widget _buildImage(String? localPath, String networkUrl, Key key) {
+    if (localPath != null && localPath.isNotEmpty && !kIsWeb) {
+      return SizedBox.expand(
+        key: key,
+        child: Image.file(
+          io.File(localPath),
+          fit: BoxFit.contain,
+          errorBuilder: (c, e, s) => Image.network(
+            networkUrl,
+            fit: BoxFit.contain,
+            errorBuilder: (c, e, s) => const Icon(Icons.broken_image, size: 100, color: Colors.white10),
+          ),
+        ),
+      );
+    }
+
     return SizedBox.expand(
       key: key,
       child: Image.network(
-        url,
+        networkUrl,
         fit: BoxFit.contain, // 이미지 원본 비율을 깨지 않고 전체 채우기
         errorBuilder: (c, e, s) => const Icon(Icons.broken_image, size: 100, color: Colors.white10),
       ),

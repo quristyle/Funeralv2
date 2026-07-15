@@ -54,6 +54,19 @@ class _EntranceGuideViewState extends State<EntranceGuideView> {
     super.dispose();
   }
 
+  /// [위젯 설정 갱신 대응]
+  @override
+  void didUpdateWidget(covariant EntranceGuideView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.deviceCode != widget.deviceCode || oldWidget.serverBaseUrl != widget.serverBaseUrl) {
+      _controller.init(
+        widget.serverBaseUrl,
+        widget.deviceCode,
+        () => setState(() {}),
+      );
+    }
+  }
+
   /// [날짜 포맷 헬퍼]
   /// DateTime 객체를 'YYYY년 MM월 DD일 (요일)' 형태의 문자열로 변환합니다.
   String _formatDate(DateTime dt) {

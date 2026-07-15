@@ -3,7 +3,6 @@ import '../../models/device_models.dart';
 import '../../services/api/api_service.dart';
 import '../../services/cache/cache_manager.dart';
 import '../../services/player/media_player_service.dart';
-import '../../services/signalr/signalr_service.dart';
 
 /// [영정 화면 및 제례 제어 컨트롤러]
 /// 빈소 내부 제단에 놓이는 대형 영정 사이니지 화면(`FUNERAL_PORTRAIT`)에 
@@ -11,7 +10,6 @@ import '../../services/signalr/signalr_service.dart';
 class PortraitController extends ChangeNotifier {
   final ApiService _apiService = ApiService(); // 서버 API 서비스
   final CacheManager _cacheManager = CacheManager(); // 미디어 캐시 매니저
-  final SignalRService _signalRService = SignalRService(); // 실시간 푸시 서비스
   final MediaPlayerService playerService = MediaPlayerService(); // 비디오/오디오 엔진 서비스
 
   DeviceDto? device; // 장비 설정 정보
@@ -157,15 +155,6 @@ class PortraitController extends ChangeNotifier {
       statusMessage = '재생 중';
       notifyListeners();
     }
-
-    // 5. SignalR 실시간 소켓 연결 (서버에서 변경 노티 수신 시 init 재기동하도록 설계)
-    await _signalRService.connect(
-      serverUrl: serverBaseUrl,
-      deviceCode: deviceCode,
-      onDeviceChanged: () {
-        if (!_isDisposed) init(serverBaseUrl, deviceCode, onVideoInitialized);
-      },
-    );
   }
 
   /// [고인 영정사진 파일 경로 Getter]

@@ -3,7 +3,6 @@ import '../../models/device_models.dart';
 import '../../services/api/api_service.dart';
 import '../../services/player/media_player_service.dart';
 import '../../services/cache/cache_manager.dart';
-import '../../services/signalr/signalr_service.dart';
 
 /// [호실 입구 안내 컨트롤러]
 /// 개별 호실(빈소) 입구에 배치되는 사이니지 안내판(ROOM_GUIDE)에 데이터를 바인딩하고
@@ -12,7 +11,6 @@ class RoomGuideController extends ChangeNotifier {
   final ApiService _apiService = ApiService(); // 서버 API 서비스
   final MediaPlayerService playerService = MediaPlayerService(); // 미디어 재생 서비스
   final CacheManager _cacheManager = CacheManager(); // 미디어 캐시 매니저
-  final SignalRService _signalRService = SignalRService(); // 실시간 통신 서비스
 
   DeviceDto? device; // 장비 설정 정보
   DeceasedDto? deceased; // 빈소에 모셔진 고인의 정보
@@ -79,15 +77,6 @@ class RoomGuideController extends ChangeNotifier {
             : deceased!.memorialPhotoUrl;
         deceasedPhotoPath = await _cacheManager.getCachedFileByPath(serverBaseUrl, photoPath);
       }
-
-      // 5. SignalR 소켓 연결 설정 (서버 측 이벤트 변경 노티 바인딩)
-      await _signalRService.connect(
-        serverUrl: serverBaseUrl,
-        deviceCode: deviceCode,
-        onDeviceChanged: () {
-          if (!_isDisposed) init(serverBaseUrl, deviceCode, onRefresh);
-        },
-      );
     }
 
     isLoading = false;

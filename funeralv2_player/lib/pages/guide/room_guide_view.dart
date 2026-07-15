@@ -47,6 +47,19 @@ class _RoomGuideViewState extends State<RoomGuideView> {
     super.dispose();
   }
 
+  /// [위젯 설정 갱신 대응]
+  @override
+  void didUpdateWidget(covariant RoomGuideView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.deviceCode != widget.deviceCode || oldWidget.serverBaseUrl != widget.serverBaseUrl) {
+      _controller.init(
+        widget.serverBaseUrl,
+        widget.deviceCode,
+        () => setState(() {}),
+      );
+    }
+  }
+
   /// [위젯 빌드]
   /// 컨트롤러 상태를 구독하며 로딩 및 에러 처리 후 공통 셸(`PlayerShell`)에 콘텐츠 위젯을 주입합니다.
   @override

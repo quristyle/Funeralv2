@@ -5,6 +5,7 @@ import 'package:media_kit/media_kit.dart';
 import 'package:window_manager/window_manager.dart';
 import 'pages/device_dispatcher.dart';
 import 'pages/settings_screen.dart'; // 분리된 환경설정 화면 임포트
+import 'package:http/http.dart' as http;
 
 /// [앱의 시작점] main 함수
 /// Flutter 앱이 구동될 때 가장 먼저 호출되는 함수입니다.
@@ -23,25 +24,41 @@ void main() async {
     try {
       // 창 관리자(window_manager)를 초기화합니다.
       await windowManager.ensureInitialized();
-      
-      // 창의 초기 옵션을 설정합니다. (중앙 정렬, 검은 배경, 제목 표시줄 숨김 등)
+
+      // 저장된 서버 URL을 확인하여 로컬 개발 환경인지 판별합니다.
+      final prefs = await SharedPreferences.getInstance();
+      final serverUrl = prefs.getString('serverBaseUrl') ?? '';
+      final isLocal = serverUrl.contains('localhost') || serverUrl.contains('127.0.0.1');
+
       WindowOptions windowOptions = const WindowOptions(
-        center: true,
-        backgroundColor: Colors.black,
-        skipTaskbar: false,
-        titleBarStyle: TitleBarStyle.hidden,
       );
+
+      // [로컬 환경 체크] localhost가 아닐 때만 전체화면과 최상단 고정 설정을 적용합니다.
+      if (!isLocal) {
+        // 창의 초기 옵션을 설정합니다. (중앙 정렬, 검은 배경, 제목 표시줄 숨김 등)
+        windowOptions = const WindowOptions(
+          center: true,
+          backgroundColor: Colors.black,
+          skipTaskbar: false,
+          titleBarStyle: TitleBarStyle.hidden,
+        );
+      }
       
       // 설정한 옵션으로 창이 준비되면 화면에 표시합니다.
       await windowManager.waitUntilReadyToShow(windowOptions, () async {
         await windowManager.show();
         await windowManager.focus();
         
-        // 창이 뜬 후 아주 짧은 시간(0.2초) 뒤에 전체화면과 최상단 고정 설정을 적용합니다.
-        Future.delayed(const Duration(milliseconds: 200), () async {
-          await windowManager.setFullScreen(true);
-          await windowManager.setAlwaysOnTop(true);
-        });
+        // [로컬 환경 체크] localhost가 아닐 때만 전체화면과 최상단 고정 설정을 적용합니다.
+        if (!isLocal) {
+          print('[Main] 상용 환경 감지: 전체화면 및 최상단 고정을 적용합니다.');
+          Future.delayed(const Duration(milliseconds: 200), () async {
+            await windowManager.setFullScreen(true);
+            await windowManager.setAlwaysOnTop(true);
+          });
+        } else {
+          print('[Main] 로컬 개발 환경 감지: 전체화면 설정을 건너뜁니다.');
+        }
       });
     } catch (e) {
       print('[Main] 창 설정 실패: $e');
@@ -127,6 +144,21 @@ class _MainRouterState extends State<MainRouter> {
   /// 사용자가 입력한 새로운 설정 정보를 로컬 저장소에 저장하는 함수입니다.
   Future<void> _saveConfiguration(String server, String code, String ip, String mac, String publicIp, int rotationTurns) async {
     print('[MainRouter] 설정 저장: code=$code, rotationTurns=$rotationTurns');
+    
+    // 기존 장비코드가 존재하고, 새로 입력한 장비코드와 다를 경우 백엔드에 즉시 OFFLINE 처리 요청
+    final oldCode = deviceCode;
+    if (oldCode != null && oldCode.isNotEmpty && oldCode != code) {
+      print('[MainRouter] 장비코드 변경 감지: $oldCode -> $code. 기존 장비 오프라인 전환 요청 전송.');
+      try {
+        final cleanServer = server.endsWith('/') ? server.substring(0, server.length - 1) : server;
+        final url = Uri.parse('$cleanServer/api/funeral/building/device/status/$oldCode?status=OFFLINE');
+        await http.put(url).timeout(const Duration(seconds: 3));
+        print('[MainRouter] 기존 장비($oldCode) OFFLINE 처리 완료');
+      } catch (e) {
+        print('[MainRouter] 기존 장비 오프라인 처리 통신 실패: $e');
+      }
+    }
+
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('serverBaseUrl', server);
     await prefs.setString('deviceCode', code);

@@ -3,7 +3,6 @@ import '../../models/device_models.dart';
 import '../../services/api/api_service.dart';
 import '../../services/player/media_player_service.dart';
 import '../../services/cache/cache_manager.dart';
-import '../../services/signalr/signalr_service.dart';
 
 /// [입구 종합 안내 컨트롤러]
 /// 장례식장 입구 종합 안내판(ENTRANCE_GUIDE) 화면에 표출할 데이터와 미디어를 로드하고 관리합니다.
@@ -11,7 +10,6 @@ class EntranceGuideController extends ChangeNotifier {
   final ApiService _apiService = ApiService(); // 서버 API 서비스
   final MediaPlayerService playerService = MediaPlayerService(); // 미디어 재생 서비스
   final CacheManager _cacheManager = CacheManager(); // 미디어 캐시 매니저
-  final SignalRService _signalRService = SignalRService(); // 실시간 알림 서비스
 
   DeviceDto? device; // 장비 설정 정보
   List<EntranceGuideRoomDto> guideRooms = []; // 입구 안내판에 노출할 빈소/호실 목록 데이터
@@ -56,16 +54,6 @@ class EntranceGuideController extends ChangeNotifier {
           await playerService.playVideo(localVideoPath, onVideoInitialized);
         }
       }
-
-      // 4. 실시간 설정 변경 및 데이터 업데이트 알림 이벤트 등록
-      await _signalRService.connect(
-        serverUrl: serverBaseUrl,
-        deviceCode: deviceCode,
-        onDeviceChanged: () {
-          // 서버에서 데이터 변경 노티가 오면 본 초기화 함수를 처음부터 다시 호출해 갱신을 진행합니다.
-          if (!_isDisposed) init(serverBaseUrl, deviceCode, onVideoInitialized);
-        },
-      );
     }
 
     isLoading = false;

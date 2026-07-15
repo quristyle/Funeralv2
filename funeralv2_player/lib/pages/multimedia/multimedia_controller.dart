@@ -4,7 +4,6 @@ import '../../models/device_models.dart';
 import '../../services/api/api_service.dart';
 import '../../services/player/media_player_service.dart';
 import '../../services/cache/cache_manager.dart';
-import '../../services/signalr/signalr_service.dart';
 
 /// [멀티미디어 추모 롤링 컨트롤러]
 /// 빈소 유족들이 업로드한 가족/추모 사진 목록([familyPhotos])을 순차적으로 롤링(슬라이드)하고,
@@ -13,7 +12,6 @@ class MultimediaController extends ChangeNotifier {
   final ApiService _apiService = ApiService(); // 서버 API 서비스
   final MediaPlayerService playerService = MediaPlayerService(); // 미디어 재생 서비스
   final CacheManager _cacheManager = CacheManager(); // 캐시 관리 매니저
-  final SignalRService _signalRService = SignalRService(); // 실시간 통신 서비스
 
   DeviceDto? device; // 장비 설정 정보
   DeceasedDto? deceased; // 고인 상세 정보
@@ -24,6 +22,9 @@ class MultimediaController extends ChangeNotifier {
   Timer? _rotationTimer;
   bool isLoading = false; // 로딩 중 플래그
   bool _isDisposed = false; // 메모리 해제 확인 플래그
+
+  // 로컬에 캐싱된 사진 경로들의 리스트
+  List<String> localPhotoPaths = [];
 
   /// [자원 해제]
   /// 컨트롤러 파괴 시 슬라이드 루프 타이머를 멈추고 재생 자원을 반납합니다.
@@ -78,17 +79,21 @@ class MultimediaController extends ChangeNotifier {
         }
       }
 
-      // 5. 사진 자동 롤링 슬라이드 타이머 기동
-      _startPhotoRotation();
+      // 5. 가족 사진 캐싱 동기화
+      localPhotoPaths.clear();
+      if (deceased != null) {
+        for (var photoPath in deceased!.familyPhotos) {
+          final lp = await _cacheManager.getCachedFileByPath(serverBaseUrl, photoPath);
+          if (lp != null) {
+            localPhotoPaths.add(lp);
+          } else {
+            localPhotoPaths.add('');
+          }
+        }
+      }
 
-      // 6. 실시간 신호 커넥션 대기
-      await _signalRService.connect(
-        serverUrl: serverBaseUrl,
-        deviceCode: deviceCode,
-        onDeviceChanged: () {
-          if (!_isDisposed) init(serverBaseUrl, deviceCode, onRefresh);
-        },
-      );
+      // 6. 사진 자동 롤링 슬라이드 타이머 기동
+      _startPhotoRotation();
     }
 
     isLoading = false;

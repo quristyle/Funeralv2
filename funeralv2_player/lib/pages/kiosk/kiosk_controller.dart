@@ -3,7 +3,6 @@ import '../../models/device_models.dart';
 import '../../services/api/api_service.dart';
 import '../../services/player/media_player_service.dart';
 import '../../services/cache/cache_manager.dart';
-import '../../services/signalr/signalr_service.dart';
 
 /// [종합 안내 키오스크 컨트롤러]
 /// 대고객 터치형 종합 키오스크(KIOSK) 화면에 표출할 전체 호실 현황, 약도 및 주차장 미디어 경로를 
@@ -12,7 +11,6 @@ class KioskController extends ChangeNotifier {
   final ApiService _apiService = ApiService(); // 서버 API 서비스
   final MediaPlayerService playerService = MediaPlayerService(); // 비디오/사운드 재생 서비스
   final CacheManager _cacheManager = CacheManager(); // 미디어 캐시 매니저
-  final SignalRService _signalRService = SignalRService(); // 실시간 통신 서비스
 
   DeviceDto? device; // 장비 설정 정보
   List<EntranceGuideRoomDto> rooms = []; // 전체 호실 정보 보관 리스트
@@ -62,15 +60,6 @@ class KioskController extends ChangeNotifier {
       } else {
         await playerService.stopVideo();
       }
-
-      // 4. 실시간 설정 동기화 웹소켓 소켓 연결 바인딩
-      await _signalRService.connect(
-        serverUrl: serverBaseUrl,
-        deviceCode: deviceCode,
-        onDeviceChanged: () {
-          if (!_isDisposed) init(serverBaseUrl, deviceCode, onVideoInitialized);
-        },
-      );
     }
 
     isLoading = false;
