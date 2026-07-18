@@ -30,10 +30,17 @@ function onReset() {
 }
 </script>
 
+<style scoped>
+.ant-form-item{
+  margin-bottom: 0rem !important;
+}
+</style>
+
+
 <template>
-  <div class="mb-4 bg-card p-5 rounded-lg shadow-sm border border-border">
-    <Form layout="horizontal" class="space-y-4">
-      <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+  <div class="mb-4 bg-card p-4 rounded-lg shadow-sm border border-border">
+    <Form layout="horizontal" class="flex justify-end  space-y-1">
+      <div class="flex grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 pr-2">
         <!-- 회사 필터 -->
         <Form.Item 
           label="회사 필터" 

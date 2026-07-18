@@ -169,7 +169,7 @@ async function handleUpdateDeviceMedia(payload: { deviceId: string; type: 'video
     />
 
     <!-- ── 빈소 현황 대시보드 콘텐츠 영역 ────────────────────────────── -->
-    <div class="flex-1 overflow-auto bg-background/50 rounded-lg p-2">
+    <div class="flex-1 overflow-auto bg-background/50 rounded-lg p-0">
       <div v-if="loading" class="flex h-96 items-center justify-center">
         <Spin size="large" tip="빈소 현황 데이터를 조회 중입니다..." />
       </div>
