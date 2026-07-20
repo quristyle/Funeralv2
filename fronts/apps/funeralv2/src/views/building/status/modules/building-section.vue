@@ -228,39 +228,39 @@ const deviceTypeMap: Record<string, { label: string; color: string }> = {
       <!-- 건물 하위 층별 섹션 및 호실 카드 배치 -->
       <div v-if="groupedFloors.length > 0" class="space-y-1">
 
-        <div class="flex gap-2">
+        <div class="flex flex-wrap gap-2">
 
-        <div 
-          v-for="floorGroup in groupedFloors" 
-          :key="floorGroup.floorId"
-          class="flex-wrap"
-        >
+          <div 
+            v-for="floorGroup in groupedFloors" 
+            :key="floorGroup.floorId"
+            class=""
+          >
 
 
-          <!-- 층 헤더 -->
-          <div class="flex items-center gap-2 border-border/30 pb-2 select-none">
-            <IconifyIcon icon="lucide:layers" class="size-4.5 text-primary/80" />
-            <h3 class="text-sm font-bold text-foreground">{{ floorGroup.floorName }}</h3>
-            <span class="text-xs text-muted-foreground font-medium">({{ floorGroup.rooms.length }}개 호실)</span>
+            <!-- 층 헤더 -->
+            <div class="flex items-center gap-2 border-border/30 pb-2 select-none">
+              <IconifyIcon icon="lucide:layers" class="size-4.5 text-primary/80" />
+              <h3 class="text-sm font-bold text-foreground">{{ floorGroup.floorName }}</h3>
+              <span class="text-xs text-muted-foreground font-medium">({{ floorGroup.rooms.length }}개 호실)</span>
+            </div>
+            
+            <!-- 해당 층의 호실 카드 그리드 -->
+            <div class="flex  gap-2">
+
+              <!-- 호실 카드 리스트 -->
+              <RoomCard class="h-[200px]"
+                v-for="room in floorGroup.rooms" 
+                :key="room.id" 
+                :room="room" 
+                :videos="videos"
+                :musics="musics"
+                @update-media="(payload) => emit('update-media', payload)"
+                @show-detail="(id) => emit('show-detail', id)"
+                @refresh="() => emit('refresh')"
+              />
+            </div>
+
           </div>
-          
-          <!-- 해당 층의 호실 카드 그리드 -->
-          <div class="flex  gap-4">
-
-            <!-- 호실 카드 리스트 -->
-            <RoomCard class="h-[200px]"
-              v-for="room in floorGroup.rooms" 
-              :key="room.id" 
-              :room="room" 
-              :videos="videos"
-              :musics="musics"
-              @update-media="(payload) => emit('update-media', payload)"
-              @show-detail="(id) => emit('show-detail', id)"
-              @refresh="() => emit('refresh')"
-            />
-          </div>
-
-        </div>
 
         </div>
       </div>

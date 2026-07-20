@@ -43,9 +43,9 @@ function onReset() {
       <div class="flex grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 pr-2">
         <!-- 회사 필터 -->
         <Form.Item 
-          label="회사 필터" 
+          label="회사" 
           class="mb-0 flex items-center" 
-          :label-col="{ style: 'width: 75px; text-align: right; margin-right: 8px;' }" 
+          :label-col="{ style: 'width: 55px; text-align: right; margin-right: 8px;' }" 
           :wrapper-col="{ style: 'flex: 1' }"
         >
           <BizSelect
@@ -60,9 +60,9 @@ function onReset() {
 
         <!-- 건물 필터 -->
         <Form.Item 
-          label="건물 필터" 
+          label="건물" 
           class="mb-0 flex items-center" 
-          :label-col="{ style: 'width: 75px; text-align: right; margin-right: 8px;' }" 
+          :label-col="{ style: 'width: 55px; text-align: right; margin-right: 8px;' }" 
           :wrapper-col="{ style: 'flex: 1' }"
         >
           <BizSelect
@@ -78,9 +78,9 @@ function onReset() {
 
         <!-- 층 필터 -->
         <Form.Item 
-          label="층 필터" 
+          label="층" 
           class="mb-0 flex items-center" 
-          :label-col="{ style: 'width: 75px; text-align: right; margin-right: 8px;' }" 
+          :label-col="{ style: 'width: 55px; text-align: right; margin-right: 8px;' }" 
           :wrapper-col="{ style: 'flex: 1' }"
         >
           <BizSelect
@@ -96,9 +96,9 @@ function onReset() {
 
         <!-- 고인명 -->
         <Form.Item 
-          label="고인명" 
+          label="고인" 
           class="mb-0 flex items-center" 
-          :label-col="{ style: 'width: 75px; text-align: right; margin-right: 8px;' }" 
+          :label-col="{ style: 'width: 55px; text-align: right; margin-right: 8px;' }" 
           :wrapper-col="{ style: 'flex: 1' }"
         >
           <Input 
@@ -112,9 +112,9 @@ function onReset() {
 
         <!-- 입실 기간 -->
         <Form.Item 
-          label="입실 기간" 
+          label="입실" 
           class="mb-0 flex items-center" 
-          :label-col="{ style: 'width: 75px; text-align: right; margin-right: 8px;' }" 
+          :label-col="{ style: 'width: 55px; text-align: right; margin-right: 8px;' }" 
           :wrapper-col="{ style: 'flex: 1' }"
         >
           <RangePicker 
@@ -126,9 +126,9 @@ function onReset() {
 
         <!-- 발인 기간 -->
         <Form.Item 
-          label="발인 기간" 
+          label="발인" 
           class="mb-0 flex items-center" 
-          :label-col="{ style: 'width: 75px; text-align: right; margin-right: 8px;' }" 
+          :label-col="{ style: 'width: 55px; text-align: right; margin-right: 8px;' }" 
           :wrapper-col="{ style: 'flex: 1' }"
         >
           <RangePicker 
