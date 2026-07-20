@@ -44,7 +44,17 @@ builder.Host.UseSerilog();
 // ============================================================
 // 2. 데이터베이스 구성 (PostgreSQL & EF Core)
 // ============================================================
-var connectionString = builder.Configuration["funeralv2"] ?? Environment.GetEnvironmentVariable("funeralv2");
+
+
+var connectionString = builder.Configuration.GetConnectionString("funeralv2") 
+                    ?? builder.Configuration["funeralv2"] 
+                    ?? Environment.GetEnvironmentVariable("funeralv2");
+
+
+Console.WriteLine($"aaaaaaaaaaaaaaaaaaaaaaaaaaa funeralv2api connectionString: {connectionString}");
+
+
+
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(connectionString, x => x.MigrationsHistoryTable("__EFMigrationsHistory", "smfr")));
 
