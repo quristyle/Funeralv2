@@ -70,9 +70,8 @@ const deviceTypeMap: Record<string, { label: string; color: string }> = {
     <div>
       <!-- 호실 카드 헤더 -->
       <div class="flex items-center justify-between mb-4">
-        <span class="font-bold text-base text-foreground leading-none">{{ room.name }}</span>
-        <Tag v-if="room.shortName" color="blue" class="m-0 select-none text-xs font-semibold">
-          {{ room.shortName }}
+        <Tag color="blue" class="m-0 select-none text-xs font-semibold">
+          {{ room.shortName??room.name }}
         </Tag>
       </div>
 
@@ -108,19 +107,10 @@ const deviceTypeMap: Record<string, { label: string; color: string }> = {
               <div>
                 <Tag v-if="room.deceased.status === 'IN_HOSPITAL'" color="processing" class="m-0 text-[10px] py-0 px-1.5">장례 진행중</Tag>
                 <Tag v-else-if="room.deceased.status === 'DISCHARGED'" color="warning" class="m-0 text-[10px] py-0 px-1.5">발인 완료</Tag>
-                <Tag v-else color="success" class="m-0 text-[10px] py-0 px-1.5">정산 완료</Tag>
+                <Tag v-else-if="room.deceased.status === 'SETTLEMENT_COMPLETED'" color="success" class="m-0 text-[10px] py-0 px-1.5" >정산 완료</Tag>
+                <Tag v-else color="red" class="m-0 text-[10px] py-0 px-1.5 cursor-pointer" @click="handleDepart">출상</Tag>
               </div>
 
-          <!-- 출상 처리 버튼 -->
-          <Button 
-            type="primary" 
-            danger 
-            size="small" 
-            class="shrink-0 text-[11px] h-7 px-2 font-medium"
-            @click="handleDepart"
-          >
-            출상
-          </Button>
 
 
             </div>
@@ -214,13 +204,3 @@ const deviceTypeMap: Record<string, { label: string; color: string }> = {
 
   </div>
 </template>
-
-<style scoped>
-/* 카드 마우스 호버 효과 미세 조율 */
-.bg-card {
-  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
-}
-.bg-card:hover {
-  transform: translateY(-2px);
-}
-</style>

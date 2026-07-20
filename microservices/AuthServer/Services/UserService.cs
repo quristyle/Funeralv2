@@ -63,7 +63,7 @@ public class UserService : IUserService
             Avatar = !string.IsNullOrEmpty(avatar) ? avatar : "https://gw.alipayobjects.com/zos/antfincdn/XAosXuNZyF/BiazfanxmamNRoxxVxka.png",
             AvatarGroupId = avatarGroupId,
             Desc = email ?? "등록된 설명이 없습니다.",
-            HomePath = homePath ?? "/dashboard/workspace",
+            HomePath = homePath ?? "/workspace",
             Roles = new List<string> { "super" }, // 기본 관리자 권한 부여
             Introduction = introduction,
             Phone = phone,
@@ -195,7 +195,7 @@ public class UserService : IUserService
         {
             AccountId = account.Id,
             DetailType = "HomePath",
-            Content = "/dashboard/workspace",
+            Content = "/workspace",
             IsPrimary = true
         });
 

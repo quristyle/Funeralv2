@@ -138,27 +138,47 @@ const deviceTypeMap: Record<string, { label: string; color: string }> = {
     </div>
 
     <!-- 아코디언 본문 영역 (펼침 상태일 때만 노출) -->
-    <div v-if="!collapsed" class="space-y-5">
+    <div v-if="!collapsed" class="space-y-5  flex flex-wrap gap-2">
 
 
-      <!-- 건물 공용 장비 목록 (배정 장비가 존재할 때만 표시) -->
+
+      <!-- 건물 하위 층별 섹션 및 호실 카드 배치 -->
+      <div v-if="groupedFloors.length > 0" class="space-y-1 flex flex-wrap gap-2">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        <!-- 건물 공용 장비 목록 (배정 장비가 존재할 때만 표시) -->
       <div 
         v-if="getBuildingFloorCommonDevices().length > 0"
-        class="border border-primary/20 bg-primary/5 rounded-xl p-4 flex flex-col gap-3"
+        class="flex flex-col gap-3"
       >
         <div class="flex items-center gap-2 select-none">
           <IconifyIcon icon="mdi:office-building-cog" class="size-5 text-primary" />
           <span class="text-sm font-bold text-foreground">건물 공용 서비스 장비</span>
           <span class="text-xs text-muted-foreground">({{ getBuildingFloorCommonDevices().length }}대)</span>
         </div>
-        <div class="flex flex-wrap gap-4">
+
+        <div class="border border-primary/20 bg-primary/5 rounded-xl p-4 h-[175px] flex flex-wrap gap-4">
 
 
 
-          <div 
-            v-for="device in getBuildingFloorCommonDevices()"
+          <div             v-for="device in getBuildingFloorCommonDevices()"
             :key="device.id"
-            class="flex flex-col gap-3 bg-card p-4 rounded-xl border border-border shadow-sm text-xs min-w-[260px] max-w-[320px]"
+            class="flex flex-col gap-3 bg-card p-4 rounded-xl border border-border shadow-sm text-xs max-w-[320px]"
           >
             <!-- 상단 장비명 & 상태 -->
             <div class="flex items-center justify-between">
@@ -178,9 +198,7 @@ const deviceTypeMap: Record<string, { label: string; color: string }> = {
                   <span class="text-[10px] text-muted-foreground/50">{{ device.code }}</span>
                 </div>
               </div>
-              <Tag :color="device.status === 'ONLINE' ? 'green' : 'red'" class="m-0 select-none">
-                {{ device.status === 'ONLINE' ? '온라인' : '오프라인' }}
-              </Tag>
+              <Badge :status="device.status === 'ONLINE' ? 'success' : 'error'" class="scale-75" />
             </div>
             
             <!-- 드롭다운 영역 -->
@@ -225,10 +243,29 @@ const deviceTypeMap: Record<string, { label: string; color: string }> = {
         </div>
       </div>
 
-      <!-- 건물 하위 층별 섹션 및 호실 카드 배치 -->
-      <div v-if="groupedFloors.length > 0" class="space-y-1">
 
-        <div class="flex flex-wrap gap-2">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
 
           <div 
             v-for="floorGroup in groupedFloors" 
@@ -248,7 +285,7 @@ const deviceTypeMap: Record<string, { label: string; color: string }> = {
             <div class="flex  gap-2">
 
               <!-- 호실 카드 리스트 -->
-              <RoomCard class="h-[200px]"
+              <RoomCard class="h-[175px]"
                 v-for="room in floorGroup.rooms" 
                 :key="room.id" 
                 :room="room" 
@@ -262,12 +299,20 @@ const deviceTypeMap: Record<string, { label: string; color: string }> = {
 
           </div>
 
-        </div>
+        
       </div>
 
       <div v-else class="py-12 text-center text-muted-foreground text-sm">
         등록된 호실이 없습니다.
       </div>
+
+
+
+
+
+
+
+
     </div>
   </div>
 </template>

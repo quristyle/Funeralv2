@@ -27,7 +27,7 @@ const userStore = useUserStore();
 
 // 이것은 예시 데이터이며, 실제 프로젝트에서는 실제 상황에 맞춰 조정이 필요합니다.
 // url은 내부 라우트일 수도 있으며, navTo 메서드에서 이를 식별하여 내부 페이지 이동을 처리합니다.
-// 예: url: /dashboard/workspace
+// 예: url: /workspace
 const projectItems: WorkbenchProjectItem[] = [
   {
     color: '',

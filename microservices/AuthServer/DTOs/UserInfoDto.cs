@@ -32,7 +32,7 @@ public class UserInfoDto
     public string? Desc { get; set; }
 
     /// <summary>로그인 후 리다이렉트될 기본 홈 경로</summary>
-    public string HomePath { get; set; } = "/dashboard/workspace";
+    public string HomePath { get; set; } = "/workspace";
 
     /// <summary>사용자가 보유한 권한(Role) 목록</summary>
     public List<string> Roles { get; set; } = new();
