@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 
 /// [장비 정보 DTO]
 /// 서버로부터 수신한 디스플레이 장비(사이니지)의 상세 설정 정보를 저장하는 데이터 모델입니다.
@@ -157,6 +158,12 @@ class DeviceDto {
       'memorialPaddingRight': memorialPaddingRight, 'memorialPaddingBottom': memorialPaddingBottom,
     };
   }
+
+  /// [사이니지 렌더링 상태 동등성 비교]
+  /// 화면 표출에 영향을 주는 모든 설정 필드를 한 번에 비교합니다.
+  /// 개별 필드를 나열해 비교하다 특정 필드(예: videoId)를 빠뜨려 변경이 반영되지 않는 문제를 방지하기 위해,
+  /// 직렬화 결과(toMap)를 통째로 비교하여 어떤 속성이 바뀌어도 확실히 감지되도록 합니다.
+  bool signageEquals(DeviceDto other) => mapEquals(toMap(), other.toMap());
 }
 
 /// [상주 정보 DTO]

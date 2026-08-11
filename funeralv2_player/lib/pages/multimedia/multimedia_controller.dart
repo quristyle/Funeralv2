@@ -5,11 +5,12 @@ import '../../services/api/api_service.dart';
 import '../../services/player/media_player_service.dart';
 import '../../services/cache/cache_manager.dart';
 import '../../services/cache/local_db_service.dart';
+import '../../services/device_update_bus.dart';
 
 /// [멀티미디어 추모 롤링 컨트롤러]
 /// 빈소 유족들이 업로드한 가족/추모 사진 목록([familyPhotos])을 순차적으로 롤링(슬라이드)하고,
 /// 추모 음원(오디오 BGM) 및 배경 영상을 자동 플레이하도록 제어합니다.
-class MultimediaController extends ChangeNotifier {
+class MultimediaController extends ChangeNotifier with DeviceAutoSync {
   final ApiService _apiService = ApiService(); // 서버 API 서비스
   final MediaPlayerService playerService = MediaPlayerService(); // 미디어 재생 서비스
   final CacheManager _cacheManager = CacheManager(); // 미디어 캐시 매니저
@@ -33,10 +34,16 @@ class MultimediaController extends ChangeNotifier {
   @override
   void dispose() {
     _isDisposed = true;
+    unbindAutoSync(); // 전역 설정 변경 버스 구독 해제
     _rotationTimer?.cancel();
     playerService.dispose();
     super.dispose();
   }
+
+  /// [자동 재동기화 진입점] 전역 버스 신호 수신 시 자신의 서버 동기화 루틴을 재실행합니다.
+  @override
+  Future<void> runAutoSync(String serverBaseUrl, String deviceCode, Function() onRefresh) =>
+      _syncWithServer(serverBaseUrl, deviceCode, onRefresh);
 
   /// [UI 갱신 알림 재정의]
   @override
@@ -99,6 +106,9 @@ class MultimediaController extends ChangeNotifier {
 
     // 2. 백그라운드 서버 동기화 작업 기동
     _syncWithServer(serverBaseUrl, deviceCode, onRefresh);
+
+    // 3. 전역 설정 변경 버스 구독 (SignalR 수신 시 뷰 재생성 없이 제자리 재동기화)
+    bindAutoSync(serverBaseUrl, deviceCode, onRefresh);
   }
 
   /// [백그라운드 비동기 서버 동기화 루틴]
@@ -112,13 +122,9 @@ class MultimediaController extends ChangeNotifier {
           fetchedDeceased = await _apiService.fetchDeceased(serverBaseUrl, deviceCode);
         }
 
-        // 변경점 검사
+        // 변경점 검사 (장비 렌더링 속성 전체 + 고인/가족사진)
         bool isChanged = device == null ||
-            device!.id != fetchedDevice.id ||
-            device!.isVideoEnabled != fetchedDevice.isVideoEnabled ||
-            device!.videoId != fetchedDevice.videoId ||
-            device!.isMusicEnabled != fetchedDevice.isMusicEnabled ||
-            device!.musicId != fetchedDevice.musicId ||
+            !device!.signageEquals(fetchedDevice) ||
             deceased?.id != fetchedDeceased?.id ||
             deceased?.familyPhotos.length != fetchedDeceased?.familyPhotos.length;
 

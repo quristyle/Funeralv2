@@ -4,11 +4,12 @@ import '../../services/api/api_service.dart';
 import '../../services/player/media_player_service.dart';
 import '../../services/cache/cache_manager.dart';
 import '../../services/cache/local_db_service.dart';
+import '../../services/device_update_bus.dart';
 
 /// [호실 입구 안내 컨트롤러]
 /// 개별 호실(빈소) 입구에 배치되는 사이니지 안내판(ROOM_GUIDE)에 데이터를 바인딩하고
 /// 미디어(배경 비디오 및 고인 영정 사진)의 로컬 캐시 다운로드 및 실시간 화면 갱신을 주도합니다.
-class RoomGuideController extends ChangeNotifier {
+class RoomGuideController extends ChangeNotifier with DeviceAutoSync {
   final ApiService _apiService = ApiService(); // 서버 API 서비스
   final MediaPlayerService playerService = MediaPlayerService(); // 미디어 재생 서비스
   final CacheManager _cacheManager = CacheManager(); // 미디어 캐시 매니저
@@ -26,9 +27,15 @@ class RoomGuideController extends ChangeNotifier {
   @override
   void dispose() {
     _isDisposed = true;
+    unbindAutoSync(); // 전역 설정 변경 버스 구독 해제
     playerService.dispose();
     super.dispose();
   }
+
+  /// [자동 재동기화 진입점] 전역 버스 신호 수신 시 자신의 서버 동기화 루틴을 재실행합니다.
+  @override
+  Future<void> runAutoSync(String serverBaseUrl, String deviceCode, Function() onRefresh) =>
+      _syncWithServer(serverBaseUrl, deviceCode, onRefresh);
 
   /// [UI 갱신 알림 재정의]
   @override
@@ -82,6 +89,9 @@ class RoomGuideController extends ChangeNotifier {
 
     // 2. 백그라운드 서버 비동기 동기화 시작 (UI 동기화 차단 해제)
     _syncWithServer(serverBaseUrl, deviceCode, onRefresh);
+
+    // 3. 전역 설정 변경 버스 구독 (SignalR 수신 시 뷰 재생성 없이 제자리 재동기화)
+    bindAutoSync(serverBaseUrl, deviceCode, onRefresh);
   }
 
   /// [백그라운드 서버 동기화 루틴]
@@ -95,12 +105,9 @@ class RoomGuideController extends ChangeNotifier {
           fetchedDeceased = await _apiService.fetchDeceased(serverBaseUrl, deviceCode);
         }
 
-        // 기존 캐시 상태와 백엔드 최신 상태 간에 변경 사항이 존재하는지 비교
+        // 기존 캐시 상태와 백엔드 최신 상태 간에 변경 사항이 존재하는지 비교 (장비 렌더링 속성 전체 + 고인 정보)
         bool isChanged = device == null ||
-            device!.id != fetchedDevice.id ||
-            device!.roomId != fetchedDevice.roomId ||
-            device!.isVideoEnabled != fetchedDevice.isVideoEnabled ||
-            device!.videoId != fetchedDevice.videoId ||
+            !device!.signageEquals(fetchedDevice) ||
             deceased?.id != fetchedDeceased?.id ||
             deceased?.name != fetchedDeceased?.name ||
             deceased?.burialDate != fetchedDeceased?.burialDate;

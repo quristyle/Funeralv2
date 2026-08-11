@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/device_models.dart';
 import '../services/api/api_service.dart';
 import '../services/signalr/signalr_service.dart';
+import '../services/device_update_bus.dart';
 import 'portrait/portrait_view.dart';
 import 'guide/room_guide_view.dart';
 import 'guide/entrance_guide_view.dart';
@@ -119,30 +120,25 @@ class _DeviceDispatcherState extends State<DeviceDispatcher> {
       if (!mounted) return;
 
       if (fetched != null) {
-        // 기존 캐시 정보와 서버의 최신 정보에 변동 사항이 있는지 검사
-        final isDifferent = device == null || 
-            _isLastConnectionFailed || // 서버 오프라인 복구 시에는 강제 갱신 유도
-            device!.id != fetched.id ||
-            device!.deviceType != fetched.deviceType ||
-            device!.roomId != fetched.roomId ||
-            device!.displayOrientation != fetched.displayOrientation || // 화면 방향 갱신 조건 추가
-            device!.portraitOrientation != fetched.portraitOrientation || // 영정 방향 갱신 조건 추가
-            device!.videoOrientation != fetched.videoOrientation || // 동영상 방향 갱신 조건 추가
-            device!.isVideoEnabled != fetched.isVideoEnabled ||
-            device!.isMusicEnabled != fetched.isMusicEnabled ||
-            device!.isMuted != fetched.isMuted ||
-            device!.contentIntervalSec != fetched.contentIntervalSec ||
-            device!.memorialPhotoEffect != fetched.memorialPhotoEffect ||
-            device!.isBackgroundImageEnabled != fetched.isBackgroundImageEnabled ||
-            device!.backgroundImageUrl != fetched.backgroundImageUrl;
+        // [뷰 재구성 판단] 위젯 자체가 달라지는 경우(장비 유형 변경), 최초 로드, 오프라인 복구 시에만
+        // 뷰를 통째로 새로 구성합니다. 나머지 설정 변경은 뷰를 유지한 채 활성 자식 컨트롤러가
+        // 제자리에서 동기화하도록 위임하여 화면 깜빡임(재생 재시작)을 없앱니다.
+        final bool needsViewRebuild = device == null ||
+            _isLastConnectionFailed || // 서버 오프라인 복구 시에는 강제 재구성 유도
+            device!.deviceType != fetched.deviceType; // 장비 유형이 바뀌면 렌더링 뷰 위젯 자체가 달라짐
 
         _isLastConnectionFailed = false; // 연결에 성공했으므로 실패 플래그 해제
 
-        if (isDifferent) {
-          print('[Dispatcher] [Background] 서버 데이터 갱신 및 차이 발견 -> 화면을 업데이트합니다.');
+        if (needsViewRebuild) {
+          print('[Dispatcher] [Background] 뷰 재구성 필요(유형 변경/최초/복구) -> 화면을 새로 구성합니다.');
           _handleDeviceLoaded(fetched);
         } else {
-          print('[Dispatcher] [Background] 데이터 일치 -> 화면 갱신을 생략하고 기존 재생 상태를 유지합니다.');
+          // 디스패처 상태만 최신화(라우팅 및 다음 비교 기준)하고 뷰는 재생성하지 않습니다.
+          device = fetched;
+          // 활성 화면 컨트롤러가 스스로 서버와 재동기화하도록 전역 신호를 브로드캐스트합니다.
+          // (변경분만 제자리 반영: 영상/음원은 실제 소스가 바뀐 경우에만 교체되어 깜빡임이 없습니다.)
+          print('[Dispatcher] [Background] 유형 동일 -> 제자리 동기화 신호 전송(뷰 유지).');
+          DeviceUpdateBus.instance.ping();
           _connectSignalR();
         }
       } else {

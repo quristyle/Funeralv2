@@ -4,11 +4,12 @@ import '../../services/api/api_service.dart';
 import '../../services/cache/cache_manager.dart';
 import '../../services/player/media_player_service.dart';
 import '../../services/cache/local_db_service.dart';
+import '../../services/device_update_bus.dart';
 
 /// [영정 화면 및 제례 제어 컨트롤러]
 /// 빈소 내부 제단에 놓이는 대형 영정 사이니지 화면(`FUNERAL_PORTRAIT`)에 
 /// 표출할 보정 영정 사진, 리본 장식 레이어, 텍스트 오버레이, 배경 이미지, 배경 오디오(추모곡)를 로드하고 통제합니다.
-class PortraitController extends ChangeNotifier {
+class PortraitController extends ChangeNotifier with DeviceAutoSync {
   final ApiService _apiService = ApiService(); // 서버 API 서비스
   final CacheManager _cacheManager = CacheManager(); // 미디어 캐시 매니저
   final MediaPlayerService playerService = MediaPlayerService(); // 비디오/오디오 엔진 서비스
@@ -30,9 +31,15 @@ class PortraitController extends ChangeNotifier {
   @override
   void dispose() {
     _isDisposed = true;
+    unbindAutoSync(); // 전역 설정 변경 버스 구독 해제
     playerService.dispose();
     super.dispose();
   }
+
+  /// [자동 재동기화 진입점] 전역 버스 신호 수신 시 자신의 서버 동기화 루틴을 재실행합니다.
+  @override
+  Future<void> runAutoSync(String serverBaseUrl, String deviceCode, Function() onRefresh) =>
+      _syncWithServer(serverBaseUrl, deviceCode, onRefresh);
 
   /// [UI 갱신 알림 재정의]
   @override
@@ -112,6 +119,9 @@ class PortraitController extends ChangeNotifier {
 
     // 2. 백그라운드 서버 동기화 작업 기동
     _syncWithServer(serverBaseUrl, deviceCode, onVideoInitialized);
+
+    // 3. 전역 설정 변경 버스 구독 (SignalR 수신 시 뷰 재생성 없이 제자리 재동기화)
+    bindAutoSync(serverBaseUrl, deviceCode, onVideoInitialized);
   }
 
   /// [백그라운드 비동기 서버 동기화 루틴]
@@ -125,15 +135,9 @@ class PortraitController extends ChangeNotifier {
           fetchedDeceased = await _apiService.fetchDeceased(serverBaseUrl, deviceCode);
         }
 
-        // 핵심 정보 변경점 대조
+        // 핵심 정보 변경점 대조 (장비 렌더링 속성 전체 + 고인 정보)
         bool isChanged = device == null ||
-            device!.id != fetchedDevice.id ||
-            device!.roomId != fetchedDevice.roomId ||
-            device!.isVideoEnabled != fetchedDevice.isVideoEnabled ||
-            device!.videoId != fetchedDevice.videoId ||
-            device!.isMusicEnabled != fetchedDevice.isMusicEnabled ||
-            device!.musicId != fetchedDevice.musicId ||
-            device!.backgroundImageUrl != fetchedDevice.backgroundImageUrl ||
+            !device!.signageEquals(fetchedDevice) ||
             deceased?.id != fetchedDeceased?.id ||
             deceased?.name != fetchedDeceased?.name;
 

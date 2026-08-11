@@ -4,11 +4,12 @@ import '../../services/api/api_service.dart';
 import '../../services/player/media_player_service.dart';
 import '../../services/cache/cache_manager.dart';
 import '../../services/cache/local_db_service.dart';
+import '../../services/device_update_bus.dart';
 import 'dart:convert';
 
 /// [입구 종합 안내 컨트롤러]
 /// 장례식장 입구 종합 안내판(ENTRANCE_GUIDE) 화면에 표출할 데이터와 미디어를 로드하고 관리합니다.
-class EntranceGuideController extends ChangeNotifier {
+class EntranceGuideController extends ChangeNotifier with DeviceAutoSync {
   final ApiService _apiService = ApiService(); // 서버 API 서비스
   final MediaPlayerService playerService = MediaPlayerService(); // 미디어 재생 서비스
   final CacheManager _cacheManager = CacheManager(); // 미디어 캐시 매니저
@@ -27,9 +28,15 @@ class EntranceGuideController extends ChangeNotifier {
   @override
   void dispose() {
     _isDisposed = true;
+    unbindAutoSync(); // 전역 설정 변경 버스 구독 해제
     playerService.dispose();
     super.dispose();
   }
+
+  /// [자동 재동기화 진입점] 전역 버스 신호 수신 시 자신의 서버 동기화 루틴을 재실행합니다.
+  @override
+  Future<void> runAutoSync(String serverBaseUrl, String deviceCode, Function() onRefresh) =>
+      _syncWithServer(serverBaseUrl, deviceCode, onRefresh);
 
   /// [UI 갱신 전파]
   /// Dispose된 위젯에서 리스너 갱신을 전파하다 오동작(Exception)이 발생하는 것을 막기 위해 안전 장치를 얹어 재정의합니다.
@@ -99,6 +106,9 @@ class EntranceGuideController extends ChangeNotifier {
 
     // 2. 백그라운드 서버 동기화 작업 기동
     _syncWithServer(serverBaseUrl, deviceCode, onVideoInitialized);
+
+    // 3. 전역 설정 변경 버스 구독 (SignalR 수신 시 뷰 재생성 없이 제자리 재동기화)
+    bindAutoSync(serverBaseUrl, deviceCode, onVideoInitialized);
   }
 
   /// [백그라운드 비동기 서버 동기화 루틴]
@@ -109,11 +119,9 @@ class EntranceGuideController extends ChangeNotifier {
       if (fetchedDevice != null && !_isDisposed) {
         final fetchedRooms = await _apiService.fetchEntranceGuideRooms(serverBaseUrl, deviceCode);
 
-        // 변경 사항 검출
+        // 변경 사항 검출 (장비 렌더링 속성 전체 + 안내 호실 목록)
         bool isChanged = device == null ||
-            device!.id != fetchedDevice.id ||
-            device!.isVideoEnabled != fetchedDevice.isVideoEnabled ||
-            device!.videoId != fetchedDevice.videoId ||
+            !device!.signageEquals(fetchedDevice) ||
             guideRooms.length != fetchedRooms.length;
 
         if (!isChanged) {

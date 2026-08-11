@@ -14,6 +14,10 @@ class MediaPlayerService {
   // 배경음악(BGM) 재생용 전용 오디오 Player 객체
   late final Player _musicPlayer = Player();
 
+  // 현재 로드되어 재생 중인 소스 경로 추적 (동일 소스 재오픈으로 인한 재시작/깜빡임 방지용)
+  String? _currentVideoPath;
+  String? _currentMusicPath;
+
   /// [생성자]
   /// 서비스 인스턴스 생성 시 고품질 화면을 위한 비디오 디코딩 드라이버 설정을 시작합니다.
   MediaPlayerService() {
@@ -49,6 +53,13 @@ class MediaPlayerService {
   /// 비디오가 준비되어 첫 프레임을 렌더링하기 시작하면 [onInitialized] 콜백을 실행합니다.
   Future<void> playVideo(String path, Function() onInitialized) async {
     try {
+      // [동일 소스 가드] 이미 같은 영상이 로드되어 재생 중이면 재오픈하지 않습니다.
+      // 설정 변경(SignalR) 시 영상 외 속성만 바뀌어도 재생이 처음부터 다시 시작되어 깜빡이는 현상을 방지합니다.
+      if (_currentVideoPath == path) {
+        onInitialized(); // 첫 프레임 렌더 콜백만 보장하고 재시작은 생략
+        return;
+      }
+
       // 반복 재생(무한 루프) 설정
       await player.setPlaylistMode(PlaylistMode.loop);
       // 백그라운드 영상이므로 사운드가 충돌하지 않도록 비디오 음소거 처리
@@ -64,7 +75,8 @@ class MediaPlayerService {
         }
         await player.open(Media(file.path));
       }
-      
+
+      _currentVideoPath = path; // 현재 로드된 영상 경로 기록
       onInitialized();
       print('[Video] MediaKit 재생 시작: $path');
     } catch (e) {
@@ -77,9 +89,16 @@ class MediaPlayerService {
   /// 음소거 여부([isMuted]) 및 기본 볼륨 값([volume])을 적용하며, 볼륨은 0부터 100 사이로 자동 클램핑됩니다.
   Future<void> playMusic(String path, double volume, {bool isMuted = false}) async {
     try {
+      // [동일 소스 가드] 이미 같은 음원이 재생 중이면 재오픈하지 않고 볼륨/음소거만 갱신합니다.
+      // 음원 외 속성 변경 시 BGM이 처음부터 다시 재생되는 현상을 방지합니다.
+      if (_currentMusicPath == path) {
+        await updateMusicVolume(volume, isMuted: isMuted);
+        return;
+      }
+
       await _musicPlayer.stop();
       await _musicPlayer.setPlaylistMode(PlaylistMode.loop);
-      
+
       // 음소거 상태면 볼륨 0, 아니면 설정된 볼륨 적용
       // media_kit의 볼륨 단위는 0.0 ~ 100.0 입니다.
       final double vol = isMuted ? 0.0 : volume.clamp(0.0, 100.0);
@@ -95,6 +114,8 @@ class MediaPlayerService {
         }
         await _musicPlayer.open(Media(file.path));
       }
+
+      _currentMusicPath = path; // 현재 로드된 음원 경로 기록
       print('[Music] 재생 시작 (볼륨: $vol): $path');
     } catch (e) {
       print('[Music Error] 재생 실패: $e');
@@ -112,6 +133,7 @@ class MediaPlayerService {
   /// 재생을 중지하고 마지막 프레임이 화면에 잔상으로 얹혀 있지 않도록 빈 비디어를 강제 로드하여 소거합니다.
   Future<void> stopVideo() async {
     try {
+      _currentVideoPath = null; // 현재 영상 경로 기록 해제 (다음 재생 시 정상 로드되도록)
       await player.stop();
       // 비디오가 종료되었을 때 마지막 프레임이 잔상으로 유지되는 문제를 소거하기 위해 빈 미디어를 엽니다.
       await player.open(Media(''));
@@ -120,6 +142,7 @@ class MediaPlayerService {
 
   /// [배경음악 재생 정지]
   Future<void> stopMusic() async {
+    _currentMusicPath = null; // 현재 음원 경로 기록 해제 (다음 재생 시 정상 로드되도록)
     await _musicPlayer.stop();
   }
 

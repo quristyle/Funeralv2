@@ -18,6 +18,7 @@ class SignalRService {
   int _reconnectAttempt = 0; // 재연결 시도 횟수
   static const int _maxReconnectDelaySec = 60; // 최대 재연결 대기 시간 (60초)
   String? _currentDeviceCode; // 현재 연결된 장비 코드 추적용 변수
+  bool _intentionalClose = false; // 의도적 종료 여부 플래그 (onclose에서 불필요한 자동 재연결 방지용)
 
   // 업데이트가 필요한 경우 화면 컴포넌트(Controller)에서 주입받아 호출할 콜백 함수
   Function()? _onDeviceChanged;
@@ -56,33 +57,30 @@ class SignalRService {
     print('[SignalR] 연결 프로세스 시작...');
 
     // 기존의 접속 정보가 있다면 안전하게 먼저 종료 처리합니다.
+    // 이 종료로 인해 옛 커넥션의 onclose가 발동하더라도 자동 재연결이 걸리지 않도록 의도적 종료로 표시합니다.
+    _intentionalClose = true;
     await _disposeConnection();
 
     final hubUrl = _buildHubUrl(serverUrl);
+    // [단일 재연결 정책] 라이브러리 자동 재연결(withAutomaticReconnect)을 제거하고,
+    // 지수 백오프 기반 수동 재연결(_scheduleManualReconnect)만 사용하여 이중 재연결로 인한 중복 발화를 방지합니다.
     _hubConnection = HubConnectionBuilder()
         .withUrl(hubUrl)
-        .withAutomaticReconnect(retryDelays: [0, 2000, 5000, 10000]) // 라이브러리 기본 자동 재연결 설정
         .build();
 
-    // 1) 자동 재연결에 성공했을 때의 콜백 등록
-    _hubConnection!.onreconnected(({connectionId}) {
-      print('[SignalR] 자동 재연결 성공. ConnectionId: $connectionId');
-      _reconnectAttempt = 0;
-      // 재연결 후 다시 장비를 허브에 등록
-      _registerDevice(deviceCode, ipAddress, macAddress, publicIpAddress);
-      
-      // 자동 재연결 성공 시 서버 측 변경 데이터 수신 강제 동기화 트리거
-      if (_onDeviceChanged != null) {
-        print('[SignalR] 재연결 완료에 따른 화면 데이터 갱신 트리거 호출');
-        _onDeviceChanged!();
-      }
-    });
-
-    // 2) 연결 세션이 완전히 끊어졌을 때의 예외 콜백 등록
+    // 연결 세션이 끊어졌을 때의 콜백 등록
     _hubConnection!.onclose(({error}) {
       print('[SignalR] 연결 완전 종료. error: ${error?.toString()}');
       _isConnecting = false;
-      // 연결이 영구 유실되지 않도록 수동 재연결 예약을 가동합니다.
+
+      // [의도적 종료 가드] disconnect()나 재연결 준비 과정에서 의도적으로 끊은 경우에는
+      // 재연결을 예약하지 않습니다. (좀비 재연결 타이머 생성으로 인한 무한 핑퐁 방지)
+      if (_intentionalClose) {
+        print('[SignalR] 의도적 종료로 확인됨 -> 자동 재연결 예약을 건너뜁니다.');
+        return;
+      }
+
+      // 예기치 못한 물리적 유실인 경우에만 수동 재연결 예약을 가동합니다.
       _scheduleManualReconnect(
         serverUrl: serverUrl,
         deviceCode: deviceCode,
@@ -106,6 +104,9 @@ class SignalRService {
     });
 
     try {
+      // 새 커넥션을 실제로 기동하기 직전에 의도적 종료 플래그를 해제합니다.
+      // 이 시점 이후의 onclose는 '예기치 못한 유실'로 간주되어 정상적으로 수동 재연결이 동작합니다.
+      _intentionalClose = false;
       // 소켓 통신을 기동합니다.
       await _hubConnection!.start();
       print('[SignalR] 연결 성공!');
@@ -160,11 +161,23 @@ class SignalRService {
     String? macAddress,
     String? publicIpAddress,
   }) {
+    // [코드 일치 가드] 이미 다른 장비 코드로 재구성되었거나 완전히 종료(_currentDeviceCode == null)된 경우,
+    // 예약 대상이 된 옛 장비 코드로는 재연결을 시도하지 않습니다. (옛 코드 부활로 인한 왕복 방지)
+    if (deviceCode != _currentDeviceCode) {
+      print('[SignalR] 재연결 예약 취소: 대상 코드($deviceCode)가 현재 코드($_currentDeviceCode)와 불일치.');
+      return;
+    }
+
     _reconnectTimer?.cancel();
     final delaySec = min(_maxReconnectDelaySec, 5 * pow(2, _reconnectAttempt).toInt());
     _reconnectAttempt++;
 
     _reconnectTimer = Timer(Duration(seconds: delaySec), () {
+      // 타이머 발동 시점에도 코드가 여전히 유효한지 재확인합니다.
+      if (deviceCode != _currentDeviceCode) {
+        print('[SignalR] 재연결 실행 취소: 대상 코드($deviceCode)가 현재 코드($_currentDeviceCode)와 불일치.');
+        return;
+      }
       connect(
         serverUrl: serverUrl,
         deviceCode: deviceCode,
@@ -181,8 +194,10 @@ class SignalRService {
   /// 서버에 UnregisterDevice 메서드를 날리고 모든 백그라운드 재연결 타이머를 정지합니다.
   Future<void> disconnect(String deviceCode) async {
     print('[SignalR] !!! 장치 구독 해제 및 모든 타이머 중단: $deviceCode');
+    // 의도적 종료로 표시하여, 이어지는 stop()이 트리거하는 onclose가 재연결을 예약하지 못하도록 합니다.
+    _intentionalClose = true;
     _currentDeviceCode = null; // 현재 매핑 코드 제거
-    
+
     // 1. 모든 타이머 및 상태 초기화 (재연결 방지)
     _reconnectTimer?.cancel();
     _reconnectTimer = null;
