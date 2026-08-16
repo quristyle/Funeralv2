@@ -150,11 +150,24 @@ defineExpose({ openCreate, openEdit });
             style="width: 100%"
           />
         </Form.Item>
+        <!--
+          IP/MAC 은 장비(플레이어)가 접속하면서 스스로 보고하는 값이므로 화면에서는 입력하지 않는다.
+          수기로 넣어봐야 장비가 접속하는 순간 실제 값으로 덮어써지기 때문에,
+          읽기 전용으로 보여주기만 한다.
+        -->
         <Form.Item label="IP 주소">
-          <Input v-model:value="formModel.ipAddress" placeholder="예: 192.168.1.100" />
+          <Input
+            v-model:value="formModel.ipAddress"
+            readonly
+            placeholder="장비 접속 시 자동 등록"
+          />
         </Form.Item>
         <Form.Item label="MAC 주소">
-          <Input v-model:value="formModel.macAddress" placeholder="예: 00:0a:95:9d:68:16" />
+          <Input
+            v-model:value="formModel.macAddress"
+            readonly
+            placeholder="장비 접속 시 자동 등록"
+          />
         </Form.Item>
       </Form>
     </div>
