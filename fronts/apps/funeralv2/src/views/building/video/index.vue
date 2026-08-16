@@ -183,9 +183,19 @@ function formatDate(dateStr?: string) {
           <Button v-if="row.status === 'FAILED'" type="link" size="small" @click="handleRetryThumbnail(row)" title="썸네일 재추출">
             <IconifyIcon icon="lucide:image" class="size-4" />
           </Button>
-          <Button v-if="row.status === 'FAILED'" type="link" size="small" @click="handleRetryWebm(row)" title="영상 재변환(H.264)">
-            <IconifyIcon icon="lucide:refresh-cw" class="size-4" />
-          </Button>
+          <!--
+            H.264 재변환. 변환 실패건 복구뿐 아니라 기존 WebM 자산을 H.264 로
+            다시 만들 때도 필요하므로 상태와 무관하게 항상 노출한다.
+            재인코딩은 수 분이 걸리는 무거운 작업이라 확인 절차를 둔다.
+          -->
+          <Popconfirm
+            title="이 영상을 H.264로 다시 변환하시겠습니까? 변환에 수 분이 걸릴 수 있습니다."
+            @confirm="handleRetryWebm(row)"
+          >
+            <Button type="link" size="small" title="H.264로 재변환">
+              <IconifyIcon icon="lucide:refresh-cw" class="size-4" />
+            </Button>
+          </Popconfirm>
           <Popconfirm title="해당 동영상을 삭제하시겠습니까?" @confirm="handleDelete(row)">
             <Button type="link" size="small" danger>
               <IconifyIcon icon="lucide:trash-2" class="size-4" />
