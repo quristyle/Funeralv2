@@ -1226,6 +1226,13 @@ public class DeceasedService : IDeceasedService
             _logger.LogError(ex, "Error fetching FAM_TYPE codes from AuthServer");
         }
 
+        // 조회에 성공한 경우에만 캐시한다.
+        // (AuthServer 가 잠시 죽었을 때 빈 목록이 30분간 고정되는 것을 막는다)
+        if (relationNames.Count > 0)
+        {
+            _cache.Set(FamTypeCacheKey, relationNames, FamTypeCacheDuration);
+        }
+
         return relationNames;
     }
 
