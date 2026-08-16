@@ -82,10 +82,11 @@ function handlePlay(row: any) {
   showPlayModal.value = true;
 }
 
-// 플레이 시뮬레이터 팝업 (WebM 변환본)
+// 플레이 시뮬레이터 팝업 (보관용 변환본 / H.264 MP4)
+// 필드명 webmUrl 은 과거 WebM 보관 시절의 이름이며, 실제 파일은 H.264/MP4 이다.
 function handlePlayWebm(row: any) {
   currentVideoUrl.value = row.webmUrl;
-  currentVideoName.value = row.name + ' (WebM)';
+  currentVideoName.value = row.name + ' (H.264)';
   showPlayModal.value = true;
 }
 
@@ -100,11 +101,11 @@ async function handleRetryThumbnail(row: any) {
   }
 }
 
-// WebM 재변환 처리
+// 보관용 변환본(H.264) 재변환 처리
 async function handleRetryWebm(row: any) {
   try {
     await retryWebm(row.id);
-    message.success('WebM 재변환이 요청되었습니다.');
+    message.success('영상 재변환(H.264)이 요청되었습니다.');
     gridApi.query();
   } catch (error) {
     message.error('재변환 요청 실패');
@@ -176,13 +177,13 @@ function formatDate(dateStr?: string) {
           <Button type="link" size="small" @click="handleEdit(row)" title="동영상 정보 수정">
             <IconifyIcon icon="lucide:edit-3" class="size-4" />
           </Button>
-          <Button v-if="row.hasWebm && row.webmUrl" type="link" size="small" @click="handlePlayWebm(row)" title="변환 영상(WebM) 재생">
+          <Button v-if="row.hasWebm && row.webmUrl" type="link" size="small" @click="handlePlayWebm(row)" title="변환 영상(H.264) 재생">
             <IconifyIcon icon="lucide:film" class="size-4 text-success" />
           </Button>
           <Button v-if="row.status === 'FAILED'" type="link" size="small" @click="handleRetryThumbnail(row)" title="썸네일 재추출">
             <IconifyIcon icon="lucide:image" class="size-4" />
           </Button>
-          <Button v-if="row.status === 'FAILED'" type="link" size="small" @click="handleRetryWebm(row)" title="WebM 재변환">
+          <Button v-if="row.status === 'FAILED'" type="link" size="small" @click="handleRetryWebm(row)" title="영상 재변환(H.264)">
             <IconifyIcon icon="lucide:refresh-cw" class="size-4" />
           </Button>
           <Popconfirm title="해당 동영상을 삭제하시겠습니까?" @confirm="handleDelete(row)">

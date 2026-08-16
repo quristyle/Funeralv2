@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Caching.Memory;
 using funeralv2Api.Data;
 using funeralv2Api.DTOs;
 using funeralv2Api.Entities;
@@ -22,16 +23,29 @@ public class DeceasedService : IDeceasedService
     private readonly IDeviceHubSender _deviceHubSender;
     private readonly IConfiguration _configuration;
 
+    private readonly IMemoryCache _cache;
+    private readonly IHttpClientFactory _httpClientFactory;
+
+    /// FAM_TYPE 공통코드 캐시 키
+    private const string FamTypeCacheKey = "common-code:FAM_TYPE";
+
+    /// 공통코드는 거의 바뀌지 않으므로 넉넉히 캐시한다.
+    private static readonly TimeSpan FamTypeCacheDuration = TimeSpan.FromMinutes(30);
+
     public DeceasedService(
-        AppDbContext context, 
-        ILogger<DeceasedService> logger, 
+        AppDbContext context,
+        ILogger<DeceasedService> logger,
         IDeviceHubSender deviceHubSender,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        IMemoryCache cache,
+        IHttpClientFactory httpClientFactory)
     {
         _context = context;
         _logger = logger;
         _deviceHubSender = deviceHubSender;
         _configuration = configuration;
+        _cache = cache;
+        _httpClientFactory = httpClientFactory;
     }
 
     /// <inheritdoc />
@@ -1156,13 +1170,27 @@ public class DeceasedService : IDeceasedService
         return urls;
     }
 
+    /// <summary>
+    /// 상주 관계코드(FAM_TYPE) 목록을 AuthServer 에서 가져온다.
+    ///
+    /// 이 메서드는 호실 단위 루프 안에서 반복 호출된다(호실 1개당 2회).
+    /// 예전에는 호출마다 new HttpClient() 로 AuthServer 에 HTTP 요청을 보내서,
+    /// 호실 수에 비례해 왕복 비용이 선형으로 늘어났다.
+    /// 공통코드는 사실상 정적인 데이터이므로 메모리에 캐시하고,
+    /// HttpClient 는 IHttpClientFactory 로 풀링해서 소켓 고갈을 막는다.
+    /// </summary>
     private async Task<Dictionary<string, string>> GetFamTypeRelationNamesAsync()
     {
+        if (_cache.TryGetValue(FamTypeCacheKey, out Dictionary<string, string>? cached) && cached != null)
+        {
+            return cached;
+        }
+
         var relationNames = new Dictionary<string, string>();
         var authServerUrl = _configuration["Services:AuthServer"] ?? "http://localhost:5264";
         var requestUrl = $"{authServerUrl.TrimEnd('/')}/system/common-code/FAM_TYPE?hierarchical=false";
 
-        using var client = new HttpClient();
+        var client = _httpClientFactory.CreateClient();
         try
         {
             _logger.LogInformation("Requesting FAM_TYPE codes from AuthServer: {RequestUrl}", requestUrl);

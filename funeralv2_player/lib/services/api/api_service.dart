@@ -18,7 +18,7 @@ class ApiService {
     final url = Uri.parse('$baseUrl/api/funeral/building/device/code/$deviceCode');
     print('[API Request] fetchDevice: $url');
     try {
-      final response = await http.get(url).timeout(const Duration(seconds: 4));
+      final response = await http.get(url).timeout(const Duration(seconds: 15));
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body);
         final device = DeviceDto.fromJson(json);
@@ -43,7 +43,7 @@ class ApiService {
     final url = Uri.parse('$baseUrl/api/funeral/building/deceased/deviceCode/$deviceCode');
     print('[API Request] fetchDeceased: $url');
     try {
-      final response = await http.get(url).timeout(const Duration(seconds: 4));
+      final response = await http.get(url).timeout(const Duration(seconds: 15));
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body);
         bool hasData = false;
@@ -76,7 +76,7 @@ class ApiService {
     final url = Uri.parse('$baseUrl/api/funeral/building/deceased/guide/deviceCode/$deviceCode');
     print('[API Request] fetchEntranceGuideRooms: $url');
     try {
-      final response = await http.get(url).timeout(const Duration(seconds: 4));
+      final response = await http.get(url).timeout(const Duration(seconds: 15));
       if (response.statusCode == 200) {
         final body = response.body;
         final json = jsonDecode(body);
@@ -115,7 +115,7 @@ class ApiService {
     final url = Uri.parse('$baseUrl/api/funeral/building/source/$sourceId');
     print('[API Request] fetchSourcePath: $url');
     try {
-      final response = await http.get(url).timeout(const Duration(seconds: 4));
+      final response = await http.get(url).timeout(const Duration(seconds: 15));
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body);
         Map<String, dynamic>? data;
@@ -153,7 +153,7 @@ class ApiService {
     final url = Uri.parse('$baseUrl/api/funeral/building/deceased/kiosk/deviceCode/$deviceCode');
     print('[API Request] fetchKioskRooms: $url');
     try {
-      final response = await http.get(url).timeout(const Duration(seconds: 4));
+      final response = await http.get(url).timeout(const Duration(seconds: 15));
       if (response.statusCode == 200) {
         final body = response.body;
         final json = jsonDecode(body);

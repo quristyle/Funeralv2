@@ -68,6 +68,8 @@ builder.Services.AddScoped<IDeviceConfigService, DeviceConfigService>();
 builder.Services.AddScoped<IDeviceRibbonService, DeviceRibbonService>();
 builder.Services.AddScoped<IDeviceTextOverlayService, DeviceTextOverlayService>();
 builder.Services.AddScoped<IMediaSourceService, MediaSourceService>();
+builder.Services.AddMemoryCache();
+builder.Services.AddHttpClient();
 builder.Services.AddScoped<IDeceasedService, DeceasedService>();
 builder.Services.AddScoped<IDeviceHubSender, DeviceHubSender>();
 

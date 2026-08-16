@@ -17,3 +17,6 @@ Migrations/
 **/.antigravitycli/
 **/appsettings.Local.json
 .agents/
+
+# packaging/build_deb.sh 가 만드는 배포 산출물 (.deb / .tar.gz)
+dist/

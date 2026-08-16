@@ -1,0 +1,152 @@
+name: release
+
+# 태그(v*)를 푸시하면 Windows x64 / Linux arm64 산출물을 빌드해 GitHub Release 에 첨부한다.
+# 수동 실행(workflow_dispatch)도 가능하며, 이 경우 버전은 0.0.0-dev 로 붙는다.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+env:
+  # 개발 PC / 라즈베리파이 / CI 세 곳의 Flutter 버전은 항상 동일하게 유지한다.
+  FLUTTER_VERSION: '3.44.4'
+  APP_DIR: funeralv2_player
+
+jobs:
+  # ---------------------------------------------------------------- Windows
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: 버전 결정
+        id: ver
+        shell: bash
+        run: |
+          case "$GITHUB_REF_NAME" in
+            v*) echo "v=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT" ;;
+            *)  echo "v=0.0.0-dev"            >> "$GITHUB_OUTPUT" ;;
+          esac
+
+      - name: 빌드
+        working-directory: ${{ env.APP_DIR }}
+        run: |
+          flutter pub get
+          flutter build windows --release `
+            --build-name=${{ steps.ver.outputs.v }} `
+            --build-number=${{ github.run_number }}
+
+      - name: 압축
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist | Out-Null
+          Compress-Archive `
+            -Path "${{ env.APP_DIR }}/build/windows/x64/runner/Release/*" `
+            -DestinationPath "dist/funeralv2_player-${{ steps.ver.outputs.v }}-windows-x64.zip"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-x64
+          path: dist/*
+
+  # ------------------------------------------------------------ Linux arm64
+  linux-arm64:
+    # 공개 저장소에서 무료로 쓸 수 있는 arm64 러너. QEMU 에뮬레이션 불필요.
+    runs-on: ubuntu-24.04-arm
+    # 배포 대상(라즈베리파이 OS trixie)과 동일한 환경에서 빌드해 glibc/libmpv 버전을 일치시킨다.
+    container: debian:trixie
+    steps:
+      - name: 빌드 의존성 설치
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            git curl ca-certificates unzip xz-utils zip file dpkg-dev \
+            clang cmake ninja-build pkg-config \
+            libgtk-3-dev liblzma-dev libstdc++-14-dev libmpv-dev libepoxy-dev
+
+      - uses: actions/checkout@v4
+
+      - name: Flutter SDK 설치
+        # Flutter 는 linux-arm64 용 공식 아카이브를 배포하지 않으므로
+        # subosito/flutter-action 을 쓸 수 없다(x64 SDK 를 받아와 실패한다).
+        # 반드시 git clone 으로 설치한다.
+        run: |
+          git clone --depth 1 -b "$FLUTTER_VERSION" \
+            https://github.com/flutter/flutter.git /opt/flutter
+          git config --global --add safe.directory /opt/flutter
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          echo /opt/flutter/bin >> "$GITHUB_PATH"
+
+      - name: 버전 결정
+        id: ver
+        run: |
+          case "$GITHUB_REF_NAME" in
+            v*) echo "v=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT" ;;
+            *)  echo "v=0.0.0-dev"            >> "$GITHUB_OUTPUT" ;;
+          esac
+
+      - name: 빌드
+        working-directory: ${{ env.APP_DIR }}
+        run: |
+          flutter config --enable-linux-desktop
+          flutter pub get
+          flutter build linux --release \
+            --build-name=${{ steps.ver.outputs.v }} \
+            --build-number=${{ github.run_number }}
+
+      - name: 패키징 (.deb / .tar.gz)
+        # Windows 에서 작성된 파일이라 실행 비트에 의존하지 않도록 bash 로 직접 호출한다.
+        run: bash packaging/build_deb.sh "${{ steps.ver.outputs.v }}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-arm64
+          path: dist/*
+
+  # ---------------------------------------------------------------- Release
+  release:
+    needs: [windows, linux-arm64]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: 체크섬 생성
+        run: |
+          cd dist
+          sha256sum * > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/v')
+        with:
+          files: dist/*
+          generate_release_notes: true
+          body: |
+            ## 설치
+
+            **라즈베리파이 (Raspberry Pi OS Lite 64-bit, Debian 13 trixie)**
+
+            ```
+            sudo apt install ./funeralv2-player_<버전>_arm64.deb
+            sudo reboot
+            ```
+
+            의존 패키지(libmpv2, libgtk-3-0t64, cage 등)는 apt 가 함께 설치한다.
+            재부팅하면 HDMI 화면에 전체화면으로 자동 실행된다.
+            해상도 등은 `/etc/default/funeralv2-player` 에서 조정한다.
+
+            **Windows 10/11 x64**
+
+            zip 을 풀고 `funeralv2_player.exe` 를 실행한다.
+            Microsoft Visual C++ 2015-2022 재배포 패키지가 필요하다.

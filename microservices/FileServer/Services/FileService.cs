@@ -203,9 +203,14 @@ public class FileService : IFileService
             var thumbStoredName = $"{thumbFileId}.jpg";
             var thumbnailImagePath = Path.Combine(videoFolder, thumbStoredName);
 
-            var webmFileId = Guid.NewGuid();
-            var webmStoredName = $"{webmFileId}.webm";
-            var webmPath = Path.Combine(videoFolder, webmStoredName);
+            // [보관용 변환본 포맷]
+            // 기존에는 VP9/WebM 으로 보관했으나 H.264/MP4 로 교체했다.
+            // 사이니지 재생 장비(라즈베리파이 등)에는 VP9 하드웨어 디코더가 없어 전량 소프트웨어
+            // 디코딩이 되는 반면, H.264 는 디코딩 부하가 절반 이하이고 하드웨어 디코더(h264_v4l2m2m)도
+            // 사용할 수 있다. DB/DTO 의 webm* 필드명은 하위 호환을 위해 그대로 둔다.
+            var convertedFileId = Guid.NewGuid();
+            var convertedStoredName = $"{convertedFileId}.mp4";
+            var convertedPath = Path.Combine(videoFolder, convertedStoredName);
 
             //--------------------------------------------------
             // Thumbnail
@@ -257,26 +262,17 @@ public class FileService : IFileService
             });
 
             //--------------------------------------------------
-            // WEBM
+            // 보관용 변환 (H.264 / MP4)
             //--------------------------------------------------
             _ = Task.Run(async () =>
             {
                 var conversionStartedAt = DateTime.UtcNow;
-                var args = $"-i \"{physicalPath}\" " +
-                           "-vf \"scale='min(1920,iw)':'min(1080,ih)':force_original_aspect_ratio=decrease,scale=trunc(iw/2)*2:trunc(ih/2)*2\" " +
-                           "-c:v libvpx-vp9 " +
-                           "-crf 30 " +
-                           "-b:v 0 " +
-                           "-row-mt 1 " +
-                           "-cpu-used 4 " +
-                           "-threads 2 " +
-                           "-c:a libopus " +
-                           $"\"{webmPath}\" -y";
+                var args = BuildH264TranscodeArgs(physicalPath, convertedPath);
                 try
                 {
-                    Console.WriteLine("[WebM] Start");
+                    Console.WriteLine("[H264] Start");
                     var result = await RunFfmpegAsync(args, TimeSpan.FromMinutes(30));
-                    Console.WriteLine($"[WebM] Success={result.Success}");
+                    Console.WriteLine($"[H264] Success={result.Success}");
                     var conversionCompletedAt = DateTime.UtcNow;
 
                     if (!result.Success)
@@ -286,15 +282,15 @@ public class FileService : IFileService
 
                     if (result.Success)
                     {
-                        var fileInfo = new FileInfo(webmPath);
-                        var webmMetadata = new FileMetadata
+                        var fileInfo = new FileInfo(convertedPath);
+                        var convertedMetadata = new FileMetadata
                         {
-                            Id = webmFileId,
-                            OriginalName = Path.GetFileNameWithoutExtension(metadata.OriginalName) + ".webm",
-                            StoredName = webmStoredName,
-                            Path = $"{GetBizFolder(bizType)}/Video/{webmStoredName}",
+                            Id = convertedFileId,
+                            OriginalName = Path.GetFileNameWithoutExtension(metadata.OriginalName) + ".mp4",
+                            StoredName = convertedStoredName,
+                            Path = $"{GetBizFolder(bizType)}/Video/{convertedStoredName}",
                             Size = fileInfo.Exists ? fileInfo.Length : 0,
-                            ContentType = "video/webm",
+                            ContentType = "video/mp4",
                             CreatedBy = "System",
                             CreatedAt = DateTime.UtcNow,
                             IsDeleted = false
@@ -303,14 +299,14 @@ public class FileService : IFileService
                         using (var scope = _scopeFactory.CreateScope())
                         {
                             var dbContext = scope.ServiceProvider.GetRequiredService<FileDbContext>();
-                            dbContext.FileMetadatas.Add(webmMetadata);
+                            dbContext.FileMetadatas.Add(convertedMetadata);
                             await dbContext.SaveChangesAsync();
                         }
                     }
 
-                    await NotifyStatusAsync(fileId, result.Success ? "COMPLETED" : "FAILED", true, result.Success, 
-                        webmUrl: result.Success ? $"/api/file/download/{webmFileId}" : null, 
-                        webmFileId: result.Success ? webmFileId : null,
+                    await NotifyStatusAsync(fileId, result.Success ? "COMPLETED" : "FAILED", true, result.Success,
+                        webmUrl: result.Success ? $"/api/file/download/{convertedFileId}" : null,
+                        webmFileId: result.Success ? convertedFileId : null,
                         errorMessage: result.Success ? null : result.StdErr,
                         conversionStartedAt: conversionStartedAt,
                         conversionCompletedAt: conversionCompletedAt,
@@ -432,31 +428,22 @@ public class FileService : IFileService
 
         try
         {
-            var webmFileId = Guid.NewGuid();
-            var webmStoredName = $"{webmFileId}.webm";
-            var webmPath = Path.Combine(videoFolder, webmStoredName);
+            var convertedFileId = Guid.NewGuid();
+            var convertedStoredName = $"{convertedFileId}.mp4";
+            var convertedPath = Path.Combine(videoFolder, convertedStoredName);
 
             //--------------------------------------------------
-            // WEBM Transcoding
+            // 보관용 재변환 (H.264 / MP4)
             //--------------------------------------------------
             _ = Task.Run(async () =>
             {
                 var conversionStartedAt = DateTime.UtcNow;
-                var args = $"-i \"{physicalPath}\" " +
-                           "-vf \"scale='min(1920,iw)':'min(1080,ih)':force_original_aspect_ratio=decrease,scale=trunc(iw/2)*2:trunc(ih/2)*2\" " +
-                           "-c:v libvpx-vp9 " +
-                           "-crf 30 " +
-                           "-b:v 0 " +
-                           "-row-mt 1 " +
-                           "-cpu-used 4 " +
-                           "-threads 2 " +
-                           "-c:a libopus " +
-                           $"\"{webmPath}\" -y";
+                var args = BuildH264TranscodeArgs(physicalPath, convertedPath);
                 try
                 {
-                    Console.WriteLine("[WebM Transcoding] Start");
+                    Console.WriteLine("[H264 Transcoding] Start");
                     var result = await RunFfmpegAsync(args, TimeSpan.FromMinutes(30));
-                    Console.WriteLine($"[WebM Transcoding] Success={result.Success}");
+                    Console.WriteLine($"[H264 Transcoding] Success={result.Success}");
                     var conversionCompletedAt = DateTime.UtcNow;
 
                     if (!result.Success)
@@ -466,15 +453,15 @@ public class FileService : IFileService
 
                     if (result.Success)
                     {
-                        var fileInfo = new FileInfo(webmPath);
-                        var webmMetadata = new FileMetadata
+                        var fileInfo = new FileInfo(convertedPath);
+                        var convertedMetadata = new FileMetadata
                         {
-                            Id = webmFileId,
-                            OriginalName = Path.GetFileNameWithoutExtension(metadata.OriginalName) + ".webm",
-                            StoredName = webmStoredName,
-                            Path = $"{GetBizFolder(bizType)}/Video/{webmStoredName}",
+                            Id = convertedFileId,
+                            OriginalName = Path.GetFileNameWithoutExtension(metadata.OriginalName) + ".mp4",
+                            StoredName = convertedStoredName,
+                            Path = $"{GetBizFolder(bizType)}/Video/{convertedStoredName}",
                             Size = fileInfo.Exists ? fileInfo.Length : 0,
-                            ContentType = "video/webm",
+                            ContentType = "video/mp4",
                             CreatedBy = "System",
                             CreatedAt = DateTime.UtcNow,
                             IsDeleted = false
@@ -483,15 +470,15 @@ public class FileService : IFileService
                         using (var scope = _scopeFactory.CreateScope())
                         {
                             var dbContext = scope.ServiceProvider.GetRequiredService<FileDbContext>();
-                            dbContext.FileMetadatas.Add(webmMetadata);
+                            dbContext.FileMetadatas.Add(convertedMetadata);
                             await dbContext.SaveChangesAsync();
                         }
                     }
 
-                    await NotifyStatusAsync(fileId, result.Success ? "COMPLETED" : "FAILED", 
-                        hasWebm: result.Success, 
-                        webmUrl: result.Success ? $"/api/file/download/{webmFileId}" : null, 
-                        webmFileId: result.Success ? webmFileId : null,
+                    await NotifyStatusAsync(fileId, result.Success ? "COMPLETED" : "FAILED",
+                        hasWebm: result.Success,
+                        webmUrl: result.Success ? $"/api/file/download/{convertedFileId}" : null,
+                        webmFileId: result.Success ? convertedFileId : null,
                         errorMessage: result.Success ? null : result.StdErr,
                         conversionStartedAt: conversionStartedAt,
                         conversionCompletedAt: conversionCompletedAt,
@@ -946,6 +933,31 @@ public class FileService : IFileService
         }
     }
 
+
+    /// <summary>
+    /// 보관용 영상 변환(H.264 / MP4) ffmpeg 인자를 만든다.
+    /// 업로드 직후 변환과 재변환(retry) 양쪽에서 같은 설정을 쓰도록 한 곳에 모아둔다.
+    ///
+    /// 선택 근거:
+    /// - libx264 high@4.0 / yuv420p : 라즈베리파이 4 의 하드웨어 디코더(h264_v4l2m2m)와
+    ///   구형 재생 장비까지 커버되는 가장 호환성 높은 조합.
+    /// - crf 23 / veryfast : 사이니지 배경 영상 용도로 화질과 변환 시간의 절충값.
+    /// - 최대 1920x1080 으로 축소, 짝수 해상도 보정(코덱 요구사항).
+    /// - faststart : 앞부분만 받아도 재생을 시작할 수 있게 moov 를 파일 앞으로 옮긴다.
+    /// </summary>
+    private static string BuildH264TranscodeArgs(string inputPath, string outputPath)
+    {
+        return $"-i \"{inputPath}\" " +
+               "-vf \"scale='min(1920,iw)':'min(1080,ih)':force_original_aspect_ratio=decrease,scale=trunc(iw/2)*2:trunc(ih/2)*2\" " +
+               "-c:v libx264 " +
+               "-profile:v high -level 4.0 " +
+               "-preset veryfast " +
+               "-crf 23 " +
+               "-pix_fmt yuv420p " +
+               "-c:a aac -b:a 128k -ac 2 " +
+               "-movflags +faststart " +
+               $"\"{outputPath}\" -y";
+    }
 
 private async Task<(bool Success, string StdOut, string StdErr)> RunFfmpegAsync(
     string arguments,

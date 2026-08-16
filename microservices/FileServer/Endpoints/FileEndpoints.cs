@@ -556,7 +556,7 @@ public static class FileEndpoints
             try
             {
                 await fileService.StartVideoWebmTranscodingAsync(id);
-                return Results.Ok(ApiResponse<object>.Ok(new { message = "WebM 트랜스코딩 작업이 트리거되었습니다." }));
+                return Results.Ok(ApiResponse<object>.Ok(new { message = "영상 재변환(H.264) 작업이 트리거되었습니다." }));
             }
             catch (Exception ex)
             {

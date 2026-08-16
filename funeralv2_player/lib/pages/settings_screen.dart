@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import '../services/display/display_mode_service.dart';
 
 /// [환경 설정 화면 위젯]
 /// 사이니지 단말이 백엔드 통합 서버와 소통할 수 있도록
@@ -60,6 +61,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
   // 로컬 수동 화면 회전값 (0: 0도, 1: 90도, 2: 180도, 3: 270도)
   late int _screenRotationTurns;
 
+  // 화면 비율(해상도) 프리셋 상태
+  DisplayAspect _displayAspect = DisplayAspect.ratio16x9;
+  // 해상도 적용 결과 안내 문구
+  String? _aspectMessage;
+  // 해상도 적용 중 여부 (중복 클릭 방지)
+  bool _applyingAspect = false;
+
   /// [화면 방향성과 회전 각도 턴수 정합성 보정]
   /// displayOrientation 속성값에 맞추어 수동 회전 각도 상태(_screenRotationTurns)가 모순되지 않도록 맞춥니다.
   /// (LANDSCAPE 시에는 짝수 0 또는 2턴, PORTRAIT 시에는 홀수 1 또는 3턴으로 강제 유도)
@@ -96,11 +104,100 @@ class _SettingsScreenState extends State<SettingsScreen> {
           'initialRotationTurns=${widget.initialRotationTurns} '
           '-> _screenRotationTurns=$_screenRotationTurns');
     
+    // 저장된 화면 비율(해상도) 프리셋을 불러옵니다.
+    DisplayModeService.loadSaved().then((aspect) {
+      if (mounted) setState(() => _displayAspect = aspect);
+    });
+
     // 첫 프레임이 다 그려진 후 자동으로 헬스체크 및 네트워크 정보 조회를 시도합니다.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _testConnection();
       _fetchNetworkDetails();
     });
+  }
+
+  /// [화면 비율(해상도) 프리셋 적용]
+  /// 선택한 비율의 해상도를 즉시 출력에 반영하고 로컬에 저장합니다.
+  /// 저장된 값은 앱이 다시 기동될 때도 자동으로 다시 적용됩니다.
+  Future<void> _applyDisplayAspect(DisplayAspect aspect) async {
+    if (_applyingAspect) return;
+
+    setState(() {
+      _applyingAspect = true;
+      _aspectMessage = '${aspect.label} 적용 중...';
+    });
+
+    final (ok, message) = await DisplayModeService.apply(aspect);
+    if (ok) {
+      await DisplayModeService.save(aspect);
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _applyingAspect = false;
+      _aspectMessage = message;
+      if (ok) _displayAspect = aspect;
+    });
+  }
+
+  /// [화면 비율 선택 버튼 한 개]
+  Widget _buildAspectButton(DisplayAspect aspect) {
+    final bool selected = _displayAspect == aspect;
+    final bool enabled = DisplayModeService.isSupported && !_applyingAspect;
+
+    return Expanded(
+      child: OutlinedButton(
+        style: OutlinedButton.styleFrom(
+          backgroundColor: selected ? const Color(0xFFC0A060) : Colors.transparent,
+          foregroundColor: selected ? Colors.black : Colors.white70,
+          side: BorderSide(color: selected ? const Color(0xFFC0A060) : Colors.white24),
+          minimumSize: const Size(0, 44),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+        onPressed: enabled ? () => _applyDisplayAspect(aspect) : null,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(aspect.label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+            Text(
+              '${aspect.width}x${aspect.height}',
+              style: TextStyle(
+                fontSize: 11,
+                color: selected ? Colors.black54 : Colors.white38,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// [화면 비율(해상도) 설정 영역]
+  Widget _buildAspectSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          '화면 해상도',
+          style: TextStyle(color: Color(0xFFC0A060), fontWeight: FontWeight.bold, fontSize: 13),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            _buildAspectButton(DisplayAspect.ratio16x9),
+            const SizedBox(width: 12),
+            _buildAspectButton(DisplayAspect.ratio16x10),
+          ],
+        ),
+        const SizedBox(height: 6),
+        Text(
+          DisplayModeService.isSupported
+              ? (_aspectMessage ?? '패널 비율에 맞는 해상도를 선택하면 즉시 적용됩니다.')
+              : '해상도 전환은 라즈베리파이(Linux) 환경에서만 지원됩니다.',
+          style: const TextStyle(color: Colors.white38, fontSize: 11),
+        ),
+      ],
+    );
   }
 
   /// [위젯 설정값 변경 감지 수신]
@@ -417,9 +514,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           ],
                         ),
                       ),
+                      const SizedBox(height: 14),
+                      const Divider(color: Colors.white12, height: 1),
+                      const SizedBox(height: 10),
+
+                      // 4) 화면 비율(해상도) 프리셋 선택 영역
+                      _buildAspectSection(),
                       const SizedBox(height: 20),
-                      
-                      // 4) 버튼 제어 영역
+
+                      // 5) 버튼 제어 영역
                       Row(
                         children: [
                           if (widget.onCancel != null) ...[

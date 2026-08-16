@@ -5,6 +5,7 @@ import 'package:media_kit/media_kit.dart';
 import 'package:window_manager/window_manager.dart';
 import 'pages/device_dispatcher.dart';
 import 'pages/settings_screen.dart'; // 분리된 환경설정 화면 임포트
+import 'services/display/display_mode_service.dart';
 import 'package:http/http.dart' as http;
 
 /// [앱의 시작점] main 함수
@@ -64,6 +65,11 @@ void main() async {
       print('[Main] 창 설정 실패: $e');
     }
   }
+
+  // [화면 해상도 복원]
+  // 설정 화면에서 선택한 화면 비율(16:9 / 16:10)을 다시 적용합니다.
+  // cage 런처가 기본 모드를 먼저 잡아두므로, 저장값이 있으면 앱이 이를 덮어씁니다.
+  await DisplayModeService.applySavedOnStartup();
 
   // 실제 앱 위젯 트리를 실행합니다.
   runApp(const FuneralPlayerApp());

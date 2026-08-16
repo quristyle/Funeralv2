@@ -1,0 +1,5 @@
+# 셸 스크립트와 CI 정의는 Linux 에서 실행되므로 항상 LF 로 저장/체크아웃한다.
+# (CRLF 로 저장되면 라즈베리파이에서 "bad interpreter" 로 실행이 실패한다)
+*.sh text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf

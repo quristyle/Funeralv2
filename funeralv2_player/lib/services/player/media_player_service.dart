@@ -9,7 +9,30 @@ import 'package:media_kit_video/media_kit_video.dart';
 class MediaPlayerService {
   // 비디오 재생용 MediaKit Player 및 렌더 제어용 비디오 컨트롤러
   late final Player player = Player();
-  late final VideoController videoController = VideoController(player);
+  late final VideoController videoController = VideoController(
+    player,
+    configuration: VideoControllerConfiguration(
+      enableHardwareAcceleration: _useHardwareVideoRendering,
+    ),
+  );
+
+  /// [비디오 하드웨어 렌더링 사용 여부]
+  ///
+  /// 라즈베리파이(V3D 드라이버)에서는 media_kit 의 H/W 렌더링 경로가 정상 동작하지 않는다.
+  ///  - media_kit_video 1.3.1: GL 텍스처를 dmabuf 로 export 하지 못해
+  ///    (MESA: Failed to export gem bo ... to dmabuf) 영상 자리가 빈 화면으로 남는다.
+  ///  - media_kit_video 2.0.1: 영상은 나오지만 GPU 동기화 fd(sync_file)가 초당 15개씩 누수되어
+  ///    1분 만에 프로세스 fd 한도(1024)를 소진한다. 이후 소켓을 못 열어 API/SignalR 이 모두 끊긴다.
+  ///
+  /// 그래서 Linux 는 기본값을 S/W 렌더링으로 둔다. CPU 사용률은 올라가지만(Pi 4 기준 약 310%)
+  /// 24시간 연속 구동에서 유일하게 안정적인 조합이다.
+  /// GPU 렌더링이 정상 동작하는 Linux 장비(x86 데스크톱 등)에서는
+  /// 환경변수 PLAYER_VIDEO_HWACCEL=1 로 켤 수 있다. Windows/macOS 는 영향받지 않는다.
+  static bool get _useHardwareVideoRendering {
+    if (kIsWeb || !io.Platform.isLinux) return true;
+    final flag = io.Platform.environment['PLAYER_VIDEO_HWACCEL']?.toLowerCase();
+    return flag == '1' || flag == 'true';
+  }
   
   // 배경음악(BGM) 재생용 전용 오디오 Player 객체
   late final Player _musicPlayer = Player();
