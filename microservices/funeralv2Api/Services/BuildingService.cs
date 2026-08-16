@@ -16,11 +16,14 @@ public class BuildingService : IBuildingService
     private readonly ILogger<BuildingService> _logger;
     private readonly IConfiguration _configuration;
 
-    public BuildingService(AppDbContext context, ILogger<BuildingService> logger, IConfiguration configuration)
+    private readonly IHttpClientFactory _httpClientFactory;
+
+    public BuildingService(AppDbContext context, ILogger<BuildingService> logger, IConfiguration configuration, IHttpClientFactory httpClientFactory)
     {
         _context = context;
         _logger = logger;
         _configuration = configuration;
+        _httpClientFactory = httpClientFactory;
     }
 
     /// <summary>
@@ -222,7 +225,7 @@ public class BuildingService : IBuildingService
         var fileServerUrl = _configuration["Services:FileServer"] ?? "http://localhost:5350";
         var requestUrl = $"{fileServerUrl.TrimEnd('/')}/group/{groupId}";
 
-        using var client = new HttpClient();
+        var client = _httpClientFactory.CreateClient();
         try
         {
             var response = await client.GetAsync(requestUrl);

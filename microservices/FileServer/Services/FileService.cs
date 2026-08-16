@@ -23,13 +23,17 @@ public class FileService : IFileService
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly string _localPathRoot;
 
+    private readonly IHttpClientFactory _httpClientFactory;
+
     public FileService(
         FileDbContext dbContext, 
         Microsoft.Extensions.Configuration.IConfiguration configuration, 
-        IServiceScopeFactory scopeFactory)
+        IServiceScopeFactory scopeFactory,
+        IHttpClientFactory httpClientFactory)
     {
         _dbContext = dbContext;
         _scopeFactory = scopeFactory;
+        _httpClientFactory = httpClientFactory;
         // 설정에서 파일 저장소 경로 획득, 없으면 실행 경로 기준 Uploads로 폴백
         _localPathRoot = configuration["Storage:LocalPath"] ?? Path.Combine(AppContext.BaseDirectory, "Uploads");
     }
@@ -1035,7 +1039,7 @@ private async Task NotifyStatusAsync(
     DateTime? conversionCompletedAt = null,
     string? conversionCommand = null)
 {
-    using var client = new HttpClient();
+    var client = _httpClientFactory.CreateClient();
 
     var jsonOptions = new System.Text.Json.JsonSerializerOptions
     {

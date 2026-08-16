@@ -19,8 +19,6 @@ function setupCommonGuard(router: Router) {
   const loadedPaths = new Set<string>();
 
 
-console.log('routerrouterrouterrouterrouterrouter', router);
-
 
 
   router.beforeEach((to) => {
@@ -42,7 +40,11 @@ console.log('routerrouterrouterrouterrouterrouter', router);
       stopProgress();
     }
 
-    // URL 및 컴포넌트 경로 로깅
+    // URL 및 컴포넌트 경로 로깅.
+    // 매 네비게이션마다 matched 전체를 순회하며 문자열을 만드는 비용이 크고,
+    // 프로덕션 콘솔에 내부 라우팅 구조가 그대로 노출되므로 개발 모드에서만 수행한다.
+    if (!import.meta.env.DEV) return;
+
     const componentPaths = to.matched
       .map((record) => {
         const components = record.components;
@@ -70,9 +72,6 @@ console.log('routerrouterrouterrouterrouterrouter', router);
     logmessage += `[Router Log] Component: ${componentPaths}\r\n\r\n`;
 
     console.log(logmessage);
-
-    // 만약 컴포넌트 정보가 여전히 부족하다면 아래 주석을 해제하여 라우트 객체를 상세히 살펴볼 수 있습니다.
-     console.log('[Router Log] Matched Records Detail:', to.matched);
 
   });
 }

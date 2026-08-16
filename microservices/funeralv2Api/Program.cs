@@ -115,7 +115,15 @@ builder.Services.AddSwaggerGen(c =>
 
 builder.Services.AddHttpContextAccessor();
 
+// [헬스체크]
+// 게이트웨이의 능동 헬스체크와 오케스트레이터(K8s/로드밸런서)의 liveness 프로빙 대상.
+// 인증 없이 접근 가능해야 하므로 별도 정책을 걸지 않는다.
+builder.Services.AddHealthChecks();
+
 var app = builder.Build();
+// 헬스체크 엔드포인트. 프로세스가 요청을 처리할 수 있는 상태인지만 보고한다.
+app.MapHealthChecks("/health").AllowAnonymous();
+
 
 // ============================================================
 // 8. HTTP 요청 파이프라인 구성 (Middleware)

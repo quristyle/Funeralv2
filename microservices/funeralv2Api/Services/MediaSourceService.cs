@@ -17,11 +17,14 @@ public class MediaSourceService : IMediaSourceService
     private readonly ILogger<MediaSourceService> _logger;
     private readonly IConfiguration _configuration;
 
-    public MediaSourceService(AppDbContext context, ILogger<MediaSourceService> logger, IConfiguration configuration)
+    private readonly IHttpClientFactory _httpClientFactory;
+
+    public MediaSourceService(AppDbContext context, ILogger<MediaSourceService> logger, IConfiguration configuration, IHttpClientFactory httpClientFactory)
     {
         _context = context;
         _logger = logger;
         _configuration = configuration;
+        _httpClientFactory = httpClientFactory;
     }
 
     /// <inheritdoc />
@@ -173,7 +176,7 @@ public class MediaSourceService : IMediaSourceService
                 try
                 {
                     var fileServerUrl = _configuration["FileServer:BaseUrl"] ?? "http://localhost:5350";
-                    using var client = new HttpClient();
+                    var client = _httpClientFactory.CreateClient();
                     
                     // 비디오 소스인 경우 썸네일은 이미 업로드 시점에 생성되었으므로 WebM 변환만 트리거
                     // 오디오 소스인 경우 앨범아트는 이미 업로드 시점에 생성되었으므로 오디오 단독 인코딩만 트리거
@@ -393,7 +396,7 @@ public class MediaSourceService : IMediaSourceService
             try
             {
                 var fileServerUrl = _configuration["FileServer:BaseUrl"] ?? "http://localhost:5350";
-                using var client = new HttpClient();
+                var client = _httpClientFactory.CreateClient();
                 var triggerUrl = $"{fileServerUrl.TrimEnd('/')}/transcode/thumbnail/{fileId}";
                 _logger.LogInformation("Triggering media thumbnail extraction at FileServer: {Url}", triggerUrl);
                 
@@ -440,7 +443,7 @@ public class MediaSourceService : IMediaSourceService
             try
             {
                 var fileServerUrl = _configuration["FileServer:BaseUrl"] ?? "http://localhost:5350";
-                using var client = new HttpClient();
+                var client = _httpClientFactory.CreateClient();
                 var triggerUrl = $"{fileServerUrl.TrimEnd('/')}/transcode/webm/{fileId}";
                 _logger.LogInformation("Triggering media webm transcoding at FileServer: {Url}", triggerUrl);
                 
@@ -488,7 +491,7 @@ public class MediaSourceService : IMediaSourceService
             try
             {
                 var fileServerUrl = _configuration["FileServer:BaseUrl"] ?? "http://localhost:5350";
-                using var client = new HttpClient();
+                var client = _httpClientFactory.CreateClient();
                 var triggerUrl = $"{fileServerUrl.TrimEnd('/')}/transcode/{fileId}";
                 _logger.LogInformation("Triggering media audio transcoding at FileServer: {Url}", triggerUrl);
                 
