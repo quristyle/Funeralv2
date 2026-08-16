@@ -160,7 +160,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           children: [
             Text(aspect.label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
             Text(
-              '${aspect.width}x${aspect.height}',
+              '${aspect.preferred.$1}x${aspect.preferred.$2}',
               style: TextStyle(
                 fontSize: 11,
                 color: selected ? Colors.black54 : Colors.white38,

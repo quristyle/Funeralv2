@@ -53,7 +53,7 @@ set -eu
 [ -r /etc/default/funeralv2-player ] && . /etc/default/funeralv2-player
 
 PLAYER_OUTPUT="${PLAYER_OUTPUT:-HDMI-A-1}"
-PLAYER_OUTPUT_MODE="${PLAYER_OUTPUT_MODE:-1920x1080@60}"
+PLAYER_OUTPUT_MODE="${PLAYER_OUTPUT_MODE:-1920x1080}"
 
 if [ "$PLAYER_OUTPUT_MODE" != "none" ] && command -v wlr-randr >/dev/null 2>&1; then
   wlr-randr --output "$PLAYER_OUTPUT" --mode "$PLAYER_OUTPUT_MODE" >/dev/null 2>&1 || \
@@ -104,10 +104,11 @@ write_defaults() {
 # funeralv2-player 실행 설정
 #
 # PLAYER_OUTPUT       출력 커넥터 이름. `wlr-randr` 로 확인한다. (예: HDMI-A-1, HDMI-A-2)
-# PLAYER_OUTPUT_MODE  고정할 해상도@주사율. "none" 이면 모드를 건드리지 않는다.
+# PLAYER_OUTPUT_MODE  고정할 해상도(예: 1920x1080). "none" 이면 모드를 건드리지 않는다.
+#                     주사율은 붙이지 않는다 - 패널마다 59.9 등으로 달라 정확히 맞지 않으면 거부된다.
 #
 PLAYER_OUTPUT=HDMI-A-1
-PLAYER_OUTPUT_MODE=1920x1080@60
+PLAYER_OUTPUT_MODE=1920x1080
 DEFAULTS
   chmod 644 "$1"
 }
