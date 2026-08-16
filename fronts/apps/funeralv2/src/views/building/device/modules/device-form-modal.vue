@@ -153,20 +153,20 @@ defineExpose({ openCreate, openEdit });
         <!--
           IP/MAC 은 장비(플레이어)가 접속하면서 스스로 보고하는 값이므로 화면에서는 입력하지 않는다.
           수기로 넣어봐야 장비가 접속하는 순간 실제 값으로 덮어써지기 때문에,
-          읽기 전용으로 보여주기만 한다.
+          비활성 상태로 보여주기만 한다. (device-management-tab.vue 와 동일한 처리)
         -->
         <Form.Item label="IP 주소">
           <Input
             v-model:value="formModel.ipAddress"
-            readonly
-            placeholder="장비 접속 시 자동 등록"
+            :disabled="true"
+            placeholder="자동 감지 대기 중..."
           />
         </Form.Item>
         <Form.Item label="MAC 주소">
           <Input
             v-model:value="formModel.macAddress"
-            readonly
-            placeholder="장비 접속 시 자동 등록"
+            :disabled="true"
+            placeholder="자동 감지 대기 중..."
           />
         </Form.Item>
       </Form>
