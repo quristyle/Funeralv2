@@ -20,6 +20,36 @@ class SignalRService {
   String? _currentDeviceCode; // 현재 연결된 장비 코드 추적용 변수
   bool _intentionalClose = false; // 의도적 종료 여부 플래그 (onclose에서 불필요한 자동 재연결 방지용)
 
+  // ---------------------------------------------------------------------------
+  // 좀비(half-open) 연결 대응
+  //
+  // Wi-Fi 단절, NAT 세션 만료, 서버 재기동 시 TCP 가 조용히 죽으면 onclose 가 뜨지 않아
+  // 클라이언트는 "연결됨"으로 착각한 채 변경 푸시를 계속 놓친다.
+  // 24시간 돌아가는 사이니지에서는 이 상태가 가장 치명적이므로,
+  // 라이브러리 수준의 서버 타임아웃과 앱 수준의 워치독을 함께 건다.
+  // ---------------------------------------------------------------------------
+
+  /// 서버로부터 이 시간 동안 아무 메시지(핑 포함)도 못 받으면 연결이 끊긴 것으로 판정한다.
+  static const int _serverTimeoutMs = 60 * 1000;
+
+  /// 클라이언트가 서버로 핑을 보내는 주기.
+  static const int _keepAliveIntervalMs = 15 * 1000;
+
+  /// 워치독 점검 주기.
+  static const Duration _watchdogInterval = Duration(seconds: 60);
+
+  /// 연결됐다고 보고되지만 이 시간 동안 아무 수신이 없으면 능동 탐침을 보낸다.
+  static const Duration _idleProbeThreshold = Duration(minutes: 5);
+
+  Timer? _watchdogTimer; // 좀비 연결 감시 타이머
+  DateTime? _lastActivityAt; // 마지막으로 서버와 실제 주고받은 시각
+
+  // 워치독이 스스로 재연결할 수 있도록 마지막 접속 파라미터를 보관한다.
+  String? _lastServerUrl;
+  String? _lastIpAddress;
+  String? _lastMacAddress;
+  String? _lastPublicIpAddress;
+
   // 업데이트가 필요한 경우 화면 컴포넌트(Controller)에서 주입받아 호출할 콜백 함수
   Function()? _onDeviceChanged;
 
@@ -68,6 +98,17 @@ class SignalRService {
         .withUrl(hubUrl)
         .build();
 
+    // 서버 침묵 감지용 타임아웃/핑 주기를 명시한다.
+    // 기본값에 의존하면 죽은 소켓을 몇 분씩 붙들고 있을 수 있다.
+    _hubConnection!.serverTimeoutInMilliseconds = _serverTimeoutMs;
+    _hubConnection!.keepAliveIntervalInMilliseconds = _keepAliveIntervalMs;
+
+    // 워치독이 사용할 접속 파라미터를 보관한다.
+    _lastServerUrl = serverUrl;
+    _lastIpAddress = ipAddress;
+    _lastMacAddress = macAddress;
+    _lastPublicIpAddress = publicIpAddress;
+
     // 연결 세션이 끊어졌을 때의 콜백 등록
     _hubConnection!.onclose(({error}) {
       print('[SignalR] 연결 완전 종료. error: ${error?.toString()}');
@@ -94,6 +135,7 @@ class SignalRService {
     // 데이터 변경 사항이 밀려올 때 1초 디바운스를 주어 화면 깜빡임과 잦은 API 조회를 방지합니다.
     _hubConnection!.on('DeviceChanged', (arguments) {
       print('[SignalR] << DeviceChanged 이벤트 수신');
+      _lastActivityAt = DateTime.now(); // 워치독용 최근 수신 시각 갱신
       _debounceTimer?.cancel();
       _debounceTimer = Timer(const Duration(milliseconds: 1000), () {
         if (_onDeviceChanged != null) {
@@ -111,6 +153,8 @@ class SignalRService {
       await _hubConnection!.start();
       print('[SignalR] 연결 성공!');
       _reconnectAttempt = 0;
+      _lastActivityAt = DateTime.now();
+      _startWatchdog();
       // 기동 후 즉시 허브에 현재 장비를 등록(그룹 바인딩)합니다.
       await _registerDevice(deviceCode, ipAddress, macAddress, publicIpAddress);
 
@@ -169,10 +213,15 @@ class SignalRService {
     }
 
     _reconnectTimer?.cancel();
-    final delaySec = min(_maxReconnectDelaySec, 5 * pow(2, _reconnectAttempt).toInt());
+    final baseSec = min(_maxReconnectDelaySec, 5 * pow(2, _reconnectAttempt).toInt());
+    // [지터] 서버 재기동 시 현장 장비 수십 대가 같은 초에 일제히 재접속하면
+    // 서버가 다시 밀려 넘어진다(thundering herd). 대기 시간의 ±30% 를 무작위로 흔든다.
+    final jitterMs = (baseSec * 1000 * 0.3 * (Random().nextDouble() * 2 - 1)).round();
+    final delayMs = max(1000, baseSec * 1000 + jitterMs);
     _reconnectAttempt++;
+    print('[SignalR] 재연결 예약: ${(delayMs / 1000).toStringAsFixed(1)}초 후 (기본 ${baseSec}초 + 지터)');
 
-    _reconnectTimer = Timer(Duration(seconds: delaySec), () {
+    _reconnectTimer = Timer(Duration(milliseconds: delayMs), () {
       // 타이머 발동 시점에도 코드가 여전히 유효한지 재확인합니다.
       if (deviceCode != _currentDeviceCode) {
         print('[SignalR] 재연결 실행 취소: 대상 코드($deviceCode)가 현재 코드($_currentDeviceCode)와 불일치.');
@@ -189,6 +238,69 @@ class SignalRService {
     });
   }
 
+  /// [좀비 연결 감시 워치독 기동]
+  /// 주기적으로 두 가지를 본다.
+  ///  1) 연결이 끊겼는데 재연결 예약도 없는 상태(타이머 유실) → 즉시 재연결
+  ///  2) 연결됐다고 보고되지만 오랫동안 아무 수신이 없는 상태 → 능동 탐침 후 실패 시 강제 재연결
+  void _startWatchdog() {
+    _watchdogTimer?.cancel();
+    _watchdogTimer = Timer.periodic(_watchdogInterval, (_) => _checkConnectionHealth());
+  }
+
+  /// [연결 건강도 점검]
+  Future<void> _checkConnectionHealth() async {
+    // 의도적으로 끊어둔 상태(설정 화면 진입 등)에서는 개입하지 않는다.
+    if (_intentionalClose || _currentDeviceCode == null) return;
+    if (_isConnecting) return;
+
+    final deviceCode = _currentDeviceCode!;
+    final serverUrl = _lastServerUrl;
+    if (serverUrl == null) return;
+
+    // 1) 끊겼는데 재연결 예약이 없는 경우
+    if (!isConnected) {
+      if (_reconnectTimer == null || !_reconnectTimer!.isActive) {
+        print('[SignalR][워치독] 연결이 끊겼는데 재연결 예약이 없다 -> 재연결 시작');
+        _scheduleManualReconnect(
+          serverUrl: serverUrl,
+          deviceCode: deviceCode,
+          ipAddress: _lastIpAddress,
+          macAddress: _lastMacAddress,
+          publicIpAddress: _lastPublicIpAddress,
+        );
+      }
+      return;
+    }
+
+    // 2) 연결됐다고 하는데 장시간 조용한 경우 -> 능동 탐침
+    final last = _lastActivityAt;
+    if (last == null || DateTime.now().difference(last) < _idleProbeThreshold) return;
+
+    print('[SignalR][워치독] ${_idleProbeThreshold.inMinutes}분간 수신 없음 -> 탐침 전송');
+    try {
+      // RegisterDevice 는 멱등하므로 살아있는지 확인하는 용도로 안전하게 재호출할 수 있다.
+      await _hubConnection!
+          .invoke('RegisterDevice',
+              args: [deviceCode, _lastIpAddress ?? '', _lastMacAddress ?? '', _lastPublicIpAddress ?? ''])
+          .timeout(const Duration(seconds: 10));
+      _lastActivityAt = DateTime.now();
+      print('[SignalR][워치독] 탐침 성공. 연결 정상.');
+    } catch (e) {
+      print('[SignalR][워치독] 탐침 실패 -> 좀비 연결로 판단, 강제 재연결: $e');
+      _intentionalClose = true;
+      await _disposeConnection();
+      _intentionalClose = false;
+      _reconnectAttempt = 0; // 즉시 재시도할 수 있도록 백오프를 초기화한다.
+      _scheduleManualReconnect(
+        serverUrl: serverUrl,
+        deviceCode: deviceCode,
+        ipAddress: _lastIpAddress,
+        macAddress: _lastMacAddress,
+        publicIpAddress: _lastPublicIpAddress,
+      );
+    }
+  }
+
   /// [소켓 연결 완전 해제 및 구독 해제]
   /// 사이니지 설정 모드 진입 등으로 소켓 연결을 의도적으로 끊을 때 호출하며,
   /// 서버에 UnregisterDevice 메서드를 날리고 모든 백그라운드 재연결 타이머를 정지합니다.
@@ -203,6 +315,9 @@ class SignalRService {
     _reconnectTimer = null;
     _debounceTimer?.cancel();
     _debounceTimer = null;
+    _watchdogTimer?.cancel();
+    _watchdogTimer = null;
+    _lastActivityAt = null;
     _onDeviceChanged = null;
     _isConnecting = false;
     _reconnectAttempt = 0;

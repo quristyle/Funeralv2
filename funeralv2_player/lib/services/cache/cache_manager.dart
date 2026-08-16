@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io' as io;
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -12,6 +13,121 @@ class CacheManager {
   static final CacheManager _instance = CacheManager._internal();
   factory CacheManager() => _instance;
   CacheManager._internal();
+
+  // ---------------------------------------------------------------------------
+  // 캐시 정리 정책
+  //
+  // 사이니지는 24시간 켜진 채로 장례 행사가 계속 바뀌므로, 새 영정 사진과 영상이
+  // 무한정 쌓인다. 정리 로직이 없으면 라즈베리파이의 저장장치 용량이 고갈되고
+  // 플래시 쓰기 수명도 깎인다. 마지막 사용 시각 기준 TTL + 총 용량 상한으로 관리한다.
+  // ---------------------------------------------------------------------------
+
+  /// 이 기간 동안 한 번도 쓰이지 않은 캐시 파일은 삭제한다.
+  static const Duration cacheTtl = Duration(days: 30);
+
+  /// 캐시 폴더 총 용량 상한. 초과하면 오래 안 쓴 파일부터 지운다.
+  static const int maxCacheBytes = 2 * 1024 * 1024 * 1024; // 2GB
+
+  /// 정리 작업 주기
+  static const Duration gcInterval = Duration(hours: 6);
+
+  bool _gcRunning = false;
+
+  /// [캐시 디렉터리 확보]
+  Future<io.Directory> _cacheDir() async {
+    final docDir = await getApplicationDocumentsDirectory();
+    final dir = io.Directory(path.join(docDir.path, 'media_cache'));
+    if (!await dir.exists()) await dir.create(recursive: true);
+    return dir;
+  }
+
+  /// [캐시 적중 표시]
+  /// 파일을 실제로 사용할 때 수정 시각을 현재로 갱신해 LRU 판단 근거로 삼는다.
+  /// (일부 파일시스템은 atime 을 갱신하지 않으므로 mtime 을 직접 쓴다)
+  Future<void> _touch(io.File file) async {
+    try {
+      await file.setLastModified(DateTime.now());
+    } catch (_) {
+      // 갱신 실패는 치명적이지 않다. 최악의 경우 조기 삭제 후 재다운로드된다.
+    }
+  }
+
+  /// [캐시 정리 실행]
+  /// 1) TTL 을 넘긴 파일 삭제
+  /// 2) 그래도 용량 상한을 넘으면 오래 안 쓴 파일부터 삭제
+  ///
+  /// 삭제 대상은 캐시 폴더 안의 파일뿐이며, 재생 중인 파일이 지워지더라도
+  /// 다음 조회 시 자동으로 다시 내려받으므로 데이터 유실은 없다.
+  Future<void> runGarbageCollection() async {
+    if (kIsWeb || _gcRunning) return;
+    _gcRunning = true;
+
+    try {
+      final dir = await _cacheDir();
+      final entries = <({io.File file, int size, DateTime used})>[];
+
+      await for (final entity in dir.list(followLinks: false)) {
+        if (entity is! io.File) continue;
+        try {
+          final stat = await entity.stat();
+          entries.add((file: entity, size: stat.size, used: stat.modified));
+        } catch (_) {
+          // 통계 조회 실패한 항목은 건너뛴다.
+        }
+      }
+
+      final now = DateTime.now();
+      int removed = 0;
+      int freed = 0;
+
+      // 1) TTL 초과분 제거
+      final survivors = <({io.File file, int size, DateTime used})>[];
+      for (final e in entries) {
+        if (now.difference(e.used) > cacheTtl) {
+          try {
+            await e.file.delete();
+            removed++;
+            freed += e.size;
+            continue;
+          } catch (_) {}
+        }
+        survivors.add(e);
+      }
+
+      // 2) 용량 상한 초과분 제거 (오래 안 쓴 것부터)
+      var total = survivors.fold<int>(0, (sum, e) => sum + e.size);
+      if (total > maxCacheBytes) {
+        survivors.sort((a, b) => a.used.compareTo(b.used));
+        for (final e in survivors) {
+          if (total <= maxCacheBytes) break;
+          try {
+            await e.file.delete();
+            removed++;
+            freed += e.size;
+            total -= e.size;
+          } catch (_) {}
+        }
+      }
+
+      if (removed > 0) {
+        final mb = (freed / 1024 / 1024).toStringAsFixed(1);
+        print('[CacheManager] 캐시 정리: $removed개 삭제, ${mb}MB 확보 '
+              '(잔여 ${(total / 1024 / 1024).toStringAsFixed(1)}MB)');
+      }
+    } catch (e) {
+      print('[CacheManager] 캐시 정리 실패: $e');
+    } finally {
+      _gcRunning = false;
+    }
+  }
+
+  /// [주기적 캐시 정리 기동]
+  /// 앱 시작 시 한 번 실행하고, 이후 [gcInterval] 마다 반복한다.
+  void startPeriodicGarbageCollection() {
+    if (kIsWeb) return;
+    runGarbageCollection();
+    Timer.periodic(gcInterval, (_) => runGarbageCollection());
+  }
 
   /// [파일 ID 기반 캐싱 및 파일 경로 획득]
   /// 서버 주소([fileServerUrl])와 파일 식별 아이디([fileId])를 전달받아
@@ -48,6 +164,7 @@ class CacheManager {
 
       // 이미 존재하고 비어있지 않은 파일이 있다면 네트워크 다운로드 없이 기존 로컬 파일 사용
       if (await localFile.exists() && await localFile.length() > 0) {
+        await _touch(localFile); // LRU 판단용 최근 사용 시각 갱신
         return localFilePath;
       }
 
@@ -96,11 +213,14 @@ class CacheManager {
 
       // 로컬 파일 검사
       if (await localFile.exists() && await localFile.length() > 0) {
+        await _touch(localFile); // LRU 판단용 최근 사용 시각 갱신
         return localFilePath;
       }
 
-      // 서버 다운로드 진행 (타임아웃을 30초에서 4초로 단축하여 지연 최소화)
-      final response = await http.get(Uri.parse(downloadUrl)).timeout(const Duration(seconds: 4));
+      // 서버 다운로드 진행.
+      // 영상은 수십 MB 에 달해 4초로는 받다 말고 실패한다(빈 캐시 → 매번 재시도).
+      // 첫 표출이 늦어지더라도 캐시에 실제로 남는 편이 사이니지에는 유리하다.
+      final response = await http.get(Uri.parse(downloadUrl)).timeout(const Duration(seconds: 60));
       if (response.statusCode == 200) {
         await localFile.writeAsBytes(response.bodyBytes);
         return localFilePath;
@@ -123,6 +243,7 @@ class CacheManager {
       final localFile = io.File(localFilePath);
 
       if (await localFile.exists() && await localFile.length() > 0) {
+        await _touch(localFile); // LRU 판단용 최근 사용 시각 갱신
         return localFilePath;
       }
     } catch (_) {}

@@ -5,6 +5,7 @@ import 'package:media_kit/media_kit.dart';
 import 'package:window_manager/window_manager.dart';
 import 'pages/device_dispatcher.dart';
 import 'pages/settings_screen.dart'; // 분리된 환경설정 화면 임포트
+import 'services/cache/cache_manager.dart';
 import 'services/display/display_mode_service.dart';
 import 'package:http/http.dart' as http;
 
@@ -66,13 +67,24 @@ void main() async {
     }
   }
 
-  // [화면 해상도 복원]
-  // 설정 화면에서 선택한 화면 비율(16:9 / 16:10)을 다시 적용합니다.
-  // cage 런처가 기본 모드를 먼저 잡아두므로, 저장값이 있으면 앱이 이를 덮어씁니다.
-  await DisplayModeService.applySavedOnStartup();
+  // [미디어 캐시 정리 기동]
+  // 장례 행사가 바뀔 때마다 새 영정/영상이 쌓이므로, TTL 과 용량 상한으로 주기 정리한다.
+  CacheManager().startPeriodicGarbageCollection();
 
   // 실제 앱 위젯 트리를 실행합니다.
   runApp(const FuneralPlayerApp());
+
+  // [화면 해상도 복원]
+  // 설정 화면에서 선택한 화면 비율(16:9 / 16:10)을 다시 적용합니다.
+  //
+  // 반드시 창이 화면에 올라온 뒤에 적용해야 한다.
+  // runApp 이전에 적용하면 이후 앱 표면이 생성될 때 컴포지터가 출력 모드를
+  // EDID 선호 모드(4K30 등)로 되돌려버려, 로그상 "적용 완료"인데 실제로는 반영되지 않는다.
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    Future.delayed(const Duration(seconds: 2), () {
+      DisplayModeService.applySavedOnStartup();
+    });
+  });
 }
 
 /// [앱 루트 위젯]
