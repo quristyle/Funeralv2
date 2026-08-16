@@ -44,10 +44,10 @@ app.*.map.json
 /android/app/release
 
 # Exclude unused platform folders
+# linux/ 와 windows/ 는 데스크톱 빌드에 필요한 소스이므로 제외하지 않는다.
+# (제외 시 새 clone 에서 "No Linux desktop project configured" 로 빌드 실패)
 /ios/
-/linux/
 /macos/
 /web/
-/windows/
 
 .metadata

@@ -80,6 +80,7 @@ class FuneralPlayerApp extends StatelessWidget {
       title: 'Funeral Signage Player',
       debugShowCheckedModeBanner: false, // 오른쪽 상단 디버그 띠를 숨깁니다.
       theme: ThemeData(
+        fontFamily: 'NanumGothic', // 번들 한글 폰트 (Linux 두부 현상 방지)
         brightness: Brightness.dark, // 어두운 테마 사용
         scaffoldBackgroundColor: Colors.black, // 기본 배경색은 검정
         primaryColor: const Color(0xFFC0A060), // 금색 포인트 컬러

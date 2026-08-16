@@ -69,6 +69,17 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
+  # [한글 폰트 번들]
+  # Linux(라즈베리파이 등)에서는 시스템에 한글 폰트가 있어도 Flutter 기본 폰트가
+  # DejaVu Sans 로 잡혀 한글이 두부(□)로 표시된다. 폰트를 앱에 직접 포함시켜
+  # Windows/Linux 어디서나 동일하게 렌더링되도록 한다.
+  fonts:
+    - family: NanumGothic
+      fonts:
+        - asset: assets/fonts/NanumGothic.ttf
+        - asset: assets/fonts/NanumGothicBold.ttf
+          weight: 700
+
   # To add assets to your application, add an assets section, like this:
   # assets:
   #   - images/a_dot_burr.jpeg
