@@ -3,6 +3,8 @@ using Microsoft.IdentityModel.Tokens;
 using System.Security.Claims;
 using System.Text;
 using Yarp.ReverseProxy.Transforms;
+using Yarp.ReverseProxy;
+using Yarp.ReverseProxy.Model;
 using Spectre.Console;
 using System.Reflection;
 
@@ -99,6 +101,7 @@ builder.Services.AddReverseProxy()
 // [헬스체크]
 // 게이트웨이의 능동 헬스체크와 오케스트레이터(K8s/로드밸런서)의 liveness 프로빙 대상.
 // 인증 없이 접근 가능해야 하므로 별도 정책을 걸지 않는다.
+builder.Services.AddHttpClient();
 builder.Services.AddHealthChecks();
 
 var app = builder.Build();
@@ -132,6 +135,82 @@ app.Use(async (context, next) =>
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+// ============================================================
+// [서버 상태 모니터링]
+// 게이트웨이가 알고 있는 모든 클러스터/목적지를 실제로 찔러 상태를 모아준다.
+//
+// 관리자 화면에서 브라우저가 각 서비스(:5264, :5320 ...)를 직접 호출하는 것은
+// CORS 와 내부망 접근 문제로 불가능하다. 유일하게 모든 서비스를 알고 있는
+// 게이트웨이가 대신 조회해 한 번에 돌려주는 구조가 맞다.
+//
+// YARP 의 능동 헬스체크 결과에 의존하지 않고 요청 시점에 직접 프로브한다.
+// (헬스체크를 꺼두더라도 이 화면은 정상 동작해야 한다)
+// ============================================================
+app.MapGet("/api/gateway/status", async (
+    IProxyStateLookup lookup,
+    IHttpClientFactory httpClientFactory,
+    CancellationToken cancellationToken) =>
+{
+    var client = httpClientFactory.CreateClient();
+    var results = new List<object>();
+
+    foreach (var cluster in lookup.GetClusters())
+    {
+        foreach (var destination in cluster.DestinationsState.AllDestinations)
+        {
+            var address = destination.Model.Config.Address.TrimEnd('/');
+            var probeUrl = $"{address}/health";
+
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            string status;
+            int? httpStatus = null;
+            string? error = null;
+
+            try
+            {
+                using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                cts.CancelAfter(TimeSpan.FromSeconds(3));
+
+                var response = await client.GetAsync(probeUrl, cts.Token);
+                httpStatus = (int)response.StatusCode;
+                // /health 를 제공하지 않는 구버전이라도 응답 자체가 오면 프로세스는 살아 있다.
+                status = response.IsSuccessStatusCode ? "UP" : "DEGRADED";
+            }
+            catch (Exception ex)
+            {
+                status = "DOWN";
+                error = ex.InnerException?.Message ?? ex.Message;
+            }
+            sw.Stop();
+
+            results.Add(new
+            {
+                cluster = cluster.ClusterId,
+                destination = destination.DestinationId,
+                address,
+                status,
+                httpStatus,
+                latencyMs = sw.ElapsedMilliseconds,
+                error,
+            });
+        }
+    }
+
+    // 프론트 요청 클라이언트가 { code: "S000", data: ... } 봉투를 기대하므로 형식을 맞춘다.
+    return Results.Ok(new
+    {
+        success = true,
+        code = "S000",
+        message = "Success",
+        data = new
+        {
+            gateway = new { status = "UP", checkedAt = DateTime.UtcNow },
+            services = results,
+        },
+        timestamp = DateTime.UtcNow,
+    });
+}).AllowAnonymous().WithName("GetGatewayStatus");
 
 app.MapReverseProxy();
 
