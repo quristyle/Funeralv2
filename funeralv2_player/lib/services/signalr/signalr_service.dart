@@ -42,6 +42,10 @@ class SignalRService {
   /// 연결됐다고 보고되지만 이 시간 동안 아무 수신이 없으면 능동 탐침을 보낸다.
   static const Duration _idleProbeThreshold = Duration(minutes: 5);
 
+  /// 등록 하트비트 주기. 그룹 참여 누락을 이 주기 안에 스스로 복구한다.
+  static const Duration _heartbeatInterval = Duration(seconds: 60);
+
+  Timer? _heartbeatTimer; // 등록 하트비트 타이머
   Timer? _watchdogTimer; // 좀비 연결 감시 타이머
   DateTime? _lastActivityAt; // 마지막으로 서버와 실제 주고받은 시각
 
@@ -96,7 +100,15 @@ class SignalRService {
     // [단일 재연결 정책] 라이브러리 자동 재연결(withAutomaticReconnect)을 제거하고,
     // 지수 백오프 기반 수동 재연결(_scheduleManualReconnect)만 사용하여 이중 재연결로 인한 중복 발화를 방지합니다.
     _hubConnection = HubConnectionBuilder()
-        .withUrl(hubUrl)
+        .withUrl(
+          hubUrl,
+          // [중요] negotiate 요청 타임아웃.
+          // 라이브러리 기본값이 2초인데, 라즈베리파이가 소프트웨어 영상 렌더링으로
+          // CPU 를 300% 쓰는 상태에서 Wi-Fi -> 게이트웨이 -> API 를 거치면 2초를 쉽게 넘긴다.
+          // 그러면 연결 자체가 성립하지 못하고 백오프만 반복하며 명령을 통째로 놓친다.
+          // ("명령을 종종 못 받는" 증상의 실제 원인)
+          options: HttpConnectionOptions(requestTimeout: 30 * 1000),
+        )
         .build();
 
     // 서버 침묵 감지용 타임아웃/핑 주기를 명시한다.
@@ -167,8 +179,26 @@ class SignalRService {
       _reconnectAttempt = 0;
       _lastActivityAt = DateTime.now();
       _startWatchdog();
+      _startRegistrationHeartbeat();
+
       // 기동 후 즉시 허브에 현재 장비를 등록(그룹 바인딩)합니다.
-      await _registerDevice(deviceCode, ipAddress, macAddress, publicIpAddress);
+      // 여기서 실패하면 소켓만 살아있고 명령은 못 받는 상태가 되므로 재연결로 되돌린다.
+      final registered =
+          await _registerDevice(deviceCode, ipAddress, macAddress, publicIpAddress);
+      if (!registered) {
+        _isConnecting = false;
+        _intentionalClose = true;
+        await _disposeConnection();
+        _intentionalClose = false;
+        _scheduleManualReconnect(
+          serverUrl: serverUrl,
+          deviceCode: deviceCode,
+          ipAddress: ipAddress,
+          macAddress: macAddress,
+          publicIpAddress: publicIpAddress,
+        );
+        return;
+      }
 
       // 소켓 연결 및 수동 재연결 성공 시 즉각 서버로부터 설정을 동기화하도록 유도합니다.
       if (_onDeviceChanged != null) {
@@ -193,17 +223,76 @@ class SignalRService {
   /// [허브에 장치 세션 등록]
   /// 서버 허브의 `RegisterDevice` RPC 메서드를 원격 호출하여,
   /// 백엔드가 소켓 연결 세션에 해당하는 기기의 물리 상태(IP/MAC) 및 장비 코드를 추적하도록 만듭니다.
-  Future<void> _registerDevice(String deviceCode, String? ip, String? mac, String? pip) async {
-    print('[SignalR] _registerDevice 호출됨: code=$deviceCode, ip=$ip, mac=$mac');
-    if (isConnected) {
-      try {
-        await _hubConnection!.invoke('RegisterDevice', args: [deviceCode, ip ?? "", mac ?? "", pip ?? ""]);
-        print('[SignalR] >> RegisterDevice 서버 전송 완료 (Online 처리 기대): $deviceCode');
-      } catch (e) {
-        print('[SignalR] !! RegisterDevice 서버 전송 에러: $e');
-      }
-    } else {
+  /// SignalR 그룹은 커넥션에 종속되므로, 등록에 실패하면 "연결은 됐는데 명령은 못 받는" 상태가 된다.
+  /// 이 경우가 가장 치명적이라 실패 시 짧게 재시도한다.
+  Future<bool> _registerDevice(String deviceCode, String? ip, String? mac, String? pip) async {
+    if (!isConnected) {
       print('[SignalR] !! 서버에 연결되지 않은 상태라 RegisterDevice를 보낼 수 없습니다.');
+      return false;
+    }
+
+    for (var attempt = 1; attempt <= 3; attempt++) {
+      try {
+        await _hubConnection!
+            .invoke('RegisterDevice', args: [deviceCode, ip ?? "", mac ?? "", pip ?? ""])
+            .timeout(const Duration(seconds: 10));
+        _lastActivityAt = DateTime.now();
+        print('[SignalR] >> RegisterDevice 완료 (그룹 참여됨): $deviceCode');
+        return true;
+      } catch (e) {
+        print('[SignalR] !! RegisterDevice 실패 ($attempt/3): $e');
+        if (attempt < 3 && isConnected) {
+          await Future.delayed(Duration(seconds: attempt * 2));
+        }
+      }
+    }
+
+    // 3회 모두 실패했다면 커넥션이 살아있다는 보고 자체를 믿을 수 없다.
+    print('[SignalR] !! RegisterDevice 최종 실패 -> 커넥션을 버리고 재연결한다.');
+    return false;
+  }
+
+  /// [등록 하트비트]
+  ///
+  /// SignalR 그룹 참여는 커넥션 단위라서, 어떤 이유로든 등록이 누락되면
+  /// 소켓은 멀쩡한데 명령만 조용히 못 받는 상태가 된다. (관리 화면에서는 ONLINE 으로 보인다)
+  /// 주기적으로 RegisterDevice 를 다시 호출해 그룹 참여를 스스로 복구하고,
+  /// 호출이 실패하면 그것을 커넥션 사망 신호로 삼아 즉시 재연결한다.
+  ///
+  /// RegisterDevice 는 멱등이라 반복 호출해도 안전하다.
+  void _startRegistrationHeartbeat() {
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = Timer.periodic(_heartbeatInterval, (_) => _sendHeartbeat());
+  }
+
+  Future<void> _sendHeartbeat() async {
+    if (_intentionalClose || _isConnecting) return;
+
+    final deviceCode = _currentDeviceCode;
+    final serverUrl = _lastServerUrl;
+    if (deviceCode == null || serverUrl == null) return;
+
+    if (!isConnected) {
+      // 연결이 끊긴 상태는 워치독/onclose 가 담당한다. 여기서는 관여하지 않는다.
+      return;
+    }
+
+    final ok = await _registerDevice(
+        deviceCode, _lastIpAddress, _lastMacAddress, _lastPublicIpAddress);
+
+    if (!ok) {
+      print('[SignalR][하트비트] 등록 실패 -> 좀비 연결로 판단, 강제 재연결');
+      _intentionalClose = true;
+      await _disposeConnection();
+      _intentionalClose = false;
+      _reconnectAttempt = 0;
+      _scheduleManualReconnect(
+        serverUrl: serverUrl,
+        deviceCode: deviceCode,
+        ipAddress: _lastIpAddress,
+        macAddress: _lastMacAddress,
+        publicIpAddress: _lastPublicIpAddress,
+      );
     }
   }
 
@@ -329,6 +418,8 @@ class SignalRService {
     _debounceTimer = null;
     _watchdogTimer?.cancel();
     _watchdogTimer = null;
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = null;
     _lastActivityAt = null;
     _onDeviceChanged = null;
     _isConnecting = false;

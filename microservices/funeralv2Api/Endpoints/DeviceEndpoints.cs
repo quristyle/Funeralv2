@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using funeralv2Api.Services;
+using funeralv2Api.Hubs;
 using funeralv2Api.DTOs;
 using Funeralv2.Shared.DTOs;
 using Funeralv2.Shared.Infrastructure.Filters;
@@ -110,7 +111,7 @@ public static class DeviceEndpoints
             if (normalized != "ON" && normalized != "OFF")
             {
                 return Results.BadRequest(
-                    ApiResponse<bool>.Fail("ERR_INVALID_STATE", "state 는 ON 또는 OFF 여야 합니다."));
+                    ApiResponse<bool>.Fail("state 는 ON 또는 OFF 여야 합니다.", "ERR_INVALID_STATE"));
             }
 
             // SignalR 그룹 전송은 수신자가 없어도 예외 없이 성공한다.
@@ -120,13 +121,18 @@ public static class DeviceEndpoints
             if (device == null)
             {
                 return Results.NotFound(
-                    ApiResponse<bool>.Fail("ERR_DEVICE_NOT_FOUND", $"장비를 찾을 수 없습니다: {code}"));
+                    ApiResponse<bool>.Fail($"장비를 찾을 수 없습니다: {code}", "ERR_DEVICE_NOT_FOUND"));
             }
 
-            if (!string.Equals(device.Status, "ONLINE", StringComparison.OrdinalIgnoreCase))
+            // DB 의 status 가 아니라 실제 SignalR 연결 여부를 본다.
+            // 서버가 재기동되면 연결은 전부 끊기지만 DB 는 ONLINE 인 채로 남아 있어,
+            // status 만 믿으면 "전송 성공"이라고 답하고 명령은 사라진다.
+            if (!DeviceHub.IsDeviceConnected(code))
             {
                 return Results.Ok(
-                    ApiResponse<bool>.Fail("ERR_DEVICE_OFFLINE", "장비가 오프라인 상태라 명령이 전달되지 않았습니다."));
+                    ApiResponse<bool>.Fail(
+                        "장비가 실시간 연결되어 있지 않아 명령이 전달되지 않았습니다. 잠시 후 다시 시도해 주세요.",
+                        "ERR_DEVICE_OFFLINE"));
             }
 
             await hubSender.SendScreenPowerAsync(code, normalized == "ON");

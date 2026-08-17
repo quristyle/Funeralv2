@@ -20,6 +20,24 @@ public class DeviceHub : Hub
     // DeviceCode와 오프라인 대기 스케줄러(Cancellation Token) 간의 매핑
     private static readonly ConcurrentDictionary<string, CancellationTokenSource> _disconnectTimeouts = new();
 
+    /// <summary>
+    /// 해당 장비코드로 실제 연결(그룹 참여)된 커넥션이 있는지 확인한다.
+    ///
+    /// DB 의 status 컬럼은 프로세스가 죽거나 half-open 연결이 생기면 실제와 어긋난다.
+    /// 명령을 실제로 받을 수 있는지 판단할 때는 DB 가 아니라 이 실시간 연결 정보를 봐야 한다.
+    /// </summary>
+    public static bool IsDeviceConnected(string deviceCode)
+    {
+        if (string.IsNullOrEmpty(deviceCode)) return false;
+        return _connectionDeviceMap.Values.Contains(deviceCode);
+    }
+
+    /// <summary>
+    /// 현재 연결되어 있는 장비코드 전체 목록.
+    /// </summary>
+    public static IReadOnlyCollection<string> ConnectedDeviceCodes()
+        => _connectionDeviceMap.Values.Distinct().ToList();
+
     public DeviceHub(ILogger<DeviceHub> logger, IServiceScopeFactory scopeFactory)
     {
         _logger = logger;
