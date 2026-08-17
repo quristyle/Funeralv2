@@ -1,5 +1,6 @@
 <script lang="ts" setup>
-import { ref, computed } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
+import * as signalR from '@microsoft/signalr';
 import { ColPage } from '@vben/common-ui';
 import { IconifyIcon } from '@vben/icons';
 import type { BuildingApi } from '#/api/building';
@@ -50,6 +51,64 @@ async function onDeviceManaged() {
 }
 
 const gridComposable = useDeviceGrid(selectedDevice, onRowClick, closePanel);
+
+// ---------------------------------------------------------------------------
+// 장비 온라인/오프라인 상태 실시간 반영
+//
+// 상태는 장비가 SignalR 로 접속/이탈할 때 서버가 DeviceStatusChanged 로 방송한다.
+// 이 화면이 그 이벤트를 구독하지 않아, 목록을 불러온 시점의 상태가 그대로 굳어
+// 실제로는 온라인인 장비가 오프라인으로 보이는 문제가 있었다.
+// ---------------------------------------------------------------------------
+let statusHub: signalR.HubConnection | null = null;
+let gridRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+
+/** 여러 장비 상태가 연달아 바뀔 때 목록 재조회가 폭주하지 않도록 묶어서 처리한다. */
+function scheduleGridRefresh() {
+  if (gridRefreshTimer) clearTimeout(gridRefreshTimer);
+  gridRefreshTimer = setTimeout(() => {
+    gridComposable.gridApi.query();
+    gridRefreshTimer = null;
+  }, 500);
+}
+
+function initStatusHub() {
+  statusHub = new signalR.HubConnectionBuilder()
+    .withUrl('/api/funeral/hubs/device')
+    .withAutomaticReconnect({
+      nextRetryDelayInMilliseconds: (retryContext) => {
+        if (retryContext.previousRetryCount === 0) return 0;
+        if (retryContext.previousRetryCount === 1) return 2000;
+        if (retryContext.previousRetryCount === 2) return 5000;
+        return 10_000;
+      },
+    })
+    .build();
+
+  statusHub.on('DeviceStatusChanged', (deviceCode: string, status: string) => {
+    // 서버는 문자열로 보내지만 Device.status 는 리터럴 유니온이라 좁혀서 넣는다.
+    const nextStatus = status as BuildingApi.Device['status'];
+    // 상세 패널에 열려 있는 장비라면 뱃지를 즉시 갱신한다.
+    const current = selectedDevice.value;
+    if (current && current.code === deviceCode) {
+      selectedDevice.value = { ...current, status: nextStatus };
+    }
+    // 좌측 목록의 상태 표시도 맞춘다.
+    scheduleGridRefresh();
+  });
+
+  statusHub.start().catch(() => {
+    // 상태 표시는 부가 기능이므로 연결 실패가 화면 사용을 막지 않도록 조용히 넘어간다.
+    // 자동 재연결이 계속 시도한다.
+  });
+}
+
+onMounted(initStatusHub);
+
+onUnmounted(() => {
+  if (gridRefreshTimer) clearTimeout(gridRefreshTimer);
+  statusHub?.stop();
+  statusHub = null;
+});
 
 const {
   selectedCompanyId,

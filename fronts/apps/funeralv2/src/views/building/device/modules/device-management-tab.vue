@@ -16,6 +16,7 @@ const emit = defineEmits<{
 
 const formModel = ref<Partial<BuildingApi.Device>>({});
 const isSaving = ref(false);
+const debounceTimer = ref<NodeJS.Timeout | null>(null);
 
 // Props로 받은 device 데이터가 변경될 때마다 formModel을 동기화합니다.
 watch(
