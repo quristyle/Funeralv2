@@ -94,5 +94,26 @@ public static class DeviceEndpoints
             var success = await service.UpdateStatusAsync(code, status);
             return Results.Ok(ApiResponse<bool>.Ok(success));
         }).WithName("UpdateDeviceStatus").WithOpenApi();
+
+        // 원격 모니터 전원 제어 (기기코드 기준)
+        //
+        // 관리자가 웹에서 특정 사이니지의 화면을 끄거나 켠다.
+        // DB 에 저장하지 않는 즉시 실행 명령이며, 장비가 SignalR 로 접속해 있어야 전달된다.
+        // 오프라인 장비에 보내면 조용히 무시된다.
+        group.MapPost("/screen-power/{code}", async (
+            string code,
+            [FromQuery] string state,
+            [FromServices] IDeviceHubSender hubSender) =>
+        {
+            var normalized = (state ?? string.Empty).Trim().ToUpperInvariant();
+            if (normalized != "ON" && normalized != "OFF")
+            {
+                return Results.BadRequest(
+                    ApiResponse<bool>.Fail("ERR_INVALID_STATE", "state 는 ON 또는 OFF 여야 합니다."));
+            }
+
+            await hubSender.SendScreenPowerAsync(code, normalized == "ON");
+            return Results.Ok(ApiResponse<bool>.Ok(true));
+        }).WithName("SetDeviceScreenPower").WithOpenApi();
     }
 }

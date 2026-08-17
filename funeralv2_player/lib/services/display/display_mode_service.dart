@@ -158,6 +158,45 @@ class DisplayModeService {
     return (false, '${aspect.label} 적용 실패: $lastError');
   }
 
+  /// [모니터 전원 제어]
+  ///
+  /// 원격에서 화면을 완전히 끄고 켜기 위한 기능이다.
+  /// `wlr-randr --off` 는 출력을 비활성화해 패널로 가는 신호를 끊으므로,
+  /// 모니터가 실제로 대기 상태로 들어간다(백라이트 소등). 앱은 계속 살아 있다.
+  ///
+  /// 다시 켤 때는 저장된 해상도를 함께 재적용한다.
+  /// 출력을 껐다 켜면 컴포지터가 EDID 선호 모드로 되돌아가기 때문이다.
+  static Future<bool> setScreenPower(bool on) async {
+    if (!isSupported) {
+      print('[DisplayMode] 이 플랫폼에서는 모니터 전원 제어를 지원하지 않는다.');
+      return false;
+    }
+
+    final output = await detectOutput();
+    try {
+      final result = await Process.run(
+        'wlr-randr',
+        ['--output', output, on ? '--on' : '--off'],
+      );
+
+      if (result.exitCode != 0) {
+        print('[DisplayMode] 모니터 전원 ${on ? "ON" : "OFF"} 실패: ${result.stderr}');
+        return false;
+      }
+
+      print('[DisplayMode] 모니터 전원 ${on ? "ON" : "OFF"} 완료 ($output)');
+
+      if (on) {
+        // 출력을 다시 켜면 모드가 초기화되므로 저장된 비율을 재적용한다.
+        await apply(await loadSaved());
+      }
+      return true;
+    } catch (e) {
+      print('[DisplayMode] 모니터 전원 제어 오류: $e');
+      return false;
+    }
+  }
+
   /// 앱 기동 시 저장된 비율을 다시 적용한다.
   /// (cage 런처가 기본 모드를 잡아두므로, 저장값이 있으면 앱이 덮어쓴다)
   static Future<void> applySavedOnStartup() async {

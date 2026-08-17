@@ -6,6 +6,7 @@ import 'package:window_manager/window_manager.dart';
 import 'pages/device_dispatcher.dart';
 import 'pages/settings_screen.dart'; // 분리된 환경설정 화면 임포트
 import 'services/cache/cache_manager.dart';
+import 'widgets/auto_hide_cursor.dart';
 import 'services/display/display_mode_service.dart';
 import 'package:http/http.dart' as http;
 
@@ -103,6 +104,8 @@ class FuneralPlayerApp extends StatelessWidget {
         scaffoldBackgroundColor: Colors.black, // 기본 배경색은 검정
         primaryColor: const Color(0xFFC0A060), // 금색 포인트 컬러
       ),
+      // 마우스 포인터는 움직일 때만 보이고 멈추면 사라집니다. (사이니지 요건)
+      builder: (context, child) => AutoHideCursor(child: child ?? const SizedBox.shrink()),
       // 앱의 실제 관문 역할을 하는 MainRouter를 홈 화면으로 설정합니다.
       home: const MainRouter(),
     );

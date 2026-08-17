@@ -15,6 +15,13 @@ public interface IDeviceHubSender
     Task SendDeviceChangedByDeviceIdAsync(string deviceId);
     Task SendDeviceChangedByRoomIdAsync(string roomId);
     Task SendDeviceStatusChangedAsync(string deviceCode, string status);
+
+    /// <summary>
+    /// 원격 모니터 전원 제어 명령을 해당 장비에 즉시 전달한다.
+    /// </summary>
+    /// <param name="deviceCode">대상 장비 코드</param>
+    /// <param name="on">true 면 화면 켜기, false 면 끄기</param>
+    Task SendScreenPowerAsync(string deviceCode, bool on);
 }
 
 /// <summary>
@@ -45,6 +52,22 @@ public class DeviceHubSender : IDeviceHubSender
         
         await _hubContext.Clients.Group(deviceCode).SendAsync("DeviceChanged", deviceCode);
         _logger.LogInformation("SignalR [DeviceChanged] sent to group: {DeviceCode}", deviceCode);
+    }
+
+    /// <summary>
+    /// 원격 모니터 전원 제어 명령 전송.
+    ///
+    /// DB 에 저장하지 않는 즉시 실행 명령이다.
+    /// 장비가 재기동되면 화면은 다시 켜진 상태로 뜨는 것이 사이니지 운영상 안전하므로
+    /// 상태를 영속화하지 않는다. (꺼진 채로 부팅되면 원격에서 되살릴 수단이 없다)
+    /// </summary>
+    public async Task SendScreenPowerAsync(string deviceCode, bool on)
+    {
+        if (string.IsNullOrEmpty(deviceCode)) return;
+
+        var state = on ? "ON" : "OFF";
+        await _hubContext.Clients.Group(deviceCode).SendAsync("ScreenPower", state);
+        _logger.LogInformation("SignalR [ScreenPower] sent to group: {DeviceCode}, State: {State}", deviceCode, state);
     }
 
     /// <summary>

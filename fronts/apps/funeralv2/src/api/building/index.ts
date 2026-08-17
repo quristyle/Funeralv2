@@ -482,3 +482,9 @@ export async function bulkSaveDeviceTextOverlays(data: BuildingApi.DeviceTextOve
 export async function deleteDeviceTextOverlay(id: string) {
   return requestClient.delete(`/funeral/building/device-text-overlay/${id}`);
 }
+
+// === 원격 모니터 전원 제어 API ===
+// DB 에 저장되지 않는 즉시 실행 명령이다. 장비가 SignalR 로 접속해 있어야 전달된다.
+export async function setDeviceScreenPower(code: string, state: 'OFF' | 'ON') {
+  return requestClient.post(`/funeral/building/device/screen-power/${code}?state=${state}`);
+}

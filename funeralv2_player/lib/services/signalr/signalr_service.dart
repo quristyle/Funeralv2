@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math';
+import '../display/display_mode_service.dart';
 import 'package:signalr_netcore/signalr_client.dart';
 
 /// [실시간 푸시 통신 서비스]
@@ -129,6 +130,17 @@ class SignalRService {
         macAddress: macAddress,
         publicIpAddress: publicIpAddress,
       );
+    });
+
+    // 2-1) 'ScreenPower' 원격 모니터 전원 제어 이벤트 구독
+    // 관리자가 웹에서 특정 장비의 화면을 끄거나 켤 때 서버가 이 이벤트를 밀어준다.
+    // 저장되는 설정이 아니라 즉시 실행 명령이다. (재기동하면 화면은 다시 켜진 상태로 뜬다)
+    _hubConnection!.on('ScreenPower', (arguments) {
+      _lastActivityAt = DateTime.now();
+      final raw = (arguments != null && arguments.isNotEmpty) ? arguments.first?.toString() : null;
+      final on = !(raw?.toUpperCase() == 'OFF' || raw?.toLowerCase() == 'false');
+      print('[SignalR] << ScreenPower 수신: $raw -> ${on ? "켜기" : "끄기"}');
+      DisplayModeService.setScreenPower(on);
     });
 
     // 3) 'DeviceChanged' 서버 전송 푸시 이벤트 구독 설정
