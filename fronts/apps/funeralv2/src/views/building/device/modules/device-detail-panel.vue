@@ -105,6 +105,7 @@ const emit = defineEmits<{
           :power-off-time-val="powerOffTimeVal"
           :reboot-time-val="rebootTimeVal"
           :device-id="device.id"
+          :device-code="device.code"
           @save="emit('configSave')"
           @reset="emit('configReset')"
           @update:powerOnTimeVal="(val) => emit('update:powerOnTimeVal', val)"

@@ -1,8 +1,9 @@
 <script lang="ts" setup>
 import { ref, watch } from 'vue';
 import {
-  Alert, Button, Divider, Form, Slider, Spin, Switch, TimePicker,
+  Alert, Button, Divider, Form, message, Slider, Spin, Switch, TimePicker,
 } from 'ant-design-vue';
+import { setDeviceScreenPower } from '#/api/building';
 import type { BuildingApi } from '#/api/building';
 
 const props = defineProps<{
@@ -13,6 +14,7 @@ const props = defineProps<{
   powerOffTimeVal: any;
   rebootTimeVal: any;
   deviceId: string;
+  deviceCode: string;
 }>();
 
 const emit = defineEmits<{
@@ -22,6 +24,27 @@ const emit = defineEmits<{
   (e: 'update:powerOffTimeVal', val: any): void;
   (e: 'update:rebootTimeVal', val: any): void;
 }>();
+
+// 원격 화면 전원 명령 전송 중 여부
+const isPowerSending = ref(false);
+
+/// [원격 화면 전원 제어]
+/// 아래의 '자동 전원 제어'가 예약(시각) 기반인 것과 달리, 지금 즉시 화면을 끄고 켠다.
+/// DB 에 저장되지 않는 일회성 명령이라 장비가 온라인일 때만 전달되고,
+/// 장비가 재기동되면 화면은 항상 켜진 상태로 뜬다.
+async function handleScreenPower(state: 'OFF' | 'ON') {
+  if (!props.deviceCode || isPowerSending.value) return;
+
+  isPowerSending.value = true;
+  try {
+    await setDeviceScreenPower(props.deviceCode, state);
+    message.success(`화면 ${state === 'ON' ? '켜기' : '끄기'} 명령을 전송했습니다.`);
+  } catch {
+    message.error('명령 전송에 실패했습니다. 장비가 오프라인일 수 있습니다.');
+  } finally {
+    isPowerSending.value = false;
+  }
+}
 
 // 자동 저장을 위한 디바운스 타이머
 const debounceTimer = ref<NodeJS.Timeout | null>(null);
@@ -140,6 +163,20 @@ watch(
         <Form.Item label="화면 밝기 (Brightness)">
           <Slider v-model:value="deviceConfig.brightness" :min="0" :max="100" />
           <div class="text-right text-xs text-muted-foreground">{{ deviceConfig.brightness }}%</div>
+        </Form.Item>
+        <Divider />
+        <!--
+          즉시 실행되는 원격 화면 전원 제어.
+          아래 '자동 전원 제어'는 시각 예약이고, 이쪽은 지금 바로 끄고 켜는 명령이다.
+        -->
+        <Form.Item label="원격 화면 전원 (즉시 실행)">
+          <div class="flex items-center gap-2">
+            <Button :loading="isPowerSending" @click="handleScreenPower('ON')">화면 켜기</Button>
+            <Button danger :loading="isPowerSending" @click="handleScreenPower('OFF')">화면 끄기</Button>
+          </div>
+          <div class="mt-1 text-xs text-muted-foreground">
+            장비가 온라인일 때만 전달되며 저장되지 않습니다. 재기동 시 화면은 다시 켜집니다.
+          </div>
         </Form.Item>
         <Divider />
         <Form.Item label="자동 전원 제어">

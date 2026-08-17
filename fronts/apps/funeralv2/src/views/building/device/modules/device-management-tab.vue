@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { ref, watch } from 'vue';
 import { Button, Form, Input, InputNumber, message } from 'ant-design-vue';
-import { setDeviceScreenPower, updateDevice } from '#/api/building';
+import { updateDevice } from '#/api/building';
 import type { BuildingApi } from '#/api/building';
 import BizSelect from '#/components/BizSelect.vue';
 import DictSelect from '#/components/DictSelect.vue';
@@ -16,25 +16,6 @@ const emit = defineEmits<{
 
 const formModel = ref<Partial<BuildingApi.Device>>({});
 const isSaving = ref(false);
-const isPowerSending = ref(false);
-
-/// 원격 모니터 전원 제어.
-/// 저장되는 설정이 아니라 즉시 실행 명령이라, 장비가 접속 중일 때만 전달된다.
-async function handleScreenPower(state: 'OFF' | 'ON') {
-  const code = props.device?.code;
-  if (!code) return;
-
-  isPowerSending.value = true;
-  try {
-    await setDeviceScreenPower(code, state);
-    message.success(`화면 ${state === 'ON' ? '켜기' : '끄기'} 명령을 전송했습니다.`);
-  } catch {
-    message.error('명령 전송에 실패했습니다.');
-  } finally {
-    isPowerSending.value = false;
-  }
-}
-const debounceTimer = ref<NodeJS.Timeout | null>(null);
 
 // Props로 받은 device 데이터가 변경될 때마다 formModel을 동기화합니다.
 watch(
@@ -186,16 +167,7 @@ async function handleSave() {
       </Form>
     </div>
     <!-- 저장 버튼 -->
-    <div class="flex shrink-0 items-center justify-between gap-2 border-t border-border bg-muted/40 px-4 py-2">
-      <!--
-        원격 모니터 전원 제어. DB 에 저장되지 않는 즉시 실행 명령이며
-        장비가 온라인일 때만 전달된다. 재기동하면 화면은 다시 켜진 상태로 뜬다.
-      -->
-      <div class="flex items-center gap-2">
-        <span class="text-xs text-muted-foreground">화면 전원</span>
-        <Button size="small" :loading="isPowerSending" @click="handleScreenPower('ON')">켜기</Button>
-        <Button size="small" danger :loading="isPowerSending" @click="handleScreenPower('OFF')">끄기</Button>
-      </div>
+    <div class="flex shrink-0 justify-end gap-2 border-t border-border bg-muted/40 px-4 py-2">
       <Button type="primary" :loading="isSaving" @click="handleSave">정보 저장</Button>
     </div>
   </div>
