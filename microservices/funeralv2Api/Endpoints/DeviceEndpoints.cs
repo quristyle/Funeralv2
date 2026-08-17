@@ -99,10 +99,11 @@ public static class DeviceEndpoints
         //
         // 관리자가 웹에서 특정 사이니지의 화면을 끄거나 켠다.
         // DB 에 저장하지 않는 즉시 실행 명령이며, 장비가 SignalR 로 접속해 있어야 전달된다.
-        // 오프라인 장비에 보내면 조용히 무시된다.
+        // 대상 장비가 오프라인이면 전달되지 않으므로 그 사실을 응답으로 알려준다.
         group.MapPost("/screen-power/{code}", async (
             string code,
             [FromQuery] string state,
+            [FromServices] IDeviceService service,
             [FromServices] IDeviceHubSender hubSender) =>
         {
             var normalized = (state ?? string.Empty).Trim().ToUpperInvariant();
@@ -110,6 +111,22 @@ public static class DeviceEndpoints
             {
                 return Results.BadRequest(
                     ApiResponse<bool>.Fail("ERR_INVALID_STATE", "state 는 ON 또는 OFF 여야 합니다."));
+            }
+
+            // SignalR 그룹 전송은 수신자가 없어도 예외 없이 성공한다.
+            // 그대로 두면 오프라인 장비에 명령을 보내고도 화면에는 "전송 완료"가 떠서
+            // 왜 안 되는지 알 수 없다. 대상 장비의 존재와 접속 상태를 먼저 확인한다.
+            var device = await service.GetByCodeAsync(code);
+            if (device == null)
+            {
+                return Results.NotFound(
+                    ApiResponse<bool>.Fail("ERR_DEVICE_NOT_FOUND", $"장비를 찾을 수 없습니다: {code}"));
+            }
+
+            if (!string.Equals(device.Status, "ONLINE", StringComparison.OrdinalIgnoreCase))
+            {
+                return Results.Ok(
+                    ApiResponse<bool>.Fail("ERR_DEVICE_OFFLINE", "장비가 오프라인 상태라 명령이 전달되지 않았습니다."));
             }
 
             await hubSender.SendScreenPowerAsync(code, normalized == "ON");
