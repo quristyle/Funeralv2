@@ -580,6 +580,9 @@ importers:
 
   apps/funeralv2:
     dependencies:
+      '@maxgraph/core':
+        specifier: ^0.24.0
+        version: 0.24.0
       '@microsoft/signalr':
         specifier: ^10.0.0
         version: 10.0.0
@@ -3302,6 +3305,9 @@ packages:
     resolution: {integrity: sha512-uwPAhccfFJlsfCxMYTwOdVfOz3xqyj8xYL3zJj8f0pb30tLohnnFPhLuqp4/qoEz8sNxe4SESZedcBojRefIzg==}
     engines: {node: '>=18'}
     hasBin: true
+
+  '@maxgraph/core@0.24.0':
+    resolution: {integrity: sha512-OgzCL86pTEa/8MpxbIX44S+xk0qAfmlAu0yZhQ9RFaEB8E5M2rJlPHNWeFpsD/ybWb5J5oPmZYszIcvzG/Kg4g==}
 
   '@microsoft/signalr@10.0.0':
     resolution: {integrity: sha512-0BRqz/uCx3JdrOqiqgFhih/+hfTERaUfCZXFB52uMaZJrKaPRzHzMuqVsJC/V3pt7NozcNXGspjKiQEK+X7P2w==}
@@ -12151,6 +12157,8 @@ snapshots:
     transitivePeerDependencies:
       - encoding
       - supports-color
+
+  '@maxgraph/core@0.24.0': {}
 
   '@microsoft/signalr@10.0.0':
     dependencies:

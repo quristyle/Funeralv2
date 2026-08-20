@@ -45,6 +45,11 @@ const CLUSTER_META: Record<string, { desc: string; icon: string; name: string }>
     icon: 'lucide:sparkles',
     desc: 'AI 에이전트 · 번역 · 추천',
   },
+  'helpdesk-cluster': {
+    name: 'HelpDeskServer',
+    icon: 'lucide:life-buoy',
+    desc: '헬프데스크 · 요청/WBS · 일정',
+  },
 };
 
 function metaOf(clusterId: string) {

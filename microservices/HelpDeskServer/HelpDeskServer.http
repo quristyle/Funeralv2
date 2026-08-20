@@ -1,0 +1,20 @@
+@HelpDeskServer_HostAddress = http://localhost:5400
+@ApiGateway_HostAddress = http://localhost:5265
+
+### 서비스 직접 헬스체크
+GET {{HelpDeskServer_HostAddress}}/health
+
+### 게이트웨이 경유 헬스체크(게이트웨이 상태 API)
+GET {{ApiGateway_HostAddress}}/api/gateway/status
+Accept: application/json
+
+### 게이트웨이 경유 로그인
+POST {{ApiGateway_HostAddress}}/api/helpdesk/users/login
+Content-Type: application/json
+
+{
+  "loginId": "admin",
+  "password": "password"
+}
+
+###

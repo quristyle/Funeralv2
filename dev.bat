@@ -10,6 +10,7 @@ set "AUTH_SERVER_DIR=%ROOT_DIR%microservices\AuthServer"
 set "MICROSERVICE_DIR=%ROOT_DIR%microservices\funeralv2Api"
 set "AI_AGENT_DIR=%ROOT_DIR%microservices\AIAgentServer"
 set "FILE_SERVER_DIR=%ROOT_DIR%microservices\FileServer"
+set "HELPDESK_DIR=%ROOT_DIR%microservices\HelpDeskServer"
 
 echo ====================================================
 echo    Funeral V2 시스템 초기화 및 시작 (MS Architecture)
@@ -23,6 +24,7 @@ taskkill /F /FI "WINDOWTITLE eq Auth Server*" /T > nul 2>&1
 taskkill /F /FI "WINDOWTITLE eq Microservice*" /T > nul 2>&1
 taskkill /F /FI "WINDOWTITLE eq API Gateway*" /T > nul 2>&1
 taskkill /F /FI "WINDOWTITLE eq AI Agent Server*" /T > nul 2>&1
+taskkill /F /FI "WINDOWTITLE eq HelpDesk Server*" /T > nul 2>&1
 taskkill /F /FI "WINDOWTITLE eq Frontend*" /T > nul 2>&1
 
 echo [SUCCESS] 기존 프로세스 정리 완료.
@@ -74,7 +76,18 @@ if %ERRORLEVEL% neq 0 (
 )
 popd
 
-echo 5. API Gateway 빌드...
+echo 5. HelpDesk Server 빌드...
+pushd "%HELPDESK_DIR%"
+dotnet build
+if %ERRORLEVEL% neq 0 (
+    echo [ERROR] HelpDesk Server 빌드 실패! 실행을 중단합니다.
+    popd
+    pause
+    exit /b 1
+)
+popd
+
+echo 6. API Gateway 빌드...
 pushd "%GATEWAY_DIR%"
 dotnet build
 if %ERRORLEVEL% neq 0 (
@@ -104,6 +117,10 @@ timeout /t 2 /nobreak > nul
 
 :: File Server 실행
 start "File Server" cmd /k "cd /d %FILE_SERVER_DIR% && set SERVER_NAME=FILE_API && dotnet run --no-build"
+timeout /t 2 /nobreak > nul
+
+:: HelpDesk Server 실행
+start "HelpDesk Server" cmd /k "cd /d %HELPDESK_DIR% && set SERVER_NAME=HELPDESK && dotnet run --no-build"
 timeout /t 2 /nobreak > nul
 
 :: API Gateway 실행

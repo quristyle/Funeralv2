@@ -23,6 +23,7 @@
     "#/*": "./src/*"
   },
   "dependencies": {
+    "@maxgraph/core": "^0.24.0",
     "@microsoft/signalr": "^10.0.0",
     "@tanstack/vue-query": "catalog:",
     "@vben-core/design": "workspace:*",

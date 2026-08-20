@@ -36,13 +36,13 @@ Funeralv2는 **장례식장 운영 관리 및 디스플레이(사이니지) 시�
                               │         │         │        │
               ┌───────────────┘   ┌─────┘    ┌────┘    ┌───┘
               ▼                    ▼          ▼         ▼
-     ┌────────────────┐  ┌────────────────┐ ┌────────┐ ┌──────────────┐
-     │ AuthServer     │  │ funeralv2Api   │ │FileSvr │ │ AIAgentServer│
-     │ :5264          │  │ :5320          │ │ :5350  │ │ :5029        │
-     │ JWT 발급/인증  │  │ 업무 API +     │ │파일    │ │ AI 에이전트  │
-     │                │  │ DeviceHub(RT)  │ │업/다운 │ │              │
-     └───────┬────────┘  └───────┬────────┘ └───┬────┘ └──────┬───────┘
-             └───────────────────┴──────────────┴─────────────┘
+     ┌────────────────┐  ┌────────────────┐ ┌────────┐ ┌──────────────┐ ┌──────────────┐
+     │ AuthServer     │  │ funeralv2Api   │ │FileSvr │ │ AIAgentServer│ │ HelpDeskSvr  │
+     │ :5264          │  │ :5320          │ │ :5350  │ │ :5029        │ │ :5400        │
+     │ JWT 발급/인증  │  │ 업무 API +     │ │파일    │ │ AI 에이전트  │ │ 헬프데스크   │
+     │                │  │ DeviceHub(RT)  │ │업/다운 │ │              │ │ 요청/WBS/일정│
+     └───────┬────────┘  └───────┬────────┘ └───┬────┘ └──────┬───────┘ └──────┬───────┘
+             └───────────────────┴──────────────┴─────────────┴────────────────┘
                                    │
                           PostgreSQL (EF Core)
               microservices/Common/*  (Shared.DTOs / Domain / Infrastructure)
@@ -61,7 +61,9 @@ Funeralv2는 **장례식장 운영 관리 및 디스플레이(사이니지) 시�
 | `/api/file/download/**`, `/thumbnail/**` | file-cluster | FileServer | 5350 | Anonymous |
 | `/api/file/**` (그 외) | file-cluster | FileServer | 5350 | JWT 필요 |
 | `/api/ai/**` | ai-cluster | AIAgentServer | 5029 | JWT 필요 |
+| `/api/helpdesk/**` | helpdesk-cluster | HelpDeskServer | 5400 | Anonymous(서비스가 자체 검증) |
 
+- `/api/helpdesk/**` 는 프리픽스를 떼고 다시 `/api` 를 붙여 전달한다(`/api/helpdesk/users/login` → HelpDeskServer 의 `/api/users/login`). HelpDeskServer 는 자체 로그인 토큰(`helpdesk-api`)과 게이트웨이 토큰(`funeralv2-auth`)을 모두 수용한다.
 - 게이트웨이 자체 포트: **5265** (`ApiGateway/Properties/launchSettings.json`)
 - 프론트엔드 개발 프록시: `fronts/apps/funeralv2/vite.config.ts:19` → `http://127.0.0.1:5265`
 

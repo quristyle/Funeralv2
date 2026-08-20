@@ -13,6 +13,7 @@ AUTH_SERVER_DIR="$ROOT_DIR/microservices/AuthServer"
 MICROSERVICE_DIR="$ROOT_DIR/microservices/funeralv2Api"
 AI_AGENT_DIR="$ROOT_DIR/microservices/AIAgentServer"
 FILE_SERVER_DIR="$ROOT_DIR/microservices/FileServer"
+HELPDESK_DIR="$ROOT_DIR/microservices/HelpDeskServer"
 
 #############################################
 # 시스템에서 사용 가능한 터미널 자동 선택
@@ -142,12 +143,17 @@ if ! (cd "$FILE_SERVER_DIR" && dotnet build); then
     exit 1
 fi
 
-echo "5. API Gateway 빌드..."
+echo "5. HelpDesk Server 빌드..."
+if ! (cd "$HELPDESK_DIR" && dotnet build); then
+    exit 1
+fi
+
+echo "6. API Gateway 빌드..."
 if ! (cd "$GATEWAY_DIR" && dotnet build); then
     exit 1
 fi
 
-echo "6. Frontend 의존성 설치..."
+echo "7. Frontend 의존성 설치..."
 
 cd "$FRONTEND_DIR" || exit 1
 pnpm install
@@ -169,6 +175,8 @@ start_dotnet_service FUNERALV2 "$MICROSERVICE_DIR"
 start_dotnet_service AI_AGENT "$AI_AGENT_DIR"
 
 start_dotnet_service FILE_API "$FILE_SERVER_DIR"
+
+start_dotnet_service HELPDESK "$HELPDESK_DIR"
 
 #############################################
 # Frontend 실행
