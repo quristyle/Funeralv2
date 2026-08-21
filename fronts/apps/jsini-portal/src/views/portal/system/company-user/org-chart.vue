@@ -4,8 +4,8 @@ import { Page } from '@vben/common-ui';
 import { Card, Button, Tooltip, message, Radio } from 'ant-design-vue';
 import { IconifyIcon } from '@vben/icons';
 import BizSelect from '#/components/BizSelect.vue';
-import { getCompanyList } from '#/api/system/company';
-import { getDeptList, getDeptUsers, moveDept, moveUserDept } from '#/api/system/dept';
+import { getCompanyList } from '#/api/portal/system/company';
+import { getDeptList, getDeptUsers, moveDept, moveUserDept } from '#/api/portal/system/dept';
 
 // 회사 선택 상태 (undefined로 초기화해야 BizSelect의 auto-select-first가 정상 동작합니다)
 const selectedCompanyId = ref<string | undefined>(undefined);

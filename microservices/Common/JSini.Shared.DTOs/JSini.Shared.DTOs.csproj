@@ -4,13 +4,13 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <AssemblyName>Funeralv2.Shared.DTOs</AssemblyName>
-    <RootNamespace>Funeralv2.Shared.DTOs</RootNamespace>
+    <AssemblyName>JSini.Shared.DTOs</AssemblyName>
+    <RootNamespace>JSini.Shared.DTOs</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Mapster" Version="7.4.0" />
-    <ProjectReference Include="..\Funeralv2.Shared.Domain\Funeralv2.Shared.Domain.csproj" />
+    <ProjectReference Include="..\JSini.Shared.Domain\JSini.Shared.Domain.csproj" />
   </ItemGroup>
 
 </Project>

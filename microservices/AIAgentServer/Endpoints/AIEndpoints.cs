@@ -1,6 +1,6 @@
 using System.Text.Json;
 using AIAgentServer.Services;
-using Funeralv2.Shared.DTOs;
+using JSini.Shared.DTOs;
 using Microsoft.AspNetCore.Mvc;
 
 namespace AIAgentServer.Endpoints;

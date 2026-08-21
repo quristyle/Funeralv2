@@ -8,7 +8,7 @@ using Microsoft.OpenApi.Models;
 using funeralv2Api.Services;
 using funeralv2Api.Endpoints;
 using Spectre.Console;
-using Funeralv2.Shared.Infrastructure.Middleware;
+using JSini.Shared.Infrastructure.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
 

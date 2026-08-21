@@ -1,8 +1,8 @@
 <script lang="ts" setup>
 import { ref, watch } from 'vue';
 import { Button, Form, Input, InputNumber, message } from 'ant-design-vue';
-import { updateDevice } from '#/api/building';
-import type { BuildingApi } from '#/api/building';
+import { updateDevice } from '#/api/funeral/building';
+import type { BuildingApi } from '#/api/funeral/building';
 import BizSelect from '#/components/BizSelect.vue';
 import DictSelect from '#/components/DictSelect.vue';
 
@@ -169,7 +169,7 @@ async function handleSave() {
     </div>
     <!-- 저장 버튼 -->
     <div class="flex shrink-0 justify-end gap-2 border-t border-border bg-muted/40 px-4 py-2">
-      <Button type="primary" :loading="isSaving" @click="handleSave">정보 저장</Button>
+      <Button v-perm:update type="primary" :loading="isSaving" @click="handleSave">정보 저장</Button>
     </div>
   </div>
 </template>

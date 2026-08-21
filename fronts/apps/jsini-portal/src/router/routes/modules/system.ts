@@ -19,7 +19,7 @@ const routes: RouteRecordRaw[] = [
           icon: 'mdi:account-group',
           title: $t('system.role.title'),
         },
-        component: () => import('#/views/system/role/index.vue'),
+        component: () => import('#/views/portal/system/role/index.vue'),
       },
       {
         path: '/system/role-custom',
@@ -28,7 +28,7 @@ const routes: RouteRecordRaw[] = [
           icon: 'mdi:account-key',
           title: '역할 권한 지정',
         },
-        component: () => import('#/views/system/role-custom/index.vue'),
+        component: () => import('#/views/portal/auth/role-custom/index.vue'),
       },
       {
         path: '/system/menu',
@@ -37,7 +37,7 @@ const routes: RouteRecordRaw[] = [
           icon: 'mdi:menu',
           title: $t('system.menu.title'),
         },
-        component: () => import('#/views/system/menu/list.vue'),
+        component: () => import('#/views/portal/system/menu/list.vue'),
       },
       {
         path: '/system/dept',
@@ -46,7 +46,7 @@ const routes: RouteRecordRaw[] = [
           icon: 'charm:organisation',
           title: $t('system.dept.title'),
         },
-        component: () => import('#/views/system/dept/list.vue'),
+        component: () => import('#/views/portal/system/dept/list.vue'),
       },
       {
         path: '/system/company',
@@ -55,7 +55,7 @@ const routes: RouteRecordRaw[] = [
           icon: 'mdi:office-building',
           title: $t('system.company.title'),
         },
-        component: () => import('#/views/system/company/list.vue'),
+        component: () => import('#/views/portal/system/company/list.vue'),
       },
       {
         path: '/system/company-user',
@@ -64,7 +64,7 @@ const routes: RouteRecordRaw[] = [
           icon: 'mdi:office-building-cog',
           title: '회사 사용자 지정',
         },
-        component: () => import('#/views/system/company-user/index.vue'),
+        component: () => import('#/views/portal/system/company-user/index.vue'),
       },
       {
         path: '/system/org-chart',
@@ -73,7 +73,7 @@ const routes: RouteRecordRaw[] = [
           icon: 'mdi:sitemap-outline',
           title: '조직도 관리',
         },
-        component: () => import('#/views/system/company-user/org-chart.vue'),
+        component: () => import('#/views/portal/system/company-user/org-chart.vue'),
       },
       {
         path: '/system/biz-select-config',
@@ -82,7 +82,7 @@ const routes: RouteRecordRaw[] = [
           icon: 'mdi:format-list-bulleted-type',
           title: 'BizSelect 설정',
         },
-        component: () => import('#/views/system/biz-select-config/list.vue'),
+        component: () => import('#/views/portal/system/biz-select-config/list.vue'),
       },
     ],
   },

@@ -1,8 +1,8 @@
 using AuthServer.DTOs;
 using AuthServer.Services;
 using Microsoft.AspNetCore.Mvc;
-using Funeralv2.Shared.DTOs;
-using Funeralv2.Shared.Infrastructure.Filters;
+using JSini.Shared.DTOs;
+using JSini.Shared.Infrastructure.Filters;
 
 namespace AuthServer.Endpoints;
 

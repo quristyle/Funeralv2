@@ -54,6 +54,11 @@ public class SystemMenuDto
     /// 하위 메뉴 트리
     /// </summary>
     public List<SystemMenuDto>? Children { get; set; }
+
+    /// <summary>
+    /// 이 메뉴가 사용하는 권한 항목 설정
+    /// </summary>
+    public MenuPermissionItemsDto Permissions { get; set; } = new();
 }
 
 /// <summary>
@@ -171,4 +176,47 @@ public class CreateSystemMenuDto
     /// 메타 데이터 설정
     /// </summary>
     public SystemMenuMetaDto Meta { get; set; } = new();
+
+    /// <summary>
+    /// 이 메뉴가 사용하는 권한 항목 설정
+    /// </summary>
+    public MenuPermissionItemsDto Permissions { get; set; } = new();
+}
+
+/// <summary>
+/// 메뉴가 어떤 권한 항목을 쓰는지에 대한 설정 DTO.
+/// </summary>
+/// <remarks>
+/// role_menus 는 메뉴마다 15가지 권한 칸(열람·조회·추가·삭제·수정·출력·엑셀,
+/// 사용자 정의 1~8)을 들고 있지만, 메뉴마다 실제로 의미 있는 항목은 다르다.
+/// 여기서 정해둔 값에 따라 역할 권한 화면이 해당 항목만 켜서 보여준다.
+/// 사용자 정의 1~8 은 이름을 붙여야 무엇인지 알 수 있으므로 이름도 함께 담는다.
+/// </remarks>
+public class MenuPermissionItemsDto
+{
+    public bool UseView { get; set; } = true;
+    public bool UseSearch { get; set; } = true;
+    public bool UseCreate { get; set; } = true;
+    public bool UseDelete { get; set; } = true;
+    public bool UseUpdate { get; set; } = true;
+    public bool UsePrint { get; set; } = true;
+    public bool UseExcel { get; set; } = true;
+
+    public bool UseCust1 { get; set; }
+    public bool UseCust2 { get; set; }
+    public bool UseCust3 { get; set; }
+    public bool UseCust4 { get; set; }
+    public bool UseCust5 { get; set; }
+    public bool UseCust6 { get; set; }
+    public bool UseCust7 { get; set; }
+    public bool UseCust8 { get; set; }
+
+    public string? Cust1Name { get; set; }
+    public string? Cust2Name { get; set; }
+    public string? Cust3Name { get; set; }
+    public string? Cust4Name { get; set; }
+    public string? Cust5Name { get; set; }
+    public string? Cust6Name { get; set; }
+    public string? Cust7Name { get; set; }
+    public string? Cust8Name { get; set; }
 }

@@ -34,14 +34,14 @@ const lastFetchTime = ref('');
 let timer: null | ReturnType<typeof setInterval> = null;
 
 const columns = [
-  { dataIndex: 'mcId', key: 'mcId', title: '설비 ID', width: 110 },
-  { dataIndex: 'tagId', key: 'tagId', title: '태그', width: 140 },
+  { dataIndex: 'mcId', key: 'mcId', sorter: true, title: '설비 ID', width: 110 },
+  { dataIndex: 'tagId', key: 'tagId', sorter: true, title: '태그', width: 140 },
   { dataIndex: 'tagValueA', key: 'tagValueA', title: 'A 값', width: 110 },
   { dataIndex: 'saveDtimeA', key: 'saveDtimeA', title: 'A 시각', width: 160 },
   { dataIndex: 'tagValueB', key: 'tagValueB', title: 'B 값', width: 110 },
   { dataIndex: 'saveDtimeB', key: 'saveDtimeB', title: 'B 시각', width: 160 },
-  { dataIndex: 'gap', key: 'gap', title: '차이', width: 100 },
-  { dataIndex: 'chk', key: 'chk', title: '판정', width: 90 },
+  { dataIndex: 'gap', key: 'gap', sorter: true, title: '차이', width: 100 },
+  { dataIndex: 'chk', key: 'chk', sorter: true, title: '판정', width: 90 },
 ];
 
 const filteredRows = computed(() => {

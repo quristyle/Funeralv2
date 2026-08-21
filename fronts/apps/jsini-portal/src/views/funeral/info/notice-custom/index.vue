@@ -4,7 +4,7 @@ import { Page, useVbenModal } from '@vben/common-ui';
 import { Plus } from '@vben/icons';
 import { Button, message, Form, Input, Switch, Badge, Card } from 'ant-design-vue';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import { getNotices } from '#/api/info';
+import { getNotices } from '#/api/funeral/info';
 
 const [NoticeModal, noticeModalApi] = useVbenModal({
   title: '공지사항 및 알림 등록',
@@ -81,7 +81,7 @@ function handleSave() {
   <Page auto-content-height>
     <Grid table-title="관내 긴급 알림 및 공지사항 목록">
       <template #toolbar-tools>
-        <Button type="primary" @click="openCreate">
+        <Button v-perm:create type="primary" @click="openCreate">
           <Plus class="size-5 mr-1" />
           알림 등록
         </Button>

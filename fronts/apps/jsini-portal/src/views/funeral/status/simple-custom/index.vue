@@ -2,7 +2,7 @@
 import { ref, onMounted } from 'vue';
 import { Page } from '@vben/common-ui';
 import { Row, Col, Card, Spin, message } from 'ant-design-vue';
-import { getFuneralStatuses } from '#/api/status';
+import { getFuneralStatuses } from '#/api/funeral/status';
 
 const list = ref<any[]>([]);
 const loading = ref<boolean>(false);

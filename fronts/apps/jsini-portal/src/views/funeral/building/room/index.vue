@@ -4,8 +4,8 @@ import { Page, useVbenModal } from '@vben/common-ui';
 import { IconifyIcon, Plus } from '@vben/icons'; 
 import { Button, message, Popconfirm, Form, Input, Select, Tooltip, InputNumber } from 'ant-design-vue';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import { getRooms, createRoom, updateRoom, deleteRoom } from '#/api/building';
-import { getCommonCodes } from '#/api/system/common-code';
+import { getRooms, createRoom, updateRoom, deleteRoom } from '#/api/funeral/building';
+import { getCommonCodes } from '#/api/portal/system/common-code';
 import BizSelect from '#/components/BizSelect.vue';
 import DictSelect from '#/components/DictSelect.vue';
 
@@ -224,7 +224,7 @@ async function handleSave() {
       </div>
 
       <!-- 신규 등록 버튼 -->
-      <Button type="primary" @click="onCreate">
+      <Button v-perm:create type="primary" @click="onCreate">
         <Plus class="size-5 mr-1" />
         신규 호실 등록
       </Button>
@@ -246,13 +246,13 @@ async function handleSave() {
 
       <template #action="{ row }">
         <div class="flex gap-2 justify-center">
-          <Tooltip title="수정">
+          <Tooltip v-perm:update title="수정">
             <Button type="link" size="small" @click="onEdit(row)">
               <IconifyIcon icon="lucide:edit" class="size-4" />
             </Button>
           </Tooltip>
           <Popconfirm title="해당 호실을 삭제하시겠습니까?" @confirm="onDelete(row)" placement="topLeft">
-            <Tooltip title="삭제">
+            <Tooltip v-perm:delete title="삭제">
               <Button type="link" size="small" danger>
                 <IconifyIcon icon="lucide:trash-2" class="size-4" />
               </Button>

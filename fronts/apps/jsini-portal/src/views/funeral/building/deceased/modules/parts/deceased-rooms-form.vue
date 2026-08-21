@@ -2,7 +2,7 @@
 import { computed, ref, onMounted } from 'vue';
 import { Button, Form, message } from 'ant-design-vue';
 import { Plus, Trash2 } from '@vben/icons';
-import { getRooms, getBuildings } from '#/api/building';
+import { getRooms, getBuildings } from '#/api/funeral/building';
 import BizSelect from '#/components/BizSelect.vue';
 import AutoDatePicker from '#/components/AutoDatePicker.vue';
 

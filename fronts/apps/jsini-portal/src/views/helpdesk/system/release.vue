@@ -163,7 +163,9 @@ onMounted(loadVersion);
           title="jin114 로 배포합니다. 진행할까요?"
           @confirm="build('jin114')"
         >
-          <Button :loading="loading" type="primary">jin114 배포</Button>
+          <Button v-perm:cust1 :loading="loading" type="primary">
+            jin114 배포
+          </Button>
         </Popconfirm>
         <Popconfirm
           cancel-text="취소"
@@ -171,7 +173,7 @@ onMounted(loadVersion);
           title="goldb 로 배포합니다. 진행할까요?"
           @confirm="build('ghub')"
         >
-          <Button :loading="loading">goldb 배포</Button>
+          <Button v-perm:cust1 :loading="loading">goldb 배포</Button>
         </Popconfirm>
       </Space>
 

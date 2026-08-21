@@ -4,6 +4,7 @@ import type { VxeGridProps } from '#/adapter/vxe-table';
 import { h } from 'vue';
 import { IconifyIcon } from '@vben/icons';
 import { Button, Popconfirm, Tooltip } from 'ant-design-vue';
+import { can } from '#/utils/permission';
 
 /**
  * BizSelect 설정 테이블 컬럼 정의
@@ -24,6 +25,7 @@ export const useColumns = (onActionClick: (params: any) => void): VxeGridProps['
     slots: {
       default: (record) => {
         return h('div', { class: 'flex justify-center gap-2' }, [
+          can('update') &&
           h(
             Tooltip,
             { title: '수정' },
@@ -47,6 +49,7 @@ export const useColumns = (onActionClick: (params: any) => void): VxeGridProps['
                 ),
             },
           ),
+          can('delete') &&
           h(
             Popconfirm,
             {
@@ -81,8 +84,7 @@ export const useColumns = (onActionClick: (params: any) => void): VxeGridProps['
                   },
                 ),
             },
-          ),
-        ]);
+          )].filter(Boolean));
       },
     },
   },

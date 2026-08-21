@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import type { SystemDeptApi } from '#/api/system/dept';
+import type { SystemDeptApi } from '#/api/portal/system/dept';
 
 import { computed, nextTick, ref } from 'vue';
 
@@ -8,7 +8,7 @@ import { useVbenModal } from '@vben/common-ui';
 import { Button } from 'ant-design-vue';
 
 import { useVbenForm } from '#/adapter/form';
-import { createDept, updateDept } from '#/api/system/dept';
+import { createDept, updateDept } from '#/api/portal/system/dept';
 import { $t } from '#/locales';
 
 import { useSchema } from '../data';

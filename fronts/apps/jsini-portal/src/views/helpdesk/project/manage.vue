@@ -37,9 +37,19 @@ const columns = [
 const fields = computed<CrudField[]>(() => [
   { key: 'name', label: '프로젝트명', required: true },
   { key: 'teamId', label: '담당 팀', options: teams.value, type: 'select' },
-  { key: 'projectStart', label: '시작일 (YYYY-MM-DD)' },
-  { key: 'projectEnd', label: '종료일 (YYYY-MM-DD)' },
+  { key: 'projectStart', label: '시작일', type: 'date' },
+  { key: 'projectEnd', label: '종료일', type: 'date' },
 ]);
+
+/** DatePicker 는 'YYYY-MM-DD' 만 받으므로 ISO 문자열을 잘라 넘긴다. */
+async function fetchProjects() {
+  const list = (await getProjects()) ?? [];
+  return list.map((p) => ({
+    ...p,
+    projectEnd: p.projectEnd ? String(p.projectEnd).slice(0, 10) : undefined,
+    projectStart: p.projectStart ? String(p.projectStart).slice(0, 10) : undefined,
+  }));
+}
 
 onMounted(async () => {
   const list = (await getTeamList()) ?? [];
@@ -53,7 +63,7 @@ onMounted(async () => {
     <CrudTable
       :columns="columns"
       :create="createProject"
-      :fetch="getProjects"
+      :fetch="fetchProjects"
       :fields="fields"
       :remove="deleteProject"
       :search-keys="['name']"

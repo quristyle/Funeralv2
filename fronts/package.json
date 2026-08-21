@@ -44,7 +44,7 @@
     "clean": "node ./scripts/clean.mjs",
     "commit": "czg",
     "dev:play": "pnpm -F @vben/playground run dev",
-    "dev": "pnpm -F @vben/funeralv2 run dev",
+    "dev": "pnpm -F @vben/jsini-portal run dev",
     "format": "vsh lint --format",
     "lint": "vsh lint",
     "postinstall": "pnpm -r run stub --if-present",

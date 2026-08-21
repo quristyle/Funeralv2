@@ -4,7 +4,7 @@ import { Page, useVbenDrawer } from '@vben/common-ui';
 import { Card, Tabs, Button, Tooltip, Popconfirm, message } from 'ant-design-vue';
 import { Plus, IconifyIcon } from '@vben/icons';
 import { useVbenVxeGrid, type VxeTableGridColumns } from '#/adapter/vxe-table';
-import { getRoleList, deleteRole } from '#/api/system/role';
+import { getRoleList, deleteRole } from '#/api/portal/system/role';
 import { $t } from '#/locales';
 import RoleUserTab from './modules/RoleUserTab.vue';
 import RoleMenuTab from './modules/RoleMenuTab.vue';
@@ -172,7 +172,7 @@ const activeTabKey = ref('users');
       <div class="col-span-12 lg:col-span-4 h-full flex flex-col">
         <Card class="flex-1 flex flex-col h-full overflow-hidden" title="역할 목록" :body-style="{ flex: 1, padding: 0, overflow: 'hidden' }">
           <template #extra>
-            <Button type="primary" size="small" @click="onCreate">
+            <Button v-perm:create type="primary" size="small" @click="onCreate">
               <Plus class="size-4" />
               {{ $t('ui.actionTitle.create', [$t('system.role.name')]) }}
             </Button>

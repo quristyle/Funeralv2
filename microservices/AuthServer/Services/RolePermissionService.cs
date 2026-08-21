@@ -140,7 +140,32 @@ public class RolePermissionService : IRolePermissionService
                 CanCust5 = pm?.CanCust5 ?? false,
                 CanCust6 = pm?.CanCust6 ?? false,
                 CanCust7 = pm?.CanCust7 ?? false,
-                CanCust8 = pm?.CanCust8 ?? false
+                CanCust8 = pm?.CanCust8 ?? false,
+
+                // 메뉴가 어떤 권한 항목을 쓰는지. 화면이 체크박스를 켜고 끄는 기준이 된다.
+                UseView = menu.UseView,
+                UseSearch = menu.UseSearch,
+                UseCreate = menu.UseCreate,
+                UseDelete = menu.UseDelete,
+                UseUpdate = menu.UseUpdate,
+                UsePrint = menu.UsePrint,
+                UseExcel = menu.UseExcel,
+                UseCust1 = menu.UseCust1,
+                UseCust2 = menu.UseCust2,
+                UseCust3 = menu.UseCust3,
+                UseCust4 = menu.UseCust4,
+                UseCust5 = menu.UseCust5,
+                UseCust6 = menu.UseCust6,
+                UseCust7 = menu.UseCust7,
+                UseCust8 = menu.UseCust8,
+                Cust1Name = menu.Cust1Name,
+                Cust2Name = menu.Cust2Name,
+                Cust3Name = menu.Cust3Name,
+                Cust4Name = menu.Cust4Name,
+                Cust5Name = menu.Cust5Name,
+                Cust6Name = menu.Cust6Name,
+                Cust7Name = menu.Cust7Name,
+                Cust8Name = menu.Cust8Name
             });
         }
 
@@ -164,26 +189,52 @@ public class RolePermissionService : IRolePermissionService
             .Where(rm => rm.RoleId == roleId)
             .ToDictionaryAsync(rm => rm.MenuId);
 
+        // 메뉴가 쓰지 않는 권한 항목은 켜서 보내와도 저장하지 않는다.
+        // 화면에서 이미 잠가두지만, 요청을 직접 만들어 보내는 경우까지 막는다.
+        var menuIds = dtos.Select(d => d.MenuId).Distinct().ToList();
+        var menuUsage = await _db.SystemMenus
+            .Where(m => menuIds.Contains(m.Id))
+            .ToDictionaryAsync(m => m.Id);
+
         foreach (var dto in dtos)
         {
+            menuUsage.TryGetValue(dto.MenuId, out var menu);
+
+            // 메뉴 정보를 못 찾으면 보수적으로 전부 막는다.
+            var canView = (menu?.UseView ?? false) && dto.CanView;
+            var canSearch = (menu?.UseSearch ?? false) && dto.CanSearch;
+            var canCreate = (menu?.UseCreate ?? false) && dto.CanCreate;
+            var canDelete = (menu?.UseDelete ?? false) && dto.CanDelete;
+            var canUpdate = (menu?.UseUpdate ?? false) && dto.CanUpdate;
+            var canPrint = (menu?.UsePrint ?? false) && dto.CanPrint;
+            var canExcel = (menu?.UseExcel ?? false) && dto.CanExcel;
+            var canCust1 = (menu?.UseCust1 ?? false) && dto.CanCust1;
+            var canCust2 = (menu?.UseCust2 ?? false) && dto.CanCust2;
+            var canCust3 = (menu?.UseCust3 ?? false) && dto.CanCust3;
+            var canCust4 = (menu?.UseCust4 ?? false) && dto.CanCust4;
+            var canCust5 = (menu?.UseCust5 ?? false) && dto.CanCust5;
+            var canCust6 = (menu?.UseCust6 ?? false) && dto.CanCust6;
+            var canCust7 = (menu?.UseCust7 ?? false) && dto.CanCust7;
+            var canCust8 = (menu?.UseCust8 ?? false) && dto.CanCust8;
+
             if (existingMappings.TryGetValue(dto.MenuId, out var mapping))
             {
                 // 기존 데이터가 존재하면 필드 수정
-                mapping.CanView = dto.CanView;
-                mapping.CanSearch = dto.CanSearch;
-                mapping.CanCreate = dto.CanCreate;
-                mapping.CanDelete = dto.CanDelete;
-                mapping.CanUpdate = dto.CanUpdate;
-                mapping.CanPrint = dto.CanPrint;
-                mapping.CanExcel = dto.CanExcel;
-                mapping.CanCust1 = dto.CanCust1;
-                mapping.CanCust2 = dto.CanCust2;
-                mapping.CanCust3 = dto.CanCust3;
-                mapping.CanCust4 = dto.CanCust4;
-                mapping.CanCust5 = dto.CanCust5;
-                mapping.CanCust6 = dto.CanCust6;
-                mapping.CanCust7 = dto.CanCust7;
-                mapping.CanCust8 = dto.CanCust8;
+                mapping.CanView = canView;
+                mapping.CanSearch = canSearch;
+                mapping.CanCreate = canCreate;
+                mapping.CanDelete = canDelete;
+                mapping.CanUpdate = canUpdate;
+                mapping.CanPrint = canPrint;
+                mapping.CanExcel = canExcel;
+                mapping.CanCust1 = canCust1;
+                mapping.CanCust2 = canCust2;
+                mapping.CanCust3 = canCust3;
+                mapping.CanCust4 = canCust4;
+                mapping.CanCust5 = canCust5;
+                mapping.CanCust6 = canCust6;
+                mapping.CanCust7 = canCust7;
+                mapping.CanCust8 = canCust8;
 
                 _db.Entry(mapping).State = EntityState.Modified;
             }
@@ -194,21 +245,21 @@ public class RolePermissionService : IRolePermissionService
                 {
                     RoleId = roleId,
                     MenuId = dto.MenuId,
-                    CanView = dto.CanView,
-                    CanSearch = dto.CanSearch,
-                    CanCreate = dto.CanCreate,
-                    CanDelete = dto.CanDelete,
-                    CanUpdate = dto.CanUpdate,
-                    CanPrint = dto.CanPrint,
-                    CanExcel = dto.CanExcel,
-                    CanCust1 = dto.CanCust1,
-                    CanCust2 = dto.CanCust2,
-                    CanCust3 = dto.CanCust3,
-                    CanCust4 = dto.CanCust4,
-                    CanCust5 = dto.CanCust5,
-                    CanCust6 = dto.CanCust6,
-                    CanCust7 = dto.CanCust7,
-                    CanCust8 = dto.CanCust8
+                    CanView = canView,
+                    CanSearch = canSearch,
+                    CanCreate = canCreate,
+                    CanDelete = canDelete,
+                    CanUpdate = canUpdate,
+                    CanPrint = canPrint,
+                    CanExcel = canExcel,
+                    CanCust1 = canCust1,
+                    CanCust2 = canCust2,
+                    CanCust3 = canCust3,
+                    CanCust4 = canCust4,
+                    CanCust5 = canCust5,
+                    CanCust6 = canCust6,
+                    CanCust7 = canCust7,
+                    CanCust8 = canCust8
                 };
                 _db.RoleMenus.Add(newMapping);
             }

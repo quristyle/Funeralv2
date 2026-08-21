@@ -2,13 +2,14 @@ import { h, markRaw } from 'vue';
 
 import { IconifyIcon } from '@vben/icons';
 import { $t } from '#/locales';
+import { can } from '#/utils/permission';
 
 import { Button, Popconfirm, Tooltip } from 'ant-design-vue';
 
 import type { VxeTableGridColumns } from '@vben/plugins/vxe-table';
 import type { VbenFormSchema } from '#/adapter/form';
 import type { OnActionClickFn } from '#/adapter/vxe-table';
-import type { SystemDeptApi } from '#/api/system/dept';
+import type { SystemDeptApi } from '#/api/portal/system/dept';
 
 import { z } from '#/adapter/form';
 import BizSelect from '#/components/BizSelect.vue';
@@ -154,6 +155,7 @@ export function useColumns(
         default: (record) => {
           const hasChildren = !!(record.row.children && record.row.children.length > 0);
           return h('div', { class: 'flex justify-center gap-2' }, [
+            can('create') &&
             // 하위 추가
             h(
               Tooltip,
@@ -178,6 +180,7 @@ export function useColumns(
                   ),
               },
             ),
+            can('update') &&
             // 수정
             h(
               Tooltip,
@@ -202,6 +205,7 @@ export function useColumns(
                   ),
               },
             ),
+            can('delete') &&
             // 삭제
             h(
               Popconfirm,
@@ -239,8 +243,7 @@ export function useColumns(
                     },
                   ),
               },
-            ),
-          ]);
+            )].filter(Boolean));
         },
       },
       title: $t('common.action'),

@@ -234,7 +234,9 @@ onMounted(loadData);
           />
           <Segmented v-model:value="filter" :options="FILTER_OPTIONS" />
         </Space>
-        <Button type="primary" @click="openCreate()">항목 등록</Button>
+        <Button v-perm:create type="primary" @click="openCreate()">
+          항목 등록
+        </Button>
       </div>
     </Card>
 
@@ -254,10 +256,20 @@ onMounted(loadData);
       >
         <template #extra>
           <Space>
-            <Button size="small" type="link" @click="openRename(group.category)">
+            <Button
+              v-perm:update
+              size="small"
+              type="link"
+              @click="openRename(group.category)"
+            >
               분류명 변경
             </Button>
-            <Button size="small" type="link" @click="openCreate(group.category)">
+            <Button
+              v-perm:create
+              size="small"
+              type="link"
+              @click="openCreate(group.category)"
+            >
               이 분류에 추가
             </Button>
           </Space>
@@ -287,7 +299,9 @@ onMounted(loadData);
             {{ formatDateTime(item.completedAt) }}
           </Tag>
           <Space>
-            <Button size="small" type="link" @click="openEdit(item)">수정</Button>
+            <Button v-perm:update size="small" type="link" @click="openEdit(item)">
+              수정
+            </Button>
             <Popconfirm
               cancel-text="취소"
               ok-text="삭제"

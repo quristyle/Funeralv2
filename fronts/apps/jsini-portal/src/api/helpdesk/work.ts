@@ -3,7 +3,6 @@
  */
 import type {
   Checklist,
-  Notice,
   Project,
   Schedule,
   Wbs,
@@ -106,14 +105,31 @@ export async function saveWbsDiagram(data: {
 // 일정
 // ============================================================
 
+/**
+ * 일정 API 만 응답 봉투가 다르다.
+ *
+ * 다른 엔드포인트는 `{ success, message, data }` 로 감싸 보내지만
+ * ScheduleEndpoints 는 `{ data: [...] }` 만 보낸다(`success` 없음).
+ * 요청 클라이언트는 `success` 가 있어야 봉투로 알아보고 벗겨내므로,
+ * 여기서 한 번 더 확인해 배열을 꺼낸다.
+ */
+function unwrapSchedule<T>(res: any): T {
+  if (res && typeof res === 'object' && !Array.isArray(res) && 'data' in res) {
+    return res.data as T;
+  }
+  return res as T;
+}
+
 /** 일정 목록 */
 export async function getSchedules(params?: { companyId?: number }) {
-  return helpdeskClient.get<Schedule[]>('/schedules', { params });
+  const res = await helpdeskClient.get<any>('/schedules', { params });
+  return unwrapSchedule<Schedule[]>(res) ?? [];
 }
 
 /** 일정 단건 조회 */
-export async function getSchedule(id: number) {
-  return helpdeskClient.get<Schedule>(`/schedules/${id}`);
+export async function getSchedule(id: string) {
+  const res = await helpdeskClient.get<any>(`/schedules/${id}`);
+  return unwrapSchedule<Schedule>(res);
 }
 
 /** 일정 생성 */
@@ -122,12 +138,12 @@ export async function createSchedule(data: Partial<Schedule>) {
 }
 
 /** 일정 수정 */
-export async function updateSchedule(id: number, data: Partial<Schedule>) {
+export async function updateSchedule(id: string, data: Partial<Schedule>) {
   return helpdeskClient.put<Schedule>(`/schedules/${id}`, data);
 }
 
 /** 일정 삭제 */
-export async function deleteSchedule(id: number) {
+export async function deleteSchedule(id: string) {
   return helpdeskClient.delete(`/schedules/${id}`);
 }
 
@@ -164,41 +180,22 @@ export async function deleteChecklist(id: number) {
 // 공지사항
 // ============================================================
 
-/** 공지 목록 */
-export async function getNotices() {
-  return helpdeskClient.get<Notice[]>('/notices');
-}
-
-/** 공지 단건 조회 */
-export async function getNotice(id: number) {
-  return helpdeskClient.get<Notice>(`/notices/${id}`);
-}
-
-/** 공지 생성 */
-export async function createNotice(data: Partial<Notice>) {
-  return helpdeskClient.post<Notice>('/notices', data);
-}
-
-/** 공지 수정 */
-export async function updateNotice(id: number, data: Partial<Notice>) {
-  return helpdeskClient.put<Notice>(`/notices/${id}`, data);
-}
-
-/** 공지 삭제 */
-export async function deleteNotice(id: number) {
-  return helpdeskClient.delete(`/notices/${id}`);
-}
+// 공지는 JSini 관리 포털이 공통으로 관리한다(#/api/portal/notice).
+// 헬프데스크가 따로 들고 있던 공지 화면·API 는 제거했다.
 
 // ============================================================
 // 릴리즈 빌드 도구
 // ============================================================
 
-/** 릴리즈 빌드 실행 */
-export async function runRelease(payload?: Record<string, any>) {
-  return helpdeskClient.post('/build/release', payload ?? {});
+/**
+ * jin114 릴리즈 빌드 실행.
+ * 서버는 본문을 읽지 않고 RabbitMQ `run_script` 큐에 스크립트 실행 메시지만 넣는다.
+ */
+export async function runRelease() {
+  return helpdeskClient.post('/build/release', {});
 }
 
-/** GitHub 릴리즈 빌드 실행 */
-export async function runReleaseGithub(payload?: Record<string, any>) {
-  return helpdeskClient.post('/build/release_ghub', payload ?? {});
+/** goldb(GitHub) 릴리즈 빌드 실행. 동작 방식은 runRelease 와 같다. */
+export async function runReleaseGithub() {
+  return helpdeskClient.post('/build/release_ghub', {});
 }

@@ -2,8 +2,8 @@ import { ref, watch } from 'vue';
 import { useDebounceFn } from '@vueuse/core';
 import { message } from 'ant-design-vue';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import { getDevices, createDevice, updateDevice, deleteDevice } from '#/api/building';
-import type { BuildingApi } from '#/api/building';
+import { getDevices, createDevice, updateDevice, deleteDevice } from '#/api/funeral/building';
+import type { BuildingApi } from '#/api/funeral/building';
 
 export function useDeviceGrid(
   selectedDevice: ReturnType<typeof ref<BuildingApi.Device | null>>,

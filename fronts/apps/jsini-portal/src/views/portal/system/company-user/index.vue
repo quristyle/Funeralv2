@@ -4,9 +4,9 @@ import { Page } from '@vben/common-ui';
 import { Card, Button, Popconfirm, message, Table, Modal, Tree } from 'ant-design-vue';
 import { Plus, IconifyIcon } from '@vben/icons';
 import { useVbenVxeGrid, type VxeTableGridColumns } from '#/adapter/vxe-table';
-import { getCompanyList } from '#/api/system/company';
-import { getDeptList, getDeptUsers, getEligibleDeptUsers, assignDeptUsers, removeDeptUsers } from '#/api/system/dept';
-import type { SystemRolePermissionApi } from '#/api/system/role-permission';
+import { getCompanyList } from '#/api/portal/system/company';
+import { getDeptList, getDeptUsers, getEligibleDeptUsers, assignDeptUsers, removeDeptUsers } from '#/api/portal/system/dept';
+import type { SystemRolePermissionApi } from '#/api/portal/system/role-permission';
 
 // 현재 선택된 회사 ID 및 회사명
 const selectedCompanyId = ref<string>('');

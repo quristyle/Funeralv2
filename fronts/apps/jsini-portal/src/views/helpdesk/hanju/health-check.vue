@@ -46,6 +46,31 @@ const columns = [
   { dataIndex: 'duration', key: 'duration', title: '소요', width: 110 },
 ];
 
+/**
+ * 점검 항목의 data 안에는 설비 상세가 들어 있다.
+ * 서버가 `{ PET1: [ {mcId, mcName, gaudt, status}, ... ] }` 처럼 그룹 키로 감싸 주므로
+ * 그룹을 풀어 한 줄씩 펼친다(원본 HealthCheck.vue 가 표로 보여주던 부분).
+ */
+function detailRows(check: Record<string, any>) {
+  const data = check?.data;
+  if (!data) return [];
+  if (Array.isArray(data)) return data;
+
+  return Object.entries(data).flatMap(([group, list]) =>
+    Array.isArray(list)
+      ? list.map((item: any) => ({ ...item, __group: group }))
+      : [],
+  );
+}
+
+const detailColumns = [
+  { dataIndex: '__group', key: '__group', title: '그룹', width: 90 },
+  { dataIndex: 'mcId', key: 'mcId', title: 'ID', width: 100 },
+  { dataIndex: 'mcName', key: 'mcName', title: '설비명' },
+  { dataIndex: 'gaudt', key: 'gaudt', title: 'Last', width: 170 },
+  { dataIndex: 'status', key: 'status', title: '상태', width: 100 },
+];
+
 /** 상태 문자열에 맞는 색 */
 function statusColor(status?: string) {
   const s = (status ?? '').toLowerCase();
@@ -162,6 +187,27 @@ onBeforeUnmount(stopTimer);
           <template #emptyText>
             <Empty description="점검 결과가 없습니다." />
           </template>
+
+          <template #expandedRowRender="{ record }">
+            <Table
+              :columns="detailColumns"
+              :data-source="detailRows(record)"
+              :pagination="false"
+              :scroll="{ y: 260 }"
+              row-key="mcId"
+              size="small"
+            >
+              <template #emptyText>
+                <Empty description="상세 항목이 없습니다." />
+              </template>
+              <template #bodyCell="{ column: c, record: r }">
+                <template v-if="c.key === 'status'">
+                  <Tag :color="statusColor(r.status)">{{ r.status }}</Tag>
+                </template>
+              </template>
+            </Table>
+          </template>
+
           <template #bodyCell="{ column, record }">
             <template v-if="column.key === 'status'">
               <Tag :color="statusColor(record.status)">{{ record.status }}</Tag>
@@ -187,6 +233,28 @@ onBeforeUnmount(stopTimer);
           <template #emptyText>
             <Empty description="점검 결과가 없습니다." />
           </template>
+
+          <!-- 점검 항목을 펼치면 설비 상세가 나온다 -->
+          <template #expandedRowRender="{ record }">
+            <Table
+              :columns="detailColumns"
+              :data-source="detailRows(record)"
+              :pagination="false"
+              :scroll="{ y: 260 }"
+              row-key="mcId"
+              size="small"
+            >
+              <template #emptyText>
+                <Empty description="상세 항목이 없습니다." />
+              </template>
+              <template #bodyCell="{ column: c, record: r }">
+                <template v-if="c.key === 'status'">
+                  <Tag :color="statusColor(r.status)">{{ r.status }}</Tag>
+                </template>
+              </template>
+            </Table>
+          </template>
+
           <template #bodyCell="{ column, record }">
             <template v-if="column.key === 'status'">
               <Tag :color="statusColor(record.status)">{{ record.status }}</Tag>

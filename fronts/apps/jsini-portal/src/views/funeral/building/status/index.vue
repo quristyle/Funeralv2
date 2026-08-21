@@ -7,7 +7,7 @@ import { useStatusData } from './composables/use-status-data';
 import StatusSearchForm from './modules/status-search-form.vue';
 import BuildingSection from './modules/building-section.vue';
 import DeviceDetailModal from './modules/device-detail-modal.vue';
-import { upsertDeviceAttribute, getDeviceAttribute } from '#/api/building';
+import { upsertDeviceAttribute, getDeviceAttribute } from '#/api/funeral/building';
 
 const {
   searchForm,

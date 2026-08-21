@@ -2,7 +2,7 @@
 import { Badge, Button, Popconfirm, Tooltip } from 'ant-design-vue';
 import { IconifyIcon, Plus } from '@vben/icons';
 import BizSelect from '#/components/BizSelect.vue';
-import type { BuildingApi } from '#/api/building';
+import type { BuildingApi } from '#/api/funeral/building';
 
 const props = defineProps<{
   Grid: any;
@@ -104,7 +104,7 @@ const emit = defineEmits<{
 
         <template #action="{ row }">
           <div class="flex gap-1">
-            <Tooltip title="수정">
+            <Tooltip v-perm:update title="수정">
               <Button type="link" size="small" @click.stop="emit('edit', row)">
                 <IconifyIcon icon="lucide:edit" class="size-4" />
               </Button>
@@ -115,7 +115,7 @@ const emit = defineEmits<{
               </Button>
             </Tooltip>
             <Popconfirm title="삭제하시겠습니까?" @confirm="emit('delete', row)">
-              <Tooltip title="삭제">
+              <Tooltip v-perm:delete title="삭제">
                 <Button type="link" size="small" danger @click.stop>
                   <IconifyIcon icon="lucide:trash-2" class="size-4" />
                 </Button>

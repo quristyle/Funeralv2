@@ -3,7 +3,7 @@ import {
   Form, Input, InputNumber, Select, Slider, Switch, Divider,
 } from 'ant-design-vue';
 import { IconifyIcon } from '@vben/icons';
-import type { BuildingApi } from '#/api/building';
+import type { BuildingApi } from '#/api/funeral/building';
 
 defineProps<{
   deviceAttr: BuildingApi.DeviceAttribute;

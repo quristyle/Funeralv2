@@ -1,6 +1,6 @@
 using Mapster;
 
-namespace Funeralv2.Shared.DTOs;
+namespace JSini.Shared.DTOs;
 
 /// <summary>
 /// Mapster 전역 매핑 설정 클래스

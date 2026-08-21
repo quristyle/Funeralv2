@@ -7,7 +7,7 @@ using Microsoft.OpenApi.Models;
 using FileServer.Services;
 using FileServer.Endpoints;
 using Spectre.Console;
-using Funeralv2.Shared.Infrastructure.Middleware;
+using JSini.Shared.Infrastructure.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
 

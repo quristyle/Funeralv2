@@ -5,7 +5,7 @@ import type { UploadChangeParam } from 'ant-design-vue';
 import { fabric } from 'fabric';
 import Cropper from 'cropperjs';
 import { requestClient } from '#/api/request';
-import { getDeceasedDetail, saveDeceasedDetail } from '#/api/building';
+import { getDeceasedDetail, saveDeceasedDetail } from '#/api/funeral/building';
 
 export type EditMode = 'select' | 'crop' | 'draw' | 'text' | 'shape';
 export type ShapeType = 'rect' | 'circle';

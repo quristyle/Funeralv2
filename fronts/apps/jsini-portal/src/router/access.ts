@@ -19,7 +19,7 @@ async function generateAccess(options: GenerateMenuAndRoutesOptions) {
   const pageMap: ComponentRecordType = {};
 
   Object.keys(globMap).forEach((key) => {
-    // '../views/dashboard/analytics/index.vue' -> '#/views/dashboard/analytics/index.vue'
+    // '../views/portal/dashboard/analytics/index.vue' -> '#/views/portal/dashboard/analytics/index.vue'
     const componentPath = key.replace('../views/', '#/views/');
     pageMap[componentPath] = globMap[key];
   });

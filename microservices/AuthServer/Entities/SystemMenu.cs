@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using Funeralv2.Shared.Domain;
+using JSini.Shared.Domain;
 
 namespace AuthServer.Entities;
 
@@ -146,4 +146,103 @@ public class SystemMenu : BaseEntity<string>
     /// </summary>
     [Column("status")]
     public int Status { get; set; } = 1;
+
+    // ── 권한 항목 사용 설정 ────────────────────────────────
+    //
+    // role_menus 는 메뉴마다 15가지 권한 칸을 들고 있지만, 메뉴마다 실제로
+    // 의미 있는 권한은 다르다. 아래 값으로 그 메뉴가 어떤 권한을 쓰는지 정해두면
+    // 역할 권한 화면이 해당 항목만 켜서 보여준다.
+    // 사용자 정의 권한 1~8 은 이름을 붙여야 무엇인지 알 수 있으므로 이름도 함께 둔다.
+
+    /// <summary>열람 권한 사용 여부</summary>
+    [Column("use_view")]
+    public bool UseView { get; set; } = true;
+
+    /// <summary>조회(검색) 권한 사용 여부</summary>
+    [Column("use_search")]
+    public bool UseSearch { get; set; } = true;
+
+    /// <summary>추가(등록) 권한 사용 여부</summary>
+    [Column("use_create")]
+    public bool UseCreate { get; set; } = true;
+
+    /// <summary>삭제 권한 사용 여부</summary>
+    [Column("use_delete")]
+    public bool UseDelete { get; set; } = true;
+
+    /// <summary>수정 권한 사용 여부</summary>
+    [Column("use_update")]
+    public bool UseUpdate { get; set; } = true;
+
+    /// <summary>출력 권한 사용 여부</summary>
+    [Column("use_print")]
+    public bool UsePrint { get; set; } = true;
+
+    /// <summary>엑셀 권한 사용 여부</summary>
+    [Column("use_excel")]
+    public bool UseExcel { get; set; } = true;
+
+    /// <summary>사용자 정의 권한 1 사용 여부</summary>
+    [Column("use_cust1")]
+    public bool UseCust1 { get; set; }
+
+    /// <summary>사용자 정의 권한 2 사용 여부</summary>
+    [Column("use_cust2")]
+    public bool UseCust2 { get; set; }
+
+    /// <summary>사용자 정의 권한 3 사용 여부</summary>
+    [Column("use_cust3")]
+    public bool UseCust3 { get; set; }
+
+    /// <summary>사용자 정의 권한 4 사용 여부</summary>
+    [Column("use_cust4")]
+    public bool UseCust4 { get; set; }
+
+    /// <summary>사용자 정의 권한 5 사용 여부</summary>
+    [Column("use_cust5")]
+    public bool UseCust5 { get; set; }
+
+    /// <summary>사용자 정의 권한 6 사용 여부</summary>
+    [Column("use_cust6")]
+    public bool UseCust6 { get; set; }
+
+    /// <summary>사용자 정의 권한 7 사용 여부</summary>
+    [Column("use_cust7")]
+    public bool UseCust7 { get; set; }
+
+    /// <summary>사용자 정의 권한 8 사용 여부</summary>
+    [Column("use_cust8")]
+    public bool UseCust8 { get; set; }
+
+    /// <summary>사용자 정의 권한 1 표시 이름</summary>
+    [Column("cust1_name")]
+    public string? Cust1Name { get; set; }
+
+    /// <summary>사용자 정의 권한 2 표시 이름</summary>
+    [Column("cust2_name")]
+    public string? Cust2Name { get; set; }
+
+    /// <summary>사용자 정의 권한 3 표시 이름</summary>
+    [Column("cust3_name")]
+    public string? Cust3Name { get; set; }
+
+    /// <summary>사용자 정의 권한 4 표시 이름</summary>
+    [Column("cust4_name")]
+    public string? Cust4Name { get; set; }
+
+    /// <summary>사용자 정의 권한 5 표시 이름</summary>
+    [Column("cust5_name")]
+    public string? Cust5Name { get; set; }
+
+    /// <summary>사용자 정의 권한 6 표시 이름</summary>
+    [Column("cust6_name")]
+    public string? Cust6Name { get; set; }
+
+    /// <summary>사용자 정의 권한 7 표시 이름</summary>
+    [Column("cust7_name")]
+    public string? Cust7Name { get; set; }
+
+    /// <summary>사용자 정의 권한 8 표시 이름</summary>
+    [Column("cust8_name")]
+    public string? Cust8Name { get; set; }
 }

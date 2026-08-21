@@ -3,7 +3,7 @@ import { ref } from 'vue';
 import { Page } from '@vben/common-ui';
 import { Button, message, Form, Input, Select, DatePicker, Card, Descriptions } from 'ant-design-vue';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import { getDeceasedList } from '#/api/building';
+import { getDeceasedList } from '#/api/funeral/building';
 import dayjs from 'dayjs';
 
 const searchName = ref<string>('');

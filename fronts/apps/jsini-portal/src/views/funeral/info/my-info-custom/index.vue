@@ -2,7 +2,7 @@
 import { ref, onMounted } from 'vue';
 import { Page, useVbenModal } from '@vben/common-ui';
 import { Card, Form, Input, Button, message } from 'ant-design-vue';
-import { getMyInfo, updateMyInfo } from '#/api/info';
+import { getMyInfo, updateMyInfo } from '#/api/funeral/info';
 
 const profile = ref<any>({
   userId: '',

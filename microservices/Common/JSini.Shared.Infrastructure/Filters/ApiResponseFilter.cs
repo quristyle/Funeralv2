@@ -1,8 +1,8 @@
 using Microsoft.AspNetCore.Http;
-using Funeralv2.Shared.DTOs;
+using JSini.Shared.DTOs;
 using System.Reflection;
 
-namespace Funeralv2.Shared.Infrastructure.Filters;
+namespace JSini.Shared.Infrastructure.Filters;
 
 /// <summary>
 /// Minimal API 핸들러의 실행 결과를 가로채어 공통 ApiResponse 형식으로 자동 래핑하는 엔드포인트 필터

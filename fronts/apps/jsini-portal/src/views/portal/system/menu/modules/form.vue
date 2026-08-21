@@ -22,17 +22,30 @@ import {
   isMenuPathExists,
   SystemMenuApi,
   updateMenu,
-} from '#/api/system/menu';
+} from '#/api/portal/system/menu';
 import { $t } from '#/locales';
 import { componentKeys } from '#/router/routes';
 import AiCodeSuggester from '#/components/ai-code-suggester/ai-code-suggester.vue';
 
 import { getMenuTypeOptions } from '../data';
+import MenuPermissionItems from './permission-items.vue';
 
 const emit = defineEmits<{
   success: [];
 }>();
 const formData = ref<SystemMenuApi.SystemMenu>();
+
+/**
+ * 이 메뉴가 사용하는 권한 항목.
+ *
+ * 항목이 23개(체크 15 + 이름 8)라 폼 스키마에 섞으면 나머지 설정이 묻힌다.
+ * 별도 블록으로 빼서 폼 아래에 붙이고, 저장할 때 함께 실어 보낸다.
+ */
+const permissionItems = ref<SystemMenuApi.MenuPermissionItems>(
+  SystemMenuApi.defaultPermissionItems(),
+);
+/** 권한 항목 블록은 메뉴 유형에 따라 안내가 달라지므로 유형을 따라간다. */
+const currentMenuType = ref<string>('MENU');
 const titleSuffix = ref<string>();
 const isBinding = ref(false);
 const menuNameVal = ref('');
@@ -622,6 +635,10 @@ const [Form, formApi] = useVbenForm({
     colon: true,
     formItemClass: 'col-span-2 md:col-span-1',
   },
+  // 권한 항목 블록은 폼 밖에 있으므로 유형이 바뀌면 여기서 알려준다.
+  handleValuesChange: (values) => {
+    if (values.type) currentMenuType.value = values.type;
+  },
   schema,
   showDefaultActions: false,
   wrapperClass: 'grid-cols-2 gap-x-4',
@@ -639,6 +656,11 @@ const [Drawer, drawerApi] = useVbenDrawer({
       }
       if (data) {
         formData.value = data;
+        permissionItems.value = {
+          ...SystemMenuApi.defaultPermissionItems(),
+          ...(data.permissions ?? {}),
+        };
+        currentMenuType.value = data.type ?? 'MENU';
         
         const rawComponent = formData.value.component || '';
         let parsedComponent = rawComponent;
@@ -662,6 +684,8 @@ const [Drawer, drawerApi] = useVbenDrawer({
           : '';
       } else {
         formApi.resetForm();
+        permissionItems.value = SystemMenuApi.defaultPermissionItems();
+        currentMenuType.value = 'MENU';
         menuNameVal.value = '';
         titleSuffix.value = '';
         nextTick(async () => {
@@ -687,6 +711,7 @@ async function onSubmit() {
       data.meta = { ...data.meta, iframeSrc: data.linkSrc };
     }
     delete data.linkSrc;
+    data.permissions = { ...permissionItems.value };
     
     if (data.component) {
       let comp = data.component.trim();
@@ -721,6 +746,10 @@ const getDrawerTitle = computed(() =>
 <template>
   <Drawer class="w-full max-w-200" :title="getDrawerTitle">
     <Form class="mx-4" :layout="isHorizontal ? 'horizontal' : 'vertical'" />
+    <MenuPermissionItems
+      v-model="permissionItems"
+      :menu-type="currentMenuType"
+    />
     <AiCodeSuggester 
       v-if="!formData?.id && menuNameVal"
       :input-text="menuNameVal" 

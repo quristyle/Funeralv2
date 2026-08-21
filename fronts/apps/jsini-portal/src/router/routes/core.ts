@@ -41,6 +41,24 @@ const MaintenanceRoute: RouteRecordRaw =
 
 
 
+const ForbiddenRoute: RouteRecordRaw =
+/** 권한 없음 페이지 */
+{
+    path: '/403',
+    name: 'Forbidden',
+    component: () => import('#/views/_core/fallback/forbidden.vue'),
+    meta: {
+      hideInBreadcrumb: true,
+      hideInMenu: true,
+      hideInTab: true,
+      title: '접근 권한 없음',
+      // 로그인은 되어 있으나 그 메뉴의 열람 권한이 없을 때 보내는 화면이다.
+      // 이 화면 자체를 다시 권한으로 막으면 무한 이동이 된다.
+      ignoreAccess: true,
+    },
+  }
+;
+
 /** 기본 라우트, 이 라우트들은 반드시 존재해야 합니다. */
 const coreRoutes: RouteRecordRaw[] = [
   /**
@@ -116,7 +134,7 @@ const coreRoutes: RouteRecordRaw[] = [
   {
     path: '/building/deceased/photo-editor',
     name: 'DeceasedPhotoEditor',
-    component: () => import('#/views/building/deceased/photo-editor.vue'),
+    component: () => import('#/views/funeral/building/deceased/photo-editor.vue'),
     meta: {
       hideInBreadcrumb: true,
       hideInMenu: true,
@@ -125,6 +143,7 @@ const coreRoutes: RouteRecordRaw[] = [
     },
   },
   MaintenanceRoute,
+  ForbiddenRoute,
 ];
 
-export { coreRoutes, fallbackNotFoundRoute, MaintenanceRoute };
+export { coreRoutes, fallbackNotFoundRoute, ForbiddenRoute, MaintenanceRoute };

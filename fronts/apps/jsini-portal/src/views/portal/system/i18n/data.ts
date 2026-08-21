@@ -6,6 +6,7 @@ import { IconifyIcon } from '@vben/icons';
 import { $t } from '@vben/locales';
 
 import { Button, Tag, Tooltip } from 'ant-design-vue';
+import { can } from '#/utils/permission';
 
 export function useColumns(onActionClick: (params: OnActionClickParams) => void) {
   const columns: VxeGridProps['columns'] = [
@@ -33,6 +34,7 @@ export function useColumns(onActionClick: (params: OnActionClickParams) => void)
             { class: 'flex justify-center gap-2' },
             [
               // 수정 아이콘 버튼
+              can('update') &&
               h(
                 Tooltip,
                 { title: $t('common.edit') },
@@ -45,6 +47,7 @@ export function useColumns(onActionClick: (params: OnActionClickParams) => void)
                 }
               ),
               // 삭제 아이콘 버튼
+              can('delete') &&
               h(
                 Tooltip,
                 { title: $t('common.delete') },
@@ -56,7 +59,7 @@ export function useColumns(onActionClick: (params: OnActionClickParams) => void)
                   )
                 }
               ),
-            ],
+            ].filter(Boolean),
           );
         },
       },

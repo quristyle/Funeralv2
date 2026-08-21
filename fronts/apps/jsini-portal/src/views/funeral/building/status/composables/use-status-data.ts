@@ -1,7 +1,7 @@
 import { ref, computed, watch } from 'vue';
 import type { Dayjs } from 'dayjs';
-import { getBuildings, getFloors, getRooms, getDevices, getDeceasedList } from '#/api/building';
-import type { BuildingApi } from '#/api/building';
+import { getBuildings, getFloors, getRooms, getDevices, getDeceasedList } from '#/api/funeral/building';
+import type { BuildingApi } from '#/api/funeral/building';
 import { useBizSelectStore } from '#/store/biz-select-config';
 import { requestClient } from '#/api/request';
 

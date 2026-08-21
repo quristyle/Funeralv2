@@ -4,7 +4,7 @@ import { useVbenForm, type VbenFormProps } from '#/adapter/form';
 import { useVbenDrawer } from '@vben/common-ui';
 import { $t } from '@vben/locales';
 import { message } from 'ant-design-vue';
-import { createI18nResource, updateI18nResource, type SystemI18nApi, suggestI18nTranslation } from '#/api/system/i18n';
+import { createI18nResource, updateI18nResource, type SystemI18nApi, suggestI18nTranslation } from '#/api/portal/system/i18n';
 import AiCodeSuggester from '#/components/ai-code-suggester/ai-code-suggester.vue';
 
 const emit = defineEmits(['success']);

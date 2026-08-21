@@ -21,6 +21,67 @@ export namespace SystemMenuApi {
     'LINK',
     'BUTTON',
   ] as const;
+  /**
+   * 메뉴가 사용하는 권한 항목 설정.
+   *
+   * role_menus 는 메뉴마다 권한 칸을 15개 들고 있지만 메뉴마다 쓰는 항목은 다르다.
+   * 여기서 켠 항목만 역할 권한 화면에 나타나고, 사용자 정의 1~8 은 붙인 이름으로 보인다.
+   */
+  export interface MenuPermissionItems {
+    cust1Name?: null | string;
+    cust2Name?: null | string;
+    cust3Name?: null | string;
+    cust4Name?: null | string;
+    cust5Name?: null | string;
+    cust6Name?: null | string;
+    cust7Name?: null | string;
+    cust8Name?: null | string;
+    useCreate: boolean;
+    useCust1: boolean;
+    useCust2: boolean;
+    useCust3: boolean;
+    useCust4: boolean;
+    useCust5: boolean;
+    useCust6: boolean;
+    useCust7: boolean;
+    useCust8: boolean;
+    useDelete: boolean;
+    useExcel: boolean;
+    usePrint: boolean;
+    useSearch: boolean;
+    useUpdate: boolean;
+    useView: boolean;
+  }
+
+  /** 새 메뉴의 기본 권한 항목. 기본 7종은 켜고 사용자 정의는 꺼 둔다. */
+  export function defaultPermissionItems(): MenuPermissionItems {
+    return {
+      cust1Name: '',
+      cust2Name: '',
+      cust3Name: '',
+      cust4Name: '',
+      cust5Name: '',
+      cust6Name: '',
+      cust7Name: '',
+      cust8Name: '',
+      useCreate: true,
+      useCust1: false,
+      useCust2: false,
+      useCust3: false,
+      useCust4: false,
+      useCust5: false,
+      useCust6: false,
+      useCust7: false,
+      useCust8: false,
+      useDelete: true,
+      useExcel: true,
+      usePrint: true,
+      useSearch: true,
+      useUpdate: true,
+      useView: true,
+    };
+  }
+
   /** 시스템 메뉴 */
   export interface SystemMenu {
     [key: string]: any;
@@ -81,6 +142,8 @@ export namespace SystemMenuApi {
     name: string;
     /** 라우트 경로 */
     path: string;
+    /** 이 메뉴가 사용하는 권한 항목 */
+    permissions?: MenuPermissionItems;
     /** 부모 ID */
     pid: string;
     /** 리다이렉트 */
@@ -169,6 +232,20 @@ async function moveMenu(menuId: string, newParentId: string | null, newOrderNo: 
   return requestClient.post('/auth/system/menu/move', { menuId, newParentId, newOrderNo });
 }
 
+/**
+ * 메뉴 위치·순서 일괄 저장
+ *
+ * 트리에서 한 번 드래그하면 옮긴 노드뿐 아니라 형제들의 순번도 함께 밀린다.
+ * 화면이 확정한 배치를 그대로 보내 한 번의 왕복으로 저장한다.
+ *
+ * @param items 변경된 메뉴들의 `{ id, pid, orderNo }`
+ */
+async function reorderMenus(
+  items: { id: string; orderNo: number; pid: null | string }[],
+) {
+  return requestClient.post('/auth/system/menu/reorder', items);
+}
+
 export {
   createMenu,
   deleteMenu,
@@ -176,5 +253,6 @@ export {
   isMenuNameExists,
   isMenuPathExists,
   moveMenu,
+  reorderMenus,
   updateMenu,
 };

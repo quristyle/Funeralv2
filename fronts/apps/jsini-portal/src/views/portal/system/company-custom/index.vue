@@ -4,7 +4,7 @@ import { Page, useVbenModal } from '@vben/common-ui';
 import { Plus } from '@vben/icons';
 import { Button, message, Popconfirm, Form, Input } from 'ant-design-vue';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import { getCompanyList, createCompany, updateCompany, deleteCompany } from '#/api/system/company';
+import { getCompanyList, createCompany, updateCompany, deleteCompany } from '#/api/portal/system/company';
 
 const [CompanyModal, companyModalApi] = useVbenModal({
   title: '회사 기본 정보 관리',
@@ -120,7 +120,7 @@ async function handleSave() {
   <Page auto-content-height>
     <Grid table-title="장례 서비스 파트너/회사 정보 목록">
       <template #toolbar-tools>
-        <Button type="primary" @click="onCreate">
+        <Button v-perm:create type="primary" @click="onCreate">
           <Plus class="size-5 mr-1" />
           신규 회사 등록
         </Button>
@@ -130,7 +130,7 @@ async function handleSave() {
         <div class="flex gap-2">
           <Button type="link" size="small" @click="onEdit(row)">수정</Button>
           <Popconfirm title="해당 회사를 삭제하시겠습니까?" @confirm="onDelete(row)">
-            <Button type="link" size="small" danger>삭제</Button>
+            <Button v-perm:delete type="link" size="small" danger>삭제</Button>
           </Popconfirm>
         </div>
       </template>

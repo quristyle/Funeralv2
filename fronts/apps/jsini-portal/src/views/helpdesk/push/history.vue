@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import { onMounted, reactive, ref } from 'vue';
+import { useRouter } from 'vue-router';
 
 import { Page } from '@vben/common-ui';
 
@@ -26,6 +27,7 @@ import { formatDateTime } from '../shared/constants';
  * 원본(NotificationHistory.vue). 담당자는 다른 사용자의 수신 내역도 조회할 수 있다.
  */
 
+const router = useRouter();
 const helpdesk = useHelpdeskStore();
 
 const loading = ref(false);
@@ -58,12 +60,17 @@ const READ_OPTIONS = [
   { label: '안읽음', value: 'false' },
 ];
 
+// 서버가 주는 필드는 receivedAt / message / url 이다(원본 NotificationHistory.vue 기준).
 const columns = [
-  { dataIndex: 'createdAt', key: 'createdAt', title: '수신시각', width: 160 },
-  { dataIndex: 'title', key: 'title', title: '제목', ellipsis: true },
-  { dataIndex: 'body', key: 'body', title: '내용', ellipsis: true },
+  { dataIndex: 'receivedAt', key: 'receivedAt', sorter: true, title: '수신 시간', width: 170 },
+  { dataIndex: 'message', key: 'message', title: '내용' },
   { dataIndex: 'isRead', key: 'isRead', title: '읽음', width: 80 },
 ];
+
+/** url 이 붙은 알림은 눌러서 그 화면으로 이동한다(원본과 동일). */
+function openNotification(record: any) {
+  if (record.url) router.push(record.url);
+}
 
 async function loadData() {
   loading.value = true;
@@ -139,12 +146,23 @@ onMounted(async () => {
         row-key="id"
         size="small"
       >
+        <template #title>
+          <span class="text-sm">알림 목록 (총 {{ rows.length }}개)</span>
+        </template>
         <template #emptyText>
           <Empty description="수신한 알림이 없습니다." />
         </template>
         <template #bodyCell="{ column, record }">
-          <template v-if="column.key === 'createdAt'">
-            {{ formatDateTime(record.createdAt) }}
+          <template v-if="column.key === 'receivedAt'">
+            {{ formatDateTime(record.receivedAt) }}
+          </template>
+          <template v-else-if="column.key === 'message'">
+            <span
+              :class="record.url ? 'cursor-pointer text-primary' : ''"
+              @click="openNotification(record)"
+            >
+              {{ record.message }}
+            </span>
           </template>
           <template v-else-if="column.key === 'isRead'">
             <Tag :color="record.isRead ? 'success' : 'default'">

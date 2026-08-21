@@ -3,7 +3,7 @@ import type { NotificationItem } from '@vben/layouts';
 
 import { computed, onBeforeMount, ref, watch, provide } from 'vue';
 import { useRouter } from 'vue-router';
-import { streamChatMessage } from '#/api/ai/chat';
+import { streamChatMessage } from '#/api/portal/ai/chat';
 
 import { AuthenticationLoginExpiredModal } from '@vben/common-ui';
 import { VBEN_DOC_URL, VBEN_GITHUB_URL } from '@vben/constants';

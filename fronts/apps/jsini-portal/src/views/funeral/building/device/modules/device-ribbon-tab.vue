@@ -10,8 +10,8 @@ import {
   bulkSaveDeviceRibbons,
   getDeviceTextOverlays,
   bulkSaveDeviceTextOverlays,
-} from '#/api/building';
-import type { BuildingApi } from '#/api/building';
+} from '#/api/funeral/building';
+import type { BuildingApi } from '#/api/funeral/building';
 
 // ────────────────────────────────────────────────────────────────────
 // Props
@@ -1061,7 +1061,7 @@ const FONT_WEIGHT_OPTIONS = [
         </div>
         <div class="flex gap-2">
           <Button @click="handleReset">초기화</Button>
-          <Button type="primary" :loading="saving" @click="handleSave(false)">
+          <Button v-perm:update type="primary" :loading="saving" @click="handleSave(false)">
             <IconifyIcon icon="lucide:save" class="mr-1 size-4" />
             모두 저장
           </Button>

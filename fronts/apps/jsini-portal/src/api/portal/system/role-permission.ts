@@ -30,6 +30,35 @@ export namespace SystemRolePermissionApi {
     canCust6: boolean;
     canCust7: boolean;
     canCust8: boolean;
+
+    // ── 이 메뉴가 쓰는 권한 항목 (읽기 전용) ────────────────
+    //
+    // 실제 값은 메뉴 관리 화면에서 정한다(system_menus).
+    // 권한 화면은 이 값을 보고 쓰지 않는 항목의 체크박스를 잠그고,
+    // 사용자 정의 1~8 은 붙인 이름으로 열 제목을 만든다.
+    cust1Name?: null | string;
+    cust2Name?: null | string;
+    cust3Name?: null | string;
+    cust4Name?: null | string;
+    cust5Name?: null | string;
+    cust6Name?: null | string;
+    cust7Name?: null | string;
+    cust8Name?: null | string;
+    useCreate?: boolean;
+    useCust1?: boolean;
+    useCust2?: boolean;
+    useCust3?: boolean;
+    useCust4?: boolean;
+    useCust5?: boolean;
+    useCust6?: boolean;
+    useCust7?: boolean;
+    useCust8?: boolean;
+    useDelete?: boolean;
+    useExcel?: boolean;
+    usePrint?: boolean;
+    useSearch?: boolean;
+    useUpdate?: boolean;
+    useView?: boolean;
   }
 }
 

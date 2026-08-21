@@ -1,7 +1,7 @@
 import { ref } from 'vue';
 import { message } from 'ant-design-vue';
-import { getDeviceAttribute, upsertDeviceAttribute } from '#/api/building';
-import type { BuildingApi } from '#/api/building';
+import { getDeviceAttribute, upsertDeviceAttribute } from '#/api/funeral/building';
+import type { BuildingApi } from '#/api/funeral/building';
 
 /** 장비 속성 기본값 팩토리 */
 export function defaultAttr(deviceId: string): Omit<BuildingApi.DeviceAttribute, 'id'> {

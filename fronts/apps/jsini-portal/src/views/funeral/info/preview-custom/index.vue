@@ -2,7 +2,7 @@
 import { ref, onMounted, watch } from 'vue';
 import { Page } from '@vben/common-ui';
 import { Select, message } from 'ant-design-vue';
-import { getFuneralStatuses } from '#/api/status';
+import { getFuneralStatuses } from '#/api/funeral/status';
 
 const list = ref<any[]>([]);
 const selectedRoomId = ref<string>('');

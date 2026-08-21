@@ -52,10 +52,13 @@ const companyStats = ref<any>(null);
 const monthlyStats = ref<any[]>([]);
 
 const statusChartRef = ref<EchartsUIType>();
+/** 회사 전체 접수 분포. 원본의 companyChartData. */
+const companyChartRef = ref<EchartsUIType>();
 const monthlyChartRef = ref<EchartsUIType>();
 const dailyChartRef = ref<EchartsUIType>();
 
 const { renderEcharts: renderStatusChart } = useEcharts(statusChartRef);
+const { renderEcharts: renderCompanyChart } = useEcharts(companyChartRef);
 const { renderEcharts: renderMonthlyChart } = useEcharts(monthlyChartRef);
 const { renderEcharts: renderDailyChart } = useEcharts(dailyChartRef);
 
@@ -189,6 +192,66 @@ function drawStatusChart() {
   });
 }
 
+/**
+ * 회사 전체 접수 분포. 내 요청만 세는 위 도넛과 달리
+ * 서버가 준 회사 통계(getMyCompanyStats)를 그대로 쓴다.
+ */
+function drawCompanyChart() {
+  const c = companyStats.value;
+  if (!c) return;
+
+  const total =
+    (c.pendingCount ?? 0) +
+    (c.inProgressCount ?? 0) +
+    (c.consultationCount ?? 0) +
+    (c.negotiationCount ?? 0) +
+    (c.completedCount ?? 0) +
+    (c.userCompletedCount ?? 0);
+
+  renderCompanyChart({
+    legend: { bottom: 0, type: 'scroll' },
+    series: [
+      {
+        data: [
+          { itemStyle: { color: COLORS.pending }, name: '대기', value: c.pendingCount ?? 0 },
+          {
+            itemStyle: { color: COLORS.inProgress },
+            name: '진행',
+            value: c.inProgressCount ?? 0,
+          },
+          {
+            itemStyle: { color: COLORS.consultation },
+            name: '협의',
+            value: c.consultationCount ?? 0,
+          },
+          {
+            itemStyle: { color: COLORS.negotiation },
+            name: '논의',
+            value: c.negotiationCount ?? 0,
+          },
+          {
+            itemStyle: { color: COLORS.completed },
+            name: '완료',
+            value: (c.completedCount ?? 0) + (c.userCompletedCount ?? 0),
+          },
+        ],
+        label: {
+          formatter: () => `${total}건`,
+          fontSize: 18,
+          fontWeight: 'bold',
+          position: 'center',
+          show: true,
+        },
+        labelLine: { show: false },
+        name: '전체 접수',
+        radius: ['55%', '80%'],
+        type: 'pie',
+      },
+    ],
+    tooltip: { trigger: 'item' },
+  });
+}
+
 function drawMonthlyChart() {
   renderMonthlyChart({
     grid: { bottom: 30, left: 40, right: 16, top: 30 },
@@ -278,6 +341,26 @@ function onMonthlyChartClick(params: any) {
   }
 }
 
+/** 이전 달로 이동. 1월에서 누르면 작년 12월로 넘어간다(원본과 동일). */
+function prevMonth() {
+  if (selectedMonth.value === 0) {
+    selectedMonth.value = 11;
+    selectedYear.value -= 1;
+  } else {
+    selectedMonth.value -= 1;
+  }
+}
+
+/** 다음 달로 이동 */
+function nextMonth() {
+  if (selectedMonth.value === 11) {
+    selectedMonth.value = 0;
+    selectedYear.value += 1;
+  } else {
+    selectedMonth.value += 1;
+  }
+}
+
 function goToCurrentMonth() {
   const now = new Date();
   selectedYear.value = now.getFullYear();
@@ -303,7 +386,7 @@ async function loadAll() {
       // 최근 처리된 요청 (완료·삭제·협의)
       searchRequests({
         select:
-          'id,title,createdAt,customer.userName,admin,status,customer.company.name,completededAt',
+          'id,title,createdAt,customer.userName,admin,status,customer.company.name,completededAt,mainPhoto',
         remove: 'customerId,description',
         sorts: [
           { dir: 'desc', field: 'completededAt' },
@@ -322,6 +405,7 @@ async function loadAll() {
     recentRequests.value = recent.items;
 
     drawStatusChart();
+    drawCompanyChart();
     drawMonthlyChart();
     drawDailyChart();
   } finally {
@@ -381,13 +465,19 @@ onMounted(async () => {
       </Row>
 
       <Row :gutter="[12, 12]" class="mt-3">
-        <Col :lg="8" :xs="24">
-          <Card size="small" title="상태 분포">
-            <EchartsUI ref="statusChartRef" height="260px" />
+        <Col :lg="6" :xs="24">
+          <Card size="small" title="내 요청 상태">
+            <EchartsUI ref="statusChartRef" height="240px" />
           </Card>
         </Col>
 
-        <Col :lg="16" :xs="24">
+        <Col :lg="6" :xs="24">
+          <Card size="small" title="회사 전체 접수">
+            <EchartsUI ref="companyChartRef" height="240px" />
+          </Card>
+        </Col>
+
+        <Col :lg="12" :xs="24">
           <Card size="small" title="월별 접수 · 완료">
             <EchartsUI
               ref="monthlyChartRef"
@@ -401,10 +491,12 @@ onMounted(async () => {
       <Card class="mt-3" size="small" :title="`${selectedMonthLabel} 일별 추이`">
         <template #extra>
           <Space>
-            <span class="text-xs text-muted-foreground">
-              위 월별 차트의 막대를 클릭하면 해당 월로 이동합니다.
+            <span class="hidden text-xs text-muted-foreground md:inline">
+              위 월별 차트의 막대를 클릭해도 이동합니다.
             </span>
+            <Button size="small" @click="prevMonth">◀</Button>
             <Button size="small" @click="goToCurrentMonth">이번 달</Button>
+            <Button size="small" @click="nextMonth">▶</Button>
           </Space>
         </template>
         <EchartsUI ref="dailyChartRef" height="260px" />
@@ -421,13 +513,27 @@ onMounted(async () => {
               @click="router.push(`/helpdesk/request/detail/${item.id}`)"
             >
               <div class="flex w-full items-center gap-3">
+                <img
+                  v-if="item.mainPhoto"
+                  :alt="item.title"
+                  class="h-12 w-16 shrink-0 rounded object-cover"
+                  :src="item.mainPhoto"
+                />
                 <Tag :color="statusMeta(item.status).color">
                   {{ item.statusName || statusMeta(item.status).label }}
                 </Tag>
                 <span class="min-w-0 flex-1 truncate">{{ item.title }}</span>
-                <span class="text-xs text-muted-foreground">
-                  {{ formatDateTime(item.completededAt || item.createdAt) }}
-                </span>
+                <Space :size="4">
+                  <span class="text-xs text-muted-foreground">
+                    {{ item.customer?.userName }}
+                  </span>
+                  <span v-if="item.admin?.userName" class="text-xs text-muted-foreground">
+                    · 접수 {{ item.admin.userName }}
+                  </span>
+                  <span class="text-xs text-muted-foreground">
+                    · {{ formatDateTime(item.completededAt || item.createdAt) }}
+                  </span>
+                </Space>
               </div>
             </ListItem>
           </template>

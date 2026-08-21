@@ -18,9 +18,9 @@ Funeralv2는 장례식장 관리 및 디지털 사이니지(전광판) 표출 �
 | **FileServer** | 파일 업로드/저장, ffmpeg 트랜스코딩, ImageSharp 썸네일 생성 | net8.0 | EF Core 8.0.11, SixLabors.ImageSharp, Serilog, FluentValidation | `jsinifileconn` (scom) | 5350 |
 
 **공유 라이브러리 (`Common/`)**
-- `Funeralv2.Shared.Domain`: `BaseEntity<TKey>` — Id/CreatedAt/CreatedBy/UpdatedAt/UpdatedBy/IsDeleted(소프트 삭제) 공통 필드 (`Common/Funeralv2.Shared.Domain/BaseEntity.cs`).
-- `Funeralv2.Shared.DTOs`: `ApiResponse<T>` 표준 응답 봉투 + `ErrorDetail`, Mapster 설정 (`ApiResponse.cs`, `MapsterConfig.cs`).
-- `Funeralv2.Shared.Infrastructure`: `GlobalExceptionMiddleware`, `ApiResponseFilter`(Minimal API 결과 자동 래핑) (`GlobalExceptionMiddleware.cs`, `Filters/ApiResponseFilter.cs`).
+- `JSini.Shared.Domain`: `BaseEntity<TKey>` — Id/CreatedAt/CreatedBy/UpdatedAt/UpdatedBy/IsDeleted(소프트 삭제) 공통 필드 (`Common/JSini.Shared.Domain/BaseEntity.cs`).
+- `JSini.Shared.DTOs`: `ApiResponse<T>` 표준 응답 봉투 + `ErrorDetail`, Mapster 설정 (`ApiResponse.cs`, `MapsterConfig.cs`).
+- `JSini.Shared.Infrastructure`: `GlobalExceptionMiddleware`, `ApiResponseFilter`(Minimal API 결과 자동 래핑) (`GlobalExceptionMiddleware.cs`, `Filters/ApiResponseFilter.cs`).
 
 ---
 
@@ -48,7 +48,7 @@ Funeralv2는 장례식장 관리 및 디지털 사이니지(전광판) 표출 �
 ## 3. 강점 (잘 되어 있는 점)
 
 1. **일관된 Minimal API + 엔드포인트 그룹화 패턴**: `MapGroup` + 서비스별 확장 메서드(`MapBuildingEndpoints` 등)로 라우팅이 깔끔하게 분리됨(`funeralv2Api/Endpoints/BuildingEndpoints.cs`). 계층(Endpoints/Services/DTOs/Entities) 분리가 4개 서비스에 걸쳐 일관됨.
-2. **표준 응답 봉투 + 자동 래핑**: `ApiResponse<T>`와 `ApiResponseFilter`가 성공/실패/페이징 응답 구조(`{result, page:{total}}`)를 자동 통일하여 프론트엔드 계약이 일관됨(`Common/Funeralv2.Shared.DTOs/ApiResponse.cs`, `Filters/ApiResponseFilter.cs`).
+2. **표준 응답 봉투 + 자동 래핑**: `ApiResponse<T>`와 `ApiResponseFilter`가 성공/실패/페이징 응답 구조(`{result, page:{total}}`)를 자동 통일하여 프론트엔드 계약이 일관됨(`Common/JSini.Shared.DTOs/ApiResponse.cs`, `Filters/ApiResponseFilter.cs`).
 3. **공통 예외 처리 미들웨어**: `UseGlobalExceptionHandler()`가 모든 서비스에 동일 적용되어 미처리 예외를 표준 포맷 + TraceId로 반환(`GlobalExceptionMiddleware.cs`).
 4. **공통 도메인 베이스**: `BaseEntity`의 소프트 삭제(`IsDeleted`) + 감사 필드 표준화. 실제 쿼리에서 `!b.IsDeleted` 필터 일관 적용.
 5. **SignalR Hub 설계 견고성**: `ConcurrentDictionary` 기반 스레드 안전 매핑, 재접속 시 오프라인 타이머 취소, 30초 유예 판정 등 연결 불안정 상황을 실무적으로 처리(`funeralv2Api/Hubs/DeviceHub.cs`).
@@ -82,7 +82,7 @@ Funeralv2는 장례식장 관리 및 디지털 사이니지(전광판) 표출 �
 #### 4.4 Repository 패턴 미준수 — AI.md 핵심 표준 위반
 - **문제**: AI.md는 "비즈니스 서비스에서 `AppDbContext`를 직접 주입받지 말고 Repository를 경유"하도록 **의무화**하나, 실제로는 24개 전 서비스가 `AppDbContext`/`FileDbContext`를 직접 주입해 EF 쿼리를 수행. `IRepository<T>`·`RepositoryBase<T>` 자체가 코드베이스에 존재하지 않음.
 - **근거**: grep `IRepository|RepositoryBase` 매칭 0건. DbContext 직접 주입 확인 예: `funeralv2Api/Services/BuildingService.cs:17-24`, `AuthServer/Services/AuthService.cs:26`, `FileServer/Services/FileService.cs` 등 `*/Services/*` 전부.
-- **개선방안**: `Funeralv2.Shared.Infrastructure`에 제네릭 `IRepository<T>`/`RepositoryBase<T>`(GetByIdAsync/GetAllAsync/AddAsync/Update/Delete/SaveChangesAsync/GetQueryable) 신설. 복합 조회는 커스텀 리포지토리로 확장. 신규/변경 코드부터 점진 적용.
+- **개선방안**: `JSini.Shared.Infrastructure`에 제네릭 `IRepository<T>`/`RepositoryBase<T>`(GetByIdAsync/GetAllAsync/AddAsync/Update/Delete/SaveChangesAsync/GetQueryable) 신설. 복합 조회는 커스텀 리포지토리로 확장. 신규/변경 코드부터 점진 적용.
 
 #### 4.5 CORS 설정이 자격증명 노출 위험
 - **문제**: funeralv2Api가 `SetIsOriginAllowed(_ => true)` + `AllowCredentials()` 조합을 사용. 이는 임의 Origin을 그대로 반사(reflect)하면서 쿠키/자격증명을 허용하는 사실상 최악의 조합으로, CSRF/자격증명 탈취에 취약.
@@ -91,7 +91,7 @@ Funeralv2는 장례식장 관리 및 디지털 사이니지(전광판) 표출 �
 
 #### 4.6 미처리 예외의 전체 스택트레이스가 클라이언트로 노출
 - **문제**: `GlobalExceptionMiddleware`가 환경 구분 없이 `exception.ToString()` 전문을 응답 `realmessage`로 반환 → 프로덕션에서 내부 구조/경로/스택 정보 노출.
-- **근거**: `Common/Funeralv2.Shared.Infrastructure/GlobalExceptionMiddleware.cs` `realMessage: exception.ToString()`.
+- **근거**: `Common/JSini.Shared.Infrastructure/GlobalExceptionMiddleware.cs` `realMessage: exception.ToString()`.
 - **개선방안**: `IsDevelopment()`에서만 상세 노출, 프로덕션은 TraceId만 반환하고 상세는 로그로. 예외 타입별 상태코드 매핑(404/400/409 등) 추가.
 
 #### 4.7 연결 문자열이 표준 출력으로 유출

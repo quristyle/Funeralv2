@@ -73,6 +73,19 @@ function clearAll() {
   parsedLines.value = [];
 }
 
+/** 기본 샘플 전문을 불러온다. 원본과 같은 public/ascii_sample.txt 를 쓴다. */
+async function loadSample() {
+  try {
+    const response = await fetch('/ascii_sample.txt');
+    if (!response.ok) throw new Error('파일을 불러올 수 없습니다.');
+    asciiInput.value = await response.text();
+    parsedLines.value = [];
+    message.success('샘플 데이터를 불러왔습니다.');
+  } catch {
+    message.error('샘플 파일을 읽어오는 데 실패했습니다.');
+  }
+}
+
 async function copyResult() {
   await navigator.clipboard?.writeText(parsedLines.value.join('\n'));
   message.success('결과를 복사했습니다.');
@@ -99,6 +112,7 @@ async function copyResult() {
           <Button :loading="loading" type="primary" @click="run">
             해석 실행
           </Button>
+          <Button @click="loadSample">기본 샘플</Button>
           <Button @click="clearAll">비우기</Button>
           <Button :disabled="parsedLines.length === 0" @click="copyResult">
             결과 복사

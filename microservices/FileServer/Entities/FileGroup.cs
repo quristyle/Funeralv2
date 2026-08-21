@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using Funeralv2.Shared.Domain;
+using JSini.Shared.Domain;
 
 namespace FileServer.Entities;
 

@@ -4,8 +4,8 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <AssemblyName>Funeralv2.Shared.Domain</AssemblyName>
-    <RootNamespace>Funeralv2.Shared.Domain</RootNamespace>
+    <AssemblyName>JSini.Shared.Domain</AssemblyName>
+    <RootNamespace>JSini.Shared.Domain</RootNamespace>
   </PropertyGroup>
 
 </Project>

@@ -4,7 +4,7 @@ import { Page, useVbenModal } from '@vben/common-ui';
 import { Plus } from '@vben/icons';
 import { Button, message, Popconfirm, Form, Input, Select } from 'ant-design-vue';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import { getRoleList, createRole, updateRole, deleteRole } from '#/api/system/role';
+import { getRoleList, createRole, updateRole, deleteRole } from '#/api/portal/system/role';
 
 const [RoleModal, roleModalApi] = useVbenModal({
   title: '롤 권한 정보 설정',
@@ -88,7 +88,7 @@ async function handleSave() {
   <Page auto-content-height>
     <Grid table-title="권한(롤) 목록">
       <template #toolbar-tools>
-        <Button type="primary" @click="onCreate">
+        <Button v-perm:create type="primary" @click="onCreate">
           <Plus class="size-5 mr-1" />
           신규 롤 생성
         </Button>
@@ -98,7 +98,7 @@ async function handleSave() {
         <div class="flex gap-2">
           <Button type="link" size="small" @click="onEdit(row)">수정</Button>
           <Popconfirm title="정말 삭제하시겠습니까?" @confirm="onDelete(row)">
-            <Button type="link" size="small" danger>삭제</Button>
+            <Button v-perm:delete type="link" size="small" danger>삭제</Button>
           </Popconfirm>
         </div>
       </template>

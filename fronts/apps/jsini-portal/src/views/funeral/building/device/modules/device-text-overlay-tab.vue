@@ -7,8 +7,8 @@ import { IconifyIcon } from '@vben/icons';
 import {
   getDeviceTextOverlays,
   bulkSaveDeviceTextOverlays,
-} from '#/api/building';
-import type { BuildingApi } from '#/api/building';
+} from '#/api/funeral/building';
+import type { BuildingApi } from '#/api/funeral/building';
 
 // ────────────────────────────────────────────────────────────────────
 // Props
@@ -657,7 +657,7 @@ const FONT_WEIGHT_OPTIONS = [
       <!-- 하단 저장 버튼 -->
       <div class="flex shrink-0 justify-end gap-2 border-t border-border bg-muted/40 px-4 py-2">
         <Button @click="handleReset">초기화</Button>
-        <Button type="primary" :loading="saving" @click="handleSave">
+        <Button v-perm:update type="primary" :loading="saving" @click="handleSave">
           <IconifyIcon icon="lucide:save" class="size-4 mr-1" />
           텍스트 저장
         </Button>

@@ -1,6 +1,6 @@
 using AIAgentServer.Endpoints;
 using AIAgentServer.Services;
-using Funeralv2.Shared.Infrastructure.Middleware;
+using JSini.Shared.Infrastructure.Middleware;
 
 using System.Reflection;
 using Spectre.Console;

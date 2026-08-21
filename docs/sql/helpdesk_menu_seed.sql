@@ -120,8 +120,6 @@ VALUES
 
 -- ── 헬프데스크 설정 ───────────────────────────────────────
 ('HD_SYS',           'HELPDESK', 'HelpDeskSystem',        '/helpdesk/system',                 NULL,                                          'CATALOG', '헬프데스크 설정', 'lucide:settings',    110, false, false, 1),
-('HD_SYS_MENU',      'HD_SYS',   'HelpDeskSysMenu',       '/helpdesk/system/menu',            '#/views/helpdesk/system/menu.vue',            'MENU',    '메뉴 권한',       'lucide:menu',          1, false, true, 0),
-('HD_SYS_ROLE',      'HD_SYS',   'HelpDeskSysRole',       '/helpdesk/system/role',            '#/views/helpdesk/system/role.vue',            'MENU',    '역할 관리',       'lucide:shield',        2, false, true, 0),
 ('HD_SYS_CHECKLIST', 'HD_SYS',   'HelpDeskSysChecklist',  '/helpdesk/system/checklist',       '#/views/helpdesk/system/checklist.vue',       'MENU',    '체크리스트',      'lucide:list-checks',   3, false, true, 0),
 ('HD_SYS_RELEASE',   'HD_SYS',   'HelpDeskSysRelease',    '/helpdesk/system/release',         '#/views/helpdesk/system/release.vue',         'MENU',    '릴리즈 도구',     'lucide:rocket',        4, false, true, 0),
 ('HD_SYS_ACCOUNT',   'HD_SYS',   'HelpDeskSysAccountLink','/helpdesk/system/account-link',    '#/views/helpdesk/system/account-link.vue',    'MENU',    '계정 연결',       'lucide:link-2',        5, false, true, 0),
@@ -178,6 +176,12 @@ WHERE r.is_deleted = false
     SELECT 1 FROM scom.role_menus rm
     WHERE rm.role_id = r.id AND rm.menu_id = t.id
   );
+
+-- 헬프데스크 자체 '메뉴 권한' / '역할 관리' 화면은 제거되었다.
+-- 메뉴·역할·화면 접근 권한은 funeralv2 쪽(scom.system_menus / scom.roles / scom.role_menus)만 사용한다.
+-- 이전 실행으로 심어진 행이 있으면 함께 지운다.
+DELETE FROM scom.role_menus   WHERE menu_id IN ('HD_SYS_MENU', 'HD_SYS_ROLE');
+DELETE FROM scom.system_menus WHERE id      IN ('HD_SYS_MENU', 'HD_SYS_ROLE');
 
 COMMIT;
 

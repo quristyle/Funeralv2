@@ -6,7 +6,7 @@ import DeviceManagementTab from './device-management-tab.vue';
 import DeviceConfigTab from './device-config-tab.vue';
 import DeviceAttributeTab from './device-attribute-tab.vue';
 import DeviceRibbonTab from './device-ribbon-tab.vue';
-import type { BuildingApi } from '#/api/building';
+import type { BuildingApi } from '#/api/funeral/building';
 
 const props = defineProps<{
   device: BuildingApi.Device;

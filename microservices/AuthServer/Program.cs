@@ -8,7 +8,7 @@ using AuthServer.Services;
 using System.Text;
 using Spectre.Console;
 using System.Reflection;
-using Funeralv2.Shared.Infrastructure.Middleware;
+using JSini.Shared.Infrastructure.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -66,6 +66,7 @@ builder.Services.AddScoped<ICompanyService, CompanyService>();
 builder.Services.AddScoped<ICommonCodeService, CommonCodeService>();
 builder.Services.AddScoped<IBizSelectConfigService, BizSelectConfigService>();
 builder.Services.AddScoped<IRolePermissionService, RolePermissionService>();
+builder.Services.AddScoped<INoticeService, NoticeService>();
 
 
 
@@ -101,6 +102,7 @@ app.MapSystemEndpoints();
 app.MapCompanyEndpoints();
 app.MapCommonCodeEndpoints();
 app.MapRolePermissionEndpoints();
+app.MapNoticeEndpoints();
 
 
 string GetServerName()

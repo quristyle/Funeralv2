@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { computed, onMounted, ref, watch } from 'vue';
 import { Select } from 'ant-design-vue';
-import { getCommonCodes } from '#/api/system/common-code';
+import { getCommonCodes } from '#/api/portal/system/common-code';
 import { $t } from '#/locales';
 
 interface Props {

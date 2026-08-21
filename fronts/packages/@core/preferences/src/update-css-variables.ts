@@ -58,8 +58,14 @@ function updateCSSVariables(preferences: Preferences) {
     Reflect.has(theme, 'colorSuccess') ||
     Reflect.has(theme, 'colorWarning')
   ) {
-    // preferences.theme.colorPrimary = builtinTypeColorPrimary || colorPrimary;
-    updateMainColorVariables(preferences);
+    // 기본 제공 테마를 고른 경우에는 그 테마가 밝기별로 들고 있는 색을 쓴다.
+    // 예를 들어 gray 테마는 라이트에서 hsl(240 5.9% 10%), 다크에서 hsl(0 0% 98%) 이다.
+    // 이렇게 해야 모드를 바꿀 때 색이 따라 뒤집힌다.
+    //
+    // 계산한 값을 preferences 에 다시 써넣지는 않는다.
+    // 써넣으면 그 순간의 밝기에 맞춘 색이 저장소에 굳어서,
+    // 다음에 모드를 바꿔도 예전 색이 그대로 남는다.
+    updateMainColorVariables(preferences, builtinTypeColorPrimary);
   }
 
   // 둥근 모서리 업데이트
@@ -83,17 +89,24 @@ function updateCSSVariables(preferences: Preferences) {
 
 /**
  * 주요 CSS 변수를 업데이트합니다.
- * @param  preference - 현재 환경 설정 객체이며, 해당 색상 값은 HSL 형식으로 변환되어 CSS 변수로 설정됩니다.
+ * @param preference - 현재 환경 설정 객체이며, 해당 색상 값은 HSL 형식으로 변환되어 CSS 변수로 설정됩니다.
+ * @param builtinPrimary - 기본 제공 테마가 지금 밝기에 맞춰 정한 주 색상.
+ *                         값이 있으면 사용자 지정 색보다 우선한다.
  */
-function updateMainColorVariables(preference: Preferences) {
+function updateMainColorVariables(
+  preference: Preferences,
+  builtinPrimary?: string,
+) {
   if (!preference.theme) {
     return;
   }
   const { colorDestructive, colorPrimary, colorSuccess, colorWarning } =
     preference.theme;
 
+  const effectivePrimary = builtinPrimary || colorPrimary;
+
   const colorVariables = generatorColorVariables([
-    { color: colorPrimary, name: 'primary' },
+    { color: effectivePrimary, name: 'primary' },
     { alias: 'warning', color: colorWarning, name: 'yellow' },
     { alias: 'success', color: colorSuccess, name: 'green' },
     { alias: 'destructive', color: colorDestructive, name: 'red' },

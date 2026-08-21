@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { Tag, Badge, Dropdown, Menu, Tooltip, Button, Modal, message } from 'ant-design-vue';
 import { IconifyIcon } from '@vben/icons';
-import { updateDeceased } from '#/api/building';
+import { updateDeceased } from '#/api/funeral/building';
 
 const props = defineProps<{
   room: {

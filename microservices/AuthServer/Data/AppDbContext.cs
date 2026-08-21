@@ -2,7 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using AuthServer.Entities;
 using System.Security.Claims;
 using System.Text.RegularExpressions;
-using Funeralv2.Shared.Domain;
+using JSini.Shared.Domain;
 
 namespace AuthServer.Data;
 
@@ -28,6 +28,8 @@ public class AppDbContext : DbContext
     public DbSet<BizSelectConfig> BizSelectConfigs { get; set; }
     public DbSet<RoleAccount> RoleAccounts { get; set; }
     public DbSet<RoleMenu> RoleMenus { get; set; }
+    public DbSet<Notice> Notices { get; set; }
+    public DbSet<NoticeFile> NoticeFiles { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace Funeralv2.Shared.DTOs;
+namespace JSini.Shared.DTOs;
 
 /// <summary>
 /// 고도화된 공통 API 응답 구조 (MSA 대응)

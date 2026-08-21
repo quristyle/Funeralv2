@@ -6,7 +6,7 @@ using AuthServer.DTOs;
 using AuthServer.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
-using Funeralv2.Shared.DTOs;
+using JSini.Shared.DTOs;
 
 namespace AuthServer.Endpoints;
 

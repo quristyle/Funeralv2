@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 
-namespace Funeralv2.Shared.Infrastructure.Filters;
+namespace JSini.Shared.Infrastructure.Filters;
 
 /// <summary>
 /// ApiResponseFilter 적용을 위한 RouteHandlerBuilder 및 RouteGroupBuilder 확장 메서드

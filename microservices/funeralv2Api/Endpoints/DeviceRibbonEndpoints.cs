@@ -1,8 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
 using funeralv2Api.Services;
 using funeralv2Api.DTOs;
-using Funeralv2.Shared.DTOs;
-using Funeralv2.Shared.Infrastructure.Filters;
+using JSini.Shared.DTOs;
+using JSini.Shared.Infrastructure.Filters;
 
 namespace funeralv2Api.Endpoints;
 

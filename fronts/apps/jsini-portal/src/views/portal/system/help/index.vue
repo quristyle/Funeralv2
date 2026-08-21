@@ -4,7 +4,7 @@ import { Page, useVbenModal } from '@vben/common-ui';
 import { Plus } from '@vben/icons';
 import { Button, message, Popconfirm, Form, Input, InputNumber, Select } from 'ant-design-vue';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import { getHelpDocs, createHelpDoc, updateHelpDoc, deleteHelpDoc } from '#/api/system/help';
+import { getHelpDocs, createHelpDoc, updateHelpDoc, deleteHelpDoc } from '#/api/portal/system/help';
 
 const [HelpModal, helpModalApi] = useVbenModal({
   title: '도움말 문서 등록 및 편집',
@@ -114,7 +114,7 @@ async function handleSave() {
   <Page auto-content-height>
     <Grid table-title="시스템 매뉴얼 및 도움말 관리 대시보드">
       <template #toolbar-tools>
-        <Button type="primary" @click="onCreate">
+        <Button v-perm:create type="primary" @click="onCreate">
           <Plus class="size-5 mr-1" />
           신규 도움말 작성
         </Button>
@@ -132,7 +132,7 @@ async function handleSave() {
         <div class="flex gap-2">
           <Button type="link" size="small" @click="onEdit(row)">수정</Button>
           <Popconfirm title="해당 도움말 문서를 삭제하시겠습니까?" @confirm="onDelete(row)">
-            <Button type="link" size="small" danger>삭제</Button>
+            <Button v-perm:delete type="link" size="small" danger>삭제</Button>
           </Popconfirm>
         </div>
       </template>

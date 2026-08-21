@@ -3,7 +3,7 @@ import { ref } from 'vue';
 import { useVbenModal } from '@vben/common-ui';
 import { message } from 'ant-design-vue';
 import { Form, Input, InputNumber } from 'ant-design-vue';
-import { createDevice, updateDevice } from '#/api/building';
+import { createDevice, updateDevice } from '#/api/funeral/building';
 import BizSelect from '#/components/BizSelect.vue';
 import DictSelect from '#/components/DictSelect.vue';
 

@@ -1,10 +1,10 @@
 <script lang="ts" setup>
 import type { VbenFormSchema } from '@vben/common-ui';
-import type { BasicOption, Recordable } from '@vben/types';
+import type { Recordable } from '@vben/types';
 
-import { computed, markRaw, useTemplateRef } from 'vue';
+import { computed } from 'vue';
 
-import { AuthenticationLogin, SliderCaptcha, z } from '@vben/common-ui';
+import { AuthenticationLogin, z } from '@vben/common-ui';
 import { $t } from '@vben/locales';
 
 import { useAuthStore } from '#/store';
@@ -13,8 +13,13 @@ defineOptions({ name: 'Login' });
 
 const authStore = useAuthStore();
 
-
-
+/**
+ * 로그인 입력 항목.
+ *
+ * 예전에는 아이디·암호 아래에 슬라이드 인증(SliderCaptcha)이 한 칸 더 있었다.
+ * 사내 관리 포털이라 자동 가입·무작위 대입을 막을 목적이 크지 않고,
+ * 로그인마다 손이 한 번 더 가는 값이 커서 걷어냈다.
+ */
 const formSchema = computed((): VbenFormSchema[] => {
   return [
     {
@@ -35,44 +40,17 @@ const formSchema = computed((): VbenFormSchema[] => {
       label: $t('authentication.password'),
       rules: z.string().min(1, { message: $t('authentication.passwordTip') }),
     },
-    {
-      component: markRaw(SliderCaptcha),
-      fieldName: 'captcha',
-      rules: z.boolean().refine((value) => value, {
-        message: $t('authentication.verifyRequiredTip'),
-      }),
-    },
   ];
 });
 
-const loginRef =
-  useTemplateRef<InstanceType<typeof AuthenticationLogin>>('loginRef');
-
-async function onSubmit(params: Recordable<any>) {
-
-
-console.log('bbbbbbbbbbbbbbbb');
-
-
-  authStore.authLogin(params).catch(() => {
-
-console.log('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa');
-
-    // 로그인 실패, 인증번호 새로고침 데모
-    const formApi = loginRef.value?.getFormApi();
-    // 인증번호 컴포넌트 값 초기화
-    formApi?.setFieldValue('captcha', false, false);
-    // 폼 API를 사용하여 인증번호 컴포넌트 인스턴스를 가져오고, resume 메소드를 호출하여 인증번호를 초기화합니다.
-    formApi
-      ?.getFieldComponentRef<InstanceType<typeof SliderCaptcha>>('captcha')
-      ?.resume();
-  });
+function onSubmit(params: Recordable<any>) {
+  // 실패 안내는 authLogin 안에서 처리한다.
+  authStore.authLogin(params);
 }
 </script>
 
 <template>
   <AuthenticationLogin
-    ref="loginRef"
     :form-schema="formSchema"
     :loading="authStore.loginLoading"
     @submit="onSubmit"

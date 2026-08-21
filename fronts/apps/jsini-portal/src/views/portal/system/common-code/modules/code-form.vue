@@ -3,7 +3,7 @@ import { ref, nextTick } from 'vue';
 import { useBaseModal } from '#/adapter/modal';
 import { useVbenForm } from '#/adapter/form';
 import { codeFormSchema } from '../data';
-import { createCommonCode, updateCommonCode, type CommonCodeParams } from '#/api/system/common-code';
+import { createCommonCode, updateCommonCode, type CommonCodeParams } from '#/api/portal/system/common-code';
 import { message } from 'ant-design-vue';
 import AiCodeSuggester from '#/components/ai-code-suggester/ai-code-suggester.vue';
 

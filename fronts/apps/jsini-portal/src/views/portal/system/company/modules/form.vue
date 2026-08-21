@@ -4,7 +4,7 @@ import { useVbenForm } from '#/adapter/form';
 import { useVbenDrawer } from '@vben/common-ui';
 import { $t } from '@vben/locales';
 import { message } from 'ant-design-vue';
-import { createCompany, updateCompany } from '#/api/system/company';
+import { createCompany, updateCompany } from '#/api/portal/system/company';
 import { formSchema } from '../data';
 
 /**

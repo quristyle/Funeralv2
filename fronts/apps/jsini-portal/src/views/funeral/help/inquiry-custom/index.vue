@@ -4,7 +4,7 @@ import { Page, useVbenModal } from '@vben/common-ui';
 import { Plus } from '@vben/icons';
 import { Button, message, Form, Input, Card, Descriptions } from 'ant-design-vue';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import { getInquiries, createInquiry } from '#/api/help';
+import { getInquiries, createInquiry } from '#/api/funeral/help';
 
 const [InquiryModal, inquiryModalApi] = useVbenModal({
   title: '1:1 문의사항 작성',

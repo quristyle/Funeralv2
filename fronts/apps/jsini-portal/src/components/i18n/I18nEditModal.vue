@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { ref } from 'vue';
 import { Modal, Form, Input, message } from 'ant-design-vue';
-import { getI18nPaged, createI18nResource, updateI18nResource } from '#/api/system/i18n';
+import { getI18nPaged, createI18nResource, updateI18nResource } from '#/api/portal/system/i18n';
 import { updateLocalI18n } from '#/locales';
 import AiCodeSuggester from '#/components/ai-code-suggester/ai-code-suggester.vue';
 

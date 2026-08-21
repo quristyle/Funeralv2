@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using FileServer.Services;
-using Funeralv2.Shared.DTOs;
+using JSini.Shared.DTOs;
 
 namespace FileServer.Endpoints;
 

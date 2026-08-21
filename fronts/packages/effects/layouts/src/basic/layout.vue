@@ -18,7 +18,7 @@ import { useAccessStore, useTabbarStore, useTimezoneStore } from '@vben/stores';
 import { cloneDeep, mapTree } from '@vben/utils';
 
 import { VbenAdminLayout } from '@vben-core/layout-ui';
-import { VbenBackTop, VbenLogo } from '@vben-core/shadcn-ui';
+import { Input, VbenBackTop, VbenLogo } from '@vben-core/shadcn-ui';
 
 import { isAiChatPinned } from '../widgets/ai-chat/state';
 import AiChatContent from '../widgets/ai-chat/ai-chat-content.vue';
@@ -147,6 +147,98 @@ function wrapperMenus(menus: MenuRecordRaw[], deep: boolean = true) {
         return { ...cloneDeep(item), name: $t(item.name) };
       });
 }
+
+/* ---------------------------------------------------------------------------
+ * 사이드바 메뉴 검색
+ * 입력이 느릴(끊길) 수 있음을 고려해 키워드를 debounce(300ms) 처리하여
+ * 필터 재계산이 매 키 입력마다 발생하지 않도록 한다.
+ * ------------------------------------------------------------------------- */
+const menuSearchKeyword = ref('');
+// debounce 적용된 실제 검색어 (필터 재계산 트리거)
+const debouncedMenuKeyword = ref('');
+let menuSearchTimer: null | ReturnType<typeof setTimeout> = null;
+watch(menuSearchKeyword, (value) => {
+  if (menuSearchTimer) {
+    clearTimeout(menuSearchTimer);
+  }
+  menuSearchTimer = setTimeout(() => {
+    debouncedMenuKeyword.value = value;
+  }, 300);
+});
+
+// 사이드바가 접히면(아이콘 전용) 검색 입력부가 사라지므로 검색어를 즉시 초기화한다.
+watch(sidebarCollapsed, (collapsed) => {
+  if (collapsed && menuSearchKeyword.value) {
+    if (menuSearchTimer) {
+      clearTimeout(menuSearchTimer);
+    }
+    menuSearchKeyword.value = '';
+    debouncedMenuKeyword.value = '';
+  }
+});
+
+/**
+ * 키워드로 메뉴 트리를 필터링한다.
+ * - 자기 이름이 매칭되면 하위 메뉴 전체를 유지한다.
+ * - 자기 이름은 매칭되지 않아도 하위에 매칭 항목이 있으면 그 가지만 유지한다.
+ */
+function filterMenusByKeyword(
+  menus: MenuRecordRaw[],
+  keyword: string,
+): MenuRecordRaw[] {
+  const result: MenuRecordRaw[] = [];
+  for (const menu of menus) {
+    const selfMatched = (menu.name ?? '').toLowerCase().includes(keyword);
+    const matchedChildren = menu.children?.length
+      ? filterMenusByKeyword(menu.children, keyword)
+      : [];
+
+    if (selfMatched) {
+      // 부모가 매칭되면 원본 하위 메뉴를 그대로 노출
+      result.push({ ...menu });
+    } else if (matchedChildren.length > 0) {
+      result.push({ ...menu, children: matchedChildren });
+    }
+  }
+  return result;
+}
+
+// 이름 번역이 반영된 사이드바 메뉴 (검색 대상)
+const wrappedSidebarMenus = computed(() => wrapperMenus(sidebarMenus.value));
+
+// 실제 렌더링할 사이드바 메뉴 (검색어 적용)
+const filteredSidebarMenus = computed(() => {
+  const keyword = debouncedMenuKeyword.value.trim().toLowerCase();
+  if (!keyword) {
+    return wrappedSidebarMenus.value;
+  }
+  return filterMenusByKeyword(wrappedSidebarMenus.value, keyword);
+});
+
+// 검색 결과에서 하위 메뉴를 가진 노드는 자동으로 펼쳐지도록 경로를 수집
+const sidebarSearchOpenPaths = computed<string[]>(() => {
+  if (!debouncedMenuKeyword.value.trim()) {
+    return [];
+  }
+  const paths: string[] = [];
+  const walk = (nodes: MenuRecordRaw[]) => {
+    for (const node of nodes) {
+      if (node.children?.length) {
+        paths.push(node.path);
+        walk(node.children);
+      }
+    }
+  };
+  walk(filteredSidebarMenus.value);
+  return paths;
+});
+
+// 검색 상태가 바뀌면 메뉴 컴포넌트를 재초기화(펼침 상태 반영)하기 위한 key
+const sidebarMenuKey = computed(() =>
+  debouncedMenuKeyword.value.trim()
+    ? `search:${debouncedMenuKeyword.value.trim().toLowerCase()}`
+    : 'default',
+);
 
 function toggleSidebar() {
   updatePreferences({
@@ -401,12 +493,56 @@ function startResize(e: MouseEvent) {
     </template>
     <!-- 사이드 메뉴 영역 -->
     <template #menu>
+      <!-- 메뉴 검색 입력부: 접힌 사이드바에서는 숨김, 스크롤 시 상단 고정 -->
+      <div
+        v-if="!sidebarCollapsed"
+        class="bg-sidebar sticky top-0 z-20 -mt-2 px-2 pb-2 pt-2"
+      >
+        <div class="relative">
+          <svg
+            class="text-muted-foreground pointer-events-none absolute left-2 top-1/2 size-4 -translate-y-1/2"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+          >
+            <circle cx="11" cy="11" r="8" />
+            <path d="m21 21-4.3-4.3" stroke-linecap="round" />
+          </svg>
+          <Input
+            v-model="menuSearchKeyword"
+            :placeholder="$t('common.search')"
+            class="h-8 pl-8 pr-8"
+            spellcheck="false"
+          />
+          <button
+            v-if="menuSearchKeyword"
+            :aria-label="$t('common.reset')"
+            class="text-muted-foreground hover:text-foreground absolute right-2 top-1/2 -translate-y-1/2"
+            type="button"
+            @click="menuSearchKeyword = ''"
+          >
+            <svg
+              class="size-4"
+              fill="none"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+            >
+              <path d="M18 6 6 18M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      </div>
       <LayoutMenu
+        :key="sidebarMenuKey"
         :accordion="preferences.navigation.accordion"
         :collapse="preferences.sidebar.collapsed"
         :collapse-show-title="preferences.sidebar.collapsedShowTitle"
         :default-active="sidebarActive"
-        :menus="wrapperMenus(sidebarMenus)"
+        :default-openeds="sidebarSearchOpenPaths"
+        :menus="filteredSidebarMenus"
         :rounded="isMenuRounded"
         :theme="sidebarTheme"
         mode="vertical"

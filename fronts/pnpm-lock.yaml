@@ -578,7 +578,7 @@ importers:
         specifier: 'catalog:'
         version: 3.2.6(typescript@5.9.3)
 
-  apps/funeralv2:
+  apps/jsini-portal:
     dependencies:
       '@maxgraph/core':
         specifier: ^0.24.0

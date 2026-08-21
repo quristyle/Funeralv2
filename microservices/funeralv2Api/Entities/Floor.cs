@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using Funeralv2.Shared.Domain;
+using JSini.Shared.Domain;
 
 namespace funeralv2Api.Entities;
 

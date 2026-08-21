@@ -69,9 +69,74 @@ public class SystemMenuService : ISystemMenuService
                     BadgeType = m.BadgeType,
                     Badge = m.Badge
                 },
+                Permissions = ToPermissionsDto(m),
                 Children = BuildMenuTree(menus, m.Id).Any() ? BuildMenuTree(menus, m.Id) : null
             })
             .ToList();
+    }
+
+    /// <summary>
+    /// 엔티티의 권한 항목 설정을 DTO 로 옮깁니다.
+    /// </summary>
+    private static MenuPermissionItemsDto ToPermissionsDto(SystemMenu m) => new()
+    {
+        UseView = m.UseView,
+        UseSearch = m.UseSearch,
+        UseCreate = m.UseCreate,
+        UseDelete = m.UseDelete,
+        UseUpdate = m.UseUpdate,
+        UsePrint = m.UsePrint,
+        UseExcel = m.UseExcel,
+        UseCust1 = m.UseCust1,
+        UseCust2 = m.UseCust2,
+        UseCust3 = m.UseCust3,
+        UseCust4 = m.UseCust4,
+        UseCust5 = m.UseCust5,
+        UseCust6 = m.UseCust6,
+        UseCust7 = m.UseCust7,
+        UseCust8 = m.UseCust8,
+        Cust1Name = m.Cust1Name,
+        Cust2Name = m.Cust2Name,
+        Cust3Name = m.Cust3Name,
+        Cust4Name = m.Cust4Name,
+        Cust5Name = m.Cust5Name,
+        Cust6Name = m.Cust6Name,
+        Cust7Name = m.Cust7Name,
+        Cust8Name = m.Cust8Name
+    };
+
+    /// <summary>
+    /// 요청의 권한 항목 설정을 엔티티에 반영합니다.
+    /// 사용하지 않는 사용자 정의 항목의 이름은 남겨두지 않는다 —
+    /// 꺼둔 칸에 예전 이름이 남아 있으면 다시 켰을 때 엉뚱한 이름이 붙는다.
+    /// </summary>
+    private static void ApplyPermissions(SystemMenu menu, MenuPermissionItemsDto p)
+    {
+        menu.UseView = p.UseView;
+        menu.UseSearch = p.UseSearch;
+        menu.UseCreate = p.UseCreate;
+        menu.UseDelete = p.UseDelete;
+        menu.UseUpdate = p.UseUpdate;
+        menu.UsePrint = p.UsePrint;
+        menu.UseExcel = p.UseExcel;
+
+        menu.UseCust1 = p.UseCust1;
+        menu.UseCust2 = p.UseCust2;
+        menu.UseCust3 = p.UseCust3;
+        menu.UseCust4 = p.UseCust4;
+        menu.UseCust5 = p.UseCust5;
+        menu.UseCust6 = p.UseCust6;
+        menu.UseCust7 = p.UseCust7;
+        menu.UseCust8 = p.UseCust8;
+
+        menu.Cust1Name = p.UseCust1 ? p.Cust1Name : null;
+        menu.Cust2Name = p.UseCust2 ? p.Cust2Name : null;
+        menu.Cust3Name = p.UseCust3 ? p.Cust3Name : null;
+        menu.Cust4Name = p.UseCust4 ? p.Cust4Name : null;
+        menu.Cust5Name = p.UseCust5 ? p.Cust5Name : null;
+        menu.Cust6Name = p.UseCust6 ? p.Cust6Name : null;
+        menu.Cust7Name = p.UseCust7 ? p.Cust7Name : null;
+        menu.Cust8Name = p.UseCust8 ? p.Cust8Name : null;
     }
 
     /// <summary>
@@ -121,6 +186,7 @@ public class SystemMenuService : ISystemMenuService
             BadgeType = request.Meta.BadgeType,
             Badge = request.Meta.Badge
         };
+        ApplyPermissions(menu, request.Permissions);
         _db.SystemMenus.Add(menu);
         await _db.SaveChangesAsync();
 
@@ -157,6 +223,7 @@ public class SystemMenuService : ISystemMenuService
         menu.IframeSrc = request.Meta.IframeSrc;
         menu.BadgeType = request.Meta.BadgeType;
         menu.Badge = request.Meta.Badge;
+        ApplyPermissions(menu, request.Permissions);
 
         await _db.SaveChangesAsync();
         return true;

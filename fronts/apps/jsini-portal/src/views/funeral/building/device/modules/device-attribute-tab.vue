@@ -5,7 +5,7 @@ import {
 } from 'ant-design-vue';
 import { IconifyIcon } from '@vben/icons';
 import BizSelect from '#/components/BizSelect.vue';
-import type { BuildingApi } from '#/api/building';
+import type { BuildingApi } from '#/api/funeral/building';
 
 const props = defineProps<{
   deviceAttr: BuildingApi.DeviceAttribute | null;

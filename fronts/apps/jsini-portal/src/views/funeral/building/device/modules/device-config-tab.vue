@@ -3,8 +3,8 @@ import { ref, watch } from 'vue';
 import {
   Alert, Button, Divider, Form, message, Slider, Spin, Switch, TimePicker,
 } from 'ant-design-vue';
-import { setDeviceScreenPower } from '#/api/building';
-import type { BuildingApi } from '#/api/building';
+import { setDeviceScreenPower } from '#/api/funeral/building';
+import type { BuildingApi } from '#/api/funeral/building';
 
 const props = defineProps<{
   deviceConfig: BuildingApi.DeviceConfig | null;

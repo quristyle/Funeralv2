@@ -1,4 +1,4 @@
-namespace Funeralv2.Shared.Domain;
+namespace JSini.Shared.Domain;
 
 /// <summary>
 /// 모든 엔티티의 기본 클래스입니다. (ID 타입을 지정할 수 있는 제네릭 버전)

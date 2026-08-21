@@ -22,6 +22,7 @@ import {
 
 import {
   createRequestWithFiles,
+  getCustomerByLoginId,
   getRequest,
   updateRequestWithFiles,
 } from '#/api/helpdesk';
@@ -34,8 +35,13 @@ import RichTextInput from './modules/rich-text-input.vue';
 /**
  * [요청 등록 · 수정]
  *
- * 라우트에 id 가 있으면 수정, 없으면 신규 등록이다(원본의 Request.vue + RequestEdit.vue).
- * 원본과 동일하게 Ctrl+S 로 이동 없이 저장할 수 있다.
+ * 원본의 Request.vue(`/request`, 등록)와 RequestEdit.vue(`/request/edit/:id`, 수정)를 한 화면으로 합쳤다.
+ * 라우트에 id 가 있으면 수정, 없으면 신규 등록이다.
+ *
+ * 원본과 같은 동작:
+ *  - Ctrl+S 로 화면 이동 없이 저장
+ *  - 관리자가 등록할 때는 회사를 반드시 고르고, 그 회사의 공용 계정(`pub_{회사ID}`)을 작성자로 넣는다
+ *  - `?recheckId=` 로 들어오면 기존 요청을 '[재확인]' 으로 복제한다
  */
 
 const route = useRoute();
@@ -51,6 +57,7 @@ const requestId = computed(() =>
 const isEdit = computed(() => requestId.value !== undefined);
 
 const form = reactive({
+  companyId: undefined as number | undefined,
   description: '',
   ipType: 'Improvement' as string,
   title: '',
@@ -62,6 +69,27 @@ const filesToUpload = ref<File[]>([]);
 const existingFiles = ref<Attachment[]>([]);
 /** 삭제 표시한 기존 첨부의 id */
 const deletedFileIds = ref<number[]>([]);
+
+/**
+ * 재확인 등록. 원본 요청 내용을 옮겨 담고 원문 링크를 덧붙인다.
+ * 원본(Request.vue loadRecheckData)과 같은 형식이다.
+ */
+async function loadRecheck(sourceId: number) {
+  const original = await getRequest(sourceId).catch(() => null);
+  if (!original) return;
+
+  form.title = `[재확인] ${original.title}`;
+  form.ipType = (original.ipType as string) ?? 'Improvement';
+
+  const originalUrl = `${window.location.origin}/helpdesk/request/detail/${sourceId}`;
+  const who = helpdesk.identity?.userName ?? '';
+  form.description = `${original.description ?? ''}
+<p></p>
+<hr />
+<p>이전 요청: <a href="${originalUrl}" target="_blank">${originalUrl}</a></p>
+<br />
+<blockquote>- ${who}</blockquote>`;
+}
 
 async function load() {
   if (!requestId.value) return;
@@ -105,13 +133,15 @@ function markFileDeleted(fileId: number) {
 }
 
 /** 서버가 받는 multipart 본문을 만든다. 필드명은 원본과 동일하게 맞춘다. */
-function buildFormData() {
+function buildFormData(customerId?: number) {
   const fd = new FormData();
   const typeCode = REQUEST_TYPES.find((t) => t.value === form.ipType)?.code ?? 1;
 
   fd.append('iptype', String(typeCode));
   fd.append('title', form.title);
   fd.append('description', form.description);
+
+  if (customerId !== undefined) fd.append('customerId', String(customerId));
 
   filesToUpload.value.forEach((file) => fd.append('files', file));
 
@@ -120,6 +150,26 @@ function buildFormData() {
   }
 
   return fd;
+}
+
+/**
+ * 신규 등록 시 작성자로 넣을 고객 ID 를 정한다.
+ * 관리자는 고른 회사의 공용 계정(`pub_{회사ID}`)으로, 고객은 자기 자신으로 등록한다.
+ */
+async function resolveAuthorId(): Promise<number | undefined> {
+  if (!helpdesk.isAdmin) return helpdesk.helpdeskUserId;
+
+  if (!form.companyId) {
+    message.warning('관리자가 작성할 때는 회사를 반드시 선택하세요.');
+    return undefined;
+  }
+
+  const publicUser = await getCustomerByLoginId(`pub_${form.companyId}`);
+  if (!publicUser) {
+    message.warning('선택한 회사의 공용 사용자를 찾을 수 없습니다.');
+    return undefined;
+  }
+  return publicUser.id;
 }
 
 /**
@@ -149,7 +199,10 @@ async function save(navigate = true) {
       deletedFileIds.value = [];
       await load();
     } else {
-      const created = await createRequestWithFiles(buildFormData());
+      const authorId = await resolveAuthorId();
+      if (authorId === undefined) return;
+
+      const created = await createRequestWithFiles(buildFormData(authorId));
       message.success('요청을 등록했습니다.');
       router.replace(
         created?.id
@@ -173,6 +226,17 @@ function onKeyDown(event: KeyboardEvent) {
 onMounted(async () => {
   window.addEventListener('keydown', onKeyDown);
   await helpdesk.loadIdentity();
+
+  if (helpdesk.isAdmin) await helpdesk.loadOrganizations();
+
+  const recheckId = route.query.recheckId
+    ? Number(route.query.recheckId)
+    : undefined;
+  if (!isEdit.value && recheckId) {
+    await loadRecheck(recheckId);
+    return;
+  }
+
   await load();
 });
 
@@ -205,6 +269,22 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeyDown));
               v-model:value="form.ipType"
               :options="REQUEST_TYPE_OPTIONS"
               style="width: 160px"
+            />
+          </FormItem>
+
+          <!-- 관리자가 회사를 대신해 등록할 때만 쓴다. -->
+          <FormItem
+            v-if="!isEdit && helpdesk.isAdmin"
+            label="회사 (관리자 대리 등록)"
+            required
+          >
+            <Select
+              v-model:value="form.companyId"
+              :options="helpdesk.companyOptions.filter((o) => o.value !== null)"
+              option-filter-prop="label"
+              placeholder="요청을 등록할 회사를 선택하세요"
+              show-search
+              style="width: 260px"
             />
           </FormItem>
 

@@ -1,26 +1,95 @@
 <script lang="ts" setup>
-import { ref, watch, onMounted } from 'vue';
-import { Button, Checkbox, message } from 'ant-design-vue';
+import type { VxeTableGridOptions } from '#/adapter/vxe-table';
+
+import { computed, onMounted, ref, watch } from 'vue';
+
 import { IconifyIcon } from '@vben/icons';
-import { useVbenVxeGrid, type VxeTableGridOptions } from '#/adapter/vxe-table';
-import { getRoleMenus, saveRoleMenus, type SystemRolePermissionApi } from '#/api/system/role-permission';
+
+import { Alert, Button, Checkbox, message, Tooltip } from 'ant-design-vue';
+
+import { useVbenVxeGrid } from '#/adapter/vxe-table';
+import {
+  getRoleMenus,
+  saveRoleMenus,
+  type SystemRolePermissionApi,
+} from '#/api/portal/system/role-permission';
+
+/**
+ * [역할 - 메뉴 권한]
+ *
+ * 메뉴마다 쓰는 권한 항목이 다르다. 그 설정은 메뉴 관리 화면에서 정하고
+ * (`system_menus.use_*`, `cust*_name`), 이 화면은 그 설정을 따라간다.
+ *
+ *  - 그 메뉴가 쓰지 않는 항목은 체크박스를 잠근다.
+ *  - 사용자 정의 1~8 은 아무 메뉴도 쓰지 않으면 열 자체를 감춘다.
+ *    쓰는 메뉴가 있으면 거기 붙인 이름을 열 제목으로 쓴다.
+ *
+ * 예전에는 모든 메뉴에 15개 체크박스를 똑같이 띄우고 사용자 정의 칸은
+ * 'C1'~'C8' 로만 보여서, 무엇을 켜는 것인지 알 수 없었다.
+ */
 
 const props = defineProps({
   roleId: {
-    type: String,
     required: true,
+    type: String,
   },
 });
 
-// 원본 플랫 데이터
 const rawMenuList = ref<SystemRolePermissionApi.RoleMenu[]>([]);
 const loading = ref(false);
 
-// 트리 형태 데이터 변환 헬퍼
+/** 기본 권한 7종 */
+const BASE_PERMS = [
+  { field: 'canView', title: '열람', use: 'useView' },
+  { field: 'canSearch', title: '조회', use: 'useSearch' },
+  { field: 'canCreate', title: '추가', use: 'useCreate' },
+  { field: 'canUpdate', title: '수정', use: 'useUpdate' },
+  { field: 'canDelete', title: '삭제', use: 'useDelete' },
+  { field: 'canPrint', title: '출력', use: 'usePrint' },
+  { field: 'canExcel', title: '엑셀', use: 'useExcel' },
+] as const;
+
+const CUSTOM_NOS = [1, 2, 3, 4, 5, 6, 7, 8] as const;
+
+/**
+ * 실제로 쓰이는 사용자 정의 권한만 추린다.
+ * 열 제목은 그 칸을 쓰는 메뉴들이 붙인 이름이다. 이름이 서로 다르면
+ * 하나로 고를 수 없으므로 'C1' 같은 번호로 두고, 각 칸의 이름은 셀에 달아 준다.
+ */
+const activeCustoms = computed(() => {
+  return CUSTOM_NOS.map((no) => {
+    const useKey = `useCust${no}`;
+    const nameKey = `cust${no}Name`;
+
+    const users = rawMenuList.value.filter((m) => (m as any)[useKey]);
+    if (users.length === 0) return null;
+
+    const names = new Set(
+      users
+        .map((m) => String((m as any)[nameKey] ?? '').trim())
+        .filter(Boolean),
+    );
+
+    return {
+      field: `canCust${no}`,
+      nameKey,
+      no,
+      title: names.size === 1 ? [...names][0]! : `C${no}`,
+      useKey,
+    };
+  }).filter((c) => c !== null);
+});
+
+/** 아직 아무 메뉴도 사용자 정의 권한을 쓰지 않는지 */
+const noCustomConfigured = computed(
+  () => rawMenuList.value.length > 0 && activeCustoms.value.length === 0,
+);
+
+/** 평면 목록을 트리로 조립 */
 function listToTree(list: SystemRolePermissionApi.RoleMenu[]) {
   const map: Record<string, any> = {};
   const tree: any[] = [];
-  
+
   list.forEach((item) => {
     map[item.menuId] = { ...item, children: [] };
   });
@@ -37,46 +106,62 @@ function listToTree(list: SystemRolePermissionApi.RoleMenu[]) {
   return tree;
 }
 
-// 트리 그리드 컬럼 설정
-const columns = [
-  { field: 'menuName', title: '메뉴명', minWidth: 220, treeNode: true },
-  { field: 'canView', title: '열람', width: 65, align: 'center' as const, slots: { default: 'canView' } },
-  { field: 'canSearch', title: '조회', width: 65, align: 'center' as const, slots: { default: 'canSearch' } },
-  { field: 'canCreate', title: '추가', width: 65, align: 'center' as const, slots: { default: 'canCreate' } },
-  { field: 'canDelete', title: '삭제', width: 65, align: 'center' as const, slots: { default: 'canDelete' } },
-  { field: 'canUpdate', title: '수정', width: 65, align: 'center' as const, slots: { default: 'canUpdate' } },
-  { field: 'canPrint', title: '출력', width: 65, align: 'center' as const, slots: { default: 'canPrint' } },
-  { field: 'canExcel', title: '엑셀', width: 65, align: 'center' as const, slots: { default: 'canExcel' } },
-  { field: 'canCust1', title: 'C1', width: 55, align: 'center' as const, slots: { default: 'canCust1' } },
-  { field: 'canCust2', title: 'C2', width: 55, align: 'center' as const, slots: { default: 'canCust2' } },
-  { field: 'canCust3', title: 'C3', width: 55, align: 'center' as const, slots: { default: 'canCust3' } },
-  { field: 'canCust4', title: 'C4', width: 55, align: 'center' as const, slots: { default: 'canCust4' } },
-  { field: 'canCust5', title: 'C5', width: 55, align: 'center' as const, slots: { default: 'canCust5' } },
-  { field: 'canCust6', title: 'C6', width: 55, align: 'center' as const, slots: { default: 'canCust6' } },
-  { field: 'canCust7', title: 'C7', width: 55, align: 'center' as const, slots: { default: 'canCust7' } },
-  { field: 'canCust8', title: 'C8', width: 55, align: 'center' as const, slots: { default: 'canCust8' } },
-];
+const columns = computed(() => [
+  { field: 'menuName', minWidth: 220, title: '메뉴명', treeNode: true },
+  ...BASE_PERMS.map((p) => ({
+    align: 'center' as const,
+    field: p.field,
+    slots: { default: p.field },
+    title: p.title,
+    width: 65,
+  })),
+  ...activeCustoms.value.map((c) => ({
+    align: 'center' as const,
+    field: c.field,
+    slots: { default: 'custom' },
+    params: { custom: c },
+    title: c.title,
+    width: 80,
+  })),
+]);
 
-// VXETable 등록
 const [Grid, gridApi] = useVbenVxeGrid({
   gridOptions: {
-    columns: columns,
+    columns: columns.value,
+    data: [],
     height: 'auto',
-    treeConfig: {
-      transform: false,
-      rowField: 'menuId',
-      parentField: 'parentId',
-      childrenField: 'children',
-      expandAll: true,
-    },
     rowConfig: {
       keyField: 'menuId',
     },
-    data: [],
+    treeConfig: {
+      childrenField: 'children',
+      expandAll: true,
+      parentField: 'parentId',
+      rowField: 'menuId',
+      transform: false,
+    },
   } as VxeTableGridOptions<SystemRolePermissionApi.RoleMenu>,
 });
 
-// 메뉴 권한 로드
+// 사용자 정의 열은 데이터를 받아 봐야 몇 개인지 알 수 있으므로, 정해지면 다시 심는다.
+watch(columns, (cols) => {
+  gridApi.grid?.loadColumn(cols as any);
+});
+
+/** 그 메뉴가 해당 항목을 쓰는지 */
+function isUsed(row: any, useKey: string) {
+  return Boolean(row?.[useKey]);
+}
+
+/** 셀에 달아 줄 안내. 잠긴 이유나 이 칸의 이름을 알려준다. */
+function cellHint(row: any, useKey: string, label: string, nameKey?: string) {
+  if (!isUsed(row, useKey)) {
+    return `${row.menuName} 메뉴는 '${label}' 권한을 사용하지 않습니다. 메뉴 관리에서 켤 수 있습니다.`;
+  }
+  const name = nameKey ? String(row[nameKey] ?? '').trim() : '';
+  return name || label;
+}
+
 async function fetchRolePermissions() {
   if (!props.roleId) return;
   loading.value = true;
@@ -84,21 +169,18 @@ async function fetchRolePermissions() {
     const res = await getRoleMenus(props.roleId);
     const list = (res as any)?.result ?? res ?? [];
     rawMenuList.value = list;
-    
-    // 계층 트리를 만들어 그리드에 바인딩
-    const treeData = listToTree(list);
-    gridApi.grid?.loadData(treeData);
-  } catch (error) {
+    gridApi.grid?.loadData(listToTree(list));
+  } catch {
     message.error('메뉴 권한 정보 로드 실패');
   } finally {
     loading.value = false;
   }
 }
 
-// 트리 데이터를 평탄화 리스트로 복구하기
+/** 트리 데이터를 평탄화 리스트로 복구 */
 function flattenTree(nodes: any[]): SystemRolePermissionApi.RoleMenu[] {
   const result: SystemRolePermissionApi.RoleMenu[] = [];
-  
+
   function recurse(n: any) {
     const { children, ...rest } = n;
     result.push(rest);
@@ -111,34 +193,49 @@ function flattenTree(nodes: any[]): SystemRolePermissionApi.RoleMenu[] {
   return result;
 }
 
-// 권한 일괄 저장
 async function handleSavePermissions() {
   const gridData = gridApi.grid?.getTableData()?.fullData ?? [];
   if (gridData.length === 0) return;
 
   const flatList = flattenTree(gridData);
-  
-  // 저장용 DTO에 맞추어 menuName, parentId 제거
+
+  // 저장용 DTO 로 줄인다. 화면 표시용 항목(메뉴명·부모·사용 설정)은 빼고 보낸다.
   const postData = flatList.map((item) => {
-    const { menuName, parentId, ...rest } = item as any;
-    return rest;
+    const row = item as any;
+    const payload: Record<string, any> = { menuId: row.menuId };
+
+    BASE_PERMS.forEach((p) => {
+      // 쓰지 않는 항목은 켜서 보내지 않는다. 서버도 같은 규칙으로 한 번 더 막는다.
+      payload[p.field] = isUsed(row, p.use) && Boolean(row[p.field]);
+    });
+
+    CUSTOM_NOS.forEach((no) => {
+      payload[`canCust${no}`] =
+        isUsed(row, `useCust${no}`) && Boolean(row[`canCust${no}`]);
+    });
+
+    return payload;
   });
 
   loading.value = true;
   try {
-    await saveRoleMenus(props.roleId, postData);
+    await saveRoleMenus(props.roleId, postData as any);
     message.success('메뉴 권한 설정이 성공적으로 저장되었습니다.');
     fetchRolePermissions();
-  } catch (error) {
+  } catch {
     message.error('저장 중 오류 발생');
   } finally {
     loading.value = false;
   }
 }
 
-watch(() => props.roleId, () => {
-  fetchRolePermissions();
-}, { immediate: true });
+watch(
+  () => props.roleId,
+  () => {
+    fetchRolePermissions();
+  },
+  { immediate: true },
+);
 
 onMounted(() => {
   fetchRolePermissions();
@@ -146,71 +243,68 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="flex-1 flex flex-col overflow-hidden h-full">
+  <div class="flex h-full flex-1 flex-col overflow-hidden">
     <!-- 상단 저장 툴바 -->
-    <div class="flex justify-end items-center mb-3 pt-2">
-      <Button type="primary" :loading="loading" @click="handleSavePermissions">
+    <div class="mb-3 flex items-center justify-between pt-2">
+      <span class="text-xs text-muted-foreground">
+        회색으로 잠긴 칸은 그 메뉴가 쓰지 않는 권한입니다. 메뉴 관리 화면에서
+        사용 여부와 이름을 정할 수 있습니다.
+      </span>
+      <Button v-perm:update :loading="loading" type="primary" @click="handleSavePermissions">
         <template #icon>
-          <IconifyIcon class="size-4 mr-1 inline-block align-text-bottom" icon="lucide:save" />
+          <IconifyIcon
+            class="mr-1 inline-block size-4 align-text-bottom"
+            icon="lucide:save"
+          />
         </template>
         권한 설정 저장
       </Button>
     </div>
 
+    <Alert
+      v-if="noCustomConfigured"
+      class="mb-2"
+      description="사용자 정의 권한(C1~C8)을 쓰는 메뉴가 아직 없어 해당 열은 표시하지 않습니다. 메뉴 관리 화면에서 켜고 이름을 붙이면 여기에 그 이름으로 나타납니다."
+      show-icon
+      type="info"
+    />
+
     <!-- 트리 그리드 영역 -->
-    <div class="flex-1 overflow-auto border rounded-lg  relative">
+    <div class="relative flex-1 overflow-auto rounded-lg border">
       <Grid class="h-full w-full">
-        <!-- 각 권한 체크박스 셀 슬롯 정의 -->
-        <template #canView="{ row }">
-          <Checkbox v-model:checked="row.canView" />
+        <!-- 기본 권한 7종 -->
+        <template
+          v-for="p in BASE_PERMS"
+          :key="p.field"
+          #[p.field]="{ row }"
+        >
+          <Tooltip :title="cellHint(row, p.use, p.title)">
+            <Checkbox
+              v-model:checked="row[p.field]"
+              :disabled="!isUsed(row, p.use)"
+            />
+          </Tooltip>
         </template>
-        <template #canSearch="{ row }">
-          <Checkbox v-model:checked="row.canSearch" />
-        </template>
-        <template #canCreate="{ row }">
-          <Checkbox v-model:checked="row.canCreate" />
-        </template>
-        <template #canDelete="{ row }">
-          <Checkbox v-model:checked="row.canDelete" />
-        </template>
-        <template #canUpdate="{ row }">
-          <Checkbox v-model:checked="row.canUpdate" />
-        </template>
-        <template #canPrint="{ row }">
-          <Checkbox v-model:checked="row.canPrint" />
-        </template>
-        <template #canExcel="{ row }">
-          <Checkbox v-model:checked="row.canExcel" />
-        </template>
-        <template #canCust1="{ row }">
-          <Checkbox v-model:checked="row.canCust1" />
-        </template>
-        <template #canCust2="{ row }">
-          <Checkbox v-model:checked="row.canCust2" />
-        </template>
-        <template #canCust3="{ row }">
-          <Checkbox v-model:checked="row.canCust3" />
-        </template>
-        <template #canCust4="{ row }">
-          <Checkbox v-model:checked="row.canCust4" />
-        </template>
-        <template #canCust5="{ row }">
-          <Checkbox v-model:checked="row.canCust5" />
-        </template>
-        <template #canCust6="{ row }">
-          <Checkbox v-model:checked="row.canCust6" />
-        </template>
-        <template #canCust7="{ row }">
-          <Checkbox v-model:checked="row.canCust7" />
-        </template>
-        <template #canCust8="{ row }">
-          <Checkbox v-model:checked="row.canCust8" />
+
+        <!-- 사용자 정의 권한 -->
+        <template #custom="{ column, row: rawRow }">
+          <Tooltip
+            :title="
+              cellHint(
+                rawRow,
+                column.params.custom.useKey,
+                column.params.custom.title,
+                column.params.custom.nameKey,
+              )
+            "
+          >
+            <Checkbox
+              v-model:checked="(rawRow as any)[column.params.custom.field]"
+              :disabled="!isUsed(rawRow, column.params.custom.useKey)"
+            />
+          </Tooltip>
         </template>
       </Grid>
     </div>
   </div>
 </template>
-
-<style lang="css" scoped>
-/* 트리 그리드 스타일 고정 */
-</style>

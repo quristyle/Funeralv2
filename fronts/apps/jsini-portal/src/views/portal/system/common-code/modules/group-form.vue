@@ -2,7 +2,7 @@
 import { ref, nextTick } from 'vue';
 import { useBaseModal } from '#/adapter/modal';
 import { useVbenForm } from '#/adapter/form';
-import { createCommonCodeGroup, updateCommonCodeGroup, type CommonCodeGroupParams } from '#/api/system/common-code';
+import { createCommonCodeGroup, updateCommonCodeGroup, type CommonCodeGroupParams } from '#/api/portal/system/common-code';
 import { message } from 'ant-design-vue';
 import AiCodeSuggester from '#/components/ai-code-suggester/ai-code-suggester.vue';
 import { groupFormSchema } from '../data';

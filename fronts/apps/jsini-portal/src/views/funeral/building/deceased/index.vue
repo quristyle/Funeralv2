@@ -4,7 +4,7 @@ import { Page } from '@vben/common-ui';
 import { Plus, Pencil, Trash2, Image } from '@vben/icons';
 import { Button, message, Popconfirm, Tag, Form, Input, InputNumber, RangePicker } from 'ant-design-vue';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import { getDeceasedList, deleteDeceased } from '#/api/building';
+import { getDeceasedList, deleteDeceased } from '#/api/funeral/building';
 import DeceasedFormModal from './modules/deceased-form-modal.vue';
 import BizSelect from '#/components/BizSelect.vue';
 import DictSelect from '#/components/DictSelect.vue';
@@ -304,7 +304,7 @@ function formatYmdDate(dateStr?: string) {
     <!-- ── 그리드 영역 ───────────────────────────────────────────────── -->
     <Grid table-title="장례식장 고인(Deceased) 등록 목록">
       <template #toolbar-tools>
-        <Button type="primary" @click="onCreate">
+        <Button v-perm:create type="primary" @click="onCreate">
           <Plus class="size-5 mr-1" />
           신규 고인 등록
         </Button>
@@ -354,11 +354,11 @@ function formatYmdDate(dateStr?: string) {
           <Button type="link" size="small" @click="onCropPhoto(row)" title="사진편집">
             <Image class="size-4 text-green-600" />
           </Button>
-          <Button type="link" size="small" @click="onEdit(row)" title="수정">
+          <Button v-perm:update type="link" size="small" @click="onEdit(row)" title="수정">
             <Pencil class="size-4 text-blue-600" />
           </Button>
           <Popconfirm title="해당 고인 데이터를 영구 삭제하시겠습니까?" @confirm="onDelete(row)">
-            <Button type="link" size="small" danger title="삭제">
+            <Button v-perm:delete type="link" size="small" danger title="삭제">
               <Trash2 class="size-4 text-red-600" />
             </Button>
           </Popconfirm>

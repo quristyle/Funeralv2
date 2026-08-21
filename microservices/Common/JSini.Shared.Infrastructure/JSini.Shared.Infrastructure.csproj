@@ -4,8 +4,8 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <AssemblyName>Funeralv2.Shared.Infrastructure</AssemblyName>
-    <RootNamespace>Funeralv2.Shared.Infrastructure</RootNamespace>
+    <AssemblyName>JSini.Shared.Infrastructure</AssemblyName>
+    <RootNamespace>JSini.Shared.Infrastructure</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>
@@ -13,7 +13,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Funeralv2.Shared.DTOs\Funeralv2.Shared.DTOs.csproj" />
+    <ProjectReference Include="..\JSini.Shared.DTOs\JSini.Shared.DTOs.csproj" />
   </ItemGroup>
 
 </Project>

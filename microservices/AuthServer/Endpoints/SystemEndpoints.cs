@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using AuthServer.Entities;
 using AuthServer.Services;
 using AuthServer.DTOs;
-using Funeralv2.Shared.DTOs;
+using JSini.Shared.DTOs;
 using static AuthServer.Services.I18nResourceService;
 
 namespace AuthServer.Endpoints;
@@ -224,6 +224,23 @@ public static class SystemEndpoints
             }
         })
         .WithName("MoveSystemMenu")
+        .WithOpenApi();
+
+        // 트리 그리드에서 드래그로 자리를 옮기면 형제 여러 개의 순번이 함께 바뀐다.
+        // 화면이 확정한 배치를 그대로 받아 한 번의 왕복으로 저장한다.
+        group.MapPost("/menu/reorder", async ([FromBody] List<MenuOrderDto> items, [FromServices] IMenuService menuService) =>
+        {
+            try
+            {
+                await menuService.ReorderMenusAsync(items);
+                return Results.Ok(ApiResponse<bool>.Ok(true));
+            }
+            catch (Exception ex)
+            {
+                return Results.BadRequest(ApiResponse<bool>.Fail("메뉴 순서 저장 실패", "B400", realMessage: ex.Message));
+            }
+        })
+        .WithName("ReorderSystemMenus")
         .WithOpenApi();
 
         group.MapPut("/menu/{id}", async (string id, [FromBody] CreateSystemMenuDto request, [FromServices] ISystemMenuService menuService) =>

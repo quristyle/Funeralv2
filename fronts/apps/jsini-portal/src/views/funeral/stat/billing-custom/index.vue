@@ -3,8 +3,8 @@ import { ref, onMounted } from 'vue';
 import { Page } from '@vben/common-ui';
 import { Button, message, DatePicker, Select } from 'ant-design-vue';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import { getBillingStats } from '#/api/stat';
-import { getCompanyList } from '#/api/system/company';
+import { getBillingStats } from '#/api/funeral/stat';
+import { getCompanyList } from '#/api/portal/system/company';
 import dayjs from 'dayjs';
 
 const companies = ref<any[]>([]);
@@ -95,7 +95,7 @@ onMounted(() => {
         <Button type="primary" @click="handleSearch">검색 조회</Button>
       </div>
 
-      <Button type="default" @click="handleExport">엑셀 다운로드</Button>
+      <Button v-perm:excel type="default" @click="handleExport">엑셀 다운로드</Button>
     </div>
 
     <!-- 통계 테이블 -->

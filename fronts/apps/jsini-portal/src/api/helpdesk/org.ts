@@ -174,6 +174,16 @@ export async function deleteCustomer(id: number) {
   return helpdeskClient.delete(`/customers/${id}`);
 }
 
+/**
+ * 로그인 아이디로 고객을 찾는다.
+ * 회사마다 `pub_{회사ID}` 형태의 공용 계정이 있어, 관리자가 회사를 대신해
+ * 요청을 등록할 때 그 계정을 작성자로 쓴다.
+ */
+export async function getCustomerByLoginId(loginId: string) {
+  const list = (await getCustomerList()) ?? [];
+  return list.find((c) => c.loginId === loginId);
+}
+
 /** 관리자·고객을 합친 사용자 목록 (담당자 선택 등에 사용) */
 export async function getAllUsers() {
   return helpdeskClient.get<

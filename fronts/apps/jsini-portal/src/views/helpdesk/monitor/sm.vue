@@ -387,11 +387,24 @@ onMounted(loadData);
         </Col>
       </Row>
 
+      <!--
+        원본의 '4. 시스템 반영 정보(기술)' 블록은 커밋·DB작업·배치결과를 보여주지만
+        API 가 없고 화면에 값이 하드코딩돼 있었다. 가짜 데이터를 그대로 옮기면
+        운영 화면에서 사실과 다른 정보를 보여주게 되므로 자리만 남기고 출처를 밝힌다.
+      -->
+      <Alert
+        class="mt-3"
+        description="원본 화면의 '시스템 반영 정보(커밋·DB 작업·배치 결과)' 영역은 API 없이 예시 값이 박혀 있던 부분이라 옮기지 않았습니다. 연동할 데이터 소스가 정해지면 이 자리에 붙이면 됩니다."
+        message="미이식 영역 안내"
+        show-icon
+        type="info"
+      />
+
       <Card
         :body-style="{ padding: 0 }"
         class="mt-3"
         size="small"
-        title="4. 긴급 · 장애 발생"
+        title="긴급 · 장애 발생"
       >
         <Table
           :columns="emergencyColumns"

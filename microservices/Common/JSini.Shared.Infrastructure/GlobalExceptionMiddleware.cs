@@ -1,10 +1,10 @@
 using System.Net;
-using Funeralv2.Shared.DTOs;
+using JSini.Shared.DTOs;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Builder;
 
-namespace Funeralv2.Shared.Infrastructure.Middleware;
+namespace JSini.Shared.Infrastructure.Middleware;
 
 /// <summary>
 /// 모든 마이크로서비스에서 발생하는 예외를 캡처하여 표준 ApiResponse 형식으로 응답하는 미들웨어

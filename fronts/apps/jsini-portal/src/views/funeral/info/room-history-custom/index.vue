@@ -3,8 +3,8 @@ import { ref, onMounted, watch } from 'vue';
 import { Page } from '@vben/common-ui';
 import { Select, Button, Card, Timeline, TimelineItem } from 'ant-design-vue';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import { getRoomHistories } from '#/api/info';
-import { getRooms } from '#/api/building';
+import { getRoomHistories } from '#/api/funeral/info';
+import { getRooms } from '#/api/funeral/building';
 
 const rooms = ref<any[]>([]);
 const filterRoomId = ref<string>('');

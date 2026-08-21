@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import type { OnActionClickParams, VxeTableGridOptions, } from '#/adapter/vxe-table';
-import type { SystemCompanyApi } from '#/api/system/company';
+import type { SystemCompanyApi } from '#/api/portal/system/company';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
 import { Plus } from '@vben/icons';
@@ -8,7 +8,7 @@ import { Plus } from '@vben/icons';
 import { Button, message } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import { deleteCompany, getCompanyList, updateCompany } from '#/api/system/company';
+import { deleteCompany, getCompanyList, updateCompany } from '#/api/portal/system/company';
 import { $t } from '#/locales';
 
 import { useColumns } from './data';
@@ -126,7 +126,7 @@ function refreshGrid() { gridApi.query(); }
     <Grid :table-title="$t('system.company.title')" >
       <template #toolbar-tools>
         <!-- 툴바 영역의 신규 등록 버튼 -->
-        <Button type="primary" @click="onCreate">
+        <Button v-perm:create type="primary" @click="onCreate">
           <Plus class="size-5" />
           {{ $t('ui.actionTitle.create', [$t('system.company.name')]) }}
         </Button>

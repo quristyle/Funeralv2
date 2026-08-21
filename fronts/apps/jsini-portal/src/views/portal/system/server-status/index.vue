@@ -3,8 +3,8 @@ import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { Page } from '@vben/common-ui';
 import { IconifyIcon } from '@vben/icons';
 import { Alert, Button, Spin, Tooltip } from 'ant-design-vue';
-import { getGatewayStatus } from '#/api/gateway';
-import type { GatewayApi } from '#/api/gateway';
+import { getGatewayStatus } from '#/api/portal/gateway';
+import type { GatewayApi } from '#/api/portal/gateway';
 
 /**
  * [서버 상태 모니터링]

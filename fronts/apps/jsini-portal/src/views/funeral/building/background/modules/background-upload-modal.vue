@@ -2,7 +2,7 @@
 import { ref } from 'vue';
 import { useVbenModal } from '@vben/common-ui';
 import { Button, message, Form, Input, Upload, Progress } from 'ant-design-vue';
-import { createMediaSource, updateMediaSource } from '#/api/building';
+import { createMediaSource, updateMediaSource } from '#/api/funeral/building';
 import { upload_file } from '#/api/examples/upload';
 import type { UploadChangeParam } from 'ant-design-vue';
 

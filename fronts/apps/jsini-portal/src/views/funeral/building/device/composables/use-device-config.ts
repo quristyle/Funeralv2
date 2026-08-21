@@ -1,8 +1,8 @@
 import { ref } from 'vue';
 import { message } from 'ant-design-vue';
 import dayjs from 'dayjs';
-import { getDeviceConfigs, upsertDeviceConfig } from '#/api/building';
-import type { BuildingApi } from '#/api/building';
+import { getDeviceConfigs, upsertDeviceConfig } from '#/api/funeral/building';
+import type { BuildingApi } from '#/api/funeral/building';
 
 /** 장비 기본 설정 기본값 팩토리 */
 export function defaultDeviceConfig(deviceId: string): BuildingApi.DeviceConfig {

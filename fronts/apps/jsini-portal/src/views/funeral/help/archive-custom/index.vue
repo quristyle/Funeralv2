@@ -2,7 +2,7 @@
 import { Page } from '@vben/common-ui';
 import { Button, message } from 'ant-design-vue';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import { getArchiveItems, downloadArchiveFile } from '#/api/help';
+import { getArchiveItems, downloadArchiveFile } from '#/api/funeral/help';
 
 const [Grid, gridApi] = useVbenVxeGrid({
   gridOptions: {

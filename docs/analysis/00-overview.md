@@ -65,13 +65,13 @@ Funeralv2는 **장례식장 운영 관리 및 디스플레이(사이니지) 시�
 
 - `/api/helpdesk/**` 는 프리픽스를 떼고 다시 `/api` 를 붙여 전달한다(`/api/helpdesk/users/login` → HelpDeskServer 의 `/api/users/login`). HelpDeskServer 는 자체 로그인 토큰(`helpdesk-api`)과 게이트웨이 토큰(`funeralv2-auth`)을 모두 수용한다.
 - 게이트웨이 자체 포트: **5265** (`ApiGateway/Properties/launchSettings.json`)
-- 프론트엔드 개발 프록시: `fronts/apps/funeralv2/vite.config.ts:19` → `http://127.0.0.1:5265`
+- 프론트엔드 개발 프록시: `fronts/apps/jsini-portal/vite.config.ts:19` → `http://127.0.0.1:5265`
 
 ## 4. 프로젝트 간 연동 관계
 
 ### 4.1 프론트엔드 ↔ 백엔드
 - `fronts`(관리자 웹)는 모든 요청을 `/api/*` 접두어로 게이트웨이(:5265)에 보낸다.
-- 실시간 빈소 현황판은 SignalR로 연결: `fronts/apps/funeralv2/src/views/building/status/index.vue:37` → `/api/funeral/hubs/device`.
+- 실시간 빈소 현황판은 SignalR로 연결: `fronts/apps/jsini-portal/src/views/building/status/index.vue:37` → `/api/funeral/hubs/device`.
 - 인증은 AuthServer가 발급한 JWT를 게이트웨이가 검증한다.
 
 ### 4.2 플레이어(사이니지) ↔ 백엔드
@@ -80,7 +80,7 @@ Funeralv2는 **장례식장 운영 관리 및 디스플레이(사이니지) 시�
 - 배포 환경은 **라즈베리파이 / 데스크톱 키오스크**(참고: `docs/raspberry실행환경.md`, `funeralv2_player`의 `window_manager` 사용).
 
 ### 4.3 서비스 간 공유
-- `microservices/Common/`의 3개 공유 라이브러리(`Funeralv2.Shared.DTOs`, `.Shared.Domain`, `.Shared.Infrastructure`)를 각 서비스가 참조하여 DTO/도메인/인프라(Repository 패턴 등)를 공유한다.
+- `microservices/Common/`의 3개 공유 라이브러리(`JSini.Shared.DTOs`, `.Shared.Domain`, `.Shared.Infrastructure`)를 각 서비스가 참조하여 DTO/도메인/인프라(Repository 패턴 등)를 공유한다.
 - 코딩 표준(`AI.md`): Repository 패턴 의무화, 무거운 집계는 PostgreSQL Materialized View + BackgroundService 리프레시.
 
 ## 5. 데이터 흐름 예시 (사이니지 표출)

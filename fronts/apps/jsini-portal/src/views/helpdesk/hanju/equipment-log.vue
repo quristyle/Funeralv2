@@ -35,22 +35,45 @@ const lastFetchTime = ref('');
 
 let timer: null | ReturnType<typeof setInterval> = null;
 
+// 원본(EquipmentStatusLog.vue)과 같은 컬럼 구성
 const columns = [
-  { dataIndex: 'mcId', key: 'mcId', title: '설비 ID', width: 110 },
-  { dataIndex: 'mcName', key: 'mcName', title: '설비명', width: 180 },
-  { dataIndex: 'gaugeSection', key: 'gaugeSection', title: '구역', width: 130 },
-  { dataIndex: 'comPort', key: 'comPort', title: '포트', width: 100 },
-  { dataIndex: 'comSrv', key: 'comSrv', title: '수집 서버', width: 130 },
-  { dataIndex: 'statusText', key: 'statusText', title: '상태', width: 120 },
-  { dataIndex: 'lastCollectedAt', key: 'lastCollectedAt', title: '최종 수집', width: 170 },
+  { dataIndex: 'gaugeSection', key: 'gaugeSection', sorter: true, title: '구분', width: 120 },
+  { dataIndex: 'statusText', key: 'statusText', sorter: true, title: '상태', width: 110 },
+  { dataIndex: 'comSrv', key: 'comSrv', sorter: true, title: 'srv', width: 90 },
+  { dataIndex: 'mcName', key: 'mcName', sorter: true, title: 'Name', ellipsis: true },
+  { dataIndex: 'comPort', key: 'comPort', sorter: true, title: 'vcom', width: 90 },
+  { dataIndex: 'mcId', key: 'mcId', sorter: true, title: '장비 ID', width: 130 },
+  { dataIndex: 'ccnt', key: 'ccnt', sorter: true, title: '시간', width: 80 },
+  { dataIndex: 'maxQty', key: 'maxQty', sorter: true, title: 'PQty', width: 100 },
 ];
+
+/** 상태별로 묶어 보기. 원본의 isGrouped 토글. */
+const isGrouped = ref(false);
 
 const filteredRows = computed(() => {
   const kw = keyword.value.trim().toLowerCase();
-  if (!kw) return rows.value;
-  return rows.value.filter((r) =>
-    Object.values(r).some((v) => String(v ?? '').toLowerCase().includes(kw)),
-  );
+  const list = kw
+    ? rows.value.filter((r) =>
+        Object.values(r).some((v) => String(v ?? '').toLowerCase().includes(kw)),
+      )
+    : rows.value;
+
+  // 그룹 보기에서는 상태 기준으로 정렬해 같은 상태끼리 모인다(원본과 동일).
+  return isGrouped.value
+    ? list.toSorted((a, b) =>
+        String(a.statusText ?? '').localeCompare(String(b.statusText ?? '')),
+      )
+    : list;
+});
+
+/** 상태별 건수. 그룹 보기 머리말에 쓴다. */
+const groupCounts = computed(() => {
+  const map = new Map<string, number>();
+  filteredRows.value.forEach((r) => {
+    const key = String(r.statusText ?? '(미지정)');
+    map.set(key, (map.get(key) ?? 0) + 1);
+  });
+  return [...map.entries()];
 });
 
 function statusColor(text?: string) {
@@ -130,6 +153,8 @@ onBeforeUnmount(stopTimer);
           </span>
         </Space>
         <Space>
+          <span class="text-sm">상태별 묶기</span>
+          <Switch v-model:checked="isGrouped" />
           <span class="text-sm">자동 새로고침</span>
           <Switch :checked="autoRefresh" @change="onAutoRefreshChange as any" />
           <Button :loading="loading" @click="loadData">새로고침</Button>
@@ -145,6 +170,15 @@ onBeforeUnmount(stopTimer);
       show-icon
       type="error"
     />
+
+    <!-- 그룹 보기일 때 상태별 건수 요약 -->
+    <Card v-if="isGrouped" class="mb-3" size="small">
+      <Space wrap>
+        <Tag v-for="[state, count] in groupCounts" :key="state" :color="statusColor(state)">
+          {{ state }} {{ count }}건
+        </Tag>
+      </Space>
+    </Card>
 
     <Card :body-style="{ padding: 0 }" size="small">
       <Table

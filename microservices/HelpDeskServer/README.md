@@ -107,7 +107,7 @@ curl http://localhost:5265/api/gateway/status
 - 접속 문자열 하드코딩 제거 → `appsettings.Local.json`/환경변수 주입
 - `/health` 엔드포인트 추가(게이트웨이 능동 헬스체크 및 서버상태 화면 대상)
 - Serilog + `UseSerilogRequestLogging`, Spectre.Console 기동 배너 — 다른 MSA 와 동일한 형태
-- `Funeralv2.Shared.*` 참조 및 `UseGlobalExceptionHandler()` 적용
+- `JSini.Shared.*` 참조 및 `UseGlobalExceptionHandler()` 적용
 - CORS `AllowAll` 정책 추가(게이트웨이 우회 직접 호출/디버깅용)
 - JWT 검증을 다중 발급자(`helpdesk-api` + `funeralv2-auth`)로 확장
 - 게이트웨이 뒤에서 HTTP 로만 수신하므로 `UseHttpsRedirection()` 제거
@@ -116,7 +116,7 @@ curl http://localhost:5265/api/gateway/status
 
 ## 7. 프론트엔드 이식 상태
 
-JinReception 화면은 funeralv2 프론트(`fronts/apps/funeralv2`)에 Ant Design Vue 로 다시 작성해 옮기고 있다.
+JinReception 화면은 funeralv2 프론트(`fronts/apps/jsini-portal`)에 Ant Design Vue 로 다시 작성해 옮기고 있다.
 
 - API 계층: `#/api/helpdesk/*` — 응답 봉투 차이(`{success,data,meta}` ↔ `{code:'S000',data}`)를
   전용 요청 클라이언트가 흡수한다. 목록의 총건수는 봉투 최상위 `totalcount`/`totalpagecount` 에 온다.

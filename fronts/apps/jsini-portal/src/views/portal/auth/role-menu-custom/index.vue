@@ -2,9 +2,9 @@
 import { ref, watch, onMounted } from 'vue';
 import { Page } from '@vben/common-ui';
 import { Button, Card, Row, Col, List, message, Tree } from 'ant-design-vue';
-import { getRoleMenus, saveRoleMenus } from '#/api/system/role-mapping';
-import { getRoleList } from '#/api/system/role';
-import { getMenuList } from '#/api/system/menu';
+import { getRoleMenus, saveRoleMenus } from '#/api/portal/system/role-mapping';
+import { getRoleList } from '#/api/portal/system/role';
+import { getMenuList } from '#/api/portal/system/menu';
 
 const roles = ref<any[]>([]);
 const selectedRoleId = ref<string>('');
@@ -131,7 +131,7 @@ onMounted(() => {
       <Col :span="18" class="h-full">
         <Card title="메뉴 권한 설정" class="h-full flex flex-col">
           <template #extra>
-            <Button type="primary" @click="handleSave">권한 설정 저장</Button>
+            <Button v-perm:update type="primary" @click="handleSave">권한 설정 저장</Button>
           </template>
           <div class="flex-1 overflow-y-auto max-h-[600px] border p-4 rounded bg-card">
             <Tree

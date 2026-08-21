@@ -72,6 +72,11 @@ async function bootstrap(namespace: string) {
   const { initTippy } = await import('@vben/common-ui/es/tippy');
   initTippy(app);
 
+  // 메뉴 권한 디렉티브(v-perm) 등록.
+  // 권한은 JSini 포털 한 곳에서 관리하고 모든 MSA 화면이 이 결과를 따른다.
+  const { setupPermDirective } = await import('#/directives/perm');
+  setupPermDirective(app);
+
   // 라우터 및 라우터 가드 설정
   app.use(router);
 

@@ -1,7 +1,7 @@
 import { ref } from 'vue';
 import { defineStore } from 'pinia';
-import { getBizSelectConfigs } from '#/api/system/biz-select-config';
-import type { BizSelectConfigApi } from '#/api/system/biz-select-config';
+import { getBizSelectConfigs } from '#/api/portal/system/biz-select-config';
+import type { BizSelectConfigApi } from '#/api/portal/system/biz-select-config';
 
 export const useBizSelectStore = defineStore('biz-select-config', () => {
   const configs = ref<BizSelectConfigApi.BizSelectConfig[]>([]);

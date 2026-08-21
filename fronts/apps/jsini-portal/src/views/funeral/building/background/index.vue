@@ -4,7 +4,7 @@ import { Page } from '@vben/common-ui';
 import { Plus, IconifyIcon } from '@vben/icons';
 import { Button, message, Popconfirm } from 'ant-design-vue';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import { getMediaSources, deleteMediaSource } from '#/api/building';
+import { getMediaSources, deleteMediaSource } from '#/api/funeral/building';
 import ImagePreview from '#/components/ImagePreview.vue';
 import BackgroundUploadModal from './modules/background-upload-modal.vue';
 

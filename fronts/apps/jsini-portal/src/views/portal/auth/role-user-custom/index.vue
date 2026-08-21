@@ -3,9 +3,9 @@ import { ref, watch, onMounted } from 'vue';
 import { Page } from '@vben/common-ui';
 import { Button, Card, Row, Col, List, message, Popconfirm, Modal, Transfer } from 'ant-design-vue';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import { getRoleUsers, removeRoleFromUsers, assignRoleToUsers } from '#/api/system/role-mapping';
-import { getRoleList } from '#/api/system/role';
-import { getAccounts } from '#/api/system/account';
+import { getRoleUsers, removeRoleFromUsers, assignRoleToUsers } from '#/api/portal/system/role-mapping';
+import { getRoleList } from '#/api/portal/system/role';
+import { getAccounts } from '#/api/portal/system/account';
 
 const roles = ref<any[]>([]);
 const selectedRoleId = ref<string>('');

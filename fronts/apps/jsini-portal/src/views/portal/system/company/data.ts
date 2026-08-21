@@ -8,6 +8,7 @@ import AddressSearchInput from '#/components/AddressSearchInput.vue';
 import { $t } from '@vben/locales';
 
 import { Button, Popconfirm, Tooltip } from 'ant-design-vue';
+import { can } from '#/utils/permission';
 
 /**
  * 회사 관리 테이블 컬럼 정의를 반환하는 함수
@@ -103,6 +104,7 @@ export const useColumns = (onActionClick: (params: any) => void): VxeGridProps['
     slots: {
       default: (record) => {
         return h('div', { class: 'flex justify-center gap-2' }, [
+          can('update') &&
           /** 수정 버튼: Tooltip 및 Icon 사용 */
           h(
             Tooltip,
@@ -127,6 +129,7 @@ export const useColumns = (onActionClick: (params: any) => void): VxeGridProps['
                 ),
             },
           ),
+          can('delete') &&
           /** 삭제 버튼: Popconfirm을 통한 확인 절차 포함 */
           h(
             Popconfirm,
@@ -162,8 +165,7 @@ export const useColumns = (onActionClick: (params: any) => void): VxeGridProps['
                   },
                 ),
             },
-          ),
-        ]);
+          )].filter(Boolean));
       },
     },
   },

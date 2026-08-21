@@ -1,8 +1,8 @@
 # Funeralv2 프론트엔드 분석
 
-> 분석 대상: `fronts/apps/funeralv2` (Vue 3 + Vben Admin 기반 장례식장 관리/표출 시스템)
+> 분석 대상: `fronts/apps/jsini-portal` (Vue 3 + Vben Admin 기반 장례식장 관리/표출 시스템)
 > 분석일: 2026-08-14
-> 범위: `fronts/` 디렉터리, 특히 `apps/funeralv2`의 비즈니스 코드. 업스트림 Vben 프레임워크(`packages/*`, `internal/*`)는 참고만 함.
+> 범위: `fronts/` 디렉터리, 특히 `apps/jsini-portal`의 비즈니스 코드. 업스트림 Vben 프레임워크(`packages/*`, `internal/*`)는 참고만 함.
 
 ---
 
@@ -16,9 +16,9 @@
 - **빌드**: Vite (`@vben/vite-config` 공용 프리셋), 프로덕션은 gzip 압축 + PWA + hash 라우터 + dist.zip 아카이브.
 
 ### 앱 위치 / 진입점
-- 앱 루트: `fronts/apps/funeralv2`
+- 앱 루트: `fronts/apps/jsini-portal`
 - 진입: `src/main.ts` → `src/bootstrap.ts` (createApp, Pinia/i18n/router/vue-query/motion/tippy 초기화)
-- 패키지명: `@vben/funeralv2` (`package.json`)
+- 패키지명: `@vben/jsini-portal` (`package.json`)
 - 경로 별칭: `#/*` → `./src/*`
 
 ### 백엔드 연동 개요
@@ -129,7 +129,7 @@
 
 #### 5.5 프로덕션 Vue Devtools 활성화
 - **문제**: `vite.config.mts`에서 `__VUE_PROD_DEVTOOLS__: true`로 프로덕션 빌드에도 devtools가 열림. 내부 상태 노출 + 번들 증가.
-- **근거**: `fronts/apps/funeralv2/vite.config.mts` (`define.__VUE_PROD_DEVTOOLS__: true`), `.env.development VITE_DEVTOOLS=true`
+- **근거**: `fronts/apps/jsini-portal/vite.config.mts` (`define.__VUE_PROD_DEVTOOLS__: true`), `.env.development VITE_DEVTOOLS=true`
 - **개선**: 개발 모드에서만 켜지도록 `import.meta.env.DEV` 조건화.
 
 ### 🟡 우선순위 중간

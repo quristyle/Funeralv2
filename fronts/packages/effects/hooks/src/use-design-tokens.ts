@@ -26,6 +26,7 @@ export function useAntdDesignTokens() {
     colorTextBase: '',
     colorTextLightSolid: '',
     colorWarning: '',
+    fontSize: 14 as number, // 시스템 글자 크기 설정(preferences.theme.fontSize)에 대응
     zIndexPopupBase: 2000, // 기본 팝업 레이어 레벨을 조정하여 드롭다운 등의 컴포넌트가 팝업이나 최대화 상태의 테이블에 가려지는 것을 방지
     });
 
@@ -66,6 +67,11 @@ export function useAntdDesignTokens() {
 
       tokens.colorBgLayout = getCssVariableValue('--background-deep');
       tokens.colorBgMask = getCssVariableValue('--overlay');
+
+      // 시스템 글자 크기를 antd 전역 토큰에 반영 (모든 antd 컴포넌트가 대응)
+      if (typeof preferences.theme.fontSize === 'number') {
+        tokens.fontSize = preferences.theme.fontSize;
+      }
     },
     { immediate: true },
   );

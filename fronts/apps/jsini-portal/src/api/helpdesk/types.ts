@@ -134,13 +134,6 @@ export interface Attachment extends HelpdeskBaseEntity {
   fileSize?: number;
 }
 
-/** 공지사항 */
-export interface Notice extends HelpdeskBaseEntity {
-  content?: string;
-  isPinned?: boolean;
-  title: string;
-  viewCount?: number;
-}
 
 /** 프로젝트 */
 export interface Project extends HelpdeskBaseEntity {
@@ -193,11 +186,16 @@ export interface WbsLink {
 }
 
 /** 일정 */
-export interface Schedule extends HelpdeskBaseEntity {
+export interface Schedule extends Omit<HelpdeskBaseEntity, 'id'> {
   companyId?: null | number;
   completedDate?: null | string;
   description?: string;
   endDate?: string;
+  /**
+   * 일정만 기본키가 uuid 다. 다른 엔티티는 정수 id 를 쓴다.
+   * (jsini.schedules.id 가 uuid 타입)
+   */
+  id: string;
   /** 특정 회사에 묶이지 않은 공통 일정인지 */
   isCommon?: boolean;
   isCompleted?: boolean;
@@ -213,48 +211,6 @@ export interface Checklist extends HelpdeskBaseEntity {
   itemName: string;
   note?: string;
   sortOrder?: number;
-}
-
-/** 헬프데스크 자체 메뉴 (JinReception 화면 권한용) */
-export interface HelpdeskMenu {
-  ext1Name?: null | string;
-  ext2Name?: null | string;
-  icon?: null | string;
-  id: number;
-  isActive?: boolean;
-  items?: HelpdeskMenu[];
-  label: string;
-  parentId?: null | number;
-  sortOrder?: number;
-  to?: null | string;
-  url?: null | string;
-  useCreate?: boolean;
-  useDelete?: boolean;
-  useExt1?: boolean;
-  useExt2?: boolean;
-  useRead?: boolean;
-  useUpdate?: boolean;
-  visible?: boolean;
-}
-
-/** 역할 */
-export interface AppRole extends HelpdeskBaseEntity {
-  description?: string;
-  displayName?: string;
-  name: string;
-  sortOrder?: number;
-  userRoles?: any[];
-}
-
-/** 역할별 메뉴 권한 */
-export interface RoleMenuPermission {
-  canCreate?: boolean;
-  canDelete?: boolean;
-  canRead?: boolean;
-  canUpdate?: boolean;
-  id?: number;
-  menuId: number;
-  roleId: number;
 }
 
 /**

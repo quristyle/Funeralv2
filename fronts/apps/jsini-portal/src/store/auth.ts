@@ -12,10 +12,13 @@ import { defineStore } from 'pinia';
 
 import { getAccessCodesApi, getUserInfoApi, loginApi, logoutApi } from '#/api';
 import { $t } from '#/locales';
+import { useMenuPermissionStore } from '#/store/menu-permission';
 
 export const useAuthStore = defineStore('auth', () => {
   const accessStore = useAccessStore();
   const userStore = useUserStore();
+  // 메뉴별 권한. 포털에서 한 번 받아 모든 MSA 화면이 함께 쓴다.
+  const menuPermissionStore = useMenuPermissionStore();
   const router = useRouter();
 
   const loginLoading = ref(false);
@@ -41,10 +44,18 @@ export const useAuthStore = defineStore('auth', () => {
         accessStore.setAccessToken(accessToken);
 
         // 사용자 정보를 가져와서 accessStore에 저장합니다.
+        // 메뉴별 권한도 함께 받아 둔다.
+        // 권한은 JSini 포털 한 곳에서 관리하고 모든 MSA 화면이 이 결과를 따른다.
+        // 실패해도 로그인 자체는 막지 않는다(화면에서 권한 없음으로 처리된다).
+        const permissionLoad = menuPermissionStore
+          .load(true)
+          .catch(() => undefined);
+
         const [fetchUserInfoResult, accessCodes] = await Promise.all([
           fetchUserInfo(),
           getAccessCodesApi(),
         ]);
+        await permissionLoad;
 
         userInfo = fetchUserInfoResult;
 
@@ -57,7 +68,8 @@ export const useAuthStore = defineStore('auth', () => {
           onSuccess
             ? await onSuccess?.()
             : await router.push(
-                userInfo.homePath || preferences.app.defaultHomePath,
+                fetchUserInfoResult.homePath ||
+                  preferences.app.defaultHomePath,
               );
         }
 

@@ -99,6 +99,7 @@ async function copyLink() {
           </Button>
           <Button size="small" type="link" @click="copyLink">링크 복사</Button>
           <Popconfirm
+            v-perm:delete
             v-if="canDelete"
             cancel-text="취소"
             ok-text="삭제"

@@ -234,10 +234,20 @@ onMounted(async () => {
           </template>
           <template v-else-if="column.key === 'action'">
             <Space>
-              <Button size="small" type="link" @click="openCreate(record)">
+              <Button
+                v-perm:create
+                size="small"
+                type="link"
+                @click="openCreate(record)"
+              >
                 하위
               </Button>
-              <Button size="small" type="link" @click="openEdit(record)">
+              <Button
+                v-perm:update
+                size="small"
+                type="link"
+                @click="openEdit(record)"
+              >
                 수정
               </Button>
               <Popconfirm

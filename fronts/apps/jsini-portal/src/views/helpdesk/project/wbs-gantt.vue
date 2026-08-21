@@ -92,6 +92,9 @@ onMounted(async () => {
           style="width: 240px"
         />
         <Checkbox v-model:checked="showLinks">연결선 표시</Checkbox>
+        <span class="text-xs text-muted-foreground">
+          눈금 단위는 차트 왼쪽 위에서 일/주/월로 바꿉니다.
+        </span>
       </Space>
     </Card>
 

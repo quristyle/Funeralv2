@@ -7,6 +7,7 @@ import { startProgress, stopProgress } from '@vben/utils';
 
 import { accessRoutes, coreRouteNames } from '#/router/routes';
 import { useAuthStore } from '#/store';
+import { useMenuPermissionStore } from '#/store/menu-permission';
 
 import { generateAccess } from './access';
 
@@ -160,6 +161,59 @@ function setupAccessGuard(router: Router) {
 }
 
 /**
+ * 열람 권한 가드.
+ *
+ * 권한은 JSini 포털 한 곳(`scom.role_menus`)에서만 관리하고,
+ * 장례식장·헬프데스크 등 모든 MSA 화면이 이 결과를 따른다.
+ * 열람 권한이 없는 메뉴로 들어가면 403 화면으로 보낸다.
+ *
+ * 막는 기준을 좁게 잡았다 — **정확히 일치하는 메뉴에만 적용한다.**
+ * 접두어로 상위 메뉴를 찾아 물려받게 하면 두 가지가 잘못 막힌다.
+ *
+ *  1. 디렉터리(CATALOG). 화면이 없어 열람 권한이 꺼져 있는데(현재 43건),
+ *     접두어로 물려받게 하면 그 아래 화면이 통째로 막힌다.
+ *  2. 메뉴에 등록되지 않은 하위 경로. `/helpdesk/request/detail/123` 같은
+ *     상세 화면은 메뉴 테이블에 없다.
+ *
+ * 등록된 메뉴에서 열람을 끄면 그 화면은 확실히 막히므로, 실제 통제에는 문제가 없다.
+ * 또한 권한 정보를 아직 못 받았거나 역할이 하나도 없는 계정은 막지 않는다.
+ * 권한 데이터가 비어 있다는 이유로 사용자를 잠가버리는 사고를 막기 위해서다.
+ */
+function setupViewPermissionGuard(router: Router) {
+  router.beforeEach(async (to) => {
+    // 로그인·404 같은 코어 라우트는 검사하지 않는다.
+    if (coreRouteNames.includes(to.name as string)) return true;
+    if (to.meta.ignoreAccess) return true;
+
+    const accessStore = useAccessStore();
+    if (!accessStore.accessToken) return true;
+
+    const permissionStore = useMenuPermissionStore();
+    if (!permissionStore.isLoaded) {
+      // 새로고침으로 바로 들어온 경우. 실패해도 통과시킨다.
+      await permissionStore.load().catch(() => undefined);
+    }
+    // 권한 정보를 아직 못 받았거나 역할이 하나도 없는 계정은 막지 않는다.
+    // v-perm·can()·useMenuPermission() 과 같은 규칙이다.
+    if (!permissionStore.isLoaded || !permissionStore.hasAnyData) return true;
+
+    // 부모(디렉터리) 메뉴는 그냥 지나가게 둔다.
+    // 화면이 없어 열람 권한이 꺼져 있는데(현재 43건), 여기서 막으면
+    // 첫 자식 화면으로 넘어가는 리다이렉트가 끊긴다.
+    const matched = to.matched.at(-1);
+    if (matched?.redirect || (matched?.children?.length ?? 0) > 0) return true;
+
+    // 정확히 일치하는 메뉴가 있을 때만 판단한다.
+    const record = permissionStore.findExact(to.path);
+    if (!record) return true;
+    if (record.canView) return true;
+
+    console.warn(`[권한] 열람 권한이 없어 막았습니다: ${to.path}`);
+    return { path: '/403', replace: true };
+  });
+}
+
+/**
  * 프로젝트 가드 설정
  * @param router
  */
@@ -168,6 +222,8 @@ function createRouterGuard(router: Router) {
   setupCommonGuard(router);
   /** 권한 액세스 */
   setupAccessGuard(router);
+  /** 메뉴별 열람 권한 */
+  setupViewPermissionGuard(router);
 }
 
 export { createRouterGuard };

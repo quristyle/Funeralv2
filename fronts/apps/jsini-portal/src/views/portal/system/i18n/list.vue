@@ -8,7 +8,7 @@ import { $t } from '@vben/locales';
 import { Button, message, Modal } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import { deleteI18nResource, updateI18nResource, getAllI18nList, getI18nPaged, type SystemI18nApi } from '#/api/system/i18n';
+import { deleteI18nResource, updateI18nResource, getAllI18nList, getI18nPaged, type SystemI18nApi } from '#/api/portal/system/i18n';
 
 import { useColumns } from './data';
 import Form from './modules/form.vue';
@@ -129,7 +129,7 @@ function onDelete(row: SystemI18nApi.I18nResource) {
     <FormDrawer @success="onRefresh" />
     <Grid>
       <template #toolbar-tools>
-        <Button type="primary" @click="onCreate">
+        <Button v-perm:create type="primary" @click="onCreate">
           <Plus class="size-5" />
           {{ $t('ui.actionTitle.create', ['I18n']) }}
         </Button>

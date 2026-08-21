@@ -4,7 +4,7 @@ import { Page, useVbenModal } from '@vben/common-ui';
 import { IconifyIcon, Plus } from '@vben/icons';
 import { Button, message, Popconfirm, Form, Input, InputNumber, Tooltip } from 'ant-design-vue';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import { getFloors, createFloor, updateFloor, deleteFloor } from '#/api/building';
+import { getFloors, createFloor, updateFloor, deleteFloor } from '#/api/funeral/building';
 import BizSelect from '#/components/BizSelect.vue';
 
 const selectedCompanyId = ref<string>('');
@@ -171,7 +171,7 @@ async function handleSave() {
           />
         </div>
       </div>
-      <Button type="primary" @click="onCreate">
+      <Button v-perm:create type="primary" @click="onCreate">
         <Plus class="size-5 mr-1" />
         신규 층 등록
       </Button>
@@ -180,13 +180,13 @@ async function handleSave() {
     <Grid table-title="층 정보 목록">
       <template #action="{ row }">
         <div class="flex gap-2">
-          <Tooltip title="수정">
+          <Tooltip v-perm:update title="수정">
             <Button type="link" size="small" @click="onEdit(row)">
               <IconifyIcon icon="lucide:edit" class="size-4" />
             </Button>
           </Tooltip>
           <Popconfirm title="해당 층을 삭제하시겠습니까?" @confirm="onDelete(row)" placement="topLeft">
-            <Tooltip title="삭제">
+            <Tooltip v-perm:delete title="삭제">
               <Button type="link" size="small" danger>
                 <IconifyIcon icon="lucide:trash-2" class="size-4" />
               </Button>

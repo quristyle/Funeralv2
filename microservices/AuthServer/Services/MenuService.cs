@@ -79,6 +79,144 @@ public class MenuService : IMenuService
         return true;
     }
 
+    /// <summary>
+    /// 로그인한 사용자가 메뉴별로 실제 가진 권한을 조회합니다.
+    /// </summary>
+    /// <remarks>
+    /// 한 사람이 여러 역할에 속할 수 있으므로 역할들의 권한을 OR 로 합친다.
+    /// 여기에 더해, 메뉴가 "사용하지 않는다"고 지정한 권한 항목은 켜져 있어도 꺼서 내려준다.
+    /// (system_menus.use_* — 메뉴 관리 화면에서 정한다)
+    /// 그래야 화면이 이 값 하나만 보고 버튼을 켜고 끌 수 있다.
+    /// </remarks>
+    public async Task<List<MenuPermissionDto>> GetMenuPermissionsAsync(string userId)
+    {
+        // 이 사용자가 속한 역할
+        var roleIds = await _context.RoleAccounts
+            .Where(ra => ra.AccountId == userId && !ra.IsDeleted)
+            .Select(ra => ra.RoleId)
+            .Distinct()
+            .ToListAsync();
+
+        if (roleIds.Count == 0)
+        {
+            return new List<MenuPermissionDto>();
+        }
+
+        var grants = await _context.RoleMenus
+            .Where(rm => roleIds.Contains(rm.RoleId) && !rm.IsDeleted)
+            .ToListAsync();
+
+        if (grants.Count == 0)
+        {
+            return new List<MenuPermissionDto>();
+        }
+
+        // 메뉴가 실제로 쓰는 권한 항목
+        var menuIds = grants.Select(g => g.MenuId).Distinct().ToList();
+        var menus = await _context.SystemMenus
+            .Where(m => menuIds.Contains(m.Id))
+            .ToDictionaryAsync(m => m.Id);
+
+        return grants
+            .GroupBy(g => g.MenuId)
+            .Select(g =>
+            {
+                menus.TryGetValue(g.Key, out var menu);
+
+                // 메뉴 정보를 못 찾으면 보수적으로 전부 막는다.
+                bool Allow(Func<Entities.RoleMenu, bool> pick, Func<Entities.SystemMenu, bool> used)
+                    => (menu is not null && used(menu)) && g.Any(pick);
+
+                return new MenuPermissionDto
+                {
+                    MenuId = g.Key,
+                    Path = menu?.Path ?? string.Empty,
+                    CanView = Allow(rm => rm.CanView, m => m.UseView),
+                    CanSearch = Allow(rm => rm.CanSearch, m => m.UseSearch),
+                    CanCreate = Allow(rm => rm.CanCreate, m => m.UseCreate),
+                    CanUpdate = Allow(rm => rm.CanUpdate, m => m.UseUpdate),
+                    CanDelete = Allow(rm => rm.CanDelete, m => m.UseDelete),
+                    CanPrint = Allow(rm => rm.CanPrint, m => m.UsePrint),
+                    CanExcel = Allow(rm => rm.CanExcel, m => m.UseExcel),
+                    CanCust1 = Allow(rm => rm.CanCust1, m => m.UseCust1),
+                    CanCust2 = Allow(rm => rm.CanCust2, m => m.UseCust2),
+                    CanCust3 = Allow(rm => rm.CanCust3, m => m.UseCust3),
+                    CanCust4 = Allow(rm => rm.CanCust4, m => m.UseCust4),
+                    CanCust5 = Allow(rm => rm.CanCust5, m => m.UseCust5),
+                    CanCust6 = Allow(rm => rm.CanCust6, m => m.UseCust6),
+                    CanCust7 = Allow(rm => rm.CanCust7, m => m.UseCust7),
+                    CanCust8 = Allow(rm => rm.CanCust8, m => m.UseCust8)
+                };
+            })
+            .ToList();
+    }
+
+    /// <summary>
+    /// 여러 메뉴의 부모와 순서를 한 번에 반영합니다.
+    /// </summary>
+    /// <remarks>
+    /// 화면(트리 그리드)이 드래그 결과로 확정한 배치를 그대로 받는다.
+    /// 서버가 순번을 다시 추측하지 않으므로 화면에 보이는 순서와 저장 결과가 어긋나지 않고,
+    /// 형제가 여러 개 밀려도 왕복이 한 번으로 끝난다.
+    /// </remarks>
+    public async Task<bool> ReorderMenusAsync(List<MenuOrderDto> items)
+    {
+        if (items == null || items.Count == 0)
+        {
+            return true;
+        }
+
+        var ids = items.Select(i => i.Id).Distinct().ToList();
+
+        var menus = await _context.SystemMenus
+            .Where(m => ids.Contains(m.Id))
+            .ToDictionaryAsync(m => m.Id);
+
+        var missing = ids.Where(id => !menus.ContainsKey(id)).ToList();
+        if (missing.Count > 0)
+        {
+            throw new KeyNotFoundException($"메뉴를 찾을 수 없습니다: {string.Join(", ", missing)}");
+        }
+
+        // 자기 자신이나 자기 하위를 부모로 지정하면 트리가 끊기므로 미리 막는다.
+        var allMenus = await _context.SystemMenus.Select(m => new { m.Id, m.Pid }).ToListAsync();
+        var parentMap = allMenus.ToDictionary(m => m.Id, m => m.Pid);
+        foreach (var item in items)
+        {
+            parentMap[item.Id] = item.Pid;
+        }
+
+        foreach (var item in items)
+        {
+            var cursor = item.Pid;
+            var hops = 0;
+            while (cursor != null)
+            {
+                if (cursor == item.Id)
+                {
+                    throw new InvalidOperationException($"메뉴 '{item.Id}' 를 자기 자신의 하위로 옮길 수 없습니다.");
+                }
+
+                if (++hops > allMenus.Count)
+                {
+                    throw new InvalidOperationException("메뉴 계층에 순환이 있습니다.");
+                }
+
+                parentMap.TryGetValue(cursor, out cursor);
+            }
+        }
+
+        foreach (var item in items)
+        {
+            var menu = menus[item.Id];
+            menu.Pid = string.IsNullOrEmpty(item.Pid) ? null : item.Pid;
+            menu.OrderNo = item.OrderNo;
+        }
+
+        await _context.SaveChangesAsync();
+        return true;
+    }
+
     private List<MenuDto> BuildMenuTree(List<Entities.SystemMenu> allMenus, string? pid)
     {
         return allMenus

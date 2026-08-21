@@ -3,7 +3,7 @@ import { ref } from 'vue';
 import { Page } from '@vben/common-ui';
 import { Button, message, Input } from 'ant-design-vue';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import { getEnvironmentSettings, updateEnvironmentSetting } from '#/api/setting';
+import { getEnvironmentSettings, updateEnvironmentSetting } from '#/api/funeral/setting';
 
 const editKey = ref<string>('');
 const editValue = ref<string>('');
@@ -83,7 +83,7 @@ async function handleSaveEdit(row: any) {
 
       <template #action="{ row }">
         <div v-if="editKey === row.key" class="flex gap-2">
-          <Button type="link" size="small" @click="handleSaveEdit(row)">저장</Button>
+          <Button v-perm:update type="link" size="small" @click="handleSaveEdit(row)">저장</Button>
           <Button type="link" size="small" @click="handleCancelEdit">취소</Button>
         </div>
         <Button v-else type="link" size="small" @click="handleStartEdit(row)">값 수정</Button>

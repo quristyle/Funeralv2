@@ -10,7 +10,7 @@ using RabbitMQ.Client.Exceptions;
 using HelpDeskServer.Options;
 using Microsoft.Extensions.Options;
 using HelpDeskServer.Services;
-using Funeralv2.Shared.Infrastructure.Middleware;
+using JSini.Shared.Infrastructure.Middleware;
 using Serilog;
 using Spectre.Console;
 

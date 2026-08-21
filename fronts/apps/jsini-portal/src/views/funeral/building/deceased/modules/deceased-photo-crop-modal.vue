@@ -5,7 +5,7 @@ import type { UploadChangeParam } from 'ant-design-vue';
 import { fabric } from 'fabric';
 import Cropper from 'cropperjs';
 import { requestClient } from '#/api/request';
-import { saveDeceasedDetail } from '#/api/building';
+import { saveDeceasedDetail } from '#/api/funeral/building';
 
 import 'cropperjs/dist/cropper.css';
 

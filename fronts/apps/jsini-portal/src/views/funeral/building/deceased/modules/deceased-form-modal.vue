@@ -2,7 +2,7 @@
 import { ref, onMounted, onUnmounted, nextTick } from 'vue';
 import { useVbenModal } from '@vben/common-ui';
 import { message, Form, Modal, Button } from 'ant-design-vue';
-import { getDeceasedDetail, saveDeceasedDetail, getRooms, cancelDeceasedDeparture } from '#/api/building';
+import { getDeceasedDetail, saveDeceasedDetail, getRooms, cancelDeceasedDeparture } from '#/api/funeral/building';
 import dayjs from 'dayjs';
 import DictSelect from '#/components/DictSelect.vue';
 

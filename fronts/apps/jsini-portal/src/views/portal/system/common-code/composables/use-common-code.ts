@@ -8,7 +8,7 @@ import {
   getCommonCodes, 
   deleteCommonCode,
   deleteCommonCodeGroup
-} from '#/api/system/common-code';
+} from '#/api/portal/system/common-code';
 
 export function useCommonCode() {
   const currentGroup = ref<any>(null);

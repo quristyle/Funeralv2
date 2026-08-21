@@ -19,7 +19,7 @@ import antdEnLocale from 'ant-design-vue/es/locale/en_US';
 import antdKoLocale from 'ant-design-vue/es/locale/ko_KR';
 import dayjs from 'dayjs';
 
-import { getI18nListByLocale, ensureI18nResource, type SystemI18nApi } from '#/api/system/i18n';
+import { getI18nListByLocale, ensureI18nResource, type SystemI18nApi } from '#/api/portal/system/i18n';
 
 const antdLocale = ref<Locale>(antdKoLocale);
 

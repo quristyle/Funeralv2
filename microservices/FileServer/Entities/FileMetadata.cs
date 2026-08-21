@@ -1,5 +1,5 @@
 using System;
-using Funeralv2.Shared.Domain;
+using JSini.Shared.Domain;
 
 namespace FileServer.Entities;
 

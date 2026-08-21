@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using AuthServer.Entities;
 using AuthServer.Services;
 using AuthServer.DTOs;
-using Funeralv2.Shared.DTOs;
+using JSini.Shared.DTOs;
 
 namespace AuthServer.Endpoints;
 

@@ -4,7 +4,7 @@ import { Page } from '@vben/common-ui';
 import { Plus, IconifyIcon } from '@vben/icons';
 import { Button, message, Popconfirm, Modal, Tag, Tooltip } from 'ant-design-vue';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import { getMediaSources, deleteMediaSource, retryThumbnail, retryAudio } from '#/api/building';
+import { getMediaSources, deleteMediaSource, retryThumbnail, retryAudio } from '#/api/funeral/building';
 import ImagePreview from '#/components/ImagePreview.vue';
 import AudioUploadModal from './modules/audio-upload-modal.vue';
 

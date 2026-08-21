@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import type { ImprovementRequest } from '#/api/helpdesk';
 
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import { Page } from '@vben/common-ui';
@@ -166,6 +166,24 @@ function onDelete() {
   });
 }
 
+/**
+ * `#comment-123` 으로 들어오면 그 댓글로 스크롤하고 잠깐 강조한다.
+ * 원본(RequestDetail.vue scrollToComment)과 같은 동작이다.
+ */
+function scrollToComment() {
+  const hash = route.hash;
+  if (!hash?.startsWith('#comment-')) return;
+
+  nextTick(() => {
+    const el = document.querySelector(hash);
+    if (!el) return;
+
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    el.classList.add('hd-comment-highlight');
+    setTimeout(() => el.classList.remove('hd-comment-highlight'), 3000);
+  });
+}
+
 watch(requestId, load);
 
 onMounted(async () => {
@@ -192,6 +210,15 @@ onMounted(async () => {
         <template #extra>
           <Space>
             <Button size="small" @click="router.back()">목록</Button>
+            <!-- 원본과 같은 재확인 등록: 이 요청 내용을 복제해 새 요청을 만든다 -->
+            <Button
+              size="small"
+              @click="
+                router.push(`/helpdesk/request/new?recheckId=${request.id}`)
+              "
+            >
+              재확인 요청
+            </Button>
             <Button
               size="small"
               type="primary"
@@ -246,8 +273,8 @@ onMounted(async () => {
             >
               {{ s.label }}
             </Button>
-            <Button size="small" @click="onReset">접수 취소</Button>
-            <Button danger size="small" @click="onDelete">삭제</Button>
+            <Button v-perm:update size="small" @click="onReset">접수 취소</Button>
+            <Button v-perm:delete danger size="small" @click="onDelete">삭제</Button>
           </Space>
         </div>
       </Card>
@@ -260,7 +287,12 @@ onMounted(async () => {
       >
         <CommentList
           :request-id="request.id"
-          @loaded="(count) => (commentCount = count)"
+          @loaded="
+            (count) => {
+              commentCount = count;
+              scrollToComment();
+            }
+          "
         />
       </Card>
     </Spin>
@@ -271,5 +303,14 @@ onMounted(async () => {
 .hd-request-body :deep(img) {
   max-width: 100%;
   height: auto;
+}
+</style>
+
+<style>
+/* 링크로 찾아온 댓글을 잠시 강조한다. 자식 컴포넌트에 걸리므로 전역 스타일로 둔다. */
+.hd-comment-highlight {
+  background-color: hsl(var(--accent));
+  border-radius: 4px;
+  transition: background-color 0.4s ease;
 }
 </style>

@@ -1,13 +1,10 @@
 /**
- * 대시보드 통계 · 헬프데스크 자체 메뉴/역할 관리 · 사용자 설정 · 계정 연결 API.
+ * 대시보드 통계 · 사용자 설정 · 계정 연결 API.
  */
 import type {
-  AppRole,
   AuthUserLink,
   HelpdeskIdentity,
-  HelpdeskMenu,
   HelpdeskUserType,
-  RoleMenuPermission,
   UserPropertyMap,
 } from './types';
 
@@ -145,110 +142,17 @@ export async function sendTestPush(payload: Record<string, any>) {
 }
 
 // ============================================================
-// 헬프데스크 자체 메뉴 (JinReception 화면 권한 관리용)
+// 헬프데스크 자체 메뉴 · 역할 · 권한
 // ============================================================
-
-/** 내가 볼 수 있는 메뉴 트리 */
-export async function getHelpdeskMenus() {
-  return helpdeskClient.get<HelpdeskMenu[]>('/menus');
-}
-
-/** 관리용 전체 메뉴 트리 */
-export async function getManageMenus() {
-  return helpdeskClient.get<HelpdeskMenu[]>('/menus/manage');
-}
-
-/** 메뉴 생성 */
-export async function createHelpdeskMenu(data: Partial<HelpdeskMenu>) {
-  return helpdeskClient.post<HelpdeskMenu>('/menus', data);
-}
-
-/** 메뉴 수정 */
-export async function updateHelpdeskMenu(
-  id: number,
-  data: Partial<HelpdeskMenu>,
-) {
-  return helpdeskClient.put<HelpdeskMenu>(`/menus/${id}`, data);
-}
-
-/** 메뉴 삭제 */
-export async function deleteHelpdeskMenu(id: number) {
-  return helpdeskClient.delete(`/menus/${id}`);
-}
-
-/** 메뉴 이동 (드래그 앤 드롭) */
-export async function moveHelpdeskMenu(data: Record<string, any>) {
-  return helpdeskClient.post('/menus/move', data);
-}
-
-// ============================================================
-// 역할 · 권한
-// ============================================================
-
-/** 역할 목록 */
-export async function getRoles() {
-  return helpdeskClient.get<AppRole[]>('/roles');
-}
-
-/** 역할 생성 */
-export async function createRole(data: Partial<AppRole>) {
-  return helpdeskClient.post<AppRole>('/roles', data);
-}
-
-/** 역할 수정 */
-export async function updateRole(id: number, data: Partial<AppRole>) {
-  return helpdeskClient.put<AppRole>(`/roles/${id}`, data);
-}
-
-/** 역할 삭제 */
-export async function deleteRole(id: number) {
-  return helpdeskClient.delete(`/roles/${id}`);
-}
-
-/** 역할에 속한 사용자 목록 */
-export async function getRoleUsers(roleId: number) {
-  return helpdeskClient.get<any[]>(`/roles/${roleId}/users`);
-}
-
-/** 역할에 사용자 추가 */
-export async function addUserToRole(
-  roleId: number,
-  userType: HelpdeskUserType,
-  userId: number,
-) {
-  return helpdeskClient.post('/roles/users', { roleId, userId, userType });
-}
-
-/** 역할에서 사용자 제거 */
-export async function removeUserFromRole(
-  roleId: number,
-  userType: HelpdeskUserType,
-  userId: number,
-) {
-  return helpdeskClient.delete(`/roles/${roleId}/users/${userType}/${userId}`);
-}
-
-/** 역할이 배정되지 않은 사용자 목록 */
-export async function getUnassignedUsers() {
-  return helpdeskClient.get<any[]>('/common/unassigned-users');
-}
-
-/** 역할별 메뉴 권한 */
-export async function getRolePermissions(roleId: number) {
-  return helpdeskClient.get<RoleMenuPermission[]>(
-    `/roles/${roleId}/permissions`,
-  );
-}
-
-/** 권한 단건 저장 */
-export async function saveRolePermission(data: RoleMenuPermission) {
-  return helpdeskClient.post('/roles/permissions', data);
-}
-
-/** 권한 일괄 저장 */
-export async function saveRolePermissionsBatch(data: RoleMenuPermission[]) {
-  return helpdeskClient.post('/roles/permissions/batch', data);
-}
+//
+// 헬프데스크는 자체 메뉴/역할/권한 테이블(jsini.menu, approle, rolemenupermission)을
+// 갖고 있지만, funeralv2 로 이식하면서 좌측 메뉴와 화면 접근 권한은
+// funeralv2 쪽(scom.system_menus / scom.roles / scom.role_menus)으로 일원화했다.
+// 그래서 이 영역을 다루는 화면과 API 는 두지 않는다.
+//
+// 헬프데스크가 관리하던 권한 항목(조회/등록/수정/삭제, 확장 1~8)은
+// funeralv2 의 role_menus(can_view·can_search·can_create·can_update·can_delete·
+// can_print·can_excel·can_cust1~8)에 모두 대응된다.
 
 // ============================================================
 // 사용자 개인 설정

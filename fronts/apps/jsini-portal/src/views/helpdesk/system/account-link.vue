@@ -179,7 +179,9 @@ onMounted(async () => {
 
     <Card :body-style="{ padding: 0 }" size="small" title="연결 목록">
       <template #extra>
-        <Button size="small" type="primary" @click="openCreate">연결 추가</Button>
+        <Button v-perm:create size="small" type="primary" @click="openCreate">
+          연결 추가
+        </Button>
       </template>
 
       <Table

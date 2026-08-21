@@ -3,7 +3,7 @@ import type {
   OnActionClickParams,
   VxeTableGridOptions,
 } from '#/adapter/vxe-table';
-import type { SystemDeptApi } from '#/api/system/dept';
+import type { SystemDeptApi } from '#/api/portal/system/dept';
 
 import { ref } from 'vue';
 
@@ -14,7 +14,7 @@ import { Button, message } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import BizSelect from '#/components/BizSelect.vue';
-import { deleteDept, getDeptList } from '#/api/system/dept';
+import { deleteDept, getDeptList } from '#/api/portal/system/dept';
 import { $t } from '#/locales';
 
 import { useColumns } from './data';
@@ -150,7 +150,7 @@ function refreshGrid() {
     </div>
     <Grid table-title="부서 목록">
       <template #toolbar-tools>
-        <Button type="primary" @click="onCreate">
+        <Button v-perm:create type="primary" @click="onCreate">
           <Plus class="size-5" />
           {{ $t('ui.actionTitle.create', [$t('system.dept.name')]) }}
         </Button>

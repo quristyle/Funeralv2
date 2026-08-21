@@ -5,9 +5,9 @@ import { Plus, IconifyIcon } from '@vben/icons';
 import { Button, message, Popconfirm, Badge, Tooltip, Tag } from 'ant-design-vue';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { useVbenForm } from '#/adapter/form';
-import { type SystemAccountApi, getAccounts, createAccount, updateAccount, deleteAccount } from '#/api/system/account';
-import { getDeptList } from '#/api/system/dept';
-import { getRoleList } from '#/api/system/role';
+import { type SystemAccountApi, getAccounts, createAccount, updateAccount, deleteAccount } from '#/api/portal/system/account';
+import { getDeptList } from '#/api/portal/system/dept';
+import { getRoleList } from '#/api/portal/system/role';
 import { $t } from '#/locales';
 import { useColumns, useSchema } from './data';
 
@@ -189,7 +189,7 @@ onMounted(() => {
   <Page auto-content-height>
     <Grid table-title="어드민 사용자 계정 목록">
       <template #toolbar-tools>
-        <Button type="primary" @click="onCreate">
+        <Button v-perm:create type="primary" @click="onCreate">
           <Plus class="size-5 mr-1" />
           신규 계정 등록
         </Button>

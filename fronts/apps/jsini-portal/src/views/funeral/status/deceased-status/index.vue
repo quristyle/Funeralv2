@@ -2,7 +2,7 @@
 import { ref, onMounted, computed } from 'vue';
 import { Page } from '@vben/common-ui';
 import { Card, Row, Col, Input, Badge, Table, message } from 'ant-design-vue';
-import { getDeceasedList } from '#/api/building';
+import { getDeceasedList } from '#/api/funeral/building';
 
 const deceasedList = ref<any[]>([]);
 const loading = ref<boolean>(false);

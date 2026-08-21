@@ -111,3 +111,57 @@ public class MenuMetaDto
     /// </summary>
     public int? Order { get; set; }
 }
+
+
+/// <summary>
+/// 메뉴의 위치(부모)와 순서를 한 건 나타내는 DTO.
+/// 트리에서 드래그한 결과를 일괄 저장할 때 쓴다.
+/// </summary>
+public class MenuOrderDto
+{
+    /// <summary>메뉴 아이디</summary>
+    public string Id { get; set; } = string.Empty;
+
+    /// <summary>새 부모 메뉴 아이디 (최상위는 null)</summary>
+    public string? Pid { get; set; }
+
+    /// <summary>형제 안에서의 순번 (0부터)</summary>
+    public int OrderNo { get; set; }
+}
+
+
+/// <summary>
+/// 로그인한 사용자가 한 메뉴에 대해 실제로 가진 권한.
+/// </summary>
+/// <remarks>
+/// scom.role_menus 는 역할별 권한이다. 한 사람이 여러 역할에 속할 수 있으므로
+/// 역할들의 권한을 OR 로 합친 결과를 내려준다. 화면은 이 값만 보고 버튼을 켜고 끈다.
+/// 어떤 역할에도 걸려 있지 않은 메뉴는 목록에 아예 담기지 않는다(= 모든 권한 없음).
+/// </remarks>
+public class MenuPermissionDto
+{
+    public string MenuId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// 메뉴의 라우트 경로. 화면은 자기 경로로 자기 권한을 찾는다.
+    /// (/menu/all 응답에는 메뉴 아이디가 없어서 경로가 연결 고리가 된다)
+    /// </summary>
+    public string Path { get; set; } = string.Empty;
+
+    public bool CanView { get; set; }
+    public bool CanSearch { get; set; }
+    public bool CanCreate { get; set; }
+    public bool CanUpdate { get; set; }
+    public bool CanDelete { get; set; }
+    public bool CanPrint { get; set; }
+    public bool CanExcel { get; set; }
+
+    public bool CanCust1 { get; set; }
+    public bool CanCust2 { get; set; }
+    public bool CanCust3 { get; set; }
+    public bool CanCust4 { get; set; }
+    public bool CanCust5 { get; set; }
+    public bool CanCust6 { get; set; }
+    public bool CanCust7 { get; set; }
+    public bool CanCust8 { get; set; }
+}

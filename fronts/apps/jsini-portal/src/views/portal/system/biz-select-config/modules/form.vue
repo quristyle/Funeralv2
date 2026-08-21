@@ -3,7 +3,7 @@ import { nextTick } from 'vue';
 import { useVbenForm } from '#/adapter/form';
 import { useVbenDrawer } from '@vben/common-ui';
 import { message } from 'ant-design-vue';
-import { createBizSelectConfig, updateBizSelectConfig } from '#/api/system/biz-select-config';
+import { createBizSelectConfig, updateBizSelectConfig } from '#/api/portal/system/biz-select-config';
 import { useBizSelectStore } from '#/store/biz-select-config';
 import { formSchema } from '../data';
 

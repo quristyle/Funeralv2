@@ -4,7 +4,7 @@ import { Page, useVbenModal } from '@vben/common-ui';
 import { Plus } from '@vben/icons';
 import { Button, message, Form, Input, Switch, Card } from 'ant-design-vue';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import { getQnas, createQna } from '#/api/help';
+import { getQnas, createQna } from '#/api/funeral/help';
 
 const [QnaModal, qnaModalApi] = useVbenModal({
   title: '새 Q&A 질문 등록',

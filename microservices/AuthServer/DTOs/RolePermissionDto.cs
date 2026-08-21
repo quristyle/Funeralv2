@@ -47,6 +47,38 @@ public class RoleMenuDto
     public bool CanCust6 { get; set; }
     public bool CanCust7 { get; set; }
     public bool CanCust8 { get; set; }
+
+    // ── 이 메뉴가 쓰는 권한 항목 ────────────────────────────
+    //
+    // 메뉴마다 의미 있는 권한이 다르다. 권한 화면은 아래 값을 보고
+    // 쓰지 않는 항목의 체크박스를 잠그고, 사용자 정의 1~8 은 지정된 이름으로 보여준다.
+    // 값 자체는 system_menus 에 있고 여기서는 읽기용으로 함께 내려줄 뿐이다.
+
+    public bool UseView { get; set; }
+    public bool UseSearch { get; set; }
+    public bool UseCreate { get; set; }
+    public bool UseDelete { get; set; }
+    public bool UseUpdate { get; set; }
+    public bool UsePrint { get; set; }
+    public bool UseExcel { get; set; }
+
+    public bool UseCust1 { get; set; }
+    public bool UseCust2 { get; set; }
+    public bool UseCust3 { get; set; }
+    public bool UseCust4 { get; set; }
+    public bool UseCust5 { get; set; }
+    public bool UseCust6 { get; set; }
+    public bool UseCust7 { get; set; }
+    public bool UseCust8 { get; set; }
+
+    public string? Cust1Name { get; set; }
+    public string? Cust2Name { get; set; }
+    public string? Cust3Name { get; set; }
+    public string? Cust4Name { get; set; }
+    public string? Cust5Name { get; set; }
+    public string? Cust6Name { get; set; }
+    public string? Cust7Name { get; set; }
+    public string? Cust8Name { get; set; }
 }
 
 /// <summary>

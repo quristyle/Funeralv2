@@ -1,31 +1,165 @@
 <script lang="ts" setup>
-import { onMounted, ref } from 'vue';
+import type { EchartsUIType } from '@vben/plugins/echarts';
+
+import { computed, onMounted, ref } from 'vue';
 
 import { Page } from '@vben/common-ui';
+import { EchartsUI, useEcharts } from '@vben/plugins/echarts';
 
-import { Button, Card, Col, Row, Spin, Statistic } from 'ant-design-vue';
+import {
+  Button,
+  Card,
+  Col,
+  Empty,
+  Progress,
+  Row,
+  Spin,
+  Table,
+  Tag,
+} from 'ant-design-vue';
 
 import { getServerReport } from '#/api/helpdesk';
-
-import OadrSeriesChart from './modules/oadr-series-chart.vue';
-import OadrTable from './modules/oadr-table.vue';
 
 /**
  * [월간 리포트]
  *
- * 원본(reports/MonthlyReport.vue). 한주 OADR 시스템의 P_QURI_SERVER_REPORT 를
- * QueryType=MONTHLY 로 호출한다.
+ * 원본(JinReception reports/MonthlyReport.vue, `/reports/monthly`).
+ * MONTHLY(일자별 지표) + EXECUTIVE(종합 건강 점수) 두 쿼리를 함께 본다.
  */
 
 const loading = ref(false);
 const rows = ref<Record<string, any>[]>([]);
-const executive = ref<Record<string, any>>({});
+const executive = ref<null | Record<string, any>>(null);
 
-const FIELDS = [
-  { color: '#EF4444', key: 'Max_CPU', label: '최대 CPU(%)' },
-  { color: '#FFA726', key: 'Avg_IO_ms', label: '평균 IO(ms)' },
-  { color: '#66BB6A', key: 'Avg_PLE', label: '평균 PLE', yAxis: 1 },
+const chartRef = ref<EchartsUIType>();
+const { renderEcharts } = useEcharts(chartRef);
+
+/** 리포트 핵심 지표 설명. 원본의 reportGlossary. */
+const GLOSSARY = [
+  {
+    desc: 'I/O 지연, 메모리 압박 등 병목 이벤트 발생 빈도를 역산한 신뢰도 점수입니다.',
+    title: '시스템 건강 점수',
+  },
+  {
+    desc: '하루 중 가장 높았던 프로세서 사용률입니다. 피크 시간대 수용량을 판단합니다.',
+    title: '일일 최대 CPU',
+  },
+  {
+    desc: 'TempDB 및 로그 쓰기 지연의 평균값입니다. DB 내부의 처리 품질을 나타냅니다.',
+    title: '서브시스템 지연',
+  },
 ];
+
+const columns = [
+  { dataIndex: 'LogDate', key: 'LogDate', title: '날짜', width: 130 },
+  { dataIndex: 'Max_CPU', key: 'Max_CPU', title: '최대 CPU (%)', width: 130 },
+  { dataIndex: 'Avg_IO_ms', key: 'Avg_IO_ms', title: '평균 I/O (ms)', width: 140 },
+  {
+    dataIndex: 'Avg_TempDB_Stall',
+    key: 'Avg_TempDB_Stall',
+    title: 'TempDB (ms/s)',
+    width: 140,
+  },
+  {
+    dataIndex: 'Avg_Log_Stall',
+    key: 'Avg_Log_Stall',
+    title: '로그 지연 (ms/s)',
+    width: 150,
+  },
+  { dataIndex: 'Min_PLE', key: 'Min_PLE', title: '최소 PLE (s)', width: 130 },
+  { key: 'verdict', title: '기술 판정', width: 120 },
+];
+
+/** 건강 점수 구간 판정. 원본의 getHealthStatus 와 같다. */
+const healthStatus = computed(() => {
+  const score = Number(executive.value?.Server_Health_Score ?? 0);
+  if (score >= 90) {
+    return { color: 'success', hex: '#10B981', label: '최상 (Healthy)', score };
+  }
+  if (score >= 70) {
+    return { color: 'processing', hex: '#3B82F6', label: '보통 (Stable)', score };
+  }
+  return {
+    color: 'error',
+    hex: '#EF4444',
+    label: '위험 (Action Required)',
+    score,
+  };
+});
+
+/** 일자별 기술 판정. 원본과 같은 우선순위(메모리 → CPU → 안정). */
+function rowVerdict(row: Record<string, any>) {
+  if (Number(row.Min_PLE) < 300) {
+    return { color: 'error', label: '메모리위험' };
+  }
+  if (Number(row.Max_CPU) > 85) {
+    return { color: 'warning', label: '과부하' };
+  }
+  return { color: 'success', label: '안정' };
+}
+
+function toFixed(value: any, digits = 2) {
+  const n = Number(value);
+  return Number.isNaN(n) ? '-' : n.toFixed(digits);
+}
+
+function dateOnly(value?: string) {
+  return String(value ?? '').split('T')[0] ?? '';
+}
+
+function drawChart() {
+  const labels = rows.value.map((d) => dateOnly(d.LogDate));
+  const pick = (key: string) => rows.value.map((d) => Number(d[key] ?? 0));
+
+  renderEcharts({
+    grid: { bottom: 30, containLabel: true, left: 10, right: 10, top: 40 },
+    legend: { textStyle: { fontSize: 10 }, top: 0, type: 'scroll' },
+    series: [
+      {
+        data: pick('Avg_TempDB_Stall'),
+        itemStyle: { color: 'rgba(102,187,106,0.65)' },
+        name: 'TempDB 지연',
+        type: 'bar',
+      },
+      {
+        areaStyle: { opacity: 0.12 },
+        data: pick('Max_CPU'),
+        itemStyle: { color: '#EF5350' },
+        name: '일일 최대 CPU (%)',
+        smooth: true,
+        type: 'line',
+      },
+      {
+        data: pick('Avg_IO_ms'),
+        itemStyle: { color: '#42A5F5' },
+        name: '평균 I/O (ms)',
+        smooth: true,
+        type: 'line',
+      },
+      {
+        data: pick('Min_PLE'),
+        itemStyle: { color: '#FFA726' },
+        lineStyle: { type: 'dashed' as const },
+        name: '최저 PLE (s)',
+        smooth: true,
+        type: 'line',
+        yAxisIndex: 1,
+      },
+    ],
+    tooltip: { trigger: 'axis' },
+    xAxis: { data: labels, type: 'category' },
+    yAxis: [
+      { axisLabel: { fontSize: 10 }, min: 0, name: '성능 지표', type: 'value' },
+      {
+        axisLabel: { fontSize: 10 },
+        min: 0,
+        name: 'PLE (s)',
+        splitLine: { show: false },
+        type: 'value',
+      },
+    ],
+  });
+}
 
 async function loadData() {
   loading.value = true;
@@ -35,7 +169,8 @@ async function loadData() {
       getServerReport<Record<string, any>[]>('EXECUTIVE'),
     ]);
     rows.value = monthly ?? [];
-    executive.value = exec?.[0] ?? {};
+    executive.value = exec?.[0] ?? null;
+    drawChart();
   } finally {
     loading.value = false;
   }
@@ -47,36 +182,146 @@ onMounted(loadData);
 <template>
   <Page auto-content-height>
     <Card class="mb-3" size="small">
-      <div class="flex items-center justify-between">
-        <span class="text-sm text-muted-foreground">최근 월간 서버 지표</span>
-        <Button :loading="loading" @click="loadData">새로고침</Button>
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <span class="text-base font-semibold">
+          월간 서버 운영 성과 분석 및 전략 리포트
+        </span>
+        <Button :loading="loading" type="primary" @click="loadData">
+          리포트 갱신
+        </Button>
       </div>
     </Card>
 
     <Spin :spinning="loading">
-      <Row :gutter="[12, 12]" class="mb-3">
-        <Col :lg="8" :xs="24">
+      <!-- 1. 경영 요약 스코어보드 -->
+      <Row :gutter="[12, 12]">
+        <Col :lg="12" :xs="24">
           <Card size="small">
-            <Statistic
-              :precision="1"
-              :value="Number(executive.Server_Health_Score ?? 0)"
-              title="서버 건강 점수"
-            />
+            <template #title>
+              <span class="text-xs font-semibold uppercase text-muted-foreground">
+                종합 시스템 건강 점수 (Reliability Score)
+              </span>
+            </template>
+
+            <div v-if="executive" class="flex flex-col items-center py-2">
+              <div class="flex items-baseline gap-2">
+                <span class="text-6xl font-bold">
+                  {{ Math.round(healthStatus.score) }}
+                </span>
+                <span class="text-xl text-muted-foreground">/ 100</span>
+              </div>
+
+              <div class="mt-4 w-full px-6">
+                <Progress
+                  :percent="Math.round(healthStatus.score)"
+                  :show-info="false"
+                  :stroke-color="healthStatus.hex"
+                />
+              </div>
+
+              <Tag :color="healthStatus.color" class="mt-4">
+                {{ healthStatus.label }}
+              </Tag>
+            </div>
+
+            <Empty v-else description="건강 점수를 불러오지 못했습니다." />
+          </Card>
+        </Col>
+
+        <Col :lg="12" :xs="24">
+          <Card size="small">
+            <template #title>
+              <span class="text-xs font-semibold uppercase text-muted-foreground">
+                리포트 핵심 지표 설명
+              </span>
+            </template>
+
+            <div
+              v-for="item in GLOSSARY"
+              :key="item.title"
+              class="border-b border-border pb-2 pt-2 first:pt-0 last:border-b-0"
+            >
+              <div class="text-xs font-semibold">● {{ item.title }}</div>
+              <div class="text-[10px] leading-tight text-muted-foreground">
+                {{ item.desc }}
+              </div>
+            </div>
           </Card>
         </Col>
       </Row>
 
-      <Card size="small" title="일자별 지표">
-        <OadrSeriesChart
-          :fields="FIELDS"
-          :rows="rows"
-          type="bar"
-          x-field="LogDate"
-        />
+      <!-- 2. 월간 장기 추이 -->
+      <Card
+        class="mt-3"
+        size="small"
+        title="월간 자원 Peak 및 서브시스템 병목 추이 (Min_PLE 포함)"
+      >
+        <EchartsUI ref="chartRef" height="320px" />
       </Card>
 
-      <Card class="mt-3" size="small" title="원본 데이터">
-        <OadrTable :rows="rows" />
+      <!-- 3. 상세 운영 로그 -->
+      <Card
+        :body-style="{ padding: 0 }"
+        class="mt-3"
+        size="small"
+        title="월간 일자별 운영 정밀 데이터 로그"
+      >
+        <Table
+          :columns="columns"
+          :data-source="rows"
+          :pagination="false"
+          :scroll="{ x: 940, y: 400 }"
+          row-key="LogDate"
+          size="small"
+        >
+          <template #emptyText>
+            <Empty description="데이터가 없습니다." />
+          </template>
+
+          <template #bodyCell="{ column, record }">
+            <template v-if="column.key === 'LogDate'">
+              {{ dateOnly(record.LogDate) }}
+            </template>
+
+            <template v-else-if="column.key === 'Max_CPU'">
+              <span
+                :class="Number(record.Max_CPU) > 90 ? 'font-bold text-red-600' : ''"
+              >
+                {{ toFixed(record.Max_CPU, 1) }}%
+              </span>
+            </template>
+
+            <template v-else-if="column.key === 'Avg_IO_ms'">
+              {{ toFixed(record.Avg_IO_ms) }}
+            </template>
+
+            <template v-else-if="column.key === 'Avg_TempDB_Stall'">
+              {{ toFixed(record.Avg_TempDB_Stall) }}
+            </template>
+
+            <template v-else-if="column.key === 'Avg_Log_Stall'">
+              {{ toFixed(record.Avg_Log_Stall) }}
+            </template>
+
+            <template v-else-if="column.key === 'Min_PLE'">
+              <span
+                :class="
+                  Number(record.Min_PLE) < 300
+                    ? 'font-bold text-red-600'
+                    : 'text-green-700 dark:text-green-400'
+                "
+              >
+                {{ record.Min_PLE }}s
+              </span>
+            </template>
+
+            <template v-else-if="column.key === 'verdict'">
+              <Tag :color="rowVerdict(record).color">
+                {{ rowVerdict(record).label }}
+              </Tag>
+            </template>
+          </template>
+        </Table>
       </Card>
     </Spin>
   </Page>

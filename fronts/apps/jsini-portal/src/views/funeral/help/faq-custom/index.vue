@@ -3,7 +3,7 @@ import { ref, onMounted } from 'vue';
 import { Page, useVbenModal } from '@vben/common-ui';
 import { Plus } from '@vben/icons';
 import { Button, message, Form, Input, Select, Collapse, CollapsePanel, Popconfirm } from 'ant-design-vue';
-import { getFaqs, createFaq, updateFaq, deleteFaq } from '#/api/help';
+import { getFaqs, createFaq, updateFaq, deleteFaq } from '#/api/funeral/help';
 
 const activeKey = ref<string[]>([]);
 const list = ref<any[]>([]);
@@ -83,7 +83,7 @@ onMounted(() => {
   <Page auto-content-height>
     <div class="mb-4 bg-card p-4 rounded border flex justify-between items-center">
       <span class="font-bold text-sm">자주 묻는 질문 (FAQ) 아코디언 설정</span>
-      <Button type="primary" @click="openCreate">
+      <Button v-perm:create type="primary" @click="openCreate">
         <Plus class="size-5 mr-1" />
         FAQ 항목 추가
       </Button>
@@ -108,9 +108,9 @@ onMounted(() => {
           </div>
           
           <div class="flex gap-2 justify-end">
-            <Button size="small" type="default" @click.stop="onEdit(item)">수정</Button>
+            <Button v-perm:update size="small" type="default" @click.stop="onEdit(item)">수정</Button>
             <Popconfirm title="해당 FAQ 항목을 삭제하시겠습니까?" @confirm="onDelete(item.id)">
-              <Button size="small" type="primary" danger @click.stop>삭제</Button>
+              <Button v-perm:delete size="small" type="primary" danger @click.stop>삭제</Button>
             </Popconfirm>
           </div>
         </div>

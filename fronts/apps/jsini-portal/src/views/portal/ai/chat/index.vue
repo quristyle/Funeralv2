@@ -3,7 +3,7 @@ import { ref, nextTick, onMounted, computed, watch, triggerRef } from 'vue';
 import { Page } from '@vben/common-ui';
 import { Button, Card, Input, Spin, message, List, Popconfirm, Tooltip } from 'ant-design-vue';
 import { IconifyIcon } from '@vben/icons';
-import { streamChatMessage, type ChatMessage } from '#/api/ai/chat';
+import { streamChatMessage, type ChatMessage } from '#/api/portal/ai/chat';
 
 /**
  * 채팅 세션 타입 정의

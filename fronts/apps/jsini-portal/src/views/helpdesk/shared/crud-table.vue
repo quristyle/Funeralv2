@@ -4,6 +4,7 @@ import { computed, onMounted, reactive, ref } from 'vue';
 import {
   Button,
   Card,
+  DatePicker,
   Empty,
   Form,
   FormItem,
@@ -35,7 +36,7 @@ export interface CrudField {
   /** 신규 등록에서만 보여줄 필드 (예: 비밀번호) */
   createOnly?: boolean;
   required?: boolean;
-  type?: 'number' | 'password' | 'select' | 'text';
+  type?: 'date' | 'multiselect' | 'number' | 'password' | 'select' | 'text';
 }
 
 const props = defineProps<{
@@ -89,7 +90,7 @@ async function loadData() {
 
 function resetForm() {
   props.fields.forEach((f) => {
-    form[f.key] = undefined;
+    form[f.key] = f.type === 'multiselect' ? [] : undefined;
   });
 }
 
@@ -108,9 +109,13 @@ function openEdit(row: any) {
 }
 
 async function onSave() {
-  const missing = visibleFields.value.find(
-    (f) => f.required && !String(form[f.key] ?? '').trim(),
-  );
+  const missing = visibleFields.value.find((f) => {
+    if (!f.required) return false;
+    const value = form[f.key];
+    return Array.isArray(value)
+      ? value.length === 0
+      : !String(value ?? '').trim();
+  });
   if (missing) {
     message.warning(`${missing.label}을(를) 입력하세요.`);
     return;
@@ -160,7 +165,7 @@ defineExpose({ loadData });
           />
           <Button :loading="loading" @click="loadData">새로고침</Button>
         </Space>
-        <Button type="primary" @click="openCreate">
+        <Button v-perm:create type="primary" @click="openCreate">
           {{ entityName }} 등록
         </Button>
       </div>
@@ -181,10 +186,16 @@ defineExpose({ loadData });
         <template #bodyCell="{ column, record, text }">
           <template v-if="column.key === 'action'">
             <Space>
-              <Button size="small" type="link" @click="openEdit(record)">
+              <Button
+                v-perm:update
+                size="small"
+                type="link"
+                @click="openEdit(record)"
+              >
                 수정
               </Button>
               <Popconfirm
+                v-perm:delete
                 cancel-text="취소"
                 ok-text="삭제"
                 :title="`${entityName}을(를) 삭제할까요?`"
@@ -222,10 +233,24 @@ defineExpose({ loadData });
             option-filter-prop="label"
             show-search
           />
+          <Select
+            v-else-if="field.type === 'multiselect'"
+            v-model:value="form[field.key]"
+            :options="field.options"
+            mode="multiple"
+            option-filter-prop="label"
+            show-search
+          />
           <InputNumber
             v-else-if="field.type === 'number'"
             v-model:value="form[field.key]"
             style="width: 100%"
+          />
+          <DatePicker
+            v-else-if="field.type === 'date'"
+            v-model:value="form[field.key]"
+            style="width: 100%"
+            value-format="YYYY-MM-DD"
           />
           <Input
             v-else-if="field.type === 'password'"

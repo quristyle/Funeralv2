@@ -6,6 +6,7 @@ import { h } from 'vue';
 import { z } from '#/adapter/form';
 import { IconifyIcon } from '@vben/icons';
 import { $t } from '#/locales';
+import { can } from '#/utils/permission';
 import { Button, Popconfirm, Tooltip } from 'ant-design-vue';
 
 export function useFormSchema(): VbenFormSchema[] {
@@ -124,6 +125,7 @@ export function useColumns<T = SystemRoleApi.SystemRole>(
       slots: {
         default: (record) => {
           return h('div', { class: 'flex justify-center gap-2' }, [
+            can('update') &&
             /** 수정 버튼: Tooltip 및 Icon 사용 */
             h(
               Tooltip,
@@ -148,6 +150,7 @@ export function useColumns<T = SystemRoleApi.SystemRole>(
                   ),
               },
             ),
+            can('delete') &&
             /** 삭제 버튼: Popconfirm을 통한 확인 절차 포함 */
             h(
               Popconfirm,
@@ -183,8 +186,7 @@ export function useColumns<T = SystemRoleApi.SystemRole>(
                     },
                   ),
               },
-            ),
-          ]);
+            )].filter(Boolean));
         },
       },
     },

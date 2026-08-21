@@ -8,6 +8,7 @@ import { Page } from '@vben/common-ui';
 import { EchartsUI, useEcharts } from '@vben/plugins/echarts';
 
 import {
+  Button,
   Card,
   Col,
   Row,
@@ -51,6 +52,10 @@ const userEngagement = ref<any[]>([]);
 
 const trendChartRef = ref<EchartsUIType>();
 const { renderEcharts: renderTrend } = useEcharts(trendChartRef);
+
+/** 내보내기용으로 원본 추이 데이터를 들고 있는다. */
+const trendRows = ref<Record<string, any>[]>([]);
+const exporting = ref(false);
 
 const DAY_OPTIONS = [
   { label: '최근 7일', value: 7 },
@@ -107,6 +112,7 @@ async function loadAll() {
     ]);
 
     stats.value = s ?? stats.value;
+    trendRows.value = trend ?? [];
     engagement.value = eng;
     failureReasons.value = reasons ?? [];
     topMessages.value = top ?? [];
@@ -114,6 +120,55 @@ async function loadAll() {
     drawTrend(trend ?? []);
   } finally {
     loading.value = false;
+  }
+}
+
+/** 값에 콤마·따옴표가 들어가도 깨지지 않도록 CSV 셀을 감싼다. */
+function csvCell(value: unknown) {
+  const text = String(value ?? '');
+  return /[\n",]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
+}
+
+/** 표 하나를 CSV 조각으로 만든다. */
+function csvBlock(title: string, rows: Record<string, any>[]) {
+  if (rows.length === 0) return `${title}\n(데이터 없음)\n`;
+
+  const headers = Object.keys(rows[0]!);
+  const body = rows
+    .map((row) => headers.map((h) => csvCell(row[h])).join(','))
+    .join('\n');
+  return `${title}\n${headers.join(',')}\n${body}\n`;
+}
+
+/**
+ * 화면의 모든 표를 CSV 한 파일로 내려받는다.
+ * 원본(PushDashboard.vue)의 exportDatasetsToCsv 와 같은 목적이다.
+ */
+function exportCsv() {
+  exporting.value = true;
+  try {
+    const blocks = [
+      csvBlock('발송 요약', [stats.value]),
+      csvBlock('성공률 추이', trendRows.value),
+      csvBlock('실패 사유 상위', failureReasons.value),
+      csvBlock('성과 상위 메시지', topMessages.value),
+      csvBlock('사용자별 반응', userEngagement.value),
+      engagement.value ? csvBlock('참여 지표', [engagement.value]) : '',
+    ].filter(Boolean);
+
+    // 엑셀이 UTF-8 로 읽도록 BOM 을 붙인다.
+    const blob = new Blob([`\uFEFF${blocks.join('\n')}`], {
+      type: 'text/csv;charset=utf-8;',
+    });
+
+    const today = new Date().toISOString().split('T')[0];
+    const link = document.createElement('a');
+    link.download = `push_dashboard_${today}.csv`;
+    link.href = URL.createObjectURL(blob);
+    link.click();
+    URL.revokeObjectURL(link.href);
+  } finally {
+    exporting.value = false;
   }
 }
 
@@ -132,15 +187,21 @@ onMounted(loadAll);
   <Page auto-content-height>
     <Spin :spinning="loading">
       <Card class="mb-3" size="small">
-        <Space>
-          <span class="text-sm">기간</span>
-          <Select
-            v-model:value="days"
-            :options="DAY_OPTIONS"
-            style="width: 140px"
-            @change="loadAll"
-          />
-        </Space>
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <Space>
+            <span class="text-sm">기간</span>
+            <Select
+              v-model:value="days"
+              :options="DAY_OPTIONS"
+              style="width: 140px"
+              @change="loadAll"
+            />
+          </Space>
+          <Space>
+            <Button :loading="exporting" @click="exportCsv">CSV 내려받기</Button>
+            <Button :loading="loading" @click="loadAll">새로고침</Button>
+          </Space>
+        </div>
       </Card>
 
       <Row :gutter="[12, 12]">

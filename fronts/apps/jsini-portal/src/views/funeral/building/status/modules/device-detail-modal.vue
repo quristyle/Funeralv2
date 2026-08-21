@@ -2,8 +2,8 @@
 import { ref } from 'vue';
 import { Modal, Tabs, Descriptions, Tag, Badge, Spin, Table, Empty } from 'ant-design-vue';
 import { IconifyIcon } from '@vben/icons';
-import { getDevice, getDeviceAttribute, getDeviceRibbons, getDeviceTextOverlays } from '#/api/building';
-import type { BuildingApi } from '#/api/building';
+import { getDevice, getDeviceAttribute, getDeviceRibbons, getDeviceTextOverlays } from '#/api/funeral/building';
+import type { BuildingApi } from '#/api/funeral/building';
 
 const visible = ref(false);
 const loading = ref(false);

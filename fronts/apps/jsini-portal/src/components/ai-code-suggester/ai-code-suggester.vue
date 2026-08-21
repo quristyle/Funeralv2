@@ -2,7 +2,7 @@
 import { ref, watch } from 'vue';
 import { useDebounceFn } from '@vueuse/core';
 import { Tag, Spin } from 'ant-design-vue';
-import { suggestCommonCodeByAI } from '#/api/system/common-code';
+import { suggestCommonCodeByAI } from '#/api/portal/system/common-code';
 
 defineOptions({
   name: 'AiCodeSuggester',

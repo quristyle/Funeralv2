@@ -3,8 +3,8 @@ import { ref, watch, onMounted } from 'vue';
 import { Page } from '@vben/common-ui';
 import { Card, Row, Col, Tree, message } from 'ant-design-vue';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import { getMenuRoles } from '#/api/system/role-mapping';
-import { getMenuList } from '#/api/system/menu';
+import { getMenuRoles } from '#/api/portal/system/role-mapping';
+import { getMenuList } from '#/api/portal/system/menu';
 
 const menuTreeData = ref<any[]>([]);
 const selectedMenuId = ref<string>('');

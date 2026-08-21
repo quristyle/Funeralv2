@@ -2,7 +2,7 @@
 import { ref, watch, onMounted } from 'vue';
 import { Button, message, Modal, Table } from 'ant-design-vue';
 import { Plus, IconifyIcon } from '@vben/icons';
-import { getRoleUsers, getEligibleUsers, assignRoleUsers, removeRoleUser, type SystemRolePermissionApi } from '#/api/system/role-permission';
+import { getRoleUsers, getEligibleUsers, assignRoleUsers, removeRoleUser, type SystemRolePermissionApi } from '#/api/portal/system/role-permission';
 
 const props = defineProps({
   roleId: {
