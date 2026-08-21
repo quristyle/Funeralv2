@@ -54,6 +54,11 @@ const FILTER_OPTIONS = [
   { label: '완료', value: 'done' },
 ];
 
+// 분류 이름 일괄 변경. 원본의 rename 다이얼로그.
+const renameOpen = ref(false);
+const renameFrom = ref('');
+const renameTo = ref('');
+
 const modalOpen = ref(false);
 const editing = reactive<Partial<Checklist>>({});
 const isEdit = computed(() => Boolean(editing.id));
@@ -153,6 +158,37 @@ async function onSave() {
   }
 }
 
+function openRename(category: string) {
+  renameFrom.value = category;
+  renameTo.value = category;
+  renameOpen.value = true;
+}
+
+/**
+ * 한 분류에 속한 항목을 모두 새 이름으로 바꾼다.
+ * 서버에 분류 전용 API 가 없어 항목을 하나씩 수정한다(원본과 같은 방식).
+ */
+async function applyRename() {
+  const next = renameTo.value.trim();
+  if (!next) {
+    message.warning('새 분류명을 입력하세요.');
+    return;
+  }
+
+  saving.value = true;
+  try {
+    const targets = items.value.filter((i) => (i.category ?? '') === renameFrom.value);
+    await Promise.all(
+      targets.map((item) => updateChecklist(item.id, { ...item, category: next })),
+    );
+    message.success(`${targets.length}개 항목의 분류를 바꿨습니다.`);
+    renameOpen.value = false;
+    await loadData();
+  } finally {
+    saving.value = false;
+  }
+}
+
 async function onDelete(item: Checklist) {
   await deleteChecklist(item.id);
   message.success('항목을 삭제했습니다.');
@@ -217,9 +253,14 @@ onMounted(loadData);
         :title="group.category"
       >
         <template #extra>
-          <Button size="small" type="link" @click="openCreate(group.category)">
-            이 분류에 추가
-          </Button>
+          <Space>
+            <Button size="small" type="link" @click="openRename(group.category)">
+              분류명 변경
+            </Button>
+            <Button size="small" type="link" @click="openCreate(group.category)">
+              이 분류에 추가
+            </Button>
+          </Space>
         </template>
 
         <div
@@ -259,6 +300,27 @@ onMounted(loadData);
         </div>
       </Card>
     </Spin>
+
+    <Modal
+      v-model:open="renameOpen"
+      :confirm-loading="saving"
+      cancel-text="취소"
+      ok-text="변경"
+      title="분류명 변경"
+      @ok="applyRename"
+    >
+      <Form layout="vertical">
+        <FormItem label="현재 분류명">
+          <Input :value="renameFrom" disabled />
+        </FormItem>
+        <FormItem label="새 분류명" required>
+          <Input v-model:value="renameTo" @press-enter="applyRename" />
+        </FormItem>
+      </Form>
+      <span class="text-xs text-muted-foreground">
+        이 분류에 속한 모든 항목의 분류명이 함께 바뀝니다.
+      </span>
+    </Modal>
 
     <Modal
       v-model:open="modalOpen"
