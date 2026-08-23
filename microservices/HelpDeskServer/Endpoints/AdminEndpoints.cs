@@ -30,18 +30,22 @@ public static class AdminEndpoints {
         () => db.Admins.Include(a => a.AdminTeams).ThenInclude(at => at.Team).FirstOrDefaultAsync(a => a.Id == id)
     ));
 
-    group.MapPost("/", (AppDbContext db, AdminCreateDto adminDto) => ApiResponseBuilder.CreateAsync(async () => {
+    group.MapPost("/", (AppDbContext db, AdminCreateDto adminDto, HttpContext http) => ApiResponseBuilder.CreateAsync(async () => {
+      // 담당자 등록은 '조직 데이터' 등록이지 계정 발급이 아니다.
+      // 로그인 계정은 JSini 포털에서 만든다. 여기 비밀번호 칸은 채워야 하는 필수 컬럼이라
+      // 아무도 모르는 임의값으로 채운다 — 이 값으로는 로그인할 수 없다.
       var passwordService = new PasswordService();
-      var tempPassword = Guid.NewGuid().ToString().Substring(0, 8);
+      var unusablePassword = Guid.NewGuid().ToString("N") + Guid.NewGuid().ToString("N");
       var admin = new Admin {
         LoginId = adminDto.LoginId,
         UserName = adminDto.UserName,
         Email = adminDto.Email,
-        CreatedBy = adminDto.CreatedBy ?? "system",
+        // 등록자는 로그인한 JSini 계정에서 정한다(요청 본문 값은 쓰지 않는다).
+        CreatedBy = http.AuditUser(),
         MenuContext = adminDto.MenuContext,
-        MustChangePassword = true
+        MustChangePassword = false
       };
-      admin.PasswordHash = passwordService.HashPassword<Admin>(admin, tempPassword);
+      admin.PasswordHash = passwordService.HashPassword<Admin>(admin, unusablePassword);
 
       if (adminDto.TeamIds != null) {
         foreach (var teamId in adminDto.TeamIds) {
@@ -51,73 +55,15 @@ public static class AdminEndpoints {
 
       db.Admins.Add(admin);
       await db.SaveChangesAsync();
-      return new { admin, tempPassword };
+      return new { admin };
     }, "Admin created successfully.", 201));
 
-    group.MapPost("/change-password", async (HttpContext http, AppDbContext db, AdminChangePasswordDto changePasswordDto) => {
-      var passwordService = new PasswordService();
-
-      /*
-                          new Claim(JwtRegisteredClaimNames.Sub, login_id),
-                          new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-                          new Claim("uid", user_uid),
-                          new Claim("login_type", login_type)
-                          */
-
-      var loginId = http.User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
-      var uid = http.User.Claims.FirstOrDefault(c => c.Type == "uid")?.Value;
-      var loginType = http.User.Claims.FirstOrDefault(c => c.Type == "login_type")?.Value;
-
-
-
-      Console.WriteLine($"change-password uid : {uid}");
-      Console.WriteLine($"change-password loginId : {loginId}");
-      Console.WriteLine($"change-password loginType : {loginType}");
-
-
-      Console.WriteLine($"change-password changePasswordDto.OldPassword : {changePasswordDto.OldPassword}");
-      Console.WriteLine($"change-password changePasswordDto.NewPassword : {changePasswordDto.NewPassword}");
-
-
-
-      if (loginId == null) {
-        return Results.Unauthorized();
-      }
-
-      if (loginType == "admin") {
-        var admin = await db.Admins.FirstOrDefaultAsync(a => a.Id + "" == uid);
-        if (admin == null) {
-          return Results.NotFound("Admin not found.");
-        }
-
-        if (!passwordService.VerifyPassword(admin, changePasswordDto.OldPassword)) {
-          return Results.BadRequest("Invalid old password.");
-        }
-
-        admin.PasswordHash = passwordService.HashPassword<Admin>(admin, changePasswordDto.NewPassword);
-        admin.MustChangePassword = false;
-        await db.SaveChangesAsync();
-
-      }
-      else {
-
-
-        var customer = await db.Customers.FirstOrDefaultAsync(a => a.Id + "" == uid);
-        if (customer == null) {
-          return Results.NotFound("Customer not found.");
-        }
-
-        if (!passwordService.VerifyPassword(customer, changePasswordDto.OldPassword)) {
-          return Results.BadRequest("Invalid old password.");
-        }
-
-        customer.PasswordHash = passwordService.HashPassword<Customer>(customer, changePasswordDto.NewPassword);
-        //customer.MustChangePassword = false;
-        await db.SaveChangesAsync();
-
-      }
-      return Results.Ok("Password changed successfully.");
-    }).RequireAuthorization();
+    // 비밀번호 변경(/change-password) 엔드포인트는 제거했다 (결정 Q4).
+    //
+    // 계정과 비밀번호는 JSini 관리 포털(AuthServer)이 단독으로 관리한다.
+    // 헬프데스크 자체 로그인은 꺼져 있으므로(LocalLogin:Enabled, 기본 false)
+    // 여기 저장된 비밀번호는 어디에서도 쓰이지 않는다.
+    // 비밀번호 변경은 포털의 개인 설정 화면에서 한다.
 
     group.MapPut("/{id}", (AppDbContext db, int id, Admin input) => ApiResponseBuilder.CreateAsync(async () => {
       var admin = await db.Admins.Include(a => a.AdminTeams).FirstOrDefaultAsync(a => a.Id == id);
@@ -151,38 +97,13 @@ public static class AdminEndpoints {
       return new { DeletedId = id };
     }, "Admin deleted successfully."));
 
-    group.MapPost("/find-password", (AppDbContext db, FindPasswordDto findPasswordDto , IRabbitMqConnectionProvider provider, ILoggerFactory loggerFactory, IConfiguration configuration, IPushSubscriptionStore store, IWebPushService sender  ) => ApiResponseBuilder.CreateAsync(async () => {
-      var customer = await db.Customers.FirstOrDefaultAsync(a => a.LoginId == findPasswordDto.LoginId && a.Email == findPasswordDto.Email);
-      var admin = await db.Admins.FirstOrDefaultAsync(a => a.LoginId == findPasswordDto.LoginId && a.Email == findPasswordDto.Email);
-
-
-        var tempPassword = Guid.NewGuid().ToString().Substring(0, 8);
-
-      if (customer is null) {
-        if (admin is null) return null;
-
-        var passwordService = new PasswordService();
-        admin.PasswordHash = passwordService.HashPassword<Admin>(admin, tempPassword);
-        admin.MustChangePassword = true;
-
-        await db.SaveChangesAsync();
-
-      }
-      else {
-
-        var passwordService = new PasswordService();
-        customer.PasswordHash = passwordService.HashPassword<Customer>(customer, tempPassword);
-        //customer.MustChangePassword = true;
-
-        await db.SaveChangesAsync();
-      }
-
-
-        await EMailUtil.SendEmailJinNets(findPasswordDto.Email, "임시 비밀번호 발급", $"임시 비밀번호: {tempPassword}\n로그인 후 비밀번호를 변경해주세요.", provider, loggerFactory, configuration);
-
-        return new { tempPassword = "이메일로 발송되었습니다." };
-
-
-    }, "Password reset successfully."));
+    // 비밀번호 찾기(/find-password) 엔드포인트는 제거했다 (결정 D9-B).
+    //
+    // 인증 없이 loginId + email 만으로 그 계정의 비밀번호를 임의값으로 바꿔 버리는 동작이었다.
+    // 임시 비밀번호는 등록된 메일로만 가므로 탈취까지는 어렵지만,
+    // 피해자의 기존 비밀번호가 이미 바뀌어 있어 로그인이 막힌다(계정 잠금).
+    // loginId·email 은 추측하기 쉬운 값이라 진입 장벽이 낮았다.
+    //
+    // 계정과 인증은 JSini 관리 포털이 일원 관리한다. 비밀번호 재설정도 포털에서 다룬다.
   }
 }

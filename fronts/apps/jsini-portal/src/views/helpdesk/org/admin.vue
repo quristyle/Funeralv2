@@ -47,7 +47,7 @@ const fields = computed<CrudField[]>(() => [
     options: teams.value,
     type: 'multiselect',
   },
-  { createOnly: true, key: 'password', label: '비밀번호', type: 'password' },
+  // 비밀번호 칸은 없앴다 — 계정과 인증은 JSini 관리 포털이 단독으로 맡는다(결정 Q4).
 ]);
 
 /** 폼이 다루는 teamIds 를 서버가 받는 adminTeams 로 바꿔 보낸다. */

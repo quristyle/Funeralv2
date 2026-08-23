@@ -7,6 +7,10 @@
  *   portal   — JSini 포털 공통 업무(시스템 관리, 게이트웨이 상태, AI)
  *   funeral  — 장례식장 MSA
  *   helpdesk — 헬프데스크 MSA
+ *   projmng  — 프로젝트관리 MSA
+ *
+ * 배럴에는 이름 충돌이 없는 것만 올린다. helpdesk / projmng 는 화면에서
+ * `#/api/helpdesk`, `#/api/projmng` 로 직접 가져다 쓴다.
  */
 export * from './core';
 export * from './examples';

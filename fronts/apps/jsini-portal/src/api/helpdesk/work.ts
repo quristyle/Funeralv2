@@ -183,19 +183,5 @@ export async function deleteChecklist(id: number) {
 // 공지는 JSini 관리 포털이 공통으로 관리한다(#/api/portal/notice).
 // 헬프데스크가 따로 들고 있던 공지 화면·API 는 제거했다.
 
-// ============================================================
-// 릴리즈 빌드 도구
-// ============================================================
-
-/**
- * jin114 릴리즈 빌드 실행.
- * 서버는 본문을 읽지 않고 RabbitMQ `run_script` 큐에 스크립트 실행 메시지만 넣는다.
- */
-export async function runRelease() {
-  return helpdeskClient.post('/build/release', {});
-}
-
-/** goldb(GitHub) 릴리즈 빌드 실행. 동작 방식은 runRelease 와 같다. */
-export async function runReleaseGithub() {
-  return helpdeskClient.post('/build/release_ghub', {});
-}
+// 배포(릴리즈)는 JSini 관리 포털이 관장한다(#/api/portal/release).
+// 헬프데스크가 들고 있던 배포 화면·API 는 제거했다.

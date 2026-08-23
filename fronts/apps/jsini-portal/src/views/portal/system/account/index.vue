@@ -7,6 +7,11 @@ import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { useVbenForm } from '#/adapter/form';
 import { type SystemAccountApi, getAccounts, createAccount, updateAccount, deleteAccount } from '#/api/portal/system/account';
 import { getDeptList } from '#/api/portal/system/dept';
+import {
+  loadMsaUserDirectory,
+  matchAccount,
+  type MsaUserDirectory,
+} from '#/api/portal/system/msa-users';
 import { getRoleList } from '#/api/portal/system/role';
 import { $t } from '#/locales';
 import { useColumns, useSchema } from './data';
@@ -113,6 +118,9 @@ async function fetchDepts() {
   }
 }
 
+/** MSA 사용자 원본. 열에서 조회 실패 사유를 보여 줄 때도 쓴다. */
+const msaDirectory = ref<MsaUserDirectory | null>(null);
+
 // Grid 설정
 const [Grid, gridApi] = useVbenVxeGrid({
   gridOptions: {
@@ -124,7 +132,26 @@ const [Grid, gridApi] = useVbenVxeGrid({
       },
       ajax: {
         query: async () => {
-          return await getAccounts();
+          const accounts = (await getAccounts()) ?? [];
+
+          // 헬프데스크·프로젝트관리에서 사용자 목록을 읽어 계정과 맞춰 본다.
+          // 두 시스템의 DB 는 건드리지 않는다 — API 로 읽기만 한다.
+          // 한쪽이 죽어 있어도 계정 목록 자체는 그대로 뜬다.
+          try {
+            msaDirectory.value = await loadMsaUserDirectory();
+          } catch {
+            msaDirectory.value = null;
+          }
+
+          const dir = msaDirectory.value;
+          const rows = accounts.map((row) => ({
+            ...row,
+            msa: dir ? matchAccount(row, dir) : undefined,
+          }));
+
+          // vxe 그리드의 프록시는 페이징을 쓸 때 `result` / `page.total` 을 읽는다.
+          // 배열을 그대로 돌려주면 `result` 가 없어 0 건으로 표시된다.
+          return { page: { total: rows.length }, result: rows };
         },
       },
     },
@@ -137,6 +164,14 @@ function onCreate() {
 
 function onEdit(row: any) {
   accountModalApi.setData(row).open();
+}
+
+/** 대조된 MSA 사용자에 마우스를 올렸을 때 보여 줄 상세 */
+function msaTitle(u?: { belongTo?: string; email?: string; loginId?: string }) {
+  if (!u) return '';
+  return [u.loginId && `아이디 ${u.loginId}`, u.email, u.belongTo]
+    .filter(Boolean)
+    .join(' · ');
 }
 
 const getPopupContainer = () => document.body;
@@ -223,6 +258,51 @@ onMounted(() => {
           status="error"
           text="비활성화"
         />
+      </template>
+
+      <!--
+        MSA 사용자 대조.
+        '연결됨' 은 관리자가 연결 테이블에 직접 이어 둔 것이고,
+        '추정' 은 로그인 아이디·이메일이 같아 그렇게 보이는 것이다.
+        같은 아이디를 쓰는 다른 사람일 수 있어 구분해서 보여 준다.
+      -->
+      <template #msa-helpdesk="{ row }">
+        <span
+          v-if="msaDirectory?.helpdesk.error"
+          class="text-xs text-muted-foreground"
+          :title="msaDirectory.helpdesk.error"
+        >
+          확인 불가
+        </span>
+        <div v-else-if="row.msa?.helpdesk" class="flex items-center gap-1">
+          <Tag :color="row.msa.helpdeskLinked ? 'success' : 'default'">
+            {{ row.msa.helpdeskLinked ? '연결됨' : '추정' }}
+          </Tag>
+          <span class="truncate text-xs" :title="msaTitle(row.msa.helpdesk)">
+            {{ row.msa.helpdesk.name }}
+            <span v-if="row.msa.helpdesk.kind" class="text-muted-foreground">
+              ({{ row.msa.helpdesk.kind }})
+            </span>
+          </span>
+        </div>
+        <span v-else class="text-xs text-muted-foreground">—</span>
+      </template>
+
+      <template #msa-projmng="{ row }">
+        <span
+          v-if="msaDirectory?.projmng.error"
+          class="text-xs text-muted-foreground"
+          :title="msaDirectory.projmng.error"
+        >
+          확인 불가
+        </span>
+        <div v-else-if="row.msa?.projmng" class="flex items-center gap-1">
+          <Tag>추정</Tag>
+          <span class="truncate text-xs" :title="msaTitle(row.msa.projmng)">
+            {{ row.msa.projmng.name }}
+          </span>
+        </div>
+        <span v-else class="text-xs text-muted-foreground">—</span>
       </template>
 
       <template #action="{ row }">

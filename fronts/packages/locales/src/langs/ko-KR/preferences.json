@@ -197,5 +197,6 @@
     "sidebarToggle": "사이드바 전환 사용",
     "lockScreen": "화면 잠금 사용",
     "refresh": "새로고침 사용"
-  }
+  },
+  "fontFamily": "기본 글꼴"
 }

@@ -20,3 +20,6 @@ Migrations/
 
 # packaging/build_deb.sh 가 만드는 배포 산출물 (.deb / .tar.gz)
 dist/
+
+# 서비스 공통 시크릿 (템플릿은 secrets.env.example 로 추적)
+scripts/secrets.env

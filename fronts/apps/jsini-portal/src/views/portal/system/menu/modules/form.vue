@@ -235,6 +235,23 @@ const schema: VbenFormSchema[] = [
     component: 'ApiTreeSelect',
     componentProps: {
       api: getMenuList,
+      // getMenuList 응답은 { result: [...중첩 트리...], page } 형태로 온다.
+      // ApiComponent 는 배열이 아니면 목록을 찾지 못하므로(빈 트리 → 상위메뉴 미표시),
+      // 여기서 result 를 꺼내 배열로 돌려준다. 동시에 meta.title 이 번역 키인 노드는
+      // 미리 번역해, 선택된 상위메뉴 라벨이 키(system.title)가 아니라 실제 이름으로 보이게 한다.
+      afterFetch: (res: any) => {
+        const list = Array.isArray(res) ? res : (res?.result ?? []);
+        const translate = (nodes: any[]): any[] =>
+          nodes.map((node) => ({
+            ...node,
+            meta: {
+              ...node.meta,
+              title: node.meta?.title ? $t(node.meta.title) : node.name,
+            },
+            children: node.children ? translate(node.children) : undefined,
+          }));
+        return translate(list);
+      },
       class: 'w-full',
       filterTreeNode(input: string, node: Recordable<any>) {
         if (!input || input.length === 0) {

@@ -70,7 +70,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <Page auto-content-height>
+  <Page auto-content-height content-class="page-fill-last">
     <!-- 검색 영역 -->
     <div class="mb-4 flex flex-wrap items-center justify-between bg-card p-4 rounded border gap-4">
       <div class="flex items-center gap-4 flex-wrap">

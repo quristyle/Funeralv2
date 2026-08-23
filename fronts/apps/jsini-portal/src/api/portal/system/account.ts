@@ -19,10 +19,17 @@ export namespace SystemAccountApi {
 /**
  * 계정(사용자) 목록 조회
  */
-export async function getAccounts() {
-   var aaa = await requestClient.get<SystemAccountApi.Account[]>('/auth/system/account/list');
-console.log('aaaaaaaaaaaaaaaaaaaa', aaa);
-   return aaa;
+export async function getAccounts(): Promise<SystemAccountApi.Account[]> {
+  // AuthServer 의 응답 필터는 목록을 `{ result: [...], page: { total } }` 로 감싼다.
+  // requestClient 는 봉투의 `data` 까지만 벗기므로 여기서 배열을 꺼내야 한다.
+  // 이걸 하지 않으면 호출부가 객체를 배열로 알고 `.map()` 을 불러 화면이 빈 채로 멈춘다.
+  const res = await requestClient.get<any>('/auth/system/account/list');
+
+  if (Array.isArray(res)) return res;
+  if (Array.isArray(res?.result)) return res.result;
+  if (Array.isArray(res?.data?.result)) return res.data.result;
+  if (Array.isArray(res?.data)) return res.data;
+  return [];
 }
 
 /**

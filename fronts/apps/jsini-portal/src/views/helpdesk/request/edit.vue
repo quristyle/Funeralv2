@@ -30,7 +30,7 @@ import { useHelpdeskStore } from '#/store/helpdesk';
 
 import HelpdeskAccountNotice from '../shared/account-notice.vue';
 import { REQUEST_TYPES, REQUEST_TYPE_OPTIONS } from '../shared/constants';
-import RichTextInput from './modules/rich-text-input.vue';
+import { RichEditor } from '#/components/rich-editor';
 
 /**
  * [요청 등록 · 수정]
@@ -297,9 +297,10 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeyDown));
           </FormItem>
 
           <FormItem label="내용">
-            <RichTextInput
+            <RichEditor
               v-model="form.description"
               :min-height="280"
+              biz-type="helpdesk-request"
               placeholder="내용을 입력하세요. 이미지는 붙여넣기로 바로 넣을 수 있습니다."
             />
           </FormItem>

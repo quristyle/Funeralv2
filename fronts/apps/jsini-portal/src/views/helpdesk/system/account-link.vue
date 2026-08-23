@@ -14,7 +14,6 @@ import {
   Empty,
   Form,
   FormItem,
-  Input,
   message,
   Modal,
   Popconfirm,
@@ -29,6 +28,7 @@ import {
   getAuthLinks,
   saveAuthLink,
 } from '#/api/helpdesk';
+import { getAccounts } from '#/api/portal/system/account';
 import { useHelpdeskStore } from '#/store/helpdesk';
 
 import { formatDateTime } from '../shared/constants';
@@ -48,6 +48,15 @@ const helpdesk = useHelpdeskStore();
 
 const loading = ref(false);
 const links = ref<AuthUserLink[]>([]);
+/**
+ * 포털 계정 목록.
+ *
+ * 예전에는 이 화면이 아이디를 직접 타이핑해서 받았다. 오타가 나면 아무 데도 연결되지 않는
+ * 매핑이 조용히 만들어지고, 그 계정으로 로그인해도 헬프데스크 데이터가 비어 보였다.
+ * 실재하는 계정 중에서 고르게 바꾼다.
+ */
+const accounts = ref<any[]>([]);
+const accountsError = ref('');
 const modalOpen = ref(false);
 const saving = ref(false);
 
@@ -62,7 +71,7 @@ const form = reactive<{
 });
 
 const columns = [
-  { dataIndex: 'authUserId', key: 'authUserId', title: 'funeralv2 계정' },
+  { dataIndex: 'authUserId', key: 'authUserId', title: 'JSini 포털 계정' },
   { dataIndex: 'userType', key: 'userType', title: '구분', width: 100 },
   { dataIndex: 'userName', key: 'userName', title: '헬프데스크 사용자' },
   {
@@ -74,6 +83,23 @@ const columns = [
   { dataIndex: 'createdAt', key: 'createdAt', title: '연결일', width: 160 },
   { key: 'action', title: '', width: 80 },
 ];
+
+/** 이미 연결된 포털 계정. 목록에 표시해 중복 연결을 눈으로 막는다. */
+const linkedAuthUserIds = computed(
+  () => new Set(links.value.map((l) => l.authUserId)),
+);
+
+/** 연결할 포털 계정 선택 목록 */
+const accountOptions = computed(() =>
+  accounts.value.map((a) => {
+    const id = String(a.loginId ?? a.username ?? a.userId ?? '');
+    const name = String(a.userName ?? a.realName ?? '');
+    return {
+      label: `${id}${name ? ` — ${name}` : ''}${linkedAuthUserIds.value.has(id) ? ' (연결됨)' : ''}`,
+      value: id,
+    };
+  }),
+);
 
 /** 선택한 구분에 따라 담당자 목록 또는 고객 목록을 보여준다. */
 const userOptions = computed(() =>
@@ -97,6 +123,18 @@ async function loadData() {
   }
 }
 
+/** 포털 계정 목록. 실패해도 화면은 뜨게 두고 안내만 남긴다. */
+async function loadAccounts() {
+  try {
+    accounts.value = (await getAccounts()) ?? [];
+    accountsError.value = '';
+  } catch {
+    accounts.value = [];
+    accountsError.value =
+      '포털 계정 목록을 불러오지 못했습니다. 계정 관리 권한이 필요할 수 있습니다.';
+  }
+}
+
 function openCreate() {
   form.authUserId = '';
   form.userType = 'admin';
@@ -106,7 +144,7 @@ function openCreate() {
 
 async function onSave() {
   if (!form.authUserId.trim()) {
-    message.warning('funeralv2 계정 아이디를 입력하세요.');
+    message.warning('연결할 JSini 포털 계정을 선택하세요.');
     return;
   }
   if (!form.helpdeskUserId) {
@@ -143,6 +181,7 @@ onMounted(async () => {
     helpdesk.loadIdentity(),
     helpdesk.loadOrganizations(),
     loadData(),
+    loadAccounts(),
   ]);
 });
 </script>
@@ -153,8 +192,8 @@ onMounted(async () => {
       class="mb-3"
       show-icon
       type="info"
-      message="funeralv2 계정과 헬프데스크 사용자 연결"
-      description="헬프데스크의 기존 데이터(요청 작성자·담당자·댓글)는 헬프데스크 내부 계정 ID를 참조합니다. funeralv2 계정으로 로그인한 사용자가 그 데이터의 주인으로 인식되려면 이 화면에서 두 계정을 연결해야 합니다."
+      message="JSini 포털 계정과 헬프데스크 사용자 연결"
+      description="헬프데스크의 기존 데이터(요청 작성자·담당자·댓글)는 헬프데스크 내부 계정 ID를 참조합니다. JSini 포털 계정으로 로그인한 사용자가 그 데이터의 주인으로 인식되려면 이 화면에서 두 계정을 연결해야 합니다."
     />
 
     <Card class="mb-3" size="small" title="내 연결 상태">
@@ -227,11 +266,17 @@ onMounted(async () => {
       @ok="onSave"
     >
       <Form layout="vertical">
-        <FormItem label="funeralv2 계정 아이디" required>
-          <Input
+        <FormItem label="JSini 포털 계정" required>
+          <Select
             v-model:value="form.authUserId"
-            placeholder="예: quristyle (scom.accounts 의 user_id)"
+            :options="accountOptions"
+            option-filter-prop="label"
+            placeholder="연결할 포털 계정을 선택하세요"
+            show-search
           />
+          <div v-if="accountsError" class="mt-1 text-xs text-warning">
+            {{ accountsError }}
+          </div>
         </FormItem>
         <FormItem label="구분">
           <Select

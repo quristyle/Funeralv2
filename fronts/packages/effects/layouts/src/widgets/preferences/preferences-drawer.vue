@@ -43,6 +43,7 @@ import {
   ColorMode,
   Content,
   Copyright,
+  FontFamily,
   FontSize,
   Footer,
   General,
@@ -63,6 +64,7 @@ const message = globalShareState.getMessage();
 
 const appLocale = defineModel<SupportedLanguagesType>('appLocale');
 const appDynamicTitle = defineModel<boolean>('appDynamicTitle');
+const appFontFamily = defineModel<string>('appFontFamily');
 const appLayout = defineModel<LayoutType>('appLayout');
 const appColorGrayMode = defineModel<boolean>('appColorGrayMode');
 const appColorWeakMode = defineModel<boolean>('appColorWeakMode');
@@ -296,6 +298,7 @@ async function handleReset() {
                 v-model:app-dynamic-title="appDynamicTitle"
                 v-model:app-enable-check-updates="appEnableCheckUpdates"
                 v-model:app-enable-copy-preferences="appEnableCopyPreferences"
+                v-model:app-font-family="appFontFamily"
                 v-model:app-locale="appLocale"
                 v-model:app-watermark="appWatermark"
                 v-model:app-watermark-content="appWatermarkContent"
@@ -329,6 +332,9 @@ async function handleReset() {
             </Block>
             <Block :title="$t('preferences.theme.radius')">
               <Radius v-model="themeRadius" />
+            </Block>
+            <Block :title="$t('preferences.fontFamily')">
+              <FontFamily v-model="appFontFamily" />
             </Block>
             <Block :title="$t('preferences.theme.fontSize')">
               <FontSize v-model="themeFontSize" />

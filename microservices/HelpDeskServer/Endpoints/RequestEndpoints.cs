@@ -464,7 +464,8 @@ public static class RequestEndpoints {
               Title: form["Title"],
               Description: form["Description"],
               CustomerId: int.Parse(form["CustomerId"]),
-              CreatedBy: form["CreatedBy"],
+              // 작성자는 폼 값이 아니라 로그인한 JSini 계정에서 정한다.
+              CreatedBy: httpRequest.HttpContext.AuditUser(),
               MenuContext: form["MenuContext"]
          , MainPhoto: string.Empty // form["MainPhoto"]
           );

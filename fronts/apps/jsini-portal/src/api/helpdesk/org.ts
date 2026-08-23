@@ -123,22 +123,16 @@ export async function deleteAdmin(id: number) {
   return helpdeskClient.delete(`/admins/${id}`);
 }
 
-/** 관리자 비밀번호 변경 */
-export async function changeAdminPassword(payload: {
-  currentPassword?: string;
-  loginId: string;
-  newPassword: string;
-}) {
-  return helpdeskClient.post('/admins/change-password', payload);
-}
+// 관리자 비밀번호 변경 API 는 제거했다.
+// 인증과 비밀번호는 JSini 포털(AuthServer)이 단독으로 관리하고,
+// 헬프데스크 자체 로그인은 꺼져 있다(HelpDeskServer 의 LocalLogin:Enabled, 기본 false).
+// 남아 있던 헬프데스크 비밀번호는 아무 데서도 쓰이지 않는다.
+// 서버의 /admins/change-password 엔드포인트는 JinReception 때문에 남겨 두었다.
 
 /** 비밀번호 찾기 */
-export async function findAdminPassword(payload: {
-  email: string;
-  loginId: string;
-}) {
-  return helpdeskClient.post('/admins/find-password', payload);
-}
+// 비밀번호 찾기 API 는 제거했다 (결정 D9-B).
+// 인증 없이 남의 비밀번호를 초기화할 수 있어 계정 잠금에 악용될 수 있었다.
+// 계정과 인증은 JSini 관리 포털이 일원 관리한다.
 
 // ============================================================
 // 고객

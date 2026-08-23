@@ -46,6 +46,15 @@ public class SystemMenuDto
     public string? AuthCode { get; set; }
 
     /// <summary>
+    /// 메뉴 사용 상태 (0: 비활성, 1: 활성)
+    ///
+    /// 비활성 메뉴는 사이드바 조회 API(<c>/auth/menu/all</c>)가 아예 내려주지 않으므로
+    /// 라우트도 만들어지지 않는다. 메뉴 관리 화면은 비활성 메뉴까지 보여 주고 켜고 끌 수 있어야 하므로
+    /// 이 값이 반드시 함께 나가야 한다.
+    /// </summary>
+    public int Status { get; set; } = 1;
+
+    /// <summary>
     /// 메뉴 메타 데이터 (아이콘, 정렬 등)
     /// </summary>
     public SystemMenuMetaDto Meta { get; set; } = new();
@@ -171,6 +180,14 @@ public class CreateSystemMenuDto
     /// 권한 코드
     /// </summary>
     public string? AuthCode { get; set; }
+
+    /// <summary>
+    /// 메뉴 사용 상태 (0: 비활성, 1: 활성).
+    ///
+    /// <b>일부러 nullable 이다.</b> 값을 싣지 않은 요청은 상태를 건드리지 않는다 —
+    /// 이 필드를 모르는 호출자가 메뉴를 저장했다가 비활성 메뉴를 되살리는 일을 막는다.
+    /// </summary>
+    public int? Status { get; set; }
 
     /// <summary>
     /// 메타 데이터 설정

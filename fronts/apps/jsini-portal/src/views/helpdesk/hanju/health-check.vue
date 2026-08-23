@@ -138,7 +138,7 @@ onBeforeUnmount(stopTimer);
 </script>
 
 <template>
-  <Page auto-content-height>
+  <Page auto-content-height content-class="page-fill-last">
     <Card class="mb-3" size="small">
       <div class="flex flex-wrap items-center justify-between gap-2">
         <Space>

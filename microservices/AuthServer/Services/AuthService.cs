@@ -16,16 +16,19 @@ public class AuthService : IAuthService
 {
     private readonly AppDbContext _db;
     private readonly IConfiguration _config;
+    private readonly ILogger<AuthService>? _logger;
 
     /// <summary>
     /// AuthService 생성자
     /// </summary>
     /// <param name="db">DB 컨텍스트</param>
     /// <param name="config">구성 설정</param>
-    public AuthService(AppDbContext db, IConfiguration config)
+    /// <param name="logger">로거 (선택)</param>
+    public AuthService(AppDbContext db, IConfiguration config, ILogger<AuthService>? logger = null)
     {
         _db = db;
         _config = config;
+        _logger = logger;
     }
 
     /// <summary>
@@ -38,9 +41,26 @@ public class AuthService : IAuthService
             .FirstOrDefaultAsync(a => a.UserId == request.Username);
 
         // 2. 계정이 없거나 비밀번호가 틀린 경우 null 반환
-        if (account == null || account.Password != request.Password)
+        //    저장값이 아직 평문인 계정도 그대로 로그인된다(PasswordHasher 참고).
+        if (account == null || !PasswordHasher.Verify(account.Password, request.Password))
         {
             return null;
+        }
+
+        // 2-1. 평문이거나 옛 기준으로 해시된 값이면 이 기회에 다시 해시해 저장한다.
+        //      로그인에 성공한 지금이 평문 비밀번호를 아는 유일한 시점이다.
+        //      저장에 실패해도 로그인 자체는 막지 않는다.
+        if (PasswordHasher.NeedsUpgrade(account.Password))
+        {
+            try
+            {
+                account.Password = PasswordHasher.Hash(request.Password);
+                await _db.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogWarning(ex, "비밀번호 해시 승격 실패. userId={UserId}", account.UserId);
+            }
         }
 
         // 3. JWT 토큰 발급

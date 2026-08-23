@@ -22,6 +22,7 @@ const defaultPreferences: Preferences = {
     enableCheckUpdates: true,
     enableCopyPreferences: true,
     enablePreferences: true,
+    fontFamily: 'S-CoreDream',
     enableRefreshToken: false,
     enableStickyPreferencesNavigationBar: true,
     isMobile: false,

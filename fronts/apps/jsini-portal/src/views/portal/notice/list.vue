@@ -3,7 +3,7 @@ import type { UploadProps } from 'ant-design-vue';
 
 import type { NoticeApi } from '#/api/portal/notice';
 
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, nextTick, onMounted, reactive, ref } from 'vue';
 
 import { Page } from '@vben/common-ui';
 import { useAccessStore } from '@vben/stores';
@@ -25,10 +25,11 @@ import {
   Switch,
   Table,
   Tag,
-  Textarea,
   Upload,
 } from 'ant-design-vue';
 
+import NoticePopup from '#/components/notice/notice-popup.vue';
+import { RichEditor } from '#/components/rich-editor';
 import {
   createNotice,
   deleteNotice,
@@ -46,6 +47,11 @@ import {
  * 끄면 로그인한 뒤에 뜬다.
  *
  * 첨부파일은 FileServer 에 올리고 여기에는 파일 아이디만 들고 있는다.
+ * 본문에 붙여넣은 이미지도 같은 곳에 올라간다 — 본문에는 경로(`<img src="/api/file/...">`)만 남는다.
+ *
+ * [미리보기]는 사용자에게 실제로 뜨는 공지 팝업(`components/notice/notice-popup.vue`)을
+ * 그대로 띄운다. 미리보기용 화면을 따로 만들면 실제와 어긋나기 때문이다.
+ * 게시 기간이 지났거나 팝업이 꺼진 공지도 확인할 수 있다 — 어떻게 보일지 미리 보는 것이 목적이다.
  */
 
 const accessStore = useAccessStore();
@@ -57,6 +63,9 @@ const keyword = ref('');
 
 const modalOpen = ref(false);
 const editingId = ref<null | string>(null);
+
+/** 미리보기로 띄운 공지. null 이면 팝업이 닫힌다. */
+const previewNotice = ref<NoticeApi.Notice | null>(null);
 
 const form = reactive<{
   content: string;
@@ -89,7 +98,7 @@ const columns = [
   { dataIndex: 'orderNo', key: 'orderNo', title: '순서', width: 70 },
   { key: 'files', title: '첨부', width: 70 },
   { key: 'status', title: '상태', width: 90 },
-  { key: 'action', title: '작업', width: 130 },
+  { key: 'action', title: '작업', width: 190 },
 ];
 
 /** 업로드는 게이트웨이의 파일 서비스로 바로 보낸다. */
@@ -259,6 +268,17 @@ async function onSave() {
   }
 }
 
+/**
+ * 사용자에게 보이는 팝업을 그대로 띄운다.
+ * 같은 공지를 연달아 눌러도 열리도록 먼저 비운 뒤 넣는다.
+ */
+function openPreview(row: NoticeApi.Notice) {
+  previewNotice.value = null;
+  nextTick(() => {
+    previewNotice.value = row;
+  });
+}
+
 async function onDelete(row: NoticeApi.Notice) {
   await deleteNotice(row.id);
   message.success('공지를 삭제했습니다.');
@@ -328,6 +348,13 @@ onMounted(loadData);
           <template v-else-if="column.key === 'action'">
             <Space :size="4">
               <Button
+                size="small"
+                type="link"
+                @click="openPreview(record as NoticeApi.Notice)"
+              >
+                미리보기
+              </Button>
+              <Button
                 v-perm:update
                 size="small"
                 type="link"
@@ -366,10 +393,15 @@ onMounted(loadData);
         </FormItem>
 
         <FormItem
-          extra="HTML 을 그대로 쓸 수 있습니다. 팝업에 그대로 표시됩니다."
+          extra="이미지는 붙여넣기·드래그로 바로 넣을 수 있습니다. 넣는 즉시 파일로 보관되고 본문에는 경로만 들어갑니다."
           label="내용"
         >
-          <Textarea v-model:value="form.content" :rows="8" />
+          <RichEditor
+            v-model="form.content"
+            :min-height="300"
+            biz-type="notice"
+            placeholder="공지 내용을 입력하세요. 이미지는 붙여넣기로 바로 넣을 수 있습니다."
+          />
         </FormItem>
 
         <div class="grid grid-cols-1 gap-x-4 sm:grid-cols-2">
@@ -460,5 +492,7 @@ onMounted(loadData);
         </FormItem>
       </Form>
     </Modal>
+    <!-- 미리보기 — 사용자에게 실제로 뜨는 그 팝업이다 -->
+    <NoticePopup v-model:preview="previewNotice" mode="preview" />
   </Page>
 </template>

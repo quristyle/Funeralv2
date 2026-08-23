@@ -139,7 +139,7 @@ const [Grid, gridApi] = useVbenVxeGrid({
     },
   },
   gridOptions: {
-    columns: useColumns(onActionClick),
+    columns: useColumns(onActionClick, onStatusToggle),
     // 셀을 두 번 눌러 바로 고친다. 예전 그리드 뷰의 동작을 그대로 뒀다.
     editConfig: {
       mode: 'cell',
@@ -147,17 +147,33 @@ const [Grid, gridApi] = useVbenVxeGrid({
       trigger: 'dblclick',
     },
     height: 'auto',
+    // 트리 그리드이므로 페이지네이션은 사용하지 않는다.
+    pagerConfig: { enabled: false },
     proxyConfig: {
+      // 응답은 { result: [...중첩 트리...] } 형태로 온다(다른 목록 화면과 동일).
+      // 목록의 위치를 'result' 로 명시해, 페이저 유무와 상관없이 안전하게 목록을 꺼낸다.
+      // (이전에는 query 에서 배열만 반환해 vxe 가 result 를 찾지 못하고 0 행이 되었다.)
+      response: { list: 'result' },
       ajax: {
         query: async () => {
-          // 서버가 주는 중첩 트리를 그대로 쓴다(vxe 의 childrenField).
           const tree = getMenuItems(await getMenuList());
-          captureOrderBaseline(flatten(tree));
-          return tree;
+          // 드래그 전 기준선(부모·형제 순번)을 중첩 트리에서 위치 기반으로 기록한다.
+          captureOrderBaseline(tree);
+          // treeConfig.transform=true 는 "평면 데이터"를 받아 pid 로 트리를 조립한다.
+          // (vxe 의 행 드래그는 transform=true 에서만 실제 이동이 반영된다.)
+          // 모든 노드를 평면으로 펼치고, 각 노드가 들고 있던 children 은 제거한다.
+          const flat = flatten(tree).map((node) => {
+            const { children: _children, ...rest } = node as any;
+            return rest as SystemMenuApi.SystemMenu;
+          });
+          return { result: flat };
         },
       },
     },
     rowConfig: {
+      // 행 드래그의 마스터 스위치. 이 값이 없으면 dragSort 컬럼과 rowDragConfig 가
+      // 있어도 vxe 가 드래그 핸들·이벤트를 전혀 연결하지 않아 드래그가 동작하지 않는다.
+      drag: true,
       isHover: true,
       keyField: 'id',
     },
@@ -174,8 +190,10 @@ const [Grid, gridApi] = useVbenVxeGrid({
       expandAll: true,
       parentField: 'pid',
       rowField: 'id',
-      // 서버가 이미 중첩 트리로 주므로 vxe 가 다시 조립하지 않는다.
-      transform: false,
+      // 평면 데이터를 pid 로 트리로 조립한다.
+      // vxe 의 행 드래그(순서·부모 변경)와 드롭 위치 안내선은 transform=true 에서만
+      // 실제 데이터에 반영된다(transform=false 이면 드롭이 무시된다).
+      transform: true,
     },
   } as VxeTableGridOptions,
 });
@@ -186,14 +204,20 @@ const [Grid, gridApi] = useVbenVxeGrid({
  */
 const orderBaseline = new Map<string, { orderNo: number; pid: null | string }>();
 
-function captureOrderBaseline(rows: SystemMenuApi.SystemMenu[]) {
+function captureOrderBaseline(tree: SystemMenuApi.SystemMenu[]) {
   orderBaseline.clear();
-  for (const row of rows) {
-    orderBaseline.set(row.id, {
-      orderNo: row.meta?.order ?? 0,
-      pid: row.pid ?? null,
+  // collectOrderChanges 와 동일하게 "형제 안에서의 위치(0부터)"를 순번으로 삼는다.
+  // meta.order 값이 아니라 위치를 기준으로 맞춰야 드래그 후 오탐(변경으로 오인)이 없다.
+  const walk = (nodes: SystemMenuApi.SystemMenu[], pid: null | string) => {
+    nodes.forEach((node, orderNo) => {
+      orderBaseline.set(node.id, { orderNo, pid: pid ?? null });
+      const children = (node as any).children as
+        | SystemMenuApi.SystemMenu[]
+        | undefined;
+      if (children?.length) walk(children, node.id);
     });
-  }
+  };
+  walk(tree, null);
 }
 
 /**
@@ -244,6 +268,86 @@ function toUpdatePayload(row: SystemMenuApi.SystemMenu) {
     status: row.status,
     type: row.type,
   } as any;
+}
+
+/**
+ * 상태 배지를 눌렀을 때. 그 자리에서 활성 ↔ 비활성을 바꾼다.
+ *
+ * **켤 때는 비활성인 상위 메뉴까지 함께 켠다.** 메뉴 조회 API 는 비활성 메뉴를 아예
+ * 내려주지 않아서, 이 메뉴만 켜면 부모 가지가 끊겨 사이드바에 나타나지 않는다.
+ * 위에서 아래로 순서대로 저장한다.
+ *
+ * 끌 때는 하위 메뉴를 건드리지 않는다. 부모가 꺼지면 그 아래는 트리에서 함께 사라지므로
+ * 굳이 자식까지 꺼서 되돌리기 어렵게 만들 이유가 없다.
+ *
+ * 화면을 먼저 바꾸고 저장은 뒤에서 한다(드래그와 같은 방식).
+ * 실패하면 되돌린 뒤 서버 상태로 다시 맞춘다.
+ */
+async function onStatusToggle(row: SystemMenuApi.SystemMenu) {
+  if ((row as any).__statusSaving) return;
+
+  const next = row.status === 1 ? 0 : 1;
+  // 켜는 경우에만 상위 메뉴를 함께 담는다. 위(먼 조상)부터 저장하도록 역순으로 둔다.
+  const ancestors =
+    next === 1 ? collectInactiveAncestors(row).toReversed() : [];
+  const targets = [...ancestors, row];
+
+  const before = new Map(targets.map((t) => [t.id, t.status]));
+  targets.forEach((t) => {
+    (t as any).__statusSaving = true;
+    t.status = next;
+  });
+
+  try {
+    for (const target of targets) {
+      await updateMenu(target.id, {
+        ...toUpdatePayload(target),
+        status: next,
+      });
+    }
+
+    message.success(
+      ancestors.length > 0
+        ? `상위 메뉴 ${ancestors.length}건을 함께 활성으로 바꿨습니다.`
+        : $t('ui.actionMessage.operationSuccess'),
+    );
+  } catch (error) {
+    console.error(error);
+    // 여러 건을 저장하다 중간에 실패하면 일부만 반영된 상태가 된다.
+    // 화면을 먼저 되돌려 즉시 반응하게 하고, 곧바로 서버 값으로 다시 맞춘다.
+    targets.forEach((t) => {
+      t.status = before.get(t.id) ?? t.status;
+    });
+    message.error($t('ui.actionMessage.operationFailed'));
+    await refresh();
+  } finally {
+    targets.forEach((t) => {
+      (t as any).__statusSaving = false;
+    });
+  }
+}
+
+/** 비활성 상태인 조상들. 가까운 것부터 담는다. 없으면 빈 배열. */
+function collectInactiveAncestors(row: SystemMenuApi.SystemMenu) {
+  const byId = new Map<string, SystemMenuApi.SystemMenu>();
+  const walk = (nodes: any[]) => {
+    nodes.forEach((node) => {
+      byId.set(node.id, node);
+      if (node.children?.length) walk(node.children);
+    });
+  };
+  walk(gridApi.grid?.getTableData()?.fullData ?? []);
+
+  const found: SystemMenuApi.SystemMenu[] = [];
+  const seen = new Set<string>([row.id]);
+  let parent = row.pid ? byId.get(row.pid) : undefined;
+
+  while (parent && !seen.has(parent.id)) {
+    seen.add(parent.id);
+    if (parent.status === 0) found.push(parent);
+    parent = parent.pid ? byId.get(parent.pid) : undefined;
+  }
+  return found;
 }
 
 /** 목록을 다시 받아온다. 저장 실패를 되돌릴 때와 등록/삭제 후에 쓴다. */

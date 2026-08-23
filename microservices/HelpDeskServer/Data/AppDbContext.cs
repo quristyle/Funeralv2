@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using HelpDeskServer.Models;
+using HelpDeskServer.Services;
 using HelpDeskServer.Utilities;
 
 using System.Reflection;
@@ -168,12 +169,14 @@ public class AppDbContext : DbContext {
 
     foreach (var entityEntry in entries) {
       var now = DateTime.UtcNow;
-      var claimsPrincipal = _httpContextAccessor?.HttpContext?.User;
+      var httpContextForAudit = _httpContextAccessor?.HttpContext;
       string user;
 
-      if (claimsPrincipal?.Identity?.IsAuthenticated ?? false) {
-        // 'uid' 클레임을 먼저 찾고, 없으면 'sub'(LoginId)를, 그것도 없으면 "system"을 사용합니다.
-        user = claimsPrincipal.FindFirst("uid")?.Value ?? claimsPrincipal.Identity.Name ?? "system";
+      if (httpContextForAudit?.User?.Identity?.IsAuthenticated ?? false) {
+        // 포털 계정으로 들어온 요청이면 JSini 로그인 아이디를 남긴다.
+        // 예전에는 헬프데스크 내부 숫자 ID('uid')만 남아 나중에 누구인지 알아보기 어려웠다.
+        // 헬프데스크 자체 토큰으로 들어온 요청은 예전과 같이 내부 ID 를 남긴다.
+        user = httpContextForAudit.AuditUser();
       }
       else {
         user = "system"; // 인증되지 않은 요청의 경우

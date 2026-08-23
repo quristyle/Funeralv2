@@ -210,15 +210,15 @@ app.MapCompanyEndpoints();
 app.MapCustomerEndpoints();
 app.MapAdminEndpoints();
 app.MapTeamEndpoints();
-app.MapMenuEndpoints();
-app.MapRoleEndpoints();
+// 헬프데스크 자체 메뉴·역할·권한 엔드포인트(/api/menus, /api/roles)는 제거했다 (결정 Q4).
+// 메뉴와 권한은 JSini 관리 포털이 일원 관리한다 (scom.system_menus / scom.roles / scom.role_menus).
+// jsini.menu · approle · menurole · rolemenupermission 테이블은 그대로 두었다(DB 는 건드리지 않는다).
 app.MapRequestEndpoints();
 app.MapCommentEndpoints();
 app.MapAttachmentEndpoints();
 app.MapDashboardEndpoints();
 app.MapNoticeEndpoints();
 app.MapFileUploadEndpoints();
-app.MapReleaseEndpoints();
 app.MapWbsEndpoints();
 app.MapWbsDiagramEndpoints();
 app.MapProjectEndpoints();
@@ -305,3 +305,7 @@ catch (Exception ex) {
 finally {
   Log.CloseAndFlush();
 }
+
+// (설정 반영을 위한 재기동 트리거)
+
+

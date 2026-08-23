@@ -34,8 +34,14 @@ public class UserInfoDto
     /// <summary>로그인 후 리다이렉트될 기본 홈 경로</summary>
     public string HomePath { get; set; } = "/workspace";
 
-    /// <summary>사용자가 보유한 권한(Role) 목록</summary>
+    /// <summary>사용자가 보유한 권한(Role) 식별자 목록 (ADMINISTRATOR 등)</summary>
     public List<string> Roles { get; set; } = new();
+
+    /// <summary>
+    /// 사용자가 보유한 권한(Role) 표시 이름 목록 (관리자, 시스템관리자 …).
+    /// 화면에 역할을 보여 줄 때 쓴다 — 식별자는 사람이 읽기 어렵다.
+    /// </summary>
+    public List<string> RoleNames { get; set; } = new();
 
     /// <summary>추가 토큰 정보 (필요 시)</summary>
     public string Token { get; set; } = string.Empty;

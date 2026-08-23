@@ -45,7 +45,10 @@ export class ModalApi {
       confirmLoading: false,
       contentClass: '',
       destroyOnClose: true,
-      draggable: false,
+      // [준수사항 3] 팝업은 헤더를 잡고 옮길 수 있어야 한다.
+      // 부품이 이미 드래그를 지원하므로 기본값만 켜 두면 모든 vben 모달에 걸린다.
+      // 전체화면일 때와 헤더가 없을 때는 modal.vue 의 shouldDraggable 이 알아서 끈다.
+      draggable: true,
       footer: true,
       footerClass: '',
       fullscreen: false,

@@ -3,7 +3,7 @@ import { ref } from 'vue';
 
 import { Button, message } from 'ant-design-vue';
 
-import RichTextInput from './rich-text-input.vue';
+import { RichEditor } from '#/components/rich-editor';
 
 /** 댓글 · 답글 입력 폼 */
 withDefaults(
@@ -14,7 +14,7 @@ withDefaults(
 const emit = defineEmits<{ submit: [text: string] }>();
 
 const text = ref('');
-const inputRef = ref<InstanceType<typeof RichTextInput> | null>(null);
+const inputRef = ref<InstanceType<typeof RichEditor> | null>(null);
 const submitting = ref(false);
 
 async function onSubmit() {
@@ -35,7 +35,16 @@ async function onSubmit() {
 
 <template>
   <div>
-    <RichTextInput ref="inputRef" v-model="text" :placeholder="placeholder" />
+    <!-- 댓글은 짧게 쓰는 자리라 도구 모음을 한 줄짜리로 줄인다.
+         글자를 선택하면 뜨는 서식 메뉴와 이미지 붙여넣기는 그대로 쓸 수 있다. -->
+    <RichEditor
+      ref="inputRef"
+      v-model="text"
+      :min-height="90"
+      :placeholder="placeholder"
+      biz-type="helpdesk-comment"
+      toolbar="compact"
+    />
     <div class="mt-2 flex justify-end">
       <Button :loading="submitting" size="small" type="primary" @click="onSubmit">
         {{ submitLabel }}

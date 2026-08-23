@@ -1136,7 +1136,9 @@ public class DeceasedService : IDeceasedService
         var fileServerUrl = _configuration["Services:FileServer"] ?? "http://localhost:5350";
         var requestUrl = $"{fileServerUrl.TrimEnd('/')}/group/{groupId}";
 
-        using var client = new HttpClient();
+        // 호출마다 new HttpClient() 를 만들면 소켓이 TIME_WAIT 로 쌓여 결국 고갈된다.
+        // 같은 파일의 GetFamTypeRelationNamesAsync 처럼 팩토리로 풀링한다.
+        var client = _httpClientFactory.CreateClient();
         try
         {
             var response = await client.GetAsync(requestUrl);

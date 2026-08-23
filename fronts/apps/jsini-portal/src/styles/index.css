@@ -1,0 +1,115 @@
+@import './fonts.css';
+
+/**
+ * [글꼴] 시스템 전체 우선순위.
+ *
+ *   1) S-CoreDream — 주력. 한글이 이 글꼴로 나온다
+ *   2) Play        — S-CoreDream 에 없는 글자
+ *   3) 그 아래     — 기존 시스템 글꼴 순서를 그대로 남겼다.
+ *                    두 글꼴 파일을 못 읽는 상황에서도 화면이 깨지지 않게 하는 마지막 방어선이다.
+ *
+ * `--font-family` 는 `@vben-core/design` 이 정의하고 tailwind 의 `--font-sans` 가 그 값을 쓴다.
+ * 패키지 쪽 파일을 고치는 대신 여기서 덮어쓴다 — 이 값은 이 시스템의 선택이지
+ * 프레임워크의 기본값이 아니기 때문이다.
+ */
+:root {
+  --font-family:
+    'S-CoreDream', 'Play', -apple-system, blinkmacsystemfont, 'Segoe UI', roboto,
+    'Helvetica Neue', arial, 'Noto Sans', sans-serif, 'Apple Color Emoji',
+    'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+
+}
+
+/*
+  vxe-table 는 자기 변수를 따로 들고 있다(기본값이 중국어권 글꼴 목록이다).
+  그리드가 화면의 큰 부분을 차지하므로 같은 값을 물려준다.
+
+  `:root:root` 로 적은 이유 — vxe 의 스타일시트가 이 파일보다 나중에 실려서
+  평범한 `:root` 로는 덮이지 않는다. 선택자를 한 번 더 겹쳐 우선순위를 올린다.
+*/
+:root:root {
+  --vxe-ui-font-family: var(--font-family);
+}
+
+/*
+  일부 부품은 CSS 변수를 쓰지 않고 글꼴을 직접 박아 둔다.
+  글꼴을 시스템 전체에서 하나로 맞추는 것이 목적이므로, 그런 자리도 끌어온다.
+  **고정폭이 필요한 곳(코드 편집기·터미널풍 출력)은 건드리지 않는다.**
+*/
+.vxe-table,
+.vxe-grid,
+.vxe-modal--wrapper,
+.vxe-pager {
+  font-family: var(--font-family);
+}
+
+/**
+ * [준수사항 4] 화면 공용 보조 클래스.
+ *
+ * `<Page auto-content-height>` 는 내용 영역의 높이를 화면에 맞춰 고정한다.
+ * 그런데 화면 대부분이 "조회 조건 줄 + 목록" 구조이고, 목록이 `h-full` 로
+ * **영역 전체 높이**를 차지해서 조회 조건 줄 높이만큼 넘친다 — 세로 스크롤이 생긴다.
+ *
+ * 그 화면에서 `content-class="page-fill-last"` 를 주면
+ * 마지막 자식이 '남은 높이를 채우는' 것으로 바뀐다.
+ *
+ * 전역으로 `h-full` 을 재해석하지 않고 **화면마다 켜는 방식**을 택했다.
+ * 전역으로 바꿨더니 안쪽에서 높이를 다시 계산하는 화면들이 망가졌다
+ * (내 댓글 화면이 24,000px 로 늘어났다).
+ */
+.page-fill-last {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.page-fill-last > :last-child {
+  flex: 1 1 0%;
+  min-height: 0;
+  height: auto;
+}
+
+
+/* ============================================================
+   공지 팝업 — 다른 팝업과 디자인이 다르다
+   ============================================================
+
+   닫기(×)와 '오늘 하루 보지 않기' 를 흰 패널 **바깥**에 두고 그 자리는 투명하게 둔다.
+   조작 장치가 내용과 섞이지 않아 공지 자체에 눈이 가게 하려는 것이다.
+
+   이 규칙들은 `<html class="dark">` 를 봐야 해서 화면 부품의 scoped 스타일이 아니라
+   여기(전역)에 둔다. scoped 로 두면 테마 클래스와 스코프 속성이 얽혀 적용이 어긋난다.
+   ============================================================ */
+
+/* ant 가 그리는 흰 상자를 투명하게 — 안에서 그린 패널만 보이게 한다 */
+.jsini-notice-modal .ant-modal-content {
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+/*
+  패널.
+
+  밝은 테마에서는 흰 패널과 어두운 가림막의 대비만으로 충분하다.
+  **어두운 테마가 문제다** — 카드색(거의 검정)과 가림막이 둘 다 어두워 경계가 사라져서
+  팝업인지 화면 일부인지 구분이 안 된다.
+
+  그래서 어두운 테마에서는 세 가지를 함께 준다.
+    1) 바닥색을 카드색보다 한 단계 밝게 (떠 있는 면은 더 밝다는 신호)
+    2) 테두리를 밝게
+    3) 위쪽 모서리에 옅은 빛선 — 실제 창처럼 보이게 하는 값싼 장치
+*/
+.jsini-notice-panel {
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  box-shadow: 0 20px 40px -12px rgb(0 0 0 / 45%);
+}
+
+.dark .jsini-notice-panel {
+  background: color-mix(in srgb, hsl(var(--card)) 84%, #ffffff 16%);
+  border-color: rgb(255 255 255 / 22%);
+  box-shadow:
+    0 24px 56px -12px rgb(0 0 0 / 80%),
+    inset 0 1px 0 0 rgb(255 255 255 / 10%);
+}

@@ -46,8 +46,10 @@ public static class AuthLinkEndpoints {
     // ClaimsPrincipal 로 받는다. HttpContext 를 유일한 매개변수로 쓰면 ASP.NET Core 가 핸들러를
     // RequestDelegate 로 간주해 반환한 IResult 를 버리고 빈 200 을 내보낸다.
     /// <summary>현재 토큰이 어떤 헬프데스크 계정으로 해석되는지 돌려준다. 연결 상태 점검용.</summary>
-    group.MapGet("/me", (ClaimsPrincipal principal) => ApiResponseBuilder.CreateAsync(async () => {
+    group.MapGet("/me", (ClaimsPrincipal principal, HttpContext http) => ApiResponseBuilder.CreateAsync(async () => {
       await Task.CompletedTask;
+
+      var jsini = http.GetJsiniUser();
 
       var uid = principal.FindFirst("uid")?.Value;
       if (string.IsNullOrEmpty(uid)) {
@@ -57,8 +59,14 @@ public static class AuthLinkEndpoints {
       return new {
         helpdeskUserId = int.Parse(uid),
         loginType = principal.FindFirst("login_type")?.Value,
-        userName = principal.FindFirst("helpdesk_user_name")?.Value,
+        // 표시 이름은 JSini 계정을 우선한다. 헬프데스크 레코드의 이름은 참고용으로 함께 준다.
+        userName = jsini?.UserName ?? principal.FindFirst("helpdesk_user_name")?.Value,
+        helpdeskUserName = principal.FindFirst("helpdesk_user_name")?.Value,
         companyId = principal.FindFirst("company_id")?.Value,
+        jsiniUserId = jsini?.UserId,
+        jsiniUserName = jsini?.UserName,
+        jsiniEmail = jsini?.Email,
+        jsiniRoles = jsini?.Roles ?? new List<string>(),
       };
     }));
 
@@ -87,7 +95,7 @@ public static class AuthLinkEndpoints {
           link.UserType = userType;
           link.HelpdeskUserId = dto.HelpdeskUserId;
           link.CreatedAt = DateTime.UtcNow;
-          link.CreatedBy = http.User.FindFirst("uid")?.Value ?? "system";
+          link.CreatedBy = http.AuditUser();
 
           await db.SaveChangesAsync();
           linkService.InvalidateCache(dto.AuthUserId);

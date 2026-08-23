@@ -3,12 +3,23 @@ using AIAgentServer.Services;
 using JSini.Shared.Infrastructure.Middleware;
 
 using System.Reflection;
+using Serilog;
 using Spectre.Console;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // 로컬 개별 설정을 위한 appsettings.Local.json 추가 (Git 제외)
 builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: true);
+
+// ============================================================
+// Serilog (로깅)
+// ============================================================
+// 다른 서비스와 로그 형식을 맞춘다. 장애를 쫓을 때 모양이 제각각이면 시간이 배로 든다.
+Log.Logger = new LoggerConfiguration()
+    .ReadFrom.Configuration(builder.Configuration)
+    .CreateLogger();
+
+builder.Host.UseSerilog();
 
 // Add services to the container.
 builder.Services.AddEndpointsApiExplorer();
@@ -33,6 +44,10 @@ builder.Services.AddCors(options =>
 builder.Services.AddHealthChecks();
 
 var app = builder.Build();
+
+// 요청 한 줄 로그. 다른 서비스와 같은 형식으로 남긴다.
+app.UseSerilogRequestLogging();
+
 // 헬스체크 엔드포인트. 프로세스가 요청을 처리할 수 있는 상태인지만 보고한다.
 app.MapHealthChecks("/health").AllowAnonymous();
 

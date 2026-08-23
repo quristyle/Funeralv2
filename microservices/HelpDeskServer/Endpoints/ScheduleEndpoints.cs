@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using HelpDeskServer.Data;
+using HelpDeskServer.Services;
 using HelpDeskServer.Models;
 using Microsoft.AspNetCore.Mvc;
 
@@ -45,13 +46,16 @@ public static class ScheduleEndpoints
         .WithName("GetScheduleById");
 
         // 신규 등록
-        group.MapPost("/", async (Schedule schedule, AppDbContext db) =>
+        group.MapPost("/", async (Schedule schedule, AppDbContext db, HttpContext http) =>
         {
             if (schedule.Id is null || schedule.Id == Guid.Empty)
             {
                 schedule.Id = Guid.NewGuid();
             }
-            
+
+            // 작성자는 요청 본문이 아니라 로그인한 JSini 계정에서 정한다.
+            // 본문 값을 그대로 믿으면 남의 이름으로 일정을 만들 수 있다.
+            schedule.CreatedBy = http.AuditUser();
             schedule.CreatedAt = DateTime.UtcNow;
             schedule.UpdatedAt = DateTime.UtcNow;
             
@@ -77,7 +81,7 @@ public static class ScheduleEndpoints
             schedule.CompanyId = inputSchedule.CompanyId;
             schedule.IsCompleted = inputSchedule.IsCompleted;
             schedule.CompletedDate = inputSchedule.CompletedDate;
-            schedule.CreatedBy = inputSchedule.CreatedBy;
+            // 작성자는 처음 만든 사람으로 고정한다. 수정 요청이 덮어쓰지 못한다.
             schedule.UpdatedAt = DateTime.UtcNow;
 
             await db.SaveChangesAsync();

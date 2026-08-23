@@ -1,22 +1,62 @@
-# Funeralv2 시스템 전체 개요 및 프로젝트 관계
+# JSini 관리 포털 — 전체 개요 및 프로젝트 관계
 
-> 작성일: 2026-08-14
+> 최초 작성: 2026-08-14 · 최종 갱신: 2026-08-22
 > 대상 저장소: `/home/quri/Funeralv2`
+
+> **[갱신 안내]** 이 시스템의 이름은 **JSini 관리 포털**이다.
+> 예전 문서는 저장소 이름을 따라 "Funeralv2 시스템"으로 적었는데,
+> 장례식장(funeralv2)은 포털에 붙은 **여러 MSA 중 하나**다.
+> 최근 대규모 변경 내용은 다음 문서를 함께 볼 것.
+>
+> - [10-jsini-portal-unification.md](10-jsini-portal-unification.md) — 이름·폴더 정리, 공통 권한 통합
+> - [11-msa-improvement-backlog.md](11-msa-improvement-backlog.md) — MSA 구성 점검과 개선 백로그
+> - [12-decisions-pending.md](12-decisions-pending.md) — 결정이 필요한 항목
+> - [13-projmng-migration.md](13-projmng-migration.md) — 프로젝트관리(Blazor WASM) 이식
 
 ## 1. 시스템 개요
 
-Funeralv2는 **장례식장 운영 관리 및 디스플레이(사이니지) 시스템**이다. 관리자용 웹 콘솔, 장례식장 내 화면에 고인/빈소 정보를 실시간 표출하는 플레이어, 그리고 이를 뒷받침하는 .NET 마이크로서비스 백엔드로 구성된다.
+**JSini 관리 포털**은 여러 업무 시스템(MSA)을 하나의 관리 화면 아래 모으는 포털이다.
+**인증과 권한은 포털이 한 곳에서 관리**하고, 각 MSA 는 자기 고유 업무만 담당한다.
 
-전체는 4개 프로젝트(폴더)로 구성된다. 사용자가 지칭한 이름과 실제 폴더명은 다음과 같이 대응한다.
+현재 붙어 있는 업무 시스템은 셋이다.
 
-| 사용자 지칭 | 실제 폴더 | 기술 스택 | 역할 |
-|---|---|---|---|
-| `aipgateway` | `ApiGateway/` | .NET (YARP Reverse Proxy) | API 게이트웨이 / 단일 진입점 |
-| `msa` | `microservices/` | .NET + EF Core + PostgreSQL | 마이크로서비스 백엔드 (Auth, 업무 API, AI, 파일) |
-| `front` | `fronts/` | Vue 3 + Vben Admin (pnpm/turbo 모노레포) | 관리자 웹 프론트엔드 |
-| `funeral_player` | `funeralv2_player/` | Flutter (Dart) | 장례식장 사이니지 플레이어 |
+| 업무 시스템 | 내용 | 담당 서비스 |
+|---|---|---|
+| 장례식장 (funeralv2) | 빈소·고인·장비 관리, 사이니지 표출 | `funeralv2Api` |
+| 헬프데스크 | 요청 접수, WBS, 일정, 리포트 | `HelpDeskServer` |
+| 프로젝트관리 | 프로젝트·WBS·설계(ERD)·DB 도구·소스 분석 | `ProjMngServer` |
 
-> 참고: 루트에는 이 외에도 `funeralv2/`(backend-mock), `AI.md`(코딩 표준), `docs/`(운영/빌드 문서), 실행 스크립트(`backend_run_ubuntu.sh` 등)가 있다.
+포털 자신은 계정·역할·메뉴·권한·공지·배포 도구를 담당한다(`AuthServer`).
+
+전체 폴더 구성이다.
+
+| 폴더 | 기술 스택 | 역할 |
+|---|---|---|
+| `ApiGateway/` | .NET (YARP Reverse Proxy) | **유일한 외부 진입점.** 경로 라우팅 + JWT 검증 |
+| `microservices/` | .NET + EF Core + PostgreSQL | 포털·업무 서비스들 |
+| `microservices/Common/JSini.Shared.*` | .NET 클래스 라이브러리 | 전 서비스 공용 (응답 봉투·엔티티 기반·미들웨어) |
+| `fronts/apps/jsini-portal/` | Vue 3 + Vben Admin | 포털 웹 프론트엔드 |
+| `funeralv2_player/` | Flutter (Dart) | 장례식장 사이니지 플레이어 |
+
+> 참고: 루트에는 이 외에도 `funeralv2/`(backend-mock), `AI.md`(코딩 표준),
+> `docs/`(분석·운영 문서), `scripts/`(스모크 테스트·시크릿 템플릿),
+> 실행 스크립트(`backend_run_ubuntu.sh` 등)가 있다.
+> 솔루션 파일은 `jsini.sln` 이다.
+
+### 프론트엔드 화면 구성
+
+화면은 시스템 경계에 맞춰 세 갈래로 나뉜다.
+
+```
+fronts/apps/jsini-portal/src/views/
+  _core/     vben 프레임워크 (로그인·404·프로필)
+  portal/    포털 공통 — 계정·역할·메뉴·권한·공지·배포
+  funeral/   장례식장 MSA
+  helpdesk/  헬프데스크 MSA
+  projmng/   프로젝트관리 MSA
+```
+
+`api/` 도 같은 기준으로 나뉜다.
 
 ## 2. 아키텍처 관계도
 
@@ -36,15 +76,15 @@ Funeralv2는 **장례식장 운영 관리 및 디스플레이(사이니지) 시�
                               │         │         │        │
               ┌───────────────┘   ┌─────┘    ┌────┘    ┌───┘
               ▼                    ▼          ▼         ▼
-     ┌────────────────┐  ┌────────────────┐ ┌────────┐ ┌──────────────┐ ┌──────────────┐
-     │ AuthServer     │  │ funeralv2Api   │ │FileSvr │ │ AIAgentServer│ │ HelpDeskSvr  │
-     │ :5264          │  │ :5320          │ │ :5350  │ │ :5029        │ │ :5400        │
-     │ JWT 발급/인증  │  │ 업무 API +     │ │파일    │ │ AI 에이전트  │ │ 헬프데스크   │
-     │                │  │ DeviceHub(RT)  │ │업/다운 │ │              │ │ 요청/WBS/일정│
-     └───────┬────────┘  └───────┬────────┘ └───┬────┘ └──────┬───────┘ └──────┬───────┘
-             └───────────────────┴──────────────┴─────────────┴────────────────┘
+     ┌────────────────┐  ┌────────────────┐ ┌────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐
+     │ AuthServer     │  │ funeralv2Api   │ │FileSvr │ │ AIAgentServer│ │ HelpDeskSvr  │ │ ProjMngSvr   │
+     │ :5264          │  │ :5320          │ │ :5350  │ │ :5029        │ │ :5400        │ │ :5450        │
+     │ JWT 발급/인증  │  │ 업무 API +     │ │파일    │ │ AI 에이전트  │ │ 헬프데스크   │ │ 프로젝트관리 │
+     │                │  │ DeviceHub(RT)  │ │업/다운 │ │              │ │ 요청/WBS/일정│ │ 저장프로시저 │
+     └───────┬────────┘  └───────┬────────┘ └───┬────┘ └──────┬───────┘ └──────┬───────┘ └──────┬───────┘
+             └───────────────────┴──────────────┴─────────────┴────────────────┴────────────────┘
                                    │
-                          PostgreSQL (EF Core)
+                          PostgreSQL (EF Core / Dapper)
               microservices/Common/*  (Shared.DTOs / Domain / Infrastructure)
 ```
 
@@ -62,10 +102,92 @@ Funeralv2는 **장례식장 운영 관리 및 디스플레이(사이니지) 시�
 | `/api/file/**` (그 외) | file-cluster | FileServer | 5350 | JWT 필요 |
 | `/api/ai/**` | ai-cluster | AIAgentServer | 5029 | JWT 필요 |
 | `/api/helpdesk/**` | helpdesk-cluster | HelpDeskServer | 5400 | Anonymous(서비스가 자체 검증) |
+| `/api/projmng/**` | projmng-cluster | ProjMngServer | 5450 | JWT 필요 |
 
 - `/api/helpdesk/**` 는 프리픽스를 떼고 다시 `/api` 를 붙여 전달한다(`/api/helpdesk/users/login` → HelpDeskServer 의 `/api/users/login`). HelpDeskServer 는 자체 로그인 토큰(`helpdesk-api`)과 게이트웨이 토큰(`funeralv2-auth`)을 모두 수용한다.
+- `/api/oadr/**` 는 외부 시스템(`nums.hanjucorp.co.kr`)으로 프록시한다. 헬프데스크 리포트 화면이 브라우저 CORS 없이 쓰기 위한 경로다.
 - 게이트웨이 자체 포트: **5265** (`ApiGateway/Properties/launchSettings.json`)
-- 프론트엔드 개발 프록시: `fronts/apps/jsini-portal/vite.config.ts:19` → `http://127.0.0.1:5265`
+- 프론트엔드 개발 프록시: `fronts/apps/jsini-portal/vite.config.ts` → `http://127.0.0.1:5265`
+
+### 네트워크 노출 (2026-08-22 변경)
+
+**외부에 열려 있는 것은 게이트웨이(5265) 하나뿐이다.** 내부 서비스는 전부 루프백에만 바인딩한다.
+
+| 서비스 | 바인딩 |
+|---|---|
+| ApiGateway | `0.0.0.0:5265` — 유일한 외부 창구 |
+| AuthServer | `127.0.0.1:5264` |
+| funeralv2Api | `127.0.0.1:5320` |
+| FileServer | `127.0.0.1:5350` |
+| HelpDeskServer | `127.0.0.1:5400` |
+| ProjMngServer | `127.0.0.1:5450` |
+
+이유가 있다. 내부 서비스들은 신원을 **게이트웨이가 붙여 주는 `X-User-Id` 헤더**로 판단한다.
+게이트웨이는 외부에서 들어온 같은 이름의 헤더를 지우고 JWT 를 검증한 뒤에만 다시 붙이므로 안전하지만,
+서비스 포트가 외부에 열려 있으면 그 검증을 통째로 건너뛸 수 있다.
+실제로 헤더만 위조해 관리자 데이터를 읽을 수 있었고, 그래서 루프백으로 잠갔다.
+
+> **서비스를 다른 장비로 분리하려면** 이 포트를 다시 열어야 하는데,
+> 그때는 반드시 서비스 간 인증(mTLS 또는 공유 시크릿)을 먼저 붙여야 한다.
+> 헤더를 그대로 믿는 구조는 변하지 않았다.
+
+배포·설정 변경 후에는 `./scripts/smoke-test.sh` 로 이 조건을 포함해 한 번에 확인할 수 있다.
+
+### 개발 서버 기동
+
+세 플랫폼 스크립트가 **같은 명령을 받는다.**
+
+| 플랫폼 | 스크립트 |
+|---|---|
+| Linux | `./backend_run_ubuntu.sh` |
+| macOS | `./backend_run_mac.sh` |
+| Windows | `dev.bat` |
+
+서비스별로 골라 재기동할 수 있다. 한 서비스만 지정하면 **그 서비스만 빌드**하므로
+코드 한 곳을 고치고 확인하는 흐름이 빠르다.
+
+```bash
+./backend_run_ubuntu.sh                # 전체 재기동 (중지 → 빌드 → 기동)
+./backend_run_ubuntu.sh auth           # AuthServer 만 재기동
+./backend_run_ubuntu.sh projmng front  # 여러 개 지정
+./backend_run_ubuntu.sh stop helpdesk  # 헬프데스크만 중지
+./backend_run_ubuntu.sh allstop        # 전체 중지
+./backend_run_ubuntu.sh status         # 지금 무엇이 떠 있는지
+./backend_run_ubuntu.sh list           # 서비스 이름 목록
+./backend_run_ubuntu.sh help           # 사용법
+```
+
+| 이름 | 서비스 | 포트 |
+|---|---|---|
+| `gateway` | ApiGateway | 5265 |
+| `auth` | AuthServer | 5264 |
+| `funeral` | funeralv2Api | 5320 |
+| `ai` | AIAgentServer | 5029 |
+| `file` | FileServer | 5350 |
+| `helpdesk` | HelpDeskServer | 5400 |
+| `projmng` | ProjMngServer | 5450 |
+| `front` | 프론트엔드(vite) | 5555 |
+
+서비스를 추가할 때는 스크립트 위쪽의 서비스 표에 한 줄만 더하면 된다
+(`SERVICES` 배열, 윈도우는 `SVC_KEYS` + `SVC_<이름>`) —
+빌드·기동·중지·상태 확인이 모두 그 표를 읽는다.
+
+> **한 서비스만 어떻게 골라 죽이나.** `pkill -f "dotnet watch run"` 은 못 쓴다.
+> 모든 서비스가 똑같은 명령줄을 갖고 있어 구분이 안 되기 때문이다.
+> 플랫폼마다 구분할 수 있는 다른 표식을 쓴다.
+>
+> | 플랫폼 | 찾는 방법 |
+> |---|---|
+> | Linux | `/proc/<pid>/cwd` — 한 서비스의 프로세스 묶음(셸 → dotnet watch → dotnet run → 서비스)이 모두 같은 작업 디렉터리를 갖는다 |
+> | macOS | 같은 원리인데 `/proc` 이 없어 `lsof -d cwd` 로 읽는다 |
+> | Windows | 포트(`netstat -ano`)로 PID 를 찾고, 서비스별 **창 제목**으로 한 번 더 정리한다 |
+>
+> 어느 쪽이든 포트를 잡고 있는 프로세스를 마지막에 한 번 더 확인해 보루를 둔다.
+> 부모(`dotnet watch`)를 먼저 종료해야 자식을 되살리지 않으므로 PID 작은 것부터 보낸다.
+
+> **윈도우만 다른 점.** 기동이 `dotnet run --no-build` 다(리눅스·맥은 `dotnet watch`).
+> 파일 변경 감지를 쓰려면 `dev.bat` 위쪽의 `START_CMD` 한 줄을 바꾸면 된다.
+> 또 배치는 지연확장 때문에 `secrets.env` 값에 든 `!` 가 사라지므로 `^^!` 로 적어야 한다.
 
 ## 4. 프로젝트 간 연동 관계
 
@@ -102,17 +224,40 @@ Funeralv2는 **장례식장 운영 관리 및 디스플레이(사이니지) 시�
 
 4개 분석에서 반복적으로 드러난, 여러 프로젝트에 걸친 최우선 이슈를 통합 정리한다. 상세 근거는 각 개별 문서 참조.
 
-### 🔴 P0 — 보안 치명 (즉시 조치 권장)
+### 🔴 P0 — 보안 치명
 
-1. **비밀번호 평문 저장·비교**: 로그인이 해시 없이 `account.Password != request.Password`로 검증됨 (`microservices/AuthServer/Services/AuthService.cs:39`). → BCrypt/Argon2 해싱 도입.
-2. **리소스 서비스 전면 무인증**: funeralv2Api·FileServer·AIAgentServer가 JWT 패키지를 참조하면서도 인증 미들웨어를 연결하지 않아, 게이트웨이를 우회해 서비스 포트에 직접 접근하면 장비·고인 CRUD, 파일 업로드가 무방비. → 각 서비스에 `UseAuthentication`/`RequireAuthorization` 적용(심층방어).
-3. **시크릿 하드코딩 커밋**: JWT 서명 키(게이트웨이·3개 서비스 동일 문자열), VAPID 개인키, 프론트 localStorage 암호화 키(`VITE_APP_STORE_SECURE_KEY`)가 저장소에 평문 커밋. → 시크릿 매니저/환경변수 이관 + 키 로테이션 + git 이력 정리.
-4. **레이트 리미팅 전무**: 게이트웨이·서비스 어디에도 없음 → 로그인 브루트포스, AI(과금) 남용, 디바이스코드 열거 무방비.
+> 2026-08-22 갱신: 1·2번은 조치했다. 3·4번은 남아 있다.
+> 상세는 [11-msa-improvement-backlog.md](11-msa-improvement-backlog.md) 와
+> [12-decisions-pending.md](12-decisions-pending.md) 참조.
+
+1. ~~**비밀번호 평문 저장·비교**~~ → **조치 완료 (2026-08-22)**
+   PBKDF2(HMAC-SHA256, 600k회) 해시를 도입했다(`Services/PasswordHasher.cs`).
+   **기존 평문 값과 함께 쓸 수 있게 만들어** 도입 시점에 잠기는 계정이 없고,
+   각자 다음 로그인 때 조용히 해시로 승격된다. 비밀번호 변경도 해시로 저장한다.
+   로그인 경로가 둘(`AuthEndpoints`/`AuthService`)이라 양쪽 모두 적용했다.
+
+2. ~~**리소스 서비스 전면 무인증 (게이트웨이 우회)**~~ → **조치 완료 (2026-08-22)**
+   내부 서비스를 루프백에만 바인딩해 게이트웨이 밖에서는 닿지 않게 했다.
+   위 "네트워크 노출" 절 참조. 실제로 헤더 위조로 관리자 데이터를 읽을 수 있던 상태였다.
+   서비스별 `UseAuthentication` 적용(심층방어)은 여전히 권장 사항으로 남는다.
+
+3. **시크릿 하드코딩 커밋** — **남아 있음.** JWT 서명 키(게이트웨이·3개 서비스 동일 문자열),
+   VAPID 개인키가 저장소에 평문. 적용 준비만 해 두었다(`scripts/secrets.env.example`,
+   실행 스크립트가 있으면 환경변수로 실어 준다). 키 교체는 전 사용자 재로그인을 부르므로
+   결정이 필요하다 → **D1**.
+
+4. **레이트 리미팅 전무** — **남아 있음.** 로그인 브루트포스, AI(과금) 남용,
+   디바이스코드 열거가 무방비다. 특히 인증 없이 남의 비밀번호를 초기화할 수 있는
+   경로가 하나 있다 → **D9**.
 
 ### 🟠 P1 — 아키텍처/복원력
 
 5. **하드코딩된 서비스 주소·평문 HTTP**: 게이트웨이 destination이 `http://localhost:*` 고정, 클러스터 간 TLS·HSTS 부재 → `X-User-*` 신뢰 헤더가 평문 전송. 환경별 설정 분리/서비스 디스커버리/내부 TLS 필요.
-6. **복원력 부재**: 게이트웨이 재시도/타임아웃/서킷브레이커·헬스체크 없음, 서비스에 `new HttpClient()` 남용(소켓 고갈), 플레이어 SignalR에 서버 타임아웃/워치독 없음 → always-on 사이니지가 "연결됨" 상태로 이벤트 유실.
+6. **복원력** — **게이트웨이 쪽은 해소됨 (2026-08-22 확인).**
+   클러스터마다 용도에 맞는 `ActivityTimeout`(인증 30초, SignalR 5분, 파일 10분, AI 5분)과
+   능동 헬스체크(15초 간격, 연속 3회 실패 시 제외)가 걸려 있다.
+   `/api/gateway/status` 로 실시간 상태를 볼 수 있고, 확인 시점에 전 서비스 UP 이었다.
+   **남은 것**: 서비스 내부의 `new HttpClient()` 남용(소켓 고갈), 플레이어 SignalR 워치독 부재.
 7. **AI.md 핵심 표준 미준수**: Repository 패턴 의무화에도 전 서비스가 `AppDbContext` 직접 주입, Materialized View 표준 미적용.
 8. **테스트·관측성 0건**: 백엔드 테스트/헬스체크 없음, 상관관계 ID 로깅 없음, 플레이어의 유일한 테스트는 컴파일 불가.
 

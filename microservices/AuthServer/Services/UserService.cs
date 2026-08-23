@@ -42,6 +42,20 @@ public class UserService : IUserService
         var avatar = account.ProfileDetails?.FirstOrDefault(p => p.DetailType == "Avatar")?.Content;
         var avatarGroupId = account.AvatarGroupId;
 
+        // 역할은 실제 배정값을 내려준다.
+        // 예전에는 무조건 "super" 한 개를 만들어 보냈다. 화면 접근 제어가 백엔드 메뉴 기준이라
+        // 당장 티가 나지 않았을 뿐, 이 값을 보고 판단하는 코드가 생기면 전부 관리자로 보인다.
+        var roles = await _db.RoleAccounts
+            .Where(ra => ra.AccountId == account.Id)
+            .Join(_db.Roles.Where(r => r.Status == 1), ra => ra.RoleId, r => r.Id,
+                  (ra, r) => new { r.Id, r.Name })
+            .Distinct()
+            .ToListAsync();
+
+        var roleIds = roles.Select(r => r.Id).ToList();
+        // 표시용 이름. 이름이 비어 있으면 식별자로 대신한다.
+        var roleNames = roles.Select(r => string.IsNullOrWhiteSpace(r.Name) ? r.Id : r.Name).ToList();
+
         var securityPhone = account.ProfileDetails?.FirstOrDefault(p => p.DetailType == "SecurityPhone")?.Content == "true";
         var securityQuestion = account.ProfileDetails?.FirstOrDefault(p => p.DetailType == "SecurityQuestion")?.Content == "true";
         var securityEmail = account.ProfileDetails?.FirstOrDefault(p => p.DetailType == "SecurityEmail")?.Content == "true";
@@ -64,7 +78,8 @@ public class UserService : IUserService
             AvatarGroupId = avatarGroupId,
             Desc = email ?? "등록된 설명이 없습니다.",
             HomePath = homePath ?? "/workspace",
-            Roles = new List<string> { "super" }, // 기본 관리자 권한 부여
+            Roles = roleIds,
+            RoleNames = roleNames,
             Introduction = introduction,
             Phone = phone,
             Email = email,
@@ -517,12 +532,13 @@ public class UserService : IUserService
         if (account == null) return false;
 
         // 이전 비밀번호 검증 (현 보안 구조상 평문 비교)
-        if (account.Password != dto.OldPassword)
+        if (!PasswordHasher.Verify(account.Password, dto.OldPassword))
         {
             return false;
         }
 
-        account.Password = dto.NewPassword;
+        // 새 비밀번호는 항상 해시로 저장한다.
+        account.Password = PasswordHasher.Hash(dto.NewPassword);
         await _db.SaveChangesAsync();
         return true;
     }

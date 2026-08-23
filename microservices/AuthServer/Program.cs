@@ -9,6 +9,7 @@ using System.Text;
 using Spectre.Console;
 using System.Reflection;
 using JSini.Shared.Infrastructure.Middleware;
+using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -16,6 +17,17 @@ var builder = WebApplication.CreateBuilder(args);
 
 // 로컬 개별 설정을 위한 appsettings.Local.json 추가 (Git 제외)
 builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: true);
+
+// ============================================================
+// Serilog (로깅)
+// ============================================================
+// 다른 서비스(funeralv2Api·FileServer·HelpDeskServer)와 로그 형식을 맞춘다.
+// 장애를 쫓을 때 서비스마다 로그 모양이 다르면 시간이 배로 든다.
+Log.Logger = new LoggerConfiguration()
+    .ReadFrom.Configuration(builder.Configuration)
+    .CreateLogger();
+
+builder.Host.UseSerilog();
 
 
 
@@ -68,6 +80,11 @@ builder.Services.AddScoped<IBizSelectConfigService, BizSelectConfigService>();
 builder.Services.AddScoped<IRolePermissionService, RolePermissionService>();
 builder.Services.AddScoped<INoticeService, NoticeService>();
 
+// 배포(릴리즈) — 대상은 설정(Release:Targets)에서 읽는다.
+builder.Services.Configure<AuthServer.DTOs.ReleaseOptions>(
+    builder.Configuration.GetSection("Release"));
+builder.Services.AddScoped<IReleaseService, ReleaseService>();
+
 
 
 // [헬스체크]
@@ -76,6 +93,10 @@ builder.Services.AddScoped<INoticeService, NoticeService>();
 builder.Services.AddHealthChecks();
 
 var app = builder.Build();
+
+// 요청 한 줄 로그. 다른 서비스와 같은 형식으로 남긴다.
+app.UseSerilogRequestLogging();
+
 // 헬스체크 엔드포인트. 프로세스가 요청을 처리할 수 있는 상태인지만 보고한다.
 app.MapHealthChecks("/health").AllowAnonymous();
 
@@ -103,6 +124,7 @@ app.MapCompanyEndpoints();
 app.MapCommonCodeEndpoints();
 app.MapRolePermissionEndpoints();
 app.MapNoticeEndpoints();
+app.MapReleaseEndpoints();
 
 
 string GetServerName()

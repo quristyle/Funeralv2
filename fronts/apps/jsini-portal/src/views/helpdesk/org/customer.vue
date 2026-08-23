@@ -44,7 +44,7 @@ const fields = computed<CrudField[]>(() => [
     required: true,
     type: 'select',
   },
-  { createOnly: true, key: 'password', label: '비밀번호', type: 'password' },
+  // 비밀번호 칸은 없앴다 — 계정과 인증은 JSini 관리 포털이 단독으로 맡는다(결정 Q4).
 ]);
 
 /** 고객 계정 상태 뱃지 색 */

@@ -118,7 +118,7 @@ async function handleSave() {
 </script>
 
 <template>
-  <Page auto-content-height>
+  <Page auto-content-height content-class="page-fill-last">
     <div class="mb-4 flex items-center justify-between bg-card p-4 rounded-lg shadow-sm border border-border">
       <div class="flex items-center gap-4">
         <div class="flex items-center gap-2">

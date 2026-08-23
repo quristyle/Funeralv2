@@ -1,0 +1,6 @@
+{
+  "//": "이 파일을 appsettings.Local.json 으로 복사하고 값을 채운다. Local 파일은 .gitignore 대상이다.",
+  "ConnectionStrings": {
+    "jsini": "Host=DB호스트;Port=5432;Database=DB이름;Username=계정;Password=비밀번호;SearchPath=projmng"
+  }
+}

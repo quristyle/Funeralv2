@@ -7,6 +7,7 @@ import { preferences } from '@vben/preferences';
 import { initStores } from '@vben/stores';
 import '@vben/styles';
 import '@vben/styles/antd';
+import './styles/index.css';
 
 import { useTitle } from '@vueuse/core';
 
@@ -16,9 +17,14 @@ import { router } from '#/router';
 import { initComponentAdapter } from './adapter/component';
 import { initSetupVbenForm, useVbenForm } from './adapter/form';
 import App from './app.vue';
+import { setupDraggableModal } from './plugins/draggable-modal';
 import { initTimezone } from './timezone-init';
 
 async function bootstrap(namespace: string) {
+  // [준수사항 3] ant 모달을 헤더로 끌어 옮길 수 있게 만든다.
+  // vben 모달은 부품 기본값(draggable)으로 이미 걸려 있다.
+  setupDraggableModal();
+
   // 컴포넌트 어댑터 초기화
   await initComponentAdapter();
 

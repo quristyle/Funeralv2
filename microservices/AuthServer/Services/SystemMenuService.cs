@@ -51,6 +51,9 @@ public class SystemMenuService : ISystemMenuService
                 Redirect = m.Redirect,
                 Type = m.Type,
                 AuthCode = m.AuthCode,
+                // 이 한 줄이 빠져 있어서 메뉴 관리 화면이 상태를 받지 못했다.
+                // 폼의 스위치는 기본값 1(활성)을 들고 있었으므로 비활성 메뉴도 '활성'으로 보였다.
+                Status = m.Status,
                 Meta = new SystemMenuMetaDto
                 {
                     Title = m.Title,
@@ -170,6 +173,8 @@ public class SystemMenuService : ISystemMenuService
             Redirect = request.Redirect,
             Type = request.Type,
             AuthCode = request.AuthCode,
+            // 안 보내면 엔티티 기본값(활성)을 쓴다.
+            Status = request.Status ?? 1,
             Title = request.Meta.Title,
             Icon = request.Meta.Icon,
             OrderNo = request.Meta.Order,
@@ -208,6 +213,8 @@ public class SystemMenuService : ISystemMenuService
         menu.Redirect = request.Redirect;
         menu.Type = request.Type;
         menu.AuthCode = request.AuthCode;
+        // 값을 실어 보낸 요청만 상태를 바꾼다. 안 보낸 요청은 지금 상태를 그대로 둔다.
+        if (request.Status.HasValue) menu.Status = request.Status.Value;
         menu.Title = request.Meta.Title;
         menu.Icon = request.Meta.Icon;
         menu.OrderNo = request.Meta.Order;

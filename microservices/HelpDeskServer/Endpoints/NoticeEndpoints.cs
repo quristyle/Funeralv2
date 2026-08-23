@@ -1,4 +1,5 @@
 using HelpDeskServer.Data;
+using HelpDeskServer.Services;
 using HelpDeskServer.Dtos;
 using HelpDeskServer.Models;
 using Microsoft.AspNetCore.Routing;
@@ -47,13 +48,14 @@ public static class NoticeEndpoints
         }));
 
         // 등록
-        group.MapPost("/", (AppDbContext db, NoticeCreateDto dto) => ApiResponseBuilder.CreateAsync(async () =>
+        group.MapPost("/", (AppDbContext db, NoticeCreateDto dto, HttpContext http) => ApiResponseBuilder.CreateAsync(async () =>
         {
             var notice = new Notice
             {
                 Title = dto.Title,
                 Content = dto.Content,
-                CreatedBy = dto.CreatedBy,
+                // 작성자는 로그인한 JSini 계정에서 정한다(요청 본문 값은 쓰지 않는다).
+                CreatedBy = http.AuditUser(),
                 CreatedAt = DateTime.Now
             };
 

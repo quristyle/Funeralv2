@@ -32,7 +32,14 @@ export const overridesPreferences = defineOverridesPreferences({
     // 라이트 모드에서 선택된 메뉴 글자(--menu-item-active-color: hsl(var(--primary)))가
     // 배경과 같은 색이 되어 보이지 않았다.
     builtinType: 'gray',
-    fontSize: 15,
+    // 시스템 기본 글자 크기(px). 프레임워크 기본값은 16 인데 이 포털은 표·그리드가
+    // 많아 한 화면에 들어가는 양을 늘리려고 낮춰 쓴다.
+    //
+    // 이 값은 "저장된 설정이 없을 때"의 기본값이다. 사용자가 환경설정에서 한 번
+    // 바꾸면 그 값이 로컬스토리지(`jsini-portal-web-preferences`)에 남고 그쪽이 우선한다.
+    // 그래서 여기를 고쳐도 이미 쓰던 브라우저에는 바로 반영되지 않는다 —
+    // 환경설정 창의 초기화를 누르거나 로컬스토리지를 비워야 한다.
+    fontSize: 14,
     mode: 'auto',
     radius: '0.25',
   },

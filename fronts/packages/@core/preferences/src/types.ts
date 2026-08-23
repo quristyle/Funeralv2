@@ -58,6 +58,14 @@ interface AppPreferences {
   /** 환경 설정 표시 여부 */
   enablePreferences: boolean;
   /**
+   * 기본 글꼴.
+   *
+   * 값은 글꼴 이름 하나가 아니라 '어떤 글꼴 묶음을 쓸지' 를 고르는 열쇠다.
+   * 실제 글꼴 목록은 앱이 정한다(각 앱의 `src/styles/font.ts`) —
+   * 프레임워크가 특정 글꼴을 알고 있을 이유가 없기 때문이다.
+   */
+  fontFamily: string;
+  /**
    * @ko_KR refreshToken 활성화 여부
    */
   enableRefreshToken: boolean;

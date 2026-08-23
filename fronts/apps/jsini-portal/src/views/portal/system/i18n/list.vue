@@ -125,7 +125,7 @@ function onDelete(row: SystemI18nApi.I18nResource) {
 </script>
 
 <template>
-  <Page auto-content-height>
+  <Page auto-content-height content-class="page-fill-last">
     <FormDrawer @success="onRefresh" />
     <Grid>
       <template #toolbar-tools>

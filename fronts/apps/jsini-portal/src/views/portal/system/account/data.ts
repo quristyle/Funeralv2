@@ -28,6 +28,21 @@ export const useColumns = (): VxeGridProps['columns'] => [
     minWidth: 120,
     slots: { default: 'status-tag' },
   },
+  // ── MSA 사용자 대조 ────────────────────────────────────
+  // 각 MSA 의 API 를 읽어 이 계정이 그쪽에 어떤 사용자로 있는지 보여 준다.
+  // 저장·수정은 하지 않는다. 서비스가 죽어 있으면 '확인 불가' 로 표시된다.
+  {
+    field: 'msaHelpdesk',
+    title: '헬프데스크',
+    minWidth: 170,
+    slots: { default: 'msa-helpdesk' },
+  },
+  {
+    field: 'msaProjMng',
+    title: '프로젝트관리',
+    minWidth: 150,
+    slots: { default: 'msa-projmng' },
+  },
   {
     field: 'action',
     title: $t('common.action'),

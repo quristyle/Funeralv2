@@ -199,7 +199,7 @@ function formatYmdDate(dateStr?: string) {
 </script>
 
 <template>
-  <Page auto-content-height>
+  <Page auto-content-height content-class="page-fill-last">
     <!-- ── 상단 고급 검색 바 ─────────────────────────────────────────── -->
     <div class="mb-4 bg-card p-5 rounded-lg shadow-sm border border-border">
       <Form layout="horizontal" class="space-y-4">

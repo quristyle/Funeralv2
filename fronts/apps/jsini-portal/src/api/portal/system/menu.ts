@@ -148,6 +148,11 @@ export namespace SystemMenuApi {
     pid: string;
     /** 리다이렉트 */
     redirect?: string;
+    /**
+     * 메뉴 사용 상태 (0: 비활성, 1: 활성).
+     * 비활성 메뉴는 사이드바 조회 API 가 내려주지 않아 라우트도 만들어지지 않는다.
+     */
+    status: number;
     /** 메뉴 유형 */
     type: (typeof MenuTypes)[number];
   }

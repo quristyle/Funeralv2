@@ -5,7 +5,7 @@ import { h } from 'vue';
 
 import { IconifyIcon } from '@vben/icons';
 
-import { Button, Popconfirm } from 'ant-design-vue';
+import { Button, Popconfirm, Tag } from 'ant-design-vue';
 
 import { $t } from '#/locales';
 import { can } from '#/utils/permission';
@@ -41,6 +41,11 @@ export function getMenuTypeOptions() {
  */
 export function useColumns(
   onActionClick: OnActionClickFn<SystemMenuApi.SystemMenu>,
+  /**
+   * 상태 배지를 눌렀을 때. 넘기지 않으면 배지는 읽기 전용으로 그려진다.
+   * 수정 권한이 없을 때도 읽기 전용이 된다.
+   */
+  onStatusToggle?: (row: SystemMenuApi.SystemMenu) => void,
 ): VxeTableGridColumns<SystemMenuApi.SystemMenu> {
   return [
     {
@@ -120,11 +125,36 @@ export function useColumns(
       title: $t('system.menu.component'),
     },
     {
-      cellRender: { name: 'CellTag' },
+      align: 'center',
       field: 'status',
       params: { filterList: true },
       title: $t('system.menu.status'),
       width: 90,
+      // CellTag 대신 슬롯으로 그린다. 배지를 눌러 그 자리에서 켜고 끌 수 있어야 하기 때문이다.
+      // 저장 중에는 흐리게 하고 클릭을 막는다(list.vue 가 `__statusSaving` 을 세운다).
+      slots: {
+        default: ({ row }: { row: SystemMenuApi.SystemMenu }) => {
+          const active = row.status === 1;
+          const clickable = Boolean(onStatusToggle) && can('update');
+          const saving = Boolean((row as any).__statusSaving);
+          const label = active ? $t('common.enabled') : $t('common.disabled');
+
+          return h(
+            Tag,
+            {
+              class: clickable && !saving ? 'cursor-pointer select-none' : '',
+              color: active ? 'success' : 'error',
+              onClick:
+                clickable && !saving ? () => onStatusToggle?.(row) : undefined,
+              style: saving ? { opacity: 0.45, pointerEvents: 'none' } : {},
+              title: clickable
+                ? `눌러서 ${active ? $t('common.disabled') : $t('common.enabled')} 으로 바꿉니다`
+                : undefined,
+            },
+            { default: () => label },
+          );
+        },
+      },
     },
     {
       align: 'center',

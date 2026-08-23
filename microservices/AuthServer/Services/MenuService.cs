@@ -90,9 +90,25 @@ public class MenuService : IMenuService
     /// </remarks>
     public async Task<List<MenuPermissionDto>> GetMenuPermissionsAsync(string userId)
     {
+        // 게이트웨이가 넘겨주는 X-User-Id 는 **로그인 아이디**(accounts.user_id)다.
+        // JWT 의 NameIdentifier 에 account.UserId 를 담기 때문이다(AuthEndpoints.cs).
+        // 반면 role_accounts.account_id 는 **계정 키**(accounts.id)를 가리킨다.
+        // 둘은 다른 값이라(예: id=jsini-boss-quristyle / user_id=quristyle)
+        // 로그인 아이디로 바로 조회하면 아무 역할도 찾지 못한다.
+        // 그래서 계정을 먼저 찾아 실제 키로 바꾼 뒤 역할을 조회한다.
+        var accountId = await _context.Accounts
+            .Where(a => !a.IsDeleted && (a.UserId == userId || a.Id == userId))
+            .Select(a => a.Id)
+            .FirstOrDefaultAsync();
+
+        if (string.IsNullOrEmpty(accountId))
+        {
+            return new List<MenuPermissionDto>();
+        }
+
         // 이 사용자가 속한 역할
         var roleIds = await _context.RoleAccounts
-            .Where(ra => ra.AccountId == userId && !ra.IsDeleted)
+            .Where(ra => ra.AccountId == accountId && !ra.IsDeleted)
             .Select(ra => ra.RoleId)
             .Distinct()
             .ToListAsync();

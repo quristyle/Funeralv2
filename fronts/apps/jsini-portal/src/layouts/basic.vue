@@ -19,7 +19,10 @@ import { preferences } from '@vben/preferences';
 import { useAccessStore, useTabbarStore, useUserStore } from '@vben/stores';
 import { openWindow } from '@vben/utils';
 
+import { message } from 'ant-design-vue';
+
 import { $t } from '#/locales';
+import { refreshAccessMenus } from '#/router/access';
 import { useAuthStore } from '#/store';
 import LoginForm from '#/views/_core/authentication/login.vue';
 
@@ -91,6 +94,25 @@ const notifications = ref<NotificationItem[]>([
 ]);
 
 const router = useRouter();
+
+/**
+ * 사이드바의 메뉴 리로드 버튼이 쓸 핸들러.
+ *
+ * 레이아웃(`@vben/layouts`)은 프레임워크 패키지라 앱의 라우트 표나 스토어를
+ * 직접 알지 못한다. 그래서 실제 갱신은 앱이 맡고 레이아웃은 주입받아 부른다
+ * (위 `AI_CHAT_STREAM_API` 와 같은 방식이다).
+ *
+ * 주입하지 않으면 레이아웃이 예전 동작(전체 새로고침)으로 물러난다.
+ */
+provide('MENU_RELOAD_HANDLER', async () => {
+  try {
+    await refreshAccessMenus(router);
+    message.success('메뉴를 다시 읽었습니다.');
+  } catch {
+    message.error('메뉴를 다시 읽지 못했습니다.');
+  }
+});
+
 const userStore = useUserStore();
 const authStore = useAuthStore();
 const accessStore = useAccessStore();

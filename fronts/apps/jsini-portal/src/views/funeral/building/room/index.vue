@@ -173,7 +173,7 @@ async function handleSave() {
 </script>
 
 <template>
-  <Page auto-content-height>
+  <Page auto-content-height content-class="page-fill-last">
     <!-- ── 상단 필터 바 ─────────────────────────────────────────── -->
     <div class="mb-4 flex flex-wrap items-center justify-between gap-4 bg-card p-4 rounded-lg shadow-sm border border-border">
       <div class="flex flex-wrap items-center gap-4">

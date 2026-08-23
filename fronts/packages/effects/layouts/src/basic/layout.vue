@@ -4,7 +4,7 @@ import type { RouteLocationNormalizedLoaded } from 'vue-router';
 
 import type { MenuRecordRaw } from '@vben/types';
 
-import { computed, onMounted, useSlots, watch, ref } from 'vue';
+import { computed, inject, onMounted, useSlots, watch, ref } from 'vue';
 import { useRoute } from 'vue-router';
 
 import { useRefresh } from '@vben/hooks';
@@ -153,6 +153,50 @@ function wrapperMenus(menus: MenuRecordRaw[], deep: boolean = true) {
  * 입력이 느릴(끊길) 수 있음을 고려해 키워드를 debounce(300ms) 처리하여
  * 필터 재계산이 매 키 입력마다 발생하지 않도록 한다.
  * ------------------------------------------------------------------------- */
+/* ---------------------------------------------------------------------------
+ * 메뉴 다시 읽기
+ *
+ * 메뉴는 백엔드가 내려준다(scom.system_menus → /auth/menu/all). 메뉴 관리에서
+ * 메뉴를 고쳐도 이미 떠 있는 화면의 좌측 메뉴는 그대로라, 다시 읽을 방법이 필요하다.
+ *
+ * 갱신은 **앱이 주입해 준 핸들러**가 맡는다. 이 레이아웃은 프레임워크 패키지라
+ * 앱의 라우트 표나 스토어를 직접 알지 못하기 때문이다.
+ * 앱 쪽 구현은 `src/router/access.ts` 의 `refreshAccessMenus()` 이고,
+ * `src/layouts/basic.vue` 에서 이 키로 주입한다.
+ *
+ * 핸들러가 없으면(그 배선을 하지 않은 앱) 예전 동작인 전체 새로고침으로 물러난다.
+ * 결과는 같지만 앱이 처음부터 다시 뜨므로 열린 탭·스크롤·입력 중이던 값이 날아간다.
+ * ------------------------------------------------------------------------- */
+const menuReloading = ref(false);
+
+/** 앱이 주입한 메뉴 갱신 함수. 없으면 전체 새로고침으로 물러난다. */
+const menuReloadHandler = inject<(() => Promise<void>) | null>(
+  'MENU_RELOAD_HANDLER',
+  null,
+);
+
+async function reloadMenus() {
+  if (menuReloading.value) return;
+  menuReloading.value = true;
+
+  if (!menuReloadHandler) {
+    // 접근 상태(isAccessChecked)는 저장되지 않으므로 새로 열면 초기화된다.
+    // 그래서 라우터 가드가 메뉴와 라우트를 처음부터 다시 구성한다.
+    // 아이콘이 한 번 도는 것을 보이게 한 뒤 새로 연다.
+    setTimeout(() => window.location.reload(), 150);
+    return;
+  }
+
+  try {
+    await menuReloadHandler();
+  } finally {
+    // 아이콘이 한 번은 돌아 눌린 것이 보이게 최소 시간을 준다.
+    setTimeout(() => {
+      menuReloading.value = false;
+    }, 300);
+  }
+}
+
 const menuSearchKeyword = ref('');
 // debounce 적용된 실제 검색어 (필터 재계산 트리거)
 const debouncedMenuKeyword = ref('');
@@ -493,12 +537,40 @@ function startResize(e: MouseEvent) {
     </template>
     <!-- 사이드 메뉴 영역 -->
     <template #menu>
+      <!-- 접힌 사이드바에서는 검색창이 숨으므로 리로드 버튼만 따로 보여 준다 -->
+      <div
+        v-if="sidebarCollapsed"
+        class="bg-sidebar sticky top-0 z-20 -mt-2 flex justify-center pb-2 pt-2"
+      >
+        <button
+          :aria-label="$t('common.refresh')"
+          class="text-muted-foreground hover:text-foreground hover:bg-accent flex size-8 items-center justify-center rounded transition-colors"
+          :class="{ 'pointer-events-none opacity-60': menuReloading }"
+          type="button"
+          :title="$t('common.refresh')"
+          @click="reloadMenus"
+        >
+          <svg
+            class="size-4"
+            :class="{ 'animate-spin': menuReloading }"
+            fill="none"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+          >
+            <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+            <path d="M21 3v6h-6" />
+          </svg>
+        </button>
+      </div>
+
       <!-- 메뉴 검색 입력부: 접힌 사이드바에서는 숨김, 스크롤 시 상단 고정 -->
       <div
         v-if="!sidebarCollapsed"
-        class="bg-sidebar sticky top-0 z-20 -mt-2 px-2 pb-2 pt-2"
+        class="bg-sidebar sticky top-0 z-20 -mt-2 flex items-center gap-1 px-2 pb-2 pt-2"
       >
-        <div class="relative">
+        <div class="relative flex-1">
           <svg
             class="text-muted-foreground pointer-events-none absolute left-2 top-1/2 size-4 -translate-y-1/2"
             fill="none"
@@ -534,6 +606,32 @@ function startResize(e: MouseEvent) {
             </svg>
           </button>
         </div>
+
+        <!--
+          메뉴 다시 읽기.
+          메뉴 관리에서 메뉴를 고친 뒤 눌러 좌측 메뉴를 최신 상태로 되돌린다.
+        -->
+        <button
+          :aria-label="$t('common.refresh')"
+          class="text-muted-foreground hover:text-foreground hover:bg-accent flex size-8 shrink-0 items-center justify-center rounded transition-colors"
+          :class="{ 'pointer-events-none opacity-60': menuReloading }"
+          type="button"
+          :title="$t('common.refresh')"
+          @click="reloadMenus"
+        >
+          <svg
+            class="size-4"
+            :class="{ 'animate-spin': menuReloading }"
+            fill="none"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+          >
+            <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+            <path d="M21 3v6h-6" />
+          </svg>
+        </button>
       </div>
       <LayoutMenu
         :key="sidebarMenuKey"

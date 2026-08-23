@@ -145,14 +145,18 @@ export async function sendTestPush(payload: Record<string, any>) {
 // 헬프데스크 자체 메뉴 · 역할 · 권한
 // ============================================================
 //
-// 헬프데스크는 자체 메뉴/역할/권한 테이블(jsini.menu, approle, rolemenupermission)을
-// 갖고 있지만, funeralv2 로 이식하면서 좌측 메뉴와 화면 접근 권한은
-// funeralv2 쪽(scom.system_menus / scom.roles / scom.role_menus)으로 일원화했다.
-// 그래서 이 영역을 다루는 화면과 API 는 두지 않는다.
+// 메뉴·역할·화면 접근 권한은 JSini 관리 포털이 일원 관리한다
+// (scom.system_menus / scom.roles / scom.role_menus).
+// 헬프데스크도 자체 테이블(jsini.menu, approle, rolemenupermission)을 갖고 있지만
+// 포털로 이식하면서 화면과 API 를 모두 걷어냈다.
 //
 // 헬프데스크가 관리하던 권한 항목(조회/등록/수정/삭제, 확장 1~8)은
-// funeralv2 의 role_menus(can_view·can_search·can_create·can_update·can_delete·
-// can_print·can_excel·can_cust1~8)에 모두 대응된다.
+// 포털 role_menus 의 can_view·can_search·can_create·can_update·can_delete·
+// can_print·can_excel·can_cust1~8 에 모두 대응된다.
+//
+// 서버(HelpDeskServer)에는 /api/menus, /api/roles 엔드포인트가 아직 남아 있다.
+// 아직 살아 있는 JinReception 이 쓰고 있을 수 있어 서버 쪽은 건드리지 않았다.
+// JinReception 을 내린 뒤 정리 대상이다.
 
 // ============================================================
 // 사용자 개인 설정

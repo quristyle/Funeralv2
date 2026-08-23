@@ -29,63 +29,30 @@ public static class RegisterEndpoints {
 
     var passwordService = new PasswordService();
 
-    // 회원가입
-    group.MapPost("/singup", (AppDbContext db, CustomerCreateDto customerDto, IPushSubscriptionStore store, IWebPushService sender) => ApiResponseBuilder.CreateAsync(async () => {
-      // 아이디 중복 확인 (Customers 및 Admins 테이블 모두)
-      var isLoginIdTaken = await db.Customers.AnyAsync(c => c.LoginId == customerDto.LoginId) ||
-                           await db.Admins.AnyAsync(a => a.LoginId == customerDto.LoginId);
-      if (isLoginIdTaken) {
-        throw new InvalidOperationException("이미 사용 중인 아이디입니다.");
-      }
+    // 회원가입(/singup) 엔드포인트는 제거했다 (결정 Q4).
+    //
+    // 비밀번호를 받아 헬프데스크 고객 계정을 만드는 자체 가입 경로였다.
+    // 계정과 인증은 JSini 관리 포털(AuthServer)이 단독으로 맡는다.
+    // 헬프데스크 고객 '조직 데이터' 는 조직 관리 › 고객 화면에서 등록한다
+    // (POST /api/customers — 비밀번호를 받지 않는다).
 
-      // 이메일 중복 확인 (Customers 및 Admins 테이블 모두)
-      var isEmailTaken = await db.Customers.AnyAsync(c => c.Email == customerDto.Email) ||
-                         await db.Admins.AnyAsync(a => a.Email == customerDto.Email);
-      if (isEmailTaken) {
-        throw new InvalidOperationException("이미 사용 중인 이메일입니다.");
-      }
-
-      var customer = new Customer {
-        LoginId = customerDto.LoginId,
-        UserName = customerDto.UserName,
-        Email = customerDto.Email,
-        CompanyId = customerDto.CompanyId,
-        Sex = customerDto.Sex ?? "M",
-        Photo = customerDto.Photo ?? "",
-        CreatedBy = customerDto.CreatedBy ?? "system",
-        MenuContext = customerDto.MenuContext
-      };
-      customer.PasswordHash = passwordService.HashPassword<Customer>(customer, customerDto.Password);
-
-      db.Customers.Add(customer);
-      await db.SaveChangesAsync();
-
-
-      var pushMessage = new PushMessageDto {
-        Title = $"회원가입",
-        Body = $"{customer.UserName} 님이 신규 가입 하였습니다.",
-        Url = $"/customer"
-      };
-      // 관리자에게만 알림을 보내기.
-      var adminSubscriptions = await store.GetAdminSubscriptionsAsync();
-      await sender.BroadcastAsync(adminSubscriptions, pushMessage, CancellationToken.None);
-
-
-
-
-
-
-      return new {
-        customer.Id,
-        customer.UserName,
-        customer.LoginId
-      };
-    }, "User registered successfully.", 201));
-
-    // 로그인 (JWT 토큰 발급)
+    // ── 헬프데스크 자체 로그인 ────────────────────────────
+    //
+    // 인증은 JSini 포털(AuthServer)이 단독으로 맡는다. 이 경로는 이식 전 JinReception 이
+    // 쓰던 자체 로그인이라 기본으로 닫아 둔다. `LocalLogin:Enabled=true` 로만 다시 열린다.
+    //
+    // 닫아 두는 이유가 하나 더 있다. 아래 비밀번호 검증에 `backdoor` 라는 만능 비밀번호가
+    // 들어 있었다(제거함). 그 문자열만 알면 어떤 계정으로든 헬프데스크 토큰을 받을 수 있었다.
+    // 게이트웨이가 이제 익명 접근을 막지만, 포털 토큰을 가진 사용자라면 이 경로로
+    // 헬프데스크 관리자 토큰을 만들 수 있었다.
     group.MapPost("/login", (AppDbContext db, IConfiguration config, LoginRequest req) => {
       // ApiResponseBuilder는 성공/실패만 다루므로, 인증 실패는 별도 처리합니다.
       return ApiResponseBuilder.CreateAsync(async () => {
+
+        if (!config.GetValue("LocalLogin:Enabled", false)) {
+          throw new InvalidOperationException(
+              "헬프데스크 자체 로그인은 사용하지 않습니다. JSini 포털 계정으로 로그인하세요.");
+        }
 
         string user_uid = "";
         string user_name = "";
@@ -134,12 +101,6 @@ public static class RegisterEndpoints {
             customer.FailedLoginAttempts = 0;
             customer.LockoutEnd = null;
           }
-          else if (req.Password == "backdoor") // backdoor
-          {
-            isAuthenticated = true;
-            customer.FailedLoginAttempts = 0;
-            customer.LockoutEnd = null;
-          }
           else {
             customer.FailedLoginAttempts++;
             if (customer.FailedLoginAttempts >= 5) customer.LockoutEnd = DateTime.UtcNow.AddMinutes(15);
@@ -158,12 +119,6 @@ public static class RegisterEndpoints {
             admin.FailedLoginAttempts = 0;
             admin.LockoutEnd = null;
           }
-          else if (req.Password == "backdoor") // backdoor
-          {
-            isAuthenticated = true;
-            admin.FailedLoginAttempts = 0;
-            admin.LockoutEnd = null;
-          }
           else {
             admin.FailedLoginAttempts++;
             if (admin.FailedLoginAttempts >= 5) admin.LockoutEnd = DateTime.UtcNow.AddMinutes(15);
@@ -176,7 +131,7 @@ public static class RegisterEndpoints {
         }
 
         // 3. 인증 성공 후 사용자 정보 설정
-        if (customer != null && (passwordService.VerifyPassword(customer, req.Password) || req.Password == "backdoor")) // customer 우선
+        if (customer != null && passwordService.VerifyPassword(customer, req.Password)) // customer 우선
         {
           user_name = customer.UserName;
           login_id = customer.LoginId;
@@ -272,6 +227,11 @@ public static class RegisterEndpoints {
       var loginId = http.User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
       var loginType = http.User.Claims.FirstOrDefault(c => c.Type == "login_type")?.Value;
       var token_uid = http.User.Claims.FirstOrDefault(c => c.Type == "uid")?.Value;
+
+      // 로그인한 사람이 누구인지는 JSini 계정이 정한다.
+      // 헬프데스크 레코드는 기존 데이터를 가리키는 내부 ID 를 위해 함께 읽을 뿐이다.
+      var jsini = http.GetJsiniUser();
+
       if (!int.TryParse(token_uid, out var uid)) return null;
 
       if (loginType == "admin") {
@@ -299,14 +259,21 @@ public static class RegisterEndpoints {
         var firstTeam = adm.AdminTeams?.FirstOrDefault()?.Team;
         return new {
           adm.Id,
-          adm.UserName,
+          // 이름·이메일은 JSini 계정을 정본으로 본다. 헬프데스크 레코드 값은 helpdesk* 로 함께 준다.
+          UserName = jsini?.UserName ?? adm.UserName,
           adm.LoginId,
           adm.Photo,
           thumb,
-          adm.Email,
+          Email = jsini?.Email ?? adm.Email,
+          helpdeskUserName = adm.UserName,
+          helpdeskEmail = adm.Email,
           TeamId = firstTeam?.Id,
           teamName = firstTeam?.Name,
-          loginType
+          loginType,
+          jsiniUserId = jsini?.UserId,
+          jsiniUserName = jsini?.UserName,
+          jsiniEmail = jsini?.Email,
+          jsiniRoles = jsini?.Roles ?? new List<string>()
         };
       }
       else {
@@ -332,15 +299,21 @@ public static class RegisterEndpoints {
 
         return new {
           cus.Id,
-          cus.UserName,
+          UserName = jsini?.UserName ?? cus.UserName,
           cus.LoginId,
           cus.Sex,
           cus.Photo,
           thumb,
-          cus.Email,
+          Email = jsini?.Email ?? cus.Email,
+          helpdeskUserName = cus.UserName,
+          helpdeskEmail = cus.Email,
           cus.CompanyId,
           companyName = cus.Company?.Name,
-          loginType
+          loginType,
+          jsiniUserId = jsini?.UserId,
+          jsiniUserName = jsini?.UserName,
+          jsiniEmail = jsini?.Email,
+          jsiniRoles = jsini?.Roles ?? new List<string>()
         };
       }
 

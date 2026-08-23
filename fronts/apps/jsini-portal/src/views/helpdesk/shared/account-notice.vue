@@ -1,8 +1,9 @@
 <script lang="ts" setup>
-import { onMounted } from 'vue';
+import { computed, onMounted } from 'vue';
 
 import { Alert } from 'ant-design-vue';
 
+import { useJsiniUser } from '#/composables/use-jsini-user';
 import { useHelpdeskStore } from '#/store/helpdesk';
 
 /**
@@ -13,6 +14,14 @@ import { useHelpdeskStore } from '#/store/helpdesk';
  * 정할 수 없어 화면이 빈 채로 뜬다. 그 상황을 사용자가 알 수 있게 알려준다.
  */
 const helpdesk = useHelpdeskStore();
+const { loginId, userName } = useJsiniUser();
+
+/** 어떤 계정이 연결되지 않았는지 적어 준다. 계정이 여럿인 환경에서 헷갈리지 않게. */
+const who = computed(() =>
+  loginId.value
+    ? `${loginId.value}${userName.value ? ` (${userName.value})` : ''}`
+    : '현재',
+);
 
 onMounted(() => helpdesk.loadIdentity());
 </script>
@@ -21,8 +30,8 @@ onMounted(() => helpdesk.loadIdentity());
   <Alert
     v-if="helpdesk.identityChecked && !helpdesk.helpdeskUserId"
     class="mb-3"
-    message="이 계정에 연결된 헬프데스크 사용자가 없습니다."
-    description="헬프데스크 설정 › 계정 연결 화면에서 현재 로그인 계정을 헬프데스크 담당자 또는 고객 계정과 연결해야 요청 데이터를 볼 수 있습니다."
+    :message="`${who} 계정에 연결된 헬프데스크 사용자가 없습니다.`"
+    description="헬프데스크 설정 › 계정 연결 화면에서 이 JSini 포털 계정을 헬프데스크 담당자 또는 고객 계정과 연결해야 요청 데이터를 볼 수 있습니다."
     show-icon
     type="warning"
   />

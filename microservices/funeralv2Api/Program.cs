@@ -325,3 +325,6 @@ finally
 {
     Log.CloseAndFlush();
 }
+
+// (설정 반영을 위한 재기동 트리거)
+

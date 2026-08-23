@@ -1,3 +1,5 @@
+import type { Router } from 'vue-router';
+
 import type {
   ComponentRecordType,
   GenerateMenuAndRoutesOptions,
@@ -5,12 +7,15 @@ import type {
 
 import { generateAccessible } from '@vben/access';
 import { preferences } from '@vben/preferences';
+import { useAccessStore, useUserStore } from '@vben/stores';
 
 import { message } from 'ant-design-vue';
 
 import { getAllMenusApi } from '#/api';
 import { BasicLayout, IFrameView } from '#/layouts';
 import { $t } from '#/locales';
+import { accessRoutes } from '#/router/routes';
+import { useMenuPermissionStore } from '#/store/menu-permission';
 
 const forbiddenComponent = () => import('#/views/_core/fallback/forbidden.vue');
 
@@ -75,4 +80,61 @@ async function generateAccess(options: GenerateMenuAndRoutesOptions) {
   });
 }
 
-export { generateAccess };
+/**
+ * 메뉴를 다시 읽어 사이드바와 라우트를 갱신한다. **화면을 새로 열지 않는다.**
+ *
+ * 메뉴는 백엔드 주도(`accessMode: 'backend'`)라 [메뉴 관리]에서 고친 내용이
+ * 화면에 반영되려면 `/auth/menu/all` 을 다시 읽어 라우트를 재구성해야 한다.
+ * 그 일을 하는 곳은 원래 라우터 가드 한 곳뿐이었고, 가드는 `isAccessChecked`
+ * 가 false 일 때만 돈다. 그래서 예전 리로드 버튼은 `window.location.reload()`
+ * 로 페이지를 새로 열어 그 플래그를 초기화하는 방식이었다 —
+ * 결과는 맞지만 앱 전체가 다시 뜨고 열린 탭·스크롤·입력 중이던 값이 날아간다.
+ *
+ * 여기서는 가드가 하던 일을 그대로 떼어내 그 자리에서 수행한다.
+ * `generateAccessible` 은 같은 이름의 라우트를 덮어쓰고 새 이름은 추가하도록
+ * 만들어져 있어 여러 번 불러도 안전하다.
+ *
+ * @param router 지금 쓰는 라우터 인스턴스
+ * @returns 새로 만든 메뉴와 라우트
+ */
+async function refreshAccessMenus(router: Router) {
+  const accessStore = useAccessStore();
+  const userStore = useUserStore();
+  const permissionStore = useMenuPermissionStore();
+
+  // 갱신 전 최상위 라우트 이름. 아래에서 사라진 것을 골라내는 데 쓴다.
+  const previousNames = new Set(
+    (accessStore.accessRoutes ?? [])
+      .map((route) => route.name)
+      .filter(Boolean) as string[],
+  );
+
+  const { accessibleMenus, accessibleRoutes } = await generateAccess({
+    roles: userStore.userInfo?.roles ?? [],
+    router,
+    routes: accessRoutes,
+  });
+
+  // 메뉴에서 지워진 화면은 라우트도 걷어낸다.
+  // `generateAccessible` 은 추가·갱신만 하고 삭제는 하지 않기 때문이다.
+  const currentNames = new Set(
+    accessibleRoutes.map((route) => route.name).filter(Boolean) as string[],
+  );
+  previousNames.forEach((name) => {
+    if (!currentNames.has(name) && router.hasRoute(name)) {
+      router.removeRoute(name);
+    }
+  });
+
+  accessStore.setAccessMenus(accessibleMenus);
+  accessStore.setAccessRoutes(accessibleRoutes);
+  accessStore.setIsAccessChecked(true);
+
+  // 화면별 동작 권한(v-perm · useMenuPermission)도 같은 표에서 온다.
+  // 메뉴가 바뀌면 권한도 바뀌었을 가능성이 크므로 강제로 다시 읽는다.
+  await permissionStore.load(true).catch(() => undefined);
+
+  return { accessibleMenus, accessibleRoutes };
+}
+
+export { generateAccess, refreshAccessMenus };

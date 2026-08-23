@@ -7,6 +7,8 @@ using Yarp.ReverseProxy;
 using Yarp.ReverseProxy.Model;
 using Spectre.Console;
 using System.Reflection;
+using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -70,28 +72,53 @@ builder.Services.AddReverseProxy()
             // [보안] 외부에서 보낸 X-User-* 헤더를 무조건 제거하여 위조 방지
             requestContext.ProxyRequest.Headers.Remove("X-User-Id");
             requestContext.ProxyRequest.Headers.Remove("X-User-Role");
+            requestContext.ProxyRequest.Headers.Remove("X-User-Roles");
             requestContext.ProxyRequest.Headers.Remove("X-User-Company-Id");
+            requestContext.ProxyRequest.Headers.Remove("X-User-Name");
+            requestContext.ProxyRequest.Headers.Remove("X-User-Email");
 
             var user = requestContext.HttpContext.User;
             if (user.Identity?.IsAuthenticated == true)
             {
                 // 게이트웨이가 검증한 JWT 클레임에서 정보 추출
                 var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                var role = user.FindFirst(ClaimTypes.Role)?.Value ?? "User";
+                var roles = user.FindAll(ClaimTypes.Role).Select(c => c.Value).ToArray();
                 var companyId = user.FindFirst("CompanyId")?.Value;
+                var userName = user.FindFirst("RealName")?.Value ?? user.FindFirst(ClaimTypes.Name)?.Value;
+                var email = user.FindFirst(ClaimTypes.Email)?.Value;
 
                 // 검증된 정보를 바탕으로 내부 전용 헤더 재생성
                 if (!string.IsNullOrEmpty(userId))
                 {
                     requestContext.ProxyRequest.Headers.Add("X-User-Id", userId);
                 }
-                if (!string.IsNullOrEmpty(role))
+
+                // X-User-Role 은 단수라 역할이 여럿인 계정을 표현하지 못한다.
+                // 기존 서비스가 읽고 있으므로 첫 역할을 그대로 두고, 전체는 X-User-Roles 로 함께 보낸다.
+                if (roles.Length > 0)
                 {
-                    requestContext.ProxyRequest.Headers.Add("X-User-Role", role);
+                    requestContext.ProxyRequest.Headers.Add("X-User-Role", roles[0]);
+                    requestContext.ProxyRequest.Headers.Add("X-User-Roles", string.Join(',', roles));
                 }
+                else
+                {
+                    requestContext.ProxyRequest.Headers.Add("X-User-Role", "User");
+                }
+
                 if (!string.IsNullOrEmpty(companyId))
                 {
                     requestContext.ProxyRequest.Headers.Add("X-User-Company-Id", companyId);
+                }
+
+                // 이름은 한글이라 그대로 실으면 HTTP 헤더(Latin-1)에서 깨진다. URL 인코딩해서 보낸다.
+                // 받는 쪽은 Uri.UnescapeDataString 으로 되돌린다.
+                if (!string.IsNullOrEmpty(userName))
+                {
+                    requestContext.ProxyRequest.Headers.Add("X-User-Name", Uri.EscapeDataString(userName));
+                }
+                if (!string.IsNullOrEmpty(email))
+                {
+                    requestContext.ProxyRequest.Headers.Add("X-User-Email", email);
                 }
             }
             await Task.CompletedTask;
@@ -104,12 +131,50 @@ builder.Services.AddReverseProxy()
 builder.Services.AddHttpClient();
 builder.Services.AddHealthChecks();
 
+// ============================================================
+// 레이트 리미팅 — 로그인·비밀번호 관련 경로
+// ============================================================
+//
+// 로그인은 아이디·비밀번호만 맞으면 통과하므로 무차별 대입에 노출된다.
+// 비밀번호 초기화 경로는 더 위험하다 — 성공하면 피해자가 로그인하지 못하게 된다.
+//
+// 두 경로에만 IP 단위 창(window) 제한을 건다.
+// 사람이 쓰기에는 넉넉하고(1분에 10회), 자동화 공격에는 의미 있게 느린 수준이다.
+// 어느 경로에 적용할지는 appsettings 의 라우트에서 RateLimiterPolicy 로 지정한다.
+builder.Services.AddRateLimiter(options =>
+{
+    options.AddPolicy("auth-attempts", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            // 프록시 뒤에 있으면 X-Forwarded-For 가 실제 클라이언트다.
+            partitionKey: httpContext.Request.Headers["X-Forwarded-For"].FirstOrDefault()
+                          ?? httpContext.Connection.RemoteIpAddress?.ToString()
+                          ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0
+            }));
+
+    options.OnRejected = async (context, token) =>
+    {
+        context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+        context.HttpContext.Response.ContentType = "application/json";
+        await context.HttpContext.Response.WriteAsync(
+            "{\"success\":false,\"code\":\"429\",\"message\":\"시도가 너무 잦습니다. 잠시 후 다시 시도해 주세요.\"}",
+            token);
+    };
+});
+
 var app = builder.Build();
 // 헬스체크 엔드포인트. 프로세스가 요청을 처리할 수 있는 상태인지만 보고한다.
 app.MapHealthChecks("/health").AllowAnonymous();
 
 
 app.UseCors("AllowFrontend");
+
+// 레이트 리미터. 정책이 지정된 라우트에만 적용된다.
+app.UseRateLimiter();
 
 app.Use(async (context, next) =>
 {

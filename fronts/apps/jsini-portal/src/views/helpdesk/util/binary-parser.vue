@@ -24,10 +24,10 @@ import {
   Spin,
   Switch,
   Tag,
-  Textarea,
   Tooltip,
 } from 'ant-design-vue';
 
+import { CodeEditor } from '#/components/code-editor';
 import {
   createSample,
   getMcModels,
@@ -43,8 +43,9 @@ import {
  * 원본(JinReception utils/BinaryParser.vue, `/utils/binary-parser`).
  *
  * 원본은 Monaco 에디터에 전문을 붙여 넣고, 줄을 클릭하면 그 줄만 다시 해석해
- * 상세 분석을 옆 패널에 띄우는 구조였다. 여기서는 에디터 대신 줄 번호가 붙은
- * 텍스트 영역을 쓰고, 줄을 클릭하면 같은 방식으로 해당 줄을 재해석한다.
+ * 상세 분석을 옆 패널에 띄우는 구조였다. 이식본도 같은 Monaco 편집기를 쓴다
+ * (공용 부품 `#/components/code-editor`). 편집기에서 커서를 옮기면 그 줄이,
+ * 아래 줄 목록에서 누르면 그 줄이 다시 해석된다.
  *
  * 규격(모델·파싱항목·태그) 편집은 'MC 모델 관리' 화면으로 분리했다.
  */
@@ -82,6 +83,9 @@ const options = ref({
 
 // ── 줄 단위 상세 분석 ──────────────────────────────────────
 const selectedLineIndex = ref<null | number>(null);
+
+/** 편집기 인스턴스. 커서가 있는 줄을 그대로 해석 대상으로 삼는다(원본과 같은 동작). */
+const editorRef = ref<any>(null);
 const lineAnalysis = ref<string[]>([]);
 
 /** 입력 전문을 줄 단위로 쪼갠다. */
@@ -286,6 +290,21 @@ watch(selectedModel, async () => {
 });
 
 onMounted(async () => {
+  // 편집기에서 커서를 옮기면 그 줄을 해석한다. 원본(Monaco)의 줄 클릭 동작이다.
+  // 자식이 먼저 mount 되므로 이 시점에 인스턴스가 준비되어 있다.
+  // 줄을 훑고 지나갈 때마다 서버를 부르지 않도록, 줄이 실제로 바뀌었을 때만 잠깐 뒤에 부른다.
+  const editor = editorRef.value?.getEditor?.();
+  let cursorTimer: number | undefined;
+  editor?.onDidChangeCursorPosition((event: any) => {
+    const index = (event?.position?.lineNumber ?? 1) - 1;
+    if (index === selectedLineIndex.value) return;
+    if (index < 0 || index >= inputLines.value.length) return;
+    if (!inputLines.value[index]?.trim()) return;
+
+    window.clearTimeout(cursorTimer);
+    cursorTimer = window.setTimeout(() => analyzeLine(index), 250);
+  });
+
   models.value = (await getMcModels()) ?? [];
   selectedModel.value = models.value[0]?.mcName;
   await loadSamples();
@@ -380,10 +399,11 @@ onMounted(async () => {
             </span>
           </template>
 
-          <Textarea
-            v-model:value="content"
-            :rows="12"
-            class="font-mono text-xs"
+          <CodeEditor
+            ref="editorRef"
+            v-model="content"
+            :height="240"
+            language="plaintext"
             placeholder="16진 전문을 붙여 넣으세요. 여러 줄을 넣을 수 있습니다."
           />
 

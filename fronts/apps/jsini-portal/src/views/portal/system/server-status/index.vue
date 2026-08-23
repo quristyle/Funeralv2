@@ -50,6 +50,11 @@ const CLUSTER_META: Record<string, { desc: string; icon: string; name: string }>
     icon: 'lucide:life-buoy',
     desc: '헬프데스크 · 요청/WBS · 일정',
   },
+  'projmng-cluster': {
+    name: 'ProjMngServer',
+    icon: 'lucide:folder-git-2',
+    desc: '프로젝트관리 · WBS · 개발도구',
+  },
 };
 
 function metaOf(clusterId: string) {

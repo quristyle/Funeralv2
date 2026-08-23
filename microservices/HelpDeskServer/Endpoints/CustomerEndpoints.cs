@@ -124,8 +124,12 @@ public static class CustomerEndpoints {
             .FirstOrDefaultAsync()
     ));
 
-    group.MapPost("/", (AppDbContext db, CustomerCreateDto customerDto) => ApiResponseBuilder.CreateAsync(async () => {
+    group.MapPost("/", (AppDbContext db, CustomerCreateDto customerDto, HttpContext http) => ApiResponseBuilder.CreateAsync(async () => {
+      // 고객 등록은 '조직 데이터' 등록이지 계정 발급이 아니다(결정 Q4).
+      // 로그인 계정은 JSini 포털에서 만든다. 비밀번호 칸은 필수 컬럼이라
+      // 아무도 모르는 임의값으로 채운다 — 이 값으로는 로그인할 수 없다.
       var passwordService = new PasswordService();
+      var unusablePassword = Guid.NewGuid().ToString("N") + Guid.NewGuid().ToString("N");
       var customer = new Customer {
         LoginId = customerDto.LoginId,
         UserName = customerDto.UserName,
@@ -133,10 +137,11 @@ public static class CustomerEndpoints {
         CompanyId = customerDto.CompanyId,
         Sex = customerDto.Sex ?? "M",
         Photo = customerDto.Photo ?? "",
-        CreatedBy = customerDto.CreatedBy ?? "system",
+        // 등록자는 로그인한 JSini 계정에서 정한다(요청 본문 값은 쓰지 않는다).
+        CreatedBy = http.AuditUser(),
         MenuContext = customerDto.MenuContext
       };
-      customer.PasswordHash = passwordService.HashPassword(customer, customerDto.Password);
+      customer.PasswordHash = passwordService.HashPassword(customer, unusablePassword);
       db.Customers.Add(customer);
       await db.SaveChangesAsync();
       return customer;

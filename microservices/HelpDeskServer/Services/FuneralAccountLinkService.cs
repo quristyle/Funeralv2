@@ -20,8 +20,21 @@ public class AccountLinkOptions {
   /// </summary>
   public bool MatchByLoginId { get; set; }
 
-  /// <summary>이메일이 같으면 같은 사람으로 간주할지 여부. 기본 true.</summary>
-  public bool MatchByEmail { get; set; } = true;
+  /// <summary>
+  /// 이메일이 같으면 같은 사람으로 간주할지 여부. 기본 false.
+  ///
+  /// 원래 기본값은 true 였지만 실제로는 한 번도 동작하지 않았다 — 포털 토큰에 이메일 클레임이
+  /// 없어서 대조할 값 자체가 없었다. 토큰에 이메일을 싣게 되면서 비로소 동작하게 되었는데,
+  /// 그대로 켜 두면 지금까지 명시적 연결로만 움직이던 신원 해석이 조용히 달라진다.
+  ///
+  /// 실제 데이터에도 위험이 있다. 포털 계정 quristyle(사용자A)의 이메일이
+  /// 헬프데스크 <b>고객</b> 3번(사용자H)의 이메일과 같다. 명시적 연결이 있어 지금은 가려지지만,
+  /// 연결이 없는 계정이라면 남의 고객 계정으로 붙는다.
+  ///
+  /// 그래서 아이디 대조와 같은 규칙을 적용한다 — <b>추정하지 않는다.</b>
+  /// 데이터가 정리된 환경에서만 켠다.
+  /// </summary>
+  public bool MatchByEmail { get; set; }
 }
 
 /// <summary>
@@ -114,7 +127,8 @@ public class FuneralAccountLinkService : IFuneralAccountLinkService {
       }
     }
 
-    // 3순위: 이메일 일치. 이메일은 사람을 특정하는 값이라 아이디보다 안전하다.
+    // 3순위: 이메일 일치. 아이디 대조보다는 낫지만 이것도 추정이다.
+    // 실제 데이터에 같은 이메일을 쓰는 다른 사람이 있어 기본은 꺼 둔다(AccountLinkOptions 참고).
     if (_options.MatchByEmail && !string.IsNullOrWhiteSpace(email)) {
       var adminByEmail = await _db.Admins.AsNoTracking()
           .FirstOrDefaultAsync(a => a.Email == email, ct);
@@ -169,10 +183,29 @@ public class FuneralIdentityMiddleware {
 
     if (needsMapping) {
       var authUserId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value
-                       ?? user.FindFirst("sub")?.Value;
-      var email = user.FindFirst(ClaimTypes.Email)?.Value ?? user.FindFirst("email")?.Value;
+                       ?? user.FindFirst("sub")?.Value
+                       ?? HeaderValue(context, "X-User-Id");
+      var email = user.FindFirst(ClaimTypes.Email)?.Value
+                  ?? user.FindFirst("email")?.Value
+                  ?? HeaderValue(context, "X-User-Email");
+      var userName = user.FindFirst("RealName")?.Value
+                     ?? user.FindFirst(ClaimTypes.Name)?.Value
+                     ?? Decode(HeaderValue(context, "X-User-Name"));
 
       if (!string.IsNullOrWhiteSpace(authUserId)) {
+        // JSini 계정 자체를 먼저 심는다. 헬프데스크 계정 연결이 없어도
+        // "누가 요청했는지" 는 알아야 화면 안내와 감사 기록이 제대로 남는다.
+        var jsiniClaims = new List<Claim> {
+          new(JsiniUserExtensions.UserIdClaim, authUserId),
+        };
+        if (!string.IsNullOrWhiteSpace(userName)) {
+          jsiniClaims.Add(new Claim(JsiniUserExtensions.UserNameClaim, userName));
+        }
+        if (!string.IsNullOrWhiteSpace(email)) {
+          jsiniClaims.Add(new Claim(JsiniUserExtensions.EmailClaim, email));
+        }
+        context.User.AddIdentity(new ClaimsIdentity(jsiniClaims));
+
         var identity = await linkService.ResolveAsync(authUserId, email, context.RequestAborted);
 
         if (identity is null) {
@@ -197,6 +230,21 @@ public class FuneralIdentityMiddleware {
     }
 
     await _next(context);
+  }
+
+  private static string? HeaderValue(HttpContext context, string name) {
+    var value = context.Request.Headers[name].ToString();
+    return string.IsNullOrWhiteSpace(value) ? null : value;
+  }
+
+  private static string? Decode(string? value) {
+    if (string.IsNullOrWhiteSpace(value)) return null;
+    try {
+      return Uri.UnescapeDataString(value);
+    }
+    catch (UriFormatException) {
+      return value;
+    }
   }
 }
 

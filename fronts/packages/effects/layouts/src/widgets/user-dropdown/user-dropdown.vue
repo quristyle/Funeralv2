@@ -101,6 +101,22 @@ const userEmail = computed(() => {
   return userStore.userInfo?.email || props.description;
 });
 
+/**
+ * 로그인한 사용자에게 배정된 역할.
+ *
+ * 서버(`GET /auth/user/info`)는 식별자(`roles`: SYSTEM_ADMINISTRATOR …)와
+ * 표시 이름(`roleNames`: 시스템관리자 …)을 함께 준다. 사람이 읽는 자리라 이름을 먼저 쓰고,
+ * 이름이 없으면 식별자로 대신한다.
+ */
+const userRoles = computed<string[]>(() => {
+  const info = userStore.userInfo;
+  const names = info?.roleNames;
+  if (Array.isArray(names) && names.length > 0) {
+    return names.filter(Boolean);
+  }
+  return (info?.roles ?? []).filter(Boolean);
+});
+
 const computedAvatar = computed(() => {
   return props.avatar || userStore.userInfo?.avatar || preferences.app.defaultAvatar;
 });
@@ -246,6 +262,21 @@ if (enableShortcutKey.value) {
             </div>
             <div class="text-xs font-normal text-muted-foreground/80 truncate max-w-[180px]">
               {{ userEmail }}
+            </div>
+            <!-- 배정된 역할. 없는 계정도 있으므로 그 사실까지 보여 준다. -->
+            <div class="flex flex-wrap items-center gap-1">
+              <template v-if="userRoles.length > 0">
+                <Badge
+                  v-for="role in userRoles"
+                  :key="role"
+                  class="text-[9px] px-1.5 py-0.5 bg-transparent text-foreground/70 border-border font-normal"
+                >
+                  {{ role }}
+                </Badge>
+              </template>
+              <span v-else class="text-[10px] text-muted-foreground/70">
+                배정된 역할 없음
+              </span>
             </div>
           </div>
         </DropdownMenuLabel>
