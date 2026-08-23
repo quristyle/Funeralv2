@@ -17,8 +17,9 @@ setlocal enabledelayedexpansion
 :: 한 서비스만 재기동할 때는 그 서비스만 빌드한다.
 ::
 :: ── 리눅스/맥판과 다른 점 ───────────────────────────────────
-::   · 서비스를 고를 때 작업 디렉터리(cwd) 대신 포트와 창 제목으로 찾는다.
-::     윈도우에는 /proc 이 없고, 각 서비스가 자기 제목을 가진 창에서 돌기 때문이다.
+::   · 중지는 scripts\dev-stop.ps1 에 맡긴다. 윈도우에는 /proc 이 없어 작업
+::     디렉터리(cwd)로 프로세스를 고를 수 없고, 배치에는 부모 프로세스를 따라
+::     올라갈 방법도 없다. 포트 + 실행 파일 경로 + 부모 사슬로 같은 일을 한다.
 ::   · 기동은 dotnet run --no-build 다. 앞 단계에서 이미 빌드했으므로 다시 빌드하지 않는다.
 ::     리눅스/맥처럼 파일 변경 감지를 쓰려면 아래 START_CMD 를
 ::     dotnet watch run --no-hot-reload 로 바꾸면 된다.
@@ -109,9 +110,18 @@ goto end
 echo ====================================================
 echo    전체 중지
 echo ====================================================
-for %%k in (%SVC_KEYS%) do call :stop_service %%k
+set "STOP_FAILED="
+for %%k in (%SVC_KEYS%) do (
+    call :stop_service %%k
+    if errorlevel 1 set "STOP_FAILED=1"
+)
 echo.
-echo [SUCCESS] 전체 중지 완료.
+if defined STOP_FAILED (
+    echo [ERROR] 내리지 못한 서비스가 있습니다. status 로 확인하세요.
+    set "EXITCODE=1"
+) else (
+    echo [SUCCESS] 전체 중지 완료.
+)
 goto end
 
 :: ------------------------------------------------------------
@@ -144,9 +154,18 @@ goto stop_collect
 echo ====================================================
 echo    중지:!TARGETS!
 echo ====================================================
-for %%k in (!TARGETS!) do call :stop_service %%k
+set "STOP_FAILED="
+for %%k in (!TARGETS!) do (
+    call :stop_service %%k
+    if errorlevel 1 set "STOP_FAILED=1"
+)
 echo.
-echo [SUCCESS] 중지 완료.
+if defined STOP_FAILED (
+    echo [ERROR] 내리지 못한 서비스가 있습니다. status 로 확인하세요.
+    set "EXITCODE=1"
+) else (
+    echo [SUCCESS] 중지 완료.
+)
 goto end
 
 :: ------------------------------------------------------------
@@ -214,33 +233,42 @@ exit /b 0
 :: 프로세스 찾기 / 중지
 :: ============================================================
 ::
-:: 서비스 하나만 골라 죽여야 한다. 윈도우에서는 두 가지로 찾는다.
-::   1) 포트   — netstat 로 그 포트를 LISTENING 중인 PID 를 찾아 종료한다.
-::               스크립트 밖에서 띄운 서버도 잡히므로 이것이 기본이다.
-::   2) 창 제목 — 서비스마다 자기 제목을 가진 창에서 돌기 때문에,
-::               포트를 잡지 못한 채 떠 있는 창(기동 실패 등)도 정리할 수 있다.
+:: 실제로 찾아 죽이는 일은 scripts\dev-stop.ps1 이 한다. 배치로는 안 되기 때문이다.
+::   · 서비스는 셸 → 런처 → 실제 프로세스로 겹쳐 뜨고 포트를 잡는 것은 맨 아래 자식인데,
+::     배치에는 부모를 따라 올라갈 방법이 없어 위쪽 셸이 그대로 남는다.
+::   · taskkill 의 종료 코드는 믿을 수 없다. 창 제목 필터는 하나도 맞지 않아도 0 을 주고,
+::     /T 는 액세스 거부(5) 를 간헐적으로 낸다.
+:: 자세한 내용은 그 파일 머리말에 있다.
+::
+:: 도우미는 한 줄만 출력한다: NOT_RUNNING | STOPPED | FAILED pid=...
+:: 결과는 STOP_RESULT 에 담아 둔다(restart_services 가 본다).
 :stop_service
 call :svc_get %~1
-set "STOPPED="
+set "STOP_RESULT="
+set "STOP_DETAIL="
 
-:: 1) 포트를 잡고 있는 프로세스
-for /f "tokens=5" %%p in ('netstat -ano ^| findstr /r /c:"LISTENING" ^| findstr ":!SVC_PORT! "') do (
-    if not "%%p"=="0" (
-        taskkill /F /PID %%p /T > nul 2>&1
-        if not errorlevel 1 set "STOPPED=1"
-    )
+for /f "usebackq tokens=1,*" %%a in (`powershell -NoProfile -ExecutionPolicy Bypass -File "%ROOT_DIR%\scripts\dev-stop.ps1" -Port !SVC_PORT! -Dir "!SVC_DIR!"`) do (
+    set "STOP_RESULT=%%a"
+    set "STOP_DETAIL=%%b"
 )
 
-:: 2) 그 서비스의 창
-taskkill /F /FI "WINDOWTITLE eq !SVC_LABEL!*" /T > nul 2>&1
-if not errorlevel 1 set "STOPPED=1"
-
-if defined STOPPED (
+if "!STOP_RESULT!"=="STOPPED" (
     echo    [OK] !SVC_LABEL! 종료
-) else (
-    echo    [--] !SVC_LABEL! - 실행 중이 아님
+    exit /b 0
 )
-exit /b 0
+if "!STOP_RESULT!"=="NOT_RUNNING" (
+    echo    [--] !SVC_LABEL! - 실행 중이 아님
+    exit /b 0
+)
+:: 표시는 [XX] 로 둔다. 지연확장이 켜져 있어 `!` 를 그대로 쓰면 뒤의 !변수! 가 깨진다.
+if "!STOP_RESULT!"=="FAILED" (
+    echo    [XX] !SVC_LABEL! - 내리지 못했습니다 ^(!STOP_DETAIL!^)
+    exit /b 1
+)
+
+:: 도우미 자체가 실패한 경우다. 안 떠 있다고 잘못 보고하는 것보다 이렇게 두는 편이 낫다.
+echo    [XX] !SVC_LABEL! - 상태를 확인하지 못했습니다 ^(scripts\dev-stop.ps1 실행 실패^)
+exit /b 1
 
 :: ============================================================
 :: 빌드 / 기동
@@ -295,7 +323,20 @@ exit /b 0
 :restart_services
 echo.
 echo ^>^>^> [1/3] 중지
-for %%k in (!TARGETS!) do call :stop_service %%k
+:: 못 내린 서비스가 있으면 여기서 멈춘다. 포트를 잡고 있는 채로 기동하면
+:: 새 프로세스가 조용히 죽어 "기동했다"는 말과 실제가 어긋난다.
+set "STOP_FAILED="
+for %%k in (!TARGETS!) do (
+    call :stop_service %%k
+    if errorlevel 1 set "STOP_FAILED=1"
+)
+if defined STOP_FAILED (
+    echo.
+    echo [ERROR] 내리지 못한 서비스가 있어 기동하지 않습니다.
+    echo         남은 프로세스를 직접 정리한 뒤 다시 실행하세요.
+    set "EXITCODE=1"
+    exit /b 1
+)
 
 echo.
 echo ^>^>^> [2/3] 빌드

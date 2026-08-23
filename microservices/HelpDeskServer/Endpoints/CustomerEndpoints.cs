@@ -40,25 +40,28 @@ public static class CustomerEndpoints {
   public static void MapCustomerEndpoints(this IEndpointRouteBuilder routes) {
     var group = routes.MapGroup("/api/customers");
 
+    // 고객 목록. 볼 수 있는 범위는 신원이 정한다.
+    //
+    // 전에는 login_type 이 "customer" 일 때만 회사로 좁히고 **그 밖에는 전부 반환**했다.
+    // 계정 연결이 없는 포털 계정에는 login_type 자체가 없으므로, 권한이 없는 사용자가
+    // 고객 27명 전원을 그대로 받아 갔다. 판정하지 못했을 때 열리는 방향은 반대여야 한다.
     group.MapGet("/", (AppDbContext db, HttpContext http) => ApiResponseBuilder.CreateAsync(async () => {
-      var loginType = http.User.Claims.FirstOrDefault(c => c.Type == "login_type")?.Value;
-
-      Console.WriteLine($"/api/customers loginType : {loginType}");
-
-
+      var me = http.GetHelpdeskPrincipal();
 
       var query = db.Customers.AsQueryable();
 
-      if (loginType == "customer") {
-        var companyIdClaim = http.User.Claims.FirstOrDefault(c => c.Type == "company_id")?.Value;
-        if (!string.IsNullOrEmpty(companyIdClaim) && int.TryParse(companyIdClaim, out var companyId)) {
-          query = query.Where(c => c.CompanyId == companyId);
-        }
-        else {
-          // 회사 ID가 없는 고객은 빈 목록을 반환합니다.
-          return new List<object>().AsEnumerable();
-        }
+      if (me.IsAdmin) {
+        // 담당자는 전체를 본다. 연결이 없어도 포털 관리자 역할이면 여기에 해당한다.
       }
+      else if (me.IsCustomer && me.CompanyId.HasValue) {
+        // 고객은 자기 회사만 본다.
+        query = query.Where(c => c.CompanyId == me.CompanyId.Value);
+      }
+      else {
+        // 담당자도 아니고 회사를 알 수 있는 고객도 아니다 — 아무것도 주지 않는다.
+        return new List<object>().AsEnumerable();
+      }
+
       return (await query.Select(u => new { u.Id, u.UserName, u.LoginId, u.Sex, u.Photo, u.Email, u.CompanyId }).ToListAsync()).AsEnumerable();
     })).RequireAuthorization();
 

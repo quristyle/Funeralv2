@@ -19,9 +19,17 @@ public static class UserPropertyEndpoints {
     var group = app.MapGroup("/api/user-properties");//.RequireAuthorization();
 
     // 현재 로그인한 사용자의 모든 속성을 조회합니다.
+    //
+    // 이 테이블(jsini.userproperty)은 사용자 키가 **정수**(admin.id / customer.id)다.
+    // 포털 로그인 아이디는 문자열이라 그대로 넣을 수 없어, 연결이 없는 계정은 저장할 자리가 없다.
+    // 어디에 둘지는 결정이 필요한 사안이라(docs/analysis/19 Q11) 여기서는 정직하게 처리한다.
+    //   조회 — 기본값(빈 설정)을 주고 linked=false 를 함께 알린다
+    //   저장 — 조용히 버리지 않고 이유가 적힌 409 를 돌려준다
     group.MapGet("/", async (AppDbContext db, HttpContext http) => {
       var (userId, userType) = GetUserInfo(http);
-      if (userId == null) return Results.Unauthorized();
+      if (userId == null) {
+        return Results.Ok(new { ok = true, data = new Dictionary<string, string>(), linked = false });
+      }
 
       var properties = await db.UserProperties
           .Where(p => p.UserId == userId && p.UserType == userType)
@@ -30,13 +38,19 @@ public static class UserPropertyEndpoints {
       // 결과를 { "key1": "value1", "key2": "value2" } 형태의 객체로 변환
       var result = properties.ToDictionary(p => p.Key, p => p.Value);
 
-      return Results.Ok(new { ok = true, data = result });
+      return Results.Ok(new { ok = true, data = result, linked = true });
     });
 
     // 현재 로그인한 사용자의 속성을 업데이트(Upsert)합니다.
     group.MapPut("/", async (AppDbContext db, HttpContext http, [FromBody] Dictionary<string, string> newProperties) => {
       var (userId, userType) = GetUserInfo(http);
-      if (userId == null) return Results.Unauthorized();
+      if (userId == null) {
+        return Results.Json(new {
+          ok = false,
+          message = "이 포털 계정에 연결된 헬프데스크 사용자가 없어 개인 설정을 저장할 수 없습니다. "
+                  + "헬프데스크 설정 › 계정 연결에서 이어 주세요."
+        }, statusCode: StatusCodes.Status409Conflict);
+      }
 
       var existingProperties = await db.UserProperties
           .Where(p => p.UserId == userId && p.UserType == userType && newProperties.Keys.Contains(p.Key))

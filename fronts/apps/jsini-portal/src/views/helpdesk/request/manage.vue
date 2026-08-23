@@ -203,7 +203,9 @@ function buildPayload() {
 
 /** 목록을 조회한다. */
 async function loadData() {
-  if (!helpdesk.helpdeskUserId) return;
+  // 담당자는 연결이 없어도 전체 요청을 조회한다. 조회 범위는 조건이 정하고
+  // 헬프데스크 내부 ID 를 쓰지 않는다.
+  if (!helpdesk.canUse) return;
 
   loading.value = true;
   try {
@@ -238,7 +240,7 @@ onUnmounted(() => {
  * 모바일 '더 보기'. 다음 페이지를 이어 붙인다(원본 loadMore 와 같은 동작).
  */
 async function loadMore() {
-  if (!helpdesk.helpdeskUserId) return;
+  if (!helpdesk.canUse) return;
 
   loading.value = true;
   try {
@@ -370,7 +372,7 @@ function applyQueryFilters() {
 
 onMounted(async () => {
   await helpdesk.loadIdentity();
-  if (!helpdesk.helpdeskUserId) return;
+  if (!helpdesk.canUse) return;
 
   // 접수자 셀렉트는 고객에게도 보이므로 조직 목록은 항상 필요하다.
   await helpdesk.loadOrganizations();
@@ -389,7 +391,7 @@ onMounted(async () => {
   <Page auto-content-height>
     <HelpdeskAccountNotice />
 
-    <template v-if="helpdesk.helpdeskUserId">
+    <template v-if="helpdesk.canUse">
       <Card class="mb-3" size="small">
         <Space wrap>
           <Input

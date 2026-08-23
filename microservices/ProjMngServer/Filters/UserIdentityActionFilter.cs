@@ -30,16 +30,56 @@ public class UserIdentityActionFilter : IActionFilter {
 
   private readonly IHostEnvironment _env;
   private readonly ILogger<UserIdentityActionFilter> _logger;
+  private readonly bool _useMsaSource;
 
   /// <summary>필터를 생성한다.</summary>
-  public UserIdentityActionFilter(IHostEnvironment env, ILogger<UserIdentityActionFilter> logger) {
+  public UserIdentityActionFilter(
+      IHostEnvironment env, ILogger<UserIdentityActionFilter> logger, IConfiguration configuration) {
     _env = env;
     _logger = logger;
+    _useMsaSource = configuration.GetValue("Identity:UseMsaSource", false);
+  }
+
+  /// <summary>
+  /// 포털 계정이 어느 프로젝트관리 사용자에서 왔는지 읽어낸다.
+  ///
+  /// <para>
+  /// 포털 로그인 아이디를 그대로 <c>req_ss_user_id</c> 로 쓰면 이관 계정은 아무것도 못 찾는다.
+  /// 이관 당시 아이디 충돌을 피하려고 접두어를 붙였기 때문이다 —
+  /// <c>projmng.dev_user.user_id = 'jskim'</c> 인데 포털 계정은 <c>pm_jskim</c> 이다.
+  /// 그래서 저장 프로시저가 남기는 감사 값이 존재하지 않는 사용자를 가리키고,
+  /// '내 프로젝트 정보' 같은 화면은 빈 채로 뜬다. 실제로 9명 중 <c>quristyle</c> 한 명만 맞는다.
+  /// </para>
+  ///
+  /// <para>
+  /// 게이트웨이가 실어 보내는 <c>X-User-Msa-Source</c>(<c>projmng:dev_user:jskim</c>)는
+  /// 이관 스크립트가 남긴 기록이라 추정이 아니다. 다만 이 값을 쓰기 시작하면
+  /// <b>감사 컬럼에 쌓이는 값이 달라지므로</b> 기본은 꺼 두고 설정으로 켠다
+  /// (<c>Identity:UseMsaSource</c>).
+  /// </para>
+  /// </summary>
+  private static string? ProjMngUserIdFrom(string? msaSource) {
+    if (string.IsNullOrWhiteSpace(msaSource)) return null;
+
+    var parts = msaSource.Split(':');
+    if (parts.Length != 3) return null;
+    if (!string.Equals(parts[0], "projmng", StringComparison.OrdinalIgnoreCase)) return null;
+    if (!string.Equals(parts[1], "dev_user", StringComparison.OrdinalIgnoreCase)) return null;
+
+    return string.IsNullOrWhiteSpace(parts[2]) ? null : parts[2];
   }
 
   /// <inheritdoc />
   public void OnActionExecuting(ActionExecutingContext context) {
     var userId = context.HttpContext.Request.Headers["X-User-Id"].ToString();
+
+    if (_useMsaSource) {
+      var mapped = ProjMngUserIdFrom(context.HttpContext.Request.Headers["X-User-Msa-Source"].ToString());
+      if (!string.IsNullOrEmpty(mapped) && mapped != userId) {
+        _logger.LogInformation("[신원] 포털 계정 {PortalId} → 프로젝트관리 사용자 {ProjId}", userId, mapped);
+        userId = mapped;
+      }
+    }
 
     foreach (var arg in context.ActionArguments.Values) {
       if (arg is not RequestDto dto) continue;

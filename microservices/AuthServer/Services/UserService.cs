@@ -1,4 +1,4 @@
-using AuthServer.Data;
+﻿using AuthServer.Data;
 using AuthServer.DTOs;
 using AuthServer.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -41,6 +41,8 @@ public class UserService : IUserService
         var homePath = account.ProfileDetails?.FirstOrDefault(p => p.DetailType == "HomePath")?.Content;
         var avatar = account.ProfileDetails?.FirstOrDefault(p => p.DetailType == "Avatar")?.Content;
         var avatarGroupId = account.AvatarGroupId;
+        // 이관으로 만들어진 계정만 갖고 있다. 화면이 저쪽 서비스의 자기 레코드를 찾을 때 쓴다.
+        var msaSource = account.ProfileDetails?.FirstOrDefault(p => p.DetailType == "MsaSource")?.Content;
 
         // 역할은 실제 배정값을 내려준다.
         // 예전에는 무조건 "super" 한 개를 만들어 보냈다. 화면 접근 제어가 백엔드 메뉴 기준이라
@@ -80,6 +82,7 @@ public class UserService : IUserService
             HomePath = homePath ?? "/workspace",
             Roles = roleIds,
             RoleNames = roleNames,
+            MsaSource = msaSource,
             Introduction = introduction,
             Phone = phone,
             Email = email,

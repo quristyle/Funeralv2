@@ -74,7 +74,8 @@ async function load() {
 
 onMounted(async () => {
   await helpdesk.loadIdentity();
-  if (helpdesk.helpdeskUserId) await load();
+  // /users/info 는 연결이 없어도 포털 신원을 돌려준다. 항상 부른다.
+  await load();
 });
 </script>
 
@@ -151,9 +152,20 @@ onMounted(async () => {
               <DescriptionsItem label="헬프데스크 계정">
                 {{ linked?.loginId ?? '-' }}
               </DescriptionsItem>
+              <!--
+                연결이 있을 때만 구분을 적는다. 연결 없이 포털 역할로 담당자 권한을
+                가진 경우는 그 사실을 따로 적어 준다 — 담당자 레코드가 있는 것처럼
+                보이면 "내 배정 요청이 왜 비어 있나" 를 알 수 없다.
+              -->
               <DescriptionsItem label="구분">
-                <Tag v-if="helpdesk.identity" :color="helpdesk.isAdmin ? 'blue' : 'green'">
-                  {{ helpdesk.isAdmin ? '담당자' : '고객' }}
+                <Tag
+                  v-if="helpdesk.isLinked"
+                  :color="helpdesk.identity?.loginType === 'admin' ? 'blue' : 'green'"
+                >
+                  {{ helpdesk.identity?.loginType === 'admin' ? '담당자' : '고객' }}
+                </Tag>
+                <Tag v-else-if="helpdesk.isUnlinkedAdmin" color="orange">
+                  연결 없음 · 포털 역할로 담당자 권한
                 </Tag>
                 <span v-else class="text-muted-foreground">연결 없음</span>
               </DescriptionsItem>

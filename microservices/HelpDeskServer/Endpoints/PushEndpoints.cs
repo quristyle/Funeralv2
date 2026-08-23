@@ -21,19 +21,23 @@ public static class PushEndpoints {
   public static void MapPushEndpoints(this IEndpointRouteBuilder app) {
     var group = app.MapGroup("/api/push");
 
-    //구독을 추가합니다.
+    // 구독을 추가합니다.
+    //
+    // 구독은 헬프데스크 내부 ID 로 저장된다(알림 발송이 그 ID 로 대상을 찾는다).
+    // 그래서 연결이 없으면 구독할 수 없다 — 그 사실을 401 이 아니라 이유가 적힌 409 로 알린다.
+    // 401 은 프론트의 인터셉터가 '토큰 만료' 로 보고 로그아웃시킬 수 있어 증상이 엉뚱해진다.
     group.MapPost("/subscribe", (PushSubscriptionDto dto, IPushSubscriptionStore store, HttpContext http) => {
-      var uidClaim = http.User.FindFirst("uid");
-      var loginTypeClaim = http.User.FindFirst("login_type");
+      var me = http.GetHelpdeskPrincipal();
 
-      if (uidClaim is null || loginTypeClaim is null || !int.TryParse(uidClaim.Value, out var userId)) {
-        return Results.Unauthorized();
+      if (!me.IsLinked || string.IsNullOrEmpty(me.LinkedUserType)) {
+        return Results.Json(new {
+          ok = false,
+          message = "이 포털 계정에 연결된 헬프데스크 사용자가 없어 알림을 구독할 수 없습니다. "
+                  + "헬프데스크 설정 › 계정 연결에서 이어 주세요."
+        }, statusCode: StatusCodes.Status409Conflict);
       }
 
-      var userType = loginTypeClaim.Value; // "admin" or "customer"
-
-      Console.WriteLine($"/api/push/subscribe for {userType} ID: {userId}");
-      store.Add(dto, userId, userType);
+      store.Add(dto, me.HelpdeskUserId!.Value, me.LinkedUserType);
 
       return Results.Created("/api/push/subscribe", new { ok = true });
 
@@ -111,23 +115,22 @@ public static class PushEndpoints {
         [FromQuery] DateTime? endDate,
         [FromQuery] bool? isRead,
         [FromQuery] int? userId) => {
-          var uidClaim = http.User.FindFirst("uid");
-          var loginTypeClaim = http.User.FindFirst("login_type");
+          var me = http.GetHelpdeskPrincipal();
 
-          if (uidClaim is null || !int.TryParse(uidClaim.Value, out var currentUserId)) {
-            return Results.Unauthorized();
+          // 담당자는 다른 사용자를 지정해서 조회할 수 있다. 이 경우 자기 연결은 필요 없다.
+          int? targetUserId = me.IsAdmin && userId.HasValue ? userId.Value : me.HelpdeskUserId;
+
+          // 대상을 특정할 수 없다. 연결이 없는 계정은 받은 알림도 없으므로 빈 목록이 맞다.
+          // (401 로 돌려주면 프론트 인터셉터가 토큰 만료로 보고 로그아웃시킨다)
+          if (!targetUserId.HasValue) {
+            return Results.Ok(new List<NotificationDto>());
           }
 
-          int targetUserId = currentUserId;
-          // 관리자이고, 다른 사용자 ID를 조회하려는 경우 대상 ID를 변경
-          if (loginTypeClaim?.Value == "admin" && userId.HasValue) {
-            targetUserId = userId.Value;
-          }
-
+          var recipientId = targetUserId.Value;
           var query = db.PushMessageRecipients
               .AsNoTracking()
               .Include(r => r.PushMessage)
-              .Where(r => r.UserId == targetUserId);
+              .Where(r => r.UserId == recipientId);
 
           if (startDate.HasValue) {
             query = query.Where(r => r.CreatedAt >= startDate.Value.ToUniversalTime());
@@ -159,11 +162,14 @@ public static class PushEndpoints {
 
     // 현재 로그인한 사용자의 모든 알림 목록을 조회합니다.
     group.MapGet("/my-notifications", async (IPushSubscriptionStore store, AppDbContext db, HttpContext http) => {
-      var uidClaim = http.User.FindFirst("uid");
-      if (uidClaim is null || !int.TryParse(uidClaim.Value, out var userId)) {
-        return Results.Unauthorized();
+      var me = http.GetHelpdeskPrincipal();
+
+      // 연결이 없으면 받은 알림도 없다. 빈 목록으로 돌려준다(위 /notifications 주석 참고).
+      if (!me.IsLinked) {
+        return Results.Ok(new { ok = true, data = Array.Empty<object>() });
       }
 
+      var userId = me.HelpdeskUserId!.Value;
       var notifications = await db.PushMessageRecipients
           .Include(r => r.PushMessage)
           .Where(r => r.UserId == userId)

@@ -224,15 +224,37 @@ public static class RegisterEndpoints {
 
 
     group.MapGet("/info", (AppDbContext db, HttpContext http) => ApiResponseBuilder.CreateAsync<object?>(async () => {
-      var loginId = http.User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
       var loginType = http.User.Claims.FirstOrDefault(c => c.Type == "login_type")?.Value;
       var token_uid = http.User.Claims.FirstOrDefault(c => c.Type == "uid")?.Value;
 
       // 로그인한 사람이 누구인지는 JSini 계정이 정한다.
       // 헬프데스크 레코드는 기존 데이터를 가리키는 내부 ID 를 위해 함께 읽을 뿐이다.
       var jsini = http.GetJsiniUser();
+      var me = http.GetHelpdeskPrincipal();
 
-      if (!int.TryParse(token_uid, out var uid)) return null;
+      // 헬프데스크 레코드가 없어도 "누가 로그인했는지" 는 알려 준다.
+      //
+      // 전에는 여기서 null 을 돌려주었다(HTTP 404). 화면은 사용자 정보를 아예 받지 못해
+      // 이름도 권한도 모르는 상태로 떴다. 포털 계정 46개 중 연결된 것은 하나뿐이었으므로
+      // 사실상 한 사람 말고는 전부 이 길로 떨어졌다.
+      if (!int.TryParse(token_uid, out var uid)) {
+        if (jsini is null) return null;   // 신원 자체가 없다 (있을 수 없는 경우)
+
+        return new {
+          Id = (int?)null,
+          UserName = jsini.UserName,
+          LoginId = jsini.UserId,
+          Email = jsini.Email,
+          loginType = me.IsAdmin ? "admin" : null,
+          linked = false,
+          isAdmin = me.IsAdmin,
+          adminByRole = me.IsAdmin,
+          jsiniUserId = jsini.UserId,
+          jsiniUserName = jsini.UserName,
+          jsiniEmail = jsini.Email,
+          jsiniRoles = jsini.Roles
+        };
+      }
 
       if (loginType == "admin") {
         var adm = await db.Admins.Include(a => a.AdminTeams).ThenInclude(at => at.Team).FirstOrDefaultAsync(a => a.Id == uid);
@@ -270,6 +292,9 @@ public static class RegisterEndpoints {
           TeamId = firstTeam?.Id,
           teamName = firstTeam?.Name,
           loginType,
+          linked = true,
+          isAdmin = me.IsAdmin,
+          adminByRole = me.IsAdmin && !me.IsLinkedAdmin,
           jsiniUserId = jsini?.UserId,
           jsiniUserName = jsini?.UserName,
           jsiniEmail = jsini?.Email,
@@ -310,6 +335,9 @@ public static class RegisterEndpoints {
           cus.CompanyId,
           companyName = cus.Company?.Name,
           loginType,
+          linked = true,
+          isAdmin = me.IsAdmin,
+          adminByRole = me.IsAdmin && !me.IsLinkedAdmin,
           jsiniUserId = jsini?.UserId,
           jsiniUserName = jsini?.UserName,
           jsiniEmail = jsini?.Email,

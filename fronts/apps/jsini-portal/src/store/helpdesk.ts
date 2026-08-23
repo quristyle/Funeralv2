@@ -34,11 +34,41 @@ export const useHelpdeskStore = defineStore('helpdesk', () => {
   const customers = ref<Customer[]>([]);
   const orgLoaded = ref(false);
 
-  /** 헬프데스크 관리자로 연결된 계정인지 */
-  const isAdmin = computed(() => identity.value?.loginType === 'admin');
+  /**
+   * 담당자 권한이 있는가.
+   *
+   * 서버가 포털 역할까지 보고 판정한 값(`isAdmin`)을 쓴다. 전에는 `loginType === 'admin'`,
+   * 즉 **계정 연결이 담당자인 경우만** 참이었다. 포털에서 관리자 역할을 받은 계정도
+   * 연결이 없으면 거짓이 되어 관리 화면이 열리지 않았다.
+   */
+  const isAdmin = computed(
+    () => identity.value?.isAdmin ?? identity.value?.loginType === 'admin',
+  );
 
-  /** 헬프데스크 내부 사용자 ID. 연결되지 않았으면 undefined. */
-  const helpdeskUserId = computed(() => identity.value?.helpdeskUserId);
+  /**
+   * 헬프데스크 내부 사용자 ID. 연결되지 않았으면 undefined.
+   *
+   * 이 값은 **'내 것'을 가리킬 때만** 쓴다(내가 쓴 댓글, 나에게 배정된 요청, 내 알림).
+   * 화면을 열지 말지는 {@link isAdmin} 으로 판단한다.
+   */
+  const helpdeskUserId = computed(() => identity.value?.helpdeskUserId ?? undefined);
+
+  /** 헬프데스크 내부 레코드에 이어져 있는가 */
+  const isLinked = computed(() => Boolean(identity.value?.helpdeskUserId));
+
+  /** 담당자 권한은 있으나 연결이 없는 상태. '내 것' 을 가리키는 기능만 못 쓴다. */
+  const isUnlinkedAdmin = computed(() => isAdmin.value && !isLinked.value);
+
+  /**
+   * 헬프데스크 업무 화면을 열 수 있는가.
+   *
+   * 담당자 권한이 있으면 연결이 없어도 조회·관리를 한다. 고객은 연결이 있어야
+   * 어느 회사 사람인지 정해지므로 연결이 필요하다.
+   *
+   * 화면을 열지 말지는 이 값으로 판단하고, **`helpdeskUserId` 로 판단하지 않는다.**
+   * 그렇게 하면 연결 없는 관리자에게 빈 화면이 나온다.
+   */
+  const canUse = computed(() => isAdmin.value || isLinked.value);
 
   /** 고객으로 연결된 경우의 소속 회사 ID */
   const companyId = computed(() => {
@@ -113,6 +143,7 @@ export const useHelpdeskStore = defineStore('helpdesk', () => {
     $reset,
     adminOptions,
     admins,
+    canUse,
     companies,
     companyId,
     companyOptions,
@@ -122,6 +153,8 @@ export const useHelpdeskStore = defineStore('helpdesk', () => {
     identity,
     identityChecked,
     isAdmin,
+    isLinked,
+    isUnlinkedAdmin,
     loadIdentity,
     loadOrganizations,
     orgLoaded,

@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Authentication.JwtBearer;
+﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Security.Claims;
 using System.Text;
@@ -76,6 +76,7 @@ builder.Services.AddReverseProxy()
             requestContext.ProxyRequest.Headers.Remove("X-User-Company-Id");
             requestContext.ProxyRequest.Headers.Remove("X-User-Name");
             requestContext.ProxyRequest.Headers.Remove("X-User-Email");
+            requestContext.ProxyRequest.Headers.Remove("X-User-Msa-Source");
 
             var user = requestContext.HttpContext.User;
             if (user.Identity?.IsAuthenticated == true)
@@ -86,6 +87,10 @@ builder.Services.AddReverseProxy()
                 var companyId = user.FindFirst("CompanyId")?.Value;
                 var userName = user.FindFirst("RealName")?.Value ?? user.FindFirst(ClaimTypes.Name)?.Value;
                 var email = user.FindFirst(ClaimTypes.Email)?.Value;
+                // 이 계정이 어느 MSA 레코드에서 왔는지 (`<서비스>:<테이블>:<원본키>`).
+                // 이관으로 만들어진 계정은 아이디에 접두어가 붙어 있어(`jskim` → `pm_jskim`)
+                // 로그인 아이디만으로는 각 서비스가 자기 사용자를 찾을 수 없다.
+                var msaSource = user.FindFirst("MsaSource")?.Value;
 
                 // 검증된 정보를 바탕으로 내부 전용 헤더 재생성
                 if (!string.IsNullOrEmpty(userId))
@@ -119,6 +124,10 @@ builder.Services.AddReverseProxy()
                 if (!string.IsNullOrEmpty(email))
                 {
                     requestContext.ProxyRequest.Headers.Add("X-User-Email", email);
+                }
+                if (!string.IsNullOrEmpty(msaSource))
+                {
+                    requestContext.ProxyRequest.Headers.Add("X-User-Msa-Source", msaSource);
                 }
             }
             await Task.CompletedTask;

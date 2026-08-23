@@ -46,27 +46,31 @@ public static class AuthLinkEndpoints {
     // ClaimsPrincipal 로 받는다. HttpContext 를 유일한 매개변수로 쓰면 ASP.NET Core 가 핸들러를
     // RequestDelegate 로 간주해 반환한 IResult 를 버리고 빈 200 을 내보낸다.
     /// <summary>현재 토큰이 어떤 헬프데스크 계정으로 해석되는지 돌려준다. 연결 상태 점검용.</summary>
+    // 연결이 없어도 200 으로 돌려준다.
+    //
+    // 전에는 uid 가 없으면 예외를 던졌다. 그러면 프론트는 "연결이 없다" 와 "서버가 죽었다" 를
+    // 구분할 수 없고, 담당자 권한이 있는 계정조차 신원을 아예 받지 못해 화면이 통째로 잠겼다.
+    // 이제 무엇을 할 수 있는지(isAdmin)와 무엇이 없는지(linked=false)를 함께 알려 준다.
     group.MapGet("/me", (ClaimsPrincipal principal, HttpContext http) => ApiResponseBuilder.CreateAsync(async () => {
       await Task.CompletedTask;
 
-      var jsini = http.GetJsiniUser();
-
-      var uid = principal.FindFirst("uid")?.Value;
-      if (string.IsNullOrEmpty(uid)) {
-        throw new InvalidOperationException("이 계정에 연결된 헬프데스크 사용자가 없습니다. 관리자에게 계정 연결을 요청하세요.");
-      }
+      var me = http.GetHelpdeskPrincipal();
 
       return new {
-        helpdeskUserId = int.Parse(uid),
-        loginType = principal.FindFirst("login_type")?.Value,
+        linked = me.IsLinked,
+        isAdmin = me.IsAdmin,
+        // 담당자 권한이 연결이 아니라 포털 역할에서 왔는가. 화면 안내 문구가 이 값으로 갈린다.
+        adminByRole = me.IsAdmin && !me.IsLinkedAdmin,
+        helpdeskUserId = me.HelpdeskUserId,
+        loginType = me.LinkedUserType,
         // 표시 이름은 JSini 계정을 우선한다. 헬프데스크 레코드의 이름은 참고용으로 함께 준다.
-        userName = jsini?.UserName ?? principal.FindFirst("helpdesk_user_name")?.Value,
+        userName = me.DisplayName,
         helpdeskUserName = principal.FindFirst("helpdesk_user_name")?.Value,
-        companyId = principal.FindFirst("company_id")?.Value,
-        jsiniUserId = jsini?.UserId,
-        jsiniUserName = jsini?.UserName,
-        jsiniEmail = jsini?.Email,
-        jsiniRoles = jsini?.Roles ?? new List<string>(),
+        companyId = me.CompanyId?.ToString(),
+        jsiniUserId = me.JsiniUserId,
+        jsiniUserName = me.DisplayName,
+        jsiniEmail = me.Email,
+        jsiniRoles = me.JsiniRoles,
       };
     }));
 

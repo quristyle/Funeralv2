@@ -158,6 +158,8 @@ builder.Services.AddScoped<IAdminService, AdminService>();
 
 // funeralv2 계정 단일화: AuthServer 계정을 헬프데스크 계정으로 해석한다.
 builder.Services.Configure<AccountLinkOptions>(builder.Configuration.GetSection(AccountLinkOptions.SectionName));
+// 어떤 포털 역할을 헬프데스크 담당자로 대우할지.
+builder.Services.Configure<HelpdeskIdentityOptions>(builder.Configuration.GetSection(HelpdeskIdentityOptions.SectionName));
 builder.Services.AddMemoryCache();
 builder.Services.AddScoped<IFuneralAccountLinkService, FuneralAccountLinkService>();
 

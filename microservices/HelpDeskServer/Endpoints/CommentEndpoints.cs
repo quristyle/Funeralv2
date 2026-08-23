@@ -46,25 +46,27 @@ public static class CommentEndpoints {
     // ));
 
     group.MapGet("/my", (AppDbContext db, HttpContext http, string? content, DateTime? startDate, DateTime? endDate, int? userId, string? userType) => ApiResponseBuilder.CreateAsync(() => {
-      var uidClaim = http.User.FindFirst("uid");
-      var loginTypeClaim = http.User.FindFirst("login_type");
+      var me = http.GetHelpdeskPrincipal();
 
-      if (uidClaim == null || !int.TryParse(uidClaim.Value, out var currentUserId) || loginTypeClaim == null) {
-        // This should be handled by RequireAuthorization, but as a safeguard.
-        throw new UnauthorizedAccessException("Cannot identify user from token.");
-      }
+      // 담당자는 다른 사람의 댓글도 지정해서 조회할 수 있다. 연결이 없어도 이 조회는 가능하다 —
+      // 조회 대상을 인자로 받기 때문에 '내가 누구인지' 를 알 필요가 없다.
+      int? targetUserId = me.HelpdeskUserId;
+      var targetUserType = me.LinkedUserType;
 
-      var targetUserId = currentUserId;
-      var targetUserType = loginTypeClaim.Value;
-
-      // If the caller is an admin and specifies a user to search for, override the target.
-      if (targetUserType == "admin" && userId.HasValue && !string.IsNullOrEmpty(userType)) {
+      if (me.IsAdmin && userId.HasValue && !string.IsNullOrEmpty(userType)) {
         targetUserId = userId.Value;
         targetUserType = userType;
       }
 
+      // 조회 대상을 특정할 수 없다. 헬프데스크 레코드에 이어지지 않은 계정은 남긴 댓글도 없으므로
+      // 빈 목록이 맞다. 전에는 예외를 던져 화면 전체가 오류로 떨어졌다.
+      if (!targetUserId.HasValue || string.IsNullOrEmpty(targetUserType)) {
+        return Task.FromResult(new List<MyCommentDto>());
+      }
+
+      var authorId = targetUserId.Value;
       var query = db.Comments
-          .Where(c => c.AuthorId == targetUserId && c.AuthorType == targetUserType && !c.IsDel);
+          .Where(c => c.AuthorId == authorId && c.AuthorType == targetUserType && !c.IsDel);
 
       if (!string.IsNullOrEmpty(content)) {
         query = query.Where(c => c.CommentText.Contains(content));

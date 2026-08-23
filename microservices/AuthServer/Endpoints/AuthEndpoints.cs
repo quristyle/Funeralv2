@@ -106,6 +106,20 @@ public static class AuthEndpoints
                 .Select(p => p.Content)
                 .FirstOrDefaultAsync();
 
+            // 이 계정이 어느 MSA 레코드에서 왔는지. 형식은 `<서비스>:<테이블>:<원본키>` 다.
+            //   helpdesk:admin:4      → jsini.admin.id = 4
+            //   projmng:dev_user:jskim → projmng.dev_user.user_id = 'jskim'
+            //
+            // 이관 스크립트(docs/sql/msa_user_import.sql)가 계정을 만들 때 남긴 값이라
+            // **추정이 아니라 확정된 대응 관계**다. 이관 시 아이디 충돌을 피하려고 접두어를
+            // 붙였기 때문에(`jskim` → `pm_jskim`) 로그인 아이디만으로는 원본을 찾을 수 없다.
+            // 그래서 이 값을 신원과 함께 내려보내, 각 서비스가 자기 체계의 사용자를 찾을 수 있게 한다.
+            var msaSource = await db.AccountProfileDetails
+                .Where(p => p.AccountId == account.Id && p.DetailType == "MsaSource")
+                .OrderByDescending(p => p.IsPrimary)
+                .Select(p => p.Content)
+                .FirstOrDefaultAsync();
+
             var claims = new List<Claim>
             {
                 new Claim(ClaimTypes.NameIdentifier, account.UserId),
@@ -118,6 +132,11 @@ public static class AuthEndpoints
             if (!string.IsNullOrWhiteSpace(email))
             {
                 claims.Add(new Claim(ClaimTypes.Email, email));
+            }
+
+            if (!string.IsNullOrWhiteSpace(msaSource))
+            {
+                claims.Add(new Claim("MsaSource", msaSource));
             }
 
             foreach (var roleId in roleIds)

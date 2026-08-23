@@ -54,6 +54,8 @@ docs/sql/              실행한 SQL (전부 반복 실행 안전)
 [docs/analysis/12-decisions-pending.md](docs/analysis/12-decisions-pending.md) 에 모아 둔다.
 자율로 진행하기에 영향이 크거나 되돌리기 어려운 일은 여기에 적고 손대지 않는다.
 
+- 이식 시스템에서 '누구로서' 일할지 정하는 스위치 둘: [docs/analysis/19-msa-user-work-enablement.md](docs/analysis/19-msa-user-work-enablement.md) (Q9~Q13 · D14)
+  둘 다 **기본 꺼짐**이라 지금은 켜기 전과 똑같이 동작한다. D13 을 먼저 처리해야 한다.
 - 준수사항 점검에서 남은 것: [docs/analysis/16-준수사항-점검.md](docs/analysis/16-준수사항-점검.md) (R1~R4)
 - i18n 콘솔 경고와 언어 코드 정리: [docs/analysis/18-i18n-fallback-warning.md](docs/analysis/18-i18n-fallback-warning.md)
 - vben-admin 상위 동기화에서 남은 것: [docs/analysis/17-vben-upstream-sync.md](docs/analysis/17-vben-upstream-sync.md)

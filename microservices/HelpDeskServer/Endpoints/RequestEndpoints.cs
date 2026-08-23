@@ -460,10 +460,20 @@ public static class RequestEndpoints {
     // 요청 생성
     group.MapPost("/", async (IAdminService adminService, HttpRequest httpRequest, AppDbContext db, IRabbitMqConnectionProvider provider, ILoggerFactory loggerFactory, IConfiguration configuration, IPushSubscriptionStore store, IWebPushService sender) => {
       var form = await httpRequest.ReadFormAsync();
+      var me = httpRequest.HttpContext.GetHelpdeskPrincipal();
+
+      // 요청의 주인(CustomerId)을 폼 값으로 받고 있었다. 고객이 **남의 회사 이름으로**
+      // 요청을 만들 수 있는 상태였다. 담당자는 대신 등록할 일이 있으니 그대로 두고,
+      // 고객으로 연결된 계정은 자기 것으로 고정한다.
+      var formCustomerId = int.TryParse(form["CustomerId"], out var parsed) ? parsed : 0;
+      var customerId = me.IsCustomer && me.HelpdeskUserId.HasValue
+          ? me.HelpdeskUserId.Value
+          : formCustomerId;
+
       var requestDto = new RequestCreateDto(
               Title: form["Title"],
               Description: form["Description"],
-              CustomerId: int.Parse(form["CustomerId"]),
+              CustomerId: customerId,
               // 작성자는 폼 값이 아니라 로그인한 JSini 계정에서 정한다.
               CreatedBy: httpRequest.HttpContext.AuditUser(),
               MenuContext: form["MenuContext"]

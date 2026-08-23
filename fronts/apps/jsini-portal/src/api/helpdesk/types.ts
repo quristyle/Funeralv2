@@ -229,11 +229,30 @@ export interface AuthUserLink {
   userType: HelpdeskUserType;
 }
 
-/** 현재 토큰이 해석된 헬프데스크 신원 */
+/**
+ * 현재 토큰이 해석된 헬프데스크 신원.
+ *
+ * 두 가지를 구분해서 담는다.
+ *
+ * - `isAdmin` — **무엇을 할 수 있는가.** 포털 역할이 관리자면 계정 연결이 없어도 참이다.
+ *   조회·관리 화면을 열지 결정하는 값이다.
+ * - `linked` / `helpdeskUserId` — **'내 것'을 가리킬 수 있는가.** 요청 작성자·담당자·댓글은
+ *   헬프데스크 내부 ID 를 참조하므로, 연결이 없으면 "내가 쓴 것"을 찾을 수 없다.
+ *
+ * 전에는 `helpdeskUserId` 하나로 둘을 겸했다. 그래서 연결이 없는 관리자 계정은
+ * 조회 화면조차 열리지 않았다.
+ */
 export interface HelpdeskIdentity {
+  /** 담당자 권한이 계정 연결이 아니라 포털 역할에서 온 것인가 (안내 문구가 갈린다) */
+  adminByRole?: boolean;
   companyId?: null | string;
-  helpdeskUserId: number;
-  loginType: HelpdeskUserType;
+  /** 연결된 헬프데스크 내부 ID. 연결이 없으면 없다 */
+  helpdeskUserId?: null | number;
+  /** 담당자 권한이 있는가 */
+  isAdmin?: boolean;
+  /** 헬프데스크 내부 레코드에 이어져 있는가 */
+  linked?: boolean;
+  loginType?: HelpdeskUserType | null;
   userName?: string;
 }
 

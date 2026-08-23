@@ -247,7 +247,8 @@ function companyCount(stat: any, key: string) {
 
 onMounted(async () => {
   await helpdesk.loadIdentity();
-  if (helpdesk.helpdeskUserId) await loadAll();
+  // 담당자는 연결이 없어도 모니터를 본다. '나의 접수' 칸만 비어 있게 된다.
+  if (helpdesk.canUse) await loadAll();
 });
 </script>
 

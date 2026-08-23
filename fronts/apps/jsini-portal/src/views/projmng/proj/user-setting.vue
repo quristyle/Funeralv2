@@ -38,6 +38,7 @@ const {
   email: jsiniEmail,
   loginId,
   phone: jsiniPhone,
+  projmngUserId,
   roles,
   userName: jsiniUserName,
 } = useJsiniUser();
@@ -59,7 +60,9 @@ const record = ref({
 async function load() {
   loading.value = true;
   try {
-    const userId = loginId.value;
+    // 포털 로그인 아이디가 아니라 **프로젝트관리에서의 아이디**로 찾는다.
+    // 이관 계정은 접두어가 붙어 있어(`jskim` → `pm_jskim`) 포털 아이디로는 못 찾는다.
+    const userId = projmngUserId.value;
     const result = await dbCont(
       'sp_dev_user_exec',
       { user_id: userId, user_name: '' },
@@ -129,11 +132,19 @@ onMounted(load);
       </Descriptions>
     </Card>
 
+    <!--
+      찾은 아이디를 그대로 적는다. 포털 아이디와 다를 수 있는데(이관 계정의 접두어)
+      포털 아이디를 적으면 "그 아이디로 찾았겠지" 라고 오해하게 된다.
+    -->
     <Alert
       v-if="!recordFound"
       class="mb-2"
-      :message="`프로젝트관리에 '${loginId}' 사용자 레코드가 없습니다.`"
-      description="프로젝트관리 화면에서 담당자로 표시되려면 같은 아이디의 사용자 레코드가 있어야 합니다. 프로젝트 참여자 화면에서 확인하세요."
+      :message="`프로젝트관리에 '${projmngUserId}' 사용자 레코드가 없습니다.`"
+      :description="
+        projmngUserId === loginId
+          ? '프로젝트관리 화면에서 담당자로 표시되려면 같은 아이디의 사용자 레코드가 있어야 합니다. 프로젝트 참여자 화면에서 확인하세요.'
+          : `이 포털 계정(${loginId})은 프로젝트관리 사용자 '${projmngUserId}' 에서 이관된 계정입니다. 그 레코드를 찾지 못했습니다 — 프로젝트 참여자 화면에서 확인하세요.`
+      "
       show-icon
       type="warning"
     />

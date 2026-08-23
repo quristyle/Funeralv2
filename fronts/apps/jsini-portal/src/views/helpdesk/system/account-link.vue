@@ -197,23 +197,40 @@ onMounted(async () => {
     />
 
     <Card class="mb-3" size="small" title="내 연결 상태">
-      <Descriptions v-if="helpdesk.identity" :column="{ md: 4, xs: 1 }" size="small">
+      <!-- 연결이 있을 때만 헬프데스크 레코드를 적는다. -->
+      <Descriptions v-if="helpdesk.isLinked" :column="{ md: 4, xs: 1 }" size="small">
         <DescriptionsItem label="헬프데스크 사용자">
-          {{ helpdesk.identity.userName }}
+          {{ helpdesk.identity?.userName }}
         </DescriptionsItem>
         <DescriptionsItem label="구분">
-          <Tag :color="helpdesk.isAdmin ? 'blue' : 'green'">
-            {{ helpdesk.isAdmin ? '담당자' : '고객' }}
+          <Tag
+            :color="helpdesk.identity?.loginType === 'admin' ? 'blue' : 'green'"
+          >
+            {{ helpdesk.identity?.loginType === 'admin' ? '담당자' : '고객' }}
           </Tag>
         </DescriptionsItem>
         <DescriptionsItem label="내부 ID">
-          {{ helpdesk.identity.helpdeskUserId }}
+          {{ helpdesk.identity?.helpdeskUserId }}
         </DescriptionsItem>
         <DescriptionsItem label="소속 회사 ID">
-          {{ helpdesk.identity.companyId ?? '-' }}
+          {{ helpdesk.identity?.companyId ?? '-' }}
         </DescriptionsItem>
       </Descriptions>
-      <Empty v-else description="현재 계정은 헬프데스크 사용자와 연결되어 있지 않습니다." />
+      <!--
+        연결이 없어도 포털 관리자 역할이면 조회·관리는 된다. 그 상태를 '아무것도 안 됨'
+        으로 보여 주면 사실과 다르므로 무엇이 되고 무엇이 안 되는지 적는다.
+      -->
+      <Alert
+        v-else-if="helpdesk.isUnlinkedAdmin"
+        show-icon
+        type="info"
+        message="포털 관리자 역할로 조회·관리하고 있습니다."
+        description="헬프데스크 담당자 레코드에는 이어져 있지 않습니다. 나에게 배정된 요청·내가 쓴 댓글·알림 구독처럼 '내 것'을 가리키는 기능만 비어 있습니다. 필요하면 아래에서 이 계정을 담당자 레코드와 연결하세요."
+      />
+      <Empty
+        v-else
+        description="현재 계정은 헬프데스크 사용자와 연결되어 있지 않습니다."
+      />
     </Card>
 
     <Card :body-style="{ padding: 0 }" size="small" title="연결 목록">

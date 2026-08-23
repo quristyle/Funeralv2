@@ -1,4 +1,5 @@
 using HelpDeskServer.Models;
+using HelpDeskServer.Services;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using HelpDeskServer.Data;
@@ -61,37 +62,56 @@ public static class DashboardEndpoints {
     }));
 
     // 현재 로그인한 관리자의 업무 통계를 조회합니다.
+    //
+    // 담당자 권한이면 연결이 없어도 조회할 수 있다. 다만 "본인 배정" 은 헬프데스크 레코드가
+    // 있어야 세는 것이라, 연결이 없으면 그 칸은 0 이 된다. 대신 미배정 건수는 팀이 아니라
+    // 전체를 세어 준다 — 팀이 없는 사람에게 0 만 보여 주는 것보다 관리 조회에 쓸모가 있다.
+    // 화면이 상황을 알 수 있도록 linked / adminRecord 를 함께 내려보낸다.
     group.MapGet("/admin-stats", async (HttpContext http, AppDbContext db) => {
-      var uid = http.User.Claims.FirstOrDefault(c => c.Type == "uid")?.Value;
-      if (string.IsNullOrEmpty(uid) || !int.TryParse(uid, out var adminId)) {
-        return Results.Unauthorized();
+      var me = http.GetHelpdeskPrincipal();
+      if (!me.IsAdmin) {
+        return Results.Json(
+            new { success = false, message = "담당자 권한이 필요합니다.", data = (object?)null },
+            statusCode: StatusCodes.Status403Forbidden);
       }
 
-      // 1. 관리자가 속한 팀 ID 목록 가져오기
-      var teamIds = await db.AdminTeams
-                           .Where(at => at.AdminId == adminId)
-                           .Select(at => at.TeamId)
-                           .ToListAsync();
+      // 연결된 담당자 레코드가 있을 때만 '본인' 을 특정할 수 있다.
+      var adminId = me.IsLinkedAdmin ? me.HelpdeskUserId : null;
 
-      // 2. 해당 팀들이 관리하는 업체(Company) ID 목록 가져오기 (N:N 관계인 TeamCompanies 활용)
-      var managedCompanyIds = await db.TeamCompanies
-                                      .Where(tc => teamIds.Contains(tc.TeamId))
-                                      .Select(tc => tc.CompanyId)
-                                      .Distinct()
-                                      .ToListAsync();
+      int pendingCount;
+      if (adminId.HasValue) {
+        // 1. 관리자가 속한 팀 ID 목록 가져오기
+        var teamIds = await db.AdminTeams
+                             .Where(at => at.AdminId == adminId.Value)
+                             .Select(at => at.TeamId)
+                             .ToListAsync();
 
-      // 3. 해당 업체들의 미배정(Pending) 요청 건수 집계
-      var pendingCount = await db.Requests
-                                 .CountAsync(r => r.Status == ImprovementStatus.Pending && 
-                                                 r.Customer != null && 
-                                                 managedCompanyIds.Contains(r.Customer.CompanyId));
+        // 2. 해당 팀들이 관리하는 업체(Company) ID 목록 가져오기 (N:N 관계인 TeamCompanies 활용)
+        var managedCompanyIds = await db.TeamCompanies
+                                        .Where(tc => teamIds.Contains(tc.TeamId))
+                                        .Select(tc => tc.CompanyId)
+                                        .Distinct()
+                                        .ToListAsync();
 
-      // 4. 본인 배정된 요청들 집계 (진행, 완료 등)
-      var grouped = await db.Requests
-                           .Where(r => r.AdminId == adminId)
-                           .GroupBy(r => r.Status)
-                           .Select(g => new { Status = g.Key, Count = g.Count() })
-                           .ToListAsync();
+        // 3. 해당 업체들의 미배정(Pending) 요청 건수 집계
+        pendingCount = await db.Requests
+                                   .CountAsync(r => r.Status == ImprovementStatus.Pending &&
+                                                   r.Customer != null &&
+                                                   managedCompanyIds.Contains(r.Customer.CompanyId));
+      }
+      else {
+        // 팀을 알 수 없다. 전체 미배정 건수를 준다.
+        pendingCount = await db.Requests.CountAsync(r => r.Status == ImprovementStatus.Pending);
+      }
+
+      // 4. 본인 배정된 요청들 집계 (진행, 완료 등). 연결이 없으면 셀 대상이 없다.
+      var grouped = adminId.HasValue
+          ? await db.Requests
+                    .Where(r => r.AdminId == adminId.Value)
+                    .GroupBy(r => r.Status)
+                    .Select(g => new { Status = g.Key, Count = g.Count() })
+                    .ToListAsync()
+          : [];
 
       // 매핑
       var map = grouped.ToDictionary(g => g.Status, g => g.Count);
@@ -113,7 +133,14 @@ public static class DashboardEndpoints {
         TotalRequests = await db.Requests.CountAsync()
       };
 
-      return Results.Ok(new { success = true, data = stats });
+      // 연결 여부를 함께 알려 준다. 화면은 "본인 배정 0" 이 실제로 0 인지,
+      // 아니면 연결이 없어 셀 수 없었던 것인지 구분해야 한다.
+      return Results.Ok(new {
+        success = true,
+        data = stats,
+        linked = adminId.HasValue,
+        pendingScope = adminId.HasValue ? "team" : "all"
+      });
 
     }).RequireAuthorization();
 
@@ -287,13 +314,19 @@ public static class DashboardEndpoints {
     }).RequireAuthorization();
 
     // 현재 로그인한 고객(사용자)이 속한 회사의 요청 통계를 조회합니다.
+    //
+    // ⚠ 전에는 uid 를 login_type 확인 없이 고객 ID 로 썼다. uid 는 담당자에게도 붙는 값이라,
+    //    담당자 #4 가 부르면 **고객 #4** 의 회사 통계가 나왔다(운영 데이터에서 재현됨).
+    //    서로 다른 사람의 자료다. 그래서 고객으로 연결된 계정만 받는다.
     group.MapGet("/my-company-stats", async (HttpContext http, AppDbContext db) => {
-      var uid = http.User.Claims.FirstOrDefault(c => c.Type == "uid")?.Value;
-      if (string.IsNullOrEmpty(uid) || !int.TryParse(uid, out var customerId)) {
-        return Results.Unauthorized();
+      var me = http.GetHelpdeskPrincipal();
+      if (!me.IsCustomer || !me.HelpdeskUserId.HasValue) {
+        return Results.Json(
+            new { success = false, message = "고객으로 연결된 계정만 조회할 수 있습니다.", data = (object?)null },
+            statusCode: StatusCodes.Status403Forbidden);
       }
 
-      var customer = await db.Customers.FindAsync(customerId);
+      var customer = await db.Customers.FindAsync(me.HelpdeskUserId.Value);
       if (customer == null || customer.CompanyId == null) {
         return Results.NotFound("Customer or company not found.");
       }
@@ -321,13 +354,16 @@ public static class DashboardEndpoints {
     }).RequireAuthorization();
 
     // 현재 로그인한 고객(사용자)이 속한 회사의 지난 12개월간 월별 요청 통계를 조회합니다.
+    // my-company-stats 와 같은 문제가 있었다 — 위 주석 참고.
     group.MapGet("/my-monthly-stats", async (HttpContext http, AppDbContext db) => {
-      var uid = http.User.Claims.FirstOrDefault(c => c.Type == "uid")?.Value;
-      if (string.IsNullOrEmpty(uid) || !int.TryParse(uid, out var customerId)) {
-        return Results.Unauthorized();
+      var me = http.GetHelpdeskPrincipal();
+      if (!me.IsCustomer || !me.HelpdeskUserId.HasValue) {
+        return Results.Json(
+            new { success = false, message = "고객으로 연결된 계정만 조회할 수 있습니다.", data = (object?)null },
+            statusCode: StatusCodes.Status403Forbidden);
       }
 
-      var customer = await db.Customers.FindAsync(customerId);
+      var customer = await db.Customers.FindAsync(me.HelpdeskUserId.Value);
       if (customer == null || customer.CompanyId == null) {
         return Results.NotFound("Customer or company not found.");
       }

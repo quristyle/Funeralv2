@@ -43,6 +43,28 @@ export function useJsiniUser() {
     /** 배정된 역할 식별자 (`ADMINISTRATOR` 등) */
     roles: computed<string[]>(() => raw.value.roles ?? []),
 
+    /**
+     * 이 계정이 어느 MSA 레코드에서 만들어졌는지 (`helpdesk:admin:4`, `projmng:dev_user:jskim`).
+     * 이관으로 만들어진 계정만 값이 있다.
+     */
+    msaSource: computed<string>(() => raw.value.msaSource ?? ''),
+
+    /**
+     * 프로젝트관리에서 이 사람의 사용자 아이디(`projmng.dev_user.user_id`).
+     *
+     * 포털 로그인 아이디와 다를 수 있다. 이관 당시 아이디 충돌을 피하려고 접두어를
+     * 붙였기 때문이다 — `projmng.dev_user` 의 `jskim` 이 포털에서는 `pm_jskim` 이다.
+     * 그래서 포털 아이디로 저쪽 레코드를 찾으면 9명 중 1명만 맞는다.
+     *
+     * 출처 기록이 없으면 포털 아이디를 그대로 쓴다(원래부터 있던 계정은 아이디가 같다).
+     */
+    projmngUserId: computed<string>(() => {
+      const parts = String(raw.value.msaSource ?? '').split(':');
+      return parts[0] === 'projmng' && parts[1] === 'dev_user' && parts[2]
+        ? parts[2]
+        : (raw.value.username ?? raw.value.userId ?? '');
+    }),
+
     /** 사용자 정보를 받아 왔는지 */
     isLoaded: computed<boolean>(() => Boolean(raw.value.username)),
   };
