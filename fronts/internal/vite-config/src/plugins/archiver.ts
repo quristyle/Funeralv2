@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import { join } from 'node:path';
 
-import archiver from 'archiver';
+import { ZipArchive } from 'archiver';
 
 export const viteArchiverPlugin = (
   options: ArchiverPluginOptions = {},
@@ -49,7 +49,8 @@ async function zipFolder(
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     const output = fs.createWriteStream(outputPath);
-    const archive = archiver('zip', {
+
+    const archive = new ZipArchive({
       zlib: { level: 9 }, // 최고 압축률을 구현하기 위해 압축 레벨을 9로 설정
     });
 

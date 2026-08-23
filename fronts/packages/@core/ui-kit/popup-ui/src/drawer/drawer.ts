@@ -130,23 +130,36 @@ export interface DrawerProps {
 export interface DrawerState extends DrawerProps {
   /** 팝업 열림 상태 */
   isOpen?: boolean;
-  /**
-   * 공유 데이터
-   */
-  sharedData?: Record<string, any>;
 }
 
-export type ExtendedDrawerApi = DrawerApi & {
+export type ExtendedDrawerApi<TData = unknown> = DrawerApi<TData> & {
   useStore: <T = NoInfer<DrawerState>>(
     selector?: (state: NoInfer<DrawerState>) => T,
   ) => Readonly<Ref<T>>;
 };
 
-export interface DrawerApiOptions extends DrawerState {
+type DrawerComponentInstance<TComponent extends Component> =
+  TComponent extends abstract new (...args: any[]) => infer TInstance
+    ? TInstance
+    : never;
+
+export type InferDrawerData<TComponent extends Component> = [
+  DrawerComponentInstance<TComponent>,
+] extends [never]
+  ? unknown
+  : DrawerComponentInstance<TComponent> extends {
+        drawerApi: ExtendedDrawerApi<infer TData>;
+      }
+    ? TData
+    : unknown;
+
+export interface DrawerApiOptions<
+  TConnectedComponent extends Component = Component,
+> extends DrawerState {
   /**
    * 독립적인 드로어 컴포넌트
    */
-  connectedComponent?: Component;
+  connectedComponent?: TConnectedComponent;
   /**
    * 닫기 전 콜백, false를 반환하면 닫기가 방지됩니다.
    * @returns

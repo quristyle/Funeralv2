@@ -145,23 +145,36 @@ export interface ModalProps {
 export interface ModalState extends ModalProps {
   /** 팝업 열림 상태 */
   isOpen?: boolean;
-  /**
-   * 공유 데이터
-   */
-  sharedData?: Record<string, any>;
 }
 
-export type ExtendedModalApi = ModalApi & {
+export type ExtendedModalApi<TData = unknown> = ModalApi<TData> & {
   useStore: <T = NoInfer<ModalState>>(
     selector?: (state: NoInfer<ModalState>) => T,
   ) => Readonly<Ref<T>>;
 };
 
-export interface ModalApiOptions extends ModalState {
+type ModalComponentInstance<TComponent extends Component> =
+  TComponent extends abstract new (...args: any[]) => infer TInstance
+    ? TInstance
+    : never;
+
+export type InferModalData<TComponent extends Component> = [
+  ModalComponentInstance<TComponent>,
+] extends [never]
+  ? unknown
+  : ModalComponentInstance<TComponent> extends {
+        modalApi: ExtendedModalApi<infer TData>;
+      }
+    ? TData
+    : unknown;
+
+export interface ModalApiOptions<
+  TConnectedComponent extends Component = Component,
+> extends ModalState {
   /**
    * 독립적인 팝업 컴포넌트
    */
-  connectedComponent?: Component;
+  connectedComponent?: TConnectedComponent;
   /**
    * 닫기 전 콜백, false를 반환하면 닫기가 방지됩니다.
    * @returns

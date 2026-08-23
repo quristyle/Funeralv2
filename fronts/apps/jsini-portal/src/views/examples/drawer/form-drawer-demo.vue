@@ -30,7 +30,7 @@ const [Form, formApi] = useVbenForm({
   ],
   showDefaultActions: false,
 });
-const [Drawer, drawerApi] = useVbenDrawer({
+const [Drawer, drawerApi] = useVbenDrawer<Record<string, any>>({
   onCancel() {
     drawerApi.close();
   },
@@ -40,7 +40,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
   },
   onOpenChange(isOpen: boolean) {
     if (isOpen) {
-      const { values } = drawerApi.getData<Record<string, any>>();
+      const { values } = drawerApi.getData() ?? {};
       if (values) {
         formApi.setValues(values);
       }

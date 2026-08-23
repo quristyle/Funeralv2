@@ -10,12 +10,19 @@ type LayoutType =
 type ThemeModeType = 'auto' | 'dark' | 'light';
 
 /**
- * 환경 설정 버튼 위치
- * fixed 오른쪽에 고정
- * header 헤더바
- * auto 자동
+ * 偏好设置按钮位置
+ * auto 自动（按布局上下文在 header/fixed 间切换）
+ * fixed 固定在屏幕右边缘
+ * header 顶栏
+ * user-dropdown 用户的下拉弹出框中
+ * none 不显示
  */
-type PreferencesButtonPositionType = 'auto' | 'fixed' | 'header';
+type PreferencesButtonPositionType =
+  | 'auto'
+  | 'fixed'
+  | 'header'
+  | 'none'
+  | 'user-dropdown';
 
 type BuiltinThemeType =
   | 'custom'

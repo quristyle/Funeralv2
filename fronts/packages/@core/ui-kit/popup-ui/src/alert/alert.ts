@@ -36,7 +36,9 @@ export type AlertProps = {
   contentClass?: string;
   /** beforeClose 콜백 실행 중 내용 영역에 로딩 마스크 표시 */
   contentMasking?: boolean;
-  /** 팝업 하단 내용 (버튼과 같은 컨테이너) */
+  /** 按下Esc时是否关闭弹窗 */
+  escapeKeyClose?: boolean;
+  /** 弹窗底部内容（与按钮在同一个容器中） */
   footer?: Component | string;
   /** 팝업 아이콘 (제목 앞) */
   icon?: Component | IconType;

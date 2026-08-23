@@ -47,7 +47,7 @@ const [Form, formApi] = useVbenForm({
   showDefaultActions: false,
 });
 
-const [Modal, modalApi] = useVbenModal({
+const [Modal, modalApi] = useVbenModal<Record<string, any>>({
   fullscreenButton: false,
   onCancel() {
     modalApi.close();
@@ -58,7 +58,7 @@ const [Modal, modalApi] = useVbenModal({
   },
   onOpenChange(isOpen: boolean) {
     if (isOpen) {
-      const { values } = modalApi.getData<Record<string, any>>();
+      const { values } = modalApi.getData() ?? {};
       if (values) {
         formApi.setValues(values);
       }

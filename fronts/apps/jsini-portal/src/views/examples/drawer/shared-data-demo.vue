@@ -7,7 +7,7 @@ import { message } from 'ant-design-vue';
 
 const data = ref();
 
-const [Drawer, drawerApi] = useVbenDrawer({
+const [Drawer, drawerApi] = useVbenDrawer<Record<string, any>>({
   onCancel() {
     drawerApi.close();
   },
@@ -17,7 +17,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
   },
   onOpenChange(isOpen: boolean) {
     if (isOpen) {
-      data.value = drawerApi.getData<Record<string, any>>();
+      data.value = drawerApi.getData();
     }
   },
 });

@@ -223,12 +223,11 @@ const schema: VbenFormSchema[] = [
           }
           return !(await isMenuNameExists(value, formData.value?.id));
         },
-        (value) => ({
-          message: $t('ui.formRules.alreadyExists', [
-            $t('system.menu.menuName'),
-            value,
-          ]),
-        }),
+        {
+          // zod v4 부터 refine 의 두 번째 인자는 함수를 받지 않는다.
+          // 값에 따라 문구를 바꿀 수 없으므로 필드 이름만 넣는다.
+          error: $t('ui.formRules.alreadyExists', [$t('system.menu.menuName')]),
+        },
       ),
   },
   {
@@ -324,12 +323,10 @@ const schema: VbenFormSchema[] = [
           }
           return !(await isMenuPathExists(value, formData.value?.id));
         },
-        (value) => ({
-          message: $t('ui.formRules.alreadyExists', [
-            $t('system.menu.path'),
-            value,
-          ]),
-        }),
+        {
+          // zod v4 부터 refine 의 두 번째 인자는 함수를 받지 않는다.
+          error: $t('ui.formRules.alreadyExists', [$t('system.menu.path')]),
+        },
       ),
   },
   {
@@ -478,11 +475,13 @@ const schema: VbenFormSchema[] = [
   },
   {
     component: 'Input',
-    componentProps: (values) => {
+    // 콜백 인자가 '폼 값'에서 '컨텍스트'로 바뀌었다(vben 5.7 form-ui 재작성).
+    // 폼 전체 값은 ctx.rootValues 에 있다.
+    componentProps: (ctx) => {
       return {
         allowClear: true,
         class: 'w-full',
-        disabled: values.meta?.badgeType !== 'normal',
+        disabled: ctx.rootValues?.meta?.badgeType !== 'normal',
       };
     },
     dependencies: {
@@ -660,12 +659,12 @@ const [Form, formApi] = useVbenForm({
   showDefaultActions: false,
   wrapperClass: 'grid-cols-2 gap-x-4',
 });
-const [Drawer, drawerApi] = useVbenDrawer({
+const [Drawer, drawerApi] = useVbenDrawer<SystemMenuApi.SystemMenu>({
   onConfirm: onSubmit,
   onOpenChange(isOpen) {
     if (isOpen) {
       isBinding.value = true;
-      const data = drawerApi.getData<SystemMenuApi.SystemMenu>();
+      const data = drawerApi.getData();
       if (data?.type === 'LINK') {
         data.linkSrc = data.meta?.link;
       } else if (data?.type === 'EMBEDDED') {

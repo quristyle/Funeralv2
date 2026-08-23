@@ -6,8 +6,8 @@ const props = defineProps<{
   class?: string;
 }>();
 
-// 화살표의 펼침/접힘 상태 제어
-const collapsed = defineModel({ default: false });
+// 控制箭头展开/收起状态
+const collapsed = defineModel<boolean>({ default: false });
 </script>
 
 <template>

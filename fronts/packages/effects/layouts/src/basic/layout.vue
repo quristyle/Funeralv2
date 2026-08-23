@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import type { SetupContext } from 'vue';
+
 import type { RouteLocationNormalizedLoaded } from 'vue-router';
 
 import type { MenuRecordRaw } from '@vben/types';
@@ -18,10 +19,8 @@ import { useAccessStore, useTabbarStore, useTimezoneStore } from '@vben/stores';
 import { cloneDeep, mapTree } from '@vben/utils';
 
 import { VbenAdminLayout } from '@vben-core/layout-ui';
-import { Input, VbenBackTop, VbenLogo } from '@vben-core/shadcn-ui';
-
-import { isAiChatPinned } from '../widgets/ai-chat/state';
-import AiChatContent from '../widgets/ai-chat/ai-chat-content.vue';
+import { VbenBackTop, VbenLogo } from '@vben-core/shadcn-ui';
+import { ELEMENT_ID_LAYOUT_SCROLL } from '@vben-core/shared/constants';
 
 import { Breadcrumb, CheckUpdates, Preferences } from '../widgets';
 import { LayoutContent, LayoutContentSpinner } from './content';
@@ -36,16 +35,33 @@ import {
   useMixedMenu,
 } from './menu';
 import { LayoutTabbar } from './tabbar';
+import { useLayoutScroll } from './use-layout-scroll';
+import { isAiChatPinned } from '../widgets/ai-chat/state';
 
 defineOptions({ name: 'BasicLayout' });
 
-const emit = defineEmits<{ clearPreferencesAndLogout: []; clickLogo: [] }>();
+withDefaults(defineProps<Props>(), {
+  avatar: '',
+  text: '',
+});
+
+const emit = defineEmits<{
+  clearPreferencesAndLogout: [];
+  clickLogo: [];
+  logout: [];
+}>();
+
+interface Props {
+  avatar?: string;
+  text?: string;
+}
 
 const {
   isDark,
   isHeaderNav,
   isMixedNav,
   isMobile,
+  isSideMode,
   isSideMixedNav,
   isHeaderMixedNav,
   isHeaderSidebarNav,
@@ -57,6 +73,9 @@ const {
 const accessStore = useAccessStore();
 const timezoneStore = useTimezoneStore();
 const { refresh } = useRefresh();
+const layoutScrollTarget = `#${ELEMENT_ID_LAYOUT_SCROLL}`;
+
+useLayoutScroll();
 
 const sidebarTheme = computed(() => {
   const dark = isDark.value || preferences.theme.semiDarkSidebar;
@@ -109,6 +128,24 @@ const showHeaderNav = computed(() => {
     !isMobile.value &&
     (isHeaderNav.value || isMixedNav.value || isHeaderMixedNav.value)
   );
+});
+
+const logoTheme = computed(() => {
+  const showLogoInHeader =
+    !isSideMode.value ||
+    isHeaderSidebarNav.value ||
+    isMixedNav.value ||
+    isMobile.value;
+  return showLogoInHeader ? headerTheme.value : sidebarTheme.value;
+});
+
+/**
+ * layout-sidebar扩展区域插槽extra-title的高度
+ */
+const sidebarExtraTitleHeight = computed<number | undefined>(() => {
+  const showSideExtraTitle =
+    preferences.logo.enable && preferences.logo.showText;
+  return showSideExtraTitle ? undefined : 0;
 });
 
 const {
@@ -296,6 +333,10 @@ function clearPreferencesAndLogout() {
   emit('clearPreferencesAndLogout');
 }
 
+function handleLogout() {
+  emit('logout');
+}
+
 function clickLogo() {
   emit('clickLogo');
 }
@@ -446,12 +487,14 @@ function startResize(e: MouseEvent) {
     :sidebar-expand-on-hover="preferences.sidebar.expandOnHover"
     :sidebar-extra-collapse="preferences.sidebar.extraCollapse"
     :sidebar-extra-collapsed-width="preferences.sidebar.extraCollapsedWidth"
+    :sidebar-extra-title-height="sidebarExtraTitleHeight"
     :sidebar-hidden="preferences.sidebar.hidden"
     :sidebar-mixed-width="preferences.sidebar.mixedWidth"
     :sidebar-theme="sidebarTheme"
     :sidebar-theme-sub="sidebarThemeSub"
     :sidebar-width="preferences.sidebar.width"
     :side-collapse-width="preferences.sidebar.collapseWidth"
+    :sidebar-logo-visible="preferences.logo.enable"
     :tabbar-enable="preferences.tabbar.enable"
     :tabbar-height="preferences.tabbar.height"
     :z-index="preferences.app.zIndex"
@@ -485,7 +528,10 @@ function startResize(e: MouseEvent) {
         :src="preferences.logo.source"
         :src-dark="preferences.logo.sourceDark"
         :text="preferences.app.name"
-        :theme="showHeaderNav ? headerTheme : theme"
+        :show-text="preferences.logo.showText"
+        :logo-mode="preferences.logo.logoMode"
+        :full-logo-height="preferences.logo.fullLogoHeight"
+        :theme="logoTheme"
         @click="clickLogo"
       >
         <template v-if="$slots['logo-text']" #text>
@@ -496,8 +542,11 @@ function startResize(e: MouseEvent) {
     <!-- 헤더 영역 -->
     <template #header>
       <LayoutHeader
+        :avatar="avatar"
         :theme="theme"
+        :text="text"
         @clear-preferences-and-logout="clearPreferencesAndLogout"
+        @logout="handleLogout"
       >
         <template
           v-if="!showHeaderNav && preferences.breadcrumb.enable"
@@ -526,9 +575,6 @@ function startResize(e: MouseEvent) {
         </template>
         <template #notification>
           <slot name="notification"></slot>
-        </template>
-        <template #timezone>
-          <slot name="timezone"></slot>
         </template>
         <template v-for="item in headerSlots" #[item]>
           <slot :name="item"></slot>
@@ -673,6 +719,7 @@ function startResize(e: MouseEvent) {
       <VbenLogo
         v-if="preferences.logo.enable"
         :fit="preferences.logo.fit"
+        :show-text="preferences.logo.showText"
         :text="preferences.app.name"
         :theme="sidebarThemeSub"
       >
@@ -755,7 +802,7 @@ function startResize(e: MouseEvent) {
           @clear-preferences-and-logout="clearPreferencesAndLogout"
         />
       </template>
-      <VbenBackTop />
+      <VbenBackTop :target="layoutScrollTarget" />
     </template>
   </VbenAdminLayout>
 </template>

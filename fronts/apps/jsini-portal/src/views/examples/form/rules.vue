@@ -183,9 +183,9 @@ const [Form, formApi] = useVbenForm({
         placeholder: '입력하세요',
       },
       fieldName: 'input-blur',
+      // vben 5.7 form-ui 재작성으로 트리거 지정 방식이 바뀌었다.
       formFieldProps: {
-        validateOnChange: false,
-        validateOnModelUpdate: false,
+        validateOn: ['blur'],
       },
       help: 'blur 시에만 유효성 검사가 트리거됩니다',
       label: 'blur 트리거',

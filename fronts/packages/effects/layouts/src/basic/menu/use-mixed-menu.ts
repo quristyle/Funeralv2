@@ -19,12 +19,13 @@ function useMixedMenu() {
   const mixExtraMenus = ref<MenuRecordRaw[]>([]);
   /** 현재 최상위 메뉴 아래에서 마지막으로 활성화된 하위 메뉴 기록 */
   const defaultSubMap = new Map<string, string>();
-  const { isMixedNav, isHeaderMixedNav } = usePreferences();
+  const { isMixedNav, isHeaderMixedNav, isMobile } = usePreferences();
 
   const needSplit = computed(
     () =>
-      (preferences.navigation.split && isMixedNav.value) ||
-      isHeaderMixedNav.value,
+      !isMobile.value &&
+      ((preferences.navigation.split && isMixedNav.value) ||
+        isHeaderMixedNav.value),
   );
 
   const sidebarVisible = computed(() => {

@@ -44,6 +44,7 @@ import { VxeGrid, VxeUI } from 'vxe-table';
 
 import { extendProxyOptions } from './extends';
 import { useTableForm } from './init';
+import { applyViewedRowOptions, useViewedRow } from './viewed-row';
 
 import 'vxe-table/styles/cssvar.scss';
 import 'vxe-pc-ui/styles/cssvar.scss';
@@ -76,7 +77,27 @@ const {
   tableTitleHelp,
   showSearchForm,
   separator,
+  viewedRowOptions,
 } = usePriorityValues(props, state);
+
+// viewedRowOptions：helper 只创建一次（persist/keyField 不支持运行时切换）
+// actionCodes、rowClassName、rowStyle、viewedKeys 的变化通过 options computed 自然响应
+const gridApi = props.api;
+
+watch(
+  viewedRowOptions,
+  (cfg) => {
+    // helper 已存在则不重建
+    if (gridApi.viewedRowHelper) return;
+
+    if (!cfg) return;
+
+    const keyField = (gridOptions.value?.rowConfig as any)?.keyField || 'id';
+    const resolved = isBoolean(cfg) ? { keyField } : { keyField, ...cfg };
+    gridApi.viewedRowHelper = useViewedRow(resolved);
+  },
+  { immediate: true },
+);
 
 const { isMobile } = usePreferences();
 const isSeparator = computed(() => {
@@ -110,7 +131,7 @@ const [Form, formApi] = useTableForm({
   },
   handleReset: async () => {
     const prevValues = await formApi.getValues();
-    await formApi.resetForm();
+    await formApi.reset();
     const formValues = await formApi.getValues();
     formApi.setLatestSubmissionValues(formValues);
     // 값이 변경된 경우 submitOnChange가 새로고침을 트리거합니다. 따라서 submitOnChange가 false이거나 값이 변경되지 않은 경우에만 수동으로 새로고침합니다.
@@ -293,52 +314,19 @@ const options = computed(() => {
   }
   if (mergedOptions.formConfig) {
     mergedOptions.formConfig.enabled = false;
-    if (tableData.value && tableData.value.length > 0) {
-      mergedOptions.data = tableData.value;
-    }
+  }
+  if (tableData.value && tableData.value.length > 0) {
+    mergedOptions.data = tableData.value;
   }
 
-    // 확장 기능: columnConfig.filter 또는 sortable 플래그가 있는 경우 일괄 적용합니다.
-    const isGlobalFilter = (mergedOptions.columnConfig as any)?.filter === true;
-    const isGlobalSortable = (mergedOptions.columnConfig as any)?.sortable === true;
-
-    if ((isGlobalFilter || isGlobalSortable) && mergedOptions.columns) {
-      mergedOptions.columns = mergedOptions.columns.map((col) => {
-        // 순번, 체크박스 등 특수 타입 컬럼과 액션 컬럼(!col.field)은 제외합니다.
-        if (
-          //['seq', 'checkbox', 'radio', 'expand', 'action', 'id'].includes(col.type as string) ||
-          ['action', 'checkbox', 'expand',  'id', 'radio', 'seq'].includes(col.field as string) ||
-          !col.field
-        ) {
-          return col;
-        }
-
-        const newCol = { ...col };
-
-        // 정렬 일괄 적용 (개별 컬럼에 명시적으로 설정되지 않은 경우에만)
-        if (isGlobalSortable && newCol.sortable === undefined) {
-          newCol.sortable = true;
-        }
-
-        // 필터 일괄 적용 (개별 컬럼에 명시적으로 설정되지 않은 경우에만)
-        if (isGlobalFilter && !newCol.filters) {
-          if (newCol.params?.filterList) {
-            newCol.filters = [{ label: '', value: '' }]; // 초기 빈 값 (이후 filterVisible 이벤트에서 동적 로드)
-            newCol.filterMultiple = true;
-          } else {
-            newCol.filters = [{ data: '' }];
-            newCol.filterRender = { name: 'input', attrs: { placeholder: $t('common.search') } };
-            newCol.filterMethod = ({ option, row, column }: any) => {
-              if (!option.data) return true;
-              const cellValue = String(row[column.field] || '').toLowerCase();
-              return cellValue.includes(String(option.data).toLowerCase());
-            };
-          }
-        }
-
-        return newCol;
-      });
-    }
+  // 注入已读行功能（rowClassName、rowStyle、columns 拦截）
+  if (viewedRowOptions.value && gridApi.viewedRowHelper) {
+    applyViewedRowOptions(
+      mergedOptions,
+      viewedRowOptions.value,
+      gridApi.viewedRowHelper,
+    );
+  }
 
   return mergedOptions;
 });
@@ -445,7 +433,6 @@ async function init() {
       'query',
       formOptions.value ? ((await formApi.getValues()) ?? {}) : {},
     );
-    // props.api.reload(formApi.form?.values ?? {});
   }
 
   // 폼은 vben-form으로 대체되므로 formConfig를 지원하지 않으며, 이에 대한 경고를 표시합니다.

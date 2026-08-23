@@ -52,7 +52,7 @@ const permissions = ref<DataNode[]>([]);
 const loadingPermissions = ref(false);
 
 const id = ref();
-const [Drawer, drawerApi] = useVbenDrawer({
+const [Drawer, drawerApi] = useVbenDrawer<SystemRoleApi.SystemRole>({
   async onConfirm() {
     const { valid } = await formApi.validate();
     if (!valid) return;
@@ -70,7 +70,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
 
   async onOpenChange(isOpen) {
     if (isOpen) {
-      const data = drawerApi.getData<SystemRoleApi.SystemRole>();
+      const data = drawerApi.getData();
       formApi.resetForm();
 
       if (data && data.id) {
@@ -101,9 +101,8 @@ const [Drawer, drawerApi] = useVbenDrawer({
                 async (val) => {
                   return !(await isRoleIdExists(val));
                 },
-                (val) => ({
-                  message: `이미 존재하는 역할 ID입니다: ${val}`
-                })
+                // zod v4 부터 refine 의 두 번째 인자는 함수를 받지 않는다.
+                { error: '이미 존재하는 역할 ID입니다.' },
               ),
           },
         ]);

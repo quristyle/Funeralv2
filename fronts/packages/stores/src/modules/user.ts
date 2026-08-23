@@ -1,28 +1,6 @@
-import { acceptHMRUpdate, defineStore } from 'pinia';
+import type { BasicUserInfo } from '@vben-core/typings';
 
-interface BasicUserInfo {
-  [key: string]: any;
-  /**
-   * 아바타
-   */
-  avatar: string;
-  /**
-   * 사용자 닉네임
-   */
-  realName: string;
-  /**
-   * 사용자 역할
-   */
-  roles?: string[];
-  /**
-   * 사용자 ID
-   */
-  userId: string;
-  /**
-   * 사용자 이름
-   */
-  username: string;
-}
+import { acceptHMRUpdate, defineStore } from 'pinia';
 
 interface AccessState {
   /**

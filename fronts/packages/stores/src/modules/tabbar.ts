@@ -9,12 +9,12 @@ import type {
 
 import type { TabDefinition } from '@vben-core/typings';
 
-import { markRaw, toRaw } from 'vue';
+import { markRaw, nextTick, toRaw } from 'vue';
 
 import { preferences } from '@vben-core/preferences';
 import {
   createStack,
-  openRouteInNewWindow,
+  openWindow,
   Stack,
   startProgress,
   stopProgress,
@@ -371,8 +371,9 @@ export const useTabbarStore = defineStore('core-tabbar', {
      * @ko_KR 새 창에서 탭 열기
      * @param tab
      */
-    async openTabInNewWindow(tab: TabDefinition) {
-      openRouteInNewWindow(tab.fullPath || tab.path);
+    async openTabInNewWindow(tab: TabDefinition, router: Router) {
+      const href = router.resolve(tab.fullPath || tab.path).href;
+      openWindow(new URL(href, location.href).href, { target: '_blank' });
     },
 
     /**
@@ -414,7 +415,8 @@ export const useTabbarStore = defineStore('core-tabbar', {
       this.renderRouteView = false;
       startProgress();
 
-      await new Promise((resolve) => setTimeout(resolve, 200));
+      await nextTick();
+      // await new Promise((resolve) => setTimeout(resolve, 200));
 
       this.excludeCachedTabs.delete(name as string);
       this.renderRouteView = true;

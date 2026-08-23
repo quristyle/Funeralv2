@@ -7,7 +7,7 @@ import { message } from 'ant-design-vue';
 
 const data = ref();
 
-const [Modal, modalApi] = useVbenModal({
+const [Modal, modalApi] = useVbenModal<Record<string, any>>({
   onCancel() {
     modalApi.close();
   },
@@ -17,7 +17,7 @@ const [Modal, modalApi] = useVbenModal({
   },
   onOpenChange(isOpen: boolean) {
     if (isOpen) {
-      data.value = modalApi.getData<Record<string, any>>();
+      data.value = modalApi.getData();
     }
   },
 });

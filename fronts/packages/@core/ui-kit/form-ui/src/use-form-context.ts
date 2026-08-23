@@ -1,19 +1,22 @@
-import type { ZodRawShape } from 'zod';
+import type { ZodType } from 'zod';
 
 import type { ComputedRef } from 'vue';
 
 import type { ExtendedFormApi, FormActions, VbenFormProps } from './types';
 
-import { computed, unref, useSlots } from 'vue';
+import { computed, toRaw, unref, useSlots } from 'vue';
 
 import { createContext } from '@vben-core/shadcn-ui';
 import { isString, mergeWithArrayOverride, set } from '@vben-core/shared/utils';
 
-import { useForm } from 'vee-validate';
 import { object, ZodIntersection, ZodNumber, ZodObject, ZodString } from 'zod';
 import { getDefaultsForSchema } from 'zod-defaults';
 
-type ExtendFormProps = VbenFormProps & { formApi?: ExtendedFormApi };
+import { useFormRuntime } from './form-runtime';
+
+type ExtendFormProps = VbenFormProps & {
+  formApi?: ExtendedFormApi<any, any, any>;
+};
 
 export const [injectFormProps, provideFormProps] =
   createContext<[ComputedRef<ExtendFormProps> | ExtendFormProps, FormActions]>(
@@ -29,9 +32,7 @@ export function useFormInitial(
   const slots = useSlots();
   const initialValues = generateInitialValues();
 
-  const form = useForm({
-    ...(Object.keys(initialValues)?.length ? { initialValues } : {}),
-  });
+  const form = useFormRuntime(initialValues);
 
   const delegatedSlots = computed(() => {
     const resultSlots: string[] = [];
@@ -47,14 +48,15 @@ export function useFormInitial(
   function generateInitialValues() {
     const initialValues: Record<string, any> = {};
 
-    const zodObject: ZodRawShape = {};
+    const zodObject: Record<string, ZodType> = {};
     (unref(props).schema || []).forEach((item) => {
       if (Reflect.has(item, 'defaultValue')) {
         set(initialValues, item.fieldName, item.defaultValue);
       } else if (item.rules && !isString(item.rules)) {
         // 규칙이 기본값을 추출하기에 적합한지 확인
-        const customDefaultValue = getCustomDefaultValue(item.rules);
-        zodObject[item.fieldName] = item.rules;
+        const rawRules = toRaw(item.rules);
+        const customDefaultValue = getCustomDefaultValue(rawRules);
+        zodObject[item.fieldName] = rawRules;
         if (customDefaultValue !== undefined) {
           initialValues[item.fieldName] = customDefaultValue;
         }
@@ -71,6 +73,7 @@ export function useFormInitial(
   }
   // 커스텀 기본값 추출 로직
   function getCustomDefaultValue(rule: any): any {
+    rule = toRaw(rule);
     if (rule instanceof ZodString) {
       return ''; // 기본값은 빈 문자열
     } else if (rule instanceof ZodNumber) {
@@ -83,20 +86,7 @@ export function useFormInitial(
       }
       return defaultValues;
     } else if (rule instanceof ZodIntersection) {
-      // 교차 타입(Intersection)의 경우, 스키마에서 기본값을 추출
-      const leftDefaultValue = getCustomDefaultValue(rule._def.left);
-      const rightDefaultValue = getCustomDefaultValue(rule._def.right);
-
-      // 좌우 양쪽 모두에서 기본값을 추출할 수 있는 경우, 이를 병합
-      if (
-        typeof leftDefaultValue === 'object' &&
-        typeof rightDefaultValue === 'object'
-      ) {
-        return { ...leftDefaultValue, ...rightDefaultValue };
-      }
-
-      // 그렇지 않으면 왼쪽의 기본값을 우선적으로 사용
-      return leftDefaultValue ?? rightDefaultValue;
+      return getDefaultsForSchema(rule);
     } else {
       return undefined; // 기타 타입은 기본값을 제공하지 않음
     }

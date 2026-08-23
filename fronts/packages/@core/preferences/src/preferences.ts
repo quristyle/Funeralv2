@@ -1,11 +1,21 @@
 import type { DeepPartial } from '@vben-core/typings';
 
-import type { InitialOptions, Preferences } from './types';
+import type {
+  CustomPreferencesField,
+  CustomPreferencesRecord,
+  InitialOptions,
+  Preferences,
+  PreferencesExtension,
+} from './types';
 
 import { markRaw, reactive, readonly, watch } from 'vue';
 
 import { StorageManager } from '@vben-core/shared/cache';
-import { isMacOs, merge } from '@vben-core/shared/utils';
+import {
+  isMacOs,
+  merge,
+  mergeWithArrayOverride,
+} from '@vben-core/shared/utils';
 
 import {
   breakpointsTailwind,
@@ -17,6 +27,7 @@ import { defaultPreferences } from './config';
 import { updateCSSVariables } from './update-css-variables';
 
 const STORAGE_KEYS = {
+  CUSTOM: 'preferences-custom',
   MAIN: 'preferences',
   LOCALE: 'preferences-locale',
   THEME: 'preferences-theme',
@@ -24,27 +35,49 @@ const STORAGE_KEYS = {
 
 class PreferenceManager {
   private cache: StorageManager;
-  private debouncedSave: (preference: Preferences) => void;
+  private customPreferencesExtension: null | PreferencesExtension<any> = null;
+  private customState = reactive<CustomPreferencesRecord>({});
+  private debouncedSave: () => void;
+  private initialCustomPreferences: CustomPreferencesRecord = {};
   private initialPreferences: Preferences = defaultPreferences;
   private isInitialized = false;
   private state: Preferences;
 
   constructor() {
     this.cache = new StorageManager();
-    this.state = reactive<Preferences>(
-      this.loadFromCache() || { ...defaultPreferences },
-    );
-    this.debouncedSave = useDebounceFn(
-      (preference) => this.saveToCache(preference),
-      150,
-    );
+    // 构造函数不再同步读取缓存，使用默认值初始化
+    // 真正的缓存加载在 initPreferences 中完成（已经是 async）
+    this.state = reactive<Preferences>({ ...defaultPreferences });
+    this.debouncedSave = useDebounceFn(() => this.saveToCache(), 150);
   }
 
   /**
    * 캐시된 모든 환경 설정을 삭제합니다.
    */
-  clearCache = () => {
-    Object.values(STORAGE_KEYS).forEach((key) => this.cache.removeItem(key));
+  clearCache = async () => {
+    await Promise.all(
+      Object.values(STORAGE_KEYS).map((key) => this.cache.removeItem(key)),
+    );
+  };
+
+  /**
+   * 获取扩展偏好设置
+   */
+  getCustomPreferences = <
+    TCustomPreferences extends object = CustomPreferencesRecord,
+  >() => {
+    return readonly(this.customState) as Readonly<TCustomPreferences>;
+  };
+
+  /**
+   * 获取初始化扩展偏好设置
+   */
+  getInitialCustomPreferences = <
+    TCustomPreferences extends object = CustomPreferencesRecord,
+  >() => {
+    return this.cloneValue(
+      this.initialCustomPreferences,
+    ) as Readonly<TCustomPreferences>;
   };
 
   /**
@@ -62,13 +95,32 @@ class PreferenceManager {
   };
 
   /**
-   * 환경 설정을 초기화합니다.
-   * @param options - 초기화 설정 항목
-   * @param options.namespace - 여러 애플리케이션의 설정을 격리하기 위한 네임스페이스
-   * @param options.overrides - 덮어쓸 환경 설정
+   * 获取扩展偏好设置配置
    */
-  initPreferences = async ({ namespace, overrides }: InitialOptions) => {
-    // 중복 초기화 방지
+  getPreferencesExtension = <
+    TCustomPreferences extends object = CustomPreferencesRecord,
+  >() => {
+    return this.customPreferencesExtension
+      ? (this.cloneValue(this.customPreferencesExtension) as Readonly<
+          PreferencesExtension<TCustomPreferences>
+        >)
+      : null;
+  };
+
+  /**
+   * 初始化偏好设置
+   * @param options - 初始化配置项
+   * @param options.namespace - 命名空间，用于隔离不同应用的配置
+   * @param options.overrides - 要覆盖的偏好设置
+   */
+  initPreferences = async <
+    TCustomPreferences extends object = CustomPreferencesRecord,
+  >({
+    namespace,
+    overrides,
+    extension,
+  }: InitialOptions<TCustomPreferences>) => {
+    // 防止重复初始化
     if (this.isInitialized) {
       return;
     }
@@ -76,21 +128,39 @@ class PreferenceManager {
     // 네임스페이스를 사용하여 스토리지 관리자 초기화
     this.cache = new StorageManager({ prefix: namespace });
 
-    // 초기 환경 설정 병합
+    // 合并初始偏好设置：前面的对象优先，后面的对象仅补齐缺失字段
     this.initialPreferences = merge({}, overrides, defaultPreferences);
+    this.customPreferencesExtension = extension ?? null;
+    this.initialCustomPreferences = this.resolveCustomPreferencesDefaults(
+      this.customPreferencesExtension,
+    );
 
-    // 캐시된 환경 설정을 로드하고 초기 설정과 병합
-    const cachedPreferences = this.loadFromCache() || {};
-    const mergedPreference = merge(
+    // 加载缓存的偏好设置，并仅用缓存补齐初始化配置中未显式设置的字段
+    const cachedPreferences = (await this.loadFromCache()) || {};
+    // 修复历史脏数据：早期版本用 defu(merge) 合并数组，导致 widget.order
+    // 在每次 updatePreferences 时被 concat 追加，膨胀到几十/上百条重复 key。
+    // 这里在加载缓存后做一次去重，保留首次出现的 key。
+    this.sanitizeCachedArray(cachedPreferences, 'widget', 'order');
+    const mergedPreference = mergeWithArrayOverride(
       {},
-      cachedPreferences,
-      this.initialPreferences,
+      cachedPreferences, // 用户缓存的设置优先
+      this.initialPreferences, // 初始设置仅补齐缺失字段
     );
 
     // 환경 설정 업데이트
     this.updatePreferences(mergedPreference);
 
-    // 리스너 설정
+    const cachedCustom = (await this.loadCustomFromCache()) || {};
+    this.replaceCustomPreferences(
+      mergeWithArrayOverride(
+        {},
+        this.sanitizeCustomPreferences(cachedCustom),
+        this.initialCustomPreferences,
+      ),
+    );
+    await this.saveToCache();
+
+    // 设置监听器
     this.setupWatcher();
 
     // 플랫폼 식별자 초기화
@@ -102,32 +172,79 @@ class PreferenceManager {
   /**
    * 환경 설정을 초기 상태로 재설정합니다.
    */
-  resetPreferences = () => {
-    // 상태를 초기 환경 설정으로 재설정
+  resetPreferences = async () => {
+    // 将状态重置为初始偏好设置
     Object.assign(this.state, this.initialPreferences);
+    this.replaceCustomPreferences(this.initialCustomPreferences);
 
-    // 환경 설정을 캐시에 저장
-    this.saveToCache(this.state);
+    // 保存偏好设置至缓存
+    await this.saveToCache();
 
     // 즉시 UI 업데이트 트리거
     this.handleUpdates(this.state);
   };
 
   /**
-   * 환경 설정 업데이트
-   * @param updates - 업데이트할 환경 설정
+   * 更新扩展偏好设置
+   * @param updates - 要更新的扩展偏好设置
+   */
+  updateCustomPreferences = (updates: DeepPartial<object>) => {
+    if (!this.customPreferencesExtension) {
+      return;
+    }
+
+    const sanitizedUpdates = this.sanitizeCustomPreferences(
+      updates as DeepPartial<CustomPreferencesRecord>,
+    );
+
+    if (Object.keys(sanitizedUpdates).length === 0) {
+      return;
+    }
+
+    this.replaceCustomPreferences(
+      mergeWithArrayOverride({}, sanitizedUpdates, markRaw(this.customState)),
+    );
+    this.debouncedSave();
+  };
+
+  /**
+   * 更新偏好设置
+   * @param updates - 要更新的偏好设置
    */
   updatePreferences = (updates: DeepPartial<Preferences>) => {
-    // 업데이트 내용과 현재 상태를 딥 병합
-    const mergedState = merge({}, updates, markRaw(this.state));
+    // 深度合并更新内容和当前状态
+    // 注意：必须用 mergeWithArrayOverride 而不是 merge。
+    // defu(merge) 对数组的语义是 concat 追加，会导致 widget.order 等
+    // 数组字段在每次 updatePreferences 时被重复追加，指数级膨胀。
+    const mergedState = mergeWithArrayOverride(
+      {},
+      updates,
+      markRaw(this.state),
+    );
     Object.assign(this.state, mergedState);
 
     // 업데이트된 값에 따라 업데이트 실행
     this.handleUpdates(updates);
 
-    // 캐시에 저장
-    this.debouncedSave(this.state);
+    // 保存到缓存（fire-and-forget，通过 debounce 控制频率）
+    this.debouncedSave();
   };
+
+  private cloneValue<T>(value: T): T {
+    if (Array.isArray(value)) {
+      return value.map((item) => this.cloneValue(item)) as T;
+    }
+
+    if (value && typeof value === 'object') {
+      return Object.fromEntries(
+        Object.entries(value as Record<string, unknown>).map(
+          ([key, nestedValue]) => [key, this.cloneValue(nestedValue)],
+        ),
+      ) as T;
+    }
+
+    return value;
+  }
 
   /**
    * 업데이트 처리
@@ -158,22 +275,172 @@ class PreferenceManager {
     document.documentElement.dataset.platform = isMacOs() ? 'macOs' : 'window';
   }
 
+  private isAlmostInteger(value: number, epsilon = Number.EPSILON * 10) {
+    return Math.abs(value - Math.round(value)) < epsilon;
+  }
+
+  private isValidCustomPreferenceValue(
+    field: CustomPreferencesField,
+    value: unknown,
+  ) {
+    switch (field.component) {
+      case 'number': {
+        if (typeof value !== 'number' || !Number.isFinite(value)) {
+          return false;
+        }
+
+        const max = this.resolveNumericConstraint(field.componentProps?.max);
+        const min = this.resolveNumericConstraint(field.componentProps?.min);
+        const step = this.resolveNumericConstraint(field.componentProps?.step);
+
+        if (min !== undefined && value < min) {
+          return false;
+        }
+
+        if (max !== undefined && value > max) {
+          return false;
+        }
+
+        if (step !== undefined) {
+          if (step <= 0) {
+            return false;
+          }
+
+          const stepBase = min ?? 0;
+          const stepCount = (value - stepBase) / step;
+
+          if (!this.isAlmostInteger(stepCount)) {
+            return false;
+          }
+        }
+
+        return true;
+      }
+      case 'select': {
+        return (
+          typeof value === 'string' &&
+          field.options.some((option) => option.value === value)
+        );
+      }
+      case 'switch': {
+        return typeof value === 'boolean';
+      }
+      default: {
+        return typeof value === 'string';
+      }
+    }
+  }
+
+  /**
+   * 从缓存加载扩展偏好设置
+   * @returns 缓存的扩展偏好设置，如果不存在则返回 null
+   */
+  private async loadCustomFromCache(): Promise<CustomPreferencesRecord | null> {
+    return this.cache.getItem<CustomPreferencesRecord>(STORAGE_KEYS.CUSTOM);
+  }
+
   /**
    * 캐시에서 환경 설정 로드
    * @returns 캐시된 환경 설정, 존재하지 않으면 null 반환
    */
-  private loadFromCache(): null | Preferences {
+  private async loadFromCache(): Promise<null | Preferences> {
     return this.cache.getItem<Preferences>(STORAGE_KEYS.MAIN);
   }
 
+  private replaceCustomPreferences(preferences: CustomPreferencesRecord) {
+    Object.keys(this.customState).forEach((key) => {
+      Reflect.deleteProperty(this.customState, key);
+    });
+    Object.assign(this.customState, preferences);
+  }
+
+  private resolveCustomPreferencesDefaults(
+    extension: null | PreferencesExtension<any>,
+  ) {
+    if (!extension) {
+      return {};
+    }
+
+    const result: CustomPreferencesRecord = {};
+
+    for (const field of extension.fields) {
+      result[field.key] = field.defaultValue;
+    }
+
+    return result;
+  }
+
+  private resolveNumericConstraint(value: unknown) {
+    return typeof value === 'number' && Number.isFinite(value)
+      ? value
+      : undefined;
+  }
+
   /**
-   * 환경 설정을 캐시에 저장
-   * @param preference - 저장할 환경 설정
+   * 清理缓存中膨胀的数组字段（保留首次出现的元素）
+   * 用于修复早期版本 defu 合并数组时 concat 追加导致的脏数据
    */
-  private saveToCache(preference: Preferences) {
-    this.cache.setItem(STORAGE_KEYS.MAIN, preference);
-    this.cache.setItem(STORAGE_KEYS.LOCALE, preference.app.locale);
-    this.cache.setItem(STORAGE_KEYS.THEME, preference.theme.mode);
+  private sanitizeCachedArray(
+    cached: Record<string, any>,
+    group: string,
+    field: string,
+  ) {
+    const node = cached?.[group]?.[field];
+    if (!Array.isArray(node) || node.length <= 1) return;
+    const seen = new Set<unknown>();
+    const deduped = node.filter((item) => {
+      if (seen.has(item)) return false;
+      seen.add(item);
+      return true;
+    });
+    if (deduped.length !== node.length) {
+      cached[group][field] = deduped;
+    }
+  }
+
+  private sanitizeCustomPreferences(
+    updates: DeepPartial<CustomPreferencesRecord>,
+  ) {
+    if (!this.customPreferencesExtension) {
+      return {};
+    }
+
+    const result: CustomPreferencesRecord = {};
+
+    for (const field of this.customPreferencesExtension.fields) {
+      const value = updates[field.key];
+
+      if (
+        value !== undefined &&
+        this.isValidCustomPreferenceValue(field, value)
+      ) {
+        result[field.key] = value;
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * 保存偏好设置到缓存
+   */
+  private async saveToCache() {
+    try {
+      await this.cache.setItem(STORAGE_KEYS.MAIN, this.state);
+      await this.cache.setItem(STORAGE_KEYS.LOCALE, this.state.app.locale);
+      await this.cache.setItem(STORAGE_KEYS.THEME, this.state.theme.mode);
+
+      if (this.customPreferencesExtension) {
+        await this.cache.setItem(STORAGE_KEYS.CUSTOM, {
+          ...this.customState,
+        });
+        return;
+      }
+
+      await this.cache.removeItem(STORAGE_KEYS.CUSTOM);
+    } catch (error) {
+      console.error('Failed to save preferences to cache:', error);
+    }
   }
 
   /**

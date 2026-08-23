@@ -82,7 +82,7 @@ export const useSchema = (): VbenFormSchema[] => [
     },
     fieldName: 'companyId',
     label: '소속 회사',
-    rules: z.string({ required_error: '회사를 선택해주세요' }),
+    rules: z.string({ error: '회사를 선택해주세요' }),
   },
   {
     component: markRaw(BizSelect),
@@ -104,7 +104,7 @@ export const useSchema = (): VbenFormSchema[] => [
     },
     fieldName: 'deptId',
     label: $t('system.account.dept'),
-    rules: z.string({ required_error: '부서를 선택해주세요' }),
+    rules: z.string({ error: '부서를 선택해주세요' }),
   },
   {
     component: 'Input',

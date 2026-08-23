@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { SupportedLanguagesType } from '@vben/locales';
+import type { CustomPreferencesRecord } from '@vben/preferences';
 import type {
   BreadcrumbStyleType,
   BuiltinThemeType,
@@ -22,6 +23,7 @@ import {
   clearCache,
   preferences,
   resetPreferences,
+  updateCustomPreferences,
   usePreferences,
 } from '@vben/preferences';
 
@@ -43,7 +45,7 @@ import {
   ColorMode,
   Content,
   Copyright,
-  FontFamily,
+  Custom,
   FontSize,
   Footer,
   General,
@@ -63,6 +65,7 @@ const emit = defineEmits<{ clearPreferencesAndLogout: [] }>();
 const message = globalShareState.getMessage();
 
 const appLocale = defineModel<SupportedLanguagesType>('appLocale');
+const appTimezone = defineModel<string>('appTimezone');
 const appDynamicTitle = defineModel<boolean>('appDynamicTitle');
 const appFontFamily = defineModel<string>('appFontFamily');
 const appLayout = defineModel<LayoutType>('appLayout');
@@ -156,27 +159,59 @@ const copyrightIcp = defineModel<string>('copyrightIcp');
 const copyrightIcpLink = defineModel<string>('copyrightIcpLink');
 
 const shortcutKeysEnable = defineModel<boolean>('shortcutKeysEnable');
-const shortcutKeysGlobalPreferences = defineModel<boolean>('shortcutKeysGlobalPreferences');
-const shortcutKeysGlobalSearch = defineModel<boolean>(  'shortcutKeysGlobalSearch');
-const shortcutKeysGlobalLogout = defineModel<boolean>(  'shortcutKeysGlobalLogout');
-const shortcutKeysGlobalLockScreen = defineModel<boolean>(  'shortcutKeysGlobalLockScreen');
+const shortcutKeysGlobalSearch = defineModel<boolean>(
+  'shortcutKeysGlobalSearch',
+);
+const shortcutKeysGlobalLogout = defineModel<boolean>(
+  'shortcutKeysGlobalLogout',
+);
+const shortcutKeysGlobalEscape = defineModel<boolean>(
+  'shortcutKeysGlobalEscape',
+);
 
-const widgetGlobalSearch = defineModel<boolean>('widgetGlobalSearch');
-const widgetFullscreen = defineModel<boolean>('widgetFullscreen');
-const widgetLanguageToggle = defineModel<boolean>('widgetLanguageToggle');
-const widgetNotification = defineModel<boolean>('widgetNotification');
-const widgetThemeToggle = defineModel<boolean>('widgetThemeToggle');
-const widgetSidebarToggle = defineModel<boolean>('widgetSidebarToggle');
-const widgetLockScreen = defineModel<boolean>('widgetLockScreen');
-const widgetRefresh = defineModel<boolean>('widgetRefresh');
+const shortcutKeysGlobalLockScreen = defineModel<boolean>(
+  'shortcutKeysGlobalLockScreen',
+);
+
+const widgetGlobalSearchButtonPosition = defineModel<string>(
+  'widgetGlobalSearchButtonPosition',
+);
+const widgetFullscreenButtonPosition = defineModel<string>(
+  'widgetFullscreenButtonPosition',
+);
+const widgetLanguageToggleButtonPosition = defineModel<string>(
+  'widgetLanguageToggleButtonPosition',
+);
+const widgetNotificationButtonPosition = defineModel<string>(
+  'widgetNotificationButtonPosition',
+);
+const widgetThemeToggleButtonPosition = defineModel<string>(
+  'widgetThemeToggleButtonPosition',
+);
+const widgetLockScreenButtonPosition = defineModel<string>(
+  'widgetLockScreenButtonPosition',
+);
+const widgetLogoutButtonPosition = defineModel<string>(
+  'widgetLogoutButtonPosition',
+);
+const widgetOrder = defineModel<string[]>('widgetOrder', { required: true });
+const widgetRefreshButtonPosition = defineModel<string>(
+  'widgetRefreshButtonPosition',
+);
+const widgetTimezoneButtonPosition = defineModel<string>(
+  'widgetTimezoneButtonPosition',
+);
 
 const {
+  customPreferences,
+  diffCustomPreference,
   diffPreference,
   isDark,
   isFullContent,
   isHeaderNav,
   isHeaderSidebarNav,
   isMixedNav,
+  preferencesExtension,
   isSideMixedNav,
   isSideMode,
   isSideNav,
@@ -187,8 +222,42 @@ const [Drawer] = useVbenDrawer();
 
 const activeTab = ref('appearance');
 
+const customPreferencesTab = computed(() => {
+  return preferencesExtension.value;
+});
+
+const customTabLabel = computed(() => {
+  return customPreferencesTab.value?.tabLabel
+    ? $t(customPreferencesTab.value.tabLabel)
+    : '';
+});
+
+const customTabTitle = computed(() => {
+  const title =
+    customPreferencesTab.value?.title || customPreferencesTab.value?.tabLabel;
+  return title ? $t(title) : '';
+});
+
+const mergedDiffPreference = computed(() => {
+  const result: Record<string, unknown> = {};
+
+  if (diffPreference.value) {
+    Object.assign(result, diffPreference.value);
+  }
+
+  if (diffCustomPreference.value) {
+    result.custom = diffCustomPreference.value;
+  }
+
+  return Object.keys(result).length > 0 ? result : undefined;
+});
+
+const showCustomTab = computed(() => {
+  return (customPreferencesTab.value?.fields.length ?? 0) > 0;
+});
+
 const tabs = computed((): SegmentedItem[] => {
-  return [
+  const items: SegmentedItem[] = [
     {
       label: $t('preferences.appearance'),
       value: 'appearance',
@@ -206,6 +275,15 @@ const tabs = computed((): SegmentedItem[] => {
       value: 'general',
     },
   ];
+
+  if (showCustomTab.value) {
+    items.push({
+      label: customTabLabel.value,
+      value: 'custom',
+    });
+  }
+
+  return items;
 });
 
 const showBreadcrumbConfig = computed(() => {
@@ -218,7 +296,7 @@ const showBreadcrumbConfig = computed(() => {
 });
 
 async function handleCopy() {
-  await copy(JSON.stringify(diffPreference.value, null, 2));
+  await copy(JSON.stringify(mergedDiffPreference.value, null, 2));
 
   message.copyPreferencesSuccess?.(
     $t('preferences.copyPreferencesSuccessTitle'),
@@ -227,17 +305,21 @@ async function handleCopy() {
 }
 
 async function handleClearCache() {
-  resetPreferences();
-  clearCache();
+  await resetPreferences();
+  await clearCache();
   emit('clearPreferencesAndLogout');
 }
 
 async function handleReset() {
-  if (!diffPreference.value) {
+  if (!mergedDiffPreference.value) {
     return;
   }
-  resetPreferences();
+  await resetPreferences();
   await loadLocaleMessages(preferences.app.locale);
+}
+
+function handleCustomPreferencesUpdate(updates: CustomPreferencesRecord) {
+  updateCustomPreferences(updates);
 }
 </script>
 
@@ -251,13 +333,13 @@ async function handleReset() {
       <template #extra>
         <div class="flex items-center">
           <VbenIconButton
-            :disabled="!diffPreference"
+            :disabled="!mergedDiffPreference"
             :tooltip="$t('preferences.resetTip')"
             class="relative"
             @click="handleReset"
           >
             <span
-              v-if="diffPreference"
+              v-if="mergedDiffPreference"
               class="absolute top-0.5 right-0.5 size-2 rounded-sm bg-primary"
             ></span>
             <RotateCw class="size-4" />
@@ -300,6 +382,7 @@ async function handleReset() {
                 v-model:app-enable-copy-preferences="appEnableCopyPreferences"
                 v-model:app-font-family="appFontFamily"
                 v-model:app-locale="appLocale"
+                v-model:app-timezone="appTimezone"
                 v-model:app-watermark="appWatermark"
                 v-model:app-watermark-content="appWatermarkContent"
               />
@@ -422,14 +505,34 @@ async function handleReset() {
                 v-model:app-preferences-button-position="
                   appPreferencesButtonPosition
                 "
-                v-model:widget-fullscreen="widgetFullscreen"
-                v-model:widget-global-search="widgetGlobalSearch"
-                v-model:widget-language-toggle="widgetLanguageToggle"
-                v-model:widget-lock-screen="widgetLockScreen"
-                v-model:widget-notification="widgetNotification"
-                v-model:widget-refresh="widgetRefresh"
-                v-model:widget-sidebar-toggle="widgetSidebarToggle"
-                v-model:widget-theme-toggle="widgetThemeToggle"
+                v-model:widget-fullscreen-button-position="
+                  widgetFullscreenButtonPosition
+                "
+                v-model:widget-global-search-button-position="
+                  widgetGlobalSearchButtonPosition
+                "
+                v-model:widget-language-toggle-button-position="
+                  widgetLanguageToggleButtonPosition
+                "
+                v-model:widget-lock-screen-button-position="
+                  widgetLockScreenButtonPosition
+                "
+                v-model:widget-logout-button-position="
+                  widgetLogoutButtonPosition
+                "
+                v-model:widget-order="widgetOrder"
+                v-model:widget-notification-button-position="
+                  widgetNotificationButtonPosition
+                "
+                v-model:widget-refresh-button-position="
+                  widgetRefreshButtonPosition
+                "
+                v-model:widget-theme-toggle-button-position="
+                  widgetThemeToggleButtonPosition
+                "
+                v-model:widget-timezone-button-position="
+                  widgetTimezoneButtonPosition
+                "
               />
             </Block>
             <Block :title="$t('preferences.footer.title')">
@@ -465,7 +568,16 @@ async function handleReset() {
 
                 v-model:shortcut-keys-lock-screen="shortcutKeysGlobalLockScreen"
                 v-model:shortcut-keys-logout="shortcutKeysGlobalLogout"
-                v-model:shortcut-keys-preferences="shortcutKeysGlobalPreferences"
+                v-model:shortcut-keys-escape="shortcutKeysGlobalEscape"
+              />
+            </Block>
+          </template>
+          <template #custom>
+            <Block :title="customTabTitle">
+              <Custom
+                :fields="customPreferencesTab?.fields || []"
+                :values="customPreferences"
+                @update="handleCustomPreferencesUpdate"
               />
             </Block>
           </template>
@@ -475,7 +587,7 @@ async function handleReset() {
       <template #footer>
         <VbenButton
           v-if="appEnableCopyPreferences"
-          :disabled="!diffPreference"
+          :disabled="!mergedDiffPreference"
           class="mx-4 w-full"
           size="sm"
           variant="default"
@@ -485,7 +597,7 @@ async function handleReset() {
           {{ $t('preferences.copyPreferences') }}
         </VbenButton>
         <VbenButton
-          :disabled="!diffPreference"
+          :disabled="!mergedDiffPreference"
           class="mr-4 w-full"
           size="sm"
           variant="ghost"

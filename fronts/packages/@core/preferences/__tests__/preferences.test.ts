@@ -1,11 +1,13 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { defaultPreferences } from '../src/config';
-import { PreferenceManager } from '../src/preferences';
 import { isDarkTheme } from '../src/update-css-variables';
 
 describe('preferences', () => {
-  let preferenceManager: PreferenceManager;
+  let PreferenceManager: typeof import('../src/preferences').PreferenceManager;
+  let preferenceManager: InstanceType<
+    typeof import('../src/preferences').PreferenceManager
+  >;
 
   // window.matchMedia 메서드 시뮬레이션
   vi.stubGlobal(
@@ -21,7 +23,36 @@ describe('preferences', () => {
       removeListener: vi.fn(), // Deprecated
     })),
   );
+
+  vi.stubGlobal('localStorage', {
+    clear: vi.fn(),
+    getItem: vi.fn(() => null),
+    key: vi.fn(() => null),
+    length: 0,
+    removeItem: vi.fn(),
+    setItem: vi.fn(),
+  });
+
+  vi.stubGlobal('sessionStorage', {
+    clear: vi.fn(),
+    getItem: vi.fn(() => null),
+    key: vi.fn(() => null),
+    length: 0,
+    removeItem: vi.fn(),
+    setItem: vi.fn(),
+  });
+
+  beforeAll(async () => {
+    ({ PreferenceManager } = await import('../src/preferences'));
+  });
+
   beforeEach(() => {
+    vi.mocked(localStorage.getItem).mockImplementation(() => null);
+    vi.mocked(localStorage.removeItem).mockReset();
+    vi.mocked(localStorage.setItem).mockReset();
+    vi.mocked(sessionStorage.getItem).mockImplementation(() => null);
+    vi.mocked(sessionStorage.removeItem).mockReset();
+    vi.mocked(sessionStorage.setItem).mockReset();
     preferenceManager = new PreferenceManager();
   });
 
@@ -74,16 +105,16 @@ describe('preferences', () => {
     expect(preferenceManager.getPreferences().app.colorWeakMode).toBe(true);
   });
 
-  it('resets preferences to default', () => {
-    // 먼저 일부 환경 설정을 업데이트
+  it('resets preferences to default', async () => {
+    // 先更新一些偏好设置
     preferenceManager.updatePreferences({
       theme: {
         mode: 'light',
       },
     });
 
-    // 그런 다음 환경 설정 초기화
-    preferenceManager.resetPreferences();
+    // 然后重置偏好设置
+    await preferenceManager.resetPreferences();
 
     expect(preferenceManager.getPreferences()).toEqual(defaultPreferences);
   });
@@ -143,8 +174,8 @@ describe('preferences', () => {
     );
   });
 
-  it('resets preferences to default correctly', () => {
-    // 먼저 일부 환경 설정을 업데이트
+  it('resets preferences to default correctly', async () => {
+    // 先更新一些偏好设置
     preferenceManager.updatePreferences({
       app: { locale: 'en-US' },
       sidebar: { collapsed: true, width: 200 },
@@ -153,8 +184,8 @@ describe('preferences', () => {
       },
     });
 
-    // 그런 다음 환경 설정 초기화
-    preferenceManager.resetPreferences();
+    // 然后重置偏好设置
+    await preferenceManager.resetPreferences();
 
     expect(preferenceManager.getPreferences()).toEqual(defaultPreferences);
   });
@@ -214,13 +245,275 @@ describe('preferences', () => {
       },
     };
 
-    await preferenceManager.initPreferences(overrides);
+    await preferenceManager.initPreferences({
+      namespace: 'apply-updates',
+      overrides,
+    });
 
     preferenceManager.updatePreferences({
       theme: { mode: 'light' },
     });
 
     expect(preferenceManager.getPreferences().theme.mode).toBe('light');
+  });
+
+  it('initializes custom preferences extension with default values', async () => {
+    const extension = {
+      fields: [
+        {
+          component: 'switch',
+          defaultValue: true,
+          key: 'enableWorkbench',
+          label: '启用工作台',
+        },
+        {
+          component: 'select',
+          defaultValue: 'single',
+          key: 'tenantMode',
+          label: '租户模式',
+          options: [
+            { label: '单租户', value: 'single' },
+            { label: '多租户', value: 'multi' },
+          ],
+        },
+      ],
+      tabLabel: '扩展',
+      title: '业务偏好',
+    } as const;
+
+    await preferenceManager.initPreferences({
+      extension,
+      namespace: 'custom-defaults',
+    });
+
+    expect(preferenceManager.getPreferencesExtension()).toEqual(extension);
+    expect(preferenceManager.getCustomPreferences()).toEqual({
+      enableWorkbench: true,
+      tenantMode: 'single',
+    });
+  });
+
+  it('does not expose mutable custom preference baselines or extension schema', async () => {
+    const extension = {
+      fields: [
+        {
+          component: 'number',
+          componentProps: {
+            max: 10,
+            min: 2,
+            step: 2,
+          },
+          defaultValue: 4,
+          key: 'pageSize',
+          label: '分页大小',
+        },
+      ],
+      tabLabel: '扩展',
+      title: '业务偏好',
+    } as const;
+
+    await preferenceManager.initPreferences({
+      extension,
+      namespace: 'custom-readonly',
+    });
+
+    const initialCustomPreferences =
+      preferenceManager.getInitialCustomPreferences<{
+        pageSize: number;
+      }>() as { pageSize: number };
+    const preferencesExtension = preferenceManager.getPreferencesExtension<{
+      pageSize: number;
+    }>() as {
+      fields: Array<{ componentProps?: { max?: number }; label: string }>;
+    };
+    const [firstField] = preferencesExtension.fields;
+
+    initialCustomPreferences.pageSize = 8;
+    expect(firstField).toBeDefined();
+    expect(firstField?.componentProps).toBeDefined();
+
+    if (!firstField || !firstField.componentProps) {
+      return;
+    }
+
+    firstField.label = '已修改';
+    firstField.componentProps.max = 20;
+
+    expect(preferenceManager.getInitialCustomPreferences()).toEqual({
+      pageSize: 4,
+    });
+    expect(preferenceManager.getPreferencesExtension()).toEqual(extension);
+  });
+
+  it('updates and resets custom preferences correctly', async () => {
+    await preferenceManager.initPreferences({
+      extension: {
+        fields: [
+          {
+            component: 'number',
+            defaultValue: 20,
+            key: 'pageSize',
+            label: '分页大小',
+          },
+          {
+            component: 'input',
+            defaultValue: '日报',
+            key: 'reportTitle',
+            label: '报表标题',
+          },
+        ],
+        tabLabel: '扩展',
+      },
+      namespace: 'custom-reset',
+    });
+
+    preferenceManager.updateCustomPreferences({
+      pageSize: 50,
+      reportTitle: '月报',
+    });
+
+    expect(preferenceManager.getCustomPreferences()).toEqual({
+      pageSize: 50,
+      reportTitle: '月报',
+    });
+
+    await preferenceManager.resetPreferences();
+
+    expect(preferenceManager.getCustomPreferences()).toEqual({
+      pageSize: 20,
+      reportTitle: '日报',
+    });
+  });
+
+  it('ignores invalid custom preferences updates', async () => {
+    await preferenceManager.initPreferences({
+      extension: {
+        fields: [
+          {
+            component: 'switch',
+            defaultValue: true,
+            key: 'enableWorkbench',
+            label: '启用工作台',
+          },
+          {
+            component: 'select',
+            defaultValue: 'single',
+            key: 'tenantMode',
+            label: '租户模式',
+            options: [
+              { label: '单租户', value: 'single' },
+              { label: '多租户', value: 'multi' },
+            ],
+          },
+        ],
+        tabLabel: '扩展',
+      },
+      namespace: 'custom-invalid',
+    });
+
+    const originalCustomPreferences = preferenceManager.getCustomPreferences();
+
+    preferenceManager.updateCustomPreferences({
+      enableWorkbench: 'true' as unknown as boolean,
+      tenantMode: 'unknown',
+      unknownField: 'value',
+    } as any);
+
+    expect(preferenceManager.getCustomPreferences()).toEqual(
+      originalCustomPreferences,
+    );
+  });
+
+  it('enforces custom number field min max and step constraints', async () => {
+    await preferenceManager.initPreferences({
+      extension: {
+        fields: [
+          {
+            component: 'number',
+            componentProps: {
+              max: 10,
+              min: 2,
+              step: 2,
+            },
+            defaultValue: 4,
+            key: 'pageSize',
+            label: '分页大小',
+          },
+        ],
+        tabLabel: '扩展',
+      },
+      namespace: 'custom-number-constraints',
+    });
+
+    preferenceManager.updateCustomPreferences({
+      pageSize: 8,
+    });
+
+    expect(preferenceManager.getCustomPreferences()).toEqual({
+      pageSize: 8,
+    });
+
+    preferenceManager.updateCustomPreferences({
+      pageSize: 1,
+    });
+
+    expect(preferenceManager.getCustomPreferences()).toEqual({
+      pageSize: 8,
+    });
+
+    preferenceManager.updateCustomPreferences({
+      pageSize: 12,
+    });
+
+    expect(preferenceManager.getCustomPreferences()).toEqual({
+      pageSize: 8,
+    });
+
+    preferenceManager.updateCustomPreferences({
+      pageSize: 5,
+    });
+
+    expect(preferenceManager.getCustomPreferences()).toEqual({
+      pageSize: 8,
+    });
+  });
+
+  it('filters cached custom number values that violate field constraints', async () => {
+    vi.mocked(localStorage.getItem).mockImplementation((key) => {
+      if (key.endsWith('cache-preferences-custom')) {
+        return JSON.stringify({
+          value: {
+            pageSize: 5,
+          },
+        });
+      }
+
+      return null;
+    });
+
+    await preferenceManager.initPreferences({
+      extension: {
+        fields: [
+          {
+            component: 'number',
+            componentProps: {
+              max: 10,
+              min: 2,
+              step: 2,
+            },
+            defaultValue: 4,
+            key: 'pageSize',
+            label: '分页大小',
+          },
+        ],
+        tabLabel: '扩展',
+      },
+      namespace: 'custom-number-cache',
+    });
+
+    expect(preferenceManager.getCustomPreferences()).toEqual({
+      pageSize: 4,
+    });
   });
 });
 

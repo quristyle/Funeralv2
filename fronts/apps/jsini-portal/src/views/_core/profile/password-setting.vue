@@ -40,7 +40,7 @@ const formSchema = computed((): VbenFormSchema[] => {
         rules(values) {
           const { newPassword } = values;
           return z
-            .string({ required_error: '새 비밀번호를 다시 입력해주세요' })
+            .string({ error: '새 비밀번호를 다시 입력해주세요' })
             .min(1, { message: '새 비밀번호를 다시 입력해주세요' })
             .refine((value) => value === newPassword, {
               message: '비밀번호가 일치하지 않습니다',

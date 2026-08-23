@@ -57,7 +57,6 @@ const [Form] = useVbenForm({
     {
       component: markRaw(TwoFields),
       defaultValue: [undefined, ''],
-      disabledOnChangeListener: false,
       fieldName: 'field4',
       formItemClass: 'col-span-1',
       label: '조합 필드',

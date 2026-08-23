@@ -31,7 +31,9 @@ export interface TreeProps {
   labelField?: string;
   /** 다중 선택 여부 */
   multiple?: boolean;
-  /** iconField로 지정된 아이콘 표시 */
+  /** 전체 선택 체크박스 옆에 붙일 라벨 */
+  selectAllLabel?: string;
+  /** iconField 가 가리키는 아이콘 표시 */
   showIcon?: boolean;
   /** 펼치기/접기 애니메이션 활성화 */
   transition?: boolean;

@@ -1,23 +1,24 @@
-import type {
-  FormState,
-  GenericObject,
-  ResetFormOpts,
-  ValidationOptions,
-} from 'vee-validate';
-
 import type { ComponentPublicInstance } from 'vue';
 
-import type { Recordable } from '@vben-core/typings';
-
-import type { FormActions, FormSchema, VbenFormProps } from './types';
+import type {
+  BaseFormComponentType,
+  FormActions,
+  FormFieldName,
+  FormFieldValue,
+  FormResetOptions,
+  FormResetState,
+  FormSchema,
+  FormValues,
+  FormValueSnapshot,
+  VbenFormProps,
+} from './types';
 
 import { isRef, toRaw } from 'vue';
 
 import { Store } from '@vben-core/shared/store';
 import {
   bindMethods,
-  createMerge,
-  formatDate,
+  cloneDeep,
   isDate,
   isDayjsObject,
   isFunction,
@@ -26,7 +27,31 @@ import {
   StateHandler,
 } from '@vben-core/shared/utils';
 
-function getDefaultState(): VbenFormProps {
+import { warnDeprecatedOnce } from './deprecation';
+import { resolveFieldNamePath } from './field-name';
+import { decodeFormValues, encodeFormValues } from './form-codec';
+import { updateFormSchemaList } from './form-render/schema';
+import { formatFormValues } from './form-value-transform';
+
+type FormApiProps<
+  TFormValues extends FormValues,
+  T extends BaseFormComponentType,
+  P extends Record<string, any>,
+  TSubmitValues extends FormValues,
+> = VbenFormProps<T, P, TFormValues, TSubmitValues>;
+
+type FormApiSchema<
+  TValues extends FormValues,
+  T extends BaseFormComponentType,
+  P extends Record<string, any>,
+> = FormSchema<T, P, TValues>;
+
+function getDefaultState<
+  TFormValues extends FormValues,
+  T extends BaseFormComponentType,
+  P extends Record<string, any>,
+  TSubmitValues extends FormValues,
+>(): FormApiProps<TFormValues, T, P, TSubmitValues> {
   return {
     actionWrapperClass: '',
     collapsed: false,
@@ -50,15 +75,20 @@ function getDefaultState(): VbenFormProps {
   };
 }
 
-export class FormApi {
+export class FormApi<
+  TFormValues extends FormValues = FormValues,
+  T extends BaseFormComponentType = BaseFormComponentType,
+  P extends Record<string, any> = Record<never, never>,
+  TSubmitValues extends FormValues = TFormValues,
+> {
   // private api: Pick<VbenFormProps, 'handleReset' | 'handleSubmit'>;
-  public form = {} as FormActions;
+  public form = {} as FormActions<TFormValues>;
   isMounted = false;
 
-  public state: null | VbenFormProps = null;
+  public state: FormApiProps<TFormValues, T, P, TSubmitValues> | null = null;
   stateHandler: StateHandler;
 
-  public store: Store<VbenFormProps>;
+  public store: Store<FormApiProps<TFormValues, T, P, TSubmitValues>>;
 
   /**
    * 컴포넌트 인스턴스 매핑
@@ -66,16 +96,22 @@ export class FormApi {
   private componentRefMap: Map<string, unknown> = new Map();
 
   // 마지막으로 제출 버튼을 클릭했을 때의 폼 값
-  private latestSubmissionValues: null | Recordable<any> = null;
+  private latestSubmissionValues: null | Partial<TSubmitValues> = null;
 
-  private prevState: null | VbenFormProps = null;
+  private legacyTransformWarningState: null | Pick<
+    FormApiProps<TFormValues, T, P, TSubmitValues>,
+    'arrayToStringFields' | 'codec' | 'fieldMappingTime' | 'schema'
+  > = null;
 
-  constructor(options: VbenFormProps = {}) {
+  private prevState: FormApiProps<TFormValues, T, P, TSubmitValues> | null =
+    null;
+
+  constructor(options: FormApiProps<TFormValues, T, P, TSubmitValues> = {}) {
     const { ...storeState } = options;
 
-    const defaultState = getDefaultState();
+    const defaultState = getDefaultState<TFormValues, T, P, TSubmitValues>();
 
-    this.store = new Store<VbenFormProps>({
+    this.store = new Store<FormApiProps<TFormValues, T, P, TSubmitValues>>({
       ...defaultState,
       ...storeState,
     });
@@ -89,6 +125,34 @@ export class FormApi {
     this.state = this.store.state;
     this.stateHandler = new StateHandler();
     bindMethods(this);
+  }
+
+  async clearValidation(
+    fieldNames?: FormFieldName<TFormValues> | FormFieldName<TFormValues>[],
+  ) {
+    const form = await this.getForm();
+    form.clearValidation(fieldNames);
+  }
+
+  formatValues(rawValues: Readonly<TFormValues>): TSubmitValues;
+  /** @deprecated Declare the submit type on `useVbenForm` instead. */
+  formatValues<TResult extends FormValues>(
+    rawValues: Readonly<FormValues>,
+  ): TResult;
+  formatValues(rawValues: Readonly<FormValues>): FormValues {
+    this.warnLegacyValueTransforms();
+    if (this.state?.codec) {
+      return encodeFormValues(
+        this.state.codec,
+        cloneDeep(toRaw(rawValues)) as Readonly<TFormValues>,
+      );
+    }
+    return formatFormValues(
+      toRaw(rawValues),
+      this.state?.schema ?? [],
+      this.state?.fieldMappingTime,
+      this.state?.arrayToStringFields,
+    );
   }
 
   /**
@@ -152,26 +216,52 @@ export class FormApi {
     return this.latestSubmissionValues || {};
   }
 
+  async getRawValues(): Promise<TFormValues>;
+  /** @deprecated Declare the form value type on `useVbenForm` instead. */
+  async getRawValues<TResult extends FormValues>(): Promise<TResult>;
+  async getRawValues(): Promise<FormValues> {
+    const form = await this.getForm();
+    return cloneDeep(toRaw(form.values ?? {}));
+  }
+
   getState() {
     return this.state;
   }
 
-  async getValues<T = Recordable<any>>() {
+  async getValues(): Promise<TSubmitValues>;
+  /** @deprecated Declare the submit type on `useVbenForm` instead. */
+  async getValues<TResult extends FormValues>(): Promise<TResult>;
+  async getValues(): Promise<FormValues> {
     const form = await this.getForm();
-    return (form.values ? this.handleRangeTimeValue(form.values) : {}) as T;
+    return this.formatValues(toRaw(form.values ?? {}));
   }
 
-  async isFieldValid(fieldName: string) {
+  async getValueSnapshot(): Promise<
+    FormValueSnapshot<TFormValues, TSubmitValues>
+  >;
+  /** @deprecated Declare form and submit value types on `useVbenForm`. */
+  async getValueSnapshot<TResult extends FormValues>(): Promise<
+    FormValueSnapshot<TResult>
+  >;
+  async getValueSnapshot(): Promise<FormValueSnapshot> {
+    const rawValues = await this.getRawValues();
+    return {
+      rawValues,
+      values: this.formatValues(rawValues),
+    };
+  }
+
+  async isFieldValid(fieldName: FormFieldName<TFormValues>) {
     const form = await this.getForm();
     return form.isFieldValid(fieldName);
   }
 
-  merge(formApi: FormApi) {
+  merge(formApi: FormApi<any, any, any, any>) {
     const chain = [this, formApi];
     const proxy = new Proxy(formApi, {
       get(target: any, prop: any) {
         if (prop === 'merge') {
-          return (nextFormApi: FormApi) => {
+          return (nextFormApi: FormApi<any, any, any, any>) => {
             chain.push(nextFormApi);
             return proxy;
           };
@@ -206,14 +296,32 @@ export class FormApi {
     return proxy;
   }
 
-  mount(formActions: FormActions, componentRefMap: Map<string, unknown>) {
+  mount(
+    formActions: FormActions<TFormValues>,
+    componentRefMap?: Map<string, unknown>,
+  ) {
     if (!this.isMounted) {
-      Object.assign(this.form, formActions);
+      this.form = formActions;
       this.stateHandler.setConditionTrue();
-      this.setLatestSubmissionValues({
-        ...toRaw(this.handleRangeTimeValue(this.form.values)),
-      });
-      this.componentRefMap = componentRefMap;
+      let initialValues: FormValues = {};
+      if (this.form.values) {
+        const rawInitialValues = toRaw(this.form.values);
+        try {
+          initialValues = this.formatValues(rawInitialValues);
+        } catch (error) {
+          if (!this.state?.codec) {
+            throw error;
+          }
+          console.warn(
+            '[Vben Form] Failed to encode initial values. Falling back to raw form values.',
+            error,
+          );
+          initialValues = cloneDeep(rawInitialValues);
+        }
+      }
+      this.setLatestSubmissionValues(initialValues as Partial<TSubmitValues>);
+      this.componentRefMap =
+        componentRefMap ?? this.componentRefMap ?? new Map();
       this.isMounted = true;
     }
   }
@@ -236,20 +344,30 @@ export class FormApi {
   /**
    * 폼 초기화
    */
-  async resetForm(
-    state?: Partial<FormState<GenericObject>> | undefined,
-    opts?: Partial<ResetFormOpts>,
-  ) {
+  async reset(state?: FormResetState<TFormValues>, opts?: FormResetOptions) {
     const form = await this.getForm();
-    return form.resetForm(state, opts);
+    return form.reset(state, opts);
   }
 
+  /** @deprecated Use `reset` instead. */
+  async resetForm(
+    state?: FormResetState<TFormValues>,
+    opts?: FormResetOptions,
+  ) {
+    warnDeprecatedOnce(
+      'form-api-reset-form',
+      '[Vben Form] `formApi.resetForm()` is deprecated. Use `formApi.reset()` instead.',
+    );
+    return this.reset(state, opts);
+  }
+
+  /** @deprecated Use `clearValidation` instead. */
   async resetValidate() {
-    const form = await this.getForm();
-    const fields = Object.keys(form.errors.value);
-    fields.forEach((field) => {
-      form.setFieldError(field, undefined);
-    });
+    warnDeprecatedOnce(
+      'form-api-reset-validate',
+      '[Vben Form] `formApi.resetValidate()` is deprecated. Use `formApi.clearValidation()` instead.',
+    );
+    return this.clearValidation();
   }
 
   /**
@@ -257,7 +375,6 @@ export class FormApi {
    * @param errors 유효성 검사 오류 객체
    */
   scrollToFirstError(errors: Record<string, any> | string) {
-    // https://github.com/logaretm/vee-validate/discussions/3835
     const firstErrorFieldName =
       typeof errors === 'string' ? errors : Object.keys(errors)[0];
 
@@ -269,8 +386,7 @@ export class FormApi {
       `[name="${firstErrorFieldName}"]`,
     ) as HTMLElement;
 
-    // name 속성으로 찾을 수 없는 경우, 컴포넌트 참조를 통해 찾기를 시도합니다. 
-    // 정상적인 경우에는 여기까지 도달하지 않지만, vee-validate의 name 속성이 변경될 경우를 대비한 대체 수단입니다.
+    // 如果通过 name 属性找不到，尝试通过组件引用查找
     if (!el) {
       const componentRef = this.getFieldComponentRef(firstErrorFieldName);
       if (componentRef && componentRef.$el instanceof HTMLElement) {
@@ -288,19 +404,32 @@ export class FormApi {
     }
   }
 
-  async setFieldValue(field: string, value: any, shouldValidate?: boolean) {
+  async setFieldError(fieldName: FormFieldName<TFormValues>, error?: string) {
     const form = await this.getForm();
-    form.setFieldValue(field, value, shouldValidate);
+    form.setFieldError(fieldName, error);
   }
 
-  setLatestSubmissionValues(values: null | Recordable<any>) {
-    this.latestSubmissionValues = { ...toRaw(values) };
+  async setFieldValue<TFieldName extends FormFieldName<TFormValues>>(
+    field: TFieldName,
+    value: FormFieldValue<TFormValues, NoInfer<TFieldName>>,
+    shouldValidate?: boolean,
+  ) {
+    const form = await this.getForm();
+    await form.setFieldValue(field, value, shouldValidate);
+  }
+
+  setLatestSubmissionValues(values: null | Partial<TSubmitValues>) {
+    this.latestSubmissionValues = {
+      ...toRaw(values),
+    } as Partial<TSubmitValues>;
   }
 
   setState(
     stateOrFn:
-      | ((prev: VbenFormProps) => Partial<VbenFormProps>)
-      | Partial<VbenFormProps>,
+      | ((
+          prev: FormApiProps<TFormValues, T, P, TSubmitValues>,
+        ) => Partial<FormApiProps<TFormValues, T, P, TSubmitValues>>)
+      | Partial<FormApiProps<TFormValues, T, P, TSubmitValues>>,
   ) {
     if (isFunction(stateOrFn)) {
       this.store.setState((prev) => {
@@ -311,6 +440,21 @@ export class FormApi {
     }
   }
 
+  async setSubmitValues(
+    values: TSubmitValues,
+    filterFields: boolean = true,
+    shouldValidate: boolean = false,
+  ) {
+    const codec = this.state?.codec;
+    if (!codec) {
+      throw new Error(
+        '[Vben Form] `setSubmitValues()` requires a form `codec`.',
+      );
+    }
+    const formValues = decodeFormValues(codec, values);
+    await this.setValues(formValues, filterFields, shouldValidate);
+  }
+
   /**
    * 폼 값 설정
    * @param fields 레코드
@@ -318,7 +462,7 @@ export class FormApi {
    * @param shouldValidate 유효성 검사 여부
    */
   async setValues(
-    fields: Record<string, any>,
+    fields: Partial<TFormValues>,
     filterFields: boolean = true,
     shouldValidate: boolean = false,
   ) {
@@ -328,49 +472,76 @@ export class FormApi {
       return;
     }
 
-    /**
-     * 병합 알고리즘은 개선이 필요하며, 현재 알고리즘은 object 타입의 값을 지원하지 않습니다.
-     * antd의 날짜/시간 관련 컴포넌트의 값 타입은 dayjs 객체입니다.
-     * element-plus의 날짜/시간 관련 컴포넌트의 값 타입은 Date 객체일 수 있습니다.
-     * 위의 두 가지 타입은 깊은 병합에서 제외해야 합니다.
-     */
-    const fieldMergeFn = createMerge((obj, key, value) => {
-      if (key in obj) {
-        obj[key] =
-          !Array.isArray(obj[key]) &&
-          isObject(obj[key]) &&
-          !isDayjsObject(obj[key]) &&
-          !isDate(obj[key])
-            ? fieldMergeFn(value, obj[key])
-            : value;
+    const schemaFieldPaths = (this.state?.schema ?? []).map(
+      (schema) => resolveFieldNamePath(schema.fieldName).pathSegments,
+    );
+    const filterValue = (
+      value: unknown,
+      parentPath: string[] = [],
+    ): unknown => {
+      if (
+        !isObject(value) ||
+        Array.isArray(value) ||
+        isDate(value) ||
+        isDayjsObject(value)
+      ) {
+        return value;
       }
-      return true;
-    });
-    const filteredFields = fieldMergeFn(fields, form.values);
-    form.setValues(filteredFields, shouldValidate);
+
+      const result: Record<string, unknown> = {};
+      for (const [key, currentValue] of Object.entries(value)) {
+        const currentPath = [...parentPath, key];
+        const matchingPaths = schemaFieldPaths.filter(
+          (schemaPath) =>
+            schemaPath.length >= currentPath.length &&
+            currentPath.every(
+              (pathSegment, index) => schemaPath[index] === pathSegment,
+            ),
+        );
+        if (matchingPaths.length === 0) {
+          continue;
+        }
+
+        result[key] = matchingPaths.some(
+          (schemaPath) => schemaPath.length === currentPath.length,
+        )
+          ? currentValue
+          : filterValue(currentValue, currentPath);
+      }
+      return result;
+    };
+    const filteredFields = filterValue(fields) as Partial<TFormValues>;
+    form.setValues(filteredFields as Partial<TFormValues>, shouldValidate);
   }
 
-  async submitForm(e?: Event) {
+  async submit(e?: Event) {
     e?.preventDefault();
     e?.stopPropagation();
     const form = await this.getForm();
-    await form.submitForm();
-    const rawValues = toRaw(await this.getValues());
-    await this.state?.handleSubmit?.(rawValues);
+    await form.submit();
+    return this.submitValues();
+  }
 
-    return rawValues;
+  /** @deprecated Use `submit` instead. */
+  async submitForm(e?: Event) {
+    warnDeprecatedOnce(
+      'form-api-submit-form',
+      '[Vben Form] `formApi.submitForm()` is deprecated. Use `formApi.submit()` instead.',
+    );
+    return this.submit(e);
   }
 
   unmount() {
-    this.form?.resetForm?.();
+    this.form?.reset?.();
     // this.state = null;
+    this.componentRefMap = new Map();
     this.latestSubmissionValues = null;
     this.isMounted = false;
     this.stateHandler.reset();
   }
 
-  updateSchema(schema: Partial<FormSchema>[]) {
-    const updated: Partial<FormSchema>[] = [...schema];
+  updateSchema(schema: Partial<FormApiSchema<TFormValues, T, P>>[]) {
+    const updated: Partial<FormApiSchema<TFormValues, T, P>>[] = [...schema];
     const hasField = updated.every(
       (item) => Reflect.has(item, 'fieldName') && item.fieldName,
     );
@@ -381,65 +552,51 @@ export class FormApi {
       );
       return;
     }
-    const currentSchema = [...(this.state?.schema ?? [])];
-
-    const updatedMap: Record<string, any> = {};
-
-    updated.forEach((item) => {
-      if (item.fieldName) {
-        updatedMap[item.fieldName] = item;
-      }
-    });
-
-    currentSchema.forEach((schema, index) => {
-      const updatedData = updatedMap[schema.fieldName];
-      if (updatedData) {
-        currentSchema[index] = mergeWithArrayOverride(
-          updatedData,
-          schema,
-        ) as FormSchema;
-      }
-    });
+    const currentSchema = updateFormSchemaList(
+      [...(this.state?.schema ?? [])],
+      updated,
+    );
     this.setState({ schema: currentSchema });
   }
 
-  async validate(opts?: Partial<ValidationOptions>) {
+  async validate() {
     const form = await this.getForm();
 
-    const validateResult = await form.validate(opts);
+    const validateResult = await form.validate();
 
-    if (Object.keys(validateResult?.errors ?? {}).length > 0) {
-      console.error('유효성 검사 오류', validateResult?.errors);
-
-      if (this.state?.scrollToFirstError) {
-        this.scrollToFirstError(validateResult.errors);
-      }
+    if (
+      Object.keys(validateResult?.errors ?? {}).length > 0 &&
+      this.state?.scrollToFirstError
+    ) {
+      this.scrollToFirstError(validateResult.errors);
     }
     return validateResult;
   }
 
-  async validateAndSubmitForm() {
-    const form = await this.getForm();
-    const { valid, errors } = await form.validate();
-    if (!valid) {
-      if (this.state?.scrollToFirstError) {
-        this.scrollToFirstError(errors);
-      }
-      return;
-    }
-    return await this.submitForm();
+  async validateAndSubmit() {
+    const { valid } = await this.validate();
+    if (!valid) return;
+    return this.submitValues();
   }
 
-  async validateField(fieldName: string, opts?: Partial<ValidationOptions>) {
+  /** @deprecated Use `validateAndSubmit` instead. */
+  async validateAndSubmitForm() {
+    warnDeprecatedOnce(
+      'form-api-validate-and-submit-form',
+      '[Vben Form] `formApi.validateAndSubmitForm()` is deprecated. Use `formApi.validateAndSubmit()` instead.',
+    );
+    return this.validateAndSubmit();
+  }
+
+  async validateField(fieldName: FormFieldName<TFormValues>) {
     const form = await this.getForm();
-    const validateResult = await form.validateField(fieldName, opts);
+    const validateResult = await form.validateField(fieldName);
 
-    if (Object.keys(validateResult?.errors ?? {}).length > 0) {
-      console.error('유효성 검사 오류', validateResult?.errors);
-
-      if (this.state?.scrollToFirstError) {
-        this.scrollToFirstError(fieldName);
-      }
+    if (
+      Object.keys(validateResult?.errors ?? {}).length > 0 &&
+      this.state?.scrollToFirstError
+    ) {
+      this.scrollToFirstError(fieldName);
     }
     return validateResult;
   }
@@ -455,126 +612,12 @@ export class FormApi {
     return this.form;
   }
 
-  private handleMultiFields = (originValues: Record<string, any>) => {
-    const arrayToStringFields = this.state?.arrayToStringFields;
-    if (!arrayToStringFields || !Array.isArray(arrayToStringFields)) {
-      return;
-    }
-
-    const processFields = (fields: string[], separator: string = ',') => {
-      this.processFields(fields, separator, originValues, (value, sep) => {
-        if (Array.isArray(value)) {
-          return value.join(sep);
-        } else if (typeof value === 'string') {
-          // 빈 문자열 처리
-          if (value === '') {
-            return [];
-          }
-          // 복잡한 구분 기호 처리
-          const escapedSeparator = sep.replaceAll(
-            /[.*+?^${}()|[\]\\]/g,
-            String.raw`\$&`,
-          );
-          return value.split(new RegExp(escapedSeparator));
-        } else {
-          return value;
-        }
-      });
-    };
-
-    // 단순 배열 형식 처리 ['field1', 'field2', ';'] 또는 ['field1', 'field2']
-    if (arrayToStringFields.every((item) => typeof item === 'string')) {
-      const lastItem =
-        arrayToStringFields[arrayToStringFields.length - 1] || '';
-      const fields =
-        lastItem.length === 1
-          ? arrayToStringFields.slice(0, -1)
-          : arrayToStringFields;
-      const separator = lastItem.length === 1 ? lastItem : ',';
-      processFields(fields, separator);
-      return;
-    }
-
-    // 중첩 배열 형식 처리 [['field1'], ';']
-    arrayToStringFields.forEach((fieldConfig) => {
-      if (Array.isArray(fieldConfig)) {
-        const [fields, separator = ','] = fieldConfig;
-        // 타입 정의에 따라 fields는 항상 문자열 배열이어야 함
-        if (!Array.isArray(fields)) {
-          console.warn(
-            `잘못된 필드 설정: fields는 문자열 배열이어야 합니다. 현재 타입: ${typeof fields}`,
-          );
-          return;
-        }
-        processFields(fields, separator);
-      }
-    });
-  };
-
-  private handleRangeTimeValue = (originValues: Record<string, any>) => {
-    const values = { ...originValues };
-    const fieldMappingTime = this.state?.fieldMappingTime;
-
-    this.handleMultiFields(values);
-    if (!fieldMappingTime || !Array.isArray(fieldMappingTime)) {
-      return values;
-    }
-
-    fieldMappingTime.forEach(
-      ([field, [startTimeKey, endTimeKey], format = 'YYYY-MM-DD']) => {
-        if (startTimeKey && endTimeKey && values[field] === null) {
-          Reflect.deleteProperty(values, startTimeKey);
-          Reflect.deleteProperty(values, endTimeKey);
-          // delete values[startTimeKey];
-          // delete values[endTimeKey];
-        }
-
-        if (!values[field]) {
-          Reflect.deleteProperty(values, field);
-          // delete values[field];
-          return;
-        }
-
-        const [startTime, endTime] = values[field];
-        if (format === null) {
-          values[startTimeKey] = startTime;
-          values[endTimeKey] = endTime;
-        } else if (isFunction(format)) {
-          values[startTimeKey] = format(startTime, startTimeKey);
-          values[endTimeKey] = format(endTime, endTimeKey);
-        } else {
-          const [startTimeFormat, endTimeFormat] = Array.isArray(format)
-            ? format
-            : [format, format];
-
-          values[startTimeKey] = startTime
-            ? formatDate(startTime, startTimeFormat)
-            : undefined;
-          values[endTimeKey] = endTime
-            ? formatDate(endTime, endTimeFormat)
-            : undefined;
-        }
-        // delete values[field];
-        Reflect.deleteProperty(values, field);
-      },
-    );
+  private async submitValues() {
+    const { rawValues, values } = await this.getValueSnapshot();
+    this.setLatestSubmissionValues(values);
+    await this.state?.handleSubmit?.(values, rawValues);
     return values;
-  };
-
-  private processFields = (
-    fields: string[],
-    separator: string,
-    originValues: Record<string, any>,
-    transformFn: (value: any, separator: string) => any,
-  ) => {
-    fields.forEach((field) => {
-      const value = originValues[field];
-      if (value === undefined || value === null) {
-        return;
-      }
-      originValues[field] = transformFn(value, separator);
-    });
-  };
+  }
 
   private updateState() {
     const currentSchema = this.state?.schema ?? [];
@@ -588,8 +631,76 @@ export class FormApi {
         (item) => !currentFields.has(item.fieldName),
       );
       for (const schema of deletedSchema) {
-        this.form?.setFieldValue?.(schema.fieldName, undefined);
+        this.form?.setFieldValue?.(
+          schema.fieldName,
+          undefined as FormFieldValue<TFormValues, string>,
+        );
       }
+    }
+  }
+
+  private warnLegacyValueTransforms() {
+    const warningState = {
+      arrayToStringFields: this.state?.arrayToStringFields,
+      codec: this.state?.codec,
+      fieldMappingTime: this.state?.fieldMappingTime,
+      schema: this.state?.schema ?? [],
+    };
+    const previousState = this.legacyTransformWarningState;
+    if (
+      previousState &&
+      previousState.arrayToStringFields === warningState.arrayToStringFields &&
+      previousState.codec === warningState.codec &&
+      previousState.fieldMappingTime === warningState.fieldMappingTime &&
+      previousState.schema === warningState.schema
+    ) {
+      return;
+    }
+    this.legacyTransformWarningState = warningState;
+
+    const hasValueFormat = (
+      items: FormApiSchema<TFormValues, T, P>[],
+    ): boolean => {
+      return items.some((schema) => {
+        if (schema.valueFormat) {
+          return true;
+        }
+        const children = 'children' in schema ? schema.children : undefined;
+        return Array.isArray(children) && hasValueFormat(children);
+      });
+    };
+    const usesValueFormat = hasValueFormat(warningState.schema);
+    const usesFieldMappingTime =
+      (warningState.fieldMappingTime?.length ?? 0) > 0;
+    const usesArrayToStringFields =
+      (warningState.arrayToStringFields?.length ?? 0) > 0;
+    const usesLegacyTransform =
+      usesValueFormat || usesFieldMappingTime || usesArrayToStringFields;
+
+    if (warningState.codec && usesLegacyTransform) {
+      warnDeprecatedOnce(
+        'form-codec-legacy-transform-conflict',
+        '[Vben Form] The form `codec` takes precedence over deprecated `valueFormat`, `fieldMappingTime`, and `arrayToStringFields` options.',
+      );
+      return;
+    }
+    if (usesValueFormat) {
+      warnDeprecatedOnce(
+        'form-schema-value-format',
+        '[Vben Form] `schema.valueFormat` is deprecated. Use the form-level `codec` instead.',
+      );
+    }
+    if (usesFieldMappingTime) {
+      warnDeprecatedOnce(
+        'form-field-mapping-time',
+        '[Vben Form] `fieldMappingTime` is deprecated. Use the form-level `codec` instead.',
+      );
+    }
+    if (usesArrayToStringFields) {
+      warnDeprecatedOnce(
+        'form-array-to-string-fields',
+        '[Vben Form] `arrayToStringFields` is deprecated. Use the form-level `codec` instead.',
+      );
     }
   }
 }

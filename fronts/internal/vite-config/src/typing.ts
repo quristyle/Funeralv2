@@ -1,3 +1,4 @@
+import type { Options as HtmlMinifierOptions } from 'html-minifier-terser';
 import type { PluginVisualizerOptions } from 'rollup-plugin-visualizer';
 import type { PluginOptions } from 'unplugin-dts';
 import type {
@@ -93,6 +94,12 @@ interface ArchiverPluginOptions {
    */
   outputDir?: string;
 }
+
+/**
+ * HTML 插件配置
+ * @description 用于配置基于 transformIndexHtml 的 HTML 压缩行为
+ */
+type HtmlPluginOptions = HtmlMinifierOptions;
 
 /**
  * ImportMap 플러그인 설정
@@ -208,7 +215,12 @@ interface ApplicationPluginOptions extends CommonPluginOptions {
    */
   compressTypes?: ('brotli' | 'gzip')[];
   /**
-   * 설정 파일 분리 여부
+   * 是否开启 dayjs 插件
+   * @default true
+   */
+  dayjs?: boolean;
+  /**
+   * 是否抽离配置文件
    * @default false
    * @description 빌드 시 설정 파일 분리
    */
@@ -217,7 +229,7 @@ interface ApplicationPluginOptions extends CommonPluginOptions {
    * HTML 플러그인 활성화 여부
    * @default true
    */
-  html?: boolean;
+  html?: boolean | HtmlPluginOptions;
   /**
    * 국제화 활성화 여부
    * @default false
@@ -342,6 +354,7 @@ export type {
   DefineApplicationOptions,
   DefineConfig,
   DefineLibraryOptions,
+  HtmlPluginOptions,
   IImportMap,
   ImportmapPluginOptions,
   LibraryPluginOptions,

@@ -1,18 +1,29 @@
 import { computed } from 'vue';
 
-import { diff } from '@vben-core/shared/utils';
+import { diff, diffStrict } from '@vben-core/shared/utils';
 
 import { preferencesManager } from './preferences';
 import { isDarkTheme } from './update-css-variables';
 
 function usePreferences() {
   const preferences = preferencesManager.getPreferences();
+  const customPreferences = preferencesManager.getCustomPreferences();
   const initialPreferences = preferencesManager.getInitialPreferences();
+  const initialCustomPreferences =
+    preferencesManager.getInitialCustomPreferences();
+  const preferencesExtension = computed(() =>
+    preferencesManager.getPreferencesExtension(),
+  );
   /**
    * @ko_KR 환경 설정 변경 사항을 계산합니다.
+   * @zh_CN 使用 diffStrict：图标排序等数组字段需顺序敏感比较
    */
   const diffPreference = computed(() => {
-    return diff(initialPreferences, preferences);
+    return diffStrict(initialPreferences, preferences);
+  });
+
+  const diffCustomPreference = computed(() => {
+    return diff(initialCustomPreferences, customPreferences);
   });
 
   const appPreferences = computed(() => preferences.app);
@@ -29,7 +40,7 @@ function usePreferences() {
   });
 
   const locale = computed(() => {
-    return preferences.app.locale;
+    return appPreferences.value.locale;
   });
 
   const isMobile = computed(() => {
@@ -175,20 +186,20 @@ function usePreferences() {
     return enable && globalLogout;
   });
 
-
   /**
-   * @ko_KR 전역 환경설정 단축키 활성화 여부
+   * @ko_KR 전역 로그아웃 단축키 활성화 여부
    */
+  /** 환경설정 창 단축키 활성화 여부 */
   const globalPreferencesShortcutKey = computed(() => {
     const { enable, globalPreferences } = shortcutKeysPreferences.value;
     return enable && globalPreferences;
   });
 
+  const globalEscapeShortcutKey = computed(() => {
+    const { enable, globalEscape } = shortcutKeysPreferences.value;
+    return enable && globalEscape;
+  });
 
-
-  /**
-   * @ko_KR 전역 락스크린 단축키 활성화 여부
-   */
   const globalLockScreenShortcutKey = computed(() => {
     const { enable, globalLockScreen } = shortcutKeysPreferences.value;
     return enable && globalLockScreen;
@@ -199,12 +210,12 @@ function usePreferences() {
    */
   const preferencesButtonPosition = computed(() => {
     const { enablePreferences, preferencesButtonPosition } = preferences.app;
-
     // 환경 설정 버튼이 활성화되지 않은 경우
     if (!enablePreferences) {
       return {
         fixed: false,
         header: false,
+        userDropdown: false,
       };
     }
 
@@ -215,12 +226,15 @@ function usePreferences() {
     const contentIsMaximize = headerHidden && sidebarHidden;
 
     const isHeaderPosition = preferencesButtonPosition === 'header';
+    const isUserDropdownPosition =
+      preferencesButtonPosition === 'user-dropdown';
 
     // 고정 위치가 설정된 경우
     if (preferencesButtonPosition !== 'auto') {
       return {
         fixed: preferencesButtonPosition === 'fixed',
         header: isHeaderPosition,
+        userDropdown: isUserDropdownPosition,
       };
     }
 
@@ -234,6 +248,7 @@ function usePreferences() {
     return {
       fixed,
       header: !fixed,
+      userDropdown: !fixed && isUserDropdownPosition,
     };
   });
 
@@ -242,9 +257,12 @@ function usePreferences() {
     authPanelLeft,
     authPanelRight,
     contentIsMaximize,
+    customPreferences,
     diffPreference,
+    diffCustomPreference,
     globalLockScreenShortcutKey,
     globalLogoutShortcutKey,
+    globalEscapeShortcutKey,
     globalSearchShortcutKey,
     globalPreferencesShortcutKey,
     isDark,
@@ -260,9 +278,11 @@ function usePreferences() {
     keepAlive,
     layout,
     locale,
+    preferencesExtension,
     preferencesButtonPosition,
     sidebarCollapsed,
     theme,
+    app: appPreferences.value,
   };
 }
 

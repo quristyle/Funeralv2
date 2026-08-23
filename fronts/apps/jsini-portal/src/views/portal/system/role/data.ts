@@ -15,7 +15,7 @@ export function useFormSchema(): VbenFormSchema[] {
       component: 'Input',
       fieldName: 'id',
       label: $t('system.role.id'),
-      rules: z.string({ required_error: '역할 ID를 입력해주세요' }).min(1, '역할 ID를 입력해주세요'),
+      rules: z.string({ error: '역할 ID를 입력해주세요' }).min(1, '역할 ID를 입력해주세요'),
     },
     {
       component: 'Input',

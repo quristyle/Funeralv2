@@ -286,10 +286,10 @@ const [BaseForm, baseFormApi] = useVbenForm({
     {
       component: 'DatePicker',
       fieldName: 'datePicker',
-      help: (values) =>
-        [`다른 필드 값을 출력할 수 있는 도움말 정보입니다: ${values?.rate}`].map((v) =>
-          h('p', v),
-        ),
+      help: (ctx) =>
+        [
+          `다른 필드 값을 출력할 수 있는 도움말 정보입니다: ${ctx.rootValues?.rate}`,
+        ].map((v) => h('p', v)),
       label: '날짜 선택',
     },
     {

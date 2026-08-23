@@ -9,9 +9,14 @@ import type { Ref } from 'vue';
 
 import type { ClassType, DeepPartial } from '@vben/types';
 
-import type { BaseFormComponentType, VbenFormProps } from '@vben-core/form-ui';
+import type {
+  BaseFormComponentType,
+  FormValues,
+  VbenFormProps,
+} from '@vben-core/form-ui';
 
 import type { VxeGridApi } from './api';
+import type { ViewedRowOptions } from './viewed-row';
 
 import { useVbenForm } from '@vben-core/form-ui';
 
@@ -41,6 +46,9 @@ export interface SeparatorOptions {
 export interface VxeGridProps<
   T extends Record<string, any> = any,
   D extends BaseFormComponentType = BaseFormComponentType,
+  P extends Record<string, any> = Record<never, never>,
+  TFormValues extends FormValues = FormValues,
+  TSubmitValues extends FormValues = TFormValues,
 > {
   /**
    * 데이터
@@ -73,7 +81,7 @@ export interface VxeGridProps<
   /**
    * 폼 설정
    */
-  formOptions?: VbenFormProps<D>;
+  formOptions?: VbenFormProps<D, P, TFormValues, TSubmitValues>;
   /**
    * 검색 폼 표시
    */
@@ -82,15 +90,24 @@ export interface VxeGridProps<
    * 검색 폼과 테이블 본문 사이의 구분선
    */
   separator?: boolean | SeparatorOptions;
+  /**
+   * 已读行功能
+   */
+  viewedRowOptions?: boolean | ViewedRowOptions<T>;
 }
 
 export type ExtendedVxeGridApi<
   D extends Record<string, any> = any,
   F extends BaseFormComponentType = BaseFormComponentType,
-> = VxeGridApi<D> & {
-  useStore: <T = NoInfer<VxeGridProps<D, F>>>(
-    selector?: (state: NoInfer<VxeGridProps<any, any>>) => T,
-  ) => Readonly<Ref<T>>;
+  P extends Record<string, any> = Record<never, never>,
+  TFormValues extends FormValues = FormValues,
+  TSubmitValues extends FormValues = TFormValues,
+> = VxeGridApi<D, F, P, TFormValues, TSubmitValues> & {
+  useStore: <S = NoInfer<VxeGridProps<D, F, P, TFormValues, TSubmitValues>>>(
+    selector?: (
+      state: NoInfer<VxeGridProps<D, F, P, TFormValues, TSubmitValues>>,
+    ) => S,
+  ) => Readonly<Ref<S>>;
 };
 
 export interface SetupVxeTable {

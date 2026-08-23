@@ -1,8 +1,6 @@
 <script lang="ts" setup>
 import type { NotificationItem } from './types';
 
-import { useRouter } from 'vue-router';
-
 import { Bell, CircleCheckBig, CircleX, MailCheck } from '@vben/icons';
 import { $t } from '@vben/locales';
 
@@ -15,38 +13,35 @@ import {
 
 import { useToggle } from '@vueuse/core';
 
-interface Props {
-  /**
-   * 원형 표시(Dot) 여부
-   */
-  dot?: boolean;
-  /**
-   * 메시지 목록
-   */
-  notifications?: NotificationItem[];
-}
-
 defineOptions({ name: 'NotificationPopup' });
 
-withDefaults(defineProps<Props>(), {
-  dot: false,
-  notifications: () => [],
-});
+withDefaults(
+  defineProps<{
+    /** 显示圆点 */
+    dot?: boolean;
+    /** 消息列表 */
+    notifications?: NotificationItem[];
+  }>(),
+  {
+    dot: false,
+    notifications: () => [],
+  },
+);
 
 const emit = defineEmits<{
   clear: [];
   makeAll: [];
+  onClick: [NotificationItem];
   read: [NotificationItem];
   remove: [NotificationItem];
   viewAll: [];
 }>();
 
-const router = useRouter();
 const [open, toggle] = useToggle();
 
-function close() {
+const close = () => {
   open.value = false;
-}
+};
 
 function handleViewAll() {
   emit('viewAll');
@@ -61,30 +56,7 @@ function handleClear() {
   emit('clear');
 }
 
-function handleClick(item: NotificationItem) {
-  // 알림 항목에 링크가 있으면 클릭 시 이동
-  if (item.link) {
-    navigateTo(item.link, item.query, item.state);
-  }
-}
-
-function navigateTo(
-  link: string,
-  query?: Record<string, any>,
-  state?: Record<string, any>,
-) {
-  if (link.startsWith('http://') || link.startsWith('https://')) {
-    // 외부 링크는 새 탭에서 열기
-    window.open(link, '_blank');
-  } else {
-    // 내부 라우트 링크, query 파라미터 및 state 지원
-    router.push({
-      path: link,
-      query: query || {},
-      state,
-    });
-  }
-}
+defineExpose({ toggle });
 </script>
 <template>
   <VbenPopover v-model:open="open" content-class="relative right-2 w-90 p-0">
@@ -116,54 +88,60 @@ function navigateTo(
           <template v-for="item in notifications" :key="item.id ?? item.title">
             <li
               class="relative flex w-full cursor-pointer items-start gap-5 border-t border-border p-3 hover:bg-accent"
-              @click="handleClick(item)"
+              @click="emit('onClick', item)"
             >
-              <span
-                v-if="!item.isRead"
-                class="absolute top-2 right-2 size-2 rounded-sm bg-primary"
-              ></span>
-
-              <span
-                class="relative flex size-10 shrink-0 overflow-hidden rounded-full"
-              >
-                <img
-                  :src="item.avatar"
-                  class="aspect-square size-full object-cover"
-                />
-              </span>
-              <div class="flex flex-col gap-1 leading-none">
-                <p class="font-semibold">{{ item.title }}</p>
-                <p class="my-1 line-clamp-2 text-xs text-muted-foreground">
-                  {{ item.message }}
-                </p>
-                <p class="line-clamp-2 text-xs text-muted-foreground">
-                  {{ item.date }}
-                </p>
-              </div>
-              <div
-                class="absolute top-1/2 right-3 flex -translate-y-1/2 flex-col gap-2"
-              >
-                <VbenIconButton
+              <slot name="content" :item="item">
+                <span
                   v-if="!item.isRead"
-                  size="xs"
-                  variant="ghost"
-                  class="h-6 px-2"
-                  :tooltip="$t('common.confirm')"
-                  @click.stop="emit('read', item)"
+                  class="absolute top-2 right-2 size-2 rounded-sm bg-primary"
+                ></span>
+
+                <span
+                  class="relative flex size-10 shrink-0 overflow-hidden rounded-full"
                 >
-                  <CircleCheckBig class="size-4" />
-                </VbenIconButton>
-                <VbenIconButton
-                  v-if="item.isRead"
-                  size="xs"
-                  variant="ghost"
-                  class="h-6 px-2 text-destructive"
-                  :tooltip="$t('common.delete')"
-                  @click.stop="emit('remove', item)"
+                  <img
+                    :src="item.avatar"
+                    class="aspect-square size-full object-cover"
+                  />
+                </span>
+                <div class="flex flex-col gap-1 leading-none">
+                  <p class="font-semibold">{{ item.title }}</p>
+                  <p class="my-1 line-clamp-2 text-xs text-muted-foreground">
+                    {{ item.message }}
+                  </p>
+                  <p class="line-clamp-2 text-xs text-muted-foreground">
+                    {{ item.date }}
+                  </p>
+                </div>
+                <div
+                  class="absolute top-1/2 right-3 flex -translate-y-1/2 flex-row gap-1"
                 >
-                  <CircleX class="size-4" />
-                </VbenIconButton>
-              </div>
+                  <slot name="action" :item="item">
+                    <slot name="action-prepend" :item="item"></slot>
+                    <VbenIconButton
+                      v-if="!item.isRead"
+                      size="xs"
+                      variant="ghost"
+                      class="h-6 px-2"
+                      :tooltip="$t('common.confirm')"
+                      @click.stop="emit('read', item)"
+                    >
+                      <CircleCheckBig class="size-4" />
+                    </VbenIconButton>
+                    <VbenIconButton
+                      v-if="item.isRead"
+                      size="xs"
+                      variant="ghost"
+                      class="h-6 px-2 text-destructive"
+                      :tooltip="$t('common.delete')"
+                      @click.stop="emit('remove', item)"
+                    >
+                      <CircleX class="size-4" />
+                    </VbenIconButton>
+                    <slot name="action-append" :item="item"></slot>
+                  </slot>
+                </div>
+              </slot>
             </li>
           </template>
         </ul>

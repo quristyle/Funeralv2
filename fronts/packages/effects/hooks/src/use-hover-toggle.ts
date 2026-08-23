@@ -2,11 +2,11 @@ import type { Arrayable, MaybeElementRef } from '@vueuse/core';
 
 import type { Ref } from 'vue';
 
-import { computed, effectScope, onUnmounted, ref, unref, watch } from 'vue';
+import { computed, effectScope, ref, unref, watch } from 'vue';
 
 import { isFunction } from '@vben/utils';
 
-import { useElementHover } from '@vueuse/core';
+import { tryOnScopeDispose, useElementHover } from '@vueuse/core';
 
 interface HoverDelayOptions {
   /** 마우스 진입 지연 시간 */
@@ -151,7 +151,7 @@ export function useHoverToggle(
     },
   };
 
-  onUnmounted(() => {
+  tryOnScopeDispose(() => {
     clearTimers();
     // 리스너 중지
     stopWatcher();

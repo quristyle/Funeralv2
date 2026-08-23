@@ -132,7 +132,7 @@ function openDocPage() {
             </Col>
             <Col :span="8">
               <FormItem prop="delay" label="애니메이션 지연">
-                <InputNumber v-model:value="props.delay" />
+                <InputNumber v-model:value="motionProps.delay" />
               </FormItem>
             </Col>
             <Col :span="8">

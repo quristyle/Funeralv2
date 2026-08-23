@@ -115,8 +115,8 @@ async function generateRoutes(
    * 1. redirect가 추가되지 않은 라우트에 redirect 추가
    * 2. 지연 로딩(lazy loading)된 컴포넌트 이름을 현재 라우트 이름으로 수정합니다 (keep-alive가 활성화된 경우)
    */
-  resultRoutes = mapTree(resultRoutes, (route) => {
-    // keep-alive 조건부 캐싱을 지원하기 위해 라우트 이름과 동일한 name을 사용하여 component를 다시 패키징합니다.
+  resultRoutes = mapTree(resultRoutes, (route, parent) => {
+    // 重新包装component，使用与路由名称相同的name以支持keep-alive的条件缓存。
     if (
       route.meta?.keepAlive &&
       isFunction(route.component) &&
@@ -144,12 +144,34 @@ async function generateRoutes(
     }
     const firstChild = route.children[0];
 
-    // 하위 라우트가 /로 시작하지 않으면 바로 반환합니다. 이 경우 올바른 path를 얻으려면 모든 부모 레벨의 path를 계산해야 하므로 여기서는 처리하지 않습니다.
-    if (!firstChild?.path || !firstChild.path.startsWith('/')) {
+    if (!firstChild?.path || firstChild.path.startsWith('/')) {
       return route;
     }
 
-    route.redirect = firstChild.path;
+    // fork 定制：如果第一个子路由是动态路由（如 :id），说明当前路由本身是一个
+    // “列表+详情”页面（渲染自身组件），不应自动重定向到未填充的动态参数，
+    // 否则地址栏会出现字面量 ":id" 或匹配失败导致 404。
+    // 详见对上游重构 commit f00a8812 的修复。
+    if (firstChild.path.startsWith(':')) {
+      return route;
+    }
+
+    // 拼接子路由的重定向绝对路径。
+    // - 当 parent.redirect 为字符串时，它已经是累计好的绝对路径，直接替换最后一段
+    //   即可正确支持任意层级的深层嵌套（如 /demos/nested/menu2/menu2-1）。
+    // - fork 定制：后端菜单可能传入对象形式的 redirect（如 { name }），无法 split，
+    //   此时回退到使用 parent.path 拼接（这类 parent 为顶级路由，path 为绝对路径）。
+    if (parent && parent.redirect && isString(parent.redirect)) {
+      const parentSplit = parent.redirect.split('/');
+      parentSplit.splice(-1, 2, route.path, firstChild.path);
+      const redirectPath = parentSplit.join('/');
+      route.redirect = redirectPath;
+    } else if (parent && parent.redirect) {
+      route.redirect = `${parent.path}/${route.path}/${firstChild.path}`;
+    } else {
+      route.redirect = `${route.path}/${firstChild.path}`;
+    }
+
     return route;
   });
 

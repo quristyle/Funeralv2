@@ -1,3 +1,15 @@
+/*
+ * 级联层顺序声明（必须先于 @import 'tailwindcss' 首次出现）：
+ * properties(Tailwind 的 --tw-* 回退变量层) < preflight(base) <
+ * UI 库组件样式(antd / el / td) < Tailwind 工具类，
+ * 使组件库样式（antdv-next 经 StyleProvider layer 注入 @layer antd；
+ * element-plus / tdesign 经各自应用的 vite css-layer 插件包入对应层）
+ * 能被工具类覆盖。
+ * 与 internal/vite-config/src/plugins/css-layer.ts 中的 LAYER_ORDER_STATEMENT
+ * 保持一致。
+ */
+@layer properties, theme, base, ant, antd, el, td, components, utilities;
+
 @import 'tailwindcss';
 @import 'tw-animate-css';
 
@@ -301,7 +313,9 @@
   }
 
   html {
-    @apply text-foreground bg-background font-sans;
+    --vben-viewport-height: 100vh;
+
+    @apply bg-background font-sans text-foreground;
 
     scroll-behavior: smooth;
     font-size: var(--font-size-base, 16px);
@@ -311,6 +325,10 @@
     text-rendering: optimizelegibility;
     text-size-adjust: 100%;
     -webkit-tap-highlight-color: transparent;
+
+    @supports (height: 1dvh) {
+      --vben-viewport-height: 100dvh;
+    }
   }
 
   #app,
@@ -369,7 +387,7 @@
     }
 
     ::-webkit-scrollbar-thumb {
-      @apply bg-border rounded-sm border-none;
+      @apply rounded-sm border-none bg-border;
     }
 
     ::-webkit-scrollbar-track {
@@ -379,6 +397,13 @@
     ::-webkit-scrollbar-button {
       @apply hidden;
     }
+  }
+
+  /* Tailwind v4 Preflight 不再为 button 默认设置 pointer；见官方升级说明：
+   * https://tailwindcss.com/docs/upgrade-guide#buttons-use-the-default-cursor */
+  button:not(:disabled),
+  [role='button']:not(:disabled) {
+    @apply cursor-pointer;
   }
 }
 
@@ -396,33 +421,36 @@
   justify-content: center;
 }
 
-/* Component styles (complex selectors, not convertible to @utility) */
-.outline-box {
-  @apply outline-border relative cursor-pointer rounded-md p-1 outline-1;
-}
+/* Tailwind v4 的 utilities 在 @layer 内；组件样式若留在 layer 外（unlayered），会按层叠规则压过 py-4 等工具类。
+ * 见：https://tailwindcss.com/docs/adding-custom-styles#using-css-and-layering */
+@layer components {
+  .outline-box {
+    @apply relative cursor-pointer rounded-md p-1 outline-1 outline-border;
+  }
 
-.outline-box::after {
-  @apply absolute top-1/2 left-1/2 z-20 h-0 w-px rounded-sm opacity-0 outline-2 outline-transparent transition-all duration-300 content-[""];
-}
+  .outline-box::after {
+    @apply absolute top-1/2 left-1/2 z-20 h-0 w-px rounded-sm opacity-0 outline-2 outline-transparent transition-all duration-300 content-[""];
+  }
 
-.outline-box.outline-box-active {
-  @apply outline-primary outline-2;
-}
+  .outline-box.outline-box-active {
+    @apply outline-2 outline-primary;
+  }
 
-.outline-box.outline-box-active::after {
-  display: none;
-}
+  .outline-box.outline-box-active::after {
+    display: none;
+  }
 
-.outline-box:not(.outline-box-active):hover::after {
-  @apply outline-primary top-0 left-0 h-full w-full p-1 opacity-100;
-}
+  .outline-box:not(.outline-box-active):hover::after {
+    @apply top-0 left-0 h-full w-full p-1 opacity-100 outline-primary;
+  }
 
-.vben-link {
-  @apply text-primary hover:text-primary-hover active:text-primary-active cursor-pointer;
-}
+  .vben-link {
+    @apply cursor-pointer text-primary hover:text-primary-hover active:text-primary-active;
+  }
 
-.card-box {
-  @apply bg-card text-card-foreground border-border rounded-xl border;
+  .card-box {
+    @apply rounded-xl border border-border bg-card text-card-foreground;
+  }
 }
 
 /* Enter animations (converted from enterAnimationPlugin) */

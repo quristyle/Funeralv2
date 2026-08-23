@@ -49,7 +49,7 @@ async function fetchRoles() {
 }
 
 // useVbenModal 설정
-const [AccountModal, accountModalApi] = useVbenModal({
+const [AccountModal, accountModalApi] = useVbenModal<Record<string, any>>({
   title: '사용자 계정 정보 설정',
   destroyOnClose: true,
   onCancel() {

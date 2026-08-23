@@ -4,7 +4,13 @@
     {
       "name": "jsini-portal",
       "url": "http://localhost:5555",
-      "port": 5555
+      "port": 5555,
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "-C",
+        "fronts",
+        "dev"
+      ]
     }
   ]
 }

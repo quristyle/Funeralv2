@@ -127,7 +127,11 @@ interface VbenLayoutProps {
    */
   sidebarExtraCollapsedWidth?: number;
   /**
-   * 사이드 메뉴 접기 버튼 고정 여부
+   * 扩展区域extra-title的高度
+   */
+  sidebarExtraTitleHeight?: number;
+  /**
+   * 侧边菜单折叠按钮是否固定
    * @default true
    */
   sidebarFixedButton?: boolean;
@@ -137,7 +141,11 @@ interface VbenLayoutProps {
    */
   sidebarHidden?: boolean;
   /**
-   * 혼합 사이드바 너비
+   * 侧边栏 Logo 区域是否显示
+   */
+  sidebarLogoVisible: boolean;
+  /**
+   * 混合侧边栏宽度
    * @default 80
    */
   sidebarMixedWidth?: number;

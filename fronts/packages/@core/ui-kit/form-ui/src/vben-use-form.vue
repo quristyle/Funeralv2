@@ -1,13 +1,10 @@
 <script setup lang="ts">
-import type { Recordable } from '@vben-core/typings';
+import type { ExtendedFormApi, VbenFormProps, VbenFormSlots } from './types';
 
-import type { ExtendedFormApi, VbenFormProps } from './types';
-
-// import { toRaw, watch } from 'vue';
-import { nextTick, onMounted, watch } from 'vue';
+import { nextTick, onMounted, readonly, watch } from 'vue';
 
 import { useForwardPriorityValues } from '@vben-core/composables';
-import { cloneDeep, get, isEqual, set } from '@vben-core/shared/utils';
+import { get, isEqual } from '@vben-core/shared/utils';
 
 import { useDebounceFn } from '@vueuse/core';
 
@@ -23,31 +20,42 @@ import {
   provideFormProps,
   useFormInitial,
 } from './use-form-context';
+
 // extends를 사용하면 HMR(Hot Module Replacement)이 멈출 수 있어 다시 작성함
 interface Props extends VbenFormProps {
-  formApi?: ExtendedFormApi;
+  formApi?: ExtendedFormApi<any, any, any, any>;
 }
 
 const props = defineProps<Props>();
+defineSlots<
+  Record<string, ((props: Record<string, any>) => any) | undefined> &
+    VbenFormSlots<any, any, any>
+>();
 
-const state = props.formApi?.useStore?.();
+const formApi = props.formApi;
+if (!formApi) {
+  throw new Error('Form api is required in <VbenUseForm />');
+}
+
+const state = formApi.useStore();
 
 const forward = useForwardPriorityValues(props, state);
 
 const componentRefMap = new Map<string, unknown>();
 
 const { delegatedSlots, form } = useFormInitial(forward);
+const values = form.useValues();
 
 provideFormProps([forward, form]);
 provideComponentRefMap(componentRefMap);
 
-props.formApi?.mount?.(form, componentRefMap);
+formApi.mount(form, componentRefMap);
 
-const handleUpdateCollapsed = (value: boolean) => {
+function handleUpdateCollapsed(value: boolean) {
   props.formApi?.setState({ collapsed: value });
   // 접힘/펼침 상태 변경 콜백 트리거
   forward.value.handleCollapsedChange?.(value);
-};
+}
 
 function handleKeyDownEnter(event: KeyboardEvent) {
   if (!state?.value.submitOnEnter || !forward.value.formApi?.isMounted) {
@@ -60,51 +68,47 @@ function handleKeyDownEnter(event: KeyboardEvent) {
   }
   event.preventDefault();
 
-  forward.value.formApi?.validateAndSubmitForm();
+  forward.value.formApi?.validateAndSubmit();
 }
 
 const handleValuesChangeDebounced = useDebounceFn(async () => {
-  state?.value.submitOnChange && forward.value.formApi?.validateAndSubmitForm();
-}, 300);
+  state?.value.submitOnChange && forward.value.formApi?.validateAndSubmit();
+}, state?.value?.changeDebouncedTime ?? 300);
 
-const valuesCache: Recordable<any> = {};
+let valuesChangeReady = false;
 
 onMounted(async () => {
   // 마운트 후에만 리스닝을 시작합니다. form.values에는 초기화 과정이 있습니다.
   await nextTick();
-  watch(
-    () => form.values,
-    async (newVal) => {
-      if (forward.value.handleValuesChange) {
-        const fields = state?.value.schema?.map((item) => {
-          return item.fieldName;
-        });
+  valuesChangeReady = true;
+});
 
-        if (fields && fields.length > 0) {
-          const changedFields: string[] = [];
-          fields.forEach((field) => {
-            const newFieldValue = get(newVal, field);
-            const oldFieldValue = get(valuesCache, field);
-            if (!isEqual(newFieldValue, oldFieldValue)) {
-              changedFields.push(field);
-              set(valuesCache, field, newFieldValue);
-            }
-          });
-
-          if (changedFields.length > 0) {
-            // 모든 폼 값의 깊은 복사본과 변경된 필드 목록을 전달하여 handleValuesChange 콜백을 호출합니다.
-            const values = await forward.value.formApi?.getValues();
-            forward.value.handleValuesChange(
-              cloneDeep(values ?? {}) as Record<string, any>,
-              changedFields,
-            );
-          }
-        }
-      }
-      handleValuesChangeDebounced();
-    },
-    { deep: true },
-  );
+watch(values, (currentValues, previousValues) => {
+  if (!valuesChangeReady) {
+    return;
+  }
+  const handleValuesChange = forward.value.handleValuesChange;
+  const submitOnChange = state?.value.submitOnChange;
+  if (!handleValuesChange && !submitOnChange) {
+    return;
+  }
+  const fields = state?.value.schema?.map((item) => item.fieldName) ?? [];
+  if (handleValuesChange && fields.length > 0) {
+    const changedFields = fields.filter((field) => {
+      return !isEqual(
+        get(currentValues, field),
+        get(previousValues ?? {}, field),
+      );
+    });
+    if (changedFields.length > 0) {
+      handleValuesChange(readonly(currentValues), changedFields, () =>
+        formApi.formatValues(currentValues),
+      );
+    }
+  }
+  if (submitOnChange) {
+    handleValuesChangeDebounced();
+  }
 });
 </script>
 
@@ -123,29 +127,58 @@ onMounted(async () => {
       :key="slotName"
       #[slotName]="slotProps"
     >
-      <slot :name="slotName" v-bind="slotProps"></slot>
+      <slot
+        :name="slotName"
+        v-bind="slotProps"
+        :form-api="formApi"
+        :values="form.values"
+      ></slot>
     </template>
     <template #default="slotProps">
-      <slot v-bind="slotProps">
-        <FormActions
-          v-if="forward.showDefaultActions"
-          :model-value="state?.collapsed"
-          @update:model-value="handleUpdateCollapsed"
-        >
-          <template #reset-before="resetSlotProps">
-            <slot name="reset-before" v-bind="resetSlotProps"></slot>
-          </template>
-          <template #submit-before="submitSlotProps">
-            <slot name="submit-before" v-bind="submitSlotProps"></slot>
-          </template>
-          <template #expand-before="expandBeforeSlotProps">
-            <slot name="expand-before" v-bind="expandBeforeSlotProps"></slot>
-          </template>
-          <template #expand-after="expandAfterSlotProps">
-            <slot name="expand-after" v-bind="expandAfterSlotProps"></slot>
-          </template>
-        </FormActions>
-      </slot>
+      <slot
+        v-if="$slots.default"
+        v-bind="slotProps"
+        :form-api="formApi"
+        :values="form.values"
+      ></slot>
+      <FormActions
+        v-else-if="forward.showDefaultActions"
+        :model-value="state?.collapsed"
+        @update:model-value="handleUpdateCollapsed"
+      >
+        <template #reset-before="resetSlotProps">
+          <slot
+            name="reset-before"
+            v-bind="resetSlotProps"
+            :form-api="formApi"
+            :values="form.values"
+          ></slot>
+        </template>
+        <template #submit-before="submitSlotProps">
+          <slot
+            name="submit-before"
+            v-bind="submitSlotProps"
+            :form-api="formApi"
+            :values="form.values"
+          ></slot>
+        </template>
+        <template #expand-before="expandBeforeSlotProps">
+          <slot
+            name="expand-before"
+            v-bind="expandBeforeSlotProps"
+            :form-api="formApi"
+            :values="form.values"
+          ></slot>
+        </template>
+        <template #expand-after="expandAfterSlotProps">
+          <slot
+            name="expand-after"
+            v-bind="expandAfterSlotProps"
+            :form-api="formApi"
+            :values="form.values"
+          ></slot>
+        </template>
+      </FormActions>
     </template>
   </Form>
 </template>

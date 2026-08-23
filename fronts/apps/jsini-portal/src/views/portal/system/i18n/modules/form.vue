@@ -70,7 +70,7 @@ const [Form, formApi] = useVbenForm({
   showDefaultActions: false,
 } as VbenFormProps);
 
-const [Drawer, drawerApi] = useVbenDrawer({
+const [Drawer, drawerApi] = useVbenDrawer<SystemI18nApi.I18nResource>({
   onCancel: () => drawerApi.close(),
   onConfirm: async () => {
     try {
@@ -82,7 +82,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
       
       // 2. 실제 폼 입력 데이터 추출
       const formValues = await formApi.getValues();
-      const data = drawerApi.getData<SystemI18nApi.I18nResource>();
+      const data = drawerApi.getData();
      
       if (data?.id) {
         await updateI18nResource(data.id, formValues as any);
@@ -102,7 +102,7 @@ const [Drawer, drawerApi] = useVbenDrawer({
   },
   onOpenChange: async (isOpen) => {
     if (isOpen) {
-      const data = drawerApi.getData<SystemI18nApi.I18nResource>();
+      const data = drawerApi.getData();
       
       // Form 컴포넌트가 완전히 렌더링될 때까지 대기
       await nextTick();

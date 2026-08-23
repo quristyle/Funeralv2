@@ -45,8 +45,10 @@
     "@vueuse/core": "catalog:",
     "@vueuse/motion": "catalog:",
     "echarts": "catalog:",
+    "exceljs": "catalog:",
     "vue": "catalog:",
     "vxe-pc-ui": "catalog:",
-    "vxe-table": "catalog:"
+    "vxe-table": "catalog:",
+    "vxe-table-plugin-export-xlsx": "catalog:"
   }
 }

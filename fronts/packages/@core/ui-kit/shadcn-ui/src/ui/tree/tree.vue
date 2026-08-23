@@ -6,7 +6,7 @@ import type { ClassType, Recordable } from '@vben-core/typings';
 
 import type { TreeProps } from './types';
 
-import { onMounted, ref, watchEffect } from 'vue';
+import { computed, onMounted, ref, watchEffect } from 'vue';
 
 import { ChevronRight, IconifyIcon } from '@vben-core/icons';
 import { cn, get } from '@vben-core/shared/utils';
@@ -70,7 +70,9 @@ let lastTreeData: any = null;
 onMounted(() => {
   watchEffect(() => {
     flattenData.value = flatten(props.treeData, props.childrenField);
-    updateTreeValue();
+    if (flattenData.value.length > 0) {
+      updateTreeValue();
+    }
 
     // treeData가 변경될 때만 펼치기를 수행합니다.
     const currentTreeData = JSON.stringify(props.treeData);
@@ -190,6 +192,32 @@ function isNodeDisabled(item: FlattenedItem<Recordable<any>>) {
   return props.disabled || get(item.value, props.disabledField);
 }
 
+// 计算全选/半选状态
+const selectAllStatus = computed<'indeterminate' | boolean>(() => {
+  if (!props.multiple) return false;
+  if (!modelValue.value || !Array.isArray(modelValue.value)) return false;
+
+  const allValues = flattenData.value
+    .filter((item) => !get(item.value, props.disabledField))
+    .map((item) => get(item.value, props.valueField));
+
+  const selectedCount = allValues.filter((v) =>
+    (modelValue.value as (number | string)[]).includes(v),
+  ).length;
+
+  if (selectedCount === 0) return false;
+  if (selectedCount === allValues.length) return true;
+  return 'indeterminate';
+});
+
+function onSelectAllChange(checked: 'indeterminate' | boolean) {
+  if (checked === true) {
+    checkAll();
+  } else {
+    unCheckAll();
+  }
+}
+
 function onToggle(item: FlattenedItem<Recordable<any>>) {
   emits('expand', item);
 }
@@ -199,7 +227,7 @@ function onSelect(item: FlattenedItem<Recordable<any>>, isSelected: boolean) {
   }
 
   if (
-    !props.checkStrictly &&
+    props.checkStrictly &&
     props.multiple &&
     props.autoCheckParent &&
     isSelected
@@ -218,7 +246,7 @@ function onSelect(item: FlattenedItem<Recordable<any>>, isSelected: boolean) {
       });
   }
   if (
-    !props.checkStrictly &&
+    props.checkStrictly &&
     props.multiple &&
     props.autoCheckParent &&
     !isSelected
@@ -279,6 +307,7 @@ defineExpose({
     v-model:expanded="expanded as string[]"
     :default-expanded="defaultExpandedKeys as string[]"
     :propagate-select="!checkStrictly"
+    :bubble-select="!checkStrictly"
     :multiple="multiple"
     :disabled="disabled"
     :selection-behavior="allowClear || multiple ? 'toggle' : 'replace'"
@@ -314,14 +343,16 @@ defineExpose({
           :class="{ 'rotate-90': expanded?.length > 0 }"
           class="text-foreground/80 hover:text-foreground size-4 cursor-pointer transition"
         />
-        <Checkbox
-          v-if="multiple"
-          @click.stop
-          @update:model-value="
-            (checked: boolean | 'indeterminate') =>
-              checked === true ? checkAll() : unCheckAll()
-          "
-        />
+        <div class="flex items-center gap-1 item-all-checkbox">
+          <Checkbox
+            v-if="multiple"
+            :model-value="selectAllStatus"
+            :indeterminate="selectAllStatus === 'indeterminate'"
+            @click.stop
+            @update:model-value="onSelectAllChange"
+          />
+          <span v-if="selectAllLabel">{{ selectAllLabel }}</span>
+        </div>
       </div>
     </div>
     <TransitionGroup :name="transition ? 'fade' : ''">
@@ -369,8 +400,9 @@ defineExpose({
             !isNodeDisabled(item) && onToggle(item);
           }
         "
-        class="tree-node focus:ring-grass8 my-0.5 flex items-center rounded p-1 outline-hidden focus:ring-2"
+        class="tree-node focus:ring-grass8 my-0.5 flex items-center rounded p-1 outline-hidden"
       >
+        <!-- class="hover:ring-2" 鼠标移动上去时2px的圆环边框 -->
         <ChevronRight
           v-if="
             item.hasChildren &&
@@ -387,7 +419,7 @@ defineExpose({
           "
         />
         <div v-else class="h-4 w-4"></div>
-        <div class="flex items-center gap-1">
+        <div class="flex items-center gap-1 item-checkbox">
           <Checkbox
             v-if="multiple"
             :model-value="isSelected && !isNodeDisabled(item)"
@@ -405,7 +437,8 @@ defineExpose({
             "
           />
           <div
-            class="flex items-center gap-1"
+            class="flex items-center gap-1 item-checkbox"
+            :title="get(item.value, labelField)"
             @click="
               (event: MouseEvent) => {
                 if (isNodeDisabled(item)) {
@@ -455,7 +488,21 @@ defineExpose({
   border: 1px solid #666;
 }
 
-/* 1. 트랜지션 효과 선언 */
+.item-checkbox {
+  width: 100%;
+  overflow: hidden;
+}
+
+.item-all-checkbox {
+  width: 100%;
+  overflow: hidden;
+
+  .text-label {
+    margin-left: 8px;
+  }
+}
+
+/* 1. 声明过渡效果 */
 .fade-move,
 .fade-enter-active,
 .fade-leave-active {

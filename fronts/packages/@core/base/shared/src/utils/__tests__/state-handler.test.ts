@@ -33,8 +33,10 @@ describe('stateHandler', () => {
       handler.setConditionFalse(); // condition을 false로 명시적으로 트리거
     }, 10);
 
-    // 대기 중 Promise가 reject되기를 기대함
-    await expect(handler.waitForCondition()).rejects.toThrow();
+    // 等待过程中，期望 Promise 被 reject
+    await expect(handler.waitForCondition()).rejects.toThrow(
+      'Condition was set to false',
+    );
     expect(handler.isConditionTrue()).toBe(false);
   });
 

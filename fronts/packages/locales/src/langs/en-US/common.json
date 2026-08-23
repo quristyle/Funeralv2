@@ -16,11 +16,11 @@
   "disabled": "Disabled",
   "edit": "Edit",
   "delete": "Delete",
+  "detail": "Detail",
   "create": "Create",
   "yes": "Yes",
   "no": "No",
   "showSearchPanel": "Show search panel",
   "hideSearchPanel": "Hide search panel",
-  "expandAll": "Expand All",
-  "collapseAll": "Collapse All"
+  "notShow": "Don't Show"
 }

@@ -17,6 +17,84 @@ import type {
 } from '@vben-core/typings';
 
 type SupportedLanguagesType = 'en-US' | 'ko-KR';
+type CustomPreferencesValue = boolean | number | string;
+
+interface CustomPreferencesOption<TValue extends string = string> {
+  label: string;
+  value: TValue;
+}
+
+interface BaseCustomPreferencesField<
+  TKey extends string = string,
+  TValue extends CustomPreferencesValue = CustomPreferencesValue,
+> {
+  componentProps?: Record<string, any>;
+  defaultValue: TValue;
+  disabled?: boolean;
+  key: TKey;
+  label: string;
+  placeholder?: string;
+  tip?: string;
+}
+
+interface CustomPreferencesInputField<
+  TKey extends string = string,
+> extends BaseCustomPreferencesField<TKey, string> {
+  component: 'input';
+}
+
+interface CustomPreferencesNumberField<
+  TKey extends string = string,
+> extends BaseCustomPreferencesField<TKey, number> {
+  component: 'number';
+}
+
+interface CustomPreferencesSelectField<
+  TKey extends string = string,
+> extends BaseCustomPreferencesField<TKey, string> {
+  component: 'select';
+  options: CustomPreferencesOption[];
+}
+
+interface CustomPreferencesSwitchField<
+  TKey extends string = string,
+> extends BaseCustomPreferencesField<TKey, boolean> {
+  component: 'switch';
+}
+
+type CustomPreferencesRecord = Record<string, CustomPreferencesValue>;
+
+type AnyCustomPreferencesField =
+  | CustomPreferencesInputField
+  | CustomPreferencesNumberField
+  | CustomPreferencesSelectField
+  | CustomPreferencesSwitchField;
+
+type CustomPreferencesField<
+  TCustomPreferences extends object = CustomPreferencesRecord,
+> =
+  string extends Extract<keyof TCustomPreferences, string>
+    ? AnyCustomPreferencesField
+    : {
+        [K in Extract<
+          keyof TCustomPreferences,
+          string
+        >]: TCustomPreferences[K] extends boolean
+          ? CustomPreferencesSwitchField<K>
+          : TCustomPreferences[K] extends number
+            ? CustomPreferencesNumberField<K>
+            : TCustomPreferences[K] extends string
+              ? CustomPreferencesInputField<K> | CustomPreferencesSelectField<K>
+              : never;
+      }[Extract<keyof TCustomPreferences, string>];
+
+interface PreferencesExtension<
+  TCustomPreferences extends object = CustomPreferencesRecord,
+> {
+  fields: Array<CustomPreferencesField<TCustomPreferences>>;
+  tabLabel: string;
+  title?: string;
+}
 
 interface AppPreferences {
   /** 권한 모드 */
@@ -45,11 +123,11 @@ interface AppPreferences {
   contentPaddingRight: number;
   /** 콘텐츠 상단 패딩 */
   contentPaddingTop: number;
-  // /** 애플리케이션 기본 아바타 */
+  /** 应用默认头像 */
   defaultAvatar: string;
   /** 기본 홈페이지 주소 */
   defaultHomePath: string;
-  // /** 동적 타이틀 활성화 */
+  /** 开启动态标题 */
   dynamicTitle: boolean;
   /** 업데이트 확인 활성화 여부 */
   enableCheckUpdates: boolean;
@@ -85,6 +163,10 @@ interface AppPreferences {
   name: string;
   /** 환경 설정 버튼 위치 */
   preferencesButtonPosition: PreferencesButtonPositionType;
+  /**
+   * @zh_CN 应用时区
+   */
+  timezone: string;
   /**
    * @ko_KR 워터마크 활성화 여부
    */
@@ -154,6 +236,12 @@ interface LogoPreferences {
   enable: boolean;
   /** 로고 이미지 맞춤 방식 */
   fit: 'contain' | 'cover' | 'fill' | 'none' | 'scale-down';
+  /** logo高度， 只在 logoMode=full时生效 */
+  fullLogoHeight?: number | string;
+  /** logo 展示类型，icon 图标模式， full 铺满logo区域 */
+  logoMode: 'full' | 'icon';
+  /** logo text是否展示 */
+  showText: boolean;
   /** 로고 주소 */
   source: string;
   /** 다크 테마 로고 주소 (선택 사항, 설정하지 않으면 source 사용) */
@@ -203,6 +291,8 @@ interface SidebarPreferences {
 interface ShortcutKeyPreferences {
   /** 단축키 활성화 여부 (전역) */
   enable: boolean;
+  /** 是否启用全局关闭窗口快捷键 */
+  globalEscape: boolean;
   /** 전역 잠금 화면 단축키 활성화 여부 */
   globalLockScreen: boolean;
   /** 전역 로그아웃 단축키 활성화 여부 */
@@ -283,22 +373,42 @@ interface TransitionPreferences {
 interface WidgetPreferences {
   /** 전체화면 위젯 활성화 여부 */
   fullscreen: boolean;
+  /** 全屏按钮位置 */
+  fullscreenButtonPosition: 'header' | 'none' | 'user-dropdown';
   /** 전역 검색 위젯 활성화 여부 */
   globalSearch: boolean;
+  /** 全局搜索按钮位置 */
+  globalSearchButtonPosition: 'header' | 'none' | 'user-dropdown';
   /** 언어 전환 위젯 활성화 여부 */
   languageToggle: boolean;
+  /** 语言切换按钮位置 */
+  languageToggleButtonPosition: 'header' | 'none' | 'user-dropdown';
   /** 잠금 화면 기능 활성화 여부 */
   lockScreen: boolean;
+  /** 锁屏按钮位置 */
+  lockScreenButtonPosition: 'header' | 'none' | 'user-dropdown';
+  /** 退出登录按钮位置 */
+  logoutButtonPosition: 'header' | 'none' | 'user-dropdown';
   /** 알림 위젯 표시 여부 */
   notification: boolean;
+  /** 通知按钮位置 */
+  notificationButtonPosition: 'header' | 'none' | 'user-dropdown';
+  /** 小部件排序 */
+  order: readonly string[];
   /** 새로고침 버튼 표시 여부 */
   refresh: boolean;
+  /** 刷新按钮位置 */
+  refreshButtonPosition: 'header' | 'none' | 'user-dropdown';
   /** 사이드바 토글 위젯 표시 여부 */
   sidebarToggle: boolean;
   /** 테마 전환 위젯 표시 여부 */
   themeToggle: boolean;
+  /** 主题切换按钮位置 */
+  themeToggleButtonPosition: 'header' | 'none' | 'user-dropdown';
   /** 시간대 위젯 표시 여부 */
   timezone: boolean;
+  /** 时区按钮位置 */
+  timezoneButtonPosition: 'header' | 'none' | 'user-dropdown';
 }
 
 interface Preferences {
@@ -332,19 +442,33 @@ interface Preferences {
 
 type PreferencesKeys = keyof Preferences;
 
-interface InitialOptions {
+interface InitialOptions<
+  TCustomPreferences extends object = CustomPreferencesRecord,
+> {
+  extension?: PreferencesExtension<TCustomPreferences>;
   namespace: string;
   overrides?: DeepPartial<Preferences>;
 }
 export type {
+  AnyCustomPreferencesField,
   AppPreferences,
+  BaseCustomPreferencesField,
   BreadcrumbPreferences,
+  CustomPreferencesField,
+  CustomPreferencesInputField,
+  CustomPreferencesNumberField,
+  CustomPreferencesOption,
+  CustomPreferencesRecord,
+  CustomPreferencesSelectField,
+  CustomPreferencesSwitchField,
+  CustomPreferencesValue,
   FooterPreferences,
   HeaderPreferences,
   InitialOptions,
   LogoPreferences,
   NavigationPreferences,
   Preferences,
+  PreferencesExtension,
   PreferencesKeys,
   ShortcutKeyPreferences,
   SidebarPreferences,
