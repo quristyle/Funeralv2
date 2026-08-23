@@ -1,4 +1,4 @@
-using AuthServer.Data;
+﻿using AuthServer.Data;
 using AuthServer.DTOs;
 using AuthServer.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -150,6 +150,7 @@ public class DepartmentService : IDepartmentService
             var emailDetail = a.ProfileDetails?.FirstOrDefault(p => p.DetailType == "Email");
             var phoneDetail = a.ProfileDetails?.FirstOrDefault(p => p.DetailType == "Phone");
             var statusDetail = a.ProfileDetails?.FirstOrDefault(p => p.DetailType == "Status");
+            var avatarDetail = a.ProfileDetails?.FirstOrDefault(p => p.DetailType == "Avatar");
 
             roleMap.TryGetValue(a.Id, out var rolesInfo);
 
@@ -167,7 +168,9 @@ public class DepartmentService : IDepartmentService
                 DeptName = a.Department?.Name,
                 CreatedAt = a.CreatedAt,
                 RoleIds = rolesInfo?.RoleIds ?? new List<string>(),
-                RoleNames = rolesInfo?.RoleNames ?? new List<string>()
+                RoleNames = rolesInfo?.RoleNames ?? new List<string>(),
+                Avatar = avatarDetail?.Content,
+                AvatarGroupId = a.AvatarGroupId
             };
         }).ToList();
     }
@@ -212,6 +215,7 @@ public class DepartmentService : IDepartmentService
             var emailDetail = a.ProfileDetails?.FirstOrDefault(p => p.DetailType == "Email");
             var phoneDetail = a.ProfileDetails?.FirstOrDefault(p => p.DetailType == "Phone");
             var statusDetail = a.ProfileDetails?.FirstOrDefault(p => p.DetailType == "Status");
+            var avatarDetail = a.ProfileDetails?.FirstOrDefault(p => p.DetailType == "Avatar");
 
             roleMap.TryGetValue(a.Id, out var rolesInfo);
 
@@ -229,7 +233,9 @@ public class DepartmentService : IDepartmentService
                 DeptName = a.Department?.Name,
                 CreatedAt = a.CreatedAt,
                 RoleIds = rolesInfo?.RoleIds ?? new List<string>(),
-                RoleNames = rolesInfo?.RoleNames ?? new List<string>()
+                RoleNames = rolesInfo?.RoleNames ?? new List<string>(),
+                Avatar = avatarDetail?.Content,
+                AvatarGroupId = a.AvatarGroupId
             };
         }).ToList();
     }
@@ -271,6 +277,9 @@ public class DepartmentService : IDepartmentService
             account.CompanyId = null; // 소속 회사도 함께 해제하여 무소속으로 지정
         }
 
+        // 이 한 줄이 빠져 있었다. 응답은 "해제되었습니다" 였지만 실제로는 아무것도 저장되지 않았다
+        // (같은 서비스의 다른 메서드는 모두 부르고 있다). 화면의 '해제' 버튼도 그동안 동작하지 않았다.
+        await _db.SaveChangesAsync();
         return true;
     }
 

@@ -83,52 +83,20 @@ public static class CompanyEndpoints {
         }, "Company search successfully.", 201));
 
 
-        // 등록
-        group.MapPost("/", (AppDbContext db, CompanyCreateDto companyDto) => ApiResponseBuilder.CreateAsync(async () =>        {
-            var company = new CustomerCompany            {
-                Name = companyDto.Name,
-                ModifiedBy = companyDto.ModifiedBy,
-                MenuContext = companyDto.MenuContext,
-                // CreatedAt, ModifiedAt은 AppDbContext의 SaveChangesAsync에서 자동으로 설정됩니다.
-            };
-            db.Companies.Add(company);
-            await db.SaveChangesAsync();
-
-            // 회사 등록시 기본 고객사 접수자 자동 생성 (고객사 접수자 테이블)
-            var customer = new Customer            {
-                LoginId = "pub_"+company.Id.ToString(),
-                UserName = companyDto.Name+"공통",
-                Email = companyDto.Name + "@company.com",
-                CompanyId = company.Id,
-            };
-            db.Customers.Add(customer);
-            await db.SaveChangesAsync();
-
-
-            return company;
-        }, "Company created successfully.", 201));
-
-        // 수정
-        group.MapPut("/{id}", (AppDbContext db, int id, CustomerCompany input) => ApiResponseBuilder.CreateAsync(async () =>        {
-            var company = await db.Companies.FindAsync(id);
-            if (company is null) return null;
-
-            company.Name = input.Name;
-            // ModifiedBy, ModifiedAt은 AppDbContext의 SaveChangesAsync에서 자동으로 설정됩니다.
-
-            await db.SaveChangesAsync();
-            return company;
-        }, "Company updated successfully."));
-
-        // 삭제
-        group.MapDelete("/{id}", (AppDbContext db, int id) => ApiResponseBuilder.CreateAsync(async () =>        {
-            var company = await db.Companies.FindAsync(id);
-            if (company is null) return null;
-
-            db.Companies.Remove(company);
-            await db.SaveChangesAsync();
-            // 삭제 성공 시 데이터는 없으므로 간단한 객체를 반환합니다.
-            return new { DeletedId = id };
-        }, "Company deleted successfully."));
+        // 등록·수정·삭제 엔드포인트는 제거했다.
+        //
+        // 회사 **관리 화면(`/helpdesk/org/company`)이 없어졌다.** 회사는 포털
+        // (`/system/company`)에서 관리하고, 헬프데스크에 있던 9건은 포털 회사 데이터로
+        // 옮겼다(각 행의 remark 에 `helpdesk:company:<원본ID>` 를 남겼다).
+        //
+        // 조회는 남긴다 — 요청 화면들의 회사 셀렉트와 팀-회사 매핑 화면이 쓴다.
+        // 요청·팀 데이터가 헬프데스크 회사 ID 를 참조하므로 그 값을 계속 읽어야 한다.
+        //
+        // 헬프데스크 DB(`jsini.company`)는 손대지 않았다.
+        //
+        // 여기 있던 등록 로직은 회사를 만들 때 `pub_<회사ID>` 공용 고객까지 함께
+        // 만들었다. 그 계정은 관리자가 회사를 대신해 요청을 등록할 때 쓰인다
+        // (요청 등록 화면의 getCustomerByLoginId 참고). 포털에서 만든 회사에는
+        // 그 공용 고객이 생기지 않는다 — 판단이 필요한 지점이라 아래 문서에 적었다.
     }
 }

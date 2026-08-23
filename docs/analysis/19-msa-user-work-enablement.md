@@ -401,3 +401,111 @@ B 는 이관 때 접두어를 붙인 이유(충돌)를 되살립니다.
 - [14-account-msa-linking.md](14-account-msa-linking.md) — 계정 대조 화면
 - [12-decisions-pending.md](12-decisions-pending.md) — 결정 대기 목록
 - [13-projmng-migration.md](13-projmng-migration.md) — 프로젝트관리 이식
+
+---
+
+## 9. 이식 화면 제거 — 고객 사용자 · 회사 (2026-08-23)
+
+> 지시: "`/helpdesk/org/customer` 는 불필요한 화면이다. 프론트·백엔드·메뉴데이터만 제거하라.
+> **헬프데스크가 사용하는 DB 는 절대 제거하거나 수정하지 마라.**"
+> 이어서 "`/helpdesk/org/company` 도 제거 대상이다. 다만 헬프데스크에서 데이터를 읽어
+> `/system/company` 가 쓰는 DB 테이블에 회사데이터로 추가해 줘."
+
+### 제거한 것
+
+| 대상 | 조치 |
+|---|---|
+| `views/helpdesk/org/customer.vue` | 파일 삭제 |
+| `views/helpdesk/org/company.vue` | 파일 삭제 |
+| `createCustomer` · `updateCustomer` · `deleteCustomer` · `searchCustomers` · `getCustomer` | 제거 (이 화면 전용) |
+| `createCompany` · `updateCompany` · `deleteCompany` · `searchCompanies` · `getCompany` | 제거 (이 화면 전용) |
+| `POST/PUT/DELETE /api/customers` | 제거 |
+| `POST/PUT/DELETE /api/companys` | 제거 |
+| 메뉴 `HD_ORG_CUSTOMER` · `HD_ORG_COMPANY` | 삭제 (270 → 268건). `role_menus` 는 CASCADE 로 함께 정리됐다 |
+
+### 남긴 것과 그 이유
+
+지우기 전에 **누가 쓰는지 전수 조사**했다. 이름이 같은 함수가 헬프데스크와 포털에 각각 있어
+import 출처로 갈라 확인했다.
+
+| 남긴 것 | 쓰는 곳 |
+|---|---|
+| `GET /api/customers` (`getCustomerList`) | 요청 화면들의 고객 셀렉트(`store/helpdesk.ts`) · 계정 대조 화면(`api/portal/system/msa-users.ts`) |
+| `getCustomerByLoginId` | 요청 등록 화면 — 회사별 `pub_*` 공용 계정을 작성자로 쓴다 |
+| `GET /api/companys` (`getCompanyList`) | 요청 화면들의 회사 셀렉트 · 팀-회사 매핑 화면 |
+
+즉 남은 것은 전부 **읽기**이고, 대상을 '관리'하는 것이 아니라 업무 데이터에서 **가리키기 위한** 것이다.
+
+`POST /api/customers/srch` · `GET /api/customers/{id}` · 회사 쪽 `srch` · `{id}` 는
+**건드리지 않았다.** 프론트에 쓰는 곳이 없지만 이 화면들의 것이 아니고, 아직 살아 있을지 모르는
+JinReception 이 쓸 수 있다. 정리해도 되는지는 판단이 필요하다 → Q14.
+
+### 헬프데스크 DB 는 손대지 않았다
+
+지시대로 `jsini.customer` · `jsini.company` 의 스키마·데이터 모두 그대로다.
+기존 요청·댓글·팀 데이터가 그 행들을 참조하고 있어 지울 수도 없다.
+
+### 회사 데이터 이관 (9건)
+
+헬프데스크 회사를 포털 `scom.companies` 로 옮겼다. 두 DB 가 서로 달라(`jinrecept` ↔ `funeralv2`)
+SQL 한 장으로는 못 옮기므로 **각 서비스의 API 를 경유**했다(14절의 방식과 같다).
+
+```
+한주 · 회원가입 · 진네트웍스 · 접수시스템 · 미러포트 · GHUB · SogoMail · 그리드위즈 · InCom
+포털 회사 5건 → 14건
+```
+
+되돌릴 수 있게 각 행의 `remark` 에 출처를 남겼다 — `helpdesk:company:<원본ID>`.
+
+```sql
+-- 되돌리기
+DELETE FROM scom.companies WHERE remark LIKE 'helpdesk:company:%';
+```
+
+헬프데스크 회사는 `Name` 하나뿐이라 사업자번호·주소 등은 비어 있다.
+
+#### ⚠ 한 번 깨졌다가 다시 넣었다
+
+PowerShell 로 등록했더니 한글이 `?` 로 저장됐다(`한주` → `??`). 본문을 기본 인코딩으로
+보내서다. 9건을 지우고 **UTF-8 바이트로 직접** 보내 다시 넣었다. 지금은 정상이다.
+
+---
+
+## 10. 새로 생긴 판단거리
+
+### Q14. 쓰는 곳이 없어진 조회 엔드포인트를 지울 것인가 🟡
+
+`POST /api/customers/srch` · `GET /api/customers/{id}` · `POST /api/companys/srch` ·
+`GET /api/companys/srch` · `GET /api/companys/{id}` — 프론트에 쓰는 곳이 없다.
+JinReception 사용 여부를 확인해 주시면 함께 정리하겠다(D3 · Q4 와 같은 성격).
+
+### Q15. 「회원가입」은 회사가 아니다 🟡
+
+이관한 9건에 `회원가입` 이 있다. 회사명이 아니라 이식 전 시스템의 자리표시 값으로 보인다.
+지시대로 전부 옮겼지만 포털 회사 목록에 이대로 두면 셀렉트에 섞인다.
+
+**의견: 지우거나 비활성으로 내리는 편이 낫습니다.** 한 줄이면 된다.
+
+### Q16. 「한주」와 「한주유틸리티」는 같은 회사인가 🟡
+
+헬프데스크에서 옮긴 `한주` 와 포털에 원래 있던 `한주유틸리티` 가 나란히 있다.
+이름이 달라 자동 병합하지 않았다(이 저장소가 계속 피해 온 **추정**이다).
+같은 회사라면 하나로 합쳐야 하는데, 요청 데이터가 헬프데스크 회사 ID 를 참조하므로
+어느 쪽을 정본으로 둘지 사람이 정해야 한다.
+
+### Q17. 포털에서 만든 회사에는 `pub_*` 공용 고객이 생기지 않는다 🟠
+
+제거한 헬프데스크 회사 등록 로직은 회사를 만들 때 `pub_<회사ID>` 공용 고객까지 함께 만들었다.
+그 계정은 **관리자가 회사를 대신해 요청을 등록할 때 작성자로 쓰인다**
+(요청 등록 화면의 `getCustomerByLoginId`).
+
+이제 회사는 포털에서 만드는데 포털은 헬프데스크 고객을 만들지 않는다. 그래서
+**앞으로 새로 만든 회사로는 관리자 대행 등록이 안 된다.**
+
+| | 방법 | 비고 |
+|---|---|---|
+| **A** | 요청 등록 시 공용 계정이 없으면 담당자 자신을 작성자로 둔다 | 코드만. 헬프데스크 DB 를 건드리지 않는다 |
+| B | 포털 회사 등록 시 헬프데스크 고객을 함께 만든다 | **헬프데스크 DB 쓰기** — 이번 지시에 어긋난다 |
+| C | 현행 유지 | 새 회사는 대행 등록 불가 |
+
+**의견: A.** 다만 작성자가 달라지는 일이라 확인이 필요합니다.

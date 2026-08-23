@@ -4,7 +4,7 @@ import type { TabDefinition } from '@vben/types';
 
 import type { IContextMenuItem } from '@vben-core/tabs-ui';
 
-import { computed, ref, watch } from 'vue';
+import { computed, inject, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import { useContentMaximize, useTabs } from '@vben/hooks';
@@ -19,11 +19,29 @@ import {
   Pin,
   PinOff,
   RotateCw,
+  Star,
+  StarOff,
   X,
 } from '@vben/icons';
 import { $t, $tIfKey, useI18n } from '@vben/locales';
 import { getTabKey, useAccessStore, useTabbarStore } from '@vben/stores';
 import { filterTree } from '@vben/utils';
+
+/**
+ * 즐겨찾기를 다루는 창구. 앱이 주입한다.
+ *
+ * 이 레이아웃은 프레임워크 패키지라 앱의 API·스토어를 직접 알지 못한다.
+ * 메뉴 다시 읽기(`MENU_RELOAD_HANDLER`)와 같은 방식으로 앱이 배선해 준다.
+ * 주입되지 않은 앱에서는 즐겨찾기 항목이 아예 나타나지 않는다.
+ */
+export interface TabFavoriteHandler {
+  /** 즐겨찾기에 담는다 */
+  add: (path: string) => Promise<void> | void;
+  /** 이 경로가 즐겨찾기인가 */
+  isFavorite: (path: string) => boolean;
+  /** 즐겨찾기에서 뺀다 */
+  remove: (path: string) => Promise<void> | void;
+}
 
 export function useTabbar() {
   const router = useRouter();
@@ -50,6 +68,12 @@ export function useTabbar() {
   const currentActive = computed(() => {
     return getTabKey(route);
   });
+
+  /** 앱이 주입한 즐겨찾기 창구. 없으면 즐겨찾기 항목을 넣지 않는다. */
+  const favoriteHandler = inject<null | TabFavoriteHandler>(
+    'TAB_FAVORITE_HANDLER',
+    null,
+  );
 
   const { locale } = useI18n();
   const currentTabs = ref<RouteLocationNormalizedGeneric[]>();
@@ -128,6 +152,11 @@ export function useTabbar() {
 
     const affixTab = tab?.meta?.affixTab ?? false;
 
+    // 즐겨찾기 대상 경로. 탭의 fullPath 에는 조회 조건이 붙어 오므로 경로만 쓴다
+    // (`/a/b?id=3` 을 담아도 메뉴는 `/a/b` 하나뿐이다).
+    const favoritePath = tab?.path ?? '';
+    const isFavorite = favoriteHandler?.isFavorite(favoritePath) ?? false;
+
     const menus: IContextMenuItem[] = [
       {
         disabled: disabledCloseCurrent,
@@ -174,8 +203,38 @@ export function useTabbar() {
         },
         icon: ExternalLink,
         key: 'open-in-new-window',
+        // 즐겨찾기 항목이 걸러져 없는 앱에서도 이 구분선은 그대로 남아야 한다.
         separator: true,
         text: $t('preferences.tabbar.contextMenu.openInNewWindow'),
+      },
+
+      /*
+       * 즐겨찾기.
+       *
+       * 지금 상태에 맞는 한 쪽만 보인다 — 담겨 있으면 '제거', 아니면 '추가'.
+       * 두 항목을 늘 보여주고 하나를 흐리게 하는 방식보다, 지금 할 수 있는 일만
+       * 보이는 편이 오른쪽 눌러 바로 고르는 흐름에 맞다.
+       *
+       * 키가 둘로 나뉘어 있으므로 앱의 menuList 에도 둘 다 넣어야 한다
+       * (맨 아래 filter 를 보라).
+       */
+      {
+        handler: async () => {
+          await favoriteHandler?.add(favoritePath);
+        },
+        icon: Star,
+        key: 'favorite-add',
+        separator: true,
+        text: $t('preferences.tabbar.contextMenu.favoriteAdd'),
+      },
+      {
+        handler: async () => {
+          await favoriteHandler?.remove(favoritePath);
+        },
+        icon: StarOff,
+        key: 'favorite-remove',
+        separator: true,
+        text: $t('preferences.tabbar.contextMenu.favoriteRemove'),
       },
 
       {
@@ -215,7 +274,20 @@ export function useTabbar() {
       },
     ];
 
-    return menus.filter((item) => tabbarStore.getMenuList.includes(item.key));
+    return menus.filter((item) => {
+      if (!tabbarStore.getMenuList.includes(item.key)) return false;
+
+      // 즐겨찾기는 지금 상태에 맞는 한 쪽만 남긴다.
+      // 창구를 주입하지 않은 앱에서는 둘 다 빠진다.
+      if (item.key === 'favorite-add') {
+        return Boolean(favoriteHandler) && !isFavorite;
+      }
+      if (item.key === 'favorite-remove') {
+        return Boolean(favoriteHandler) && isFavorite;
+      }
+
+      return true;
+    });
   };
 
   return {

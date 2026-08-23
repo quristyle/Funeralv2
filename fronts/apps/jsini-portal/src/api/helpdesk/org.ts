@@ -15,34 +15,20 @@ import { helpdeskClient, helpdeskFetchPage } from './request';
 // 회사
 // ============================================================
 
+// 회사 **관리 화면은 제거했다**. 회사는 포털(`/system/company`)에서 관리한다 —
+// 헬프데스크에 있던 9건은 포털 회사 데이터로 옮겼다(remark 에 출처를 남겼다).
+// 그래서 등록·수정·삭제·검색·단건조회 함수도 함께 없앴다.
+//
+// 목록만 남는다. 회사를 '관리'하는 것이 아니라 업무 데이터에서 회사를
+// **가리키기 위해** 쓴다 — 요청 화면들의 회사 셀렉트(store/helpdesk.ts)와
+// 팀-회사 매핑 화면(views/helpdesk/org/team-company.vue)이다.
+//
+// 두 체계의 회사가 아직 각자 남아 있다. 요청·팀 데이터가 헬프데스크 회사 ID 를
+// 참조하므로 그쪽을 지울 수는 없다(헬프데스크 DB 는 건드리지 않는다).
+
 /** 회사 전체 목록 */
 export async function getCompanyList() {
   return helpdeskClient.get<Company[]>('/companys');
-}
-
-/** 회사 검색 (페이징) */
-export async function searchCompanies(params: HelpdeskSearchParams) {
-  return helpdeskFetchPage<Company>('/companys/srch', params);
-}
-
-/** 회사 단건 조회 */
-export async function getCompany(id: number) {
-  return helpdeskClient.get<Company>(`/companys/${id}`);
-}
-
-/** 회사 생성 */
-export async function createCompany(data: Partial<Company>) {
-  return helpdeskClient.post<Company>('/companys', data);
-}
-
-/** 회사 수정 */
-export async function updateCompany(id: number, data: Partial<Company>) {
-  return helpdeskClient.put<Company>(`/companys/${id}`, data);
-}
-
-/** 회사 삭제 */
-export async function deleteCompany(id: number) {
-  return helpdeskClient.delete(`/companys/${id}`);
 }
 
 // ============================================================
@@ -136,36 +122,19 @@ export async function deleteAdmin(id: number) {
 
 // ============================================================
 // 고객
+//
+// 고객 사용자 **관리 화면은 제거했다**(이식본에만 있던 화면이고, 계정 관리는
+// JSini 관리 포털이 단독으로 맡는다). 그래서 등록·수정·삭제 함수도 함께 없앴다.
+//
+// 아래 두 개만 남는다 — 둘 다 **읽기**이고, 고객을 '관리'하는 것이 아니라
+// 업무 데이터에서 고객을 **가리키기 위해** 쓴다.
+//   · 요청 화면들의 고객 셀렉트 (store/helpdesk.ts)
+//   · 계정 대조 화면 (api/portal/system/msa-users.ts)
 // ============================================================
 
 /** 고객 전체 목록 */
 export async function getCustomerList() {
   return helpdeskClient.get<Customer[]>('/customers');
-}
-
-/** 고객 검색 (페이징) */
-export async function searchCustomers(params: HelpdeskSearchParams) {
-  return helpdeskFetchPage<Customer>('/customers/srch', params);
-}
-
-/** 고객 단건 조회 */
-export async function getCustomer(id: number) {
-  return helpdeskClient.get<Customer>(`/customers/${id}`);
-}
-
-/** 고객 생성 */
-export async function createCustomer(data: Partial<Customer>) {
-  return helpdeskClient.post<Customer>('/customers', data);
-}
-
-/** 고객 수정 */
-export async function updateCustomer(id: number, data: Partial<Customer>) {
-  return helpdeskClient.put<Customer>(`/customers/${id}`, data);
-}
-
-/** 고객 삭제 */
-export async function deleteCustomer(id: number) {
-  return helpdeskClient.delete(`/customers/${id}`);
 }
 
 /**

@@ -95,6 +95,8 @@
       "closeOther": "다른 탭 닫기",
       "closeAll": "모든 탭 닫기",
       "openInNewWindow": "새 창에서 열기",
+      "favoriteAdd": "즐겨찾기 추가",
+      "favoriteRemove": "즐겨찾기 제거",
       "maximize": "최대화",
       "restoreMaximize": "이전 크기로"
     }

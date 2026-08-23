@@ -1,11 +1,11 @@
 <script lang="ts" setup>
 import { ref, watch, onMounted, computed, nextTick } from 'vue';
 import { Page } from '@vben/common-ui';
-import { Card, Button, Tooltip, message, Radio } from 'ant-design-vue';
+import { Avatar, Card, Button, Input, Modal, Tooltip, message, Radio } from 'ant-design-vue';
 import { IconifyIcon } from '@vben/icons';
 import BizSelect from '#/components/BizSelect.vue';
 import { getCompanyList } from '#/api/portal/system/company';
-import { getDeptList, getDeptUsers, moveDept, moveUserDept } from '#/api/portal/system/dept';
+import { createDept, getDeptList, getDeptUsers, getEligibleDeptUsers, moveDept, moveUserDept } from '#/api/portal/system/dept';
 
 // 회사 선택 상태 (undefined로 초기화해야 BizSelect의 auto-select-first가 정상 동작합니다)
 const selectedCompanyId = ref<string | undefined>(undefined);
@@ -28,6 +28,116 @@ const startPanY = ref<number>(0);
 const DRAG_TYPE_DEPT = 'DEPARTMENT';
 const DRAG_TYPE_USER = 'USER';
 
+// ─────────────────────────────────────────────────────────────
+// 미소속 사용자 보기
+//
+// 조직도에는 이미 회사·부서·소속 사람이 나온다. 여기 없는 사람 —
+// **어느 회사에도 속하지 않은 계정**을 옆에 띄워, 조직도의 부서 노드로
+// 끌어다 놓아 소속시킬 수 있게 한다.
+//
+// 놓는 처리는 새로 만들지 않는다. 조직도의 부서 노드는 이미 사용자 드롭을 받아
+// `moveUserDept(사용자, 부서)` 를 부른다(onNodeDrop). 그래서 이 목록의 행도
+// **같은 형식**으로 끌기 값을 실어 주면 그대로 동작한다.
+//
+// 서버는 회사 인자를 넘기지 않으면 '부서 없음 + 회사 없음' 만 준다.
+// ─────────────────────────────────────────────────────────────
+const showUnassigned = ref<boolean>(false);
+const unassignedUsers = ref<any[]>([]);
+const loadingUnassigned = ref<boolean>(false);
+
+async function fetchUnassignedUsers() {
+  loadingUnassigned.value = true;
+  try {
+    const res = await getEligibleDeptUsers();
+    unassignedUsers.value = (res as any)?.result ?? res ?? [];
+  } catch (error) {
+    console.error(error);
+    message.error('미소속 사용자 목록을 불러오지 못했습니다.');
+  } finally {
+    loadingUnassigned.value = false;
+  }
+}
+
+/**
+ * 목록에 쓸 프로필 사진 주소. 원본을 그대로 받으면 목록에서 무거워
+ * 포털이 이미 쓰는 규칙대로 썸네일 경로로 바꾼다(layouts/basic.vue 와 동일).
+ */
+function avatarUrl(record: any): string {
+  const raw = record?.avatar ?? '';
+  if (!raw) return '';
+  return raw.includes('/api/file/download/')
+    ? raw.replace('/api/file/download/', '/api/file/thumbnail/')
+    : raw;
+}
+
+/** 사진이 없을 때 쓸 글자. 이름 첫 글자, 없으면 아이디 첫 글자. */
+function avatarText(record: any): string {
+  const name = String(record?.userName || record?.loginId || '?');
+  return name.slice(0, 1).toUpperCase();
+}
+
+/** 미소속 사용자 보기를 켜고 끈다. 켤 때마다 다시 받아 최신 상태를 보여준다. */
+async function toggleUnassigned() {
+  showUnassigned.value = !showUnassigned.value;
+  if (showUnassigned.value) await fetchUnassignedUsers();
+}
+
+// ─────────────────────────────────────────────────────────────
+// 부서 추가
+//
+// 회사 노드에서 누르면 **회사 직속 부서**, 부서 노드에서 누르면 **그 부서의 하위 부서**가 된다.
+// 조직도를 보면서 바로 만들 수 있어야, 부서를 만들러 다른 화면으로 갔다 오지 않는다.
+// ─────────────────────────────────────────────────────────────
+const addDeptOpen = ref<boolean>(false);
+const addDeptName = ref<string>('');
+const addDeptSaving = ref<boolean>(false);
+/** 새 부서의 상위. 회사 직속이면 null 이다. */
+const addDeptParent = ref<null | { id: string; name: string }>(null);
+
+/** 부서 추가 창을 연다. `parent` 가 없으면 회사 직속이다. */
+function openAddDept(parent?: { id: string; name: string }) {
+  addDeptParent.value = parent ?? null;
+  addDeptName.value = '';
+  addDeptOpen.value = true;
+}
+
+async function submitAddDept() {
+  const name = addDeptName.value.trim();
+  if (!name) {
+    message.warning('부서명을 입력해 주세요.');
+    return;
+  }
+  if (!selectedCompanyId.value) {
+    message.warning('회사를 먼저 선택해 주세요.');
+    return;
+  }
+
+  addDeptSaving.value = true;
+  try {
+    await createDept({
+      companyId: selectedCompanyId.value,
+      name,
+      // 회사 직속이면 상위가 없다. 서버는 pid 로 받는다.
+      pid: addDeptParent.value?.id,
+      sortOrder: 0,
+      status: 1,
+    } as any);
+
+    message.success(
+      addDeptParent.value
+        ? `[${addDeptParent.value.name}] 하위에 부서를 만들었습니다.`
+        : '회사 직속 부서를 만들었습니다.',
+    );
+    addDeptOpen.value = false;
+    await loadOrgData();
+  } catch (error) {
+    console.error(error);
+    message.error('부서를 만들지 못했습니다.');
+  } finally {
+    addDeptSaving.value = false;
+  }
+}
+
 // 캔버스 스타일 transform 적용
 const transformStyle = computed(() => {
   return `translate(${panX.value}px, ${panY.value}px) scale(${zoom.value})`;
@@ -43,10 +153,29 @@ interface OrgNode {
   children: OrgNode[];
   loginId?: string;
   email?: string;
+  phone?: string;
+  /** 프로필 사진 주소 (사용자 노드에만 있다) */
+  avatar?: string;
 }
 
 const orgTreeRoot = ref<OrgNode | null>(null);
 
+
+/**
+ * 회사 목록 응답에서 배열을 꺼낸다.
+ *
+ * 서버는 `{ result: [...], page: {...} }` 로 감싸 보낸다. 예전 코드는 `items` 만 봤는데
+ * 그런 필드는 없어서, 감싼 **객체 자체**가 배열인 줄 알고 `.find` 를 불렀다 —
+ * "items.find is not a function" 으로 터졌다. 부서가 없는 회사를 열 때만 이 길로 와서
+ * 눈에 늦게 띈 것이다(부서가 있으면 회사명을 부서 쪽에서 얻는다).
+ */
+function toCompanyList(res: any): any[] {
+  if (Array.isArray(res)) return res;
+  if (Array.isArray(res?.result)) return res.result;
+  if (Array.isArray(res?.items)) return res.items;
+  if (Array.isArray(res?.data?.result)) return res.data.result;
+  return [];
+}
 
 async function loadOrgData() {
   if (!selectedCompanyId.value) return;
@@ -62,8 +191,9 @@ async function loadOrgData() {
       companyName = depts[0].companyName || '회사';
     } else {
       const compRes = await getCompanyList();
-      const items = (compRes as any)?.items ?? compRes ?? [];
-      const matched = items.find((c: any) => c.id === selectedCompanyId.value);
+      const matched = toCompanyList(compRes).find(
+        (c: any) => c.id === selectedCompanyId.value,
+      );
       companyName = matched?.name || '회사';
     }
     selectedCompanyName.value = companyName;
@@ -115,6 +245,8 @@ async function buildDeptUserNodes(depts: any[], depth: number): Promise<OrgNode[
       name: u.userName || u.loginId,
       loginId: u.loginId,
       email: u.email,
+      phone: u.phone,
+      avatar: u.avatar,
       depth: depth + 1,
       parentId: dept.id,
       children: [],
@@ -137,6 +269,13 @@ interface RenderNode extends OrgNode {
   y: number;
   parentX?: number;
   parentY?: number;
+  /**
+   * 세로 조직도에서 부서 아래 세로로 쌓인 사용자일 때, 바로 위에 있는 노드의 식별자.
+   *
+   * 연결선을 부서에서 각 사람으로 부챗살처럼 긋지 않고 **위에서 아래로 이어 긋기** 위한 값이다.
+   * 한 칸에 쌓여 있어 부챗살로 그으면 선이 서로 겹쳐 읽을 수 없다.
+   */
+  stackPrevId?: string;
 }
 
 const renderNodes = ref<RenderNode[]>([]);
@@ -151,6 +290,14 @@ function calculateNodeLayouts() {
   const isVertical = layoutDirection.value === 'vertical';
   const xGap = isVertical ? 200 : 250;
   const yGap = isVertical ? 120 : 70;
+
+  /**
+   * 세로 조직도에서 부서 아래 사용자들을 쌓을 간격.
+   *
+   * 노드 카드 높이가 50px 이라 58 이면 8px 씩 벌어진다. 부서 사이 간격(yGap 120)보다
+   * 좁게 두어 "한 부서의 사람 목록" 으로 읽히게 한다.
+   */
+  const userStackGap = 58;
 
   let xCounter = 0;
   let yCounter = 0;
@@ -176,16 +323,54 @@ function calculateNodeLayouts() {
 
     tempNodes.push(renderNode);
 
-    if (node.children.length === 0) {
+    /*
+     * 세로 조직도에서는 부서 아래 **사용자들을 한 칸에 세로로 쌓는다.**
+     *
+     * 원래는 사용자도 하위 부서와 똑같이 잎 하나가 한 칸(xGap 200px)을 차지했다.
+     * 사람이 여덟 명인 부서 하나가 1600px 을 먹어, 부서 몇 개만 있어도 좌우로
+     * 한참 끌어야 전체가 보였다.
+     *
+     * 이제 사용자 묶음 전체가 **한 칸**만 쓴다. 그 칸 안에서 위에서 아래로 쌓인다.
+     * 하위 부서는 예전처럼 옆으로 갈라진다 — 부서 계층은 가로로 보는 편이 읽기 쉽다.
+     *
+     * 묶음에 별도 칸을 주는 이유: 부서의 x 는 자식들의 가운데로 보정되는데(아래
+     * adjustParentPosition), 사용자를 부서와 같은 칸에 두면 하위 부서 칸과 겹친다.
+     */
+    const userChildren = isVertical
+      ? node.children.filter((c) => c.type === 'USER')
+      : [];
+    const otherChildren = isVertical
+      ? node.children.filter((c) => c.type !== 'USER')
+      : node.children;
+
+    if (userChildren.length > 0) {
+      const column = xCounter;
+      xCounter += 1; // 사람이 몇 명이든 한 칸이다
+
+      userChildren.forEach((user, index) => {
+        const userNode: RenderNode = {
+          ...user,
+          x: column * xGap,
+          y: (node.depth + 1) * yGap + index * userStackGap,
+          // 첫 사람은 부서에서, 그다음부터는 바로 위 사람에서 선을 잇는다.
+          stackPrevId: index === 0 ? node.id : userChildren[index - 1]!.id,
+        };
+        // 연결선은 아래에서 부모 좌표를 동기화한 뒤 만든다.
+        tempNodes.push(userNode);
+      });
+    }
+
+    if (otherChildren.length > 0) {
+      otherChildren.forEach((child) => {
+        traverse(child, renderNode);
+      });
+    } else if (userChildren.length === 0) {
+      // 자식이 없는 잎이다. 자기 칸을 하나 쓴다.
       if (isVertical) {
         xCounter++;
       } else {
         yCounter++;
       }
-    } else {
-      node.children.forEach((child) => {
-        traverse(child, renderNode);
-      });
     }
   }
 
@@ -217,6 +402,17 @@ function calculateNodeLayouts() {
 
   // 부모 노드의 최종 보정 좌표를 자식 노드의 parentX, parentY 에 동기화
   tempNodes.forEach((n) => {
+    // 세로로 쌓인 사용자는 부서가 아니라 **바로 위 노드**에서 선을 받는다.
+    // (부서에서 각 사람으로 그으면 한 칸에 겹쳐 읽을 수 없다)
+    if (n.stackPrevId) {
+      const prev = tempNodes.find((p) => p.id === n.stackPrevId);
+      if (prev) {
+        n.parentX = prev.x;
+        n.parentY = prev.y;
+        return;
+      }
+    }
+
     if (n.parentId) {
       const parentNode = tempNodes.find((p) => p.id === n.parentId);
       if (parentNode) {
@@ -334,6 +530,8 @@ async function onNodeDrop(e: DragEvent, targetDeptId: string) {
       if (success) {
         message.success('사용자의 부서 소속이 변경되었습니다.');
         await loadOrgData();
+        // 미소속 목록에서 끌어온 경우 그 사람은 이제 소속이 있다. 목록을 다시 받는다.
+        if (showUnassigned.value) await fetchUnassignedUsers();
       }
     }
   } catch (error) {
@@ -403,8 +601,7 @@ onMounted(async () => {
   // 화면 진입 시 첫 번째 회사가 자동으로 선택되도록 명시적으로 기본 회사 목록을 불러와 설정합니다.
   if (!selectedCompanyId.value) {
     try {
-      const compRes = await getCompanyList();
-      const items = (compRes as any)?.items ?? compRes ?? [];
+      const items = toCompanyList(await getCompanyList());
       if (items.length > 0 && items[0]?.id) {
         selectedCompanyId.value = items[0].id;
       }
@@ -453,6 +650,35 @@ onMounted(async () => {
                 </template>
               </Button>
             </Tooltip>
+            <!--
+              미소속 사용자 보기. 켜면 오른쪽에 목록이 붙고, 그 행을 조직도의
+              부서 노드로 끌어다 놓으면 그 부서 소속이 된다.
+            -->
+            <!--
+              부서가 하나도 없으면 조직도에 회사 노드만 있고 그 카드의 버튼은 찾기 어렵다.
+              첫 부서를 만드는 길을 상단에도 둔다.
+            -->
+            <Button
+              class="flex items-center gap-1.5"
+              :disabled="!selectedCompanyId"
+              @click="openAddDept()"
+            >
+              <template #icon>
+                <IconifyIcon icon="lucide:folder-plus" class="size-4" />
+              </template>
+              부서 추가
+            </Button>
+            <Button
+              class="flex items-center gap-1.5"
+              :type="showUnassigned ? 'primary' : 'default'"
+              :loading="loadingUnassigned"
+              @click="toggleUnassigned"
+            >
+              <template #icon>
+                <IconifyIcon icon="lucide:user-plus" class="size-4" />
+              </template>
+              미소속 사용자 보기
+            </Button>
             <Button class="flex items-center gap-1.5" @click="loadOrgData" :loading="loading">
               <template #icon>
                 <IconifyIcon icon="lucide:rotate-cw" class="size-4" />
@@ -469,10 +695,17 @@ onMounted(async () => {
         </div>
       </Card>
 
+      <!--
+        조직도 + 미소속 사용자 목록.
+
+        목록을 켜면 오른쪽에 붙는다. 캔버스는 남은 폭을 쓴다(min-w-0 이 없으면
+        캔버스가 줄어들지 않아 목록이 밖으로 밀려난다).
+      -->
+      <div class="flex-1 flex gap-4 min-h-0 overflow-hidden">
       <!-- 메인 2D 무한 마인드맵 영역 -->
-      <div 
+      <div
         ref="canvasRef"
-        class="flex-1 border rounded-xl overflow-hidden relative select-none cursor-grab"
+        class="flex-1 min-w-0 border rounded-xl overflow-hidden relative select-none cursor-grab"
         :class="{ 'cursor-grabbing': isPanning }"
         @mousedown="onCanvasMouseDown"
         @mousemove="onCanvasMouseMove"
@@ -518,10 +751,21 @@ onMounted(async () => {
                   <div class="bg-primary/10 p-1.5 rounded text-primary flex items-center justify-center shrink-0">
                     <IconifyIcon icon="lucide:building-2" class="size-5" />
                   </div>
-                  <div class="overflow-hidden">
+                  <div class="overflow-hidden flex-1">
                     <div class="text-xs font-bold text-gray-400">회사</div>
                     <div class="text-sm font-extrabold text-primary truncate" :title="node.name">{{ node.name }}</div>
                   </div>
+                  <!--
+                    회사 직속 부서를 만든다. no-pan 이 없으면 누를 때 캔버스가 끌린다.
+                  -->
+                  <button
+                    type="button"
+                    class="no-pan shrink-0 rounded p-1 text-primary hover:bg-primary/10"
+                    title="회사 직속 부서 추가"
+                    @click.stop="openAddDept()"
+                  >
+                    <IconifyIcon icon="lucide:folder-plus" class="size-4" />
+                  </button>
                 </div>
 
                 <!-- 부서 노드 (드래그/드롭 타겟) -->
@@ -540,6 +784,14 @@ onMounted(async () => {
                     <div class="text-[10px] font-semibold text-gray-400">부서</div>
                     <div class="text-xs font-bold text-gray-700 truncate" :title="node.name">{{ node.name }}</div>
                   </div>
+                  <button
+                    type="button"
+                    class="no-pan shrink-0 rounded p-1 text-teal-600 hover:bg-teal-50"
+                    title="하위 부서 추가"
+                    @click.stop="openAddDept({ id: node.id, name: node.name })"
+                  >
+                    <IconifyIcon icon="lucide:folder-plus" class="size-4" />
+                  </button>
                 </div>
 
                 <!-- 사용자 노드 (드래그) -->
@@ -549,9 +801,14 @@ onMounted(async () => {
                   @dragstart="onNodeDragStart($event, DRAG_TYPE_USER, node.id)"
                   class="node-card border border-gray-300 bg-amber-50/90 shadow-sm rounded-lg p-2 flex items-center gap-2 h-[50px] w-[180px] hover:border-amber-500 hover:shadow-md transition-all cursor-move active:opacity-65"
                 >
-                  <div class="bg-amber-100 p-1.5 rounded text-amber-700 flex items-center justify-center shrink-0">
-                    <IconifyIcon icon="lucide:user" class="size-4" />
-                  </div>
+                  <!-- 사진이 있으면 사진, 없으면 이름 첫 글자 -->
+                  <Avatar
+                    :size="30"
+                    :src="avatarUrl(node) || undefined"
+                    class="shrink-0 bg-amber-100 text-amber-700"
+                  >
+                    {{ avatarText(node) }}
+                  </Avatar>
                   <div class="overflow-hidden flex-1">
                     <div class="text-xs font-bold text-gray-800 truncate" :title="node.name">{{ node.name }}</div>
                     <div class="text-[9px] text-gray-500 truncate" :title="node.email || node.loginId">{{ node.email || node.loginId }}</div>
@@ -570,7 +827,108 @@ onMounted(async () => {
           </div>
         </div>
       </div>
+
+      <!--
+        미소속 사용자 목록.
+
+        각 행은 부서 노드가 이미 받아들이는 것과 **같은 형식**으로 끌기 값을 싣는다
+        (`{ type: 'USER', id }`). 그래서 조직도 쪽 드롭 처리를 손대지 않고 그대로 쓴다.
+      -->
+      <div
+        v-if="showUnassigned"
+        class="no-pan w-64 shrink-0 border rounded-xl flex flex-col overflow-hidden"
+      >
+        <div class="px-3 py-2 border-b flex items-center justify-between gap-2">
+          <div class="flex items-center gap-1.5 min-w-0">
+            <IconifyIcon icon="lucide:user-x" class="size-4 text-gray-400 shrink-0" />
+            <span class="text-sm font-semibold truncate">미소속 사용자</span>
+            <span class="text-xs text-gray-400 shrink-0">
+              {{ unassignedUsers.length }}
+            </span>
+          </div>
+          <Button
+            type="text"
+            size="small"
+            :loading="loadingUnassigned"
+            @click="fetchUnassignedUsers"
+          >
+            <template #icon>
+              <IconifyIcon icon="lucide:refresh-cw" class="size-3.5" />
+            </template>
+          </Button>
+        </div>
+
+        <div class="px-3 py-2 text-[11px] leading-snug text-gray-400 border-b">
+          어느 회사에도 소속되지 않은 사용자입니다.
+          <b>부서 노드로 끌어다 놓으면</b> 그 부서 소속이 됩니다.
+        </div>
+
+        <div class="flex-1 overflow-y-auto p-2 flex flex-col gap-1.5">
+          <div
+            v-for="user in unassignedUsers"
+            :key="user.id"
+            draggable="true"
+            class="border rounded-md px-2 py-1.5 cursor-move hover:border-primary hover:shadow-sm transition-all flex items-center gap-2"
+            @dragstart="onNodeDragStart($event, DRAG_TYPE_USER, user.id)"
+          >
+            <Avatar :size="30" :src="avatarUrl(user) || undefined" class="shrink-0">
+              {{ avatarText(user) }}
+            </Avatar>
+            <div class="min-w-0 flex-1">
+              <div class="text-sm font-medium truncate" :title="user.userName">
+                {{ user.userName || user.loginId }}
+              </div>
+              <div class="text-[11px] text-gray-400 truncate" :title="user.loginId">
+                {{ user.loginId }}
+              </div>
+              <div class="text-[11px] text-gray-400 truncate" :title="user.email">
+                {{ user.email || '-' }}
+              </div>
+              <div class="text-[11px] text-gray-400 truncate" :title="user.phone">
+                {{ user.phone || '-' }}
+              </div>
+            </div>
+          </div>
+
+          <div
+            v-if="!loadingUnassigned && unassignedUsers.length === 0"
+            class="py-8 text-center text-xs text-gray-400"
+          >
+            미소속 사용자가 없습니다.
+          </div>
+        </div>
+      </div>
+      </div>
     </div>
+
+    <!-- 부서 추가 -->
+    <Modal
+      v-model:open="addDeptOpen"
+      :confirm-loading="addDeptSaving"
+      :title="
+        addDeptParent
+          ? `[${addDeptParent.name}] 하위 부서 추가`
+          : `[${selectedCompanyName}] 회사 직속 부서 추가`
+      "
+      ok-text="만들기"
+      cancel-text="취소"
+      @ok="submitAddDept"
+    >
+      <div class="py-2">
+        <div class="mb-2 text-xs text-gray-500">
+          {{
+            addDeptParent
+              ? `'${addDeptParent.name}' 아래에 새 부서를 만듭니다.`
+              : '회사 바로 아래에 새 부서를 만듭니다.'
+          }}
+        </div>
+        <Input
+          v-model:value="addDeptName"
+          placeholder="부서명"
+          @press-enter="submitAddDept"
+        />
+      </div>
+    </Modal>
   </Page>
 </template>
 

@@ -1,4 +1,4 @@
-using AuthServer.Data;
+﻿using AuthServer.Data;
 using AuthServer.Endpoints;
 using AuthServer.Entities;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -70,6 +70,7 @@ builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ITimezoneService, TimezoneService>();
 builder.Services.AddScoped<IMenuService, MenuService>();
+builder.Services.AddScoped<IMenuFavoriteService, MenuFavoriteService>();
 builder.Services.AddScoped<IRoleService, RoleService>();
 builder.Services.AddScoped<IDepartmentService, DepartmentService>();
 builder.Services.AddScoped<ISystemMenuService, SystemMenuService>();
@@ -118,6 +119,7 @@ app.MapAuthEndpoints();
 
 app.MapUserEndpoints();
 app.MapMenuEndpoints();
+app.MapMenuFavoriteEndpoints();
 app.MapTimezoneEndpoints();
 app.MapSystemEndpoints();
 app.MapCompanyEndpoints();

@@ -284,8 +284,26 @@ function filterMenusByKeyword(
   return result;
 }
 
+/**
+ * 사이드바 맨 위에 얹을 추가 묶음. 지금은 즐겨찾기가 쓴다.
+ *
+ * 이 레이아웃은 프레임워크 패키지라 즐겨찾기 API 를 알지 못한다.
+ * 메뉴 다시 읽기(`MENU_RELOAD_HANDLER`)와 같은 방식으로 앱이 주입한다.
+ * 주입하지 않은 앱에서는 아무것도 얹히지 않는다.
+ */
+const sidebarExtraMenus = inject<{ value: MenuRecordRaw[] } | null>(
+  'SIDEBAR_EXTRA_MENUS',
+  null,
+);
+
 // 이름 번역이 반영된 사이드바 메뉴 (검색 대상)
-const wrappedSidebarMenus = computed(() => wrapperMenus(sidebarMenus.value));
+//
+// 즐겨찾기 묶음도 같은 자리에서 번역한다. 제목이 다국어 키일 수 있어
+// 다른 메뉴와 같은 규칙($tIfKey)을 거쳐야 하고, 검색 대상에도 들어가야 한다.
+const wrappedSidebarMenus = computed(() => {
+  const extra = sidebarExtraMenus?.value ?? [];
+  return wrapperMenus([...extra, ...sidebarMenus.value]);
+});
 
 // 실제 렌더링할 사이드바 메뉴 (검색어 적용)
 const filteredSidebarMenus = computed(() => {
@@ -616,7 +634,16 @@ function startResize(e: MouseEvent) {
         v-if="!sidebarCollapsed"
         class="bg-sidebar sticky top-0 z-20 -mt-2 flex items-center gap-1 px-2 pb-2 pt-2"
       >
-        <div class="relative flex-1">
+        <!--
+          min-w-0 이 없으면 사이드바를 좁혀도 이 칸이 줄어들지 않는다.
+
+          flex 항목의 기본값은 `min-width: auto` 라서 **내용의 고유 최소 너비**보다
+          작아지지 않는다. 그 내용이 `<input>` 인데, input 은 size 속성 기본값(20자)
+          만큼의 고유 너비를 갖는다 — 실측 192px 이다. 그래서 이 칸이 192px 에 고정되고,
+          옆의 새로고침 버튼(shrink-0)이 밖으로 밀려 잘렸다.
+          사이드바 기본 너비(224px)에서도 이미 8px 잘려 있었다.
+        -->
+        <div class="relative min-w-0 flex-1">
           <svg
             class="text-muted-foreground pointer-events-none absolute left-2 top-1/2 size-4 -translate-y-1/2"
             fill="none"
@@ -627,10 +654,15 @@ function startResize(e: MouseEvent) {
             <circle cx="11" cy="11" r="8" />
             <path d="m21 21-4.3-4.3" stroke-linecap="round" />
           </svg>
+          <!--
+            오른쪽 여백은 지우기 버튼이 있을 때만 둔다. 항상 pr-8 을 두면
+            좁은 사이드바에서 좌우 여백 64px 이 글자 자리를 다 먹는다.
+          -->
           <Input
             v-model="menuSearchKeyword"
             :placeholder="$t('common.search')"
-            class="h-8 pl-8 pr-8"
+            class="h-8 w-full min-w-0 pl-8"
+            :class="menuSearchKeyword ? 'pr-8' : 'pr-2'"
             spellcheck="false"
           />
           <button

@@ -30,6 +30,7 @@ public class AppDbContext : DbContext
     public DbSet<RoleMenu> RoleMenus { get; set; }
     public DbSet<Notice> Notices { get; set; }
     public DbSet<NoticeFile> NoticeFiles { get; set; }
+    public DbSet<MenuFavorite> MenuFavorites { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -42,6 +43,26 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<RoleMenu>()
             .HasIndex(rm => new { rm.RoleId, rm.MenuId })
             .IsUnique();
+
+        // 같은 사람이 같은 메뉴를 두 번 담지 못하게 한다. 등록 API 는 이미 있으면 그대로 두지만,
+        // 두 창에서 동시에 눌러도 중복이 생기지 않도록 DB 쪽에서도 막는다.
+        modelBuilder.Entity<MenuFavorite>()
+            .HasIndex(f => new { f.AccountId, f.MenuId })
+            .IsUnique();
+
+        // 계정이나 메뉴가 사라지면 즐겨찾기도 함께 지운다.
+        // 남겨 두면 아무 곳도 가리키지 않는 행이 쌓이고, 사이드바 조회에서 매번 걸러야 한다.
+        modelBuilder.Entity<MenuFavorite>()
+            .HasOne(f => f.Account)
+            .WithMany()
+            .HasForeignKey(f => f.AccountId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<MenuFavorite>()
+            .HasOne(f => f.Menu)
+            .WithMany()
+            .HasForeignKey(f => f.MenuId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         // Department 엔티티에 (CompanyId, Id) 복합 고유 키(AlternateKey) 설정
         modelBuilder.Entity<Department>()

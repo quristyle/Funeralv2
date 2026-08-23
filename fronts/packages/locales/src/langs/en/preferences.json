@@ -97,6 +97,8 @@
       "closeOther": "Close Other Tabs",
       "closeAll": "Close All Tabs",
       "openInNewWindow": "Open in New Window",
+      "favoriteAdd": "Add to Favorites",
+      "favoriteRemove": "Remove from Favorites",
       "maximize": "Maximize",
       "restoreMaximize": "Restore"
     }

@@ -72,6 +72,8 @@ export {
   Square,
   SquareCheckBig,
   SquareMinus,
+  Star,
+  StarOff,
   Sun,
   SunMoon,
   SwatchBook,

@@ -127,55 +127,16 @@ public static class CustomerEndpoints {
             .FirstOrDefaultAsync()
     ));
 
-    group.MapPost("/", (AppDbContext db, CustomerCreateDto customerDto, HttpContext http) => ApiResponseBuilder.CreateAsync(async () => {
-      // 고객 등록은 '조직 데이터' 등록이지 계정 발급이 아니다(결정 Q4).
-      // 로그인 계정은 JSini 포털에서 만든다. 비밀번호 칸은 필수 컬럼이라
-      // 아무도 모르는 임의값으로 채운다 — 이 값으로는 로그인할 수 없다.
-      var passwordService = new PasswordService();
-      var unusablePassword = Guid.NewGuid().ToString("N") + Guid.NewGuid().ToString("N");
-      var customer = new Customer {
-        LoginId = customerDto.LoginId,
-        UserName = customerDto.UserName,
-        Email = customerDto.Email,
-        CompanyId = customerDto.CompanyId,
-        Sex = customerDto.Sex ?? "M",
-        Photo = customerDto.Photo ?? "",
-        // 등록자는 로그인한 JSini 계정에서 정한다(요청 본문 값은 쓰지 않는다).
-        CreatedBy = http.AuditUser(),
-        MenuContext = customerDto.MenuContext
-      };
-      customer.PasswordHash = passwordService.HashPassword(customer, unusablePassword);
-      db.Customers.Add(customer);
-      await db.SaveChangesAsync();
-      return customer;
-    }, "Customer created successfully.", 201));
-
-    group.MapPut("/{id}", (AppDbContext db, int id, Customer input) => ApiResponseBuilder.CreateAsync(async () => {
-      var customer = await db.Customers.FindAsync(id);
-      if (customer is null) return null;
-
-      customer.UserName = input.UserName;
-      customer.LoginId = input.LoginId;
-      //customer.Email = input.Email;
-      //customer.Sex = input.Sex;
-      //customer.Photo = input.Photo;
-      customer.CompanyId = input.CompanyId;
-
-      await db.SaveChangesAsync();
-      return customer;
-    }, "Customer updated successfully."));
-
-    group.MapDelete("/{id}", (AppDbContext db, int id) => ApiResponseBuilder.CreateAsync(async () => {
-      var customer = await db.Customers.FindAsync(id);
-      if (customer is null) return null;
-      else if (customer.UserName.Contains("pub_")) { // pub_ 으로 시작하는 아이디 막기. 회사공동아이디 인데 일딴 삭제 불가하도록.
-        return null;
-      }
-
-      // Soft delete: set IsDeleted to true instead of removing from DB
-      customer.IsDeleted = true;
-      await db.SaveChangesAsync();
-      return new { DeletedId = id };
-    }, "Customer deleted successfully."));
+    // 등록·수정·삭제 엔드포인트는 제거했다.
+    //
+    // 고객 사용자 **관리 화면(`/helpdesk/org/customer`)이 없어졌다.** 이식본에만 있던
+    // 화면이고, 계정과 사람 정보는 JSini 관리 포털이 단독으로 맡는다.
+    // 쓰는 화면이 없는 쓰기 통로를 열어 둘 이유가 없다.
+    //
+    // 조회(`GET /`)는 남긴다 — 요청 화면들의 고객 셀렉트와 계정 대조 화면이 쓴다.
+    // 고객을 '관리'하는 것이 아니라 업무 데이터에서 **가리키기 위한** 읽기다.
+    //
+    // 헬프데스크 DB(`jsini.customer`)는 손대지 않았다. 기존 요청·댓글이 이 행들을
+    // 참조하고 있어 그대로 있어야 한다.
   }
 }
