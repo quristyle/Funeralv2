@@ -27,7 +27,7 @@ exports[`defaultPreferences immutability test > should not modify the config obj
     "fontFamily": "S-CoreDream",
     "isMobile": false,
     "layout": "sidebar-nav",
-    "locale": "ko-KR",
+    "locale": "ko",
     "loginExpiredMode": "page",
     "name": "Vben Admin",
     "preferencesButtonPosition": "auto",

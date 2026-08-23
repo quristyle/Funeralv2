@@ -18,7 +18,7 @@ public class I18nResource : BaseEntity
     public string Key { get; set; } = string.Empty;
 
     /// <summary>
-    /// 로케일 설정 (예: ko, en-US)
+    /// 로케일 설정 (ko · en)
     /// </summary>
     [Required]
     [MaxLength(20)]

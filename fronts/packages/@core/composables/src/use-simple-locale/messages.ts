@@ -1,7 +1,7 @@
-export type Locale = 'en-US' | 'ko-KR';
+export type Locale = 'en' | 'ko';
 
 export const messages: Record<Locale, Record<string, string>> = {
-  'en-US': {
+  en: {
     cancel: 'Cancel',
     collapse: 'Collapse',
     confirm: 'Confirm',
@@ -10,7 +10,7 @@ export const messages: Record<Locale, Record<string, string>> = {
     reset: 'Reset',
     submit: 'Submit',
   },
-  'ko-KR': {
+  ko: {
     cancel: '취소',
     collapse: '접기',
     confirm: '확인',

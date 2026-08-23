@@ -5,7 +5,7 @@ export const LOGIN_PATH = '/auth/login';
 
 export interface LanguageOption {
   label: string;
-  value: 'en-US' | 'ko-KR' ;
+  value: 'en' | 'ko';
 }
 
 /**
@@ -14,14 +14,10 @@ export interface LanguageOption {
 export const SUPPORT_LANGUAGES: LanguageOption[] = [
   {
     label: '한국어',
-    value: 'ko-KR',
+    value: 'ko',
   },
   {
     label: 'English',
-    value: 'en-US',
-  },
-  {
-    label: '키확인용',
-    value: 'ab-AB',
+    value: 'en',
   },
 ];

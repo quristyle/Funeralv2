@@ -222,7 +222,8 @@ public class LLMService : ILLMService
         }
 
         string systemPrompt;
-        if (targetLang.Equals("ko-KR", StringComparison.OrdinalIgnoreCase))
+        // 언어 코드는 짧게(ko · en) 관리한다. 예전 값("ko-KR")이 들어와도 받아 준다.
+        if (targetLang.StartsWith("ko", StringComparison.OrdinalIgnoreCase))
         {
             systemPrompt = "당신은 다국어화(i18n) 번역 전문가입니다. 소프트웨어의 번역키를 입력받아, 이에 가장 어울리는 자연스럽고 표준적인 한국어 번역 결과(예: 번역키가 'ui.system.title'이면 '시스템 제목')를 한 줄로 추천하세요. 부연 설명 없이 오직 추천 결과 한 단어/문장만 출력하세요. 마크다운 기호 등을 붙이지 마세요.";
         }

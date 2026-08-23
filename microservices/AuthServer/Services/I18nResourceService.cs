@@ -149,9 +149,9 @@ public class I18nResourceService : II18nResourceService
             }
             else
             {
-                // DB에서 영어(en-US) 로케일에 해당 키가 있는지 확인 (Secondary Fallback)
+                // DB에서 영어("en") 로케일에 해당 키가 있는지 확인 (Secondary Fallback)
                 var englishValue = await _context.I18nResources
-                    .Where(r => r.Locale == "en-US" && r.Key == key)
+                    .Where(r => r.Locale == "en" && r.Key == key)
                     .Select(r => r.Value)
                     .FirstOrDefaultAsync();
                 

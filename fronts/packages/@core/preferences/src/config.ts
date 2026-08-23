@@ -27,7 +27,7 @@ const defaultPreferences: Preferences = {
     enableStickyPreferencesNavigationBar: true,
     isMobile: false,
     layout: 'sidebar-nav',
-    locale: 'ko-KR',
+    locale: 'ko',
     loginExpiredMode: 'page',
     name: 'Vben Admin',
     preferencesButtonPosition: 'auto',

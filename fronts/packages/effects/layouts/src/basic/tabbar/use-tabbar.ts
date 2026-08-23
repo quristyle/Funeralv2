@@ -21,7 +21,7 @@ import {
   RotateCw,
   X,
 } from '@vben/icons';
-import { $t, useI18n } from '@vben/locales';
+import { $t, $tIfKey, useI18n } from '@vben/locales';
 import { getTabKey, useAccessStore, useTabbarStore } from '@vben/stores';
 import { filterTree } from '@vben/utils';
 
@@ -90,7 +90,8 @@ export function useTabbar() {
       ...tab,
       meta: {
         ...tab?.meta,
-        title: $t(tab?.meta?.title as string),
+        // 탭 제목도 DB 에서 온 글자일 수 있다 — 키일 때만 번역한다($tIfKey 주석 참고)
+        title: $tIfKey(tab?.meta?.title as string),
       },
     };
   }

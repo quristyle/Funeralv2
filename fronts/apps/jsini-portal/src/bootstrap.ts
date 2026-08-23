@@ -11,7 +11,7 @@ import './styles/index.css';
 
 import { useTitle } from '@vueuse/core';
 
-import { $t, setupI18n } from '#/locales';
+import { $tIfKey, setupI18n } from '#/locales';
 import { router } from '#/router';
 
 import { initComponentAdapter } from './adapter/component';
@@ -99,7 +99,7 @@ async function bootstrap(namespace: string) {
     if (preferences.app.dynamicTitle) {
       const routeTitle = router.currentRoute.value.meta?.title;
       const pageTitle =
-        (routeTitle ? `${$t(routeTitle)} - ` : '') + preferences.app.name;
+        (routeTitle ? `${$tIfKey(routeTitle)} - ` : '') + preferences.app.name;
       useTitle(pageTitle);
     }
   });

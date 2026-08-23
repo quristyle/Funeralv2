@@ -35,7 +35,9 @@ setupVbenVxeTable({
     // 2. vxe-table이 이 콜백을 사용하도록 현재 언어를 강제로 설정합니다.
     // 함수가 존재하는 경우에만 안전하게 호출합니다.
     if (typeof vxeUI.setLanguage === 'function') {
-      const vxeLang = preferences.app.locale === 'ko' ? 'ko-KR' : preferences.app.locale;
+      // 우리는 ko · en 으로 관리하고, vxe 는 자기 규격(ko-KR · en-US)을 쓴다.
+      const VXE_LANG: Record<string, string> = { en: 'en-US', ko: 'ko-KR' };
+      const vxeLang = VXE_LANG[preferences.app.locale] ?? 'en-US';
       vxeUI.setLanguage(vxeLang);
     }
 

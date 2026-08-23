@@ -21,8 +21,8 @@ const isLoading = ref(false);
 const i18nKey = ref('');
 const categoryName = ref('menu');
 const i18nValues = ref({
-  'ko-KR': { id: null as number | null, value: '' },
-  'en-US': { id: null as number | null, value: '' }
+  'ko': { id: null as number | null, value: '' },
+  'en': { id: null as number | null, value: '' }
 });
 
 function normalizeI18nItems(response: any): any[] {
@@ -55,8 +55,8 @@ async function open(params: OpenParams) {
   categoryName.value = params.category || 'menu';
   successCallback = params.onSuccess;
 
-  i18nValues.value['ko-KR'] = { id: null, value: '' };
-  i18nValues.value['en-US'] = { id: null, value: '' };
+  i18nValues.value['ko'] = { id: null, value: '' };
+  i18nValues.value['en'] = { id: null, value: '' };
 
   visible.value = true;
   isLoading.value = true;
@@ -67,8 +67,8 @@ async function open(params: OpenParams) {
     const matches = normalizeI18nItems(result).filter((item: any) => item.key === i18nKey.value);
 
     matches.forEach((item: any) => {
-      if (item.locale === 'ko-KR' || item.locale === 'en-US') {
-        i18nValues.value[item.locale as 'ko-KR' | 'en-US'] = { id: item.id, value: item.value };
+      if (item.locale === 'ko' || item.locale === 'en') {
+        i18nValues.value[item.locale as 'ko' | 'en'] = { id: item.id, value: item.value };
       }
     });
   } catch (error) {
@@ -95,7 +95,7 @@ async function onSave() {
     const category = categoryName.value;
 
     // 한국어와 영어 각각 번역 정보 생성/수정
-    for (const locale of ['ko-KR', 'en-US'] as const) {
+    for (const locale of ['ko', 'en'] as const) {
       const data = i18nValues.value[locale];
 
       if (data.id !== null) {
@@ -153,17 +153,17 @@ defineExpose({
       <Form.Item label="다국어 번역 키 (Key)">
         <Input v-model:value="i18nKey" :disabled="true" placeholder="예: menu.system.management" />
       </Form.Item>
-      <Form.Item label="한국어 (ko-KR)">
-        <Input v-model:value="i18nValues['ko-KR'].value" placeholder="한국어 명칭을 입력하세요" />
+      <Form.Item label="한국어 (ko)">
+        <Input v-model:value="i18nValues['ko'].value" placeholder="한국어 명칭을 입력하세요" />
         <AiCodeSuggester 
-          v-if="i18nValues['ko-KR'].value"
-          :input-text="i18nValues['ko-KR'].value" 
+          v-if="i18nValues['ko'].value"
+          :input-text="i18nValues['ko'].value" 
           :natural="true"
-          @select="(val) => i18nValues['en-US'].value = val" 
+          @select="(val) => i18nValues['en'].value = val" 
         />
       </Form.Item>
-      <Form.Item label="영어 (en-US)">
-        <Input v-model:value="i18nValues['en-US'].value" placeholder="영어 명칭을 입력하세요 (English)" />
+      <Form.Item label="영어 (en)">
+        <Input v-model:value="i18nValues['en'].value" placeholder="영어 명칭을 입력하세요 (English)" />
       </Form.Item>
     </Form>
   </Modal>

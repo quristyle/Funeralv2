@@ -14,9 +14,12 @@ import { createI18n } from 'vue-i18n';
 import { useSimpleLocale } from '@vben-core/composables';
 
 const i18n = createI18n({
+  // 언어 코드는 지역 없이 짧게 쓴다(ko · en).
+  // `ko-KR` 처럼 지역이 붙어 있으면 vue-i18n 이 지역을 뗀 `ko` 도 한 번 더 찾아
+  // 못 찾는 키마다 경고가 두 줄씩 났다. 짧게 쓰면 한 단계로 끝난다.
   fallbackLocale: {
-    'ko-KR': ['en-US'],
-    default: ['en-US'],
+    ko: ['en'],
+    default: ['en'],
   },
   globalInjection: true,
   legacy: false,
@@ -97,6 +100,26 @@ function loadLocalesMapFromDir(
  * Set i18n language
  * @param locale
  */
+/**
+ * **번역 키일 때만** 번역한다. 키가 아니면 받은 글자를 그대로 돌려준다.
+ *
+ * 이 포털은 메뉴·탭·브레드크럼의 이름을 DB(`scom.system_menus`)에서 가져오고,
+ * 거기에는 `MSA상태정보` 처럼 **완성된 글자**가 들어 있다 — 번역 키가 아니다.
+ * 그걸 그대로 `$t()` 에 넣으면 vue-i18n 이 못 찾고 대체 언어를 훑으며
+ * 경고를 두 줄씩 찍는다. 메뉴 170개면 한 번 그릴 때 344줄이고,
+ * **그 콘솔 출력만으로 115ms 가 막힌다**(찾는 일 자체는 3ms — 23배 차이).
+ *
+ * `te()` 는 키가 있는지만 보고 경고를 내지 않는다.
+ * 이름을 키로 넣은 메뉴는 예전처럼 번역되고,
+ * 다른 자리의 진짜 누락 키 경고는 그대로 남는다.
+ *
+ * 경위는 docs/analysis/18-i18n-fallback-warning.md 참고.
+ */
+function $tIfKey(text?: null | string) {
+  if (!text) return '';
+  return i18n.global.te(text) ? i18n.global.t(text) : text;
+}
+
 function setI18nLanguage(locale: Locale) {
 
 
@@ -120,7 +143,7 @@ async function setupI18n(app: App, options: LocaleSetupOptions = {}) {
 
 
 
-  const { defaultLocale = 'ko-KR' } = options;
+  const { defaultLocale = 'ko' } = options;
   // 앱에서 직접 서드파티 라이브러리 및 컴포넌트 라이브러리의 국제화를 확장할 수 있습니다.
   loadMessages = options.loadMessages || (async () => ({}));
   app.use(i18n);
@@ -132,8 +155,8 @@ async function setupI18n(app: App, options: LocaleSetupOptions = {}) {
 
   // 콘솔에 경고 출력
   i18n.global.setMissingHandler((locale, key) => {
-    // ko, en 같은 중간 단계 로케일은 무시하고 실제 설정된 ko-KR, en-US에서만 경고 출력
-    if (options.missingWarn && key.includes('.') && (locale === 'ko-KR' || locale === 'en-US')) {
+    // ko, en 같은 중간 단계 로케일은 무시하고 실제 설정된 ko, en에서만 경고 출력
+    if (options.missingWarn && key.includes('.') && (locale === 'ko' || locale === 'en')) {
 //      console.warn( `[intlify] Not found '${key}' key in '${locale}' locale messages. (Current global locale: ${unref(i18n.global.locale)})`,);
     }
   });
@@ -180,6 +203,7 @@ async function loadLocaleMessages(lang: SupportedLanguagesType) {
 }
 
 export {
+  $tIfKey,
   i18n,
   loadLocaleMessages,
   loadLocalesMap,

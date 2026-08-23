@@ -17,8 +17,8 @@ const schema = [
     component: 'Select',
     componentProps: {
       options: [
-        { label: $t('ui.i18n.koKR'), value: 'ko-KR' },
-        { label: $t('ui.i18n.enUS'), value: 'en-US' },
+        { label: $t('ui.i18n.koKR'), value: 'ko' },
+        { label: $t('ui.i18n.enUS'), value: 'en' },
       ],
       onChange: (val: any) => {
         localeVal.value = val;
@@ -134,7 +134,7 @@ const [Drawer, drawerApi] = useVbenDrawer<SystemI18nApi.I18nResource>({
       :key="localeVal + '_' + keyVal"
       :input-text="keyVal"
       :suggest-api="(text) => suggestI18nTranslation(text, localeVal)"
-      :label="localeVal === 'ko-KR' ? 'AI 추천 한글' : 'AI 추천 영문'"
+      :label="localeVal === 'ko' ? 'AI 추천 한글' : 'AI 추천 영문'"
       @select="(val) => formApi.setFieldValue('value', val)"
     />
   </Drawer>

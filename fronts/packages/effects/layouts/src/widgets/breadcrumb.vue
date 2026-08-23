@@ -6,7 +6,7 @@ import type { IBreadcrumb } from '@vben-core/shadcn-ui';
 import { computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
-import { $t } from '@vben/locales';
+import { $tIfKey } from '@vben/locales';
 
 import { VbenBreadcrumbView } from '@vben-core/shadcn-ui';
 
@@ -42,7 +42,8 @@ const breadcrumbs = computed((): IBreadcrumb[] => {
     resultBreadcrumb.push({
       icon,
       path: path || route.path,
-      title: title ? $t((title || name) as string) : '',
+      // DB 에서 온 이름일 수 있어 키일 때만 번역한다($tIfKey 주석 참고)
+      title: title ? $tIfKey((title || name) as string) : '',
     });
   }
   if (props.showHome) {

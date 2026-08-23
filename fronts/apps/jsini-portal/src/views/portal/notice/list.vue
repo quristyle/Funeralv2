@@ -24,9 +24,11 @@ import {
   Space,
   Switch,
   Table,
-  Tag,
+  Tooltip,
   Upload,
 } from 'ant-design-vue';
+
+import { IconifyIcon } from '@vben/icons';
 
 import NoticePopup from '#/components/notice/notice-popup.vue';
 import { RichEditor } from '#/components/rich-editor';
@@ -36,6 +38,7 @@ import {
   getNoticeList,
   updateNotice,
 } from '#/api/portal/notice';
+import { can } from '#/utils/permission';
 
 /**
  * [공지 관리]
@@ -91,14 +94,23 @@ const form = reactive<{
 const files = ref<NoticeApi.NoticeFile[]>([]);
 const uploading = ref(false);
 
+/**
+ * 컬럼 제목은 모두 가운데로 맞춘다.
+ *
+ * antd 의 `align` 은 머리글과 본문을 같이 옮긴다. 본문은 성격대로 두고
+ * (제목은 왼쪽, 숫자는 가운데) **머리글만** 가운데로 보내려고
+ * `customHeaderCell` 로 그 칸에만 스타일을 준다.
+ */
+const centerHeader = () => ({ style: { textAlign: 'center' as const } });
+
 const columns = [
-  { dataIndex: 'title', key: 'title', title: '제목', ellipsis: true },
-  { key: 'flags', title: '노출', width: 170 },
-  { key: 'period', title: '게시 기간', width: 220 },
-  { dataIndex: 'orderNo', key: 'orderNo', title: '순서', width: 70 },
-  { key: 'files', title: '첨부', width: 70 },
-  { key: 'status', title: '상태', width: 90 },
-  { key: 'action', title: '작업', width: 190 },
+  { dataIndex: 'title', key: 'title', title: '제목', ellipsis: true, customHeaderCell: centerHeader },
+  { key: 'flags', title: '노출', width: 200, align: 'center' as const, customHeaderCell: centerHeader },
+  { key: 'period', title: '게시 기간', width: 200, align: 'center' as const, customHeaderCell: centerHeader },
+  { dataIndex: 'orderNo', key: 'orderNo', title: '순서', width: 70, align: 'center' as const, customHeaderCell: centerHeader },
+  { key: 'files', title: '첨부', width: 70, align: 'center' as const, customHeaderCell: centerHeader },
+  { key: 'status', title: '상태', width: 90, align: 'center' as const, customHeaderCell: centerHeader },
+  { key: 'action', title: '작업', width: 120, align: 'center' as const, customHeaderCell: centerHeader },
 ];
 
 /** 업로드는 게이트웨이의 파일 서비스로 바로 보낸다. */
@@ -269,6 +281,67 @@ async function onSave() {
 }
 
 /**
+ * [목록에서 바로 켜고 끄기]
+ *
+ * 상태·전체공개·팝업은 값이 둘뿐이라 수정 창을 열 일이 아니다.
+ * 목록에서 바로 누르면 그 자리에서 저장한다.
+ *
+ * 저장 API 는 **보낸 그대로가 최종 상태**가 되므로(빠진 항목은 지워진다)
+ * 한 칸만 바꾸더라도 그 행 전체를 다시 만들어 보내야 한다 — `toPayload` 가 그 일을 한다.
+ *
+ * 실패하면 화면 값을 되돌린다. 저장 중인 행은 다시 누르지 못하게 잠근다.
+ */
+function toPayload(row: NoticeApi.Notice): NoticeApi.SaveNotice {
+  return {
+    content: row.content ?? '',
+    endAt: row.endAt ?? null,
+    files: (row.files ?? []).map((f, i) => ({
+      contentType: f.contentType,
+      fileId: f.fileId,
+      fileName: f.fileName,
+      fileSize: f.fileSize,
+      sortNo: i,
+    })),
+    isPopup: row.isPopup,
+    isPublic: row.isPublic,
+    orderNo: row.orderNo,
+    startAt: row.startAt ?? null,
+    status: row.status,
+    title: row.title,
+  };
+}
+
+/** 저장 중인 행. 같은 행을 연달아 누르는 것을 막는다. */
+const savingRows = ref<Set<string>>(new Set());
+const isRowSaving = (row: NoticeApi.Notice) => savingRows.value.has(row.id);
+
+/** 수정 권한이 없으면 목록에서 값을 바꿀 수 없다. */
+const canUpdate = computed(() => can('update'));
+
+async function patchRow(
+  row: NoticeApi.Notice,
+  patch: Partial<NoticeApi.Notice>,
+  label: string,
+) {
+  if (!canUpdate.value || isRowSaving(row)) return;
+
+  const before = { ...row };
+  Object.assign(row, patch); // 눌린 즉시 보이게
+  savingRows.value = new Set(savingRows.value).add(row.id);
+  try {
+    await updateNotice(row.id, toPayload(row));
+    message.success(`${label} 설정을 바꿨습니다.`);
+  } catch {
+    Object.assign(row, before); // 실패하면 되돌린다
+    message.error(`${label} 설정을 바꾸지 못했습니다.`);
+  } finally {
+    const next = new Set(savingRows.value);
+    next.delete(row.id);
+    savingRows.value = next;
+  }
+}
+
+/**
  * 사용자에게 보이는 팝업을 그대로 띄운다.
  * 같은 공지를 연달아 눌러도 열리도록 먼저 비운 뒤 넣는다.
  */
@@ -323,12 +396,36 @@ onMounted(loadData);
         </template>
 
         <template #bodyCell="{ column, record }">
+          <!-- 노출: 두 값이 서로 무관해서 체크박스로 둔다. 누르면 바로 저장된다. -->
           <template v-if="column.key === 'flags'">
-            <Space :size="4" wrap>
-              <Tag v-if="record.isPublic" color="blue">전체 공개</Tag>
-              <Tag v-else>로그인 후</Tag>
-              <Tag v-if="record.isPopup" color="purple">팝업</Tag>
-            </Space>
+            <div class="flex items-center justify-center gap-3">
+              <Checkbox
+                :checked="record.isPublic"
+                :disabled="!canUpdate || isRowSaving(record as NoticeApi.Notice)"
+                @change="
+                  patchRow(
+                    record as NoticeApi.Notice,
+                    { isPublic: !record.isPublic },
+                    '전체 공개',
+                  )
+                "
+              >
+                <span class="whitespace-nowrap text-xs">전체 공개</span>
+              </Checkbox>
+              <Checkbox
+                :checked="record.isPopup"
+                :disabled="!canUpdate || isRowSaving(record as NoticeApi.Notice)"
+                @change="
+                  patchRow(
+                    record as NoticeApi.Notice,
+                    { isPopup: !record.isPopup },
+                    '팝업',
+                  )
+                "
+              >
+                <span class="whitespace-nowrap text-xs">팝업</span>
+              </Checkbox>
+            </div>
           </template>
 
           <template v-else-if="column.key === 'period'">
@@ -339,29 +436,54 @@ onMounted(loadData);
             <span class="text-xs">{{ record.files?.length || 0 }}</span>
           </template>
 
+          <!-- 상태: 켜고 끄는 두 값뿐이라 스위치로 둔다. -->
           <template v-else-if="column.key === 'status'">
-            <Tag :color="record.status === 1 ? 'success' : 'default'">
-              {{ record.status === 1 ? '활성' : '비활성' }}
-            </Tag>
+            <Switch
+              :checked="record.status === 1"
+              :disabled="!canUpdate"
+              :loading="isRowSaving(record as NoticeApi.Notice)"
+              checked-children="활성"
+              size="small"
+              un-checked-children="중지"
+              @change="
+                patchRow(
+                  record as NoticeApi.Notice,
+                  { status: record.status === 1 ? 0 : 1 },
+                  '상태',
+                )
+              "
+            />
           </template>
 
+          <!--
+            작업: 글자 대신 아이콘으로 둔다.
+            무슨 버튼인지는 마우스를 올리면 뜨는 설명으로 알린다.
+          -->
           <template v-else-if="column.key === 'action'">
-            <Space :size="4">
-              <Button
-                size="small"
-                type="link"
-                @click="openPreview(record as NoticeApi.Notice)"
-              >
-                미리보기
-              </Button>
-              <Button
-                v-perm:update
-                size="small"
-                type="link"
-                @click="openEdit(record as NoticeApi.Notice)"
-              >
-                수정
-              </Button>
+            <div class="flex items-center justify-center gap-1">
+              <Tooltip title="미리보기">
+                <Button
+                  size="small"
+                  type="link"
+                  @click="openPreview(record as NoticeApi.Notice)"
+                >
+                  <template #icon>
+                    <IconifyIcon class="size-4" icon="lucide:eye" />
+                  </template>
+                </Button>
+              </Tooltip>
+              <Tooltip title="수정">
+                <Button
+                  v-perm:update
+                  size="small"
+                  type="link"
+                  @click="openEdit(record as NoticeApi.Notice)"
+                >
+                  <template #icon>
+                    <IconifyIcon class="size-4" icon="lucide:edit" />
+                  </template>
+                </Button>
+              </Tooltip>
               <Popconfirm
                 v-perm:delete
                 cancel-text="취소"
@@ -369,9 +491,15 @@ onMounted(loadData);
                 title="공지를 삭제할까요?"
                 @confirm="onDelete(record as NoticeApi.Notice)"
               >
-                <Button danger size="small" type="link">삭제</Button>
+                <Tooltip title="삭제">
+                  <Button danger size="small" type="link">
+                    <template #icon>
+                      <IconifyIcon class="size-4" icon="lucide:trash-2" />
+                    </template>
+                  </Button>
+                </Tooltip>
               </Popconfirm>
-            </Space>
+            </div>
           </template>
         </template>
       </Table>

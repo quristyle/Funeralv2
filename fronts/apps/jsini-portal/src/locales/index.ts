@@ -9,6 +9,7 @@ import { nextTick, ref } from 'vue';
 import {
   $t,
   $te,
+  $tIfKey,
   setupI18n as coreSetup,
   i18n,
   loadLocalesMapFromDir,
@@ -159,12 +160,10 @@ async function loadThirdPartyMessage(lang: SupportedLanguagesType) {
 async function loadDayjsLocale(lang: SupportedLanguagesType) {
   let locale;
   switch (lang) {
-    case 'en-US':
     case 'en': {
       locale = await import('dayjs/locale/en');
       break;
     }
-    case 'ko-KR':
     case 'ko': {
       console.log(`[Dayjs I18n] Loading dayjs locale for: ${lang}`);
       locale = await import('dayjs/locale/ko');
@@ -189,19 +188,17 @@ async function loadDayjsLocale(lang: SupportedLanguagesType) {
 async function loadVxeTableLocale(lang: SupportedLanguagesType) {
   let locale;
   switch (lang) {
-    case 'en-US':
     case 'en': {
-      locale = await import('vxe-table/es/locale/lang/en-US');
+      locale = await import('vxe-table/es/locale/lang/en-US'); // vxe 쪽 규격은 긴 코드다
       break;
     }
-    case 'ko-KR':
     case 'ko': {
       console.log(`[Vxe I18n] Loading vxe-table locale for: ${lang}`);
-      locale = await import('vxe-table/es/locale/lang/ko-KR');
+      locale = await import('vxe-table/es/locale/lang/ko-KR'); // vxe 쪽 규격은 긴 코드다
       break;
     }
     default: {
-      locale = await import('vxe-table/es/locale/lang/en-US');
+      locale = await import('vxe-table/es/locale/lang/en-US'); // vxe 쪽 규격은 긴 코드다
     }
   }
   if (locale && locale.default) {
@@ -215,12 +212,10 @@ async function loadVxeTableLocale(lang: SupportedLanguagesType) {
  */
 async function loadAntdLocale(lang: SupportedLanguagesType) {
   switch (lang) {
-    case 'en-US':
     case 'en': {
       antdLocale.value = antdEnLocale;
       break;
     }
-    case 'ko-KR':
     case 'ko': {
       antdLocale.value = antdKoLocale;
       break;
@@ -228,11 +223,26 @@ async function loadAntdLocale(lang: SupportedLanguagesType) {
   }
 }
 
+/**
+ * 예전 언어 코드를 짧은 코드로 다듬는다.
+ *
+ * 이 포털은 `ko` · `en` 만 쓴다. 지역 코드(`ko-KR`)를 붙이면 vue-i18n 이
+ * 지역을 뗀 코드도 한 번 더 찾아서 못 찾는 키마다 경고가 두 줄씩 났다.
+ *
+ * 다만 **이미 쓰던 브라우저의 로컬스토리지에는 `ko-KR` 이 남아 있다.**
+ * 그대로 두면 그 사람만 언어를 못 찾으므로 읽는 자리에서 한 번 바꿔 준다.
+ * 한동안 지나면 지워도 되는 코드다.
+ */
+function shortenLocale(locale: string) {
+  const map: Record<string, string> = { 'en-US': 'en', 'ko-KR': 'ko' };
+  return map[locale] ?? locale;
+}
+
 async function setupI18n(app: App, options: LocaleSetupOptions = {}) {
-  // 환경 설정의 'ko', 'en' 값을 프로젝트 규격인 'ko-KR', 'en-US'로 변환
-  // 상위에서 전달된 options.defaultLocale이 있다면 우선적으로 적용하고, as string으로 타입 에러 우회
+  // 언어 코드는 ko · en 하나로 관리한다(지역 코드를 붙이지 않는다).
+  // 예전에 저장해 둔 'ko-KR' / 'en-US' 를 들고 오는 브라우저가 있어 여기서 한 번 다듬는다.
   const appLocale = (options.defaultLocale || preferences.app.locale) as string;
-  const mappedLocale = appLocale === 'ko' ? 'ko-KR' : (appLocale === 'en' ? 'en-US' : appLocale); // 삼항 연산자 괄호 추가 (Lint 해결)
+  const mappedLocale = shortenLocale(appLocale);
 
   await coreSetup(app, {
     loadMessages,
@@ -255,7 +265,7 @@ async function setupI18n(app: App, options: LocaleSetupOptions = {}) {
     // 3. 백엔드에 보고
     if (key.includes('.')) {
       // [Fallback 추출] 영어(en-US) 메시지에서 해당 키의 값을 찾아봅니다.
-      const enMessages = i18n.global.getLocaleMessage('en-US') as any;
+      const enMessages = i18n.global.getLocaleMessage('en') as any;
       const keys = key.split('.');
       let defaultValue = '';
       
@@ -288,7 +298,7 @@ async function setupI18n(app: App, options: LocaleSetupOptions = {}) {
 }
 /**
  * 로컬 메모리에 보관된 특정 다국어 키의 번역 값을 즉시 갱신하고 화면을 리렌더링합니다.
- * @param locale 언어셋 (ko-KR, en-US 등)
+ * @param locale 언어셋 (ko, en)
  * @param key 다국어 번역 키
  * @param value 변경된 번역 값
  */
@@ -328,4 +338,4 @@ export function updateLocalI18n(locale: string, key: string, value: string) {
   }
 }
 
-export { $t, $te, antdLocale, setupI18n };
+export { $t, $te, $tIfKey, antdLocale, setupI18n };

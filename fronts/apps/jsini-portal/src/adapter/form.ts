@@ -4,22 +4,10 @@ import type {
   FormValues,
 } from '@vben/common-ui';
 
-import type { ComponentType } from './component';
+import type { ComponentPropsMap, ComponentType } from './component';
 
 import { setupVbenForm, useVbenForm as useForm, z } from '@vben/common-ui';
 import { $t } from '@vben/locales';
-
-/**
- * 컴포넌트별 `componentProps` 타입 표.
- *
- * 상위(vben-admin)는 여기에 컴포넌트마다 실제 props 타입을 적어 두고
- * 스키마에서 `componentProps` 를 자동 완성·검증한다.
- *
- * 이 포털은 그렇게 하지 않는다. 화면이 100곳이 넘고 antd 를 감싸 쓰는 자리가 많아
- * 정확한 표를 만들려면 그 화면들을 모두 손봐야 한다. 지금은 느슨하게 두고,
- * 필요해질 때 컴포넌트 단위로 하나씩 좁혀 나간다.
- */
-export type ComponentPropsMap = Record<ComponentType, Record<string, any>>;
 
 async function initSetupVbenForm() {
   setupVbenForm<ComponentType>({

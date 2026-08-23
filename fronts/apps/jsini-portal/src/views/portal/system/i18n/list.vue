@@ -29,8 +29,8 @@ const [Grid, gridApi] = useVbenVxeGrid({
       {
         componentProps: {
           options: [
-            { label: $t('ui.i18n.koKR'), value: 'ko-KR' },
-            { label: $t('ui.i18n.enUS'), value: 'en-US' },
+            { label: $t('ui.i18n.koKR'), value: 'ko' },
+            { label: $t('ui.i18n.enUS'), value: 'en' },
           ],
           allowClear: true,
         },

@@ -465,6 +465,56 @@ vxe-table 4.18 → 4.20 으로 올리면서 **projmng 화면 20여 곳의 콘솔
 **의견: 지금은 두고, 실제로 안 되는 기능이 보이면 그때 잡는 편이 낫습니다.**
 콘솔만 시끄럽고 동작에는 지장이 없습니다.
 
+### 6.12 6.6 → B 진행 결과 (자주 쓰는 컴포넌트부터 타입 좁히기)
+
+`ComponentPropsMap` 을 `adapter/form.ts` 에서 **`adapter/component/index.ts` 로 옮기고**
+(상위와 같은 자리다) 많이 쓰는 12개를 실제 antd props 타입으로 좁혔다.
+
+```
+Checkbox · CheckboxGroup · DatePicker · Input · InputNumber · InputPassword
+RadioGroup · RangePicker · Select · Switch · Textarea · TreeSelect
+```
+
+우리 스키마에서 쓰는 횟수 기준 상위권이다(Input 95, Select 25, InputNumber 15, Switch 13 …).
+나머지는 그대로 느슨하다.
+
+```ts
+export type ComponentPropsMap = NarrowedComponentProps &
+  Record<Exclude<ComponentType, keyof NarrowedComponentProps>, Record<string, any>>;
+```
+
+> 처음엔 `Record<ComponentType, ...> & { Input: InputProps }` 로 썼는데,
+> 교집합의 `any` 인덱스가 이겨서 **좁혀지지 않았다.** 위처럼 "좁힌 것"과
+> "나머지"를 나눠야 실제로 좁혀진다. 타입 수준 단언으로 확인했다.
+
+**기존 화면은 하나도 안 깨졌다** — 타입 오류 26개 파일 그대로.
+
+**얻는 것과 못 얻는 것을 정확히 적어 둔다.** 상위 form-ui 는 `componentProps` 를
+`P & Record<string, any>` 로 두기 때문에, 좁혀도 **잘못된 값에서 오류가 나지는 않는다.**
+얻는 것은 **편집기 자동 완성**이다 — `component: 'Input'` 인 스키마에서 `componentProps: {` 를
+치면 antd Input 의 props 가 뜬다. 오타를 줄이는 데는 그것으로 충분하다.
+
+새 컴포넌트를 좁히려면 `NarrowedComponentProps` 에 한 줄 추가하면 된다.
+
+### 6.13 6.7 진행 결과 (레이아웃 스크롤 개편 마무리)
+
+세 가지를 정리했다.
+
+1. **측정 기준을 `#__vben_layout_scroll` 로 바꿨다.** [`docs/준수사항.md`](../준수사항.md) 4번의
+   확인 방법을 고쳤고, 왜 바뀌었는지도 적어 뒀다.
+2. **`page-fill-last` 는 계속 필요하다.** 개편으로 걷어낼 수 있나 싶어 직접 재 봤다 —
+   내용 영역이 `overflow-y-auto` 가 되면서, 클래스를 빼면 **내용 영역이 통째로 스크롤되어
+   조회 조건 줄이 위로 밀려 나간다.**
+
+   | 화면 | 켰을 때 | 껐을 때 |
+   |---|---|---|
+   | 부서 관리 | 넘침 0 | 79px |
+   | 프로젝트 참여자 | 넘침 0 | 87px |
+
+   33개 화면에 그대로 둔다.
+3. **전 화면 재측정.** 198개 중 194개 측정, 169개가 넘침 40px 이하.
+   40px 초과 25개는 전부 16-준수사항-점검.md 의 R1~R4 로 이미 기록된 화면이다.
+
 ### 6.11 한국어 문구가 되돌아간 곳 — 전수 확인해서 복구
 
 병합에서 상위 코드를 받으면 **우리가 번역해 둔 한국어 문구도 함께 되돌아간다.**

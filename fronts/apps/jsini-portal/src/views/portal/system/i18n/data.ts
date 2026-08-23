@@ -15,7 +15,7 @@ export function useColumns(onActionClick: (params: OnActionClickParams) => void)
     { title: $t('ui.i18n.locale'), field: 'locale', width: 100, params: { filterList: true },
       slots: {
         default: (record: any) => {
-          const color = record.row.locale === 'ko-KR' ? 'blue' : 'orange';
+          const color = record.row.locale === 'ko' ? 'blue' : 'orange';
           return h(Tag, { color }, { default: () => record.row.locale });
         },
       },

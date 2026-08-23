@@ -6,10 +6,21 @@
 /* eslint-disable vue/one-component-per-file */
 
 import type {
+  CheckboxGroupProps,
+  CheckboxProps,
+  DatePickerProps,
+  InputNumberProps,
+  InputProps,
+  RadioGroupProps,
+  SelectProps,
+  SwitchProps,
+  TextAreaProps,
+  TreeSelectProps,
   UploadChangeParam,
   UploadFile,
   UploadProps,
 } from 'ant-design-vue';
+import type { RangePickerProps } from 'ant-design-vue/es/date-picker';
 
 import type { Component, Ref } from 'vue';
 
@@ -591,6 +602,42 @@ export type ComponentType =
   | 'TreeSelect'
   | 'Upload'
   | BaseFormComponentType;
+
+/**
+ * 컴포넌트별 `componentProps` 타입 표.
+ *
+ * 폼 스키마에서 `componentProps` 를 쓸 때 자동 완성과 오타 검사가 된다.
+ *
+ * **아직 전부 적지 않았다 — 자주 쓰는 것부터 좁혀 가는 중이다.**
+ * 여기에 적지 않은 컴포넌트는 아래 기본값(`Record<string, any>`)으로 떨어져
+ * 예전처럼 아무 값이나 받는다. 화면을 손볼 일이 생기면 그때 한 줄씩 옮긴다.
+ * (상위 vben 은 전부 적어 두지만, 우리 화면 100여 곳을 한 번에 검증할 수는 없었다.
+ *  경위는 docs/analysis/17-vben-upstream-sync.md 6.6)
+ *
+ * 참고: 표에 없는 **키**는 여전히 자유롭게 넘길 수 있다(`class`, `placeholder` 등).
+ * 좁힌 것은 "아는 키에 엉뚱한 타입을 넣는 것"만 막는다.
+ */
+/** 지금까지 타입을 좁혀 둔 컴포넌트들. */
+interface NarrowedComponentProps {
+  Checkbox: CheckboxProps;
+  CheckboxGroup: CheckboxGroupProps;
+  DatePicker: DatePickerProps;
+  Input: InputProps;
+  InputNumber: InputNumberProps;
+  InputPassword: InputProps;
+  RadioGroup: RadioGroupProps;
+  RangePicker: RangePickerProps;
+  Select: SelectProps;
+  Switch: SwitchProps;
+  Textarea: TextAreaProps;
+  TreeSelect: TreeSelectProps;
+}
+
+export type ComponentPropsMap = NarrowedComponentProps &
+  Record<
+    Exclude<ComponentType, keyof NarrowedComponentProps>,
+    Record<string, any>
+  >;
 
 async function initComponentAdapter() {
   const components: Partial<Record<ComponentType, Component>> = {

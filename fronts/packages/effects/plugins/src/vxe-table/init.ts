@@ -136,14 +136,19 @@ export function setupVbenVxeTable(setupOptions: SetupVxeTable) {
   const { isDark, locale } = usePreferences();
 
   // vxe-table 이 제공하는 언어 묶음에는 한국어가 없다.
-  // 그대로 두면 ko-KR 일 때 언어 묶음이 안 깔려서
+  // 그대로 두면 한국어일 때 언어 묶음이 안 깔려서
   //   "语言包未安装" 경고가 뜨고, 이후 vxe 의 모든 안내가
   //   `vxe.error.reqComp` 처럼 **키 그대로** 찍혀 읽을 수 없다.
   // 그래서 없는 언어는 영어 묶음으로 떨어뜨린다.
+  // 우리는 언어를 ko · en 으로 관리하고, vxe 는 자기 규격(ko-KR · en-US)을 쓴다.
   const localMap: Record<string, Record<string, any>> = {
     'en-US': normalizeVxeLocale(enUS),
   };
-  const vxeLocaleOf = (value: string) => (value in localMap ? value : 'en-US');
+  const VXE_LANG: Record<string, string> = { en: 'en-US', ko: 'ko-KR' };
+  const vxeLocaleOf = (value: string) => {
+    const vxeLang = VXE_LANG[value] ?? value;
+    return vxeLang in localMap ? vxeLang : 'en-US';
+  };
 
   watch(
     [() => isDark.value, () => locale.value],

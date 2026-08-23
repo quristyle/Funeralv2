@@ -9,7 +9,7 @@ import { computed, inject, onMounted, useSlots, watch, ref } from 'vue';
 import { useRoute } from 'vue-router';
 
 import { useRefresh } from '@vben/hooks';
-import { $t, i18n } from '@vben/locales';
+import { $t, $tIfKey, i18n } from '@vben/locales';
 import {
   preferences,
   updatePreferences,
@@ -178,10 +178,10 @@ const {
 function wrapperMenus(menus: MenuRecordRaw[], deep: boolean = true) {
   return deep
     ? mapTree(menus, (item) => {
-        return { ...cloneDeep(item), name: $t(item.name) };
+        return { ...cloneDeep(item), name: $tIfKey(item.name) };
       })
     : menus.map((item) => {
-        return { ...cloneDeep(item), name: $t(item.name) };
+        return { ...cloneDeep(item), name: $tIfKey(item.name) };
       });
 }
 

@@ -5,7 +5,7 @@ import { nextTick, onMounted, ref, shallowRef, watch } from 'vue';
 import { useRouter } from 'vue-router';
 
 import { SearchX, X } from '@vben/icons';
-import { $t } from '@vben/locales';
+import { $t, $tIfKey } from '@vben/locales';
 import { mapTree, traverseTreeValues, uniqueByField } from '@vben/utils';
 
 import { VbenIcon, VbenScrollbar } from '@vben-core/shadcn-ui';
@@ -212,7 +212,8 @@ onMounted(() => {
   searchItems.value = mapTree(props.menus, (item) => {
     return {
       ...item,
-      name: $t(item?.name),
+      // 메뉴 이름이 DB 에서 온 글자일 수 있다 — 키일 때만 번역($tIfKey 주석 참고)
+      name: $tIfKey(item?.name),
     };
   });
   if (searchHistory.value.length > 0) {

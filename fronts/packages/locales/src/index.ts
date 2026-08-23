@@ -1,4 +1,5 @@
 import {
+  $tIfKey,
   i18n,
   loadLocaleMessages,
   loadLocalesMap,
@@ -12,6 +13,7 @@ const $te = i18n.global.te;
 export {
   $t,
   $te,
+  $tIfKey,
   i18n,
   loadLocaleMessages,
   loadLocalesMap,
