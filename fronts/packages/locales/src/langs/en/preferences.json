@@ -241,5 +241,6 @@
         "placeholder": "Please enter the default report title"
       }
     }
-  }
+  },
+  "fontFamily": "Font Family"
 }
