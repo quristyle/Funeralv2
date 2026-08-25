@@ -34,6 +34,25 @@
   /* Font */
   --font-sans: var(--font-family);
 
+  /*
+    고정폭 글꼴 (`font-mono`).
+
+    Tailwind 기본값은 라틴 전용 목록이라 **한글 글리프가 하나도 없다.**
+    그래서 `font-mono` 를 준 칸에 한글이 섞여 있으면 그 한글만 브라우저가 아무 글꼴로
+    대신 그렸고, 환경설정에서 고른 글꼴(S-CoreDream 등)이 무시됐다.
+    화면 안에서 글꼴이 갈려 보이던 원인이다.
+
+    CSS 글꼴 대체는 **글리프 단위**로 동작하므로 순서만 맞추면 둘 다 얻는다.
+      1) 라틴·숫자·기호  → 앞의 고정폭 글꼴 (명령어·16진수의 자리 맞춤이 유지된다)
+      2) 한글            → 앞쪽에 없으므로 var(--font-family) 로 내려온다
+                            = 사용자가 고른 글꼴
+
+    var(--font-family) 는 styles/font.ts 가 환경설정 값을 보고 넣어 주는 값이다.
+  */
+  --font-mono:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
+    'Courier New', var(--font-family), monospace;
+
   /* Border Radius */
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);

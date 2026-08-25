@@ -362,6 +362,7 @@ catalog 만으로 목적은 달성됐고, 실제로 10.32.1 로 설치가 깨끗
 | 언어 타입 `ko-KR` (상위는 `zh-CN`) | `@core/preferences/src/types.ts` |
 | 기본 시간대 `Asia/Seoul` (상위는 `Asia/Shanghai`) | `@core/preferences/src/config.ts` |
 | 기본 글꼴 `S-CoreDream` · 글꼴 설정 블록 | `config.ts` · `preferences-drawer.vue` |
+| 글꼴 설정을 Tailwind 에 잇는 토큰 — `--font-sans` · `--font-mono` | `tailwind-config/src/theme.css` (→ 7절) |
 | 한국어 간단 문구(취소·확인·펼치기…) | `use-simple-locale/messages.ts` |
 | 환경설정 창 단축키 | `use-preferences.ts` |
 | 아바타 드롭다운의 회사·부서 배지와 이메일 | `user-dropdown/user-dropdown.vue` |
@@ -547,3 +548,112 @@ cd fronts && pnpm install --frozen-lockfile
 ```
 
 동기화 직전 상태를 tar 로도 떠 뒀다(세션 임시 폴더). 필요하면 말씀해 주시면 꺼내 드린다.
+
+---
+
+## 7. 글꼴 설정을 고정폭까지 잇기 — `--font-mono` (2026-08-25)
+
+> **상위와 동기화할 때 사라지지 않게 확인할 것.** 6.4 표에 항목을 넣어 두었다.
+> 파일: `fronts/internal/tailwind-config/src/theme.css`
+
+기본 글꼴 설정 기능 자체는 6.4 에 적힌 우리 커스터마이즈다
+(`config.ts` 의 기본값 `S-CoreDream` + `preferences-drawer.vue` 의 설정 블록).
+이 절은 **그 설정이 닿지 않던 곳** 하나를 이어 붙인 기록이다.
+
+### 왜 고쳤나
+
+> 지시: "`player-download/index.vue` line 301~308 에서 표현되는 글자는 시스템의 설정에서
+> 지정한 폰트를 따르지 않는가? 사용자가 사용할 폰트를 설정에서 지정할수 있도록 구현되어 있다.
+> 사용자 지정폰트가 적용되어 보여지도록 개선 해줘."
+
+`theme.css` 에는 우리가 넣은 `--font-sans: var(--font-family);` 가 이미 있었다.
+그래서 `font-sans`(기본)는 환경설정을 따랐다. **그런데 `--font-mono` 는 없었다.**
+
+Tailwind 기본 `font-mono` 목록은 라틴 전용이라 **한글 글리프가 하나도 없다.**
+`font-mono` 를 준 칸에 한글이 섞여 있으면 그 한글만 브라우저가 아무 글꼴로 대신 그렸고,
+환경설정에서 고른 글꼴(S-CoreDream 등)이 무시됐다. 지목된 '설치 방법' 칸이 그 경우다
+(`zip 압축을 풀고 funeralv2_player.exe 실행` 처럼 한글과 명령어가 섞여 있다).
+
+### 어떻게 고쳤나
+
+CSS 글꼴 대체는 **글리프 단위**로 동작한다. 순서만 맞추면 둘 다 얻는다.
+
+```css
+--font-mono:
+  ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
+  'Courier New', var(--font-family), monospace;
+```
+
+- 라틴·숫자·기호 → 앞의 고정폭 글꼴 (명령어·16진수의 자리 맞춤이 유지된다)
+- 한글 → 앞쪽에 없으므로 `var(--font-family)` 로 내려온다 = 사용자가 고른 글꼴
+
+값을 한 곳에서 정하는 편이 지켜지기 쉽다 — `--font-sans` 와 같은 방식이다.
+
+### 7-1. 지적을 받고 한 번 더 고쳤다 — 지목된 칸은 `font-mono` 를 뗐다
+
+처음에는 화면 쪽 `font-mono` 를 그대로 두고 위의 토큰만 고쳤다. "명령어는 고정폭이
+어울린다" 는 **내 판단**이었다. 그런데 지시받은 칸은 그러면 devtools 에서 여전히
+
+```
+ui-monospace, SFMono-Regular, Menlo, ..., S-CoreDream, Play, ...
+```
+
+로 보이고, 라틴 부분은 고정폭으로 그려진다. 기대한 것은 **설정한 기본 글꼴**이었다.
+
+> 지시: "devtool 로 확인하면 font-family 가 `ui-monospace, ...` 으로 보여진다.
+> 사용자가 설정한 기본 글꼴로 표현되기를 기대한다."
+
+그래서 `views/funeral/player-download/index.vue` 의 '설치 방법' 칸에서 `font-mono` 를 뗐다.
+이제 그 칸은 일반 텍스트와 **완전히 같은** 글꼴 스택을 쓴다(측정으로 확인, 아래).
+
+명령어라는 것은 글꼴이 아니라 **회색 상자와 '설치 방법' 머리글**로 알린다.
+한 줄짜리 명령어라 자리 맞춤이 필요하지 않다.
+
+### 7-2. 그러면 위의 `--font-mono` 토큰은 왜 남겨 두었나
+
+지목된 칸은 이제 `font-mono` 를 쓰지 않으므로 그 칸에는 영향이 없다.
+남겨 둔 이유는 **다른 40곳** 때문이다.
+
+`font-mono` 가 정말 필요한 곳이 있다 — 바이너리 파서의 헥사 덤프, ffmpeg 명령어 표,
+장비 색상 코드처럼 **자리 맞춤이 뜻을 갖는** 칸이다. 그런 칸에도 한글이 섞여 있고,
+토큰이 없으면 그 한글만 브라우저가 아무 글꼴로 그린다.
+토큰이 있으면 라틴은 고정폭, 한글은 설정 글꼴로 갈린다.
+
+**즉 두 변경은 목적이 다르다.**
+
+| 변경 | 무엇을 위한 것인가 |
+|---|---|
+| `--font-mono` 토큰 (7절) | 고정폭이 **필요한** 칸의 한글이 설정 글꼴을 따르게 |
+| '설치 방법' 칸의 `font-mono` 제거 (7-1) | 고정폭이 **필요 없던** 칸을 설정 글꼴로 |
+
+고정폭을 아예 쓰지 않기로 정한다면 토큰에서 `var(--font-family)` 를 맨 앞으로 옮기면
+41곳이 모두 설정 글꼴이 된다(헥사 덤프의 자리 맞춤은 잃는다). 지금은 그렇게 하지 않았다.
+
+### 확인 (측정)
+
+**① 최종 상태 — '설치 방법' 칸** (`font-mono` 제거 후)
+
+devtools 의 `font-family` 가 일반 텍스트와 **문자 단위로 동일**하다.
+고정폭 항목(`monospace` · `Menlo` · `Consolas` · `Courier`)은 하나도 없다.
+
+```
+S-CoreDream, Play, -apple-system, blinkmacsystemfont, "Segoe UI", roboto, ...
+```
+
+**② 고정폭이 남아 있는 칸의 토큰 동작** (7-2 의 40곳)
+
+`font-mono` 를 쓰는 칸에서 canvas 로 실제 렌더 폭을 재 비교했다.
+
+| 대상 | 그 칸의 실제 스택 | S-CoreDream 만 | ui-monospace 만 |
+|---|---|---|---|
+| 한글 `압축을풀고실행` | **73.92** | **73.92** | 84 |
+| 라틴 `sudo apt install ./funeralv2` | **169.34** | 138.72 | **168** |
+| 공백 한 칸 | **6.05** | 3.2 | **6** |
+
+한글은 사용자 글꼴, 라틴·공백은 고정폭으로 갈렸다 — 토큰이 의도대로 동작한다.
+
+설정을 따라가는지도 확인했다. `--font-family` 를 바꾸면 한글 폭이
+73.92 → 77 로 변하고, 되돌리면 73.92 로 복귀한다.
+
+> 준수사항 5(글꼴은 저장소 안의 파일만)는 그대로다 — 글꼴을 새로 들이지 않았고
+> 이미 `public/fonts/` 에 있는 것을 참조하는 순서만 바꿨다.

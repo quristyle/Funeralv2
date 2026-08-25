@@ -296,12 +296,24 @@ onMounted(fetchLatestRelease);
             </div>
 
             <!-- 설치 절차 -->
-            <div class="mt-4 rounded-lg bg-muted/50 p-3">
-              <div class="mb-1.5 text-[11px] font-medium text-muted-foreground">설치 방법</div>
+            <!--
+              고정폭(`font-mono`)을 쓰지 않는다.
+
+              명령어라서 고정폭이 어울린다고 두었는데, 그러면 환경설정에서 고른 글꼴이
+              이 칸에만 적용되지 않는다(Tailwind 의 고정폭 목록이 앞을 차지한다).
+              화면 안에서 글꼴이 갈려 보이는 쪽이 더 큰 문제라 사용자 글꼴을 따르게 한다.
+
+              명령어라는 것은 글꼴이 아니라 회색 상자와 '설치 방법' 머리글로 알린다.
+              여기 들어가는 것은 한 줄짜리 명령어라 자리 맞춤이 필요하지 않다.
+            -->
+            <div class="bg-muted/50 mt-4 rounded-lg p-3">
+              <div class="text-muted-foreground mb-1.5 text-[11px] font-medium">
+                설치 방법
+              </div>
               <div
                 v-for="(step, i) in card.steps"
                 :key="i"
-                class="break-all font-mono text-[11px] leading-relaxed"
+                class="text-[11px] leading-relaxed break-all"
               >
                 {{ step }}
               </div>

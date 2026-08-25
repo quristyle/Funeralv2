@@ -46,6 +46,11 @@ import {
   Content,
   Copyright,
   Custom,
+  // 이 줄이 빠져 있어서 테마 탭의 '기본 글꼴' 이 제목만 보이고 고르개가 없었다.
+  // 템플릿은 <FontFamily> 를 쓰는데 컴포넌트를 못 찾으면 Vue 는 조용히 아무것도 안 그린다
+  // (감싸는 <Block> 은 그려지므로 제목만 남는다).
+  // 상위 동기화 때 블록 파일과 blocks/index.ts 는 되살렸지만 이 목록을 놓쳤다.
+  FontFamily,
   FontSize,
   Footer,
   General,
@@ -416,7 +421,13 @@ function handleCustomPreferencesUpdate(updates: CustomPreferencesRecord) {
             <Block :title="$t('preferences.theme.radius')">
               <Radius v-model="themeRadius" />
             </Block>
-            <Block :title="$t('preferences.fontFamily')">
+            <!--
+              여기에는 Block 제목을 주지 않는다. FontFamily 는 SelectItem 부품이라
+              **행 안에 자기 라벨을 이미 갖고 있다**(일반 탭의 언어·시간대와 같은 모양).
+              제목을 주면 '기본 글꼴' 이 두 번 나온다.
+              이웃한 테두리 반경·글꼴 크기는 자체 라벨이 없어 Block 제목이 필요하다.
+            -->
+            <Block>
               <FontFamily v-model="appFontFamily" />
             </Block>
             <Block :title="$t('preferences.theme.fontSize')">
