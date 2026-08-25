@@ -37,7 +37,8 @@ export const useAuthStore = defineStore('auth', () => {
     let userInfo: null | UserInfo = null;
     try {
       loginLoading.value = true;
-      const { accessToken } = await loginApi(params);
+      const { accessToken, passwordExpired, passwordExpiryDays } =
+        await loginApi(params);
 
       // accessToken을 성공적으로 가져온 경우
       if (accessToken) {
@@ -61,6 +62,21 @@ export const useAuthStore = defineStore('auth', () => {
 
         userStore.setUserInfo(userInfo);
         accessStore.setAccessCodes(accessCodes);
+
+        // ── 비밀번호 사용 기간이 지난 경우 ──────────────────
+        //
+        // 게이트웨이가 비밀번호 변경 외의 요청을 막으므로, 원래 가려던 곳으로 보내면
+        // 화면만 열리고 아무 데이터도 못 받는 상태가 된다. 곧바로 변경 화면으로 보낸다.
+        // 안내는 닫히지 않게 두어(duration: 0) 왜 끌려왔는지 알 수 있게 한다.
+        if (passwordExpired) {
+          notification.warning({
+            duration: 0,
+            message: '비밀번호를 변경해야 합니다',
+            description: `비밀번호를 바꾼 지 ${passwordExpiryDays ?? 90}일이 지났습니다. 변경하기 전까지 다른 기능은 이용할 수 없습니다.`,
+          });
+          await router.push({ path: '/profile', query: { tab: 'password' } });
+          return { userInfo };
+        }
 
         if (accessStore.loginExpired) {
           accessStore.setLoginExpired(false);

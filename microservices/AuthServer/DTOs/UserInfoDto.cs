@@ -73,4 +73,35 @@ public class UserInfoDto
     public bool SystemMessage { get; set; }
     public bool TodoTask { get; set; }
     public bool AccountPasswordNotify { get; set; }
+
+    // ── 계정 이력 (/profile 의 '계정 정보' 탭) ──────────────
+    //
+    // 읽기 전용이다. 사용자가 고칠 수 있는 값이 아니라 시스템이 남기는 기록이다.
+
+    /// <summary>가입일. 계정을 만든 시각이다.</summary>
+    public DateTime? CreatedAt { get; set; }
+
+    /// <summary>최근 로그인 성공 시각. 지금 이 화면을 보는 로그인이 곧 최근 로그인이다.</summary>
+    public DateTime? LastLoginAt { get; set; }
+
+    /// <summary>
+    /// 최근 로그인 시 접속 IP.
+    /// 클라이언트가 보낸 헤더에서 온 값이라 위조할 수 있으므로 참고용이다.
+    /// </summary>
+    public string? LastLoginIp { get; set; }
+
+    /// <summary>비밀번호를 마지막으로 바꾼 시각.</summary>
+    public DateTime? PasswordChangedAt { get; set; }
+
+    /// <summary>비밀번호가 만료되는 시각. 정책이 꺼져 있거나 기준 시각을 모르면 null 이다.</summary>
+    public DateTime? PasswordExpiresAt { get; set; }
+
+    /// <summary>만료 기준 일수(기본 90). 정책이 꺼져 있으면 null 이다.</summary>
+    public int? PasswordExpiryDays { get; set; }
+
+    /// <summary>만료까지 남은 일수. 이미 지났으면 0, 정책이 꺼져 있으면 null 이다.</summary>
+    public int? PasswordDaysRemaining { get; set; }
+
+    /// <summary>비밀번호 사용 기간이 지났는지.</summary>
+    public bool PasswordExpired { get; set; }
 }

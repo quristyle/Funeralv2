@@ -8,8 +8,30 @@
 # 선행 조건: funeralv2_player 에서 `flutter build linux --release` 가 완료되어 있을 것.
 #
 # 산출물 (dist/):
-#   funeralv2-player_<버전>_<arch>.deb            ← 현장 배포 주력
-#   funeralv2_player-<버전>-linux-<arch>.tar.gz   ← deb 를 쓸 수 없는 환경용
+#   funeralv2-player_<버전>_<배포판>_<arch>.deb          ← 현장 배포 주력
+#   funeralv2_player-<버전>-<배포판>-<arch>.tar.gz       ← deb 를 쓸 수 없는 환경용
+#
+#
+# ── 왜 파일 이름에 배포판이 들어가나 ────────────────────────
+#
+# Flutter 리눅스 빌드는 **빌드한 곳의 glibc 를 그대로 요구한다.**
+# Debian 13 trixie(glibc 2.41)에서 빌드한 바이너리는 Ubuntu 24.04(glibc 2.39)에서
+# 실행되지 않는다 — 그 반대는 된다. 그래서 배포판마다 따로 빌드해야 하고,
+# 산출물이 섞이지 않게 이름으로 구분한다.
+#
+# 의존 패키지 이름도 배포판마다 다르다(jammy 는 libmpv1·libgtk-3-0,
+# noble/trixie 는 libmpv2·libgtk-3-0t64). 그래서 `/etc/os-release` 를 보고 고른다.
+# 빌드하는 컨테이너·러너가 곧 대상 환경이므로 이 판단이 맞다.
+#
+# 환경변수로 덮어쓸 수 있다.
+#   PLAYER_DISTRO_TAG    파일 이름에 넣을 배포판 태그 (debian13 · ubuntu24 …)
+#   PLAYER_DEB_DEPENDS   Depends 줄 전체
+#   PLAYER_DEB_ARCH      dpkg 아키텍처 (기본: dpkg --print-architecture)
+#   PLAYER_OS_RELEASE    배포판을 읽을 파일 (기본: /etc/os-release)
+#   DEB_MAINTAINER       패키지 관리자 주소
+#
+# 뒤의 둘은 판별 결과를 확인해 볼 수 있게 열어 둔 것이다.
+#   PLAYER_DEB_ARCH=arm64 PLAYER_OS_RELEASE=/tmp/os bash packaging/build_deb.sh 1.0.0
 #
 set -euo pipefail
 
@@ -20,11 +42,59 @@ APP_DIR="$ROOT/funeralv2_player"
 DIST="$ROOT/dist"
 
 PKG_NAME="funeralv2-player"
-ARCH="$(dpkg --print-architecture)"
+ARCH="${PLAYER_DEB_ARCH:-$(dpkg --print-architecture)}"
 BUNDLE="$APP_DIR/build/linux/$ARCH/release/bundle"
 
 # 패키지 관리자 주소. 필요하면 DEB_MAINTAINER 환경변수로 덮어쓴다.
 MAINTAINER="${DEB_MAINTAINER:-quristyle <quristyle@users.noreply.github.com>}"
+
+# ---------------------------------------------------------------------------
+# 대상 배포판 판별
+# ---------------------------------------------------------------------------
+#
+# 여기서 정하는 것은 둘이다.
+#   DISTRO_TAG   파일 이름에 넣을 짧은 이름
+#   DEPENDS      .deb 의 Depends 줄
+#
+# 모르는 배포판이면 noble/trixie 기준(t64 이후)을 쓴다. 요즘 배포판은 대부분
+# 그쪽이고, 틀리면 설치할 때 apt 가 없는 패키지를 알려 주므로 조용히 깨지지 않는다.
+detect_target() {
+  local id='' ver=''
+  local os_release="${PLAYER_OS_RELEASE:-/etc/os-release}"
+
+  if [ -r "$os_release" ]; then
+    # shellcheck disable=SC1091
+    . "$os_release"
+    id="${ID:-}"
+    ver="${VERSION_ID:-}"
+  fi
+
+  # t64(64비트 time_t) 전환 이후 이름. Debian 13+ · Ubuntu 24.04+ 가 여기에 든다.
+  local deps_t64='libmpv2, libgtk-3-0t64, libepoxy0, libsqlite3-0, cage, wlr-randr'
+  # 전환 이전 이름. Ubuntu 22.04 · Debian 12 가 여기에 든다.
+  local deps_pre='libmpv1, libgtk-3-0, libepoxy0, libsqlite3-0, cage, wlr-randr'
+
+  case "$id:$ver" in
+    debian:12*)  DISTRO_TAG='debian12'; DEPENDS="$deps_pre" ;;
+    debian:13*)  DISTRO_TAG='debian13'; DEPENDS="$deps_t64" ;;
+    debian:*)    DISTRO_TAG="debian${ver%%.*}"; DEPENDS="$deps_t64" ;;
+    ubuntu:22*)  DISTRO_TAG='ubuntu22'; DEPENDS="$deps_pre" ;;
+    ubuntu:24*)  DISTRO_TAG='ubuntu24'; DEPENDS="$deps_t64" ;;
+    ubuntu:*)    DISTRO_TAG="ubuntu${ver%%.*}"; DEPENDS="$deps_t64" ;;
+    *)           DISTRO_TAG='linux';    DEPENDS="$deps_t64" ;;
+  esac
+
+  # 명시로 준 값이 있으면 그것을 쓴다.
+  DISTRO_TAG="${PLAYER_DISTRO_TAG:-$DISTRO_TAG}"
+  DEPENDS="${PLAYER_DEB_DEPENDS:-$DEPENDS}"
+}
+
+detect_target
+echo "대상: $DISTRO_TAG / $ARCH"
+echo "의존: $DEPENDS"
+
+# tar.gz 의 README 에 넣을 apt 설치 줄 (Depends 를 그대로 쓴다)
+APT_LINE="sudo apt install -y $(echo "$DEPENDS" | sed 's/,//g')"
 
 if [ ! -x "$BUNDLE/funeralv2_player" ]; then
   echo "오류: 빌드 산출물이 없다 → $BUNDLE" >&2
@@ -138,11 +208,14 @@ Priority: optional
 Architecture: $ARCH
 Maintainer: $MAINTAINER
 Installed-Size: $INSTALLED_SIZE
-Depends: libmpv2, libgtk-3-0t64, libepoxy0, libsqlite3-0, cage, wlr-randr
-Description: 장례식장 사이니지 플레이어
+Depends: $DEPENDS
+Description: 장례식장 사이니지 플레이어 ($DISTRO_TAG)
  funeralv2 사이니지 플레이어. cage(Wayland 키오스크 컴포지터) 위에서
  전체화면으로 동작하며, systemd 로 부팅 시 자동 실행된다.
  한글 폰트는 앱에 번들되어 있어 별도 설치가 필요 없다.
+ .
+ 이 패키지는 $DISTRO_TAG 에서 빌드했다. Flutter 리눅스 빌드는 빌드한 곳의
+ glibc 를 요구하므로 더 낮은 버전의 배포판에서는 실행되지 않는다.
 CONTROL
 
 echo "/etc/default/$PKG_NAME" > "$DEB_ROOT/DEBIAN/conffiles"
@@ -212,14 +285,14 @@ POSTRM
 
 chmod 755 "$DEB_ROOT/DEBIAN/postinst" "$DEB_ROOT/DEBIAN/prerm" "$DEB_ROOT/DEBIAN/postrm"
 
-DEB_FILE="$DIST/${PKG_NAME}_${VERSION}_${ARCH}.deb"
+DEB_FILE="$DIST/${PKG_NAME}_${VERSION}_${DISTRO_TAG}_${ARCH}.deb"
 dpkg-deb --root-owner-group --build "$DEB_ROOT" "$DEB_FILE" >/dev/null
 echo "생성: $DEB_FILE"
 
 # ---------------------------------------------------------------------------
 # .tar.gz (deb 를 쓸 수 없는 환경용)
 # ---------------------------------------------------------------------------
-TAR_NAME="funeralv2_player-${VERSION}-linux-${ARCH}"
+TAR_NAME="funeralv2_player-${VERSION}-${DISTRO_TAG}-${ARCH}"
 TAR_ROOT="$STAGE/$TAR_NAME"
 mkdir -p "$TAR_ROOT/bundle" "$TAR_ROOT/systemd" "$TAR_ROOT/bin"
 
@@ -229,12 +302,16 @@ write_unit     "$TAR_ROOT/systemd/funeral-player.service"
 write_defaults "$TAR_ROOT/funeralv2-player.default"
 
 cat > "$TAR_ROOT/README.txt" <<README
-funeralv2_player $VERSION (linux/$ARCH)
+funeralv2_player $VERSION ($DISTRO_TAG/$ARCH)
+
+이 빌드는 $DISTRO_TAG 에서 만들었다. Flutter 리눅스 빌드는 빌드한 곳의 glibc 를
+요구하므로 **더 낮은 버전의 배포판에서는 실행되지 않는다.**
+(trixie 빌드 → Ubuntu 24.04 에서 실행 안 됨. 반대는 된다.)
 
 가능하면 .deb 를 쓸 것. 이 tar.gz 는 의존성 설치와 배치를 직접 해야 한다.
 
 1) 런타임 의존성 설치
-   sudo apt install -y libmpv2 libgtk-3-0t64 libepoxy0 libsqlite3-0 cage wlr-randr
+   $APT_LINE
 
 2) 배치
    sudo cp -a bundle /opt/funeralv2-player
@@ -252,6 +329,14 @@ funeralv2_player $VERSION (linux/$ARCH)
    sudo systemctl enable --now funeral-player.service
 
 해상도는 /etc/default/funeralv2-player 에서 조정한다.
+
+주의 — 데스크톱 배포판(Ubuntu Desktop 등)
+  이 서비스는 tty1 을 가져가 화면을 점유한다(Conflicts=getty@tty1.service).
+  GDM 같은 디스플레이 매니저가 이미 화면을 쓰고 있으면 서로 부딪힌다.
+  키오스크로 쓸 기기라면 서버/최소 설치를 쓰거나 디스플레이 매니저를 끈다.
+
+    sudo systemctl disable --now gdm3    # 또는 lightdm · sddm
+    sudo systemctl set-default multi-user.target
 README
 
 TAR_FILE="$DIST/${TAR_NAME}.tar.gz"

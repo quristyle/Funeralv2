@@ -46,6 +46,11 @@ docs/sql/              실행한 SQL (전부 반복 실행 안전)
   접속 문자열은 각 서비스의 `appsettings.Local.json` (git 제외).
 - **개발 중에는 `dotnet watch` 로 6개가 떠 있는 경우가 많다.** `.cs` 를 고치면 자동 재기동하지만
   `appsettings.json` 변경만으로는 재기동하지 않는다.
+  다만 **`dotnet run --no-build` 로 떠 있는 경우도 있다.** 그때는 `.cs` 를 고쳐도 아무 일이 없다.
+  고친 것이 반영됐는지 의심되면 실행 중인 바이너리 시각과 소스 시각을 비교한다.
+  ```bash
+  ls -l --time-style=+%H:%M:%S microservices/AuthServer/bin/Debug/net8.0/AuthServer.dll
+  ```
 - 개발 환경은 `Auth:SkipPasswordCheck=true` 라 아이디만으로 로그인된다.
 - 검증: `dotnet build jsini.sln` · `pnpm vite build` · `./scripts/smoke-test.sh`
 
@@ -57,6 +62,9 @@ docs/sql/              실행한 SQL (전부 반복 실행 안전)
 - 이식 시스템에서 '누구로서' 일할지 정하는 스위치 둘: [docs/analysis/19-msa-user-work-enablement.md](docs/analysis/19-msa-user-work-enablement.md) (Q9~Q13 · D14)
   둘 다 **기본 꺼짐**이라 지금은 켜기 전과 똑같이 동작한다. D13 을 먼저 처리해야 한다.
 - 준수사항 점검에서 남은 것: [docs/analysis/16-준수사항-점검.md](docs/analysis/16-준수사항-점검.md) (R1~R4)
+- 도움말 F.A.Q · Q&A: [docs/analysis/21-help-faq-qna.md](docs/analysis/21-help-faq-qna.md) (D-H1~D-H5)
+  `docs/sql/help_faq_qna.sql` 은 실행했다. 남은 것은 PARTNER_ADMINISTRATOR 역할을
+  관리자로 볼지(D-H1)와 Q&A 첨부파일(D-H3).
 - i18n 콘솔 경고와 언어 코드 정리: [docs/analysis/18-i18n-fallback-warning.md](docs/analysis/18-i18n-fallback-warning.md)
 - vben-admin 상위 동기화에서 남은 것: [docs/analysis/17-vben-upstream-sync.md](docs/analysis/17-vben-upstream-sync.md)
   (D-U1·D-U2 는 완료. 남은 것은 6.6 `componentProps` 타입 표 · 6.10 vxe 경고 · D-U4~U6)

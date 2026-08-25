@@ -8,11 +8,11 @@ import { Page } from '@vben/common-ui';
 
 import { Button, Space } from 'ant-design-vue';
 
+import { fetchBizOptions } from '#/api/biz-select';
 import {
   createProject,
   deleteProject,
   getProjects,
-  getTeamList,
   updateProject,
 } from '#/api/helpdesk';
 
@@ -52,8 +52,8 @@ async function fetchProjects() {
 }
 
 onMounted(async () => {
-  const list = (await getTeamList()) ?? [];
-  teams.value = list.map((t) => ({ label: t.name, value: t.id }));
+  // 팀 목록은 메타데이터(helpdesk_team)가 가리키는 API 에서 읽는다.
+  teams.value = (await fetchBizOptions('helpdesk_team')).options;
 });
 </script>
 

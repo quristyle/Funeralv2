@@ -9,6 +9,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!--
+      본문 HTML 세탁용. 도움말(F.A.Q · Q&A) 본문은 일반 사용자도 쓸 수 있어서
+      저장 전에 허용 목록으로 걸러 낸다. HelpDeskServer 가 쓰는 것과 같은 버전이다.
+    -->
+    <PackageReference Include="HtmlAgilityPack" Version="1.12.4" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.0" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="8.0.25" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.0" />

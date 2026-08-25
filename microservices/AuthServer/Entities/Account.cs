@@ -74,6 +74,29 @@ public class Account : BaseEntity<string>
     public string? AvatarGroupId { get; set; }
 
     /// <summary>
+    /// 최근 로그인 성공 시각 (UTC). 아직 한 번도 로그인하지 않았으면 null 이다.
+    /// </summary>
+    [Column("last_login_at")]
+    public DateTime? LastLoginAt { get; set; }
+
+    /// <summary>
+    /// 최근 로그인 시 접속 IP.
+    /// 게이트웨이 뒤에 있으므로 <c>X-Forwarded-For</c> 의 첫 값을 쓴다.
+    /// </summary>
+    [Column("last_login_ip")]
+    public string? LastLoginIp { get; set; }
+
+    /// <summary>
+    /// 비밀번호를 마지막으로 바꾼 시각 (UTC). 90일 만료 계산의 기준이다.
+    /// <para>
+    /// null 이면 기준을 알 수 없다는 뜻이라 만료로 보지 않는다.
+    /// 기존 계정은 docs/sql/account_login_audit.sql 이 실행 시각으로 채워 두었다.
+    /// </para>
+    /// </summary>
+    [Column("password_changed_at")]
+    public DateTime? PasswordChangedAt { get; set; }
+
+    /// <summary>
     /// 사용자 프로필 상세 정보 목록 탐색 속성 (1:N 관계)
     /// </summary>
     public ICollection<AccountProfileDetail>? ProfileDetails { get; set; }

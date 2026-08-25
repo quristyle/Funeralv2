@@ -284,3 +284,87 @@ i18n 상태    locale=ko · fallback={ko:['en']} · html lang="ko"
 지금은 못 찾는 키가 없어서 문제가 안 되지만, 앞으로 `ko` 에만 있고 `en` 에 없는 키가 생기면
 대체가 동작하지 않는다. 5.3 의 선택지가 그대로 남아 있다(A: 대체를 끈다 · B: `en` 을 함께 로드).
 **지금 당장 급하지 않아 손대지 않았다.**
+
+---
+
+## 7. 환경설정 화면에 다국어 키가 그대로 보이던 것 (2026-08-25)
+
+### 7.1 증상
+
+설정(톱니) → **레이아웃 → 위젯** 목록의 select 항목에 키가 그대로 나왔다.
+
+```
+전역 검색 사용   preferences.widget.header / preferences.widget.userDropdown / common.notShow
+설정             자동 · 헤더 · 고정 은 정상, 나머지 둘이
+                 preferences.position.userDropdown / common.notShow
+```
+
+### 7.2 원인
+
+**vben 상위 동기화(`a8e93fa`, 2026-08-23)가 넣은 새 키가 `ko` 팩에 없었다.**
+`en` 에는 다 있다. 6.4 에 적어 둔 위험이 그대로 실현된 것이다 — 대체 언어 팩을
+로드하지 않으므로 `ko` 에 없는 키는 `en` 으로 대체되지 못하고 키가 그대로 찍힌다.
+
+### 7.3 어떻게 찾았나
+
+눈에 보이는 것만 고치면 같은 문제가 다른 화면에 남는다. `en` ↔ `ko` 키를 양방향으로
+비교하고, **소스에서 실제로 참조하는 키만** 골라냈다.
+
+```
+en ↔ ko 키 차이            72건
+그중 코드가 참조하는 것     13건  ← 실제로 화면에 나오는 것
+참조하지 않는 것            59건  ← 화면에 안 나오므로 무해
+```
+
+키 이름이 다른 키의 접두어인 경우가 있어 단순 문자열 포함으로 세면 안 된다.
+`authentication.naver` 는 안 쓰이고 `authentication.naverLogin` 이 쓰인다
+(둘 다 있는 키다). 뒤에 영숫자가 이어지면 다른 키로 보도록 걸러야 한다.
+
+### 7.4 고친 것
+
+`ko` 에 10개, `en` 에 2개를 채웠다.
+
+| 파일 | 키 | 값 |
+|---|---|---|
+| ko/common.json | `notShow` | 표시 안 함 |
+| ko/preferences.json | `timezone` | 시간대 |
+| | `position.userDropdown` | 사용자 메뉴 |
+| | `shortcutKeys.escape` | 현재 창 닫기 |
+| | `widget.header` | 헤더 |
+| | `widget.userDropdown` | 사용자 메뉴 |
+| | `widget.hidden` | 숨김 |
+| | `widget.timezone` | 시간대 사용 |
+| | `widget.logoutButtonPosition` | 로그아웃 버튼 위치 |
+| en/common.json | `expandAll` | Expand All |
+| | `collapseAll` | Collapse All |
+
+`expandAll`·`collapseAll` 은 **반대 방향 구멍**이었다. `ko` 에만 있고 `en` 에 없어서
+메뉴 관리 화면(`portal/system/menu/list.vue`)을 영어로 보면 키가 찍혔다.
+
+기존 표기와 맞췄다 — `position.header` 가 이미 "헤더" 라서 `widget.header` 도 "헤더" 로,
+아바타 드롭다운은 "사용자 메뉴" 로 했다.
+
+### 7.5 손대지 않은 것
+
+`ui.tiptap.*` 36개는 **tiptap 편집기 컴포넌트가 이 저장소에 없다.** 상위에만 있고
+동기화 때 문자열만 들어왔다. 쓰는 곳이 생기면 그때 번역하면 된다.
+`preferences.antd.*` 10개도 참조하는 코드가 없다.
+
+### 7.6 확인
+
+실제 화면(:5555)에서 드로어를 열어 확인했다.
+
+```
+위젯 섹션 전체        남은 키 0개 (전부 한국어)
+전역 검색 사용 선택지  헤더 / 사용자 메뉴 / 표시 안 함        ← 3개 모두
+설정 선택지            자동 / 헤더 / 고정 / 사용자 메뉴 / 표시 안 함  ← 5개 모두
+키 비교 재실행        코드가 렌더링하는 미번역 키 0건
+빌드                  pnpm vite build 성공
+```
+
+### 7.7 앞으로도 생길 문제다 🟡
+
+상위 동기화를 할 때마다 새 키가 `en` 에만 들어오고 `ko` 는 비는 일이 반복된다.
+**6.4 의 선택지가 여전히 유효하다** — `en` 팩을 함께 로드해 대체가 동작하게 하면
+적어도 키가 그대로 찍히는 대신 영어로 보인다. 7.3 의 비교를 동기화 뒤에 한 번
+돌리는 것으로도 잡을 수 있다.

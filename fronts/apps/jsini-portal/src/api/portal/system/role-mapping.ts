@@ -11,38 +11,10 @@ export namespace SystemRoleMappingApi {
     assignedAt: string;
   }
 
-  export interface RoleMenuMapping {
-    id: string;
-    roleId: string;
-    menuId: string;
-    menuName: string;
-    menuCode: string;
-    permissions: string[];
-  }
 }
 
-/**
- * 롤별 사용자 목록 조회 (롤사람)
- */
-export async function getRoleUsers(roleId: string) {
-  return requestClient.get<SystemRoleMappingApi.RoleUserMapping[]>(
-    `/auth/system/role/${roleId}/users`,
-  );
-}
-
-/**
- * 롤에 사용자 추가
- */
-export async function assignRoleToUsers(roleId: string, userIds: string[]) {
-  return requestClient.post(`/auth/system/role/${roleId}/users`, { userIds });
-}
-
-/**
- * 롤에서 사용자 제거
- */
-export async function removeRoleFromUsers(roleId: string, userIds: string[]) {
-  return requestClient.delete(`/auth/system/role/${roleId}/users`, { data: { userIds } });
-}
+// 롤사람(/auth/role-user) · 롤메뉴(/auth/role-menu) 는 '역할 관리'(/system/role-map) 와
+// 중복이라 없앴다. 역할에 사용자를 배정하고 메뉴 권한을 주는 일은 role-permission.ts 를 쓴다.
 
 /**
  * 사용자별 롤 목록 조회 (사람롤)
@@ -58,22 +30,6 @@ export async function getUserRoles(userId: string) {
  */
 export async function assignUserRoles(userId: string, roleIds: string[]) {
   return requestClient.post(`/auth/system/user/${userId}/roles`, { roleIds });
-}
-
-/**
- * 롤별 메뉴 목록 조회 (롤메뉴)
- */
-export async function getRoleMenus(roleId: string) {
-  return requestClient.get<SystemRoleMappingApi.RoleMenuMapping[]>(
-    `/auth/system/role/${roleId}/menus`,
-  );
-}
-
-/**
- * 롤에 메뉴 권한 저장
- */
-export async function saveRoleMenus(roleId: string, mappings: Omit<SystemRoleMappingApi.RoleMenuMapping, 'id' | 'roleId'>[]) {
-  return requestClient.post(`/auth/system/role/${roleId}/menus`, { mappings });
 }
 
 /**

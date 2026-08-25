@@ -1,3 +1,4 @@
+import type { BizOption } from '#/api/biz-select';
 import type {
   Admin,
   Company,
@@ -9,12 +10,8 @@ import { computed, ref } from 'vue';
 
 import { defineStore } from 'pinia';
 
-import {
-  getAdminList,
-  getCompanyList,
-  getCustomerList,
-  getMyHelpdeskIdentity,
-} from '#/api/helpdesk';
+import { fetchBizOptions } from '#/api/biz-select';
+import { getMyHelpdeskIdentity } from '#/api/helpdesk';
 
 /**
  * 헬프데스크 공용 스토어.
@@ -33,6 +30,11 @@ export const useHelpdeskStore = defineStore('helpdesk', () => {
   const companies = ref<Company[]>([]);
   const customers = ref<Customer[]>([]);
   const orgLoaded = ref(false);
+
+  // 메타데이터가 지정한 라벨/값 필드로 이미 매핑된 셀렉트 옵션.
+  const adminOpts = ref<BizOption[]>([]);
+  const companyOpts = ref<BizOption[]>([]);
+  const customerOpts = ref<BizOption[]>([]);
 
   /**
    * 담당자 권한이 있는가.
@@ -96,39 +98,47 @@ export const useHelpdeskStore = defineStore('helpdesk', () => {
     return identity.value;
   }
 
-  /** 조회 조건 셀렉트에 쓰는 조직 목록을 한 번에 받아 캐싱한다. */
+  /**
+   * 조회 조건 셀렉트에 쓰는 조직 목록을 한 번에 받아 캐싱한다.
+   *
+   * 어느 API 를 부르는지는 여기 없다 — 포털·장례식장 셀렉트와 같은 통로를 쓴다.
+   * DB 메타데이터(`scom.biz_select_configs` 의 `helpdesk_admin` · `helpdesk_company`
+   * · `helpdesk_customer`)가 MSA·경로·라벨/값 필드를 정한다.
+   *
+   * 목록(`admins`/`companies`/`customers`)과 셀렉트 옵션을 둘 다 들고 있는 이유:
+   * 계정 대조 화면처럼 라벨·값 말고 다른 컬럼까지 필요한 곳이 있다.
+   */
   async function loadOrganizations(forceRefresh = false) {
     if (orgLoaded.value && !forceRefresh) return;
 
-    const [adminList, companyList, customerList] = await Promise.all([
-      getAdminList(),
-      getCompanyList(),
-      getCustomerList(),
+    const [adminRes, companyRes, customerRes] = await Promise.all([
+      fetchBizOptions('helpdesk_admin'),
+      fetchBizOptions('helpdesk_company'),
+      fetchBizOptions('helpdesk_customer'),
     ]);
 
-    admins.value = adminList ?? [];
-    companies.value = companyList ?? [];
-    customers.value = customerList ?? [];
+    admins.value = adminRes.items as Admin[];
+    companies.value = companyRes.items as Company[];
+    customers.value = customerRes.items as Customer[];
+
+    adminOpts.value = adminRes.options;
+    companyOpts.value = companyRes.options;
+    customerOpts.value = customerRes.options;
+
     orgLoaded.value = true;
   }
 
+  /** '전체' 는 값이 null 이다. 화면들이 `value !== null` 로 실제 항목을 가려낸다. */
+  const ALL_OPTION = { label: '전체', value: null };
+
   /** '전체' 항목이 앞에 붙은 담당자 셀렉트 옵션 */
-  const adminOptions = computed(() => [
-    { label: '전체', value: null },
-    ...admins.value.map((a) => ({ label: a.userName, value: a.id })),
-  ]);
+  const adminOptions = computed(() => [ALL_OPTION, ...adminOpts.value]);
 
   /** '전체' 항목이 앞에 붙은 회사 셀렉트 옵션 */
-  const companyOptions = computed(() => [
-    { label: '전체', value: null },
-    ...companies.value.map((c) => ({ label: c.name, value: c.id })),
-  ]);
+  const companyOptions = computed(() => [ALL_OPTION, ...companyOpts.value]);
 
   /** '전체' 항목이 앞에 붙은 고객 셀렉트 옵션 */
-  const customerOptions = computed(() => [
-    { label: '전체', value: null },
-    ...customers.value.map((c) => ({ label: c.userName, value: c.id })),
-  ]);
+  const customerOptions = computed(() => [ALL_OPTION, ...customerOpts.value]);
 
   function $reset() {
     identity.value = null;
@@ -136,6 +146,9 @@ export const useHelpdeskStore = defineStore('helpdesk', () => {
     admins.value = [];
     companies.value = [];
     customers.value = [];
+    adminOpts.value = [];
+    companyOpts.value = [];
+    customerOpts.value = [];
     orgLoaded.value = false;
   }
 

@@ -1,8 +1,6 @@
 <script lang="ts" setup>
 import type { EchartsUIType } from '@vben/plugins/echarts';
 
-import type { Project } from '#/api/helpdesk';
-
 import { onMounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 
@@ -17,12 +15,12 @@ import {
   Empty,
   Progress,
   Row,
-  Select,
   Spin,
   Statistic,
 } from 'ant-design-vue';
 
-import { getProjects, getProjectStats } from '#/api/helpdesk';
+import { getProjectStats } from '#/api/helpdesk';
+import BizSelect from '#/components/BizSelect.vue';
 
 import { formatDate } from '../shared/constants';
 
@@ -39,7 +37,6 @@ const props = defineProps<{ projectId?: number | string }>();
 const route = useRoute();
 
 const loading = ref(false);
-const projects = ref<Project[]>([]);
 const selectedProjectId = ref<number | undefined>();
 const stats = ref<any>(null);
 
@@ -96,29 +93,41 @@ async function loadStats(projectId?: number) {
 
 watch(selectedProjectId, (id) => loadStats(id));
 
-onMounted(async () => {
-  projects.value = (await getProjects()) ?? [];
-
+onMounted(() => {
   const fromProps = props.projectId ? Number(props.projectId) : undefined;
   const fromQuery = route.query.projectId
     ? Number(route.query.projectId)
     : undefined;
 
-  selectedProjectId.value = fromProps ?? fromQuery ?? projects.value[0]?.id;
+  selectedProjectId.value = fromProps ?? fromQuery;
 });
+
+/**
+ * prop 도 쿼리스트링도 없이 들어온 경우에만 첫 프로젝트를 연다.
+ * BizSelect 의 auto-select-first 는 목록이 오기 전에 정해진 값을 덮어쓰지 않지만,
+ * 여기서는 값이 정해지는 시점이 목록보다 뒤일 수 있어 직접 판단한다.
+ */
+function onProjectsLoaded(items: any[]) {
+  if (selectedProjectId.value === undefined) {
+    selectedProjectId.value = items[0]?.id;
+  }
+}
 </script>
 
 <template>
   <Page auto-content-height>
     <Card class="mb-3" size="small">
-      <Select
-        v-model:value="selectedProjectId"
-        :options="projects.map((p) => ({ label: p.name, value: p.id }))"
-        option-filter-prop="label"
-        placeholder="프로젝트 선택"
-        show-search
-        style="width: 260px"
-      />
+      <!-- BizSelect 는 너비 100% 라 바깥에서 폭을 정한다 -->
+      <div style="width: 260px">
+        <BizSelect
+          v-model:value="selectedProjectId"
+          option-filter-prop="label"
+          placeholder="프로젝트 선택"
+          show-search
+          type="helpdesk_project"
+          @loaded="onProjectsLoaded"
+        />
+      </div>
     </Card>
 
     <Spin :spinning="loading">

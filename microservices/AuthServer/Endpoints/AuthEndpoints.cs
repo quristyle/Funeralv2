@@ -1,4 +1,4 @@
-using System.IdentityModel.Tokens.Jwt;
+﻿using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using AuthServer.Data;
@@ -18,7 +18,9 @@ public static class AuthEndpoints
         var group = app.MapGroup("/"); // /auth 접두사 제거
 
         group.MapPost("/login", async (LoginRequestDto request, AppDbContext db, IConfiguration config,
-            IHostEnvironment env, ILogger<Account> logger) =>
+            IHostEnvironment env, ILogger<Account> logger,
+            IRoleAssignmentService roleAssignmentService, ILoginLogService loginLog,
+            HttpContext http) =>
         {
             logger.LogInformation("로그인 시도: {Username}", request.Username);
 
@@ -55,6 +57,15 @@ public static class AuthEndpoints
                 // 2. 계정 검증
                 //    저장값이 아직 평문인 계정도 그대로 로그인된다(PasswordHasher 참고).
                 logger.LogWarning("로그인 실패: {Username}", request.Username);
+
+                // 실패도 기록에 남긴다. 남기지 않으면 계정 화면에서
+                // "누가 내 아이디를 두드리고 있다" 를 볼 방법이 없다.
+                // 응답 메시지는 그대로 둔다 — 아이디가 있는지 없는지 알려 주지 않는다.
+                await loginLog.WriteAsync(
+                    account?.Id, request.Username, success: false,
+                    account is null ? LoginFailReason.NotFound : LoginFailReason.BadPassword,
+                    ResolveClientIp(http), http.Request.Headers.UserAgent.ToString());
+
                 return Results.Json(ApiResponse<object>.Fail("아이디 또는 비밀번호가 잘못되었습니다.", "401"), statusCode: 401);
             }
 
@@ -76,6 +87,42 @@ public static class AuthEndpoints
                 }
             }
 
+            // 2-2. 접속 기록을 남긴다.
+            //      /profile 화면의 '최근 로그인 시간 · 접속 아이피' 가 이 값을 읽는다.
+            //      기록에 실패해도 로그인은 막지 않는다 — 기록은 로그인의 부수 효과일 뿐이다.
+            var loginAt = DateTime.UtcNow;
+            var clientIp = ResolveClientIp(http);
+            try
+            {
+                account.LastLoginAt = loginAt;
+                account.LastLoginIp = clientIp;
+                await db.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "접속 기록 저장 실패: {Username}", request.Username);
+            }
+
+            // 마지막 값과 별도로 한 줄씩 쌓는다. 계정 정보 화면이 '지난번 접속' ·
+            // '접속 기록' 을 보여 주려면 이력이 있어야 한다(마지막 값만으로는 안 된다).
+            await loginLog.WriteAsync(
+                account.Id, request.Username, success: true,
+                failReason: null, clientIp, http.Request.Headers.UserAgent.ToString());
+
+            // 2-3. 비밀번호 사용 기간.
+            //      만료되어도 토큰은 정상 발급한다. 비밀번호를 바꾸려면 로그인이 되어야 하기 때문이다.
+            //      대신 토큰에 기준 시각을 실어, 게이트웨이가 비밀번호 변경 외의 요청을 막는다.
+            var expiryDays = PasswordPolicy.ExpiryDays(config);
+            var passwordExpired = PasswordPolicy.IsExpired(account.PasswordChangedAt, expiryDays, loginAt);
+            var daysRemaining = PasswordPolicy.DaysRemaining(account.PasswordChangedAt, expiryDays, loginAt);
+
+            if (passwordExpired)
+            {
+                logger.LogInformation(
+                    "비밀번호 사용 기간이 지났습니다({Days}일). 변경 전까지 다른 요청은 게이트웨이가 막습니다: {Username}",
+                    expiryDays, request.Username);
+            }
+
             // 3. 토큰 발급
             var jwtSettings = config.GetSection("JwtSettings");
             var secretKey = jwtSettings["SecretKey"] ?? "a-very-secret-key-that-is-long-enough-for-security";
@@ -94,11 +141,11 @@ public static class AuthEndpoints
             //
             // 예전에는 세 가지가 모두 없어서, 게이트웨이가 늘 X-User-Role: User 만 보냈고
             // 헬프데스크의 이메일 대조는 한 번도 동작하지 못했다.
-            var roleIds = await db.RoleAccounts
-                .Where(ra => ra.AccountId == account.Id)
-                .Join(db.Roles.Where(r => r.Status == 1), ra => ra.RoleId, r => r.Id, (ra, r) => r.Id)
-                .Distinct()
-                .ToListAsync();
+            // 역할은 세 단계로 걸 수 있다 — 회사 · 부서 · 사람. **셋을 모두 합친다.**
+            // 예전에는 사람에게 직접 걸린 것만 봤다. 그러면 회사·부서에 걸어 둔 역할이
+            // 토큰에 실리지 않아, 화면에서는 역할이 보이는데 실제 권한은 없는 상태가 된다.
+            var effective = await roleAssignmentService.ResolveEffectiveRolesAsync(account.Id);
+            var roleIds = effective.RoleIds;
 
             var email = await db.AccountProfileDetails
                 .Where(p => p.AccountId == account.Id && p.DetailType == "Email")
@@ -139,6 +186,17 @@ public static class AuthEndpoints
                 claims.Add(new Claim("MsaSource", msaSource));
             }
 
+            // 비밀번호를 마지막으로 바꾼 시각. 게이트웨이가 매 요청마다 여기서 만료를 다시 계산한다.
+            // 만료 여부(불린)가 아니라 시각을 싣는 이유: 토큰 수명이 7일이라
+            // 불린을 실으면 토큰을 받은 뒤 만료되는 구간을 놓친다.
+            if (account.PasswordChangedAt is not null)
+            {
+                claims.Add(new Claim(
+                    "PwdChangedAt",
+                    DateTime.SpecifyKind(account.PasswordChangedAt.Value, DateTimeKind.Utc)
+                        .ToString("o", System.Globalization.CultureInfo.InvariantCulture)));
+            }
+
             foreach (var roleId in roleIds)
             {
                 claims.Add(new Claim(ClaimTypes.Role, roleId));
@@ -156,9 +214,12 @@ public static class AuthEndpoints
             var token = tokenHandler.CreateToken(tokenDescriptor);
             
             // 결과 데이터를 DTO에 담기
-            var loginResult = new LoginResponseDto 
-            { 
-                AccessToken = tokenHandler.WriteToken(token) 
+            var loginResult = new LoginResponseDto
+            {
+                AccessToken = tokenHandler.WriteToken(token),
+                PasswordExpired = passwordExpired,
+                PasswordExpiryDays = PasswordPolicy.IsEnabled(expiryDays) ? expiryDays : null,
+                PasswordDaysRemaining = daysRemaining
             };
 
             // [중요] ApiResponse.Ok로 감싸서 반환
@@ -181,6 +242,37 @@ public static class AuthEndpoints
         .WithOpenApi()
         .RequireAuthorization();
 
-    
+
     }
+
+    /// <summary>
+    /// 요청을 보낸 실제 클라이언트 IP.
+    /// </summary>
+    /// <remarks>
+    /// AuthServer 는 게이트웨이 뒤에 있다. 그래서 <c>RemoteIpAddress</c> 를 그대로 쓰면
+    /// 모든 계정의 접속 IP 가 게이트웨이 주소로 똑같이 남는다.
+    /// YARP 가 붙여 주는 <c>X-Forwarded-For</c> 의 <b>첫 값</b>이 원래 클라이언트다
+    /// (뒤로 갈수록 중간 프록시다).
+    ///
+    /// <para>
+    /// 이 값은 <b>클라이언트가 보낸 헤더라 위조할 수 있다.</b> 게이트웨이가 덧붙이는 방식이라
+    /// 앞에 임의의 값을 심어 둘 수 있다. 그래서 이 값은 <b>참고용 기록으로만</b> 쓰고
+    /// 권한 판단에는 절대 쓰지 않는다.
+    /// </para>
+    /// </remarks>
+    private static string? ResolveClientIp(HttpContext http)
+    {
+        var forwarded = http.Request.Headers["X-Forwarded-For"].FirstOrDefault();
+        if (!string.IsNullOrWhiteSpace(forwarded))
+        {
+            var first = forwarded.Split(',')[0].Trim();
+            if (first.Length > 0) return Truncate(first);
+        }
+
+        return Truncate(http.Connection.RemoteIpAddress?.ToString());
+    }
+
+    /// <summary>기록용 칸이므로 비정상적으로 긴 값은 잘라 둔다.</summary>
+    private static string? Truncate(string? value) =>
+        value is null || value.Length <= 100 ? value : value[..100];
 }

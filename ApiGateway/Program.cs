@@ -211,6 +211,93 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 // ============================================================
+// 비밀번호 사용 기간 만료 차단
+// ============================================================
+//
+// 90일마다 비밀번호를 바꾸도록 **요구**한다. 화면에서 안내만 하면 요구가 아니라 부탁이다.
+// API 를 직접 부르면 그대로 통과하므로, 실제 차단은 모든 요청이 지나가는 이곳에서 한다.
+//
+// 판단 근거는 토큰의 `PwdChangedAt` 클레임(비밀번호를 마지막으로 바꾼 시각)이다.
+// **만료 여부를 불린으로 싣지 않고 시각을 싣는 이유**는 토큰 수명이 7일이기 때문이다.
+// 불린이면 토큰을 받은 뒤 만료되는 구간(발급 시점에는 아직 안 지났던 경우)을 놓친다.
+// 시각을 싣고 매 요청마다 다시 계산하면 그 구간이 없다.
+//
+// 막지 않는 경로가 있다. 비밀번호를 바꾸려면 로그인 상태로 그 화면까지 가야 하므로,
+// **비밀번호를 바꾸는 데 꼭 필요한 만큼만** 열어 둔다.
+//
+// 정책을 끄려면 Auth:PasswordExpiryDays 를 0 으로 둔다(코드 수정 없이 되돌릴 수 있어야 한다).
+// AuthServer 도 같은 설정을 읽는다 — 그쪽은 화면에 보여 줄 값을 만들고, 차단은 여기서만 한다.
+var passwordExpiryDays = builder.Configuration.GetValue<int?>("Auth:PasswordExpiryDays") ?? 90;
+
+// 만료 상태에서도 통과시키는 경로. 앞부분이 일치하면 통과한다(대소문자 무시).
+var passwordExpiryAllowList = new[]
+{
+    "/api/auth/login",                   // 익명 경로지만 명시해 둔다
+    "/api/auth/logout",                  // 잠긴 상태에서 나갈 길은 항상 열려 있어야 한다
+    "/api/auth/user/change-password",    // 이 차단을 푸는 유일한 방법
+    "/api/auth/user/info",               // /profile 화면이 만료 안내를 그리는 데 쓴다
+    "/api/auth/codes",                   // 로그인 직후 프론트가 항상 부른다
+    "/api/auth/menu",                    // 메뉴가 없으면 라우트가 생기지 않아 /profile 에도 못 간다
+    "/api/file/download",                // 프로필 사진(읽기 전용). 없으면 화면이 깨져 보인다
+    "/api/file/thumbnail",
+};
+
+if (passwordExpiryDays > 0)
+{
+    app.Use(async (context, next) =>
+    {
+        var user = context.User;
+        if (user.Identity?.IsAuthenticated != true)
+        {
+            await next();
+            return;
+        }
+
+        var path = context.Request.Path.Value ?? string.Empty;
+        if (passwordExpiryAllowList.Any(p => path.StartsWith(p, StringComparison.OrdinalIgnoreCase)))
+        {
+            await next();
+            return;
+        }
+
+        var changedAtRaw = user.FindFirst("PwdChangedAt")?.Value;
+        // 클레임이 없으면 기준을 모르는 것이다. 모른다는 이유로 잠그지 않는다
+        // (칸을 새로 만든 직후처럼 데이터가 아직 없는 상황에서 전원이 갇힌다).
+        if (string.IsNullOrWhiteSpace(changedAtRaw) ||
+            !DateTimeOffset.TryParse(
+                changedAtRaw,
+                System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.RoundtripKind,
+                out var changedAt))
+        {
+            await next();
+            return;
+        }
+
+        if (DateTimeOffset.UtcNow < changedAt.AddDays(passwordExpiryDays))
+        {
+            await next();
+            return;
+        }
+
+        // 프론트가 이 코드를 보고 비밀번호 변경 화면으로 보낸다.
+        context.Response.StatusCode = StatusCodes.Status403Forbidden;
+        context.Response.ContentType = "application/json";
+        await context.Response.WriteAsJsonAsync(new
+        {
+            success = false,
+            code = "E403_PWD_EXPIRED",
+            message = $"비밀번호를 바꾼 지 {passwordExpiryDays}일이 지났습니다. 비밀번호를 변경한 뒤 이용해 주세요.",
+            data = (object?)null,
+            timestamp = DateTime.UtcNow,
+            traceId = context.TraceIdentifier,
+            path = context.Request.Path.Value,
+            realmessage = "Gateway: password expired."
+        });
+    });
+}
+
+// ============================================================
 // [서버 상태 모니터링]
 // 게이트웨이가 알고 있는 모든 클러스터/목적지를 실제로 찔러 상태를 모아준다.
 //

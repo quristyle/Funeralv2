@@ -50,6 +50,36 @@ export const PROJMNG_URL = {
   sys: '/Sys',
 } as const;
 
+/**
+ * 프로시저 파라미터는 전부 문자열로 넘긴다. null/undefined 는 빈 문자열이 된다.
+ *
+ * 서버의 `MainParam` 은 `Dictionary<string, string>` 이라 숫자·불리언을 그대로 보내면
+ * 역직렬화에서 400 이 난다. 이건 요청 규약이므로 호출부가 아니라 여기서 지킨다.
+ */
+export function toParam(
+  dic?: null | Record<string, unknown>,
+): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (!dic) return out;
+  for (const [key, value] of Object.entries(dic)) {
+    if (value === null || value === undefined) {
+      out[key] = '';
+    } else if (value instanceof Date) {
+      out[key] = formatDateTime(value);
+    } else if (typeof value === 'boolean') {
+      out[key] = value ? 'true' : 'false';
+    } else {
+      out[key] = String(value);
+    }
+  }
+  return out;
+}
+
+function formatDateTime(d: Date) {
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+}
+
 function formatToken(token: null | string) {
   return token ? `Bearer ${token}` : null;
 }
@@ -176,6 +206,38 @@ export async function projmngPost<T = ProjMngRow>(
   } catch {
     return emptyResult<T>('요청이 실패했습니다.');
   }
+}
+
+/**
+ * BizSelect 메타데이터가 지시하는 임의 호출.
+ *
+ * 경로·메서드·본문이 전부 DB(`scom.biz_select_configs`)에서 오므로 프로시저 래퍼를
+ * 거치지 않는다. 봉투는 그대로 돌려준다 — 메타데이터의 `result_path` 가 그 안에서
+ * 목록을 찾는다.
+ */
+export async function projmngRequest<T = ProjMngRow>(
+  url: string,
+  method: string,
+  payload?: Record<string, any>,
+): Promise<ProjMngResult<T>> {
+  if (method.toUpperCase() === 'GET') {
+    try {
+      return await projmngClient.get<ProjMngResult<T>>(url, {
+        params: payload,
+      });
+    } catch {
+      return emptyResult<T>('요청이 실패했습니다.');
+    }
+  }
+
+  // MainParam 은 문자열 사전이다. 메타데이터를 타고 온 값은 숫자일 수 있어(프로젝트 코드 등)
+  // 여기서 규약에 맞춰 준다 — 프로시저 래퍼(dbCont)가 하던 일과 같다.
+  const body = { ...payload };
+  if (body.MainParam && typeof body.MainParam === 'object') {
+    body.MainParam = toParam(body.MainParam as Record<string, unknown>);
+  }
+
+  return projmngPost<T>(url, body as ProjMngRequest);
 }
 
 /**

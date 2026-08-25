@@ -42,10 +42,41 @@ public interface IUserService
     /// <summary>
     /// 로그인한 사용자의 비밀번호를 변경합니다.
     /// </summary>
-    Task<bool> ChangePasswordAsync(string userId, ChangePasswordDto dto);
+    /// <remarks>
+    /// 90일 만료 정책 때문에 사용자가 <b>어쩔 수 없이</b> 이 화면에 오는 경우가 생긴다.
+    /// 그때 "변경에 실패했습니다" 한 마디만 돌려주면 무엇을 고쳐야 하는지 알 수 없으므로,
+    /// 실패 이유를 구분해서 돌려준다.
+    /// </remarks>
+    Task<ChangePasswordResult> ChangePasswordAsync(string userId, ChangePasswordDto dto);
 
     /// <summary>
     /// 로그인한 사용자의 설정을 업데이트합니다.
     /// </summary>
     Task<bool> UpdateSettingAsync(string userId, UpdateSettingDto dto);
+}
+
+/// <summary>
+/// 비밀번호 변경 결과.
+/// </summary>
+public enum ChangePasswordResult
+{
+    /// <summary>변경했다.</summary>
+    Success,
+
+    /// <summary>계정을 찾지 못했다.</summary>
+    AccountNotFound,
+
+    /// <summary>이전 비밀번호가 맞지 않다.</summary>
+    OldPasswordMismatch,
+
+    /// <summary>
+    /// 새 비밀번호가 비어 있다.
+    /// </summary>
+    NewPasswordEmpty,
+
+    /// <summary>
+    /// 새 비밀번호가 지금 쓰는 것과 같다.
+    /// 90일마다 바꾸라고 하면서 같은 값을 허용하면 정책이 아무 일도 하지 않는다.
+    /// </summary>
+    SameAsCurrent
 }

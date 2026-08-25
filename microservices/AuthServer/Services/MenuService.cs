@@ -168,6 +168,43 @@ public class MenuService : IMenuService
     }
 
     /// <summary>
+    /// 사용자가 특정 메뉴 경로에서 실제로 가진 권한.
+    /// </summary>
+    /// <remarks>
+    /// 권한 정보가 아예 없는 계정(역할 미배정)은 막지 않는다 — 화면 쪽과 같은 규칙이다.
+    /// 자세한 이유는 <see cref="IMenuService.GetEffectivePermissionAsync"/> 주석에 있다.
+    /// </remarks>
+    public async Task<MenuPermissionDto> GetEffectivePermissionAsync(string userId, string path)
+    {
+        var all = await GetMenuPermissionsAsync(userId);
+
+        // 정보가 아예 없으면 전부 허용으로 본다.
+        if (all.Count == 0) return AllowAll(path);
+
+        var target = Normalize(path);
+        return all.FirstOrDefault(p => Normalize(p.Path) == target)
+               ?? new MenuPermissionDto { Path = path };
+    }
+
+    /// <summary>끝 슬래시와 대소문자 차이를 없앤다. 화면 쪽 정규화와 같다.</summary>
+    private static string Normalize(string? path)
+    {
+        var trimmed = (path ?? string.Empty).Trim().ToLowerInvariant();
+        return trimmed.Length > 1 && trimmed.EndsWith('/')
+            ? trimmed[..^1]
+            : trimmed;
+    }
+
+    private static MenuPermissionDto AllowAll(string path) => new()
+    {
+        Path = path,
+        CanView = true, CanSearch = true, CanCreate = true, CanUpdate = true,
+        CanDelete = true, CanPrint = true, CanExcel = true,
+        CanCust1 = true, CanCust2 = true, CanCust3 = true, CanCust4 = true,
+        CanCust5 = true, CanCust6 = true, CanCust7 = true, CanCust8 = true
+    };
+
+    /// <summary>
     /// 여러 메뉴의 부모와 순서를 한 번에 반영합니다.
     /// </summary>
     /// <remarks>

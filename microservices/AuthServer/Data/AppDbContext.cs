@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using AuthServer.Entities;
 using System.Security.Claims;
 using System.Text.RegularExpressions;
@@ -30,7 +30,12 @@ public class AppDbContext : DbContext
     public DbSet<RoleMenu> RoleMenus { get; set; }
     public DbSet<Notice> Notices { get; set; }
     public DbSet<NoticeFile> NoticeFiles { get; set; }
+    public DbSet<Faq> Faqs { get; set; }
+    public DbSet<QnaPost> QnaPosts { get; set; }
+    public DbSet<AccountLoginLog> AccountLoginLogs { get; set; }
     public DbSet<MenuFavorite> MenuFavorites { get; set; }
+    public DbSet<RoleCompany> RoleCompanies { get; set; }
+    public DbSet<RoleDepartment> RoleDepartments { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -43,6 +48,36 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<RoleMenu>()
             .HasIndex(rm => new { rm.RoleId, rm.MenuId })
             .IsUnique();
+
+        // 같은 회사·부서에 같은 역할을 두 번 걸지 못하게 한다.
+        modelBuilder.Entity<RoleCompany>()
+            .HasIndex(rc => new { rc.RoleId, rc.CompanyId })
+            .IsUnique();
+
+        modelBuilder.Entity<RoleDepartment>()
+            .HasIndex(rd => new { rd.RoleId, rd.DepartmentId })
+            .IsUnique();
+
+        // 역할·회사가 사라지면 매핑도 함께 지운다.
+        modelBuilder.Entity<RoleCompany>()
+            .HasOne(rc => rc.Role).WithMany()
+            .HasForeignKey(rc => rc.RoleId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<RoleCompany>()
+            .HasOne(rc => rc.Company).WithMany()
+            .HasForeignKey(rc => rc.CompanyId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<RoleDepartment>()
+            .HasOne(rd => rd.Role).WithMany()
+            .HasForeignKey(rd => rd.RoleId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // 부서는 (company_id, id) 복합 대체키를 갖고 있어 EF 가 기본키로 자동 연결하지 못한다.
+        // 부서 식별자만으로 잇고, 부서를 지울 때 매핑은 서비스에서 함께 정리한다.
+        modelBuilder.Entity<RoleDepartment>()
+            .HasIndex(rd => rd.DepartmentId);
 
         // 같은 사람이 같은 메뉴를 두 번 담지 못하게 한다. 등록 API 는 이미 있으면 그대로 두지만,
         // 두 창에서 동시에 눌러도 중복이 생기지 않도록 DB 쪽에서도 막는다.

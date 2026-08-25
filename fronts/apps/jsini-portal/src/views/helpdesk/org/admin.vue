@@ -7,11 +7,11 @@ import { Page } from '@vben/common-ui';
 
 import { Tag } from 'ant-design-vue';
 
+import { fetchBizOptions } from '#/api/biz-select';
 import {
   createAdmin,
   deleteAdmin,
   getAdminList,
-  getTeamList,
   updateAdmin,
 } from '#/api/helpdesk';
 
@@ -69,8 +69,8 @@ async function fetchAdmins() {
 }
 
 onMounted(async () => {
-  const list = (await getTeamList()) ?? [];
-  teams.value = list.map((t) => ({ label: t.name, value: t.id }));
+  // 팀 목록은 메타데이터(helpdesk_team)가 가리키는 API 에서 읽는다.
+  teams.value = (await fetchBizOptions('helpdesk_team')).options;
 });
 </script>
 

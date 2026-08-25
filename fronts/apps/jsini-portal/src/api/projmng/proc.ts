@@ -24,38 +24,20 @@ import type {
 
 import { message } from 'ant-design-vue';
 
+import { fetchBizOptions } from '#/api/biz-select';
+
 import {
   emptyResult,
   PROJMNG_URL,
   projmngPost,
   projmngPostPlain,
+  toParam,
 } from './request';
 import { CHANGE_FLAG } from './types';
 
-/** 프로시저 파라미터는 전부 문자열로 넘긴다. null/undefined 는 빈 문자열이 된다. */
-export function toParam(
-  dic?: Record<string, unknown> | null,
-): Record<string, string> {
-  const out: Record<string, string> = {};
-  if (!dic) return out;
-  for (const [key, value] of Object.entries(dic)) {
-    if (value === null || value === undefined) {
-      out[key] = '';
-    } else if (value instanceof Date) {
-      out[key] = formatDateTime(value);
-    } else if (typeof value === 'boolean') {
-      out[key] = value ? 'true' : 'false';
-    } else {
-      out[key] = String(value);
-    }
-  }
-  return out;
-}
-
-function formatDateTime(d: Date) {
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
-}
+// `toParam` 은 요청 규약(MainParam 은 문자열 사전)의 일부라 request.ts 로 옮겼다.
+// 예전부터 여기서 가져다 쓰던 자리를 지키려고 그대로 다시 내보낸다.
+export { toParam };
 
 function invalidName(procName: string, prefix: string) {
   message.warning(`프로시저 이름 규칙 위반: ${procName}`);
@@ -277,6 +259,13 @@ export async function sysClearCache(
 /**
  * 공통코드 조회. 이식 전 `GetCommon(codeId, key)` 와 같다.
  *
+ * **어디를 부르는지는 여기 적혀 있지 않다.** 포털·장례식장 셀렉트와 마찬가지로
+ * DB 메타데이터(`scom.biz_select_configs` 의 `projmng_common` 행)가 정한다.
+ *   MSA=projmng · POST /Proj · 고정 파라미터 `{ProcName:'sp_projCommon', ProcType:'srch'}`
+ *   · 파라미터 경로 `MainParam` · 결과 경로 `data`
+ * 프로젝트관리의 드롭다운은 전부 이 프로시저 하나를 `code_id` 만 바꿔 부르므로
+ * 코드 종류마다 메타데이터를 만들지 않고 한 행에 다 태운다.
+ *
  * 화면 여러 곳이 같은 코드를 부르므로 한 번 읽은 것은 캐시한다
  * (이식 전 Blazor 에서는 컴포넌트마다 매번 호출했다).
  */
@@ -291,14 +280,19 @@ export async function getCommon(
   const cached = commonCache.get(cacheKey);
   if (!options?.force && cached) return cached;
 
-  const result = await dbCont<Record<string, string>>('sp_projCommon', {
-    code_id: codeId,
-    etc0: key,
-  });
+  // `options` 는 이 함수의 파라미터 이름이라 가려지지 않게 다른 이름으로 받는다.
+  const { items: rows, options: mapped } = await fetchBizOptions(
+    'projmng_common',
+    { code_id: codeId, etc0: key },
+  );
 
-  const items: CommonCodeItem[] = (result.data ?? []).map((row) => ({
-    code: row.code ?? '',
-    name: row.name ?? '',
+  // 코드·이름은 메타데이터가 지정한 필드(labelField/valueField)를 따르고,
+  // 나머지 컬럼(db_nick·db_schema 등)은 원본 행을 그대로 others 로 넘긴다.
+  // 값을 문자열로 바꾸지 않는다. code 가 숫자로 오는 코드(projlist·projdb)가 있고,
+  // 이식 전부터 화면들이 그 타입 그대로 v-model 에 담아 프로시저로 되돌려 보낸다.
+  const items: CommonCodeItem[] = rows.map((row, index) => ({
+    code: mapped[index]?.value ?? row.code ?? '',
+    name: mapped[index]?.label ?? row.name ?? '',
     desc: row.desc ?? '',
     others: row,
   }));

@@ -22,5 +22,6 @@
   "showSearchPanel": "검색 패널 표시",
   "hideSearchPanel": "검색 패널 숨김",
   "expandAll": "전체 확장",
-  "collapseAll": "전체 축소"
+  "collapseAll": "전체 축소",
+  "notShow": "표시 안 함"
 }

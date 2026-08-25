@@ -35,4 +35,17 @@ public interface IMenuService
     /// </summary>
     /// <param name="userId">사용자(계정) 아이디</param>
     Task<List<MenuPermissionDto>> GetMenuPermissionsAsync(string userId);
+
+    /// <summary>
+    /// 사용자가 특정 메뉴 경로에서 실제로 가진 권한을 조회합니다.
+    /// 화면이 아니라 **서버 쪽에서** 쓰기 권한을 판정할 때 씁니다.
+    /// </summary>
+    /// <remarks>
+    /// 권한 정보가 아예 없는 계정(역할이 하나도 배정되지 않음)은 막지 않습니다.
+    /// 화면 쪽 규칙(`useMenuPermission` · `v-perm` · `can()`)과 같은 판단입니다.
+    /// 한쪽만 엄격하면 버튼은 보이는데 저장이 안 되는 상태가 됩니다.
+    /// </remarks>
+    /// <param name="userId">사용자(계정) 아이디 — 게이트웨이가 넘긴 로그인 아이디</param>
+    /// <param name="path">메뉴 경로 (예: <c>/help/qna</c>)</param>
+    Task<MenuPermissionDto> GetEffectivePermissionAsync(string userId, string path);
 }

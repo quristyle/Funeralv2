@@ -23,6 +23,14 @@ import { refreshTokenApi } from './core';
 
 const { apiURL } = useAppConfig(import.meta.env, import.meta.env.PROD);
 
+/**
+ * 비밀번호 만료 안내를 이미 띄웠는지.
+ *
+ * 한 화면이 API 를 여러 개 부르면 전부 403 으로 막히므로,
+ * 안내를 요청 수만큼 띄우지 않도록 클라이언트 사이에서 함께 본다.
+ */
+let passwordExpiredNotified = false;
+
 function createRequestClient(
   baseURL: string,
   options?: RequestClientOptions & { dataField?: string },
@@ -109,6 +117,46 @@ function createRequestClient(
       successCode: 'S000',
     }),
   );
+
+  // ── 비밀번호 사용 기간 만료(게이트웨이 차단) 처리 ──────────
+  //
+  // 90일이 지나면 게이트웨이가 비밀번호 변경에 필요한 경로만 통과시키고
+  // 나머지는 403 + code `E403_PWD_EXPIRED` 로 막는다.
+  //
+  // 로그인 직후는 auth 스토어가 안내하고 보내지만, 이미 로그인해 둔 탭에서
+  // 그대로 쓰다가(또는 새로고침으로) 만료 시점을 넘기는 경우가 있다.
+  // 그때 화면마다 빨간 토스트만 쌓이면 무슨 일인지 알 수 없으므로,
+  // 안내를 한 번만 띄우고 비밀번호 변경 화면으로 보낸다.
+  //
+  // **토큰 만료 처리보다 앞에 둔다.** 뒤에 두면 아래 인터셉터가 먼저 응답을 소비한다.
+  client.addResponseInterceptor({
+    rejected: async (error: any) => {
+      if (error?.response?.data?.code !== 'E403_PWD_EXPIRED') {
+        throw error;
+      }
+
+      if (!passwordExpiredNotified) {
+        passwordExpiredNotified = true;
+        message.warning(
+          error.response.data.message ??
+            '비밀번호를 변경한 뒤 이용해 주세요.',
+        );
+        // 라우터를 정적으로 가져오면 순환 참조가 된다
+        // (router → guard → store → api/request → router). 쓸 때 가져온다.
+        const { router } = await import('#/router');
+        const current = router.currentRoute.value;
+        if (current.path !== '/profile' || current.query.tab !== 'password') {
+          await router.push({ path: '/profile', query: { tab: 'password' } });
+        }
+        // 같은 안내를 계속 띄우지 않되, 비밀번호를 바꾸고 나면 다시 알릴 수 있게 풀어 준다.
+        setTimeout(() => {
+          passwordExpiredNotified = false;
+        }, 10_000);
+      }
+
+      throw error;
+    },
+  });
 
   // 토큰 만료 처리
   client.addResponseInterceptor(

@@ -11,13 +11,17 @@ namespace AuthServer.Services;
 public class UserService : IUserService
 {
     private readonly AppDbContext _db;
+    private readonly IRoleAssignmentService _roleAssignments;
+    private readonly IConfiguration _config;
 
     /// <summary>
     /// UserService 생성자
     /// </summary>
-    public UserService(AppDbContext db)
+    public UserService(AppDbContext db, IRoleAssignmentService roleAssignments, IConfiguration config)
     {
         _db = db;
+        _roleAssignments = roleAssignments;
+        _config = config;
     }
 
     /// <summary>
@@ -47,21 +51,21 @@ public class UserService : IUserService
         // 역할은 실제 배정값을 내려준다.
         // 예전에는 무조건 "super" 한 개를 만들어 보냈다. 화면 접근 제어가 백엔드 메뉴 기준이라
         // 당장 티가 나지 않았을 뿐, 이 값을 보고 판단하는 코드가 생기면 전부 관리자로 보인다.
-        var roles = await _db.RoleAccounts
-            .Where(ra => ra.AccountId == account.Id)
-            .Join(_db.Roles.Where(r => r.Status == 1), ra => ra.RoleId, r => r.Id,
-                  (ra, r) => new { r.Id, r.Name })
-            .Distinct()
-            .ToListAsync();
-
-        var roleIds = roles.Select(r => r.Id).ToList();
-        // 표시용 이름. 이름이 비어 있으면 식별자로 대신한다.
-        var roleNames = roles.Select(r => string.IsNullOrWhiteSpace(r.Name) ? r.Id : r.Name).ToList();
+        // 역할은 세 단계로 걸 수 있다 — 회사 · 부서 · 사람. **셋을 모두 합친다.**
+        // 로그인 토큰과 같은 규칙을 써야 화면과 실제 권한이 어긋나지 않는다.
+        var effective = await _roleAssignments.ResolveEffectiveRolesAsync(account.Id);
+        var roleIds = effective.RoleIds;
+        var roleNames = effective.RoleNames;
 
         var securityPhone = account.ProfileDetails?.FirstOrDefault(p => p.DetailType == "SecurityPhone")?.Content == "true";
         var securityQuestion = account.ProfileDetails?.FirstOrDefault(p => p.DetailType == "SecurityQuestion")?.Content == "true";
         var securityEmail = account.ProfileDetails?.FirstOrDefault(p => p.DetailType == "SecurityEmail")?.Content == "true";
         var securityMfa = account.ProfileDetails?.FirstOrDefault(p => p.DetailType == "SecurityMfa")?.Content == "true";
+
+        // 비밀번호 사용 기간. 화면에 보여 줄 값을 만드는 것이고, 실제 차단은 게이트웨이가 한다.
+        var utcNow = DateTime.UtcNow;
+        var expiryDays = PasswordPolicy.ExpiryDays(_config);
+        var policyOn = PasswordPolicy.IsEnabled(expiryDays);
 
         var systemMessage = account.ProfileDetails?.FirstOrDefault(p => p.DetailType == "SystemMessage")?.Content == "true";
         var todoTask = account.ProfileDetails?.FirstOrDefault(p => p.DetailType == "TodoTask")?.Content == "true";
@@ -92,7 +96,19 @@ public class UserService : IUserService
             SecurityMfa = securityMfa,
             SystemMessage = systemMessage,
             TodoTask = todoTask,
-            AccountPasswordNotify = accountPasswordNotify
+            AccountPasswordNotify = accountPasswordNotify,
+
+            // 계정 이력 (읽기 전용)
+            CreatedAt = account.CreatedAt,
+            LastLoginAt = account.LastLoginAt,
+            LastLoginIp = account.LastLoginIp,
+            PasswordChangedAt = account.PasswordChangedAt,
+            PasswordExpiresAt = policyOn && account.PasswordChangedAt is not null
+                ? PasswordPolicy.ExpiresAt(account.PasswordChangedAt.Value, expiryDays)
+                : null,
+            PasswordExpiryDays = policyOn ? expiryDays : null,
+            PasswordDaysRemaining = PasswordPolicy.DaysRemaining(account.PasswordChangedAt, expiryDays, utcNow),
+            PasswordExpired = PasswordPolicy.IsExpired(account.PasswordChangedAt, expiryDays, utcNow)
         };
     }
 
@@ -527,23 +543,37 @@ public class UserService : IUserService
     /// <summary>
     /// 로그인한 사용자의 비밀번호를 변경합니다.
     /// </summary>
-    public async Task<bool> ChangePasswordAsync(string userId, ChangePasswordDto dto)
+    public async Task<ChangePasswordResult> ChangePasswordAsync(string userId, ChangePasswordDto dto)
     {
         var account = await _db.Accounts
             .FirstOrDefaultAsync(a => a.UserId == userId || a.Id == userId);
 
-        if (account == null) return false;
+        if (account == null) return ChangePasswordResult.AccountNotFound;
 
-        // 이전 비밀번호 검증 (현 보안 구조상 평문 비교)
+        // 이전 비밀번호 검증 (저장값이 평문인 계정도 그대로 통과한다 — PasswordHasher 참고)
         if (!PasswordHasher.Verify(account.Password, dto.OldPassword))
         {
-            return false;
+            return ChangePasswordResult.OldPasswordMismatch;
+        }
+
+        if (string.IsNullOrWhiteSpace(dto.NewPassword))
+        {
+            return ChangePasswordResult.NewPasswordEmpty;
+        }
+
+        // 지금 쓰는 것과 같은 값이면 막는다.
+        // 90일마다 바꾸라고 요구하면서 같은 값을 허용하면 정책이 아무 일도 하지 않는다.
+        if (PasswordHasher.Verify(account.Password, dto.NewPassword))
+        {
+            return ChangePasswordResult.SameAsCurrent;
         }
 
         // 새 비밀번호는 항상 해시로 저장한다.
         account.Password = PasswordHasher.Hash(dto.NewPassword);
+        // 만료 시계를 여기서 다시 맞춘다. 이 값이 90일 정책의 기준이다.
+        account.PasswordChangedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
-        return true;
+        return ChangePasswordResult.Success;
     }
 
     /// <summary>

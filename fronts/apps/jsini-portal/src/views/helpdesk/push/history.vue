@@ -15,7 +15,8 @@ import {
   Tag,
 } from 'ant-design-vue';
 
-import { getAllUsers, getMyNotifications } from '#/api/helpdesk';
+import { fetchBizOptions } from '#/api/biz-select';
+import { getMyNotifications } from '#/api/helpdesk';
 import { useHelpdeskStore } from '#/store/helpdesk';
 
 import HelpdeskAccountNotice from '../shared/account-notice.vue';
@@ -91,11 +92,10 @@ onMounted(async () => {
   await helpdesk.loadIdentity();
 
   if (helpdesk.isAdmin) {
-    const users = await getAllUsers().catch(() => []);
-    userOptions.value = (users ?? []).map((u: any) => ({
-      label: u.userName,
-      value: u.userId,
-    }));
+    // 담당자+고객 통합 목록. 경로와 라벨/값 필드는 메타데이터(helpdesk_user)가 정한다.
+    userOptions.value = await fetchBizOptions('helpdesk_user')
+      .then((r) => r.options)
+      .catch(() => []);
   }
 
   await loadData();

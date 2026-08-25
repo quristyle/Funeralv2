@@ -20,6 +20,48 @@ export async function getUserInfoApi() {
   }
 }
 
+/** 접속 기록 한 줄 */
+export interface LoginLog {
+  at?: null | string;
+  /** 브라우저·기기를 줄인 것 (`Chrome · Windows`) */
+  device?: null | string;
+  /** 실패 이유. 성공이면 null */
+  failReason?: null | string;
+  ip?: null | string;
+  success: boolean;
+  /** 브라우저·기기 원문 */
+  userAgent?: null | string;
+}
+
+/** 계정 활동 정보 */
+export interface AccountActivity {
+  /** 계정을 써 온 일수 */
+  accountAgeDays: number;
+  /** 가장 최근 실패 */
+  lastFail?: LoginLog | null;
+  /** 로그인 성공 횟수 */
+  loginCount: number;
+  /** 지난번 접속 (지금 이 접속의 바로 앞) */
+  previousLogin?: LoginLog | null;
+  /** 최근 접속 기록. 최신 순. 성공·실패를 섞어 담는다. */
+  recent: LoginLog[];
+  /** 최근 30일 안의 실패 횟수 */
+  recentFailCount: number;
+}
+
+/**
+ * 계정 활동 정보 가져오기.
+ *
+ * **자기 것만 온다.** 조회할 계정을 보내지 않고 서버가 토큰의 신원을 쓴다.
+ */
+export async function getAccountActivityApi(limit = 10) {
+  const res = await requestClient.get<any>('/auth/user/activity', {
+    params: { limit },
+  });
+  const raw = res?.result?.[0] ?? res?.result ?? res;
+  return (raw ?? {}) as AccountActivity;
+}
+
 /**
  * 사용자 기본 프로필 수정
  */

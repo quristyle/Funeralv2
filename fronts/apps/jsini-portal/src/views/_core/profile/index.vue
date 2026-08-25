@@ -1,18 +1,25 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
+import { useRoute } from 'vue-router';
 
 import { Profile, ImageGroupManager } from '@vben/common-ui';
 import { useUserStore } from '@vben/stores';
 import { updateProfileApi } from '#/api';
 
+import ProfileAccountInfo from './account-info.vue';
 import ProfileBase from './base-setting.vue';
 import ProfileNotificationSetting from './notification-setting.vue';
 import ProfilePasswordSetting from './password-setting.vue';
 import ProfileSecuritySetting from './security-setting.vue';
 
 const userStore = useUserStore();
+const route = useRoute();
 
-const tabsValue = ref<string>('basic');
+// 비밀번호가 만료되어 강제로 끌려온 경우에는 곧바로 변경 탭을 띄운다.
+// 라우터 가드와 로그인 흐름이 `?tab=password` 를 붙여 보낸다.
+const tabsValue = ref<string>(
+  route.query.tab === 'password' ? 'password' : 'basic',
+);
 
 const avatarGroupId = computed<string | null>({
   get: () => (userStore.userInfo as any)?.avatarGroupId || null,
@@ -27,6 +34,10 @@ const tabs = ref([
   {
     label: '기본 설정',
     value: 'basic',
+  },
+  {
+    label: '계정 정보',
+    value: 'account',
   },
   {
     label: '보안 설정',
@@ -91,6 +102,7 @@ const handleAvatarChange = async (avatarUrl: string) => {
   >
     <template #content>
       <ProfileBase v-if="tabsValue === 'basic'" />
+      <ProfileAccountInfo v-if="tabsValue === 'account'" />
       <ProfileSecuritySetting v-if="tabsValue === 'security'" />
       <ProfilePasswordSetting v-if="tabsValue === 'password'" />
       <ProfileNotificationSetting v-if="tabsValue === 'notice'" />

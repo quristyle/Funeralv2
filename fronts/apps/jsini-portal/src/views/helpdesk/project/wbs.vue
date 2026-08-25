@@ -1,7 +1,7 @@
 <script lang="ts" setup>
-import type { Project, Wbs, WbsTreeNode } from '#/api/helpdesk';
+import type { Wbs, WbsTreeNode } from '#/api/helpdesk';
 
-import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { computed, reactive, ref, watch } from 'vue';
 
 import { Page } from '@vben/common-ui';
 
@@ -24,13 +24,8 @@ import {
   Tag,
 } from 'ant-design-vue';
 
-import {
-  createWbs,
-  deleteWbs,
-  getProjects,
-  getWbsTree,
-  updateWbs,
-} from '#/api/helpdesk';
+import { createWbs, deleteWbs, getWbsTree, updateWbs } from '#/api/helpdesk';
+import BizSelect from '#/components/BizSelect.vue';
 
 import HelpdeskAccountNotice from '../shared/account-notice.vue';
 import { formatDate } from '../shared/constants';
@@ -44,7 +39,6 @@ import { formatDate } from '../shared/constants';
 
 const loading = ref(false);
 const saving = ref(false);
-const projects = ref<Project[]>([]);
 const selectedProjectId = ref<number | undefined>();
 const treeNodes = ref<WbsTreeNode[]>([]);
 
@@ -170,11 +164,6 @@ function progressStatus(row: any) {
 }
 
 watch(selectedProjectId, loadWbs);
-
-onMounted(async () => {
-  projects.value = (await getProjects()) ?? [];
-  selectedProjectId.value = projects.value[0]?.id;
-});
 </script>
 
 <template>
@@ -183,14 +172,17 @@ onMounted(async () => {
 
     <Card class="mb-3" size="small">
       <div class="flex flex-wrap items-center justify-between gap-2">
-        <Select
-          v-model:value="selectedProjectId"
-          :options="projects.map((p) => ({ label: p.name, value: p.id }))"
-          option-filter-prop="label"
-          placeholder="프로젝트"
-          show-search
-          style="width: 240px"
-        />
+        <!-- BizSelect 는 너비 100% 라 바깥에서 폭을 정한다 -->
+        <div style="width: 240px">
+          <BizSelect
+            v-model:value="selectedProjectId"
+            auto-select-first
+            option-filter-prop="label"
+            placeholder="프로젝트"
+            show-search
+            type="helpdesk_project"
+          />
+        </div>
         <Button
           :disabled="!selectedProjectId"
           type="primary"

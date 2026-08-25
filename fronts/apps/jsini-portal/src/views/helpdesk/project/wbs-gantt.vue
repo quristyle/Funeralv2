@@ -1,18 +1,14 @@
 <script lang="ts" setup>
-import type { Project, WbsLink, WbsTreeNode } from '#/api/helpdesk';
+import type { WbsLink, WbsTreeNode } from '#/api/helpdesk';
 
-import { onMounted, ref, watch } from 'vue';
+import { ref, watch } from 'vue';
 
 import { Page } from '@vben/common-ui';
 
-import { Card, Checkbox, message, Select, Space, Spin } from 'ant-design-vue';
+import { Card, Checkbox, message, Space, Spin } from 'ant-design-vue';
 
-import {
-  getProjects,
-  getWbsLinks,
-  getWbsTree,
-  updateWbs,
-} from '#/api/helpdesk';
+import { getWbsLinks, getWbsTree, updateWbs } from '#/api/helpdesk';
+import BizSelect from '#/components/BizSelect.vue';
 
 import HelpdeskAccountNotice from '../shared/account-notice.vue';
 import GanttChart from './modules/gantt-chart.vue';
@@ -28,7 +24,6 @@ const props = withDefaults(defineProps<{ readonly?: boolean }>(), {
 });
 
 const loading = ref(false);
-const projects = ref<Project[]>([]);
 const selectedProjectId = ref<number | undefined>();
 const nodes = ref<WbsTreeNode[]>([]);
 const links = ref<WbsLink[]>([]);
@@ -70,11 +65,6 @@ async function onBarChange(payload: {
 }
 
 watch(selectedProjectId, loadData);
-
-onMounted(async () => {
-  projects.value = (await getProjects()) ?? [];
-  selectedProjectId.value = projects.value[0]?.id;
-});
 </script>
 
 <template>
@@ -83,14 +73,17 @@ onMounted(async () => {
 
     <Card class="mb-3" size="small">
       <Space wrap>
-        <Select
-          v-model:value="selectedProjectId"
-          :options="projects.map((p) => ({ label: p.name, value: p.id }))"
-          option-filter-prop="label"
-          placeholder="프로젝트"
-          show-search
-          style="width: 240px"
-        />
+        <!-- BizSelect 는 너비 100% 라 바깥에서 폭을 정한다 -->
+        <div style="width: 240px">
+          <BizSelect
+            v-model:value="selectedProjectId"
+            auto-select-first
+            option-filter-prop="label"
+            placeholder="프로젝트"
+            show-search
+            type="helpdesk_project"
+          />
+        </div>
         <Checkbox v-model:checked="showLinks">연결선 표시</Checkbox>
         <span class="text-xs text-muted-foreground">
           눈금 단위는 차트 왼쪽 위에서 일/주/월로 바꿉니다.

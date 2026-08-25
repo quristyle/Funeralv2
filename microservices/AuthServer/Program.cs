@@ -71,6 +71,7 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ITimezoneService, TimezoneService>();
 builder.Services.AddScoped<IMenuService, MenuService>();
 builder.Services.AddScoped<IMenuFavoriteService, MenuFavoriteService>();
+builder.Services.AddScoped<IRoleAssignmentService, RoleAssignmentService>();
 builder.Services.AddScoped<IRoleService, RoleService>();
 builder.Services.AddScoped<IDepartmentService, DepartmentService>();
 builder.Services.AddScoped<ISystemMenuService, SystemMenuService>();
@@ -80,6 +81,13 @@ builder.Services.AddScoped<ICommonCodeService, CommonCodeService>();
 builder.Services.AddScoped<IBizSelectConfigService, BizSelectConfigService>();
 builder.Services.AddScoped<IRolePermissionService, RolePermissionService>();
 builder.Services.AddScoped<INoticeService, NoticeService>();
+
+// 도움말 — F.A.Q(관리자가 쓰고 모두가 읽는다) · Q&A(누구나 묻고 관리자가 답한다)
+builder.Services.AddScoped<IFaqService, FaqService>();
+builder.Services.AddScoped<IQnaService, QnaService>();
+
+// 접속 기록 — 계정 정보 화면의 '활동' 이 이 값을 읽는다
+builder.Services.AddScoped<ILoginLogService, LoginLogService>();
 
 // 배포(릴리즈) — 대상은 설정(Release:Targets)에서 읽는다.
 builder.Services.Configure<AuthServer.DTOs.ReleaseOptions>(
@@ -120,12 +128,15 @@ app.MapAuthEndpoints();
 app.MapUserEndpoints();
 app.MapMenuEndpoints();
 app.MapMenuFavoriteEndpoints();
+app.MapRoleScopeEndpoints();
 app.MapTimezoneEndpoints();
 app.MapSystemEndpoints();
 app.MapCompanyEndpoints();
 app.MapCommonCodeEndpoints();
 app.MapRolePermissionEndpoints();
 app.MapNoticeEndpoints();
+app.MapFaqEndpoints();
+app.MapQnaEndpoints();
 app.MapReleaseEndpoints();
 
 

@@ -2,10 +2,24 @@
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
 
+    <!--
+        [Android TV 박스 지원]
+
+        사이니지 기기로 TV 박스를 쓰는 경우가 있어 선언해 둔다.
+
+        touchscreen 을 required="false" 로 두지 않으면 화면을 만질 수 없는 기기
+        (TV 박스·셋톱)에서 설치 대상이 아니게 된다.
+        leanback 도 required="false" 다 — 켜 두면 일반 태블릿·PC 에 설치할 수 없게 된다.
+        둘 다 "쓸 수 있으면 쓴다" 는 뜻이고, 어느 기기에서도 설치를 막지 않는다.
+    -->
+    <uses-feature android:name="android.hardware.touchscreen" android:required="false"/>
+    <uses-feature android:name="android.software.leanback" android:required="false"/>
+
     <application
         android:label="funeralv2_player"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
+        android:banner="@drawable/tv_banner"
         android:usesCleartextTraffic="true">
         <activity
             android:name=".MainActivity"
@@ -27,6 +41,12 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
+                <!--
+                    Android TV 런처는 LAUNCHER 가 아니라 LEANBACK_LAUNCHER 를 본다.
+                    이것이 없으면 APK 는 설치되지만 **TV 홈 화면에 아이콘이 뜨지 않아서**
+                    리모컨으로 실행할 방법이 없다.
+                -->
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER"/>
             </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.
