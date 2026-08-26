@@ -11,16 +11,30 @@ export namespace SystemDeptApi {
     remark?: string;
     sortOrder?: number;
     status: 0 | 1;
+    /** 이 부서에 **직접** 소속된 사용자 수 (하위 부서 제외) */
+    userCount?: number;
+    /**
+     * 하위 부서까지 합친 사용자 수.
+     * 트리를 접어 둔 상태에서 조직 전체 인원을 보여 줄 때 쓴다.
+     */
+    totalUserCount?: number;
   }
 }
 
 /**
  * 부서 목록 데이터 가져오기
  */
-async function getDeptList(companyId?: string) {
+/**
+ * 부서 목록 (트리)
+ *
+ * @param companyId 조회할 회사. **비우면 '전체' 가 아니라 '로그인한 사람의 회사'** 다
+ *                  (서버가 그렇게 좁힌다). 전체를 보려면 `allCompanies` 를 쓴다.
+ * @param allCompanies 모든 회사의 부서를 함께 받을지
+ */
+async function getDeptList(companyId?: string, allCompanies?: boolean) {
   return requestClient.get<Array<SystemDeptApi.SystemDept>>(
     '/auth/system/dept/list',
-    { params: { companyId } }
+    { params: { companyId, allCompanies } }
   );
 }
 

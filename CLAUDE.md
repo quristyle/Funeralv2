@@ -34,7 +34,11 @@ microservices/
   ProjMngServer/       프로젝트관리 (이식)
   FileServer/          파일 보관 — 첨부와 본문 이미지가 모두 여기로 간다
   AIAgentServer/
-fronts/apps/jsini-portal/   프론트엔드 (Vue 3 + vben)
+  SiteServer/          회사 소개 사이트(공개) — 문구 · 자료실 · 문의 접수
+  NotificationServer/  푸시 · 이메일 (셋이 공유) — VAPID 키가 여기 한 곳에만 있다
+fronts/apps/jsini-portal/   업무 프론트엔드 (Vue 3 + vben, 로그인 필요)
+fronts/apps/jsini-site/     회사 소개 사이트 (Vue 3 + vite-ssg, @vben/* 의존 0)
+docs/brand/            로고 · 모티프 · 사용 규칙 (SVG 는 generate.py 가 만든다)
 docs/analysis/         작업 기록과 결정 사항
 docs/sql/              실행한 SQL (전부 반복 실행 안전)
 ```
@@ -52,13 +56,36 @@ docs/sql/              실행한 SQL (전부 반복 실행 안전)
   ls -l --time-style=+%H:%M:%S microservices/AuthServer/bin/Debug/net8.0/AuthServer.dll
   ```
 - 개발 환경은 `Auth:SkipPasswordCheck=true` 라 아이디만으로 로그인된다.
-- 검증: `dotnet build jsini.sln` · `pnpm vite build` · `./scripts/smoke-test.sh`
+- **JWT 서명 키는 `appsettings.Local.json` 에만 있다** (결정 D1-B). 추적 파일에는
+  `__SET_IN_appsettings.Local.json__` 자리표시자만 있고, 키가 없거나 옛 평문 값이면
+  `JwtKeyGuard` 가 **기동을 막는다.** 네 곳이 같은 값이어야 한다 —
+  ApiGateway `Jwt:Key` · AuthServer `JwtSettings:SecretKey` ·
+  HelpDeskServer `GatewayJwt:Key` · ProjMngServer `Jwt:Key`.
+- **`appsettings.Local.json` 이 환경변수를 덮는다.** 각 서비스가 기본 소스 뒤에 붙이기
+  때문이다. `Jwt__Key=...` 같은 환경변수로 덮으려 해도 안 먹는다.
+- 검증: `pnpm vite build` · `./scripts/smoke-test.sh` ·
+  백엔드는 **솔루션 파일이 없다.** 프로젝트별로 돌린다
+  (실행 중이면 exe 가 잠겨 Debug 빌드가 실패한다 — 그때는 `-c Release`).
+  ```bash
+  for p in ApiGateway/*.csproj microservices/*/*.csproj; do dotnet build "$p" -c Release; done
+  ```
+  개발 서버는 `dev.bat`(윈도우) · `backend_run_ubuntu.sh` 로 띄운다. 하나만 재기동하려면
+  `dev.bat gateway auth file` 처럼 이름을 나열한다.
+  이름은 열하나다 — `gateway auth funeral ai file helpdesk projmng site notify portal web`.
+  `portal`(:5555) 이 업무 프론트, `web`(:5556) 이 회사 소개 사이트 프론트다.
+  **예전 이름 `front` 는 `portal` 이 되었다**(`front` 로 쳐도 받아 준다).
 
 ## 결정이 필요한 것
 
 [docs/analysis/12-decisions-pending.md](docs/analysis/12-decisions-pending.md) 에 모아 둔다.
 자율로 진행하기에 영향이 크거나 되돌리기 어려운 일은 여기에 적고 손대지 않는다.
 
+- 배포 도구: [docs/analysis/28-release-tool.md](docs/analysis/28-release-tool.md) (D-R1~D-R5)
+  화면이 `setTimeout` 으로 가짜 진행 단계를 초록색으로 찍던 것을 걷어내고, 배포 장비가
+  **실제로 보고한 것만** 보여 주도록 바꿨다. 요청 한 건이 `scom.release_runs` 행이 된다.
+  **진행 보고는 기본 꺼짐이라 지금은 켜기 전과 똑같이 동작한다.**
+  켜는 법(배포 장비의 소비자는 고치지 않는다): [deploy/release-consumer/README.md](deploy/release-consumer/README.md)
+  남은 것은 큐 공유(D-R1)·롤백(D-R3)·`VersionUrl`(D-R5).
 - 이식 시스템에서 '누구로서' 일할지 정하는 스위치 둘: [docs/analysis/19-msa-user-work-enablement.md](docs/analysis/19-msa-user-work-enablement.md) (Q9~Q13 · D14)
   둘 다 **기본 꺼짐**이라 지금은 켜기 전과 똑같이 동작한다. D13 을 먼저 처리해야 한다.
 - 준수사항 점검에서 남은 것: [docs/analysis/16-준수사항-점검.md](docs/analysis/16-준수사항-점검.md) (R1~R4)
@@ -68,6 +95,14 @@ docs/sql/              실행한 SQL (전부 반복 실행 안전)
 - i18n 콘솔 경고와 언어 코드 정리: [docs/analysis/18-i18n-fallback-warning.md](docs/analysis/18-i18n-fallback-warning.md)
 - vben-admin 상위 동기화에서 남은 것: [docs/analysis/17-vben-upstream-sync.md](docs/analysis/17-vben-upstream-sync.md)
   (D-U1·D-U2 는 완료. 남은 것은 6.6 `componentProps` 타입 표 · 6.10 vxe 경고 · D-U4~U6)
+- 회사 소개 사이트와 브랜드: [docs/analysis/27-jsini-site-brand.md](docs/analysis/27-jsini-site-brand.md)
+  D-S1~D-S6 은 결정됐고 브랜드 키트 · SiteServer · 사이트 스켈레톤까지 세웠다.
+  로고 · 모티프 · 사용 규칙은 [docs/brand/](docs/brand/) 에 있다 (SVG 를 손으로 고치지 말고
+  `python docs/brand/generate.py`).
+  **문구가 필요하다** — 개인정보 동의 문구(D-S7) 없이는 문의 폼을 열 수 없고,
+  정보구조(D-S8)·영문 문구(D-S9)가 없어 화면은 빈 상태다. 회사가 확정해야 한다.
+  파일 익명 접근 구멍은 닫았다 — 쓰기는 인증, 읽기는 `is_public` 판정이다.
+  로그인이 심는 `jsini_file_at` 쿠키가 있어야 `<img src>` 가 통한다(27번 문서 5절).
 
 ## vben-admin 은 갈라져 있다
 

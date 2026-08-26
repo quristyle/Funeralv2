@@ -52,6 +52,12 @@ public interface IFileService
     Task<FileMetadata?> GetMetadataAsync(Guid id);
 
     /// <summary>
+    /// 익명 열람 허용 여부(<c>is_public</c>) 를 바꾼다.
+    /// 대상 파일이 없으면 false 를 돌려준다.
+    /// </summary>
+    Task<bool> SetPublicAsync(Guid id, bool isPublic, string? userId);
+
+    /// <summary>
     /// 파일 그룹에 속하는 다중 파일 업로드
     /// </summary>
     Task<List<FileMetadata>> UploadGroupFilesAsync(List<IFormFile> files, Guid? groupId, string bizType, string? userId);

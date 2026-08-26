@@ -10,15 +10,31 @@ namespace AuthServer.Services;
 /// </summary>
 /// <remarks>
 /// 공지는 JSini 관리 포털이 관리하고 모든 MSA 사용자에게 공통으로 보인다.
+///
+/// 저장할 때마다 첨부파일의 익명 열람 허용을 함께 맞춘다
+/// (<see cref="IPublicFileSyncService"/>). **공지를 공개로 두면 첨부도 공개로 본다** 는
+/// 결정(D-S10) 때문이다 — 그러지 않으면 로그인 전 화면의 공개 공지에 첨부 링크는 보이는데
+/// 누르면 404 가 된다.
 /// </remarks>
 public class NoticeService : INoticeService
 {
     private readonly AppDbContext _db;
+    private readonly IPublicFileSyncService _publicFiles;
 
-    public NoticeService(AppDbContext db)
+    public NoticeService(AppDbContext db, IPublicFileSyncService publicFiles)
     {
         _db = db;
+        _publicFiles = publicFiles;
     }
+
+    /// <summary>
+    /// 파일 아이디 문자열을 <see cref="Guid"/> 로 바꾼다.
+    /// <c>notice_files.file_id</c> 는 text 라 값이 깨져 있을 수 있어 파싱되는 것만 쓴다.
+    /// </summary>
+    private static IEnumerable<Guid> ToGuids(IEnumerable<string> ids) =>
+        ids.Select(id => Guid.TryParse(id, out var g) ? g : (Guid?)null)
+           .Where(g => g.HasValue)
+           .Select(g => g!.Value);
 
     public async Task<List<NoticeDto>> GetAllAsync(string? keyword)
     {
@@ -99,6 +115,10 @@ public class NoticeService : INoticeService
         _db.Notices.Add(notice);
         await _db.SaveChangesAsync();
 
+        // 첨부의 공개 여부를 맞춘다 (D-S10). 저장 뒤에 해야 한다 —
+        // 판정이 방금 저장한 공지 행을 읽는다.
+        await _publicFiles.SyncAsync(ToGuids(notice.Files.Select(f => f.FileId)));
+
         return ToDto(notice);
     }
 
@@ -109,6 +129,10 @@ public class NoticeService : INoticeService
             .FirstOrDefaultAsync(n => n.Id == id && !n.IsDeleted);
 
         if (notice is null) return false;
+
+        // 고치기 전의 첨부 목록. 이번에 떼어 낸 파일도 다시 판정해야 하므로 미리 잡아 둔다
+        // (떼어 낸 것을 빼먹으면 공개였던 파일이 그대로 공개로 남는다).
+        var before = notice.Files.Select(f => f.FileId).ToList();
 
         notice.Title = request.Title;
         notice.Content = request.Content;
@@ -148,12 +172,19 @@ public class NoticeService : INoticeService
         }
 
         await _db.SaveChangesAsync();
+
+        // 고치기 전에 붙어 있던 것과 지금 붙어 있는 것을 모두 다시 판정한다 (D-S10).
+        await _publicFiles.SyncAsync(ToGuids(before.Concat(request.Files.Select(f => f.FileId))));
+
         return true;
     }
 
     public async Task<bool> DeleteAsync(string id, string? userId)
     {
-        var notice = await _db.Notices.FirstOrDefaultAsync(n => n.Id == id && !n.IsDeleted);
+        var notice = await _db.Notices
+            .Include(n => n.Files)
+            .FirstOrDefaultAsync(n => n.Id == id && !n.IsDeleted);
+
         if (notice is null) return false;
 
         notice.IsDeleted = true;
@@ -161,6 +192,10 @@ public class NoticeService : INoticeService
         notice.UpdatedBy = userId;
 
         await _db.SaveChangesAsync();
+
+        // 지운 공지의 첨부는 더 이상 공개가 아니다 (D-S10).
+        await _publicFiles.SyncAsync(ToGuids(notice.Files.Select(f => f.FileId)));
+
         return true;
     }
 

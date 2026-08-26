@@ -1302,6 +1302,25 @@ private async Task NotifyStatusAsync(
     }
 
     /// <inheritdoc />
+    public async Task<bool> SetPublicAsync(Guid id, bool isPublic, string? userId)
+    {
+        var metadata = await _dbContext.FileMetadatas
+            .FirstOrDefaultAsync(x => x.Id == id && !x.IsDeleted);
+
+        if (metadata == null)
+        {
+            return false;
+        }
+
+        metadata.IsPublic = isPublic;
+        metadata.UpdatedAt = DateTime.UtcNow;
+        metadata.UpdatedBy = string.IsNullOrEmpty(userId) ? "System" : userId;
+
+        await _dbContext.SaveChangesAsync();
+        return true;
+    }
+
+    /// <inheritdoc />
     public async Task<List<FileMetadata>> UploadGroupFilesAsync(List<IFormFile> files, Guid? groupId, string bizType, string? userId)
     {
         if (files == null || files.Count == 0)

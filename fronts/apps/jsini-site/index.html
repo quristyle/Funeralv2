@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="/brand/favicon.svg" type="image/svg+xml" />
+    <title>JSINI</title>
+    <meta name="description" content="JSINI — 장례식장 · 헬프데스크 · 프로젝트관리를 하나로 잇는 관리 시스템" />
+
+    <!-- OG. 실제 값은 각 화면이 vite-ssg 프리렌더 때 덮어쓴다. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="JSINI" />
+    <meta property="og:title" content="JSINI" />
+    <meta property="og:image" content="/brand/og-image.svg" />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <!--
+      글꼴은 저장소 안의 파일만 쓴다 (준수사항 5).
+      바깥 CDN(Google Fonts 등) 요청이 하나도 없어야 한다.
+      본문에 쓰는 두 무게만 미리 받아 둔다 — 하나에 350KB 라 전부 넣으면 첫 화면이 느려진다.
+    -->
+    <link rel="preload" href="/fonts/S-CoreDream-3Light.woff" as="font" type="font/woff" crossorigin />
+    <link rel="preload" href="/fonts/S-CoreDream-6Bold.woff" as="font" type="font/woff" crossorigin />
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

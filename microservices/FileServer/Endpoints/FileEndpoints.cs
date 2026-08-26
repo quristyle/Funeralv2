@@ -161,6 +161,7 @@ public static class FileEndpoints
             }
         })
         .WithName("DownloadFile")
+        .AddEndpointFilter<PublicFileAccessFilter>()
         .WithOpenApi();
 
         // 2-1. 파일 아이디로 다운로드
@@ -186,6 +187,7 @@ public static class FileEndpoints
             }
         })
         .WithName("DownloadFileById")
+        .AddEndpointFilter<PublicFileAccessFilter>()
         .WithOpenApi();
 
         // 3. 이미지 썸네일 조회 (기본 150x150)
@@ -215,6 +217,7 @@ public static class FileEndpoints
             }
         })
         .WithName("GetThumbnail")
+        .AddEndpointFilter<PublicFileAccessFilter>()
         .WithOpenApi();
 
         // 3-1. 이미지 중간 크기 조회 (기본 600x600)
@@ -244,6 +247,7 @@ public static class FileEndpoints
             }
         })
         .WithName("GetMediumImage")
+        .AddEndpointFilter<PublicFileAccessFilter>()
         .WithOpenApi();
 
         // 3-2. 이미지 큰 크기 조회 (기본 1200x1200)
@@ -273,6 +277,7 @@ public static class FileEndpoints
             }
         })
         .WithName("GetLargeImage")
+        .AddEndpointFilter<PublicFileAccessFilter>()
         .WithOpenApi();
 
         // 4. 이미지 크기 조정 후 조회
@@ -307,6 +312,7 @@ public static class FileEndpoints
             }
         })
         .WithName("GetResizedImage")
+        .AddEndpointFilter<PublicFileAccessFilter>()
         .WithOpenApi();
 
         // 5. 파일 메타데이터 조회
@@ -327,6 +333,7 @@ public static class FileEndpoints
                     size = metadata.Size,
                     contentType = metadata.ContentType,
                     isImage = metadata.IsImage,
+                    isPublic = metadata.IsPublic,
                     createdAt = metadata.CreatedAt,
                     createdBy = metadata.CreatedBy
                 }));
@@ -337,6 +344,47 @@ public static class FileEndpoints
             }
         })
         .WithName("GetFileMetadata")
+        .AddEndpointFilter<PublicFileAccessFilter>()
+        .WithOpenApi();
+
+        // 5-1. 익명 열람 허용 여부 변경
+        //
+        // 회사 소개 사이트의 공개 자료실처럼 로그인하지 않은 사람에게도 내려줘야 하는 파일만 켠다.
+        // 기본은 꺼짐이라, 아무것도 하지 않으면 모든 파일이 보호 대상이다.
+        //
+        // 게이트웨이의 `file-route` 가 인증을 요구하므로 토큰 없이는 여기까지 오지 못한다.
+        // 그래도 한 번 더 본다 — 서비스를 직접 부르는 경로가 생겼을 때를 대비한 것이다.
+        group.MapPut("/public/{id:guid}", async Task<IResult> (
+            Guid id,
+            [FromQuery] bool value,
+            [FromServices] IFileService fileService,
+            UserContext? userContext) =>
+        {
+            if (userContext == null)
+            {
+                return Results.Json(
+                    ApiResponse<object>.Fail("ERR_UNAUTHORIZED", "로그인이 필요합니다."),
+                    statusCode: StatusCodes.Status401Unauthorized);
+            }
+
+            try
+            {
+                var changed = await fileService.SetPublicAsync(id, value, userContext.UserId);
+                if (!changed)
+                {
+                    return Results.NotFound(ApiResponse<object>.Fail("ERR_FILE_NOT_FOUND", "대상 파일을 찾을 수 없습니다."));
+                }
+
+                return Results.Ok(ApiResponse<object>.Ok(new { id, isPublic = value }));
+            }
+            catch (Exception ex)
+            {
+                return Results.Json(
+                    ApiResponse<object>.Fail("ERR_SET_PUBLIC_FAILED", ex.Message),
+                    statusCode: StatusCodes.Status500InternalServerError);
+            }
+        })
+        .WithName("SetFilePublic")
         .WithOpenApi();
 
         // 6. 파일 삭제

@@ -13,6 +13,10 @@ import { defineStore } from 'pinia';
 import { getAccessCodesApi, getUserInfoApi, loginApi, logoutApi } from '#/api';
 import { $t } from '#/locales';
 import { useMenuPermissionStore } from '#/store/menu-permission';
+import {
+  ensurePreferencesSynced,
+  stopPreferencesSync,
+} from '#/store/preferences-sync';
 
 export const useAuthStore = defineStore('auth', () => {
   const accessStore = useAccessStore();
@@ -112,6 +116,10 @@ export const useAuthStore = defineStore('auth', () => {
     if (isLoggingOut.value) return; // 로그아웃 중이면 이미 루프에 진입한 것이므로 즉시 반환합니다.
     isLoggingOut.value = true; // 플래그 설정
 
+    // 환경설정 감시를 먼저 끊는다. 남겨 두면 로그아웃 과정에서 스토어가 초기화될 때
+    // 그 변경을 '사용자가 설정을 바꿨다' 로 보고 서버에 덮어써 버린다.
+    stopPreferencesSync();
+
     try {
       await logoutApi();
     } catch {
@@ -137,6 +145,12 @@ export const useAuthStore = defineStore('auth', () => {
   async function fetchUserInfo() {
     const userInfo = await getUserInfoApi();
     userStore.setUserInfo(userInfo);
+
+    // 계정에 저장해 둔 화면 환경설정을 맞춘다(테마·레이아웃·위젯 위치 …).
+    // 로그인 직후와 새로고침 뒤가 모두 이 자리를 지나므로 여기서 한 번만 한다.
+    // 실패해도 넘어간다 — 로컬 설정으로 그대로 쓸 수 있고, 화면을 막을 일이 아니다.
+    ensurePreferencesSynced().catch(() => undefined);
+
     return userInfo;
   }
 

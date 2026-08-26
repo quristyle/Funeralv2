@@ -119,9 +119,18 @@ builder.Services.AddSwaggerGen(c => {
 // 따라서 두 발급자/서명키를 모두 유효한 것으로 등록한다.
 builder.Services.AddAuthorization();
 
-var jwtKey = builder.Configuration["Jwt:Key"] ?? "quristyle_blabbbbbla_secret_key_1234567890!@#$";
+// 키 둘은 appsettings.Local.json (git 제외) 에만 있다. 없으면 기동에 실패한다 (결정 D1-B).
+//
+//   Jwt:Key         헬프데스크 자체 로그인용 (LocalLogin 이 꺼져 있어 지금은 쓰이지 않는다)
+//   GatewayJwt:Key  게이트웨이/AuthServer 가 발급한 funeralv2 토큰 검증용 — 이쪽이 실제로 쓰인다
+//
+// 예전에는 둘 다 평문 폴백이 있었고, GatewayJwt 가 비면 헬프데스크 자체 키로 조용히
+// 대체됐다. 그러면 게이트웨이 토큰이 통째로 거부되는데 이유를 알기 어렵다.
+var jwtKey = JSini.Shared.Infrastructure.JwtKeyGuard.Require(
+    builder.Configuration, "Jwt:Key", "HelpDeskServer");
 var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "helpdesk-api";
-var gatewayJwtKey = builder.Configuration["GatewayJwt:Key"] ?? jwtKey;
+var gatewayJwtKey = JSini.Shared.Infrastructure.JwtKeyGuard.Require(
+    builder.Configuration, "GatewayJwt:Key", "HelpDeskServer");
 var gatewayJwtIssuer = builder.Configuration["GatewayJwt:Issuer"] ?? jwtIssuer;
 
 builder.Services.AddAuthentication(options => {

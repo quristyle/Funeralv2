@@ -46,6 +46,25 @@ public class DepartmentDto
     public int SortOrder { get; set; }
 
     /// <summary>
+    /// 이 부서에 **직접** 소속된 사용자 수.
+    /// </summary>
+    /// <remarks>
+    /// 하위 부서의 인원은 포함하지 않는다. 사용자는 부서 하나에만 붙으므로
+    /// (<c>accounts.department_id</c>) 직접 소속이 곧 "이 부서 인원" 이다.
+    /// 하위까지 합친 값이 필요하면 <see cref="TotalUserCount"/> 를 쓴다.
+    /// </remarks>
+    public int UserCount { get; set; }
+
+    /// <summary>
+    /// 하위 부서까지 합친 사용자 수.
+    /// </summary>
+    /// <remarks>
+    /// 트리를 접어 둔 상태에서 "이 조직 전체에 몇 명인지" 를 보여 줄 때 쓴다.
+    /// 자식이 없으면 <see cref="UserCount"/> 와 같다.
+    /// </remarks>
+    public int TotalUserCount { get; set; }
+
+    /// <summary>
     /// 하위 부서 목록 (트리 구조용)
     /// </summary>
     public List<DepartmentDto>? Children { get; set; }

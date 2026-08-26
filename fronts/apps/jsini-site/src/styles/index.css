@@ -1,0 +1,103 @@
+@import 'tailwindcss';
+
+/**
+ * 글꼴 — 저장소 안의 파일만 쓴다 (준수사항 5).
+ *
+ * 포털(`apps/jsini-portal/public/fonts/`)과 같은 파일을 복사해 두었다. 넷 중 둘만 가져왔다 —
+ * 하나에 350KB 라 전부 넣으면 첫 화면이 느려지고, 소개 사이트에서 쓰는 무게는
+ * 본문(300)과 제목(700) 둘뿐이다. 무게가 더 필요해지면 포털 폴더에서 파일을 더 복사한다.
+ *
+ * 이용 조건은 `public/fonts/README.md` 에 있다.
+ */
+@font-face {
+  font-family: 'S-CoreDream';
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+  src: url('/fonts/S-CoreDream-3Light.woff') format('woff');
+}
+@font-face {
+  font-family: 'S-CoreDream';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/S-CoreDream-6Bold.woff') format('woff');
+}
+@font-face {
+  font-family: 'Play';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/Play-400-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+2000-206F, U+2122;
+}
+@font-face {
+  font-family: 'Play';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/Play-700-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+2000-206F, U+2122;
+}
+
+/**
+ * 브랜드 토큰. 값은 `docs/brand/README.md` 2절이 정한다 — 여기서 새로 만들지 않는다.
+ * 액센트 색은 두지 않는다. 강조는 색이 아니라 대비로 낸다.
+ */
+@theme {
+  --color-ink: #0a0a0a;
+  --color-graphite: #1c1c1e;
+  --color-steel: #6e6e73;
+  --color-mist: #d2d2d7;
+  --color-paper: #ffffff;
+
+  --font-sans: 'S-CoreDream', 'Play', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-sans);
+  font-weight: 300;
+  background: var(--color-paper);
+  color: var(--color-ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 브랜드가 각진 스타일이라 둥근 모서리를 쓰지 않는다. 각도는 0 · 45 · 90 만 쓴다. */
+* {
+  border-radius: 0 !important;
+}
+
+/**
+ * 제목은 굵게 + 트래킹을 좁힌다. 워드마크(트래킹 +12%)와 반대로 가서
+ * 로고와 본문 제목이 서로를 흉내내지 않게 한다.
+ */
+.h-display {
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+}
+
+/* 상승 조각과 같은 각도(사선 22 : 높이 100). 구분선·강조에 반복한다. */
+.shard-rule {
+  height: 1px;
+  background: var(--color-mist);
+}
+
+/* 움직임을 원하지 않는 사람에게는 멈춘 화면을 준다. */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

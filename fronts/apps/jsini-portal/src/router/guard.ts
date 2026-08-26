@@ -193,9 +193,13 @@ function setupViewPermissionGuard(router: Router) {
       // 새로고침으로 바로 들어온 경우. 실패해도 통과시킨다.
       await permissionStore.load().catch(() => undefined);
     }
-    // 권한 정보를 아직 못 받았거나 역할이 하나도 없는 계정은 막지 않는다.
-    // v-perm·can()·useMenuPermission() 과 같은 규칙이다.
-    if (!permissionStore.isLoaded || !permissionStore.hasAnyData) return true;
+    // 못 받아온 경우만 통과시킨다 — 권한 서비스가 죽었다는 이유로 사용자를
+    // 화면 밖으로 밀어내지 않기 위한 것이고, 권한 판단이 아니다.
+    //
+    // **"역할이 하나도 없는 계정은 막지 않는다" 는 규칙은 없앴다.**
+    // 권한을 하나도 주지 않은 계정이 오히려 전부 열리는 셈이라 방향이 거꾸로였다.
+    // 이제 "못 받았다" 와 "받았더니 비어 있다" 를 구분한다.
+    if (!permissionStore.isLoaded) return true;
 
     // 부모(디렉터리) 메뉴는 그냥 지나가게 둔다.
     // 화면이 없어 열람 권한이 꺼져 있는데(현재 43건), 여기서 막으면

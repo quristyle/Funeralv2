@@ -20,11 +20,38 @@ public class CompanyService : ICompanyService
 
     public async Task<IEnumerable<CompanyDto>> GetAllCompaniesAsync()
     {
-        return await _context.Companies
+        var companies = await _context.Companies
             .OrderBy(c => c.SortOrder)
             .ThenByDescending(c => c.CreatedAt)
             .ProjectToType<CompanyDto>()
             .ToListAsync();
+
+        // ── 소속 사용자·부서 수를 함께 채운다 ──────────────────
+        //
+        // 회사 목록 화면과 사용자 관리 화면(/company/user)이 "어디에 사람이 있는지" 를
+        // 바로 보여 주려면 이 숫자가 필요하다. 목록을 받아 놓고 화면에서 회사마다
+        // 따로 물어보면 회사 수만큼 요청이 나간다 — 여기서 한 번에 묶어 센다.
+        //
+        // 지운 계정·부서는 세지 않는다.
+        var userCounts = await _context.Accounts
+            .Where(a => !a.IsDeleted && a.CompanyId != null)
+            .GroupBy(a => a.CompanyId!)
+            .Select(g => new { CompanyId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.CompanyId, x => x.Count);
+
+        var deptCounts = await _context.Departments
+            .Where(d => !d.IsDeleted && d.CompanyId != null)
+            .GroupBy(d => d.CompanyId!)
+            .Select(g => new { CompanyId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.CompanyId, x => x.Count);
+
+        foreach (var company in companies)
+        {
+            company.UserCount = userCounts.GetValueOrDefault(company.Id);
+            company.DeptCount = deptCounts.GetValueOrDefault(company.Id);
+        }
+
+        return companies;
     }
 
     public async Task<CompanyDto?> GetCompanyByIdAsync(string id)

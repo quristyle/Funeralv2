@@ -172,6 +172,18 @@ function createRequestClient(
   // 일반적인 오류 처리, 위의 오류 처리 로직에 진입하지 않으면 여기로 들어옵니다.
   client.addResponseInterceptor(
     errorMessageResponseInterceptor((msg: string, error) => {
+      // ── 곁들이는 요청은 조용히 실패시킨다 ──────────────────
+      //
+      // 화면이 그려지는 데 필수가 아닌 요청이 있다(예: 계정에 저장된 환경설정).
+      // 실패해도 기본값·로컬 설정으로 그대로 쓸 수 있으므로 사용자에게 알릴 것이 없다.
+      // 그런데 이 인터셉터는 **부르는 쪽이 catch 하기 전에** 토스트를 띄우므로,
+      // `.catch()` 만으로는 막을 수 없다. 그래서 요청 쪽에서 표시를 끄게 한다.
+      //
+      //   requestClient.get(url, { skipErrorMessage: true } as any)
+      if ((error?.config as any)?.skipErrorMessage) {
+        return;
+      }
+
       // 이곳은 비즈니스에 따라 맞춤형으로 구현할 수 있습니다. error 내의 정보를 가져와서 맞춤형 처리를 할 수 있으며, 서로 다른 code에 따라 다른 메시지를 표시할 수 있습니다. 단순히 message.error를 사용하여 msg를 표시하는 대신 말이죠.
       // 현재 mock 인터페이스에서 반환하는 오류 필드는 error 또는 message입니다.
       const responseData = error?.response?.data ?? {};

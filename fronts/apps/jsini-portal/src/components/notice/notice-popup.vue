@@ -318,17 +318,36 @@ onMounted(() => {
               <IconifyIcon class="size-3.5" icon="lucide:paperclip" />
               첨부파일 {{ current.files.length }}
             </div>
+            <!--
+              [첨부파일명은 끝까지 보여 준다]
+
+              예전에는 `max-w-[220px] truncate` 로 잘라서 긴 이름이 `…` 로 가려졌다.
+              실제 첨부에 42자짜리(`ChatGPT-Image-2026년-5월-10일-오후-02_09_01.jpg`)가 있어
+              무엇을 내려받는 것인지 알 수 없었다. 확장자가 잘리면 더 나쁘다.
+
+              자르는 대신 **줄바꿈**으로 바꿨다.
+                · `max-w-full` — 칸이 팝업 폭을 넘지 않게 한다(가로 스크롤 방지).
+                · `break-all`  — 파일명은 띄어쓰기가 없는 경우가 많다. `break-words` 는
+                                 끊을 자리를 못 찾아 그대로 넘쳐 흐른다.
+                · 아이콘·용량은 `shrink-0` 으로 고정하고, 용량은 줄바꿈에서 떼어 놓는다.
+
+              이름이 짧으면 예전처럼 여러 개가 한 줄에 나란히 붙는다.
+            -->
             <ul class="m-0 flex list-none flex-wrap gap-1.5 p-0">
-              <li v-for="file in current.files" :key="file.fileId">
+              <li
+                v-for="file in current.files"
+                :key="file.fileId"
+                class="min-w-0 max-w-full"
+              >
                 <a
-                  class="border-border hover:border-primary hover:text-primary flex items-center gap-1 rounded-md border px-2 py-1 text-xs transition-colors"
+                  class="border-border hover:border-primary hover:text-primary flex max-w-full items-start gap-1 rounded-md border px-2 py-1 text-xs transition-colors"
                   :href="downloadUrl(file)"
                   rel="noopener"
                   target="_blank"
                 >
-                  <IconifyIcon class="size-3.5" icon="lucide:download" />
-                  <span class="max-w-[220px] truncate">{{ file.fileName }}</span>
-                  <span class="text-muted-foreground">
+                  <IconifyIcon class="mt-0.5 size-3.5 shrink-0" icon="lucide:download" />
+                  <span class="min-w-0 break-all">{{ file.fileName }}</span>
+                  <span class="text-muted-foreground shrink-0 whitespace-nowrap">
                     {{ formatSize(file.fileSize) }}
                   </span>
                 </a>

@@ -6,10 +6,18 @@
       "url": "http://localhost:5555",
       "port": 5555,
       "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["-C", "fronts", "dev"]
+    },
+    {
+      "name": "jsini-site",
+      "url": "http://localhost:5556/",
+      "port": 5556,
+      "runtimeExecutable": "node",
       "runtimeArgs": [
-        "-C",
-        "fronts",
-        "dev"
+        "fronts/apps/jsini-site/node_modules/vite/bin/vite.js",
+        "fronts/apps/jsini-site",
+        "--port",
+        "5556"
       ]
     }
   ]

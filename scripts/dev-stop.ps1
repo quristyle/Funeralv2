@@ -5,6 +5,9 @@
 # 사용법
 #   powershell -NoProfile -ExecutionPolicy Bypass -File dev-stop.ps1 -Port 5350 -Dir C:\Funeralv2\microservices\FileServer
 #
+# 프론트처럼 디렉터리를 공유하는 서비스는 기동 명령을 함께 넘긴다.
+#   ... -Port 5556 -Dir C:\Funeralv2\fronts -CmdMatch "pnpm --filter @jsini/site dev"
+#
 # 출력은 **한 줄**이다. dev.bat 이 첫 낱말만 읽는다.
 #   NOT_RUNNING            떠 있지 않았다
 #   STOPPED                내렸다 (포트가 비었음을 확인했다)
@@ -41,6 +44,16 @@ param(
 
     # 이 서비스의 디렉터리. 이 아래에서 실행된 프로세스는 이 서비스의 것으로 본다.
     [Parameter(Mandatory = $true)][string] $Dir,
+
+    # 이것이 주어지면 **디렉터리로 후보를 모으지 않고** 명령줄에 이 문구가 든 것만 본다.
+    #
+    # 프론트엔드 때문에 생겼다. 프론트가 둘(업무 포털 5555 · 소개 사이트 5556)인데
+    # 둘 다 `fronts` 아래에서 돌고 node 실행 파일도 `fronts\node_modules` 하나를 공유한다.
+    # 그래서 디렉터리로 고르면 **한쪽을 내릴 때 다른 쪽까지 죽는다** (실제로 겪었다).
+    #
+    # 여기에는 dev.bat 의 기동 명령을 그대로 넘긴다
+    # (예: `pnpm --filter @jsini/site dev`). 정규식이 아니라 **문자열 그대로** 찾는다.
+    [string] $CmdMatch = '',
 
     # 포트가 비기를 기다리는 시간
     [int] $TimeoutSec = 10
@@ -159,7 +172,9 @@ function Get-Subtree([int]$root, $snap) {
 # ------------------------------------------------------------
 # 이 서비스에 속한 프로세스를 모은다.
 #   · 포트를 잡고 있는 것
-#   · 이 디렉터리 안에서 실행된 것 (포트를 못 잡은 채 떠 있는 것 — 기동 실패 등)
+#   · 포트를 못 잡은 채 떠 있는 것 (기동 실패 등) — 이것을 어떻게 찾을지가 갈린다
+#       -CmdMatch 가 있으면  명령줄에 그 문구가 든 것
+#       없으면               이 디렉터리 안에서 실행된 것
 # 각각에서 위로 올라가 맨 위를 찾고, 그 아래 전체를 대상으로 삼는다.
 # ------------------------------------------------------------
 function Get-ServicePids($snap, $protectedPids) {
@@ -167,10 +182,21 @@ function Get-ServicePids($snap, $protectedPids) {
 
     foreach ($procId in Get-PortPid $Port) { [void]$seeds.Add($procId) }
 
-    foreach ($proc in $snap.ByPid.Values) {
-        $exe = $proc.ExecutablePath
-        if ($exe -and $exe.StartsWith($dirFull, [StringComparison]::OrdinalIgnoreCase)) {
-            [void]$seeds.Add([int]$proc.ProcessId)
+    if ($CmdMatch) {
+        # 프론트처럼 디렉터리를 공유하는 경우. 명령줄로만 고른다.
+        foreach ($proc in $snap.ByPid.Values) {
+            $cmd = $proc.CommandLine
+            if ($cmd -and $cmd.IndexOf($CmdMatch, [StringComparison]::OrdinalIgnoreCase) -ge 0) {
+                [void]$seeds.Add([int]$proc.ProcessId)
+            }
+        }
+    }
+    else {
+        foreach ($proc in $snap.ByPid.Values) {
+            $exe = $proc.ExecutablePath
+            if ($exe -and $exe.StartsWith($dirFull, [StringComparison]::OrdinalIgnoreCase)) {
+                [void]$seeds.Add([int]$proc.ProcessId)
+            }
         }
     }
 

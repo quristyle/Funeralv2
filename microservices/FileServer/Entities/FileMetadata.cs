@@ -54,6 +54,12 @@ public class FileMetadata : BaseEntity<Guid>
     public int SortOrder { get; set; }
 
     /// <summary>
+    /// 로그인하지 않은 사람에게도 내려줄 파일인지 여부.
+    /// 기본은 false 다. 회사 소개 사이트의 공개 자료실처럼 익명 열람이 필요한 파일만 켠다.
+    /// </summary>
+    public bool IsPublic { get; set; }
+
+    /// <summary>
     /// 소속 파일 그룹 엔티티 탐색 속성
     /// </summary>
     public FileGroup? FileGroup { get; set; }

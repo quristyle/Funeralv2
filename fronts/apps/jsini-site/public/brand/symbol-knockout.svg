@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120" role="img">
+  <title>JSINI 심볼 녹아웃</title>
+  <desc>어두운 배경용 밝은 2톤 심볼</desc>
+    <path d="M58,30 L102,30 L102,42 L70,42 L70,54 L102,54 L102,90 L58,90 L58,78 L90,78 L90,66 L58,66 Z" fill="#D2D2D7"/>
+    <path d="M50,42 L62,30 L62,90 L18,90 L18,78 L50,78 Z" fill="#FFFFFF"/>
+</svg>

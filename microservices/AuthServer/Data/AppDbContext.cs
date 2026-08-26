@@ -32,10 +32,15 @@ public class AppDbContext : DbContext
     public DbSet<NoticeFile> NoticeFiles { get; set; }
     public DbSet<Faq> Faqs { get; set; }
     public DbSet<QnaPost> QnaPosts { get; set; }
+    public DbSet<HelpArchive> HelpArchives { get; set; }
+    public DbSet<HelpArchiveFile> HelpArchiveFiles { get; set; }
     public DbSet<AccountLoginLog> AccountLoginLogs { get; set; }
+    public DbSet<AccountPreference> AccountPreferences { get; set; }
     public DbSet<MenuFavorite> MenuFavorites { get; set; }
     public DbSet<RoleCompany> RoleCompanies { get; set; }
     public DbSet<RoleDepartment> RoleDepartments { get; set; }
+    public DbSet<ReleaseRun> ReleaseRuns { get; set; }
+    public DbSet<ReleaseRunEvent> ReleaseRunEvents { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -97,6 +102,42 @@ public class AppDbContext : DbContext
             .HasOne(f => f.Menu)
             .WithMany()
             .HasForeignKey(f => f.MenuId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // 계정 하나에 환경설정 한 행. 두 창에서 동시에 저장해도 갈라지지 않게 한다.
+        modelBuilder.Entity<AccountPreference>()
+            .HasIndex(p => p.AccountId)
+            .IsUnique();
+
+        // 계정이 사라지면 설정도 함께 지운다.
+        modelBuilder.Entity<AccountPreference>()
+            .HasOne(p => p.Account)
+            .WithMany()
+            .HasForeignKey(p => p.AccountId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // ── 배포 실행 ──────────────────────────────────────────
+        //
+        // 같은 대상을 동시에 두 번 배포하지 못하게 한다. 화면에서 버튼을 잠그는 것만으로는
+        // 두 사람이 동시에 누르는 것을 막지 못하고, 그러면 같은 체크아웃에서 스크립트 둘이 돈다.
+        // 서비스가 먼저 확인하기도 하지만 경합은 이 인덱스에서만 확실히 막힌다.
+        //
+        // 'dispatched' 는 넣지 않는다 — 보고가 오지 않는 대상이라 영원히 안 풀린다.
+        modelBuilder.Entity<ReleaseRun>()
+            .HasIndex(r => r.TargetKey)
+            .IsUnique()
+            .HasFilter("status IN ('queued', 'running') AND is_deleted = false");
+
+        // 화면이 sinceSeq 로 이어 받으므로 같은 순번이 두 번 들어오면 안 된다.
+        modelBuilder.Entity<ReleaseRunEvent>()
+            .HasIndex(e => new { e.RunId, e.Seq })
+            .IsUnique();
+
+        // run 을 지우면 로그도 함께 지운다.
+        modelBuilder.Entity<ReleaseRunEvent>()
+            .HasOne(e => e.Run)
+            .WithMany(r => r.Events)
+            .HasForeignKey(e => e.RunId)
             .OnDelete(DeleteBehavior.Cascade);
 
         // Department 엔티티에 (CompanyId, Id) 복합 고유 키(AlternateKey) 설정

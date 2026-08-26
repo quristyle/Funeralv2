@@ -126,6 +126,20 @@ const [Grid, gridApi] = useVbenVxeGrid({
   gridOptions: {
     columns: useColumns(),
     height: 'auto',
+    // ── 정렬·필터는 화면에서 한다 ──────────────────────────
+    //
+    // `remote: false` 를 **분명히 적어 둔다.** proxyConfig 를 함께 쓰면 vxe 가
+    // 정렬·필터를 서버에 다시 물어보려 할 수 있는데, 이 화면의 query 는 인자를
+    // 받지 않고 전체를 내려주므로 그러면 아무 일도 일어나지 않는다.
+    // 계정 수가 수십 건이라 받아 둔 데이터를 화면에서 다루는 것이 제일 빠르다.
+    sortConfig: {
+      // 여러 칸으로 줄 세우기. '회사 → 이름' 처럼 묶어 보는 일이 많다.
+      multiple: true,
+      remote: false,
+    },
+    filterConfig: {
+      remote: false,
+    },
     proxyConfig: {
       response: {
         list: (res: any) => res,

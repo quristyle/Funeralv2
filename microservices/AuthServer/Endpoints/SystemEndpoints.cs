@@ -96,9 +96,13 @@ public static class SystemEndpoints
         .WithOpenApi();
 
         // 부서(Department) 관리
-        group.MapGet("/dept/list", async ([FromQuery] string? companyId, UserContext? userContext, [FromServices] IDepartmentService deptService) =>
+        // allCompanies=true 면 모든 회사의 부서를 함께 준다.
+        // 회사 인자를 비우는 것은 '전체' 가 아니라 '요청한 사람의 회사' 다 — 뜻이 다르다.
+        group.MapGet("/dept/list", async ([FromQuery] string? companyId, [FromQuery] bool? allCompanies,
+            UserContext? userContext, [FromServices] IDepartmentService deptService) =>
         {
-            var depts = await deptService.GetDeptListAsync(companyId, userContext);
+            var depts = await deptService.GetDeptListAsync(
+                companyId, userContext, allCompanies == true);
             return Results.Ok(ApiResponse<List<DepartmentDto>>.Ok(depts));
         })
         .WithName("GetDeptList")

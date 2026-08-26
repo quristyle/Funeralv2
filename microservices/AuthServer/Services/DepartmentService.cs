@@ -18,40 +18,82 @@ public class DepartmentService : IDepartmentService
     }
 
     /// <summary>부서 목록 트리 구조 조회</summary>
-    public async Task<List<DepartmentDto>> GetDeptListAsync(string? companyId, UserContext? userContext)
+    /// <param name="companyId">조회할 회사. 비우면 요청한 사람의 회사를 쓴다.</param>
+    /// <param name="userContext">게이트웨이가 넘긴 신원</param>
+    /// <param name="allCompanies">
+    /// 모든 회사의 부서를 함께 볼지.
+    /// <para>
+    /// **회사 인자를 비우는 것으로는 '전체' 를 표현할 수 없다.** 비우면 요청한 사람의
+    /// 회사로 좁혀지기 때문이다(아래 fallback). 부서 관리 화면의 '전체' 가 실제로는
+    /// 자기 회사만 보여 주고 있었던 것이 그래서였다.
+    /// 전체를 보려면 이 값을 켜야 한다 — 뜻이 분명해지고, 기존 호출은 그대로 동작한다.
+    /// </para>
+    /// </param>
+    public async Task<List<DepartmentDto>> GetDeptListAsync(
+        string? companyId, UserContext? userContext, bool allCompanies = false)
     {
-        var targetCompanyId = companyId ?? userContext?.CompanyId;
         var query = _db.Departments
             .Include(d => d.Company)
             .AsQueryable();
 
-        if (!string.IsNullOrEmpty(targetCompanyId))
+        if (!allCompanies)
         {
-            query = query.Where(d => d.CompanyId == targetCompanyId);
+            var targetCompanyId = companyId ?? userContext?.CompanyId;
+            if (!string.IsNullOrEmpty(targetCompanyId))
+            {
+                query = query.Where(d => d.CompanyId == targetCompanyId);
+            }
         }
 
         var departments = await query.ToListAsync();
-        return BuildDeptTree(departments, null);
+
+        // ── 부서별 소속 인원 ──────────────────────────────────
+        //
+        // 부서 목록·트리에서 "어디에 사람이 있는지" 를 바로 보여 주려고 함께 센다.
+        // 부서마다 따로 세면 부서 수만큼 질의가 나가므로(N+1) 한 번에 묶는다.
+        // 사용자는 부서 하나에만 붙으므로(accounts.department_id) 중복 계산이 없다.
+        var deptIds = departments.Select(d => d.Id).ToList();
+        var userCounts = await _db.Accounts
+            .Where(a => !a.IsDeleted && a.DepartmentId != null && deptIds.Contains(a.DepartmentId))
+            .GroupBy(a => a.DepartmentId!)
+            .Select(g => new { DeptId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.DeptId, x => x.Count);
+
+        return BuildDeptTree(departments, null, userCounts);
     }
 
     /// <summary>부서 데이터를 트리로 빌드하는 내부 메서드</summary>
-    private List<DepartmentDto> BuildDeptTree(List<Department> depts, string? parentId)
+    private List<DepartmentDto> BuildDeptTree(
+        List<Department> depts,
+        string? parentId,
+        IReadOnlyDictionary<string, int> userCounts)
     {
         return depts
             .Where(d => d.ParentId == parentId)
             .OrderBy(d => d.SortOrder)
             .ThenBy(d => d.Name)
-            .Select(d => new DepartmentDto
+            .Select(d =>
             {
-                Id = d.Id,
-                Name = d.Name,
-                Pid = d.ParentId,
-                Status = d.Status,
-                Remark = d.Remark,
-                SortOrder = d.SortOrder,
-                CompanyId = d.CompanyId,
-                CompanyName = d.Company?.Name,
-                Children = BuildDeptTree(depts, d.Id).Any() ? BuildDeptTree(depts, d.Id) : null
+                // 자식 트리는 한 번만 만든다. 예전에는 같은 호출을 두 번 해서
+                // (Any() 확인 + 실제 값) 깊은 트리에서 지수적으로 늘어났다.
+                var children = BuildDeptTree(depts, d.Id, userCounts);
+                var own = userCounts.GetValueOrDefault(d.Id);
+
+                return new DepartmentDto
+                {
+                    Id = d.Id,
+                    Name = d.Name,
+                    Pid = d.ParentId,
+                    Status = d.Status,
+                    Remark = d.Remark,
+                    SortOrder = d.SortOrder,
+                    CompanyId = d.CompanyId,
+                    CompanyName = d.Company?.Name,
+                    UserCount = own,
+                    // 접어 둔 상태에서도 조직 전체 인원을 알 수 있게 합계를 함께 준다.
+                    TotalUserCount = own + children.Sum(c => c.TotalUserCount),
+                    Children = children.Count > 0 ? children : null
+                };
             })
             .ToList();
     }

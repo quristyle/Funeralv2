@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630" role="img">
+  <title>JSINI OG 이미지</title>
+  <desc>잉크 배경에 가로 조합 녹아웃과 상승 조각</desc>
+    <rect width="1200" height="630" fill="#0A0A0A"/>
+    <rect x="0" y="0" width="1200" height="4" fill="#6E6E73"/>
+    <g transform="translate(760,300) scale(1.6)">
+    <polygon points="0,160 24,160 42,124 18,124" fill="#1C1C1E"/>
+    <polygon points="44,160 68,160 86,94 62,94" fill="#3A3A3C"/>
+    <polygon points="88,160 112,160 130,64 106,64" fill="#6E6E73"/>
+    <polygon points="132,160 156,160 174,34 150,34" fill="#D2D2D7"/>
+    </g>
+    <g transform="translate(120,270) scale(1.9)">
+    <g transform="translate(-18,-30) scale(1)">
+      <path d="M58,30 L102,30 L102,42 L70,42 L70,54 L102,54 L102,90 L58,90 L58,78 L90,78 L90,66 L58,66 Z" fill="#D2D2D7"/>
+    </g>
+    <g transform="translate(-18,-30) scale(1)">
+      <path d="M50,42 L62,30 L62,90 L18,90 L18,78 L50,78 Z" fill="#FFFFFF"/>
+    </g>
+    <path d="M124,21 L130,15 L130,45 L108,45 L108,39 L124,39 Z" fill="#FFFFFF"/>
+    <path d="M140,15 L162,15 L162,21 L146,21 L146,27 L162,27 L162,45 L140,45 L140,39 L156,39 L156,33 L140,33 Z" fill="#FFFFFF"/>
+    <path d="M172,15 L178,15 L178,45 L172,45 Z" fill="#FFFFFF"/>
+    <path d="M188,45 L188,15 L194,15 L206,35 L206,15 L212,15 L212,45 L206,45 L194,25 L194,45 Z" fill="#FFFFFF"/>
+    <path d="M222,15 L228,15 L228,45 L222,45 Z" fill="#FFFFFF"/>
+    </g>
+</svg>

@@ -106,30 +106,24 @@ export async function saveWbsDiagram(data: {
 // ============================================================
 
 /**
- * 일정 API 만 응답 봉투가 다르다.
+ * 일정 API 도 이제 다른 엔드포인트와 같은 봉투를 쓴다.
  *
- * 다른 엔드포인트는 `{ success, message, data }` 로 감싸 보내지만
- * ScheduleEndpoints 는 `{ data: [...] }` 만 보낸다(`success` 없음).
- * 요청 클라이언트는 `success` 가 있어야 봉투로 알아보고 벗겨내므로,
- * 여기서 한 번 더 확인해 배열을 꺼낸다.
+ * 예전에는 이 API 만 `{ data: [...] }` 로 `success` 없이 보내서, 요청 클라이언트가
+ * 봉투로 알아보지 못했다. 그래서 여기 `unwrapSchedule()` 이라는 예외 처리가 있었다 —
+ * **서버가 표준을 안 지키는 것을 클라이언트가 떠안고 있던 셈이다.**
+ *
+ * 서버(`ScheduleEndpoints`)를 `ApiResponseBuilder` 로 맞추고 그 예외 처리를 지웠다
+ * (결정 D3-A). 이제 체크리스트·고객 등과 똑같이 부르면 된다.
  */
-function unwrapSchedule<T>(res: any): T {
-  if (res && typeof res === 'object' && !Array.isArray(res) && 'data' in res) {
-    return res.data as T;
-  }
-  return res as T;
-}
 
 /** 일정 목록 */
 export async function getSchedules(params?: { companyId?: number }) {
-  const res = await helpdeskClient.get<any>('/schedules', { params });
-  return unwrapSchedule<Schedule[]>(res) ?? [];
+  return (await helpdeskClient.get<Schedule[]>('/schedules', { params })) ?? [];
 }
 
 /** 일정 단건 조회 */
 export async function getSchedule(id: string) {
-  const res = await helpdeskClient.get<any>(`/schedules/${id}`);
-  return unwrapSchedule<Schedule>(res);
+  return helpdeskClient.get<Schedule>(`/schedules/${id}`);
 }
 
 /** 일정 생성 */

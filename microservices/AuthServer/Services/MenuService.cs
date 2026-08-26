@@ -171,15 +171,19 @@ public class MenuService : IMenuService
     /// 사용자가 특정 메뉴 경로에서 실제로 가진 권한.
     /// </summary>
     /// <remarks>
-    /// 권한 정보가 아예 없는 계정(역할 미배정)은 막지 않는다 — 화면 쪽과 같은 규칙이다.
-    /// 자세한 이유는 <see cref="IMenuService.GetEffectivePermissionAsync"/> 주석에 있다.
+    /// <b>권한이 없으면 없는 것으로 돌려준다.</b> 예전에는 권한 정보가 아예 없는 계정
+    /// (역할 미배정)을 '전부 허용' 으로 다뤘다. 그러면 역할이 하나도 없는 계정이
+    /// 도움말 F.A.Q 를 쓰고 자료실에 파일을 올릴 수 있는 <b>관리자</b>가 된다 —
+    /// 권한을 하나도 주지 않았는데 가장 센 권한을 갖는 셈이라 방향이 거꾸로였다.
+    ///
+    /// <para>
+    /// 조회 실패(DB 접속 불가 등)는 예외로 올라가므로 이 자리에서 빈 목록과 섞이지 않는다.
+    /// 즉 빈 목록은 "못 읽었다" 가 아니라 "읽었더니 없다" 다.
+    /// </para>
     /// </remarks>
     public async Task<MenuPermissionDto> GetEffectivePermissionAsync(string userId, string path)
     {
         var all = await GetMenuPermissionsAsync(userId);
-
-        // 정보가 아예 없으면 전부 허용으로 본다.
-        if (all.Count == 0) return AllowAll(path);
 
         var target = Normalize(path);
         return all.FirstOrDefault(p => Normalize(p.Path) == target)
@@ -195,14 +199,9 @@ public class MenuService : IMenuService
             : trimmed;
     }
 
-    private static MenuPermissionDto AllowAll(string path) => new()
-    {
-        Path = path,
-        CanView = true, CanSearch = true, CanCreate = true, CanUpdate = true,
-        CanDelete = true, CanPrint = true, CanExcel = true,
-        CanCust1 = true, CanCust2 = true, CanCust3 = true, CanCust4 = true,
-        CanCust5 = true, CanCust6 = true, CanCust7 = true, CanCust8 = true
-    };
+    // '전부 허용' 을 만들어 주던 AllowAll() 은 지웠다.
+    // 권한 정보가 없는 계정을 관리자로 만들던 유일한 자리였고, 남겨 두면
+    // 다음 사람이 같은 실수를 하기 쉽다. 권한이 없으면 없는 것으로 돌려준다.
 
     /// <summary>
     /// 여러 메뉴의 부모와 순서를 한 번에 반영합니다.

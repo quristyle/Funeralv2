@@ -29,9 +29,12 @@ import { useMenuPermissionStore } from '#/store/menu-permission';
 export function can(action: PermissionAction, path?: string): boolean {
   const store = useMenuPermissionStore();
 
-  // 권한 정보를 아직 못 받았거나 역할이 하나도 없는 계정은 막지 않는다.
-  // 열람 가드·v-perm 과 같은 규칙이다.
-  if (!store.isLoaded || !store.hasAnyData) return true;
+  // 아직 못 받은 동안만 열어 둔다 (깜빡임 방지).
+  //
+  // **"역할이 하나도 없는 계정은 막지 않는다" 는 규칙은 없앴다.** 그러면 권한을
+  // 하나도 주지 않은 계정이 오히려 모든 동작을 갖게 된다. 받아왔더니 비어 있으면
+  // 그대로 '권한 없음' 이다.
+  if (!store.isLoaded) return true;
 
   const target = path ?? window.location.pathname;
   return Boolean((store.resolve(target) as any)[ACTION_TO_FIELD[action]]);

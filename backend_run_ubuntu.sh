@@ -45,12 +45,41 @@ SERVICES=(
   "file|File Server|microservices/FileServer|5350|FILE_API"
   "helpdesk|HelpDesk Server|microservices/HelpDeskServer|5400|HELPDESK"
   "projmng|ProjMng Server|microservices/ProjMngServer|5450|PROJMNG"
+  "site|Site Server|microservices/SiteServer|5480|SITE_API"
+  # 알림(푸시·이메일). 포털·장례식장·헬프데스크가 함께 쓴다 (결정 D8-A).
+  "notify|Notification Server|microservices/NotificationServer|5460|NOTIFY"
 )
 
 # 프론트엔드는 dotnet 서비스가 아니라 따로 다룬다.
-FRONT_KEY="front"
-FRONT_LABEL="Frontend (vite)"
-FRONT_PORT=5555
+# 형식: 이름|표시이름|상대경로|포트|pnpm 필터
+#
+# 프론트가 둘이 되면서 변수 하나(FRONT_KEY)로는 표현이 안 됐다. 표로 바꿨다.
+# 셋째가 붙어도 여기에 한 줄만 더하면 된다.
+#
+# 이름이 바뀌었다: 예전 `front` 는 이제 `portal` 이다. `web` 이 회사 소개 사이트다.
+FRONTS=(
+  "portal|Portal Frontend (vite)|fronts|5555|@vben/jsini-portal"
+  "web|Site Frontend (vite)|fronts|5556|@jsini/site"
+)
+
+front_keys()   { printf '%s
+' "${FRONTS[@]}" | cut -d'|' -f1; }
+front_field()  {   # front_field <이름> <필드번호>
+    local key="$1" idx="$2" row
+    for row in "${FRONTS[@]}"; do
+        if [ "${row%%|*}" = "$key" ]; then
+            printf '%s
+' "$row" | cut -d'|' -f"$idx"
+            return 0
+        fi
+    done
+    return 1
+}
+is_front()     { front_field "$1" 1 >/dev/null 2>&1; }
+front_label()  { front_field "$1" 2; }
+front_dir()    { echo "$ROOT_DIR/$(front_field "$1" 3)"; }
+front_port()   { front_field "$1" 4; }
+front_filter() { front_field "$1" 5; }
 
 #############################################
 # 서비스 표 조회 도우미
@@ -74,7 +103,7 @@ svc_keys() {
 }
 
 svc_exists() {
-    [ "$1" = "$FRONT_KEY" ] && return 0
+    is_front "$1" && return 0
     svc_field "$1" 1 >/dev/null 2>&1
 }
 
@@ -217,14 +246,19 @@ stop_dir() {   # stop_dir <절대경로> <표시이름>
 stop_service() {   # stop_service <이름>
     local key="$1"
 
-    if [ "$key" = "$FRONT_KEY" ]; then
-        stop_dir "$FRONTEND_DIR" "$FRONT_LABEL"
-        # vite 는 fronts/apps/... 아래에서 돌 수도 있다. 포트로 한 번 더 확인한다.
-        local pid
-        pid="$(pid_on_port "$FRONT_PORT")"
+    if is_front "$key"; then
+        # **디렉터리로 찾지 않는다.** 프론트가 둘 다 `fronts` 아래에서 돌기 때문에
+        # 작업 디렉터리로 고르면 한쪽을 내릴 때 다른 쪽까지 죽는다. 포트로만 고른다.
+        local pid port label
+        port="$(front_port "$key")"
+        label="$(front_label "$key")"
+        pid="$(pid_on_port "$port")"
         if [ -n "$pid" ]; then
             kill "$pid" 2>/dev/null && sleep 1
             kill -9 "$pid" 2>/dev/null
+            echo "   ✓ $label 종료"
+        else
+            echo "   · $label 은 실행 중이 아님"
         fi
         return 0
     fi
@@ -248,9 +282,15 @@ stop_service() {   # stop_service <이름>
 build_service() {   # build_service <이름>
     local key="$1"
 
-    if [ "$key" = "$FRONT_KEY" ]; then
-        echo "   · $FRONT_LABEL 의존성 설치..."
+    if is_front "$key"; then
+        # 프론트는 워크스페이스 하나를 공유한다. 여러 개를 함께 띄워도 설치는 한 번이면 된다.
+        if [ -n "${PNPM_INSTALLED:-}" ]; then
+            echo "   · $(front_label "$key") 의존성 설치 (이미 했음)"
+            return 0
+        fi
+        echo "   · $(front_label "$key") 의존성 설치..."
         (cd "$FRONTEND_DIR" && pnpm install) || return 1
+        PNPM_INSTALLED=1
         return 0
     fi
 
@@ -261,10 +301,13 @@ build_service() {   # build_service <이름>
 start_service() {   # start_service <이름>
     local key="$1"
 
-    if [ "$key" = "$FRONT_KEY" ]; then
+    if is_front "$key"; then
         local nvm_init='export NVM_DIR="$HOME/.nvm"; [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh";'
-        run_terminal "trap ':' INT; ${nvm_init} cd \"$FRONTEND_DIR\" && pnpm dev" &
-        echo "   ✓ $FRONT_LABEL 기동"
+        local dir filter
+        dir="$(front_dir "$key")"
+        filter="$(front_filter "$key")"
+        run_terminal "trap ':' INT; ${nvm_init} cd \"$dir\" && pnpm --filter $filter dev" &
+        echo "   ✓ $(front_label "$key") 기동"
         return 0
     fi
 
@@ -298,12 +341,15 @@ EOF
     for key in $(svc_keys); do
         printf "  %-10s %s (포트 %s)\n" "$key" "$(svc_label "$key")" "$(svc_port "$key")"
     done
-    printf "  %-10s %s (포트 %s)\n" "$FRONT_KEY" "$FRONT_LABEL" "$FRONT_PORT"
+    for key in $(front_keys); do
+        printf "  %-10s %s (포트 %s)\n" "$key" "$(front_label "$key")" "$(front_port "$key")"
+    done
     cat <<EOF
 
 예시
   $(basename "$0") auth              AuthServer 만 다시 띄운다
-  $(basename "$0") projmng front     ProjMng 와 프론트를 다시 띄운다
+  $(basename "$0") site web          소개 사이트 백엔드와 프론트를 다시 띄운다
+  $(basename "$0") projmng portal    ProjMng 와 업무 포털을 다시 띄운다
   $(basename "$0") stop helpdesk     헬프데스크만 내린다
   $(basename "$0") allstop           전부 내린다
 EOF
@@ -334,9 +380,9 @@ print_status() {
     printf "  %-10s %-6s %-6s %s\n" "----------" "----" "-----" "-------"
 
     local key port state
-    for key in $(svc_keys) "$FRONT_KEY"; do
-        if [ "$key" = "$FRONT_KEY" ]; then
-            port="$FRONT_PORT"
+    for key in $(svc_keys) $(front_keys); do
+        if is_front "$key"; then
+            port="$(front_port "$key")"
         else
             port="$(svc_port "$key")"
         fi
@@ -348,8 +394,8 @@ print_status() {
             state="$(printf '%s' "${C_DOWN}DOWN${C_OFF}")"
         fi
 
-        if [ "$key" = "$FRONT_KEY" ]; then
-            print_status_row "$key" "$port" "$state" "$FRONT_LABEL"
+        if is_front "$key"; then
+            print_status_row "$key" "$port" "$state" "$(front_label "$key")"
         else
             print_status_row "$key" "$port" "$state" "$(svc_label "$key")"
         fi
@@ -400,7 +446,7 @@ case "$COMMAND" in
 
     list)
         svc_keys
-        echo "$FRONT_KEY"
+        front_keys
         exit 0
         ;;
 
@@ -414,7 +460,7 @@ case "$COMMAND" in
         echo "   전체 중지"
         echo "===================================================="
         # 게이트웨이를 먼저 내려 외부 요청을 끊고 나머지를 정리한다.
-        for key in $(svc_keys) "$FRONT_KEY"; do
+        for key in $(svc_keys) $(front_keys); do
             stop_service "$key"
         done
         echo
@@ -432,7 +478,7 @@ case "$COMMAND" in
         fi
         for key in "$@"; do
             if ! svc_exists "$key"; then
-                echo "❌ 알 수 없는 서비스: $key   (사용 가능: $(svc_keys | tr '\n' ' ')$FRONT_KEY)"
+                echo "❌ 알 수 없는 서비스: $key   (사용 가능: $(svc_keys | tr '\n' ' ')$(front_keys | tr '\n' ' '))"
                 exit 1
             fi
         done
@@ -457,7 +503,7 @@ case "$COMMAND" in
         echo "   JSini 관리 포털 — 전체 빌드 및 시작"
         echo "===================================================="
         # shellcheck disable=SC2046
-        restart_services $(svc_keys) "$FRONT_KEY"
+        restart_services $(svc_keys) $(front_keys)
         exit 0
         ;;
 

@@ -101,6 +101,58 @@ public static class UserEndpoints
         .WithName("ChangePassword")
         .WithOpenApi();
 
+        // ── 화면 환경설정 (계정별) ──────────────────────────────
+        //
+        // 예전에는 브라우저 로컬스토리지에만 있어서 **사람이 아니라 브라우저에 붙었다.**
+        // 다른 PC 에서 로그인하면 기본값으로 돌아갔다. 계정에 붙여 어디서든 따라오게 한다.
+        //
+        // **자기 것만 다룬다.** 조회할 계정을 요청에서 받지 않고 게이트웨이가 넘긴
+        // 신원을 쓴다. 남의 설정을 열거나 바꾸는 길이 없다.
+        //
+        // 서버는 내용을 해석하지 않는다. 프론트가 만든 JSON 을 그대로 보관하고 돌려준다.
+
+        group.MapGet("/preferences", async (UserContext? user, [FromServices] IAccountPreferenceService service) =>
+        {
+            if (user is null)
+            {
+                return Results.Json(ApiResponse<object>.Fail("인증 정보가 없습니다.", "401"), statusCode: 401);
+            }
+
+            var payload = await service.GetAsync(user.UserId);
+            return Results.Ok(ApiResponse<AccountPreferenceDto>.Ok(new AccountPreferenceDto
+            {
+                Payload = payload
+            }));
+        })
+        .WithName("GetAccountPreferences")
+        .WithOpenApi();
+
+        group.MapPut("/preferences", async (UserContext? user, [FromBody] AccountPreferenceDto request, [FromServices] IAccountPreferenceService service) =>
+        {
+            if (user is null)
+            {
+                return Results.Json(ApiResponse<object>.Fail("인증 정보가 없습니다.", "401"), statusCode: 401);
+            }
+
+            var result = await service.SaveAsync(user.UserId, request.Payload);
+            return result switch
+            {
+                SavePreferenceResult.Success
+                    => Results.Ok(ApiResponse<object>.Ok(null)),
+                SavePreferenceResult.AccountNotFound
+                    => Results.Json(ApiResponse<object>.Fail("계정을 찾을 수 없습니다.", "404"), statusCode: 404),
+                SavePreferenceResult.TooLarge
+                    => Results.Json(
+                        ApiResponse<object>.Fail(
+                            $"환경설정이 너무 큽니다. {AccountPreferenceService.MaxPayloadBytes / 1024}KB 이내여야 합니다.",
+                            "400"),
+                        statusCode: 400),
+                _ => Results.Json(ApiResponse<object>.Fail("환경설정 저장에 실패했습니다.", "400"), statusCode: 400),
+            };
+        })
+        .WithName("SaveAccountPreferences")
+        .WithOpenApi();
+
         group.MapPost("/settings", async (UserContext? user, [FromBody] UpdateSettingDto request, [FromServices] IUserService userService) =>
         {
             if (user is null) 

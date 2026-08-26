@@ -124,8 +124,10 @@ public static class AuthEndpoints
             }
 
             // 3. 토큰 발급
-            var jwtSettings = config.GetSection("JwtSettings");
-            var secretKey = jwtSettings["SecretKey"] ?? "a-very-secret-key-that-is-long-enough-for-security";
+            // 토큰을 **발급하는** 자리다. 여기서 폴백 키를 쓰면 게이트웨이가 검증하지 못하는
+            // 토큰이 나가거나, 더 나쁘게는 잘 알려진 키로 서명된 토큰이 나간다 (결정 D1-B).
+            var secretKey = JSini.Shared.Infrastructure.JwtKeyGuard.Require(
+                config, "JwtSettings:SecretKey", "AuthServer");
             var tokenHandler = new JwtSecurityTokenHandler();
             var key = Encoding.ASCII.GetBytes(secretKey);
             
@@ -212,11 +214,43 @@ public static class AuthEndpoints
             };
 
             var token = tokenHandler.CreateToken(tokenDescriptor);
-            
+            var accessToken = tokenHandler.WriteToken(token);
+
+            // ── 파일 읽기용 쿠키 ──────────────────────────────────
+            //
+            // 왜 토큰을 쿠키로 한 번 더 내려보내는가.
+            //
+            // 화면은 사진을 `<img src="/api/file/thumbnail/{id}">` 로 그린다. 브라우저는 그런
+            // 태그에 `Authorization` 헤더를 붙여 주지 않는다. 그래서 **로그인한 사람이 포털에서
+            // 사진을 보는 요청조차 FileServer 쪽에서는 익명과 구별되지 않았다.**
+            // 그 때문에 파일 읽기 라우트를 익명으로 열어 둘 수밖에 없었고,
+            // 결국 파일 아이디만 알면 누구나 남의 첨부를 내려받을 수 있었다.
+            //
+            // 브라우저가 스스로 보내는 인증 수단이 있으면 그 전제가 사라진다. 그래서 쿠키다.
+            //
+            // 안전장치 셋을 함께 건다.
+            //   Path=/api/file  파일 경로에만 실려 나간다. 다른 API 로는 아예 가지 않는다.
+            //   SameSite=Lax    남의 사이트가 우리 주소로 `<img>` 를 걸어도 쿠키가 실리지 않는다.
+            //                   (같은 출처에서 오는 `<img>` 에는 실린다 — 우리에게 필요한 그 경우다)
+            //   HttpOnly        스크립트가 읽을 수 없다.
+            //
+            // 게이트웨이는 이 쿠키를 **파일 읽기 경로에서만** 신원의 근거로 받는다.
+            // 업로드·삭제에는 쓰지 않는다 — 쓰면 CSRF 로 남이 파일을 지울 수 있다.
+            // 짝이 되는 코드는 ApiGateway/Program.cs 의 `OnMessageReceived` 다.
+            // **쿠키 이름을 바꾸려면 두 곳을 함께 바꿔야 한다.**
+            http.Response.Cookies.Append("jsini_file_at", accessToken, new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = !env.IsDevelopment(),
+                SameSite = SameSiteMode.Lax,
+                Path = "/api/file",
+                Expires = new DateTimeOffset(tokenDescriptor.Expires!.Value, TimeSpan.Zero)
+            });
+
             // 결과 데이터를 DTO에 담기
             var loginResult = new LoginResponseDto
             {
-                AccessToken = tokenHandler.WriteToken(token),
+                AccessToken = accessToken,
                 PasswordExpired = passwordExpired,
                 PasswordExpiryDays = PasswordPolicy.IsEnabled(expiryDays) ? expiryDays : null,
                 PasswordDaysRemaining = daysRemaining
@@ -226,8 +260,19 @@ public static class AuthEndpoints
             return Results.Ok(ApiResponse<LoginResponseDto>.Ok(loginResult));
         });
 
-        group.MapPost("/logout", () =>
+        group.MapPost("/logout", (HttpContext http, IHostEnvironment env) =>
         {
+            // 파일 읽기용 쿠키를 지운다. 지우지 않으면 로그아웃한 뒤에도
+            // 브라우저에 남은 쿠키로 사진을 계속 볼 수 있다.
+            // 심을 때와 옵션이 같아야 브라우저가 같은 쿠키로 알아본다(특히 Path).
+            http.Response.Cookies.Delete("jsini_file_at", new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = !env.IsDevelopment(),
+                SameSite = SameSiteMode.Lax,
+                Path = "/api/file"
+            });
+
             return Results.Ok(ApiResponse<bool>.Ok(true, "로그아웃 성공"));
         }).RequireAuthorization();
     

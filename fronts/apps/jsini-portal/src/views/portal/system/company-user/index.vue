@@ -218,9 +218,27 @@ const eligibleColumns = [
 ];
 
 // 회사 목록 그리드 컬럼 설정 (좌측)
+//
+// 사용자 수를 함께 보여 준다. 이 화면은 "사람이 어디에 붙어 있는지" 를 다루는데,
+// 회사를 하나하나 눌러 봐야 인원을 알 수 있으면 14개 회사를 전부 훑게 된다.
+// 부서 수도 같이 보여 주어 "부서는 있는데 사람이 없는 회사" 를 바로 알 수 있게 한다.
 const columns: VxeTableGridColumns = [
-  { field: 'name', title: '회사명', minWidth: 150 },
-  { field: 'shortName', title: '짧은명칭', width: 100 },
+  { field: 'name', title: '회사명', minWidth: 130 },
+  {
+    field: 'deptCount',
+    title: '부서',
+    width: 60,
+    align: 'right',
+    // 0 을 '0' 으로 그대로 두면 눈이 숫자를 하나하나 읽는다. 없으면 비워 둔다.
+    formatter: ({ cellValue }: any) => (cellValue > 0 ? String(cellValue) : '-'),
+  },
+  {
+    field: 'userCount',
+    title: '사용자',
+    width: 70,
+    align: 'right',
+    formatter: ({ cellValue }: any) => (cellValue > 0 ? String(cellValue) : '-'),
+  },
 ];
 
 // VXETable 좌측 회사 목록 설정
@@ -255,13 +273,33 @@ const [Grid] = useVbenVxeGrid({
 });
 
 // 부서 데이터를 트리 형식으로 변환
+//
+// 부서명 옆에 소속 인원을 붙인다. 어느 부서에 사람이 있는지 눌러 보지 않고 알아야
+// "어디로 옮길지" 를 판단할 수 있다.
+//
+// 하위 부서가 있으면 **직접 인원과 전체 인원을 함께** 보여 준다(`3 / 12`).
+// 접어 둔 상태에서 상위 부서만 보면 그 아래 인원이 안 보여서, 사람이 없는 조직으로
+// 착각하게 되기 때문이다.
 function mapToTree(list: any[]): any[] {
-  return list.map((item) => ({
-    ...item,
-    key: item.id,
-    title: item.name,
-    children: item.children ? mapToTree(item.children) : undefined,
-  }));
+  return list.map((item) => {
+    const own = Number(item.userCount ?? 0);
+    const total = Number(item.totalUserCount ?? own);
+    const hasChildren = !!item.children?.length;
+
+    return {
+      ...item,
+      key: item.id,
+      title: item.name,
+      /** 트리에 그릴 인원 표시. 없으면 빈 문자열이라 화면이 조용하다. */
+      countLabel:
+        hasChildren && total !== own
+          ? `${own} / ${total}`
+          : own > 0
+            ? String(own)
+            : '',
+      children: item.children ? mapToTree(item.children) : undefined,
+    };
+  });
 }
 
 // 모든 트리 키 수집 (전체 확장용)
@@ -422,6 +460,16 @@ onMounted(() => {
                 <div class="flex items-center gap-1.5 py-0.5">
                   <IconifyIcon icon="lucide:folder" class="size-4 text-primary" />
                   <span>{{ node.title }}</span>
+                  <!--
+                    소속 인원. 하위 부서가 있으면 '직접 / 전체' 로 보여 준다.
+                    인원이 없는 부서는 아무것도 붙이지 않아 목록이 조용하다.
+                  -->
+                  <span
+                    v-if="node.countLabel"
+                    class="text-muted-foreground ml-auto shrink-0 text-xs"
+                  >
+                    {{ node.countLabel }}명
+                  </span>
                 </div>
               </template>
             </Tree>

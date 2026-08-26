@@ -35,6 +35,13 @@ export namespace SystemCompanyApi {
     sortOrder: number;
     /** 생성 일시 */
     createdAt: string;
+    /**
+     * 이 회사에 소속된 사용자 수.
+     * 목록을 받을 때 함께 온다 — 회사마다 따로 물어보지 않는다.
+     */
+    userCount?: number;
+    /** 이 회사에 등록된 부서 수 */
+    deptCount?: number;
   }
 
   /**

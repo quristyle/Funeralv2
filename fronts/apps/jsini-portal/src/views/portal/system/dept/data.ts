@@ -108,9 +108,12 @@ export function useSchema(): VbenFormSchema[] {
  * 테이블 열 구성을 가져옵니다.
  * @description 언어 전환 시 헤더를 다시 번역하기 위해 배열 상수 대신 함수 형태로 열 데이터를 반환합니다.
  * @param onActionClick 테이블 작업 버튼 클릭 이벤트
+ * @param showCompany 회사명 열을 보여줄지. 왼쪽에서 한 회사만 골라 보고 있으면
+ *                    모든 행에 같은 값이 들어가 자리만 차지하므로 '전체' 일 때만 켠다.
  */
 export function useColumns(
   onActionClick?: OnActionClickFn<SystemDeptApi.SystemDept>,
+  showCompany = true,
 ): VxeTableGridColumns<SystemDeptApi.SystemDept> {
   return [
     {
@@ -119,13 +122,33 @@ export function useColumns(
       fixed: 'left',
       title: $t('system.dept.deptName'),
       treeNode: true,
-      width: 150,
+      minWidth: 200,
     },
+    // 소속 인원. 어느 부서에 사람이 있는지 눌러 보지 않고 알아야 조직을 옮길 판단을 할 수 있다.
+    // 하위 부서가 있으면 '직접 / 전체' 로 보여 준다 — 접어 둔 상태에서 상위 부서만 보면
+    // 그 아래 인원이 안 보여서 사람 없는 조직으로 착각하게 된다.
     {
-      field: 'companyName',
-      title: '회사명',
-      width: 150,
+      align: 'right',
+      field: 'userCount',
+      title: '사용자',
+      width: 90,
+      formatter: ({ row }) => {
+        const own = Number(row.userCount ?? 0);
+        const total = Number(row.totalUserCount ?? own);
+        const hasChildren = !!row.children?.length;
+        if (hasChildren && total !== own) return `${own} / ${total}`;
+        return own > 0 ? String(own) : '-';
+      },
     },
+    ...(showCompany
+      ? [
+          {
+            field: 'companyName',
+            title: '회사명',
+            width: 150,
+          },
+        ]
+      : []),
     {
       field: 'sortOrder',
       title: '정렬 순서',

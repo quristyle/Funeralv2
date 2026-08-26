@@ -174,7 +174,10 @@ public static class RegisterEndpoints {
         }
 
         // JWT 토큰 생성
-        var jwtKey = config["Jwt:Key"] ?? "quristyle_blabbbbbla_secret_key_1234567890!@#$";
+        // 자체 로그인 토큰을 발급하는 자리다. 폴백 키로 서명하면 저장소를 본 사람이
+        // 그 토큰을 위조할 수 있다 (결정 D1-B).
+        var jwtKey = JSini.Shared.Infrastructure.JwtKeyGuard.Require(
+            config, "Jwt:Key", "HelpDeskServer");
         var jwtIssuer = config["Jwt:Issuer"] ?? "HelpDeskServer";
         var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
         var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);

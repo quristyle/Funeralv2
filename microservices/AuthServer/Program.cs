@@ -39,7 +39,10 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(connectionString, x => x.MigrationsHistoryTable("__EFMigrationsHistory", "scom")));
 
 // 2. JWT 인증 구성 (AuthServer 자체 엔드포인트 보호용)
-var jwtKey = builder.Configuration["JwtSettings:SecretKey"] ?? "a-very-secret-key-that-is-long-enough-for-security";
+// 키는 appsettings.Local.json (git 제외) 에만 있다. 없으면 기동에 실패한다 (결정 D1-B).
+// 예전에는 여기에 평문 키가 폴백으로 박혀 있어, 설정이 비어도 조용히 그 값으로 돌았다.
+var jwtKey = JSini.Shared.Infrastructure.JwtKeyGuard.Require(
+    builder.Configuration, "JwtSettings:SecretKey", "AuthServer");
 var key = Encoding.ASCII.GetBytes(jwtKey);
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -81,17 +84,32 @@ builder.Services.AddScoped<ICommonCodeService, CommonCodeService>();
 builder.Services.AddScoped<IBizSelectConfigService, BizSelectConfigService>();
 builder.Services.AddScoped<IRolePermissionService, RolePermissionService>();
 builder.Services.AddScoped<INoticeService, NoticeService>();
+// 공지를 공개로 두면 첨부도 공개로 본다 (결정 D-S10). NoticeService 가 저장할 때마다 부른다.
+builder.Services.AddScoped<IPublicFileSyncService, PublicFileSyncService>();
 
 // 도움말 — F.A.Q(관리자가 쓰고 모두가 읽는다) · Q&A(누구나 묻고 관리자가 답한다)
 builder.Services.AddScoped<IFaqService, FaqService>();
 builder.Services.AddScoped<IQnaService, QnaService>();
+// 자료실 — 관리자가 올리고 모두가 설명을 읽고 내려받는다(F.A.Q 와 같은 권한 방식).
+builder.Services.AddScoped<IHelpArchiveService, HelpArchiveService>();
+// 메뉴 기준 권한 현황(/auth/menu-role). 읽기만 한다 — 저장은 role-permission · role-scope 를 쓴다.
+builder.Services.AddScoped<IMenuRoleService, MenuRoleService>();
 
 // 접속 기록 — 계정 정보 화면의 '활동' 이 이 값을 읽는다
 builder.Services.AddScoped<ILoginLogService, LoginLogService>();
 
+// 화면 환경설정 — 계정에 붙여 두어 어느 PC 에서 로그인해도 따라오게 한다.
+// 헤더 톱니의 드로어와 /setting/environment 가 같은 값을 읽고 쓴다.
+builder.Services.AddScoped<IAccountPreferenceService, AccountPreferenceService>();
+
 // 배포(릴리즈) — 대상은 설정(Release:Targets)에서 읽는다.
+//
+// 요청 한 건이 scom.release_runs 행 하나가 된다. 배포 장비의 래퍼가 그 run id 로
+// 진행 상황을 되돌려 보고하고, 화면은 그 id 를 폴링한다.
+// 배포가 끝나면 대상의 VersionUrl 을 읽어 실제로 반영됐는지 확인하므로 HttpClient 가 필요하다.
 builder.Services.Configure<AuthServer.DTOs.ReleaseOptions>(
     builder.Configuration.GetSection("Release"));
+builder.Services.AddHttpClient();
 builder.Services.AddScoped<IReleaseService, ReleaseService>();
 
 
@@ -137,6 +155,8 @@ app.MapRolePermissionEndpoints();
 app.MapNoticeEndpoints();
 app.MapFaqEndpoints();
 app.MapQnaEndpoints();
+app.MapHelpArchiveEndpoints();
+app.MapMenuRoleEndpoints();
 app.MapReleaseEndpoints();
 
 

@@ -59,9 +59,16 @@ export function useMenuPermission(path?: string) {
   });
 
   const permission = computed<MenuPermission>(() => {
-    // 권한 정보를 아직 못 받았거나 역할이 하나도 없는 계정은 막지 않는다.
-    // 열람 가드·v-perm·can() 과 같은 규칙이다.
-    if (!store.isLoaded || !store.hasAnyData) return ALLOW_ALL;
+    // 아직 못 받은 동안만 열어 둔다.
+    //
+    // **"역할이 하나도 없는 계정은 막지 않는다" 는 규칙은 없앴다.** 그러면 권한을
+    // 하나도 주지 않은 계정이 오히려 모든 버튼을 갖게 되어 방향이 거꾸로였다.
+    // 이제 받아왔더니 비어 있으면 그대로 '권한 없음' 이다(store.resolve 가
+    // EMPTY_PERMISSION 을 준다).
+    //
+    // 아직 못 받은 경우를 열어 두는 것은 권한 판단이 아니라 **깜빡임 방지**다.
+    // 버튼이 보였다 사라지는 것을 막을 뿐이고, 실제 차단은 서버가 한다.
+    if (!store.isLoaded) return ALLOW_ALL;
     return store.resolve(path ?? route.path);
   });
 

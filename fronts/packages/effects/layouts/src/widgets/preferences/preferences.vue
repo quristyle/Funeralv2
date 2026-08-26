@@ -1,15 +1,12 @@
 <script lang="ts" setup>
-import { computed } from 'vue';
-
 import { Settings } from '@vben/icons';
-import { $t, loadLocaleMessages } from '@vben/locales';
-import { preferences, updatePreferences } from '@vben/preferences';
-import { capitalizeFirstLetter } from '@vben/utils';
+import { $t } from '@vben/locales';
 
 import { useVbenDrawer } from '@vben-core/popup-ui';
 import { VbenButton } from '@vben-core/shadcn-ui';
 
 import PreferencesDrawer from './preferences-drawer.vue';
+import { usePreferencesBinding } from './use-preferences-binding';
 
 interface Props {
   /** 是否显示按钮 */
@@ -31,44 +28,10 @@ defineExpose({
   open: () => drawerApi.open(),
 });
 
-/**
- * preferences를 vue props로 변환
- * preferences.widget.fullscreen=>widgetFullscreen
- */
-const attrs = computed(() => {
-  const result: Record<string, any> = {};
-  for (const [key, value] of Object.entries(preferences)) {
-    for (const [subKey, subValue] of Object.entries(value)) {
-      result[`${key}${capitalizeFirstLetter(subKey)}`] = subValue;
-    }
-  }
-  return result;
-});
-
-/**
- * preferences를 vue listener로 변환
- * preferences.widget.fullscreen=>@update:widgetFullscreen
- */
-const listen = computed(() => {
-  const result: Record<string, any> = {};
-  for (const [key, value] of Object.entries(preferences)) {
-    if (typeof value === 'object') {
-      for (const subKey of Object.keys(value)) {
-        result[`update:${key}${capitalizeFirstLetter(subKey)}`] = (
-          val: any,
-        ) => {
-          updatePreferences({ [key]: { [subKey]: val } });
-          if (key === 'app' && subKey === 'locale') {
-            loadLocaleMessages(val);
-          }
-        };
-      }
-    } else {
-      result[key] = value;
-    }
-  }
-  return result;
-});
+// 스토어 ↔ props·listener 바인딩.
+// `/setting/environment` 페이지(`preferences-view.vue`)와 같은 것을 쓴다 —
+// 한쪽에만 새 설정이 붙는 일을 막으려고 구현을 하나로 뺐다.
+const { attrs, listen } = usePreferencesBinding();
 </script>
 <template>
   <div>

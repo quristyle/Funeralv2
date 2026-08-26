@@ -65,7 +65,16 @@ builder.Services.AddSwaggerGen(c => {
 // 실제 인가 판단은 게이트웨이가 한다. 이 서비스는 루프백에만 바인딩되어 있어
 // 게이트웨이를 지나지 않은 요청은 같은 장비에서만 들어올 수 있다.
 // 그래도 토큰이 실려 오면 검증은 해 둔다(게이트웨이 우회 시 최소 방어선).
-var jwtKey = builder.Configuration["Jwt:Key"];
+// 키는 appsettings.Local.json (git 제외) 에만 있다 (결정 D1-B).
+//
+// **아래 `if (!IsNullOrWhiteSpace)` 를 그대로 둔 이유**: 이 서비스는 키가 없으면
+// JWT 검증을 아예 등록하지 않는 구조였다. 그래서 키가 빠지면 조용히 검증이 사라진다.
+// 자리표시자·옛 평문 키·너무 짧은 값은 여기서 걸러 기동을 막고, "설정에 아예 없는"
+// 경우만 예전처럼 건너뛴다 — 이 서비스가 게이트웨이 뒤에만 있다는 전제를 바꾸지 않으려는 것이다.
+var jwtKey = string.IsNullOrWhiteSpace(builder.Configuration["Jwt:Key"])
+    ? null
+    : JSini.Shared.Infrastructure.JwtKeyGuard.Require(
+        builder.Configuration, "Jwt:Key", "ProjMngServer");
 var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "funeralv2-auth";
 var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "funeralv2-services";
 

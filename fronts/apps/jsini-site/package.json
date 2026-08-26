@@ -1,0 +1,27 @@
+{
+  "name": "@jsini/site",
+  "version": "1.0.0",
+  "description": "JSINI 회사 소개 사이트 — 누구나 볼 수 있는 공개 사이트",
+  "homepage": "https://jsini.co.kr",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "vite --mode development",
+    "build": "vite-ssg build --mode production",
+    "preview": "vite preview",
+    "typecheck": "vue-tsc --noEmit --skipLibCheck"
+  },
+  "dependencies": {
+    "vue": "catalog:",
+    "vue-router": "catalog:"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "catalog:",
+    "@vitejs/plugin-vue": "catalog:",
+    "tailwindcss": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vite-ssg": "^28.3.0",
+    "vue-tsc": "catalog:"
+  }
+}

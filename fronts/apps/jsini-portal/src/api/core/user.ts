@@ -82,3 +82,32 @@ export async function changePasswordApi(data: any) {
 export async function updateSettingApi(data: { fieldName: string; value: boolean }) {
   return requestClient.post('/auth/user/settings', data);
 }
+
+/**
+ * 화면 환경설정 가져오기 (계정에 저장된 것)
+ *
+ * 기본값과 **다른 항목만** 담겨 있다. 저장된 것이 없으면 빈 객체다.
+ * 브라우저 로컬스토리지가 아니라 계정에 붙어 있으므로 다른 PC 에서도 따라온다.
+ */
+export async function getUserPreferencesApi() {
+  const response = await requestClient.get<any>('/auth/user/preferences', {
+    // 곁들이는 요청이다. 실패하면 로컬 설정으로 그대로 쓰면 되므로 오류 토스트를 띄우지 않는다.
+    // (백엔드를 아직 다시 띄우지 않았으면 404 가 온다 — 그때 화면마다 토스트가 뜨면 안 된다)
+    skipErrorMessage: true,
+  } as any);
+  return (response?.result?.[0]?.payload ?? {}) as Record<string, any>;
+}
+
+/**
+ * 화면 환경설정 저장 (계정에 저장)
+ *
+ * 전체가 아니라 기본값과의 차이만 보낸다 — 전체를 저장하면 나중에 프레임워크
+ * 기본값이 바뀌어도 옛 값이 박혀 따라오지 않는다.
+ */
+export async function saveUserPreferencesApi(payload: Record<string, any>) {
+  return requestClient.put('/auth/user/preferences', { payload }, {
+    // 저장 실패도 조용히 넘긴다. 로컬스토리지에는 이미 남아 이 브라우저는 정상 동작하고,
+    // 다음 변경 때 다시 시도한다. 설정을 만질 때마다 토스트가 뜨면 그게 더 방해된다.
+    skipErrorMessage: true,
+  } as any);
+}

@@ -86,8 +86,17 @@ public class AuthService : IAuthService
     /// </summary>
     private string GenerateJwtToken(Account account)
     {
-        var jwtSettings = _config.GetSection("Jwt");
-        var secretKey = jwtSettings["Key"] ?? "DefaultSecretKeyForDevelopmentOnly!";
+        // ── 여기에 버그가 있었다 (D1-B 작업 중 발견) ──────────
+        //
+        // `Jwt:Key` 를 읽고 있었는데 **AuthServer 설정에는 Jwt 섹션이 없다**
+        // (이 서비스는 JwtSettings:SecretKey 를 쓴다). 그래서 항상 폴백
+        // "DefaultSecretKeyForDevelopmentOnly!" 로 서명하고 있었다.
+        //
+        // 게이트웨이는 공용 키로 검증하므로 그 토큰을 받아 주지 않는다. 실제 로그인은
+        // AuthEndpoints 가 처리하고 있어 눈에 띄지 않았던 것으로 보인다.
+        // 이제 다른 곳과 같은 키를 쓴다.
+        var secretKey = JSini.Shared.Infrastructure.JwtKeyGuard.Require(
+            _config, "JwtSettings:SecretKey", "AuthServer");
         var key = new SymmetricSecurityKey(Encoding.ASCII.GetBytes(secretKey));
 
         // 토큰에 담길 클레임 정보 설정
@@ -103,8 +112,11 @@ public class AuthService : IAuthService
         {
             Subject = new ClaimsIdentity(claims),
             Expires = DateTime.UtcNow.AddDays(7), // 7일 유효
-            Issuer = jwtSettings["Issuer"],
-            Audience = jwtSettings["Audience"],
+            // 이 둘도 없는 섹션(Jwt)에서 읽어 **null 이었다.** 게이트웨이는
+            // 발급자·수신자를 검증하므로(ValidateIssuer·ValidateAudience) 그 토큰은
+            // 애초에 통과할 수 없었다. 다른 발급 경로(AuthEndpoints)와 같은 값으로 맞춘다.
+            Issuer = _config["JwtSettings:Issuer"] ?? "funeralv2-auth",
+            Audience = _config["JwtSettings:Audience"] ?? "funeralv2-services",
             SigningCredentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256Signature)
         };
 

@@ -12,6 +12,15 @@ using Microsoft.AspNetCore.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// 로컬 개별 설정 (Git 제외). 다른 서비스들과 같은 자리에 같은 방식으로 둔다.
+//
+// **이 줄이 없으면 아래 D1-B 의 키 검사가 뜻대로 동작하지 않는다.** 키를
+// appsettings.Local.json 에만 두어도 게이트웨이는 그 파일을 읽지 못해
+// 저장소에 남아 있는 예전 값으로 검증하게 된다. 그러면 AuthServer 가 Local 키로
+// 서명한 토큰이 전부 401 이 되고(실제로 그 상태를 겪었다), 더 나쁘게는
+// "잘 알려진 키를 못 쓰게 한다" 는 목적 자체가 조용히 깨진다.
+builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: true);
+
 // Kestrel 요청 본문 크기 제한 해제 (예: 500MB)
 builder.WebHost.ConfigureKestrel(options =>
 {
@@ -27,8 +36,40 @@ builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(optio
 
 
 // 1. JWT 검증 설정 (1차 검증)
-var jwtKey = builder.Configuration["Jwt:Key"] ?? "a-very-secret-key-that-is-long-enough-for-security";
+// ── 서명 키 (결정 D1-B) ─────────────────────────────────────
+//
+// 예전에는 이 자리에 키가 평문으로 박혀 있었고, 설정이 비어 있으면 **조용히 그 값을
+// 썼다.** 저장소를 볼 수 있는 사람이면 누구나 관리자 토큰을 만들 수 있었다는 뜻이다.
+//
+// 이제 키는 appsettings.Local.json (git 제외) 에만 있고, 없으면 기동에 실패한다.
+// 조용히 잘 알려진 키로 도는 것보다 뜨지 않는 편이 낫다.
+var jwtKey = JwtKeyGuard.Require(builder.Configuration, "Jwt:Key", "ApiGateway");
 var key = Encoding.ASCII.GetBytes(jwtKey);
+
+// ── 파일 읽기 경로에서만 쿠키를 신원으로 받는다 ──────────────────
+//
+// 화면이 사진을 `<img src="/api/file/thumbnail/{id}">` 로 그리는데 브라우저는 그런 태그에
+// `Authorization` 헤더를 붙여 주지 않는다. 그래서 로그인한 사람이 포털에서 사진을 보는
+// 요청도 이 아래로는 익명으로 내려갔고, 파일 읽기 라우트를 익명으로 열어 둘 수밖에 없었다.
+// 결국 파일 아이디만 알면 누구나 남의 첨부를 받을 수 있는 상태였다.
+//
+// 로그인할 때 같은 토큰을 `jsini_file_at` 쿠키로도 심는다(AuthServer/Endpoints/AuthEndpoints.cs).
+// 브라우저는 그 쿠키를 스스로 보내므로, 여기서 받아 주면 `<img>` 요청도 신원이 붙는다.
+//
+// **읽기 경로에서만 받는다.** 업로드·삭제·공개여부 변경에까지 쿠키를 받아 주면
+// 남의 사이트가 우리 주소로 요청을 걸어 파일을 지울 수 있다(CSRF).
+// 쿠키 자체도 `Path=/api/file` · `SameSite=Lax` 로 심어 두었지만, 그것에만 의지하지 않는다.
+//
+// 쿠키 이름을 바꾸려면 AuthServer 쪽도 함께 바꿔야 한다.
+const string fileCookieName = "jsini_file_at";
+string[] fileCookiePaths =
+[
+    "/api/file/download",
+    "/api/file/thumbnail",
+    "/api/file/medium",
+    "/api/file/large",
+    "/api/file/resize"
+];
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -42,6 +83,30 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidIssuer = builder.Configuration["Jwt:Issuer"],
             ValidAudience = builder.Configuration["Jwt:Audience"],
             ClockSkew = TimeSpan.Zero
+        };
+
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = ctx =>
+            {
+                // 헤더로 온 토큰이 우선이다. 없을 때만 쿠키를 본다.
+                if (!string.IsNullOrEmpty(ctx.Token))
+                {
+                    return Task.CompletedTask;
+                }
+
+                var path = ctx.Request.Path.Value ?? string.Empty;
+                var readable = fileCookiePaths.Any(p =>
+                    path.StartsWith(p, StringComparison.OrdinalIgnoreCase));
+
+                if (readable && ctx.Request.Cookies.TryGetValue(fileCookieName, out var fromCookie)
+                    && !string.IsNullOrEmpty(fromCookie))
+                {
+                    ctx.Token = fromCookie;
+                }
+
+                return Task.CompletedTask;
+            }
         };
     });
 
@@ -161,6 +226,24 @@ builder.Services.AddRateLimiter(options =>
             factory: _ => new FixedWindowRateLimiterOptions
             {
                 PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0
+            }));
+
+    // 소개 사이트의 문의 접수처럼 **로그인하지 않은 사람이 쓰는** 경로에 건다.
+    // 로그인보다 더 조인다(분당 3회) — 사람이 문의를 그보다 자주 보낼 일이 없고,
+    // 익명 쓰기는 한 번 열리면 곧 스팸의 통로가 된다.
+    //
+    // 캡차 대신 이것과 허니팟으로 시작한다(결정 D-S4). 외부 스크립트를 부르지 않는 쪽을
+    // 골랐는데, 준수사항 5(글꼴은 저장소 안의 파일만)와 같은 취지다 — 내부망에서도 돌아야 한다.
+    options.AddPolicy("public-write", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Request.Headers["X-Forwarded-For"].FirstOrDefault()
+                          ?? httpContext.Connection.RemoteIpAddress?.ToString()
+                          ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 3,
                 Window = TimeSpan.FromMinutes(1),
                 QueueLimit = 0
             }));

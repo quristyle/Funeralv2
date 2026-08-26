@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 108" width="120" height="108" role="img">
+  <title>JSINI 세로 조합</title>
+  <desc>심볼 위, JSINI 아래 중앙 정렬. 세로 조합</desc>
+    <g transform="translate(0,-30) scale(1)">
+      <path d="M58,30 L102,30 L102,42 L70,42 L70,54 L102,54 L102,90 L58,90 L58,78 L90,78 L90,66 L58,66 Z" fill="#6E6E73"/>
+    </g>
+    <g transform="translate(0,-30) scale(1)">
+      <path d="M50,42 L62,30 L62,90 L18,90 L18,78 L50,78 Z" fill="#0A0A0A"/>
+    </g>
+    <path d="M16,84 L22,78 L22,108 L0,108 L0,102 L16,102 Z" fill="#0A0A0A"/>
+    <path d="M32,78 L54,78 L54,84 L38,84 L38,90 L54,90 L54,108 L32,108 L32,102 L48,102 L48,96 L32,96 Z" fill="#0A0A0A"/>
+    <path d="M64,78 L70,78 L70,108 L64,108 Z" fill="#0A0A0A"/>
+    <path d="M80,108 L80,78 L86,78 L98,98 L98,78 L104,78 L104,108 L98,108 L86,88 L86,108 Z" fill="#0A0A0A"/>
+    <path d="M114,78 L120,78 L120,108 L114,108 Z" fill="#0A0A0A"/>
+</svg>

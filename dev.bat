@@ -9,6 +9,7 @@ setlocal enabledelayedexpansion
 ::   dev.bat                 전체 재기동 (중지 -^> 빌드 -^> 기동)
 ::   dev.bat auth            AuthServer 만 재기동
 ::   dev.bat auth file       여러 개 지정도 된다
+::   dev.bat site web        회사 소개 사이트만 (백엔드 :5480 + 프론트 :5556)
 ::   dev.bat stop auth       AuthServer 만 중지
 ::   dev.bat allstop         전체 중지
 ::   dev.bat status          지금 무엇이 떠 있는지 확인
@@ -57,21 +58,34 @@ if exist "%SECRETS_FILE%" (
 :: 서비스 목록
 :: ============================================================
 ::
-:: 형식: 표시이름(창 제목)^|상대경로^|포트^|SERVER_NAME
+:: 형식: 표시이름(창 제목)^|상대경로^|포트^|SERVER_NAME^|기동명령
 ::
 :: 서비스를 추가하려면 SVC_KEYS 에 이름을 넣고 SVC_^<이름^> 을 한 줄 더하면 된다.
 :: 빌드·기동·중지·상태 확인이 모두 이 표를 읽는다.
 :: 기동 순서는 SVC_KEYS 의 순서를 따른다.
-set "SVC_KEYS=gateway auth funeral ai file helpdesk projmng front"
+::
+:: SERVER_NAME 이 `-` 인 것은 프론트엔드다. 빌드 대신 pnpm install 을 하고
+:: SERVER_NAME 환경변수를 넘기지 않는다. 프론트가 둘 이상이어도 install 은 한 번만 한다.
+::
+:: 기동명령을 칸으로 뺀 이유: 프론트가 둘이 되면서 "front 면 pnpm, 아니면 dotnet" 이라는
+:: 분기로는 더 이상 표현이 안 됐다. 세 번째 프론트가 붙어도 표에 한 줄만 더하면 된다.
+::
+:: 이름이 바뀌었다: 예전 `front` 는 이제 `portal` 이다. 프론트가 둘이라 어느 쪽인지
+:: 이름만으로 알 수 있어야 한다. `web` 이 회사 소개 사이트다.
+set "SVC_KEYS=gateway auth funeral ai file helpdesk projmng site notify portal web"
 
-set "SVC_gateway=API Gateway|ApiGateway|5265|GATEWAY"
-set "SVC_auth=Auth Server|microservices\AuthServer|5264|AUTH"
-set "SVC_funeral=funeralv2 API|microservices\funeralv2Api|5320|FUNERALV2"
-set "SVC_ai=AI Agent Server|microservices\AIAgentServer|5029|AI_AGENT"
-set "SVC_file=File Server|microservices\FileServer|5350|FILE_API"
-set "SVC_helpdesk=HelpDesk Server|microservices\HelpDeskServer|5400|HELPDESK"
-set "SVC_projmng=ProjMng Server|microservices\ProjMngServer|5450|PROJMNG"
-set "SVC_front=Frontend|fronts|5555|-"
+set "SVC_gateway=API Gateway|ApiGateway|5265|GATEWAY|%START_CMD%"
+set "SVC_auth=Auth Server|microservices\AuthServer|5264|AUTH|%START_CMD%"
+set "SVC_funeral=funeralv2 API|microservices\funeralv2Api|5320|FUNERALV2|%START_CMD%"
+set "SVC_ai=AI Agent Server|microservices\AIAgentServer|5029|AI_AGENT|%START_CMD%"
+set "SVC_file=File Server|microservices\FileServer|5350|FILE_API|%START_CMD%"
+set "SVC_helpdesk=HelpDesk Server|microservices\HelpDeskServer|5400|HELPDESK|%START_CMD%"
+set "SVC_projmng=ProjMng Server|microservices\ProjMngServer|5450|PROJMNG|%START_CMD%"
+set "SVC_site=Site Server|microservices\SiteServer|5480|SITE_API|%START_CMD%"
+:: 알림(푸시·이메일). 포털·장례식장·헬프데스크가 함께 쓴다 (결정 D8-A).
+set "SVC_notify=Notification Server|microservices\NotificationServer|5460|NOTIFY|%START_CMD%"
+set "SVC_portal=Portal Frontend|fronts|5555|-|pnpm --filter @vben/jsini-portal dev"
+set "SVC_web=Site Frontend|fronts|5556|-|pnpm --filter @jsini/site dev"
 
 :: ============================================================
 :: 인자 해석
@@ -142,11 +156,11 @@ if "%~1"=="" goto stop_collected
 call :svc_exists %~1
 if errorlevel 1 (
     echo [ERROR] 알 수 없는 서비스: %~1
-    echo         사용 가능: %SVC_KEYS%
+    echo         사용 가능: %SVC_KEYS%   ^(front 는 portal 의 예전 이름^)
     set "EXITCODE=1"
     goto end
 )
-set "TARGETS=!TARGETS! %~1"
+set "TARGETS=!TARGETS! !ALIAS_OUT!"
 shift
 goto stop_collect
 
@@ -195,7 +209,7 @@ if errorlevel 1 (
     set "EXITCODE=1"
     goto end
 )
-set "TARGETS=!TARGETS! %~1"
+set "TARGETS=!TARGETS! !ALIAS_OUT!"
 shift
 goto restart_collect
 
@@ -210,23 +224,30 @@ goto end
 :: 서비스 표 조회
 :: ============================================================
 
-:: 호출하면 SVC_LABEL / SVC_DIR / SVC_PORT / SVC_NAME 를 채운다.
+:: 호출하면 SVC_LABEL / SVC_DIR / SVC_PORT / SVC_NAME / SVC_CMD 를 채운다.
 :svc_get
 set "SVC_LABEL="
 set "SVC_DIR="
 set "SVC_PORT="
 set "SVC_NAME="
-for /f "tokens=1-4 delims=|" %%a in ("!SVC_%~1!") do (
+set "SVC_CMD="
+for /f "tokens=1-5 delims=|" %%a in ("!SVC_%~1!") do (
     set "SVC_LABEL=%%a"
     set "SVC_DIR=%ROOT_DIR%\%%b"
     set "SVC_PORT=%%c"
     set "SVC_NAME=%%d"
+    set "SVC_CMD=%%e"
 )
 exit /b 0
 
 :: 이름이 표에 있는지 확인한다. 없으면 errorlevel 1.
+::
+:: 예전 이름도 받아 준다. `front` 로 손이 굳은 사람이 오류를 보지 않게 하려는 것이다.
+:: ALIAS_OUT 에 진짜 이름을 담아 돌려준다 — 부르는 쪽은 그것을 TARGETS 에 넣는다.
 :svc_exists
-if not defined SVC_%~1 exit /b 1
+set "ALIAS_OUT=%~1"
+if /i "%~1"=="front" set "ALIAS_OUT=portal"
+if not defined SVC_!ALIAS_OUT! exit /b 1
 exit /b 0
 
 :: ============================================================
@@ -247,7 +268,12 @@ call :svc_get %~1
 set "STOP_RESULT="
 set "STOP_DETAIL="
 
-for /f "usebackq tokens=1,*" %%a in (`powershell -NoProfile -ExecutionPolicy Bypass -File "%ROOT_DIR%\scripts\dev-stop.ps1" -Port !SVC_PORT! -Dir "!SVC_DIR!"`) do (
+:: 프론트는 디렉터리를 공유한다(둘 다 `fronts`). 디렉터리로 고르면 한쪽을 내릴 때
+:: 다른 쪽까지 죽으므로, 기동 명령을 넘겨 그것으로 고르게 한다.
+set "STOP_ARGS="
+if "!SVC_NAME!"=="-" set "STOP_ARGS=-CmdMatch "!SVC_CMD!""
+
+for /f "usebackq tokens=1,*" %%a in (`powershell -NoProfile -ExecutionPolicy Bypass -File "%ROOT_DIR%\scripts\dev-stop.ps1" -Port !SVC_PORT! -Dir "!SVC_DIR!" !STOP_ARGS!`) do (
     set "STOP_RESULT=%%a"
     set "STOP_DETAIL=%%b"
 )
@@ -276,7 +302,12 @@ exit /b 1
 :build_service
 call :svc_get %~1
 
-if /i "%~1"=="front" (
+if "!SVC_NAME!"=="-" (
+    :: 프론트는 워크스페이스 하나를 공유한다. 여러 개를 함께 띄워도 설치는 한 번이면 된다.
+    if defined PNPM_INSTALLED (
+        echo    - !SVC_LABEL! 의존성 설치 ^(이미 했음^)
+        exit /b 0
+    )
     echo    - !SVC_LABEL! 의존성 설치...
     pushd "%FRONTEND_DIR%"
     call pnpm install
@@ -285,6 +316,7 @@ if /i "%~1"=="front" (
         exit /b 1
     )
     popd
+    set "PNPM_INSTALLED=1"
     exit /b 0
 )
 
@@ -304,15 +336,16 @@ call :svc_get %~1
 :: 두 가지를 문자열에 끼워 넣지 않는다. 배치에서 따옴표가 겹치면 깨지기 쉽다.
 ::   · 작업 디렉터리 → start 의 /D 로 넘긴다 (경로에 공백이 있어도 안전하다)
 ::   · 환경변수     → 여기서 set 하면 start 로 띄운 창이 물려받는다
-if /i "%~1"=="front" (
-    start "!SVC_LABEL!" /D "%FRONTEND_DIR%" cmd /k pnpm dev
+if "!SVC_NAME!"=="-" (
+    :: 프론트는 SERVER_NAME 을 쓰지 않는다. 기동 뒤 기다리지도 않는다(vite 는 금방 뜬다).
+    start "!SVC_LABEL!" /D "!SVC_DIR!" cmd /k !SVC_CMD!
     echo    [OK] !SVC_LABEL! 기동 ^(포트 !SVC_PORT!^)
     exit /b 0
 )
 
 set "SERVER_NAME=!SVC_NAME!"
 set "DOTNET_WATCH_HOT_RELOAD=0"
-start "!SVC_LABEL!" /D "!SVC_DIR!" cmd /k %START_CMD%
+start "!SVC_LABEL!" /D "!SVC_DIR!" cmd /k !SVC_CMD!
 echo    [OK] !SVC_LABEL! 기동 ^(포트 !SVC_PORT!^)
 timeout /t 2 /nobreak > nul
 exit /b 0
@@ -384,7 +417,8 @@ for %%k in (%SVC_KEYS%) do (
 echo.
 echo 예시
 echo   dev.bat auth              AuthServer 만 다시 띄운다
-echo   dev.bat projmng front     ProjMng 와 프론트를 다시 띄운다
+echo   dev.bat site web          소개 사이트 백엔드와 프론트를 다시 띄운다
+echo   dev.bat projmng portal    ProjMng 와 업무 포털을 다시 띄운다
 echo   dev.bat stop helpdesk     헬프데스크만 내린다
 echo   dev.bat allstop           전부 내린다
 exit /b 0

@@ -1,330 +1,42 @@
 <script setup lang="ts">
-import type { SupportedLanguagesType } from '@vben/locales';
-import type { CustomPreferencesRecord } from '@vben/preferences';
-import type {
-  BreadcrumbStyleType,
-  BuiltinThemeType,
-  ContentCompactType,
-  LayoutHeaderMenuAlignType,
-  LayoutHeaderModeType,
-  LayoutType,
-  NavigationStyleType,
-  PreferencesButtonPositionType,
-  ThemeModeType,
-} from '@vben/types';
-
-import type { SegmentedItem } from '@vben-core/shadcn-ui';
-
-import { computed, ref } from 'vue';
-
+/**
+ * [환경설정 드로어]
+ *
+ * 헤더 톱니를 눌렀을 때 오른쪽에서 나오는 껍데기다.
+ *
+ * **설정 항목은 여기 없다.** 전부 `preferences-panel.vue` 가 갖고 있고,
+ * 같은 패널을 `/setting/environment` 페이지(`preferences-view.vue`)도 쓴다.
+ * 예전에는 이 파일 안에 탭과 블록이 모두 들어 있었다. 그 상태로 페이지를 만들면
+ * 통째로 복사해야 하고, 그러면 설정이 하나 늘 때마다 두 곳을 고쳐야 한다.
+ *
+ * 설정 값은 선언하지 않는다 — `usePreferencesBinding()` 이 만든 props·listener 가
+ * `$attrs` 로 들어와 그대로 패널에 흘러간다(`v-bind="$attrs"`).
+ * 그래서 설정 항목이 늘어도 이 파일은 고치지 않는다.
+ */
 import { Copy, Pin, PinOff, RotateCw } from '@vben/icons';
-import { $t, loadLocaleMessages } from '@vben/locales';
-import {
-  clearCache,
-  preferences,
-  resetPreferences,
-  updateCustomPreferences,
-  usePreferences,
-} from '@vben/preferences';
+import { $t } from '@vben/locales';
+import { preferences, updatePreferences } from '@vben/preferences';
 
 import { useVbenDrawer } from '@vben-core/popup-ui';
-import {
-  VbenButton,
-  VbenIconButton,
-  VbenSegmented,
-} from '@vben-core/shadcn-ui';
-import { globalShareState } from '@vben-core/shared/global-state';
+import { VbenButton, VbenIconButton } from '@vben-core/shadcn-ui';
 
-import { useClipboard } from '@vueuse/core';
-
-import {
-  Animation,
-  Block,
-  Breadcrumb,
-  BuiltinTheme,
-  ColorMode,
-  Content,
-  Copyright,
-  Custom,
-  // 이 줄이 빠져 있어서 테마 탭의 '기본 글꼴' 이 제목만 보이고 고르개가 없었다.
-  // 템플릿은 <FontFamily> 를 쓰는데 컴포넌트를 못 찾으면 Vue 는 조용히 아무것도 안 그린다
-  // (감싸는 <Block> 은 그려지므로 제목만 남는다).
-  // 상위 동기화 때 블록 파일과 blocks/index.ts 는 되살렸지만 이 목록을 놓쳤다.
-  FontFamily,
-  FontSize,
-  Footer,
-  General,
-  GlobalShortcutKeys,
-  Header,
-  Layout,
-  Navigation,
-  Radius,
-  Sidebar,
-  Tabbar,
-  Theme,
-  Widget,
-} from './blocks';
+import PreferencesPanel from './preferences-panel.vue';
+import { usePreferencesActions } from './use-preferences-actions';
 
 const emit = defineEmits<{ clearPreferencesAndLogout: [] }>();
 
-const message = globalShareState.getMessage();
-
-const appLocale = defineModel<SupportedLanguagesType>('appLocale');
-const appTimezone = defineModel<string>('appTimezone');
-const appDynamicTitle = defineModel<boolean>('appDynamicTitle');
-const appFontFamily = defineModel<string>('appFontFamily');
-const appLayout = defineModel<LayoutType>('appLayout');
-const appColorGrayMode = defineModel<boolean>('appColorGrayMode');
-const appColorWeakMode = defineModel<boolean>('appColorWeakMode');
-const appContentCompact = defineModel<ContentCompactType>('appContentCompact');
-const appWatermark = defineModel<boolean>('appWatermark');
-const appWatermarkContent = defineModel<string>('appWatermarkContent');
-const appEnableCheckUpdates = defineModel<boolean>('appEnableCheckUpdates');
-const appEnableCopyPreferences = defineModel<boolean>(
-  'appEnableCopyPreferences',
-);
-const appEnableStickyPreferencesNavigationBar = defineModel<boolean>(
-  'appEnableStickyPreferencesNavigationBar',
-);
-const appPreferencesButtonPosition = defineModel<PreferencesButtonPositionType>(
-  'appPreferencesButtonPosition',
-);
-
-const transitionProgress = defineModel<boolean>('transitionProgress');
-const transitionName = defineModel<string>('transitionName');
-const transitionLoading = defineModel<boolean>('transitionLoading');
-const transitionEnable = defineModel<boolean>('transitionEnable');
-
-const themeColorPrimary = defineModel<string>('themeColorPrimary');
-const themeBuiltinType = defineModel<BuiltinThemeType>('themeBuiltinType');
-const themeMode = defineModel<ThemeModeType>('themeMode');
-const themeRadius = defineModel<string>('themeRadius');
-const themeFontSize = defineModel<number>('themeFontSize');
-const themeSemiDarkSidebar = defineModel<boolean>('themeSemiDarkSidebar');
-const themeSemiDarkSidebarSub = defineModel<boolean>('themeSemiDarkSidebarSub');
-const themeSemiDarkHeader = defineModel<boolean>('themeSemiDarkHeader');
-
-const sidebarEnable = defineModel<boolean>('sidebarEnable');
-const sidebarWidth = defineModel<number>('sidebarWidth');
-const sidebarDraggable = defineModel<boolean>('sidebarDraggable');
-const sidebarCollapsed = defineModel<boolean>('sidebarCollapsed');
-const sidebarCollapsedShowTitle = defineModel<boolean>(
-  'sidebarCollapsedShowTitle',
-);
-const sidebarAutoActivateChild = defineModel<boolean>(
-  'sidebarAutoActivateChild',
-);
-const sidebarExpandOnHover = defineModel<boolean>('sidebarExpandOnHover');
-const sidebarCollapsedButton = defineModel<boolean>('sidebarCollapsedButton');
-const sidebarFixedButton = defineModel<boolean>('sidebarFixedButton');
-const headerEnable = defineModel<boolean>('headerEnable');
-const headerMode = defineModel<LayoutHeaderModeType>('headerMode');
-const headerMenuAlign =
-  defineModel<LayoutHeaderMenuAlignType>('headerMenuAlign');
-
-const breadcrumbEnable = defineModel<boolean>('breadcrumbEnable');
-const breadcrumbShowIcon = defineModel<boolean>('breadcrumbShowIcon');
-const breadcrumbShowHome = defineModel<boolean>('breadcrumbShowHome');
-const breadcrumbStyleType = defineModel<BreadcrumbStyleType>(
-  'breadcrumbStyleType',
-);
-const breadcrumbHideOnlyOne = defineModel<boolean>('breadcrumbHideOnlyOne');
-
-const tabbarEnable = defineModel<boolean>('tabbarEnable');
-const tabbarShowIcon = defineModel<boolean>('tabbarShowIcon');
-const tabbarShowMore = defineModel<boolean>('tabbarShowMore');
-const tabbarShowMaximize = defineModel<boolean>('tabbarShowMaximize');
-const tabbarPersist = defineModel<boolean>('tabbarPersist');
-const tabbarVisitHistory = defineModel<boolean>('tabbarVisitHistory');
-const tabbarDraggable = defineModel<boolean>('tabbarDraggable');
-const tabbarWheelable = defineModel<boolean>('tabbarWheelable');
-const tabbarStyleType = defineModel<string>('tabbarStyleType');
-const tabbarMaxCount = defineModel<number>('tabbarMaxCount');
-const tabbarMiddleClickToClose = defineModel<boolean>(
-  'tabbarMiddleClickToClose',
-);
-
-const navigationStyleType = defineModel<NavigationStyleType>(
-  'navigationStyleType',
-);
-const navigationSplit = defineModel<boolean>('navigationSplit');
-const navigationAccordion = defineModel<boolean>('navigationAccordion');
-
-// const logoVisible = defineModel<boolean>('logoVisible');
-
-const footerEnable = defineModel<boolean>('footerEnable');
-const footerFixed = defineModel<boolean>('footerFixed');
-
-const copyrightSettingShow = defineModel<boolean>('copyrightSettingShow');
-const copyrightEnable = defineModel<boolean>('copyrightEnable');
-const copyrightCompanyName = defineModel<string>('copyrightCompanyName');
-const copyrightCompanySiteLink = defineModel<string>(  'copyrightCompanySiteLink');
-const copyrightDate = defineModel<string>('copyrightDate');
-const copyrightIcp = defineModel<string>('copyrightIcp');
-const copyrightIcpLink = defineModel<string>('copyrightIcpLink');
-
-const shortcutKeysEnable = defineModel<boolean>('shortcutKeysEnable');
-const shortcutKeysGlobalSearch = defineModel<boolean>(
-  'shortcutKeysGlobalSearch',
-);
-const shortcutKeysGlobalLogout = defineModel<boolean>(
-  'shortcutKeysGlobalLogout',
-);
-const shortcutKeysGlobalEscape = defineModel<boolean>(
-  'shortcutKeysGlobalEscape',
-);
-
-const shortcutKeysGlobalLockScreen = defineModel<boolean>(
-  'shortcutKeysGlobalLockScreen',
-);
-
-const widgetGlobalSearchButtonPosition = defineModel<string>(
-  'widgetGlobalSearchButtonPosition',
-);
-const widgetFullscreenButtonPosition = defineModel<string>(
-  'widgetFullscreenButtonPosition',
-);
-const widgetLanguageToggleButtonPosition = defineModel<string>(
-  'widgetLanguageToggleButtonPosition',
-);
-const widgetNotificationButtonPosition = defineModel<string>(
-  'widgetNotificationButtonPosition',
-);
-const widgetThemeToggleButtonPosition = defineModel<string>(
-  'widgetThemeToggleButtonPosition',
-);
-const widgetLockScreenButtonPosition = defineModel<string>(
-  'widgetLockScreenButtonPosition',
-);
-const widgetLogoutButtonPosition = defineModel<string>(
-  'widgetLogoutButtonPosition',
-);
-const widgetOrder = defineModel<string[]>('widgetOrder', { required: true });
-const widgetRefreshButtonPosition = defineModel<string>(
-  'widgetRefreshButtonPosition',
-);
-const widgetTimezoneButtonPosition = defineModel<string>(
-  'widgetTimezoneButtonPosition',
-);
-
-const {
-  customPreferences,
-  diffCustomPreference,
-  diffPreference,
-  isDark,
-  isFullContent,
-  isHeaderNav,
-  isHeaderSidebarNav,
-  isMixedNav,
-  preferencesExtension,
-  isSideMixedNav,
-  isSideMode,
-  isSideNav,
-} = usePreferences();
-const { copy } = useClipboard({ legacy: true });
-
 const [Drawer] = useVbenDrawer();
 
-const activeTab = ref('appearance');
+const { handleClearCache, handleCopy, handleReset, mergedDiffPreference } =
+  usePreferencesActions(() => emit('clearPreferencesAndLogout'));
 
-const customPreferencesTab = computed(() => {
-  return preferencesExtension.value;
-});
-
-const customTabLabel = computed(() => {
-  return customPreferencesTab.value?.tabLabel
-    ? $t(customPreferencesTab.value.tabLabel)
-    : '';
-});
-
-const customTabTitle = computed(() => {
-  const title =
-    customPreferencesTab.value?.title || customPreferencesTab.value?.tabLabel;
-  return title ? $t(title) : '';
-});
-
-const mergedDiffPreference = computed(() => {
-  const result: Record<string, unknown> = {};
-
-  if (diffPreference.value) {
-    Object.assign(result, diffPreference.value);
-  }
-
-  if (diffCustomPreference.value) {
-    result.custom = diffCustomPreference.value;
-  }
-
-  return Object.keys(result).length > 0 ? result : undefined;
-});
-
-const showCustomTab = computed(() => {
-  return (customPreferencesTab.value?.fields.length ?? 0) > 0;
-});
-
-const tabs = computed((): SegmentedItem[] => {
-  const items: SegmentedItem[] = [
-    {
-      label: $t('preferences.appearance'),
-      value: 'appearance',
+function toggleStickyNavigationBar() {
+  updatePreferences({
+    app: {
+      enableStickyPreferencesNavigationBar:
+        !preferences.app.enableStickyPreferencesNavigationBar,
     },
-    {
-      label: $t('preferences.layout'),
-      value: 'layout',
-    },
-    {
-      label: $t('preferences.shortcutKeys.title'),
-      value: 'shortcutKey',
-    },
-    {
-      label: $t('preferences.general'),
-      value: 'general',
-    },
-  ];
-
-  if (showCustomTab.value) {
-    items.push({
-      label: customTabLabel.value,
-      value: 'custom',
-    });
-  }
-
-  return items;
-});
-
-const showBreadcrumbConfig = computed(() => {
-  return (
-    !isFullContent.value &&
-    !isMixedNav.value &&
-    !isHeaderNav.value &&
-    preferences.header.enable
-  );
-});
-
-async function handleCopy() {
-  await copy(JSON.stringify(mergedDiffPreference.value, null, 2));
-
-  message.copyPreferencesSuccess?.(
-    $t('preferences.copyPreferencesSuccessTitle'),
-    $t('preferences.copyPreferencesSuccess'),
-  );
-}
-
-async function handleClearCache() {
-  await resetPreferences();
-  await clearCache();
-  emit('clearPreferencesAndLogout');
-}
-
-async function handleReset() {
-  if (!mergedDiffPreference.value) {
-    return;
-  }
-  await resetPreferences();
-  await loadLocaleMessages(preferences.app.locale);
-}
-
-function handleCustomPreferencesUpdate(updates: CustomPreferencesRecord) {
-  updateCustomPreferences(updates);
+  });
 }
 </script>
 
@@ -351,19 +63,15 @@ function handleCustomPreferencesUpdate(updates: CustomPreferencesRecord) {
           </VbenIconButton>
           <VbenIconButton
             :tooltip="
-              appEnableStickyPreferencesNavigationBar
+              preferences.app.enableStickyPreferencesNavigationBar
                 ? $t('preferences.disableStickyPreferencesNavigationBar')
                 : $t('preferences.enableStickyPreferencesNavigationBar')
             "
             class="relative"
-            @click="
-              () =>
-                (appEnableStickyPreferencesNavigationBar =
-                  !appEnableStickyPreferencesNavigationBar)
-            "
+            @click="toggleStickyNavigationBar"
           >
             <PinOff
-              v-if="appEnableStickyPreferencesNavigationBar"
+              v-if="preferences.app.enableStickyPreferencesNavigationBar"
               class="size-4"
             />
             <Pin v-else class="size-4" />
@@ -372,232 +80,15 @@ function handleCustomPreferencesUpdate(updates: CustomPreferencesRecord) {
       </template>
 
       <div>
-        <VbenSegmented
-          v-model="activeTab"
-          :tabs="tabs"
-          :class="{
-            'sticky-tabs-header': appEnableStickyPreferencesNavigationBar,
-          }"
-        >
-          <template #general>
-            <Block :title="$t('preferences.general')">
-              <General
-                v-model:app-dynamic-title="appDynamicTitle"
-                v-model:app-enable-check-updates="appEnableCheckUpdates"
-                v-model:app-enable-copy-preferences="appEnableCopyPreferences"
-                v-model:app-font-family="appFontFamily"
-                v-model:app-locale="appLocale"
-                v-model:app-timezone="appTimezone"
-                v-model:app-watermark="appWatermark"
-                v-model:app-watermark-content="appWatermarkContent"
-              />
-            </Block>
-
-            <Block :title="$t('preferences.animation.title')">
-              <Animation
-                v-model:transition-enable="transitionEnable"
-                v-model:transition-loading="transitionLoading"
-                v-model:transition-name="transitionName"
-                v-model:transition-progress="transitionProgress"
-              />
-            </Block>
-          </template>
-          <template #appearance>
-            <Block :title="$t('preferences.theme.title')">
-              <Theme
-                v-model="themeMode"
-                v-model:theme-semi-dark-header="themeSemiDarkHeader"
-                v-model:theme-semi-dark-sidebar="themeSemiDarkSidebar"
-                v-model:theme-semi-dark-sidebar-sub="themeSemiDarkSidebarSub"
-              />
-            </Block>
-            <Block :title="$t('preferences.theme.builtin.title')">
-              <BuiltinTheme
-                v-model="themeBuiltinType"
-                v-model:theme-color-primary="themeColorPrimary"
-                :is-dark="isDark"
-              />
-            </Block>
-            <Block :title="$t('preferences.theme.radius')">
-              <Radius v-model="themeRadius" />
-            </Block>
-            <!--
-              여기에는 Block 제목을 주지 않는다. FontFamily 는 SelectItem 부품이라
-              **행 안에 자기 라벨을 이미 갖고 있다**(일반 탭의 언어·시간대와 같은 모양).
-              제목을 주면 '기본 글꼴' 이 두 번 나온다.
-              이웃한 테두리 반경·글꼴 크기는 자체 라벨이 없어 Block 제목이 필요하다.
-            -->
-            <Block>
-              <FontFamily v-model="appFontFamily" />
-            </Block>
-            <Block :title="$t('preferences.theme.fontSize')">
-              <FontSize v-model="themeFontSize" />
-            </Block>
-            <Block :title="$t('preferences.other')">
-              <ColorMode
-                v-model:app-color-gray-mode="appColorGrayMode"
-                v-model:app-color-weak-mode="appColorWeakMode"
-              />
-            </Block>
-          </template>
-          <template #layout>
-            <Block :title="$t('preferences.layout')">
-              <Layout v-model="appLayout" />
-            </Block>
-            <Block :title="$t('preferences.content')">
-              <Content v-model="appContentCompact" />
-            </Block>
-
-            <Block :title="$t('preferences.sidebar.title')">
-              <Sidebar
-                v-model:sidebar-auto-activate-child="sidebarAutoActivateChild"
-                v-model:sidebar-draggable="sidebarDraggable"
-                v-model:sidebar-collapsed="sidebarCollapsed"
-                v-model:sidebar-collapsed-show-title="sidebarCollapsedShowTitle"
-                v-model:sidebar-enable="sidebarEnable"
-                v-model:sidebar-expand-on-hover="sidebarExpandOnHover"
-                v-model:sidebar-width="sidebarWidth"
-                v-model:sidebar-collapsed-button="sidebarCollapsedButton"
-                v-model:sidebar-fixed-button="sidebarFixedButton"
-                :current-layout="appLayout"
-                :disabled="!isSideMode"
-              />
-            </Block>
-
-            <Block :title="$t('preferences.header.title')">
-              <Header
-                v-model:header-enable="headerEnable"
-                v-model:header-menu-align="headerMenuAlign"
-                v-model:header-mode="headerMode"
-                :disabled="isFullContent"
-              />
-            </Block>
-
-            <Block :title="$t('preferences.navigationMenu.title')">
-              <Navigation
-                v-model:navigation-accordion="navigationAccordion"
-                v-model:navigation-split="navigationSplit"
-                v-model:navigation-style-type="navigationStyleType"
-                :disabled="isFullContent"
-                :disabled-navigation-split="!isMixedNav"
-              />
-            </Block>
-
-            <Block :title="$t('preferences.breadcrumb.title')">
-              <Breadcrumb
-                v-model:breadcrumb-enable="breadcrumbEnable"
-                v-model:breadcrumb-hide-only-one="breadcrumbHideOnlyOne"
-                v-model:breadcrumb-show-home="breadcrumbShowHome"
-                v-model:breadcrumb-show-icon="breadcrumbShowIcon"
-                v-model:breadcrumb-style-type="breadcrumbStyleType"
-                :disabled="
-                  !showBreadcrumbConfig ||
-                  !(isSideNav || isSideMixedNav || isHeaderSidebarNav)
-                "
-              />
-            </Block>
-            <Block :title="$t('preferences.tabbar.title')">
-              <Tabbar
-                v-model:tabbar-draggable="tabbarDraggable"
-                v-model:tabbar-enable="tabbarEnable"
-                v-model:tabbar-persist="tabbarPersist"
-                v-model:tabbar-visit-history="tabbarVisitHistory"
-                v-model:tabbar-show-icon="tabbarShowIcon"
-                v-model:tabbar-show-maximize="tabbarShowMaximize"
-                v-model:tabbar-show-more="tabbarShowMore"
-                v-model:tabbar-style-type="tabbarStyleType"
-                v-model:tabbar-wheelable="tabbarWheelable"
-                v-model:tabbar-max-count="tabbarMaxCount"
-                v-model:tabbar-middle-click-to-close="tabbarMiddleClickToClose"
-              />
-            </Block>
-            <Block :title="$t('preferences.widget.title')">
-              <Widget
-                v-model:app-preferences-button-position="
-                  appPreferencesButtonPosition
-                "
-                v-model:widget-fullscreen-button-position="
-                  widgetFullscreenButtonPosition
-                "
-                v-model:widget-global-search-button-position="
-                  widgetGlobalSearchButtonPosition
-                "
-                v-model:widget-language-toggle-button-position="
-                  widgetLanguageToggleButtonPosition
-                "
-                v-model:widget-lock-screen-button-position="
-                  widgetLockScreenButtonPosition
-                "
-                v-model:widget-logout-button-position="
-                  widgetLogoutButtonPosition
-                "
-                v-model:widget-order="widgetOrder"
-                v-model:widget-notification-button-position="
-                  widgetNotificationButtonPosition
-                "
-                v-model:widget-refresh-button-position="
-                  widgetRefreshButtonPosition
-                "
-                v-model:widget-theme-toggle-button-position="
-                  widgetThemeToggleButtonPosition
-                "
-                v-model:widget-timezone-button-position="
-                  widgetTimezoneButtonPosition
-                "
-              />
-            </Block>
-            <Block :title="$t('preferences.footer.title')">
-              <Footer
-                v-model:footer-enable="footerEnable"
-                v-model:footer-fixed="footerFixed"
-              />
-            </Block>
-            <Block
-              v-if="copyrightSettingShow"
-              :title="$t('preferences.copyright.title')"
-            >
-              <Copyright
-                v-model:copyright-company-name="copyrightCompanyName"
-                v-model:copyright-company-site-link="copyrightCompanySiteLink"
-                v-model:copyright-date="copyrightDate"
-                v-model:copyright-enable="copyrightEnable"
-                v-model:copyright-icp="copyrightIcp"
-                v-model:copyright-icp-link="copyrightIcpLink"
-                :disabled="!footerEnable"
-              />
-            </Block>
-          </template>
-
-          <template #shortcutKey>
-            <Block :title="$t('preferences.shortcutKeys.global')">
-              <GlobalShortcutKeys
-                v-model:shortcut-keys-enable="shortcutKeysEnable"
-                v-model:shortcut-keys-global-search="shortcutKeysGlobalSearch"
-
-
-
-
-                v-model:shortcut-keys-lock-screen="shortcutKeysGlobalLockScreen"
-                v-model:shortcut-keys-logout="shortcutKeysGlobalLogout"
-                v-model:shortcut-keys-escape="shortcutKeysGlobalEscape"
-              />
-            </Block>
-          </template>
-          <template #custom>
-            <Block :title="customTabTitle">
-              <Custom
-                :fields="customPreferencesTab?.fields || []"
-                :values="customPreferences"
-                @update="handleCustomPreferencesUpdate"
-              />
-            </Block>
-          </template>
-        </VbenSegmented>
+        <PreferencesPanel
+          v-bind="$attrs"
+          :sticky-tabs="preferences.app.enableStickyPreferencesNavigationBar"
+        />
       </div>
 
       <template #footer>
         <VbenButton
-          v-if="appEnableCopyPreferences"
+          v-if="preferences.app.enableCopyPreferences"
           :disabled="!mergedDiffPreference"
           class="mx-4 w-full"
           size="sm"
@@ -620,9 +111,3 @@ function handleCustomPreferencesUpdate(updates: CustomPreferencesRecord) {
     </Drawer>
   </div>
 </template>
-
-<style scoped>
-:deep(.sticky-tabs-header [role='tablist']) {
-  @apply -top-3 z-9999 sticky;
-}
-</style>
