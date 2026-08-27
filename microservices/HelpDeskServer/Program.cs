@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Authentication.JwtBearer;
+﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using System.Reflection;
@@ -13,6 +13,8 @@ using HelpDeskServer.Services;
 using JSini.Shared.Infrastructure.Middleware;
 using Serilog;
 using Spectre.Console;
+using JSini.Shared.Infrastructure.HealthChecks;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 
 
 // 전역 시간대 설정 (KST)
@@ -192,10 +194,28 @@ if (builder.Configuration.GetValue("Workers:AutoCheckEnabled", true)) {
 builder.Services.AddHttpClient();
 builder.Services.AddHealthChecks();
 
+
+// ── 딸린 것: DB ────────────────────────────────────────────
+//
+// 프로세스가 살아 있는 것과 서비스가 **제 일을 하는 것**은 다르다.
+// DB 가 끊기면 이 서비스는 사실상 아무것도 못 하므로 Unhealthy(503) 로 본다
+// (LLM 처럼 일부 기능만 막히는 경우는 Degraded 를 쓴다).
+//
+// 상태 화면이 '연결 대상' 줄로 보여 준다. 30초 캐시 · 3초 타임아웃은 도우미가 맡는다.
+builder.Services.AddHealthChecks()
+    .AddDependencyCheck("database", async (sp, ct) =>
+    {
+        var db = sp.GetRequiredService<AppDbContext>();
+        var canConnect = await db.Database.CanConnectAsync(ct);
+        return canConnect
+            ? HealthCheckResult.Healthy("DB 에 연결됩니다.")
+            : HealthCheckResult.Unhealthy("DB 에 연결할 수 없습니다.");
+    });
+
 var app = builder.Build();
 
 // 헬스체크 엔드포인트. 프로세스가 요청을 처리할 수 있는 상태인지만 보고한다.
-app.MapHealthChecks("/health").AllowAnonymous();
+app.MapJsiniHealthChecks();
 
 if (app.Environment.IsDevelopment()) {
   app.UseSwagger();

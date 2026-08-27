@@ -3,7 +3,6 @@ import type { NotificationItem } from '@vben/layouts';
 
 import { computed, onBeforeMount, ref, watch, provide } from 'vue';
 import { useRouter } from 'vue-router';
-import { streamChatMessage } from '#/api/portal/ai/chat';
 
 import { AuthenticationLoginExpiredModal } from '@vben/common-ui';
 import { VBEN_DOC_URL, VBEN_GITHUB_URL } from '@vben/constants';
@@ -21,6 +20,9 @@ import { openWindow } from '@vben/utils';
 
 import { message } from 'ant-design-vue';
 
+// 헤더의 ✨ 아이콘이 켜면 레이아웃이 본문 오른쪽에 그린다. 이 화면은 antd 를 쓰므로
+// 프레임워크 패키지가 아니라 앱에 두고 슬롯으로 넣는다.
+import AiChatContent from '#/components/ai-chat/ai-chat-content.vue';
 import { $t } from '#/locales';
 import { refreshAccessMenus } from '#/router/access';
 import { useAuthStore } from '#/store';
@@ -28,7 +30,6 @@ import { useMenuFavoriteStore } from '#/store/menu-favorite';
 import LoginForm from '#/views/_core/authentication/login.vue';
 
 const { setMenuList } = useTabbarStore();
-provide('AI_CHAT_STREAM_API', streamChatMessage);
 setMenuList([
   'close',
   'affix',
@@ -322,6 +323,10 @@ onBeforeMount(() => {
     </template>
     <template #lock-screen>
       <LockScreen :avatar @to-login="handleLogout" />
+    </template>
+    <!-- 본문 오른쪽의 AI 채팅. 레이아웃은 열림 여부와 폭만 잡고 내용은 여기서 넣는다. -->
+    <template #ai-chat>
+      <AiChatContent />
     </template>
   </BasicLayout>
 </template>

@@ -410,16 +410,41 @@ app.MapGet("/api/gateway/status", async (
             string status;
             int? httpStatus = null;
             string? error = null;
+            string? reason = null;
+            List<object> dependencies = new();
 
             try
             {
                 using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-                cts.CancelAfter(TimeSpan.FromSeconds(3));
+                // LLM 처럼 딸린 것을 점검하는 서비스는 응답이 조금 더 걸린다.
+                // 서비스 쪽 점검 타임아웃(3초)보다 넉넉해야 우리가 먼저 끊지 않는다.
+                cts.CancelAfter(TimeSpan.FromSeconds(6));
 
                 var response = await client.GetAsync(probeUrl, cts.Token);
                 httpStatus = (int)response.StatusCode;
                 // /health 를 제공하지 않는 구버전이라도 응답 자체가 오면 프로세스는 살아 있다.
                 status = response.IsSuccessStatusCode ? "UP" : "DEGRADED";
+
+                // ── 딸린 것까지 읽는다 ──────────────────────────────
+                //
+                // **상태 코드만 보면 안 된다.** 프로세스가 멀쩡하면 200 이므로,
+                // LLM 장비가 꺼진 AIAgentServer 도 UP 으로 보였다. 그것이 이 화면에서
+                // "동작한다" 고 오해하게 만든 원인이다.
+                //
+                // 각 서비스가 자기 의존 대상을 점검해 본문에 담아 보내므로
+                // (JSini.Shared.Infrastructure/HealthChecks) 게이트웨이는 **읽어 올리기만** 한다.
+                // 판정 기준을 게이트웨이에 두면 LLM 주소·모델명을 여기서도 알아야 한다.
+                var body = await response.Content.ReadAsStringAsync(cts.Token);
+                var parsed = HealthBody.Parse(body);
+                if (parsed is not null)
+                {
+                    dependencies = parsed.Dependencies;
+                    reason = parsed.Reason;
+
+                    // 서비스가 스스로 Degraded 라고 하면 그 말을 따른다.
+                    // 프로세스는 살아 있으니 DOWN 은 아니고, 제 일을 못 하니 UP 도 아니다.
+                    if (status == "UP" && parsed.IsDegraded) status = "DEGRADED";
+                }
             }
             catch (Exception ex)
             {
@@ -437,6 +462,10 @@ app.MapGet("/api/gateway/status", async (
                 httpStatus,
                 latencyMs = sw.ElapsedMilliseconds,
                 error,
+                // 왜 이 상태인지 한 줄. 화면이 배지 옆에 그대로 보여 준다.
+                reason,
+                // 딸린 것(LLM · DB · 큐 · 저장소 …). 화면이 자식 줄로 펼쳐 보여 준다.
+                dependencies,
             });
         }
     }

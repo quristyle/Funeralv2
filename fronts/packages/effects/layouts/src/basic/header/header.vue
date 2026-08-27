@@ -213,6 +213,24 @@ const rightSlots = computed(() => {
     }
   }
 
+  // ── AI 채팅 (우리 것. 상위에 없다) ─────────────────────────
+  //
+  // 위의 `widgetChecks` 를 쓰지 않고 여기서 직접 끼워 넣는다. 그 표는
+  // `preferences.widget.order` 를 따라 도는데, 그 목록은 `@core/preferences` 의
+  // 기본값이라 우리 항목을 넣으면 상위와 동기화할 때마다 부딪힌다.
+  // 이 블록 하나로 묶어 두면 갈라지는 지점이 한 곳에 남는다.
+  //
+  // 위치는 설정 버튼 바로 뒤 — 예전과 같다. 설정 버튼이 숨겨져 있으면 맨 앞에 온다.
+  //
+  // **이 블록이 없으면 아래 템플릿의 `'ai-chat'` 분기는 닿을 수 없는 죽은 코드다.**
+  // a8e93fa(상위 동기화)에서 실제로 그렇게 사라져 아이콘이 화면에서 없어졌다.
+  const preferencesAt = list.findIndex((item) => item.name === 'preferences');
+  list.splice(preferencesAt + 1, 0, { index: 0, name: 'ai-chat' });
+  // 끼워 넣은 뒤 번호를 다시 매긴다 — 마지막에 index 로 정렬하기 때문이다.
+  list.forEach((item, i) => {
+    item.index = REFERENCE_VALUE + i;
+  });
+
   // 用户插槽（header-right-N）追加在后面
   Object.keys(slots).forEach((key) => {
     if (key.startsWith('header-right')) {
@@ -331,7 +349,12 @@ function clearPreferencesAndLogout() {
           </VbenTooltip>
         </template>
         <template v-else-if="slot.name === 'ai-chat'">
-          <AiChatButton class="mr-1" />
+          <VbenTooltip side="bottom">
+            <template #trigger>
+              <AiChatButton class="mr-1" />
+            </template>
+            {{ $t('ui.widgets.aiChat') }}
+          </VbenTooltip>
         </template>
         <template v-else-if="slot.name === 'theme-toggle'">
           <VbenTooltip side="bottom">

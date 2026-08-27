@@ -23,6 +23,10 @@ import { VbenBackTop, VbenLogo } from '@vben-core/shadcn-ui';
 import { ELEMENT_ID_LAYOUT_SCROLL } from '@vben-core/shared/constants';
 
 import { Breadcrumb, CheckUpdates, Preferences } from '../widgets';
+// AI 채팅 사이드바의 여닫힘. 본문 옆에 자리를 잡으므로 자리와 폭은 레이아웃이 잡고,
+// **내용은 앱이 `#ai-chat` 슬롯으로 넣어 준다** — 그 화면은 antd 를 쓰는데
+// 프레임워크 패키지는 antd 를 쓰지 않는다.
+import { isAiChatPinned } from '../widgets/ai-chat/state';
 import { LayoutContent, LayoutContentSpinner } from './content';
 import { Copyright } from './copyright';
 import { LayoutFooter } from './footer';
@@ -36,7 +40,6 @@ import {
 } from './menu';
 import { LayoutTabbar } from './tabbar';
 import { useLayoutScroll } from './use-layout-scroll';
-import { isAiChatPinned } from '../widgets/ai-chat/state';
 
 defineOptions({ name: 'BasicLayout' });
 
@@ -792,13 +795,13 @@ function startResize(e: MouseEvent) {
         ></div>
 
         <!-- 핀 고정된 AI 채팅 사이드바 (반응형 너비 스타일 바인딩, 드래그 랙 방지를 위해 트랜지션 제외) -->
-        <div 
-          v-if="isAiChatPinned" 
+        <div
+          v-if="isAiChatPinned"
           :style="{ width: `${aiChatWidth}px` }"
           class="border-l bg-background shrink-0 h-full flex flex-col shadow-md"
         >
-          <!-- 핀 고정 모드로 AiChatContent를 렌더링 -->
-          <AiChatContent mode="pinned" />
+          <!-- 내용은 앱이 넣는다. 슬롯이 비어 있으면 빈 칸만 열린다. -->
+          <slot name="ai-chat"></slot>
         </div>
       </div>
     </template>

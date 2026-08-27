@@ -132,6 +132,7 @@
     "document": "Document",
     "qa": "Q&A",
     "setting": "Settings",
+    "aiChat": "AI Chat",
     "logoutTip": "Do you want to logout?",
     "viewAll": "View All Messages",
     "notifications": "Notifications",

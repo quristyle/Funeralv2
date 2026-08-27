@@ -1,3 +1,5 @@
+import type { PreferencesExtension } from '@vben/preferences';
+
 import { defineOverridesPreferences } from '@vben/preferences';
 
 /**
@@ -44,3 +46,129 @@ export const overridesPreferences = defineOverridesPreferences({
     radius: '0.25',
   },
 });
+
+/**
+ * [환경설정에 추가한 우리 항목]
+ *
+ * 프레임워크가 주는 확장 자리다(`initPreferences({ extension })`). 여기에 적으면
+ * 헤더 톱니의 드로어와 `/setting/environment` 화면에 **탭이 하나 생긴다.**
+ * 프레임워크 코드는 손대지 않는다 — 상위 동기화 때 충돌할 일이 없다.
+ *
+ * 값은 계정에 붙어 서버에 저장된다(`store/preferences-sync.ts`).
+ * 다른 PC 에서 로그인해도 따라온다.
+ */
+export interface JsiniCustomPreferences {
+  /** 쓸 AI 공급자. AIAgentServer 의 `AI:Providers` 키와 같은 값이어야 한다. */
+  aiProvider: string;
+  /** OpenRouter 를 골랐을 때 쓸 모델. **무료 모델만 목록에 둔다.** */
+  aiOpenRouterModel: string;
+}
+
+/**
+ * AI 공급자 선택.
+ *
+ * 로컬 LLM(JSINI) 장비가 자주 꺼져 있어서, 꺼져 있는 동안 Groq 무료 플랜으로
+ * 옮겨 쓸 수 있게 사람이 고르게 했다. 고른 값은 AI 요청마다 서버로 넘어가고
+ * (`api/portal/ai/provider.ts`), 서버가 그 공급자로 처리한다.
+ *
+ * **기본값은 `jsini` 다.** 지금까지와 똑같이 동작한다 — Groq 를 쓰려면 사람이 골라야 한다.
+ */
+export const AI_PROVIDER_KEY = 'aiProvider';
+
+/** OpenRouter 모델을 담는 설정 키. */
+export const AI_OPENROUTER_MODEL_KEY = 'aiOpenRouterModel';
+
+/** 고를 수 있는 값. 서버 `AI:Providers` 의 키와 짝이다. */
+export const AI_PROVIDERS = {
+  groq: 'groq',
+  jsini: 'jsini',
+  openrouter: 'openrouter',
+} as const;
+
+/**
+ * OpenRouter 에서 고를 수 있는 모델. **무료(`:free`) 모델만 넣는다.**
+ *
+ * [이 목록은 편의일 뿐 안전장치가 아니다]
+ * 과금을 막는 것은 **서버**다. 브라우저에서 온 모델 이름은 믿을 수 없으므로
+ * AIAgentServer 가 부르기 전에 두 가지를 확인한다 — 이름이 `:free` 로 끝나는지,
+ * 그리고 OpenRouter 카탈로그의 실제 단가가 0 인지(`FreeModelGuard`).
+ * 요청 본문에도 `max_price=0` · `allow_fallbacks=false` 를 함께 보낸다.
+ *
+ * [목록이 낡는다]
+ * OpenRouter 는 무료 모델을 수시로 바꾼다. 여기 적힌 모델이 유료로 바뀌거나
+ * 사라지면 **서버가 부르지 않고 기본 모델로 돌린다**(과금되지 않는다).
+ * 그 사실은 상태 화면의 AI 공급자 블록에 뜨므로, 그때 이 목록을 손보면 된다.
+ * 지금 실제로 무료인 목록은 `GET /api/ai/models?provider=openrouter` 로 볼 수 있다.
+ *
+ * [순서가 뜻을 가진다 — 첫 번째가 기본값이다]
+ * 무료 모델은 상류 제공자가 자주 붐벼서(429 "temporarily rate-limited upstream")
+ * **이름만 무료인 것과 실제로 답하는 것이 다르다.** 그래서 실제로 답한 것을 앞에 둔다.
+ *
+ * 2026-08-27 실측:
+ *   · minimax-m3          — 한국어로 깔끔하게 답함 (GMICloud)     ✔ 기본값
+ *   · nemotron-3-super    — 답하지만 생각 과정이 섞여 나옴
+ *   · gemma-4-31b-it      — 계속 429 (상류 혼잡)
+ *   · gemma-4-26b-a4b-it  — 계속 429
+ *   · glm-5.2             — 계속 429
+ *   · inkling            — 403 (이 키로 접근 불가) → 목록에서 뺐다
+ *
+ * 429 는 고장이 아니라 그때 붐빈 것이라 남겨 둔다. 시간이 지나면 풀린다.
+ *
+ * [한도에 걸리면 서버가 알아서 바꾼다]
+ * 여기서 고른 모델이 429 를 주면 서버가 **다른 무료 모델로 바꿔** 답한다
+ * (AIAgentServer 설정의 `AI:Providers:openrouter:FallbackModels` 순서를 따른다).
+ * 그러니 이 목록에서 붐비는 모델을 골라 두어도 답은 나온다.
+ *
+ * **이 목록과 서버의 `FallbackModels` 는 다른 목록이다.** 여기는 "사람이 고를 수
+ * 있는 것", 저기는 "한도에 걸렸을 때 서버가 대신 쓸 것"이다. 굳이 같게 맞출
+ * 필요는 없지만, 여기에만 있는 모델은 대체 대상이 되지 않는다.
+ */
+export const AI_OPENROUTER_FREE_MODELS = [
+  'minimax/minimax-m3:free',
+  'nvidia/nemotron-3-super-120b-a12b:free',
+  'minimax/minimax-m2.7:free',
+  'google/gemma-4-31b-it:free',
+  'google/gemma-4-26b-a4b-it:free',
+  'z-ai/glm-5.2:free',
+] as const;
+
+export const jsiniPreferencesExtension: PreferencesExtension<JsiniCustomPreferences> =
+  {
+    tabLabel: 'AI',
+    title: 'AI 모델',
+    fields: [
+      {
+        component: 'select',
+        defaultValue: AI_PROVIDERS.jsini,
+        key: AI_PROVIDER_KEY,
+        label: '사용할 AI 모델',
+        options: [
+          { label: 'JSINI (로컬 LLM)', value: AI_PROVIDERS.jsini },
+          { label: 'Groq Free (클라우드)', value: AI_PROVIDERS.groq },
+          { label: 'OpenRouter Free (클라우드)', value: AI_PROVIDERS.openrouter },
+        ],
+        tip:
+          'JSINI 는 사내 장비의 로컬 LLM 이고, Groq · OpenRouter 는 설치 없이 쓰는 ' +
+          '무료 클라우드다. 로컬 장비가 꺼져 있을 때 바꾸면 계속 쓸 수 있다. ' +
+          '무료 한도를 넘으면 잠시 차단되며, 과금되지 않는다.',
+      },
+      {
+        component: 'select',
+        defaultValue: AI_OPENROUTER_FREE_MODELS[0],
+        key: AI_OPENROUTER_MODEL_KEY,
+        label: 'OpenRouter 모델',
+        options: AI_OPENROUTER_FREE_MODELS.map((model) => ({
+          // 접두사(제공사)를 떼고 보여 주면 목록이 훨씬 읽기 쉽다.
+          // 값은 서버가 그대로 써야 하므로 전체 이름을 유지한다.
+          label: model.replace(':free', ''),
+          value: model,
+        })),
+        tip:
+          '위에서 OpenRouter 를 골랐을 때만 쓰인다. **무료 모델만 나열한다.** ' +
+          '고른 모델을 먼저 쓰고, 그 모델이 사용 한도에 걸리면 서버가 ' +
+          '다른 무료 모델로 바꿔 답한다(바꾼 사실은 답 앞에 한 줄로 알려 준다). ' +
+          '고른 모델이 무료가 아니게 되면 부르지 않고 기본 모델로 돌린다 — ' +
+          '어느 경우에도 과금되지 않는다.',
+      },
+    ],
+  };

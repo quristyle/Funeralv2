@@ -1,3 +1,4 @@
+import { currentAiModel, currentAiProvider } from '#/api/portal/ai/provider';
 import { requestClient } from '#/api/request';
 
 export namespace SystemI18nApi {
@@ -78,7 +79,8 @@ export async function ensureI18nResource(data: { locale: string; key: string; de
  * 다국어 키를 바탕으로 번역(한글/영문) 추천 받기
  */
 export async function suggestI18nTranslation(key: string, targetLang: string) {
+  // provider — 사용자가 환경설정에서 고른 AI 모델(#/api/portal/ai/provider.ts).
   return requestClient.get<unknown>('/ai/suggest-i18n', {
-    params: { key, targetLang },
+    params: { key, targetLang, provider: currentAiProvider(), model: currentAiModel() },
   });
 }

@@ -1,7 +1,7 @@
 import { initPreferences } from '@vben/preferences';
 import { unmountGlobalLoading } from '@vben/utils';
 
-import { overridesPreferences } from './preferences';
+import { jsiniPreferencesExtension, overridesPreferences } from './preferences';
 
 /**
  * 애플리케이션 초기화가 완료된 후 페이지 로드 및 렌더링을 진행합니다
@@ -14,9 +14,13 @@ async function initApplication() {
   const namespace = `${import.meta.env.VITE_APP_NAMESPACE}-${appVersion}-${env}`;
 
   // 앱 환경 설정 초기화
+  //
+  // `extension` 은 우리가 더한 항목이다(지금은 AI 모델 선택 하나).
+  // 환경설정 창에 탭으로 붙고, 값은 계정에 저장된다.
   await initPreferences({
     namespace,
     overrides: overridesPreferences,
+    extension: jsiniPreferencesExtension,
   });
 
   // 앱 실행 및 마운트

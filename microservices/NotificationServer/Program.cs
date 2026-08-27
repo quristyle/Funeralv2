@@ -1,4 +1,4 @@
-using System.Text;
+﻿using System.Text;
 
 using JSini.Shared.Infrastructure;
 using JSini.Shared.Infrastructure.Middleware;
@@ -10,6 +10,8 @@ using NotificationServer.Endpoints;
 using NotificationServer.Options;
 using NotificationServer.Services;
 using Serilog;
+using JSini.Shared.Infrastructure.HealthChecks;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 
 // ============================================================
 // NotificationServer — 푸시·이메일을 세 시스템이 공유한다 (결정 D8-A)
@@ -88,12 +90,30 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddHealthChecks();
 
+
+// ── 딸린 것: DB ────────────────────────────────────────────
+//
+// 프로세스가 살아 있는 것과 서비스가 **제 일을 하는 것**은 다르다.
+// DB 가 끊기면 이 서비스는 사실상 아무것도 못 하므로 Unhealthy(503) 로 본다
+// (LLM 처럼 일부 기능만 막히는 경우는 Degraded 를 쓴다).
+//
+// 상태 화면이 '연결 대상' 줄로 보여 준다. 30초 캐시 · 3초 타임아웃은 도우미가 맡는다.
+builder.Services.AddHealthChecks()
+    .AddDependencyCheck("database", async (sp, ct) =>
+    {
+        var db = sp.GetRequiredService<AppDbContext>();
+        var canConnect = await db.Database.CanConnectAsync(ct);
+        return canConnect
+            ? HealthCheckResult.Healthy("DB 에 연결됩니다.")
+            : HealthCheckResult.Unhealthy("DB 에 연결할 수 없습니다.");
+    });
+
 var app = builder.Build();
 
 app.UseSerilogRequestLogging();
 
 // 게이트웨이의 능동 헬스체크 대상. 인증을 걸지 않는다.
-app.MapHealthChecks("/health").AllowAnonymous();
+app.MapJsiniHealthChecks();
 
 if (app.Environment.IsDevelopment())
 {

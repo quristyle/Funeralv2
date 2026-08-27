@@ -62,8 +62,7 @@ FRONTS=(
   "web|Site Frontend (vite)|fronts|5556|@jsini/site"
 )
 
-front_keys()   { printf '%s
-' "${FRONTS[@]}" | cut -d'|' -f1; }
+front_keys()   { printf '%s\n' "${FRONTS[@]}" | cut -d'|' -f1; }
 front_field()  {   # front_field <이름> <필드번호>
     local key="$1" idx="$2" row
     for row in "${FRONTS[@]}"; do
