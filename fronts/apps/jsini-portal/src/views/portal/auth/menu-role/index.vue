@@ -2,7 +2,7 @@
 import type { MenuRoleApi } from '#/api/portal/system/menu-role';
 import type { SystemMenuApi } from '#/api/portal/system/menu';
 
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 
 import { Page } from '@vben/common-ui';
 import { IconifyIcon } from '@vben/icons';
@@ -28,6 +28,7 @@ import { getMenuRole } from '#/api/portal/system/menu-role';
 import { getMenuList } from '#/api/portal/system/menu';
 import { getRoleMenus, saveRoleMenus } from '#/api/portal/system/role-permission';
 import { removeRoleScope } from '#/api/portal/system/role-scope';
+import { $tIfKey } from '#/locales';
 import { can } from '#/utils/permission';
 
 /**
@@ -86,6 +87,36 @@ const saving = ref(false);
 
 const canEdit = computed(() => can('update', '/auth/menu-role'));
 
+/**
+ * 메뉴 하나를 화면에 뜨는 그대로 만든다 — **아이콘과 이름 둘 다.**
+ *
+ * [이름]
+ * `system_menus.title` 은 두 가지가 섞여 있다. `page.dashboard.analytics` 같은
+ * **번역 키**이기도 하고 `상태관리` 처럼 **완성된 글자**이기도 하다. 그래서
+ * 사이드바와 같은 규칙(`$tIfKey`)을 쓴다 — 키면 번역하고 아니면 그대로 둔다.
+ * `$t()` 를 그냥 쓰면 완성된 글자마다 vue-i18n 이 대체 언어를 훑으며 경고를
+ * 두 줄씩 찍는다(18번 문서). 여기는 메뉴를 263개 그리는 화면이라 특히 그렇다.
+ *
+ * 번역도 원래 이름도 없으면 `name`, 그것도 없으면 `path` 를 쓴다.
+ * **빈 줄만은 만들지 않는다** — 고를 수 없는 항목이 되기 때문이다.
+ *
+ * [아이콘]
+ * 목록 API 는 `meta.icon` 에 담아 준다(`lucide:*` · `mdi:*` …). 예전에는 이 값을
+ * 보지 않고 폴더/문서 아이콘 둘로만 그려서, 실제 메뉴와 다르게 보였다.
+ * 버튼 권한은 메뉴가 아니므로 자물쇠로 구분한다(메뉴 관리 화면과 같은 규칙).
+ */
+function decorate(m: SystemMenuApi.SystemMenu) {
+  const rawTitle = m.meta?.title ?? '';
+  const label = $tIfKey(rawTitle) || m.name || m.path || '';
+
+  const icon =
+    m.type === 'BUTTON'
+      ? 'carbon:security'
+      : m.meta?.icon || (m.component ? 'lucide:file-text' : 'lucide:folder');
+
+  return { label, icon, rawTitle };
+}
+
 /** 메뉴 트리. 검색어가 있으면 걸리는 것과 그 부모만 남긴다. */
 const treeData = computed(() => {
   const kw = menuKeyword.value.trim().toLowerCase();
@@ -94,18 +125,26 @@ const treeData = computed(() => {
     return list
       .map((m) => {
         const children = build((m as any).children ?? []);
-        const label = String((m as any).title || m.name || '');
+        const { label, icon, rawTitle } = decorate(m);
+
+        // [무엇으로 찾히게 할 것인가]
+        //
+        // 보이는 이름(번역된 것)뿐 아니라 **원래 이름과 번역 키**로도 찾히게 한다.
+        // 화면에는 '분석' 이라고 떠도 사람은 'analytics' 나 'Analytics' 로
+        // 기억하고 있을 수 있다. 경로도 마찬가지다.
         const hit =
           !kw ||
-          label.toLowerCase().includes(kw) ||
-          String(m.path ?? '').toLowerCase().includes(kw);
+          [label, m.name, rawTitle, m.path].some((v) =>
+            String(v ?? '').toLowerCase().includes(kw),
+          );
 
         // 자식이 걸리면 부모도 남긴다 — 그러지 않으면 트리가 끊겨 찾은 것이 안 보인다.
         if (!hit && children.length === 0) return null;
 
         return {
           key: m.id,
-          title: label || m.path,
+          title: label,
+          icon,
           path: m.path,
           isDir: !m.component,
           children: children.length > 0 ? children : undefined,
@@ -116,6 +155,40 @@ const treeData = computed(() => {
 
   return build(menus.value);
 });
+
+/**
+ * 검색하면 걸린 것이 **보이도록 펼친다.**
+ *
+ * 검색은 걸린 것과 그 부모만 남기지만, 부모가 접혀 있으면 antd 트리는 자식을
+ * 그리지 않는다. 그러면 찾았는데도 부모 이름만 보이고 정작 찾던 메뉴가 안 보인다.
+ * (메뉴가 263개라 접힌 상태가 기본이므로 거의 항상 그렇게 된다.)
+ *
+ * 지울 때는 접지 않는다 — 사람이 직접 펼쳐 둔 것까지 닫아 버리면 자리를 잃는다.
+ */
+watch(treeData, (tree) => {
+  if (!menuKeyword.value.trim()) return;
+
+  const keys: string[] = [];
+  const walk = (list: any[]) => {
+    for (const n of list) {
+      if (n.children?.length) {
+        keys.push(n.key);
+        walk(n.children);
+      }
+    }
+  };
+  walk(tree);
+  expandedKeys.value = keys;
+});
+
+/**
+ * 오른쪽 제목에 쓸 메뉴 이름.
+ *
+ * 서버가 주는 `menuName` 은 DB 의 `title` 그대로라 <b>번역 키일 수 있다</b>
+ * (`page.dashboard.analytics`). 왼쪽 트리와 같은 규칙을 태우지 않으면
+ * 한 화면에서 같은 메뉴가 두 이름으로 보인다.
+ */
+const detailTitle = computed(() => $tIfKey(detail.value?.menuName ?? ''));
 
 /** 이 메뉴가 실제로 쓰는 권한 항목만 남긴다. */
 const visibleItems = computed(() => {
@@ -294,10 +367,16 @@ onMounted(loadMenus);
             >
               <template #title="node">
                 <div class="flex items-center gap-1.5">
+                  <!--
+                    메뉴가 실제로 쓰는 아이콘을 그대로 그린다(`meta.icon`).
+                    예전에는 폴더/문서 둘로만 그려서 사이드바와 다르게 보였다 —
+                    이 화면은 "그 메뉴" 를 찾는 화면이라 생김새가 같아야 한다.
+                    아이콘이 없는 메뉴에는 `decorate()` 가 폴더/문서를 넣어 준다.
+                  -->
                   <IconifyIcon
                     class="size-4 shrink-0"
                     :class="node.isDir ? 'text-muted-foreground' : 'text-primary'"
-                    :icon="node.isDir ? 'lucide:folder' : 'lucide:file-text'"
+                    :icon="node.icon"
                   />
                   <!--
                     크기를 이 요소에 직접 준다. `rem` 은 항상 루트를 기준으로 계산되므로
@@ -348,9 +427,7 @@ onMounted(loadMenus);
               :body-style="{ padding: '12px' }"
               size="small"
               :title="
-                detail
-                  ? `${detail.menuName} — 이 메뉴를 쓸 수 있는 역할`
-                  : '역할'
+                detail ? `${detailTitle} — 이 메뉴를 쓸 수 있는 역할` : '역할'
               "
             >
               <template #extra>

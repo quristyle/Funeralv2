@@ -10,7 +10,7 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { Page } from '@vben/common-ui';
 import { IconifyIcon } from '@vben/icons';
 
-import { Card, Empty, Input, Radio, Spin, Tag, message } from 'ant-design-vue';
+import { Avatar, Card, Empty, Input, Radio, Spin, Tag, message } from 'ant-design-vue';
 
 import { getCompanyList } from '#/api/portal/system/company';
 import { getDeptList } from '#/api/portal/system/dept';
@@ -24,6 +24,7 @@ import {
   removeRoleScope,
 } from '#/api/portal/system/role-scope';
 import { $t } from '#/locales';
+import { avatarInitial, avatarStyle, avatarThumbUrl } from '#/utils/avatar';
 
 /**
  * [사람롤 — 이 사람이 무슨 권한을 갖는가]
@@ -52,6 +53,11 @@ interface Target {
   /** 검색에 쓰는 부가 정보 (회사·부서명, 로그인 아이디) */
   meta: string;
   name: string;
+  /**
+   * 프로필 사진 주소. 사람일 때만 있고, 사진을 올리지 않았으면 없다.
+   * 없는 것이 정상이라 화면은 이름 첫 글자로 대신 그린다.
+   */
+  avatar?: string;
 }
 
 const mode = ref<Mode>('account');
@@ -135,6 +141,7 @@ async function loadAccounts() {
     kind: 'account' as const,
     meta: [a.loginId, a.companyName, a.departmentName].filter(Boolean).join(' '),
     name: a.name,
+    avatar: avatarThumbUrl(a.avatar),
   }));
 }
 
@@ -413,10 +420,34 @@ function kindIcon(kind: RoleScopeApi.ScopeKind) {
                 @click="selected = t"
               >
                 <div class="flex items-center gap-1.5">
-                  <IconifyIcon :icon="kindIcon(t.kind)" class="size-3.5 shrink-0 text-gray-400" />
+                  <!--
+                    사람은 얼굴로 찾는다. 사진이 있으면 사진, 없으면 이름 첫 글자다.
+                    (사진이 없는 것은 흔한 일이지 오류가 아니다 — 빈 동그라미 대신
+                    글자를 넣어야 목록에서 사람이 구분된다.)
+
+                    크기는 `avatarStyle` 이 rem 으로 준다. antd 가 32px 을 자기
+                    클래스로 박아 두어 Tailwind 로는 밀리지 않고, `size` 속성은
+                    px 이라 사용자 글꼴 설정을 따라가지 못한다.
+                  -->
+                  <Avatar
+                    v-if="t.kind === 'account'"
+                    :src="t.avatar"
+                    class="shrink-0"
+                    :style="avatarStyle(t.name, !!t.avatar)"
+                  >
+                    {{ avatarInitial(t.name) }}
+                  </Avatar>
+                  <IconifyIcon
+                    v-else
+                    :icon="kindIcon(t.kind)"
+                    class="size-3.5 shrink-0 text-gray-400"
+                  />
                   <span class="truncate text-sm font-medium">{{ t.name }}</span>
                 </div>
-                <div class="truncate pl-5 text-[11px] text-gray-400">
+                <div
+                  class="truncate text-[11px] text-gray-400"
+                  :class="t.kind === 'account' ? 'pl-[26px]' : 'pl-5'"
+                >
                   {{ t.meta || '소속 없음' }}
                 </div>
               </div>
@@ -447,7 +478,20 @@ function kindIcon(kind: RoleScopeApi.ScopeKind) {
           >
             <template #title>
               <span class="flex items-center gap-1.5 text-sm">
-                <IconifyIcon :icon="kindIcon(selected.kind)" class="size-4 text-gray-400" />
+                <!-- 왼쪽 목록에서 고른 사람과 같은 얼굴이어야 한다. -->
+                <Avatar
+                  v-if="selected.kind === 'account'"
+                  :src="selected.avatar"
+                  class="shrink-0"
+                  :style="avatarStyle(selected.name, !!selected.avatar, 1.5)"
+                >
+                  {{ avatarInitial(selected.name) }}
+                </Avatar>
+                <IconifyIcon
+                  v-else
+                  :icon="kindIcon(selected.kind)"
+                  class="size-4 text-gray-400"
+                />
                 {{ selected.name }}
                 <span class="text-[11px] font-normal text-gray-400">{{ selected.meta }}</span>
               </span>

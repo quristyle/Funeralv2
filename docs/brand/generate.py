@@ -189,6 +189,80 @@ write("favicon-knockout.svg",
       head(FAV, FAV, "JSINI 파비콘 녹아웃", "밝은 블록에 블레이드 J 를 음각")
       + f'    <path fill="{PAPER}" fill-rule="evenodd" d="{block} {fav_j}"/>\n</svg>\n')
 
+# 8-1) 앱 아이콘 — **글자 옆에 서는** 작은 마크.
+#
+# 파비콘은 잉크 블록이라 혼자 있을 때 강하다. 그런데 UI 의 머리글 자리처럼
+# 바로 옆에 이름 글자가 붙는 곳에서는 32px 블록이 글자와 무게가 맞지 않고,
+# 어두운 테마에서는 흰 블록이 되어 더 튄다. 업무 포털의 사이드바가 그런 자리다.
+#
+# 그래서 블록 없이 **블레이드 J 글자만** 투명 배경에 둔다. 글자는 파비콘과 같은
+# 블레이드 J 라 한 집안으로 읽히고, 배경이 없어 어떤 모양으로 잘리는 틀에 넣어도 안전하다.
+APP = 64
+app_s = 1.3333
+app_w = width("J", app_s)
+app_j = path("J", app_s, (APP - app_w) / 2, (APP - 30 * app_s) / 2)
+
+write("app-icon.svg",
+      head(APP, APP, "JSINI 앱 아이콘", "이름 글자 옆에 서는 작은 마크. 블레이드 J 만, 배경 없음")
+      + f'    <path d="{app_j}" fill="{INK}"/>\n</svg>\n')
+write("app-icon-knockout.svg",
+      head(APP, APP, "JSINI 앱 아이콘 녹아웃", "어두운 배경용 블레이드 J. 배경 없음")
+      + f'    <path d="{app_j}" fill="{PAPER}"/>\n</svg>\n')
+write("app-icon-current.svg",
+      head(APP, APP, "JSINI 앱 아이콘 currentColor", "글자색을 따르는 인라인용 블레이드 J")
+      + f'    <path d="{app_j}" fill="currentColor"/>\n</svg>\n')
+
+# 8-2) favicon.ico — SVG 를 못 읽는 옛 브라우저용.
+#
+# SVG 를 변환하지 않고 **같은 좌표에서 다시 그린다.** 변환기를 쓰면 도구가 하나 더 늘고,
+# 이 모양은 다각형 둘이라 직접 그리는 편이 오히려 정확하다.
+#
+# Pillow 가 있어야 한다. 없으면 조용히 건너뛴다 — .ico 하나 때문에 SVG 생성 전체가
+# 막히면 안 된다. 필요할 때만 깔면 된다:  pip install pillow
+#
+# 안티에일리어싱은 8배로 그린 뒤 줄여서 얻는다. 16px 에서 J 의 스템이 2px 이 채 안 되므로
+# 계단이 그대로 보이면 글자가 아니라 얼룩으로 읽힌다.
+def _polys_from_path(d):
+    """이 파일이 만드는 `M x,y L x,y ... Z` 형식만 읽는다. 곡선은 애초에 쓰지 않는다."""
+    pts = []
+    for token in d.replace("M", " ").replace("L", " ").replace("Z", " ").split():
+        x, y = token.split(",")
+        pts.append((float(x), float(y)))
+    return pts
+
+
+def write_ico(name, block_d, cut_d, fill):
+    try:
+        from PIL import Image, ImageDraw
+    except ImportError:
+        print(f"{name} 건너뜀 (Pillow 없음 — pip install pillow)")
+        return
+
+    sizes = [16, 32, 48, 64, 128, 256]
+    ss = 8                       # 초과표본 배율
+    base = FAV * ss
+
+    img = Image.new("RGBA", (base, base), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+    draw.polygon([(x * ss, y * ss) for x, y in _polys_from_path(block_d)], fill=fill)
+    # ImageDraw 는 픽셀을 합성하지 않고 그대로 쓴다. 알파 0 으로 칠하면 실제로 파인다.
+    draw.polygon([(x * ss, y * ss) for x, y in _polys_from_path(cut_d)], fill=(0, 0, 0, 0))
+
+    # Pillow 의 ICO 저장은 **기준 이미지에서 스스로 줄여** 각 크기를 만든다.
+    # 그 축소는 우리가 원하는 품질이 아니라, LANCZOS 로 직접 줄인 것을 append_images 로
+    # 대신 넣는다(그 인자가 자동 축소본을 대체한다).
+    # 기준 이미지는 **가장 큰 것**이어야 한다. 작은 것을 기준으로 주면 그보다 큰 크기가 빠진다.
+    frames = {s: img.resize((s, s), Image.LANCZOS) for s in sizes}
+    largest = max(sizes)
+    frames[largest].save(
+        os.path.join(OUT, name), format="ICO",
+        sizes=[(s, s) for s in sizes],
+        append_images=[frames[s] for s in sizes if s != largest])
+    print(name)
+
+
+write_ico("favicon.ico", block, fav_j, (10, 10, 10, 255))          # Ink
+
 # 9) 상승 조각 모티프 — 심볼과 별개로 사이트 전반에 반복하는 보조 그래픽.
 SHARD_TONES = [MIST, STEEL, GRAPHITE, INK]
 
@@ -241,10 +315,10 @@ write("construction.svg", con)
 
 # 12) 확인용 대지 — 파일을 고친 뒤 눈으로 한 번 보고 넘어가기 위한 것이다.
 LIGHT = ["logo-horizontal.svg", "logo-horizontal-mono.svg", "logo-vertical.svg",
-         "symbol-duotone.svg", "symbol-mono.svg", "favicon.svg",
+         "symbol-duotone.svg", "symbol-mono.svg", "favicon.svg", "app-icon.svg",
          "wordmark.svg", "construction.svg", "motif-shards.svg"]
 DARK = ["logo-horizontal-knockout.svg", "logo-vertical-knockout.svg",
-        "symbol-knockout.svg", "favicon-knockout.svg",
+        "symbol-knockout.svg", "favicon-knockout.svg", "app-icon-knockout.svg",
         "motif-shards-knockout.svg", "og-image.svg"]
 
 

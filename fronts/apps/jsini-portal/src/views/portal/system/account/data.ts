@@ -41,8 +41,13 @@ export const useColumns = (): VxeGridProps['columns'] => [
   {
     field: 'userName',
     title: $t('system.account.userName'),
-    minWidth: 120,
+    // 아바타가 앞에 붙는 만큼 넓힌다. 좁으면 이름이 바로 잘린다.
+    minWidth: 160,
     sortable: true,
+    // 얼굴은 **이름 옆**에 둔다. 칸을 따로 만들면 이미 넓은 표가 더 넓어지고,
+    // 사람을 알아보는 데 필요한 두 값(얼굴·이름)이 떨어져 놓인다.
+    // 정렬·필터는 `field` 를 그대로 쓰므로 이름 기준으로 계속 동작한다.
+    slots: { default: 'user-name' },
     ...textFilter(),
   },
   {

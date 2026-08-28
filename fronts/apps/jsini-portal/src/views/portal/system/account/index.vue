@@ -2,7 +2,7 @@
 import { ref, onMounted, nextTick } from 'vue';
 import { Page, useVbenModal } from '@vben/common-ui';
 import { Plus, IconifyIcon } from '@vben/icons';
-import { Button, message, Popconfirm, Badge, Tooltip, Tag } from 'ant-design-vue';
+import { Avatar, Button, message, Popconfirm, Badge, Tooltip, Tag } from 'ant-design-vue';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { useVbenForm } from '#/adapter/form';
 import { type SystemAccountApi, getAccounts, createAccount, updateAccount, deleteAccount } from '#/api/portal/system/account';
@@ -14,6 +14,8 @@ import {
 } from '#/api/portal/system/msa-users';
 import { getRoleList } from '#/api/portal/system/role';
 import { $t } from '#/locales';
+import { avatarInitial, avatarStyle, avatarThumbUrl } from '#/utils/avatar';
+
 import { useColumns, useSchema } from './data';
 
 const departments = ref<any[]>([]);
@@ -242,6 +244,24 @@ onMounted(() => {
           <Plus class="size-5 mr-1" />
           신규 계정 등록
         </Button>
+      </template>
+
+      <!--
+        얼굴 + 이름. 사진이 없으면 이름 첫 글자로 그린다 —
+        43명 중 사진이 있는 사람은 한 명뿐이라 **없는 쪽이 정상**이고,
+        빈 동그라미를 두면 목록에서 사람이 구분되지 않는다.
+      -->
+      <template #user-name="{ row }">
+        <div class="flex items-center gap-2">
+          <Avatar
+            :src="avatarThumbUrl(row.avatar)"
+            class="shrink-0"
+            :style="avatarStyle(row.userName, !!row.avatar, 1.5)"
+          >
+            {{ avatarInitial(row.userName) }}
+          </Avatar>
+          <span class="truncate">{{ row.userName }}</span>
+        </div>
       </template>
 
       <template #role-tag="{ row }">

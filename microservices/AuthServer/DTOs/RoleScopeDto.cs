@@ -131,4 +131,15 @@ public class AccountPickDto
 
     /// <summary>소속 부서명</summary>
     public string? DepartmentName { get; set; }
+
+    /// <summary>
+    /// 프로필 사진 주소. 없으면 <c>null</c> — 화면이 <b>이름 첫 글자</b>로 대신 그린다.
+    /// </summary>
+    /// <remarks>
+    /// 43명 중 사진이 있는 사람은 지금 한 명뿐이다. 그래서 <b>없는 쪽이 정상</b>이고,
+    /// 화면은 사진이 없는 것을 오류처럼 보이게 하면 안 된다.
+    /// 값이 <c>/api/file/download/...</c> 꼴이면 화면이 <c>/api/file/thumbnail/...</c> 로
+    /// 바꿔 쓴다 — 목록에 원본을 그대로 받으면 무겁다.
+    /// </remarks>
+    public string? Avatar { get; set; }
 }

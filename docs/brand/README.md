@@ -1,7 +1,7 @@
 # JSINI 브랜드 키트
 
 작성: 2026-08-26
-용도: 회사 소개 사이트(`www.jsini.co.kr`) · 문서 · 명함 · 제안서
+용도: 회사 소개 사이트(`www.jsini.co.kr`) · 업무 포털(`admin.jsini.co.kr`) · 문서 · 명함 · 제안서
 
 이 폴더의 SVG 는 손으로 고치지 않는다. [generate.py](generate.py) 가 좌표를 계산해서 전부 다시 쓴다.
 
@@ -69,13 +69,27 @@ J 실루엣을 따라 두르는 녹아웃 키라인이 S 의 좌측 스템을 �
 | `wordmark-current.svg` | 120×30 | 웹 인라인 |
 | `favicon.svg` | 64×64 | 파비콘 · 앱 아이콘 · SNS 프로필 |
 | `favicon-knockout.svg` | 64×64 | 밝은 블록이 필요할 때 |
+| `app-icon.svg` | 64×64 | **이름 글자 옆에 서는 작은 마크.** 블레이드 J 만, 배경 없음 |
+| `app-icon-knockout.svg` | 64×64 | 어두운 배경 |
+| `app-icon-current.svg` | 64×64 | 웹 인라인. `currentColor` 를 따른다 |
 | `motif-shards.svg` | 242×178 | 상승 조각 모티프 (보조 그래픽) |
 | `motif-shards-knockout.svg` | 242×178 | 어두운 배경 |
 | `og-image.svg` | 1200×630 | OG · 트위터 카드 원본 |
 | `construction.svg` | 188×164 | 그리드와 보호 여백 도해 (참고용) |
+| `favicon.ico` | 16~256px 6벌 | SVG 를 못 읽는 옛 브라우저용 (Pillow 필요) |
 
 정사각이 필요한 자리는 심볼을 쓰지 않는다. 심볼은 84×60(1.4:1) 이라 정사각에 넣으면
-좌우가 빈다. 파비콘 · 앱 아이콘 · SNS 프로필은 `favicon.svg` — 블레이드 J 한 자로 축약한 것 — 을 쓴다.
+좌우가 빈다. 블레이드 J 한 자로 축약한 것을 쓰는데, 두 가지가 있고 쓰는 자리가 다르다.
+
+| | 모양 | 쓰는 자리 |
+|---|---|---|
+| `favicon.svg` | 잉크 블록에 J 를 음각 | **혼자 서는 자리** — 브라우저 탭, 앱 아이콘, SNS 프로필 |
+| `app-icon.svg` | 배경 없이 J 글자만 | **이름 글자 옆에 서는 자리** — UI 머리글, 사이드바 |
+
+블록형을 이름 옆에 두면 32px 짜리 잉크 사각형이 글자와 무게가 맞지 않고, 어두운 테마에서는
+흰 블록이 되어 더 튄다. 반대로 글자만 있는 것을 파비콘에 쓰면 16px 에서 존재감이 사라진다.
+업무 포털이 이 규칙대로 쓴다 — 파비콘은 블록, 사이드바는 글자
+(`apps/jsini-portal/src/preferences.ts`).
 
 ## 4. 조합 규칙
 
@@ -103,6 +117,7 @@ J 실루엣을 따라 두르는 녹아웃 키라인이 S 의 좌측 스템을 �
 | `wordmark` | 96px |
 | `logo-vertical` | 96px |
 | `logo-horizontal` | 120px |
+| `app-icon` | 20px — 글자 옆에 서는 것이라 이보다 작으면 획이 뭉갠다 |
 
 ## 5. 금지
 
@@ -124,11 +139,44 @@ J 실루엣을 따라 두르는 녹아웃 키라인이 S 의 좌측 스템을 �
 조각의 기울기(shear 22 : 높이)와 명도 4단계(Mist → Steel → Graphite → Ink)를 유지한다.
 개수는 4개를 기본으로 하되 공간에 따라 줄인다. 늘리지는 않는다.
 
-## 7. 래스터가 필요할 때
+## 7. 래스터 — `favicon.ico`
 
-파비콘은 SVG 를 그대로 쓴다(요즘 브라우저는 받는다).
-PNG 가 반드시 필요한 곳은 `apple-touch-icon`(180×180) 과 구형 안드로이드뿐이다.
+요즘 브라우저는 SVG 파비콘을 받는다. `.ico` 는 그것을 못 읽는 옛 브라우저용이다.
+두 앱 모두 SVG 를 먼저 선언하고 `.ico` 를 대체로 둔다.
 
-변환 도구는 아직 저장소에 없다. 필요해지면 sharp 나 ImageMagick 중 하나를 골라
-`generate.py` 뒤에 붙이는 스크립트로 추가한다. 손으로 내보낸 PNG 를 커밋하지 않는다 —
+`favicon.ico` 도 **`generate.py` 가 만든다.** SVG 를 변환하지 않고 **같은 좌표에서 다시
+그린다** — 변환기를 쓰면 도구가 하나 더 늘고, 이 모양은 다각형 둘이라 직접 그리는 편이
+오히려 정확하다. 16 · 32 · 48 · 64 · 128 · 256px 여섯 벌이 한 파일에 들어간다.
+
+Pillow 가 필요하다. 없으면 `.ico` 만 건너뛰고 SVG 는 그대로 만들어진다.
+
+```bash
+pip install pillow
+python docs/brand/generate.py
+```
+
+안티에일리어싱은 8배로 그린 뒤 LANCZOS 로 줄여서 얻는다. 16px 에서 J 의 스템이 2px 이
+채 안 되므로, 계단이 그대로 보이면 글자가 아니라 얼룩으로 읽힌다.
+
+아직 없는 것은 `apple-touch-icon`(180×180 PNG) 뿐이다. 필요해지면 같은 방식으로
+`generate.py` 에 한 줄 더한다. **손으로 내보낸 래스터를 커밋하지 않는다** —
 원본이 바뀌었을 때 같이 바뀌지 않는다.
+
+## 8. 어디에 복사되어 있나
+
+원본은 이 폴더다. 각 앱의 `public/brand/` 는 **복사본**이라, 원본을 고치면
+`generate.py` 를 돌린 뒤 다시 복사해야 한다.
+
+```
+docs/brand/                              원본 (generate.py 가 만든다)
+fronts/apps/jsini-site/public/brand/     favicon · logo-horizontal · og-image
+fronts/apps/jsini-site/public/favicon.ico
+fronts/apps/jsini-portal/public/brand/   favicon · logo-horizontal(+knockout) · app-icon(+knockout)
+fronts/apps/jsini-portal/public/favicon.ico
+```
+
+**앱에는 그 앱이 실제로 쓰는 것만 복사한다.** 정적 빌드라 `public/` 에 둔 것은 쓰지 않아도
+그대로 배포에 실린다. 새로 쓸 자산이 생기면 그때 하나만 더 복사한다.
+
+소개 사이트의 로고는 파일을 받아 오지 않고 `components/brand-logo.vue` 가 좌표를
+인라인해 그린다(밝은/어두운 배경 전환과 첫 화면 요청 절약). 그래서 녹아웃 파일이 없다.

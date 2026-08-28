@@ -315,6 +315,17 @@ public class RoleAssignmentService : IRoleAssignmentService
         var companies = await _db.Companies.AsNoTracking().ToDictionaryAsync(c => c.Id, c => c.Name);
         var departments = await _db.Departments.AsNoTracking().ToDictionaryAsync(d => d.Id, d => d.Name);
 
+        // 프로필 사진도 한 번에 읽는다. 사람마다 따로 조회하면 목록 한 번에
+        // 쿼리가 43번 더 나간다(N+1).
+        //
+        // 사진은 프로필 상세의 한 줄(`DetailType = "Avatar"`)로 들어 있다 —
+        // 계정 테이블의 `AvatarGroupId` 는 **파일 묶음**이고, 그중 대표 한 장의
+        // 주소가 여기 저장된다. 화면이 바로 쓸 수 있는 것은 이쪽이다.
+        var avatars = await _db.AccountProfileDetails.AsNoTracking()
+            .Where(p => p.DetailType == "Avatar" && p.Content != null && p.Content != "")
+            .Select(p => new { p.AccountId, p.Content })
+            .ToDictionaryAsync(p => p.AccountId, p => p.Content);
+
         var accounts = await _db.Accounts.AsNoTracking()
             .OrderBy(a => a.UserName)
             .Select(a => new
@@ -337,6 +348,7 @@ public class RoleAssignmentService : IRoleAssignmentService
             CompanyName = a.CompanyId is null ? null : companies.GetValueOrDefault(a.CompanyId),
             DepartmentId = a.DepartmentId,
             DepartmentName = a.DepartmentId is null ? null : departments.GetValueOrDefault(a.DepartmentId),
+            Avatar = avatars.GetValueOrDefault(a.Id),
         }).ToList();
     }
 

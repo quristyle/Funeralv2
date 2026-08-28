@@ -13,6 +13,13 @@ export namespace SystemAccountApi {
     createdAt: string;
     roleIds?: string[];
     roleNames?: string[];
+    /**
+     * 프로필 사진 주소. 올리지 않았으면 없다 — **없는 쪽이 흔하다.**
+     * 목록은 `utils/avatar` 로 썸네일 주소를 만들고, 없으면 이름 첫 글자를 그린다.
+     */
+    avatar?: null | string;
+    /** 프로필 사진 파일 묶음. 사진을 고르는 화면에서 쓴다. */
+    avatarGroupId?: null | string;
   }
 }
 

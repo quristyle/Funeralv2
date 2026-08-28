@@ -289,9 +289,19 @@ onBeforeMount(() => {
 </script>
 
 <template>
+  <!--
+    `logout` 을 반드시 받아야 한다. 헤더의 로그아웃 아이콘이 확인창을 거쳐
+    이 이벤트를 올리는데(header.vue → BasicLayout → 여기), 받는 쪽이 없으면
+    **확인창만 닫히고 로그아웃은 일어나지 않는다.**
+
+    아바타 메뉴 쪽은 아래 `UserDropdown` 이 직접 받고 있어 멀쩡했다. 그래서
+    설정이 로그아웃을 헤더에 둔 동안에는(vben 은 헤더 아니면 아바타 메뉴 중
+    한 곳에만 둔다) 로그아웃할 방법이 아예 없었다.
+  -->
   <BasicLayout
     @clear-preferences-and-logout="handleLogout"
     @click-logo="handleClickLogo"
+    @logout="handleLogout"
   >
     <template #user-dropdown>
       <UserDropdown

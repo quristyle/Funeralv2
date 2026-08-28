@@ -539,26 +539,81 @@ function startResize(e: MouseEvent) {
       (value: number) => updatePreferences({ sidebar: { width: value } })
     "
   >
-    <!-- 로고 -->
+    <!--
+      로고 — JSINI 브랜드.
+
+      `VbenLogo` 를 쓰지 않는다. 그것은 '아이콘 + 앱 이름 글자' 로 그리는데,
+      그러면 워드마크가 화면 글꼴로 써진 'JSINI ADMIN' 이 된다.
+      **워드마크는 그린 글자라 글꼴로 흉내내면 안 된다** (docs/brand/README.md).
+
+      좌표는 `docs/brand/generate.py` 가 만든 것을 옮겼다. **여기서 고치지 않는다** —
+      generate.py 를 고치고 다시 뽑아서 옮긴다.
+      파일(`/brand/*.svg`)을 가져오지 않고 인라인한 이유는, 이 파일이 공용 패키지라
+      특정 앱의 `public/` 에 있는 경로를 박으면 그 파일이 없는 앱에서 깨지기 때문이다.
+      첫 화면에 무조건 필요한 것이라 요청을 하나 줄이는 뜻도 있다.
+
+      펼친 사이드바는 가로 조합(심볼 + JSINI), 접으면 블레이드 J 한 자만 보인다.
+      'Admin' 은 로고의 일부가 아니라 어느 시스템인지 알려 주는 꼬리표라 세로선으로 끊는다.
+    -->
     <template #logo>
-      <VbenLogo
+      <a
         v-if="preferences.logo.enable"
-        :fit="preferences.logo.fit"
         :class="logoClass"
-        :collapsed="logoCollapsed"
-        :src="preferences.logo.source"
-        :src-dark="preferences.logo.sourceDark"
-        :text="preferences.app.name"
-        :show-text="preferences.logo.showText"
-        :logo-mode="preferences.logo.logoMode"
-        :full-logo-height="preferences.logo.fullLogoHeight"
-        :theme="logoTheme"
+        class="flex h-full items-center gap-2 overflow-hidden px-3 transition-all duration-500"
+        href="javascript:void 0"
+        aria-label="JSINI"
         @click="clickLogo"
       >
-        <template v-if="$slots['logo-text']" #text>
-          <slot name="logo-text"></slot>
+        <!-- 접었을 때 — 블레이드 J 한 자 -->
+        <svg
+          v-if="logoCollapsed"
+          class="size-8 shrink-0"
+          viewBox="0 0 64 64"
+          role="img"
+          aria-label="JSINI"
+        >
+          <path
+            d="M38.6665,20.0003 L46.6663,12.0005 L46.6663,51.9995 L17.3337,51.9995 L17.3337,43.9997 L38.6665,43.9997 Z"
+            :fill="logoTheme === 'dark' ? '#FFFFFF' : '#0A0A0A'"
+          />
+        </svg>
+
+        <!-- 펼쳤을 때 — 가로 조합 + Admin 꼬리표 -->
+        <template v-else>
+          <svg
+            class="h-[22px] w-auto shrink-0"
+            viewBox="0 0 228 60"
+            role="img"
+            aria-label="JSINI"
+          >
+            <g transform="translate(-18,-30)">
+              <path
+                d="M58,30 L102,30 L102,42 L70,42 L70,54 L102,54 L102,90 L58,90 L58,78 L90,78 L90,66 L58,66 Z"
+                :fill="logoTheme === 'dark' ? '#D2D2D7' : '#6E6E73'"
+              />
+              <path
+                d="M50,42 L62,30 L62,90 L18,90 L18,78 L50,78 Z"
+                :fill="logoTheme === 'dark' ? '#FFFFFF' : '#0A0A0A'"
+              />
+            </g>
+            <g :fill="logoTheme === 'dark' ? '#FFFFFF' : '#0A0A0A'">
+              <path d="M124,21 L130,15 L130,45 L108,45 L108,39 L124,39 Z" />
+              <path
+                d="M140,15 L162,15 L162,21 L146,21 L146,27 L162,27 L162,45 L140,45 L140,39 L156,39 L156,33 L140,33 Z"
+              />
+              <path d="M172,15 L178,15 L178,45 L172,45 Z" />
+              <path
+                d="M188,45 L188,15 L194,15 L206,35 L206,15 L212,15 L212,45 L206,45 L194,25 L194,45 Z"
+              />
+              <path d="M222,15 L228,15 L228,45 L222,45 Z" />
+            </g>
+          </svg>
+          <span class="bg-border h-3 w-px shrink-0" aria-hidden="true"></span>
+          <span class="text-muted-foreground truncate text-[10px] tracking-[0.18em] uppercase">
+            Admin
+          </span>
         </template>
-      </VbenLogo>
+      </a>
     </template>
     <!-- 헤더 영역 -->
     <template #header>

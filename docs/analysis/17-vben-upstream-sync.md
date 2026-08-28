@@ -657,3 +657,29 @@ S-CoreDream, Play, -apple-system, blinkmacsystemfont, "Segoe UI", roboto, ...
 
 > 준수사항 5(글꼴은 저장소 안의 파일만)는 그대로다 — 글꼴을 새로 들이지 않았고
 > 이미 `public/fonts/` 에 있는 것을 참조하는 순서만 바꿨다.
+
+## 8. 사이드바 로고를 브랜드로 바꿨다 — 상위와 갈라진 곳 하나 추가 (2026-08-27)
+
+`packages/effects/layouts/src/basic/layout.vue` 의 `#logo` 슬롯에서 **`VbenLogo` 를
+쓰지 않고** JSINI 가로 조합을 직접 그린다.
+
+`VbenLogo` 는 '아이콘 + 앱 이름 글자' 로 그린다. 그러면 워드마크가 화면 글꼴로 써진
+'JSINI ADMIN' 이 되는데, **워드마크는 그린 글자라 글꼴로 흉내내면 안 된다**
+(`docs/brand/README.md`). 그래서 좌표를 인라인해 SVG 로 직접 그린다.
+
+- 펼침 → 가로 조합(심볼 + JSINI) + `Admin` 꼬리표
+- 접힘 → 블레이드 J 한 자
+- `logoTheme` 이 'dark' 면 녹아웃 색으로
+
+파일 경로(`/brand/*.svg`)를 가져오지 않고 **좌표를 인라인**했다. 이 파일은 공용 패키지라
+특정 앱의 `public/` 경로를 박으면 그 파일이 없는 앱에서 깨진다. 지금 이 레이아웃을 쓰는 앱은
+`jsini-portal` 하나뿐이지만, 그 사실에 기대고 싶지 않았다.
+
+> **상위 동기화 때 주의.** 이 블록은 상위에 없는 우리 것이다. `layout.vue` 를 상위 것으로
+> 덮으면 사라진다. 되살릴 때 좌표는 `docs/brand/generate.py` 가 만든 것을 옮긴다 —
+> **여기서 손으로 고치지 않는다.**
+>
+> 같은 파일의 두 번째 `VbenLogo`(`#side-extra-title`, 보조 사이드바 제목)는 그대로 두었다.
+> 그쪽은 이미지 없이 이름만 그리는 자리라 브랜드와 무관하다.
+
+경위와 확인 내용은 [27-jsini-site-brand.md](27-jsini-site-brand.md) 7절에 있다.

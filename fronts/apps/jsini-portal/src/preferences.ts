@@ -21,9 +21,24 @@ export const overridesPreferences = defineOverridesPreferences({
     // 그 값이 있으면 그쪽이 우선이고, 없을 때 여기 값이 쓰인다.
     defaultHomePath: '/workspace',
   },
+  // 로고 — 브랜드 키트에서 온다. 원본은 `docs/brand/` 이고 `public/brand/` 는 그 복사본이다.
+  // 규칙은 `docs/brand/README.md`, 파일은 `docs/brand/generate.py` 가 만든다.
+  // **SVG 를 손으로 고치지 않는다.**
+  //
+  // **지금 이 값을 읽는 화면은 없다.** 사이드바와 로그인 화면 둘 다 브랜드를 직접 그린다
+  // (`packages/effects/layouts/src/basic/layout.vue` 의 `#logo`, `layouts/auth.vue`).
+  // 워드마크를 화면 글꼴로 흉내내지 않으려고 그렇게 했다.
+  //
+  // 그래도 비워 두지 않는다. 이 설정을 비우면 프레임워크 기본값이 쓰이는데 그것이
+  // **unpkg CDN 주소**라, 어디선가 읽는 순간 바깥으로 요청이 나간다 (준수사항 5 위반).
+  // 그래서 브랜드 자산을 가리키는 안전한 기본값으로 남겨 둔다.
+  //
+  // `favicon.svg`(블록형)가 아니라 `app-icon`(블레이드 J 글자만)을 둔 이유는,
+  // 이 값이 쓰이는 자리가 대개 이름 글자 옆이기 때문이다. 32px 잉크 블록은 글자와
+  // 무게가 맞지 않고 다크 모드에서는 흰 블록이 된다.
   logo: {
-    source: '/jsini.svg',
-    sourceDark: '/jsini_dark.svg',
+    source: '/brand/app-icon.svg',
+    sourceDark: '/brand/app-icon-knockout.svg',
   },
   theme: {
     // 기본 제공 테마. 라이트/다크에 쓸 주 색상을 테마가 각각 들고 있으므로

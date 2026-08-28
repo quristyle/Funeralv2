@@ -144,6 +144,7 @@ public class UserService : IUserService
             var emailDetail = a.ProfileDetails?.FirstOrDefault(p => p.DetailType == "Email");
             var phoneDetail = a.ProfileDetails?.FirstOrDefault(p => p.DetailType == "Phone");
             var statusDetail = a.ProfileDetails?.FirstOrDefault(p => p.DetailType == "Status");
+            var avatarDetail = a.ProfileDetails?.FirstOrDefault(p => p.DetailType == "Avatar");
 
             roleMap.TryGetValue(a.Id, out var rolesInfo);
 
@@ -161,7 +162,12 @@ public class UserService : IUserService
                 DeptName = a.Department?.Name,
                 CreatedAt = a.CreatedAt,
                 RoleIds = rolesInfo?.RoleIds ?? new List<string>(),
-                RoleNames = rolesInfo?.RoleNames ?? new List<string>()
+                RoleNames = rolesInfo?.RoleNames ?? new List<string>(),
+
+                // DTO 에는 예전부터 있었는데 여기서 채우지 않아 늘 null 이었다.
+                // `ProfileDetails` 는 이미 Include 로 읽고 있으므로 추가 조회가 없다.
+                Avatar = avatarDetail?.Content,
+                AvatarGroupId = a.AvatarGroupId,
             };
         }).ToList();
     }

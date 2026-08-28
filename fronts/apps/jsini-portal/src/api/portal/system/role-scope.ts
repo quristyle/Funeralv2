@@ -88,6 +88,11 @@ export async function getEffectiveRoles(accountId: string) {
 
 /** 왼쪽 사람 목록의 한 칸 */
 export interface AccountPick {
+  /**
+   * 프로필 사진 주소. 올리지 않았으면 없다 — **없는 쪽이 흔하다.**
+   * 화면은 이 값이 없으면 이름 첫 글자로 아바타를 그린다.
+   */
+  avatar?: null | string;
   companyId?: null | string;
   companyName?: null | string;
   departmentId?: null | string;
