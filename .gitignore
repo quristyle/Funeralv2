@@ -26,3 +26,6 @@ scripts/secrets.env
 
 # 프로젝트관리 DB 이관 접속 정보 (템플릿은 dsn.env.example 로 추적)
 scripts/projmng-db-migration/dsn.env
+
+# GHUB(생활과환경) DB 이관 접속 정보 (템플릿은 dsn.env.example 로 추적)
+scripts/ghub-db-migration/dsn.env

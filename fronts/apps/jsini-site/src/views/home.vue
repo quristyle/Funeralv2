@@ -41,7 +41,7 @@ onMounted(async () => {
             {{ t.hero.lead }}
           </p>
           <RouterLink
-            :to="link('/about')"
+            :to="link('/work')"
             class="mt-10 inline-block border border-paper px-7 py-3 text-sm transition-colors hover:bg-paper hover:text-ink"
           >
             {{ t.hero.cta }}

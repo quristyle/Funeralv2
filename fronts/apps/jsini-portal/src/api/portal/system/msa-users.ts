@@ -1,10 +1,9 @@
 import { getAdminList, getAuthLinks, getCustomerList } from '#/api/helpdesk';
-import { dbCont } from '#/api/projmng';
 
 /**
  * MSA 사용자 대조.
  *
- * 계정관리 화면(`/system/account`)이 포털 계정 옆에 "이 사람이 헬프데스크·프로젝트관리에
+ * 계정관리 화면(`/system/account`)이 포털 계정 옆에 "이 사람이 헬프데스크에
  * 어떤 사용자로 있는가" 를 보여 주기 위해 쓴다.
  *
  * **각 MSA 의 DB 를 직접 읽지 않는다.** 서비스가 가진 API 를 게이트웨이 경유로 호출해
@@ -12,6 +11,11 @@ import { dbCont } from '#/api/projmng';
  *
  * 어느 한 서비스가 죽어 있어도 계정 화면이 통째로 멈추면 안 되므로,
  * 호출은 각각 독립적으로 실패하고 그 시스템 열만 '확인 불가' 로 남는다.
+ *
+ * **프로젝트관리는 여기서 뺐다.** 자체 사용자 테이블(`projmng.dev_user`)을 걷어내면서
+ * 프로젝트관리의 사용자가 곧 포털 계정이 되었다 — 대조할 상대가 없어졌다.
+ * 헬프데스크는 여전히 자체 사용자 테이블을 들고 있어 남는다.
+ * (docs/analysis/36-projmng-tobe-feature-cleanup.md 3단계)
  */
 
 /** MSA 한 곳에서 본 사용자 한 명 */
@@ -40,7 +44,6 @@ export interface AccountMsaLinks {
   helpdesk?: MsaUser;
   /** 헬프데스크는 명시적 연결 테이블(auth_user_links)이 있다. 그걸로 이어졌는지 */
   helpdeskLinked: boolean;
-  projmng?: MsaUser;
 }
 
 /** 전체 대조에 필요한 원본 데이터 */
@@ -48,7 +51,6 @@ export interface MsaUserDirectory {
   helpdesk: MsaUserSource;
   /** authUserId(포털 로그인 아이디) → 헬프데스크 사용자 키 */
   links: Map<string, { id: string; kind: string }>;
-  projmng: MsaUserSource;
 }
 
 /** 응답이 배열/`result` 중 무엇으로 와도 목록을 꺼낸다. */
@@ -107,35 +109,6 @@ async function loadHelpdesk(): Promise<MsaUserSource> {
   }
 }
 
-/**
- * 프로젝트관리 사용자.
- *
- * 이 서비스는 저장 프로시저로 동작한다. 조회 전용 프로시저(`sp_dev_user_exec`)를
- * 읽기 모드로만 부른다 — 저장·삭제 인자는 넘기지 않는다.
- */
-async function loadProjMng(): Promise<MsaUserSource> {
-  try {
-    const res = await dbCont('sp_dev_user_exec', {
-      p_last_page_yn: 'Y',
-      p_req_type: 'R',
-    });
-
-    const rows = (res?.data ?? []) as any[];
-    return {
-      users: rows.map((r) => ({
-        belongTo: r.dept_code || r.cust_code || undefined,
-        email: r.email || undefined,
-        // 프로젝트관리는 로그인 아이디 자체가 키다.
-        id: String(r.user_id ?? ''),
-        loginId: String(r.user_id ?? ''),
-        name: r.user_name ?? '',
-      })),
-    };
-  } catch (error) {
-    return { error: reason(error), users: [] };
-  }
-}
-
 /** 포털 계정 ↔ 헬프데스크 사용자 연결 정보 */
 async function loadLinks() {
   const map = new Map<string, { id: string; kind: string }>();
@@ -155,14 +128,10 @@ async function loadLinks() {
   return map;
 }
 
-/** 세 곳을 한 번에 받아 온다. 각각 독립적으로 실패한다. */
+/** 둘을 한 번에 받아 온다. 각각 독립적으로 실패한다. */
 export async function loadMsaUserDirectory(): Promise<MsaUserDirectory> {
-  const [helpdesk, projmng, links] = await Promise.all([
-    loadHelpdesk(),
-    loadProjMng(),
-    loadLinks(),
-  ]);
-  return { helpdesk, links, projmng };
+  const [helpdesk, links] = await Promise.all([loadHelpdesk(), loadLinks()]);
+  return { helpdesk, links };
 }
 
 /**
@@ -206,10 +175,5 @@ export function matchAccount(
       directory.helpdesk.users.find(byEmail);
   }
 
-  // ── 프로젝트관리 ────────────────────────────────────────
-  const projmng =
-    directory.projmng.users.find(byLoginId) ??
-    directory.projmng.users.find(byEmail);
-
-  return { helpdesk, helpdeskLinked, projmng };
+  return { helpdesk, helpdeskLinked };
 }

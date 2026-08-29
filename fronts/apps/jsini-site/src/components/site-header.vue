@@ -20,6 +20,7 @@ const open = ref(false);
         <RouterLink
           v-for="item in [
             { to: link('/about'), label: t.nav.about },
+            { to: link('/work'), label: t.nav.work },
             { to: link('/news'), label: t.nav.news },
             { to: link('/downloads'), label: t.nav.downloads },
             { to: link('/contact'), label: t.nav.contact },
@@ -62,6 +63,7 @@ const open = ref(false);
       <RouterLink
         v-for="item in [
           { to: link('/about'), label: t.nav.about },
+          { to: link('/work'), label: t.nav.work },
           { to: link('/news'), label: t.nav.news },
           { to: link('/downloads'), label: t.nav.downloads },
           { to: link('/contact'), label: t.nav.contact },

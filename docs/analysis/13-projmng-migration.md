@@ -1,7 +1,16 @@
 # 프로젝트관리(ProjMng) 이식 — Blazor WASM → JSini 포털
 
-작성: 2026-08-22
+작성: 2026-08-22 · 마지막 손질: 2026-08-29
 대상: `/home/quri/ProjMng`(원본) → `/home/quri/Funeralv2`(포털)
+
+> **이 문서는 2026-08-22 의 이식 기록이다.** 그 뒤에 두 가지가 더 있었고
+> 숫자와 결정 몇 개가 그때 바뀌었다. 최신 상태는 아래 두 문서를 본다.
+>
+> - [35-projmng-db-tobe-migration.md](35-projmng-db-tobe-migration.md) — DB 를 TOBE 로 이관 (2026-08-29)
+> - [36-projmng-tobe-feature-cleanup.md](36-projmng-tobe-feature-cleanup.md) — 인증·사용자·메뉴 정리 (2026-08-29)
+>
+> 이 문서 안에서 그 뒤에 바뀐 대목은 **`↳ 그 뒤`** 로 표시해 두었다.
+> 당시의 판단을 지우지 않고 남긴다 — 왜 그렇게 했는지가 기록의 값이기 때문이다.
 
 ## 1. 무엇을 했나
 
@@ -19,6 +28,10 @@
 
 **Blazor 프로젝트는 지우지 않았다.** 원본은 `/home/quri/ProjMng` 에 그대로 있다.
 비교·확인이 끝난 뒤에 정리하면 된다.
+
+> **↳ 그 뒤 (2026-08-29)** — 화면은 **29개**다. 포털이 단독으로 맡는 기능 셋을 걷어냈다
+> ([프로젝트 화면 메뉴]·[프로젝트 사용자 그룹]·[내 프로젝트 정보]).
+> DB 도 옮겼다 — `jsini.co.kr:15432/jsini` → `jin114.co.kr:31015/projmng`.
 
 ## 2. 왜 프론트를 Vue 로 다시 썼나
 
@@ -62,6 +75,10 @@ Blazor 를 별도 SPA 로 유지하면 포털의 전제와 정면으로 부딪�
 | `shared/use-proc-grid.ts` | (화면마다 반복되던 코드) | 조회·저장·삭제 한 묶음 |
 
 부품이 서고 나니 화면 대부분은 50~150줄이다.
+
+> **↳ 그 뒤** — 코드 편집기는 헬프데스크 화면도 쓰게 되어 공용 컴포넌트
+> `#/components/code-editor` 로 옮겼다. `shared/index.ts` 가 다시 내보내므로
+> 프로젝트관리 화면들은 예전처럼 `../shared` 에서 가져다 쓴다.
 
 ## 4. 만들어진 것
 
@@ -120,6 +137,10 @@ src/views/projmng/
   external/    2화면   외부 시스템
 ```
 
+> **↳ 그 뒤 (2026-08-29)** — `comm/` 은 1화면(공통코드), `proj/` 는 16화면이다.
+> 화면메뉴·사용자그룹·내프로젝트정보를 걷어냈고, 그 화면만 쓰던 `shared/menu-tree.ts` 도 함께 지웠다.
+> 대신 `sp_proj_user_map_list` 를 더해 [프로젝트 참여자]가 포털 계정을 읽도록 바꿨다.
+
 응답 봉투가 다른 이유로 전용 클라이언트를 뒀다.
 
 | 시스템 | 봉투 |
@@ -139,6 +160,17 @@ src/views/projmng/
 파트너 역할에는 주지 않았고, 필요해지면 역할 권한 화면에서 켜면 된다.
 [DB 쿼리 테스터]만 `SYSTEM_ADMINISTRATOR` 단독이다.
 
+> **↳ 그 뒤 (2026-08-29)** — 화면은 **29개**다(폴더 10 + 화면 29, 숨긴 것 2 포함).
+> 그리고 **이 권한 배분에 구멍이 있었다.** ASIS 를 실제로 쓰던 9명 중 8명이 포털에서
+> `PARTNER` 라 프로젝트관리 메뉴가 **하나도 보이지 않았다.**
+> ASIS 의 그룹 권한(`dev_grp_menu_map`)을 그대로 옮긴 역할 3개를 만들어 메꿨다 —
+> `PROJMNG_ADMIN` · `PROJMNG_JSINITEAM` · `PROJMNG_MNM_SMG`
+> ([docs/sql/projmng_role_seed.sql](../sql/projmng_role_seed.sql)).
+>
+> [DB 쿼리 테스터]도 `SYSTEM_ADMINISTRATOR` 단독이 아니다. ASIS 에서 그 화면을 쓰던
+> `MNM_SMG` 그룹(jskim · kggmvp)이 계속 쓸 수 있도록 `PROJMNG_MNM_SMG` 를
+> 메뉴와 서버측 가드(`DevTools:RawSqlRoles`) 양쪽에 더했다. 임의 SQL 실행 권한이다.
+
 ## 5. 중복 기능의 메뉴 이름
 
 포털에는 이미 겹치는 기능이 여럿 있다. 지우거나 합치지 않고 **이름으로 구분**했다.
@@ -149,14 +181,35 @@ src/views/projmng/
 | WBS | 헬프데스크 "WBS" | "프로젝트 WBS" |
 | 일정 | 헬프데스크 "전체 일정" | "프로젝트 일정표" |
 | 공통코드 | 포털 "공통코드" | "프로젝트 공통코드" |
-| 메뉴 관리 | 포털 "메뉴 관리" | "프로젝트 화면 메뉴" |
-| 사용자·권한 | 포털 "역할 관리" | "프로젝트 사용자 그룹" |
+| ~~메뉴 관리~~ | 포털 "메뉴 관리" | ~~"프로젝트 화면 메뉴"~~ (2026-08-29 제거) |
+| ~~사용자·권한~~ | 포털 "역할 관리" | ~~"프로젝트 사용자 그룹"~~ (2026-08-29 제거) |
 | 다이어그램 | 헬프데스크 "다이어그램" | "프로젝트 ERD" / "프로젝트 업무 흐름" |
 | 서버 상태 | 포털 "서버 상태" | "JSini 서버 모니터" |
 
-**주의할 점이 있다.** "프로젝트 화면 메뉴"·"프로젝트 사용자 그룹"이 다루는 것은
-**관리 대상 프로젝트의** 메뉴·권한이지 포털 것이 아니다. 포털의 인증·권한은 AuthServer
-한 곳이 관장한다는 원칙은 그대로다. 화면 안에도 같은 설명을 적어 두었다.
+### ⚠ 이 절의 설명 하나가 틀렸다 (2026-08-29 정정)
+
+원래 여기에 이렇게 적혀 있었다.
+
+> "프로젝트 화면 메뉴"·"프로젝트 사용자 그룹"이 다루는 것은 **관리 대상 프로젝트의**
+> 메뉴·권한이지 포털 것이 아니다.
+
+**사실이 아니었다.** 나중에 `projmng.dev_menu` 38행을 열어 보고 확인했다 —
+`pgm_id` 가 **ProjMngWasm 자신의 .NET 클래스 이름**이었다.
+
+```
+19 | ProjMng   | 프로젝트 | ProjMngWasm.Pages.Proj.ProjMng
+38 | Signin    | /login  | ProjMngWasm.Layout.Signin
+33 | MenuMng   | 메뉴관리 | ProjMngWasm.Pages.Comm.MenuMng
+```
+
+관리 대상 프로젝트의 메타데이터가 아니라 **지워진 Blazor 앱의 자체 내비게이션**이었다.
+가리키는 화면이 이 세상에 없으니 쓸모도 없었다. `sp_dev_menu_auth` 가 `dev_grp_menu_map`
+으로 걸러 사이드바를 그리던 것이고, 그 역할은 포털의 `system_menus`/`role_menus` 가 이미 한다.
+
+그래서 두 화면과 자체 사용자·메뉴 표를 전부 걷어냈다
+([36-projmng-tobe-feature-cleanup.md](36-projmng-tobe-feature-cleanup.md)).
+**"포털의 인증·권한은 AuthServer 한 곳이 관장한다"는 원칙은 그대로다** — 오히려 그 원칙에
+어긋나 있던 것을 뒤늦게 맞춘 셈이다.
 
 ## 6. 원본과 달라진 것
 
@@ -169,7 +222,7 @@ src/views/projmng/
 | 엑셀 시트 | Luckysheet (JS interop) | 표 편집 + JSON 편집 (`proj/sheet.vue`) | Luckysheet 는 포털에 없고 유지도 끊겼다. **저장 형식(`cont` 문자열)은 같아서 기존 자료가 열린다** |
 | 다이어그램 엔진 | mxgraph (`wwwroot/lib`) | `@maxgraph/core` | mxgraph 의 후속이고 포털이 이미 쓰고 있다(헬프데스크 다이어그램). ERD 저장 형식(`ErdInfo` JSON)은 그대로라 배치가 살아난다 |
 | 유즈케이스 저장 형식 | mxgraph XML | ERD 와 같은 JSON | ⚠️ **기존 XML 자료가 있으면 열리지 않는다.** 유즈케이스는 쌓인 자료가 없다고 보고 형식을 통일했다. 자료가 있으면 되돌려야 한다 |
-| 사용자 설정 화면 | 사용자 정보 + 테마/글꼴 | 사용자 정보만 | 테마·글꼴은 포털 환경설정이 담당한다. 두 곳에서 관리하면 어긋난다 |
+| 사용자 설정 화면 | 사용자 정보 + 테마/글꼴 | 사용자 정보만 → **2026-08-29 화면째 제거** | 테마·글꼴은 포털 환경설정이 담당한다. 사용자 정보의 정본도 포털 계정이라 남길 이유가 없었다 |
 | 미리보기 쿼리 | `where rownum < 10` (오라클 문법) | DB 종류별 분기 | 실제 대상이 PostgreSQL·MSSQL 이라 원본 문법으로는 동작하지 않았다 (`develop/db-tools.vue`) |
 | Fast 테스트 | `prj_rid` 가 `7` 로 박혀 있음 | 프로젝트 선택 + `IsFast=true` | 화면 이름이 뜻하는 대로 동작하게 맞췄다 |
 | 부품 모음 | **빈 파일**(0 바이트) | 공용 부품 확인 화면 | 자리를 없애면 이식 목록이 어긋난다. 숨긴 메뉴로 등록했다 |
@@ -210,6 +263,7 @@ scripts/smoke-test.sh            → 24 통과 · 0 실패
 - 게이트웨이 경유 `/api/projmng/**` 는 토큰 없으면 401
 - 응답 봉투에 `req_ss_user_id` 가 **헤더 값으로** 채워진다 → 신원 덮어쓰기 동작 확인
 - `/api/Dev/sql` : `PARTNER` 역할 403, `SYSTEM_ADMINISTRATOR` 통과 → 역할 가드 동작 확인
+  (그 뒤 `PROJMNG_MNM_SMG` 도 통과하도록 열었다 — 4절 참조)
 
 **실제 DB 를 붙여 돌려 보고 잡은 것** (2026-08-22):
 
@@ -231,6 +285,11 @@ scripts/smoke-test.sh            → 24 통과 · 0 실패
 대상은 `jsini.co.kr:15432` 의 `jsini` DB, `projmng` 스키마다.
 저장 프로시저 50개와 테이블 24개가 여기 있다.
 
+> **↳ 그 뒤 (2026-08-29)** — 대상이 `jin114.co.kr:31015` 의 `projmng` DB, `projmng` 스키마로 바뀌었다
+> ([35번 문서](35-projmng-db-tobe-migration.md)). ASIS 는 손대지 않고 계속 돈다.
+> 정리를 마친 지금 TOBE 에는 **테이블 14개 · 4,643행 · 루틴 31개** 가 있다
+> (확장이 만든 진단용 객체는 옮기지 않았고, 인증·사용자·메뉴는 걷어냈다).
+
 > **`SearchPath` 는 붙여 써야 한다.** `ProjService` 가 접속 문자열을 손으로 파싱해
 > `SearchPath` 키를 그대로 찾는다(`ProjService.cs:78`). Npgsql 정식 표기인
 > `Search Path=`(공백)로 쓰면 스키마를 못 읽어 프로시저를 `.sp_xxx` 로 호출해 전부 실패한다.
@@ -249,17 +308,29 @@ scripts/smoke-test.sh            → 24 통과 · 0 실패
 | `sp_dev_db_prop_exec`, `sp_dev_srcinfo_dtl_exec`, `sp_dev_activityinfo_exec`, `sp_dev_excel_exec`, `sp_home_todo_pay` | 정상 |
 | `md_source_trace`, `md_blazor_scan` | **자료 문제로 실패/빈 결과** (아래 참조) |
 
+> **↳ 그 뒤 (2026-08-29)** — 이 표는 ASIS 를 보고 있을 때의 결과다. 지금은 세 줄이 다르다.
+> `sp_dev_menu_exec` · `sp_dev_user_exec` · `sp_dev_user_grp_exec` 는 **없앴고**,
+> `/Dev` 의 `tablelist` 는 21건이 아니라 **14건**이다(업무 표만 남았다).
+> 현재 상태의 점검은 `scripts/projmng-db-migration/` 의
+> `smoke_tobe.py`(DB 직접) · `smoke_service.py`(서비스 경유) · `verify.py`(ASIS 대조)가 한다.
+
 ### 🟠 판단이 필요한 것
 
-- **DB 통합 여부.** 헬프데스크가 별도 DB(`jinrecept`)를 쓰는 문제가 이미 걸려 있고
-  ([12-decisions-pending.md](12-decisions-pending.md) D2), 프로젝트관리가 세 번째 DB 가 된다.
-  `funeralv2` DB 의 `projmng` 스키마로 합칠지 별도로 둘지 정해야 한다.
+- ~~**DB 통합 여부.**~~ **정해졌다 (2026-08-29)** — 별도 DB 로 뒀다.
+  `jin114.co.kr:31015` 의 `projmng` DB 다([35번 문서](35-projmng-db-tobe-migration.md)).
+  포털(`jsiniportal`)과 같은 서버의 다른 데이터베이스라 교차 조인은 안 된다 —
+  사람 정보가 필요하면 API 로 받는다(MSA 규약대로).
 - **WBS·일정의 중복.** 헬프데스크와 프로젝트관리 양쪽에 있다. 지금은 메뉴 이름으로만
-  구분해 둔 상태다. 합칠지 둘 다 둘지는 실제로 쓰는 쪽을 보고 정하는 편이 낫다.
-- **`sp_dev_user_exec` 사용자 테이블.** 프로젝트관리가 자체 사용자 테이블을 들고 있다.
-  헬프데스크는 `auth_user_links` 로 포털 계정과 연결했는데, 같은 방식으로 이을지 정해야 한다.
+  구분해 둔 상태다. 합칠지 둘 다 둘지는 실제로 쓰는 쪽을 보고 정하는 편이 낫다. **(그대로 남음)**
+- ~~**`sp_dev_user_exec` 사용자 테이블.**~~ **정해졌다 (2026-08-29)** —
+  연결 테이블을 만들지 않고 **자체 사용자 테이블 자체를 없앴다.**
+  `dev_user` 9명이 전원 포털 계정에 **같은 아이디로** 이미 있어서 이을 것이 없었다.
+  헬프데스크(`auth_user_links`)와 다른 길을 간 이유가 이것이다
+  ([36번 문서](36-projmng-tobe-feature-cleanup.md) 2.3).
 - **개발자 도구를 운영에 열어 둘지.** [DB 쿼리 테스터]·[DB 개체 탐색]·[테이블 설명 관리]는
   대상 DB 를 직접 건드린다. 운영 환경에서는 `DevTools:AllowRawSql=false` 로 닫는 편이 안전하다.
+  **아직 열려 있고, 오히려 넓혔다** — ASIS 에서 쓰던 사람들을 위해 `PROJMNG_MNM_SMG` 를
+  `RawSqlRoles` 에 더했다(4절). 운영 전환 때 다시 볼 일이다.
 
 ### 🟡 DB 자료 쪽에서 손봐야 하는 것
 
@@ -268,13 +339,21 @@ scripts/smoke-test.sh            → 24 통과 · 0 실패
 | 대상 | 증상 | 원인 |
 |---|---|---|
 | 소스 추적 · Glue 추적 · 소스 스캐너 (`md_*`) | `DirectoryNotFoundException` / 빈 결과 | `projmng.dev_srcinfo.src_path` 가 전부 윈도우 경로다 (`c:/projects/projMng`, `c:\SmartFactoryMES\...`). 서버가 그 경로를 직접 훑으므로 ProjMngServer 가 도는 장비의 실제 경로로 다시 등록해야 한다 → [프로젝트 소스 정보] 화면 |
-| `sp_dev_program_exec` | `42P01: relation "projmng.dev_program" does not exist` | 프로시저는 있는데 참조하는 테이블이 없다. **이식본은 이 프로시저를 부르지 않으므로** 화면에는 영향이 없다 |
+| `sp_dev_program_exec` | `42P01: relation "projmng.dev_program" does not exist` | 프로시저는 있는데 참조하는 테이블이 없다. **이식본은 이 프로시저를 부르지 않으므로** 화면에는 영향이 없다 → **2026-08-29 프로시저째 제거** |
 | `sp_projlist` | 프로시저 자체가 없다 (`sp_projdblist` 만 있다) | 원본 `ProjComTest.razor` 가 이걸 불렀으니 **이식 전에도 그 화면은 열리지 않았다.** [그리드 부품 테스트] 화면의 조회를 `sp_dev_proj_exec` 로 바꿔 동작하게 했다 |
+
+> **↳ 그 뒤 (2026-08-29)** — `dev_srcinfo.src_path` 는 여전히 윈도우 경로다.
+> ASIS 자료를 그대로 옮겼으니 증상도 그대로다.
 
 ### ⚪ 확인만 하면 되는 것
 
 - 공통코드 ID 몇 개는 원본 화면에서 쓰던 이름을 그대로 넘겼다(`srclist`, `srclang`,
   `todo_state`, `yn`, `user`). 해당 코드가 없으면 그 드롭다운만 빈다.
   주요 코드(`projlist`, `db`, `compstat`, `schedule_type`, `CODE_TYPE`, `projdb`)는 확인 완료다.
+  > **↳ 그 뒤 (2026-08-29)** — `user` 는 코드가 아니라 **포털 계정 셀렉트**가 되었다
+  > (`scom.biz_select_configs` 의 `portal_account`). `sp_projCommon` 에서 `user`·`family`
+  > 분기를 걷어냈으므로 이제 그 이름으로 부르면 모르는 코드와 똑같이 빈 결과가 된다.
 - 원본 Blazor 프로젝트(`/home/quri/ProjMng`)는 그대로 남겨 두었다.
   화면을 하나씩 대조해 확인이 끝나면 정리해도 된다.
+  > **↳ 그 뒤** — 이 저장소에서는 `C:\ProjMng` 에 있다. `appsettings.json` 이 없어
+  > 그대로는 뜨지 않는다([35번 문서](35-projmng-db-tobe-migration.md) 참고).

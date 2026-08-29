@@ -21,6 +21,7 @@ export const routes: RouteRecordRaw[] = [
     children: [
       { path: '', name: 'home', component: () => import('#/views/home.vue') },
       { path: 'about', name: 'about', component: () => import('#/views/about.vue') },
+      { path: 'work', name: 'work', component: () => import('#/views/work.vue') },
       { path: 'news', name: 'news', component: () => import('#/views/news.vue') },
       {
         // 자료에 달린 주소라 프리렌더하지 않는다. 브라우저에서 받아 그린다.
@@ -47,6 +48,7 @@ export const routes: RouteRecordRaw[] = [
 export const prerenderRoutes: string[] = LOCALES.flatMap((l) => [
   `/${l}`,
   `/${l}/about`,
+  `/${l}/work`,
   `/${l}/news`,
   `/${l}/downloads`,
   `/${l}/contact`,

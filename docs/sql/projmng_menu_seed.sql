@@ -1,8 +1,9 @@
 -- ============================================================
 -- 프로젝트관리(구 ProjMngWasm) 화면을 JSini 포털 메뉴로 등록한다.
 --
--- 대상 DB : funeralv2 (AuthServer 가 소유하는 scom 스키마)
--- 실행    : psql -h <host> -p <port> -U funeralv2 -d funeralv2 -f docs/sql/projmng_menu_seed.sql
+-- 대상 DB : jsiniportal (AuthServer 가 소유하는 scom 스키마)
+--           2026-08-29 전에는 funeralv2 였다
+-- 실행    : psql -h <host> -p <port> -U funeralv2 -d jsiniportal -f docs/sql/projmng_menu_seed.sql
 --
 -- 여러 번 실행해도 안전하다(같은 id 면 갱신).
 --
@@ -66,7 +67,8 @@ VALUES
 ('PM_PROJ_USER',     'PM_PROJ', 'PmProjectUser',    '/projmng/proj/user',         '#/views/projmng/proj/user.vue',           'MENU',    '프로젝트 참여자',    'lucide:users',              5, false, true,  1, true,  true,  true,  true),
 ('PM_PROJ_SRCINFO',  'PM_PROJ', 'PmProjectSource',  '/projmng/proj/source',       '#/views/projmng/proj/source.vue',         'MENU',    '프로젝트 소스 정보', 'lucide:file-code',          6, false, true,  1, true,  true,  true,  true),
 ('PM_PROJ_MONITOR',  'PM_PROJ', 'PmProjectMonitor', '/projmng/proj/monitoring',   '#/views/projmng/proj/monitoring.vue',     'MENU',    '프로젝트 진행 현황', 'lucide:gauge',              7, false, true,  1, false, false, false, true),
-('PM_PROJ_MYINFO',   'PM_PROJ', 'PmProjectMyInfo',  '/projmng/proj/user-setting', '#/views/projmng/proj/user-setting.vue',   'MENU',    '내 프로젝트 정보',   'lucide:user-cog',           8, false, true,  1, false, true,  false, false),
+-- [내 프로젝트 정보](PM_PROJ_MYINFO) 는 뺐다. 사용자 정보는 포털 계정이 정본이다
+-- — 아래 '쓰지 않기로 한 화면' 절 참조.
 
 -- ── 설계 ──────────────────────────────────────────────────────
 ('PM_DESIGN',        'PROJMNG',   'PmDesign',      '/projmng/design',          NULL,                                    'CATALOG', '설계',                'lucide:shapes',        20, false, false, 1, false, false, false, false),
@@ -91,8 +93,8 @@ VALUES
 -- ── 기준정보 ──────────────────────────────────────────────────
 ('PM_COMM',          'PROJMNG', 'PmComm',        '/projmng/comm',             NULL,                                      'CATALOG', '기준정보',              'lucide:settings-2', 50, false, false, 1, false, false, false, false),
 ('PM_COMM_CODE',     'PM_COMM', 'PmCommCode',    '/projmng/comm/common-code', '#/views/projmng/comm/common-code.vue',    'MENU',    '프로젝트 공통코드',     'lucide:tags',        1, false, true,  1, true,  true,  true,  true),
-('PM_COMM_MENU',     'PM_COMM', 'PmCommMenu',    '/projmng/comm/menu',        '#/views/projmng/comm/menu.vue',           'MENU',    '프로젝트 화면 메뉴',    'lucide:menu',        2, false, true,  1, true,  true,  true,  false),
-('PM_COMM_USERGRP',  'PM_COMM', 'PmCommUserGrp', '/projmng/comm/user-group',  '#/views/projmng/comm/user-group.vue',     'MENU',    '프로젝트 사용자 그룹',  'lucide:users-round', 3, false, true,  1, true,  true,  true,  true),
+-- [프로젝트 화면 메뉴](PM_COMM_MENU)·[프로젝트 사용자 그룹](PM_COMM_USERGRP) 은 뺐다.
+-- 메뉴·권한은 포털이 단독으로 맡는다 — 아래 '쓰지 않기로 한 화면' 절 참조.
 
 -- ── 시스템 ────────────────────────────────────────────────────
 ('PM_SYS',           'PROJMNG', 'PmSys',           '/projmng/sys',                NULL,                                        'CATALOG', 'DB 로직',      'lucide:code-2',    60, false, false, 1, false, false, false, false),
@@ -181,11 +183,22 @@ WHERE r.is_deleted = false
   );
 
 -- ── 쓰지 않기로 한 화면 정리 ──────────────────────────────────
--- [장례 프레임 빈소 현황](PM_EXT_FRDATA) 은 쓰지 않는 기능이라 제거했다.
--- 화면(.vue)과 게이트웨이 라우트(/api/funeralfr)도 함께 지웠다.
 -- 이전 실행으로 심어진 행이 있으면 여기서 지운다.
-DELETE FROM scom.role_menus   WHERE menu_id = 'PM_EXT_FRDATA';
-DELETE FROM scom.system_menus WHERE id      = 'PM_EXT_FRDATA';
+--
+-- [장례 프레임 빈소 현황](PM_EXT_FRDATA) — 쓰지 않는 기능이라 제거했다.
+--   화면(.vue)과 게이트웨이 라우트(/api/funeralfr)도 함께 지웠다.
+--
+-- 아래 셋은 **포털이 단독으로 맡는 기능**이라 뺐다
+-- (docs/analysis/36-projmng-tobe-feature-cleanup.md 4단계).
+--   PM_COMM_MENU    [프로젝트 화면 메뉴]   dev_menu 는 지워진 Blazor 앱의 자체 메뉴였다
+--                                          (pgm_id 가 ProjMngWasm.Pages.* 였다). 포털 system_menus 가 대신한다
+--   PM_COMM_USERGRP [프로젝트 사용자 그룹] 포털 roles/role_menus 가 대신한다.
+--                                          화면 파일(.vue)은 애초에 만들어진 적이 없다
+--   PM_PROJ_MYINFO  [내 프로젝트 정보]     사용자 정보의 정본은 포털 계정이다
+DELETE FROM scom.role_menus   WHERE menu_id IN
+  ('PM_EXT_FRDATA', 'PM_COMM_MENU', 'PM_COMM_USERGRP', 'PM_PROJ_MYINFO');
+DELETE FROM scom.system_menus WHERE id      IN
+  ('PM_EXT_FRDATA', 'PM_COMM_MENU', 'PM_COMM_USERGRP', 'PM_PROJ_MYINFO');
 
 COMMIT;
 

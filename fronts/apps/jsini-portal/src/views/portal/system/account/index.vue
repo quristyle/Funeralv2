@@ -322,23 +322,6 @@ onMounted(() => {
         <span v-else class="text-xs text-muted-foreground">—</span>
       </template>
 
-      <template #msa-projmng="{ row }">
-        <span
-          v-if="msaDirectory?.projmng.error"
-          class="text-xs text-muted-foreground"
-          :title="msaDirectory.projmng.error"
-        >
-          확인 불가
-        </span>
-        <div v-else-if="row.msa?.projmng" class="flex items-center gap-1">
-          <Tag>추정</Tag>
-          <span class="truncate text-xs" :title="msaTitle(row.msa.projmng)">
-            {{ row.msa.projmng.name }}
-          </span>
-        </div>
-        <span v-else class="text-xs text-muted-foreground">—</span>
-      </template>
-
       <template #action="{ row }">
         <div class="flex justify-center gap-2">
           <!-- 수정 버튼: Tooltip 및 Icon 사용 -->

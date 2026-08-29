@@ -80,36 +80,6 @@ export const useMenuPermissionStore = defineStore('menu-permission', () => {
   }
 
   /**
-   * [체험 모드] 권한 예시 화면(`/system/perm-sample`)이 쓴다.
-   *
-   * 실제 권한은 그대로 두고 **한 경로의 값만** 임시로 덮어써서
-   * "이 권한을 켜면 화면이 어떻게 보이는지" 를 눌러 가며 확인하게 한다.
-   * 역할 관리에서 체크박스를 켜고 새로고침하는 왕복을 없애기 위한 것이다.
-   *
-   * 덮어쓰는 곳은 `resolve()` 하나다. 즉 **버튼 표시 여부만** 바뀐다.
-   * `findExact()` 는 일부러 손대지 않는다 — 라우터 가드가 그것으로 열람을
-   * 막는데, 체험 중에 열람을 끄면 보고 있던 화면에서 스스로 튕겨 나간다.
-   *
-   * 서버 판단에는 아무 영향이 없다. 화면이 보여 주는 모습만 바뀐다.
-   */
-  const simulation = ref<null | { path: string; permission: MenuPermission }>(
-    null,
-  );
-
-  /** 체험 모드가 켜져 있는지. 화면 상단 경고 띠를 띄우는 데 쓴다. */
-  const isSimulating = computed(() => simulation.value !== null);
-
-  /** 체험 모드를 켠다(이미 켜져 있으면 값만 갈아 끼운다). */
-  function startSimulation(path: string, permission: MenuPermission) {
-    simulation.value = { path: normalize(path), permission: { ...permission } };
-  }
-
-  /** 체험 모드를 끈다. 실제 권한으로 즉시 돌아간다. */
-  function stopSimulation() {
-    simulation.value = null;
-  }
-
-  /**
    * 경로로 권한을 찾는다. 버튼 표시 여부를 정할 때 쓴다.
    *
    * 상세·등록 화면처럼 `/helpdesk/request/detail/123` 같은 하위 경로는
@@ -119,10 +89,6 @@ export const useMenuPermissionStore = defineStore('menu-permission', () => {
    */
   function resolve(path: string): MenuPermission {
     const target = normalize(path);
-
-    // 체험 모드는 지정한 그 경로만 덮어쓴다. 다른 화면은 실제 권한 그대로다.
-    const sim = simulation.value;
-    if (sim && sim.path === target) return sim.permission;
 
     const exact = byPath.value[target];
     if (exact) return exact;
@@ -147,38 +113,30 @@ export const useMenuPermissionStore = defineStore('menu-permission', () => {
     byPath.value = {};
     loaded.value = false;
     loading.value = false;
-    simulation.value = null;
   }
 
   const isLoaded = computed(() => loaded.value);
 
-  /**
-   * 이 사용자에게 권한 정보가 하나라도 있는지.
-   *
-   * 역할이 하나도 배정되지 않은 계정은 목록이 비어서 온다.
-   *
-   * **이 값으로 권한을 판단하지 않는다.** 예전에는 "정보가 아예 없으면 막지 않는다" 로
-   * 썼는데, 그러면 권한을 하나도 주지 않은 계정이 오히려 전부 열리는 셈이라
-   * 방향이 거꾸로였다. 지금은 비어 있으면 그대로 '권한 없음' 이다
-   * (`resolve()` 가 `EMPTY_PERMISSION` 을 준다).
-   *
-   * 남겨 둔 이유는 하나다 — 권한 예시 화면(`/system/perm-sample`)이
-   * "이 계정은 역할이 없어서 아무 것도 못 한다" 를 사람에게 알려 주는 데 쓴다.
-   */
-  const hasAnyData = computed(() => Object.keys(byPath.value).length > 0);
+  // [지운 것 — 권한 예시 화면(`/system/perm-sample`)과 함께 없앴다]
+  //
+  //   · 체험 모드(`simulation` · `isSimulating` · `startSimulation` · `stopSimulation`)
+  //     한 경로의 권한만 임시로 덮어써 "이 권한을 켜면 어떻게 보이는지" 를
+  //     눌러 보게 하던 것이다. 그 화면 말고는 쓰는 곳이 없었다.
+  //   · `hasAnyData`
+  //     그 화면이 "이 계정은 역할이 없다" 를 알리는 데만 쓰던 값이다.
+  //     **권한 판단에는 쓰지 않는다** — 예전에 "정보가 없으면 막지 않는다" 로 썼다가
+  //     권한을 하나도 주지 않은 계정이 오히려 전부 열리는 문제가 있었고, 그때
+  //     가드에서 걷어냈다. 지금은 비어 있으면 그대로 '권한 없음' 이다
+  //     (`resolve()` 가 `EMPTY_PERMISSION` 을 준다). 되살릴 이유가 없다.
 
   return {
     $reset,
     byPath,
     findExact,
-    hasAnyData,
     isLoaded,
-    isSimulating,
     load,
     loading,
     resolve,
-    startSimulation,
-    stopSimulation,
   };
 });
 

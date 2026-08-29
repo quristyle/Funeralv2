@@ -447,7 +447,7 @@ JinReception 이 쓸 수 있다. 정리해도 되는지는 판단이 필요하�
 
 ### 회사 데이터 이관 (9건)
 
-헬프데스크 회사를 포털 `scom.companies` 로 옮겼다. 두 DB 가 서로 달라(`jinrecept` ↔ `funeralv2`)
+헬프데스크 회사를 포털 `scom.companies` 로 옮겼다. 두 DB 가 서로 달라(`jinrecept` ↔ `jsiniportal`)
 SQL 한 장으로는 못 옮기므로 **각 서비스의 API 를 경유**했다(14절의 방식과 같다).
 
 ```

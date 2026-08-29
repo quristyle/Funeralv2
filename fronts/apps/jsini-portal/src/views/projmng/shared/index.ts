@@ -11,7 +11,8 @@ export { default as CodeSelect } from './code-select.vue';
 export { default as DynamicGrid } from './dynamic-grid.vue';
 export { default as ErdDiagram } from './erd-diagram.vue';
 export * from './erd-types';
-export * from './menu-tree';
+// menu-tree 는 [프로젝트 화면 메뉴] 화면 하나만 쓰던 것이라 그 화면과 함께 걷어냈다.
+// 메뉴는 포털이 단독으로 맡는다 (36-projmng-tobe-feature-cleanup.md 4단계).
 export { default as SearchBar } from './search-bar.vue';
 export { default as SplitPane } from './split-pane.vue';
 export * from './use-proc-grid';

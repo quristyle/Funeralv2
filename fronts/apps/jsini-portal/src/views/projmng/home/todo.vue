@@ -7,6 +7,11 @@
  *
  * 날짜별 할일을 다룬다. "생성" 은 그 날짜의 할일을 규칙에 따라
  * 서버가 한꺼번에 만들어 주는 동작이다(원본 `OnMakeWrk`).
+ *
+ * 담당자 드롭다운은 **포털 계정**을 읽는다. 이식 전에는 프로젝트관리가 들고 있던
+ * 자체 사용자 테이블(`projmng.dev_user`)을 `sp_projCommon` 의 `user` 코드로 읽었는데,
+ * 사용자의 정본은 포털 한 곳이라 그쪽으로 옮겼다.
+ * 값은 로그인 아이디다 — `home_todo.target_user` 에 쌓인 값이 아이디이기 때문이다.
  */
 import { onMounted, ref } from 'vue';
 
@@ -16,6 +21,7 @@ import { Button, DatePicker } from 'ant-design-vue';
 import dayjs from 'dayjs';
 
 import { dbCont } from '#/api/projmng';
+import BizSelect from '#/components/BizSelect.vue';
 
 import { CodeSelect, DynamicGrid, SearchBar, useProcGrid } from '../shared';
 
@@ -56,7 +62,15 @@ onMounted(search);
   <Page auto-content-height content-class="page-fill-last">
     <SearchBar class="mb-2">
       <DatePicker v-model:value="targetDate" size="small" @change="search" />
-      <CodeSelect v-model="userCode" code-id="user" show-all />
+      <BizSelect
+        v-model="userCode"
+        type="portal_account"
+        show-all
+        show-search
+        option-filter-prop="label"
+        placeholder="담당자"
+        style="width: 180px"
+      />
       <CodeSelect v-model="completeYn" code-id="yn" show-all />
       <CodeSelect v-model="todoState" code-id="todo_state" show-all />
       <template #actions>

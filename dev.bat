@@ -72,7 +72,7 @@ if exist "%SECRETS_FILE%" (
 ::
 :: 이름이 바뀌었다: 예전 `front` 는 이제 `portal` 이다. 프론트가 둘이라 어느 쪽인지
 :: 이름만으로 알 수 있어야 한다. `web` 이 회사 소개 사이트다.
-set "SVC_KEYS=gateway auth funeral ai file helpdesk projmng site notify portal web"
+set "SVC_KEYS=gateway auth funeral ai file helpdesk projmng site notify ghub portal web"
 
 set "SVC_gateway=API Gateway|ApiGateway|5265|GATEWAY|%START_CMD%"
 set "SVC_auth=Auth Server|microservices\AuthServer|5264|AUTH|%START_CMD%"
@@ -84,6 +84,8 @@ set "SVC_projmng=ProjMng Server|microservices\ProjMngServer|5450|PROJMNG|%START_
 set "SVC_site=Site Server|microservices\SiteServer|5480|SITE_API|%START_CMD%"
 :: 알림(푸시·이메일). 포털·장례식장·헬프데스크가 함께 쓴다 (결정 D8-A).
 set "SVC_notify=Notification Server|microservices\NotificationServer|5460|NOTIFY|%START_CMD%"
+:: 생활과환경(기상·생일). GHUB(SK가스 지허브)에서 이식했다.
+set "SVC_ghub=GHUB Server|microservices\GhubServer|5490|GHUB|%START_CMD%"
 set "SVC_portal=Portal Frontend|fronts|5555|-|pnpm --filter @vben/jsini-portal dev"
 set "SVC_web=Site Frontend|fronts|5556|-|pnpm --filter @jsini/site dev"
 

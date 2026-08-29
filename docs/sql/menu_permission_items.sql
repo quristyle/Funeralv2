@@ -9,7 +9,7 @@
 --
 -- 헬프데스크(JinReception)는 메뉴 테이블에 UseCreate/UseRead/UseUpdate/UseDelete 와
 -- UseExt1~8 + Ext1Name~Ext8Name 을 두어 이 문제를 풀고 있었다.
--- 같은 기능을 funeralv2 의 scom.system_menus 에 옮긴다.
+-- 같은 기능을 포털의 scom.system_menus 에 옮긴다 (jsiniportal DB).
 --
 -- 반복 실행해도 안전하다.
 

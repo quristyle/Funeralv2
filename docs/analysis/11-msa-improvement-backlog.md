@@ -129,15 +129,22 @@ JWT 를 검증한 뒤에만 다시 붙인다(`ApiGateway/Program.cs:71`). 설계
 
 ### 현황
 
-| 서비스 | DB | 스키마 | 계정 |
+| 서비스 | DB | 스키마 | DB 계정 |
 |---|---|---|---|
-| AuthServer | `funeralv2` | `scom` | `funeralv2` |
-| FileServer | `funeralv2` | `scom` | `funeralv2` |
+| AuthServer | `jsiniportal` | `scom` | `funeralv2` |
+| FileServer | `jsiniportal` | `scom` | `funeralv2` |
+| NotificationServer | `jsiniportal` | `scom` | `funeralv2` |
 | funeralv2Api | `funeralv2` | `smfr` | `funeralv2` |
+| SiteServer | `jsinisite` | `site` | `funeralv2` |
 | **HelpDeskServer** | **`jinrecept`** | **`jsini`** | **`jsini`** |
+| ProjMngServer | `projmng` | `projmng` | — |
 
-세 서비스는 한 DB 를 스키마로 나눠 쓰고, 헬프데스크만 별도 DB 에 별도 계정이다.
-독자 시스템이던 시절의 흔적이다.
+**2026-08-29 에 이 표가 바뀌었다.** 그 전에는 위의 다섯이 `funeralv2` 한 DB 를
+스키마로 나눠 쓰고 헬프데스크만 떨어져 있었다. 지금은 서비스별로 DB 가 갈렸고,
+**헬프데스크가 예외가 아니라 표준이 됐다.**
+
+남은 것은 DB 가 아니라 **계정**이다. `funeralv2` 계정 하나가 네 DB 를 다 연다.
+경계가 이름으로만 있고 권한으로는 없다.
 
 ### 지금 생기는 불편
 

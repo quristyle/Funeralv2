@@ -36,6 +36,7 @@ microservices/
   AIAgentServer/
   SiteServer/          회사 소개 사이트(공개) — 문구 · 자료실 · 문의 접수
   NotificationServer/  푸시 · 이메일 (셋이 공유) — VAPID 키가 여기 한 곳에만 있다
+  GhubServer/          생활과환경 — 기상(기상청 연동) · 생일 (GHUB 에서 이식)
 fronts/apps/jsini-portal/   업무 프론트엔드 (Vue 3 + vben, 로그인 필요)
 fronts/apps/jsini-site/     회사 소개 사이트 (Vue 3 + vite-ssg, @vben/* 의존 0)
 docs/brand/            로고 · 모티프 · 사용 규칙 (SVG 는 generate.py 가 만든다)
@@ -46,8 +47,25 @@ docs/sql/              실행한 SQL (전부 반복 실행 안전)
 ## 알아 두면 시간을 아끼는 것
 
 - **메뉴는 백엔드 주도다.** `scom.system_menus` 에 없거나 `status = 0` 이면 라우트 자체가 생기지 않는다.
-- **DB 는 셋이다.** 포털 `funeralv2`(scom) · 헬프데스크 `jinrecept`(jsini) · 프로젝트관리 `jsini`(projmng).
+- **DB 는 여섯이다.** 서비스마다 하나씩이고, 이름 하나에 스키마 하나다.
+
+  | DB | 스키마 | 쓰는 서비스 |
+  |---|---|---|
+  | `jsiniportal` | `scom` | AuthServer · FileServer · NotificationServer |
+  | `funeralv2` | `smfr` | funeralv2Api |
+  | `jinrecept` | `jsini` | HelpDeskServer |
+  | `projmng` | `projmng` | ProjMngServer |
+  | `jsinisite` | `site` | SiteServer |
+  | `ghub` | `ghub` | GhubServer |
+
   접속 문자열은 각 서비스의 `appsettings.Local.json` (git 제외).
+  **`docs/sql` 의 파일은 대부분 `jsiniportal` 용이다** (scom 을 다룬다).
+  `site_*.sql` 만 `jsinisite`, `funeralv2_*` 는 `funeralv2` 다 —
+  각 파일 머리말에 어느 DB 인지 적혀 있다.
+  **`funeralv2` 라는 이름이 이제 장례식장만 뜻한다.** 2026-08-29 전에는 포털 표(scom)도
+  같은 DB 에 있었다. 옛 문서에서 "funeralv2 의 scom" 을 보면 `jsiniportal` 로 읽는다.
+  왜 이렇게 나눴고 셋이 왜 아직 `scom` 을 함께 쓰는지는
+  [docs/analysis/37-db-per-service.md](docs/analysis/37-db-per-service.md) 에 있다.
 - **개발 중에는 `dotnet watch` 로 6개가 떠 있는 경우가 많다.** `.cs` 를 고치면 자동 재기동하지만
   `appsettings.json` 변경만으로는 재기동하지 않는다.
   다만 **`dotnet run --no-build` 로 떠 있는 경우도 있다.** 그때는 `.cs` 를 고쳐도 아무 일이 없다.
@@ -71,7 +89,7 @@ docs/sql/              실행한 SQL (전부 반복 실행 안전)
   ```
   개발 서버는 `dev.bat`(윈도우) · `backend_run_ubuntu.sh` 로 띄운다. 하나만 재기동하려면
   `dev.bat gateway auth file` 처럼 이름을 나열한다.
-  이름은 열하나다 — `gateway auth funeral ai file helpdesk projmng site notify portal web`.
+  이름은 열둘이다 — `gateway auth funeral ai file helpdesk projmng site notify ghub portal web`.
   `portal`(:5555) 이 업무 프론트, `web`(:5556) 이 회사 소개 사이트 프론트다.
   **예전 이름 `front` 는 `portal` 이 되었다**(`front` 로 쳐도 받아 준다).
 
@@ -99,8 +117,11 @@ docs/sql/              실행한 SQL (전부 반복 실행 안전)
   D-S1~D-S6 은 결정됐고 브랜드 키트 · SiteServer · 사이트 스켈레톤까지 세웠다.
   로고 · 모티프 · 사용 규칙은 [docs/brand/](docs/brand/) 에 있다 (SVG 를 손으로 고치지 말고
   `python docs/brand/generate.py`).
-  **문구가 필요하다** — 개인정보 동의 문구(D-S7) 없이는 문의 폼을 열 수 없고,
-  정보구조(D-S8)·영문 문구(D-S9)가 없어 화면은 빈 상태다. 회사가 확정해야 한다.
+  **문구는 2026-08-29 에 실제 내용으로 채웠다**(`docs/sql/site_content.sql`, D-S8·D-S9).
+  첫 화면이 "만들고, 계속 함께 간다" 이고, 운영 중인 시스템 다섯을 `/ko/work` 에 실었다.
+  **사례는 고객사 이름 없이 분야로만 적는다**(D-S11) — 레퍼런스 공개는 동의가 필요하다.
+  아직 남은 것은 **개인정보 동의 문구(D-S7) 하나**다. 법률 검토 전이라 이것 없이는
+  문의 폼을 공개할 수 없다.
   파일 익명 접근 구멍은 닫았다 — 쓰기는 인증, 읽기는 `is_public` 판정이다.
   로그인이 심는 `jsini_file_at` 쿠키가 있어야 `<img src>` 가 통한다(27번 문서 5절).
 

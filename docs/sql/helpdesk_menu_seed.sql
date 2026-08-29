@@ -1,8 +1,9 @@
 -- ============================================================
--- 헬프데스크(구 JinReception) 화면을 funeralv2 메뉴로 등록한다.
+-- 헬프데스크(구 JinReception) 화면을 포털 메뉴로 등록한다.
 --
--- 대상 DB : funeralv2 (AuthServer 가 소유하는 scom 스키마)
--- 실행    : psql -h <host> -p <port> -U funeralv2 -d funeralv2 -f docs/sql/helpdesk_menu_seed.sql
+-- 대상 DB : jsiniportal (AuthServer 가 소유하는 scom 스키마)
+--           2026-08-29 전에는 funeralv2 였다
+-- 실행    : psql -h <host> -p <port> -U funeralv2 -d jsiniportal -f docs/sql/helpdesk_menu_seed.sql
 --
 -- 여러 번 실행해도 안전하다(같은 id 면 갱신).
 --
@@ -178,7 +179,7 @@ WHERE r.is_deleted = false
   );
 
 -- 헬프데스크 자체 '메뉴 권한' / '역할 관리' 화면은 제거되었다.
--- 메뉴·역할·화면 접근 권한은 funeralv2 쪽(scom.system_menus / scom.roles / scom.role_menus)만 사용한다.
+-- 메뉴·역할·화면 접근 권한은 포털 쪽(scom.system_menus / scom.roles / scom.role_menus)만 사용한다.
 -- 이전 실행으로 심어진 행이 있으면 함께 지운다.
 DELETE FROM scom.role_menus   WHERE menu_id IN ('HD_SYS_MENU', 'HD_SYS_ROLE');
 DELETE FROM scom.system_menus WHERE id      IN ('HD_SYS_MENU', 'HD_SYS_ROLE');

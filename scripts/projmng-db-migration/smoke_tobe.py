@@ -16,14 +16,13 @@ TOBE = dsn.tobe()
 
 # (프로시저, 이름 있는 인자 몇 개를 채울지) — 나머지는 NULL 로 둔다.
 CASES = [
+    # 5단계에서 지운 프로시저(자체 로그인·사용자·그룹·메뉴)는 여기 없다.
+    # docs/analysis/36-projmng-tobe-feature-cleanup.md 참조.
     ("sp_projcommon", {"ss_user_id": "admin", "p_code_id": "projlist"}),
     ("sp_projcommon", {"ss_user_id": "admin", "p_code_id": "db"}),
     ("sp_projcommon", {"ss_user_id": "admin", "p_code_id": "CODE_TYPE"}),
     ("sp_dev_proj_exec", {"p_req_type": "srch"}),
     ("sp_devcomm_exec", {"p_req_type": "srch"}),
-    ("sp_dev_menu_exec", {"p_req_type": "srch"}),
-    ("sp_dev_user_exec", {"p_req_type": "srch"}),
-    ("sp_dev_user_grp_exec", {"p_req_type": "srch"}),
     ("sp_proj_wbs_exec", {"p_prj_rid": "3", "p_req_type": "srch"}),
     ("sp_home_todo_exec", {"p_req_type": "srch"}),
     ("sp_projdblist", {}),
@@ -33,13 +32,9 @@ CASES = [
     ("sp_dev_srcinfo_dtl_exec", {"p_req_type": "srch"}),
     ("sp_dev_activityinfo_exec", {"p_req_type": "srch"}),
     ("sp_dev_excel_exec", {"p_req_type": "srch"}),
-    ("sp_dev_grp_menu_map_exec", {"p_req_type": "srch"}),
     ("sp_dev_proj_prop_exec", {"p_req_type": "srch"}),
     ("sp_dev_proj_user_map_exec", {"p_req_type": "srch"}),
     ("sp_dev_srcinfo_exec", {"p_req_type": "srch"}),
-    ("sp_dev_user_grp_map_exec", {"p_req_type": "srch"}),
-    ("sp_dev_user_prop_exec", {"p_req_type": "srch"}),
-    ("sp_dev_menu_auth", {"ss_user_id": "admin", "p_req_type": "srch"}),
 ]
 
 SIG = """

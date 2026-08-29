@@ -7,12 +7,15 @@ namespace NotificationServer.Data;
 /// 알림 서비스 DB 컨텍스트
 /// </summary>
 /// <remarks>
-/// 포털 DB(<c>funeralv2</c> / <c>scom</c>)를 쓴다.
+/// 포털 DB(<c>jsiniportal</c> / <c>scom</c>)를 쓴다.
+/// (2026-08-29 전에는 같은 스키마가 <c>funeralv2</c> 안에 있었다.)
 ///
 /// <para>
-/// <b>서비스별 DB 가 정석이지만 지금은 그렇게 하지 않았다.</b> 결정 D2(DB 통합)가
-/// 아직 열려 있고, 여기서 DB 를 하나 더 만들면 정리해야 할 것이 늘어난다.
-/// 구독 표 하나뿐이라 포털 DB 에 두고, D2 가 정해지면 함께 옮기는 편이 낫다고 보았다.
+/// <b>서비스별 DB 가 정석이지만 지금은 그렇게 하지 않았다.</b> 구독 표 하나뿐이라
+/// AuthServer · FileServer 와 같은 <c>scom</c> 에 둔다. 셋은 포털이라는 한 덩어리를
+/// 이루고 계정 · 파일 · 구독이 서로를 참조하는데, DB 를 갈라 놓으면 그 참조가
+/// 코드 안의 약속으로만 남는다. 반대로 <c>SiteServer</c> 는 익명 입력을 받아
+/// 경계가 필요하므로 갈라 두었다(<c>jsinisite</c>).
 /// </para>
 /// </remarks>
 public class AppDbContext : DbContext

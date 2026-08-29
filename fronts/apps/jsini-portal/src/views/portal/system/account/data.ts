@@ -125,12 +125,8 @@ export const useColumns = (): VxeGridProps['columns'] => [
     minWidth: 170,
     slots: { default: 'msa-helpdesk' },
   },
-  {
-    field: 'msaProjMng',
-    title: '프로젝트관리',
-    minWidth: 150,
-    slots: { default: 'msa-projmng' },
-  },
+  // 프로젝트관리 열은 뺐다. 자체 사용자 테이블을 걷어내면서 그쪽 사용자가 곧
+  // 포털 계정이 되어 대조할 상대가 없어졌다(docs/analysis/36-...cleanup.md 3단계).
   {
     field: 'action',
     title: $t('common.action'),

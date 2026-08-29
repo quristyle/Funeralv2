@@ -18,6 +18,7 @@ interface Messages {
   nav: {
     home: string;
     about: string;
+    work: string;
     news: string;
     downloads: string;
     contact: string;
@@ -27,6 +28,20 @@ interface Messages {
     headline: string;
     lead: string;
     cta: string;
+  };
+  /** 구축·운영 사례 페이지. 시스템 목록 자체는 DB(`work.*`)에서 온다 */
+  work: {
+    title: string;
+    lead: string;
+    ctaLead: string;
+    /**
+     * 그림 아래에 늘 붙는 한 줄.
+     *
+     * 그림은 **실제 화면의 캡처가 아니라 그것을 본뜬 재현 이미지**다. 고객사 시스템의
+     * 화면에는 고인·상주·담당자·설비 운전값 같은 것이 들어 있어 공개 사이트에 올릴 수 없다.
+     * 보는 사람이 진짜 캡처로 오해하지 않도록 그림마다 이 문장을 붙인다 — 빼지 않는다.
+     */
+    mockupNote: string;
   };
   common: {
     readMore: string;
@@ -71,15 +86,22 @@ export const MESSAGES: Record<Locale, Messages> = {
     nav: {
       home: '홈',
       about: '회사소개',
+      work: '구축 사례',
       news: '뉴스',
       downloads: '자료실',
       contact: '문의',
     },
     hero: {
-      eyebrow: '관리 시스템을 하나로',
-      headline: '흩어진 업무를\n한 곳에서 관리한다',
-      lead: '장례식장 · 헬프데스크 · 프로젝트관리를 하나의 인증과 권한으로 잇습니다. 시스템이 늘어나도 관리하는 곳은 하나입니다.',
-      cta: '회사소개 보기',
+      eyebrow: '납품에서 끝나지 않습니다',
+      headline: '만들고,\n계속 함께 갑니다',
+      lead: '업무 시스템을 만들어 납품하고, 그 뒤로도 유지보수 · 업그레이드 · 보수 관리를 이어 갑니다. 헬프데스크를 직접 운영해 언제든 닿을 수 있게 두었습니다.',
+      cta: '구축 사례 보기',
+    },
+    work: {
+      title: '구축 사례',
+      lead: '만들어 납품하고 지금도 함께 운영하는 시스템들입니다. 고객사와의 약속에 따라 이름 대신 분야로 적습니다.',
+      ctaLead: '쓰고 계신 시스템도\n같은 방식으로 이어받습니다',
+      mockupNote: '실제 화면을 본뜬 재현 이미지입니다. 표시된 자료는 모두 가상입니다.',
     },
     common: {
       readMore: '자세히',
@@ -121,15 +143,22 @@ export const MESSAGES: Record<Locale, Messages> = {
     nav: {
       home: 'Home',
       about: 'Company',
+      work: 'Work',
       news: 'News',
       downloads: 'Resources',
       contact: 'Contact',
     },
     hero: {
-      eyebrow: 'One place to manage',
-      headline: 'Scattered operations,\nmanaged from one place',
-      lead: 'Funeral halls, help desk and project management joined under one identity and one permission model. However many systems you add, there is still one place to manage them.',
-      cta: 'About the company',
+      eyebrow: 'Delivery is not the end',
+      headline: 'We build it,\nthen we stay',
+      lead: 'We build and deliver business systems — then keep them running, maintained and up to date. We run our own help desk so there is always somewhere to reach us.',
+      cta: 'See our work',
+    },
+    work: {
+      title: 'Work',
+      lead: 'Systems we built, delivered, and still run alongside our clients. Described by field rather than by name, as agreed with them.',
+      ctaLead: 'The system you already run\ncan be taken over the same way',
+      mockupNote: 'An illustration modelled on the real screen. Every value shown is fictitious.',
     },
     common: {
       readMore: 'Read more',

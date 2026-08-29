@@ -19,7 +19,7 @@
 set -u
 
 GATEWAY_PORT=5265
-INTERNAL_PORTS=(5264 5320 5350 5400 5450 5480)
+INTERNAL_PORTS=(5264 5320 5350 5400 5450 5480 5490)
 HOST_IP=$(hostname -I 2>/dev/null | awk '{print $1}')
 
 pass=0; fail=0

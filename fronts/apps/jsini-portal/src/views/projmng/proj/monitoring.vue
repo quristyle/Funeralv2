@@ -3,7 +3,7 @@
  * [프로젝트 모니터링]
  *
  * 원본: ProjMngWasm `Pages/Proj/ProjMonitoring.razor` (`/proj-monitoring`).
- * 프로시저: `sp_dev_user_exec`(참여자), `sp_dev_srcinfo_exec`(소스),
+ * 프로시저: `sp_proj_user_map_list`(참여자), `sp_dev_srcinfo_exec`(소스),
  *           `sp_projdblist`(DB), `sp_proj_wbs_exec`(WBS), `md_blazor_scan`(소스 스캔)
  *
  * 프로젝트 하나의 상태를 한 화면에 모은다 — 참여자·소스·DB·WBS 진행.
@@ -46,7 +46,9 @@ async function search() {
   loading.value = true;
   try {
     const [userData, srcData, dbData, wbsData] = await Promise.all([
-      dbCont('sp_dev_user_exec', { prj_rid: projectCode.value }),
+      // 참여자는 `dev_user`(자체 사용자 테이블)가 아니라 참여 현황에서 센다.
+      // 사람의 정본은 포털 계정이고, 프로젝트관리가 아는 것은 참여 여부뿐이다.
+      dbCont('sp_proj_user_map_list', { prj_rid: projectCode.value }),
       dbCont('sp_dev_srcinfo_exec', { prj_rid: projectCode.value }),
       dbCont('sp_projdblist', { proj_rid: projectCode.value }),
       dbCont('sp_proj_wbs_exec', {

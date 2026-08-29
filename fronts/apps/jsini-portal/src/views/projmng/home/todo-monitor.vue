@@ -8,6 +8,9 @@
  * 원본은 차트를 붙이려 했다가 그만두고 정산 집계(`sp_home_todo_pay`)만
  * 부르는 상태였다(`OnLoadWrk` 첫 줄이 `OnLoadPay(); return;` 이다).
  * 이식본은 그 동작을 살리고, 원본이 남겨 둔 할일 목록 조회도 탭으로 함께 붙였다.
+ *
+ * 담당자 드롭다운은 **포털 계정**을 읽는다. 이유는 [할일] 화면과 같다 —
+ * 사용자의 정본이 포털 한 곳이라 `projmng.dev_user` 를 보지 않는다.
  */
 import { onMounted, ref } from 'vue';
 
@@ -16,7 +19,9 @@ import { Page } from '@vben/common-ui';
 import { Button, DatePicker, TabPane, Tabs } from 'ant-design-vue';
 import dayjs from 'dayjs';
 
-import { CodeSelect, DynamicGrid, SearchBar, useProcGrid } from '../shared';
+import BizSelect from '#/components/BizSelect.vue';
+
+import { DynamicGrid, SearchBar, useProcGrid } from '../shared';
 
 const targetDate = ref(dayjs());
 const userCode = ref('');
@@ -54,7 +59,16 @@ onMounted(search);
   <Page auto-content-height>
     <SearchBar class="mb-2">
       <DatePicker v-model:value="targetDate" size="small" @change="search" />
-      <CodeSelect v-model="userCode" code-id="user" show-all @change="search" />
+      <BizSelect
+        v-model="userCode"
+        type="portal_account"
+        show-all
+        show-search
+        option-filter-prop="label"
+        placeholder="담당자"
+        style="width: 180px"
+        @change="search"
+      />
       <template #actions>
         <Button v-perm:search size="small" type="primary" @click="search">
           조회

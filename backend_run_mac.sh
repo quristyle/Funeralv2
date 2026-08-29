@@ -45,6 +45,10 @@ SERVICES=(
   "helpdesk|HelpDesk Server|microservices/HelpDeskServer|5400|HELPDESK"
   "projmng|ProjMng Server|microservices/ProjMngServer|5450|PROJMNG"
   "site|Site Server|microservices/SiteServer|5480|SITE_API"
+  # 알림(푸시·이메일). 포털·장례식장·헬프데스크가 함께 쓴다 (결정 D8-A).
+  "notify|Notification Server|microservices/NotificationServer|5460|NOTIFY"
+  # 생활과환경(기상·생일). GHUB(SK가스 지허브)에서 이식했다.
+  "ghub|GHUB Server|microservices/GhubServer|5490|GHUB"
 )
 
 # 프론트엔드는 dotnet 서비스가 아니라 따로 다룬다.
