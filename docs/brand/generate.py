@@ -286,6 +286,63 @@ write("motif-shards-knockout.svg",
       head(242, 178, "상승 조각 모티프 녹아웃", "어두운 배경용 상승 조각")
       + shards(tones=[GRAPHITE, STEEL, MIST, PAPER]) + "</svg>\n")
 
+# 9-1) 로더 — 기다리는 동안 보여 주는 것.
+#
+# **심볼을 굴리지 않는다.** 사용 규칙(README 5절)이 기울이기·회전·비율 변경을 금지한다.
+# 정체성 마크를 찌그러뜨리면서 쓰는 것이 로딩 표시다 — 그래서 심볼은 대상이 아니다.
+#
+# 대신 상승 조각을 쓴다. 이것은 애초에 "페이지 전체에 같은 리듬을 반복하는 보조 그래픽"
+# 으로 둔 것이라(README 6절) 기다림 표시에 그대로 맞는다. 각도도 규칙 안에 있다.
+#
+# 움직임은 조각이 차례로 솟았다 내려앉는 것이다. 왼쪽에서 오른쪽으로 물결이 지나가면서도
+# **오른쪽으로 갈수록 높은 실루엣**은 유지된다 — 그래야 정지 상태의 모티프와 같은 것으로 읽힌다.
+#
+# 색은 `currentColor` 에 명도 4단계다. 밝은 화면에서는 잉크 쪽, 어두운 화면에서는 흰 쪽으로
+# 글자색이 뒤집히므로 파일 하나로 두 테마를 다 받는다.
+LOADER = 48
+LOADER_BASE = 44          # 바닥선
+LOADER_W = 6              # 조각 너비
+LOADER_GAP = 5
+LOADER_SHEAR_DEG = 12.4   # 사선 22 : 높이 100 → atan(0.22)
+LOADER_HEIGHTS = [16, 22, 28, 34]
+LOADER_TONES = [0.3, 0.5, 0.75, 1]
+LOADER_CYCLE = 1.1        # 초
+
+
+def loader_svg(title):
+    body = head(LOADER, LOADER, title,
+                "상승 조각이 차례로 솟는 대기 표시. 색은 currentColor 를 따른다")
+
+    # 기울이면 위쪽이 오른쪽으로 밀린다. 그만큼 되돌려 가운데에 세운다.
+    shift = LOADER_BASE * 0.22 / 2
+    body += "  <style>\n"
+    body += ("    .jsini-loader-bar { transform-origin: center bottom;"
+             f" animation: jsini-loader {LOADER_CYCLE}s ease-in-out infinite; }}\n")
+    for i in range(len(LOADER_HEIGHTS)):
+        body += (f"    .jsini-loader-bar:nth-child({i + 1})"
+                 f" {{ animation-delay: {i * 0.12:g}s; }}\n")
+    body += ("    @keyframes jsini-loader {\n"
+             "      0%, 100% { transform: scaleY(0.55); }\n"
+             "      50%      { transform: scaleY(1); }\n"
+             "    }\n")
+    # 움직임을 원하지 않는 사람에게는 멈춘 그림을 준다.
+    body += ("    @media (prefers-reduced-motion: reduce) {\n"
+             "      .jsini-loader-bar { animation: none; }\n"
+             "    }\n")
+    body += "  </style>\n"
+
+    body += f'  <g transform="translate({n(shift)},0) skewX(-{n(LOADER_SHEAR_DEG)})">\n'
+    for i, (h, tone) in enumerate(zip(LOADER_HEIGHTS, LOADER_TONES)):
+        x = 5 + i * (LOADER_W + LOADER_GAP)
+        body += (f'    <rect class="jsini-loader-bar" x="{n(x)}" y="{n(LOADER_BASE - h)}"'
+                 f' width="{LOADER_W}" height="{n(h)}"'
+                 f' fill="currentColor" opacity="{n(tone)}"/>\n')
+    body += "  </g>\n"
+    return body + "</svg>\n"
+
+
+write("loader-shards.svg", loader_svg("JSINI 로더"))
+
 # 10) OG 이미지 1200×630
 og = head(1200, 630, "JSINI OG 이미지", "잉크 배경에 가로 조합 녹아웃과 상승 조각")
 og += f'    <rect width="1200" height="630" fill="{INK}"/>\n'

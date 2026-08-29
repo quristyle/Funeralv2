@@ -683,3 +683,99 @@ S-CoreDream, Play, -apple-system, blinkmacsystemfont, "Segoe UI", roboto, ...
 > 그쪽은 이미지 없이 이름만 그리는 자리라 브랜드와 무관하다.
 
 경위와 확인 내용은 [27-jsini-site-brand.md](27-jsini-site-brand.md) 7절에 있다.
+
+## 9. 메뉴 검색이 필터되지 않던 이유 — `Input` import 누락 (2026-08-27)
+
+사이드바 메뉴 검색칸에 글자는 쳐지는데 **메뉴가 전혀 걸러지지 않았다.**
+
+`layout.vue` 가 `<Input v-model="menuSearchKeyword">` 를 쓰면서 **`Input` 을 import 하지
+않았다.** 그러면 Vue 가 그 태그를 컴포넌트로 해석하지 못하고 native `<input>` 으로 떨어뜨린다.
+
+```
+콘솔:  [Vue warn]: Failed to resolve component: Input
+DOM :  <input modelvalue="" placeholder="검색" class="h-8 w-full min-w-0 pl-8 pr-2">
+                ^^^^^^^^^^ 프롭이 아니라 그냥 HTML 속성으로 박혔다
+       shadcn Input 의 기본 클래스(border-input · rounded-md ...)가 하나도 없다
+```
+
+native `<input>` 이라 글자는 쳐진다(비제어 입력). 그런데 `update:modelValue` 를 받을 데가
+없어 **`menuSearchKeyword` 가 영영 빈 문자열이었다.** 그래서
+`debouncedMenuKeyword` → `filteredSidebarMenus` 가 한 번도 다시 계산되지 않았고,
+지우기(×) 버튼(`v-if="menuSearchKeyword"`)도 나타나지 않았다.
+
+고친 것은 한 줄이다.
+
+```diff
+- import { VbenBackTop, VbenLogo } from '@vben-core/shadcn-ui';
++ import { Input, VbenBackTop, VbenLogo } from '@vben-core/shadcn-ui';
+```
+
+확인 (사이드바 항목 수):
+
+```
+검색 전         36
+'계정'           3   시스템 · 헬프데스크 · 헬프데스크 설정  (× 버튼도 나타남)
+'zzzz'(무매칭)   0
+지움            36
+```
+
+### 왜 오래 안 보였나
+
+셋이 겹쳐 있었다.
+
+1. `Failed to resolve component` 는 **경고**라 화면이 멀쩡히 뜬다. 개발 콘솔 경고는 묻힌다.
+2. native `<input>` 이라 **글자는 쳐진다.** 눈으로는 정상으로 보인다.
+3. 그 앞에 `app.isMobile` 문제가 겹쳐 있어 **검색칸 자체가 안 보이는 계정**도 있었다
+   (27번 문서). 그쪽을 고치고 나서야 이 두 번째 문제가 드러났다.
+
+같은 실수가 더 있는지 이 파일의 템플릿에서 쓰는 컴포넌트 17개를 전부 대조했다 — 나머지는 모두 import 되어 있다.
+
+> 이 검색칸은 상위에 없는 우리 것이다. `layout.vue` 를 상위 것으로 덮으면 검색칸과
+> 필터(`filterMenusByKeyword` · `filteredSidebarMenus` · `sidebarMenuKey`)가 함께 사라진다.
+
+## 10. 대기 표시를 브랜드로 바꿨다 (2026-08-27)
+
+화면 전환·대기 때 나오던 **통통 튀는 정사각형**을 상승 조각으로 바꿨다.
+
+| 자리 | 파일 | 포크를 건드리나 |
+|---|---|---|
+| 앱 첫 로딩 스플래시 | `apps/jsini-portal/loading.html` | **아니오** |
+| 화면 전환 · `v-loading` · iframe | `packages/@core/ui-kit/shadcn-ui/src/components/spinner/spinner.vue` | 예 |
+
+스플래시는 포크를 안 건드려도 된다. `viteInjectAppLoadingPlugin` 이 템플릿을
+`join(process.cwd(), 'loading.html')` 에서 먼저 찾고 없을 때만 기본값
+(`internal/vite-config/.../default-loading.html`)으로 내려간다. 앱 폴더에 파일을 두면 그것이 이긴다.
+스플래시는 로더뿐 아니라 제목도 바꿨다 — 화면 글꼴로 써진 'JSINI ADMIN' 대신 진짜 가로 조합이다.
+
+### 왜 심볼을 굴리지 않았나
+
+브랜드 사용 규칙(`docs/brand/README.md` 5절)이 **기울이기·회전·비율 변경을 금지한다.**
+로딩 표시는 마크를 계속 찌그러뜨리며 돌리는 일이라, 정체성 마크는 애초에 대상이 아니다.
+상승 조각은 원래 "같은 리듬을 반복하는 보조 그래픽" 으로 둔 것이라 여기에 맞는다.
+좌표와 움직임은 `docs/brand/generate.py` 가 `loader-shards.svg` 로 만든다 —
+**두 자리 모두 그것을 옮긴 것이고, 손으로 고치지 않는다.**
+
+파일을 가져오지 않고 인라인한 이유는 둘이다. 스피너는 공용 패키지라 특정 앱의 `public/`
+경로를 박으면 그 파일이 없는 앱에서 깨진다. 스플래시는 앱이 뜨기 전에 그려져야 해서
+요청이 오갈 여유가 없다.
+
+### 확인한 것
+
+```
+스플래시  index.html 에 loading-rise · loading-bar 4개 · 가로 조합 주입됨
+          옛 jump-ani / shadow-ani 는 사라짐
+          배경 Paper / .dark 는 Ink, 글자색이 뒤집힘
+          조각 높이 13.3 · 18.3 · 23.3 · 28.3 (오른쪽으로 갈수록 높음)
+전환      라우트 이동 중 실제로 포착 — svg 42px, 조각 4개,
+          높이 14 · 19.3 · 24.5 · 29.8, 명도 0.3 / 0.5 / 0.75 / 1,
+          색은 foreground 를 따라감
+스타일    jsini-loader-rise 키프레임 존재 · loader-jump-ani 사라짐
+빌드      프로덕션 산출물에도 그대로 들어감
+```
+
+> 애니메이션이 **실제로 흐르는 것**은 확인하지 못했다. 확인에 쓴 브라우저 창이 프레임을
+> 합성하지 않아 애니메이션이 진행되지 않는다(스크린샷도 같은 이유로 안 된다).
+> 대신 `scaleY(0.55)` 가 적용된 첫 프레임과 기준점(바닥)이 맞는 것까지는 실측했다.
+
+> **상위 동기화 때 주의.** `spinner.vue` 는 상위 것으로 덮이면 통통 튀는 사각형으로 돌아간다.
+> `loading.html` 은 앱 폴더라 안전하다.

@@ -32,6 +32,60 @@ import { getUserPreferencesApi, saveUserPreferencesApi } from '#/api';
 /** 저장을 몇 ms 모아서 보낼지. 색을 고르면 값이 연달아 바뀐다. */
 const SAVE_DEBOUNCE_MS = 800;
 
+/**
+ * 계정에 붙이면 안 되는 값들.
+ *
+ * `preferences.app` 에는 사람이 고른 설정과 **환경에서 파생된 값**이 섞여 있다.
+ * 파생값은 브라우저·창 크기마다 달라야 하는데, 계정에 붙으면 다른 기기까지 따라간다.
+ *
+ * `app.isMobile` 로 실제 사고가 있었다. 좁은 창에서 한 번 열면 그것이 '기본값과 다른 값'
+ * 으로 잡혀 서버에 올라가고, 그 뒤로는 **넓은 화면에서 로그인해도 모바일로 동작했다.**
+ * 모바일이면 사이드바가 상시 표시가 아니라 오버레이 서랍이 되므로,
+ * 사이드바 안에 있는 **메뉴 검색칸이 아예 그려지지 않았다.**
+ *
+ * 보내는 쪽과 받는 쪽 **양쪽에서** 걸러야 한다. 보내는 것만 막으면 이미 서버에 저장된
+ * 값이 로그인할 때마다 계속 적용된다.
+ *
+ * `logo.source` · `logo.sourceDark` 도 같은 이유로 뺀다. 이것은 사람이 고르는 값이 아니라
+ * **앱의 브랜딩**이다. 계정에 박히면 나중에 로고를 바꿔도 옛 주소가 따라와서 깨진다 —
+ * 실제로 겪었다. 로고 기본값을 브랜드 것으로 바꾸자, 옛 경로(`/jsini.svg`)를 들고 있던
+ * 브라우저가 그것을 '기본값과 다른 값' 으로 보고 서버에 올렸고, 그 파일은 이미 지운 뒤였다.
+ * (`logo.enable` · `logo.showText` 는 사람이 끄고 켜는 값이라 그대로 둔다)
+ *
+ * 형식: `'섹션.키'`
+ */
+const DERIVED_KEYS = [
+  'app.isMobile',
+  'logo.source',
+  'logo.sourceDark',
+] as const;
+
+/**
+ * 파생값을 걷어낸 사본을 돌려준다. 원본은 건드리지 않는다.
+ * 걷어내고 나서 빈 껍데기만 남은 섹션도 함께 지운다 — 빈 `{app:{}}` 를 보내 봐야 의미가 없다.
+ */
+function stripDerived(source: Record<string, any>): Record<string, any> {
+  const result: Record<string, any> = { ...source };
+
+  for (const path of DERIVED_KEYS) {
+    const [section, key] = path.split('.') as [string, string];
+    const bucket = result[section];
+
+    if (!bucket || typeof bucket !== 'object' || !(key in bucket)) {
+      continue;
+    }
+
+    const { [key]: _removed, ...rest } = bucket;
+    if (Object.keys(rest).length === 0) {
+      delete result[section];
+    } else {
+      result[section] = rest;
+    }
+  }
+
+  return result;
+}
+
 let saveTimer: null | ReturnType<typeof setTimeout> = null;
 let stopWatch: (() => void) | null = null;
 /** 서버 값을 적용하는 중에는 저장하지 않는다(받은 것을 그대로 되돌려 보내는 일 방지). */
@@ -60,7 +114,11 @@ export async function loadPreferencesFromServer() {
   applying = true;
   try {
     // `custom` 은 프로젝트 확장 설정이라 다른 함수로 넣는다.
-    const { custom, ...rest } = payload;
+    const { custom, ...raw } = payload;
+
+    // 예전에 저장된 파생값은 여기서 버린다. 저장 쪽만 막으면 이미 서버에 있는 값이
+    // 로그인할 때마다 계속 적용된다 (DERIVED_KEYS 주석 참고).
+    const rest = stripDerived(raw);
 
     if (Object.keys(rest).length > 0) {
       updatePreferences(rest);
@@ -94,12 +152,18 @@ export function startPreferencesSync() {
 
       if (saveTimer) clearTimeout(saveTimer);
       saveTimer = setTimeout(() => {
-        const payload: Record<string, any> = { ...diffPreference.value };
+        const payload: Record<string, any> = stripDerived(diffPreference.value);
         if (
           diffCustomPreference.value &&
           Object.keys(diffCustomPreference.value).length > 0
         ) {
           payload.custom = diffCustomPreference.value;
+        }
+
+        // 걷어내고 나니 보낼 것이 없으면 보내지 않는다.
+        // (창을 좁혔다 넓히는 것만으로 저장 요청이 오가던 것이 이 경우다)
+        if (Object.keys(payload).length === 0) {
+          return;
         }
 
         // 실패해도 알리지 않는다. 로컬스토리지에는 이미 남아 있어 이 브라우저는
@@ -146,7 +210,7 @@ export async function ensurePreferencesSynced() {
  */
 export async function pushCurrentPreferences() {
   const { diffCustomPreference, diffPreference } = usePreferences();
-  const payload: Record<string, any> = { ...diffPreference.value };
+  const payload: Record<string, any> = stripDerived(diffPreference.value);
   if (
     diffCustomPreference.value &&
     Object.keys(diffCustomPreference.value).length > 0

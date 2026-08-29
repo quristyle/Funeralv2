@@ -1,0 +1,140 @@
+<!--
+  앱이 뜨기 전에 보여 주는 첫 화면.
+
+  이 파일이 있으면 프레임워크 기본 스플래시(default-loading.html)를 대신한다
+  (internal/vite-config/src/plugins/inject-app-loading). **포크를 건드리지 않고 덮는 방법이다.**
+
+  두 가지를 브랜드로 바꿨다.
+    · 통통 튀던 정사각형 → 상승 조각 로더
+    · 화면 글꼴로 써진 'JSINI ADMIN' → 진짜 가로 조합(심볼 + 워드마크)
+
+  워드마크는 그린 글자라 글꼴로 흉내내면 안 된다(docs/brand/README.md).
+  좌표는 generate.py 가 만든 것을 옮겼다 — 여기서 손으로 고치지 않는다.
+
+  `.dark` 는 위쪽에 주입되는 스크립트가 저장된 테마를 보고 미리 붙여 준다.
+  그래서 새로고침해도 스플래시가 먼저 밝게 번쩍이지 않는다.
+-->
+<style data-app-loading="inject-css">
+  html {
+    /* ant-design-vue reset.css 와 같은 값. 제목 줄높이가 튀지 않게 한다 */
+    line-height: 1.15;
+  }
+
+  .loading {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+
+    /* Paper */
+    color: #0a0a0a;
+    background-color: #ffffff;
+  }
+
+  .dark .loading {
+    /* Ink */
+    color: #ffffff;
+    background-color: #0a0a0a;
+  }
+
+  .loading.hidden {
+    visibility: hidden;
+    pointer-events: none;
+    opacity: 0;
+    transition: all 0.8s ease-out;
+  }
+
+  .loading-mark {
+    width: 152px;
+    height: 40px;
+  }
+
+  .loading-bars {
+    width: 40px;
+    height: 40px;
+    margin-top: 34px;
+  }
+
+  /*
+    상승 조각이 차례로 솟는다. 왼쪽에서 오른쪽으로 물결이 지나가면서도
+    '오른쪽으로 갈수록 높은' 실루엣은 유지된다 — 정지 상태의 모티프와 같은 것으로 읽혀야 한다.
+  */
+  .loading-bar {
+    transform-origin: center bottom;
+    animation: loading-rise 1.1s ease-in-out infinite;
+  }
+
+  .loading-bar:nth-child(1) {
+    animation-delay: 0s;
+  }
+
+  .loading-bar:nth-child(2) {
+    animation-delay: 0.12s;
+  }
+
+  .loading-bar:nth-child(3) {
+    animation-delay: 0.24s;
+  }
+
+  .loading-bar:nth-child(4) {
+    animation-delay: 0.36s;
+  }
+
+  @keyframes loading-rise {
+    0%,
+    100% {
+      transform: scaleY(0.55);
+    }
+
+    50% {
+      transform: scaleY(1);
+    }
+  }
+
+  /* 움직임을 원하지 않는 사람에게는 멈춘 그림을 준다. */
+  @media (prefers-reduced-motion: reduce) {
+    .loading-bar {
+      animation: none;
+    }
+  }
+</style>
+
+<div class="loading" id="__app-loading__">
+  <!-- 가로 조합 — 심볼(J·S 인터록) + JSINI 워드마크 -->
+  <svg class="loading-mark" viewBox="0 0 228 60" role="img" aria-label="JSINI">
+    <g transform="translate(-18,-30)">
+      <path
+        d="M58,30 L102,30 L102,42 L70,42 L70,54 L102,54 L102,90 L58,90 L58,78 L90,78 L90,66 L58,66 Z"
+        fill="currentColor"
+        opacity="0.45"
+      />
+      <path d="M50,42 L62,30 L62,90 L18,90 L18,78 L50,78 Z" fill="currentColor" />
+    </g>
+    <g fill="currentColor">
+      <path d="M124,21 L130,15 L130,45 L108,45 L108,39 L124,39 Z" />
+      <path
+        d="M140,15 L162,15 L162,21 L146,21 L146,27 L162,27 L162,45 L140,45 L140,39 L156,39 L156,33 L140,33 Z"
+      />
+      <path d="M172,15 L178,15 L178,45 L172,45 Z" />
+      <path d="M188,45 L188,15 L194,15 L206,35 L206,15 L212,15 L212,45 L206,45 L194,25 L194,45 Z" />
+      <path d="M222,15 L228,15 L228,45 L222,45 Z" />
+    </g>
+  </svg>
+
+  <!-- 대기 표시 — 상승 조각 -->
+  <svg class="loading-bars" viewBox="0 0 48 48" role="img" aria-label="loading">
+    <g transform="translate(4.84,0) skewX(-12.4)">
+      <rect class="loading-bar" x="5" y="28" width="6" height="16" fill="currentColor" opacity="0.3" />
+      <rect class="loading-bar" x="16" y="22" width="6" height="22" fill="currentColor" opacity="0.5" />
+      <rect class="loading-bar" x="27" y="16" width="6" height="28" fill="currentColor" opacity="0.75" />
+      <rect class="loading-bar" x="38" y="10" width="6" height="34" fill="currentColor" opacity="1" />
+    </g>
+  </svg>
+</div>

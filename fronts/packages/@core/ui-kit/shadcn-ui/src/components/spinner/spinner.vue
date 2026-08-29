@@ -59,6 +59,25 @@ function onTransitionEnd() {
 }
 </script>
 
+<!--
+  화면 전환·대기 표시.
+
+  예전에는 정사각형이 통통 튀며 굴렀다(`loader-jump-ani`). 브랜드를 입히면서 바꿨다.
+
+  **심볼(JS 인터록)을 굴리지 않는다.** 사용 규칙(docs/brand/README.md 5절)이
+  기울이기·회전·비율 변경을 금지한다. 정체성 마크를 찌그러뜨리며 돌리는 것이 로딩 표시라,
+  심볼은 애초에 대상이 아니다.
+
+  대신 **상승 조각**을 쓴다. 이것은 "페이지 전체에 같은 리듬을 반복하는 보조 그래픽" 으로
+  둔 것이라(README 6절) 기다림 표시에 그대로 맞고, 각도(사선 22 : 높이 100)도 규칙 안에 있다.
+
+  좌표와 움직임은 `docs/brand/generate.py` 가 만든 `loader-shards.svg` 를 옮긴 것이다.
+  **여기서 고치지 않는다** — generate.py 를 고치고 다시 뽑아서 옮긴다.
+  파일을 가져오지 않고 인라인한 이유는 이것이 공용 패키지라, 특정 앱의 `public/` 경로를
+  박으면 그 파일이 없는 앱에서 깨지기 때문이다.
+
+  색은 `currentColor` 다. 아래에서 `text-foreground` 를 주므로 밝은/어두운 테마가 알아서 맞는다.
+-->
 <template>
   <div
     :class="
@@ -73,66 +92,98 @@ function onTransitionEnd() {
     "
     @transitionend="onTransitionEnd"
   >
-    <div
-      :class="{ paused: !renderSpinner }"
+    <svg
       v-if="renderSpinner"
-      class="loader before:bg-primary/50 after:bg-primary relative size-12 before:absolute before:top-15 before:left-0 before:h-1.25 before:w-12 before:rounded-full before:content-[''] after:absolute after:top-0 after:left-0 after:h-full after:w-full after:rounded after:content-['']"
-    ></div>
+      :class="{ paused: !renderSpinner }"
+      class="jsini-loader text-foreground size-12"
+      viewBox="0 0 48 48"
+      role="img"
+      aria-label="loading"
+    >
+      <g transform="translate(4.84,0) skewX(-12.4)">
+        <rect
+          class="jsini-loader-bar"
+          x="5"
+          y="28"
+          width="6"
+          height="16"
+          fill="currentColor"
+          opacity="0.3"
+        />
+        <rect
+          class="jsini-loader-bar"
+          x="16"
+          y="22"
+          width="6"
+          height="22"
+          fill="currentColor"
+          opacity="0.5"
+        />
+        <rect
+          class="jsini-loader-bar"
+          x="27"
+          y="16"
+          width="6"
+          height="28"
+          fill="currentColor"
+          opacity="0.75"
+        />
+        <rect
+          class="jsini-loader-bar"
+          x="38"
+          y="10"
+          width="6"
+          height="34"
+          fill="currentColor"
+          opacity="1"
+        />
+      </g>
+    </svg>
   </div>
 </template>
 
 <style scoped>
-.paused {
-  &::before {
-    animation-play-state: paused !important;
-  }
-
-  &::after {
-    animation-play-state: paused !important;
-  }
+.jsini-loader-bar {
+  transform-origin: center bottom;
+  animation: jsini-loader-rise 1.1s ease-in-out infinite;
 }
 
-.loader {
-  &::before {
-    animation: loader-shadow-ani 0.5s linear infinite;
-  }
-
-  &::after {
-    animation: loader-jump-ani 0.5s linear infinite;
-  }
+.jsini-loader-bar:nth-child(1) {
+  animation-delay: 0s;
 }
 
-@keyframes loader-jump-ani {
-  15% {
-    border-bottom-right-radius: 3px;
-  }
-
-  25% {
-    transform: translateY(9px) rotate(22.5deg);
-  }
-
-  50% {
-    border-bottom-right-radius: 40px;
-    transform: translateY(18px) scale(1, 0.9) rotate(45deg);
-  }
-
-  75% {
-    transform: translateY(9px) rotate(67.5deg);
-  }
-
-  100% {
-    transform: translateY(0) rotate(90deg);
-  }
+.jsini-loader-bar:nth-child(2) {
+  animation-delay: 0.12s;
 }
 
-@keyframes loader-shadow-ani {
+.jsini-loader-bar:nth-child(3) {
+  animation-delay: 0.24s;
+}
+
+.jsini-loader-bar:nth-child(4) {
+  animation-delay: 0.36s;
+}
+
+/* 사라지는 중에는 멈춰 둔다. 페이드아웃과 움직임이 겹치면 지저분하다. */
+.paused .jsini-loader-bar {
+  animation-play-state: paused;
+}
+
+@keyframes jsini-loader-rise {
   0%,
   100% {
-    transform: scale(1, 1);
+    transform: scaleY(0.55);
   }
 
   50% {
-    transform: scale(1.2, 1);
+    transform: scaleY(1);
+  }
+}
+
+/* 움직임을 원하지 않는 사람에게는 멈춘 그림을 준다. */
+@media (prefers-reduced-motion: reduce) {
+  .jsini-loader-bar {
+    animation: none;
   }
 }
 </style>

@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import type { OnActionClickParams, VxeTableGridOptions } from '#/adapter/vxe-table';
 
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
 import { IconifyIcon, Plus } from '@vben/icons';
@@ -57,6 +57,92 @@ const i18nEditModalRef = ref<any>(null);
 /** 순서 저장이 진행 중인지. 저장 중에는 다시 드래그해도 요청이 겹치지 않게 막는다. */
 const savingOrder = ref(false);
 
+/**
+ * 정렬이나 필터가 걸려 있는가.
+ *
+ * [왜 들고 있어야 하나 — 순서가 망가질 수 있다]
+ *
+ * 이 화면의 저장 방식은 **"화면에 보이는 그대로가 진짜 순서"** 다.
+ * `collectOrderChanges()` 가 트리를 훑으며 **배열에서의 자리(index)를 `orderNo` 로**
+ * 삼아 서버에 보낸다.
+ *
+ * 그런데 정렬을 걸면 화면의 배치는 `order_no` 가 아니라 **정렬 기준**을 따른다.
+ * 그 상태에서 한 줄이라도 끌면, 정렬된 자리 번호가 그대로 새 `order_no` 로 저장돼
+ * **메뉴 순서가 통째로 정렬 결과로 덮인다.** 되돌릴 방법은 손으로 다시 옮기는 것뿐이다.
+ *
+ * 필터도 같다. 걸러진 뒤에는 형제 일부가 화면에서 빠져 있어 자리 번호가 실제와 다르다.
+ *
+ * 그래서 **정렬·필터가 걸려 있는 동안에는 자리 이동을 저장하지 않는다.**
+ * 막지 않고 저장하는 쪽이 훨씬 나쁘다 — 사용자는 한 줄을 옮겼다고 생각하는데
+ * 실제로는 263개의 순번이 바뀐다.
+ */
+const sortActive = ref(false);
+const filterActive = ref(false);
+const viewReordered = computed(() => sortActive.value || filterActive.value);
+
+// ============================================================
+// 머리글 아래 필터 칸
+//
+// 깔때기를 눌러 팝업을 열고 → 값을 넣고 → '적용' 을 누르는 세 동작을,
+// **머리글 아래에 바로 치는 한 동작**으로 줄인다. 메뉴가 263개라 찾는 일이 잦다.
+//
+// 조건과 판정은 vxe 의 것을 그대로 쓴다(`filters` · `filterMethod`, data.ts).
+// 여기서는 그 조건에 값을 넣어 주기만 한다 — 걸러내는 규칙을 두 벌로 만들지 않는다.
+// ============================================================
+
+/** 칸별로 지금 들어 있는 필터 값. 키는 `column.field`. */
+const columnFilter = ref<Record<string, any>>({});
+
+/**
+ * 치는 대로 걸리게 한다. 다만 **글자마다 다시 거르지는 않는다** —
+ * 263행 트리를 매 글자마다 다시 세우면 입력이 끊긴다. 250ms 쉬면 건다.
+ */
+let filterTimer: null | ReturnType<typeof setTimeout> = null;
+
+function applyColumnFilter(field: string, value: any, immediate = false) {
+  columnFilter.value[field] = value;
+
+  const run = () => {
+    const grid = gridApi.grid;
+    if (!grid) return;
+
+    const column = grid.getColumnByField(field);
+    if (!column) return;
+
+    const isEmpty = value === '' || value === null || value === undefined;
+
+    // 값이 든 칸의 종류에 따라 vxe 가 읽는 자리가 다르다.
+    //   · 입력칸(`filterMethod` 를 쓴다)  → `option.data`
+    //   · 고르는 칸(기본 판정을 쓴다)     → `option.checked`
+    const options = (column.filters ?? []).map((opt: any) =>
+      'value' in opt && opt.label !== undefined
+        ? { ...opt, checked: !isEmpty && opt.value === value }
+        : { ...opt, data: value, checked: !isEmpty },
+    );
+
+    grid.setFilter(column, options);
+    grid.updateData();
+
+    // 하나라도 값이 남아 있으면 자리 이동을 막아야 한다.
+    // `setFilter` 는 프로그램으로 거는 것이라 `filterChange` 가 오지 않는다.
+    filterActive.value = Object.values(columnFilter.value).some(
+      (v) => v !== '' && v !== null && v !== undefined,
+    );
+  };
+
+  if (filterTimer) clearTimeout(filterTimer);
+  if (immediate) {
+    run();
+  } else {
+    filterTimer = setTimeout(run, 250);
+  }
+}
+
+/** 이 칸이 고르는 칸인지(유형 · 상태). 이름표가 붙은 옵션이 있으면 그렇다. */
+function isChoiceColumn(column: any) {
+  return (column.filters ?? []).some((f: any) => f.label !== undefined);
+}
+
 /** 응답이 배열/`result`/`data.result` 중 무엇으로 와도 목록을 꺼낸다. */
 function getMenuItems(response: any): SystemMenuApi.SystemMenu[] {
   if (Array.isArray(response)) return response;
@@ -111,8 +197,32 @@ const [Grid, gridApi] = useVbenVxeGrid({
      * 그래서 여기서는 화면에 보이는 그대로를 읽어 바뀐 것만 서버에 보낸다.
      * 화면을 다시 그리거나 목록을 다시 받아오지 않는다 — 이게 체감 속도의 핵심이다.
      */
+    /** 정렬 상태가 바뀌었다. 걸려 있으면 자리 이동을 막는다. */
+    sortChange: ({ sortList }: any) => {
+      sortActive.value = (sortList?.length ?? 0) > 0;
+    },
+
+    /** 필터 상태가 바뀌었다. 하나라도 걸려 있으면 자리 이동을 막는다. */
+    filterChange: ({ filterList }: any) => {
+      filterActive.value = (filterList?.length ?? 0) > 0;
+    },
+
     rowDragend: async () => {
       if (savingOrder.value) return;
+
+      // [정렬·필터 중에는 저장하지 않는다]
+      //
+      // 화면의 자리 번호가 실제 순서와 다르기 때문이다(위 `viewReordered` 주석).
+      // 그대로 저장하면 한 줄을 옮긴 것이 아니라 **전체 순번이 정렬 결과로 덮인다.**
+      // 이미 vxe 가 화면상으로는 옮겨 놓았으므로, 서버 값으로 다시 그려 되돌린다.
+      if (viewReordered.value) {
+        message.warning(
+          '정렬이나 필터가 걸려 있는 동안에는 위치를 옮길 수 없습니다. ' +
+            '정렬·필터를 모두 해제한 뒤 옮겨 주세요.',
+        );
+        await refresh();
+        return;
+      }
 
       const changed = collectOrderChanges();
       if (changed.length === 0) return;
@@ -445,9 +555,80 @@ onMounted(() => {
 
     <Grid>
       <!-- 드래그 손잡이 -->
+      <!--
+        [머리글 + 그 아래 필터 칸]
+
+        깔때기를 눌러 팝업을 열고 · 값을 넣고 · '적용' 을 누르던 세 동작을
+        **바로 치는 한 동작**으로 줄인다.
+
+        `@keydown.stop` 이 필요하다 — 이 그리드는 셀 편집을 켜 두어서
+        머리글에서 친 글쇠가 표로 새어 나가면 엉뚱한 셀이 편집으로 들어간다.
+        `@click.stop` 은 정렬 토글이 같이 눌리는 것을 막는다(머리글을 누르면 정렬이 된다).
+      -->
+      <template #col-filter="{ column }">
+        <div class="flex w-full flex-col gap-1">
+          <span class="truncate">{{ column.title }}</span>
+
+          <!-- 값의 종류가 정해진 칸: 고르는 칸 -->
+          <select
+            v-if="isChoiceColumn(column)"
+            class="border-border bg-background text-foreground h-6 w-full rounded border px-1 text-xs font-normal"
+            :value="columnFilter[column.field] ?? ''"
+            @click.stop
+            @keydown.stop
+            @change="
+              applyColumnFilter(
+                column.field,
+                ($event.target as HTMLSelectElement).value === ''
+                  ? ''
+                  : column.filters.find(
+                      (f: any) =>
+                        String(f.value) ===
+                        ($event.target as HTMLSelectElement).value,
+                    )?.value,
+                true,
+              )
+            "
+          >
+            <option value="">전체</option>
+            <option v-for="f in column.filters" :key="f.value" :value="f.value">
+              {{ f.label }}
+            </option>
+          </select>
+
+          <!-- 그 밖의 칸: 치는 대로 걸린다 -->
+          <input
+            v-else
+            class="border-border bg-background text-foreground placeholder:text-muted-foreground h-6 w-full rounded border px-1.5 text-xs font-normal"
+            :placeholder="$t('common.search')"
+            :value="columnFilter[column.field] ?? ''"
+            @click.stop
+            @keydown.stop
+            @input="
+              applyColumnFilter(
+                column.field,
+                ($event.target as HTMLInputElement).value,
+              )
+            "
+          />
+        </div>
+      </template>
+
+      <!--
+        자리 이동 손잡이.
+
+        정렬·필터가 걸려 있으면 **흐리게** 만든다. 끌 수는 있지만 저장되지 않으므로
+        (`rowDragend` 가 막는다), 끌기 전에 보이는 편이 낫다. 이유는 툴팁으로 알린다.
+      -->
       <template #drag>
         <div
-          class="flex h-full w-full cursor-move select-none items-center justify-center"
+          class="flex h-full w-full select-none items-center justify-center"
+          :class="viewReordered ? 'cursor-not-allowed opacity-30' : 'cursor-move'"
+          :title="
+            viewReordered
+              ? '정렬·필터가 걸려 있는 동안에는 위치를 옮길 수 없습니다.'
+              : '끌어서 순서나 상위 메뉴를 바꿉니다.'
+          "
         >
           <IconifyIcon
             class="pointer-events-none text-muted-foreground"
@@ -514,6 +695,26 @@ onMounted(() => {
 <style lang="scss" scoped>
 .vxe-grid {
   user-select: none; /* 드래그 중 텍스트가 잡히지 않게 */
+}
+
+/*
+  깔때기 아이콘을 감춘다.
+
+  필터는 머리글 아래 칸으로 옮겼고, 그래서 팝업에 넣을 입력칸(`filterRender`)을
+  두지 않았다. 아이콘을 남겨 두면 눌렀을 때 **'적용 · 초기화' 버튼만 있는 빈 팝업**이
+  열려 "여기서 뭘 하라는 거지" 가 된다.
+
+  조건 자체는 vxe 의 것을 그대로 쓰므로(아래 칸이 `setFilter` 로 채운다)
+  아이콘만 감추면 된다. 걸려 있는지는 아래 칸의 값으로 바로 보인다.
+*/
+:deep(.vxe-header--column .vxe-cell--filter) {
+  display: none;
+}
+
+/* 머리글이 두 줄(이름 + 필터)이 되므로 위아래 여백을 줄여 표가 덜 밀리게 한다. */
+:deep(.vxe-header--column .vxe-cell) {
+  padding-top: 4px;
+  padding-bottom: 4px;
 }
 
 .menu-badge {

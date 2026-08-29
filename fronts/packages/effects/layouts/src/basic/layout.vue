@@ -19,7 +19,14 @@ import { useAccessStore, useTabbarStore, useTimezoneStore } from '@vben/stores';
 import { cloneDeep, mapTree } from '@vben/utils';
 
 import { VbenAdminLayout } from '@vben-core/layout-ui';
-import { VbenBackTop, VbenLogo } from '@vben-core/shadcn-ui';
+// `Input` 은 아래 메뉴 검색칸이 쓴다.
+//
+// 예전에는 이 import 가 빠져 있었다. 그러면 `<Input>` 이 컴포넌트로 해석되지 못하고
+// **native `<input>` 로 떨어진다.** 글자는 쳐지는데 `v-model` 이 붙을 곳이 없어
+// `modelValue` 가 평범한 HTML 속성으로 박히고, `update:modelValue` 는 아무 데도 닿지 않는다.
+// 그래서 **메뉴 검색이 화면상으로는 입력되는데 필터가 전혀 걸리지 않았다.**
+// 콘솔에는 `Failed to resolve component: Input` 이 계속 찍히고 있었다.
+import { Input, VbenBackTop, VbenLogo } from '@vben-core/shadcn-ui';
 import { ELEMENT_ID_LAYOUT_SCROLL } from '@vben-core/shared/constants';
 
 import { Breadcrumb, CheckUpdates, Preferences } from '../widgets';
