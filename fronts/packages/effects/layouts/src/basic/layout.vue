@@ -35,7 +35,6 @@ import { Breadcrumb, CheckUpdates, Preferences } from '../widgets';
 // 프레임워크 패키지는 antd 를 쓰지 않는다.
 import { isAiChatPinned } from '../widgets/ai-chat/state';
 import { LayoutContent, LayoutContentSpinner } from './content';
-import { Copyright } from './copyright';
 import { LayoutFooter } from './footer';
 import { LayoutHeader } from './header';
 import {
@@ -179,6 +178,49 @@ const {
   handleSideMouseLeave,
   sidebarExtraVisible,
 } = useExtraMenu(mixHeaderMenus);
+
+/**
+ * 왼쪽 메뉴를 고른 뒤 사이드바를 어떻게 할지 (`sidebar.onMenuSelect`, 기본 `none`).
+ *
+ * 좁은 화면에서 본문을 넓게 쓰려는 설정이다. **새 상태를 만들지 않는다** —
+ * 축소도 숨기기도 이미 있는 값(`collapsed` · `hidden`)을 그대로 쓰므로,
+ * 되돌리는 방법도 원래 쓰던 것 그대로다(접기 버튼 · 헤더 왼쪽 햄버거).
+ *
+ * [세로 메뉴에서만 접는다]
+ * `mode` 가 `vertical` 인 것이 왼쪽 사이드바다. 상단 가로 메뉴(`horizontal`)에서
+ * 고른 것까지 접으면, 사이드바를 쓰지도 않은 사람이 사이드바가 사라지는 것을 본다.
+ *
+ * [디렉터리를 펼치는 클릭은 접지 않는다]
+ * `@select` 는 **실제로 이동하는 항목**에서만 온다(디렉터리를 여닫는 것은
+ * `@open` 이다). 그래서 여기서 따로 걸러 낼 것이 없다.
+ */
+function handleSidebarMenuSelect(key: string, mode?: string) {
+  handleMenuSelect(key, mode);
+
+  if (!isSideMode.value) return;
+
+  switch (preferences.sidebar.onMenuSelect) {
+    // 축소 — 아이콘만 남는다. 접기 버튼이나 '마우스 올리면 펼치기' 로 되돌린다.
+    case 'collapse': {
+      if (!preferences.sidebar.collapsed) {
+        updatePreferences({ sidebar: { collapsed: true } });
+      }
+      break;
+    }
+    // 완전히 숨기기 — 헤더 왼쪽 햄버거가 만드는 상태와 **같은 값**을 쓴다.
+    // 그래서 다시 보이게 하는 방법도 그 버튼으로 같다(`toggleSidebar`).
+    case 'hide': {
+      if (!preferences.sidebar.hidden) {
+        updatePreferences({ sidebar: { hidden: true } });
+      }
+      break;
+    }
+    // 'none' — 그대로 둔다(기본).
+    default: {
+      break;
+    }
+  }
+}
 
 /**
  * 메뉴 래핑 및 메뉴 이름 번역
@@ -788,7 +830,7 @@ function startResize(e: MouseEvent) {
         :theme="sidebarTheme"
         mode="vertical"
         @open="handleMenuOpen"
-        @select="handleMenuSelect"
+        @select="handleSidebarMenuSelect"
       />
     </template>
     <template #mixed-menu>
@@ -872,14 +914,13 @@ function startResize(e: MouseEvent) {
       <LayoutContentSpinner />
     </template>
 
-    <!-- 푸터 -->
+    <!--
+      푸터. 안에 들어가던 저작권 표시는 걷어냈다 —
+      vben 의 회사명·사이트·중국 ICP 등록번호가 기본값으로 박혀 있던 것이라
+      이 제품에서 보일 이유가 없다. 넣을 내용이 생기면 여기에 넣는다.
+    -->
     <template v-if="preferences.footer.enable" #footer>
-      <LayoutFooter>
-        <Copyright
-          v-if="preferences.copyright.enable"
-          v-bind="preferences.copyright"
-        />
-      </LayoutFooter>
+      <LayoutFooter />
     </template>
 
     <template #extra>

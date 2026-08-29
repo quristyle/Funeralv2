@@ -198,10 +198,10 @@ const [Grid, gridApi] = useVbenVxeGrid({
             params.endDate = formValues.range[1];
           }
           const res = await getEvents(params);
-          return { items: res?.items ?? [], totalCount: res?.totalCount ?? 0 };
+          // vxe 기본 응답 매핑(result + page.total)에 맞춘다 — i18n/list.vue 와 동일
+          return { result: res?.items ?? [], page: { total: res?.totalCount ?? 0 } };
         },
       },
-      response: { result: 'items', total: 'totalCount' },
     },
     rowConfig: { keyField: 'id' },
   } as VxeTableGridOptions,

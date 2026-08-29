@@ -130,6 +130,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapNotificationEndpoints();
+app.MapEmailEndpoints();
 
 // 설정이 반쪽이면 기동할 때 한 번 말해 준다. 조용히 못 보내는 것이 가장 나쁘다.
 app.Lifetime.ApplicationStarted.Register(() =>

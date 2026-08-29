@@ -2,6 +2,7 @@
 import { computed, onMounted, reactive, ref } from 'vue';
 
 import { siteApi, type Section } from '#/api/site';
+import RichEditorLite from '#/components/rich-editor-lite.vue';
 import RichText from '#/components/rich-text.vue';
 import { useSite } from '#/composables/use-site';
 
@@ -39,8 +40,20 @@ type State = 'done' | 'idle' | 'sending';
 const state = ref<State>('idle');
 const error = ref('');
 
+/**
+ * 본문은 에디터가 만든 HTML 이다. 비었는지 · 자동 제목은 태그를 걷어낸
+ * 평문으로 판단한다 (서버도 저장 전에 같은 기준으로 다시 거른다).
+ */
+const messageText = computed(() => {
+  // vite-ssg 프리렌더 중에는 document 가 없다 — 그때는 원문으로 판단한다.
+  if (typeof document === 'undefined') return form.message.trim();
+  const el = document.createElement('div');
+  el.innerHTML = form.message;
+  return (el.textContent ?? '').trim();
+});
+
 const canSubmit = computed(
-  () => !!form.name.trim() && !!form.email.trim() && !!form.message.trim() && form.consent,
+  () => !!form.name.trim() && !!form.email.trim() && !!messageText.value && form.consent,
 );
 
 async function submit() {
@@ -59,8 +72,8 @@ async function submit() {
     email: form.email.trim(),
     phone: form.phone.trim() || undefined,
     category: form.category.trim() || undefined,
-    subject: form.subject.trim() || form.message.trim().slice(0, 40),
-    message: form.message.trim(),
+    subject: form.subject.trim() || messageText.value.slice(0, 40),
+    message: form.message,
     locale: locale.value,
     consent: form.consent,
     website: form.website,
@@ -176,17 +189,21 @@ onMounted(async () => {
           />
         </label>
 
-        <label class="flex flex-col gap-2">
+        <!--
+          다른 칸과 달리 label 로 감싸지 않는다 — label 클릭은 연결된 폼 컨트롤로
+          포커스를 돌리는데 contenteditable 은 폼 컨트롤이 아니라서, label 안에 두면
+          에디터를 클릭할 때마다 캐럿을 빼앗긴다.
+        -->
+        <div class="flex flex-col gap-2">
           <span class="text-xs uppercase tracking-widest text-steel">
             {{ t.contact.form.message }}
           </span>
-          <textarea
+          <!-- 본문 꾸미기(굵게 · 색 · 목록 …)가 되는 경량 에디터. HTML 로 접수된다. -->
+          <RichEditorLite
             v-model="form.message"
-            required
-            rows="7"
-            class="resize-y border border-mist px-4 py-3 text-sm outline-none focus:border-ink"
+            :placeholder="t.contact.form.message"
           />
-        </label>
+        </div>
 
         <!--
           허니팟.

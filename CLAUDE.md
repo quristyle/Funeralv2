@@ -110,6 +110,9 @@ docs/sql/              실행한 SQL (전부 반복 실행 안전)
 - 도움말 F.A.Q · Q&A: [docs/analysis/21-help-faq-qna.md](docs/analysis/21-help-faq-qna.md) (D-H1~D-H5)
   `docs/sql/help_faq_qna.sql` 은 실행했다. 남은 것은 PARTNER_ADMINISTRATOR 역할을
   관리자로 볼지(D-H1)와 Q&A 첨부파일(D-H3).
+- GHUB(생활과환경) 이식에서 남은 것: [docs/analysis/38-ghub-migration.md](docs/analysis/38-ghub-migration.md) (D-G1)
+  기상 이벤트·생일 메시지의 **알림 발송은 이식하지 않았다** — NotificationServer 연동
+  (카카오 알림톡 채널 추가 포함)이 결정 대기다. 판정·기록은 돌고 있다.
 - i18n 콘솔 경고와 언어 코드 정리: [docs/analysis/18-i18n-fallback-warning.md](docs/analysis/18-i18n-fallback-warning.md)
 - vben-admin 상위 동기화에서 남은 것: [docs/analysis/17-vben-upstream-sync.md](docs/analysis/17-vben-upstream-sync.md)
   (D-U1·D-U2 는 완료. 남은 것은 6.6 `componentProps` 타입 표 · 6.10 vxe 경고 · D-U4~U6)

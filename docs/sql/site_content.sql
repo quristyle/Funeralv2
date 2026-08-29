@@ -97,11 +97,24 @@ ON CONFLICT (sectionkey, locale) DO UPDATE
       createdby = excluded.createdby,   -- 임시 문구 표시(PlaceholderSeed)를 걷어낸다
       updatedat = now(), updatedby = 'ContentSeed';
 
--- 앞 버전의 홈 블록 세 개는 열쇠가 달라 위 문장에 덮이지 않는다. 따로 내린다.
+-- 열쇠가 바뀌어 위 문장에 덮이지 않는 옛 블록들을 내린다.
 -- (지우지 않고 비공개로만 돌린다 — 문구를 되살리고 싶을 때가 있다)
+--
+--   home.identity/scale/record  통합 이야기를 하던 첫 문구
+--   work.facility               '설비 모니터링·리포트' 로 잘못 적었던 03.
+--                               실제로 보고 나니 리포트가 아니라 유틸리티 공급
+--                               계통 감시와 정산이었다. work.utility 로 다시 썼다.
+--   work.weather                '사업장 기상 감시 시스템' 으로 좁게 적었던 02.
+--                               로그인해 보니 기상은 그 시스템의 **한 모듈**이고,
+--                               실제로는 날씨 · 안전지표 · 식단 · 생일 · 업무 시스템
+--                               바로가기를 묶은 사내 포털이었다. work.hub 로 다시 썼다.
+--
+-- 표 구조만 보고 두 번 틀렸다. 표는 무엇을 저장하는지 알려 주지만
+-- 무엇을 하는 시스템인지는 알려 주지 않는다.
 UPDATE site.sections
    SET ispublished = false, updatedat = now(), updatedby = 'ContentSeed'
- WHERE sectionkey IN ('home.identity', 'home.scale', 'home.record');
+ WHERE sectionkey IN ('home.identity', 'home.scale', 'home.record',
+                      'work.facility', 'work.weather');
 
 -- ── 회사소개 ────────────────────────────────────────────────
 INSERT INTO site.sections (id, sectionkey, locale, title, subtitle, body, sortorder, ispublished, createdby)
@@ -183,18 +196,24 @@ VALUES
    '사용 내역과 과금 내역이 쌓여, 정산을 따로 세지 않아도 됩니다.',
    1, true, 'ContentSeed'),
 
-  (gen_random_uuid(), 'work.weather', 'ko', '사업장 기상 감시 · 대응 시스템', '사업장 안전',
-   '기상청 예보(초단기 · 단기 · 중기)와 기상특보를 사업장 위치별로 계속 받아 둡니다. 위치는 예보 격자에 맞춰 두어 사업장마다 자기 자리의 값을 봅니다.'
+  (gen_random_uuid(), 'work.hub', 'ko', '사내 통합 포털', '사내 포털 · 안전',
+   '출근해서 처음 여는 화면입니다. 오늘 날씨와 기상 특보, 안전 지표, 식단, 생일이 한 장에 있고, 쓰는 업무 시스템으로 가는 문이 그 아래 모여 있습니다. **시스템마다 주소를 외우지 않아도 됩니다.**'
    || E'\n\n' ||
-   '**기준을 넘으면 그때부터 기록이 됩니다.** 사업장이 정한 기준값을 넘긴 순간이 이벤트로 남고, 무엇을 했는지가 대응 기록으로 이어 붙습니다. 특보가 언제 떴다 언제 풀렸는지도 함께 남습니다.'
+   '**가장 공들인 곳은 날씨입니다.** 기상청 예보(초단기 · 단기 · 중기)와 기상특보를 사업장 위치별로 계속 받아 둡니다. 위치를 예보 격자에 맞춰 두어 사업장마다 자기 자리의 값을 봅니다.'
    || E'\n\n' ||
-   '날씨를 보는 화면이 아니라, **날씨 때문에 무엇을 했는지 남기는 화면**입니다.',
+   '**기준을 넘으면 그때부터 기록이 됩니다.** 사업장이 정한 기준값을 넘긴 순간이 이벤트로 남고, 무엇을 했는지가 대응 기록으로 이어 붙습니다. 특보가 언제 떴다 언제 풀렸는지도 함께 남습니다. 날씨를 보는 화면이 아니라 **날씨 때문에 무엇을 했는지 남기는 화면**입니다.'
+   || E'\n\n' ||
+   '안전 지표도 같은 자리에 둡니다. 점수와 순위가 매일 보이면 분기 보고서로 볼 때와 다르게 움직입니다.',
    2, true, 'ContentSeed'),
 
-  (gen_random_uuid(), 'work.facility', 'ko', '설비 모니터링 · 리포트', '산업 설비 · 수요반응',
-   '현장 설비 시스템에서 값을 읽어 리포트로 보여 줍니다. 관리 포털 안에서 다른 화면과 같은 자리에 놓여, 보려고 다른 시스템에 따로 로그인하지 않습니다.'
+  (gen_random_uuid(), 'work.utility', 'ko', '전기 · 용수 · 증기 공급 관리', '산업단지 유틸리티',
+   '전기 · 용수 · 증기를 만들어 단지 안 여러 회사에 공급하는 사업입니다. 연료가 들어와 보일러와 터빈을 지나 압력이 다른 증기 헤더로 갈라지고, 옆에서는 원수가 정제되어 순수가 됩니다. **그 전부가 한 장의 계통도 위에서 실시간으로 움직입니다.**'
    || E'\n\n' ||
-   '**서로 다른 회사의 시스템을 잇는 자리라 경계가 필요합니다.** 브라우저가 직접 부르지 않고 게이트웨이가 중계하며, 살아 있는지는 별도로 계속 확인합니다.',
+   '공급한 만큼이 검침으로 쌓이고, 그것이 그대로 공급량 · 매출 정산으로 이어집니다. 15분 단위 전기 사용량과 피크 확인까지 같은 자리에 있습니다.'
+   || E'\n\n' ||
+   '**단위가 다른 값을 한 그림에 겹쳐 봅니다.** 증기는 T/H, 전기는 kW, 용수는 T/D 라 자릿수가 아예 다릅니다. 한 축에 얹으면 큰 것 하나만 보이고 나머지는 바닥에 눕습니다. 그래서 계열마다 축을 따로 세웠습니다. 튄 값은 빼고 다시 볼 수 있고, 계열별 최저 · 최대 · 피크가 표에 함께 붙습니다.'
+   || E'\n\n' ||
+   '**파는 쪽과 쓰는 쪽이 같은 숫자를 봅니다.** 공급자용과 수용가용 화면이 나뉘어 있어, 정산 때 숫자를 맞추는 일이 없습니다.',
    3, true, 'ContentSeed'),
 
   (gen_random_uuid(), 'work.helpdesk', 'ko', '헬프데스크', 'IT 유지보수 지원',
@@ -208,7 +227,9 @@ VALUES
   (gen_random_uuid(), 'work.projmng', 'ko', '프로젝트 · 개발 관리', '소프트웨어 개발 관리',
    '프로젝트와 WBS 를 두고 일정과 담당을 관리합니다. 여기까지는 흔한 도구와 같습니다.'
    || E'\n\n' ||
-   '**다른 점은 소스와 데이터베이스까지 같이 본다는 것입니다.** 어떤 화면이 어떤 표를 쓰는지, 표의 컬럼이 무엇을 뜻하는지를 프로젝트 옆에 둡니다. 인수인계 때 코드만 넘기고 맥락은 사라지는 일을 막으려는 것입니다.',
+   '**다른 점은 설계도가 프로젝트 안에 산다는 것입니다.** 구성도 · 흐름도 · ERD 를 그리는 편집기가 시스템 안에 들어 있어, 도면이 별도 파일로 떠돌지 않고 일정 · 소스 · DB 정보와 같은 탭 줄에 놓입니다.'
+   || E'\n\n' ||
+   '어떤 화면이 어떤 표를 쓰는지, 표의 컬럼이 무엇을 뜻하는지도 그 옆에 있습니다. **인수인계 때 코드만 넘어가고 맥락은 사라지는 일**을 막으려고 이렇게 두었습니다.',
    5, true, 'ContentSeed'),
 
   (gen_random_uuid(), 'work.funeral', 'en', 'Funeral hall management', 'Funeral services',
@@ -219,18 +240,22 @@ VALUES
    'Usage and billing accumulate as you go, so settlement is not counted twice.',
    1, true, 'ContentSeed'),
 
-  (gen_random_uuid(), 'work.weather', 'en', 'Site weather watch and response', 'Site safety',
-   'Forecasts (nowcast, short and medium range) and official weather warnings are collected continuously per site. Each location is mapped to the forecast grid, so every site reads the numbers for its own ground.'
+  (gen_random_uuid(), 'work.hub', 'en', 'Company intranet hub', 'Intranet · site safety',
+   'The first screen of the working day. Today''s weather and warnings, safety scores, the canteen menu and birthdays on one page — and below them, the doors into every system people actually use. **No one has to remember addresses.**'
    || E'\n\n' ||
-   '**The record starts when a threshold is crossed.** The moment a site''s own limit is exceeded becomes an event, and what was done about it is attached to it. When a warning was raised and when it was lifted is kept alongside.'
+   '**The weather is where most of the work went.** Forecasts (nowcast, short and medium range) and official warnings are collected continuously per site, each location mapped to the forecast grid so every site reads the numbers for its own ground.'
    || E'\n\n' ||
-   'Not a screen for looking at the weather — a screen for recording **what the weather made you do**.',
+   '**The record starts when a threshold is crossed.** The moment a site''s own limit is exceeded becomes an event, and what was done about it is attached to it. When a warning was raised and when it was lifted is kept alongside. Not a screen for looking at the weather — a screen for recording **what the weather made you do**.'
+   || E'\n\n' ||
+   'Safety scores sit in the same place. A number seen daily moves differently from one seen in a quarterly report.',
    2, true, 'ContentSeed'),
 
-  (gen_random_uuid(), 'work.facility', 'en', 'Plant monitoring and reporting', 'Industrial plant · demand response',
-   'Readings from an on-site plant system are surfaced as reports, sitting in the admin portal beside everything else — no separate system to sign into just to look.'
+  (gen_random_uuid(), 'work.utility', 'en', 'Utility supply: live monitoring and settlement', 'Industrial estate utilities',
+   'Steam, electricity and treated water, produced and supplied to the companies across an industrial estate. Fuel enters, passes boilers and turbines, and divides into steam headers at different pressures while raw water is refined alongside. **All of it moves live on a single process diagram.**'
    || E'\n\n' ||
-   '**Joining two companies'' systems needs a boundary.** The browser never calls across directly; the gateway relays, and a separate check keeps asking whether the far side is still answering.',
+   'Not only the diagram. What each company draws is metered, and that meter reading carries straight through to supply volume and billing. Fifteen-minute electricity use and peak checks sit in the same place.'
+   || E'\n\n' ||
+   '**Both sides read the same number.** Supplier and consumer have their own screens over one set of readings, so settlement is not an argument about figures.',
    3, true, 'ContentSeed'),
 
   (gen_random_uuid(), 'work.helpdesk', 'en', 'Help desk', 'IT support and maintenance',
@@ -244,7 +269,9 @@ VALUES
   (gen_random_uuid(), 'work.projmng', 'en', 'Project and development management', 'Software delivery management',
    'Projects and work breakdown, with schedule and ownership. So far, like any such tool.'
    || E'\n\n' ||
-   '**What differs is that source and database sit next to the plan.** Which screen uses which table, and what a column actually means, is kept beside the project — so a handover passes on more than the code.',
+   '**What differs is that the drawings live inside the project.** An editor for architecture, flow and ER diagrams is built into the system, so designs do not drift off into loose files — they sit in the same row of tabs as the schedule, the source and the database notes.'
+   || E'\n\n' ||
+   'Which screen uses which table, and what a column actually means, is kept there too. All of it exists to stop **a handover passing on the code and losing the reasoning**.',
    5, true, 'ContentSeed')
 ON CONFLICT (sectionkey, locale) DO UPDATE
   SET title = excluded.title, subtitle = excluded.subtitle, body = excluded.body,

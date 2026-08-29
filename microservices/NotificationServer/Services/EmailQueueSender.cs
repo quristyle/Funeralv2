@@ -20,8 +20,9 @@ public interface IEmailQueueSender
 /// 이메일 발송 구현체
 /// </summary>
 /// <remarks>
-/// <b>SMTP 로 직접 보내지 않는다.</b> 이 저장소 어디에도 SMTP 설정이 없다.
-/// 헬프데스크가 하던 방식을 그대로 옮겼다.
+/// <b>SMTP 로 직접 보내지 않는다.</b> 헬프데스크가 하던 방식을 그대로 옮겼다.
+/// (직발송이 필요하면 <see cref="IEmailSender"/> — <c>/emails/send</c> — 를 쓴다.
+/// SMTP 설정은 <c>EmailSettings</c> 로 들어왔다.)
 ///
 /// <list type="number">
 ///   <item><description>메일 내용을 JSON 파일로 떨어뜨린다</description></item>

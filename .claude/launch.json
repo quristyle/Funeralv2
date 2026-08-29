@@ -5,24 +5,13 @@
       "name": "jsini-portal",
       "url": "http://localhost:5555",
       "port": 5555,
-      "runtimeExecutable": "pnpm",
-      "runtimeArgs": [
-        "-C",
-        "fronts",
-        "dev"
-      ]
+      "autoPort": false
     },
     {
       "name": "jsini-site",
-      "url": "http://localhost:5556/",
+      "url": "http://localhost:5556",
       "port": 5556,
-      "runtimeExecutable": "node",
-      "runtimeArgs": [
-        "fronts/node_modules/.pnpm/vite@8.2.2_@types+node@25.9_df17531060d1b0df65456f8b16a772e4/node_modules/vite/bin/vite.js",
-        "fronts/apps/jsini-site",
-        "--port",
-        "5556"
-      ]
+      "autoPort": false
     }
   ]
 }

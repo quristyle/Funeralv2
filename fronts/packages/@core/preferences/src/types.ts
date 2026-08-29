@@ -136,14 +136,6 @@ interface AppPreferences {
   /** 환경 설정 표시 여부 */
   enablePreferences: boolean;
   /**
-   * 기본 글꼴.
-   *
-   * 값은 글꼴 이름 하나가 아니라 '어떤 글꼴 묶음을 쓸지' 를 고르는 열쇠다.
-   * 실제 글꼴 목록은 앱이 정한다(각 앱의 `src/styles/font.ts`) —
-   * 프레임워크가 특정 글꼴을 알고 있을 이유가 없기 때문이다.
-   */
-  fontFamily: string;
-  /**
    * @ko_KR refreshToken 활성화 여부
    */
   enableRefreshToken: boolean;
@@ -151,6 +143,14 @@ interface AppPreferences {
    * @ko_KR 환경 설정 내비게이션 바 상단 고정 활성화 여부
    */
   enableStickyPreferencesNavigationBar: boolean;
+  /**
+   * 기본 글꼴.
+   *
+   * 값은 글꼴 이름 하나가 아니라 '어떤 글꼴 묶음을 쓸지' 를 고르는 열쇠다.
+   * 실제 글꼴 목록은 앱이 정한다(각 앱의 `src/styles/font.ts`) —
+   * 프레임워크가 특정 글꼴을 알고 있을 이유가 없기 때문이다.
+   */
+  fontFamily: string;
   /** 모바일 여부 */
   isMobile: boolean;
   /** 레이아웃 방식 */
@@ -192,22 +192,6 @@ interface BreadcrumbPreferences {
   styleType: BreadcrumbStyleType;
 }
 
-interface CopyrightPreferences {
-  /** 저작권 회사명 */
-  companyName: string;
-  /** 저작권 회사 링크 */
-  companySiteLink: string;
-  /** 저작권 날짜 */
-  date: string;
-  /** 저작권 표시 여부 */
-  enable: boolean;
-  /** ICP 등록 번호 */
-  icp: string;
-  /** ICP 등록 번호 링크 */
-  icpLink: string;
-  /** 설정 패널 표시 여부 */
-  settingShow?: boolean;
-}
 
 interface FooterPreferences {
   /** 푸터 표시 여부 */
@@ -257,6 +241,9 @@ interface NavigationPreferences {
   styleType: NavigationStyleType;
 }
 
+/** 메뉴를 고른 뒤 사이드바를 어떻게 할지. */
+type SidebarMenuSelectBehavior = 'collapse' | 'hide' | 'none';
+
 interface SidebarPreferences {
   /** 디렉토리 클릭 시 하위 메뉴 자동 활성화 */
   autoActivateChild: boolean;
@@ -284,6 +271,13 @@ interface SidebarPreferences {
   hidden: boolean;
   /** 혼합 사이드바 너비 */
   mixedWidth: number;
+  /**
+   * 왼쪽 메뉴를 고른 뒤 사이드바를 어떻게 할지.
+   *
+   * `none` 그대로 둔다(기본) / `collapse` 축소한다 /
+   * `hide` 완전히 숨긴다(헤더 햄버거와 같은 상태)
+   */
+  onMenuSelect: SidebarMenuSelectBehavior;
   /** 사이드바 너비 */
   width: number;
 }
@@ -417,7 +411,6 @@ interface Preferences {
   /** 헤더 설정 */
   breadcrumb: BreadcrumbPreferences;
   /** 저작권 설정 */
-  copyright: CopyrightPreferences;
   /** 푸터 설정 */
   footer: FooterPreferences;
   /** 브레드크럼 설정 */
@@ -471,6 +464,7 @@ export type {
   PreferencesExtension,
   PreferencesKeys,
   ShortcutKeyPreferences,
+  SidebarMenuSelectBehavior,
   SidebarPreferences,
   SupportedLanguagesType,
   TabbarPreferences,

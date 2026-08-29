@@ -96,7 +96,8 @@ public static class SiteEndpoints
         pub.MapPost("/inquiries", async (
             [FromBody] InquiryRequestDto request,
             HttpContext http,
-            [FromServices] ISiteService svc) =>
+            [FromServices] ISiteService svc,
+            [FromServices] IInquiryMailNotifier mailNotifier) =>
         {
             if (!request.Consent)
             {
@@ -109,6 +110,13 @@ public static class SiteEndpoints
 
             var id = await svc.CreateInquiryAsync(
                 request, ip, http.Request.Headers.UserAgent.ToString());
+
+            // 저장된 문의만 담당자에게 메일로 알린다 (NotificationServer 직발송).
+            // 허니팟·빈 값(id == null)은 알리지 않고, 메일 실패도 접수 실패로 만들지 않는다.
+            if (id is not null)
+            {
+                await mailNotifier.NotifyAsync(id.Value, request, http.RequestAborted);
+            }
 
             // id 가 null 이면 허니팟이거나 필수값이 빈 것이다. 둘을 구별해 주지 않는다.
             return Results.Ok(ApiResponse<bool>.Ok(true, "문의가 접수되었습니다."));
@@ -209,5 +217,59 @@ public static class SiteEndpoints
             return Results.Ok(ApiResponse<bool>.Ok(true));
         })
         .WithName("AdminSetInquiryStatus").WithOpenApi();
+
+        // ── 답장 ────────────────────────────────────────────
+        //
+        // 문의에 이메일이 있으면 화면이 그 주소를 채워 주고, 없으면(또는 다른 곳으로
+        // 보내야 하면) 관리자가 주소를 적어 보낸다 — 그래서 to 를 요청으로 받는다.
+        // 본문은 관리자가 에디터로 쓴 HTML 이고, 메일 틀은 InquiryEmailTemplates 가 입힌다.
+        admin.MapPost("/inquiries/{id:guid}/reply", async (
+            Guid id, [FromBody] InquiryReplyDto request, UserContext? user,
+            [FromServices] Data.SiteDbContext db,
+            [FromServices] IInquiryMailNotifier mailer) =>
+        {
+            if (user is null) return Unauthorized();
+
+            if (string.IsNullOrWhiteSpace(request.To) ||
+                !System.Net.Mail.MailAddress.TryCreate(request.To.Trim(), out _))
+            {
+                return Results.BadRequest(ApiResponse<bool>.Fail("받는 사람 이메일이 올바르지 않습니다.", "400"));
+            }
+            if (string.IsNullOrWhiteSpace(request.Subject) || string.IsNullOrWhiteSpace(request.Body))
+            {
+                return Results.BadRequest(ApiResponse<bool>.Fail("제목과 본문이 필요합니다.", "400"));
+            }
+
+            var row = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions
+                .FirstOrDefaultAsync(db.Inquiries, x => x.Id == id && !x.IsDeleted);
+            if (row is null)
+            {
+                return Results.NotFound(ApiResponse<bool>.Fail("문의를 찾을 수 없습니다.", "404"));
+            }
+
+            var to = request.To.Trim();
+            var html = InquiryEmailTemplates.Reply(request.Body, row);
+            var sent = await mailer.SendHtmlAsync(to, request.Subject.Trim(), html);
+
+            if (!sent)
+            {
+                // 실패를 성공으로 말하지 않는다 — 관리자가 다시 시도해야 한다.
+                return Results.Json(
+                    ApiResponse<bool>.Fail("메일 발송에 실패했습니다. 잠시 후 다시 시도해 주세요.", "EMAIL_SEND_FAILED"),
+                    statusCode: StatusCodes.Status502BadGateway);
+            }
+
+            // 보낸 기록을 남기고 상태를 '답변 완료' 로 올린다.
+            row.Status = "answered";
+            row.InternalNote = string.IsNullOrWhiteSpace(row.InternalNote)
+                ? $"[답장 {DateTime.UtcNow:yyyy-MM-dd HH:mm}Z] {user.UserId} → {to}"
+                : $"{row.InternalNote}\n[답장 {DateTime.UtcNow:yyyy-MM-dd HH:mm}Z] {user.UserId} → {to}";
+            row.UpdatedAt = DateTime.UtcNow;
+            row.UpdatedBy = user.UserId;
+            await db.SaveChangesAsync();
+
+            return Results.Ok(ApiResponse<bool>.Ok(true, "답장을 보냈습니다."));
+        })
+        .WithName("AdminReplyInquiry").WithOpenApi();
     }
 }

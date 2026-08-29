@@ -18,6 +18,7 @@ const appFontFamily = defineModel<string>();
  */
 const FONT_OPTIONS = [
   { label: 'S-CoreDream', value: 'S-CoreDream' },
+  { label: '나눔스퀘어라운드', value: 'NanumSquareRound' },
   { label: 'Play', value: 'Play' },
   { label: $t('preferences.followSystem'), value: 'system' },
 ];

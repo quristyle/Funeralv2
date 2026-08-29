@@ -94,3 +94,15 @@ public class InquiryAdminDto
     public DateTime ConsentedAt { get; set; }
     public DateTime CreatedAt { get; set; }
 }
+
+/// <summary>문의 답장 요청 (관리 화면).</summary>
+public class InquiryReplyDto
+{
+    /// <summary>받는 사람. 문의에 이메일이 있으면 화면이 채워 주고, 없으면 관리자가 적는다</summary>
+    public string To { get; set; } = string.Empty;
+
+    public string Subject { get; set; } = string.Empty;
+
+    /// <summary>답장 본문(HTML). 메일 틀은 서버(InquiryEmailTemplates)가 입힌다</summary>
+    public string Body { get; set; } = string.Empty;
+}

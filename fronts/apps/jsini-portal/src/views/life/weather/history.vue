@@ -261,9 +261,12 @@ const [Grid, gridApi] = useVbenVxeGrid({
     height: 'auto',
     pagerConfig: { enabled: false },
     proxyConfig: {
+      // 페이저 없는 그리드에 배열만 반환하면 vxe 가 목록을 찾지 못한다
+      // (portal/system/menu/list.vue 에 기록된 선례) — result 로 감싸고 위치를 명시한다.
+      response: { list: 'result' },
       ajax: {
         query: async () => {
-          if (!selectedLocation.value) return [];
+          if (!selectedLocation.value) return { result: [] };
           loading.value = true;
           try {
             historyData.value = await getWeatherHistory(
@@ -272,10 +275,13 @@ const [Grid, gridApi] = useVbenVxeGrid({
             );
             drawCharts();
             drawDailyChart();
-            return historyData.value;
+            return {
+              result: historyData.value,
+              page: { total: historyData.value.length },
+            };
           } catch {
             message.error('이력 로드에 실패했습니다.');
-            return [];
+            return { result: [], page: { total: 0 } };
           } finally {
             loading.value = false;
           }

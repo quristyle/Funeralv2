@@ -26,13 +26,5 @@ defineProps<{
         </KeepAlive>
       </Transition>
     </RouterView>
-
-    <!-- Footer Copyright -->
-
-    <div
-      class="absolute right-0 bottom-3 left-0 flex justify-center text-center text-xs text-muted-foreground"
-    >
-      <slot name="copyright"> </slot>
-    </div>
   </div>
 </template>

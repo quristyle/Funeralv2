@@ -125,6 +125,9 @@ const [Grid, gridApi] = useVbenVxeGrid({
     height: 'auto',
     pagerConfig: { enabled: false },
     proxyConfig: {
+      // 페이저 없는 그리드에 배열만 반환하면 vxe 가 목록을 찾지 못한다
+      // (portal/system/menu/list.vue 에 기록된 선례) — result 로 감싸고 위치를 명시한다.
+      response: { list: 'result' },
       ajax: {
         query: async () => {
           const rows = await getStandards();
@@ -138,9 +141,10 @@ const [Grid, gridApi] = useVbenVxeGrid({
                   i.category.toLowerCase().includes(s),
               )
             : rows;
-          return [...filtered].sort(
+          const sorted = [...filtered].sort(
             (a, b) => (a.sortOrder || 0) - (b.sortOrder || 0),
           );
+          return { result: sorted, page: { total: sorted.length } };
         },
       },
     },

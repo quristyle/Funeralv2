@@ -1,4 +1,4 @@
-﻿using System.Reflection;
+using System.Reflection;
 using JSini.Shared.Infrastructure.Middleware;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
@@ -41,6 +41,14 @@ builder.Services.AddDbContext<SiteDbContext>(options => options.UseNpgsql(connec
 // 3. 서비스
 // ============================================================
 builder.Services.AddScoped<ISiteService, SiteService>();
+
+// 문의 접수 알림 메일 — NotificationServer(/emails/send)를 루프백으로 부른다.
+// 메일 실패가 접수 실패가 되면 안 되므로 Notifier 는 예외를 삼키고 로그만 남긴다.
+builder.Services.AddHttpClient("notification", client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(10);
+});
+builder.Services.AddScoped<IInquiryMailNotifier, InquiryMailNotifier>();
 
 // ============================================================
 // 4. CORS

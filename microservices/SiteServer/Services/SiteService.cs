@@ -32,11 +32,13 @@ public class SiteService : ISiteService
 {
     private readonly SiteDbContext _db;
     private readonly ILogger<SiteService> _logger;
+    private readonly IHttpClientFactory _httpFactory;
 
-    public SiteService(SiteDbContext db, ILogger<SiteService> logger)
+    public SiteService(SiteDbContext db, ILogger<SiteService> logger, IHttpClientFactory httpFactory)
     {
         _db = db;
         _logger = logger;
+        _httpFactory = httpFactory;
     }
 
     /// <summary>
@@ -181,6 +183,15 @@ public class SiteService : ISiteService
             return null;
         }
 
+        // 본문은 에디터가 만든 HTML 이다. 허용 목록으로 거른 것만 저장한다 —
+        // 관리 화면(v-html)과 메일 본문에 그대로 들어가기 때문이다.
+        var message = InquiryHtmlSanitizer.Sanitize(request.Message);
+        if (!message.Contains('<'))
+        {
+            // 평문으로 온 경우(API 직접 호출 등) 줄바꿈이 HTML 에서 뭉개지지 않게 한다.
+            message = message.Replace("\r\n", "\n").Replace("\n", "<br>");
+        }
+
         var row = new SiteInquiry
         {
             Id = Guid.NewGuid(),
@@ -190,7 +201,7 @@ public class SiteService : ISiteService
             Phone = request.Phone?.Trim(),
             Category = request.Category?.Trim(),
             Subject = string.IsNullOrWhiteSpace(request.Subject) ? "(제목 없음)" : request.Subject.Trim(),
-            Message = request.Message.Trim(),
+            Message = message,
             Locale = NormalizeLocale(request.Locale),
             ConsentedAt = DateTime.UtcNow,
             ClientIp = clientIp,
@@ -204,6 +215,8 @@ public class SiteService : ISiteService
         await _db.SaveChangesAsync();
 
         _logger.LogInformation("문의가 접수됐습니다. id={Id} 분류={Category}", row.Id, row.Category);
+        // 담당자 메일 알림은 엔드포인트가 IInquiryMailNotifier 로 보낸다 —
+        // 저장(이 메서드)과 알림(부수 효과)을 한 곳에 섞지 않는다.
         return row.Id;
     }
 

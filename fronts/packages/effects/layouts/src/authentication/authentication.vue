@@ -3,9 +3,8 @@ import type { ToolbarType } from './types';
 
 import { computed } from 'vue';
 
-import { preferences, usePreferences } from '@vben/preferences';
+import { usePreferences } from '@vben/preferences';
 
-import { Copyright } from '../basic/copyright';
 import AuthenticationFormView from './form.vue';
 import SloganIcon from './icons/slogan.vue';
 import Toolbar from './toolbar.vue';
@@ -18,14 +17,12 @@ interface Props {
   pageDescription?: string;
   sloganImage?: string;
   toolbar?: boolean;
-  copyright?: boolean;
   toolbarList?: ToolbarType[];
   clickLogo?: () => void;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   appName: '',
-  copyright: true,
   logo: '',
   logoDark: '',
   pageDescription: '',
@@ -67,16 +64,7 @@ const logoSrc = computed(() => {
       v-if="authPanelLeft"
       class="min-h-full w-2/5 flex-1"
       data-side="left"
-    >
-      <template v-if="copyright" #copyright>
-        <slot name="copyright">
-          <Copyright
-            v-if="preferences.copyright.enable"
-            v-bind="preferences.copyright"
-          />
-        </slot>
-      </template>
-    </AuthenticationFormView>
+/>
 
     <slot name="logo">
       <!-- 상단 로고 및 앱 이름 -->
@@ -141,16 +129,7 @@ const logoSrc = computed(() => {
       <AuthenticationFormView
         class="w-full rounded-3xl pb-20 shadow-float shadow-primary/5 md:w-2/3 md:bg-background lg:w-1/2 xl:w-[36%]"
         data-side="bottom"
-      >
-        <template v-if="copyright" #copyright>
-          <slot name="copyright">
-            <Copyright
-              v-if="preferences.copyright.enable"
-              v-bind="preferences.copyright"
-            />
-          </slot>
-        </template>
-      </AuthenticationFormView>
+/>
     </div>
 
     <!-- 오른쪽 인증 패널 -->
@@ -158,16 +137,7 @@ const logoSrc = computed(() => {
       v-if="authPanelRight"
       class="min-h-full w-2/5 flex-1"
       data-side="right"
-    >
-      <template v-if="copyright" #copyright>
-        <slot name="copyright">
-          <Copyright
-            v-if="preferences.copyright.enable"
-            v-bind="preferences.copyright"
-          />
-        </slot>
-      </template>
-    </AuthenticationFormView>
+/>
   </div>
 </template>
 

@@ -43,15 +43,6 @@ const defaultPreferences: Preferences = {
     showIcon: true,
     styleType: 'normal',
   },
-  copyright: {
-    companyName: 'Vben',
-    companySiteLink: 'https://www.vben.pro',
-    date: '2024',
-    enable: true,
-    icp: '闽ICP备19024351号',
-    icpLink: 'https://beian.miit.gov.cn/',
-    settingShow: true,
-  },
   footer: {
     enable: false,
     fixed: false,
@@ -90,6 +81,7 @@ const defaultPreferences: Preferences = {
     collapsed: false,
     collapsedButton: true,
     collapsedShowTitle: false,
+    onMenuSelect: 'none',
     collapseWidth: 60,
     draggable: true,
     enable: true,

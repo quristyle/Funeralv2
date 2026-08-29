@@ -17,13 +17,15 @@ public class SmtpEmailSender : IEmailSender
         _logger = logger;
     }
 
-    public async Task SendAsync(string to, string subject, string body)
+    public async Task SendAsync(string to, string subject, string body, bool html = false)
     {
         var message = new MimeMessage();
         message.From.Add(new MailboxAddress(_settings.FromDisplay, _settings.User));
         message.To.Add(MailboxAddress.Parse(to));
         message.Subject = subject;
-        message.Body = new TextPart("plain") { Text = body };
+        message.Body = html
+            ? new BodyBuilder { HtmlBody = body }.ToMessageBody()
+            : new TextPart("plain") { Text = body };
 
         using var client = new SmtpClient();
 
@@ -32,9 +34,17 @@ public class SmtpEmailSender : IEmailSender
             client.ServerCertificateValidationCallback = (s, c, h, e) => true;
         }
 
+        // 587 은 STARTTLS 포트다 — UseSsl(암시적 SSL)로 붙으면 핸드셰이크가 깨진다.
+        // 465 만 접속부터 SSL(SslOnConnect)이고, 그 외에 UseSsl 이면 STARTTLS 로 올린다.
+        var secure = _settings.Port == 465
+            ? MailKit.Security.SecureSocketOptions.SslOnConnect
+            : _settings.UseSsl
+                ? MailKit.Security.SecureSocketOptions.StartTls
+                : MailKit.Security.SecureSocketOptions.StartTlsWhenAvailable;
+
         try
         {
-            await client.ConnectAsync(_settings.Host, _settings.Port, _settings.UseSsl);
+            await client.ConnectAsync(_settings.Host, _settings.Port, secure);
             await client.AuthenticateAsync(_settings.User, _settings.Password);
             await client.SendAsync(message);
             await client.DisconnectAsync(true);

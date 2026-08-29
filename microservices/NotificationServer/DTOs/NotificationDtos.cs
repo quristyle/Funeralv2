@@ -91,6 +91,12 @@ public class SendEmailDto
 
     /// <summary>본문 (HTML 허용).</summary>
     public string Body { get; set; } = string.Empty;
+
+    /// <summary>
+    /// 참이면 본문을 HTML 로 보낸다 (직발송 <c>/emails/send</c> 만 본다 —
+    /// 큐 방식은 배포 장비 스크립트가 형식을 정한다).
+    /// </summary>
+    public bool Html { get; set; }
 }
 
 /// <summary>이메일 발송 결과.</summary>

@@ -28,11 +28,14 @@ function ordinal(index: number): string {
  * DB 에 열을 더하지 않는다. 그림은 문구와 달리 화면에서 편집하는 것이 아니라
  * 저장소에서 만들어 배포되는 것이라(브랜드 자산과 같다), 정적 파일로 두는 편이 맞다.
  *
- * **`public/` 이 아니라 `assets/` 다.** 빌드 시점에 어떤 파일이 있는지 알아야 하기 때문이다.
- * `public/` 에 두고 주소를 조립하면 파일이 없어도 `<img>` 가 프리렌더된 HTML 에 남고,
- * 브라우저에서 404 가 난 뒤에야 지워진다 — 그 사이에 깨진 그림과 "재현 이미지입니다"
- * 라는 설명만 남는다. JS 를 끈 방문자에게는 영영 그 상태다.
- * 아래처럼 훑으면 **없는 그림은 애초에 마크업에 들어가지 않는다.**
+ * **`public/` 이 아니라 `assets/` 다.** 사례 다섯 중 그림이 있는 것과 없는 것이 섞여 있는데,
+ * `public/` 에 두고 주소를 문자열로 조립하면 없는 그림도 `<img>` 로 일단 나가고
+ * 404 가 돌아온 뒤에야 지워진다 — 그 사이에 깨진 그림과 "재현 이미지입니다" 라는
+ * 설명만 남는다. 아래처럼 훑으면 **없는 그림은 애초에 마크업에 들어가지 않는다.**
+ * 덤으로 파일 이름에 해시가 붙어 캐시를 길게 걸 수 있다.
+ *
+ * (프리렌더 걱정은 아니다. 사례 목록은 `onMounted` 로 받아 오는데 그것은 SSG 때
+ *  돌지 않으므로, 이 페이지의 본문은 어차피 통째로 브라우저에서 그려진다.)
  *
  * **이 그림은 실제 화면의 캡처가 아니다.** 고객사 시스템 화면에는 고인·상주·담당자·
  * 설비 운전값이 들어 있어 공개 사이트에 올릴 수 없다. 레이아웃과 구성만 본떠
@@ -44,9 +47,25 @@ const MOCKUPS = import.meta.glob<string>('../assets/work/*.svg', {
   query: '?url',
 });
 
-function mockupSrc(sectionKey: string): string | undefined {
+/**
+ * 한 사례에 그림이 여럿일 수 있다. `work.utility` 면
+ * `utility.svg` · `utility-trend.svg` 처럼 이름 뒤에 하이픈을 붙여 늘린다.
+ *
+ * `utility` 로 시작하는 것을 다 집으면 `utility2.svg` 같은 남의 이름까지 걸리므로,
+ * **정확히 같거나 하이픈이 이어지는 것**만 집는다.
+ */
+function mockups(sectionKey: string): string[] {
   const name = sectionKey.replace(/^work\./, '');
-  return MOCKUPS[`../assets/work/${name}.svg`];
+  const bases = Object.keys(MOCKUPS)
+    .map((p) => p.slice('../assets/work/'.length, -'.svg'.length))
+    .filter((base) => base === name || base.startsWith(`${name}-`));
+
+  // 이름만 있는 것(대표 화면)이 먼저, 하이픈이 붙은 것은 그 뒤에 이름순.
+  // 그냥 정렬하면 `-`(0x2D) 가 `.`(0x2E) 보다 앞서서 `utility-trend` 가
+  // `utility` 를 제치고 올라온다 — 대표 화면이 두 번째로 밀린다.
+  bases.sort((a, b) => (a === name ? -1 : b === name ? 1 : a.localeCompare(b)));
+
+  return bases.map((base) => MOCKUPS[`../assets/work/${base}.svg`]!);
 }
 </script>
 
@@ -92,14 +111,17 @@ function mockupSrc(sectionKey: string): string | undefined {
             화면 그림. 캡처가 아니라 재현 이미지라 아래 한 줄을 **늘 함께** 둔다.
             그 한 줄이 없으면 보는 사람이 고객사의 실제 화면으로 읽는다.
           -->
-          <figure v-if="mockupSrc(s.sectionKey)" class="mt-8">
-            <img
-              :src="mockupSrc(s.sectionKey)"
-              :alt="s.title"
-              loading="lazy"
-              class="w-full border border-mist"
-            />
-            <figcaption class="mt-3 text-xs text-steel">{{ t.work.mockupNote }}</figcaption>
+          <figure v-if="mockups(s.sectionKey).length" class="mt-10">
+            <div
+              v-for="(src, k) in mockups(s.sectionKey)"
+              :key="src"
+              class="work-shot"
+              :class="{ 'mt-8': k > 0 }"
+            >
+              <img :src="src" :alt="s.title" loading="lazy" class="w-full border border-mist" />
+            </div>
+            <!-- 그림이 몇 장이든 설명은 한 번만. 같은 문장을 반복하면 읽지 않게 된다. -->
+            <figcaption class="mt-5 text-xs text-steel">{{ t.work.mockupNote }}</figcaption>
           </figure>
         </div>
       </article>
@@ -118,3 +140,37 @@ function mockupSrc(sectionKey: string): string | undefined {
     </section>
   </div>
 </template>
+
+<style scoped>
+/**
+ * 화면 그림을 살짝 비스듬히 눕힌다.
+ *
+ * **각도를 아무렇게나 고르지 않았다.** 브랜드 모티프 '상승 조각' 의 기울기가 22:100
+ * (약 12.4°) 인데, 1200px 짜리 가로 그림에 그대로 주면 한쪽 끝이 264px 들려서
+ * 글자를 못 읽는다. 그래서 **같은 방향으로 4:100 (약 2.3°)** 만 준다.
+ * 모티프와 같은 쪽으로 기울되 읽는 것을 방해하지 않는 선이다.
+ *
+ * 브랜드 규칙 5절이 금지하는 '기울이기' 는 **로고 · 심볼 · 워드마크**에 대한 것이라
+ * 화면 그림에는 걸리지 않는다. 다만 같은 절이 금지하는 그림자 · 그라디언트는
+ * 여기서도 쓰지 않는다 — 홍보 사이트가 흔히 얹는 것이지만 이 브랜드는 평면이다.
+ *
+ * 좁은 화면에서는 눕히지 않는다. 폭이 좁을수록 기울기가 잡아먹는 세로 공간의
+ * 비중이 커지고, 손에 들고 보는 화면에서 비뚤어진 표는 읽기 나쁘다.
+ */
+.work-shot {
+  transform: skewY(-2.3deg);
+}
+
+@media (max-width: 767px) {
+  .work-shot {
+    transform: none;
+  }
+}
+
+/* 움직임을 원하지 않는 사람에게는 기운 것도 되돌린다 — 어지럼의 원인이 된다. */
+@media (prefers-reduced-motion: reduce) {
+  .work-shot {
+    transform: none;
+  }
+}
+</style>

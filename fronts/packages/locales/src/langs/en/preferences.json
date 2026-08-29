@@ -62,6 +62,10 @@
     "collapsedShowTitle": "Show Menu Title",
     "autoActivateChild": "Auto Activate SubMenu",
     "autoActivateChildTip": "`Enabled` to automatically activate the submenu while click menu.",
+    "onMenuSelect": "After Picking A Menu",
+    "onMenuSelectNone": "Keep As Is",
+    "onMenuSelectCollapse": "Collapse",
+    "onMenuSelectHide": "Hide Completely",
     "expandOnHover": "Expand On Hover",
     "expandOnHoverTip": "When the mouse hovers over menu, \n `Enabled` to expand children menus \n `Disabled` to expand whole sidebar."
   },

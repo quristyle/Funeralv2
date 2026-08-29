@@ -39,12 +39,24 @@ const SYSTEM_STACK = [
 ];
 
 /** 환경설정에서 고를 수 있는 값 */
-export type FontFamilyKey = 'Play' | 'S-CoreDream' | 'system';
+export type FontFamilyKey =
+  | 'NanumSquareRound'
+  | 'Play'
+  | 'S-CoreDream'
+  | 'system';
 
 /** 고른 값 → 실제 글꼴 목록 */
 const STACKS: Record<FontFamilyKey, string[]> = {
   // 기본. 한글·라틴을 모두 갖고 있어 화면 대부분이 이 글꼴로 나온다.
   'S-CoreDream': ["'S-CoreDream'", "'Play'", ...SYSTEM_STACK],
+  // 둥근 고딕. 한글·라틴을 모두 갖고 있다.
+  // 뒤에 S-CoreDream 을 받쳐 두어, 이 글꼴에 없는 글자는 빈칸 대신 그것으로 그려진다.
+  NanumSquareRound: [
+    "'NanumSquareRound'",
+    "'S-CoreDream'",
+    "'Play'",
+    ...SYSTEM_STACK,
+  ],
   // 라틴 전용이라 한글은 S-CoreDream 이 받는다.
   Play: ["'Play'", "'S-CoreDream'", ...SYSTEM_STACK],
   // 내려받은 글꼴을 쓰지 않고 장비의 기본 글꼴을 쓴다.

@@ -22,14 +22,7 @@ function definePreferencesExtension<
   return extension;
 }
 
-/** 应用级 ICP 备案配置，供各 app 的 preferences 覆盖使用 */
-const appCopyrightPreferences = {
-  icp: '闽ICP备19024351号',
-  icpLink: 'https://beian.miit.gov.cn/',
-} satisfies DeepPartial<Preferences>['copyright'];
-
 export {
-  appCopyrightPreferences,
   defineOverridesPreferences,
   definePreferencesExtension,
 };
