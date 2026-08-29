@@ -1,4 +1,4 @@
-﻿using System.Text;
+using System.Text;
 
 using JSini.Shared.Infrastructure;
 using JSini.Shared.Infrastructure.Middleware;
@@ -9,6 +9,8 @@ using NotificationServer.Data;
 using NotificationServer.Endpoints;
 using NotificationServer.Options;
 using NotificationServer.Services;
+using NotificationServer.Models;
+
 using Serilog;
 using JSini.Shared.Infrastructure.HealthChecks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
@@ -81,6 +83,8 @@ builder.Services.AddAuthorization();
 // VAPID 키가 **이제 한 곳에만** 있다. 이 서비스를 만든 이유 중 하나다.
 builder.Services.Configure<VapidOptions>(builder.Configuration.GetSection("Vapid"));
 builder.Services.Configure<EmailQueueOptions>(builder.Configuration.GetSection("EmailQueue"));
+builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
+builder.Services.AddTransient<IEmailSender, SmtpEmailSender>();
 
 builder.Services.AddScoped<IPushSender, PushSender>();
 builder.Services.AddScoped<IEmailQueueSender, EmailQueueSender>();

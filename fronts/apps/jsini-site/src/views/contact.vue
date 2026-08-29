@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
 
-import { siteApi, type InquiryRequest, type Section } from '#/api/site';
+import { siteApi, type Section } from '#/api/site';
 import RichText from '#/components/rich-text.vue';
 import { useSite } from '#/composables/use-site';
 
