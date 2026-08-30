@@ -37,6 +37,8 @@ services:
       ASPNETCORE_URLS: http://0.0.0.0:8080
     volumes:
       - /srv/jsini/config/AuthServer/appsettings.Local.json:/app/appsettings.Local.json:ro
+      # 배포 현황 화면이 컨테이너 상태를 읽는다 (읽기 전용)
+      - /var/run/docker.sock:/var/run/docker.sock:ro
 
   file:
     <<: *common

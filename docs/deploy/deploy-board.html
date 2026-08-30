@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>jsini 자동배포 진행 보드</title>
+<style>
+:root {
+  --bg: #ffffff; --card: #fafaf8; --border: #e4e2db; --border-warn: #ef9f27;
+  --tx: #1a1a18; --tx2: #5f5e5a; --tx3: #8a8880;
+  --chip-bg: #eeedfe; --chip-tx: #3c3489; --ok: #1d9e75; --done-bg: #e1f5ee; --done-tx: #085041;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1e1e1c; --card: #262624; --border: #3d3c38; --border-warn: #ba7517;
+    --tx: #ececea; --tx2: #b4b2a9; --tx3: #888780;
+    --chip-bg: #3c3489; --chip-tx: #cecbf6; --ok: #5dcaa5; --done-bg: #085041; --done-tx: #9fe1cb;
+  }
+}
+* { box-sizing: border-box; margin: 0; }
+body { background: var(--bg); color: var(--tx); font-family: "Malgun Gothic", "Apple SD Gothic Neo", sans-serif; font-size: 14px; line-height: 1.6; padding: 20px 18px 40px; }
+h1 { font-size: 17px; font-weight: 600; margin-bottom: 4px; }
+.updated { font-size: 12px; color: var(--tx3); margin-bottom: 20px; }
+h2 { font-size: 12.5px; font-weight: 600; color: var(--tx3); letter-spacing: .04em; margin: 22px 0 8px; }
+ul.done { list-style: none; }
+ul.done li { padding: 3px 0 3px 22px; position: relative; }
+ul.done li::before { content: "✓"; position: absolute; left: 2px; color: var(--ok); font-weight: 700; }
+.flow { border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; background: var(--card); }
+.flow .chips { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 12.5px; margin-bottom: 8px; }
+.chip { background: var(--chip-bg); color: var(--chip-tx); border-radius: 8px; padding: 4px 9px; white-space: nowrap; }
+.chip.last { background: var(--done-bg); color: var(--done-tx); }
+.arrow { color: var(--tx3); }
+.flow .note { font-size: 12.5px; color: var(--tx2); }
+.flow code, ul.fix code { font-family: Consolas, monospace; font-size: 12px; }
+ul.fix { list-style: none; }
+ul.fix li { padding: 4px 0 4px 22px; position: relative; }
+ul.fix li::before { content: "●"; position: absolute; left: 4px; font-size: 9px; top: 9px; color: var(--ok); }
+ul.fix li small { color: var(--tx2); display: block; font-size: 12.5px; }
+ol.steps { list-style: none; counter-reset: n; }
+ol.steps li { counter-increment: n; display: flex; gap: 10px; padding: 8px 2px; border-bottom: 1px solid var(--border); align-items: baseline; }
+ol.steps li:last-child { border-bottom: none; }
+ol.steps li::before { content: counter(n); min-width: 20px; text-align: center; font-size: 12.5px; color: var(--tx3); font-weight: 600; }
+ol.steps li.now::before { color: var(--chip-tx); }
+ol.steps li .t { flex: 1; }
+ol.steps li .t small { color: var(--tx2); font-size: 12.5px; display: block; }
+.badge { font-size: 11.5px; background: var(--chip-bg); color: var(--chip-tx); border-radius: 999px; padding: 2px 9px; white-space: nowrap; align-self: center; }
+.dcard { border: 1px solid var(--border-warn); border-radius: 12px; padding: 10px 13px; margin-bottom: 8px; background: var(--card); }
+.dcard.ref { border-color: var(--border); }
+.dcard .dt { font-weight: 600; margin-bottom: 1px; }
+.dcard .dd { font-size: 12.5px; color: var(--tx2); }
+</style>
+</head>
+<body>
+
+<h1>jsini 자동배포 진행 보드</h1>
+<div class="updated">마지막 갱신: 2026-08-30 · 상태: 7/7 전 단계 완료 — 자동배포 가동 중</div>
+
+<h2>완료된 작업</h2>
+<ul class="done">
+  <li>운영서버 환경 점검 — nginx · systemd · DB · 포트 전수 확인</li>
+  <li>GoldbApi 서비스 제거 + 배포물 삭제 (goldenbar 종료)</li>
+  <li>nginx 설정을 도메인별 10개 파일로 분리 (백업 보관)</li>
+</ul>
+
+<h2>확정된 방향</h2>
+<ul class="fix">
+  <li>백엔드는 Docker Compose로 운영<small>이미지 태그로 배포·롤백, GHCR 레지스트리 사용</small></li>
+  <li>1차 백엔드 범위는 최소 구성 6종<small>Gateway · Auth · File · Site · Notify · Life — funeralv2Api · ProjMng · AIAgent · HelpDesk는 후속 확장</small></li>
+  <li>저장소 확정: github.com/quristyle/Funeralv2<small>public · 기본 브랜치 main — main push가 배포 트리거</small></li>
+  <li>배포 방식: 서버에 self-hosted 러너 설치<small>GHCR pull · compose up 담당 — SSH 키를 GitHub에 두지 않음</small></li>
+  <li>프론트 2개는 컨테이너 없이 nginx 정적 서빙<small>jsini-site (vite-ssg) · jsini-portal (SPA)</small></li>
+  <li>DB 준비 작업 없음 — 이미 작업 완료<small>배포 단계에서 DB는 건드리지 않음</small></li>
+  <li>기존 헬프데스크는 현행 유지<small>이 저장소의 HelpDeskServer로 대체되는 시점에 컨테이너로 편입</small></li>
+  <li>nginx · RabbitMQ · DB · 인증서는 네이티브 유지</li>
+</ul>
+
+<h2>배포 흐름</h2>
+<div class="flow">
+  <div class="chips">
+    <span class="chip">git push (main)</span><span class="arrow">→</span>
+    <span class="chip">Actions: 이미지 빌드</span><span class="arrow">→</span>
+    <span class="chip">GHCR push</span><span class="arrow">→</span>
+    <span class="chip last">서버: pull · up -d</span>
+  </div>
+  <div class="note">백엔드 롤백 = 이전 이미지 태그로 up · 프론트는 빌드 산출물을 nginx 루트에 교체<br>
+  <code>jsini.co.kr</code> → jsini-site (정적) &nbsp;·&nbsp; <code>portal.jsini.co.kr</code> → jsini-portal (SPA + 게이트웨이)</div>
+</div>
+
+<h2>진행 순서</h2>
+<ol class="steps">
+  <li><div class="t">방향 결정<small>D1~D4 모두 확정</small></div><span class="badge ok">완료</span></li>
+  <li><div class="t">DNS + 인증서<small>www 포함 발급 완료 (만료 11-28, 자동갱신)</small></div><span class="badge ok">완료</span></li>
+  <li><div class="t">운영 설정<small>/srv/jsini/config에 7종 배치 · 새 JWT·VAPID 키 · DB 3종 접속 검증</small></div><span class="badge ok">완료</span></li>
+  <li><div class="t">Docker 도입<small>Docker 29 설치 · 이미지 6종 빌드 · compose 기동 · 로그인 관통 검증</small></div><span class="badge ok">완료</span></li>
+  <li><div class="t">nginx 도메인 2건 추가<small>두 도메인 200 · www 301 · 도메인 경유 API 관통 검증 · 가이드 문서(39) 커밋</small></div><span class="badge ok">완료</span></li>
+  <li><div class="t">GitHub Actions 구성<small>워크플로 3종 · han-prod 러너 온라인 · 외부 기여자 승인 정책 적용</small></div><span class="badge ok">완료</span></li>
+  <li><div class="t">첫 배포 + 검증<small>백엔드 GHCR 태그 배포 · 프론트 2종 교체 · 외부 접속·API 관통 · 롤백 시험 통과</small></div><span class="badge ok">완료</span></li>
+</ol>
+
+<h2>주의 · 참고</h2>
+<div class="dcard ref">
+  <div class="dt">보안 정리 완료 (2026-08-30)</div>
+  <div class="dd">① VAPID 키 재발급 완료 — 새 키는 Local.json에만, 추적 파일은 자리표시자 ② 실명·이메일·전화·비밀번호 해시 마스킹 + git 히스토리 재작성(139커밋) + force push 완료 ③ 잔여: GitHub 캐시의 옛 커밋(Support 요청 필요) · 구 헬프데스크가 유출 키 사용 중(불변 방침) · Actions fork PR 보호 설정은 러너 설치 때 함께</div>
+</div>
+<div class="dcard ref">
+  <div class="dt">참고. jsini-site 문의 폼</div>
+  <div class="dd">개인정보 동의 문구(D-S7) 미결 — 사이트는 열되 문의 폼은 감춘 상태로 배포 (기존 결정과 일치)</div>
+</div>
+
+</body>
+</html>
