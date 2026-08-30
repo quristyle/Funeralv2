@@ -1,0 +1,14 @@
+# 백엔드 이미지 빌드에 불필요한 것들 (컨텍스트 축소)
+.git
+.github
+.vscode
+.claude
+fronts
+docs
+deploy
+scripts
+funeralv2_player
+**/bin
+**/obj
+**/appsettings.Local.json
+*.md

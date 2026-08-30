@@ -1,0 +1,76 @@
+# 운영 compose — 서버의 /srv/jsini/docker-compose.yml 로 복사되어 돈다.
+# 이미지 태그는 .env 의 TAG 로 정한다 (배포 = TAG 바꿔서 up, 롤백 = 이전 TAG 로 up).
+# 비밀값은 /srv/jsini/config/<서비스>/appsettings.Local.json 마운트로만 들어간다.
+# 게이트웨이만 호스트 루프백(127.0.0.1:5265)에 공개한다 — nginx 가 여기로 프록시한다.
+
+x-common: &common
+  restart: unless-stopped
+  extra_hosts:
+    - "host.docker.internal:host-gateway"
+  environment: &common-env
+    ASPNETCORE_ENVIRONMENT: Production
+    TZ: Asia/Seoul
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+services:
+  gateway:
+    <<: *common
+    image: ghcr.io/quristyle/funeralv2-gateway:${TAG:-latest}
+    ports:
+      - "127.0.0.1:5265:8080"
+    environment:
+      <<: *common-env
+      ASPNETCORE_URLS: http://0.0.0.0:8080
+    volumes:
+      - /srv/jsini/config/ApiGateway/appsettings.Local.json:/app/appsettings.Local.json:ro
+    depends_on: [auth, file, site, notify, life]
+
+  auth:
+    <<: *common
+    image: ghcr.io/quristyle/funeralv2-auth:${TAG:-latest}
+    environment:
+      <<: *common-env
+      ASPNETCORE_URLS: http://0.0.0.0:8080
+    volumes:
+      - /srv/jsini/config/AuthServer/appsettings.Local.json:/app/appsettings.Local.json:ro
+
+  file:
+    <<: *common
+    image: ghcr.io/quristyle/funeralv2-file:${TAG:-latest}
+    environment:
+      <<: *common-env
+      Kestrel__Endpoints__Http__Url: http://0.0.0.0:8080
+    volumes:
+      - /srv/jsini/config/FileServer/appsettings.Local.json:/app/appsettings.Local.json:ro
+      - /srv/jsini/files:/data/files
+
+  site:
+    <<: *common
+    image: ghcr.io/quristyle/funeralv2-site:${TAG:-latest}
+    environment:
+      <<: *common-env
+      Kestrel__Endpoints__Http__Url: http://0.0.0.0:8080
+    volumes:
+      - /srv/jsini/config/SiteServer/appsettings.Local.json:/app/appsettings.Local.json:ro
+
+  notify:
+    <<: *common
+    image: ghcr.io/quristyle/funeralv2-notify:${TAG:-latest}
+    environment:
+      <<: *common-env
+      Kestrel__Endpoints__Http__Url: http://0.0.0.0:8080
+    volumes:
+      - /srv/jsini/config/NotificationServer/appsettings.Local.json:/app/appsettings.Local.json:ro
+
+  life:
+    <<: *common
+    image: ghcr.io/quristyle/funeralv2-life:${TAG:-latest}
+    environment:
+      <<: *common-env
+      Kestrel__Endpoints__Http__Url: http://0.0.0.0:8080
+    volumes:
+      - /srv/jsini/config/LifeEnvServer/appsettings.Local.json:/app/appsettings.Local.json:ro
