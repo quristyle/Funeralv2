@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
-import SecureLS from 'secure-ls';
+
+import { resolveAccessToken } from '../resolve-access-token';
 
 interface Props {
   mode?: 'avatar' | 'image' | 'file';
@@ -123,41 +124,9 @@ const uploadFile = async (file: File) => {
   isUploading.value = true;
   uploadProgress.value = 0;
 
-  // 로컬 스토리지에서 액세스 토큰 조회 (네임스페이스 및 SecureLS 대응)
-  let token = '';
-  try {
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key && (key === 'core-access' || key.endsWith('-core-access'))) {
-        const rawValue = localStorage.getItem(key);
-        if (rawValue) {
-          if (import.meta.env.DEV) {
-            try {
-              const parsed = JSON.parse(rawValue);
-              token = parsed.accessToken || '';
-            } catch {
-              // 평문 JSON 파싱 실패 시 무시
-            }
-          } else {
-            try {
-              const ls = new SecureLS({
-                encodingType: 'aes',
-                encryptionSecret: import.meta.env.VITE_APP_STORE_SECURE_KEY,
-                isCompression: true,
-              });
-              const decrypted = ls.get(key);
-              token = decrypted?.accessToken || '';
-            } catch (secErr) {
-              console.error('로컬 스토리지 SecureLS 복호화 에러:', secErr);
-            }
-          }
-          if (token) break;
-        }
-      }
-    }
-  } catch (e) {
-    console.error('액세스 토큰 로드 중 오류 발생:', e);
-  }
+  // 로컬 스토리지에서 액세스 토큰 조회 (네임스페이스 및 SecureLS 대응).
+  // 옛 네임스페이스의 만료 토큰이 잡히지 않도록 공용 헬퍼가 exp 를 보고 고른다.
+  const token = resolveAccessToken();
 
   // 1. 임시 프리뷰 카드 추가
   const previewItem = {

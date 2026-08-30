@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, watch, onMounted } from 'vue';
-import SecureLS from 'secure-ls';
+
+import { resolveAccessToken } from '../resolve-access-token';
 
 interface ImageFile {
   id: string;
@@ -44,42 +45,9 @@ const isUploading = ref(false);
 const fileInput = ref<HTMLInputElement | null>(null);
 const isDragging = ref(false);
 
-// 로컬 스토리지에서 인증 토큰 조회 헬퍼
-const getAuthToken = (): string => {
-  let token = '';
-  try {
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key && (key === 'core-access' || key.endsWith('-core-access'))) {
-        const rawValue = localStorage.getItem(key);
-        if (rawValue) {
-          if (import.meta.env.DEV) {
-            try {
-              const parsed = JSON.parse(rawValue);
-              token = parsed.accessToken || '';
-            } catch {}
-          } else {
-            try {
-              const ls = new SecureLS({
-                encodingType: 'aes',
-                encryptionSecret: import.meta.env.VITE_APP_STORE_SECURE_KEY,
-                isCompression: true,
-              });
-              const decrypted = ls.get(key);
-              token = decrypted?.accessToken || '';
-            } catch (secErr) {
-              console.error('SecureLS 복호화 에러:', secErr);
-            }
-          }
-          if (token) break;
-        }
-      }
-    }
-  } catch (e) {
-    console.error('인증 토큰 로드 중 오류 발생:', e);
-  }
-  return token;
-};
+// 로컬 스토리지에서 인증 토큰 조회 헬퍼.
+// 옛 네임스페이스의 만료 토큰이 잡히지 않도록 공용 헬퍼가 exp 를 보고 고른다.
+const getAuthToken = (): string => resolveAccessToken();
 
 // 파일 그룹 데이터 조회
 const fetchGroupFiles = async (groupId: string) => {
