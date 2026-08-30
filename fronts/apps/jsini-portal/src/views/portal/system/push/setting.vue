@@ -25,7 +25,7 @@ import {
   unsubscribePush,
 } from '#/api/helpdesk';
 
-import HelpdeskAccountNotice from '../shared/account-notice.vue';
+import HelpdeskAccountNotice from '#/views/helpdesk/shared/account-notice.vue';
 
 /**
  * [알림 설정]

@@ -19,8 +19,8 @@ import { fetchBizOptions } from '#/api/biz-select';
 import { getMyNotifications } from '#/api/helpdesk';
 import { useHelpdeskStore } from '#/store/helpdesk';
 
-import HelpdeskAccountNotice from '../shared/account-notice.vue';
-import { formatDateTime } from '../shared/constants';
+import HelpdeskAccountNotice from '#/views/helpdesk/shared/account-notice.vue';
+import { formatDateTime } from '#/views/helpdesk/shared/constants';
 
 /**
  * [내 알림함]

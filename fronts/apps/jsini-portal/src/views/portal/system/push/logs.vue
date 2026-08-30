@@ -17,7 +17,7 @@ import {
 
 import { getDistinctFailureReasons, getPushLogs } from '#/api/helpdesk';
 
-import { formatDateTime } from '../shared/constants';
+import { formatDateTime } from '#/views/helpdesk/shared/constants';
 
 /**
  * [푸시 발송 이력]
