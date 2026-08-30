@@ -178,6 +178,8 @@ app.MapQnaEndpoints();
 app.MapHelpArchiveEndpoints();
 app.MapMenuRoleEndpoints();
 app.MapReleaseEndpoints();
+// 생일 — 정본은 계정(scom.accounts)이고 여기서는 조회 · 축하 메시지만 낸다 (A안).
+app.MapBirthdayEndpoints();
 
 
 string GetServerName()

@@ -1,18 +1,18 @@
 <script lang="ts" setup>
 import type { LifeBirthdayApi } from '#/api/life/birthday';
 
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import { onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 
 import { Page, useVbenModal } from '@vben/common-ui';
 import { IconifyIcon } from '@vben/icons';
 
-import { Button, Card, Select, Switch, Tag } from 'ant-design-vue';
+import { Button, Card, Switch, Tag } from 'ant-design-vue';
 import dayjs from 'dayjs';
 
 import { getBirthdayStats, getTodayMessages } from '#/api/life/birthday';
+import BizSelect from '#/components/BizSelect.vue';
 
-import BirthdayEditModal from './modules/birthday-edit-modal.vue';
 import BirthdayMessageDialog from './modules/birthday-message-dialog.vue';
 import MonthlyBirthdayWidget from './modules/monthly-birthday-widget.vue';
 import TodayBirthdayWidget from './modules/today-birthday-widget.vue';
@@ -23,16 +23,15 @@ import TodayBirthdayWidget from './modules/today-birthday-widget.vue';
  * 원본(GHUB BirthdayList.vue). 12개월 통계 타일 · 오늘 생일자 · 오늘의 축하 메시지 ·
  * 선택 월 생일자를 한 화면에 담는다.
  *
- * 원본과 다른 점:
- * - 소속 필터는 COMPANY_TYPE 공통코드 콤보였지만, 여기서는 이관 명단에서 실제로
- *   나온 companyCode 들로 셀렉트를 채운다 (위젯이 불러온 데이터에서 모은다).
- * - '달력으로 보기' 링크는 메뉴(백엔드 주도)가 담당하므로 뺐다.
+ * 생일 정본은 포털 계정(scom.accounts)이다 (A안) — 등록·수정 UI 는 없고,
+ * [계정 관리] 화면에서 한다. 소속 필터는 회사 → 부서 2단(BizSelect)이다.
  */
 
 const route = useRoute();
 
 const selectedMonth = ref(new Date().getMonth() + 1);
-const selectedCompany = ref<string | undefined>();
+const selectedCompanyId = ref<string>('');
+const selectedDepartmentId = ref<string>('');
 const loading = ref(false);
 
 const stats = ref<LifeBirthdayApi.MonthStat[]>([]);
@@ -41,28 +40,13 @@ const todayMessages = ref<LifeBirthdayApi.Message[]>([]);
 const todayWidgetRef = ref<InstanceType<typeof TodayBirthdayWidget> | null>(null);
 const monthlyWidgetRef = ref<InstanceType<typeof MonthlyBirthdayWidget> | null>(null);
 
-// ── 소속 셀렉트: 위젯이 불러온 명단에서 companyCode 를 모은다 ──
-const companyCodeSet = ref(new Set<string>());
-
-function collectCompanyCodes(people: LifeBirthdayApi.Person[]) {
-  let changed = false;
-  people.forEach((p) => {
-    if (p.companyCode && !companyCodeSet.value.has(p.companyCode)) {
-      companyCodeSet.value.add(p.companyCode);
-      changed = true;
-    }
-  });
-  if (changed) companyCodeSet.value = new Set(companyCodeSet.value);
-}
-
-const companyOptions = computed(() =>
-  [...companyCodeSet.value].sort().map((code) => ({ label: code, value: code })),
-);
-
 // ── 통계 · 오늘의 메시지 ─────────────────────────────────
 
 async function loadStats() {
-  const rows = await getBirthdayStats(selectedCompany.value || undefined);
+  const rows = await getBirthdayStats(
+    selectedCompanyId.value || undefined,
+    selectedDepartmentId.value || undefined,
+  );
   stats.value =
     rows && rows.length > 0
       ? rows
@@ -93,8 +77,17 @@ async function refreshAll() {
   }
 }
 
-/** 소속 필터 변경 — 위젯은 props 변화로 스스로 다시 불러온다 */
-async function onCompanyChange() {
+// ── 소속 필터 (회사 → 부서) ──────────────────────────────
+// 회사를 바꾸면 부서 선택을 초기화한다. 부서 BizSelect 는 companyId 가
+// 비어 있는 동안 조회하지 않는다 (BizSelect 의 dept 대기 규칙).
+
+function onCompanyChange() {
+  selectedDepartmentId.value = '';
+  onFilterChange();
+}
+
+/** 필터 변경 — 통계는 여기서, 두 위젯은 props 변화로 스스로 다시 불러온다 */
+async function onFilterChange() {
   loading.value = true;
   try {
     await loadStats();
@@ -123,21 +116,12 @@ function stopRefreshTimer() {
 watch(autoRefresh, (enabled) => (enabled ? startRefreshTimer() : stopRefreshTimer()));
 onUnmounted(stopRefreshTimer);
 
-// ── 팝업 (수정 · 메시지) — 화면에 하나씩만 둔다 ──────────
-
-const [EditModal, editModalApi] = useVbenModal({
-  connectedComponent: BirthdayEditModal,
-  destroyOnClose: true,
-});
+// ── 팝업 (메시지) — 화면에 하나만 둔다 ───────────────────
 
 const [MessageModal, messageModalApi] = useVbenModal({
   connectedComponent: BirthdayMessageDialog,
   destroyOnClose: true,
 });
-
-function onEdit(person: LifeBirthdayApi.Person) {
-  editModalApi.setData({ ...person }).open();
-}
 
 function onSend(person: LifeBirthdayApi.Person) {
   messageModalApi.setData({ ...person }).open();
@@ -160,21 +144,33 @@ onMounted(async () => {
 
 <template>
   <Page auto-content-height>
-    <!-- 상단: 제목 + 소속 필터 + 새로고침 -->
+    <!-- 상단: 제목 + 소속 필터(회사 → 부서) + 새로고침 -->
     <Card :body-style="{ padding: '10px 14px' }" class="mb-3" size="small">
       <div class="flex flex-wrap items-center justify-between gap-2">
         <span class="flex items-center gap-2 text-base font-bold">
           <IconifyIcon class="size-5 text-pink-500" icon="lucide:gift" />
           생일 축하
         </span>
-        <div class="flex items-center gap-2">
-          <Select
-            v-model:value="selectedCompany"
-            :options="companyOptions"
-            allow-clear
-            placeholder="소속 전체"
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="text-xs text-muted-foreground">
+            생일 등록·수정은 [계정 관리] 화면에서 합니다
+          </span>
+          <BizSelect
+            v-model:value="selectedCompanyId"
+            :show-all="true"
+            placeholder="회사 전체"
             style="width: 160px"
+            type="company"
             @change="onCompanyChange"
+          />
+          <BizSelect
+            v-model:value="selectedDepartmentId"
+            :params="{ companyId: selectedCompanyId }"
+            :show-all="true"
+            placeholder="부서 전체"
+            style="width: 160px"
+            type="dept"
+            @change="onFilterChange"
           />
           <Button :loading="loading" @click="refreshAll">
             <IconifyIcon class="size-4" icon="lucide:refresh-cw" />
@@ -228,8 +224,8 @@ onMounted(async () => {
       <div class="flex min-w-0 flex-1 flex-col gap-3">
         <TodayBirthdayWidget
           ref="todayWidgetRef"
-          :company-code="selectedCompany"
-          @loaded="collectCompanyCodes"
+          :company-id="selectedCompanyId"
+          :department-id="selectedDepartmentId"
           @send="onSend"
         />
 
@@ -288,17 +284,14 @@ onMounted(async () => {
       <div class="min-w-0 flex-1">
         <MonthlyBirthdayWidget
           ref="monthlyWidgetRef"
-          :company-code="selectedCompany"
+          :company-id="selectedCompanyId"
+          :department-id="selectedDepartmentId"
           :target-month="selectedMonth"
-          @edit="onEdit"
-          @loaded="collectCompanyCodes"
           @send="onSend"
         />
       </div>
     </div>
 
-    <!-- 생일 수정 팝업 -->
-    <EditModal @success="refreshAll" />
     <!-- 축하 메시지 보내기 팝업 -->
     <MessageModal @sent="refreshAll" />
   </Page>

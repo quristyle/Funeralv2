@@ -1,12 +1,12 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace GhubServer.Models;
+namespace LifeEnvServer.Models;
 
 /// <summary>
 /// 날씨 기준별 대응 정보 (행동 요령)
 /// </summary>
-public class WeatherResponse : GhubBaseEntity
+public class WeatherResponse : LifeEnvBaseEntity
 {
     /// <summary>
     /// 날씨 기준 ID

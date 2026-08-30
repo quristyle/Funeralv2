@@ -1,9 +1,9 @@
-using GhubServer.Data;
-using GhubServer.Models;
+using LifeEnvServer.Data;
+using LifeEnvServer.Models;
 using JSini.Shared.Infrastructure.Filters;
 using Microsoft.EntityFrameworkCore;
 
-namespace GhubServer.Endpoints;
+namespace LifeEnvServer.Endpoints;
 
 /// <summary>
 /// 날씨 기준 정보 관리 엔드포인트 (GHUB skgRestApi 이식)
@@ -20,7 +20,7 @@ public static class WeatherStandardEndpoints
             .AddApiResponseWrapper();
 
         // 날씨 기준 목록 조회
-        group.MapGet("/", async (GhubDbContext db) =>
+        group.MapGet("/", async (LifeEnvDbContext db) =>
         {
             var standards = await db.WeatherStandards
                 .Where(s => !s.IsDeleted)
@@ -32,7 +32,7 @@ public static class WeatherStandardEndpoints
         .WithSummary("날씨 기준 목록 조회");
 
         // 날씨 기준 단건 조회
-        group.MapGet("/{id:int}", async (GhubDbContext db, int id) =>
+        group.MapGet("/{id:int}", async (LifeEnvDbContext db, int id) =>
         {
             var standard = await db.WeatherStandards.FindAsync(id);
             if (standard == null || standard.IsDeleted) return Results.NotFound();
@@ -42,7 +42,7 @@ public static class WeatherStandardEndpoints
         .WithSummary("날씨 기준 상세 조회");
 
         // 날씨 기준 생성
-        group.MapPost("/", async (GhubDbContext db, WeatherStandard standard, UserContext? user) =>
+        group.MapPost("/", async (LifeEnvDbContext db, WeatherStandard standard, UserContext? user) =>
         {
             standard.CreatedAt = DateTimeOffset.UtcNow;
             standard.CreatedBy = user?.UserId ?? "";
@@ -55,7 +55,7 @@ public static class WeatherStandardEndpoints
         .WithSummary("날씨 기준 생성");
 
         // 날씨 기준 수정
-        group.MapPut("/{id:int}", async (GhubDbContext db, int id, WeatherStandard updatedStandard, UserContext? user) =>
+        group.MapPut("/{id:int}", async (LifeEnvDbContext db, int id, WeatherStandard updatedStandard, UserContext? user) =>
         {
             var standard = await db.WeatherStandards.FindAsync(id);
             if (standard == null || standard.IsDeleted) return Results.NotFound();
@@ -84,7 +84,7 @@ public static class WeatherStandardEndpoints
         .WithSummary("날씨 기준 수정");
 
         // 날씨 기준 삭제 (논리 삭제)
-        group.MapDelete("/{id:int}", async (GhubDbContext db, int id, UserContext? user) =>
+        group.MapDelete("/{id:int}", async (LifeEnvDbContext db, int id, UserContext? user) =>
         {
             var standard = await db.WeatherStandards.FindAsync(id);
             if (standard == null || standard.IsDeleted) return Results.NotFound();

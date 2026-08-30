@@ -1,15 +1,15 @@
-using GhubServer.Data;
-using GhubServer.Models;
+using LifeEnvServer.Data;
+using LifeEnvServer.Models;
 using Microsoft.EntityFrameworkCore;
 
-namespace GhubServer.Services;
+namespace LifeEnvServer.Services;
 
 /// <summary>
 /// 날씨 모니터링 및 기준 체크 서비스 구현체
 /// </summary>
 public class WeatherMonitoringService : IWeatherMonitoringService
 {
-    private readonly GhubDbContext _db;
+    private readonly LifeEnvDbContext _db;
     private readonly ILogger<WeatherMonitoringService> _logger;
 
     /// <summary>
@@ -17,7 +17,7 @@ public class WeatherMonitoringService : IWeatherMonitoringService
     /// </summary>
     /// <param name="db">DB 컨텍스트</param>
     /// <param name="logger">로거</param>
-    public WeatherMonitoringService(GhubDbContext db, ILogger<WeatherMonitoringService> logger)
+    public WeatherMonitoringService(LifeEnvDbContext db, ILogger<WeatherMonitoringService> logger)
     {
         _db = db;
         _logger = logger;

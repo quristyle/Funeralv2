@@ -1,10 +1,10 @@
 using System.Text.Json;
-using GhubServer.Data;
-using GhubServer.Models;
-using GhubServer.Utilities;
+using LifeEnvServer.Data;
+using LifeEnvServer.Models;
+using LifeEnvServer.Utilities;
 using Microsoft.EntityFrameworkCore;
 
-namespace GhubServer.Services;
+namespace LifeEnvServer.Services;
 
 /// <summary>
 /// 주기적으로 기상 정보를 수집하는 백그라운드 서비스
@@ -75,7 +75,7 @@ public class WeatherCollectionService : BackgroundService
   private async Task CollectWeatherDataAsync(CancellationToken stoppingToken) {
     try {
       using var scope = _scopeFactory.CreateScope();
-      var db = scope.ServiceProvider.GetRequiredService<GhubDbContext>();
+      var db = scope.ServiceProvider.GetRequiredService<LifeEnvDbContext>();
       var weatherApi = scope.ServiceProvider.GetRequiredService<WeatherApiService>();
 
       // 활성화된 관측 지역 조회
@@ -131,7 +131,7 @@ public class WeatherCollectionService : BackgroundService
   private async Task CollectUltraShortTermForecastAsync(CancellationToken stoppingToken) {
       try {
           using var scope = _scopeFactory.CreateScope();
-          var db = scope.ServiceProvider.GetRequiredService<GhubDbContext>();
+          var db = scope.ServiceProvider.GetRequiredService<LifeEnvDbContext>();
           var weatherApi = scope.ServiceProvider.GetRequiredService<WeatherApiService>();
 
           var locations = await db.WeatherLocations
@@ -198,7 +198,7 @@ public class WeatherCollectionService : BackgroundService
   private async Task CollectShortTermForecastAsync(CancellationToken stoppingToken) {
       try {
           using var scope = _scopeFactory.CreateScope();
-          var db = scope.ServiceProvider.GetRequiredService<GhubDbContext>();
+          var db = scope.ServiceProvider.GetRequiredService<LifeEnvDbContext>();
           var weatherApi = scope.ServiceProvider.GetRequiredService<WeatherApiService>();
 
           var locations = await db.WeatherLocations
@@ -281,7 +281,7 @@ public class WeatherCollectionService : BackgroundService
   private async Task CollectMidTermForecastAsync(CancellationToken stoppingToken) {
       try {
           using var scope = _scopeFactory.CreateScope();
-          var db = scope.ServiceProvider.GetRequiredService<GhubDbContext>();
+          var db = scope.ServiceProvider.GetRequiredService<LifeEnvDbContext>();
           var weatherApi = scope.ServiceProvider.GetRequiredService<WeatherApiService>();
 
           // 중기 예보 코드가 설정된 지역만 조회
@@ -391,7 +391,7 @@ public class WeatherCollectionService : BackgroundService
   private async Task CollectWeatherWarningsAsync(CancellationToken stoppingToken) {
     try {
       using var scope = _scopeFactory.CreateScope();
-      var db = scope.ServiceProvider.GetRequiredService<GhubDbContext>();
+      var db = scope.ServiceProvider.GetRequiredService<LifeEnvDbContext>();
       var weatherApi = scope.ServiceProvider.GetRequiredService<WeatherApiService>();
 
       var warnings = await weatherApi.GetWeatherWarningAsync(_warningStnId); // 기본 108: 전국
@@ -438,7 +438,7 @@ public class WeatherCollectionService : BackgroundService
   /// <summary>
   /// 단일 기상 특보를 처리하고 DB에 저장 및 지역 매칭을 수행합니다.
   /// </summary>
-  public async Task ProcessWarningAsync(GhubDbContext db, WeatherApiService weatherApi, WeatherWarning w, CancellationToken stoppingToken)
+  public async Task ProcessWarningAsync(LifeEnvDbContext db, WeatherApiService weatherApi, WeatherWarning w, CancellationToken stoppingToken)
   {
       if (w.Id == 0) {
           // New entity
@@ -496,7 +496,7 @@ public class WeatherCollectionService : BackgroundService
   /// <summary>
   /// 특보 텍스트 내용을 분석하여 관리 지역과 매칭합니다.
   /// </summary>
-  private async Task MatchLocationsByContent(GhubDbContext db, WeatherWarning warning, WeatherWarningMsg? msg, CancellationToken stoppingToken)
+  private async Task MatchLocationsByContent(LifeEnvDbContext db, WeatherWarning warning, WeatherWarningMsg? msg, CancellationToken stoppingToken)
   {
       var matchedLocationIds = new HashSet<int>();
 

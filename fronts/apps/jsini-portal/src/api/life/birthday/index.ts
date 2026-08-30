@@ -1,10 +1,11 @@
 import { requestClient } from '#/api/request';
 
 /**
- * 생활과환경 — 생일 API (GhubServer).
+ * 생일 API (AuthServer).
  *
- * 생일 대상자는 ghub.birthday_profiles 다 — 포털 계정(scom)이 아니라
- * GHUB 에서 이관한 별도 명단이다 (docs/analysis/38-ghub-migration.md 3절).
+ * 생일 정본은 포털 계정(scom.accounts: birth_date · birth_date_is_lunar ·
+ * birthday_celebrated)이고 API 는 AuthServer 다 (A안).
+ * 입력·수정은 [계정 관리] 화면에서 한다 — 여기에는 조회와 축하 메시지만 있다.
  *
  * 서버가 단건도 목록도 `{ data: { result: [...], page } }` 로 감싸므로
  * 여기서 `result` 를 벗긴다 (`requestListClient` 의 점 경로는 동작하지 않는다 —
@@ -21,8 +22,8 @@ export namespace LifeBirthdayApi {
 
   /** 생일자 (목록·이번달·오늘) */
   export interface Person {
-    /** birthday_profiles PK — 수정 · 초기화에 쓴다 */
-    id: number;
+    /** 포털 계정 ID (scom.accounts PK) */
+    id: string;
     /** 로그인 ID */
     subjectId: string;
     name: string;
@@ -31,10 +32,10 @@ export namespace LifeBirthdayApi {
     occurrenceDate: string;
     isLunar: boolean;
     isCelebrated: boolean;
-    companyCode?: null | string;
-    department?: null | string;
-    /** 오늘 생일자에만 */
-    thumbnailUrl?: null | string;
+    companyId?: null | string;
+    companyName?: null | string;
+    departmentId?: null | string;
+    departmentName?: null | string;
     /** 오늘 생일자에만 — 올해 받은 메시지 수 */
     messageCount?: number;
   }
@@ -48,21 +49,11 @@ export namespace LifeBirthdayApi {
     backgroundColor: string;
     borderColor: string;
     extendedProps: {
-      dbId: number;
       isLunar: boolean;
       originalBirthDate: string;
       type: string;
       userId: string;
     };
-  }
-
-  /** 생일 등록 · 수정 요청 */
-  export interface Entry {
-    subjectId: string;
-    name: string;
-    birthDate: string;
-    isLunar: boolean;
-    isCelebrated: boolean;
   }
 
   /** 축하 메시지 */
@@ -87,85 +78,79 @@ function toList<T = any>(res: any): T[] {
 }
 
 /** 달력 이벤트 (start ~ end, YYYY-MM-DD) */
-export async function getBirthdayCalendar(start: string, end: string, companyCode?: string) {
+export async function getBirthdayCalendar(
+  start: string,
+  end: string,
+  companyId?: string,
+  departmentId?: string,
+) {
   return toList<LifeBirthdayApi.CalendarEvent>(
-    await requestClient.get<any>('/ghub/birthday/calendar', {
-      params: { start, end, companyCode },
+    await requestClient.get<any>('/auth/birthday/calendar', {
+      params: { start, end, companyId, departmentId },
     }),
   );
 }
 
 /** 월별 생일자 수 (12개) */
-export async function getBirthdayStats(companyCode?: string) {
+export async function getBirthdayStats(companyId?: string, departmentId?: string) {
   return toList<LifeBirthdayApi.MonthStat>(
-    await requestClient.get<any>('/ghub/birthday/stats', {
-      params: companyCode ? { companyCode } : undefined,
+    await requestClient.get<any>('/auth/birthday/stats', {
+      params: { companyId, departmentId },
     }),
   );
 }
 
 /** 특정 월 생일자 */
-export async function getBirthdayList(month: number, companyCode?: string) {
+export async function getBirthdayList(
+  month: number,
+  companyId?: string,
+  departmentId?: string,
+) {
   return toList<LifeBirthdayApi.Person>(
-    await requestClient.get<any>('/ghub/birthday/list', {
-      params: { month, companyCode },
+    await requestClient.get<any>('/auth/birthday/list', {
+      params: { month, companyId, departmentId },
     }),
   );
 }
 
 /** 이번 달 생일자 */
-export async function getCurrentBirthdays(companyCode?: string) {
+export async function getCurrentBirthdays(companyId?: string, departmentId?: string) {
   return toList<LifeBirthdayApi.Person>(
-    await requestClient.get<any>('/ghub/birthday/current', {
-      params: companyCode ? { companyCode } : undefined,
+    await requestClient.get<any>('/auth/birthday/current', {
+      params: { companyId, departmentId },
     }),
   );
 }
 
-/** 오늘 생일자 (썸네일 · 메시지 수 포함) */
-export async function getTodayBirthdays(companyCode?: string) {
+/** 오늘 생일자 (메시지 수 포함) */
+export async function getTodayBirthdays(companyId?: string, departmentId?: string) {
   return toList<LifeBirthdayApi.Person>(
-    await requestClient.get<any>('/ghub/birthday/today', {
-      params: companyCode ? { companyCode } : undefined,
+    await requestClient.get<any>('/auth/birthday/today', {
+      params: { companyId, departmentId },
     }),
   );
-}
-
-/** 생일 등록 (있으면 갱신, 없으면 새 명단 행) */
-export async function upsertBirthday(data: LifeBirthdayApi.Entry) {
-  return requestClient.post('/ghub/birthday', data);
-}
-
-/** 생일 정보 수정 (id = birthday_profiles PK) */
-export async function updateBirthday(id: number, data: LifeBirthdayApi.Entry) {
-  return requestClient.put(`/ghub/birthday/${id}`, data);
-}
-
-/** 생일 정보 초기화 (행은 남는다) */
-export async function resetBirthday(id: number) {
-  return requestClient.delete(`/ghub/birthday/${id}`);
 }
 
 /** 축하 메시지 보내기 */
 export async function sendBirthdayMessage(recipientId: string, content: string) {
-  return requestClient.post('/ghub/birthday/message', { recipientId, content });
+  return requestClient.post('/auth/birthday/message', { recipientId, content });
 }
 
 /** 오늘 생일자들이 올해 받은 메시지 */
 export async function getTodayMessages() {
   return toList<LifeBirthdayApi.Message>(
-    await requestClient.get<any>('/ghub/birthday/today/messages'),
+    await requestClient.get<any>('/auth/birthday/today/messages'),
   );
 }
 
 /** 내가 받은 메시지 */
 export async function getMyMessages() {
-  return toList<LifeBirthdayApi.Message>(await requestClient.get<any>('/ghub/birthday/message'));
+  return toList<LifeBirthdayApi.Message>(await requestClient.get<any>('/auth/birthday/message'));
 }
 
 /** 내가 보낸 메시지 */
 export async function getSentMessages() {
   return toList<LifeBirthdayApi.Message>(
-    await requestClient.get<any>('/ghub/birthday/message/sent'),
+    await requestClient.get<any>('/auth/birthday/message/sent'),
   );
 }

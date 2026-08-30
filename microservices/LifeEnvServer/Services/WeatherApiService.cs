@@ -2,12 +2,12 @@ using System.Globalization;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Web;
-using GhubServer.Data;
-using GhubServer.Models;
-using GhubServer.Utilities;
+using LifeEnvServer.Data;
+using LifeEnvServer.Models;
+using LifeEnvServer.Utilities;
 using Microsoft.Extensions.Caching.Memory;
 
-namespace GhubServer.Services;
+namespace LifeEnvServer.Services;
 
 /// <summary>
 /// 기상청 API 연동 서비스
@@ -16,7 +16,7 @@ public class WeatherApiService {
   private readonly HttpClient _httpClient;
   private readonly IMemoryCache _cache;
   private readonly ILogger<WeatherApiService> _logger;
-  private readonly GhubDbContext _context;
+  private readonly LifeEnvDbContext _context;
 
   // 공공데이터포털 인증키. 설정(Weather:ServiceKey)에서 생성 시 한 번만 읽는다.
   // 키가 없으면 각 호출 메서드가 경고 로그만 남기고 null/빈 결과를 돌려준다 — 예외로 죽이지 않는다.
@@ -26,7 +26,7 @@ public class WeatherApiService {
   /// <summary>
   /// WeatherApiService 생성자
   /// </summary>
-  public WeatherApiService(HttpClient httpClient, IConfiguration configuration, IMemoryCache cache, ILogger<WeatherApiService> logger, GhubDbContext context) {
+  public WeatherApiService(HttpClient httpClient, IConfiguration configuration, IMemoryCache cache, ILogger<WeatherApiService> logger, LifeEnvDbContext context) {
     _httpClient = httpClient;
     _cache = cache;
     _logger = logger;

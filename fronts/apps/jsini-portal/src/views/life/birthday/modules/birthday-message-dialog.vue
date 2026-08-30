@@ -61,12 +61,12 @@ async function onSend() {
         v-if="person"
         class="mb-4 flex flex-row items-center justify-center gap-4 text-center"
       >
-        <Avatar :size="56" :src="person.thumbnailUrl || undefined">
+        <Avatar :size="56">
           {{ person.name?.charAt(0) }}
         </Avatar>
         <div class="text-left">
           <p class="text-sm text-muted-foreground">
-            {{ person.department || person.companyCode || '임직원' }}
+            {{ person.departmentName || person.companyName || '임직원' }}
           </p>
           <p class="text-lg font-bold">{{ person.name }} 님에게</p>
         </div>

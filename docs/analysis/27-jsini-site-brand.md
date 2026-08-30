@@ -627,7 +627,7 @@ Trend 의 계열은 **선 모양**(실선 · 파선 · 점선)이다. 색맹 대
 | 사례 | 확인한 곳 |
 |---|---|
 | 장례식장 | `scom.system_menus` 의 실제 메뉴 + `funeralv2` DB 의 `smfr` 표 16개 · **화면을 직접 봤다** |
-| 사업장 기상 감시 | `ghub` DB 의 `weather_*` 표 15개 · `microservices/GhubServer`. **화면은 못 봤다** |
+| 사업장 기상 감시 | `ghub` DB 의 `weather_*` 표 15개 · `microservices/LifeEnvServer`. **화면은 못 봤다** |
 | 유틸리티 공급 | **화면을 직접 봤다** (종합 모니터링 · 사용량 Trend · 용수 사용량 조회 · 메뉴 전체) |
 | 헬프데스크 | `jinrecept` DB 의 `jsini` 표 40개 · **화면을 직접 봤다** |
 | 프로젝트관리 | `projmng` DB 의 `projmng` 표 21개 + 메뉴 구조. **자료 화면은 못 봤다**(내부 서버 미접속) |

@@ -87,6 +87,13 @@ public class SendEmailDto
     /// <summary>받는 사람. 여럿이면 쉼표로 잇는다 (기존 스크립트 규약이 그렇다).</summary>
     public string To { get; set; } = string.Empty;
 
+    /// <summary>
+    /// 받는 역할 (예: <c>SYSTEM_ADMINISTRATOR</c>). 지정하면 그 역할 사용자들의
+    /// 대표 이메일(scom)로 보낸다. <see cref="To"/> 와 함께 주면 합쳐진다.
+    /// 직발송 <c>/emails/send</c> 만 본다.
+    /// </summary>
+    public string? ToRole { get; set; }
+
     public string Subject { get; set; } = string.Empty;
 
     /// <summary>본문 (HTML 허용).</summary>

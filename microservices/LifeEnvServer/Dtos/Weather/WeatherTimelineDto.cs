@@ -1,4 +1,4 @@
-namespace GhubServer.Dtos;
+namespace LifeEnvServer.Dtos;
 
 /// <summary>
 /// 기상 타임라인 정보 DTO

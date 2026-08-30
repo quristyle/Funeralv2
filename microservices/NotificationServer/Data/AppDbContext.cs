@@ -26,6 +26,13 @@ public class AppDbContext : DbContext
 
     public DbSet<PushSubscription> PushSubscriptions { get; set; } = null!;
 
+    // ── scom 계정·역할 (읽기 전용) ──────────────────────────
+    // "이 역할 사용자들의 이메일" 을 풀기 위한 조회 전용 매핑이다.
+    // 정본은 AuthServer 이고 여기서는 절대 쓰지 않는다 (ScomIdentityRows.cs 머리말).
+    public DbSet<RoleAccountRow> RoleAccounts => Set<RoleAccountRow>();
+    public DbSet<AccountRow> Accounts => Set<AccountRow>();
+    public DbSet<AccountProfileDetailRow> AccountProfileDetails => Set<AccountProfileDetailRow>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);

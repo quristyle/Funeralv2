@@ -28,7 +28,7 @@
 ```
 ApiGateway/            YARP 게이트웨이 (:5265) — JWT 검증 후 X-User-* 헤더를 붙인다
 microservices/
-  AuthServer/          인증 · 계정 · 메뉴 · 권한 · 공지 (포털의 중심)
+  AuthServer/          인증 · 계정 · 메뉴 · 권한 · 공지 · 생일 (포털의 중심)
   funeralv2Api/        장례식장
   HelpDeskServer/      헬프데스크 (이식)
   ProjMngServer/       프로젝트관리 (이식)
@@ -36,7 +36,7 @@ microservices/
   AIAgentServer/
   SiteServer/          회사 소개 사이트(공개) — 문구 · 자료실 · 문의 접수
   NotificationServer/  푸시 · 이메일 (셋이 공유) — VAPID 키가 여기 한 곳에만 있다
-  GhubServer/          생활과환경 — 기상(기상청 연동) · 생일 (GHUB 에서 이식)
+  LifeEnvServer/       생활과환경 — 기상(기상청 연동, GHUB 에서 이식). 생일 화면의 API 는 AuthServer 다
 fronts/apps/jsini-portal/   업무 프론트엔드 (Vue 3 + vben, 로그인 필요)
 fronts/apps/jsini-site/     회사 소개 사이트 (Vue 3 + vite-ssg, @vben/* 의존 0)
 docs/brand/            로고 · 모티프 · 사용 규칙 (SVG 는 generate.py 가 만든다)
@@ -56,7 +56,7 @@ docs/sql/              실행한 SQL (전부 반복 실행 안전)
   | `jinrecept` | `jsini` | HelpDeskServer |
   | `projmng` | `projmng` | ProjMngServer |
   | `jsinisite` | `site` | SiteServer |
-  | `ghub` | `ghub` | GhubServer |
+  | `ghub` | `ghub` | LifeEnvServer |
 
   접속 문자열은 각 서비스의 `appsettings.Local.json` (git 제외).
   **`docs/sql` 의 파일은 대부분 `jsiniportal` 용이다** (scom 을 다룬다).
@@ -89,7 +89,7 @@ docs/sql/              실행한 SQL (전부 반복 실행 안전)
   ```
   개발 서버는 `dev.bat`(윈도우) · `backend_run_ubuntu.sh` 로 띄운다. 하나만 재기동하려면
   `dev.bat gateway auth file` 처럼 이름을 나열한다.
-  이름은 열둘이다 — `gateway auth funeral ai file helpdesk projmng site notify ghub portal web`.
+  이름은 열둘이다 — `gateway auth funeral ai file helpdesk projmng site notify life portal web`.
   `portal`(:5555) 이 업무 프론트, `web`(:5556) 이 회사 소개 사이트 프론트다.
   **예전 이름 `front` 는 `portal` 이 되었다**(`front` 로 쳐도 받아 준다).
 

@@ -14,19 +14,20 @@ import { getTodayBirthdays } from '#/api/life/birthday';
  * [오늘의 생일자 위젯]
  *
  * 원본(GHUB TodayBirthdayWidget.vue)을 ant-design-vue 로 옮겼다.
- * 썸네일 · 올해 받은 메시지 수를 함께 보여 주고, '축하' 버튼은 부모에게 올린다
+ * 생일 정본이 포털 계정으로 옮겨지며 썸네일은 없다 — 이니셜 아바타만 그린다.
+ * 올해 받은 메시지 수를 함께 보여 주고, '축하' 버튼은 부모에게 올린다
  * (메시지 팝업은 부모 화면이 하나만 들고 있다).
  */
 
 const props = defineProps<{
-  /** 소속 필터 (없으면 전체) */
-  companyCode?: string;
+  /** 회사 필터 (없으면 전체) */
+  companyId?: string;
+  /** 부서 필터 (없으면 전체) */
+  departmentId?: string;
 }>();
 
 const emit = defineEmits<{
   (e: 'send', person: LifeBirthdayApi.Person): void;
-  /** 불러온 명단 — 부모가 소속 셀렉트 옵션을 모으는 데 쓴다 */
-  (e: 'loaded', people: LifeBirthdayApi.Person[]): void;
 }>();
 
 const loading = ref(false);
@@ -35,14 +36,17 @@ const people = ref<LifeBirthdayApi.Person[]>([]);
 async function reload() {
   loading.value = true;
   try {
-    people.value = (await getTodayBirthdays(props.companyCode || undefined)) ?? [];
-    emit('loaded', people.value);
+    people.value =
+      (await getTodayBirthdays(
+        props.companyId || undefined,
+        props.departmentId || undefined,
+      )) ?? [];
   } finally {
     loading.value = false;
   }
 }
 
-watch(() => props.companyCode, reload);
+watch(() => [props.companyId, props.departmentId], reload);
 onMounted(reload);
 
 defineExpose({ reload });
@@ -78,7 +82,7 @@ defineExpose({ reload });
         :key="user.id"
         class="flex items-center gap-3 rounded p-2 transition-colors hover:bg-accent"
       >
-        <Avatar :size="40" :src="user.thumbnailUrl || undefined" class="shrink-0">
+        <Avatar :size="40" class="shrink-0">
           {{ user.name?.charAt(0) }}
         </Avatar>
 
@@ -98,7 +102,7 @@ defineExpose({ reload });
             </span>
           </div>
           <p class="truncate text-[11px] text-muted-foreground">
-            {{ user.department || user.companyCode || '임직원' }}
+            {{ user.departmentName || user.companyName || '임직원' }}
           </p>
         </div>
 

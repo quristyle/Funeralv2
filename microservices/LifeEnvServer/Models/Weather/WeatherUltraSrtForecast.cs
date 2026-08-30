@@ -1,10 +1,10 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace GhubServer.Models;
+namespace LifeEnvServer.Models;
 
 /// <summary>
 /// 초단기 예보 (Ultra Short Term Forecast).
-/// 수집 이력이라 감사 컬럼이 없다 — GhubBaseEntity 를 상속하지 않는다.
+/// 수집 이력이라 감사 컬럼이 없다 — LifeEnvBaseEntity 를 상속하지 않는다.
 /// 속성명 T1H 는 snake_case 변환 규칙(([a-z0-9])([A-Z]))에 따라 t1_h 컬럼이 된다.
 /// </summary>
 public class WeatherUltraSrtForecast

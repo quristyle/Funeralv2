@@ -1,4 +1,4 @@
-namespace GhubServer.Models;
+namespace LifeEnvServer.Models;
 
 /// <summary>
 /// GHUB 이식 엔티티 공통 컬럼.
@@ -7,7 +7,7 @@ namespace GhubServer.Models;
 /// BaseEntity 모양을 그대로 둔다 — 컬럼 이름(modified_* 등)이 ASIS 와 같아야
 /// 자료 이관이 복사만으로 끝나기 때문이다. (docs/sql/ghub_schema.sql 머리말)
 /// </summary>
-public abstract class GhubBaseEntity
+public abstract class LifeEnvBaseEntity
 {
     /// <summary>PK</summary>
     public int Id { get; set; }

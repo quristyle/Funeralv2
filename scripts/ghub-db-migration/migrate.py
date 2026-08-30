@@ -68,22 +68,10 @@ COPY_TABLES = [
     "weather_mid_term_forecasts",
     "weather_short_term_forecasts",
     "weather_ultra_srt_forecasts",
-    "birthday_messages",
 ]
 
-# birthday_profiles 는 ASIS user_profiles 에서 생일 관련 필드만 추린다
-BIRTHDAY_PROFILE_SELECT = """
-  SELECT user_id, full_name, department, company_code, thumbnail_url,
-         birth_date, is_lunar, is_celebrated, is_active,
-         created_by, created_at, modified_by, modified_at, is_deleted
-  FROM ghub.user_profiles
-  ORDER BY id
-"""
-BIRTHDAY_PROFILE_COLS = (
-    "user_id, full_name, department, company_code, thumbnail_url, "
-    "birth_date, is_lunar, is_celebrated, is_active, "
-    "created_by, created_at, modified_by, modified_at, is_deleted"
-)
+# 생일(명단·메시지)은 나르지 않는다 — 포털로 옮겨졌다 (2026-08-30, A안).
+# 명단은 scom.accounts 의 생일 컬럼, 메시지는 scom.birthday_messages 다.
 
 
 def q(ident):
@@ -111,9 +99,8 @@ def main():
     ac, tc = asis.cursor(), tobe.cursor()
 
     try:
-        for table in COPY_TABLES + ["birthday_profiles"]:
-            special = table == "birthday_profiles"
-            src_table = "user_profiles" if special else table
+        for table in COPY_TABLES:
+            src_table = table
 
             ac.execute(f"SELECT count(*) FROM ghub.{q(src_table)}")
             src_cnt = ac.fetchone()[0]
@@ -133,18 +120,13 @@ def main():
                     continue
 
             buf = io.StringIO()
-            if special:
-                ac.copy_expert(
-                    f"COPY ({BIRTHDAY_PROFILE_SELECT}) TO STDOUT", buf)
-                cols = BIRTHDAY_PROFILE_COLS
-            else:
-                # 컬럼 교집합만 나른다 (TOBE 에 없는 ASIS 컬럼은 버린다)
-                src_cols = columns_of(ac, src_table)
-                dst_cols = set(columns_of(tc, table))
-                cols_list = [c for c in src_cols if c in dst_cols]
-                cols = ", ".join(q(c) for c in cols_list)
-                ac.copy_expert(
-                    f"COPY (SELECT {cols} FROM ghub.{q(src_table)}) TO STDOUT", buf)
+            # 컬럼 교집합만 나른다 (TOBE 에 없는 ASIS 컬럼은 버린다)
+            src_cols = columns_of(ac, src_table)
+            dst_cols = set(columns_of(tc, table))
+            cols_list = [c for c in src_cols if c in dst_cols]
+            cols = ", ".join(q(c) for c in cols_list)
+            ac.copy_expert(
+                f"COPY (SELECT {cols} FROM ghub.{q(src_table)}) TO STDOUT", buf)
             buf.seek(0)
             tc.copy_expert(f"COPY ghub.{q(table)} ({cols}) FROM STDIN", buf)
             print(f"{table:<36} {src_cnt}행 복사")

@@ -168,6 +168,11 @@ public class UserService : IUserService
                 // `ProfileDetails` 는 이미 Include 로 읽고 있으므로 추가 조회가 없다.
                 Avatar = avatarDetail?.Content,
                 AvatarGroupId = a.AvatarGroupId,
+
+                // 생일 — 정본이 계정이라 계정 관리 화면이 여기서 읽고 고친다.
+                BirthDate = a.BirthDate,
+                BirthDateIsLunar = a.BirthDateIsLunar,
+                BirthdayCelebrated = a.BirthdayCelebrated,
             };
         }).ToList();
     }
@@ -196,7 +201,10 @@ public class UserService : IUserService
             RealName = dto.UserName,
             Password = "1234", // 기본 비밀번호 설정
             DepartmentId = validDeptId,
-            CompanyId = companyId
+            CompanyId = companyId,
+            BirthDate = dto.BirthDate,
+            BirthDateIsLunar = dto.BirthDateIsLunar,
+            BirthdayCelebrated = dto.BirthdayCelebrated
         };
 
         _db.Accounts.Add(account);
@@ -283,7 +291,10 @@ public class UserService : IUserService
             DeptName = deptName,
             CreatedAt = account.CreatedAt,
             RoleIds = dto.RoleIds ?? new List<string>(),
-            RoleNames = roleNames
+            RoleNames = roleNames,
+            BirthDate = account.BirthDate,
+            BirthDateIsLunar = account.BirthDateIsLunar,
+            BirthdayCelebrated = account.BirthdayCelebrated
         };
     }
 
@@ -300,6 +311,11 @@ public class UserService : IUserService
 
         account.UserName = dto.UserName;
         account.RealName = dto.UserName;
+
+        // 생일 — 정본이 계정이라 계정 관리 화면의 저장이 곧 생일 수정이다.
+        account.BirthDate = dto.BirthDate;
+        account.BirthDateIsLunar = dto.BirthDateIsLunar;
+        account.BirthdayCelebrated = dto.BirthdayCelebrated;
 
         // 부서 ID 검증 및 소속 회사 자동 할당
         if (!string.IsNullOrEmpty(dto.DeptId))

@@ -1,9 +1,9 @@
-namespace GhubServer.Models;
+namespace LifeEnvServer.Models;
 
 /// <summary>
 /// 기상 특보 지역별 매칭 이력 (특보 ↔ 지역 다대다)
 /// </summary>
-public class WeatherLocationWarning : GhubBaseEntity
+public class WeatherLocationWarning : LifeEnvBaseEntity
 {
     /// <summary>
     /// 특보 마스터 ID

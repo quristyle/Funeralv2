@@ -20,6 +20,15 @@ export namespace SystemAccountApi {
     avatar?: null | string;
     /** 프로필 사진 파일 묶음. 사진을 고르는 화면에서 쓴다. */
     avatarGroupId?: null | string;
+    /**
+     * 생년월일 ('YYYY-MM-DD'). 생일 정본은 이 계정 테이블이다 (A안) —
+     * 생활과환경 생일 화면(조회 전용)이 AuthServer 의 /auth/birthday/* 로 읽는다.
+     */
+    birthDate?: null | string;
+    /** 생년월일이 음력인지 */
+    birthDateIsLunar?: boolean;
+    /** 생일 축하 표시 여부 — 끄면 생활과환경 생일 화면에 나오지 않는다 */
+    birthdayCelebrated?: boolean;
   }
 }
 

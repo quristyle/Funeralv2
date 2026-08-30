@@ -1,4 +1,4 @@
-namespace GhubServer.Dtos;
+namespace LifeEnvServer.Dtos;
 
 /// <summary>
 /// 중기 기상 예보 정보 DTO

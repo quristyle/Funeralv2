@@ -75,6 +75,9 @@ const [AccountModal, accountModalApi] = useVbenModal<Record<string, any>>({
           ...data,
           companyId: dept?.companyId || '',
           roleIds: data.roleIds || [],
+          // 생일 항목 — 값이 아직 없는 계정은 기본값(음력 아님 · 축하 표시)으로 둔다
+          birthDateIsLunar: data.birthDateIsLunar ?? false,
+          birthdayCelebrated: data.birthdayCelebrated ?? true,
         };
         formApi.setValues(formValues);
         formApi.updateSchema([
@@ -112,7 +115,10 @@ const [AccountModal, accountModalApi] = useVbenModal<Record<string, any>>({
 // 부서 목록 로드 및 Form Schema 업데이트
 async function fetchDepts() {
   try {
-    const response = await getDeptList();
+    // 전 회사의 부서를 받아야 한다 — 인자 없이 부르면 서버가 "로그인한 사람의
+    // 회사" 로 좁혀서, 다른 회사 계정을 수정할 때 부서 매칭이 실패하고
+    // 소속 회사 프리필이 비어 저장(필수 검증)이 조용히 막혔다.
+    const response = await getDeptList(undefined, true);
     const list = (response as any)?.result ?? response;
     departments.value = Array.isArray(list) ? list : [];
   } catch (error) {
@@ -214,6 +220,10 @@ async function handleSave(values: Record<string, any>) {
       deptId: values.deptId,
       deptName: dept?.name || '',
       roleIds: values.roleIds || [],
+      // 생일 — 정본이 이 계정 테이블이다 (A안). 생활과환경 생일 화면이 읽는다.
+      birthDate: values.birthDate || null,
+      birthDateIsLunar: !!values.birthDateIsLunar,
+      birthdayCelebrated: values.birthdayCelebrated !== false,
     };
 
     if (isUpdate.value && currentId.value) {

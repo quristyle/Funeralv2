@@ -1,11 +1,11 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace GhubServer.Models;
+namespace LifeEnvServer.Models;
 
 /// <summary>
 /// 기상청 특보 구역 정보 (구역 트리 — RegUp 이 부모)
 /// </summary>
-public class WeatherWarningZone : GhubBaseEntity
+public class WeatherWarningZone : LifeEnvBaseEntity
 {
     /// <summary>
     /// 특보구역코드 (REG_ID)

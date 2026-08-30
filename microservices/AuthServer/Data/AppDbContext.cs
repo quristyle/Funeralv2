@@ -41,6 +41,7 @@ public class AppDbContext : DbContext
     public DbSet<RoleDepartment> RoleDepartments { get; set; }
     public DbSet<ReleaseRun> ReleaseRuns { get; set; }
     public DbSet<ReleaseRunEvent> ReleaseRunEvents { get; set; }
+    public DbSet<BirthdayMessage> BirthdayMessages { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

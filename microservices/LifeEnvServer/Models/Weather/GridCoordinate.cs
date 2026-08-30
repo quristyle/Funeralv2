@@ -1,11 +1,11 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace GhubServer.Models;
+namespace LifeEnvServer.Models;
 
 /// <summary>
 /// 격자 좌표 정보 모델 (기상청 행정구역 → nx/ny 변환표, 검색 전용).
-/// 감사 컬럼이 없는 순수 변환표라 GhubBaseEntity 를 상속하지 않는다 —
-/// PK 는 행정구역코드(문자열)다 (GhubDbContext.OnModelCreating 에서 HasKey 지정).
+/// 감사 컬럼이 없는 순수 변환표라 LifeEnvBaseEntity 를 상속하지 않는다 —
+/// PK 는 행정구역코드(문자열)다 (LifeEnvDbContext.OnModelCreating 에서 HasKey 지정).
 /// </summary>
 public class GridCoordinate
 {

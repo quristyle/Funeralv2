@@ -1,4 +1,4 @@
-namespace GhubServer.Utilities;
+namespace LifeEnvServer.Utilities;
 
 /// <summary>
 /// 한국 표준시 도우미.

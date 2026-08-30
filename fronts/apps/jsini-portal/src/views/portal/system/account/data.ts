@@ -206,6 +206,41 @@ export const useSchema = (): VbenFormSchema[] => [
     fieldName: 'phone',
     label: $t('system.account.phone'),
   },
+  // ── 생일 (정본은 이 계정 테이블이다 — A안) ──────────────
+  // 생활과환경 생일 화면은 조회 전용이고, 입력·수정은 여기서만 한다.
+  {
+    component: 'DatePicker',
+    componentProps: {
+      // antd DatePicker 는 Dayjs 만 받으므로 valueFormat 으로 문자열을 주고받는다.
+      valueFormat: 'YYYY-MM-DD',
+      placeholder: '생년월일을 선택해주세요',
+      allowClear: true,
+    },
+    fieldName: 'birthDate',
+    label: '생년월일',
+  },
+  {
+    component: 'Checkbox',
+    defaultValue: false,
+    fieldName: 'birthDateIsLunar',
+    label: '음력',
+    renderComponentContent() {
+      return {
+        default: () => '생년월일이 음력입니다',
+      };
+    },
+  },
+  {
+    component: 'Switch',
+    componentProps: {
+      checkedChildren: '표시',
+      unCheckedChildren: '숨김',
+    },
+    defaultValue: true,
+    fieldName: 'birthdayCelebrated',
+    help: '켜면 생활과환경 생일 화면(목록·캘린더)에 생일이 표시됩니다.',
+    label: '생일 축하 표시',
+  },
   {
     component: 'Select',
     componentProps: {

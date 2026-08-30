@@ -4,17 +4,25 @@
 **생일(BIRTHDAY)** 을 포털 MSA 로 이식했다. **GHUB 원본 소스와 ASIS DB 는 일절 손대지
 않았다** (ASIS 는 읽기 전용 세션으로만 열었다).
 
+## 0. 이름 — LifeEnvServer
+
+처음에 서비스 이름을 GhubServer 로 지었다가 **LifeEnvServer 로 바꿨다** (2026-08-30).
+GHUB 는 원천 시스템(SK가스 지허브)의 이름이지 이 서비스의 업무가 아니다 — 업무 이름은
+생활과환경이고, 프론트 모듈(views/life) · 메뉴(LIFEENV) · 게이트웨이 경로(/api/life) ·
+기동 이름(dev.bat life)이 모두 그에 맞춰져 있다. **DB 이름(`ghub`)만 그대로다** —
+접속 정보가 그렇게 발급됐고, 자료의 출처를 이름이 말해 주는 것도 나쁘지 않다.
+
 ## 1. 무엇이 생겼나
 
 | 층 | 것 | 위치 |
 |---|---|---|
 | DB | `ghub` DB · `ghub` 스키마 · `ghub` 롤 (jin114.co.kr:31015) | 스키마: [docs/sql/ghub_schema.sql](../sql/ghub_schema.sql) |
 | 자료 이관 | ASIS(jin114.co.kr:45750) → TOBE, 17개 표 181,236행 | [scripts/ghub-db-migration/](../../scripts/ghub-db-migration/) |
-| 백엔드 | **GhubServer** (:5490, 루프백 고정) | microservices/GhubServer |
-| 게이트웨이 | `/api/ghub/{**}` → 5490, 접두사 제거, 전 경로 인증 필수 | ApiGateway/appsettings.json |
+| 백엔드 | **LifeEnvServer** (:5490, 루프백 고정) | microservices/LifeEnvServer |
+| 게이트웨이 | `/api/life/{**}` → 5490, 접두사 제거, 전 경로 인증 필수 | ApiGateway/appsettings.json |
 | 메뉴 | `생활과환경`(LIFEENV) 아래 카탈로그 4 + 화면 11 | [docs/sql/ghub_menu_seed.sql](../sql/ghub_menu_seed.sql) |
 | 프론트 | views/life/weather 8화면 · views/life/birthday 3화면 + API 레이어 | fronts/apps/jsini-portal/src/{views,api}/life |
-| 기동 | `dev.bat ghub` · backend_run_{ubuntu,mac}.sh · smoke-test 포트 목록 | 각 스크립트 |
+| 기동 | `dev.bat life` · backend_run_{ubuntu,mac}.sh · smoke-test 포트 목록 | 각 스크립트 |
 
 메뉴 ID 대응(ASIS 숫자 id → 포털 텍스트 id)은 ghub_menu_seed.sql 머리말에 있다.
 역할 권한은 우선 ADMINISTRATOR · SYSTEM_ADMINISTRATOR 에만 주었다 — ASIS 는 전 직원
@@ -40,18 +48,33 @@
 - **원본 버그 수정**: 특보 요약 그룹키가 호출마다 바뀌던 것(Guid), 이벤트 조회의
   endDate 미적용, warnings4location 의 N+1, 이름 기반 캐시 키. 동작 결과는 원본과 같다.
 
-## 3. 생일 — 명단을 어디에 두었나
+## 3. 생일 — 포털이 관리한다 (A안, 2026-08-30)
 
-ASIS 는 생일을 자체 사용자 표(user_profiles)에 두었지만 포털의 사용자 정본
-(scom.accounts)에는 생년월일이 없다. 서비스 경계를 넘는 FK 도 둘 수 없으므로
-**ghub.birthday_profiles 를 신설**해 ASIS user_profiles 의 생일 관련 필드만
-(user_id · 이름 · 부서 · 소속 · 썸네일 · 생일 · 음력 · 축하대상 · 활성) 이관했다(67명).
+두 번에 걸쳐 자리를 옮겼다.
 
-- 메시지의 보낸 이는 X-User-Id 로 기록한다. **포털 계정과 이 명단은 user_id 문자열로만
-  느슨하게 이어진다** — msa_user_import 로 들어온 지허브 사용자라면 자연히 맞는다.
-- 명단에 없는 포털 사용자가 메시지를 보내면 이름은 user_id 로 폴백한다.
-- 원본의 위험 동작(수정 API 가 로그인 ID 를 덮어쓰는 것)은 제거했고, 등록은 upsert 로
-  바꿔 새 명단 행을 만들 수 있다.
+1. 처음에는 ASIS user_profiles 를 이관한 **ghub.birthday_profiles** 를 두고
+   LifeEnvServer 가 읽었다.
+2. "생일은 포털 사용자의 속성" 이라는 결정(A안)으로 **정본과 API 를 모두 포털로**
+   옮겼다. birthday_profiles · ghub.birthday_messages 는 지웠다.
+
+지금 구조:
+
+| 것 | 자리 |
+|---|---|
+| 생년월일 · 음력 · 축하표시 | `scom.accounts` (docs/sql/account_birthday.sql) |
+| 축하 메시지 | `scom.birthday_messages` (docs/sql/birthday_messages.sql) |
+| API | **AuthServer** `/birthday/*` (게이트웨이 `/api/auth/birthday/*`) |
+| 입력 · 수정 | 포털 [계정 관리] 화면 (생년월일 · 음력 · 생일 축하 표시) |
+| 화면 | 생활과환경 메뉴 그대로 (views/life/birthday — 조회 · 메시지만) |
+| 소속 필터 | 회사(companyId) · 부서(departmentId) — scom companies/departments 기준 |
+
+- LifeEnvServer 는 기상 전담이 됐다. 생일 코드는 남아 있지 않다.
+- ASIS 명단 46명 중 포털 계정과 user_id 가 맞은 것은 1명뿐이었다 — 지허브 임직원
+  대부분이 포털 사용자가 아니다. 나머지 45명의 생일은 버렸다(지시 확인 받음).
+  필요해지면 ASIS(user_profiles)가 살아 있으므로 계정을 만든 뒤 다시 읽어 올 수 있다.
+- 계정 수정 화면의 기존 버그를 함께 고쳤다 — 부서 목록을 로그인한 사람의 회사로만
+  받아 와서, 다른 회사 계정을 열면 소속 회사 프리필이 비고 저장이 조용히 막혔다
+  (getDeptList(undefined, true) 로 전 회사 조회).
 
 ## 4. 결정 대기 — 알림 연동 (D-G1)
 
@@ -68,11 +91,11 @@ ASIS 는 생일을 자체 사용자 표(user_profiles)에 두었지만 포털의
 ## 5. 이식하지 않은 GHUB 기능 (이번 범위 밖)
 
 안전(SHE) 전반 · 안전교육 · 협력사/프로젝트 서류 · 교대근무 · 식단 · 커넥트허브 ·
-GHUB 자체 시스템 관리. 필요해지면 GhubServer 에 모듈을 더하거나 별도 서비스로 뗀다.
+GHUB 자체 시스템 관리. 필요해지면 LifeEnvServer 에 모듈을 더하거나 별도 서비스로 뗀다.
 
 ## 6. 운영 메모
 
-- 수집은 GhubServer 안의 HostedService 가 30분 주기로 돈다(`Weather:CollectMinutes`).
+- 수집은 LifeEnvServer 안의 HostedService 가 30분 주기로 돈다(`Weather:CollectMinutes`).
   **인스턴스를 여러 개 띄우면 수집이 중복된다** — 지금은 단일 인스턴스 전제.
 - ASIS 가 아직 살아 있으므로 당분간 양쪽 다 수집한다. 지허브 쪽 운영을 끄는 시점은
   SK gas 와의 계약/운영 문제라 여기서 정하지 않는다.

@@ -4,14 +4,13 @@ import type { LifeBirthdayApi } from '#/api/life/birthday';
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 
-import { Page, useVbenModal } from '@vben/common-ui';
+import { Page } from '@vben/common-ui';
 import { IconifyIcon } from '@vben/icons';
 
 import { Button, Card, Space, Spin } from 'ant-design-vue';
 
 import { getBirthdayCalendar } from '#/api/life/birthday';
-
-import BirthdayEditModal from './modules/birthday-edit-modal.vue';
+import BizSelect from '#/components/BizSelect.vue';
 
 /**
  * [생일 캘린더]
@@ -19,18 +18,17 @@ import BirthdayEditModal from './modules/birthday-edit-modal.vue';
  * 원본(GHUB BirthdayCalendar.vue — FullCalendar). FullCalendar 의존성을 들이지 않고
  * helpdesk schedule 의 42칸(6주) 직접 그리기 격자를 본떴다.
  *
- * 원본과 다른 점:
- * - 소속(COMPANY_TYPE) 필터 콤보는 뺐다 — 달력 이벤트에는 companyCode 가 없어
- *   옵션을 만들 데이터가 없다 (API 의 companyCode 파라미터 자체는 남아 있다).
- * - 음력 → 올해 양력 환산 미리보기는 korean-lunar-calendar 대신
- *   서버가 준 발생일(이벤트의 start)을 팝업에 넘겨 보여 준다.
- * - 빈 날짜 칸을 클릭하면 그 날짜로 신규 등록 팝업을 연다.
+ * 생일 정본은 포털 계정(scom.accounts)이다 (A안) — 달력에서 등록·수정하지 않는다.
+ * 생일 칩은 hover 툴팁만 보여 주고, 소속 필터는 회사 → 부서 2단(BizSelect)이다.
  */
 
 const route = useRoute();
 
 const loading = ref(false);
 const events = ref<LifeBirthdayApi.CalendarEvent[]>([]);
+
+const selectedCompanyId = ref<string>('');
+const selectedDepartmentId = ref<string>('');
 
 const today = new Date();
 const currentYear = ref(today.getFullYear());
@@ -116,7 +114,13 @@ async function loadEvents() {
 
   loading.value = true;
   try {
-    events.value = (await getBirthdayCalendar(start, toIsoDate(after))) ?? [];
+    events.value =
+      (await getBirthdayCalendar(
+        start,
+        toIsoDate(after),
+        selectedCompanyId.value || undefined,
+        selectedDepartmentId.value || undefined,
+      )) ?? [];
   } finally {
     loading.value = false;
   }
@@ -134,44 +138,13 @@ function goToday() {
   currentMonth.value = now.getMonth();
 }
 
+/** 회사를 바꾸면 부서 선택을 초기화하고 다시 불러온다 */
+function onCompanyChange() {
+  selectedDepartmentId.value = '';
+  loadEvents();
+}
+
 watch([currentYear, currentMonth], loadEvents);
-
-// ── 생일 등록 · 수정 팝업 ────────────────────────────────
-
-const [EditModal, editModalApi] = useVbenModal({
-  connectedComponent: BirthdayEditModal,
-  destroyOnClose: true,
-});
-
-/** 생일 칩 클릭 → 수정 팝업 (원본 eventClick) */
-function onEventClick(ev: LifeBirthdayApi.CalendarEvent) {
-  editModalApi
-    .setData({
-      id: ev.extendedProps.dbId,
-      subjectId: ev.extendedProps.userId,
-      name: ev.title.replace(' 생일', ''),
-      birthDate: ev.extendedProps.originalBirthDate,
-      isLunar: ev.extendedProps.isLunar,
-      isCelebrated: true,
-      // 서버가 환산해 둔 올해 발생일 — 음력 미리보기에 쓴다
-      occurrenceDate: ev.start,
-    })
-    .open();
-}
-
-/** 빈 날짜 칸 클릭 → 그 날짜로 신규 등록 */
-function onCellClick(date: string) {
-  editModalApi
-    .setData({
-      id: 0,
-      subjectId: '',
-      name: '',
-      birthDate: date,
-      isLunar: false,
-      isCelebrated: true,
-    })
-    .open();
-}
 
 onMounted(async () => {
   // 라우트 쿼리에 날짜가 있으면 그 달로 이동 (원본과 동일).
@@ -193,24 +166,46 @@ onMounted(async () => {
 
 <template>
   <Page auto-content-height>
-    <!-- 상단: 제목 + 월 이동 -->
+    <!-- 상단: 제목 + 소속 필터 + 월 이동 -->
     <Card :body-style="{ padding: '10px 14px' }" class="mb-3" size="small">
       <div class="flex flex-wrap items-center justify-between gap-2">
         <span class="flex items-center gap-2 text-base font-bold">
           <IconifyIcon class="size-5 text-pink-500" icon="lucide:calendar-heart" />
           월별 생일자 캘린더
         </span>
-        <Space>
-          <Button @click="moveMonth(-1)">◀</Button>
-          <span class="min-w-[110px] text-center font-medium">
-            {{ monthLabel }}
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="text-xs text-muted-foreground">
+            생일 등록·수정은 [계정 관리] 화면에서 합니다
           </span>
-          <Button @click="moveMonth(1)">▶</Button>
-          <Button @click="goToday">오늘</Button>
-          <Button :loading="loading" @click="loadEvents">
-            <IconifyIcon class="size-4" icon="lucide:refresh-cw" />
-          </Button>
-        </Space>
+          <BizSelect
+            v-model:value="selectedCompanyId"
+            :show-all="true"
+            placeholder="회사 전체"
+            style="width: 150px"
+            type="company"
+            @change="onCompanyChange"
+          />
+          <BizSelect
+            v-model:value="selectedDepartmentId"
+            :params="{ companyId: selectedCompanyId }"
+            :show-all="true"
+            placeholder="부서 전체"
+            style="width: 150px"
+            type="dept"
+            @change="loadEvents"
+          />
+          <Space>
+            <Button @click="moveMonth(-1)">◀</Button>
+            <span class="min-w-[110px] text-center font-medium">
+              {{ monthLabel }}
+            </span>
+            <Button @click="moveMonth(1)">▶</Button>
+            <Button @click="goToday">오늘</Button>
+            <Button :loading="loading" @click="loadEvents">
+              <IconifyIcon class="size-4" icon="lucide:refresh-cw" />
+            </Button>
+          </Space>
+        </div>
       </div>
     </Card>
 
@@ -235,11 +230,10 @@ onMounted(async () => {
           <div
             v-for="cell in calendarDays"
             :key="cell.date"
-            class="relative min-h-[96px] cursor-pointer rounded border border-border p-1 transition-colors hover:bg-accent/40"
+            class="relative min-h-[96px] rounded border border-border p-1"
             :class="
               cell.isCurrentMonth ? 'bg-background' : 'bg-muted/30 opacity-60'
             "
-            @click="onCellClick(cell.date)"
           >
             <!-- 날짜 -->
             <span
@@ -257,15 +251,14 @@ onMounted(async () => {
               {{ cell.day }}
             </span>
 
-            <!-- 그날 생일 -->
+            <!-- 그날 생일 (클릭 동작 없음 — hover 툴팁만) -->
             <div class="max-h-[78px] space-y-0.5 overflow-y-auto pr-5 pt-0.5">
               <div
                 v-for="ev in eventsOf(cell.date)"
                 :key="`${cell.date}-${ev.id}`"
-                class="flex cursor-pointer items-center gap-1 truncate rounded-sm border-l-2 bg-pink-100/70 px-1 py-0.5 text-[10px] leading-tight text-pink-900 transition-all hover:brightness-95 dark:bg-pink-900/40 dark:text-pink-100"
+                class="flex items-center gap-1 truncate rounded-sm border-l-2 bg-pink-100/70 px-1 py-0.5 text-[10px] leading-tight text-pink-900 dark:bg-pink-900/40 dark:text-pink-100"
                 :style="{ borderLeftColor: ev.borderColor || ev.backgroundColor }"
-                :title="`${ev.title}${ev.extendedProps.isLunar ? ' (음력)' : ''}`"
-                @click.stop="onEventClick(ev)"
+                :title="`${ev.title}${ev.extendedProps.isLunar ? ' (음력)' : ''} — ${ev.extendedProps.originalBirthDate}`"
               >
                 <span class="shrink-0">🎂</span>
                 <span class="truncate">
@@ -277,8 +270,5 @@ onMounted(async () => {
         </div>
       </Card>
     </Spin>
-
-    <!-- 생일 등록 · 수정 팝업 -->
-    <EditModal @success="loadEvents" />
   </Page>
 </template>

@@ -1,6 +1,6 @@
 using System.Reflection;
 
-namespace GhubServer.Endpoints;
+namespace LifeEnvServer.Endpoints;
 
 /// <summary>
 /// 게이트웨이가 JWT 검증 후 붙여 주는 X-User-* 헤더를 읽는다.

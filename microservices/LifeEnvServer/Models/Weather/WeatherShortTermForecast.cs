@@ -1,11 +1,11 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace GhubServer.Models;
+namespace LifeEnvServer.Models;
 
 /// <summary>
 /// 단기 예보 (Short Term Forecast / Vilage Forecast).
 /// BaseTime: 02,05,08,11,14,17,20,23시 (1일 8회).
-/// 수집 이력이라 감사 컬럼이 없다 — GhubBaseEntity 를 상속하지 않는다.
+/// 수집 이력이라 감사 컬럼이 없다 — LifeEnvBaseEntity 를 상속하지 않는다.
 /// </summary>
 public class WeatherShortTermForecast
 {

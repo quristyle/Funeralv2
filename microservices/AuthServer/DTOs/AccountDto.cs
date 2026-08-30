@@ -36,6 +36,15 @@ public class AccountDto
     /// 이 값으로 파일 서버에서 찾을 수 있다.
     /// </summary>
     public string? AvatarGroupId { get; set; }
+
+    /// <summary>생년월일. <see cref="BirthDateIsLunar"/> 가 참이면 음력 월·일이다.</summary>
+    public DateOnly? BirthDate { get; set; }
+
+    /// <summary>생년월일이 음력인지</summary>
+    public bool BirthDateIsLunar { get; set; }
+
+    /// <summary>생일 축하(생일 화면 노출·메시지) 대상인지</summary>
+    public bool BirthdayCelebrated { get; set; } = true;
 }
 
 /// <summary>
@@ -50,6 +59,15 @@ public class CreateAccountDto
     public string Status { get; set; } = "ACTIVE";
     public string? DeptId { get; set; }
     public List<string> RoleIds { get; set; } = new();
+
+    /// <summary>생년월일. <see cref="BirthDateIsLunar"/> 가 참이면 음력 월·일이다.</summary>
+    public DateOnly? BirthDate { get; set; }
+
+    /// <summary>생년월일이 음력인지</summary>
+    public bool BirthDateIsLunar { get; set; }
+
+    /// <summary>생일 축하 대상인지</summary>
+    public bool BirthdayCelebrated { get; set; } = true;
 }
 
 /// <summary>
@@ -63,4 +81,13 @@ public class UpdateAccountDto
     public string Status { get; set; } = "ACTIVE";
     public string? DeptId { get; set; }
     public List<string> RoleIds { get; set; } = new();
+
+    /// <summary>생년월일. <see cref="BirthDateIsLunar"/> 가 참이면 음력 월·일이다.</summary>
+    public DateOnly? BirthDate { get; set; }
+
+    /// <summary>생년월일이 음력인지</summary>
+    public bool BirthDateIsLunar { get; set; }
+
+    /// <summary>생일 축하 대상인지</summary>
+    public bool BirthdayCelebrated { get; set; } = true;
 }

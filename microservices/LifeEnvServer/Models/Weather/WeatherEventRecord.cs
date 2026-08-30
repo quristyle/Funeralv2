@@ -1,11 +1,11 @@
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace GhubServer.Models;
+namespace LifeEnvServer.Models;
 
 /// <summary>
 /// 날씨 기준 부합 기록 (기준 초과 이벤트)
 /// </summary>
-public class WeatherEventRecord : GhubBaseEntity
+public class WeatherEventRecord : LifeEnvBaseEntity
 {
     /// <summary>
     /// 날씨 정보 ID

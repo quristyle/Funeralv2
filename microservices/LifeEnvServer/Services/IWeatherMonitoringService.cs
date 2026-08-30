@@ -1,6 +1,6 @@
-using GhubServer.Models;
+using LifeEnvServer.Models;
 
-namespace GhubServer.Services;
+namespace LifeEnvServer.Services;
 
 /// <summary>
 /// 날씨 모니터링 및 기준 체크 서비스

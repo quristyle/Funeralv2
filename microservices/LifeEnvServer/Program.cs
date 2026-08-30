@@ -1,7 +1,7 @@
 using System.Reflection;
-using GhubServer.Data;
-using GhubServer.Endpoints;
-using GhubServer.Services;
+using LifeEnvServer.Data;
+using LifeEnvServer.Endpoints;
+using LifeEnvServer.Services;
 using JSini.Shared.Infrastructure.HealthChecks;
 using JSini.Shared.Infrastructure.Middleware;
 using Microsoft.EntityFrameworkCore;
@@ -29,11 +29,11 @@ builder.Host.UseSerilog();
 // ============================================================
 // DB 는 ghub(서비스 전용), 스키마도 ghub 다.
 // **스키마는 이 코드가 만들지 않는다** — docs/sql/ghub_schema.sql 이 만든다.
-var connectionString = builder.Configuration.GetConnectionString("jsinighubconn")
-    ?? builder.Configuration["jsinighubconn"]
-    ?? Environment.GetEnvironmentVariable("jsinighubconn");
+var connectionString = builder.Configuration.GetConnectionString("jsinilifeenvconn")
+    ?? builder.Configuration["jsinilifeenvconn"]
+    ?? Environment.GetEnvironmentVariable("jsinilifeenvconn");
 
-builder.Services.AddDbContext<GhubDbContext>(options => options.UseNpgsql(connectionString));
+builder.Services.AddDbContext<LifeEnvDbContext>(options => options.UseNpgsql(connectionString));
 
 // ============================================================
 // 3. 서비스
@@ -58,9 +58,10 @@ builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo
     {
-        Title = "JSINI Ghub API",
+        Title = "JSINI LifeEnv API",
         Version = "v1",
-        Description = "생활과환경 — 기상(기상청 연동) · 생일. GHUB(SK가스 지허브)에서 이식.",
+        Description = "생활과환경 — 기상(기상청 연동). GHUB(SK가스 지허브)에서 이식. "
+                      + "생일은 포털(AuthServer /birthday/*)로 옮겨졌다.",
     });
 });
 
@@ -80,7 +81,7 @@ builder.Services.Configure<Microsoft.AspNetCore.Http.Json.JsonOptions>(options =
 builder.Services.AddHealthChecks()
     .AddDependencyCheck("database", async (sp, ct) =>
     {
-        var db = sp.GetRequiredService<GhubDbContext>();
+        var db = sp.GetRequiredService<LifeEnvDbContext>();
         var canConnect = await db.Database.CanConnectAsync(ct);
         return canConnect
             ? HealthCheckResult.Healthy("DB 에 연결됩니다.")
@@ -113,12 +114,11 @@ app.MapWeatherEndpoints();
 app.MapWeatherStandardEndpoints();
 app.MapWeatherResponseEndpoints();
 app.MapWeatherEventEndpoints();
-app.MapBirthdayEndpoints();
 
 string GetServerName() =>
     Environment.GetEnvironmentVariable("SERVER_NAME")
     ?? Assembly.GetEntryAssembly()?.GetName().Name
-    ?? "GHUB_API";
+    ?? "LIFEENV_API";
 
 app.Lifetime.ApplicationStarted.Register(() =>
 {
@@ -163,7 +163,7 @@ app.Lifetime.ApplicationStarted.Register(() =>
 
 try
 {
-    Log.Information("Starting GhubServer web host");
+    Log.Information("Starting LifeEnvServer web host");
     app.Run();
 }
 catch (Exception ex)

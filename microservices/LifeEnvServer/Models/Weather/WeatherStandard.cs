@@ -1,11 +1,11 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace GhubServer.Models;
+namespace LifeEnvServer.Models;
 
 /// <summary>
 /// 날씨 기준 정보 (풍속, 강우, 강설, 폭염, 한파 등)
 /// </summary>
-public class WeatherStandard : GhubBaseEntity
+public class WeatherStandard : LifeEnvBaseEntity
 {
     /// <summary>
     /// 기준 구분 (WIND, RAIN, SNOW, HEAT, COLD)

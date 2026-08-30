@@ -1,16 +1,16 @@
-using GhubServer.Models;
+using LifeEnvServer.Models;
 using Microsoft.EntityFrameworkCore;
 
-namespace GhubServer.Data;
+namespace LifeEnvServer.Data;
 
 /// <summary>
-/// GhubServer(생활과환경) DB 컨텍스트 — DB: ghub, 스키마: ghub.
+/// LifeEnvServer(생활과환경) DB 컨텍스트 — DB: ghub, 스키마: ghub.
 ///
 /// **스키마는 이 코드가 만들지 않는다** — docs/sql/ghub_schema.sql 이 만든다.
 /// 테이블·컬럼 이름은 원본(GHUB skgRestApi)과 같은 snake_case 변환을 써서
 /// ASIS 자료를 그대로 복사할 수 있게 유지한다.
 /// </summary>
-public class GhubDbContext(DbContextOptions<GhubDbContext> options) : DbContext(options)
+public class LifeEnvDbContext(DbContextOptions<LifeEnvDbContext> options) : DbContext(options)
 {
     // ── 기상 ─────────────────────────────────────────────────
     public DbSet<WeatherLocation> WeatherLocations => Set<WeatherLocation>();
@@ -29,9 +29,8 @@ public class GhubDbContext(DbContextOptions<GhubDbContext> options) : DbContext(
     public DbSet<WeatherShortTermForecast> WeatherShortTermForecasts => Set<WeatherShortTermForecast>();
     public DbSet<WeatherUltraSrtForecast> WeatherUltraSrtForecasts => Set<WeatherUltraSrtForecast>();
 
-    // ── 생일 ─────────────────────────────────────────────────
-    public DbSet<BirthdayProfile> BirthdayProfiles => Set<BirthdayProfile>();
-    public DbSet<BirthdayMessage> BirthdayMessages => Set<BirthdayMessage>();
+    // 생일은 여기 없다 — 포털(scom.accounts · scom.birthday_messages, AuthServer API)로
+    // 옮겨졌다 (2026-08-30, A안 — docs/analysis/38-ghub-migration.md 3절).
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -44,9 +43,6 @@ public class GhubDbContext(DbContextOptions<GhubDbContext> options) : DbContext(
             .HasMany(m => m.Sentences)
             .WithOne(s => s.WeatherWarningMsg)
             .HasForeignKey(s => s.WeatherWarningMsgId);
-
-        // 생일 메시지는 user_id 문자열만 담는다. 사용자 정본이 scom(AuthServer)이라
-        // 이 DB 안에서는 FK 를 걸 수 없다 — 이름 조인은 birthday_profiles 로 한다.
 
         // 모든 테이블·컬럼·제약 이름을 snake_case 로 (원본 GHUB 과 같은 규칙)
         foreach (var entity in modelBuilder.Model.GetEntityTypes())

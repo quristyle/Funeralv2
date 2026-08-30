@@ -1,6 +1,6 @@
-using GhubServer.Models;
+using LifeEnvServer.Models;
 
-namespace GhubServer.Dtos;
+namespace LifeEnvServer.Dtos;
 
 /// <summary>
 /// 기상 특보 통합 상세 정보 DTO

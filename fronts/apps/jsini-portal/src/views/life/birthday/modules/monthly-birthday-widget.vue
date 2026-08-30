@@ -3,9 +3,7 @@ import type { LifeBirthdayApi } from '#/api/life/birthday';
 
 import { computed, onMounted, ref, watch } from 'vue';
 
-import { IconifyIcon } from '@vben/icons';
-
-import { Avatar, Button, Card, Empty, Spin, Tag, Tooltip } from 'ant-design-vue';
+import { Avatar, Button, Card, Empty, Spin, Tag } from 'ant-design-vue';
 import dayjs from 'dayjs';
 
 import { getBirthdayList } from '#/api/life/birthday';
@@ -15,21 +13,21 @@ import { getBirthdayList } from '#/api/life/birthday';
  *
  * 원본(GHUB MonthlyBirthdayWidget.vue)을 ant-design-vue 로 옮겼다.
  * 발생일(occurrenceDate — 음력이면 양력 환산) 기준으로 날짜별 그룹을 만든다.
- * '축하' · '수정'은 부모에게 올린다 (팝업은 부모 화면이 하나만 들고 있다).
+ * '축하'는 부모에게 올린다 (팝업은 부모 화면이 하나만 들고 있다).
+ * 생일 수정은 여기서 하지 않는다 — [계정 관리] 화면에서 한다 (A안).
  */
 
 const props = defineProps<{
   /** 보여줄 월 (1~12) */
   targetMonth: number;
-  /** 소속 필터 (없으면 전체) */
-  companyCode?: string;
+  /** 회사 필터 (없으면 전체) */
+  companyId?: string;
+  /** 부서 필터 (없으면 전체) */
+  departmentId?: string;
 }>();
 
 const emit = defineEmits<{
   (e: 'send', person: LifeBirthdayApi.Person): void;
-  (e: 'edit', person: LifeBirthdayApi.Person): void;
-  /** 불러온 명단 — 부모가 소속 셀렉트 옵션을 모으는 데 쓴다 */
-  (e: 'loaded', people: LifeBirthdayApi.Person[]): void;
 }>();
 
 const loading = ref(false);
@@ -53,18 +51,29 @@ const grouped = computed(() => {
     }));
 });
 
+/** 부서를 보여 주고, 있으면 회사를 보조로 붙인다 */
+function belongLabel(b: LifeBirthdayApi.Person) {
+  if (b.departmentName && b.companyName) {
+    return `${b.departmentName} · ${b.companyName}`;
+  }
+  return b.departmentName || b.companyName || '임직원';
+}
+
 async function reload() {
   loading.value = true;
   try {
     people.value =
-      (await getBirthdayList(props.targetMonth, props.companyCode || undefined)) ?? [];
-    emit('loaded', people.value);
+      (await getBirthdayList(
+        props.targetMonth,
+        props.companyId || undefined,
+        props.departmentId || undefined,
+      )) ?? [];
   } finally {
     loading.value = false;
   }
 }
 
-watch(() => [props.targetMonth, props.companyCode], reload);
+watch(() => [props.targetMonth, props.companyId, props.departmentId], reload);
 onMounted(reload);
 
 defineExpose({ reload });
@@ -124,32 +133,20 @@ defineExpose({ reload });
                   </Tag>
                 </div>
                 <div class="truncate text-[10px] text-muted-foreground">
-                  {{ b.department || b.companyCode || '임직원' }}
+                  {{ belongLabel(b) }}
                 </div>
               </div>
 
-              <!-- 축하 · 수정 -->
-              <div class="flex shrink-0 flex-col items-end">
-                <Button
-                  v-perm:create
-                  class="!h-auto !p-0 !text-[11px] font-bold"
-                  size="small"
-                  type="link"
-                  @click="emit('send', b)"
-                >
-                  축하
-                </Button>
-                <Tooltip v-perm:update title="생일 정보 수정">
-                  <Button
-                    class="!h-auto !p-0"
-                    size="small"
-                    type="link"
-                    @click="emit('edit', b)"
-                  >
-                    <IconifyIcon class="size-3.5" icon="lucide:pencil" />
-                  </Button>
-                </Tooltip>
-              </div>
+              <!-- 축하 -->
+              <Button
+                v-perm:create
+                class="!h-auto shrink-0 !p-0 !text-[11px] font-bold"
+                size="small"
+                type="link"
+                @click="emit('send', b)"
+              >
+                축하
+              </Button>
             </div>
           </div>
         </div>

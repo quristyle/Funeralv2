@@ -97,6 +97,28 @@ public class Account : BaseEntity<string>
     public DateTime? PasswordChangedAt { get; set; }
 
     /// <summary>
+    /// 생년월일. <see cref="BirthDateIsLunar"/> 가 참이면 음력 월·일로 해석한다.
+    /// <para>
+    /// 생일의 정본은 여기(포털 계정)다 — 입력·수정은 계정 관리 화면이 하고,
+    /// 생일 화면(/birthday/*)은 읽기만 한다 (docs/sql/account_birthday.sql).
+    /// </para>
+    /// </summary>
+    [Column("birth_date")]
+    public DateOnly? BirthDate { get; set; }
+
+    /// <summary>
+    /// 생년월일이 음력인지
+    /// </summary>
+    [Column("birth_date_is_lunar")]
+    public bool BirthDateIsLunar { get; set; }
+
+    /// <summary>
+    /// 생일 축하(생일 화면 노출·메시지) 대상인지. 본인이 원치 않으면 끈다.
+    /// </summary>
+    [Column("birthday_celebrated")]
+    public bool BirthdayCelebrated { get; set; } = true;
+
+    /// <summary>
     /// 사용자 프로필 상세 정보 목록 탐색 속성 (1:N 관계)
     /// </summary>
     public ICollection<AccountProfileDetail>? ProfileDetails { get; set; }

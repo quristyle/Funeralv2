@@ -1,12 +1,12 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace GhubServer.Models;
+namespace LifeEnvServer.Models;
 
 /// <summary>
 /// 기상청 날씨 특보 정보
 /// </summary>
-public class WeatherWarning : GhubBaseEntity
+public class WeatherWarning : LifeEnvBaseEntity
 {
     /// <summary>
     /// 발표시각 (yyyyMMddHHmm) - API의 tmFc

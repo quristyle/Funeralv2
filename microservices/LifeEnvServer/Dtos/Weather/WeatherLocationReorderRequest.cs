@@ -1,4 +1,4 @@
-namespace GhubServer.Dtos;
+namespace LifeEnvServer.Dtos;
 
 /// <summary>
 /// 기상 위치 순서 재정렬 요청 DTO

@@ -1,11 +1,11 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace GhubServer.Models;
+namespace LifeEnvServer.Models;
 
 /// <summary>
 /// 기상 관측 지역 정보
 /// </summary>
-public class WeatherLocation : GhubBaseEntity
+public class WeatherLocation : LifeEnvBaseEntity
 {
     /// <summary>지역 명칭 (예: 울산 현장, 서울 본사)</summary>
     [Required]

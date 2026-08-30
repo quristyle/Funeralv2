@@ -1,12 +1,12 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace GhubServer.Models;
+namespace LifeEnvServer.Models;
 
 /// <summary>
 /// 기상 특보 통보문 문장 분할 모델
 /// </summary>
-public class WeatherWarningMsgSentence : GhubBaseEntity
+public class WeatherWarningMsgSentence : LifeEnvBaseEntity
 {
     /// <summary>
     /// 원본 통보문 ID (FK)

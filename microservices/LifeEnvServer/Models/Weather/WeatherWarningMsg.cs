@@ -1,11 +1,11 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace GhubServer.Models;
+namespace LifeEnvServer.Models;
 
 /// <summary>
 /// 기상 특보 통보문 상세 정보
 /// </summary>
-public class WeatherWarningMsg : GhubBaseEntity
+public class WeatherWarningMsg : LifeEnvBaseEntity
 {
     /// <summary>발표 시각 (yyyyMMddHHmm)</summary>
     [MaxLength(14)]

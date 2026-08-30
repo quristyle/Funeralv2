@@ -1,12 +1,12 @@
-using GhubServer.Data;
-using GhubServer.Dtos;
-using GhubServer.Models;
-using GhubServer.Services;
-using GhubServer.Utilities;
+using LifeEnvServer.Data;
+using LifeEnvServer.Dtos;
+using LifeEnvServer.Models;
+using LifeEnvServer.Services;
+using LifeEnvServer.Utilities;
 using JSini.Shared.Infrastructure.Filters;
 using Microsoft.EntityFrameworkCore;
 
-namespace GhubServer.Endpoints;
+namespace LifeEnvServer.Endpoints;
 
 /// <summary>
 /// 날씨 관련 엔드포인트 (GHUB skgRestApi 이식)
@@ -34,7 +34,7 @@ public static class WeatherEndpoints {
     // 1. 관측 지역 관리 (CRUD)
     var locationGroup = group.MapGroup("/locations");
 
-    locationGroup.MapGet("/", async (GhubDbContext db) => {
+    locationGroup.MapGet("/", async (LifeEnvDbContext db) => {
       return Results.Ok(await db.WeatherLocations
         .Where(l => !l.IsDeleted)
         .OrderBy(l => l.SortOrder)
@@ -43,7 +43,7 @@ public static class WeatherEndpoints {
     .WithName("GetWeatherLocations")
     .WithSummary("날씨 관측 지역 목록 조회");
 
-    locationGroup.MapPost("/", async (GhubDbContext db, WeatherLocation location, UserContext? user) => {
+    locationGroup.MapPost("/", async (LifeEnvDbContext db, WeatherLocation location, UserContext? user) => {
       location.CreatedAt = DateTimeOffset.UtcNow;
       location.CreatedBy = user?.UserId ?? "";
       db.WeatherLocations.Add(location);
@@ -52,7 +52,7 @@ public static class WeatherEndpoints {
     })
     .WithName("CreateWeatherLocation");
 
-    locationGroup.MapPut("/{id:int}", async (GhubDbContext db, int id, WeatherLocation updated, UserContext? user) => {
+    locationGroup.MapPut("/{id:int}", async (LifeEnvDbContext db, int id, WeatherLocation updated, UserContext? user) => {
       var location = await db.WeatherLocations.FindAsync(id);
       if (location == null || location.IsDeleted) return Results.NotFound();
 
@@ -73,7 +73,7 @@ public static class WeatherEndpoints {
       return Results.Ok(location);
     });
 
-    locationGroup.MapDelete("/{id:int}", async (GhubDbContext db, int id, UserContext? user) => {
+    locationGroup.MapDelete("/{id:int}", async (LifeEnvDbContext db, int id, UserContext? user) => {
       var location = await db.WeatherLocations.FindAsync(id);
       if (location == null || location.IsDeleted) return Results.NotFound();
 
@@ -86,7 +86,7 @@ public static class WeatherEndpoints {
     });
 
     // 관측 지역 순서 변경
-    locationGroup.MapPut("/reorder", async (GhubDbContext db, List<WeatherLocationReorderRequest> requests, UserContext? user) => {
+    locationGroup.MapPut("/reorder", async (LifeEnvDbContext db, List<WeatherLocationReorderRequest> requests, UserContext? user) => {
       var ids = requests.Select(r => r.Id).ToList();
       var locations = await db.WeatherLocations.Where(l => ids.Contains(l.Id)).ToListAsync();
 
@@ -113,7 +113,7 @@ public static class WeatherEndpoints {
     .WithSummary("격자 좌표 검색 (시도/시군구 기준)");
 
     // 2. 실시간 날씨 조회 (대시보드용)
-    group.MapGet("/", async (GhubDbContext db, WeatherApiService weatherApi) => {
+    group.MapGet("/", async (LifeEnvDbContext db, WeatherApiService weatherApi) => {
       var locations = await db.WeatherLocations
         .Where(l => l.IsActive && !l.IsDeleted)
         .OrderBy(l => l.SortOrder)
@@ -164,7 +164,7 @@ public static class WeatherEndpoints {
     .WithSummary("최신 날씨 정보 조회 (DB 우선, 20분 경과 시 API 갱신)");
 
     // 2.1 특정 지역 실시간 날씨 조회 (단건)
-    group.MapGet("/current/{locationId:int}", async (GhubDbContext db, WeatherApiService weatherApi, int locationId) => {
+    group.MapGet("/current/{locationId:int}", async (LifeEnvDbContext db, WeatherApiService weatherApi, int locationId) => {
       var loc = await db.WeatherLocations.FindAsync(locationId);
       if (loc == null || loc.IsDeleted) return Results.NotFound("Location not found");
 
@@ -229,7 +229,7 @@ public static class WeatherEndpoints {
     .WithSummary("특정 지역 실시간 날씨 조회 (DB 우선, 20분 경과 시 API 갱신)");
 
     // 3. 날씨 이력 조회 (차트용)
-    group.MapGet("/history", async (GhubDbContext db, string? location, int? days) => {
+    group.MapGet("/history", async (LifeEnvDbContext db, string? location, int? days) => {
       var query = db.WeatherInfos.AsQueryable();
 
       if (!string.IsNullOrEmpty(location)) {
@@ -249,7 +249,7 @@ public static class WeatherEndpoints {
     .WithSummary("날씨 이력 조회 (기간별)");
 
     // 3.1 특정 시간대 과거 기온 조회 (차트용)
-    group.MapGet("/history/hourly", async (GhubDbContext db, int locationId, int hour, int? days) => {
+    group.MapGet("/history/hourly", async (LifeEnvDbContext db, int locationId, int hour, int? days) => {
         var limitDays = days ?? 7;
         var startDate = DateTimeOffset.UtcNow.AddDays(-(limitDays + 1)); // 넉넉하게 하루 더 조회
 
@@ -281,7 +281,7 @@ public static class WeatherEndpoints {
     .WithSummary("특정 시간대(KST)의 과거 기온 이력 조회");
 
     // 4. 단기 예보 조회 (이력 + 예보 병합)
-    group.MapGet("/forecast/{locationId:int}", async (GhubDbContext db, int locationId) => {
+    group.MapGet("/forecast/{locationId:int}", async (LifeEnvDbContext db, int locationId) => {
       var loc = await db.WeatherLocations.FindAsync(locationId);
       if (loc == null) return Results.NotFound("Location not found");
 
@@ -459,7 +459,7 @@ public static class WeatherEndpoints {
     .WithSummary("단기 예보 조회 (이력 + 예보 병합 - DB기반)");
 
     // 5. 중기 예보 조회 (주간 날씨 - DB 조회)
-    group.MapGet("/mid-term/{locationId:int}", async (GhubDbContext db, int locationId) => {
+    group.MapGet("/mid-term/{locationId:int}", async (LifeEnvDbContext db, int locationId) => {
       var loc = await db.WeatherLocations.FindAsync(locationId);
       if (loc == null) return Results.NotFound("Location not found");
 
@@ -573,7 +573,7 @@ public static class WeatherEndpoints {
     .WithSummary("중기 예보 조회 (주간 날씨)");
 
     // 6. 기상 특보 조회
-    group.MapGet("/warnings", async (GhubDbContext db, bool? all) => {
+    group.MapGet("/warnings", async (LifeEnvDbContext db, bool? all) => {
       var now = DateTimeOffset.UtcNow;
       var lookback = now.AddDays(-7); // 그룹핑을 위해 최근 7일 데이터 조회
       var liftedCutoff = now.AddHours(-10); // 10시간 이내 해제건 필터용
@@ -652,7 +652,7 @@ public static class WeatherEndpoints {
     .WithSummary("기상 특보 조회 (all=true: 전체 이력, false/null: 발효 중 + 10시간 내 해제 요약)");
 
 
-    group.MapGet("/warnings4location", async (GhubDbContext db) => {
+    group.MapGet("/warnings4location", async (LifeEnvDbContext db) => {
       // 1. WarningAreaCode가 있는 활성 관리 지역 조회
       var locationCodes = await db.WeatherLocations
           .Where(l => l.IsActive && !l.IsDeleted && !string.IsNullOrEmpty(l.WarningAreaCode))
@@ -729,7 +729,7 @@ public static class WeatherEndpoints {
     .WithName("GetWeatherWarnings4Location")
     .WithSummary("오늘의 특보 중 관리지역(WarningAreaCode) 관련 문장(RegKo, RegName 포함) 조회");
 
-    group.MapGet("/warnings4location-range", async (GhubDbContext db) => {
+    group.MapGet("/warnings4location-range", async (LifeEnvDbContext db) => {
       // 1. 관리 지역 코드 및 키워드 추출 (warnings4location과 동일)
       var locationCodes = await db.WeatherLocations
           .Where(l => l.IsActive && !l.IsDeleted && !string.IsNullOrEmpty(l.WarningAreaCode))
@@ -808,7 +808,7 @@ public static class WeatherEndpoints {
     .WithSummary("오늘의 특보 중 관리지역 관련 시작 및 마지막 문장 조회");
 
     // 6.0 기상 특보 단건 조회
-    group.MapGet("/warnings/{id:int}", async (GhubDbContext db, int id) => {
+    group.MapGet("/warnings/{id:int}", async (LifeEnvDbContext db, int id) => {
       var warning = await db.WeatherWarnings.FindAsync(id);
       return warning != null ? Results.Ok(warning) : Results.NotFound();
     })
@@ -816,7 +816,7 @@ public static class WeatherEndpoints {
     .WithSummary("기상 특보 단건 조회");
 
     // 6.0.1 기상 특보 통합 상세 조회 (단일 호출용)
-    group.MapGet("/warnings/{id:int}/full", async (GhubDbContext db, int id) => {
+    group.MapGet("/warnings/{id:int}/full", async (LifeEnvDbContext db, int id) => {
         var warning = await db.WeatherWarnings.FindAsync(id);
         if (warning == null) return Results.NotFound();
 
@@ -852,7 +852,7 @@ public static class WeatherEndpoints {
     .WithSummary("기상 특보 통합 상세 조회 (기본+통보문+매칭지역+관련특보구역)");
 
     // 6.1 기상 특보 통보문 조회
-    group.MapGet("/warnings/msg", async (GhubDbContext db, int stnId, string tmFc, int tmSeq) => {
+    group.MapGet("/warnings/msg", async (LifeEnvDbContext db, int stnId, string tmFc, int tmSeq) => {
       var msg = await db.WeatherWarningMsgs
           .FirstOrDefaultAsync(i => i.StnId == stnId && i.TmFc == tmFc && i.TmSeq == tmSeq);
 
@@ -862,7 +862,7 @@ public static class WeatherEndpoints {
     .WithSummary("기상 특보 통보문 조회");
 
     // 6.2.1 특정 특보에 영향을 받는 관리 지역 조회
-    group.MapGet("/warnings/{id:int}/locations", async (GhubDbContext db, int id) => {
+    group.MapGet("/warnings/{id:int}/locations", async (LifeEnvDbContext db, int id) => {
         var matched = await db.WeatherLocationWarnings
             .Include(mw => mw.WeatherLocation)
             .Where(mw => mw.WeatherWarningId == id)
@@ -873,7 +873,7 @@ public static class WeatherEndpoints {
     .WithName("GetMatchedLocationsForWarning");
 
     // 6.2.2 관리 지역별 특보 이력 조회
-    group.MapGet("/locations/warning-history", async (GhubDbContext db, int? locationId) => {
+    group.MapGet("/locations/warning-history", async (LifeEnvDbContext db, int? locationId) => {
         var locations = await db.WeatherLocations
             .Where(l => l.IsActive && !l.IsDeleted)
             .OrderBy(l => l.SortOrder)
@@ -901,7 +901,7 @@ public static class WeatherEndpoints {
     .WithName("GetLocationWarningHistory");
 
     // 6.5.1 특보 구역 목록 조회
-    group.MapGet("/warning-zones", async (GhubDbContext db) => {
+    group.MapGet("/warning-zones", async (LifeEnvDbContext db) => {
       return Results.Ok(await db.WeatherWarningZones
           .Where(z => !z.IsDeleted)
           .OrderBy(z => z.RegId)

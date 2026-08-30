@@ -1,10 +1,10 @@
-using GhubServer.Data;
-using GhubServer.Dtos;
-using GhubServer.Models;
+using LifeEnvServer.Data;
+using LifeEnvServer.Dtos;
+using LifeEnvServer.Models;
 using JSini.Shared.Infrastructure.Filters;
 using Microsoft.EntityFrameworkCore;
 
-namespace GhubServer.Endpoints;
+namespace LifeEnvServer.Endpoints;
 
 /// <summary>
 /// 날씨 기준별 대응 정보 관리 엔드포인트 (GHUB skgRestApi 이식)
@@ -21,7 +21,7 @@ public static class WeatherResponseEndpoints
             .AddApiResponseWrapper();
 
         // 대응 정보 전체 조회
-        group.MapGet("/", async (GhubDbContext db) =>
+        group.MapGet("/", async (LifeEnvDbContext db) =>
         {
             var responses = await db.WeatherResponses
                 .Include(r => r.WeatherStandard)
@@ -35,7 +35,7 @@ public static class WeatherResponseEndpoints
         .WithSummary("날씨 대응 정보 목록 조회");
 
         // 기준별 대응 정보 조회
-        group.MapGet("/by-standard/{standardId:int}", async (GhubDbContext db, int standardId) =>
+        group.MapGet("/by-standard/{standardId:int}", async (LifeEnvDbContext db, int standardId) =>
         {
             var responses = await db.WeatherResponses
                 .Where(r => r.WeatherStandardId == standardId && !r.IsDeleted)
@@ -47,7 +47,7 @@ public static class WeatherResponseEndpoints
         .WithSummary("기준별 대응 정보 조회");
 
         // 대응 정보 생성
-        group.MapPost("/", async (GhubDbContext db, WeatherResponse response, UserContext? user) =>
+        group.MapPost("/", async (LifeEnvDbContext db, WeatherResponse response, UserContext? user) =>
         {
             // 기준 존재 여부 확인
             if (!await db.WeatherStandards.AnyAsync(s => s.Id == response.WeatherStandardId && !s.IsDeleted))
@@ -66,7 +66,7 @@ public static class WeatherResponseEndpoints
         .WithSummary("날씨 대응 정보 생성");
 
         // 대응 정보 수정
-        group.MapPut("/{id:int}", async (GhubDbContext db, int id, WeatherResponse updatedResponse, UserContext? user) =>
+        group.MapPut("/{id:int}", async (LifeEnvDbContext db, int id, WeatherResponse updatedResponse, UserContext? user) =>
         {
             var response = await db.WeatherResponses.FindAsync(id);
             if (response == null || response.IsDeleted) return Results.NotFound();
@@ -85,7 +85,7 @@ public static class WeatherResponseEndpoints
         .WithSummary("날씨 대응 정보 수정");
 
         // 대응 정보 삭제 (논리 삭제)
-        group.MapDelete("/{id:int}", async (GhubDbContext db, int id, UserContext? user) =>
+        group.MapDelete("/{id:int}", async (LifeEnvDbContext db, int id, UserContext? user) =>
         {
             var response = await db.WeatherResponses.FindAsync(id);
             if (response == null || response.IsDeleted) return Results.NotFound();
@@ -101,7 +101,7 @@ public static class WeatherResponseEndpoints
         .WithSummary("날씨 대응 정보 삭제");
 
         // 대응 정보 순서 변경
-        group.MapPut("/reorder", async (GhubDbContext db, List<WeatherResponseReorderRequest> requests, UserContext? user) =>
+        group.MapPut("/reorder", async (LifeEnvDbContext db, List<WeatherResponseReorderRequest> requests, UserContext? user) =>
         {
             var ids = requests.Select(r => r.Id).ToList();
             var responses = await db.WeatherResponses.Where(r => ids.Contains(r.Id)).ToListAsync();
