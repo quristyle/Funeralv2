@@ -1,0 +1,62 @@
+# 회사 소개 사이트(jsini.co.kr) 배포 — vite-ssg 정적 빌드를 /srv/jsini/site 로.
+name: deploy-site
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "fronts/apps/jsini-site/**"
+      - "fronts/pnpm-lock.yaml"
+      - ".github/workflows/deploy-site.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-site
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: fronts
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: fronts/pnpm-lock.yaml
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm --filter @jsini/site build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: site-dist
+          path: fronts/apps/jsini-site/dist
+          retention-days: 3
+
+  deploy:
+    needs: build
+    if: github.event_name != 'pull_request'
+    runs-on: [self-hosted, prod]
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: site-dist
+          path: site-dist
+
+      - name: 정적 루트 교체
+        run: |
+          rsync -a --delete site-dist/ /srv/jsini/site/
+          code=$(curl -sk -o /dev/null -w "%{http_code}" --resolve jsini.co.kr:443:127.0.0.1 https://jsini.co.kr/ --max-time 10)
+          echo "site: HTTP $code"
+          test "$code" = "200"
