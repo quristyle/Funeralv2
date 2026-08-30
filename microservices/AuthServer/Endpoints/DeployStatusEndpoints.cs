@@ -1,4 +1,5 @@
 using System.Net.Sockets;
+using System.Text;
 using System.Text.Json;
 using JSini.Shared.DTOs;
 
@@ -54,6 +55,48 @@ public static class DeployStatusEndpoints
             }));
         });
 
+        // ── 컨테이너 로그 ───────────────────────────────────
+        //
+        // 컨테이너에 들어가지 않고 화면에서 로그를 본다. 로그에는 내부 정보가
+        // 섞일 수 있으므로 정리와 같은 관리자 계열 판정을 쓴다.
+        group.MapGet("/logs/{service}", async (string service,
+            UserContext? user,
+            HttpContext http,
+            IConfiguration config,
+            CancellationToken ct) =>
+        {
+            if (user is null) return Results.Unauthorized();
+            if (!IsAdmin(user, http))
+                return Results.Json(ApiResponse<object>.Fail("관리자만 볼 수 있습니다.", "403"), statusCode: 403);
+
+            var socketPath = SocketPath(config);
+            if (!File.Exists(socketPath))
+                return Results.Json(ApiResponse<object>.Fail("이 환경에는 Docker 소켓이 없습니다.", "400"), statusCode: 400);
+
+            var tail = int.TryParse(http.Request.Query["tail"], out var t)
+                ? Math.Clamp(t, 10, 2000) : 200;
+            try
+            {
+                using var client = CreateDockerClient(socketPath);
+                var id = await FindContainerIdAsync(client, service, ct);
+                if (id is null)
+                    return Results.Json(ApiResponse<object>.Fail($"'{service}' 컨테이너를 찾지 못했습니다.", "404"), statusCode: 404);
+
+                var raw = await client.GetByteArrayAsync(
+                    $"/containers/{id}/logs?stdout=true&stderr=true&timestamps=true&tail={tail}", ct);
+                return Results.Ok(ApiResponse<object>.Ok(new
+                {
+                    service,
+                    tail,
+                    log = DemuxDockerLogs(raw),
+                }));
+            }
+            catch (Exception ex)
+            {
+                return Results.Json(ApiResponse<object>.Fail(ex.Message, "500"), statusCode: 500);
+            }
+        });
+
         // ── 오래된 이미지 정리 ──────────────────────────────
         group.MapPost("/cleanup", async (UserContext? user,
             HttpContext http,
@@ -61,13 +104,7 @@ public static class DeployStatusEndpoints
             CancellationToken ct) =>
         {
             if (user is null) return Results.Unauthorized();
-
-            // X-User-Role 은 첫 역할 하나뿐이라 전체 목록(X-User-Roles)으로 판정한다.
-            var roles = http.Request.Headers["X-User-Roles"].ToString()
-                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-            var allowed = roles.Contains("ADMINISTRATOR") || roles.Contains("SYSTEM_ADMINISTRATOR")
-                          || user.Role is "ADMINISTRATOR" or "SYSTEM_ADMINISTRATOR";
-            if (!allowed)
+            if (!IsAdmin(user, http))
                 return Results.Json(ApiResponse<object>.Fail("관리자만 정리할 수 있습니다.", "403"), statusCode: 403);
 
             var socketPath = SocketPath(config);
@@ -88,6 +125,55 @@ public static class DeployStatusEndpoints
 
     private static string SocketPath(IConfiguration config) =>
         config["DeployStatus:DockerSocket"] ?? "/var/run/docker.sock";
+
+    /// <summary>
+    /// 관리자 계열 판정. X-User-Role 은 첫 역할 하나뿐이라
+    /// 전체 목록(X-User-Roles)으로 함께 본다. PARTNER_ADMINISTRATOR 는 해당하지 않는다.
+    /// </summary>
+    private static bool IsAdmin(UserContext user, HttpContext http)
+    {
+        var roles = http.Request.Headers["X-User-Roles"].ToString()
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        return roles.Contains("ADMINISTRATOR") || roles.Contains("SYSTEM_ADMINISTRATOR")
+               || user.Role is "ADMINISTRATOR" or "SYSTEM_ADMINISTRATOR";
+    }
+
+    /// <summary>compose 서비스 라벨로 컨테이너 Id 를 찾는다.</summary>
+    private static async Task<string?> FindContainerIdAsync(HttpClient client, string service, CancellationToken ct)
+    {
+        using var doc = JsonDocument.Parse(await client.GetStringAsync("/containers/json?all=true", ct));
+        foreach (var c in doc.RootElement.EnumerateArray())
+        {
+            var labels = c.GetProperty("Labels");
+            if (labels.TryGetProperty("com.docker.compose.service", out var svc)
+                && svc.GetString() == service)
+                return c.GetProperty("Id").GetString();
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// TTY 없이 띄운 컨테이너의 로그는 8바이트 헤더(스트림 종류 1 + 예약 3 + 길이 4)
+    /// 프레임으로 stdout/stderr 가 섞여 온다. 헤더를 걷어내고 본문만 잇는다.
+    /// TTY 로그(헤더 없음)면 그대로 돌려준다.
+    /// </summary>
+    private static string DemuxDockerLogs(byte[] buf)
+    {
+        if (buf.Length == 0) return "";
+        if (buf[0] > 2) return Encoding.UTF8.GetString(buf);
+
+        var sb = new StringBuilder(buf.Length);
+        var i = 0;
+        while (i + 8 <= buf.Length)
+        {
+            var size = (buf[i + 4] << 24) | (buf[i + 5] << 16) | (buf[i + 6] << 8) | buf[i + 7];
+            i += 8;
+            if (size <= 0 || i + size > buf.Length) break;
+            sb.Append(Encoding.UTF8.GetString(buf, i, size));
+            i += size;
+        }
+        return sb.ToString();
+    }
 
     // ── GitHub ──────────────────────────────────────────────
 

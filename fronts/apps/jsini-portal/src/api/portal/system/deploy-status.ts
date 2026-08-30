@@ -52,6 +52,13 @@ export namespace DeployStatusApi {
     sizeMb: number;
   }
 
+  export interface ContainerLogs {
+    /** 헤더를 걷어낸 로그 본문 (타임스탬프 포함) */
+    log: string;
+    service: string;
+    tail: number;
+  }
+
   export interface CleanupResult {
     errors: string[];
     keptRecent: number;
@@ -90,5 +97,20 @@ export async function getDeployStatus(): Promise<DeployStatusApi.Overview> {
  */
 export async function cleanupDockerImages(): Promise<DeployStatusApi.CleanupResult> {
   const res = await requestClient.post<any>('/auth/deploy-status/cleanup');
+  return res?.result?.[0] ?? res;
+}
+
+/**
+ * 컨테이너 로그 조회 — 컨테이너에 들어가지 않고 화면에서 본다.
+ * 관리자 계열만 서버가 허용한다.
+ */
+export async function getContainerLogs(
+  service: string,
+  tail = 200,
+): Promise<DeployStatusApi.ContainerLogs> {
+  const res = await requestClient.get<any>(
+    `/auth/deploy-status/logs/${service}`,
+    { params: { tail } },
+  );
   return res?.result?.[0] ?? res;
 }

@@ -3,7 +3,7 @@ import type { DeployStatusApi } from '#/api/portal/system/deploy-status';
 
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 
-import { Page } from '@vben/common-ui';
+import { Page, useVbenModal } from '@vben/common-ui';
 
 import {
   Button,
@@ -23,11 +23,16 @@ import {
   getDeployStatus,
 } from '#/api/portal/system/deploy-status';
 
+import ContainerLogsModal from './modules/container-logs-modal.vue';
+import RunHistoryModal from './modules/run-history-modal.vue';
+
 /**
  * 상태관리 > 배포 현황.
  *
  * git push 로 도는 자동배포의 "지금 상태"를 한 화면에 모은다 —
- * GitHub Actions 실행 이력 · self-hosted 러너 · 운영서버 컨테이너(이미지 태그).
+ * 워크플로별 마지막 실행을 카드로 보여 주고, 지난 기록은 카드의
+ * 히스토리 팝업에서 본다. 운영서버 컨테이너(이미지 태그)와
+ * 오래된 이미지 정리 버튼도 여기에 있다.
  * 재현 절차와 구조는 docs/analysis/39-jsini-deploy-setup-guide.md 에 있다.
  */
 
@@ -55,6 +60,73 @@ onMounted(() => {
 });
 onUnmounted(() => timer && clearInterval(timer));
 
+// ── 워크플로 카드 (마지막 실행만) ────────────────────────
+
+interface WorkflowCard {
+  count: number;
+  latest: DeployStatusApi.WorkflowRun;
+  name: string;
+  runs: DeployStatusApi.WorkflowRun[];
+}
+
+/** GitHub 가 최신순으로 주므로, 이름별 첫 항목이 곧 마지막 실행이다. */
+const workflowCards = computed<WorkflowCard[]>(() => {
+  const byName = new Map<string, DeployStatusApi.WorkflowRun[]>();
+  for (const run of data.value?.github.runs ?? []) {
+    let list = byName.get(run.name);
+    if (!list) {
+      list = [];
+      byName.set(run.name, list);
+    }
+    list.push(run);
+  }
+  return [...byName.entries()].map(([name, runs]) => ({
+    name,
+    latest: runs[0] as DeployStatusApi.WorkflowRun,
+    count: runs.length,
+    runs,
+  }));
+});
+
+const [HistoryModal, historyModalApi] = useVbenModal({
+  connectedComponent: RunHistoryModal,
+  destroyOnClose: true,
+});
+
+function openHistory(card: WorkflowCard) {
+  historyModalApi.setData({ name: card.name, runs: card.runs }).open();
+}
+
+const [LogsModal, logsModalApi] = useVbenModal({
+  connectedComponent: ContainerLogsModal,
+  destroyOnClose: true,
+});
+
+function openLogs(service: string) {
+  logsModalApi.setData({ service }).open();
+}
+
+// ── 요약 ────────────────────────────────────────────────
+
+const containers = computed(() => data.value?.docker.containers ?? []);
+const runningCount = computed(
+  () => containers.value.filter((c) => c.state === 'running').length,
+);
+
+/** 배포된 태그 — gateway 컨테이너의 이미지 태그가 정본이다. */
+const deployedTag = computed(() => {
+  const gw = containers.value.find((c) => c.service === 'gateway');
+  return gw?.tag ?? '';
+});
+
+const lastBackendDeploy = computed(() =>
+  data.value?.github.runs.find(
+    (r) => r.name === 'deploy-backend' && r.conclusion === 'success',
+  ),
+);
+
+const runner = computed(() => data.value?.github.runners[0] ?? null);
+
 // ── 이미지 정리 ─────────────────────────────────────────
 
 const cleaning = ref(false);
@@ -80,43 +152,14 @@ const staleImageCount = computed(
   () => (data.value?.docker.images ?? []).filter((i) => !i.inUse).length,
 );
 
-// ── 요약 ────────────────────────────────────────────────
-
-const containers = computed(() => data.value?.docker.containers ?? []);
-const runningCount = computed(
-  () => containers.value.filter((c) => c.state === 'running').length,
-);
-
-/** 배포된 태그 — gateway 컨테이너의 이미지 태그가 정본이다. */
-const deployedTag = computed(() => {
-  const gw = containers.value.find((c) => c.service === 'gateway');
-  return gw?.tag ?? '';
-});
-
-const lastBackendDeploy = computed(() =>
-  data.value?.github.runs.find(
-    (r) => r.name === 'deploy-backend' && r.conclusion === 'success',
-  ),
-);
-
-const runner = computed(() => data.value?.github.runners[0] ?? null);
-
 // ── 표 ──────────────────────────────────────────────────
 
-const runColumns = [
-  { dataIndex: 'name', key: 'name', title: '워크플로', width: 130 },
-  { dataIndex: 'status', key: 'status', title: '상태', width: 90 },
-  { dataIndex: 'sha', key: 'sha', title: '커밋', width: 90 },
-  { dataIndex: 'event', key: 'event', title: '트리거', width: 110 },
-  { dataIndex: 'startedAt', key: 'startedAt', title: '시작', width: 130 },
-  { dataIndex: 'durationSec', key: 'duration', title: '소요', width: 70 },
-];
-
 const containerColumns = [
-  { dataIndex: 'service', key: 'service', title: '서비스', width: 90 },
-  { dataIndex: 'state', key: 'state', title: '상태', width: 90 },
-  { dataIndex: 'tag', key: 'tag', title: '이미지 태그', width: 110 },
+  { dataIndex: 'service', key: 'service', title: '서비스', width: 100 },
+  { dataIndex: 'state', key: 'state', title: '상태', width: 100 },
+  { dataIndex: 'tag', key: 'tag', title: '이미지 태그', width: 120 },
   { dataIndex: 'status', key: 'status', title: '가동' },
+  { key: 'actions', title: '', width: 70 },
 ];
 
 function runTagColor(run: DeployStatusApi.WorkflowRun) {
@@ -147,7 +190,7 @@ function fmtDuration(sec: null | number) {
 
 <template>
   <Page
-    description="git push 가 만드는 빌드·배포 이력과 운영서버 컨테이너 상태를 한눈에 본다."
+    description="git push 가 만드는 빌드·배포의 마지막 상태와 운영서버 컨테이너를 한눈에 본다."
     title="배포 현황"
   >
     <template #extra>
@@ -167,6 +210,9 @@ function fmtDuration(sec: null | number) {
     <Spin :spinning="loading && !data">
       <div v-if="errorMsg" class="text-destructive mb-3 text-sm">
         {{ errorMsg }}
+      </div>
+      <div v-if="data?.github.error" class="text-destructive mb-3 text-xs">
+        GitHub 조회 실패: {{ data.github.error }}
       </div>
 
       <!-- 요약 카드 -->
@@ -211,103 +257,119 @@ function fmtDuration(sec: null | number) {
         </Card>
       </div>
 
-      <div class="grid grid-cols-1 gap-3 xl:grid-cols-5">
-        <!-- 최근 실행 -->
-        <Card class="xl:col-span-3" size="small" title="최근 빌드·배포 실행">
-          <template #extra>
-            <a
-              :href="`https://github.com/${data?.repo}/actions`"
-              rel="noopener"
-              target="_blank"
-            >
-              GitHub Actions
-            </a>
-          </template>
-          <div v-if="data?.github.error" class="text-destructive mb-2 text-xs">
-            GitHub 조회 실패: {{ data.github.error }}
-          </div>
-          <Table
-            :columns="runColumns"
-            :data-source="data?.github.runs ?? []"
-            :pagination="false"
-            :scroll="{ y: 420 }"
-            row-key="id"
-            size="small"
-          >
-            <template #bodyCell="{ column, record }">
-              <template v-if="column.key === 'name'">
-                <a :href="record.htmlUrl" rel="noopener" target="_blank">
-                  {{ record.name }}
-                </a>
-              </template>
-              <template v-else-if="column.key === 'status'">
-                <Tag :color="runTagColor(record)">{{ runTagText(record) }}</Tag>
-              </template>
-              <template v-else-if="column.key === 'sha'">
-                <span class="font-mono">{{ record.sha.slice(0, 7) }}</span>
-              </template>
-              <template v-else-if="column.key === 'startedAt'">
-                {{ fmtTime(record.startedAt) }}
-              </template>
-              <template v-else-if="column.key === 'duration'">
-                {{ fmtDuration(record.durationSec) }}
-              </template>
-            </template>
-          </Table>
-        </Card>
-
-        <!-- 운영 컨테이너 -->
-        <Card class="xl:col-span-2" size="small" title="운영서버 컨테이너">
-          <template #extra>
-            <div v-if="data?.docker.available" class="flex items-center gap-2">
-              <span class="text-muted-foreground text-xs">
-                이미지 {{ data.docker.images.length }}개 ·
-                {{ (data.docker.imagesTotalMb / 1024).toFixed(1) }}GB
-              </span>
-              <Popconfirm
-                cancel-text="취소"
-                ok-text="정리"
-                title="저장소별로 사용 중 + 최근 2개 태그만 남기고 지웁니다. 롤백 여지는 유지됩니다."
-                @confirm="runCleanup"
-              >
-                <Button
-                  :disabled="staleImageCount === 0"
-                  :loading="cleaning"
-                  danger
-                  size="small"
-                >
-                  오래된 이미지 정리
-                </Button>
-              </Popconfirm>
+      <!-- 워크플로 카드: 마지막 실행만. 지난 기록은 히스토리 팝업으로. -->
+      <div class="mb-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+        <Card v-for="card in workflowCards" :key="card.name" size="small">
+          <template #title>
+            <div class="flex items-center gap-2">
+              <span>{{ card.name }}</span>
+              <Tag :color="runTagColor(card.latest)">
+                {{ runTagText(card.latest) }}
+              </Tag>
             </div>
           </template>
-          <div v-if="!data?.docker.available" class="text-muted-foreground py-6 text-center text-sm">
-            운영서버에서만 조회된다 —
-            {{ data?.docker.error ?? '개발 환경에서는 Docker 소켓이 없다.' }}
+          <template #extra>
+            <Button size="small" type="link" @click="openHistory(card)">
+              히스토리 {{ card.count }}건
+            </Button>
+          </template>
+          <div class="flex flex-col gap-1.5 text-sm">
+            <div class="flex justify-between">
+              <span class="text-muted-foreground">커밋</span>
+              <a
+                :href="card.latest.htmlUrl"
+                class="font-mono"
+                rel="noopener"
+                target="_blank"
+              >
+                {{ card.latest.sha.slice(0, 7) }}
+              </a>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-muted-foreground">메시지</span>
+              <Tooltip :title="card.latest.title ?? ''">
+                <span class="max-w-[65%] truncate">{{ card.latest.title ?? '-' }}</span>
+              </Tooltip>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-muted-foreground">트리거 · 실행자</span>
+              <span>{{ card.latest.event }} · {{ card.latest.actor ?? '-' }}</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-muted-foreground">시작 · 소요</span>
+              <span>
+                {{ fmtTime(card.latest.startedAt) }} ·
+                {{ fmtDuration(card.latest.durationSec) }}
+              </span>
+            </div>
           </div>
-          <Table
-            v-else
-            :columns="containerColumns"
-            :data-source="containers"
-            :pagination="false"
-            row-key="service"
-            size="small"
-          >
-            <template #bodyCell="{ column, record }">
-              <template v-if="column.key === 'state'">
-                <Tag :color="record.state === 'running' ? 'success' : 'error'">
-                  {{ record.state === 'running' ? '실행 중' : record.state }}
-                </Tag>
-              </template>
-              <template v-else-if="column.key === 'tag'">
-                <Tooltip :title="record.image">
-                  <span class="font-mono">{{ record.tag.slice(0, 7) }}</span>
-                </Tooltip>
-              </template>
-            </template>
-          </Table>
+        </Card>
+        <Card v-if="workflowCards.length === 0 && !loading" size="small">
+          <div class="text-muted-foreground py-4 text-center text-sm">
+            실행 기록이 없다.
+          </div>
         </Card>
       </div>
+
+      <!-- 운영 컨테이너 -->
+      <Card size="small" title="운영서버 컨테이너">
+        <template #extra>
+          <div v-if="data?.docker.available" class="flex items-center gap-2">
+            <span class="text-muted-foreground text-xs">
+              이미지 {{ data.docker.images.length }}개 ·
+              {{ (data.docker.imagesTotalMb / 1024).toFixed(1) }}GB
+            </span>
+            <Popconfirm
+              cancel-text="취소"
+              ok-text="정리"
+              title="저장소별로 사용 중 + 최근 2개 태그만 남기고 지웁니다. 롤백 여지는 유지됩니다."
+              @confirm="runCleanup"
+            >
+              <Button
+                :disabled="staleImageCount === 0"
+                :loading="cleaning"
+                danger
+                size="small"
+              >
+                오래된 이미지 정리
+              </Button>
+            </Popconfirm>
+          </div>
+        </template>
+        <div v-if="!data?.docker.available" class="text-muted-foreground py-6 text-center text-sm">
+          운영서버에서만 조회된다 —
+          {{ data?.docker.error ?? '개발 환경에서는 Docker 소켓이 없다.' }}
+        </div>
+        <Table
+          v-else
+          :columns="containerColumns"
+          :data-source="containers"
+          :pagination="false"
+          row-key="service"
+          size="small"
+        >
+          <template #bodyCell="{ column, record }">
+            <template v-if="column.key === 'state'">
+              <Tag :color="record.state === 'running' ? 'success' : 'error'">
+                {{ record.state === 'running' ? '실행 중' : record.state }}
+              </Tag>
+            </template>
+            <template v-else-if="column.key === 'tag'">
+              <Tooltip :title="record.image">
+                <span class="font-mono">{{ record.tag.slice(0, 7) }}</span>
+              </Tooltip>
+            </template>
+            <template v-else-if="column.key === 'actions'">
+              <Button size="small" type="link" @click="openLogs(record.service)">
+                로그
+              </Button>
+            </template>
+          </template>
+        </Table>
+      </Card>
     </Spin>
+
+    <HistoryModal />
+    <LogsModal />
   </Page>
 </template>
