@@ -5,10 +5,23 @@ import { computed, onMounted, onUnmounted, ref } from 'vue';
 
 import { Page } from '@vben/common-ui';
 
-import { Button, Card, Spin, Switch, Table, Tag, Tooltip } from 'ant-design-vue';
+import {
+  Button,
+  Card,
+  message,
+  Popconfirm,
+  Spin,
+  Switch,
+  Table,
+  Tag,
+  Tooltip,
+} from 'ant-design-vue';
 import dayjs from 'dayjs';
 
-import { getDeployStatus } from '#/api/portal/system/deploy-status';
+import {
+  cleanupDockerImages,
+  getDeployStatus,
+} from '#/api/portal/system/deploy-status';
 
 /**
  * 상태관리 > 배포 현황.
@@ -41,6 +54,31 @@ onMounted(() => {
   timer = setInterval(() => autoRefresh.value && fetchData(), 30_000);
 });
 onUnmounted(() => timer && clearInterval(timer));
+
+// ── 이미지 정리 ─────────────────────────────────────────
+
+const cleaning = ref(false);
+
+/** 배포가 거듭될수록 옛 태그 이미지가 쌓인다 — 사용 중 + 최근 2개만 남기고 지운다. */
+async function runCleanup() {
+  cleaning.value = true;
+  try {
+    const r = await cleanupDockerImages();
+    message.success(
+      `이미지 ${r.removed.length}개 정리, ${r.spaceReclaimedMb}MB 회수` +
+        (r.errors.length > 0 ? ` (실패 ${r.errors.length}건)` : ''),
+    );
+    await fetchData();
+  } catch (error: any) {
+    message.error(error?.message ?? '정리에 실패했습니다.');
+  } finally {
+    cleaning.value = false;
+  }
+}
+
+const staleImageCount = computed(
+  () => (data.value?.docker.images ?? []).filter((i) => !i.inUse).length,
+);
 
 // ── 요약 ────────────────────────────────────────────────
 
@@ -220,6 +258,29 @@ function fmtDuration(sec: null | number) {
 
         <!-- 운영 컨테이너 -->
         <Card class="xl:col-span-2" size="small" title="운영서버 컨테이너">
+          <template #extra>
+            <div v-if="data?.docker.available" class="flex items-center gap-2">
+              <span class="text-muted-foreground text-xs">
+                이미지 {{ data.docker.images.length }}개 ·
+                {{ (data.docker.imagesTotalMb / 1024).toFixed(1) }}GB
+              </span>
+              <Popconfirm
+                cancel-text="취소"
+                ok-text="정리"
+                title="저장소별로 사용 중 + 최근 2개 태그만 남기고 지웁니다. 롤백 여지는 유지됩니다."
+                @confirm="runCleanup"
+              >
+                <Button
+                  :disabled="staleImageCount === 0"
+                  :loading="cleaning"
+                  danger
+                  size="small"
+                >
+                  오래된 이미지 정리
+                </Button>
+              </Popconfirm>
+            </div>
+          </template>
           <div v-if="!data?.docker.available" class="text-muted-foreground py-6 text-center text-sm">
             운영서버에서만 조회된다 —
             {{ data?.docker.error ?? '개발 환경에서는 Docker 소켓이 없다.' }}

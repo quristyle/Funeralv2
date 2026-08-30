@@ -80,7 +80,14 @@ jobs:
           cd /srv/jsini
           docker compose pull -q
           docker compose up -d
+          # 이름 잃은 레이어 + 저장소별 최근 3개를 넘는 옛 태그를 정리한다.
+          # 사용 중 이미지는 docker rmi 가 거부하므로 || true 로 넘어간다.
           docker image prune -f > /dev/null
+          for repo in $(docker images --format '{{.Repository}}' | grep 'funeralv2-' | sort -u); do
+            docker images "$repo" --format '{{.Tag}}' | tail -n +4 | while read -r tag; do
+              docker rmi "$repo:$tag" > /dev/null 2>&1 || true
+            done
+          done
 
       - name: 관통 검증 (틀린 계정 → 401 이면 정상)
         run: |

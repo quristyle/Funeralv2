@@ -45,11 +45,27 @@ export namespace DeployStatusApi {
     tag: string;
   }
 
+  export interface ImageInfo {
+    createdAt: string;
+    inUse: boolean;
+    name: string;
+    sizeMb: number;
+  }
+
+  export interface CleanupResult {
+    errors: string[];
+    keptRecent: number;
+    removed: string[];
+    spaceReclaimedMb: number;
+  }
+
   export interface Overview {
     docker: {
       available: boolean;
       containers: Container[];
       error: null | string;
+      images: ImageInfo[];
+      imagesTotalMb: number;
     };
     generatedAt: string;
     github: {
@@ -65,5 +81,14 @@ export async function getDeployStatus(): Promise<DeployStatusApi.Overview> {
   // requestClient 는 봉투의 `data` 까지만 벗긴다. 이 API 의 data 는
   // { result: [overview] } 꼴이라 한 번 더 꺼내야 한다 (account.ts 와 같은 사정).
   const res = await requestClient.get<any>('/auth/deploy-status');
+  return res?.result?.[0] ?? res;
+}
+
+/**
+ * 오래된 배포 이미지 정리 — 저장소별로 사용 중 + 최근 2개 태그만 남긴다.
+ * 관리자 계열만 서버가 허용한다.
+ */
+export async function cleanupDockerImages(): Promise<DeployStatusApi.CleanupResult> {
+  const res = await requestClient.post<any>('/auth/deploy-status/cleanup');
   return res?.result?.[0] ?? res;
 }
