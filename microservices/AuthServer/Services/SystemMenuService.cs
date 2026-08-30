@@ -70,7 +70,9 @@ public class SystemMenuService : ISystemMenuService
                     Link = m.Link,
                     IframeSrc = m.IframeSrc,
                     BadgeType = m.BadgeType,
-                    Badge = m.Badge
+                    Badge = m.Badge,
+                    UseMobile = m.UseMobile,
+                    UseTablet = m.UseTablet
                 },
                 Permissions = ToPermissionsDto(m),
                 Children = BuildMenuTree(menus, m.Id).Any() ? BuildMenuTree(menus, m.Id) : null
@@ -189,7 +191,9 @@ public class SystemMenuService : ISystemMenuService
             Link = request.Meta.Link,
             IframeSrc = request.Meta.IframeSrc,
             BadgeType = request.Meta.BadgeType,
-            Badge = request.Meta.Badge
+            Badge = request.Meta.Badge,
+            UseMobile = request.Meta.UseMobile,
+            UseTablet = request.Meta.UseTablet
         };
         ApplyPermissions(menu, request.Permissions);
         _db.SystemMenus.Add(menu);
@@ -230,6 +234,10 @@ public class SystemMenuService : ISystemMenuService
         menu.IframeSrc = request.Meta.IframeSrc;
         menu.BadgeType = request.Meta.BadgeType;
         menu.Badge = request.Meta.Badge;
+        // 메타에 실려 오지 않으면 DTO 기본값(true)이 들어온다.
+        // 메뉴 관리 화면은 조회한 meta 를 통째로 되돌려 보내므로 값이 항상 실린다.
+        menu.UseMobile = request.Meta.UseMobile;
+        menu.UseTablet = request.Meta.UseTablet;
         ApplyPermissions(menu, request.Permissions);
 
         await _db.SaveChangesAsync();

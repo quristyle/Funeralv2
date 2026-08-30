@@ -110,6 +110,19 @@ public class MenuMetaDto
     /// 메뉴 정렬 순서
     /// </summary>
     public int? Order { get; set; }
+
+    /// <summary>
+    /// 휴대폰 크기(&lt;768px)에서 메뉴목록에 보일지 여부.
+    ///
+    /// 화면(jsini-portal)이 이 값으로 사이드바 목록을 걸러 낸다.
+    /// <b>라우트는 걸러 내지 않는다</b> — 주소로 직접 들어가거나 즐겨찾기·탭으로 열면 화면은 열린다.
+    /// </summary>
+    public bool UseMobile { get; set; } = true;
+
+    /// <summary>
+    /// 태블릿 크기(768~1023px)에서 메뉴목록에 보일지 여부. <see cref="UseMobile"/> 과 같은 규칙이다.
+    /// </summary>
+    public bool UseTablet { get; set; } = true;
 }
 
 

@@ -22,7 +22,7 @@ public class SmtpEmailSender : IEmailSender
         var message = new MimeMessage();
         message.From.Add(new MailboxAddress(_settings.FromDisplay, _settings.User));
         // 받는 사람이 여럿이면 쉼표로 온다 (역할 수신 등)
-        foreach (var addr in to.Split([',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        foreach (var addr in to.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         {
             message.To.Add(MailboxAddress.Parse(addr));
         }

@@ -68,6 +68,65 @@ vben isMobile 기준)에서는 이 규칙을 풀고 페이지 세로 스크롤�
 request/edit 유형 Select(160px), util/diagram 프로젝트 Select(190px),
 life history·standards 내부 Select 의 max-w 병기.
 
+## 5단계 — 화면 크기별 메뉴목록 노출 (2026-08-30 추가)
+
+작은 화면에서 메뉴목록이 길어지는 문제는 위 1~4단계가 손대지 않았다.
+데스크톱에서만 쓸모 있는 화면(넓은 그리드·조직도·배치 편집)까지 휴대폰에 그대로 나온다.
+메뉴마다 **어느 크기의 메뉴목록에 보일지**를 정할 수 있게 했다.
+
+| 값 | 뜻 | 기본 |
+|---|---|---|
+| `use_mobile` | 휴대폰 크기(<768px) 메뉴목록에 보일지 | true |
+| `use_tablet` | 태블릿 크기(768~1023px) 메뉴목록에 보일지 | true |
+
+크기 경계는 이 문서가 이미 쓰던 기준을 따른다 — 휴대폰은 vben `isMobile`(md 미만),
+태블릿은 tailwind md 이상 lg 미만. **데스크톱(≥1024px)은 이 값과 무관하게 늘 보인다.**
+
+### 거르는 것은 목록뿐이다
+
+**라우트는 그대로 만든다.** 휴대폰 메뉴목록에서 빠진 화면도 주소로 직접 들어가거나
+즐겨찾기·고정 탭으로 열면 열린다. 목적이 "목록을 짧게" 이지 "못 들어가게" 가 아니어서다 —
+못 들어가게 하려면 `status = 0`(비활성)이나 역할 권한을 쓴다. 뜻이 다른 장치다.
+
+그래서 백엔드가 걸러 내려주지 않고 화면이 거른다. `/auth/menu/all` 은 두 값을
+`meta` 에 실어 **전부** 내려주고, 라우트를 다 만든 뒤 사이드바 목록만 걸러 낸다.
+
+### 자리
+
+| 무엇 | 자리 |
+|---|---|
+| 컬럼 추가 | `docs/sql/menu_mobile_tablet.sql` (jsiniportal · scom, 반복 실행 안전) |
+| 엔티티·DTO | AuthServer `Entities/SystemMenu.cs` · `DTOs/SystemMenuDto.cs`(관리) · `DTOs/MenuDto.cs`(사이드바) |
+| 거르기 | `apps/jsini-portal/src/router/menu-size-visibility.ts` (+ 같은 이름의 테스트) |
+| 연결 | 같은 폴더 `access.ts`(규칙 수집·갱신) · `guard.ts`(최초 로그인) |
+| 관리 화면 | `views/portal/system/menu/` — 그리드 두 칸(눌러서 켜고 끔) · 등록/수정 폼 체크박스 둘 |
+
+**규칙을 API 응답에서 미리 걷어 두는 이유**: 사이드바가 쓰는 `MenuRecordRaw` 는
+`generateMenus`(packages/utils)가 만드는데 이때 우리가 붙인 meta 값이 떨어져 나간다.
+프레임워크(packages)를 고치지 않으려고, 응답에서 규칙을 걷어 두고 경로·링크·번역키·이름
+넷을 열쇠로 나중에 맞춰 본다.
+
+**빈 묶음은 함께 뺀다.** 자식이 모두 빠진 디렉토리는 눌러도 아무것도 없으므로 같이 뺀다.
+
+**크기가 바뀌면 다시 거른다.** 거르기 전 목록을 들고 있다가 `matchMedia` 변경에
+다시 건다 — 기기 회전·창 크기 조절·개발자 도구 기기 모드에서 다시 로그인할 필요가 없다.
+
+### 검증
+
+- `docs/sql/menu_mobile_tablet.sql` 실행 — 메뉴 177건 전부 기본값 true.
+- `/menu/all` · `/system/menu/list` 두 응답 모두 177건에 값이 실린다(누락 0).
+- 저장 왕복(끔 → 폰만 켬 → 원복)을 DB 로 확인. 같은 저장에서 권한 항목(`use_excel`)도 안 바뀐다.
+- `menu-size-visibility.test.ts` 4건 통과 — 데스크톱 전부 노출 / 휴대폰·태블릿이 서로 다른
+  값을 본다 / 값 없는 옛 메뉴는 어디서나 보인다 / 빈 묶음 제거.
+- `pnpm vite build` 통과.
+
+### 함께 고친 것 — 인라인 편집이 권한 항목을 지우던 문제
+
+`views/portal/system/menu/list.vue` 의 `toUpdatePayload` 가 `permissions` 를 빼고 보냈다.
+서버는 안 실려 온 요청을 "기본값으로 저장" 으로 다루므로, **셀 하나만 고치거나 상태 배지를
+한 번 눌러도 그 메뉴의 권한 항목 설정(`use_cust1~8` 과 이름)이 기본값으로 되돌아갔다.**
+새로 넣는 두 값이 같은 경로로 저장되므로 함께 고쳤다 — 한 줄이다.
+
 ## 프레임워크 수정 — 상위 동기화 주의 (D-M1)
 
 layouts/basic/layout.vue 둘(100dvh · 탭바 모바일 숨김)은 **fronts/packages 수정**이다.

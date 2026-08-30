@@ -574,6 +574,43 @@ const schema: VbenFormSchema[] = [
       };
     },
   },
+  // 화면 크기별 메뉴목록 노출. 끄면 그 크기의 **메뉴목록에서만** 빠지고
+  // 라우트는 그대로라 주소·즐겨찾기·고정 탭으로는 열린다(비활성과 다른 뜻이다).
+  // 기본값은 켬 — 이 설정을 모르던 시절의 메뉴가 사라지면 안 된다.
+  {
+    component: 'Checkbox',
+    defaultValue: true,
+    dependencies: {
+      show: (values) => {
+        return !['BUTTON'].includes(values.type);
+      },
+      triggerFields: ['type'],
+    },
+    fieldName: 'meta.useMobile',
+    help: $t('system.menu.useMobileHelp'),
+    renderComponentContent() {
+      return {
+        default: () => $t('system.menu.useMobile'),
+      };
+    },
+  },
+  {
+    component: 'Checkbox',
+    defaultValue: true,
+    dependencies: {
+      show: (values) => {
+        return !['BUTTON'].includes(values.type);
+      },
+      triggerFields: ['type'],
+    },
+    fieldName: 'meta.useTablet',
+    help: $t('system.menu.useTabletHelp'),
+    renderComponentContent() {
+      return {
+        default: () => $t('system.menu.useTablet'),
+      };
+    },
+  },
   {
     component: 'Checkbox',
     dependencies: {

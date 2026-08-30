@@ -17,6 +17,8 @@ import { $t } from '#/locales';
 import { accessRoutes } from '#/router/routes';
 import { useMenuPermissionStore } from '#/store/menu-permission';
 
+import { collectMenuSizeRules, setMenusForViewport } from './menu-size-visibility';
+
 const forbiddenComponent = () => import('#/views/_core/fallback/forbidden.vue');
 
 async function generateAccess(options: GenerateMenuAndRoutesOptions) {
@@ -42,7 +44,11 @@ async function generateAccess(options: GenerateMenuAndRoutesOptions) {
         duration: 1.5,
       });
       const menus = await getAllMenusApi();
-      
+
+      // 화면 크기별 노출 규칙(meta.useMobile · useTablet)을 여기서 걷어 둔다.
+      // 라우트·메뉴로 옮겨지는 과정에서 meta 의 이 값들은 떨어져 나가기 때문이다.
+      collectMenuSizeRules(menus);
+
       // 재귀적으로 메뉴를 순회하며 컴포넌트 경로 및 이름 중복 검증
       const usedNames = new Set<string>();
       const sanitizeMenus = (menuList: any[]) => {
@@ -126,7 +132,10 @@ async function refreshAccessMenus(router: Router) {
     }
   });
 
-  accessStore.setAccessMenus(accessibleMenus);
+  // 지금 화면 크기에서 감춘 메뉴를 걸러 저장한다(라우트는 그대로 둔다).
+  setMenusForViewport(accessibleMenus, (menus) =>
+    accessStore.setAccessMenus(menus),
+  );
   accessStore.setAccessRoutes(accessibleRoutes);
   accessStore.setIsAccessChecked(true);
 

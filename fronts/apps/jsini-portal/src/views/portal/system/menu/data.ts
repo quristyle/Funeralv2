@@ -73,7 +73,66 @@ export function useColumns(
    * 수정 권한이 없을 때도 읽기 전용이 된다.
    */
   onStatusToggle?: (row: SystemMenuApi.SystemMenu) => void,
+  /**
+   * 화면 크기별 노출 배지를 눌렀을 때. 상태 배지와 같은 규칙으로
+   * 넘기지 않거나 수정 권한이 없으면 읽기 전용으로 그려진다.
+   */
+  onSizeToggle?: (
+    row: SystemMenuApi.SystemMenu,
+    field: 'useMobile' | 'useTablet',
+  ) => void,
 ): VxeTableGridColumns<SystemMenuApi.SystemMenu> {
+  /**
+   * 화면 크기별 노출 칸 하나를 만든다(휴대폰 · 태블릿).
+   *
+   * 상태 칸과 같은 모양으로 그린다 — 눌러서 그 자리에서 켜고 끈다.
+   * `BUTTON` 은 애초에 메뉴목록에 나오지 않으므로 '-' 로 비워 둔다.
+   */
+  const sizeColumn = (field: 'useMobile' | 'useTablet', title: string) => ({
+    align: 'center' as const,
+    field: `meta.${field}`,
+    // 슬롯으로 그려 `CellTag` 가 없다 — 고르는 칸 목록을 직접 준다(상태 칸과 같다).
+    params: {
+      filterOptions: [
+        { label: $t('common.enabled'), value: true },
+        { label: $t('common.disabled'), value: false },
+      ],
+    },
+    slots: {
+      default: ({ row }: { row: SystemMenuApi.SystemMenu }) => {
+        if (row.type === 'BUTTON') {
+          return h('span', { class: 'text-muted-foreground' }, '-');
+        }
+
+        // 값이 없던 시절의 메뉴는 보이는 쪽이다(백엔드 기본값과 같다).
+        const shown = (row.meta as any)?.[field] !== false;
+        const clickable = Boolean(onSizeToggle) && can('update');
+        const saving = Boolean((row as any).__sizeSaving?.[field]);
+
+        return h(
+          Tag,
+          {
+            class: clickable && !saving ? 'cursor-pointer select-none' : '',
+            color: shown ? 'success' : 'default',
+            onClick:
+              clickable && !saving ? () => onSizeToggle?.(row, field) : undefined,
+            style: saving ? { opacity: 0.45, pointerEvents: 'none' } : {},
+            title: clickable
+              ? `눌러서 ${shown ? $t('common.disabled') : $t('common.enabled')} 으로 바꿉니다`
+              : undefined,
+          },
+          {
+            default: () =>
+              shown ? $t('common.enabled') : $t('common.disabled'),
+          },
+        );
+      },
+    },
+    sortable: true,
+    title,
+    width: 130,
+  });
+
   return [
     {
       align: 'center',
@@ -218,6 +277,10 @@ export function useColumns(
         },
       },
     },
+    // 작은 화면에서 이 메뉴를 메뉴목록에 보일지. 데스크톱은 이 값과 무관하게 늘 보인다.
+    // **메뉴목록에서만** 빠진다 — 라우트는 남아 있어 주소·즐겨찾기로는 열린다.
+    sizeColumn('useMobile', $t('system.menu.useMobile')),
+    sizeColumn('useTablet', $t('system.menu.useTablet')),
     {
       align: 'center',
       field: 'operation',

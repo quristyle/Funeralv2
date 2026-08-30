@@ -10,6 +10,7 @@ import { useAuthStore } from '#/store';
 import { useMenuPermissionStore } from '#/store/menu-permission';
 
 import { generateAccess } from './access';
+import { setMenusForViewport } from './menu-size-visibility';
 
 /**
  * 공통 가드 설정
@@ -140,7 +141,10 @@ function setupAccessGuard(router: Router) {
     });
 
     // 메뉴 정보 및 라우트 정보 저장
-    accessStore.setAccessMenus(accessibleMenus);
+    // 메뉴는 화면 크기별 노출 설정으로 한 번 거른다 — 라우트는 거르지 않는다.
+    setMenusForViewport(accessibleMenus, (menus) =>
+      accessStore.setAccessMenus(menus),
+    );
     accessStore.setAccessRoutes(accessibleRoutes);
     accessStore.setIsAccessChecked(true);
     let redirectPath: string;

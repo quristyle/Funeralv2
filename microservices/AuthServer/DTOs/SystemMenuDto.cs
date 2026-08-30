@@ -139,6 +139,19 @@ public class SystemMenuMetaDto
     /// 뱃지 내용
     /// </summary>
     public string? Badge { get; set; }
+
+    /// <summary>
+    /// 휴대폰 크기(&lt;768px)에서 메뉴목록에 보일지 여부.
+    ///
+    /// 끄면 그 크기의 <b>메뉴목록에서만</b> 빠진다 — 라우트는 그대로라 주소·즐겨찾기로는 열린다.
+    /// 기본값이 true 라 값을 싣지 않은 옛 호출자는 지금과 똑같이 동작한다.
+    /// </summary>
+    public bool UseMobile { get; set; } = true;
+
+    /// <summary>
+    /// 태블릿 크기(768~1023px)에서 메뉴목록에 보일지 여부. <see cref="UseMobile"/> 과 같은 규칙이다.
+    /// </summary>
+    public bool UseTablet { get; set; } = true;
 }
 
 /// <summary>

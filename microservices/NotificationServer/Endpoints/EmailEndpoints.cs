@@ -64,7 +64,7 @@ public static class EmailEndpoints
             if (!string.IsNullOrWhiteSpace(request.To))
             {
                 recipients.AddRange(request.To
-                    .Split([',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+                    .Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
             }
 
             if (!string.IsNullOrWhiteSpace(request.ToRole))

@@ -137,6 +137,15 @@ export namespace SystemMenuApi {
       query?: Recordable<any>;
       /** 메뉴 제목 */
       title?: string;
+      /**
+       * 휴대폰 크기(<768px) 메뉴목록에 보일지 여부.
+       *
+       * 끄면 그 크기의 **메뉴목록에서만** 빠진다 — 라우트는 그대로라
+       * 주소·즐겨찾기·탭으로는 열린다(`status: 0` 과 다른 뜻이다).
+       */
+      useMobile?: boolean;
+      /** 태블릿 크기(768~1023px) 메뉴목록에 보일지 여부. `useMobile` 과 같은 규칙이다. */
+      useTablet?: boolean;
     };
     /** 메뉴 이름 */
     name: string;

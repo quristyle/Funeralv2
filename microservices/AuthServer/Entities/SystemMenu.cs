@@ -147,6 +147,21 @@ public class SystemMenu : BaseEntity<string>
     [Column("status")]
     public int Status { get; set; } = 1;
 
+    // ── 화면 크기별 메뉴목록 노출 ────────────────────────────
+    //
+    // 포털은 PWA 라 휴대폰·태블릿에서도 같은 메뉴를 받는다(40번 문서).
+    // 데스크톱에서만 쓸모 있는 화면까지 작은 화면의 메뉴목록에 나오면 목록만 길어진다.
+    // 아래 두 값이 false 면 그 크기의 **메뉴목록에서만** 빠진다 —
+    // 라우트는 그대로 만들어지므로 주소·즐겨찾기로는 열린다(Status=0 과 다른 뜻이다).
+
+    /// <summary>휴대폰 크기(&lt;768px) 메뉴목록 노출 여부</summary>
+    [Column("use_mobile")]
+    public bool UseMobile { get; set; } = true;
+
+    /// <summary>태블릿 크기(768~1023px) 메뉴목록 노출 여부</summary>
+    [Column("use_tablet")]
+    public bool UseTablet { get; set; } = true;
+
     // ── 권한 항목 사용 설정 ────────────────────────────────
     //
     // role_menus 는 메뉴마다 15가지 권한 칸을 들고 있지만, 메뉴마다 실제로

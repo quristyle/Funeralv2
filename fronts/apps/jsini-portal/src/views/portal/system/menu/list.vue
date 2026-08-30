@@ -176,7 +176,7 @@ const [Grid, gridApi] = useVbenVxeGrid({
     },
   },
   gridOptions: {
-    columns: useColumns(onActionClick, onStatusToggle),
+    columns: useColumns(onActionClick, onStatusToggle, onSizeToggle),
     // 정렬·필터는 공통 필터줄(adapter/vxe-grid-features.ts)이 단다.
     // 공통 필터줄은 `setFilter()`·`grid.sort()` 를 프로그램으로 부르기 때문에
     // vxe 의 `filterChange`·`sortChange` 이벤트가 오지 않는다 — 드래그 잠금
@@ -315,11 +315,54 @@ function toUpdatePayload(row: SystemMenuApi.SystemMenu) {
     meta: { ...row.meta },
     name: row.name,
     path: row.path,
+    // 권한 항목(use_view · use_cust1~8 · 이름)도 함께 보낸다.
+    // 서버는 실어 보내지 않은 요청을 "기본값으로 저장" 으로 다루므로,
+    // 빼놓으면 셀 하나만 고쳐도 그 메뉴의 권한 항목 설정이 기본값으로 되돌아간다.
+    // 값이 없으면 아예 빼서(undefined) 서버 기본값을 그대로 쓰게 둔다.
+    permissions: row.permissions ?? undefined,
     pid: row.pid,
     redirect: row.redirect,
     status: row.status,
     type: row.type,
   } as any;
+}
+
+/**
+ * 화면 크기별 노출 배지를 눌렀을 때. 그 자리에서 켜고 끈다.
+ *
+ * **메뉴목록에서만** 빼는 설정이다. 라우트는 그대로 만들어지므로 주소로 직접
+ * 들어가거나 즐겨찾기·고정 탭으로 열면 화면은 열린다(비활성과 다른 뜻이다).
+ *
+ * 상태 배지와 같은 방식이다 — 화면을 먼저 바꾸고 저장은 뒤에서 한다.
+ * 다만 상위 메뉴까지 함께 건드리지는 않는다. 상위가 꺼져 있으면 그 아래는
+ * 어차피 목록에서 함께 사라지고, 다시 켜는 것도 배지 한 번이면 되기 때문이다.
+ */
+async function onSizeToggle(
+  row: SystemMenuApi.SystemMenu,
+  field: 'useMobile' | 'useTablet',
+) {
+  const saving = ((row as any).__sizeSaving ??= {}) as Record<string, boolean>;
+  if (saving[field]) return;
+
+  const meta = (row.meta ??= {}) as any;
+  // 값이 없던 시절의 메뉴는 보이는 쪽이다(백엔드 기본값과 같다).
+  const before = meta[field] !== false;
+  const next = !before;
+
+  saving[field] = true;
+  meta[field] = next;
+
+  try {
+    await updateMenu(row.id, toUpdatePayload(row));
+    message.success($t('ui.actionMessage.operationSuccess'));
+  } catch (error) {
+    console.error(error);
+    meta[field] = before;
+    message.error($t('ui.actionMessage.operationFailed'));
+    await refresh();
+  } finally {
+    saving[field] = false;
+  }
 }
 
 /**
