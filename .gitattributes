@@ -3,3 +3,8 @@
 *.sh text eol=lf
 *.yml text eol=lf
 *.yaml text eol=lf
+
+# 배치 파일은 cmd.exe 가 CRLF 를 전제로 바이트 위치를 계산한다. LF 로 저장되면
+# 읽기 위치가 어긋나 줄 한복판부터 실행되고, 잘린 조각이 명령으로 잡힌다.
+*.bat text eol=crlf
+*.cmd text eol=crlf
