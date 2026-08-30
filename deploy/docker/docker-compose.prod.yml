@@ -27,7 +27,7 @@ services:
       ASPNETCORE_URLS: http://0.0.0.0:8080
     volumes:
       - /srv/jsini/config/ApiGateway/appsettings.Local.json:/app/appsettings.Local.json:ro
-    depends_on: [auth, file, site, notify, life]
+    depends_on: [auth, file, site, notify, life, funeral, helpdesk, projmng, ai]
 
   auth:
     <<: *common
@@ -76,3 +76,39 @@ services:
       Kestrel__Endpoints__Http__Url: http://0.0.0.0:8080
     volumes:
       - /srv/jsini/config/LifeEnvServer/appsettings.Local.json:/app/appsettings.Local.json:ro
+
+  funeral:
+    <<: *common
+    image: ghcr.io/quristyle/funeralv2-funeral:${TAG:-latest}
+    environment:
+      <<: *common-env
+      Kestrel__Endpoints__Http__Url: http://0.0.0.0:8080
+    volumes:
+      - /srv/jsini/config/funeralv2Api/appsettings.Local.json:/app/appsettings.Local.json:ro
+
+  helpdesk:
+    <<: *common
+    image: ghcr.io/quristyle/funeralv2-helpdesk:${TAG:-latest}
+    environment:
+      <<: *common-env
+      Kestrel__Endpoints__Http__Url: http://0.0.0.0:8080
+    volumes:
+      - /srv/jsini/config/HelpDeskServer/appsettings.Local.json:/app/appsettings.Local.json:ro
+
+  projmng:
+    <<: *common
+    image: ghcr.io/quristyle/funeralv2-projmng:${TAG:-latest}
+    environment:
+      <<: *common-env
+      Kestrel__Endpoints__Http__Url: http://0.0.0.0:8080
+    volumes:
+      - /srv/jsini/config/ProjMngServer/appsettings.Local.json:/app/appsettings.Local.json:ro
+
+  ai:
+    <<: *common
+    image: ghcr.io/quristyle/funeralv2-ai:${TAG:-latest}
+    environment:
+      <<: *common-env
+      ASPNETCORE_URLS: http://0.0.0.0:8080
+    volumes:
+      - /srv/jsini/config/AIAgentServer/appsettings.Local.json:/app/appsettings.Local.json:ro

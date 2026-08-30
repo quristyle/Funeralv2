@@ -34,6 +34,10 @@ jobs:
           - { name: site,    dir: microservices/SiteServer,        proj: SiteServer }
           - { name: notify,  dir: microservices/NotificationServer, proj: NotificationServer }
           - { name: life,    dir: microservices/LifeEnvServer,     proj: LifeEnvServer }
+          - { name: funeral, dir: microservices/funeralv2Api,       proj: funeralv2Api }
+          - { name: helpdesk, dir: microservices/HelpDeskServer,    proj: HelpDeskServer }
+          - { name: projmng, dir: microservices/ProjMngServer,      proj: ProjMngServer }
+          - { name: ai,      dir: microservices/AIAgentServer,      proj: AIAgentServer }
     steps:
       - uses: actions/checkout@v4
 
