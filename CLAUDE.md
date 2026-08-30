@@ -37,7 +37,7 @@ microservices/
   SiteServer/          회사 소개 사이트(공개) — 문구 · 자료실 · 문의 접수
   NotificationServer/  푸시 · 이메일 (셋이 공유) — VAPID 키가 여기 한 곳에만 있다
   LifeEnvServer/       생활과환경 — 기상(기상청 연동, GHUB 에서 이식). 생일 화면의 API 는 AuthServer 다
-fronts/apps/jsini-portal/   업무 프론트엔드 (Vue 3 + vben, 로그인 필요)
+fronts/apps/jsini-portal/   업무 프론트엔드 (Vue 3 + vben, 로그인 필요) — PWA (portal.jsini.co.kr, 39번 문서)
 fronts/apps/jsini-site/     회사 소개 사이트 (Vue 3 + vite-ssg, @vben/* 의존 0)
 docs/brand/            로고 · 모티프 · 사용 규칙 (SVG 는 generate.py 가 만든다)
 docs/analysis/         작업 기록과 결정 사항

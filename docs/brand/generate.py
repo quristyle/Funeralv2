@@ -263,6 +263,55 @@ def write_ico(name, block_d, cut_d, fill):
 
 write_ico("favicon.ico", block, fav_j, (10, 10, 10, 255))          # Ink
 
+
+# 8-3) PWA 아이콘 — 포털(portal.jsini.co.kr)을 앱으로 설치할 때 쓰는 PNG 들.
+#
+# .ico 와 같은 이유로 SVG 를 변환하지 않고 **같은 좌표에서 다시 그린다.**
+# 매니페스트가 요구하는 세 벌이 다르다:
+#   · any(192·512)      — 파비콘과 같은 모양(깎인 잉크 블록 + J 음각), 투명 배경.
+#   · maskable(512)     — OS 가 원 · 둥근 사각 등 임의 모양으로 잘라 쓰므로
+#                         **가장자리 없이 꽉 찬** 잉크 판에 J 를 중앙 안전영역(80%)
+#                         안에 둔다. 투명이 남으면 잘린 자리가 얼룩진다.
+#   · apple-touch(180)  — iOS 는 투명을 검정으로 칠해 버리므로 maskable 과 같은
+#                         꽉 찬 판을 쓴다 (모서리는 iOS 가 알아서 둥글린다).
+def write_png(name, size, draw_fn):
+    try:
+        from PIL import Image, ImageDraw
+    except ImportError:
+        print(f"{name} 건너뜀 (Pillow 없음 — pip install pillow)")
+        return
+
+    ss = 8                                    # .ico 와 같은 초과표본 배율
+    px = size * ss / FAV                      # 64 좌표계 → 픽셀 배율
+    img = Image.new("RGBA", (size * ss, size * ss), (0, 0, 0, 0))
+    draw_fn(ImageDraw.Draw(img), px)
+    img.resize((size, size), Image.LANCZOS).save(os.path.join(OUT, name), format="PNG")
+    print(name)
+
+
+_INK_RGBA = (10, 10, 10, 255)
+_PAPER_RGBA = (255, 255, 255, 255)
+
+
+def _favicon_shape(draw, px):
+    """파비콘과 동일 — 깎인 블록에 J 음각, 배경 투명."""
+    draw.polygon([(x * px, y * px) for x, y in _polys_from_path(block)], fill=_INK_RGBA)
+    draw.polygon([(x * px, y * px) for x, y in _polys_from_path(fav_j)], fill=(0, 0, 0, 0))
+
+
+def _fullbleed_shape(draw, px):
+    """꽉 찬 잉크 판 + 중앙의 종이색 J (안전영역 80% 안)."""
+    draw.rectangle([0, 0, FAV * px, FAV * px], fill=_INK_RGBA)
+    s = 1.15                                  # J 높이 30×1.15 ≈ 캔버스의 54% — 안전영역 안
+    j = path("J", s, (FAV - width("J", s)) / 2, (FAV - 30 * s) / 2)
+    draw.polygon([(x * px, y * px) for x, y in _polys_from_path(j)], fill=_PAPER_RGBA)
+
+
+write_png("pwa-icon-192.png", 192, _favicon_shape)
+write_png("pwa-icon-512.png", 512, _favicon_shape)
+write_png("pwa-icon-maskable-512.png", 512, _fullbleed_shape)
+write_png("apple-touch-icon.png", 180, _fullbleed_shape)
+
 # 9) 상승 조각 모티프 — 심볼과 별개로 사이트 전반에 반복하는 보조 그래픽.
 SHARD_TONES = [MIST, STEEL, GRAPHITE, INK]
 

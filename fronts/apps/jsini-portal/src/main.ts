@@ -2,6 +2,7 @@ import { initPreferences } from '@vben/preferences';
 import { unmountGlobalLoading } from '@vben/utils';
 
 import { jsiniPreferencesExtension, overridesPreferences } from './preferences';
+import { setupPwa } from './pwa';
 
 /**
  * 애플리케이션 초기화가 완료된 후 페이지 로드 및 렌더링을 진행합니다
@@ -30,6 +31,10 @@ async function initApplication() {
 
   // 로딩 제거 및 종료
   unmountGlobalLoading();
+
+  // PWA 서비스워커 — 설치(홈 화면 추가)와 웹푸시 수신을 맡는다.
+  // 앱 마운트 뒤에 등록해 첫 화면 로딩과 경쟁하지 않게 한다.
+  setupPwa();
 }
 
 initApplication();
