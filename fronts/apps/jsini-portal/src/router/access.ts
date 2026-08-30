@@ -17,7 +17,7 @@ import { $t } from '#/locales';
 import { accessRoutes } from '#/router/routes';
 import { useMenuPermissionStore } from '#/store/menu-permission';
 
-import { collectMenuSizeRules, setMenusForViewport } from './menu-size-visibility';
+import { collectMenuRules, setVisibleMenus } from './menu-visibility';
 
 const forbiddenComponent = () => import('#/views/_core/fallback/forbidden.vue');
 
@@ -45,9 +45,9 @@ async function generateAccess(options: GenerateMenuAndRoutesOptions) {
       });
       const menus = await getAllMenusApi();
 
-      // 화면 크기별 노출 규칙(meta.useMobile · useTablet)을 여기서 걷어 둔다.
+      // 사이드바 거르기에 쓸 것(meta.type · useMobile · useTablet)을 여기서 걷어 둔다.
       // 라우트·메뉴로 옮겨지는 과정에서 meta 의 이 값들은 떨어져 나가기 때문이다.
-      collectMenuSizeRules(menus);
+      collectMenuRules(menus);
 
       // 재귀적으로 메뉴를 순회하며 컴포넌트 경로 및 이름 중복 검증
       const usedNames = new Set<string>();
@@ -132,16 +132,21 @@ async function refreshAccessMenus(router: Router) {
     }
   });
 
-  // 지금 화면 크기에서 감춘 메뉴를 걸러 저장한다(라우트는 그대로 둔다).
-  setMenusForViewport(accessibleMenus, (menus) =>
-    accessStore.setAccessMenus(menus),
+  // 화면별 동작 권한(v-perm · useMenuPermission)도 같은 표에서 온다.
+  // 메뉴가 바뀌면 권한도 바뀌었을 가능성이 크므로 강제로 다시 읽는다.
+  //
+  // **메뉴를 넣기 전에 읽는다.** 사이드바가 이 권한으로 걸러지기 때문이다 —
+  // 나중에 읽으면 걸러지지 않은 목록이 한 번 보였다가 바뀐다.
+  await permissionStore.load(true).catch(() => undefined);
+
+  // 열람 권한과 화면 크기로 걸러 사이드바에 넣는다(라우트는 그대로 둔다).
+  setVisibleMenus(
+    accessibleMenus,
+    (menus) => accessStore.setAccessMenus(menus),
+    permissionStore.canViewMenu,
   );
   accessStore.setAccessRoutes(accessibleRoutes);
   accessStore.setIsAccessChecked(true);
-
-  // 화면별 동작 권한(v-perm · useMenuPermission)도 같은 표에서 온다.
-  // 메뉴가 바뀌면 권한도 바뀌었을 가능성이 크므로 강제로 다시 읽는다.
-  await permissionStore.load(true).catch(() => undefined);
 
   return { accessibleMenus, accessibleRoutes };
 }

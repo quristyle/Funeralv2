@@ -296,6 +296,8 @@ public class MenuService : IMenuService
                     IframeSrc = m.IframeSrc,
                     BadgeType = m.BadgeType,
                     Badge = m.Badge,
+                    // 묶음(CATALOG)인지 화면이 있는 메뉴인지. 사이드바 거르기가 쓴다.
+                    Type = m.Type,
                     // 화면 크기별 메뉴목록 노출. 화면이 이 값으로 사이드바를 걸러 낸다.
                     // 여기서 걸러 내지 않는 것은 라우트를 살려 두기 위해서다 —
                     // 휴대폰에서 목록에 없더라도 주소·즐겨찾기로는 열려야 한다.

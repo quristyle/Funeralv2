@@ -12,7 +12,7 @@ import { useAuthStore } from '#/store';
 import { useMenuPermissionStore } from '#/store/menu-permission';
 
 import { generateAccess } from './access';
-import { setMenusForViewport } from './menu-size-visibility';
+import { setVisibleMenus } from './menu-visibility';
 
 /**
  * 공통 가드 설정
@@ -142,10 +142,18 @@ function setupAccessGuard(router: Router) {
       routes: accessRoutes,
     });
 
+    // 사이드바는 **열람 권한이 있는 메뉴만** 보여준다. 그래서 메뉴를 넣기 전에
+    // 권한을 먼저 받아 둔다 — 나중에 받으면 걸러지지 않은 목록이 한 번 보였다가 바뀐다.
+    // 실패해도 진행한다. 못 받았을 때는 `canViewMenu` 가 전부 통과시킨다.
+    const permissionStore = useMenuPermissionStore();
+    await permissionStore.load().catch(() => undefined);
+
     // 메뉴 정보 및 라우트 정보 저장
-    // 메뉴는 화면 크기별 노출 설정으로 한 번 거른다 — 라우트는 거르지 않는다.
-    setMenusForViewport(accessibleMenus, (menus) =>
-      accessStore.setAccessMenus(menus),
+    // 메뉴는 열람 권한과 화면 크기로 거른다 — 라우트는 거르지 않는다.
+    setVisibleMenus(
+      accessibleMenus,
+      (menus) => accessStore.setAccessMenus(menus),
+      permissionStore.canViewMenu,
     );
     accessStore.setAccessRoutes(accessibleRoutes);
     accessStore.setIsAccessChecked(true);

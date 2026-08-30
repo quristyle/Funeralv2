@@ -109,6 +109,23 @@ export const useMenuPermissionStore = defineStore('menu-permission', () => {
     return best ?? EMPTY_PERMISSION;
   }
 
+  /**
+   * 사이드바 메뉴목록에 이 경로를 보일지.
+   *
+   * **열람 가드와 판정이 같아야 한다**(router/guard.ts `setupViewPermissionGuard`).
+   * 어긋나면 "목록에 보이는데 누르면 403" 이거나 "열 수 있는데 목록에 없는" 메뉴가 생긴다.
+   * 그래서 가드와 똑같이 두 가지를 통과시킨다.
+   *
+   *  - 기록이 없는 메뉴: 가드도 막지 않는다(디렉터리·메뉴에 없는 하위 경로).
+   *  - 아직 못 읽었을 때: "못 읽었다" 를 "권한 없다" 로 다루지 않는다.
+   *    권한 서비스가 죽었다는 이유로 메뉴를 통째로 지워 버리지 않기 위해서다.
+   */
+  function canViewMenu(path: string): boolean {
+    if (!loaded.value) return true;
+    const record = byPath.value[normalize(path)];
+    return !record || record.canView;
+  }
+
   function $reset() {
     byPath.value = {};
     loaded.value = false;
@@ -132,6 +149,7 @@ export const useMenuPermissionStore = defineStore('menu-permission', () => {
   return {
     $reset,
     byPath,
+    canViewMenu,
     findExact,
     isLoaded,
     load,

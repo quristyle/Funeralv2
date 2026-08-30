@@ -112,6 +112,16 @@ public class MenuMetaDto
     public int? Order { get; set; }
 
     /// <summary>
+    /// 메뉴 유형 (CATALOG · MENU · EMBEDDED · LINK · BUTTON).
+    ///
+    /// 사이드바가 <b>묶음(CATALOG)</b>과 <b>화면이 있는 메뉴</b>를 갈라 보는 데 쓴다.
+    /// 묶음은 자기 화면이 없으므로 남은 자식이 있을 때만 목록에 남기고,
+    /// 화면이 있는 메뉴는 자식이 모두 걸러져도 자기 열람 권한이 있으면 남긴다.
+    /// (자식을 가진 메뉴가 실제로 있다 — 예: /status 현황관리)
+    /// </summary>
+    public string Type { get; set; } = "MENU";
+
+    /// <summary>
     /// 휴대폰 크기(&lt;768px)에서 메뉴목록에 보일지 여부.
     ///
     /// 화면(jsini-portal)이 이 값으로 사이드바 목록을 걸러 낸다.
