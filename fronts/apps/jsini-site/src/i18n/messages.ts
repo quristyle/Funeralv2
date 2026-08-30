@@ -114,7 +114,7 @@ export const MESSAGES: Record<Locale, Messages> = {
     contact: {
       title: '문의',
       lead: '제안 · 도입 문의를 남겨 주시면 담당자가 연락드립니다.',
-      email: 'contact@jsini.co.kr',
+      email: 'quristyle@gmail.com',
       form: {
         name: '이름',
         company: '회사명',
@@ -171,7 +171,7 @@ export const MESSAGES: Record<Locale, Messages> = {
     contact: {
       title: 'Contact',
       lead: 'Leave a note and we will get back to you.',
-      email: 'contact@jsini.co.kr',
+      email: 'quristyle@gmail.com',
       form: {
         name: 'Name',
         company: 'Company',
