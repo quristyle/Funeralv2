@@ -17,10 +17,10 @@ import {
   Space,
   Spin,
   Switch,
-  Table,
   Tag,
 } from 'ant-design-vue';
 
+import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { getServerReport } from '#/api/helpdesk';
 
 /**
@@ -33,6 +33,15 @@ import { getServerReport } from '#/api/helpdesk';
  *   MONITORING → 최근 1시간 정밀 추이 (5분 간격) 4종
  *   DAILY      → 24시간 장기 추이 4종 + 시간대별 상세 로그
  *   KPI        → 누적 지표 요약
+ *
+ * ------------------------------------------------------------
+ * [2026-08-30] 시간대별 상세 로그의 ant-design-vue `<Table>` 을
+ * `useVbenVxeGrid` 로 옮겼다. 정렬·필터는 공통 레이어
+ * (`adapter/vxe-grid-features.ts`)가 붙인다.
+ *
+ * 가져오기 방식은 그대로다 — DAILY 를 한 번에 전량 받아 차트와 표가 같은
+ * 배열을 본다. 그래서 표는 `:table-data` 로 받는다.
+ * ------------------------------------------------------------
  */
 
 const loading = ref(false);
@@ -395,17 +404,6 @@ const sortedDaily = computed(() =>
   ),
 );
 
-const dailyColumns = [
-  { dataIndex: 'TimeSlot', key: 'TimeSlot', title: '시간대', width: 130 },
-  { dataIndex: 'Avg_CPU', key: 'Avg_CPU', sorter: true, title: '평균 CPU(%)', width: 120 },
-  { dataIndex: 'Peak_IO_ms', key: 'Peak_IO_ms', title: '피크 I/O(ms)', width: 120 },
-  { dataIndex: 'Avg_PLE', key: 'Avg_PLE', title: '평균 PLE(s)', width: 110 },
-  { dataIndex: 'Min_PLE', key: 'Min_PLE', title: '최소 PLE(s)', width: 110 },
-  { dataIndex: 'Avg_TempDB_Stall', key: 'Avg_TempDB_Stall', title: 'TempDB(ms/s)', width: 130 },
-  { dataIndex: 'Avg_Log_Stall', key: 'Avg_Log_Stall', title: 'Log(ms/s)', width: 120 },
-  { key: 'state', title: '상태', width: 150 },
-];
-
 /** 임계를 넘긴 값은 붉게 강조한다(원본과 같은 기준). */
 function overClass(over: boolean) {
   return over ? 'font-bold text-red-600' : '';
@@ -415,6 +413,94 @@ function toFixed(value: any, digits = 2) {
   const n = Number(value);
   return Number.isNaN(n) ? '-' : n.toFixed(digits);
 }
+
+/** 표의 시간대 칸은 '13시' 처럼 시만 보여 준다(원본과 같다). */
+function timeSlotLabel(value?: string) {
+  return `${String(value ?? '').split(':')[0]}시`;
+}
+
+/** 상태 칸에 붙는 태그 글자. 필터가 훑을 글자로도 쓴다. */
+function stateTags(row: Record<string, any>) {
+  const tags: string[] = [];
+  if (Number(row.Avg_CPU) > 80) tags.push('CPU');
+  if (Number(row.Avg_TempDB_Stall) > 50) tags.push('TDB');
+  if (Number(row.Min_PLE) < 300) tags.push('MEM');
+  return tags.length > 0 ? tags : ['정상'];
+}
+
+const [Grid] = useVbenVxeGrid({
+  // `gridFeatures` 는 vxe 타입에 없다(공통 레이어가 읽고 떼어 낸다). 그래서 `as any`.
+  gridOptions: {
+    columns: [
+      {
+        field: 'TimeSlot',
+        // 화면에 보이는 글자와 저장된 값이 다른 칸이다.
+        params: { filterText: (row: any) => timeSlotLabel(row.TimeSlot) },
+        slots: { default: 'TimeSlot' },
+        title: '시간대',
+        width: 130,
+      },
+      {
+        field: 'Avg_CPU',
+        slots: { default: 'Avg_CPU' },
+        title: '평균 CPU(%)',
+        width: 120,
+      },
+      {
+        field: 'Peak_IO_ms',
+        slots: { default: 'Peak_IO_ms' },
+        title: '피크 I/O(ms)',
+        width: 120,
+      },
+      {
+        field: 'Avg_PLE',
+        slots: { default: 'Avg_PLE' },
+        title: '평균 PLE(s)',
+        width: 110,
+      },
+      {
+        field: 'Min_PLE',
+        slots: { default: 'Min_PLE' },
+        title: '최소 PLE(s)',
+        width: 110,
+      },
+      {
+        field: 'Avg_TempDB_Stall',
+        slots: { default: 'Avg_TempDB_Stall' },
+        title: 'TempDB(ms/s)',
+        width: 130,
+      },
+      {
+        field: 'Avg_Log_Stall',
+        slots: { default: 'Avg_Log_Stall' },
+        title: 'Log(ms/s)',
+        width: 120,
+      },
+      {
+        // 여러 지표를 종합한 판정이라 행에 없는 칸이다. 훑을 글자를 직접 준다.
+        field: 'state',
+        params: {
+          filterText: (row: any) => stateTags(row).join(' '),
+          sort: false,
+        },
+        slots: { default: 'state' },
+        title: '상태',
+        width: 150,
+      },
+    ],
+    // 행 배열은 `:table-data` 로 간다.
+    data: [],
+    emptyText: '데이터가 없습니다.',
+    // 재조회 아이콘 — `:table-data` 라 그리드가 조회 방법을 모른다.
+    // 표는 DAILY 를 걸러 그린 것이라 네 쿼리를 함께 읽는 함수를 준다
+    // (위쪽 '새로고침' · 1분 자동 갱신이 부르는 것과 같다).
+    gridFeatures: { onRefresh: () => loadData() },
+    height: 360,
+    // 전량을 한 번에 받는 표다. 켜 두면 응답을 `{ result, page }` 로 읽어 한 행도 안 나온다.
+    pagerConfig: { enabled: false },
+    rowConfig: { keyField: 'TimeSlot' },
+  } as any,
+});
 
 // ============================================================
 // 데이터 로드
@@ -623,84 +709,59 @@ onBeforeUnmount(stopTimer);
         size="small"
         title="24시간 시간대별 정밀 성능 지표 로그"
       >
-        <Table
-          :columns="dailyColumns"
-          :data-source="sortedDaily"
-          :pagination="false"
-          :scroll="{ x: 1000, y: 360 }"
-          row-key="TimeSlot"
-          size="small"
-        >
-          <template #emptyText>
-            <Empty description="데이터가 없습니다." />
+        <Grid :table-data="sortedDaily">
+          <template #TimeSlot="{ row }">{{ timeSlotLabel(row.TimeSlot) }}</template>
+
+          <template #Avg_CPU="{ row }">
+            <span :class="overClass(Number(row.Avg_CPU) > 80)">
+              {{ toFixed(row.Avg_CPU) }}%
+            </span>
           </template>
 
-          <template #bodyCell="{ column, record }">
-            <template v-if="column.key === 'TimeSlot'">
-              {{ String(record.TimeSlot ?? '').split(':')[0] }}시
-            </template>
+          <template #Peak_IO_ms="{ row }">
+            <span :class="overClass(Number(row.Peak_IO_ms) > 20)">
+              {{ toFixed(row.Peak_IO_ms) }}
+            </span>
+          </template>
 
-            <template v-else-if="column.key === 'Avg_CPU'">
-              <span :class="overClass(Number(record.Avg_CPU) > 80)">
-                {{ toFixed(record.Avg_CPU) }}%
-              </span>
-            </template>
+          <template #Avg_PLE="{ row }">{{ toFixed(row.Avg_PLE, 0) }}</template>
 
-            <template v-else-if="column.key === 'Peak_IO_ms'">
-              <span :class="overClass(Number(record.Peak_IO_ms) > 20)">
-                {{ toFixed(record.Peak_IO_ms) }}
-              </span>
-            </template>
+          <template #Min_PLE="{ row }">
+            <span
+              :class="
+                Number(row.Min_PLE) < 300
+                  ? 'font-bold text-red-600'
+                  : 'text-green-700 dark:text-green-400'
+              "
+            >
+              {{ row.Min_PLE }}
+            </span>
+          </template>
 
-            <template v-else-if="column.key === 'Avg_PLE'">
-              {{ toFixed(record.Avg_PLE, 0) }}
-            </template>
+          <template #Avg_TempDB_Stall="{ row }">
+            <span :class="overClass(Number(row.Avg_TempDB_Stall) > 50)">
+              {{ toFixed(row.Avg_TempDB_Stall) }}
+            </span>
+          </template>
 
-            <template v-else-if="column.key === 'Min_PLE'">
-              <span
-                :class="
-                  Number(record.Min_PLE) < 300
-                    ? 'font-bold text-red-600'
-                    : 'text-green-700 dark:text-green-400'
-                "
+          <template #Avg_Log_Stall="{ row }">
+            <span :class="overClass(Number(row.Avg_Log_Stall) > 50)">
+              {{ toFixed(row.Avg_Log_Stall) }}
+            </span>
+          </template>
+
+          <template #state="{ row }">
+            <Space :size="4">
+              <Tag
+                v-for="tag in stateTags(row)"
+                :key="tag"
+                :color="tag === '정상' ? 'success' : 'error'"
               >
-                {{ record.Min_PLE }}
-              </span>
-            </template>
-
-            <template v-else-if="column.key === 'Avg_TempDB_Stall'">
-              <span :class="overClass(Number(record.Avg_TempDB_Stall) > 50)">
-                {{ toFixed(record.Avg_TempDB_Stall) }}
-              </span>
-            </template>
-
-            <template v-else-if="column.key === 'Avg_Log_Stall'">
-              <span :class="overClass(Number(record.Avg_Log_Stall) > 50)">
-                {{ toFixed(record.Avg_Log_Stall) }}
-              </span>
-            </template>
-
-            <template v-else-if="column.key === 'state'">
-              <Space :size="4">
-                <Tag v-if="Number(record.Avg_CPU) > 80" color="error">CPU</Tag>
-                <Tag v-if="Number(record.Avg_TempDB_Stall) > 50" color="error">
-                  TDB
-                </Tag>
-                <Tag v-if="Number(record.Min_PLE) < 300" color="error">MEM</Tag>
-                <Tag
-                  v-if="
-                    Number(record.Avg_CPU) <= 80 &&
-                    Number(record.Avg_TempDB_Stall) <= 50 &&
-                    Number(record.Min_PLE) >= 300
-                  "
-                  color="success"
-                >
-                  정상
-                </Tag>
-              </Space>
-            </template>
+                {{ tag }}
+              </Tag>
+            </Space>
           </template>
-        </Table>
+        </Grid>
       </Card>
     </Spin>
   </Page>

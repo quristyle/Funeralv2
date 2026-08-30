@@ -9,20 +9,32 @@ import {
   Card,
   Descriptions,
   DescriptionsItem,
-  Empty,
   Space,
   Spin,
   Switch,
-  Table,
   Tag,
 } from 'ant-design-vue';
+import { VxeGrid } from 'vxe-table';
 
+import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { oadrGet } from '#/api/helpdesk';
 
 /**
  * [한주 설비 헬스체크]
  *
  * 원본(hanju/HealthCheck.vue). OADR 의 `/health` 와 `/health/All_un_MC` 두 곳을 읽는다.
+ *
+ * ------------------------------------------------------------
+ * [2026-08-30] ant-design-vue `<Table>` 에서 `useVbenVxeGrid` 로 옮겼다.
+ * 정렬·필터는 공통 레이어(`adapter/vxe-grid-features.ts`)가 붙인다.
+ *
+ * **가져오기 방식은 그대로다** — 두 곳을 한 번에 읽어 전량을 화면에 올린다.
+ * 그래서 페이저가 없고, 머리글 필터줄이 전체를 대상으로 걸린다.
+ *
+ * 점검 항목을 펼치면 나오는 **설비 상세는 행마다 표가 하나씩** 필요해서
+ * `useVbenVxeGrid`(화면당 한 벌)로는 만들 수 없다. 그 자리만 vxe 의 `VxeGrid` 를
+ * 직접 쓴다 — 읽기 전용이라 정렬·필터줄이 없어도 되는 자리다.
+ * ------------------------------------------------------------
  */
 
 const loading = ref(false);
@@ -36,15 +48,55 @@ const errorMessage = ref('');
 
 let timer: null | ReturnType<typeof setInterval> = null;
 
-const columns = [
-  { dataIndex: 'name', key: 'name', title: '항목', width: 220 },
-  { dataIndex: 'status', key: 'status', title: '상태', width: 110 },
-  { dataIndex: 'description', key: 'description', title: '설명', ellipsis: true },
-  { dataIndex: 'totalCount', key: 'totalCount', title: '전체', width: 80 },
-  { dataIndex: 'healthyCount', key: 'healthyCount', title: '정상', width: 80 },
-  { dataIndex: 'unhealthyCount', key: 'unhealthyCount', title: '이상', width: 80 },
-  { dataIndex: 'duration', key: 'duration', title: '소요', width: 110 },
-];
+/**
+ * 두 표가 같은 구성을 쓴다. 다만 vxe 는 그리드마다 컬럼 정의를 따로 들고 있어야
+ * 하므로 배열을 공유하지 않고 새로 만들어 준다.
+ *
+ * 상태 칸은 고르는 칸(`filterOptions`)으로 두지 않았다 — 값이 외부 시스템(OADR)이
+ * 그때그때 돌려주는 글자라 목록을 못 박으면 새 값이 나왔을 때 걸러지지 않는다.
+ */
+function makeCheckColumns() {
+  return [
+    { slots: { content: 'detail' }, type: 'expand', width: 40 },
+    { field: 'name', title: '항목', width: 220 },
+    { field: 'status', slots: { default: 'status' }, title: '상태', width: 110 },
+    { field: 'description', minWidth: 200, title: '설명' },
+    { field: 'totalCount', title: '전체', width: 80 },
+    { field: 'healthyCount', title: '정상', width: 80 },
+    { field: 'unhealthyCount', title: '이상', width: 80 },
+    { field: 'duration', title: '소요', width: 110 },
+  ];
+}
+
+const [ServerGrid] = useVbenVxeGrid({
+  // `gridFeatures` 는 vxe 타입에 없다(공통 레이어가 읽고 떼어 낸다). 그래서 `as any`.
+  gridOptions: {
+    columns: makeCheckColumns(),
+    // 행 배열은 `:table-data` 로 간다. 여기는 빈 배열이 바탕값이다.
+    data: [],
+    emptyText: '점검 결과가 없습니다.',
+    // 재조회 아이콘 — `:table-data` 라 그리드가 조회 방법을 모른다.
+    // 위쪽 '새로고침' · 자동 갱신 타이머가 부르는 것과 같은 함수를 준다.
+    gridFeatures: { onRefresh: () => loadData() },
+    height: 300,
+    // 전량 조회다. 페이저를 끄지 않으면 한 줄도 안 그려진다.
+    pagerConfig: { enabled: false },
+    rowConfig: { keyField: 'name' },
+  } as any,
+});
+
+const [McGrid] = useVbenVxeGrid({
+  gridOptions: {
+    columns: makeCheckColumns(),
+    data: [],
+    emptyText: '점검 결과가 없습니다.',
+    // 두 표를 한 번에 읽으므로 재조회도 같은 함수다.
+    gridFeatures: { onRefresh: () => loadData() },
+    height: 300,
+    pagerConfig: { enabled: false },
+    rowConfig: { keyField: 'name' },
+  } as any,
+});
 
 /**
  * 점검 항목의 data 안에는 설비 상세가 들어 있다.
@@ -63,12 +115,18 @@ function detailRows(check: Record<string, any>) {
   );
 }
 
+/** 펼친 줄 안쪽 표의 컬럼. */
 const detailColumns = [
-  { dataIndex: '__group', key: '__group', title: '그룹', width: 90 },
-  { dataIndex: 'mcId', key: 'mcId', title: 'ID', width: 100 },
-  { dataIndex: 'mcName', key: 'mcName', title: '설비명' },
-  { dataIndex: 'gaudt', key: 'gaudt', title: 'Last', width: 170 },
-  { dataIndex: 'status', key: 'status', title: '상태', width: 100 },
+  { field: '__group', title: '그룹', width: 90 },
+  { field: 'mcId', title: 'ID', width: 100 },
+  { field: 'mcName', minWidth: 160, title: '설비명' },
+  { field: 'gaudt', title: 'Last', width: 170 },
+  {
+    field: 'status',
+    slots: { default: 'detailStatus' },
+    title: '상태',
+    width: 100,
+  },
 ];
 
 /** 상태 문자열에 맞는 색 */
@@ -138,7 +196,7 @@ onBeforeUnmount(stopTimer);
 </script>
 
 <template>
-  <Page auto-content-height content-class="page-fill-last">
+  <Page auto-content-height>
     <Card class="mb-3" size="small">
       <div class="flex flex-wrap items-center justify-between gap-2">
         <Space>
@@ -176,44 +234,29 @@ onBeforeUnmount(stopTimer);
       </Card>
 
       <Card :body-style="{ padding: 0 }" size="small" title="서버 점검 항목">
-        <Table
-          :columns="columns"
-          :data-source="checks"
-          :pagination="false"
-          :scroll="{ x: 900 }"
-          row-key="name"
-          size="small"
-        >
-          <template #emptyText>
-            <Empty description="점검 결과가 없습니다." />
+        <ServerGrid :table-data="checks">
+          <template #status="{ row }">
+            <Tag :color="statusColor(row.status)">{{ row.status }}</Tag>
           </template>
 
-          <template #expandedRowRender="{ record }">
-            <Table
+          <!-- 점검 항목을 펼치면 설비 상세가 나온다 -->
+          <template #detail="{ row }">
+            <VxeGrid
               :columns="detailColumns"
-              :data-source="detailRows(record)"
-              :pagination="false"
-              :scroll="{ y: 260 }"
-              row-key="mcId"
-              size="small"
+              :data="detailRows(row)"
+              empty-text="상세 항목이 없습니다."
+              :height="240"
+              :pager-config="{ enabled: false }"
+              :proxy-config="{ enabled: false }"
+              :row-config="{ keyField: 'mcId' }"
+              size="mini"
             >
-              <template #emptyText>
-                <Empty description="상세 항목이 없습니다." />
+              <template #detailStatus="{ row: r }">
+                <Tag :color="statusColor(r.status)">{{ r.status }}</Tag>
               </template>
-              <template #bodyCell="{ column: c, record: r }">
-                <template v-if="c.key === 'status'">
-                  <Tag :color="statusColor(r.status)">{{ r.status }}</Tag>
-                </template>
-              </template>
-            </Table>
+            </VxeGrid>
           </template>
-
-          <template #bodyCell="{ column, record }">
-            <template v-if="column.key === 'status'">
-              <Tag :color="statusColor(record.status)">{{ record.status }}</Tag>
-            </template>
-          </template>
-        </Table>
+        </ServerGrid>
       </Card>
 
       <Card
@@ -222,45 +265,28 @@ onBeforeUnmount(stopTimer);
         size="small"
         title="미수집 설비 점검"
       >
-        <Table
-          :columns="columns"
-          :data-source="mcChecks"
-          :pagination="false"
-          :scroll="{ x: 900 }"
-          row-key="name"
-          size="small"
-        >
-          <template #emptyText>
-            <Empty description="점검 결과가 없습니다." />
+        <McGrid :table-data="mcChecks">
+          <template #status="{ row }">
+            <Tag :color="statusColor(row.status)">{{ row.status }}</Tag>
           </template>
 
-          <!-- 점검 항목을 펼치면 설비 상세가 나온다 -->
-          <template #expandedRowRender="{ record }">
-            <Table
+          <template #detail="{ row }">
+            <VxeGrid
               :columns="detailColumns"
-              :data-source="detailRows(record)"
-              :pagination="false"
-              :scroll="{ y: 260 }"
-              row-key="mcId"
-              size="small"
+              :data="detailRows(row)"
+              empty-text="상세 항목이 없습니다."
+              :height="240"
+              :pager-config="{ enabled: false }"
+              :proxy-config="{ enabled: false }"
+              :row-config="{ keyField: 'mcId' }"
+              size="mini"
             >
-              <template #emptyText>
-                <Empty description="상세 항목이 없습니다." />
+              <template #detailStatus="{ row: r }">
+                <Tag :color="statusColor(r.status)">{{ r.status }}</Tag>
               </template>
-              <template #bodyCell="{ column: c, record: r }">
-                <template v-if="c.key === 'status'">
-                  <Tag :color="statusColor(r.status)">{{ r.status }}</Tag>
-                </template>
-              </template>
-            </Table>
+            </VxeGrid>
           </template>
-
-          <template #bodyCell="{ column, record }">
-            <template v-if="column.key === 'status'">
-              <Tag :color="statusColor(record.status)">{{ record.status }}</Tag>
-            </template>
-          </template>
-        </Table>
+        </McGrid>
       </Card>
     </Spin>
   </Page>

@@ -70,13 +70,242 @@
     min-height: 0;
   }
 
-  .page-fill-last > :last-child {
+  .page-fill-last> :last-child {
     flex: 1 1 0%;
     min-height: 0;
     height: auto;
   }
 }
 
+
+/* ============================================================
+   그리드 머리글 아래 필터 칸
+   ============================================================
+
+   깔때기를 눌러 팝업을 열고 · 값을 넣고 · '적용' 을 누르던 세 동작을
+   **머리글 아래에 바로 치는 한 동작**으로 줄인다.
+   그리는 것은 `adapter/vxe-grid-features.ts` 이고 여기는 모양만 맡는다.
+
+   머리글이 두 줄이 되므로 **위아래 여백을 줄인다** — 준수사항 4번(세로 스크롤 없이
+   한 화면)과 바로 부딪히는 자리다. 줄이지 않으면 머리글만 140px 를 넘어
+   그만큼 그리드 본문이 깎인다.
+   ============================================================ */
+
+/* ── 1행: 이름줄 ─────────────────────────────────────────── */
+
+.jsini-titlerow .vxe-cell {
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+
+.jsini-titlerow__inner {
+  display: inline-flex;
+  gap: 2px;
+  align-items: center;
+  justify-content: center;
+  max-width: 100%;
+  cursor: pointer;
+  user-select: none;
+}
+
+.jsini-titlerow__text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/*
+  정렬 표시. 안 걸렸을 때도 자리를 지켜야 한다 — 누를 때마다 화살표가
+  나타났다 사라지면 이름이 좌우로 흔들린다.
+*/
+.jsini-titlerow__sort {
+  flex: none;
+  font-size: 9px;
+  line-height: 1;
+  color: hsl(var(--muted-foreground));
+  opacity: 0.35;
+}
+
+.jsini-titlerow__sort--on {
+  color: hsl(var(--primary));
+  opacity: 1;
+}
+
+/* ── 2행: 필터줄 ─────────────────────────────────────────── */
+
+/*
+  이 줄에는 입력칸 하나뿐이다. vxe 가 이 칸에 그리는 정렬 화살표와 깔때기는
+  감춘다 — 정렬은 이름줄이 맡고, 필터 팝업은 쓰지 않는다.
+*/
+.jsini-filterrow .vxe-cell--sort,
+.jsini-filterrow .vxe-cell--filter {
+  display: none !important;
+}
+
+.jsini-filterrow .vxe-cell {
+  padding: 0 4px !important;
+}
+
+.jsini-filterrow__cell {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 3px 0;
+}
+
+.jsini-filterrow__input {
+  width: 100%;
+  height: 32px;
+  padding: 5px;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 20px;
+  color: hsl(var(--foreground));
+  background: hsl(var(--background));
+  border: 1px solid hsl(var(--border));
+  border-radius: 0px;
+}
+
+.jsini-filterrow__input:focus {
+  border-color: hsl(var(--primary));
+  outline: none;
+}
+
+.jsini-filterrow__input::placeholder {
+  color: hsl(var(--muted-foreground));
+  opacity: 0.7;
+}
+
+/*
+  고르는 칸(여러 개 선택). 옆의 입력칸과 **같은 높이·같은 모서리**로 맞춘다.
+
+  높이를 고정하는 이유가 하나 더 있다 — 고른 항목이 늘면 태그가 쌓여 칸이
+  세로로 커지는데, 필터줄은 vxe 가 표 높이를 계산할 때 쓰는 영역이라
+  거기가 커지면 **표 전체가 다시 그려진다.** `maxTagCount: 'responsive'` 가
+  넘치는 것을 "+N" 으로 접고, 여기서 높이를 못 박는다.
+*/
+.jsini-filterrow__select {
+  width: 100%;
+}
+
+.jsini-filterrow__select.ant-select .ant-select-selector {
+  height: 32px;
+  padding-inline: 4px;
+  font-size: 12px;
+  border-radius: 0;
+}
+
+.jsini-filterrow__select.ant-select .ant-select-selection-overflow {
+  flex-wrap: nowrap;
+  height: 30px;
+}
+
+.jsini-filterrow__select.ant-select .ant-select-selection-placeholder {
+  font-size: 12px;
+  line-height: 30px;
+  color: hsl(var(--muted-foreground));
+  opacity: 0.7;
+}
+
+.jsini-filterrow__select.ant-select .ant-select-selection-item {
+  height: 20px;
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 18px;
+}
+
+/*
+  머리글 칸이 두 줄을 담을 수 있게 한다.
+  vxe 는 머리글 한 줄을 전제로 `.vxe-cell` 높이를 잡아 두어서, 그대로 두면
+  입력칸이 잘린다.
+*/
+.vxe-table--header-wrapper .vxe-header--column .vxe-cell {
+  max-height: none;
+}
+
+/* ============================================================
+   그리드 아래 도구줄 — 엑셀 · 재조회 · 필터 초기화
+   ============================================================
+
+   **페이저가 있든 없든 그리드 아래에 줄이 하나 있고, 그 왼쪽에 아이콘이 선다.**
+
+   자리가 둘이다(`adapter/vxe-grid-features.ts` 참고).
+     · 페이저 있음 → 페이저 줄 왼쪽(`.vxe-pager--left-wrapper` 안)
+     · 페이저 없음 → 표 아래 `bottom` 영역
+
+   어느 쪽인지 코드로 미리 알기 어려워 **둘 다 그려 두고 여기서 하나를 숨긴다.**
+   페이저 영역이 실제로 붙어 있으면 아래쪽 것을 감춘다.
+   ============================================================ */
+
+/*
+  높이를 **고정**한다. 아이콘(iconify)은 SVG 를 나중에 받아 채우기 때문에,
+  높이를 내용에 맡기면 아이콘이 하나씩 들어올 때마다 줄 높이가 바뀐다.
+  이 줄은 vxe 가 표 높이를 계산할 때 빼는 영역이라, 여기가 흔들리면
+  **표 전체가 몇 번에 걸쳐 다시 그려진다.**
+*/
+.jsini-gridtools {
+  display: flex;
+  flex: none;
+  gap: 2px;
+  align-items: center;
+  height: 24px;
+}
+
+/*
+  페이저가 없을 때의 줄. 화면이 `bottom` 슬롯에 넣은 내용이 있으면 **같은 줄**에
+  이어 붙는다(도구줄이 왼쪽, 화면 내용이 그 오른쪽). 줄을 둘로 쌓지 않으려는 것이다.
+*/
+/*
+  줄 모양은 **도구줄이 실제로 보일 때만** 준다.
+
+  페이저가 뒤에 있으면 안의 도구줄은 숨겨진다(아이콘은 페이저 줄에 있다).
+  그때도 높이·테두리를 주면 표 아래에 **빈 줄**이 하나 생긴다.
+*/
+.vxe-grid--bottom-wrapper:has(.jsini-gridtools--bottom):not( :has(~ .vxe-grid--pager-wrapper)) {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-height: 32px;
+  margin-top: 2px;
+  border-top: 1px solid hsl(var(--border));
+}
+
+.jsini-gridtools--bottom {
+  padding: 0 6px;
+}
+
+/* 페이저 줄 안에서는 왼쪽 끝에 붙고, 나머지 자리는 페이저가 쓴다. */
+.vxe-pager--left-wrapper .jsini-gridtools {
+  padding-right: 8px;
+}
+
+/*
+  `bottom` 영역 **뒤에 페이저 영역이 붙어 있으면** 아래쪽 도구줄을 감춘다.
+  둘은 형제이고 `bottom` 이 먼저 온다(vxe 의 배치 순서: Table → Bottom → Pager).
+
+  화면이 직접 넣은 `bottom` 내용은 건드리지 않는다 — 우리 줄만 감춘다.
+*/
+.vxe-grid--bottom-wrapper:has(~ .vxe-grid--pager-wrapper) .jsini-gridtools--bottom {
+  display: none;
+}
+
+.jsini-gridtools__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  color: hsl(var(--muted-foreground));
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+}
+
+.jsini-gridtools__btn:hover {
+  color: hsl(var(--primary));
+  background: hsl(var(--accent));
+}
 
 /* ============================================================
    공지 팝업 — 다른 팝업과 디자인이 다르다

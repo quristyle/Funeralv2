@@ -12,12 +12,12 @@ import {
   Popconfirm,
   Spin,
   Switch,
-  Table,
   Tag,
   Tooltip,
 } from 'ant-design-vue';
 import dayjs from 'dayjs';
 
+import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import {
   cleanupDockerImages,
   getDeployStatus,
@@ -34,6 +34,16 @@ import RunHistoryModal from './modules/run-history-modal.vue';
  * 히스토리 팝업에서 본다. 운영서버 컨테이너(이미지 태그)와
  * 오래된 이미지 정리 버튼도 여기에 있다.
  * 재현 절차와 구조는 docs/analysis/39-jsini-deploy-setup-guide.md 에 있다.
+ *
+ * ------------------------------------------------------------
+ * [2026-08-30] ant-design-vue `<Table>` 에서 `useVbenVxeGrid` 로 옮겼다.
+ * 정렬·필터는 공통 레이어(`adapter/vxe-grid-features.ts`)가 붙인다.
+ *
+ * **가져오기 방식은 그대로다** — 30초마다 도는 `fetchData` 하나가 화면 전체를
+ * 받아 오고, 컨테이너 표는 그중 한 조각(`containers`)을 `:table-data` 로 본다.
+ *
+ * 이 화면은 카드가 여럿이라 `page-fill-last` 를 쓰지 않는다 — 표 높이는 숫자로 준다.
+ * ------------------------------------------------------------
  */
 
 const loading = ref(false);
@@ -154,13 +164,45 @@ const staleImageCount = computed(
 
 // ── 표 ──────────────────────────────────────────────────
 
-const containerColumns = [
-  { dataIndex: 'service', key: 'service', title: '서비스', width: 100 },
-  { dataIndex: 'state', key: 'state', title: '상태', width: 100 },
-  { dataIndex: 'tag', key: 'tag', title: '이미지 태그', width: 120 },
-  { dataIndex: 'status', key: 'status', title: '가동' },
-  { key: 'actions', title: '', width: 70 },
-];
+/** 컨테이너 상태를 화면에 보이는 글자로 바꾼다. 필터도 이 글자를 훑는다. */
+function stateLabel(state?: string) {
+  return state === 'running' ? '실행 중' : (state ?? '-');
+}
+
+const [ContainerGrid] = useVbenVxeGrid({
+  // `gridFeatures` 는 vxe 타입에 없다(공통 레이어가 읽고 떼어 낸다). 그래서 `as any`.
+  gridOptions: {
+    columns: [
+      { field: 'service', title: '서비스', width: 100 },
+      {
+        field: 'state',
+        // 도커가 주는 상태는 종류가 정해져 있지 않아 고르는 칸 대신 입력칸으로 둔다.
+        params: { filterText: (row: any) => stateLabel(row.state) },
+        slots: { default: 'state' },
+        title: '상태',
+        width: 100,
+      },
+      {
+        field: 'tag',
+        // 화면에는 앞 7자만 보이지만 필터는 태그 전체를 훑게 한다.
+        params: { filterText: (row: any) => row.tag ?? '' },
+        slots: { default: 'tag' },
+        title: '이미지 태그',
+        width: 130,
+      },
+      { field: 'status', minWidth: 160, title: '가동' },
+      { field: 'action', slots: { default: 'action' }, title: '', width: 70 },
+    ],
+    emptyText: '실행 중인 컨테이너가 없습니다.',
+    // 재조회 아이콘 — `:table-data` 라 그리드가 조회 방법을 모른다.
+    // 위쪽 '새로고침' · 30초 타이머가 부르는 것과 같은 함수를 준다.
+    gridFeatures: { onRefresh: () => fetchData(true) },
+    height: 360,
+    // 전량이 한 번에 올라온다 — 페이저를 켜 두면 안 된다.
+    pagerConfig: { enabled: false },
+    rowConfig: { keyField: 'service' },
+  } as any,
+});
 
 function runTagColor(run: DeployStatusApi.WorkflowRun) {
   if (run.status !== 'completed') return 'processing';
@@ -340,32 +382,23 @@ function fmtDuration(sec: null | number) {
           운영서버에서만 조회된다 —
           {{ data?.docker.error ?? '개발 환경에서는 Docker 소켓이 없다.' }}
         </div>
-        <Table
-          v-else
-          :columns="containerColumns"
-          :data-source="containers"
-          :pagination="false"
-          row-key="service"
-          size="small"
-        >
-          <template #bodyCell="{ column, record }">
-            <template v-if="column.key === 'state'">
-              <Tag :color="record.state === 'running' ? 'success' : 'error'">
-                {{ record.state === 'running' ? '실행 중' : record.state }}
-              </Tag>
-            </template>
-            <template v-else-if="column.key === 'tag'">
-              <Tooltip :title="record.image">
-                <span class="font-mono">{{ record.tag.slice(0, 7) }}</span>
-              </Tooltip>
-            </template>
-            <template v-else-if="column.key === 'actions'">
-              <Button size="small" type="link" @click="openLogs(record.service)">
-                로그
-              </Button>
-            </template>
+        <ContainerGrid v-else :table-data="containers">
+          <template #state="{ row }">
+            <Tag :color="row.state === 'running' ? 'success' : 'error'">
+              {{ stateLabel(row.state) }}
+            </Tag>
           </template>
-        </Table>
+          <template #tag="{ row }">
+            <Tooltip :title="row.image">
+              <span class="font-mono">{{ row.tag.slice(0, 7) }}</span>
+            </Tooltip>
+          </template>
+          <template #action="{ row }">
+            <Button size="small" type="link" @click="openLogs(row.service)">
+              로그
+            </Button>
+          </template>
+        </ContainerGrid>
       </Card>
     </Spin>
 

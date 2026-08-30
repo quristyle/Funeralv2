@@ -167,7 +167,17 @@ const activeTabKey = ref('users');
 <template>
   <Page auto-content-height>
     <FormDrawer @success="onRefresh" />
-    <div class="grid grid-cols-12 gap-4 h-full">
+    <!--
+      `grid-rows-[minmax(0,1fr)]` 가 꼭 필요하다 (두 칸이 한 줄에 서는 lg 이상).
+
+      행 트랙을 안 정하면 `auto` 라서 **내용 크기로** 계산되는데, 자식들은
+      `h-full`(= 트랙 높이)이고 그 안의 vxe 그리드는 잰 높이를 다시 내용으로
+      만든다. 오른쪽 탭에 그리드가 뜨는 순간 머리글·도구줄 만큼 내용이 트랙을
+      넘고, 트랙 ↔ vxe 재측정이 되먹임하며 **표가 초당 수십 px 씩 무한히
+      길어졌다** (실측: 트랙이 887px → 2384px). `minmax(0,1fr)` 로 트랙을
+      컨테이너 높이에 못 박으면 내용이 트랙을 키울 수 없다.
+    -->
+    <div class="grid grid-cols-12 gap-4 h-full lg:grid-rows-[minmax(0,1fr)]">
       <!-- 좌측: 역할 목록 그리드 -->
       <div class="col-span-12 lg:col-span-4 h-full flex flex-col">
         <Card class="flex-1 flex flex-col h-full overflow-hidden" title="역할 목록" :body-style="{ flex: 1, padding: 0, overflow: 'hidden' }">

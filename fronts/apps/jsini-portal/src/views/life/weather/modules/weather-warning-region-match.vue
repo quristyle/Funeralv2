@@ -3,8 +3,9 @@ import type { LifeWeatherApi } from '#/api/life/weather';
 
 import { computed, onMounted, ref, watch } from 'vue';
 
-import { Alert, Divider, Empty, message, Spin, Table, Tag } from 'ant-design-vue';
+import { Alert, Divider, Empty, message, Spin, Tag } from 'ant-design-vue';
 
+import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { getWarningFullDetails } from '#/api/life/weather';
 
 import { formatTmFc } from './weather-shared';
@@ -15,6 +16,17 @@ import { formatTmFc } from './weather-shared';
  * getWarningFullDetails 한 번으로 특보 · 통보문 · 구역별 발효 현황 ·
  * 매칭된 관리지역 · 문장을 받아, 통보문 본문에서 관리지역 구역명을 노랗게 강조한다.
  * 본문은 HTML 이스케이프 후 강조 태그만 끼워 넣는다.
+ *
+ * ------------------------------------------------------------
+ * [2026-08-30] 구역별 상세 발효 현황 표를 ant-design-vue `<Table>` 에서
+ * `useVbenVxeGrid` 로 옮겼다. 정렬·필터는 공통 레이어
+ * (`adapter/vxe-grid-features.ts`)가 붙인다.
+ *
+ * **가져오기 방식은 그대로다** — 위의 한 번 조회로 받은 `details` 를
+ * `:table-data` 로 넘긴다. 이 화면은 `Page` 가 아니라 상세 패널 안이라
+ * `page-fill-last` 가 없다. 그래서 원본 `:scroll="{ y: 320 }"` 를
+ * `height: 320` 숫자로 옮겼다.
+ * ------------------------------------------------------------
  */
 
 const props = defineProps<{
@@ -123,11 +135,42 @@ function highlightText(text?: null | string) {
   return escaped.replaceAll(regex, '<span class="highlight-region">$1</span>');
 }
 
-const detailColumns = [
-  { dataIndex: 'areaName', key: 'areaName', title: '발효구역', width: 140 },
-  { dataIndex: 'warnVarName', key: 'warnVarName', title: '특보종류', width: 110 },
-  { dataIndex: 'startTime', key: 'startTime', title: '발효시각' },
-];
+const [DetailGrid] = useVbenVxeGrid({
+  // `gridFeatures` 는 vxe 타입에 없다(공통 레이어가 읽고 떼어 낸다). 그래서 `as any`.
+  gridOptions: {
+    columns: [
+      { field: 'areaName', title: '발효구역', width: 140 },
+      {
+        field: 'warnVarName',
+        slots: { default: 'warnVarName' },
+        title: '특보종류',
+        width: 110,
+      },
+      {
+        field: 'startTime',
+        minWidth: 180,
+        // 화면에 보이는 것은 포맷한 시각이다. 필터가 훑을 글자를 그것으로 맞춘다.
+        params: {
+          filterText: (row: any) =>
+            `${formatTmFc(row.startTime)} ${row.endTime ? formatTmFc(row.endTime) : ''}`,
+        },
+        // 발효시각은 '해제예정' 을 아래에 한 줄 더 그린다. 전역 `showOverflow` 로는
+        // 한 줄로 잘리므로 이 칸만 푼다.
+        showOverflow: false,
+        slots: { default: 'startTime' },
+        title: '발효시각',
+      },
+    ],
+    emptyText: '구역별 발효 현황이 없습니다.',
+    // 재조회 아이콘 — `:table-data` 라 그리드가 조회 방법을 모른다.
+    // 이 패널은 `fetchData` 한 번이 통보문까지 다 받아 오므로 그것을 준다.
+    gridFeatures: { onRefresh: () => fetchData() },
+    height: 320,
+    // 전량을 한 번에 넘긴다. 페이저를 두지 않는다.
+    pagerConfig: { enabled: false },
+    rowConfig: { keyField: 'id' },
+  } as any,
+});
 
 watch(() => props.warningId, fetchData);
 onMounted(fetchData);
@@ -282,29 +325,19 @@ onMounted(fetchData);
           <Divider class="!my-3" />
           <div>
             <span class="font-bold text-teal-600">[구역별 상세 발효 현황]</span>
-            <Table
-              :columns="detailColumns"
-              :data-source="details"
-              :pagination="false"
-              :scroll="{ y: 320 }"
-              class="mt-2"
-              row-key="id"
-              size="small"
-            >
-              <template #bodyCell="{ column, record }">
-                <template v-if="column.key === 'warnVarName'">
-                  <Tag color="green">{{ record.warnVarName }}</Tag>
-                </template>
-                <template v-else-if="column.key === 'startTime'">
-                  <div class="flex flex-col">
-                    <span class="text-xs font-bold">{{ formatTmFc(record.startTime) }}</span>
-                    <span v-if="record.endTime" class="text-muted-foreground mt-0.5 text-[10px]">
-                      해제예정: {{ formatTmFc(record.endTime) }}
-                    </span>
-                  </div>
-                </template>
+            <DetailGrid class="mt-2" :table-data="details">
+              <template #warnVarName="{ row }">
+                <Tag color="green">{{ row.warnVarName }}</Tag>
               </template>
-            </Table>
+              <template #startTime="{ row }">
+                <div class="flex flex-col">
+                  <span class="text-xs font-bold">{{ formatTmFc(row.startTime) }}</span>
+                  <span v-if="row.endTime" class="text-muted-foreground mt-0.5 text-[10px]">
+                    해제예정: {{ formatTmFc(row.endTime) }}
+                  </span>
+                </div>
+              </template>
+            </DetailGrid>
           </div>
         </template>
       </div>

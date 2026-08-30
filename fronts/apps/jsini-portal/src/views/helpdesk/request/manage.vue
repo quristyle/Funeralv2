@@ -6,17 +6,9 @@ import { useRoute, useRouter } from 'vue-router';
 
 import { Page } from '@vben/common-ui';
 
-import {
-  Button,
-  Card,
-  Empty,
-  Input,
-  Select,
-  Space,
-  Table,
-  Tag,
-} from 'ant-design-vue';
+import { Button, Card, Empty, Input, Select, Space, Tag } from 'ant-design-vue';
 
+import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { searchRequests } from '#/api/helpdesk';
 import { useHelpdeskStore } from '#/store/helpdesk';
 
@@ -24,6 +16,7 @@ import HelpdeskAccountNotice from '../shared/account-notice.vue';
 import {
   formatDateTime,
   REQUEST_STATUS_OPTIONS,
+  REQUEST_STATUSES,
   statusMeta,
 } from '../shared/constants';
 
@@ -38,6 +31,18 @@ import {
  * 원본은 조회 조건과 페이지를 pinia 스토어에 담고 라우터 `keepAlive` 로 화면을
  * 살려둬서 상세를 보고 돌아와도 조건이 남아 있었다. 여기서는 같은 목적을
  * 주소창 쿼리로 달성한다 — 뒤로 가기는 물론 새로고침·즐겨찾기에도 조건이 남는다.
+ *
+ * ------------------------------------------------------------
+ * [2026-08-30] ant-design-vue `<Table>` 에서 `useVbenVxeGrid` 로 옮겼다.
+ * 정렬·필터는 공통 레이어(`adapter/vxe-grid-features.ts`)가 붙인다.
+ *
+ * **가져오기 방식은 그대로다** — 페이지도 정렬도 서버가 한다.
+ * 그래서 머리글 필터줄은 **지금 화면에 올라온 페이지 안에서만** 걸린다.
+ * 전체에서 걸러야 하는 조건(키워드 · 상태 · 회사 · 접수자)은 위의 조회 줄이 맡는다.
+ *
+ * 모바일 카드 목록은 그대로 두었다. 그리드가 채워 주는 `rows` 를 같이 쓴다
+ * (좁은 화면에서는 그리드가 숨겨지지만 조회는 그대로 돈다).
+ * ------------------------------------------------------------
  */
 
 const route = useRoute();
@@ -46,6 +51,14 @@ const helpdesk = useHelpdeskStore();
 
 const loading = ref(false);
 const rows = ref<ImprovementRequest[]>([]);
+
+/**
+ * 조회 준비가 끝났는가.
+ *
+ * 그리드는 뜨자마자 스스로 한 번 조회한다. 신원·조직·주소창 조건을 다 읽은 뒤에야
+ * 그리드를 붙여서(`v-if`), 그 첫 조회 한 번이 곧 제대로 된 조회가 되게 한다.
+ */
+const ready = ref(false);
 
 /** 사진이 깨질 때 예전 도메인으로 한 번 더 받아본다(원본과 동일). */
 const PHOTO_FALLBACK_HOST = 'https://help.jin114.co.kr';
@@ -66,14 +79,11 @@ const filters = reactive<{
   status: undefined,
 });
 
-/** 페이징 상태 */
+/** 페이징 상태. 그리드가 준 값을 받아 두고 모바일 '더 보기'도 같이 쓴다. */
 const pagination = reactive({
   current: 1,
   pageSize: 20,
-  showSizeChanger: true,
-  pageSizeOptions: ['10', '20', '50'],
   total: 0,
-  showTotal: (total: number) => `총 ${total}건`,
 });
 
 /** 정렬 상태. 원본 기본값과 같이 최신 작성일 순으로 시작한다. */
@@ -81,6 +91,12 @@ const sort = reactive<{ dir: 'asc' | 'desc'; field: string }>({
   dir: 'desc',
   field: 'createdAt',
 });
+
+/**
+ * 첫 조회 한 번은 주소창이 준 정렬을 그대로 쓴다.
+ * 그리드 이름줄에는 아직 화살표가 서 있지 않아 vxe 가 정렬을 비워 주기 때문이다.
+ */
+let useUrlSort = true;
 
 /**
  * 접수자 셀렉트 목록.
@@ -99,73 +115,71 @@ const customerSelectOptions = computed(() => {
   ];
 });
 
-const columns = computed(() => {
-  const sorted = (field: string) => {
-    const asc = 'ascend' as const;
-    const desc = 'descend' as const;
-    return {
-      sorter: true,
-      sortOrder: sort.field === field ? (sort.dir === 'asc' ? asc : desc) : null,
-    };
-  };
+/** 상태 칸의 필터는 고르는 칸이다. 저장된 값은 열거형 이름(`Pending`)이다. */
+const STATUS_FILTER_OPTIONS = REQUEST_STATUSES.map((s) => ({
+  label: s.label,
+  value: s.value,
+}));
 
-  const base = [
+const columns = computed(() => {
+  const base: any[] = [
     {
-      dataIndex: 'title',
-      key: 'title',
+      field: 'title',
+      minWidth: 260,
+      params: { filterText: (row: any) => row.title ?? '' },
+      slots: { default: 'title' },
       title: '제목',
-      ellipsis: true,
-      ...sorted('title'),
     },
     {
-      dataIndex: 'createdAt',
-      key: 'createdAt',
+      field: 'createdAt',
+      params: { filterText: (row: any) => formatDateTime(row.createdAt) },
+      slots: { default: 'createdAt' },
       title: '작성일',
       width: 150,
-      ...sorted('createdAt'),
     },
     {
-      dataIndex: 'status',
-      key: 'status',
+      field: 'status',
+      params: { filterOptions: STATUS_FILTER_OPTIONS },
+      slots: { default: 'status' },
       title: '상태',
       width: 90,
-      ...sorted('status'),
     },
     {
-      dataIndex: ['customer', 'userName'],
-      key: 'customer',
+      field: 'customer.userName',
       title: '작성자',
       width: 110,
-      ...sorted('customer.userName'),
     },
     {
-      dataIndex: ['admin', 'userName'],
-      key: 'admin',
+      field: 'admin.userName',
       title: '접수자',
       width: 110,
-      ...sorted('admin.userName'),
     },
     {
-      dataIndex: 'completededAt',
-      key: 'completededAt',
+      field: 'completededAt',
+      params: { filterText: (row: any) => formatDateTime(row.completededAt) },
+      slots: { default: 'completededAt' },
       title: '완료일',
       width: 150,
-      ...sorted('completededAt'),
     },
   ];
 
   // 회사 컬럼은 관리자에게만 의미가 있다. 고객은 자기 회사 건만 보기 때문.
   if (helpdesk.isAdmin) {
-    base.push({
-      dataIndex: ['company', 'name'],
-      key: 'company',
-      title: '회사',
-      width: 120,
-      ...sorted('customer.company.name'),
-    } as any);
+    base.push({ field: 'company.name', title: '회사', width: 120 });
   }
   return base;
 });
+
+/**
+ * 그리드 컬럼 이름 → 서버 정렬 필드.
+ *
+ * 서버가 받는 이름과 표에 그리는 경로가 다른 것은 회사 하나뿐이다.
+ * (원본 `resolveSortField` 가 하던 일이다.)
+ */
+function resolveSortField(field?: string) {
+  if (!field) return 'createdAt';
+  return field === 'company.name' ? 'customer.company.name' : field;
+}
 
 /**
  * 검색 조건을 서버 규약(필드_연산자)에 맞춰 만든다.
@@ -201,27 +215,65 @@ function buildPayload() {
   return payload;
 }
 
-/** 목록을 조회한다. */
-async function loadData() {
-  // 담당자는 연결이 없어도 전체 요청을 조회한다. 조회 범위는 조건이 정하고
-  // 헬프데스크 내부 ID 를 쓰지 않는다.
-  if (!helpdesk.canUse) return;
+const [Grid, gridApi] = useVbenVxeGrid({
+  gridEvents: {
+    // 원본 `custom-row` 의 행 클릭. 상세로 들어간다.
+    cellClick: ({ row }: any) => openDetail(row),
+  },
+  gridOptions: {
+    columns: columns.value,
+    emptyText: '조회된 요청이 없습니다.',
+    height: 'auto',
+    pagerConfig: { enabled: true, pageSize: 20 },
+    rowClassName: () => 'cursor-pointer',
+    rowConfig: { keyField: 'id' },
+    // 정렬은 서버가 한다. 한 페이지만 올라와 있어 화면에서 세우면 그 페이지만 선다.
+    sortConfig: { multiple: false, remote: true },
+    proxyConfig: {
+      ajax: {
+        query: async ({ page, sorts }: any) => {
+          // 담당자는 연결이 없어도 전체 요청을 조회한다. 조회 범위는 조건이 정하고
+          // 헬프데스크 내부 ID 를 쓰지 않는다.
+          if (!helpdesk.canUse) return { page: { total: 0 }, result: [] };
 
-  loading.value = true;
-  try {
-    const page = await searchRequests(buildPayload());
-    rows.value = page.items;
-    pagination.total = page.totalCount;
-  } finally {
-    loading.value = false;
-  }
-}
+          pagination.current = page?.currentPage ?? 1;
+          pagination.pageSize = page?.pageSize ?? 20;
+
+          const picked = sorts?.[0];
+          if (picked?.field) {
+            sort.field = resolveSortField(picked.field);
+            sort.dir = picked.order === 'asc' ? 'asc' : 'desc';
+          } else if (!useUrlSort) {
+            // 이름줄에서 정렬을 풀었다. 원본과 같이 기본값으로 돌아간다.
+            sort.field = 'createdAt';
+            sort.dir = 'desc';
+          }
+          useUrlSort = false;
+
+          loading.value = true;
+          try {
+            const result = await searchRequests(buildPayload());
+            rows.value = result.items;
+            pagination.total = result.totalCount;
+            syncQuery();
+            return { page: { total: result.totalCount }, result: result.items };
+          } finally {
+            loading.value = false;
+          }
+        },
+      },
+    },
+  },
+});
+
+/** 컬럼은 관리자 여부가 정해진 뒤에야 확정된다. 바뀌면 다시 심는다. */
+watch(columns, (next) => gridApi.setGridOptions({ columns: next }));
 
 /** 조회 버튼 · 조건 변경 시 첫 페이지부터 다시 조회한다. */
 function search() {
   pagination.current = 1;
-  syncQuery();
-  loadData();
+  // `reload` 는 vxe 의 페이저를 1쪽으로 되돌린 뒤 조회한다.
+  gridApi.reload();
 }
 
 /**
@@ -238,6 +290,7 @@ onUnmounted(() => {
 
 /**
  * 모바일 '더 보기'. 다음 페이지를 이어 붙인다(원본 loadMore 와 같은 동작).
+ * 좁은 화면에는 그리드가 없으므로 여기서 직접 조회한다.
  */
 async function loadMore() {
   if (!helpdesk.canUse) return;
@@ -250,46 +303,6 @@ async function loadMore() {
     pagination.total = page.totalCount;
   } finally {
     loading.value = false;
-  }
-}
-
-/** 페이지 이동과 컬럼 정렬을 함께 받는다. */
-function onTableChange(
-  pag: { current?: number; pageSize?: number },
-  _filters: unknown,
-  sorter: any,
-) {
-  pagination.current = pag.current ?? 1;
-  pagination.pageSize = pag.pageSize ?? 20;
-
-  if (sorter?.order) {
-    // 서버에 보낼 필드명은 컬럼 키에서 되짚는다.
-    sort.field = resolveSortField(sorter.column?.key);
-    sort.dir = sorter.order === 'ascend' ? 'asc' : 'desc';
-  } else {
-    sort.field = 'createdAt';
-    sort.dir = 'desc';
-  }
-
-  syncQuery();
-  loadData();
-}
-
-/** 컬럼 키 → 서버 정렬 필드 */
-function resolveSortField(key?: string) {
-  switch (key) {
-    case 'admin': {
-      return 'admin.userName';
-    }
-    case 'company': {
-      return 'customer.company.name';
-    }
-    case 'customer': {
-      return 'customer.userName';
-    }
-    default: {
-      return key ?? 'createdAt';
-    }
   }
 }
 
@@ -382,13 +395,22 @@ onMounted(async () => {
   }
 
   applyQueryFilters();
-  await loadData();
+  // 주소창이 준 쪽 번호·쪽 크기를 페이저에 먼저 넘겨 준다.
+  gridApi.setGridOptions({
+    pagerConfig: {
+      currentPage: pagination.current,
+      enabled: true,
+      pageSize: pagination.pageSize,
+    },
+  });
+  // 여기서 그리드가 붙고, 그리드가 스스로 첫 조회를 한다.
+  ready.value = true;
   watchReady = true;
 });
 </script>
 
 <template>
-  <Page auto-content-height>
+  <Page auto-content-height content-class="page-fill-last">
     <HelpdeskAccountNotice />
 
     <template v-if="helpdesk.canUse">
@@ -439,65 +461,11 @@ onMounted(async () => {
         </Space>
       </Card>
 
-      <!-- 데스크탑: 표 -->
-      <Card :body-style="{ padding: 0 }" class="hidden md:block" size="small">
-        <Table
-          :columns="columns"
-          :custom-row="
-            (record: ImprovementRequest) => ({
-              onClick: () => openDetail(record),
-              style: 'cursor: pointer',
-            })
-          "
-          :data-source="rows"
-          :loading="loading"
-          :pagination="pagination"
-          :scroll="{ x: 900 }"
-          row-key="id"
-          size="small"
-          @change="onTableChange"
-        >
-          <template #emptyText>
-            <Empty description="조회된 요청이 없습니다." />
-          </template>
-
-          <template #bodyCell="{ column, record }">
-            <template v-if="column.key === 'title'">
-              <div class="flex items-center gap-2">
-                <img
-                  v-if="record.mainPhoto"
-                  :alt="record.title"
-                  class="h-10 w-16 shrink-0 rounded object-cover"
-                  :src="record.mainPhoto"
-                  @error="onPhotoError($event, record.mainPhoto)"
-                />
-                <span class="min-w-0 flex-1 truncate font-medium">
-                  {{ record.title }}
-                </span>
-                <Tag v-if="record.attachmentCount > 0">
-                  첨부 {{ record.attachmentCount }}
-                </Tag>
-              </div>
-            </template>
-
-            <template v-else-if="column.key === 'status'">
-              <Tag :color="statusMeta(record.status).color">
-                {{ record.statusName || statusMeta(record.status).label }}
-              </Tag>
-            </template>
-
-            <template v-else-if="column.key === 'createdAt'">
-              {{ formatDateTime(record.createdAt) }}
-            </template>
-
-            <template v-else-if="column.key === 'completededAt'">
-              {{ formatDateTime(record.completededAt) }}
-            </template>
-          </template>
-        </Table>
-      </Card>
-
-      <!-- 모바일: 카드 목록. 원본도 좁은 화면에서는 카드로 바꿔 보여줬다. -->
+      <!--
+        모바일: 카드 목록. 원본도 좁은 화면에서는 카드로 바꿔 보여줬다.
+        표보다 **먼저** 둔다 — `page-fill-last` 는 마지막 자식에게 높이를 주는데
+        데스크톱에서 남은 높이를 채워야 하는 것은 표이기 때문이다.
+      -->
       <Card :body-style="{ padding: '8px' }" class="md:hidden" size="small">
         <Empty v-if="rows.length === 0" description="조회된 요청이 없습니다." />
 
@@ -550,6 +518,41 @@ onMounted(async () => {
           더 보기 ({{ rows.length }} / {{ pagination.total }})
         </Button>
       </Card>
+
+      <!-- 데스크탑: 표. 조건이 다 갖춰진 뒤에 붙인다(위 `ready` 설명). -->
+      <Grid v-if="ready" class="hidden md:block">
+        <template #title="{ row }">
+          <div class="flex items-center gap-2">
+            <img
+              v-if="row.mainPhoto"
+              :alt="row.title"
+              class="h-10 w-16 shrink-0 rounded object-cover"
+              :src="row.mainPhoto"
+              @error="onPhotoError($event, row.mainPhoto)"
+            />
+            <span class="min-w-0 flex-1 truncate font-medium">
+              {{ row.title }}
+            </span>
+            <Tag v-if="row.attachmentCount > 0">
+              첨부 {{ row.attachmentCount }}
+            </Tag>
+          </div>
+        </template>
+
+        <template #status="{ row }">
+          <Tag :color="statusMeta(row.status).color">
+            {{ row.statusName || statusMeta(row.status).label }}
+          </Tag>
+        </template>
+
+        <template #createdAt="{ row }">
+          {{ formatDateTime(row.createdAt) }}
+        </template>
+
+        <template #completededAt="{ row }">
+          {{ formatDateTime(row.completededAt) }}
+        </template>
+      </Grid>
     </template>
   </Page>
 </template>

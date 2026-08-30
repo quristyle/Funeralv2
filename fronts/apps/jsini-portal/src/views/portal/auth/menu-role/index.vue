@@ -16,7 +16,6 @@ import {
   message,
   Popconfirm,
   Spin,
-  Table,
   Tabs,
   TabPane,
   Tag,
@@ -24,6 +23,7 @@ import {
   Tree,
 } from 'ant-design-vue';
 
+import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { getMenuRole } from '#/api/portal/system/menu-role';
 import { getMenuList } from '#/api/portal/system/menu';
 import { getRoleMenus, saveRoleMenus } from '#/api/portal/system/role-permission';
@@ -54,6 +54,19 @@ import { can } from '#/utils/permission';
  * 메뉴가 "쓰지 않는다" 고 지정한 항목(`system_menus.use_*`)은 역할에 켜 두어도
  * 효과가 없다(서버가 AND 로 묶는다). 그래서 쓰는 항목만 체크박스로 보여 준다 —
  * 켜도 아무 일이 없는 칸을 보여 주면 "켰는데 왜 안 되지" 로 헤매게 된다.
+ *
+ * ------------------------------------------------------------
+ * [2026-08-30] 아래 '닿는 대상'(회사 · 부서 · 사용자) 표 셋을
+ * ant-design-vue `<Table>` 에서 `useVbenVxeGrid` 로 옮겼다.
+ * 정렬·필터는 공통 레이어(`adapter/vxe-grid-features.ts`)가 붙인다.
+ *
+ * 위쪽 '역할 × 권한' 은 **손으로 쓴 `<table>` 그대로 둔다.** 칸이 메뉴마다
+ * 달라지고(쓰는 권한 항목만 나온다) 칸마다 체크박스를 직접 켜고 끄는 표라,
+ * 그리드로 옮길 대상이 아니다.
+ *
+ * 가져오기 방식도 그대로다 — `loadDetail` 한 번이 셋을 모두 담아 오므로
+ * 표는 `proxyConfig` 없이 `:table-data` 로 그 조각을 본다.
+ * ------------------------------------------------------------
  */
 
 /** 권한 항목 정의. `key` 는 DTO 필드, `used` 는 메뉴가 쓰는지 보는 필드다. */
@@ -316,13 +329,117 @@ async function detachTarget(
   }
 }
 
-const targetColumns = [
-  { title: '이름', key: 'name' },
-  { title: '소속', key: 'company' },
-  { title: '인원', key: 'userCount', width: 70, align: 'right' as const },
-  { title: '연결된 역할', key: 'roles' },
-  { title: '', key: 'action', width: 60, align: 'center' as const },
-];
+// ==========================================
+// 닿는 대상 — 회사 · 부서 · 사용자
+// ==========================================
+
+/** 카드 안 탭이라 `page-fill-last` 가 없다. 셋이 같은 자리에 서므로 같은 값을 쓴다. */
+const TARGET_GRID_HEIGHT = 300;
+
+/**
+ * 세 표의 칸 구성. 모양이 같아야 탭을 옮겨도 눈이 자리를 잃지 않는다.
+ *
+ * 그 종류에서 늘 비는 칸은 필터·정렬에서 뺀다 — 회사 탭의 '소속'(자기 자신이다)과
+ * 사용자 탭의 '인원'(사람 하나에 인원이 없다)이다. 켜 두면 늘 '-' 인 칸에
+ * 조건을 걸 수 있는 것처럼 보인다.
+ */
+function buildTargetColumns(kind: 'account' | 'company' | 'department'): any[] {
+  const isAccount = kind === 'account';
+
+  return [
+    {
+      field: 'name',
+      minWidth: 160,
+      // 사용자 탭만 이름 뒤에 로그인 ID 를 붙인다. 필터도 그 글자를 훑는다.
+      ...(isAccount
+        ? {
+            params: {
+              filterText: (row: any) =>
+                `${row.name ?? ''} ${row.loginId ?? ''}`,
+            },
+            slots: { default: 'name' },
+          }
+        : {}),
+      title: '이름',
+    },
+    {
+      field: 'companyName',
+      formatter: ({ cellValue }: any) => cellValue || '-',
+      minWidth: 140,
+      ...(kind === 'company' ? { params: { filter: false, sort: false } } : {}),
+      title: '소속',
+    },
+    {
+      align: 'right',
+      field: 'userCount',
+      formatter: ({ cellValue }: any) =>
+        isAccount ? '-' : String(cellValue ?? 0),
+      ...(isAccount ? { params: { filter: false, sort: false } } : {}),
+      title: '인원',
+      width: 70,
+    },
+    {
+      field: 'viaRoleNames',
+      minWidth: 180,
+      // 역할은 여러 개가 붙는다. 고르는 칸으로 두면 한 번에 하나뿐이라 글자로 찾게 둔다.
+      params: {
+        filterText: (row: any) => (row.viaRoleNames ?? []).join(' '),
+      },
+      slots: { default: 'roles' },
+      title: '연결된 역할',
+    },
+    {
+      align: 'center',
+      field: 'action',
+      slots: { default: 'action' },
+      title: '',
+      width: 60,
+    },
+  ];
+}
+
+/** 도구줄의 재조회. 셋은 `loadDetail` 한 번으로 함께 오므로 같은 것을 부른다. */
+function reloadTargets() {
+  if (selectedMenuId.value) loadDetail(selectedMenuId.value);
+}
+
+const [CompanyGrid] = useVbenVxeGrid({
+  // `gridFeatures` 는 vxe 타입에 없다(공통 레이어가 읽고 떼어 낸다). 그래서 `as any`.
+  gridOptions: {
+    columns: buildTargetColumns('company'),
+    emptyText: '닿는 회사가 없습니다.',
+    // 재조회 아이콘 — `:table-data` 라 그리드가 조회 방법을 모른다.
+    gridFeatures: { onRefresh: () => reloadTargets() },
+    height: TARGET_GRID_HEIGHT,
+    // 전량이 한 번에 올라온다. 켜 두면 vxe 가 배열을 봉투로 읽어 0건이 된다.
+    pagerConfig: { enabled: false },
+    rowConfig: { keyField: 'id' },
+  } as any,
+});
+
+const [DeptGrid] = useVbenVxeGrid({
+  // `gridFeatures` 는 vxe 타입에 없다(공통 레이어가 읽고 떼어 낸다). 그래서 `as any`.
+  gridOptions: {
+    columns: buildTargetColumns('department'),
+    emptyText: '닿는 부서가 없습니다.',
+    gridFeatures: { onRefresh: () => reloadTargets() },
+    height: TARGET_GRID_HEIGHT,
+    pagerConfig: { enabled: false },
+    rowConfig: { keyField: 'id' },
+  } as any,
+});
+
+const [AccountGrid] = useVbenVxeGrid({
+  // `gridFeatures` 는 vxe 타입에 없다(공통 레이어가 읽고 떼어 낸다). 그래서 `as any`.
+  gridOptions: {
+    columns: buildTargetColumns('account'),
+    emptyText: '닿는 사용자가 없습니다.',
+    gridFeatures: { onRefresh: () => reloadTargets() },
+    height: TARGET_GRID_HEIGHT,
+    pagerConfig: { enabled: false },
+    rowConfig: { keyField: 'id' },
+  } as any,
+});
 
 onMounted(loadMenus);
 </script>
@@ -528,148 +645,96 @@ onMounted(loadMenus);
                 key="company"
                 :tab="`회사 (${detail.companies.length})`"
               >
-                <Table
-                  :columns="targetColumns"
-                  :data-source="detail.companies"
-                  :pagination="false"
-                  row-key="id"
-                  size="small"
-                >
-                  <template #bodyCell="{ column, record }">
-                    <template v-if="column.key === 'name'">
-                      {{ record.name }}
-                    </template>
-                    <template v-else-if="column.key === 'company'">
-                      <span class="text-muted-foreground">-</span>
-                    </template>
-                    <template v-else-if="column.key === 'userCount'">
-                      {{ record.userCount }}
-                    </template>
-                    <template v-else-if="column.key === 'roles'">
-                      <Tag
-                        v-for="(name, i) in record.viaRoleNames"
-                        :key="record.viaRoleIds[i]"
-                        color="blue"
-                      >
-                        {{ name }}
-                      </Tag>
-                    </template>
-                    <template v-else-if="column.key === 'action'">
-                      <Popconfirm
-                        v-if="canEdit"
-                        cancel-text="취소"
-                        ok-text="해제"
-                        :title="`${record.name} 에서 '${record.viaRoleNames[0]}' 역할을 해제하시겠습니까?`"
-                        @confirm="
-                          detachTarget('company', record, record.viaRoleIds[0])
-                        "
-                      >
-                        <a class="text-xs text-red-500">해제</a>
-                      </Popconfirm>
-                    </template>
+                <CompanyGrid :table-data="detail.companies">
+                  <template #roles="{ row }">
+                    <Tag
+                      v-for="(name, i) in row.viaRoleNames"
+                      :key="row.viaRoleIds[i]"
+                      color="blue"
+                    >
+                      {{ name }}
+                    </Tag>
                   </template>
-                </Table>
+                  <template #action="{ row }">
+                    <Popconfirm
+                      v-if="canEdit"
+                      cancel-text="취소"
+                      ok-text="해제"
+                      :title="`${row.name} 에서 '${row.viaRoleNames[0]}' 역할을 해제하시겠습니까?`"
+                      @confirm="
+                        detachTarget('company', row, row.viaRoleIds[0])
+                      "
+                    >
+                      <a class="text-xs text-red-500">해제</a>
+                    </Popconfirm>
+                  </template>
+                </CompanyGrid>
               </TabPane>
 
               <TabPane
                 key="department"
                 :tab="`부서 (${detail.departments.length})`"
               >
-                <Table
-                  :columns="targetColumns"
-                  :data-source="detail.departments"
-                  :pagination="false"
-                  row-key="id"
-                  size="small"
-                >
-                  <template #bodyCell="{ column, record }">
-                    <template v-if="column.key === 'name'">
-                      {{ record.name }}
-                    </template>
-                    <template v-else-if="column.key === 'company'">
-                      {{ record.companyName ?? '-' }}
-                    </template>
-                    <template v-else-if="column.key === 'userCount'">
-                      {{ record.userCount }}
-                    </template>
-                    <template v-else-if="column.key === 'roles'">
-                      <Tag
-                        v-for="(name, i) in record.viaRoleNames"
-                        :key="record.viaRoleIds[i]"
-                        color="blue"
-                      >
-                        {{ name }}
-                      </Tag>
-                    </template>
-                    <template v-else-if="column.key === 'action'">
-                      <Popconfirm
-                        v-if="canEdit"
-                        cancel-text="취소"
-                        ok-text="해제"
-                        :title="`${record.name} 에서 '${record.viaRoleNames[0]}' 역할을 해제하시겠습니까?`"
-                        @confirm="
-                          detachTarget(
-                            'department',
-                            record,
-                            record.viaRoleIds[0],
-                          )
-                        "
-                      >
-                        <a class="text-xs text-red-500">해제</a>
-                      </Popconfirm>
-                    </template>
+                <DeptGrid :table-data="detail.departments">
+                  <template #roles="{ row }">
+                    <Tag
+                      v-for="(name, i) in row.viaRoleNames"
+                      :key="row.viaRoleIds[i]"
+                      color="blue"
+                    >
+                      {{ name }}
+                    </Tag>
                   </template>
-                </Table>
+                  <template #action="{ row }">
+                    <Popconfirm
+                      v-if="canEdit"
+                      cancel-text="취소"
+                      ok-text="해제"
+                      :title="`${row.name} 에서 '${row.viaRoleNames[0]}' 역할을 해제하시겠습니까?`"
+                      @confirm="
+                        detachTarget('department', row, row.viaRoleIds[0])
+                      "
+                    >
+                      <a class="text-xs text-red-500">해제</a>
+                    </Popconfirm>
+                  </template>
+                </DeptGrid>
               </TabPane>
 
               <TabPane
                 key="account"
                 :tab="`사용자 (${detail.accounts.length})`"
               >
-                <Table
-                  :columns="targetColumns"
-                  :data-source="detail.accounts"
-                  :pagination="false"
-                  row-key="id"
-                  size="small"
-                >
-                  <template #bodyCell="{ column, record }">
-                    <template v-if="column.key === 'name'">
-                      {{ record.name }}
-                      <span class="text-muted-foreground ml-1 text-xs">
-                        ({{ record.loginId }})
-                      </span>
-                    </template>
-                    <template v-else-if="column.key === 'company'">
-                      {{ record.companyName ?? '-' }}
-                    </template>
-                    <template v-else-if="column.key === 'userCount'">
-                      -
-                    </template>
-                    <template v-else-if="column.key === 'roles'">
-                      <Tag
-                        v-for="(name, i) in record.viaRoleNames"
-                        :key="record.viaRoleIds[i]"
-                        color="blue"
-                      >
-                        {{ name }}
-                      </Tag>
-                    </template>
-                    <template v-else-if="column.key === 'action'">
-                      <Popconfirm
-                        v-if="canEdit"
-                        cancel-text="취소"
-                        ok-text="해제"
-                        :title="`${record.name} 에서 '${record.viaRoleNames[0]}' 역할을 해제하시겠습니까?`"
-                        @confirm="
-                          detachTarget('account', record, record.viaRoleIds[0])
-                        "
-                      >
-                        <a class="text-xs text-red-500">해제</a>
-                      </Popconfirm>
-                    </template>
+                <AccountGrid :table-data="detail.accounts">
+                  <template #name="{ row }">
+                    {{ row.name }}
+                    <span class="text-muted-foreground ml-1 text-xs">
+                      ({{ row.loginId }})
+                    </span>
                   </template>
-                </Table>
+                  <template #roles="{ row }">
+                    <Tag
+                      v-for="(name, i) in row.viaRoleNames"
+                      :key="row.viaRoleIds[i]"
+                      color="blue"
+                    >
+                      {{ name }}
+                    </Tag>
+                  </template>
+                  <template #action="{ row }">
+                    <Popconfirm
+                      v-if="canEdit"
+                      cancel-text="취소"
+                      ok-text="해제"
+                      :title="`${row.name} 에서 '${row.viaRoleNames[0]}' 역할을 해제하시겠습니까?`"
+                      @confirm="
+                        detachTarget('account', row, row.viaRoleIds[0])
+                      "
+                    >
+                      <a class="text-xs text-red-500">해제</a>
+                    </Popconfirm>
+                  </template>
+                </AccountGrid>
               </TabPane>
             </Tabs>
 
@@ -705,13 +770,17 @@ onMounted(loadMenus);
   `html` 의 루트 크기가 되고(기본 14px), 화면들은 `rem` 비율로 그려서 그 값에 맞춰 함께
   커지고 작아진다. 기준은 `text-sm` = `0.875rem` 이다 (루트 14px 이면 12.25px).
 
-  그런데 antd 부품(Tree · Table · Tabs …)은 자기 토큰의 **고정 px(14px)** 로 그린다.
-  그래서 이 화면의 왼쪽 메뉴 트리와 오른쪽 회사·부서·사용자 표만 다른 화면보다 크게
-  보였고, 사용자가 글꼴 크기를 바꿔도 그 부분만 따라 변하지 않았다.
+  그런데 antd 부품(Tree · Tabs …)은 자기 토큰의 **고정 px(14px)** 로 그린다.
+  그래서 이 화면의 왼쪽 메뉴 트리만 다른 화면보다 크게 보였고, 사용자가 글꼴 크기를
+  바꿔도 그 부분만 따라 변하지 않았다.
 
   손으로 쓴 역할 표(`table.text-sm`)는 처음부터 `rem` 이라 올바른 크기였다.
   **그 표를 기준으로 antd 쪽을 내린다.** 반대로 기준을 올리면 이 화면 밖의 모든 화면이
   함께 커진다.
+
+  오른쪽 회사·부서·사용자 표는 2026-08-30 에 `useVbenVxeGrid` 로 옮겼다 —
+  그리드는 다른 화면과 같은 규칙으로 그려지므로 여기서 손대지 않는다.
+  (그래서 예전에 있던 `.ant-table*` 선택자를 지웠다.)
 
   같은 처리를 프로필의 '계정 정보' 탭에서도 했다
   (views/_core/profile/account-info.vue — 거기서는 Descriptions·Table 이 대상이었다).
@@ -722,10 +791,6 @@ onMounted(loadMenus);
 
 /* 왼쪽 메뉴 트리 */
 .menu-role :deep(.ant-tree),
-/* 오른쪽 회사·부서·사용자 표 */
-.menu-role :deep(.ant-table),
-.menu-role :deep(.ant-table-thead > tr > th),
-.menu-role :deep(.ant-table-tbody > tr > td),
 /* 그 밖의 부품 */
 .menu-role :deep(.ant-tabs),
 .menu-role :deep(.ant-tabs-tab),

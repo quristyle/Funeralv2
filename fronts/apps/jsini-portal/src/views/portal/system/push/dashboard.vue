@@ -16,9 +16,9 @@ import {
   Space,
   Spin,
   Statistic,
-  Table,
 } from 'ant-design-vue';
 
+import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import {
   getPushEngagementStats,
   getPushFailureReasons,
@@ -33,6 +33,17 @@ import {
  *
  * 원본(PushDashboard.vue + StatsCard/PushEngagementStats/TopPerformingMessages/UserEngagementStats)을
  * 한 화면으로 합쳤다. 실패 사유를 클릭하면 그 사유로 걸러진 발송 이력으로 넘어간다.
+ *
+ * ------------------------------------------------------------
+ * [2026-08-30] ant-design-vue `<Table>` 에서 `useVbenVxeGrid` 로 옮겼다.
+ * 정렬·필터는 공통 레이어(`adapter/vxe-grid-features.ts`)가 붙인다.
+ *
+ * **가져오기 방식은 그대로다** — `loadAll` 이 여섯 API 를 한 번에 받아 두고
+ * 차트 · CSV 내려받기 · 표 셋이 **같은 배열**을 본다. 그래서 표는 `proxyConfig`
+ * 대신 `:table-data` 로 받는다.
+ *
+ * 카드 안에 들어가는 요약 표라 `page-fill-last` 가 없다 — 높이를 숫자로 준다.
+ * ------------------------------------------------------------
  */
 
 const router = useRouter();
@@ -63,23 +74,73 @@ const DAY_OPTIONS = [
   { label: '최근 30일', value: 30 },
 ];
 
-const failureColumns = [
-  { dataIndex: 'reason', key: 'reason', title: '실패 사유' },
-  { dataIndex: 'count', key: 'count', title: '건수', width: 90 },
-];
+/** 실패 사유를 클릭하면 그 사유로 필터링된 발송 이력을 연다. */
+function openLogsByReason(reason: string) {
+  router.push({
+    path: '/helpdesk/push/logs',
+    query: { reason, status: 'failure' },
+  });
+}
 
-const messageColumns = [
-  { dataIndex: 'title', key: 'title', title: '메시지', ellipsis: true },
-  { dataIndex: 'sentCount', key: 'sentCount', title: '발송', width: 80 },
-  { dataIndex: 'openCount', key: 'openCount', title: '열람', width: 80 },
-  { dataIndex: 'openRate', key: 'openRate', title: '열람률', width: 90 },
-];
+/** 카드 셋의 키를 맞추는 표 높이. 셋이 한 줄에 서므로 같은 값을 쓴다. */
+const MINI_GRID_HEIGHT = 300;
 
-const userColumns = [
-  { dataIndex: 'userName', key: 'userName', title: '사용자' },
-  { dataIndex: 'receivedCount', key: 'receivedCount', title: '수신', width: 80 },
-  { dataIndex: 'openCount', key: 'openCount', title: '열람', width: 80 },
-];
+const [FailureGrid] = useVbenVxeGrid({
+  // `gridFeatures` 는 vxe 타입에 없다(공통 레이어가 읽고 떼어 낸다). 그래서 `as any`.
+  gridOptions: {
+    columns: [
+      { field: 'reason', minWidth: 160, title: '실패 사유' },
+      { field: 'count', title: '건수', width: 90 },
+    ],
+    emptyText: '실패 사유가 없습니다.',
+    // 재조회 아이콘 — `:table-data` 라 그리드가 조회 방법을 모른다.
+    // 표 셋이 `loadAll` 한 번으로 함께 오므로 위쪽 '새로고침' 과 같은 것을 준다.
+    gridFeatures: { onRefresh: () => loadAll() },
+    height: MINI_GRID_HEIGHT,
+    // 전량이 한 번에 올라오는 요약 표다. 페이저를 켜 두면 안 된다.
+    pagerConfig: { enabled: false },
+    // 행을 누를 수 있다는 표시. 원본의 `style: 'cursor: pointer'` 자리다.
+    rowClassName: () => 'cursor-pointer',
+    rowConfig: { keyField: 'reason' },
+  } as any,
+  gridEvents: {
+    // 원본의 `custom-row` onClick 자리다 — 사유를 누르면 그 사유로 걸러진 이력을 연다.
+    cellClick: ({ row }: any) => openLogsByReason(row.reason),
+  },
+});
+
+const [MessageGrid] = useVbenVxeGrid({
+  // `gridFeatures` 는 vxe 타입에 없다(공통 레이어가 읽고 떼어 낸다). 그래서 `as any`.
+  gridOptions: {
+    columns: [
+      { field: 'title', minWidth: 180, title: '메시지' },
+      { field: 'sentCount', title: '발송', width: 80 },
+      { field: 'openCount', title: '열람', width: 80 },
+      { field: 'openRate', title: '열람률', width: 90 },
+    ],
+    emptyText: '집계된 메시지가 없습니다.',
+    gridFeatures: { onRefresh: () => loadAll() },
+    height: MINI_GRID_HEIGHT,
+    pagerConfig: { enabled: false },
+    rowConfig: { keyField: 'id' },
+  } as any,
+});
+
+const [UserGrid] = useVbenVxeGrid({
+  // `gridFeatures` 는 vxe 타입에 없다(공통 레이어가 읽고 떼어 낸다). 그래서 `as any`.
+  gridOptions: {
+    columns: [
+      { field: 'userName', minWidth: 120, title: '사용자' },
+      { field: 'receivedCount', title: '수신', width: 80 },
+      { field: 'openCount', title: '열람', width: 80 },
+    ],
+    emptyText: '집계된 사용자가 없습니다.',
+    gridFeatures: { onRefresh: () => loadAll() },
+    height: MINI_GRID_HEIGHT,
+    pagerConfig: { enabled: false },
+    rowConfig: { keyField: 'userId' },
+  } as any,
+});
 
 function drawTrend(trend: any[]) {
   renderTrend({
@@ -172,14 +233,6 @@ function exportCsv() {
   }
 }
 
-/** 실패 사유를 클릭하면 그 사유로 필터링된 발송 이력을 연다. */
-function openLogsByReason(reason: string) {
-  router.push({
-    path: '/helpdesk/push/logs',
-    query: { reason, status: 'failure' },
-  });
-}
-
 onMounted(loadAll);
 </script>
 
@@ -247,43 +300,19 @@ onMounted(loadAll);
       <Row :gutter="[12, 12]" class="mt-3">
         <Col :lg="8" :xs="24">
           <Card :body-style="{ padding: 0 }" size="small" title="실패 사유 상위">
-            <Table
-              :columns="failureColumns"
-              :custom-row="
-                (record: any) => ({
-                  onClick: () => openLogsByReason(record.reason),
-                  style: 'cursor: pointer',
-                })
-              "
-              :data-source="failureReasons"
-              :pagination="false"
-              row-key="reason"
-              size="small"
-            />
+            <FailureGrid :table-data="failureReasons" />
           </Card>
         </Col>
 
         <Col :lg="8" :xs="24">
           <Card :body-style="{ padding: 0 }" size="small" title="성과 상위 메시지">
-            <Table
-              :columns="messageColumns"
-              :data-source="topMessages"
-              :pagination="false"
-              row-key="id"
-              size="small"
-            />
+            <MessageGrid :table-data="topMessages" />
           </Card>
         </Col>
 
         <Col :lg="8" :xs="24">
           <Card :body-style="{ padding: 0 }" size="small" title="사용자별 반응">
-            <Table
-              :columns="userColumns"
-              :data-source="userEngagement"
-              :pagination="false"
-              row-key="userId"
-              size="small"
-            />
+            <UserGrid :table-data="userEngagement" />
           </Card>
         </Col>
       </Row>

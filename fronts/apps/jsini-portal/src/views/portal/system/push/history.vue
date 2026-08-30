@@ -4,17 +4,9 @@ import { useRouter } from 'vue-router';
 
 import { Page } from '@vben/common-ui';
 
-import {
-  Button,
-  Card,
-  DatePicker,
-  Empty,
-  Select,
-  Space,
-  Table,
-  Tag,
-} from 'ant-design-vue';
+import { Button, Card, DatePicker, Select, Space, Tag } from 'ant-design-vue';
 
+import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { fetchBizOptions } from '#/api/biz-select';
 import { getMyNotifications } from '#/api/helpdesk';
 import { useHelpdeskStore } from '#/store/helpdesk';
@@ -26,14 +18,23 @@ import { formatDateTime } from '#/views/helpdesk/shared/constants';
  * [내 알림함]
  *
  * 원본(NotificationHistory.vue). 담당자는 다른 사용자의 수신 내역도 조회할 수 있다.
+ *
+ * ------------------------------------------------------------
+ * [2026-08-30] ant-design-vue `<Table>` 에서 `useVbenVxeGrid` 로 옮겼다.
+ * 정렬·필터는 공통 레이어(`adapter/vxe-grid-features.ts`)가 붙인다.
+ *
+ * **가져오기 방식은 그대로다** — 조회 조건에 맞는 알림을 한 번에 전량 받는다.
+ * 그래서 머리글 필터줄이 받아 온 전체를 훑는다.
+ * ------------------------------------------------------------
  */
 
 const router = useRouter();
 const helpdesk = useHelpdeskStore();
 
-const loading = ref(false);
-const rows = ref<any[]>([]);
 const userOptions = ref<{ label: string; value: number }[]>([]);
+
+/** 표 위에 적던 '총 N개'. 조회할 때마다 다시 센다. */
+const total = ref(0);
 
 /** 기본 조회 기간은 최근 7일 */
 function isoDaysAgo(days: number) {
@@ -61,31 +62,69 @@ const READ_OPTIONS = [
   { label: '안읽음', value: 'false' },
 ];
 
-// 서버가 주는 필드는 receivedAt / message / url 이다(원본 NotificationHistory.vue 기준).
-const columns = [
-  { dataIndex: 'receivedAt', key: 'receivedAt', sorter: true, title: '수신 시간', width: 170 },
-  { dataIndex: 'message', key: 'message', title: '내용' },
-  { dataIndex: 'isRead', key: 'isRead', title: '읽음', width: 80 },
-];
-
 /** url 이 붙은 알림은 눌러서 그 화면으로 이동한다(원본과 동일). */
-function openNotification(record: any) {
-  if (record.url) router.push(record.url);
+function openNotification(row: any) {
+  if (row.url) router.push(row.url);
 }
 
-async function loadData() {
-  loading.value = true;
-  try {
-    rows.value =
-      (await getMyNotifications({
-        endDate: filters.endDate,
-        isRead: filters.isRead === '' ? undefined : filters.isRead === 'true',
-        startDate: filters.startDate,
-        userId: filters.userId,
-      })) ?? [];
-  } finally {
-    loading.value = false;
-  }
+// 서버가 주는 필드는 receivedAt / message / url 이다(원본 NotificationHistory.vue 기준).
+const [Grid, gridApi] = useVbenVxeGrid({
+  gridOptions: {
+    columns: [
+      {
+        field: 'receivedAt',
+        // 보이는 것은 'YYYY-MM-DD HH:mm' 인데 값은 ISO 문자열이다.
+        params: { filterText: (row: any) => formatDateTime(row.receivedAt) },
+        slots: { default: 'receivedAt' },
+        title: '수신 시간',
+        width: 170,
+      },
+      {
+        field: 'message',
+        minWidth: 240,
+        slots: { default: 'message' },
+        title: '내용',
+      },
+      {
+        field: 'isRead',
+        params: {
+          filterOptions: [
+            { label: '읽음', value: true },
+            { label: '안읽음', value: false },
+          ],
+        },
+        slots: { default: 'isRead' },
+        title: '읽음',
+        width: 90,
+      },
+    ],
+    emptyText: '수신한 알림이 없습니다.',
+    height: 'auto',
+    // 전량 조회다. 페이저를 켠 채로 두면 vxe 가 응답을 `{ result, page }` 로 읽어
+    // 배열만 돌려주는 이 query 의 결과가 한 줄도 그려지지 않는다.
+    pagerConfig: { enabled: false },
+    proxyConfig: {
+      ajax: {
+        query: async () => {
+          const list =
+            (await getMyNotifications({
+              endDate: filters.endDate,
+              isRead:
+                filters.isRead === '' ? undefined : filters.isRead === 'true',
+              startDate: filters.startDate,
+              userId: filters.userId,
+            })) ?? [];
+          total.value = list.length;
+          return list;
+        },
+      },
+    },
+    rowConfig: { keyField: 'id' },
+  },
+});
+
+function loadData() {
+  gridApi.query();
 }
 
 onMounted(async () => {
@@ -97,80 +136,67 @@ onMounted(async () => {
       .then((r) => r.options)
       .catch(() => []);
   }
-
-  await loadData();
 });
 </script>
 
 <template>
-  <Page auto-content-height>
+  <Page auto-content-height content-class="page-fill-last">
     <HelpdeskAccountNotice />
 
     <Card class="mb-3" size="small">
-      <Space wrap>
-        <DatePicker
-          v-model:value="filters.startDate"
-          placeholder="시작일"
-          value-format="YYYY-MM-DD"
-        />
-        <DatePicker
-          v-model:value="filters.endDate"
-          placeholder="종료일"
-          value-format="YYYY-MM-DD"
-        />
-        <Select
-          v-model:value="filters.isRead"
-          :options="READ_OPTIONS"
-          placeholder="읽음 여부"
-          style="width: 120px"
-        />
-        <Select
-          v-if="helpdesk.isAdmin"
-          v-model:value="filters.userId"
-          :options="userOptions"
-          allow-clear
-          option-filter-prop="label"
-          placeholder="사용자"
-          show-search
-          style="width: 180px"
-        />
-        <Button :loading="loading" type="primary" @click="loadData">조회</Button>
-      </Space>
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <Space wrap>
+          <DatePicker
+            v-model:value="filters.startDate"
+            placeholder="시작일"
+            value-format="YYYY-MM-DD"
+          />
+          <DatePicker
+            v-model:value="filters.endDate"
+            placeholder="종료일"
+            value-format="YYYY-MM-DD"
+          />
+          <Select
+            v-model:value="filters.isRead"
+            :options="READ_OPTIONS"
+            placeholder="읽음 여부"
+            style="width: 120px"
+          />
+          <Select
+            v-if="helpdesk.isAdmin"
+            v-model:value="filters.userId"
+            :options="userOptions"
+            allow-clear
+            option-filter-prop="label"
+            placeholder="사용자"
+            show-search
+            style="width: 180px"
+          />
+          <Button type="primary" @click="loadData">조회</Button>
+        </Space>
+        <span class="text-muted-foreground text-sm">
+          알림 목록 (총 {{ total }}개)
+        </span>
+      </div>
     </Card>
 
-    <Card :body-style="{ padding: 0 }" size="small">
-      <Table
-        :columns="columns"
-        :data-source="rows"
-        :loading="loading"
-        row-key="id"
-        size="small"
-      >
-        <template #title>
-          <span class="text-sm">알림 목록 (총 {{ rows.length }}개)</span>
-        </template>
-        <template #emptyText>
-          <Empty description="수신한 알림이 없습니다." />
-        </template>
-        <template #bodyCell="{ column, record }">
-          <template v-if="column.key === 'receivedAt'">
-            {{ formatDateTime(record.receivedAt) }}
-          </template>
-          <template v-else-if="column.key === 'message'">
-            <span
-              :class="record.url ? 'cursor-pointer text-primary' : ''"
-              @click="openNotification(record)"
-            >
-              {{ record.message }}
-            </span>
-          </template>
-          <template v-else-if="column.key === 'isRead'">
-            <Tag :color="record.isRead ? 'success' : 'default'">
-              {{ record.isRead ? '읽음' : '안읽음' }}
-            </Tag>
-          </template>
-        </template>
-      </Table>
-    </Card>
+    <Grid>
+      <template #receivedAt="{ row }">
+        {{ formatDateTime(row.receivedAt) }}
+      </template>
+      <template #message="{ row }">
+        <span
+          :class="row.url ? 'cursor-pointer text-primary' : ''"
+          @click="openNotification(row)"
+        >
+          {{ row.message }}
+        </span>
+      </template>
+      <template #isRead="{ row }">
+        <Tag :color="row.isRead ? 'success' : 'default'">
+          {{ row.isRead ? '읽음' : '안읽음' }}
+        </Tag>
+      </template>
+    </Grid>
   </Page>
 </template>

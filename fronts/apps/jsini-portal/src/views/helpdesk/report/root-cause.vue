@@ -6,18 +6,9 @@ import { computed, onMounted, ref } from 'vue';
 import { Page } from '@vben/common-ui';
 import { EchartsUI, useEcharts } from '@vben/plugins/echarts';
 
-import {
-  Button,
-  Card,
-  Col,
-  Empty,
-  Row,
-  Space,
-  Spin,
-  Table,
-  Tag,
-} from 'ant-design-vue';
+import { Button, Card, Col, Row, Space, Spin, Tag } from 'ant-design-vue';
 
+import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { getServerReport } from '#/api/helpdesk';
 
 /**
@@ -25,6 +16,14 @@ import { getServerReport } from '#/api/helpdesk';
  *
  * 원본(JinReception reports/RootCauseAnalysis.vue, `/reports/root-cause`).
  * PLE 급락의 원인을 메모리 배분(MEM_DETAIL)과 부하 쿼리(LOAD_ANALYSIS) 양쪽에서 본다.
+ *
+ * ------------------------------------------------------------
+ * [2026-08-30] ant-design-vue `<Table>` 에서 `useVbenVxeGrid` 로 옮겼다.
+ * 정렬·필터는 공통 레이어(`adapter/vxe-grid-features.ts`)가 붙인다.
+ *
+ * 가져오기 방식은 그대로다 — LOAD_ANALYSIS 를 한 번에 전량 받아 차트와 표가
+ * 같은 배열을 본다. 그래서 표는 `:table-data` 로 받는다.
+ * ------------------------------------------------------------
  */
 
 const loading = ref(false);
@@ -101,23 +100,6 @@ const metricCards = computed(() => [
   },
 ]);
 
-const queryColumns = [
-  { dataIndex: 'QueryText', key: 'QueryText', title: '부하 쿼리 (SQL)' },
-  {
-    dataIndex: 'AvgLogicalReads',
-    key: 'AvgLogicalReads',
-    title: '평균 읽기(P)',
-    width: 130,
-  },
-  {
-    dataIndex: 'last_execution_time',
-    key: 'last_execution_time',
-    title: '마지막 실행',
-    width: 170,
-  },
-  { key: 'verdict', title: '진단', width: 90 },
-];
-
 /** MB 를 GB 로 환산해 표시한다. */
 function toGb(mb: any) {
   const n = Number(mb);
@@ -128,6 +110,66 @@ function formatDateTime(value?: string) {
   if (!value) return '-';
   return String(value).replace('T', ' ').split('.')[0] ?? '-';
 }
+
+/** 읽기량으로 가른 진단. 원본이 태그에 직접 적어 두었던 기준과 같다. */
+function queryVerdict(row: Record<string, any>) {
+  return Number(row.AvgLogicalReads) > 50_000
+    ? { color: 'error', label: 'Tuning' }
+    : { color: 'warning', label: 'Check' };
+}
+
+const [Grid] = useVbenVxeGrid({
+  // `gridFeatures` 는 vxe 타입에 없다(공통 레이어가 읽고 떼어 낸다). 그래서 `as any`.
+  gridOptions: {
+    columns: [
+      {
+        align: 'left',
+        field: 'QueryText',
+        minWidth: 320,
+        // 쿼리 원문은 여러 줄로 접어서 보여 준다. 전역 `showOverflow` 를 끄지 않으면
+        // 한 줄로 잘려 원본과 다르게 보인다.
+        showOverflow: false,
+        slots: { default: 'QueryText' },
+        title: '부하 쿼리 (SQL)',
+      },
+      {
+        field: 'AvgLogicalReads',
+        slots: { default: 'AvgLogicalReads' },
+        title: '평균 읽기(P)',
+        width: 130,
+      },
+      {
+        field: 'last_execution_time',
+        // 화면에 보이는 글자와 저장된 값이 다른 칸이다.
+        params: {
+          filterText: (row: any) => formatDateTime(row.last_execution_time),
+        },
+        slots: { default: 'last_execution_time' },
+        title: '마지막 실행',
+        width: 170,
+      },
+      {
+        // 값이 아니라 읽기량에서 뽑아낸 판정이라 행에 없는 칸이다.
+        // 훑을 글자를 직접 준다(정렬은 의미가 없어 끈다).
+        field: 'verdict',
+        params: { filterText: (row: any) => queryVerdict(row).label, sort: false },
+        slots: { default: 'verdict' },
+        title: '진단',
+        width: 90,
+      },
+    ],
+    // 행 배열은 `:table-data` 로 간다.
+    data: [],
+    emptyText: '부하 쿼리가 없습니다.',
+    // 재조회 아이콘 — `:table-data` 라 그리드가 조회 방법을 모른다.
+    // 위쪽 '정밀 진단 재실행' 이 부르는 것과 같은 함수를 준다.
+    gridFeatures: { onRefresh: () => loadData() },
+    height: 560,
+    // 전량을 한 번에 받는 표다. 켜 두면 응답을 `{ result, page }` 로 읽어 한 행도 안 나온다.
+    pagerConfig: { enabled: false },
+    rowConfig: { keyField: 'QueryText' },
+  } as any,
+});
 
 function drawChart() {
   if (!memInfo.value) return;
@@ -279,50 +321,33 @@ onMounted(loadData);
               </span>
             </template>
 
-            <Table
-              :columns="queryColumns"
-              :data-source="topQueries"
-              :pagination="false"
-              :scroll="{ x: 700, y: 560 }"
-              row-key="QueryText"
-              size="small"
-            >
-              <template #emptyText>
-                <Empty description="부하 쿼리가 없습니다." />
+            <Grid :table-data="topQueries">
+              <template #QueryText="{ row }">
+                <div
+                  class="max-h-24 overflow-auto rounded border border-border bg-accent/40 p-2 font-mono text-[10px] leading-snug"
+                >
+                  {{ row.QueryText }}
+                </div>
               </template>
 
-              <template #bodyCell="{ column, record }">
-                <template v-if="column.key === 'QueryText'">
-                  <div
-                    class="max-h-24 overflow-auto rounded border border-border bg-accent/40 p-2 font-mono text-[10px] leading-snug"
-                  >
-                    {{ record.QueryText }}
-                  </div>
-                </template>
-
-                <template v-else-if="column.key === 'AvgLogicalReads'">
-                  <span class="font-bold text-red-600">
-                    {{ Number(record.AvgLogicalReads ?? 0).toLocaleString() }}
-                  </span>
-                </template>
-
-                <template v-else-if="column.key === 'last_execution_time'">
-                  <span class="text-muted-foreground">
-                    {{ formatDateTime(record.last_execution_time) }}
-                  </span>
-                </template>
-
-                <template v-else-if="column.key === 'verdict'">
-                  <Tag
-                    :color="
-                      Number(record.AvgLogicalReads) > 50_000 ? 'error' : 'warning'
-                    "
-                  >
-                    {{ Number(record.AvgLogicalReads) > 50_000 ? 'Tuning' : 'Check' }}
-                  </Tag>
-                </template>
+              <template #AvgLogicalReads="{ row }">
+                <span class="font-bold text-red-600">
+                  {{ Number(row.AvgLogicalReads ?? 0).toLocaleString() }}
+                </span>
               </template>
-            </Table>
+
+              <template #last_execution_time="{ row }">
+                <span class="text-muted-foreground">
+                  {{ formatDateTime(row.last_execution_time) }}
+                </span>
+              </template>
+
+              <template #verdict="{ row }">
+                <Tag :color="queryVerdict(row).color">
+                  {{ queryVerdict(row).label }}
+                </Tag>
+              </template>
+            </Grid>
           </Card>
         </Col>
       </Row>

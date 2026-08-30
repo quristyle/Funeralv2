@@ -62,6 +62,8 @@ var key = Encoding.ASCII.GetBytes(jwtKey);
 //
 // 쿠키 이름을 바꾸려면 AuthServer 쪽도 함께 바꿔야 한다.
 const string fileCookieName = "jsini_file_at";
+// 파일 쿠키를 이미 심었는지 판단하는 지문 쿠키 (아래 자가 치유 미들웨어 참고).
+const string fileCookieCheckName = "jsini_file_at_chk";
 string[] fileCookiePaths =
 [
     "/api/file/download",
@@ -292,6 +294,76 @@ app.Use(async (context, next) =>
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+// ============================================================
+// 파일 읽기 쿠키(jsini_file_at) 자가 치유
+// ============================================================
+//
+// 쿠키는 원래 로그인할 때 AuthServer 가 심는다. 그런데 심는 순간이 로그인 한 번뿐이라,
+// 이 장치가 들어오기(2026-08-27) 전에 로그인해 둔 세션은 토큰(수명 7일)이 멀쩡한데
+// 쿠키가 없다. 그 상태에서는 `<img src="/api/file/…">` 가 전부 익명으로 판정되어
+// 프로필 사진·첨부 이미지가 조용히 404 로 사라진다. 실제로 겪었다 —
+// /profile 의 프로필 사진 관리가 빈 화면으로 보였다(27번 문서 5절).
+// 쿠키만 지워진 브라우저(쿠키 정리 등)도 같은 증상이 된다.
+//
+// 그래서 게이트웨이가 스스로 고친다. Authorization 헤더의 토큰으로 인증된 요청이 오면
+// 같은 토큰을 쿠키로 다시 심는다. 토큰은 이 위의 인증 미들웨어가 이미 검증한 것이다.
+//
+// 매 요청 Set-Cookie 를 반복하지 않으려면 "이미 심었는가" 를 알아야 하는데,
+// 파일 쿠키는 Path=/api/file 이라 파일 경로가 아닌 요청에는 실려 오지 않아 직접 볼 수 없다.
+// 그래서 지문(SHA-256) 쿠키를 Path=/ 로 함께 둔다. 지문이 현재 토큰과 같으면 건너뛴다.
+// 지문 자리에 토큰을 그대로 두지 않는 이유: Path=/ 쿠키는 모든 요청에 실리는데,
+// 굳이 넓힐 필요 없는 자리까지 토큰이 실려 다니게 된다. 지문으로는 토큰을 되만들 수 없다.
+//
+// 로그인의 심기(AuthServer)는 그대로 둔다 — 로그인 직후 첫 화면의 이미지는
+// 아직 API 호출이 없어도 나와야 하기 때문이다. 여기는 그 뒤의 구멍을 메우는 자리다.
+app.Use(async (context, next) =>
+{
+    var authHeader = context.Request.Headers.Authorization.ToString();
+    if (context.User.Identity?.IsAuthenticated == true
+        && authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+    {
+        var token = authHeader["Bearer ".Length..].Trim();
+        if (token.Length > 0)
+        {
+            var fingerprint = Convert.ToHexString(
+                System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(token)));
+
+            context.Request.Cookies.TryGetValue(fileCookieCheckName, out var planted);
+            if (!string.Equals(planted, fingerprint, StringComparison.Ordinal))
+            {
+                // 만료는 토큰과 같게 둔다. exp 는 유닉스 초이고, 검증을 통과한 토큰이라 값이 있다.
+                // 혹시 없으면 세션 쿠키로 둔다 — 브라우저를 닫으면 사라질 뿐, 더 오래 살지는 않는다.
+                DateTimeOffset? expires = null;
+                if (long.TryParse(context.User.FindFirst("exp")?.Value, out var expUnix))
+                {
+                    expires = DateTimeOffset.FromUnixTimeSeconds(expUnix);
+                }
+
+                // 옵션은 AuthServer 가 심을 때와 같아야 한다(특히 Path). 다르면 딴 쿠키가 된다.
+                var secure = !app.Environment.IsDevelopment();
+                context.Response.Cookies.Append(fileCookieName, token, new CookieOptions
+                {
+                    HttpOnly = true,
+                    Secure = secure,
+                    SameSite = SameSiteMode.Lax,
+                    Path = "/api/file",
+                    Expires = expires
+                });
+                context.Response.Cookies.Append(fileCookieCheckName, fingerprint, new CookieOptions
+                {
+                    HttpOnly = true,
+                    Secure = secure,
+                    SameSite = SameSiteMode.Lax,
+                    Path = "/",
+                    Expires = expires
+                });
+            }
+        }
+    }
+
+    await next();
+});
 
 // ============================================================
 // 비밀번호 사용 기간 만료 차단

@@ -1,13 +1,30 @@
 <script lang="ts" setup>
 import { ref } from 'vue';
-import { Modal, Tabs, Descriptions, Tag, Badge, Spin, Table, Empty } from 'ant-design-vue';
+import { Modal, Tabs, Descriptions, Tag, Badge, Spin, Empty } from 'ant-design-vue';
 import { IconifyIcon } from '@vben/icons';
+import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { getDevice, getDeviceAttribute, getDeviceRibbons, getDeviceTextOverlays } from '#/api/funeral/building';
 import type { BuildingApi } from '#/api/funeral/building';
+
+/**
+ * [장비 상세 정보 팝업]
+ *
+ * ------------------------------------------------------------
+ * [2026-08-30] ant-design-vue `<Table>` 에서 `useVbenVxeGrid` 로 옮겼다.
+ * 정렬·필터는 공통 레이어(`adapter/vxe-grid-features.ts`)가 붙인다.
+ *
+ * **가져오기 방식은 그대로다** — `open()` 이 네 곳을 한 번에 부르고 그 결과를
+ * `:table-data` 로 그리드에 넘긴다. 팝업 안이라 `page-fill-last` 가 없으므로
+ * 높이는 숫자로 준다.
+ * ------------------------------------------------------------
+ */
 
 const visible = ref(false);
 const loading = ref(false);
 const activeKey = ref('basic');
+
+/** 지금 보고 있는 장비. 도구줄의 재조회가 `open()` 을 다시 부를 때 쓴다. */
+const currentDeviceId = ref('');
 
 // 데이터 상태
 const deviceData = ref<BuildingApi.Device | null>(null);
@@ -23,28 +40,100 @@ const deviceTypeMap: Record<string, { label: string; color: string }> = {
   KIOSK: { label: '키오스크', color: 'cyan' },
 };
 
-// 리본 테이블 컬럼
-const ribbonColumns = [
-  { title: '텍스트', dataIndex: 'text', key: 'text' },
-  { title: '유형', dataIndex: 'ribbonType', key: 'ribbonType' },
-  { title: '배경색', dataIndex: 'backgroundColor', key: 'backgroundColor' },
-  { title: '폰트색', dataIndex: 'textColor', key: 'textColor' },
-  { title: '정렬', dataIndex: 'alignment', key: 'alignment' },
-];
+/**
+ * 도구줄의 재조회. 이 팝업에서는 `open()` 이 곧 조회다 —
+ * 리본·오버레이가 그 한 번으로 함께 오므로 두 그리드가 같은 것을 부른다.
+ *
+ * `open()` 은 탭을 '기본' 으로 되돌리므로 보던 탭을 다시 세운다.
+ * (`open()` 은 첫 `await` 앞에서 `activeKey` 를 바꾸니 부른 직후가 그 자리다.)
+ */
+function reload() {
+  if (!currentDeviceId.value) return;
+  const tab = activeKey.value;
+  open(currentDeviceId.value);
+  activeKey.value = tab;
+}
 
-// 오버레이 테이블 컬럼
-const overlayColumns = [
-  { title: '식별자', dataIndex: 'overlayKey', key: 'overlayKey' },
-  { title: '내용', dataIndex: 'textValue', key: 'textValue' },
-  { title: '위치 (X, Y)', dataIndex: 'position', key: 'position' },
-  { title: '폰트 크기', dataIndex: 'fontSize', key: 'fontSize' },
-  { title: '사용 여부', dataIndex: 'isEnabled', key: 'isEnabled' },
-];
+// 리본 그리드 (원본 컬럼 구성 그대로)
+const [RibbonGrid] = useVbenVxeGrid({
+  // `gridFeatures` 는 vxe 타입에 없다(공통 레이어가 읽고 떼어 낸다). 그래서 `as any`.
+  gridOptions: {
+    columns: [
+      { field: 'text', minWidth: 200, title: '텍스트' },
+      { field: 'ribbonType', minWidth: 110, title: '유형' },
+      {
+        field: 'backgroundColor',
+        minWidth: 130,
+        slots: { default: 'backgroundColor' },
+        title: '배경색',
+      },
+      {
+        field: 'textColor',
+        minWidth: 130,
+        slots: { default: 'textColor' },
+        title: '폰트색',
+      },
+      { field: 'alignment', minWidth: 100, title: '정렬' },
+    ],
+    emptyText: '등록된 리본 설정 정보가 없습니다.',
+    // 재조회 아이콘 — `:table-data` 라 그리드가 조회 방법을 모른다.
+    gridFeatures: { onRefresh: () => reload() },
+    // 팝업 안이라 부모가 높이를 주지 않는다. 숫자로 준다.
+    height: 340,
+    // 전량을 한 번에 넘긴다. 페이저를 두지 않는다.
+    pagerConfig: { enabled: false },
+    rowConfig: { keyField: 'id' },
+  } as any,
+});
+
+// 오버레이 그리드 (원본 컬럼 구성 그대로)
+const [OverlayGrid] = useVbenVxeGrid({
+  // `gridFeatures` 는 vxe 타입에 없다(공통 레이어가 읽고 떼어 낸다). 그래서 `as any`.
+  gridOptions: {
+    columns: [
+      { field: 'overlayKey', minWidth: 140, title: '식별자' },
+      { field: 'textValue', minWidth: 200, title: '내용' },
+      {
+        field: 'position',
+        // 두 값(positionX · positionY)을 합쳐 그리는 칸이라 걸러 낼 값이 없다.
+        params: { filter: false, sort: false },
+        slots: { default: 'position' },
+        title: '위치 (X, Y)',
+        width: 140,
+      },
+      {
+        field: 'fontSize',
+        formatter: ({ cellValue }: any) => `${cellValue}px`,
+        title: '폰트 크기',
+        width: 100,
+      },
+      {
+        field: 'isEnabled',
+        params: {
+          filterOptions: [
+            { label: '사용', value: true },
+            { label: '미사용', value: false },
+          ],
+        },
+        slots: { default: 'isEnabled' },
+        title: '사용 여부',
+        width: 110,
+      },
+    ],
+    emptyText: '등록된 텍스트 오버레이 정보가 없습니다.',
+    gridFeatures: { onRefresh: () => reload() },
+    height: 340,
+    // 전량을 한 번에 넘긴다. 페이저를 두지 않는다.
+    pagerConfig: { enabled: false },
+    rowConfig: { keyField: 'id' },
+  } as any,
+});
 
 async function open(deviceId: string) {
   visible.value = true;
   loading.value = true;
   activeKey.value = 'basic';
+  currentDeviceId.value = deviceId;
   
   // 데이터 초기화
   deviceData.value = null;
@@ -232,61 +321,34 @@ defineExpose({
           <!-- 3. 리본설정 탭 -->
           <Tabs.TabPane key="ribbon" tab="리본 설정">
             <div class="mt-2">
-              <Table
-                :columns="ribbonColumns"
-                :data-source="ribbonData"
-                :pagination="false"
-                size="small"
-                row-key="id"
-                bordered
-              >
-                <template #bodyCell="{ column, record }">
-                  <template v-if="column.key === 'backgroundColor'">
-                    <span class="inline-flex items-center gap-1.5 font-mono">
-                      <span class="size-3 rounded-full border border-border inline-block" :style="{ backgroundColor: record.backgroundColor }"></span>
-                      {{ record.backgroundColor }}
-                    </span>
-                  </template>
-                  <template v-else-if="column.key === 'textColor'">
-                    <span class="inline-flex items-center gap-1.5 font-mono">
-                      <span class="size-3 rounded-full border border-border inline-block" :style="{ backgroundColor: record.textColor }"></span>
-                      {{ record.textColor }}
-                    </span>
-                  </template>
+              <RibbonGrid :table-data="ribbonData">
+                <template #backgroundColor="{ row }">
+                  <span class="inline-flex items-center gap-1.5 font-mono">
+                    <span class="size-3 rounded-full border border-border inline-block" :style="{ backgroundColor: row.backgroundColor }"></span>
+                    {{ row.backgroundColor }}
+                  </span>
                 </template>
-              </Table>
-              <div v-if="ribbonData.length === 0" class="py-12">
-                <Empty description="등록된 리본 설정 정보가 없습니다." />
-              </div>
+                <template #textColor="{ row }">
+                  <span class="inline-flex items-center gap-1.5 font-mono">
+                    <span class="size-3 rounded-full border border-border inline-block" :style="{ backgroundColor: row.textColor }"></span>
+                    {{ row.textColor }}
+                  </span>
+                </template>
+              </RibbonGrid>
             </div>
           </Tabs.TabPane>
 
           <!-- 4. 텍스트 오버레이 탭 -->
           <Tabs.TabPane key="overlay" tab="텍스트 오버레이">
             <div class="mt-2">
-              <Table
-                :columns="overlayColumns"
-                :data-source="overlayData"
-                :pagination="false"
-                size="small"
-                row-key="id"
-                bordered
-              >
-                <template #bodyCell="{ column, record }">
-                  <template v-if="column.key === 'position'">
-                    X: {{ record.positionX }}%, Y: {{ record.positionY }}%
-                  </template>
-                  <template v-else-if="column.key === 'fontSize'">
-                    {{ record.fontSize }}px
-                  </template>
-                  <template v-else-if="column.key === 'isEnabled'">
-                    <Badge :status="record.isEnabled ? 'success' : 'default'" :text="record.isEnabled ? '사용' : '미사용'" />
-                  </template>
+              <OverlayGrid :table-data="overlayData">
+                <template #position="{ row }">
+                  X: {{ row.positionX }}%, Y: {{ row.positionY }}%
                 </template>
-              </Table>
-              <div v-if="overlayData.length === 0" class="py-12">
-                <Empty description="등록된 텍스트 오버레이 정보가 없습니다." />
-              </div>
+                <template #isEnabled="{ row }">
+                  <Badge :status="row.isEnabled ? 'success' : 'default'" :text="row.isEnabled ? '사용' : '미사용'" />
+                </template>
+              </OverlayGrid>
             </div>
           </Tabs.TabPane>
         </Tabs>

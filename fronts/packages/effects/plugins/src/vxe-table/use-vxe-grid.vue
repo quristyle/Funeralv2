@@ -267,13 +267,31 @@ const options = computed(() => {
   const presetKey = (gridOptions.value as any)?.preset || 'default';
   const basePresetOptions = presets[presetKey] || presets.default;
 
+  /**
+   * 우선순위가 **높은 것부터** 적는다.
+   *
+   * `mergeWithArrayOverride` 는 defu 다 — `defu(a, b, c)` 에서 **앞선 것이 이긴다**
+   * (뒤엣것은 채워 넣는 기본값이다). 예전에는 순서가 거꾸로여서, 주석에는
+   * "사용자가 전달한 설정이 기본 설정을 덮어씀" 이라 적혀 있는데 실제로는
+   * **화면이 적은 값이 프리셋에 밀렸다.** 행 단위 편집(`editConfig.mode: 'row'`)을
+   * 적어도 프리셋의 `'cell'` 이 이겨서 칸 하나만 편집기로 바뀌던 것이 그 증상이다.
+   *
+   *   1) 툴바   — 슬롯 연결을 여기서 계산하므로 화면이 덮으면 안 된다
+   *   2) 화면   — 화면이 일부러 적은 값이다. 이것이 이겨야 한다
+   *   3) 전역   — `vxeUI.setConfig` 로 앱 전체가 고른 값 (border · size 등)
+   *   4) 프리셋 — 아무도 안 정했을 때의 바탕값
+   *
+   * 전역을 프리셋보다 위에 둔 이유: 둘이 겹치는 것은 `border` 하나뿐인데,
+   * 지금까지 전역(`false`)이 이겨 왔다. 순서를 바로잡으면서 전 화면의 테두리가
+   * 갑자기 생기는 것은 이 수정의 목적이 아니다.
+   */
   const mergedOptions: VxeTableGridProps = cloneDeep(
     mergeWithArrayOverride(
       {},
-      globalGridConfig,            // 0. 전역 설정 (가장 낮은 우선순위로 변경)
-      basePresetOptions,           // 1. 선택된 프리셋 설정 (가장 낮은 우선순위)
-       toRaw(toolbarOptions.value),
-      toRaw(gridOptions.value),    // 2. 사용자가 전달한 설정 (기본 설정을 덮어씀)     
+      toRaw(toolbarOptions.value),
+      toRaw(gridOptions.value),
+      globalGridConfig,
+      basePresetOptions,
     ),
   );
 

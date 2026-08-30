@@ -6,18 +6,9 @@ import { onMounted, ref } from 'vue';
 import { Page } from '@vben/common-ui';
 import { EchartsUI, useEcharts } from '@vben/plugins/echarts';
 
-import {
-  Alert,
-  Button,
-  Card,
-  Col,
-  Empty,
-  Row,
-  Spin,
-  Table,
-  Tag,
-} from 'ant-design-vue';
+import { Alert, Button, Card, Col, Row, Spin, Tag } from 'ant-design-vue';
 
+import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { getServerReport } from '#/api/helpdesk';
 
 /**
@@ -25,6 +16,14 @@ import { getServerReport } from '#/api/helpdesk';
  *
  * 원본(JinReception reports/Prediction.vue, `/reports/prediction`).
  * OADR 의 PREDICTION 쿼리로 최근 6시간 성능 추세에서 뽑아낸 장애 전조 징후를 본다.
+ *
+ * ------------------------------------------------------------
+ * [2026-08-30] ant-design-vue `<Table>` 에서 `useVbenVxeGrid` 로 옮겼다.
+ * 정렬·필터는 공통 레이어(`adapter/vxe-grid-features.ts`)가 붙인다.
+ *
+ * 가져오기 방식은 그대로다 — PREDICTION 을 한 번에 전량 받아 차트와 표가 같은
+ * 배열을 본다. 그래서 표는 `:table-data` 로 받는다.
+ * ------------------------------------------------------------
  */
 
 const loading = ref(false);
@@ -93,16 +92,61 @@ const TECH_GUIDE = [
   },
 ];
 
-const columns = [
-  { dataIndex: 'Symptom', key: 'Symptom', title: '감지된 장애 징후', width: 200 },
-  {
-    dataIndex: 'Occurrences',
-    key: 'Occurrences',
-    title: '발생 건수',
-    width: 110,
-  },
-  { key: 'guide', title: '상세 분석 및 조치 가이드' },
-];
+const [Grid] = useVbenVxeGrid({
+  // `gridFeatures` 는 vxe 타입에 없다(공통 레이어가 읽고 떼어 낸다). 그래서 `as any`.
+  gridOptions: {
+    columns: [
+      {
+        field: 'Symptom',
+        // 값이 정해진 칸이다 — 저장된 값(영문)에 한글 이름표를 붙여 고르게 한다.
+        params: {
+          filterOptions: Object.entries(SYMPTOMS).map(([value, info]) => ({
+            label: info.label,
+            value,
+          })),
+        },
+        // 한글 이름표와 원문을 두 줄로 쌓는다. 전역 `showOverflow` 를 끄지 않으면 잘린다.
+        showOverflow: false,
+        slots: { default: 'Symptom' },
+        title: '감지된 장애 징후',
+        width: 200,
+      },
+      {
+        field: 'Occurrences',
+        slots: { default: 'Occurrences' },
+        title: '발생 건수',
+        width: 110,
+      },
+      {
+        align: 'left',
+        // 징후에서 끌어온 안내라 행에 없는 칸이다. 훑을 글자를 직접 준다.
+        field: 'guide',
+        minWidth: 320,
+        params: {
+          filterText: (row: any) => {
+            const info = symptomInfo(row.Symptom);
+            return `${info.desc} ${info.action}`;
+          },
+          sort: false,
+        },
+        // 안내 문구는 두 줄로 접힌다. 전역 `showOverflow` 를 끄지 않으면 한 줄로 잘린다.
+        showOverflow: false,
+        slots: { default: 'guide' },
+        title: '상세 분석 및 조치 가이드',
+      },
+    ],
+    // 행 배열은 `:table-data` 로 간다.
+    data: [],
+    emptyText: '감지된 특이 징후가 없습니다. 시스템이 매우 안정적입니다.',
+    // 재조회 아이콘 — `:table-data` 라 그리드가 조회 방법을 모른다.
+    // 위쪽 '패턴 재분석' 이 부르는 것과 같은 함수를 준다.
+    gridFeatures: { onRefresh: () => loadData() },
+    height: 300,
+    // 전량을 한 번에 받는 표다. 켜 두면 응답을 `{ result, page }` 로 읽어 한 행도 안 나온다.
+    pagerConfig: { enabled: false },
+    rowConfig: { keyField: 'Symptom' },
+  } as any,
+});
 
 /** 막대 색은 심각도 순서대로. 원본과 같은 팔레트. */
 const BAR_COLORS = ['#EF4444', '#F59E0B', '#3B82F6'];
@@ -193,49 +237,34 @@ onMounted(loadData);
               </span>
             </template>
 
-            <Table
-              :columns="columns"
-              :data-source="rows"
-              :pagination="false"
-              :scroll="{ x: 600 }"
-              row-key="Symptom"
-              size="small"
-            >
-              <template #emptyText>
-                <Empty description="감지된 특이 징후가 없습니다. 시스템이 매우 안정적입니다." />
+            <Grid :table-data="rows">
+              <template #Symptom="{ row }">
+                <div class="font-semibold text-red-700 dark:text-red-400">
+                  {{ symptomInfo(row.Symptom).label }}
+                </div>
+                <div class="text-[10px] text-muted-foreground">
+                  {{ row.Symptom }}
+                </div>
               </template>
 
-              <template #bodyCell="{ column, record }">
-                <template v-if="column.key === 'Symptom'">
-                  <div class="font-semibold text-red-700 dark:text-red-400">
-                    {{ symptomInfo(record.Symptom).label }}
-                  </div>
-                  <div class="text-[10px] text-muted-foreground">
-                    {{ record.Symptom }}
-                  </div>
-                </template>
-
-                <template v-else-if="column.key === 'Occurrences'">
-                  <Tag
-                    :color="Number(record.Occurrences) > 10 ? 'error' : 'warning'"
-                  >
-                    {{ record.Occurrences }}건
-                  </Tag>
-                </template>
-
-                <template v-else-if="column.key === 'guide'">
-                  <p class="m-0 text-[11px] leading-tight text-muted-foreground">
-                    {{ symptomInfo(record.Symptom).desc }}
-                  </p>
-                  <p
-                    v-if="symptomInfo(record.Symptom).action"
-                    class="m-0 mt-1 text-[11px] font-semibold leading-tight"
-                  >
-                    ● 권고: {{ symptomInfo(record.Symptom).action }}
-                  </p>
-                </template>
+              <template #Occurrences="{ row }">
+                <Tag :color="Number(row.Occurrences) > 10 ? 'error' : 'warning'">
+                  {{ row.Occurrences }}건
+                </Tag>
               </template>
-            </Table>
+
+              <template #guide="{ row }">
+                <p class="m-0 text-[11px] leading-tight text-muted-foreground">
+                  {{ symptomInfo(row.Symptom).desc }}
+                </p>
+                <p
+                  v-if="symptomInfo(row.Symptom).action"
+                  class="m-0 mt-1 text-[11px] font-semibold leading-tight"
+                >
+                  ● 권고: {{ symptomInfo(row.Symptom).action }}
+                </p>
+              </template>
+            </Grid>
           </Card>
         </Col>
       </Row>

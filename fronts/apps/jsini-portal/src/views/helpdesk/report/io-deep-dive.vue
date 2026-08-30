@@ -6,18 +6,9 @@ import { onMounted, ref } from 'vue';
 import { Page } from '@vben/common-ui';
 import { EchartsUI, useEcharts } from '@vben/plugins/echarts';
 
-import {
-  Alert,
-  Button,
-  Card,
-  Col,
-  Empty,
-  Row,
-  Spin,
-  Table,
-  Tag,
-} from 'ant-design-vue';
+import { Alert, Button, Card, Col, Row, Spin, Tag } from 'ant-design-vue';
 
+import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { getServerReport } from '#/api/helpdesk';
 
 /**
@@ -25,6 +16,16 @@ import { getServerReport } from '#/api/helpdesk';
  *
  * 원본(JinReception reports/IODeepDive.vue, `/reports/io-deep-dive`).
  * OADR 의 IO_DETAIL 쿼리로 최근 3시간 디스크 응답과 병목 원인을 본다.
+ *
+ * ------------------------------------------------------------
+ * [2026-08-30] ant-design-vue `<Table>` 에서 `useVbenVxeGrid` 로 옮겼다.
+ * 정렬·필터는 공통 레이어(`adapter/vxe-grid-features.ts`)가 붙인다.
+ *
+ * 가져오기 방식은 그대로다 — IO_DETAIL 을 한 번에 전량 받아 차트와 표가 같은
+ * 배열을 본다. 그래서 표는 `:table-data` 로 받는다.
+ * 원래 15건씩 끊어 보여 주던 **화면 페이저는 없앴다** — 전량을 그대로 스크롤로
+ * 훑고, 좁히는 일은 머리글 필터줄이 맡는다.
+ * ------------------------------------------------------------
  */
 
 const loading = ref(false);
@@ -73,35 +74,6 @@ function rootCause(cause?: string) {
   return ROOT_CAUSES[cause ?? ''] ?? { color: 'default', label: cause ?? '' };
 }
 
-const columns = [
-  { dataIndex: 'CHECK_TIME', key: 'CHECK_TIME', title: '측정 시각', width: 170 },
-  {
-    dataIndex: 'Disk_Latency_ms',
-    key: 'Disk_Latency_ms',
-    title: '디스크 응답',
-    width: 120,
-  },
-  {
-    dataIndex: 'DataFile_Read_Stall_sec',
-    key: 'DataFile_Read_Stall_sec',
-    title: '데이터 읽기(s)',
-    width: 140,
-  },
-  {
-    dataIndex: 'TempDB_Stall_sec',
-    key: 'TempDB_Stall_sec',
-    title: '임시DB 대기(s)',
-    width: 140,
-  },
-  {
-    dataIndex: 'Log_Stall_sec',
-    key: 'Log_Stall_sec',
-    title: '로그 쓰기(s)',
-    width: 130,
-  },
-  { dataIndex: 'RootCause', key: 'RootCause', title: '근본 원인 분석', width: 220 },
-];
-
 function toFixed(value: any, digits: number) {
   const n = Number(value);
   return Number.isNaN(n) ? '-' : n.toFixed(digits);
@@ -120,6 +92,69 @@ function hourMinute(value?: string) {
     .split('T')[1]
     ?.slice(0, 5) ?? '';
 }
+
+const [Grid] = useVbenVxeGrid({
+  // `gridFeatures` 는 vxe 타입에 없다(공통 레이어가 읽고 떼어 낸다). 그래서 `as any`.
+  gridOptions: {
+    columns: [
+      {
+        field: 'CHECK_TIME',
+        // 저장된 값은 ISO 라 화면에 보이는 시각으로 훑게 한다.
+        params: { filterText: (row: any) => timestamp(row.CHECK_TIME) },
+        slots: { default: 'CHECK_TIME' },
+        title: '측정 시각',
+        width: 170,
+      },
+      {
+        field: 'Disk_Latency_ms',
+        slots: { default: 'Disk_Latency_ms' },
+        title: '디스크 응답',
+        width: 120,
+      },
+      {
+        field: 'DataFile_Read_Stall_sec',
+        slots: { default: 'DataFile_Read_Stall_sec' },
+        title: '데이터 읽기(s)',
+        width: 140,
+      },
+      {
+        field: 'TempDB_Stall_sec',
+        slots: { default: 'TempDB_Stall_sec' },
+        title: '임시DB 대기(s)',
+        width: 140,
+      },
+      {
+        field: 'Log_Stall_sec',
+        slots: { default: 'Log_Stall_sec' },
+        title: '로그 쓰기(s)',
+        width: 130,
+      },
+      {
+        field: 'RootCause',
+        // 값이 정해진 칸이다 — 저장된 값(영문)에 한글 이름표를 붙여 고르게 한다.
+        params: {
+          filterOptions: Object.entries(ROOT_CAUSES).map(([value, info]) => ({
+            label: info.label,
+            value,
+          })),
+        },
+        slots: { default: 'RootCause' },
+        title: '근본 원인 분석',
+        width: 220,
+      },
+    ],
+    // 행 배열은 `:table-data` 로 간다.
+    data: [],
+    emptyText: '데이터가 없습니다.',
+    // 재조회 아이콘 — `:table-data` 라 그리드가 조회 방법을 모른다.
+    // 위쪽 '데이터 갱신' 이 부르는 것과 같은 함수를 준다.
+    gridFeatures: { onRefresh: () => loadData() },
+    height: 420,
+    // 전량을 한 번에 받는 표다. 켜 두면 응답을 `{ result, page }` 로 읽어 한 행도 안 나온다.
+    pagerConfig: { enabled: false },
+    rowConfig: { keyField: 'CHECK_TIME' },
+  } as any,
+});
 
 /**
  * 원본에는 없던 추이 차트를 추가했다.
@@ -262,75 +297,56 @@ onMounted(loadData);
           </span>
         </template>
 
-        <Table
-          :columns="columns"
-          :data-source="rows"
-          :pagination="{ pageSize: 15, showSizeChanger: true }"
-          :scroll="{ x: 920 }"
-          row-key="CHECK_TIME"
-          size="small"
-        >
-          <template #emptyText>
-            <Empty description="데이터가 없습니다." />
+        <Grid :table-data="rows">
+          <template #CHECK_TIME="{ row }">{{ timestamp(row.CHECK_TIME) }}</template>
+
+          <template #Disk_Latency_ms="{ row }">
+            <span
+              class="font-semibold"
+              :class="Number(row.Disk_Latency_ms) > 20 ? 'text-red-600' : ''"
+            >
+              {{ toFixed(row.Disk_Latency_ms, 2) }}ms
+            </span>
           </template>
 
-          <template #bodyCell="{ column, record }">
-            <template v-if="column.key === 'CHECK_TIME'">
-              {{ timestamp(record.CHECK_TIME) }}
-            </template>
-
-            <template v-else-if="column.key === 'Disk_Latency_ms'">
-              <span
-                class="font-semibold"
-                :class="Number(record.Disk_Latency_ms) > 20 ? 'text-red-600' : ''"
-              >
-                {{ toFixed(record.Disk_Latency_ms, 2) }}ms
-              </span>
-            </template>
-
-            <template v-else-if="column.key === 'DataFile_Read_Stall_sec'">
-              <span
-                :class="
-                  Number(record.DataFile_Read_Stall_sec) > 0.1
-                    ? 'font-bold text-orange-600'
-                    : ''
-                "
-              >
-                {{ toFixed(record.DataFile_Read_Stall_sec, 3) }}
-              </span>
-            </template>
-
-            <template v-else-if="column.key === 'TempDB_Stall_sec'">
-              <span
-                :class="
-                  Number(record.TempDB_Stall_sec) > 0.05
-                    ? 'font-bold text-red-600'
-                    : ''
-                "
-              >
-                {{ toFixed(record.TempDB_Stall_sec, 3) }}
-              </span>
-            </template>
-
-            <template v-else-if="column.key === 'Log_Stall_sec'">
-              <span
-                :class="
-                  Number(record.Log_Stall_sec) > 0.05
-                    ? 'font-bold text-red-600'
-                    : ''
-                "
-              >
-                {{ toFixed(record.Log_Stall_sec, 3) }}
-              </span>
-            </template>
-
-            <template v-else-if="column.key === 'RootCause'">
-              <Tag :color="rootCause(record.RootCause).color">
-                {{ rootCause(record.RootCause).label }}
-              </Tag>
-            </template>
+          <template #DataFile_Read_Stall_sec="{ row }">
+            <span
+              :class="
+                Number(row.DataFile_Read_Stall_sec) > 0.1
+                  ? 'font-bold text-orange-600'
+                  : ''
+              "
+            >
+              {{ toFixed(row.DataFile_Read_Stall_sec, 3) }}
+            </span>
           </template>
-        </Table>
+
+          <template #TempDB_Stall_sec="{ row }">
+            <span
+              :class="
+                Number(row.TempDB_Stall_sec) > 0.05 ? 'font-bold text-red-600' : ''
+              "
+            >
+              {{ toFixed(row.TempDB_Stall_sec, 3) }}
+            </span>
+          </template>
+
+          <template #Log_Stall_sec="{ row }">
+            <span
+              :class="
+                Number(row.Log_Stall_sec) > 0.05 ? 'font-bold text-red-600' : ''
+              "
+            >
+              {{ toFixed(row.Log_Stall_sec, 3) }}
+            </span>
+          </template>
+
+          <template #RootCause="{ row }">
+            <Tag :color="rootCause(row.RootCause).color">
+              {{ rootCause(row.RootCause).label }}
+            </Tag>
+          </template>
+        </Grid>
       </Card>
 
       <!-- 4. 진단 가이드 -->

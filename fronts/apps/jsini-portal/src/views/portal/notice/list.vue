@@ -3,7 +3,7 @@ import type { UploadProps } from 'ant-design-vue';
 
 import type { NoticeApi } from '#/api/portal/notice';
 
-import { computed, nextTick, onMounted, reactive, ref } from 'vue';
+import { computed, nextTick, reactive, ref } from 'vue';
 
 import { Page } from '@vben/common-ui';
 import { useAccessStore } from '@vben/stores';
@@ -13,7 +13,6 @@ import {
   Card,
   Checkbox,
   DatePicker,
-  Empty,
   Form,
   FormItem,
   Input,
@@ -23,13 +22,13 @@ import {
   Popconfirm,
   Space,
   Switch,
-  Table,
   Tooltip,
   Upload,
 } from 'ant-design-vue';
 
 import { IconifyIcon } from '@vben/icons';
 
+import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import NoticePopup from '#/components/notice/notice-popup.vue';
 import { RichEditor } from '#/components/rich-editor';
 import {
@@ -55,13 +54,20 @@ import { can } from '#/utils/permission';
  * [미리보기]는 사용자에게 실제로 뜨는 공지 팝업(`components/notice/notice-popup.vue`)을
  * 그대로 띄운다. 미리보기용 화면을 따로 만들면 실제와 어긋나기 때문이다.
  * 게시 기간이 지났거나 팝업이 꺼진 공지도 확인할 수 있다 — 어떻게 보일지 미리 보는 것이 목적이다.
+ *
+ * ------------------------------------------------------------
+ * [2026-08-30] ant-design-vue `<Table>` 에서 `useVbenVxeGrid` 로 옮겼다.
+ * 정렬·필터는 공통 레이어(`adapter/vxe-grid-features.ts`)가 붙인다.
+ *
+ * **가져오기 방식은 그대로다** — 검색어에 맞는 공지를 한 번에 전량 받는다.
+ * 원래 프런트에서 20건씩 끊어 보여 주던 페이저는 걷어냈다 —
+ * 표가 남은 높이를 그대로 채우므로(`page-fill-last`) 스크롤로 본다.
+ * ------------------------------------------------------------
  */
 
 const accessStore = useAccessStore();
 
-const loading = ref(false);
 const saving = ref(false);
-const rows = ref<NoticeApi.Notice[]>([]);
 const keyword = ref('');
 
 const modalOpen = ref(false);
@@ -93,25 +99,6 @@ const form = reactive<{
 /** 첨부파일 목록. 저장할 때 이 목록 그대로가 최종 상태가 된다. */
 const files = ref<NoticeApi.NoticeFile[]>([]);
 const uploading = ref(false);
-
-/**
- * 컬럼 제목은 모두 가운데로 맞춘다.
- *
- * antd 의 `align` 은 머리글과 본문을 같이 옮긴다. 본문은 성격대로 두고
- * (제목은 왼쪽, 숫자는 가운데) **머리글만** 가운데로 보내려고
- * `customHeaderCell` 로 그 칸에만 스타일을 준다.
- */
-const centerHeader = () => ({ style: { textAlign: 'center' as const } });
-
-const columns = [
-  { dataIndex: 'title', key: 'title', title: '제목', ellipsis: true, customHeaderCell: centerHeader },
-  { key: 'flags', title: '노출', width: 200, align: 'center' as const, customHeaderCell: centerHeader },
-  { key: 'period', title: '게시 기간', width: 200, align: 'center' as const, customHeaderCell: centerHeader },
-  { dataIndex: 'orderNo', key: 'orderNo', title: '순서', width: 70, align: 'center' as const, customHeaderCell: centerHeader },
-  { key: 'files', title: '첨부', width: 70, align: 'center' as const, customHeaderCell: centerHeader },
-  { key: 'status', title: '상태', width: 90, align: 'center' as const, customHeaderCell: centerHeader },
-  { key: 'action', title: '작업', width: 120, align: 'center' as const, customHeaderCell: centerHeader },
-];
 
 /** 업로드는 게이트웨이의 파일 서비스로 바로 보낸다. */
 const uploadAction = '/api/file/upload?bizType=notice';
@@ -148,13 +135,84 @@ function formatSize(bytes: number) {
   return `${value.toFixed(unit === 0 ? 0 : 1)}${units[unit]}`;
 }
 
-async function loadData() {
-  loading.value = true;
-  try {
-    rows.value = await getNoticeList(keyword.value.trim() || undefined);
-  } finally {
-    loading.value = false;
-  }
+/**
+ * 컬럼 제목은 모두 가운데로 맞춘다.
+ *
+ * 이름줄은 공통 레이어가 그리고 `headerAlign ?? align ?? 'center'` 를 따른다.
+ * 그래서 본문만 성격대로 두고(제목은 왼쪽) 머리글에 `headerAlign` 을 따로 준다.
+ *
+ * 값이 아닌 칸(노출 · 첨부)은 `params` 로 정렬·필터에서 뺀다 —
+ * 체크박스 두 개와 개수를 그리는 자리라 걸러 볼 것이 없다.
+ */
+const [Grid, gridApi] = useVbenVxeGrid({
+  gridOptions: {
+    columns: [
+      {
+        align: 'left',
+        field: 'title',
+        headerAlign: 'center',
+        minWidth: 240,
+        title: '제목',
+      },
+      {
+        field: 'flags',
+        params: { filter: false, sort: false },
+        slots: { default: 'flags' },
+        title: '노출',
+        width: 200,
+      },
+      {
+        // 보이는 것은 '시작 ~ 끝' 한 줄이고 값은 시작일이다.
+        field: 'startAt',
+        params: { filterText: (row: any) => periodLabel(row) },
+        slots: { default: 'period' },
+        title: '게시 기간',
+        width: 200,
+      },
+      { field: 'orderNo', title: '순서', width: 80 },
+      {
+        field: 'files',
+        params: { filter: false, sort: false },
+        slots: { default: 'files' },
+        title: '첨부',
+        width: 70,
+      },
+      {
+        field: 'status',
+        params: {
+          filterOptions: [
+            { label: '활성', value: 1 },
+            { label: '중지', value: 0 },
+          ],
+        },
+        slots: { default: 'status' },
+        title: '상태',
+        width: 100,
+      },
+      {
+        field: 'action',
+        slots: { default: 'action' },
+        title: '작업',
+        width: 120,
+      },
+    ],
+    emptyText: '등록된 공지가 없습니다.',
+    height: 'auto',
+    // 전량 조회다. 페이저를 켠 채로 두면 vxe 가 응답을 `{ result, page }` 로 읽어
+    // 배열만 돌려주는 이 query 의 결과가 한 줄도 그려지지 않는다.
+    pagerConfig: { enabled: false },
+    proxyConfig: {
+      ajax: {
+        query: async () =>
+          (await getNoticeList(keyword.value.trim() || undefined)) ?? [],
+      },
+    },
+    rowConfig: { keyField: 'id' },
+  },
+});
+
+function loadData() {
+  gridApi.query();
 }
 
 function openCreate() {
@@ -274,7 +332,7 @@ async function onSave() {
       : createNotice(payload));
     message.success(`공지를 ${editingId.value ? '수정' : '등록'}했습니다.`);
     modalOpen.value = false;
-    await loadData();
+    loadData();
   } finally {
     saving.value = false;
   }
@@ -355,14 +413,12 @@ function openPreview(row: NoticeApi.Notice) {
 async function onDelete(row: NoticeApi.Notice) {
   await deleteNotice(row.id);
   message.success('공지를 삭제했습니다.');
-  await loadData();
+  loadData();
 }
-
-onMounted(loadData);
 </script>
 
 <template>
-  <Page auto-content-height>
+  <Page auto-content-height content-class="page-fill-last">
     <Card class="mb-3" size="small">
       <div class="flex flex-wrap items-center justify-between gap-2">
         <Space wrap>
@@ -373,7 +429,7 @@ onMounted(loadData);
             style="width: 240px"
             @press-enter="loadData"
           />
-          <Button :loading="loading" @click="loadData">조회</Button>
+          <Button @click="loadData">조회</Button>
         </Space>
         <Button v-perm:create type="primary" @click="openCreate">
           공지 등록
@@ -381,129 +437,109 @@ onMounted(loadData);
       </div>
     </Card>
 
-    <Card :body-style="{ padding: 0 }" size="small">
-      <Table
-        :columns="columns"
-        :data-source="rows"
-        :loading="loading"
-        :pagination="{ pageSize: 20, showSizeChanger: true }"
-        :scroll="{ x: 900 }"
-        row-key="id"
-        size="small"
-      >
-        <template #emptyText>
-          <Empty description="등록된 공지가 없습니다." />
-        </template>
+    <Grid>
+      <!-- 노출: 두 값이 서로 무관해서 체크박스로 둔다. 누르면 바로 저장된다. -->
+      <template #flags="{ row }">
+        <div class="flex items-center justify-center gap-3">
+          <Checkbox
+            :checked="row.isPublic"
+            :disabled="!canUpdate || isRowSaving(row as NoticeApi.Notice)"
+            @change="
+              patchRow(
+                row as NoticeApi.Notice,
+                { isPublic: !row.isPublic },
+                '전체 공개',
+              )
+            "
+          >
+            <span class="whitespace-nowrap text-xs">전체 공개</span>
+          </Checkbox>
+          <Checkbox
+            :checked="row.isPopup"
+            :disabled="!canUpdate || isRowSaving(row as NoticeApi.Notice)"
+            @change="
+              patchRow(row as NoticeApi.Notice, { isPopup: !row.isPopup }, '팝업')
+            "
+          >
+            <span class="whitespace-nowrap text-xs">팝업</span>
+          </Checkbox>
+        </div>
+      </template>
 
-        <template #bodyCell="{ column, record }">
-          <!-- 노출: 두 값이 서로 무관해서 체크박스로 둔다. 누르면 바로 저장된다. -->
-          <template v-if="column.key === 'flags'">
-            <div class="flex items-center justify-center gap-3">
-              <Checkbox
-                :checked="record.isPublic"
-                :disabled="!canUpdate || isRowSaving(record as NoticeApi.Notice)"
-                @change="
-                  patchRow(
-                    record as NoticeApi.Notice,
-                    { isPublic: !record.isPublic },
-                    '전체 공개',
-                  )
-                "
-              >
-                <span class="whitespace-nowrap text-xs">전체 공개</span>
-              </Checkbox>
-              <Checkbox
-                :checked="record.isPopup"
-                :disabled="!canUpdate || isRowSaving(record as NoticeApi.Notice)"
-                @change="
-                  patchRow(
-                    record as NoticeApi.Notice,
-                    { isPopup: !record.isPopup },
-                    '팝업',
-                  )
-                "
-              >
-                <span class="whitespace-nowrap text-xs">팝업</span>
-              </Checkbox>
-            </div>
-          </template>
+      <template #period="{ row }">
+        <span class="text-xs">{{ periodLabel(row as NoticeApi.Notice) }}</span>
+      </template>
 
-          <template v-else-if="column.key === 'period'">
-            <span class="text-xs">{{ periodLabel(record as NoticeApi.Notice) }}</span>
-          </template>
+      <template #files="{ row }">
+        <span class="text-xs">{{ row.files?.length || 0 }}</span>
+      </template>
 
-          <template v-else-if="column.key === 'files'">
-            <span class="text-xs">{{ record.files?.length || 0 }}</span>
-          </template>
+      <!-- 상태: 켜고 끄는 두 값뿐이라 스위치로 둔다. -->
+      <template #status="{ row }">
+        <Switch
+          :checked="row.status === 1"
+          :disabled="!canUpdate"
+          :loading="isRowSaving(row as NoticeApi.Notice)"
+          checked-children="활성"
+          size="small"
+          un-checked-children="중지"
+          @change="
+            patchRow(
+              row as NoticeApi.Notice,
+              { status: row.status === 1 ? 0 : 1 },
+              '상태',
+            )
+          "
+        />
+      </template>
 
-          <!-- 상태: 켜고 끄는 두 값뿐이라 스위치로 둔다. -->
-          <template v-else-if="column.key === 'status'">
-            <Switch
-              :checked="record.status === 1"
-              :disabled="!canUpdate"
-              :loading="isRowSaving(record as NoticeApi.Notice)"
-              checked-children="활성"
+      <!--
+        작업: 글자 대신 아이콘으로 둔다.
+        무슨 버튼인지는 마우스를 올리면 뜨는 설명으로 알린다.
+      -->
+      <template #action="{ row }">
+        <div class="flex items-center justify-center gap-1">
+          <Tooltip title="미리보기">
+            <Button
               size="small"
-              un-checked-children="중지"
-              @change="
-                patchRow(
-                  record as NoticeApi.Notice,
-                  { status: record.status === 1 ? 0 : 1 },
-                  '상태',
-                )
-              "
-            />
-          </template>
-
-          <!--
-            작업: 글자 대신 아이콘으로 둔다.
-            무슨 버튼인지는 마우스를 올리면 뜨는 설명으로 알린다.
-          -->
-          <template v-else-if="column.key === 'action'">
-            <div class="flex items-center justify-center gap-1">
-              <Tooltip title="미리보기">
-                <Button
-                  size="small"
-                  type="link"
-                  @click="openPreview(record as NoticeApi.Notice)"
-                >
-                  <template #icon>
-                    <IconifyIcon class="size-4" icon="lucide:eye" />
-                  </template>
-                </Button>
-              </Tooltip>
-              <Tooltip title="수정">
-                <Button
-                  v-perm:update
-                  size="small"
-                  type="link"
-                  @click="openEdit(record as NoticeApi.Notice)"
-                >
-                  <template #icon>
-                    <IconifyIcon class="size-4" icon="lucide:edit" />
-                  </template>
-                </Button>
-              </Tooltip>
-              <Popconfirm
-                v-perm:delete
-                cancel-text="취소"
-                ok-text="삭제"
-                title="공지를 삭제할까요?"
-                @confirm="onDelete(record as NoticeApi.Notice)"
-              >
-                <Tooltip title="삭제">
-                  <Button danger size="small" type="link">
-                    <template #icon>
-                      <IconifyIcon class="size-4" icon="lucide:trash-2" />
-                    </template>
-                  </Button>
-                </Tooltip>
-              </Popconfirm>
-            </div>
-          </template>
-        </template>
-      </Table>
-    </Card>
+              type="link"
+              @click="openPreview(row as NoticeApi.Notice)"
+            >
+              <template #icon>
+                <IconifyIcon class="size-4" icon="lucide:eye" />
+              </template>
+            </Button>
+          </Tooltip>
+          <Tooltip title="수정">
+            <Button
+              v-perm:update
+              size="small"
+              type="link"
+              @click="openEdit(row as NoticeApi.Notice)"
+            >
+              <template #icon>
+                <IconifyIcon class="size-4" icon="lucide:edit" />
+              </template>
+            </Button>
+          </Tooltip>
+          <Popconfirm
+            v-perm:delete
+            cancel-text="취소"
+            ok-text="삭제"
+            title="공지를 삭제할까요?"
+            @confirm="onDelete(row as NoticeApi.Notice)"
+          >
+            <Tooltip title="삭제">
+              <Button danger size="small" type="link">
+                <template #icon>
+                  <IconifyIcon class="size-4" icon="lucide:trash-2" />
+                </template>
+              </Button>
+            </Tooltip>
+          </Popconfirm>
+        </div>
+      </template>
+    </Grid>
 
     <!-- 등록 · 수정 -->
     <Modal

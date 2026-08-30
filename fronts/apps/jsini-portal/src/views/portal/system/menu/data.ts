@@ -167,6 +167,11 @@ export function useColumns(
       field: 'meta.order',
       // 형제끼리의 순번이다. 정렬을 걸면 형제 안에서 순번대로 서므로
       // "이 부모 밑이 순번대로 되어 있나" 를 확인할 때 쓴다.
+      //
+      // 필터는 뺀다 — 숫자라 입력 필터가 쓸모없다(34번 문서 2절).
+      // 공통 레이어(`adapter/vxe-grid-features.ts`)가 값 칸에 자동으로 필터를 다는데,
+      // 이 칸은 머리글을 직접 그리지 않아 그 대상이 되므로 여기서 꺼 준다.
+      params: { filter: false },
       sortable: true,
       title: $t('system.menu.order'),
       width: 80,

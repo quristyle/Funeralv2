@@ -16,10 +16,10 @@ import {
   Space,
   Spin,
   Statistic,
-  Table,
   Tag,
 } from 'ant-design-vue';
 
+import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import {
   getAdminContributionStats,
   getAdminContributionTrend,
@@ -39,6 +39,13 @@ import { formatDateTime } from '../shared/constants';
  *  2. 효율성 — MTTR, 기여도 12주 추이
  *  3. 품질 — 재오픈율, SR/버그 비율, 사용자 확인율
  *  4. 긴급/장애 발생 목록
+ *
+ * ------------------------------------------------------------
+ * [2026-08-30] 표 셋을 ant-design-vue `<Table>` 에서 `useVbenVxeGrid` 로 옮겼다.
+ * 정렬·필터는 공통 레이어(`adapter/vxe-grid-features.ts`)가 붙인다.
+ *
+ * **가져오기 방식은 그대로다** — 셋 다 한 번에 전량을 받아 그린다(페이저 없음).
+ * ------------------------------------------------------------
  */
 
 const loading = ref(false);
@@ -85,25 +92,93 @@ const TREND_COLORS = [
   '#78909C',
 ];
 
-const workloadColumns = [
-  { dataIndex: 'adminName', key: 'adminName', title: '담당자', width: 100 },
-  { dataIndex: 'monthlyShare', key: 'monthlyShare', title: '월간 비중', width: 130 },
-  { dataIndex: 'totalShare', key: 'totalShare', title: '누적 비중', width: 130 },
-  { dataIndex: 'inProgressCount', key: 'inProgressCount', title: '진행', width: 70 },
-];
+/** 1. 담당자별 해결 기여도 — 비중 두 칸은 막대로 그린다(필터 대상이 아니다). */
+const [WorkloadGrid] = useVbenVxeGrid({
+  // `gridFeatures` 는 vxe 타입에 없다(공통 레이어가 읽고 떼어 낸다). 그래서 `as any`.
+  gridOptions: {
+    columns: [
+      { field: 'adminName', title: '담당자', width: 100 },
+      {
+        field: 'monthlyShare',
+        params: { filter: false },
+        slots: { default: 'monthlyShare' },
+        title: '월간 비중',
+        width: 130,
+      },
+      {
+        field: 'totalShare',
+        params: { filter: false },
+        slots: { default: 'totalShare' },
+        title: '누적 비중',
+        width: 130,
+      },
+      { field: 'inProgressCount', title: '진행', width: 70 },
+    ],
+    // 행 배열은 `:table-data` 로 간다. 여기는 빈 배열이 바탕값이다.
+    data: [],
+    emptyText: '집계된 실적이 없습니다.',
+    // 재조회 아이콘 — `:table-data` 라 그리드가 조회 방법을 모른다.
+    // 표 셋이 한 번의 조회로 함께 채워지므로 셋 다 같은 함수를 준다.
+    gridFeatures: { onRefresh: () => loadData() },
+    height: 240,
+    // 전량 조회다. 페이저를 끄지 않으면 한 줄도 안 그려진다.
+    pagerConfig: { enabled: false },
+    rowConfig: { keyField: 'adminName' },
+  } as any,
+});
 
-const engagedColumns = [
-  { dataIndex: 'name', key: 'name', title: '사용자' },
-  { dataIndex: 'company', key: 'company', title: '회사' },
-  { dataIndex: 'interactions', key: 'interactions', title: '상호작용', width: 90 },
-  { dataIndex: 'confirms', key: 'confirms', title: '확인', width: 70 },
-];
+/** 3. 사용자 협업 상위 */
+const [EngagedGrid] = useVbenVxeGrid({
+  gridOptions: {
+    columns: [
+      { field: 'name', minWidth: 120, title: '사용자' },
+      { field: 'company', minWidth: 140, title: '회사' },
+      { field: 'interactions', title: '상호작용', width: 90 },
+      { field: 'confirms', title: '확인', width: 70 },
+    ],
+    data: [],
+    emptyText: '협업 이력이 없습니다.',
+    // 위 표와 같은 조회로 채워진다.
+    gridFeatures: { onRefresh: () => loadData() },
+    height: 240,
+    pagerConfig: { enabled: false },
+    rowConfig: { keyField: 'name' },
+  } as any,
+});
 
-const emergencyColumns = [
-  { dataIndex: 'title', key: 'title', title: '제목', ellipsis: true },
-  { dataIndex: 'createdAt', key: 'createdAt', title: '발생', width: 160 },
-  { dataIndex: 'statusName', key: 'statusName', title: '상태', width: 90 },
-];
+/**
+ * 4. 긴급 · 장애 발생
+ *
+ * 상태 칸은 고르는 칸(`filterOptions`)으로 두지 않았다 — `statusName` 은 서버가
+ * 그때그때 붙여 주는 표시용 이름이라 목록을 못 박으면 새 값이 걸러지지 않는다.
+ */
+const [EmergencyGrid] = useVbenVxeGrid({
+  gridOptions: {
+    columns: [
+      { field: 'title', minWidth: 240, title: '제목' },
+      {
+        field: 'createdAt',
+        params: { filterText: (row: any) => formatDateTime(row.createdAt) },
+        slots: { default: 'createdAt' },
+        title: '발생',
+        width: 160,
+      },
+      {
+        field: 'statusName',
+        slots: { default: 'statusName' },
+        title: '상태',
+        width: 90,
+      },
+    ],
+    data: [],
+    emptyText: '등록된 긴급 · 장애가 없습니다.',
+    // 위 표들과 같은 조회로 채워진다.
+    gridFeatures: { onRefresh: () => loadData() },
+    height: 300,
+    pagerConfig: { enabled: false },
+    rowConfig: { keyField: 'id' },
+  } as any,
+});
 
 /** 배열 또는 객체로 오는 집계 결과를 {label, value} 형태로 통일한다. */
 function toPairs(data: any): { label: string; value: number }[] {
@@ -296,30 +371,21 @@ onMounted(loadData);
             size="small"
             title="1. 담당자별 해결 기여도"
           >
-            <Table
-              :columns="workloadColumns"
-              :data-source="adminWorkload"
-              :pagination="false"
-              :scroll="{ y: 200 }"
-              row-key="adminName"
-              size="small"
-            >
-              <template #bodyCell="{ column, record }">
-                <template v-if="column.key === 'monthlyShare'">
-                  <Progress
-                    :percent="Math.round(record.monthlyShare ?? 0)"
-                    size="small"
-                  />
-                </template>
-                <template v-else-if="column.key === 'totalShare'">
-                  <Progress
-                    :percent="Math.round(record.totalShare ?? 0)"
-                    size="small"
-                    status="normal"
-                  />
-                </template>
+            <WorkloadGrid :table-data="adminWorkload">
+              <template #monthlyShare="{ row }">
+                <Progress
+                  :percent="Math.round(row.monthlyShare ?? 0)"
+                  size="small"
+                />
               </template>
-            </Table>
+              <template #totalShare="{ row }">
+                <Progress
+                  :percent="Math.round(row.totalShare ?? 0)"
+                  size="small"
+                  status="normal"
+                />
+              </template>
+            </WorkloadGrid>
           </Card>
         </Col>
 
@@ -375,14 +441,7 @@ onMounted(loadData);
             size="small"
             title="사용자 협업 상위"
           >
-            <Table
-              :columns="engagedColumns"
-              :data-source="collaboration.topEngagedUsers"
-              :pagination="false"
-              :scroll="{ y: 200 }"
-              row-key="name"
-              size="small"
-            />
+            <EngagedGrid :table-data="collaboration.topEngagedUsers" />
           </Card>
         </Col>
       </Row>
@@ -406,22 +465,14 @@ onMounted(loadData);
         size="small"
         title="긴급 · 장애 발생"
       >
-        <Table
-          :columns="emergencyColumns"
-          :data-source="emergencyIncidents"
-          :pagination="false"
-          row-key="id"
-          size="small"
-        >
-          <template #bodyCell="{ column, record }">
-            <template v-if="column.key === 'createdAt'">
-              {{ formatDateTime(record.createdAt) }}
-            </template>
-            <template v-else-if="column.key === 'statusName'">
-              <Tag color="error">{{ record.statusName }}</Tag>
-            </template>
+        <EmergencyGrid :table-data="emergencyIncidents">
+          <template #createdAt="{ row }">
+            {{ formatDateTime(row.createdAt) }}
           </template>
-        </Table>
+          <template #statusName="{ row }">
+            <Tag color="error">{{ row.statusName }}</Tag>
+          </template>
+        </EmergencyGrid>
       </Card>
     </Spin>
   </Page>

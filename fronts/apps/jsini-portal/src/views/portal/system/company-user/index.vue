@@ -8,6 +8,20 @@ import { getCompanyList } from '#/api/portal/system/company';
 import { getDeptList, getDeptUsers, getEligibleDeptUsers, assignDeptUsers, removeDeptUsers } from '#/api/portal/system/dept';
 import type { SystemRolePermissionApi } from '#/api/portal/system/role-permission';
 
+/**
+ * [회사 · 부서 사용자 배정]
+ *
+ * ------------------------------------------------------------
+ * [2026-08-30] 팝업(사용자 추가 지정) 안의 ant-design-vue `<Table>` 을
+ * `useVbenVxeGrid` 로 옮겼다. 정렬·필터는 공통 레이어
+ * (`adapter/vxe-grid-features.ts`)가 붙이므로 이 화면에는 그 코드가 없다.
+ *
+ * 가운데 두 표(소속 · 미소속)는 **일부러 antd `<Table>` 로 남겼다.** 행을 끌어다
+ * 놓는 것이 이 화면의 조작 방식인데, 그것은 antd 의 `custom-row` 로 행 엘리먼트에
+ * `draggable` 을 직접 붙여서 되는 일이다.
+ * ------------------------------------------------------------
+ */
+
 // 현재 선택된 회사 ID 및 회사명
 const selectedCompanyId = ref<string>('');
 const selectedCompanyName = ref<string>('');
@@ -27,8 +41,6 @@ const loadingMapped = ref<boolean>(false);
 // 추가 지정 모달 상태
 const isModalVisible = ref<boolean>(false);
 const eligibleUsers = ref<SystemRolePermissionApi.RoleUser[]>([]);
-const loadingEligible = ref<boolean>(false);
-const selectedRowKeys = ref<any[]>([]);
 
 // ─────────────────────────────────────────────────────────────
 // 미소속 사용자 (어느 회사에도 속하지 않은 계정)
@@ -233,12 +245,41 @@ const mappedColumns = [
   { title: '', key: 'action', width: 44 },
 ];
 
-// 추가 모달 테이블 컬럼 정의
-const eligibleColumns = [
-  { title: '사용자 ID', dataIndex: 'loginId', key: 'loginId' },
-  { title: '사용자명', dataIndex: 'userName', key: 'userName' },
-  { title: '이메일', dataIndex: 'email', key: 'email' },
-];
+// 추가 모달 그리드 (사용자 추가 지정)
+//
+// 팝업 안이라 `page-fill-last` 가 없다 — 높이를 숫자로 준다.
+// 체크박스 칸이 antd 의 `:row-selection` 자리다. 고른 행은 `getCheckboxRecords()` 로 읽는다.
+const [EligibleGrid, eligibleApi] = useVbenVxeGrid({
+  gridOptions: {
+    checkboxConfig: { highlight: true, keyField: 'id' },
+    columns: [
+      { type: 'checkbox', width: 44 },
+      { field: 'loginId', minWidth: 130, title: '사용자 ID' },
+      { field: 'userName', minWidth: 120, title: '사용자명' },
+      { field: 'email', minWidth: 180, title: '이메일' },
+    ],
+    emptyText: '추가할 수 있는 사용자가 없습니다.',
+    height: 380,
+    // 전량 조회다. 켜 두면 vxe 가 응답을 `{result,page}` 로 읽어 배열이 통째로 빠진다.
+    pagerConfig: { enabled: false },
+    proxyConfig: {
+      ajax: {
+        query: async () => {
+          try {
+            const res = await getEligibleDeptUsers(selectedCompanyId.value);
+            eligibleUsers.value = (res as any)?.result ?? res ?? [];
+          } catch (error) {
+            console.error(error);
+            message.error('추가 가능 사용자 목록 로드 실패');
+            eligibleUsers.value = [];
+          }
+          return eligibleUsers.value;
+        },
+      },
+    },
+    rowConfig: { keyField: 'id' },
+  },
+});
 
 // 회사 목록 그리드 컬럼 설정 (좌측)
 //
@@ -391,39 +432,29 @@ async function fetchMappedUsers() {
   }
 }
 
-// 추가 가능 사용자 로드 (부서 미지정 계정)
-async function fetchEligibleUsers() {
-  loadingEligible.value = true;
-  try {
-    const res = await getEligibleDeptUsers(selectedCompanyId.value);
-    eligibleUsers.value = (res as any)?.result ?? res ?? [];
-  } catch (error) {
-    console.error(error);
-    message.error('추가 가능 사용자 목록 로드 실패');
-  } finally {
-    loadingEligible.value = false;
-  }
-}
-
 // 소속 해제는 미소속 목록으로 끌어다 놓는 것으로 한다(onDropToUnassigned).
 // 표의 '해제' 버튼과 그 처리는 없앴다 — 같은 일을 두 곳에서 하지 않는다.
 
 // 추가 지정 모달 열기
 function openAssignModal() {
-  selectedRowKeys.value = [];
-  fetchEligibleUsers();
   isModalVisible.value = true;
+  // 팝업이 뜬 뒤에 조회해야 그리드가 자리를 잡은 상태에서 그려진다.
+  setTimeout(() => eligibleApi.query(), 0);
 }
 
 // 사용자 추가 지정 확인
 async function handleAssignConfirm() {
-  if (selectedRowKeys.value.length === 0) {
+  const selected = eligibleApi.grid?.getCheckboxRecords() ?? [];
+  if (selected.length === 0) {
     message.warning('추가할 사용자를 선택해 주세요.');
     return;
   }
 
   try {
-    await assignDeptUsers(selectedDeptId.value, selectedRowKeys.value as string[]);
+    await assignDeptUsers(
+      selectedDeptId.value,
+      selected.map((row: any) => row.id as string),
+    );
     message.success('사용자가 부서 소속으로 지정되었습니다.');
     isModalVisible.value = false;
     await Promise.all([fetchMappedUsers(), fetchUnassignedUsers()]);
@@ -431,11 +462,6 @@ async function handleAssignConfirm() {
     console.error(error);
     message.error('사용자 지정 추가 실패');
   }
-}
-
-// 모달 테이블 체크박스 변경 핸들러
-function onSelectChange(keys: any[]) {
-  selectedRowKeys.value = keys;
 }
 
 // 회사 선택 변경 감시 -> 부서 리스트 갱신
@@ -456,7 +482,13 @@ onMounted(() => {
 
 <template>
   <Page auto-content-height>
-    <div class="grid grid-cols-12 gap-4 h-full">
+    <!--
+      `grid-rows-[minmax(0,1fr)]` — 행 트랙을 컨테이너 높이에 못 박는다.
+      안 그러면 트랙이 `auto`(내용 크기)라, `h-full` 자식 안의 vxe 그리드가
+      잰 높이를 다시 내용으로 만들며 표가 무한히 길어진다
+      (역할 관리 화면에서 실측·수정한 것과 같은 구조다).
+    -->
+    <div class="grid grid-cols-12 gap-4 h-full md:grid-rows-[minmax(0,1fr)]">
       <!-- 1. 회사 목록 (좌측) -->
       <div class="col-span-12 md:col-span-3 h-full flex flex-col">
         <Card class="flex-1 flex flex-col h-full overflow-hidden" title="회사 목록" :body-style="{ flex: 1, padding: 0, overflow: 'hidden' }">
@@ -734,16 +766,7 @@ onMounted(() => {
         <div class="mb-2 text-gray-500 text-xs">
           * 현재 해당 회사의 부서가 지정되지 않았거나 소속 회사가 없는 사용자들만 목록에 노출됩니다.
         </div>
-        <Table
-          :columns="eligibleColumns"
-          :data-source="eligibleUsers"
-          :loading="loadingEligible"
-          :row-selection="{ selectedRowKeys: selectedRowKeys, onChange: onSelectChange }"
-          :pagination="{ pageSize: 5 }"
-          row-key="id"
-          size="middle"
-          class="border rounded-md"
-        />
+        <EligibleGrid />
       </div>
     </Modal>
   </Page>

@@ -19,8 +19,18 @@
  *
  * [글자 크기]
  * 다른 프로필 탭은 vben 폼이라 `0.875rem`(=12.25px)로 그려진다. antd 의 Descriptions ·
- * Table 은 자기 기준(14px)을 쓰기 때문에 그대로 두면 이 탭만 커 보인다.
- * 그래서 아래 스타일에서 antd 기준을 폼 쪽에 맞춘다.
+ * 그리드는 자기 기준(14px)을 쓰기 때문에 그대로 두면 이 탭만 커 보인다.
+ * 그래서 아래 스타일에서 그 기준을 폼 쪽에 맞춘다.
+ *
+ * ------------------------------------------------------------
+ * [2026-08-30] 접속 기록 표를 ant-design-vue `<Table>` 에서 `useVbenVxeGrid` 로
+ * 옮겼다. 정렬·필터는 공통 레이어(`adapter/vxe-grid-features.ts`)가 붙인다.
+ *
+ * **가져오기 방식은 그대로다** — `/auth/user/activity` 가 준 최근 10건을
+ * `:table-data` 로 넘긴다. 이 화면은 `Page` 가 아니라 프로필 탭 안이라
+ * `page-fill-last` 가 없다. 줄 수가 10 으로 정해져 있어 높이를 주지 않고
+ * 내용만큼 그리게 둔다(원본 `<Table>` 과 같다).
+ * ------------------------------------------------------------
  */
 import type { AccountActivity, LoginLog } from '#/api';
 
@@ -32,13 +42,12 @@ import {
   Alert,
   Descriptions,
   DescriptionsItem,
-  Empty,
   Skeleton,
-  Table,
   Tag,
   Tooltip,
 } from 'ant-design-vue';
 
+import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { getAccountActivityApi, getUserInfoApi } from '#/api';
 
 interface AccountInfo {
@@ -103,12 +112,59 @@ function deviceLabel(row: LoginLog) {
   return row.device || (row.userAgent ? '알 수 없는 기기' : '기록 없음');
 }
 
-const columns = [
-  { key: 'at', title: '시각', width: 150 },
-  { key: 'success', title: '결과', width: 110, align: 'center' as const },
-  { key: 'ip', title: '접속 IP', width: 130 },
-  { key: 'device', title: '기기' },
-];
+/** 그리드에 넘길 줄. 못 받았으면 빈 목록이다. */
+const recent = computed<LoginLog[]>(() => activity.value?.recent ?? []);
+
+const [LoginLogGrid] = useVbenVxeGrid({
+  // `gridFeatures` 는 vxe 타입에 없다(공통 레이어가 읽고 떼어 낸다). 그래서 `as any`.
+  gridOptions: {
+    columns: [
+      {
+        field: 'at',
+        // 화면에 보이는 것은 포맷한 시각이다. 필터가 훑을 글자를 그것으로 맞춘다.
+        params: { filterText: (row: any) => dt(row.at) },
+        slots: { default: 'at' },
+        title: '시각',
+        width: 150,
+      },
+      {
+        align: 'center',
+        field: 'success',
+        // 값이 둘뿐인 칸이라 고르는 칸으로 준다.
+        params: {
+          filterOptions: [
+            { label: '성공', value: true },
+            { label: '실패', value: false },
+          ],
+        },
+        slots: { default: 'success' },
+        title: '결과',
+        width: 110,
+      },
+      {
+        field: 'ip',
+        slots: { default: 'ip' },
+        title: '접속 IP',
+        width: 130,
+      },
+      {
+        field: 'device',
+        // 줄인 이름을 보여 주므로 필터도 그 글자를 훑는다.
+        params: { filterText: (row: any) => deviceLabel(row as LoginLog) },
+        minWidth: 200,
+        slots: { default: 'device' },
+        title: '기기',
+      },
+    ],
+    emptyText: '접속 기록이 없습니다.',
+    // 재조회 아이콘 — `:table-data` 라 그리드가 조회 방법을 모른다.
+    // 계정 값과 접속 기록을 `load` 한 번이 함께 받아 온다.
+    gridFeatures: { onRefresh: () => load() },
+    // 최근 10건을 한 번에 넘긴다. 페이저를 두지 않는다.
+    pagerConfig: { enabled: false },
+    // 줄 수가 10 으로 정해져 있어 높이를 고정하지 않는다.
+  } as any,
+});
 
 async function load() {
   try {
@@ -246,41 +302,29 @@ onMounted(load);
     <div>
       <div class="mb-2 font-medium">최근 접속 기록</div>
 
-      <Table
-        :columns="columns"
-        :data-source="activity?.recent ?? []"
-        :pagination="false"
-        :row-key="(row: LoginLog) => `${row.at}-${row.ip}-${row.success}`"
-        size="small"
-      >
-        <template #emptyText>
-          <Empty description="접속 기록이 없습니다." />
+      <LoginLogGrid :table-data="recent">
+        <template #at="{ row }">
+          {{ dt((row as LoginLog).at) }}
         </template>
 
-        <template #bodyCell="{ column, record }">
-          <template v-if="column.key === 'at'">
-            {{ dt((record as LoginLog).at) }}
-          </template>
-
-          <template v-else-if="column.key === 'success'">
-            <Tag v-if="(record as LoginLog).success" color="success">성공</Tag>
-            <Tag v-else color="error">
-              {{ failLabel((record as LoginLog).failReason) }}
-            </Tag>
-          </template>
-
-          <template v-else-if="column.key === 'ip'">
-            <span class="font-mono">{{ (record as LoginLog).ip || '기록 없음' }}</span>
-          </template>
-
-          <template v-else-if="column.key === 'device'">
-            <!-- 줄인 이름을 보여 주고 원문은 마우스를 올려 본다 -->
-            <Tooltip :title="(record as LoginLog).userAgent || ''">
-              <span>{{ deviceLabel(record as LoginLog) }}</span>
-            </Tooltip>
-          </template>
+        <template #success="{ row }">
+          <Tag v-if="(row as LoginLog).success" color="success">성공</Tag>
+          <Tag v-else color="error">
+            {{ failLabel((row as LoginLog).failReason) }}
+          </Tag>
         </template>
-      </Table>
+
+        <template #ip="{ row }">
+          <span class="font-mono">{{ (row as LoginLog).ip || '기록 없음' }}</span>
+        </template>
+
+        <!-- 줄인 이름을 보여 주고 원문은 마우스를 올려 본다 -->
+        <template #device="{ row }">
+          <Tooltip :title="(row as LoginLog).userAgent || ''">
+            <span>{{ deviceLabel(row as LoginLog) }}</span>
+          </Tooltip>
+        </template>
+      </LoginLogGrid>
     </div>
 
     <p class="text-muted-foreground text-xs">
@@ -296,8 +340,9 @@ onMounted(load);
   [글자 크기를 다른 탭에 맞춘다]
 
   다른 프로필 탭은 vben 폼이라 `0.875rem`(루트 14px 기준 = 12.25px)으로 그려진다.
-  antd 의 Descriptions·Table 은 자기 기준(14px)을 쓰기 때문에 이 탭만 커 보였다.
-  antd 쪽을 폼 기준으로 내린다 — 반대로 폼을 올리면 프로필 밖의 모든 화면이 함께 커진다.
+  antd 의 Descriptions 와 vxe 그리드는 자기 기준(14px)을 쓰기 때문에 이 탭만 커 보였다.
+  그쪽을 폼 기준으로 내린다 — 반대로 폼을 올리면 프로필 밖의 모든 화면이 함께 커진다.
+  (표를 그리드로 옮기면서 `.ant-table*` 자리를 `.vxe-table*` 로 바꿨다.)
 */
 .account-info {
   font-size: 0.875rem;
@@ -306,10 +351,11 @@ onMounted(load);
 .account-info :deep(.ant-descriptions-item-label),
 .account-info :deep(.ant-descriptions-item-content),
 .account-info :deep(.ant-descriptions-title),
-.account-info :deep(.ant-table),
-.account-info :deep(.ant-table-thead > tr > th),
-.account-info :deep(.ant-table-tbody > tr > td),
-.account-info :deep(.ant-empty-description),
+.account-info :deep(.vxe-grid),
+.account-info :deep(.vxe-table),
+.account-info :deep(.vxe-table .vxe-header--column),
+.account-info :deep(.vxe-table .vxe-body--column),
+.account-info :deep(.vxe-table--empty-content),
 .account-info :deep(.ant-alert-message),
 .account-info :deep(.ant-alert-description) {
   font-size: 0.875rem;

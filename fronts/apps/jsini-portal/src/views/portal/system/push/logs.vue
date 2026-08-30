@@ -4,17 +4,9 @@ import { useRoute } from 'vue-router';
 
 import { Page } from '@vben/common-ui';
 
-import {
-  Button,
-  Card,
-  Empty,
-  RangePicker,
-  Select,
-  Space,
-  Table,
-  Tag,
-} from 'ant-design-vue';
+import { Button, Card, RangePicker, Select, Space, Tag } from 'ant-design-vue';
 
+import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { getDistinctFailureReasons, getPushLogs } from '#/api/helpdesk';
 
 import { formatDateTime } from '#/views/helpdesk/shared/constants';
@@ -23,12 +15,22 @@ import { formatDateTime } from '#/views/helpdesk/shared/constants';
  * [푸시 발송 이력]
  *
  * 푸시 현황 화면에서 실패 사유를 클릭해 들어오면 쿼리스트링으로 필터가 전달된다.
+ *
+ * ------------------------------------------------------------
+ * [2026-08-30] ant-design-vue `<Table>` 에서 `useVbenVxeGrid` 로 옮겼다.
+ *
+ * 시스템의 모든 표를 한 부품으로 모으기 위해서다. 그리드 공통 기능(이름줄 정렬 +
+ * 필터 전용 행)은 `adapter/vxe-grid-features.ts` 가 자동으로 붙이므로
+ * 이 화면에는 그에 관한 코드가 없다.
+ *
+ * **가져오기 방식은 그대로다** — 페이지도 정렬도 서버가 한다(`orderBy` · `page`).
+ * 그래서 머리글 필터줄은 **지금 화면에 올라온 페이지 안에서만** 걸린다.
+ * 전체에서 걸러야 하는 조건(상태 · 기간 · 실패 사유)은 위의 조회 줄이 맡는다.
+ * ------------------------------------------------------------
  */
 
 const route = useRoute();
 
-const loading = ref(false);
-const rows = ref<any[]>([]);
 const reasonOptions = ref<{ label: string; value: string }[]>([]);
 
 const filters = reactive<{
@@ -51,43 +53,6 @@ const STATUS_OPTIONS = [
   { label: '실패', value: 'failure' },
 ];
 
-const pagination = reactive({
-  current: 1,
-  pageSize: 20,
-  showSizeChanger: true,
-  showTotal: (total: number) => `총 ${total}건`,
-  total: 0,
-});
-
-/** 서버 정렬. 원본은 orderBy 문자열로 넘긴다. */
-const sorter = reactive({ field: 'createdAt', order: 'desc' });
-
-// 원본(PushLogList.vue)과 같은 컬럼 구성. 서버는 수신자 이름 대신 endpoint 를 준다.
-const columns = [
-  { dataIndex: 'endpoint', key: 'server', title: '발송 서버', width: 150 },
-  { dataIndex: 'endpoint', key: 'endpoint', title: 'Endpoint', ellipsis: true },
-  {
-    dataIndex: 'isSuccess',
-    key: 'isSuccess',
-    sorter: true,
-    title: '상태',
-    width: 100,
-  },
-  {
-    dataIndex: 'failureReason',
-    key: 'failureReason',
-    title: '실패 원인',
-    ellipsis: true,
-  },
-  {
-    dataIndex: 'createdAt',
-    key: 'createdAt',
-    sorter: true,
-    title: '발송 시간',
-    width: 170,
-  },
-];
-
 /** endpoint URL 에서 호스트만 뽑아 '발송 서버'로 보여준다(원본과 동일). */
 function endpointHost(endpoint?: string) {
   if (!endpoint) return '-';
@@ -98,48 +63,91 @@ function endpointHost(endpoint?: string) {
   }
 }
 
-async function loadData() {
-  loading.value = true;
-  try {
-    const params: Record<string, any> = {
-      orderBy: `${sorter.field} ${sorter.order}`,
-      page: pagination.current,
-      pageSize: pagination.pageSize,
-    };
+const [Grid, gridApi] = useVbenVxeGrid({
+  gridOptions: {
+    columns: [
+      // 정렬은 서버가 맡는데 `isSuccess` · `createdAt` 두 칸만 받는다(원본과 같다).
+      // 나머지 칸은 정렬을 끈다 — 켜 두면 서버가 모르는 이름으로 `orderBy` 를 보낸다.
+      {
+        field: 'endpoint',
+        minWidth: 150,
+        // 같은 값을 두 가지로 보여 주는 칸이다. 필터가 훑을 글자를
+        // 화면에 보이는 것(호스트)으로 맞춰 준다.
+        params: {
+          filterText: (row: any) => endpointHost(row.endpoint),
+          sort: false,
+        },
+        slots: { default: 'server' },
+        title: '발송 서버',
+      },
+      {
+        field: 'endpointFull',
+        minWidth: 260,
+        params: { filterText: (row: any) => row.endpoint ?? '', sort: false },
+        slots: { default: 'endpoint' },
+        title: 'Endpoint',
+      },
+      {
+        field: 'isSuccess',
+        params: {
+          filterOptions: [
+            { label: '성공', value: true },
+            { label: '실패', value: false },
+          ],
+        },
+        slots: { default: 'isSuccess' },
+        title: '상태',
+        width: 100,
+      },
+      {
+        field: 'failureReason',
+        minWidth: 200,
+        params: { sort: false },
+        title: '실패 원인',
+      },
+      {
+        field: 'createdAt',
+        params: { filterText: (row: any) => formatDateTime(row.createdAt) },
+        slots: { default: 'createdAt' },
+        title: '발송 시간',
+        width: 170,
+      },
+    ],
+    emptyText: '발송 이력이 없습니다.',
+    height: 'auto',
+    pagerConfig: { enabled: true, pageSize: 20 },
+    // 정렬은 서버가 한다. 한 페이지만 올라와 있어 화면에서 세우면 그 페이지만 선다.
+    sortConfig: { multiple: false, remote: true },
+    proxyConfig: {
+      ajax: {
+        query: async ({ page, sorts }: any) => {
+          const sort = sorts?.[0];
+          const params: Record<string, any> = {
+            orderBy: sort?.field
+              ? `${sort.field} ${sort.order === 'asc' ? 'asc' : 'desc'}`
+              : 'createdAt desc',
+            page: page?.currentPage ?? 1,
+            pageSize: page?.pageSize ?? 20,
+          };
 
-    if (filters.status === 'success') params.isSuccess = true;
-    if (filters.status === 'failure') params.isSuccess = false;
-    if (filters.range?.[0]) params.startDate = filters.range[0];
-    if (filters.range?.[1]) params.endDate = filters.range[1];
-    if (filters.reasons.length > 0) params.reasons = filters.reasons.join(',');
+          if (filters.status === 'success') params.isSuccess = true;
+          if (filters.status === 'failure') params.isSuccess = false;
+          if (filters.range?.[0]) params.startDate = filters.range[0];
+          if (filters.range?.[1]) params.endDate = filters.range[1];
+          if (filters.reasons.length > 0)
+            params.reasons = filters.reasons.join(',');
 
-    const page = await getPushLogs(params);
-    rows.value = page.items;
-    pagination.total = page.totalCount;
-  } finally {
-    loading.value = false;
-  }
-}
+          const result = await getPushLogs(params);
+          return { page: { total: result.totalCount }, result: result.items };
+        },
+      },
+    },
+    rowConfig: { keyField: 'id' },
+  },
+});
 
 function search() {
-  pagination.current = 1;
-  loadData();
-}
-
-function onTableChange(
-  pag: { current?: number; pageSize?: number },
-  _filters: unknown,
-  sort: any,
-) {
-  pagination.current = pag.current ?? 1;
-  pagination.pageSize = pag.pageSize ?? 20;
-
-  // 정렬을 바꾸면 서버에 다시 물어본다(원본 onSort).
-  if (sort?.field) {
-    sorter.field = String(sort.field);
-    sorter.order = sort.order === 'ascend' ? 'asc' : 'desc';
-  }
-  loadData();
+  gridApi.query();
 }
 
 onMounted(async () => {
@@ -148,12 +156,11 @@ onMounted(async () => {
     label: r,
     value: r,
   }));
-  await loadData();
 });
 </script>
 
 <template>
-  <Page auto-content-height>
+  <Page auto-content-height content-class="page-fill-last">
     <Card class="mb-3" size="small">
       <Space wrap>
         <Select
@@ -176,41 +183,23 @@ onMounted(async () => {
           style="min-width: 220px"
           @change="search"
         />
-        <Button :loading="loading" type="primary" @click="search">조회</Button>
+        <Button type="primary" @click="search">조회</Button>
       </Space>
     </Card>
 
-    <Card :body-style="{ padding: 0 }" size="small">
-      <Table
-        :columns="columns"
-        :data-source="rows"
-        :loading="loading"
-        :pagination="pagination"
-        :scroll="{ x: 800 }"
-        row-key="id"
-        size="small"
-        @change="onTableChange"
-      >
-        <template #emptyText>
-          <Empty description="발송 이력이 없습니다." />
-        </template>
-        <template #bodyCell="{ column, record }">
-          <template v-if="column.key === 'server'">
-            {{ endpointHost(record.endpoint) }}
-          </template>
-          <template v-else-if="column.key === 'endpoint'">
-            <span class="font-mono text-[11px]">{{ record.endpoint }}</span>
-          </template>
-          <template v-else-if="column.key === 'createdAt'">
-            {{ formatDateTime(record.createdAt) }}
-          </template>
-          <template v-else-if="column.key === 'isSuccess'">
-            <Tag :color="record.isSuccess ? 'success' : 'error'">
-              {{ record.isSuccess ? '성공' : '실패' }}
-            </Tag>
-          </template>
-        </template>
-      </Table>
-    </Card>
+    <Grid>
+      <template #server="{ row }">{{ endpointHost(row.endpoint) }}</template>
+      <template #endpoint="{ row }">
+        <span class="font-mono text-[11px]">{{ row.endpoint }}</span>
+      </template>
+      <template #createdAt="{ row }">
+        {{ formatDateTime(row.createdAt) }}
+      </template>
+      <template #isSuccess="{ row }">
+        <Tag :color="row.isSuccess ? 'success' : 'error'">
+          {{ row.isSuccess ? '성공' : '실패' }}
+        </Tag>
+      </template>
+    </Grid>
   </Page>
 </template>

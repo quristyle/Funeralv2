@@ -19,10 +19,10 @@ import {
   Popconfirm,
   Select,
   Space,
-  Table,
   Tag,
 } from 'ant-design-vue';
 
+import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import {
   deleteAuthLink,
   getAuthLinks,
@@ -42,11 +42,17 @@ import { formatDateTime } from '../shared/constants';
  * 모두 헬프데스크 내부 ID 를 참조한다. 그 ID 를 버릴 수 없어 매핑 테이블로 두 체계를 잇는다.
  * 로그인 아이디가 같아도 서로 다른 사람인 경우가 실제로 있어 자동 매칭은 걸지 않았다.
  * 여기서 사람이 직접 확인하고 연결한다.
+ *
+ * ------------------------------------------------------------
+ * [2026-08-30] ant-design-vue `<Table>` 에서 `useVbenVxeGrid` 로 옮겼다.
+ * 정렬·필터는 공통 레이어(`adapter/vxe-grid-features.ts`)가 붙인다.
+ * 전량 조회는 그대로다 — 연결은 많아야 수십 건이다.
+ * ------------------------------------------------------------
  */
 
 const helpdesk = useHelpdeskStore();
 
-const loading = ref(false);
+/** 조회한 연결 목록. 표가 그리는 것과 같은 배열이다(중복 연결 표시에 쓴다). */
 const links = ref<AuthUserLink[]>([]);
 /**
  * 포털 계정 목록.
@@ -70,19 +76,48 @@ const form = reactive<{
   userType: 'admin',
 });
 
-const columns = [
-  { dataIndex: 'authUserId', key: 'authUserId', title: 'JSini 포털 계정' },
-  { dataIndex: 'userType', key: 'userType', title: '구분', width: 100 },
-  { dataIndex: 'userName', key: 'userName', title: '헬프데스크 사용자' },
-  {
-    dataIndex: 'helpdeskUserId',
-    key: 'helpdeskUserId',
-    title: '내부 ID',
-    width: 90,
+const [Grid, gridApi] = useVbenVxeGrid({
+  gridOptions: {
+    columns: [
+      { field: 'authUserId', minWidth: 180, title: 'JSini 포털 계정' },
+      {
+        field: 'userType',
+        params: {
+          filterOptions: [
+            { label: '담당자', value: 'admin' },
+            { label: '고객', value: 'customer' },
+          ],
+        },
+        slots: { default: 'userType' },
+        title: '구분',
+        width: 100,
+      },
+      { field: 'userName', minWidth: 160, title: '헬프데스크 사용자' },
+      { field: 'helpdeskUserId', title: '내부 ID', width: 90 },
+      {
+        field: 'createdAt',
+        params: { filterText: (row: any) => formatDateTime(row.createdAt) },
+        slots: { default: 'createdAt' },
+        title: '연결일',
+        width: 160,
+      },
+      { field: 'action', slots: { default: 'action' }, title: '', width: 90 },
+    ],
+    emptyText: '등록된 연결이 없습니다.',
+    height: 'auto',
+    // 전량 조회다. 페이저를 켜 두면 vxe 가 응답을 `{result,page}` 로 읽어 한 줄도 안 나온다.
+    pagerConfig: { enabled: false },
+    proxyConfig: {
+      ajax: {
+        query: async () => {
+          links.value = (await getAuthLinks()) ?? [];
+          return links.value;
+        },
+      },
+    },
+    rowConfig: { keyField: 'id' },
   },
-  { dataIndex: 'createdAt', key: 'createdAt', title: '연결일', width: 160 },
-  { key: 'action', title: '', width: 80 },
-];
+});
 
 /** 이미 연결된 포털 계정. 목록에 표시해 중복 연결을 눈으로 막는다. */
 const linkedAuthUserIds = computed(
@@ -114,13 +149,9 @@ const userOptions = computed(() =>
       })),
 );
 
+/** 목록을 다시 조회한다. 실제 조회는 그리드의 `proxyConfig` 가 한다. */
 async function loadData() {
-  loading.value = true;
-  try {
-    links.value = (await getAuthLinks()) ?? [];
-  } finally {
-    loading.value = false;
-  }
+  await gridApi.query();
 }
 
 /** 포털 계정 목록. 실패해도 화면은 뜨게 두고 안내만 남긴다. */
@@ -177,17 +208,17 @@ async function onDelete(row: AuthUserLink) {
 }
 
 onMounted(async () => {
+  // 연결 목록은 그리드가 뜨면서 스스로 한 번 조회한다.
   await Promise.all([
     helpdesk.loadIdentity(),
     helpdesk.loadOrganizations(),
-    loadData(),
     loadAccounts(),
   ]);
 });
 </script>
 
 <template>
-  <Page auto-content-height>
+  <Page auto-content-height content-class="page-fill-last">
     <Alert
       class="mb-3"
       show-icon
@@ -233,46 +264,34 @@ onMounted(async () => {
       />
     </Card>
 
-    <Card :body-style="{ padding: 0 }" size="small" title="연결 목록">
-      <template #extra>
-        <Button v-perm:create size="small" type="primary" @click="openCreate">
-          연결 추가
-        </Button>
+    <!-- 표를 카드로 감싸지 않는다 — 감싸면 page-fill-last 가 표에 높이를 못 준다. -->
+    <div class="mb-2 flex items-center justify-between">
+      <span class="text-sm font-medium">연결 목록</span>
+      <Button v-perm:create size="small" type="primary" @click="openCreate">
+        연결 추가
+      </Button>
+    </div>
+
+    <Grid>
+      <template #userType="{ row }">
+        <Tag :color="row.userType === 'admin' ? 'blue' : 'green'">
+          {{ row.userType === 'admin' ? '담당자' : '고객' }}
+        </Tag>
       </template>
-
-      <Table
-        :columns="columns"
-        :data-source="links"
-        :loading="loading"
-        row-key="id"
-        size="small"
-      >
-        <template #emptyText>
-          <Empty description="등록된 연결이 없습니다." />
-        </template>
-
-        <template #bodyCell="{ column, record }">
-          <template v-if="column.key === 'userType'">
-            <Tag :color="record.userType === 'admin' ? 'blue' : 'green'">
-              {{ record.userType === 'admin' ? '담당자' : '고객' }}
-            </Tag>
-          </template>
-          <template v-else-if="column.key === 'createdAt'">
-            {{ formatDateTime(record.createdAt) }}
-          </template>
-          <template v-else-if="column.key === 'action'">
-            <Popconfirm
-              cancel-text="취소"
-              ok-text="해제"
-              title="연결을 해제할까요?"
-              @confirm="onDelete(record as AuthUserLink)"
-            >
-              <Button danger size="small" type="link">해제</Button>
-            </Popconfirm>
-          </template>
-        </template>
-      </Table>
-    </Card>
+      <template #createdAt="{ row }">
+        {{ formatDateTime(row.createdAt) }}
+      </template>
+      <template #action="{ row }">
+        <Popconfirm
+          cancel-text="취소"
+          ok-text="해제"
+          title="연결을 해제할까요?"
+          @confirm="onDelete(row as AuthUserLink)"
+        >
+          <Button danger size="small" type="link">해제</Button>
+        </Popconfirm>
+      </template>
+    </Grid>
 
     <Modal
       v-model:open="modalOpen"

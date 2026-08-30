@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 
 import { Page } from '@vben/common-ui';
 
@@ -16,9 +16,9 @@ import {
   Row,
   Space,
   Spin,
-  Table,
 } from 'ant-design-vue';
 
+import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { executeProcedure } from '#/api/helpdesk';
 
 /**
@@ -27,8 +27,20 @@ import { executeProcedure } from '#/api/helpdesk';
  * 원본(JinReception hanju/ProcedureResult.vue, `/procedure-result`).
  *
  * 왼쪽에서 프로시저를 고르면 그 프로시저의 파라미터 입력칸이 만들어지고,
- * 실행하면 오른쪽에 결과 표가 뜬다. 결과 표는 컬럼마다 검색과 정렬이 되고,
- * 날짜처럼 보이는 값은 자동으로 읽기 좋게 바꿔 보여준다.
+ * 실행하면 오른쪽에 결과 표가 뜬다. 날짜처럼 보이는 값은 자동으로 읽기 좋게
+ * 바꿔 보여준다.
+ *
+ * ------------------------------------------------------------
+ * [2026-08-30] ant-design-vue `<Table>` 에서 `useVbenVxeGrid` 로 옮겼다.
+ * 정렬·필터는 공통 레이어(`adapter/vxe-grid-features.ts`)가 붙인다.
+ *
+ * 원본이 머리글 칸마다 직접 그리던 검색칸(`filterDisplay="row"` 대응)과
+ * 컬럼 정렬(`sorter`)은 걷어냈다 — 공통 레이어의 필터줄이 같은 일을 한다.
+ * 결과 전체를 훑는 '결과 내 검색' 은 컬럼과 무관한 조회 조건이라 남겨 두었다.
+ *
+ * **가져오기 방식은 그대로다** — 프로시저가 돌려준 전량을 화면이 쥔다.
+ * 원본의 프런트 페이징은 없앴다(전역 기본값이 페이저 꺼짐).
+ * ------------------------------------------------------------
  */
 
 const loading = ref(false);
@@ -47,28 +59,6 @@ const resultRows = ref<Record<string, any>[]>([]);
 const procedureSearch = ref('');
 /** 결과 전체 검색 */
 const globalKeyword = ref('');
-/** 컬럼별 검색. 원본의 filterDisplay="row" 대응. */
-const columnFilters = reactive<Record<string, string>>({});
-
-/**
- * 결과 표의 페이징 상태.
- * pageSize 를 넘기는 순간 Table 은 그 값을 부모가 쥔 값으로 다루기 때문에,
- * 여기에 담아 두고 change 이벤트로 되받아 줘야 페이지당 건수 변경이 유지된다.
- */
-const pagination = reactive({
-  current: 1,
-  pageSize: 50,
-  pageSizeOptions: ['20', '50', '100', '200'],
-  showSizeChanger: true,
-  showTotal: (total: number) => `총 ${total}건`,
-  total: 0,
-});
-
-/** 페이지 이동·페이지당 건수 변경을 받아 상태에 반영한다. */
-function onTableChange(pag: { current?: number; pageSize?: number }) {
-  pagination.current = pag.current ?? 1;
-  pagination.pageSize = pag.pageSize ?? pagination.pageSize;
-}
 
 /** 선택한 프로시저의 파라미터 정의 */
 const parameters = computed(() =>
@@ -118,58 +108,59 @@ function cellText(value: unknown) {
   return isDateValue(value) ? formatFull(value as string) : String(value ?? '');
 }
 
-/** 결과 컬럼. 정렬은 클라이언트에서 처리한다. */
+/** 전체 검색을 적용한다. 컬럼별 검색은 표 머리글의 필터줄이 맡는다. */
+const filteredRows = computed(() => {
+  const global = globalKeyword.value.trim().toLowerCase();
+  if (!global) return resultRows.value;
+
+  return resultRows.value.filter((row) =>
+    Object.values(row).some((v) =>
+      String(v ?? '')
+        .toLowerCase()
+        .includes(global),
+    ),
+  );
+});
+
+const [Grid, gridApi] = useVbenVxeGrid({
+  // `gridFeatures` 는 vxe 타입에 없다(공통 레이어가 읽고 떼어 낸다). 그래서 `as any`.
+  gridOptions: {
+    // 결과 컬럼은 프로시저마다 다르다. 실행한 뒤에 갈아끼운다.
+    columns: [],
+    // 행 배열은 `:table-data` 로 간다. 여기는 빈 배열이 바탕값이다.
+    data: [],
+    // 재조회 아이콘 — `:table-data` 라 그리드가 조회 방법을 모른다.
+    // 이 표를 채우는 것은 '실행'(`run`)이므로 같은 파라미터로 다시 실행한다.
+    gridFeatures: { onRefresh: () => run() },
+    height: 520,
+    // 전량 조회다. 페이저를 끄지 않으면 한 줄도 안 그려진다.
+    pagerConfig: { enabled: false },
+    // 결과 행에는 고유 키로 쓸 만한 칸이 없다(원본도 순번을 키로 썼다).
+    // `keyField` 를 적지 않으면 vxe 가 내부 키를 붙여 준다.
+  } as any,
+});
+
+/**
+ * 결과 컬럼은 첫 행의 키에서 만든다.
+ *
+ * 보이는 글자와 저장된 값이 다른 칸(날짜)이 섞여 있어 `formatter` 로 그리고,
+ * 필터가 훑을 글자도 같은 것으로 맞춰 준다(`params.filterText`).
+ */
 const resultColumns = computed(() => {
   const first = resultRows.value[0];
   if (!first) return [];
 
   return Object.keys(first).map((key) => ({
-    dataIndex: key,
-    ellipsis: true,
-    key,
-    sorter: (a: any, b: any) => {
-      const av = a[key];
-      const bv = b[key];
-      if (typeof av === 'number' && typeof bv === 'number') return av - bv;
-      return String(av ?? '').localeCompare(String(bv ?? ''));
-    },
+    field: key,
+    formatter: ({ cellValue }: any) => cellText(cellValue),
+    minWidth: 140,
+    params: { filterText: (row: any) => cellText(row[key]) },
     title: key,
   }));
 });
 
-/** 전체 검색 + 컬럼별 검색을 함께 적용한다. */
-const filteredRows = computed(() => {
-  const global = globalKeyword.value.trim().toLowerCase();
-  const active = Object.entries(columnFilters).filter(([, v]) => v?.trim());
-
-  return resultRows.value.filter((row) => {
-    if (
-      global &&
-      !Object.values(row).some((v) =>
-        String(v ?? '').toLowerCase().includes(global),
-      )
-    ) {
-      return false;
-    }
-
-    return active.every(([key, needle]) =>
-      String(row[key] ?? '')
-        .toLowerCase()
-        .includes(needle.trim().toLowerCase()),
-    );
-  });
-});
-
-// 검색으로 건수가 줄면 보고 있던 페이지가 사라질 수 있어 총 건수와 현재 페이지를 맞춰 준다.
-watch(
-  filteredRows,
-  (list) => {
-    pagination.total = list.length;
-    const lastPage = Math.max(1, Math.ceil(list.length / pagination.pageSize));
-    if (pagination.current > lastPage) pagination.current = lastPage;
-  },
-  { immediate: true },
-);
+watch(resultColumns, (columns) => gridApi.setGridOptions({ columns }));
+watch(executing, (value) => gridApi.setLoading(value));
 
 /** 파라미터 타입에 맞는 입력 컴포넌트를 고른다. */
 function inputKind(dataType?: string) {
@@ -230,9 +221,6 @@ async function run() {
         params,
       )) ?? [];
 
-    // 새 결과에는 이전 컬럼 필터를 남기지 않는다.
-    Object.keys(columnFilters).forEach((k) => delete columnFilters[k]);
-    pagination.current = 1;
     message.success(`${resultRows.value.length}건을 조회했습니다.`);
   } catch (error) {
     resultRows.value = [];
@@ -253,7 +241,6 @@ watch(selectedProcedure, (name) => {
     });
   }
   resultRows.value = [];
-  Object.keys(columnFilters).forEach((k) => delete columnFilters[k]);
 });
 
 onMounted(fetchProcedureList);
@@ -402,44 +389,16 @@ onMounted(fetchProcedureList);
             </Space>
           </template>
 
-          <Table
-            :columns="resultColumns"
-            :data-source="filteredRows"
-            :loading="executing"
-            :pagination="pagination"
-            @change="onTableChange"
-            :scroll="{ x: true, y: 520 }"
-            :row-key="(_: any, index?: number) => String(index)"
-            size="small"
-          >
-            <!-- 컬럼마다 검색칸. 원본 filterDisplay="row" 와 같은 자리. -->
-            <template #headerCell="{ column }">
-              <div class="flex flex-col gap-1">
-                <span class="whitespace-nowrap">{{ column.title }}</span>
-                <Input
-                  v-model:value="columnFilters[column.key as string]"
-                  allow-clear
-                  :placeholder="`${column.title} 검색`"
-                  size="small"
-                  @click.stop
-                />
-              </div>
-            </template>
-
-            <template #emptyText>
+          <Grid :table-data="filteredRows">
+            <!-- 빈 화면 안내는 상황마다 다르다. `emptyText` 대신 슬롯으로 그린다. -->
+            <template #empty>
               <div class="p-8 text-center text-muted-foreground">
                 <p v-if="!selectedProcedure">왼쪽에서 프로시저를 선택해 주세요.</p>
                 <p v-else-if="executing">데이터를 불러오는 중입니다...</p>
                 <p v-else>실행 버튼을 눌러 결과를 확인하세요.</p>
               </div>
             </template>
-
-            <template #bodyCell="{ column, record }">
-              <span class="whitespace-nowrap text-[11px]">
-                {{ cellText(record[column.dataIndex as string]) }}
-              </span>
-            </template>
-          </Table>
+          </Grid>
         </Card>
       </Col>
     </Row>

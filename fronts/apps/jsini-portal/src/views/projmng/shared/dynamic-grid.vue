@@ -13,7 +13,24 @@
  *
  * 편집은 행 단위다. 편집한 행에는 `quri_ischange` 표시가 붙고,
  * 저장할 때 `dbSave` 가 그 표시가 붙은 행만 추려 보낸다.
+ *
+ * ------------------------------------------------------------
+ * [2026-08-30] `VxeTable` 직접 사용에서 `useVbenVxeGrid` 로 옮겼다.
+ *
+ * 정렬·필터를 화면마다 따로 적던 것을 공통 레이어(`adapter/vxe-grid-features.ts`)
+ * 한 곳으로 모으기 위해서다. 이 파일 하나를 옮기면 프로젝트관리 화면 21개가
+ * 모두 같은 머리글(이름줄 + 필터줄)을 갖는다.
+ *
+ * 바뀐 것과 안 바뀐 것:
+ *   · 부모가 쓰는 것(props · emits · `defineExpose`)은 **그대로다.**
+ *     21개 화면은 한 줄도 고치지 않았다.
+ *   · 푸터의 깔때기 단추는 없앴다. 필터줄이 늘 떠 있으므로 켜고 끌 것이 없다.
+ *   · 행 배열은 `:table-data` 로 넘긴다. `gridOptions.data` 로 넘기면 프레임워크가
+ *     **복제해서** 쓰기 때문에 여기서 `splice` 한 것이 표에 반영되지 않는다
+ *     (행 추가·복사·삭제가 전부 제자리 수정이다).
+ * ------------------------------------------------------------
  */
+import type { VxeGridProps } from '#/adapter/vxe-table';
 import type { ProjMngResult, ProjMngRow } from '#/api/projmng';
 
 import { computed, getCurrentInstance, ref, watch } from 'vue';
@@ -29,8 +46,8 @@ import {
   Select,
 } from 'ant-design-vue';
 import dayjs from 'dayjs';
-import { VxeColumn, VxeTable } from 'vxe-table';
 
+import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { CHANGE_FLAG, getCommon } from '#/api/projmng';
 
 interface Props {
@@ -82,6 +99,8 @@ const emit = defineEmits<{
   (e: 'copy', row: ProjMngRow): void;
   /** 행을 선택했다 */
   (e: 'rowClick', row: null | ProjMngRow): void;
+  /** 도구줄의 재조회를 눌렀다. 자료는 부모가 들고 있으므로 부모가 다시 받아 온다 */
+  (e: 'refresh'): void;
 }>();
 
 /**
@@ -97,11 +116,10 @@ const canSave = computed(() => hasHandler('onSave'));
 const canDelete = computed(() => hasHandler('onDelete'));
 const canAction = computed(() => hasHandler('onAction'));
 const hasActionColumn = computed(
-  () => canSave.value || canDelete.value || canAction.value,
+  () => canSave.value || canAction.value || canDelete.value,
 );
+const canRefresh = computed(() => hasHandler('onRefresh'));
 
-const tableRef = ref();
-const filterVisible = ref(false);
 const currentRow = ref<null | ProjMngRow>(null);
 
 /** 행 배열. 부모의 `result.data` 를 그대로 쓴다 — 추가·삭제가 부모에도 보여야 한다. */
@@ -144,13 +162,15 @@ watch(
   { immediate: true },
 );
 
+/** 컬럼명 → 메타 타입. 슬롯이 `column.field` 로 타입을 되찾는 데 쓴다. */
+const typeOf = computed(() => props.result?.cols ?? {});
+
 /** 그릴 컬럼 목록. 메타의 순서를 그대로 지킨다. */
-const columns = computed(() => {
-  const cols = props.result?.cols ?? {};
-  return Object.entries(cols)
+const metaColumns = computed(() =>
+  Object.entries(typeOf.value)
     .filter(([name]) => !hiddenSet.value.has(name))
-    .map(([name, type]) => ({ name, type, width: widthOf(type) }));
-});
+    .map(([name, type]) => ({ name, type, width: widthOf(type) })),
+);
 
 function widthOf(type: string) {
   switch (type) {
@@ -173,11 +193,11 @@ function widthOf(type: string) {
 
 function isNumeric(type: string) {
   return (
+    type === 'System.Decimal' ||
+    type === 'System.Double' ||
     type === 'System.Int16' ||
     type === 'System.Int32' ||
-    type === 'System.Int64' ||
-    type === 'System.Decimal' ||
-    type === 'System.Double'
+    type === 'System.Int64'
   );
 }
 
@@ -210,6 +230,92 @@ function setDateValue(row: ProjMngRow, name: string, value: any) {
 }
 
 // ============================================================
+// 그리드
+// ============================================================
+
+/**
+ * 컬럼은 메타에서 만든다.
+ *
+ * 본문과 편집기를 칸마다 다른 슬롯으로 두지 않고 **하나씩만 둔다.**
+ * 슬롯이 `column.field` 를 받으므로 거기서 타입을 되찾아 갈라 그린다 —
+ * 컬럼 수가 응답마다 달라지는 그리드라 슬롯을 컬럼마다 만들 수가 없다.
+ */
+const gridOptions = computed<VxeGridProps<ProjMngRow>>(() => {
+  const columns: any[] = [];
+
+  if (hasActionColumn.value) {
+    const count =
+      (canSave.value ? 1 : 0) +
+      (canAction.value ? 1 : 0) +
+      (canDelete.value ? 1 : 0);
+    columns.push({
+      align: 'center',
+      fixed: 'left',
+      // `field` 가 없으므로 공통 레이어가 정렬·필터에서 알아서 뺀다.
+      slots: { default: 'action' },
+      title: '',
+      width: 34 * count + 12,
+    });
+  }
+
+  metaColumns.value.forEach((col) => {
+    columns.push({
+      align: 'center',
+      editRender: {},
+      field: col.name,
+      minWidth: col.width,
+      slots: { default: 'cell', edit: 'edit' },
+      title: col.name,
+    });
+  });
+
+  return {
+    border: true,
+    columns,
+    editConfig: { mode: 'row', showStatus: true, trigger: 'manual' },
+    emptyText: '조회된 자료가 없습니다.',
+    // 엑셀 파일 이름은 공통 도구줄이 쓴다.
+    // 재조회는 자료를 부모가 들고 있어서, 부모가 `@refresh` 를 받을 때만 나온다.
+    gridFeatures: {
+      exportName: props.exportName,
+      ...(canRefresh.value ? { onRefresh: () => emit('refresh') } : {}),
+    },
+    height: props.height ?? 'auto',
+    // 전량 조회다. 켜 두면 모든 행이 보이는데도 쪽 번호가 붙고, 아래 줄이
+    // 페이저와 푸터로 둘이 된다.
+    pagerConfig: { enabled: false },
+    // 행 배열은 `:table-data` 로 간다. 여기에 두면 복제되어 제자리 수정이 묻힌다.
+    data: [],
+    showOverflow: true,
+    size: 'mini',
+  };
+});
+
+const [Grid, gridApi] = useVbenVxeGrid({
+  gridEvents: {
+    cellDblclick: ({ row }: any) => {
+      if (canSave.value) editRow(row);
+    },
+    currentChange: ({ row }: any) => {
+      currentRow.value = row;
+      emit('rowClick', row);
+    },
+  },
+  gridOptions: gridOptions.value,
+});
+
+/** 컬럼은 응답마다 달라진다. 메타가 바뀌면 그리드에 다시 넣는다. */
+watch(gridOptions, (next) => gridApi.setGridOptions(next));
+
+watch(
+  () => props.loading,
+  (value) => gridApi.setLoading(Boolean(value)),
+  { immediate: true },
+);
+
+const table = () => gridApi.grid;
+
+// ============================================================
 // 편집
 // ============================================================
 
@@ -219,16 +325,16 @@ function markChanged(row: ProjMngRow) {
 
 async function editRow(row: ProjMngRow) {
   markChanged(row);
-  await tableRef.value?.setEditRow(row);
+  await table()?.setEditRow(row);
 }
 
 async function cancelEdit(row: ProjMngRow) {
   delete row[CHANGE_FLAG];
-  await tableRef.value?.clearEdit();
+  await table()?.clearEdit();
 }
 
 async function saveRow(row: ProjMngRow) {
-  await tableRef.value?.clearEdit();
+  await table()?.clearEdit();
   emit('save', row);
 }
 
@@ -238,22 +344,22 @@ function actionRow(row: ProjMngRow) {
 
 function confirmDelete(row: ProjMngRow) {
   Modal.confirm({
-    title: '삭제하겠습니까?',
-    okText: '삭제',
     cancelText: '취소',
+    okText: '삭제',
     okType: 'danger',
     onOk: () => {
       const index = rows.value.indexOf(row);
       if (index >= 0) rows.value.splice(index, 1);
       emit('delete', row);
     },
+    title: '삭제하겠습니까?',
   });
 }
 
 /** 메타를 보고 빈 행을 만든다. 컬럼이 모두 있어야 편집기가 뜬다. */
 function createEmptyRow(): ProjMngRow {
   const row: ProjMngRow = {};
-  Object.keys(props.result?.cols ?? {}).forEach((name) => {
+  Object.keys(typeOf.value).forEach((name) => {
     row[name] = '';
   });
   return row;
@@ -285,255 +391,182 @@ async function copyRow() {
   await editRow(row);
 }
 
-function onCurrentChange({ row }: { row: ProjMngRow }) {
-  currentRow.value = row;
-  emit('rowClick', row);
-}
-
-function onCellDblclick({ row }: { row: ProjMngRow }) {
-  if (canSave.value) editRow(row);
-}
-
 function isEditing(row: ProjMngRow) {
-  return Boolean(tableRef.value?.isEditByRow?.(row));
-}
-
-// ============================================================
-// 엑셀
-// ============================================================
-
-function exportExcel() {
-  tableRef.value?.exportData({
-    type: 'xlsx',
-    filename: props.exportName,
-    // 숨긴 컬럼과 동작 컬럼은 제외된다(보이는 컬럼만 내보낸다).
-    isHeader: true,
-    original: false,
-  });
+  return Boolean(table()?.isEditByRow?.(row));
 }
 
 /** 부모가 선택 행을 직접 다뤄야 할 때 쓴다. */
 defineExpose({
-  currentRow,
-  insertRow,
   copyRow,
+  currentRow,
   editRow,
-  reload: () => tableRef.value?.clearEdit(),
+  insertRow,
+  reload: () => table()?.clearEdit(),
 });
 </script>
 
 <template>
   <div class="flex h-full min-h-0 flex-col">
-    <VxeTable
-      ref="tableRef"
-      :data="rows"
-      :loading="loading"
-      :height="height ?? 'auto'"
-      :row-config="{ isCurrent: true, isHover: true }"
-      :column-config="{ resizable: true }"
-      :edit-config="{ trigger: 'manual', mode: 'row', showStatus: true }"
-      :filter-config="{ showIcon: filterVisible }"
-      :empty-text="'조회된 자료가 없습니다.'"
-      border
-      show-overflow
-      size="mini"
-      class="flex-1"
-      @current-change="onCurrentChange"
-      @cell-dblclick="onCellDblclick"
-    >
-      <!-- 동작 컬럼. 부모가 이벤트를 받을 때만 나온다. -->
-      <VxeColumn
-        v-if="hasActionColumn"
-        title=""
-        :width="34 * ((canSave ? 1 : 0) + (canAction ? 1 : 0) + (canDelete ? 1 : 0)) + 12"
-        fixed="left"
-        align="center"
-      >
-        <template #default="{ row }">
-          <div class="flex items-center justify-center gap-1">
-            <template v-if="isEditing(row)">
-              <a
-                v-if="canSave"
-                class="text-primary"
-                title="저장"
-                @click.stop="saveRow(row)"
-              >
-                <IconifyIcon icon="lucide:save" class="size-4" />
-              </a>
-              <a
-                v-if="canSave"
-                class="text-muted-foreground"
-                title="취소"
-                @click.stop="cancelEdit(row)"
-              >
-                <IconifyIcon icon="lucide:x" class="size-4" />
-              </a>
-            </template>
-            <template v-else>
-              <a
-                v-if="canSave"
-                class="text-muted-foreground hover:text-primary"
-                title="편집"
-                @click.stop="editRow(row)"
-              >
-                <IconifyIcon icon="lucide:pencil" class="size-4" />
-              </a>
-              <a
-                v-if="canAction"
-                class="text-muted-foreground hover:text-primary"
-                title="실행"
-                @click.stop="actionRow(row)"
-              >
-                <IconifyIcon icon="lucide:check-square" class="size-4" />
-              </a>
-              <a
-                v-if="canDelete"
-                class="text-muted-foreground hover:text-red-500"
-                title="삭제"
-                @click.stop="confirmDelete(row)"
-              >
-                <IconifyIcon icon="lucide:minus-square" class="size-4" />
-              </a>
-            </template>
-          </div>
-        </template>
-      </VxeColumn>
-
-      <!-- 메타에서 만든 데이터 컬럼 -->
-      <VxeColumn
-        v-for="col in columns"
-        :key="col.name"
-        :field="col.name"
-        :title="col.name"
-        :min-width="col.width"
-        :edit-render="{}"
-        :filters="filterVisible ? [{ data: '' }] : undefined"
-        :filter-method="
-          filterVisible
-            ? ({ option, row }: any) =>
-                String(row[col.name] ?? '')
-                  .toLowerCase()
-                  .includes(String(option.data ?? '').toLowerCase())
-            : undefined
-        "
-        sortable
-        align="center"
-      >
-        <template #default="{ row }">
-          <IconifyIcon
-            v-if="col.type === 'System.Boolean'"
-            v-show="boolOf(row, col.name)"
-            icon="lucide:check"
-            class="mx-auto size-4"
-          />
-          <span v-else>{{ displayValue(row, col.name, col.type) }}</span>
-        </template>
-
-        <template #edit="{ row }">
-          <!-- 읽기 전용 컬럼은 편집 중에도 값만 보여 준다 -->
-          <span v-if="readonlySet.has(col.name)" class="text-muted-foreground">
-            {{ displayValue(row, col.name, col.type) }}
-          </span>
-
-          <Select
-            v-else-if="dropdownMap.has(col.name)"
-            :value="(row[col.name] as string) ?? ''"
-            :options="codeOptions[col.name] ?? []"
-            size="small"
-            class="w-full"
-            allow-clear
-            show-search
-            :filter-option="
-              (input: string, option: any) =>
-                String(option?.label ?? '')
-                  .toLowerCase()
-                  .includes(input.toLowerCase())
-            "
-            @change="(value: any) => (row[col.name] = value ?? '')"
-          />
-
-          <DatePicker
-            v-else-if="col.type === 'System.DateTime'"
-            :value="dateValue(row, col.name)"
-            value-format="YYYY-MM-DD"
-            size="small"
-            class="w-full"
-            @change="(value: any) => setDateValue(row, col.name, value)"
-          />
-
-          <Checkbox
-            v-else-if="col.type === 'System.Boolean'"
-            :checked="boolOf(row, col.name)"
-            @change="(e: any) => (row[col.name] = e.target.checked)"
-          />
-
-          <InputNumber
-            v-else-if="isNumeric(col.type)"
-            :value="row[col.name] === '' ? undefined : Number(row[col.name])"
-            size="small"
-            class="w-full"
-            @change="(value: any) => (row[col.name] = value ?? '')"
-          />
-
-          <Input
-            v-else
-            :value="(row[col.name] as string) ?? ''"
-            size="small"
-            @update:value="(value: string) => (row[col.name] = value)"
-          />
-        </template>
-      </VxeColumn>
-    </VxeTable>
-
-    <!-- 푸터. 이식 전 FooterTemplate 과 같은 구성이다. -->
-    <div
-      class="border-border bg-card flex items-center gap-2 border-t px-2 py-1 text-xs"
-    >
-      <template v-if="hasActionColumn && !hideAdd">
-        <a
-          class="text-muted-foreground hover:text-primary"
-          title="행 추가"
-          @click="insertRow()"
-        >
-          <IconifyIcon icon="lucide:plus-square" class="size-4" />
-        </a>
-        <a
-          class="text-muted-foreground hover:text-primary"
-          title="선택 행 복사"
-          @click="copyRow()"
-        >
-          <IconifyIcon icon="lucide:copy" class="size-4" />
-        </a>
+    <Grid class="flex-1" :table-data="rows">
+      <!-- 동작 칸. 부모가 이벤트를 받을 때만 컬럼 자체가 생긴다. -->
+      <template #action="{ row }">
+        <div class="flex items-center justify-center gap-1">
+          <template v-if="isEditing(row)">
+            <a
+              v-if="canSave"
+              class="text-primary"
+              title="저장"
+              @click.stop="saveRow(row)"
+            >
+              <IconifyIcon icon="lucide:save" class="size-4" />
+            </a>
+            <a
+              v-if="canSave"
+              class="text-muted-foreground"
+              title="취소"
+              @click.stop="cancelEdit(row)"
+            >
+              <IconifyIcon icon="lucide:x" class="size-4" />
+            </a>
+          </template>
+          <template v-else>
+            <a
+              v-if="canSave"
+              class="text-muted-foreground hover:text-primary"
+              title="편집"
+              @click.stop="editRow(row)"
+            >
+              <IconifyIcon icon="lucide:pencil" class="size-4" />
+            </a>
+            <a
+              v-if="canAction"
+              class="text-muted-foreground hover:text-primary"
+              title="실행"
+              @click.stop="actionRow(row)"
+            >
+              <IconifyIcon icon="lucide:check-square" class="size-4" />
+            </a>
+            <a
+              v-if="canDelete"
+              class="text-muted-foreground hover:text-red-500"
+              title="삭제"
+              @click.stop="confirmDelete(row)"
+            >
+              <IconifyIcon icon="lucide:minus-square" class="size-4" />
+            </a>
+          </template>
+        </div>
       </template>
 
-      <a
-        class="text-muted-foreground hover:text-primary"
-        title="엑셀 내보내기"
-        @click="exportExcel()"
-      >
-        <IconifyIcon icon="lucide:file-spreadsheet" class="size-4" />
-      </a>
-
-      <span class="flex-1"></span>
-
-      <span v-if="footerMessage" class="flex items-center gap-1">
+      <!-- 본문. 칸마다 슬롯을 두지 않고 `column.field` 로 갈라 그린다. -->
+      <template #cell="{ column, row }">
         <IconifyIcon
-          v-if="footerLoading"
-          icon="lucide:loader-circle"
-          class="size-3 animate-spin"
+          v-if="typeOf[column.field] === 'System.Boolean'"
+          v-show="boolOf(row, column.field)"
+          icon="lucide:check"
+          class="mx-auto size-4"
         />
-        <span class="bg-muted rounded px-1.5 py-0.5">{{ footerMessage }}</span>
-      </span>
+        <span v-else>
+          {{ displayValue(row, column.field, typeOf[column.field]) }}
+        </span>
+      </template>
 
-      <span class="text-muted-foreground">{{ rows.length }} 건</span>
+      <!-- 편집기. 같은 이유로 하나만 두고 타입에 따라 갈라 그린다. -->
+      <template #edit="{ column, row }">
+        <!-- 읽기 전용 컬럼은 편집 중에도 값만 보여 준다 -->
+        <span v-if="readonlySet.has(column.field)" class="text-muted-foreground">
+          {{ displayValue(row, column.field, typeOf[column.field]) }}
+        </span>
 
-      <a
-        class="text-muted-foreground hover:text-primary"
-        title="필터 표시"
-        @click="filterVisible = !filterVisible"
-      >
-        <IconifyIcon icon="lucide:filter" class="size-4" />
-      </a>
-    </div>
+        <Select
+          v-else-if="dropdownMap.has(column.field)"
+          :value="(row[column.field] as string) ?? ''"
+          :options="codeOptions[column.field] ?? []"
+          size="small"
+          class="w-full"
+          allow-clear
+          show-search
+          :filter-option="
+            (input: string, option: any) =>
+              String(option?.label ?? '')
+                .toLowerCase()
+                .includes(input.toLowerCase())
+          "
+          @change="(value: any) => (row[column.field] = value ?? '')"
+        />
+
+        <DatePicker
+          v-else-if="typeOf[column.field] === 'System.DateTime'"
+          :value="dateValue(row, column.field)"
+          value-format="YYYY-MM-DD"
+          size="small"
+          class="w-full"
+          @change="(value: any) => setDateValue(row, column.field, value)"
+        />
+
+        <Checkbox
+          v-else-if="typeOf[column.field] === 'System.Boolean'"
+          :checked="boolOf(row, column.field)"
+          @change="(e: any) => (row[column.field] = e.target.checked)"
+        />
+
+        <InputNumber
+          v-else-if="isNumeric(typeOf[column.field])"
+          :value="row[column.field] === '' ? undefined : Number(row[column.field])"
+          size="small"
+          class="w-full"
+          @change="(value: any) => (row[column.field] = value ?? '')"
+        />
+
+        <Input
+          v-else
+          :value="(row[column.field] as string) ?? ''"
+          size="small"
+          @update:value="(value: string) => (row[column.field] = value)"
+        />
+      </template>
+      <!--
+        푸터. 이식 전 FooterTemplate 과 같은 구성이다.
+
+        그리드의 `bottom` 슬롯에 넣는다 — 공통 도구줄(엑셀 · 재조회 · 필터 초기화)이
+        같은 자리에 그려지므로 **한 줄을 나눠 쓴다.** 밖에 두면 줄이 둘로 쌓인다.
+        엑셀 아이콘은 공통 도구줄에 있어서 여기서 뺐다.
+      -->
+      <template #bottom>
+        <div class="flex flex-1 items-center gap-2 px-1 text-xs">
+          <template v-if="hasActionColumn && !hideAdd">
+            <a
+              class="text-muted-foreground hover:text-primary"
+              title="행 추가"
+              @click="insertRow()"
+            >
+              <IconifyIcon icon="lucide:plus-square" class="size-4" />
+            </a>
+            <a
+              class="text-muted-foreground hover:text-primary"
+              title="선택 행 복사"
+              @click="copyRow()"
+            >
+              <IconifyIcon icon="lucide:copy" class="size-4" />
+            </a>
+          </template>
+
+          <span class="flex-1"></span>
+
+          <span v-if="footerMessage" class="flex items-center gap-1">
+            <IconifyIcon
+              v-if="footerLoading"
+              icon="lucide:loader-circle"
+              class="size-3 animate-spin"
+            />
+            <span class="bg-muted rounded px-1.5 py-0.5">
+              {{ footerMessage }}
+            </span>
+          </span>
+
+          <span class="text-muted-foreground">{{ rows.length }} 건</span>
+        </div>
+      </template>
+    </Grid>
   </div>
 </template>

@@ -14,10 +14,10 @@ import {
   Progress,
   Row,
   Spin,
-  Table,
   Tag,
 } from 'ant-design-vue';
 
+import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { getServerReport } from '#/api/helpdesk';
 
 /**
@@ -25,6 +25,14 @@ import { getServerReport } from '#/api/helpdesk';
  *
  * 원본(JinReception reports/MonthlyReport.vue, `/reports/monthly`).
  * MONTHLY(일자별 지표) + EXECUTIVE(종합 건강 점수) 두 쿼리를 함께 본다.
+ *
+ * ------------------------------------------------------------
+ * [2026-08-30] ant-design-vue `<Table>` 에서 `useVbenVxeGrid` 로 옮겼다.
+ * 정렬·필터는 공통 레이어(`adapter/vxe-grid-features.ts`)가 붙인다.
+ *
+ * 가져오기 방식은 그대로다 — MONTHLY 를 한 번에 전량 받아 차트와 표가 같은
+ * 배열을 본다. 그래서 표는 `:table-data` 로 받는다.
+ * ------------------------------------------------------------
  */
 
 const loading = ref(false);
@@ -48,26 +56,6 @@ const GLOSSARY = [
     desc: 'TempDB 및 로그 쓰기 지연의 평균값입니다. DB 내부의 처리 품질을 나타냅니다.',
     title: '서브시스템 지연',
   },
-];
-
-const columns = [
-  { dataIndex: 'LogDate', key: 'LogDate', title: '날짜', width: 130 },
-  { dataIndex: 'Max_CPU', key: 'Max_CPU', title: '최대 CPU (%)', width: 130 },
-  { dataIndex: 'Avg_IO_ms', key: 'Avg_IO_ms', title: '평균 I/O (ms)', width: 140 },
-  {
-    dataIndex: 'Avg_TempDB_Stall',
-    key: 'Avg_TempDB_Stall',
-    title: 'TempDB (ms/s)',
-    width: 140,
-  },
-  {
-    dataIndex: 'Avg_Log_Stall',
-    key: 'Avg_Log_Stall',
-    title: '로그 지연 (ms/s)',
-    width: 150,
-  },
-  { dataIndex: 'Min_PLE', key: 'Min_PLE', title: '최소 PLE (s)', width: 130 },
-  { key: 'verdict', title: '기술 판정', width: 120 },
 ];
 
 /** 건강 점수 구간 판정. 원본의 getHealthStatus 와 같다. */
@@ -106,6 +94,70 @@ function toFixed(value: any, digits = 2) {
 function dateOnly(value?: string) {
   return String(value ?? '').split('T')[0] ?? '';
 }
+
+const [Grid] = useVbenVxeGrid({
+  // `gridFeatures` 는 vxe 타입에 없다(공통 레이어가 읽고 떼어 낸다). 그래서 `as any`.
+  gridOptions: {
+    columns: [
+      {
+        field: 'LogDate',
+        // 저장된 값은 ISO 라 화면에 보이는 날짜로 훑게 한다.
+        params: { filterText: (row: any) => dateOnly(row.LogDate) },
+        slots: { default: 'LogDate' },
+        title: '날짜',
+        width: 130,
+      },
+      {
+        field: 'Max_CPU',
+        slots: { default: 'Max_CPU' },
+        title: '최대 CPU (%)',
+        width: 130,
+      },
+      {
+        field: 'Avg_IO_ms',
+        slots: { default: 'Avg_IO_ms' },
+        title: '평균 I/O (ms)',
+        width: 140,
+      },
+      {
+        field: 'Avg_TempDB_Stall',
+        slots: { default: 'Avg_TempDB_Stall' },
+        title: 'TempDB (ms/s)',
+        width: 140,
+      },
+      {
+        field: 'Avg_Log_Stall',
+        slots: { default: 'Avg_Log_Stall' },
+        title: '로그 지연 (ms/s)',
+        width: 150,
+      },
+      {
+        field: 'Min_PLE',
+        slots: { default: 'Min_PLE' },
+        title: '최소 PLE (s)',
+        width: 130,
+      },
+      {
+        // 여러 지표를 종합한 판정이라 행에 없는 칸이다. 훑을 글자를 직접 준다.
+        field: 'verdict',
+        params: { filterText: (row: any) => rowVerdict(row).label, sort: false },
+        slots: { default: 'verdict' },
+        title: '기술 판정',
+        width: 120,
+      },
+    ],
+    // 행 배열은 `:table-data` 로 간다.
+    data: [],
+    emptyText: '데이터가 없습니다.',
+    // 재조회 아이콘 — `:table-data` 라 그리드가 조회 방법을 모른다.
+    // 위쪽 '리포트 갱신' 이 부르는 것과 같은 함수를 준다.
+    gridFeatures: { onRefresh: () => loadData() },
+    height: 400,
+    // 전량을 한 번에 받는 표다. 켜 두면 응답을 `{ result, page }` 로 읽어 한 행도 안 나온다.
+    pagerConfig: { enabled: false },
+    rowConfig: { keyField: 'LogDate' },
+  } as any,
+});
 
 function drawChart() {
   const labels = rows.value.map((d) => dateOnly(d.LogDate));
@@ -266,62 +318,41 @@ onMounted(loadData);
         size="small"
         title="월간 일자별 운영 정밀 데이터 로그"
       >
-        <Table
-          :columns="columns"
-          :data-source="rows"
-          :pagination="false"
-          :scroll="{ x: 940, y: 400 }"
-          row-key="LogDate"
-          size="small"
-        >
-          <template #emptyText>
-            <Empty description="데이터가 없습니다." />
+        <Grid :table-data="rows">
+          <template #LogDate="{ row }">{{ dateOnly(row.LogDate) }}</template>
+
+          <template #Max_CPU="{ row }">
+            <span :class="Number(row.Max_CPU) > 90 ? 'font-bold text-red-600' : ''">
+              {{ toFixed(row.Max_CPU, 1) }}%
+            </span>
           </template>
 
-          <template #bodyCell="{ column, record }">
-            <template v-if="column.key === 'LogDate'">
-              {{ dateOnly(record.LogDate) }}
-            </template>
+          <template #Avg_IO_ms="{ row }">{{ toFixed(row.Avg_IO_ms) }}</template>
 
-            <template v-else-if="column.key === 'Max_CPU'">
-              <span
-                :class="Number(record.Max_CPU) > 90 ? 'font-bold text-red-600' : ''"
-              >
-                {{ toFixed(record.Max_CPU, 1) }}%
-              </span>
-            </template>
-
-            <template v-else-if="column.key === 'Avg_IO_ms'">
-              {{ toFixed(record.Avg_IO_ms) }}
-            </template>
-
-            <template v-else-if="column.key === 'Avg_TempDB_Stall'">
-              {{ toFixed(record.Avg_TempDB_Stall) }}
-            </template>
-
-            <template v-else-if="column.key === 'Avg_Log_Stall'">
-              {{ toFixed(record.Avg_Log_Stall) }}
-            </template>
-
-            <template v-else-if="column.key === 'Min_PLE'">
-              <span
-                :class="
-                  Number(record.Min_PLE) < 300
-                    ? 'font-bold text-red-600'
-                    : 'text-green-700 dark:text-green-400'
-                "
-              >
-                {{ record.Min_PLE }}s
-              </span>
-            </template>
-
-            <template v-else-if="column.key === 'verdict'">
-              <Tag :color="rowVerdict(record).color">
-                {{ rowVerdict(record).label }}
-              </Tag>
-            </template>
+          <template #Avg_TempDB_Stall="{ row }">
+            {{ toFixed(row.Avg_TempDB_Stall) }}
           </template>
-        </Table>
+
+          <template #Avg_Log_Stall="{ row }">
+            {{ toFixed(row.Avg_Log_Stall) }}
+          </template>
+
+          <template #Min_PLE="{ row }">
+            <span
+              :class="
+                Number(row.Min_PLE) < 300
+                  ? 'font-bold text-red-600'
+                  : 'text-green-700 dark:text-green-400'
+              "
+            >
+              {{ row.Min_PLE }}s
+            </span>
+          </template>
+
+          <template #verdict="{ row }">
+            <Tag :color="rowVerdict(row).color">{{ rowVerdict(row).label }}</Tag>
+          </template>
+        </Grid>
       </Card>
     </Spin>
   </Page>

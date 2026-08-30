@@ -7,24 +7,18 @@ import { useRouter } from 'vue-router';
 import { Page } from '@vben/common-ui';
 import { EchartsUI, useEcharts } from '@vben/plugins/echarts';
 
-import {
-  Button,
-  Card,
-  Col,
-  Empty,
-  Row,
-  Select,
-  Space,
-  Spin,
-  Table,
-  Tag,
-} from 'ant-design-vue';
+import { Button, Card, Col, Row, Select, Space, Spin, Tag } from 'ant-design-vue';
 
+import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { getMonthlyReport } from '#/api/helpdesk';
 import { useHelpdeskStore } from '#/store/helpdesk';
 
 import HelpdeskAccountNotice from '../shared/account-notice.vue';
-import { formatDate } from '../shared/constants';
+import {
+  formatDate,
+  REQUEST_STATUSES,
+  REQUEST_TYPES,
+} from '../shared/constants';
 
 /**
  * [유지보수 보고서]
@@ -40,6 +34,15 @@ import { formatDate } from '../shared/constants';
  *  - 최근 완료 내역 Top 10
  *
  * 고객으로 연결된 계정은 자기 회사로 고정된다.
+ *
+ * ------------------------------------------------------------
+ * [2026-08-30] 아래쪽 '최근 완료 내역' 표를 ant-design-vue `<Table>` 에서
+ * `useVbenVxeGrid` 로 옮겼다. 정렬·필터는 공통 레이어
+ * (`adapter/vxe-grid-features.ts`)가 붙인다.
+ *
+ * **가져오기 방식은 그대로다** — 월간 보고 응답에 실려 오는 Top 10 을
+ * 그대로 그린다(페이저 없음). 행을 누르면 요청 상세로 가는 것도 그대로다.
+ * ------------------------------------------------------------
  */
 
 const router = useRouter();
@@ -120,13 +123,69 @@ const activeKpis = [
   { key: 'negotiationRequests', label: '논의', tone: 'text-pink-500' },
 ];
 
-const recentColumns = [
-  { dataIndex: 'title', key: 'title', title: '제목', ellipsis: true },
-  { dataIndex: 'status', key: 'status', title: '상태', width: 130 },
-  { dataIndex: 'type', key: 'type', title: '유형', width: 110 },
-  { dataIndex: 'requestedAt', key: 'requestedAt', title: '요청일', width: 120 },
-  { dataIndex: 'completedAt', key: 'completedAt', title: '완료일', width: 120 },
-];
+const [RecentGrid] = useVbenVxeGrid({
+  gridEvents: {
+    // 원본의 `custom-row` 클릭과 같은 자리 — 행을 누르면 요청 상세로 간다.
+    cellClick: ({ row }: any) => {
+      if (row?.id) router.push(`/helpdesk/request/detail/${row.id}`);
+    },
+  },
+  // `gridFeatures` 는 vxe 타입에 없다(공통 레이어가 읽고 떼어 낸다). 그래서 `as any`.
+  gridOptions: {
+    columns: [
+      { field: 'title', minWidth: 240, title: '제목' },
+      {
+        field: 'status',
+        // 값이 정해진 칸이다. 화면에는 서버가 준 이름(`Completed`)이 그대로
+        // 찍히지만, 고르는 칸은 한글 이름표로 보여 준다.
+        params: {
+          filterOptions: REQUEST_STATUSES.map((s) => ({
+            label: s.label,
+            value: s.value,
+          })),
+        },
+        slots: { default: 'status' },
+        title: '상태',
+        width: 130,
+      },
+      {
+        field: 'type',
+        params: {
+          filterOptions: REQUEST_TYPES.map((t) => ({
+            label: t.label,
+            value: t.value,
+          })),
+        },
+        title: '유형',
+        width: 110,
+      },
+      {
+        field: 'requestedAt',
+        params: { filterText: (row: any) => formatDate(row.requestedAt) },
+        slots: { default: 'requestedAt' },
+        title: '요청일',
+        width: 120,
+      },
+      {
+        field: 'completedAt',
+        params: { filterText: (row: any) => formatDate(row.completedAt) },
+        slots: { default: 'completedAt' },
+        title: '완료일',
+        width: 120,
+      },
+    ],
+    // 행 배열은 `:table-data` 로 간다. 여기는 빈 배열이 바탕값이다.
+    data: [],
+    emptyText: '완료된 요청이 없습니다.',
+    // 재조회 아이콘 — `:table-data` 라 그리드가 조회 방법을 모른다.
+    // Top 10 은 월간 보고 응답에 실려 오므로 '조회' 가 부르는 함수를 그대로 준다.
+    gridFeatures: { onRefresh: () => loadData() },
+    height: 340,
+    // 전량(Top 10) 조회다. 페이저를 끄지 않으면 한 줄도 안 그려진다.
+    pagerConfig: { enabled: false },
+    rowConfig: { keyField: 'id' },
+  } as any,
+});
 
 /** 시간을 '3일 4시간' 처럼 읽기 쉽게 바꾼다. 원본 formatDuration 과 같다. */
 function formatDuration(hours?: number) {
@@ -408,37 +467,20 @@ onMounted(async () => {
         size="small"
         title="최근 완료 내역 (Top 10)"
       >
-        <Table
-          :columns="recentColumns"
-          :custom-row="
-            (record: any) => ({
-              onClick: () =>
-                router.push(`/helpdesk/request/detail/${record.id}`),
-              style: 'cursor: pointer',
-            })
-          "
-          :data-source="stats.recentCompletedItems"
-          :pagination="false"
-          :scroll="{ x: 760 }"
-          row-key="id"
-          size="small"
+        <RecentGrid
+          class="cursor-pointer"
+          :table-data="stats.recentCompletedItems"
         >
-          <template #emptyText>
-            <Empty description="완료된 요청이 없습니다." />
+          <template #status="{ row }">
+            <Tag :color="statusColor(row.status)">{{ row.status }}</Tag>
           </template>
-
-          <template #bodyCell="{ column, record }">
-            <template v-if="column.key === 'status'">
-              <Tag :color="statusColor(record.status)">{{ record.status }}</Tag>
-            </template>
-            <template v-else-if="column.key === 'requestedAt'">
-              {{ formatDate(record.requestedAt) }}
-            </template>
-            <template v-else-if="column.key === 'completedAt'">
-              {{ formatDate(record.completedAt) || '-' }}
-            </template>
+          <template #requestedAt="{ row }">
+            {{ formatDate(row.requestedAt) }}
           </template>
-        </Table>
+          <template #completedAt="{ row }">
+            {{ formatDate(row.completedAt) || '-' }}
+          </template>
+        </RecentGrid>
       </Card>
     </Spin>
   </Page>

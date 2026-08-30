@@ -273,6 +273,16 @@ public static class AuthEndpoints
                 Path = "/api/file"
             });
 
+            // 게이트웨이의 자가 치유 미들웨어(ApiGateway/Program.cs)가 함께 심는 지문 쿠키도 지운다.
+            // 남겨 두면 다음 로그인 때 지문이 어긋나 어차피 다시 심지만, 지우는 쪽이 깔끔하다.
+            http.Response.Cookies.Delete("jsini_file_at_chk", new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = !env.IsDevelopment(),
+                SameSite = SameSiteMode.Lax,
+                Path = "/"
+            });
+
             return Results.Ok(ApiResponse<bool>.Ok(true, "로그아웃 성공"));
         }).RequireAuthorization();
     

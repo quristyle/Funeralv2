@@ -14,11 +14,11 @@ import {
   Popconfirm,
   Space,
   Spin,
-  Table,
   Tag,
   Tooltip,
 } from 'ant-design-vue';
 
+import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import {
   getReleaseRun,
   getReleaseRuns,
@@ -48,6 +48,15 @@ import {
  *
  * 보고를 하지 않는 대상(`reportsProgress` 가 꺼진 대상)은 "요청을 보냈다" 까지만
  * 말한다. 성공했다고 하지 않는다 — 알 수 없기 때문이다.
+ *
+ * ------------------------------------------------------------
+ * [2026-08-30] '최근 실행' 표를 ant-design-vue `<Table>` 에서 `useVbenVxeGrid` 로
+ * 옮겼다. 정렬·필터는 공통 레이어(`adapter/vxe-grid-features.ts`)가 붙인다.
+ *
+ * **가져오기 방식은 그대로다** — `loadHistory` 가 최근 15건을 한 번에 받아 오고
+ * 폴링이 끝날 때마다 다시 읽는다. 그래서 표는 `proxyConfig` 없이
+ * `:table-data` 로 그 배열을 본다.
+ * ------------------------------------------------------------
  */
 
 /** 폴링 간격. 로그가 흐르는 것이 보일 정도면 충분하다. */
@@ -341,14 +350,58 @@ function elapsed(r: {
   return ms < 1000 ? '1초 미만' : `${Math.round(ms / 1000)}초`;
 }
 
-const historyColumns = [
-  { dataIndex: 'targetName', title: '대상', width: 130 },
-  { dataIndex: 'status', key: 'status', title: '결과', width: 110 },
-  { dataIndex: 'requestedBy', title: '요청자', width: 110 },
-  { dataIndex: 'requestedAt', key: 'requestedAt', title: '요청 시각' },
-  { key: 'elapsed', title: '소요', width: 80 },
-  { dataIndex: 'deployedVersion', key: 'version', title: '버전', width: 100 },
-];
+/** 상태 칸을 고르는 칸으로 만든다. 값이 정해져 있어 손으로 칠 이유가 없다. */
+const STATUS_FILTER_OPTIONS = Object.entries(STATUS).map(([value, item]) => ({
+  label: item.label,
+  value,
+}));
+
+const [HistoryGrid] = useVbenVxeGrid({
+  // `gridFeatures` 는 vxe 타입에 없다(공통 레이어가 읽고 떼어 낸다). 그래서 `as any`.
+  gridOptions: {
+    columns: [
+      { field: 'targetName', title: '대상', width: 130 },
+      {
+        field: 'status',
+        params: { filterOptions: STATUS_FILTER_OPTIONS },
+        slots: { default: 'status' },
+        title: '결과',
+        width: 110,
+      },
+      { field: 'requestedBy', title: '요청자', width: 110 },
+      {
+        field: 'requestedAt',
+        minWidth: 160,
+        // 화면에 보이는 글자(사람이 읽는 시각)로 걸러야 한다. 저장된 값은 ISO 문자열이다.
+        params: { filterText: (row: any) => stamp(row.requestedAt) },
+        slots: { default: 'requestedAt' },
+        title: '요청 시각',
+      },
+      {
+        // 저장된 값이 아니라 두 시각의 차라 `field` 가 없다.
+        // `field` 없는 칸은 공통 레이어가 정렬·필터에서 알아서 뺀다.
+        slots: { default: 'elapsed' },
+        title: '소요',
+        width: 80,
+      },
+      {
+        field: 'deployedVersion',
+        formatter: ({ cellValue }: any) => cellValue || '-',
+        title: '버전',
+        width: 100,
+      },
+    ],
+    emptyText: '실행 이력이 없습니다.',
+    // 재조회 아이콘 — `:table-data` 라 그리드가 조회 방법을 모른다.
+    // 폴링이 끝날 때 부르는 것과 같은 함수를 준다.
+    gridFeatures: { onRefresh: () => loadHistory() },
+    // 원본의 `:scroll="{ y: 240 }"` 자리다. 머리글이 두 줄이 된 만큼 조금 키웠다.
+    height: 300,
+    // 최근 15건을 통째로 받는다. 켜 두면 vxe 가 배열을 봉투로 읽어 0건이 된다.
+    pagerConfig: { enabled: false },
+    rowConfig: { keyField: 'id' },
+  } as any,
+});
 
 onMounted(() => {
   loadTargets(true);
@@ -445,42 +498,30 @@ onMounted(() => {
 
           <div>
             <h6 class="mb-2 text-base font-semibold">최근 실행</h6>
-            <Table
-              :columns="historyColumns"
-              :data-source="history"
-              :pagination="false"
-              row-key="id"
-              size="small"
-              :scroll="{ y: 240 }"
-            >
-              <template #bodyCell="{ column, record }">
-                <template v-if="column.key === 'status'">
-                  <Tooltip :title="record.message || undefined">
-                    <Tag :color="look(record.status).color">
-                      {{ look(record.status).label }}
-                      <template
-                        v-if="
-                          record.exitCode !== null &&
-                          record.exitCode !== undefined &&
-                          record.exitCode !== 0
-                        "
-                      >
-                        ({{ record.exitCode }})
-                      </template>
-                    </Tag>
-                  </Tooltip>
-                </template>
-                <template v-else-if="column.key === 'requestedAt'">
-                  {{ stamp(record.requestedAt) }}
-                </template>
-                <template v-else-if="column.key === 'elapsed'">
-                  {{ elapsed(record) }}
-                </template>
-                <template v-else-if="column.key === 'version'">
-                  {{ record.deployedVersion || '-' }}
-                </template>
+            <HistoryGrid :table-data="history">
+              <template #status="{ row }">
+                <Tooltip :title="row.message || undefined">
+                  <Tag :color="look(row.status).color">
+                    {{ look(row.status).label }}
+                    <template
+                      v-if="
+                        row.exitCode !== null &&
+                        row.exitCode !== undefined &&
+                        row.exitCode !== 0
+                      "
+                    >
+                      ({{ row.exitCode }})
+                    </template>
+                  </Tag>
+                </Tooltip>
               </template>
-            </Table>
+              <template #requestedAt="{ row }">
+                {{ stamp(row.requestedAt) }}
+              </template>
+              <template #elapsed="{ row }">
+                {{ elapsed(row) }}
+              </template>
+            </HistoryGrid>
           </div>
         </div>
 

@@ -15,11 +15,11 @@ import {
   Space,
   Spin,
   Switch,
-  Table,
   Tag,
   Tree,
 } from 'ant-design-vue';
 
+import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { executeProcedure } from '#/api/helpdesk';
 
 import OadrSeriesChart from '../report/modules/oadr-series-chart.vue';
@@ -34,6 +34,17 @@ import OadrSeriesChart from '../report/modules/oadr-series-chart.vue';
  *
  * 원본과 같은 필터를 제공한다: 사용중만 / 유지보수 제외 / 이중화 대상만.
  * 이중화(dst_mc_id)가 걸린 설비는 원본 설비와 함께 수집량을 비교해 보여준다.
+ *
+ * ------------------------------------------------------------
+ * [2026-08-30] 아래쪽 '설비 목록' 표를 ant-design-vue `<Table>` 에서
+ * `useVbenVxeGrid` 로 옮겼다. 정렬·필터는 공통 레이어
+ * (`adapter/vxe-grid-features.ts`)가 붙인다.
+ *
+ * **가져오기 방식은 그대로다** — `P_QURI_MC` 가 준 전량을 화면이 쥐고,
+ * 위쪽 조회 줄(사용중만 · 유지보수 제외 · 이중화만 · 검색어)이 걸러 낸 것을
+ * 표에 넘긴다. 원본의 프런트 페이징(20건)은 없앴다.
+ * 행을 누르면 그 설비가 선택되는 것도 그대로다(`cellClick`).
+ * ------------------------------------------------------------
  */
 
 const loadingList = ref(false);
@@ -61,20 +72,56 @@ const autoReload = ref(false);
 const remainingSeconds = ref(60);
 let reloadTimer: null | ReturnType<typeof setInterval> = null;
 
-const mcColumns = [
-  { dataIndex: 'mc_id', key: 'mc_id', title: '설비 ID', width: 110 },
-  { dataIndex: 'DESCRIPT', key: 'DESCRIPT', title: '설명', ellipsis: true },
-  { dataIndex: 'GAUGE_SECTION', key: 'GAUGE_SECTION', title: '구역', width: 130 },
-  { dataIndex: 'MODEL', key: 'MODEL', title: '모델', width: 110 },
-  { dataIndex: 'com_name', key: 'com_name', title: '고객사', width: 120 },
-  { dataIndex: 'dst_mc_id', key: 'dst_mc_id', title: '이중화', width: 110 },
-  {
-    dataIndex: 'Maintenance_YN',
-    key: 'Maintenance_YN',
-    title: '유지보수',
-    width: 90,
+const [McGrid, mcGridApi] = useVbenVxeGrid({
+  gridEvents: {
+    // 원본의 `custom-row` 클릭과 같은 자리 — 행을 누르면 그 설비를 고른다.
+    cellClick: ({ row }: any) => {
+      if (row?.mc_id) selectedMcId.value = String(row.mc_id);
+    },
   },
-];
+  // `gridFeatures` 는 vxe 타입에 없다(공통 레이어가 읽고 떼어 낸다). 그래서 `as any`.
+  gridOptions: {
+    columns: [
+      { field: 'mc_id', title: '설비 ID', width: 110 },
+      { field: 'DESCRIPT', minWidth: 200, title: '설명' },
+      { field: 'GAUGE_SECTION', title: '구역', width: 130 },
+      { field: 'MODEL', title: '모델', width: 110 },
+      { field: 'com_name', title: '고객사', width: 120 },
+      {
+        field: 'dst_mc_id',
+        slots: { default: 'dst_mc_id' },
+        title: '이중화',
+        width: 110,
+      },
+      {
+        field: 'Maintenance_YN',
+        // 값이 Y/N 둘뿐이라 고르는 칸으로 둔다.
+        // 빈 값(`''`)짜리 항목은 넣지 않는다 — 공통 레이어가 빈 값을 '전체'로
+        // 읽어서, 넣으면 맨 위의 '전체' 항목과 같은 값이 되어 겹친다.
+        params: {
+          filterOptions: [
+            { label: 'Y', value: 'Y' },
+            { label: 'N', value: 'N' },
+          ],
+        },
+        slots: { default: 'Maintenance_YN' },
+        title: '유지보수',
+        width: 90,
+      },
+    ],
+    // 행 배열은 `:table-data` 로 간다. 여기는 빈 배열이 바탕값이다.
+    data: [],
+    emptyText: '조건에 맞는 설비가 없습니다.',
+    // 재조회 아이콘 — `:table-data` 라 그리드가 조회 방법을 모른다.
+    // 위쪽 '새로고침' 이 부르는 것과 같은 함수를 준다.
+    gridFeatures: { onRefresh: () => reloadAll() },
+    height: 400,
+    // 전량 조회다. 페이저를 끄지 않으면 한 줄도 안 그려진다.
+    pagerConfig: { enabled: false },
+    // 원본의 `row-key` 를 그대로 옮겼다.
+    rowConfig: { keyField: 'tag_id' },
+  } as any,
+});
 
 /** 원본과 같은 3중 필터를 통과한 설비만 남긴다. */
 const filteredMc = computed(() => {
@@ -239,6 +286,7 @@ function onTreeSelect(keys: (number | string)[]) {
 }
 
 watch(selectedMcId, loadHourly);
+watch(loadingList, (value) => mcGridApi.setLoading(value));
 
 onMounted(async () => {
   await loadMcList();
@@ -357,38 +405,19 @@ onBeforeUnmount(stopTimer);
 
         <!-- 설비 목록 표 -->
         <Card :body-style="{ padding: 0 }" size="small" title="설비 목록">
-          <Table
-            :columns="mcColumns"
-            :custom-row="
-              (record: any) => ({
-                onClick: () => (selectedMcId = String(record.mc_id)),
-                style: 'cursor: pointer',
-              })
-            "
-            :data-source="filteredMc"
-            :loading="loadingList"
-            :pagination="{ pageSize: 20, showSizeChanger: true }"
-            :scroll="{ x: 900 }"
-            row-key="tag_id"
-            size="small"
-          >
-            <template #emptyText>
-              <Empty description="조건에 맞는 설비가 없습니다." />
+          <McGrid class="cursor-pointer" :table-data="filteredMc">
+            <template #Maintenance_YN="{ row }">
+              <Tag :color="row.Maintenance_YN === 'Y' ? 'warning' : 'default'">
+                {{ row.Maintenance_YN }}
+              </Tag>
             </template>
-            <template #bodyCell="{ column, record }">
-              <template v-if="column.key === 'Maintenance_YN'">
-                <Tag :color="record.Maintenance_YN === 'Y' ? 'warning' : 'default'">
-                  {{ record.Maintenance_YN }}
-                </Tag>
-              </template>
-              <template v-else-if="column.key === 'dst_mc_id'">
-                <Tag v-if="String(record.dst_mc_id ?? '').trim()" color="purple">
-                  {{ record.dst_mc_id }}
-                </Tag>
-                <span v-else class="text-muted-foreground">-</span>
-              </template>
+            <template #dst_mc_id="{ row }">
+              <Tag v-if="String(row.dst_mc_id ?? '').trim()" color="purple">
+                {{ row.dst_mc_id }}
+              </Tag>
+              <span v-else class="text-muted-foreground">-</span>
             </template>
-          </Table>
+          </McGrid>
         </Card>
       </Col>
     </Row>

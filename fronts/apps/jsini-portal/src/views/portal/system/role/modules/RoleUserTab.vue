@@ -1,785 +1,319 @@
 <script lang="ts" setup>
-import { ref, reactive, computed, watch, onMounted } from 'vue';
-import { Button, Input, Select, Tag, Tooltip, message, Modal, Table, type TableColumnsType } from 'ant-design-vue';
-import { Plus, IconifyIcon } from '@vben/icons';
-import { getRoleUsers, getEligibleUsers, assignRoleUsers, removeRoleUser, type SystemRolePermissionApi } from '#/api/portal/system/role-permission';
+/**
+ * [역할 - 지정 사용자 탭]
+ *
+ * ------------------------------------------------------------
+ * [2026-08-30] ant-design-vue `<Table>` 에서 `useVbenVxeGrid` 로 옮겼다.
+ *
+ * 이 화면이 "머리글 아래 필터 전용 행" 의 본이 된 화면이다. 그 모양을
+ * 공통 레이어(`adapter/vxe-grid-features.ts`)로 올렸으므로, 여기서는
+ * **그리는 코드가 전부 없어졌다.**
+ *
+ * 지워진 것 (전부 공통 레이어가 대신한다):
+ *   · 2줄 머리글을 만들기 위한 `children` 묶음 컬럼 정의 (두 벌, 200여 줄)
+ *   · `#headerCell` 안에서 칸마다 입력기를 그리던 분기
+ *   · 필터 상태(`mappedFilter` · `eligibleFilter`)와 그것으로 거르던 `computed`
+ *   · 컬럼마다 손으로 적던 `sorter`
+ *
+ * 남긴 것: 회사·부서는 **고르는 칸**으로 두었다. 값이 정해져 있고 목록에서
+ * 고르는 편이 빠르다. 목록은 자료가 오면 만들어 넣는다(`applyFilterOptions`).
+ * ------------------------------------------------------------
+ */
+import type { SystemRolePermissionApi } from '#/api/portal/system/role-permission';
+
+import { computed, onMounted, ref, watch } from 'vue';
+
+import { IconifyIcon, Plus } from '@vben/icons';
+
+import { Button, message, Modal, Tag, Tooltip } from 'ant-design-vue';
+
+import { useVbenVxeGrid } from '#/adapter/vxe-table';
+import {
+  assignRoleUsers,
+  getEligibleUsers,
+  getRoleUsers,
+  removeRoleUser,
+} from '#/api/portal/system/role-permission';
 
 const props = defineProps({
   roleId: {
-    type: String,
     required: true,
+    type: String,
   },
 });
 
-// ==========================================
-// 1. 매핑된 사용자(지정 사용자) 상태 및 필터
-// ==========================================
-const mappedUsers = ref<SystemRolePermissionApi.RoleUser[]>([]);
-const loadingMapped = ref(false);
+type RoleUser = SystemRolePermissionApi.RoleUser;
 
-const mappedFilter = reactive({
-  loginId: '',
-  userName: '',
-  companyName: undefined as string | undefined,
-  deptName: undefined as string | undefined,
-});
-
-function resetMappedFilter() {
-  mappedFilter.loginId = '';
-  mappedFilter.userName = '';
-  mappedFilter.companyName = undefined;
-  mappedFilter.deptName = undefined;
-}
-
-const mappedCompanyOptions = computed(() => {
-  const hasEmpty = mappedUsers.value.some((u) => !u.companyName || u.companyName.trim() === '');
-  const list = Array.from(
-    new Set(
-      mappedUsers.value
-        .map((u) => u.companyName)
-        .filter((val): val is string => Boolean(val && val.trim())),
-    ),
-  );
-  const options = [{ label: '전체 회사', value: '' }];
-  if (hasEmpty) {
-    options.push({ label: '(소속 없음 / 빈 값)', value: '__EMPTY__' });
-  }
-  options.push(...list.map((c) => ({ label: c, value: c })));
-  return options;
-});
-
-const mappedDeptOptions = computed(() => {
-  const currentUsers = mappedUsers.value.filter((u) => {
-    if (!mappedFilter.companyName || mappedFilter.companyName === '') return true;
-    if (mappedFilter.companyName === '__EMPTY__') return !u.companyName || u.companyName.trim() === '';
-    return u.companyName === mappedFilter.companyName;
-  });
-
-  const hasEmpty = currentUsers.some((u) => !u.deptName || u.deptName.trim() === '');
-  const list = Array.from(
-    new Set(
-      currentUsers
-        .map((u) => u.deptName)
-        .filter((val): val is string => Boolean(val && val.trim())),
-    ),
-  );
-
-  const options = [{ label: '전체 부서', value: '' }];
-  if (hasEmpty) {
-    options.push({ label: '(부서 없음 / 빈 값)', value: '__EMPTY__' });
-  }
-  options.push(...list.map((d) => ({ label: d, value: d })));
-  return options;
-});
-
-const filteredMappedUsers = computed(() => {
-  return mappedUsers.value.filter((user) => {
-    if (
-      mappedFilter.loginId.trim() &&
-      !user.loginId?.toLowerCase().includes(mappedFilter.loginId.trim().toLowerCase())
-    ) {
-      return false;
-    }
-    if (
-      mappedFilter.userName.trim() &&
-      !user.userName?.toLowerCase().includes(mappedFilter.userName.trim().toLowerCase())
-    ) {
-      return false;
-    }
-    if (mappedFilter.companyName && mappedFilter.companyName !== '') {
-      if (mappedFilter.companyName === '__EMPTY__') {
-        if (user.companyName && user.companyName.trim() !== '') {
-          return false;
-        }
-      } else if (user.companyName !== mappedFilter.companyName) {
-        return false;
-      }
-    }
-    if (mappedFilter.deptName && mappedFilter.deptName !== '') {
-      if (mappedFilter.deptName === '__EMPTY__') {
-        if (user.deptName && user.deptName.trim() !== '') {
-          return false;
-        }
-      } else if (user.deptName !== mappedFilter.deptName) {
-        return false;
-      }
-    }
-    return true;
-  });
-});
-
-// 2줄 헤더(1행: 컬럼명/정렬, 2행: 필터 행)를 위한 Grouped Columns 정의
-const mappedColumns: TableColumnsType<SystemRolePermissionApi.RoleUser> = [
-  {
-    title: '사용자 ID',
-    key: 'loginId_group',
-    dataIndex: 'loginId',
-    sorter: (a, b) => String(a.loginId ?? '').localeCompare(String(b.loginId ?? '')),
-    align: 'center',
-    children: [
-      {
-        title: 'loginId_filter',
-        key: 'loginId_filter',
-        dataIndex: 'loginId',
-        width: 140,
-        align: 'center',
-      },
-    ],
-  },
-  {
-    title: '사용자명',
-    key: 'userName_group',
-    dataIndex: 'userName',
-    sorter: (a, b) => String(a.userName ?? '').localeCompare(String(b.userName ?? '')),
-    align: 'center',
-    children: [
-      {
-        title: 'userName_filter',
-        key: 'userName_filter',
-        dataIndex: 'userName',
-        width: 140,
-        align: 'center',
-      },
-    ],
-  },
-  {
-    title: '소속 회사',
-    key: 'companyName_group',
-    dataIndex: 'companyName',
-    sorter: (a, b) => String(a.companyName ?? '').localeCompare(String(b.companyName ?? '')),
-    align: 'center',
-    children: [
-      {
-        title: 'companyName_filter',
-        key: 'companyName_filter',
-        dataIndex: 'companyName',
-        width: 160,
-        align: 'center',
-      },
-    ],
-  },
-  {
-    title: '소속 부서',
-    key: 'deptName_group',
-    dataIndex: 'deptName',
-    sorter: (a, b) => String(a.deptName ?? '').localeCompare(String(b.deptName ?? '')),
-    align: 'center',
-    children: [
-      {
-        title: 'deptName_filter',
-        key: 'deptName_filter',
-        dataIndex: 'deptName',
-        width: 160,
-        align: 'center',
-      },
-    ],
-  },
-  {
-    title: '이메일',
-    key: 'email_group',
-    dataIndex: 'email',
-    sorter: (a, b) => String(a.email ?? '').localeCompare(String(b.email ?? '')),
-    align: 'center',
-    children: [
-      {
-        title: 'email_filter',
-        key: 'email_filter',
-        dataIndex: 'email',
-        width: 160,
-        align: 'center',
-      },
-    ],
-  },
-  {
-    title: '연락처',
-    key: 'phone_group',
-    dataIndex: 'phone',
-    sorter: (a, b) => String(a.phone ?? '').localeCompare(String(b.phone ?? '')),
-    align: 'center',
-    children: [
-      {
-        title: 'phone_filter',
-        key: 'phone_filter',
-        dataIndex: 'phone',
-        width: 130,
-        align: 'center',
-      },
-    ],
-  },
-  {
-    title: '작업',
-    key: 'action_group',
-    align: 'center',
-    width: 90,
-    children: [
-      {
-        title: 'action_filter',
-        key: 'action_filter',
-        width: 90,
-        align: 'center',
-      },
-    ],
-  },
-];
-
-// ==========================================
-// 2. 추가 모달(사용자 검색 팝업) 상태 및 즉시 필터
-// ==========================================
+const mappedUsers = ref<RoleUser[]>([]);
+const eligibleUsers = ref<RoleUser[]>([]);
 const isModalVisible = ref(false);
-const eligibleUsers = ref<SystemRolePermissionApi.RoleUser[]>([]);
-const loadingEligible = ref(false);
-const selectedRowKeys = ref<(string | number)[]>([]);
 
-const eligibleFilter = reactive({
-  loginId: '',
-  userName: '',
-  companyName: undefined as string | undefined,
-  deptName: undefined as string | undefined,
-  roleName: undefined as string | undefined,
-});
+/**
+ * 고르는 칸의 목록을 자료에서 만든다.
+ *
+ * 빈 값이 섞여 있으면 '(없음)' 을 앞에 둔다 — 공통 레이어의 고르는 칸은
+ * `null` · `''` 를 같은 것으로 보므로 값 `''` 하나로 둘 다 잡힌다.
+ */
+function optionsOf(rows: RoleUser[], field: 'companyName' | 'deptName') {
+  const values = rows.map((r) => r[field]);
+  const named = [
+    ...new Set(values.filter((v): v is string => Boolean(v && v.trim()))),
+  ].sort((a, b) => a.localeCompare(b));
 
-function resetEligibleFilter() {
-  eligibleFilter.loginId = '';
-  eligibleFilter.userName = '';
-  eligibleFilter.companyName = undefined;
-  eligibleFilter.deptName = undefined;
-  eligibleFilter.roleName = undefined;
+  const options = named.map((v) => ({ label: v, value: v }));
+  if (values.some((v) => !v || !String(v).trim())) {
+    options.unshift({ label: '(없음)', value: '' });
+  }
+  return options;
 }
 
-const eligibleCompanyOptions = computed(() => {
-  const hasEmpty = eligibleUsers.value.some((u) => !u.companyName || u.companyName.trim() === '');
-  const list = Array.from(
-    new Set(
-      eligibleUsers.value
-        .map((u) => u.companyName)
-        .filter((val): val is string => Boolean(val && val.trim())),
-    ),
-  );
-  const options = [{ label: '전체 회사', value: '' }];
-  if (hasEmpty) {
-    options.push({ label: '(소속 없음 / 빈 값)', value: '__EMPTY__' });
-  }
-  options.push(...list.map((c) => ({ label: c, value: c })));
-  return options;
-});
+/** 두 그리드가 같은 칸 구성을 쓴다. 모달 쪽에만 '역할' 이 하나 더 붙는다. */
+function buildColumns(rows: RoleUser[], forModal: boolean) {
+  const columns: any[] = [
+    { field: 'loginId', minWidth: 130, title: '사용자 ID' },
+    { field: 'userName', minWidth: 120, title: '사용자명' },
+    {
+      field: 'companyName',
+      minWidth: 150,
+      params: { filterOptions: optionsOf(rows, 'companyName') },
+      title: '소속 회사',
+    },
+    {
+      field: 'deptName',
+      minWidth: 150,
+      params: { filterOptions: optionsOf(rows, 'deptName') },
+      title: '소속 부서',
+    },
+  ];
 
-const eligibleDeptOptions = computed(() => {
-  const currentUsers = eligibleUsers.value.filter((u) => {
-    if (!eligibleFilter.companyName || eligibleFilter.companyName === '') return true;
-    if (eligibleFilter.companyName === '__EMPTY__') return !u.companyName || u.companyName.trim() === '';
-    return u.companyName === eligibleFilter.companyName;
-  });
-
-  const hasEmpty = currentUsers.some((u) => !u.deptName || u.deptName.trim() === '');
-  const list = Array.from(
-    new Set(
-      currentUsers
-        .map((u) => u.deptName)
-        .filter((val): val is string => Boolean(val && val.trim())),
-    ),
-  );
-
-  const options = [{ label: '전체 부서', value: '' }];
-  if (hasEmpty) {
-    options.push({ label: '(부서 없음 / 빈 값)', value: '__EMPTY__' });
-  }
-  options.push(...list.map((d) => ({ label: d, value: d })));
-  return options;
-});
-
-const eligibleRoleOptions = computed(() => {
-  const hasEmpty = eligibleUsers.value.some((u) => !u.roles || u.roles.length === 0);
-  const roleSet = new Set<string>();
-  eligibleUsers.value.forEach((u) => {
-    u.roles?.forEach((r) => {
-      if (r && r.trim()) roleSet.add(r.trim());
+  if (forModal) {
+    columns.push({
+      field: 'roleNames',
+      minWidth: 200,
+      // 역할은 여러 개다. 고르는 칸으로 두면 한 번에 하나만 되므로 글자로 찾게 둔다.
+      params: { filterText: (row: RoleUser) => (row.roles ?? []).join(' ') },
+      slots: { default: 'roles' },
+      title: '할당된 역할',
     });
-  });
-
-  const options = [{ label: '전체 역할', value: '' }];
-  if (hasEmpty) {
-    options.push({ label: '(역할 없음 / 미지정)', value: '__EMPTY__' });
+  } else {
+    columns.push(
+      { field: 'email', minWidth: 170, title: '이메일' },
+      { field: 'phone', minWidth: 130, title: '연락처' },
+      {
+        field: 'action',
+        fixed: 'right',
+        slots: { default: 'action' },
+        title: '작업',
+        width: 90,
+      },
+    );
   }
-  options.push(...Array.from(roleSet).map((r) => ({ label: r, value: r })));
-  return options;
-});
 
-const filteredEligibleUsers = computed(() => {
-  return eligibleUsers.value.filter((user) => {
-    if (
-      eligibleFilter.loginId.trim() &&
-      !user.loginId?.toLowerCase().includes(eligibleFilter.loginId.trim().toLowerCase())
-    ) {
-      return false;
-    }
-    if (
-      eligibleFilter.userName.trim() &&
-      !user.userName?.toLowerCase().includes(eligibleFilter.userName.trim().toLowerCase())
-    ) {
-      return false;
-    }
-    if (eligibleFilter.companyName && eligibleFilter.companyName !== '') {
-      if (eligibleFilter.companyName === '__EMPTY__') {
-        if (user.companyName && user.companyName.trim() !== '') {
-          return false;
-        }
-      } else if (user.companyName !== eligibleFilter.companyName) {
-        return false;
-      }
-    }
-    if (eligibleFilter.deptName && eligibleFilter.deptName !== '') {
-      if (eligibleFilter.deptName === '__EMPTY__') {
-        if (user.deptName && user.deptName.trim() !== '') {
-          return false;
-        }
-      } else if (user.deptName !== eligibleFilter.deptName) {
-        return false;
-      }
-    }
-    if (eligibleFilter.roleName && eligibleFilter.roleName !== '') {
-      if (eligibleFilter.roleName === '__EMPTY__') {
-        if (user.roles && user.roles.length > 0) {
-          return false;
-        }
-      } else if (
-        !user.roles?.includes(eligibleFilter.roleName) &&
-        !user.roleNames?.toLowerCase().includes(eligibleFilter.roleName.toLowerCase())
-      ) {
-        return false;
-      }
-    }
-    return true;
-  });
-});
-
-// 2줄 헤더(1행: 컬럼명/정렬, 2행: 필터 행)를 위한 Grouped Columns 정의 (모달)
-const eligibleColumns: TableColumnsType<SystemRolePermissionApi.RoleUser> = [
-  {
-    title: '사용자 ID',
-    key: 'loginId_group',
-    dataIndex: 'loginId',
-    sorter: (a, b) => String(a.loginId ?? '').localeCompare(String(b.loginId ?? '')),
-    align: 'center',
-    width: 120,
-    children: [
-      {
-        title: 'loginId_filter',
-        key: 'loginId_filter',
-        dataIndex: 'loginId',
-        width: 120,
-        align: 'center',
-      },
-    ],
-  },
-  {
-    title: '사용자명',
-    key: 'userName_group',
-    dataIndex: 'userName',
-    sorter: (a, b) => String(a.userName ?? '').localeCompare(String(b.userName ?? '')),
-    align: 'center',
-    width: 120,
-    children: [
-      {
-        title: 'userName_filter',
-        key: 'userName_filter',
-        dataIndex: 'userName',
-        width: 120,
-        align: 'center',
-      },
-    ],
-  },
-  {
-    title: '소속 회사',
-    key: 'companyName_group',
-    dataIndex: 'companyName',
-    sorter: (a, b) => String(a.companyName ?? '').localeCompare(String(b.companyName ?? '')),
-    align: 'center',
-    width: 140,
-    children: [
-      {
-        title: 'companyName_filter',
-        key: 'companyName_filter',
-        dataIndex: 'companyName',
-        width: 140,
-        align: 'center',
-      },
-    ],
-  },
-  {
-    title: '소속 부서',
-    key: 'deptName_group',
-    dataIndex: 'deptName',
-    sorter: (a, b) => String(a.deptName ?? '').localeCompare(String(b.deptName ?? '')),
-    align: 'center',
-    width: 130,
-    children: [
-      {
-        title: 'deptName_filter',
-        key: 'deptName_filter',
-        dataIndex: 'deptName',
-        width: 130,
-        align: 'center',
-      },
-    ],
-  },
-  {
-    title: '할당된 역할',
-    key: 'roles_group',
-    dataIndex: 'roleNames',
-    sorter: (a, b) => String(a.roleNames ?? '').localeCompare(String(b.roleNames ?? '')),
-    align: 'center',
-    children: [
-      {
-        title: 'roles_filter',
-        key: 'roles_filter',
-        dataIndex: 'roleNames',
-        align: 'center',
-      },
-    ],
-  },
-];
-
-// ==========================================
-// 3. API 통신 및 이벤트 핸들러
-// ==========================================
-async function fetchMappedUsers() {
-  if (!props.roleId) return;
-  loadingMapped.value = true;
-  try {
-    const res = await getRoleUsers(props.roleId);
-    mappedUsers.value = (res as any)?.result ?? res ?? [];
-  } catch (error) {
-    message.error('지정 사용자 목록 로드 실패');
-  } finally {
-    loadingMapped.value = false;
-  }
+  return columns;
 }
 
-async function fetchEligibleUsers() {
-  if (!props.roleId) return;
-  loadingEligible.value = true;
-  try {
-    const res = await getEligibleUsers(props.roleId);
-    eligibleUsers.value = (res as any)?.result ?? res ?? [];
-  } catch (error) {
-    message.error('추가 가능 사용자 목록 로드 실패');
-  } finally {
-    loadingEligible.value = false;
-  }
-}
+// ==========================================
+// 지정 사용자 목록
+// ==========================================
+
+const [Grid, gridApi] = useVbenVxeGrid<RoleUser>({
+  gridOptions: {
+    columns: buildColumns([], false),
+    emptyText: '지정된 사용자가 없습니다.',
+    height: 'auto',
+    // 전량 조회다. 켜 두면 vxe 가 응답을 `{result,page}` 로 읽어 배열이 통째로 빠진다.
+    pagerConfig: { enabled: false },
+    proxyConfig: {
+      ajax: {
+        query: async () => {
+          if (!props.roleId) return [];
+          try {
+            const res = await getRoleUsers(props.roleId);
+            mappedUsers.value = (res as any)?.result ?? res ?? [];
+          } catch {
+            message.error('지정 사용자 목록 로드 실패');
+            mappedUsers.value = [];
+          }
+          return mappedUsers.value;
+        },
+      },
+    },
+    rowConfig: { keyField: 'id' },
+  },
+});
+
+// ==========================================
+// 사용자 추가 모달
+// ==========================================
+
+const [EligibleGrid, eligibleApi] = useVbenVxeGrid<RoleUser>({
+  gridOptions: {
+    checkboxConfig: { highlight: true, keyField: 'id' },
+    columns: [
+      { type: 'checkbox', width: 44 },
+      ...buildColumns([], true),
+    ],
+    emptyText: '추가할 수 있는 사용자가 없습니다.',
+    // 팝업 안이라 `page-fill-last` 가 없다. 높이를 숫자로 준다.
+    height: 380,
+    pagerConfig: { enabled: false },
+    proxyConfig: {
+      ajax: {
+        query: async () => {
+          if (!props.roleId) return [];
+          try {
+            const res = await getEligibleUsers(props.roleId);
+            eligibleUsers.value = (res as any)?.result ?? res ?? [];
+          } catch {
+            message.error('추가 가능 사용자 목록 로드 실패');
+            eligibleUsers.value = [];
+          }
+          return eligibleUsers.value;
+        },
+      },
+    },
+    rowConfig: { keyField: 'id' },
+  },
+});
+
+const mappedCount = computed(() => mappedUsers.value.length);
+
+/**
+ * 고르는 칸의 목록은 자료를 봐야 만들 수 있다.
+ *
+ * **조회 함수 안에서 컬럼을 갈아끼우면 안 된다** — 조회가 끝나기 전에 설정이
+ * 바뀌면서 방금 받은 행이 지워진다(실제로 그래서 목록이 비어 보였다).
+ * 자료가 자리를 잡은 뒤에 따로 넣는다.
+ */
+watch(mappedUsers, (rows) => {
+  gridApi.setGridOptions({ columns: buildColumns(rows, false) });
+});
+
+watch(eligibleUsers, (rows) => {
+  eligibleApi.setGridOptions({
+    columns: [{ type: 'checkbox', width: 44 }, ...buildColumns(rows, true)],
+  });
+});
 
 async function handleRemove(userId: string) {
   try {
     await removeRoleUser(props.roleId, userId);
     message.success('사용자 지정이 해제되었습니다.');
-    fetchMappedUsers();
-  } catch (error) {
+    gridApi.query();
+  } catch {
     message.error('해제 실패');
   }
 }
 
 function openAssignModal() {
-  selectedRowKeys.value = [];
-  resetEligibleFilter();
-  fetchEligibleUsers();
   isModalVisible.value = true;
+  // 팝업이 뜬 뒤에 조회해야 그리드가 자리를 잡은 상태에서 그려진다.
+  setTimeout(() => eligibleApi.query(), 0);
 }
 
 async function handleAssignConfirm() {
-  if (selectedRowKeys.value.length === 0) {
+  const selected = eligibleApi.grid?.getCheckboxRecords() ?? [];
+  if (selected.length === 0) {
     message.warning('추가할 사용자를 선택해 주세요.');
     return;
   }
 
   try {
-    await assignRoleUsers(props.roleId, selectedRowKeys.value as string[]);
+    await assignRoleUsers(
+      props.roleId,
+      selected.map((row: RoleUser) => row.id as string),
+    );
     message.success('사용자가 지정되었습니다.');
     isModalVisible.value = false;
-    fetchMappedUsers();
-  } catch (error) {
+    gridApi.query();
+  } catch {
     message.error('사용자 지정 추가 실패');
   }
 }
 
-function onSelectChange(keys: (string | number)[]) {
-  selectedRowKeys.value = keys;
-}
+watch(
+  () => props.roleId,
+  () => gridApi.query(),
+);
 
-watch(() => props.roleId, () => {
-  fetchMappedUsers();
-}, { immediate: true });
-
-onMounted(() => {
-  fetchMappedUsers();
-});
+onMounted(() => gridApi.query());
 </script>
 
 <template>
-  <div class="flex-1 flex flex-col overflow-hidden h-full">
+  <div class="flex h-full flex-1 flex-col overflow-hidden">
     <!-- 상단 툴바 -->
-    <div class="flex justify-between items-center mb-3 pt-2">
+    <div class="mb-3 flex items-center justify-between pt-2">
       <div class="flex items-center gap-2">
         <span class="text-sm font-medium text-slate-600 dark:text-slate-300">
           지정 사용자 목록
-          <span class="text-xs text-slate-400 font-normal">
-            (총 {{ mappedUsers.length }}명<template v-if="filteredMappedUsers.length !== mappedUsers.length">, 검색됨 {{ filteredMappedUsers.length }}명</template>)
+          <span class="text-xs font-normal text-slate-400">
+            (총 {{ mappedCount }}명)
           </span>
         </span>
-        <div class="flex items-center gap-1">
-          <Tooltip title="새로고침 (재조회)">
-            <Button size="small" :loading="loadingMapped" @click="fetchMappedUsers">
-              <template #icon>
-                <IconifyIcon icon="lucide:refresh-cw" class="size-3.5 inline-block" />
-              </template>
-            </Button>
-          </Tooltip>
-          <Tooltip title="필터 초기화">
-            <Button size="small" @click="resetMappedFilter">
-              <template #icon>
-                <IconifyIcon icon="lucide:filter-x" class="size-3.5 inline-block" />
-              </template>
-            </Button>
-          </Tooltip>
-        </div>
+        <Tooltip title="새로고침 (재조회)">
+          <Button size="small" @click="gridApi.query()">
+            <template #icon>
+              <IconifyIcon
+                icon="lucide:refresh-cw"
+                class="inline-block size-3.5"
+              />
+            </template>
+          </Button>
+        </Tooltip>
       </div>
 
       <Button type="primary" @click="openAssignModal">
         <template #icon>
-          <Plus class="size-4 mr-1 inline-block align-text-bottom" />
+          <Plus class="mr-1 inline-block size-4 align-text-bottom" />
         </template>
         사용자 추가 지정
       </Button>
     </div>
 
     <!-- 지정 사용자 그리드 -->
-    <div class="flex-1 overflow-auto border rounded-lg">
-      <Table
-        :columns="mappedColumns"
-        :data-source="filteredMappedUsers"
-        :loading="loadingMapped"
-        :pagination="{ pageSize: 10, showSizeChanger: true, pageSizeOptions: ['10', '20', '50'] }"
-        row-key="id"
-        size="middle"
-        bordered
-        class="custom-table"
-      >
-        <!-- 2줄 헤더: 1행(컬럼 타이틀) / 2행(별도 필터 Row) -->
-        <template #headerCell="{ column }">
-          <!-- 1행: 컬럼 타이틀 -->
-          <template v-if="column.key === 'loginId_group'">사용자 ID</template>
-          <template v-else-if="column.key === 'userName_group'">사용자명</template>
-          <template v-else-if="column.key === 'companyName_group'">소속 회사</template>
-          <template v-else-if="column.key === 'deptName_group'">소속 부서</template>
-          <template v-else-if="column.key === 'email_group'">이메일</template>
-          <template v-else-if="column.key === 'phone_group'">연락처</template>
-          <template v-else-if="column.key === 'action_group'">작업</template>
+    <!--
+      `h-auto` 를 반드시 준다.
 
-          <!-- 2행: 독립된 필터 입력 Row -->
-          <template v-else-if="column.key === 'loginId_filter'">
-            <Input
-              v-model:value="mappedFilter.loginId"
-              placeholder="ID 검색"
-              size="small"
-              allow-clear
-              class="text-xs"
-            />
-          </template>
-          <template v-else-if="column.key === 'userName_filter'">
-            <Input
-              v-model:value="mappedFilter.userName"
-              placeholder="이름 검색"
-              size="small"
-              allow-clear
-              class="text-xs"
-            />
-          </template>
-          <template v-else-if="column.key === 'companyName_filter'">
-            <Select
-              v-model:value="mappedFilter.companyName"
-              :options="mappedCompanyOptions"
-              placeholder="전체"
-              size="small"
-              allow-clear
-              class="w-full text-xs"
-            />
-          </template>
-          <template v-else-if="column.key === 'deptName_filter'">
-            <Select
-              v-model:value="mappedFilter.deptName"
-              :options="mappedDeptOptions"
-              placeholder="전체"
-              size="small"
-              allow-clear
-              class="w-full text-xs"
-            />
-          </template>
-          <template v-else-if="column.key === 'email_filter' || column.key === 'phone_filter' || column.key === 'action_filter'">
-            <span class="text-slate-300 text-xs">-</span>
-          </template>
-        </template>
+      프레임워크가 그리드 바깥에 `h-full`(높이 100%) 을 붙이는데, 이 자리는
+      **위에 도구 줄이 하나 있어서** 100% 가 곧 남은 높이가 아니다. 그대로 두면
+      그리드가 도구 줄 높이만큼 넘치고, vxe 가 그 넘친 크기를 다시 재면서
+      **표가 몇 번에 걸쳐 길어진다**(실측 815 → 827 → 831px, 왼쪽 그리드는 807px).
 
-        <template #bodyCell="{ column, record }">
-          <template v-if="column.key === 'action_filter' || column.key === 'action_group' || column.key === 'action'">
-            <Button type="link" danger size="small" @click="handleRemove(record.id)">
-              <template #icon>
-                <IconifyIcon class="size-3.5 mr-0.5 inline" icon="lucide:trash-2" />
-              </template>
-              해제
-            </Button>
+      클래스 병합이 tailwind-merge 라 `h-auto` 가 `h-full` 을 밀어낸다.
+      그러면 `flex-1` 이 남은 높이를 정확히 준다.
+    -->
+    <Grid class="h-auto min-h-0 flex-1">
+      <template #action="{ row }">
+        <Button danger size="small" type="link" @click="handleRemove(row.id)">
+          <template #icon>
+            <IconifyIcon class="mr-0.5 inline size-3.5" icon="lucide:trash-2" />
           </template>
-        </template>
-      </Table>
-    </div>
+          해제
+        </Button>
+      </template>
+    </Grid>
 
     <!-- 사용자 추가 모달 (사용자 검색 팝업) -->
     <Modal
       v-model:open="isModalVisible"
       title="역할에 사용자 추가 지정"
-      width="840px"
+      width="900px"
       @ok="handleAssignConfirm"
     >
       <div class="py-1">
-        <!-- 팝업 내 필터 가이드 및 버튼 영역 -->
-        <div class="flex justify-between items-center mb-2">
-          <span class="text-xs text-slate-500">
-            총 {{ eligibleUsers.length }}명 중 {{ filteredEligibleUsers.length }}명 표시됨
-            <template v-if="selectedRowKeys.length > 0">
-              (선택: <span class="text-blue-600 font-semibold">{{ selectedRowKeys.length }}</span>명)
-            </template>
-          </span>
-          <div class="flex items-center gap-1">
-            <Tooltip title="새로고침 (재조회)">
-              <Button size="small" :loading="loadingEligible" @click="fetchEligibleUsers">
-                <template #icon>
-                  <IconifyIcon icon="lucide:refresh-cw" class="size-3.5 inline-block" />
-                </template>
-              </Button>
-            </Tooltip>
-            <Tooltip title="필터 초기화">
-              <Button size="small" @click="resetEligibleFilter">
-                <template #icon>
-                  <IconifyIcon icon="lucide:filter-x" class="size-3.5 inline-block" />
-                </template>
-              </Button>
-            </Tooltip>
-          </div>
-        </div>
-
-        <Table
-          :columns="eligibleColumns"
-          :data-source="filteredEligibleUsers"
-          :loading="loadingEligible"
-          :row-selection="{ selectedRowKeys: selectedRowKeys, onChange: onSelectChange, columnWidth: 48 }"
-          :pagination="false"
-          :scroll="{ y: 380 }"
-          :virtual="true"
-          row-key="id"
-          size="middle"
-          bordered
-          class="custom-modal-table"
-        >
-          <!-- 2줄 헤더: 1행(컬럼 타이틀) / 2행(별도 필터 Row) -->
-          <template #headerCell="{ column }">
-            <!-- 1행: 컬럼 타이틀 -->
-            <template v-if="column.key === 'loginId_group'">사용자 ID</template>
-            <template v-else-if="column.key === 'userName_group'">사용자명</template>
-            <template v-else-if="column.key === 'companyName_group'">소속 회사</template>
-            <template v-else-if="column.key === 'deptName_group'">소속 부서</template>
-            <template v-else-if="column.key === 'roles_group'">할당된 역할</template>
-
-            <!-- 2행: 독립된 필터 입력 Row -->
-            <template v-else-if="column.key === 'loginId_filter'">
-              <Input
-                v-model:value="eligibleFilter.loginId"
-                placeholder="ID 검색"
-                size="small"
-                allow-clear
-                class="text-xs"
-              />
-            </template>
-            <template v-else-if="column.key === 'userName_filter'">
-              <Input
-                v-model:value="eligibleFilter.userName"
-                placeholder="이름 검색"
-                size="small"
-                allow-clear
-                class="text-xs"
-              />
-            </template>
-            <template v-else-if="column.key === 'companyName_filter'">
-              <Select
-                v-model:value="eligibleFilter.companyName"
-                :options="eligibleCompanyOptions"
-                placeholder="전체"
-                size="small"
-                allow-clear
-                class="w-full text-xs"
-              />
-            </template>
-            <template v-else-if="column.key === 'deptName_filter'">
-              <Select
-                v-model:value="eligibleFilter.deptName"
-                :options="eligibleDeptOptions"
-                placeholder="전체"
-                size="small"
-                allow-clear
-                class="w-full text-xs"
-              />
-            </template>
-            <template v-else-if="column.key === 'roles_filter'">
-              <Select
-                v-model:value="eligibleFilter.roleName"
-                :options="eligibleRoleOptions"
-                placeholder="전체"
-                size="small"
-                allow-clear
-                class="w-full text-xs"
-              />
-            </template>
+        <EligibleGrid>
+          <template #roles="{ row }">
+            <div class="flex flex-wrap items-center justify-center gap-1">
+              <template v-if="row.roles && row.roles.length > 0">
+                <Tag v-for="r in row.roles" :key="r" color="blue" class="m-0">
+                  {{ r }}
+                </Tag>
+              </template>
+              <span v-else class="text-slate-300">-</span>
+            </div>
           </template>
-
-          <template #bodyCell="{ column, record }">
-            <template v-if="column.key === 'roles_filter' || column.key === 'roles_group' || column.dataIndex === 'roleNames'">
-              <div class="flex flex-wrap gap-1 justify-center items-center">
-                <template v-if="record.roles && record.roles.length > 0">
-                  <Tag v-for="r in record.roles" :key="r" color="blue" class="m-0 text-xs">
-                    {{ r }}
-                  </Tag>
-                </template>
-                <span v-else class="text-slate-300 text-xs">-</span>
-              </div>
-            </template>
-          </template>
-        </Table>
+        </EligibleGrid>
       </div>
     </Modal>
   </div>
 </template>
-
-<style lang="css" scoped>
-.custom-table :deep(.ant-table-pagination),
-.custom-modal-table :deep(.ant-table-pagination) {
-  margin: 12px 16px;
-}
-
-/* 모달 테이블 가로 스크롤 방지 */
-.custom-modal-table :deep(.ant-table-body),
-.custom-modal-table :deep(.ant-table-header),
-.custom-modal-table :deep(.ant-table-content),
-.custom-modal-table :deep(.ant-table-container) {
-  overflow-x: hidden !important;
-}
-
-/* 헤더 1행(타이틀) 스타일 */
-:deep(.ant-table-thead > tr:first-child > th) {
-  text-align: center;
-  font-weight: 600;
-  background-color: #fafafa;
-}
-
-/* 헤더 2행(필터 row) 스타일 */
-:deep(.ant-table-thead > tr:nth-child(2) > th) {
-  padding: 4px 6px !important;
-  background-color: #f8fafc;
-}
-</style>

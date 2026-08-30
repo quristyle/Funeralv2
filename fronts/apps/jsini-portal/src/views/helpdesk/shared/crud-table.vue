@@ -1,11 +1,20 @@
 <script lang="ts" setup generic="T extends { id: number }">
-import { computed, onMounted, reactive, ref } from 'vue';
+import {
+  Comment,
+  computed,
+  Fragment,
+  onMounted,
+  reactive,
+  ref,
+  Text,
+  useSlots,
+  watch,
+} from 'vue';
 
 import {
   Button,
   Card,
   DatePicker,
-  Empty,
   Form,
   FormItem,
   Input,
@@ -15,14 +24,30 @@ import {
   Popconfirm,
   Select,
   Space,
-  Table,
 } from 'ant-design-vue';
+
+import { useVbenVxeGrid } from '#/adapter/vxe-table';
 
 /**
  * 헬프데스크 조직 화면들이 공유하는 단순 CRUD 표.
  *
  * 회사·팀·담당자·고객 화면이 모두 "목록 + 키워드 검색 + 모달 폼 + 삭제" 라는 같은 모양이라
  * 화면마다 같은 코드를 네 번 쓰지 않고 이 컴포넌트에 필드 정의만 넘긴다.
+ *
+ * ------------------------------------------------------------
+ * [2026-08-30] ant-design-vue `<Table>` 에서 `useVbenVxeGrid` 로 옮겼다.
+ * 정렬·필터는 공통 레이어(`adapter/vxe-grid-features.ts`)가 붙인다.
+ *
+ * **부모가 쓰는 것은 하나도 바뀌지 않았다** — props(`columns` 은 여전히
+ * ant-design-vue 규격이다) · `cell` 슬롯(`{ column, record, text }`) ·
+ * `defineExpose({ loadData })` 가 그대로다. 담당자·팀·프로젝트 화면 셋은
+ * 한 줄도 고치지 않았다.
+ *
+ * 그러려면 antd `#bodyCell` 의 버릇 하나를 그대로 흉내내야 했다 —
+ * **부모 슬롯이 그 칸을 채우지 않으면 값을 그대로 그린다.** 부모는 자기가
+ * 아는 `column.key` 에서만 무언가를 그리고 나머지는 비워 두기 때문이다.
+ * `renderCell` 이 그 판단을 한다.
+ * ------------------------------------------------------------
  */
 
 /** 폼에 그릴 입력 필드 정의 */
@@ -52,6 +77,8 @@ const props = defineProps<{
   update: (id: number, data: Record<string, any>) => Promise<unknown>;
 }>();
 
+const slots = useSlots();
+
 const loading = ref(false);
 const saving = ref(false);
 const rows = ref<T[]>([]) as any;
@@ -78,6 +105,132 @@ const filteredRows = computed(() => {
 const visibleFields = computed(() =>
   props.fields.filter((f) => !f.createOnly || !isEdit.value),
 );
+
+// ============================================================
+// 표
+// ============================================================
+
+/** antd 의 `dataIndex` 를 vxe 의 `field` 로. 배열 경로(`['team','name']`)는 점으로 잇는다. */
+function fieldOf(column: Record<string, any>) {
+  const index = column.dataIndex;
+  if (Array.isArray(index)) return index.join('.');
+  if (index === undefined || index === null) return String(column.key ?? '');
+  return String(index);
+}
+
+/** 그 칸의 값. antd `#bodyCell` 의 `text` 와 같은 것이다. */
+function rawValue(row: any, column: Record<string, any>) {
+  const index = column.dataIndex;
+  if (index === undefined || index === null) return undefined;
+  const path = Array.isArray(index) ? index : String(index).split('.');
+  return path.reduce(
+    (acc: any, key: any) => (acc === null || acc === undefined ? undefined : acc[key]),
+    row,
+  );
+}
+
+/**
+ * 값을 사람이 보는 글자로 편다.
+ * 중첩 객체·배열(소속 팀 목록 등)도 필터가 훑을 수 있게 한 겹 더 펴 준다.
+ */
+function cellText(value: any, depth = 0): string {
+  if (value === null || value === undefined) return '';
+  if (Array.isArray(value)) {
+    return value.map((v) => cellText(v, depth)).join(' ');
+  }
+  if (typeof value === 'object') {
+    if (depth >= 2) return '';
+    return Object.values(value)
+      .map((v) => cellText(v, depth + 1))
+      .join(' ');
+  }
+  return String(value);
+}
+
+/**
+ * 부모 슬롯이 실제로 무언가를 그렸는가.
+ *
+ * 부모는 `<template v-if="column.key === 'createdAt'">` 처럼 자기가 아는 칸에서만
+ * 그린다. 걸리지 않은 칸에는 `v-if` 자리표시자(주석 노드)만 남는데, 그걸
+ * "그린 것"으로 보면 나머지 칸이 전부 빈칸이 된다.
+ */
+function hasContent(nodes: any): boolean {
+  if (nodes === null || nodes === undefined || nodes === false) return false;
+  if (Array.isArray(nodes)) return nodes.some((node) => hasContent(node));
+  if (typeof nodes === 'string' || typeof nodes === 'number') {
+    return String(nodes).trim() !== '';
+  }
+  if (typeof nodes !== 'object') return false;
+  if (nodes.type === Comment) return false;
+  if (nodes.type === Text) return String(nodes.children ?? '').trim() !== '';
+  if (nodes.type === Fragment) return hasContent(nodes.children);
+  return true;
+}
+
+/** 값 칸 하나를 그린다. 부모가 채우지 않으면 값을 그대로 쓴다(antd 와 같다). */
+function renderCell(column: Record<string, any>, row: any) {
+  const text = rawValue(row, column);
+  const filled = slots.cell?.({ column, record: row, text });
+  return hasContent(filled) ? filled : [cellText(text)];
+}
+
+/** 부모가 준 antd 컬럼 + 맨 뒤의 작업 버튼 칸. */
+const gridColumns = computed(() => {
+  const columns = props.columns.map((column) => {
+    const field = fieldOf(column);
+    // `dataIndex` 가 없는 칸은 값이 아니라 버튼·링크를 그리는 칸이다(프로젝트 '바로가기').
+    const isValue = column.dataIndex !== undefined && column.dataIndex !== null;
+
+    return {
+      align: column.align,
+      field,
+      params: isValue
+        ? { filterText: (row: any) => cellText(rawValue(row, column)) }
+        : { filter: false, sort: false },
+      slots: { default: ({ row }: any) => renderCell(column, row) },
+      title: column.title,
+      // vxe 는 너비를 안 주면 칸이 눌린다.
+      ...(column.width ? { width: column.width } : { minWidth: 140 }),
+    };
+  });
+
+  // `field: 'action'` 이라 공통 레이어가 정렬·필터에서 알아서 뺀다.
+  columns.push({
+    field: 'action',
+    slots: { default: 'action' },
+    title: '',
+    width: 120,
+  } as any);
+
+  return columns;
+});
+
+const [Grid, gridApi] = useVbenVxeGrid({
+  // `gridFeatures` 는 vxe 타입에 없다(공통 레이어가 읽고 떼어 낸다). 그래서 `as any`.
+  gridOptions: {
+    columns: gridColumns.value,
+    // 행 배열은 `:table-data` 로 간다. 여기 `[]` 는 검색 결과가 비었을 때
+    // 표를 비우기 위한 바탕값이다(프레임워크가 빈 배열은 넘겨 주지 않는다).
+    data: [],
+    emptyText: `등록된 ${props.entityName}이(가) 없습니다.`,
+    // 재조회 아이콘 — `:table-data` 라 그리드가 조회 방법을 모른다.
+    // 위쪽 '새로고침' 과 `defineExpose` 로 내주는 것과 같은 함수다.
+    gridFeatures: { onRefresh: () => loadData() },
+    height: 'auto',
+    // 전량 조회다. 페이저를 켜 두면 vxe 가 응답을 `{result,page}` 로 읽어 한 줄도 안 나온다.
+    pagerConfig: { enabled: false },
+    rowConfig: { keyField: 'id' },
+  } as any,
+});
+
+// 컬럼을 계산해서 넘기는 화면이 나올 수 있다. 바뀌면 다시 심는다.
+watch(gridColumns, (columns) => gridApi.setGridOptions({ columns }));
+
+watch(loading, (value) => gridApi.setLoading(value));
+
+// ============================================================
+// 조회 · 편집
+// ============================================================
 
 async function loadData() {
   loading.value = true;
@@ -153,7 +306,12 @@ defineExpose({ loadData });
 </script>
 
 <template>
-  <div>
+  <!--
+    부모 화면은 `<Page auto-content-height>` 만 주고 `page-fill-last` 는 주지 않는다.
+    그래서 여기서 스스로 "조회 줄 + 남은 높이를 채우는 표" 가 된다(준수사항 4).
+    모바일에서는 그 규칙을 풀어 일반 흐름으로 둔다 — page-fill-last 와 같은 기준이다.
+  -->
+  <div class="md:flex md:h-full md:min-h-0 md:flex-col">
     <Card class="mb-3" size="small">
       <div class="flex flex-wrap items-center justify-between gap-2">
         <Space>
@@ -171,45 +329,25 @@ defineExpose({ loadData });
       </div>
     </Card>
 
-    <Card :body-style="{ padding: 0 }" size="small">
-      <Table
-        :columns="[...columns, { key: 'action', title: '', width: 120 }]"
-        :data-source="filteredRows"
-        :loading="loading"
-        row-key="id"
-        size="small"
-      >
-        <template #emptyText>
-          <Empty :description="`등록된 ${entityName}이(가) 없습니다.`" />
-        </template>
-
-        <template #bodyCell="{ column, record, text }">
-          <template v-if="column.key === 'action'">
-            <Space>
-              <Button
-                v-perm:update
-                size="small"
-                type="link"
-                @click="openEdit(record)"
-              >
-                수정
-              </Button>
-              <Popconfirm
-                v-perm:delete
-                cancel-text="취소"
-                ok-text="삭제"
-                :title="`${entityName}을(를) 삭제할까요?`"
-                @confirm="onDelete(record)"
-              >
-                <Button danger size="small" type="link">삭제</Button>
-              </Popconfirm>
-            </Space>
-          </template>
-          <!-- 화면마다 다른 셀은 부모가 채워 넣는다 -->
-          <slot :column="column" name="cell" :record="record" :text="text" />
-        </template>
-      </Table>
-    </Card>
+    <!-- `md:h-auto` 는 그리드 기본값인 `h-full` 을 풀어 준다(page-fill-last 와 같은 처방). -->
+    <Grid class="md:h-auto md:min-h-0 md:flex-1" :table-data="filteredRows">
+      <template #action="{ row }">
+        <Space>
+          <Button v-perm:update size="small" type="link" @click="openEdit(row)">
+            수정
+          </Button>
+          <Popconfirm
+            v-perm:delete
+            cancel-text="취소"
+            ok-text="삭제"
+            :title="`${entityName}을(를) 삭제할까요?`"
+            @confirm="onDelete(row)"
+          >
+            <Button danger size="small" type="link">삭제</Button>
+          </Popconfirm>
+        </Space>
+      </template>
+    </Grid>
 
     <Modal
       v-model:open="modalOpen"
