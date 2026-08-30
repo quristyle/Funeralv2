@@ -14,6 +14,8 @@ public class RoleUserDto
     public string? Phone { get; set; }
     public string? DeptName { get; set; }
     public string? CompanyName { get; set; }
+    public List<string> Roles { get; set; } = new();
+    public string? RoleNames { get; set; }
 }
 
 /// <summary>

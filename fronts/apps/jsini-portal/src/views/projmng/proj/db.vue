@@ -19,14 +19,8 @@ import { Page } from '@vben/common-ui';
 
 import { Button } from 'ant-design-vue';
 
-import {
-  CodeEditor,
-  CodeSelect,
-  DynamicGrid,
-  SearchBar,
-  SplitPane,
-  useProcGrid,
-} from '../shared';
+import { CodeSelect, DynamicGrid, SearchBar, SplitPane, useProcGrid } from '../shared';
+import { CodeEditor } from '#/components/code-editor';
 
 const projectCode = ref('');
 const selectedDb = ref<null | ProjMngRow>(null);

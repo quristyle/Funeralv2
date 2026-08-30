@@ -21,14 +21,8 @@ import { Button, message } from 'ant-design-vue';
 
 import { mdCont } from '#/api/projmng';
 
-import {
-  CodeEditor,
-  CodeSelect,
-  DynamicGrid,
-  SearchBar,
-  SplitPane,
-  useProcGrid,
-} from '../shared';
+import { CodeSelect, DynamicGrid, SearchBar, SplitPane, useProcGrid } from '../shared';
+import { CodeEditor } from '#/components/code-editor';
 
 const projectCode = ref('');
 const sourceCode = ref('');

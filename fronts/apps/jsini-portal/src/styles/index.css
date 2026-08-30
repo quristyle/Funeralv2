@@ -57,16 +57,24 @@
  * 전역으로 바꿨더니 안쪽에서 높이를 다시 계산하는 화면들이 망가졌다
  * (내 댓글 화면이 24,000px 로 늘어났다).
  */
-.page-fill-last {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-}
+/*
+ * "한 화면에 담기"(준수사항 4)는 **데스크톱 한정**이다 (40번 문서).
+ * 모바일(<768px, vben isMobile 기준과 동일)에서는 세로가 짧아 마지막 자식(그리드)이
+ * 수십 px 로 압착되거나 컨테이너를 뚫었다. 모바일에서는 이 규칙을 풀어
+ * 일반 흐름 + 페이지 세로 스크롤로 동작하게 한다.
+ */
+@media (min-width: 768px) {
+  .page-fill-last {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
 
-.page-fill-last > :last-child {
-  flex: 1 1 0%;
-  min-height: 0;
-  height: auto;
+  .page-fill-last > :last-child {
+    flex: 1 1 0%;
+    min-height: 0;
+    height: auto;
+  }
 }
 
 

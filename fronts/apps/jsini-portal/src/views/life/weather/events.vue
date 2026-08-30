@@ -230,13 +230,14 @@ onMounted(() => {
     <!-- 오늘의 발생 타임라인 -->
     <div class="bg-card mb-4 rounded border p-3">
       <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
-        <div class="flex items-center gap-2">
+        <!-- 모바일에서는 줄바꿈으로 잘림을 막는다 -->
+        <div class="flex flex-wrap items-center gap-2">
           <span class="text-sm font-bold">오늘 발생 타임라인</span>
           <Select
             v-model:value="timelineLocationId"
             :options="locations.map((l) => ({ label: l.name, value: l.id }))"
             allow-clear
-            class="w-40"
+            class="w-40 max-w-full"
             placeholder="전체 지역"
             size="small"
             @change="fetchTimeline"

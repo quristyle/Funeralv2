@@ -75,6 +75,13 @@ const COMPLETION_OPTIONS = [
 
 const DAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
 
+/**
+ * 마지막으로 탭(클릭)한 달력 칸.
+ * 모바일은 더블탭이 불편해서, 칸을 한 번 탭해 날짜를 고른 뒤
+ * 도구줄의 [일정 등록] 버튼으로 등록한다 (데스크톱 더블클릭은 그대로 둔다).
+ */
+const selectedDate = ref<null | string>(null);
+
 const modalOpen = ref(false);
 const editing = reactive<{
   companyId: number | undefined;
@@ -274,7 +281,8 @@ function goToday() {
 }
 
 function openCreate(date?: string) {
-  const day = date ?? toIsoDate(new Date());
+  // 날짜를 안 주면 마지막으로 탭한 칸(없으면 오늘)으로 연다.
+  const day = date ?? selectedDate.value ?? toIsoDate(new Date());
   Object.assign(editing, {
     companyId: undefined,
     completedDate: undefined,
@@ -378,6 +386,8 @@ async function quickDelete(s: Schedule) {
 }
 
 // ── 드래그 앤 드롭 ────────────────────────────────────────
+// HTML5 drag&drop 은 모바일 브라우저에서 dragstart 자체가 안 떠서 데스크톱 전용이다.
+// 모바일은 일정을 탭해 편집 팝업을 열고 시작일·종료일 DatePicker 로 날짜를 바꾼다.
 
 const dragging = ref<{ fromDate: string; schedule: Schedule } | null>(null);
 /** 드롭 대상으로 지나가는 칸. 하이라이트에 쓴다. */
@@ -512,6 +522,7 @@ onMounted(async () => {
               {{ opt.label }}
             </RadioButton>
           </RadioGroup>
+          <!-- 마지막으로 탭한 날짜(없으면 오늘)로 연다 — 모바일의 단일 탭 등록 경로 -->
           <Button v-perm:create type="primary" @click="openCreate()">
             일정 등록
           </Button>
@@ -543,6 +554,8 @@ onMounted(async () => {
               {{ label }}
             </div>
 
+            <!-- 데스크톱은 빈 칸 더블클릭으로 바로 등록,
+                 모바일은 칸을 한 번 탭해 고른 뒤 도구줄의 [일정 등록]을 누른다 -->
             <div
               v-for="cell in calendarDays"
               :key="cell.date"
@@ -550,7 +563,9 @@ onMounted(async () => {
               :class="[
                 cell.isCurrentMonth ? 'bg-background' : 'bg-muted/30 opacity-60',
                 dragOverDate === cell.date ? 'ring-2 ring-primary' : '',
+                selectedDate === cell.date ? 'ring-1 ring-primary/60' : '',
               ]"
+              @click="selectedDate = cell.date"
               @dblclick="openCreate(cell.date)"
               @dragleave="onDragLeave"
               @dragover.prevent="onDragOver(cell.date)"
@@ -665,9 +680,9 @@ onMounted(async () => {
                   </div>
                 </div>
 
-                <!-- 마우스를 올리면 보이는 퀵 액션 -->
+                <!-- 마우스를 올리면 보이는 퀵 액션 — hover 가 없는 모바일(<768px)에서는 항상 보인다 -->
                 <div
-                  class="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100"
+                  class="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 max-md:opacity-100"
                 >
                   <Button
                     v-perm:update

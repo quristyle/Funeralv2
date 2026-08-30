@@ -463,11 +463,26 @@ const headerSlots = computed(() => {
 });
 
 // 헤더와 탭바 높이를 감산한 동적 뷰포트 높이 계산식
+//
+// 모바일 보정 둘 (우리 수정 — 40번 문서. 상위에 같은 수정이 있는지 확인 전):
+//  · 100vh → 100dvh. 모바일 브라우저는 주소창이 접혔다 펴지며 100vh 와 실제
+//    가시 높이가 어긋나는데, 바깥이 overflow-hidden 이라 어긋난 만큼 하단이
+//    잘려 접근 불가가 된다. dvh 는 그 변동을 따라간다 (미지원 브라우저는 vh 폴백).
+//  · 모바일에서는 탭바를 그리지 않으므로(아래 tabbarVisible) 높이에서도 빼지 않는다.
+const supportsDvh =
+  typeof CSS !== 'undefined' && CSS.supports?.('height', '100dvh');
+
+// 탭바는 데스크톱 전용이다. 모바일에서 38px 띠 + 새로고침·최대화 버튼은
+// 자리만 차지하고, 화면 전환은 사이드바(드로어)가 맡는다.
+const tabbarVisible = computed(
+  () => preferences.tabbar.enable && !preferences.app.isMobile,
+);
+
 const contentHeightStyle = computed(() => {
   const headerHeight = preferences.header.enable ? preferences.header.height : 0;
-  const tabbarHeight = preferences.tabbar.enable ? preferences.tabbar.height : 0;
+  const tabbarHeight = tabbarVisible.value ? preferences.tabbar.height : 0;
   return {
-    height: `calc(100vh - ${headerHeight + tabbarHeight}px)`,
+    height: `calc(${supportsDvh ? '100dvh' : '100vh'} - ${headerHeight + tabbarHeight}px)`,
   };
 });
 
@@ -565,7 +580,7 @@ function startResize(e: MouseEvent) {
     :sidebar-width="preferences.sidebar.width"
     :side-collapse-width="preferences.sidebar.collapseWidth"
     :sidebar-logo-visible="preferences.logo.enable"
-    :tabbar-enable="preferences.tabbar.enable"
+    :tabbar-enable="tabbarVisible"
     :tabbar-height="preferences.tabbar.height"
     :z-index="preferences.app.zIndex"
     @side-mouse-leave="handleSideMouseLeave"
@@ -869,8 +884,9 @@ function startResize(e: MouseEvent) {
     </template>
 
     <template #tabbar>
+      <!-- 모바일에서는 탭바를 숨긴다 — contentHeightStyle 의 tabbarVisible 과 짝 -->
       <LayoutTabbar
-        v-if="preferences.tabbar.enable"
+        v-if="tabbarVisible"
         :show-icon="preferences.tabbar.showIcon"
         :theme="theme"
       />

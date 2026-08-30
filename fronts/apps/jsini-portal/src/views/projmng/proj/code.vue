@@ -20,13 +20,8 @@ import { Button, Input } from 'ant-design-vue';
 
 import { jsProcDb, rawSql } from '#/api/projmng';
 
-import {
-  CodeEditor,
-  CodeSelect,
-  DynamicGrid,
-  SearchBar,
-  SplitPane,
-} from '../shared';
+import { CodeSelect, DynamicGrid, SearchBar, SplitPane } from '../shared';
+import { CodeEditor } from '#/components/code-editor';
 
 const projectCode = ref('');
 const dbCode = ref('');

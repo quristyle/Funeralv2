@@ -164,17 +164,20 @@ onMounted(() => {
 <template>
   <Page auto-content-height>
     <div class="flex h-full flex-col gap-3 overflow-hidden">
-      <!-- 머리 -->
-      <div class="bg-card border-border flex items-center justify-between rounded-lg border p-3">
+      <!-- 머리 (모바일에서는 줄바꿈으로 잘림을 막는다) -->
+      <div
+        class="bg-card border-border flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3"
+      >
         <h2 class="flex items-center gap-2 text-lg font-bold text-red-600">
           <IconifyIcon class="size-5" icon="lucide:alert-triangle" />
           기상 특보 현황
         </h2>
-        <Space>
+        <Space wrap>
           <Select
             v-model:value="searchCommand"
             :options="commandOptions"
             allow-clear
+            class="max-w-full"
             placeholder="명령 필터"
             style="width: 160px"
           />

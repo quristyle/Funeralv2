@@ -44,6 +44,9 @@ function attach(header: HTMLElement) {
   header.setAttribute(MARK, '');
   header.style.cursor = 'move';
   header.style.userSelect = 'none';
+  // 터치에서 손가락을 끌면 브라우저가 스크롤로 가로채 pointermove 가
+  // pointercancel 로 끊긴다. 헤더에서는 브라우저 제스처를 끈다 (40번 문서).
+  header.style.touchAction = 'none';
 
   const offset: Offset = { x: 0, y: 0 };
 
@@ -79,10 +82,19 @@ function attach(header: HTMLElement) {
     const onPointerUp = () => {
       window.removeEventListener('pointermove', onPointerMove);
       window.removeEventListener('pointerup', onPointerUp);
+      window.removeEventListener('pointercancel', onPointerUp);
     };
+
+    // 터치가 헤더 밖으로 나가도 move 를 계속 받도록 포인터를 붙잡아 둔다.
+    try {
+      header.setPointerCapture(event.pointerId);
+    } catch {
+      // 지원하지 않는 브라우저는 window 리스너만으로 동작한다
+    }
 
     window.addEventListener('pointermove', onPointerMove);
     window.addEventListener('pointerup', onPointerUp);
+    window.addEventListener('pointercancel', onPointerUp);
   };
 
   header.addEventListener('pointerdown', onPointerDown);

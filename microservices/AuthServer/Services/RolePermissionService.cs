@@ -36,7 +36,22 @@ public class RolePermissionService : IRolePermissionService
             .Include(a => a.ProfileDetails)
             .ToListAsync();
 
-        return MapAccountsToDto(accounts);
+        var accountIds = accounts.Select(a => a.Id).ToList();
+        var accountRoles = await (
+            from ra in _db.RoleAccounts
+            join r in _db.Roles on ra.RoleId equals r.Id
+            where accountIds.Contains(ra.AccountId) && !r.IsDeleted
+            select new { ra.AccountId, RoleName = r.Name }
+        ).ToListAsync();
+
+        var roleMap = accountRoles
+            .GroupBy(x => x.AccountId)
+            .ToDictionary(
+                g => g.Key,
+                g => g.Select(x => x.RoleName).Where(name => !string.IsNullOrEmpty(name)).Distinct().ToList()
+            );
+
+        return MapAccountsToDto(accounts, roleMap);
     }
 
     /// <summary>특정 역할에 지정 가능한(아직 해당 역할이 없는) 전체 계정 목록 조회</summary>
@@ -54,7 +69,22 @@ public class RolePermissionService : IRolePermissionService
             .Include(a => a.ProfileDetails)
             .ToListAsync();
 
-        return MapAccountsToDto(accounts);
+        var accountIds = accounts.Select(a => a.Id).ToList();
+        var accountRoles = await (
+            from ra in _db.RoleAccounts
+            join r in _db.Roles on ra.RoleId equals r.Id
+            where accountIds.Contains(ra.AccountId) && !r.IsDeleted
+            select new { ra.AccountId, RoleName = r.Name }
+        ).ToListAsync();
+
+        var roleMap = accountRoles
+            .GroupBy(x => x.AccountId)
+            .ToDictionary(
+                g => g.Key,
+                g => g.Select(x => x.RoleName).Where(name => !string.IsNullOrEmpty(name)).Distinct().ToList()
+            );
+
+        return MapAccountsToDto(accounts, roleMap);
     }
 
     /// <summary>특정 역할에 사용자 계정들을 매핑</summary>
@@ -268,12 +298,13 @@ public class RolePermissionService : IRolePermissionService
         await _db.SaveChangesAsync();
     }
 
-    private List<RoleUserDto> MapAccountsToDto(List<Account> accounts)
+    private List<RoleUserDto> MapAccountsToDto(List<Account> accounts, Dictionary<string, List<string>>? roleMap = null)
     {
         return accounts.Select(a =>
         {
             var emailDetail = a.ProfileDetails?.FirstOrDefault(p => p.DetailType == "Email");
             var phoneDetail = a.ProfileDetails?.FirstOrDefault(p => p.DetailType == "Phone");
+            var roles = (roleMap != null && roleMap.TryGetValue(a.Id, out var rList)) ? rList : new List<string>();
 
             return new RoleUserDto
             {
@@ -283,7 +314,9 @@ public class RolePermissionService : IRolePermissionService
                 Email = emailDetail?.Content,
                 Phone = phoneDetail?.Content,
                 CompanyName = a.Company?.Name,
-                DeptName = a.Department?.Name
+                DeptName = a.Department?.Name,
+                Roles = roles,
+                RoleNames = roles.Any() ? string.Join(", ", roles) : string.Empty
             };
         }).ToList();
     }

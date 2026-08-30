@@ -10,6 +10,10 @@
  *
  * 원본은 Radzen Scheduler 를 썼는데 포털에 그 부품이 없다. 달력은 직접 그렸다 —
  * 원본이 실제로 쓰던 것은 월 뷰와 상태별 색, 드래그 이동뿐이라 옮기는 데 무리가 없었다.
+ *
+ * 모바일(터치) 대응: HTML5 drag&drop 과 더블클릭은 모바일 브라우저에서 안 되므로,
+ * 칸을 한 번 탭해 날짜를 고른 뒤 도구줄의 [일정 등록]으로 새 일정을 만들고,
+ * 날짜 이동은 일정 탭 → 편집 팝업의 계획 시작·종료 DatePicker 로 한다.
  */
 import type { ProjMngRow } from '#/api/projmng';
 
@@ -38,6 +42,13 @@ const loading = ref(false);
 const formOpen = ref(false);
 const editing = ref<null | ProjMngRow>(null);
 const draftStart = ref<null | string>(null);
+
+/**
+ * 마지막으로 탭(클릭)한 달력 칸.
+ * 모바일은 더블탭이 불편해서, 칸을 한 번 탭해 날짜를 고른 뒤
+ * 도구줄의 [일정 등록] 버튼으로 등록한다 (데스크톱 더블클릭은 그대로 둔다).
+ */
+const selectedDate = ref<dayjs.Dayjs | null>(null);
 
 /** 상태별 색. 원본이 쓰던 의미(준비/진행/지연/완료)를 그대로 옮겼다. */
 const STATE_STYLE: Record<string, string> = {

@@ -15,7 +15,8 @@ import { Page } from '@vben/common-ui';
 
 import { Alert, Card } from 'ant-design-vue';
 
-import { CodeEditor, CodeSelect, SearchBar } from '../shared';
+import { CodeSelect, SearchBar } from '../shared';
+import { CodeEditor } from '#/components/code-editor';
 
 const sample = ref('-- 공용 편집기 부품\nselect 1;');
 const code = ref('');

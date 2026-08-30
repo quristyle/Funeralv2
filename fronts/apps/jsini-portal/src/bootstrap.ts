@@ -1,7 +1,10 @@
 import { createApp, watchEffect } from 'vue';
 
 import { registerAccessDirective } from '@vben/access';
-import { registerLoadingDirective } from '@vben/common-ui';
+import {
+  registerLoadingDirective,
+  setDefaultModalProps,
+} from '@vben/common-ui';
 import { providePluginsOptions } from '@vben/plugins';
 import { preferences } from '@vben/preferences';
 import { initStores } from '@vben/stores';
@@ -36,10 +39,15 @@ async function bootstrap(namespace: string) {
     form: { useVbenForm },
   });
 
-  // 모달 기본 설정
-  // setDefaultModalProps({
-  //   fullscreenButton: false,
-  // });
+  // 모달 기본 설정 — 모바일은 전체 화면으로 연다 (40번 문서).
+  // 화면들이 준 w-[720px] 같은 고정 폭은 프레임워크가 clamp 하지만,
+  // 모달 **내부**의 2단 배치·고정폭 자식까지는 못 구한다. 전체 화면이 안전하다.
+  // 부팅 시점 판정이다 — 회전으로 폭이 바뀌면 새 모달부터 반영된다.
+  if (window.matchMedia('(max-width: 767px)').matches) {
+    setDefaultModalProps({
+      fullscreen: true,
+    });
+  }
   // Drawer 기본 설정
   // setDefaultDrawerProps({
   //   zIndex: 1020,
@@ -56,11 +64,19 @@ async function bootstrap(namespace: string) {
   // pinia-store 설정 (i18n보다 먼저 호출하여 API 호출 시 스토어 접근 가능하게 함)
   await initStores(app, { namespace });
 
-  // DB 메타데이터 기반 BizSelect 설정 프리로드
+  // DB 메타데이터 기반 BizSelect 설정 프리로드.
+  //
+  // **기다리지 않는다** — 첫 화면 렌더 전에 네트워크 왕복 하나가 통째로
+  // 들어가 모바일에서 체감이 컸다 (40번 문서). 스토어의 getConfig 가
+  // 아직 안 실려 있으면 스스로 loadConfigs 를 기다리므로(store:42)
+  // 미리 실는 것은 순수한 예열일 뿐이다.
   try {
     const { useBizSelectStore } = await import('#/store/biz-select-config');
-    const bizSelectStore = useBizSelectStore();
-    await bizSelectStore.loadConfigs();
+    void useBizSelectStore()
+      .loadConfigs()
+      .catch((error) => {
+        console.error('Failed to preload BizSelect configs during bootstrap:', error);
+      });
   } catch (error) {
     console.error('Failed to preload BizSelect configs during bootstrap:', error);
   }

@@ -317,9 +317,43 @@ setupVbenVxeTable({
   },
 });
 
+/**
+ * 모바일(<768px) 보정 — 화면들을 일일이 고치지 않고 여기서 한 번에 처리한다 (40번 문서).
+ *
+ *  · `height: 'auto'` 는 부모가 높이를 주는 데스크톱(page-fill-last) 전제다.
+ *    모바일에서는 page-fill-last 가 풀려(styles/index.css) 부모 높이가 없으므로
+ *    고정 높이로 바꾼다 — common-code 화면이 먼저 쓴 방식(600px)과 같은 결이다.
+ *  · 고정열(fixed)은 375px 에서 데이터 가시 폭을 절반 넘게 잡아먹어 푼다.
+ *    열 자체는 남으므로 가로 스크롤로 닿는다.
+ *
+ * isMobile 은 화면 셋업 시점 값이다 — 화면을 연 채로 창 크기를 바꾸면(회전 등)
+ * 다시 들어와야 반영된다. 그리드 옵션을 반응형으로 갈아끼우면 상태(선택·편집)가
+ * 날아가서 일부러 이렇게 뒀다.
+ */
+function adjustGridForMobile(options: any) {
+  if (!preferences.app.isMobile || !options?.gridOptions) return options;
+
+  const gridOptions = { ...options.gridOptions };
+  if (gridOptions.height === 'auto') {
+    gridOptions.height = 500;
+  }
+  if (Array.isArray(gridOptions.columns)) {
+    gridOptions.columns = gridOptions.columns.map((col: any) =>
+      col?.fixed ? { ...col, fixed: undefined } : col,
+    );
+  }
+  return { ...options, gridOptions };
+}
+
 export const useVbenVxeGrid = <T extends Record<string, any>>(
   ...rest: Parameters<typeof useGrid<T, ComponentType>>
-) => useGrid<T, ComponentType>(...rest);
+) => {
+  const [options, ...others] = rest;
+  return useGrid<T, ComponentType>(
+    adjustGridForMobile(options),
+    ...(others as any[]),
+  );
+};
 
 export type OnActionClickParams<T = Recordable<any>> = {
   code: string;

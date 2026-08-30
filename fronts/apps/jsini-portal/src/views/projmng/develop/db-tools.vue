@@ -25,13 +25,8 @@ import { Button, Input, message, TabPane, Tabs } from 'ant-design-vue';
 
 import { dbCont, jsCont, projDbParams, rawSql } from '#/api/projmng';
 
-import {
-  CodeEditor,
-  CodeSelect,
-  DynamicGrid,
-  SearchBar,
-  SplitPane,
-} from '../shared';
+import { CodeSelect, DynamicGrid, SearchBar, SplitPane } from '../shared';
+import { CodeEditor } from '#/components/code-editor';
 
 const MSSQL_TEMPLATE = [
     'CREATE OR ALTER PROCEDURE {schema}.{name}',

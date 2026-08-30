@@ -22,7 +22,8 @@ import { Alert, Button, Input, TabPane, Tabs, message } from 'ant-design-vue';
 
 import { dbCont, dbSave } from '#/api/projmng';
 
-import { CodeEditor, SearchBar } from '../shared';
+import { SearchBar } from '../shared';
+import { CodeEditor } from '#/components/code-editor';
 
 const PROC = 'sp_dev_excel_exec';
 

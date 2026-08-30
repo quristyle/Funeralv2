@@ -237,13 +237,16 @@ onMounted(fetchLocations);
 <template>
   <Page auto-content-height>
     <div class="flex h-full flex-col gap-3 overflow-hidden">
-      <!-- 도구줄 -->
-      <div class="bg-card border-border flex items-center justify-between rounded-lg border p-3">
+      <!-- 도구줄 (모바일에서는 줄바꿈으로 잘림을 막는다) -->
+      <div
+        class="bg-card border-border flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3"
+      >
         <Space>
           <span class="text-sm font-semibold">지역 선택</span>
           <Select
             v-model:value="selectedLocationId"
             :options="locationOptions"
+            class="max-w-full"
             placeholder="지역 선택"
             style="width: 200px"
           />

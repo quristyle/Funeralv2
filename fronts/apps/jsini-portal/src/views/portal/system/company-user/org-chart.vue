@@ -138,6 +138,92 @@ async function submitAddDept() {
   }
 }
 
+// ─────────────────────────────────────────────────────────────
+// 이동 팝업 — 드래그의 터치(모바일) 대체 경로
+//
+// HTML5 drag&drop 은 모바일 브라우저에서 동작하지 않는다. 그래서 노드마다
+// [이동] 버튼을 두고, 대상 부서를 고르는 팝업에서 **드롭이 부르던 것과 같은
+// API**(moveDept · moveUserDept)를 부른다. 드래그는 그대로 있다 —
+// 데스크톱에서는 둘 다 되고, 버튼 쪽이 접근성도 낫다.
+// ─────────────────────────────────────────────────────────────
+
+/** 이동 팝업에서 '회사 직속' 을 뜻하는 선택값. 부서를 옮길 때만 나온다. */
+const MOVE_TO_COMPANY = '__COMPANY__';
+
+const moveOpen = ref<boolean>(false);
+const moveSaving = ref<boolean>(false);
+/** 무엇을 옮기는가. 부서 노드·사용자 노드·미소속 목록의 행이 모두 여기로 온다. */
+const moveSource = ref<null | { type: 'DEPT' | 'USER'; id: string; name: string }>(null);
+/** 어디로 옮기는가. 아직 안 골랐으면 undefined 다. */
+const moveTargetId = ref<string | undefined>(undefined);
+
+/**
+ * 이동 팝업에 보여줄 부서 목록. 이미 받아 둔 조직도 트리를 위에서 아래로 편 것이라
+ * 서버를 다시 부르지 않는다. 부서를 옮길 때는 **자기 자신과 그 하위 전부**를 뺀다 —
+ * 자기 밑으로는 들어갈 수 없다(건너뛰면 재귀도 멈춰 하위가 함께 빠진다).
+ */
+const moveDeptOptions = computed<{ id: string; name: string; depth: number }[]>(() => {
+  const src = moveSource.value;
+  const out: { id: string; name: string; depth: number }[] = [];
+  function walk(nodes: OrgNode[], depth: number) {
+    for (const n of nodes) {
+      if (n.type !== 'DEPT') continue;
+      if (src?.type === 'DEPT' && n.id === src.id) continue;
+      out.push({ id: n.id, name: n.name, depth });
+      walk(n.children, depth + 1);
+    }
+  }
+  if (orgTreeRoot.value) walk(orgTreeRoot.value.children, 0);
+  return out;
+});
+
+/** 이동 팝업을 연다. */
+function openMovePicker(type: 'DEPT' | 'USER', id: string, name: string) {
+  moveSource.value = { type, id, name };
+  moveTargetId.value = undefined;
+  moveOpen.value = true;
+}
+
+async function submitMove() {
+  const src = moveSource.value;
+  if (!src) return;
+  if (moveTargetId.value === undefined) {
+    message.warning('이동할 부서를 선택해 주세요.');
+    return;
+  }
+
+  moveSaving.value = true;
+  try {
+    if (src.type === 'DEPT') {
+      // 드롭 처리(onNodeDrop · onCompanyDrop)와 같은 호출이다.
+      const targetId =
+        moveTargetId.value === MOVE_TO_COMPANY ? undefined : moveTargetId.value;
+      const success = await moveDept(src.id, targetId);
+      if (success) {
+        message.success(
+          targetId
+            ? '부서가 성공적으로 이동되었습니다.'
+            : '부서가 회사의 직속 부서로 이동되었습니다.',
+        );
+      }
+    } else {
+      const success = await moveUserDept(src.id, moveTargetId.value);
+      if (success) {
+        message.success('사용자의 부서 소속이 변경되었습니다.');
+      }
+    }
+    moveOpen.value = false;
+    await loadOrgData();
+    // 미소속 목록에서 옮긴 경우 그 사람은 이제 소속이 있다. 목록을 다시 받는다.
+    if (showUnassigned.value) await fetchUnassignedUsers();
+  } catch (error) {
+    console.error(error);
+    message.error('이동 처리에 실패했습니다.');
+  } finally {
+    moveSaving.value = false;
+  }
+}
+
 // 캔버스 스타일 transform 적용
 const transformStyle = computed(() => {
   return `translate(${panX.value}px, ${panY.value}px) scale(${zoom.value})`;
@@ -458,6 +544,55 @@ function onCanvasMouseMove(e: MouseEvent) {
 
 function onCanvasMouseUp() {
   isPanning.value = false;
+}
+
+// ─────────────────────────────────────────────────────────────
+// 터치 화면 이동·확대 — 마우스 핸들러의 터치판
+//
+// 터치 브라우저는 끌기에서 mousemove 를 만들어 주지 않아, 이대로는 모바일에서
+// 조직도를 움직일 수조차 없다(움직여야 노드의 [이동] 버튼에 닿는다).
+// 한 손가락은 이동, 두 손가락은 확대다. 캔버스에 touch-action: none 을 주어
+// 브라우저의 화면 스크롤과 겹치지 않게 한다.
+// ─────────────────────────────────────────────────────────────
+const pinchDist = ref<number>(0);
+
+function touchDistance(e: TouchEvent): number {
+  const [a, b] = [e.touches[0]!, e.touches[1]!];
+  return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+}
+
+function onCanvasTouchStart(e: TouchEvent) {
+  const target = e.target as HTMLElement;
+  if (target.closest('.node-card') || target.closest('.no-pan')) return;
+
+  if (e.touches.length === 1) {
+    isPanning.value = true;
+    startPanX.value = e.touches[0]!.clientX - panX.value;
+    startPanY.value = e.touches[0]!.clientY - panY.value;
+  } else if (e.touches.length === 2) {
+    isPanning.value = false;
+    pinchDist.value = touchDistance(e);
+  }
+}
+
+function onCanvasTouchMove(e: TouchEvent) {
+  if (e.touches.length === 1 && isPanning.value) {
+    e.preventDefault();
+    panX.value = e.touches[0]!.clientX - startPanX.value;
+    panY.value = e.touches[0]!.clientY - startPanY.value;
+  } else if (e.touches.length === 2 && pinchDist.value > 0) {
+    e.preventDefault();
+    const dist = touchDistance(e);
+    let newZoom = zoom.value * (dist / pinchDist.value);
+    newZoom = Math.max(0.3, Math.min(2.5, newZoom));
+    zoom.value = parseFloat(newZoom.toFixed(2));
+    pinchDist.value = dist;
+  }
+}
+
+function onCanvasTouchEnd() {
+  isPanning.value = false;
+  pinchDist.value = 0;
 }
 
 // 마우스 휠 Zoom 인 / 아웃 핸들러

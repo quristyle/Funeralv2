@@ -19,14 +19,8 @@ import { Button } from 'ant-design-vue';
 
 import { dbSave, sysClearCache } from '#/api/projmng';
 
-import {
-  CodeEditor,
-  CodeSelect,
-  DynamicGrid,
-  SearchBar,
-  SplitPane,
-  useProcGrid,
-} from '../shared';
+import { CodeSelect, DynamicGrid, SearchBar, SplitPane, useProcGrid } from '../shared';
+import { CodeEditor } from '#/components/code-editor';
 
 const PROC = 'sp_projdbrspolist';
 

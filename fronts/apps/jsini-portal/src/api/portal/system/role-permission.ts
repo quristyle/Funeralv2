@@ -9,6 +9,8 @@ export namespace SystemRolePermissionApi {
     phone?: string;
     deptName?: string;
     companyName?: string;
+    roles?: string[];
+    roleNames?: string;
   }
 
   export interface RoleMenu {

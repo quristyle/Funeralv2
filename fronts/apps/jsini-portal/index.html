@@ -7,7 +7,12 @@
     <meta name="description" content="Funeral Management System" />
     <meta name="keywords" content="quristyle" />
     <meta name="author" content="quristyle" />
-    <meta name="viewport" content="width=device-width,initial-scale=1.0,minimum-scale=1.0,maximum-scale=1.0,user-scalable=0" />
+    <!--
+      확대를 막지 않는다. 이 포털은 글자 14px + small 그리드라 모바일에서
+      핀치 확대가 유일한 가독성 수단이다 (user-scalable=0 을 걸었던 적이 있는데
+      접근성과 모바일 사용성을 함께 해쳐서 풀었다 — 40번 문서).
+    -->
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
     <title>%VITE_APP_TITLE%</title>
 
     <!--

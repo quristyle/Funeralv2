@@ -51,6 +51,7 @@ import {
 import { useSortable } from '@vben/hooks';
 import { IconifyIcon } from '@vben/icons';
 import { $t } from '@vben/locales';
+import { preferences } from '@vben/preferences';
 import { isEmpty } from '@vben/utils';
 
 import { message, Modal, notification } from 'ant-design-vue';
@@ -107,6 +108,30 @@ const Image = defineAsyncComponent(() => import('ant-design-vue/es/image'));
 const PreviewGroup = defineAsyncComponent(() =>
   import('ant-design-vue/es/image').then((res) => res.ImagePreviewGroup),
 );
+
+/**
+ * 날짜 입력의 모바일 보정 (40번 문서).
+ *
+ * 모바일에서 날짜 입력을 탭하면 소프트 키보드와 달력 패널이 **동시에** 떠서
+ * 화면 절반이 가려진다. 키보드를 막고(패널로만 선택) 이 문제를 없앤다.
+ * 화면이 inputReadOnly 를 직접 주면 그 값이 이긴다.
+ */
+const withMobileReadonlyInput = <T extends Component>(component: T) =>
+  defineComponent({
+    name: (component as any).name,
+    inheritAttrs: false,
+    setup: (_props, { attrs, slots }) => {
+      return () =>
+        h(
+          component as any,
+          {
+            inputReadOnly: preferences.app.isMobile || undefined,
+            ...attrs,
+          },
+          slots,
+        );
+    },
+  });
 
 const withDefaultPlaceholder = <T extends Component>(
   component: T,
@@ -670,7 +695,7 @@ async function initComponentAdapter() {
     Cascader,
     Checkbox,
     CheckboxGroup,
-    DatePicker,
+    DatePicker: withMobileReadonlyInput(DatePicker),
     // 사용자 정의 기본 버튼
     DefaultButton: (props, { attrs, slots }) => {
       return h(Button, { ...props, attrs, type: 'default' }, slots);
@@ -691,7 +716,7 @@ async function initComponentAdapter() {
     },
     Radio,
     RadioGroup,
-    RangePicker,
+    RangePicker: withMobileReadonlyInput(RangePicker),
     Rate,
     Select: withDefaultPlaceholder(Select, 'select'),
     Space,
