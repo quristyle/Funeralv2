@@ -11,59 +11,17 @@ import { $t, $tIfKey } from '#/locales';
 import { can } from '#/utils/permission';
 
 /**
- * 값이 들어 있는지 비교하는 컬럼 필터.
+ * [필터는 공통 필터줄이 단다]
  *
- * [깔때기 팝업이 아니라 **머리글 아래 칸**으로 쓴다]
+ * 예전에는 이 파일이 `filters` · `filterMethod` 와 머리글 슬롯(`col-filter`)을
+ * 직접 들고 있었다 — 공통 필터줄(`adapter/vxe-grid-features.ts`)이 생기기 전의
+ * 방식이다. 공통 레이어는 `slots.header` 가 있는 칸을 건너뛰므로, 그대로 두면
+ * 이 화면만 다른 화면과 다른 머리글(한 칸에 이름+입력칸)이 된다.
  *
- * 필터 조건과 판정은 vxe 의 것을 그대로 쓰되(`filters` · `filterMethod`),
- * 값을 넣는 자리만 머리글 아래로 옮겼다. 화면(`list.vue`)의 `#col-filter` 슬롯이
- * 입력칸을 그리고 `setFilter()` 로 아래 `filters[0].data` 를 채운다.
- *
- * 그래서 **`filterRender` 는 두지 않는다** — 두면 깔때기 팝업에도 입력칸이 생겨
- * 같은 조건을 넣는 자리가 두 곳이 된다.
- *
- * @param resolve 비교할 글자를 뽑는 함수. 화면에 보이는 값과 저장된 값이 다른
- *   칸(메뉴명은 번역 키일 수 있다)에서 쓴다.
+ * 지금은 값 칸이면 공통 레이어가 알아서 필터를 달고, 특별한 칸만 `params` 로
+ * 알려 준다 — 훑을 글자가 따로 있는 칸은 `filterText`, 고르는 칸은
+ * `filterOptions`(CellTag 칸은 그 옵션에서 저절로 만든다), 빼는 칸은 `filter: false`.
  */
-function textFilter(resolve?: (row: any) => string) {
-  return {
-    filters: [{ data: '' }],
-    filterMethod: ({ column, option, row }: any) => {
-      const keyword = String(option.data ?? '').trim().toLowerCase();
-      if (!keyword) return true;
-
-      const text = resolve
-        ? resolve(row)
-        : String(getByPath(row, column.field) ?? '');
-
-      return text.toLowerCase().includes(keyword);
-    },
-    // 머리글 아래 입력칸을 그린다. 어느 칸인지는 슬롯이 `column` 으로 받는다.
-    slots: { header: 'col-filter' },
-  };
-}
-
-/**
- * 값의 종류가 정해진 칸의 필터. 머리글 아래에 **고르는 칸**을 그린다.
- *
- * 입력창으로 두면 `CATALOG` 같은 저장값을 외워서 쳐야 한다.
- */
-function choiceFilter(options: { label: string; value: any }[]) {
-  return {
-    filters: options.map((o) => ({ label: o.label, value: o.value })),
-    slots: { header: 'col-filter' },
-  };
-}
-
-/**
- * `meta.title` 처럼 점이 든 필드 이름을 따라 값을 꺼낸다.
- * vxe 는 컬럼 값을 그렇게 읽지만, 필터 안에서는 `row[field]` 가 통하지 않는다.
- */
-function getByPath(row: any, path: string) {
-  return path
-    .split('.')
-    .reduce((acc, key) => (acc === null || acc === undefined ? acc : acc[key]), row);
-}
 
 /**
  * 이 메뉴가 **화면에 보이는 이름**.
@@ -128,15 +86,14 @@ export function useColumns(
       width: 40,
     },
     {
-      // 보이는 이름·번역 키·원래 이름 어느 것으로 쳐도 걸린다.
-      ...textFilter(titleHaystack),
       align: 'left',
       field: 'meta.title',
       fixed: 'left',
       minWidth: 260,
-      // **위 스프레드가 넣어 준 `slots` 를 여기서 덮는다.** 이 칸은 본문도 슬롯으로
-      // 그리므로 둘을 합쳐 적어야 한다 — 하나만 적으면 다른 하나가 사라진다.
-      slots: { default: 'title', header: 'col-filter' },
+      // 화면에 보이는 것은 번역된 글자인데 저장된 값은 번역 키일 수 있다.
+      // 보이는 이름·번역 키·원래 이름 어느 것으로 쳐도 걸리게 훑을 글자를 준다.
+      params: { filterText: titleHaystack },
+      slots: { default: 'title' },
       // 정렬은 **형제끼리** 이뤄진다(트리 칸이라 부모 밑에서만 다시 선다).
       // 저장된 값(`meta.title`)을 기준으로 서므로 번역 키인 메뉴는 키 순서로 선다 —
       // 눈에 보이는 글자와 다를 수 있다. 찾는 것이 목적이면 아래 필터가 낫다.
@@ -145,16 +102,9 @@ export function useColumns(
       treeNode: true,
     },
     {
-      // [값의 종류가 정해져 있으므로 고르는 칸으로 둔다]
-      //
-      // `params.filterList` 는 쓰지 않는다. 그 옵션은 프레임워크가 필터를 열 때마다
-      // **화면 데이터에서 값을 긁어 목록을 새로 만들어 덮어쓴다**
-      // (`use-vxe-grid.vue` 의 `onFilterVisible`). 그러면 두 가지가 나빠진다 —
-      //   · 이름표가 **저장된 값 그대로** 나온다(`디렉토리` 가 아니라 `CATALOG`).
-      //   · 트리 그리드에서는 긁어 오는 범위가 일부라 **없는 종류가 목록에서 빠진다.**
-      // 여기서는 종류 다섯 개를 이미 알고 있으므로 직접 적어 준다.
-      ...choiceFilter(getMenuTypeOptions()),
       align: 'center',
+      // 고르는 칸의 목록은 공통 레이어가 이 `CellTag` 옵션에서 만든다 —
+      // 배지에 쓰는 이름표(디렉토리·메뉴…)와 필터 목록이 저절로 같아진다.
       cellRender: { name: 'CellTag', options: getMenuTypeOptions() },
       field: 'type',
       sortable: true,
@@ -168,9 +118,7 @@ export function useColumns(
       // 형제끼리의 순번이다. 정렬을 걸면 형제 안에서 순번대로 서므로
       // "이 부모 밑이 순번대로 되어 있나" 를 확인할 때 쓴다.
       //
-      // 필터는 뺀다 — 숫자라 입력 필터가 쓸모없다(34번 문서 2절).
-      // 공통 레이어(`adapter/vxe-grid-features.ts`)가 값 칸에 자동으로 필터를 다는데,
-      // 이 칸은 머리글을 직접 그리지 않아 그 대상이 되므로 여기서 꺼 준다.
+      // 필터는 뺀다 — 형제 안에서만 뜻이 있는 순번이라 입력 필터가 쓸모없다(34번 문서 2절).
       params: { filter: false },
       sortable: true,
       title: $t('system.menu.order'),
@@ -183,7 +131,6 @@ export function useColumns(
       sortable: true,
       title: $t('system.menu.menuName'),
       width: 180,
-      ...textFilter(),
     },
     {
       editRender: { name: 'VxeInput' },
@@ -191,7 +138,6 @@ export function useColumns(
       sortable: true,
       title: $t('system.menu.authCode'),
       width: 180,
-      ...textFilter(),
     },
     {
       align: 'left',
@@ -200,7 +146,6 @@ export function useColumns(
       sortable: true,
       title: $t('system.menu.path'),
       width: 200,
-      ...textFilter(),
     },
     {
       align: 'left',
@@ -222,34 +167,34 @@ export function useColumns(
         return '';
       },
       minWidth: 200,
-      sortable: true,
-      title: $t('system.menu.component'),
       // 이 칸은 종류에 따라 다른 값을 보여 준다(컴포넌트 · iframe 주소 · 링크).
       // 그래서 `component` 하나만 보면 화면과 어긋난다 — 세 값을 함께 훑는다.
-      ...textFilter((row) =>
-        [row.component, row.meta?.iframeSrc, row.meta?.link]
-          .filter(Boolean)
-          .join(' '),
-      ),
+      params: {
+        filterText: (row: any) =>
+          [row.component, row.meta?.iframeSrc, row.meta?.link]
+            .filter(Boolean)
+            .join(' '),
+      },
+      sortable: true,
+      title: $t('system.menu.component'),
     },
     {
-      // 위 `type` 과 같은 이유로 `params.filterList` 를 쓰지 않는다.
-      // 그대로 두면 이름표가 `1` · `0` 으로 나온다. 배지에 쓰는 말과 맞춘다.
-      ...choiceFilter([
-        { label: $t('common.enabled'), value: 1 },
-        { label: $t('common.disabled'), value: 0 },
-      ]),
       align: 'center',
       field: 'status',
+      // 이 칸은 배지를 슬롯으로 그려서 `CellTag` 가 없다 — 공통 레이어가 옵션을
+      // 만들 재료가 없으므로 고르는 칸 목록을 직접 준다. 배지에 쓰는 말과 맞춘다.
+      params: {
+        filterOptions: [
+          { label: $t('common.enabled'), value: 1 },
+          { label: $t('common.disabled'), value: 0 },
+        ],
+      },
       sortable: true,
       title: $t('system.menu.status'),
       width: 90,
       // CellTag 대신 슬롯으로 그린다. 배지를 눌러 그 자리에서 켜고 끌 수 있어야 하기 때문이다.
       // 저장 중에는 흐리게 하고 클릭을 막는다(list.vue 가 `__statusSaving` 을 세운다).
-      //
-      // 머리글 슬롯도 함께 적어야 한다 — 위 스프레드의 `slots` 를 여기서 덮기 때문이다.
       slots: {
-        header: 'col-filter',
         default: ({ row }: { row: SystemMenuApi.SystemMenu }) => {
           const active = row.status === 1;
           const clickable = Boolean(onStatusToggle) && can('update');

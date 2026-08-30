@@ -80,69 +80,6 @@ const sortActive = ref(false);
 const filterActive = ref(false);
 const viewReordered = computed(() => sortActive.value || filterActive.value);
 
-// ============================================================
-// 머리글 아래 필터 칸
-//
-// 깔때기를 눌러 팝업을 열고 → 값을 넣고 → '적용' 을 누르는 세 동작을,
-// **머리글 아래에 바로 치는 한 동작**으로 줄인다. 메뉴가 263개라 찾는 일이 잦다.
-//
-// 조건과 판정은 vxe 의 것을 그대로 쓴다(`filters` · `filterMethod`, data.ts).
-// 여기서는 그 조건에 값을 넣어 주기만 한다 — 걸러내는 규칙을 두 벌로 만들지 않는다.
-// ============================================================
-
-/** 칸별로 지금 들어 있는 필터 값. 키는 `column.field`. */
-const columnFilter = ref<Record<string, any>>({});
-
-/**
- * 치는 대로 걸리게 한다. 다만 **글자마다 다시 거르지는 않는다** —
- * 263행 트리를 매 글자마다 다시 세우면 입력이 끊긴다. 250ms 쉬면 건다.
- */
-let filterTimer: null | ReturnType<typeof setTimeout> = null;
-
-function applyColumnFilter(field: string, value: any, immediate = false) {
-  columnFilter.value[field] = value;
-
-  const run = () => {
-    const grid = gridApi.grid;
-    if (!grid) return;
-
-    const column = grid.getColumnByField(field);
-    if (!column) return;
-
-    const isEmpty = value === '' || value === null || value === undefined;
-
-    // 값이 든 칸의 종류에 따라 vxe 가 읽는 자리가 다르다.
-    //   · 입력칸(`filterMethod` 를 쓴다)  → `option.data`
-    //   · 고르는 칸(기본 판정을 쓴다)     → `option.checked`
-    const options = (column.filters ?? []).map((opt: any) =>
-      'value' in opt && opt.label !== undefined
-        ? { ...opt, checked: !isEmpty && opt.value === value }
-        : { ...opt, data: value, checked: !isEmpty },
-    );
-
-    grid.setFilter(column, options);
-    grid.updateData();
-
-    // 하나라도 값이 남아 있으면 자리 이동을 막아야 한다.
-    // `setFilter` 는 프로그램으로 거는 것이라 `filterChange` 가 오지 않는다.
-    filterActive.value = Object.values(columnFilter.value).some(
-      (v) => v !== '' && v !== null && v !== undefined,
-    );
-  };
-
-  if (filterTimer) clearTimeout(filterTimer);
-  if (immediate) {
-    run();
-  } else {
-    filterTimer = setTimeout(run, 250);
-  }
-}
-
-/** 이 칸이 고르는 칸인지(유형 · 상태). 이름표가 붙은 옵션이 있으면 그렇다. */
-function isChoiceColumn(column: any) {
-  return (column.filters ?? []).some((f: any) => f.label !== undefined);
-}
-
 /** 응답이 배열/`result`/`data.result` 중 무엇으로 와도 목록을 꺼낸다. */
 function getMenuItems(response: any): SystemMenuApi.SystemMenu[] {
   if (Array.isArray(response)) return response;
@@ -197,16 +134,6 @@ const [Grid, gridApi] = useVbenVxeGrid({
      * 그래서 여기서는 화면에 보이는 그대로를 읽어 바뀐 것만 서버에 보낸다.
      * 화면을 다시 그리거나 목록을 다시 받아오지 않는다 — 이게 체감 속도의 핵심이다.
      */
-    /** 정렬 상태가 바뀌었다. 걸려 있으면 자리 이동을 막는다. */
-    sortChange: ({ sortList }: any) => {
-      sortActive.value = (sortList?.length ?? 0) > 0;
-    },
-
-    /** 필터 상태가 바뀌었다. 하나라도 걸려 있으면 자리 이동을 막는다. */
-    filterChange: ({ filterList }: any) => {
-      filterActive.value = (filterList?.length ?? 0) > 0;
-    },
-
     rowDragend: async () => {
       if (savingOrder.value) return;
 
@@ -250,6 +177,18 @@ const [Grid, gridApi] = useVbenVxeGrid({
   },
   gridOptions: {
     columns: useColumns(onActionClick, onStatusToggle),
+    // 정렬·필터는 공통 필터줄(adapter/vxe-grid-features.ts)이 단다.
+    // 공통 필터줄은 `setFilter()`·`grid.sort()` 를 프로그램으로 부르기 때문에
+    // vxe 의 `filterChange`·`sortChange` 이벤트가 오지 않는다 — 드래그 잠금
+    // (`viewReordered`)이 기댈 상태는 이 콜백으로 받는다.
+    gridFeatures: {
+      onFilterChange: (active: boolean) => {
+        filterActive.value = active;
+      },
+      onSortChange: (active: boolean) => {
+        sortActive.value = active;
+      },
+    },
     // 셀을 두 번 눌러 바로 고친다. 예전 그리드 뷰의 동작을 그대로 뒀다.
     // 터치(모바일)에는 dblclick 이 없지만 막다른 길은 아니다 — 작업 열의
     // [수정] 단추가 같은 필드(이름·경로·컴포넌트·권한코드·순번)를 모두 가진
@@ -557,66 +496,6 @@ onMounted(() => {
     <FormDrawer @success="refresh" />
 
     <Grid>
-      <!-- 드래그 손잡이 -->
-      <!--
-        [머리글 + 그 아래 필터 칸]
-
-        깔때기를 눌러 팝업을 열고 · 값을 넣고 · '적용' 을 누르던 세 동작을
-        **바로 치는 한 동작**으로 줄인다.
-
-        `@keydown.stop` 이 필요하다 — 이 그리드는 셀 편집을 켜 두어서
-        머리글에서 친 글쇠가 표로 새어 나가면 엉뚱한 셀이 편집으로 들어간다.
-        `@click.stop` 은 정렬 토글이 같이 눌리는 것을 막는다(머리글을 누르면 정렬이 된다).
-      -->
-      <template #col-filter="{ column }">
-        <div class="flex w-full flex-col gap-1">
-          <span class="truncate">{{ column.title }}</span>
-
-          <!-- 값의 종류가 정해진 칸: 고르는 칸 -->
-          <select
-            v-if="isChoiceColumn(column)"
-            class="border-border bg-background text-foreground h-6 w-full rounded border px-1 text-xs font-normal"
-            :value="columnFilter[column.field] ?? ''"
-            @click.stop
-            @keydown.stop
-            @change="
-              applyColumnFilter(
-                column.field,
-                ($event.target as HTMLSelectElement).value === ''
-                  ? ''
-                  : column.filters.find(
-                      (f: any) =>
-                        String(f.value) ===
-                        ($event.target as HTMLSelectElement).value,
-                    )?.value,
-                true,
-              )
-            "
-          >
-            <option value="">전체</option>
-            <option v-for="f in column.filters" :key="f.value" :value="f.value">
-              {{ f.label }}
-            </option>
-          </select>
-
-          <!-- 그 밖의 칸: 치는 대로 걸린다 -->
-          <input
-            v-else
-            class="border-border bg-background text-foreground placeholder:text-muted-foreground h-6 w-full rounded border px-1.5 text-xs font-normal"
-            :placeholder="$t('common.search')"
-            :value="columnFilter[column.field] ?? ''"
-            @click.stop
-            @keydown.stop
-            @input="
-              applyColumnFilter(
-                column.field,
-                ($event.target as HTMLInputElement).value,
-              )
-            "
-          />
-        </div>
-      </template>
-
       <!--
         자리 이동 손잡이.
 
@@ -698,26 +577,6 @@ onMounted(() => {
 <style lang="scss" scoped>
 .vxe-grid {
   user-select: none; /* 드래그 중 텍스트가 잡히지 않게 */
-}
-
-/*
-  깔때기 아이콘을 감춘다.
-
-  필터는 머리글 아래 칸으로 옮겼고, 그래서 팝업에 넣을 입력칸(`filterRender`)을
-  두지 않았다. 아이콘을 남겨 두면 눌렀을 때 **'적용 · 초기화' 버튼만 있는 빈 팝업**이
-  열려 "여기서 뭘 하라는 거지" 가 된다.
-
-  조건 자체는 vxe 의 것을 그대로 쓰므로(아래 칸이 `setFilter` 로 채운다)
-  아이콘만 감추면 된다. 걸려 있는지는 아래 칸의 값으로 바로 보인다.
-*/
-:deep(.vxe-header--column .vxe-cell--filter) {
-  display: none;
-}
-
-/* 머리글이 두 줄(이름 + 필터)이 되므로 위아래 여백을 줄여 표가 덜 밀리게 한다. */
-:deep(.vxe-header--column .vxe-cell) {
-  padding-top: 4px;
-  padding-bottom: 4px;
 }
 
 .menu-badge {

@@ -82,7 +82,8 @@
  *   · `field` 가 `action` · `operation` 처럼 조작 장치인 칸
  *   · `cellRender.name` 이 `CellOperation` 인 칸
  *   · **이미 `slots.header` 를 적어 둔 칸** — 화면이 직접 머리글을 그리는 중이므로
- *     덮으면 그 화면이 깨진다 (`/system/menu` 가 이 경우다)
+ *     덮으면 그 화면이 깨진다 (지금은 그런 화면이 없다. `/system/menu` 가 마지막이었는데
+ *     자체 머리글 필터를 걷어내고 이 공통 필터줄로 옮겼다)
  */
 
 import { h, ref, type Ref } from 'vue';
@@ -131,6 +132,14 @@ export interface GridFeatureFlags {
   /** 필터 전용 행. 기본 `true` */
   filter?: boolean;
   /**
+   * 필터줄 값이 바뀐 뒤 불린다. `active` 는 걸린 필터가 하나라도 있는가.
+   *
+   * 필터줄은 `setFilter()` 로 거는 프로그램 방식이라 vxe 의 `filterChange`
+   * 이벤트가 **오지 않는다.** 필터가 걸렸는지에 따라 동작을 바꿔야 하는 화면
+   * (메뉴 관리 — 필터 중에는 드래그 저장을 잠근다)이 이걸로 상태를 받는다.
+   */
+  onFilterChange?: (active: boolean) => void;
+  /**
    * 재조회를 화면이 직접 맡을 때 적는다.
    *
    * `proxyConfig.ajax.query` 로 자료를 받는 그리드는 안 적어도 된다 —
@@ -139,6 +148,11 @@ export interface GridFeatureFlags {
    * 아예 안 나온다**(눌러도 아무 일 없는 단추를 두지 않으려는 것이다).
    */
   onRefresh?: () => void;
+  /**
+   * 이름줄 클릭으로 정렬이 바뀐 뒤 불린다. `active` 는 선 정렬이 하나라도 있는가.
+   * `grid.sort()` 도 프로그램 호출이라 vxe 의 `sortChange` 가 오지 않는다.
+   */
+  onSortChange?: (active: boolean) => void;
   /** 컬럼 정렬. 기본 `true` */
   sort?: boolean;
   /** 아래 도구줄(엑셀 · 재조회 · 필터 초기화). 기본 `true` */
@@ -261,7 +275,10 @@ function swallow(event: Event) {
  * 필터 값과 정렬 표시를 여기에 담아 두고 머리글 렌더 함수가 그것을 읽는다.
  * 렌더 함수 안에서 `ref` 를 읽으므로, 값이 바뀌면 머리글이 다시 그려진다.
  */
-function createHeaderRenderers(getGrid: () => any) {
+function createHeaderRenderers(
+  getGrid: () => any,
+  hooks: Pick<GridFeatureFlags, 'onFilterChange' | 'onSortChange'>,
+) {
   /** 칸마다 지금 들어 있는 필터 값. 키는 `column.field`. */
   const filterValues: Ref<Record<string, any>> = ref({});
 
@@ -303,6 +320,10 @@ function createHeaderRenderers(getGrid: () => any) {
 
       grid.setFilter?.(column, options);
       grid.updateData?.();
+
+      hooks.onFilterChange?.(
+        Object.values(filterValues.value).some((v) => !isEmptyFilter(v)),
+      );
     };
 
     const pending = timers.get(field);
@@ -340,6 +361,8 @@ function createHeaderRenderers(getGrid: () => any) {
       grid.clearSort?.(field);
     }
     sortTick.value += 1;
+
+    hooks.onSortChange?.((grid.getSortColumns?.() ?? []).length > 0);
   }
 
   /**
@@ -441,6 +464,8 @@ function createHeaderRenderers(getGrid: () => any) {
     const grid = getGrid();
     grid?.clearFilter?.();
     grid?.updateData?.();
+
+    hooks.onFilterChange?.(false);
   }
 
   return { createTitleHeader, filterHeader, resetFilters };
@@ -640,7 +665,7 @@ export function createGridFeatures(
   if (!gridOptions) return noop;
   if (!flags.sort && !flags.filter && !flags.tools) return noop;
 
-  const renderers = createHeaderRenderers(getGrid);
+  const renderers = createHeaderRenderers(getGrid, flags);
 
   const decorateColumns = (columns: any) =>
     Array.isArray(columns)
