@@ -133,8 +133,10 @@ public static class DeployStatusEndpoints
             using var client = new HttpClient(handler) { BaseAddress = new Uri("http://localhost") };
             client.Timeout = TimeSpan.FromSeconds(5);
 
+            // 버전 접두사(/v1.xx)를 붙이지 않는다 — Docker 29 는 낡은 버전 명시를
+            // 400 으로 거부한다. 비버전 경로는 엔진이 현재 버전으로 처리한다.
             using var doc = JsonDocument.Parse(
-                await client.GetStringAsync("/v1.43/containers/json?all=true", ct));
+                await client.GetStringAsync("/containers/json?all=true", ct));
 
             var containers = new List<object>();
             foreach (var c in doc.RootElement.EnumerateArray())
