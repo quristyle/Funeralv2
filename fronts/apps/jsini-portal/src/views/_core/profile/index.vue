@@ -8,6 +8,7 @@ import { updateProfileApi } from '#/api';
 
 import ProfileAccountInfo from './account-info.vue';
 import ProfileBase from './base-setting.vue';
+import ProfileFixedTabs from './fixed-tabs-setting.vue';
 import ProfileNotificationSetting from './notification-setting.vue';
 import ProfilePasswordSetting from './password-setting.vue';
 import ProfileSecuritySetting from './security-setting.vue';
@@ -38,6 +39,10 @@ const tabs = ref([
   {
     label: '계정 정보',
     value: 'account',
+  },
+  {
+    label: '고정탭 관리',
+    value: 'fixedTabs',
   },
   {
     label: '보안 설정',
@@ -103,6 +108,7 @@ const handleAvatarChange = async (avatarUrl: string) => {
     <template #content>
       <ProfileBase v-if="tabsValue === 'basic'" />
       <ProfileAccountInfo v-if="tabsValue === 'account'" />
+      <ProfileFixedTabs v-if="tabsValue === 'fixedTabs'" />
       <ProfileSecuritySetting v-if="tabsValue === 'security'" />
       <ProfilePasswordSetting v-if="tabsValue === 'password'" />
       <ProfileNotificationSetting v-if="tabsValue === 'notice'" />

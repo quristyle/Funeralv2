@@ -53,6 +53,25 @@ const formSchema = computed((): VbenFormSchema[] => {
       label: '전화번호',
     },
     {
+      fieldName: 'birthDate',
+      component: 'DatePicker',
+      componentProps: {
+        // 폼 값은 문자열로 다룬다 — 서버가 'yyyy-MM-dd' 를 받는다.
+        valueFormat: 'YYYY-MM-DD',
+        placeholder: '생년월일을 선택하세요',
+        class: 'w-full',
+      },
+      label: '생년월일',
+    },
+    {
+      fieldName: 'birthDateIsLunar',
+      component: 'Checkbox',
+      renderComponentContent: () => ({
+        default: () => '음력 생일입니다',
+      }),
+      label: ' ',
+    },
+    {
       fieldName: 'roles',
       component: 'Select',
       componentProps: {
@@ -109,11 +128,15 @@ async function handleSubmit(values: any) {
       introduction: values.introduction,
       email: values.email,
       phone: values.phone,
+      // null 은 '건드리지 않음' 이라 빈 값은 '' 로 보내 지운다.
+      birthDate: values.birthDate ?? '',
+      birthDateIsLunar: !!values.birthDateIsLunar,
     });
     message.success('프로필 정보가 성공적으로 수정되었습니다.');
     await loadData();
-  } catch (error) {
-    message.error('프로필 정보 수정에 실패했습니다.');
+  } catch (error: any) {
+    // 중복 이메일·전화번호는 서버가 이유를 담아 준다(409). 그대로 보여 준다.
+    message.error(error?.message ?? '프로필 정보 수정에 실패했습니다.');
   }
 }
 

@@ -81,7 +81,6 @@ defineExpose({
   <div @keydown.enter.prevent="handleSubmit">
     <Form />
 
-    <p>권한관리가 마무리 되면 homePath 도 여기서 관리 할수 있도록 해야함.</p>
     <VbenButton type="submit" class="mt-4" @click="handleSubmit">
       {{ $t('profile.updateBasicProfile') }}
     </VbenButton>

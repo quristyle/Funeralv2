@@ -64,3 +64,13 @@ export async function removeMenuFavorite(path: string) {
     }),
   );
 }
+
+/**
+ * 즐겨찾기 순서를 경로 목록의 순서대로 저장한다.
+ * 고정탭 관리 화면의 드래그 정렬 결과를 통째로 보낸다.
+ */
+export async function reorderMenuFavorites(paths: string[]) {
+  return unwrap(
+    await requestClient.put<any>('/auth/menu/favorites/order', { paths }),
+  );
+}

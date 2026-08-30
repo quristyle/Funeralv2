@@ -26,6 +26,13 @@ public interface IMenuFavoriteService
     /// </summary>
     /// <returns>갱신된 즐겨찾기 목록</returns>
     Task<List<MenuFavoriteDto>> RemoveFavoriteAsync(string loginId, string path);
+
+    /// <summary>
+    /// 즐겨찾기 순서를 경로 목록의 순서대로 다시 매긴다.
+    /// 목록에 없는 즐겨찾기는 지금 순서를 지키며 뒤로 밀린다.
+    /// </summary>
+    /// <returns>갱신된 즐겨찾기 목록</returns>
+    Task<List<MenuFavoriteDto>> ReorderFavoritesAsync(string loginId, List<string> paths);
 }
 
 /// <inheritdoc />
@@ -108,6 +115,46 @@ public class MenuFavoriteService : IMenuFavoriteService
             _logger.LogInformation("즐겨찾기 해제: {LoginId} → {Path} ({MenuId})", loginId, path, menu.Id);
         }
 
+        return await LoadAsync(accountId);
+    }
+
+    /// <inheritdoc />
+    public async Task<List<MenuFavoriteDto>> ReorderFavoritesAsync(string loginId, List<string> paths)
+    {
+        var accountId = await ResolveAccountIdAsync(loginId);
+        if (accountId is null) return new List<MenuFavoriteDto>();
+
+        var favorites = await _context.MenuFavorites
+            .Where(f => f.AccountId == accountId)
+            .ToListAsync();
+        if (favorites.Count == 0) return new List<MenuFavoriteDto>();
+
+        // 메뉴 경로 → 원하는 순번. 경로 정리는 FindMenuByPathAsync 와 같은 규칙.
+        var wanted = new Dictionary<string, int>(StringComparer.Ordinal);
+        for (var i = 0; i < paths.Count; i++)
+        {
+            var clean = paths[i].Split('?')[0].Split('#')[0].TrimEnd('/');
+            if (clean.Length == 0) clean = "/";
+            wanted.TryAdd(clean, i);
+        }
+
+        var menuPaths = await _context.SystemMenus
+            .AsNoTracking()
+            .Where(m => favorites.Select(f => f.MenuId).Contains(m.Id))
+            .ToDictionaryAsync(m => m.Id, m => m.Path);
+
+        // 목록에 있는 것은 그 순번으로, 없는 것은 지금 순서를 지키며 뒤에 붙인다.
+        var ordered = favorites
+            .OrderBy(f => menuPaths.TryGetValue(f.MenuId, out var p) && wanted.TryGetValue(p, out var w)
+                ? w : int.MaxValue - favorites.Count + favorites.IndexOf(f))
+            .ToList();
+        for (var i = 0; i < ordered.Count; i++)
+        {
+            ordered[i].SortOrder = i;
+        }
+
+        await _context.SaveChangesAsync();
+        _logger.LogInformation("즐겨찾기 순서 변경: {LoginId} ({Count}건)", loginId, ordered.Count);
         return await LoadAsync(accountId);
     }
 

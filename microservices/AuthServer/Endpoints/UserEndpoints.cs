@@ -55,10 +55,13 @@ public static class UserEndpoints
                 return Results.Json(ApiResponse<object>.Fail("인증 정보가 없습니다.", "401"), statusCode: 401);
             }
 
-            var success = await userService.UpdateProfileAsync(user.UserId, request);
+            var (success, error) = await userService.UpdateProfileAsync(user.UserId, request);
             if (!success)
             {
-                return Results.Json(ApiResponse<object>.Fail("프로필 정보 업데이트에 실패했습니다.", "400"), statusCode: 400);
+                // 중복 이메일·전화번호처럼 사용자가 고칠 수 있는 이유는 그대로 보여 준다.
+                return Results.Json(
+                    ApiResponse<object>.Fail(message: error ?? "프로필 정보 업데이트에 실패했습니다.", code: "409"),
+                    statusCode: 409);
             }
 
             return Results.Ok(ApiResponse<object>.Ok(null));

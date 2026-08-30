@@ -1,4 +1,4 @@
-using AuthServer.DTOs;
+﻿using AuthServer.DTOs;
 
 namespace AuthServer.Services;
 
@@ -37,7 +37,7 @@ public interface IUserService
     /// <summary>
     /// 로그인한 사용자의 프로필 정보를 업데이트합니다.
     /// </summary>
-    Task<bool> UpdateProfileAsync(string userId, UpdateProfileDto dto);
+    Task<(bool Success, string? Error)> UpdateProfileAsync(string userId, UpdateProfileDto dto);
 
     /// <summary>
     /// 로그인한 사용자의 비밀번호를 변경합니다.

@@ -1,4 +1,4 @@
-namespace AuthServer.DTOs;
+﻿namespace AuthServer.DTOs;
 
 /// <summary>
 /// 프론트엔드 UserInfo 타입에 대응하는 사용자 정보 DTO
@@ -61,6 +61,12 @@ public class UserInfoDto
     public string Token { get; set; } = string.Empty;
 
     // 프로필 확장 필드 (기본 설정, 보안 설정, 알림 설정 값 바인딩용)
+    /// <summary>생년월일. <see cref="BirthDateIsLunar"/> 가 참이면 음력 월·일이다.</summary>
+    public DateOnly? BirthDate { get; set; }
+
+    /// <summary>생년월일이 음력인지</summary>
+    public bool BirthDateIsLunar { get; set; }
+
     public string? Introduction { get; set; }
     public string? Phone { get; set; }
     public string? Email { get; set; }

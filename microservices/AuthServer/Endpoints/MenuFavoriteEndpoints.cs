@@ -84,5 +84,29 @@ public static class MenuFavoriteEndpoints
         })
         .WithName("RemoveMenuFavorite")
         .WithOpenApi();
+
+        /// <summary>
+        /// 즐겨찾기 순서를 경로 목록의 순서대로 다시 매긴다.
+        /// 고정탭 관리 화면이 드래그 정렬 결과를 통째로 보낸다.
+        /// </summary>
+        group.MapPut("/order", async (
+            UserContext? user,
+            [FromBody] MenuFavoriteOrderRequest request,
+            [FromServices] IMenuFavoriteService service) =>
+        {
+            if (user is null) return Results.Unauthorized();
+
+            var list = await service.ReorderFavoritesAsync(user.UserId, request.Paths ?? new List<string>());
+            return Results.Ok(ApiResponse<List<MenuFavoriteDto>>.Ok(list, "순서를 저장했습니다."));
+        })
+        .WithName("ReorderMenuFavorites")
+        .WithOpenApi();
     }
+}
+
+/// <summary>순서 변경 요청 — 원하는 순서대로의 메뉴 경로 목록.</summary>
+public class MenuFavoriteOrderRequest
+{
+    /// <summary>원하는 순서대로의 메뉴 경로들</summary>
+    public List<string>? Paths { get; set; }
 }

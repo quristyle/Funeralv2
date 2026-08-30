@@ -65,7 +65,7 @@ export async function getAccountActivityApi(limit = 10) {
 /**
  * 사용자 기본 프로필 수정
  */
-export async function updateProfileApi(data: { realName?: string; introduction?: string; email?: string; phone?: string; avatar?: string; avatarGroupId?: string }) {
+export async function updateProfileApi(data: { realName?: string; introduction?: string; email?: string; phone?: string; avatar?: string; avatarGroupId?: string; birthDate?: string; birthDateIsLunar?: boolean }) {
   return requestClient.post('/auth/user/profile', data);
 }
 

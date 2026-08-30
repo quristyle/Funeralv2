@@ -90,6 +90,8 @@ public class UserService : IUserService
             Introduction = introduction,
             Phone = phone,
             Email = email,
+            BirthDate = account.BirthDate,
+            BirthDateIsLunar = account.BirthDateIsLunar,
             SecurityPhone = securityPhone,
             SecurityQuestion = securityQuestion,
             SecurityEmail = securityEmail,
@@ -452,16 +454,56 @@ public class UserService : IUserService
 
     /// <summary>
     /// 로그인한 사용자의 프로필 정보를 업데이트합니다.
+    /// 이메일·전화번호는 다른 계정이 이미 쓰고 있으면 거부한다 — Error 에 사람이 읽을 이유를 담는다.
     /// </summary>
-    public async Task<bool> UpdateProfileAsync(string userId, UpdateProfileDto dto)
+    public async Task<(bool Success, string? Error)> UpdateProfileAsync(string userId, UpdateProfileDto dto)
     {
-        System.Console.WriteLine($"[UpdateProfile Debug] UserId: {userId}, Avatar: {dto.Avatar}, AvatarGroupId: {dto.AvatarGroupId}");
-
         var account = await _db.Accounts
             .Include(a => a.ProfileDetails)
             .FirstOrDefaultAsync(a => a.UserId == userId || a.Id == userId);
 
-        if (account == null) return false;
+        if (account == null) return (false, "계정을 찾을 수 없습니다.");
+
+        // ── 중복 검사: 이메일 ──
+        // 연락처는 AccountProfileDetails(DetailType=Email/Phone) 에 있다.
+        // 대소문자만 다른 이메일은 같은 주소다.
+        //
+        // **지금 값 그대로면 검사하지 않는다.** 옛 데이터에는 이미 겹치는 연락처가
+        // 있다(포털 quristyle 과 헬프데스크 고객이 같은 이메일 — 15번 문서).
+        // 그런 계정이 이름만 고쳐 저장해도 막혀 버리면 안 된다.
+        // 검사는 '다른 값으로 바꾸려는 순간'에만 건다.
+        var currentEmail = account.ProfileDetails?.FirstOrDefault(p => p.DetailType == "Email")?.Content;
+        if (!string.IsNullOrWhiteSpace(dto.Email)
+            && !string.Equals(dto.Email.Trim(), currentEmail?.Trim(), StringComparison.OrdinalIgnoreCase))
+        {
+            var email = dto.Email.Trim().ToLowerInvariant();
+            var taken = await _db.AccountProfileDetails.AnyAsync(p =>
+                p.DetailType == "Email" &&
+                p.AccountId != account.Id &&
+                p.Content != null &&
+                p.Content.ToLower() == email);
+            if (taken) return (false, "이미 다른 사용자가 쓰고 있는 이메일입니다.");
+        }
+
+        // ── 중복 검사: 전화번호 ──
+        // 표기가 제각각이라('010-1234-5678' / '01012345678') 숫자만 남겨 비교한다.
+        // SQL 로 옮기기 어려운 비교라 전화 항목만 당겨 와 메모리에서 본다 — 행 수가 적다.
+        static string Digits(string? s) => new((s ?? "").Where(char.IsDigit).ToArray());
+        var currentPhone = account.ProfileDetails?.FirstOrDefault(p => p.DetailType == "Phone")?.Content;
+        if (!string.IsNullOrWhiteSpace(dto.Phone)
+            && Digits(dto.Phone) != Digits(currentPhone))
+        {
+            var phoneDigits = Digits(dto.Phone);
+            if (phoneDigits.Length > 0)
+            {
+                var otherPhones = await _db.AccountProfileDetails
+                    .Where(p => p.DetailType == "Phone" && p.AccountId != account.Id && p.Content != null)
+                    .Select(p => p.Content!)
+                    .ToListAsync();
+                var taken = otherPhones.Any(c => Digits(c) == phoneDigits);
+                if (taken) return (false, "이미 다른 사용자가 쓰고 있는 전화번호입니다.");
+            }
+        }
 
         // UserName(RealName) 업데이트
         if (!string.IsNullOrEmpty(dto.RealName))
@@ -558,8 +600,31 @@ public class UserService : IUserService
             _db.Entry(account).State = EntityState.Modified;
         }
 
+        // 생년월일 업데이트 — null 은 '건드리지 않음', 빈 문자열은 '지움'.
+        if (dto.BirthDate != null)
+        {
+            if (string.IsNullOrWhiteSpace(dto.BirthDate))
+            {
+                account.BirthDate = null;
+            }
+            else if (DateOnly.TryParse(dto.BirthDate, out var birth))
+            {
+                account.BirthDate = birth;
+            }
+            else
+            {
+                return (false, "생년월일 형식이 올바르지 않습니다. (yyyy-MM-dd)");
+            }
+            _db.Entry(account).State = EntityState.Modified;
+        }
+        if (dto.BirthDateIsLunar != null)
+        {
+            account.BirthDateIsLunar = dto.BirthDateIsLunar.Value;
+            _db.Entry(account).State = EntityState.Modified;
+        }
+
         await _db.SaveChangesAsync();
-        return true;
+        return (true, null);
     }
 
     /// <summary>

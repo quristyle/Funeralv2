@@ -8,6 +8,7 @@ import {
   addMenuFavorite,
   getMenuFavorites,
   removeMenuFavorite,
+  reorderMenuFavorites,
 } from '#/api/portal/system/menu-favorite';
 
 /** 경로에서 조회 조건·해시를 떼어낸다. 탭의 `fullPath` 에는 `?id=3` 이 붙어 온다. */
@@ -91,6 +92,18 @@ export const useMenuFavoriteStore = defineStore('menu-favorite', () => {
     }
   }
 
+  /** 순서를 경로 목록의 순서대로 저장한다 (고정탭 관리 화면의 드래그 정렬). */
+  async function reorder(paths: string[]) {
+    if (saving.value) return;
+    saving.value = true;
+    try {
+      favorites.value = (await reorderMenuFavorites(paths)) ?? [];
+      loaded.value = true;
+    } finally {
+      saving.value = false;
+    }
+  }
+
   function $reset() {
     favorites.value = [];
     loaded.value = false;
@@ -106,6 +119,7 @@ export const useMenuFavoriteStore = defineStore('menu-favorite', () => {
     load,
     loaded,
     remove,
+    reorder,
     saving,
   };
 });
