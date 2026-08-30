@@ -194,13 +194,51 @@ curl -sk -X POST https://portal.jsini.co.kr/api/auth/login \
   -H "Content-Type: application/json" -d '{"userId":"smoke","password":"x"}'  # 401 JSON
 ```
 
-## 6. 남은 단계 (이 문서 작성 시점 기준)
+## 6. GitHub Actions (self-hosted 러너 + 워크플로)
 
-- self-hosted 러너 설치 + GitHub Actions 워크플로 (경로 필터, GHCR push, 태그 배포)
-- **public 저장소 + 러너 필수 설정**: GitHub → Settings → Actions →
-  "Require approval for all external contributors". 배포 워크플로는 `push`(main)
-  이벤트에만 러너를 쓴다 — fork PR 에 러너를 절대 배정하지 않는다.
-- 첫 배포: 프론트 빌드 산출물을 `/srv/jsini/site`·`/srv/jsini/portal` 에 배치
-  (지금은 자리표시자 index.html 만 있다), 백엔드는 GHCR 태그로 전환.
-- 운영 배포/롤백 요령: `/srv/jsini/.env` 의 `TAG` 를 바꾸고
-  `docker compose pull && docker compose up -d`. 롤백은 이전 태그로 동일하게.
+러너 설치 — 등록 토큰은 저장소 **관리자** 계정으로 발급한다 (Settings →
+Actions → Runners → New self-hosted runner 에서도 볼 수 있다):
+
+```bash
+mkdir -p /srv/jsini/runner && cd /srv/jsini/runner
+curl -sL -o runner.tar.gz https://github.com/actions/runner/releases/download/v<버전>/actions-runner-linux-x64-<버전>.tar.gz
+tar xzf runner.tar.gz && rm runner.tar.gz
+./config.sh --url https://github.com/quristyle/Funeralv2 --token <등록토큰> \
+  --name han-prod --labels prod --unattended
+sudo ./svc.sh install lee && sudo ./svc.sh start   # systemd 서비스로 상시 구동
+```
+
+워크플로는 `.github/workflows/` 의 세 파일이다 — deploy-backend(이미지 6종
+매트릭스 → GHCR push → 러너가 TAG 교체 후 pull·up), deploy-site, deploy-portal
+(pnpm 빌드 → 아티팩트 → rsync 교체). 전부 main push + 경로 필터 +
+workflow_dispatch. **pnpm 은 `package_json_file: fronts/package.json` 지정이
+필수다** (packageManager 선언이 루트가 아니라 fronts 에 있다).
+
+**public 저장소 + 러너 필수 설정** (적용 완료): 외부 기여자 워크플로 승인 정책을
+`all_external_contributors` 로 — API 로는:
+
+```bash
+curl -X PUT -H "Authorization: token <관리자토큰>" \
+  https://api.github.com/repos/quristyle/Funeralv2/actions/permissions/fork-pr-contributor-approval \
+  -d '{"approval_policy":"all_external_contributors"}'
+```
+
+배포 잡은 `push`(main) 이벤트에만 러너를 쓴다 — fork PR 에 러너를 절대 배정하지 않는다.
+
+## 7. 운영 요령 (2026-08-30 첫 배포·롤백 시험 완료)
+
+- **평상시 배포 = git push (main) 뿐이다.** 경로 필터가 바뀐 부분만 골라 돌린다.
+- 수동 재배포: GitHub → Actions → 해당 워크플로 → Run workflow.
+- **수동 롤백**: 서버에서
+  ```bash
+  cd /srv/jsini
+  # .env 의 TAG 를 이전 커밋 SHA 로 바꾼 뒤
+  docker compose pull -q && docker compose up -d
+  ```
+  과거 태그는 GHCR 패키지 목록(github.com/quristyle?tab=packages)에서 확인한다.
+- 상태 점검: `docker compose ps`, 관통 검증은 틀린 계정 로그인이 401 JSON 이면 정상:
+  ```bash
+  curl -s -X POST http://127.0.0.1:5265/api/auth/login -H "Content-Type: application/json" -d '{"userId":"smoke","password":"x"}'
+  ```
+- 프론트 롤백은 해당 커밋에서 workflow_dispatch 로 다시 빌드하거나,
+  과거 실행의 아티팩트(3일 보관)를 내려받아 rsync 한다.
