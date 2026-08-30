@@ -1,5 +1,7 @@
 import type { Router } from 'vue-router';
 
+import type { MenuRecordRaw } from '@vben/types';
+
 import { LOGIN_PATH } from '@vben/constants';
 import { preferences } from '@vben/preferences';
 import { useAccessStore, useUserStore } from '@vben/stores';
@@ -148,20 +150,93 @@ function setupAccessGuard(router: Router) {
     accessStore.setAccessRoutes(accessibleRoutes);
     accessStore.setIsAccessChecked(true);
     let redirectPath: string;
+    // 홈으로 들어오는 길인가. 깊은 주소를 직접 연 것과 구분한다(아래에서 쓴다).
+    let landingOnHome = false;
     if (from.query.redirect) {
       redirectPath = from.query.redirect as string;
     } else if (to.fullPath === preferences.app.defaultHomePath) {
       redirectPath = preferences.app.defaultHomePath;
+      landingOnHome = true;
     } else if (userInfo?.homePath && to.fullPath === userInfo.homePath) {
       redirectPath = userInfo.homePath;
+      landingOnHome = true;
     } else {
       redirectPath = to.fullPath;
     }
+
+    // 홈 화면에 열람 권한이 없으면 갈 수 있는 첫 메뉴로 보낸다.
+    // 깊은 주소를 직접 연 경우는 손대지 않는다 — 그때의 403 은 정확한 답이다.
+    if (landingOnHome) {
+      redirectPath = await resolveLandingPath(router, redirectPath, accessibleMenus);
+    }
+
     return {
       ...router.resolve(decodeURIComponent(redirectPath)),
       replace: true,
     };
   });
+}
+
+/**
+ * 로그인 직후 실제로 열 수 있는 홈 경로를 고른다.
+ *
+ * 홈 경로(`defaultHomePath` 또는 계정별 `homePath`)에 열람 권한이 없으면
+ * 열람 가드가 곧바로 `/403` 으로 보낸다. 권한이 좁게 잡힌 계정은 로그인할 때마다
+ * 403 을 먼저 만나게 되는데, 볼 수 있는 화면이 따로 있는데도 그렇다.
+ * 그래서 홈으로 들어오는 길에 한해 **그 사람이 볼 수 있는 첫 메뉴**로 바꿔 준다.
+ *
+ * 손대지 않는 경우가 셋이다.
+ *  1. 권한을 못 읽었을 때 — "못 읽었다" 를 "권한 없다" 로 다루지 않는다.
+ *  2. 홈 경로가 메뉴에 없을 때 — 열람 가드도 막지 않으므로 403 이 되지 않는다.
+ *  3. 볼 수 있는 메뉴가 하나도 없을 때 — 그대로 두면 403 이 뜬다.
+ *     이제 그 화면에도 사이드바와 로그아웃이 있으므로 갇히지는 않는다.
+ *
+ * @param homePath 원래 가려던 홈 경로
+ * @param menus 거르기 전 메뉴 트리. 사이드바에 실제로 보이는 목록을 먼저 본다.
+ */
+async function resolveLandingPath(
+  router: Router,
+  homePath: string,
+  menus: MenuRecordRaw[],
+): Promise<string> {
+  const permissionStore = useMenuPermissionStore();
+  await permissionStore.load().catch(() => undefined);
+  if (!permissionStore.isLoaded) return homePath;
+
+  const home = permissionStore.findExact(
+    router.resolve(decodeURIComponent(homePath)).path,
+  );
+  if (!home || home.canView) return homePath;
+
+  /** 메뉴 순서대로 훑어 처음 만나는, 열람할 수 있는 화면. */
+  const firstViewable = (list: MenuRecordRaw[]): string | undefined => {
+    for (const menu of list) {
+      const children = menu.children ?? [];
+      if (children.length > 0) {
+        // 디렉터리 자체는 화면이 없다. 아래로 내려간다.
+        const found = firstViewable(children);
+        if (found) return found;
+        continue;
+      }
+      // 외부 링크는 앱 안의 화면이 아니다.
+      if (!menu.path || menu.path.startsWith('http')) continue;
+      if (permissionStore.findExact(menu.path)?.canView) return menu.path;
+    }
+    return undefined;
+  };
+
+  const accessStore = useAccessStore();
+  // 사이드바에 실제로 보이는 목록을 먼저 본다(화면 크기별 노출이 걸러낸 뒤의 것).
+  // 작은 화면에서 볼 수 있는 메뉴가 전부 가려졌다면 거르기 전 목록에서 다시 찾는다 —
+  // 목록에 없더라도 403 보다는 열리는 화면이 낫다.
+  const target = firstViewable(accessStore.accessMenus ?? []) ?? firstViewable(menus);
+
+  if (target) {
+    console.warn(
+      `[권한] 홈(${homePath})에 열람 권한이 없어 첫 메뉴로 보냅니다: ${target}`,
+    );
+  }
+  return target ?? homePath;
 }
 
 /**
