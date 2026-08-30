@@ -214,7 +214,7 @@ function onInsert() {
 <template>
   <Modal
     v-model:open="open"
-    :width="620"
+    :width="'min(620px, calc(100vw - 32px))'"
     title="영상 넣기"
     @ok="onInsert"
   >

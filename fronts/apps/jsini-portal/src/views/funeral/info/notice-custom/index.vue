@@ -124,7 +124,7 @@ function handleSave() {
     <!-- 상세보기 팝업 -->
     <Card
       v-if="showViewModal"
-      class="fixed inset-0 m-auto w-[500px] h-[400px] z-50 border shadow-2xl flex flex-col justify-between"
+      class="fixed inset-0 m-auto w-[500px] max-w-[calc(100vw-16px)] h-[400px] max-h-[80vh] z-50 border shadow-2xl flex flex-col justify-between"
       :title="viewRecord?.title"
     >
       <template #extra>

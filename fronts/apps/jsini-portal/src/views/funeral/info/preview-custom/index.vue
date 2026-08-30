@@ -46,9 +46,12 @@ onMounted(() => {
       </div>
     </div>
 
-    <!-- 가상 DID 렌더링 영역 (실물 블랙보드 고가시성 테마 설계) -->
-    <div class="flex justify-center items-center py-6 bg-accent/20 rounded border">
-      <div class="w-[800px] h-[450px] bg-neutral-900 border-8 border-neutral-700 shadow-2xl rounded text-white font-sans flex flex-col justify-between p-6">
+    <!-- 가상 DID 렌더링 영역 (실물 블랙보드 고가시성 테마 설계)
+         실물 기기와 같은 800×450 고정 비율이라 축소하지 않는다.
+         모바일에서는 감싸개가 가로 스크롤을 받는다 (mx-auto 는 justify-center 와 달리
+         넘칠 때 왼쪽 끝이 잘리지 않는다). -->
+    <div class="flex items-center py-6 bg-accent/20 rounded border max-w-full overflow-x-auto">
+      <div class="mx-auto shrink-0 w-[800px] h-[450px] bg-neutral-900 border-8 border-neutral-700 shadow-2xl rounded text-white font-sans flex flex-col justify-between p-6">
         
         <!-- DID 상단 헤더 -->
         <div class="flex justify-between items-center border-b border-neutral-700 pb-3">

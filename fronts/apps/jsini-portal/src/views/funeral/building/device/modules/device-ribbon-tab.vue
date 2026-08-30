@@ -363,7 +363,16 @@ function onMonitorDrop(evt: DragEvent) {
   const y = evt.clientY - rect.top;
   const posLeft = round3((x / rect.width) * 100 - 5);
   const posTop = round3((y / rect.height) * 100 - 5);
-  const dec = draggingDecoration.value;
+  placeDecoration(draggingDecoration.value, posLeft, posTop);
+  draggingDecoration.value = null;
+}
+
+/** 장식을 모니터에 실제로 얹는다 — 드롭과 [추가] 단추(터치)가 함께 쓴다. */
+function placeDecoration(
+  dec: BuildingApi.MediaSource,
+  posLeft: number,
+  posTop: number,
+) {
   const newRibbon: any = {
     id: `temp-${Date.now()}`,
     deviceId: props.deviceId,
@@ -380,7 +389,14 @@ function onMonitorDrop(evt: DragEvent) {
   };
   placedRibbons.value = [...placedRibbons.value, newRibbon];
   selectItem(newRibbon.id, 'ribbon');
-  draggingDecoration.value = null;
+}
+
+/**
+ * 장식 항목의 [추가] 단추 — HTML5 드래그가 뜨지 않는 터치 환경용.
+ * 화면 가운데에 얹은 뒤, 오른쪽 속성 패널의 위치 입력으로 자리를 잡는다.
+ */
+function addDecorationByTap(dec: BuildingApi.MediaSource) {
+  placeDecoration(dec, 45, 45);
 }
 
 // ────────────────────────────────────────────────────────────────────
@@ -681,6 +697,14 @@ const FONT_WEIGHT_OPTIONS = [
                   class="max-h-full max-w-full object-contain"
                   draggable="false"
                 />
+                <!-- 드래그가 뜨지 않는 터치 환경용 [추가] 단추 — 화면 가운데에 얹는다 -->
+                <button
+                  class="absolute bottom-0 right-0 flex size-5 items-center justify-center rounded-tl bg-primary/80 text-primary-foreground hover:bg-primary"
+                  title="화면에 추가"
+                  @click.stop="addDecorationByTap(dec)"
+                >
+                  <IconifyIcon icon="lucide:plus" class="size-3" />
+                </button>
               </div>
               <span class="w-full truncate text-center text-[10px] text-muted-foreground">
                 {{ dec.shortName || dec.name }}
@@ -755,7 +779,7 @@ const FONT_WEIGHT_OPTIONS = [
               {{ displayOrientation === 'PORTRAIT' ? '세로 모니터' : '가로 모니터' }}
             </span>
             <span class="text-[10px] text-muted-foreground">
-              (장식: 드래그 배치 · 텍스트: 추가 후 드래그)
+              (장식: 드래그 또는 + 단추로 배치 · 텍스트: 추가 후 드래그)
             </span>
           </div>
 

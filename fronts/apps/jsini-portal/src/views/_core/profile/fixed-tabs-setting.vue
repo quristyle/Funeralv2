@@ -16,8 +16,8 @@ import { useMenuFavoriteStore } from '#/store/menu-favorite';
  *
  * 할당받은 메뉴를 '고정된 메뉴'와 '고정되지 않은 메뉴' 두 칸에 나눠 보여 준다.
  * 항목을 반대쪽 칸으로 끌어다 놓으면 고정/해제되고, 고정 칸 안에서 끌어
- * 순서를 바꾸면 사이드바 즐겨찾기 순서로 저장된다. 끌기 어려운 환경을 위해
- * 항목마다 고정/해제 단추도 함께 둔다.
+ * 순서를 바꾸면 사이드바 즐겨찾기 순서로 저장된다. 끌기 어려운 환경(터치)을
+ * 위해 항목마다 고정/해제 단추와 ↑/↓ 순서 단추도 함께 둔다.
  *
  * 고정의 실체는 사용자별 즐겨찾기(scom.menu_favorites)다 — 탭 우클릭
  * 메뉴의 '즐겨찾기 추가'와 같은 데이터를 쓴다.
@@ -147,6 +147,25 @@ async function unpin(path: string) {
     message.error(error?.message ?? '해제하지 못했습니다.');
   }
 }
+
+/**
+ * 고정 칸 안에서 한 칸 위/아래로 옮긴다.
+ * HTML5 드래그가 뜨지 않는 터치 환경을 위한 길이다 — 저장은 드래그와
+ * 같은 reorder 를 그대로 쓴다.
+ */
+async function move(index: number, delta: -1 | 1) {
+  const target = index + delta;
+  if (target < 0 || target >= pinned.value.length) return;
+  const paths = pinned.value.map((p) => p.path);
+  const [moved] = paths.splice(index, 1);
+  if (!moved) return;
+  paths.splice(target, 0, moved);
+  try {
+    await favoriteStore.reorder(paths);
+  } catch (error: any) {
+    message.error(error?.message ?? '저장하지 못했습니다.');
+  }
+}
 </script>
 
 <template>
@@ -154,6 +173,7 @@ async function unpin(path: string) {
     <p class="text-muted-foreground mb-4 text-sm">
       항목을 반대쪽으로 끌어다 놓으면 고정/해제된다. 고정된 메뉴 안에서 끌면
       순서가 바뀐다 — 사이드바 즐겨찾기 묶음에 이 순서대로 나타난다.
+      끌기 어려운 환경에서는 각 항목의 단추(↑ · ↓ · 고정/해제)를 쓴다.
     </p>
     <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
       <!-- 고정된 메뉴 -->
@@ -189,6 +209,25 @@ async function unpin(path: string) {
             />
             <span class="flex-1 truncate text-sm">{{ item.title }}</span>
             <span class="text-muted-foreground font-mono text-xs">{{ index + 1 }}</span>
+            <!-- 끌기 어려운 환경(터치)용 순서 단추 -->
+            <Button
+              :disabled="index === 0"
+              size="small"
+              title="위로"
+              type="text"
+              @click="move(index, -1)"
+            >
+              <IconifyIcon icon="lucide:chevron-up" class="size-4" />
+            </Button>
+            <Button
+              :disabled="index === pinned.length - 1"
+              size="small"
+              title="아래로"
+              type="text"
+              @click="move(index, 1)"
+            >
+              <IconifyIcon icon="lucide:chevron-down" class="size-4" />
+            </Button>
             <Button size="small" type="text" @click="unpin(item.path)">
               해제
             </Button>

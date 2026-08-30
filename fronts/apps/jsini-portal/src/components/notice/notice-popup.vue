@@ -251,7 +251,7 @@ onMounted(() => {
     :mask-closable="false"
     :mask-style="MASK_STYLE"
     :title="null"
-    :width="620"
+    :width="'min(620px, calc(100vw - 32px))'"
     centered
     wrap-class-name="jsini-notice-modal"
   >

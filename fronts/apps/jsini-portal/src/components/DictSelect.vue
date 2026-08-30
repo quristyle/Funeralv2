@@ -71,7 +71,7 @@ function onChange(val: any) {
     :value="selectValue"
     v-bind="$attrs"
     class="w-full"
-    style="min-width: 80px; width: 100%"
+    style="min-width: 80px; width: 100%; max-width: 100%"
     @change="onChange"
   />
 </template>
@@ -79,6 +79,14 @@ function onChange(val: any) {
 <style scoped>
 /* DictSelect 컴포넌트의 가로 찌그러짐 방지를 위해 최소 너비 80px 강제 적용 */
 :deep(.ant-select) {
+  max-width: 100%;
   min-width: 80px !important;
+}
+
+/* 모바일에서는 최소 너비를 풀어 화면 폭 안에서 줄어들 수 있게 한다 */
+@media (max-width: 767px) {
+  :deep(.ant-select) {
+    min-width: 0 !important;
+  }
 }
 </style>

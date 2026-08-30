@@ -289,8 +289,9 @@ watch(currentSessionId, () => {
                     @confirm.stop="deleteSession(item.id)"
                   >
                     <template #icon><IconifyIcon icon="lucide:alert-circle" style="color: red" /></template>
-                    <div 
-                      class="opacity-0 group-hover:opacity-100 p-1 hover:bg-destructive/10 rounded transition-opacity"
+                    <!-- 호버가 없는 터치 환경에서는 항상 보이게 한다 (max-md) -->
+                    <div
+                      class="opacity-0 group-hover:opacity-100 max-md:opacity-100 p-1 hover:bg-destructive/10 rounded transition-opacity"
                       @click.stop
                     >
                       <IconifyIcon icon="lucide:trash-2" class="size-3.5 text-destructive" />

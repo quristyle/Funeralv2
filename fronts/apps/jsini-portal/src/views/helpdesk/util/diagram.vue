@@ -332,7 +332,7 @@ onBeforeUnmount(() => {
             :tree-data="wbsTreeData"
             placeholder="WBS 항목"
             show-search
-            style="width: 250px"
+            style="width: 250px; max-width: 100%"
             tree-default-expand-all
             tree-node-filter-prop="label"
           />

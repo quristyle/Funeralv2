@@ -393,8 +393,9 @@ watch(showHistoryList, (newVal) => {
                     @confirm.stop="deleteSession(item.id)"
                   >
                     <template #icon><AlertCircle class="size-3.5" style="color: red" /></template>
+                    <!-- 호버가 없는 터치 환경에서는 항상 보이게 한다 (max-md) -->
                     <div
-                      class="opacity-0 group-hover:opacity-100 p-1 hover:bg-destructive/10 rounded transition-opacity"
+                      class="opacity-0 group-hover:opacity-100 max-md:opacity-100 p-1 hover:bg-destructive/10 rounded transition-opacity"
                       @click.stop
                     >
                       <Trash2 class="size-3 text-destructive" />

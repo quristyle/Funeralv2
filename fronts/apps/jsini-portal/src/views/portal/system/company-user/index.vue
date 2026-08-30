@@ -51,9 +51,11 @@ const moving = ref<boolean>(false);
 
 // 미소속 목록도 소속 목록과 같은 정보를 보여준다.
 // 좁은 칸이라 사진 + 이름/아이디를 한 칸에 묶고, 이메일·연락처를 그 아래에 붙인다.
+// 마지막 칸은 [배정] 버튼 — 드래그가 안 되는 터치(모바일)의 대체 경로다.
 const unassignedColumns = [
   { title: '사용자', key: 'user' },
   { title: '연락', key: 'contact' },
+  { title: '', key: 'action', width: 44 },
 ];
 
 /**
@@ -144,14 +146,13 @@ function onZoneDragLeave(e: DragEvent, zone: 'mapped' | 'unassigned') {
   dropTarget.value = '';
 }
 
-/** 미소속 → 소속: 선택된 부서로 등록한다. */
-async function onDropToMapped(e: DragEvent) {
-  if (!canDropOn('mapped')) return;
-  e.preventDefault();
-
-  const id = dragging.value!.id;
-  dragging.value = null;
-  dropTarget.value = '';
+/**
+ * 사용자 한 명을 선택된 부서 소속으로 등록한다.
+ * 드롭(onDropToMapped)과 행의 [배정] 버튼이 **같은 함수**를 쓴다 —
+ * 버튼은 드래그가 동작하지 않는 터치(모바일)의 대체 경로다.
+ */
+async function assignOne(id: string) {
+  if (!selectedDeptId.value || moving.value) return;
   moving.value = true;
 
   try {
@@ -166,14 +167,12 @@ async function onDropToMapped(e: DragEvent) {
   }
 }
 
-/** 소속 → 미소속: 부서와 회사 소속을 함께 해제한다. */
-async function onDropToUnassigned(e: DragEvent) {
-  if (!canDropOn('unassigned')) return;
-  e.preventDefault();
-
-  const id = dragging.value!.id;
-  dragging.value = null;
-  dropTarget.value = '';
+/**
+ * 사용자 한 명의 부서와 회사 소속을 함께 해제한다.
+ * 드롭(onDropToUnassigned)과 행의 [해제] 버튼이 같은 함수를 쓴다.
+ */
+async function unassignOne(id: string) {
+  if (moving.value) return;
   moving.value = true;
 
   try {
@@ -186,6 +185,28 @@ async function onDropToUnassigned(e: DragEvent) {
   } finally {
     moving.value = false;
   }
+}
+
+/** 미소속 → 소속: 선택된 부서로 등록한다. */
+async function onDropToMapped(e: DragEvent) {
+  if (!canDropOn('mapped')) return;
+  e.preventDefault();
+
+  const id = dragging.value!.id;
+  dragging.value = null;
+  dropTarget.value = '';
+  await assignOne(id);
+}
+
+/** 소속 → 미소속: 부서와 회사 소속을 함께 해제한다. */
+async function onDropToUnassigned(e: DragEvent) {
+  if (!canDropOn('unassigned')) return;
+  e.preventDefault();
+
+  const id = dragging.value!.id;
+  dragging.value = null;
+  dropTarget.value = '';
+  await unassignOne(id);
 }
 
 /**
@@ -203,11 +224,13 @@ function rowDragProps(from: 'mapped' | 'unassigned') {
 
 // 매핑된 사용자 테이블 컬럼 정의
 //
-// '작업'(해제) 컬럼은 없앴다. 오른쪽 미소속 목록으로 끌어다 놓으면 해제되므로
-// 같은 일을 하는 버튼을 한 줄에 더 둘 이유가 없다. 좁은 칸에서 자리도 아깝다.
+// '작업'(해제) 컬럼은 한 번 없앴다가 아이콘 버튼 하나로 되살렸다.
+// 드래그로 해제할 수 있어 데스크톱에서는 필요 없지만, HTML5 drag&drop 은
+// 모바일 브라우저에서 동작하지 않아 터치에서는 이 버튼이 유일한 길이다.
 const mappedColumns = [
   { title: '사용자', key: 'user' },
   { title: '연락', key: 'contact' },
+  { title: '', key: 'action', width: 44 },
 ];
 
 // 추가 모달 테이블 컬럼 정의
@@ -514,7 +537,7 @@ onMounted(() => {
               <!-- 상단 툴바 -->
               <div class="flex justify-between items-center mb-3 pt-1 gap-2">
                 <span class="text-xs text-gray-400">
-                  오른쪽에서 끌어다 놓으면 등록됩니다.
+                  오른쪽에서 끌어다 놓거나 행의 버튼으로 등록·해제합니다.
                 </span>
                 <Button type="primary" size="small" @click="openAssignModal">
                   <template #icon>
@@ -563,6 +586,21 @@ onMounted(() => {
                           {{ record.phone || '-' }}
                         </div>
                       </div>
+                    </template>
+                    <!-- 해제 — 드래그가 안 되는 터치의 대체 경로. 드롭과 같은 API 를 부른다. -->
+                    <template v-else-if="column.key === 'action'">
+                      <Button
+                        danger
+                        size="small"
+                        type="text"
+                        :disabled="moving"
+                        title="소속 해제"
+                        @click="unassignOne(record.id)"
+                      >
+                        <template #icon>
+                          <IconifyIcon class="size-4" icon="lucide:user-minus" />
+                        </template>
+                      </Button>
                     </template>
                   </template>
                   <template #emptyText>
@@ -613,7 +651,7 @@ onMounted(() => {
           <div class="flex-1 flex flex-col overflow-hidden h-full">
             <div class="mb-3 pt-1 text-xs text-gray-400">
               어느 회사에도 소속되지 않은 사용자입니다.
-              왼쪽으로 끌어다 놓으면 부서에 등록됩니다.
+              왼쪽으로 끌어다 놓거나 행의 버튼을 누르면 부서에 등록됩니다.
             </div>
 
             <div class="flex-1 overflow-auto border rounded-lg">
@@ -653,6 +691,24 @@ onMounted(() => {
                         {{ record.phone || '-' }}
                       </div>
                     </div>
+                  </template>
+                  <!-- 배정 — 드래그가 안 되는 터치의 대체 경로. 부서를 먼저 골라야 켜진다. -->
+                  <template v-else-if="column.key === 'action'">
+                    <Button
+                      size="small"
+                      type="text"
+                      :disabled="!selectedDeptId || moving"
+                      :title="
+                        selectedDeptId
+                          ? `[${selectedDeptName}] 부서로 배정`
+                          : '조직도에서 부서를 먼저 선택해 주세요'
+                      "
+                      @click="assignOne(record.id)"
+                    >
+                      <template #icon>
+                        <IconifyIcon class="size-4" icon="lucide:user-plus" />
+                      </template>
+                    </Button>
                   </template>
                 </template>
                 <template #emptyText>

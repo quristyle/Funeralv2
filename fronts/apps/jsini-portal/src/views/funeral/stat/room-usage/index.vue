@@ -76,12 +76,12 @@ onMounted(() => {
       <div class="flex items-center gap-4 flex-wrap">
         <div class="flex items-center gap-2">
           <span class="font-semibold text-sm">일자 범위:</span>
-          <DatePicker.RangePicker v-model:value="searchRange" format="YYYY-MM-DD" style="width: 260px" />
+          <DatePicker.RangePicker v-model:value="searchRange" format="YYYY-MM-DD" style="width: 260px; max-width: 100%" />
         </div>
         
         <div class="flex items-center gap-2">
           <span class="font-semibold text-sm">호실 필터:</span>
-          <Select v-model:value="searchRoomId" style="width: 180px" placeholder="전체 호실 조회" allow-clear>
+          <Select v-model:value="searchRoomId" style="width: 180px; max-width: 100%" placeholder="전체 호실 조회" allow-clear>
             <Select.Option v-for="r in rooms" :key="r.id" :value="r.id">{{ r.name }}</Select.Option>
           </Select>
         </div>

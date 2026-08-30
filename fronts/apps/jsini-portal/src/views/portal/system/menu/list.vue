@@ -251,6 +251,9 @@ const [Grid, gridApi] = useVbenVxeGrid({
   gridOptions: {
     columns: useColumns(onActionClick, onStatusToggle),
     // 셀을 두 번 눌러 바로 고친다. 예전 그리드 뷰의 동작을 그대로 뒀다.
+    // 터치(모바일)에는 dblclick 이 없지만 막다른 길은 아니다 — 작업 열의
+    // [수정] 단추가 같은 필드(이름·경로·컴포넌트·권한코드·순번)를 모두 가진
+    // 폼을 열고, 상태 배지도 한 번 눌러 바꾼다.
     editConfig: {
       mode: 'cell',
       showStatus: true,

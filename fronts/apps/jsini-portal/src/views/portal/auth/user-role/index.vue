@@ -301,13 +301,14 @@ function onRolesDragOver(e: DragEvent) {
   hoverRoles.value = true;
 }
 
-async function onRolesDrop(e: DragEvent) {
+/**
+ * 역할 지정 — 드롭(onRolesDrop)과 서랍의 [+] 버튼이 **같은 함수**를 쓴다.
+ * 버튼은 HTML5 drag&drop 이 동작하지 않는 터치(모바일)의 대체 경로다.
+ */
+async function assignRole(roleId: string) {
   const t = selected.value;
-  if (!dragging.value || dragging.value.from !== 'drawer' || !t) return;
-  e.preventDefault();
-
-  const roleId = dragging.value.roleId;
-  onDragEnd();
+  if (!t || saving.value) return;
+  // 이미 직접 걸려 있으면 다시 지정할 것이 없다 (드롭 판정과 같다).
   if (shownRoles.value.includes(roleId) && isDirect(roleId)) return;
 
   saving.value = true;
@@ -323,19 +324,20 @@ async function onRolesDrop(e: DragEvent) {
   }
 }
 
-function onDrawerDragOver(e: DragEvent) {
-  if (!dragging.value || dragging.value.from !== 'tag' || saving.value) return;
+/**
+ * 태그의 × 처리. antd Tag 는 close 때 스스로 사라지므로 preventDefault 로 막고,
+ * 서버 처리가 끝나면 loadDetail 이 목록을 다시 그린다.
+ */
+function onTagClose(e: Event, roleId: string) {
   e.preventDefault();
-  hoverDrawer.value = true;
+  removeRole(roleId);
 }
 
-async function onDrawerDrop(e: DragEvent) {
+/** 역할 해제 — 드롭(onDrawerDrop)과 태그의 × 버튼이 같은 함수를 쓴다. */
+async function removeRole(roleId: string) {
   const t = selected.value;
-  if (!dragging.value || dragging.value.from !== 'tag' || !t) return;
-  e.preventDefault();
-
-  const roleId = dragging.value.roleId;
-  onDragEnd();
+  if (!t || saving.value) return;
+  if (!isDirect(roleId)) return; // 물려받은 역할은 여기서 못 뺀다
 
   saving.value = true;
   try {
@@ -348,6 +350,30 @@ async function onDrawerDrop(e: DragEvent) {
   } finally {
     saving.value = false;
   }
+}
+
+async function onRolesDrop(e: DragEvent) {
+  if (!dragging.value || dragging.value.from !== 'drawer' || !selected.value) return;
+  e.preventDefault();
+
+  const roleId = dragging.value.roleId;
+  onDragEnd();
+  await assignRole(roleId);
+}
+
+function onDrawerDragOver(e: DragEvent) {
+  if (!dragging.value || dragging.value.from !== 'tag' || saving.value) return;
+  e.preventDefault();
+  hoverDrawer.value = true;
+}
+
+async function onDrawerDrop(e: DragEvent) {
+  if (!dragging.value || dragging.value.from !== 'tag' || !selected.value) return;
+  e.preventDefault();
+
+  const roleId = dragging.value.roleId;
+  onDragEnd();
+  await removeRole(roleId);
 }
 
 /** 메뉴 제목은 다국어 키일 수 있다. 다른 화면과 같은 규칙으로 번역한다. */
@@ -498,17 +524,23 @@ function kindIcon(kind: RoleScopeApi.ScopeKind) {
             </template>
 
             <div class="flex flex-wrap items-center gap-1.5">
+              <!--
+                직접 걸린 역할은 × 로도 해제된다 — 드래그가 동작하지 않는
+                터치(모바일)의 대체 경로다.
+              -->
               <Tag
                 v-for="rid in shownRoles"
                 :key="rid"
+                :closable="isDirect(rid)"
                 :color="isDirect(rid) ? 'blue' : 'default'"
                 :draggable="isDirect(rid)"
                 :class="isDirect(rid) ? 'cursor-move' : 'cursor-not-allowed'"
                 :title="
                   isDirect(rid)
-                    ? '아래 서랍으로 끌어다 놓으면 해제됩니다'
+                    ? '아래 서랍으로 끌어다 놓거나 × 를 누르면 해제됩니다'
                     : '회사·부서에서 물려받았습니다. 회사·부서 보기에서 해제하세요'
                 "
+                @close="onTagClose($event, rid)"
                 @dragstart="onTagDragStart($event, rid)"
                 @dragend="onDragEnd"
               >
@@ -534,17 +566,30 @@ function kindIcon(kind: RoleScopeApi.ScopeKind) {
           >
             <div class="flex flex-wrap items-center gap-1.5">
               <span class="mr-1 text-[11px] text-gray-400">
-                역할 서랍 — 위로 끌면 지정, 여기로 끌면 해제
+                역할 서랍 — 위로 끌거나 [+] 를 누르면 지정, 여기로 끌거나 태그의 × 를 누르면 해제
               </span>
+              <!--
+                [+] 는 드래그의 터치(모바일) 대체 경로다. 선택한 대상에 바로 지정한다.
+                이미 직접 걸린 역할이면 assignRole 이 조용히 아무 일도 하지 않는다.
+              -->
               <div
                 v-for="r in roles"
                 :key="r.id"
                 draggable="true"
-                class="cursor-move rounded border px-2 py-1 text-xs transition-all hover:border-primary hover:shadow-sm"
+                class="flex cursor-move items-center gap-1 rounded border px-2 py-1 text-xs transition-all hover:border-primary hover:shadow-sm"
                 @dragstart="onDrawerDragStart($event, r.id)"
                 @dragend="onDragEnd"
               >
                 {{ r.name }}
+                <button
+                  type="button"
+                  class="text-primary hover:bg-primary/10 -mr-0.5 rounded p-0.5 disabled:cursor-not-allowed disabled:opacity-40"
+                  :disabled="!selected || saving"
+                  :title="selected ? `[${selected.name}] 에 지정` : '왼쪽에서 대상을 먼저 선택해 주세요'"
+                  @click.stop="assignRole(r.id)"
+                >
+                  <IconifyIcon icon="lucide:plus" class="size-3.5" />
+                </button>
               </div>
             </div>
           </Card>

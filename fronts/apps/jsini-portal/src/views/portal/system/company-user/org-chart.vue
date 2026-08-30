@@ -842,14 +842,19 @@ onMounted(async () => {
         ref="canvasRef"
         class="flex-1 min-w-0 border rounded-xl overflow-hidden relative select-none cursor-grab"
         :class="{ 'cursor-grabbing': isPanning }"
+        style="touch-action: none"
         @mousedown="onCanvasMouseDown"
         @mousemove="onCanvasMouseMove"
         @mouseup="onCanvasMouseUp"
         @mouseleave="onCanvasMouseUp"
         @wheel="onCanvasWheel"
+        @touchstart="onCanvasTouchStart"
+        @touchmove="onCanvasTouchMove"
+        @touchend="onCanvasTouchEnd"
+        @touchcancel="onCanvasTouchEnd"
       >
         <div class="absolute top-4 left-4 z-10 backdrop-blur px-3 py-1.5 rounded-md border text-xs text-gray-500 pointer-events-none">
-          💡 노드를 드래그하여 다른 부서에 소속시킬 수 있습니다. (확대: 휠 / 이동: 마우스 드래그)
+          💡 노드를 드래그하거나 노드의 이동 버튼(<IconifyIcon icon="lucide:move" class="inline-block size-3 align-text-bottom" />)으로 다른 부서에 소속시킬 수 있습니다. (확대: 휠·두 손가락 / 이동: 드래그)
         </div>
 
         <svg class="w-full h-full pointer-events-none" style="overflow: visible;">
@@ -927,6 +932,15 @@ onMounted(async () => {
                   >
                     <IconifyIcon icon="lucide:folder-plus" class="size-4" />
                   </button>
+                  <!-- 드래그의 터치 대체 경로. 팝업에서 대상 부서를 고른다. -->
+                  <button
+                    type="button"
+                    class="no-pan shrink-0 rounded p-1 text-teal-600 hover:bg-teal-50"
+                    title="다른 부서로 이동"
+                    @click.stop="openMovePicker('DEPT', node.id, node.name)"
+                  >
+                    <IconifyIcon icon="lucide:move" class="size-4" />
+                  </button>
                 </div>
 
                 <!-- 사용자 노드 (드래그) -->
@@ -948,6 +962,15 @@ onMounted(async () => {
                     <div class="text-xs font-bold text-gray-800 truncate" :title="node.name">{{ node.name }}</div>
                     <div class="text-[9px] text-gray-500 truncate" :title="node.email || node.loginId">{{ node.email || node.loginId }}</div>
                   </div>
+                  <!-- 드래그의 터치 대체 경로. 팝업에서 대상 부서를 고른다. -->
+                  <button
+                    type="button"
+                    class="no-pan shrink-0 rounded p-1 text-amber-700 hover:bg-amber-100"
+                    title="다른 부서로 이동"
+                    @click.stop="openMovePicker('USER', node.id, node.name)"
+                  >
+                    <IconifyIcon icon="lucide:move" class="size-4" />
+                  </button>
                 </div>
               </foreignObject>
             </g>
@@ -995,7 +1018,7 @@ onMounted(async () => {
 
         <div class="px-3 py-2 text-[11px] leading-snug text-gray-400 border-b">
           어느 회사에도 소속되지 않은 사용자입니다.
-          <b>부서 노드로 끌어다 놓으면</b> 그 부서 소속이 됩니다.
+          <b>부서 노드로 끌어다 놓거나</b> 행의 이동 버튼을 누르면 그 부서 소속이 됩니다.
         </div>
 
         <div class="flex-1 overflow-y-auto p-2 flex flex-col gap-1.5">
@@ -1023,6 +1046,15 @@ onMounted(async () => {
                 {{ user.phone || '-' }}
               </div>
             </div>
+            <!-- 드래그의 터치 대체 경로. 팝업에서 대상 부서를 고른다. -->
+            <button
+              type="button"
+              class="shrink-0 rounded p-1 text-gray-400 hover:bg-primary/10 hover:text-primary"
+              title="부서로 이동"
+              @click.stop="openMovePicker('USER', user.id, user.userName || user.loginId)"
+            >
+              <IconifyIcon icon="lucide:move" class="size-4" />
+            </button>
           </div>
 
           <div
@@ -1062,6 +1094,72 @@ onMounted(async () => {
           placeholder="부서명"
           @press-enter="submitAddDept"
         />
+      </div>
+    </Modal>
+
+    <!--
+      이동 대상 선택 — 드래그의 터치(모바일) 대체 경로.
+      끌어다 놓는 대신 여기서 대상 부서를 고른다. 실행되는 API 는 드롭과 같다.
+    -->
+    <Modal
+      v-model:open="moveOpen"
+      :confirm-loading="moveSaving"
+      :title="
+        moveSource
+          ? `[${moveSource.name}] ${moveSource.type === 'DEPT' ? '부서' : '사용자'} 이동`
+          : '이동'
+      "
+      ok-text="이동"
+      cancel-text="취소"
+      @ok="submitMove"
+    >
+      <div class="py-2">
+        <div class="mb-2 text-xs text-gray-500">
+          {{
+            moveSource?.type === 'DEPT'
+              ? '이 부서(하위 부서·소속 사용자 포함)를 옮길 곳을 선택해 주세요.'
+              : '이 사용자를 소속시킬 부서를 선택해 주세요.'
+          }}
+        </div>
+        <div class="max-h-80 overflow-y-auto rounded-md border p-1.5 flex flex-col gap-1">
+          <!-- 부서는 회사 직속으로도 옮길 수 있다 (드롭의 onCompanyDrop 과 같다) -->
+          <div
+            v-if="moveSource?.type === 'DEPT'"
+            class="cursor-pointer rounded border px-2 py-1.5 flex items-center gap-2 transition-colors"
+            :class="
+              moveTargetId === MOVE_TO_COMPANY
+                ? 'border-primary bg-primary/5'
+                : 'hover:border-primary/40'
+            "
+            @click="moveTargetId = MOVE_TO_COMPANY"
+          >
+            <IconifyIcon icon="lucide:building-2" class="size-4 text-primary shrink-0" />
+            <span class="text-sm font-medium truncate">
+              [회사 직속] {{ selectedCompanyName }}
+            </span>
+          </div>
+
+          <div
+            v-for="opt in moveDeptOptions"
+            :key="opt.id"
+            class="cursor-pointer rounded border px-2 py-1.5 flex items-center gap-2 transition-colors"
+            :class="
+              moveTargetId === opt.id ? 'border-primary bg-primary/5' : 'hover:border-primary/40'
+            "
+            :style="{ paddingLeft: `${8 + opt.depth * 16}px` }"
+            @click="moveTargetId = opt.id"
+          >
+            <IconifyIcon icon="lucide:folder-open" class="size-4 text-teal-600 shrink-0" />
+            <span class="text-sm truncate">{{ opt.name }}</span>
+          </div>
+
+          <div
+            v-if="moveDeptOptions.length === 0 && moveSource?.type !== 'DEPT'"
+            class="py-6 text-center text-xs text-gray-400"
+          >
+            옮길 수 있는 부서가 없습니다.
+          </div>
+        </div>
       </div>
     </Modal>
   </Page>

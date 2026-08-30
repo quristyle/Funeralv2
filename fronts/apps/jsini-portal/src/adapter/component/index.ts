@@ -535,6 +535,9 @@ const withPreviewUpload = () => {
           animation: 300,
           delay: 400,
           delayOnTouchOnly: true,
+          // 터치는 길게 눌러(400ms) 드래그를 시작한다. 누르는 동안 손가락이
+          // 기본 허용치(1~3px)보다 조금만 떨려도 취소돼 버려서, 여유를 둔다.
+          touchStartThreshold: 5,
           filter:
             '.ant-upload-select, .ant-upload-list-item-error, .ant-upload-list-item-uploading',
           onEnd: (evt) => {

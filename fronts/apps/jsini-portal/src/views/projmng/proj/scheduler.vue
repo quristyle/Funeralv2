@@ -118,7 +118,11 @@ function openEdit(row: ProjMngRow) {
   formOpen.value = true;
 }
 
-/** 드래그로 옮긴다. 기간은 유지하고 시작일만 옮긴 뒤 바로 저장한다 (원본과 같다). */
+/**
+ * 드래그로 옮긴다. 기간은 유지하고 시작일만 옮긴 뒤 바로 저장한다 (원본과 같다).
+ * HTML5 drag&drop 은 모바일에서 dragstart 자체가 안 떠 데스크톱 전용이다 —
+ * 모바일은 편집 팝업(AppointmentForm)의 계획 시작·종료로 날짜를 바꾼다.
+ */
 async function onDrop(date: dayjs.Dayjs, event: DragEvent) {
   const wbsId = event.dataTransfer?.getData('text/plain');
   const row = rows.value.find((item) => String(item.wbs_id ?? '') === wbsId);
@@ -156,6 +160,10 @@ function onDragStart(row: ProjMngRow, event: DragEvent) {
         <Button size="small" @click="cursor = cursor.add(1, 'month')">
           다음
         </Button>
+        <!-- 마지막으로 탭한 날짜(없으면 오늘)로 연다 — 모바일의 단일 탭 등록 경로 -->
+        <Button v-perm:create size="small" @click="openNew(selectedDate ?? dayjs())">
+          일정 등록
+        </Button>
         <Button v-perm:search size="small" type="primary" :loading="loading" @click="search">
           조회
         </Button>
@@ -170,6 +178,8 @@ function onDragStart(row: ProjMngRow, event: DragEvent) {
       </div>
 
       <div class="grid flex-1 grid-cols-7 grid-rows-6">
+        <!-- 데스크톱은 빈 칸 더블클릭으로 바로 등록,
+             모바일은 칸을 한 번 탭해 고른 뒤 도구줄의 [일정 등록]을 누른다 -->
         <div
           v-for="date in weeks.flat()"
           :key="date.format('YYYY-MM-DD')"
@@ -177,7 +187,9 @@ function onDragStart(row: ProjMngRow, event: DragEvent) {
           :class="[
             date.month() === cursor.month() ? '' : 'bg-muted/40 text-muted-foreground',
             date.isSame(dayjs(), 'day') ? 'bg-amber-200/20' : '',
+            selectedDate?.isSame(date, 'day') ? 'ring-primary/60 ring-1 ring-inset' : '',
           ]"
+          @click="selectedDate = date"
           @dblclick="openNew(date)"
           @dragover.prevent
           @drop.prevent="onDrop(date, $event)"

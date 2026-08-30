@@ -284,7 +284,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeyDown));
               option-filter-prop="label"
               placeholder="요청을 등록할 회사를 선택하세요"
               show-search
-              style="width: 260px"
+              style="width: 260px; max-width: 100%"
             />
           </FormItem>
 
