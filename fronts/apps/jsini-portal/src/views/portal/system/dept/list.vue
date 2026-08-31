@@ -164,6 +164,11 @@ const [Grid, gridApi] = useVbenVxeGrid({
   gridEvents: {},
   gridOptions: {
     columns: useColumns(onActionClick),
+    /**
+     * 아래 도구줄의 [추가] 아이콘을 위쪽 [부서 추가] 단추와 같은 곳에 연결한다.
+     * 공통 그리드는 화면마다 무엇을 추가하는지 모르므로 그 함수를 여기서 준다.
+     */
+    gridFeatures: { onCreate },
     height: 'auto',
     keepSource: true,
     pagerConfig: {
@@ -181,12 +186,9 @@ const [Grid, gridApi] = useVbenVxeGrid({
         },
       },
     },
-    toolbarConfig: {
-      custom: true,
-      export: false,
-      refresh: true,
-      zoom: true,
-    },
+    // 보이는 컬럼 · 재조회 · 전체화면은 **아래 도구줄**로 옮겼다
+    // (adapter/vxe-grid-features.ts). 여기 남겨 두면 위아래로 두 벌이 된다.
+    // 위쪽 도구줄 자체는 그대로다 — [부서 추가] 단추와 제목이 사는 자리다.
     treeConfig: {
       parentField: 'pid',
       rowField: 'id',

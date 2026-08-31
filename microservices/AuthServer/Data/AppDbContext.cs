@@ -38,6 +38,9 @@ public class AppDbContext : DbContext
     public DbSet<AccountPreference> AccountPreferences { get; set; }
     public DbSet<MenuFavorite> MenuFavorites { get; set; }
     public DbSet<RoleCompany> RoleCompanies { get; set; }
+
+    /// <summary>회사 사용처 (COMPANY_USAGE_LOCATION 공통코드 배정)</summary>
+    public DbSet<CompanyUsageLocation> CompanyUsageLocations { get; set; }
     public DbSet<RoleDepartment> RoleDepartments { get; set; }
     public DbSet<ReleaseRun> ReleaseRuns { get; set; }
     public DbSet<ReleaseRunEvent> ReleaseRunEvents { get; set; }

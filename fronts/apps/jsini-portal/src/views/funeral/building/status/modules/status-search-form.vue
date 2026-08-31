@@ -50,7 +50,7 @@ function onReset() {
         >
           <BizSelect
             :value="modelValue.companyId"
-            type="company"
+            type="funeralCompany"
             placeholder="회사 전체"
             show-all
             @update:value="(val) => emit('update:modelValue', { ...modelValue, companyId: val as string })"

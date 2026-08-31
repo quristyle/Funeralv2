@@ -4,7 +4,7 @@ import { Page } from '@vben/common-ui';
 import { Button, message, DatePicker, Select } from 'ant-design-vue';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { getBillingStats } from '#/api/funeral/stat';
-import { getCompanyList } from '#/api/portal/system/company';
+import { FUNERAL_USAGE_LOCATION, getCompanyList } from '#/api/portal/system/company';
 import dayjs from 'dayjs';
 
 const companies = ref<any[]>([]);
@@ -14,7 +14,8 @@ const searchDate = ref<any>(dayjs());
 // 회사 목록 로드
 async function fetchCompanies() {
   try {
-    const list = await getCompanyList();
+    // 장례식장 관리시스템에 배정된 회사만 고른다(BizSelect 를 쓰는 다른 화면과 같은 규칙).
+    const list = await getCompanyList(FUNERAL_USAGE_LOCATION);
     companies.value = list.items || [];
   } catch (error) {
     message.error('회사 목록 로드 실패');

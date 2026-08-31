@@ -115,6 +115,19 @@
 }
 
 /*
+  편집 가능 표시. vxe 가 붙이는 연필은 필터줄(2행)에 끼므로 감추고,
+  이름 옆에 이것을 그린다 (adapter/vxe-grid-features.ts `createTitleHeader`).
+  단서일 뿐이므로 이름보다 흐리게 둔다.
+*/
+.jsini-titlerow__edit {
+  flex: none;
+  width: 11px;
+  height: 11px;
+  color: hsl(var(--muted-foreground));
+  opacity: 0.45;
+}
+
+/*
   정렬 표시. 안 걸렸을 때도 자리를 지켜야 한다 — 누를 때마다 화살표가
   나타났다 사라지면 이름이 좌우로 흔들린다.
 */
@@ -134,11 +147,28 @@
 /* ── 2행: 필터줄 ─────────────────────────────────────────── */
 
 /*
-  이 줄에는 입력칸 하나뿐이다. vxe 가 이 칸에 그리는 정렬 화살표와 깔때기는
+  이 줄에는 입력칸 하나뿐이다. vxe 가 이 칸에 그리는 정렬 화살표·깔때기·연필은
   감춘다 — 정렬은 이름줄이 맡고, 필터 팝업은 쓰지 않는다.
+
+  연필(`vxe-cell--edit-icon`)이 여기 끼는 이유:
+  공통 필터줄은 값 칸 하나를 묶음(1행 이름)과 잎(2행 필터)으로 가르는데,
+  `editRender` 는 셀 편집이 동작해야 하니 **잎**에 남는다.
+  vxe 의 `renderEditHeader` 는 연필을 머리글 슬롯보다 **앞에** 붙이므로
+  (table/src/cell.js), 편집 가능한 칸마다 입력칸 왼쪽에 연필이 생긴다.
+  `editConfig` 는 화면이 적지 않아도 공통 프리셋이 넣어 주므로
+  (`use-vxe-grid.vue`), `editRender` 가 있는 모든 그리드가 해당된다.
+
+  전역 `editConfig.showIcon: false` 로 끄지 않는 이유: 이 규칙은 **필터줄에서만**
+  감추므로 셀 편집 기능도, 표시도 잃지 않는다. 편집 가능하다는 단서는 1행 이름 옆에
+  우리가 직접 그린다(`jsini-titlerow__edit`) — 칸 이름 옆이 읽기 쉬운 자리다.
+  전역으로 끄면 vxe 가 붙이는 자리 하나만 사라지는 것이 아니라 판정 자체가 꺼진다.
+
+  별표(`vxe-cell--required-icon`)도 같은 자리에 붙지만 지금은 `editRules` 를
+  쓰는 화면이 없어 그려지지 않는다. 쓰기 시작하면 여기에 함께 적는다.
 */
 .jsini-filterrow .vxe-cell--sort,
-.jsini-filterrow .vxe-cell--filter {
+.jsini-filterrow .vxe-cell--filter,
+.jsini-filterrow .vxe-cell--edit-icon {
   display: none !important;
 }
 

@@ -18,9 +18,20 @@ public class CompanyService : ICompanyService
         _context = context;
     }
 
-    public async Task<IEnumerable<CompanyDto>> GetAllCompaniesAsync()
+    public async Task<IEnumerable<CompanyDto>> GetAllCompaniesAsync(string? usageLocation = null)
     {
-        var companies = await _context.Companies
+        var query = _context.Companies.AsQueryable();
+
+        // 사용처로 좁힌다. 장례식장 관리시스템 화면들이 자기 시스템에 배정된 회사만
+        // 보려고 쓴다(BizSelect 의 `funeralCompany` 타입). 비우면 전부 준다.
+        var wanted = usageLocation?.Trim();
+        if (!string.IsNullOrEmpty(wanted))
+        {
+            query = query.Where(c => _context.CompanyUsageLocations
+                .Any(u => !u.IsDeleted && u.CompanyId == c.Id && u.CodeValue == wanted));
+        }
+
+        var companies = await query
             .OrderBy(c => c.SortOrder)
             .ThenByDescending(c => c.CreatedAt)
             .ProjectToType<CompanyDto>()
@@ -45,19 +56,92 @@ public class CompanyService : ICompanyService
             .Select(g => new { CompanyId = g.Key, Count = g.Count() })
             .ToDictionaryAsync(x => x.CompanyId, x => x.Count);
 
+        // 사용처도 같은 이유로 한 번에 묶어 온다(회사마다 물어보면 N+1 이다).
+        var usageMap = await LoadUsageLocationsAsync(companies.Select(c => c.Id));
+
         foreach (var company in companies)
         {
             company.UserCount = userCounts.GetValueOrDefault(company.Id);
             company.DeptCount = deptCounts.GetValueOrDefault(company.Id);
+            company.UsageLocations = usageMap.GetValueOrDefault(company.Id) ?? new List<string>();
         }
 
         return companies;
     }
 
+    /// <summary>
+    /// 회사별 사용처(<c>COMPANY_USAGE_LOCATION</c> 코드값) 목록을 한 번에 읽는다.
+    /// </summary>
+    private async Task<Dictionary<string, List<string>>> LoadUsageLocationsAsync(
+        IEnumerable<string> companyIds)
+    {
+        var ids = companyIds.Distinct().ToList();
+        if (ids.Count == 0) return new Dictionary<string, List<string>>();
+
+        var rows = await _context.CompanyUsageLocations
+            .Where(u => !u.IsDeleted && ids.Contains(u.CompanyId))
+            .Select(u => new { u.CompanyId, u.CodeValue })
+            .ToListAsync();
+
+        return rows
+            .GroupBy(r => r.CompanyId)
+            .ToDictionary(g => g.Key, g => g.Select(r => r.CodeValue).ToList());
+    }
+
+    /// <summary>
+    /// 회사의 사용처를 요청한 목록으로 맞춘다.
+    /// </summary>
+    /// <remarks>
+    /// <paramref name="codeValues"/> 가 <c>null</c> 이면 <b>아무것도 하지 않는다</b> —
+    /// 일부 항목만 보내는 호출자(목록 화면의 셀 편집)가 사용처를 지우지 않게 하려는 것이다.
+    /// 빈 목록은 '전부 해제' 다.
+    ///
+    /// <para>
+    /// 있던 것을 지우고 다시 넣지 않고 <b>차이만</b> 반영한다. 그래야 바꾸지 않은 행의
+    /// 등록 정보(<c>created_at</c> · <c>created_by</c>)가 남는다.
+    /// 지울 때는 행을 실제로 지운다 — <c>(company_id, code_value)</c> 에 유일 색인이 걸려 있어
+    /// 지운 표시만 남기면 같은 코드를 다시 넣을 때 부딪힌다.
+    /// </para>
+    /// </remarks>
+    private async Task ApplyUsageLocationsAsync(string companyId, List<string>? codeValues)
+    {
+        if (codeValues == null) return;
+
+        var wanted = codeValues
+            .Select(v => (v ?? string.Empty).Trim())
+            .Where(v => v.Length > 0)
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        var current = await _context.CompanyUsageLocations
+            .Where(u => u.CompanyId == companyId)
+            .ToListAsync();
+
+        var toRemove = current
+            .Where(u => !wanted.Contains(u.CodeValue, StringComparer.Ordinal))
+            .ToList();
+        if (toRemove.Count > 0) _context.CompanyUsageLocations.RemoveRange(toRemove);
+
+        var kept = current.Except(toRemove).Select(u => u.CodeValue).ToHashSet(StringComparer.Ordinal);
+        foreach (var code in wanted.Where(code => !kept.Contains(code)))
+        {
+            _context.CompanyUsageLocations.Add(new CompanyUsageLocation
+            {
+                CompanyId = companyId,
+                CodeValue = code
+            });
+        }
+    }
+
     public async Task<CompanyDto?> GetCompanyByIdAsync(string id)
     {
         var company = await _context.Companies.FindAsync(id);
-        return company?.Adapt<CompanyDto>();
+        if (company == null) return null;
+
+        var dto = company.Adapt<CompanyDto>();
+        var usageMap = await LoadUsageLocationsAsync(new[] { id });
+        dto.UsageLocations = usageMap.GetValueOrDefault(id) ?? new List<string>();
+        return dto;
     }
 
     public async Task<CompanyDto> CreateCompanyAsync(CompanyCreateDto createDto)
@@ -70,9 +154,15 @@ public class CompanyService : ICompanyService
         }
 
         _context.Companies.Add(company);
+        // 회사 행이 있어야 사용처가 외래키를 걸 수 있다. 먼저 저장한다.
         await _context.SaveChangesAsync();
 
-        return company.Adapt<CompanyDto>();
+        await ApplyUsageLocationsAsync(company.Id, createDto.UsageLocations);
+        await _context.SaveChangesAsync();
+
+        var dto = company.Adapt<CompanyDto>();
+        dto.UsageLocations = createDto.UsageLocations ?? new List<string>();
+        return dto;
     }
 
     public async Task<bool> UpdateCompanyAsync(string id, CompanyCreateDto updateDto)
@@ -86,6 +176,9 @@ public class CompanyService : ICompanyService
         {
             company.ApprovalDate = DateTime.SpecifyKind(company.ApprovalDate.Value, DateTimeKind.Utc);
         }
+
+        // 값을 실어 보낸 요청만 사용처를 바꾼다(위 주석 참고).
+        await ApplyUsageLocationsAsync(id, updateDto.UsageLocations);
 
         await _context.SaveChangesAsync();
         return true;

@@ -13,6 +13,7 @@ import {
   saveRoleMenus,
   type SystemRolePermissionApi,
 } from '#/api/portal/system/role-permission';
+import { useMenuPermission } from '#/composables/use-menu-permission';
 
 /**
  * [역할 - 메뉴 권한]
@@ -26,6 +27,12 @@ import {
  *
  * 예전에는 모든 메뉴에 15개 체크박스를 똑같이 띄우고 사용자 정의 칸은
  * 'C1'~'C8' 로만 보여서, 무엇을 켜는 것인지 알 수 없었다.
+ *
+ * 체크박스가 메뉴 177개 × 최대 15칸이라 하나씩 누르는 것이 번거롭다.
+ * 그래서 메뉴명 옆에 한 번에 켜고 끄는 단추 둘을 둔다 —
+ * **이 메뉴만**, 그리고 **이 메뉴와 하위 전체**. 둘 다 누를 때마다 켜기↔끄기가 바뀐다.
+ * 그 메뉴가 쓰지 않는 항목(잠긴 칸)은 건너뛴다 — 저장할 때 어차피 꺼져서 나가므로
+ * 켜 두면 화면과 저장 결과가 어긋난다.
  */
 
 const props = defineProps({
@@ -85,6 +92,84 @@ const noCustomConfigured = computed(
   () => rawMenuList.value.length > 0 && activeCustoms.value.length === 0,
 );
 
+/**
+ * 이 화면의 저장 권한. 없으면 일괄 단추도 내리지 않는다 —
+ * [권한 설정 저장] 단추와 같은 기준이다(`v-perm:update`).
+ * setup 최상위 ref 라 템플릿에서 `.value` 없이 쓴다.
+ */
+const { canUpdate } = useMenuPermission();
+
+/**
+ * 이 행에서 실제로 켜고 끌 수 있는 권한 필드.
+ *
+ * 그 메뉴가 쓰지 않는 항목은 뺀다(체크박스도 잠겨 있고, 저장할 때 서버와 화면
+ * 양쪽에서 꺼진 값으로 처리된다). 사용자 정의는 열이 보이는 것만 다룬다.
+ */
+function usableFields(row: any): string[] {
+  const fields: string[] = [];
+  BASE_PERMS.forEach((p) => {
+    if (isUsed(row, p.use)) fields.push(p.field);
+  });
+  activeCustoms.value.forEach((c) => {
+    if (isUsed(row, c.useKey)) fields.push(c.field);
+  });
+  return fields;
+}
+
+/** 하위 메뉴가 있는가. `children` 은 `listToTree` 가 붙이므로 DTO 타입에는 없다. */
+function hasChildren(row: any) {
+  return Boolean(row?.children?.length);
+}
+
+/** 이 행과 그 하위 전부. 하위 일괄 단추의 범위다. */
+function subtreeRows(row: any): any[] {
+  const out: any[] = [];
+  const walk = (node: any) => {
+    out.push(node);
+    (node?.children ?? []).forEach(walk);
+  };
+  walk(row);
+  return out;
+}
+
+/** 범위 안에서 켜고 끌 수 있는 칸의 수와, 그중 켜져 있는 칸의 수 */
+function scopeCount(rows: any[]) {
+  let usable = 0;
+  let on = 0;
+  for (const row of rows) {
+    for (const field of usableFields(row)) {
+      usable += 1;
+      if (row[field]) on += 1;
+    }
+  }
+  return { allOn: usable > 0 && on === usable, on, usable };
+}
+
+/** 이 행만 */
+function rowScope(row: any) {
+  return scopeCount([row]);
+}
+
+/** 이 행과 하위 전체 */
+function subtreeScope(row: any) {
+  return scopeCount(subtreeRows(row));
+}
+
+/**
+ * 범위 안의 권한을 한 번에 켜거나 끈다.
+ *
+ * 모두 켜져 있으면 끄고, 아니면 켠다 — 단추 하나로 켜기·끄기를 다 하기 위해서다.
+ * 저장은 하지 않는다. 다른 체크박스와 똑같이 [권한 설정 저장] 을 눌러야 반영된다.
+ */
+function toggleScope(rows: any[]) {
+  const next = !scopeCount(rows).allOn;
+  rows.forEach((row) => {
+    usableFields(row).forEach((field) => {
+      row[field] = next;
+    });
+  });
+}
+
 /** 평면 목록을 트리로 조립 */
 function listToTree(list: SystemRolePermissionApi.RoleMenu[]) {
   const map: Record<string, any> = {};
@@ -107,7 +192,13 @@ function listToTree(list: SystemRolePermissionApi.RoleMenu[]) {
 }
 
 const columns = computed(() => [
-  { field: 'menuName', minWidth: 220, title: '메뉴명', treeNode: true },
+  {
+    field: 'menuName',
+    minWidth: 300,
+    slots: { default: 'menuName' },
+    title: '메뉴명',
+    treeNode: true,
+  },
   ...BASE_PERMS.map((p) => ({
     align: 'center' as const,
     field: p.field,
@@ -248,7 +339,8 @@ onMounted(() => {
     <div class="mb-3 flex items-center justify-between pt-2">
       <span class="text-xs text-muted-foreground">
         회색으로 잠긴 칸은 그 메뉴가 쓰지 않는 권한입니다. 메뉴 관리 화면에서
-        사용 여부와 이름을 정할 수 있습니다.
+        사용 여부와 이름을 정할 수 있습니다. 메뉴명 옆 단추로 그 메뉴 또는 하위
+        전체를 한 번에 켜고 끌 수 있습니다.
       </span>
       <Button v-perm:update :loading="loading" type="primary" @click="handleSavePermissions">
         <template #icon>
@@ -272,6 +364,74 @@ onMounted(() => {
     <!-- 트리 그리드 영역 -->
     <div class="relative flex-1 overflow-auto rounded-lg border">
       <Grid class="h-full w-full">
+        <!--
+          메뉴명 + 일괄 켜기/끄기 단추 둘.
+
+          손가락으로도 닿아야 하므로 hover 로 숨기지 않고 늘 보이게 둔다(40번 문서).
+          쓸 수 있는 칸이 없는 메뉴(디렉터리 등)는 잠그고 이유를 툴팁으로 알린다 —
+          단추가 사라지면 왜 없는지 알 수 없다.
+        -->
+        <template #menuName="{ row }">
+          <div class="flex w-full items-center gap-1">
+            <span class="flex-auto truncate">{{ row.menuName }}</span>
+
+            <template v-if="canUpdate">
+              <Tooltip
+                :title="
+                  rowScope(row).usable === 0
+                    ? `${row.menuName} 메뉴는 쓰는 권한 항목이 없습니다.`
+                    : rowScope(row).allOn
+                      ? '이 메뉴의 권한을 모두 끕니다'
+                      : '이 메뉴의 권한을 모두 켭니다'
+                "
+              >
+                <Button
+                  :disabled="rowScope(row).usable === 0"
+                  size="small"
+                  type="link"
+                  @click="toggleScope([row])"
+                >
+                  <IconifyIcon
+                    class="size-4"
+                    :class="
+                      rowScope(row).allOn ? 'text-primary' : 'text-muted-foreground'
+                    "
+                    icon="lucide:square-check-big"
+                  />
+                </Button>
+              </Tooltip>
+
+              <Tooltip
+                v-if="hasChildren(row)"
+                :title="
+                  subtreeScope(row).usable === 0
+                    ? '이 아래에 켤 수 있는 권한 항목이 없습니다.'
+                    : subtreeScope(row).allOn
+                      ? '이 메뉴와 하위 메뉴의 권한을 모두 끕니다'
+                      : '이 메뉴와 하위 메뉴의 권한을 모두 켭니다'
+                "
+              >
+                <Button
+                  :disabled="subtreeScope(row).usable === 0"
+                  size="small"
+                  type="link"
+                  @click="toggleScope(subtreeRows(row))"
+                >
+                  <IconifyIcon
+                    class="size-4"
+                    :class="
+                      subtreeScope(row).allOn
+                        ? 'text-primary'
+                        : 'text-muted-foreground'
+                    "
+                    icon="lucide:list-checks"
+                  />
+                </Button>
+              </Tooltip>
+            </template>
+          </div>
+        </template>
+
         <!-- 기본 권한 7종 -->
         <template
           v-for="p in BASE_PERMS"

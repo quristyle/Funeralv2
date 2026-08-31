@@ -290,7 +290,8 @@ const [Grid, gridApi] = useVbenVxeGrid({
     },
     rowConfig: { keyField: 'id' },
     // 엑셀은 아래의 v-perm:excel 버튼으로만 연다
-    toolbarConfig: { export: false },
+    // 상단 아이콘은 아래 도구줄로 옮겼다(adapter/vxe-grid-features.ts).
+    // `export: false` 는 그 기본값과 같아져 적을 필요가 없다.
   } as VxeTableGridOptions,
 });
 

@@ -5,17 +5,32 @@ import { h, markRaw } from 'vue';
 
 import { IconifyIcon } from '@vben/icons';
 import AddressSearchInput from '#/components/AddressSearchInput.vue';
+import DictSelect from '#/components/DictSelect.vue';
 import { $t } from '@vben/locales';
 
-import { Button, Popconfirm, Tooltip } from 'ant-design-vue';
+import { Button, Input, Popconfirm, Tag, Tooltip } from 'ant-design-vue';
 import { can } from '#/utils/permission';
+
+/** 사용처에 쓰는 공통코드 그룹 */
+export const USAGE_LOCATION_GROUP = 'COMPANY_USAGE_LOCATION';
+
+/** 사용처 코드 하나 */
+export interface UsageLocationOption {
+  label: string;
+  value: string;
+}
 
 /**
  * 회사 관리 테이블 컬럼 정의를 반환하는 함수
  * @param onActionClick 버튼 클릭 이벤트를 처리할 콜백 함수
+ * @param usageOptions  사용처 공통코드 목록. 코드값을 이름으로 바꿔 보여 주고,
+ *                      필터의 고를 목록으로도 쓴다. 아직 못 받았으면 빈 배열이다.
  * @returns VXETable 컬럼 설정 배열
  */
-export const useColumns = (onActionClick: (params: any) => void): VxeGridProps['columns'] => [
+export const useColumns = (
+  onActionClick: (params: any) => void,
+  usageOptions: UsageLocationOption[] = [],
+): VxeGridProps['columns'] => [
   { type: 'seq', width: 50 },
   /** 회사명 - 수정 가능(VxeInput 사용) */
   { field: 'name', title: $t('system.company.name'), minWidth: 150, editRender: { name: 'VxeInput' } },
@@ -58,12 +73,116 @@ export const useColumns = (onActionClick: (params: any) => void): VxeGridProps['
       ],
     },
   },
-  /** 주소 - 포맷팅 출력 */
-  { 
-    field: 'address', 
-    title: '주소', 
-    minWidth: 250, 
-    formatter: ({ row }) => row.address ? `[${row.zipCode || ''}] ${row.address} ${row.addressDetail || ''}` : '' 
+  /**
+   * 주소 - 세 값(우편번호 · 기본주소 · 상세주소)을 한 칸에 보여 주고,
+   * 셀을 두 번 누르면 **기본주소와 상세주소**를 그 자리에서 고친다.
+   *
+   * 우편번호는 여기서 못 고친다. 바꾸려면 우편번호 검색 창(`AddressSearchInput`)이
+   * 열려야 하는데, 창이 열리는 순간 셀에서 포커스가 빠져 vxe 가 편집을 닫는다 —
+   * 그러면 창이 돌려주는 값이 이미 닫힌 행에 쓰인다. 우편번호는 작업 열의
+   * [수정] 폼에서 바꾼다(그 폼에는 검색 단추가 있다).
+   */
+  {
+    field: 'address',
+    title: '주소',
+    minWidth: 320,
+    formatter: ({ row }) => row.address ? `[${row.zipCode || ''}] ${row.address} ${row.addressDetail || ''}` : '',
+    // 화면에 보이는 것은 세 값을 합친 글자다. `address` 하나만 훑으면
+    // 우편번호나 상세주소로 찾을 수 없다 — 보이는 그대로 훑게 한다.
+    params: {
+      filterText: (row: any) =>
+        [row.zipCode, row.address, row.addressDetail].filter(Boolean).join(' '),
+    },
+    editRender: {},
+    slots: {
+      edit: ({ row }: any) =>
+        h('div', { class: 'flex w-full items-center gap-1' }, [
+          row.zipCode
+            ? h(
+                'span',
+                {
+                  class: 'shrink-0 text-xs text-muted-foreground',
+                  title: '우편번호는 [수정] 폼에서 바꿉니다',
+                },
+                `[${row.zipCode}]`,
+              )
+            : null,
+          h(Input, {
+            class: 'flex-1',
+            placeholder: '주소',
+            size: 'small',
+            value: row.address,
+            'onUpdate:value': (next: string) => {
+              row.address = next;
+            },
+          }),
+          h(Input, {
+            class: 'w-2/5 shrink-0',
+            placeholder: '상세주소',
+            size: 'small',
+            value: row.addressDetail,
+            'onUpdate:value': (next: string) => {
+              row.addressDetail = next;
+            },
+          }),
+        ].filter(Boolean)),
+    },
+  },
+  /**
+   * 사용처 — 이 회사가 쓰이는 시스템들. 값은 공통코드의 `codeValue` 여러 개다.
+   *
+   * 이 칸은 여기서 못 고친다. 셀 편집기 하나에 여러 값을 담기 어렵고,
+   * [수정] 폼의 다중 선택이 이미 그 일을 한다.
+   */
+  {
+    field: 'usageLocations',
+    title: '사용처',
+    minWidth: 220,
+    /**
+     * 값이 **목록**이라 필터도 '들어 있는가' 로 판단해야 한다.
+     * 공통 필터줄은 목록을 주면 여러 개 고를 수 있는 칸으로 그리고(OR),
+     * 판정은 여기서 준 것을 그대로 쓴다.
+     */
+    filters: usageOptions.map((o) => ({ label: o.label, value: o.value })),
+    filterMethod: ({ option, row }: any) =>
+      (row?.usageLocations ?? []).includes(option?.value),
+    // 화면에 보이는 것은 코드 이름이다. 이름과 코드값 둘 다로 찾게 한다.
+    params: {
+      filterText: (row: any) =>
+        (row?.usageLocations ?? [])
+          .map((code: string) => {
+            const found = usageOptions.find((o) => o.value === code);
+            return found ? `${found.label} ${code}` : code;
+          })
+          .join(' '),
+    },
+    slots: {
+      default: ({ row }: any) => {
+        const codes: string[] = row?.usageLocations ?? [];
+        if (codes.length === 0) {
+          // 아무 곳에도 배정하지 않은 회사. 빈 칸과 구분되게 표시한다.
+          return h('span', { class: 'text-muted-foreground' }, '-');
+        }
+        return h(
+          'div',
+          { class: 'flex flex-wrap items-center gap-1' },
+          codes.map((code) => {
+            const found = usageOptions.find((o) => o.value === code);
+            return h(
+              Tag,
+              {
+                // 코드 목록을 아직 못 받았거나 코드가 지워졌으면 값을 그대로 보여 준다.
+                // 그래야 "이름을 못 찾는 값이 남아 있다" 는 것이 눈에 띈다.
+                color: found ? 'processing' : 'default',
+                key: code,
+                title: found ? code : `공통코드에서 이름을 찾을 수 없습니다: ${code}`,
+              },
+              { default: () => found?.label ?? code },
+            );
+          }),
+        );
+      },
+    },
   },
   /** 비고 */
   { field: 'remark', title: $t('system.company.remark'), minWidth: 200, editRender: { name: 'VxeInput' } },
@@ -187,6 +306,31 @@ export const formSchema: VbenFormProps = {
     { fieldName: 'businessNumber', label: $t('system.company.businessNumber'), component: 'Input', },
     /** 대표자 성함 */
     { fieldName: 'representative', label: $t('system.company.representative'), component: 'Input', },
+    /**
+     * 사용처 — 이 회사가 어느 시스템에서 쓰이는지. 여러 개 고를 수 있고
+     * 하나도 안 골라도 된다(그때는 빈 목록으로 저장된다).
+     */
+    {
+      fieldName: 'usageLocations',
+      label: '사용처',
+      component: markRaw(DictSelect),
+      componentProps: {
+        allowClear: true,
+        dictCode: USAGE_LOCATION_GROUP,
+        maxTagCount: 'responsive',
+        mode: 'multiple',
+        placeholder: '쓰이는 시스템을 고릅니다 (여러 개 가능)',
+      },
+      /**
+       * `col-span-2` 를 주면 안 된다.
+       *
+       * 이 폼의 감싸개는 `grid-cols-1`(한 줄에 하나)이다. 그 상태에서 한 항목만
+       * 두 칸을 차지하게 하면 **없던 두 번째 열이 생겨** 나머지 항목이 좁은 열과
+       * 넓은 열로 번갈아 들어간다 — 라벨만 보이고 입력칸이 찌그러진다.
+       * 폭이 필요하면 폼 전체의 `wrapperClass` 를 2열로 바꾸고 모든 항목에
+       * `col-span-2 md:col-span-1` 을 줘야 한다(메뉴 관리 폼이 그 방식이다).
+       */
+    },
     /** 우편번호 */
     { 
       fieldName: 'zipCode', 

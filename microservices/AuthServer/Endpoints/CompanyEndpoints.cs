@@ -16,9 +16,13 @@ public static class CompanyEndpoints
                        .AddApiResponseWrapper();
 
         // 회사 전체 목록 조회
-        group.MapGet("/", async (ICompanyService companyService) =>
+        //
+        // `usageLocation` 을 주면 그 사용처(COMPANY_USAGE_LOCATION)에 배정된 회사만 준다.
+        // 장례식장 관리시스템 화면들이 FUNERAL_HOME_MANAGEMENT_SYSTEM 으로 좁혀 쓴다.
+        // 안 주면 예전처럼 전부 준다 — 회사 관리 화면이 그대로 동작해야 한다.
+        group.MapGet("/", async ([FromQuery] string? usageLocation, ICompanyService companyService) =>
         {
-            var companies = await companyService.GetAllCompaniesAsync();
+            var companies = await companyService.GetAllCompaniesAsync(usageLocation);
             return Results.Ok(companies);
         })
         .WithName("GetAllCompanies")

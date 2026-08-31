@@ -86,6 +86,22 @@ setupVbenVxeTable({
         },
 
         /**
+         * 보이는 컬럼 고르기 — **모달로 연다.**
+         *
+         * 기본값('simple')은 누른 단추에 붙는 작은 팝업이라, 누른 자리를
+         * `customStore.btnEl` 로 기억해 두어야 제자리에 뜬다. 그 값을 채워 주는 것은
+         * vxe 위쪽 도구줄의 단추인데, 우리는 이 기능을 **아래 도구줄**로 옮겼다
+         * (`vxe-grid-features.ts`) — 문서에 없는 내부 상태에 손을 넣지 않으려면
+         * 뜨는 자리가 단추와 무관한 방식이어야 한다.
+         *
+         * `drawer` 는 못 쓴다 — `VxeDrawer` 를 등록하지 않았다(plugins/vxe-table/init.ts).
+         * `VxeModal` 은 등록돼 있고 `draggable` 기본값이 참이라 [준수사항 3]도 만족한다.
+         */
+        customConfig: {
+          mode: 'modal',
+        },
+
+        /**
          * 페이저는 **전역에서 건드리지 않는다.**
          *
          * 한 번 `enabled: false` 로 못 박아 봤다가 전 화면이 비었다. 이 시스템의

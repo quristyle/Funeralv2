@@ -89,4 +89,13 @@ public class Company : BaseEntity<string>
     /// 회사 소속 부서 목록 탐색 속성 (1:N 관계)
     /// </summary>
     public ICollection<Department>? Departments { get; set; }
+
+    /// <summary>
+    /// 이 회사의 사용처(<c>COMPANY_USAGE_LOCATION</c>) 연결 목록.
+    /// </summary>
+    /// <remarks>
+    /// 이름을 DTO 의 <c>UsageLocations</c>(문자열 목록)와 <b>일부러 다르게</b> 두었다.
+    /// 같으면 Mapster 가 엔티티 목록을 문자열 목록으로 옮기려 들어 조회가 깨진다.
+    /// </remarks>
+    public ICollection<CompanyUsageLocation>? UsageLocationLinks { get; set; }
 }

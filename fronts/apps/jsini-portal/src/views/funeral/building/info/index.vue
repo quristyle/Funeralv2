@@ -125,7 +125,7 @@ async function handleSave() {
           <span class="font-semibold text-sm">회사 필터:</span>
           <BizSelect
             v-model:value="filterCompanyId"
-            type="company"
+            type="funeralCompany"
             auto-select-first
             placeholder="회사 선택"
             class="w-64"
@@ -196,7 +196,7 @@ async function handleSave() {
         <Form layout="vertical">
           <Form.Item label="소속 회사" required>
             <BizSelect
-              type="company"
+              type="funeralCompany"
               v-model:value="formModel.companyId"
               placeholder="회사를 선택해주세요"
             />

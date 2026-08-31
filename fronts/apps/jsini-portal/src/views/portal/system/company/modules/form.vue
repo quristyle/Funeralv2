@@ -51,11 +51,23 @@ const [Form, formApi] = useVbenForm({
        * ID가 존재하면 수정(Update), 없으면 등록(Create)으로 판단합니다.
        */
       const data = drawerApi.getData(); 
+
+      /**
+       * 사용처는 **반드시 배열로** 보낸다.
+       *
+       * 서버는 이 값을 안 보낸 요청을 "사용처를 건드리지 말라" 로 다룬다
+       * (목록 화면의 셀 편집이 일부 항목만 보내기 때문이다).
+       * 그런데 다중 선택을 전부 지우면 ant Select 는 `[]` 이 아니라 `undefined` 를 준다 —
+       * 그대로 보내면 JSON 에서 빠져 "전부 해제" 가 아무 일도 하지 않는 것이 된다.
+       * 이 폼은 사용처를 늘 다루므로 여기서 빈 배열로 맞춘다.
+       */
+      const payload = { ...values, usageLocations: values.usageLocations ?? [] };
+
       if (data?.id) {
-        await updateCompany(data.id, values);
+        await updateCompany(data.id, payload);
         message.success($t('ui.actionMessage.updateSuccess', [values.name]));
       } else {
-        await createCompany(values);
+        await createCompany(payload);
         message.success($t('ui.actionMessage.createSuccess', [values.name]));
       }
       

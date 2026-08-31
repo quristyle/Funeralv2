@@ -34,7 +34,7 @@ const emit = defineEmits<{
           <span class="whitespace-nowrap text-xs font-semibold text-muted-foreground">회사</span>
           <BizSelect
             :value="selectedCompanyId"
-            type="company"
+            type="funeralCompany"
             auto-select-first
             placeholder="회사 선택"
             class="w-40"

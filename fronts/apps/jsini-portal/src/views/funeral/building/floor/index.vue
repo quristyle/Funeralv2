@@ -149,7 +149,7 @@ async function handleSave() {
           <span class="font-semibold text-sm">회사 필터:</span>
           <BizSelect
             v-model:value="selectedCompanyId"
-            type="company"
+            type="funeralCompany"
             auto-select-first
             placeholder="회사 선택"
             class="w-64"

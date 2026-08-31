@@ -208,7 +208,7 @@ function formatYmdDate(dateStr?: string) {
           <Form.Item label="회사 필터" class="mb-0 flex items-center" :label-col="{ style: 'width: 75px; text-align: right; margin-right: 8px;' }" :wrapper-col="{ style: 'flex: 1' }">
             <BizSelect
               v-model:value="searchForm.companyId"
-              type="company"
+              type="funeralCompany"
               placeholder="회사 전체"
               show-all
               @change="onCompanyChange"

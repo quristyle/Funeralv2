@@ -90,15 +90,61 @@ import { h, ref, type Ref } from 'vue';
 
 import { IconifyIcon } from '@vben/icons';
 
+import { preferences } from '@vben/preferences';
+
 import { Select } from 'ant-design-vue';
 
 import { $t } from '#/locales';
+import { can } from '#/utils/permission';
 
 /** 값 칸이 아니라서 정렬·필터를 걸지 않는 칸의 `type`. */
 const NON_DATA_TYPES = new Set(['checkbox', 'expand', 'html', 'radio', 'seq']);
 
 /** 그리는 것이 값이 아니라 버튼인 칸. */
 const NON_DATA_RENDERERS = new Set(['CellOperation']);
+
+/** 이미 순번 칸이 있는가. 화면이 직접 둔 것을 존중한다. */
+function hasSeqColumn(columns: any[]): boolean {
+  return columns.some(
+    (column: any) =>
+      column?.type === 'seq' ||
+      (Array.isArray(column?.children) && hasSeqColumn(column.children)),
+  );
+}
+
+/**
+ * 맨 앞 순번 칸.
+ *
+ * `type: 'seq'` 는 vxe 가 1 · 2 · 3 … 을 그려 주는 칸이다. 값 칸이 아니므로
+ * (`NON_DATA_TYPES`) 정렬·필터줄이 붙지 않고, 머리글은 두 줄에 걸쳐 하나로 그려진다.
+ *
+ * `fixed: 'left'` 인 이유: 옆으로 스크롤해도 몇 번째 줄인지 보여야 하고, 뒤에
+ * 고정 칸을 둔 화면(메뉴 관리 등)에서 **고정 칸은 왼쪽부터 붙어 있어야** 한다 —
+ * 고정 아닌 칸이 그 앞에 끼면 머리글과 본문이 어긋난다.
+ * 모바일은 고정 칸을 쓰지 않으므로(`adjustGridForMobile`) 여기서도 뺀다.
+ */
+function seqColumn() {
+  return {
+    align: 'center',
+    field: '__seq',
+    fixed: preferences.app.isMobile ? undefined : 'left',
+    resizable: false,
+    title: $t('common.seq'),
+    type: 'seq',
+    width: 56,
+  };
+}
+
+/**
+ * 셀을 두 번 눌러 고칠 수 있는 칸인가.
+ *
+ * vxe 의 판정과 같다 — `editRender` 가 있고 `enabled: false` 가 아니면 편집 칸이다.
+ * (표 단위 `editConfig` 는 공통 프리셋이 늘 넣어 준다 — `use-vxe-grid.vue`)
+ */
+function isEditableColumn(column: any) {
+  const editRender = column?.editRender;
+  return Boolean(editRender) && editRender.enabled !== false;
+}
 
 /**
  * 값이 아니라 조작 장치를 그리는 칸의 `field` 이름.
@@ -153,10 +199,38 @@ export interface GridFeatureFlags {
    * `grid.sort()` 도 프로그램 호출이라 vxe 의 `sortChange` 가 오지 않는다.
    */
   onSortChange?: (active: boolean) => void;
+  /**
+   * 화면이 자료를 **추가**하는 방법. 주면 아래 도구줄에 [추가] 아이콘이 생긴다.
+   *
+   * 공통 그리드는 화면마다 무엇을 어떻게 추가하는지 알 수 없다. 그래서
+   * 그 일을 하는 함수를 화면이 넘겨 준다 — 보통 위쪽 [등록] 단추가 부르는 것과
+   * 같은 함수다. **안 주면 아이콘이 아예 안 나온다**(눌러도 아무 일 없는 단추를
+   * 두지 않으려는 것이다 — 재조회 아이콘과 같은 규칙).
+   *
+   * 등록 권한이 없는 사람에게는 이 아이콘도 나오지 않는다.
+   */
+  onCreate?: () => void;
+  /**
+   * 맨 앞 순번 칸(1 · 2 · 3 …). 기본 `true`
+   *
+   * 화면이 이미 `type: 'seq'` 칸을 두었으면 더 넣지 않는다.
+   */
+  seq?: boolean;
   /** 컬럼 정렬. 기본 `true` */
   sort?: boolean;
-  /** 아래 도구줄(엑셀 · 재조회 · 필터 초기화). 기본 `true` */
+  /**
+   * 아래 도구줄(보이는 컬럼 · 전체화면 · 엑셀 · 재조회 · 필터 초기화). 기본 `true`
+   */
   tools?: boolean;
+  /**
+   * 아래 도구줄의 **보이는 컬럼 고르기**. 기본 `true`
+   *
+   * 컬럼이 화면마다 갈아끼워지는 그리드(역할-메뉴 탭처럼 `loadColumn` 을 직접
+   * 부르는 곳)에서 감추고 싶을 때 끈다.
+   */
+  toolsColumns?: boolean;
+  /** 아래 도구줄의 **전체화면**. 기본 `true` */
+  toolsZoom?: boolean;
 }
 
 /** `meta.title` 처럼 점이 든 경로도 읽는다. `filterMethod` 는 이걸 안 해 준다. */
@@ -370,12 +444,33 @@ function createHeaderRenderers(
    *
    * 묶음 머리글(`children` 을 가진 칸)에는 `field` 가 없으므로 아래 칸의 이름을
    * 닫아서(closure) 받는다.
+   *
+   * `editable` 이면 이름 옆에 연필을 그린다. vxe 도 편집 칸 머리글에 연필을
+   * 붙이지만, `editRender` 가 남는 곳이 2행(필터줄)이라 입력칸 왼쪽에 끼었다.
+   * 그 연필은 감추고(styles/index.css) 여기서 이름 옆에 그린다 —
+   * 무엇을 고칠 수 있는지는 칸 이름 옆이 읽기 쉽다.
    */
-  function createTitleHeader(field: string, title: any, sortable: boolean) {
+  function createTitleHeader(
+    field: string,
+    title: any,
+    sortable: boolean,
+    editable: boolean,
+  ) {
     return () => {
       const children: any[] = [
         h('span', { class: 'jsini-titlerow__text' }, title),
       ];
+
+      if (editable) {
+        children.push(
+          h(IconifyIcon, {
+            class: 'jsini-titlerow__edit',
+            icon: 'lucide:pencil',
+            // 이름줄 전체가 정렬 클릭 대상이라 연필도 눌리면 정렬된다 — 의도한 대로다.
+            title: '셀을 두 번 누르면 이 칸을 고칠 수 있습니다',
+          }),
+        );
+      }
 
       if (sortable) {
         const order = currentOrder(field);
@@ -497,6 +592,25 @@ function createToolsRenderer(
   flags: Required<Pick<GridFeatureFlags, 'filter'>> & GridFeatureFlags,
   canQuery: boolean,
 ) {
+  /**
+   * 전체화면을 눌렀는지 세는 값.
+   *
+   * `isMaximized()` 는 vxe 내부 상태라 우리 렌더가 그 변화를 못 본다.
+   * 이 값을 올려 주면 아이콘과 안내가 함께 바뀐다(정렬 표시와 같은 방식).
+   */
+  const zoomTick = ref(0);
+
+  /** 보이는 컬럼 고르기. vxe 의 컬럼 설정 창을 연다(전역 설정으로 모달이다). */
+  function onToggleColumns() {
+    getGrid()?.toggleCustom?.();
+  }
+
+  /** 그리드만 전체화면. 다시 누르면 되돌린다. */
+  function onToggleZoom() {
+    getGrid()?.zoom?.();
+    zoomTick.value += 1;
+  }
+
   function onExport() {
     getGrid()?.exportData?.({
       filename: flags.exportName ?? 'export',
@@ -523,9 +637,42 @@ function createToolsRenderer(
   }
 
   return (placement: 'bottom' | 'pager') => {
-    const buttons = [
+    const buttons: any[] = [];
+
+    /**
+     * [추가] — 화면이 `gridFeatures.onCreate` 를 준 경우에만 나온다.
+     * 등록 권한이 없으면 화면의 [등록] 단추도 감춰지므로 여기서도 같이 뺀다.
+     */
+    if (flags.onCreate && can('create')) {
+      buttons.push(button('lucide:plus', $t('common.addRow'), flags.onCreate));
+    }
+
+    /**
+     * 위쪽 도구줄에 있던 둘을 여기로 옮겼다(`createGridFeatures` 가 위쪽을 끈다).
+     * 그리드를 다루는 장치가 한자리에 모여야 찾기 쉽고, 화면마다 [등록] 단추와
+     * 섞여 있던 위쪽 도구줄도 정리된다.
+     */
+    if (flags.toolsColumns !== false) {
+      buttons.push(
+        button('lucide:columns-3', $t('common.chooseColumns'), onToggleColumns),
+      );
+    }
+
+    if (flags.toolsZoom !== false) {
+      // 참조만 해도 이 렌더가 zoomTick 을 따라간다.
+      const maximized = zoomTick.value >= 0 && Boolean(getGrid()?.isMaximized?.());
+      buttons.push(
+        button(
+          maximized ? 'lucide:minimize' : 'lucide:maximize',
+          maximized ? $t('common.exitFullscreen') : $t('common.fullscreen'),
+          onToggleZoom,
+        ),
+      );
+    }
+
+    buttons.push(
       button('lucide:file-spreadsheet', $t('common.exportExcel'), onExport),
-    ];
+    );
 
     // 눌러도 아무 일 없는 단추는 두지 않는다.
     if (canQuery || flags.onRefresh) {
@@ -596,6 +743,21 @@ function decorate(
       leaf,
       choices ? choiceFilter(choices) : textFilter(column.field, params.filterText),
     );
+  } else if (!leaf.filterMethod) {
+    /**
+     * 목록은 화면이 줬는데 **판정을 안 준** 경우다(회사 관리의 상태 칸).
+     *
+     * 판정이 없으면 vxe 기본 비교로 떨어진다. 그런데 필터줄은 고른 것마다
+     * `checked` 를 세우는 방식이라(여러 개 고르기 = OR), 판정이 우리 것이 아니면
+     * 여러 개를 골랐을 때와 빈 값(`null` · `''`)이 섞인 자료에서 결과가 어긋난다.
+     * 목록만 그대로 쓰고 판정은 우리 것을 붙여 다른 칸과 똑같이 동작하게 한다.
+     */
+    const looksLikeChoices = leaf.filters.some(
+      (f: any) => f?.label !== undefined,
+    );
+    leaf.filterMethod = looksLikeChoices
+      ? choiceFilter(leaf.filters).filterMethod
+      : textFilter(column.field, params.filterText).filterMethod;
   }
 
   // 팝업에 같은 입력칸이 두 번 생기지 않게 한다.
@@ -618,7 +780,14 @@ function decorate(
     children: [leaf],
     headerAlign: column.headerAlign ?? column.align ?? 'center',
     headerClassName: TITLE_ROW_CLASS,
-    slots: { header: renderers.createTitleHeader(column.field, column.title, sortable) },
+    slots: {
+      header: renderers.createTitleHeader(
+        column.field,
+        column.title,
+        sortable,
+        isEditableColumn(column),
+      ),
+    },
     title: column.title,
   };
 
@@ -652,13 +821,36 @@ export function createGridFeatures(
   const flags: GridFeatureFlags & Required<Pick<GridFeatureFlags, 'filter' | 'sort' | 'tools'>> = {
     filter: true,
     sort: true,
+    seq: true,
     tools: true,
     ...(gridOptions?.gridFeatures ?? {}),
   };
 
+  /**
+   * 순번 칸을 맨 앞에 붙인다. 이미 있으면 그대로 둔다.
+   *
+   * 정렬·필터를 모두 끈 그리드에도 순번은 붙는다 — 그래서 아래 `noop` 경로에도
+   * 이 함수를 물려 준다.
+   */
+  const withSeq = (columns: any) => {
+    if (!flags.seq || !Array.isArray(columns)) return columns;
+    if (hasSeqColumn(columns)) return columns;
+    return [seqColumn(), ...columns];
+  };
+
   const noop = {
-    decorateColumns: (columns: any) => columns,
-    options,
+    decorateColumns: withSeq,
+    options: gridOptions
+      ? {
+          ...options,
+          gridOptions: (() => {
+            const next = { ...gridOptions };
+            delete next.gridFeatures;
+            if (Array.isArray(next.columns)) next.columns = withSeq(next.columns);
+            return next;
+          })(),
+        }
+      : options,
     renderTools: null,
   };
 
@@ -669,11 +861,32 @@ export function createGridFeatures(
 
   const decorateColumns = (columns: any) =>
     Array.isArray(columns)
-      ? columns.map((column: any) => decorate(column, flags as any, renderers))
+      ? withSeq(columns).map((column: any) =>
+          decorate(column, flags as any, renderers),
+        )
       : columns;
 
   const nextGridOptions = { ...gridOptions };
   delete nextGridOptions.gridFeatures;
+
+  /**
+   * 위쪽 도구줄의 아이콘 넷을 끈다 — 아래 도구줄과 같은 기능이라 두 벌이 된다.
+   * (공통 프리셋이 `custom · export · refresh · zoom` 을 전부 켜 둔다 —
+   *  `use-vxe-grid.vue`. 여기서 적은 값이 프리셋보다 우선한다.)
+   *
+   * **도구줄 자체를 없애는 것이 아니다.** 그 줄은 화면이 넣은 제목과 [등록] 같은
+   * 단추가 사는 자리이고, 그 유무는 슬롯으로만 결정된다(`showToolbar`).
+   * 화면이 일부러 적어 둔 값은 덮지 않는다.
+   */
+  if (flags.tools) {
+    nextGridOptions.toolbarConfig = {
+      custom: false,
+      export: false,
+      refresh: false,
+      zoom: false,
+      ...gridOptions.toolbarConfig,
+    };
+  }
   if (Array.isArray(nextGridOptions.columns)) {
     nextGridOptions.columns = decorateColumns(nextGridOptions.columns);
   }

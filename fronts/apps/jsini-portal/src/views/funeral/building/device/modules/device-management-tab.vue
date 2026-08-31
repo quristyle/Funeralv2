@@ -84,7 +84,7 @@ async function handleSave() {
           <div class="grid grid-cols-2 gap-4">
             <BizSelect
               v-model:value="formModel.companyId"
-              type="company"
+              type="funeralCompany"
               placeholder="회사 선택"
               @change="
                 () => {

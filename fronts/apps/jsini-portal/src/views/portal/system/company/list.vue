@@ -2,16 +2,19 @@
 import type { OnActionClickParams, VxeTableGridOptions, } from '#/adapter/vxe-table';
 import type { SystemCompanyApi } from '#/api/portal/system/company';
 
+import { onMounted, ref } from 'vue';
+
 import { Page, useVbenDrawer } from '@vben/common-ui';
 import { Plus } from '@vben/icons';
 
 import { Button, message } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
+import { getCommonCodes } from '#/api/portal/system/common-code';
 import { deleteCompany, getCompanyList, updateCompany } from '#/api/portal/system/company';
 import { $t } from '#/locales';
 
-import { useColumns } from './data';
+import { USAGE_LOCATION_GROUP, useColumns, type UsageLocationOption } from './data';
 import Form from './modules/form.vue';
 
 /**
@@ -99,6 +102,11 @@ const [Grid, gridApi] = useVbenVxeGrid({
   gridOptions: {
     /** 컬럼 정의 주입 */
     columns: useColumns(onActionClick),
+    /**
+     * 아래 도구줄의 [추가] 아이콘을 위쪽 [등록] 단추와 같은 곳에 연결한다.
+     * 공통 그리드는 화면마다 무엇을 추가하는지 모르므로 그 함수를 여기서 준다.
+     */
+    gridFeatures: { onCreate },
     /** 데이터 로드 프록시 설정 */
     proxyConfig: {
       ajax: {
@@ -109,6 +117,37 @@ const [Grid, gridApi] = useVbenVxeGrid({
       },
     }
   } as VxeTableGridOptions,
+});
+
+/**
+ * 사용처 공통코드 목록.
+ *
+ * 사용처 칸은 코드값(`HELP_DESK`)을 이름(`헬프 데스크`)으로 바꿔 보여 주고,
+ * 필터의 고를 목록으로도 쓴다. 목록은 비동기로 오므로 **받은 뒤 컬럼을 다시 심는다** —
+ * 컬럼을 만들 때는 아직 없기 때문이다(부서 관리도 같은 방식).
+ */
+const usageOptions = ref<UsageLocationOption[]>([]);
+
+async function loadUsageOptions() {
+  try {
+    const res = await getCommonCodes(USAGE_LOCATION_GROUP);
+    const raw = (res as any)?.result ?? res;
+    const list: any[] = Array.isArray(raw) ? raw : [];
+    usageOptions.value = list.map((item: any) => ({
+      label: item.i18nKey ? $t(item.i18nKey) : item.codeName,
+      value: item.codeValue,
+    }));
+    gridApi.setGridOptions({
+      columns: useColumns(onActionClick, usageOptions.value) as any,
+    });
+  } catch (error) {
+    // 못 받아도 화면은 뜬다 — 사용처 칸이 코드값 그대로 보이고 필터 목록만 비어 있다.
+    console.error(`공통코드 [${USAGE_LOCATION_GROUP}] 로드 실패:`, error);
+  }
+}
+
+onMounted(() => {
+  loadUsageOptions();
 });
 
 /**

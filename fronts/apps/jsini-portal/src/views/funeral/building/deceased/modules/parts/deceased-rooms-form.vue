@@ -129,7 +129,7 @@ onMounted(() => {
           <Form.Item label="소속 회사" required>
             <BizSelect
               v-model:value="r.companyId"
-              type="company"
+              type="funeralCompany"
               placeholder="회사 선택"
               @change="onCompanyChange(r)"
             />
