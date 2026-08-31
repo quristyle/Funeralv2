@@ -3,6 +3,7 @@ import type { App, Directive, DirectiveBinding } from 'vue';
 import { effectScope, watchEffect } from 'vue';
 
 import { useMenuPermissionStore } from '#/store/menu-permission';
+import { currentPermissionPath } from '#/utils/permission';
 
 /**
  * [v-perm 디렉티브]
@@ -79,10 +80,14 @@ function apply(el: HTMLElement, binding: DirectiveBinding) {
     return;
   }
 
+  // 경로는 **라우터에게 묻는다.** `window.location.pathname` 은 배포 빌드
+  // (hash 라우터)에서 늘 `/` 라 모든 버튼이 사라진다 — 자세한 이유는
+  // `currentPermissionPath()` 주석에 있다.
+  // `currentRoute` 는 반응형이라 화면을 옮겨도 이 감시가 다시 돈다.
   const path =
     typeof binding.value === 'string' && binding.value
       ? binding.value
-      : window.location.pathname;
+      : currentPermissionPath();
 
   const allowed = Boolean((store.resolve(path) as any)[field]);
 
