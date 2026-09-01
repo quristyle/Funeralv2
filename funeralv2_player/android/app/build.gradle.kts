@@ -57,7 +57,14 @@ android {
             create("release") {
                 keyAlias = keystoreProperties["keyAlias"] as String
                 keyPassword = keystoreProperties["keyPassword"] as String
-                storeFile = file(keystoreProperties["storeFile"] as String)
+                // `file(...)` 은 **이 모듈(android/app) 기준**으로 상대 경로를 푼다.
+                // 그런데 key.properties 는 android/ 에 있고 릴리스 워크플로도
+                // release.jks 를 그 옆(android/)에 놓는다. 그래서 file() 로 풀면
+                // android/app/release.jks 를 찾다가 실패한다
+                // ("Keystore file ... not found for signing config 'release'").
+                // key.properties 와 같은 자리를 기준으로 풀도록 rootProject 를 쓴다.
+                // 절대 경로를 적어 둔 경우에도 그대로 통한다.
+                storeFile = rootProject.file(keystoreProperties["storeFile"] as String)
                 storePassword = keystoreProperties["storePassword"] as String
             }
         }
