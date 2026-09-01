@@ -67,6 +67,15 @@ docs/sql/              실행한 SQL (전부 반복 실행 안전)
   같은 DB 에 있었다. 옛 문서에서 "funeralv2 의 scom" 을 보면 `jsiniportal` 로 읽는다.
   왜 이렇게 나눴고 셋이 왜 아직 `scom` 을 함께 쓰는지는
   [docs/analysis/37-db-per-service.md](docs/analysis/37-db-per-service.md) 에 있다.
+- **`funeralv2` 표는 SQL 파일이 아니라 EF 마이그레이션으로 바꾼다.** funeralv2Api 는
+  `Migrations/` 와 `smfr.__EFMigrationsHistory` 로 스키마를 관리한다. 여기만
+  `docs/sql` 에 손으로 쓰면 정본이 둘이 되고 인덱스 이름부터 어긋난다.
+  **기동 때 스스로 적용하지 않으므로**(`Database.Migrate()` 는 FileServer 뿐)
+  사람이 돌린다. `--no-build` 로 돌릴 때는 **Debug 빌드가 최신인지 먼저 본다** —
+  낡은 어셈블리를 보면 EF 가 변경을 못 알아채고 빈 마이그레이션을 만든다.
+  ```bash
+  cd microservices/funeralv2Api && dotnet build -c Debug && dotnet ef database update
+  ```
 - **개발 중에는 `dotnet watch` 로 6개가 떠 있는 경우가 많다.** `.cs` 를 고치면 자동 재기동하지만
   `appsettings.json` 변경만으로는 재기동하지 않는다.
   다만 **`dotnet run --no-build` 로 떠 있는 경우도 있다.** 그때는 `.cs` 를 고쳐도 아무 일이 없다.
@@ -111,6 +120,12 @@ docs/sql/              실행한 SQL (전부 반복 실행 안전)
 - 도움말 F.A.Q · Q&A: [docs/analysis/21-help-faq-qna.md](docs/analysis/21-help-faq-qna.md) (D-H1~D-H5)
   `docs/sql/help_faq_qna.sql` 은 실행했다. 남은 것은 PARTNER_ADMINISTRATOR 역할을
   관리자로 볼지(D-H1)와 Q&A 첨부파일(D-H3).
+- 옛 장례식장 시스템 이식: [docs/analysis/40-old-funeral-migration.md](docs/analysis/40-old-funeral-migration.md) (D-F1~D-F3)
+  옛 JSP 시스템(`C:\down\funeralfr_oldsrc`)과 그 DB(`funeralfr.jsini.co.kr:15432`,
+  **조회만 한다**)를 읽어 비어 있던 화면 여덟과 그 백엔드를 채웠다.
+  **옛 데이터는 옮기지 않았다** — 옛 `t_goin` 10,384행은 이름이 거의 다 "자동생성"이고
+  확장 칸(봉안·종교·부고·주소·사망장소 등)은 하나도 채워져 있지 않다.
+  남은 것은 과금 단가를 어디에 둘지(D-F1)와 vben 개인 설정과 겹치는 항목 정리(D-F3).
 - GHUB(생활과환경) 이식에서 남은 것: [docs/analysis/38-ghub-migration.md](docs/analysis/38-ghub-migration.md) (D-G1)
   기상 이벤트·생일 메시지의 **알림 발송은 이식하지 않았다** — NotificationServer 연동
   (카카오 알림톡 채널 추가 포함)이 결정 대기다. 판정·기록은 돌고 있다.
