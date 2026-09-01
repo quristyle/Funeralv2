@@ -73,6 +73,13 @@ builder.Services.AddScoped<IMediaSourceService, MediaSourceService>();
 builder.Services.AddMemoryCache();
 builder.Services.AddHttpClient();
 builder.Services.AddScoped<IDeceasedService, DeceasedService>();
+
+// 옛 장례식장 시스템에서 이식한 화면들 (40번 문서)
+builder.Services.AddScoped<IInfoService, InfoService>();
+builder.Services.AddScoped<IStatService, StatService>();
+builder.Services.AddScoped<IStatusService, StatusService>();
+builder.Services.AddScoped<ISettingService, SettingService>();
+builder.Services.AddScoped<IBuildingMusicService, BuildingMusicService>();
 builder.Services.AddScoped<IDeviceHubSender, DeviceHubSender>();
 
 // 장비 상태 자동 정리 백그라운드 서비스 등록
@@ -174,6 +181,11 @@ app.MapDeviceRibbonEndpoints();
 app.MapDeviceTextOverlayEndpoints();
 app.MapMediaSourceEndpoints();
 app.MapDeceasedEndpoints();
+app.MapInfoEndpoints();
+app.MapStatEndpoints();
+app.MapStatusEndpoints();
+app.MapSettingEndpoints();
+app.MapBuildingMusicEndpoints();
 
 app.MapHub<funeralv2Api.Hubs.DeviceHub>("/hubs/device");
 

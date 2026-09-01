@@ -91,6 +91,26 @@ public class AppDbContext : DbContext
     /// </summary>
     public DbSet<DeviceTextOverlay> DeviceTextOverlays { get; set; } = null!;
 
+    /// <summary>
+    /// 장례식장 알림 DbSet (옛 <c>t_notification</c>)
+    /// </summary>
+    public DbSet<FuneralNotice> FuneralNotices { get; set; } = null!;
+
+    /// <summary>
+    /// 알림 읽음 표시 DbSet
+    /// </summary>
+    public DbSet<FuneralNoticeRead> FuneralNoticeReads { get; set; } = null!;
+
+    /// <summary>
+    /// 계정별 업무 설정 DbSet (옛 <c>t_account_conf</c>)
+    /// </summary>
+    public DbSet<AccountSetting> AccountSettings { get; set; } = null!;
+
+    /// <summary>
+    /// 건물별 음원 배정 DbSet (옛 <c>t_music_build</c>)
+    /// </summary>
+    public DbSet<BuildingMusic> BuildingMusics { get; set; } = null!;
+
 
 
     /// <summary>
@@ -120,6 +140,22 @@ public class AppDbContext : DbContext
 
         modelBuilder.Entity<DeviceConfig>()
             .HasIndex(c => c.DeviceId)
+            .IsUnique();
+
+        // 한 사람이 같은 설정을 두 줄 갖지 않게 막는다. 서비스는 그래도 가장 최근 것을
+        // 고르도록 짜여 있는데(옛 데이터를 옮겨 올 때를 대비), 새로 생기는 것은 여기서 막는다.
+        modelBuilder.Entity<AccountSetting>()
+            .HasIndex(s => new { s.UserId, s.SettingCode })
+            .IsUnique();
+
+        // 같은 알림을 두 번 읽음 처리하지 않는다.
+        modelBuilder.Entity<FuneralNoticeRead>()
+            .HasIndex(r => new { r.NoticeId, r.UserId })
+            .IsUnique();
+
+        // 같은 건물에 같은 음원을 두 번 배정하지 않는다.
+        modelBuilder.Entity<BuildingMusic>()
+            .HasIndex(m => new { m.BuildingId, m.MediaSourceId })
             .IsUnique();
 
         modelBuilder.ApplyXmlComments();
