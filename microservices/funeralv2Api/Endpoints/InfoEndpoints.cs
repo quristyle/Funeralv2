@@ -23,11 +23,13 @@ public static class InfoEndpoints
 
         group.MapGet("/notice/list", async (
             [FromQuery] string? buildingId,
-            [FromQuery] bool includeExpired,
+            // 값 없이 부르는 경우가 흔하다. bool 은 값이 없으면 바인딩이 실패해 400 이 나므로
+            // nullable 로 받고 여기서 기본값을 준다.
+            [FromQuery] bool? includeExpired,
             UserContext? user,
             [FromServices] IInfoService service) =>
         {
-            return await service.GetNoticesAsync(RequireUser(user), buildingId, includeExpired);
+            return await service.GetNoticesAsync(RequireUser(user), buildingId, includeExpired ?? false);
         })
         .WithName("GetFuneralNotices")
         .WithOpenApi();

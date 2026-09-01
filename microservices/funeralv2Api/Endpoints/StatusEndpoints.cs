@@ -19,10 +19,11 @@ public static class StatusEndpoints
         group.MapGet("/funeral-status/board", async (
             [FromQuery] string? buildingId,
             [FromQuery] string? floorId,
-            [FromQuery] bool onlyInUse,
+            // bool 은 값이 없으면 바인딩이 실패해 400 이 난다. nullable 로 받고 기본값을 준다.
+            [FromQuery] bool? onlyInUse,
             [FromServices] IStatusService service) =>
         {
-            return await service.GetBoardAsync(buildingId, floorId, onlyInUse);
+            return await service.GetBoardAsync(buildingId, floorId, onlyInUse ?? false);
         })
         .WithName("GetFuneralStatusBoard")
         .WithOpenApi();
@@ -31,10 +32,10 @@ public static class StatusEndpoints
         group.MapGet("/funeral-status/list", async (
             [FromQuery] string? buildingId,
             [FromQuery] string? floorId,
-            [FromQuery] bool onlyInUse,
+            [FromQuery] bool? onlyInUse,
             [FromServices] IStatusService service) =>
         {
-            var board = await service.GetBoardAsync(buildingId, floorId, onlyInUse);
+            var board = await service.GetBoardAsync(buildingId, floorId, onlyInUse ?? false);
             return board.Rooms;
         })
         .WithName("GetFuneralStatuses")
