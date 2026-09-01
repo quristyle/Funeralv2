@@ -236,7 +236,11 @@ function formatDate(dateStr?: string) {
           <Button v-if="row.hasWebm && row.webmUrl" type="link" size="small" @click="handlePlayWebm(row)" title="변환 영상(H.264) 재생">
             <IconifyIcon icon="lucide:film" class="size-4 text-success" />
           </Button>
-          <Button v-if="row.status === 'FAILED'" type="link" size="small" @click="handleRetryThumbnail(row)" title="썸네일 재추출">
+          <!--
+            썸네일 재추출은 변환 실패건에서만 보였는데, 그러면 상태가 COMPLETED 인데
+            썸네일만 비어 있는 행은 손댈 방법이 없었다. 상태와 무관하게 늘 보여 준다.
+          -->
+          <Button type="link" size="small" @click="handleRetryThumbnail(row)" title="썸네일 재추출">
             <IconifyIcon icon="lucide:image" class="size-4" />
           </Button>
           <!--
