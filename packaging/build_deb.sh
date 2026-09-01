@@ -43,7 +43,16 @@ DIST="$ROOT/dist"
 
 PKG_NAME="funeralv2-player"
 ARCH="${PLAYER_DEB_ARCH:-$(dpkg --print-architecture)}"
-BUNDLE="$APP_DIR/build/linux/$ARCH/release/bundle"
+
+# Flutter 의 리눅스 출력 폴더는 **dpkg 아키텍처 이름과 다르다.**
+#   dpkg   : amd64 / arm64
+#   Flutter: x64   / arm64      ← x86_64 만 이름이 갈린다
+# 예전에는 $ARCH 를 그대로 경로에 썼다가 amd64 에서 산출물을 못 찾고 죽었다.
+case "$ARCH" in
+  amd64) FLUTTER_ARCH='x64' ;;
+  *)     FLUTTER_ARCH="$ARCH" ;;
+esac
+BUNDLE="$APP_DIR/build/linux/$FLUTTER_ARCH/release/bundle"
 
 # 패키지 관리자 주소. 필요하면 DEB_MAINTAINER 환경변수로 덮어쓴다.
 MAINTAINER="${DEB_MAINTAINER:-quristyle <quristyle@users.noreply.github.com>}"
@@ -61,6 +70,14 @@ MAINTAINER="${DEB_MAINTAINER:-quristyle <quristyle@users.noreply.github.com>}"
 detect_target() {
   local id='' ver=''
   local os_release="${PLAYER_OS_RELEASE:-/etc/os-release}"
+
+  # `/etc/os-release` 는 **VERSION 이라는 이름을 쓴다**
+  # (예: VERSION="24.04.4 LTS (Noble Numbat)"). 아래에서 그것을 읽어 들이면
+  # 이 스크립트가 인자로 받은 **패키지 버전이 통째로 덮인다.**
+  # 그러면 control 파일의 Version 이 '24.04.4 LTS (Noble Numbat)' 이 되어
+  # dpkg-deb 가 "version string has embedded spaces" 로 거절한다.
+  # 그래서 함수 안에서 local 로 가려 두고, 읽은 뒤에는 쓰지 않는다.
+  local VERSION VERSION_CODENAME PRETTY_NAME NAME ID_LIKE
 
   if [ -r "$os_release" ]; then
     # shellcheck disable=SC1091
