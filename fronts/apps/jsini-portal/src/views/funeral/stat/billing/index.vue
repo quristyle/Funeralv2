@@ -9,7 +9,7 @@
  */
 import { computed, onMounted, ref } from 'vue';
 import { Page } from '@vben/common-ui';
-import { Button, Card, DatePicker, Modal, Select, Statistic, Table, Tag, message } from 'ant-design-vue';
+import { Button, Card, DatePicker, Modal, Select, Statistic, Tag, message } from 'ant-design-vue';
 import dayjs from 'dayjs';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import type { StatApi } from '#/api/funeral/stat';
@@ -26,13 +26,31 @@ const summary = ref<StatApi.Summary | null>(null);
 const showDetail = ref(false);
 const detail = ref<StatApi.Billing | null>(null);
 
-const detailColumns = [
-  { title: '항목', dataIndex: 'title', key: 'title' },
-  { title: '단가', dataIndex: 'unitPrice', key: 'unitPrice', align: 'right' as const },
-  { title: '일수 적용', dataIndex: 'applyPerDay', key: 'applyPerDay', align: 'center' as const },
-  { title: '금액', dataIndex: 'amount', key: 'amount', align: 'right' as const },
-  { title: '비고', dataIndex: 'remark', key: 'remark' },
-];
+/**
+ * 상세 팝업 안의 항목 표. 준수사항 6번대로 그리드 하나만 쓴다.
+ * 팝업 안이라 부모가 높이를 주지 않으므로 숫자로 준다.
+ */
+const [DetailGrid] = useVbenVxeGrid({
+  gridOptions: {
+    columns: [
+      { field: 'title', title: '항목', minWidth: 140 },
+      { field: 'unitPrice', title: '단가', width: 120, align: 'right', formatter: fmtMoney },
+      {
+        field: 'applyPerDay',
+        title: '일수 적용',
+        width: 100,
+        align: 'center',
+        slots: { default: 'applyPerDay' },
+      },
+      { field: 'amount', title: '금액', width: 130, align: 'right', formatter: fmtMoney },
+      { field: 'remark', title: '비고', minWidth: 180 },
+    ],
+    emptyText: '등록된 비용 항목이 없습니다.',
+    height: 260,
+    pagerConfig: { enabled: false },
+    rowConfig: { keyField: 'title' },
+  } as any,
+});
 
 const detailTotal = computed(() =>
   (detail.value?.items ?? []).reduce((sum, i) => sum + i.amount, 0),
@@ -161,22 +179,12 @@ onMounted(fetchBuildings);
           <span>사용일수 <b>{{ detail.useDays }}일</b></span>
         </div>
 
-        <Table
-          :columns="detailColumns"
-          :data-source="detail.items"
-          :pagination="false"
-          size="small"
-          row-key="title"
-        >
-          <template #bodyCell="{ column, record }">
-            <template v-if="column.key === 'unitPrice'">{{ money(record.unitPrice) }}</template>
-            <template v-else-if="column.key === 'amount'">{{ money(record.amount) }}</template>
-            <template v-else-if="column.key === 'applyPerDay'">
-              <Tag v-if="record.applyPerDay" color="processing">일수 적용</Tag>
-              <span v-else class="text-xs text-muted-foreground">고정</span>
-            </template>
+        <DetailGrid :table-data="detail.items">
+          <template #applyPerDay="{ row }">
+            <Tag v-if="row.applyPerDay" color="processing">일수 적용</Tag>
+            <span v-else class="text-xs text-muted-foreground">고정</span>
           </template>
-        </Table>
+        </DetailGrid>
 
         <div class="flex justify-end border-t pt-2 text-sm">
           <span class="mr-2 text-muted-foreground">합계</span>

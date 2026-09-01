@@ -147,6 +147,10 @@ onMounted(() => {
           </Tag>
         </div>
 
+        <!--
+          건물 쪽은 그리드가 아니라 체크박스 목록이다. 준수사항 6번은 '표'를 두고 한 말인데
+          여기는 고르는 입력 장치라 정렬·필터·엑셀이 뜻이 없다. 옛 화면도 mapping 체크박스였다.
+        -->
         <Spin :spinning="loading" class="flex-1 overflow-y-auto">
           <ul v-if="selected" class="divide-y">
             <li
