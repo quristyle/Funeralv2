@@ -35,7 +35,7 @@ const [Grid, gridApi] = useVbenVxeGrid({
       { field: 'startTime', title: '입실', width: 160, formatter: fmtDateTime },
       { field: 'endTime', title: '출상', width: 160, formatter: fmtDateTime },
       { field: 'useDays', title: '사용일수', width: 90, align: 'right', formatter: fmtDays },
-      { field: 'funeralDate', title: '발인', width: 160, formatter: fmtDateTime },
+      { field: 'departureDate', title: '발인', width: 160, formatter: fmtDateTime },
       { field: 'burialPlot', title: '장지', minWidth: 160 },
     ],
     height: 'auto',

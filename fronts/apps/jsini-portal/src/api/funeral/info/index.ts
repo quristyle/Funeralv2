@@ -61,7 +61,8 @@ export namespace InfoApi {
     /** 퇴실 */
     endTime?: string;
     useDays: number;
-    funeralDate?: string;
+    /** 발인 */
+    departureDate?: string;
     burialPlot?: string;
     inUse: boolean;
     departed: boolean;

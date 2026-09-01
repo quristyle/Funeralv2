@@ -73,8 +73,11 @@ public class RoomHistoryDto
     /// <summary>사용 일수. 퇴실 전이면 오늘까지로 센다.</summary>
     public int UseDays { get; set; }
 
-    /// <summary>발인 (옛 <c>borne_out_dt</c>)</summary>
-    public DateTime? FuneralDate { get; set; }
+    /// <summary>
+    /// 발인 (옛 <c>borne_out_dt</c>). 값은 <c>Deceased.BurialDate</c> 다 —
+    /// 그 엔티티에서 <c>FuneralDate</c> 는 입관, <c>BurialDate</c> 가 발인이다.
+    /// </summary>
+    public DateTime? DepartureDate { get; set; }
 
     /// <summary>장지 (옛 <c>jangji</c>)</summary>
     public string? BurialPlot { get; set; }

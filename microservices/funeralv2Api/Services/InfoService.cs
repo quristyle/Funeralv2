@@ -312,7 +312,7 @@ public class InfoService : IInfoService
                     StartTime = a.StartTime,
                     EndTime = a.EndTime,
                     UseDays = StatusService.CountDays(a.StartTime, a.EndTime, now),
-                    FuneralDate = deceased?.BurialDate,
+                    DepartureDate = deceased?.BurialDate,
                     BurialPlot = deceased?.BurialPlot,
                     InUse = a.EndTime == null,
                     Departed = a.EndTime != null,
