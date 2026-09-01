@@ -198,3 +198,10 @@ cd microservices/funeralv2Api && dotnet ef database update
   보고 **옮기지 않았다.** 필요하면 별도 작업이다.
 - **D-F3 `t_account_conf` 의 앞 네 개**(탭·사이드바)는 vben 개인 설정과 겹친다.
   겹치는 것을 지우고 vben 것을 쓸지, 장례식장 화면에서 따로 둘지.
+- **D-F4 장비 미리보기 주소를 어디에 둘 것인가.** 옛 시스템은
+  `/client_machine/{번호}/index.jsp` 를 새 창으로 띄웠다. 지금 재생 장비는
+  **설치형(.deb 등)이라 그에 해당하는 웹 주소가 없다.** `funeralv2.jsini.co.kr` 은
+  응답하지 않는다.
+  그래서 백엔드가 설정 `Device:PreviewUrlTemplate`(`{code}` 자리에 장비 코드가 들어간다)를
+  보고 주소를 만들고, **설정이 없으면 빈 값**을 준다. 화면은 그때 버튼을 잠그고
+  장비 코드 복사만 내준다. 주소가 정해지면 `appsettings.Local.json` 에 한 줄 적으면 된다.

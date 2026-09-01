@@ -64,13 +64,31 @@ async function handleBuildingChange() {
 /**
  * 새 창으로 연다. 옛 메뉴의 `view_type:new` 와 같은 동작이다.
  * 미리보기는 장비가 실제로 그리는 화면이라 앱 안에 끼워 넣으면 크기가 어긋난다.
+ *
+ * 주소는 백엔드가 설정(`Device:PreviewUrlTemplate`)을 보고 만들어 준다.
+ * 지금 재생 장비는 설치형이라 그에 해당하는 웹 주소가 아직 없어서 보통 비어 있다.
  */
 function openPreview(device: InfoApi.DevicePreview) {
   if (!device.previewUrl) {
-    message.warning('이 장비에는 인증 코드가 없어 미리볼 수 없습니다.');
+    message.warning(
+      device.deviceCode
+        ? '미리보기 주소가 아직 설정되지 않았습니다. (Device:PreviewUrlTemplate)'
+        : '이 장비에는 인증 코드가 없어 미리볼 수 없습니다.',
+    );
     return;
   }
   window.open(device.previewUrl, '_blank', 'noopener');
+}
+
+/** 장비 코드를 복사한다 — 미리보기 주소가 없을 때 이것으로 장비를 찾는다. */
+async function copyCode(code?: string) {
+  if (!code) return;
+  try {
+    await navigator.clipboard.writeText(code);
+    message.success('장비 코드를 복사했습니다.');
+  } catch {
+    message.error('복사하지 못했습니다.');
+  }
 }
 
 onMounted(async () => {
@@ -92,6 +110,10 @@ onMounted(async () => {
           <h1 class="text-lg font-bold">장비 화면 미리보기</h1>
           <p class="text-xs text-muted-foreground">
             장비가 실제로 그리는 화면을 새 창으로 연다.
+            <span v-if="devices.length > 0 && devices.every((d) => !d.previewUrl)" class="text-amber-600">
+              — 미리보기 주소(<code>Device:PreviewUrlTemplate</code>)가 아직 설정되지 않아
+              지금은 장비 목록만 볼 수 있다.
+            </span>
           </p>
         </div>
 
@@ -152,10 +174,24 @@ onMounted(async () => {
               </div>
             </div>
 
-            <Button block :disabled="!device.previewUrl" @click="openPreview(device)">
-              <IconifyIcon icon="lucide:external-link" class="mr-1 size-4" />
-              미리보기
-            </Button>
+            <div class="flex gap-1">
+              <Button
+                class="flex-1"
+                :disabled="!device.previewUrl"
+                :title="device.previewUrl || '미리보기 주소가 설정되지 않았습니다'"
+                @click="openPreview(device)"
+              >
+                <IconifyIcon icon="lucide:external-link" class="mr-1 size-4" />
+                미리보기
+              </Button>
+              <Button
+                :disabled="!device.deviceCode"
+                title="장비 코드 복사"
+                @click="copyCode(device.deviceCode)"
+              >
+                <IconifyIcon icon="lucide:copy" class="size-4" />
+              </Button>
+            </div>
           </div>
         </div>
 

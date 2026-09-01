@@ -8,11 +8,25 @@ namespace funeralv2Api.Services;
 /// <inheritdoc cref="IInfoService"/>
 public class InfoService : IInfoService
 {
-    private readonly AppDbContext _dbContext;
+    /// <summary>
+    /// 장비 화면을 웹으로 열 수 있는 주소 서식. <c>{code}</c> 자리에 장비 인증 코드가 들어간다.
+    /// </summary>
+    /// <remarks>
+    /// 옛 시스템은 <c>/client_machine/{번호}/index.jsp</c> 를 새 창으로 띄웠다.
+    /// 지금 재생 장비는 설치형(.deb 등)이라 그에 해당하는 웹 주소가 **아직 없다.**
+    /// 그래서 기본값을 두지 않는다 — 없으면 화면이 "주소가 설정되지 않았다" 고 말한다.
+    /// 정해지면 <c>appsettings.Local.json</c> 에 적는다.
+    /// 40번 문서의 D-F4.
+    /// </remarks>
+    public const string PreviewUrlTemplateKey = "Device:PreviewUrlTemplate";
 
-    public InfoService(AppDbContext dbContext)
+    private readonly AppDbContext _dbContext;
+    private readonly IConfiguration _configuration;
+
+    public InfoService(AppDbContext dbContext, IConfiguration configuration)
     {
         _dbContext = dbContext;
+        _configuration = configuration;
     }
 
     // ── 알림정보 ────────────────────────────────────────────────
@@ -485,6 +499,8 @@ public class InfoService : IInfoService
         var rooms = await _dbContext.Rooms.AsNoTracking().ToDictionaryAsync(r => r.Id, r => r.Name);
         var buildings = await _dbContext.Buildings.AsNoTracking().ToDictionaryAsync(b => b.Id, b => b.Name);
 
+        var template = _configuration[PreviewUrlTemplateKey];
+
         return devices.Select(d => new DevicePreviewDto
         {
             Id = d.Id,
@@ -498,8 +514,21 @@ public class InfoService : IInfoService
             IsOnline = d.Status == "ONLINE",
             LastConnectedAt = d.LastSeenAt,
 
-            // 장비 화면은 코드 하나로 열린다. 옛 시스템의 /client_machine/{번호}/ 와 같은 자리다.
-            PreviewUrl = string.IsNullOrWhiteSpace(d.Code) ? string.Empty : $"/device/player?code={d.Code}",
+            PreviewUrl = BuildPreviewUrl(template, d.Code),
         }).ToList();
+    }
+
+    /// <summary>
+    /// 설정된 서식에 장비 코드를 끼워 미리보기 주소를 만든다.
+    /// 서식이 없거나 코드가 없으면 빈 문자열이다 — 화면이 그때 버튼을 잠근다.
+    /// </summary>
+    internal static string BuildPreviewUrl(string? template, string? code)
+    {
+        if (string.IsNullOrWhiteSpace(template) || string.IsNullOrWhiteSpace(code))
+        {
+            return string.Empty;
+        }
+
+        return template.Replace("{code}", Uri.EscapeDataString(code), StringComparison.OrdinalIgnoreCase);
     }
 }
