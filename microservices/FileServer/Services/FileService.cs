@@ -243,6 +243,9 @@ public class FileService : IFileService
                         Path = $"{GetBizFolder(bizType)}/Video/{thumbStoredName}",
                         Size = fileInfo.Exists ? fileInfo.Length : 0,
                         ContentType = "image/jpeg",
+                        // 뽑아낸 장면은 JPEG 이다. 이 표시가 없으면 축소본 경로
+                        // (/api/file/thumbnail|medium|large)가 "이미지가 아니다" 로 거절한다.
+                        IsImage = true,
                         CreatedBy = "System",
                         CreatedAt = DateTime.UtcNow,
                         IsDeleted = false
@@ -387,6 +390,9 @@ public class FileService : IFileService
                         Path = $"{GetBizFolder(bizType)}/Video/{thumbStoredName}",
                         Size = fileInfo.Exists ? fileInfo.Length : 0,
                         ContentType = "image/jpeg",
+                        // 뽑아낸 장면은 JPEG 이다. 이 표시가 없으면 축소본 경로
+                        // (/api/file/thumbnail|medium|large)가 "이미지가 아니다" 로 거절한다.
+                        IsImage = true,
                         CreatedBy = "System",
                         CreatedAt = DateTime.UtcNow,
                         IsDeleted = false
@@ -581,6 +587,7 @@ public class FileService : IFileService
                                 Path = $"{GetBizFolder(bizType)}/Audio/{thumbStoredName}",
                                 Size = fileInfo.Length,
                                 ContentType = "image/jpeg",
+                                IsImage = true,
                                 CreatedBy = "System",
                                 CreatedAt = DateTime.UtcNow,
                                 IsDeleted = false
@@ -1486,6 +1493,7 @@ private async Task NotifyStatusAsync(
             Path = $"{GetBizFolder(bizType)}/Video/{thumbStoredName}",
             Size = fileInfo.Exists ? fileInfo.Length : 0,
             ContentType = "image/jpeg",
+            IsImage = true,
             CreatedBy = "System",
             CreatedAt = DateTime.UtcNow,
             IsDeleted = false
@@ -1530,6 +1538,7 @@ private async Task NotifyStatusAsync(
                     Path = $"{GetBizFolder(bizType)}/Audio/{thumbStoredName}",
                     Size = fileInfo.Length,
                     ContentType = "image/jpeg",
+                    IsImage = true,
                     CreatedBy = "System",
                     CreatedAt = DateTime.UtcNow,
                     IsDeleted = false

@@ -30,7 +30,8 @@ jobs:
         include:
           - { name: gateway, dir: ApiGateway,                     proj: ApiGateway }
           - { name: auth,    dir: microservices/AuthServer,        proj: AuthServer }
-          - { name: file,    dir: microservices/FileServer,        proj: FileServer }
+          # FileServer 만 ffmpeg 이 필요하다 (영상 썸네일 추출 · H.264 재인코딩).
+          - { name: file,    dir: microservices/FileServer,        proj: FileServer, ffmpeg: 1 }
           - { name: site,    dir: microservices/SiteServer,        proj: SiteServer }
           - { name: notify,  dir: microservices/NotificationServer, proj: NotificationServer }
           - { name: life,    dir: microservices/LifeEnvServer,     proj: LifeEnvServer }
@@ -56,6 +57,7 @@ jobs:
           build-args: |
             PROJ_DIR=${{ matrix.dir }}
             PROJ_NAME=${{ matrix.proj }}
+            WITH_FFMPEG=${{ matrix.ffmpeg || '0' }}
           push: true
           tags: |
             ghcr.io/${{ github.repository_owner }}/funeralv2-${{ matrix.name }}:${{ github.sha }}

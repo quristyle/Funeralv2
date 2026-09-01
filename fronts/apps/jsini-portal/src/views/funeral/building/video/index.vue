@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import { Page } from '@vben/common-ui';
 import { Plus ,IconifyIcon} from '@vben/icons';
 import { Button, message, Popconfirm, Modal, Tag, Tooltip } from 'ant-design-vue';
@@ -11,8 +11,20 @@ import VideoUploadModal from './modules/video-upload-modal.vue';
 const uploadModalRef = ref<InstanceType<typeof VideoUploadModal> | null>(null);
 
 const showPlayModal = ref<boolean>(false);
-const currentVideoUrl = ref<string>('');
 const currentVideoName = ref<string>('');
+const currentVideoPoster = ref<string>('');
+
+/**
+ * 재생할 URL 후보 목록. 앞의 것부터 시도하고 브라우저가 못 받거나 못 읽으면 다음으로 넘어간다.
+ * 변환본(H.264)이 원본보다 훨씬 가볍기 때문에 앞에 둔다 — 원본은 4K 200MB 짜리도 있어서
+ * 미리보기로 통째로 받으면 한참 검은 화면만 보인다.
+ */
+const playSources = ref<string[]>([]);
+const playIndex = ref<number>(0);
+/** 후보를 다 써도 재생하지 못했을 때 사용자에게 보일 사유 */
+const playError = ref<string>('');
+
+const currentVideoUrl = computed<string>(() => playSources.value[playIndex.value] ?? '');
 
 const [Grid, gridApi] = useVbenVxeGrid({
   gridOptions: {
@@ -75,19 +87,58 @@ async function handleDelete(row: any) {
   }
 }
 
-// 플레이 시뮬레이터 팝업 (원본)
-function handlePlay(row: any) {
-  currentVideoUrl.value = row.url;
-  currentVideoName.value = row.name;
+/**
+ * 그리드 썸네일 칸에 쓸 축소본 경로.
+ *
+ * `thumbnailUrl` 은 원본 내려받기 경로(`/api/file/download/...`)라 64x40 자리에
+ * 수 MB 짜리 JPEG 이 그대로 온다. 파일 아이디를 알면 150px 축소본을 쓴다.
+ * 축소본이 없거나 실패하면 ImagePreview 가 `fallback-src` 로 원본을 다시 시도한다.
+ */
+function thumbnailSrc(row: any): string | null {
+  return row.thumbnailFileId
+    ? `/api/file/thumbnail/${row.thumbnailFileId}`
+    : (row.thumbnailUrl ?? null);
+}
+
+/**
+ * 플레이어 팝업을 연다.
+ *
+ * @param row      대상 행
+ * @param sources  재생할 URL 후보 (앞에서부터 시도)
+ * @param suffix   제목 뒤에 붙일 표기
+ */
+function openPlayer(row: any, sources: (string | null | undefined)[], suffix = '') {
+  const usable = sources.filter((url): url is string => !!url);
+  playSources.value = usable;
+  playIndex.value = 0;
+  playError.value = usable.length === 0 ? '재생할 수 있는 파일 경로가 없습니다.' : '';
+  currentVideoPoster.value = row.thumbnailUrl ?? '';
+  currentVideoName.value = row.name + suffix;
   showPlayModal.value = true;
 }
 
-// 플레이 시뮬레이터 팝업 (보관용 변환본 / H.264 MP4)
+// 플레이 시뮬레이터 팝업 (기본). 가벼운 변환본을 먼저 시도하고 없으면 원본으로 간다.
 // 필드명 webmUrl 은 과거 WebM 보관 시절의 이름이며, 실제 파일은 H.264/MP4 이다.
+function handlePlay(row: any) {
+  openPlayer(row, [row.hasWebm ? row.webmUrl : null, row.url]);
+}
+
+// 플레이 시뮬레이터 팝업 (보관용 변환본 / H.264 MP4). 변환본만 확인할 때 쓴다.
 function handlePlayWebm(row: any) {
-  currentVideoUrl.value = row.webmUrl;
-  currentVideoName.value = row.name + ' (H.264)';
-  showPlayModal.value = true;
+  openPlayer(row, [row.webmUrl], ' (H.264)');
+}
+
+/**
+ * 브라우저가 현재 후보를 재생하지 못했을 때. 다음 후보가 있으면 넘어가고,
+ * 없으면 사유를 적어 둔다 — 검은 화면만 남는 것을 막는다.
+ */
+function handleVideoError() {
+  if (playIndex.value < playSources.value.length - 1) {
+    playIndex.value += 1;
+    return;
+  }
+  playError.value =
+    '영상을 재생하지 못했습니다. 파일이 서버에 없거나 브라우저가 지원하지 않는 코덱일 수 있습니다.';
 }
 
 // 썸네일 재추출 처리
@@ -113,7 +164,10 @@ async function handleRetryWebm(row: any) {
 }
 
 function handleClosePlayer() {
-  currentVideoUrl.value = '';
+  playSources.value = [];
+  playIndex.value = 0;
+  playError.value = '';
+  currentVideoPoster.value = '';
   showPlayModal.value = false;
 }
 
@@ -140,7 +194,9 @@ function formatDate(dateStr?: string) {
       <!-- 썸네일 컬럼 슬롯 렌더러 -->
       <template #thumbnail="{ row }">
         <ImagePreview
-          :src="row.thumbnailUrl"
+          :src="thumbnailSrc(row)"
+          :fallback-src="row.thumbnailUrl"
+          :preview-src="row.thumbnailUrl"
           :width="64"
           :height="40"
           fallback-text="No Image"
@@ -171,7 +227,7 @@ function formatDate(dateStr?: string) {
 
       <template #action="{ row }">
         <div class="flex gap-2">
-          <Button type="link" size="small" @click="handlePlay(row)" title="원본 영상 재생">
+          <Button type="link" size="small" @click="handlePlay(row)" title="영상 재생 (변환본 우선, 없으면 원본)">
             <IconifyIcon icon="lucide:play" class="size-4" />
           </Button>
           <Button type="link" size="small" @click="handleEdit(row)" title="동영상 정보 수정">
@@ -217,14 +273,28 @@ function formatDate(dateStr?: string) {
       @cancel="handleClosePlayer"
       width="640px"
     >
-      <div class="p-2 flex justify-center bg-black rounded">
+      <div class="p-2 flex justify-center bg-black rounded min-h-[200px] items-center">
+        <!--
+          key 를 걸어 후보가 바뀌면 video 요소를 새로 만든다 — src 만 갈면
+          브라우저가 다시 읽지 않는 경우가 있다.
+          poster 로 썸네일을 깔아 두면 자동재생이 브라우저 정책에 막혀도 검은 화면 대신
+          첫 장면이 보인다.
+        -->
         <video
-          v-if="currentVideoUrl"
+          v-if="currentVideoUrl && !playError"
+          :key="currentVideoUrl"
           :src="currentVideoUrl"
+          :poster="currentVideoPoster || undefined"
           controls
           autoplay
+          playsinline
+          preload="metadata"
           class="w-full max-h-[360px]"
+          @error="handleVideoError"
         ></video>
+        <p v-else class="text-sm text-white/80 text-center px-4 py-8">
+          {{ playError || '재생할 영상이 없습니다.' }}
+        </p>
       </div>
     </Modal>
 
