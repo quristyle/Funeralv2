@@ -64,11 +64,26 @@ export namespace PlayerReleaseApi {
   }
 }
 
+/**
+ * 응답 봉투에서 **객체 하나**를 꺼낸다.
+ *
+ * AuthServer 의 공통 래퍼(`AddApiResponseWrapper`)는 단건도 목록처럼 싸서 보낸다 —
+ * `{ result: [ {…} ], page: { total: 1 } }`. 그래서 `res.result` 를 그대로 쓰면
+ * **배열**을 받고, `status.configured` 같은 것이 전부 `undefined` 가 된다
+ * (실제로 그래서 운영 화면의 입력칸과 발행 단추가 모두 잠겨 있었다).
+ *
+ * 봉투가 바뀌어도 견디도록 세 모양을 다 받는다 — 배열이면 첫 항목,
+ * `result` 가 객체면 그것, 봉투가 이미 벗겨져 있으면 그대로.
+ */
+function one<T>(res: any): T {
+  const inner = res?.result ?? res;
+  return (Array.isArray(inner) ? inner[0] : inner) as T;
+}
+
 /** 화면 첫 그림에 필요한 정보 */
 export async function getPlayerReleaseStatus() {
-  return requestClient.get<PlayerReleaseApi.Status>(
-    '/auth/system/player-release/status',
-  );
+  const res = await requestClient.get<any>('/auth/system/player-release/status');
+  return one<PlayerReleaseApi.Status>(res);
 }
 
 /**
@@ -78,15 +93,17 @@ export async function getPlayerReleaseStatus() {
  * 되돌릴 수 없다. 화면이 한 번 더 확인한 뒤에 부른다.
  */
 export async function createPlayerRelease(version: string, notes?: string) {
-  return requestClient.post<PlayerReleaseApi.Result>(
-    '/auth/system/player-release',
-    { notes, version },
-  );
+  const res = await requestClient.post<any>('/auth/system/player-release', {
+    notes,
+    version,
+  });
+  return one<PlayerReleaseApi.Result>(res);
 }
 
 /** 진행 상황. 화면이 몇 초 간격으로 부른다. */
 export async function getPlayerReleaseRun(tag: string) {
-  return requestClient.get<PlayerReleaseApi.Run>(
+  const res = await requestClient.get<any>(
     `/auth/system/player-release/runs/${encodeURIComponent(tag)}`,
   );
+  return one<PlayerReleaseApi.Run>(res);
 }

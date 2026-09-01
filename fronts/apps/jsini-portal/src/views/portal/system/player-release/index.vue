@@ -93,8 +93,7 @@ async function load() {
   loading.value = true;
   loadError.value = '';
   try {
-    const res = await getPlayerReleaseStatus();
-    status.value = (res as any)?.result ?? res;
+    status.value = await getPlayerReleaseStatus();
     if (!version.value && status.value?.suggestedVersion) {
       version.value = status.value.suggestedVersion;
     }
@@ -125,8 +124,7 @@ function confirmRelease() {
 async function submit() {
   submitting.value = true;
   try {
-    const res = await createPlayerRelease(version.value.trim(), notes.value.trim());
-    const result: PlayerReleaseApi.Result = (res as any)?.result ?? res;
+    const result = await createPlayerRelease(version.value.trim(), notes.value.trim());
     message.success(result.message);
     watching.value = result.tag;
     run.value = null;
@@ -151,8 +149,7 @@ async function submit() {
 async function poll() {
   if (!watching.value) return;
   try {
-    const res = await getPlayerReleaseRun(watching.value);
-    run.value = (res as any)?.result ?? res;
+    run.value = await getPlayerReleaseRun(watching.value);
   } catch {
     // 폴링 실패는 조용히 넘긴다. 다음 차례에 다시 묻는다.
   }
