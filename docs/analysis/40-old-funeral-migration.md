@@ -68,6 +68,31 @@ page/build/room.jsp
 - **`t_room_goin` 의 날짜 칸은 전부 비어 있다.** `use_days` 도 10,385행이 모두 1 이다.
   즉 옛 시스템의 호실 이력은 사실상 **고인↔호실 연결표**였고 기간 관리는 하지 않았다.
   현 `deceased_rooms` 는 `start_time`/`end_time` 이 있어 더 낫다.
+- **옛 `t_goin` 의 확장 칸은 전부 비어 있다.** 표에는 봉안 · 종교 · 축문 · 부고 ·
+  주민번호 · 혼인 · 국가유공자 · 기초수급 · 주소 · 사망장소(4단계) · 사망종류 ·
+  의료/검안 여부 · 지방 같은 칸이 선언돼 있는데, **10,384행 중 채워진 것이 하나도 없다.**
+  실제로 쓰인 것은 이것뿐이다.
+
+  | 칸 | 채워진 행 |
+  |---|---|
+  | `nm` 성명 | 10,384 (**거의 전부 "자동생성"**) |
+  | `layout_corpse_dt`/`tm` 입실 | 10,384 |
+  | `gi_img` 영정 사진 | 10,145 |
+  | `crop_img` 잘라 낸 사진 | 8,344 |
+  | `gi_video` 영상 | 5,162 |
+  | `gi_audio` 음악 | 1,754 |
+  | `chulsang` 출상 | 10,338 |
+  | `sex` 성별 | **1** |
+  | `age` 나이 · `jangji` 장지 | 0 · 1 |
+
+  상주(`t_sangju`)도 4행뿐이다. 즉 **옛 시스템은 실제로는 고인 관리가 아니라
+  "빈소 장비에 사진·영상·음악을 거는 일"** 이었고, 고인 행은 호실을 쓸 때마다
+  자동으로 하나 만들어지는 자리표시자였다.
+
+  현 `smfr.deceaseds` 는 계약자 · 담당자 · 시설 이용 · 상주 · 영정 편집까지 갖춰
+  이미 옛 표보다 낫다. **그래서 확장 칸을 옮기지 않았고 옛 데이터도 옮기지 않았다.**
+  옮길 값이 없다.
+
 - **`t_account_conf` 는 계정별 UI 토글 8개**다. 이름은 `t_code` 에 있다.
 
   | 코드 | 뜻 |
@@ -96,8 +121,21 @@ page/build/room.jsp
 | 코드관리 | `comm/code` | 포털 `공통코드` 로 대체 |
 | 문의 | `help/cont_us` | 헬프데스크 문의로 대체 |
 | **건물별 음원** | `rsrc/music_build` | **신규** |
-| **호실 장비** | `room/room_machine` | **신규** — 호실에서 장비를 본다 |
-| **다음 고인** | `room/next_goin` | **신규** — 호실의 다음 예약 |
+| 호실 장비 | `room/room_machine` | 건물관리 > 장비 로 대체 |
+| 다음 고인 | `room/next_goin` | 만들지 않음 — 옛 `reservation_yn` 이 10,384행 모두 꺼져 있다(쓰지 않던 기능) |
+| 빈소 프로필 | `room/room_profile` | 고인관리 + 장비관리 + 빈소현황 으로 나뉘어 이미 있다 |
+
+`room_profile.jsp`(640줄)는 옛 시스템에서 가장 많이 쓰던 작업 화면이다.
+하는 일은 고인 저장 · 출상 처리 · 호실 장비 목록/전원 · 장비 이동 · 새 장비 등록 ·
+여백 설정이었는데, 현 시스템에서는 이렇게 흩어져 있고 각각 더 낫다.
+
+| 옛 기능 | 지금 어디 |
+|---|---|
+| 고인 저장 · 출상/출상취소 | 고인관리 (`cancel-departure` 까지 있다) |
+| 호실 장비 목록 · 전원 | 건물관리 > 장비 |
+| 장비 이동 | 장비 수정에서 호실을 바꾼다 |
+| 여백 · 화면비 설정 | 장비 속성 탭 (옛 `MG_LEFT`·`MG_RIGHT`·`MSIZE` 에 대응) |
+| 영정/리본/자막 | 장비 리본 탭 · 텍스트 오버레이 탭 (옛 시스템에 없던 것) |
 
 ## 할 일
 
@@ -124,13 +162,30 @@ page/build/room.jsp
 
 ## 새로 만드는 표
 
-`docs/sql/funeralv2_old_migration.sql` 에 있다. 전부 `IF NOT EXISTS` 다.
+**EF 마이그레이션이 정본이다** — `20260901140733_AddOldFuneralMigrationTables`.
+`docs/sql` 에 손으로 쓴 것을 잠깐 두었다가 지웠다. funeralv2Api 는 마이그레이션을
+쓰는데(`Migrations/` · `smfr.__EFMigrationsHistory`) SQL 파일을 따로 두면
+정본이 둘이 되고, 인덱스 이름부터 어긋난다(손으로 쓴 `ix_*` vs EF 의 `IX_*`).
 
 | 표 | 무엇 |
 |---|---|
 | `smfr.funeral_notices` | 알림정보 (옛 `t_notification`) |
+| `smfr.funeral_notice_reads` | 알림 읽음 표시 |
 | `smfr.account_settings` | 계정별 업무 설정 (옛 `t_account_conf`) |
 | `smfr.building_music` | 건물별 음원 배정 (옛 `t_music_build`) |
+
+**funeralv2Api 는 기동 때 마이그레이션을 스스로 적용하지 않는다**
+(`Database.Migrate()` 를 쓰는 것은 FileServer 뿐이다). 사람이 돌려야 한다.
+
+```bash
+cd microservices/funeralv2Api && dotnet ef database update
+```
+
+`--no-build` 로 돌릴 때는 **Debug 빌드가 최신인지 먼저 확인한다.** 낡은 어셈블리를
+보면 EF 가 변경을 못 알아채고 빈 마이그레이션을 만든다 (처음에 그렇게 한 번 헛돌았다).
+
+메뉴 등록은 `jsiniportal` 쪽이라 SQL 로 남긴다 —
+`docs/sql/funeral_menu_old_migration.sql`.
 
 ## 판단 대기
 
