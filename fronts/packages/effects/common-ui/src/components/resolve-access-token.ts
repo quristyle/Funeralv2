@@ -36,7 +36,7 @@ export function resolveAccessToken(): string {
 
       let token = '';
       try {
-        token = JSON.parse(rawValue)?.accessToken || '';
+        token = extractToken(JSON.parse(rawValue));
       } catch {
         // 평문이 아니다 — SecureLS(암호화 저장)로 시도한다.
         try {
@@ -45,7 +45,7 @@ export function resolveAccessToken(): string {
             encryptionSecret: import.meta.env.VITE_APP_STORE_SECURE_KEY,
             isCompression: true,
           });
-          token = ls.get(key)?.accessToken || '';
+          token = extractToken(ls.get(key));
         } catch {
           // 복호화도 안 되는 값(다른 앱의 잔재 등)은 후보가 아니다.
         }
@@ -70,6 +70,28 @@ export function resolveAccessToken(): string {
   }
 
   return best || candidates[0] || '';
+}
+
+/**
+ * 저장값에서 accessToken 을 꺼낸다.
+ *
+ * **문자열이 오면 한 번 더 파싱한다.** pinia-plugin-persistedstate 는 상태를
+ * "직렬화된 JSON 문자열"로 넘기는데, secure-ls 는 set 때 그것을 다시 감쌌다가
+ * get 때 한 겹만 풀어 **원래의 문자열을 그대로** 돌려준다. 거기에 `.accessToken` 을
+ * 붙이면 undefined 다 — 운영(암호화 저장) 포털의 사진 목록이 항상 401 이던 원인이다.
+ * 개발은 평문 JSON 경로라 걸리지 않아 오래 숨어 있었다(node 재현으로 확인함).
+ */
+function extractToken(value: unknown): string {
+  let obj = value;
+  if (typeof obj === 'string') {
+    try {
+      obj = JSON.parse(obj);
+    } catch {
+      return '';
+    }
+  }
+  const token = (obj as { accessToken?: unknown } | null)?.accessToken;
+  return typeof token === 'string' ? token : '';
 }
 
 /** JWT 페이로드의 exp(유닉스 초). JWT 형식이 아니거나 exp 가 없으면 null. */
