@@ -1,8 +1,8 @@
 <script lang="ts" setup>
 import { ref } from 'vue';
 import { Page, useVbenModal } from '@vben/common-ui';
-import { Plus } from '@vben/icons';
 import { Button, message, Popconfirm, Form, Input } from 'ant-design-vue';
+import GridIconButton from '#/components/GridIconButton.vue';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { getCompanyList, createCompany, updateCompany, deleteCompany } from '#/api/portal/system/company';
 
@@ -120,10 +120,12 @@ async function handleSave() {
   <Page auto-content-height>
     <Grid table-title="장례 서비스 파트너/회사 정보 목록">
       <template #toolbar-tools>
-        <Button v-perm:create type="primary" @click="onCreate">
-          <Plus class="size-5 mr-1" />
-          신규 회사 등록
-        </Button>
+        <GridIconButton
+          v-perm:create
+          icon="vxe-icon-add"
+          title="신규 회사 등록"
+          @click="onCreate"
+        />
       </template>
 
       <template #action="{ row }">

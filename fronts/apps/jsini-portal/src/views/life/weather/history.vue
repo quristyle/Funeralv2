@@ -17,6 +17,7 @@ import {
   RadioGroup,
   Select,
 } from 'ant-design-vue';
+import GridIconButton from '#/components/GridIconButton.vue';
 import dayjs from 'dayjs';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
@@ -425,7 +426,12 @@ onMounted(fetchLocations);
     <!-- 실측 이력 -->
     <Grid table-title="실측 이력">
       <template #toolbar-tools>
-        <Button v-perm:excel @click="handleExport">엑셀 다운로드</Button>
+        <GridIconButton
+          v-perm:excel
+          icon="vxe-icon-file-excel"
+          title="엑셀 다운로드"
+          @click="handleExport"
+        />
       </template>
     </Grid>
   </Page>

@@ -1,8 +1,9 @@
 <script lang="ts" setup>
 import { computed, ref } from 'vue';
 import { Page } from '@vben/common-ui';
-import { Plus ,IconifyIcon} from '@vben/icons';
+import { IconifyIcon} from '@vben/icons';
 import { Button, message, Popconfirm, Modal, Tag, Tooltip } from 'ant-design-vue';
+import GridIconButton from '#/components/GridIconButton.vue';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { getMediaSources, deleteMediaSource, retryThumbnail, retryWebm } from '#/api/funeral/building';
 import ImagePreview from '#/components/ImagePreview.vue';
@@ -185,10 +186,11 @@ function formatDate(dateStr?: string) {
   <Page auto-content-height>
     <Grid table-title="DID 화면 재생용 동영상 소스 목록">
       <template #toolbar-tools>
-        <Button type="primary" @click="openUpload">
-          <Plus class="size-5 mr-1" />
-          신규 비디오 등록
-        </Button>
+        <GridIconButton
+          icon="vxe-icon-add"
+          title="신규 비디오 등록"
+          @click="openUpload"
+        />
       </template>
 
       <!-- 썸네일 컬럼 슬롯 렌더러 -->

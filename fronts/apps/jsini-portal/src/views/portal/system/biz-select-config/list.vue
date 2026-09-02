@@ -3,8 +3,8 @@ import type { OnActionClickParams, VxeTableGridOptions } from '#/adapter/vxe-tab
 import type { BizSelectConfigApi } from '#/api/portal/system/biz-select-config';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
-import { Plus } from '@vben/icons';
-import { Button, message } from 'ant-design-vue';
+import { message } from 'ant-design-vue';
+import GridIconButton from '#/components/GridIconButton.vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { deleteBizSelectConfig, getBizSelectConfigs } from '#/api/portal/system/biz-select-config';
@@ -69,10 +69,12 @@ function refreshGrid() { gridApi.query(); }
     <FormDrawer @success="refreshGrid" />
     <Grid title="BizSelect 설정 관리">
       <template #toolbar-tools>
-        <Button v-perm:create type="primary" @click="onCreate">
-          <Plus class="size-5" />
-          신규 등록
-        </Button>
+        <GridIconButton
+          v-perm:create
+          icon="vxe-icon-add"
+          title="신규 등록"
+          @click="onCreate"
+        />
       </template>
     </Grid>
   </Page>

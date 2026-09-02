@@ -1,8 +1,9 @@
 <script lang="ts" setup>
 import { ref, onMounted, onUnmounted } from 'vue';
 import { Page } from '@vben/common-ui';
-import { Plus, Pencil, Trash2, Image } from '@vben/icons';
+import { Pencil, Trash2, Image } from '@vben/icons';
 import { Button, message, Popconfirm, Tag, Form, Input, InputNumber, RangePicker } from 'ant-design-vue';
+import GridIconButton from '#/components/GridIconButton.vue';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { getDeceasedList, deleteDeceased } from '#/api/funeral/building';
 import DeceasedFormModal from './modules/deceased-form-modal.vue';
@@ -304,10 +305,12 @@ function formatYmdDate(dateStr?: string) {
     <!-- ── 그리드 영역 ───────────────────────────────────────────────── -->
     <Grid table-title="장례식장 고인(Deceased) 등록 목록">
       <template #toolbar-tools>
-        <Button v-perm:create type="primary" @click="onCreate">
-          <Plus class="size-5 mr-1" />
-          신규 고인 등록
-        </Button>
+        <GridIconButton
+          v-perm:create
+          icon="vxe-icon-add"
+          title="신규 고인 등록"
+          @click="onCreate"
+        />
       </template>
 
       <template #photo="{ row }">

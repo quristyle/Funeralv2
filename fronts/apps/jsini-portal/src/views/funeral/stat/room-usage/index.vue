@@ -8,7 +8,8 @@
  */
 import { onMounted, ref } from 'vue';
 import { Page } from '@vben/common-ui';
-import { Button, Card, DatePicker, Select, Statistic, Tag, message } from 'ant-design-vue';
+import { Card, DatePicker, Select, Statistic, Tag, message } from 'ant-design-vue';
+import GridIconButton from '#/components/GridIconButton.vue';
 import dayjs from 'dayjs';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import type { StatApi } from '#/api/funeral/stat';
@@ -139,7 +140,11 @@ onMounted(async () => {
             @change="gridApi.query()"
           />
           <DatePicker.RangePicker v-model:value="searchRange" class="w-64" @change="gridApi.query()" />
-          <Button type="primary" @click="gridApi.query()">조회</Button>
+          <GridIconButton
+            icon="vxe-icon-search"
+            title="조회"
+            @click="gridApi.query()"
+          />
         </div>
       </template>
 

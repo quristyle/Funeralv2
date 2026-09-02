@@ -9,9 +9,10 @@ import type { SystemDeptApi } from '#/api/portal/system/dept';
 import { computed, onMounted, ref } from 'vue';
 
 import { Page, useVbenModal } from '@vben/common-ui';
-import { IconifyIcon, Plus } from '@vben/icons';
+import { IconifyIcon } from '@vben/icons';
 
-import { Button, Card, Empty, Input, message, Spin } from 'ant-design-vue';
+import { Card, Empty, Input, message, Spin } from 'ant-design-vue';
+import GridIconButton from '#/components/GridIconButton.vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { getCompanyList } from '#/api/portal/system/company';
@@ -304,10 +305,12 @@ onMounted(async () => {
           "
         >
           <template #toolbar-tools>
-            <Button v-perm:create type="primary" @click="onCreate">
-              <Plus class="size-5" />
-              {{ $t('ui.actionTitle.create', [$t('system.dept.name')]) }}
-            </Button>
+            <GridIconButton
+              v-perm:create
+              icon="vxe-icon-add"
+              :title="$t('ui.actionTitle.create', [$t('system.dept.name')])"
+              @click="onCreate"
+            />
           </template>
         </Grid>
       </div>

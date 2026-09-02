@@ -5,9 +5,8 @@ import type { SystemCompanyApi } from '#/api/portal/system/company';
 import { onMounted, ref } from 'vue';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
-import { Plus } from '@vben/icons';
-
-import { Button, message } from 'ant-design-vue';
+import { message } from 'ant-design-vue';
+import GridIconButton from '#/components/GridIconButton.vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { getCommonCodes } from '#/api/portal/system/common-code';
@@ -165,10 +164,12 @@ function refreshGrid() { gridApi.query(); }
     <Grid :table-title="$t('system.company.title')" >
       <template #toolbar-tools>
         <!-- 툴바 영역의 신규 등록 버튼 -->
-        <Button v-perm:create type="primary" @click="onCreate">
-          <Plus class="size-5" />
-          {{ $t('ui.actionTitle.create', [$t('system.company.name')]) }}
-        </Button>
+        <GridIconButton
+          v-perm:create
+          icon="vxe-icon-add"
+          :title="$t('ui.actionTitle.create', [$t('system.company.name')])"
+          @click="onCreate"
+        />
       </template>
     </Grid>
   </Page>

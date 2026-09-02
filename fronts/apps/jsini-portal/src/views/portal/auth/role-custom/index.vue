@@ -1,8 +1,8 @@
 <script lang="ts" setup>
 import { ref } from 'vue';
 import { Page, useVbenModal } from '@vben/common-ui';
-import { Plus } from '@vben/icons';
 import { Button, message, Popconfirm, Form, Input, Select } from 'ant-design-vue';
+import GridIconButton from '#/components/GridIconButton.vue';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { getRoleList, createRole, updateRole, deleteRole } from '#/api/portal/system/role';
 
@@ -88,10 +88,12 @@ async function handleSave() {
   <Page auto-content-height>
     <Grid table-title="권한(롤) 목록">
       <template #toolbar-tools>
-        <Button v-perm:create type="primary" @click="onCreate">
-          <Plus class="size-5 mr-1" />
-          신규 롤 생성
-        </Button>
+        <GridIconButton
+          v-perm:create
+          icon="vxe-icon-add"
+          title="신규 롤 생성"
+          @click="onCreate"
+        />
       </template>
 
       <template #action="{ row }">

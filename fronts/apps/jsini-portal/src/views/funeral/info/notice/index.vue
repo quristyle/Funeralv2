@@ -7,7 +7,7 @@
  */
 import { onMounted, ref } from 'vue';
 import { Page } from '@vben/common-ui';
-import { IconifyIcon, Plus } from '@vben/icons';
+import { IconifyIcon } from '@vben/icons';
 import {
   Badge,
   Button,
@@ -32,6 +32,7 @@ import {
   updateNotice,
 } from '#/api/funeral/info';
 import { getBuildings } from '#/api/funeral/building';
+import GridIconButton from '#/components/GridIconButton.vue';
 
 const buildings = ref<any[]>([]);
 const searchBuildingId = ref<string | undefined>();
@@ -207,10 +208,11 @@ onMounted(fetchBuildings);
             <Switch v-model:checked="includeExpired" size="small" @change="gridApi.query()" />
             <span>기간 지난 것도 보기</span>
           </div>
-          <Button type="primary" @click="openCreate">
-            <Plus class="size-5 mr-1" />
-            신규 알림 등록
-          </Button>
+          <GridIconButton
+            icon="vxe-icon-add"
+            title="신규 알림 등록"
+            @click="openCreate"
+          />
         </div>
       </template>
 

@@ -62,9 +62,9 @@ onMounted(load);
                 <IconifyIcon icon="lucide:user-cog" class="mr-1 size-4" />
                 프로필 수정
               </Button>
-              <Button type="primary" @click="router.push('/setting/environment')">
-                <IconifyIcon icon="lucide:settings-2" class="mr-1 size-4" />
-                환경설정
+              <Button type="primary" @click="router.push('/setting/work-options')">
+                <IconifyIcon icon="lucide:sliders-horizontal" class="mr-1 size-4" />
+                업무 설정
               </Button>
             </div>
           </div>
@@ -98,7 +98,7 @@ onMounted(load);
 
         <Card title="내 업무 설정" size="small">
           <template #extra>
-            <Button type="link" size="small" @click="router.push('/setting/environment')">
+            <Button type="link" size="small" @click="router.push('/setting/work-options')">
               바꾸기
             </Button>
           </template>

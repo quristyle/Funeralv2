@@ -8,7 +8,8 @@
  */
 import { onMounted, ref } from 'vue';
 import { Page } from '@vben/common-ui';
-import { Button, DatePicker, Input, Select, Tag, message } from 'ant-design-vue';
+import { DatePicker, Input, Select, Tag, message } from 'ant-design-vue';
+import GridIconButton from '#/components/GridIconButton.vue';
 import dayjs from 'dayjs';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import ImagePreview from '#/components/ImagePreview.vue';
@@ -148,7 +149,11 @@ onMounted(async () => {
             :placeholder="['사망일 시작', '종료']"
             @change="gridApi.query()"
           />
-          <Button type="primary" @click="gridApi.query()">조회</Button>
+          <GridIconButton
+            icon="vxe-icon-search"
+            title="조회"
+            @click="gridApi.query()"
+          />
         </div>
       </template>
 

@@ -1,8 +1,9 @@
 <script lang="ts" setup>
 import { ref, onMounted, nextTick } from 'vue';
 import { Page, useVbenModal } from '@vben/common-ui';
-import { Plus, IconifyIcon } from '@vben/icons';
+import { IconifyIcon } from '@vben/icons';
 import { Avatar, Button, message, Popconfirm, Badge, Tooltip, Tag } from 'ant-design-vue';
+import GridIconButton from '#/components/GridIconButton.vue';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { useVbenForm } from '#/adapter/form';
 import { type SystemAccountApi, getAccounts, createAccount, updateAccount, deleteAccount } from '#/api/portal/system/account';
@@ -250,10 +251,12 @@ onMounted(() => {
   <Page auto-content-height>
     <Grid table-title="어드민 사용자 계정 목록">
       <template #toolbar-tools>
-        <Button v-perm:create type="primary" @click="onCreate">
-          <Plus class="size-5 mr-1" />
-          신규 계정 등록
-        </Button>
+        <GridIconButton
+          v-perm:create
+          icon="vxe-icon-add"
+          title="신규 계정 등록"
+          @click="onCreate"
+        />
       </template>
 
       <!--

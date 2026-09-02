@@ -1,8 +1,8 @@
 <script lang="ts" setup>
 import { ref } from 'vue';
 import { Page, useVbenModal } from '@vben/common-ui';
-import { Plus } from '@vben/icons';
 import { Button, message, Popconfirm, Form, Input, InputNumber, Select } from 'ant-design-vue';
+import GridIconButton from '#/components/GridIconButton.vue';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { getHelpDocs, createHelpDoc, updateHelpDoc, deleteHelpDoc } from '#/api/portal/system/help';
 
@@ -114,10 +114,12 @@ async function handleSave() {
   <Page auto-content-height>
     <Grid table-title="시스템 매뉴얼 및 도움말 관리 대시보드">
       <template #toolbar-tools>
-        <Button v-perm:create type="primary" @click="onCreate">
-          <Plus class="size-5 mr-1" />
-          신규 도움말 작성
-        </Button>
+        <GridIconButton
+          v-perm:create
+          icon="vxe-icon-add"
+          title="신규 도움말 작성"
+          @click="onCreate"
+        />
       </template>
 
       <template #status-tag="{ row }">

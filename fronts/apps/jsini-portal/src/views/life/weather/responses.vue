@@ -4,7 +4,7 @@ import type { VxeTableGridOptions } from '#/adapter/vxe-table';
 import { onMounted, ref, watch } from 'vue';
 
 import { Page, useVbenModal } from '@vben/common-ui';
-import { IconifyIcon, Plus } from '@vben/icons';
+import { IconifyIcon } from '@vben/icons';
 
 import {
   Button,
@@ -16,6 +16,7 @@ import {
   Tag,
   Tooltip,
 } from 'ant-design-vue';
+import GridIconButton from '#/components/GridIconButton.vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import {
@@ -252,15 +253,13 @@ onMounted(fetchStandards);
           "
         >
           <template #toolbar-tools>
-            <Button
+            <GridIconButton
               v-perm:create
+              icon="vxe-icon-add"
+              title="대응 추가"
               :disabled="!selectedStandard"
-              type="primary"
               @click="onCreate"
-            >
-              <Plus class="mr-1 size-5" />
-              대응 추가
-            </Button>
+            />
           </template>
 
           <template #actionContent="{ row }">

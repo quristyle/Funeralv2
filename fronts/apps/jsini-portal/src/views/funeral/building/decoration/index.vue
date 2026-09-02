@@ -1,8 +1,9 @@
 <script lang="ts" setup>
 import { ref } from 'vue';
 import { Page } from '@vben/common-ui';
-import { Plus, IconifyIcon } from '@vben/icons';
+import { IconifyIcon } from '@vben/icons';
 import { Button, message, Popconfirm } from 'ant-design-vue';
+import GridIconButton from '#/components/GridIconButton.vue';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { getMediaSources, deleteMediaSource } from '#/api/funeral/building';
 import ImagePreview from '#/components/ImagePreview.vue';
@@ -66,10 +67,11 @@ async function handleDelete(row: any) {
   <Page auto-content-height>
     <Grid table-title="영정사진용 투명 근조리본 및 장식 이미지 리소스 목록">
       <template #toolbar-tools>
-        <Button type="primary" @click="openUpload">
-          <Plus class="size-5 mr-1" />
-          신규 장식 등록
-        </Button>
+        <GridIconButton
+          icon="vxe-icon-add"
+          title="신규 장식 등록"
+          @click="openUpload"
+        />
       </template>
 
       <!-- 미리보기 슬롯 정의 (배경을 격자패턴 또는 반투명 어두운색으로 주어 투명 PNG가 잘 보이도록 함) -->

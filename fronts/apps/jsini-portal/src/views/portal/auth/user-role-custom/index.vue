@@ -1,7 +1,8 @@
 <script lang="ts" setup>
 import { ref, watch, onMounted } from 'vue';
 import { Page } from '@vben/common-ui';
-import { Button, Card, Row, Col, List, message, Modal, Checkbox } from 'ant-design-vue';
+import { Card, Row, Col, List, message, Modal, Checkbox } from 'ant-design-vue';
+import GridIconButton from '#/components/GridIconButton.vue';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { getUserRoles, assignUserRoles } from '#/api/portal/system/role-mapping';
 import { getAccounts } from '#/api/portal/system/account';
@@ -112,7 +113,11 @@ onMounted(() => {
       <Col :span="16" class="h-full">
         <Grid table-title="배정된 롤 권한 목록">
           <template #toolbar-tools>
-            <Button type="primary" @click="openRoleModal">사용자 롤 권한 설정</Button>
+            <GridIconButton
+              icon="vxe-icon-setting"
+              title="사용자 롤 권한 설정"
+              @click="openRoleModal"
+            />
           </template>
         </Grid>
       </Col>

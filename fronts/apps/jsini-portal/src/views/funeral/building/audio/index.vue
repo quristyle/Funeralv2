@@ -1,8 +1,9 @@
 <script lang="ts" setup>
 import { computed, ref } from 'vue';
 import { Page } from '@vben/common-ui';
-import { Plus, IconifyIcon } from '@vben/icons';
+import { IconifyIcon } from '@vben/icons';
 import { Button, message, Popconfirm, Modal, Tag, Tooltip } from 'ant-design-vue';
+import GridIconButton from '#/components/GridIconButton.vue';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { getMediaSources, deleteMediaSource, retryThumbnail, retryAudio } from '#/api/funeral/building';
 import ImagePreview from '#/components/ImagePreview.vue';
@@ -174,10 +175,11 @@ function formatDate(dateStr?: string) {
   <Page auto-content-height>
     <Grid table-title="관내 방송 및 제례용 음원 리소스 목록">
       <template #toolbar-tools>
-        <Button type="primary" @click="openUpload">
-          <Plus class="size-5 mr-1" />
-          신규 음원 등록
-        </Button>
+        <GridIconButton
+          icon="vxe-icon-add"
+          title="신규 음원 등록"
+          @click="openUpload"
+        />
       </template>
 
       <template #thumbnail="{ row }">

@@ -3,9 +3,9 @@ import type { OnActionClickParams, VxeTableGridOptions, } from '#/adapter/vxe-ta
 import type { VxeGridDefines } from 'vxe-table';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
-import { Plus } from '@vben/icons';
 import { $t } from '@vben/locales';
-import { Button, message, Modal } from 'ant-design-vue';
+import { message, Modal } from 'ant-design-vue';
+import GridIconButton from '#/components/GridIconButton.vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { deleteI18nResource, updateI18nResource, getAllI18nList, getI18nPaged, type SystemI18nApi } from '#/api/portal/system/i18n';
@@ -129,10 +129,12 @@ function onDelete(row: SystemI18nApi.I18nResource) {
     <FormDrawer @success="onRefresh" />
     <Grid>
       <template #toolbar-tools>
-        <Button v-perm:create type="primary" @click="onCreate">
-          <Plus class="size-5" />
-          {{ $t('ui.actionTitle.create', ['I18n']) }}
-        </Button>
+        <GridIconButton
+          v-perm:create
+          icon="vxe-icon-add"
+          :title="$t('ui.actionTitle.create', ['I18n'])"
+          @click="onCreate"
+        />
       </template>
     </Grid>
   </Page>
