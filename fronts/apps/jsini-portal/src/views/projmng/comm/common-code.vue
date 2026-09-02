@@ -17,10 +17,9 @@ import { onMounted, ref } from 'vue';
 
 import { Page } from '@vben/common-ui';
 
-import { Button } from 'ant-design-vue';
-
 import { clearCommonCache } from '#/api/projmng';
 
+import GridIconButton from '#/components/GridIconButton.vue';
 import { DynamicGrid, SearchBar, SplitPane, useProcGrid } from '../shared';
 
 const PROC = 'sp_devcomm_exec';
@@ -77,9 +76,12 @@ onMounted(search);
   <Page auto-content-height content-class="page-fill-last">
     <SearchBar class="mb-2">
       <template #actions>
-        <Button v-perm:search size="small" type="primary" @click="search">
-          조회
-        </Button>
+        <GridIconButton
+          v-perm:search
+          icon="vxe-icon-search"
+          title="조회"
+          @click="search"
+        />
       </template>
     </SearchBar>
 

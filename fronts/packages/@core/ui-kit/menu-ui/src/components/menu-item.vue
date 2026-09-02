@@ -34,7 +34,17 @@ const menuIcon = computed(() =>
   active.value ? props.activeIcon || props.icon : props.icon,
 );
 
-const isHttp = computed(() => isHttpUrl(item.parentPaths.at(-1)));
+/**
+ * 이동할 곳.
+ *
+ * 지금까지는 신원(`path`)이 곧 이동할 곳이었다. 같은 메뉴를 트리 밖에 한 번 더
+ * 얹는 경우(즐겨찾기)에는 둘을 나눠야 한다 — 아래 `active` 판정이 `path` 하나로
+ * 이뤄지므로 두 항목이 `path` 를 공유하면 양쪽이 함께 활성이 된다.
+ * `link` 가 없으면 예전과 같이 `path` 로 이동한다.
+ */
+const linkTo = computed(() => props.link ?? item.parentPaths.at(-1) ?? '');
+
+const isHttp = computed(() => isHttpUrl(linkTo.value));
 
 const isTopLevelMenuItem = computed(
   () => parentMenu.value?.type.name === 'MenuUI',
@@ -57,6 +67,7 @@ const showTooltip = computed(
 
 const item: MenuItemRegistered = reactive({
   active,
+  link: props.link,
   parentPaths: parentPaths.value,
   path: props.path || '',
   query: props.query,
@@ -90,13 +101,10 @@ onBeforeUnmount(() => {
   <router-link
     v-slot="{ href }"
     custom
-    :to="
-      (item.parentPaths.at(-1) ?? '') +
-      (item?.query ? `?${qs.stringify(item?.query)}` : '')
-    "
+    :to="linkTo + (item?.query ? `?${qs.stringify(item?.query)}` : '')"
   >
     <a
-      :href="isHttp ? item.parentPaths.at(-1) : href"
+      :href="isHttp ? linkTo : href"
       :class="[
         rootMenu.theme,
         b(),

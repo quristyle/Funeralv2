@@ -24,6 +24,7 @@ import {
   Spin,
   Tag,
 } from 'ant-design-vue';
+import GridIconButton from '#/components/GridIconButton.vue';
 
 import {
   createQnaPost,
@@ -313,7 +314,12 @@ onMounted(loadData);
               style="width: 220px"
               @press-enter="search"
             />
-            <Button :loading="loading" @click="search">조회</Button>
+            <GridIconButton
+              :loading="loading"
+              icon="vxe-icon-search"
+              title="조회"
+              @click="search"
+            />
             <Segmented
               v-model:value="filter"
               :options="filterOptions"

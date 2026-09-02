@@ -337,7 +337,6 @@ const options = computed(() => {
     mergedOptions.data = tableData.value;
   }
 
-  // 注入已读行功能（rowClassName、rowStyle、columns 拦截）
   if (viewedRowOptions.value && gridApi.viewedRowHelper) {
     applyViewedRowOptions(
       mergedOptions,

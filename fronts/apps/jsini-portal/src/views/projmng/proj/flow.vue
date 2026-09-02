@@ -9,13 +9,14 @@
  * 같은 속성(`db_pkey='erd'`)을 읽었고, 다른 점은 DB 에서 사라진 테이블에
  * `(삭제됨)` 표시를 붙인다는 것뿐이다. 그 차이를 그대로 옮겼다.
  */
+import GridIconButton from '#/components/GridIconButton.vue';
 import type { ErdModel } from '../shared';
 
 import { ref } from 'vue';
 
 import { Page } from '@vben/common-ui';
 
-import { Button, message } from 'ant-design-vue';
+import { message } from 'ant-design-vue';
 
 import { dbCont, dbSave, jsCont, projDbParams } from '#/api/projmng';
 
@@ -105,13 +106,24 @@ async function save() {
         @change="(item) => (dbItem = item)"
       />
       <template #actions>
-        <Button size="small" @click="diagram?.fit()">맞춤</Button>
-        <Button v-perm:search size="small" :loading="loading" @click="load">
-          불러오기
-        </Button>
-        <Button v-perm:update size="small" type="primary" @click="save">
-          저장
-        </Button>
+        <GridIconButton
+          icon="vxe-icon-fullscreen"
+          title="맞춤"
+          @click="diagram?.fit()"
+        />
+        <GridIconButton
+          v-perm:search
+          :loading="loading"
+          icon="vxe-icon-download"
+          title="불러오기"
+          @click="load"
+        />
+        <GridIconButton
+          v-perm:update
+          icon="vxe-icon-save"
+          title="저장"
+          @click="save"
+        />
       </template>
     </SearchBar>
 

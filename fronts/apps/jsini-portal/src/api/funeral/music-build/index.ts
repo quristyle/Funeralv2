@@ -1,3 +1,4 @@
+import { unwrapList } from '#/api/envelope';
 import { requestClient } from '#/api/request';
 
 /**
@@ -21,8 +22,10 @@ export namespace MusicBuildApi {
 
 /** 음원 하나를 고르면 건물 목록에 배정 여부가 붙어 온다. */
 export async function getBuildingsForMusic(mediaSourceId: string) {
-  return requestClient.get<MusicBuildApi.BuildingMapping[]>(
-    `/funeral/building/music/${mediaSourceId}/buildings`,
+  return unwrapList<MusicBuildApi.BuildingMapping>(
+    await requestClient.get(
+      `/funeral/building/music/${mediaSourceId}/buildings`,
+    ),
   );
 }
 
@@ -31,15 +34,17 @@ export async function saveBuildingsForMusic(
   mediaSourceId: string,
   buildingIds: string[],
 ) {
-  return requestClient.put<MusicBuildApi.BuildingMapping[]>(
-    `/funeral/building/music/${mediaSourceId}/buildings`,
-    { buildingIds },
+  return unwrapList<MusicBuildApi.BuildingMapping>(
+    await requestClient.put(
+      `/funeral/building/music/${mediaSourceId}/buildings`,
+      { buildingIds },
+    ),
   );
 }
 
 /** 한 건물에 배정된 음원 아이디 목록 */
 export async function getMusicIdsForBuilding(buildingId: string) {
-  return requestClient.get<string[]>(
-    `/funeral/building/music/building/${buildingId}`,
+  return unwrapList<string>(
+    await requestClient.get(`/funeral/building/music/building/${buildingId}`),
   );
 }

@@ -195,7 +195,11 @@ const {
  * `@open` 이다). 그래서 여기서 따로 걸러 낼 것이 없다.
  */
 function handleSidebarMenuSelect(key: string, mode?: string) {
-  handleMenuSelect(key, mode);
+  // 어느 쪽을 눌렀는지 기억한다(즐겨찾기 항목과 트리 항목의 구분).
+  pickedSidebarKey.value = key;
+
+  // 얹은 묶음은 신원과 이동할 곳이 다르다. 접두사 붙은 신원으로는 이동할 수 없다.
+  handleMenuSelect(extraMenuLinks.value.get(key) ?? key, mode);
 
   if (!isSideMode.value) return;
 
@@ -348,13 +352,87 @@ const sidebarExtraMenus = inject<{ value: MenuRecordRaw[] } | null>(
   null,
 );
 
+/**
+ * 얹은 묶음의 경로에 붙이는 접두사.
+ *
+ * 즐겨찾기에 담은 메뉴는 아래 트리에도 **같은 경로로** 한 번 더 나타난다.
+ * 경로가 같으면 메뉴 컴포넌트가 둘을 항목 하나로 본다(`items` 가 경로로 키를
+ * 잡고, 활성 판정도 `path === activePath` 하나뿐이다). 그래서 어느 쪽을 눌러도
+ * 양쪽이 함께 활성으로 그려지고, 활성 항목으로 스크롤할 때도 먼저 찾은
+ * 즐겨찾기 쪽으로 뛴다.
+ *
+ * 얹을 때 접두사를 붙여 **신원을 나눈다.** 이동할 곳은 `link` 에 남기므로
+ * 눌렀을 때 가는 화면은 그대로다.
+ */
+const EXTRA_MENU_PREFIX = '__extra__:';
+
+// 얹은 묶음(즐겨찾기). 이름 번역은 트리와 같은 규칙($tIfKey)을 거친다 —
+// 제목이 다국어 키일 수 있고, 메뉴 검색 대상에도 들어가야 한다.
+const wrappedExtraMenus = computed(() =>
+  mapTree(sidebarExtraMenus?.value ?? [], (item) => ({
+    ...cloneDeep(item),
+    link: item.path,
+    name: $tIfKey(item.name),
+    path: `${EXTRA_MENU_PREFIX}${item.path}`,
+  })),
+);
+
+/** 접두사 붙은 경로 → 실제로 이동할 경로. */
+const extraMenuLinks = computed(() => {
+  const links = new Map<string, string>();
+  const walk = (nodes: MenuRecordRaw[]) => {
+    for (const node of nodes) {
+      if (node.link) {
+        links.set(node.path, node.link);
+      }
+      if (node.children?.length) {
+        walk(node.children);
+      }
+    }
+  };
+  walk(wrappedExtraMenus.value);
+  return links;
+});
+
 // 이름 번역이 반영된 사이드바 메뉴 (검색 대상)
-//
-// 즐겨찾기 묶음도 같은 자리에서 번역한다. 제목이 다국어 키일 수 있어
-// 다른 메뉴와 같은 규칙($tIfKey)을 거쳐야 하고, 검색 대상에도 들어가야 한다.
-const wrappedSidebarMenus = computed(() => {
-  const extra = sidebarExtraMenus?.value ?? [];
-  return wrapperMenus([...extra, ...sidebarMenus.value]);
+const wrappedSidebarMenus = computed(() => [
+  ...wrappedExtraMenus.value,
+  ...wrapperMenus(sidebarMenus.value),
+]);
+
+/**
+ * 사이드바에서 마지막으로 고른 항목의 신원.
+ *
+ * 즐겨찾기와 트리에 같은 메뉴가 있을 때 **어느 쪽을 눌렀는지**를 기억한다.
+ * 라우트만으로는 구분할 수 없다 — 둘이 같은 화면으로 가기 때문이다.
+ */
+const pickedSidebarKey = ref('');
+
+/**
+ * 사이드바에서 활성으로 그릴 항목.
+ *
+ * 기본은 라우트가 가리키는 **트리 쪽**이다. 방금 즐겨찾기를 눌러서 왔고 그
+ * 항목이 지금 화면과 같은 곳을 가리킬 때만 즐겨찾기 쪽을 활성으로 둔다.
+ * 그래서 주소창·탭·메뉴 검색으로 들어오면 트리 쪽이 활성이 된다.
+ */
+const sidebarActiveKey = computed(() => {
+  const picked = pickedSidebarKey.value;
+  if (picked && extraMenuLinks.value.get(picked) === sidebarActive.value) {
+    return picked;
+  }
+  return sidebarActive.value;
+});
+
+// 고른 기억은 **그 화면에 있는 동안만** 유효하다. 화면이 바뀌면 지운다.
+// 지우지 않으면 즐겨찾기로 열었던 화면에 나중에 탭으로 다시 들어올 때
+// 누르지도 않은 즐겨찾기가 활성으로 되살아난다.
+watch(sidebarActive, () => {
+  if (
+    pickedSidebarKey.value &&
+    extraMenuLinks.value.get(pickedSidebarKey.value) !== sidebarActive.value
+  ) {
+    pickedSidebarKey.value = '';
+  }
 });
 
 // 실제 렌더링할 사이드바 메뉴 (검색어 적용)
@@ -838,10 +916,11 @@ function startResize(e: MouseEvent) {
         :accordion="preferences.navigation.accordion"
         :collapse="preferences.sidebar.collapsed"
         :collapse-show-title="preferences.sidebar.collapsedShowTitle"
-        :default-active="sidebarActive"
+        :default-active="sidebarActiveKey"
         :default-openeds="sidebarSearchOpenPaths"
         :menus="filteredSidebarMenus"
         :rounded="isMenuRounded"
+        :scroll-to-active="preferences.sidebar.scrollToActive"
         :theme="sidebarTheme"
         mode="vertical"
         @open="handleMenuOpen"

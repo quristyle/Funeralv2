@@ -15,10 +15,11 @@ import { computed, ref } from 'vue';
 
 import { Page } from '@vben/common-ui';
 
-import { Button, Card, Col, Progress, Row, Spin, Statistic } from 'ant-design-vue';
+import { Card, Col, Progress, Row, Spin, Statistic } from 'ant-design-vue';
 
 import { dbCont, mdCont } from '#/api/projmng';
 
+import GridIconButton from '#/components/GridIconButton.vue';
 import { CodeSelect, DynamicGrid, SearchBar } from '../shared';
 
 const projectCode = ref('');
@@ -85,8 +86,17 @@ async function scanSource() {
     <SearchBar class="mb-2">
       <CodeSelect v-model="projectCode" code-id="projlist" @change="search" />
       <template #actions>
-        <Button v-perm:search size="small" @click="search">조회</Button>
-        <Button size="small" @click="scanSource">소스 스캔</Button>
+        <GridIconButton
+          v-perm:search
+          icon="vxe-icon-search"
+          title="조회"
+          @click="search"
+        />
+        <GridIconButton
+          icon="vxe-icon-search-zoom-in"
+          title="소스 스캔"
+          @click="scanSource"
+        />
       </template>
     </SearchBar>
 

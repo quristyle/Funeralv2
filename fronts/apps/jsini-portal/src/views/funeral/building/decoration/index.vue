@@ -7,9 +7,9 @@ import GridIconButton from '#/components/GridIconButton.vue';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { getMediaSources, deleteMediaSource } from '#/api/funeral/building';
 import ImagePreview from '#/components/ImagePreview.vue';
-import DecorationUploadModal from './modules/decoration-upload-modal.vue';
+import DecorationUploadDrawer from './modules/decoration-upload-drawer.vue';
 
-const uploadModalRef = ref<InstanceType<typeof DecorationUploadModal> | null>(null);
+const uploadDrawerRef = ref<InstanceType<typeof DecorationUploadDrawer> | null>(null);
 
 const [Grid, gridApi] = useVbenVxeGrid({
   gridOptions: {
@@ -41,14 +41,14 @@ const [Grid, gridApi] = useVbenVxeGrid({
 });
 
 function openUpload() {
-  if (uploadModalRef.value) {
-    uploadModalRef.value.open();
+  if (uploadDrawerRef.value) {
+    uploadDrawerRef.value.open();
   }
 }
 
 function handleEdit(row: any) {
-  if (uploadModalRef.value) {
-    uploadModalRef.value.open(row);
+  if (uploadDrawerRef.value) {
+    uploadDrawerRef.value.open(row);
   }
 }
 
@@ -102,6 +102,6 @@ async function handleDelete(row: any) {
     </Grid>
 
     <!-- 장식 등록/업로드 모달 컴포넌트 -->
-    <DecorationUploadModal ref="uploadModalRef" @saved="gridApi.query()" />
+    <DecorationUploadDrawer ref="uploadDrawerRef" @saved="gridApi.query()" />
   </Page>
 </template>

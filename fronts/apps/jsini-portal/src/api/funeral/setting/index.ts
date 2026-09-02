@@ -1,3 +1,4 @@
+import { unwrapList, unwrapOne } from '#/api/envelope';
 import { requestClient } from '#/api/request';
 
 /**
@@ -24,16 +25,15 @@ export namespace SettingApi {
 }
 
 export async function getEnvironmentSettings() {
-  return requestClient.get<SettingApi.EnvironmentSetting[]>(
-    '/funeral/setting/environment/list',
+  return unwrapList<SettingApi.EnvironmentSetting>(
+    await requestClient.get('/funeral/setting/environment/list'),
   );
 }
 
 /** 한 줄만 바꾼다 (스위치를 누르는 즉시 저장하는 화면용). */
 export async function updateEnvironmentSetting(code: string, enabled: boolean) {
-  return requestClient.put<SettingApi.EnvironmentSetting>(
-    `/funeral/setting/environment/${code}`,
-    { enabled },
+  return unwrapOne<SettingApi.EnvironmentSetting>(
+    await requestClient.put(`/funeral/setting/environment/${code}`, { enabled }),
   );
 }
 
@@ -41,8 +41,7 @@ export async function updateEnvironmentSetting(code: string, enabled: boolean) {
 export async function updateEnvironmentSettings(
   settings: Record<string, boolean>,
 ) {
-  return requestClient.put<SettingApi.EnvironmentSetting[]>(
-    '/funeral/setting/environment',
-    { settings },
+  return unwrapList<SettingApi.EnvironmentSetting>(
+    await requestClient.put('/funeral/setting/environment', { settings }),
   );
 }

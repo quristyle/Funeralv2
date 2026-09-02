@@ -35,12 +35,18 @@ public class PushSender : IPushSender
 {
     private readonly AppDbContext _db;
     private readonly VapidOptions _vapid;
+    private readonly INotificationPreferenceService _preferences;
     private readonly ILogger<PushSender> _logger;
 
-    public PushSender(AppDbContext db, IOptions<VapidOptions> vapid, ILogger<PushSender> logger)
+    public PushSender(
+        AppDbContext db,
+        IOptions<VapidOptions> vapid,
+        INotificationPreferenceService preferences,
+        ILogger<PushSender> logger)
     {
         _db = db;
         _vapid = vapid.Value;
+        _preferences = preferences;
         _logger = logger;
     }
 
@@ -64,6 +70,31 @@ public class PushSender : IPushSender
         if (owners.Count == 0)
         {
             return new SendPushResultDto { Message = "보낼 대상이 없습니다." };
+        }
+
+        // 본인이 푸시를 끈 사람은 여기서 빠진다.
+        //
+        // 구독을 지우지 않고 발송만 멈추는 방식이라, 이 판정을 하지 않으면 스위치가
+        // 아무 일도 하지 않는다. **부르는 쪽이 이것을 기억하게 하지 않는다** —
+        // 한 곳만 잊으면 새는 설정이 된다 (NotificationPreferenceService 머리말).
+        var pushDisabled = await _preferences.GetPushDisabledAsync(owners, ct);
+        var optedOut = 0;
+        if (pushDisabled.Count > 0)
+        {
+            var before = owners.Count;
+            owners = owners
+                .Where(o => !pushDisabled.Contains((o.OwnerType, o.OwnerKey)))
+                .ToList();
+            optedOut = before - owners.Count;
+
+            if (owners.Count == 0)
+            {
+                return new SendPushResultDto
+                {
+                    OptedOut = optedOut,
+                    Message = "대상이 모두 푸시 알림을 끄고 있습니다."
+                };
+            }
         }
 
         // 주인 목록으로 구독을 모은다.
@@ -91,6 +122,7 @@ public class PushSender : IPushSender
             return new SendPushResultDto
             {
                 OwnersWithoutSubscription = ownersWithout,
+                OptedOut = optedOut,
                 Message = "대상의 구독이 없습니다. 브라우저에서 알림을 허용했는지 확인하세요."
             };
         }
@@ -145,7 +177,17 @@ public class PushSender : IPushSender
             Sent = sent,
             Failed = failed,
             Removed = dead.Count,
-            OwnersWithoutSubscription = ownersWithout
+            OwnersWithoutSubscription = ownersWithout,
+            OptedOut = optedOut,
+            // 하나도 못 보냈으면 이유를 말한다. 결과 숫자만 주면 화면이 "보낸 알림이
+            // 없습니다" 밖에 할 말이 없다.
+            Message = sent > 0
+                ? null
+                : dead.Count > 0 && failed == 0
+                    ? "구독이 만료되어 정리했습니다. 알림을 다시 구독해 주세요."
+                    : failed > 0
+                        ? "구독한 기기에 알림을 전달하지 못했습니다. 구독을 해제한 뒤 다시 등록해 보세요."
+                        : null
         };
     }
 

@@ -1,8 +1,8 @@
 <script lang="ts" setup>
 import { ref, onMounted } from 'vue';
 import { Page, useVbenModal } from '@vben/common-ui';
-import { Plus } from '@vben/icons';
 import { Button, message, Form, Input, Select, Collapse, CollapsePanel, Popconfirm } from 'ant-design-vue';
+import GridIconButton from '#/components/GridIconButton.vue';
 import { getFaqs, createFaq, updateFaq, deleteFaq } from '#/api/funeral/help';
 
 const activeKey = ref<string[]>([]);
@@ -83,10 +83,12 @@ onMounted(() => {
   <Page auto-content-height>
     <div class="mb-4 bg-card p-4 rounded border flex justify-between items-center">
       <span class="font-bold text-sm">자주 묻는 질문 (FAQ) 아코디언 설정</span>
-      <Button v-perm:create type="primary" @click="openCreate">
-        <Plus class="size-5 mr-1" />
-        FAQ 항목 추가
-      </Button>
+      <GridIconButton
+        v-perm:create
+        icon="vxe-icon-add"
+        title="FAQ 항목 추가"
+        @click="openCreate"
+      />
     </div>
 
     <!-- FAQ 아코디언 리스트 -->

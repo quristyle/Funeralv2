@@ -10,7 +10,7 @@ import { useDeviceAttribute } from './composables/use-device-attribute';
 import { getDevice } from '#/api/funeral/building';
 import DeviceListPanel from './modules/device-list-panel.vue';
 import DeviceDetailPanel from './modules/device-detail-panel.vue';
-import DeviceFormModal from './modules/device-form-modal.vue';
+import DeviceFormDrawer from './modules/device-form-drawer.vue';
 
 // ─── 공통 상태 ──────────────────────────────────────────────────
 const selectedDevice = ref<BuildingApi.Device | null>(null);
@@ -18,7 +18,7 @@ const activeTab = ref<string>('config');
 const showConfigPanel = computed(() => selectedDevice.value !== null);
 
 // ─── 모달 ref ───────────────────────────────────────────────────
-const deviceFormModalRef = ref<InstanceType<typeof DeviceFormModal> | null>(null);
+const deviceFormDrawerRef = ref<InstanceType<typeof DeviceFormDrawer> | null>(null);
 
 // ─── composables ──────────────────────────────────────────────
 const configComposable = useDeviceConfig();
@@ -46,11 +46,14 @@ async function onDeviceManaged() {
   if (selectedDevice.value) {
     // 현재 선택된 장비의 최신 정보를 다시 불러와 패널에 반영
     const updatedDevice = await getDevice(selectedDevice.value.id);
-    selectedDevice.value = updatedDevice;
+    // 지워진 장비를 다시 부르면 아무것도 안 온다. 그때는 고른 것을 그대로 둔다.
+    selectedDevice.value = updatedDevice ?? selectedDevice.value;
   }
 }
 
-const gridComposable = useDeviceGrid(selectedDevice, onRowClick, closePanel);
+const gridComposable = useDeviceGrid(selectedDevice, onRowClick, closePanel, () =>
+  deviceFormDrawerRef.value?.openCreate(),
+);
 
 // ---------------------------------------------------------------------------
 // 장비 온라인/오프라인 상태 실시간 반영
@@ -163,8 +166,8 @@ const {
         @update:selected-building-id="(v) => selectedBuildingId = v"
         @update:selected-floor-id="(v) => selectedFloorId = v"
         @update:selected-room-id="(v) => selectedRoomId = v"
-        @create="deviceFormModalRef?.openCreate()"
-        @edit="(row) => deviceFormModalRef?.openEdit(row)"
+        @create="deviceFormDrawerRef?.openCreate()"
+        @edit="(row) => deviceFormDrawerRef?.openEdit(row)"
         @delete="handleDelete"
         @reboot="handleReboot"
       />
@@ -210,8 +213,8 @@ const {
     </transition>
 
     <!-- ── 장비 등록/수정 모달 ──────────────────────────────────── -->
-    <DeviceFormModal
-      :ref="(el) => { deviceFormModalRef = el as InstanceType<typeof DeviceFormModal> | null }"
+    <DeviceFormDrawer
+      :ref="(el) => { deviceFormDrawerRef = el as InstanceType<typeof DeviceFormDrawer> | null }"
       :selected-company-id="selectedCompanyId"
       :selected-building-id="selectedBuildingId"
       :selected-floor-id="selectedFloorId"

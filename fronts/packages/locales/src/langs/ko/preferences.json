@@ -66,6 +66,8 @@
     "onMenuSelectNone": "그대로 유지",
     "onMenuSelectCollapse": "축소",
     "onMenuSelectHide": "완전히 숨기기",
+    "scrollToActive": "고른 메뉴를 가운데로",
+    "scrollToActiveTip": "메뉴를 고르면 그 항목이 사이드바 세로 가운데에 오도록 스크롤합니다. `비활성`이면 스크롤 위치를 그대로 둡니다.",
     "expandOnHover": "마우스 오버 시 확장",
     "expandOnHoverTip": "마우스를 올렸을 때 하위 메뉴를 확장하려면 `활성`으로 설정하고, 사이드바 전체를 확장하려면 `비활성`으로 설정하세요."
   },

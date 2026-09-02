@@ -156,22 +156,64 @@ public static class NotificationEndpoints
         {
             if (user is null) return Results.Unauthorized();
 
-            var list = await db.PushSubscriptions
-                .Where(s => s.OwnerType == "jsini" && s.OwnerKey == user.UserId)
-                .OrderByDescending(s => s.CreatedAt)
-                .Select(s => new
-                {
-                    s.Endpoint,
-                    s.Source,
-                    s.UserAgent,
-                    s.LastSentAt,
-                    s.CreatedAt
-                })
-                .ToListAsync();
-
+            var list = await MyDevicesAsync(db, user.UserId);
             return Results.Ok(ApiResponse<object>.Ok(new { items = list, count = list.Count }));
         })
         .WithName("GetMySubscriptions")
+        .WithOpenApi();
+
+        // ── 내 알림 설정 화면이 한 번에 받는 상태 ───────────
+        //
+        // 공개 키 · 스위치 셋 · 기기 목록을 따로 부르면 순서에 따라 화면이 깜빡인다.
+        group.MapGet("/preferences/me", async (
+            UserContext? user,
+            [FromServices] AppDbContext db,
+            [FromServices] INotificationPreferenceService prefs,
+            [FromServices] IOptions<VapidOptions> vapid,
+            CancellationToken ct) =>
+        {
+            if (user is null) return Results.Unauthorized();
+
+            var v = vapid.Value;
+            var state = new MyNotificationStateDto
+            {
+                OwnerType = "jsini",
+                OwnerKey = user.UserId,
+                Preference = await prefs.GetAsync("jsini", user.UserId, ct),
+                PushAvailable = v.IsConfigured,
+                // 공개 키는 비밀이 아니다 — 브라우저가 구독을 만들 때 쓰는 값이다.
+                VapidPublicKey = v.IsConfigured ? v.PublicKey : null,
+                Devices = await MyDevicesAsync(db, user.UserId)
+            };
+
+            return Results.Ok(ApiResponse<MyNotificationStateDto>.Ok(state));
+        })
+        .WithName("GetMyNotificationPreference")
+        .WithOpenApi();
+
+        // ── 내 알림 설정 저장 ───────────────────────────────
+        //
+        // 자기 것만 바꾼다. 주인을 지정하는 인자를 두지 않는 것이 가장 확실한 방어다.
+        group.MapPut("/preferences/me", async (
+            [FromBody] UpdateNotificationPreferenceDto request,
+            UserContext? user,
+            [FromServices] INotificationPreferenceService prefs,
+            CancellationToken ct) =>
+        {
+            if (user is null) return Results.Unauthorized();
+
+            if (request.PushEnabled is null &&
+                request.EmailEnabled is null &&
+                request.WeatherEnabled is null)
+            {
+                return Results.BadRequest(ApiResponse<bool>.Fail(
+                    message: "바꿀 항목이 없습니다.", code: "INVALID"));
+            }
+
+            var saved = await prefs.SaveAsync("jsini", user.UserId, request, user.UserId, ct);
+            return Results.Ok(ApiResponse<NotificationPreferenceDto>.Ok(saved));
+        })
+        .WithName("UpdateMyNotificationPreference")
         .WithOpenApi();
 
         // ── 푸시 발송 ───────────────────────────────────────
@@ -201,6 +243,45 @@ public static class NotificationEndpoints
         .WithName("SendPush")
         .WithOpenApi();
 
+        // ── 나에게 시험 발송 ────────────────────────────────
+        //
+        // 설정 화면의 [시험 발송] 이다. `/push` 로도 할 수 있지만 그러려면 화면이
+        // 자기 주인 키를 알아야 하고, 남의 키를 적어 보낼 여지가 생긴다.
+        // **대상을 서버가 정하는 길**을 따로 둔다.
+        //
+        // 켜짐 여부도 일부러 건너뛰지 않는다 — 실제로 알림이 가는 길과 같은 길을
+        // 통과해야 시험의 뜻이 있다. 껐으면 202 와 그 이유가 돌아온다.
+        group.MapPost("/push/test", async (
+            [FromBody] PushMessageDto? request,
+            UserContext? user,
+            [FromServices] IPushSender sender,
+            CancellationToken ct) =>
+        {
+            if (user is null) return Results.Unauthorized();
+
+            var message = request ?? new PushMessageDto();
+            if (string.IsNullOrWhiteSpace(message.Title)) message.Title = "JSini 포털 시험 알림";
+            if (string.IsNullOrWhiteSpace(message.Body)) message.Body = "이 알림이 보이면 설정이 정상입니다.";
+            if (string.IsNullOrWhiteSpace(message.Url)) message.Url = "/system/push/setting";
+
+            var result = await sender.SendAsync(new SendPushDto
+            {
+                Owners = new List<OwnerRefDto>
+                {
+                    new() { OwnerType = "jsini", OwnerKey = user.UserId }
+                },
+                Message = message
+            }, ct);
+
+            return result.Sent > 0
+                ? Results.Ok(ApiResponse<SendPushResultDto>.Ok(result))
+                : Results.Json(
+                    ApiResponse<SendPushResultDto>.Ok(result, result.Message ?? "보낸 알림이 없습니다."),
+                    statusCode: StatusCodes.Status202Accepted);
+        })
+        .WithName("SendTestPushToMe")
+        .WithOpenApi();
+
         // ── 이메일 발송 ─────────────────────────────────────
         //
         // 큐에 넣는 것까지가 이 서비스의 일이다. 실제 발송은 배포 장비의 스크립트가 한다.
@@ -222,5 +303,29 @@ public static class NotificationEndpoints
         })
         .WithName("SendEmail")
         .WithOpenApi();
+    }
+
+    /// <summary>
+    /// 내 기기(구독) 목록. 최근 등록한 것이 위다.
+    /// </summary>
+    /// <remarks>
+    /// <c>/subscriptions/me</c> 와 <c>/preferences/me</c> 가 같은 목록을 준다.
+    /// 두 곳에 같은 질의를 적으면 한쪽만 고치는 일이 생기므로 한 곳으로 모았다.
+    /// </remarks>
+    private static async Task<List<PushDeviceDto>> MyDevicesAsync(AppDbContext db, string userId)
+    {
+        return await db.PushSubscriptions
+            .Where(s => s.OwnerType == "jsini" && s.OwnerKey == userId)
+            .OrderByDescending(s => s.CreatedAt)
+            .Select(s => new PushDeviceDto
+            {
+                Endpoint = s.Endpoint,
+                Source = s.Source,
+                UserAgent = s.UserAgent,
+                LastSentAt = s.LastSentAt,
+                CreatedAt = s.CreatedAt,
+                FailureCount = s.FailureCount
+            })
+            .ToListAsync();
     }
 }

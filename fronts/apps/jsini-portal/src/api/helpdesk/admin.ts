@@ -106,8 +106,14 @@ export async function getDistinctFailureReasons() {
 }
 
 // ============================================================
-// 푸시 알림 (구독 · 알림함)
+// 푸시 알림 (알림함)
 // ============================================================
+//
+// **구독 등록·해제·시험 발송은 여기 없다.** 포털 계정의 구독은 NotificationServer 가
+// 관장한다 — `#/api/portal/notification` 을 쓴다. 헬프데스크의 구독 표는 주인을
+// `(int Admin.Id, UserType)` 로 잡아 포털 로그인 아이디로는 맞출 수가 없었다.
+// 남은 둘은 헬프데스크 테이블을 읽는 화면 기능이라 여기 남는다
+// (29-notification-server.md "일부러 옮기지 않은 것").
 
 /** 내 알림 이력 */
 export async function getMyNotifications(params?: Record<string, any>) {
@@ -117,28 +123,6 @@ export async function getMyNotifications(params?: Record<string, any>) {
 /** 알림을 읽음 처리한다. */
 export async function markNotificationRead(id: number) {
   return helpdeskClient.post(`/push/notifications/${id}/read`);
-}
-
-/** 현재 브라우저 구독이 서버에 등록되어 있는지 확인한다. */
-export async function isPushSubscribed(endpoint: string) {
-  return helpdeskClient.get<any>('/push/is-subscribed', {
-    params: { endpoint },
-  });
-}
-
-/** 웹푸시 구독을 등록한다. */
-export async function subscribePush(subscription: unknown) {
-  return helpdeskClient.post('/push/subscribe', subscription);
-}
-
-/** 웹푸시 구독을 해제한다. */
-export async function unsubscribePush(endpoint: string) {
-  return helpdeskClient.post('/push/unsubscribe', { endpoint });
-}
-
-/** 테스트 알림을 보낸다. */
-export async function sendTestPush(payload: Record<string, any>) {
-  return helpdeskClient.post('/push/notify', payload);
 }
 
 // ============================================================

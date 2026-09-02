@@ -1,3 +1,4 @@
+import { unwrapList, unwrapOne } from '#/api/envelope';
 import { baseRequestClient, requestClient } from '#/api/request';
 
 /**
@@ -56,13 +57,9 @@ export namespace NoticeApi {
   }
 }
 
-/** 응답이 배열/`result`/`data.result` 중 무엇으로 와도 목록을 꺼낸다. */
+/** 목록을 꺼낸다. 기준은 `src/api/envelope.ts` 한 곳이다. */
 function toList(res: any): NoticeApi.Notice[] {
-  if (Array.isArray(res)) return res;
-  if (Array.isArray(res?.result)) return res.result;
-  if (Array.isArray(res?.data?.result)) return res.data.result;
-  if (Array.isArray(res?.data)) return res.data;
-  return [];
+  return unwrapList<NoticeApi.Notice>(res);
 }
 
 /** 관리 목록 */
@@ -76,14 +73,12 @@ export async function getNoticeList(keyword?: string) {
 /**
  * 단건 조회.
  *
- * AuthServer 의 응답 필터는 단건도 `{ result: [ ... ], page }` 로 감싸 보낸다.
- * 배열로 와도 객체로 와도 하나를 꺼내 준다.
+ * 봉투는 단건도 `{ result: [ … ], page }` 로 감싸 보낸다 — 그래서 `unwrapOne` 이다.
  */
 export async function getNotice(id: string) {
-  const res = await requestClient.get<any>(`/auth/notices/${id}`);
-  const raw = res?.result ?? res?.data?.result ?? res;
-  const value = Array.isArray(raw) ? raw[0] : raw;
-  return value as NoticeApi.Notice;
+  return unwrapOne<NoticeApi.Notice>(
+    await requestClient.get(`/auth/notices/${id}`),
+  ) as NoticeApi.Notice;
 }
 
 export async function createNotice(data: NoticeApi.SaveNotice) {

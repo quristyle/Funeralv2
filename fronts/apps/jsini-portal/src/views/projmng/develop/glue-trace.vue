@@ -17,10 +17,11 @@ import { onMounted, ref } from 'vue';
 
 import { Page } from '@vben/common-ui';
 
-import { Button, message } from 'ant-design-vue';
+import { message } from 'ant-design-vue';
 
 import { mdCont } from '#/api/projmng';
 
+import GridIconButton from '#/components/GridIconButton.vue';
 import { CodeSelect, DynamicGrid, SearchBar, SplitPane, useProcGrid } from '../shared';
 import { CodeEditor } from '#/components/code-editor';
 
@@ -67,10 +68,18 @@ onMounted(search);
         etc-fix
       />
       <template #actions>
-        <Button v-perm:search size="small" @click="search">조회</Button>
-        <Button v-perm:update size="small" type="primary" @click="recollect">
-          재수집
-        </Button>
+        <GridIconButton
+          v-perm:search
+          icon="vxe-icon-search"
+          title="조회"
+          @click="search"
+        />
+        <GridIconButton
+          v-perm:update
+          icon="vxe-icon-repeat"
+          title="재수집"
+          @click="recollect"
+        />
       </template>
     </SearchBar>
 

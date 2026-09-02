@@ -2,6 +2,7 @@
 import { ref, watch, onMounted, computed, nextTick } from 'vue';
 import { Page } from '@vben/common-ui';
 import { Avatar, Card, Button, Input, Modal, Tooltip, message, Radio } from 'ant-design-vue';
+import GridIconButton from '#/components/GridIconButton.vue';
 import { IconifyIcon } from '@vben/icons';
 import BizSelect from '#/components/BizSelect.vue';
 import { getCompanyList } from '#/api/portal/system/company';
@@ -814,12 +815,12 @@ onMounted(async () => {
               </template>
               미소속 사용자 보기
             </Button>
-            <Button class="flex items-center gap-1.5" @click="loadOrgData" :loading="loading">
-              <template #icon>
-                <IconifyIcon icon="lucide:rotate-cw" class="size-4" />
-              </template>
-              새로고침
-            </Button>
+            <GridIconButton
+              :loading="loading"
+              icon="vxe-icon-repeat"
+              title="새로고침"
+              @click="loadOrgData"
+            />
             <Button class="flex items-center gap-1.5" @click="resetZoom">
               <template #icon>
                 <IconifyIcon icon="lucide:refresh-cw" class="size-4" />

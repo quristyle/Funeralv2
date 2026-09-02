@@ -1,3 +1,4 @@
+import { unwrapList } from '#/api/envelope';
 import { currentAiModel, currentAiProvider } from '#/api/portal/ai/provider';
 import { requestClient } from '#/api/request';
 
@@ -23,8 +24,9 @@ export namespace SystemI18nApi {
  */
 export async function getI18nListByLocale(locale: string) {
   try {
-    var a = await requestClient.get<SystemI18nApi.I18nResource[]>(`/auth/system/i18n/${locale}`);
-    return a.result;
+    return unwrapList<SystemI18nApi.I18nResource>(
+      await requestClient.get(`/auth/system/i18n/${locale}`),
+    );
   } catch (error) {
     console.warn(`[I18n API] 서버 접근 불가. 로컬 다국어 파일로 대체합니다. (${locale})`, error);
     return [] as SystemI18nApi.I18nResource[];

@@ -6,9 +6,10 @@ import { computed, onMounted, ref } from 'vue';
 import { Page } from '@vben/common-ui';
 import { EchartsUI, useEcharts } from '@vben/plugins/echarts';
 
-import { Button, Card, Col, Row, Space, Spin, Tag } from 'ant-design-vue';
+import { Card, Col, Row, Space, Spin, Tag } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
+import GridIconButton from '#/components/GridIconButton.vue';
 import { getServerReport } from '#/api/helpdesk';
 
 /**
@@ -234,9 +235,12 @@ onMounted(loadData);
             {{ memoryState.label }}
           </Tag>
         </Space>
-        <Button :loading="loading" type="primary" @click="loadData">
-          정밀 진단 재실행
-        </Button>
+        <GridIconButton
+          :loading="loading"
+          icon="vxe-icon-repeat"
+          title="정밀 진단 재실행"
+          @click="loadData"
+        />
       </div>
     </Card>
 

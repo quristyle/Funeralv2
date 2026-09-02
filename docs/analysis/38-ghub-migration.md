@@ -83,6 +83,14 @@ GHUB 는 원천 시스템(SK가스 지허브)의 이름이지 이 서비스의 �
 맞다고 보고 이식하지 않았다.** 남은 결정:
 
 - D-G1a. 기상 이벤트 알림을 NotificationServer 로 보낼지, 보낸다면 수신 대상(역할? 구독?)
+
+  > **2026-09-02 — "수신 대상" 쪽은 답이 생겼다.** 내 알림 설정 화면에 날씨 스위치를
+  > 두고 `scom.notification_preferences.weather_enabled` 에 받는다
+  > ([29-notification-server.md](29-notification-server.md) 8절). 발송을 붙일 때
+  > `weather_enabled = true` 인 주인을 대상으로 삼으면 되고, 역할 기준을 새로
+  > 만들 필요가 없다. **발송 자체는 여전히 이 결정 대기다** — 화면도 "아직 발송이
+  > 켜지지 않았다" 고 그대로 말한다.
+
 - D-G1b. 카카오 알림톡(비즈뿌리오) 채널을 NotificationServer 에 추가할지 —
   GHUB 의 KakaoUtil · 비즈뿌리오 계정 · 템플릿 코드는 원본에 그대로 있다.
 - 판정 쪽은 준비돼 있다: weather_event_records.is_notified 가 원본 규칙(발송 전 true)

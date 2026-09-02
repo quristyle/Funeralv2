@@ -27,12 +27,21 @@ import { can } from '#/utils/permission';
  * 이 메뉴가 **화면에 보이는 이름**.
  *
  * `meta.title` 에는 번역 키(`page.dashboard.analytics`)와 완성된 글자(`상태관리`)가
- * 섞여 있다. 사이드바와 같은 규칙(`$tIfKey`)으로 옮겨야 사람이 눈으로 본 글자로
- * 찾을 수 있다. 원래 이름(`name`)으로도 걸리게 해 둔다 — 화면에는 '분석' 으로
- * 떠도 사람은 'Analytics' 로 기억하고 있을 수 있다.
+ * 섞여 있다. 사람이 눈으로 본 글자로 찾을 수 있어야 하므로 **화면에 그린 이름**
+ * (`displayTitle`)을 그대로 쓴다 — 목록을 받을 때 한 번 정해 둔 값이다
+ * (list.vue 의 `resolveDisplayTitle`). 여기서 다시 옮기면 필터를 칠 때마다
+ * 번역이 다시 돌아 목록이 느려진다.
+ *
+ * 저장된 값(`meta.title`)과 원래 이름(`name`)으로도 걸리게 해 둔다 —
+ * 화면에는 '분석' 으로 떠도 사람은 'Analytics' 로 기억하고 있을 수 있고,
+ * 관리자는 번역 키로 찾기도 한다.
  */
 function titleHaystack(row: any) {
-  return [$tIfKey(row?.meta?.title), row?.meta?.title, row?.name]
+  return [
+    row?.displayTitle || $tIfKey(row?.meta?.title),
+    row?.meta?.title,
+    row?.name,
+  ]
     .filter(Boolean)
     .join(' ');
 }
@@ -154,8 +163,9 @@ export function useColumns(
       params: { filterText: titleHaystack },
       slots: { default: 'title' },
       // 정렬은 **형제끼리** 이뤄진다(트리 칸이라 부모 밑에서만 다시 선다).
-      // 저장된 값(`meta.title`)을 기준으로 서므로 번역 키인 메뉴는 키 순서로 선다 —
-      // 눈에 보이는 글자와 다를 수 있다. 찾는 것이 목적이면 아래 필터가 낫다.
+      // 눈에 보이는 이름으로 세운다 — 저장된 값(`meta.title`)으로 세우면 번역 키인
+      // 메뉴만 키 순서로 끼어들어 화면과 어긋났다.
+      sortBy: ({ row }: any) => row?.displayTitle ?? '',
       sortable: true,
       title: $t('system.menu.menuTitle'),
       treeNode: true,

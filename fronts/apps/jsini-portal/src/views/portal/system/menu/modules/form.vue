@@ -10,6 +10,7 @@ import { computed, h, ref, defineComponent, markRaw, nextTick, watch } from 'vue
 import { useVbenDrawer } from '@vben/common-ui';
 import { IconifyIcon } from '@vben/icons';
 import { $te } from '@vben/locales';
+import { preferences } from '@vben/preferences';
 import { getPopupContainer } from '@vben/utils';
 
 import { breakpointsTailwind, useBreakpoints } from '@vueuse/core';
@@ -17,18 +18,18 @@ import { breakpointsTailwind, useBreakpoints } from '@vueuse/core';
 import { useVbenForm, z } from '#/adapter/form';
 import {
   createMenu,
-  getMenuList,
   isMenuNameExists,
   isMenuPathExists,
   SystemMenuApi,
   updateMenu,
 } from '#/api/portal/system/menu';
-import { $t } from '#/locales';
+import { $t, $tIfKey } from '#/locales';
 import { componentKeys } from '#/router/routes';
 import AiCodeSuggester from '#/components/ai-code-suggester/ai-code-suggester.vue';
 
 import { getMenuTypeOptions } from '../data';
 import MenuPermissionItems from './permission-items.vue';
+import { loadMenuTree } from '../use-menu-tree';
 
 const emit = defineEmits<{
   success: [];
@@ -233,11 +234,22 @@ const schema: VbenFormSchema[] = [
   {
     component: 'ApiTreeSelect',
     componentProps: {
-      api: getMenuList,
-      // getMenuList 응답은 { result: [...중첩 트리...], page } 형태로 온다.
-      // ApiComponent 는 배열이 아니면 목록을 찾지 못하므로(빈 트리 → 상위메뉴 미표시),
-      // 여기서 result 를 꺼내 배열로 돌려준다. 동시에 meta.title 이 번역 키인 노드는
-      // 미리 번역해, 선택된 상위메뉴 라벨이 키(system.title)가 아니라 실제 이름으로 보이게 한다.
+      // 목록은 **그리드가 받아 둔 것을 나눠 쓴다**(`use-menu-tree.ts`).
+      // 예전에는 이 선택기가 자기 요청을 내서, 창을 열 때마다 그리드가 방금 받은 것과
+      // 똑같은 180행을 다시 받았다. 창은 `destroyOnClose` 라 열 때마다 새로 만들어지므로
+      // 수정 단추를 누르는 횟수만큼 반복됐다.
+      // 받아 둔 것이 없으면(첫 진입) 예전처럼 한 번 받는다.
+      api: () => loadMenuTree(preferences.app.locale),
+      // 트리는 { result: [...] } 가 아니라 배열로 온다. 다만 예전 형태로 오는 경우까지
+      // 받아 두려고 아래에서 둘 다 받아 준다(ApiComponent 는 배열이 아니면 목록을
+      // 찾지 못해 상위메뉴가 아예 안 보인다).
+      // 동시에 `meta.title` 을 화면에 보일
+      // 이름으로 바꿔 둔다 — 선택된 상위메뉴 라벨이 키(system.title)가 아니라
+      // 실제 이름으로 보이게 하려는 것이다(`labelField: 'meta.title'`).
+      //
+      // 옮기는 방법이 `$t` 에서 `titleText ?? $tIfKey` 로 바뀌었다. 예전에는 제목마다
+      // `$t()` 를 불렀는데 제목 대부분이 번역 키가 아니라서, 이 창을 만들 때마다
+      // vue-i18n 이 "그런 키는 없다" 경고를 메뉴 수만큼(180줄) 쏟아냈다.
       afterFetch: (res: any) => {
         const list = Array.isArray(res) ? res : (res?.result ?? []);
         const translate = (nodes: any[]): any[] =>
@@ -245,7 +257,8 @@ const schema: VbenFormSchema[] = [
             ...node,
             meta: {
               ...node.meta,
-              title: node.meta?.title ? $t(node.meta.title) : node.name,
+              title:
+                node.meta?.titleText || $tIfKey(node.meta?.title) || node.name,
             },
             children: node.children ? translate(node.children) : undefined,
           }));
@@ -256,9 +269,10 @@ const schema: VbenFormSchema[] = [
         if (!input || input.length === 0) {
           return true;
         }
+        // `afterFetch` 가 이미 보일 이름으로 바꿔 뒀으므로 여기서 다시 옮기지 않는다.
+        // (한 글자 칠 때마다 노드 수만큼 번역이 돌던 자리다.)
         const title: string = node.meta?.title ?? '';
-        if (!title) return false;
-        return title.includes(input) || $t(title).includes(input);
+        return title ? title.includes(input) : false;
       },
       getPopupContainer,
       labelField: 'meta.title',
@@ -732,9 +746,15 @@ const [Drawer, drawerApi] = useVbenDrawer<SystemMenuApi.SystemMenu>({
           isBinding.value = false;
         });
         menuNameVal.value = formData.value.name || '';
-        titleSuffix.value = formData.value.meta?.title
-          ? $t(formData.value.meta.title)
-          : '';
+        // 제목 아래 회색 글씨는 **번역 키일 때** 옮긴 결과를 보여 주는 것이다.
+        // 그냥 `$t()` 를 부르면 키가 아닌 제목(대부분이 그렇다)마다 경고가 났다 —
+        // 서버가 옮겨 준 것이 있으면 그것을 쓰고, 없으면 키일 때만 옮긴다
+        // (`CustomTitleInput` 의 감시자와 같은 규칙이다).
+        titleSuffix.value =
+          (formData.value.meta as any)?.titleText ||
+          ($te(formData.value.meta?.title ?? '')
+            ? $t(formData.value.meta!.title!)
+            : '');
       } else {
         formApi.resetForm();
         permissionItems.value = SystemMenuApi.defaultPermissionItems();
@@ -758,11 +778,28 @@ async function onSubmit() {
       await formApi.getValues<
         Omit<SystemMenuApi.SystemMenu, 'children' | 'id'>
       >();
-    if (data.type === 'LINK') {
-      data.meta = { ...data.meta, link: data.linkSrc };
-    } else if (data.type === 'EMBEDDED') {
-      data.meta = { ...data.meta, iframeSrc: data.linkSrc };
-    }
+    /**
+     * [폼에 없는 메타 항목을 지우지 않는다]
+     *
+     * 서버는 `meta` 를 통째로 받아 그대로 덮는다. 그런데 폼이 내놓는 `meta` 에는
+     * **화면에 그려진 항목만** 들어 있다. 그래서 예전에는 메뉴 하나를 열어
+     * 제목만 고쳐 저장해도 폼에 없는 항목(`domCached` · `authority` ·
+     * `menuVisibleWithForbidden` · 유형이 달라 숨어 있던 `link` · `iframeSrc`)이
+     * 서버 기본값으로 초기화됐다. 고치지 않은 값이 조용히 사라지는 셈이다.
+     *
+     * 그래서 **받아 온 메타 위에 폼 값을 얹는다.** 서버가 옮겨 준 `titleText` 는
+     * 읽기용이라 되돌려 보내지 않는다.
+     */
+    const { titleText: _titleText, ...keptMeta } = (formData.value?.meta ??
+      {}) as Record<string, any>;
+    data.meta = { ...keptMeta, ...data.meta };
+
+    // 링크·내장은 한 칸(`linkSrc`)으로 입력받아 제자리에 넣는다.
+    // 유형을 바꿔 그 칸이 사라졌으면 옛 주소를 남겨 두지 않는다 —
+    // 위에서 받아 온 메타를 깔았으므로 여기서 비워야 실제로 지워진다.
+    data.meta.link = data.type === 'LINK' ? data.linkSrc : null;
+    data.meta.iframeSrc = data.type === 'EMBEDDED' ? data.linkSrc : null;
+
     delete data.linkSrc;
     data.permissions = { ...permissionItems.value };
     

@@ -8,7 +8,6 @@ import { Page } from '@vben/common-ui';
 
 import {
   Avatar,
-  Button,
   Card,
   Carousel,
   Col,
@@ -17,6 +16,7 @@ import {
   Row,
   Spin,
 } from 'ant-design-vue';
+import GridIconButton from '#/components/GridIconButton.vue';
 
 import {
   getAdminStats,
@@ -260,9 +260,12 @@ onMounted(async () => {
       <!-- 1. 나의 접수 진행사항 -->
       <Card class="mb-3" size="small" title="나의 접수 진행사항">
         <template #extra>
-          <Button :loading="loading" size="small" @click="loadAll">
-            새로고침
-          </Button>
+          <GridIconButton
+            :loading="loading"
+            icon="vxe-icon-repeat"
+            title="새로고침"
+            @click="loadAll"
+          />
         </template>
 
         <Row :gutter="[12, 12]">

@@ -23,21 +23,86 @@ public class SystemMenuService : ISystemMenuService
 
     /// <summary>
     /// 데이터베이스에서 전체 메뉴를 조회하여 계층형 트리 구조로 변환 후 반환합니다.
+    ///
+    /// <para>
+    /// [제목의 다국어를 여기서 붙인다]
+    ///
+    /// 예전에는 화면이 제목마다 <c>$t()</c> 를 불러 옮겼다. 그런데 저장된 제목
+    /// 대부분(180건 중 166건)이 번역 키가 아니라 이미 완성된 글자라서, vue-i18n 이
+    /// "그런 키는 없다" 는 경고를 <b>한 번 새로 그릴 때마다 492줄</b> 쏟아냈다.
+    /// 옮길 것이 적은데도 화면이 늦게 뜬 이유가 이것이다.
+    ///
+    /// 그래서 번역을 <b>서버에서 한 번에</b> 붙인다. 언어 하나에 해당하는
+    /// <c>scom.i18n_resources</c> 를 사전 하나로 읽어(왕복 한 번) 제목을 맞춰 본다.
+    /// 화면은 내려온 글자를 그대로 찍기만 하므로 옮기는 일이 아예 없어진다.
+    /// </para>
     /// </summary>
+    /// <param name="locale">제목을 옮길 언어. 비우면 <c>ko</c>.</param>
     /// <returns>계층화된 시스템 메뉴 목록</returns>
-    public async Task<List<SystemMenuDto>> GetMenuListAsync()
+    public async Task<List<SystemMenuDto>> GetMenuListAsync(string? locale = null)
     {
         var menus = await _db.SystemMenus.OrderBy(m => m.OrderNo).ToListAsync();
-        return BuildMenuTree(menus, null);
+        var titles = await LoadTitleTranslationsAsync(menus, locale);
+        return BuildMenuTree(menus, null, titles);
     }
+
+    /// <summary>
+    /// 메뉴 제목에 해당하는 번역만 사전으로 읽어 온다.
+    ///
+    /// 표 전체를 읽지 않고 <b>실제로 쓰이는 제목</b>만 <c>IN</c> 으로 좁힌다
+    /// (지금은 180건 중 키처럼 생긴 것 14건뿐이다).
+    /// 언어를 못 찾으면 <c>ko</c> 로 한 번 더 본다 — 화면에 키가 그대로 뜨는 것보다
+    /// 다른 언어의 글자라도 보이는 편이 관리에 낫다.
+    /// </summary>
+    private async Task<Dictionary<string, string>> LoadTitleTranslationsAsync(
+        List<SystemMenu> menus, string? locale)
+    {
+        var wanted = menus
+            .Select(m => m.Title)
+            .Where(t => !string.IsNullOrWhiteSpace(t))
+            .Select(t => t!)
+            .Distinct()
+            .ToList();
+
+        if (wanted.Count == 0) return new Dictionary<string, string>();
+
+        var lang = string.IsNullOrWhiteSpace(locale) ? DefaultLocale : locale.Trim();
+
+        var rows = await _db.I18nResources
+            .Where(r => wanted.Contains(r.Key)
+                        && (r.Locale == lang || r.Locale == DefaultLocale)
+                        && r.Value != "")
+            .Select(r => new { r.Key, r.Locale, r.Value })
+            .ToListAsync();
+
+        var map = new Dictionary<string, string>(StringComparer.Ordinal);
+        // 먼저 기본 언어를 깔고, 요청한 언어가 있으면 그 위에 덮는다.
+        foreach (var row in rows.Where(r => r.Locale == DefaultLocale))
+        {
+            map[row.Key] = row.Value;
+        }
+        if (lang != DefaultLocale)
+        {
+            foreach (var row in rows.Where(r => r.Locale == lang))
+            {
+                map[row.Key] = row.Value;
+            }
+        }
+        return map;
+    }
+
+    /// <summary>제목을 옮길 언어를 못 받았을 때 쓰는 기본 언어.</summary>
+    private const string DefaultLocale = "ko";
 
     /// <summary>
     /// 평면적인 메뉴 리스트를 재귀적으로 호출하여 트리 구조로 조립합니다.
     /// </summary>
     /// <param name="menus">전체 메뉴 리스트</param>
     /// <param name="parentId">부모 메뉴 ID</param>
+    /// <param name="titles">제목 → 옮긴 글자 사전</param>
     /// <returns>자식 메뉴들을 포함한 메뉴 리스트</returns>
-    private List<SystemMenuDto> BuildMenuTree(List<SystemMenu> menus, string? parentId)
+    private List<SystemMenuDto> BuildMenuTree(
+        List<SystemMenu> menus, string? parentId, Dictionary<string, string> titles)
     {
         return menus
             .Where(m => m.Pid == parentId)
@@ -57,9 +122,15 @@ public class SystemMenuService : ISystemMenuService
                 Meta = new SystemMenuMetaDto
                 {
                     Title = m.Title,
+                    // 사전에서 찾았을 때만 담는다. 못 찾으면 null 이라 화면이 알던 방식으로
+                    // (프론트 언어 파일까지 보는 `$tIfKey`) 처리한다.
+                    TitleText = ResolveTitleText(m.Title, titles),
                     Icon = m.Icon,
                     Order = m.OrderNo,
                     HideInMenu = m.HideInMenu,
+                    HideChildrenInMenu = m.HideChildrenInMenu,
+                    HideInBreadcrumb = m.HideInBreadcrumb,
+                    HideInTab = m.HideInTab,
                     KeepAlive = m.KeepAlive,
                     AffixTab = m.AffixTab,
                     DomCached = m.DomCached,
@@ -75,9 +146,24 @@ public class SystemMenuService : ISystemMenuService
                     UseTablet = m.UseTablet
                 },
                 Permissions = ToPermissionsDto(m),
-                Children = BuildMenuTree(menus, m.Id).Any() ? BuildMenuTree(menus, m.Id) : null
+                // 같은 가지를 두 번 조립하지 않는다. 예전에는 `Any()` 로 한 번,
+                // 값으로 또 한 번 만들어 메뉴 깊이만큼 일이 곱절로 늘었다.
+                Children = BuildMenuTree(menus, m.Id, titles) is { Count: > 0 } kids ? kids : null
             })
             .ToList();
+    }
+
+    /// <summary>
+    /// 저장된 제목을 화면에 찍을 글자로 옮긴다.
+    ///
+    /// 사전에 있으면 옮긴 글자를, 없으면 <c>null</c> 을 준다.
+    /// <b>키가 아닌 제목(이미 완성된 글자)도 null 이다</b> — 옮길 것이 없으니
+    /// 화면이 저장된 글자를 그대로 쓰면 된다.
+    /// </summary>
+    private static string? ResolveTitleText(string? title, Dictionary<string, string> titles)
+    {
+        if (string.IsNullOrWhiteSpace(title)) return null;
+        return titles.TryGetValue(title, out var text) ? text : null;
     }
 
     /// <summary>
@@ -181,6 +267,9 @@ public class SystemMenuService : ISystemMenuService
             Icon = request.Meta.Icon,
             OrderNo = request.Meta.Order,
             HideInMenu = request.Meta.HideInMenu,
+            HideChildrenInMenu = request.Meta.HideChildrenInMenu,
+            HideInBreadcrumb = request.Meta.HideInBreadcrumb,
+            HideInTab = request.Meta.HideInTab,
             KeepAlive = request.Meta.KeepAlive,
             AffixTab = request.Meta.AffixTab,
             DomCached = request.Meta.DomCached,
@@ -223,6 +312,9 @@ public class SystemMenuService : ISystemMenuService
         menu.Icon = request.Meta.Icon;
         menu.OrderNo = request.Meta.Order;
         menu.HideInMenu = request.Meta.HideInMenu;
+        menu.HideChildrenInMenu = request.Meta.HideChildrenInMenu;
+        menu.HideInBreadcrumb = request.Meta.HideInBreadcrumb;
+        menu.HideInTab = request.Meta.HideInTab;
         menu.KeepAlive = request.Meta.KeepAlive;
         menu.AffixTab = request.Meta.AffixTab;
         menu.DomCached = request.Meta.DomCached;

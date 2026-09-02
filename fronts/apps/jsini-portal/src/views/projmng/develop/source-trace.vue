@@ -15,10 +15,9 @@ import { computed, ref } from 'vue';
 
 import { Page } from '@vben/common-ui';
 
-import { Button } from 'ant-design-vue';
-
 import { mdCont } from '#/api/projmng';
 
+import GridIconButton from '#/components/GridIconButton.vue';
 import { CodeSelect, DynamicGrid, SearchBar, SplitPane } from '../shared';
 import { CodeEditor } from '#/components/code-editor';
 
@@ -80,15 +79,13 @@ async function onSelect(row: null | ProjMngRow) {
       />
       <CodeSelect v-model="langCode" code-id="srclang" show-all />
       <template #actions>
-        <Button
+        <GridIconButton
           v-perm:search
-          size="small"
-          type="primary"
           :loading="loading"
+          icon="vxe-icon-search"
+          title="조회"
           @click="search"
-        >
-          조회
-        </Button>
+        />
       </template>
     </SearchBar>
 

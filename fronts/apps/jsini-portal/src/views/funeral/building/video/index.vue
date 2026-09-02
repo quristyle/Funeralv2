@@ -7,9 +7,9 @@ import GridIconButton from '#/components/GridIconButton.vue';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { getMediaSources, deleteMediaSource, retryThumbnail, retryWebm } from '#/api/funeral/building';
 import ImagePreview from '#/components/ImagePreview.vue';
-import VideoUploadModal from './modules/video-upload-modal.vue';
+import VideoUploadDrawer from './modules/video-upload-drawer.vue';
 
-const uploadModalRef = ref<InstanceType<typeof VideoUploadModal> | null>(null);
+const uploadDrawerRef = ref<InstanceType<typeof VideoUploadDrawer> | null>(null);
 
 const showPlayModal = ref<boolean>(false);
 const currentVideoName = ref<string>('');
@@ -67,14 +67,14 @@ const [Grid, gridApi] = useVbenVxeGrid({
 });
 
 function openUpload() {
-  if (uploadModalRef.value) {
-    uploadModalRef.value.open();
+  if (uploadDrawerRef.value) {
+    uploadDrawerRef.value.open();
   }
 }
 
 function handleEdit(row: any) {
-  if (uploadModalRef.value) {
-    uploadModalRef.value.open(row);
+  if (uploadDrawerRef.value) {
+    uploadDrawerRef.value.open(row);
   }
 }
 
@@ -268,7 +268,7 @@ function formatDate(dateStr?: string) {
     </Grid>
 
     <!-- 비디오 등록/업로드 모달 컴포넌트 -->
-    <VideoUploadModal ref="uploadModalRef" @saved="gridApi.query()" />
+    <VideoUploadDrawer ref="uploadDrawerRef" @saved="gridApi.query()" />
 
     <!-- 비디오 플레이어 모달 -->
     <Modal

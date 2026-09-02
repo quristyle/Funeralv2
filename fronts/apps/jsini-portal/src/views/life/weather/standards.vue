@@ -4,7 +4,7 @@ import type { VxeTableGridOptions } from '#/adapter/vxe-table';
 import { ref } from 'vue';
 
 import { Page, useVbenModal } from '@vben/common-ui';
-import { IconifyIcon, Plus } from '@vben/icons';
+import { IconifyIcon } from '@vben/icons';
 
 import {
   Button,
@@ -20,6 +20,7 @@ import {
 } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
+import GridIconButton from '#/components/GridIconButton.vue';
 import {
   createStandard,
   deleteStandard,
@@ -122,6 +123,8 @@ const [Grid, gridApi] = useVbenVxeGrid({
         width: 110,
       },
     ],
+    // 아래 도구줄의 [추가] — 위쪽 아이콘과 같은 함수를 부른다.
+    gridFeatures: { onCreate: () => onCreate() },
     height: 'auto',
     pagerConfig: { enabled: false },
     proxyConfig: {
@@ -258,12 +261,21 @@ async function onDelete(row: LifeWeatherApi.Standard) {
           placeholder="검색 (명칭, 조건 등)"
           @press-enter="handleSearch"
         />
-        <Button @click="handleSearch">조회</Button>
       </div>
-      <Button v-perm:create type="primary" @click="onCreate">
-        <Plus class="mr-1 size-5" />
-        기준 추가
-      </Button>
+      <!-- 동작 단추는 오른쪽에 모은다 — 조회도 동작이다. -->
+      <div class="flex items-center gap-2">
+        <GridIconButton
+          icon="vxe-icon-search"
+          title="조회"
+          @click="handleSearch"
+        />
+        <GridIconButton
+          v-perm:create
+          icon="vxe-icon-add"
+          title="기준 추가"
+          @click="onCreate"
+        />
+      </div>
     </div>
 
     <Grid table-title="판정 기준 목록">

@@ -84,11 +84,16 @@ J 실루엣을 따라 두르는 녹아웃 키라인이 S 의 좌측 스템을 �
 
 | | 모양 | 쓰는 자리 |
 |---|---|---|
-| `favicon.svg` | 잉크 블록에 J 를 음각 | **혼자 서는 자리** — 브라우저 탭, 앱 아이콘, SNS 프로필 |
+| `favicon.svg` | 잉크 블록에 J 를 음각 | **혼자 서는 자리** — 브라우저 탭, SNS 프로필 |
 | `app-icon.svg` | 배경 없이 J 글자만 | **이름 글자 옆에 서는 자리** — UI 머리글, 사이드바 |
+| (래스터만) | 꽉 찬 잉크 판에 종이색 J | **OS 가 쓰는 자리** — 런처 · 작업표시줄 · 홈 화면 (7절) |
 
 블록형을 이름 옆에 두면 32px 짜리 잉크 사각형이 글자와 무게가 맞지 않고, 어두운 테마에서는
 흰 블록이 되어 더 튄다. 반대로 글자만 있는 것을 파비콘에 쓰면 16px 에서 존재감이 사라진다.
+
+세 번째는 **OS 가 배경을 정하는 자리**다. 음각한 J 는 배경이 그대로 비치므로,
+사진 벽지나 어두운 작업표시줄에서는 글자로 읽히지 않는다. 그래서 판을 꽉 채우고
+J 를 종이색으로 **양각**한다. SVG 로 두지 않는 이유는 OS 가 SVG 를 받지 않기 때문이다.
 업무 포털이 이 규칙대로 쓴다 — 파비콘은 블록, 사이드바는 글자
 (`apps/jsini-portal/src/preferences.ts`).
 
@@ -166,7 +171,7 @@ apps/jsini-portal/loading.html                     앱 첫 로딩 스플래시 (
 packages/@core/ui-kit/shadcn-ui/.../spinner.vue    화면 전환 · v-loading · iframe 대기
 ```
 
-## 7. 래스터 — `favicon.ico`
+## 7. 래스터 — `.ico` · `.png`
 
 요즘 브라우저는 SVG 파비콘을 받는다. `.ico` 는 그것을 못 읽는 옛 브라우저용이다.
 두 앱 모두 SVG 를 먼저 선언하고 `.ico` 를 대체로 둔다.
@@ -185,9 +190,29 @@ python docs/brand/generate.py
 안티에일리어싱은 8배로 그린 뒤 LANCZOS 로 줄여서 얻는다. 16px 에서 J 의 스템이 2px 이
 채 안 되므로, 계단이 그대로 보이면 글자가 아니라 얼룩으로 읽힌다.
 
-아직 없는 것은 `apple-touch-icon`(180×180 PNG) 뿐이다. 필요해지면 같은 방식으로
-`generate.py` 에 한 줄 더한다. **손으로 내보낸 래스터를 커밋하지 않는다** —
-원본이 바뀌었을 때 같이 바뀌지 않는다.
+**손으로 내보낸 래스터를 커밋하지 않는다** — 원본이 바뀌었을 때 같이 바뀌지 않는다.
+필요한 크기가 생기면 `generate.py` 에 한 줄 더한다.
+
+### 사이니지 플레이어 아이콘 (2026-09-02 추가)
+
+`funeralv2_player` 는 Flutter 기본 아이콘을 그대로 달고 릴리스되고 있었다.
+이제 `generate.py` 가 **플레이어의 플랫폼 폴더로 바로 쓴다.** 모양은 위 표의 세 번째,
+꽉 찬 잉크 판 + 종이색 J 다(안드로이드·윈도우가 같은 모양이 된다).
+
+| 만드는 것 | 크기 | 쓰이는 곳 |
+|---|---|---|
+| `mipmap-*/ic_launcher.png` | 48dp (5밀도) | API 25 이하 런처 |
+| `mipmap-*/ic_launcher_foreground.png` | 108dp (5밀도) | 어댑티브 아이콘 전경 (API 26+) |
+| `mipmap-anydpi-v26/ic_launcher.xml` | — | 배경(색) + 전경 + monochrome(API 33+) |
+| `values/ic_launcher_background.xml` | — | 어댑티브 배경색 = Ink |
+| `drawable-xhdpi/tv_banner.png` | 320×180 | 안드로이드 TV 런처 배너 |
+| `windows/runner/resources/app_icon.ico` | 16~256px 6벌 | 윈도우 실행 파일 · 작업표시줄 |
+
+어댑티브 전경의 J 는 108dp 캔버스에서 높이 44 다. 마스크 모양은 기기가 정하므로
+(원 · 둥근 사각 · 사각) 가운데 66dp 안전 원 안에 들어가야 한다 — 대각선 약 54.6 이다.
+
+**TV 배너만 가로 조합(심볼 + 워드마크)을 쓴다.** 320×180 은 1.78:1 이라 정사각 규칙의
+반대쪽이고, 심볼이 제 비율(1.4:1)로 들어갈 수 있는 유일한 아이콘 자리다.
 
 ## 8. 어디에 복사되어 있나
 
@@ -201,6 +226,10 @@ fronts/apps/jsini-site/public/favicon.ico
 fronts/apps/jsini-portal/public/brand/   favicon · logo-horizontal(+knockout) · app-icon(+knockout)
 fronts/apps/jsini-portal/public/favicon.ico
 ```
+
+**플레이어는 복사본이 아니다.** 위 7절의 아이콘은 `generate.py` 가
+`funeralv2_player/android/...` · `funeralv2_player/windows/...` 에 직접 쓴다.
+플랫폼 폴더는 파일 이름이 정해져 있어, 복사 단계를 하나 더 두면 어긋나기만 한다.
 
 **앱에는 그 앱이 실제로 쓰는 것만 복사한다.** 정적 빌드라 `public/` 에 둔 것은 쓰지 않아도
 그대로 배포에 실린다. 새로 쓸 자산이 생기면 그때 하나만 더 복사한다.

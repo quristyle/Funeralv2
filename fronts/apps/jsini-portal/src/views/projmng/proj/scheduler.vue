@@ -21,11 +21,11 @@ import { computed, ref } from 'vue';
 
 import { Page } from '@vben/common-ui';
 
-import { Button } from 'ant-design-vue';
 import dayjs from 'dayjs';
 
 import { dbCont, dbSave } from '#/api/projmng';
 
+import GridIconButton from '#/components/GridIconButton.vue';
 import { CodeSelect, SearchBar } from '../shared';
 import AppointmentForm from './modules/appointment-form.vue';
 
@@ -151,22 +151,33 @@ function onDragStart(row: ProjMngRow, event: DragEvent) {
       <CodeSelect v-model="completeState" code-id="compstat" show-all />
       <CodeSelect v-model="scheduleType" code-id="schedule_type" show-all />
       <template #actions>
-        <Button size="small" @click="cursor = cursor.subtract(1, 'month')">
-          이전
-        </Button>
+        <GridIconButton
+          icon="vxe-icon-arrow-left"
+          title="이전"
+          @click="cursor = cursor.subtract(1, 'month')"
+        />
         <span class="w-24 text-center text-sm font-semibold">
           {{ cursor.format('YYYY-MM') }}
         </span>
-        <Button size="small" @click="cursor = cursor.add(1, 'month')">
-          다음
-        </Button>
+        <GridIconButton
+          icon="vxe-icon-arrow-right"
+          title="다음"
+          @click="cursor = cursor.add(1, 'month')"
+        />
         <!-- 마지막으로 탭한 날짜(없으면 오늘)로 연다 — 모바일의 단일 탭 등록 경로 -->
-        <Button v-perm:create size="small" @click="openNew(selectedDate ?? dayjs())">
-          일정 등록
-        </Button>
-        <Button v-perm:search size="small" type="primary" :loading="loading" @click="search">
-          조회
-        </Button>
+        <GridIconButton
+          v-perm:create
+          icon="vxe-icon-add"
+          title="일정 등록"
+          @click="openNew(selectedDate ?? dayjs())"
+        />
+        <GridIconButton
+          v-perm:search
+          :loading="loading"
+          icon="vxe-icon-search"
+          title="조회"
+          @click="search"
+        />
       </template>
     </SearchBar>
 

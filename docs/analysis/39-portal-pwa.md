@@ -19,9 +19,16 @@ vben 의 vite-config 는 원래 `pwa: true` 가 기본인데 **기본 아이콘�
 
 ## 구독 · 발송 흐름 (이미 있던 것과의 연결)
 
-1. 사용자가 [알림 설정](/helpdesk/push/setting) 에서 [구독 등록] — 브라우저 권한 요청 후
-   `pushManager.subscribe`(VAPID 공개키는 NotificationServer 가 준다) → 서버에 구독 저장.
-   **이 화면은 전부터 있었지만 포털에 서비스워커가 없어 동작하지 못했다** — 이번에 살아났다.
+1. 사용자가 [내 알림 설정](/system/push/setting) 에서 [이 브라우저 구독] — 브라우저 권한
+   요청 후 `pushManager.subscribe`(VAPID 공개키는 NotificationServer 가 준다) →
+   서버에 구독 저장.
+
+   > **2026-09-02 정정.** 이 문서는 "이번에 살아났다" 고 적었지만 **그때도 구독은
+   > 되지 않았다.** 화면이 `applicationServerKey` 를 넘기지 않아 크로미움계가 거절했고,
+   > 데이터도 헬프데스크(`/api/helpdesk/push/*`)를 보고 있어 포털 계정과 주인 체계가
+   > 맞지 않았다. 둘 다 고쳐 NotificationServer 로 옮겼다 —
+   > [29-notification-server.md](29-notification-server.md) 8절.
+   > (당시 자동화 환경의 알림 권한이 `denied` 라 구독까지 가 보지 못한 것이 원인이다.)
 2. NotificationServer `/notifications/push` 가 구독자에게 발송.
 3. push-sw.js 가 받아 알림을 띄우고, 누르면 페이로드의 url 로 이동(열린 창 재사용).
 

@@ -7,7 +7,6 @@ import { useRouter } from 'vue-router';
 import { Page } from '@vben/common-ui';
 
 import {
-  Button,
   Card,
   Input,
   List,
@@ -17,6 +16,7 @@ import {
   Spin,
   Tag,
 } from 'ant-design-vue';
+import GridIconButton from '#/components/GridIconButton.vue';
 
 import { searchRequests } from '#/api/helpdesk';
 import { useHelpdeskStore } from '#/store/helpdesk';
@@ -120,14 +120,22 @@ onMounted(async () => {
               placeholder="상태"
               style="width: 120px"
             />
-            <Button :loading="loading" type="primary" @click="search">
-              조회
-            </Button>
           </Space>
 
-          <Button type="primary" @click="router.push('/helpdesk/request/new')">
-            요청 등록
-          </Button>
+          <!-- 동작 단추는 오른쪽에 모은다 — 조회도 동작이다. -->
+          <div class="flex items-center gap-2">
+            <GridIconButton
+              :loading="loading"
+              icon="vxe-icon-search"
+              title="조회"
+              @click="search"
+            />
+            <GridIconButton
+              icon="vxe-icon-add"
+              title="요청 등록"
+              @click="router.push('/helpdesk/request/new')"
+            />
+          </div>
         </div>
       </Card>
 

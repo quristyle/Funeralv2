@@ -307,8 +307,8 @@ onMounted(async () => {
           <template #toolbar-tools>
             <GridIconButton
               v-perm:create
-              icon="vxe-icon-add"
               :title="$t('ui.actionTitle.create', [$t('system.dept.name')])"
+              icon="vxe-icon-add"
               @click="onCreate"
             />
           </template>

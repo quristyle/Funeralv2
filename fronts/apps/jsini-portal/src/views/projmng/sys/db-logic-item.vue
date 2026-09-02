@@ -12,8 +12,7 @@ import { onMounted } from 'vue';
 
 import { Page } from '@vben/common-ui';
 
-import { Button } from 'ant-design-vue';
-
+import GridIconButton from '#/components/GridIconButton.vue';
 import { DynamicGrid, SearchBar, useProcGrid } from '../shared';
 
 const { result, loading, load, save, remove } = useProcGrid(
@@ -31,10 +30,18 @@ onMounted(search);
   <Page auto-content-height content-class="page-fill-last">
     <SearchBar class="mb-2">
       <template #actions>
-        <Button v-perm:search size="small" @click="search">조회</Button>
-        <Button v-perm:update size="small" type="primary" @click="save()">
-          저장
-        </Button>
+        <GridIconButton
+          v-perm:search
+          icon="vxe-icon-search"
+          title="조회"
+          @click="search"
+        />
+        <GridIconButton
+          v-perm:update
+          icon="vxe-icon-save"
+          title="저장"
+          @click="save()"
+        />
       </template>
     </SearchBar>
 

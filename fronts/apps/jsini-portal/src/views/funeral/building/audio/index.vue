@@ -7,9 +7,9 @@ import GridIconButton from '#/components/GridIconButton.vue';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { getMediaSources, deleteMediaSource, retryThumbnail, retryAudio } from '#/api/funeral/building';
 import ImagePreview from '#/components/ImagePreview.vue';
-import AudioUploadModal from './modules/audio-upload-modal.vue';
+import AudioUploadDrawer from './modules/audio-upload-drawer.vue';
 
-const uploadModalRef = ref<InstanceType<typeof AudioUploadModal> | null>(null);
+const uploadDrawerRef = ref<InstanceType<typeof AudioUploadDrawer> | null>(null);
 
 const showPlayModal = ref<boolean>(false);
 const currentAudioName = ref<string>('');
@@ -57,14 +57,14 @@ const [Grid, gridApi] = useVbenVxeGrid({
 });
 
 function openUpload() {
-  if (uploadModalRef.value) {
-    uploadModalRef.value.open();
+  if (uploadDrawerRef.value) {
+    uploadDrawerRef.value.open();
   }
 }
 
 function handleEdit(row: any) {
-  if (uploadModalRef.value) {
-    uploadModalRef.value.open(row);
+  if (uploadDrawerRef.value) {
+    uploadDrawerRef.value.open(row);
   }
 }
 
@@ -252,7 +252,7 @@ function formatDate(dateStr?: string) {
     </Grid>
 
     <!-- 음원 등록/업로드 모달 컴포넌트 -->
-    <AudioUploadModal ref="uploadModalRef" @saved="gridApi.query()" />
+    <AudioUploadDrawer ref="uploadDrawerRef" @saved="gridApi.query()" />
 
     <!-- 오디오 플레이어 모달 -->
     <Modal

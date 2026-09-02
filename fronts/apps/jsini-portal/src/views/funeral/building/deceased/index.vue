@@ -6,12 +6,12 @@ import { Button, message, Popconfirm, Tag, Form, Input, InputNumber, RangePicker
 import GridIconButton from '#/components/GridIconButton.vue';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { getDeceasedList, deleteDeceased } from '#/api/funeral/building';
-import DeceasedFormModal from './modules/deceased-form-modal.vue';
+import DeceasedFormDrawer from './modules/deceased-form-drawer.vue';
 import BizSelect from '#/components/BizSelect.vue';
 import DictSelect from '#/components/DictSelect.vue';
 import type { Dayjs } from 'dayjs';
 
-const formModalRef = ref<InstanceType<typeof DeceasedFormModal> | null>(null);
+const formDrawerRef = ref<InstanceType<typeof DeceasedFormDrawer> | null>(null);
 
 // ─── 검색 폼 모델 ──────────────────────────────────────────────────
 const searchForm = ref({
@@ -107,14 +107,14 @@ const [Grid, gridApi] = useVbenVxeGrid({
 });
 
 function onCreate() {
-  if (formModalRef.value) {
-    formModalRef.value.open();
+  if (formDrawerRef.value) {
+    formDrawerRef.value.open();
   }
 }
 
 function onEdit(row: any) {
-  if (formModalRef.value) {
-    formModalRef.value.open(row);
+  if (formDrawerRef.value) {
+    formDrawerRef.value.open(row);
   }
 }
 
@@ -370,7 +370,7 @@ function formatYmdDate(dateStr?: string) {
     </Grid>
 
     <!-- 고인 정보 입력 폼 모달 (독립 분리 컴포넌트) -->
-    <DeceasedFormModal ref="formModalRef" @saved="gridApi.query()" />
+    <DeceasedFormDrawer ref="formDrawerRef" @saved="gridApi.query()" />
   </Page>
 </template>
 

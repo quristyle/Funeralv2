@@ -27,6 +27,7 @@ import {
 } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
+import GridIconButton from '#/components/GridIconButton.vue';
 
 /**
  * 헬프데스크 조직 화면들이 공유하는 단순 CRUD 표.
@@ -215,7 +216,8 @@ const [Grid, gridApi] = useVbenVxeGrid({
     emptyText: `등록된 ${props.entityName}이(가) 없습니다.`,
     // 재조회 아이콘 — `:table-data` 라 그리드가 조회 방법을 모른다.
     // 위쪽 '새로고침' 과 `defineExpose` 로 내주는 것과 같은 함수다.
-    gridFeatures: { onRefresh: () => loadData() },
+    // [추가] 아이콘도 같이 세운다 — 위쪽 등록 아이콘과 같은 함수다.
+    gridFeatures: { onCreate: () => openCreate(), onRefresh: () => loadData() },
     height: 'auto',
     // 전량 조회다. 페이저를 켜 두면 vxe 가 응답을 `{result,page}` 로 읽어 한 줄도 안 나온다.
     pagerConfig: { enabled: false },
@@ -321,11 +323,22 @@ defineExpose({ loadData });
             placeholder="검색어"
             style="width: 220px"
           />
-          <Button :loading="loading" @click="loadData">새로고침</Button>
         </Space>
-        <Button v-perm:create type="primary" @click="openCreate">
-          {{ entityName }} 등록
-        </Button>
+        <!-- 동작 단추는 오른쪽에 모은다 — 새로고침도 동작이다. -->
+        <div class="flex items-center gap-2">
+          <GridIconButton
+            :loading="loading"
+            icon="vxe-icon-repeat"
+            title="새로고침"
+            @click="loadData"
+          />
+          <GridIconButton
+            v-perm:create
+            :title="`${entityName} 등록`"
+            icon="vxe-icon-add"
+            @click="openCreate"
+          />
+        </div>
       </div>
     </Card>
 

@@ -15,10 +15,9 @@ import { ref } from 'vue';
 
 import { Page } from '@vben/common-ui';
 
-import { Button } from 'ant-design-vue';
-
 import { dbSave, sysClearCache } from '#/api/projmng';
 
+import GridIconButton from '#/components/GridIconButton.vue';
 import { CodeSelect, DynamicGrid, SearchBar, SplitPane, useProcGrid } from '../shared';
 import { CodeEditor } from '#/components/code-editor';
 
@@ -65,10 +64,18 @@ async function save() {
     <SearchBar class="mb-2">
       <CodeSelect v-model="dbTypeCode" code-id="db" @change="search" />
       <template #actions>
-        <Button v-perm:search size="small" @click="search">조회</Button>
-        <Button v-perm:update size="small" type="primary" @click="save">
-          저장
-        </Button>
+        <GridIconButton
+          v-perm:search
+          icon="vxe-icon-search"
+          title="조회"
+          @click="search"
+        />
+        <GridIconButton
+          v-perm:update
+          icon="vxe-icon-save"
+          title="저장"
+          @click="save"
+        />
       </template>
     </SearchBar>
 

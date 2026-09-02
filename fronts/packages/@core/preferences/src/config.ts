@@ -91,6 +91,7 @@ const defaultPreferences: Preferences = {
     fixedButton: true,
     hidden: false,
     mixedWidth: 80,
+    scrollToActive: true,
     width: 224,
   },
   tabbar: {

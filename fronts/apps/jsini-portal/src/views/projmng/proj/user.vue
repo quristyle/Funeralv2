@@ -21,11 +21,12 @@ import { onMounted, ref, shallowRef } from 'vue';
 
 import { Page } from '@vben/common-ui';
 
-import { Alert, Button } from 'ant-design-vue';
+import { Alert } from 'ant-design-vue';
 
 import { fetchBizOptions } from '#/api/biz-select';
 import { dbCont } from '#/api/projmng';
 
+import GridIconButton from '#/components/GridIconButton.vue';
 import {
   CodeSelect,
   DynamicGrid,
@@ -122,9 +123,12 @@ onMounted(search);
         @change="search"
       />
       <template #actions>
-        <Button v-perm:search size="small" type="primary" @click="search">
-          조회
-        </Button>
+        <GridIconButton
+          v-perm:search
+          icon="vxe-icon-search"
+          title="조회"
+          @click="search"
+        />
       </template>
     </SearchBar>
 

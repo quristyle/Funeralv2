@@ -10,6 +10,7 @@ import { Button, message, Popconfirm, Select, Tag, Tooltip } from 'ant-design-vu
 import dayjs from 'dayjs';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
+import GridIconButton from '#/components/GridIconButton.vue';
 import {
   deleteEvent,
   getEvents,
@@ -135,8 +136,6 @@ const [Grid, gridApi] = useVbenVxeGrid({
         label: '기간',
       },
     ],
-    resetButtonOptions: { text: '초기화' },
-    submitButtonOptions: { text: '조회' },
   },
   gridOptions: {
     columns: [
@@ -242,9 +241,11 @@ onMounted(() => {
             size="small"
             @change="fetchTimeline"
           />
-          <Button size="small" @click="fetchTimeline">
-            <IconifyIcon class="size-4" icon="lucide:refresh-cw" />
-          </Button>
+          <GridIconButton
+            icon="vxe-icon-repeat"
+            title="타임라인 새로고침"
+            @click="fetchTimeline"
+          />
         </div>
         <div v-if="legendItems.length > 0" class="flex flex-wrap gap-x-2 gap-y-1">
           <div

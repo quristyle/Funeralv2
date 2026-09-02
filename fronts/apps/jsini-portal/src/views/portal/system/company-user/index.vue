@@ -2,8 +2,9 @@
 import { ref, watch, onMounted } from 'vue';
 import { Page } from '@vben/common-ui';
 import { Avatar, Card, Button, message, Table, Modal, Tree } from 'ant-design-vue';
-import { Plus, IconifyIcon } from '@vben/icons';
+import { IconifyIcon } from '@vben/icons';
 import { useVbenVxeGrid, type VxeTableGridColumns } from '#/adapter/vxe-table';
+import GridIconButton from '#/components/GridIconButton.vue';
 import { getCompanyList } from '#/api/portal/system/company';
 import { getDeptList, getDeptUsers, getEligibleDeptUsers, assignDeptUsers, removeDeptUsers } from '#/api/portal/system/dept';
 import type { SystemRolePermissionApi } from '#/api/portal/system/role-permission';
@@ -571,12 +572,11 @@ onMounted(() => {
                 <span class="text-xs text-gray-400">
                   오른쪽에서 끌어다 놓거나 행의 버튼으로 등록·해제합니다.
                 </span>
-                <Button type="primary" size="small" @click="openAssignModal">
-                  <template #icon>
-                    <Plus class="size-4 mr-1 inline-block align-text-bottom" />
-                  </template>
-                  추가 지정
-                </Button>
+                <GridIconButton
+                  icon="vxe-icon-add-user"
+                  title="사용자 추가 지정"
+                  @click="openAssignModal"
+                />
               </div>
 
               <!-- 지정 사용자 그리드 -->
@@ -673,11 +673,12 @@ onMounted(() => {
           @drop="onDropToUnassigned"
         >
           <template #extra>
-            <Button size="small" type="text" :loading="loadingUnassigned" @click="fetchUnassignedUsers">
-              <template #icon>
-                <IconifyIcon class="size-4" icon="lucide:refresh-cw" />
-              </template>
-            </Button>
+            <GridIconButton
+              :loading="loadingUnassigned"
+              icon="vxe-icon-repeat"
+              title="미소속 사용자 새로고침"
+              @click="fetchUnassignedUsers"
+            />
           </template>
 
           <div class="flex-1 flex flex-col overflow-hidden h-full">

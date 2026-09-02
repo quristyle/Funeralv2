@@ -6,9 +6,10 @@ import { onMounted, ref } from 'vue';
 import { Page } from '@vben/common-ui';
 import { EchartsUI, useEcharts } from '@vben/plugins/echarts';
 
-import { Alert, Button, Card, Col, Row, Spin, Tag } from 'ant-design-vue';
+import { Alert, Card, Col, Row, Spin, Tag } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
+import GridIconButton from '#/components/GridIconButton.vue';
 import { getServerReport } from '#/api/helpdesk';
 
 /**
@@ -257,7 +258,12 @@ onMounted(loadData);
         <span class="text-base font-semibold">
           I/O 서브시스템 병목 원인 정밀 분석 (속도 기반)
         </span>
-        <Button :loading="loading" danger @click="loadData">데이터 갱신</Button>
+        <GridIconButton
+          :loading="loading"
+          icon="vxe-icon-repeat"
+          title="데이터 갱신"
+          @click="loadData"
+        />
       </div>
     </Card>
 

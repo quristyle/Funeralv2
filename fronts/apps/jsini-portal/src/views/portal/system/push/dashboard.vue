@@ -8,7 +8,6 @@ import { Page } from '@vben/common-ui';
 import { EchartsUI, useEcharts } from '@vben/plugins/echarts';
 
 import {
-  Button,
   Card,
   Col,
   Row,
@@ -19,6 +18,7 @@ import {
 } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
+import GridIconButton from '#/components/GridIconButton.vue';
 import {
   getPushEngagementStats,
   getPushFailureReasons,
@@ -251,8 +251,18 @@ onMounted(loadAll);
             />
           </Space>
           <Space>
-            <Button :loading="exporting" @click="exportCsv">CSV 내려받기</Button>
-            <Button :loading="loading" @click="loadAll">새로고침</Button>
+            <GridIconButton
+              :loading="exporting"
+              icon="vxe-icon-download"
+              title="CSV 내려받기"
+              @click="exportCsv"
+            />
+            <GridIconButton
+              :loading="loading"
+              icon="vxe-icon-repeat"
+              title="새로고침"
+              @click="loadAll"
+            />
           </Space>
         </div>
       </Card>

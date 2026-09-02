@@ -81,6 +81,20 @@ public class SystemMenuMetaDto
     public string? Title { get; set; }
 
     /// <summary>
+    /// 화면에 그대로 찍을 제목 — <b>서버가 옮겨 둔 글자</b>다.
+    ///
+    /// <see cref="Title"/> 에는 번역 키(<c>system.menu.title</c>)와 이미 완성된
+    /// 글자(<c>공통코드</c>)가 섞여 있다. 예전에는 화면이 제목마다 <c>$t()</c> 를
+    /// 불러 옮겼는데, 대부분이 키가 아니어서 vue-i18n 이 "키를 못 찾았다" 경고를
+    /// 한 번 그릴 때마다 수백 줄 쏟아냈다. 그게 화면이 늦게 뜨던 이유였다.
+    ///
+    /// 그래서 <c>scom.i18n_resources</c> 에서 <b>찾았을 때만</b> 옮긴 글자를 담는다.
+    /// 못 찾으면 <c>null</c> 로 두어, 화면이 알던 방식(<c>$tIfKey</c>)으로 스스로
+    /// 처리하게 남겨 둔다 — 프론트의 언어 파일에만 있는 키가 아직 있기 때문이다.
+    /// </summary>
+    public string? TitleText { get; set; }
+
+    /// <summary>
     /// 아이콘 명칭
     /// </summary>
     public string? Icon { get; set; }
@@ -94,6 +108,20 @@ public class SystemMenuMetaDto
     /// 메뉴 숨김 여부
     /// </summary>
     public bool HideInMenu { get; set; }
+
+    /// <summary>
+    /// 하위 메뉴를 메뉴목록에서 감출지 여부.
+    ///
+    /// 아래 셋은 수정 창에 체크가 있는데도 저장되지 않던 항목이다
+    /// (칸도 DTO 도 없었다). 라우트는 살려 두고 목록에서만 감춘다.
+    /// </summary>
+    public bool HideChildrenInMenu { get; set; }
+
+    /// <summary>브레드크럼에서 감출지 여부</summary>
+    public bool HideInBreadcrumb { get; set; }
+
+    /// <summary>탭 바에서 감출지 여부</summary>
+    public bool HideInTab { get; set; }
 
     /// <summary>
     /// 페이지 캐싱(Keep-Alive) 여부

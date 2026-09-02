@@ -66,6 +66,8 @@
     "onMenuSelectNone": "Keep As Is",
     "onMenuSelectCollapse": "Collapse",
     "onMenuSelectHide": "Hide Completely",
+    "scrollToActive": "Center The Picked Menu",
+    "scrollToActiveTip": "Scroll the picked menu item to the vertical center of the sidebar. `Disabled` leaves the scroll position untouched.",
     "expandOnHover": "Expand On Hover",
     "expandOnHoverTip": "When the mouse hovers over menu, \n `Enabled` to expand children menus \n `Disabled` to expand whole sidebar."
   },

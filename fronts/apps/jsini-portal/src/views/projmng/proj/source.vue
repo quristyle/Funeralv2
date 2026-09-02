@@ -14,8 +14,7 @@ import { ref } from 'vue';
 
 import { Page } from '@vben/common-ui';
 
-import { Button } from 'ant-design-vue';
-
+import GridIconButton from '#/components/GridIconButton.vue';
 import {
   CodeSelect,
   DynamicGrid,
@@ -70,9 +69,12 @@ function onDtlAdd(row: ProjMngRow) {
         @change="search"
       />
       <template #actions>
-        <Button v-perm:search size="small" type="primary" @click="search">
-          조회
-        </Button>
+        <GridIconButton
+          v-perm:search
+          icon="vxe-icon-search"
+          title="조회"
+          @click="search"
+        />
       </template>
     </SearchBar>
 

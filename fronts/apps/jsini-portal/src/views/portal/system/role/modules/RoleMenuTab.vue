@@ -8,6 +8,7 @@ import { IconifyIcon } from '@vben/icons';
 import { Alert, Button, Checkbox, message, Tooltip } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
+import GridIconButton from '#/components/GridIconButton.vue';
 import {
   getRoleMenus,
   saveRoleMenus,
@@ -342,15 +343,13 @@ onMounted(() => {
         사용 여부와 이름을 정할 수 있습니다. 메뉴명 옆 단추로 그 메뉴 또는 하위
         전체를 한 번에 켜고 끌 수 있습니다.
       </span>
-      <Button v-perm:update :loading="loading" type="primary" @click="handleSavePermissions">
-        <template #icon>
-          <IconifyIcon
-            class="mr-1 inline-block size-4 align-text-bottom"
-            icon="lucide:save"
-          />
-        </template>
-        권한 설정 저장
-      </Button>
+      <GridIconButton
+        v-perm:update
+        :loading="loading"
+        icon="vxe-icon-save"
+        title="권한 설정 저장"
+        @click="handleSavePermissions"
+      />
     </div>
 
     <Alert

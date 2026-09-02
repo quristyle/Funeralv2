@@ -44,6 +44,7 @@ public static class EmailEndpoints
             UserContext? user,
             [FromServices] IEmailSender sender,
             [FromServices] AppDbContext db,
+            [FromServices] INotificationPreferenceService prefs,
             [FromServices] ILoggerFactory loggerFactory,
             CancellationToken ct) =>
         {
@@ -69,7 +70,7 @@ public static class EmailEndpoints
 
             if (!string.IsNullOrWhiteSpace(request.ToRole))
             {
-                recipients.AddRange(await ResolveRoleEmailsAsync(db, request.ToRole.Trim(), ct));
+                recipients.AddRange(await ResolveRoleEmailsAsync(db, prefs, request.ToRole.Trim(), ct));
             }
 
             recipients = recipients
@@ -111,8 +112,24 @@ public static class EmailEndpoints
     /// 역할 사용자들의 이메일을 푼다 — 계정마다 하나(대표 이메일 우선).
     /// scom 은 이 서비스의 DB 라 조회만 한다 (Entities/ScomIdentityRows.cs 머리말).
     /// </summary>
+    /// <remarks>
+    /// <b>본인이 이메일 알림을 끈 사람은 빠진다.</b> 역할로 보내는 메일은 "그 역할인
+    /// 사람 아무나" 에게 가는 알림이라 본인의 뜻을 지킬 수 있다.
+    ///
+    /// <para>
+    /// 반대로 <c>to</c> 에 주소를 직접 적어 보내는 메일은 걸러내지 않는다 — 문의 회신
+    /// 처럼 "이 주소로 보내야 하는" 업무 메일이고, 주소만으로는 어느 계정인지도 확실치
+    /// 않다. 알림 설정으로 업무 메일을 막으면 조용히 일이 끊긴다.
+    /// </para>
+    ///
+    /// <para>
+    /// 설정의 주인 키는 <c>accounts.user_id</c>(로그인 아이디)다 — 게이트웨이가 주는
+    /// <c>X-User-Id</c> 가 그 값이라 구독도 같은 키로 저장된다. <c>role_accounts</c> 는
+    /// <c>accounts.id</c> 를 가리키므로 둘을 함께 들고 와서 맞춰야 한다.
+    /// </para>
+    /// </remarks>
     private static async Task<List<string>> ResolveRoleEmailsAsync(
-        AppDbContext db, string roleId, CancellationToken ct)
+        AppDbContext db, INotificationPreferenceService prefs, string roleId, CancellationToken ct)
     {
         var rows = await (
             from ra in db.RoleAccounts
@@ -121,12 +138,20 @@ public static class EmailEndpoints
             where !a.IsDeleted
             join d in db.AccountProfileDetails on a.Id equals d.AccountId
             where d.DetailType == "Email" && !d.IsDeleted && d.Content != ""
-            select new { AccountId = a.Id, d.Content, d.IsPrimary })
+            select new { AccountId = a.Id, a.UserId, d.Content, d.IsPrimary })
             .ToListAsync(ct);
 
-        return rows
+        var picked = rows
             .GroupBy(r => r.AccountId)
-            .Select(g => g.OrderByDescending(r => r.IsPrimary).First().Content.Trim())
+            .Select(g => g.OrderByDescending(r => r.IsPrimary).First())
+            .ToList();
+
+        var optedOut = await prefs.GetEmailDisabledLoginIdsAsync(
+            picked.Select(p => p.UserId), ct);
+
+        return picked
+            .Where(p => !optedOut.Contains(p.UserId))
+            .Select(p => p.Content.Trim())
             .ToList();
     }
 }

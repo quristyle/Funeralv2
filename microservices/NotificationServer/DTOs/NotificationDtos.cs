@@ -78,6 +78,9 @@ public class SendPushResultDto
     /// <summary>대상 주인 중 구독이 하나도 없던 수. "왜 안 왔나" 를 설명해 준다.</summary>
     public int OwnersWithoutSubscription { get; set; }
 
+    /// <summary>본인이 푸시를 꺼 두어 제외한 주인 수. 이것도 "왜 안 왔나" 의 답이다.</summary>
+    public int OptedOut { get; set; }
+
     public string? Message { get; set; }
 }
 
@@ -129,4 +132,70 @@ public class VapidPublicKeyDto
 
     /// <summary>푸시를 쓸 수 있는 상태인가. 거짓이면 화면이 구독 버튼을 숨기면 된다.</summary>
     public bool Enabled { get; set; }
+}
+
+/// <summary>내 알림 설정 (스위치 셋).</summary>
+public class NotificationPreferenceDto
+{
+    public bool PushEnabled { get; set; } = true;
+    public bool EmailEnabled { get; set; } = true;
+    public bool WeatherEnabled { get; set; }
+
+    /// <summary>
+    /// 저장한 적이 있나. 거짓이면 아래 값은 <b>기본값</b>이고 표에는 행이 없다.
+    /// 화면이 "아직 설정하지 않았습니다" 를 말할 수 있게 내려 준다.
+    /// </summary>
+    public bool Saved { get; set; }
+
+    public DateTime? UpdatedAt { get; set; }
+}
+
+/// <summary>
+/// 알림 설정 변경 요청. <b>비운 항목은 건드리지 않는다</b> — 스위치 하나만 눌러도
+/// 나머지를 덮어쓰지 않도록 세 값을 모두 nullable 로 둔다.
+/// </summary>
+public class UpdateNotificationPreferenceDto
+{
+    public bool? PushEnabled { get; set; }
+    public bool? EmailEnabled { get; set; }
+    public bool? WeatherEnabled { get; set; }
+}
+
+/// <summary>내 기기(구독) 한 대.</summary>
+public class PushDeviceDto
+{
+    /// <summary>푸시 서비스 주소. 화면은 이것으로 "지금 이 브라우저" 를 알아본다.</summary>
+    public string Endpoint { get; set; } = string.Empty;
+
+    public string? Source { get; set; }
+    public string? UserAgent { get; set; }
+    public DateTime? LastSentAt { get; set; }
+    public DateTime CreatedAt { get; set; }
+
+    /// <summary>연달아 실패한 횟수. 0 이 아니면 그 기기는 못 받고 있을 수 있다.</summary>
+    public int FailureCount { get; set; }
+}
+
+/// <summary>
+/// 알림 설정 화면이 한 번에 받는 상태.
+/// </summary>
+/// <remarks>
+/// 화면 하나가 API 넷(공개키 · 설정 · 기기목록 · 계정)을 따로 부르면 순서에 따라
+/// 스위치가 깜빡인다. 한 번에 내려 준다.
+/// </remarks>
+public class MyNotificationStateDto
+{
+    /// <summary>이 설정의 주인 (표시·확인용).</summary>
+    public string OwnerType { get; set; } = string.Empty;
+    public string OwnerKey { get; set; } = string.Empty;
+
+    public NotificationPreferenceDto Preference { get; set; } = new();
+
+    /// <summary>서버가 푸시를 보낼 수 있는 상태인가 (VAPID 설정 여부).</summary>
+    public bool PushAvailable { get; set; }
+
+    /// <summary>브라우저가 구독을 만들 때 쓰는 공개 키.</summary>
+    public string? VapidPublicKey { get; set; }
+
+    public List<PushDeviceDto> Devices { get; set; } = new();
 }

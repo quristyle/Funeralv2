@@ -135,8 +135,20 @@ export namespace SystemMenuApi {
       order?: number;
       /** 추가 라우트 파라미터 */
       query?: Recordable<any>;
-      /** 메뉴 제목 */
+      /** 메뉴 제목 — 저장된 값이다. 번역 키와 이미 완성된 글자가 섞여 있다. */
       title?: string;
+      /**
+       * 화면에 그대로 찍을 제목 — **백엔드가 옮겨 준 글자**다.
+       *
+       * `title` 이 번역 키이고 DB(`scom.i18n_resources`)에 그 키가 있을 때만 온다.
+       * 옮길 것이 없으면(이미 완성된 글자이거나 프론트 언어 파일에만 있는 키)
+       * 오지 않으므로, 화면은 `titleText ?? $tIfKey(title)` 순서로 쓴다.
+       *
+       * 예전에는 화면이 제목마다 `$t()` 를 불렀는데 제목 대부분이 키가 아니라서
+       * vue-i18n 이 "그런 키는 없다" 경고를 한 번 그릴 때마다 492줄 쏟아냈다.
+       * 그게 목록이 늦게 뜨던 이유였다.
+       */
+      titleText?: null | string;
       /**
        * 휴대폰 크기(<768px) 메뉴목록에 보일지 여부.
        *
@@ -169,12 +181,17 @@ export namespace SystemMenuApi {
 
 /**
  * 메뉴 데이터 목록 가져오기
+ *
+ * @param locale 제목을 옮길 언어(`ko` · `en`). 넘기면 서버가 제목의 다국어를
+ *   붙여 `meta.titleText` 로 함께 내려준다. 안 넘기면 서버가 `ko` 로 본다.
  */
-async function getMenuList(): Promise<Array<SystemMenuApi.SystemMenu>> {
-  const response = await requestClient.get<any>(
-    '/auth/system/menu/list',
-  );
-    return response;
+async function getMenuList(
+  locale?: string,
+): Promise<Array<SystemMenuApi.SystemMenu>> {
+  const response = await requestClient.get<any>('/auth/system/menu/list', {
+    params: locale ? { locale } : undefined,
+  });
+  return response;
 }
 
 async function isMenuNameExists(

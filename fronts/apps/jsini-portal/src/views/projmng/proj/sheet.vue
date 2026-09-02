@@ -22,6 +22,7 @@ import { Alert, Button, Input, TabPane, Tabs, message } from 'ant-design-vue';
 
 import { dbCont, dbSave } from '#/api/projmng';
 
+import GridIconButton from '#/components/GridIconButton.vue';
 import { SearchBar } from '../shared';
 import { CodeEditor } from '#/components/code-editor';
 
@@ -101,12 +102,19 @@ onMounted(load);
         @press-enter="load"
       />
       <template #actions>
-        <Button v-perm:search size="small" :loading="loading" @click="load">
-          불러오기
-        </Button>
-        <Button v-perm:update size="small" type="primary" @click="save">
-          저장
-        </Button>
+        <GridIconButton
+          v-perm:search
+          :loading="loading"
+          icon="vxe-icon-download"
+          title="불러오기"
+          @click="load"
+        />
+        <GridIconButton
+          v-perm:update
+          icon="vxe-icon-save"
+          title="저장"
+          @click="save"
+        />
       </template>
     </SearchBar>
 

@@ -183,9 +183,11 @@ public static class SystemEndpoints
         .WithOpenApi();
 
         // 시스템 메뉴 관리
-        group.MapGet("/menu/list", async ([FromServices] ISystemMenuService menuService) =>
+        // `locale` 은 제목의 다국어를 서버에서 붙일 때 쓴다(안 보내면 ko).
+        // 화면이 제목마다 $t() 를 부르지 않게 하려고 옮긴 글자를 meta.titleText 로 함께 내려보낸다.
+        group.MapGet("/menu/list", async ([FromQuery] string? locale, [FromServices] ISystemMenuService menuService) =>
         {
-            var menus = await menuService.GetMenuListAsync();
+            var menus = await menuService.GetMenuListAsync(locale);
             return Results.Ok(ApiResponse<List<SystemMenuDto>>.Ok(menus));
         })
         .WithName("GetSystemMenuList")

@@ -23,6 +23,7 @@ import {
 } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
+import GridIconButton from '#/components/GridIconButton.vue';
 import {
   deleteAuthLink,
   getAuthLinks,
@@ -104,6 +105,9 @@ const [Grid, gridApi] = useVbenVxeGrid({
       { field: 'action', slots: { default: 'action' }, title: '', width: 90 },
     ],
     emptyText: '등록된 연결이 없습니다.',
+    // 아래 도구줄의 [추가] — 위쪽 아이콘과 같은 함수를 부른다.
+    // (`gridFeatures` 는 vxe 타입에 없다. 공통 레이어가 읽고 떼어 낸다.)
+    gridFeatures: { onCreate: () => openCreate() },
     height: 'auto',
     // 전량 조회다. 페이저를 켜 두면 vxe 가 응답을 `{result,page}` 로 읽어 한 줄도 안 나온다.
     pagerConfig: { enabled: false },
@@ -116,7 +120,7 @@ const [Grid, gridApi] = useVbenVxeGrid({
       },
     },
     rowConfig: { keyField: 'id' },
-  },
+  } as any,
 });
 
 /** 이미 연결된 포털 계정. 목록에 표시해 중복 연결을 눈으로 막는다. */
@@ -267,9 +271,12 @@ onMounted(async () => {
     <!-- 표를 카드로 감싸지 않는다 — 감싸면 page-fill-last 가 표에 높이를 못 준다. -->
     <div class="mb-2 flex items-center justify-between">
       <span class="text-sm font-medium">연결 목록</span>
-      <Button v-perm:create size="small" type="primary" @click="openCreate">
-        연결 추가
-      </Button>
+      <GridIconButton
+        v-perm:create
+        icon="vxe-icon-add"
+        title="연결 추가"
+        @click="openCreate"
+      />
     </div>
 
     <Grid>

@@ -16,10 +16,11 @@ import { ref } from 'vue';
 
 import { Page } from '@vben/common-ui';
 
-import { Button, Input } from 'ant-design-vue';
+import { Input } from 'ant-design-vue';
 
 import { jsProcDb, rawSql } from '#/api/projmng';
 
+import GridIconButton from '#/components/GridIconButton.vue';
 import { CodeSelect, DynamicGrid, SearchBar, SplitPane } from '../shared';
 import { CodeEditor } from '#/components/code-editor';
 
@@ -122,9 +123,12 @@ function onEditorKeydown(event: KeyboardEvent) {
         @press-enter="search"
       />
       <template #actions>
-        <Button v-perm:search size="small" type="primary" @click="search">
-          조회
-        </Button>
+        <GridIconButton
+          v-perm:search
+          icon="vxe-icon-search"
+          title="조회"
+          @click="search"
+        />
       </template>
     </SearchBar>
 

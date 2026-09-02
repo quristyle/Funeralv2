@@ -1,16 +1,17 @@
 <script lang="ts" setup>
 import { ref, watch } from 'vue';
-import { Page, useVbenModal, ImageGroupManager } from '@vben/common-ui';
-import { IconifyIcon, Plus } from '@vben/icons';
+import { Page, useVbenDrawer, ImageGroupManager } from '@vben/common-ui';
+import { IconifyIcon } from '@vben/icons';
 import { Button, message, Popconfirm, Form, Input, Tooltip } from 'ant-design-vue';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
+import GridIconButton from '#/components/GridIconButton.vue';
 import { getBuildings, createBuilding, updateBuilding, deleteBuilding } from '#/api/funeral/building';
 import BizSelect from '#/components/BizSelect.vue';
 import ImagePreview from '#/components/ImagePreview.vue';
 
 const filterCompanyId = ref<string>('');
 
-const [BuildingModal, buildingModalApi] = useVbenModal({
+const [BuildingDrawer, buildingDrawerApi] = useVbenDrawer({
   title: '건물 정보 설정',
   destroyOnClose: true,
   onConfirm: async () => {
@@ -49,6 +50,9 @@ const [Grid, gridApi] = useVbenVxeGrid({
         slots: { default: 'action' }
       }
     ],
+    // 아래 도구줄의 [추가] — 위쪽 아이콘과 같은 함수를 부른다.
+    // (`gridFeatures` 는 vxe 타입에 없다. 공통 레이어가 읽고 떼어 낸다.)
+    gridFeatures: { onCreate: () => onCreate() },
     height: 'auto',
     proxyConfig: {
       ajax: {
@@ -57,7 +61,7 @@ const [Grid, gridApi] = useVbenVxeGrid({
         },
       },
     },
-  },
+  } as any,
 });
 
 watch(filterCompanyId, () => {
@@ -78,7 +82,7 @@ function onCreate() {
     buildingPhotoGroupId: '',
     parkingPhotoGroupId: ''
   };
-  buildingModalApi.open();
+  buildingDrawerApi.open();
 }
 
 function onEdit(row: any) {
@@ -87,7 +91,7 @@ function onEdit(row: any) {
     buildingPhotoGroupId: row.buildingPhotoGroupId || '',
     parkingPhotoGroupId: row.parkingPhotoGroupId || ''
   };
-  buildingModalApi.open();
+  buildingDrawerApi.open();
 }
 
 async function onDelete(row: any) {
@@ -109,7 +113,7 @@ async function handleSave() {
       await createBuilding(formModel.value);
       message.success('건물 정보가 등록되었습니다.');
     }
-    buildingModalApi.close();
+    buildingDrawerApi.close();
     gridApi.query();
   } catch (error) {
     message.error('저장 실패');
@@ -134,10 +138,12 @@ async function handleSave() {
           />
         </div>
       </div>
-      <Button v-perm:create type="primary" @click="onCreate">
-        <Plus class="size-5 mr-1" />
-        신규 건물 등록
-      </Button>
+      <GridIconButton
+        v-perm:create
+        icon="vxe-icon-add"
+        title="신규 건물 등록"
+        @click="onCreate"
+      />
     </div>
 
     <Grid table-title="건물 정보 목록">
@@ -191,8 +197,8 @@ async function handleSave() {
       </template>
     </Grid>
 
-    <BuildingModal>
-      <div class="p-6">
+    <BuildingDrawer>
+      <div class="p-2">
         <Form layout="vertical">
           <Form.Item label="소속 회사" required>
             <BizSelect
@@ -250,6 +256,6 @@ async function handleSave() {
           </div>
         </Form>
       </div>
-    </BuildingModal>
+    </BuildingDrawer>
   </Page>
 </template>

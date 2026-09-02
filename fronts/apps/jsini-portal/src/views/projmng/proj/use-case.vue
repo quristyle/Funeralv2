@@ -13,13 +13,14 @@
  * 아직 쌓인 자료가 없어 형식을 맞추는 편이 낫다고 판단했다.
  * (기존 XML 자료가 있다면 열리지 않는다. 문서에 남겨 두었다.)
  */
+import GridIconButton from '#/components/GridIconButton.vue';
 import type { ErdModel } from '../shared';
 
 import { ref } from 'vue';
 
 import { Page } from '@vben/common-ui';
 
-import { Button, message } from 'ant-design-vue';
+import { message } from 'ant-design-vue';
 
 import { dbCont, dbSave } from '#/api/projmng';
 
@@ -72,13 +73,24 @@ async function save() {
       <CodeSelect v-model="projectCode" code-id="projlist" />
       <CodeSelect v-model="propCode" code-id="schedule_type" show-all />
       <template #actions>
-        <Button size="small" @click="diagram?.fit()">맞춤</Button>
-        <Button v-perm:search size="small" :loading="loading" @click="load">
-          불러오기
-        </Button>
-        <Button v-perm:update size="small" type="primary" @click="save">
-          저장
-        </Button>
+        <GridIconButton
+          icon="vxe-icon-fullscreen"
+          title="맞춤"
+          @click="diagram?.fit()"
+        />
+        <GridIconButton
+          v-perm:search
+          :loading="loading"
+          icon="vxe-icon-download"
+          title="불러오기"
+          @click="load"
+        />
+        <GridIconButton
+          v-perm:update
+          icon="vxe-icon-save"
+          title="저장"
+          @click="save"
+        />
       </template>
     </SearchBar>
 

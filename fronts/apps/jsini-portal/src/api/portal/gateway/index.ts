@@ -1,3 +1,4 @@
+import { unwrapOne } from '#/api/envelope';
 import { requestClient } from '#/api/request';
 
 /**
@@ -104,7 +105,7 @@ export async function deepCheckLlm(provider?: string) {
     // 모델 로드가 걸리면 오래 걸린다. 기본 타임아웃으로는 끊긴다.
     timeout: 120_000,
   });
-  const raw = res?.result?.[0] ?? res?.result ?? res;
+  const raw = unwrapOne<any>(res);
   return {
     generated: !!raw?.generated,
     latencyMs: Number(raw?.latencyMs ?? 0),

@@ -2,8 +2,15 @@
 /**
  * [환경설정 — 페이지]
  *
+ * ⚠ **2026-09-02 부터 쓰이지 않는다.** `/setting/environment` 는 자기 UI 를 갖는다
+ * (`apps/jsini-portal/src/views/funeral/setting/environment/`). 이 껍데기는 드로어용
+ * 패널을 넓은 화면에 그대로 얹은 것이라, 컨트롤 폭이 165px 로 고정이고 설명이 전부
+ * 물음표에 숨어 어색했다. 경위는 docs/analysis/23-preferences-to-setting-screen.md 5.5절.
+ *
+ * 지우지 않고 남겨 둔 이유: 드로어 패널을 페이지에 얹는 가장 짧은 방법이라
+ * 다른 앱(플레이그라운드 등)이 쓸 수 있다. **새 화면을 만들 때 이것을 고르지 않는다.**
+ *
  * 헤더 톱니의 드로어와 **같은 설정을 같은 구현으로** 다룬다.
- * 라우트가 이 컴포넌트 하나만 렌더하면 된다(`/setting/environment`).
  *
  *   preferences.vue       톱니 버튼 + 드로어 껍데기
  *   preferences-view.vue  이 파일 — 페이지 껍데기

@@ -14,10 +14,11 @@ import { ref } from 'vue';
 
 import { Page } from '@vben/common-ui';
 
-import { Button, Descriptions, DescriptionsItem } from 'ant-design-vue';
+import { Descriptions, DescriptionsItem } from 'ant-design-vue';
 
 import { dbCont } from '#/api/projmng';
 
+import GridIconButton from '#/components/GridIconButton.vue';
 import { CodeSelect, DynamicGrid, SearchBar } from '../shared';
 
 const projectCode = ref('7');
@@ -44,9 +45,13 @@ async function search() {
     <SearchBar class="mb-2">
       <CodeSelect v-model="projectCode" code-id="projlist" @change="search" />
       <template #actions>
-        <Button v-perm:search size="small" type="primary" :loading="loading" @click="search">
-          호출
-        </Button>
+        <GridIconButton
+          v-perm:search
+          :loading="loading"
+          icon="vxe-icon-send"
+          title="호출"
+          @click="search"
+        />
       </template>
     </SearchBar>
 

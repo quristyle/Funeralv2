@@ -18,6 +18,7 @@ import {
 import dayjs from 'dayjs';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
+import GridIconButton from '#/components/GridIconButton.vue';
 import {
   cleanupDockerImages,
   getDeployStatus,
@@ -243,9 +244,12 @@ function fmtDuration(sec: null | number) {
         <Tooltip title="30초마다 자동 새로고침">
           <Switch v-model:checked="autoRefresh" size="small" />
         </Tooltip>
-        <Button :loading="loading" size="small" @click="fetchData(true)">
-          새로고침
-        </Button>
+        <GridIconButton
+          :loading="loading"
+          icon="vxe-icon-repeat"
+          title="새로고침"
+          @click="fetchData(true)"
+        />
       </div>
     </template>
 

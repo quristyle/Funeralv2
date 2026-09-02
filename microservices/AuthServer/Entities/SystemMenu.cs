@@ -87,6 +87,24 @@ public class SystemMenu : BaseEntity<string>
     [Column("hide_in_menu")]
     public bool HideInMenu { get; set; } = false;
 
+    // ── 나머지 숨김 설정 셋 ──────────────────────────────────
+    //
+    // 수정 창에는 넷이 있었지만 저장되는 것은 위 `HideInMenu` 하나뿐이었다.
+    // 아래 셋은 칸도 DTO 도 없어서 켜고 저장해도 아무 일이 없었다.
+    // 셋 다 목록 · 브레드크럼 · 탭 바에서만 감추고 라우트는 살려 둔다.
+
+    /// <summary>하위 메뉴를 메뉴목록에서 감출지 여부</summary>
+    [Column("hide_children_in_menu")]
+    public bool HideChildrenInMenu { get; set; } = false;
+
+    /// <summary>브레드크럼에서 감출지 여부</summary>
+    [Column("hide_in_breadcrumb")]
+    public bool HideInBreadcrumb { get; set; } = false;
+
+    /// <summary>탭 바에서 감출지 여부</summary>
+    [Column("hide_in_tab")]
+    public bool HideInTab { get; set; } = false;
+
     /// <summary>
     /// 페이지 캐싱(Keep-Alive) 적용 여부
     /// </summary>

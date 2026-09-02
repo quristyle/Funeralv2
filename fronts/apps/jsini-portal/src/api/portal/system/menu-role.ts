@@ -1,3 +1,4 @@
+import { unwrapOne } from '#/api/envelope';
 import { requestClient } from '#/api/request';
 
 /**
@@ -102,8 +103,7 @@ export namespace MenuRoleApi {
 
 /** 단건 응답도 `{ result: [...] }` 로 감싸 오므로 하나를 꺼낸다. */
 function pickOne<T>(res: any): T | undefined {
-  const raw = res?.result ?? res?.data?.result ?? res;
-  return (Array.isArray(raw) ? raw[0] : raw) as T | undefined;
+  return unwrapOne<T>(res);
 }
 
 /** 메뉴 하나의 권한 현황 */

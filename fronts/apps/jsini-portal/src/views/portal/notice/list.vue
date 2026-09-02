@@ -29,6 +29,7 @@ import {
 import { IconifyIcon } from '@vben/icons';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
+import GridIconButton from '#/components/GridIconButton.vue';
 import NoticePopup from '#/components/notice/notice-popup.vue';
 import { RichEditor } from '#/components/rich-editor';
 import {
@@ -197,6 +198,9 @@ const [Grid, gridApi] = useVbenVxeGrid({
       },
     ],
     emptyText: '등록된 공지가 없습니다.',
+    // 아래 도구줄의 [추가] — 위쪽 아이콘과 같은 함수를 부른다.
+    // (`gridFeatures` 는 vxe 타입에 없다. 공통 레이어가 읽고 떼어 낸다.)
+    gridFeatures: { onCreate: () => openCreate() },
     height: 'auto',
     // 전량 조회다. 페이저를 켠 채로 두면 vxe 가 응답을 `{ result, page }` 로 읽어
     // 배열만 돌려주는 이 query 의 결과가 한 줄도 그려지지 않는다.
@@ -208,7 +212,7 @@ const [Grid, gridApi] = useVbenVxeGrid({
       },
     },
     rowConfig: { keyField: 'id' },
-  },
+  } as any,
 });
 
 function loadData() {
@@ -429,11 +433,24 @@ async function onDelete(row: NoticeApi.Notice) {
             style="width: 240px"
             @press-enter="loadData"
           />
-          <Button @click="loadData">조회</Button>
         </Space>
-        <Button v-perm:create type="primary" @click="openCreate">
-          공지 등록
-        </Button>
+        <!--
+          동작 단추는 **오른쪽에 모은다.** 조회도 동작이라 검색어 칸 옆이 아니라
+          여기에 선다 — 다른 화면과 눈이 가는 자리를 맞추려는 것이다.
+        -->
+        <div class="flex items-center gap-2">
+          <GridIconButton
+            icon="vxe-icon-search"
+            title="조회"
+            @click="loadData"
+          />
+          <GridIconButton
+            v-perm:create
+            icon="vxe-icon-add"
+            title="공지 등록"
+            @click="openCreate"
+          />
+        </div>
       </div>
     </Card>
 

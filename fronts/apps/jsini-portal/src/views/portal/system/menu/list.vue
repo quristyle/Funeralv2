@@ -1,28 +1,30 @@
 <script lang="ts" setup>
 import type { OnActionClickParams, VxeTableGridOptions } from '#/adapter/vxe-table';
 
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
-import { IconifyIcon, Plus } from '@vben/icons';
+import { IconifyIcon } from '@vben/icons';
+import { preferences } from '@vben/preferences';
 
 import { MenuBadge } from '@vben-core/menu-ui';
 
-import { Button, message, Tooltip } from 'ant-design-vue';
+import { message } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
+import GridIconButton from '#/components/GridIconButton.vue';
 import {
   deleteMenu,
-  getMenuList,
   reorderMenus,
   SystemMenuApi,
   updateMenu,
 } from '#/api/portal/system/menu';
 import I18nEditModal from '#/components/i18n/I18nEditModal.vue';
-import { $t } from '#/locales';
+import { $t, $tIfKey } from '#/locales';
 
 import { useColumns } from './data';
 import MenuForm from './modules/form.vue';
+import { clearMenuTree, reloadMenuTree } from './use-menu-tree';
 
 /**
  * [메뉴 관리]
@@ -80,12 +82,26 @@ const sortActive = ref(false);
 const filterActive = ref(false);
 const viewReordered = computed(() => sortActive.value || filterActive.value);
 
-/** 응답이 배열/`result`/`data.result` 중 무엇으로 와도 목록을 꺼낸다. */
-function getMenuItems(response: any): SystemMenuApi.SystemMenu[] {
-  if (Array.isArray(response)) return response;
-  if (Array.isArray(response?.result)) return response.result;
-  if (Array.isArray(response?.data?.result)) return response.data.result;
-  return [];
+/**
+ * 이 행을 화면에 어떤 이름으로 그릴지 **한 번만** 정해 행에 붙여 둔다.
+ *
+ * [왜 미리 정해 두나 — 목록이 늦게 뜬 진짜 이유]
+ *
+ * 예전에는 제목 칸이 그릴 때마다 `$t(row.meta.title)` 를 불렀다. 그런데 저장된
+ * 제목 대부분(180건 중 166건)이 번역 키가 아니라 이미 완성된 글자다. 그래서
+ * vue-i18n 이 "그런 키는 없다" 는 경고를 냈고, 한 번 새로 그릴 때마다 **492줄**
+ * 이었다. 옮길 것은 열넷뿐인데 경고를 쓰는 값이 목록 전체를 붙잡고 있었다.
+ *
+ * 이제 서버가 옮긴 글자를 `meta.titleText` 로 함께 내려준다. 그것이 없을 때만
+ * `$tIfKey` 로 한 번 더 본다(프론트 언어 파일에만 있는 키가 아직 있다).
+ * `$tIfKey` 는 `te()` 로 먼저 확인하므로 없는 키에 경고를 내지 않는다.
+ *
+ * 결과를 `displayTitle` 로 행에 얹어 두면 화면은 문자열 하나를 찍기만 한다 —
+ * 다시 그릴 때도, 정렬·필터를 걸 때도 옮기는 일이 아예 없다.
+ */
+function resolveDisplayTitle(row: SystemMenuApi.SystemMenu) {
+  const meta = row.meta as any;
+  return meta?.titleText || $tIfKey(meta?.title) || row.name || '';
 }
 
 /** 중첩 트리를 훑어 평면 목록으로 만든다. 기준선 기록·순번 계산에 쓴다. */
@@ -182,6 +198,8 @@ const [Grid, gridApi] = useVbenVxeGrid({
     // vxe 의 `filterChange`·`sortChange` 이벤트가 오지 않는다 — 드래그 잠금
     // (`viewReordered`)이 기댈 상태는 이 콜백으로 받는다.
     gridFeatures: {
+      // 아래 도구줄의 [추가] — 위쪽 아이콘과 같은 함수를 부른다.
+      onCreate,
       onFilterChange: (active: boolean) => {
         filterActive.value = active;
       },
@@ -208,7 +226,10 @@ const [Grid, gridApi] = useVbenVxeGrid({
       response: { list: 'result' },
       ajax: {
         query: async () => {
-          const tree = getMenuItems(await getMenuList());
+          // 제목의 다국어는 서버가 붙여 준다. 지금 보고 있는 언어를 함께 보낸다.
+          // 받은 것은 수정 창의 상위메뉴 선택기와 나눠 쓴다(`use-menu-tree.ts`) —
+          // 그래서 창을 열 때마다 같은 목록을 다시 받지 않는다.
+          const tree = await reloadMenuTree(preferences.app.locale);
           // 드래그 전 기준선(부모·형제 순번)을 중첩 트리에서 위치 기반으로 기록한다.
           captureOrderBaseline(tree);
           // treeConfig.transform=true 는 "평면 데이터"를 받아 pid 로 트리를 조립한다.
@@ -216,7 +237,10 @@ const [Grid, gridApi] = useVbenVxeGrid({
           // 모든 노드를 평면으로 펼치고, 각 노드가 들고 있던 children 은 제거한다.
           const flat = flatten(tree).map((node) => {
             const { children: _children, ...rest } = node as any;
-            return rest as SystemMenuApi.SystemMenu;
+            const row = rest as SystemMenuApi.SystemMenu;
+            // 그릴 이름은 여기서 한 번만 정한다(`resolveDisplayTitle` 주석 참고).
+            (row as any).displayTitle = resolveDisplayTitle(row);
+            return row;
           });
           return { result: flat };
         },
@@ -341,15 +365,28 @@ async function onSizeToggle(
   row: SystemMenuApi.SystemMenu,
   field: 'useMobile' | 'useTablet',
 ) {
-  const saving = ((row as any).__sizeSaving ??= {}) as Record<string, boolean>;
-  if (saving[field]) return;
+  const target = row as any;
+  if (target.__sizeSaving?.[field]) return;
 
   const meta = (row.meta ??= {}) as any;
   // 값이 없던 시절의 메뉴는 보이는 쪽이다(백엔드 기본값과 같다).
   const before = meta[field] !== false;
   const next = !before;
 
-  saving[field] = true;
+  /**
+   * 저장 중 표시는 **행 프로퍼티에 새 객체를 넣어** 바꾼다.
+   *
+   * `row.__sizeSaving ??= {}` 로 받아 그 객체를 직접 고치면 반응성 프록시를 거치지
+   * 않아 화면이 다시 그려지지 않는다. 그러면 저장이 끝나 껐어도 배지가 저장 중 모습
+   * (흐림 · `pointer-events: none` · 클릭 핸들러 없음)에 그대로 굳어,
+   * **처음 한 번만 저장되고 두 번째부터는 눌러도 아무 일이 없었다.**
+   * 상태 배지(`__statusSaving`)는 행 프로퍼티를 바로 세우므로 이 문제가 없다.
+   */
+  const setSaving = (value: boolean) => {
+    target.__sizeSaving = { ...target.__sizeSaving, [field]: value };
+  };
+
+  setSaving(true);
   meta[field] = next;
 
   try {
@@ -361,7 +398,7 @@ async function onSizeToggle(
     message.error($t('ui.actionMessage.operationFailed'));
     await refresh();
   } finally {
-    saving[field] = false;
+    setSaving(false);
   }
 }
 
@@ -532,6 +569,28 @@ function onOpenI18nModal(row: SystemMenuApi.SystemMenu) {
 onMounted(() => {
   refresh();
 });
+
+/**
+ * 화면을 떠나면 나눠 쓰던 트리를 비운다.
+ *
+ * 다시 들어왔을 때 옛 트리를 잠깐이라도 쓰지 않게 하려는 것이다.
+ * 비어 있으면 그리드가 첫 조회를 하고 선택기는 그 요청에 함께 붙는다.
+ */
+onUnmounted(() => {
+  clearMenuTree();
+});
+
+/**
+ * 언어를 바꾸면 목록을 다시 받는다.
+ *
+ * 제목의 다국어는 이제 서버가 붙이므로, 화면에 있는 글자는 **받아 온 시점의 언어**다.
+ * 언어를 바꿔도 다시 받지 않으면 다른 칸(머리글 · 배지)만 바뀌고 제목만 옛 언어로
+ * 남는다. 그래서 여기서 한 번 다시 받아 준다.
+ */
+watch(
+  () => preferences.app.locale,
+  () => refresh(),
+);
 </script>
 
 <template>
@@ -564,24 +623,22 @@ onMounted(() => {
 
       <template #toolbar-tools>
         <div class="flex gap-2">
-          <Tooltip :title="$t('common.expandAll')">
-            <Button @click="onExpandAll">
-              <template #icon>
-                <IconifyIcon icon="ant-design:expand-outlined" />
-              </template>
-            </Button>
-          </Tooltip>
-          <Tooltip :title="$t('common.collapseAll')">
-            <Button @click="onCollapseAll">
-              <template #icon>
-                <IconifyIcon icon="ant-design:compress-outlined" />
-              </template>
-            </Button>
-          </Tooltip>
-          <Button v-perm:create type="primary" @click="onCreate">
-            <Plus class="size-5" />
-            {{ $t('ui.actionTitle.create', [$t('system.menu.name')]) }}
-          </Button>
+          <GridIconButton
+            :title="$t('common.expandAll')"
+            icon="vxe-icon-menu-unfold"
+            @click="onExpandAll"
+          />
+          <GridIconButton
+            :title="$t('common.collapseAll')"
+            icon="vxe-icon-menu-fold"
+            @click="onCollapseAll"
+          />
+          <GridIconButton
+            v-perm:create
+            :title="$t('ui.actionTitle.create', [$t('system.menu.name')])"
+            icon="vxe-icon-add"
+            @click="onCreate"
+          />
         </div>
       </template>
 
@@ -600,7 +657,11 @@ onMounted(() => {
               :icon="row.meta?.icon || 'carbon:circle-dash'"
             />
           </div>
-          <span class="flex-auto">{{ $t(row.meta?.title) }}</span>
+          <!--
+            옮긴 이름은 목록을 받을 때 이미 정해 뒀다(`resolveDisplayTitle`).
+            여기서 `$t()` 를 부르면 키가 아닌 제목마다 경고가 나 목록 전체가 늦어진다.
+          -->
+          <span class="flex-auto">{{ row.displayTitle }}</span>
         </div>
         <MenuBadge
           v-if="row.meta?.badgeType"

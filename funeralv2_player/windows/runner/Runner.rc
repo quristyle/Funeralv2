@@ -90,12 +90,15 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "com.quristyle" "\0"
-            VALUE "FileDescription", "funeralv2_player" "\0"
+            // FileDescription shows up as the process name in Task Manager.
+            VALUE "FileDescription", "JSINI" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
+            // InternalName / OriginalFilename must match the real executable name,
+            // so they are NOT display names and stay funeralv2_player.
             VALUE "InternalName", "funeralv2_player" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2026 com.quristyle. All rights reserved." "\0"
             VALUE "OriginalFilename", "funeralv2_player.exe" "\0"
-            VALUE "ProductName", "funeralv2_player" "\0"
+            VALUE "ProductName", "JSINI" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

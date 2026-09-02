@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import { ref, onMounted, onUnmounted, nextTick } from 'vue';
-import { useVbenModal } from '@vben/common-ui';
+import { useVbenDrawer } from '@vben/common-ui';
 import { message, Form, Modal, Button } from 'ant-design-vue';
 import { getDeceasedDetail, saveDeceasedDetail, getRooms, cancelDeceasedDeparture } from '#/api/funeral/building';
 import dayjs from 'dayjs';
@@ -55,7 +55,7 @@ function setupObserver() {
     observer.disconnect();
   }
   if (!scrollContainerRef.value) {
-    console.warn('[deceased-form-modal] scrollContainerRef is not defined when setting up observer');
+    console.warn('[deceased-form-drawer] scrollContainerRef is not defined when setting up observer');
     return;
   }
 
@@ -152,7 +152,7 @@ const deathDateVal = ref<any>(null);
 const funeralDateVal = ref<any>(null);
 const burialDateVal = ref<any>(null);
 
-const [DeceasedModal, deceasedModalApi] = useVbenModal({
+const [DeceasedDrawer, deceasedDrawerApi] = useVbenDrawer({
   title: '고인 종합 관리 시스템',
   destroyOnClose: true,
   onConfirm: async () => {
@@ -191,10 +191,10 @@ async function open(row?: any) {
   if (row && row.id) {
     isEditMode.value = true;
     currentId.value = row.id;
-    deceasedModalApi.setState({ title: '고인 종합 관리 (수정)' });
+    deceasedDrawerApi.setState({ title: '고인 종합 관리 (수정)' });
 
     try {
-      deceasedModalApi.lock();
+      deceasedDrawerApi.lock();
       // 백엔드 통합 상세 조회 호출
       const detail = await getDeceasedDetail(row.id);
       const detailData = (detail as any)?.result?.[0] || detail;
@@ -214,12 +214,12 @@ async function open(row?: any) {
     } catch (err) {
       message.error('고인 상세 정보를 로드할 수 없습니다.');
     } finally {
-      deceasedModalApi.unlock();
+      deceasedDrawerApi.unlock();
     }
   } else {
     isEditMode.value = false;
     currentId.value = '';
-    deceasedModalApi.setState({ title: '고인 종합 관리 (신규 등록)' });
+    deceasedDrawerApi.setState({ title: '고인 종합 관리 (신규 등록)' });
     
     // 신규 등록 시 기본값 설정
     formModel.value = {
@@ -252,7 +252,7 @@ async function open(row?: any) {
     burialDateVal.value = null;
   }
   
-  deceasedModalApi.open();
+  deceasedDrawerApi.open();
 
   nextTick(() => {
     setupObserver();
@@ -282,18 +282,18 @@ async function handleSave() {
     formModel.value.funeralDate = funeralDateVal.value ? funeralDateVal.value.format('YYYY-MM-DDTHH:mm:ss') : null;
     formModel.value.burialDate = burialDateVal.value ? burialDateVal.value.format('YYYY-MM-DDTHH:mm:ss') : null;
 
-    deceasedModalApi.lock();
+    deceasedDrawerApi.lock();
     
     // 통합 상세 일괄 저장 (Merge)
     await saveDeceasedDetail(currentId.value, formModel.value);
     
     message.success('고인 종합 정보가 일괄 저장되었습니다.');
-    deceasedModalApi.close();
+    deceasedDrawerApi.close();
     emit('saved');
   } catch (error) {
     message.error('저장 중 실패가 발생했습니다.');
   } finally {
-    deceasedModalApi.unlock();
+    deceasedDrawerApi.unlock();
   }
 }
 
@@ -307,16 +307,16 @@ async function handleCancelDeparture() {
     cancelText: '취소',
     onOk: async () => {
       try {
-        deceasedModalApi.lock();
+        deceasedDrawerApi.lock();
         await cancelDeceasedDeparture(currentId.value);
         message.success('출상 취소 처리가 완료되었습니다.');
-        deceasedModalApi.close();
+        deceasedDrawerApi.close();
         emit('saved');
       } catch (err) {
         console.error('출상 취소 실패:', err);
         message.error('출상 취소 중 오류가 발생했습니다.');
       } finally {
-        deceasedModalApi.unlock();
+        deceasedDrawerApi.unlock();
       }
     }
   });
@@ -326,8 +326,17 @@ defineExpose({ open });
 </script>
 
 <template>
-  <DeceasedModal class="w-[1050px]">
-    <div class="flex h-[680px] overflow-hidden ">
+  <!--
+    이 화면만 넓다(1050px). 왼쪽 바로가기 + 오른쪽 스크롤의 2단 구성이라
+    기본 폭(520px)으로는 두 단이 겹친다.
+
+    `content-class="p-0"` — 드로어 본문의 기본 여백을 없앤다. 왼쪽 바로가기 띠가
+    가장자리에 붙어야 경계선이 제 노릇을 한다.
+    높이는 `h-full` 이다 — 드로어는 창 높이를 꽉 채우므로 예전 모달처럼
+    680px 로 못 박으면 큰 화면에서 아래가 비고 작은 화면에서는 넘친다.
+  -->
+  <DeceasedDrawer class="w-[1050px]" content-class="p-0">
+    <div class="flex h-full overflow-hidden ">
       <!-- 좌측 스티키 바로가기 네비게이션 -->
       <div class="w-[200px] border-r border-gray-200  p-4 flex flex-col gap-1.5 shrink-0">
         <div class="text-xs font-bold text-gray-400 mb-3 px-2 uppercase tracking-wider">
@@ -425,5 +434,5 @@ defineExpose({ open });
         출상 취소
       </Button>
     </template>
-  </DeceasedModal>
+  </DeceasedDrawer>
 </template>

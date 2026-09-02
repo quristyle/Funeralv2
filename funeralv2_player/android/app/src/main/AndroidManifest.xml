@@ -3,6 +3,15 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
 
     <!--
+        [새 버전 설치]
+
+        환경 설정의 버전 확인에서 받은 APK 의 설치 화면을 띄우기 위한 권한이다.
+        이 권한이 있어도 **조용히 설치되지는 않는다** — 시스템이 확인 화면을 띄우고
+        사람이 눌러야 한다. 기기에서 "알 수 없는 앱 설치" 도 한 번 허용해야 한다.
+    -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>
+
+    <!--
         [Android TV 박스 지원]
 
         사이니지 기기로 TV 박스를 쓰는 경우가 있어 선언해 둔다.
@@ -15,8 +24,13 @@
     <uses-feature android:name="android.hardware.touchscreen" android:required="false"/>
     <uses-feature android:name="android.software.leanback" android:required="false"/>
 
+    <!--
+        android:label 이 런처 아이콘 아래에 뜨는 이름이다. 브랜드 워드마크와 같게 "JSINI" 다.
+        패키지 이름(`applicationId`)은 이것과 별개이며 바꾸지 않는다 —
+        바꾸면 현장에 깔린 앱을 덮어쓰지 못하고 두 개가 나란히 설치된다.
+    -->
     <application
-        android:label="funeralv2_player"
+        android:label="JSINI"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:banner="@drawable/tv_banner"
@@ -49,6 +63,24 @@
                 <category android:name="android.intent.category.LEANBACK_LAUNCHER"/>
             </intent-filter>
         </activity>
+        <!--
+            받아 둔 APK 를 설치 화면에 넘기기 위한 FileProvider.
+
+            API 24 부터 `file://` URI 를 다른 앱에 넘기면 FileUriExposedException 이 난다.
+            내보낼 폴더 목록은 res/xml/file_paths.xml 에 있다.
+            `exported="false"` 인데도 동작하는 이유는, 인텐트에 실어 보내는
+            **일회용 읽기 권한**(FLAG_GRANT_READ_URI_PERMISSION) 으로 넘기기 때문이다.
+        -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

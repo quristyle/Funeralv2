@@ -1,3 +1,4 @@
+import { unwrapList, unwrapOne } from '#/api/envelope';
 import { requestClient } from '#/api/request';
 
 export namespace BuildingApi {
@@ -310,7 +311,9 @@ export namespace BuildingApi {
 
 // === 건물 API ===
 export async function getBuildings(companyId?: string) {
-  return requestClient.get<BuildingApi.Building[]>('/funeral/building/info/list', { params: { companyId } });
+  return unwrapList<BuildingApi.Building>(
+    await requestClient.get('/funeral/building/info/list', { params: { companyId } }),
+  );
 }
 export async function createBuilding(data: Omit<BuildingApi.Building, 'id' | 'createdAt'>) {
   return requestClient.post('/funeral/building/info', data);
@@ -324,7 +327,9 @@ export async function deleteBuilding(id: string) {
 
 // === 층 API ===
 export async function getFloors(buildingId?: string) {
-  return requestClient.get<BuildingApi.Floor[]>('/funeral/building/floor/list', { params: { buildingId } });
+  return unwrapList<BuildingApi.Floor>(
+    await requestClient.get('/funeral/building/floor/list', { params: { buildingId } }),
+  );
 }
 export async function createFloor(data: Omit<BuildingApi.Floor, 'id'>) {
   return requestClient.post('/funeral/building/floor', data);
@@ -342,9 +347,9 @@ export async function getRooms(params?: {
   buildingId?: string;
   floorId?: string;
 }) {
-  return requestClient.get<BuildingApi.Room[]>('/funeral/building/room/list', {
-    params,
-  });
+  return unwrapList<BuildingApi.Room>(
+    await requestClient.get('/funeral/building/room/list', { params }),
+  );
 }
 export async function createRoom(data: Omit<BuildingApi.Room, 'id'>) {
   return requestClient.post('/funeral/building/room', data);
@@ -363,16 +368,22 @@ export async function getDevices(params?: {
   floorId?: string;
   roomId?: string;
 }) {
-  return requestClient.get<BuildingApi.Device[]>('/funeral/building/device/list', { params });
+  return unwrapList<BuildingApi.Device>(
+    await requestClient.get('/funeral/building/device/list', { params }),
+  );
 }
 export async function getDevice(id: string) {
-  return requestClient.get<BuildingApi.Device>(`/funeral/building/device/${id}`);
+  return unwrapOne<BuildingApi.Device>(
+    await requestClient.get(`/funeral/building/device/${id}`),
+  );
 }
 export async function createDevice(data: Omit<BuildingApi.Device, 'id'>) {
   return requestClient.post('/funeral/building/device', data);
 }
 export async function updateDevice(id: string, data: Partial<BuildingApi.Device>) {
-  return requestClient.put<BuildingApi.Device>(`/funeral/building/device/${id}`, data);
+  return unwrapOne<BuildingApi.Device>(
+    await requestClient.put(`/funeral/building/device/${id}`, data),
+  );
 }
 export async function deleteDevice(id: string) {
   return requestClient.delete(`/funeral/building/device/${id}`);
@@ -380,13 +391,19 @@ export async function deleteDevice(id: string) {
 
 // === 장비설정 API ===
 export async function getDeviceConfigs(params?: { deviceId?: string }) {
-  return requestClient.get<BuildingApi.DeviceConfig[]>('/funeral/building/device-config/list', { params });
+  return unwrapList<BuildingApi.DeviceConfig>(
+    await requestClient.get('/funeral/building/device-config/list', { params }),
+  );
 }
 export async function getDeviceConfig(deviceId: string) {
-  return requestClient.get<BuildingApi.DeviceConfig>(`/funeral/building/device-config/${deviceId}`);
+  return unwrapOne<BuildingApi.DeviceConfig>(
+    await requestClient.get(`/funeral/building/device-config/${deviceId}`),
+  );
 }
 export async function upsertDeviceConfig(data: Omit<BuildingApi.DeviceConfig, 'id' | 'deviceName'>) {
-  return requestClient.put<BuildingApi.DeviceConfig>('/funeral/building/device-config/', data);
+  return unwrapOne<BuildingApi.DeviceConfig>(
+    await requestClient.put('/funeral/building/device-config/', data),
+  );
 }
 export async function updateDeviceConfig(id: string, data: Omit<BuildingApi.DeviceConfig, 'id' | 'deviceName'>) {
   return requestClient.put(`/funeral/building/device-config/${id}`, data);
@@ -394,7 +411,9 @@ export async function updateDeviceConfig(id: string, data: Omit<BuildingApi.Devi
 
 // === 미디어 소스/영상/음원 API ===
 export async function getMediaSources(type?: 'VIDEO' | 'AUDIO' | 'IMAGE' | 'BACKGROUND') {
-  return requestClient.get<BuildingApi.MediaSource[]>('/funeral/building/source/list', { params: { type } });
+  return unwrapList<BuildingApi.MediaSource>(
+    await requestClient.get('/funeral/building/source/list', { params: { type } }),
+  );
 }
 export async function createMediaSource(data: Omit<BuildingApi.MediaSource, 'id'>) {
   return requestClient.post('/funeral/building/source', data);
@@ -420,9 +439,9 @@ export async function retryAudio(id: string) {
 
 // === 고인 API ===
 export async function getDeceasedList(params?: Record<string, any>) {
-  return requestClient.get<BuildingApi.Deceased[]>('/funeral/building/deceased/list', {
-    params
-  });
+  return unwrapList<BuildingApi.Deceased>(
+    await requestClient.get('/funeral/building/deceased/list', { params }),
+  );
 }
 export async function createDeceased(data: Omit<BuildingApi.Deceased, 'id'>) {
   return requestClient.post('/funeral/building/deceased', data);
@@ -434,22 +453,30 @@ export async function deleteDeceased(id: string) {
   return requestClient.delete(`/funeral/building/deceased/${id}`);
 }
 export async function getDeceasedDetail(id: string) {
-  return requestClient.get<BuildingApi.DeceasedDetail>(`/funeral/building/deceased/${id}/detail`);
+  return unwrapOne<BuildingApi.DeceasedDetail>(
+    await requestClient.get(`/funeral/building/deceased/${id}/detail`),
+  );
 }
 export async function saveDeceasedDetail(id: string, data: BuildingApi.DeceasedDetail) {
   const url = id ? `/funeral/building/deceased/${id}/detail` : '/funeral/building/deceased/detail';
-  return requestClient.put<BuildingApi.DeceasedDetail>(url, data);
+  return unwrapOne<BuildingApi.DeceasedDetail>(await requestClient.put(url, data));
 }
 export async function cancelDeceasedDeparture(id: string) {
-  return requestClient.put<boolean>(`/funeral/building/deceased/${id}/cancel-departure`);
+  return unwrapOne<boolean>(
+    await requestClient.put(`/funeral/building/deceased/${id}/cancel-departure`),
+  );
 }
 
 // === 장비 속성 API ===
 export async function getDeviceAttribute(deviceId: string) {
-  return requestClient.get<BuildingApi.DeviceAttribute>(`/funeral/building/device-attribute/${deviceId}`);
+  return unwrapOne<BuildingApi.DeviceAttribute>(
+    await requestClient.get(`/funeral/building/device-attribute/${deviceId}`),
+  );
 }
 export async function upsertDeviceAttribute(data: Omit<BuildingApi.DeviceAttribute, 'id'>) {
-  return requestClient.put<BuildingApi.DeviceAttribute>('/funeral/building/device-attribute/', data);
+  return unwrapOne<BuildingApi.DeviceAttribute>(
+    await requestClient.put('/funeral/building/device-attribute/', data),
+  );
 }
 export async function deleteDeviceAttribute(deviceId: string) {
   return requestClient.delete(`/funeral/building/device-attribute/${deviceId}`);
@@ -457,27 +484,39 @@ export async function deleteDeviceAttribute(deviceId: string) {
 
 // === 장비 리본 설정 API ===
 export async function getDeviceRibbons(deviceId: string) {
-  return requestClient.get<BuildingApi.DeviceRibbon[]>(`/funeral/building/device-ribbon/by-device/${deviceId}`);
+  return unwrapList<BuildingApi.DeviceRibbon>(
+    await requestClient.get(`/funeral/building/device-ribbon/by-device/${deviceId}`),
+  );
 }
 export async function createDeviceRibbon(data: BuildingApi.DeviceRibbonUpsert) {
-  return requestClient.post<BuildingApi.DeviceRibbon>('/funeral/building/device-ribbon/', data);
+  return unwrapOne<BuildingApi.DeviceRibbon>(
+    await requestClient.post('/funeral/building/device-ribbon/', data),
+  );
 }
 export async function updateDeviceRibbon(id: string, data: BuildingApi.DeviceRibbonUpsert) {
-  return requestClient.put<BuildingApi.DeviceRibbon>(`/funeral/building/device-ribbon/${id}`, data);
+  return unwrapOne<BuildingApi.DeviceRibbon>(
+    await requestClient.put(`/funeral/building/device-ribbon/${id}`, data),
+  );
 }
 export async function deleteDeviceRibbon(id: string) {
   return requestClient.delete(`/funeral/building/device-ribbon/${id}`);
 }
 export async function bulkSaveDeviceRibbons(data: BuildingApi.DeviceRibbonBulkSave) {
-  return requestClient.put<BuildingApi.DeviceRibbon[]>('/funeral/building/device-ribbon/bulk-save', data);
+  return unwrapList<BuildingApi.DeviceRibbon>(
+    await requestClient.put('/funeral/building/device-ribbon/bulk-save', data),
+  );
 }
 
 // === 텍스트 오버레이 API ===
 export async function getDeviceTextOverlays(deviceId: string) {
-  return requestClient.get<BuildingApi.DeviceTextOverlay[]>(`/funeral/building/device-text-overlay/by-device/${deviceId}`);
+  return unwrapList<BuildingApi.DeviceTextOverlay>(
+    await requestClient.get(`/funeral/building/device-text-overlay/by-device/${deviceId}`),
+  );
 }
 export async function bulkSaveDeviceTextOverlays(data: BuildingApi.DeviceTextOverlayBulkSave) {
-  return requestClient.put<BuildingApi.DeviceTextOverlay[]>('/funeral/building/device-text-overlay/bulk-save', data);
+  return unwrapList<BuildingApi.DeviceTextOverlay>(
+    await requestClient.put('/funeral/building/device-text-overlay/bulk-save', data),
+  );
 }
 export async function deleteDeviceTextOverlay(id: string) {
   return requestClient.delete(`/funeral/building/device-text-overlay/${id}`);

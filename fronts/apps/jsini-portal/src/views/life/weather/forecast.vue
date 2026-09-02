@@ -9,7 +9,8 @@ import { Page } from '@vben/common-ui';
 import { IconifyIcon } from '@vben/icons';
 import { EchartsUI, useEcharts } from '@vben/plugins/echarts';
 
-import { Button, message, Select, Space, Spin } from 'ant-design-vue';
+import { message, Select, Space, Spin } from 'ant-design-vue';
+import GridIconButton from '#/components/GridIconButton.vue';
 import dayjs from 'dayjs';
 
 import { getForecast, getLocations } from '#/api/life/weather';
@@ -251,10 +252,12 @@ onMounted(fetchLocations);
             style="width: 200px"
           />
         </Space>
-        <Button :loading="loading" @click="fetchForecast">
-          <IconifyIcon class="mr-1 size-4" icon="lucide:rotate-cw" />
-          새로고침
-        </Button>
+        <GridIconButton
+          :loading="loading"
+          icon="vxe-icon-repeat"
+          title="새로고침"
+          @click="fetchForecast"
+        />
       </div>
 
       <!-- 본문 (내부 스크롤) -->

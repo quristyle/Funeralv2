@@ -52,6 +52,20 @@ public class MenuMetaDto
     public bool? HideInMenu { get; set; }
 
     /// <summary>
+    /// 하위 메뉴를 메뉴목록에서 감출지 여부.
+    ///
+    /// 아래 셋은 vben 의 라우트 메타가 그대로 알아듣는 이름이다.
+    /// 표에 칸이 없어 저장되지 않던 동안에는 여기로 내려보낼 값도 없었다.
+    /// </summary>
+    public bool? HideChildrenInMenu { get; set; }
+
+    /// <summary>브레드크럼에서 감출지 여부</summary>
+    public bool? HideInBreadcrumb { get; set; }
+
+    /// <summary>탭 바에서 감출지 여부</summary>
+    public bool? HideInTab { get; set; }
+
+    /// <summary>
     /// 페이지 유지(Keep-Alive) 여부
     /// </summary>
     public bool? KeepAlive { get; set; }

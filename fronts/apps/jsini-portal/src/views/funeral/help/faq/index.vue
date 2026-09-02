@@ -27,6 +27,7 @@ import {
   Tag,
   Tooltip,
 } from 'ant-design-vue';
+import GridIconButton from '#/components/GridIconButton.vue';
 
 import {
   createFaq,
@@ -221,7 +222,6 @@ onMounted(loadData);
               style="width: 240px"
               @press-enter="loadData"
             />
-            <Button :loading="loading" @click="loadData">조회</Button>
             <Segmented
               v-if="categoryOptions.length > 1"
               v-model:value="activeCategory"
@@ -229,9 +229,21 @@ onMounted(loadData);
             />
           </Space>
 
-          <Button v-if="canManage" type="primary" @click="openCreate">
-            F.A.Q 등록
-          </Button>
+          <!-- 동작 단추는 오른쪽에 모은다 — 조회도 동작이다. -->
+          <div class="flex items-center gap-2">
+            <GridIconButton
+              :loading="loading"
+              icon="vxe-icon-search"
+              title="조회"
+              @click="loadData"
+            />
+            <GridIconButton
+              v-if="canManage"
+              icon="vxe-icon-add"
+              title="F.A.Q 등록"
+              @click="openCreate"
+            />
+          </div>
         </div>
       </Card>
 

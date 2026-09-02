@@ -14,6 +14,7 @@ import { Page } from '@vben/common-ui';
 import { IconifyIcon } from '@vben/icons';
 
 import { Alert, Button, Spin, Tooltip } from 'ant-design-vue';
+import GridIconButton from '#/components/GridIconButton.vue';
 
 import { getAiProviders, getFreeModels } from '#/api/portal/ai/provider';
 import { deepCheckLlm, getGatewayStatus } from '#/api/portal/gateway';
@@ -563,10 +564,12 @@ onUnmounted(() => {
           </div>
 
           <div class="flex flex-col items-end gap-0.5">
-            <Button size="small" type="primary" :loading="loading" @click="fetchStatus(true)">
-              <IconifyIcon icon="lucide:refresh-cw" class="mr-1 size-3.5" />
-              새로고침
-            </Button>
+            <GridIconButton
+              :loading="loading"
+              icon="vxe-icon-repeat"
+              title="새로고침"
+              @click="fetchStatus(true)"
+            />
             <span class="text-muted-foreground text-[10px]">
               {{ lastCheckedAt || '확인 중' }} · {{ AUTO_REFRESH_SEC }}초마다
             </span>

@@ -4,9 +4,10 @@ import { useRoute } from 'vue-router';
 
 import { Page } from '@vben/common-ui';
 
-import { Button, Card, RangePicker, Select, Space, Tag } from 'ant-design-vue';
+import { Card, RangePicker, Select, Space, Tag } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
+import GridIconButton from '#/components/GridIconButton.vue';
 import { getDistinctFailureReasons, getPushLogs } from '#/api/helpdesk';
 
 import { formatDateTime } from '#/views/helpdesk/shared/constants';
@@ -162,29 +163,32 @@ onMounted(async () => {
 <template>
   <Page auto-content-height content-class="page-fill-last">
     <Card class="mb-3" size="small">
-      <Space wrap>
-        <Select
-          v-model:value="filters.status"
-          :options="STATUS_OPTIONS"
-          style="width: 110px"
-          @change="search"
-        />
-        <RangePicker
-          v-model:value="filters.range"
-          value-format="YYYY-MM-DD"
-          @change="search"
-        />
-        <Select
-          v-model:value="filters.reasons"
-          :options="reasonOptions"
-          allow-clear
-          mode="multiple"
-          placeholder="실패 사유"
-          style="min-width: 220px"
-          @change="search"
-        />
-        <Button type="primary" @click="search">조회</Button>
-      </Space>
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <Space wrap>
+          <Select
+            v-model:value="filters.status"
+            :options="STATUS_OPTIONS"
+            style="width: 110px"
+            @change="search"
+          />
+          <RangePicker
+            v-model:value="filters.range"
+            value-format="YYYY-MM-DD"
+            @change="search"
+          />
+          <Select
+            v-model:value="filters.reasons"
+            :options="reasonOptions"
+            allow-clear
+            mode="multiple"
+            placeholder="실패 사유"
+            style="min-width: 220px"
+            @change="search"
+          />
+        </Space>
+        <!-- 동작 단추는 오른쪽에 모은다 — 조회도 동작이다. -->
+        <GridIconButton icon="vxe-icon-search" title="조회" @click="search" />
+      </div>
     </Card>
 
     <Grid>

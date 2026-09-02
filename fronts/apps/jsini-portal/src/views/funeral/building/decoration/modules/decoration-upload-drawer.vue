@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import { ref } from 'vue';
-import { useVbenModal } from '@vben/common-ui';
+import { useVbenDrawer } from '@vben/common-ui';
 import { Button, message, Form, Input, Upload, Progress } from 'ant-design-vue';
 import { createMediaSource, updateMediaSource } from '#/api/funeral/building';
 import { upload_file } from '#/api/examples/upload';
@@ -29,7 +29,7 @@ const formModel = ref({
   remark: ''
 });
 
-const [UploadModal, uploadModalApi] = useVbenModal({
+const [UploadDrawer, uploadDrawerApi] = useVbenDrawer({
   title: '새 장식 리소스 등록',
   destroyOnClose: true,
   onConfirm: async () => {
@@ -54,7 +54,7 @@ function open(row?: any) {
      };
     selectedFileName.value = '';
     uploadPercent.value = 0;
-    uploadModalApi.setState({ title: '장식 리소스 수정' });
+    uploadDrawerApi.setState({ title: '장식 리소스 수정' });
   } else {
     isEditMode.value = false;
     currentSourceId.value = '';
@@ -71,9 +71,9 @@ function open(row?: any) {
     };
     selectedFileName.value = '';
     uploadPercent.value = 0;
-    uploadModalApi.setState({ title: '새 장식 리소스 등록' });
+    uploadDrawerApi.setState({ title: '새 장식 리소스 등록' });
   }
-  uploadModalApi.open();
+  uploadDrawerApi.open();
 }
 
 async function handleSave() {
@@ -83,7 +83,7 @@ async function handleSave() {
       return;
     }
 
-    uploadModalApi.lock();
+    uploadDrawerApi.lock();
     if (isEditMode.value) {
       // 수정 모드: originalFileId 포함 전체 필드 전달 (백엔드 파일 연결 기준)
       await updateMediaSource(currentSourceId.value, {
@@ -102,12 +102,12 @@ async function handleSave() {
       await createMediaSource(formModel.value);
       message.success('장식 소스가 성공적으로 등록되었습니다.');
     }
-    uploadModalApi.close();
+    uploadDrawerApi.close();
     emit('saved');
   } catch (error) {
     message.error(isEditMode.value ? '장식 리소스 수정 실패' : '장식 리소스 등록 실패');
   } finally {
-    uploadModalApi.unlock();
+    uploadDrawerApi.unlock();
   }
 }
 
@@ -184,8 +184,8 @@ defineExpose({ open });
 </script>
 
 <template>
-  <UploadModal :confirm-loading="isUploading">
-    <div class="p-6">
+  <UploadDrawer :confirm-loading="isUploading">
+    <div class="p-2">
       <Form layout="vertical">
         <!-- 장식 이미지 파일 업로드 -->
         <Form.Item label="장식 이미지 파일 업로드 (PNG 투명 파일 권장)" required>
@@ -241,5 +241,5 @@ defineExpose({ open });
         </Form.Item>
       </Form>
     </div>
-  </UploadModal>
+  </UploadDrawer>
 </template>

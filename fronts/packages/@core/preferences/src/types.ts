@@ -278,6 +278,8 @@ interface SidebarPreferences {
    * `hide` 완전히 숨긴다(헤더 햄버거와 같은 상태)
    */
   onMenuSelect: SidebarMenuSelectBehavior;
+  /** 메뉴를 고르면 그 항목을 사이드바 세로 가운데로 스크롤할지 */
+  scrollToActive: boolean;
   /** 사이드바 너비 */
   width: number;
 }

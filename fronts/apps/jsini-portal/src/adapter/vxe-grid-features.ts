@@ -20,7 +20,7 @@
  *   ┌──────────┬──────────┬──────────┐
  *   │ 사용자명 ▲│ 소속 회사│ 상태     │  ← 1행: 이름. 누르면 정렬
  *   ├──────────┼──────────┼──────────┤
- *   │ [검색   ]│ [검색   ]│ [전체 ▾]│  ← 2행: 필터만
+ *   │ [       ]│ [       ]│ [     ▾]│  ← 2행: 필터만
  *   ├──────────┴──────────┴──────────┤
  *
  * 한 칸 안에 이름과 입력칸을 쌓는 것과 다르다. **표의 행이 실제로 둘**이라
@@ -94,7 +94,7 @@ import { preferences } from '@vben/preferences';
 
 import { Select } from 'ant-design-vue';
 
-import { $t } from '#/locales';
+import { $t, $te } from '#/locales';
 import { can } from '#/utils/permission';
 
 /** 값 칸이 아니라서 정렬·필터를 걸지 않는 칸의 `type`. */
@@ -338,6 +338,19 @@ function optionsFromCellTag(column: any): null | { label: string; value: any }[]
     .map((o: any) => ({ label: String(o.label), value: o.value }));
 }
 
+/**
+ * 입력칸에 붙일 이름. 눈에는 안 보이고 화면 낭독기만 읽는다.
+ *
+ * 2행 잎 칸의 `title` 은 비어 있으므로(이름은 1행 묶음이 갖는다) 원래 이름을
+ * `params.filterTitle` 에 남겨 두고 여기서 꺼낸다. 이름이 번역 키인 화면이
+ * 있어서 있으면 번역하고, 없으면 적힌 그대로 읽는다.
+ */
+function filterAriaLabel(column: any): string {
+  const title = column?.params?.filterTitle;
+  if (typeof title !== 'string' || !title) return $t('common.search');
+  return `${$te(title) ? $t(title) : title} ${$t('common.search')}`;
+}
+
 /** 필터줄에서 친 글쇠·눌림이 표로 새어 나가지 않게 한다. */
 function swallow(event: Event) {
   event.stopPropagation();
@@ -516,6 +529,11 @@ function createHeaderRenderers(
          * (머리글은 `overflow: hidden` 이다).
          * 고른 것이 많으면 태그가 칸을 넘치므로 `maxTagCount: 'responsive'` 로
          * "+N" 으로 접는다 — 필터줄 높이가 흔들리면 표가 다시 그려진다.
+         *
+         * `showArrow` 를 **직접 켠다.** ant-design-vue 4 는 여럿 고르기일 때만
+         * 화살표를 기본으로 감추는데(`mode: 'multiple'`), 안내 문구까지 없앤
+         * 지금은 빈 칸이 입력칸과 똑같이 보인다. 이 ▾ 하나가 "고르는 칸" 이라는
+         * 유일한 표시다(바탕색도 한 톤 낮춘다 — styles/index.css).
          */
         h(Select, {
           allowClear: true,
@@ -530,13 +548,23 @@ function createHeaderRenderers(
           'onUpdate:value': (next: any) =>
             applyFilter(field, Array.isArray(next) ? next : [], true),
           options: choices.map((f: any) => ({ label: f.label, value: f.value })),
-          placeholder: $t('common.all'),
+          showArrow: true,
           size: 'small',
           value: toArray(current),
         })
-      : h('input', {
+      : /**
+         * 입력칸에는 **안내 문구를 두지 않는다.**
+         *
+         * 필터줄은 칸마다 같은 말('검색')이 늘어서서 줄 전체가 글자로 시끄러웠다.
+         * 무엇을 거르는 칸인지는 바로 위 이름줄이 이미 말하고 있으므로,
+         * 빈 칸으로 두는 편이 표가 깔끔하다.
+         *
+         * 대신 화면 낭독기에는 `aria-label` 로 알린다 — 안내 문구가 그 일도
+         * 겸하고 있었기 때문에, 그냥 지우면 이름 없는 입력칸이 된다.
+         */
+        h('input', {
+          'aria-label': filterAriaLabel(column),
           class: 'jsini-filterrow__input',
-          placeholder: $t('common.search'),
           type: 'text',
           value: current,
           onClick: swallow,
@@ -764,6 +792,8 @@ function decorate(
   if (leaf.filterRender) leaf.filterRender = undefined;
 
   leaf.title = '';
+  // 이름은 1행이 가져가지만, 입력칸의 `aria-label` 이 원래 이름을 필요로 한다.
+  leaf.params = { ...params, filterTitle: column.title };
   leaf.slots = { ...leaf.slots, header: renderers.filterHeader };
   leaf.headerClassName = [column.headerClassName, FILTER_ROW_CLASS]
     .filter(Boolean)

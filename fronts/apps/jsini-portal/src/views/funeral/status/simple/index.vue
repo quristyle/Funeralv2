@@ -10,7 +10,8 @@
  */
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { Page } from '@vben/common-ui';
-import { Button, Select, Spin, Switch, message } from 'ant-design-vue';
+import { Select, Spin, Switch, message } from 'ant-design-vue';
+import GridIconButton from '#/components/GridIconButton.vue';
 import dayjs from 'dayjs';
 import type { StatusApi } from '#/api/funeral/status';
 import { getFuneralStatusBoard } from '#/api/funeral/status';
@@ -103,7 +104,11 @@ onUnmounted(() => {
             <Switch v-model:checked="onlyInUse" size="small" @change="load()" />
             <span>사용 중만</span>
           </div>
-          <Button size="small" @click="load()">새로고침</Button>
+          <GridIconButton
+            icon="vxe-icon-repeat"
+            title="새로고침"
+            @click="load()"
+          />
           <span class="text-[11px] text-muted-foreground">
             {{ lastLoadedAt ? `${lastLoadedAt} 기준 · 30초마다 갱신` : '' }}
           </span>

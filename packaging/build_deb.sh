@@ -155,7 +155,7 @@ LAUNCHER
 write_unit() {
   cat > "$1" <<'UNIT'
 [Unit]
-Description=Funeral Signage Player (cage kiosk)
+Description=JSINI 사이니지 플레이어 (cage kiosk)
 Documentation=https://github.com/quristyle/Funeralv2
 After=systemd-user-sessions.service getty@tty1.service network-online.target
 Wants=network-online.target

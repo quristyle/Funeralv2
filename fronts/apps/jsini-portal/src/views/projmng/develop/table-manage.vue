@@ -20,6 +20,7 @@ import { Alert, Button, Input, message } from 'ant-design-vue';
 
 import { isChanged, jsCont, projDbParams } from '#/api/projmng';
 
+import GridIconButton from '#/components/GridIconButton.vue';
 import {
   CodeSelect,
   DynamicGrid,
@@ -152,9 +153,13 @@ async function saveColumnComment() {
         @press-enter="search"
       />
       <template #actions>
-        <Button v-perm:search size="small" :loading="loading" @click="search">
-          조회
-        </Button>
+        <GridIconButton
+          v-perm:search
+          :loading="loading"
+          icon="vxe-icon-search"
+          title="조회"
+          @click="search"
+        />
       </template>
     </SearchBar>
 

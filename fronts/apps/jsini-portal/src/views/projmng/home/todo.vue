@@ -17,12 +17,13 @@ import { onMounted, ref } from 'vue';
 
 import { Page } from '@vben/common-ui';
 
-import { Button, DatePicker } from 'ant-design-vue';
+import { DatePicker } from 'ant-design-vue';
 import dayjs from 'dayjs';
 
 import { dbCont } from '#/api/projmng';
 import BizSelect from '#/components/BizSelect.vue';
 
+import GridIconButton from '#/components/GridIconButton.vue';
 import { CodeSelect, DynamicGrid, SearchBar, useProcGrid } from '../shared';
 
 const PROC = 'sp_home_todo_exec';
@@ -74,11 +75,24 @@ onMounted(search);
       <CodeSelect v-model="completeYn" code-id="yn" show-all />
       <CodeSelect v-model="todoState" code-id="todo_state" show-all />
       <template #actions>
-        <Button v-perm:search size="small" @click="search">조회</Button>
-        <Button v-perm:create size="small" @click="make">생성</Button>
-        <Button v-perm:update size="small" type="primary" @click="save()">
-          저장
-        </Button>
+        <GridIconButton
+          v-perm:search
+          icon="vxe-icon-search"
+          title="조회"
+          @click="search"
+        />
+        <GridIconButton
+          v-perm:create
+          icon="vxe-icon-add"
+          title="생성"
+          @click="make"
+        />
+        <GridIconButton
+          v-perm:update
+          icon="vxe-icon-save"
+          title="저장"
+          @click="save()"
+        />
       </template>
     </SearchBar>
 

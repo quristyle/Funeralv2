@@ -34,6 +34,7 @@ import {
 } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
+import GridIconButton from '#/components/GridIconButton.vue';
 import {
   createAckFind,
   createMcModel,
@@ -201,7 +202,8 @@ const [ItemGrid] = useVbenVxeGrid({
     emptyText: '파싱 항목이 없습니다.',
     // 재조회 아이콘 — `:table-data` 라 그리드가 조회 방법을 모른다.
     // 표 셋 모두 모델 하나를 통째로 받아 갈라 쓰므로 셋 다 같은 함수를 준다.
-    gridFeatures: { onRefresh: () => loadData() },
+    // [추가] 아이콘은 탭 위쪽의 등록 아이콘과 같은 함수를 부른다.
+    gridFeatures: { onCreate: () => openCreateItem(), onRefresh: () => loadData() },
     height: GRID_HEIGHT,
     pagerConfig: { enabled: false },
     rowConfig: { keyField: 'id' },
@@ -231,7 +233,7 @@ const [AckGrid] = useVbenVxeGrid({
     data: [],
     emptyText: 'ACK 규칙이 없습니다.',
     // 위 표와 같은 조회로 채워진다.
-    gridFeatures: { onRefresh: () => loadData() },
+    gridFeatures: { onCreate: () => openCreateAck(), onRefresh: () => loadData() },
     height: GRID_HEIGHT,
     pagerConfig: { enabled: false },
     rowConfig: { keyField: 'id' },
@@ -500,9 +502,12 @@ onMounted(loadData);
       <Col :lg="6" :xs="24">
         <Card :body-style="{ padding: 0 }" size="small" title="모델">
           <template #extra>
-            <Button v-perm:create size="small" type="primary" @click="openCreateModel">
-              추가
-            </Button>
+            <GridIconButton
+              v-perm:create
+              icon="vxe-icon-add"
+              title="모델 추가"
+              @click="openCreateModel"
+            />
           </template>
 
           <Spin :spinning="loading">
@@ -553,7 +558,12 @@ onMounted(loadData);
             <!-- 파싱 항목 -->
             <TabPane key="items" tab="파싱 항목">
               <div class="mb-2 flex justify-end">
-                <Button v-perm:create type="primary" @click="openCreateItem">항목 추가</Button>
+                <GridIconButton
+                  v-perm:create
+                  icon="vxe-icon-add"
+                  title="항목 추가"
+                  @click="openCreateItem"
+                />
               </div>
 
               <ItemGrid :table-data="parseItems">
@@ -561,9 +571,12 @@ onMounted(loadData);
                 <template #tags="{ row }">
                   <div class="mb-2 flex items-center justify-between">
                     <span class="text-xs text-muted-foreground">태그 항목</span>
-                    <Button v-perm:create size="small" @click="openCreateTag(row)">
-                      태그 추가
-                    </Button>
+                    <GridIconButton
+                      v-perm:create
+                      icon="vxe-icon-add"
+                      title="태그 추가"
+                      @click="openCreateTag(row)"
+                    />
                   </div>
 
                   <Empty
@@ -630,7 +643,12 @@ onMounted(loadData);
             <!-- ACK 규칙 -->
             <TabPane key="ack" tab="ACK 규칙">
               <div class="mb-2 flex justify-end">
-                <Button v-perm:create type="primary" @click="openCreateAck">규칙 추가</Button>
+                <GridIconButton
+                  v-perm:create
+                  icon="vxe-icon-add"
+                  title="규칙 추가"
+                  @click="openCreateAck"
+                />
               </div>
 
               <AckGrid :table-data="ackFinds">

@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { ref } from 'vue';
-import { useVbenModal } from '@vben/common-ui';
-import { Button, message, Form, Input, Upload, Progress } from 'ant-design-vue';
+import { useVbenDrawer } from '@vben/common-ui';
+import { Button, message, Form, Input, Upload, InputNumber, Progress } from 'ant-design-vue';
 import { createMediaSource, updateMediaSource } from '#/api/funeral/building';
 import { upload_file } from '#/api/examples/upload';
 import type { UploadChangeParam } from 'ant-design-vue';
@@ -19,17 +19,16 @@ const currentSourceId = ref<string>('');
 const formModel = ref({
   name: '',
   shortName: '',
-  sourceType: 'BACKGROUND' as const, // BACKGROUND 타입 고정
+  sourceType: 'AUDIO' as const,
   url: '',
   thumbnailUrl: '',
   thumbnailFileId: null as string | null,
-  originalFileId: null as string | null,
   sortOrder: 0,
   remark: ''
 });
 
-const [UploadModal, uploadModalApi] = useVbenModal({
-  title: '새 배경 이미지 등록',
+const [UploadDrawer, uploadDrawerApi] = useVbenDrawer({
+  title: '새 음원 리소스 등록',
   destroyOnClose: true,
   onConfirm: async () => {
     await handleSave();
@@ -43,69 +42,57 @@ function open(row?: any) {
     formModel.value = {
       name: row.name || '',
       shortName: row.shortName || '',
-      sourceType: 'BACKGROUND',
+      sourceType: 'AUDIO',
       url: row.url || '',
       thumbnailUrl: row.thumbnailUrl || '',
       thumbnailFileId: row.thumbnailFileId || null,
-      originalFileId: row.originalFileId || null,
       sortOrder: row.sortOrder || 0,
       remark: row.remark || ''
      };
     selectedFileName.value = '';
     uploadPercent.value = 0;
-    uploadModalApi.setState({ title: '배경 이미지 리소스 수정' });
+    uploadDrawerApi.setState({ title: '음원 리소스 수정' });
   } else {
     isEditMode.value = false;
     currentSourceId.value = '';
     formModel.value = {
       name: '',
       shortName: '',
-      sourceType: 'BACKGROUND',
+      sourceType: 'AUDIO',
       url: '',
       thumbnailUrl: '',
       thumbnailFileId: null,
-      originalFileId: null,
       sortOrder: 0,
       remark: ''
     };
     selectedFileName.value = '';
     uploadPercent.value = 0;
-    uploadModalApi.setState({ title: '새 배경 이미지 리소스 등록' });
+    uploadDrawerApi.setState({ title: '새 음원 리소스 등록' });
   }
-  uploadModalApi.open();
+  uploadDrawerApi.open();
 }
 
 async function handleSave() {
   try {
     if (!formModel.value.name || !formModel.value.url) {
-      message.warning('배경 이미지 명칭과 이미지 파일은 필수 사항입니다.');
+      message.warning('음원 명칭과 음원 파일은 필수 사항입니다.');
       return;
     }
 
-    uploadModalApi.lock();
+    uploadDrawerApi.lock();
     if (isEditMode.value) {
-      await updateMediaSource(currentSourceId.value, {
-        name: formModel.value.name,
-        shortName: formModel.value.shortName,
-        sourceType: formModel.value.sourceType,
-        url: formModel.value.url,
-        thumbnailUrl: formModel.value.thumbnailUrl,
-        thumbnailFileId: formModel.value.thumbnailFileId,
-        originalFileId: formModel.value.originalFileId,
-        sortOrder: formModel.value.sortOrder,
-        remark: formModel.value.remark
-      });
-      message.success('배경 이미지 소스가 성공적으로 수정되었습니다.');
+      await updateMediaSource(currentSourceId.value, formModel.value);
+      message.success('음원 소스가 성공적으로 수정되었습니다.');
     } else {
       await createMediaSource(formModel.value);
-      message.success('배경 이미지 소스가 성공적으로 등록되었습니다.');
+      message.success('음원 소스가 성공적으로 등록되었습니다.');
     }
-    uploadModalApi.close();
+    uploadDrawerApi.close();
     emit('saved');
   } catch (error) {
-    message.error(isEditMode.value ? '배경 이미지 리소스 수정 실패' : '배경 이미지 리소스 등록 실패');
+    message.error(isEditMode.value ? '음원 리소스 수정 실패' : '음원 리소스 등록 실패');
   } finally {
-    uploadModalApi.unlock();
+    uploadDrawerApi.unlock();
   }
 }
 
@@ -115,10 +102,18 @@ async function customUploadRequest(options: any) {
   uploadPercent.value = 0;
   selectedFileName.value = options.file.name;
 
+  const fileLimit = 100 * 1024 * 1024; // 100MB 한도
+  if (options.file.size > fileLimit) {
+    message.error('업로드 가능한 음원 파일 최대 용량은 100MB입니다.');
+    options.onError(new Error('File size limit exceeded'));
+    isUploading.value = false;
+    return;
+  }
+
   try {
     await upload_file({
       file: options.file,
-      bizType: 'funeralv2/background',
+      bizType: 'funeralv2',
       onProgress: (event) => {
         uploadPercent.value = Math.round(event.percent);
         options.onProgress(event);
@@ -126,26 +121,20 @@ async function customUploadRequest(options: any) {
       onSuccess: (res, file) => {
         const fileItem = res?.result?.[0] || res?.[0] || res;
         const fileUrl = fileItem?.downloadUrl || fileItem?.url;
-        const fileId = fileItem?.id;
+        const thumbnailFileId = fileItem?.thumbnailFileId;
+        const thumbnailUrl = fileItem?.thumbnailUrl;
 
         if (fileUrl && typeof fileUrl === 'string') {
           formModel.value.url = fileUrl;
-          if (fileId) {
-            formModel.value.thumbnailUrl = `/api/file/thumbnail/${fileId}`;
-            formModel.value.thumbnailFileId = fileId;
-            formModel.value.originalFileId = fileId;
-          } else {
-            formModel.value.thumbnailUrl = fileUrl;
-            formModel.value.thumbnailFileId = null;
-            formModel.value.originalFileId = null;
+          if (thumbnailUrl) {
+            formModel.value.thumbnailUrl = thumbnailUrl;
+            formModel.value.thumbnailFileId = thumbnailFileId;
           }
           
-          if (isEditMode.value) {
-            formModel.value.name = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
-          } else if (!formModel.value.name) {
+          if (!formModel.value.name) {
             formModel.value.name = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
           }
-          message.success('배경 이미지 업로드 성공');
+          message.success('파일 업로드에 성공했습니다.');
           options.onSuccess(res, file);
         } else {
           message.error('파일 업로드 응답 형식이 올바르지 않습니다.');
@@ -177,19 +166,19 @@ defineExpose({ open });
 </script>
 
 <template>
-  <UploadModal :confirm-loading="isUploading">
-    <div class="p-6">
+  <UploadDrawer :confirm-loading="isUploading">
+    <div class="p-2">
       <Form layout="vertical">
-        <!-- 배경 이미지 파일 업로드 -->
-        <Form.Item label="배경 이미지 파일 업로드 (PNG, JPG/JPEG 형식 지원)" required>
+        <!-- 등록 모드일 때만 업로드 기능 허용 -->
+        <Form.Item v-if="!isEditMode" label="음원 파일 업로드 (최대 100MB)" required>
           <Upload
-            accept="image/png, image/jpeg, image/jpg"
+            accept="audio/mp3,audio/wav,audio/mpeg,audio/ogg"
             :custom-request="customUploadRequest"
             :show-upload-list="false"
             @change="handleUploadChange"
           >
             <Button :loading="isUploading" type="dashed" class="w-full">
-              {{ isUploading ? '서버로 업로드 중...' : (isEditMode ? '클릭하여 이미지 파일 교체' : '클릭하여 배경 이미지 선택') }}
+              {{ isUploading ? '서버로 업로드 중...' : '클릭하여 음원 파일 선택' }}
             </Button>
           </Upload>
           
@@ -203,36 +192,44 @@ defineExpose({ open });
           </div>
 
           <div v-if="formModel.url" class="mt-2 text-xs text-muted-foreground break-all bg-muted p-3 rounded border flex gap-3 items-center">
-            <div class="size-16 bg-[url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%228%22 height=%228%22 viewBox=%220 0 8 8%22><rect width=%224%22 height=%224%22 fill=%22%23ccc%22/><rect x=%224%22 y=%224%22 width=%224%22 height=%224%22 fill=%22%23ccc%22/></svg>')] bg-white rounded border overflow-hidden flex items-center justify-center">
-              <img :src="formModel.thumbnailUrl || formModel.url" class="max-w-[56px] max-h-[56px] object-contain" alt="배경 이미지 미리보기" />
-            </div>
+            <img v-if="formModel.thumbnailUrl" :src="formModel.thumbnailUrl" class="w-16 h-16 object-cover rounded border shadow-sm" alt="음원 커버" />
+            <div v-else class="w-16 h-16 bg-black/5 rounded border flex items-center justify-center text-lg text-muted-foreground">🎵</div>
             <div class="flex-1 space-y-1">
-              <div>현재 이미지 경로: {{ formModel.url }}</div>
-              <div class="text-primary font-medium text-[10px]">※ 장비 디스플레이 배경으로 사용될 이미지입니다.</div>
+              <div>업로드된 경로: {{ formModel.url }}</div>
+              <div v-if="formModel.thumbnailUrl" class="text-primary font-medium text-[10px]">※ 음원에서 앨범아트(커버)가 추출되어 바인딩되었습니다.</div>
+              <div v-else class="text-muted-foreground text-[10px]">※ 추출된 앨범아트가 없는 음원 리소스입니다. (기본 아이콘으로 설정됩니다)</div>
             </div>
           </div>
         </Form.Item>
 
-        <!-- 배경 이미지 명칭 -->
-        <Form.Item label="배경 이미지 명칭" required>
-          <Input v-model:value="formModel.name" placeholder="배경 이미지 리소스 명칭을 입력해 주십시오." />
+        <!-- 수정 모드일 때 업로드 경로 정보만 조회 -->
+        <Form.Item v-else label="등록된 음원 파일 정보">
+          <div class="mt-2 text-xs text-muted-foreground break-all bg-muted p-3 rounded border flex gap-3 items-center">
+            <img v-if="formModel.thumbnailUrl" :src="formModel.thumbnailUrl" class="w-16 h-16 object-cover rounded border shadow-sm" alt="음원 커버" />
+            <div v-else class="w-16 h-16 bg-black/5 rounded border flex items-center justify-center text-lg text-muted-foreground">🎵</div>
+            <div class="flex-1 space-y-1">
+              <div>파일 경로: {{ formModel.url }}</div>
+              <div class="text-primary font-medium text-[10px]">※ 수정 모드에서는 원본 음원 파일을 변경할 수 없습니다.</div>
+            </div>
+          </div>
         </Form.Item>
 
-        <!-- 짧은 명칭 -->
+        <Form.Item label="음원 명칭" required>
+          <Input v-model:value="formModel.name" placeholder="예: 상례 추모 음악 1번, 관내 백그라운드 재즈" />
+        </Form.Item>
+
         <Form.Item label="짧은 명칭">
-          <Input v-model:value="formModel.shortName" placeholder="목록 및 DID에서 선택 시 표시할 짧은 별칭입니다." />
+          <Input v-model:value="formModel.shortName" placeholder="예: 추모음악1, 백그라운드재즈 (장비 DID 화면 등에 노출)" />
         </Form.Item>
 
-        <!-- 순서 -->
-        <Form.Item label="정렬 순서">
-          <Input v-model:value="formModel.sortOrder" type="number" placeholder="목록 정렬 가중치입니다." />
+        <Form.Item label="순서">
+          <InputNumber v-model:value="formModel.sortOrder" :min="0" class="w-full" placeholder="정렬 순서" />
         </Form.Item>
 
-        <!-- 설명 -->
-        <Form.Item label="설명 및 비고">
-          <Input.TextArea v-model:value="formModel.remark" :rows="3" placeholder="리소스의 용도나 특징을 간략히 메모합니다." />
+        <Form.Item label="설명/비고">
+          <Input.TextArea v-model:value="formModel.remark" placeholder="음원 장르 및 상세 용도 작성" />
         </Form.Item>
       </Form>
     </div>
-  </UploadModal>
+  </UploadDrawer>
 </template>

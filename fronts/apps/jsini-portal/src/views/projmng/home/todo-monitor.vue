@@ -16,11 +16,12 @@ import { onMounted, ref } from 'vue';
 
 import { Page } from '@vben/common-ui';
 
-import { Button, DatePicker, TabPane, Tabs } from 'ant-design-vue';
+import { DatePicker, TabPane, Tabs } from 'ant-design-vue';
 import dayjs from 'dayjs';
 
 import BizSelect from '#/components/BizSelect.vue';
 
+import GridIconButton from '#/components/GridIconButton.vue';
 import { DynamicGrid, SearchBar, useProcGrid } from '../shared';
 
 const targetDate = ref(dayjs());
@@ -70,9 +71,12 @@ onMounted(search);
         @change="search"
       />
       <template #actions>
-        <Button v-perm:search size="small" type="primary" @click="search">
-          조회
-        </Button>
+        <GridIconButton
+          v-perm:search
+          icon="vxe-icon-search"
+          title="조회"
+          @click="search"
+        />
       </template>
     </SearchBar>
 

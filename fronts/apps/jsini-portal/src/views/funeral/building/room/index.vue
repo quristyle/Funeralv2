@@ -1,9 +1,10 @@
 <script lang="ts" setup>
 import { ref, watch, onMounted } from 'vue';
-import { Page, useVbenModal } from '@vben/common-ui';
-import { IconifyIcon, Plus } from '@vben/icons'; 
+import { Page, useVbenDrawer } from '@vben/common-ui';
+import { IconifyIcon } from '@vben/icons'; 
 import { Button, message, Popconfirm, Form, Input, Select, Tooltip, InputNumber } from 'ant-design-vue';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
+import GridIconButton from '#/components/GridIconButton.vue';
 import { getRooms, createRoom, updateRoom, deleteRoom } from '#/api/funeral/building';
 import { getCommonCodes } from '#/api/portal/system/common-code';
 import BizSelect from '#/components/BizSelect.vue';
@@ -32,7 +33,7 @@ const selectedBuildingId = ref<string>('');
 const filterFloorId = ref<string>('');
 
 // ─── 모달 설정 ──────────────────────────────────────────────────
-const [RoomModal, roomModalApi] = useVbenModal({
+const [RoomDrawer, roomDrawerApi] = useVbenDrawer({
   title: '호실 정보 설정',
   destroyOnClose: true,
   onConfirm: async () => {
@@ -82,6 +83,9 @@ const [Grid, gridApi] = useVbenVxeGrid({
         slots: { default: 'action' }
       }
     ],
+    // 아래 도구줄의 [추가] — 위쪽 아이콘과 같은 함수를 부른다.
+    // (`gridFeatures` 는 vxe 타입에 없다. 공통 레이어가 읽고 떼어 낸다.)
+    gridFeatures: { onCreate: () => onCreate() },
     height: 'auto',
     proxyConfig: {
       ajax: {
@@ -102,7 +106,7 @@ const [Grid, gridApi] = useVbenVxeGrid({
         },
       },
     },
-  },
+  } as any,
 });
 
 // ─── Watch: 회사 변경 시 건물 ID 초기화 ─────────────────────────
@@ -134,13 +138,13 @@ function onCreate() {
     status: 'ACTIVE',
     remark: ''
   };
-  roomModalApi.open();
+  roomDrawerApi.open();
 }
 
 // ─── 수정 ───────────────────────────────────────────────────────
 function onEdit(row: any) {
   formModel.value = { ...row };
-  roomModalApi.open();
+  roomDrawerApi.open();
 }
 
 // ─── 삭제 ───────────────────────────────────────────────────────
@@ -164,7 +168,7 @@ async function handleSave() {
       await createRoom(formModel.value);
       message.success('호실 정보가 등록되었습니다.');
     }
-    roomModalApi.close();
+    roomDrawerApi.close();
     gridApi.query();
   } catch (error) {
     message.error('저장 실패');
@@ -224,10 +228,12 @@ async function handleSave() {
       </div>
 
       <!-- 신규 등록 버튼 -->
-      <Button v-perm:create type="primary" @click="onCreate">
-        <Plus class="size-5 mr-1" />
-        신규 호실 등록
-      </Button>
+      <GridIconButton
+        v-perm:create
+        icon="vxe-icon-add"
+        title="신규 호실 등록"
+        @click="onCreate"
+      />
     </div>
 
     <!-- ── 그리드 ───────────────────────────────────────────────── -->
@@ -262,9 +268,9 @@ async function handleSave() {
       </template>
     </Grid>
 
-    <!-- ── 호실 등록/수정 모달 ───────────────────────────────────── -->
-    <RoomModal>
-      <div class="p-6">
+    <!-- ── 호실 등록/수정 드로어 ───────────────────────────────────── -->
+    <RoomDrawer>
+      <div class="p-2">
         <Form layout="vertical">
           <!-- 배정 층 (BizSelect: 건물 종속 → 층 종속) -->
           <Form.Item label="배정 층" required>
@@ -303,6 +309,6 @@ async function handleSave() {
           </Form.Item>
         </Form>
       </div>
-    </RoomModal>
+    </RoomDrawer>
   </Page>
 </template>

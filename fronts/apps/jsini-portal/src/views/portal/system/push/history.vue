@@ -4,9 +4,10 @@ import { useRouter } from 'vue-router';
 
 import { Page } from '@vben/common-ui';
 
-import { Button, Card, DatePicker, Select, Space, Tag } from 'ant-design-vue';
+import { Card, DatePicker, Select, Space, Tag } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
+import GridIconButton from '#/components/GridIconButton.vue';
 import { fetchBizOptions } from '#/api/biz-select';
 import { getMyNotifications } from '#/api/helpdesk';
 import { useHelpdeskStore } from '#/store/helpdesk';
@@ -172,11 +173,18 @@ onMounted(async () => {
             show-search
             style="width: 180px"
           />
-          <Button type="primary" @click="loadData">조회</Button>
         </Space>
-        <span class="text-muted-foreground text-sm">
-          알림 목록 (총 {{ total }}개)
-        </span>
+        <!-- 동작 단추는 오른쪽에 모은다 — 조회도 동작이다. -->
+        <div class="flex items-center gap-2">
+          <span class="text-muted-foreground text-sm">
+            알림 목록 (총 {{ total }}개)
+          </span>
+          <GridIconButton
+            icon="vxe-icon-search"
+            title="조회"
+            @click="loadData"
+          />
+        </div>
       </div>
     </Card>
 

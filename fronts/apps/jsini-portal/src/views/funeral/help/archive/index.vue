@@ -32,6 +32,7 @@ import {
   Tooltip,
   Upload,
 } from 'ant-design-vue';
+import GridIconButton from '#/components/GridIconButton.vue';
 
 import {
   createArchive,
@@ -334,16 +335,22 @@ onMounted(load);
               placeholder="자료명 · 설명 · 파일명 검색"
               @press-enter="handleSearch"
             />
-            <Button type="primary" @click="handleSearch">
-              <IconifyIcon class="mr-1" icon="lucide:search" />
-              조회
-            </Button>
           </Space>
 
-          <Button v-if="canManage" type="primary" @click="openCreate">
-            <IconifyIcon class="mr-1" icon="lucide:plus" />
-            자료 등록
-          </Button>
+          <!-- 동작 단추는 오른쪽에 모은다 — 조회도 동작이다. -->
+          <div class="flex items-center gap-2">
+            <GridIconButton
+              icon="vxe-icon-search"
+              title="조회"
+              @click="handleSearch"
+            />
+            <GridIconButton
+              v-if="canManage"
+              icon="vxe-icon-add"
+              title="자료 등록"
+              @click="openCreate"
+            />
+          </div>
         </div>
 
         <!-- 분류 탭. 등록된 분류가 없으면 감춘다. -->

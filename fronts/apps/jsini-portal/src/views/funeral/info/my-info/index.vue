@@ -23,7 +23,7 @@ const info = ref<InfoApi.MyInfo | null>(null);
 async function load() {
   loading.value = true;
   try {
-    info.value = await getMyInfo();
+    info.value = (await getMyInfo()) ?? null;
   } catch {
     message.error('내 정보를 불러오지 못했습니다.');
   } finally {

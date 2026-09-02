@@ -9,9 +9,13 @@ public interface ISystemMenuService
 {
     /// <summary>
     /// 시스템에 등록된 전체 메뉴를 트리 구조로 조회합니다.
+    /// 제목의 다국어는 여기서 함께 붙여 <see cref="SystemMenuMetaDto.TitleText"/> 로 내려보냅니다.
     /// </summary>
+    /// <param name="locale">
+    /// 제목을 옮길 언어(<c>ko</c> · <c>en</c>). 비우면 <c>ko</c> 로 본다.
+    /// </param>
     /// <returns>시스템 메뉴 DTO 트리 목록</returns>
-    Task<List<SystemMenuDto>> GetMenuListAsync();
+    Task<List<SystemMenuDto>> GetMenuListAsync(string? locale = null);
 
     /// <summary>
     /// 중복된 메뉴 이름이 있는지 확인합니다.

@@ -49,6 +49,14 @@ interface MenuRecordRaw extends MenuRecordBadgeRaw {
    */
   icon?: Component | string;
   /**
+   * 눌렀을 때 이동할 실제 경로. 없으면 `path` 로 이동한다.
+   *
+   * 같은 메뉴를 트리 밖에 한 번 더 얹을 때(즐겨찾기) 쓴다. 두 항목이 `path` 를
+   * 공유하면 메뉴가 둘을 같은 항목 하나로 보므로, 신원은 `path` 로 나누고
+   * 이동할 곳만 여기에 남긴다.
+   */
+  link?: string;
+  /**
    * 메뉴 이름
    */
   name: string;

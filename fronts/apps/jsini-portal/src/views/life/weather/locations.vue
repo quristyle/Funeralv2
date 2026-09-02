@@ -4,7 +4,7 @@ import type { VxeTableGridOptions } from '#/adapter/vxe-table';
 import { onMounted, ref } from 'vue';
 
 import { Page, useVbenModal } from '@vben/common-ui';
-import { IconifyIcon, Plus } from '@vben/icons';
+import { IconifyIcon } from '@vben/icons';
 
 import {
   Button,
@@ -20,6 +20,7 @@ import {
 } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
+import GridIconButton from '#/components/GridIconButton.vue';
 import {
   createLocation,
   deleteLocation,
@@ -93,6 +94,8 @@ const [Grid, gridApi] = useVbenVxeGrid({
         width: 170,
       },
     ],
+    // 아래 도구줄의 [추가] — 위쪽 아이콘과 같은 함수를 부른다.
+    gridFeatures: { onCreate: () => onCreate() },
     height: 'auto',
     pagerConfig: { enabled: false },
     proxyConfig: {
@@ -279,10 +282,12 @@ onMounted(fetchWarningZones);
           기상청 API 연동을 위한 NX, NY 좌표 정보를 관리합니다.
         </p>
       </div>
-      <Button v-perm:create type="primary" @click="onCreate">
-        <Plus class="mr-1 size-5" />
-        지역 추가
-      </Button>
+      <GridIconButton
+        v-perm:create
+        icon="vxe-icon-add"
+        title="지역 추가"
+        @click="onCreate"
+      />
     </div>
 
     <Grid table-title="관측 지역">

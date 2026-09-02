@@ -2,6 +2,7 @@
 import { Page } from '@vben/common-ui';
 import { Button, message } from 'ant-design-vue';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
+import GridIconButton from '#/components/GridIconButton.vue';
 import { getArchiveItems, downloadArchiveFile } from '#/api/funeral/help';
 
 const [Grid, gridApi] = useVbenVxeGrid({
@@ -67,7 +68,11 @@ async function handleDownload(row: any) {
   <Page auto-content-height>
     <div class="mb-4 bg-card p-4 rounded border flex justify-between items-center">
       <span class="font-semibold text-sm">📁 관내 공용 배포 문서 및 드라이버 자료실</span>
-      <Button type="primary" @click="gridApi.query()">새로고침</Button>
+      <GridIconButton
+        icon="vxe-icon-repeat"
+        title="새로고침"
+        @click="gridApi.query()"
+      />
     </div>
 
     <Grid table-title="자료실 및 다운로드 대장 목록">

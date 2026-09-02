@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import { Badge, Button, Popconfirm, Tooltip } from 'ant-design-vue';
-import { IconifyIcon, Plus } from '@vben/icons';
+import GridIconButton from '#/components/GridIconButton.vue';
+import { IconifyIcon } from '@vben/icons';
 import BizSelect from '#/components/BizSelect.vue';
 import type { BuildingApi } from '#/api/funeral/building';
 
@@ -87,10 +88,11 @@ const emit = defineEmits<{
           />
         </div>
       </div>
-      <Button type="primary" size="small" @click="emit('create')">
-        <Plus class="mr-1 size-4" />
-        장비 등록
-      </Button>
+      <GridIconButton
+        icon="vxe-icon-add"
+        title="장비 등록"
+        @click="emit('create')"
+      />
     </div>
 
     <!-- 장비 목록 그리드 -->

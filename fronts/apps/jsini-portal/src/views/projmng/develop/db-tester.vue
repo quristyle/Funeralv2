@@ -18,10 +18,11 @@ import { ref } from 'vue';
 
 import { Page } from '@vben/common-ui';
 
-import { Alert, Button } from 'ant-design-vue';
+import { Alert } from 'ant-design-vue';
 
 import { rawSql } from '#/api/projmng';
 
+import GridIconButton from '#/components/GridIconButton.vue';
 import { CodeSelect, DynamicGrid, SearchBar, SplitPane } from '../shared';
 import { CodeEditor } from '#/components/code-editor';
 
@@ -91,15 +92,13 @@ function onKeydown(event: KeyboardEvent) {
         @change="(item) => (dbItem = item)"
       />
       <template #actions>
-        <Button
+        <GridIconButton
           v-perm:search
-          size="small"
-          type="primary"
           :loading="loading"
+          icon="vxe-icon-send"
+          title="실행 (F5)"
           @click="runAll"
-        >
-          실행 (F5)
-        </Button>
+        />
       </template>
     </SearchBar>
 

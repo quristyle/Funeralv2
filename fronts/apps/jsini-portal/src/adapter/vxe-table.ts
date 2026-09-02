@@ -20,6 +20,23 @@ import { $t, $te } from '#/locales';
 
 import { createGridFeatures } from './vxe-grid-features';
 
+/**
+ * 조회 응답에서 행 목록을 꺼낸다.
+ *
+ * vxe 는 응답을 그대로 주지 않고 `{ data, $table, $grid }` 로 감싸서 준다.
+ * 조회 함수가 벗긴 배열을 주든(`src/api/envelope.ts` 의 기준) 봉투를 그대로
+ * 주든 여기서 흡수한다 — 화면마다 반환 모양을 맞추게 하지 않으려는 것이다.
+ */
+function gridRows(params: any): any[] {
+  const res = params?.data ?? params;
+  if (Array.isArray(res)) return res;
+  if (Array.isArray(res?.result)) return res.result;
+  if (Array.isArray(res?.items)) return res.items;
+  if (Array.isArray(res?.data)) return res.data;
+  if (Array.isArray(res?.data?.result)) return res.data.result;
+  return [];
+}
+
 setupVbenVxeTable({
   // vxe-table의 다국어 처리를 위해 전역 i18n 시스템의 $t 함수를 주입합니다.
   i18n: (key: string, args?: any) => {
@@ -104,14 +121,14 @@ setupVbenVxeTable({
         /**
          * 페이저는 **전역에서 건드리지 않는다.**
          *
-         * 한 번 `enabled: false` 로 못 박아 봤다가 전 화면이 비었다. 이 시스템의
-         * 조회 API 는 대부분 `{ result, page: { total } }` 봉투를 그대로 돌려주는데,
-         * vxe 는 **페이저가 켜져 있을 때만** 그 봉투를 풀어 읽기 때문이다
-         * (꺼져 있으면 응답 전체를 목록으로 보므로 객체가 오면 0건이 된다).
+         * 한 번 `enabled: false` 로 못 박아 봤다가 전 화면이 비었다.
+         * vxe 는 페이저가 켜져 있으면 `result` · `page.total` 을 보고,
+         * 꺼져 있으면 응답 전체를 목록으로 본다 — 서로 다른 자리를 읽는다.
          *
-         * 그래서 규칙은 이렇다.
-         *   · 응답 봉투(`{result, page}`)를 그대로 돌려준다 → 아무것도 안 적는다
-         *   · 배열을 그대로 돌려준다                      → `pagerConfig: { enabled: false }`
+         * **어느 쪽이든 배열과 봉투를 모두 받도록** 아래 `response` 에서 셋을
+         * 다 지정했다(`list` · `result` · `total`). 그래서 조회 함수가 무엇을
+         * 돌려주든 화면이 맞춰 줄 필요가 없다 — 예전에는 "봉투를 그대로 돌려주거나,
+         * 배열을 돌려주려면 페이저를 꺼라" 는 규칙을 화면마다 지켜야 했다.
          */
 
         formConfig: {
@@ -123,22 +140,24 @@ setupVbenVxeTable({
           autoLoad: true,
           response: {
             /**
-             * 페이저가 **꺼져 있을 때** vxe 가 목록을 찾는 자리다.
-             * (켜져 있을 때는 `result` · `page.total` 을 본다.)
+             * 페이저가 **꺼져 있을 때** vxe 가 목록을 찾는 자리.
              *
-             * 기본값이 `'list'` 라 `res.list` 를 찾는데, 우리 API 는 그런 이름을
-             * 쓰지 않는다. 그래서 페이저를 끈 화면은 **행이 하나도 안 나왔다.**
-             * 조회 함수가 배열을 주든 응답 봉투를 주든 여기서 목록을 꺼낸다 —
-             * 화면마다 반환 모양을 맞추게 하지 않으려는 것이다.
+             * 기본값이 `'list'` 라 `res.list` 를 찾는데 우리 API 는 그런 이름을
+             * 쓰지 않는다. 그래서 페이저를 끈 화면은 행이 하나도 안 나왔다.
              */
-            list: (params: any) => {
-              // vxe 는 응답을 그대로 주지 않고 `{ data, $table, $grid }` 로 감싸서 준다.
+            list: (params: any) => gridRows(params),
+            /** 페이저가 **켜져 있을 때** vxe 가 목록을 찾는 자리. */
+            result: (params: any) => gridRows(params),
+            /**
+             * 페이저가 켜져 있을 때의 총건수.
+             *
+             * 봉투의 `page.total` 이 정본이고, 없으면 받은 건수로 본다
+             * (전체를 한 번에 주는 API — 페이징을 vxe 가 하는 경우).
+             */
+            total: (params: any) => {
               const res = params?.data ?? params;
-              if (Array.isArray(res)) return res;
-              if (Array.isArray(res?.result)) return res.result;
-              if (Array.isArray(res?.items)) return res.items;
-              if (Array.isArray(res?.data)) return res.data;
-              return [];
+              const total = Number(res?.page?.total ?? res?.data?.page?.total);
+              return Number.isFinite(total) ? total : gridRows(params).length;
             },
           },
           showActiveMsg: true,
@@ -411,11 +430,60 @@ function adjustGridForMobile(options: any) {
 }
 
 /**
+ * 검색 폼의 **조회 · 초기화**를 아이콘만 남긴 동그란 단추로 바꾼다.
+ *
+ * 그리드 위쪽 조작 장치는 전부 아이콘으로 통일돼 있는데(도구줄 · `GridIconButton`),
+ * 검색 폼 오른쪽 끝의 이 둘만 글자 단추로 남아 줄이 어긋나 보였다.
+ *
+ * **화면을 고치지 않는다.** 이 둘은 `formOptions` 로만 조절할 수 있고, 그리드를 만드는
+ * 길은 이 함수 하나뿐이라 여기서 바탕값을 깔면 전 화면에 한 번에 걸린다.
+ * 화면이 일부러 적어 둔 값은 **덮지 않는다**(뒤에 펼친다).
+ *
+ * `content` 를 비우고 `icon` 을 주는 방식이다 — 이 단추는 antd `Button` 이라
+ * (`adapter/component` 의 `PrimaryButton` · `DefaultButton`) `shape` · `icon` 을 받는다.
+ * 아래 도구줄처럼 vxe 단추 모양으로 만들 수는 없다. 그 자리는 vben 폼이 그리고,
+ * 부품을 갈아끼우려면 상위와 맞춰 둔 `fronts/packages` 를 건드려야 한다.
+ *
+ * 접기 화살표의 '접기 · 펼치기' 글자는 CSS 로 감춘다(`styles/index.css`) —
+ * 그것은 `formOptions` 로 닿지 않는 자리다. 화살표가 도는 것으로 상태를 보인다.
+ */
+function iconizeSearchFormActions(options: any) {
+  const formOptions = options?.formOptions;
+  if (!formOptions) return options;
+
+  return {
+    ...options,
+    formOptions: {
+      ...formOptions,
+      // 접기 화살표의 글자를 감출 표시. 화면이 준 클래스는 살린다.
+      actionWrapperClass: [formOptions.actionWrapperClass, 'jsini-form-actions']
+        .filter(Boolean)
+        .join(' '),
+      resetButtonOptions: {
+        content: '',
+        icon: h(IconifyIcon, { class: 'size-4', icon: 'lucide:rotate-ccw' }),
+        shape: 'circle',
+        title: $t('common.reset'),
+        ...formOptions.resetButtonOptions,
+      },
+      submitButtonOptions: {
+        content: '',
+        icon: h(IconifyIcon, { class: 'size-4', icon: 'lucide:search' }),
+        shape: 'circle',
+        title: $t('common.query'),
+        ...formOptions.submitButtonOptions,
+      },
+    },
+  };
+}
+
+/**
  * 화면들이 쓰는 것은 전부 이 함수다 — 예외가 하나도 없다.
  * 그래서 그리드 공통 기능은 화면을 고치지 않고 여기서 건다.
  *
  *   1) `adjustGridForMobile` — 모바일 보정 (40번 문서)
- *   2) `createGridFeatures`  — 정렬 · 필터 전용 행 (vxe-grid-features.ts)
+ *   2) `iconizeSearchFormActions` — 검색 폼의 조회 · 초기화를 아이콘으로
+ *   3) `createGridFeatures`  — 정렬 · 필터 전용 행 (vxe-grid-features.ts)
  *
  * 필터줄은 그려질 때 **그리드 인스턴스**가 있어야 `setFilter` 를 부를 수 있는데,
  * 컬럼을 손보는 시점에는 아직 그리드가 없다. 그래서 인스턴스를 꺼내는 함수를
@@ -432,7 +500,7 @@ export const useVbenVxeGrid = <T extends Record<string, any>>(
     options: prepared,
     renderTools,
   } = createGridFeatures(
-    adjustGridForMobile(options),
+    iconizeSearchFormActions(adjustGridForMobile(options)),
     () => holder.api?.grid,
     () => holder.api,
   );

@@ -284,6 +284,10 @@ public class MenuService : IMenuService
                     Icon = m.Icon,
                     Order = m.OrderNo,
                     HideInMenu = m.HideInMenu,
+                    // 목록 · 브레드크럼 · 탭 바에서만 감춘다. 라우트는 그대로 만들어진다.
+                    HideChildrenInMenu = m.HideChildrenInMenu,
+                    HideInBreadcrumb = m.HideInBreadcrumb,
+                    HideInTab = m.HideInTab,
                     KeepAlive = m.KeepAlive,
                     AffixTab = m.AffixTab,
                     DomCached = m.DomCached,

@@ -25,6 +25,7 @@ const sidebarCollapsed = defineModel<boolean>('sidebarCollapsed');
 const sidebarOnMenuSelect =
   defineModel<SidebarMenuSelectBehavior>('sidebarOnMenuSelect');
 const sidebarExpandOnHover = defineModel<boolean>('sidebarExpandOnHover');
+const sidebarScrollToActive = defineModel<boolean>('sidebarScrollToActive');
 
 const sidebarButtons = defineModel<string[]>('sidebarButtons', {
   default: () => [],
@@ -90,6 +91,19 @@ const handleCheckboxChange = () => {
   >
     {{ $t('preferences.sidebar.onMenuSelect') }}
   </SelectItem>
+  <!--
+    고른 메뉴를 사이드바 세로 가운데로 스크롤할지.
+
+    메뉴가 많아 사이드바에 스크롤이 생길 때만 눈에 보인다.
+    접힌 사이드바에서는 스크롤 대상이 없어 켜도 아무 일이 없다.
+  -->
+  <SwitchItem
+    v-model="sidebarScrollToActive"
+    :disabled="!sidebarEnable || disabled || sidebarCollapsed"
+    :tip="$t('preferences.sidebar.scrollToActiveTip')"
+  >
+    {{ $t('preferences.sidebar.scrollToActive') }}
+  </SwitchItem>
   <SwitchItem
     v-model="sidebarExpandOnHover"
     :disabled="!sidebarEnable || disabled || !sidebarCollapsed"

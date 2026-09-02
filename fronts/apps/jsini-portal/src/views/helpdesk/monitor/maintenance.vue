@@ -7,9 +7,10 @@ import { useRouter } from 'vue-router';
 import { Page } from '@vben/common-ui';
 import { EchartsUI, useEcharts } from '@vben/plugins/echarts';
 
-import { Button, Card, Col, Row, Select, Space, Spin, Tag } from 'ant-design-vue';
+import { Card, Col, Row, Select, Space, Spin, Tag } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
+import GridIconButton from '#/components/GridIconButton.vue';
 import { getMonthlyReport } from '#/api/helpdesk';
 import { useHelpdeskStore } from '#/store/helpdesk';
 
@@ -385,7 +386,12 @@ onMounted(async () => {
             style="width: 90px"
           />
         </Space>
-        <Button :loading="loading" type="primary" @click="loadData">조회</Button>
+        <GridIconButton
+          :loading="loading"
+          icon="vxe-icon-search"
+          title="조회"
+          @click="loadData"
+        />
       </div>
     </Card>
 

@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import { ref } from 'vue';
-import { useVbenModal } from '@vben/common-ui';
+import { useVbenDrawer } from '@vben/common-ui';
 import { Button, message, Form, Input, Upload, InputNumber, Progress } from 'ant-design-vue';
 import { createMediaSource, updateMediaSource } from '#/api/funeral/building';
 import { upload_file } from '#/api/examples/upload';
@@ -27,7 +27,7 @@ const formModel = ref({
   remark: ''
 });
 
-const [UploadModal, uploadModalApi] = useVbenModal({
+const [UploadDrawer, uploadDrawerApi] = useVbenDrawer({
   title: '새 비디오 리소스 등록',
   destroyOnClose: true,
   onConfirm: async () => {
@@ -51,7 +51,7 @@ function open(row?: any) {
     };
     selectedFileName.value = '';
     uploadPercent.value = 0;
-    uploadModalApi.setState({ title: '동영상 리소스 수정' });
+    uploadDrawerApi.setState({ title: '동영상 리소스 수정' });
   } else {
     isEditMode.value = false;
     currentSourceId.value = '';
@@ -67,9 +67,9 @@ function open(row?: any) {
     };
     selectedFileName.value = '';
     uploadPercent.value = 0;
-    uploadModalApi.setState({ title: '새 비디오 리소스 등록' });
+    uploadDrawerApi.setState({ title: '새 비디오 리소스 등록' });
   }
-  uploadModalApi.open();
+  uploadDrawerApi.open();
 }
 
 async function handleSave() {
@@ -79,7 +79,7 @@ async function handleSave() {
       return;
     }
 
-    uploadModalApi.lock();
+    uploadDrawerApi.lock();
     if (isEditMode.value) {
       await updateMediaSource(currentSourceId.value, formModel.value);
       message.success('동영상 소스가 성공적으로 수정되었습니다.');
@@ -87,12 +87,12 @@ async function handleSave() {
       await createMediaSource(formModel.value);
       message.success('동영상 소스가 성공적으로 등록되었습니다.');
     }
-    uploadModalApi.close();
+    uploadDrawerApi.close();
     emit('saved');
   } catch (error) {
     message.error(isEditMode.value ? '비디오 리소스 수정 실패' : '비디오 리소스 등록 실패');
   } finally {
-    uploadModalApi.unlock();
+    uploadDrawerApi.unlock();
   }
 }
 
@@ -166,8 +166,8 @@ defineExpose({ open });
 </script>
 
 <template>
-  <UploadModal :confirm-loading="isUploading">
-    <div class="p-6">
+  <UploadDrawer :confirm-loading="isUploading">
+    <div class="p-2">
       <Form layout="vertical">
         <!-- 등록 모드일 때만 업로드 기능 허용 -->
         <Form.Item v-if="!isEditMode" label="영상 파일 업로드 (최대 500MB)" required>
@@ -230,5 +230,5 @@ defineExpose({ open });
         </Form.Item>
       </Form>
     </div>
-  </UploadModal>
+  </UploadDrawer>
 </template>

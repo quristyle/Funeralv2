@@ -166,8 +166,8 @@ function refreshGrid() { gridApi.query(); }
         <!-- 툴바 영역의 신규 등록 버튼 -->
         <GridIconButton
           v-perm:create
-          icon="vxe-icon-add"
           :title="$t('ui.actionTitle.create', [$t('system.company.name')])"
+          icon="vxe-icon-add"
           @click="onCreate"
         />
       </template>

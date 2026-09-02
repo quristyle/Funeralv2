@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    FileProvider 가 밖으로 내보낼 수 있는 폴더 목록.
+
+    받아 둔 APK 를 시스템 설치 화면에 넘길 때 `content://` URI 가 필요하고,
+    그 URI 는 여기 적힌 폴더 안의 파일에 대해서만 만들어진다.
+
+    `cache-path` 는 `context.getCacheDir()` 이고, 플레이어는 설치 파일을 그곳에 받는다
+    (update_service.dart 의 `downloadDirectory()` → `getTemporaryDirectory()`).
+    캐시라서 저장 권한이 필요 없고, 공간이 모자라면 시스템이 지워도 된다.
+-->
+<paths>
+    <cache-path name="update" path="." />
+</paths>

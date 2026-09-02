@@ -1,3 +1,4 @@
+import { unwrapList } from '#/api/envelope';
 import { requestClient } from '#/api/request';
 
 export namespace MenuFavoriteApi {
@@ -29,10 +30,7 @@ export namespace MenuFavoriteApi {
  * 인터셉터가 `responseData[dataField]` 로 한 단계만 찾으므로 점이 든 경로는 undefined 가 된다.
  */
 function unwrap(response: any): MenuFavoriteApi.MenuFavorite[] {
-  if (Array.isArray(response)) return response;
-  if (Array.isArray(response?.result)) return response.result;
-  if (Array.isArray(response?.data?.result)) return response.data.result;
-  return [];
+  return unwrapList<MenuFavoriteApi.MenuFavorite>(response);
 }
 
 /**

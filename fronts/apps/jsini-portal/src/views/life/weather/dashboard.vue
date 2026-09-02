@@ -8,6 +8,7 @@ import { Page } from '@vben/common-ui';
 import { IconifyIcon } from '@vben/icons';
 
 import { Button, message, Select, Space, Spin } from 'ant-design-vue';
+import GridIconButton from '#/components/GridIconButton.vue';
 
 import { getLatestWeather } from '#/api/life/weather';
 
@@ -104,10 +105,12 @@ onMounted(fetchWeather);
             <IconifyIcon class="mr-1 size-4" icon="lucide:alert-triangle" />
             특보 현황
           </Button>
-          <Button :loading="loading" @click="refreshAll">
-            <IconifyIcon class="mr-1 size-4" icon="lucide:rotate-cw" />
-            새로고침
-          </Button>
+          <GridIconButton
+            :loading="loading"
+            icon="vxe-icon-repeat"
+            title="새로고침"
+            @click="refreshAll"
+          />
         </Space>
       </div>
 

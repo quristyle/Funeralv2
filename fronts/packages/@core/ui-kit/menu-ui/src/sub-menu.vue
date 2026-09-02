@@ -39,6 +39,7 @@ const hasChildren = computed(() => {
     :badge-type="menu.badgeType"
     :badge-variants="menu.badgeVariants"
     :icon="menu.icon"
+    :link="menu.link"
     :path="menu.path"
     :query="menu.query"
   >

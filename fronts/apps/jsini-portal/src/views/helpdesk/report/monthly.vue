@@ -7,7 +7,6 @@ import { Page } from '@vben/common-ui';
 import { EchartsUI, useEcharts } from '@vben/plugins/echarts';
 
 import {
-  Button,
   Card,
   Col,
   Empty,
@@ -18,6 +17,7 @@ import {
 } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
+import GridIconButton from '#/components/GridIconButton.vue';
 import { getServerReport } from '#/api/helpdesk';
 
 /**
@@ -238,9 +238,12 @@ onMounted(loadData);
         <span class="text-base font-semibold">
           월간 서버 운영 성과 분석 및 전략 리포트
         </span>
-        <Button :loading="loading" type="primary" @click="loadData">
-          리포트 갱신
-        </Button>
+        <GridIconButton
+          :loading="loading"
+          icon="vxe-icon-repeat"
+          title="리포트 갱신"
+          @click="loadData"
+        />
       </div>
     </Card>
 

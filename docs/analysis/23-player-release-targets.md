@@ -168,6 +168,42 @@ key.properties 있음 → 그 키로 서명 (서명 고정 → 덮어쓰기 업�
 없음               → 디버그 키     (설치는 되지만 삭제 후 재설치)
 ```
 
+### 서명 키는 어디에 있나 (2026-09-02 확인)
+
+찾을 곳을 몰라 헤매기 쉬워서 적어 둔다. **키스토어 파일의 사본은 GitHub Actions
+secret 안에만 있다.**
+
+| 찾아본 곳 | 결과 |
+|---|---|
+| 저장소 (`git log --all -- '*.jks'` 포함) | 없다 (`.gitignore` 가 `*.jks` · `key.properties` 를 막는다) |
+| 이 개발 장비 (`~`, Downloads, Desktop, Documents, `C:\dev`, `C:\down`) | 없다 |
+| 운영서버 (`/srv/jsini`, `/home/lee`) | 없다 (APK 는 CI 가 만들므로 서버에 있을 이유도 없다) |
+| GitHub Actions secret `ANDROID_KEYSTORE_BASE64` | **여기 있다.** 값은 되읽을 수 없다(쓰기 전용) |
+
+그래서 **개발 장비에서 릴리스 서명으로 빌드하려면 사람이 `release.jks` 를 가져와야 한다.**
+secret 을 API 로 복호화해 오는 방법은 없다.
+
+배포된 APK 에서 뽑은 서명 인증서는 이렇다(v1.0.0). **비밀이 아니다** — APK 를 가진
+사람이면 누구나 계산할 수 있다.
+
+```
+DN       : CN=Quristyle, OU=JSini, O=JSini, L=Dong, ST=Ulsan, C=KR
+알고리즘 : RSA 4096, APK Signature Scheme v2
+SHA-256  : cfd76065a0dc08b2b002ddf9d61244d20fee0e88586602f07687976ef51a32d5
+```
+
+`scripts/player-signing-setup.sh` 가 이 지문을 알고 있고, **넘겨받은 키스토어의 지문이
+다르면 아무것도 쓰지 않고 멈춘다.** 엉뚱한 키로 설정해도 빌드는 성공하기 때문이다 —
+문제는 그 APK 를 현장 기기에 넣을 때가 되어서야 드러난다.
+
+```bash
+scripts/player-signing-setup.sh /경로/release.jks
+```
+
+> **새 키스토어를 만들어 채우면 안 된다.** 서명이 달라지면 이미 깔린 앱을 덮어쓸 수
+> 없고(삭제 후 재설치뿐), 그 키를 secret 에 넣어 버리면 **현장에 깔린 모든 기기가
+> 영구히 업데이트를 못 받는다.** 안드로이드는 설치된 앱의 서명을 바꿀 방법이 없다.
+
 CI 는 secrets 네 개(`ANDROID_KEYSTORE_BASE64` · `ANDROID_KEY_ALIAS` ·
 `ANDROID_KEY_PASSWORD` · `ANDROID_STORE_PASSWORD`)가 있으면 앞쪽을 탄다.
 **넷이 없어도 job 은 성공한다.** 파일 이름에 어느 쪽인지 남긴다 —
@@ -293,3 +329,153 @@ rm -rf "$LOCALAPPDATA/Android/sdk/ndk/27.0.12077973" \
 **저장소 설정이 아니라 이 PC 의 문제다.** CI 러너는 SDK 를 새로 받으므로 영향이 없다.
 NDK 재다운로드는 용량이 크고 개발 PC 환경을 건드리는 일이라 여기서는 실행하지 않았다.
 확인용으로 바꿔 둔 `ndkVersion` 은 **원래 값으로 되돌려 두었다.**
+
+## 8. 아이콘을 JSINI 마크로 바꿨다 (2026-09-02)
+
+> 지시: "최종 배포된 결과물을 확인하면 아이콘이 jsini 심볼을 사용하고 있지 않다.
+> jsini 심볼을 사용하도록 변경해줘."
+
+맞다. 릴리스되던 것은 **Flutter 기본 아이콘 그대로**였다 — 안드로이드 `ic_launcher.png`
+다섯 밀도, 윈도우 `app_icon.ico` 가 손대지 않은 템플릿 파일이었다.
+TV 배너는 그 기본 아이콘을 어두운 판 가운데 올려 조립한 XML 이었다(6절).
+
+### 심볼을 그대로 넣지 않았다
+
+브랜드 규칙([docs/brand/README.md](../brand/README.md) 5절)이 **정사각에 심볼을 넣지
+말라**고 한다. 심볼은 84×60(1.4:1) 이라 정사각 틀에서는 좌우가 빈다. 정사각 자리는
+블레이드 J 한 자로 축약한 것을 쓰고, 이것이 이 브랜드에서 아이콘 자리의 마크다.
+
+축약형 둘 중 어느 것도 OS 런처에는 맞지 않아서 **세 번째 형태**를 세웠다.
+
+| 형태 | 왜 아이콘 자리에 못 쓰나 |
+|---|---|
+| `favicon` (깎인 잉크 블록에 J 를 **음각**) | 뚫린 J 로 배경이 비친다. 사진 벽지·어두운 작업표시줄에서 글자로 읽히지 않는다 |
+| `app-icon` (배경 없이 J 글자만) | 벽지 위에 흰/검은 글자만 떠서 무엇이든 배경이면 사라진다 |
+| **꽉 찬 잉크 판 + 종이색 J (양각)** | 이것을 쓴다. 배경이 무엇이든 대비가 유지된다 |
+
+세 번째는 새로 지은 것이 아니다. PWA maskable · apple-touch 가 이미 같은 이유로
+같은 모양을 쓰고 있었다(`generate.py` 8-3 의 `_fullbleed_shape`). 그것을 아이콘 자리에
+공통으로 돌려 쓰니 **안드로이드와 윈도우가 같은 모양**이 된다.
+
+### 만든 것
+
+`docs/brand/generate.py` 가 **플레이어의 플랫폼 폴더로 바로 쓴다.** `public/brand/` 같은
+복사본을 두지 않았다 — 플랫폼 폴더는 파일 이름이 정해져 있어 복사 단계를 하나 더 두면
+어긋나기만 한다. 손으로 내보낸 래스터를 커밋하지 않는다는 규칙은 그대로다.
+
+```
+mipmap-{mdpi..xxxhdpi}/ic_launcher.png              48dp  API 25 이하 런처
+mipmap-{mdpi..xxxhdpi}/ic_launcher_foreground.png  108dp  어댑티브 전경 (API 26+)
+mipmap-anydpi-v26/ic_launcher.xml                         배경(색)+전경+monochrome
+values/ic_launcher_background.xml                         어댑티브 배경색 = Ink
+drawable-xhdpi/tv_banner.png                     320×180  TV 런처 배너
+windows/runner/resources/app_icon.ico            16~256   윈도우 exe · 작업표시줄
+```
+
+**어댑티브 아이콘을 새로 넣었다.** 전에는 레거시 비트맵 하나뿐이라 안드로이드 8 이상에서는
+런처가 흰 판에 아이콘을 축소해 얹었다(테두리가 보이는 그 모양이다). 이제 배경은 Ink 색판,
+전경은 J 다. 마스크 모양은 기기가 정하므로(원·둥근 사각·사각) J 는 108dp 캔버스에서
+높이 44 로 두어 가운데 66dp 안전 원 안에 들어간다 — 대각선 약 54.6 이다.
+API 33+ 테마 아이콘용 `monochrome` 은 알파만 쓰이므로 전경을 그대로 넘겼다.
+
+**TV 배너는 이제 실물 PNG 다.** 320×180 은 1.78:1 이라 정사각 규칙의 반대쪽이고,
+심볼이 제 비율로 들어갈 수 있는 유일한 아이콘 자리다. 그래서 배너만 **가로 조합**
+(심볼 + JSINI 워드마크) 녹아웃을 잉크 판 위에 올렸다.
+6절이 예고한 대로 `drawable/tv_banner.xml` 은 지웠다 — 남겨 두면 한 리소스에 설계가
+둘이 되고, 그 XML 은 새 아이콘(잉크 블록)을 `#111214` 판에 올려 잉크 위 잉크가 된다.
+
+### 확인한 것
+
+```
+python docs/brand/generate.py     기존 브랜드 산출물은 바이트가 그대로다
+                                  (git diff 에 generate.py 만 뜬다 — 리팩터링이 무해했다는 뜻)
+aapt2 compile --dir res           새 리소스 전부 컴파일 통과
+aapt2 link                        @color/ic_launcher_background · @mipmap/ic_launcher_foreground
+                                  참조 해소. tv_banner 는 xhdpi PNG 하나로만 잡힌다
+flutter build windows --release   성공. 만들어진 exe 에서 아이콘을 꺼내 보니 블레이드 J 다
+```
+
+`generate.py` 를 손볼 때 `write_ico` · `write_png` 가 그리는 모양을 함수로 받도록
+바꿨다(전에는 다각형 두 개를 인자로 받았다). 아이콘 자리마다 모양이 달라서다.
+기존 산출물이 바이트까지 같은 것으로 이 리팩터링이 무해함을 확인했다.
+
+### 못 한 것 · 손대지 않은 것
+
+- **APK 실물은 여전히 못 만들었다.** 이 PC 의 NDK 두 폴더가 깨져 있는 문제(7절)가 그대로다.
+  리소스 단계는 `aapt2` 로 따로 확인했으므로 아이콘 때문에 깨질 일은 없다.
+- **리눅스 `.deb` · `tar.gz` 에는 아이콘이 없다.** 데스크톱 항목(`.desktop`) 없이
+  systemd + cage 로 전체화면 키오스크로 뜨므로 아이콘을 보는 자리가 없다.
+- **`web/` · `ios/` · `macos/` 는 그대로 두었다.** 릴리스 대상이 아니다(7절).
+  대상이 되면 같은 함수로 한 줄씩 늘리면 된다.
+- 앱 이름(`android:label` 등)은 이때 손대지 않았다가 **9절에서 바꿨다.**
+
+## 9. 앱 이름을 JSINI 로 바꿨다 (2026-09-02)
+
+> 지시: "앱 이름도 JSINI 로 바꿔줘"
+
+**표시 이름만 바꾸고 식별자는 그대로 두었다.** 둘을 함께 바꾸면 현장에 깔린 것을
+덮어쓰지 못한다(아래 표의 이유들).
+
+### 바꾼 것 — 사람이 보는 이름
+
+| 자리 | 파일 | 보이는 곳 |
+|---|---|---|
+| `android:label` | `AndroidManifest.xml` | 런처 아이콘 아래 이름 |
+| `MaterialApp.title` | `lib/main.dart` | 안드로이드 '최근 앱' 목록 |
+| 창 제목 | `windows/runner/main.cpp` | 윈도우 제목줄 · 작업표시줄 |
+| `FileDescription` · `ProductName` | `windows/runner/Runner.rc` | 작업 관리자 · 파일 속성 |
+| GTK 창 제목 (둘) | `linux/runner/my_application.cc` | 리눅스 창 제목 |
+| systemd `Description` | `packaging/build_deb.sh` | `systemctl status` |
+| 콘솔 창 제목 | `run_player.bat` | 개발용 부트스트래퍼 창 |
+
+저장소 전체에서 옛 이름 `Funeral Signage Player` 를 다시 찾아 남은 곳이 없음을 확인했다.
+
+### 바꾸지 않은 것 — 식별자
+
+| 그대로 둔 것 | 값 | 바꾸면 |
+|---|---|---|
+| `applicationId` · `namespace` | `com.quristyle.funeralv2_player` | **현장 기기에 두 개가 나란히 설치된다.** 덮어쓰기 업데이트가 안 된다 |
+| `BINARY_NAME` (윈도우 · 리눅스) | `funeralv2_player` | exe/elf 이름이 바뀐다 → systemd `ExecStart` · 런처 스크립트 · zip 안내 문구가 모두 어긋난다 |
+| `InternalName` · `OriginalFilename` | `funeralv2_player(.exe)` | 규격상 **실제 파일 이름과 같아야 한다.** 표시 이름이 아니다 |
+| deb `Package` | `funeralv2-player` | apt 가 업그레이드로 보지 않고 새 패키지로 깐다 |
+| 릴리스 자산 이름 | `funeralv2_player-<ver>-...` | 다운로드 화면 matcher 가 자산을 못 찾는다 (2절) |
+| `pubspec.yaml` 의 `name` | `funeralv2_player` | `package:funeralv2_player/...` 임포트 전부 |
+| `APPLICATION_ID` (리눅스) | `com.quristyle.funeralv2_player` | 데스크톱 세션이 창을 다른 앱으로 본다 |
+
+`Runner.rc` 의 `CompanyName`/`LegalCopyright` 는 `com.quristyle` 그대로다 —
+회사 표기는 앱 이름과 다른 문제라 손대지 않았다.
+
+### 확인한 것
+
+```
+AndroidManifest.xml               XML 파싱 후 android:label = "JSINI" 확인
+bash -n packaging/build_deb.sh    문법 오류 없음
+flutter build windows --release   성공 (.rc · 제목 변경 반영)
+빌드된 exe 의 버전 정보            ProductName · FileDescription = JSINI
+```
+
+### `windows/runner` 소스에는 한글 주석을 넣을 수 없다
+
+여기서 실제로 부딪혔다. 이 저장소의 주석은 한글인데, `main.cpp` 에 한글 주석을 넣자
+윈도우 빌드가 **깨졌다.**
+
+```
+warning C4819: 현재 코드 페이지(949)에서 표시할 수 없는 문자가 파일에 들어 있습니다
+error C2220: 다음 경고는 오류로 처리됩니다
+```
+
+MSVC 는 BOM 없는 UTF-8 파일을 시스템 코드 페이지(949)로 읽고, Flutter 의 윈도우 러너는
+`/WX`(경고를 오류로) 로 빌드한다. 그래서 **`windows/runner/*` 는 ASCII 로 둔다** —
+그 파일들의 주석만 영어다. `linux/runner/*`(GCC)와 `.dart` · `.xml` 은 한글이 문제없다.
+
+한글을 쓰려면 `windows/CMakeLists.txt` 의 컴파일 옵션에 `/utf-8` 을 더하거나 파일에
+BOM 을 붙이면 된다. 릴리스 대상의 빌드 설정을 주석 언어 때문에 건드릴 일은 아니라고 보고
+두었다. 필요하면 한 줄이다.
+
+### 남은 판단
+
+**이름이 "JSINI" 한 단어다.** 기기에 앱이 하나뿐인 사이니지에서는 문제가 없지만,
+장비 목록·원격 관리 화면에서 다른 JSINI 앱과 구분이 필요해지면
+`JSINI 사이니지` 처럼 늘리는 편이 낫다. 위 표의 여섯 곳을 같이 고치면 된다.
+
+`web/` · `ios/` · `macos/` 의 이름은 아이콘과 같은 이유로 그대로 두었다 — 릴리스 대상이 아니다.

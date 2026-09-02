@@ -1,3 +1,4 @@
+import { unwrapList } from '#/api/envelope';
 import { requestClient } from '#/api/request';
 
 /**
@@ -69,12 +70,9 @@ export namespace LifeBirthdayApi {
   }
 }
 
-/** 봉투에서 목록을 꺼낸다 */
+/** 봉투에서 목록을 꺼낸다. 기준은 `src/api/envelope.ts` 한 곳이다. */
 function toList<T = any>(res: any): T[] {
-  if (Array.isArray(res)) return res;
-  if (Array.isArray(res?.result)) return res.result;
-  if (Array.isArray(res?.data?.result)) return res.data.result;
-  return [];
+  return unwrapList<T>(res);
 }
 
 /** 달력 이벤트 (start ~ end, YYYY-MM-DD) */

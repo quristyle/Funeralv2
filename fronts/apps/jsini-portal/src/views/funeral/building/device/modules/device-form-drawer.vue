@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import { ref } from 'vue';
-import { useVbenModal } from '@vben/common-ui';
+import { useVbenDrawer } from '@vben/common-ui';
 import { message } from 'ant-design-vue';
 import { Form, Input, InputNumber } from 'ant-design-vue';
 import { createDevice, updateDevice } from '#/api/funeral/building';
@@ -34,7 +34,7 @@ const formModel = ref({
   sortOrder: 0,
 });
 
-const [DeviceModal, deviceModalApi] = useVbenModal({
+const [DeviceDrawer, deviceDrawerApi] = useVbenDrawer({
   title: '장비 정보 설정',
   destroyOnClose: true,
   onConfirm: async () => {
@@ -59,7 +59,7 @@ function openCreate() {
     roomId: props.selectedRoomId,
     sortOrder: 0,
   };
-  deviceModalApi.open();
+  deviceDrawerApi.open();
 }
 
 /** 수정 모달 열기 */
@@ -68,7 +68,7 @@ function openEdit(row: any) {
     sortOrder: 0,
     ...row,
   };
-  deviceModalApi.open();
+  deviceDrawerApi.open();
 }
 
 async function handleSave() {
@@ -85,7 +85,7 @@ async function handleSave() {
       await createDevice(dataToSend);
       message.success('장비가 성공적으로 등록되었습니다.');
     }
-    deviceModalApi.close();
+    deviceDrawerApi.close();
     emit('saved');
   } catch {
     message.error('저장 실패');
@@ -96,8 +96,12 @@ defineExpose({ openCreate, openEdit });
 </script>
 
 <template>
-  <DeviceModal @ok="handleSave">
-    <div class="p-6">
+  <!--
+    `@ok` 를 걸지 않는다. 저장은 위 `onConfirm` 하나가 맡는다 —
+    둘 다 걸면 확인 한 번에 저장이 두 번 나갈 수 있다.
+  -->
+  <DeviceDrawer>
+    <div class="p-2">
       <Form layout="vertical">
         <Form.Item label="장비 소속 위치" required>
           <div class="grid grid-cols-2 gap-4">
@@ -171,5 +175,5 @@ defineExpose({ openCreate, openEdit });
         </Form.Item>
       </Form>
     </div>
-  </DeviceModal>
+  </DeviceDrawer>
 </template>

@@ -1,3 +1,4 @@
+import { unwrapList } from '#/api/envelope';
 import { getAdminList, getAuthLinks, getCustomerList } from '#/api/helpdesk';
 
 /**
@@ -53,13 +54,9 @@ export interface MsaUserDirectory {
   links: Map<string, { id: string; kind: string }>;
 }
 
-/** 응답이 배열/`result` 중 무엇으로 와도 목록을 꺼낸다. */
+/** 목록을 꺼낸다. 기준은 `src/api/envelope.ts` 한 곳이다. */
 function toList(res: any): any[] {
-  if (Array.isArray(res)) return res;
-  if (Array.isArray(res?.result)) return res.result;
-  if (Array.isArray(res?.data?.result)) return res.data.result;
-  if (Array.isArray(res?.data)) return res.data;
-  return [];
+  return unwrapList(res);
 }
 
 function reason(error: unknown) {

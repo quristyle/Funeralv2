@@ -9,6 +9,8 @@ export function useDeviceGrid(
   selectedDevice: ReturnType<typeof ref<BuildingApi.Device | null>>,
   onRowClick: (row: BuildingApi.Device) => void,
   onPanelClose: () => void,
+  /** 그리드 아래 도구줄의 [추가]. 목록 위쪽 아이콘과 같은 일을 한다. */
+  onCreate?: () => void,
 ) {
   // ─── 상단 필터 상태 ───────────────────────────────────────────
   const selectedCompanyId = ref<string>('');
@@ -75,6 +77,9 @@ export function useDeviceGrid(
           slots: { default: 'action' },
         },
       ],
+      // 아래 도구줄의 [추가] — 목록 위쪽 아이콘과 같은 함수를 부른다.
+      // (`gridFeatures` 는 vxe 타입에 없다. 공통 레이어가 읽고 떼어 낸다.)
+      gridFeatures: { onCreate },
       height: 'auto',
       rowConfig: { isHover: true, isCurrent: true },
       proxyConfig: {
@@ -97,7 +102,7 @@ export function useDeviceGrid(
           },
         },
       },
-    },
+    } as any,
     gridEvents: {
       cellClick: ({ row }: { row: BuildingApi.Device }) => {
         onRowClick(row);

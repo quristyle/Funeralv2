@@ -92,6 +92,13 @@ interface MenuItemProps extends MenuRecordBadgeRaw {
    */
   icon?: Component | string;
   /**
+   * @ko_KR 눌렀을 때 이동할 실제 경로. 없으면 `path` 로 이동한다.
+   *
+   * 같은 메뉴를 트리 밖에 한 번 더 얹을 때(즐겨찾기) 쓴다 — `path` 는 신원이라
+   * 서로 달라야 하고, 가는 곳은 같아야 한다.
+   */
+  link?: string;
+  /**
    * @ko_KR menuitem 이름
    */
   path: string;
@@ -103,6 +110,7 @@ interface MenuItemProps extends MenuRecordBadgeRaw {
 
 interface MenuItemRegistered {
   active: boolean;
+  link?: string;
   parentPaths: string[];
   path: string;
   query?: Recordable<any>;

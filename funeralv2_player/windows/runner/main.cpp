@@ -27,7 +27,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   FlutterWindow window(project);
   Win32Window::Point origin(10, 10);
   Win32Window::Size size(1280, 720);
-  if (!window.Create(L"funeralv2_player", origin, size)) {
+  // Window title -- the name shown on the taskbar. Not the executable name.
+  // (ASCII only: MSVC reads this file as CP949 and /WX turns C4819 into an error.)
+  if (!window.Create(L"JSINI", origin, size)) {
     return EXIT_FAILURE;
   }
   window.SetQuitOnClose(true);

@@ -8,7 +8,6 @@ import { Page } from '@vben/common-ui';
 import { EchartsUI, useEcharts } from '@vben/plugins/echarts';
 
 import {
-  Button,
   Card,
   Col,
   Divider,
@@ -21,6 +20,7 @@ import {
 } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
+import GridIconButton from '#/components/GridIconButton.vue';
 import { getServerReport } from '#/api/helpdesk';
 
 /**
@@ -562,9 +562,12 @@ onBeforeUnmount(stopTimer);
           <span class="text-xs text-muted-foreground">
             업데이트 {{ lastUpdated }}
           </span>
-          <Button :loading="loading" size="small" @click="loadData">
-            새로고침
-          </Button>
+          <GridIconButton
+            :loading="loading"
+            icon="vxe-icon-repeat"
+            title="새로고침"
+            @click="loadData"
+          />
         </Space>
         <Space>
           <span class="text-xs" :class="autoRefresh ? 'font-medium' : 'text-muted-foreground'">

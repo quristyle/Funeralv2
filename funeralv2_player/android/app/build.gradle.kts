@@ -83,6 +83,15 @@ android {
     }
 }
 
+dependencies {
+    // MainActivity 가 androidx.core.content.FileProvider 를 직접 쓴다 —
+    // 받은 APK 를 시스템 설치 화면에 넘길 때 content:// URI 가 필요하다.
+    //
+    // Flutter 임베딩이 이미 androidx.core 를 끌어오지만, **우리 코드가 직접 부르는
+    // 라이브러리는 명시해 둔다.** 끌려오는 버전이 바뀌어도 컴파일이 깨지지 않는다.
+    implementation("androidx.core:core:1.13.1")
+}
+
 kotlin {
     compilerOptions {
         jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17

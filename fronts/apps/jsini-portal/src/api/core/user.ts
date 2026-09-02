@@ -1,6 +1,7 @@
 import type { UserInfo } from '@vben/types';
 
-import { requestClient, requestListClient } from '#/api/request';
+import { unwrapOne } from '#/api/envelope';
+import { requestClient } from '#/api/request';
 
 /**
  * 사용자 정보 가져오기
@@ -58,7 +59,7 @@ export async function getAccountActivityApi(limit = 10) {
   const res = await requestClient.get<any>('/auth/user/activity', {
     params: { limit },
   });
-  const raw = res?.result?.[0] ?? res?.result ?? res;
+  const raw = unwrapOne<any>(res);
   return (raw ?? {}) as AccountActivity;
 }
 

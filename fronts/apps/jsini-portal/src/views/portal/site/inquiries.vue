@@ -60,8 +60,6 @@ const [Grid, gridApi] = useVbenVxeGrid({
         },
       },
     ],
-    submitButtonOptions: { text: '조회' },
-    resetButtonOptions: { text: '초기화' },
   },
   gridOptions: {
     columns: [

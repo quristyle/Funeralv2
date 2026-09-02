@@ -43,15 +43,6 @@ exports[`defaultPreferences immutability test > should not modify the config obj
     "showIcon": true,
     "styleType": "normal",
   },
-  "copyright": {
-    "companyName": "Vben",
-    "companySiteLink": "https://www.vben.pro",
-    "date": "2024",
-    "enable": true,
-    "icp": "闽ICP备19024351号",
-    "icpLink": "https://beian.miit.gov.cn/",
-    "settingShow": true,
-  },
   "footer": {
     "enable": false,
     "fixed": false,
@@ -98,6 +89,8 @@ exports[`defaultPreferences immutability test > should not modify the config obj
     "fixedButton": true,
     "hidden": false,
     "mixedWidth": 80,
+    "onMenuSelect": "none",
+    "scrollToActive": true,
     "width": 224,
   },
   "tabbar": {

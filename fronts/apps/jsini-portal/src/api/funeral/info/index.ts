@@ -1,3 +1,4 @@
+import { unwrapList, unwrapOne } from '#/api/envelope';
 import { requestClient } from '#/api/request';
 
 /**
@@ -139,21 +140,27 @@ export async function getNotices(params?: {
   buildingId?: string;
   includeExpired?: boolean;
 }) {
-  return requestClient.get<InfoApi.Notice[]>('/funeral/info/notice/list', {
-    params,
-  });
+  return unwrapList<InfoApi.Notice>(
+    await requestClient.get('/funeral/info/notice/list', { params }),
+  );
 }
 
 export async function getNotice(id: string) {
-  return requestClient.get<InfoApi.Notice>(`/funeral/info/notice/${id}`);
+  return unwrapOne<InfoApi.Notice>(
+    await requestClient.get(`/funeral/info/notice/${id}`),
+  );
 }
 
 export async function createNotice(data: InfoApi.NoticeSave) {
-  return requestClient.post<InfoApi.Notice>('/funeral/info/notice', data);
+  return unwrapOne<InfoApi.Notice>(
+    await requestClient.post('/funeral/info/notice', data),
+  );
 }
 
 export async function updateNotice(id: string, data: InfoApi.NoticeSave) {
-  return requestClient.put<InfoApi.Notice>(`/funeral/info/notice/${id}`, data);
+  return unwrapOne<InfoApi.Notice>(
+    await requestClient.put(`/funeral/info/notice/${id}`, data),
+  );
 }
 
 export async function deleteNotice(id: string) {
@@ -167,9 +174,13 @@ export async function markNoticeRead(id: string) {
 
 /** 안 읽은 알림 수 */
 export async function getUnreadNoticeCount(buildingId?: string) {
-  return requestClient.get<number>('/funeral/info/notice/unread-count', {
-    params: { buildingId },
-  });
+  return (
+    unwrapOne<number>(
+      await requestClient.get('/funeral/info/notice/unread-count', {
+        params: { buildingId },
+      }),
+    ) ?? 0
+  );
 }
 
 // ── 호실 히스토리 ───────────────────────────────────────────
@@ -180,9 +191,8 @@ export async function getRoomHistories(params?: {
   from?: string;
   to?: string;
 }) {
-  return requestClient.get<InfoApi.RoomHistory[]>(
-    '/funeral/info/room-history/list',
-    { params },
+  return unwrapList<InfoApi.RoomHistory>(
+    await requestClient.get('/funeral/info/room-history/list', { params }),
   );
 }
 
@@ -196,16 +206,17 @@ export async function searchDeceased(params?: {
   to?: string;
   status?: string;
 }) {
-  return requestClient.get<InfoApi.DeceasedLookup[]>(
-    '/funeral/info/deceased-search/list',
-    { params },
+  return unwrapList<InfoApi.DeceasedLookup>(
+    await requestClient.get('/funeral/info/deceased-search/list', { params }),
   );
 }
 
 // ── 나의 정보 ───────────────────────────────────────────────
 
 export async function getMyInfo() {
-  return requestClient.get<InfoApi.MyInfo>('/funeral/info/my-info');
+  return unwrapOne<InfoApi.MyInfo>(
+    await requestClient.get('/funeral/info/my-info'),
+  );
 }
 
 // ── 미리보기 ────────────────────────────────────────────────
@@ -214,8 +225,7 @@ export async function getDevicePreviews(params?: {
   buildingId?: string;
   roomId?: string;
 }) {
-  return requestClient.get<InfoApi.DevicePreview[]>(
-    '/funeral/info/preview/list',
-    { params },
+  return unwrapList<InfoApi.DevicePreview>(
+    await requestClient.get('/funeral/info/preview/list', { params }),
   );
 }

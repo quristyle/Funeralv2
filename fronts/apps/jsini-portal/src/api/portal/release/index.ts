@@ -1,3 +1,4 @@
+import { unwrapList, unwrapOne } from '#/api/envelope';
 import { requestClient } from '#/api/request';
 
 /**
@@ -127,12 +128,11 @@ export namespace ReleaseApi {
  * 배열로 와도 객체로 와도 하나를 꺼내 준다 (자료실 API 와 같은 방식).
  */
 function pickOne<T>(res: any): T | undefined {
-  const raw = res?.result ?? res?.data?.result ?? res;
-  return (Array.isArray(raw) ? raw[0] : raw) as T | undefined;
+  return unwrapOne<T>(res);
 }
 
 function pickMany<T>(res: any): T[] {
-  const raw = res?.result ?? res?.data?.result ?? res;
+  const raw = unwrapList<any>(res);
   return Array.isArray(raw) ? (raw as T[]) : [];
 }
 

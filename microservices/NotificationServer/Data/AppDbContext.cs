@@ -26,6 +26,9 @@ public class AppDbContext : DbContext
 
     public DbSet<PushSubscription> PushSubscriptions { get; set; } = null!;
 
+    /// <summary>사람별 알림 수신 설정. 구독(기기)과 달리 사람 하나에 한 행이다.</summary>
+    public DbSet<NotificationPreference> NotificationPreferences { get; set; } = null!;
+
     // ── scom 계정·역할 (읽기 전용) ──────────────────────────
     // "이 역할 사용자들의 이메일" 을 풀기 위한 조회 전용 매핑이다.
     // 정본은 AuthServer 이고 여기서는 절대 쓰지 않는다 (ScomIdentityRows.cs 머리말).
@@ -46,6 +49,11 @@ public class AppDbContext : DbContext
         // 발송은 "이 주인들에게" 로만 훑는다.
         modelBuilder.Entity<PushSubscription>()
             .HasIndex(s => new { s.OwnerType, s.OwnerKey });
+
+        // 알림 설정은 사람 하나에 한 행이다. 두 행이 생기면 어느 쪽이 참인지 알 수 없다.
+        modelBuilder.Entity<NotificationPreference>()
+            .HasIndex(p => new { p.OwnerType, p.OwnerKey })
+            .IsUnique();
 
         // ── 컬럼명을 snake_case 로 맞춘다 ──────────────────────
         //

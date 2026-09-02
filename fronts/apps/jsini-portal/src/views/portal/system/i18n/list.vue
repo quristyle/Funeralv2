@@ -40,10 +40,6 @@ const [Grid, gridApi] = useVbenVxeGrid({
       { component: 'Input', fieldName: 'key', label: $t('ui.i18n.key'), },
       { component: 'Input', fieldName: 'value', label: $t('ui.i18n.value'), },
     ],
-    // 검색 버튼 클릭 시 실행
-    submitButtonOptions: { text: $t('common.query'), },
-    // 초기화 버튼 클릭 시 실행
-    resetButtonOptions: { text: $t('common.reset'), },
   },
   gridOptions: {
     columns: useColumns(onActionClick),
@@ -131,8 +127,8 @@ function onDelete(row: SystemI18nApi.I18nResource) {
       <template #toolbar-tools>
         <GridIconButton
           v-perm:create
-          icon="vxe-icon-add"
           :title="$t('ui.actionTitle.create', ['I18n'])"
+          icon="vxe-icon-add"
           @click="onCreate"
         />
       </template>

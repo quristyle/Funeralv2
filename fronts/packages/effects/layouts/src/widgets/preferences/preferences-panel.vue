@@ -126,6 +126,7 @@ const sidebarAutoActivateChild = defineModel<boolean>(
   'sidebarAutoActivateChild',
 );
 const sidebarExpandOnHover = defineModel<boolean>('sidebarExpandOnHover');
+const sidebarScrollToActive = defineModel<boolean>('sidebarScrollToActive');
 const sidebarCollapsedButton = defineModel<boolean>('sidebarCollapsedButton');
 const sidebarFixedButton = defineModel<boolean>('sidebarFixedButton');
 const headerEnable = defineModel<boolean>('headerEnable');
@@ -177,6 +178,11 @@ const shortcutKeysGlobalEscape = defineModel<boolean>(
 );
 const shortcutKeysGlobalLockScreen = defineModel<boolean>(
   'shortcutKeysGlobalLockScreen',
+);
+// 이것이 빠져 있었다. 블록에는 스위치가 있는데(`blocks/shortcut-keys/global.vue`)
+// 여기서 잇지 않아 눌러도 저장되지 않았다 — 23번 문서 5.5절.
+const shortcutKeysGlobalPreferences = defineModel<boolean>(
+  'shortcutKeysGlobalPreferences',
 );
 
 const widgetGlobalSearchButtonPosition = defineModel<string>(
@@ -356,6 +362,7 @@ function handleCustomPreferencesUpdate(updates: CustomPreferencesRecord) {
           v-model:sidebar-collapsed-show-title="sidebarCollapsedShowTitle"
           v-model:sidebar-enable="sidebarEnable"
           v-model:sidebar-expand-on-hover="sidebarExpandOnHover"
+          v-model:sidebar-scroll-to-active="sidebarScrollToActive"
           v-model:sidebar-width="sidebarWidth"
           v-model:sidebar-collapsed-button="sidebarCollapsedButton"
           v-model:sidebar-fixed-button="sidebarFixedButton"
@@ -455,6 +462,7 @@ function handleCustomPreferencesUpdate(updates: CustomPreferencesRecord) {
           v-model:shortcut-keys-global-search="shortcutKeysGlobalSearch"
           v-model:shortcut-keys-lock-screen="shortcutKeysGlobalLockScreen"
           v-model:shortcut-keys-logout="shortcutKeysGlobalLogout"
+          v-model:shortcut-keys-preferences="shortcutKeysGlobalPreferences"
           v-model:shortcut-keys-escape="shortcutKeysGlobalEscape"
         />
       </Block>

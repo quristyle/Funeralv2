@@ -6,7 +6,8 @@ import { computed, nextTick, onMounted, ref } from 'vue';
 import { Page } from '@vben/common-ui';
 import { IconifyIcon } from '@vben/icons';
 
-import { Button, Empty, Select, Space, Spin, Tag } from 'ant-design-vue';
+import { Empty, Select, Space, Spin, Tag } from 'ant-design-vue';
+import GridIconButton from '#/components/GridIconButton.vue';
 
 import { getWarnings, getWarningZones } from '#/api/life/weather';
 
@@ -181,10 +182,12 @@ onMounted(() => {
             placeholder="명령 필터"
             style="width: 160px"
           />
-          <Button :loading="loading" @click="fetchWarnings">
-            <IconifyIcon class="mr-1 size-4" icon="lucide:rotate-cw" />
-            새로고침
-          </Button>
+          <GridIconButton
+            :loading="loading"
+            icon="vxe-icon-repeat"
+            title="새로고침"
+            @click="fetchWarnings"
+          />
         </Space>
       </div>
 

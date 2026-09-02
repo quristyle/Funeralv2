@@ -1,7 +1,8 @@
 <script lang="ts" setup>
 import { ColPage } from '@vben/common-ui';
 import { Card, Button, Space, Popconfirm } from 'ant-design-vue';
-import { Plus, IconifyIcon } from '@vben/icons';
+import { IconifyIcon } from '@vben/icons';
+import GridIconButton from '#/components/GridIconButton.vue';
 import type { UseCommonCodeReturn } from '../composables/use-common-code';
 import GroupForm from './group-form.vue';
 import CodeForm from './code-form.vue';
@@ -27,10 +28,11 @@ defineProps<{
     <template #left>
       <Card title="코드 그룹" :bordered="false" class="mr-2 h-full flex flex-col">
         <template #extra>
-          <Button type="primary" @click="context.groupFormRef.value?.openModal()">
-            <Plus class="mr-1 size-4" />
-            추가
-          </Button>
+          <GridIconButton
+            icon="vxe-icon-add"
+            title="코드 그룹 추가"
+            @click="context.groupFormRef.value?.openModal()"
+          />
         </template>
         <component :is="context.GroupGrid">
           <template #action="{ row }">
@@ -51,10 +53,11 @@ defineProps<{
 
     <Card :title="context.currentGroup.value ? `[${context.currentGroup.value.groupName}] 코드 목록` : '코드 목록'" :bordered="false" class="ml-2 h-full flex flex-col">
       <template #extra v-if="context.currentGroup.value">
-        <Button type="primary" @click="context.codeFormRef.value?.openModal(context.currentGroup.value.id)">
-          <Plus class="mr-1 size-4" />
-          코드 추가
-        </Button>
+        <GridIconButton
+          icon="vxe-icon-add"
+          title="코드 추가"
+          @click="context.codeFormRef.value?.openModal(context.currentGroup.value.id)"
+        />
       </template>
       
       <component :is="context.CodeGrid" v-if="context.currentGroup.value">

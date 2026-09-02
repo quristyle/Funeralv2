@@ -238,9 +238,9 @@ onMounted(fetchLatestRelease);
         -->
         <div class="flex items-center gap-2">
           <GridIconButton
+            :loading="loading"
             icon="vxe-table-icon-repeat"
             title="새로고침"
-            :loading="loading"
             @click="fetchLatestRelease"
           />
           <!-- 바깥으로 나가는 링크라 share 아이콘을 쓴다. vxe-table 쪽 아이콘 묶음에는

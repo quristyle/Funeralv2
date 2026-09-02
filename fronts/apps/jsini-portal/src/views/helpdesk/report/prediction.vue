@@ -6,9 +6,10 @@ import { onMounted, ref } from 'vue';
 import { Page } from '@vben/common-ui';
 import { EchartsUI, useEcharts } from '@vben/plugins/echarts';
 
-import { Alert, Button, Card, Col, Row, Spin, Tag } from 'ant-design-vue';
+import { Alert, Card, Col, Row, Spin, Tag } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
+import GridIconButton from '#/components/GridIconButton.vue';
 import { getServerReport } from '#/api/helpdesk';
 
 /**
@@ -199,7 +200,12 @@ onMounted(loadData);
         <span class="text-base font-semibold">
           시스템 장애 전조 징후 탐지 및 예방 분석 리포트
         </span>
-        <Button :loading="loading" danger @click="loadData">패턴 재분석</Button>
+        <GridIconButton
+          :loading="loading"
+          icon="vxe-icon-repeat"
+          title="패턴 재분석"
+          @click="loadData"
+        />
       </div>
     </Card>
 

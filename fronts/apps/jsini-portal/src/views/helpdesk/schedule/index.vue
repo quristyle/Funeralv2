@@ -24,6 +24,7 @@ import {
   Spin,
   Textarea,
 } from 'ant-design-vue';
+import GridIconButton from '#/components/GridIconButton.vue';
 
 import {
   createSchedule,
@@ -523,9 +524,12 @@ onMounted(async () => {
             </RadioButton>
           </RadioGroup>
           <!-- 마지막으로 탭한 날짜(없으면 오늘)로 연다 — 모바일의 단일 탭 등록 경로 -->
-          <Button v-perm:create type="primary" @click="openCreate()">
-            일정 등록
-          </Button>
+          <GridIconButton
+            v-perm:create
+            icon="vxe-icon-add"
+            title="일정 등록"
+            @click="openCreate()"
+          />
         </Space>
       </div>
     </Card>

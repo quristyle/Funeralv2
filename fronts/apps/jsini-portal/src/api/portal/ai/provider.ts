@@ -1,3 +1,4 @@
+import { unwrapOne } from '#/api/envelope';
 import { preferencesManager } from '@vben/preferences';
 
 import { requestClient } from '#/api/request';
@@ -128,7 +129,7 @@ export async function getAiProviders() {
   // 응답이 `ApiResponse` 로 한 겹 싸여 온다 — 목록형 응답은 `result` 배열에 담기므로
   // 객체 하나를 돌려주는 이 경로도 `result[0]` 에 들어간다.
   // (`deepCheckLlm` 도 같은 방식으로 벗긴다.)
-  const raw = res?.result?.[0] ?? res?.result ?? res;
+  const raw = unwrapOne<any>(res);
 
   return {
     defaultProvider: String(raw?.defaultProvider ?? ''),
@@ -207,7 +208,7 @@ export async function getFreeModels(provider: string) {
   const res = await requestClient.get<any>('/ai/models', {
     params: { provider },
   });
-  const raw = res?.result?.[0] ?? res?.result ?? res;
+  const raw = unwrapOne<any>(res);
 
   return {
     provider: String(raw?.provider ?? provider),

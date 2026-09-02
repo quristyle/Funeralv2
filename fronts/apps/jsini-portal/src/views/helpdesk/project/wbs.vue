@@ -23,6 +23,7 @@ import {
 } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
+import GridIconButton from '#/components/GridIconButton.vue';
 import { createWbs, deleteWbs, getWbsTree, updateWbs } from '#/api/helpdesk';
 import BizSelect from '#/components/BizSelect.vue';
 
@@ -104,7 +105,8 @@ const [Grid, gridApi] = useVbenVxeGrid({
     emptyText: '등록된 WBS 항목이 없습니다.',
     // 재조회 아이콘 — `:table-data` 라 그리드가 조회 방법을 모른다.
     // 고른 프로젝트의 트리를 다시 읽는 함수를 준다.
-    gridFeatures: { onRefresh: () => loadWbs() },
+    // [추가] 아이콘은 위쪽 '최상위 작업 추가' 와 같은 함수를 부른다.
+    gridFeatures: { onCreate: () => openCreate(), onRefresh: () => loadWbs() },
     height: 'auto',
     pagerConfig: { enabled: false },
     rowConfig: { keyField: 'key' },
@@ -237,13 +239,12 @@ watch(loading, (value) => gridApi.setLoading(value));
             type="helpdesk_project"
           />
         </div>
-        <Button
+        <GridIconButton
           :disabled="!selectedProjectId"
-          type="primary"
+          icon="vxe-icon-add"
+          title="최상위 작업 추가"
           @click="openCreate()"
-        >
-          최상위 작업 추가
-        </Button>
+        />
       </div>
     </Card>
 

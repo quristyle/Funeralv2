@@ -1,3 +1,4 @@
+import { unwrapList, unwrapOne } from '#/api/envelope';
 import { requestClient } from '#/api/request';
 
 /**
@@ -131,17 +132,14 @@ export namespace LifeWeatherApi {
   }
 }
 
-/** 봉투에서 목록을 꺼낸다 — 어느 깊이로 감겨 와도 배열을 돌려준다 */
+/** 봉투에서 목록을 꺼낸다. 기준은 `src/api/envelope.ts` 한 곳이다. */
 function toList<T = any>(res: any): T[] {
-  if (Array.isArray(res)) return res;
-  if (Array.isArray(res?.result)) return res.result;
-  if (Array.isArray(res?.data?.result)) return res.data.result;
-  return [];
+  return unwrapList<T>(res);
 }
 
-/** 봉투가 단건도 { result: [obj] } 로 감싸므로 첫 원소를 꺼낸다 */
+/** 봉투가 단건도 `{ result: [obj] }` 로 감싸므로 첫 원소를 꺼낸다 */
 function toOne<T = any>(res: any): T | undefined {
-  return toList<T>(res)[0];
+  return unwrapOne<T>(res);
 }
 
 // ── 실황 ─────────────────────────────────────────────────────

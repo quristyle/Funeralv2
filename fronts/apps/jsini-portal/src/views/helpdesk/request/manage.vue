@@ -9,6 +9,7 @@ import { Page } from '@vben/common-ui';
 import { Button, Card, Empty, Input, Select, Space, Tag } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
+import GridIconButton from '#/components/GridIconButton.vue';
 import { searchRequests } from '#/api/helpdesk';
 import { useHelpdeskStore } from '#/store/helpdesk';
 
@@ -455,9 +456,12 @@ onMounted(async () => {
             show-search
             style="width: 160px"
           />
-          <Button :loading="loading" type="primary" @click="search">
-            조회
-          </Button>
+          <GridIconButton
+            :loading="loading"
+            icon="vxe-icon-search"
+            title="조회"
+            @click="search"
+          />
         </Space>
       </Card>
 

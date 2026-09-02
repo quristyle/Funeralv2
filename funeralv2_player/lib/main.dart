@@ -96,7 +96,7 @@ class FuneralPlayerApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Funeral Signage Player',
+      title: 'JSINI', // 안드로이드 '최근 앱' 목록에 뜨는 이름
       debugShowCheckedModeBanner: false, // 오른쪽 상단 디버그 띠를 숨깁니다.
       theme: ThemeData(
         fontFamily: 'NanumGothic', // 번들 한글 폰트 (Linux 두부 현상 방지)

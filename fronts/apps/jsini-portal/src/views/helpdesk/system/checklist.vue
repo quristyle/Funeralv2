@@ -26,6 +26,7 @@ import {
   Statistic,
   Tag,
 } from 'ant-design-vue';
+import GridIconButton from '#/components/GridIconButton.vue';
 
 import {
   createChecklist,
@@ -234,9 +235,12 @@ onMounted(loadData);
           />
           <Segmented v-model:value="filter" :options="FILTER_OPTIONS" />
         </Space>
-        <Button v-perm:create type="primary" @click="openCreate()">
-          항목 등록
-        </Button>
+        <GridIconButton
+          v-perm:create
+          icon="vxe-icon-add"
+          title="항목 등록"
+          @click="openCreate()"
+        />
       </div>
     </Card>
 

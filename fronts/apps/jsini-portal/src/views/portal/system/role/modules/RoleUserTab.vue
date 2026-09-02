@@ -23,11 +23,12 @@ import type { SystemRolePermissionApi } from '#/api/portal/system/role-permissio
 
 import { computed, onMounted, ref, watch } from 'vue';
 
-import { IconifyIcon, Plus } from '@vben/icons';
+import { IconifyIcon } from '@vben/icons';
 
-import { Button, message, Modal, Tag, Tooltip } from 'ant-design-vue';
+import { Button, message, Modal, Tag } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
+import GridIconButton from '#/components/GridIconButton.vue';
 import {
   assignRoleUsers,
   getEligibleUsers,
@@ -120,6 +121,9 @@ const [Grid, gridApi] = useVbenVxeGrid<RoleUser>({
   gridOptions: {
     columns: buildColumns([], false),
     emptyText: '지정된 사용자가 없습니다.',
+    // 아래 도구줄의 [추가] — 위쪽 아이콘과 같은 함수를 부른다.
+    // (`gridFeatures` 는 vxe 타입에 없다. 공통 레이어가 읽고 떼어 낸다.)
+    gridFeatures: { onCreate: () => openAssignModal() },
     height: 'auto',
     // 전량 조회다. 켜 두면 vxe 가 응답을 `{result,page}` 로 읽어 배열이 통째로 빠진다.
     pagerConfig: { enabled: false },
@@ -139,7 +143,7 @@ const [Grid, gridApi] = useVbenVxeGrid<RoleUser>({
       },
     },
     rowConfig: { keyField: 'id' },
-  },
+  } as any,
 });
 
 // ==========================================
@@ -250,24 +254,18 @@ onMounted(() => gridApi.query());
             (총 {{ mappedCount }}명)
           </span>
         </span>
-        <Tooltip title="새로고침 (재조회)">
-          <Button size="small" @click="gridApi.query()">
-            <template #icon>
-              <IconifyIcon
-                icon="lucide:refresh-cw"
-                class="inline-block size-3.5"
-              />
-            </template>
-          </Button>
-        </Tooltip>
+        <GridIconButton
+          icon="vxe-icon-repeat"
+          title="새로고침 (재조회)"
+          @click="gridApi.query()"
+        />
       </div>
 
-      <Button type="primary" @click="openAssignModal">
-        <template #icon>
-          <Plus class="mr-1 inline-block size-4 align-text-bottom" />
-        </template>
-        사용자 추가 지정
-      </Button>
+      <GridIconButton
+        icon="vxe-icon-add-user"
+        title="사용자 추가 지정"
+        @click="openAssignModal"
+      />
     </div>
 
     <!-- 지정 사용자 그리드 -->

@@ -7,6 +7,7 @@
 import os
 
 OUT = os.path.dirname(os.path.abspath(__file__))
+REPO = os.path.dirname(os.path.dirname(OUT))     # docs/brand → docs → 저장소 뿌리
 
 INK = "#0A0A0A"
 GRAPHITE = "#1C1C1E"
@@ -79,11 +80,18 @@ def head(vb_w, vb_h, title, desc, extra=""):
             f'  <title>{title}</title>\n  <desc>{desc}</desc>\n')
 
 
-def write(name, body):
-    os.makedirs(OUT, exist_ok=True)
-    with open(os.path.join(OUT, name), "w", encoding="utf-8", newline="\n") as f:
+def _rel(out_dir, name):
+    """찍을 경로. docs/brand 밖에 쓴 것은 어디로 갔는지 보여야 한다."""
+    if os.path.normpath(out_dir) == os.path.normpath(OUT):
+        return name
+    return os.path.relpath(os.path.join(out_dir, name), REPO).replace(os.sep, "/")
+
+
+def write(name, body, out_dir=OUT):
+    os.makedirs(out_dir, exist_ok=True)
+    with open(os.path.join(out_dir, name), "w", encoding="utf-8", newline="\n") as f:
         f.write(body)
-    print(name)
+    print(_rel(out_dir, name))
 
 
 def symbol_group(j_fill, s_fill, keyline=None, dx=0.0, dy=0.0, s=1.0):
@@ -231,7 +239,36 @@ def _polys_from_path(d):
     return pts
 
 
-def write_ico(name, block_d, cut_d, fill):
+def _poly(draw, d, px, fill):
+    """좌표계의 path 하나를 px 배율로 칠한다."""
+    draw.polygon([(x * px, y * px) for x, y in _polys_from_path(d)], fill=fill)
+
+
+_INK_RGBA = (10, 10, 10, 255)
+_PAPER_RGBA = (255, 255, 255, 255)
+_MIST_RGBA = (210, 210, 215, 255)
+_CLEAR = (0, 0, 0, 0)
+
+# 래스터의 모양은 함수로 둔다. `.ico` 와 `.png` 가 같은 것을 그려야 하고,
+# 자리마다 필요한 모양이 다르기 때문이다(아래 8-3 의 표).
+
+
+def _favicon_shape(draw, px):
+    """파비콘과 동일 — 깎인 블록에 J 음각, 배경 투명."""
+    _poly(draw, block, px, _INK_RGBA)
+    # ImageDraw 는 픽셀을 합성하지 않고 그대로 쓴다. 알파 0 으로 칠하면 실제로 파인다.
+    _poly(draw, fav_j, px, _CLEAR)
+
+
+def _fullbleed_shape(draw, px):
+    """꽉 찬 잉크 판 + 중앙의 종이색 J (안전영역 80% 안)."""
+    draw.rectangle([0, 0, FAV * px, FAV * px], fill=_INK_RGBA)
+    s = 1.15                                  # J 높이 30×1.15 ≈ 캔버스의 54% — 안전영역 안
+    j = path("J", s, (FAV - width("J", s)) / 2, (FAV - 30 * s) / 2)
+    _poly(draw, j, px, _PAPER_RGBA)
+
+
+def write_ico(name, draw_fn, out_dir=OUT, canvas=FAV):
     try:
         from PIL import Image, ImageDraw
     except ImportError:
@@ -240,13 +277,10 @@ def write_ico(name, block_d, cut_d, fill):
 
     sizes = [16, 32, 48, 64, 128, 256]
     ss = 8                       # 초과표본 배율
-    base = FAV * ss
+    base = canvas * ss
 
-    img = Image.new("RGBA", (base, base), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(img)
-    draw.polygon([(x * ss, y * ss) for x, y in _polys_from_path(block_d)], fill=fill)
-    # ImageDraw 는 픽셀을 합성하지 않고 그대로 쓴다. 알파 0 으로 칠하면 실제로 파인다.
-    draw.polygon([(x * ss, y * ss) for x, y in _polys_from_path(cut_d)], fill=(0, 0, 0, 0))
+    img = Image.new("RGBA", (base, base), _CLEAR)
+    draw_fn(ImageDraw.Draw(img), ss)
 
     # Pillow 의 ICO 저장은 **기준 이미지에서 스스로 줄여** 각 크기를 만든다.
     # 그 축소는 우리가 원하는 품질이 아니라, LANCZOS 로 직접 줄인 것을 append_images 로
@@ -254,14 +288,15 @@ def write_ico(name, block_d, cut_d, fill):
     # 기준 이미지는 **가장 큰 것**이어야 한다. 작은 것을 기준으로 주면 그보다 큰 크기가 빠진다.
     frames = {s: img.resize((s, s), Image.LANCZOS) for s in sizes}
     largest = max(sizes)
+    os.makedirs(out_dir, exist_ok=True)
     frames[largest].save(
-        os.path.join(OUT, name), format="ICO",
+        os.path.join(out_dir, name), format="ICO",
         sizes=[(s, s) for s in sizes],
         append_images=[frames[s] for s in sizes if s != largest])
-    print(name)
+    print(_rel(out_dir, name))
 
 
-write_ico("favicon.ico", block, fav_j, (10, 10, 10, 255))          # Ink
+write_ico("favicon.ico", _favicon_shape)
 
 
 # 8-3) PWA 아이콘 — 포털(portal.jsini.co.kr)을 앱으로 설치할 때 쓰는 PNG 들.
@@ -274,43 +309,113 @@ write_ico("favicon.ico", block, fav_j, (10, 10, 10, 255))          # Ink
 #                         안에 둔다. 투명이 남으면 잘린 자리가 얼룩진다.
 #   · apple-touch(180)  — iOS 는 투명을 검정으로 칠해 버리므로 maskable 과 같은
 #                         꽉 찬 판을 쓴다 (모서리는 iOS 가 알아서 둥글린다).
-def write_png(name, size, draw_fn):
+def write_png(name, size, draw_fn, out_dir=OUT, canvas=FAV):
+    """size 는 픽셀(정수면 정사각, `(w, h)` 면 직사각). canvas 는 좌표계의 가로 폭이다."""
     try:
         from PIL import Image, ImageDraw
     except ImportError:
         print(f"{name} 건너뜀 (Pillow 없음 — pip install pillow)")
         return
 
+    pw, ph = (size, size) if isinstance(size, int) else size
     ss = 8                                    # .ico 와 같은 초과표본 배율
-    px = size * ss / FAV                      # 64 좌표계 → 픽셀 배율
-    img = Image.new("RGBA", (size * ss, size * ss), (0, 0, 0, 0))
+    px = pw * ss / canvas                     # 좌표계 → 픽셀 배율
+    img = Image.new("RGBA", (pw * ss, ph * ss), _CLEAR)
     draw_fn(ImageDraw.Draw(img), px)
-    img.resize((size, size), Image.LANCZOS).save(os.path.join(OUT, name), format="PNG")
-    print(name)
-
-
-_INK_RGBA = (10, 10, 10, 255)
-_PAPER_RGBA = (255, 255, 255, 255)
-
-
-def _favicon_shape(draw, px):
-    """파비콘과 동일 — 깎인 블록에 J 음각, 배경 투명."""
-    draw.polygon([(x * px, y * px) for x, y in _polys_from_path(block)], fill=_INK_RGBA)
-    draw.polygon([(x * px, y * px) for x, y in _polys_from_path(fav_j)], fill=(0, 0, 0, 0))
-
-
-def _fullbleed_shape(draw, px):
-    """꽉 찬 잉크 판 + 중앙의 종이색 J (안전영역 80% 안)."""
-    draw.rectangle([0, 0, FAV * px, FAV * px], fill=_INK_RGBA)
-    s = 1.15                                  # J 높이 30×1.15 ≈ 캔버스의 54% — 안전영역 안
-    j = path("J", s, (FAV - width("J", s)) / 2, (FAV - 30 * s) / 2)
-    draw.polygon([(x * px, y * px) for x, y in _polys_from_path(j)], fill=_PAPER_RGBA)
+    os.makedirs(out_dir, exist_ok=True)
+    img.resize((pw, ph), Image.LANCZOS).save(os.path.join(out_dir, name), format="PNG")
+    print(_rel(out_dir, name))
 
 
 write_png("pwa-icon-192.png", 192, _favicon_shape)
 write_png("pwa-icon-512.png", 512, _favicon_shape)
 write_png("pwa-icon-maskable-512.png", 512, _fullbleed_shape)
 write_png("apple-touch-icon.png", 180, _fullbleed_shape)
+
+# 8-4) 사이니지 플레이어(funeralv2_player) 아이콘 — 플랫폼 폴더에 바로 쓴다.
+#
+# 플레이어는 Flutter 기본 아이콘을 그대로 달고 릴리스되고 있었다.
+#
+# 여기 쓰는 것은 **OS 런처·작업표시줄 자리**라 파비콘형(깎인 블록에 J 음각)이 아니라
+# maskable · apple-touch 와 같은 **꽉 찬 잉크 판 + 종이색 J** 다. 이유도 같다 —
+# 런처 배경은 사진일 수 있고 작업표시줄은 어두워서, 음각한 J 는 배경이 그대로 비쳐
+# 글자로 읽히지 않는다. 안드로이드·윈도우가 같은 모양이 되는 이점도 있다.
+#
+# `public/brand/` 처럼 복사본을 두지 않고 여기서 바로 쓴다. 플랫폼 폴더는 이름이
+# 정해져 있어 복사 단계를 하나 더 두면 어긋나기만 한다.
+PLAYER = os.path.join(REPO, "funeralv2_player")
+PLAYER_RES = os.path.join(PLAYER, "android", "app", "src", "main", "res")
+
+# 안드로이드 밀도 배율. 런처 아이콘은 48dp, 어댑티브 전경은 108dp 가 기준이다.
+DENSITIES = {"mdpi": 1, "hdpi": 1.5, "xhdpi": 2, "xxhdpi": 3, "xxxhdpi": 4}
+
+for _dpi, _mul in DENSITIES.items():
+    write_png("ic_launcher.png", int(48 * _mul), _fullbleed_shape,
+              out_dir=os.path.join(PLAYER_RES, f"mipmap-{_dpi}"))
+
+# 어댑티브 아이콘(API 26+). 108dp 캔버스 중 가운데 72dp 만 보이고 마스크 모양은
+# 기기가 정한다(원 · 둥근 사각 · 사각). 그래서 배경은 색 하나로 채우고 전경에는 J 만 둔다.
+# API 25 이하는 위의 `ic_launcher.png` 를 그대로 쓴다.
+ADAPT = 108
+ADAPT_J_H = 44        # 가운데 안전 원(66) 안 — J 대각선 √(32.3² + 44²) ≈ 54.6
+
+
+def _adaptive_foreground(draw, px):
+    """108dp 캔버스 가운데의 종이색 J. 배경은 잉크 색판이 따로 깔린다."""
+    s = ADAPT_J_H / 30
+    _poly(draw, path("J", s, (ADAPT - width("J", s)) / 2, (ADAPT - ADAPT_J_H) / 2),
+          px, _PAPER_RGBA)
+
+
+for _dpi, _mul in DENSITIES.items():
+    write_png("ic_launcher_foreground.png", int(ADAPT * _mul), _adaptive_foreground,
+              out_dir=os.path.join(PLAYER_RES, f"mipmap-{_dpi}"), canvas=ADAPT)
+
+_GEN = "<!-- docs/brand/generate.py 가 만든다. 손으로 고치지 않는다. -->"
+
+write("ic_launcher.xml",
+      '<?xml version="1.0" encoding="utf-8"?>\n' + _GEN + "\n"
+      '<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">\n'
+      '    <background android:drawable="@color/ic_launcher_background"/>\n'
+      '    <foreground android:drawable="@mipmap/ic_launcher_foreground"/>\n'
+      "    <!-- API 33+ 테마 아이콘. 알파만 쓰이므로 전경을 그대로 넘긴다. -->\n"
+      '    <monochrome android:drawable="@mipmap/ic_launcher_foreground"/>\n'
+      "</adaptive-icon>\n",
+      out_dir=os.path.join(PLAYER_RES, "mipmap-anydpi-v26"))
+
+write("ic_launcher_background.xml",
+      '<?xml version="1.0" encoding="utf-8"?>\n' + _GEN + "\n"
+      "<resources>\n"
+      f'    <color name="ic_launcher_background">{INK}</color>\n'
+      "</resources>\n",
+      out_dir=os.path.join(PLAYER_RES, "values"))
+
+# TV 배너 (320×180 xhdpi). 안드로이드 TV 런처는 아이콘이 아니라 이것을 쓴다.
+# 정사각이 아니라 1.78:1 이므로 여기서는 축약형이 아니라 **가로 조합**이 제자리에 온다
+# (5절이 심볼을 정사각에 넣지 말라고 한 그 이유의 반대쪽이다).
+BANNER_W, BANNER_H = 320, 180
+BANNER_S = 0.9       # 가로 조합 228×60 → 205×54. 사방 여백이 클리어스페이스(12×0.9)를 넘는다
+
+
+def _tv_banner(draw, px):
+    draw.rectangle([0, 0, BANNER_W * px, BANNER_H * px], fill=_INK_RGBA)
+    ox = (BANNER_W - LH_W * BANNER_S) / 2
+    oy = (BANNER_H - LH_H * BANNER_S) / 2
+    # 심볼은 S 를 깔고 J 를 위에 올린다 — 겹침 4 유닛이 J 쪽에서 끊겨야 한다.
+    _poly(draw, path("S", SYM_S * BANNER_S,
+                     ox + (SYM_S_X - SYM_J_X) * BANNER_S, oy), px, _MIST_RGBA)
+    _poly(draw, path("J", SYM_S * BANNER_S, ox, oy), px, _PAPER_RGBA)
+    for d in wordmark_paths(BANNER_S, ox + (SYM_W + GAP_H) * BANNER_S,
+                            oy + (SYM_H - WM_H) / 2 * BANNER_S)[0]:
+        _poly(draw, d, px, _PAPER_RGBA)
+
+
+write_png("tv_banner.png", (BANNER_W, BANNER_H), _tv_banner,
+          out_dir=os.path.join(PLAYER_RES, "drawable-xhdpi"), canvas=BANNER_W)
+
+# 윈도우 실행 파일 아이콘. `windows/runner/Runner.rc` 가 IDI_APP_ICON 으로 이것을 읽는다.
+write_ico("app_icon.ico", _fullbleed_shape,
+          out_dir=os.path.join(PLAYER, "windows", "runner", "resources"))
 
 # 9) 상승 조각 모티프 — 심볼과 별개로 사이트 전반에 반복하는 보조 그래픽.
 SHARD_TONES = [MIST, STEEL, GRAPHITE, INK]

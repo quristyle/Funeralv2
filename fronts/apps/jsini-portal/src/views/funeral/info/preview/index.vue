@@ -10,6 +10,7 @@ import { onMounted, ref } from 'vue';
 import { Page } from '@vben/common-ui';
 import { IconifyIcon } from '@vben/icons';
 import { Button, Empty, Input, Select, Spin, Tag, message } from 'ant-design-vue';
+import GridIconButton from '#/components/GridIconButton.vue';
 import dayjs from 'dayjs';
 import type { InfoApi } from '#/api/funeral/info';
 import { getDevicePreviews } from '#/api/funeral/info';
@@ -142,7 +143,11 @@ onMounted(async () => {
             :options="rooms.map((r) => ({ label: r.name, value: r.id }))"
             @change="load"
           />
-          <Button size="small" @click="load">새로고침</Button>
+          <GridIconButton
+            icon="vxe-icon-repeat"
+            title="새로고침"
+            @click="load"
+          />
         </div>
       </div>
 

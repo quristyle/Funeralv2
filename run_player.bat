@@ -1,5 +1,5 @@
 @echo off
-title Funeral Signage Player Bootstrapper
+title JSINI Player Bootstrapper
 
 echo ==================================================
 echo [1/4] Flutter Environment Configuration

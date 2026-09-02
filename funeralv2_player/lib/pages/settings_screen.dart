@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import '../services/display/display_mode_service.dart';
+import '../services/update/update_service.dart';
+import '../widgets/update_dialog.dart';
 
 /// [환경 설정 화면 위젯]
 /// 사이니지 단말이 백엔드 통합 서버와 소통할 수 있도록
@@ -68,6 +70,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   // 해상도 적용 중 여부 (중복 클릭 방지)
   bool _applyingAspect = false;
 
+  // 새 버전 확인 결과. 화면을 열 때 조용히 한 번 확인해 두고,
+  // 새 버전이 있으면 머리줄 아이콘에 점을 찍는다.
+  UpdateCheck? _updateCheck;
+
   /// [화면 방향성과 회전 각도 턴수 정합성 보정]
   /// displayOrientation 속성값에 맞추어 수동 회전 각도 상태(_screenRotationTurns)가 모순되지 않도록 맞춥니다.
   /// (LANDSCAPE 시에는 짝수 0 또는 2턴, PORTRAIT 시에는 홀수 1 또는 3턴으로 강제 유도)
@@ -113,7 +119,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _testConnection();
       _fetchNetworkDetails();
+      _checkUpdateQuietly();
     });
+  }
+
+  /// [새 버전 조용히 확인]
+  /// 설정 화면을 열 때 한 번만 확인한다. 실패하면 아무것도 알리지 않는다 —
+  /// 인터넷이 닿지 않는 현장이 있고, 그때 붉은 문구가 뜨면 설정이 잘못된 것처럼 보인다.
+  /// 결과는 머리줄 아이콘의 점으로만 알리고, 자세한 것은 아이콘을 눌러 팝업에서 본다.
+  Future<void> _checkUpdateQuietly() async {
+    final result = await UpdateService.check();
+    if (!mounted) return;
+    setState(() => _updateCheck = result);
   }
 
   /// [화면 비율(해상도) 프리셋 적용]
@@ -404,6 +421,36 @@ class _SettingsScreenState extends State<SettingsScreen> {
           backgroundColor: Colors.black,
           toolbarHeight: 46, // 헤더 높이 축소로 가용 면적 확보
           actions: [
+            // 새 버전 확인 버튼. 새 버전이 있으면 아이콘 오른쪽 위에 점이 찍힌다.
+            IconButton(
+              icon: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  const Icon(Icons.system_update, color: Color(0xFFC0A060), size: 24),
+                  if (_updateCheck?.hasUpdate == true)
+                    Positioned(
+                      right: -1,
+                      top: -1,
+                      child: Container(
+                        width: 8,
+                        height: 8,
+                        decoration: const BoxDecoration(
+                          color: Colors.redAccent,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              tooltip: _updateCheck?.hasUpdate == true
+                  ? '새 버전 ${_updateCheck!.latestVersion} 있음'
+                  : '버전 확인',
+              onPressed: () => UpdateDialog.show(
+                context,
+                initial: _updateCheck,
+                quarterTurns: _screenRotationTurns,
+              ),
+            ),
             // 수동 화면 시계방향 회전 버튼
             IconButton(
               icon: const Icon(Icons.rotate_right, color: Color(0xFFC0A060), size: 24),

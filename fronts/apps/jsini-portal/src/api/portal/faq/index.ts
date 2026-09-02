@@ -1,3 +1,4 @@
+import { unwrapOne } from '#/api/envelope';
 import { requestClient } from '#/api/request';
 
 /**
@@ -49,8 +50,7 @@ export namespace FaqApi {
  * 배열로 와도 객체로 와도 하나를 꺼내 준다.
  */
 function pickOne<T>(res: any): T | undefined {
-  const raw = res?.result ?? res?.data?.result ?? res;
-  return (Array.isArray(raw) ? raw[0] : raw) as T | undefined;
+  return unwrapOne<T>(res);
 }
 
 /** 목록. 관리자에게는 비활성 항목까지 온다. */

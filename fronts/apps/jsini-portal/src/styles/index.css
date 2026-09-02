@@ -201,11 +201,6 @@
   outline: none;
 }
 
-.jsini-filterrow__input::placeholder {
-  color: hsl(var(--muted-foreground));
-  opacity: 0.7;
-}
-
 /*
   고르는 칸(여러 개 선택). 옆의 입력칸과 **같은 높이·같은 모서리**로 맞춘다.
 
@@ -213,15 +208,29 @@
   세로로 커지는데, 필터줄은 vxe 가 표 높이를 계산할 때 쓰는 영역이라
   거기가 커지면 **표 전체가 다시 그려진다.** `maxTagCount: 'responsive'` 가
   넘치는 것을 "+N" 으로 접고, 여기서 높이를 못 박는다.
+
+  **입력칸과 구별되어야 한다.** 안내 문구('검색' · '전체')를 걷어내고 나면
+  빈 칸끼리는 테두리만 남아 둘이 똑같아 보인다. 그래서 모양으로 가른다 —
+  고르는 칸은 오른쪽에 ▾(`showArrow`, adapter/vxe-grid-features.ts)이 있고
+  바탕이 한 톤 낮다. 입력칸은 종이처럼 흰 바탕에 아무 표시가 없다.
 */
 .jsini-filterrow__select {
   width: 100%;
 }
 
-.jsini-filterrow__select.ant-select .ant-select-selector {
+.jsini-filterrow__select.ant-select.ant-select-multiple .ant-select-selector {
   height: 32px;
-  padding-inline: 4px;
+
+  /*
+    오른쪽은 ▾ 자리를 비워 둔다. 안 비우면 태그가 화살표 밑으로 들어간다.
+    antd 는 화살표가 보이면 24px 를 주는데(`ant-select-show-arrow`), 필터 칸은
+    좁아서 6px 이 아깝다. ▾ 은 오른쪽 5px 에 10px 폭이므로 18px 이면 닿지 않는다.
+    선택자에 `ant-select-multiple` 을 하나 더 붙인 것은 **antd 규칙을 이기려고** 다 —
+    특정도가 같으면 어느 쪽이 이길지 파일 순서에 달린다.
+  */
+  padding-inline: 4px 18px;
   font-size: 12px;
+  background: hsl(var(--muted));
   border-radius: 0;
 }
 
@@ -230,11 +239,20 @@
   height: 30px;
 }
 
-.jsini-filterrow__select.ant-select .ant-select-selection-placeholder {
-  font-size: 12px;
-  line-height: 30px;
+/*
+  ▾ 와 지우기(×). 기본 자리(오른쪽 11px)는 이 좁은 칸에서 너무 안쪽이다.
+  × 는 ▾ 위에 겹쳐 뜨므로 바탕을 칸과 같은 색으로 줘야 ▾ 가 비쳐 보이지 않는다
+  (antd 기본값은 흰색이라 어두운 화면에서 흰 점이 된다).
+*/
+.jsini-filterrow__select.ant-select .ant-select-arrow,
+.jsini-filterrow__select.ant-select .ant-select-clear {
+  inset-inline-end: 5px;
+  font-size: 10px;
   color: hsl(var(--muted-foreground));
-  opacity: 0.7;
+}
+
+.jsini-filterrow__select.ant-select .ant-select-clear {
+  background: hsl(var(--muted));
 }
 
 .jsini-filterrow__select.ant-select .ant-select-selection-item {
@@ -335,6 +353,32 @@
 .jsini-gridtools__btn:hover {
   color: hsl(var(--primary));
   background: hsl(var(--accent));
+}
+
+/* ============================================================
+   검색 폼 오른쪽 끝 — 조회 · 초기화 · 접기
+   ============================================================
+
+   조회 · 초기화는 `adapter/vxe-table.ts` 가 아이콘만 남긴 동그란 단추로 바꾼다.
+   **접기 화살표의 글자만 여기서 감춘다** — 그 글자는 vben 폼이 직접 그려
+   `formOptions` 로 닿지 않는다(`packages/@core/ui-kit/form-ui`, 상위와 맞춰 둔 곳이라
+   건드리지 않는다). 화살표가 도는 것으로 펼침 · 접힘을 보인다.
+   ============================================================ */
+.jsini-form-actions .vben-link > span {
+  display: none;
+}
+
+/* 글자가 빠진 만큼 화살표만 남는다. 다른 아이콘 단추와 크기를 맞춘다. */
+.jsini-form-actions .vben-link {
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  margin-left: 0;
+  color: hsl(var(--muted-foreground));
+}
+
+.jsini-form-actions .vben-link:hover {
+  color: hsl(var(--primary));
 }
 
 /* ============================================================

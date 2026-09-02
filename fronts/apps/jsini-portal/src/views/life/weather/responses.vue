@@ -255,9 +255,9 @@ onMounted(fetchStandards);
           <template #toolbar-tools>
             <GridIconButton
               v-perm:create
+              :disabled="!selectedStandard"
               icon="vxe-icon-add"
               title="대응 추가"
-              :disabled="!selectedStandard"
               @click="onCreate"
             />
           </template>

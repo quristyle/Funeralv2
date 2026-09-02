@@ -23,6 +23,7 @@
 | 4 | 세로 스크롤 없이 한 화면에 담는 것을 지향한다 |
 | 5 | 글꼴은 저장소 안의 파일만 쓴다 (바깥 CDN 금지) |
 | 6 | 표는 `useVbenVxeGrid` 하나로만 그린다 (정렬·필터는 공통 레이어가 붙인다) |
+| 7 | 응답 봉투는 API 모듈에서만 벗긴다 (`api/envelope.ts` 의 `unwrapList`·`unwrapOne`·`unwrapPage`) |
 
 ## 구조
 
@@ -114,6 +115,11 @@ docs/sql/              실행한 SQL (전부 반복 실행 안전)
   **진행 보고는 기본 꺼짐이라 지금은 켜기 전과 똑같이 동작한다.**
   켜는 법(배포 장비의 소비자는 고치지 않는다): [deploy/release-consumer/README.md](deploy/release-consumer/README.md)
   남은 것은 큐 공유(D-R1)·롤백(D-R3)·`VersionUrl`(D-R5).
+- 플레이어 새 버전 업그레이드: [docs/analysis/44-player-self-update.md](docs/analysis/44-player-self-update.md) (D-P1~D-P4)
+  환경 설정에 **새 버전 확인**을 넣었다(전 플랫폼, GitHub Releases 를 직접 본다).
+  **실제 교체는 안드로이드만** 된다 — 시스템 설치 화면을 띄운다.
+  데스크톱은 받기까지만 하고 설치 명령을 화면에 적어 준다.
+  남은 것은 윈도우 자동 교체(D-P1)·리눅스 root(D-P2)·원격 지시(D-P3)·자동 설치(D-P4).
 - 이식 시스템에서 '누구로서' 일할지 정하는 스위치 둘: [docs/analysis/19-msa-user-work-enablement.md](docs/analysis/19-msa-user-work-enablement.md) (Q9~Q13 · D14)
   둘 다 **기본 꺼짐**이라 지금은 켜기 전과 똑같이 동작한다. D13 을 먼저 처리해야 한다.
 - 준수사항 점검에서 남은 것: [docs/analysis/16-준수사항-점검.md](docs/analysis/16-준수사항-점검.md) (R1~R4)
@@ -129,6 +135,15 @@ docs/sql/              실행한 SQL (전부 반복 실행 안전)
 - GHUB(생활과환경) 이식에서 남은 것: [docs/analysis/38-ghub-migration.md](docs/analysis/38-ghub-migration.md) (D-G1)
   기상 이벤트·생일 메시지의 **알림 발송은 이식하지 않았다** — NotificationServer 연동
   (카카오 알림톡 채널 추가 포함)이 결정 대기다. 판정·기록은 돌고 있다.
+  **"누가 받나" 는 답이 생겼다**(2026-09-02) — 내 알림 설정(`/system/push/setting`)의
+  날씨 스위치가 `scom.notification_preferences` 에 남는다
+  ([29번 문서 8절](docs/analysis/29-notification-server.md)). 남은 것은 발송 자체다.
+- 응답 봉투 통일: [docs/analysis/45-api-envelope-unification.md](docs/analysis/45-api-envelope-unification.md) (D-A1~D-A3)
+  게이트웨이를 지나 오는 응답은 모양이 같은데(`{ data: { result, page } }`) 프론트에서
+  60곳 넘게 손으로 벗기고 있었다. 기준을 `api/envelope.ts` 한 곳으로 모았고
+  그리드 어댑터도 배열·봉투를 모두 받게 했다(준수사항 7번).
+  남은 것은 **백엔드가 단일 객체를 배열로 감싸는 것을 그대로 둘지**(D-A1) —
+  이것이 뿌리라서, 고치면 프론트에서 고를 것이 없어지지만 와이어 포맷이 바뀐다.
 - i18n 콘솔 경고와 언어 코드 정리: [docs/analysis/18-i18n-fallback-warning.md](docs/analysis/18-i18n-fallback-warning.md)
 - vben-admin 상위 동기화에서 남은 것: [docs/analysis/17-vben-upstream-sync.md](docs/analysis/17-vben-upstream-sync.md)
   (D-U1·D-U2 는 완료. 남은 것은 6.6 `componentProps` 타입 표 · 6.10 vxe 경고 · D-U4~U6)

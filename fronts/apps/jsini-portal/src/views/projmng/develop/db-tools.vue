@@ -21,10 +21,11 @@ import { computed, ref } from 'vue';
 
 import { Page } from '@vben/common-ui';
 
-import { Button, Input, message, TabPane, Tabs } from 'ant-design-vue';
+import { Input, message, TabPane, Tabs } from 'ant-design-vue';
 
 import { dbCont, jsCont, projDbParams, rawSql } from '#/api/projmng';
 
+import GridIconButton from '#/components/GridIconButton.vue';
 import { CodeSelect, DynamicGrid, SearchBar, SplitPane } from '../shared';
 import { CodeEditor } from '#/components/code-editor';
 
@@ -177,15 +178,13 @@ function bodyOf(row: null | ProjMngRow) {
         @press-enter="search"
       />
       <template #actions>
-        <Button
+        <GridIconButton
           v-perm:search
-          size="small"
-          type="primary"
           :loading="loading"
+          icon="vxe-icon-search"
+          title="조회"
           @click="search"
-        >
-          조회
-        </Button>
+        />
       </template>
     </SearchBar>
 

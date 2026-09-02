@@ -22,7 +22,12 @@ export function useCommonCode() {
    * 그룹 그리드 설정
    */
   const [GroupGrid, groupGridApi] = useVbenVxeGrid({
-    gridOptions: groupGridOptions,
+    // 아래 도구줄에도 [추가] 아이콘이 서게 한다 — 카드 머리의 추가 단추와 같은 일을 한다.
+    // (`gridFeatures` 는 vxe 타입에 없다. 공통 레이어가 읽고 떼어 낸다.)
+    gridOptions: {
+      ...groupGridOptions,
+      gridFeatures: { onCreate: () => groupFormRef.value?.openModal() },
+    } as any,
     gridEvents: {
       cellClick: ({ row }: { row: any }) => {
         currentGroup.value = row;
@@ -38,7 +43,15 @@ export function useCommonCode() {
    * 코드 그리드 설정
    */
   const [CodeGrid, codeGridApi] = useVbenVxeGrid({
-    gridOptions: codeGridOptions,
+    gridOptions: {
+      ...codeGridOptions,
+      gridFeatures: {
+        // 그룹을 고르기 전에는 코드를 만들 수 없다 — 카드 머리의 단추와 같은 조건이다.
+        onCreate: () =>
+          currentGroup.value &&
+          codeFormRef.value?.openModal(currentGroup.value.id),
+      },
+    } as any,
   });
 
   /**

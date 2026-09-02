@@ -19,6 +19,7 @@ import {
 } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
+import GridIconButton from '#/components/GridIconButton.vue';
 import { executeProcedure } from '#/api/helpdesk';
 
 /**
@@ -254,9 +255,12 @@ onMounted(fetchProcedureList);
         <Card size="small">
           <template #title>프로시저 목록</template>
           <template #extra>
-            <Button :loading="loading" size="small" @click="fetchProcedureList">
-              새로고침
-            </Button>
+            <GridIconButton
+              :loading="loading"
+              icon="vxe-icon-repeat"
+              title="프로시저 목록 새로고침"
+              @click="fetchProcedureList"
+            />
           </template>
 
           <Input

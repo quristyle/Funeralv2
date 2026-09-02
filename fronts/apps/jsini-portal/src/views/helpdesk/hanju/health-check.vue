@@ -5,7 +5,6 @@ import { Page } from '@vben/common-ui';
 
 import {
   Alert,
-  Button,
   Card,
   Descriptions,
   DescriptionsItem,
@@ -17,6 +16,7 @@ import {
 import { VxeGrid } from 'vxe-table';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
+import GridIconButton from '#/components/GridIconButton.vue';
 import { oadrGet } from '#/api/helpdesk';
 
 /**
@@ -208,7 +208,12 @@ onBeforeUnmount(stopTimer);
         <Space>
           <span class="text-sm">자동 새로고침</span>
           <Switch :checked="autoRefresh" @change="onAutoRefreshChange as any" />
-          <Button :loading="loading" @click="loadData">새로고침</Button>
+          <GridIconButton
+            :loading="loading"
+            icon="vxe-icon-repeat"
+            title="새로고침"
+            @click="loadData"
+          />
         </Space>
       </div>
     </Card>

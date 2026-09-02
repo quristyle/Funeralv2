@@ -4,7 +4,6 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { Page } from '@vben/common-ui';
 
 import {
-  Button,
   Card,
   Checkbox,
   Col,
@@ -20,6 +19,7 @@ import {
 } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
+import GridIconButton from '#/components/GridIconButton.vue';
 import { executeProcedure } from '#/api/helpdesk';
 
 import OadrSeriesChart from '../report/modules/oadr-series-chart.vue';
@@ -324,7 +324,12 @@ onBeforeUnmount(stopTimer);
           <span v-if="autoReload" class="text-xs text-muted-foreground">
             {{ remainingSeconds }}초
           </span>
-          <Button :loading="loadingList" @click="reloadAll">새로고침</Button>
+          <GridIconButton
+            :loading="loadingList"
+            icon="vxe-icon-repeat"
+            title="새로고침"
+            @click="reloadAll"
+          />
         </Space>
       </div>
     </Card>
