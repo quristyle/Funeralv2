@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue';
 import { Page } from '@vben/common-ui';
 import { IconifyIcon } from '@vben/icons';
 import { Alert, Button, Spin, Tag } from 'ant-design-vue';
+import GridIconButton from '#/components/GridIconButton.vue';
 
 /**
  * [플레이어 다운로드]
@@ -196,6 +197,14 @@ async function fetchLatestRelease() {
   }
 }
 
+/**
+ * GitHub Releases 목록을 새 창으로 연다.
+ * VxeButton 에는 href 가 없어서(앵커가 아니라 button 이다) 여기서 연다.
+ */
+function openReleasePage() {
+  window.open(RELEASE_PAGE, '_blank', 'noopener');
+}
+
 onMounted(fetchLatestRelease);
 </script>
 
@@ -222,31 +231,31 @@ onMounted(fetchLatestRelease);
           </div>
         </div>
 
+        <!--
+          그리드 도구줄과 같은 동그란 아이콘 단추를 쓴다. 글자 단추 둘이 머리줄 폭을
+          많이 먹어서 다른 화면의 도구줄과 모양이 어긋났다.
+          아이콘만 남으므로 title 을 반드시 준다 — 마우스를 올리면 무엇인지 나온다.
+        -->
         <div class="flex items-center gap-2">
-          <Button :loading="loading" @click="fetchLatestRelease">
-            <IconifyIcon icon="lucide:refresh-cw" class="mr-1 size-4" />
-            새로고침
-          </Button>
-          <Button type="link" :href="RELEASE_PAGE" target="_blank">
-            전체 버전 보기
-            <IconifyIcon icon="lucide:external-link" class="ml-1 size-3.5" />
-          </Button>
+          <GridIconButton
+            icon="vxe-table-icon-repeat"
+            title="새로고침"
+            :loading="loading"
+            @click="fetchLatestRelease"
+          />
+          <!-- 바깥으로 나가는 링크라 share 아이콘을 쓴다. vxe-table 쪽 아이콘 묶음에는
+               나가기에 해당하는 것이 없어 vxe-pc-ui 것을 쓴다(둘 다 올라와 있다). -->
+          <GridIconButton
+            icon="vxe-icon-share"
+            title="전체 버전 보기 (GitHub Releases)"
+            @click="openReleasePage"
+          />
         </div>
       </div>
 
       <Alert v-if="loadError" type="warning" show-icon :message="loadError" />
 
-      <!--
-        리눅스 파일은 빌드한 배포판 이상에서만 동작한다.
-        이걸 모르고 debian13 파일을 Ubuntu 에 넣으면 "실행이 안 된다" 로만 보인다.
-      -->
-      <Alert
-        v-if="release"
-        type="info"
-        show-icon
-        message="리눅스는 배포판에 맞는 파일을 받아야 합니다"
-        description="라즈베리파이용(debian13) 파일은 Ubuntu 24.04 에서 실행되지 않습니다. glibc 버전이 달라서입니다 — 반대(ubuntu24 파일을 라즈베리파이에)는 동작합니다."
-      />
+    
 
       <!-- ===== OS 별 카드 ===== -->
       <!--
