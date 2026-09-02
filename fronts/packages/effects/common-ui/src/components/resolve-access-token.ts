@@ -1,4 +1,20 @@
-import SecureLS from 'secure-ls';
+import SecureLSImport from 'secure-ls';
+
+// ── SecureLS 생성자 정규화 (packages/stores/setup.ts 와 같은 이유) ──
+//
+// `import X from 'secure-ls'; new X()` 를 그대로 쓰면 **운영에서만** 깨진다.
+// dev(esbuild)는 default 를 생성자로 바로 주지만, prod 빌더(rolldown)는 CJS
+// 상호운용을 이중으로 감싸 default 가 { default: 생성자 } 인 object 가 되고,
+// 그러면 `new` 가 `is not a constructor` 로 던진다. 그 예외를 아래 try/catch 가
+// 삼켜 토큰이 빈 값이 되고, 사진 요청이 Authorization 없이 나가 401 이 됐다.
+// dev 는 평문 JSON 경로라 SecureLS 를 아예 타지 않아 오래 숨어 있었다
+// (운영 로그인 세션의 실제 청크를 실행해 `new` 가 던지는 것을 확인함).
+//
+// default 를 한 겹 벗겨 실제 생성자를 찾는다. 이미 생성자면 그대로 쓴다.
+const SecureLS: typeof SecureLSImport =
+  (SecureLSImport as any)?.default ??
+  (SecureLSImport as any)?.SecureLS ??
+  SecureLSImport;
 
 /**
  * localStorage 에서 현재 세션의 액세스 토큰을 찾는다.
