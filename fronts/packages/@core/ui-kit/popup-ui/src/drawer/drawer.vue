@@ -1,6 +1,8 @@
 <script lang="ts" setup>
 import type { DrawerProps, ExtendedDrawerApi } from './drawer';
 
+import { useBackClose } from '../use-back-close';
+
 import {
   computed,
   onDeactivated,
@@ -60,6 +62,13 @@ const { $t } = useSimpleLocale();
 const { isMobile } = useIsMobile();
 
 const state = props.drawerApi?.useStore?.();
+
+// 모바일에서는 뒤로가기가 이 드로어를 닫는다 (use-back-close.ts 참고).
+useBackClose(
+  // state 는 ref 다 — 템플릿과 달리 스크립트에서는 .value 를 거쳐야 한다.
+  () => !!state?.value?.isOpen,
+  () => props.drawerApi?.close(),
+);
 
 const {
   appendToMain,
@@ -177,7 +186,7 @@ const getForceMount = computed(() => {
 </script>
 <template>
   <Sheet
-    :modal="false"
+    :modal="isMobile"
     :open="state?.isOpen"
     @update:open="() => drawerApi?.close()"
   >

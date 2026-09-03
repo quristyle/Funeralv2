@@ -12,7 +12,9 @@ import {
   watch,
 } from 'vue';
 
-import { usePriorityValues, useSimpleLocale } from '@vben-core/composables';
+import { useIsMobile, usePriorityValues, useSimpleLocale } from '@vben-core/composables';
+
+import { useBackClose } from '../use-back-close';
 import { Expand, Shrink } from '@vben-core/icons';
 import {
   Dialog,
@@ -55,6 +57,18 @@ const footerRef = ref();
 
 const { $t } = useSimpleLocale();
 const state = props.modalApi?.useStore?.();
+
+const { isMobile: isMobilePopup } = useIsMobile();
+
+// 모바일에서는 뒤로가기가 이 모달을 닫는다 (use-back-close.ts 참고).
+// 제출 중에는 닫지 않는다 — esc·바깥 클릭과 같은 규칙이다.
+useBackClose(
+  // state 는 ref 다 — 템플릿과 달리 스크립트에서는 .value 를 거쳐야 한다.
+  () => !!state?.value?.isOpen,
+  () => {
+    if (!submitting.value) props.modalApi?.close();
+  },
+);
 
 const id = useId();
 // 遮罩层通过该 id 标记，仅当点击发生在当前 Modal 的遮罩上时才允许关闭
@@ -228,7 +242,7 @@ function handleClosed() {
 </script>
 <template>
   <Dialog
-    :modal="false"
+    :modal="isMobilePopup"
     :open="state?.isOpen"
     @update:open="() => (!submitting ? modalApi?.close() : undefined)"
   >
