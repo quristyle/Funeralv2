@@ -163,6 +163,52 @@ class _UpdateDialogState extends State<UpdateDialog> {
     }
   }
 
+  /// [윈도우 제자리 교체 (D-P1)]
+  /// 도우미를 띄우고 앱이 종료된다. 실패 시 도우미가 옛 버전으로 되돌린다.
+  Future<void> _replaceWindows() async {
+    final file = _file;
+    if (file == null) return;
+
+    if (!await UpdateService.canReplaceInPlace()) {
+      if (!mounted) return;
+      setState(() {
+        _message = '설치 폴더에 쓸 수 없습니다 (관리자 권한이 필요한 폴더).\n'
+            '아래 안내대로 수동으로 교체해 주세요.';
+      });
+      return;
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _phase = _Phase.working;
+      _message = '교체를 시작합니다. 프로그램이 곧 종료되고 새 버전으로 다시 시작됩니다.\n'
+          '(실패하면 자동으로 이전 버전으로 되돌아옵니다 — 기록: %TEMP%\\jsini_player_update.log)';
+    });
+    // 사람이 위 문구를 읽을 시간을 준 뒤 교체를 시작한다. 이 호출은 돌아오지 않는다.
+    await Future.delayed(const Duration(seconds: 2));
+    await UpdateService.installWindowsUpdate(file);
+  }
+
+  /// [리눅스 설치 (D-P2)]
+  Future<void> _installLinux() async {
+    final file = _file;
+    if (file == null) return;
+
+    setState(() {
+      _phase = _Phase.working;
+      _message = null;
+    });
+
+    final fail = await UpdateService.installLinuxUpdate(file);
+    if (!mounted) return;
+    setState(() {
+      _phase = _Phase.downloaded;
+      _message = fail ??
+          '설치가 시작되었습니다. 잠시 후 프로그램이 새 버전으로 다시 시작됩니다.\n'
+              '(기록: journalctl -u funeralv2-player-update)';
+    });
+  }
+
   // ── 화면 ────────────────────────────────────────────────────────────────
 
   @override
@@ -392,6 +438,24 @@ class _UpdateDialogState extends State<UpdateDialog> {
           style: ElevatedButton.styleFrom(
               backgroundColor: _gold, foregroundColor: Colors.black),
           child: const Text('설치', style: TextStyle(fontWeight: FontWeight.bold)),
+        ),
+      // 윈도우: 도우미가 종료 대기 → 백업 → 교체 → 재기동 → 실패 시 되돌림 (D-P1)
+      if (_phase == _Phase.downloaded && Platform.isWindows)
+        ElevatedButton(
+          onPressed: _replaceWindows,
+          style: ElevatedButton.styleFrom(
+              backgroundColor: _gold, foregroundColor: Colors.black),
+          child: const Text('지금 교체 (앱이 잠시 종료됩니다)',
+              style: TextStyle(fontWeight: FontWeight.bold)),
+        ),
+      // 리눅스: sudoers 로 허용된 도우미가 설치하고 systemd 가 재시작 (D-P2)
+      if (_phase == _Phase.downloaded && Platform.isLinux)
+        ElevatedButton(
+          onPressed: _installLinux,
+          style: ElevatedButton.styleFrom(
+              backgroundColor: _gold, foregroundColor: Colors.black),
+          child: const Text('지금 설치 (곧 재시작됩니다)',
+              style: TextStyle(fontWeight: FontWeight.bold)),
         ),
       // 현재 버전을 못 읽은 경우에도 받을 수는 있게 둔다 — 사람이 보고 판단한다.
       if (_phase == _Phase.result &&

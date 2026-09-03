@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:math';
 import '../auth/device_auth.dart';
 import '../display/display_mode_service.dart';
+import '../update/update_service.dart';
 import 'package:signalr_netcore/signalr_client.dart';
 
 /// [실시간 푸시 통신 서비스]
@@ -156,6 +158,36 @@ class SignalRService {
       DisplayModeService.setScreenPower(on);
     });
 
+    // 2-2) 'AppRestart' 원격 앱 재시작 이벤트 구독 (47번 문서 D-RS3)
+    // 관리자가 웹 빈소현황에서 특정 장비의 앱을 다시 띄울 때 서버가 밀어준다.
+    // OS 재부팅이 아니라 프로세스 종료다 — 리눅스 장비는 systemd(Restart=always,
+    // RestartSec=3)가 되살리고, 안드로이드는 키오스크 런처가 되살릴 때만 유효하다.
+    // 서버에 UnregisterDevice 를 먼저 보내 관리 화면이 즉시 OFFLINE 을 보게 한다.
+    _hubConnection!.on('AppRestart', (arguments) async {
+      _lastActivityAt = DateTime.now();
+      print('[SignalR] << AppRestart 수신 -> 앱을 종료하고 감독자에게 재기동을 맡긴다.');
+      final code = _currentDeviceCode;
+      if (code != null) {
+        try {
+          await disconnect(code);
+        } catch (e) {
+          print('[SignalR] AppRestart 정리 중 에러(무시): $e');
+        }
+      }
+      exit(0);
+    });
+
+    // 2-3) 'UpdateNow' 원격 업그레이드 지시 구독 (결정 D-P3)
+    // 관리자가 포털에서 "이 장비를 새 버전으로" 를 누르면 서버가 밀어준다.
+    // 사이니지 화면에는 아무것도 띄우지 않는다 — 진행·실패는 로그로만 남긴다.
+    // 데스크톱은 끝까지(교체·재기동) 가고, 안드로이드는 내려받기까지다
+    // (시스템 설치 확인을 원격에서 대신 눌러 줄 수 없다).
+    _hubConnection!.on('UpdateNow', (arguments) {
+      _lastActivityAt = DateTime.now();
+      print('[SignalR] << UpdateNow 수신 -> 새 버전 확인·설치 시작');
+      unawaited(UpdateService.runRemoteUpdate());
+    });
+
     // 3) 'DeviceChanged' 서버 전송 푸시 이벤트 구독 설정
     // 데이터 변경 사항이 밀려올 때 1초 디바운스를 주어 화면 깜빡임과 잦은 API 조회를 방지합니다.
     _hubConnection!.on('DeviceChanged', (arguments) {
@@ -239,6 +271,9 @@ class SignalRService {
             .timeout(const Duration(seconds: 10));
         _lastActivityAt = DateTime.now();
         print('[SignalR] >> RegisterDevice 완료 (그룹 참여됨): $deviceCode');
+        // 앱 버전 보고 (D-P4). 포털이 장비별 현재 버전을 볼 수 있게 한다.
+        // 옛 서버(이 메서드가 없는)에서는 실패하는데, 등록과 무관하므로 조용히 넘어간다.
+        unawaited(_reportVersion(deviceCode));
         return true;
       } catch (e) {
         print('[SignalR] !! RegisterDevice 실패 ($attempt/3): $e');
@@ -251,6 +286,22 @@ class SignalRService {
     // 3회 모두 실패했다면 커넥션이 살아있다는 보고 자체를 믿을 수 없다.
     print('[SignalR] !! RegisterDevice 최종 실패 -> 커넥션을 버리고 재연결한다.');
     return false;
+  }
+
+  /// [앱 버전 보고 (D-P4)]
+  /// 등록 직후 한 번, 지금 도는 앱의 버전을 서버에 알린다. 서버는 메모리에만 두고
+  /// 포털 장비 화면이 조회한다 — DB 스키마를 건드리지 않는 이유다.
+  /// 서버가 이 메서드를 모르는 옛 버전이면 실패하는데, 표출과 무관하므로 무시한다.
+  Future<void> _reportVersion(String deviceCode) async {
+    try {
+      final version = await UpdateService.currentVersion();
+      await _hubConnection
+          ?.invoke('ReportVersion', args: [deviceCode, version])
+          .timeout(const Duration(seconds: 10));
+      print('[SignalR] >> ReportVersion: $version');
+    } catch (e) {
+      print('[SignalR] ReportVersion 실패(무시 — 옛 서버일 수 있음): $e');
+    }
   }
 
   /// [등록 하트비트]

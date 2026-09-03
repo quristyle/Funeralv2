@@ -38,6 +38,34 @@ public class DeviceHub : Hub
     public static IReadOnlyCollection<string> ConnectedDeviceCodes()
         => _connectionDeviceMap.Values.Distinct().ToList();
 
+    // ── 앱 버전 보고 (결정 D-P4) ──────────────────────────────────────────
+    //
+    // 플레이어(v1.0.2+)가 등록 직후 자기 버전을 알려 온다. **메모리에만 둔다** —
+    // 서버 재기동으로 비어도 장비들이 재접속하며 다시 채우고(등록 하트비트 60초),
+    // 이것 때문에 DB 스키마를 건드릴 이유가 없다. 포털의 장비 화면이
+    // `/building/device/player-versions` 로 조회한다.
+
+    /// <summary>장비코드 → (앱 버전, 보고 시각). 메모리 보관.</summary>
+    private static readonly ConcurrentDictionary<string, (string Version, DateTime ReportedAt)>
+        _deviceVersions = new();
+
+    /// <summary>보고된 버전 전체(포털 조회용). 스냅샷 복사본을 돌려준다.</summary>
+    public static IReadOnlyDictionary<string, (string Version, DateTime ReportedAt)> DeviceVersions()
+        => new Dictionary<string, (string, DateTime)>(_deviceVersions);
+
+    /// <summary>
+    /// 플레이어가 자기 앱 버전을 보고한다 (v1.0.2+ 만 부른다 — 없다고 오류가 아니다).
+    /// </summary>
+    public Task ReportVersion(string deviceCode, string version)
+    {
+        if (!string.IsNullOrEmpty(deviceCode) && !string.IsNullOrEmpty(version))
+        {
+            _deviceVersions[deviceCode] = (version, DateTime.UtcNow);
+            _logger.LogInformation("장비 버전 보고: {DeviceCode} = {Version}", deviceCode, version);
+        }
+        return Task.CompletedTask;
+    }
+
     public DeviceHub(ILogger<DeviceHub> logger, IServiceScopeFactory scopeFactory)
     {
         _logger = logger;

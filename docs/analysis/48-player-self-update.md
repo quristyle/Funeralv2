@@ -268,3 +268,61 @@ Kotlin 컴파일까지 확인된다.
 카운터 화면을 시험하고 있어 `flutter analyze` 의 유일한 `error` 이고,
 `flutter test` (전체)를 실패시킨다. 이번 작업과 무관해서 손대지 않았다 —
 지우거나 실제 화면 시험으로 바꾸면 된다.
+
+## 10. D-P1~D-P4 구현 (2026-09-04)
+
+> 지시: "D-P1 ~ D-P4. 플레이어 새 버전 업그레이드 를 진행해줘."
+> 7절의 선택지 중 각 항목의 '내 의견'대로 구현했다.
+
+| | 채택 | 구현 |
+|---|---|---|
+| D-P1 | 2안 — 도우미 + **되돌림** | 윈도우: '지금 교체' → 도우미(PowerShell)가 종료 대기 → `_prev` 백업 → zip 덮기 → 재기동 → **60초 생존 확인 → 죽어 있으면 되돌리고 옛 버전 재기동**. 기록 `%TEMP%\jsini_player_update.log` |
+| D-P2 | 2안 — 경로 좁힌 sudoers | `.deb` 가 root 도우미(`/usr/lib/funeralv2-player/apply-update`)와 sudoers 한 줄을 설치. 도우미는 고정 폴더의 `.deb` 만, **패키지 이름 검증** 후 설치. `systemd-run` 으로 부른다 — apt 의 서비스 재시작이 sudo 자식(앱)을 죽여도 설치가 끝까지 가게 |
+| D-P3 | 2안 — 원격 + 현장 | SignalR `UpdateNow` 핸들러(플레이어) + `POST /building/device/update-now/{code}`(서버). 빈소현황 개편의 screen-power·app-restart 와 같은 규칙 — 관리자 역할, 실시간 연결 확인, 오프라인이면 그 사실을 응답 |
+| D-P4 | 2안 — 주기 확인 + 알림 | 6시간마다 확인해 로그로만 남김(사이니지 화면에는 아무것도 안 띄움). 접속 시 `ReportVersion` 으로 앱 버전을 서버에 보고 — 메모리 보관(`GET /building/device/player-versions`), **DB 스키마 무변경** |
+
+**자동 설치(D-P4 의 3·4안)는 하지 않았다** — 장례 진행 중 재시작 금지 조건을 서버가
+판정해 주기 전에는 위험하다. 설치는 ① 현장 버전 확인 팝업 ② 포털 원격 지시 두 길뿐이다.
+
+### 되돌림을 실동으로 시험하다 실제 버그를 잡았다
+
+가짜 설치 폴더 + 가짜 exe(cmd/where 사본)로 두 경로를 돌렸다. 처음 판은
+**되돌림 경로에서 도우미가 예외로 죽고 설치 폴더를 반쯤 빈 채 남겼다** —
+현장이라면 화면이 죽은 채 남는 최악. 원인 둘:
+
+1. PowerShell 5.1 은 `Get-ChildItem -LiteralPath .. -Exclude ..` 조합에서 **-Exclude 를
+   무시한다.** 백업 이동이 백업 폴더 자신과 로그까지 집어삼켰다. → `Where-Object` 로 교체
+2. 로그를 설치 폴더에 두면 교체와 함께 끌려가 실패 기록이 사라진다 → `%TEMP%` 로 이동
+
+고친 뒤: 성공 경로 exit 0·새 버전 생존, 되돌림 경로 exit 2·**marker 가 OLD 로 복귀·옛
+버전 재기동**, 로그 단계별 완전. 되돌림은 자기만의 try/catch 를 갖고, 바깥 catch 도
+백업이 있으면 복구를 시도한다 — 어떤 실패에서도 화면부터 되살린다.
+
+### 서버 쪽을 다른 세션 파일과 안 얽히게 짠 방법
+
+빈소현황 개편(47번)이 `UserContext.CanControlDevices`·`IDeviceHubSender` 를 확장하고
+있는데 아직 미커밋이다. 새 `PlayerUpdateEndpoints.cs` 는 **역할 헤더를 직접 읽고**
+(같은 역할 목록, D-RS4), `IHubContext<DeviceHub>` 를 바로 써서 그 파일들을 참조하지
+않는다 — HEAD 기준 클린 트리에서 빌드됨을 확인했다(독립 배포 가능).
+그쪽이 커밋되면 `UserContext` 로 합치면 된다.
+
+### 확인한 것
+
+```
+도우미 실동(성공·되돌림)   위 절 — 되돌림 버그 수정 후 두 경로 통과
+PS 구문 검사               Parser.ParseFile 오류 0
+bash -n build_deb.sh       통과 (sudoers 는 postinst 가 visudo -c 로 검증, 실패 시 제거)
+flutter analyze/test       오류 0 · 25개 통과 · 윈도우 빌드 성공
+funeralv2Api               전체 워크트리 빌드 오류 0 + HEAD+내 3파일 클린 트리 빌드 오류 0
+엔드포인트 실동(5398)      역할 없음 403 · 없는 장비 404 · 미접속 장비 ERR_DEVICE_OFFLINE ·
+                          player-versions 200
+```
+
+### 못 한 것
+
+- **리눅스 도우미의 실동은 이 윈도우 PC 에서 못 돌린다.** `bash -n` 과 검토뿐이다.
+  다음 릴리스를 라즈베리파이/우분투 장비에 한 번 수동 설치할 때
+  `sudo systemd-run --unit=funeralv2-player-update --collect /usr/lib/funeralv2-player/apply-update`
+  가 도는지 확인하면 된다(장비에 새 .deb 가 깔린 뒤라야 sudoers 가 있다).
+- **포털 UI(장비 화면의 '업데이트' 단추·버전 칸)는 보류** — 그 화면들이 빈소현황
+  개편으로 작업 중이다. API 는 준비돼 있다(`update-now`·`player-versions`).

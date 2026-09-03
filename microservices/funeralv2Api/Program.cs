@@ -175,6 +175,7 @@ app.MapBuildingEndpoints();
 app.MapFloorEndpoints();
 app.MapRoomEndpoints();
 app.MapDeviceEndpoints();
+app.MapPlayerUpdateEndpoints(); // 원격 업그레이드 지시 · 버전 조회 (D-P3 · D-P4)
 app.MapDeviceAttributeEndpoints();
 app.MapDeviceConfigEndpoints();
 app.MapDeviceRibbonEndpoints();

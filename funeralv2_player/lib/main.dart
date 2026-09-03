@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -6,6 +7,7 @@ import 'package:window_manager/window_manager.dart';
 import 'pages/device_dispatcher.dart';
 import 'pages/settings_screen.dart'; // 분리된 환경설정 화면 임포트
 import 'services/auth/device_auth.dart';
+import 'services/update/update_service.dart';
 import 'services/cache/cache_manager.dart';
 import 'widgets/auto_hide_cursor.dart';
 import 'services/display/display_mode_service.dart';
@@ -76,6 +78,19 @@ void main() async {
   // [미디어 캐시 정리 기동]
   // 장례 행사가 바뀔 때마다 새 영정/영상이 쌓이므로, TTL 과 용량 상한으로 주기 정리한다.
   CacheManager().startPeriodicGarbageCollection();
+
+  // [새 버전 주기 확인 (D-P4 — 확인과 알림까지만)]
+  // 6시간마다 GitHub 릴리스를 확인해 로그로 남긴다. **자동 설치는 하지 않는다** —
+  // 장례가 진행 중인 화면을 마음대로 재시작할 수 없다. 실제 설치는
+  // ① 현장의 환경 설정(버전 확인 팝업) ② 포털의 원격 지시(UpdateNow) 로만 한다.
+  // 사이니지 화면에는 아무것도 띄우지 않는다.
+  Timer.periodic(const Duration(hours: 6), (_) async {
+    final r = await UpdateService.check();
+    if (!r.failed && r.hasUpdate) {
+      print('[Update] 새 버전 있음: ${r.currentVersion} → ${r.latestVersion} '
+          '(설치는 환경 설정 또는 포털 원격 지시로)');
+    }
+  });
 
   // 실제 앱 위젯 트리를 실행합니다.
   runApp(const FuneralPlayerApp());

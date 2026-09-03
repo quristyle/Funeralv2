@@ -200,6 +200,52 @@ DEFAULTS
   chmod 644 "$1"
 }
 
+# 앱이 스스로 새 버전을 설치할 때 쓰는 root 도우미 (결정 D-P2).
+#
+# 플레이어는 일반 사용자로 돌지만 .deb 설치에는 root 가 필요하다. sudo 를 통째로
+# 열지 않고, **인자를 받지 않는 이 스크립트 하나**만 sudoers 로 허용한다(postinst).
+# 설치할 파일은 고정 폴더(/var/lib/funeralv2-player/updates)에서만 집고,
+# 패키지 이름까지 검증한다 — 그 폴더에 다른 .deb 를 떨어뜨려도 설치되지 않는다.
+#
+# 앱은 이것을 직접 부르지 않고 `sudo systemd-run --unit=... --collect <이 스크립트>` 로
+# 부른다. apt 가 funeral-player.service 를 재시작하면 서비스 cgroup 의 프로세스가
+# 전부 죽는데(sudo 자식 포함), systemd-run 은 별도 유닛으로 떼어 내므로
+# 설치 도중에 자기가 죽는 일이 없다.
+write_apply_update() {
+  cat > "$1" <<'APPLY'
+#!/bin/sh
+# funeralv2-player 새 버전 설치 도우미. sudoers 로 이 파일만 허용된다.
+# 로그: journalctl -u funeralv2-player-update
+set -eu
+
+UPDATES_DIR=/var/lib/funeralv2-player/updates
+
+DEB="$(ls -1t "$UPDATES_DIR"/*.deb 2>/dev/null | head -1 || true)"
+if [ -z "$DEB" ]; then
+  echo "설치할 .deb 가 없다: $UPDATES_DIR" >&2
+  exit 3
+fi
+
+# 패키지 이름 검증 — 이 통로로는 funeralv2-player 만 설치된다.
+PKG="$(dpkg-deb -f "$DEB" Package || true)"
+if [ "$PKG" != "funeralv2-player" ]; then
+  echo "funeralv2-player 패키지가 아니다: $DEB ($PKG)" >&2
+  rm -f "$DEB"
+  exit 4
+fi
+
+echo "설치 시작: $DEB"
+# --allow-downgrades: 문제가 있는 버전에서 되돌릴 때도 같은 통로를 쓴다.
+apt-get install -y --allow-downgrades "$DEB"
+rm -f "$UPDATES_DIR"/*.deb
+
+# postinst 가 '돌고 있으면 재시작' 을 이미 하지만, 명시적으로 한 번 더 보장한다.
+systemctl restart funeral-player.service || true
+echo "설치 완료"
+APPLY
+  chmod 755 "$1"
+}
+
 # ---------------------------------------------------------------------------
 # .deb
 # ---------------------------------------------------------------------------
@@ -207,13 +253,15 @@ DEB_ROOT="$STAGE/deb"
 mkdir -p "$DEB_ROOT/DEBIAN" \
          "$DEB_ROOT/opt/$PKG_NAME" \
          "$DEB_ROOT/usr/bin" \
+         "$DEB_ROOT/usr/lib/$PKG_NAME" \
          "$DEB_ROOT/lib/systemd/system" \
          "$DEB_ROOT/etc/default"
 
 cp -a "$BUNDLE/." "$DEB_ROOT/opt/$PKG_NAME/"
-write_launcher "$DEB_ROOT/usr/bin/funeralv2-player-session"
-write_unit     "$DEB_ROOT/lib/systemd/system/funeral-player.service"
-write_defaults "$DEB_ROOT/etc/default/$PKG_NAME"
+write_launcher     "$DEB_ROOT/usr/bin/funeralv2-player-session"
+write_unit         "$DEB_ROOT/lib/systemd/system/funeral-player.service"
+write_defaults     "$DEB_ROOT/etc/default/$PKG_NAME"
+write_apply_update "$DEB_ROOT/usr/lib/$PKG_NAME/apply-update"
 
 INSTALLED_SIZE="$(du -sk "$DEB_ROOT" | cut -f1)"
 
@@ -257,6 +305,24 @@ EOF
       echo "경고: uid 1000 사용자를 찾지 못했다. funeral-player.service 의 User= 를 직접 지정할 것." >&2
     fi
 
+    # 앱 자체 업데이트(D-P2) 준비 — 내려받기 폴더와 sudoers 허용 한 줄.
+    #
+    # sudoers 는 **인자 없는 정확한 명령 한 줄**만 허용한다. systemd-run 을 쓰는 이유는
+    # apply-update 스크립트 머리말에 있다(서비스 재시작이 sudo 자식을 죽이는 문제).
+    # visudo -c 검증에 실패하면 파일을 지운다 — 깨진 sudoers 는 sudo 전체를 잠근다.
+    if [ -n "$user_name" ]; then
+      mkdir -p /var/lib/funeralv2-player/updates
+      chown "$user_name" /var/lib/funeralv2-player/updates
+      cat > /etc/sudoers.d/funeralv2-player <<EOF
+$user_name ALL=(root) NOPASSWD: /usr/bin/systemd-run --unit=funeralv2-player-update --collect /usr/lib/funeralv2-player/apply-update
+EOF
+      chmod 440 /etc/sudoers.d/funeralv2-player
+      if ! visudo -c -f /etc/sudoers.d/funeralv2-player >/dev/null 2>&1; then
+        rm -f /etc/sudoers.d/funeralv2-player
+        echo "경고: sudoers 검증 실패 — 앱 자체 업데이트가 비활성화된다." >&2
+      fi
+    fi
+
     systemctl daemon-reload >/dev/null 2>&1 || true
     systemctl enable funeral-player.service >/dev/null 2>&1 || true
 
@@ -293,6 +359,8 @@ set -e
 case "$1" in
   purge)
     rm -rf /etc/systemd/system/funeral-player.service.d
+    rm -f /etc/sudoers.d/funeralv2-player
+    rm -rf /var/lib/funeralv2-player
     ;;
 esac
 

@@ -115,6 +115,13 @@ docs/sql/              실행한 SQL (전부 반복 실행 안전)
   **진행 보고는 기본 꺼짐이라 지금은 켜기 전과 똑같이 동작한다.**
   켜는 법(배포 장비의 소비자는 고치지 않는다): [deploy/release-consumer/README.md](deploy/release-consumer/README.md)
   남은 것은 큐 공유(D-R1)·롤백(D-R3)·`VersionUrl`(D-R5).
+- 빈소현황 재설계: [docs/analysis/47-room-status-gap-design.md](docs/analysis/47-room-status-gap-design.md) (D-RS1~D-RS8 확정)
+  ASIS(옛 `/monitor/room_status`) 갭분석 후 0~4단계를 구현했다 — 상태 코드 정본
+  셋(`DeceasedStatus`)·점유 술어 통일·`/status/room-board` 서버 조인·반응형 카드·
+  카드 ⋮ 관리 메뉴(호실 변경·고인 등록·출상 취소)·장비 전원/앱 재시작(권한 게이트)·
+  60초 폴링+`RoomAssignmentChanged` 푸시. **배포 때 EF 마이그레이션(상태 치환)을
+  돌려야 하고**, 장비 제어·출상 취소는 관리자 역할 전용이라 운영 계정 역할을 먼저
+  점검한다. 보류: 장비 온도(D-RS2)·미리보기(D-RS7)·B~E 통폐합(D-RS8).
 - 장례 API 익명 노출: [docs/analysis/46-player-media-anonymous-access.md](docs/analysis/46-player-media-anonymous-access.md) (D-M1~D-M4)
   플레이어용 익명 라우트 여섯의 열쇠가 **장비 코드 하나**이고 추측 가능하다.
   파일 접근은 고쳤다 — `Files:AnonymousReadablePaths` 가 `funeralv2/` 만 익명에 연다
@@ -130,11 +137,13 @@ docs/sql/              실행한 SQL (전부 반복 실행 안전)
   46번 문서 9절의 순서)과 장비별 DB 토큰 전환이다.
 - 플레이어 새 버전 업그레이드: [docs/analysis/48-player-self-update.md](docs/analysis/48-player-self-update.md) (D-P1~D-P4)
   환경 설정에 **새 버전 확인**을 넣었다(전 플랫폼, GitHub Releases 를 직접 본다).
-  **v1.0.1 로 릴리스됐다**(2026-09-03) — JSINI 아이콘·이름·업데이트 확인·장비 인증 키 칸이
-  현장에 배포 가능한 상태다. v1.0.0 장비는 이 기능이 없으므로 첫 갱신만 수동이다.
-  **실제 교체는 안드로이드만** 된다 — 시스템 설치 화면을 띄운다.
-  데스크톱은 받기까지만 하고 설치 명령을 화면에 적어 준다.
-  남은 것은 윈도우 자동 교체(D-P1)·리눅스 root(D-P2)·원격 지시(D-P3)·자동 설치(D-P4).
+  **v1.0.2 까지 릴리스됐다** — JSINI 아이콘·이름·업데이트 확인·장비 인증 키에 더해
+  **자동 교체(윈도우, 60초 생존 확인·되돌림 포함)·리눅스 설치(sudoers 도우미)·
+  원격 지시(SignalR UpdateNow)·버전 보고**까지 들어갔다(D-P1~P4 완료, 48번 문서 10절).
+  v1.0.0 장비는 이 기능이 없어 **첫 갱신만 수동**이다.
+  **자동 설치는 일부러 없다** — 장례 중 재시작 금지 판정이 먼저다.
+  포털의 업데이트 단추·버전 칸은 장비 화면 개편(47번) 뒤에 단다
+  (API 는 준비됨 — `update-now` · `player-versions`).
 - 이식 시스템에서 '누구로서' 일할지 정하는 스위치 둘: [docs/analysis/19-msa-user-work-enablement.md](docs/analysis/19-msa-user-work-enablement.md) (Q9~Q13 · D14)
   둘 다 **기본 꺼짐**이라 지금은 켜기 전과 똑같이 동작한다. D13 을 먼저 처리해야 한다.
 - 준수사항 점검에서 남은 것: [docs/analysis/16-준수사항-점검.md](docs/analysis/16-준수사항-점검.md) (R1~R4)
