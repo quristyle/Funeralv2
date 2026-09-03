@@ -2,47 +2,18 @@ import { unwrapList, unwrapOne } from '#/api/envelope';
 import { requestClient } from '#/api/request';
 
 /**
- * 정보 화면 묶음 API — 알림정보 · 호실히스토리 · 고인정보조회 · 나의정보 · 미리보기.
+ * 정보 화면 묶음 API — 호실히스토리 · 고인정보조회 · 나의정보 · 미리보기.
  *
  * 경로가 `/funeral/...` 로 시작하는 이유는 게이트웨이가 `/api/funeral/**` 만
  * 장례식장 서비스로 보내기 때문이다(`funeral-service-route`).
  * 예전에는 `/info/...` 로 적혀 있었는데 그러면 어디로도 가지 않는다.
+ *
+ * **알림정보(`/info/notice`)는 2026-09-03 에 걷어냈다.** 쓰지 않는 화면이었다 —
+ * 포털의 공지(`/portal/notice`, AuthServer)와 알림 설정(`/system/push/setting`,
+ * NotificationServer)이 그 자리를 이미 채우고 있다. 경위는
+ * docs/analysis/40-old-funeral-migration.md 의 알림정보 항목.
  */
 export namespace InfoApi {
-  /** 알림 정보 한 건 */
-  export interface Notice {
-    id: string;
-    title: string;
-    content?: string;
-    /** NOTICE 공지 · ALERT 경고 · SYSTEM 시스템 */
-    noticeType: string;
-    isImportant: boolean;
-    targetUserId?: string;
-    buildingId?: string;
-    buildingName?: string;
-    targetPage?: string;
-    targetParam?: string;
-    startAt?: string;
-    endAt?: string;
-    author?: string;
-    createdAt: string;
-    /** 지금 보고 있는 사람이 읽었는지 */
-    isRead: boolean;
-  }
-
-  export interface NoticeSave {
-    title: string;
-    content?: string;
-    noticeType: string;
-    isImportant: boolean;
-    targetUserId?: string;
-    buildingId?: string;
-    targetPage?: string;
-    targetParam?: string;
-    startAt?: string;
-    endAt?: string;
-  }
-
   /** 호실 히스토리 한 줄 */
   export interface RoomHistory {
     id: string;
@@ -101,7 +72,6 @@ export namespace InfoApi {
     userId: string;
     role?: string;
     buildingCount: number;
-    unreadNoticeCount: number;
     roomsInUse: number;
     settings: SettingItem[];
   }
@@ -133,62 +103,16 @@ export namespace InfoApi {
   }
 }
 
-// ── 알림정보 ────────────────────────────────────────────────
-
-/** 알림 목록. 전체 공지와 본인 앞으로 온 것을 합쳐서 돌려준다. */
-export async function getNotices(params?: {
-  buildingId?: string;
-  includeExpired?: boolean;
-}) {
-  return unwrapList<InfoApi.Notice>(
-    await requestClient.get('/funeral/info/notice/list', { params }),
-  );
-}
-
-export async function getNotice(id: string) {
-  return unwrapOne<InfoApi.Notice>(
-    await requestClient.get(`/funeral/info/notice/${id}`),
-  );
-}
-
-export async function createNotice(data: InfoApi.NoticeSave) {
-  return unwrapOne<InfoApi.Notice>(
-    await requestClient.post('/funeral/info/notice', data),
-  );
-}
-
-export async function updateNotice(id: string, data: InfoApi.NoticeSave) {
-  return unwrapOne<InfoApi.Notice>(
-    await requestClient.put(`/funeral/info/notice/${id}`, data),
-  );
-}
-
-export async function deleteNotice(id: string) {
-  return requestClient.delete(`/funeral/info/notice/${id}`);
-}
-
-/** 읽음으로 표시한다. 이미 읽었으면 아무 일도 하지 않는다. */
-export async function markNoticeRead(id: string) {
-  return requestClient.post(`/funeral/info/notice/${id}/read`);
-}
-
-/** 안 읽은 알림 수 */
-export async function getUnreadNoticeCount(buildingId?: string) {
-  return (
-    unwrapOne<number>(
-      await requestClient.get('/funeral/info/notice/unread-count', {
-        params: { buildingId },
-      }),
-    ) ?? 0
-  );
-}
-
 // ── 호실 히스토리 ───────────────────────────────────────────
 
 export async function getRoomHistories(params?: {
   buildingId?: string;
-  roomId?: string;
   from?: string;
+  /** 참이면 사용 중만 · 거짓이면 출상만 · 비우면 둘 다 */
+  inUse?: boolean;
+  /** 고인 성명 일부. 호실을 몰라도 이름으로 찾는다. */
+  keyword?: string;
+  roomId?: string;
   to?: string;
 }) {
   return unwrapList<InfoApi.RoomHistory>(
@@ -199,12 +123,12 @@ export async function getRoomHistories(params?: {
 // ── 고인 정보 조회 ──────────────────────────────────────────
 
 export async function searchDeceased(params?: {
-  keyword?: string;
   buildingId?: string;
-  roomId?: string;
   from?: string;
-  to?: string;
+  keyword?: string;
+  roomId?: string;
   status?: string;
+  to?: string;
 }) {
   return unwrapList<InfoApi.DeceasedLookup>(
     await requestClient.get('/funeral/info/deceased-search/list', { params }),

@@ -17,4 +17,10 @@ public interface IStatusService
 
     /// <summary>빈소 한 칸의 현황</summary>
     Task<FuneralStatusDto?> GetRoomStatusAsync(string roomId);
+
+    /// <summary>
+    /// 빈소현황 대시보드(<c>/room_status</c>) — 호실·고인·장비를 서버에서 붙여
+    /// 한 번에 준다. 예전에는 화면이 네 목록을 받아 브라우저에서 조인했다.
+    /// </summary>
+    Task<RoomBoardDto> GetRoomBoardAsync(RoomBoardQueryDto query);
 }

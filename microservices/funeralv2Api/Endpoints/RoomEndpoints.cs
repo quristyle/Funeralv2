@@ -27,6 +27,18 @@ public static class RoomEndpoints
         .WithName("GetRooms")
         .WithOpenApi();
 
+        // 배정(이동) 가능한 호실 목록 — ACTIVE + 미점유. 빈소현황의 호실 변경이 쓴다.
+        group.MapGet("/available", async (
+            [FromQuery] string? companyId,
+            [FromQuery] string? buildingId,
+            [FromQuery] string? excludeRoomId,
+            [FromServices] IRoomService roomService) =>
+        {
+            return await roomService.GetAvailableRoomsAsync(companyId, buildingId, excludeRoomId);
+        })
+        .WithName("GetAvailableRooms")
+        .WithOpenApi();
+
         // 호실 상세 조회
         group.MapGet("/{id}", async (string id, [FromServices] IRoomService roomService) =>
         {

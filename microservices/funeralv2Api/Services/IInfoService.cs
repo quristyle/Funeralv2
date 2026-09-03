@@ -3,33 +3,25 @@ using funeralv2Api.DTOs;
 namespace funeralv2Api.Services;
 
 /// <summary>
-/// 정보 화면 묶음 서비스 — 알림정보 · 호실히스토리 · 고인정보조회 · 나의정보 · 미리보기.
+/// 정보 화면 묶음 서비스 — 호실히스토리 · 고인정보조회 · 나의정보 · 미리보기.
 /// </summary>
+/// <remarks>
+/// 알림정보는 2026-09-03 에 걷어냈다 (<see cref="Endpoints.InfoEndpoints"/> 머리말).
+/// </remarks>
 public interface IInfoService
 {
-    // ── 알림정보 ────────────────────────────────────────────────
-
-    /// <summary>지금 이 사람이 볼 수 있는 알림. 전체 공지와 본인 앞으로 온 것을 합친다.</summary>
-    Task<List<NoticeDto>> GetNoticesAsync(string userId, string? buildingId, bool includeExpired);
-
-    Task<NoticeDto?> GetNoticeByIdAsync(string userId, string id);
-
-    Task<NoticeDto> CreateNoticeAsync(string userId, NoticeCreateDto dto);
-
-    Task<NoticeDto?> UpdateNoticeAsync(string userId, string id, NoticeUpdateDto dto);
-
-    Task<bool> DeleteNoticeAsync(string id);
-
-    /// <summary>읽음으로 표시한다. 이미 읽었으면 아무 일도 하지 않는다.</summary>
-    Task<bool> MarkNoticeReadAsync(string userId, string id);
-
-    /// <summary>안 읽은 알림 수</summary>
-    Task<int> CountUnreadNoticesAsync(string userId, string? buildingId);
-
     // ── 호실 히스토리 ───────────────────────────────────────────
 
-    /// <summary>호실을 거쳐 간 고인들. 끝난 것과 지금 쓰는 것을 모두 담는다.</summary>
-    Task<List<RoomHistoryDto>> GetRoomHistoriesAsync(string? buildingId, string? roomId, DateTime? from, DateTime? to);
+    /// <summary>
+    /// 호실을 거쳐 간 고인들. 끝난 것과 지금 쓰는 것을 모두 담는다.
+    /// </summary>
+    /// <param name="keyword">고인 성명 일부. 이름으로 바로 찾을 때 쓴다.</param>
+    /// <param name="inUse">
+    /// <c>true</c> 사용 중만 · <c>false</c> 출상만 · <c>null</c> 둘 다.
+    /// </param>
+    Task<List<RoomHistoryDto>> GetRoomHistoriesAsync(
+        string? buildingId, string? roomId, DateTime? from, DateTime? to,
+        string? keyword, bool? inUse);
 
     // ── 고인 정보 조회 ──────────────────────────────────────────
 

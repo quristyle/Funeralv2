@@ -6,15 +6,19 @@
  * 옛 시스템은 장비 종류마다 메뉴를 따로 두고 새 창으로 띄웠다. 지금은 장비가 코드 하나로
  * 열리므로 메뉴를 넷으로 나눌 이유가 없다 — 장비 목록에서 골라 새 창으로 연다.
  */
+import type { InfoApi } from '#/api/funeral/info';
+
 import { onMounted, ref } from 'vue';
+
 import { Page } from '@vben/common-ui';
 import { IconifyIcon } from '@vben/icons';
-import { Button, Empty, Input, Select, Spin, Tag, message } from 'ant-design-vue';
-import GridIconButton from '#/components/GridIconButton.vue';
+
+import { Button, Empty, Input, message, Select, Spin, Tag } from 'ant-design-vue';
 import dayjs from 'dayjs';
-import type { InfoApi } from '#/api/funeral/info';
-import { getDevicePreviews } from '#/api/funeral/info';
+
 import { getBuildings, getRooms } from '#/api/funeral/building';
+import { getDevicePreviews } from '#/api/funeral/info';
+import GridIconButton from '#/components/GridIconButton.vue';
 
 const buildings = ref<any[]>([]);
 const rooms = ref<any[]>([]);

@@ -20,7 +20,9 @@ FROM (VALUES
   ('INFO',                                 'lucide:info'),                 -- 정보
   ('STAT',                                 'lucide:pie-chart'),            -- 통계
   ('STATUS',                               'lucide:monitor-check'),        -- 현황관리
-  ('NOTICE',                               'lucide:bell-ring'),            -- 알림정보
+  -- ('NOTICE', 'lucide:bell-ring') 알림정보 — 2026-09-03 에 메뉴를 지웠다
+  -- (funeral_notice_menu_drop.sql). 남겨 둬도 맞는 행이 없어 무해하지만,
+  -- 없는 메뉴를 여기 적어 두면 다시 만들어야 하는 것처럼 읽힌다.
   ('ROOM_HISTORY',                         'lucide:history'),              -- 호실히스토리
   ('DECEASED_SEARCH',                      'lucide:user-search'),          -- 고인정보조회
   ('MY_INFO',                              'lucide:contact'),              -- 나의정보

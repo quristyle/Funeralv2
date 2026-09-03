@@ -41,6 +41,16 @@ public static class StatusEndpoints
         .WithName("GetFuneralStatuses")
         .WithOpenApi();
 
+        // 빈소현황 대시보드 — 호실·고인·장비를 서버에서 붙여 한 번에 준다.
+        group.MapGet("/room-board", async (
+            [AsParameters] RoomBoardQueryDto query,
+            [FromServices] IStatusService service) =>
+        {
+            return await service.GetRoomBoardAsync(query);
+        })
+        .WithName("GetRoomBoard")
+        .WithOpenApi();
+
         group.MapGet("/funeral-status/{roomId}", async (
             string roomId,
             [FromServices] IStatusService service) =>

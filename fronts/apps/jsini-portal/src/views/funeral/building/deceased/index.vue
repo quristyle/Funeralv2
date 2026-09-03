@@ -30,8 +30,24 @@ const searchForm = ref({
 const roomEnterDates = ref<[Dayjs, Dayjs] | undefined>(undefined);
 const funeralDates = ref<[Dayjs, Dayjs] | undefined>(undefined);
 
+/**
+ * 행에서 영정사진 주소를 고른다. 편집본이 원본보다, 파일 ID(썸네일)가 URL 보다 먼저다.
+ * 셀의 `<img>` 와 엑셀 내보내기(`gridFeatures.exportImage`)가 같은 규칙을 쓴다.
+ */
+function photoUrlOf(row: any): string | undefined {
+  if (row.memorialEditedPhotoFileId) return `/api/file/thumbnail/${row.memorialEditedPhotoFileId}`;
+  if (row.memorialEditedPhotoUrl) return row.memorialEditedPhotoUrl;
+  if (row.memorialPhotoFileId) return `/api/file/thumbnail/${row.memorialPhotoFileId}`;
+  return row.memorialPhotoUrl || undefined;
+}
+
 const [Grid, gridApi] = useVbenVxeGrid({
   gridOptions: {
+    gridFeatures: {
+      exportName: '고인목록',
+      // 고인사진 칸을 엑셀에 그림으로 넣는다.
+      exportImage: { field: 'memorialPhotoUrl', urlOf: photoUrlOf },
+    },
     rowConfig: {
       isHover: true,
     },
@@ -316,14 +332,8 @@ function formatYmdDate(dateStr?: string) {
       <template #photo="{ row }">
         <div class="w-full bg-gray-100 flex items-center justify-center overflow-hidden">
           <img
-            v-if="row.memorialEditedPhotoFileId || row.memorialEditedPhotoUrl || row.memorialPhotoFileId || row.memorialPhotoUrl"
-            :src="row.memorialEditedPhotoFileId 
-              ? `/api/file/thumbnail/${row.memorialEditedPhotoFileId}` 
-              : (row.memorialEditedPhotoUrl 
-                ? row.memorialEditedPhotoUrl 
-                : (row.memorialPhotoFileId 
-                  ? `/api/file/thumbnail/${row.memorialPhotoFileId}` 
-                  : row.memorialPhotoUrl))"
+            v-if="photoUrlOf(row)"
+            :src="photoUrlOf(row)"
             class="w-full h-auto object-contain"
             alt="영정"
           />
@@ -345,10 +355,11 @@ function formatYmdDate(dateStr?: string) {
         <span v-else class="text-gray-400">-</span>
       </template>
 
+      <!-- 상태 코드는 정본 셋 (47번 문서 D-RS1) -->
       <template #status-tag="{ row }">
         <Tag v-if="row.status === 'FUNERAL_IN_PROGRESS'" color="processing">장례 진행중</Tag>
-        <Tag v-else-if="row.status === 'FUNERAL_DEPARTURE_COMPLETED'" color="warning">발인 완료</Tag>
-        <Tag v-else-if="row.status === 'SETTLEMENT_COMPLETED'" color="success">정산 완료</Tag>
+        <Tag v-else-if="row.status === 'FUNERAL_DEPARTURE_COMPLETED'" color="warning">출상 완료</Tag>
+        <Tag v-else-if="row.status === 'COMPLETED'" color="success">장례 종료</Tag>
         <Tag v-else color="default">상태 미지정</Tag>
       </template>
 

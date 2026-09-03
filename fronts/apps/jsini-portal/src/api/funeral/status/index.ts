@@ -1,3 +1,6 @@
+import type { BuildingApi } from '#/api/funeral/building';
+
+import { unwrapList, unwrapOne } from '#/api/envelope';
 import { requestClient } from '#/api/request';
 
 /**
@@ -20,15 +23,18 @@ export namespace StatusApi {
     buildingName?: string;
     sortOrder: number;
 
-    /** EMPTY 비어 있음 · USING 사용 중 · RESERVED 예약 */
-    status: 'EMPTY' | 'RESERVED' | 'USING';
+    /** EMPTY 비어 있음 · USING 사용 중 (예약은 옛 시스템에서도 실사용 0건 — 이식 안 함) */
+    status: 'EMPTY' | 'USING';
 
     deceasedId?: string;
+    /** 고인 장례 상태 — FUNERAL_IN_PROGRESS · FUNERAL_DEPARTURE_COMPLETED · COMPLETED */
+    deceasedStatus?: string;
     deceasedName?: string;
     deceasedGender?: string;
     deceasedAge?: number;
     religion?: string;
 
+    /** 영정 — 서버가 보정본 우선으로 골라 준다 */
     photoFileId?: string;
     photoUrl?: string;
 
@@ -42,11 +48,22 @@ export namespace StatusApi {
     /** 장지 */
     burialPlace?: string;
 
+    /** 사망 일시 */
+    deathDate?: string;
+
     startTime?: string;
+    /** 빈 호실의 마지막 퇴실 일시 (배정 이력에서 유도) */
+    lastVacatedAt?: string;
+    /** 빈 호실에서 마지막으로 출상한 고인 — 출상 취소 진입점 (`room-board` 전용) */
+    lastDepartedDeceasedId?: string;
+    lastDepartedDeceasedName?: string;
     useDays: number;
 
     deviceCount: number;
     onlineDeviceCount: number;
+
+    /** 이 호실의 장비 목록 — `room-board` 만 채운다. 다른 조회에선 null. */
+    devices?: BuildingApi.Device[];
 
     updatedAt: string;
   }
@@ -63,6 +80,27 @@ export namespace StatusApi {
     rooms: FuneralStatus[];
     summary: Summary;
   }
+
+  /** 빈소현황 대시보드(`/room_status`) 응답 — 건물 공용 장비까지 한 번에 */
+  export interface RoomBoard extends Board {
+    /** 호실에 매이지 않은 건물 공용 장비 */
+    commonDevices: BuildingApi.Device[];
+  }
+
+  /** 대시보드 조회 조건. 기간 이름은 실제로 거르는 컬럼을 그대로 말한다. */
+  export interface RoomBoardQuery {
+    companyId?: string;
+    buildingId?: string;
+    floorId?: string;
+    /** 고인명 부분 일치 */
+    name?: string;
+    /** 입관 일시 범위 */
+    coffinStartDate?: string;
+    coffinEndDate?: string;
+    /** 발인 일시 범위 */
+    burialStartDate?: string;
+    burialEndDate?: string;
+  }
 }
 
 /** 목록과 요약을 함께 받는다 — 화면이 두 번 부르지 않도록. */
@@ -71,9 +109,8 @@ export async function getFuneralStatusBoard(params?: {
   floorId?: string;
   onlyInUse?: boolean;
 }) {
-  return requestClient.get<StatusApi.Board>(
-    '/funeral/status/funeral-status/board',
-    { params },
+  return unwrapOne<StatusApi.Board>(
+    await requestClient.get('/funeral/status/funeral-status/board', { params }),
   );
 }
 
@@ -83,14 +120,24 @@ export async function getFuneralStatuses(params?: {
   floorId?: string;
   onlyInUse?: boolean;
 }) {
-  return requestClient.get<StatusApi.FuneralStatus[]>(
-    '/funeral/status/funeral-status/list',
-    { params },
+  return unwrapList<StatusApi.FuneralStatus>(
+    await requestClient.get('/funeral/status/funeral-status/list', { params }),
   );
 }
 
 export async function getFuneralStatusDetail(roomId: string) {
-  return requestClient.get<StatusApi.FuneralStatus>(
-    `/funeral/status/funeral-status/${roomId}`,
+  return unwrapOne<StatusApi.FuneralStatus>(
+    await requestClient.get(`/funeral/status/funeral-status/${roomId}`),
+  );
+}
+
+/**
+ * 빈소현황 대시보드(`/room_status`) — 호실·고인·장비를 서버가 붙여 준다.
+ * 예전에는 화면이 건물·호실·장비·고인 네 목록을 받아 브라우저에서 조인했다
+ * (47번 문서 0단계).
+ */
+export async function getRoomBoard(params?: StatusApi.RoomBoardQuery) {
+  return unwrapOne<StatusApi.RoomBoard>(
+    await requestClient.get('/funeral/status/room-board', { params }),
   );
 }

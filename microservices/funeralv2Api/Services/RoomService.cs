@@ -72,6 +72,28 @@ public class RoomService : IRoomService
     }
 
     /// <summary>
+    /// 배정(이동) 가능한 호실 목록 — ACTIVE 이고 점유 중이 아닌 호실만.
+    /// 옛 <c>p_room_get_other_room</c> 에 해당한다 (47번 문서 2단계).
+    /// </summary>
+    public async Task<List<RoomDto>> GetAvailableRoomsAsync(string? companyId, string? buildingId, string? excludeRoomId)
+    {
+        var rooms = await GetRoomsAsync(companyId, buildingId, null);
+
+        // 점유 판정은 현황과 같은 기준 — 배정이 살아 있고 고인이 장례 진행중.
+        var occupiedRoomIds = await (from dr in _context.DeceasedRooms
+                                     join d in _context.Deceaseds on dr.DeceasedId equals d.Id
+                                     where !dr.IsDeleted && dr.EndTime == null
+                                           && !d.IsDeleted && d.Status == DeceasedStatus.InProgress
+                                     select dr.RoomId).Distinct().ToListAsync();
+
+        return rooms
+            .Where(r => r.Status == "ACTIVE"
+                        && !occupiedRoomIds.Contains(r.Id)
+                        && (string.IsNullOrEmpty(excludeRoomId) || r.Id != excludeRoomId))
+            .ToList();
+    }
+
+    /// <summary>
     /// 단일 호실 상세 조회
     /// </summary>
     public async Task<RoomDto?> GetRoomByIdAsync(string id)

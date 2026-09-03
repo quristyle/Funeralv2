@@ -183,6 +183,29 @@
   padding: 3px 0;
 }
 
+/*
+  이미지를 칸에 **빈틈없이** 채우는 칸.
+
+  컬럼에 `className: 'jsini-fillcell'` 을 주면 쓴다(본문 칸에만 붙는다 —
+  머리글은 `headerClassName` 이라 영향이 없다).
+
+  vxe 는 칸 안에 `.vxe-cell` 을 두고 좌우 여백과 `line-height` 를 준다.
+  그것을 그대로 두면 이미지 사방에 흰 띠가 남는다. 여백을 걷고 칸 높이를
+  그대로 물려줘야 안쪽 이미지가 `height: 100%` 로 자리를 잡을 수 있다.
+
+  `overflow: hidden` 은 `object-fit: cover` 로 넘치는 가장자리를 자르는 쪽이
+  칸 밖으로 삐져나오지 않게 한다.
+
+  줄 높이는 화면이 `rowConfig.height` 로 정한다 — 전역이 `showOverflow: true`
+  라 vxe 가 줄 높이를 고정하기 때문에, 이 규칙만으로는 칸이 높아지지 않는다.
+*/
+.jsini-fillcell .vxe-cell {
+  height: 100%;
+  padding: 0 !important;
+  overflow: hidden;
+  line-height: 0;
+}
+
 .jsini-filterrow__input {
   width: 100%;
   height: 32px;

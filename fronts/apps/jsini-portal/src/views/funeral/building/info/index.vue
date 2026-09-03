@@ -40,8 +40,14 @@ const [Grid, gridApi] = useVbenVxeGrid({
       { field: 'shortName', title: '짧은명칭', minWidth: 120 },
       { field: 'abbreviation', title: '약어', minWidth: 100 },
       { field: 'address', title: '주소', minWidth: 250 },
-      { field: 'buildingPhotos', title: '건물전경사진', minWidth: 160, slots: { default: 'buildingPhotos' } },
-      { field: 'parkingPhotos', title: '주차장이미지', minWidth: 160, slots: { default: 'parkingPhotos' } },
+      /**
+       * 사진 칸 둘. 한 칸에 여러 장이 가로로 늘어서고 넘치면 그 안에서 스크롤한다.
+       *
+       * `jsini-fillcell` 로 칸 여백을 걷어 사진이 줄 높이를 꽉 채우게 한다
+       * (`styles/index.css`). 다른 리소스 화면들과 같은 크기·모양이다.
+       */
+      { field: 'buildingPhotos', title: '건물전경사진', minWidth: 160, className: 'jsini-fillcell', slots: { default: 'buildingPhotos' } },
+      { field: 'parkingPhotos', title: '주차장이미지', minWidth: 160, className: 'jsini-fillcell', slots: { default: 'parkingPhotos' } },
       {
         field: 'action',
         title: '작업',
@@ -54,6 +60,14 @@ const [Grid, gridApi] = useVbenVxeGrid({
     // (`gridFeatures` 는 vxe 타입에 없다. 공통 레이어가 읽고 떼어 낸다.)
     gridFeatures: { onCreate: () => onCreate() },
     height: 'auto',
+    /**
+     * 사진을 칸에 꽉 채우므로 줄 높이가 곧 사진 높이다.
+     *
+     * 전역이 `showOverflow: true` 라 vxe 가 줄 높이를 고정한다 — 여기서 정하지
+     * 않으면 기본 높이(작은 크기)에 맞춰 사진이 납작해진다.
+     * 다른 리소스 화면들과 같은 값으로 맞췄다.
+     */
+    rowConfig: { height: 64 },
     proxyConfig: {
       ajax: {
         query: async () => {
@@ -147,35 +161,51 @@ async function handleSave() {
     </div>
 
     <Grid table-title="건물 정보 목록">
+      <!--
+        사진은 여러 장이라 가로로 늘어놓고 넘치면 그 안에서 스크롤한다.
+        각 장은 줄 높이를 꽉 채우고(`height="100%"`), `fit="cover"` 라
+        비율은 그대로면서 넘치는 가장자리만 잘린다.
+        `leading-normal` — 칸의 `line-height: 0` 을 '미등록' 글자에는 되돌린다.
+      -->
       <template #buildingPhotos="{ row }">
-        <div class="flex gap-1 items-center overflow-x-auto py-1">
+        <div class="flex h-full items-stretch gap-px overflow-x-auto">
           <template v-if="row.buildingPhotos && row.buildingPhotos.length">
             <ImagePreview
               v-for="(url, idx) in row.buildingPhotos"
               :key="idx"
               :src="url"
               :preview-src="url.replace('/thumbnail/', '/download/')"
-              :width="40"
-              :height="40"
+              :width="86"
+              height="100%"
+              fit="cover"
+              frameless
+              class="shrink-0"
             />
           </template>
-          <span v-else class="text-xs text-muted-foreground">미등록</span>
+          <span v-else class="text-xs text-muted-foreground leading-normal self-center px-2">
+            미등록
+          </span>
         </div>
       </template>
 
       <template #parkingPhotos="{ row }">
-        <div class="flex gap-1 items-center overflow-x-auto py-1">
+        <div class="flex h-full items-stretch gap-px overflow-x-auto">
           <template v-if="row.parkingPhotos && row.parkingPhotos.length">
             <ImagePreview
               v-for="(url, idx) in row.parkingPhotos"
               :key="idx"
               :src="url"
               :preview-src="url.replace('/thumbnail/', '/download/')"
-              :width="40"
-              :height="40"
+              :width="86"
+              height="100%"
+              fit="cover"
+              frameless
+              class="shrink-0"
             />
           </template>
-          <span v-else class="text-xs text-muted-foreground">미등록</span>
+          <span v-else class="text-xs text-muted-foreground leading-normal self-center px-2">
+            미등록
+          </span>
         </div>
       </template>
 

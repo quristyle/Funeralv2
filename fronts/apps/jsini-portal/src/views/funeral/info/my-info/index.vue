@@ -1,19 +1,23 @@
 <script lang="ts" setup>
+import type { InfoApi } from '#/api/funeral/info';
+
 /**
  * 나의 정보 — 옛 `page/ui_config.jsp` 의 왼쪽 칸.
  *
  * 옛 화면은 사진 · 아이디 · 성명 · 이메일 · 최종 로그인을 보여 주고 그 자리에서
  * 이름과 메일을 고쳤다. 지금은 계정 자체가 AuthServer 소관이라 여기서 고치지 않는다 —
  * 프로필 수정은 포털의 Profile 화면이 정본이다. 이 화면은 장례식장 쪽에서 본
- * 내 상태(맡은 건물 수 · 사용 중 빈소 · 안 읽은 알림)와 업무 설정을 보여 준다.
+ * 내 상태(맡은 건물 수 · 사용 중 빈소)와 업무 설정을 보여 준다.
  */
 import { onMounted, ref } from 'vue';
-import { Page } from '@vben/common-ui';
 import { useRouter } from 'vue-router';
+
+import { Page } from '@vben/common-ui';
 import { IconifyIcon } from '@vben/icons';
-import { Button, Card, Skeleton, Statistic, Tag, message } from 'ant-design-vue';
+
+import { Button, Card, message, Skeleton, Statistic, Tag } from 'ant-design-vue';
 import dayjs from 'dayjs';
-import type { InfoApi } from '#/api/funeral/info';
+
 import { getMyInfo } from '#/api/funeral/info';
 
 const router = useRouter();
@@ -70,29 +74,17 @@ onMounted(load);
           </div>
         </Card>
 
-        <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <!--
+          예전에는 '안 읽은 알림' 칸이 하나 더 있었다. 그 칸이 가리키던
+          알림정보 화면(`/info/notice`)을 2026-09-03 에 걷어내면서 함께 뺐다 —
+          누를 곳이 없는 숫자를 남겨 둘 이유가 없다.
+        -->
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Card size="small">
             <Statistic title="맡은 건물" :value="info.buildingCount" suffix="곳" />
           </Card>
           <Card size="small">
             <Statistic title="사용 중 빈소" :value="info.roomsInUse" suffix="실" />
-          </Card>
-          <Card size="small">
-            <Statistic
-              title="안 읽은 알림"
-              :value="info.unreadNoticeCount"
-              suffix="건"
-              :value-style="info.unreadNoticeCount > 0 ? { color: '#cf1322' } : undefined"
-            />
-            <Button
-              v-if="info.unreadNoticeCount > 0"
-              type="link"
-              size="small"
-              class="mt-1 px-0"
-              @click="router.push('/info/notice')"
-            >
-              알림 보러 가기
-            </Button>
           </Card>
         </div>
 

@@ -7,110 +7,24 @@ using JSini.Shared.Infrastructure.Filters;
 namespace funeralv2Api.Endpoints;
 
 /// <summary>
-/// 정보 화면 묶음 API — 알림정보 · 호실히스토리 · 고인정보조회 · 나의정보 · 미리보기.
+/// 정보 화면 묶음 API — 호실히스토리 · 고인정보조회 · 나의정보 · 미리보기.
 /// </summary>
 /// <remarks>
 /// 게이트웨이가 <c>/api/funeral</c> 을 떼고 넘기므로 프론트는
 /// <c>/funeral/info/...</c> 로 부른다.
+///
+/// <para>
+/// <b>알림정보(<c>/notice/*</c>)는 2026-09-03 에 걷어냈다.</b> 쓰지 않는 화면이었고
+/// 그 자리는 포털 공지(AuthServer)와 알림 설정(NotificationServer)이 채우고 있다.
+/// 표 둘(<c>funeral_notices</c> · <c>funeral_notice_reads</c>)도 함께 지웠다 —
+/// 행이 하나도 없었다. 마이그레이션은 <c>RemoveFuneralNotices</c> 다.
+/// </para>
 /// </remarks>
 public static class InfoEndpoints
 {
     public static void MapInfoEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/info").AddApiResponseWrapper();
-
-        // ── 알림정보 ────────────────────────────────────────────
-
-        group.MapGet("/notice/list", async (
-            [FromQuery] string? buildingId,
-            // 값 없이 부르는 경우가 흔하다. bool 은 값이 없으면 바인딩이 실패해 400 이 나므로
-            // nullable 로 받고 여기서 기본값을 준다.
-            [FromQuery] bool? includeExpired,
-            UserContext? user,
-            [FromServices] IInfoService service) =>
-        {
-            return await service.GetNoticesAsync(RequireUser(user), buildingId, includeExpired ?? false);
-        })
-        .WithName("GetFuneralNotices")
-        .WithOpenApi();
-
-        group.MapGet("/notice/{id}", async (
-            string id,
-            UserContext? user,
-            [FromServices] IInfoService service) =>
-        {
-            var result = await service.GetNoticeByIdAsync(RequireUser(user), id);
-            if (result == null)
-            {
-                return Results.NotFound(ApiResponse<NoticeDto>.Fail("알림을 찾을 수 없습니다."));
-            }
-            return Results.Ok(result);
-        })
-        .WithName("GetFuneralNoticeById")
-        .WithOpenApi();
-
-        group.MapPost("/notice", async (
-            [FromBody] NoticeCreateDto dto,
-            UserContext? user,
-            [FromServices] IInfoService service) =>
-        {
-            return await service.CreateNoticeAsync(RequireUser(user), dto);
-        })
-        .WithName("CreateFuneralNotice")
-        .WithOpenApi();
-
-        group.MapPut("/notice/{id}", async (
-            string id,
-            [FromBody] NoticeUpdateDto dto,
-            UserContext? user,
-            [FromServices] IInfoService service) =>
-        {
-            var result = await service.UpdateNoticeAsync(RequireUser(user), id, dto);
-            if (result == null)
-            {
-                return Results.NotFound(ApiResponse<NoticeDto>.Fail("수정할 알림을 찾을 수 없습니다."));
-            }
-            return Results.Ok(result);
-        })
-        .WithName("UpdateFuneralNotice")
-        .WithOpenApi();
-
-        group.MapDelete("/notice/{id}", async (string id, [FromServices] IInfoService service) =>
-        {
-            var ok = await service.DeleteNoticeAsync(id);
-            if (!ok)
-            {
-                return Results.NotFound(ApiResponse<bool>.Fail("삭제할 알림을 찾을 수 없습니다."));
-            }
-            return Results.Ok(true);
-        })
-        .WithName("DeleteFuneralNotice")
-        .WithOpenApi();
-
-        group.MapPost("/notice/{id}/read", async (
-            string id,
-            UserContext? user,
-            [FromServices] IInfoService service) =>
-        {
-            var ok = await service.MarkNoticeReadAsync(RequireUser(user), id);
-            if (!ok)
-            {
-                return Results.NotFound(ApiResponse<bool>.Fail("알림을 찾을 수 없습니다."));
-            }
-            return Results.Ok(true);
-        })
-        .WithName("MarkFuneralNoticeRead")
-        .WithOpenApi();
-
-        group.MapGet("/notice/unread-count", async (
-            [FromQuery] string? buildingId,
-            UserContext? user,
-            [FromServices] IInfoService service) =>
-        {
-            return await service.CountUnreadNoticesAsync(RequireUser(user), buildingId);
-        })
-        .WithName("CountUnreadFuneralNotices")
-        .WithOpenApi();
 
         // ── 호실 히스토리 ───────────────────────────────────────
 
@@ -119,9 +33,14 @@ public static class InfoEndpoints
             [FromQuery] string? roomId,
             [FromQuery] DateTime? from,
             [FromQuery] DateTime? to,
+            // 고인 성명 일부. 호실을 몰라도 이름으로 바로 찾을 수 있게 두었다.
+            [FromQuery] string? keyword,
+            // 사용 중 / 출상 가리기. 값이 없으면 둘 다 준다.
+            [FromQuery] bool? inUse,
             [FromServices] IInfoService service) =>
         {
-            return await service.GetRoomHistoriesAsync(buildingId, roomId, from, to);
+            return await service.GetRoomHistoriesAsync(
+                buildingId, roomId, from, to, keyword, inUse);
         })
         .WithName("GetRoomHistories")
         .WithOpenApi();

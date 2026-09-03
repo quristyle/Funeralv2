@@ -29,213 +29,12 @@ public class InfoService : IInfoService
         _configuration = configuration;
     }
 
-    // ── 알림정보 ────────────────────────────────────────────────
-
-    /// <inheritdoc />
-    public async Task<List<NoticeDto>> GetNoticesAsync(string userId, string? buildingId, bool includeExpired)
-    {
-        var now = DateTime.UtcNow;
-
-        var query = _dbContext.FuneralNotices.Where(n => !n.IsDeleted);
-
-        // 받는 사람이 비어 있으면 전체 공지, 적혀 있으면 그 사람만.
-        query = query.Where(n => n.TargetUserId == null || n.TargetUserId == string.Empty || n.TargetUserId == userId);
-
-        if (!string.IsNullOrWhiteSpace(buildingId))
-        {
-            query = query.Where(n => n.BuildingId == null || n.BuildingId == string.Empty || n.BuildingId == buildingId);
-        }
-
-        if (!includeExpired)
-        {
-            query = query.Where(n => (n.StartAt == null || n.StartAt <= now) && (n.EndAt == null || n.EndAt >= now));
-        }
-
-        var notices = await query
-            .OrderByDescending(n => n.IsImportant)
-            .ThenByDescending(n => n.CreatedAt)
-            .AsNoTracking()
-            .ToListAsync();
-
-        return await ToDtosAsync(userId, notices);
-    }
-
-    /// <inheritdoc />
-    public async Task<NoticeDto?> GetNoticeByIdAsync(string userId, string id)
-    {
-        var notice = await _dbContext.FuneralNotices
-            .Where(n => n.Id == id && !n.IsDeleted)
-            .AsNoTracking()
-            .FirstOrDefaultAsync();
-
-        if (notice is null)
-        {
-            return null;
-        }
-
-        return (await ToDtosAsync(userId, new List<FuneralNotice> { notice })).FirstOrDefault();
-    }
-
-    /// <inheritdoc />
-    public async Task<NoticeDto> CreateNoticeAsync(string userId, NoticeCreateDto dto)
-    {
-        var notice = new FuneralNotice
-        {
-            Title = dto.Title,
-            Content = dto.Content,
-            NoticeType = string.IsNullOrWhiteSpace(dto.NoticeType) ? "NOTICE" : dto.NoticeType,
-            IsImportant = dto.IsImportant,
-            TargetUserId = string.IsNullOrWhiteSpace(dto.TargetUserId) ? null : dto.TargetUserId,
-            BuildingId = string.IsNullOrWhiteSpace(dto.BuildingId) ? null : dto.BuildingId,
-            TargetPage = dto.TargetPage,
-            TargetParam = dto.TargetParam,
-            StartAt = dto.StartAt,
-            EndAt = dto.EndAt,
-            CreatedBy = userId,
-            CreatedAt = DateTime.UtcNow,
-        };
-
-        _dbContext.FuneralNotices.Add(notice);
-        await _dbContext.SaveChangesAsync();
-
-        return (await ToDtosAsync(userId, new List<FuneralNotice> { notice })).First();
-    }
-
-    /// <inheritdoc />
-    public async Task<NoticeDto?> UpdateNoticeAsync(string userId, string id, NoticeUpdateDto dto)
-    {
-        var notice = await _dbContext.FuneralNotices.FirstOrDefaultAsync(n => n.Id == id && !n.IsDeleted);
-        if (notice is null)
-        {
-            return null;
-        }
-
-        notice.Title = dto.Title;
-        notice.Content = dto.Content;
-        notice.NoticeType = string.IsNullOrWhiteSpace(dto.NoticeType) ? "NOTICE" : dto.NoticeType;
-        notice.IsImportant = dto.IsImportant;
-        notice.TargetUserId = string.IsNullOrWhiteSpace(dto.TargetUserId) ? null : dto.TargetUserId;
-        notice.BuildingId = string.IsNullOrWhiteSpace(dto.BuildingId) ? null : dto.BuildingId;
-        notice.TargetPage = dto.TargetPage;
-        notice.TargetParam = dto.TargetParam;
-        notice.StartAt = dto.StartAt;
-        notice.EndAt = dto.EndAt;
-        notice.UpdatedBy = userId;
-        notice.UpdatedAt = DateTime.UtcNow;
-
-        await _dbContext.SaveChangesAsync();
-
-        return (await ToDtosAsync(userId, new List<FuneralNotice> { notice })).First();
-    }
-
-    /// <inheritdoc />
-    public async Task<bool> DeleteNoticeAsync(string id)
-    {
-        var notice = await _dbContext.FuneralNotices.FirstOrDefaultAsync(n => n.Id == id && !n.IsDeleted);
-        if (notice is null)
-        {
-            return false;
-        }
-
-        notice.IsDeleted = true;
-        notice.UpdatedAt = DateTime.UtcNow;
-        await _dbContext.SaveChangesAsync();
-        return true;
-    }
-
-    /// <inheritdoc />
-    public async Task<bool> MarkNoticeReadAsync(string userId, string id)
-    {
-        var exists = await _dbContext.FuneralNotices.AnyAsync(n => n.Id == id && !n.IsDeleted);
-        if (!exists)
-        {
-            return false;
-        }
-
-        var already = await _dbContext.FuneralNoticeReads
-            .AnyAsync(r => r.NoticeId == id && r.UserId == userId && !r.IsDeleted);
-
-        if (already)
-        {
-            return true;
-        }
-
-        _dbContext.FuneralNoticeReads.Add(new FuneralNoticeRead
-        {
-            NoticeId = id,
-            UserId = userId,
-            ReadAt = DateTime.UtcNow,
-            CreatedBy = userId,
-            CreatedAt = DateTime.UtcNow,
-        });
-
-        await _dbContext.SaveChangesAsync();
-        return true;
-    }
-
-    /// <inheritdoc />
-    public async Task<int> CountUnreadNoticesAsync(string userId, string? buildingId)
-    {
-        var notices = await GetNoticesAsync(userId, buildingId, includeExpired: false);
-        return notices.Count(n => !n.IsRead);
-    }
-
-    /// <summary>
-    /// 알림에 건물 이름과 읽음 여부를 붙인다.
-    /// </summary>
-    private async Task<List<NoticeDto>> ToDtosAsync(string userId, List<FuneralNotice> notices)
-    {
-        if (notices.Count == 0)
-        {
-            return new List<NoticeDto>();
-        }
-
-        var ids = notices.Select(n => n.Id).ToList();
-
-        var readIds = await _dbContext.FuneralNoticeReads
-            .Where(r => r.UserId == userId && !r.IsDeleted && ids.Contains(r.NoticeId))
-            .Select(r => r.NoticeId)
-            .ToListAsync();
-
-        var readSet = readIds.ToHashSet();
-
-        var buildingIds = notices
-            .Where(n => !string.IsNullOrEmpty(n.BuildingId))
-            .Select(n => n.BuildingId!)
-            .Distinct()
-            .ToList();
-
-        var buildings = buildingIds.Count == 0
-            ? new Dictionary<string, string>()
-            : await _dbContext.Buildings
-                .Where(b => buildingIds.Contains(b.Id))
-                .AsNoTracking()
-                .ToDictionaryAsync(b => b.Id, b => b.Name);
-
-        return notices.Select(n => new NoticeDto
-        {
-            Id = n.Id,
-            Title = n.Title,
-            Content = n.Content,
-            NoticeType = n.NoticeType,
-            IsImportant = n.IsImportant,
-            TargetUserId = n.TargetUserId,
-            BuildingId = n.BuildingId,
-            BuildingName = n.BuildingId != null && buildings.TryGetValue(n.BuildingId, out var bn) ? bn : null,
-            TargetPage = n.TargetPage,
-            TargetParam = n.TargetParam,
-            StartAt = n.StartAt,
-            EndAt = n.EndAt,
-            Author = n.CreatedBy,
-            CreatedAt = n.CreatedAt,
-            IsRead = readSet.Contains(n.Id),
-        }).ToList();
-    }
-
     // ── 호실 히스토리 ───────────────────────────────────────────
 
     /// <inheritdoc />
-    public async Task<List<RoomHistoryDto>> GetRoomHistoriesAsync(string? buildingId, string? roomId, DateTime? from, DateTime? to)
+    public async Task<List<RoomHistoryDto>> GetRoomHistoriesAsync(
+        string? buildingId, string? roomId, DateTime? from, DateTime? to,
+        string? keyword, bool? inUse)
     {
         var roomQuery = _dbContext.Rooms.Where(r => !r.IsDeleted);
 
@@ -269,6 +68,35 @@ public class InfoService : IInfoService
         if (to.HasValue)
         {
             assignQuery = assignQuery.Where(a => a.StartTime <= to.Value);
+        }
+
+        // 사용 중 / 출상. 끝난 시각이 있는지로 가린다 (DTO 의 InUse 와 같은 판정이다).
+        if (inUse.HasValue)
+        {
+            assignQuery = inUse.Value
+                ? assignQuery.Where(a => a.EndTime == null)
+                : assignQuery.Where(a => a.EndTime != null);
+        }
+
+        // 성명으로 찾기.
+        //
+        // 이름은 배정(deceased_rooms)이 아니라 고인(deceaseds)에 있어서, 배정을
+        // 먼저 읽고 걸러내면 필요 없는 행까지 다 끌어온다. 이름에 맞는 고인 키를
+        // 먼저 구해 배정 질의에 넣는다.
+        if (!string.IsNullOrWhiteSpace(keyword))
+        {
+            var trimmed = keyword.Trim();
+            var matchedIds = await _dbContext.Deceaseds
+                .Where(d => EF.Functions.ILike(d.Name, $"%{trimmed}%"))
+                .Select(d => d.Id)
+                .ToListAsync();
+
+            if (matchedIds.Count == 0)
+            {
+                return new List<RoomHistoryDto>();
+            }
+
+            assignQuery = assignQuery.Where(a => matchedIds.Contains(a.DeceasedId));
         }
 
         var assignments = await assignQuery.AsNoTracking().ToListAsync();
@@ -455,7 +283,6 @@ public class InfoService : IInfoService
 
         var buildingCount = await _dbContext.Buildings.CountAsync(b => !b.IsDeleted);
         var roomsInUse = await _dbContext.DeceasedRooms.CountAsync(a => !a.IsDeleted && a.EndTime == null);
-        var unread = await CountUnreadNoticesAsync(userId, null);
 
         return new MyInfoDto
         {
@@ -463,7 +290,6 @@ public class InfoService : IInfoService
             Role = role,
             BuildingCount = buildingCount,
             RoomsInUse = roomsInUse,
-            UnreadNoticeCount = unread,
             Settings = SettingCatalog.Merge(settings),
         };
     }

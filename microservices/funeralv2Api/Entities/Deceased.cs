@@ -67,12 +67,13 @@ public class Deceased
     public DateTime? BurialDate { get; set; }
 
     /// <summary>
-    /// 장례 진행 상태 (예: IN_HOSPITAL, DISCHARGED, COMPLETED 등, 기본값: IN_HOSPITAL)
+    /// 장례 진행 상태. 허용 값은 DeceasedStatus 의 셋뿐이다 —
+    /// FUNERAL_IN_PROGRESS(진행중) · FUNERAL_DEPARTURE_COMPLETED(출상) · COMPLETED(종료).
     /// </summary>
     [Required]
     [Column("status")]
     [MaxLength(30)]
-    public string Status { get; set; } = "IN_HOSPITAL";
+    public string Status { get; set; } = DeceasedStatus.InProgress;
 
     /// <summary>
     /// 비고 및 추가 설명

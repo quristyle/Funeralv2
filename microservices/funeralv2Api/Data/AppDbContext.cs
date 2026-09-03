@@ -91,15 +91,9 @@ public class AppDbContext : DbContext
     /// </summary>
     public DbSet<DeviceTextOverlay> DeviceTextOverlays { get; set; } = null!;
 
-    /// <summary>
-    /// 장례식장 알림 DbSet (옛 <c>t_notification</c>)
-    /// </summary>
-    public DbSet<FuneralNotice> FuneralNotices { get; set; } = null!;
-
-    /// <summary>
-    /// 알림 읽음 표시 DbSet
-    /// </summary>
-    public DbSet<FuneralNoticeRead> FuneralNoticeReads { get; set; } = null!;
+    // 알림 DbSet 둘(FuneralNotices · FuneralNoticeReads)은 2026-09-03 에 걷어냈다 —
+    // `/info/notice` 화면을 쓰지 않아 함께 지웠다 (Endpoints/InfoEndpoints.cs 머리말).
+    // 표도 마이그레이션 `RemoveFuneralNotices` 로 지웠다.
 
     /// <summary>
     /// 계정별 업무 설정 DbSet (옛 <c>t_account_conf</c>)
@@ -146,11 +140,6 @@ public class AppDbContext : DbContext
         // 고르도록 짜여 있는데(옛 데이터를 옮겨 올 때를 대비), 새로 생기는 것은 여기서 막는다.
         modelBuilder.Entity<AccountSetting>()
             .HasIndex(s => new { s.UserId, s.SettingCode })
-            .IsUnique();
-
-        // 같은 알림을 두 번 읽음 처리하지 않는다.
-        modelBuilder.Entity<FuneralNoticeRead>()
-            .HasIndex(r => new { r.NoticeId, r.UserId })
             .IsUnique();
 
         // 같은 건물에 같은 음원을 두 번 배정하지 않는다.

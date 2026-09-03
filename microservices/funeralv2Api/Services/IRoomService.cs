@@ -13,6 +13,11 @@ public interface IRoomService
     Task<List<RoomDto>> GetRoomsAsync(string? companyId, string? buildingId, string? floorId);
 
     /// <summary>
+    /// 배정(이동) 가능한 호실 목록 — ACTIVE 이고 점유 중이 아닌 호실만.
+    /// </summary>
+    Task<List<RoomDto>> GetAvailableRoomsAsync(string? companyId, string? buildingId, string? excludeRoomId);
+
+    /// <summary>
     /// 단일 호실 상세 조회
     /// </summary>
     Task<RoomDto?> GetRoomByIdAsync(string id);

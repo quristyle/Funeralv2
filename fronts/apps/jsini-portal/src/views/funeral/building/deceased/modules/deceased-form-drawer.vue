@@ -220,7 +220,7 @@ async function open(row?: any) {
     isEditMode.value = false;
     currentId.value = '';
     deceasedDrawerApi.setState({ title: '고인 종합 관리 (신규 등록)' });
-    
+
     // 신규 등록 시 기본값 설정
     formModel.value = {
       id: '',
@@ -247,6 +247,22 @@ async function open(row?: any) {
       facilities: [],
       rooms: []
     };
+
+    // 빈소현황의 공실 카드에서 '고인 등록'으로 들어오면 그 호실을 미리 채운다
+    // (옛 화면의 '자동생성' 즉시 INSERT 를 폼 프리필로 대체 — 47번 문서 2단계).
+    if (row?.roomId) {
+      formModel.value.roomId = row.roomId;
+      formModel.value.rooms = [{
+        id: '',
+        roomId: row.roomId,
+        companyId: '',
+        buildingId: '',
+        floorId: '',
+        startTime: dayjs().format('YYYY-MM-DDTHH:mm:ss'),
+        endTime: ''
+      }];
+    }
+
     deathDateVal.value = null;
     funeralDateVal.value = null;
     burialDateVal.value = null;

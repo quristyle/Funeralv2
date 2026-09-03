@@ -33,7 +33,10 @@ const [Grid, gridApi] = useVbenVxeGrid({
       {
         field: 'thumbnailUrl',
         title: '썸네일',
-        width: 100,
+        width: 110,
+        // 이미지를 칸에 빈틈없이 채운다 (`styles/index.css` 의 `.jsini-fillcell`).
+        // 크기·모양은 배경이미지 관리 화면과 같게 맞췄다.
+        className: 'jsini-fillcell',
         slots: { default: 'thumbnail' }
       },
       { field: 'name', title: '동영상 명칭', minWidth: 180 },
@@ -42,10 +45,28 @@ const [Grid, gridApi] = useVbenVxeGrid({
         field: 'status',
         title: '변환 상태',
         width: 120,
+        /**
+         * 고르는 칸으로 만든다 — 여러 개를 고를 수 있고, 하나라도 맞으면 남는다
+         * (준수사항 6번). 화면은 이름표로 그리지만 저장된 값은 영문이라,
+         * 글자를 쳐서 거르게 두면 '완료' 로는 아무것도 안 걸린다.
+         *
+         * `cellRender: CellTag` 가 아니라 슬롯으로 그리는 칸이어서 공통 레이어가
+         * 목록을 스스로 알아낼 수 없다. 그래서 여기 적어 준다 —
+         * 아래 `#status` 슬롯이 그리는 넷과 같은 순서다.
+         */
+        params: {
+          filterOptions: [
+            { label: '완료', value: 'COMPLETED' },
+            { label: '준비', value: 'READY' },
+            { label: '변환 중', value: 'PROCESSING' },
+            { label: '변환 실패', value: 'FAILED' },
+          ],
+        },
         slots: { default: 'status' }
       },
       { field: 'sortOrder', title: '순서', width: 80 },
-      { field: 'url', title: '동영상 URL 경로', minWidth: 280 },
+      // 동영상 URL 경로는 목록에 두지 않는다 — 사람이 읽을 것이 아니고 폭만 먹는다.
+      // 자료(`row.url`)는 그대로 있어서 재생·미리보기가 계속 쓴다.
       { field: 'remark', title: '설명', minWidth: 200 },
       {
         field: 'action',
@@ -56,6 +77,14 @@ const [Grid, gridApi] = useVbenVxeGrid({
       }
     ],
     height: 'auto',
+    /**
+     * 썸네일을 칸에 꽉 채우므로 줄 높이가 곧 이미지 높이다.
+     *
+     * 전역이 `showOverflow: true` 라 vxe 가 줄 높이를 고정한다 — 여기서 정하지
+     * 않으면 기본 높이(작은 크기)에 맞춰 이미지가 납작해진다.
+     * 배경이미지 관리 화면과 같은 값으로 맞췄다.
+     */
+    rowConfig: { height: 64 },
     proxyConfig: {
       ajax: {
         query: async () => {
@@ -194,15 +223,23 @@ function formatDate(dateStr?: string) {
       </template>
 
       <!-- 썸네일 컬럼 슬롯 렌더러 -->
+      <!--
+        `fit="cover"` — 칸을 꽉 채운다. 비율은 그대로고 넘치는 가장자리만 잘린다.
+        바탕의 격자무늬는 투명한 부분을 알아보게 하려는 것이다.
+      -->
       <template #thumbnail="{ row }">
-        <ImagePreview
-          :src="thumbnailSrc(row)"
-          :fallback-src="row.thumbnailUrl"
-          :preview-src="row.thumbnailUrl"
-          :width="64"
-          :height="40"
-          fallback-text="No Image"
-        />
+        <div class="size-full bg-[url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%228%22 height=%228%22 viewBox=%220 0 8 8%22><rect width=%224%22 height=%224%22 fill=%22%23ccc%22/><rect x=%224%22 y=%224%22 width=%224%22 height=%224%22 fill=%22%23ccc%22/></svg>')] bg-white overflow-hidden">
+          <ImagePreview
+            :src="thumbnailSrc(row)"
+            :fallback-src="row.thumbnailUrl"
+            :preview-src="row.thumbnailUrl"
+            width="100%"
+            height="100%"
+            fit="cover"
+            frameless
+            fallback-text="No Image"
+          />
+        </div>
       </template>
 
       <!-- 변환 상태 컬럼 슬롯 렌더러 -->

@@ -7,14 +7,17 @@
  * 건물 · 호실 · 기간을 곁들인다 — 실제로 찾을 때 이름부터 치기 때문이다.
  */
 import { onMounted, ref } from 'vue';
+
 import { Page } from '@vben/common-ui';
-import { DatePicker, Input, Select, Tag, message } from 'ant-design-vue';
-import GridIconButton from '#/components/GridIconButton.vue';
+
+import { DatePicker, Input, message, Select, Tag } from 'ant-design-vue';
 import dayjs from 'dayjs';
+
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import ImagePreview from '#/components/ImagePreview.vue';
-import { searchDeceased } from '#/api/funeral/info';
 import { getBuildings, getRooms } from '#/api/funeral/building';
+import { searchDeceased } from '#/api/funeral/info';
+import GridIconButton from '#/components/GridIconButton.vue';
+import ImagePreview from '#/components/ImagePreview.vue';
 
 const buildings = ref<any[]>([]);
 const rooms = ref<any[]>([]);
@@ -24,11 +27,11 @@ const searchRoomId = ref<string | undefined>();
 const searchStatus = ref<string | undefined>();
 const searchRange = ref<[any, any] | undefined>();
 
+// 상태 코드는 정본 셋이다 (47번 문서 D-RS1)
 const STATUS_OPTIONS = [
-  { label: '입원 중', value: 'IN_HOSPITAL' },
-  { label: '퇴원', value: 'DISCHARGED' },
-  { label: '발인 완료', value: 'FUNERAL_DEPARTURE_COMPLETED' },
-  { label: '완료', value: 'COMPLETED' },
+  { label: '장례 진행중', value: 'FUNERAL_IN_PROGRESS' },
+  { label: '출상 완료', value: 'FUNERAL_DEPARTURE_COMPLETED' },
+  { label: '장례 종료', value: 'COMPLETED' },
 ];
 
 const [Grid, gridApi] = useVbenVxeGrid({

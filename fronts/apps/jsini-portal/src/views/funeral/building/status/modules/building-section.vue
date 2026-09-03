@@ -1,8 +1,47 @@
 <script lang="ts" setup>
 import { computed } from 'vue';
-import { Tag, Badge, Dropdown, Menu, Tooltip } from 'ant-design-vue';
+import { Tag, Badge, Dropdown, Menu, Modal, Tooltip, message } from 'ant-design-vue';
 import { IconifyIcon } from '@vben/icons';
 import RoomCard from './room-card.vue';
+import { restartDeviceApp, setDeviceScreenPower } from '#/api/funeral/building';
+import { useJsiniUser } from '#/composables/use-jsini-user';
+
+// 장비 제어(전원·재시작)는 관리자 역할만 (47번 문서 D-RS4). 서버도 같은 검사를 한다.
+const { roles } = useJsiniUser();
+const canControlDevices = computed(() =>
+  roles.value.some((r) =>
+    ['ADMINISTRATOR', 'SYSTEM_ADMINISTRATOR', 'PARTNER_ADMINISTRATOR'].includes(r),
+  ),
+);
+
+/** 원격 화면 전원 — 즉시 실행 명령. 장비가 온라인일 때만 전달된다. */
+async function handleScreenPower(device: any, state: 'OFF' | 'ON') {
+  try {
+    await setDeviceScreenPower(device.code, state);
+    message.success(`[${device.name}] 화면 ${state === 'ON' ? '켜기' : '끄기'} 명령을 전송했습니다.`);
+  } catch (err: any) {
+    message.error(err?.response?.data?.message || err?.message || '명령 전송에 실패했습니다. 장비가 오프라인일 수 있습니다.');
+  }
+}
+
+/** 플레이어 앱 재시작 — 확인 후 전송. */
+function handleAppRestart(device: any) {
+  Modal.confirm({
+    title: '앱 재시작 확인',
+    content: `[${device.name}] 장비의 플레이어 앱을 재시작하시겠습니까? 재기동까지 수 초간 화면이 꺼집니다.`,
+    okText: '재시작',
+    cancelText: '취소',
+    okButtonProps: { danger: true },
+    onOk: async () => {
+      try {
+        await restartDeviceApp(device.code);
+        message.success(`[${device.name}] 앱 재시작 명령을 전송했습니다.`);
+      } catch (err: any) {
+        message.error(err?.response?.data?.message || err?.message || '명령 전송에 실패했습니다. 장비가 오프라인일 수 있습니다.');
+      }
+    },
+  });
+}
 
 const props = defineProps<{
   building: {
@@ -27,6 +66,12 @@ const emit = defineEmits<{
   (e: 'update-media', payload: { deviceId: string; type: 'video' | 'music'; mediaId: string }): void;
   (e: 'show-detail', deviceId: string): void;
   (e: 'refresh'): void;
+  // ── 카드 관리 메뉴 패스스루 (47번 문서 2단계) ──
+  (e: 'edit-deceased', deceasedId: string): void;
+  (e: 'create-deceased', roomId: string): void;
+  (e: 'move-room', payload: { deceasedId: string; deceasedName: string; roomId: string; buildingId?: string }): void;
+  (e: 'cancel-departure', payload: { deceasedId: string; deceasedName: string }): void;
+  (e: 'bulk-media', payload: { roomId: string; type: 'video' | 'music'; mediaId: string }): void;
 }>();
 
 interface FloorGroup {
@@ -56,15 +101,6 @@ const groupedFloors = computed(() => {
   return Array.from(groupsMap.values());
 });
 
-// 건물 공용 장비 필터링
-function getBuildingCommonDevices() {
-  if (!Array.isArray(props.devices)) return [];
-  return props.devices.filter(
-    (d) => d.buildingId === props.building.id && !d.floorId && !d.roomId
-  );
-}
-
-
 // 건물의 모든 층 공용 장비 필터링
 function getBuildingFloorCommonDevices() {
   if (!Array.isArray(props.devices)) return [];
@@ -93,22 +129,22 @@ const deviceTypeMap: Record<string, { label: string; color: string }> = {
 
 <template>
   <div class="bg-card/40 border border-border p-4 rounded-xl shadow-sm">
-    <!-- 건물 헤더 타이틀 (아코디언 토글 클릭 영역) -->
-    <div 
-      class="flex items-center justify-between border-border pb-3 cursor-pointer select-none hover:opacity-85 transition-opacity"
+    <!-- 건물 헤더 타이틀 (아코디언 토글 클릭 영역) — 좁은 화면에서는 배너가 아래로 내려온다 -->
+    <div
+      class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between border-border pb-3 cursor-pointer select-none hover:opacity-85 transition-opacity"
       @click="emit('toggle')"
     >
       <div class="flex items-center gap-2">
-        <IconifyIcon 
-          :icon="collapsed ? 'lucide:chevron-right' : 'lucide:chevron-down'" 
-          class="size-5 text-muted-foreground transition-transform" 
+        <IconifyIcon
+          :icon="collapsed ? 'lucide:chevron-right' : 'lucide:chevron-down'"
+          class="size-5 text-muted-foreground transition-transform"
         />
         <IconifyIcon icon="mdi:office-building" class="size-6 text-primary" />
         <h2 class="text-xl font-bold text-foreground">{{ building.name }}</h2>
       </div>
 
       <!-- 건물 요약 통계 배너 -->
-      <div class="flex grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-4 bg-muted/30 p-4 rounded-xl text-xs border border-border/40 select-none text-center">
+      <div class="grid grid-cols-4 lg:grid-cols-8 gap-2 lg:gap-4 bg-muted/30 p-3 lg:p-4 rounded-xl text-xs border border-border/40 select-none text-center">
         <div class="flex flex-col gap-1">
           <span class="text-muted-foreground font-medium">전체 호실</span>
           <span class="text-base font-bold text-foreground">{{ summary.total }}개</span>
@@ -121,10 +157,10 @@ const deviceTypeMap: Record<string, { label: string; color: string }> = {
           <span class="text-amber-600 font-medium">공실 (미배정)</span>
           <span class="text-base font-bold text-amber-600 ">{{ summary.empty }}개</span>
         </div>
-        <div 
-          v-for="(count, type) in summary.deviceSummary" 
-          :key="type" 
-          class="flex flex-col gap-1 border-l border-border pl-4"
+        <div
+          v-for="(count, type) in summary.deviceSummary"
+          :key="type"
+          class="flex flex-col gap-1 lg:border-l lg:border-border lg:pl-4"
         >
           <span class="text-muted-foreground font-medium flex items-center gap-1">
             <Badge :color="deviceTypeMap[type]?.color || 'default'" class="scale-75" />
@@ -138,12 +174,12 @@ const deviceTypeMap: Record<string, { label: string; color: string }> = {
     </div>
 
     <!-- 아코디언 본문 영역 (펼침 상태일 때만 노출) -->
-    <div v-if="!collapsed" class="space-y-5  flex flex-wrap gap-2">
+    <div v-if="!collapsed" class="space-y-5">
 
 
 
       <!-- 건물 하위 층별 섹션 및 호실 카드 배치 -->
-      <div v-if="groupedFloors.length > 0" class="space-y-1 flex flex-wrap gap-2">
+      <div v-if="groupedFloors.length > 0" class="space-y-4">
 
 
 
@@ -172,7 +208,7 @@ const deviceTypeMap: Record<string, { label: string; color: string }> = {
           <span class="text-xs text-muted-foreground">({{ getBuildingFloorCommonDevices().length }}대)</span>
         </div>
 
-        <div class="border border-primary/20 bg-primary/5 rounded-xl p-4 h-[175px] flex flex-wrap gap-4">
+        <div class="border border-primary/20 bg-primary/5 rounded-xl p-4 flex flex-wrap gap-4">
 
 
 
@@ -198,9 +234,26 @@ const deviceTypeMap: Record<string, { label: string; color: string }> = {
                   <span class="text-[10px] text-muted-foreground/50">{{ device.code }}</span>
                 </div>
               </div>
-              <Badge :status="device.status === 'ONLINE' ? 'success' : 'error'" class="scale-75" />
+              <div class="flex items-center gap-1">
+                <Badge :status="device.status === 'ONLINE' ? 'success' : 'error'" class="scale-75" />
+                <!-- 장비 제어 — 관리자 역할만 노출 (D-RS4) -->
+                <Dropdown v-if="canControlDevices" :trigger="['click']">
+                  <IconifyIcon
+                    icon="lucide:power"
+                    class="size-4 text-muted-foreground/60 hover:text-primary cursor-pointer transition-colors"
+                  />
+                  <template #overlay>
+                    <Menu>
+                      <Menu.Item key="on" @click="handleScreenPower(device, 'ON')">화면 켜기</Menu.Item>
+                      <Menu.Item key="off" @click="handleScreenPower(device, 'OFF')">화면 끄기</Menu.Item>
+                      <Menu.Divider />
+                      <Menu.Item key="restart" danger @click="handleAppRestart(device)">앱 재시작</Menu.Item>
+                    </Menu>
+                  </template>
+                </Dropdown>
+              </div>
             </div>
-            
+
             <!-- 드롭다운 영역 -->
             <div class="flex gap-2 text-[10px] text-muted-foreground select-none border-t border-border/40 pt-2.5">
               <Dropdown :trigger="['click']">
@@ -267,10 +320,10 @@ const deviceTypeMap: Record<string, { label: string; color: string }> = {
 
         
 
-          <div 
-            v-for="floorGroup in groupedFloors" 
+          <div
+            v-for="floorGroup in groupedFloors"
             :key="floorGroup.floorId"
-            class=""
+            class="w-full"
           >
 
 
@@ -280,20 +333,26 @@ const deviceTypeMap: Record<string, { label: string; color: string }> = {
               <h3 class="text-sm font-bold text-foreground">{{ floorGroup.floorName }}</h3>
               <span class="text-xs text-muted-foreground font-medium">({{ floorGroup.rooms.length }}개 호실)</span>
             </div>
-            
-            <!-- 해당 층의 호실 카드 그리드 -->
-            <div class="flex  gap-2">
+
+            <!-- 해당 층의 호실 카드 그리드 — 폭에 따라 1~5열. 고정 flex 행이
+                 좁은 화면에서 477px 넘치던 것(16번 문서 R2)을 없앤다. -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 min-[2200px]:grid-cols-5 gap-2">
 
               <!-- 호실 카드 리스트 -->
-              <RoomCard class="h-[175px]"
-                v-for="room in floorGroup.rooms" 
-                :key="room.id" 
-                :room="room" 
+              <RoomCard
+                v-for="room in floorGroup.rooms"
+                :key="room.id"
+                :room="room"
                 :videos="videos"
                 :musics="musics"
                 @update-media="(payload) => emit('update-media', payload)"
                 @show-detail="(id) => emit('show-detail', id)"
                 @refresh="() => emit('refresh')"
+                @edit-deceased="(id) => emit('edit-deceased', id)"
+                @create-deceased="(roomId) => emit('create-deceased', roomId)"
+                @move-room="(payload) => emit('move-room', payload)"
+                @cancel-departure="(payload) => emit('cancel-departure', payload)"
+                @bulk-media="(payload) => emit('bulk-media', payload)"
               />
             </div>
 

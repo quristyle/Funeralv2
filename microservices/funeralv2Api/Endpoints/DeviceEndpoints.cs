@@ -110,8 +110,17 @@ public static class DeviceEndpoints
             string code,
             [FromQuery] string state,
             [FromServices] IDeviceService service,
-            [FromServices] IDeviceHubSender hubSender) =>
+            [FromServices] IDeviceHubSender hubSender,
+            UserContext? user) =>
         {
+            // 장비 제어는 관리자 역할만 (47번 문서 D-RS4).
+            if (user is null || !user.CanControlDevices)
+            {
+                return Results.Json(
+                    ApiResponse<bool>.Fail("장비 제어 권한이 없습니다.", "ERR_FORBIDDEN"),
+                    statusCode: StatusCodes.Status403Forbidden);
+            }
+
             var normalized = (state ?? string.Empty).Trim().ToUpperInvariant();
             if (normalized != "ON" && normalized != "OFF")
             {
@@ -143,5 +152,42 @@ public static class DeviceEndpoints
             await hubSender.SendScreenPowerAsync(code, normalized == "ON");
             return Results.Ok(ApiResponse<bool>.Ok(true));
         }).WithName("SetDeviceScreenPower").WithOpenApi();
+
+        // 플레이어 앱 재시작 (기기코드 기준) — 47번 문서 D-RS3.
+        //
+        // OS 재부팅이 아니라 앱 프로세스 재시작이다. 리눅스 장비는 systemd
+        // (Restart=always)가 3초 안에 되살리고, 안드로이드는 키오스크 런처가
+        // 되살릴 때만 유효하다. screen-power 와 같은 즉시 실행 명령 규칙을 따른다.
+        group.MapPost("/app-restart/{code}", async (
+            string code,
+            [FromServices] IDeviceService service,
+            [FromServices] IDeviceHubSender hubSender,
+            UserContext? user) =>
+        {
+            if (user is null || !user.CanControlDevices)
+            {
+                return Results.Json(
+                    ApiResponse<bool>.Fail("장비 제어 권한이 없습니다.", "ERR_FORBIDDEN"),
+                    statusCode: StatusCodes.Status403Forbidden);
+            }
+
+            var device = await service.GetByCodeAsync(code);
+            if (device == null)
+            {
+                return Results.NotFound(
+                    ApiResponse<bool>.Fail($"장비를 찾을 수 없습니다: {code}", "ERR_DEVICE_NOT_FOUND"));
+            }
+
+            if (!DeviceHub.IsDeviceConnected(code))
+            {
+                return Results.Ok(
+                    ApiResponse<bool>.Fail(
+                        "장비가 실시간 연결되어 있지 않아 명령이 전달되지 않았습니다. 잠시 후 다시 시도해 주세요.",
+                        "ERR_DEVICE_OFFLINE"));
+            }
+
+            await hubSender.SendAppRestartAsync(code);
+            return Results.Ok(ApiResponse<bool>.Ok(true));
+        }).WithName("RestartDeviceApp").WithOpenApi();
     }
 }

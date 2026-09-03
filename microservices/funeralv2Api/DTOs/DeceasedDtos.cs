@@ -39,7 +39,7 @@ public class DeceasedDto
     public DateTime? BurialDate { get; set; }
     public string? RoomId { get; set; }
     public string? RoomName { get; set; }
-    public string Status { get; set; } = null!; // IN_HOSPITAL, DISCHARGED, COMPLETED
+    public string Status { get; set; } = null!; // DeceasedStatus 참고: FUNERAL_IN_PROGRESS · FUNERAL_DEPARTURE_COMPLETED · COMPLETED
     public string? Remark { get; set; }
     public string? Ssn { get; set; }
     public string? CauseOfDeath { get; set; }
@@ -65,7 +65,7 @@ public class DeceasedCreateDto
     public DateTime? FuneralDate { get; set; }
     public DateTime? BurialDate { get; set; }
     public string? RoomId { get; set; }
-    public string Status { get; set; } = "IN_HOSPITAL";
+    public string Status { get; set; } = Entities.DeceasedStatus.InProgress;
     public string? Remark { get; set; }
     public string? Ssn { get; set; }
     public string? CauseOfDeath { get; set; }

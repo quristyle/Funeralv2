@@ -1,46 +1,7 @@
 namespace funeralv2Api.DTOs;
 
-/// <summary>
-/// 알림 정보 한 건.
-/// </summary>
-public class NoticeDto
-{
-    public string Id { get; set; } = string.Empty;
-    public string Title { get; set; } = string.Empty;
-    public string? Content { get; set; }
-    public string NoticeType { get; set; } = "NOTICE";
-    public bool IsImportant { get; set; }
-    public string? TargetUserId { get; set; }
-    public string? BuildingId { get; set; }
-    public string? BuildingName { get; set; }
-    public string? TargetPage { get; set; }
-    public string? TargetParam { get; set; }
-    public DateTime? StartAt { get; set; }
-    public DateTime? EndAt { get; set; }
-    public string? Author { get; set; }
-    public DateTime CreatedAt { get; set; }
-
-    /// <summary>지금 보고 있는 사람이 읽었는지</summary>
-    public bool IsRead { get; set; }
-}
-
-public class NoticeCreateDto
-{
-    public string Title { get; set; } = string.Empty;
-    public string? Content { get; set; }
-    public string NoticeType { get; set; } = "NOTICE";
-    public bool IsImportant { get; set; }
-    public string? TargetUserId { get; set; }
-    public string? BuildingId { get; set; }
-    public string? TargetPage { get; set; }
-    public string? TargetParam { get; set; }
-    public DateTime? StartAt { get; set; }
-    public DateTime? EndAt { get; set; }
-}
-
-public class NoticeUpdateDto : NoticeCreateDto
-{
-}
+// 알림정보 DTO 셋(NoticeDto · NoticeCreateDto · NoticeUpdateDto)은 2026-09-03 에
+// 걷어냈다 — 쓰지 않는 화면이었다 (Endpoints/InfoEndpoints.cs 머리말).
 
 /// <summary>
 /// 호실 히스토리 한 줄. 옛 <c>fr.room_goin.list4room</c> 이 돌려주던 모양이다.
@@ -137,9 +98,6 @@ public class MyInfoDto
 
     /// <summary>이 사람이 다루는 건물 수 (권한 범위를 가늠하라고 준다)</summary>
     public int BuildingCount { get; set; }
-
-    /// <summary>안 읽은 알림 수</summary>
-    public int UnreadNoticeCount { get; set; }
 
     /// <summary>지금 쓰고 있는 빈소 수</summary>
     public int RoomsInUse { get; set; }

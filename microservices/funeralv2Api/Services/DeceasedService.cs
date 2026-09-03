@@ -175,9 +175,16 @@ public class DeceasedService : IDeceasedService
     }
 
     /// <inheritdoc />
-    public async Task<DeceasedDto> CreateDeceasedAsync(DeceasedCreateDto dto)
+    public async Task<DeceasedDto> CreateDeceasedAsync(DeceasedCreateDto dto, string? actor = null)
     {
         _logger.LogInformation("Creating deceased: {Name}", dto.Name);
+
+        var status = ValidateStatus(dto.Status);
+
+        if (!string.IsNullOrEmpty(dto.RoomId))
+        {
+            await EnsureRoomAssignableAsync(dto.RoomId, deceasedId: null);
+        }
 
         var id = Guid.NewGuid().ToString();
         var deceased = new Deceased
@@ -191,9 +198,9 @@ public class DeceasedService : IDeceasedService
             FuneralDate = SpecifyUtc(dto.FuneralDate),
             BurialDate = SpecifyUtc(dto.BurialDate),
             // RoomId = dto.RoomId, // 직접 할당 대신 DeceasedRooms 테이블 사용
-            Status = dto.Status,
+            Status = status,
             Remark = dto.Remark,
-            CreatedBy = "System",
+            CreatedBy = actor ?? "System",
             CreatedAt = DateTime.UtcNow,
             IsDeleted = false
         };
@@ -246,9 +253,11 @@ public class DeceasedService : IDeceasedService
     }
 
     /// <inheritdoc />
-    public async Task<DeceasedDto?> UpdateDeceasedAsync(string id, DeceasedUpdateDto dto)
+    public async Task<DeceasedDto?> UpdateDeceasedAsync(string id, DeceasedUpdateDto dto, string? actor = null)
     {
         _logger.LogInformation("Updating deceased: {Id}", id);
+
+        var status = ValidateStatus(dto.Status);
 
         var deceased = await _context.Deceaseds.FirstOrDefaultAsync(x => x.Id == id && !x.IsDeleted);
         if (deceased == null)
@@ -266,6 +275,11 @@ public class DeceasedService : IDeceasedService
         // 호실 변경 감지 및 처리
         if (oldRoomId != dto.RoomId)
         {
+            if (!string.IsNullOrEmpty(dto.RoomId))
+            {
+                await EnsureRoomAssignableAsync(dto.RoomId, deceasedId: id);
+            }
+
             if (currentRoomAssignment != null)
             {
                 currentRoomAssignment.EndTime = DateTime.UtcNow;
@@ -294,9 +308,9 @@ public class DeceasedService : IDeceasedService
         deceased.FuneralDate = SpecifyUtc(dto.FuneralDate);
         deceased.BurialDate = SpecifyUtc(dto.BurialDate);
         // deceased.RoomId = dto.RoomId; // 직접 업데이트 대신 DeceasedRooms 사용
-        deceased.Status = dto.Status;
+        deceased.Status = status;
         deceased.Remark = dto.Remark;
-        deceased.UpdatedBy = "System";
+        deceased.UpdatedBy = actor ?? "System";
         deceased.UpdatedAt = DateTime.UtcNow;
 
         await _context.SaveChangesAsync();
@@ -333,7 +347,7 @@ public class DeceasedService : IDeceasedService
     }
 
     /// <inheritdoc />
-    public async Task<bool> DeleteDeceasedAsync(string id)
+    public async Task<bool> DeleteDeceasedAsync(string id, string? actor = null)
     {
         _logger.LogInformation("Soft deleting deceased: {Id}", id);
 
@@ -344,7 +358,7 @@ public class DeceasedService : IDeceasedService
         }
 
         deceased.IsDeleted = true;
-        deceased.UpdatedBy = "System";
+        deceased.UpdatedBy = actor ?? "System";
         deceased.UpdatedAt = DateTime.UtcNow;
 
         await _context.SaveChangesAsync();
@@ -522,7 +536,7 @@ public class DeceasedService : IDeceasedService
         deceased.DeathDate = SpecifyUtc(dto.DeathDate);
         deceased.FuneralDate = SpecifyUtc(dto.FuneralDate);
         deceased.BurialDate = SpecifyUtc(dto.BurialDate);
-        deceased.Status = dto.Status;
+        deceased.Status = ValidateStatus(dto.Status);
         deceased.Remark = dto.Remark;
         deceased.Ssn = dto.Ssn;
         deceased.CauseOfDeath = dto.CauseOfDeath;
@@ -767,9 +781,11 @@ public class DeceasedService : IDeceasedService
 
 
         // DeceasedRooms 이력 테이블을 기준으로 현재 호실에 배정된 고인을 찾습니다.
+        // 점유 판정은 현황 화면과 같은 기준이다 — 배정이 살아 있고(EndTime 없음) 장례 진행중 (47번 문서 0단계).
         var deceasedId = await (from dr in _context.DeceasedRooms
                                 join d in _context.Deceaseds on dr.DeceasedId equals d.Id
-                                where dr.RoomId == device.RoomId && !dr.IsDeleted && !d.IsDeleted 
+                                where dr.RoomId == device.RoomId && !dr.IsDeleted && dr.EndTime == null
+                                      && !d.IsDeleted && d.Status == DeceasedStatus.InProgress
                                 orderby dr.StartTime descending
                                 select d.Id).FirstOrDefaultAsync();
 
@@ -952,7 +968,8 @@ public class DeceasedService : IDeceasedService
         {
             var deceasedId = await (from dr in _context.DeceasedRooms
                                     join d in _context.Deceaseds on dr.DeceasedId equals d.Id
-                                    where dr.RoomId == room.Id && !dr.IsDeleted && !d.IsDeleted && d.Status != "COMPLETED"
+                                    // 점유 판정은 현황 화면과 같은 기준 — 배정이 살아 있고(EndTime 없음) 장례 진행중 (47번 문서 0단계)
+                                    where dr.RoomId == room.Id && !dr.IsDeleted && dr.EndTime == null && !d.IsDeleted && d.Status == DeceasedStatus.InProgress
                                     orderby dr.StartTime descending
                                     select d.Id).FirstOrDefaultAsync();
 
@@ -1071,7 +1088,8 @@ public class DeceasedService : IDeceasedService
         {
             var deceasedId = await (from dr in _context.DeceasedRooms
                                     join d in _context.Deceaseds on dr.DeceasedId equals d.Id
-                                    where dr.RoomId == room.Id && !dr.IsDeleted && !d.IsDeleted && d.Status != "COMPLETED"
+                                    // 점유 판정은 현황 화면과 같은 기준 — 배정이 살아 있고(EndTime 없음) 장례 진행중 (47번 문서 0단계)
+                                    where dr.RoomId == room.Id && !dr.IsDeleted && dr.EndTime == null && !d.IsDeleted && d.Status == DeceasedStatus.InProgress
                                     orderby dr.StartTime descending
                                     select d.Id).FirstOrDefaultAsync();
 
@@ -1238,6 +1256,52 @@ public class DeceasedService : IDeceasedService
         return relationNames;
     }
 
+    /// <summary>
+    /// 상태 값을 정본으로 바꾸고, 허용 값이 아니면 거부한다 (D-RS1).
+    /// 옛 값(IN_HOSPITAL 등)은 받아서 정본으로 고쳐 저장한다.
+    /// </summary>
+    private static string ValidateStatus(string? status)
+    {
+        var normalized = DeceasedStatus.Normalize(status);
+        if (!DeceasedStatus.IsValid(normalized))
+        {
+            throw new InvalidOperationException($"허용되지 않는 장례 상태입니다: {status}");
+        }
+
+        return normalized;
+    }
+
+    /// <summary>
+    /// 호실에 배정해도 되는지 검사한다 — 호실이 살아 있고(ACTIVE),
+    /// 다른 고인이 점유 중이 아니어야 한다. 예전에는 검사 없이 받아서
+    /// 한 호실에 두 고인이 겹치면 화면이 첫 고인만 보여 줬다 (D-RS6).
+    /// </summary>
+    private async Task EnsureRoomAssignableAsync(string roomId, string? deceasedId)
+    {
+        var room = await _context.Rooms.AsNoTracking()
+            .FirstOrDefaultAsync(r => r.Id == roomId && !r.IsDeleted);
+        if (room == null)
+        {
+            throw new InvalidOperationException("배정할 호실을 찾을 수 없습니다.");
+        }
+
+        if (room.Status != "ACTIVE")
+        {
+            throw new InvalidOperationException($"사용 중지된 호실입니다: {room.Name}");
+        }
+
+        var occupant = await (from dr in _context.DeceasedRooms
+                              join d in _context.Deceaseds on dr.DeceasedId equals d.Id
+                              where dr.RoomId == roomId && !dr.IsDeleted && dr.EndTime == null
+                                    && !d.IsDeleted && d.Status == DeceasedStatus.InProgress
+                                    && (deceasedId == null || d.Id != deceasedId)
+                              select d.Name).FirstOrDefaultAsync();
+        if (occupant != null)
+        {
+            throw new InvalidOperationException($"해당 호실에 이미 고인 [{occupant}] 님이 입실 중입니다.");
+        }
+    }
+
     private static DateTime SpecifyUtc(DateTime dt)
     {
         return dt.Kind == DateTimeKind.Unspecified ? DateTime.SpecifyKind(dt, DateTimeKind.Utc) : dt;
@@ -1249,7 +1313,121 @@ public class DeceasedService : IDeceasedService
         return dt.Value.Kind == DateTimeKind.Unspecified ? DateTime.SpecifyKind(dt.Value, DateTimeKind.Utc) : dt;
     }
     /// <inheritdoc />
-    public async Task<bool> CancelDepartureAsync(string deceasedId)
+    public async Task<bool> MoveRoomAsync(string deceasedId, string newRoomId, string? actor = null)
+    {
+        _logger.LogInformation("Moving deceased {DeceasedId} to room {RoomId}", deceasedId, newRoomId);
+
+        var deceased = await _context.Deceaseds.FirstOrDefaultAsync(x => x.Id == deceasedId && !x.IsDeleted);
+        if (deceased == null)
+        {
+            return false;
+        }
+
+        if (!DeceasedStatus.IsOccupying(deceased.Status))
+        {
+            throw new InvalidOperationException("장례 진행중인 고인만 호실을 옮길 수 있습니다.");
+        }
+
+        await EnsureRoomAssignableAsync(newRoomId, deceasedId);
+
+        // 이전 활성 배정을 끝내고 새 배정을 연다 — 상태·인적 사항은 건드리지 않는다.
+        var actives = await _context.DeceasedRooms
+            .Where(dr => dr.DeceasedId == deceasedId && !dr.IsDeleted && dr.EndTime == null)
+            .ToListAsync();
+
+        var now = DateTime.UtcNow;
+        var oldRoomIds = new List<string>();
+        foreach (var assignment in actives)
+        {
+            if (assignment.RoomId == newRoomId)
+            {
+                throw new InvalidOperationException("이미 해당 호실에 입실 중입니다.");
+            }
+
+            assignment.EndTime = now;
+            assignment.IsDeleted = true;
+            oldRoomIds.Add(assignment.RoomId);
+        }
+
+        _context.DeceasedRooms.Add(new DeceasedRoom
+        {
+            Id = Guid.NewGuid().ToString(),
+            DeceasedId = deceasedId,
+            RoomId = newRoomId,
+            StartTime = now,
+            IsDeleted = false,
+        });
+
+        deceased.UpdatedBy = actor ?? "System";
+        deceased.UpdatedAt = now;
+
+        await _context.SaveChangesAsync();
+
+        // 옛 호실과 새 호실의 장비 모두에 알린다 — 플레이어가 즉시 갱신된다.
+        foreach (var roomId in oldRoomIds.Append(newRoomId).Distinct())
+        {
+            try
+            {
+                await _deviceHubSender.SendDeviceChangedByRoomIdAsync(roomId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "SignalR 알림 전송 중 에러");
+            }
+        }
+
+        return true;
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> DepartAsync(string deceasedId, string? actor = null)
+    {
+        _logger.LogInformation("Departing deceased: {DeceasedId}", deceasedId);
+
+        var deceased = await _context.Deceaseds.FirstOrDefaultAsync(x => x.Id == deceasedId && !x.IsDeleted);
+        if (deceased == null)
+        {
+            return false;
+        }
+
+        // 1. 상태만 출상 완료로. 인적 사항은 건드리지 않는다.
+        deceased.Status = DeceasedStatus.Departed;
+        deceased.UpdatedBy = actor ?? "System";
+        deceased.UpdatedAt = DateTime.UtcNow;
+
+        // 2. 활성 배정을 끝낸다. 출상 취소가 이 행을 되살린다.
+        var assignments = await _context.DeceasedRooms
+            .Where(dr => dr.DeceasedId == deceasedId && !dr.IsDeleted)
+            .ToListAsync();
+
+        var now = DateTime.UtcNow;
+        foreach (var assignment in assignments)
+        {
+            assignment.EndTime = now;
+            assignment.IsDeleted = true;
+        }
+
+        await _context.SaveChangesAsync();
+
+        // 3. 호실의 장비들에 알린다 — 플레이어가 즉시 화면을 비운다.
+        //    (옛 시스템의 '장비 reboot 지시'를 대신하는 경로다.)
+        foreach (var roomId in assignments.Select(a => a.RoomId).Distinct())
+        {
+            try
+            {
+                await _deviceHubSender.SendDeviceChangedByRoomIdAsync(roomId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "SignalR 알림 전송 중 에러");
+            }
+        }
+
+        return true;
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> CancelDepartureAsync(string deceasedId, string? actor = null)
     {
         _logger.LogInformation("Cancelling departure for deceased: {DeceasedId}", deceasedId);
 
@@ -1260,16 +1438,22 @@ public class DeceasedService : IDeceasedService
             return false;
         }
 
-        // 1. 고인 상태를 FUNERAL_IN_PROGRESS로 복구
-        deceased.Status = "FUNERAL_IN_PROGRESS";
-        deceased.UpdatedBy = "System";
-        deceased.UpdatedAt = DateTime.UtcNow;
-
-        // 2. 가장 최근에 삭제 처리(IsDeleted == true)된 배정 이력을 가져옴
+        // 1. 가장 최근에 삭제 처리(IsDeleted == true)된 배정 이력을 가져옴
         var lastRoomAssignment = await _context.DeceasedRooms
             .Where(dr => dr.DeceasedId == deceasedId && dr.IsDeleted)
             .OrderByDescending(dr => dr.StartTime)
             .FirstOrDefaultAsync();
+
+        // 2. 되돌아갈 호실에 그 사이 다른 고인이 들어왔으면 거부한다 — 옛 시스템의 규칙.
+        if (lastRoomAssignment != null)
+        {
+            await EnsureRoomAssignableAsync(lastRoomAssignment.RoomId, deceasedId);
+        }
+
+        // 3. 고인 상태를 장례 진행중으로 복구
+        deceased.Status = DeceasedStatus.InProgress;
+        deceased.UpdatedBy = actor ?? "System";
+        deceased.UpdatedAt = DateTime.UtcNow;
 
         if (lastRoomAssignment != null)
         {

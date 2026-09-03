@@ -1,5 +1,6 @@
 using funeralv2Api.Data;
 using funeralv2Api.DTOs;
+using funeralv2Api.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace funeralv2Api.Services;
@@ -14,10 +15,12 @@ namespace funeralv2Api.Services;
 public class StatusService : IStatusService
 {
     private readonly AppDbContext _dbContext;
+    private readonly IDeviceService _deviceService;
 
-    public StatusService(AppDbContext dbContext)
+    public StatusService(AppDbContext dbContext, IDeviceService deviceService)
     {
         _dbContext = dbContext;
+        _deviceService = deviceService;
     }
 
     /// <inheritdoc />
@@ -51,6 +54,51 @@ public class StatusService : IStatusService
         return rows.FirstOrDefault();
     }
 
+    /// <inheritdoc />
+    public async Task<RoomBoardDto> GetRoomBoardAsync(RoomBoardQueryDto query)
+    {
+        var rows = await BuildAsync(query.BuildingId, query.FloorId, null, query);
+
+        // 장비는 이름·미디어 합성 규칙이 장비 서비스에 이미 있으므로 거기서 받아 붙인다.
+        // GetByFilterAsync 는 필터가 전부 비면 빈 목록을 돌려주므로(전 장비 실수 방지 가드)
+        // '회사 전체' 조회는 전체 목록으로 받는다.
+        var hasDeviceFilter = !string.IsNullOrWhiteSpace(query.CompanyId)
+            || !string.IsNullOrWhiteSpace(query.BuildingId)
+            || !string.IsNullOrWhiteSpace(query.FloorId);
+        var devices = hasDeviceFilter
+            ? await _deviceService.GetByFilterAsync(query.CompanyId, query.BuildingId, query.FloorId, null)
+            : await _deviceService.GetAllAsync();
+
+        var byRoom = devices
+            .Where(d => !string.IsNullOrEmpty(d.RoomId))
+            .GroupBy(d => d.RoomId!)
+            .ToDictionary(g => g.Key, g => g.OrderBy(d => d.SortOrder).ToList());
+
+        foreach (var row in rows)
+        {
+            row.Devices = byRoom.TryGetValue(row.RoomId, out var list)
+                ? list
+                : new List<DeviceDto>();
+            row.DeviceCount = row.Devices.Count;
+            row.OnlineDeviceCount = row.Devices.Count(d => d.Status == "ONLINE");
+        }
+
+        return new RoomBoardDto
+        {
+            Rooms = rows,
+            // 호실에 매이지 않은 장비 — 건물 공용 (입구 안내 등)
+            CommonDevices = devices.Where(d => string.IsNullOrEmpty(d.RoomId)).ToList(),
+            Summary = new FuneralStatusSummaryDto
+            {
+                TotalRooms = rows.Count,
+                UsingRooms = rows.Count(r => r.Status == "USING"),
+                EmptyRooms = rows.Count(r => r.Status != "USING"),
+                TotalDevices = devices.Count,
+                OnlineDevices = devices.Count(d => d.Status == "ONLINE"),
+            },
+        };
+    }
+
     /// <summary>
     /// 호실을 축으로 현재 배정과 장비 수를 붙인다.
     /// </summary>
@@ -59,7 +107,8 @@ public class StatusService : IStatusService
     /// 행이 불어나 같은 고인을 여러 번 세기 때문이다. 호실 수가 백 단위라
     /// 나눠 읽고 메모리에서 맞추는 편이 싸다.
     /// </remarks>
-    private async Task<List<FuneralStatusDto>> BuildAsync(string? buildingId, string? floorId, string? roomId)
+    private async Task<List<FuneralStatusDto>> BuildAsync(
+        string? buildingId, string? floorId, string? roomId, RoomBoardQueryDto? board = null)
     {
         var roomQuery = _dbContext.Rooms.Where(r => !r.IsDeleted);
 
@@ -76,6 +125,15 @@ public class StatusService : IStatusService
         if (!string.IsNullOrWhiteSpace(floorId))
         {
             roomQuery = roomQuery.Where(r => r.FloorId == floorId);
+        }
+
+        // 호실에는 회사가 없다 — 건물을 거쳐 거른다.
+        if (!string.IsNullOrWhiteSpace(board?.CompanyId))
+        {
+            var companyBuildingIds = _dbContext.Buildings
+                .Where(b => !b.IsDeleted && b.CompanyId == board.CompanyId)
+                .Select(b => b.Id);
+            roomQuery = roomQuery.Where(r => companyBuildingIds.Contains(r.BuildingId));
         }
 
         var rooms = await roomQuery.AsNoTracking().ToListAsync();
@@ -108,10 +166,71 @@ public class StatusService : IStatusService
 
         var deceasedIds = current.Values.Select(a => a.DeceasedId).Distinct().ToList();
 
-        var deceaseds = await _dbContext.Deceaseds
+        // 점유 판정의 정본: 배정이 살아 있고 + 고인이 '장례 진행중'일 때만 사용 중이다.
+        // 예전에는 화면 A·상황판·플레이어가 제각기 다른 술어를 썼다 (47번 문서 0단계).
+        var deceaseds = (await _dbContext.Deceaseds
             .Where(d => !d.IsDeleted && deceasedIds.Contains(d.Id))
             .AsNoTracking()
-            .ToDictionaryAsync(d => d.Id);
+            .ToListAsync())
+            .Where(d => DeceasedStatus.IsOccupying(d.Status))
+            .ToDictionary(d => d.Id);
+
+        // 대시보드의 고인 필터 — 조건에 안 맞으면 그 호실은 공실로 보인다
+        // (호실을 숨기는 것이 아니라 고인만 걸러 낸다. 화면 A 의 기존 동작이다).
+        if (board is not null)
+        {
+            IEnumerable<Deceased> filtered = deceaseds.Values;
+            if (!string.IsNullOrWhiteSpace(board.Name))
+            {
+                filtered = filtered.Where(d => d.Name.Contains(board.Name));
+            }
+
+            if (board.CoffinStartDate.HasValue)
+            {
+                filtered = filtered.Where(d => d.FuneralDate >= board.CoffinStartDate.Value);
+            }
+
+            if (board.CoffinEndDate.HasValue)
+            {
+                filtered = filtered.Where(d => d.FuneralDate <= board.CoffinEndDate.Value);
+            }
+
+            if (board.BurialStartDate.HasValue)
+            {
+                filtered = filtered.Where(d => d.BurialDate >= board.BurialStartDate.Value);
+            }
+
+            if (board.BurialEndDate.HasValue)
+            {
+                filtered = filtered.Where(d => d.BurialDate <= board.BurialEndDate.Value);
+            }
+
+            deceaseds = filtered.ToDictionary(d => d.Id);
+        }
+
+        // 빈 호실의 '마지막 퇴실'은 배정 이력의 마지막 종료 시각으로 유도한다.
+        // 출상이 배정을 soft-delete 하므로 IsDeleted 를 가리지 않고 본다.
+        // 대시보드는 그 마지막 고인이 '출상 완료'면 출상 취소 진입점으로도 쓴다.
+        var endedAssignments = await _dbContext.DeceasedRooms
+            .Where(a => roomIds.Contains(a.RoomId) && a.EndTime != null)
+            .Select(a => new { a.RoomId, a.DeceasedId, a.EndTime })
+            .AsNoTracking()
+            .ToListAsync();
+
+        var lastEnded = endedAssignments
+            .GroupBy(a => a.RoomId)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(a => a.EndTime).First());
+
+        var lastDepartedNames = new Dictionary<string, string>();
+        if (board is not null && lastEnded.Count > 0)
+        {
+            var lastDeceasedIds = lastEnded.Values.Select(a => a.DeceasedId).Distinct().ToList();
+            lastDepartedNames = await _dbContext.Deceaseds
+                .Where(d => lastDeceasedIds.Contains(d.Id) && !d.IsDeleted
+                            && d.Status == DeceasedStatus.Departed)
+                .AsNoTracking()
+                .ToDictionaryAsync(d => d.Id, d => d.Name);
+        }
 
         var mourners = await _dbContext.DeceasedMourners
             .Where(m => !m.IsDeleted && deceasedIds.Contains(m.DeceasedId))
@@ -170,6 +289,8 @@ public class StatusService : IStatusService
                 dto.DeceasedName = deceased.Name;
                 dto.DeceasedGender = deceased.Gender;
                 dto.DeceasedAge = deceased.Age;
+                dto.DeceasedStatus = DeceasedStatus.Normalize(deceased.Status);
+                dto.DeathDate = deceased.DeathDate;
                 dto.Religion = deceased.Religion;
 
                 // 보정본이 있으면 그것을 먼저 쓴다 — 영정은 잘라 낸 것이 정본이다.
@@ -190,6 +311,16 @@ public class StatusService : IStatusService
                 if (assign.StartTime > dto.UpdatedAt)
                 {
                     dto.UpdatedAt = assign.StartTime;
+                }
+            }
+
+            if (dto.Status == "EMPTY" && lastEnded.TryGetValue(room.Id, out var ended))
+            {
+                dto.LastVacatedAt = ended.EndTime;
+                if (lastDepartedNames.TryGetValue(ended.DeceasedId, out var departedName))
+                {
+                    dto.LastDepartedDeceasedId = ended.DeceasedId;
+                    dto.LastDepartedDeceasedName = departedName;
                 }
             }
 

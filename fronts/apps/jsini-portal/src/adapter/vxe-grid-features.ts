@@ -172,7 +172,220 @@ const FILTER_ROW_CLASS = 'jsini-filterrow';
 /** 이름줄 칸에 붙는 표시. 누를 수 있다는 손 모양을 준다. */
 const TITLE_ROW_CLASS = 'jsini-titlerow';
 
+/**
+ * 엑셀에서 **필터줄을 뺀다.**
+ *
+ * 필터줄은 칸을 묶음(1행 이름 · 2행 필터)으로 만들어 얻는다. 그런데 vxe 의
+ * 엑셀 내보내기는 **머리글 층마다 한 줄**을 쓴다
+ * (`vxe-table-plugin-export-xlsx` — `colgroups.forEach`). 필터줄 칸은 이름이
+ * 비어 있으므로(`leaf.title = ''`) 받은 파일에는 **빈 줄 하나**가 이름줄 아래
+ * 붙어 나온다. 자료를 붙여 쓰려면 그 줄을 매번 지워야 했다.
+ *
+ * `isColgroup: false` 로 층을 접으면 될 것 같지만 안 된다 — 그때 vxe 는
+ * **맨 아래 칸**의 이름을 쓰는데 그것이 바로 이름이 빈 필터줄 칸이다.
+ * 머리글이 통째로 비어 버린다. 화면이 진짜 묶음 머리글을 쓰는 경우
+ * (묶음이 3층이 된다) 그 묶음 이름도 함께 사라진다.
+ *
+ * 그래서 층 목록에서 **필터줄 층만** 덜어 낸다. `beforeExportMethod` 는
+ * vxe 가 층 목록을 다 만든 뒤 · 내보내기 플러그인이 그것을 읽기 전에 불린다.
+ *
+ * `_rowSpan` 은 **내보내기 경로에서만** 쓰이고 끝나면 vxe 가 지운다
+ * (`clearColumnConvert`). 화면 머리글은 이 값을 보지 않으므로 고쳐도 안전하다.
+ */
+function dropFilterHeaderRow(options: any) {
+  const levels: any[][] = options?.colgroups;
+  if (!Array.isArray(levels) || levels.length < 2) return;
+
+  const isFilterCell = (col: any) =>
+    typeof col?.headerClassName === 'string' &&
+    col.headerClassName.includes(FILTER_ROW_CLASS);
+
+  /**
+   * 필터줄은 늘 **맨 아래 층**이다. 그리고 그 층에는 필터줄 칸만 있다 —
+   * 필터를 끈 칸(`params.filter: false`)은 묶이지 않아 위층에서 두 줄을
+   * 걸치므로 이 층에 나타나지 않는다.
+   */
+  const last = levels.at(-1);
+  if (!last?.length || !last.every(isFilterCell)) return;
+
+  levels.pop();
+
+  /**
+   * 필터를 끈 칸은 없어진 층까지 세로로 걸치고 있었다. 그대로 두면 병합이
+   * 자료 첫 줄을 먹는다. 남은 층 수에 맞춰 줄인다.
+   */
+  levels.forEach((cols, rowIndex) => {
+    const max = levels.length - rowIndex;
+    cols.forEach((col: any) => {
+      if (col._rowSpan > max) col._rowSpan = max;
+    });
+  });
+}
+
+/** 내보내기 그림의 기본 크기(px). 고인사진처럼 세로로 긴 사진 기준이다. */
+const EXPORT_IMAGE_WIDTH = 60;
+const EXPORT_IMAGE_HEIGHT = 72;
+
+/** 엑셀 폭 단위 하나 ≈ 8px. 플러그인이 컬럼 폭을 `renderWidth / 8` 로 어림하는 것과 같다. */
+const EXCEL_COL_PX = 8;
+
+/** 엑셀 행 높이는 포인트다. 플러그인의 `setExcelRowHeight` 와 같은 px→pt 환산. */
+const PX_TO_PT = 0.75;
+
+export interface GridExportImageOptions {
+  /** 사진이 든 컬럼의 `field`. */
+  field: string;
+  /** 행에서 사진 주소를 얻는다. 사진 없는 행은 `undefined` 를 돌려주면 건너뛴다. */
+  urlOf: (row: any) => null | string | undefined;
+  /** 셀에 앉힐 최대 폭(px). 비율은 지킨다. 기본 60 */
+  width?: number;
+  /** 셀에 앉힐 최대 높이(px). 기본 72 */
+  height?: number;
+}
+
+/** 미리 내려받아 둔 사진 한 장 — 엑셀에 넣을 수 있는 형태다. */
+interface PreparedImage {
+  base64: string;
+  height: number;
+  width: number;
+}
+
+/**
+ * 내보내기 전에 각 행의 사진을 **미리** 내려받아 둔다.
+ *
+ * 순서가 이런 이유: 플러그인은 `sheetMethod` 를 **동기로** 부르고 곧바로
+ * `writeBuffer` 한다(`vxe-table-plugin-export-xlsx` — `exportMethod`).
+ * 훅 안에서 내려받으면 파일이 먼저 나가 버리므로, 받는 일은 여기서 끝내고
+ * 훅에는 완성된 그림만 넘긴다.
+ *
+ * 캔버스로 PNG 를 다시 만드는 이유: ExcelJS 는 jpeg·png·gif 만 받아서
+ * 썸네일이 webp 로 와도 그대로는 못 넣는다. 캔버스를 거치면 브라우저가 여는
+ * 형식이 전부 PNG 로 통일되고, 원본 비율에 맞춘 크기도 함께 얻는다.
+ *
+ * 못 받은 행(주소 없음 · 404 · 외부 주소의 CORS 거절)은 조용히 건너뛴다 —
+ * 사진 한 장 때문에 내보내기 전체가 막히면 안 된다.
+ */
+async function prepareExportImages(
+  grid: any,
+  opts: GridExportImageOptions,
+): Promise<Map<any, PreparedImage>> {
+  const rows: any[] = grid?.getTableData?.()?.fullData ?? [];
+  const boxWidth = opts.width ?? EXPORT_IMAGE_WIDTH;
+  const boxHeight = opts.height ?? EXPORT_IMAGE_HEIGHT;
+  const images = new Map<any, PreparedImage>();
+
+  await Promise.all(
+    rows.map(async (row) => {
+      const url = opts.urlOf(row);
+      if (!url) return;
+      try {
+        // FileServer 를 지나는 주소는 `jsini_file_at` 쿠키가 있어야 열린다(27번 문서 5절).
+        const response = await fetch(url, { credentials: 'include' });
+        if (!response.ok) return;
+        const bitmap = await createImageBitmap(await response.blob());
+        // 칸보다 크면 비율대로 줄이고, 작은 사진은 키우지 않는다.
+        const scale = Math.min(
+          boxWidth / bitmap.width,
+          boxHeight / bitmap.height,
+          1,
+        );
+        const width = Math.max(1, Math.round(bitmap.width * scale));
+        const height = Math.max(1, Math.round(bitmap.height * scale));
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        canvas.getContext('2d')?.drawImage(bitmap, 0, 0, width, height);
+        bitmap.close();
+        images.set(row, {
+          base64: canvas.toDataURL('image/png'),
+          height,
+          width,
+        });
+      } catch {
+        // 이 행만 그림 없이 나간다.
+      }
+    }),
+  );
+
+  return images;
+}
+
+/**
+ * `sheetMethod` — 시트가 다 채워진 뒤 사진 칸 위에 그림을 앉힌다.
+ *
+ * 엑셀에서 그림은 셀 "안"의 값이 아니라 셀 위에 **앵커로 떠 있는** 개체다.
+ * 보기에는 셀에 든 것처럼 나오지만, 받은 사람이 엑셀에서 다시 정렬하면
+ * 그림은 따라가지 않는다(엑셀의 셀-내-이미지 기능을 ExcelJS 가 아직 모른다).
+ *
+ * 행 위치는 플러그인과 같은 조건으로 센다 — 머리글 줄 수는
+ * `isColgroup && colgroups` 면 층 수, 아니면 한 줄이다(`exportXLSX` 의 colList).
+ * `colgroups` 는 `dropFilterHeaderRow` 가 필터줄 층을 덜어 낸 **뒤의** 것이
+ * 그대로 온다(같은 배열을 고치므로).
+ */
+export function embedExportImages(
+  params: any,
+  opts: GridExportImageOptions,
+  images: Map<any, PreparedImage>,
+) {
+  const { colgroups, columns, datas, options, workbook, worksheet } = params;
+
+  const columnIndex = columns.findIndex((c: any) => c.field === opts.field);
+  // 보이는 컬럼 고르기로 사진 칸을 뺀 채 내보내면 그림도 뺀다.
+  if (columnIndex < 0) return;
+
+  const headerRowCount =
+    options.isHeader === false
+      ? 0
+      : options.isColgroup && Array.isArray(colgroups) && colgroups.length > 0
+        ? colgroups.length
+        : 1;
+
+  const boxWidth = opts.width ?? EXPORT_IMAGE_WIDTH;
+  const boxHeight = opts.height ?? EXPORT_IMAGE_HEIGHT;
+
+  // 사진 칸이 그림보다 좁으면 넓힌다.
+  const column = worksheet.getColumn(columnIndex + 1);
+  const wantColumnWidth = Math.ceil(boxWidth / EXCEL_COL_PX) + 1;
+  if (!column.width || column.width < wantColumnWidth) {
+    column.width = wantColumnWidth;
+  }
+
+  datas.forEach((item: any, index: number) => {
+    // `addImage` 의 tl 좌표는 0 기준, ExcelJS 의 행·셀 접근은 1 기준이다.
+    const rowIndex = headerRowCount + index;
+    const excelRow = worksheet.getRow(rowIndex + 1);
+
+    // 사진 칸의 글자 값(URL 따위)이 그림 뒤에 남지 않게 지운다.
+    excelRow.getCell(columnIndex + 1).value = '';
+
+    const image = images.get(item._row ?? item);
+    if (!image) return;
+
+    const wantRowHeight = (boxHeight + 8) * PX_TO_PT;
+    if (!excelRow.height || excelRow.height < wantRowHeight) {
+      excelRow.height = wantRowHeight;
+    }
+
+    worksheet.addImage(
+      workbook.addImage({ base64: image.base64, extension: 'png' }),
+      {
+        editAs: 'oneCell',
+        ext: { height: image.height, width: image.width },
+        tl: { col: columnIndex + 0.1, row: rowIndex + 0.1 },
+      },
+    );
+  });
+}
+
 export interface GridFeatureFlags {
+  /**
+   * 엑셀 내보내기에 **사진을 그림으로** 넣는다.
+   *
+   * 셀에 `<img>` 를 그리는 칸(고인 관리의 고인사진)은 그냥 내보내면 빈 칸이나
+   * URL 문자열로 나간다. 이걸 적으면 내보내기 전에 사진을 내려받아 그 칸 위에
+   * 그림으로 앉히고, 행 높이도 그림에 맞게 키운다.
+   */
+  exportImage?: GridExportImageOptions;
   /** 엑셀 파일 이름(확장자 제외). 기본 `export` */
   exportName?: string;
   /** 필터 전용 행. 기본 `true` */
@@ -639,12 +852,30 @@ function createToolsRenderer(
     zoomTick.value += 1;
   }
 
-  function onExport() {
-    getGrid()?.exportData?.({
+  async function onExport() {
+    const grid = getGrid();
+    if (!grid) return;
+
+    // 사진 칸이 있는 그리드는 그림부터 준비한다 (`prepareExportImages` 머리말 참고).
+    const imageOpts = flags.exportImage;
+    const images = imageOpts
+      ? await prepareExportImages(grid, imageOpts)
+      : undefined;
+
+    grid.exportData?.({
+      // 이름줄만 남기고 필터줄은 뺀다 (`dropFilterHeaderRow` 머리말 참고).
+      beforeExportMethod: ({ options }: any) => dropFilterHeaderRow(options),
       filename: flags.exportName ?? 'export',
       isHeader: true,
       original: false,
       type: 'xlsx',
+      // 그림이 하나도 준비되지 않아도 훅은 넘긴다 — URL 글자를 지우는 일은 남는다.
+      ...(imageOpts
+        ? {
+            sheetMethod: (params: any) =>
+              embedExportImages(params, imageOpts, images ?? new Map()),
+          }
+        : {}),
     });
   }
 

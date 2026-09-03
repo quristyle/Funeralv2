@@ -30,12 +30,21 @@ const currentAudioUrl = computed<string>(() => playSources.value[playIndex.value
 const [Grid, gridApi] = useVbenVxeGrid({
   gridOptions: {
     columns: [
-      { field: 'thumbnailUrl', title: '커버', width: 80, slots: { default: 'thumbnail' } },
+      {
+        field: 'thumbnailUrl',
+        title: '커버',
+        width: 110,
+        // 이미지를 칸에 빈틈없이 채운다 (`styles/index.css` 의 `.jsini-fillcell`).
+        // 크기·모양은 배경이미지 관리 화면과 같게 맞췄다.
+        className: 'jsini-fillcell',
+        slots: { default: 'thumbnail' },
+      },
       { field: 'name', title: '음원/배경음악 명칭', minWidth: 180 },
       { field: 'shortName', title: '짧은 명칭', width: 120 },
       { field: 'status', title: '상태', width: 100, slots: { default: 'status' } },
       { field: 'sortOrder', title: '순서', width: 80 },
-      { field: 'url', title: '음원 URL 경로', minWidth: 280 },
+      // 음원 URL 경로는 목록에 두지 않는다 — 사람이 읽을 것이 아니고 폭만 먹는다.
+      // 자료(`row.url`)는 그대로 있어서 청취·미리보기가 계속 쓴다.
       { field: 'remark', title: '설명', minWidth: 200 },
       {
         field: 'action',
@@ -46,6 +55,14 @@ const [Grid, gridApi] = useVbenVxeGrid({
       }
     ],
     height: 'auto',
+    /**
+     * 커버를 칸에 꽉 채우므로 줄 높이가 곧 이미지 높이다.
+     *
+     * 전역이 `showOverflow: true` 라 vxe 가 줄 높이를 고정한다 — 여기서 정하지
+     * 않으면 기본 높이(작은 크기)에 맞춰 커버가 납작해진다.
+     * 배경이미지 관리 화면과 같은 값으로 맞췄다.
+     */
+    rowConfig: { height: 64 },
     proxyConfig: {
       ajax: {
         query: async () => {
@@ -182,15 +199,25 @@ function formatDate(dateStr?: string) {
         />
       </template>
 
+      <!--
+        `fit="cover"` — 칸을 꽉 채운다. 비율은 그대로고 넘치는 가장자리만 잘린다.
+        커버는 대개 정사각형이라 좌우가 조금 잘린다 — 여백을 두는 것보다
+        목록에서 알아보기 쉬운 쪽을 골랐다.
+        바탕의 격자무늬는 투명한 부분을 알아보게 하려는 것이다.
+      -->
       <template #thumbnail="{ row }">
-        <ImagePreview
-          :src="coverSrc(row)"
-          :fallback-src="row.thumbnailUrl"
-          :preview-src="row.thumbnailUrl"
-          :width="40"
-          :height="40"
-          fallback-text="🎵"
-        />
+        <div class="size-full bg-[url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%228%22 height=%228%22 viewBox=%220 0 8 8%22><rect width=%224%22 height=%224%22 fill=%22%23ccc%22/><rect x=%224%22 y=%224%22 width=%224%22 height=%224%22 fill=%22%23ccc%22/></svg>')] bg-white overflow-hidden">
+          <ImagePreview
+            :src="coverSrc(row)"
+            :fallback-src="row.thumbnailUrl"
+            :preview-src="row.thumbnailUrl"
+            width="100%"
+            height="100%"
+            fit="cover"
+            frameless
+            fallback-text="🎵"
+          />
+        </div>
       </template>
 
       <!-- 변환 상태 컬럼 슬롯 렌더러 -->

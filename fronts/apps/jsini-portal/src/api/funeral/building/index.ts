@@ -102,7 +102,8 @@ export namespace BuildingApi {
     burialDate?: string;
     roomId?: string;
     roomName?: string;
-    status: 'IN_HOSPITAL' | 'DISCHARGED' | 'COMPLETED' | 'FUNERAL_DEPARTURE_COMPLETED';
+    /** 장례 상태 — 정본 셋 (47번 문서 D-RS1) */
+    status: 'COMPLETED' | 'FUNERAL_DEPARTURE_COMPLETED' | 'FUNERAL_IN_PROGRESS';
   }
 
   export interface DeceasedMourner {
@@ -163,7 +164,8 @@ export namespace BuildingApi {
     burialDate?: string;
     roomId?: string;
     roomName?: string;
-    status: 'IN_HOSPITAL' | 'DISCHARGED' | 'COMPLETED' | 'FUNERAL_DEPARTURE_COMPLETED';
+    /** 장례 상태 — 정본 셋 (47번 문서 D-RS1) */
+    status: 'COMPLETED' | 'FUNERAL_DEPARTURE_COMPLETED' | 'FUNERAL_IN_PROGRESS';
     remark?: string;
     ssn?: string;
     causeOfDeath?: string;
@@ -351,6 +353,16 @@ export async function getRooms(params?: {
     await requestClient.get('/funeral/building/room/list', { params }),
   );
 }
+/** 배정(이동) 가능한 호실 — ACTIVE + 미점유. 빈소현황의 호실 변경이 쓴다. */
+export async function getAvailableRooms(params?: {
+  buildingId?: string;
+  companyId?: string;
+  excludeRoomId?: string;
+}) {
+  return unwrapList<BuildingApi.Room>(
+    await requestClient.get('/funeral/building/room/available', { params }),
+  );
+}
 export async function createRoom(data: Omit<BuildingApi.Room, 'id'>) {
   return requestClient.post('/funeral/building/room', data);
 }
@@ -461,6 +473,24 @@ export async function saveDeceasedDetail(id: string, data: BuildingApi.DeceasedD
   const url = id ? `/funeral/building/deceased/${id}/detail` : '/funeral/building/deceased/detail';
   return unwrapOne<BuildingApi.DeceasedDetail>(await requestClient.put(url, data));
 }
+/** 호실 이동 — 배정만 바꾸고 인적 사항은 건드리지 않는다. */
+export async function moveDeceasedRoom(id: string, roomId: string) {
+  return unwrapOne<boolean>(
+    await requestClient.put(`/funeral/building/deceased/${id}/room`, undefined, {
+      params: { roomId },
+    }),
+  );
+}
+/**
+ * 출상 처리 — 상태 전환과 배정 해제만 한다.
+ * 예전에는 화면이 전체 PUT 을 재구성해 보냈는데, 목록 DTO 에 없는 칸
+ * (비고 · 주민번호 등)이 함께 지워지는 문제가 있었다 (47번 문서 0단계).
+ */
+export async function departDeceased(id: string) {
+  return unwrapOne<boolean>(
+    await requestClient.put(`/funeral/building/deceased/${id}/depart`),
+  );
+}
 export async function cancelDeceasedDeparture(id: string) {
   return unwrapOne<boolean>(
     await requestClient.put(`/funeral/building/deceased/${id}/cancel-departure`),
@@ -526,4 +556,9 @@ export async function deleteDeviceTextOverlay(id: string) {
 // DB 에 저장되지 않는 즉시 실행 명령이다. 장비가 SignalR 로 접속해 있어야 전달된다.
 export async function setDeviceScreenPower(code: string, state: 'OFF' | 'ON') {
   return requestClient.post(`/funeral/building/device/screen-power/${code}?state=${state}`);
+}
+
+/** 플레이어 앱 재시작 — 즉시 실행 명령. 리눅스 장비는 systemd 가 되살린다 (D-RS3). */
+export async function restartDeviceApp(code: string) {
+  return requestClient.post(`/funeral/building/device/app-restart/${code}`);
 }

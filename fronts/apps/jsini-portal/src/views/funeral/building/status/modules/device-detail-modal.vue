@@ -54,26 +54,30 @@ function reload() {
   activeKey.value = tab;
 }
 
-// 리본 그리드 (원본 컬럼 구성 그대로)
+// 리본 그리드 — 컬럼은 DeviceRibbon DTO 의 실제 칸이다.
+// (예전에는 text·ribbonType 같은 DTO 에 없는 칸을 그려서 전부 빈 칸으로 나왔다.)
 const [RibbonGrid] = useVbenVxeGrid({
   // `gridFeatures` 는 vxe 타입에 없다(공통 레이어가 읽고 떼어 낸다). 그래서 `as any`.
   gridOptions: {
     columns: [
-      { field: 'text', minWidth: 200, title: '텍스트' },
-      { field: 'ribbonType', minWidth: 110, title: '유형' },
+      { field: 'mediaSourceName', minWidth: 180, title: '장식 이미지' },
       {
-        field: 'backgroundColor',
-        minWidth: 130,
-        slots: { default: 'backgroundColor' },
-        title: '배경색',
+        field: 'position',
+        // 두 값(positionLeft · positionTop)을 합쳐 그리는 칸이라 걸러 낼 값이 없다.
+        params: { filter: false, sort: false },
+        slots: { default: 'position' },
+        title: '위치 (L, T)',
+        width: 150,
       },
       {
-        field: 'textColor',
-        minWidth: 130,
-        slots: { default: 'textColor' },
-        title: '폰트색',
+        field: 'size',
+        params: { filter: false, sort: false },
+        slots: { default: 'size' },
+        title: '크기 (W×H)',
+        width: 150,
       },
-      { field: 'alignment', minWidth: 100, title: '정렬' },
+      { field: 'sortOrder', title: '순서', width: 80 },
+      { field: 'remark', minWidth: 120, title: '비고' },
     ],
     emptyText: '등록된 리본 설정 정보가 없습니다.',
     // 재조회 아이콘 — `:table-data` 라 그리드가 조회 방법을 모른다.
@@ -86,39 +90,41 @@ const [RibbonGrid] = useVbenVxeGrid({
   } as any,
 });
 
-// 오버레이 그리드 (원본 컬럼 구성 그대로)
+// 오버레이 그리드 — 컬럼은 DeviceTextOverlay DTO 의 실제 칸이다.
+// (예전에는 overlayKey·textValue·isEnabled 같은 DTO 에 없는 칸을 그려서 빈 칸으로 나왔다.)
 const [OverlayGrid] = useVbenVxeGrid({
   // `gridFeatures` 는 vxe 타입에 없다(공통 레이어가 읽고 떼어 낸다). 그래서 `as any`.
   gridOptions: {
     columns: [
-      { field: 'overlayKey', minWidth: 140, title: '식별자' },
-      { field: 'textValue', minWidth: 200, title: '내용' },
-      {
-        field: 'position',
-        // 두 값(positionX · positionY)을 합쳐 그리는 칸이라 걸러 낼 값이 없다.
-        params: { filter: false, sort: false },
-        slots: { default: 'position' },
-        title: '위치 (X, Y)',
-        width: 140,
-      },
+      { field: 'textContent', minWidth: 180, title: '내용' },
       {
         field: 'fontSize',
         formatter: ({ cellValue }: any) => `${cellValue}px`,
         title: '폰트 크기',
-        width: 100,
+        width: 90,
       },
       {
-        field: 'isEnabled',
-        params: {
-          filterOptions: [
-            { label: '사용', value: true },
-            { label: '미사용', value: false },
-          ],
-        },
-        slots: { default: 'isEnabled' },
-        title: '사용 여부',
-        width: 110,
+        field: 'fontColor',
+        minWidth: 120,
+        slots: { default: 'fontColor' },
+        title: '폰트색',
       },
+      {
+        field: 'backgroundColor',
+        minWidth: 120,
+        slots: { default: 'backgroundColor' },
+        title: '배경색',
+      },
+      { field: 'textAlign', title: '정렬', width: 80 },
+      {
+        field: 'position',
+        // 두 값(positionLeft · positionTop)을 합쳐 그리는 칸이라 걸러 낼 값이 없다.
+        params: { filter: false, sort: false },
+        slots: { default: 'position' },
+        title: '위치 (L, T)',
+        width: 150,
+      },
+      { field: 'sortOrder', title: '순서', width: 80 },
     ],
     emptyText: '등록된 텍스트 오버레이 정보가 없습니다.',
     gridFeatures: { onRefresh: () => reload() },
@@ -142,6 +148,7 @@ async function open(deviceId: string) {
   overlayData.value = [];
 
   try {
+    // 봉투는 API 모듈이 벗겨서 온다 — 준수사항 7.
     const [deviceRes, attrRes, ribbonsRes, overlaysRes] = await Promise.all([
       getDevice(deviceId).catch(() => null),
       getDeviceAttribute(deviceId).catch(() => null),
@@ -149,29 +156,10 @@ async function open(deviceId: string) {
       getDeviceTextOverlays(deviceId).catch(() => null),
     ]);
 
-    // 1. 장비 기본 정보 파싱
-    if (deviceRes) {
-      const rawDev = (deviceRes as any)?.result ?? deviceRes;
-      deviceData.value = Array.isArray(rawDev) ? rawDev[0] : rawDev;
-    }
-
-    // 2. 장비 속성 파싱
-    if (attrRes) {
-      const rawAttr = (attrRes as any)?.result ?? attrRes;
-      attributeData.value = Array.isArray(rawAttr) ? rawAttr[0] : rawAttr;
-    }
-
-    // 3. 리본 목록 파싱
-    if (ribbonsRes) {
-      const rawRibbons = (ribbonsRes as any)?.result ?? ribbonsRes;
-      ribbonData.value = Array.isArray(rawRibbons) ? rawRibbons : [];
-    }
-
-    // 4. 오버레이 목록 파싱
-    if (overlaysRes) {
-      const rawOverlays = (overlaysRes as any)?.result ?? overlaysRes;
-      overlayData.value = Array.isArray(rawOverlays) ? rawOverlays : [];
-    }
+    deviceData.value = deviceRes ?? null;
+    attributeData.value = attrRes ?? null;
+    ribbonData.value = ribbonsRes ?? [];
+    overlayData.value = overlaysRes ?? [];
   } catch (err) {
     console.error('장비 상세 정보 로드 실패:', err);
   } finally {
@@ -322,17 +310,11 @@ defineExpose({
           <Tabs.TabPane key="ribbon" tab="리본 설정">
             <div class="mt-2">
               <RibbonGrid :table-data="ribbonData">
-                <template #backgroundColor="{ row }">
-                  <span class="inline-flex items-center gap-1.5 font-mono">
-                    <span class="size-3 rounded-full border border-border inline-block" :style="{ backgroundColor: row.backgroundColor }"></span>
-                    {{ row.backgroundColor }}
-                  </span>
+                <template #position="{ row }">
+                  L: {{ row.positionLeft }}%, T: {{ row.positionTop }}%
                 </template>
-                <template #textColor="{ row }">
-                  <span class="inline-flex items-center gap-1.5 font-mono">
-                    <span class="size-3 rounded-full border border-border inline-block" :style="{ backgroundColor: row.textColor }"></span>
-                    {{ row.textColor }}
-                  </span>
+                <template #size="{ row }">
+                  {{ row.width }}% × {{ row.height }}%
                 </template>
               </RibbonGrid>
             </div>
@@ -342,11 +324,20 @@ defineExpose({
           <Tabs.TabPane key="overlay" tab="텍스트 오버레이">
             <div class="mt-2">
               <OverlayGrid :table-data="overlayData">
-                <template #position="{ row }">
-                  X: {{ row.positionX }}%, Y: {{ row.positionY }}%
+                <template #fontColor="{ row }">
+                  <span class="inline-flex items-center gap-1.5 font-mono">
+                    <span class="size-3 rounded-full border border-border inline-block" :style="{ backgroundColor: row.fontColor }"></span>
+                    {{ row.fontColor }}
+                  </span>
                 </template>
-                <template #isEnabled="{ row }">
-                  <Badge :status="row.isEnabled ? 'success' : 'default'" :text="row.isEnabled ? '사용' : '미사용'" />
+                <template #backgroundColor="{ row }">
+                  <span class="inline-flex items-center gap-1.5 font-mono">
+                    <span class="size-3 rounded-full border border-border inline-block" :style="{ backgroundColor: row.backgroundColor }"></span>
+                    {{ row.backgroundColor }}
+                  </span>
+                </template>
+                <template #position="{ row }">
+                  L: {{ row.positionLeft }}%, T: {{ row.positionTop }}%
                 </template>
               </OverlayGrid>
             </div>

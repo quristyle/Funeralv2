@@ -22,10 +22,13 @@ public class FuneralStatusDto
     public string? BuildingName { get; set; }
     public int SortOrder { get; set; }
 
-    /// <summary>EMPTY 비어 있음 · USING 사용 중 · RESERVED 예약</summary>
+    /// <summary>EMPTY 비어 있음 · USING 사용 중 (예약은 옛 시스템에서도 실사용 0건이라 이식하지 않았다 — 40번 문서)</summary>
     public string Status { get; set; } = "EMPTY";
 
     public string? DeceasedId { get; set; }
+
+    /// <summary>고인 장례 상태 (DeceasedStatus 셋 중 하나). 사용 중일 때만 채운다.</summary>
+    public string? DeceasedStatus { get; set; }
     public string? DeceasedName { get; set; }
     public string? DeceasedGender { get; set; }
     public int? DeceasedAge { get; set; }
@@ -47,8 +50,24 @@ public class FuneralStatusDto
     /// <summary>장지 (옛 <c>jangji</c>)</summary>
     public string? BurialPlace { get; set; }
 
+    /// <summary>사망 일시</summary>
+    public DateTime? DeathDate { get; set; }
+
     /// <summary>입실 일시</summary>
     public DateTime? StartTime { get; set; }
+
+    /// <summary>
+    /// 빈 호실의 마지막 퇴실 일시 (옛 <c>t_room.last_feave_dt</c>).
+    /// 전용 컬럼 없이 배정 이력의 마지막 <c>end_time</c> 으로 유도한다.
+    /// </summary>
+    public DateTime? LastVacatedAt { get; set; }
+
+    /// <summary>
+    /// 빈 호실에서 마지막으로 출상한 고인 — 출상 취소 진입점.
+    /// 마지막 배정의 고인이 '출상 완료' 상태일 때만 채운다 (대시보드 전용).
+    /// </summary>
+    public string? LastDepartedDeceasedId { get; set; }
+    public string? LastDepartedDeceasedName { get; set; }
 
     /// <summary>사용 일수</summary>
     public int UseDays { get; set; }
@@ -58,6 +77,12 @@ public class FuneralStatusDto
 
     /// <summary>그중 지금 살아 있는 장비 수</summary>
     public int OnlineDeviceCount { get; set; }
+
+    /// <summary>
+    /// 이 호실의 장비 목록. 대시보드(<c>/status/room-board</c>)만 채우고
+    /// 나머지 현황 화면에는 null 로 나간다 — 필요한 화면만 골라 그린다.
+    /// </summary>
+    public List<DeviceDto>? Devices { get; set; }
 
     public DateTime UpdatedAt { get; set; }
 }
@@ -80,5 +105,45 @@ public class FuneralStatusSummaryDto
 public class FuneralStatusBoardDto
 {
     public List<FuneralStatusDto> Rooms { get; set; } = new();
+    public FuneralStatusSummaryDto Summary { get; set; } = new();
+}
+
+/// <summary>
+/// 빈소현황 대시보드(<c>/room_status</c>) 조회 조건.
+/// </summary>
+/// <remarks>
+/// 예전에는 화면이 건물·호실·장비·고인 네 목록을 따로 받아 브라우저에서
+/// 조인했다(47번 문서 0단계). 이 조건 하나로 서버가 다 붙여 준다.
+/// 기간 이름은 실제로 거르는 컬럼을 그대로 말한다 — 옛
+/// <c>DeceasedSearchDto.RoomEnter*</c> 가 실은 입관일을 거르던 혼동을 되풀이하지 않는다.
+/// </remarks>
+public class RoomBoardQueryDto
+{
+    public string? CompanyId { get; set; }
+    public string? BuildingId { get; set; }
+    public string? FloorId { get; set; }
+
+    /// <summary>고인명 부분 일치</summary>
+    public string? Name { get; set; }
+
+    /// <summary>입관 일시(<c>funeral_date</c>) 범위</summary>
+    public DateTime? CoffinStartDate { get; set; }
+    public DateTime? CoffinEndDate { get; set; }
+
+    /// <summary>발인 일시(<c>burial_date</c>) 범위</summary>
+    public DateTime? BurialStartDate { get; set; }
+    public DateTime? BurialEndDate { get; set; }
+}
+
+/// <summary>
+/// 빈소현황 대시보드 응답. 호실(장비 포함)과 건물 공용 장비를 한 번에 준다.
+/// </summary>
+public class RoomBoardDto
+{
+    public List<FuneralStatusDto> Rooms { get; set; } = new();
+
+    /// <summary>호실에 매이지 않은 건물 공용 장비 (입구 안내 등)</summary>
+    public List<DeviceDto> CommonDevices { get; set; } = new();
+
     public FuneralStatusSummaryDto Summary { get; set; } = new();
 }

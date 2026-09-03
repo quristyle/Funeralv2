@@ -28,13 +28,13 @@ import { getDeceasedList } from '#/api/funeral/building';
 
 const deceasedList = ref<BuildingApi.Deceased[]>([]);
 
-// 단계별 인원 집계
+// 단계별 인원 집계 — 상태 코드는 정본 셋이다 (47번 문서 D-RS1)
 const stats = computed(() => {
   const inHospital = deceasedList.value.filter(
-    (item) => item.status === 'IN_HOSPITAL',
+    (item) => item.status === 'FUNERAL_IN_PROGRESS',
   ).length;
   const discharged = deceasedList.value.filter(
-    (item) => item.status === 'DISCHARGED',
+    (item) => item.status === 'FUNERAL_DEPARTURE_COMPLETED',
   ).length;
   const completed = deceasedList.value.filter(
     (item) => item.status === 'COMPLETED',
@@ -87,14 +87,12 @@ const [Grid] = useVbenVxeGrid({
       },
       {
         field: 'status',
-        // 값이 정해진 칸이라 고르는 칸으로 준다.
-        // 마지막 코드는 원본과 같이 표에서 '정산 완료' 로 묶여 보인다.
+        // 값이 정해진 칸이라 고르는 칸으로 준다. 상태 코드는 정본 셋 (D-RS1).
         params: {
           filterOptions: [
-            { label: '장례 진행중', value: 'IN_HOSPITAL' },
-            { label: '발인 완료', value: 'DISCHARGED' },
-            { label: '정산 완료', value: 'COMPLETED' },
-            { label: '정산 완료(발인 처리)', value: 'FUNERAL_DEPARTURE_COMPLETED' },
+            { label: '장례 진행중', value: 'FUNERAL_IN_PROGRESS' },
+            { label: '출상 완료', value: 'FUNERAL_DEPARTURE_COMPLETED' },
+            { label: '장례 종료', value: 'COMPLETED' },
           ],
         },
         slots: { default: 'status' },
@@ -157,16 +155,16 @@ const [Grid] = useVbenVxeGrid({
 
       <template #status="{ row }">
         <Badge
-          v-if="row.status === 'IN_HOSPITAL'"
+          v-if="row.status === 'FUNERAL_IN_PROGRESS'"
           status="processing"
           text="장례 진행중"
         />
         <Badge
-          v-else-if="row.status === 'DISCHARGED'"
+          v-else-if="row.status === 'FUNERAL_DEPARTURE_COMPLETED'"
           status="warning"
-          text="발인 완료"
+          text="출상 완료"
         />
-        <Badge v-else status="default" text="정산 완료" />
+        <Badge v-else status="default" text="장례 종료" />
       </template>
 
       <!-- 값이 비면 빈칸 대신 '-' 를 보여 준다(원본과 같다). 여러 칸이 함께 쓴다. -->
