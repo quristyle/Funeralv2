@@ -90,6 +90,10 @@ builder.Services.AddScoped<INotificationPreferenceService, NotificationPreferenc
 builder.Services.AddScoped<IPushSender, PushSender>();
 builder.Services.AddScoped<IEmailQueueSender, EmailQueueSender>();
 
+// 카카오 알림톡 (D-G1b · 기본 꺼짐). 자격증명·수신 번호가 정해지기 전에는 0건만 돌려준다.
+builder.Services.Configure<KakaoOptions>(builder.Configuration.GetSection(KakaoOptions.SectionName));
+builder.Services.AddHttpClient<IKakaoAlimtalkSender, BizppurioAlimtalkSender>();
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddHttpContextAccessor();
@@ -132,6 +136,7 @@ app.UseAuthorization();
 
 app.MapNotificationEndpoints();
 app.MapEmailEndpoints();
+app.MapWeatherEventEndpoints(); // 기상 이벤트 발송 (D-G1a) — LifeEnvServer 가 부른다
 
 // 설정이 반쪽이면 기동할 때 한 번 말해 준다. 조용히 못 보내는 것이 가장 나쁘다.
 app.Lifetime.ApplicationStarted.Register(() =>

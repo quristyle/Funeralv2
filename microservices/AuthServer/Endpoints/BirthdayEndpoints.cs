@@ -246,9 +246,10 @@ public static class BirthdayEndpoints
 
         // ── 축하 메시지 ────────────────────────────────────────
 
-        // 축하 메시지 전송 — 저장만 한다.
-        // 알림 발송(웹푸시 · 이메일 · 카카오 알림톡)은 NotificationServer 연동 결정 대기 (D-G1).
+        // 축하 메시지 전송 — 저장하고, 받는 사람에게 웹푸시로 알린다 (D-G1a · 2026-09-04).
+        // 발송은 NotificationServer 가 맡고(사용자 결정), 실패해도 저장은 이미 끝났다.
         group.MapPost("/message", async (UserContext? user, [FromServices] AppDbContext db,
+            [FromServices] AuthServer.Services.BirthdayNotifyClient notify,
             [FromBody] SendBirthdayMessageDto request) =>
         {
             if (user is null) return Results.Unauthorized();
@@ -267,6 +268,14 @@ public static class BirthdayEndpoints
 
             db.BirthdayMessages.Add(message);
             await db.SaveChangesAsync();
+
+            // 보낸 사람 표시 이름 — 없으면 클라이언트가 아이디로 대신한다.
+            var senderName = await db.Accounts
+                .Where(a => a.UserId == user.UserId && !a.IsDeleted)
+                .Select(a => a.RealName ?? a.UserName)
+                .FirstOrDefaultAsync() ?? string.Empty;
+
+            await notify.NotifyAsync(request.RecipientId, user.UserId, senderName);
 
             return Results.Ok(ApiResponse<object>.Ok(null, "축하 메시지를 보냈습니다."));
         })

@@ -76,7 +76,47 @@ GHUB 는 원천 시스템(SK가스 지허브)의 이름이지 이 서비스의 �
   받아 와서, 다른 회사 계정을 열면 소속 회사 프리필이 비고 저장이 조용히 막혔다
   (getDeptList(undefined, true) 로 전 회사 조회).
 
-## 4. 결정 대기 — 알림 연동 (D-G1)
+## 4. 알림 연동 (D-G1) — 2026-09-04 결정·구현
+
+> 지시: "결정내용은 NotificationServer 로 보내서 처리한다. 알림에 필요한 기능이
+> 추가 되어야 된다면 NotificationServer 에서 확장시킨다."
+
+### 무엇이 생겼나
+
+| 흐름 | 구현 |
+|---|---|
+| **기상** (D-G1a) | LifeEnvServer 판정이 기준 충족을 기록한 직후 `WeatherNotifyClient` 가 NotificationServer 의 새 `POST /weather-event` 를 부른다. 그쪽이 **날씨 스위치(`weather_enabled`)를 켠 구독자**에게 웹푸시로 낸다 |
+| **생일** (D-G1a) | AuthServer 의 축하 메시지 등록 직후 `BirthdayNotifyClient` 가 NotificationServer 의 **기존** `/notifications/push` 로 받는 사람에게 웹푸시를 낸다 (받는 사람이 명확해 새 기능이 필요 없다) |
+| **카카오 알림톡** (D-G1b) | NotificationServer 에 `BizppurioAlimtalkSender` 확장점 — GHUB 원본 KakaoUtil 의 전송 규약(/v1/token Basic → /v3/message Bearer, type=at) 그대로. **기본 꺼짐** |
+
+공통 규칙: 발송 실패가 **판정·저장을 깨지 않는다**(로그만 남긴다). 서비스 간 호출은
+루프백 직접(게이트웨이 미경유, `X-User-Id: system:weather` 등) — 전 서비스가 루프백에만
+묶여 있어 같은 장비 안 호출은 게이트웨이 신원과 같은 신뢰로 본다.
+
+`IsNotified` 의 의미는 원본 그대로 **"기록했다"** 로 두었다(4절 옛 본문의 세 번째 항목).
+발송 성공으로 바꾸면 NotificationServer 장애 때 판정 주기마다 재시도가 쌓여
+복구 순간 알림이 몰린다.
+
+### 카카오 알림톡을 켜려면 (남은 것)
+
+`Kakao:Enabled=true` 만으로는 안 나간다. 셋이 더 필요하고 전부 **계정·운영 결정**이다:
+① 비즈뿌리오 자격증명(Account·Password — Local.json 에만) + 발신프로필(SenderKey)
+② 승인된 템플릿 코드(본문 형식 일치 필수) ③ **수신 전화번호의 출처** — 포털 계정에는
+전화번호 칸이 없어 당분간 `Kakao:Recipients` 목록으로 직접 준다.
+
+### 검증 (2026-09-04)
+
+```
+POST /weather-event (UTF-8)   200 · targets 0(켠 사람 없음) · kakaoSent 0(꺼짐)
+신원 헤더 없음                 401 (발송 없이 라우트 존재 확인)
+빌드                          NotificationServer · LifeEnvServer · AuthServer 오류 0
+파급 범위                     weather_enabled=true 인 주인 0명 확인 후 실경로 시험
+```
+
+시험 중 하나 배웠다: git-bash 의 curl 은 한글 본문을 CP949 로 보내 서버가 UTF-8 검증에서
+막는다(500). 실제 클라이언트들은 `Encoding.UTF8` 명시라 무관하다.
+
+## 4-옛. 결정 대기 — 알림 연동 (D-G1) — 원문 보존
 
 기상 기준 초과와 생일 메시지 도착 때 원본은 웹푸시 · 이메일 · 카카오 알림톡
 (비즈뿌리오)을 쐈다. 포털에는 NotificationServer 가 있으므로 **그쪽으로 연동하는 것이

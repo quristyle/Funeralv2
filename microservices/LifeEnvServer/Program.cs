@@ -46,6 +46,8 @@ builder.Services.AddHttpClient<WeatherApiService>(client =>
     client.Timeout = TimeSpan.FromSeconds(20);
 });
 builder.Services.AddScoped<IWeatherMonitoringService, WeatherMonitoringService>();
+// 기상 이벤트를 NotificationServer 로 넘긴다 (D-G1a). 주소는 Notify:BaseUrl (기본 :5460).
+builder.Services.AddHttpClient<WeatherNotifyClient>();
 
 // 30분 주기 수집(실황 · 특보 · 중기 · 초단기 · 단기). 키가 없으면 로그만 남기고 쉰다.
 builder.Services.AddHostedService<WeatherCollectionService>();

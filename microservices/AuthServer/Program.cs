@@ -117,6 +117,9 @@ builder.Services.AddScoped<IReleaseService, ReleaseService>();
 // 플레이어 릴리스 — GitHub 에 버전 태그를 만들어 릴리스 워크플로를 깨운다.
 // 토큰은 appsettings.Local.json(git 제외)에만 둔다. 값이 없으면 화면이 안내만 띄우고
 // 서버는 정상 기동한다 — 이 기능을 안 쓰는 환경에서도 떠야 하기 때문이다.
+// 생일 축하 푸시 (D-G1a) — NotificationServer 의 기존 /notifications/push 를 부른다.
+builder.Services.AddHttpClient<AuthServer.Services.BirthdayNotifyClient>();
+
 builder.Services.Configure<AuthServer.DTOs.GitHubOptions>(
     builder.Configuration.GetSection("GitHub"));
 builder.Services.AddHttpClient();

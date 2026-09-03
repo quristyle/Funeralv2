@@ -11,16 +11,19 @@ public class WeatherMonitoringService : IWeatherMonitoringService
 {
     private readonly LifeEnvDbContext _db;
     private readonly ILogger<WeatherMonitoringService> _logger;
+    private readonly WeatherNotifyClient _notify;
 
     /// <summary>
     /// WeatherMonitoringService 생성자
     /// </summary>
     /// <param name="db">DB 컨텍스트</param>
     /// <param name="logger">로거</param>
-    public WeatherMonitoringService(LifeEnvDbContext db, ILogger<WeatherMonitoringService> logger)
+    /// <param name="notify">기상 알림 발송 클라이언트 (NotificationServer 로 넘긴다, D-G1a)</param>
+    public WeatherMonitoringService(LifeEnvDbContext db, ILogger<WeatherMonitoringService> logger, WeatherNotifyClient notify)
     {
         _db = db;
         _logger = logger;
+        _notify = notify;
     }
 
     /// <summary>
@@ -93,9 +96,10 @@ public class WeatherMonitoringService : IWeatherMonitoringService
                         WeatherStandardId = std.Id,
                         EventTime = DateTimeOffset.UtcNow,
                         MeasuredValue = actualValue.Value,
-                        // 발송 기능은 이식하지 않았다 — 포털 NotificationServer 연동은 결정 대기.
-                        // 원본은 발송(이메일·푸시·카카오)까지 여기서 했고 IsNotified = true 로 기록했다.
-                        // 중복 기록 억제(위 isRecentlyNotified 판정)가 이 값에 걸려 있어 원본대로 true 를 유지한다.
+                        // IsNotified 의 의미는 원본 그대로 "기준 충족을 기록했다"(발송 성공이 아니다).
+                        // 중복 기록 억제(위 isRecentlyNotified 판정)가 이 값에 걸려 있어서다 —
+                        // 발송 성공으로 바꾸면 NotificationServer 장애 때 판정 주기마다 재발송을
+                        // 시도해 복구 순간 알림이 몰린다. 발송 결과는 로그로 남는다.
                         IsNotified = true,
                         CreatedAt = DateTimeOffset.UtcNow,
                         CreatedBy = "WeatherMonitoring"
@@ -106,6 +110,12 @@ public class WeatherMonitoringService : IWeatherMonitoringService
 
                     _logger.LogInformation("기상 기준 충족 기록: {StandardName} ({Location}) 현재값 {Value}{Unit}",
                         std.Name, weatherInfo.Location, actualValue.Value, std.Unit);
+
+                    // 알림 발송 (D-G1a) — NotificationServer 가 날씨 스위치를 켠 구독자에게 보낸다.
+                    // 실패해도 판정·기록은 이미 끝났고, 다음 주기 판정에도 영향이 없다.
+                    await _notify.NotifyAsync(
+                        std.Name, weatherInfo.Location ?? string.Empty, std.Category,
+                        actualValue.Value, std.Unit ?? string.Empty, record.EventTime);
                 }
             }
         }
