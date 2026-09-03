@@ -287,6 +287,10 @@ APK 실물                          **만들지 못했다** — 이 PC 의 NDK �
 **리눅스·윈도우 쪽 GitHub Actions 실행은 확인하지 못했다.** 이 저장소에서 러너를 돌릴 수 없다.
 확인이 필요한 것은 셋이다.
 
+> **2026-09-03 해소** — v1.0.1 태그로 실제 릴리스를 돌려 셋 다 확인했다.
+> `ubuntu-24.04`·`ubuntu-24.04-arm` 러너에서 `flutter build linux` 통과,
+> 매트릭스 둘과 debian13·windows job 성공, 자산 이름이 다운로드 화면 matcher 와 일치.
+
 1. `ubuntu-24.04` · `ubuntu-24.04-arm` 러너에서 `flutter build linux` 가 통과하는지
    (필요 패키지를 다 적었는지 — 기존 arm64 job 의 목록에서 컨테이너 전용 항목만 뺐다)
 2. `libstdc++-13-dev` 가 noble 에 있는지 (trixie 는 14, noble 은 13 이 기본이다)

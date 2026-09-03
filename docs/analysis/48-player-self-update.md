@@ -231,6 +231,12 @@ aapt2 compile --dir res + link               권한 · FileProvider(authority �
 
 ### APK 실물은 만들지 못했다 — 이 PC 의 NDK 문제
 
+> **2026-09-03 해소.** 빈 NDK 폴더 둘을 지우자 AGP 가 다시 받았고(약 6.5분)
+> `flutter build apk --release` 가 성공했다. 이 절에서 확인 못 했다고 적은
+> Kotlin(설치 채널)이 컴파일되는 것까지 확인했고, **v1.0.1 릴리스**로
+> CI 서명 APK(releasesigned, v1.0.0 과 같은 인증서)도 나갔다.
+> 아래는 당시 기록으로 남긴다.
+
 23번 문서 7절에 적힌 것이 그대로다. **깨진 NDK 폴더 둘**이 원인이고 이번에 정확히
 어디서 막히는지 확인했다.
 
