@@ -75,12 +75,9 @@ public class RawSqlGuardMiddleware {
   private static async Task Deny(HttpContext context, string message) {
     context.Response.StatusCode = (int)HttpStatusCode.Forbidden;
     context.Response.ContentType = "application/json";
-    // 프론트가 쓰는 ProjMng 응답 봉투(code < 0 이면 실패)에 맞춰 돌려준다.
-    await context.Response.WriteAsJsonAsync(new {
-      code = -403,
-      message,
-      data = Array.Empty<object>()
-    });
+    // 표준 봉투로 거절한다 (결정 D-A1 — 옛 `{ code: -403, ... }` 봉투는 2026-09-04 에 내렸다).
+    await context.Response.WriteAsJsonAsync(
+      JSini.Shared.DTOs.ApiResponse<object>.Fail(message, code: "E403"));
   }
 }
 

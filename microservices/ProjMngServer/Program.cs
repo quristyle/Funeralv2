@@ -22,6 +22,9 @@ builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, relo
 builder.Services.AddControllers(options => {
   // 요청 본문의 SSUserId 를 게이트웨이 신원(X-User-Id)으로 갈아 끼운다.
   options.Filters.Add<UserIdentityActionFilter>();
+  // 옛 ProjMngWasm 봉투를 표준 봉투(ApiResponse)로 갈아입힌다 (결정 D-A1, 2026-09-04).
+  // 서비스·프로시저 규약은 그대로다 — 직렬화 경계에서만 바뀐다.
+  options.Filters.Add<ApiEnvelopeResultFilter>();
 });
 
 builder.Services.AddScoped<DevService>();

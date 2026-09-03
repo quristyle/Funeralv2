@@ -86,11 +86,11 @@ public class UserIdentityActionFilter : IActionFilter {
 
       if (BlockedProcedures.Contains(dto.ProcName ?? string.Empty)) {
         _logger.LogWarning("[신원] 차단된 프로시저 호출: {ProcName} (user={UserId})", dto.ProcName, userId);
-        context.Result = new ObjectResult(new {
-          code = -403,
-          message = "인증은 JSini 포털이 담당합니다. 이 프로시저는 사용하지 않습니다.",
-          data = Array.Empty<object>()
-        }) { StatusCode = 403 };
+        // 표준 봉투로 거절한다 (결정 D-A1 — 옛 `{ code: -403, ... }` 봉투는 2026-09-04 에 내렸다).
+        context.Result = new ObjectResult(
+          JSini.Shared.DTOs.ApiResponse<object>.Fail(
+            "인증은 JSini 포털이 담당합니다. 이 프로시저는 사용하지 않습니다.",
+            code: "E403")) { StatusCode = 403 };
         return;
       }
 

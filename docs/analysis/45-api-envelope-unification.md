@@ -175,3 +175,58 @@ response: {
 `unwrapList` 가 그 자리를 대신하므로 정의를 지우는 것이 맞아 보인다. 남겨 두면
 다음 사람이 또 시도한다. 다만 `request.ts` 는 공용 파일이라 지우는 결정은 따로 둔다.
 그 네 주석도 이제 `envelope.ts` 를 가리키는 한 줄로 줄일 수 있다.
+
+## 6. D-A1 진행 — ProjMngServer 봉투를 표준으로 (2026-09-04)
+
+> 지시: "ProjMngServer 부분의 작업을 진행하라. 봉투규격을 마추어라.
+> **HelpDeskServer 는 진행하면 절대 안된다. 실제 타시스템에서 사용중이다.**
+> 데이터베이스를 이관해온뒤 그때 봉투를 마추는 작업을 하겠다. ProjMngServer 만 진행하라."
+
+2절에서 "봉투가 다른 둘" 로 남겨 두었던 것 중 ProjMngServer 를 표준에 맞췄다.
+**HelpDeskServer 는 한 글자도 건드리지 않았다** — JinReception 이 실사용 중이며,
+DB 이관 뒤에만 진행한다.
+
+### 어디를 바꿨나 — 직렬화 경계 한 곳
+
+2절의 걱정("바꾸면 DB 프로시저 규약까지 건드려야 한다")은 **직렬화 경계에서 갈아입는
+것으로 피했다.** 서비스·프로시저의 `ResultInfo`(숫자 code, 음수 = 실패) 규약은 내부에
+그대로 있고, MVC 전역 결과 필터(`Filters/ApiEnvelopeResultFilter.cs`)가 나가는 순간에만
+표준 봉투로 감싼다.
+
+```
+성공:  { success: true, code: "S000", message,
+         data: { result: { rows: [...], res: {...}, cols: {...}, procCode: 0 },
+                 page:   { total: N } } }
+실패:  { success: false, code: "EPROC", message, realmessage: "proc code -99" }  (HTTP 200)
+403:   { success: false, code: "E403", message }   (UserIdentityActionFilter · RawSqlGuard)
+```
+
+**단일 객체를 배열로 감싸는 병폐(이 문서의 발단)를 여기서는 만들지 않았다** —
+프로시저 실행 결과는 '한 건'이므로 `ApiResponse` 의 페이징 통과 경로
+(`Result`·`TotalCount` 프로퍼티)를 태워 `data.result` 가 **객체**로 나간다.
+`cols`(컬럼 메타)·`res`(실행 정보)가 그 안에 실려 화면의 동적 그리드가 그대로 돈다.
+
+### 프론트 — 화면 20여 곳은 무변경
+
+`api/projmng/request.ts` 가 와이어에서 옛 모양(`ProjMngResult` — code·res·cols·data)을
+재구성한다. 화면과 BizSelect 메타(`pm-common` 의 `result_path='data'`)는 그대로다.
+**옛 봉투도 계속 받는다**(`success` 없음 + 숫자 `code` = 옛 서버) — 서버와 화면의
+배포 순서가 어긋나도 깨지지 않는다.
+
+### 검증
+
+```
+행 단위 동등성        sp_projdblist — 옛(HEAD 빌드, 5449) ↔ 새(5450) 12행 바이트 동일,
+                     cols 14개 동일, page.total 정확
+실패 경로 동등성      같은 오류 입력에 옛 {code:-99,message} ↔ 새 {success:false,
+                     code:EPROC, 같은 message} — 화면 토스트 흐름 동일
+res                  구조·키 동일 (dtgap 실행시간만 호출마다 다름 — 정상)
+브라우저 실동         /projmng/db/list 를 새 서버 + 재구성 클라이언트로 열어
+                     동적 그리드·건수 정상, 콘솔 오류 0
+dotnet build          ProjMngServer 오류 0 · pnpm vite build 통과
+```
+
+### 배포 순서
+
+프론트를 먼저 배포하고(양쪽 봉투 수용) 서버를 나중에 밀었다 — 어느 시점에도
+옛 프론트가 새 봉투를 만나지 않는다.
