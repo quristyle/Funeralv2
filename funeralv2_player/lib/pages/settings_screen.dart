@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import '../services/auth/device_auth.dart';
 import '../services/display/display_mode_service.dart';
 import '../services/update/update_service.dart';
 import '../widgets/update_dialog.dart';
@@ -51,6 +52,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   // 입력 필드 제어용 컨트롤러들
   late TextEditingController _serverController;
   late TextEditingController _codeController;
+  // 장비 인증 키 (선택). 서버의 장비 토큰 검증(D-M1, 기본 꺼짐)이 켜지면 필수가 된다.
+  final TextEditingController _deviceTokenController = TextEditingController();
   late TextEditingController _ipController;
   late TextEditingController _macController;
   late TextEditingController _publicIpController;
@@ -113,6 +116,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     // 저장된 화면 비율(해상도) 프리셋을 불러옵니다.
     DisplayModeService.loadSaved().then((aspect) {
       if (mounted) setState(() => _displayAspect = aspect);
+    });
+
+    // 저장된 장비 인증 키를 불러옵니다 (없으면 빈 칸).
+    DeviceAuth.load().then((token) {
+      if (mounted) setState(() => _deviceTokenController.text = token);
     });
 
     // 첫 프레임이 다 그려진 후 자동으로 헬스체크 및 네트워크 정보 조회를 시도합니다.
@@ -362,6 +370,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  /// [장비 인증 키 입력 필드 빌더 (선택)]
+  /// 서버의 장비 토큰 검증(D-M1)이 켜진 환경에서만 필요하다. 비워 두면
+  /// 아무것도 전송하지 않아 지금과 같게 동작하므로 필수 검증을 걸지 않는다.
+  Widget _buildDeviceTokenField() {
+    return TextFormField(
+      controller: _deviceTokenController,
+      style: const TextStyle(fontSize: 14, color: Colors.white),
+      obscureText: true, // 비밀값이다 — 어깨 너머로 읽히지 않게 가린다
+      decoration: const InputDecoration(
+        labelText: '장비 인증 키 (선택 — 서버가 요구할 때만)',
+        border: OutlineInputBorder(),
+        isDense: true,
+        contentPadding: EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+      ),
+    );
+  }
+
   /// [장비 식별 코드 입력 필드 빌더]
   Widget _buildCodeField() {
     return TextFormField(
@@ -533,7 +558,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             _buildCodeField(),
                           ],
                         ),
-                      const SizedBox(height: 14),
+                      const SizedBox(height: 10),
+                      // 장비 인증 키 (선택). 비워 두면 지금과 동일하게 동작한다.
+                      _buildDeviceTokenField(),
+                      const SizedBox(height: 10),
                       const Divider(color: Colors.white12, height: 1),
                       const SizedBox(height: 10),
                       
@@ -596,8 +624,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 minimumSize: const Size(double.infinity, 44),
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                               ),
-                              onPressed: () {
+                              onPressed: () async {
                                 if (_formKey.currentState!.validate()) {
+                                  // 장비 인증 키는 onSave 시그니처를 바꾸지 않고 여기서 직접
+                                  // 저장한다 — ApiService·SignalR 이 DeviceAuth 에서 읽는다.
+                                  await DeviceAuth.save(_deviceTokenController.text);
                                   widget.onSave(
                                     _serverController.text.trim(), 
                                     _codeController.text.trim(), 

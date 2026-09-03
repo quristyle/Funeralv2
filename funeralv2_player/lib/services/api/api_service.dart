@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../../models/device_models.dart';
 import '../cache/local_db_service.dart';
+import '../auth/device_auth.dart';
 
 /// [API 서비스 클래스]
 /// 장례식장 백엔드 서버와 통신하여 실시간 데이터를 조회하고, 오프라인 작동을 지원하기 위한 로컬 캐시 처리를 수행합니다.
@@ -18,7 +19,7 @@ class ApiService {
     final url = Uri.parse('$baseUrl/api/funeral/building/device/code/$deviceCode');
     print('[API Request] fetchDevice: $url');
     try {
-      final response = await http.get(url).timeout(const Duration(seconds: 15));
+      final response = await http.get(url, headers: DeviceAuth.headers()).timeout(const Duration(seconds: 15));
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body);
         final device = DeviceDto.fromJson(json);
@@ -43,7 +44,7 @@ class ApiService {
     final url = Uri.parse('$baseUrl/api/funeral/building/deceased/deviceCode/$deviceCode');
     print('[API Request] fetchDeceased: $url');
     try {
-      final response = await http.get(url).timeout(const Duration(seconds: 15));
+      final response = await http.get(url, headers: DeviceAuth.headers()).timeout(const Duration(seconds: 15));
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body);
         bool hasData = false;
@@ -76,7 +77,7 @@ class ApiService {
     final url = Uri.parse('$baseUrl/api/funeral/building/deceased/guide/deviceCode/$deviceCode');
     print('[API Request] fetchEntranceGuideRooms: $url');
     try {
-      final response = await http.get(url).timeout(const Duration(seconds: 15));
+      final response = await http.get(url, headers: DeviceAuth.headers()).timeout(const Duration(seconds: 15));
       if (response.statusCode == 200) {
         final body = response.body;
         final json = jsonDecode(body);
@@ -115,7 +116,7 @@ class ApiService {
     final url = Uri.parse('$baseUrl/api/funeral/building/source/$sourceId');
     print('[API Request] fetchSourcePath: $url');
     try {
-      final response = await http.get(url).timeout(const Duration(seconds: 15));
+      final response = await http.get(url, headers: DeviceAuth.headers()).timeout(const Duration(seconds: 15));
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body);
         Map<String, dynamic>? data;
@@ -153,7 +154,7 @@ class ApiService {
     final url = Uri.parse('$baseUrl/api/funeral/building/deceased/kiosk/deviceCode/$deviceCode');
     print('[API Request] fetchKioskRooms: $url');
     try {
-      final response = await http.get(url).timeout(const Duration(seconds: 15));
+      final response = await http.get(url, headers: DeviceAuth.headers()).timeout(const Duration(seconds: 15));
       if (response.statusCode == 200) {
         final body = response.body;
         final json = jsonDecode(body);

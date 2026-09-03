@@ -332,6 +332,97 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 // ============================================================
+// 플레이어 익명 경로의 장비 토큰 검증 (결정 D-M1 기반 · 기본 꺼짐)
+// ============================================================
+//
+// 익명 라우트 여섯의 열쇠가 추측 가능한 장비 코드 하나라는 문제(46번 문서 6절)의
+// 근본 대책이다. D-M3(요청 제한)은 긁어 가는 속도만 늦출 뿐 대입 자체를 못 막는다.
+//
+// **기본 꺼짐이라 지금은 켜기 전과 똑같이 동작한다** (이 저장소의 관례 —
+// 19번 문서의 스위치 둘, 배포 진행 보고와 같은 방식). 켜면 아래 경로들은
+// `X-Device-Token` 헤더(또는 웹소켓용 `?deviceToken=`)가 목록의 값과 맞아야 통과한다.
+//
+//   PlayerAuth:RequireDeviceToken   true 로 켠다 (appsettings.Local.json 에서)
+//   PlayerAuth:DeviceTokens         허용 토큰 목록 (Local.json 에만 둔다 — 비밀이다)
+//
+// [단계적 설계 — 왜 목록인가]
+// 장비별 개별 토큰(DB 칸)이 최종 모습이지만, 지금 funeralv2 스키마는 빈소현황
+// 개편(47번)이 한창이라 마이그레이션을 섞을 수 없다. 공유 목록은 게이트웨이
+// 설정만으로 되고, 플레이어 쪽 동작(설정에 키 입력 → 헤더로 전송)은 개별 토큰이
+// 되어도 그대로다 — 서버 판정만 목록 대조에서 DB 대조로 바뀐다.
+//
+// [켜는 순서 — 순서가 틀리면 현장 화면이 꺼진다]
+//  1. 플레이어 v1.0.1 이상을 현장에 깔고 환경 설정에 장비 인증 키를 넣는다
+//  2. 모든 장비에 키가 들어간 것을 확인한 뒤
+//  3. Local.json 에 DeviceTokens 를 넣고 RequireDeviceToken 을 켠다
+//
+// 막을 때는 401 이 아니라 **404** 를 준다 — 파일 필터와 같은 이유로,
+// "그 장비 코드는 있다" 는 것조차 알려 주지 않는다.
+//
+// 로그인 사용자(JWT 검증 통과)는 토큰 없이도 지나간다. 포털 화면이 진단용으로
+// 이 경로를 부르게 되어도 막히지 않게 하기 위한 것이다.
+var playerAuthSection = app.Configuration.GetSection("PlayerAuth");
+string[] playerTokenPaths = playerAuthSection.GetSection("Paths").Get<string[]>() ?? new[]
+{
+    "/api/funeral/building/device/code/",
+    "/api/funeral/building/deceased/deviceCode/",
+    "/api/funeral/building/deceased/guide/deviceCode/",
+    "/api/funeral/building/deceased/kiosk/deviceCode/",
+    "/api/funeral/building/source/",
+    "/api/funeral/hubs/device/"
+};
+
+app.Use(async (context, next) =>
+{
+    // GetValue 를 요청마다 다시 읽는다 — reloadOnChange 로 Local.json 을 고치면
+    // 재기동 없이 켜고 끌 수 있다.
+    if (!app.Configuration.GetValue("PlayerAuth:RequireDeviceToken", false))
+    {
+        await next();
+        return;
+    }
+
+    var path = context.Request.Path.Value ?? string.Empty;
+    if (!playerTokenPaths.Any(p => path.StartsWith(p, StringComparison.OrdinalIgnoreCase)))
+    {
+        await next();
+        return;
+    }
+
+    // 로그인 사용자는 통과 (JWT 는 위의 인증 미들웨어가 이미 검증했다)
+    if (context.User.Identity?.IsAuthenticated == true)
+    {
+        await next();
+        return;
+    }
+
+    var supplied = context.Request.Headers["X-Device-Token"].ToString();
+    if (string.IsNullOrEmpty(supplied))
+    {
+        // SignalR 웹소켓 업그레이드는 커스텀 헤더를 싣기 어려워 쿼리로도 받는다.
+        supplied = context.Request.Query["deviceToken"].ToString();
+    }
+
+    var allowed = app.Configuration.GetSection("PlayerAuth:DeviceTokens").Get<string[]>() ?? Array.Empty<string>();
+    if (!string.IsNullOrEmpty(supplied) && allowed.Contains(supplied, StringComparer.Ordinal))
+    {
+        await next();
+        return;
+    }
+
+    context.Response.StatusCode = StatusCodes.Status404NotFound;
+    context.Response.ContentType = "application/json";
+    await context.Response.WriteAsJsonAsync(new
+    {
+        success = false,
+        code = "404",
+        message = "요청한 자원을 찾을 수 없습니다.",
+        data = (object?)null,
+        timestamp = DateTime.UtcNow
+    });
+});
+
+// ============================================================
 // 파일 읽기 쿠키(jsini_file_at) 자가 치유
 // ============================================================
 //

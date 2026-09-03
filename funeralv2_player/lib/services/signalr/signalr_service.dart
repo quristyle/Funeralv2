@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math';
+import '../auth/device_auth.dart';
 import '../display/display_mode_service.dart';
 import 'package:signalr_netcore/signalr_client.dart';
 
@@ -452,8 +453,11 @@ class SignalRService {
   }
 
   /// [서버 SignalR 엔드포인트 빌더]
+  /// 장비 인증 키가 설정돼 있으면 쿼리로 붙는다 — 웹소켓 업그레이드는
+  /// 커스텀 헤더를 싣기 어려워 게이트웨이가 `?deviceToken=` 도 받는다(D-M1 기반).
+  /// 키가 없으면 주소가 지금과 같다.
   String _buildHubUrl(String baseUrl) {
     final cleanBaseUrl = baseUrl.endsWith('/') ? baseUrl.substring(0, baseUrl.length - 1) : baseUrl;
-    return '$cleanBaseUrl/api/funeral/hubs/device';
+    return DeviceAuth.appendToUrl('$cleanBaseUrl/api/funeral/hubs/device');
   }
 }

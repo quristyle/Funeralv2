@@ -5,6 +5,7 @@ import 'package:media_kit/media_kit.dart';
 import 'package:window_manager/window_manager.dart';
 import 'pages/device_dispatcher.dart';
 import 'pages/settings_screen.dart'; // 분리된 환경설정 화면 임포트
+import 'services/auth/device_auth.dart';
 import 'services/cache/cache_manager.dart';
 import 'widgets/auto_hide_cursor.dart';
 import 'services/display/display_mode_service.dart';
@@ -21,6 +22,10 @@ void main() async {
   MediaKit.ensureInitialized();
 
   print('[Main] 프로그램 구동 시작');
+
+  // 장비 인증 키를 메모리에 올린다. 설정 화면을 열기 전의 첫 동기화(ApiService)도
+  // 키를 실어야 하므로 여기서 한 번 읽는다. 키가 없으면 아무 영향이 없다.
+  await DeviceAuth.load();
 
   // 현재 실행되는 운영체제가 Windows 또는 Linux인 경우 창 설정을 진행합니다.
   if (Platform.isWindows || Platform.isLinux) {
