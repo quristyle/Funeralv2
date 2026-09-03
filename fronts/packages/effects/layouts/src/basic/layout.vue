@@ -18,7 +18,10 @@ import {
 import { useAccessStore, useTabbarStore, useTimezoneStore } from '@vben/stores';
 import { cloneDeep, mapTree } from '@vben/utils';
 
+import { LogOut, Menu as IconMenu } from '@vben/icons';
+
 import { VbenAdminLayout } from '@vben-core/layout-ui';
+import { useVbenModal } from '@vben-core/popup-ui';
 // `Input` 은 아래 메뉴 검색칸이 쓴다.
 //
 // 예전에는 이 import 가 빠져 있었다. 그러면 `<Input>` 이 컴포넌트로 해석되지 못하고
@@ -485,6 +488,23 @@ function handleLogout() {
   emit('logout');
 }
 
+// 사이드바 하단 로그아웃 (지시, 2026-09-04). 헤더의 로그아웃과 같은 확인 절차를
+// 거친다 — 실수로 눌러 세션이 날아가는 것을 막는다.
+const [SidebarLogoutModal, sidebarLogoutModalApi] = useVbenModal({
+  onConfirm() {
+    handleSubmitSidebarLogout();
+  },
+});
+
+function handleSidebarLogout() {
+  sidebarLogoutModalApi.open();
+}
+
+function handleSubmitSidebarLogout() {
+  sidebarLogoutModalApi.close();
+  emit('logout');
+}
+
 /** 레이아웃 컴포넌트 참조 — 모바일에서 로고로 사이드바를 열 때 쓴다. */
 const adminLayoutRef = ref<null | { openMobileSidebar: () => void }>(null);
 
@@ -941,6 +961,29 @@ function startResize(e: MouseEvent) {
         @select="handleSidebarMenuSelect"
       />
     </template>
+    <!-- 사이드바 맨 아래 로그아웃 (지시, 2026-09-04). 스크롤 밖이라 메뉴가 길어도 항상 보인다. -->
+    <template #side-footer>
+      <div class="border-border bg-sidebar border-t p-2">
+        <button
+          :aria-label="$t('common.logout')"
+          :title="$t('common.logout')"
+          class="text-muted-foreground hover:bg-accent hover:text-foreground flex w-full items-center justify-center gap-2 rounded py-2 text-sm transition-colors"
+          type="button"
+          @click="handleSidebarLogout"
+        >
+          <LogOut class="size-4" />
+          <!-- 접힌 사이드바·2열(혼합) 모드의 좁은 열에서는 아이콘만 -->
+          <span
+            v-if="
+              preferences.app.isMobile ||
+              (!sidebarCollapsed && !isSideMixedNav && !isHeaderMixedNav)
+            "
+          >
+            {{ $t('common.logout') }}
+          </span>
+        </button>
+      </div>
+    </template>
     <template #mixed-menu>
       <LayoutMixedMenu
         :active-path="extraActiveMenu"
@@ -1054,6 +1097,36 @@ function startResize(e: MouseEvent) {
           @clear-preferences-and-logout="clearPreferencesAndLogout"
         />
       </template>
+
+      <!--
+        모바일에서 헤더를 숨기면(환경설정 '헤더 표시' 끔) 로고도 함께 사라져
+        사이드바를 열 방법이 없다. 왼쪽 하단 고정 버튼이 유일한 손잡이가 된다
+        (지시, 2026-09-04).
+      -->
+      <button
+        v-if="preferences.app.isMobile && !preferences.header.enable"
+        :aria-label="$t('preferences.sidebar.title')"
+        class="bg-primary text-primary-foreground fixed bottom-4 left-4 z-100 flex size-11 items-center justify-center rounded-full shadow-lg"
+        type="button"
+        @click="adminLayoutRef?.openMobileSidebar()"
+      >
+        <IconMenu class="size-5" />
+      </button>
+
+      <!-- 사이드바 하단 로그아웃의 확인창 -->
+      <SidebarLogoutModal
+        :cancel-text="$t('common.cancel')"
+        :confirm-text="$t('common.confirm')"
+        :fullscreen-button="false"
+        :title="$t('common.prompt')"
+        centered
+        content-class="px-8 min-h-10"
+        footer-class="border-none mb-3 mr-3"
+        header-class="border-none"
+      >
+        {{ $t('ui.widgets.logoutTip') }}
+      </SidebarLogoutModal>
+
       <VbenBackTop :target="layoutScrollTarget" />
     </template>
   </VbenAdminLayout>

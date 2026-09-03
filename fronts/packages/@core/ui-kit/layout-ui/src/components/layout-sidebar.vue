@@ -207,7 +207,6 @@ const contentStyle = computed((): CSSProperties => {
 
   return {
     height: `calc(100% - ${headerHeight + collapseHeight}px)`,
-    paddingTop: '8px',
     ...contentWidthStyle.value,
   };
 });
@@ -394,9 +393,19 @@ onUnmounted(() => {
         <div v-if="slots.logo" :style="headerStyle">
           <slot name="logo"></slot>
         </div>
-        <VbenScrollbar :style="contentStyle" shadow shadow-border>
-          <slot></slot>
-        </VbenScrollbar>
+        <!--
+          메뉴(스크롤 영역)와 하단 고정 영역(footer 슬롯)을 세로로 나눈다.
+          footer 는 스크롤 밖에 있어 메뉴가 길어도 항상 사이드바 맨 아래에 남는다
+          (지시, 2026-09-04 — 사이드바 하단 로그아웃 버튼).
+        -->
+        <div :style="contentStyle" class="flex flex-col">
+          <VbenScrollbar class="min-h-0 flex-1 pt-2" shadow shadow-border>
+            <slot></slot>
+          </VbenScrollbar>
+          <div v-if="slots.footer">
+            <slot name="footer"></slot>
+          </div>
+        </div>
 
         <div :style="collapseStyle"></div>
         <SidebarCollapseButton

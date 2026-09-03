@@ -651,6 +651,10 @@ const layoutStaticHeaderTarget = `#${idLayoutStaticHeader}`;
       <template #extra-title>
         <slot name="side-extra-title"></slot>
       </template>
+      <!-- 사이드바 맨 아래 고정 영역 — 로그아웃 버튼 등이 들어온다 (지시, 2026-09-04) -->
+      <template v-if="$slots['side-footer']" #footer>
+        <slot name="side-footer"></slot>
+      </template>
     </LayoutSidebar>
 
     <div
