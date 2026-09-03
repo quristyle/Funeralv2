@@ -250,6 +250,42 @@ builder.Services.AddRateLimiter(options =>
                 QueueLimit = 0
             }));
 
+    // ── 사이니지 플레이어가 부르는 익명 읽기 경로 (결정 D-M3) ────────────────
+    //
+    // 이 경로들은 **로그인 없이** 열려 있다. 플레이어가 브라우저도 아니고 로그인도
+    // 하지 않기 때문인데, 그래서 열쇠가 장비 코드 하나뿐이고 그것이 `JSI-06-0001`
+    // 처럼 추측 가능하다(46번 문서 6절). 대입으로 긁어 가는 것을 늦춘다.
+    //
+    // [값을 이렇게 잡은 이유]
+    // 리미터 칸은 **장비별이 아니라 장례식장별**이다 — 한 건물의 장비가 NAT 뒤에서
+    // 공인 IP 하나를 공유한다. 실측(2026-09-03): 장비 10대 중 **8대가 IP 하나**를 쓴다.
+    //
+    // 평상시 이 경로들의 통행량은 0 에 가깝다. 설정 변경은 SignalR 로 밀어 주고,
+    // REST 는 **장비가 뜰 때와 설정이 바뀔 때만** 부른다(실패 시 재시도도 20초 간격이다).
+    // 문제는 정전 복구처럼 **한 건물의 화면이 동시에 켜지는 순간**이다.
+    // 장비 하나가 뜰 때 3~15회(장비·고인·안내/키오스크·리본별 미디어)를 부르므로
+    // 화면 40개면 한 창에 600회까지 몰릴 수 있다. 900 은 그 1.5배다.
+    //
+    // [이것이 막는 것과 막지 못하는 것]
+    // 막는 것: 지속적인 긁어 가기와 그로 인한 서비스 마비.
+    // **막지 못하는 것: 코드 대입 자체다.** 900/분이면 네 자리 코드 공간을 10여 분에
+    // 훑는다. 추측 자체를 막는 것은 D-M1(장비별 임의 비밀)이고 이건 완화책이다.
+    //
+    // SignalR 허브(`/api/funeral/hubs/device/**`)에는 **걸지 않는다.** 재연결이
+    // 몰릴 때 negotiate 가 거부되면 밀어 주기 통로가 끊겨, 화면이 옛 내용을 계속
+    // 띄운 채 아무도 모르는 상태가 된다.
+    options.AddPolicy("player-read", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Request.Headers["X-Forwarded-For"].FirstOrDefault()
+                          ?? httpContext.Connection.RemoteIpAddress?.ToString()
+                          ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 900,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0
+            }));
+
     options.OnRejected = async (context, token) =>
     {
         context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;

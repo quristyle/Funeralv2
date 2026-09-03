@@ -115,7 +115,18 @@ docs/sql/              실행한 SQL (전부 반복 실행 안전)
   **진행 보고는 기본 꺼짐이라 지금은 켜기 전과 똑같이 동작한다.**
   켜는 법(배포 장비의 소비자는 고치지 않는다): [deploy/release-consumer/README.md](deploy/release-consumer/README.md)
   남은 것은 큐 공유(D-R1)·롤백(D-R3)·`VersionUrl`(D-R5).
-- 플레이어 새 버전 업그레이드: [docs/analysis/44-player-self-update.md](docs/analysis/44-player-self-update.md) (D-P1~D-P4)
+- 장례 API 익명 노출: [docs/analysis/46-player-media-anonymous-access.md](docs/analysis/46-player-media-anonymous-access.md) (D-M1~D-M4)
+  플레이어용 익명 라우트 여섯의 열쇠가 **장비 코드 하나**이고 추측 가능하다.
+  파일 접근은 고쳤다 — `Files:AnonymousReadablePaths` 가 `funeralv2/` 만 익명에 연다
+  (그 아래는 빈소 화면에 띄우려고 올린 미디어뿐이다. 비밀 문서를 여기 두면 안 된다).
+  **응답 축약(D-M2)도 했다** — `DTOs/AnonymousDisplayProjection.cs` 가 익명 응답에서
+  주민번호·사인·비고·계약자·장례지도사·상주 연락처·장비 IP/MAC 을 뺀다.
+  고인은 허용 목록, 장비는 차단 목록으로 짰다(이유는 그 파일 주석).
+  **요청 제한(D-M3)도 했다** — 게이트웨이 정책 `player-read` 가 익명 읽기 다섯 경로에
+  IP 당 분당 900회를 건다(장례식장 하나가 공인 IP 를 공유하므로 값이 크다.
+  SignalR 허브에는 걸지 않았다). **남은 것은 장비 토큰(D-M1) 하나다** —
+  그것 없이는 코드 대입 자체를 막지 못한다.
+- 플레이어 새 버전 업그레이드: [docs/analysis/48-player-self-update.md](docs/analysis/48-player-self-update.md) (D-P1~D-P4)
   환경 설정에 **새 버전 확인**을 넣었다(전 플랫폼, GitHub Releases 를 직접 본다).
   **실제 교체는 안드로이드만** 된다 — 시스템 설치 화면을 띄운다.
   데스크톱은 받기까지만 하고 설치 명령을 화면에 적어 준다.

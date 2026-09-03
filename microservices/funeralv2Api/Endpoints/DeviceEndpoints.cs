@@ -47,6 +47,11 @@ public static class DeviceEndpoints
         }).WithName("GetDeviceById").WithOpenApi();
 
         // 장비 코드로 상세 조회
+        //
+        // [익명 라우트] 게이트웨이가 이 경로를 로그인 없이 통과시킨다(플레이어용).
+        // 장비 코드는 추측 가능하므로 표출과 무관한 망 정보(내부 IP · MAC · 공인 IP)는
+        // 내려보내지 않는다 — AnonymousDisplayProjection 주석 참고 (결정 D-M2).
+        // 포털의 장비 관리 화면은 이 경로를 쓰지 않는다(id 로 조회한다).
         group.MapGet("/code/{code}", async (string code, [FromServices] IDeviceService service) =>
         {
             var result = await service.GetByCodeAsync(code);
@@ -54,7 +59,7 @@ public static class DeviceEndpoints
             {
                 return Results.NotFound(ApiResponse<DeviceDto>.Fail("장비 정보를 찾을 수 없습니다."));
             }
-            return Results.Ok(result);
+            return Results.Ok(result.ToAnonymousDisplay());
         }).WithName("GetDeviceByCode").WithOpenApi();
 
         // 장비 생성

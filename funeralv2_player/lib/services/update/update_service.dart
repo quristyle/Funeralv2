@@ -23,7 +23,7 @@ import 'package:path_provider/path_provider.dart';
 /// [이 서비스가 하지 않는 것]
 /// 데스크톱(윈도우 · 리눅스)에서 **스스로 교체하지 않는다.** 돌고 있는 실행 파일을
 /// 자기가 덮어쓸 수 없고, 리눅스는 `.deb` 설치에 root 가 필요하다.
-/// 무엇을 어떻게 자동화할지는 결정 대기다 — docs/analysis/44-player-self-update.md.
+/// 무엇을 어떻게 자동화할지는 결정 대기다 — docs/analysis/48-player-self-update.md.
 class UpdateService {
   /// 릴리스가 올라가는 저장소. 포털 다운로드 화면과 같은 값이다.
   static const String repo = 'quristyle/Funeralv2';
