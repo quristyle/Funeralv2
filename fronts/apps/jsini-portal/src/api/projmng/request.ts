@@ -1,16 +1,20 @@
 /**
  * 프로젝트관리 전용 요청 클라이언트.
  *
- * ProjMngServer 는 다른 서비스와 응답 봉투가 다르다.
- *   포털/장례식장 : `{ code: 'S000', data: ... }`
- *   헬프데스크     : `{ success: true, data: ... }`
- *   프로젝트관리   : `{ code: 0, message, res, cols, data }`  ← 숫자 코드, 음수면 실패
+ * [2026-09-04 · D-A1] ProjMngServer 의 와이어 봉투가 표준으로 바뀌었다.
+ *   지금 와이어  : `{ success, code: 'S000', message,
+ *                    data: { result: { rows, res, cols, procCode }, page } }`
+ *   옛 와이어    : `{ code: 0, message, res, cols, data }`  ← 숫자 코드, 음수면 실패
  *
- * 서버 코드는 ProjMngWasm(Blazor) 시절 그대로 이식한 것이라 봉투를 바꾸면
- * DB 프로시저 쪽 규약까지 건드려야 한다. 그래서 차이는 이 클라이언트가 흡수한다.
+ * 화면 20여 곳은 옛 모양(`ProjMngResult` — code·res·cols·data)을 그대로 쓰므로,
+ * 이 클라이언트가 **와이어에서 그 모양을 재구성**한다. 화면은 바뀐 것이 없다.
+ * (`cols` 컬럼 메타를 화면이 반드시 봐야 해서 `data` 만 꺼내 주면 안 되는 사정도 그대로다.)
  *
- * 또한 `cols`(컬럼 메타)가 응답 최상위에 실려 오는데 화면이 그걸 반드시 봐야 하므로,
- * 다른 클라이언트처럼 `data` 만 꺼내 주면 안 된다. 봉투 전체를 돌려준다.
+ * 배포 순서와 무관하게 동작하도록 **옛 봉투도 계속 받는다** — `success` 가 없고
+ * 숫자 `code` 가 있으면 옛 서버다. 서버가 먼저 올라가든 화면이 먼저 올라가든 깨지지 않는다.
+ *
+ * 헬프데스크(`{ success, data, meta }`)는 여전히 다르다 — 살아 있는 JinReception 이
+ * 그 봉투를 실사용 중이라, DB 이관 전에는 맞추지 않는다(사용자 지시).
  */
 import type { RequestClientOptions } from '@vben/request';
 
@@ -113,8 +117,8 @@ function createProjMngClient(options?: RequestClientOptions) {
     },
   });
 
-  // 봉투를 벗기지 않고 그대로 넘긴다. cols 를 화면이 써야 하기 때문이다.
-  // 대신 code < 0 은 여기서 예외로 바꿔 호출한 쪽이 try/catch 로 다룰 수 있게 한다.
+  // 와이어 봉투(표준 ApiResponse)에서 화면이 쓰는 옛 모양(ProjMngResult)을 재구성한다.
+  // 실패(success:false · 옛 음수 code)는 예외로 바꿔 호출한 쪽이 try/catch 로 다룬다.
   client.addResponseInterceptor({
     fulfilled: (response) => {
       const { config, data: responseData, status } = response;
@@ -124,11 +128,45 @@ function createProjMngClient(options?: RequestClientOptions) {
         throw Object.assign({}, response, { response });
       }
 
-      if (
-        !responseData ||
-        typeof responseData !== 'object' ||
-        !('code' in responseData)
-      ) {
+      if (!responseData || typeof responseData !== 'object') {
+        return responseData;
+      }
+
+      // ── 지금 와이어: 표준 봉투 (D-A1) ──────────────────────────────
+      if ('success' in responseData) {
+        const std = responseData as {
+          code?: string;
+          data?: {
+            page?: { total?: number };
+            result?: {
+              cols?: null | Record<string, string>;
+              procCode?: number;
+              res?: null | Record<string, unknown>;
+              rows?: unknown[];
+            };
+          };
+          message?: string;
+          success: boolean;
+        };
+
+        if (!std.success) {
+          throw Object.assign({}, response, {
+            response: { ...response, data: { message: std.message } },
+          });
+        }
+
+        const inner = std.data?.result;
+        return {
+          code: inner?.procCode ?? 0,
+          message: std.message ?? '',
+          res: inner?.res ?? undefined,
+          cols: inner?.cols ?? {},
+          data: inner?.rows ?? [],
+        } satisfies ProjMngResult<any>;
+      }
+
+      // ── 옛 와이어 (배포 사이 · 옛 서버) ───────────────────────────
+      if (!('code' in responseData)) {
         return responseData;
       }
 

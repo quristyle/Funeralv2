@@ -39,10 +39,13 @@ export interface ProjMngRequest {
 }
 
 /**
- * 응답 봉투 (서버의 `ResultInfo<T>` 와 1:1).
+ * 화면이 받는 결과 모양.
  *
- * `code` 가 0 이상이면 성공, 음수면 실패다.
- * 다른 MSA 의 `{ code: 'S000' }` 규약과 다르므로 전용 클라이언트에서 흡수한다.
+ * [2026-09-04 · D-A1] 이것은 이제 **와이어 봉투가 아니다.** 서버는 다른 서비스와 같은
+ * 표준 봉투(`{ success, code: 'S000', data: { result: { rows, res, cols, procCode }, page } }`)
+ * 로 보내고, 전용 클라이언트(`request.ts`)가 화면이 쓰던 이 모양으로 재구성한다.
+ * `code` 는 프로시저 결과 코드다 — 0 이상이면 성공, 음수면 실패(실패는 클라이언트가
+ * 예외로 바꾸므로 화면에 음수가 도달할 일은 없다).
  */
 export interface ProjMngResult<T = ProjMngRow> {
   code: number;
