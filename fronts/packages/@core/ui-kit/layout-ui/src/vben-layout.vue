@@ -570,6 +570,21 @@ function handleHeaderToggle() {
   }
 }
 
+// 모바일 서랍 사이드바를 여는 길을 바깥(로고 클릭 등)에도 내준다.
+//
+// 서랍 상태(mobileSidebarOpen)는 이 컴포넌트 내부에만 있어서, 헤더의 햄버거
+// 버튼(handleHeaderToggle) 말고는 열 방법이 없었다. 업무 레이아웃의 로고가
+// 모바일에서 사이드바를 열어야 해서(effects/layouts basic/layout.vue 의 clickLogo)
+// 같은 동작을 메서드로 노출한다. 데스크톱에서는 아무 일도 하지 않는다 —
+// 데스크톱 로고 클릭의 의미는 호출하는 쪽이 정한다.
+defineExpose({
+  openMobileSidebar: () => {
+    if (props.isMobile) {
+      activeSidebarCollapse.value = false;
+    }
+  },
+});
+
 const idMainContent = ELEMENT_ID_MAIN_CONTENT;
 const idLayoutScroll = ELEMENT_ID_LAYOUT_SCROLL;
 const idLayoutStaticHeader = `${ELEMENT_ID_LAYOUT_SCROLL}__static_header`;

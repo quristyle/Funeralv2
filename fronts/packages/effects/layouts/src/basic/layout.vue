@@ -485,7 +485,17 @@ function handleLogout() {
   emit('logout');
 }
 
+/** 레이아웃 컴포넌트 참조 — 모바일에서 로고로 사이드바를 열 때 쓴다. */
+const adminLayoutRef = ref<null | { openMobileSidebar: () => void }>(null);
+
 function clickLogo() {
+  // 모바일에서는 로고가 곧 메뉴 손잡이다. 화면이 좁아 햄버거가 눈에 안 띄고,
+  // 최상단 왼쪽에 보이는 것이 로고뿐이라 사용자가 그걸 누른다 (지시, 2026-09-04).
+  // 서랍 상태는 vben-layout 내부에 있어 노출 메서드(openMobileSidebar)로 연다.
+  if (preferences.app.isMobile) {
+    adminLayoutRef.value?.openMobileSidebar();
+    return;
+  }
   emit('clickLogo');
 }
 
@@ -622,6 +632,7 @@ function startResize(e: MouseEvent) {
 
 <template>
   <VbenAdminLayout
+    ref="adminLayoutRef"
     v-model:sidebar-extra-visible="sidebarExtraVisible"
     :content-compact="preferences.app.contentCompact"
     :content-compact-width="preferences.app.contentCompactWidth"
