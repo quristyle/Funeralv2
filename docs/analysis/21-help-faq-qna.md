@@ -527,9 +527,15 @@ AuthServer 를 다시 띄운 뒤에 봐야 한다. 썸네일 경로 자체는 20
 붙지 않은 API(`api/funeral/help`)를 그대로 참조하는 생성 흔적이다.
 메뉴에 걸려 있는지 확인한 뒤 정리하는 것이 좋다. 이번에는 손대지 않았다.
 
-### D-H5. `/help/archive` (자료실)
+### D-H5. `/help/archive` (자료실) ✅ **계속 사용 (2026-09-04)**
 
-도움말 묶음에 남은 임시 화면이다. 지시 범위가 아니어서 손대지 않았다.
+> 지시: "/help/archive 는 계속 사용할 화면이다."
+
+'임시 화면' 이라는 표현이 지나쳤다 — 확인해 보니 **온전한 기능**이다:
+전용 API 모듈(`api/portal/help-archive`) · AuthServer 백엔드
+(`HelpArchiveEndpoints` + 엔티티 + DbContext) · 메뉴 등록(status 1) ·
+파일 업로드(`bizType=help-archive`)까지 갖춰져 있고, 화면을 열어 정상 동작
+(빈 목록 표시 · 콘솔 오류 0)을 확인했다. 정식 화면으로 유지한다.
 
 `/help/inquiry`(문의)는 **없앴다** — Q&A 가 같은 일을 하기 때문이다(아래 8절).
 
