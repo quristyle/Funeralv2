@@ -108,6 +108,8 @@ docs/sql/              실행한 SQL (전부 반복 실행 안전)
 
 [docs/analysis/12-decisions-pending.md](docs/analysis/12-decisions-pending.md) 에 모아 둔다.
 자율로 진행하기에 영향이 크거나 되돌리기 어려운 일은 여기에 적고 손대지 않는다.
+**한 장짜리 색인은 [docs/결정대기.md](docs/결정대기.md)** — ID·내용·문서 링크만 담는다.
+결정이 나거나 새 항목이 생기면 그 표도 함께 갱신한다.
 
 - 배포 도구: [docs/analysis/28-release-tool.md](docs/analysis/28-release-tool.md) (D-R1~D-R5)
   화면이 `setTimeout` 으로 가짜 진행 단계를 초록색으로 찍던 것을 걷어내고, 배포 장비가
@@ -169,8 +171,9 @@ docs/sql/              실행한 SQL (전부 반복 실행 안전)
   남은 것은 **백엔드가 단일 객체를 배열로 감싸는 것을 그대로 둘지**(D-A1) —
   이것이 뿌리라서, 고치면 프론트에서 고를 것이 없어지지만 와이어 포맷이 바뀐다.
 - i18n 콘솔 경고와 언어 코드 정리: [docs/analysis/18-i18n-fallback-warning.md](docs/analysis/18-i18n-fallback-warning.md)
-- vben-admin 상위 동기화에서 남은 것: [docs/analysis/17-vben-upstream-sync.md](docs/analysis/17-vben-upstream-sync.md)
-  (D-U1·D-U2 는 완료. 남은 것은 6.6 `componentProps` 타입 표 · 6.10 vxe 경고 · D-U4~U6)
+- vben-admin 상위 동기화: [docs/analysis/17-vben-upstream-sync.md](docs/analysis/17-vben-upstream-sync.md)
+  **결정 대기 없음** (2026-09-04, 7절) — D-U4~U6·6.10 은 "증상 트리거 때만 재검토" 로
+  확정했고 6.6 은 B안(자주 쓰는 12개 좁힘)이 이미 반영돼 있다.
 - 회사 소개 사이트와 브랜드: [docs/analysis/27-jsini-site-brand.md](docs/analysis/27-jsini-site-brand.md)
   D-S1~D-S6 은 결정됐고 브랜드 키트 · SiteServer · 사이트 스켈레톤까지 세웠다.
   로고 · 모티프 · 사용 규칙은 [docs/brand/](docs/brand/) 에 있다 (SVG 를 손으로 고치지 말고
