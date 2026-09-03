@@ -186,7 +186,11 @@ const showLockInDropdown = computed(
 );
 
 const showLogoutInDropdown = computed(
-  () => preferences.widget.logoutButtonPosition === 'user-dropdown',
+  () =>
+    preferences.widget.logoutButtonPosition === 'user-dropdown' ||
+    // 모바일은 헤더 위젯을 전부 숨기고 아바타만 남기므로(basic/header/header.vue,
+    // 지시 2026-09-04) 로그아웃이 반드시 이 메뉴 안에 있어야 한다.
+    preferences.app.isMobile,
 );
 
 const showGlobalSearchInDropdown = computed(

@@ -242,6 +242,23 @@ const rightSlots = computed(() => {
   // 最后追加用户下拉框，若是索引值超过1000时则固定在1000（适配用户按钮不在最后的场景）
   const userDropdownIndex = Math.min(1000, nextIndex(list));
   list.push({ index: userDropdownIndex, name: 'user-dropdown' });
+
+  // 모바일은 설정과 아바타만 남긴다 (지시, 2026-09-04 — 처음엔 아바타만이었다가
+  // 설정은 되살리라는 후속 지시). 좁은 화면에 위젯 열 개(AI·테마·언어·시간·
+  // 전체화면·새로고침·알림·잠금·로그아웃)가 늘어서면 정작 화면 제목이 밀려난다.
+  // 로그아웃은 아바타 메뉴 안으로 들어간다 — user-dropdown.vue 의
+  // showLogoutInDropdown 이 모바일을 함께 본다.
+  if (preferences.app.isMobile) {
+    const mobileKeep = new Set(['preferences', 'user-dropdown']);
+    const kept = list.filter((item) => mobileKeep.has(item.name));
+    // 설정 버튼의 위치 설정이 '헤더'가 아니어도(떠 있는 버튼은 모바일에서 숨긴다 —
+    // basic/layout.vue) 모바일 헤더에는 설정이 있어야 하므로 강제로 넣는다.
+    if (!kept.some((item) => item.name === 'preferences')) {
+      kept.unshift({ index: 0, name: 'preferences' });
+    }
+    return kept.toSorted((a, b) => a.index - b.index);
+  }
+
   // 按照索引排序，保证插槽顺序
   return list.toSorted((a, b) => a.index - b.index);
 });

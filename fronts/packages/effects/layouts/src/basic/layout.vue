@@ -648,7 +648,10 @@ function startResize(e: MouseEvent) {
     :header-hidden="preferences.header.hidden"
     :header-mode="preferences.header.mode"
     :header-theme="headerTheme"
-    :header-toggle-sidebar-button="preferences.widget.sidebarToggle"
+    :header-toggle-sidebar-button="
+      // 모바일에서는 로고가 사이드바를 열므로(clickLogo) 햄버거가 중복이다 (지시, 2026-09-04)
+      preferences.widget.sidebarToggle && !preferences.app.isMobile
+    "
     :header-visible="preferences.header.enable"
     :is-mobile="preferences.app.isMobile"
     :layout="layout"
@@ -1040,7 +1043,12 @@ function startResize(e: MouseEvent) {
         <slot v-if="accessStore.isLockScreen" name="lock-screen"></slot>
       </Transition>
 
-      <template v-if="preferencesButtonPosition.fixed">
+      <!--
+        떠 있는 설정 버튼은 모바일에서 숨긴다 (지시, 2026-09-04).
+        화면 오른쪽 세로 가운데에 떠서 내용을 가리고, 모바일 헤더 정리
+        (아바타만 남김)와 어긋난다. 설정이 필요하면 데스크톱에서 한다.
+      -->
+      <template v-if="preferencesButtonPosition.fixed && !preferences.app.isMobile">
         <Preferences
           class="fixed top-1/2 right-0 z-100 -translate-y-1/2 transform"
           @clear-preferences-and-logout="clearPreferencesAndLogout"

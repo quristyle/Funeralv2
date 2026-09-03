@@ -440,8 +440,12 @@ const sidebarHeaderHeight = computed(() => {
 });
 
 const showHeaderToggleButton = computed(() => {
+  // 원래는 모바일이면 무조건 보였다(`props.isMobile ||`). 우리 레이아웃은 모바일에서
+  // 로고가 사이드바를 열므로(effects/layouts basic/layout.vue) 햄버거가 중복이라,
+  // 모바일에서도 headerToggleSidebarButton 프롭을 존중하게 바꿨다 (2026-09-04).
+  // 프롭 기본값이 true 라 이 프롭을 끄지 않는 앱의 동작은 그대로다.
   return (
-    props.isMobile ||
+    (props.isMobile && props.headerToggleSidebarButton) ||
     (props.headerToggleSidebarButton &&
       isSideMode.value &&
       !isSidebarMixedNav.value &&
