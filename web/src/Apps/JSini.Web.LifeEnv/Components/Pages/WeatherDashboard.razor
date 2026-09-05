@@ -27,8 +27,16 @@
                         Style="width: 200px" />
         </div>
         <div class="d-flex gap-2">
-            <DxButton Text="시간대별 예보" RenderStyle="ButtonRenderStyle.Secondary" />
-            <DxButton Text="특보 현황" RenderStyle="ButtonRenderStyle.Secondary" />
+            @* 두 단추는 다른 화면으로 가는 길이다. 한동안 Click 이 안 걸려
+               있어서 눌러도 아무 일이 없었다 — 기능이 있는 줄 알고 누르게
+               되므로 없는 것보다 나빴다.
+
+               NavigateUrl 을 쓰면 가운데 클릭으로 새 탭에 열리고 마우스를
+               올렸을 때 주소가 보인다. *@
+            <DxButton Text="시간대별 예보" RenderStyle="ButtonRenderStyle.Secondary"
+                      NavigateUrl="/life/weather/forecast" />
+            <DxButton Text="특보 현황" RenderStyle="ButtonRenderStyle.Secondary"
+                      NavigateUrl="/life/weather/warning" />
             <DxButton Text="새로고침" RenderStyle="ButtonRenderStyle.Primary" Click="@LoadDataAsync" />
         </div>
     </div>

@@ -1,118 +1,250 @@
 @page "/life/weather/manage/locations"
-@using JSini.Web.LifeEnv.Api
 
 @*
-    [관측 지역 관리]
-
+    [관측 지역 관리] — DB 메뉴 `/life/weather/manage/locations`.
     이력: Vue `views/life/weather/locations.vue` → 여기.
-    기상청 API 연동을 위한 NX/NY 격자좌표 및 지역 정보를 관리한다.
+
+    기상청 API 를 부르려면 **격자 좌표(NX·NY)** 가 있어야 한다. 위경도가 아니다.
+    그래서 지역을 손으로 넣지 않고 **좌표 검색**으로 고른다 —
+    `weather/locations/search-grid` 가 「서울 강남구」 같은 말을 받아 격자를
+    돌려준다.
+
+    [등록 단추가 조회를 부르고 있었다]
+
+    「지역 추가」를 누르면 `LoadDataAsync` 가 돌았다. 즉 **아무 일도 일어나지
+    않았고** 목록만 다시 읽혔다. 수정도 없었다. 옛 화면에는 넷 다 있었다.
+
+    [코드는 종류가 셋이고 출처가 다르다]
+
+    · 격자(NX·NY)   — 좌표 검색이 준다
+    · 특보구역       — `warning-zones` 목록에서 고른다
+    · 중기예보 육상·기온 — **주는 곳이 없다.** 기상청 문서를 보고 넣는다
+
+    셋 다 기상청이 정한 값이라 한 글자만 틀려도 조용히 자료가 안 들어온다.
+    앞의 둘은 고르게 만들었고, 마지막 것만 손으로 넣는다.
+
+    [순서는 값으로 둔다]
+
+    현황 화면이 이 순서대로 지역을 늘어놓는다. 끌어서 옮기는 것
+    (`locations/reorder`)은 되돌릴 단추가 없어 값으로 고치게 두었다.
 *@
 
+@inherits DataPage
 @inject LifeEnvClient Client
 
 <PageTitle>관측 지역 관리 · 생활과환경</PageTitle>
 
-<h1>관측 지역 관리 <span class="pm-page__scope">생활과환경</span></h1>
+<PageHeading Title="관측 지역 관리" Scope="생활과환경" />
 
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <div>
-        <h5 class="m-0 font-bold">관측 대상 지역 목록</h5>
-        <span class="text-muted fs-7">기상청 API 연동을 위한 NX, NY 좌표 정보를 관리합니다.</span>
-    </div>
-    <PermissionView Action="MenuAction.Create">
-        <DxButton Text="지역 추가" RenderStyle="ButtonRenderStyle.Primary" Click="@LoadDataAsync" />
-    </PermissionView>
-</div>
-
-<DxGrid Data="@_items" Loading="@_loading" PageSize="20" KeyFieldName="Id">
+<CrudGrid TItem="WeatherLocation"
+          Data="@_items"
+          EditFormTitle="관측 지역"
+          ExportName="관측지역"
+          PageSize="20"
+          OnNew="@FillNew"
+          OnSave="@SaveAsync"
+          OnDelete="@DeleteAsync"
+          Reload="@ReloadAsync">
     <Columns>
-        <DxGridDataColumn FieldName="SortOrder" Caption="순서" Width="70px" />
-        <DxGridDataColumn FieldName="Name" Caption="지역 명칭" MinWidth="150">
-            <CellDisplayTemplate>
-                <strong>📍 @context.Value</strong>
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
-        <DxGridDataColumn Caption="좌표 (NX, NY)" Width="130px">
-            <CellDisplayTemplate>
+        <DxGridDataColumn FieldName="@nameof(WeatherLocation.SortOrder)" Caption="순서" Width="70" />
+
+        <DxGridDataColumn Caption="지역" MinWidth="160">
+            <CellDisplayTemplate Context="cell">
                 @{
-                    var loc = (WeatherLocation)context.DataItem;
+                    var loc = (WeatherLocation)cell.DataItem;
                 }
-                <span class="badge bg-light text-dark border">@loc.Nx, @loc.Ny</span>
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
-        <DxGridDataColumn FieldName="WarningAreaCode" Caption="특보구역" Width="130px">
-            <CellDisplayTemplate>
-                @if (!string.IsNullOrEmpty(context.Value?.ToString()))
+                <strong>@loc.Name</strong>
+                @if (!loc.IsActive)
                 {
-                    <span class="badge bg-warning text-dark">@context.Value</span>
-                }
-                else
-                {
-                    <span class="text-muted">-</span>
+                    <span class="jsini-badge jsini-badge--off">중지</span>
                 }
             </CellDisplayTemplate>
         </DxGridDataColumn>
-        <DxGridDataColumn Caption="중기예보 코드" Width="170px">
-            <CellDisplayTemplate>
+
+        <DxGridDataColumn Caption="격자" Width="110">
+            <CellDisplayTemplate Context="cell">
                 @{
-                    var loc = (WeatherLocation)context.DataItem;
+                    var loc = (WeatherLocation)cell.DataItem;
                 }
-                <div class="fs-8 text-muted">
-                    @if (!string.IsNullOrEmpty(loc.MidTermLandCode)) { <div>육상: @loc.MidTermLandCode</div> }
-                    @if (!string.IsNullOrEmpty(loc.MidTermTempCode)) { <div>기온: @loc.MidTermTempCode</div> }
-                    @if (string.IsNullOrEmpty(loc.MidTermLandCode) && string.IsNullOrEmpty(loc.MidTermTempCode)) { <div>-</div> }
-                </div>
+                <span class="jsini-badge">@loc.Nx, @loc.Ny</span>
             </CellDisplayTemplate>
         </DxGridDataColumn>
-        <DxGridDataColumn FieldName="Description" Caption="설명" MinWidth="160" />
-        <DxGridDataColumn FieldName="IsActive" Caption="상태" Width="90px">
-            <CellDisplayTemplate>
-                <span class="badge @((bool)context.Value! ? "bg-success" : "bg-secondary")">
-                    @((bool)context.Value! ? "사용중" : "중지")
-                </span>
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
-        <DxGridDataColumn Caption="작업" Width="150px">
-            <CellDisplayTemplate>
+
+        <DxGridDataColumn FieldName="@nameof(WeatherLocation.WarningAreaCode)" Caption="특보구역" Width="120" />
+
+        <DxGridDataColumn Caption="중기예보" Width="180">
+            <CellDisplayTemplate Context="cell">
                 @{
-                    var item = (WeatherLocation)context.DataItem;
+                    var loc = (WeatherLocation)cell.DataItem;
                 }
-                <div class="d-flex gap-1 justify-content-center">
-                    <PermissionView Action="MenuAction.Update">
-                        <DxButton Text="수정" RenderStyle="ButtonRenderStyle.Secondary" SizeMode="SizeMode.Small" />
-                    </PermissionView>
-                    <PermissionView Action="MenuAction.Delete">
-                        <DxButton Text="삭제" RenderStyle="ButtonRenderStyle.Danger" SizeMode="SizeMode.Small" Click="@(() => DeleteAsync(item))" />
-                    </PermissionView>
-                </div>
+                @* 육상·기온 코드가 따로다. 둘 다 있어야 중기예보가 온다. *@
+                <span class="lf-code">@(loc.MidTermLandCode ?? "-") / @(loc.MidTermTempCode ?? "-")</span>
             </CellDisplayTemplate>
         </DxGridDataColumn>
+
+        <DxGridDataColumn FieldName="@nameof(WeatherLocation.Description)" Caption="설명" MinWidth="160" />
     </Columns>
-</DxGrid>
+
+    <EditForm Context="edit">
+        @{
+            var loc = (WeatherLocation)edit.EditModel;
+        }
+        <DxFormLayout CssClass="lf-editform">
+            <DxFormLayoutItem Caption="좌표 검색" ColSpanMd="12">
+                <div class="d-flex gap-1">
+                    <DxTextBox @bind-Text="_search" NullText="서울 강남구 · 부산 해운대구"
+                               Style="flex: 1" />
+                    <DxButton Text="찾기" RenderStyle="ButtonRenderStyle.Secondary" SizeMode="SizeMode.Small"
+                              Click="@SearchGridAsync" />
+                </div>
+            </DxFormLayoutItem>
+
+            @if (_found.Count > 0)
+            {
+                <DxFormLayoutItem Caption="검색 결과" ColSpanMd="12">
+                    @* 고르면 이름과 격자가 채워진다. 중기예보·특보구역 코드는
+                       이 검색이 주지 않아 아래에서 따로 골라야 한다. *@
+                    <div class="lf-grid-results">
+                        @foreach (var g in _found)
+                        {
+                            <button type="button" class="lf-grid-result"
+                                    @onclick="@(() => Apply(loc, g))">
+                                <span class="lf-grid-result__name">@GridName(g)</span>
+                                <span class="lf-grid-result__xy">@g.Nx, @g.Ny</span>
+                            </button>
+                        }
+                    </div>
+                </DxFormLayoutItem>
+            }
+
+            <DxFormLayoutItem Caption="지역 명칭" ColSpanMd="8">
+                <DxTextBox @bind-Text="loc.Name" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="순서" ColSpanMd="4">
+                <DxSpinEdit @bind-Value="loc.SortOrder" MinValue="0" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="NX" ColSpanMd="3">
+                <DxSpinEdit @bind-Value="loc.Nx" MinValue="0" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="NY" ColSpanMd="3">
+                <DxSpinEdit @bind-Value="loc.Ny" MinValue="0" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="특보구역" ColSpanMd="6">
+                @* 구역 코드는 기상청이 정한 값(`RegId`)이고 보여 줄 것은
+                   약어(`RegKo`)다. 코드를 손으로 넣게 두면 한 글자 틀려도
+                   조용히 특보가 안 들어온다. *@
+                <DxComboBox Data="@_zones" @bind-Value="loc.WarningAreaCode"
+                            TextFieldName="@nameof(WeatherWarningZone.RegKo)"
+                            ValueFieldName="@nameof(WeatherWarningZone.RegId)"
+                            NullText="특보를 받지 않는다"
+                            ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="중기 육상" ColSpanMd="6">
+                <DxTextBox @bind-Text="loc.MidTermLandCode" NullText="11B00000" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="중기 기온" ColSpanMd="6">
+                <DxTextBox @bind-Text="loc.MidTermTempCode" NullText="11B10101" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="설명" ColSpanMd="12">
+                <DxTextBox @bind-Text="loc.Description" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="사용" ColSpanMd="12">
+                @* 끄면 수집을 멈춘다. 지우면 그 지역의 옛 기록이 끊긴다. *@
+                <DxCheckBox @bind-Checked="loc.IsActive">수집한다</DxCheckBox>
+            </DxFormLayoutItem>
+        </DxFormLayout>
+    </EditForm>
+</CrudGrid>
 
 @code {
-    private List<WeatherLocation> _items = [];
-    private bool _loading;
+    private IReadOnlyList<WeatherLocation> _items = [];
+    private IReadOnlyList<WeatherWarningZone> _zones = [];
 
-    protected override Task OnInitializedAsync() => LoadDataAsync();
+    private string? _search;
+    private IReadOnlyList<GridCoordinate> _found = [];
 
-    private async Task LoadDataAsync()
+    protected override Task OnInitializedAsync() => ReloadAsync();
+
+    private Task ReloadAsync() => LoadAsync(async () =>
     {
-        _loading = true;
-        try
+        var list = await Client.GetLocationsAsync();
+        _items = [.. list.OrderBy(x => x.SortOrder)];
+
+        // 특보구역 고르개가 쓴다. 목록과 함께 받아 둔다.
+        _zones = await Client.GetWarningZonesAsync();
+
+        return _items.Count;
+    }, "등록된 관측 지역이 없습니다.", "관측 지역을 읽지 못했습니다");
+
+    private void FillNew(WeatherLocation loc)
+    {
+        loc.IsActive = true;
+        loc.SortOrder = _items.Count == 0 ? 1 : _items.Max(x => x.SortOrder) + 1;
+
+        // 지난 검색 결과가 남아 있으면 새 지역에 엉뚱한 좌표가 붙는다.
+        _search = null;
+        _found = [];
+    }
+
+    private async Task SearchGridAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_search))
         {
-            var list = await Client.GetLocationsAsync();
-            _items = list.OrderBy(x => x.SortOrder).ToList();
+            Say("찾을 지역 이름을 넣으십시오.", NoticeTone.Warning);
+            return;
         }
-        finally
+
+        await LoadAsync(async () =>
         {
-            _loading = false;
+            _found = await Client.SearchGridAsync(_search.Trim());
+            return _found.Count;
+        }, "그 이름의 격자를 찾지 못했습니다.", "격자를 찾지 못했습니다");
+    }
+
+    /// <summary>
+    /// 검색 결과를 폼에 옮긴다.
+    ///
+    /// **격자와 이름뿐이다.** 중기예보·특보구역 코드는 이 검색이 주지 않아
+    /// 아래에서 따로 골라야 한다. 주는 줄 알고 비워 두면 그 지역만 중기예보가
+    /// 조용히 안 들어온다.
+    ///
+    /// 이름은 <b>비어 있을 때만</b> 채운다. 고쳐 쓰던 이름을 검색 한 번으로
+    /// 되돌리면 사용자가 쓴 것이 사라진다.
+    /// </summary>
+    private void Apply(WeatherLocation loc, GridCoordinate g)
+    {
+        loc.Nx = g.Nx;
+        loc.Ny = g.Ny;
+
+        if (string.IsNullOrWhiteSpace(loc.Name))
+        {
+            loc.Name = GridName(g);
         }
     }
 
-    private async Task DeleteAsync(WeatherLocation item)
+    private static string GridName(GridCoordinate g) =>
+        string.Join(" ", new[] { g.Region1, g.Region2, g.Region3 }
+            .Where(x => !string.IsNullOrWhiteSpace(x)));
+
+    private Task SaveAsync((WeatherLocation Item, bool IsNew) e)
     {
-        await Client.DeleteLocationAsync(item.Id);
-        await LoadDataAsync();
+        if (e.Item.Nx == 0 && e.Item.Ny == 0)
+        {
+            throw new ApiException("격자 좌표가 없습니다. 좌표 검색으로 지역을 고르십시오.");
+        }
+
+        return e.IsNew
+            ? Client.CreateLocationAsync(e.Item)
+            : Client.UpdateLocationAsync(e.Item.Id, e.Item);
     }
+
+    private Task DeleteAsync(WeatherLocation loc) => Client.DeleteLocationAsync(loc.Id);
 }

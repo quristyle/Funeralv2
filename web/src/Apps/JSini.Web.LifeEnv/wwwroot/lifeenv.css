@@ -70,3 +70,74 @@
 @media (max-width: 640px) {
   .le-day { min-height: 4rem; }
 }
+
+/* ── 편집 폼 ───────────────────────────────────────────── */
+
+.lf-editform {
+  --dxbl-form-layout-item-spacing-y: 0.4rem;
+}
+
+/* 기상청 코드. 등폭으로 두어야 자릿수가 눈에 들어온다. */
+.lf-code {
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  font-size: 0.78rem;
+  opacity: 0.8;
+}
+
+/* ── 격자 좌표 검색 결과 ─────────────────────────────────
+
+   눌러서 고르는 칩이다. 목록으로 두면 「무엇을 눌러야 하는지」가 안 보인다.
+   ---------------------------------------------------------- */
+
+.lf-grid-results {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  max-height: 8rem;
+  overflow: auto;
+}
+
+.lf-grid-result {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.6rem;
+  border: 1px solid var(--jsini-border);
+  border-radius: 1rem;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.lf-grid-result:hover {
+  border-color: var(--jsini-accent);
+}
+
+.lf-grid-result__xy {
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  opacity: 0.6;
+}
+
+/* 고른 판정 기준의 조건 문장. 요령만 보면 「언제 나가는 것인가」를 알 수 없다. */
+.lf-condition {
+  font-size: 0.82rem;
+  opacity: 0.7;
+}
+
+/* 판정 조건 한 줄. 연산자·값·단위·부가 조건이 함께 붙는다. */
+.lf-threshold {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+  font-size: 0.82rem;
+}
+
+.lf-threshold small { opacity: 0.6; }
+
+.lf-threshold__note {
+  opacity: 0.7;
+  font-size: 0.78rem;
+}

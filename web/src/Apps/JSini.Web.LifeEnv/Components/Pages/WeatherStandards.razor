@@ -1,140 +1,299 @@
 @page "/life/weather/manage/standards"
-@using JSini.Web.LifeEnv.Api
 
 @*
-    [기상 판정 기준 관리]
-
+    [기상 판정 기준] — DB 메뉴 `/life/weather/manage/standards`.
     이력: Vue `views/life/weather/standards.vue` → 여기.
-    실황이 어떤 조건일 때 이벤트로 기록할지 정하는 기준(카테고리, 임계값, 체감온도 등)을 관리한다.
+
+    실황이 **어떤 조건일 때** 이벤트로 기록하고 알릴지 정한다. 여기서 정한
+    기준에 「대응 요령」(`/life/weather/responses`)이 매달린다.
+
+    [「기준 추가」와 「수정」이 빈 메서드였다]
+
+        private void OpenCreateDialog() { }
+        private void OpenEditDialog(WeatherStandard item) { }
+
+    단추에 `Click` 이 걸려 있어서 훑어봐서는 정상으로 보였다. 눌러도 아무 일이
+    없다는 것은 실제로 눌러 봐야만 알 수 있다 — **배선이 없는 단추보다 나쁘다.**
+
+    [연산자에 따라 값이 하나이기도 둘이기도 하다]
+
+      GE·LE·GT·LT·EQ   값 하나 (「30 이상」)
+      BT·NB            값 둘   (「10 ~ 20 사이」)
+      DGE·DLE          값 둘   (기준값과 차이 — 한파의 「전일 대비 10도 하강」)
+
+    그래서 두 번째 값 칸은 연산자에 따라 켜고 끈다. 늘 보여 주면 하나만 쓰는
+    기준에도 값을 넣게 되고, 그 값은 조용히 무시된다.
 *@
 
+@inherits DataPage
 @inject LifeEnvClient Client
 
-<PageTitle>기상 판정 기준 관리 · 생활과환경</PageTitle>
+<PageTitle>기상 판정 기준 · 생활과환경</PageTitle>
 
-<h1>기상 판정 기준 관리 <span class="pm-page__scope">생활과환경</span></h1>
+<PageHeading Title="기상 판정 기준" Scope="생활과환경" />
 
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <div class="d-flex gap-2">
-        <DxTextBox @bind-Text="_searchText" NullText="검색 (명칭, 조건 등)" Style="width: 240px" ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
-        <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@LoadDataAsync" />
-    </div>
-    <PermissionView Action="MenuAction.Create">
-        <DxButton Text="기준 추가" RenderStyle="ButtonRenderStyle.Success" Click="@OpenCreateDialog" />
-    </PermissionView>
-</div>
+<CrudGrid TItem="WeatherStandard"
+          Data="@Shown"
+          EditFormTitle="판정 기준"
+          ExportName="판정기준"
+          PageSize="20"
+          OnNew="@FillNew"
+          OnSave="@SaveAsync"
+          OnDelete="@DeleteAsync"
+          Reload="@ReloadAsync">
+    <ChildContent>
+        <DxTextBox @bind-Text="_keyword" NullText="명칭·조건 검색" Style="width: 220px"
+                   ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+    </ChildContent>
 
-<DxGrid Data="@FilteredItems" Loading="@_loading" PageSize="20" KeyFieldName="Id">
     <Columns>
-        <DxGridDataColumn FieldName="Category" Caption="구분" Width="100px">
-            <CellDisplayTemplate>
-                <span class="badge bg-primary">@GetCategoryLabel(context.Value?.ToString())</span>
+        <DxGridDataColumn Caption="구분" Width="90">
+            <CellDisplayTemplate Context="cell">
+                <span class="jsini-badge">@CategoryLabel(((WeatherStandard)cell.DataItem).Category)</span>
             </CellDisplayTemplate>
         </DxGridDataColumn>
-        <DxGridDataColumn FieldName="Name" Caption="명칭" MinWidth="130" />
-        <DxGridDataColumn FieldName="ConditionText" Caption="조건/설명" MinWidth="160" />
-        <DxGridDataColumn Caption="비교 기준 및 수치" MinWidth="220">
-            <CellDisplayTemplate>
+
+        <DxGridDataColumn FieldName="@nameof(WeatherStandard.Name)" Caption="명칭" MinWidth="130" />
+        <DxGridDataColumn FieldName="@nameof(WeatherStandard.ConditionText)" Caption="조건" MinWidth="160" />
+
+        <DxGridDataColumn Caption="판정" MinWidth="220">
+            <CellDisplayTemplate Context="cell">
                 @{
-                    var row = (WeatherStandard)context.DataItem;
+                    var row = (WeatherStandard)cell.DataItem;
                 }
-                <div class="d-flex align-items-center gap-1 flex-wrap fs-7">
-                    <span class="badge bg-secondary">@row.Operator</span>
-                    <strong class="text-danger">
-                        @if (row.Operator is "BT" or "NB")
-                        {
-                            @($"{row.ThresholdValue} ~ {row.ThresholdValue2}")
-                        }
-                        else if (row.Operator is "DGE" or "DLE")
-                        {
-                            @($"기준: {row.ThresholdValue}, 차이: {row.ThresholdValue2}")
-                        }
-                        else
-                        {
-                            @row.ThresholdValue
-                        }
-                        <small class="text-muted font-normal">@row.Unit</small>
-                    </strong>
-                    @if (row.Duration.HasValue)
+                <div class="lf-threshold">
+                    <span class="jsini-badge">@OperatorLabel(row.Operator)</span>
+                    <strong>@ThresholdText(row)</strong>
+                    <small>@row.Unit</small>
+
+                    @if (row.Duration is > 0)
                     {
-                        <span class="text-primary font-bold">(@row.Duration 일 이상)</span>
+                        <span class="lf-threshold__note">@row.Duration 일 이상</span>
                     }
+
                     @if (row.UseSensibleTemp)
                     {
-                        <span class="badge bg-warning text-dark">체감온도</span>
+                        <span class="jsini-badge jsini-badge--warn">체감온도</span>
                     }
                 </div>
             </CellDisplayTemplate>
         </DxGridDataColumn>
-        <DxGridDataColumn FieldName="WorkStatus" Caption="작업상태" Width="130px">
-            <CellDisplayTemplate>
-                <span class="badge @GetStatusBadgeClass(context.Value?.ToString())">
-                    @GetStatusLabel(context.Value?.ToString())
-                </span>
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
-        <DxGridDataColumn FieldName="SortOrder" Caption="순서" Width="80px" />
-        <DxGridDataColumn Caption="관리" Width="120px">
-            <CellDisplayTemplate>
+
+        <DxGridDataColumn Caption="작업상태" Width="110">
+            <CellDisplayTemplate Context="cell">
                 @{
-                    var item = (WeatherStandard)context.DataItem;
+                    var row = (WeatherStandard)cell.DataItem;
                 }
-                <div class="d-flex gap-1 justify-content-center">
-                    <PermissionView Action="MenuAction.Update">
-                        <DxButton Text="수정" RenderStyle="ButtonRenderStyle.Secondary" SizeMode="SizeMode.Small" Click="@(() => OpenEditDialog(item))" />
-                    </PermissionView>
-                    <PermissionView Action="MenuAction.Delete">
-                        <DxButton Text="삭제" RenderStyle="ButtonRenderStyle.Danger" SizeMode="SizeMode.Small" Click="@(() => DeleteAsync(item))" />
-                    </PermissionView>
-                </div>
+                <span class="jsini-badge @StatusClass(row.WorkStatus)">@StatusLabel(row.WorkStatus)</span>
             </CellDisplayTemplate>
         </DxGridDataColumn>
+
+        <DxGridDataColumn FieldName="@nameof(WeatherStandard.SortOrder)" Caption="순서" Width="70" />
     </Columns>
-</DxGrid>
+
+    <EditForm Context="edit">
+        @{
+            var std = (WeatherStandard)edit.EditModel;
+        }
+        <DxFormLayout CssClass="lf-editform">
+            <DxFormLayoutItem Caption="구분" ColSpanMd="4">
+                <DxComboBox Data="@Categories" @bind-Value="std.Category"
+                            TextFieldName="Text" ValueFieldName="Value" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="명칭" ColSpanMd="8">
+                <DxTextBox @bind-Text="std.Name" NullText="강풍 주의" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="조건 설명" ColSpanMd="12">
+                @* 사람이 읽는 문장이다. 대응 요령 화면이 「언제 나가는가」를
+                   이 문장으로 보여 준다. *@
+                <DxTextBox @bind-Text="std.ConditionText" NullText="순간 풍속 14m/s 이상" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="연산자" ColSpanMd="4">
+                <DxComboBox Data="@Operators" @bind-Value="std.Operator"
+                            TextFieldName="Text" ValueFieldName="Value" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="@(NeedsTwo(std.Operator) ? "값 1" : "임계값")" ColSpanMd="4">
+                <DxSpinEdit @bind-Value="std.ThresholdValue" />
+            </DxFormLayoutItem>
+
+            @if (NeedsTwo(std.Operator))
+            {
+                <DxFormLayoutItem Caption="@(IsDiff(std.Operator) ? "차이" : "값 2")" ColSpanMd="4">
+                    <DxSpinEdit @bind-Value="std.ThresholdValue2" />
+                </DxFormLayoutItem>
+            }
+            else
+            {
+                <DxFormLayoutItem Caption="단위" ColSpanMd="4">
+                    <DxTextBox @bind-Text="std.Unit" NullText="m/s · mm · ℃" />
+                </DxFormLayoutItem>
+            }
+
+            @if (NeedsTwo(std.Operator))
+            {
+                <DxFormLayoutItem Caption="단위" ColSpanMd="4">
+                    <DxTextBox @bind-Text="std.Unit" NullText="m/s · mm · ℃" />
+                </DxFormLayoutItem>
+            }
+
+            <DxFormLayoutItem Caption="작업상태" ColSpanMd="4">
+                <DxComboBox Data="@Statuses" @bind-Value="std.WorkStatus"
+                            TextFieldName="Text" ValueFieldName="Value"
+                            NullText="정하지 않음"
+                            ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="지속(일)" ColSpanMd="4">
+                @* 폭염·한파처럼 「며칠 이어져야」 걸리는 기준이 있다.
+                   비우면 한 번만 넘어도 걸린다. *@
+                <DxSpinEdit @bind-Value="std.Duration" MinValue="0" NullText="즉시" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="순서" ColSpanMd="4">
+                <DxSpinEdit @bind-Value="std.SortOrder" MinValue="0" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="재발송 대기(분)" ColSpanMd="4">
+                @* 0 이면 실황을 읽을 때마다 알린다. 한파처럼 오래 이어지는
+                   기준에서 그러면 알림이 쏟아진다. *@
+                <DxSpinEdit @bind-Value="std.NotificationInterval" MinValue="0" NullText="매번" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="체감온도" ColSpanMd="8">
+                <DxCheckBox @bind-Checked="std.UseSensibleTemp">
+                    기온 대신 체감온도로 견준다
+                </DxCheckBox>
+            </DxFormLayoutItem>
+
+            @if (string.Equals(std.Category, "COLD", StringComparison.OrdinalIgnoreCase))
+            {
+                @* 한파만 쓰는 복합 조건이다. 다른 구분에서 보여 주면 무슨
+                   값인지 알 수 없는 칸이 둘 는다. *@
+                <DxFormLayoutItem Caption="전일 대비 하강" ColSpanMd="6">
+                    <DxSpinEdit @bind-Value="std.PrevDayDiff" NullText="쓰지 않음" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="평년 대비 차이" ColSpanMd="6">
+                    <DxSpinEdit @bind-Value="std.AvgYearDiff" NullText="쓰지 않음" />
+                </DxFormLayoutItem>
+            }
+        </DxFormLayout>
+    </EditForm>
+</CrudGrid>
 
 @code {
-    private List<WeatherStandard> _items = [];
-    private string? _searchText;
-    private bool _loading;
+    private IReadOnlyList<WeatherStandard> _all = [];
+    private string? _keyword;
 
-    private IEnumerable<WeatherStandard> FilteredItems
+    private static readonly object[] Categories =
+    [
+        new { Value = "WIND", Text = "풍속" },
+        new { Value = "RAIN", Text = "강우" },
+        new { Value = "SNOW", Text = "강설" },
+        new { Value = "HEAT", Text = "폭염" },
+        new { Value = "COLD", Text = "한파" },
+        new { Value = "T1H", Text = "기온" },
+        new { Value = "REH", Text = "습도" },
+    ];
+
+    private static readonly object[] Operators =
+    [
+        new { Value = "GE", Text = "이상 (≥)" },
+        new { Value = "GT", Text = "초과 (>)" },
+        new { Value = "LE", Text = "이하 (≤)" },
+        new { Value = "LT", Text = "미만 (<)" },
+        new { Value = "EQ", Text = "같음 (=)" },
+        new { Value = "BT", Text = "사이 (값1 ~ 값2)" },
+        new { Value = "NB", Text = "사이 아님" },
+        new { Value = "DGE", Text = "기준 대비 이상 하강/상승" },
+        new { Value = "DLE", Text = "기준 대비 이하 하강/상승" },
+    ];
+
+    private static readonly object[] Statuses =
+    [
+        new { Value = "ALLOW", Text = "작업 가능" },
+        new { Value = "CAUTION", Text = "주의" },
+        new { Value = "RESTRICTED", Text = "작업 제한" },
+        new { Value = "SUSPENDED", Text = "작업 중지" },
+    ];
+
+    private IReadOnlyList<WeatherStandard> Shown
     {
         get
         {
-            if (string.IsNullOrWhiteSpace(_searchText)) return _items;
-            var s = _searchText.Trim().ToLowerInvariant();
-            return _items.Where(i => (i.Name?.ToLowerInvariant().Contains(s) ?? false) ||
-                                     (i.ConditionText?.ToLowerInvariant().Contains(s) ?? false) ||
-                                     (i.Category?.ToLowerInvariant().Contains(s) ?? false));
+            if (string.IsNullOrWhiteSpace(_keyword))
+            {
+                return _all;
+            }
+
+            var k = _keyword.Trim();
+            return [.. _all.Where(i =>
+                (i.Name?.Contains(k, StringComparison.OrdinalIgnoreCase) ?? false)
+                || (i.ConditionText?.Contains(k, StringComparison.OrdinalIgnoreCase) ?? false)
+                || (i.Category?.Contains(k, StringComparison.OrdinalIgnoreCase) ?? false))];
         }
     }
 
-    protected override Task OnInitializedAsync() => LoadDataAsync();
+    protected override Task OnInitializedAsync() => ReloadAsync();
 
-    private async Task LoadDataAsync()
+    private Task ReloadAsync() => LoadAsync(async () =>
     {
-        _loading = true;
-        try
-        {
-            var list = await Client.GetStandardsAsync();
-            _items = list.OrderBy(x => x.SortOrder).ToList();
-        }
-        finally
-        {
-            _loading = false;
-        }
-    }
+        var list = await Client.GetStandardsAsync();
+        _all = [.. list.OrderBy(x => x.SortOrder)];
+        return _all.Count;
+    }, "등록된 판정 기준이 없습니다.", "판정 기준을 읽지 못했습니다");
 
-    private void OpenCreateDialog() { }
-    private void OpenEditDialog(WeatherStandard item) { }
-
-    private async Task DeleteAsync(WeatherStandard item)
+    private void FillNew(WeatherStandard std)
     {
-        await Client.DeleteStandardAsync(item.Id);
-        await LoadDataAsync();
+        std.Category = "WIND";
+        std.Operator = "GE";
+        std.WorkStatus = "CAUTION";
+        std.SortOrder = _all.Count == 0 ? 1 : _all.Max(x => x.SortOrder) + 1;
     }
 
-    private static string GetCategoryLabel(string? cat) => cat switch
+    private Task SaveAsync((WeatherStandard Item, bool IsNew) e)
+    {
+        if (string.IsNullOrWhiteSpace(e.Item.Name))
+        {
+            throw new ApiException("명칭을 넣으십시오.");
+        }
+
+        if (e.Item.ThresholdValue is null)
+        {
+            throw new ApiException("임계값을 넣으십시오. 값이 없으면 판정이 돌지 않습니다.");
+        }
+
+        if (NeedsTwo(e.Item.Operator) && e.Item.ThresholdValue2 is null)
+        {
+            throw new ApiException("이 연산자는 값이 둘 필요합니다.");
+        }
+
+        return e.IsNew
+            ? Client.CreateStandardAsync(e.Item)
+            : Client.UpdateStandardAsync(e.Item.Id, e.Item);
+    }
+
+    private Task DeleteAsync(WeatherStandard std) => Client.DeleteStandardAsync(std.Id);
+
+    /// <summary>값이 둘 필요한 연산자인가.</summary>
+    private static bool NeedsTwo(string? op) =>
+        op is "BT" or "NB" or "DGE" or "DLE";
+
+    /// <summary>두 번째 값이 「범위의 끝」이 아니라 「차이」인 연산자인가.</summary>
+    private static bool IsDiff(string? op) => op is "DGE" or "DLE";
+
+    private static string ThresholdText(WeatherStandard row) => row.Operator switch
+    {
+        "BT" or "NB" => $"{row.ThresholdValue} ~ {row.ThresholdValue2}",
+        "DGE" or "DLE" => $"기준 {row.ThresholdValue}, 차이 {row.ThresholdValue2}",
+        _ => row.ThresholdValue?.ToString() ?? "-",
+    };
+
+    private static string CategoryLabel(string? category) => category switch
     {
         "WIND" => "풍속",
         "RAIN" => "강우",
@@ -143,24 +302,37 @@
         "COLD" => "한파",
         "T1H" => "기온",
         "REH" => "습도",
-        _ => cat ?? string.Empty
+        _ => category ?? string.Empty,
     };
 
-    private static string GetStatusLabel(string? status) => status switch
+    private static string OperatorLabel(string? op) => op switch
+    {
+        "GE" => "≥",
+        "GT" => ">",
+        "LE" => "≤",
+        "LT" => "<",
+        "EQ" => "=",
+        "BT" => "사이",
+        "NB" => "사이 아님",
+        "DGE" => "차이 ≥",
+        "DLE" => "차이 ≤",
+        _ => op ?? string.Empty,
+    };
+
+    private static string StatusLabel(string? status) => status switch
     {
         "ALLOW" => "작업 가능",
         "CAUTION" => "주의",
         "RESTRICTED" => "작업 제한",
         "SUSPENDED" => "작업 중지",
-        _ => status ?? string.Empty
+        _ => status ?? "-",
     };
 
-    private static string GetStatusBadgeClass(string? status) => status switch
+    private static string StatusClass(string? status) => status switch
     {
-        "ALLOW" => "bg-success",
-        "CAUTION" => "bg-warning text-dark",
-        "RESTRICTED" => "bg-warning text-dark",
-        "SUSPENDED" => "bg-danger",
-        _ => "bg-secondary"
+        "ALLOW" => "jsini-badge--on",
+        "CAUTION" or "RESTRICTED" => "jsini-badge--warn",
+        "SUSPENDED" => "jsini-badge--off",
+        _ => "",
     };
 }

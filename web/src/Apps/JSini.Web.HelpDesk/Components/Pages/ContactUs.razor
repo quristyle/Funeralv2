@@ -36,7 +36,9 @@
     </div>
 
     <div class="d-flex justify-content-end gap-2">
-        <DxButton Text="취소" RenderStyle="ButtonRenderStyle.Secondary" />
+        @* 「취소」가 아무 일도 안 하고 있었다. 적던 것을 비우는 단추다 —
+           나가는 것이 아니라 처음부터 다시 쓰는 자리라 그렇다. *@
+        <DxButton Text="취소" RenderStyle="ButtonRenderStyle.Secondary" Click="@Reset" />
         <DxButton Text="문의 접수" RenderStyle="ButtonRenderStyle.Primary" Click="@SubmitAsync" Enabled="@(!string.IsNullOrWhiteSpace(_title))" />
     </div>
 </div>
@@ -46,6 +48,14 @@
     private string _selectedType = "시스템 장애";
     private string? _content;
     private readonly List<string> _types = ["시스템 장애", "기능 개선", "계정/권한", "기타"];
+
+    /// <summary>적던 것을 비운다. 종류는 기본값으로 돌린다.</summary>
+    private void Reset()
+    {
+        _title = null;
+        _content = null;
+        _selectedType = _types[0];
+    }
 
     private Task SubmitAsync()
     {
