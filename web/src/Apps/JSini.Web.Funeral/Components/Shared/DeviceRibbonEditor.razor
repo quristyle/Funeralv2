@@ -1,0 +1,221 @@
+@*
+    [장식(리본) 배치] — 기기 화면 위에 얹는 이미지들.
+
+    영정사진 장비의 근조 리본, 멀티미디어 장비의 장식 띠가 이것이다.
+    포털 어느 화면에서도 볼 수 없었다 — 클라이언트에는 읽기·저장이 이미
+    있었고 부르는 곳만 없었다.
+
+    [끌어서 옮기지 않는다]
+
+    옛 화면은 미리보기 위에서 끌어 놓았다. 여기서는 **값으로 넣는다** —
+    위치·크기가 %(소수점 셋)라 숫자로도 정확히 넣을 수 있고, 끌기에는
+    되돌릴 단추가 필요한데 그것까지 만들면 화면 하나가 더 생긴다.
+    (관측 지역 순서를 값으로 두기로 한 것과 같은 판단이다.)
+
+    [저장은 통째로 바꿔 끼운다]
+
+    서버가 그 기기의 리본을 **전부 지우고 보낸 목록으로 다시 만든다.**
+    그래서 화면이 목록을 손에 들고 있다가 한 번에 보낸다 — 한 줄씩 저장하면
+    중간에 실패했을 때 절반만 남는다.
+*@
+
+@inherits DataPage
+@inject FuneralApi Api
+
+<h2 class="fn-subhead">
+    장식 (리본)
+    <span class="fn-note">화면 위에 얹는 이미지입니다. 위치·크기는 화면 대비 %.</span>
+</h2>
+
+<div class="jsini-toolbar">
+    <PermissionView Action="MenuAction.Update">
+        <DxButton Text="추가" RenderStyle="ButtonRenderStyle.Secondary" Click="@Add"
+                  Enabled="@(_images.Count > 0)" />
+        <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Success" Click="@SaveAsync" />
+    </PermissionView>
+    <DxButton Text="되돌리기" RenderStyle="ButtonRenderStyle.Secondary" Click="@ReloadAsync" />
+
+    @if (_images.Count == 0)
+    {
+        <span class="fn-note">쓸 수 있는 이미지가 없습니다. [장비배경이미지]에서 먼저 등록하십시오.</span>
+    }
+</div>
+
+<PageNotice Text="@Notice" Tone="@Tone" />
+
+@if (_ribbons.Count == 0)
+{
+    <p class="fn-note">등록된 장식이 없습니다.</p>
+}
+else
+{
+    <DxGrid Data="@_ribbons" ShowFilterRow="false" PagerVisible="false" PageSizeSelectorVisible="false">
+        <Columns>
+            <DxGridDataColumn Caption="이미지" MinWidth="200">
+                <CellDisplayTemplate>
+                    @{
+                        var r = (DeviceRibbon)context.DataItem;
+                    }
+                    <DxComboBox Data="@_images" TextFieldName="@nameof(MediaSource.Name)"
+                                ValueFieldName="@nameof(MediaSource.Id)"
+                                Value="@r.MediaSourceId"
+                                ValueChanged="@((string? v) => r.MediaSourceId = v ?? string.Empty)"
+                                NullText="이미지를 고르십시오" SizeMode="SizeMode.Small" />
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn Caption="왼쪽 %" Width="110">
+                <CellDisplayTemplate>
+                    @{
+                        var r = (DeviceRibbon)context.DataItem;
+                    }
+                    <DxSpinEdit Value="@r.PositionLeft" ValueChanged="@((double v) => r.PositionLeft = v)"
+                                MinValue="0" MaxValue="100" Increment="0.5" SizeMode="SizeMode.Small" />
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn Caption="위 %" Width="110">
+                <CellDisplayTemplate>
+                    @{
+                        var r = (DeviceRibbon)context.DataItem;
+                    }
+                    <DxSpinEdit Value="@r.PositionTop" ValueChanged="@((double v) => r.PositionTop = v)"
+                                MinValue="0" MaxValue="100" Increment="0.5" SizeMode="SizeMode.Small" />
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn Caption="너비 %" Width="110">
+                <CellDisplayTemplate>
+                    @{
+                        var r = (DeviceRibbon)context.DataItem;
+                    }
+                    <DxSpinEdit Value="@r.Width" ValueChanged="@((double v) => r.Width = v)"
+                                MinValue="0" MaxValue="100" Increment="0.5" SizeMode="SizeMode.Small" />
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn Caption="높이 %" Width="110">
+                <CellDisplayTemplate>
+                    @{
+                        var r = (DeviceRibbon)context.DataItem;
+                    }
+                    <DxSpinEdit Value="@r.Height" ValueChanged="@((double v) => r.Height = v)"
+                                MinValue="0" MaxValue="100" Increment="0.5" SizeMode="SizeMode.Small" />
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn Caption="순서" Width="90">
+                <CellDisplayTemplate>
+                    @{
+                        var r = (DeviceRibbon)context.DataItem;
+                    }
+                    @* 겹칠 때 누가 위인가. 값이 클수록 나중에 그려진다. *@
+                    <DxSpinEdit Value="@r.SortOrder" ValueChanged="@((int v) => r.SortOrder = v)"
+                                MinValue="0" SizeMode="SizeMode.Small" />
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn Caption="" Width="70" AllowSort="false">
+                <CellDisplayTemplate>
+                    @{
+                        var r = (DeviceRibbon)context.DataItem;
+                    }
+                    <PermissionView Action="MenuAction.Update">
+                        @* 목록에서만 뺀다. 실제로 지워지는 것은 저장할 때다 —
+                           서버가 전부 지우고 보낸 목록으로 다시 만든다. *@
+                        <DxButton Text="빼기" SizeMode="SizeMode.Small"
+                                  RenderStyle="ButtonRenderStyle.Secondary"
+                                  Click="@(() => Remove(r))" />
+                    </PermissionView>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+        </Columns>
+    </DxGrid>
+}
+
+@code {
+    /// <summary>어느 기기의 장식인가. 바뀌면 다시 읽는다.</summary>
+    [Parameter, EditorRequired] public string DeviceId { get; set; } = string.Empty;
+
+    private string? _loadedFor;
+
+    private List<DeviceRibbon> _ribbons = [];
+    private IReadOnlyList<MediaSource> _images = [];
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (string.Equals(_loadedFor, DeviceId, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        _loadedFor = DeviceId;
+        await ReloadAsync();
+    }
+
+    private Task ReloadAsync() => LoadAsync(async () =>
+    {
+        if (string.IsNullOrEmpty(DeviceId))
+        {
+            _ribbons = [];
+            return -1;
+        }
+
+        // 이미지 목록은 기기와 무관하다. 한 번만 읽는다.
+        if (_images.Count == 0)
+        {
+            _images = await Api.GetMediaSourcesAsync("IMAGE");
+        }
+
+        var loaded = await Api.GetDeviceRibbonsAsync(DeviceId);
+        _ribbons = [.. loaded];
+
+        return -1;
+    }, string.Empty, "장식을 읽지 못했습니다");
+
+    private void Add() => _ribbons.Add(new DeviceRibbon
+    {
+        DeviceId = DeviceId,
+        MediaSourceId = _images.Count > 0 ? _images[0].Id : string.Empty,
+
+        // 가운데 아래쯤에 적당한 크기로 놓는다. 0,0 에 0 크기로 두면
+        // 저장해도 화면에 아무것도 안 보여 「저장이 안 됐다」로 읽힌다.
+        PositionLeft = 10,
+        PositionTop = 70,
+        Width = 80,
+        Height = 20,
+        SortOrder = _ribbons.Count,
+    });
+
+    private void Remove(DeviceRibbon ribbon) => _ribbons.Remove(ribbon);
+
+    private async Task SaveAsync()
+    {
+        if (_ribbons.Any(r => string.IsNullOrWhiteSpace(r.MediaSourceId)))
+        {
+            Say("이미지를 고르지 않은 줄이 있습니다.", NoticeTone.Warning);
+            return;
+        }
+
+        var payload = _ribbons
+            .Select(r => new DeviceRibbonUpsert
+            {
+                DeviceId = DeviceId,
+                MediaSourceId = r.MediaSourceId,
+                PositionLeft = r.PositionLeft,
+                PositionTop = r.PositionTop,
+                Width = r.Width,
+                Height = r.Height,
+                SortOrder = r.SortOrder,
+                Remark = r.Remark,
+            })
+            .ToList();
+
+        if (await RunAsync(
+                () => Api.BulkSaveDeviceRibbonsAsync(DeviceId, payload),
+                "저장했습니다.", "장식을 저장하지 못했습니다"))
+        {
+            await ReloadAsync();
+        }
+    }
+}

@@ -1,0 +1,198 @@
+@*
+    [문구(텍스트 오버레이)] — 기기 화면 위에 얹는 글자들.
+
+    안내 문구·근조 문구가 이것이다. 장식(리본)과 같은 자리에 같은 방식으로
+    올라가는데, 이미지가 아니라 글자다. 포털 어느 화면에서도 볼 수 없었다.
+
+    [저장은 통째로 바꿔 끼운다]
+
+    서버가 그 기기의 문구를 **전부 지우고 보낸 목록으로 다시 만든다.**
+    장식과 같다 — 한 줄씩 저장하면 중간에 실패했을 때 절반만 남는다.
+*@
+
+@inherits DataPage
+@inject FuneralApi Api
+
+<h2 class="fn-subhead">
+    문구
+    <span class="fn-note">화면 위에 얹는 글자입니다. 위치·크기는 화면 대비 %.</span>
+</h2>
+
+<div class="jsini-toolbar">
+    <PermissionView Action="MenuAction.Update">
+        <DxButton Text="추가" RenderStyle="ButtonRenderStyle.Secondary" Click="@Add" />
+        <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Success" Click="@SaveAsync" />
+    </PermissionView>
+    <DxButton Text="되돌리기" RenderStyle="ButtonRenderStyle.Secondary" Click="@ReloadAsync" />
+</div>
+
+<PageNotice Text="@Notice" Tone="@Tone" />
+
+@if (_overlays.Count == 0)
+{
+    <p class="fn-note">등록된 문구가 없습니다.</p>
+}
+else
+{
+    @foreach (var overlay in _overlays)
+    {
+        <div class="fn-devsec is-on">
+            <div class="fn-devsec__body">
+                <DeviceField Label="문구" Wide="true">
+                    <DxTextBox Text="@overlay.TextContent"
+                               TextChanged="@((string v) => overlay.TextContent = v)"
+                               NullText="예: 삼가 고인의 명복을 빕니다" />
+                </DeviceField>
+
+                <DeviceField Label="글자 크기">
+                    <DxSpinEdit Value="@overlay.FontSize" ValueChanged="@((int v) => overlay.FontSize = v)"
+                                MinValue="8" MaxValue="200" />
+                </DeviceField>
+
+                <DeviceField Label="글자 색">
+                    @* 색을 글자로 넣는다. 서버가 CSS 색 문자열을 그대로 받고
+                       플레이어도 그대로 쓰기 때문에, 고르개를 얹으면 표현할 수
+                       있는 값이 오히려 좁아진다(`transparent` 를 못 넣는다). *@
+                    <DxTextBox Text="@overlay.FontColor"
+                               TextChanged="@((string v) => overlay.FontColor = v)"
+                               NullText="#ffffff" />
+                </DeviceField>
+
+                <DeviceField Label="배경 색">
+                    <DxTextBox Text="@overlay.BackgroundColor"
+                               TextChanged="@((string v) => overlay.BackgroundColor = v)"
+                               NullText="transparent" />
+                </DeviceField>
+
+                <DeviceField Label="정렬">
+                    <DxComboBox Data="@Aligns" TextFieldName="Name" ValueFieldName="Code"
+                                Value="@overlay.TextAlign"
+                                ValueChanged="@((string? v) => overlay.TextAlign = v ?? "center")" />
+                </DeviceField>
+
+                <DeviceField Label="굵기">
+                    <DxComboBox Data="@Weights" TextFieldName="Name" ValueFieldName="Code"
+                                Value="@overlay.FontWeight"
+                                ValueChanged="@((string? v) => overlay.FontWeight = v ?? "normal")" />
+                </DeviceField>
+
+                <DeviceField Label="위치 (왼쪽·위 %)">
+                    <div class="fn-quad">
+                        <DxSpinEdit Value="@overlay.PositionLeft"
+                                    ValueChanged="@((double v) => overlay.PositionLeft = v)"
+                                    MinValue="0" MaxValue="100" Increment="0.5" />
+                        <DxSpinEdit Value="@overlay.PositionTop"
+                                    ValueChanged="@((double v) => overlay.PositionTop = v)"
+                                    MinValue="0" MaxValue="100" Increment="0.5" />
+                    </div>
+                </DeviceField>
+
+                <DeviceField Label="크기 (너비·높이 %)">
+                    <div class="fn-quad">
+                        <DxSpinEdit Value="@overlay.Width" ValueChanged="@((double v) => overlay.Width = v)"
+                                    MinValue="0" MaxValue="100" Increment="0.5" />
+                        <DxSpinEdit Value="@overlay.Height" ValueChanged="@((double v) => overlay.Height = v)"
+                                    MinValue="0" MaxValue="100" Increment="0.5" />
+                    </div>
+                </DeviceField>
+
+                <DeviceField Label="순서">
+                    <DxSpinEdit Value="@overlay.SortOrder" ValueChanged="@((int v) => overlay.SortOrder = v)"
+                                MinValue="0" />
+                </DeviceField>
+
+                <DeviceField Label="">
+                    <PermissionView Action="MenuAction.Update">
+                        <DxButton Text="빼기" SizeMode="SizeMode.Small"
+                                  RenderStyle="ButtonRenderStyle.Secondary"
+                                  Click="@(() => Remove(overlay))" />
+                    </PermissionView>
+                </DeviceField>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    private sealed record Option(string Code, string Name);
+
+    private static readonly Option[] Aligns =
+    [
+        new("left", "왼쪽"),
+        new("center", "가운데"),
+        new("right", "오른쪽"),
+    ];
+
+    private static readonly Option[] Weights =
+    [
+        new("normal", "보통"),
+        new("bold", "굵게"),
+    ];
+
+    /// <summary>어느 기기의 문구인가. 바뀌면 다시 읽는다.</summary>
+    [Parameter, EditorRequired] public string DeviceId { get; set; } = string.Empty;
+
+    private string? _loadedFor;
+    private List<DeviceTextOverlay> _overlays = [];
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (string.Equals(_loadedFor, DeviceId, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        _loadedFor = DeviceId;
+        await ReloadAsync();
+    }
+
+    private Task ReloadAsync() => LoadAsync(async () =>
+    {
+        if (string.IsNullOrEmpty(DeviceId))
+        {
+            _overlays = [];
+            return -1;
+        }
+
+        var loaded = await Api.GetDeviceTextOverlaysAsync(DeviceId);
+        _overlays = [.. loaded];
+
+        return -1;
+    }, string.Empty, "문구를 읽지 못했습니다");
+
+    private void Add() => _overlays.Add(new DeviceTextOverlay
+    {
+        DeviceId = DeviceId,
+
+        // 가운데 아래쯤. 0 크기로 두면 저장해도 화면에 안 보여
+        // 「저장이 안 됐다」로 읽힌다.
+        PositionLeft = 10,
+        PositionTop = 80,
+        Width = 80,
+        Height = 10,
+        SortOrder = _overlays.Count,
+    });
+
+    private void Remove(DeviceTextOverlay overlay) => _overlays.Remove(overlay);
+
+    private async Task SaveAsync()
+    {
+        if (_overlays.Any(o => string.IsNullOrWhiteSpace(o.TextContent)))
+        {
+            Say("내용이 비어 있는 문구가 있습니다.", NoticeTone.Warning);
+            return;
+        }
+
+        foreach (var overlay in _overlays)
+        {
+            overlay.DeviceId = DeviceId;
+        }
+
+        if (await RunAsync(
+                () => Api.BulkSaveDeviceTextOverlaysAsync(DeviceId, _overlays),
+                "저장했습니다.", "문구를 저장하지 못했습니다"))
+        {
+            await ReloadAsync();
+        }
+    }
+}
