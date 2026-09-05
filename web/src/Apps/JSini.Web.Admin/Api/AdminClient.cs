@@ -91,6 +91,16 @@ public sealed class AdminClient(GatewayClient gateway)
     public Task SaveRoleMenusAsync(string roleId, IReadOnlyList<RoleMenuDto> menus, CancellationToken ct = default)
         => gateway.PostAsync($"auth/system/role-permission/roles/{roleId}/menus/save", new { menus }, ct);
 
+    /// <summary>
+    /// 메뉴 하나를 기준으로 본 권한 현황 — <b>「이 메뉴는 누가 쓸 수 있나」</b>.
+    ///
+    /// 읽기만 있다. 저장은 <see cref="SaveRoleMenusAsync"/> 와
+    /// <see cref="RemoveRoleScopeAsync"/> 를 그대로 쓴다 — 같은 일을 하는
+    /// 저장 경로를 둘로 만들면 한쪽에만 규칙이 붙는다.
+    /// </summary>
+    public Task<MenuRoleDto?> GetMenuRoleAsync(string menuId, CancellationToken ct = default)
+        => gateway.GetOneAsync<MenuRoleDto>($"auth/system/menu-role/{menuId}", ct);
+
     // ── 회사 · 부서 ─────────────────────────────────────────────
 
     public Task<IReadOnlyList<CompanyDto>> GetCompaniesAsync(CancellationToken ct = default)

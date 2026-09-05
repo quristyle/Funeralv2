@@ -1,101 +1,407 @@
 @page "/admin/auth/menu-role"
 
 @*
-    [메뉴별 권한] — DB 메뉴 `/auth/menu-role`.
+    [메뉴롤 — 메뉴 기준 권한 현황] — DB 메뉴 `/auth/menu-role`.
     이력: Vue `views/portal/auth/menu-role/index` → 여기.
+    API: `auth/system/menu-role/{menuId}`(읽기) ·
+         `auth/system/role-permission/roles/{roleId}/menus{,/save}`(권한 저장) ·
+         `auth/system/role-scope/remove`(대상 해제)
 
-    역할을 고르면 메뉴마다 **버튼 단위 권한**이 나온다. 조회만 켜고 등록은 끄는
-    식으로 화면 안에서 버튼을 켜고 끈다 — 그 판정을 `PermissionView` 가 읽는다.
+    「역할 관리」는 **역할**에서 출발한다 — 「이 역할은 어떤 메뉴를 쓰나」.
+    이 화면은 반대로 **「이 메뉴는 누가 쓸 수 있나」** 를 본다.
 
-    [통째로 저장한다]
+    [방향이 거꾸로 되어 있었다]
 
-    바뀐 줄만 보내지 않는다. 서버가 목록을 그대로 받아 덮어쓰므로, 목록에 없는
-    메뉴는 권한이 풀린다. 부분 저장으로 두면 "지운 권한이 안 지워진다" 가 생긴다.
+    이 화면은 역할을 골라 메뉴 목록을 보여 주고 있었다. 그건 역할 관리가 하는
+    일이고, 정작 **메뉴에서 출발하는 길이 어디에도 없었다.** 「이 메뉴에
+    파트너도 들어오나?」를 알려면 역할을 하나씩 열어 메뉴를 훑어야 했고,
+    역할이 넷이면 네 번 확인해야 했다. 그러라고 서버에
+    `auth/system/menu-role/{menuId}` 가 있는데 부르는 곳이 없었다.
+
+    [사용자 정의 권한 여덟 개가 저장 때마다 지워지고 있었다]
+
+    저장은 **그 역할의 메뉴 권한 목록을 통째로 받아 덮어쓴다.** 그런데 화면이
+    읽어 오던 DTO 에 `canCust1`~`canCust8` 이 없었다. 읽을 때 버려지고 저장할
+    때 전부 false 로 나간다 — 한 번 저장하면 그 역할의 사용자 정의 권한이
+    통째로 사라진다. 그릇을 채워 고쳤다.
+
+    [메뉴가 안 쓰는 권한은 보여 주지 않는다]
+
+    메뉴가 「쓰지 않는다」고 지정한 항목은 역할에 켜 두어도 효과가 없다 —
+    서버가 메뉴의 `use_*` 와 AND 로 묶는다. 켜도 아무 일이 없는 칸을 보여 주면
+    「켰는데 왜 안 되지」로 헤매게 된다.
+
+    [저장 경로를 새로 만들지 않는다]
+
+    역할↔메뉴 권한은 role-permission, 대상 해제는 role-scope 를 그대로 쓴다.
+    같은 일을 하는 저장 경로를 둘로 만들면 한쪽에만 규칙이 붙어 갈라진다.
+
+    [실패를 빈 표로 보여 주면 안 된다]
+
+    권한 화면에서 「아무도 못 쓴다」는 거짓말은 위험하다 — 열려 있는데 닫힌 줄
+    알게 된다. 못 읽었을 때는 표가 아니라 실패를 말한다.
 *@
 
 @inherits DataPage
 @inject AdminClient Api
 
-<PageTitle>메뉴별 권한 · 포털관리</PageTitle>
+<PageTitle>메뉴롤 · 포털관리</PageTitle>
 
-<PageHeading Title="메뉴별 권한" Scope="포털관리" />
-
-<div class="jsini-toolbar">
-    <DxComboBox Data="@_roles" @bind-Value="_roleId"
-                TextFieldName="@nameof(RoleDto.Name)" ValueFieldName="@nameof(RoleDto.Id)"
-                NullText="역할을 고르십시오" Style="width: 240px" />
-    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@ReloadAsync" />
-
-    <div class="jsini-toolbar__spacer"></div>
-
-    <PermissionView Action="MenuAction.Update">
-        <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Success"
-                  Enabled="@(_roleId is not null && _menus.Count > 0)" Click="@SaveAsync" />
-    </PermissionView>
-</div>
-
-<DxGrid Data="@_menus" ShowFilterRow="false" PageSize="30">
-    <Columns>
-        <DxGridDataColumn FieldName="@nameof(RoleMenuDto.MenuName)" Caption="메뉴" MinWidth="220" />
-        <DxGridDataColumn Caption="조회" Width="70">
-            <CellDisplayTemplate Context="c"><DxCheckBox Checked="@(((RoleMenuDto)c.DataItem).CanView)" CheckedChanged="@((bool v) => ((RoleMenuDto)c.DataItem).CanView = v)" /></CellDisplayTemplate>
-        </DxGridDataColumn>
-        <DxGridDataColumn Caption="검색" Width="70">
-            <CellDisplayTemplate Context="c"><DxCheckBox Checked="@(((RoleMenuDto)c.DataItem).CanSearch)" CheckedChanged="@((bool v) => ((RoleMenuDto)c.DataItem).CanSearch = v)" /></CellDisplayTemplate>
-        </DxGridDataColumn>
-        <DxGridDataColumn Caption="등록" Width="70">
-            <CellDisplayTemplate Context="c"><DxCheckBox Checked="@(((RoleMenuDto)c.DataItem).CanCreate)" CheckedChanged="@((bool v) => ((RoleMenuDto)c.DataItem).CanCreate = v)" /></CellDisplayTemplate>
-        </DxGridDataColumn>
-        <DxGridDataColumn Caption="수정" Width="70">
-            <CellDisplayTemplate Context="c"><DxCheckBox Checked="@(((RoleMenuDto)c.DataItem).CanUpdate)" CheckedChanged="@((bool v) => ((RoleMenuDto)c.DataItem).CanUpdate = v)" /></CellDisplayTemplate>
-        </DxGridDataColumn>
-        <DxGridDataColumn Caption="삭제" Width="70">
-            <CellDisplayTemplate Context="c"><DxCheckBox Checked="@(((RoleMenuDto)c.DataItem).CanDelete)" CheckedChanged="@((bool v) => ((RoleMenuDto)c.DataItem).CanDelete = v)" /></CellDisplayTemplate>
-        </DxGridDataColumn>
-        <DxGridDataColumn Caption="출력" Width="70">
-            <CellDisplayTemplate Context="c"><DxCheckBox Checked="@(((RoleMenuDto)c.DataItem).CanPrint)" CheckedChanged="@((bool v) => ((RoleMenuDto)c.DataItem).CanPrint = v)" /></CellDisplayTemplate>
-        </DxGridDataColumn>
-        <DxGridDataColumn Caption="엑셀" Width="70">
-            <CellDisplayTemplate Context="c"><DxCheckBox Checked="@(((RoleMenuDto)c.DataItem).CanExcel)" CheckedChanged="@((bool v) => ((RoleMenuDto)c.DataItem).CanExcel = v)" /></CellDisplayTemplate>
-        </DxGridDataColumn>
-    </Columns>
-</DxGrid>
+<PageHeading Title="메뉴롤" Scope="포털관리" />
 
 <PageNotice Text="@Notice" Tone="@Tone" />
 
+<div class="ad-split">
+    <div class="ad-split__side">
+        <div class="jsini-toolbar">
+            <DxTextBox @bind-Text="_keyword" NullText="메뉴 검색" Style="width: 100%"
+                       ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        </div>
+
+        @* 메뉴가 260개가 넘는다. 트리를 통째로 펼쳐 두면 훑을 수가 없어
+           DevExpress 의 기본(접힘)을 그대로 쓴다. 검색은 아래 목록으로 받는다. *@
+        @if (string.IsNullOrWhiteSpace(_keyword))
+        {
+            <DxTreeList Data="@_menus"
+                        ChildrenFieldName="@nameof(SystemMenuDto.Children)"
+                        KeyFieldName="@nameof(SystemMenuDto.Id)"
+                        PageSize="0">
+                <Columns>
+                    <DxTreeListDataColumn Caption="메뉴" MinWidth="200">
+                        <CellDisplayTemplate Context="cell">
+                            @{
+                                var m = (SystemMenuDto)cell.DataItem;
+                            }
+                            <button type="button" class="@MenuButtonClass(m.Id)"
+                                    @onclick="@(() => SelectAsync(m.Id))">
+                                @Title(m)
+                            </button>
+                        </CellDisplayTemplate>
+                    </DxTreeListDataColumn>
+                </Columns>
+            </DxTreeList>
+        }
+        else
+        {
+            @* 걸린 것만 평평하게 보여 준다. 트리로 거르면 부모를 함께 남겨야
+               하고, 접힌 부모 아래의 자식은 어차피 안 보인다. *@
+            <ul class="ad-menupick">
+                @foreach (var m in Found)
+                {
+                    <li>
+                        <button type="button" class="@MenuButtonClass(m.Id)"
+                                @onclick="@(() => SelectAsync(m.Id))">
+                            @Title(m)
+                            <span class="ad-menu__trail">@m.Path</span>
+                        </button>
+                    </li>
+                }
+
+                @if (Found.Count == 0)
+                {
+                    <li class="ad-stamp">찾은 메뉴가 없습니다.</li>
+                }
+            </ul>
+        }
+    </div>
+
+    <div class="ad-split__main">
+        @if (_detail is null)
+        {
+            <PageNotice Text="왼쪽에서 메뉴를 고르십시오." Tone="NoticeTone.Info" />
+        }
+        else
+        {
+            <h2 class="ad-section">@_detail.MenuName</h2>
+            <p class="ad-stamp">
+                @_detail.MenuPath
+                · 열람 가능 인원 @_detail.EffectiveUserCount 명
+            </p>
+
+            <h2 class="ad-section">역할 × 권한</h2>
+
+            @if (Items.Count == 0)
+            {
+                @* 메뉴가 아무 권한 항목도 쓰지 않는 경우다. 빈 표를 보여 주면
+                   자료를 못 읽은 것처럼 읽힌다. *@
+                <PageNotice Tone="NoticeTone.Warning"
+                            Text="이 메뉴는 쓰는 권한 항목이 하나도 없습니다. [메뉴 관리]에서 먼저 지정하십시오." />
+            }
+            else
+            {
+                <div class="ad-scroll">
+                    <table class="ad-perm">
+                        <thead>
+                            <tr>
+                                <th>역할</th>
+                                @foreach (var item in Items)
+                                {
+                                    <th>@item.Label</th>
+                                }
+                                <th>걸린 대상</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var role in _detail.Roles)
+                            {
+                                <tr class="@(role.Granted ? "is-on" : string.Empty)">
+                                    <td>@role.RoleName</td>
+
+                                    @foreach (var item in Items)
+                                    {
+                                        <td>
+                                            <DxCheckBox Checked="@item.Get(role)"
+                                                        CheckedChanged="@((bool v) => item.Set(role, v))" />
+                                        </td>
+                                    }
+
+                                    <td class="ad-stamp">
+                                        회사 @role.CompanyCount · 부서 @role.DepartmentCount · 사람 @role.AccountCount
+                                    </td>
+
+                                    <td>
+                                        <PermissionView Action="MenuAction.Update">
+                                            <DxButton Text="저장" SizeMode="SizeMode.Small"
+                                                      RenderStyle="ButtonRenderStyle.Secondary"
+                                                      Enabled="@(_savingRole != role.RoleId)"
+                                                      Click="@(() => SaveRoleAsync(role))" />
+                                        </PermissionView>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+
+            <TargetBlock Title="이 메뉴에 닿는 회사" Kind="company" Targets="@_detail.Companies"
+                         OnDetach="@DetachAsync" />
+            <TargetBlock Title="이 메뉴에 닿는 부서" Kind="department" Targets="@_detail.Departments"
+                         OnDetach="@DetachAsync" />
+            <TargetBlock Title="이 메뉴에 닿는 사람" Kind="account" Targets="@_detail.Accounts"
+                         OnDetach="@DetachAsync" />
+        }
+    </div>
+</div>
+
 @code {
-    private IReadOnlyList<RoleDto> _roles = [];
-    private string? _roleId;
-    private IReadOnlyList<RoleMenuDto> _menus = [];
+    /// <summary>
+    /// 권한 항목 하나. 어느 칸을 읽고 쓰는지와, 메뉴가 그것을 쓰는지 보는 법을
+    /// 함께 들고 있다. 열다섯 개를 손으로 늘어놓으면 반드시 하나를 빠뜨린다.
+    /// </summary>
+    private sealed record PermissionItem(
+        string Label,
+        Func<MenuUsedPermissionDto, bool> Used,
+        Func<MenuRoleGrantDto, bool> Get,
+        Action<MenuRoleGrantDto, bool> Set,
+        Func<MenuUsedPermissionDto, string?>? Name = null);
 
-    protected override Task OnInitializedAsync() => ReloadAsync();
+    private static readonly PermissionItem[] AllItems =
+    [
+        new("열람", u => u.View, r => r.CanView, (r, v) => r.CanView = v),
+        new("조회", u => u.Search, r => r.CanSearch, (r, v) => r.CanSearch = v),
+        new("등록", u => u.Create, r => r.CanCreate, (r, v) => r.CanCreate = v),
+        new("수정", u => u.Update, r => r.CanUpdate, (r, v) => r.CanUpdate = v),
+        new("삭제", u => u.Delete, r => r.CanDelete, (r, v) => r.CanDelete = v),
+        new("출력", u => u.Print, r => r.CanPrint, (r, v) => r.CanPrint = v),
+        new("엑셀", u => u.Excel, r => r.CanExcel, (r, v) => r.CanExcel = v),
+        new("사용자1", u => u.Cust1, r => r.CanCust1, (r, v) => r.CanCust1 = v, u => u.Cust1Name),
+        new("사용자2", u => u.Cust2, r => r.CanCust2, (r, v) => r.CanCust2 = v, u => u.Cust2Name),
+        new("사용자3", u => u.Cust3, r => r.CanCust3, (r, v) => r.CanCust3 = v, u => u.Cust3Name),
+        new("사용자4", u => u.Cust4, r => r.CanCust4, (r, v) => r.CanCust4 = v, u => u.Cust4Name),
+        new("사용자5", u => u.Cust5, r => r.CanCust5, (r, v) => r.CanCust5 = v, u => u.Cust5Name),
+        new("사용자6", u => u.Cust6, r => r.CanCust6, (r, v) => r.CanCust6 = v, u => u.Cust6Name),
+        new("사용자7", u => u.Cust7, r => r.CanCust7, (r, v) => r.CanCust7 = v, u => u.Cust7Name),
+        new("사용자8", u => u.Cust8, r => r.CanCust8, (r, v) => r.CanCust8 = v, u => u.Cust8Name),
+    ];
 
-    private Task ReloadAsync() => LoadAsync(async () =>
+    private IReadOnlyList<SystemMenuDto> _menus = [];
+    private string? _keyword;
+
+    private string? _menuId;
+    private MenuRoleDto? _detail;
+    private string? _savingRole;
+
+    /// <summary>이 메뉴가 실제로 쓰는 권한 항목만. 이름은 메뉴가 붙인 것을 우선한다.</summary>
+    private List<(string Label, Func<MenuRoleGrantDto, bool> Get, Action<MenuRoleGrantDto, bool> Set)> Items
     {
-        if (_roles.Count == 0)
+        get
         {
-            _roles = await Api.GetRolesAsync();
-        }
+            if (_detail is null)
+            {
+                return [];
+            }
 
-        if (string.IsNullOrWhiteSpace(_roleId))
+            var used = _detail.Used;
+
+            return [.. AllItems
+                .Where(i => i.Used(used))
+                .Select(i =>
+                {
+                    var custom = i.Name?.Invoke(used);
+                    var label = string.IsNullOrWhiteSpace(custom) ? i.Label : custom!;
+                    return (label, i.Get, i.Set);
+                })];
+        }
+    }
+
+    /// <summary>검색에 걸린 메뉴. 트리를 펴서 훑는다.</summary>
+    private List<SystemMenuDto> Found
+    {
+        get
         {
-            _menus = [];
-            Say("역할을 고르고 조회하십시오.");
-            return -1;
-        }
+            var keyword = _keyword?.Trim();
 
-        _menus = await Api.GetRoleMenusAsync(_roleId);
+            if (string.IsNullOrEmpty(keyword))
+            {
+                return [];
+            }
+
+            var hits = new List<SystemMenuDto>();
+            Walk(_menus, hits, keyword);
+            return hits;
+        }
+    }
+
+    protected override Task OnInitializedAsync() => LoadMenusAsync();
+
+    private Task LoadMenusAsync() => LoadAsync(async () =>
+    {
+        _menus = await Api.GetSystemMenusAsync();
         return _menus.Count;
-    }, "그 역할에 걸린 메뉴가 없습니다.", "메뉴 권한을 읽지 못했습니다");
+    }, "등록된 메뉴가 없습니다.", "메뉴 목록을 읽지 못했습니다");
 
-    private async Task SaveAsync()
+    private Task SelectAsync(string menuId)
     {
-        if (_roleId is null) return;
+        _menuId = menuId;
 
-        if (await RunAsync(() => Api.SaveRoleMenusAsync(_roleId, _menus),
-                "저장했습니다.", "저장하지 못했습니다"))
+        return LoadAsync(async () =>
         {
-            await ReloadAsync();
+            _detail = await Api.GetMenuRoleAsync(menuId);
+
+            // 못 읽었으면 빈 표가 아니라 실패로 말한다. 권한 화면에서
+            // 「아무도 못 쓴다」는 거짓말은 열려 있는 문을 닫힌 것으로 읽게 한다.
+            if (_detail is null)
+            {
+                throw new ApiException("이 메뉴의 권한 현황을 받지 못했습니다.");
+            }
+
+            return _detail.Roles.Count;
+        }, "이 메뉴에 걸린 역할이 없습니다.", "권한 현황을 읽지 못했습니다");
+    }
+
+    /// <summary>
+    /// 역할 한 줄의 권한을 저장한다.
+    ///
+    /// 저장은 <b>그 역할의 메뉴 권한 목록을 통째로</b> 받는다. 이 화면은 메뉴
+    /// 하나만 보고 있으므로, 다른 메뉴의 권한을 지우지 않으려면 그 역할의 현재
+    /// 목록을 먼저 받아 이 메뉴 한 줄만 갈아 끼워 보내야 한다.
+    /// </summary>
+    private async Task SaveRoleAsync(MenuRoleGrantDto role)
+    {
+        if (_detail is null)
+        {
+            return;
+        }
+
+        _savingRole = role.RoleId;
+
+        try
+        {
+            var saved = await RunAsync(async () =>
+            {
+                var current = await Api.GetRoleMenusAsync(role.RoleId);
+
+                var next = current
+                    .Where(m => !string.Equals(m.MenuId, _detail.MenuId, StringComparison.Ordinal))
+                    .ToList();
+
+                next.Add(new RoleMenuDto
+                {
+                    MenuId = _detail.MenuId,
+                    CanView = role.CanView,
+                    CanSearch = role.CanSearch,
+                    CanCreate = role.CanCreate,
+                    CanUpdate = role.CanUpdate,
+                    CanDelete = role.CanDelete,
+                    CanPrint = role.CanPrint,
+                    CanExcel = role.CanExcel,
+                    CanCust1 = role.CanCust1,
+                    CanCust2 = role.CanCust2,
+                    CanCust3 = role.CanCust3,
+                    CanCust4 = role.CanCust4,
+                    CanCust5 = role.CanCust5,
+                    CanCust6 = role.CanCust6,
+                    CanCust7 = role.CanCust7,
+                    CanCust8 = role.CanCust8,
+                });
+
+                await Api.SaveRoleMenusAsync(role.RoleId, next);
+            }, $"{role.RoleName} 권한을 저장했습니다.", "권한을 저장하지 못했습니다");
+
+            if (saved && _menuId is not null)
+            {
+                await SelectAsync(_menuId);
+            }
+        }
+        finally
+        {
+            _savingRole = null;
+        }
+    }
+
+    /// <summary>
+    /// 대상에서 역할을 푼다.
+    ///
+    /// <b>그 역할이 이 메뉴를 주던 유일한 길이면 접근이 끊긴다.</b> 어느 역할
+    /// 때문에 닿는지를 목록이 함께 보여 주는 이유가 그것이다.
+    /// </summary>
+    private async Task DetachAsync((string Kind, string TargetId, string RoleId, string Name) e)
+    {
+        var ok = await RunAsync(
+            () => Api.RemoveRoleScopeAsync(e.Kind, e.TargetId, e.RoleId),
+            $"{e.Name} 에서 역할을 해제했습니다.", "역할을 해제하지 못했습니다");
+
+        if (ok && _menuId is not null)
+        {
+            await SelectAsync(_menuId);
+        }
+    }
+
+    private string MenuButtonClass(string id) =>
+        string.Equals(id, _menuId, StringComparison.Ordinal) ? "ad-menupick__btn is-on" : "ad-menupick__btn";
+
+    private static string Title(SystemMenuDto m) =>
+        !string.IsNullOrWhiteSpace(m.Meta.TitleText) ? m.Meta.TitleText!
+        : !string.IsNullOrWhiteSpace(m.Meta.Title) ? m.Meta.Title!
+        : m.Name;
+
+    /// <summary>
+    /// 트리를 펴서 검색어에 걸리는 것을 모은다.
+    ///
+    /// 보이는 이름뿐 아니라 <b>저장된 이름과 경로</b>로도 찾히게 한다.
+    /// 화면에는 「분석」이라고 떠도 사람은 <c>analytics</c> 로 기억하고 있을 수 있다.
+    /// </summary>
+    private static void Walk(IEnumerable<SystemMenuDto> nodes, List<SystemMenuDto> into, string keyword)
+    {
+        foreach (var node in nodes)
+        {
+            var hit =
+                Title(node).Contains(keyword, StringComparison.OrdinalIgnoreCase)
+                || node.Name.Contains(keyword, StringComparison.OrdinalIgnoreCase)
+                || (node.Meta.Title?.Contains(keyword, StringComparison.OrdinalIgnoreCase) ?? false)
+                || node.Path.Contains(keyword, StringComparison.OrdinalIgnoreCase);
+
+            if (hit)
+            {
+                into.Add(node);
+            }
+
+            if (node.Children is { Count: > 0 })
+            {
+                Walk(node.Children, into, keyword);
+            }
         }
     }
 }

@@ -93,6 +93,174 @@ public sealed class RoleMenuDto
     public bool CanDelete { get; set; }
     public bool CanPrint { get; set; }
     public bool CanExcel { get; set; }
+
+    // ── 사용자 정의 권한 여덟 개 ────────────────────────────
+    //
+    // **이 칸들이 없어서 저장할 때마다 지워지고 있었다.** 저장은 목록을
+    // 통째로 덮어쓰는데, 읽을 때 버린 값은 보낼 때 false 가 된다.
+
+    public bool CanCust1 { get; set; }
+    public bool CanCust2 { get; set; }
+    public bool CanCust3 { get; set; }
+    public bool CanCust4 { get; set; }
+    public bool CanCust5 { get; set; }
+    public bool CanCust6 { get; set; }
+    public bool CanCust7 { get; set; }
+    public bool CanCust8 { get; set; }
+
+    // ── 이 메뉴가 쓰는 권한 항목 (읽기 전용) ─────────────────
+    //
+    // 메뉴가 안 쓴다고 지정한 항목은 역할에 켜 두어도 효과가 없다 —
+    // 서버가 메뉴의 `use_*` 와 AND 로 묶는다. 켜도 아무 일이 없는 칸을
+    // 보여 주면 「켰는데 왜 안 되지」로 헤매게 된다.
+
+    public bool UseView { get; set; }
+    public bool UseSearch { get; set; }
+    public bool UseCreate { get; set; }
+    public bool UseUpdate { get; set; }
+    public bool UseDelete { get; set; }
+    public bool UsePrint { get; set; }
+    public bool UseExcel { get; set; }
+    public bool UseCust1 { get; set; }
+    public bool UseCust2 { get; set; }
+    public bool UseCust3 { get; set; }
+    public bool UseCust4 { get; set; }
+    public bool UseCust5 { get; set; }
+    public bool UseCust6 { get; set; }
+    public bool UseCust7 { get; set; }
+    public bool UseCust8 { get; set; }
+
+    /// <summary>사용자 정의 항목의 이름. 메뉴 관리 화면에서 붙인다.</summary>
+    public string? Cust1Name { get; set; }
+    public string? Cust2Name { get; set; }
+    public string? Cust3Name { get; set; }
+    public string? Cust4Name { get; set; }
+    public string? Cust5Name { get; set; }
+    public string? Cust6Name { get; set; }
+    public string? Cust7Name { get; set; }
+    public string? Cust8Name { get; set; }
+}
+
+// ── 메뉴 기준 권한 현황 (`auth/system/menu-role/{menuId}`) ──────
+//
+// 역할 관리는 **역할**에서 출발한다 — 「이 역할은 어떤 메뉴를 쓰나」.
+// 이쪽은 반대다 — **「이 메뉴는 누가 쓸 수 있나」**. 같은 자료를 거꾸로 훑는다.
+//
+// 읽기 전용이다. 저장은 이미 있는 경로를 그대로 쓴다
+// (`role-permission/.../menus/save` · `role-scope/remove`) —
+// 같은 일을 하는 저장 경로를 둘로 만들면 한쪽에만 규칙이 붙는다.
+
+/// <summary>메뉴 하나를 기준으로 본 권한 현황.</summary>
+public sealed class MenuRoleDto
+{
+    public string MenuId { get; set; } = string.Empty;
+    public string MenuName { get; set; } = string.Empty;
+    public string? MenuPath { get; set; }
+
+    /// <summary>이 메뉴가 실제로 쓰는 권한 항목.</summary>
+    public MenuUsedPermissionDto Used { get; set; } = new();
+
+    /// <summary>
+    /// 모든 역할과 이 메뉴에 대한 권한.
+    ///
+    /// <b>걸려 있지 않은 역할도 담겨 온다.</b> 화면에서 새로 켜 줄 수 있어야
+    /// 하는데 걸린 것만 주면 「없는 역할」을 고를 방법이 없다.
+    /// </summary>
+    public List<MenuRoleGrantDto> Roles { get; set; } = [];
+
+    public List<MenuRoleTargetDto> Companies { get; set; } = [];
+    public List<MenuRoleTargetDto> Departments { get; set; } = [];
+    public List<MenuRoleTargetDto> Accounts { get; set; } = [];
+
+    /// <summary>
+    /// 이 메뉴를 실제로 열람할 수 있는 사람 수.
+    ///
+    /// 목록의 건수를 더한 값과 <b>다를 수 있다</b> — 한 사람이 회사와 부서
+    /// 양쪽에서 걸릴 수 있어 사람 단위로 중복을 없앤 값이다.
+    /// </summary>
+    public int EffectiveUserCount { get; set; }
+}
+
+/// <summary>메뉴가 실제로 쓰는 권한 항목 (<c>system_menus.use_*</c>).</summary>
+public sealed class MenuUsedPermissionDto
+{
+    public bool View { get; set; }
+    public bool Search { get; set; }
+    public bool Create { get; set; }
+    public bool Update { get; set; }
+    public bool Delete { get; set; }
+    public bool Print { get; set; }
+    public bool Excel { get; set; }
+    public bool Cust1 { get; set; }
+    public bool Cust2 { get; set; }
+    public bool Cust3 { get; set; }
+    public bool Cust4 { get; set; }
+    public bool Cust5 { get; set; }
+    public bool Cust6 { get; set; }
+    public bool Cust7 { get; set; }
+    public bool Cust8 { get; set; }
+
+    public string? Cust1Name { get; set; }
+    public string? Cust2Name { get; set; }
+    public string? Cust3Name { get; set; }
+    public string? Cust4Name { get; set; }
+    public string? Cust5Name { get; set; }
+    public string? Cust6Name { get; set; }
+    public string? Cust7Name { get; set; }
+    public string? Cust8Name { get; set; }
+}
+
+/// <summary>역할 하나가 이 메뉴에 대해 가진 권한.</summary>
+public sealed class MenuRoleGrantDto
+{
+    public string RoleId { get; set; } = string.Empty;
+    public string RoleName { get; set; } = string.Empty;
+
+    /// <summary>이 역할에 이 메뉴 권한이 한 줄이라도 걸려 있는가.</summary>
+    public bool Granted { get; set; }
+
+    public bool CanView { get; set; }
+    public bool CanSearch { get; set; }
+    public bool CanCreate { get; set; }
+    public bool CanUpdate { get; set; }
+    public bool CanDelete { get; set; }
+    public bool CanPrint { get; set; }
+    public bool CanExcel { get; set; }
+    public bool CanCust1 { get; set; }
+    public bool CanCust2 { get; set; }
+    public bool CanCust3 { get; set; }
+    public bool CanCust4 { get; set; }
+    public bool CanCust5 { get; set; }
+    public bool CanCust6 { get; set; }
+    public bool CanCust7 { get; set; }
+    public bool CanCust8 { get; set; }
+
+    /// <summary>이 역할이 걸린 회사·부서·사람 수. 「이 역할을 끄면 몇이 영향받나」다.</summary>
+    public int CompanyCount { get; set; }
+    public int DepartmentCount { get; set; }
+    public int AccountCount { get; set; }
+}
+
+/// <summary>이 메뉴에 닿는 대상 하나 (회사 · 부서 · 사람).</summary>
+public sealed class MenuRoleTargetDto
+{
+    public string Id { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+
+    /// <summary>부서·사람이면 소속 회사명. 같은 이름이 여러 회사에 있다.</summary>
+    public string? CompanyName { get; set; }
+
+    /// <summary>사람이면 로그인 아이디.</summary>
+    public string? LoginId { get; set; }
+
+    /// <summary>어느 역할 때문에 닿는지. 여럿일 수 있다.</summary>
+    public List<string> ViaRoleNames { get; set; } = [];
+
+    /// <summary>어느 역할 때문에 닿는지 (식별자). 해제 요청에 쓴다.</summary>
+    public List<string> ViaRoleIds { get; set; } = [];
+
+    /// <summary>이 대상에 딸린 사람 수. 회사면 회사 인원, 사람이면 1.</summary>
+    public int UserCount { get; set; }
 }
 
 /// <summary>회사.</summary>

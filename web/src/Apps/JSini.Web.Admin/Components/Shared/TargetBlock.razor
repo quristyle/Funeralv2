@@ -1,0 +1,80 @@
+@*
+    이 메뉴에 닿는 대상(회사 · 부서 · 사람) 한 묶음.
+
+    셋이 같은 모양이라 부품으로 뺐다. 손으로 세 번 적으면 갈라지는데,
+    갈라지는 곳은 늘 **해제 단추**다 — 한쪽에만 확인이 붙거나 한쪽만
+    `kind` 를 잘못 보내는 식이다. `kind` 를 부품 밖에서 받는 이유가 그것이다.
+
+    [어느 역할 때문에 닿는지를 함께 보여 준다]
+
+    여러 역할이 동시에 걸릴 수 있다. 하나를 풀어도 다른 역할이 남아 있으면
+    접근이 그대로다 — 어느 것을 풀어야 하는지 이름이 보이지 않으면 알 수 없다.
+*@
+
+<h2 class="ad-section">@Title (@Targets.Count)</h2>
+
+@if (Targets.Count == 0)
+{
+    <p class="ad-stamp">없습니다.</p>
+}
+else
+{
+    <div class="ad-scroll">
+        <table class="ad-perm">
+            <thead>
+                <tr>
+                    <th>이름</th>
+                    <th>소속</th>
+                    <th>인원</th>
+                    <th>걸린 역할</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var target in Targets)
+                {
+                    <tr>
+                        <td>
+                            @target.Name
+                            @if (!string.IsNullOrWhiteSpace(target.LoginId))
+                            {
+                                <span class="ad-stamp">@target.LoginId</span>
+                            }
+                        </td>
+                        <td class="ad-stamp">@target.CompanyName</td>
+                        <td class="ad-stamp">@target.UserCount</td>
+                        <td>
+                            @* 이름과 식별자가 짝이다. 서버가 같은 순서로 준다. *@
+                            @for (var i = 0; i < target.ViaRoleIds.Count; i++)
+                            {
+                                var roleId = target.ViaRoleIds[i];
+                                var roleName = i < target.ViaRoleNames.Count ? target.ViaRoleNames[i] : roleId;
+
+                                <span class="ad-via">
+                                    <span class="jsini-badge">@roleName</span>
+
+                                    <PermissionView Action="MenuAction.Update">
+                                        <DxButton Text="해제" SizeMode="SizeMode.Small"
+                                                  RenderStyle="ButtonRenderStyle.Secondary"
+                                                  Click="@(() => OnDetach.InvokeAsync((Kind, target.Id, roleId, target.Name)))" />
+                                    </PermissionView>
+                                </span>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
+
+    /// <summary>해제 요청에 실어 보낼 대상 종류 — <c>company</c> · <c>department</c> · <c>account</c>.</summary>
+    [Parameter, EditorRequired] public string Kind { get; set; } = string.Empty;
+
+    [Parameter, EditorRequired] public IReadOnlyList<MenuRoleTargetDto> Targets { get; set; } = [];
+
+    /// <summary>해제를 눌렀다. 실제 호출과 확인은 화면이 한다.</summary>
+    [Parameter] public EventCallback<(string Kind, string TargetId, string RoleId, string Name)> OnDetach { get; set; }
+}

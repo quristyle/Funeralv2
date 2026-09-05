@@ -343,3 +343,83 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* ── 메뉴롤 — 메뉴 고르기 ─────────────────────────────────
+
+   눌러서 오른쪽을 바꾸는 자리라 단추여야 한다. div 로 두면 키보드로
+   고를 수 없고, 트리 안에서는 링크처럼 보이지도 않는다.
+   ---------------------------------------------------------- */
+
+.ad-menupick {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  /* 검색 결과가 수십 건이 된다. 오른쪽 판이 밀려 내려가지 않게 가둔다. */
+  max-height: 62vh;
+  overflow-y: auto;
+}
+
+.ad-menupick__btn {
+  display: block;
+  width: 100%;
+  padding: 0.15rem 0.3rem;
+  border: 1px solid transparent;
+  border-radius: 0.2rem;
+  background: none;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.ad-menupick__btn:hover {
+  background: var(--jsini-surface-muted, rgba(127, 127, 127, 0.08));
+}
+
+.ad-menupick__btn.is-on {
+  border-color: #1976d2;
+  background: color-mix(in srgb, #1976d2 10%, transparent);
+}
+
+/* ── 메뉴롤 — 역할 × 권한 표 ──────────────────────────────
+
+   칸이 메뉴마다 달라진다(그 메뉴가 쓰는 권한만 나온다). 칸 수가 정해지지
+   않아 그리드로 옮길 대상이 아니라 손으로 쓴 표를 그대로 둔다.
+   ---------------------------------------------------------- */
+
+.ad-scroll {
+  overflow-x: auto;
+}
+
+.ad-perm {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.ad-perm th,
+.ad-perm td {
+  padding: 0.3rem 0.45rem;
+  border-bottom: 1px solid var(--jsini-border);
+  text-align: left;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.ad-perm thead th {
+  font-weight: 600;
+  color: var(--jsini-text-muted);
+}
+
+/* 권한이 한 줄이라도 걸린 역할. 걸린 것과 안 걸린 것이 같아 보이면
+   「누가 쓸 수 있나」를 한눈에 못 읽는다. */
+.ad-perm tbody tr.is-on td:first-child {
+  font-weight: 700;
+}
+
+.ad-via {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  margin-right: 0.4rem;
+}
