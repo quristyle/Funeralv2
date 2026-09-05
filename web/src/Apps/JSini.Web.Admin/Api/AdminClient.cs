@@ -130,6 +130,27 @@ public sealed class AdminClient(GatewayClient gateway)
     public Task<IReadOnlyList<AccountDto>> GetCompanyUsersAsync(string companyId, CancellationToken ct = default)
         => gateway.GetListAsync<AccountDto>($"auth/system/companies/{companyId}/users", ct);
 
+    /// <summary>
+    /// 아직 어느 회사에도 안 속한 사람.
+    ///
+    /// <b>회사를 가리지 않는다</b> — 「소속이 없는 사람」이라 어느 회사에 넣든
+    /// 후보가 같다. 서버가 회사 식별자를 받지 않는 이유가 그것이다.
+    /// </summary>
+    public Task<IReadOnlyList<AccountDto>> GetCompanyEligibleUsersAsync(CancellationToken ct = default)
+        => gateway.GetListAsync<AccountDto>("auth/system/companies/eligible-users", ct);
+
+    /// <summary>회사에 사람을 넣는다. 여럿을 한 번에 보낸다.</summary>
+    public Task AssignCompanyUsersAsync(
+        string companyId, IReadOnlyList<string> userIds, CancellationToken ct = default)
+        => gateway.PostAsync($"auth/system/companies/{companyId}/users", userIds, ct);
+
+    /// <summary>
+    /// 소속을 푼다. <b>회사 식별자를 받지 않는다</b> — 사람에게서 소속을 떼는
+    /// 일이라 어느 회사였는지는 서버가 안다. 여럿을 한 번에 보낸다.
+    /// </summary>
+    public Task RemoveCompanyUsersAsync(IReadOnlyList<string> userIds, CancellationToken ct = default)
+        => gateway.PostAsync("auth/system/companies/users/remove", userIds, ct);
+
     public Task<IReadOnlyList<DeptDto>> GetDeptsAsync(CancellationToken ct = default)
         => gateway.GetListAsync<DeptDto>("auth/system/dept/list", ct);
 

@@ -7,6 +7,23 @@
     회사를 고르면 그 회사에 속한 사람이 나온다. **회사를 고르기 전에는 아무것도
     부르지 않는다** — 전 사용자를 한 번에 읽으면 회사가 여럿인 환경에서 첫 조회가
     수천 줄이 된다.
+
+    [넣고 빼는 길이 없었다]
+
+    목록만 있었다. 회사에 사람을 넣거나 소속을 푸는 것이 이 화면이 하는 일인데
+    그 자리가 없어서, **사람이 어느 회사에 속하는지 정할 곳이 포털 어디에도
+    없었다.** 회사 소속은 부서·역할 범위·생일 목록이 모두 기대는 값이다.
+    서버에는 셋 다 있다(후보 조회 · 넣기 · 빼기).
+
+    [후보는 「소속이 없는 사람」이다]
+
+    서버가 회사 식별자를 받지 않는다 — 어느 회사에 넣든 후보가 같기 때문이다.
+    이미 다른 회사에 속한 사람은 후보에 없다. 옮기려면 먼저 그 회사에서 빼야 한다.
+
+    [넣기와 빼기는 여럿을 한 번에 보낸다]
+
+    한 사람씩 보내면 중간에 실패했을 때 절반만 반영된다. 서버가 목록을 받게
+    되어 있는 이유가 그것이다.
 *@
 
 @inherits DataPage
@@ -21,8 +38,14 @@
                 TextFieldName="@nameof(CompanyDto.Name)" ValueFieldName="@nameof(CompanyDto.Id)"
                 NullText="회사를 고르십시오" Style="width: 240px" />
     <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@ReloadAsync" />
+
+    <PermissionView Action="MenuAction.Create">
+        <DxButton Text="사람 넣기" RenderStyle="ButtonRenderStyle.Success"
+                  Enabled="@(!string.IsNullOrWhiteSpace(_companyId))" Click="@OpenAddAsync" />
+    </PermissionView>
 </div>
 
+<PageNotice Text="@Notice" Tone="@Tone" />
 
 <DxGrid Data="@Shown" ShowFilterRow="false" PageSize="20">
     <Columns>
@@ -32,10 +55,73 @@
         <DxGridDataColumn FieldName="@nameof(AccountDto.Email)" Caption="이메일" MinWidth="200" />
         <DxGridDataColumn FieldName="@nameof(AccountDto.Phone)" Caption="연락처" Width="140" />
         <DxGridDataColumn FieldName="@nameof(AccountDto.RoleText)" Caption="역할" MinWidth="180" />
+
+        <DxGridDataColumn Caption="소속" Width="100" AllowSort="false">
+            <CellDisplayTemplate>
+                @{
+                    var u = (AccountDto)context.DataItem;
+                }
+                <PermissionView Action="MenuAction.Delete">
+                    @* 계정을 지우는 것이 아니다 — 회사와의 연결만 푼다.
+                       그 사람은 「소속 없음」이 되어 후보 목록으로 돌아간다. *@
+                    <DxButton Text="빼기" SizeMode="SizeMode.Small"
+                              RenderStyle="ButtonRenderStyle.Secondary"
+                              Click="@(() => _removing = u)" />
+                </PermissionView>
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
     </Columns>
 </DxGrid>
 
-<PageNotice Text="@Notice" Tone="@Tone" />
+<DxPopup @bind-Visible="_adding" HeaderText="회사에 사람 넣기" Width="620px" ShowFooter="false">
+    <BodyContentTemplate Context="popup">
+        @if (_candidates.Count == 0)
+        {
+            <p class="ad-stamp">
+                소속이 없는 사람이 없습니다. 이미 다른 회사에 속한 사람을 옮기려면
+                그 회사에서 먼저 빼야 합니다.
+            </p>
+        }
+        else
+        {
+            <DxGrid Data="@_candidates" ShowFilterRow="false" PageSize="10"
+                    SelectionMode="GridSelectionMode.Multiple"
+                    @bind-SelectedDataItems="_picked"
+                    ShowAllRowsSelectionCheckbox="true">
+                <Columns>
+                    <DxGridSelectionColumn Width="50px" />
+                    <DxGridDataColumn FieldName="@nameof(AccountDto.LoginId)" Caption="아이디" Width="140" />
+                    <DxGridDataColumn FieldName="@nameof(AccountDto.UserName)" Caption="이름" Width="130" />
+                    <DxGridDataColumn FieldName="@nameof(AccountDto.Email)" Caption="이메일" MinWidth="180" />
+                </Columns>
+            </DxGrid>
+        }
+
+        <div class="jsini-toolbar">
+            <DxButton Text="넣기" RenderStyle="ButtonRenderStyle.Primary"
+                      Enabled="@(_picked.Any())" Click="@AddAsync" />
+            <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary"
+                      Click="@(() => _adding = false)" />
+        </div>
+    </BodyContentTemplate>
+</DxPopup>
+
+<DxPopup Visible="@(_removing is not null)" VisibleChanged="@((bool v) => { if (!v) _removing = null; })"
+         HeaderText="소속 해제" Width="440px" ShowFooter="false">
+    <BodyContentTemplate Context="popup">
+        <p>
+            <strong>@_removing?.UserName</strong> 의 회사 소속을 풉니다.
+            계정은 그대로 남고 <b>소속만</b> 없어집니다 — 부서와 역할 범위가
+            회사에 걸려 있으면 그것들도 함께 끊깁니다.
+        </p>
+
+        <div class="jsini-toolbar">
+            <DxButton Text="해제" RenderStyle="ButtonRenderStyle.Danger" Click="@RemoveAsync" />
+            <DxButton Text="취소" RenderStyle="ButtonRenderStyle.Secondary"
+                      Click="@(() => _removing = null)" />
+        </div>
+    </BodyContentTemplate>
+</DxPopup>
 
 @code {
     private IReadOnlyList<CompanyDto> _companies = [];
@@ -43,6 +129,12 @@
     private IReadOnlyList<AccountDto> _users = [];
 
     private IReadOnlyList<AccountDto> Shown => _users;
+
+    private bool _adding;
+    private IReadOnlyList<AccountDto> _candidates = [];
+    private IReadOnlyList<object> _picked = [];
+
+    private AccountDto? _removing;
 
     protected override Task OnInitializedAsync() => ReloadAsync();
 
@@ -60,4 +152,54 @@
         _users = await Api.GetCompanyUsersAsync(_companyId);
         return _users.Count;
     }, "그 회사에 속한 사용자가 없습니다.", "사용자 목록을 읽지 못했습니다");
+
+    /// <summary>
+    /// 넣을 후보를 읽는다.
+    ///
+    /// 후보는 <b>소속이 없는 사람</b>이다 — 서버가 회사를 가리지 않는다.
+    /// 이미 다른 회사에 속한 사람은 여기 없다.
+    /// </summary>
+    private Task OpenAddAsync() => LoadAsync(async () =>
+    {
+        _picked = [];
+        _candidates = await Api.GetCompanyEligibleUsersAsync();
+        _adding = true;
+
+        return -1;
+    }, string.Empty, "넣을 수 있는 사람을 읽지 못했습니다");
+
+    private async Task AddAsync()
+    {
+        var ids = _picked.OfType<AccountDto>().Select(a => a.Id).ToList();
+
+        if (ids.Count == 0 || string.IsNullOrWhiteSpace(_companyId))
+        {
+            return;
+        }
+
+        // 한 번에 보낸다. 한 사람씩 보내면 중간에 실패했을 때 절반만 반영된다.
+        if (await RunAsync(() => Api.AssignCompanyUsersAsync(_companyId, ids),
+                $"{ids.Count} 명을 넣었습니다.", "넣지 못했습니다"))
+        {
+            _adding = false;
+            await ReloadAsync();
+        }
+    }
+
+    private async Task RemoveAsync()
+    {
+        if (_removing is null)
+        {
+            return;
+        }
+
+        var target = _removing;
+        _removing = null;
+
+        if (await RunAsync(() => Api.RemoveCompanyUsersAsync([target.Id]),
+                $"{target.UserName} 의 소속을 풀었습니다.", "소속을 풀지 못했습니다"))
+        {
+            await ReloadAsync();
+        }
+    }
 }
