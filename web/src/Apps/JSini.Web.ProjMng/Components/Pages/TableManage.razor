@@ -2,17 +2,43 @@
 @using System.Data
 
 @*
-    [테이블 · 컬럼 설명 관리]
-
+    [테이블 · 컬럼 설명 관리] — DB 메뉴 `/projmng/db/table`.
     이력: Vue `views/projmng/develop/table-manage.vue` → 여기.
-    호출: 개발도구 `tablelist`, `columnsOftable`,
-          `tableCommentUpdate`, `columnsCommentUpdate`, `columnsCommentAdd`
+    호출: 개발도구 `tablelist` · `columnsOftable` ·
+          `tableCommentUpdate` · `columnsCommentUpdate` · `columnsCommentAdd`
 
-    대상 DB의 테이블·컬럼 설명(코멘트)을 읽고 고친다.
-    왼쪽에서 테이블을 고르면 오른쪽에 컬럼이 나오고, 설명을 고쳐 저장하면
-    대상 DB의 코멘트를 갱신한다.
+    대상 DB 의 테이블·컬럼 설명(코멘트)을 읽고 고친다. 왼쪽에서 테이블을 고르면
+    오른쪽에 컬럼이 나오고, 설명을 고쳐 저장하면 **대상 DB 의 코멘트**가 바뀐다.
+
+    [보내는 값의 이름이 전부 틀려 있었다]
+
+    개발 도구 통로는 DB 접속을 `db`(종류) · `dbnick`(별칭)으로 찾는다. 그런데
+    이 화면은 `db_ip` · `db_port` · `db_name` · `db_user` · `db_pw` 를 만들어
+    보내고 있었고, 그 값들을 공통코드의 `val` · `val2` · `prop` … 같은
+    **있지도 않은 칸**에서 꺼내고 있었다. 결과는 500 이다 — 조회가 한 번도
+    성공한 적이 없다는 뜻이고, 화면에 안내가 없어 그냥 빈 표로 보였다.
+
+    등록된 질의가 쓰는 이름도 `param1`·`param2`·`param3` 이 아니다.
+
+        columnsOftable        @@table_name
+        tableCommentUpdate    $schema · $table_name · $table_desc
+        columnsCommentUpdate  $schema · $table_name · $column_name · $column_desc
+
+    `$schema` 는 **서버가 접속 정보에서 채운다** — 화면이 보낼 것이 아니다.
+
+    [이름으로 거르는 것은 화면이 한다]
+
+    등록된 `tablelist` 질의에는 이름 조건이 없다(스키마 조건뿐이다). 그래서
+    `param1` 을 보내도 아무 일이 없었다. 받은 목록을 화면에서 거른다.
+
+    [작은따옴표를 막는다]
+
+    코멘트 질의는 값을 **문자열로 그대로 끼워 넣는다**(`'$table_desc'`).
+    설명에 작은따옴표가 하나 있으면 질의가 깨지고, 마음먹으면 그 자리에 다른
+    문장을 넣을 수도 있다. 보내기 전에 두 개로 바꿔 둔다.
 *@
 
+@inherits DataPage
 @inject ProjMngClient Client
 
 <PageTitle>테이블·컬럼 설명 관리 · 프로젝트관리</PageTitle>
@@ -21,9 +47,11 @@
 
 <SearchBar>
     <ChildContent>
-        <CodeSelect CodeId="projlist" @bind-Value="_projectCode" OnChanged="@OnProjectChanged" />
-        <CodeSelect CodeId="projdb" CodeKey="@_projectCode" EtcFix="true" @bind-Value="_dbCode" OnChanged="@(item => _dbItem = item)" />
-        <DxTextBox @bind-Text="_keyword" NullText="테이블 검색" ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" Style="width: 200px" />
+        <CodeSelect CodeId="projlist" @bind-Value="_projectCode" OnChanged="@(_ => OnProjectChanged())" />
+        <CodeSelect CodeId="projdb" CodeKey="@_projectCode" EtcFix="true" @bind-Value="_dbCode"
+                    OnChanged="@(item => OnDbChangedAsync(item))" />
+        <DxTextBox @bind-Text="_keyword" NullText="테이블 이름으로 거르기"
+                   ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" Style="width: 200px" />
     </ChildContent>
     <Actions>
         <PermissionView Action="MenuAction.Search">
@@ -32,40 +60,46 @@
     </Actions>
 </SearchBar>
 
-<Notice>
-    여기서 저장하면 프로젝트관리 DB가 아니라 대상 DB의 코멘트가 바뀝니다.
-</Notice>
+@* 되돌릴 수 없는 일을 하는 화면이다. 그 사실을 조건줄 바로 아래에 둔다. *@
+<PageNotice Tone="NoticeTone.Warning"
+            Text="여기서 저장하면 프로젝트관리 DB 가 아니라 대상 DB 의 코멘트가 바뀝니다." />
+
+<PageNotice Text="@Notice" Tone="@Tone" />
 
 <SplitPane Size="45">
     <First>
-        <div class="d-flex flex-column h-100">
-            <div class="mb-1 d-flex justify-content-end">
+        <div class="pm-tab-body">
+            <div class="jsini-toolbar">
                 <PermissionView Action="MenuAction.Update">
-                    <DxButton Text="테이블 설명 반영" RenderStyle="ButtonRenderStyle.Secondary" SizeMode="SizeMode.Small" Click="@SaveTableCommentAsync" />
+                    <DxButton Text="테이블 설명 반영" RenderStyle="ButtonRenderStyle.Secondary"
+                              SizeMode="SizeMode.Small" Click="@SaveTableCommentAsync" />
                 </PermissionView>
             </div>
-            <div class="flex-grow-1 min-h-0">
-                <DynamicGrid Data="@_tableGrid"
-                             Loading="@_isTableLoading"
-                             ExportName="테이블설명"
-                             HideAdd="true"
-                             OnRowClick="@OnTableSelectAsync" />
-            </div>
+
+            <DynamicGrid Data="@_tables" Loading="@Loading" ExportName="테이블설명"
+                         HideAdd="true" PageSize="30" OnRowClick="@OnTableSelectAsync" />
         </div>
     </First>
     <Second>
-        <div class="d-flex flex-column h-100">
-            <div class="mb-1 d-flex justify-content-end">
-                <PermissionView Action="MenuAction.Update">
-                    <DxButton Text="컬럼 설명 반영" RenderStyle="ButtonRenderStyle.Secondary" SizeMode="SizeMode.Small" Click="@SaveColumnCommentAsync" />
-                </PermissionView>
-            </div>
-            <div class="flex-grow-1 min-h-0">
-                <DynamicGrid Data="@_columnGrid"
-                             Loading="@_isColumnLoading"
-                             ExportName="컬럼설명"
-                             HideAdd="true" />
-            </div>
+        <div class="pm-tab-body">
+            @if (_selectedTable is null)
+            {
+                <PageNotice Text="테이블을 고르면 컬럼이 나옵니다." Tone="NoticeTone.Info" />
+            }
+            else
+            {
+                <h2 class="pm-subhead">@_selectedTable · 컬럼</h2>
+
+                <div class="jsini-toolbar">
+                    <PermissionView Action="MenuAction.Update">
+                        <DxButton Text="컬럼 설명 반영" RenderStyle="ButtonRenderStyle.Secondary"
+                                  SizeMode="SizeMode.Small" Click="@SaveColumnCommentAsync" />
+                    </PermissionView>
+                </div>
+
+                <DynamicGrid Data="@_columns" Loading="@Loading" ExportName="컬럼설명"
+                             HideAdd="true" PageSize="50" />
+            }
         </div>
     </Second>
 </SplitPane>
@@ -76,125 +110,254 @@
     private CommonCodeItem? _dbItem;
     private string? _keyword;
 
-    private DataRow? _selectedTable;
+    private string? _selectedTable;
 
-    private ProjMngTable _tableGrid = ProjMngTable.Empty;
-    private ProjMngTable _columnGrid = ProjMngTable.Empty;
-    private bool _isTableLoading;
-    private bool _isColumnLoading;
+    /// <summary>서버가 준 전량. 이름 거르기는 화면에서 한다.</summary>
+    private ProjMngTable _allTables = ProjMngTable.Empty;
+    private ProjMngTable _tables = ProjMngTable.Empty;
+    private ProjMngTable _columns = ProjMngTable.Empty;
 
-    private void OnProjectChanged(CommonCodeItem? item = null)
+    private string? DbNick => _dbItem?.Others.GetValueOrDefault("db_nick");
+
+    /// <summary>
+    /// 개발 도구 통로가 접속을 찾는 데 쓰는 값.
+    ///
+    /// <c>schema</c> 는 <b>보내지 않는다</b> — 서버가 접속 정보에서 채운다.
+    /// 보내도 덮어써진다.
+    /// </summary>
+    private Dictionary<string, object?> BaseParams() => new()
+    {
+        ["db"] = _dbItem?.Others.GetValueOrDefault("db_type") ?? string.Empty,
+        ["dbnick"] = DbNick ?? string.Empty,
+        ["db_rid"] = _dbCode ?? string.Empty,
+    };
+
+    private void OnProjectChanged()
     {
         _dbCode = null;
         _dbItem = null;
+        Clear();
     }
 
-    private Dictionary<string, object?> BaseParams()
+    private async Task OnDbChangedAsync(CommonCodeItem? item)
     {
-        var dict = new Dictionary<string, object?>();
-        if (_dbItem != null)
+        _dbItem = item;
+        Clear();
+
+        if (item is not null)
         {
-            dict["db_ip"] = _dbItem.Others.GetValueOrDefault("val") ?? _dbItem.Others.GetValueOrDefault("db_ip");
-            dict["db_port"] = _dbItem.Others.GetValueOrDefault("val2") ?? _dbItem.Others.GetValueOrDefault("db_port");
-            dict["db_name"] = _dbItem.Others.GetValueOrDefault("val3") ?? _dbItem.Others.GetValueOrDefault("db_name");
-            dict["db_user"] = _dbItem.Others.GetValueOrDefault("prop") ?? _dbItem.Others.GetValueOrDefault("db_user");
-            dict["db_pw"] = _dbItem.Others.GetValueOrDefault("etc") ?? _dbItem.Others.GetValueOrDefault("db_pw");
-            dict["db_type"] = _dbItem.Others.GetValueOrDefault("srt") ?? _dbItem.Others.GetValueOrDefault("db_type");
+            await SearchAsync();
         }
-        return dict;
     }
 
-    private async Task SearchAsync()
+    private void Clear()
     {
+        _allTables = ProjMngTable.Empty;
+        _tables = ProjMngTable.Empty;
+        _columns = ProjMngTable.Empty;
         _selectedTable = null;
-        _columnGrid = ProjMngTable.Empty;
-        _isTableLoading = true;
-        try
-        {
-            var p = BaseParams();
-            p["param1"] = _keyword ?? string.Empty;
-            var res = await Client.JsContAsync("tablelist", p);
-            _tableGrid = ProjMngTable.From(res);
-        }
-        finally
-        {
-            _isTableLoading = false;
-        }
     }
 
-    private async Task OnTableSelectAsync(DataRow? row)
+    private Task SearchAsync() => LoadAsync(async () =>
     {
-        _selectedTable = row;
-        if (row is null)
+        if (string.IsNullOrWhiteSpace(DbNick))
         {
-            _columnGrid = ProjMngTable.Empty;
+            throw new ApiException("DB 를 고르십시오.");
+        }
+
+        _selectedTable = null;
+        _columns = ProjMngTable.Empty;
+
+        var result = await Client.JsContAsync("tablelist", BaseParams());
+
+        if (result.ProcCode < 0)
+        {
+            throw new ApiException(result.Message ?? "테이블 목록을 읽지 못했습니다.");
+        }
+
+        _allTables = ProjMngTable.From(result);
+        ApplyKeyword();
+
+        return _tables.Table.Rows.Count;
+    }, "이 DB 에서 읽을 수 있는 테이블이 없습니다.", "테이블 목록을 읽지 못했습니다");
+
+    /// <summary>
+    /// 이름으로 거른다.
+    ///
+    /// 등록된 질의에 이름 조건이 없어서 서버가 걸러 줄 수가 없다.
+    /// 표 하나를 통째로 다시 만드는 대신 걸러낸 행만 새 표에 옮긴다.
+    /// </summary>
+    private void ApplyKeyword()
+    {
+        var keyword = _keyword?.Trim();
+
+        if (string.IsNullOrEmpty(keyword))
+        {
+            _tables = _allTables;
             return;
         }
 
-        _isColumnLoading = true;
-        try
+        var table = _allTables.Table.Clone();
+
+        foreach (DataRow row in _allTables.Table.Rows)
         {
-            var tableName = GetTableName(row);
-            var p = BaseParams();
-            p["param1"] = tableName;
-            var res = await Client.JsContAsync("columnsOftable", p);
-            _columnGrid = ProjMngTable.From(res);
-        }
-        finally
-        {
-            _isColumnLoading = false;
-        }
-    }
+            var name = Cell(row, "tablename");
 
-    private string GetTableName(DataRow? row)
-    {
-        if (row is null) return string.Empty;
-        if (row.Table.Columns.Contains("TableName")) return row["TableName"]?.ToString() ?? string.Empty;
-        if (row.Table.Columns.Contains("tablename")) return row["tablename"]?.ToString() ?? string.Empty;
-        return string.Empty;
-    }
-
-    private string GetTableName(Dictionary<string, object?> row)
-    {
-        if (row.TryGetValue("TableName", out var v1) && v1 != null) return v1.ToString() ?? string.Empty;
-        if (row.TryGetValue("tablename", out var v2) && v2 != null) return v2.ToString() ?? string.Empty;
-        return string.Empty;
-    }
-
-    private async Task SaveTableCommentAsync()
-    {
-        var changed = _tableGrid.ChangedRows();
-        if (changed.Count == 0) return;
-
-        foreach (var row in changed)
-        {
-            var p = BaseParams();
-            p["param1"] = GetTableName(row);
-            p["param2"] = (row.TryGetValue("Description", out var d1) ? d1 : row.GetValueOrDefault("description"))?.ToString() ?? string.Empty;
-            await Client.JsContAsync("tableCommentUpdate", p);
-        }
-        await SearchAsync();
-    }
-
-    private async Task SaveColumnCommentAsync()
-    {
-        var changed = _columnGrid.ChangedRows();
-        if (changed.Count == 0 || _selectedTable is null) return;
-
-        var tableName = GetTableName(_selectedTable);
-        foreach (var row in changed)
-        {
-            var p = BaseParams();
-            p["param1"] = tableName;
-            p["param2"] = (row.TryGetValue("ColumnName", out var c1) ? c1 : row.GetValueOrDefault("columnname"))?.ToString() ?? string.Empty;
-            p["param3"] = (row.TryGetValue("Description", out var d1) ? d1 : row.GetValueOrDefault("description"))?.ToString() ?? string.Empty;
-
-            var res = await Client.JsContAsync("columnsCommentUpdate", p);
-            if (res.ProcCode < 0)
+            if (name.Contains(keyword, StringComparison.OrdinalIgnoreCase))
             {
-                await Client.JsContAsync("columnsCommentAdd", p);
+                table.ImportRow(row);
             }
         }
-        await OnTableSelectAsync(_selectedTable);
+
+        table.AcceptChanges();
+        _tables = ProjMngTable.Wrap(table, _allTables.ColumnOrder);
+    }
+
+    private Task OnTableSelectAsync(DataRow? row)
+    {
+        _selectedTable = row is null ? null : Cell(row, "tablename");
+
+        if (string.IsNullOrEmpty(_selectedTable))
+        {
+            _columns = ProjMngTable.Empty;
+            return Task.CompletedTask;
+        }
+
+        return LoadAsync(async () =>
+        {
+            var parameters = BaseParams();
+            parameters["table_name"] = _selectedTable;
+
+            var result = await Client.JsContAsync("columnsOftable", parameters);
+
+            if (result.ProcCode < 0)
+            {
+                throw new ApiException(result.Message ?? "컬럼을 읽지 못했습니다.");
+            }
+
+            _columns = ProjMngTable.From(result);
+            return _columns.Table.Rows.Count;
+        }, "그 테이블에 컬럼이 없습니다.", "컬럼을 읽지 못했습니다");
+    }
+
+    /// <summary>
+    /// 고친 테이블 설명을 대상 DB 에 반영한다.
+    ///
+    /// 한 줄씩 보낸다 — 등록된 질의가 한 번에 하나만 바꾸게 되어 있다.
+    /// 중간에 실패하면 그 앞까지는 이미 반영돼 있으므로, 끝난 뒤 다시 읽어
+    /// **실제로 무엇이 바뀌었는지**를 보여 준다.
+    /// </summary>
+    private async Task SaveTableCommentAsync()
+    {
+        var changed = _tables.ChangedRows();
+
+        if (changed.Count == 0)
+        {
+            Say("고친 것이 없습니다.", NoticeTone.Info);
+            return;
+        }
+
+        var done = await RunAsync(async () =>
+        {
+            foreach (var row in changed)
+            {
+                var parameters = BaseParams();
+                parameters["table_name"] = Value(row, "tablename");
+                parameters["table_desc"] = Quote(Value(row, "description"));
+
+                var result = await Client.JsContAsync("tableCommentUpdate", parameters);
+
+                if (result.ProcCode < 0)
+                {
+                    throw new ApiException(result.Message ?? "설명을 반영하지 못했습니다.");
+                }
+            }
+        }, $"{changed.Count} 개 테이블 설명을 반영했습니다.", "설명을 반영하지 못했습니다");
+
+        if (done)
+        {
+            await SearchAsync();
+        }
+    }
+
+    /// <summary>
+    /// 고친 컬럼 설명을 반영한다.
+    ///
+    /// 코멘트가 **없던 컬럼**은 갱신이 아니라 추가여야 하는 DB 가 있다.
+    /// 갱신이 실패하면 추가를 한 번 더 시도한다 — 옛 화면과 같은 판단이다.
+    /// </summary>
+    private async Task SaveColumnCommentAsync()
+    {
+        if (string.IsNullOrEmpty(_selectedTable))
+        {
+            return;
+        }
+
+        var changed = _columns.ChangedRows();
+
+        if (changed.Count == 0)
+        {
+            Say("고친 것이 없습니다.", NoticeTone.Info);
+            return;
+        }
+
+        var done = await RunAsync(async () =>
+        {
+            foreach (var row in changed)
+            {
+                var parameters = BaseParams();
+                parameters["table_name"] = _selectedTable;
+
+                // 서버가 준 칸 이름에 오타가 있다(`colunmname`). 고치면 이쪽이
+                // 깨지므로 둘 다 본다.
+                parameters["column_name"] = Value(row, "colunmname", "columnname");
+                parameters["column_desc"] = Quote(Value(row, "description"));
+
+                var result = await Client.JsContAsync("columnsCommentUpdate", parameters);
+
+                if (result.ProcCode < 0)
+                {
+                    result = await Client.JsContAsync("columnsCommentAdd", parameters);
+                }
+
+                if (result.ProcCode < 0)
+                {
+                    throw new ApiException(result.Message ?? "설명을 반영하지 못했습니다.");
+                }
+            }
+        }, $"{changed.Count} 개 컬럼 설명을 반영했습니다.", "설명을 반영하지 못했습니다");
+
+        if (done && _selectedTable is not null)
+        {
+            var parameters = BaseParams();
+            parameters["table_name"] = _selectedTable;
+
+            _columns = ProjMngTable.From(await Client.JsContAsync("columnsOftable", parameters));
+        }
+    }
+
+    /// <summary>
+    /// 작은따옴표를 두 개로. 코멘트 질의가 값을 <b>문자열로 그대로 끼워 넣기</b>
+    /// 때문이다 — 하나만 들어가도 질의가 깨지고, 그 자리에 다른 문장을 넣을 수도 있다.
+    /// </summary>
+    private static string Quote(string text) => text.Replace("'", "''");
+
+    private static string Cell(DataRow row, string column) =>
+        row.Table.Columns.Contains(column) ? row[column]?.ToString() ?? string.Empty : string.Empty;
+
+    private static string Value(Dictionary<string, object?> row, params string[] names)
+    {
+        foreach (var name in names)
+        {
+            foreach (var (key, value) in row)
+            {
+                if (string.Equals(key, name, StringComparison.OrdinalIgnoreCase))
+                {
+                    return value?.ToString() ?? string.Empty;
+                }
+            }
+        }
+
+        return string.Empty;
     }
 }

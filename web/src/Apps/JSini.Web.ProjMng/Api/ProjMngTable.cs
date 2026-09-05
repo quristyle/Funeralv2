@@ -43,6 +43,17 @@ public sealed class ProjMngTable
     public static ProjMngTable Empty { get; } = new(new DataTable(), []);
 
     /// <summary>
+    /// 이미 만들어 둔 <see cref="DataTable"/> 을 그대로 감싼다.
+    ///
+    /// <b>화면이 거른 결과를 넘길 때 쓴다.</b> 서버가 이름 조건을 받지 않는
+    /// 질의가 있어서(예: <c>tablelist</c>) 그런 화면은 전량을 받아 스스로
+    /// 거른다. 그때 <see cref="From"/> 을 다시 태우려면 결과를 와이어 모양으로
+    /// 되돌려야 하는데, 그건 같은 자료를 두 번 옮기는 일이다.
+    /// </summary>
+    public static ProjMngTable Wrap(DataTable table, IReadOnlyList<string> columnOrder) =>
+        new(table, columnOrder);
+
+    /// <summary>
     /// 저장할 행. <b>추가되거나 고쳐진 행만</b> 골라 보낸다.
     ///
     /// 지워진 행(<see cref="DataRowState.Deleted"/>)은 넣지 않는다 —
