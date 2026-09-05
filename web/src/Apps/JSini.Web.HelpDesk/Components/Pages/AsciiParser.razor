@@ -11,6 +11,18 @@
 
     푼 결과만 남기지 않고 넣은 원문을 화면에 그대로 둔다. 파싱이 틀렸을 때
     무엇을 넣었는지 알아야 고칠 수 있는데, 지워 버리면 다시 붙여 넣어야 한다.
+
+    [보내는 칸 이름이 서버와 달랐다 — 늘 400 이었다]
+
+    본문을 `{ raw }` 로 보내고 있었다. 서버가 받는 칸은 `content` 다
+    (`record ParseRequest(string Content, …)`). 모델 바인딩은 모르는 칸을
+    **조용히 버리므로** `Content` 가 비고, 서버가 곧바로
+    「Content is empty」로 400 을 낸다 — 무엇을 넣어도 그랬다.
+
+    게이트웨이로 두 모양을 나란히 던져 확인했다.
+
+        { "raw": "02 30 31" }      →  400  Content is empty
+        { "content": "02 30 31" }  →  200
 *@
 
 @inherits DataPage
@@ -49,7 +61,7 @@
 
         return LoadAsync(async () =>
         {
-            var json = await Api.PostAsync<JsonElement>("utils/parse-ascii", new { raw = _raw });
+            var json = await Api.PostAsync<JsonElement>("utils/parse-ascii", new { content = _raw });
             _rows = JsonTable.From(json);
             return _rows.Rows.Count;
         }, "푼 결과가 없습니다. 원문 모양을 확인하십시오.", "풀지 못했습니다");
