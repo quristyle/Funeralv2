@@ -243,7 +243,30 @@ public sealed class HelpdeskIdentity
     public string? CompanyId { get; set; }
     /// <summary>admin | customer | null.</summary>
     public string? LoginType { get; set; }
+
+    /// <summary>보여 줄 이름. 포털 계정 이름을 우선한다.</summary>
     public string? UserName { get; set; }
+
+    /// <summary>헬프데스크 표에 적혀 있는 이름. 포털 이름과 다를 수 있다 — 참고용이다.</summary>
+    public string? HelpdeskUserName { get; set; }
+
+    // ── 포털 쪽 신원 ───────────────────────────────────────
+    //
+    // 서버가 함께 준다. 옛 화면은 이 정보를 얻으려고 포털의
+    // `funeral/info/my-info` 를 따로 불렀는데, 그럴 필요가 없다.
+
+    /// <summary>포털 로그인 아이디. 계정 연결의 열쇠가 되는 값이다.</summary>
+    public string? JsiniUserId { get; set; }
+
+    public string? JsiniUserName { get; set; }
+
+    public string? JsiniEmail { get; set; }
+
+    /// <summary>
+    /// 포털 역할들. <b>담당자 권한이 여기서 올 수 있다</b> —
+    /// 계정 연결이 없어도 <c>AdminByRole</c> 이 참이 되는 경로다.
+    /// </summary>
+    public List<string> JsiniRoles { get; set; } = [];
 }
 
 /// <summary>관리자·고객을 합친 사용자 한 줄 (담당자 선택 등에 사용).</summary>
