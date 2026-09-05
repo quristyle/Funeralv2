@@ -3,7 +3,7 @@ using FileServer.Data;
 using Serilog;
 using FluentValidation;
 using System.Reflection;
-using Microsoft.OpenApi.Models;
+using Microsoft.OpenApi;
 using FileServer.Services;
 using FileServer.Endpoints;
 using Spectre.Console;

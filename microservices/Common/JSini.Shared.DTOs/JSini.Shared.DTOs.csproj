@@ -1,15 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
     <AssemblyName>JSini.Shared.DTOs</AssemblyName>
     <RootNamespace>JSini.Shared.DTOs</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Mapster" Version="7.4.0" />
+    <PackageReference Include="Mapster" />
     <ProjectReference Include="..\JSini.Shared.Domain\JSini.Shared.Domain.csproj" />
   </ItemGroup>
 

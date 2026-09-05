@@ -1,7 +1,7 @@
 using System.Reflection;
 using JSini.Shared.Infrastructure.Middleware;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.OpenApi.Models;
+using Microsoft.OpenApi;
 using Serilog;
 using SiteServer.Data;
 using SiteServer.Endpoints;

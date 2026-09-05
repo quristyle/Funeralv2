@@ -54,7 +54,7 @@ builder.Services.AddCors(options => {
 // ============================================================
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c => {
-  c.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo {
+  c.SwaggerDoc("v1", new Microsoft.OpenApi.OpenApiInfo {
     Title = "ProjMng API",
     Version = "v1",
     Description = "프로젝트관리(구 ProjMngServer) 마이크로서비스 API. "

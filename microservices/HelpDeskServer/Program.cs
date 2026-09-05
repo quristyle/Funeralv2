@@ -61,11 +61,10 @@ try {
   var rabbitMqHostName = builder.Configuration["RabbitMQ:HostName"] ?? "localhost";
 
   IConnectionFactory factory = new ConnectionFactory() {
-    HostName = rabbitMqHostName,
-    DispatchConsumersAsync = true
+    HostName = rabbitMqHostName
   };
 
-  connection = factory.CreateConnection();
+  connection = await factory.CreateConnectionAsync();
 }
 catch (BrokerUnreachableException ex) {
   Console.WriteLine($"[ERROR] RabbitMQ connection failed: {ex.Message}. RabbitMQ 없이 서비스가 계속 동작합니다.");
@@ -106,7 +105,7 @@ builder.Services.AddCors(options => {
 // ============================================================
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c => {
-  c.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo {
+  c.SwaggerDoc("v1", new Microsoft.OpenApi.OpenApiInfo {
     Title = "HelpDesk API",
     Version = "v1",
     Description = "헬프데스크(요청/WBS/일정/공지) 마이크로서비스 API"

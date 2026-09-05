@@ -227,7 +227,7 @@ public class ReleaseService : IReleaseService
         // ── 큐에 넣는다 ─────────────────────────────────────
         try
         {
-            Publish(target, run);
+            await PublishAsync(target, run);
         }
         catch (Exception ex)
         {
@@ -301,22 +301,21 @@ public class ReleaseService : IReleaseService
     /// 그때가 되면 <c>script</c> 를 빼는 것도 검토할 수 있다(28번 문서 참고).
     /// </para>
     /// </remarks>
-    private void Publish(ReleaseTargetOption target, ReleaseRun run)
+    private async Task PublishAsync(ReleaseTargetOption target, ReleaseRun run)
     {
         var factory = new ConnectionFactory
         {
             HostName = string.IsNullOrWhiteSpace(_options.HostName)
                 ? "localhost"
-                : _options.HostName,
-            DispatchConsumersAsync = true
+                : _options.HostName
         };
 
-        using var connection = factory.CreateConnection();
-        using var channel = connection.CreateModel();
+        await using var connection = await factory.CreateConnectionAsync();
+        await using var channel = await connection.CreateChannelAsync();
 
         // durable 은 기본 꺼짐이다. run_script 는 이미 non-durable 로 존재하고,
         // durable 로 다시 선언하면 브로커가 PRECONDITION_FAILED 를 낸다.
-        channel.QueueDeclare(
+        await channel.QueueDeclareAsync(
             queue: _options.QueueName,
             durable: _options.Durable,
             exclusive: false,
@@ -368,18 +367,18 @@ public class ReleaseService : IReleaseService
 
         var body = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(payload));
 
-        IBasicProperties? props = null;
+        var props = new BasicProperties();
         if (_options.Durable)
         {
             // durable 큐일 때만 의미가 있다. non-durable 큐에 persistent 를 붙여도
             // 브로커가 재시작되면 큐 자체가 사라진다.
-            props = channel.CreateBasicProperties();
             props.Persistent = true;
         }
 
-        channel.BasicPublish(
+        await channel.BasicPublishAsync(
             exchange: string.Empty,
             routingKey: _options.QueueName,
+            mandatory: false,
             basicProperties: props,
             body: body);
     }

@@ -3,7 +3,7 @@ using funeralv2Api.Data;
 using Serilog;
 using FluentValidation;
 using System.Reflection;
-using Microsoft.OpenApi.Models;
+using Microsoft.OpenApi;
 
 using funeralv2Api.Services;
 using funeralv2Api.Endpoints;

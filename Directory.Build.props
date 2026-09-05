@@ -1,0 +1,20 @@
+<Project>
+
+  <!--
+    모든 .csproj 에 공통으로 걸리는 설정.
+
+    대상 프레임워크를 여기 한 곳에서 정한다. 각 csproj 에는 TargetFramework 를 적지 않는다 —
+    적으면 이 값을 덮어쓴다(csproj 가 나중에 평가된다). 프레임워크를 올릴 때 아래 한 줄만
+    바꾸면 13개 프로젝트가 함께 따라온다.
+
+    프로젝트마다 다른 설정(GenerateDocumentationFile, NoWarn, AssemblyName 등)은
+    각 csproj 에 그대로 둔다.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+</Project>

@@ -6,7 +6,7 @@ using JSini.Shared.Infrastructure.HealthChecks;
 using JSini.Shared.Infrastructure.Middleware;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
-using Microsoft.OpenApi.Models;
+using Microsoft.OpenApi;
 using Serilog;
 using Spectre.Console;
 

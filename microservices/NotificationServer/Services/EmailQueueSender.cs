@@ -101,21 +101,21 @@ public class EmailQueueSender : IEmailQueueSender
             {
                 HostName = string.IsNullOrWhiteSpace(_options.HostName)
                     ? "localhost"
-                    : _options.HostName,
-                DispatchConsumersAsync = true
+                    : _options.HostName
             };
 
-            using var connection = factory.CreateConnection();
-            using var channel = connection.CreateModel();
+            await using var connection = await factory.CreateConnectionAsync(ct);
+            await using var channel = await connection.CreateChannelAsync(cancellationToken: ct);
 
             // durable 은 기존 큐와 같아야 한다. run_script 는 non-durable 로 존재한다 —
             // durable 로 다시 선언하면 브로커가 PRECONDITION_FAILED 를 낸다.
-            channel.QueueDeclare(
+            await channel.QueueDeclareAsync(
                 queue: _options.QueueName,
                 durable: false,
                 exclusive: false,
                 autoDelete: false,
-                arguments: null);
+                arguments: null,
+                cancellationToken: ct);
 
             var payload = new
             {
@@ -123,11 +123,11 @@ public class EmailQueueSender : IEmailQueueSender
                 args = new[] { request.Subject, spoolFile }
             };
 
-            channel.BasicPublish(
+            await channel.BasicPublishAsync(
                 exchange: string.Empty,
                 routingKey: _options.QueueName,
-                basicProperties: null,
-                body: Encoding.UTF8.GetBytes(JsonSerializer.Serialize(payload)));
+                body: Encoding.UTF8.GetBytes(JsonSerializer.Serialize(payload)),
+                cancellationToken: ct);
 
             _logger.LogInformation(
                 "메일 발송 요청을 큐에 넣었습니다. to={To} spool={Spool}", request.To, spoolFile);

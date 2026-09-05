@@ -8,14 +8,14 @@
 # 이미지가 약 250MB 커지므로 필요한 곳에만 넣는다. 어느 서비스에 주는지는
 # .github/workflows/deploy-backend.yml 의 매트릭스에 적혀 있다.
 
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 ARG PROJ_DIR
 ARG PROJ_NAME
 WORKDIR /src
 COPY . .
 RUN dotnet publish "${PROJ_DIR}/${PROJ_NAME}.csproj" -c Release -o /out /p:UseAppHost=false
 
-FROM mcr.microsoft.com/dotnet/aspnet:8.0
+FROM mcr.microsoft.com/dotnet/aspnet:10.0
 ARG PROJ_NAME
 ARG WITH_FFMPEG=0
 WORKDIR /app

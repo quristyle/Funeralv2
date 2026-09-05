@@ -84,8 +84,8 @@ public class EMailUtil {
 
 
         var scriptPath = configuration.GetValue<string>("ShellScript:WrkReceptMail") ?? "/home/lee/projects/wrkScripts/wrkReceptMail.sh";
-        using var channel = provider.Connection!.CreateModel();
-        channel.QueueDeclare(queue: "run_script", durable: false, exclusive: false, autoDelete: false, arguments: null);
+        await using var channel = await provider.Connection!.CreateChannelAsync();
+        await channel.QueueDeclareAsync(queue: "run_script", durable: false, exclusive: false, autoDelete: false, arguments: null);
 
 
 
@@ -93,7 +93,7 @@ public class EMailUtil {
         var payload = new { script = scriptPath, args };
         string json = JsonSerializer.Serialize(payload);
         var body = Encoding.UTF8.GetBytes(json);
-        channel.BasicPublish(exchange: "", routingKey: "run_script", basicProperties: null, body: body);
+        await channel.BasicPublishAsync(exchange: "", routingKey: "run_script", body: body);
 
       }
       catch (Exception ex) {
