@@ -19,6 +19,16 @@
 
     쓰지 않는 호실은 지우지 않고 `INACTIVE` 로 둔다. 그 호실을 가리키는 옛
     기록(고인 이력·과금)이 남아 있어 지우면 그 기록이 끊긴다.
+
+    [건물을 고르면 호실이 하나도 안 나왔다]
+
+    `GetRoomsAsync` 의 첫 인자는 `companyId` 다. 자리로 넘기면 건물이 회사
+    자리에, 층이 건물 자리에 들어간다 — 회사 식별자에 건물 식별자를 넣었으니
+    맞는 것이 있을 리 없고, **건물을 고른 순간 목록이 0 건이 된다.**
+    (게이트웨이로 직접 확인했다: `buildingId` 로 7건, `companyId` 자리에 같은
+    값을 넣으면 0건.)
+
+    빌드는 통과한다 — 셋 다 `string?` 이라 형식이 맞다. 이름을 붙여 막는다.
 *@
 
 @inherits DataPage
@@ -141,7 +151,7 @@
         _roomTypes = await Codes.GetAsync("ROOM_TYPE");
         _roomTypeLabel = await Codes.LabelerAsync("ROOM_TYPE");
 
-        _rooms = await Api.GetRoomsAsync(_buildingId, _floorId);
+        _rooms = await Api.GetRoomsAsync(buildingId: _buildingId, floorId: _floorId);
 
         return _rooms.Count;
     }, "조건에 맞는 호실이 없습니다.", "호실 목록을 읽지 못했습니다");

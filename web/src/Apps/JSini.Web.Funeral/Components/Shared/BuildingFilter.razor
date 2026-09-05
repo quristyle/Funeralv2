@@ -6,6 +6,16 @@
     층 목록을 다시 읽는 것을 한 화면에서 빠뜨린다.** 그 화면만 옛 층 목록이 남는다.
 
     필요한 만큼만 켠다 — `ShowFloor` · `ShowRoom`.
+
+    [건물을 고르면 호실이 하나도 안 나왔다]
+
+    `GetRoomsAsync` 의 첫 인자는 `companyId` 다. 자리로 넘기면 건물이 회사
+    자리에, 층이 건물 자리에 들어간다 — 회사 식별자에 건물 식별자를 넣었으니
+    맞는 것이 있을 리 없고, **건물을 고른 순간 목록이 0 건이 된다.**
+    (게이트웨이로 직접 확인했다: `buildingId` 로 7건, `companyId` 자리에 같은
+    값을 넣으면 0건.)
+
+    빌드는 통과한다 — 셋 다 `string?` 이라 형식이 맞다. 이름을 붙여 막는다.
 *@
 
 @inject FuneralApi Api
@@ -79,6 +89,6 @@
         _loadedFor = BuildingId;
 
         if (ShowFloor) _floors = await Api.GetFloorsAsync(BuildingId);
-        if (ShowRoom) _rooms = await Api.GetRoomsAsync(BuildingId, FloorId);
+        if (ShowRoom) _rooms = await Api.GetRoomsAsync(buildingId: BuildingId, floorId: FloorId);
     }
 }
