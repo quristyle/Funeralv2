@@ -283,3 +283,33 @@
   opacity: 0.5;
   border: 1px dashed var(--jsini-border);
 }
+
+/* ── 빈소 카드: 고인 줄 ───────────────────────────────────
+
+   영정과 이름·성별·나이를 나란히 둔다. 사진이 없는 고인이 흔해서
+   (아직 안 올렸거나 안 올리는 경우) **없는 것이 기본**으로 보여야 한다 —
+   빈 자리를 남기지 않고 글자만 왼쪽으로 붙는다.
+   ---------------------------------------------------------- */
+
+.fn-card__person {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.5rem;
+}
+
+.fn-card__photo {
+  flex: 0 0 auto;
+  width: 48px;
+  height: 60px;
+  object-fit: cover;
+  border-radius: 0.2rem;
+  background: var(--jsini-surface);
+}
+
+.fn-card__sub {
+  font-size: 0.78rem;
+  opacity: 0.65;
+}
+
+.fn-card__sub > span { margin-left: 0.2rem; }

@@ -7,6 +7,24 @@
     **호실 · 고인 · 장비를 서버가 붙여서 한 번에 준다**(`room-board`). 화면이
     셋을 따로 부르고 조인하던 방식은 쓰지 않는다 — 호실이 서른 개면 요청이
     아흔 번이었고, 그 사이에 자료가 바뀌면 짝이 어긋났다.
+
+    [서버가 주는 것을 절반쯤 버리고 있었다]
+
+    응답에 영정·종교·장지·사용일수·장비 상태가 함께 오는데 화면은 이름과
+    상주·입실·발인만 보여 주었다. 특히 둘이 아쉬웠다.
+
+      · **장비 상태** — 이 화면을 상황판에 띄워 두는 이유의 절반이 「저 방
+        화면이 꺼졌나」를 보는 것이다. 숫자가 응답에 이미 있었다.
+      · **출상 취소 진입점** — 빈 호실에 `LastDepartedDeceasedId` 가 함께 온다.
+        옛 화면은 빈 카드에서 바로 되돌릴 수 있었다. 잘못 출상 처리했을 때
+        고인 목록까지 찾아가지 않아도 된다.
+
+    [빈 호실에서 되돌리는 것이 왜 여기 있나]
+
+    출상은 **되돌릴 수 있는 일**이고, 잘못 눌렀다는 것을 알아채는 자리가
+    보통 이 현황판이다("저 방이 왜 비었지"). 그 자리에서 바로 되돌릴 수
+    있어야 한다 — 서버가 그 길을 열어 두었고, 되돌아갈 호실에 다른 고인이
+    있으면 서버가 거절한다.
 *@
 
 @inherits DataPage
@@ -18,7 +36,10 @@
 
 <BuildingFilter @bind-BuildingId="_buildingId" @bind-FloorId="_floorId" ShowFloor="true" Search="@ReloadAsync">
     <DxCheckBox @bind-Checked="_onlyInUse">사용 중만</DxCheckBox>
+    <DxCheckBox @bind-Checked="_onlyAlert">장비 이상만</DxCheckBox>
 </BuildingFilter>
+
+<PageNotice Text="@Notice" Tone="@Tone" />
 
 @if (_board is not null)
 {
@@ -41,12 +62,29 @@
         </div>
     </div>
 
+    @if (OfflineRooms > 0)
+    {
+        @* 이 화면을 상황판에 띄워 두는 이유의 절반이 이것이다.
+           카드를 하나씩 훑지 않아도 알아채게 맨 위에 적는다. *@
+        <PageNotice Tone="NoticeTone.Warning"
+                    Text="@($"장비가 다 안 붙은 호실이 {OfflineRooms}곳 있습니다.")" />
+    }
+
     <div class="fn-board">
-        @foreach (var room in _board.Rooms)
+        @foreach (var room in Shown)
         {
             <article class="fn-card @(room.Occupied ? "fn-card--in-use" : "")">
                 <header class="fn-card__head">
                     <span class="fn-card__room">@room.RoomName</span>
+
+                    @if (room.DeviceCount > 0)
+                    {
+                        @* 장비가 하나라도 안 붙었으면 눈에 띄어야 한다. *@
+                        <span class="jsini-badge @(room.OnlineDeviceCount < room.DeviceCount ? "jsini-badge--off" : "jsini-badge--on")">
+                            장비 @room.OnlineDeviceCount/@room.DeviceCount
+                        </span>
+                    }
+
                     <span class="jsini-badge @(room.Occupied ? "jsini-badge--on" : "jsini-badge--off")">
                         @(room.Occupied ? "사용 중" : "비어 있음")
                     </span>
@@ -55,48 +93,149 @@
                 @if (room.Occupied)
                 {
                     <div class="fn-card__body">
-                        <div class="fn-card__name">@room.DeceasedName</div>
+                        <div class="fn-card__person">
+                            @if (room.PhotoUrl is { Length: > 0 } photo)
+                            {
+                                @* 영정. 서버가 보정본을 골라 준다. *@
+                                <img class="fn-card__photo" src="@photo" alt="" loading="lazy" />
+                            }
+
+                            <div>
+                                <div class="fn-card__name">故 @room.DeceasedName</div>
+                                <div class="fn-card__sub">
+                                    @Gender(room.DeceasedGender)
+                                    @if (room.DeceasedAge is not null)
+                                    {
+                                        @* `is { } age` 로 잡은 이름은 Razor 가
+                                           만드는 조각 안에서는 안 보인다.
+                                           그냥 값을 다시 읽는다. *@
+                                        <span>· @room.DeceasedAge 세</span>
+                                    }
+                                    @if (!string.IsNullOrWhiteSpace(room.Religion))
+                                    {
+                                        <span>· @room.Religion</span>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+
                         <dl class="fn-card__facts">
                             <dt>상주</dt><dd>@(room.ChiefMourner ?? "-")</dd>
                             <dt>입실</dt><dd>@Fmt(room.StartTime)</dd>
+                            <dt>입관</dt><dd>@Fmt(room.CoffinTime)</dd>
                             <dt>발인</dt><dd>@Fmt(room.DischargeTime)</dd>
+                            <dt>장지</dt><dd>@(room.BurialPlace ?? "-")</dd>
+                            <dt>사용</dt><dd>@room.UseDays 일</dd>
                         </dl>
                     </div>
                 }
                 else
                 {
-                    <div class="fn-card__body fn-card__body--empty">비어 있습니다</div>
+                    <div class="fn-card__body fn-card__body--empty">
+                        <div>비어 있습니다</div>
+
+                        @if (room.LastVacatedAt is not null)
+                        {
+                            <div class="fn-card__sub">마지막 퇴실 @Fmt(room.LastVacatedAt)</div>
+                        }
+
+                        @if (room.LastDepartedDeceasedId is { Length: > 0 })
+                        {
+                            @* 잘못 출상 처리했다는 것을 알아채는 자리가 보통
+                               여기다("저 방이 왜 비었지"). 그 자리에서 바로
+                               되돌릴 수 있게 둔다. *@
+                            <PermissionView Action="MenuAction.Update">
+                                <DxButton Text="@($"故 {room.LastDepartedDeceasedName} 출상 취소")"
+                                          SizeMode="SizeMode.Small"
+                                          RenderStyle="ButtonRenderStyle.Secondary"
+                                          Click="@(() => CancelDepartureAsync(room))" />
+                            </PermissionView>
+                        }
+                    </div>
                 }
             </article>
         }
     </div>
 }
 
-<PageNotice Text="@Notice" Tone="@Tone" />
-
 @code {
     private string? _buildingId;
     private string? _floorId;
     private bool _onlyInUse;
+    private bool _onlyAlert;
+
     private RoomBoard? _board;
+
+    /// <summary>서버가 준 원본. 조건을 바꿔도 다시 부르지 않게 들고 있는다.</summary>
+    private IReadOnlyList<FuneralStatus> _rooms = [];
+
+    /// <summary>장비가 다 안 붙은 호실 수. 요약 줄에 적는다.</summary>
+    private int OfflineRooms => _rooms.Count(r => r.DeviceCount > 0 && r.OnlineDeviceCount < r.DeviceCount);
+
+    /// <summary>
+    /// 화면에 보일 호실.
+    ///
+    /// <b>거르기를 서버에 넘기지 않는다.</b> 요약 숫자(전체·빈 호실)는 걸러지기
+    /// 전 기준이어야 하기 때문이다 — 서버에서 거르면 「전체 호실 3」처럼 보인다.
+    /// </summary>
+    private IReadOnlyList<FuneralStatus> Shown
+    {
+        get
+        {
+            IEnumerable<FuneralStatus> rows = _rooms;
+
+            if (_onlyInUse)
+            {
+                rows = rows.Where(r => r.Occupied);
+            }
+
+            if (_onlyAlert)
+            {
+                rows = rows.Where(r => r.DeviceCount > 0 && r.OnlineDeviceCount < r.DeviceCount);
+            }
+
+            return [.. rows];
+        }
+    }
 
     protected override Task OnInitializedAsync() => ReloadAsync();
 
     private Task ReloadAsync() => LoadAsync(async () =>
     {
-        _board = await Api.GetRoomBoardAsync(
-            buildingId: _buildingId, floorId: _floorId);
+        _board = await Api.GetRoomBoardAsync(buildingId: _buildingId, floorId: _floorId);
+        _rooms = _board?.Rooms ?? [];
 
-        if (_board is not null && _onlyInUse)
+        return _rooms.Count;
+    }, "조건에 맞는 호실이 없습니다.", "빈소현황을 읽지 못했습니다");
+
+    /// <summary>
+    /// 출상 취소. 그 호실에 고인이 다시 배정된다.
+    ///
+    /// 되돌아갈 호실에 이미 다른 고인이 있으면 <b>서버가 거절한다</b> —
+    /// 화면이 미리 판단하지 않는 이유는, 그 판단이 서버에만 있고 화면이
+    /// 따로 하면 둘이 어긋나기 때문이다.
+    /// </summary>
+    private async Task CancelDepartureAsync(FuneralStatus room)
+    {
+        if (room.LastDepartedDeceasedId is not { Length: > 0 } id)
         {
-            // 서버에 조건을 넘기지 않고 여기서 거른다. 요약 숫자(전체·빈 호실)는
-            // 걸러지기 전 기준이어야 하기 때문이다 — 서버에서 거르면 "전체 호실 3"
-            // 처럼 보인다.
-            _board.Rooms = [.. _board.Rooms.Where(r => r.Occupied)];
+            return;
         }
 
-        return _board?.Rooms.Count ?? 0;
-    }, "조건에 맞는 호실이 없습니다.", "빈소현황을 읽지 못했습니다");
+        if (await RunAsync(() => Api.CancelDeceasedDepartureAsync(id),
+                           $"故 {room.LastDepartedDeceasedName} 님의 출상을 되돌렸습니다.",
+                           "출상을 되돌리지 못했습니다"))
+        {
+            await ReloadAsync();
+        }
+    }
+
+    private static string Gender(string? value) => value switch
+    {
+        "FEMALE" => "여",
+        "MALE" => "남",
+        _ => "-",
+    };
 
     private static string Fmt(DateTime? value) => value?.ToString("yyyy-MM-dd HH:mm") ?? "-";
 }
