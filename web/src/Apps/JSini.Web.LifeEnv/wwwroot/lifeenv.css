@@ -363,3 +363,123 @@
   background: #fff59d;
   color: inherit;
 }
+
+/* ── 생일 — 열두 달 타일 ─────────────────────────────────
+
+   눌러서 그 달을 여는 자리라 단추여야 한다. div 로 두면 키보드로 고를 수 없다.
+   ---------------------------------------------------------- */
+
+.le-months {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 0.35rem;
+  margin: 0.6rem 0 1rem;
+}
+
+@media (max-width: 1100px) {
+  .le-months { grid-template-columns: repeat(6, 1fr); }
+}
+
+@media (max-width: 600px) {
+  .le-months { grid-template-columns: repeat(3, 1fr); }
+}
+
+.le-month__tile {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  padding: 0.4rem 0.3rem;
+  border: 1px solid var(--jsini-border);
+  border-radius: 0.25rem;
+  background: var(--jsini-surface, #fff);
+  cursor: pointer;
+  font: inherit;
+  text-align: center;
+}
+
+.le-month__tile:hover { background: var(--jsini-surface-muted, rgba(127, 127, 127, 0.08)); }
+
+.le-month__tile.is-on {
+  border-color: #2e7d32;
+  background: color-mix(in srgb, #2e7d32 10%, transparent);
+}
+
+.le-month__no {
+  font-size: 0.7rem;
+  color: var(--jsini-text-muted);
+}
+
+.le-month__total {
+  font-size: 1.1rem;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.le-month__split {
+  font-size: 0.62rem;
+  color: var(--jsini-text-muted);
+}
+
+/* ── 생일 — 오늘 두 칸 ───────────────────────────────────── */
+
+.le-today {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.8rem;
+  margin-bottom: 1rem;
+}
+
+@media (max-width: 900px) {
+  .le-today { grid-template-columns: 1fr; }
+}
+
+.le-today__box {
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--jsini-border);
+  border-radius: 0.3rem;
+  background: var(--jsini-surface, #fff);
+
+  /* 오늘 생일자가 많은 날이 있다. 칸이 늘어나면 아래 표가 밀려 내려간다. */
+  max-height: 14rem;
+  overflow-y: auto;
+}
+
+.le-today__head {
+  margin: 0 0 0.4rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.le-today__empty {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--jsini-text-muted);
+}
+
+.le-today__row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.2rem 0;
+}
+
+.le-today__name { font-weight: 600; }
+
+.le-today__msg {
+  display: grid;
+  gap: 0.1rem;
+  padding: 0.25rem 0;
+  border-bottom: 1px solid var(--jsini-border);
+}
+
+.le-today__msg:last-child { border-bottom: 0; }
+
+.le-today__from {
+  font-size: 0.7rem;
+  color: var(--jsini-text-muted);
+}
+
+.le-today__text {
+  font-size: 0.82rem;
+  word-break: break-word;
+}

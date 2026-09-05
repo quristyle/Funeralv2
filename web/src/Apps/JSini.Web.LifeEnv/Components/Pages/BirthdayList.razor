@@ -1,12 +1,29 @@
 @page "/life/birthday/list"
 
 @*
-    [생일 축하 목록]
+    [생일 축하 목록] — DB 메뉴 `/life/birthday/list`.
+    이력: 원본 GHUB `BirthdayList.vue` → Vue `views/life/birthday/list.vue` → 여기.
+    API: `auth/birthday/{stats|today|current|list}` · `auth/birthday/today/messages`
+         · `auth/birthday/message`
 
-    이력: Vue `views/life/birthday/list.vue` → 여기.
-    API: `auth/birthday/{current|list}` · `auth/birthday/message`
+    한 화면에 넷을 담는다 — 열두 달 통계 · 오늘 생일자 · 오늘의 축하 ·
+    고른 달의 생일자.
 
-    한동안 이 화면은 하드코딩한 자료를 보여 주고 있었다. 실제 API 에 붙였다.
+    [달 목록 하나뿐이었다]
+
+    고른 달의 표만 있었다. 그래서 세 가지가 빠져 있었다.
+
+      · **열두 달 통계**(`stats`) — 이 화면을 여는 사람은 대개 "이번 달에
+        몇 명인가" 를 먼저 본다. 달을 하나씩 눌러 세어야 했다.
+      · **오늘 생일자**(`today`) — 오늘이 특별한 화면인데 오늘이 없었다.
+      · **오늘의 축하**(`today/messages`) — 남이 이미 보낸 축하가 안 보여서
+        같은 말이 겹쳐 올라간다.
+
+    [소속으로 거른다]
+
+    회사가 열셋, 부서가 열다섯이라 전사 목록은 길다. 회사 → 부서로 좁힌다.
+    목록은 포털이 주는 것을 게이트웨이로 직접 읽는다 —
+    **포털관리 모듈을 참조하지 않는다**(모듈 사이 참조는 금지고 테스트가 막는다).
 
     [음력 생일은 서버가 환산해 준다]
 
@@ -16,18 +33,89 @@
 
 @inherits DataPage
 @inject BirthdayClient Api
+@inject OrgOptions Org
 
 <PageTitle>생일 축하 목록 · 생활과환경</PageTitle>
 
 <PageHeading Title="생일 축하 목록" Scope="생활과환경" />
 
 <div class="jsini-toolbar">
+    <DxComboBox Data="@_companies" TextFieldName="@nameof(OrgCompany.Name)" ValueFieldName="@nameof(OrgCompany.Id)"
+                Value="@_companyId" ValueChanged="@((string? v) => OnCompanyChangedAsync(v))"
+                NullText="회사 전체" Style="width: 170px"
+                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+
+    <DxComboBox Data="@Departments" TextFieldName="@nameof(OrgDepartment.Name)" ValueFieldName="@nameof(OrgDepartment.Id)"
+                @bind-Value="_departmentId" NullText="부서 전체" Style="width: 170px"
+                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+
     <DxComboBox Data="@Months" @bind-Value="_month" NullText="이번 달" Style="width: 130px"
                 ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto">
         <ItemTemplate>@context 월</ItemTemplate>
     </DxComboBox>
+
     <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@ReloadAsync" />
 </div>
+
+@* 열두 달을 한 줄로. 눌러서 그 달을 연다 — 숫자만 보여 주면 결국 위 드롭다운을
+   다시 만지게 되고, 그러면 통계가 목록과 따로 노는 장식이 된다. *@
+<div class="le-months">
+    @foreach (var stat in _stats)
+    {
+        <button type="button"
+                class="@($"le-month__tile{(stat.Month == CurrentMonth ? " is-on" : string.Empty)}")"
+                @onclick="@(() => PickMonthAsync(stat.Month))">
+            <span class="le-month__no">@stat.Month 월</span>
+            <span class="le-month__total">@stat.Total</span>
+            <span class="le-month__split">양 @stat.Solar · 음 @stat.Lunar</span>
+        </button>
+    }
+</div>
+
+<PageNotice Text="@Notice" Tone="@Tone" />
+
+<div class="le-today">
+    <section class="le-today__box">
+        <h2 class="le-today__head">오늘 생일</h2>
+
+        @if (_today.Count == 0)
+        {
+            <p class="le-today__empty">오늘 생일인 사람이 없습니다.</p>
+        }
+        else
+        {
+            @foreach (var person in _today)
+            {
+                <div class="le-today__row">
+                    <span class="le-today__name">@person.Name</span>
+                    <span class="le-dept">@person.DepartmentName</span>
+                    <span class="jsini-badge">축하 @person.MessageCount</span>
+                </div>
+            }
+        }
+    </section>
+
+    <section class="le-today__box">
+        <h2 class="le-today__head">오늘의 축하</h2>
+
+        @if (_messages.Count == 0)
+        {
+            <p class="le-today__empty">아직 올라온 축하가 없습니다.</p>
+        }
+        else
+        {
+            @foreach (var message in _messages)
+            {
+                <div class="le-today__msg">
+                    <span class="le-today__from">@message.SenderName → @message.RecipientName</span>
+                    <span class="le-today__text">@message.Content</span>
+                </div>
+            }
+        }
+    </section>
+</div>
+
+<h2 class="le-today__head">@CurrentMonth 월 생일자</h2>
 
 <DxGrid Data="@_people" ShowFilterRow="false" PageSize="20">
     <Columns>
@@ -64,13 +152,29 @@
     </Columns>
 </DxGrid>
 
-<PageNotice Text="@Notice" Tone="@Tone" />
-
 @code {
     private static readonly int[] Months = [.. Enumerable.Range(1, 12)];
 
     private int? _month;
+    private string? _companyId;
+    private string? _departmentId;
+
+    private IReadOnlyList<OrgCompany> _companies = [];
+    private IReadOnlyList<OrgDepartment> _allDepartments = [];
+
+    private IReadOnlyList<BirthdayMonthStat> _stats = [];
+    private IReadOnlyList<BirthdayToday> _today = [];
+    private IReadOnlyList<BirthdayMessage> _messages = [];
     private IReadOnlyList<BirthdayPerson> _people = [];
+
+    /// <summary>지금 보고 있는 달. 안 고르면 오늘이 속한 달이다.</summary>
+    private int CurrentMonth => _month ?? DateTime.Today.Month;
+
+    /// <summary>고른 회사의 부서만. 회사를 안 골랐으면 전부.</summary>
+    private IReadOnlyList<OrgDepartment> Departments =>
+        string.IsNullOrEmpty(_companyId)
+            ? _allDepartments
+            : [.. _allDepartments.Where(d => string.Equals(d.CompanyId, _companyId, StringComparison.Ordinal))];
 
     /// <summary>
     /// 보내기 전 문구. 사람마다 따로 들고 있어야 한다 — 하나로 두면 한 칸에 쓴
@@ -78,13 +182,74 @@
     /// </summary>
     private readonly Dictionary<string, string> _drafts = new(StringComparer.Ordinal);
 
-    protected override Task OnInitializedAsync() => ReloadAsync();
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadOrgAsync();
+        await ReloadAsync();
+    }
+
+    /// <summary>
+    /// 소속 목록. 실패해도 화면을 죽이지 않는다 — 소속 드롭다운이 안 차는 것과
+    /// 생일 목록을 못 보는 것은 다른 일이다.
+    /// </summary>
+    private async Task LoadOrgAsync()
+    {
+        try
+        {
+            var companies = Org.GetCompaniesAsync();
+            var departments = Org.GetDepartmentsAsync();
+
+            await Task.WhenAll(companies, departments);
+
+            _companies = [.. companies.Result.OrderBy(c => c.SortOrder).ThenBy(c => c.Name, StringComparer.Ordinal)];
+            _allDepartments = departments.Result;
+        }
+        catch (ApiException)
+        {
+            _companies = [];
+            _allDepartments = [];
+        }
+    }
 
     private Task ReloadAsync() => LoadAsync(async () =>
     {
-        _people = await Api.GetMonthAsync(_month);
+        // 넷을 나란히. 서로 기다릴 이유가 없다 — 차례로 부르면 왕복이 넷 쌓인다.
+        var stats = Api.GetStatsAsync(_companyId, _departmentId);
+        var today = Api.GetTodayAsync(_companyId, _departmentId);
+        var messages = Api.GetTodayMessagesAsync();
+        var people = Api.GetMonthAsync(_month, _companyId, _departmentId);
+
+        await Task.WhenAll(stats, today, messages, people);
+
+        // 통계가 비어 오면 열두 칸을 0 으로 채운다. 타일이 아예 없으면
+        // 「집계가 없다」와 「생일자가 없다」를 구분할 수 없다.
+        _stats = stats.Result.Count > 0
+            ? [.. stats.Result.OrderBy(s => s.Month)]
+            : [.. Months.Select(m => new BirthdayMonthStat { Month = m })];
+
+        _today = today.Result;
+        _messages = messages.Result;
+        _people = people.Result;
+
         return _people.Count;
     }, "그 달에 생일자가 없습니다.", "생일 목록을 읽지 못했습니다");
+
+    private Task OnCompanyChangedAsync(string? companyId)
+    {
+        _companyId = companyId;
+
+        // 회사가 바뀌면 부서 선택은 무효다. 남겨 두면 다른 회사의 부서로
+        // 걸러 아무도 나오지 않는다.
+        _departmentId = null;
+
+        return ReloadAsync();
+    }
+
+    private Task PickMonthAsync(int month)
+    {
+        _month = month;
+        return ReloadAsync();
+    }
 
     private string GetDraft(string id) => _drafts.GetValueOrDefault(id, string.Empty);
 
@@ -105,6 +270,10 @@
         {
             // 보낸 문구는 지운다. 남겨 두면 같은 글을 두 번 보내기 쉽다.
             _drafts.Remove(person.SubjectId);
+
+            // 오늘의 축하와 축하 수가 달라졌다. 다시 읽지 않으면 방금 보낸 것이
+            // 화면에 없어 사용자가 한 번 더 보낸다.
+            await ReloadAsync();
         }
     }
 }

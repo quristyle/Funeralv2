@@ -26,5 +26,9 @@ public sealed class LifeEnvModule : IPortalModule
         // 생일은 자료가 포털(AuthServer)에 있고 화면만 여기 있다. 자세한 내용은
         // BirthdayClient 주석을 보라.
         services.AddScoped<BirthdayClient>();
+
+        // 소속(회사·부서) 목록. 생일을 소속으로 거르는 데 쓴다 —
+        // 포털관리 모듈을 참조하지 않고 게이트웨이로 직접 읽는다.
+        services.AddScoped<OrgOptions>();
     }
 }
