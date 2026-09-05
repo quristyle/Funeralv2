@@ -313,14 +313,29 @@ public sealed class WeatherWarningMsg
     /// <summary>제목.</summary>
     public string? T1 { get; set; }
 
-    /// <summary>발표 내용.</summary>
+    /// <summary>발표 내용. 어느 구역에 무엇이 걸렸는가.</summary>
     public string? T2 { get; set; }
+
+    /// <summary>발효 시각. <c>(1) 풍랑경보 변경 : 2026년 09월 05일 14시 30분</c> 꼴이다.</summary>
+    public string? T3 { get; set; }
+
+    /// <summary>예고 · 참고. 해제 예고 시각이 여기 있다.</summary>
+    public string? T4 { get; set; }
+
+    /// <summary>발표 시각을 그대로 되받은 값(<c>yyyyMMddHHmm</c>). 화면에서는 쓰지 않는다.</summary>
+    public string? T5 { get; set; }
 
     /// <summary>특보 발효 현황 요약.</summary>
     public string? T6 { get; set; }
 
     /// <summary>예비특보 발효 현황 요약.</summary>
     public string? T7 { get; set; }
+
+    /// <summary>그 밖 참고 사항. 없으면 <c>o 없음</c> 이 온다.</summary>
+    public string? Other { get; set; }
+
+    /// <summary>통보문 차수.</summary>
+    public string? WarFc { get; set; }
 }
 
 /// <summary>특보구역 마스터 (<c>weather_warning_zones</c>).</summary>

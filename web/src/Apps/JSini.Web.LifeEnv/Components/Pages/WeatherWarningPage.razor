@@ -1,16 +1,48 @@
 @page "/life/weather/warning"
+@using System.Globalization
+@using System.Text
+@using System.Text.RegularExpressions
 @using JSini.Web.LifeEnv.Api
 @using WeatherWarningItem = JSini.Web.LifeEnv.Api.WeatherWarning
 
 @*
-    [기상 특보 현황]
+    [기상 특보 현황] — DB 메뉴 `/life/weather/warning`.
+    이력: 원본 `WeatherWarning.vue` → Vue `views/life/weather/warning.vue` → 여기.
+    호출: `life/weather/warnings?all=true` · `life/weather/warning-zones`
+          · `life/weather/warnings/{id}/full`
 
-    이력: Vue `views/life/weather/warning.vue` → 여기.
-    기상청발표 특보 및 통보문 종합 현황을 조회한다.
+    최근 7일 특보에서 **48시간 안의 것만** 추려 특보번호로 묶어 보여 주고,
+    고른 발표분의 통보문을 오른쪽에 편다.
 
-    **파일 이름이 화면 이름과 다르다.** 컴포넌트 이름을 자료 타입과 같게 두면
-    화면 안에서 자료 타입이 가려진다 — Razor 가 만드는 클래스가 같은
-    네임스페이스에 있어 더 가깝기 때문이다. 아키텍처 테스트가 이 충돌을 막는다.
+    [표 하나로 되어 있었다]
+
+    특보를 발표 시각 순으로 늘어놓은 표였다. 그래서 세 가지가 없었다.
+
+      · **묶기** — 같은 특보(`warningNum`)의 발령·연장·해제가 흩어져 있어
+        "지금 살아 있는 특보가 무엇인가" 를 읽을 수 없다. 119건이 한 줄씩
+        늘어서 있으면 더 그렇다.
+      · **통보문** — 특보 목록에는 제목뿐이고 본문은 통보문에 있다.
+        `warnings/{id}/full` 을 부르는 곳이 화면에 없었다.
+      · **우리 지역** — 특보가 우리 관리지역에 걸리는지가 이 화면을 보는
+        이유인데, 그 매칭(`matchedLocations` · `warning-zones`)을 쓰지 않았다.
+
+    [48시간으로 자르는 것은 화면의 판단이다]
+
+    서버는 7일치를 준다. 그중 이틀 안의 것만 본다 — 옛 화면과 같다.
+    특보는 몇 시간 단위로 바뀌므로 사흘 전 발령분은 현황이 아니라 이력이다.
+
+    [강조는 서버가 준 구역명으로만 한다]
+
+    통보문 본문에서 우리 관리지역이 걸린 구역명을 노랗게 칠한다. 칠할 말은
+    `relatedZones` 가 준 것만 쓰고, 본문은 **먼저 이스케이프한 뒤** 강조
+    태그만 끼워 넣는다. 통보문은 기상청이 준 남의 글이라 그대로 그리면 안 된다.
+
+    [구역별 발효 현황 표는 넣지 않았다]
+
+    옛 화면에는 `details`(구역별 발효 현황) 표가 있었다. 지금 그 배열은
+    **모든 특보에서 비어 있다**(앞 40건을 다 열어 확인했다). 늘 빈 표가 될
+    자리를 만들어 두면 「자료가 없다」와 「기능이 없다」를 구분할 수 없다.
+    자료가 들어오기 시작하면 그때 붙인다.
 *@
 
 @inject LifeEnvClient Client
@@ -19,42 +51,361 @@
 
 <PageHeading Title="기상 특보 현황" Scope="생활과환경" />
 
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <div class="d-flex gap-2">
-        <DxButton Text="새로고침" RenderStyle="ButtonRenderStyle.Primary" Click="@LoadDataAsync" />
-    </div>
+<div class="jsini-toolbar">
+    <DxComboBox Data="@_commands" Value="@_command"
+                ValueChanged="@((string? v) => _command = v)"
+                NullText="명령 전체" ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto"
+                SizeMode="SizeMode.Small" Style="width: 160px" />
+
+    <DxButton Text="새로고침" RenderStyle="ButtonRenderStyle.Primary" Click="@LoadAsync" />
+
+    <span class="le-warn__count">최근 48시간 @Groups.Count 건</span>
 </div>
 
-<DxGrid Data="@_warnings" Loading="@_loading" PageSize="15" KeyFieldName="Id">
-    <Columns>
-        <DxGridDataColumn FieldName="TmFc" Caption="발표 시각" Width="150px" />
-        <DxGridDataColumn FieldName="Title" Caption="특보 제목" MinWidth="200" />
-        <DxGridDataColumn FieldName="Command" Caption="명령" Width="100px">
-            <CellDisplayTemplate>
-                <span class="badge bg-warning text-dark">@context.Value</span>
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
-        <DxGridDataColumn FieldName="Content" Caption="발표 내용" MinWidth="300" />
-    </Columns>
-</DxGrid>
+<PageNotice Text="@_notice" Tone="@_tone" />
+
+<div class="le-warn">
+    <div class="le-warn__list">
+        @if (Groups.Count == 0)
+        {
+            <p class="le-warn__empty">현재 발효중인 특보 정보가 없습니다.</p>
+        }
+
+        @foreach (var group in Groups)
+        {
+            <article class="le-warn__card">
+                <header class="le-warn__head">
+                    <span class="le-warn__title">@group.Latest.Title</span>
+                    <span class="le-warn__when">
+                        @Moment(group.Latest.TmFc) <span class="le-warn__ago">(@Elapsed(group.Latest.TmFc))</span>
+                    </span>
+                    @if (!string.IsNullOrWhiteSpace(group.WarningNum))
+                    {
+                        <span class="le-warn__no">@group.WarningNum</span>
+                    }
+                </header>
+
+                <div class="le-warn__body">
+                    <div class="le-warn__history">
+                        <span class="le-warn__label">발표 이력</span>
+
+                        @foreach (var item in group.Items)
+                        {
+                            <button type="button"
+                                    class="@($"le-warn__stamp{(item.Id == _selectedId ? " is-on" : string.Empty)}")"
+                                    @onclick="@(() => SelectAsync(item.Id))">
+                                <span class="le-warn__time">@Moment(item.TmFc, "HH:mm")</span>
+                                @if (!string.IsNullOrWhiteSpace(item.Command))
+                                {
+                                    <span class="@($"jsini-badge {CommandTone(item.Command)}")">@item.Command</span>
+                                }
+                            </button>
+                        }
+                    </div>
+
+                    @{
+                        var hits = MatchedSentences(group.Latest);
+                    }
+
+                    @if (hits.Count > 0)
+                    {
+                        <div class="le-warn__area">
+                            <span class="le-warn__label">우리 관리지역</span>
+
+                            @foreach (var hit in hits)
+                            {
+                                <div class="le-warn__areaRow">
+                                    <span class="le-warn__areaName">@hit.Location.Name</span>
+                                    <span class="le-warn__zone">@ZoneName(hit.Location.WarningAreaCode)</span>
+
+                                    @foreach (var sentence in hit.Sentences)
+                                    {
+                                        <span class="le-warn__hit">@TrimBullet(sentence.Title)</span>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+
+                    @if (!string.IsNullOrWhiteSpace(group.Latest.Content))
+                    {
+                        <p class="le-warn__content">@group.Latest.Content</p>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(group.Latest.Other))
+                    {
+                        <p class="le-warn__other">※ @group.Latest.Other</p>
+                    }
+                </div>
+            </article>
+        }
+    </div>
+
+    <aside class="le-warn__detail">
+        @if (_detail?.Msg is null)
+        {
+            <p class="le-warn__empty">
+                @(_detailLoading ? "통보문을 읽는 중입니다 …" : "왼쪽 발표 이력에서 하나를 고르면 통보문이 나옵니다.")
+            </p>
+        }
+        else
+        {
+            var msg = _detail.Msg;
+
+            <h2 class="le-warn__msgTitle">@msg.T1</h2>
+            <p class="le-warn__when">@Moment(msg.TmFc) 발표</p>
+
+            @if (_detail.MatchedLocations.Count > 0)
+            {
+                <p class="le-warn__matched">
+                    걸린 관리지역:
+                    @string.Join(" · ", _detail.MatchedLocations.Select(l => l.Name))
+                </p>
+            }
+
+            <WarningSection Title="발표 내용" Body="@msg.T2" Keywords="@_keywords" />
+            <WarningSection Title="발효 시각" Body="@msg.T3" Keywords="@_keywords" />
+            <WarningSection Title="예고 · 참고" Body="@msg.T4" Keywords="@_keywords" />
+
+            @* 아래 둘은 이 특보만이 아니라 **그 시각의 전국 현황**이다.
+               길지만 접지 않는다 — 우리 지역이 어디에 속하는지 확인하는 곳이
+               여기뿐이고, 접어 두면 아무도 펴지 않는다. *@
+            <WarningSection Title="특보 발효 현황" Body="@msg.T6" Keywords="@_keywords" />
+            <WarningSection Title="예비특보 발효 현황" Body="@msg.T7" Keywords="@_keywords" />
+            <WarningSection Title="그 밖" Body="@msg.Other" Keywords="@_keywords" />
+        }
+    </aside>
+</div>
 
 @code {
+    /// <summary>
+    /// 한 특보번호의 발표들. 안에서도, 그룹끼리도 최신이 앞이다.
+    /// </summary>
+    private sealed record WarningGroup(string? WarningNum, WeatherWarningItem Latest, List<WeatherWarningItem> Items);
+
+    /// <summary>관리지역 하나와 그 지역이 걸린 문장들.</summary>
+    private sealed record LocationHit(WeatherLocation Location, List<WeatherWarningSentence> Sentences);
+
     private List<WeatherWarningItem> _warnings = [];
-    private bool _loading;
+    private List<string> _commands = [];
+    private string? _command;
 
-    protected override Task OnInitializedAsync() => LoadDataAsync();
+    private Dictionary<string, WeatherWarningZone> _zones = new(StringComparer.Ordinal);
 
-    private async Task LoadDataAsync()
+    private int? _selectedId;
+    private WeatherWarningFullDetails? _detail;
+    private bool _detailLoading;
+
+    /// <summary>본문에서 칠할 구역명. 긴 것부터 — 짧은 것이 먼저 먹으면 겹친다.</summary>
+    private List<string> _keywords = [];
+
+    private string? _notice;
+    private NoticeTone _tone = NoticeTone.Info;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private List<WarningGroup> Groups
     {
-        _loading = true;
+        get
+        {
+            var filtered = string.IsNullOrEmpty(_command)
+                ? _warnings
+                : [.. _warnings.Where(w => string.Equals(w.Command, _command, StringComparison.Ordinal))];
+
+            return [.. filtered
+                .GroupBy(w => string.IsNullOrWhiteSpace(w.WarningNum) ? $"temp-{w.Id}" : w.WarningNum!)
+                .Select(g =>
+                {
+                    var items = g.OrderByDescending(w => w.TmFc, StringComparer.Ordinal).ToList();
+                    return new WarningGroup(items[0].WarningNum, items[0], items);
+                })
+                .OrderByDescending(g => g.Latest.TmFc, StringComparer.Ordinal)];
+        }
+    }
+
+    private async Task LoadAsync()
+    {
+        _notice = null;
+        _tone = NoticeTone.Info;
+        _selectedId = null;
+        _detail = null;
+
         try
         {
-            var res = await Client.GetWarningsAsync(all: true);
-            _warnings = res.ToList();
+            // 구역 마스터는 특보와 무관하게 늘 같다. 나란히 부른다.
+            var warnings = Client.GetWarningsAsync(all: true);
+            var zones = Client.GetWarningZonesAsync();
+
+            await Task.WhenAll(warnings, zones);
+
+            _zones = zones.Result
+                .Where(z => !string.IsNullOrWhiteSpace(z.RegId))
+                .GroupBy(z => z.RegId, StringComparer.Ordinal)
+                .ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
+
+            // 서버는 7일치를 준다. 이틀 안의 것만 현황으로 본다.
+            var cutoff = DateTime.Now.AddHours(-48);
+
+            _warnings = [.. warnings.Result
+                .Where(w => ParseMoment(w.TmFc) is { } at && at >= cutoff)
+                .OrderByDescending(w => w.TmFc, StringComparer.Ordinal)];
+
+            _commands = [.. _warnings
+                .Select(w => w.Command)
+                .Where(c => !string.IsNullOrWhiteSpace(c))
+                .Select(c => c!)
+                .Distinct(StringComparer.Ordinal)
+                .Order(StringComparer.Ordinal)];
+
+            if (_warnings.Count == 0)
+            {
+                _notice = "최근 48시간 안에 발표된 특보가 없습니다.";
+            }
+            else
+            {
+                // 맨 위 그룹을 자동으로 편다. 오른쪽이 비어 있으면 이 화면이
+                // 무엇을 보여 주는 곳인지 알기 어렵다.
+                await SelectAsync(Groups[0].Latest.Id);
+            }
+        }
+        catch (ApiException ex)
+        {
+            _notice = $"특보를 읽지 못했습니다 — {ex.Message}";
+            _tone = NoticeTone.Error;
+        }
+    }
+
+    private async Task SelectAsync(int id)
+    {
+        _selectedId = id;
+        _detailLoading = true;
+        _detail = null;
+        _keywords = [];
+
+        try
+        {
+            _detail = await Client.GetWarningFullDetailsAsync(id);
+
+            // 칠할 말은 서버가 준 구역명에서만 뽑는다. 구역명 전체는 공백으로
+            // 나뉜 여러 낱말이라 낱말 단위로도 넣는다.
+            var words = new HashSet<string>(StringComparer.Ordinal);
+
+            foreach (var zone in _detail?.RelatedZones ?? [])
+            {
+                if (!string.IsNullOrWhiteSpace(zone.RegKo))
+                {
+                    words.Add(zone.RegKo.Trim());
+                }
+
+                foreach (var part in (zone.RegName ?? string.Empty).Split(' ', StringSplitOptions.RemoveEmptyEntries))
+                {
+                    words.Add(part.Trim());
+                }
+            }
+
+            _keywords = [.. words.Where(w => w.Length > 1).OrderByDescending(w => w.Length)];
+        }
+        catch (ApiException ex)
+        {
+            _notice = $"통보문을 읽지 못했습니다 — {ex.Message}";
+            _tone = NoticeTone.Error;
         }
         finally
         {
-            _loading = false;
+            _detailLoading = false;
         }
+    }
+
+    /// <summary>
+    /// 이 특보에서 우리 관리지역이 걸린 문장.
+    ///
+    /// 특보 목록이 이미 <c>matchedLocations</c> 와 <c>sentences</c> 를 함께
+    /// 준다(<c>all=true</c>). 그래서 카드 요약을 그리려고 상세를 다시 부를
+    /// 필요가 없다 — 그러면 목록 한 판에 왕복이 수십 번 생긴다.
+    /// </summary>
+    private List<LocationHit> MatchedSentences(WeatherWarningItem warning)
+    {
+        var hits = new List<LocationHit>();
+
+        if (warning.MatchedLocations.Count == 0 || warning.Sentences.Count == 0)
+        {
+            return hits;
+        }
+
+        foreach (var location in warning.MatchedLocations)
+        {
+            var code = location.WarningAreaCode;
+
+            if (string.IsNullOrWhiteSpace(code) || !_zones.TryGetValue(code, out var zone))
+            {
+                continue;
+            }
+
+            var keywords = new HashSet<string>(StringComparer.Ordinal);
+
+            if (!string.IsNullOrWhiteSpace(zone.RegKo))
+            {
+                keywords.Add(zone.RegKo.Trim());
+            }
+
+            foreach (var part in (zone.RegName ?? string.Empty).Split(' ', StringSplitOptions.RemoveEmptyEntries))
+            {
+                keywords.Add(part.Trim());
+            }
+
+            var matched = warning.Sentences
+                .Where(s => keywords.Any(k => k.Length > 1 && $"{s.Title} {s.Content}".Contains(k, StringComparison.Ordinal)))
+                .OrderBy(s => s.Sequence)
+                .DistinctBy(s => s.Content)
+                .Where(s => !string.IsNullOrWhiteSpace(s.Title))
+                .ToList();
+
+            if (matched.Count > 0)
+            {
+                hits.Add(new LocationHit(location, matched));
+            }
+        }
+
+        return hits;
+    }
+
+    private string ZoneName(string? code) =>
+        code is not null && _zones.TryGetValue(code, out var zone) ? zone.RegKo ?? code : string.Empty;
+
+    /// <summary>문장 제목 앞의 글머리(`o `)를 뗀다. 통보문 서식이라 화면에서는 군더더기다.</summary>
+    private static string TrimBullet(string? title) =>
+        string.IsNullOrWhiteSpace(title) ? string.Empty : Regex.Replace(title, @"^o\s*", string.Empty);
+
+    private static string CommandTone(string? command) =>
+        command is not null && command.Contains("해제", StringComparison.Ordinal)
+            ? "jsini-badge--ok"
+            : "jsini-badge--warn";
+
+    /// <summary>
+    /// 발표 시각(<c>yyyyMMddHHmm</c>)을 읽는다. 서버가 문자열로 주므로
+    /// 정렬은 문자열 그대로 해도 되지만, 자르고 보여 주려면 날짜여야 한다.
+    /// </summary>
+    private static DateTime? ParseMoment(string? tmFc) =>
+        DateTime.TryParseExact(tmFc, "yyyyMMddHHmm", CultureInfo.InvariantCulture,
+            DateTimeStyles.None, out var at) ? at : null;
+
+    private static string Moment(string? tmFc, string format = "MM-dd HH:mm") =>
+        ParseMoment(tmFc)?.ToString(format, CultureInfo.InvariantCulture) ?? tmFc ?? string.Empty;
+
+    private static string Elapsed(string? tmFc)
+    {
+        if (ParseMoment(tmFc) is not { } at)
+        {
+            return string.Empty;
+        }
+
+        var gap = DateTime.Now - at;
+
+        return gap switch
+        {
+            { TotalMinutes: < 1 } => "방금",
+            { TotalHours: < 1 } => $"{(int)gap.TotalMinutes}분 전",
+            { TotalDays: < 1 } => $"{(int)gap.TotalHours}시간 전",
+            _ => $"{(int)gap.TotalDays}일 전",
+        };
     }
 }

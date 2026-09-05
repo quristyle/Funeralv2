@@ -145,3 +145,221 @@
 /* 전날 대비 오르내림. 색만으로는 색약에게 안 보이므로 화살표를 함께 쓴다. */
 .lf-up { color: #c0392b; }
 .lf-down { color: #2471a3; }
+
+/* ── 기상 특보 현황 ──────────────────────────────────────
+
+   왼쪽 타임라인 · 오른쪽 통보문. 좁은 화면에서는 위아래로 쌓는다.
+   표 하나로 되어 있던 것을 옛 화면 모양으로 되돌리면서 함께 들어온 규칙이다.
+   ---------------------------------------------------------- */
+
+.le-warn {
+  display: grid;
+  grid-template-columns: 5fr 7fr;
+  gap: 0.9rem;
+  align-items: start;
+}
+
+@media (max-width: 1100px) {
+  .le-warn { grid-template-columns: 1fr; }
+}
+
+.le-warn__count {
+  margin-left: auto;
+  font-size: 0.8rem;
+  color: var(--jsini-text-muted);
+}
+
+.le-warn__list,
+.le-warn__detail {
+  /* 목록이 길다(48시간에도 수십 건). 각자 구르게 두고 페이지는 고정한다 —
+     페이지째 구르면 통보문을 읽는 동안 목록이 시야에서 사라진다. */
+  max-height: 72vh;
+  overflow-y: auto;
+  padding-right: 0.3rem;
+}
+
+.le-warn__empty {
+  padding: 2.5rem 0;
+  text-align: center;
+  color: var(--jsini-text-muted);
+}
+
+.le-warn__card {
+  margin-bottom: 0.6rem;
+  border: 1px solid var(--jsini-border);
+
+  /* 특보는 경고다. 왼쪽 굵은 선 하나로 그 성격을 표시한다 —
+     카드 전체를 붉게 칠하면 여러 건이 늘어섰을 때 읽을 수가 없다. */
+  border-left: 3px solid #d32f2f;
+  border-radius: 0.3rem;
+  background: var(--jsini-surface, #fff);
+}
+
+.le-warn__head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.6rem;
+  border-bottom: 1px solid var(--jsini-border);
+  background: var(--jsini-surface-muted, rgba(127, 127, 127, 0.06));
+}
+
+.le-warn__title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.le-warn__when {
+  flex: 0 0 auto;
+  font-size: 0.72rem;
+  color: var(--jsini-text-muted);
+}
+
+.le-warn__ago { opacity: 0.75; }
+
+.le-warn__no {
+  flex: 0 0 auto;
+  padding: 0.05rem 0.3rem;
+  border: 1px solid rgba(211, 47, 47, 0.35);
+  border-radius: 0.2rem;
+  font-size: 0.68rem;
+  color: #d32f2f;
+}
+
+.le-warn__body { padding: 0.5rem 0.6rem; }
+
+.le-warn__label {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-size: 0.65rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--jsini-text-muted);
+}
+
+.le-warn__history {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-bottom: 0.45rem;
+}
+
+.le-warn__history .le-warn__label { flex: 1 0 100%; }
+
+/* 발표 하나. 눌러서 오른쪽 통보문을 바꾸는 자리라 단추여야 한다 —
+   div 로 두면 키보드로 고를 수 없다. */
+.le-warn__stamp {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.1rem 0.35rem;
+  border: 1px solid transparent;
+  border-radius: 0.2rem;
+  background: none;
+  cursor: pointer;
+  font: inherit;
+}
+
+.le-warn__stamp:hover { background: var(--jsini-surface-muted, rgba(127, 127, 127, 0.08)); }
+
+.le-warn__stamp.is-on {
+  border-color: #1976d2;
+  background: color-mix(in srgb, #1976d2 10%, transparent);
+}
+
+.le-warn__time {
+  font-size: 0.72rem;
+  color: var(--jsini-text-muted);
+}
+
+.le-warn__area {
+  margin-bottom: 0.45rem;
+  padding: 0.35rem 0.45rem;
+  border: 1px solid rgba(63, 81, 181, 0.3);
+  border-radius: 0.25rem;
+  background: color-mix(in srgb, #3f51b5 8%, transparent);
+}
+
+.le-warn__areaRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.15rem 0;
+}
+
+.le-warn__areaName { font-size: 0.78rem; font-weight: 700; }
+
+.le-warn__zone {
+  font-size: 0.68rem;
+  color: var(--jsini-text-muted);
+}
+
+.le-warn__hit {
+  padding: 0.05rem 0.3rem;
+  border: 1px solid rgba(211, 47, 47, 0.3);
+  border-radius: 0.2rem;
+  background: var(--jsini-surface, #fff);
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: #d32f2f;
+}
+
+.le-warn__content {
+  margin: 0;
+  font-size: 0.76rem;
+  color: var(--jsini-text-muted);
+}
+
+.le-warn__other {
+  margin: 0.2rem 0 0;
+  font-size: 0.7rem;
+  color: var(--jsini-text-muted);
+}
+
+.le-warn__detail {
+  padding: 0.7rem 0.9rem;
+  border: 1px solid var(--jsini-border);
+  border-radius: 0.3rem;
+  background: var(--jsini-surface, #fff);
+}
+
+.le-warn__msgTitle {
+  margin: 0 0 0.2rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.le-warn__matched {
+  margin: 0.3rem 0 0;
+  font-size: 0.78rem;
+}
+
+.le-warn__section { margin-top: 0.8rem; }
+
+.le-warn__sectionTitle {
+  margin: 0 0 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--jsini-text-muted);
+}
+
+/* 통보문은 줄바꿈이 뜻을 가진다((1) (2) … 로 나뉜다). 접으면 못 읽는다.
+   줄바꿈은 컴포넌트가 <br> 로 바꿔 넣지만, 긴 낱말은 여기서 접는다. */
+.le-warn__text {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.55;
+  word-break: break-word;
+}
+
+.le-warn__mark {
+  padding: 0 0.1rem;
+  background: #fff59d;
+  color: inherit;
+}
