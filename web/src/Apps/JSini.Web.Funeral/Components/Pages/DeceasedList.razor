@@ -8,6 +8,13 @@
     쓰임이 다르다 — **그쪽은 진행 상태를 다루고(출상 처리), 여기는 인적 사항과
     호실 배정을 다룬다.**
 
+    [등록도 수정도 할 수 없었다]
+
+    호실 이동·발인·삭제만 있었다. 위 줄에 「등록하고 고친다」고 적혀 있었는데
+    그 길이 어디에도 없었다 — **장례식장 업무의 시작이 여기라, 이것이 없으면
+    나머지 화면이 전부 남이 넣어 준 자료만 보게 된다.**
+    클라이언트에는 상세 읽기·저장이 이미 있었고 부르는 곳만 없었다.
+
     [호실 이동을 여기서 한다]
 
     배정만 바꾸고 인적 사항은 건드리지 않는다. 서버에 그 전용 통로가 따로
@@ -26,6 +33,10 @@
     <DxTextBox @bind-Text="_keyword" NullText="고인명 검색" Style="width: 200px"
                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
     <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@ReloadAsync" />
+
+    <PermissionView Action="MenuAction.Create">
+        <DxButton Text="고인 등록" RenderStyle="ButtonRenderStyle.Success" Click="@OpenNew" />
+    </PermissionView>
 </div>
 
 <DxGrid Data="@_rows" ShowFilterRow="false" PageSize="20">
@@ -100,11 +111,18 @@
                 @{
                     var d = (Deceased)cell.DataItem;
                 }
-                <PermissionView Action="MenuAction.Delete">
-                    <DxButton Text="삭제" SizeMode="SizeMode.Small"
-                              RenderStyle="ButtonRenderStyle.Secondary"
-                              Click="@(() => DeleteAsync(d))" />
-                </PermissionView>
+                <div class="d-flex gap-1">
+                    <PermissionView Action="MenuAction.Update">
+                        <DxButton Text="수정" SizeMode="SizeMode.Small"
+                                  RenderStyle="ButtonRenderStyle.Secondary"
+                                  Click="@(() => OpenEdit(d))" />
+                    </PermissionView>
+                    <PermissionView Action="MenuAction.Delete">
+                        <DxButton Text="삭제" SizeMode="SizeMode.Small"
+                                  RenderStyle="ButtonRenderStyle.Secondary"
+                                  Click="@(() => DeleteAsync(d))" />
+                    </PermissionView>
+                </div>
             </CellDisplayTemplate>
         </DxGridDataColumn>
     </Columns>
@@ -112,8 +130,14 @@
 
 <PageNotice Text="@Notice" Tone="@Tone" />
 
+<DeceasedEditor @bind-Visible="_editing" DeceasedId="@_editingId" Rooms="@_available"
+                OnSaved="@ReloadAsync" />
+
 @code {
     private string? _keyword;
+
+    private bool _editing;
+    private string? _editingId;
     private IReadOnlyList<Deceased> _rows = [];
     private IReadOnlyList<Room> _available = [];
 
@@ -139,6 +163,18 @@
 
         return _rows.Count;
     }, "조건에 맞는 고인 자료가 없습니다.", "고인 목록을 읽지 못했습니다");
+
+    private void OpenNew()
+    {
+        _editingId = null;
+        _editing = true;
+    }
+
+    private void OpenEdit(Deceased d)
+    {
+        _editingId = d.Id;
+        _editing = true;
+    }
 
     private string? GetTarget(string id) => _targets.GetValueOrDefault(id);
 

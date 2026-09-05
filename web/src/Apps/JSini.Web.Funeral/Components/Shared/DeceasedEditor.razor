@@ -1,0 +1,343 @@
+@*
+    [고인 등록 · 수정]
+
+    인적 사항과 상주·계약자·담당자를 한 번에 저장한다
+    (`funeral/building/deceased/{id}/detail`). 서버가 그 묶음을 통째로 받는다.
+
+    [등록도 수정도 할 수 없었다]
+
+    「고인 관리」 화면에는 호실 이동·발인·삭제만 있었다. 화면 주석에는
+    「고인 자료를 등록하고 고친다」고 적혀 있었는데 그 길이 없었다 —
+    장례식장 업무의 시작이 여기라 이것이 없으면 나머지가 다 비어 있게 된다.
+    클라이언트에는 읽기·저장이 이미 있었다.
+
+    [호실은 여기서 정하지 않는다]
+
+    배정은 전용 통로(`MoveDeceasedRoomAsync`)가 따로 있다. 상세 저장으로
+    옮기면 같은 요청에 이름·나이까지 실려 나가고, 그 사이 다른 사람이 고친
+    값을 덮는다. **등록할 때만** 첫 호실을 고르게 하고, 그 뒤로는 목록의
+    「호실 이동」이 맡는다.
+
+    [주민번호는 받되 목록에 보내지 않는다]
+
+    서버가 상세에서만 준다. 목록 화면에 흘리지 않는 것이 그쪽 판단이고,
+    이 폼도 그 판단을 따른다.
+*@
+
+@inherits DataPage
+@inject FuneralApi Api
+
+<DxPopup Visible="@Visible" VisibleChanged="@OnVisibleChanged"
+         HeaderText="@(IsNew ? "고인 등록" : "고인 수정")" Width="880px" ShowFooter="false">
+    <BodyContentTemplate Context="popup">
+        <PageNotice Text="@Notice" Tone="@Tone" />
+
+        @if (_form is null)
+        {
+            <p class="fn-note">읽는 중입니다 …</p>
+        }
+        else
+        {
+            <section class="fn-devsec is-on">
+                <h3 class="fn-devsec__head">인적 사항</h3>
+                <div class="fn-devsec__body">
+                    <DeviceField Label="고인명">
+                        <DxTextBox @bind-Text="_form.Name" />
+                    </DeviceField>
+                    <DeviceField Label="성별">
+                        <DxComboBox Data="@Genders" TextFieldName="Name" ValueFieldName="Code"
+                                    @bind-Value="_form.Gender" />
+                    </DeviceField>
+                    <DeviceField Label="나이">
+                        <DxSpinEdit @bind-Value="_form.Age" MinValue="0" MaxValue="150" />
+                    </DeviceField>
+                    <DeviceField Label="종교">
+                        <DxTextBox @bind-Text="_form.Religion" />
+                    </DeviceField>
+                    <DeviceField Label="주민번호">
+                        <DxTextBox @bind-Text="_form.Ssn" NullText="없으면 비워 둡니다" />
+                    </DeviceField>
+                    <DeviceField Label="사인">
+                        <DxTextBox @bind-Text="_form.CauseOfDeath" />
+                    </DeviceField>
+
+                    <DeviceField Label="임종">
+                        <DxDateEdit @bind-Date="_form.DeathDate" />
+                    </DeviceField>
+                    <DeviceField Label="발인">
+                        <DxDateEdit @bind-Date="_form.FuneralDate" TimeSectionVisible="true" />
+                    </DeviceField>
+                    <DeviceField Label="장지 일시">
+                        <DxDateEdit @bind-Date="_form.BurialDate" TimeSectionVisible="true" />
+                    </DeviceField>
+                    <DeviceField Label="장지">
+                        <DxTextBox @bind-Text="_form.BurialPlot" />
+                    </DeviceField>
+
+                    @if (IsNew)
+                    {
+                        <DeviceField Label="첫 호실">
+                            @* 등록할 때만 고른다. 그 뒤 이동은 목록의 「호실 이동」이
+                               맡는다 — 상세 저장으로 옮기면 인적 사항까지 함께 나간다. *@
+                            <DxComboBox Data="@Rooms" TextFieldName="@nameof(Room.Name)"
+                                        ValueFieldName="@nameof(Room.Id)"
+                                        @bind-Value="_form.RoomId" NullText="나중에 정함"
+                                        ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+                        </DeviceField>
+                    }
+                    else
+                    {
+                        <DeviceField Label="호실">
+                            <span class="fn-note">@(_form.RoomName ?? "배정 없음") — 목록의 「호실 이동」에서 바꿉니다.</span>
+                        </DeviceField>
+                    }
+
+                    <DeviceField Label="비고" Wide="true">
+                        <DxTextBox @bind-Text="_form.Remark" />
+                    </DeviceField>
+                </div>
+            </section>
+
+            <section class="fn-devsec is-on">
+                <h3 class="fn-devsec__head">
+                    상주
+                    <span class="fn-note">대표 상주는 한 명입니다. 새로 고르면 앞의 것이 풀립니다.</span>
+                </h3>
+
+                <div class="jsini-toolbar">
+                    <DxButton Text="상주 추가" SizeMode="SizeMode.Small"
+                              RenderStyle="ButtonRenderStyle.Secondary" Click="@AddMourner" />
+                </div>
+
+                @if (_form.Mourners.Count == 0)
+                {
+                    <p class="fn-note">등록된 상주가 없습니다.</p>
+                }
+                else
+                {
+                    <div class="fn-devsec__body">
+                        @foreach (var mourner in _form.Mourners)
+                        {
+                            <DeviceField Label="이름">
+                                <DxTextBox Text="@mourner.Name"
+                                           TextChanged="@((string v) => mourner.Name = v)" />
+                            </DeviceField>
+                            <DeviceField Label="관계">
+                                <DxTextBox Text="@mourner.Relation"
+                                           TextChanged="@((string v) => mourner.Relation = v)" />
+                            </DeviceField>
+                            <DeviceField Label="연락처">
+                                <DxTextBox Text="@mourner.Contact"
+                                           TextChanged="@((string v) => mourner.Contact = v)" />
+                            </DeviceField>
+                            <DeviceField Label="대표 · 빼기">
+                                <div class="d-flex gap-2">
+                                    <DxCheckBox Checked="@mourner.IsChief"
+                                                CheckedChanged="@((bool v) => SetChief(mourner, v))">대표</DxCheckBox>
+                                    <DxButton Text="빼기" SizeMode="SizeMode.Small"
+                                              RenderStyle="ButtonRenderStyle.Secondary"
+                                              Click="@(() => _form.Mourners.Remove(mourner))" />
+                                </div>
+                            </DeviceField>
+                        }
+                    </div>
+                }
+            </section>
+
+            <section class="fn-devsec is-on">
+                <h3 class="fn-devsec__head">계약자</h3>
+                <div class="fn-devsec__body">
+                    <DeviceField Label="이름">
+                        <DxTextBox Text="@Contractor.Name"
+                                   TextChanged="@((string v) => Contractor.Name = v)" />
+                    </DeviceField>
+                    <DeviceField Label="연락처">
+                        <DxTextBox Text="@Contractor.Contact"
+                                   TextChanged="@((string v) => Contractor.Contact = v)" />
+                    </DeviceField>
+                    <DeviceField Label="관계">
+                        <DxTextBox Text="@Contractor.Relation"
+                                   TextChanged="@((string v) => Contractor.Relation = v)" />
+                    </DeviceField>
+                    <DeviceField Label="주소" Wide="true">
+                        <DxTextBox Text="@Contractor.Address"
+                                   TextChanged="@((string v) => Contractor.Address = v)" />
+                    </DeviceField>
+                </div>
+            </section>
+
+            <section class="fn-devsec is-on">
+                <h3 class="fn-devsec__head">담당</h3>
+                <div class="fn-devsec__body">
+                    <DeviceField Label="지도사">
+                        <DxTextBox Text="@Manager.DirectorName"
+                                   TextChanged="@((string v) => Manager.DirectorName = v)" />
+                    </DeviceField>
+                    <DeviceField Label="지도사 연락처">
+                        <DxTextBox Text="@Manager.DirectorContact"
+                                   TextChanged="@((string v) => Manager.DirectorContact = v)" />
+                    </DeviceField>
+                    <DeviceField Label="상조회사">
+                        <DxTextBox Text="@Manager.MutualAidCompany"
+                                   TextChanged="@((string v) => Manager.MutualAidCompany = v)" />
+                    </DeviceField>
+                    <DeviceField Label="상조 담당자">
+                        <DxTextBox Text="@Manager.StaffName"
+                                   TextChanged="@((string v) => Manager.StaffName = v)" />
+                    </DeviceField>
+                    <DeviceField Label="상조 연락처">
+                        <DxTextBox Text="@Manager.StaffContact"
+                                   TextChanged="@((string v) => Manager.StaffContact = v)" />
+                    </DeviceField>
+                </div>
+            </section>
+
+            <div class="jsini-toolbar">
+                <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Primary" Click="@SaveAsync" />
+                <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary"
+                          Click="@(() => OnVisibleChanged(false))" />
+            </div>
+        }
+    </BodyContentTemplate>
+</DxPopup>
+
+@code {
+    private sealed record Option(string Code, string Name);
+
+    private static readonly Option[] Genders =
+    [
+        new("MALE", "남"),
+        new("FEMALE", "여"),
+    ];
+
+    [Parameter] public bool Visible { get; set; }
+
+    [Parameter] public EventCallback<bool> VisibleChanged { get; set; }
+
+    /// <summary>고칠 고인. <c>null</c> 이면 새로 등록한다.</summary>
+    [Parameter] public string? DeceasedId { get; set; }
+
+    /// <summary>등록할 때 고를 수 있는 빈 호실.</summary>
+    [Parameter] public IReadOnlyList<Room> Rooms { get; set; } = [];
+
+    /// <summary>저장했다. 목록을 다시 읽는 것은 부모가 한다.</summary>
+    [Parameter] public EventCallback OnSaved { get; set; }
+
+    private DeceasedDetail? _form;
+    private string? _loadedFor;
+
+    private bool IsNew => string.IsNullOrEmpty(DeceasedId);
+
+    // 계약자·담당은 없을 수 있다. 폼이 늘 쓸 수 있게 빈 것을 채워 둔다 —
+    // null 인 채로 두면 칸마다 null 검사를 적게 되고, 한 곳은 반드시 빠진다.
+    private DeceasedContractor Contractor => _form!.Contractor ??= new DeceasedContractor();
+    private DeceasedManager Manager => _form!.Manager ??= new DeceasedManager();
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!Visible)
+        {
+            _loadedFor = null;
+            return;
+        }
+
+        // 같은 대상을 다시 열면 그대로 둔다 — 다시 읽으면 쓰던 값이 날아간다.
+        var key = DeceasedId ?? "(new)";
+        if (string.Equals(_loadedFor, key, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        _loadedFor = key;
+        await LoadAsync2();
+    }
+
+    private Task LoadAsync2() => LoadAsync(async () =>
+    {
+        if (IsNew)
+        {
+            _form = new DeceasedDetail();
+            return 1;
+        }
+
+        _form = await Api.GetDeceasedDetailAsync(DeceasedId!) ?? new DeceasedDetail { Id = DeceasedId! };
+        return 1;
+    }, string.Empty, "고인 자료를 읽지 못했습니다");
+
+    private void AddMourner() => _form!.Mourners.Add(new DeceasedMourner
+    {
+        SortOrder = _form.Mourners.Count,
+
+        // 첫 상주는 대표로 둔다. 대표가 하나도 없으면 현황판의 「상주」 칸이
+        // 빈다 — 등록하고 나서야 알게 되는 종류의 빠짐이다.
+        IsChief = _form.Mourners.Count == 0,
+    });
+
+    /// <summary>
+    /// 대표 상주는 한 명이다. 새로 고르면 앞의 것을 푼다 —
+    /// 둘이 되면 현황판이 어느 쪽을 보여 줄지 서버가 임의로 정하게 된다.
+    /// </summary>
+    private void SetChief(DeceasedMourner mourner, bool value)
+    {
+        if (value)
+        {
+            foreach (var other in _form!.Mourners)
+            {
+                other.IsChief = false;
+            }
+        }
+
+        mourner.IsChief = value;
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_form is null)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_form.Name))
+        {
+            Say("고인명을 넣으십시오.", NoticeTone.Warning);
+            return;
+        }
+
+        if (_form.Mourners.Any(m => string.IsNullOrWhiteSpace(m.Name)))
+        {
+            Say("이름이 비어 있는 상주가 있습니다.", NoticeTone.Warning);
+            return;
+        }
+
+        // 상주 순서를 화면에 보이는 대로 매긴다. 안 매기면 서버가 넣은 순서를
+        // 쓰는데, 그것이 화면 순서와 달라 다시 열었을 때 뒤바뀌어 보인다.
+        for (var i = 0; i < _form.Mourners.Count; i++)
+        {
+            _form.Mourners[i].SortOrder = i;
+        }
+
+        var saved = await RunAsync(
+            () => Api.SaveDeceasedDetailAsync(IsNew ? null : DeceasedId, _form),
+            IsNew ? "등록했습니다." : "저장했습니다.",
+            IsNew ? "등록하지 못했습니다" : "저장하지 못했습니다");
+
+        if (saved)
+        {
+            await OnVisibleChanged(false);
+            await OnSaved.InvokeAsync();
+        }
+    }
+
+    private async Task OnVisibleChanged(bool visible)
+    {
+        Visible = visible;
+
+        if (!visible)
+        {
+            _form = null;
+            _loadedFor = null;
+        }
+
+        await VisibleChanged.InvokeAsync(visible);
+    }
+}
