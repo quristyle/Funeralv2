@@ -3,7 +3,7 @@
 @*
     [계정 연결] — DB 메뉴 `/helpdesk/system/account-link`.
     이력: Vue `views/helpdesk/system/account-link.vue` → 여기.
-    엔드포인트: `auth-links`
+    엔드포인트: `auth-links` (GET · POST · DELETE)
 
     [왜 연결이 필요한가]
 
@@ -12,12 +12,26 @@
     표를 새로 설계하면 이을 수 있지만, 이미 쌓인 요청·댓글·구독이 그 열쇠를
     참조하고 있어 옮기는 비용이 크다. 그래서 연결 표를 하나 두고 이어 준다.
 
-    로그인한 사람의 연결 상태를 보여 주고, 안 이어져 있으면 무엇을 해야 하는지 적는다.
+    **로그인 아이디가 같아도 서로 다른 사람인 경우가 실제로 있어 자동 매칭을
+    걸지 않았다.** 여기서 사람이 확인하고 잇는다.
+
+    [잇는 길이 없었다]
+
+    이 화면은 연결 **목록만** 보여 주고 있었다. 연결을 만들거나 푸는 자리가
+    없어서, 「계정 연결」이라는 이름으로 열리지만 계정을 연결할 수는 없었다.
+    서버에는 그 두 길이 다 있다(`POST /auth-links` · `DELETE /auth-links/{id}`).
+
+    [아이디를 손으로 치지 않는다]
+
+    옛 화면도 처음에는 아이디를 타이핑해서 받았다. 오타가 나면 **아무 데도
+    닿지 않는 연결이 조용히 만들어지고**, 그 계정으로 로그인해도 헬프데스크
+    자료가 빈 것처럼 보인다. 실재하는 계정 중에서만 고르게 한다.
 *@
 
 @inherits DataPage
 @inject HelpDeskApi Api
 @inject HelpDeskContext Context
+@inject BizOptionService BizOptions
 
 <PageTitle>계정 연결 · 헬프데스크</PageTitle>
 
@@ -44,31 +58,225 @@
     }
 }
 
-<h2 class="hd-subhead">연결 목록</h2>
-<AutoGrid Data="@_links" Loading="@Loading" Captions="@Captions" PageSize="20" />
+<div class="jsini-toolbar">
+    <PermissionView Action="MenuAction.Search">
+        <DxButton Text="새로고침" RenderStyle="ButtonRenderStyle.Secondary" Click="@ReloadAsync" />
+    </PermissionView>
+    <PermissionView Action="MenuAction.Create">
+        <DxButton Text="연결 추가" RenderStyle="ButtonRenderStyle.Primary" Click="@OpenCreate" />
+    </PermissionView>
+</div>
 
 <PageNotice Text="@Notice" Tone="@Tone" />
 
-@code {
-    private static readonly Dictionary<string, string> Captions = new(StringComparer.Ordinal)
-    {
-        ["portalUserId"] = "포털 계정",
-        ["helpdeskUserId"] = "헬프데스크 사용자",
-        ["userType"] = "구분",
-        ["createdAt"] = "연결일",
-    };
+<DxGrid Data="@_links" Loading="@Loading" PageSize="20" KeyFieldName="Id">
+    <Columns>
+        <DxGridDataColumn FieldName="AuthUserId" Caption="JSini 포털 계정" MinWidth="180" />
+        <DxGridDataColumn FieldName="UserType" Caption="구분" Width="100px">
+            <CellDisplayTemplate>
+                <span class="jsini-badge">@TypeName(context.Value as string)</span>
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+        <DxGridDataColumn FieldName="UserName" Caption="헬프데스크 사용자" MinWidth="160" />
+        <DxGridDataColumn FieldName="HelpdeskUserId" Caption="내부 ID" Width="90px" />
+        <DxGridDataColumn FieldName="CreatedAt" Caption="연결일" Width="160px" DisplayFormat="yyyy-MM-dd HH:mm" />
+        <DxGridDataColumn Caption="" Width="90px" AllowSort="false">
+            <CellDisplayTemplate>
+                @{
+                    var link = (AuthUserLink)context.DataItem;
+                }
+                <PermissionView Action="MenuAction.Delete">
+                    <DxButton Text="해제" RenderStyle="ButtonRenderStyle.Danger" SizeMode="SizeMode.Small"
+                              Click="@(() => _removing = link)" />
+                </PermissionView>
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+    </Columns>
+</DxGrid>
 
-    private DataTable _links = JsonTable.Empty;
+<DxPopup @bind-Visible="_editing" HeaderText="계정 연결" Width="520px">
+    <BodyContentTemplate Context="popup">
+        <div class="hd-form">
+            <div class="hd-field">
+                <label class="hd-field__label">JSini 포털 계정</label>
+                <DxComboBox Data="@_accounts" TextFieldName="@nameof(BizOption.Label)"
+                            ValueFieldName="@nameof(BizOption.Value)"
+                            @bind-Value="_authUserId" NullText="계정을 고르십시오"
+                            SearchMode="ListSearchMode.AutoSearch" SearchFilterCondition="ListSearchFilterCondition.Contains" />
+            </div>
+
+            <div class="hd-field">
+                <label class="hd-field__label">구분</label>
+                <DxComboBox Data="@UserTypes" TextFieldName="Name" ValueFieldName="Code"
+                            Value="@_userType" ValueChanged="@((string? v) => OnTypeChanged(v))" />
+            </div>
+
+            <div class="hd-field">
+                <label class="hd-field__label">헬프데스크 사용자</label>
+                <DxComboBox Data="@HelpdeskUsers" TextFieldName="@nameof(BizOption.Label)"
+                            ValueFieldName="@nameof(BizOption.Value)"
+                            @bind-Value="_helpdeskUserId" NullText="사용자를 고르십시오"
+                            SearchMode="ListSearchMode.AutoSearch" SearchFilterCondition="ListSearchFilterCondition.Contains" />
+            </div>
+
+            @* 같은 포털 계정을 다시 이으면 서버가 **덮어쓴다.** 새 줄이 생기는
+               것이 아니라 가리키는 곳이 바뀐다 — 그 사실을 미리 적는다. *@
+            @if (_authUserId is not null && _links.Any(l => l.AuthUserId == _authUserId))
+            {
+                <PageNotice Tone="NoticeTone.Warning"
+                            Text="이미 연결된 계정입니다. 저장하면 기존 연결을 덮어씁니다." />
+            }
+        </div>
+
+        <div class="jsini-toolbar">
+            <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Primary" Click="@SaveAsync" />
+            <DxButton Text="취소" RenderStyle="ButtonRenderStyle.Secondary"
+                      Click="@(() => _editing = false)" />
+        </div>
+    </BodyContentTemplate>
+</DxPopup>
+
+<DxPopup Visible="@(_removing is not null)" VisibleChanged="@((bool v) => { if (!v) _removing = null; })"
+         HeaderText="연결 해제" Width="440px">
+    <BodyContentTemplate Context="popup">
+        <p>
+            <strong>@_removing?.AuthUserId</strong> 의 연결을 해제합니다.
+            그 계정으로 로그인하면 헬프데스크 자료가 「내 것」으로 잡히지 않습니다.
+        </p>
+
+        <div class="jsini-toolbar">
+            <DxButton Text="해제" RenderStyle="ButtonRenderStyle.Danger" Click="@RemoveAsync" />
+            <DxButton Text="취소" RenderStyle="ButtonRenderStyle.Secondary"
+                      Click="@(() => _removing = null)" />
+        </div>
+    </BodyContentTemplate>
+</DxPopup>
+
+@code {
+    private sealed record UserTypeOption(string Code, string Name);
+
+    private static readonly UserTypeOption[] UserTypes =
+    [
+        new("admin", "담당자"),
+        new("customer", "고객"),
+    ];
+
+    private List<AuthUserLink> _links = [];
+
+    /// <summary>포털 계정 목록. 이미 이어진 계정은 이름 뒤에 표시한다.</summary>
+    private List<BizOption> _accounts = [];
+
+    private bool _editing;
+    private AuthUserLink? _removing;
+
+    private string? _authUserId;
+    private string _userType = "admin";
+    private string? _helpdeskUserId;
+
+    /// <summary>고른 구분에 따라 담당자 목록 또는 고객 목록.</summary>
+    private IReadOnlyList<BizOption> HelpdeskUsers =>
+        string.Equals(_userType, "admin", StringComparison.Ordinal)
+            ? Context.AdminOptions
+            : Context.CustomerOptions;
 
     protected override async Task OnInitializedAsync()
     {
         await Context.LoadIdentityAsync();
-
-        await LoadAsync(async () =>
-        {
-            var json = await Api.GetAsync<JsonElement>("auth-links");
-            _links = JsonTable.From(json);
-            return _links.Rows.Count;
-        }, "연결된 계정이 없습니다.", "연결 목록을 읽지 못했습니다");
+        await Context.LoadOrganizationsAsync();
+        await ReloadAsync();
     }
+
+    private Task ReloadAsync() => LoadAsync(async () =>
+    {
+        _links = await Api.GetListAsync<AuthUserLink>("auth-links");
+        await LoadAccountsAsync();
+
+        return _links.Count;
+    }, "연결된 계정이 없습니다.", "연결 목록을 읽지 못했습니다");
+
+    /// <summary>
+    /// 포털 계정 목록. 이어진 것에는 표시를 붙인다 —
+    /// 중복 연결을 저장하고 나서 알기보다 고르기 전에 보이는 편이 낫다.
+    /// </summary>
+    private async Task LoadAccountsAsync()
+    {
+        var linked = _links.Select(l => l.AuthUserId).ToHashSet(StringComparer.Ordinal);
+        var loaded = await BizOptions.FetchOptionsAsync("portal_account");
+
+        _accounts = [.. loaded.Options
+            .Where(o => !string.IsNullOrWhiteSpace(o.Value))
+            .Select(o => linked.Contains(o.Value!)
+                ? o with { Label = $"{o.Label} (연결됨)" }
+                : o)];
+    }
+
+    private void OpenCreate()
+    {
+        _authUserId = null;
+        _userType = "admin";
+        _helpdeskUserId = null;
+        _editing = true;
+    }
+
+    private void OnTypeChanged(string? value)
+    {
+        _userType = value ?? "admin";
+
+        // 담당자 목록에서 고른 값이 고객 목록에도 있을 수 있다. 남겨 두면
+        // 엉뚱한 사람에게 연결된다 — 두 목록의 번호는 서로 다른 체계다.
+        _helpdeskUserId = null;
+    }
+
+    private async Task SaveAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_authUserId) || string.IsNullOrWhiteSpace(_helpdeskUserId))
+        {
+            Say("포털 계정과 헬프데스크 사용자를 모두 고르십시오.", NoticeTone.Warning);
+            return;
+        }
+
+        if (!int.TryParse(_helpdeskUserId, out var helpdeskUserId))
+        {
+            Say("헬프데스크 사용자 번호를 읽지 못했습니다.", NoticeTone.Error);
+            return;
+        }
+
+        var ok = await RunAsync(
+            () => Api.PostAsync("auth-links", new
+            {
+                authUserId = _authUserId,
+                userType = _userType,
+                helpdeskUserId,
+            }),
+            "연결했습니다.", "연결하지 못했습니다");
+
+        if (ok)
+        {
+            _editing = false;
+            await ReloadAsync();
+        }
+    }
+
+    private async Task RemoveAsync()
+    {
+        if (_removing is null)
+        {
+            return;
+        }
+
+        var id = _removing.Id;
+        _removing = null;
+
+        var ok = await RunAsync(
+            () => Api.DeleteAsync($"auth-links/{id}"),
+            "연결을 해제했습니다.", "해제하지 못했습니다");
+
+        if (ok)
+        {
+            await ReloadAsync();
+        }
+    }
+
+    private static string TypeName(string? code) =>
+        string.Equals(code, "customer", StringComparison.OrdinalIgnoreCase) ? "고객" : "담당자";
 }
