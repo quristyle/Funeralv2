@@ -53,9 +53,6 @@ var connectionString = builder.Configuration.GetConnectionString("funeralv2")
                     ?? Environment.GetEnvironmentVariable("funeralv2");
 
 
-Console.WriteLine($"aaaaaaaaaaaaaaaaaaaaaaaaaaa funeralv2api connectionString: {connectionString}");
-
-
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(connectionString, x => x.MigrationsHistoryTable("__EFMigrationsHistory", "smfr")));
