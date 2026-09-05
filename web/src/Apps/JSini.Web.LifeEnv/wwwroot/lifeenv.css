@@ -141,3 +141,7 @@
   opacity: 0.7;
   font-size: 0.78rem;
 }
+
+/* 전날 대비 오르내림. 색만으로는 색약에게 안 보이므로 화살표를 함께 쓴다. */
+.lf-up { color: #c0392b; }
+.lf-down { color: #2471a3; }

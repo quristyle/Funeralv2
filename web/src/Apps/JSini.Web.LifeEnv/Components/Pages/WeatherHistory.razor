@@ -1,84 +1,203 @@
 @page "/life/weather/history"
-@using JSini.Web.LifeEnv.Api
 
 @*
-    [기상 실측 이력]
-
+    [기상 실측 이력] — DB 메뉴 `/life/weather/history`.
     이력: Vue `views/life/weather/history.vue` → 여기.
-    관측 지역별 과거 실측 데이터 이력을 조회한다.
+
+    지역별로 실제 관측된 값을 되짚어 본다. 「그때 정말 그랬나」를 확인하는
+    자리라 예보가 아니라 **실측**만 담긴다.
+
+    [기간을 고를 수 없었다]
+
+    7일 고정이었다. 서버는 일수를 받는다(`days`). 「지난달 그날」을 보려면
+    기간을 바꿀 수 있어야 한다.
+
+    [같은 시각 비교가 빠져 있었다]
+
+    옛 화면에는 「매일 오후 2시」처럼 **시각을 고정하고 날짜별로 견주는** 표가
+    있었다(`history/hourly`). 기온 추세를 보는 데 그쪽이 쓸모가 있다 —
+    관측 시각이 뒤섞인 목록으로는 어제보다 더운지 알기 어렵다.
 *@
 
+@inherits DataPage
 @inject LifeEnvClient Client
 
 <PageTitle>기상 실측 이력 · 생활과환경</PageTitle>
 
-<h1>기상 실측 이력 <span class="pm-page__scope">생활과환경</span></h1>
+<PageHeading Title="기상 실측 이력" Scope="생활과환경" />
 
-<div class="card p-3 mb-3">
-    <div class="d-flex align-items-center gap-2">
-        <span class="fw-bold">지역 선택:</span>
-        <DxComboBox Data="@_locations"
-                    TextFieldName="Name"
-                    ValueFieldName="Name"
-                    Value="@_selectedLocationName"
-                    ValueChanged="@((string name) => OnLocationChanged(name))"
-                    NullText="지역을 선택하세요"
-                    Style="width: 200px" />
-        <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@LoadHistoryAsync" />
-    </div>
+<div class="jsini-toolbar">
+    <DxComboBox Data="@_locations" @bind-Value="_locationId"
+                TextFieldName="@nameof(WeatherLocation.Name)"
+                ValueFieldName="@nameof(WeatherLocation.Id)"
+                NullText="지역을 고르십시오" Style="width: 180px" />
+
+    <DxComboBox Data="@DayOptions" @bind-Value="_days"
+                TextFieldName="Text" ValueFieldName="Value" Style="width: 120px" />
+
+    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" SizeMode="SizeMode.Small"
+              IconCssClass="jsini-icon-refresh" Click="@ReloadAsync" />
+
+    <div class="jsini-toolbar__spacer"></div>
+
+    @* 같은 시각끼리 견주는 표로 바꾼다. 관측 시각이 뒤섞인 목록으로는
+       어제보다 더운지 알기 어렵다. *@
+    <DxCheckBox @bind-Checked="_byHour">같은 시각 비교</DxCheckBox>
+
+    @if (_byHour)
+    {
+        <DxComboBox Data="@Hours" @bind-Value="_hour" Style="width: 100px">
+            <ItemTemplate>@context 시</ItemTemplate>
+        </DxComboBox>
+    }
 </div>
 
-<DxGrid Data="@_history" Loading="@_loading" PageSize="20" KeyFieldName="Id">
-    <Columns>
-        <DxGridDataColumn FieldName="ObservationTime" Caption="관측 시각" Width="170px" DisplayFormat="yyyy-MM-dd HH:mm" />
-        <DxGridDataColumn FieldName="Location" Caption="지역" Width="120px" />
-        <DxGridDataColumn FieldName="TemperatureC" Caption="기온" Width="100px">
-            <CellDisplayTemplate>
-                <strong class="text-danger">@context.Value°C</strong>
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
-        <DxGridDataColumn FieldName="Condition" Caption="기상 상태" MinWidth="130" />
-        <DxGridDataColumn FieldName="Humidity" Caption="습도(%)" Width="90px" />
-        <DxGridDataColumn FieldName="WindSpeed" Caption="풍속(m/s)" Width="100px" />
-        <DxGridDataColumn FieldName="Rainfall" Caption="강수량(mm)" Width="100px" />
-    </Columns>
-</DxGrid>
+<PageNotice Text="@Notice" Tone="@Tone" />
+
+@if (_byHour)
+{
+    <DxGrid Data="@_hourly" ShowSearchBox="false" PageSize="30">
+        <Columns>
+            <DxGridDataColumn FieldName="@nameof(HourlyTemp.Date)" Caption="날짜" Width="160" />
+
+            <DxGridDataColumn Caption="@($"{_hour}시 기온")" Width="140">
+                <CellDisplayTemplate Context="cell">
+                    <strong>@(((HourlyTemp)cell.DataItem).Temp)°C</strong>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn Caption="전날 대비" MinWidth="200">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var row = (HourlyTemp)cell.DataItem;
+                        var diff = DiffFromPreviousDay(row);
+                    }
+                    @* 숫자만 늘어놓으면 추세가 안 보인다. 전날과의 차이를
+                       함께 적는다. *@
+                    @if (diff is { } d)
+                    {
+                        <span class="@(d > 0 ? "lf-up" : d < 0 ? "lf-down" : "")">
+                            @(d > 0 ? "▲" : d < 0 ? "▼" : "-") @Math.Abs(d).ToString("0.0")°C
+                        </span>
+                    }
+                    else
+                    {
+                        <span class="jsini-text-muted">-</span>
+                    }
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+        </Columns>
+    </DxGrid>
+}
+else
+{
+    <DxGrid Data="@_history" ShowSearchBox="false" PageSize="30">
+        <Columns>
+            <DxGridDataColumn FieldName="@nameof(WeatherInfo.ObservationTime)" Caption="관측 시각" Width="170"
+                              DisplayFormat="yyyy-MM-dd HH:mm" />
+            <DxGridDataColumn FieldName="@nameof(WeatherInfo.Location)" Caption="지역" Width="120" />
+
+            <DxGridDataColumn Caption="기온" Width="90">
+                <CellDisplayTemplate Context="cell">
+                    <strong>@(((WeatherInfo)cell.DataItem).TemperatureC)°C</strong>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn Caption="체감" Width="90">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var w = (WeatherInfo)cell.DataItem;
+                    }
+                    @* 판정 기준 중에 체감온도로 견주는 것이 있어(폭염·한파)
+                       함께 보여 준다. *@
+                    @(w.SensibleTemp is { } t ? $"{t}°C" : "-")
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn FieldName="@nameof(WeatherInfo.Condition)" Caption="상태" MinWidth="120" />
+            <DxGridDataColumn FieldName="@nameof(WeatherInfo.Humidity)" Caption="습도(%)" Width="90" />
+            <DxGridDataColumn FieldName="@nameof(WeatherInfo.WindSpeed)" Caption="풍속(m/s)" Width="100" />
+            <DxGridDataColumn FieldName="@nameof(WeatherInfo.Rainfall)" Caption="강수(mm)" Width="100" />
+            <DxGridDataColumn FieldName="@nameof(WeatherInfo.Snowfall)" Caption="적설(cm)" Width="100" />
+        </Columns>
+    </DxGrid>
+}
 
 @code {
-    private List<WeatherLocation> _locations = [];
-    private List<WeatherInfo> _history = [];
-    private string? _selectedLocationName;
-    private bool _loading;
+    private IReadOnlyList<WeatherLocation> _locations = [];
+    private IReadOnlyList<WeatherInfo> _history = [];
+    private IReadOnlyList<HourlyTemp> _hourly = [];
+
+    private int? _locationId;
+    private int _days = 7;
+
+    private bool _byHour;
+    private int _hour = 14;
+
+    private static readonly object[] DayOptions =
+    [
+        new { Value = 3, Text = "최근 3일" },
+        new { Value = 7, Text = "최근 7일" },
+        new { Value = 14, Text = "최근 14일" },
+        new { Value = 30, Text = "최근 30일" },
+        new { Value = 90, Text = "최근 90일" },
+    ];
+
+    private static readonly int[] Hours = [.. Enumerable.Range(0, 24)];
 
     protected override async Task OnInitializedAsync()
     {
-        var locs = await Client.GetLocationsAsync();
-        _locations = locs.ToList();
-        if (_locations.Count > 0)
+        await LoadAsync(async () =>
         {
-            _selectedLocationName = _locations[0].Name;
-            await LoadHistoryAsync();
+            _locations = await Client.GetLocationsAsync();
+
+            // 첫 지역을 골라 둔다. 안 고르면 빈 표만 보이고 무엇을 해야
+            // 하는지 알 수 없다.
+            _locationId = _locations.FirstOrDefault()?.Id;
+
+            return _locations.Count;
+        }, "등록된 관측 지역이 없습니다.", "관측 지역을 읽지 못했습니다");
+
+        if (_locationId is not null)
+        {
+            await ReloadAsync();
         }
     }
 
-    private async Task OnLocationChanged(string name)
+    private Task ReloadAsync() => LoadAsync(async () =>
     {
-        _selectedLocationName = name;
-        await LoadHistoryAsync();
-    }
+        if (_locationId is not { } id)
+        {
+            _history = [];
+            _hourly = [];
+            return 0;
+        }
 
-    private async Task LoadHistoryAsync()
+        if (_byHour)
+        {
+            _hourly = await Client.GetHourlyHistoryAsync(id, _hour, _days);
+            return _hourly.Count;
+        }
+
+        // 실측 조회는 지역 **이름**으로 받는다. 식별자가 아니다.
+        var name = _locations.FirstOrDefault(l => l.Id == id)?.Name;
+        _history = name is null ? [] : await Client.GetHistoryAsync(name, _days);
+
+        return _history.Count;
+    }, "그 기간에 기록이 없습니다.", "실측 이력을 읽지 못했습니다");
+
+    /// <summary>
+    /// 전날 같은 시각과의 차이.
+    ///
+    /// 목록은 최근이 위다. 그래서 「전날」은 <b>다음 줄</b>이다 —
+    /// 순서를 잘못 보면 부호가 뒤집힌다.
+    /// </summary>
+    private double? DiffFromPreviousDay(HourlyTemp row)
     {
-        if (string.IsNullOrEmpty(_selectedLocationName)) return;
-        _loading = true;
-        try
-        {
-            var res = await Client.GetHistoryAsync(_selectedLocationName, 7);
-            _history = res.ToList();
-        }
-        finally
-        {
-            _loading = false;
-        }
+        var index = _hourly.ToList().FindIndex(x => x.Date == row.Date);
+
+        return index >= 0 && index + 1 < _hourly.Count
+            ? Math.Round(row.Temp - _hourly[index + 1].Temp, 1)
+            : null;
     }
 }

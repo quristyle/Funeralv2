@@ -1000,3 +1000,57 @@ public sealed class RoleAssignRequest
     public string TargetId { get; set; } = string.Empty;
     public string RoleId { get; set; } = string.Empty;
 }
+
+
+// ── AI 제공자 상태 ─────────────────────────────────────────
+//
+// AI 는 다른 서비스와 성격이 다르다. 컨테이너가 떠 있어도 **제공자 키가
+// 없거나 하루 한도를 다 썼으면** 대화가 안 되는데, 그것은 헬스체크로 잡히지
+// 않는다. 그래서 서버 상태 화면이 이 값을 따로 본다.
+
+/// <summary><c>ai/providers</c> 응답.</summary>
+public sealed class AiProviderStatusDto
+{
+    /// <summary>기본으로 쓰는 제공자 키.</summary>
+    public string? DefaultProvider { get; set; }
+
+    /// <summary>제공자가 죽었을 때 다음으로 넘어가는가.</summary>
+    public bool FailoverEnabled { get; set; }
+
+    /// <summary>마지막으로 넘어간 때. 잦으면 기본 제공자가 불안정하다는 뜻이다.</summary>
+    public DateTime? LastFailover { get; set; }
+
+    /// <summary>잠시 쉬게 해 둔 모델들. 한도를 넘겼거나 오류가 잦은 것.</summary>
+    public List<string> RestingModels { get; set; } = [];
+
+    public List<AiProviderDto> Providers { get; set; } = [];
+}
+
+/// <summary>AI 제공자 하나.</summary>
+public sealed class AiProviderDto
+{
+    public string Key { get; set; } = string.Empty;
+    public string? DisplayName { get; set; }
+
+    /// <summary>지금 쓰는 모델.</summary>
+    public string? Model { get; set; }
+
+    /// <summary>
+    /// 키가 설정돼 있는가. <b>거짓이면 그 제공자로는 아무것도 못 부른다</b> —
+    /// 컨테이너가 떠 있어도 그렇다.
+    /// </summary>
+    public bool Configured { get; set; }
+
+    public bool IsDefault { get; set; }
+
+    /// <summary>하루 한도. 0 이면 제한 없음.</summary>
+    public int MaxRequestsPerDay { get; set; }
+
+    /// <summary>오늘 쓴 횟수.</summary>
+    public int UsedToday { get; set; }
+
+    public int TimeoutSeconds { get; set; }
+
+    /// <summary>기본 모델이 안 될 때 차례로 시도할 것들.</summary>
+    public List<string> FallbackModels { get; set; } = [];
+}

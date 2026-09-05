@@ -4,14 +4,18 @@
     [MSA 서버 상태] — DB 메뉴 `/system/server-status`.
     이력: Vue `views/portal/system/server-status/index` → 여기.
 
-    두 곳을 함께 본다.
+    세 곳을 함께 본다.
 
       게이트웨이  `gateway/status` — 서비스마다 헬스체크를 눌러 본 결과
       도커        `auth/deploy-status` 안의 컨테이너 · 이미지
+      AI          `ai/providers` — 제공자 키와 하루 한도
 
-    앞엣것이 「지금 응답하는가」, 뒤엣것이 「어느 판이 떠 있는가」다. 둘이
-    어긋날 때가 실제로 있다 — 컨테이너는 running 인데 응답을 못 하는 경우.
-    한쪽만 보면 그 상태를 놓친다.
+    첫째가 「지금 응답하는가」, 둘째가 「어느 판이 떠 있는가」다. 둘이 어긋날
+    때가 실제로 있다 — 컨테이너는 running 인데 응답을 못 하는 경우.
+
+    셋째를 따로 보는 이유는 AI 만 성격이 다르기 때문이다. **컨테이너가 떠
+    있고 응답도 하는데 키가 없거나 하루 한도를 다 썼으면** 대화가 안 된다.
+    그것은 헬스체크로 잡히지 않는다.
 
     [컨테이너 목록이 배열이 아니라 객체 안에 있었다]
 
@@ -97,6 +101,76 @@ else
     </DxGrid>
 }
 
+<h2 class="ad-subhead">AI 제공자</h2>
+
+@if (_ai is null)
+{
+    <PageNotice Text="AI 서버 상태를 읽지 못했습니다." Tone="NoticeTone.Info" />
+}
+else
+{
+    @if (_ai.RestingModels.Count > 0)
+    {
+        @* 쉬는 모델이 있다는 것은 한도를 넘겼거나 오류가 잦았다는 뜻이다.
+           대화가 느려진 이유가 여기 있을 때가 많다. *@
+        <PageNotice Tone="NoticeTone.Warning"
+                    Text="@($"잠시 쉬는 모델: {string.Join(", ", _ai.RestingModels)}")" />
+    }
+
+    <DxGrid Data="@_ai.Providers" ShowFilterRow="false" ShowSearchBox="false"
+            PageSizeSelectorVisible="false" PagerVisible="false">
+        <Columns>
+            <DxGridDataColumn Caption="제공자" Width="180">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var p = (AiProviderDto)cell.DataItem;
+                    }
+                    <span>@(p.DisplayName ?? p.Key)</span>
+                    @if (p.IsDefault)
+                    {
+                        <span class="jsini-badge jsini-badge--on">기본</span>
+                    }
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn Caption="설정" Width="90">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var p = (AiProviderDto)cell.DataItem;
+                    }
+                    @* 키가 없으면 그 제공자로는 아무것도 못 부른다 —
+                       컨테이너가 떠 있어도 그렇다. *@
+                    <span class="jsini-badge @(p.Configured ? "jsini-badge--on" : "jsini-badge--off")">
+                        @(p.Configured ? "됨" : "키 없음")
+                    </span>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn FieldName="@nameof(AiProviderDto.Model)" Caption="모델" MinWidth="240" />
+
+            <DxGridDataColumn Caption="오늘 사용" Width="120">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var p = (AiProviderDto)cell.DataItem;
+                    }
+                    @* 한도가 0 이면 제한이 없다는 뜻이다. 「0/0」으로 보이면
+                       다 쓴 것처럼 읽히므로 갈라 적는다. *@
+                    @(p.MaxRequestsPerDay > 0 ? $"{p.UsedToday} / {p.MaxRequestsPerDay}" : $"{p.UsedToday} (무제한)")
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn Caption="대체 모델" MinWidth="200">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var p = (AiProviderDto)cell.DataItem;
+                    }
+                    <span class="ad-code">@(p.FallbackModels.Count == 0 ? "-" : string.Join(", ", p.FallbackModels))</span>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+        </Columns>
+    </DxGrid>
+}
+
 <h2 class="ad-subhead">컨테이너</h2>
 
 @if (_status is not null && !_status.Docker.Available)
@@ -162,6 +236,7 @@ else
 @code {
     private DeployStatusDto? _status;
     private IReadOnlyList<ServiceHealth> _services = [];
+    private AiProviderStatusDto? _ai;
 
     private IReadOnlyList<DockerContainerDto> Containers => _status?.Docker.Containers ?? [];
     private IReadOnlyList<DockerImageDto> Images => _status?.Docker.Images ?? [];
@@ -173,6 +248,7 @@ else
         // 둘 중 하나가 실패해도 나머지는 보여 준다. 서버 상태를 보러 온
         // 사람에게 「둘 다 못 읽었습니다」는 쓸모가 없다.
         _services = await SafeAsync(Api.GetServiceHealthAsync, []);
+        _ai = await SafeAsync(Api.GetAiProvidersAsync, null);
         _status = await Api.GetDeployStatusAsync();
 
         return _services.Count + Containers.Count;

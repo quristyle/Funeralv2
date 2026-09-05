@@ -207,6 +207,15 @@ public sealed class AdminClient(GatewayClient gateway)
     public async Task<IReadOnlyList<ServiceHealth>> GetServiceHealthAsync(CancellationToken ct = default)
         => (await GetGatewayStatusAsync(ct))?.Services ?? [];
 
+    /// <summary>
+    /// AI 제공자 상태.
+    ///
+    /// 헬스체크와 다른 것을 본다 — 컨테이너가 떠 있어도 <b>키가 없거나 하루
+    /// 한도를 다 썼으면</b> 대화가 안 되고, 그것은 응답 확인으로 안 잡힌다.
+    /// </summary>
+    public Task<AiProviderStatusDto?> GetAiProvidersAsync(CancellationToken ct = default)
+        => gateway.GetOneAsync<AiProviderStatusDto>("ai/providers", ct);
+
     // ── 알림 설정 (NotificationServer) ─────────────────────────
 
     // 알림 서비스의 게이트웨이 접두사는 **`notification`** 이고, 서비스 안의
