@@ -5,7 +5,23 @@
     [기상 현황판]
 
     이력: Vue `views/life/weather/dashboard.vue` → 여기.
-    전 지역 최신 실황을 그리드 카드로 제공하며 선택한 지역의 주간 예보 및 추이를 시각화한다.
+    호출: `life/weather`(전 지역 실황) · `life/weather/locations` ·
+          `life/weather/current/{id}` · `life/weather/mid-term/{id}`
+
+    전 지역 최신 실황을 카드로 늘어놓고, 고른 지역의 실황 상세와 주간 예보를
+    아래에 편다.
+
+    [지역을 골라도 아무 일이 없었다]
+
+    위 줄에 「선택한 지역의 주간 예보 및 추이를 시각화한다」고 적혀 있었는데,
+    고르면 **카드에 테두리만 생겼다.** 주간 예보를 부르는 곳이 화면 어디에도
+    없었고(`mid-term`), 어제 대비 기온도 마찬가지였다(`current` 가 준다).
+    클라이언트에는 둘 다 있었다.
+
+    [어제 대비를 색만으로 보이지 않는다]
+
+    오르내림에 화살표를 함께 쓴다. 색만으로 가르면 색약인 사람에게는 두 값이
+    같아 보인다 — 이 저장소의 다른 화면과 같은 규칙이다.
 *@
 
 @inject LifeEnvClient Client
@@ -74,6 +90,71 @@ else
             </div>
         }
     </div>
+
+    @if (_current is not null)
+    {
+        <h2 class="le-today__head">@_current.Location 실황</h2>
+
+        <div class="le-cur">
+            <div class="le-cur__now">
+                <span class="le-cur__temp">@_current.TemperatureC.ToString("F1")°C</span>
+                <span class="le-cur__cond">@_current.Condition</span>
+            </div>
+
+            @if (_current.YesterdayTemperature is { } yesterday)
+            {
+                var gap = _current.TemperatureC - yesterday;
+
+                @* 색만으로 가르지 않는다 — 화살표를 함께 쓴다. *@
+                <span class="@(gap >= 0 ? "lf-up" : "lf-down")">
+                    어제보다 @(gap >= 0 ? "▲" : "▼") @Math.Abs(gap).ToString("F1")°C
+                </span>
+            }
+            else
+            {
+                <span class="le-dept">어제 기온이 아직 없습니다.</span>
+            }
+
+            @if (_current.SensibleTemp is { } feels)
+            {
+                <span class="le-dept">체감 @feels.ToString("F1")°C</span>
+            }
+        </div>
+
+        <h2 class="le-today__head">주간 예보</h2>
+
+        @if (_midTerm.Count == 0)
+        {
+            <p class="le-today__empty">이 지역의 주간 예보가 아직 없습니다.</p>
+        }
+        else
+        {
+            <div class="le-week">
+                @foreach (var day in _midTerm)
+                {
+                    <div class="le-week__day">
+                        <span class="le-week__when">@day.DayDisplay</span>
+                        <span class="le-week__date">@day.Date</span>
+
+                        <span class="le-week__sky">
+                            @* 하루 단위 예보는 오전·오후가 갈리지 않는다.
+                               그때 빈칸 둘을 보여 주면 자료가 없는 것처럼 읽힌다. *@
+                            @(string.IsNullOrWhiteSpace(day.AmSky) && string.IsNullOrWhiteSpace(day.PmSky)
+                                ? "-"
+                                : $"{day.AmSky} / {day.PmSky}")
+                        </span>
+
+                        <span class="le-week__temp">
+                            <span class="lf-down">@day.MinTemp°</span>
+                            <span class="lf-up">@day.MaxTemp°</span>
+                        </span>
+
+                        <span class="le-week__pop">강수 @day.AmPop% / @day.PmPop%</span>
+                    </div>
+                }
+            </div>
+        }
+    }
 }
 
 @code {
@@ -81,6 +162,9 @@ else
     private List<WeatherLocation> _locations = [];
     private int _selectedLocationId;
     private bool _loading;
+
+    private WeatherInfo? _current;
+    private List<MidTermForecast> _midTerm = [];
 
     protected override Task OnInitializedAsync() => LoadDataAsync();
 
@@ -98,6 +182,8 @@ else
             {
                 _selectedLocationId = _locations[0].Id;
             }
+
+            await LoadSelectedAsync();
         }
         finally
         {
@@ -105,8 +191,48 @@ else
         }
     }
 
-    private void OnLocationSelected(int id)
+    private async Task OnLocationSelected(int id)
     {
+        if (id == 0 || id == _selectedLocationId)
+        {
+            return;
+        }
+
         _selectedLocationId = id;
+        await LoadSelectedAsync();
+    }
+
+    /// <summary>
+    /// 고른 지역의 실황 상세와 주간 예보.
+    ///
+    /// 둘을 나란히 부른다. 실패해도 위 카드는 그대로 둔다 — 한 지역의 예보를
+    /// 못 읽었다고 전 지역 실황까지 사라지면 이 화면을 여는 이유가 없어진다.
+    /// </summary>
+    private async Task LoadSelectedAsync()
+    {
+        _current = null;
+        _midTerm = [];
+
+        if (_selectedLocationId == 0)
+        {
+            return;
+        }
+
+        try
+        {
+            var current = Client.GetCurrentWeatherAsync(_selectedLocationId);
+            var midTerm = Client.GetMidTermForecastAsync(_selectedLocationId);
+
+            await Task.WhenAll(current, midTerm);
+
+            _current = current.Result;
+            _midTerm = [.. midTerm.Result];
+        }
+        catch (ApiException)
+        {
+            // 위 카드는 이미 그려져 있다. 여기서 화면을 세우지 않는다.
+            _current = null;
+            _midTerm = [];
+        }
     }
 }

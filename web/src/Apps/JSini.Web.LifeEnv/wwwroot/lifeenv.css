@@ -483,3 +483,69 @@
   font-size: 0.82rem;
   word-break: break-word;
 }
+
+/* ── 기상 현황판 — 고른 지역 ─────────────────────────────── */
+
+.le-cur {
+  display: flex;
+  align-items: baseline;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+  padding: 0.6rem 0.9rem;
+  border: 1px solid var(--jsini-border);
+  border-radius: 0.3rem;
+  background: var(--jsini-surface, #fff);
+}
+
+.le-cur__now {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.le-cur__temp {
+  font-size: 1.8rem;
+  font-weight: 800;
+}
+
+.le-cur__cond { font-size: 0.95rem; font-weight: 600; }
+
+/* 주간 예보. 열 칸이 한 줄에 들어가야 「주간」으로 읽힌다 —
+   세로로 쌓으면 그냥 목록이 된다. 좁으면 옆으로 굴린다. */
+.le-week {
+  display: flex;
+  gap: 0.4rem;
+  overflow-x: auto;
+  padding-bottom: 0.3rem;
+  margin-bottom: 1rem;
+}
+
+.le-week__day {
+  display: grid;
+  gap: 0.15rem;
+  flex: 0 0 8.5rem;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--jsini-border);
+  border-radius: 0.3rem;
+  background: var(--jsini-surface, #fff);
+  text-align: center;
+}
+
+.le-week__when { font-size: 0.82rem; font-weight: 700; }
+
+.le-week__date,
+.le-week__pop {
+  font-size: 0.68rem;
+  color: var(--jsini-text-muted);
+}
+
+.le-week__sky { font-size: 0.74rem; }
+
+.le-week__temp {
+  display: flex;
+  justify-content: center;
+  gap: 0.4rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
