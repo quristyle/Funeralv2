@@ -11,6 +11,11 @@
     전 지역 최신 실황을 카드로 늘어놓고, 고른 지역의 실황 상세와 주간 예보를
     아래에 편다.
 
+    [실패를 말하지 않고 있었다]
+
+    `try/finally` 로 도는 표시만 끄고 실패는 삼켰다. 게이트웨이가 내려가 있어도
+    **빈 카드**가 나오고, 사용자는 「자료가 없다」로 읽는다.
+
     [지역을 골라도 아무 일이 없었다]
 
     위 줄에 「선택한 지역의 주간 예보 및 추이를 시각화한다」고 적혀 있었는데,
@@ -24,6 +29,7 @@
     같아 보인다 — 이 저장소의 다른 화면과 같은 규칙이다.
 *@
 
+@inherits DataPage
 @inject LifeEnvClient Client
 
 <PageTitle>기상 현황판 · 생활과환경</PageTitle>
@@ -58,7 +64,9 @@
     </div>
 </div>
 
-@if (_loading)
+<PageNotice Text="@Notice" Tone="@Tone" />
+
+@if (Loading)
 {
     <div class="text-center my-4">
         <div class="spinner-border text-primary" role="status"></div>
@@ -161,35 +169,39 @@ else
     private List<WeatherInfo> _weatherList = [];
     private List<WeatherLocation> _locations = [];
     private int _selectedLocationId;
-    private bool _loading;
 
     private WeatherInfo? _current;
     private List<MidTermForecast> _midTerm = [];
 
     protected override Task OnInitializedAsync() => LoadDataAsync();
 
-    private async Task LoadDataAsync()
+    /// <summary>
+    /// 전 지역 실황과 지역 목록.
+    ///
+    /// 실패를 삼키지 않는다 — 게이트웨이가 내려가 있어도 빈 카드가 나오면
+    /// 사용자는 「자료가 없다」로 읽는다. 기상 자료는 실제로 비는 때가 있어서
+    /// 그 둘을 구분해 주지 않으면 아무도 신고하지 않는다.
+    /// </summary>
+    private Task LoadDataAsync() => LoadAsync(async () =>
     {
-        _loading = true;
-        try
-        {
-            var weather = await Client.GetLatestWeatherAsync();
-            _weatherList = weather.ToList();
-            var locs = await Client.GetLocationsAsync();
-            _locations = locs.ToList();
+        // 둘을 나란히. 서로 기다릴 이유가 없다.
+        var weather = Client.GetLatestWeatherAsync();
+        var locations = Client.GetLocationsAsync();
 
-            if (_selectedLocationId == 0 && _locations.Count > 0)
-            {
-                _selectedLocationId = _locations[0].Id;
-            }
+        await Task.WhenAll(weather, locations);
 
-            await LoadSelectedAsync();
-        }
-        finally
+        _weatherList = [.. weather.Result];
+        _locations = [.. locations.Result];
+
+        if (_selectedLocationId == 0 && _locations.Count > 0)
         {
-            _loading = false;
+            _selectedLocationId = _locations[0].Id;
         }
-    }
+
+        await LoadSelectedAsync();
+
+        return _weatherList.Count;
+    }, "등록된 관측 지역의 실황이 아직 없습니다.", "실황을 읽지 못했습니다");
 
     private async Task OnLocationSelected(int id)
     {

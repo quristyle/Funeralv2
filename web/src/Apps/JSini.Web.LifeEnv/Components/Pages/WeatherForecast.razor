@@ -6,8 +6,17 @@
 
     이력: Vue `views/life/weather/forecast.vue` → 여기.
     관측 지역별 타임라인 및 단기/중기 통합 예보를 조회한다.
+
+    [실패를 말하지 않고 있었다]
+
+    `try/finally` 로 도는 표시만 끄고 실패는 삼켰다. 게이트웨이가 내려가 있어도
+    **빈 표**가 나오고, 사용자는 「예보가 없다」로 읽는다. 기상 자료는 실제로
+    비는 때가 있어서 그 둘을 구분해 주지 않으면 아무도 신고하지 않는다.
+
+    `DataPage` 를 쓰면 조회·빈 결과·실패가 한 곳에서 갈린다.
 *@
 
+@inherits DataPage
 @inject LifeEnvClient Client
 
 <PageTitle>시간대별 예보 · 생활과환경</PageTitle>
@@ -28,7 +37,9 @@
     </div>
 </div>
 
-<DxGrid Data="@_timeline" Loading="@_loading" PageSize="20">
+<PageNotice Text="@Notice" Tone="@Tone" />
+
+<DxGrid Data="@_timeline" Loading="@Loading" PageSize="20">
     <Columns>
         <DxGridDataColumn FieldName="Date" Caption="날짜" Width="110px" />
         <DxGridDataColumn FieldName="Time" Caption="시각" Width="90px" />
@@ -51,37 +62,37 @@
     private List<WeatherLocation> _locations = [];
     private List<WeatherTimelinePoint> _timeline = [];
     private int _selectedLocationId;
-    private bool _loading;
 
-    protected override async Task OnInitializedAsync()
+    protected override Task OnInitializedAsync() => LoadAsync(async () =>
     {
-        var locs = await Client.GetLocationsAsync();
-        _locations = locs.ToList();
-        if (_locations.Count > 0)
-        {
-            _selectedLocationId = _locations[0].Id;
-            await LoadForecastAsync();
-        }
-    }
+        _locations = [.. await Client.GetLocationsAsync()];
 
-    private async Task OnLocationChanged(int id)
+        if (_locations.Count == 0)
+        {
+            return 0;
+        }
+
+        _selectedLocationId = _locations[0].Id;
+        _timeline = [.. await Client.GetForecastAsync(_selectedLocationId)];
+
+        return _timeline.Count;
+    }, "등록된 관측 지역이 없습니다. [관측 지역 관리]에서 먼저 등록하십시오.", "예보를 읽지 못했습니다");
+
+    private Task OnLocationChanged(int id)
     {
         _selectedLocationId = id;
-        await LoadForecastAsync();
+        return LoadForecastAsync();
     }
 
-    private async Task LoadForecastAsync()
+    private Task LoadForecastAsync() => LoadAsync(async () =>
     {
-        if (_selectedLocationId == 0) return;
-        _loading = true;
-        try
+        if (_selectedLocationId == 0)
         {
-            var res = await Client.GetForecastAsync(_selectedLocationId);
-            _timeline = res.ToList();
+            _timeline = [];
+            return -1;
         }
-        finally
-        {
-            _loading = false;
-        }
-    }
+
+        _timeline = [.. await Client.GetForecastAsync(_selectedLocationId)];
+        return _timeline.Count;
+    }, "그 지역의 예보가 아직 없습니다.", "예보를 읽지 못했습니다");
 }

@@ -12,17 +12,25 @@
 
     저장 동작은 없다 — 옛 화면도 그랬고, 등록은 메뉴 관리에서 한다.
     그 사실을 화면에 적어 두어야 사용자가 저장 버튼을 찾지 않는다.
+
+    [실패를 말한다]
+
+    예전에는 실패를 삼켜 빈 표만 남았다. 서버가 훑는 것은 **서버 장비의
+    디스크**라 등록된 경로가 그 장비에 없는 일이 흔한데, 그때 「자료가 없다」와
+    「못 훑었다」가 같아 보였다.
 *@
 
+@inherits DataPage
 @inject ProjMngClient Client
 
 <PageTitle>소스 스캐너 · 프로젝트관리</PageTitle>
 
-<h1>소스 스캐너</h1>
+<PageHeading Title="소스 스캐너" Scope="프로젝트관리" />
 
-<Notice>
-    스캔 결과만 보여 줍니다. 화면을 메뉴로 등록하는 일은 포털의 [메뉴 관리]에서 합니다.
-</Notice>
+<PageNotice Tone="NoticeTone.Info"
+            Text="스캔 결과만 보여 줍니다. 화면을 메뉴로 등록하는 일은 포털의 [메뉴 관리]에서 합니다." />
+
+<PageNotice Text="@Notice" Tone="@Tone" />
 
 <SearchBar>
     <ChildContent>
@@ -36,28 +44,33 @@
 </SearchBar>
 
 @* 저장·삭제 콜백을 주지 않으면 DynamicGrid 가 그 버튼들을 아예 그리지 않는다. *@
-<DynamicGrid Data="@_data" Loading="@_loading" ExportName="소스스캔" />
+<DynamicGrid Data="@_data" Loading="@Loading" ExportName="소스스캔" HideAdd="true" />
 
 @code {
     private ProjMngTable _data = ProjMngTable.Empty;
-    private bool _loading;
     private string? _projectCode;
 
-    private async Task ScanAsync()
+    /// <summary>
+    /// 서버가 등록된 소스 경로를 훑는다.
+    ///
+    /// 훑는 것은 <b>서버 장비의 디스크</b>다. 등록된 경로가 그 장비에 없으면
+    /// 아무것도 안 나온다 — 흔한 일이라 오류가 아니라 안내로 보여 준다.
+    /// 예전에는 실패를 삼켜 빈 표만 남았고, 그래서 「자료가 없다」와
+    /// 「못 훑었다」가 같아 보였다.
+    /// </summary>
+    private Task ScanAsync() => LoadAsync(async () =>
     {
-        _loading = true;
-        try
+        var result = await Client.MdContAsync("md_blazor_scan", new Dictionary<string, object?>
         {
-            var result = await Client.MdContAsync("md_blazor_scan", new Dictionary<string, object?>
-            {
-                ["prj_rid"] = _projectCode ?? string.Empty,
-            });
+            ["prj_rid"] = _projectCode ?? string.Empty,
+        });
 
-            _data = ProjMngTable.From(result);
-        }
-        finally
+        if (result.ProcCode < 0)
         {
-            _loading = false;
+            throw new ApiException(result.Message ?? "소스를 훑지 못했습니다.");
         }
-    }
+
+        _data = ProjMngTable.From(result);
+        return _data.Table.Rows.Count;
+    }, "훑어서 찾은 화면이 없습니다. 「소스 정보」에 경로가 등록돼 있는지 보십시오.", "소스를 훑지 못했습니다");
 }
