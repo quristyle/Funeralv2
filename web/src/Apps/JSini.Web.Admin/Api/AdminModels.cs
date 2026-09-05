@@ -816,3 +816,115 @@ public sealed class ServiceDependency
     public string? Description { get; set; }
     public double? DurationMs { get; set; }
 }
+
+
+// ── 역할 범위 (회사 · 부서 · 사람) ──────────────────────────
+//
+// 역할은 **세 단계에 걸 수 있고 합쳐서 적용된다.** 덮어쓰지 않는다.
+//
+//     회사에 걸면   그 회사 모든 사람에게
+//     부서에 걸면   그 부서 사람에게
+//     사람에 걸면   그 사람에게만
+//
+// 그래서 「사람에서 뺐는데 왜 아직 있지」가 생긴다 — 부서나 회사에서 온
+// 것이기 때문이다. 화면이 **어디서 왔는지**를 함께 보여 줘야 하는 이유다.
+
+/// <summary>역할을 걸 수 있는 대상 한 칸. 회사·부서·사람이 같은 모양이다.</summary>
+public sealed class RoleScopeNodeDto
+{
+    public string Id { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+
+    /// <summary>계정인 경우의 로그인 아이디.</summary>
+    public string? LoginId { get; set; }
+
+    /// <summary><c>company</c> · <c>department</c> · <c>account</c>.</summary>
+    public string Kind { get; set; } = string.Empty;
+
+    /// <summary>이 대상에 <b>직접</b> 걸린 역할. 물려받은 것은 없다.</summary>
+    public List<string> RoleIds { get; set; } = [];
+
+    public List<RoleScopeNodeDto> Children { get; set; } = [];
+
+    /// <summary>이 부서(또는 회사) 소속 사람.</summary>
+    public List<RoleScopeNodeDto> Accounts { get; set; } = [];
+}
+
+/// <summary>회사 하나의 조직 나무.</summary>
+public sealed class RoleScopeTreeDto
+{
+    public RoleScopeNodeDto Company { get; set; } = new();
+}
+
+/// <summary>어떤 계정에 실제로 적용되는 역할과, 각 역할이 어느 단계에서 왔는지.</summary>
+public sealed class EffectiveRolesDto
+{
+    public List<string> RoleIds { get; set; } = [];
+
+    /// <summary><see cref="RoleIds"/> 와 같은 순서의 표시 이름.</summary>
+    public List<string> RoleNames { get; set; } = [];
+
+    /// <summary>
+    /// 역할 식별자 → 그 역할이 온 단계들(<c>company</c> · <c>department</c> · <c>account</c>).
+    ///
+    /// 한 역할이 여러 단계에 걸려 있을 수 있어 목록이다.
+    /// </summary>
+    public Dictionary<string, List<string>> Sources { get; set; } = [];
+}
+
+/// <summary>어떤 계정이 볼 수 있는 메뉴와 볼 수 없는 메뉴.</summary>
+public sealed class AccountMenuAccessDto
+{
+    public List<AccountMenuItemDto> Assigned { get; set; } = [];
+    public List<AccountMenuItemDto> Unassigned { get; set; } = [];
+}
+
+/// <summary>메뉴 한 칸과, 그 메뉴를 열어 준 역할.</summary>
+public sealed class AccountMenuItemDto
+{
+    public string Id { get; set; } = string.Empty;
+    public string Path { get; set; } = string.Empty;
+
+    /// <summary>제목. 다국어 키일 수 있다.</summary>
+    public string? Title { get; set; }
+
+    public string Type { get; set; } = string.Empty;
+
+    /// <summary>상위 메뉴를 이어 붙인 길. 어느 업무의 메뉴인지 이것으로 안다.</summary>
+    public string? Breadcrumb { get; set; }
+
+    /// <summary>이 메뉴를 열어 준 역할들. 닫힌 메뉴면 비어 있다.</summary>
+    public List<string> GrantedBy { get; set; } = [];
+}
+
+/// <summary>검색용 사람 한 칸. 회사·부서 이름까지 담아 한 줄로 찾게 한다.</summary>
+public sealed class AccountPickDto
+{
+    public string Id { get; set; } = string.Empty;
+    public string LoginId { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+
+    public string? CompanyId { get; set; }
+    public string? CompanyName { get; set; }
+    public string? DepartmentId { get; set; }
+    public string? DepartmentName { get; set; }
+
+    /// <summary>
+    /// 프로필 사진 주소. <b>없는 쪽이 정상이다</b> — 화면은 이름 첫 글자로
+    /// 대신 그리고, 사진이 없는 것을 오류처럼 보이게 하지 않는다.
+    /// </summary>
+    public string? Avatar { get; set; }
+
+    /// <summary>검색에 쓰는 한 줄. 아이디·부서·회사 어느 것으로 쳐도 걸린다.</summary>
+    public string SearchText => $"{Name} {LoginId} {DepartmentName} {CompanyName}";
+}
+
+/// <summary>역할 배정·해제 요청.</summary>
+public sealed class RoleAssignRequest
+{
+    /// <summary><c>company</c> · <c>department</c> · <c>account</c>.</summary>
+    public string Kind { get; set; } = string.Empty;
+
+    public string TargetId { get; set; } = string.Empty;
+    public string RoleId { get; set; } = string.Empty;
+}

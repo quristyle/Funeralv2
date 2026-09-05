@@ -315,6 +315,42 @@ public sealed class AdminClient(GatewayClient gateway)
     public Task<ReleaseRunDto?> GetReleaseRunAsync(string id, CancellationToken ct = default)
         => gateway.GetOneAsync<ReleaseRunDto>($"auth/release/runs/{id}", ct);
 
+    // ── 역할 범위 (회사 · 부서 · 사람) ──────────────────────────
+
+    /// <summary>회사 하나의 조직 나무와 각 단계에 걸린 역할.</summary>
+    public Task<RoleScopeTreeDto?> GetRoleScopeTreeAsync(string companyId, CancellationToken ct = default)
+        => gateway.GetOneAsync<RoleScopeTreeDto>(
+            "auth/system/role-scope/tree" + Query(("companyId", companyId)), ct);
+
+    /// <summary>검색용 사람 목록. 회사·부서 이름이 함께 담겨 온다.</summary>
+    public Task<IReadOnlyList<AccountPickDto>> GetRoleScopeAccountsAsync(CancellationToken ct = default)
+        => gateway.GetListAsync<AccountPickDto>("auth/system/role-scope/accounts", ct);
+
+    /// <summary>
+    /// 그 계정에 <b>실제로</b> 적용되는 역할과 그것이 온 단계.
+    ///
+    /// 회사 + 부서 + 사람을 합친 결과다. 사람 단계에서 뺐는데도 남아 있는
+    /// 역할이 있다면 위 단계에서 온 것이고, 그 사실을 <c>Sources</c> 가 말해 준다.
+    /// </summary>
+    public Task<EffectiveRolesDto?> GetEffectiveRolesAsync(string accountId, CancellationToken ct = default)
+        => gateway.GetOneAsync<EffectiveRolesDto>(
+            "auth/system/role-scope/effective" + Query(("accountId", accountId)), ct);
+
+    /// <summary>그 계정이 볼 수 있는 메뉴와 볼 수 없는 메뉴.</summary>
+    public Task<AccountMenuAccessDto?> GetAccountMenuAccessAsync(string accountId, CancellationToken ct = default)
+        => gateway.GetOneAsync<AccountMenuAccessDto>(
+            "auth/system/role-scope/menus" + Query(("accountId", accountId)), ct);
+
+    /// <summary>대상에 역할을 건다. 이미 걸려 있으면 그대로 둔다.</summary>
+    public Task AssignRoleScopeAsync(string kind, string targetId, string roleId, CancellationToken ct = default)
+        => gateway.PostAsync("auth/system/role-scope/assign",
+            new RoleAssignRequest { Kind = kind, TargetId = targetId, RoleId = roleId }, ct);
+
+    /// <summary>대상에서 역할을 푼다. 걸려 있지 않아도 오류가 아니다.</summary>
+    public Task RemoveRoleScopeAsync(string kind, string targetId, string roleId, CancellationToken ct = default)
+        => gateway.PostAsync("auth/system/role-scope/remove",
+            new RoleAssignRequest { Kind = kind, TargetId = targetId, RoleId = roleId }, ct);
+
     // ── 내 정보 ─────────────────────────────────────────────────
 
     public Task<UserInfoDto?> GetMyInfoAsync(CancellationToken ct = default)

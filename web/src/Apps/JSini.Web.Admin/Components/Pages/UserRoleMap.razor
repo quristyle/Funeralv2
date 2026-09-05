@@ -1,136 +1,445 @@
 @page "/admin/auth/user-role"
 
 @*
-    [사용자별 권한] — DB 메뉴 `/auth/user-role`.
+    [사람롤] — DB 메뉴 `/auth/user-role`.
     이력: Vue `views/portal/auth/user-role/index` → 여기.
 
-    역할을 고르면 **속한 사람**과 **넣을 수 있는 사람**이 나란히 나온다.
-    한 표에 체크박스로 두지 않은 이유는, 계정이 수백이면 체크박스 표에서
-    "지금 누가 들어 있는지" 가 안 보이기 때문이다.
+    [무엇을 보는 화면인가]
+
+    **한 대상의 권한을 한눈에 이해하는 것**이 목적이다. 「역할에 사람 넣기」가
+    아니다 — 그쪽은 `/admin/auth/menu-role` 과 짝을 이루는 다른 화면이다.
+
+        왼쪽   대상 고르기. [사람] 또는 [회사·부서]
+        오른쪽 걸린 역할 → 그 결과로 열리는 메뉴
+
+    [역할은 세 단계가 합쳐진다 — 덮어쓰지 않는다]
+
+        회사에 걸면   그 회사 모든 사람에게
+        부서에 걸면   그 부서 사람에게
+        사람에 걸면   그 사람에게만
+
+    그래서 「사람에서 뺐는데 왜 아직 있지」가 생긴다. 위 단계에서 온 것이기
+    때문이다. 역할마다 **어디서 왔는지**를 함께 적는 이유가 이것이고, 이것을
+    안 보여 주면 화면이 거짓말하는 것처럼 보인다.
+
+    [이 화면은 역할 범위를 하나도 부르지 않고 있었다]
+
+    옛 화면이 쓰던 여섯 주소(`role-scope/*`) 중 **하나도** 부르지 않았다.
+    회사·부서에 역할을 거는 기능이 통째로 없었고, 「이 사람이 무슨 메뉴를
+    볼 수 있는가」도 볼 수 없었다.
+
+    [메뉴 목록은 결과 확인용이다]
+
+    고칠 수 없다. 역할을 바꾸면 그에 따라 바뀌는 것을 보여 줄 뿐이다.
+    메뉴별 권한을 직접 정하는 곳은 `/admin/auth/menu-role` 이다.
 *@
 
 @inherits DataPage
 @inject AdminClient Api
 
-<PageTitle>사용자별 권한 · 포털관리</PageTitle>
+<PageTitle>사람롤 · 포털관리</PageTitle>
 
-<PageHeading Title="사용자별 권한" Scope="포털관리" />
+<PageHeading Title="사람롤" Scope="포털관리" />
 
 <div class="jsini-toolbar">
-    <DxComboBox Data="@_roles" @bind-Value="_roleId"
-                TextFieldName="@nameof(RoleDto.Name)" ValueFieldName="@nameof(RoleDto.Id)"
-                NullText="역할을 고르십시오" Style="width: 240px" />
-    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@ReloadAsync" />
+    @* 단추 두 개로 모드를 바꾼다. DxButtonGroup 은 자식을 `Items` 로 받아
+       그냥 넣으면 열 때 500 이 난다 — 라우트 매개변수와 같은 종류의 실수로,
+       컴파일은 통과하고 열 때 죽는다. *@
+    <DxButton Text="사람" SizeMode="SizeMode.Small"
+              RenderStyle="@(_mode == Mode.Account ? ButtonRenderStyle.Primary : ButtonRenderStyle.Secondary)"
+              Click="@(() => SwitchAsync(Mode.Account))" />
+
+    <DxButton Text="회사·부서" SizeMode="SizeMode.Small"
+              RenderStyle="@(_mode == Mode.Scope ? ButtonRenderStyle.Primary : ButtonRenderStyle.Secondary)"
+              Click="@(() => SwitchAsync(Mode.Scope))" />
+
+    <DxTextBox @bind-Text="_keyword" NullText="이름·아이디·부서·회사" Style="width: 240px"
+               ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+
+    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Secondary" SizeMode="SizeMode.Small"
+              IconCssClass="jsini-icon-refresh" Click="@ReloadAsync" />
 </div>
 
 <PageNotice Text="@Notice" Tone="@Tone" />
 
 <div class="ad-two-pane">
+
+    @* ── 왼쪽: 대상 ────────────────────────────────── *@
     <section>
-        <h2 class="ad-subhead">이 역할인 사람 (@_members.Count)</h2>
-        <DxGrid Data="@_members" ShowFilterRow="false" PageSize="15">
-            <Columns>
-                <DxGridDataColumn FieldName="@nameof(AccountDto.UserName)" Caption="이름" Width="120" />
-                <DxGridDataColumn FieldName="@nameof(AccountDto.LoginId)" Caption="아이디" Width="130" />
-                <DxGridDataColumn FieldName="@nameof(AccountDto.DeptName)" Caption="부서" MinWidth="140" />
-                <DxGridDataColumn Caption="" Width="80">
-                    <CellDisplayTemplate Context="cell">
-                        @{ var a = (AccountDto)cell.DataItem; }
-                        <PermissionView Action="MenuAction.Update">
-                            <DxButton Text="빼기" SizeMode="SizeMode.Small" RenderStyle="ButtonRenderStyle.Secondary"
-                                      Click="@(() => RemoveAsync(a))" />
-                        </PermissionView>
-                    </CellDisplayTemplate>
-                </DxGridDataColumn>
-            </Columns>
-        </DxGrid>
+        <h2 class="ad-subhead">
+            @(_mode == Mode.Account ? "사람" : "회사·부서") (@Targets.Count)
+        </h2>
+
+        <div class="ad-targets">
+            @foreach (var target in Targets)
+            {
+                <button type="button"
+                        class="ad-target @(target.Id == _selected?.Id && target.Kind == _selected?.Kind ? "ad-target--on" : "")"
+                        @onclick="@(() => SelectAsync(target))">
+                    <span class="ad-target__avatar" style="--seed: @Seed(target.Name)">@Initial(target.Name)</span>
+                    <span class="ad-target__body">
+                        <span class="ad-target__name">@target.Name</span>
+                        <span class="ad-target__meta">@target.Meta</span>
+                    </span>
+                    <span class="jsini-badge">@KindLabel(target.Kind)</span>
+                </button>
+            }
+        </div>
     </section>
 
+    @* ── 오른쪽: 역할과 그 결과 ─────────────────────── *@
     <section>
-        <h2 class="ad-subhead">넣을 수 있는 사람 (@_candidates.Count)</h2>
-        <DxGrid Data="@_candidates" ShowFilterRow="false" PageSize="15"
-                SelectionMode="GridSelectionMode.Multiple"
-                @bind-SelectedDataItems="_selected">
-            <Columns>
-                <DxGridSelectionColumn Width="46px" />
-                <DxGridDataColumn FieldName="@nameof(AccountDto.UserName)" Caption="이름" Width="120" />
-                <DxGridDataColumn FieldName="@nameof(AccountDto.LoginId)" Caption="아이디" Width="130" />
-                <DxGridDataColumn FieldName="@nameof(AccountDto.DeptName)" Caption="부서" MinWidth="140" />
-            </Columns>
-        </DxGrid>
+        @if (_selected is null)
+        {
+            <PageNotice Text="왼쪽에서 대상을 고르십시오." Tone="NoticeTone.Info" />
+        }
+        else
+        {
+            <h2 class="ad-subhead">@_selected.Name 의 역할</h2>
 
-        <PermissionView Action="MenuAction.Update">
-            <DxButton Text="고른 사람 넣기" RenderStyle="ButtonRenderStyle.Success"
-                      CssClass="mt-2" Click="@AssignAsync" />
-        </PermissionView>
+            @if (_mode == Mode.Account && _effective is not null)
+            {
+                <PageNotice Tone="NoticeTone.Info"
+                            Text="아래 「적용되는 역할」은 회사·부서·사람이 합쳐진 결과입니다. 사람 단계에서 뺄 수 있는 것은 사람에서 온 것뿐입니다." />
+            }
+
+            <div class="ad-roles">
+                @foreach (var role in _roles)
+                {
+                    var direct = IsDirect(role.Id);
+                    var sources = SourcesOf(role.Id);
+
+                    <div class="ad-role @(sources.Count > 0 ? "ad-role--on" : "")">
+                        <div class="ad-role__name">
+                            @role.Name
+                            @foreach (var source in sources)
+                            {
+                                <span class="jsini-badge @(source == KindOf(_selected.Kind) ? "jsini-badge--on" : "jsini-badge--warn")">
+                                    @SourceLabel(source)
+                                </span>
+                            }
+                        </div>
+
+                        <PermissionView Action="MenuAction.Update">
+                            @if (direct)
+                            {
+                                <DxButton Text="빼기" SizeMode="SizeMode.Small"
+                                          RenderStyle="ButtonRenderStyle.Secondary"
+                                          Click="@(() => RemoveAsync(role.Id))" />
+                            }
+                            else
+                            {
+                                <DxButton Text="걸기" SizeMode="SizeMode.Small"
+                                          RenderStyle="ButtonRenderStyle.Secondary"
+                                          Click="@(() => AssignAsync(role.Id))" />
+                            }
+                        </PermissionView>
+                    </div>
+                }
+            </div>
+
+            @if (_mode == Mode.Account)
+            {
+                <h2 class="ad-subhead">볼 수 있는 메뉴 (@_assigned.Count / @(_assigned.Count + _unassigned.Count))</h2>
+
+                @if (_assigned.Count == 0)
+                {
+                    <PageNotice Text="열려 있는 메뉴가 없습니다." Tone="NoticeTone.Warning" />
+                }
+                else
+                {
+                    <DxGrid Data="@_assigned" ShowSearchBox="true" PageSize="15">
+                        <Columns>
+                            <DxGridDataColumn FieldName="@nameof(AccountMenuItemDto.Breadcrumb)" Caption="메뉴" MinWidth="240" />
+                            <DxGridDataColumn FieldName="@nameof(AccountMenuItemDto.Path)" Caption="경로" Width="200" />
+                            <DxGridDataColumn Caption="열어 준 역할" MinWidth="180">
+                                <CellDisplayTemplate Context="cell">
+                                    @* 어느 역할이 이 메뉴를 열었는지. 역할을 뺄 때
+                                       무엇이 닫히는지 미리 알 수 있다. *@
+                                    @string.Join(", ", ((AccountMenuItemDto)cell.DataItem).GrantedBy.Select(RoleName))
+                                </CellDisplayTemplate>
+                            </DxGridDataColumn>
+                        </Columns>
+                    </DxGrid>
+                }
+            }
+        }
     </section>
 </div>
 
 @code {
-    private IReadOnlyList<RoleDto> _roles = [];
-    private string? _roleId;
+    private enum Mode
+    {
+        /// <summary>사람을 고른다. 합쳐진 결과와 메뉴까지 본다.</summary>
+        Account,
 
-    private IReadOnlyList<AccountDto> _members = [];
-    private IReadOnlyList<AccountDto> _candidates = [];
-    private IReadOnlyList<object> _selected = [];
+        /// <summary>회사·부서를 고른다. 그 단계에 직접 걸린 역할만 다룬다.</summary>
+        Scope,
+    }
+
+    /// <summary>왼쪽 목록의 한 칸. 사람과 회사·부서를 같은 모양으로 다룬다.</summary>
+    private sealed record Target(string Id, string Kind, string Name, string Meta);
+
+    private Mode _mode = Mode.Account;
+    private string? _keyword;
+
+    private IReadOnlyList<RoleDto> _roles = [];
+    private IReadOnlyList<Target> _accounts = [];
+    private IReadOnlyList<Target> _scopes = [];
+
+    private Target? _selected;
+
+    /// <summary>고른 대상에 <b>직접</b> 걸린 역할.</summary>
+    private IReadOnlyList<string> _direct = [];
+
+    /// <summary>사람 모드에서의 합산 결과.</summary>
+    private EffectiveRolesDto? _effective;
+
+    private IReadOnlyList<AccountMenuItemDto> _assigned = [];
+    private IReadOnlyList<AccountMenuItemDto> _unassigned = [];
+
+    private IReadOnlyList<Target> Source => _mode == Mode.Account ? _accounts : _scopes;
+
+    private IReadOnlyList<Target> Targets
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(_keyword))
+            {
+                return Source;
+            }
+
+            var k = _keyword.Trim();
+            return [.. Source.Where(t =>
+                t.Name.Contains(k, StringComparison.OrdinalIgnoreCase)
+                || t.Meta.Contains(k, StringComparison.OrdinalIgnoreCase))];
+        }
+    }
 
     protected override Task OnInitializedAsync() => ReloadAsync();
 
     private Task ReloadAsync() => LoadAsync(async () =>
     {
-        if (_roles.Count == 0)
+        _roles = await Api.GetRolesAsync();
+        _accounts = await LoadAccountsAsync();
+        _scopes = await LoadScopesAsync();
+
+        // 고른 대상이 사라졌으면(회사를 바꿨거나) 오른쪽을 비운다.
+        if (_selected is not null && Source.All(t => t.Id != _selected.Id))
         {
-            _roles = await Api.GetRolesAsync();
+            _selected = null;
         }
 
-        if (string.IsNullOrWhiteSpace(_roleId))
-        {
-            _members = [];
-            _candidates = [];
-            Say("역할을 고르고 조회하십시오.");
-            return -1;
-        }
+        return Source.Count;
+    }, "대상이 없습니다.", "권한 정보를 읽지 못했습니다");
 
-        // 둘을 나란히. 서로 기다릴 이유가 없다.
-        var members = Api.GetRoleUsersAsync(_roleId);
-        var candidates = Api.GetRoleEligibleUsersAsync(_roleId);
-
-        await Task.WhenAll(members, candidates);
-
-        _members = members.Result;
-        _candidates = candidates.Result;
-        _selected = [];
-
-        return _members.Count + _candidates.Count;
-    }, "조회 결과가 없습니다.", "권한 정보를 읽지 못했습니다");
-
-    private async Task AssignAsync()
+    private async Task<IReadOnlyList<Target>> LoadAccountsAsync()
     {
-        if (_roleId is null) return;
+        var rows = await Api.GetRoleScopeAccountsAsync();
 
-        var ids = _selected.OfType<AccountDto>().Select(a => a.Id).ToList();
+        return
+        [
+            .. rows.Select(a => new Target(
+                a.Id,
+                "account",
+                a.Name,
+                string.Join(" · ", new[] { a.LoginId, a.DepartmentName, a.CompanyName }
+                    .Where(x => !string.IsNullOrWhiteSpace(x))!)))
+        ];
+    }
 
-        if (ids.Count == 0)
+    /// <summary>
+    /// 회사·부서 목록.
+    ///
+    /// 회사마다 나무를 따로 받아야 한다(<c>tree?companyId=</c>). 회사가 몇 개
+    /// 안 되므로 그만큼 왕복해도 무겁지 않다.
+    /// </summary>
+    private async Task<IReadOnlyList<Target>> LoadScopesAsync()
+    {
+        var companies = await Api.GetCompaniesAsync();
+        var targets = new List<Target>();
+
+        foreach (var company in companies)
         {
-            Say("넣을 사람을 고르십시오.", NoticeTone.Warning);
+            var tree = await Api.GetRoleScopeTreeAsync(company.Id);
+
+            if (tree is null)
+            {
+                continue;
+            }
+
+            targets.Add(new Target(tree.Company.Id, "company", tree.Company.Name, "회사"));
+            Walk(tree.Company, company.Name, targets);
+        }
+
+        return targets;
+    }
+
+    /// <summary>부서 나무를 평평하게 편다. 이름 앞에 상위 부서를 이어 붙인다.</summary>
+    private static void Walk(RoleScopeNodeDto node, string trail, List<Target> into)
+    {
+        foreach (var child in node.Children)
+        {
+            into.Add(new Target(child.Id, "department", child.Name, trail));
+            Walk(child, $"{trail} › {child.Name}", into);
+        }
+    }
+
+    private async Task SwitchAsync(Mode mode)
+    {
+        _mode = mode;
+        _selected = null;
+        _direct = [];
+        _effective = null;
+        _assigned = [];
+        _unassigned = [];
+
+        await Task.CompletedTask;
+    }
+
+    private Task SelectAsync(Target target)
+    {
+        _selected = target;
+
+        return LoadAsync(async () =>
+        {
+            if (target.Kind == "account")
+            {
+                _effective = await Api.GetEffectiveRolesAsync(target.Id);
+
+                // 사람 단계에서 직접 걸린 것만 뺄 수 있다. 부서·회사에서 온
+                // 역할을 여기서 빼려 하면 서버가 거절한다.
+                _direct = _effective is null
+                    ? []
+                    : [.. _effective.Sources
+                        .Where(kv => kv.Value.Contains("account"))
+                        .Select(kv => kv.Key)];
+
+                var access = await Api.GetAccountMenuAccessAsync(target.Id);
+                _assigned = access?.Assigned ?? [];
+                _unassigned = access?.Unassigned ?? [];
+
+                return _effective?.RoleIds.Count ?? 0;
+            }
+
+            // 회사·부서는 합산이 없다. 그 단계에 직접 걸린 것뿐이다.
+            _effective = null;
+            _assigned = [];
+            _unassigned = [];
+            _direct = await DirectRolesAsync(target);
+
+            return _direct.Count;
+        }, "걸린 역할이 없습니다.", "역할을 읽지 못했습니다");
+    }
+
+    /// <summary>회사·부서에 직접 걸린 역할. 나무에서 그 노드를 찾아 꺼낸다.</summary>
+    private async Task<IReadOnlyList<string>> DirectRolesAsync(Target target)
+    {
+        var companies = await Api.GetCompaniesAsync();
+
+        foreach (var company in companies)
+        {
+            var tree = await Api.GetRoleScopeTreeAsync(company.Id);
+
+            if (tree is null)
+            {
+                continue;
+            }
+
+            if (Find(tree.Company, target.Id) is { } node)
+            {
+                return node.RoleIds;
+            }
+        }
+
+        return [];
+    }
+
+    private static RoleScopeNodeDto? Find(RoleScopeNodeDto node, string id)
+    {
+        if (node.Id == id)
+        {
+            return node;
+        }
+
+        foreach (var child in node.Children)
+        {
+            if (Find(child, id) is { } found)
+            {
+                return found;
+            }
+        }
+
+        return null;
+    }
+
+    private bool IsDirect(string roleId) => _direct.Contains(roleId);
+
+    /// <summary>이 역할이 어느 단계에서 왔는가. 회사·부서 모드에서는 직접뿐이다.</summary>
+    private IReadOnlyList<string> SourcesOf(string roleId)
+    {
+        if (_effective is not null)
+        {
+            return _effective.Sources.GetValueOrDefault(roleId) ?? [];
+        }
+
+        return IsDirect(roleId) ? [KindOf(_selected?.Kind)] : [];
+    }
+
+    private static string KindOf(string? kind) => kind ?? "account";
+
+    private async Task AssignAsync(string roleId)
+    {
+        if (_selected is null)
+        {
             return;
         }
 
-        if (await RunAsync(() => Api.AssignRoleUsersAsync(_roleId, ids),
-                $"{ids.Count}명을 넣었습니다.", "넣지 못했습니다"))
+        if (await RunAsync(
+                () => Api.AssignRoleScopeAsync(_selected.Kind, _selected.Id, roleId),
+                "역할을 걸었습니다.", "걸지 못했습니다"))
         {
-            await ReloadAsync();
+            await SelectAsync(_selected);
         }
     }
 
-    private async Task RemoveAsync(AccountDto account)
+    private async Task RemoveAsync(string roleId)
     {
-        if (_roleId is null) return;
-
-        if (await RunAsync(() => Api.RemoveRoleUserAsync(_roleId, account.Id),
-                $"{account.UserName} 님을 뺐습니다.", "빼지 못했습니다"))
+        if (_selected is null)
         {
-            await ReloadAsync();
+            return;
+        }
+
+        if (await RunAsync(
+                () => Api.RemoveRoleScopeAsync(_selected.Kind, _selected.Id, roleId),
+                "역할을 뺐습니다.", "빼지 못했습니다"))
+        {
+            await SelectAsync(_selected);
         }
     }
+
+    private string RoleName(string roleId) =>
+        _roles.FirstOrDefault(r => r.Id == roleId)?.Name ?? roleId;
+
+    private static string KindLabel(string kind) => kind switch
+    {
+        "company" => "회사",
+        "department" => "부서",
+        _ => "사람",
+    };
+
+    private static string SourceLabel(string source) => source switch
+    {
+        "company" => "회사에서",
+        "department" => "부서에서",
+        _ => "직접",
+    };
+
+    /// <summary>사진이 없을 때 쓰는 이름 첫 글자. 없는 쪽이 정상이다.</summary>
+    private static string Initial(string name) =>
+        string.IsNullOrWhiteSpace(name) ? "?" : name[..1];
+
+    /// <summary>이름에서 만든 색 씨앗. 같은 사람은 늘 같은 색이 된다.</summary>
+    private static int Seed(string name) =>
+        Math.Abs(name.GetHashCode(StringComparison.Ordinal)) % 360;
 }
