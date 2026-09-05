@@ -1,5 +1,6 @@
 using JSini.PublicSite.Api;
 using JSini.PublicSite.Components;
+using JSini.PublicSite.Site;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -31,6 +32,44 @@ if (!app.Environment.IsDevelopment())
     app.UseExceptionHandler("/error", createScopeForErrors: true);
     app.UseHsts();
 }
+
+// ── 언어 조각이 아닌 주소를 기본 언어로 보낸다 ──────────────
+//
+// 화면 주소가 `/{Locale}/...` 라 **첫 조각이 무엇이든 맞아 버린다.**
+// `/about` 은 `Locale = "about"` 로 잡히고, 언어를 못 알아보면 기본값(ko)으로
+// 좁히므로 **한국어 첫 화면이 200 으로 그려진다.**
+//
+// 공개 사이트에서 그것은 그냥 오타 처리 문제가 아니다 — `/about` · `/services` ·
+// 무엇이든 같은 내용이 200 으로 나오니, 검색 봇이 같은 페이지를 주소마다
+// 따로 담는다(중복 문서). 이 사이트의 트래픽 대부분이 검색 봇이다.
+//
+// 그래서 첫 조각이 아는 언어가 아니면 `/ko` 를 붙여 다시 보낸다.
+// `/about` → `/ko/about`(실제 화면), `/xyzzy` → `/ko/xyzzy`(404).
+// 사람이 친 주소는 살리고, 없는 주소는 없다고 답한다.
+//
+// **정적 파일과 프레임워크 경로는 건드리지 않는다.** 파일은 확장자로 가리고
+// (`/site.css`), 프레임워크 경로는 접두사로 가린다.
+app.Use(async (context, next) =>
+{
+    var path = context.Request.Path.Value ?? string.Empty;
+    var first = path.Trim('/').Split('/', 2)[0];
+
+    var skip =
+        first.Length == 0
+        || first.Contains('.')
+        || first.StartsWith('_')
+        || SiteMessages.Locales.Contains(first, StringComparer.OrdinalIgnoreCase);
+
+    if (skip)
+    {
+        await next();
+        return;
+    }
+
+    // 물음표 뒤는 그대로 옮긴다. 안 옮기면 UTM 같은 것이 사라져
+    // 유입 경로를 잃는다.
+    context.Response.Redirect($"/{SiteMessages.DefaultLocale}{path}{context.Request.QueryString}");
+});
 
 app.UseRouting();
 app.MapStaticAssets();
