@@ -1,0 +1,131 @@
+@*
+    [기기 동작 설정] — 음량 · 밝기 · 재부팅 · 자동 전원.
+
+    화면 표시 설정(`device-attribute`)과 다른 것이다. 그쪽은 **무엇을 그릴지**를
+    정하고, 이쪽은 **기기 자체가 어떻게 굴 것인지**를 정한다 — 밤에 꺼졌다가
+    아침에 켜지는 것, 새벽에 한 번 다시 뜨는 것이 여기서 나온다.
+
+    저장 경로도 다르다(`device-config`). 그래서 부품과 저장 단추를 갈라 둔다.
+
+    [시각은 글자로 받는다]
+
+    서버가 `"03:00"` 같은 문자열을 그대로 저장하고 기기도 그대로 읽는다.
+    시각 고르개를 얹으면 형식을 한 번 더 옮겨야 하고, 비워 두는 것
+    (「자동 전원 안 씀」)을 표현하기가 오히려 어려워진다.
+*@
+
+@inherits DataPage
+@inject FuneralApi Api
+
+<h2 class="fn-subhead">
+    기기 동작
+    <span class="fn-note">음량 · 밝기 · 자동 전원. 화면에 무엇을 그릴지와는 다른 설정입니다.</span>
+</h2>
+
+<div class="jsini-toolbar">
+    <PermissionView Action="MenuAction.Update">
+        <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Success" Click="@SaveAsync" />
+    </PermissionView>
+    <DxButton Text="되돌리기" RenderStyle="ButtonRenderStyle.Secondary" Click="@ReloadAsync" />
+
+    @if (_isNew)
+    {
+        <span class="fn-note">아직 설정이 없는 기기입니다. 저장하면 만들어집니다.</span>
+    }
+</div>
+
+<PageNotice Text="@Notice" Tone="@Tone" />
+
+@if (_form is not null)
+{
+    <div class="fn-devsec is-on">
+        <div class="fn-devsec__body">
+            <DeviceField Label="음량">
+                <DxSpinEdit @bind-Value="_form.Volume" MinValue="0" MaxValue="100" />
+            </DeviceField>
+
+            <DeviceField Label="밝기">
+                <DxSpinEdit @bind-Value="_form.Brightness" MinValue="0" MaxValue="100" />
+            </DeviceField>
+
+            <DeviceField Label="자동 재부팅">
+                @* 비워 두면 안 한다. 「0시」와 「안 함」이 다른 값이라
+                   숫자로 두면 그 둘을 구분할 수 없다. *@
+                <DxTextBox @bind-Text="_form.RebootTime" NullText="예: 03:00 (비우면 안 함)" />
+            </DeviceField>
+
+            <DeviceField Label="자동 전원">
+                <DxCheckBox @bind-Checked="_form.IsAutoPower">켬</DxCheckBox>
+            </DeviceField>
+
+            <DeviceField Label="켜는 시각">
+                <DxTextBox @bind-Text="_form.PowerOnTime" NullText="예: 08:00" />
+            </DeviceField>
+
+            <DeviceField Label="끄는 시각">
+                <DxTextBox @bind-Text="_form.PowerOffTime" NullText="예: 22:00" />
+            </DeviceField>
+        </div>
+    </div>
+}
+
+@code {
+    /// <summary>어느 기기의 설정인가. 바뀌면 다시 읽는다.</summary>
+    [Parameter, EditorRequired] public string DeviceId { get; set; } = string.Empty;
+
+    private string? _loadedFor;
+    private DeviceConfig? _form;
+    private bool _isNew;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (string.Equals(_loadedFor, DeviceId, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        _loadedFor = DeviceId;
+        await ReloadAsync();
+    }
+
+    private Task ReloadAsync() => LoadAsync(async () =>
+    {
+        if (string.IsNullOrEmpty(DeviceId))
+        {
+            _form = null;
+            return -1;
+        }
+
+        var saved = await Api.GetDeviceConfigAsync(DeviceId);
+
+        // 한 번도 설정하지 않은 기기는 행이 없다. 빈 화면 대신 기본값을
+        // 보여 준다 — 어차피 저장하면 만들어질 값이다.
+        _isNew = saved is null;
+
+        _form = saved ?? new DeviceConfig
+        {
+            DeviceId = DeviceId,
+            Volume = 50,
+            Brightness = 80,
+        };
+
+        return -1;
+    }, string.Empty, "기기 동작 설정을 읽지 못했습니다");
+
+    private async Task SaveAsync()
+    {
+        if (_form is null)
+        {
+            return;
+        }
+
+        _form.DeviceId = DeviceId;
+
+        if (await RunAsync(
+                () => Api.UpsertDeviceConfigAsync(_form),
+                "저장했습니다.", "기기 동작 설정을 저장하지 못했습니다"))
+        {
+            await ReloadAsync();
+        }
+    }
+}
