@@ -8,6 +8,12 @@
 
     출상 처리와 취소를 여기서 한다. **배정만 바꾸고 인적 사항은 건드리지 않는다** —
     출상한 뒤에도 고인 자료는 조회와 정산에 쓰이기 때문이다.
+
+    [고인명 검색이 아무 일도 하지 않았다]
+
+    조회 조건을 `keyword` 라는 이름으로 보내고 있었다. 서버가 받는 이름은
+    `name` 이다 — 모르는 이름은 그냥 무시되므로 **오류 없이 전체가 나온다.**
+    게이트웨이로 확인했다: `keyword=홍길동` → 2건(전체), `name=홍길동` → 1건.
 *@
 
 @inherits DataPage
@@ -92,7 +98,9 @@
         // 매개변수를 하나씩 붙이는 방식을 그만뒀다). 값이 비면 넣지 않는다 —
         // 빈 문자열을 보내면 서버가 "빈 이름" 으로 걸러 0건이 된다.
         var query = new Dictionary<string, string?>();
-        if (!string.IsNullOrWhiteSpace(_keyword)) query["keyword"] = _keyword;
+        // 서버가 받는 이름은 `name` 이다. `keyword` 로 보내면 조용히 무시되고
+        // 전체가 나온다 — 오류가 아니라서 화면만 봐서는 알 수 없다.
+        if (!string.IsNullOrWhiteSpace(_keyword)) query["name"] = _keyword;
         if (!string.IsNullOrWhiteSpace(_status)) query["status"] = _status;
 
         _rows = await Api.GetDeceasedListAsync(query);
