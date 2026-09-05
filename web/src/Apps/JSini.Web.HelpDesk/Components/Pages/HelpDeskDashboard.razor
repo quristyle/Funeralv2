@@ -1,93 +1,271 @@
 @page "/helpdesk/dashboard"
-@using JSini.Web.HelpDesk.Api
 
 @*
-    [헬프데스크 대시보드]
-
+    [헬프데스크 현황] — DB 메뉴 `/helpdesk/dashboard`.
     이력: Vue `views/helpdesk/dashboard/index.vue` → 여기.
-    서비스 요청 처리 현황 및 통계 현황판.
+
+    [이 화면은 보기 자료를 그리고 있었다]
+
+    「신규 접수 12건 · 처리 중 5건 · 처리 완료 48건 · 전체 65건」이 코드에
+    박혀 있었고, 최근 요청 두 줄도 지어낸 것이었다. 게이트웨이를 한 번도
+    부르지 않았다. **숫자가 그럴듯해서 보기만 해서는 알 수 없는** 종류다.
+
+    [보는 사람에 따라 자료가 다르다]
+
+    옛 화면이 그랬다 — 담당자에게는 전체 처리 현황을, 고객에게는 자기 회사
+    현황을 보여 준다. 판정은 `HelpDeskContext.IsAdmin` 이 한다.
+
+      담당자  `dashboard/admin-stats`      내가 맡은 것 + 우리 팀 미배정
+      고객    `dashboard/my-company-stats` 우리 회사가 올린 것
+
+    두 응답의 칸 이름이 같아서(PendingCount · InProgressCount …) 화면은
+    하나로 쓴다. 서버가 그렇게 맞춰 두었다.
+
+    [연결이 없으면 숫자를 못 준다]
+
+    포털 계정과 헬프데스크 사용자가 이어져 있어야 「내 것」을 셀 수 있다.
+    연결이 없는 관리자는 조회는 되지만 자기 통계가 비므로, 안내를 띄우고
+    전체 상태 집계(`requests/status-count`)로 대신한다.
 *@
 
+@using System.Text.Json
+@using JSini.Web.HelpDesk.Api
+
+@inherits DataPage
 @inject HelpDeskApi Api
+@inject HelpDeskContext Context
+@inject NavigationManager Navigation
 
-<PageTitle>헬프데스크 대시보드 · 헬프데스크</PageTitle>
+<PageTitle>헬프데스크 현황 · 헬프데스크</PageTitle>
 
-<h1>헬프데스크 대시보드 <span class="pm-page__scope">헬프데스크</span></h1>
+<PageHeading Title="헬프데스크 현황" Scope="헬프데스크" />
 
-<div class="row g-3 mb-4">
-    <div class="col-12 col-md-3">
-        <div class="card p-3 bg-primary text-white">
-            <div class="fs-7">신규 접수</div>
-            <div class="display-6 font-black">12건</div>
-        </div>
-    </div>
-    <div class="col-12 col-md-3">
-        <div class="card p-3 bg-warning text-dark">
-            <div class="fs-7">처리 중</div>
-            <div class="display-6 font-black">5건</div>
-        </div>
-    </div>
-    <div class="col-12 col-md-3">
-        <div class="card p-3 bg-success text-white">
-            <div class="fs-7">처리 완료</div>
-            <div class="display-6 font-black">48건</div>
-        </div>
-    </div>
-    <div class="col-12 col-md-3">
-        <div class="card p-3 bg-secondary text-white">
-            <div class="fs-7">전체 요청</div>
-            <div class="display-6 font-black">65건</div>
-        </div>
-    </div>
-</div>
+<div class="jsini-toolbar">
+    <span class="jsini-badge">@(Context.IsAdmin ? "담당자" : "고객")</span>
 
-<div class="card p-3">
-    <h5 class="fw-bold mb-3">📋 최근 서비스 요청 목록</h5>
-    <DxGrid Data="@_recentRequests" Loading="@_loading" PageSize="10">
-        <Columns>
-            <DxGridDataColumn FieldName="ReqNo" Caption="요청 번호" Width="120px" />
-            <DxGridDataColumn FieldName="Title" Caption="요청 제목" MinWidth="250" />
-            <DxGridDataColumn FieldName="Category" Caption="유형" Width="120px" />
-            <DxGridDataColumn FieldName="Status" Caption="상태" Width="100px">
-                <CellDisplayTemplate>
-                    <span class="badge bg-warning text-dark">@context.Value</span>
-                </CellDisplayTemplate>
-            </DxGridDataColumn>
-            <DxGridDataColumn FieldName="CreatedAt" Caption="접수일" Width="140px" DisplayFormat="yyyy-MM-dd" />
-        </Columns>
-    </DxGrid>
-</div>
-
-@code {
-    private List<RequestSummaryDto> _recentRequests = [];
-    private bool _loading;
-
-    protected override Task OnInitializedAsync() => LoadDataAsync();
-
-    private Task LoadDataAsync()
+    @if (Context.IdentityChecked && !Context.IsLinked)
     {
-        _loading = true;
-        try
-        {
-            _recentRequests =
-            [
-                new RequestSummaryDto { ReqNo = "REQ-2026-001", Title = "장례식장 시스템 접속 불가 문의", Category = "시스템 장애", Status = "처리중", CreatedAt = DateTime.Now },
-                new RequestSummaryDto { ReqNo = "REQ-2026-002", Title = "엑셀 서식 출력 기능 개선 요청", Category = "기능 개선", Status = "접수", CreatedAt = DateTime.Now.AddDays(-1) }
-            ];
-        }
-        finally
-        {
-            _loading = false;
-        }
-        return Task.CompletedTask;
+        <span class="jsini-badge jsini-badge--warn">계정 미연결</span>
     }
 
-    public sealed class RequestSummaryDto
+    <div class="jsini-toolbar__spacer"></div>
+
+    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Secondary" SizeMode="SizeMode.Small"
+              IconCssClass="jsini-icon-refresh" Click="@ReloadAsync" />
+</div>
+
+<PageNotice Text="@Notice" Tone="@Tone" />
+
+@if (Context.IdentityChecked && !Context.IsLinked)
+{
+    @* 「내 것」을 셀 수 없어 전체 집계를 보여 준다. 그 사실을 밝히지 않으면
+       남의 것까지 센 숫자를 자기 것으로 읽는다. *@
+    <PageNotice Tone="NoticeTone.Warning"
+                Text="포털 계정에 이어진 헬프데스크 사용자가 없어 「내 것」을 가려낼 수 없습니다. 아래는 전체 상태 집계입니다. 연결은 「계정 연결」 화면에서 합니다." />
+}
+
+<div class="jsini-stats hd-stats">
+    @foreach (var tile in Tiles)
     {
-        public string ReqNo { get; set; } = string.Empty;
-        public string Title { get; set; } = string.Empty;
-        public string Category { get; set; } = string.Empty;
-        public string Status { get; set; } = string.Empty;
-        public DateTime CreatedAt { get; set; }
+        <div class="jsini-stat">
+            <span class="jsini-stat__label">@tile.Label</span>
+            <span class="jsini-stat__value">@tile.Count</span>
+        </div>
+    }
+</div>
+
+<h2 class="hd-section">최근 접수</h2>
+
+<DxGrid Data="@_recent" ShowSearchBox="false" PageSize="10">
+    <Columns>
+        <DxGridDataColumn FieldName="@nameof(ImprovementRequest.Id)" Caption="번호" Width="80" />
+        <DxGridDataColumn FieldName="@nameof(ImprovementRequest.Title)" Caption="제목" MinWidth="260" />
+
+        <DxGridDataColumn Caption="상태" Width="100">
+            <CellDisplayTemplate Context="cell">
+                @{
+                    var r = (ImprovementRequest)cell.DataItem;
+                }
+                <span class="jsini-badge @StatusClass(r.Status)">@StatusText(r)</span>
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+
+        <DxGridDataColumn Caption="긴급" Width="70">
+            <CellDisplayTemplate Context="cell">
+                @{
+                    var r = (ImprovementRequest)cell.DataItem;
+                }
+                @if (r.IsEmergency == true)
+                {
+                    <span class="jsini-badge jsini-badge--off">긴급</span>
+                }
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+
+        <DxGridDataColumn FieldName="@nameof(ImprovementRequest.CreatedAt)" Caption="접수" Width="150"
+                          DisplayFormat="yyyy-MM-dd HH:mm" />
+
+        <DxGridDataColumn Caption="" Width="80" AllowSort="false">
+            <CellDisplayTemplate Context="cell">
+                @{
+                    var r = (ImprovementRequest)cell.DataItem;
+                }
+                <DxButton Text="상세" SizeMode="SizeMode.Small" RenderStyle="ButtonRenderStyle.Link"
+                          Click="@(() => { Navigation.NavigateTo($"/helpdesk/request/{r.Id}"); })" />
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+    </Columns>
+</DxGrid>
+
+@code {
+    private sealed record Tile(string Label, int Count);
+
+    /// <summary>서버가 준 상태별 건수. 칸 이름이 담당자·고객 응답에서 같다.</summary>
+    private Dictionary<string, int> _counts = [];
+
+    private IReadOnlyList<ImprovementRequest> _recent = [];
+
+    /// <summary>
+    /// 타일 여섯. 옛 화면과 같은 차례다.
+    ///
+    /// 「전체」를 서버가 준 값(<c>TotalCount</c>/<c>TotalRequests</c>)으로 쓰지
+    /// 않고 더해서 만든다 — 두 응답에서 그 칸 이름이 다르고, 담당자 쪽의
+    /// <c>TotalRequests</c> 는 「내 것」이 아니라 시스템 전체라 나머지 타일과
+    /// 합이 안 맞아 보인다.
+    /// </summary>
+    private IReadOnlyList<Tile> Tiles =>
+    [
+        new("대기", Count("pendingCount")),
+        new("진행", Count("inProgressCount")),
+        new("완료", Count("completedCount")),
+        new("종료", Count("userCompletedCount")),
+        new("협의", Count("consultationCount") + Count("negotiationCount")),
+        new("반려", Count("rejectedCount")),
+    ];
+
+    private int Count(string key) => _counts.GetValueOrDefault(key);
+
+    protected override async Task OnInitializedAsync()
+    {
+        // 신원을 먼저 안다. 담당자냐 고객이냐에 따라 부를 주소가 갈린다.
+        await Context.LoadIdentityAsync();
+        await ReloadAsync();
+    }
+
+    private Task ReloadAsync() => LoadAsync(async () =>
+    {
+        _counts = await LoadCountsAsync();
+        _recent = await LoadRecentAsync();
+
+        // 집계가 비어도 화면은 타일 여섯을 0 으로 그린다 — 그것이 사실이다.
+        // 「없습니다」 는 최근 접수까지 비었을 때만 띄운다.
+        return _counts.Count + _recent.Count;
+    }, "아직 접수된 요청이 없습니다.", "현황을 읽지 못했습니다");
+
+    /// <summary>
+    /// 상태별 건수를 읽는다. <b>부를 주소가 신원에 따라 셋으로 갈린다.</b>
+    ///
+    ///   이어진 담당자   <c>dashboard/admin-stats</c>       내가 맡은 것
+    ///   이어진 고객     <c>dashboard/my-company-stats</c>  우리 회사가 올린 것
+    ///   연결이 없음     <c>dashboard/requests/status-count</c> 전체 집계
+    ///
+    /// **연결이 없으면 앞의 둘을 부르면 안 된다.** 서버가 「연결된 계정만
+    /// 조회할 수 있습니다」로 거절하고, 화면에는 그 문구가 오류처럼 뜬다.
+    /// 담당자만 챙기고 넘어갔다가 실제로 그렇게 됐다 — 연결 없는 계정으로
+    /// 열면 「현황을 읽지 못했습니다」만 보였다.
+    ///
+    /// 전체 집계로 떨어질 때는 화면이 그 사실을 안내로 밝힌다. 안 밝히면
+    /// 남의 것까지 센 숫자를 자기 것으로 읽는다.
+    /// </summary>
+    private async Task<Dictionary<string, int>> LoadCountsAsync()
+    {
+        if (!Context.IsLinked)
+        {
+            var rows = await Api.GetListAsync<StatusCount>("dashboard/requests/status-count");
+
+            return rows
+                .Where(r => r.Status is not null)
+                .GroupBy(r => StatusKey(r.Status!))
+                .ToDictionary(g => g.Key, g => g.Sum(x => x.Count));
+        }
+
+        var path = Context.IsAdmin ? "dashboard/admin-stats" : "dashboard/my-company-stats";
+        var stats = await Api.GetAsync<JsonElement>(path);
+
+        return ToCounts(stats);
+    }
+
+    /// <summary>
+    /// 통계 응답을 이름→숫자로 편다.
+    ///
+    /// 두 응답의 모양이 같아 보여도 서버가 칸을 더할 수 있어 DTO 로 못박지
+    /// 않았다. 숫자 칸만 골라 담으면 새 칸이 생겨도 화면이 깨지지 않는다.
+    /// </summary>
+    private static Dictionary<string, int> ToCounts(JsonElement stats)
+    {
+        var counts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+        if (stats.ValueKind != JsonValueKind.Object)
+        {
+            return counts;
+        }
+
+        foreach (var property in stats.EnumerateObject())
+        {
+            if (property.Value.ValueKind == JsonValueKind.Number
+                && property.Value.TryGetInt32(out var value))
+            {
+                counts[property.Name] = value;
+            }
+        }
+
+        return counts;
+    }
+
+    private async Task<IReadOnlyList<ImprovementRequest>> LoadRecentAsync()
+    {
+        // `topN` 은 필수다 — 안 보내면 서버가 400 을 준다.
+        var rows = await Api.GetListAsync<ImprovementRequest>(
+            "dashboard/requests/recent", new { topN = 10 });
+
+        return rows;
+    }
+
+    /// <summary>
+    /// 상태 이름을 타일 열쇠로 맞춘다.
+    ///
+    /// `status-count` 는 enum 이름(`Pending`)을 주고 통계 응답은 칸 이름
+    /// (`pendingCount`)을 준다. 둘을 한 표에 담으려면 한쪽으로 맞춰야 한다.
+    /// </summary>
+    private static string StatusKey(string status) =>
+        char.ToLowerInvariant(status[0]) + status[1..] + "Count";
+
+    private static string StatusText(ImprovementRequest r) =>
+        !string.IsNullOrWhiteSpace(r.StatusName) ? r.StatusName! : StatusText(r.Status);
+
+    private static string StatusText(string? status) => status switch
+    {
+        "Pending" or "0" => "대기",
+        "InProgress" or "1" => "진행",
+        "Rejected" or "2" => "반려",
+        "Completed" or "3" => "완료",
+        "Consultation" => "협의",
+        "Negotiation" => "논의",
+        "UserCompleted" => "종료",
+        _ => status ?? "-",
+    };
+
+    private static string StatusClass(string? status) => status switch
+    {
+        "Completed" or "UserCompleted" => "jsini-badge--on",
+        "InProgress" or "Consultation" or "Negotiation" => "jsini-badge--warn",
+        "Rejected" => "jsini-badge--off",
+        _ => "",
+    };
+
+    private sealed class StatusCount
+    {
+        public string? Status { get; set; }
+        public int Count { get; set; }
     }
 }

@@ -3,51 +3,278 @@
 @*
     [요청 처리] — DB 메뉴 `/helpdesk/request/manage`.
     이력: Vue `views/helpdesk/request/manage` → 여기.
-    엔드포인트: `requests/srch`
 
-    **서버가 준 대로 보여 주는 화면이다**(AutoGrid). 칸을 손으로 적지 않은
-    이유는 그 부품의 주석에 있다 — 요약하면, 이런 화면이 마흔 개고 백엔드가
-    칸을 더할 때마다 화면을 고치러 가는 것이 이득이 아니기 때문이다.
+    [GET 으로 검색을 부르고 있었다]
 
-    매일 들여다보는 화면이 되면 그때 칸을 손으로 적는다.
+    `requests/srch` 를 `GET` 으로 불렀는데 **검색은 POST 다.** GET 자리에는
+    `requests/{id:int}` 가 있어서 `srch` 를 숫자로 읽으려다 500 이 났다 —
 
-    담당자가 배정된 요청을 처리하는 화면이다. 목록(`/helpdesk/request/list`)과
-    자료는 같고 **보는 사람이 다르다** — 그쪽은 요청자, 여기는 처리자다.
+        Failed to bind parameter "int id" from "srch".
+
+    404 가 아니라 500 이라 「서버가 죽었나」 로 읽히기 쉬웠고, 표는 늘 비어
+    있었다.
+
+    [칸을 손으로 적었다]
+
+    담당자가 **매일 여는 화면**이다. 그런 화면은 서버가 준 대로 늘어놓는
+    `AutoGrid` 로 두지 않는다 — 상태·긴급·담당자처럼 눈에 먼저 들어와야 하는
+    것이 정해져 있고, 정렬 순서도 고정이어야 한다.
+
+    [목록(`/helpdesk/request/list`)과 무엇이 다른가]
+
+    자료는 같고 **보는 사람이 다르다.** 그쪽은 요청자가 자기 것만 보고,
+    여기는 처리자가 전부 본다. 그래서 여기에는 `customerId` 조건이 없고,
+    대신 담당자·상태·고객사로 거른다.
 *@
 
 @inherits DataPage
 @inject HelpDeskApi Api
+@inject HelpDeskContext Context
+@inject NavigationManager Navigation
 
 <PageTitle>요청 처리 · 헬프데스크</PageTitle>
 
 <PageHeading Title="요청 처리" Scope="헬프데스크" />
 
+<div class="jsini-toolbar">
+    <DxTextBox @bind-Text="_keyword" NullText="제목 검색" Style="width: 200px"
+               ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+
+    <DxComboBox Data="@StatusOptions" @bind-Value="_status"
+                TextFieldName="Text" ValueFieldName="Value"
+                NullText="전체 상태" Style="width: 120px"
+                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+
+    <DxComboBox Data="@Context.AdminOptions" @bind-Value="_adminId"
+                TextFieldName="@nameof(BizOption.Label)" ValueFieldName="@nameof(BizOption.Value)"
+                NullText="전체 담당자" Style="width: 150px"
+                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+
+    <DxCheckBox @bind-Checked="_onlyOpen">처리 중인 것만</DxCheckBox>
+
+    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" SizeMode="SizeMode.Small"
+              IconCssClass="jsini-icon-refresh" Click="@ReloadAsync" />
+</div>
+
 <PageNotice Text="@Notice" Tone="@Tone" />
 
-<AutoGrid Data="@_rows" Loading="@Loading" Captions="@Captions" HiddenCols="id" PageSize="30" />
+<DxGrid Data="@_rows" ShowSearchBox="false" PageSize="25">
+    <Columns>
+        <DxGridDataColumn FieldName="@nameof(ImprovementRequest.Id)" Caption="번호" Width="80" />
+
+        <DxGridDataColumn Caption="제목" MinWidth="260">
+            <CellDisplayTemplate Context="cell">
+                @{
+                    var r = (ImprovementRequest)cell.DataItem;
+                }
+                <div class="d-flex align-items-center gap-1">
+                    @if (r.IsEmergency == true)
+                    {
+                        <span class="jsini-badge jsini-badge--off">긴급</span>
+                    }
+                    <span>@r.Title</span>
+                </div>
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+
+        <DxGridDataColumn Caption="고객사" Width="140">
+            <CellDisplayTemplate Context="cell">
+                @{
+                    var r = (ImprovementRequest)cell.DataItem;
+                }
+                @* 회사가 요청에 직접 붙기도 하고 고객을 거쳐 붙기도 한다.
+                   한쪽만 보면 표의 절반이 빈다. *@
+                @(r.Company?.Name ?? r.Customer?.Company?.Name ?? "-")
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+
+        <DxGridDataColumn Caption="요청자" Width="110">
+            <CellDisplayTemplate Context="cell">
+                @(((ImprovementRequest)cell.DataItem).Customer?.UserName ?? "-")
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+
+        <DxGridDataColumn Caption="담당자" Width="110">
+            <CellDisplayTemplate Context="cell">
+                @{
+                    var r = (ImprovementRequest)cell.DataItem;
+                }
+                @if (r.Admin is null)
+                {
+                    <span class="jsini-badge jsini-badge--warn">미배정</span>
+                }
+                else
+                {
+                    @r.Admin.UserName
+                }
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+
+        <DxGridDataColumn Caption="상태" Width="90">
+            <CellDisplayTemplate Context="cell">
+                @{
+                    var r = (ImprovementRequest)cell.DataItem;
+                }
+                <span class="jsini-badge @StatusClass(r.Status)">@StatusText(r)</span>
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+
+        <DxGridDataColumn FieldName="@nameof(ImprovementRequest.CreatedAt)" Caption="접수" Width="150"
+                          DisplayFormat="yyyy-MM-dd HH:mm" />
+
+        <DxGridDataColumn Caption="경과" Width="80">
+            <CellDisplayTemplate Context="cell">
+                @Elapsed((ImprovementRequest)cell.DataItem)
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+
+        <DxGridDataColumn Caption="" Width="80" AllowSort="false">
+            <CellDisplayTemplate Context="cell">
+                @{
+                    var r = (ImprovementRequest)cell.DataItem;
+                }
+                <DxButton Text="상세" SizeMode="SizeMode.Small" RenderStyle="ButtonRenderStyle.Link"
+                          Click="@(() => { Navigation.NavigateTo($"/helpdesk/request/{r.Id}"); })" />
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+    </Columns>
+</DxGrid>
+
+@if (_total > _rows.Count)
+{
+    <PageNotice Tone="NoticeTone.Info"
+                Text="@($"전체 {_total}건 중 {_rows.Count}건을 읽었습니다. 조건을 좁히면 나머지가 보입니다.")" />
+}
 
 @code {
-    private DataTable _rows = JsonTable.Empty;
+    private IReadOnlyList<ImprovementRequest> _rows = [];
+    private int _total;
 
-    /// <summary>칸 이름표. 여기 적은 순서가 표의 앞쪽 순서다.</summary>
-    private static readonly Dictionary<string, string> Captions = new(StringComparer.Ordinal)
+    private string? _keyword;
+    private string? _status;
+    private string? _adminId;
+    private bool _onlyOpen = true;
+
+    private static readonly object[] StatusOptions =
+    [
+        new { Value = "Pending", Text = "대기" },
+        new { Value = "InProgress", Text = "진행" },
+        new { Value = "Completed", Text = "완료" },
+        new { Value = "UserCompleted", Text = "종료" },
+        new { Value = "Consultation", Text = "협의" },
+        new { Value = "Negotiation", Text = "논의" },
+        new { Value = "Rejected", Text = "반려" },
+    ];
+
+    /// <summary>
+    /// 처리 중으로 볼 상태들. 「처리 중인 것만」 이 이 목록을 쓴다.
+    ///
+    /// 서버에 보낼 때는 <c>|</c> 로 잇는다 — 쉼표가 아니다.
+    /// </summary>
+    private static readonly string[] OpenStatuses =
+        ["Pending", "InProgress", "Consultation", "Negotiation"];
+
+    protected override async Task OnInitializedAsync()
     {
-        ["reqNo"] = "요청번호",
-        ["title"] = "제목",
-        ["companyName"] = "고객사",
-        ["requesterName"] = "요청자",
-        ["adminName"] = "담당자",
-        ["statusName"] = "상태",
-        ["createdAt"] = "접수일",
-        ["completedAt"] = "완료일",
-    };
+        // 담당자 고르개가 쓸 목록. 신원과 함께 받아 둔다.
+        await Context.LoadIdentityAsync();
+        await Context.LoadOrganizationsAsync();
 
-    protected override Task OnInitializedAsync() => ReloadAsync();
+        await ReloadAsync();
+    }
 
     private Task ReloadAsync() => LoadAsync(async () =>
     {
-        var json = await Api.GetAsync<JsonElement>("requests/srch");
-        _rows = JsonTable.From(json);
-        return _rows.Rows.Count;
-    }, "처리할 요청이 없습니다.", "요청 목록을 읽지 못했습니다");
+        var query = new Dictionary<string, object?>
+        {
+            ["page"] = 1,
+            ["pageSize"] = 300,
+            ["remove"] = "description,content",
+            // 최근 순. **`isEmergency` 로는 정렬하지 못한다** — 서버가 그 칸으로
+            // 정렬하면 EF 가 질의를 번역하지 못해 400 이 난다. 긴급을 앞으로
+            // 올리는 것은 받아 온 뒤에 이 화면에서 한다(`Ordered`).
+            ["sorts"] = new[]
+            {
+                new { field = "createdAt", dir = "desc" },
+            },
+        };
+
+        if (!string.IsNullOrWhiteSpace(_keyword))
+        {
+            query["title_or_like"] = _keyword.Trim();
+        }
+
+        if (!string.IsNullOrWhiteSpace(_status))
+        {
+            query["status"] = _status;
+        }
+        else if (_onlyOpen)
+        {
+            // 상태를 따로 고르지 않았을 때만 「처리 중」으로 좁힌다. 둘을 함께
+            // 걸면 고른 상태가 조용히 무시되어 화면과 결과가 어긋난다.
+            //
+            // **여러 값의 구분자는 `|` 다.** 쉼표로 이으면 서버가 그 전체를
+            // 값 하나로 읽어 400 이 난다(DynamicFilterHelper 의 `in`).
+            query["status_in"] = string.Join("|", OpenStatuses);
+        }
+
+        if (!string.IsNullOrWhiteSpace(_adminId))
+        {
+            query["adminId"] = _adminId;
+        }
+
+        var page = await Api.SearchAsync<ImprovementRequest>("requests/srch", query);
+
+        // 긴급을 맨 앞으로. 서버가 이 칸으로 정렬하지 못해 여기서 한다.
+        // 한 번에 300건까지만 받으므로 브라우저에서 줄 세워도 무겁지 않다.
+        _rows =
+        [
+            .. page.Items
+                .OrderByDescending(r => r.IsEmergency == true)
+                .ThenByDescending(r => r.CreatedAt)
+        ];
+
+        _total = page.TotalCount;
+
+        return _rows.Count;
+    }, "조건에 맞는 요청이 없습니다.", "요청 목록을 읽지 못했습니다");
+
+    /// <summary>접수하고 얼마나 지났는가. 끝난 것은 처리에 걸린 시간.</summary>
+    private static string Elapsed(ImprovementRequest r)
+    {
+        if (r.CreatedAt is not { } from)
+        {
+            return "-";
+        }
+
+        var to = r.CompletededAt ?? r.CompletedAt ?? DateTime.Now;
+        var span = to - from;
+
+        return span < TimeSpan.Zero ? "-"
+            : span.TotalDays >= 1 ? $"{(int)span.TotalDays}일"
+            : $"{(int)span.TotalHours}시간";
+    }
+
+    private static string StatusText(ImprovementRequest r) =>
+        !string.IsNullOrWhiteSpace(r.StatusName) ? r.StatusName! : StatusText(r.Status);
+
+    private static string StatusText(string? status) => status switch
+    {
+        "Pending" => "대기",
+        "InProgress" => "진행",
+        "Rejected" => "반려",
+        "Completed" => "완료",
+        "UserCompleted" => "종료",
+        "Consultation" => "협의",
+        "Negotiation" => "논의",
+        _ => status ?? "-",
+    };
+
+    private static string StatusClass(string? status) => status switch
+    {
+        "Completed" or "UserCompleted" => "jsini-badge--on",
+        "InProgress" or "Consultation" or "Negotiation" => "jsini-badge--warn",
+        "Rejected" => "jsini-badge--off",
+        _ => "",
+    };
 }

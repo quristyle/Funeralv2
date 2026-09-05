@@ -3,18 +3,27 @@
 @*
     [다이어그램] — DB 메뉴 `/helpdesk/util/diagram`.
     이력: Vue `views/helpdesk/util/diagram` → 여기.
-    엔드포인트: `wbs-diagram`
+    엔드포인트: `wbs` (WBS 항목 목록)
 
     **서버가 준 대로 보여 주는 화면이다**(AutoGrid). 칸을 손으로 적지 않은
     이유는 그 부품의 주석에 있다 — 요약하면, 이런 화면이 마흔 개고 백엔드가
     칸을 더할 때마다 화면을 고치러 가는 것이 이득이 아니기 때문이다.
 
-    매일 들여다보는 화면이 되면 그때 칸을 손으로 적는다.
+    [다이어그램 목록을 주는 주소가 없다]
 
-    저장된 다이어그램 목록이다. **그림 자체는 아직 그리지 않는다** —
-    프로젝트관리 쪽 `DiagramViewer` 를 여기서도 쓰려면 부품을 공용으로 올려야
-    하는데(두 모듈이 쓰면 복제, 세 번째부터 승격), 아직 두 번째다.
-    세 번째 모듈이 필요해질 때 함께 올린다.
+    이 화면은 `wbs-diagram` 을 목록으로 불렀는데 **그런 길이 없다.**
+    서버가 여는 것은 둘뿐이다 —
+
+        GET  wbs-diagram/{wbsRid}   그 WBS 항목의 다이어그램 한 건
+        POST wbs-diagram            저장
+
+    목록이 없으니 GET 은 405 로 끝났고 표는 늘 비어 있었다. 다이어그램은
+    **WBS 항목에 딸린 것**이라, 여기서는 WBS 항목을 보여 주고 그림은 항목을
+    골라 여는 쪽이 맞다.
+
+    **그림 자체는 아직 그리지 않는다** — 프로젝트관리 쪽 `DiagramViewer` 를
+    여기서도 쓰려면 부품을 공용으로 올려야 하는데(두 모듈이 쓰면 복제,
+    세 번째부터 승격), 아직 두 번째다. 세 번째 모듈이 필요해질 때 함께 올린다.
 
     **파일 이름이 화면 이름과 다르다.** 컴포넌트를 `WbsDiagram` 으로 두면 같은
     이름의 자료 타입을 가린다. 아키텍처 테스트가 이 충돌을 막는다.
@@ -29,6 +38,11 @@
 
 <PageNotice Text="@Notice" Tone="@Tone" />
 
+@* 무엇을 보고 있는지 화면에 적어 둔다. 「다이어그램」이라는 제목만 보고
+   그림 목록을 기대하면 이 표가 엉뚱해 보인다. *@
+<PageNotice Tone="NoticeTone.Info"
+            Text="WBS 항목 목록입니다. 다이어그램은 항목마다 따로 저장되며, 그림을 여는 화면은 아직 옮기지 않았습니다." />
+
 <AutoGrid Data="@_rows" Loading="@Loading" Captions="@Captions" HiddenCols="id" PageSize="20" />
 
 @code {
@@ -37,17 +51,21 @@
     /// <summary>칸 이름표. 여기 적은 순서가 표의 앞쪽 순서다.</summary>
     private static readonly Dictionary<string, string> Captions = new(StringComparer.Ordinal)
     {
-        ["name"] = "이름",
+        ["name"] = "WBS 항목",
         ["projectName"] = "프로젝트",
-        ["updatedAt"] = "수정일",
+        ["startDate"] = "시작",
+        ["endDate"] = "종료",
+        ["progress"] = "진행률",
     };
 
     protected override Task OnInitializedAsync() => ReloadAsync();
 
     private Task ReloadAsync() => LoadAsync(async () =>
     {
-        var json = await Api.GetAsync<JsonElement>("wbs-diagram");
+        // 다이어그램 목록을 주는 주소가 없다(위 주석 참고). WBS 항목을 보여 주고
+        // 그림은 항목별로 `wbs-diagram/{wbsRid}` 에서 꺼낸다.
+        var json = await Api.GetAsync<JsonElement>("wbs");
         _rows = JsonTable.From(json);
         return _rows.Rows.Count;
-    }, "저장된 다이어그램이 없습니다.", "다이어그램 목록을 읽지 못했습니다");
+    }, "등록된 WBS 항목이 없습니다.", "WBS 항목을 읽지 못했습니다");
 }

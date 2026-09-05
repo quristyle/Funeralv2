@@ -42,7 +42,10 @@
 
     private Task ReloadAsync() => LoadAsync(async () =>
     {
-        var json = await Api.GetAsync<JsonElement>("dashboard/report/collaboration");
+        // 보고서는 `requests` 묶음 밑이고 `year`·`month` 가 필수다.
+        var now = DateTime.Now;
+        var json = await Api.GetAsync<JsonElement>(
+            "requests/report/collaboration", new { year = now.Year, month = now.Month });
         _rows = JsonTable.From(json);
         return _rows.Rows.Count;
     }, "집계할 자료가 없습니다.", "원인 분석를 읽지 못했습니다");

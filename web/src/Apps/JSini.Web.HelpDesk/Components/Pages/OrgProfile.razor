@@ -18,6 +18,7 @@
 
 @inherits DataPage
 @inject HelpDeskApi Api
+@inject HelpDeskContext Context
 
 <PageTitle>내 프로필 · 헬프데스크</PageTitle>
 
@@ -43,7 +44,19 @@
 
     private Task ReloadAsync() => LoadAsync(async () =>
     {
-        var json = await Api.GetAsync<JsonElement>("admins/me");
+        // `admins/me` 는 없다. 「나」를 아는 것은 계정 연결 쪽이라
+        // 신원을 먼저 읽고 그 식별자로 담당자 한 건을 가져온다.
+        //
+        // 연결이 없으면 볼 것이 없다 — 빈 표를 그리고 안내를 띄운다.
+        await Context.LoadIdentityAsync();
+
+        if (Context.HelpdeskUserId is not { } adminId)
+        {
+            _rows = JsonTable.Empty;
+            return 0;
+        }
+
+        var json = await Api.GetAsync<JsonElement>($"admins/{adminId}");
         _rows = JsonTable.From(json);
         return _rows.Rows.Count;
     }, "헬프데스크 계정이 연결되어 있지 않습니다. 계정 연결 화면을 보십시오.", "프로필을 읽지 못했습니다");

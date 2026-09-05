@@ -14,6 +14,7 @@
 
 @inherits DataPage
 @inject HelpDeskApi Api
+@inject HelpDeskContext Context
 
 <PageTitle>내 일정 · 헬프데스크</PageTitle>
 
@@ -40,7 +41,16 @@
 
     private Task ReloadAsync() => LoadAsync(async () =>
     {
-        var json = await Api.GetAsync<JsonElement>("schedules/my");
+        // `schedules/my` 는 없다. 서버가 일정을 **회사로만** 거를 수 있어
+        // (`companyId`), 「내 것」은 소속 회사의 일정 + 공통 일정이 된다.
+        //
+        // 담당자별로 거르려면 서버에 조건이 하나 더 있어야 한다.
+        // 지금은 있는 것으로 가장 가깝게 맞춘다.
+        await Context.LoadIdentityAsync();
+
+        var json = Context.CompanyId is { } companyId
+            ? await Api.GetAsync<JsonElement>("schedules", new { companyId })
+            : await Api.GetAsync<JsonElement>("schedules");
         _rows = JsonTable.From(json);
         return _rows.Rows.Count;
     }, "내 일정이 없습니다.", "일정을 읽지 못했습니다");

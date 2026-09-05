@@ -1,86 +1,540 @@
 @page "/admin/system/common-code"
-@using JSini.Web.Admin.Api
 
 @*
-    [포털 시스템 공통코드 관리]
-
+    [공통코드] — DB 메뉴 `/system/common-code`.
     이력: Vue `views/portal/system/common-code` → 여기.
-    포털 시스템 전역 코드(scom)그룹 및 세부 코드 마스터를 관리한다.
+
+    이 화면도 보기 자료를 그리고 있었다 — 「SYS_STATUS · USER_TYPE」 두 묶음과
+    「ACTIVE · INACTIVE」 두 코드가 코드에 박혀 있었다.
+
+    [왼쪽에서 묶음을 고르면 오른쪽이 바뀐다]
+
+    묶음이 수십 개고 그 아래 코드가 수백 개다. 한 표에 다 담으면 묶음 칸이
+    같은 값으로 수십 줄씩 반복된다. 옛 화면도 좌우로 나뉘어 있었다.
+
+    [겹치는 묶음은 나무로 본다]
+
+    묶음에 `IsHierarchical` 이 켜져 있으면 코드가 대·중·소로 겹친다
+    (지역 코드가 그렇다). 그때만 서버에 나무로 달라고 하고 `DxTreeList` 로
+    그린다. 평평한 묶음까지 나무로 그리면 펼침 화살표만 늘어난다.
+
+    [프로젝트관리의 공통코드와 다른 것이다]
+
+    `/projmng/common/code` 는 ProjMng 서버의 저장 프로시저가 다루는 별개 표다.
+    이름이 같아서 헷갈리지만 서로 자료를 주고받지 않는다.
 *@
 
-@inject AdminClient Client
+@inherits DataPage
+@inject AdminClient Api
 
-<PageTitle>포털 공통코드 관리 · 포털관리</PageTitle>
+<PageTitle>공통코드 · 포털관리</PageTitle>
 
-<h1>포털 공통코드 관리 <span class="pm-page__scope">포털관리</span></h1>
+<PageHeading Title="공통코드" Scope="포털관리" />
 
-<div class="row g-3">
-    <div class="col-12 col-md-5">
-        <div class="card p-3">
-            <div class="mb-2 fw-bold">코드 그룹 목록</div>
-            <DxGrid Data="@_codeGroups" Loading="@_loading" PageSize="15">
-                <Columns>
-                    <DxGridDataColumn FieldName="GroupCode" Caption="그룹 코드" Width="120px" />
-                    <DxGridDataColumn FieldName="GroupName" Caption="그룹명" MinWidth="140" />
-                </Columns>
-            </DxGrid>
+<PageNotice Text="@Notice" Tone="@Tone" />
+
+<div class="ad-split">
+
+    @* ── 왼쪽: 묶음 ───────────────────────────────────── *@
+    <section class="ad-split__side">
+        <div class="jsini-toolbar">
+            <DxTextBox @bind-Text="_groupKeyword" NullText="묶음 검색" Style="width: 100%"
+                       ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+
+            <PermissionView Action="MenuAction.Create">
+                <DxButton IconCssClass="jsini-icon-plus" Title="묶음 등록"
+                          RenderStyle="ButtonRenderStyle.Primary" SizeMode="SizeMode.Small"
+                          Click="@StartNewGroup" />
+            </PermissionView>
         </div>
-    </div>
-    <div class="col-12 col-md-7">
-        <div class="card p-3">
-            <div class="mb-2 fw-bold">상세 코드 목록</div>
-            <DxGrid Data="@_codeDetails" Loading="@_loading" PageSize="15">
-                <Columns>
-                    <DxGridDataColumn FieldName="Code" Caption="코드" Width="100px" />
-                    <DxGridDataColumn FieldName="Name" Caption="코드명" MinWidth="140" />
-                    <DxGridDataColumn FieldName="SortOrder" Caption="순서" Width="70px" />
-                </Columns>
-            </DxGrid>
-        </div>
-    </div>
+
+        @* 고른 줄이 바뀌면 오른쪽을 다시 읽어야 하므로 `@@bind-` 대신
+           값과 변경을 따로 받는다. 둘을 같이 쓸 수는 없다. *@
+        <DxGrid Data="@ShownGroups"
+                SelectionMode="GridSelectionMode.Single"
+                SelectedDataItem="@_group"
+                SelectedDataItemChanged="@OnGroupChangedAsync"
+                ShowSearchBox="false"
+                PageSize="25">
+            <Columns>
+                <DxGridDataColumn FieldName="@nameof(CommonCodeGroupDto.GroupCode)" Caption="코드" Width="140" />
+                <DxGridDataColumn FieldName="@nameof(CommonCodeGroupDto.GroupName)" Caption="묶음 이름" MinWidth="130" />
+                <DxGridDataColumn Caption="" Width="86" AllowSort="false">
+                    <CellDisplayTemplate Context="cell">
+                        @{
+                            var g = (CommonCodeGroupDto)cell.DataItem;
+                        }
+                        <div class="d-flex gap-1">
+                            <PermissionView Action="MenuAction.Update">
+                                <DxButton Text="수정" SizeMode="SizeMode.Small"
+                                          RenderStyle="ButtonRenderStyle.Link"
+                                          Click="@(() => StartEditGroup(g))" />
+                            </PermissionView>
+                            <PermissionView Action="MenuAction.Delete">
+                                <DxButton Text="삭제" SizeMode="SizeMode.Small"
+                                          RenderStyle="ButtonRenderStyle.Link"
+                                          Click="@(() => DeleteGroupAsync(g))" />
+                            </PermissionView>
+                        </div>
+                    </CellDisplayTemplate>
+                </DxGridDataColumn>
+            </Columns>
+        </DxGrid>
+    </section>
+
+    @* ── 오른쪽: 고른 묶음의 코드들 ────────────────────── *@
+    <section class="ad-split__main">
+        @if (_group is null)
+        {
+            <PageNotice Text="왼쪽에서 묶음을 고르십시오." Tone="NoticeTone.Info" />
+        }
+        else
+        {
+            <div class="jsini-toolbar">
+                <strong>@_group.GroupName</strong>
+                <span class="jsini-badge">@_group.GroupCode</span>
+
+                @if (_group.IsHierarchical)
+                {
+                    <span class="jsini-badge jsini-badge--warn">계층</span>
+                }
+
+                <div class="jsini-toolbar__spacer"></div>
+
+                <PermissionView Action="MenuAction.Create">
+                    <DxButton Text="코드 등록" RenderStyle="ButtonRenderStyle.Primary" SizeMode="SizeMode.Small"
+                              IconCssClass="jsini-icon-plus" Click="@StartNewCode" />
+                </PermissionView>
+
+                <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Secondary" SizeMode="SizeMode.Small"
+                          IconCssClass="jsini-icon-refresh" Click="@ReloadCodesAsync" />
+            </div>
+
+            @if (_group.IsHierarchical)
+            {
+                <DxTreeList Data="@_codes"
+                            ChildrenFieldName="@nameof(CommonCodeDto.Children)"
+                            KeyFieldName="@nameof(CommonCodeDto.Id)">
+                    <Columns>
+                        <DxTreeListDataColumn FieldName="@nameof(CommonCodeDto.CodeName)" Caption="이름" MinWidth="200" />
+                        <DxTreeListDataColumn FieldName="@nameof(CommonCodeDto.CodeValue)" Caption="값" Width="150" />
+                        <DxTreeListDataColumn FieldName="@nameof(CommonCodeDto.SortOrder)" Caption="순서" Width="80" />
+                        <DxTreeListDataColumn Caption="상태" Width="90">
+                            <CellDisplayTemplate Context="cell">
+                                @StatusBadge((CommonCodeDto)cell.DataItem)
+                            </CellDisplayTemplate>
+                        </DxTreeListDataColumn>
+                        <DxTreeListDataColumn Caption="관리" Width="130" AllowSort="false">
+                            <CellDisplayTemplate Context="cell">
+                                @CodeActions((CommonCodeDto)cell.DataItem)
+                            </CellDisplayTemplate>
+                        </DxTreeListDataColumn>
+                    </Columns>
+                </DxTreeList>
+            }
+            else
+            {
+                <DxGrid Data="@_codes" PageSize="25" ShowSearchBox="true">
+                    <Columns>
+                        <DxGridDataColumn FieldName="@nameof(CommonCodeDto.CodeValue)" Caption="값" Width="160" />
+                        <DxGridDataColumn FieldName="@nameof(CommonCodeDto.CodeName)" Caption="이름" MinWidth="200" />
+                        <DxGridDataColumn FieldName="@nameof(CommonCodeDto.I18nKey)" Caption="다국어 키" Width="180" />
+                        <DxGridDataColumn FieldName="@nameof(CommonCodeDto.SortOrder)" Caption="순서" Width="80" />
+                        <DxGridDataColumn Caption="상태" Width="90">
+                            <CellDisplayTemplate Context="cell">
+                                @StatusBadge((CommonCodeDto)cell.DataItem)
+                            </CellDisplayTemplate>
+                        </DxGridDataColumn>
+                        <DxGridDataColumn FieldName="@nameof(CommonCodeDto.Remark)" Caption="비고" MinWidth="150" />
+                        <DxGridDataColumn Caption="관리" Width="130" AllowSort="false">
+                            <CellDisplayTemplate Context="cell">
+                                @CodeActions((CommonCodeDto)cell.DataItem)
+                            </CellDisplayTemplate>
+                        </DxGridDataColumn>
+                    </Columns>
+                </DxGrid>
+            }
+        }
+    </section>
 </div>
 
+@* ── 묶음 편집 ──────────────────────────────────────── *@
+<DxPopup @bind-Visible="_editingGroup" HeaderText="@(_newGroup ? "묶음 등록" : "묶음 수정")"
+         Width="520" CloseOnOutsideClick="false" ShowFooter="true">
+    <BodyContentTemplate Context="popup">
+        <DxFormLayout CssClass="ad-editform">
+            <DxFormLayoutItem Caption="묶음 코드" ColSpanMd="12">
+                @* 코드는 화면과 프로시저가 이름으로 부르는 값이라 등록할 때만 정한다. *@
+                <DxTextBox @bind-Text="_groupEdit.GroupCode" ReadOnly="@(!_newGroup)"
+                           NullText="SYS_STATUS 처럼 영문 대문자" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="묶음 이름" ColSpanMd="12">
+                <DxTextBox @bind-Text="_groupEdit.GroupName" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="순서" ColSpanMd="6">
+                <DxSpinEdit @bind-Value="_groupEdit.SortOrder" MinValue="0" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="계층" ColSpanMd="6">
+                <DxCheckBox @bind-Checked="_groupEdit.IsHierarchical">코드가 겹친다</DxCheckBox>
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="비고" ColSpanMd="12">
+                <DxMemo @bind-Text="_groupEdit.Remark" Rows="3" />
+            </DxFormLayoutItem>
+        </DxFormLayout>
+    </BodyContentTemplate>
+
+    <FooterContentTemplate>
+        <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Primary" Click="@SaveGroupAsync" />
+        <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary" Click="@(() => _editingGroup = false)" />
+    </FooterContentTemplate>
+</DxPopup>
+
+@* ── 코드 편집 ──────────────────────────────────────── *@
+<DxPopup @bind-Visible="_editingCode" HeaderText="@(_newCode ? "코드 등록" : "코드 수정")"
+         Width="560" CloseOnOutsideClick="false" ShowFooter="true">
+    <BodyContentTemplate Context="popup">
+        <DxFormLayout CssClass="ad-editform">
+            <DxFormLayoutItem Caption="값" ColSpanMd="6">
+                <DxTextBox @bind-Text="_codeEdit.CodeValue" NullText="ACTIVE" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="이름" ColSpanMd="6">
+                <DxTextBox @bind-Text="_codeEdit.CodeName" NullText="정상" />
+            </DxFormLayoutItem>
+
+            @if (_group?.IsHierarchical == true)
+            {
+                <DxFormLayoutItem Caption="상위 코드" ColSpanMd="12">
+                    <DxComboBox Data="@ParentCodeChoices" @bind-Value="_codeEdit.ParentId"
+                                TextFieldName="Text" ValueFieldName="Value"
+                                NullText="최상위"
+                                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+                </DxFormLayoutItem>
+            }
+
+            <DxFormLayoutItem Caption="다국어 키" ColSpanMd="8">
+                @* 넣으면 화면이 그 키로 옮겨 보여 준다. 값은 `/admin/system/i18n`. *@
+                <DxTextBox @bind-Text="_codeEdit.I18nKey" NullText="비워 둘 수 있다" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="순서" ColSpanMd="4">
+                <DxSpinEdit @bind-Value="_codeEdit.SortOrder" MinValue="0" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="비고" ColSpanMd="12">
+                <DxMemo @bind-Text="_codeEdit.Remark" Rows="2" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="사용" ColSpanMd="12">
+                <DxCheckBox Checked="@(_codeEdit.Status == 1)"
+                            CheckedChanged="@((bool v) => _codeEdit.Status = v ? 1 : 0)">
+                    사용
+                </DxCheckBox>
+            </DxFormLayoutItem>
+        </DxFormLayout>
+    </BodyContentTemplate>
+
+    <FooterContentTemplate>
+        <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Primary" Click="@SaveCodeAsync" />
+        <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary" Click="@(() => _editingCode = false)" />
+    </FooterContentTemplate>
+</DxPopup>
+
 @code {
-    private List<CodeGroupDto> _codeGroups = [];
-    private List<CodeDetailDto> _codeDetails = [];
-    private bool _loading;
+    private IReadOnlyList<CommonCodeGroupDto> _groups = [];
+    private IReadOnlyList<CommonCodeDto> _codes = [];
 
-    protected override Task OnInitializedAsync() => LoadDataAsync();
+    private CommonCodeGroupDto? _group;
+    private string? _groupKeyword;
 
-    private Task LoadDataAsync()
+    private bool _editingGroup;
+    private bool _newGroup;
+    private string _groupId = string.Empty;
+    private CommonCodeGroupDto _groupEdit = new();
+
+    private bool _editingCode;
+    private bool _newCode;
+    private string _codeId = string.Empty;
+    private CommonCodeDto _codeEdit = new();
+
+    private IReadOnlyList<CommonCodeGroupDto> ShownGroups
     {
-        _loading = true;
-        try
+        get
         {
-            _codeGroups =
-            [
-                new CodeGroupDto { GroupCode = "SYS_STATUS", GroupName = "시스템 상태 코드" },
-                new CodeGroupDto { GroupCode = "USER_TYPE", GroupName = "사용자 구분 코드" }
-            ];
+            if (string.IsNullOrWhiteSpace(_groupKeyword))
+            {
+                return _groups;
+            }
 
-            _codeDetails =
-            [
-                new CodeDetailDto { Code = "ACTIVE", Name = "정상", SortOrder = 1 },
-                new CodeDetailDto { Code = "INACTIVE", Name = "중지", SortOrder = 2 }
-            ];
+            var k = _groupKeyword.Trim();
+            return [.. _groups.Where(g =>
+                g.GroupCode.Contains(k, StringComparison.OrdinalIgnoreCase)
+                || g.GroupName.Contains(k, StringComparison.OrdinalIgnoreCase))];
         }
-        finally
+    }
+
+    /// <summary>상위 코드 고르개. 자기 자신은 뺀다 — 자기 밑에 자기를 달 수 없다.</summary>
+    private IReadOnlyList<object> ParentCodeChoices =>
+    [
+        .. FlattenCodes(_codes)
+            .Where(c => c.Id != _codeId)
+            .Select(c => (object)new { Value = c.Id, Text = $"{c.CodeName} ({c.CodeValue})" })
+    ];
+
+    protected override Task OnInitializedAsync() => ReloadGroupsAsync();
+
+    private Task ReloadGroupsAsync() => LoadAsync(async () =>
+    {
+        _groups = await Api.GetCodeGroupsAsync();
+
+        // 고른 묶음이 사라졌으면(지웠거나 검색을 바꿨거나) 첫 묶음으로 옮긴다.
+        // 안 그러면 오른쪽이 없는 묶음의 코드를 계속 들고 있는다.
+        if (_group is not null && _groups.All(g => g.Id != _group.Id))
         {
-            _loading = false;
+            _group = null;
+            _codes = [];
         }
-        return Task.CompletedTask;
+
+        _group ??= _groups.FirstOrDefault();
+
+        if (_group is not null)
+        {
+            await LoadCodesAsync();
+        }
+
+        return _groups.Count;
+    }, "등록된 코드 묶음이 없습니다.", "코드 묶음을 읽지 못했습니다");
+
+    private async Task OnGroupChangedAsync(object? selected)
+    {
+        var group = selected as CommonCodeGroupDto;
+        _group = group;
+        _codes = [];
+
+        if (group is not null)
+        {
+            await ReloadCodesAsync();
+        }
     }
 
-    public sealed class CodeGroupDto
+    private Task ReloadCodesAsync() => LoadAsync(async () =>
     {
-        public string GroupCode { get; set; } = string.Empty;
-        public string GroupName { get; set; } = string.Empty;
+        await LoadCodesAsync();
+        return _codes.Count;
+    }, "이 묶음에는 코드가 없습니다.", "코드를 읽지 못했습니다");
+
+    private async Task LoadCodesAsync()
+    {
+        if (_group is null)
+        {
+            _codes = [];
+            return;
+        }
+
+        _codes = await Api.GetCodesAsync(_group.GroupCode, _group.IsHierarchical);
     }
 
-    public sealed class CodeDetailDto
+    // ── 묶음 ────────────────────────────────────────────────
+
+    private void StartNewGroup()
     {
-        public string Code { get; set; } = string.Empty;
-        public string Name { get; set; } = string.Empty;
-        public int SortOrder { get; set; }
+        _newGroup = true;
+        _groupId = string.Empty;
+        _groupEdit = new CommonCodeGroupDto();
+        _editingGroup = true;
     }
+
+    private void StartEditGroup(CommonCodeGroupDto g)
+    {
+        _newGroup = false;
+        _groupId = g.Id;
+
+        // 복사본을 띄운다. 원본을 묶으면 취소해도 표에 바뀐 값이 남는다.
+        _groupEdit = new CommonCodeGroupDto
+        {
+            Id = g.Id,
+            GroupCode = g.GroupCode,
+            GroupName = g.GroupName,
+            IsHierarchical = g.IsHierarchical,
+            SortOrder = g.SortOrder,
+            Remark = g.Remark,
+        };
+        _editingGroup = true;
+    }
+
+    private async Task SaveGroupAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_groupEdit.GroupCode) || string.IsNullOrWhiteSpace(_groupEdit.GroupName))
+        {
+            Say("묶음 코드와 이름은 반드시 넣어야 합니다.", NoticeTone.Warning);
+            return;
+        }
+
+        var body = new SaveCommonCodeGroupDto
+        {
+            GroupCode = _groupEdit.GroupCode,
+            GroupName = _groupEdit.GroupName,
+            IsHierarchical = _groupEdit.IsHierarchical,
+            SortOrder = _groupEdit.SortOrder,
+            Remark = _groupEdit.Remark,
+        };
+
+        var saved = await RunAsync(
+            () => _newGroup ? Api.CreateCodeGroupAsync(body) : Api.UpdateCodeGroupAsync(_groupId, body),
+            _newGroup ? "등록했습니다." : "저장했습니다.",
+            _newGroup ? "등록하지 못했습니다" : "저장하지 못했습니다");
+
+        if (!saved)
+        {
+            return;
+        }
+
+        _editingGroup = false;
+        await ReloadGroupsAsync();
+    }
+
+    private async Task DeleteGroupAsync(CommonCodeGroupDto g)
+    {
+        if (await RunAsync(() => Api.DeleteCodeGroupAsync(g.Id), "지웠습니다.", "지우지 못했습니다"))
+        {
+            await ReloadGroupsAsync();
+        }
+    }
+
+    // ── 코드 ────────────────────────────────────────────────
+
+    private void StartNewCode()
+    {
+        if (_group is null)
+        {
+            return;
+        }
+
+        _newCode = true;
+        _codeId = string.Empty;
+
+        // 묶음 식별자를 여기서 넣는다. 안 넣으면 저장돼도 어느 묶음인지 몰라
+        // 목록에서 사라진다.
+        _codeEdit = new CommonCodeDto
+        {
+            GroupId = _group.Id,
+            Status = 1,
+            SortOrder = NextSortOrder(),
+        };
+        _editingCode = true;
+    }
+
+    private void StartEditCode(CommonCodeDto c)
+    {
+        _newCode = false;
+        _codeId = c.Id;
+        _codeEdit = new CommonCodeDto
+        {
+            Id = c.Id,
+            GroupId = c.GroupId,
+            ParentId = c.ParentId,
+            CodeValue = c.CodeValue,
+            CodeName = c.CodeName,
+            I18nKey = c.I18nKey,
+            SortOrder = c.SortOrder,
+            Status = c.Status,
+            Remark = c.Remark,
+        };
+        _editingCode = true;
+    }
+
+    /// <summary>다음 순서 번호. 마지막 뒤에 붙인다 — 0 으로 두면 맨 앞에 끼어든다.</summary>
+    private int NextSortOrder()
+    {
+        var all = FlattenCodes(_codes);
+        return all.Count == 0 ? 1 : all.Max(c => c.SortOrder) + 1;
+    }
+
+    private async Task SaveCodeAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_codeEdit.CodeValue) || string.IsNullOrWhiteSpace(_codeEdit.CodeName))
+        {
+            Say("코드 값과 이름은 반드시 넣어야 합니다.", NoticeTone.Warning);
+            return;
+        }
+
+        var body = new SaveCommonCodeDto
+        {
+            GroupId = _codeEdit.GroupId,
+            ParentId = _codeEdit.ParentId,
+            CodeValue = _codeEdit.CodeValue,
+            CodeName = _codeEdit.CodeName,
+            I18nKey = _codeEdit.I18nKey,
+            SortOrder = _codeEdit.SortOrder,
+            Status = _codeEdit.Status,
+            Remark = _codeEdit.Remark,
+        };
+
+        var saved = await RunAsync(
+            () => _newCode ? Api.CreateCodeAsync(body) : Api.UpdateCodeAsync(_codeId, body),
+            _newCode ? "등록했습니다." : "저장했습니다.",
+            _newCode ? "등록하지 못했습니다" : "저장하지 못했습니다");
+
+        if (!saved)
+        {
+            return;
+        }
+
+        _editingCode = false;
+        await ReloadCodesAsync();
+    }
+
+    private async Task DeleteCodeAsync(CommonCodeDto c)
+    {
+        if (c.Children is { Count: > 0 })
+        {
+            Say("하위 코드가 있어 지울 수 없습니다.", NoticeTone.Warning);
+            return;
+        }
+
+        if (await RunAsync(() => Api.DeleteCodeAsync(c.Id), "지웠습니다.", "지우지 못했습니다"))
+        {
+            await ReloadCodesAsync();
+        }
+    }
+
+    private static List<CommonCodeDto> FlattenCodes(IEnumerable<CommonCodeDto> nodes)
+    {
+        var flat = new List<CommonCodeDto>();
+
+        void Walk(IEnumerable<CommonCodeDto> items)
+        {
+            foreach (var item in items)
+            {
+                flat.Add(item);
+
+                if (item.Children is { Count: > 0 } children)
+                {
+                    Walk(children);
+                }
+            }
+        }
+
+        Walk(nodes);
+        return flat;
+    }
+
+    private RenderFragment StatusBadge(CommonCodeDto c) =>@<span class="jsini-badge @(c.Status == 1 ? "jsini-badge--on" : "jsini-badge--off")">
+        @(c.Status == 1 ? "사용" : "중지")
+    </span>;
+
+    private RenderFragment CodeActions(CommonCodeDto c) =>@<div class="d-flex gap-1">
+        <PermissionView Action="MenuAction.Update">
+            <DxButton Text="수정" SizeMode="SizeMode.Small" RenderStyle="ButtonRenderStyle.Secondary"
+                      Click="@(() => StartEditCode(c))" />
+        </PermissionView>
+        <PermissionView Action="MenuAction.Delete">
+            <DxButton Text="삭제" SizeMode="SizeMode.Small" RenderStyle="ButtonRenderStyle.Secondary"
+                      Click="@(() => DeleteCodeAsync(c))" />
+        </PermissionView>
+    </div>;
 }

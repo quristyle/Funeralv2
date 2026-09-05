@@ -1,98 +1,533 @@
 @page "/admin/system/menu"
-@using JSini.Web.Admin.Api
 
 @*
-    [시스템 메뉴 관리]
+    [메뉴 관리] — DB 메뉴 `/system/menu`.
+    이력: Vue `views/portal/system/menu` → 여기.
 
-    이력: Vue `views/portal/system/menu/list.vue` → 여기.
-    포털 시스템 메뉴 노출, 아이콘, 순서 및 모듈별 라우트 연동 정보를 관리한다.
+    이 화면도 보기 자료를 그리고 있었다 — 「장례 관리 · 헬프데스크 ·
+    프로젝트관리 · 생활과환경」 네 줄이 코드에 박혀 있었다. 실제 메뉴는 179건이다.
+
+    [경로가 곧 화면이다]
+
+    Blazor 로 옮기면서 라우팅 소유권이 뒤집혔다. 옛 Vue 는 이 표의
+    `component` 컬럼(파일 경로)으로 라우트를 만들었지만, 지금은 각 화면의
+    `@@page` 가 라우트를 정하고 **이 표는 노출·권한만** 맡는다.
+
+    그래서 여기서 `path` 를 고치면 그 메뉴는 **그 경로의 화면이 있을 때만**
+    열린다. `component` 는 이관 상태를 가늠하는 참고값으로만 보여 준다.
+    자세한 것은 web/CLAUDE.md 의 「라우팅 소유권이 뒤집혔다」.
+
+    [권한 일곱 가지를 여기서 켠다]
+
+    조회·검색·등록·수정·삭제·출력·엑셀. 화면의 단추가 이 값을 본다
+    (`PermissionView`). 화면을 고치지 않고 DB 에서 껐다 켤 수 있는 자리다.
+
+    [순서 바꾸기와 옮기기는 아직 없다]
+
+    옛 화면은 끌어서 옮기고(`menu/move`) 순서를 바꿀 수 있었다
+    (`menu/reorder`). 그 둘은 **되돌리기 어려운 일괄 변경**이라 —
+    한 번 잘못 끌면 트리 전체가 흐트러지고 되돌릴 버튼이 없다 —
+    상위 메뉴와 순서를 편집 폼에서 값으로 고르게 두었다.
 *@
 
-@inject AdminClient Client
+@inherits DataPage
+@inject AdminClient Api
 
-<PageTitle>시스템 메뉴 관리 · 포털관리</PageTitle>
+<PageTitle>메뉴 관리 · 포털관리</PageTitle>
 
-<h1>시스템 메뉴 관리 <span class="pm-page__scope">포털관리</span></h1>
+<PageHeading Title="메뉴 관리" Scope="포털관리" />
 
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <div class="d-flex gap-2">
-        <DxTextBox @bind-Text="_keyword" NullText="메뉴명 또는 경로 검색" Style="width: 240px" ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
-        <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@LoadDataAsync" />
-    </div>
+<div class="jsini-toolbar">
+    <DxTextBox @bind-Text="_keyword" NullText="메뉴 이름·경로 검색" Style="width: 230px"
+               ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+
+    <DxCheckBox @bind-Checked="_onlyHidden">숨긴 메뉴만</DxCheckBox>
+
+    <div class="jsini-toolbar__spacer"></div>
+
     <PermissionView Action="MenuAction.Create">
-        <DxButton Text="메뉴 추가" RenderStyle="ButtonRenderStyle.Success" />
+        <DxButton Text="등록" RenderStyle="ButtonRenderStyle.Primary" SizeMode="SizeMode.Small"
+                  IconCssClass="jsini-icon-plus" Click="@StartNew" />
     </PermissionView>
+
+    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Secondary" SizeMode="SizeMode.Small"
+              IconCssClass="jsini-icon-refresh" Click="@ReloadAsync" />
 </div>
 
-<DxGrid Data="@_menus" Loading="@_loading" PageSize="20">
-    <Columns>
-        <DxGridDataColumn FieldName="OrderNo" Caption="순서" Width="70px" />
-        <DxGridDataColumn FieldName="Title" Caption="메뉴명" MinWidth="180" />
-        <DxGridDataColumn FieldName="Path" Caption="라우트 경로 (페이지)" MinWidth="200">
-            <CellDisplayTemplate>
-                <code class="text-primary">@context.Value</code>
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
-        <DxGridDataColumn FieldName="ModuleKey" Caption="모듈" Width="100px">
-            <CellDisplayTemplate>
-                <span class="badge bg-secondary">@context.Value</span>
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
-        <DxGridDataColumn FieldName="IsVisible" Caption="노출" Width="80px">
-            <CellDisplayTemplate>
-                <span class="badge @((bool)context.Value! ? "bg-success" : "bg-secondary")">
-                    @((bool)context.Value! ? "표시" : "숨김")
-                </span>
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
-        <DxGridDataColumn Caption="관리" Width="120px">
-            <CellDisplayTemplate>
-                <div class="d-flex gap-1 justify-content-center">
-                    <PermissionView Action="MenuAction.Update">
-                        <DxButton Text="수정" RenderStyle="ButtonRenderStyle.Secondary" SizeMode="SizeMode.Small" />
-                    </PermissionView>
-                    <PermissionView Action="MenuAction.Delete">
-                        <DxButton Text="삭제" RenderStyle="ButtonRenderStyle.Danger" SizeMode="SizeMode.Small" />
-                    </PermissionView>
+<PageNotice Text="@Notice" Tone="@Tone" />
+
+@if (_stats is not null)
+{
+    <div class="jsini-stats">
+        <div class="jsini-stat"><span class="jsini-stat__label">전체</span><span class="jsini-stat__value">@_stats.Total</span></div>
+        <div class="jsini-stat"><span class="jsini-stat__label">묶음</span><span class="jsini-stat__value">@_stats.Catalogs</span></div>
+        <div class="jsini-stat"><span class="jsini-stat__label">화면</span><span class="jsini-stat__value">@_stats.Screens</span></div>
+        <div class="jsini-stat"><span class="jsini-stat__label">숨김</span><span class="jsini-stat__value">@_stats.Hidden</span></div>
+        <div class="jsini-stat"><span class="jsini-stat__label">중지</span><span class="jsini-stat__value">@_stats.Stopped</span></div>
+    </div>
+}
+
+@*
+    검색어가 있으면 나무를 접고 **평평한 목록**으로 보여 준다.
+
+    나무인 채로 거르면 걸린 항목의 조상까지 남겨야 하고(안 남기면 트리가
+    깨진다), 그러면 걸리지도 않은 묶음이 결과에 섞여 무엇이 걸린 것인지
+    알 수 없다. 옛 화면도 검색하면 평평해졌다.
+*@
+@if (Filtering)
+{
+    <DxGrid Data="@Flat" PageSize="30" ShowSearchBox="false">
+        <Columns>
+            <DxGridDataColumn Caption="메뉴" MinWidth="220">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var m = (SystemMenuDto)cell.DataItem;
+                    }
+                    <span class="ad-menu__trail">@Trail(m.Id)</span>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+            <DxGridDataColumn FieldName="@nameof(SystemMenuDto.Path)" Caption="경로" MinWidth="200" />
+            <DxGridDataColumn FieldName="@nameof(SystemMenuDto.Type)" Caption="유형" Width="100" />
+            <DxGridDataColumn Caption="관리" Width="130" AllowSort="false">
+                <CellDisplayTemplate Context="cell">
+                    @RowActions((SystemMenuDto)cell.DataItem)
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+        </Columns>
+    </DxGrid>
+}
+else
+{
+    <DxTreeList Data="@_menus"
+                ChildrenFieldName="@nameof(SystemMenuDto.Children)"
+                KeyFieldName="@nameof(SystemMenuDto.Id)">
+        <Columns>
+            <DxTreeListDataColumn Caption="메뉴" MinWidth="240">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var m = (SystemMenuDto)cell.DataItem;
+                    }
+                    <span class="@(m.Status == 1 ? "" : "ad-menu--off")">@Title(m)</span>
+                    @if (m.Meta.HideInMenu)
+                    {
+                        <span class="jsini-badge jsini-badge--off ms-1">숨김</span>
+                    }
+                </CellDisplayTemplate>
+            </DxTreeListDataColumn>
+
+            <DxTreeListDataColumn FieldName="@nameof(SystemMenuDto.Path)" Caption="경로" MinWidth="200" />
+            <DxTreeListDataColumn FieldName="@nameof(SystemMenuDto.Type)" Caption="유형" Width="100" />
+
+            <DxTreeListDataColumn Caption="순서" Width="70">
+                <CellDisplayTemplate Context="cell">
+                    @(((SystemMenuDto)cell.DataItem).Meta.Order)
+                </CellDisplayTemplate>
+            </DxTreeListDataColumn>
+
+            @* 권한 일곱 가지를 한 칸에 글자로 압축한다. 일곱 칸으로 벌리면
+               표가 옆으로 넘쳐 정작 메뉴 이름이 안 보인다. *@
+            <DxTreeListDataColumn Caption="허용" Width="150">
+                <CellDisplayTemplate Context="cell">
+                    <span class="ad-menu__perm">@Permits(((SystemMenuDto)cell.DataItem).Permissions)</span>
+                </CellDisplayTemplate>
+            </DxTreeListDataColumn>
+
+            <DxTreeListDataColumn Caption="기기" Width="90">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var meta = ((SystemMenuDto)cell.DataItem).Meta;
+                    }
+                    <span class="ad-menu__perm">@(meta.UseMobile ? "폰" : "")@(meta.UseTablet ? " 탭" : "")</span>
+                </CellDisplayTemplate>
+            </DxTreeListDataColumn>
+
+            <DxTreeListDataColumn Caption="관리" Width="130" AllowSort="false">
+                <CellDisplayTemplate Context="cell">
+                    @RowActions((SystemMenuDto)cell.DataItem)
+                </CellDisplayTemplate>
+            </DxTreeListDataColumn>
+        </Columns>
+    </DxTreeList>
+}
+
+@* 편집 창. DxTreeList 에는 그리드 같은 팝업 편집이 없어 직접 띄운다. *@
+<DxPopup @bind-Visible="_editing" HeaderText="@(_isNew ? "메뉴 등록" : "메뉴 수정")"
+         Width="720" CloseOnOutsideClick="false" ShowFooter="true">
+    <BodyContentTemplate Context="popup">
+        <DxFormLayout CssClass="ad-editform">
+            <DxFormLayoutItem Caption="메뉴 이름" ColSpanMd="6">
+                <DxTextBox @bind-Text="_edit.Name" NullText="영문 식별용 이름" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="제목" ColSpanMd="6">
+                @* 다국어 키를 넣을 수도 있다. 그때는 서버가 표를 찾아 옮겨 준다. *@
+                <DxTextBox @bind-Text="_edit.Meta.Title" NullText="사람이 읽는 제목 또는 다국어 키" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="경로" ColSpanMd="6">
+                <DxTextBox @bind-Text="_edit.Path" NullText="/admin/system/menu" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="유형" ColSpanMd="6">
+                <DxComboBox Data="@TypeOptions" @bind-Value="_edit.Type"
+                            TextFieldName="Text" ValueFieldName="Value" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="상위 메뉴" ColSpanMd="6">
+                <DxComboBox Data="@ParentChoices" @bind-Value="_edit.Pid"
+                            TextFieldName="Text" ValueFieldName="Value"
+                            NullText="최상위"
+                            ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="순서" ColSpanMd="3">
+                <DxSpinEdit @bind-Value="_edit.Meta.Order" MinValue="0" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="아이콘" ColSpanMd="3">
+                <DxTextBox @bind-Text="_edit.Meta.Icon" NullText="비워 둘 수 있다" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="화면 파일" ColSpanMd="12">
+                @* 옛 Vue 경로. 이제 라우팅에 쓰이지 않는다 — 위 주석 참고. *@
+                <DxTextBox @bind-Text="_edit.Component" ReadOnly="true"
+                           NullText="라우팅에 쓰이지 않는다 (옛 Vue 경로)" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="바깥 링크" ColSpanMd="12">
+                <DxTextBox @bind-Text="_edit.Meta.Link" NullText="https://… (넣으면 새 창으로 연다)" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="보이기" ColSpanMd="12">
+                <div class="d-flex flex-wrap gap-3">
+                    <DxCheckBox Checked="@(_edit.Status == 1)"
+                                CheckedChanged="@((bool v) => _edit.Status = v ? 1 : 0)">사용</DxCheckBox>
+                    <DxCheckBox @bind-Checked="_edit.Meta.HideInMenu">메뉴에서 숨김</DxCheckBox>
+                    <DxCheckBox @bind-Checked="_edit.Meta.HideChildrenInMenu">하위를 숨김</DxCheckBox>
+                    <DxCheckBox @bind-Checked="_edit.Meta.HideInBreadcrumb">길잡이에서 숨김</DxCheckBox>
+                    <DxCheckBox @bind-Checked="_edit.Meta.HideInTab">탭으로 열지 않음</DxCheckBox>
+                    <DxCheckBox @bind-Checked="_edit.Meta.AffixTab">탭 고정</DxCheckBox>
                 </div>
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
-    </Columns>
-</DxGrid>
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="기기" ColSpanMd="12">
+                @* 화면 크기별 노출. 사이드바가 이 값으로 메뉴를 거른다. *@
+                <div class="d-flex gap-3">
+                    <DxCheckBox @bind-Checked="_edit.Meta.UseMobile">휴대폰</DxCheckBox>
+                    <DxCheckBox @bind-Checked="_edit.Meta.UseTablet">태블릿</DxCheckBox>
+                </div>
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="허용 동작" ColSpanMd="12">
+                <div class="d-flex flex-wrap gap-3">
+                    <DxCheckBox @bind-Checked="_edit.Permissions.UseView">조회</DxCheckBox>
+                    <DxCheckBox @bind-Checked="_edit.Permissions.UseSearch">검색</DxCheckBox>
+                    <DxCheckBox @bind-Checked="_edit.Permissions.UseCreate">등록</DxCheckBox>
+                    <DxCheckBox @bind-Checked="_edit.Permissions.UseUpdate">수정</DxCheckBox>
+                    <DxCheckBox @bind-Checked="_edit.Permissions.UseDelete">삭제</DxCheckBox>
+                    <DxCheckBox @bind-Checked="_edit.Permissions.UsePrint">출력</DxCheckBox>
+                    <DxCheckBox @bind-Checked="_edit.Permissions.UseExcel">엑셀</DxCheckBox>
+                </div>
+            </DxFormLayoutItem>
+        </DxFormLayout>
+    </BodyContentTemplate>
+
+    <FooterContentTemplate>
+        <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Primary" Click="@SaveAsync" />
+        <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary" Click="@(() => _editing = false)" />
+    </FooterContentTemplate>
+</DxPopup>
 
 @code {
-    private List<MenuItemDto> _menus = [];
+    private IReadOnlyList<SystemMenuDto> _menus = [];
+
+    /// <summary>펴 놓은 전체. 검색·상위 고르개·줄기 만들기가 쓴다.</summary>
+    private List<SystemMenuDto> _flat = [];
+
+    /// <summary>자식 → 부모. 줄기(「포털관리 › 시스템 › 메뉴 관리」)를 만든다.</summary>
+    private readonly Dictionary<string, string?> _parent = [];
+
+    private readonly Dictionary<string, string> _titles = [];
+
     private string? _keyword;
-    private bool _loading;
+    private bool _onlyHidden;
 
-    protected override Task OnInitializedAsync() => LoadDataAsync();
+    private bool _editing;
+    private bool _isNew;
+    private string _editId = string.Empty;
+    private SystemMenuDto _edit = new();
 
-    private Task LoadDataAsync()
+    private Stats? _stats;
+
+    private sealed record Stats(int Total, int Catalogs, int Screens, int Hidden, int Stopped);
+
+    private static readonly object[] TypeOptions =
+    [
+        new { Value = "MENU", Text = "화면" },
+        new { Value = "CATALOG", Text = "묶음" },
+        new { Value = "EMBEDDED", Text = "내장" },
+        new { Value = "LINK", Text = "바깥 링크" },
+        new { Value = "BUTTON", Text = "버튼" },
+    ];
+
+    private bool Filtering => !string.IsNullOrWhiteSpace(_keyword) || _onlyHidden;
+
+    private IReadOnlyList<SystemMenuDto> Flat
     {
-        _loading = true;
-        try
+        get
         {
-            _menus =
-            [
-                new MenuItemDto { OrderNo = 1, Title = "장례 관리", Path = "/funeral/status", ModuleKey = "funeral", IsVisible = true },
-                new MenuItemDto { OrderNo = 2, Title = "헬프데스크", Path = "/helpdesk/dashboard", ModuleKey = "helpdesk", IsVisible = true },
-                new MenuItemDto { OrderNo = 3, Title = "프로젝트관리", Path = "/projmng/manage", ModuleKey = "projmng", IsVisible = true },
-                new MenuItemDto { OrderNo = 4, Title = "생활과환경", Path = "/life/weather/dashboard", ModuleKey = "life", IsVisible = true }
-            ];
+            IEnumerable<SystemMenuDto> rows = _flat;
+
+            if (_onlyHidden)
+            {
+                rows = rows.Where(m => m.Meta.HideInMenu || m.Status != 1);
+            }
+
+            if (!string.IsNullOrWhiteSpace(_keyword))
+            {
+                var k = _keyword.Trim();
+                rows = rows.Where(m =>
+                    Title(m).Contains(k, StringComparison.OrdinalIgnoreCase)
+                    || m.Name.Contains(k, StringComparison.OrdinalIgnoreCase)
+                    || m.Path.Contains(k, StringComparison.OrdinalIgnoreCase));
+            }
+
+            return [.. rows];
         }
-        finally
-        {
-            _loading = false;
-        }
-        return Task.CompletedTask;
     }
 
-    public sealed class MenuItemDto
+    /// <summary>상위 메뉴 고르개. 묶음만 담는다 — 화면 밑에 화면을 달지 않는다.</summary>
+    private IReadOnlyList<object> ParentChoices =>
+    [
+        .. _flat
+            .Where(m => !string.Equals(m.Type, "BUTTON", StringComparison.OrdinalIgnoreCase))
+            .Where(m => m.Id != _editId)
+            .OrderBy(Trail, StringComparer.OrdinalIgnoreCase)
+            .Select(m => (object)new { Value = m.Id, Text = Trail(m.Id) })
+    ];
+
+    protected override Task OnInitializedAsync() => ReloadAsync();
+
+    private Task ReloadAsync() => LoadAsync(async () =>
     {
-        public int OrderNo { get; set; }
-        public string Title { get; set; } = string.Empty;
-        public string Path { get; set; } = string.Empty;
-        public string ModuleKey { get; set; } = string.Empty;
-        public bool IsVisible { get; set; }
+        _menus = await Api.GetSystemMenusAsync("ko-KR");
+        Index();
+        return _flat.Count;
+    }, "등록된 메뉴가 없습니다.", "메뉴 목록을 읽지 못했습니다");
+
+    /// <summary>나무를 한 번 훑어 평평한 목록·부모 표·통계를 만든다.</summary>
+    private void Index()
+    {
+        _flat = [];
+        _parent.Clear();
+        _titles.Clear();
+
+        void Walk(IEnumerable<SystemMenuDto> nodes, string? parentId)
+        {
+            foreach (var node in nodes)
+            {
+                _flat.Add(node);
+                _parent[node.Id] = parentId;
+                _titles[node.Id] = Title(node);
+
+                if (node.Children is { Count: > 0 } children)
+                {
+                    Walk(children, node.Id);
+                }
+            }
+        }
+
+        Walk(_menus, null);
+
+        _stats = new Stats(
+            _flat.Count,
+            _flat.Count(m => string.Equals(m.Type, "CATALOG", StringComparison.OrdinalIgnoreCase)),
+            _flat.Count(m => string.Equals(m.Type, "MENU", StringComparison.OrdinalIgnoreCase)),
+            _flat.Count(m => m.Meta.HideInMenu),
+            _flat.Count(m => m.Status != 1));
+    }
+
+    /// <summary>
+    /// 사람이 읽는 제목.
+    ///
+    /// 서버가 다국어 표에서 찾아 <c>TitleText</c> 에 넣어 준다. 못 찾으면
+    /// <c>Title</c> 이 이미 글자라는 뜻이고, 그것도 비면 이름으로 떨어진다.
+    /// </summary>
+    private static string Title(SystemMenuDto m) =>
+        !string.IsNullOrWhiteSpace(m.Meta.TitleText) ? m.Meta.TitleText!
+        : !string.IsNullOrWhiteSpace(m.Meta.Title) ? m.Meta.Title!
+        : m.Name;
+
+    /// <summary>뿌리부터의 줄기. 검색 결과에서 어느 업무의 메뉴인지 보이게 한다.</summary>
+    private string Trail(string id)
+    {
+        var parts = new List<string>();
+        var cursor = id;
+
+        // 자기 참조가 섞이면 무한히 돈다. 깊이로 막는다.
+        for (var depth = 0; depth < 12 && cursor is not null; depth++)
+        {
+            if (!_titles.TryGetValue(cursor, out var title))
+            {
+                break;
+            }
+
+            parts.Insert(0, title);
+            _parent.TryGetValue(cursor, out cursor);
+        }
+
+        return string.Join(" › ", parts);
+    }
+
+    private string Trail(SystemMenuDto m) => Trail(m.Id);
+
+    private static string Permits(MenuPermissionItemsDto p)
+    {
+        var on = new List<string>();
+
+        if (p.UseView) on.Add("조회");
+        if (p.UseSearch) on.Add("검색");
+        if (p.UseCreate) on.Add("등록");
+        if (p.UseUpdate) on.Add("수정");
+        if (p.UseDelete) on.Add("삭제");
+        if (p.UsePrint) on.Add("출력");
+        if (p.UseExcel) on.Add("엑셀");
+
+        return on.Count == 7 ? "전부" : string.Join("·", on);
+    }
+
+    private RenderFragment RowActions(SystemMenuDto m) =>@<div class="d-flex gap-1">
+        <PermissionView Action="MenuAction.Update">
+            <DxButton Text="수정" SizeMode="SizeMode.Small" RenderStyle="ButtonRenderStyle.Secondary"
+                      Click="@(() => StartEdit(m))" />
+        </PermissionView>
+        <PermissionView Action="MenuAction.Delete">
+            <DxButton Text="삭제" SizeMode="SizeMode.Small" RenderStyle="ButtonRenderStyle.Secondary"
+                      Click="@(() => DeleteAsync(m))" />
+        </PermissionView>
+    </div>;
+
+    private void StartNew()
+    {
+        _isNew = true;
+        _editId = string.Empty;
+        _edit = new SystemMenuDto { Type = "MENU", Status = 1 };
+        _editing = true;
+    }
+
+    /// <summary>
+    /// 편집 창에 **복사본**을 띄운다.
+    ///
+    /// 원본을 그대로 묶으면 저장을 취소해도 표에는 이미 바뀐 값이 남는다 —
+    /// 화면과 서버가 어긋난 채로 보이고, 새로 고치기 전에는 알 수 없다.
+    /// </summary>
+    private void StartEdit(SystemMenuDto m)
+    {
+        _isNew = false;
+        _editId = m.Id;
+        _edit = new SystemMenuDto
+        {
+            Id = m.Id,
+            Name = m.Name,
+            Path = m.Path,
+            Component = m.Component,
+            Pid = m.Pid ?? _parent.GetValueOrDefault(m.Id),
+            Redirect = m.Redirect,
+            Type = m.Type,
+            AuthCode = m.AuthCode,
+            Status = m.Status,
+            Meta = new SystemMenuMetaDto
+            {
+                Title = m.Meta.Title,
+                TitleText = m.Meta.TitleText,
+                Icon = m.Meta.Icon,
+                Order = m.Meta.Order,
+                HideInMenu = m.Meta.HideInMenu,
+                HideChildrenInMenu = m.Meta.HideChildrenInMenu,
+                HideInBreadcrumb = m.Meta.HideInBreadcrumb,
+                HideInTab = m.Meta.HideInTab,
+                KeepAlive = m.Meta.KeepAlive,
+                AffixTab = m.Meta.AffixTab,
+                Link = m.Meta.Link,
+                IframeSrc = m.Meta.IframeSrc,
+                UseMobile = m.Meta.UseMobile,
+                UseTablet = m.Meta.UseTablet,
+            },
+            Permissions = new MenuPermissionItemsDto
+            {
+                UseView = m.Permissions.UseView,
+                UseSearch = m.Permissions.UseSearch,
+                UseCreate = m.Permissions.UseCreate,
+                UseUpdate = m.Permissions.UseUpdate,
+                UseDelete = m.Permissions.UseDelete,
+                UsePrint = m.Permissions.UsePrint,
+                UseExcel = m.Permissions.UseExcel,
+            },
+        };
+        _editing = true;
+    }
+
+    private async Task SaveAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_edit.Name) || string.IsNullOrWhiteSpace(_edit.Path))
+        {
+            Say("메뉴 이름과 경로는 반드시 넣어야 합니다.", NoticeTone.Warning);
+            return;
+        }
+
+        // 이름·경로가 겹치는지 먼저 묻는다. 저장할 때 서버도 검사하지만,
+        // 여기서 걸러야 사용자가 폼을 다 채운 뒤에 거절당하지 않는다.
+        var duplicate = await Api.MenuNameExistsAsync(_edit.Name, _isNew ? null : _editId)
+            || await Api.MenuPathExistsAsync(_edit.Path, _isNew ? null : _editId);
+
+        if (duplicate)
+        {
+            Say("같은 이름이나 경로를 쓰는 메뉴가 이미 있습니다.", NoticeTone.Warning);
+            return;
+        }
+
+        var body = new SaveSystemMenuDto
+        {
+            Name = _edit.Name,
+            Path = _edit.Path,
+            Component = _edit.Component,
+            Pid = _edit.Pid,
+            Redirect = _edit.Redirect,
+            Type = _edit.Type,
+            AuthCode = _edit.AuthCode,
+            Status = _edit.Status,
+            Meta = _edit.Meta,
+            Permissions = _edit.Permissions,
+        };
+
+        var saved = await RunAsync(
+            () => _isNew ? Api.CreateSystemMenuAsync(body) : Api.UpdateSystemMenuAsync(_editId, body),
+            _isNew ? "등록했습니다." : "저장했습니다.",
+            _isNew ? "등록하지 못했습니다" : "저장하지 못했습니다");
+
+        if (!saved)
+        {
+            // 창을 닫지 않는다. 닫으면 채운 내용이 사라진다.
+            return;
+        }
+
+        _editing = false;
+        await ReloadAsync();
+    }
+
+    private async Task DeleteAsync(SystemMenuDto m)
+    {
+        // 하위가 달린 묶음을 지우면 그 아래가 통째로 미아가 된다. 서버도 막지만
+        // 여기서 먼저 말해 주는 편이 낫다.
+        if (m.Children is { Count: > 0 })
+        {
+            Say("하위 메뉴가 있어 지울 수 없습니다. 먼저 하위를 옮기거나 지우십시오.", NoticeTone.Warning);
+            return;
+        }
+
+        if (await RunAsync(() => Api.DeleteSystemMenuAsync(m.Id), "지웠습니다.", "지우지 못했습니다"))
+        {
+            await ReloadAsync();
+        }
     }
 }

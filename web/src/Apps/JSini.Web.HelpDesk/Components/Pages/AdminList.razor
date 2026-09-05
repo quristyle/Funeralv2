@@ -42,7 +42,10 @@
 
     private Task ReloadAsync() => LoadAsync(async () =>
     {
-        var json = await Api.GetAsync<JsonElement>("admins/workload");
+        // `admins/workload` 가 아니다. 통계는 전부 `dashboard/*` 밑에 있고,
+        // 자원 밑에서 부르면 `admins/{id}` 와 부딪쳐 500 이 난다 —
+        // 「Failed to bind parameter "int id" from "workload"」.
+        var json = await Api.GetAsync<JsonElement>("dashboard/admins/workload");
         _rows = JsonTable.From(json);
         return _rows.Rows.Count;
     }, "등록된 담당자가 없습니다.", "담당자 목록을 읽지 못했습니다");

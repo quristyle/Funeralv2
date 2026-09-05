@@ -38,7 +38,9 @@
 
     private Task ReloadAsync() => LoadAsync(async () =>
     {
-        var json = await Api.GetAsync<JsonElement>("teams");
+        // 팀 목록 자체는 `teams` 지만 이 화면은 **인원과 배정 건수**를 보여 준다.
+        // 그 값은 통계 쪽에만 있다.
+        var json = await Api.GetAsync<JsonElement>("dashboard/teams/workload");
         _rows = JsonTable.From(json);
         return _rows.Rows.Count;
     }, "등록된 팀이 없습니다.", "팀 목록을 읽지 못했습니다");

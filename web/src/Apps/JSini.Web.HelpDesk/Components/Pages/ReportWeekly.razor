@@ -19,6 +19,7 @@
 
 @inherits DataPage
 @inject HelpDeskApi Api
+@inject HelpDeskContext Context
 
 <PageTitle>주간 리포트 · 헬프데스크</PageTitle>
 
@@ -43,7 +44,13 @@
 
     private Task ReloadAsync() => LoadAsync(async () =>
     {
-        var json = await Api.GetAsync<JsonElement>("dashboard/my-monthly-stats");
+        // `my-monthly-stats` 는 **고객으로 연결된 계정만** 부를 수 있다
+        // (담당자가 부르면 403). 이 화면은 담당자도 보므로 신원에 따라 갈린다.
+        await Context.LoadIdentityAsync();
+
+        var json = Context.IsLinked && !Context.IsAdmin
+            ? await Api.GetAsync<JsonElement>("dashboard/my-monthly-stats")
+            : await Api.GetAsync<JsonElement>("dashboard/admin-contribution-trend");
         _rows = JsonTable.From(json);
         return _rows.Rows.Count;
     }, "집계할 자료가 없습니다.", "주간 리포트를 읽지 못했습니다");

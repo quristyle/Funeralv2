@@ -14,6 +14,28 @@ namespace HelpDeskServer.Data;
 /// 애플리케이션의 데이터베이스 컨텍스트 클래스
 /// </summary>
 public class AppDbContext : DbContext {
+  /// <summary>
+  /// 이 서비스가 쓰는 스키마 이름. 기본은 <c>jsini</c> 다.
+  ///
+  /// [왜 정적인가]
+  ///
+  /// EF 는 모델을 <b>컨텍스트 타입마다 한 번</b> 만들어 캐싱한다. 그 시점에
+  /// 스키마를 알아야 하는데, 모델을 만드는 <c>OnModelCreating</c> 에는 설정을
+  /// 넘길 자리가 없다. 한 프로세스가 두 스키마를 동시에 보는 일이 없으므로
+  /// 기동할 때 한 번 정하고 그대로 쓴다.
+  ///
+  /// [왜 설정으로 뺐나 — 실제로 밟았다]
+  ///
+  /// 헬프데스크 전용 DB(스키마 <c>helpdesk</c>)로 접속 문자열을 옮겼는데 이 값이
+  /// <c>jsini</c> 로 박혀 있어서 <b>모든 요청이 500 이었다</b> —
+  /// <c>relation "jsini.auth_user_links" does not exist</c>. 화면 서른다섯 개가
+  /// 통째로 비었고, 원인이 프런트처럼 보였다.
+  ///
+  /// 기본값을 그대로 둔 것은 운영을 건드리지 않기 위해서다. 설정을 넣은 곳만
+  /// 달라진다.
+  /// </summary>
+  public static string Schema { get; set; } = "jsini";
+
   private readonly IHttpContextAccessor? _httpContextAccessor;
 
   /// <summary>
@@ -256,7 +278,7 @@ public class AppDbContext : DbContext {
 
       optionsBuilder.UseNpgsql(
           conn,
-          npgsqlOptions => npgsqlOptions.MigrationsHistoryTable("__EFMigrationsHistory", "jsini")
+          npgsqlOptions => npgsqlOptions.MigrationsHistoryTable("__EFMigrationsHistory", Schema)
       );
 
       // 로그를 보고자 하는 코드.. 이것은 까묵지 말고 꼭 나중에 지워야함. 쿼리 노출
@@ -296,8 +318,8 @@ public class AppDbContext : DbContext {
   /// </summary>
   /// <param name="modelBuilder"></param>
   protected override void OnModelCreating(ModelBuilder modelBuilder) {
-    // set default schema
-    modelBuilder.HasDefaultSchema("jsini");
+    // 기본 스키마. 값은 기동할 때 설정에서 정한다 (Schema 주석 참고).
+    modelBuilder.HasDefaultSchema(Schema);
 
     //BaseEntity 상속 구조를 명시적으로 TPT로 지정
     foreach (var entityType in modelBuilder.Model.GetEntityTypes()) {

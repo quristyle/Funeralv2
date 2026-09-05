@@ -12,7 +12,9 @@ namespace HelpDeskServer.Models;
 /// 그래서 기존 테이블은 건드리지 않고 이 매핑 테이블만 추가해 두 체계를 연결한다.
 /// </summary>
 // 컬럼명은 AppDbContext 규칙에 따라 속성명을 소문자로 만든 값이 된다 (authuserid, usertype ...).
-[Table("auth_user_links", Schema = "jsini")]
+// 스키마를 여기 적지 않는다. 적으면 AppDbContext.Schema 설정을 이 표만 안 따라가
+// 다른 DB 로 옮겼을 때 이 표에서만 "relation does not exist" 가 난다 — 실제로 그랬다.
+[Table("auth_user_links")]
 public class AuthUserLink {
   /// <summary>매핑 식별자</summary>
   public int Id { get; set; }

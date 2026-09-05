@@ -44,7 +44,11 @@
 
     private Task ReloadAsync() => LoadAsync(async () =>
     {
-        var json = await Api.GetAsync<JsonElement>("dashboard/report/monthly");
+        // 보고서는 `dashboard` 가 아니라 **`requests` 묶음** 밑에 있다.
+        // `year`·`month` 가 필수다 — 없으면 400 이 난다.
+        var now = DateTime.Now;
+        var json = await Api.GetAsync<JsonElement>(
+            "requests/report/monthly", new { year = now.Year, month = now.Month });
         _rows = JsonTable.From(json);
         return _rows.Rows.Count;
     }, "집계할 자료가 없습니다.", "월간 리포트를 읽지 못했습니다");

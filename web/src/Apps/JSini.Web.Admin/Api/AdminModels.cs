@@ -404,3 +404,241 @@ public sealed class SaveDeptDto
     public int Status { get; set; } = 1;
     public int SortOrder { get; set; }
 }
+
+
+// ── 메뉴 ────────────────────────────────────────────────────
+//
+// 셸이 쓰는 `MenuNode`(JSini.Web.Models)와 **일부러 다르다.** 그쪽은 사이드바를
+// 그리는 데 필요한 것만 담은 읽기 전용 모양이고, 이쪽은 메뉴 관리 화면이
+// 고쳐서 되돌려 보내는 모양이라 서버 DTO 를 그대로 따라간다.
+
+/// <summary>메뉴 한 건. 서버의 <c>SystemMenuDto</c> 를 그대로 받는다.</summary>
+public sealed class SystemMenuDto
+{
+    public string Id { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string Path { get; set; } = string.Empty;
+
+    /// <summary>
+    /// 옛 Vue 파일 경로. <b>더 이상 읽지 않는다</b> — 라우팅은 Blazor 의
+    /// <c>@page</c> 가 정한다. 목록에 보여 주기는 하되 이관 상태를 가늠하는
+    /// 참고값일 뿐이다.
+    /// </summary>
+    public string? Component { get; set; }
+
+    public string? Pid { get; set; }
+    public string? Redirect { get; set; }
+
+    /// <summary><c>MENU</c> · <c>CATALOG</c> · <c>BUTTON</c> · <c>EMBEDDED</c> · <c>LINK</c>.</summary>
+    public string Type { get; set; } = "MENU";
+
+    public string? AuthCode { get; set; }
+    public int Status { get; set; } = 1;
+
+    public SystemMenuMetaDto Meta { get; set; } = new();
+    public List<SystemMenuDto>? Children { get; set; }
+    public MenuPermissionItemsDto Permissions { get; set; } = new();
+}
+
+/// <summary>메뉴의 보이기 관련 값들.</summary>
+public sealed class SystemMenuMetaDto
+{
+    /// <summary>저장된 제목. 다국어 키일 수도 있다.</summary>
+    public string? Title { get; set; }
+
+    /// <summary>
+    /// 사람이 읽는 제목. <b>서버가 다국어 표를 찾아 넣어 준다.</b>
+    /// 못 찾으면 <c>null</c> 이고, 그때는 <see cref="Title"/> 이 이미 글자다.
+    /// </summary>
+    public string? TitleText { get; set; }
+
+    public string? Icon { get; set; }
+    public int Order { get; set; }
+    public bool HideInMenu { get; set; }
+    public bool HideChildrenInMenu { get; set; }
+    public bool HideInBreadcrumb { get; set; }
+    public bool HideInTab { get; set; }
+    public bool KeepAlive { get; set; } = true;
+    public bool AffixTab { get; set; }
+    public string? Link { get; set; }
+    public string? IframeSrc { get; set; }
+
+    /// <summary>휴대폰에서 이 메뉴를 보여 줄지.</summary>
+    public bool UseMobile { get; set; } = true;
+
+    /// <summary>태블릿에서 이 메뉴를 보여 줄지.</summary>
+    public bool UseTablet { get; set; } = true;
+}
+
+/// <summary>
+/// 메뉴가 허용하는 동작들. 화면의 등록·수정·삭제·엑셀 단추가 이 값을 본다
+/// (<c>PermissionView</c>).
+/// </summary>
+public sealed class MenuPermissionItemsDto
+{
+    public bool UseView { get; set; } = true;
+    public bool UseSearch { get; set; } = true;
+    public bool UseCreate { get; set; } = true;
+    public bool UseUpdate { get; set; } = true;
+    public bool UseDelete { get; set; } = true;
+    public bool UsePrint { get; set; } = true;
+    public bool UseExcel { get; set; } = true;
+}
+
+/// <summary>메뉴 등록·수정.</summary>
+public sealed class SaveSystemMenuDto
+{
+    public string Name { get; set; } = string.Empty;
+    public string Path { get; set; } = string.Empty;
+    public string? Component { get; set; }
+    public string? Pid { get; set; }
+    public string? Redirect { get; set; }
+    public string Type { get; set; } = "MENU";
+    public string? AuthCode { get; set; }
+
+    /// <summary>
+    /// 0 은 중지, 1 은 사용. <b>일부러 nullable 이다</b> — 값을 안 싣는 요청은
+    /// 서버가 상태를 건드리지 않는다.
+    /// </summary>
+    public int? Status { get; set; } = 1;
+
+    public SystemMenuMetaDto Meta { get; set; } = new();
+    public MenuPermissionItemsDto Permissions { get; set; } = new();
+}
+
+
+// ── 공통코드 ────────────────────────────────────────────────
+
+/// <summary>코드 묶음. 「사용 상태」·「사용자 구분」 같은 단위다.</summary>
+public sealed class CommonCodeGroupDto
+{
+    public string Id { get; set; } = string.Empty;
+    public string GroupCode { get; set; } = string.Empty;
+    public string GroupName { get; set; } = string.Empty;
+
+    /// <summary>여러 단으로 겹칠 수 있는 묶음인지(대분류-중분류-소분류).</summary>
+    public bool IsHierarchical { get; set; }
+
+    public int SortOrder { get; set; }
+    public string? Remark { get; set; }
+    public DateTime CreatedAt { get; set; }
+}
+
+/// <summary>묶음 등록·수정.</summary>
+public sealed class SaveCommonCodeGroupDto
+{
+    public string GroupCode { get; set; } = string.Empty;
+    public string GroupName { get; set; } = string.Empty;
+    public bool IsHierarchical { get; set; }
+    public int SortOrder { get; set; }
+    public string? Remark { get; set; }
+}
+
+/// <summary>코드 한 건.</summary>
+public sealed class CommonCodeDto
+{
+    public string Id { get; set; } = string.Empty;
+    public string GroupId { get; set; } = string.Empty;
+    public string? ParentId { get; set; }
+    public string CodeValue { get; set; } = string.Empty;
+    public string CodeName { get; set; } = string.Empty;
+
+    /// <summary>다국어 키. 넣으면 화면이 그 값으로 옮겨 보여 준다.</summary>
+    public string? I18nKey { get; set; }
+
+    public int SortOrder { get; set; }
+    public int Level { get; set; }
+    public bool IsLeaf { get; set; }
+    public int Status { get; set; } = 1;
+    public string? Remark { get; set; }
+    public List<CommonCodeDto>? Children { get; set; }
+}
+
+/// <summary>코드 등록·수정.</summary>
+public sealed class SaveCommonCodeDto
+{
+    public string GroupId { get; set; } = string.Empty;
+    public string? ParentId { get; set; }
+    public string CodeValue { get; set; } = string.Empty;
+    public string CodeName { get; set; } = string.Empty;
+    public string? I18nKey { get; set; }
+    public int SortOrder { get; set; }
+    public int Status { get; set; } = 1;
+    public string? Remark { get; set; }
+}
+
+
+// ── 배포 도구 ───────────────────────────────────────────────
+
+/// <summary>걸 수 있는 배포 대상 하나.</summary>
+public sealed class ReleaseTargetDto
+{
+    public string Key { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string? Description { get; set; }
+
+    /// <summary>진행 상황을 단계별로 알려 주는 대상인지.</summary>
+    public bool ReportsProgress { get; set; }
+
+    public int TimeoutSeconds { get; set; }
+    public int EstimatedSeconds { get; set; }
+
+    /// <summary>지금 돌고 있는 실행. 비어 있으면 쉬는 중이다.</summary>
+    public string? ActiveRunId { get; set; }
+
+    public ReleaseRunDto? LastRun { get; set; }
+}
+
+/// <summary>
+/// 배포 대상 목록.
+///
+/// <b>목록이 아니라 덩어리다</b> — 목록과 함께 "이 사람이 걸 수 있는가"
+/// (<see cref="CanRelease"/>)와 설정 경고를 같이 준다. 그 둘이 없으면 화면이
+/// 단추를 보여 줄지 말지 판단할 수 없다.
+/// </summary>
+public sealed class ReleaseTargetListDto
+{
+    public List<ReleaseTargetDto> Items { get; set; } = [];
+    public bool CanRelease { get; set; }
+    public string? ConfigWarning { get; set; }
+}
+
+/// <summary>배포 실행 한 건.</summary>
+public sealed class ReleaseRunDto
+{
+    public string Id { get; set; } = string.Empty;
+    public string TargetKey { get; set; } = string.Empty;
+    public string TargetName { get; set; } = string.Empty;
+
+    /// <summary><c>queued</c> · <c>running</c> · <c>succeeded</c> · <c>failed</c> · <c>timeout</c>.</summary>
+    public string Status { get; set; } = string.Empty;
+
+    public bool ReportsProgress { get; set; }
+    public string? RequestedBy { get; set; }
+    public DateTime RequestedAt { get; set; }
+    public DateTime? StartedAt { get; set; }
+    public DateTime? FinishedAt { get; set; }
+    public int? ExitCode { get; set; }
+    public string? CurrentStep { get; set; }
+    public string? Message { get; set; }
+    public string? DeployedVersion { get; set; }
+    public int LastSeq { get; set; }
+
+    /// <summary>끝난 실행인지. 참이면 더 물어볼 것이 없다.</summary>
+    public bool IsFinal { get; set; }
+
+    public List<ReleaseRunEventDto> Events { get; set; } = [];
+}
+
+/// <summary>배포 진행 기록 한 줄.</summary>
+public sealed class ReleaseRunEventDto
+{
+    public int Seq { get; set; }
+
+    /// <summary><c>info</c> · <c>warn</c> · <c>error</c>.</summary>
+    public string Level { get; set; } = string.Empty;
+
+    public string? Step { get; set; }
+    public string Message { get; set; } = string.Empty;
+    public DateTime At { get; set; }
+}

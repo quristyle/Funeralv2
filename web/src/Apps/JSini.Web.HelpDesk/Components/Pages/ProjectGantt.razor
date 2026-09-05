@@ -45,7 +45,8 @@
 
     private Task ReloadAsync() => LoadAsync(async () =>
     {
-        var json = await Api.GetAsync<JsonElement>("project/flat");
+        // `project/flat` 은 없다. 프로젝트 목록은 `project` 하나뿐이다.
+        var json = await Api.GetAsync<JsonElement>("project");
         _rows = JsonTable.From(json);
         return _rows.Rows.Count;
     }, "등록된 프로젝트가 없습니다.", "프로젝트를 읽지 못했습니다");

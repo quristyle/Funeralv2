@@ -43,7 +43,9 @@
 
     private Task ReloadAsync() => LoadAsync(async () =>
     {
-        var json = await Api.GetAsync<JsonElement>("dashboard/report/emergency");
+        // 긴급 건 보고서. `dashboard` 가 아니라 `requests` 묶음 밑이다.
+        // 이것만 기간 인자가 없다.
+        var json = await Api.GetAsync<JsonElement>("requests/report/emergency");
         _rows = JsonTable.From(json);
         return _rows.Rows.Count;
     }, "집계할 자료가 없습니다.", "IO 심층 분석를 읽지 못했습니다");

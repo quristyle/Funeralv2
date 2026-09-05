@@ -211,6 +211,91 @@ public sealed class AdminClient(GatewayClient gateway)
     public Task SendTestPushAsync(CancellationToken ct = default)
         => gateway.PostAsync("notify/push/test", new { }, ct);
 
+    // ── 메뉴 ────────────────────────────────────────────────────
+
+    /// <summary>
+    /// 메뉴 전체를 나무 모양으로. 권한으로 거르지 않은 <b>원본</b>이다 —
+    /// 관리 화면은 자기가 못 보는 메뉴도 고칠 수 있어야 한다.
+    ///
+    /// <paramref name="locale"/> 을 주면 제목의 다국어 키를 서버가 옮겨
+    /// <c>meta.titleText</c> 에 담아 준다.
+    /// </summary>
+    public Task<IReadOnlyList<SystemMenuDto>> GetSystemMenusAsync(
+        string? locale = null, CancellationToken ct = default)
+        => gateway.GetListAsync<SystemMenuDto>("auth/system/menu/list" + Query(("locale", locale)), ct);
+
+    public Task CreateSystemMenuAsync(SaveSystemMenuDto menu, CancellationToken ct = default)
+        => gateway.PostAsync("auth/system/menu", menu, ct);
+
+    public Task UpdateSystemMenuAsync(string id, SaveSystemMenuDto menu, CancellationToken ct = default)
+        => gateway.PutAsync($"auth/system/menu/{id}", menu, ct);
+
+    public Task DeleteSystemMenuAsync(string id, CancellationToken ct = default)
+        => gateway.DeleteAsync($"auth/system/menu/{id}", ct);
+
+    /// <summary>
+    /// 이름이 이미 쓰이고 있는지. 등록 폼이 저장 전에 묻는다.
+    ///
+    /// <paramref name="excludeId"/> 는 수정할 때 <b>자기 자신을 빼기</b> 위한
+    /// 것이다. 안 빼면 이름을 안 바꾸고 저장해도 "이미 있다" 가 된다.
+    /// </summary>
+    public Task<bool> MenuNameExistsAsync(string name, string? excludeId = null, CancellationToken ct = default)
+        => ExistsAsync("auth/system/menu/name-exists" + Query(("name", name), ("id", excludeId)), ct);
+
+    public Task<bool> MenuPathExistsAsync(string path, string? excludeId = null, CancellationToken ct = default)
+        => ExistsAsync("auth/system/menu/path-exists" + Query(("path", path), ("id", excludeId)), ct);
+
+    // ── 공통코드 ────────────────────────────────────────────────
+
+    public Task<IReadOnlyList<CommonCodeGroupDto>> GetCodeGroupsAsync(CancellationToken ct = default)
+        => gateway.GetListAsync<CommonCodeGroupDto>("auth/system/common-code/groups", ct);
+
+    public Task CreateCodeGroupAsync(SaveCommonCodeGroupDto group, CancellationToken ct = default)
+        => gateway.PostAsync("auth/system/common-code/groups", group, ct);
+
+    public Task UpdateCodeGroupAsync(string id, SaveCommonCodeGroupDto group, CancellationToken ct = default)
+        => gateway.PutAsync($"auth/system/common-code/groups/{id}", group, ct);
+
+    public Task DeleteCodeGroupAsync(string id, CancellationToken ct = default)
+        => gateway.DeleteAsync($"auth/system/common-code/groups/{id}", ct);
+
+    /// <summary>
+    /// 한 묶음의 코드들. <paramref name="hierarchical"/> 이면 <c>Children</c> 을
+    /// 채운 나무로, 아니면 평평한 목록으로 온다.
+    ///
+    /// <b>주소가 묶음 <i>코드</i>다</b> — 식별자가 아니다. 서버가 그렇게 열어
+    /// 두었고, 코드가 사람이 정하는 값이라 링크로 주고받기 좋다.
+    /// </summary>
+    public Task<IReadOnlyList<CommonCodeDto>> GetCodesAsync(
+        string groupCode, bool hierarchical = false, CancellationToken ct = default)
+        => gateway.GetListAsync<CommonCodeDto>(
+            $"auth/system/common-code/{Uri.EscapeDataString(groupCode)}" + Query(("hierarchical", hierarchical)), ct);
+
+    public Task CreateCodeAsync(SaveCommonCodeDto code, CancellationToken ct = default)
+        => gateway.PostAsync("auth/system/common-code", code, ct);
+
+    public Task UpdateCodeAsync(string id, SaveCommonCodeDto code, CancellationToken ct = default)
+        => gateway.PutAsync($"auth/system/common-code/{id}", code, ct);
+
+    public Task DeleteCodeAsync(string id, CancellationToken ct = default)
+        => gateway.DeleteAsync($"auth/system/common-code/{id}", ct);
+
+    // ── 배포 도구 ───────────────────────────────────────────────
+    //
+    // **거는 것은 여기 없다.** 실행(`POST auth/release/{key}`)은 운영 서버에
+    // 스크립트를 돌리는 일이라 되돌릴 수 없다. 결정 목록 D2 가 정해질 때까지
+    // 조회만 붙인다.
+
+    public Task<ReleaseTargetListDto?> GetReleaseTargetsAsync(CancellationToken ct = default)
+        => gateway.GetOneAsync<ReleaseTargetListDto>("auth/release/targets", ct);
+
+    public Task<IReadOnlyList<ReleaseRunDto>> GetReleaseRunsAsync(int take = 30, CancellationToken ct = default)
+        => gateway.GetListAsync<ReleaseRunDto>("auth/release/runs" + Query(("take", take)), ct);
+
+    /// <summary>실행 한 건. 진행 기록(<c>Events</c>)이 함께 온다.</summary>
+    public Task<ReleaseRunDto?> GetReleaseRunAsync(string id, CancellationToken ct = default)
+        => gateway.GetOneAsync<ReleaseRunDto>($"auth/release/runs/{id}", ct);
+
     // ── 내 정보 ─────────────────────────────────────────────────
 
     public Task<UserInfoDto?> GetMyInfoAsync(CancellationToken ct = default)
@@ -218,6 +303,16 @@ public sealed class AdminClient(GatewayClient gateway)
 
     public Task<IReadOnlyList<UserActivityDto>> GetMyActivityAsync(CancellationToken ct = default)
         => gateway.GetListAsync<UserActivityDto>("auth/user/activity", ct);
+
+    /// <summary>
+    /// 확인용 주소를 불러 참·거짓만 꺼낸다. 서버가 봉투에 <c>bool</c> 하나를
+    /// 실어 준다(<c>{ result: [true] }</c>).
+    ///
+    /// 못 부르면 <b>거짓으로 본다.</b> 여기서 막아 봐야 저장할 때 서버가 다시
+    /// 검사하므로, 확인이 안 된다고 등록을 막으면 잃는 것만 있다.
+    /// </summary>
+    private async Task<bool> ExistsAsync(string url, CancellationToken ct)
+        => await gateway.GetOneAsync<bool>(url, ct);
 
     /// <summary>쿼리스트링을 만든다. 값이 null 이거나 빈 문자열이면 뺀다.</summary>
     private static string Query(params (string Key, object? Value)[] parameters)

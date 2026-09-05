@@ -1,79 +1,229 @@
 @page "/helpdesk/request/list"
-@using JSini.Web.HelpDesk.Api
 
 @*
-    [서비스 요청 목록]
-
+    [내 요청] — DB 메뉴 `/helpdesk/request/list`.
     이력: Vue `views/helpdesk/request/list.vue` → 여기.
-    접수된 헬프데스크 서비스 요청 현황 및 처리 내역을 관리한다.
+
+    [이 화면도 보기 자료를 그리고 있었다]
+
+    「REQ-2026-001 장례식장 시스템 접속 불가 문의」 같은 줄이 코드에 박혀
+    있었다. 게이트웨이를 부르지 않았고, 칸 이름(`ReqNo` · `Requester`)도
+    서버가 주는 것과 달라 붙였어도 빈 표가 나왔을 것이다.
+
+    [무엇을 보여 주는 화면인가]
+
+    **고객이 자기가 올린 요청을 훑는** 자리다. 담당자가 전체를 다루는 곳은
+    「요청 관리」(`/helpdesk/request/manage`) 로 따로 있다.
+
+    그래서 조회 조건에 `customerId` 를 넣는다. 안 넣으면 남의 요청까지 보인다 —
+    서버가 목록을 권한으로 거르지 않기 때문에 **화면이 조건을 빠뜨리면 그대로
+    새어 나간다.** 연결이 없으면 아예 부르지 않는다.
+
+    [검색 규약]
+
+    `requests/srch` 는 DynamicFilterHelper 규약을 쓴다 —
+    `title_or_like` 처럼 `칸이름_연산자` 로 조건을 싣고, `sorts` 로 정렬,
+    `page`/`pageSize` 로 쪽을 나눈다. 옛 화면이 쓰던 것과 같다.
 *@
 
+@inherits DataPage
 @inject HelpDeskApi Api
+@inject HelpDeskContext Context
+@inject NavigationManager Navigation
 
-<PageTitle>서비스 요청 목록 · 헬프데스크</PageTitle>
+<PageTitle>내 요청 · 헬프데스크</PageTitle>
 
-<h1>서비스 요청 목록 <span class="pm-page__scope">헬프데스크</span></h1>
+<PageHeading Title="내 요청" Scope="헬프데스크" />
 
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <div class="d-flex gap-2">
-        <DxTextBox @bind-Text="_keyword" NullText="요청번호 또는 제목 검색" Style="width: 240px" ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
-        <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@LoadDataAsync" />
-    </div>
+<div class="jsini-toolbar">
+    <DxTextBox @bind-Text="_keyword" NullText="제목 검색" Style="width: 220px"
+               ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+
+    <DxComboBox Data="@StatusOptions" @bind-Value="_status"
+                TextFieldName="Text" ValueFieldName="Value"
+                NullText="전체 상태" Style="width: 130px"
+                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+
+    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" SizeMode="SizeMode.Small"
+              IconCssClass="jsini-icon-refresh" Click="@ReloadAsync" />
+
+    <div class="jsini-toolbar__spacer"></div>
+
+    <PermissionView Action="MenuAction.Create">
+        <DxButton Text="요청 등록" RenderStyle="ButtonRenderStyle.Primary" SizeMode="SizeMode.Small"
+                  IconCssClass="jsini-icon-plus"
+                  Click="@(() => { Navigation.NavigateTo("/helpdesk/request/new"); })" />
+    </PermissionView>
 </div>
 
-<DxGrid Data="@_requests" Loading="@_loading" PageSize="15">
+<PageNotice Text="@Notice" Tone="@Tone" />
+
+@if (Context.IdentityChecked && !Context.IsLinked)
+{
+    <PageNotice Tone="NoticeTone.Warning"
+                Text="포털 계정에 이어진 헬프데스크 사용자가 없어 「내 요청」을 가려낼 수 없습니다. 「계정 연결」 화면에서 연결하십시오." />
+}
+
+<DxGrid Data="@_rows" ShowSearchBox="false" PageSize="20">
     <Columns>
-        <DxGridDataColumn FieldName="ReqNo" Caption="요청 번호" Width="130px" />
-        <DxGridDataColumn FieldName="Title" Caption="제목" MinWidth="250" />
-        <DxGridDataColumn FieldName="Requester" Caption="요청자" Width="120px" />
-        <DxGridDataColumn FieldName="Status" Caption="상태" Width="100px">
-            <CellDisplayTemplate>
-                <span class="badge bg-info">@context.Value</span>
+        <DxGridDataColumn FieldName="@nameof(ImprovementRequest.Id)" Caption="번호" Width="80" />
+
+        <DxGridDataColumn Caption="제목" MinWidth="280">
+            <CellDisplayTemplate Context="cell">
+                @{
+                    var r = (ImprovementRequest)cell.DataItem;
+                }
+                <div class="d-flex align-items-center gap-1">
+                    @if (r.IsEmergency == true)
+                    {
+                        <span class="jsini-badge jsini-badge--off">긴급</span>
+                    }
+                    @if (r.AttachmentCount is > 0)
+                    {
+                        <span class="jsini-badge">첨부 @r.AttachmentCount</span>
+                    }
+                    <span>@r.Title</span>
+                </div>
             </CellDisplayTemplate>
         </DxGridDataColumn>
-        <DxGridDataColumn FieldName="CreatedAt" Caption="접수일" Width="140px" DisplayFormat="yyyy-MM-dd" />
-        <DxGridDataColumn Caption="관리" Width="120px">
-            <CellDisplayTemplate>
-                <div class="d-flex gap-1 justify-content-center">
-                    <PermissionView Action="MenuAction.Update">
-                        <DxButton Text="상세" RenderStyle="ButtonRenderStyle.Secondary" SizeMode="SizeMode.Small" />
-                    </PermissionView>
-                </div>
+
+        <DxGridDataColumn Caption="담당자" Width="120">
+            <CellDisplayTemplate Context="cell">
+                @(((ImprovementRequest)cell.DataItem).Admin?.UserName ?? "미배정")
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+
+        <DxGridDataColumn Caption="상태" Width="100">
+            <CellDisplayTemplate Context="cell">
+                @{
+                    var r = (ImprovementRequest)cell.DataItem;
+                }
+                <span class="jsini-badge @StatusClass(r.Status)">@StatusText(r)</span>
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+
+        <DxGridDataColumn FieldName="@nameof(ImprovementRequest.CreatedAt)" Caption="접수" Width="150"
+                          DisplayFormat="yyyy-MM-dd HH:mm" />
+
+        <DxGridDataColumn Caption="완료" Width="150">
+            <CellDisplayTemplate Context="cell">
+                @{
+                    var r = (ImprovementRequest)cell.DataItem;
+                }
+                @* 서버가 `completededAt`(오타)과 `completedAt` 을 둘 다 쓴다.
+                   한쪽만 보면 화면에 따라 완료일이 비어 보인다. *@
+                @((r.CompletededAt ?? r.CompletedAt)?.ToString("yyyy-MM-dd HH:mm") ?? "-")
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+
+        <DxGridDataColumn Caption="" Width="80" AllowSort="false">
+            <CellDisplayTemplate Context="cell">
+                @{
+                    var r = (ImprovementRequest)cell.DataItem;
+                }
+                <DxButton Text="상세" SizeMode="SizeMode.Small" RenderStyle="ButtonRenderStyle.Link"
+                          Click="@(() => { Navigation.NavigateTo($"/helpdesk/request/{r.Id}"); })" />
             </CellDisplayTemplate>
         </DxGridDataColumn>
     </Columns>
 </DxGrid>
 
+@if (_total > _rows.Count)
+{
+    <PageNotice Tone="NoticeTone.Info"
+                Text="@($"전체 {_total}건 중 최근 {_rows.Count}건입니다. 더 좁히려면 제목이나 상태로 거르십시오.")" />
+}
+
 @code {
-    private List<HelpDeskRequestItemDto> _requests = [];
+    private IReadOnlyList<ImprovementRequest> _rows = [];
+    private int _total;
+
     private string? _keyword;
-    private bool _loading;
+    private string? _status;
 
-    protected override Task OnInitializedAsync() => LoadDataAsync();
+    /// <summary>
+    /// 상태 고르개.
+    ///
+    /// 값이 <b>enum 이름</b>이다(숫자가 아니다). 서버의 DynamicFilterHelper 가
+    /// 이름으로 견주고, 숫자를 보내면 조건이 통째로 무시되어 전체가 나온다.
+    /// </summary>
+    private static readonly object[] StatusOptions =
+    [
+        new { Value = "Pending", Text = "대기" },
+        new { Value = "InProgress", Text = "진행" },
+        new { Value = "Completed", Text = "완료" },
+        new { Value = "UserCompleted", Text = "종료" },
+        new { Value = "Consultation", Text = "협의" },
+        new { Value = "Negotiation", Text = "논의" },
+        new { Value = "Rejected", Text = "반려" },
+    ];
 
-    private Task LoadDataAsync()
+    protected override async Task OnInitializedAsync()
     {
-        _loading = true;
-        try
-        {
-            _requests =
-            [
-                new HelpDeskRequestItemDto { ReqNo = "REQ-2026-001", Title = "장례식장 시스템 접속 오류 건", Requester = "홍길동", Status = "접수", CreatedAt = DateTime.Now }
-            ];
-        }
-        finally
-        {
-            _loading = false;
-        }
-        return Task.CompletedTask;
+        await Context.LoadIdentityAsync();
+        await ReloadAsync();
     }
 
-    public sealed class HelpDeskRequestItemDto
+    private Task ReloadAsync() => LoadAsync(async () =>
     {
-        public string ReqNo { get; set; } = string.Empty;
-        public string Title { get; set; } = string.Empty;
-        public string Requester { get; set; } = string.Empty;
-        public string Status { get; set; } = string.Empty;
-        public DateTime CreatedAt { get; set; }
-    }
+        // 연결이 없으면 「내 것」을 가려낼 수 없다. 조건 없이 부르면 남의
+        // 요청이 통째로 보이므로 아예 부르지 않는다.
+        if (Context.HelpdeskUserId is not { } customerId)
+        {
+            _rows = [];
+            _total = 0;
+            return 0;
+        }
+
+        var query = new Dictionary<string, object?>
+        {
+            ["customerId"] = customerId,
+            ["page"] = 1,
+            ["pageSize"] = 200,
+
+            // 본문은 목록에 안 쓴다. 빼면 응답이 훨씬 가볍다.
+            ["remove"] = "description,content",
+            ["sorts"] = new[] { new { field = "createdAt", dir = "desc" } },
+        };
+
+        if (!string.IsNullOrWhiteSpace(_keyword))
+        {
+            query["title_or_like"] = _keyword.Trim();
+        }
+
+        if (!string.IsNullOrWhiteSpace(_status))
+        {
+            query["status"] = _status;
+        }
+
+        var page = await Api.SearchAsync<ImprovementRequest>("requests/srch", query);
+
+        _rows = page.Items;
+        _total = page.TotalCount;
+
+        return _rows.Count;
+    }, "올린 요청이 없습니다.", "요청 목록을 읽지 못했습니다");
+
+    private static string StatusText(ImprovementRequest r) =>
+        !string.IsNullOrWhiteSpace(r.StatusName) ? r.StatusName! : StatusText(r.Status);
+
+    private static string StatusText(string? status) => status switch
+    {
+        "Pending" => "대기",
+        "InProgress" => "진행",
+        "Rejected" => "반려",
+        "Completed" => "완료",
+        "UserCompleted" => "종료",
+        "Consultation" => "협의",
+        "Negotiation" => "논의",
+        _ => status ?? "-",
+    };
+
+    private static string StatusClass(string? status) => status switch
+    {
+        "Completed" or "UserCompleted" => "jsini-badge--on",
+        "InProgress" or "Consultation" or "Negotiation" => "jsini-badge--warn",
+        "Rejected" => "jsini-badge--off",
+        _ => "",
+    };
 }

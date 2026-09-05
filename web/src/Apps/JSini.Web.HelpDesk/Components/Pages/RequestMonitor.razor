@@ -45,7 +45,9 @@
 
     private Task ReloadAsync() => LoadAsync(async () =>
     {
-        var json = await Api.GetAsync<JsonElement>("requests/recent");
+        // `requests/recent` 는 없다. 최근 목록도 통계 묶음에 있고,
+        // **`topN` 이 필수다** — 안 보내면 400 이 난다.
+        var json = await Api.GetAsync<JsonElement>("dashboard/requests/recent", new { topN = 50 });
         _rows = JsonTable.From(json);
         return _rows.Rows.Count;
     }, "최근 접수된 요청이 없습니다.", "요청 현황을 읽지 못했습니다");

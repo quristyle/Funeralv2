@@ -3,7 +3,7 @@
 @*
     [팀-고객사] — DB 메뉴 `/helpdesk/org/team-company`.
     이력: Vue `views/helpdesk/org/team-company` → 여기.
-    엔드포인트: `teams/workload`
+    엔드포인트: `dashboard/teams/workload`
 
     **서버가 준 대로 보여 주는 화면이다**(AutoGrid). 칸을 손으로 적지 않은
     이유는 그 부품의 주석에 있다 — 요약하면, 이런 화면이 마흔 개고 백엔드가
@@ -41,7 +41,9 @@
 
     private Task ReloadAsync() => LoadAsync(async () =>
     {
-        var json = await Api.GetAsync<JsonElement>("teams/workload");
+        // `teams/workload` 가 아니다. 통계는 전부 `dashboard/*` 밑에 있고,
+        // 자원 밑에서 부르면 `teams/{id}` 와 부딪쳐 500 이 난다.
+        var json = await Api.GetAsync<JsonElement>("dashboard/teams/workload");
         _rows = JsonTable.From(json);
         return _rows.Rows.Count;
     }, "배정 내역이 없습니다.", "배정 현황을 읽지 못했습니다");

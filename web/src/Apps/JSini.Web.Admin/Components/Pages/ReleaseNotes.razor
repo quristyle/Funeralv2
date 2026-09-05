@@ -1,83 +1,259 @@
 @page "/admin/release"
-@using JSini.Web.Admin.Api
 
 @*
-    [릴리스 노트 관리]
-
+    [배포 도구] — DB 메뉴 `/portal/release`.
     이력: Vue `views/portal/release/index.vue` → 여기.
-    시스템 버전별 업데이트 내용 및 변경 이력을 조회 및 관리한다.
+
+    이 화면도 보기 자료를 그리고 있었다 — 「v2.5.0 · v2.4.0」 두 줄이 코드에
+    박혀 있었다. 실제로는 릴리스 노트 화면이 아니라 **배포를 거는 도구**다.
+
+    [거는 단추는 일부러 없다]
+
+    `POST auth/release/{key}` 는 운영 서버에서 스크립트를 돌린다. 되돌릴 수
+    없고, 잘못 누르면 운영이 내려간다. 화면에 단추를 두려면 그 위험을 사람이
+    정해 주어야 해서 결정 목록 **D2** 에 올려 두었다. 지금은 조회만 한다 —
+    **무엇을 걸 수 있는지 · 최근에 무엇이 돌았는지 · 그 결과가 무엇인지**.
+
+    조회만으로도 쓸모가 있다. 배포가 끝났는지 보러 서버에 붙지 않아도 된다.
+
+    [진행 기록은 눌러야 읽는다]
+
+    실행 하나에 수백 줄이 붙는다(`Events`). 목록에서 다 받으면 표가 무거워져서
+    한 건을 고를 때만 따로 읽는다 — 옛 화면도 그랬다.
+
+    [스스로 새로 고치지 않는다]
+
+    옛 화면은 도는 중이면 2초마다 되물었다. 그 폴링은 회로가 붙어 있는 동안
+    계속 게이트웨이를 두드리는 것이라, 보고 있지 않은 탭에서도 돈다.
+    지금은 「조회」를 누르면 다시 읽는다. 실시간이 필요해지면 SignalR 로
+    붙이는 편이 낫다(결정 목록 D10).
 *@
 
-@inject AdminClient Client
+@inherits DataPage
+@inject AdminClient Api
 
-<PageTitle>릴리스 노트 · 포털관리</PageTitle>
+<PageTitle>배포 도구 · 포털관리</PageTitle>
 
-<h1>릴리스 노트 <span class="pm-page__scope">포털관리</span></h1>
+<PageHeading Title="배포 도구" Scope="포털관리" />
 
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <div class="d-flex gap-2">
-        <DxTextBox @bind-Text="_keyword" NullText="버전 또는 내용 검색" Style="width: 240px" ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
-        <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@LoadDataAsync" />
-    </div>
-    <PermissionView Action="MenuAction.Create">
-        <DxButton Text="릴리스 등록" RenderStyle="ButtonRenderStyle.Success" />
-    </PermissionView>
+<div class="jsini-toolbar">
+    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" SizeMode="SizeMode.Small"
+              IconCssClass="jsini-icon-refresh" Click="@ReloadAsync" />
 </div>
 
-<DxGrid Data="@_releases" Loading="@_loading" PageSize="15">
+<PageNotice Text="@Notice" Tone="@Tone" />
+
+@if (_targets?.ConfigWarning is { Length: > 0 } warning)
+{
+    <PageNotice Text="@warning" Tone="NoticeTone.Warning" />
+}
+
+@if (_targets is not null && !_targets.CanRelease)
+{
+    <PageNotice Text="이 계정은 배포를 걸 권한이 없습니다. 현황만 볼 수 있습니다."
+                Tone="NoticeTone.Info" />
+}
+
+<h2 class="ad-section">걸 수 있는 대상</h2>
+
+<DxGrid Data="@(_targets?.Items ?? [])" ShowSearchBox="false" PageSize="15">
     <Columns>
-        <DxGridDataColumn FieldName="Version" Caption="버전" Width="120px">
-            <CellDisplayTemplate>
-                <span class="badge bg-primary fs-7">@context.Value</span>
+        <DxGridDataColumn FieldName="@nameof(ReleaseTargetDto.Name)" Caption="대상" MinWidth="180" />
+        <DxGridDataColumn FieldName="@nameof(ReleaseTargetDto.Key)" Caption="키" Width="150" />
+        <DxGridDataColumn FieldName="@nameof(ReleaseTargetDto.Description)" Caption="설명" MinWidth="200" />
+
+        <DxGridDataColumn Caption="지금" Width="110">
+            <CellDisplayTemplate Context="cell">
+                @{
+                    var t = (ReleaseTargetDto)cell.DataItem;
+                }
+                @if (!string.IsNullOrEmpty(t.ActiveRunId))
+                {
+                    <span class="jsini-badge jsini-badge--warn">도는 중</span>
+                }
+                else
+                {
+                    <span class="jsini-badge">대기</span>
+                }
             </CellDisplayTemplate>
         </DxGridDataColumn>
-        <DxGridDataColumn FieldName="Title" Caption="제목" MinWidth="200" />
-        <DxGridDataColumn FieldName="ReleaseDate" Caption="배포일" Width="140px" DisplayFormat="yyyy-MM-dd" />
-        <DxGridDataColumn Caption="관리" Width="120px">
-            <CellDisplayTemplate>
-                <div class="d-flex gap-1 justify-content-center">
-                    <PermissionView Action="MenuAction.Update">
-                        <DxButton Text="수정" RenderStyle="ButtonRenderStyle.Secondary" SizeMode="SizeMode.Small" />
-                    </PermissionView>
-                    <PermissionView Action="MenuAction.Delete">
-                        <DxButton Text="삭제" RenderStyle="ButtonRenderStyle.Danger" SizeMode="SizeMode.Small" />
-                    </PermissionView>
-                </div>
+
+        <DxGridDataColumn Caption="마지막 결과" Width="130">
+            <CellDisplayTemplate Context="cell">
+                @{
+                    var last = ((ReleaseTargetDto)cell.DataItem).LastRun;
+                }
+                @if (last is null)
+                {
+                    <span class="jsini-text-muted">-</span>
+                }
+                else
+                {
+                    <span class="jsini-badge @StatusClass(last.Status)">@StatusText(last.Status)</span>
+                }
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+
+        <DxGridDataColumn Caption="마지막 시각" Width="150">
+            <CellDisplayTemplate Context="cell">
+                @{
+                    var last = ((ReleaseTargetDto)cell.DataItem).LastRun;
+                }
+                @(last?.FinishedAt?.ToString("yyyy-MM-dd HH:mm") ?? last?.RequestedAt.ToString("yyyy-MM-dd HH:mm") ?? "-")
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+
+        <DxGridDataColumn Caption="예상" Width="80">
+            <CellDisplayTemplate Context="cell">
+                @($"{((ReleaseTargetDto)cell.DataItem).EstimatedSeconds}초")
             </CellDisplayTemplate>
         </DxGridDataColumn>
     </Columns>
 </DxGrid>
 
+<h2 class="ad-section">최근 실행</h2>
+
+<DxGrid Data="@_runs" ShowSearchBox="false" PageSize="20">
+    <Columns>
+        <DxGridDataColumn FieldName="@nameof(ReleaseRunDto.TargetName)" Caption="대상" MinWidth="160" />
+
+        <DxGridDataColumn Caption="상태" Width="100">
+            <CellDisplayTemplate Context="cell">
+                @{
+                    var r = (ReleaseRunDto)cell.DataItem;
+                }
+                <span class="jsini-badge @StatusClass(r.Status)">@StatusText(r.Status)</span>
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+
+        <DxGridDataColumn FieldName="@nameof(ReleaseRunDto.RequestedBy)" Caption="건 사람" Width="120" />
+        <DxGridDataColumn FieldName="@nameof(ReleaseRunDto.RequestedAt)" Caption="요청" Width="150"
+                          DisplayFormat="yyyy-MM-dd HH:mm" />
+
+        <DxGridDataColumn Caption="걸린 시간" Width="100">
+            <CellDisplayTemplate Context="cell">
+                @Elapsed((ReleaseRunDto)cell.DataItem)
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+
+        <DxGridDataColumn FieldName="@nameof(ReleaseRunDto.DeployedVersion)" Caption="배포된 판" Width="130" />
+        <DxGridDataColumn FieldName="@nameof(ReleaseRunDto.Message)" Caption="메시지" MinWidth="180" />
+
+        <DxGridDataColumn Caption="" Width="90" AllowSort="false">
+            <CellDisplayTemplate Context="cell">
+                @{
+                    var r = (ReleaseRunDto)cell.DataItem;
+                }
+                <DxButton Text="기록" SizeMode="SizeMode.Small" RenderStyle="ButtonRenderStyle.Link"
+                          Click="@(() => ShowRunAsync(r.Id))" />
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+    </Columns>
+</DxGrid>
+
+@* ── 진행 기록 ─────────────────────────────────────── *@
+<DxPopup @bind-Visible="_showingRun" HeaderText="@RunHeader" Width="820" ShowFooter="true">
+    <BodyContentTemplate Context="popup">
+        @if (_run is null)
+        {
+            <p>읽는 중입니다…</p>
+        }
+        else
+        {
+            <div class="jsini-stats">
+                <div class="jsini-stat"><span class="jsini-stat__label">상태</span><span class="jsini-stat__value">@StatusText(_run.Status)</span></div>
+                <div class="jsini-stat"><span class="jsini-stat__label">단계</span><span class="jsini-stat__value">@(_run.CurrentStep ?? "-")</span></div>
+                <div class="jsini-stat"><span class="jsini-stat__label">종료 코드</span><span class="jsini-stat__value">@(_run.ExitCode?.ToString() ?? "-")</span></div>
+                <div class="jsini-stat"><span class="jsini-stat__label">걸린 시간</span><span class="jsini-stat__value">@Elapsed(_run)</span></div>
+            </div>
+
+            @if (_run.Events.Count == 0)
+            {
+                <PageNotice Text="진행 기록이 없습니다." Tone="NoticeTone.Info" />
+            }
+            else
+            {
+                @* 등폭 글꼴로 둔다. 스크립트 출력이라 자리를 맞춰야 읽힌다. *@
+                <div class="ad-runlog">
+                    @foreach (var e in _run.Events)
+                    {
+                        <div class="ad-runlog__line ad-runlog__line--@(e.Level?.ToLowerInvariant() ?? "info")">
+                            <span class="ad-runlog__at">@e.At.ToString("HH:mm:ss")</span>
+                            @if (!string.IsNullOrEmpty(e.Step))
+                            {
+                                <span class="ad-runlog__step">@e.Step</span>
+                            }
+                            <span class="ad-runlog__msg">@e.Message</span>
+                        </div>
+                    }
+                </div>
+            }
+        }
+    </BodyContentTemplate>
+
+    <FooterContentTemplate>
+        <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary" Click="@(() => _showingRun = false)" />
+    </FooterContentTemplate>
+</DxPopup>
+
 @code {
-    private List<ReleaseItemDto> _releases = [];
-    private string? _keyword;
-    private bool _loading;
+    private ReleaseTargetListDto? _targets;
+    private IReadOnlyList<ReleaseRunDto> _runs = [];
 
-    protected override Task OnInitializedAsync() => LoadDataAsync();
+    private bool _showingRun;
+    private ReleaseRunDto? _run;
+    private string RunHeader => _run is null ? "진행 기록" : $"{_run.TargetName} · {_run.RequestedAt:yyyy-MM-dd HH:mm}";
 
-    private Task LoadDataAsync()
+    protected override Task OnInitializedAsync() => ReloadAsync();
+
+    private Task ReloadAsync() => LoadAsync(async () =>
     {
-        _loading = true;
-        try
-        {
-            // Sample release items setup
-            _releases =
-            [
-                new ReleaseItemDto { Version = "v2.5.0", Title = ".NET 10 & DevExpress 26.1 MFE Architecture Migration", ReleaseDate = DateTime.Now },
-                new ReleaseItemDto { Version = "v2.4.0", Title = "JSini Portal Multi-tenant Gateway Enhancement", ReleaseDate = DateTime.Now.AddDays(-15) }
-            ];
-        }
-        finally
-        {
-            _loading = false;
-        }
-        return Task.CompletedTask;
+        _targets = await Api.GetReleaseTargetsAsync();
+        _runs = await Api.GetReleaseRunsAsync();
+
+        // 대상이 없을 때만 "없습니다" 다. 실행 기록은 처음에 비어 있는 것이
+        // 정상이라 그것으로 판단하면 안 된다.
+        return _targets?.Items.Count ?? 0;
+    }, "걸 수 있는 배포 대상이 없습니다. 서버 설정을 확인하십시오.", "배포 현황을 읽지 못했습니다");
+
+    private async Task ShowRunAsync(string id)
+    {
+        _run = null;
+        _showingRun = true;
+
+        await LoadOneAsync(
+            () => Api.GetReleaseRunAsync(id),
+            run => _run = run,
+            "그 실행을 찾지 못했습니다.",
+            "진행 기록을 읽지 못했습니다");
     }
 
-    public sealed class ReleaseItemDto
+    /// <summary>요청부터 끝까지 걸린 시간. 아직 도는 중이면 지금까지.</summary>
+    private static string Elapsed(ReleaseRunDto r)
     {
-        public string Version { get; set; } = string.Empty;
-        public string Title { get; set; } = string.Empty;
-        public DateTime ReleaseDate { get; set; }
+        var from = r.StartedAt ?? r.RequestedAt;
+        var to = r.FinishedAt ?? DateTime.UtcNow;
+        var span = to - from;
+
+        return span < TimeSpan.Zero ? "-"
+            : span.TotalMinutes < 1 ? $"{span.TotalSeconds:F0}초"
+            : $"{(int)span.TotalMinutes}분 {span.Seconds}초";
     }
+
+    private static string StatusText(string status) => status?.ToLowerInvariant() switch
+    {
+        "queued" => "대기",
+        "running" => "도는 중",
+        "succeeded" => "성공",
+        "failed" => "실패",
+        "timeout" => "시간 초과",
+        _ => status ?? "-",
+    };
+
+    private static string StatusClass(string status) => status?.ToLowerInvariant() switch
+    {
+        "succeeded" => "jsini-badge--on",
+        "running" or "queued" => "jsini-badge--warn",
+        _ => "jsini-badge--off",
+    };
 }

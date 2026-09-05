@@ -1,88 +1,280 @@
 @page "/admin/system/account"
-@using JSini.Web.Admin.Api
 
 @*
-    [시스템 사용자 계정 관리]
+    [계정 관리] — DB 메뉴 `/system/account`.
+    이력: Vue `views/portal/system/account/index.vue` → 여기.
 
-    이력: Vue `views/portal/system/user` → 여기.
-    포털 계정(scom.accounts), 권한 그룹 매핑 및 계정 상태를 관리한다.
+    [이 화면은 보기 자료를 그리고 있었다]
+
+    표는 있었지만 게이트웨이를 한 번도 부르지 않고 「admin / 시스템 관리자」
+    두 줄을 코드에 박아 두고 있었다. **화면만 보면 정상으로 보이는 종류의
+    빈 껍데기**라, 계정이 두 명뿐인 것처럼 보였다.
+
+    [로그인 아이디는 등록할 때만 정한다]
+
+    수정에서는 바꿀 수 없다. 그 값이 권한표·즐겨찾기·활동 기록의 열쇠라
+    바꾸면 그 사람의 기록이 통째로 끊긴다. 옛 화면도 같았다.
+
+    [비밀번호는 여기서 다루지 않는다]
+
+    등록하면 서버가 초기 비밀번호를 정하고, 바꾸는 것은 본인이
+    `/admin/profile` 에서 한다. 관리자가 남의 비밀번호를 직접 넣는 길을
+    열어 두면 그 값이 화면·로그·요청 본문에 남는다.
 *@
 
-@inject AdminClient Client
+@inherits DataPage
+@inject AdminClient Api
 
-<PageTitle>사용자 계정 관리 · 포털관리</PageTitle>
+<PageTitle>계정 관리 · 포털관리</PageTitle>
 
-<h1>사용자 계정 관리 <span class="pm-page__scope">포털관리</span></h1>
+<PageHeading Title="계정 관리" Scope="포털관리" />
 
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <div class="d-flex gap-2">
-        <DxTextBox @bind-Text="_keyword" NullText="이름 또는 이메일 검색" Style="width: 240px" ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
-        <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@LoadDataAsync" />
-    </div>
-    <PermissionView Action="MenuAction.Create">
-        <DxButton Text="계정 추가" RenderStyle="ButtonRenderStyle.Success" />
-    </PermissionView>
-</div>
+<CrudGrid TItem="AccountDto"
+          Data="@Shown"
+          EditFormTitle="계정"
+          ExportName="계정"
+          PageSize="20"
+          OnNew="@FillNew"
+          OnSave="@SaveAsync"
+          OnDelete="@DeleteAsync"
+          Reload="@ReloadAsync">
+    <ChildContent>
+        <DxTextBox @bind-Text="_keyword" NullText="아이디·이름·이메일 검색" Style="width: 230px"
+                   ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
 
-<DxGrid Data="@_users" Loading="@_loading" PageSize="15">
+        <DxComboBox Data="@StatusFilters" @bind-Value="_status"
+                    NullText="전체 상태" Style="width: 120px"
+                    ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+    </ChildContent>
+
     <Columns>
-        <DxGridDataColumn FieldName="Username" Caption="계정 ID" Width="130px" />
-        <DxGridDataColumn FieldName="FullName" Caption="성명" Width="120px" />
-        <DxGridDataColumn FieldName="Email" Caption="이메일" MinWidth="180" />
-        <DxGridDataColumn FieldName="Department" Caption="부서" Width="140px" />
-        <DxGridDataColumn FieldName="IsActive" Caption="상태" Width="90px">
-            <CellDisplayTemplate>
-                <span class="badge @((bool)context.Value! ? "bg-success" : "bg-danger")">
-                    @((bool)context.Value! ? "활성" : "잠금")
-                </span>
+        <DxGridDataColumn FieldName="@nameof(AccountDto.LoginId)" Caption="아이디" Width="130" />
+        <DxGridDataColumn FieldName="@nameof(AccountDto.UserName)" Caption="이름" Width="110" />
+        <DxGridDataColumn FieldName="@nameof(AccountDto.Email)" Caption="이메일" MinWidth="180" />
+        <DxGridDataColumn FieldName="@nameof(AccountDto.Phone)" Caption="연락처" Width="130" />
+        <DxGridDataColumn FieldName="@nameof(AccountDto.CompanyName)" Caption="회사" Width="130" />
+        <DxGridDataColumn FieldName="@nameof(AccountDto.DeptName)" Caption="부서" Width="130" />
+
+        @* 역할은 여러 개라 문자열로 이어 보여 준다. 칸을 나누면 사람마다
+           개수가 달라 표가 들쭉날쭉해진다. *@
+        <DxGridDataColumn FieldName="@nameof(AccountDto.RoleText)" Caption="역할" MinWidth="150" />
+
+        <DxGridDataColumn Caption="상태" Width="90">
+            <CellDisplayTemplate Context="cell">
+                @{
+                    var a = (AccountDto)cell.DataItem;
+                }
+                <span class="jsini-badge @StatusClass(a.Status)">@StatusText(a.Status)</span>
             </CellDisplayTemplate>
         </DxGridDataColumn>
-        <DxGridDataColumn Caption="관리" Width="120px">
-            <CellDisplayTemplate>
-                <div class="d-flex gap-1 justify-content-center">
-                    <PermissionView Action="MenuAction.Update">
-                        <DxButton Text="수정" RenderStyle="ButtonRenderStyle.Secondary" SizeMode="SizeMode.Small" />
-                    </PermissionView>
-                    <PermissionView Action="MenuAction.Delete">
-                        <DxButton Text="삭제" RenderStyle="ButtonRenderStyle.Danger" SizeMode="SizeMode.Small" />
-                    </PermissionView>
-                </div>
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
+
+        <DxGridDataColumn FieldName="@nameof(AccountDto.CreatedAt)" Caption="등록일" Width="110"
+                          DisplayFormat="yyyy-MM-dd" />
     </Columns>
-</DxGrid>
+
+    <EditForm Context="edit">
+        @{
+            var a = (AccountDto)edit.EditModel;
+            var isNew = string.IsNullOrEmpty(a.Id);
+        }
+        <DxFormLayout CssClass="ad-editform">
+            <DxFormLayoutItem Caption="로그인 아이디" ColSpanMd="6">
+                @* 수정할 때는 읽기 전용이다. 위 주석 참고. *@
+                <DxTextBox @bind-Text="a.LoginId" ReadOnly="@(!isNew)"
+                           NullText="영문·숫자" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="이름" ColSpanMd="6">
+                <DxTextBox @bind-Text="a.UserName" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="이메일" ColSpanMd="6">
+                <DxTextBox @bind-Text="a.Email" NullText="user@example.com" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="연락처" ColSpanMd="6">
+                <DxTextBox @bind-Text="a.Phone" NullText="010-0000-0000" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="부서" ColSpanMd="6">
+                <DxComboBox Data="@_depts" @bind-Value="a.DeptId"
+                            TextFieldName="@nameof(DeptDto.Name)"
+                            ValueFieldName="@nameof(DeptDto.Id)"
+                            NullText="소속 없음"
+                            ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="상태" ColSpanMd="6">
+                <DxComboBox Data="@StatusOptions" @bind-Value="a.Status"
+                            TextFieldName="Text" ValueFieldName="Value" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="역할" ColSpanMd="12">
+                @* 여러 개를 고른다. 한 사람이 「장례 관리자」와 「헬프데스크
+                   담당」을 함께 가지는 경우가 실제로 있다. *@
+                @* DxTagBox 는 `IEnumerable<string>` 을 주고받는데 자료는
+                   `List<string>` 이다. `@@bind-` 로는 형이 안 맞아 값과 변경을
+                   따로 받는다. *@
+                <DxTagBox Data="@_roles"
+                          Values="@a.RoleIds"
+                          ValuesChanged="@((IEnumerable<string> v) => a.RoleIds = [.. v])"
+                          TextFieldName="@nameof(RoleDto.Name)"
+                          ValueFieldName="@nameof(RoleDto.Id)"
+                          NullText="역할 없음" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="생일" ColSpanMd="5">
+                @* 생활과환경의 생일 화면이 이 값을 읽는다. *@
+                <DxDateEdit Date="@ToDate(a.BirthDate)"
+                            DateChanged="@((DateTime? d) => { a.BirthDate = ToDateOnly(d); })"
+                            NullText="비워 둘 수 있다" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="음력" ColSpanMd="3">
+                <DxCheckBox @bind-Checked="a.BirthDateIsLunar">음력</DxCheckBox>
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="축하 대상" ColSpanMd="4">
+                <DxCheckBox @bind-Checked="a.BirthdayCelebrated">생일 목록에 넣는다</DxCheckBox>
+            </DxFormLayoutItem>
+        </DxFormLayout>
+    </EditForm>
+</CrudGrid>
 
 @code {
-    private List<UserItemDto> _users = [];
+    private IReadOnlyList<AccountDto> _all = [];
+    private IReadOnlyList<RoleDto> _roles = [];
+    private IReadOnlyList<DeptDto> _depts = [];
+
     private string? _keyword;
-    private bool _loading;
+    private string? _status;
 
-    protected override Task OnInitializedAsync() => LoadDataAsync();
+    private static readonly string[] StatusFilters = ["ACTIVE", "LOCKED", "RESIGNED"];
 
-    private Task LoadDataAsync()
+    private static readonly object[] StatusOptions =
+    [
+        new { Value = "ACTIVE", Text = "정상" },
+        new { Value = "LOCKED", Text = "잠금" },
+        new { Value = "RESIGNED", Text = "퇴사" },
+    ];
+
+    /// <summary>
+    /// 거르기는 브라우저 쪽에서 한다.
+    ///
+    /// 계정이 수백 건이고 서버에 검색 조건이 없다. 매번 되묻는 것보다 한 번
+    /// 받아 두고 거르는 편이 빠르고, 그러면 조건을 바꿀 때 표가 즉시 반응한다.
+    /// 수천 건이 되면 서버 쪽 검색을 붙여야 한다.
+    /// </summary>
+    private IReadOnlyList<AccountDto> Shown
     {
-        _loading = true;
-        try
+        get
         {
-            _users =
-            [
-                new UserItemDto { Username = "admin", FullName = "시스템 관리자", Email = "admin@jsini.co.kr", Department = "IT운영팀", IsActive = true },
-                new UserItemDto { Username = "user01", FullName = "홍길동", Email = "user01@jsini.co.kr", Department = "장례사업부", IsActive = true }
-            ];
+            IEnumerable<AccountDto> rows = _all;
+
+            if (!string.IsNullOrWhiteSpace(_status))
+            {
+                rows = rows.Where(a => string.Equals(a.Status, _status, StringComparison.OrdinalIgnoreCase));
+            }
+
+            if (!string.IsNullOrWhiteSpace(_keyword))
+            {
+                var k = _keyword.Trim();
+                rows = rows.Where(a =>
+                    a.LoginId.Contains(k, StringComparison.OrdinalIgnoreCase)
+                    || a.UserName.Contains(k, StringComparison.OrdinalIgnoreCase)
+                    || (a.Email?.Contains(k, StringComparison.OrdinalIgnoreCase) ?? false));
+            }
+
+            return [.. rows];
         }
-        finally
-        {
-            _loading = false;
-        }
-        return Task.CompletedTask;
     }
 
-    public sealed class UserItemDto
+    protected override Task OnInitializedAsync() => ReloadAsync();
+
+    /// <summary>
+    /// 셋을 한 번에 읽는다.
+    ///
+    /// 역할·부서는 편집 폼의 고르개가 쓴다. 목록만 먼저 읽고 나중에 채우면
+    /// 목록이 뜨자마자 수정을 누른 사람에게 **빈 고르개**가 보이고, 그대로
+    /// 저장하면 소속과 역할이 지워진다.
+    /// </summary>
+    private Task ReloadAsync() => LoadAsync(async () =>
     {
-        public string Username { get; set; } = string.Empty;
-        public string FullName { get; set; } = string.Empty;
-        public string Email { get; set; } = string.Empty;
-        public string Department { get; set; } = string.Empty;
-        public bool IsActive { get; set; }
+        _roles = await Api.GetRolesAsync();
+        _depts = Flatten(await Api.GetDeptsAsync());
+        _all = await Api.GetAccountsAsync();
+        return _all.Count;
+    }, "등록된 계정이 없습니다.", "계정 목록을 읽지 못했습니다");
+
+    private void FillNew(AccountDto a)
+    {
+        a.Status = "ACTIVE";
+        a.BirthdayCelebrated = true;
+        a.RoleIds = [];
     }
+
+    private Task SaveAsync((AccountDto Item, bool IsNew) e)
+    {
+        var body = new SaveAccountDto
+        {
+            LoginId = e.Item.LoginId,
+            UserName = e.Item.UserName,
+            Email = e.Item.Email,
+            Phone = e.Item.Phone,
+            Status = e.Item.Status,
+            DeptId = e.Item.DeptId,
+            RoleIds = e.Item.RoleIds,
+            BirthDate = e.Item.BirthDate,
+            BirthDateIsLunar = e.Item.BirthDateIsLunar,
+            BirthdayCelebrated = e.Item.BirthdayCelebrated,
+        };
+
+        return e.IsNew
+            ? Api.CreateAccountAsync(body)
+            : Api.UpdateAccountAsync(e.Item.Id, body);
+    }
+
+    private Task DeleteAsync(AccountDto a) => Api.DeleteAccountAsync(a.Id);
+
+    /// <summary>부서는 나무로 온다. 고르개에는 평평하게 펴서 준다.</summary>
+    private static List<DeptDto> Flatten(IEnumerable<DeptDto> nodes)
+    {
+        var flat = new List<DeptDto>();
+
+        void Walk(IEnumerable<DeptDto> items)
+        {
+            foreach (var item in items)
+            {
+                flat.Add(item);
+
+                if (item.Children is { Count: > 0 } children)
+                {
+                    Walk(children);
+                }
+            }
+        }
+
+        Walk(nodes);
+        return flat;
+    }
+
+    // DxDateEdit 은 DateTime? 을 다루고 자료는 DateOnly? 다. 여기서만 바꾼다.
+    private static DateTime? ToDate(DateOnly? value) => value?.ToDateTime(TimeOnly.MinValue);
+
+    private static DateOnly? ToDateOnly(DateTime? value) => value is null ? null : DateOnly.FromDateTime(value.Value);
+
+    private static string StatusText(string status) => status?.ToUpperInvariant() switch
+    {
+        "ACTIVE" => "정상",
+        "LOCKED" => "잠금",
+        "RESIGNED" => "퇴사",
+        _ => status ?? "-",
+    };
+
+    private static string StatusClass(string status) => status?.ToUpperInvariant() switch
+    {
+        "ACTIVE" => "jsini-badge--on",
+        "LOCKED" => "jsini-badge--warn",
+        _ => "jsini-badge--off",
+    };
 }
