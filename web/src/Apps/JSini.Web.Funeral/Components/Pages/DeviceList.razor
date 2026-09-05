@@ -3,12 +3,35 @@
 @*
     [기기 관리] — DB 메뉴 `/building/device`.
     이력: Vue `views/funeral/building/device/index` → 여기.
+    API: `funeral/building/device/list` · `funeral/building/device-attribute/{deviceId}`
 
     빈소마다 놓인 디스플레이·플레이어 장비다.
 
     **온·오프라인은 서버가 판정해 `Status` 로 내려 준다.** 화면이 `LastSeenAt`
     을 보고 직접 재지 않는다 — 재면 브라우저 시계 기준이 되어, 시각이 어긋난
     장비에서는 멀쩡한 기기가 오프라인으로 보인다.
+
+    [화면 표시 설정을 고칠 자리가 없었다]
+
+    목록과 원격 명령(켜기·끄기·재시작)뿐이었다. 그런데 **플레이어가 무엇을
+    어떻게 보여 줄지는 전부 장비 속성(`device-attribute`)이 정한다** —
+    가로·세로, 영정사진 효과, 영상·음악, 층별 안내, 키오스크 동작까지.
+    포털 어느 화면에서도 그 값을 볼 수도 고칠 수도 없었다.
+    클라이언트에는 읽기·저장이 이미 있었고 부르는 곳만 없었다.
+
+    [장비 유형에 맞는 것을 앞에 둔다]
+
+    속성이 마흔 칸이 넘는다. 영정사진 장비를 보면서 키오스크·층별 안내 설정이
+    다 나오면, 실제로 쓰는 열 칸을 찾아 훑어야 한다. 유형에 해당하는 묶음을
+    앞에 두고 나머지는 뒤로 내린다.
+
+    **숨기지는 않는다.** 유형을 잘못 넣은 장비를 고칠 길은 남아 있어야 한다.
+
+    [속성이 없는 장비가 있다]
+
+    한 번도 설정하지 않은 장비는 속성 행 자체가 없다. 그때는 빈 화면이 아니라
+    **기본값을 채운 새 속성**을 만들어 보여 준다 — 「없다」와 「못 읽었다」를
+    사용자가 구분할 수 없고, 어차피 저장하면 만들어질 값이다.
 *@
 
 @inherits DataPage
@@ -32,12 +55,21 @@
     </div>
 </div>
 
-<DxGrid Data="@_devices" ShowFilterRow="false" PageSize="20">
+<PageNotice Text="@Notice" Tone="@Tone" />
+
+<DxGrid Data="@_devices" ShowFilterRow="false" PageSize="20"
+        SelectionMode="GridSelectionMode.Single"
+        SelectedDataItemChanged="@(item => SelectAsync(item as Device))">
     <Columns>
         <DxGridDataColumn FieldName="@nameof(Device.Code)" Caption="코드" Width="120" />
         <DxGridDataColumn FieldName="@nameof(Device.Name)" Caption="기기명" MinWidth="160" />
         <DxGridDataColumn FieldName="@nameof(Device.RoomName)" Caption="호실" Width="130" />
-        <DxGridDataColumn FieldName="@nameof(Device.DeviceType)" Caption="종류" Width="110" />
+        <DxGridDataColumn FieldName="@nameof(Device.DeviceType)" Caption="종류" Width="110">
+            <CellDisplayTemplate>
+                @{ var d = (Device)context.DataItem; }
+                <span>@TypeName(d.DeviceType)</span>
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
         <DxGridDataColumn FieldName="@nameof(Device.IpAddress)" Caption="IP" Width="140" />
         <DxGridDataColumn FieldName="@nameof(Device.Status)" Caption="상태" Width="100">
             <CellDisplayTemplate>
@@ -67,21 +99,410 @@
     </Columns>
 </DxGrid>
 
-<PageNotice Text="@Notice" Tone="@Tone" />
+@if (_selected is null)
+{
+    <PageNotice Text="기기를 고르면 화면 표시 설정이 나옵니다." Tone="NoticeTone.Info" />
+}
+else if (_attribute is not null)
+{
+    <h2 class="fn-subhead">
+        @_selected.Name · 화면 표시 설정
+        <span class="fn-note">@TypeName(_selected.DeviceType)</span>
+    </h2>
+
+    <div class="jsini-toolbar">
+        <PermissionView Action="MenuAction.Update">
+            <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Success" Click="@SaveAttributeAsync" />
+        </PermissionView>
+        <DxButton Text="되돌리기" RenderStyle="ButtonRenderStyle.Secondary"
+                  Click="@(() => SelectAsync(_selected))" />
+
+        @if (_isNewAttribute)
+        {
+            <span class="fn-note">아직 설정이 없는 기기입니다. 저장하면 만들어집니다.</span>
+        }
+    </div>
+
+    @foreach (var section in Sections(_selected.DeviceType))
+    {
+        <section class="fn-devsec @(section.Relevant ? "is-on" : string.Empty)">
+            <h3 class="fn-devsec__head">
+                @section.Label
+                @if (!section.Relevant)
+                {
+                    @* 이 유형에서는 안 쓰는 묶음이다. 숨기지 않는 이유는
+                       유형을 잘못 넣은 장비를 고칠 길이 필요하기 때문이다. *@
+                    <span class="fn-note">이 기기 종류에서는 쓰지 않습니다</span>
+                }
+            </h3>
+
+            <div class="fn-devsec__body">
+                @switch (section.Key)
+                {
+                    case "layout":
+                        <DeviceField Label="화면 방향">
+                            <DxComboBox Data="@Orientations" TextFieldName="Name" ValueFieldName="Code"
+                                        @bind-Value="_attribute.DisplayOrientation" />
+                        </DeviceField>
+                        <DeviceField Label="세로 배치">
+                            <DxComboBox Data="@Alignments" TextFieldName="Name" ValueFieldName="Code"
+                                        @bind-Value="_attribute.PortraitOrientation" />
+                        </DeviceField>
+                        <DeviceField Label="전환 간격(초)">
+                            <DxSpinEdit @bind-Value="_attribute.ContentIntervalSec" MinValue="1" MaxValue="3600" />
+                        </DeviceField>
+                        <DeviceField Label="화면 보호기">
+                            <DxCheckBox @bind-Checked="_attribute.IsScreensaverEnabled">켬</DxCheckBox>
+                        </DeviceField>
+                        <DeviceField Label="보호기 대기(초)">
+                            <DxSpinEdit @bind-Value="_attribute.ScreensaverTimeoutSec" MinValue="0" MaxValue="86400" />
+                        </DeviceField>
+                        <DeviceField Label="여백 (상·하·좌·우)">
+                            <div class="fn-quad">
+                                <DxSpinEdit @bind-Value="_attribute.DisplayPaddingTop" MinValue="0" />
+                                <DxSpinEdit @bind-Value="_attribute.DisplayPaddingBottom" MinValue="0" />
+                                <DxSpinEdit @bind-Value="_attribute.DisplayPaddingLeft" MinValue="0" />
+                                <DxSpinEdit @bind-Value="_attribute.DisplayPaddingRight" MinValue="0" />
+                            </div>
+                        </DeviceField>
+                        break;
+
+                    case "memorial":
+                        <DeviceField Label="영정사진">
+                            <DxCheckBox @bind-Checked="_attribute.IsMemorialPhotoEnabled">표시</DxCheckBox>
+                        </DeviceField>
+                        <DeviceField Label="전환 효과">
+                            <DxComboBox Data="@PhotoEffects" TextFieldName="Name" ValueFieldName="Code"
+                                        @bind-Value="_attribute.MemorialPhotoEffect" />
+                        </DeviceField>
+                        <DeviceField Label="세로 정렬">
+                            <DxComboBox Data="@VerticalAligns" TextFieldName="Name" ValueFieldName="Code"
+                                        @bind-Value="_attribute.PhotoVerticalAlignment" />
+                        </DeviceField>
+                        <DeviceField Label="가로 정렬">
+                            <DxComboBox Data="@HorizontalAligns" TextFieldName="Name" ValueFieldName="Code"
+                                        @bind-Value="_attribute.PhotoHorizontalAlignment" />
+                        </DeviceField>
+                        <DeviceField Label="고인 이름">
+                            <DxCheckBox @bind-Checked="_attribute.IsDeceasedNameVisible">표시</DxCheckBox>
+                        </DeviceField>
+                        <DeviceField Label="상주 연락처">
+                            <DxCheckBox @bind-Checked="_attribute.IsFamilyContactVisible">표시</DxCheckBox>
+                        </DeviceField>
+                        <DeviceField Label="비율 유지">
+                            <DxCheckBox @bind-Checked="_attribute.IsMemorialPhotoKeepAspectRatio">유지</DxCheckBox>
+                        </DeviceField>
+                        <DeviceField Label="사진 여백 (상·하·좌·우)">
+                            <div class="fn-quad">
+                                <DxSpinEdit @bind-Value="_attribute.MemorialPaddingTop" MinValue="0" />
+                                <DxSpinEdit @bind-Value="_attribute.MemorialPaddingBottom" MinValue="0" />
+                                <DxSpinEdit @bind-Value="_attribute.MemorialPaddingLeft" MinValue="0" />
+                                <DxSpinEdit @bind-Value="_attribute.MemorialPaddingRight" MinValue="0" />
+                            </div>
+                        </DeviceField>
+                        break;
+
+                    case "media":
+                        <DeviceField Label="영상">
+                            @* 「켬」과 「무엇을」이 짝이다. 자료를 고르면 켜 주고,
+                               지우면 꺼 준다 — 켜 두고 빈 화면이 나오는 일을 막는다. *@
+                            <DxComboBox Data="@_videos" TextFieldName="@nameof(MediaSource.Name)"
+                                        ValueFieldName="@nameof(MediaSource.Id)"
+                                        Value="@_attribute.VideoId"
+                                        ValueChanged="@((string? v) => PickVideo(v))"
+                                        NullText="쓰지 않음"
+                                        ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+                        </DeviceField>
+                        <DeviceField Label="영상 방향">
+                            <DxComboBox Data="@Alignments" TextFieldName="Name" ValueFieldName="Code"
+                                        @bind-Value="_attribute.VideoOrientation" />
+                        </DeviceField>
+                        <DeviceField Label="음악">
+                            <DxComboBox Data="@_audios" TextFieldName="@nameof(MediaSource.Name)"
+                                        ValueFieldName="@nameof(MediaSource.Id)"
+                                        Value="@_attribute.MusicId"
+                                        ValueChanged="@((string? v) => PickMusic(v))"
+                                        NullText="쓰지 않음"
+                                        ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+                        </DeviceField>
+                        <DeviceField Label="음량">
+                            <DxSpinEdit Value="@(_attribute.MusicVolume ?? 50)"
+                                        ValueChanged="@((int v) => _attribute.MusicVolume = v)"
+                                        MinValue="0" MaxValue="100" />
+                        </DeviceField>
+                        <DeviceField Label="배경 이미지">
+                            <DxComboBox Data="@_backgrounds" TextFieldName="@nameof(MediaSource.Name)"
+                                        ValueFieldName="@nameof(MediaSource.Id)"
+                                        Value="@_attribute.BackgroundImageId"
+                                        ValueChanged="@((string? v) => PickBackground(v))"
+                                        NullText="쓰지 않음"
+                                        ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+                        </DeviceField>
+                        <DeviceField Label="배경 방향">
+                            <DxComboBox Data="@Alignments" TextFieldName="Name" ValueFieldName="Code"
+                                        @bind-Value="_attribute.BackgroundOrientation" />
+                        </DeviceField>
+                        <DeviceField Label="반복 · 음소거">
+                            <div class="d-flex gap-2">
+                                <DxCheckBox @bind-Checked="_attribute.IsMediaLoop">반복</DxCheckBox>
+                                <DxCheckBox @bind-Checked="_attribute.IsMuted">음소거</DxCheckBox>
+                            </div>
+                        </DeviceField>
+                        break;
+
+                    case "floorGuide":
+                        <DeviceField Label="층별 안내">
+                            <DxCheckBox @bind-Checked="_attribute.IsFloorGuideEnabled">켬</DxCheckBox>
+                        </DeviceField>
+                        <DeviceField Label="배정 호실 표시">
+                            <DxCheckBox @bind-Checked="_attribute.IsRoomAssignmentVisible">표시</DxCheckBox>
+                        </DeviceField>
+                        <DeviceField Label="사용 중만">
+                            <DxCheckBox @bind-Checked="_attribute.IsActiveRoomsOnly">사용 중인 호실만</DxCheckBox>
+                        </DeviceField>
+                        <DeviceField Label="갱신 간격(초)">
+                            <DxSpinEdit @bind-Value="_attribute.FloorGuideRefreshSec" MinValue="1" MaxValue="3600" />
+                        </DeviceField>
+                        break;
+
+                    case "kiosk":
+                        <DeviceField Label="터치">
+                            <DxCheckBox @bind-Checked="_attribute.IsTouchEnabled">허용</DxCheckBox>
+                        </DeviceField>
+                        <DeviceField Label="QR 코드">
+                            <DxCheckBox @bind-Checked="_attribute.IsQrCodeVisible">표시</DxCheckBox>
+                        </DeviceField>
+                        <DeviceField Label="건물 안내도">
+                            <DxCheckBox @bind-Checked="_attribute.IsBuildingMapVisible">표시</DxCheckBox>
+                        </DeviceField>
+                        <DeviceField Label="공지">
+                            <DxCheckBox @bind-Checked="_attribute.IsNoticeVisible">표시</DxCheckBox>
+                        </DeviceField>
+                        <DeviceField Label="공지 흐름 속도">
+                            <DxSpinEdit @bind-Value="_attribute.NoticeScrollSpeed" MinValue="0" MaxValue="100" />
+                        </DeviceField>
+                        <DeviceField Label="입구 인사말" Wide="true">
+                            <DxTextBox @bind-Text="_attribute.EntranceGreeting" NullText="예: 조문객 여러분을 맞이합니다" />
+                        </DeviceField>
+                        break;
+
+                    case "remark":
+                        <DeviceField Label="비고" Wide="true">
+                            <DxTextBox @bind-Text="_attribute.Remark" />
+                        </DeviceField>
+                        break;
+                }
+            </div>
+        </section>
+    }
+}
 
 @code {
+    /// <summary>속성 묶음 하나. <c>Relevant</c> 는 이 장비 유형이 쓰는 묶음인가.</summary>
+    private sealed record AttributeSection(string Key, string Label, bool Relevant);
+
+    private sealed record Option(string Code, string Name);
+
+    /// <summary>
+    /// 묶음별로 어느 장비 유형이 쓰는가. 비우면 모든 유형이 쓴다.
+    ///
+    /// <b>배경 이미지는 영정사진 장비도 쓴다</b> — 그래서 media 묶음에 유형이 둘이다.
+    /// </summary>
+    private static readonly (string Key, string Label, string[] Types)[] SectionDefs =
+    [
+        ("layout", "화면 배치", []),
+        ("memorial", "영정사진 · 추모", ["FUNERAL_PORTRAIT"]),
+        ("media", "사진 · 영상 · 음악", ["MULTIMEDIA", "FUNERAL_PORTRAIT", "DID"]),
+        ("floorGuide", "층별 안내판", ["ROOM_GUIDE"]),
+        ("kiosk", "입구 정보 · 키오스크", ["KIOSK", "ENTRANCE_GUIDE"]),
+        ("remark", "비고", []),
+    ];
+
+    private static readonly Option[] Orientations =
+    [
+        new("LANDSCAPE", "가로"),
+        new("PORTRAIT", "세로"),
+    ];
+
+    private static readonly Option[] Alignments =
+    [
+        new("HORIZONTAL", "가로"),
+        new("VERTICAL", "세로"),
+    ];
+
+    private static readonly Option[] PhotoEffects =
+    [
+        new("FADE", "페이드"),
+        new("SLIDE", "슬라이드"),
+        new("NONE", "없음"),
+    ];
+
+    private static readonly Option[] VerticalAligns =
+    [
+        new("TOP", "위"),
+        new("CENTER", "가운데"),
+        new("BOTTOM", "아래"),
+    ];
+
+    private static readonly Option[] HorizontalAligns =
+    [
+        new("LEFT", "왼쪽"),
+        new("CENTER", "가운데"),
+        new("RIGHT", "오른쪽"),
+    ];
+
+    private static readonly Dictionary<string, string> TypeNames = new(StringComparer.Ordinal)
+    {
+        ["FUNERAL_PORTRAIT"] = "영정사진",
+        ["MULTIMEDIA"] = "멀티미디어",
+        ["ROOM_GUIDE"] = "층별 안내",
+        ["ENTRANCE_GUIDE"] = "입구 안내",
+        ["KIOSK"] = "키오스크",
+        ["DID"] = "DID",
+    };
+
     private string? _buildingId;
     private string? _floorId;
     private string? _roomId;
     private IReadOnlyList<Device> _devices = [];
 
+    private Device? _selected;
+    private DeviceAttribute? _attribute;
+    private bool _isNewAttribute;
+
+    private IReadOnlyList<MediaSource> _videos = [];
+    private IReadOnlyList<MediaSource> _audios = [];
+    private IReadOnlyList<MediaSource> _backgrounds = [];
+
     protected override Task OnInitializedAsync() => ReloadAsync();
 
     private Task ReloadAsync() => LoadAsync(async () =>
     {
+        _selected = null;
+        _attribute = null;
+
         _devices = await Api.GetDevicesAsync(_buildingId, _floorId, _roomId);
         return _devices.Count;
     }, "조건에 맞는 기기가 없습니다.", "기기 목록을 읽지 못했습니다");
+
+    /// <summary>
+    /// 고른 기기의 화면 표시 설정.
+    ///
+    /// 자료 목록은 <b>처음 한 번만</b> 읽는다 — 기기를 바꿀 때마다 다시 읽으면
+    /// 목록을 훑는 동안 같은 세 요청이 계속 나간다.
+    /// </summary>
+    private Task SelectAsync(Device? device)
+    {
+        _selected = device;
+        _attribute = null;
+
+        if (device is null)
+        {
+            return Task.CompletedTask;
+        }
+
+        return LoadAsync(async () =>
+        {
+            if (_videos.Count == 0 && _audios.Count == 0 && _backgrounds.Count == 0)
+            {
+                var videos = Api.GetMediaSourcesAsync("VIDEO");
+                var audios = Api.GetMediaSourcesAsync("AUDIO");
+                var backgrounds = Api.GetMediaSourcesAsync("BACKGROUND");
+
+                await Task.WhenAll(videos, audios, backgrounds);
+
+                _videos = videos.Result;
+                _audios = audios.Result;
+                _backgrounds = backgrounds.Result;
+            }
+
+            var saved = await Api.GetDeviceAttributeAsync(device.Id);
+
+            // 한 번도 설정하지 않은 기기는 속성 행이 없다. 빈 화면 대신
+            // 기본값을 채운 새 속성을 보여 준다 — 어차피 저장하면 만들어진다.
+            _isNewAttribute = saved is null;
+            _attribute = saved ?? Defaults(device.Id);
+
+            return 1;
+        }, "설정을 읽지 못했습니다.", "설정을 읽지 못했습니다");
+    }
+
+    private static DeviceAttribute Defaults(string deviceId) => new()
+    {
+        DeviceId = deviceId,
+        DisplayOrientation = "LANDSCAPE",
+        PortraitOrientation = "HORIZONTAL",
+        VideoOrientation = "HORIZONTAL",
+        BackgroundOrientation = "HORIZONTAL",
+        ContentIntervalSec = 10,
+        ScreensaverTimeoutSec = 300,
+        MemorialPhotoEffect = "FADE",
+        PhotoVerticalAlignment = "TOP",
+        PhotoHorizontalAlignment = "CENTER",
+        IsDeceasedNameVisible = true,
+        IsMediaLoop = true,
+        FloorGuideRefreshSec = 60,
+        MusicVolume = 50,
+    };
+
+    private async Task SaveAttributeAsync()
+    {
+        if (_attribute is null)
+        {
+            return;
+        }
+
+        var saved = await RunAsync(
+            () => Api.UpsertDeviceAttributeAsync(_attribute),
+            "저장했습니다. 플레이어가 다음 갱신 때 반영합니다.",
+            "설정을 저장하지 못했습니다");
+
+        if (saved)
+        {
+            await SelectAsync(_selected);
+        }
+    }
+
+    // ── 자료를 고르면 켜고, 지우면 끈다 ─────────────────────
+    //
+    // 「켬」 스위치와 「무엇을」이 따로 놀면 켜 둔 채 빈 화면이 나온다.
+    // 실제로 옛 화면이 그 짝을 손으로 맞추고 있었다.
+
+    private void PickVideo(string? id)
+    {
+        _attribute!.VideoId = id;
+        _attribute.IsVideoEnabled = !string.IsNullOrEmpty(id);
+    }
+
+    private void PickMusic(string? id)
+    {
+        _attribute!.MusicId = id;
+        _attribute.IsMusicEnabled = !string.IsNullOrEmpty(id);
+    }
+
+    private void PickBackground(string? id)
+    {
+        _attribute!.BackgroundImageId = id;
+        _attribute.IsBackgroundImageEnabled = !string.IsNullOrEmpty(id);
+    }
+
+    /// <summary>유형에 해당하는 묶음이 앞, 무관한 묶음이 뒤.</summary>
+    private static List<AttributeSection> Sections(string? deviceType)
+    {
+        var relevant = new List<AttributeSection>();
+        var others = new List<AttributeSection>();
+
+        foreach (var (key, label, types) in SectionDefs)
+        {
+            var hit = types.Length == 0 || types.Contains(deviceType ?? string.Empty, StringComparer.Ordinal);
+            (hit ? relevant : others).Add(new AttributeSection(key, label, hit));
+        }
+
+        return [.. relevant, .. others];
+    }
+
+    private static string TypeName(string? code) =>
+        code is not null && TypeNames.TryGetValue(code, out var name) ? name : code ?? string.Empty;
 
     private Task PowerAsync(string code, string state) => RunAsync(
         () => Api.SetDeviceScreenPowerAsync(code, state),

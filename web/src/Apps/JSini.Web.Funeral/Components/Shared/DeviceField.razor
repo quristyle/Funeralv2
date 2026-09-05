@@ -1,0 +1,24 @@
+@*
+    장비 설정 칸 하나 — 이름표와 입력기.
+
+    설정이 마흔 칸이 넘는다. 이름표를 칸마다 손으로 적으면 어딘가는 `<label>`
+    이 아니라 `<span>` 이 되고, 그 칸만 이름표를 눌러도 입력기로 포커스가
+    가지 않는다. 한 벌로 묶어 그 갈라짐을 없앤다.
+
+    `Wide` 는 한 줄을 통째로 쓰는 칸(인사말·비고)에 준다. 좁은 칸에 넣으면
+    글자가 두세 자만 보인다.
+*@
+
+<label class="@(Wide ? "fn-field fn-field--wide" : "fn-field")">
+    <span class="fn-field__label">@Label</span>
+    <span class="fn-field__input">@ChildContent</span>
+</label>
+
+@code {
+    [Parameter, EditorRequired] public string Label { get; set; } = string.Empty;
+
+    /// <summary>한 줄을 통째로 쓰는 칸인가.</summary>
+    [Parameter] public bool Wide { get; set; }
+
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

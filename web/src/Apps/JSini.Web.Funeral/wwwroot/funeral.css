@@ -313,3 +313,73 @@
 }
 
 .fn-card__sub > span { margin-left: 0.2rem; }
+
+/* ── 기기 화면 표시 설정 ─────────────────────────────────
+
+   칸이 마흔 개가 넘는다. 한 줄에 하나씩 쌓으면 화면 두 판을 넘어가고,
+   그러면 「저장」이 어디 있는지 안 보인다. 격자로 접어 넣는다.
+   ---------------------------------------------------------- */
+
+.fn-note {
+  margin-left: 0.4rem;
+  font-size: 0.78rem;
+  font-weight: 400;
+  color: var(--jsini-text-muted);
+}
+
+.fn-devsec {
+  margin-top: 0.9rem;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--jsini-border);
+  border-radius: 0.3rem;
+  background: var(--jsini-surface, #fff);
+}
+
+/* 이 기기 종류가 쓰는 묶음. 안 쓰는 묶음은 옅게 두어 뒤로 물러나게 한다 —
+   숨기지 않는 이유는 유형을 잘못 넣은 장비를 고칠 길이 필요해서다. */
+.fn-devsec.is-on {
+  border-left: 3px solid #2e7d32;
+}
+
+.fn-devsec:not(.is-on) {
+  opacity: 0.7;
+}
+
+.fn-devsec__head {
+  margin: 0 0 0.5rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.fn-devsec__body {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 0.5rem 0.9rem;
+}
+
+.fn-field {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.fn-field--wide {
+  grid-column: 1 / -1;
+}
+
+.fn-field__label {
+  font-size: 0.72rem;
+  letter-spacing: 0.03em;
+  color: var(--jsini-text-muted);
+}
+
+.fn-field__input {
+  min-width: 0;
+}
+
+/* 상·하·좌·우 네 칸. 한 줄에 넷을 넣어야 「여백」 하나로 읽힌다. */
+.fn-quad {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.25rem;
+}
