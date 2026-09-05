@@ -89,6 +89,21 @@ public sealed class FuneralApi(GatewayClient gateway)
     public Task RestartDeviceAppAsync(string code, CancellationToken ct = default)
         => gateway.PostAsync($"funeral/building/device/app-restart/{code}", null, ct);
 
+    /// <summary>
+    /// 플레이어에게 <b>지금 새 판을 확인하라</b>고 시킨다 (D-P3).
+    ///
+    /// <para>
+    /// 서버가 파일을 나르지 않는다 — 릴리스 조회와 판정은 플레이어 자신이 한다.
+    /// 그래서 잘못 눌러도 <b>새 판이 없으면 아무 일도 일어나지 않는다.</b>
+    /// </para>
+    /// <para>
+    /// 즉시 실행 명령이라 DB 에 남지 않는다. 장비가 실시간 연결에 붙어 있지
+    /// 않으면 서버가 거절한다 — 「보냈는데 아무 일도 없는」 상태를 만들지 않기 위해서다.
+    /// </para>
+    /// </summary>
+    public Task UpdateDeviceNowAsync(string code, CancellationToken ct = default)
+        => gateway.PostAsync($"funeral/building/device/update-now/{code}", null, ct);
+
     // ── 장비 기기 설정 ──────────────────────────────────────────
 
     public Task<IReadOnlyList<DeviceConfig>> GetDeviceConfigsAsync(string? deviceId = null, CancellationToken ct = default)

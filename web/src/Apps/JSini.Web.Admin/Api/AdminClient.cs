@@ -398,6 +398,23 @@ public sealed class AdminClient(GatewayClient gateway)
 
     // ── 내 정보 ─────────────────────────────────────────────────
 
+    /// <summary>
+    /// 비밀번호를 바꾼다.
+    ///
+    /// <para>
+    /// <b>쿠키를 다시 굽지 않는다.</b> 서버는 비밀번호 해시와 만료 시계만 고치고
+    /// 새 토큰을 주지 않는다 — 로그인 상태는 그대로다. 한동안 「쿠키를 다시 구워야
+    /// 해서 회로 안에서 못 한다」고 적혀 있었는데, 서버를 읽어 보면 그렇지 않다.
+    /// </para>
+    /// <para>
+    /// 실패 이유를 구분해 준다(이전 비밀번호 불일치 · 지금 것과 같음 …).
+    /// 90일 만료 때문에 어쩔 수 없이 이 화면에 오는 경우가 있어, 뭉뚱그린 문구를
+    /// 주면 무엇을 고쳐야 할지 알 수 없다.
+    /// </para>
+    /// </summary>
+    public Task ChangePasswordAsync(string oldPassword, string newPassword, CancellationToken ct = default)
+        => gateway.PostAsync("auth/user/change-password", new { oldPassword, newPassword }, ct);
+
     public Task<UserInfoDto?> GetMyInfoAsync(CancellationToken ct = default)
         => gateway.GetOneAsync<UserInfoDto>("auth/user/info", ct);
 

@@ -16,11 +16,19 @@
     생활과환경의 「생일 목록」이 이 값을 본다. 여기서 비워 두면 그 목록에
     나오지 않는다 — 개인이 직접 정하는 것이 맞아서 그렇게 두었다.
 
-    [비밀번호 변경은 여기 없다]
+    [비밀번호 변경 — 「회로 안에서 못 한다」는 잘못된 판단이었다]
 
-    옛 화면에는 비밀번호 변경 폼이 함께 있었다. 그건 **쿠키를 다시 굽는 흐름**이라
-    회로 안에서 처리할 수 없고(Set-Cookie 를 붙일 수 없다) 셸의 정적 SSR 화면으로
-    가야 한다. 그 화면을 만들 때 여기서 링크를 건다.
+    한동안 이 자리에 「쿠키를 다시 굽는 흐름이라 회로 안에서 처리할 수 없다」고
+    적어 두고 폼을 만들지 않았다. **서버를 읽어 보면 그렇지 않다** —
+    `POST auth/user/change-password` 는 비밀번호 해시와 만료 시계만 고치고
+    새 토큰을 주지 않는다. 로그인 상태는 그대로다.
+
+    그래서 회로 안에서 그대로 부른다. 90일 만료로 어쩔 수 없이 이 화면에 오는
+    사람이 있는데, 그동안 바꿀 길이 없었다.
+
+    실패 이유는 서버가 구분해 준다(이전 비밀번호 불일치 · 지금 것과 같음 · 빈 값).
+    뭉뚱그린 문구를 주면 무엇을 고쳐야 할지 알 수 없어서 그렇게 만들어 두었다 —
+    화면이 그 문구를 그대로 보여 준다.
 *@
 
 @inherits DataPage
@@ -101,6 +109,30 @@
         <DxButton Text="되돌리기" RenderStyle="ButtonRenderStyle.Secondary" SizeMode="SizeMode.Small"
                   Click="@Revert" />
     </div>
+
+    <h2 class="ad-subhead">비밀번호 변경</h2>
+
+    <DxFormLayout CssClass="ad-editform ad-profile">
+        <DxFormLayoutItem Caption="지금 비밀번호" ColSpanMd="4">
+            <DxTextBox @bind-Text="_oldPassword" Password="true" />
+        </DxFormLayoutItem>
+
+        <DxFormLayoutItem Caption="새 비밀번호" ColSpanMd="4">
+            <DxTextBox @bind-Text="_newPassword" Password="true" />
+        </DxFormLayoutItem>
+
+        <DxFormLayoutItem Caption="새 비밀번호 확인" ColSpanMd="4">
+            @* 확인 칸은 서버에 보내지 않는다. 오타를 저장 전에 잡으려는 것뿐이다 —
+               서버는 두 값이 같은지 알 방법이 없다. *@
+            <DxTextBox @bind-Text="_confirmPassword" Password="true" />
+        </DxFormLayoutItem>
+    </DxFormLayout>
+
+    <div class="jsini-toolbar">
+        <div class="jsini-toolbar__spacer"></div>
+        <DxButton Text="비밀번호 바꾸기" RenderStyle="ButtonRenderStyle.Primary" SizeMode="SizeMode.Small"
+                  Click="@ChangePasswordAsync" />
+    </div>
 }
 
 <h2 class="ad-subhead">최근 활동</h2>
@@ -122,6 +154,10 @@
     private UpdateProfileDto _edit = new();
     private DateTime? _birthDate;
     private bool _isLunar;
+
+    private string? _oldPassword;
+    private string? _newPassword;
+    private string? _confirmPassword;
 
     protected override Task OnInitializedAsync() => ReloadAsync();
 
@@ -174,6 +210,42 @@
         if (await RunAsync(() => Api.UpdateMyProfileAsync(_edit), "저장했습니다.", "저장하지 못했습니다"))
         {
             await ReloadAsync();
+        }
+    }
+
+    /// <summary>
+    /// 비밀번호를 바꾼다.
+    ///
+    /// 바꿔도 <b>로그인 상태는 그대로다</b> — 서버가 새 토큰을 주지 않는다.
+    /// 그래서 이 화면을 떠나지 않고 계속 쓸 수 있다.
+    /// </summary>
+    private async Task ChangePasswordAsync()
+    {
+        if (string.IsNullOrEmpty(_oldPassword) || string.IsNullOrEmpty(_newPassword))
+        {
+            Say("지금 비밀번호와 새 비밀번호를 모두 넣으십시오.", NoticeTone.Warning);
+            return;
+        }
+
+        if (!string.Equals(_newPassword, _confirmPassword, StringComparison.Ordinal))
+        {
+            // 서버는 두 값이 같은지 알 방법이 없다. 여기서만 잡을 수 있다.
+            Say("새 비밀번호와 확인이 다릅니다.", NoticeTone.Warning);
+            return;
+        }
+
+        var changed = await RunAsync(
+            () => Api.ChangePasswordAsync(_oldPassword, _newPassword),
+            "비밀번호를 바꿨습니다. 다음 로그인부터 새 비밀번호를 씁니다.",
+            "비밀번호를 바꾸지 못했습니다");
+
+        if (changed)
+        {
+            // 성공했든 아니든 칸을 비우는 것이 맞지만, 실패했을 때 비우면
+            // 지금 비밀번호를 다시 치게 된다. 성공했을 때만 비운다.
+            _oldPassword = null;
+            _newPassword = null;
+            _confirmPassword = null;
         }
     }
 }
