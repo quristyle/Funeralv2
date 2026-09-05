@@ -6,11 +6,23 @@
 
     부서는 트리다. 서버가 `Children` 을 안고 내려 주므로 화면은 그대로 편다.
 
+    [읽기만 되는 「관리」 화면이었다]
+
+    등록·수정·삭제가 하나도 없었다. 클라이언트에는 셋 다 있었고
+    (`CreateDeptAsync` · `UpdateDeptAsync` · `DeleteDeptAsync`) 화면이 부르지
+    않았을 뿐이다. 부서는 포털에서만 만들 수 있으므로 여기서 못 하면
+    어디서도 못 한다 — 생일 목록·역할 범위·헬프데스크가 다 이 표를 본다.
+
     [사람 수가 둘이다]
 
     `UserCount` 는 이 부서에 직접 속한 사람, `TotalUserCount` 는 하위 부서까지
     합한 수다. 둘 다 보여 준다 — 하나만 두면 "부서에 사람이 없다고 나오는데
     실제로는 있다"(하위에 있다)가 되거나 그 반대가 된다.
+
+    [상위 부서를 자기 자신이나 자기 아래로 옮길 수 없다]
+
+    옮기면 나무가 고리가 되어 목록이 통째로 사라진다. 서버도 막지만 화면에서
+    먼저 막는다 — 저장이 실패하는 것보다 고를 수 없는 편이 낫다.
 *@
 
 @inherits DataPage
@@ -21,29 +33,296 @@
 <PageHeading Title="부서 관리" Scope="포털관리" />
 
 <div class="jsini-toolbar">
+    <DxComboBox Data="@_companies" TextFieldName="@nameof(CompanyDto.Name)"
+                ValueFieldName="@nameof(CompanyDto.Id)"
+                @bind-Value="_companyFilter" NullText="회사 전체" Style="width: 200px"
+                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+
     <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@ReloadAsync" />
+
+    <PermissionView Action="MenuAction.Create">
+        <DxButton Text="부서 등록" RenderStyle="ButtonRenderStyle.Success" Click="@OpenNew" />
+    </PermissionView>
 </div>
 
-<DxTreeList Data="@_depts" ChildrenFieldName="@nameof(DeptDto.Children)" KeyFieldName="@nameof(DeptDto.Id)">
+<PageNotice Text="@Notice" Tone="@Tone" />
+
+<DxTreeList Data="@Shown" ChildrenFieldName="@nameof(DeptDto.Children)" KeyFieldName="@nameof(DeptDto.Id)">
     <Columns>
         <DxTreeListDataColumn FieldName="@nameof(DeptDto.Name)" Caption="부서" MinWidth="240" />
         <DxTreeListDataColumn FieldName="@nameof(DeptDto.CompanyName)" Caption="회사" Width="180" />
         <DxTreeListDataColumn FieldName="@nameof(DeptDto.UserCount)" Caption="직접" Width="90" />
         <DxTreeListDataColumn FieldName="@nameof(DeptDto.TotalUserCount)" Caption="하위 포함" Width="110" />
-        <DxTreeListDataColumn FieldName="@nameof(DeptDto.Remark)" Caption="비고" MinWidth="180" />
+
+        <DxTreeListDataColumn Caption="상태" Width="90">
+            <CellDisplayTemplate>
+                @{
+                    var d = (DeptDto)context.DataItem;
+                }
+                <span class="jsini-badge @(d.Status == 1 ? "jsini-badge--on" : "jsini-badge--off")">
+                    @(d.Status == 1 ? "사용" : "중지")
+                </span>
+            </CellDisplayTemplate>
+        </DxTreeListDataColumn>
+
+        <DxTreeListDataColumn FieldName="@nameof(DeptDto.Remark)" Caption="비고" MinWidth="140" />
+
+        <DxTreeListDataColumn Caption="관리" Width="180" AllowSort="false">
+            <CellDisplayTemplate>
+                @{
+                    var d = (DeptDto)context.DataItem;
+                }
+                <div class="d-flex gap-1">
+                    <PermissionView Action="MenuAction.Create">
+                        @* 이 부서 아래에 새 부서를 만든다. 등록 폼에서 상위를
+                           찾아 고르게 하면 부서가 수십 개일 때 자리를 잃는다. *@
+                        <DxButton Text="하위 추가" SizeMode="SizeMode.Small"
+                                  RenderStyle="ButtonRenderStyle.Secondary"
+                                  Click="@(() => OpenChild(d))" />
+                    </PermissionView>
+                    <PermissionView Action="MenuAction.Update">
+                        <DxButton Text="수정" SizeMode="SizeMode.Small"
+                                  RenderStyle="ButtonRenderStyle.Secondary"
+                                  Click="@(() => OpenEdit(d))" />
+                    </PermissionView>
+                    <PermissionView Action="MenuAction.Delete">
+                        <DxButton Text="삭제" SizeMode="SizeMode.Small"
+                                  RenderStyle="ButtonRenderStyle.Secondary"
+                                  Click="@(() => DeleteAsync(d))" />
+                    </PermissionView>
+                </div>
+            </CellDisplayTemplate>
+        </DxTreeListDataColumn>
     </Columns>
 </DxTreeList>
 
-<PageNotice Text="@Notice" Tone="@Tone" />
+<DxPopup @bind-Visible="_editing" HeaderText="@(_editingId is null ? "부서 등록" : "부서 수정")"
+         Width="560px" ShowFooter="false">
+    <BodyContentTemplate Context="popup">
+        <DxFormLayout>
+            <DxFormLayoutItem Caption="부서명" ColSpanMd="12">
+                <DxTextBox @bind-Text="_form.Name" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="회사" ColSpanMd="12">
+                <DxComboBox Data="@_companies" TextFieldName="@nameof(CompanyDto.Name)"
+                            ValueFieldName="@nameof(CompanyDto.Id)"
+                            @bind-Value="_form.CompanyId" NullText="고르십시오" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="상위 부서" ColSpanMd="12">
+                @* 자기 자신과 자기 아래는 뺀다. 고르면 나무가 고리가 되어
+                   목록이 통째로 사라진다. *@
+                <DxComboBox Data="@ParentChoices" TextFieldName="@nameof(DeptDto.Name)"
+                            ValueFieldName="@nameof(DeptDto.Id)"
+                            @bind-Value="_form.Pid" NullText="최상위"
+                            ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="순서" ColSpanMd="6">
+                <DxSpinEdit @bind-Value="_form.SortOrder" MinValue="0" />
+            </DxFormLayoutItem>
+            <DxFormLayoutItem Caption="상태" ColSpanMd="6">
+                <DxComboBox Data="@Statuses" TextFieldName="Name" ValueFieldName="Code"
+                            @bind-Value="_form.Status" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="비고" ColSpanMd="12">
+                <DxTextBox @bind-Text="_form.Remark" />
+            </DxFormLayoutItem>
+        </DxFormLayout>
+
+        <div class="jsini-toolbar">
+            <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Primary" Click="@SaveAsync" />
+            <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary"
+                      Click="@(() => _editing = false)" />
+        </div>
+    </BodyContentTemplate>
+</DxPopup>
 
 @code {
+    private sealed record StatusOption(int Code, string Name);
+
+    private static readonly StatusOption[] Statuses =
+    [
+        new(1, "사용"),
+        new(0, "중지"),
+    ];
+
     private IReadOnlyList<DeptDto> _depts = [];
+    private IReadOnlyList<CompanyDto> _companies = [];
+
+    private string? _companyFilter;
+
+    private bool _editing;
+    private string? _editingId;
+    private SaveDeptDto _form = new();
+
+    /// <summary>회사로 거른 나무. 부모가 걸리면 자식도 함께 남는다.</summary>
+    private IReadOnlyList<DeptDto> Shown =>
+        string.IsNullOrEmpty(_companyFilter)
+            ? _depts
+            : [.. _depts.Where(d => string.Equals(d.CompanyId, _companyFilter, StringComparison.Ordinal))];
+
+    /// <summary>
+    /// 상위로 고를 수 있는 부서.
+    ///
+    /// 자기 자신과 <b>자기 아래 전부</b>를 뺀다. 자기 아래로 옮기면 나무가
+    /// 고리가 되어 펼치는 순간 목록이 통째로 사라진다.
+    /// </summary>
+    private List<DeptDto> ParentChoices
+    {
+        get
+        {
+            var flat = new List<DeptDto>();
+            Flatten(_depts, flat);
+
+            if (_editingId is null)
+            {
+                return flat;
+            }
+
+            var banned = new HashSet<string>(StringComparer.Ordinal) { _editingId };
+            CollectDescendants(_depts, _editingId, banned);
+
+            return [.. flat.Where(d => !banned.Contains(d.Id))];
+        }
+    }
 
     protected override Task OnInitializedAsync() => ReloadAsync();
 
     private Task ReloadAsync() => LoadAsync(async () =>
     {
-        _depts = await Api.GetDeptsAsync();
+        // 회사 목록은 부서와 무관하다. 나란히 부른다.
+        var depts = Api.GetDeptsAsync();
+        var companies = Api.GetCompaniesAsync();
+
+        await Task.WhenAll(depts, companies);
+
+        _depts = depts.Result;
+        _companies = companies.Result;
+
         return _depts.Count;
     }, "등록된 부서가 없습니다.", "부서 목록을 읽지 못했습니다");
+
+    private void OpenNew()
+    {
+        _editingId = null;
+        _form = new SaveDeptDto
+        {
+            CompanyId = _companyFilter,
+            Status = 1,
+        };
+        _editing = true;
+    }
+
+    /// <summary>고른 부서 아래에 새 부서. 회사는 부모의 것을 이어받는다.</summary>
+    private void OpenChild(DeptDto parent)
+    {
+        _editingId = null;
+        _form = new SaveDeptDto
+        {
+            Pid = parent.Id,
+            CompanyId = parent.CompanyId,
+            Status = 1,
+        };
+        _editing = true;
+    }
+
+    private void OpenEdit(DeptDto dept)
+    {
+        _editingId = dept.Id;
+        _form = new SaveDeptDto
+        {
+            Name = dept.Name,
+            Pid = dept.Pid,
+            CompanyId = dept.CompanyId,
+            Remark = dept.Remark,
+            Status = dept.Status,
+            SortOrder = dept.SortOrder,
+        };
+        _editing = true;
+    }
+
+    private async Task SaveAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_form.Name))
+        {
+            Say("부서명을 넣으십시오.", NoticeTone.Warning);
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_form.CompanyId))
+        {
+            Say("회사를 고르십시오. 부서는 회사에 딸립니다.", NoticeTone.Warning);
+            return;
+        }
+
+        var isNew = _editingId is null;
+
+        var saved = await RunAsync(
+            () => isNew ? Api.CreateDeptAsync(_form) : Api.UpdateDeptAsync(_editingId!, _form),
+            isNew ? "등록했습니다." : "저장했습니다.",
+            isNew ? "등록하지 못했습니다" : "저장하지 못했습니다");
+
+        if (saved)
+        {
+            _editing = false;
+            await ReloadAsync();
+        }
+    }
+
+    /// <summary>
+    /// 삭제.
+    ///
+    /// 하위 부서나 소속 인원이 남아 있으면 <b>서버가 막는다.</b> 화면이 미리
+    /// 세어 막지 않는 이유는, 화면이 보고 있는 수가 방금 읽은 값이라
+    /// 그 사이에 바뀌었을 수 있어서다 — 판정은 한 곳에서 한다.
+    /// </summary>
+    private async Task DeleteAsync(DeptDto dept)
+    {
+        if (await RunAsync(() => Api.DeleteDeptAsync(dept.Id),
+                $"{dept.Name} 을 지웠습니다.", "지우지 못했습니다"))
+        {
+            await ReloadAsync();
+        }
+    }
+
+    private static void Flatten(IEnumerable<DeptDto> nodes, List<DeptDto> into)
+    {
+        foreach (var node in nodes)
+        {
+            into.Add(node);
+
+            if (node.Children is { Count: > 0 })
+            {
+                Flatten(node.Children, into);
+            }
+        }
+    }
+
+    /// <summary>그 부서 아래에 있는 것들의 식별자를 모은다.</summary>
+    private static void CollectDescendants(IEnumerable<DeptDto> nodes, string id, HashSet<string> into)
+    {
+        foreach (var node in nodes)
+        {
+            if (string.Equals(node.Id, id, StringComparison.Ordinal))
+            {
+                var flat = new List<DeptDto>();
+                Flatten(node.Children ?? [], flat);
+
+                foreach (var child in flat)
+                {
+                    into.Add(child.Id);
+                }
+
+                return;
+            }
+
+            if (node.Children is { Count: > 0 })
+            {
+                CollectDescendants(node.Children, id, into);
+            }
+        }
+    }
 }

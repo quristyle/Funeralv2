@@ -263,6 +263,32 @@ public sealed class MenuRoleTargetDto
     public int UserCount { get; set; }
 }
 
+/// <summary>
+/// 역할에 걸린 사람 한 줄 (<c>role-permission/roles/{id}/users</c>).
+///
+/// <para>
+/// <b><see cref="AccountDto"/> 로 받으면 안 된다.</b> 이름은 비슷한데 모양이
+/// 다르다 — 이쪽 <c>roleNames</c> 는 <b>문자열 하나</b>이고 저쪽은 목록이다.
+/// 그대로 받으면 JSON 을 푸는 자리에서 터진다.
+/// </para>
+/// </summary>
+public sealed class RoleUserDto
+{
+    public string Id { get; set; } = string.Empty;
+    public string LoginId { get; set; } = string.Empty;
+    public string UserName { get; set; } = string.Empty;
+    public string? Email { get; set; }
+    public string? Phone { get; set; }
+    public string? DeptName { get; set; }
+    public string? CompanyName { get; set; }
+
+    /// <summary>가진 역할의 식별자들.</summary>
+    public List<string> Roles { get; set; } = [];
+
+    /// <summary>가진 역할의 이름을 이어 붙인 것. <b>목록이 아니라 한 줄이다.</b></summary>
+    public string? RoleNames { get; set; }
+}
+
 /// <summary>회사.</summary>
 public sealed class CompanyDto
 {

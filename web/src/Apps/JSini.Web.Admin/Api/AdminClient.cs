@@ -69,16 +69,28 @@ public sealed class AdminClient(GatewayClient gateway)
     public Task DeleteRoleAsync(string id, CancellationToken ct = default)
         => gateway.DeleteAsync($"auth/system/role/{id}", ct);
 
-    /// <summary>역할에 속한 사용자.</summary>
-    public Task<IReadOnlyList<AccountDto>> GetRoleUsersAsync(string roleId, CancellationToken ct = default)
-        => gateway.GetListAsync<AccountDto>($"auth/system/role-permission/roles/{roleId}/users", ct);
+    /// <summary>
+    /// 역할에 걸린 사람.
+    ///
+    /// <b>돌려주는 모양이 <see cref="AccountDto"/> 와 다르다</b> —
+    /// <c>roleNames</c> 가 목록이 아니라 문자열 하나다. 그래서 전용 타입으로 받는다.
+    /// </summary>
+    public Task<IReadOnlyList<RoleUserDto>> GetRoleUsersAsync(string roleId, CancellationToken ct = default)
+        => gateway.GetListAsync<RoleUserDto>($"auth/system/role-permission/roles/{roleId}/users", ct);
 
     /// <summary>역할에 넣을 수 있는 사용자 (아직 안 속한 사람).</summary>
-    public Task<IReadOnlyList<AccountDto>> GetRoleEligibleUsersAsync(string roleId, CancellationToken ct = default)
-        => gateway.GetListAsync<AccountDto>($"auth/system/role-permission/roles/{roleId}/eligible-users", ct);
+    public Task<IReadOnlyList<RoleUserDto>> GetRoleEligibleUsersAsync(string roleId, CancellationToken ct = default)
+        => gateway.GetListAsync<RoleUserDto>($"auth/system/role-permission/roles/{roleId}/eligible-users", ct);
 
-    public Task AssignRoleUsersAsync(string roleId, IReadOnlyList<string> userIds, CancellationToken ct = default)
-        => gateway.PostAsync($"auth/system/role-permission/roles/{roleId}/users/assign", new { userIds }, ct);
+    /// <summary>
+    /// 역할에 사람을 건다.
+    ///
+    /// <b>본문 이름이 <c>accountIds</c> 다.</b> 한동안 <c>userIds</c> 로 보내고
+    /// 있었는데, 서버는 그 이름을 모르므로 빈 목록으로 읽고 아무도 걸지 않은 채
+    /// 200 을 돌려준다 — 화면에는 성공으로 보이고 아무 일도 안 일어난다.
+    /// </summary>
+    public Task AssignRoleUsersAsync(string roleId, IReadOnlyList<string> accountIds, CancellationToken ct = default)
+        => gateway.PostAsync($"auth/system/role-permission/roles/{roleId}/users/assign", new { accountIds }, ct);
 
     public Task RemoveRoleUserAsync(string roleId, string userId, CancellationToken ct = default)
         => gateway.DeleteAsync($"auth/system/role-permission/roles/{roleId}/users/{userId}", ct);

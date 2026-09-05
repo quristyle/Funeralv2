@@ -18,6 +18,13 @@
     「어느 역할이 어느 메뉴를 볼 수 있는가」는 `/admin/auth/menu-role`,
     「누가 이 역할을 가지는가」는 `/admin/auth/user-role` 이다. 옛 화면도
     그렇게 셋으로 나뉘어 있었다 — 한 화면에 다 넣으면 표가 세 겹이 된다.
+
+    [다만 「이 역할을 지우면 누가 영향받나」는 여기서 보인다]
+
+    역할을 고르면 그 역할이 걸린 사람을 아래에 편다(읽기 전용).
+    **거는 일은 여기서 하지 않는다** — 사람에게 거는 길이 이미 「사람롤」에
+    있고, 같은 일을 하는 자리를 둘로 만들면 한쪽에만 규칙이 붙는다.
+    삭제를 누르기 전에 무엇이 딸려 있는지 보이는 것이 목적이다.
 *@
 
 @inherits DataPage
@@ -72,6 +79,9 @@
                     <DxButton Text="사용자" SizeMode="SizeMode.Small"
                               RenderStyle="ButtonRenderStyle.Link"
                               Click="@(() => Navigation.NavigateTo($"/admin/auth/user-role?role={Uri.EscapeDataString(r.Id)}"))" />
+                    <DxButton Text="누가?" SizeMode="SizeMode.Small"
+                              RenderStyle="ButtonRenderStyle.Link"
+                              Click="@(() => ShowUsersAsync(r))" />
                 </div>
             </CellDisplayTemplate>
         </DxGridDataColumn>
@@ -106,9 +116,43 @@
     </EditForm>
 </CrudGrid>
 
+@if (_usersOf is not null)
+{
+    <h2 class="ad-section">@_usersOf.Name 을 가진 사람 (@_users.Count)</h2>
+
+    @if (_users.Count == 0)
+    {
+        <p class="ad-stamp">이 역할이 걸린 사람이 없습니다.</p>
+    }
+    else
+    {
+        <DxGrid Data="@_users" ShowFilterRow="false" PageSize="15">
+            <Columns>
+                <DxGridDataColumn FieldName="@nameof(RoleUserDto.LoginId)" Caption="아이디" Width="150" />
+                <DxGridDataColumn FieldName="@nameof(RoleUserDto.UserName)" Caption="이름" Width="140" />
+                <DxGridDataColumn FieldName="@nameof(RoleUserDto.CompanyName)" Caption="회사" Width="160" />
+                <DxGridDataColumn FieldName="@nameof(RoleUserDto.DeptName)" Caption="부서" Width="160" />
+                <DxGridDataColumn FieldName="@nameof(RoleUserDto.Email)" Caption="이메일" MinWidth="180" />
+
+                @* 이 사람이 가진 역할 전부. 하나를 풀어도 다른 역할이 같은
+                   메뉴를 주고 있으면 접근이 그대로다. *@
+                <DxGridDataColumn FieldName="@nameof(RoleUserDto.RoleNames)" Caption="가진 역할" MinWidth="200" />
+            </Columns>
+        </DxGrid>
+    }
+
+    <p class="ad-stamp">
+        거는 일과 푸는 일은 [권한 › 사람롤]에서 합니다 — 같은 일을 하는 자리를
+        둘로 만들지 않습니다.
+    </p>
+}
+
 @code {
     private IReadOnlyList<RoleDto> _all = [];
     private string? _keyword;
+
+    private RoleDto? _usersOf;
+    private IReadOnlyList<RoleUserDto> _users = [];
 
     private IReadOnlyList<RoleDto> Shown
     {
@@ -133,6 +177,18 @@
         _all = await Api.GetRolesAsync();
         return _all.Count;
     }, "등록된 역할이 없습니다.", "역할 목록을 읽지 못했습니다");
+
+    /// <summary>
+    /// 이 역할이 걸린 사람. <b>읽기만 한다</b> —
+    /// 삭제·수정을 누르기 전에 무엇이 딸려 있는지 보이는 것이 목적이다.
+    /// </summary>
+    private Task ShowUsersAsync(RoleDto role) => LoadAsync(async () =>
+    {
+        _usersOf = role;
+        _users = await Api.GetRoleUsersAsync(role.Id);
+
+        return _users.Count;
+    }, "이 역할이 걸린 사람이 없습니다.", "역할이 걸린 사람을 읽지 못했습니다");
 
     private void FillNew(RoleDto r) => r.Status = 1;
 
