@@ -133,6 +133,18 @@ public class RoomBoardQueryDto
     /// <summary>발인 일시(<c>burial_date</c>) 범위</summary>
     public DateTime? BurialStartDate { get; set; }
     public DateTime? BurialEndDate { get; set; }
+
+    /// <summary>
+    /// 응답의 자세함. <c>full</c>(기본) 또는 <c>summary</c>.
+    /// </summary>
+    /// <remarks>
+    /// 화면이 밀도 셋으로 갈리면서 생긴 칸이다(47번 문서 5단계).
+    /// 시설 하나를 다루는 '운영' 밀도만 장비 목록·영정 사진·상주까지 쓰고,
+    /// '감시'·'상황판' 은 호실 타일에 고인명과 발인 시각만 찍는다.
+    /// 시설 스무 곳을 60초마다 다시 받을 때, 안 그리는 칸을 빼는 것만으로
+    /// 장비 DTO 조립(속성·미디어명 조인)과 상주 조회가 통째로 빠진다.
+    /// </remarks>
+    public string? Detail { get; set; }
 }
 
 /// <summary>

@@ -37,6 +37,7 @@ const [Grid, gridApi] = useVbenVxeGrid({
         slots: { default: 'action' }
       }
     ],
+    gridFeatures: { onCreate: () => openUpload() },
     height: 'auto',
     /**
      * 미리보기를 칸에 꽉 채우므로 줄 높이가 곧 이미지 높이다.
@@ -82,19 +83,9 @@ async function handleDelete(row: any) {
 
 <template>
   <Page auto-content-height>
-    <Grid table-title="영정사진용 투명 근조리본 및 장식 이미지 리소스 목록">
-      <template #toolbar-tools>
-        <GridIconButton
-          icon="vxe-icon-add"
-          title="신규 장식 등록"
-          @click="openUpload"
-        />
-      </template>
+    <Grid >
+    
 
-      <!--
-        바탕의 격자무늬는 투명 PNG 의 투명한 부분을 알아보게 하려는 것이다.
-        `fit="cover"` — 칸을 꽉 채운다. 비율은 그대로고 넘치는 가장자리만 잘린다.
-      -->
       <template #preview="{ row }">
         <div class="size-full bg-[url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%228%22 height=%228%22 viewBox=%220 0 8 8%22><rect width=%224%22 height=%224%22 fill=%22%23ccc%22/><rect x=%224%22 y=%224%22 width=%224%22 height=%224%22 fill=%22%23ccc%22/></svg>')] bg-white overflow-hidden">
           <ImagePreview

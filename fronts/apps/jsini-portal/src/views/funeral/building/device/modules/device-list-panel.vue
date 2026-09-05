@@ -1,6 +1,5 @@
 <script lang="ts" setup>
 import { Badge, Button, Popconfirm, Tooltip } from 'ant-design-vue';
-import GridIconButton from '#/components/GridIconButton.vue';
 import { IconifyIcon } from '@vben/icons';
 import BizSelect from '#/components/BizSelect.vue';
 import type { BuildingApi } from '#/api/funeral/building';
@@ -11,7 +10,6 @@ const props = defineProps<{
   selectedBuildingId: string;
   selectedFloorId: string;
   selectedRoomId: string;
-  showConfigPanel: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -88,11 +86,6 @@ const emit = defineEmits<{
           />
         </div>
       </div>
-      <GridIconButton
-        icon="vxe-icon-add"
-        title="장비 등록"
-        @click="emit('create')"
-      />
     </div>
 
     <!-- 장비 목록 그리드 -->
@@ -106,7 +99,7 @@ const emit = defineEmits<{
 
         <template #action="{ row }">
           <div class="flex gap-1">
-            <Tooltip v-perm:update title="수정">
+            <Tooltip v-perm:update title="수정 (설정 · 속성 · 화면 구성 포함)">
               <Button type="link" size="small" @click.stop="emit('edit', row)">
                 <IconifyIcon icon="lucide:edit" class="size-4" />
               </Button>
@@ -126,8 +119,8 @@ const emit = defineEmits<{
           </div>
         </template>
       </component>
-      <div v-if="!showConfigPanel" class="mt-2 text-center text-xs text-muted-foreground">
-        장비를 클릭하면 오른쪽에 설정 패널이 표시됩니다.
+      <div class="mt-2 text-center text-xs text-muted-foreground">
+        행을 두 번 누르거나 [수정] 을 누르면 장비 설정 · 속성 · 화면 구성을 함께 다룰 수 있습니다.
       </div>
     </div>
   </div>

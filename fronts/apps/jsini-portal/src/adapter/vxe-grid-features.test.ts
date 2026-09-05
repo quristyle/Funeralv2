@@ -50,6 +50,122 @@ describe('화면이 filters 만 준 칸', () => {
   });
 });
 
+describe('보이는 컬럼 고르기 — 필터줄 칸은 목록에 없다', () => {
+  /** 컬럼 설정 창이 줄을 그릴지 정하는 함수와, 손질된 컬럼을 함께 얻는다. */
+  function customSetup() {
+    const { options } = createGridFeatures(
+      { gridOptions: { columns: [{ field: 'name', title: '이름' }] } } as any,
+      () => undefined,
+      () => undefined,
+    );
+    const gridOptions = (options as any).gridOptions;
+    const group = gridOptions.columns.find((c: any) => c.children);
+    return {
+      group,
+      leaf: group.children[0],
+      seq: gridOptions.columns.find((c: any) => c.type === 'seq'),
+      visibleMethod: gridOptions.customConfig.visibleMethod,
+    };
+  }
+
+  it('이름줄 칸은 목록에 나오고 필터줄 칸은 빠진다', () => {
+    const { group, leaf, seq, visibleMethod } = customSetup();
+
+    expect(visibleMethod({ column: group })).toBe(true);
+    expect(visibleMethod({ column: seq })).toBe(true);
+    // 이름이 빈 이 줄이 목록에 끼면 무엇을 끄는 것인지 알 수 없다.
+    expect(leaf.title).toBe('');
+    expect(visibleMethod({ column: leaf })).toBe(false);
+  });
+
+  it('화면이 적어 둔 customConfig 는 덮지 않는다', () => {
+    const mine = () => true;
+    const { options } = createGridFeatures(
+      {
+        gridOptions: {
+          columns: [{ field: 'name', title: '이름' }],
+          customConfig: { visibleMethod: mine },
+        },
+      } as any,
+      () => undefined,
+      () => undefined,
+    );
+
+    expect((options as any).gridOptions.customConfig.visibleMethod).toBe(mine);
+  });
+});
+
+describe('필터줄 펴기 · 접기', () => {
+  /** 도구줄을 그려 단추 목록을 얻는다. `renderTools` 를 다시 부르면 다시 그린다. */
+  function tools(gridFeatures: any = {}) {
+    const grid = { clearFilter: vi.fn(), recalculate: vi.fn(), updateData: vi.fn() };
+    const { filtersVisible, renderTools } = createGridFeatures(
+      {
+        gridOptions: {
+          columns: [{ field: 'name', title: 'name' }],
+          gridFeatures,
+        },
+      } as any,
+      () => grid,
+      () => undefined,
+    );
+    const titles = () =>
+      ((renderTools as any)('bottom').children as any[]).map(
+        (n: any) => n?.props?.title,
+      );
+    const click = (title: string) =>
+      ((renderTools as any)('bottom').children as any[])
+        .find((n: any) => n?.props?.title === title)
+        ?.props?.onClick();
+    return { click, filtersVisible, grid, titles };
+  }
+
+  it('기본은 접혀 있다 — 펴는 단추만 있고 초기화는 없다', () => {
+    const { filtersVisible, titles } = tools();
+
+    expect(filtersVisible?.value).toBe(false);
+    expect(titles()).toContain('common.showFilter');
+    expect(titles()).not.toContain('common.resetFilter');
+    expect(titles()).not.toContain('common.hideFilter');
+  });
+
+  it('펴면 초기화가 함께 나오고, 접는 단추로 바뀐다', () => {
+    const { click, filtersVisible, titles } = tools();
+
+    click('common.showFilter');
+
+    expect(filtersVisible?.value).toBe(true);
+    // '필터 초기화' 다음이 '필터 사용 안 함' — 두 아이콘은 붙어 있다.
+    const shown = titles();
+    expect(shown).toContain('common.resetFilter');
+    expect(shown.indexOf('common.hideFilter')).toBe(
+      shown.indexOf('common.resetFilter') + 1,
+    );
+  });
+
+  it('접을 때 걸려 있던 값을 비운다 — 안 보이는 필터가 자료를 거르면 안 된다', () => {
+    const { click, grid } = tools();
+
+    click('common.showFilter');
+    click('common.hideFilter');
+
+    expect(grid.clearFilter).toHaveBeenCalled();
+  });
+
+  it('화면이 filterVisible 을 주면 펴진 채로 연다', () => {
+    const { filtersVisible, titles } = tools({ filterVisible: true });
+
+    expect(filtersVisible?.value).toBe(true);
+    expect(titles()).toContain('common.hideFilter');
+  });
+
+  it('도구줄이 없는 그리드는 펴 둔다 — 접으면 다시 펼 길이 없다', () => {
+    const { filtersVisible } = tools({ tools: false });
+
+    expect(filtersVisible?.value).toBe(true);
+  });
+});
+
 describe('엑셀 내보내기 — 필터줄', () => {
   /** 내보내기 아이콘을 눌러 vxe 에 넘어가는 설정을 잡아낸다. */
   function exportOptions() {

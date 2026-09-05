@@ -8,11 +8,41 @@
  */
 import type { BizOption } from '#/api/biz-select';
 
-import { computed, ref, watch } from 'vue';
+import { computed, ref, useAttrs, watch } from 'vue';
+
+import { cn } from '@vben/utils';
 
 import { Select } from 'ant-design-vue';
 
 import { fetchBizOptions } from '#/api/biz-select';
+
+/**
+ * 속성을 **직접** 넘긴다 (`inheritAttrs: false`).
+ *
+ * 예전에는 `v-bind="$attrs"` 와 자동 상속이 겹쳐 클래스가 두 번 붙었고
+ * (`w-64 w-full w-64`), 거기에 인라인 `style="width:100%"` 까지 있어서
+ * **화면이 준 폭이 통째로 죽었다.** `class="w-64"` 를 넘기는 자리가 11곳인데
+ * 한 곳도 먹지 않았다.
+ *
+ * 폭이 죽으면 셀렉트가 '부모의 100%' 가 되고, 부모(내용에 맞춰 크는 flex 상자)는
+ * 백분율을 크기 계산에서 `auto` 로 보므로 줄이 좁게 잡힌다. 그러면 옆의 글자
+ * 라벨이 min-content(한글은 **한 글자**)까지 눌려 **세로로 눕는다.**
+ */
+defineOptions({ inheritAttrs: false });
+
+const attrs = useAttrs();
+
+/**
+ * 뿌리에 붙일 클래스. `cn` 은 tailwind-merge 라 **화면이 준 `w-*` 가 기본값
+ * `w-full` 을 밀어낸다** — 같은 갈래의 유틸리티는 뒤엣것만 남는다.
+ */
+const rootClass = computed(() => cn('jsini-bizselect w-full', attrs.class as any));
+
+/** 클래스는 위에서 합쳤으므로 나머지만 넘긴다(스타일·이벤트·antd 속성). */
+const restAttrs = computed(() => {
+  const { class: _class, ...rest } = attrs as Record<string, any>;
+  return rest;
+});
 
 interface Props {
   type: string;
@@ -138,27 +168,37 @@ defineExpose({ reload: () => loadOptions(), items, options });
 
 <template>
   <Select
+    :class="rootClass"
     :loading="loading"
     :options="options"
     :value="selectValue"
-    v-bind="$attrs"
-    class="w-full"
-    style="min-width: 100px; width: 100%; max-width: 100%"
+    v-bind="restAttrs"
     @change="onChange"
   />
 </template>
 
 <style scoped>
-/* BizSelect 컴포넌트의 가로 찌그러짐 방지를 위해 최소 너비 100px 강제 적용 */
-:deep(.ant-select) {
+/*
+  가로로 찌그러지는 것을 막는 최소 너비.
+
+  **뿌리 자신을 가리킨다**(`:deep` 이 아니다). 예전에는 `:deep(.ant-select)` 라
+  적혀 있었는데 그것은 `[data-v-x] .ant-select` 로 풀려 **자손**을 찾는다.
+  antd 셀렉트 안에 또 다른 `.ant-select` 는 없으므로 이 규칙들은 한 번도
+  적용된 적이 없다 — 실제로 듣던 것은 인라인 `style` 이었다.
+  (그래서 아래 모바일 해제도 여태 안 먹었다. 이제 먹는다.)
+
+  폭(`width`)은 여기서 정하지 않는다. 그것은 클래스가 맡는다 —
+  기본 `w-full`, 화면이 `w-64` 등을 주면 그것이 이긴다(`rootClass`).
+*/
+.jsini-bizselect {
+  min-width: 100px;
   max-width: 100%;
-  min-width: 100px !important;
 }
 
 /* 모바일에서는 최소 너비를 풀어 화면 폭 안에서 줄어들 수 있게 한다 */
 @media (max-width: 767px) {
-  :deep(.ant-select) {
-    min-width: 0 !important;
+  .jsini-bizselect {
+    min-width: 0;
   }
 }
 </style>

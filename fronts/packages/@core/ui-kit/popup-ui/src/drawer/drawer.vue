@@ -173,12 +173,52 @@ watch(
     if (value && !unref(hasOpened)) {
       hasOpened.value = true;
     }
+    // 닫는 애니메이션이 끝나며 오는 `@closed` 를 못 받는 경로가 있어
+    // (뒤로가기로 닫을 때 등) 상태 변화에서도 한 번 더 걷는다. 아래 참고.
+    if (value === false) {
+      releaseStuckPointerEvents();
+    }
   },
   { immediate: true },
 );
+/**
+ * 닫힌 뒤에도 남는 `body { pointer-events: none }` 을 걷는다.
+ *
+ * 서랍은 모바일에서만 `<Sheet :modal="isMobile">` 이라 reka 가 body 에
+ * 이 스타일을 건다. 그런데 닫을 때 그 해제가 돌지 않는 경로가 있어
+ * **화면 전체가 눌리지 않는 상태로 굳는다** (2026-09-05 빈소현황 모바일에서 실측 —
+ * 서랍을 닫은 뒤 아무 곳도 클릭되지 않았다. `destroyOnClose` 를 켜도 남았다).
+ *
+ * 겹쳐 있는 팝업이 아직 있으면 건드리지 않는다 — 그때는 잠금이 유효하다.
+ * reka 가 스스로 해제한 경우에는 지울 것이 없어 아무 일도 일어나지 않는다.
+ *
+ * 오버레이와 스크롤 잠금은 `SheetOverlay` 가 따로 하고 있으므로(자체 `useScrollLock`)
+ * 여기서 스타일 하나를 걷어도 잠금 동작은 그대로다.
+ */
+function releaseStuckPointerEvents() {
+  if (typeof document === 'undefined') {
+    return;
+  }
+  // 닫기 직후에는 `data-state` 가 아직 `open` 인 프레임이 있고, `destroyOnClose` 면
+  // 내용이 곧바로 사라져 애니메이션 끝(`@closed`)이 오지 않기도 한다. 그래서
+  // 한 번만 보지 않고 닫힘 애니메이션이 끝날 만한 시점까지 몇 번 더 확인한다.
+  const attempt = () => {
+    const stillOpen = document.querySelector(
+      '[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]',
+    );
+    if (!stillOpen && document.body.style.pointerEvents === 'none') {
+      document.body.style.removeProperty('pointer-events');
+    }
+  };
+  requestAnimationFrame(attempt);
+  setTimeout(attempt, 200);
+  setTimeout(attempt, 500);
+}
+
 function handleClosed() {
   isClosed.value = true;
   props.drawerApi?.onClosed();
+  releaseStuckPointerEvents();
 }
 const getForceMount = computed(() => {
   return !unref(destroyOnClose) && unref(hasOpened);

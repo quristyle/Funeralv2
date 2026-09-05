@@ -3,7 +3,6 @@ import { computed, ref } from 'vue';
 import { Page } from '@vben/common-ui';
 import { IconifyIcon} from '@vben/icons';
 import { Button, message, Popconfirm, Modal, Tag, Tooltip } from 'ant-design-vue';
-import GridIconButton from '#/components/GridIconButton.vue';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { getMediaSources, deleteMediaSource, retryThumbnail, retryWebm } from '#/api/funeral/building';
 import ImagePreview from '#/components/ImagePreview.vue';
@@ -76,6 +75,9 @@ const [Grid, gridApi] = useVbenVxeGrid({
         slots: { default: 'action' }
       }
     ],
+    // 아래 도구줄의 [추가] 가 비디오 등록을 맡는다 — 위쪽에 있던 아이콘을 여기로 옮겼다.
+    // (`gridFeatures` 는 vxe 타입에 없다. 공통 레이어가 읽고 떼어 낸다.)
+    gridFeatures: { onCreate: () => openUpload() },
     height: 'auto',
     /**
      * 썸네일을 칸에 꽉 채우므로 줄 높이가 곧 이미지 높이다.
@@ -213,20 +215,9 @@ function formatDate(dateStr?: string) {
 
 <template>
   <Page auto-content-height>
-    <Grid table-title="DID 화면 재생용 동영상 소스 목록">
-      <template #toolbar-tools>
-        <GridIconButton
-          icon="vxe-icon-add"
-          title="신규 비디오 등록"
-          @click="openUpload"
-        />
-      </template>
+    <Grid >
 
       <!-- 썸네일 컬럼 슬롯 렌더러 -->
-      <!--
-        `fit="cover"` — 칸을 꽉 채운다. 비율은 그대로고 넘치는 가장자리만 잘린다.
-        바탕의 격자무늬는 투명한 부분을 알아보게 하려는 것이다.
-      -->
       <template #thumbnail="{ row }">
         <div class="size-full bg-[url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%228%22 height=%228%22 viewBox=%220 0 8 8%22><rect width=%224%22 height=%224%22 fill=%22%23ccc%22/><rect x=%224%22 y=%224%22 width=%224%22 height=%224%22 fill=%22%23ccc%22/></svg>')] bg-white overflow-hidden">
           <ImagePreview

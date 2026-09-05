@@ -48,6 +48,8 @@ export namespace BuildingApi {
     macAddress?: string;
     publicIpAddress?: string;
     status: 'ONLINE' | 'OFFLINE' | 'UNKNOWN';
+    /** 장비가 마지막으로 SignalR 에 붙은 시각 */
+    lastSeenAt?: string;
     sortOrder: number;
     companyId?: string;
     buildingId?: string;

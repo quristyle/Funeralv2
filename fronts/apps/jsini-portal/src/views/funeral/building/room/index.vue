@@ -179,7 +179,8 @@ async function handleSave() {
 <template>
   <Page auto-content-height content-class="page-fill-last">
     <!-- ── 상단 필터 바 ─────────────────────────────────────────── -->
-    <div class="mb-4 flex flex-wrap items-center justify-between gap-4 bg-card p-4 rounded-lg shadow-sm border border-border">
+    <!-- `jsini-searchbar` — 조회부 라벨이 세로로 눕지 않게 한다 (styles/index.css) -->
+    <div class="jsini-searchbar mb-4 flex flex-wrap items-center justify-between gap-4 bg-card p-4 rounded-lg shadow-sm border border-border">
       <div class="flex flex-wrap items-center gap-4">
         <!-- 회사 선택 -->
         <div class="flex items-center gap-2">
@@ -227,13 +228,6 @@ async function handleSave() {
         </div>
       </div>
 
-      <!-- 신규 등록 버튼 -->
-      <GridIconButton
-        v-perm:create
-        icon="vxe-icon-add"
-        title="신규 호실 등록"
-        @click="onCreate"
-      />
     </div>
 
     <!-- ── 그리드 ───────────────────────────────────────────────── -->

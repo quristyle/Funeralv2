@@ -150,9 +150,10 @@ const [Grid, gridApi] = useVbenVxeGrid({
       remote: false,
     },
     proxyConfig: {
-      response: {
-        list: (res: any) => res,
-      },
+      // 응답에서 행을 꺼내는 규칙은 **전역이 이미 갖고 있다**(`adapter/vxe-table.ts`).
+      // 여기서 `response.list` 를 덮어써 두었더니, 페이저를 끄자 표가 비었다 —
+      // 그 함수는 응답이 아니라 vxe 가 감싼 `{ data, $table, $grid }` 를 받는다.
+      // 전역의 것은 두 모양을 다 받으므로 화면이 적을 것이 없다.
       ajax: {
         query: async () => {
           const accounts = (await getAccounts()) ?? [];

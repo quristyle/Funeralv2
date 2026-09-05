@@ -17,6 +17,8 @@ const emit = defineEmits<{
 const formModel = ref<Partial<BuildingApi.Device>>({});
 const isSaving = ref(false);
 const debounceTimer = ref<NodeJS.Timeout | null>(null);
+/** 서버에서 받아 채운 마지막 모양. 이것과 같으면 사람이 고친 것이 아니다. */
+const syncedSnapshot = ref('');
 
 // Props로 받은 device 데이터가 변경될 때마다 formModel을 동기화합니다.
 watch(
@@ -24,6 +26,12 @@ watch(
   (newDevice) => {
     if (newDevice) {
       formModel.value = { ...newDevice };
+      syncedSnapshot.value = JSON.stringify(formModel.value);
+      // 다른 장비로 넘어갔다면 앞 장비를 위해 예약된 자동 저장은 버린다.
+      if (debounceTimer.value) {
+        clearTimeout(debounceTimer.value);
+        debounceTimer.value = null;
+      }
     }
   },
   { immediate: true, deep: true },
@@ -37,6 +45,10 @@ watch(
     if (newValue === oldValue || oldValue === '{}') {
       return;
     }
+    // 저장 뒤 서버에서 되돌아온 값이면 다시 저장하지 않는다(무한 왕복 방지).
+    if (newValue === syncedSnapshot.value) {
+      return;
+    }
 
     // 기존 디바운스 타이머가 있다면 취소
     if (debounceTimer.value) {
@@ -47,7 +59,7 @@ watch(
     debounceTimer.value = setTimeout(() => {
       // 수동 저장 버튼이 이미 로딩 중이면 자동 저장 실행 안 함
       if (!isSaving.value) {
-        handleSave();
+        handleSave(true);
       }
     }, 1500);
   },
@@ -55,9 +67,21 @@ watch(
 
 /**
  * 장비 정보 저장 처리
+ *
+ * 목록의 수정 아이콘이 이 탭으로 오게 되면서 여기가 장비 정보를 고치는 유일한 자리다.
+ * 회사를 바꾸면 건물 · 층 · 호실이 한 번 비므로, 그 순간 자동 저장이 나가면
+ * 소속이 지워진 채로 저장된다. 필수 값이 채워졌을 때만 보낸다.
+ *
+ * @param auto 자동 저장(타이핑 멈춤)이면 true. 손으로 누른 것이면 왜 안 나갔는지 알려 준다.
  */
-async function handleSave() {
+async function handleSave(auto = false) {
   if (!formModel.value.id) return;
+  if (!formModel.value.name || !formModel.value.buildingId) {
+    if (!auto) {
+      message.warning({ content: '장비명과 건물은 비워 둘 수 없습니다.', key: 'device-save' });
+    }
+    return;
+  }
   isSaving.value = true;
   try {
     const dataToSend = {
@@ -65,10 +89,12 @@ async function handleSave() {
       code: formModel.value.code || '',
     };
     await updateDevice(formModel.value.id, dataToSend);
-    message.success('장비 정보가 수정되었습니다.');
-    //emit('saved');
+    // 자동 저장이라 타이핑 중에도 뜬다. 같은 key 를 써서 알림이 쌓이지 않게 한다.
+    message.success({ content: '장비 정보가 수정되었습니다.', key: 'device-save' });
+    // 목록의 그 행과 패널 머리말을 최신 정보로 맞춘다(목록 재조회는 하지 않는다).
+    emit('saved');
   } catch {
-    message.error('저장 실패');
+    message.error({ content: '저장 실패', key: 'device-save' });
   } finally {
     isSaving.value = false;
   }
@@ -169,7 +195,8 @@ async function handleSave() {
     </div>
     <!-- 저장 버튼 -->
     <div class="flex shrink-0 justify-end gap-2 border-t border-border bg-muted/40 px-4 py-2">
-      <Button v-perm:update type="primary" :loading="isSaving" @click="handleSave">정보 저장</Button>
+      <!-- `handleSave()` 로 부른다 — 함수만 넘기면 MouseEvent 가 `auto` 자리에 들어간다. -->
+      <Button v-perm:update type="primary" :loading="isSaving" @click="handleSave()">정보 저장</Button>
     </div>
   </div>
 </template>

@@ -204,7 +204,59 @@ async function loadVxeTableLocale(lang: SupportedLanguagesType) {
   if (locale && locale.default) {
     i18n.global.mergeLocaleMessage(lang, locale.default);
   }
+  if (lang === 'ko') {
+    i18n.global.mergeLocaleMessage(lang, VXE_KO_PATCH);
+  }
 }
+
+/**
+ * vxe 한국어 팩에 **중국어로 남아 있는 것**을 영어로 덮는다.
+ *
+ * vxe 의 `ko-KR` 은 번역이 덜 된 팩이다. 우리말로 옮겨진 것과 영어로 남은 것
+ * (`Title` · `Width (pixels)` · `Freeze`)이 섞여 있고, 그 사이에 **중국어가
+ * 그대로 남은 자리**가 있다 — 열 설정 창의 '对齐方式' 이 그것이다.
+ *
+ * 여기 적은 값은 전부 vxe 의 `en-US` 팩에 있는 그대로다. 우리말로 새로 옮기지
+ * 않은 이유: 같은 창의 이웃 항목(`Title` · `Width (pixels)` · `Freeze`)이 이미
+ * 영어라, 한 칸만 우리말이면 오히려 더 튄다. 창 전체를 우리말로 옮기는 것은
+ * 이 수정의 목적이 아니다.
+ *
+ * **팩을 덮어쓰는 것이지 우리 사전(`langs/`)에 넣는 것이 아니다.** 이 키들은
+ * vxe 것이므로 vxe 팩을 올린 **바로 뒤에** 얹어야 순서가 분명하다.
+ * (DB 다국어가 나중에 또 덮을 수 있다 — 운영에서 문구를 바꾸는 통로다.)
+ *
+ * vxe 를 올릴 때 이 목록을 다시 본다. 팩이 채워졌으면 그만큼 지운다.
+ * 확인은 이렇게 한다 (중국어가 남아 있으면 찍힌다).
+ * ```bash
+ * node -e "const s=require('fs').readFileSync(require.resolve('vxe-table/es/locale/lang/ko-KR'),'utf8'); console.log(s.match(/'[^']*[一-鿿][^']*'/g))"
+ * ```
+ */
+const VXE_KO_PATCH = {
+  vxe: {
+    custom: {
+      setting: {
+        alignCenter: 'Center',
+        alignLeft: 'Left',
+        alignRight: 'Right',
+        anCenterTitle: 'Align center',
+        anLeftTitle: 'Align left',
+        anRightTitle: 'Align right',
+        colAlign: 'Align',
+        colFootAlign: 'Footer align',
+        colHeadAlign: 'Header align',
+        moveDn: 'Down',
+        moveDnTitle: 'Click to move downward',
+        moveUp: 'Up',
+        moveUpTitle: 'Click to move upwards',
+        putBottom: 'Bottom',
+        putBottomTitle: 'Click to end',
+        putTop: 'Top',
+        putTopTitle: 'Click to start',
+        sortHelpTip: 'Click on the icon and then start dragging.',
+      },
+    },
+  },
+};
 
 /**
  * antd 언어 팩 로드

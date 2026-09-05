@@ -1099,12 +1099,13 @@ function startResize(e: MouseEvent) {
       </template>
 
       <!--
-        모바일에서 헤더를 숨기면(환경설정 '헤더 표시' 끔) 로고도 함께 사라져
-        사이드바를 열 방법이 없다. 왼쪽 하단 고정 버튼이 유일한 손잡이가 된다
-        (지시, 2026-09-04).
+        모바일에서는 항상 왼쪽 하단에 사이드바 여는 단추를 띄운다 (지시, 2026-09-05).
+        처음에는 '헤더 표시' 를 끈 경우에만 띄웠는데(헤더가 있으면 로고가 같은 일을
+        하니 겹친다고 봤다) 기본값이 헤더 켜짐이라 사실상 아무에게도 안 보였다.
+        헤더가 켜져 있어도 손이 닿는 아래쪽 손잡이가 따로 있는 편이 낫다.
       -->
       <button
-        v-if="preferences.app.isMobile && !preferences.header.enable"
+        v-if="preferences.app.isMobile"
         :aria-label="$t('preferences.sidebar.title')"
         class="bg-primary text-primary-foreground fixed bottom-4 left-4 z-100 flex size-11 items-center justify-center rounded-full shadow-lg"
         type="button"

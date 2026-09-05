@@ -781,10 +781,12 @@ public class DeceasedService : IDeceasedService
 
 
         // DeceasedRooms 이력 테이블을 기준으로 현재 호실에 배정된 고인을 찾습니다.
-        // 점유 판정은 현황 화면과 같은 기준이다 — 배정이 살아 있고(EndTime 없음) 장례 진행중 (47번 문서 0단계).
+        // 점유 판정은 현황 화면과 같은 기준이다 — 배정이 살아 있고(`RoomOccupancy`) 장례 진행중.
+        var occupancyNow = DateTime.UtcNow;
         var deceasedId = await (from dr in _context.DeceasedRooms
                                 join d in _context.Deceaseds on dr.DeceasedId equals d.Id
-                                where dr.RoomId == device.RoomId && !dr.IsDeleted && dr.EndTime == null
+                                where dr.RoomId == device.RoomId && !dr.IsDeleted
+                                      && (dr.EndTime == null || dr.EndTime > occupancyNow)
                                       && !d.IsDeleted && d.Status == DeceasedStatus.InProgress
                                 orderby dr.StartTime descending
                                 select d.Id).FirstOrDefaultAsync();
@@ -964,12 +966,15 @@ public class DeceasedService : IDeceasedService
         var result = new List<EntranceGuideRoomDto>();
 
         // 3. 각 호실별로 현재 배정된 고인 정보 조회
+        var occupancyNow = DateTime.UtcNow;
         foreach (var room in rooms)
         {
             var deceasedId = await (from dr in _context.DeceasedRooms
                                     join d in _context.Deceaseds on dr.DeceasedId equals d.Id
-                                    // 점유 판정은 현황 화면과 같은 기준 — 배정이 살아 있고(EndTime 없음) 장례 진행중 (47번 문서 0단계)
-                                    where dr.RoomId == room.Id && !dr.IsDeleted && dr.EndTime == null && !d.IsDeleted && d.Status == DeceasedStatus.InProgress
+                                    // 점유 판정은 현황 화면과 같은 기준 — 배정이 살아 있고(`RoomOccupancy`) 장례 진행중
+                                    where dr.RoomId == room.Id && !dr.IsDeleted
+                                          && (dr.EndTime == null || dr.EndTime > occupancyNow)
+                                          && !d.IsDeleted && d.Status == DeceasedStatus.InProgress
                                     orderby dr.StartTime descending
                                     select d.Id).FirstOrDefaultAsync();
 
@@ -1084,12 +1089,15 @@ public class DeceasedService : IDeceasedService
         var roomList = new List<EntranceGuideRoomDto>();
 
         // 5. 각 호실별로 현재 배정된 고인 정보 조회 및 DTO 매핑
+        var occupancyNow = DateTime.UtcNow;
         foreach (var room in rooms)
         {
             var deceasedId = await (from dr in _context.DeceasedRooms
                                     join d in _context.Deceaseds on dr.DeceasedId equals d.Id
-                                    // 점유 판정은 현황 화면과 같은 기준 — 배정이 살아 있고(EndTime 없음) 장례 진행중 (47번 문서 0단계)
-                                    where dr.RoomId == room.Id && !dr.IsDeleted && dr.EndTime == null && !d.IsDeleted && d.Status == DeceasedStatus.InProgress
+                                    // 점유 판정은 현황 화면과 같은 기준 — 배정이 살아 있고(`RoomOccupancy`) 장례 진행중
+                                    where dr.RoomId == room.Id && !dr.IsDeleted
+                                          && (dr.EndTime == null || dr.EndTime > occupancyNow)
+                                          && !d.IsDeleted && d.Status == DeceasedStatus.InProgress
                                     orderby dr.StartTime descending
                                     select d.Id).FirstOrDefaultAsync();
 
@@ -1290,9 +1298,12 @@ public class DeceasedService : IDeceasedService
             throw new InvalidOperationException($"사용 중지된 호실입니다: {room.Name}");
         }
 
+        // 점유 판정은 `RoomOccupancy` — 종료 예정일이 적힌 배정도 아직 점유다.
+        var occupancyNow = DateTime.UtcNow;
         var occupant = await (from dr in _context.DeceasedRooms
                               join d in _context.Deceaseds on dr.DeceasedId equals d.Id
-                              where dr.RoomId == roomId && !dr.IsDeleted && dr.EndTime == null
+                              where dr.RoomId == roomId && !dr.IsDeleted
+                                    && (dr.EndTime == null || dr.EndTime > occupancyNow)
                                     && !d.IsDeleted && d.Status == DeceasedStatus.InProgress
                                     && (deceasedId == null || d.Id != deceasedId)
                               select d.Name).FirstOrDefaultAsync();
@@ -1331,11 +1342,13 @@ public class DeceasedService : IDeceasedService
         await EnsureRoomAssignableAsync(newRoomId, deceasedId);
 
         // 이전 활성 배정을 끝내고 새 배정을 연다 — 상태·인적 사항은 건드리지 않는다.
-        var actives = await _context.DeceasedRooms
-            .Where(dr => dr.DeceasedId == deceasedId && !dr.IsDeleted && dr.EndTime == null)
-            .ToListAsync();
-
+        // 판정은 `RoomOccupancy` 다. 종료 예정일만 적힌 배정을 못 찾으면 옛 호실이
+        // 정리되지 않은 채 새 배정이 열려 **한 고인이 두 호실을 물고 있게 된다.**
         var now = DateTime.UtcNow;
+        var actives = await _context.DeceasedRooms
+            .Where(dr => dr.DeceasedId == deceasedId && !dr.IsDeleted
+                         && (dr.EndTime == null || dr.EndTime > now))
+            .ToListAsync();
         var oldRoomIds = new List<string>();
         foreach (var assignment in actives)
         {

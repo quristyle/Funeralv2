@@ -61,6 +61,26 @@
  * 깔때기 아이콘은 전역 `filterConfig.showIcon: false` 로 감춘다(vxe-table.ts).
  *
  * ============================================================
+ * 필터줄은 **처음에 접혀 있다**
+ * ============================================================
+ *
+ * 기능은 모든 그리드에 붙지만, 줄이 처음부터 펼쳐져 있으면 머리글이 늘 두 줄이라
+ * 표 본문이 그만큼 깎인다(준수사항 4번 — 세로 스크롤 없이 한 화면). 거르는 일은
+ * 늘 하는 일이 아니므로 **필요할 때 펼치는 쪽**으로 뒤집었다.
+ *
+ * 펼치고 접는 것은 아래 도구줄의 깔때기 아이콘이다 — '필터 초기화' 바로 옆이다.
+ * 접을 때는 걸려 있던 값을 **함께 비운다.** 안 보이는 필터가 자료를 거르고 있으면
+ * 왜 행이 안 나오는지 알아낼 방법이 없다. 그래서 접힌 동안에는 '필터 초기화'
+ * 아이콘도 빼 둔다 — 눌러도 아무 일 없는 단추를 두지 않는다는 이 파일의 규칙이다.
+ *
+ * 감추는 방법은 **CSS 한 줄**이다(`styles/index.css` 의 `.jsini-nofilter`).
+ * 컬럼 묶음 자체는 그대로 둔다 — 접을 때마다 컬럼을 다시 만들면 폭·정렬·
+ * 보이는 컬럼 고르기 같은 상태가 매번 날아간다.
+ *
+ * **도구줄이 없는 그리드(`tools: false`)는 펼친 채로 둔다.** 접는 단추가 없으니
+ * 접어 두면 다시 펼 길이 없다.
+ *
+ * ============================================================
  * 화면에서 조절하는 법
  * ============================================================
  *
@@ -71,6 +91,7 @@
  * |---|---|
  * | `gridOptions.gridFeatures: { sort: false }` | 이 그리드는 정렬 안 함 |
  * | `gridOptions.gridFeatures: { filter: false }` | 이 그리드는 필터줄 없음 |
+ * | `gridOptions.gridFeatures: { filterVisible: true }` | 필터줄을 **펼친 채로** 연다 |
  * | 컬럼 `params: { sort: false }` | 이 칸만 정렬 제외 |
  * | 컬럼 `params: { filter: false }` | 이 칸만 필터 제외 |
  * | 컬럼 `params: { filterOptions: [{label,value}] }` | 입력칸 대신 **고르는 칸** |
@@ -86,7 +107,7 @@
  *     자체 머리글 필터를 걷어내고 이 공통 필터줄로 옮겼다)
  */
 
-import { h, ref, type Ref } from 'vue';
+import { h, nextTick, ref, type Ref } from 'vue';
 
 import { IconifyIcon } from '@vben/icons';
 
@@ -166,11 +187,50 @@ const NON_DATA_FIELDS = new Set([
 /** 글자를 칠 때 다시 거르기까지 쉬는 시간(ms). 매 글자마다 다시 세우면 입력이 끊긴다. */
 const TYPING_PAUSE = 250;
 
+/**
+ * '필터 사용 안 함' 아이콘 — **깔때기에 빗금**. 여기만 lucide 가 아니다.
+ *
+ * lucide 에는 `filter-off` · `funnel-off` 가 **없다**(2026-09-05, `@iconify/json`
+ * 2.2.519 확인). 없는 이름을 주면 `@iconify/vue` 가 빈 `<svg>` 만 그려서
+ * 자리는 차지하는데 아무것도 안 보인다 — 처음에 `lucide:filter-off` 라 적었다가
+ * 겪은 일이다. **다시 lucide 로 바꾸지 말 것.**
+ *
+ * 남은 후보 중 `funnel-x` 는 못 쓴다. 바로 왼쪽 '필터 초기화'(`filter-x`)와
+ * 그림이 거의 같아 둘을 가를 수 없다.
+ *
+ * tabler 를 고른 이유는 **그리는 규격이 lucide 와 같아서**다 — 24 격자 ·
+ * 선 두께 2 · 둥근 끝 · `currentColor`. 한 줄에 섞여도 굵기가 튀지 않는다.
+ * (아이콘은 이 앱 전체가 iconify 로 받아 온다. 새로 여는 통로가 아니다.)
+ */
+const FILTER_OFF_ICON = 'tabler:filter-off';
+
 /** 필터줄 칸에 붙는 표시. 정렬 화살표를 감추고 띠 모양을 주는 데 쓴다. */
 const FILTER_ROW_CLASS = 'jsini-filterrow';
 
 /** 이름줄 칸에 붙는 표시. 누를 수 있다는 손 모양을 준다. */
 const TITLE_ROW_CLASS = 'jsini-titlerow';
+
+/**
+ * 필터줄이 **접혀 있을 때** 그리드 뿌리에 붙는 표시.
+ *
+ * 이것 하나로 `styles/index.css` 가 필터줄(2행)을 감춘다. 붙이는 자리는
+ * `adapter/vxe-table.ts` 의 감싸개 — 그리드의 `gridClass` 로 넘긴다.
+ */
+export const FILTER_HIDDEN_CLASS = 'jsini-nofilter';
+
+/**
+ * 이 칸이 **필터줄(2행) 칸**인가.
+ *
+ * 필터줄 칸은 값 칸이 아니라 입력칸을 담으려고 우리가 만든 자리다. 이름이 없고
+ * (`title: ''`) 보이는 컬럼 고르기·엑셀 머리글 같은 "칸 목록" 에 끼면 안 된다.
+ * 판정 기준을 한 곳에 둔다 — 두 벌이 되면 한쪽만 고쳐지고 어긋난다.
+ */
+function isFilterRowColumn(column: any): boolean {
+  return (
+    typeof column?.headerClassName === 'string' &&
+    column.headerClassName.includes(FILTER_ROW_CLASS)
+  );
+}
 
 /**
  * 엑셀에서 **필터줄을 뺀다.**
@@ -196,17 +256,13 @@ function dropFilterHeaderRow(options: any) {
   const levels: any[][] = options?.colgroups;
   if (!Array.isArray(levels) || levels.length < 2) return;
 
-  const isFilterCell = (col: any) =>
-    typeof col?.headerClassName === 'string' &&
-    col.headerClassName.includes(FILTER_ROW_CLASS);
-
   /**
    * 필터줄은 늘 **맨 아래 층**이다. 그리고 그 층에는 필터줄 칸만 있다 —
    * 필터를 끈 칸(`params.filter: false`)은 묶이지 않아 위층에서 두 줄을
    * 걸치므로 이 층에 나타나지 않는다.
    */
   const last = levels.at(-1);
-  if (!last?.length || !last.every(isFilterCell)) return;
+  if (!last?.length || !last.every(isFilterRowColumn)) return;
 
   levels.pop();
 
@@ -391,6 +447,13 @@ export interface GridFeatureFlags {
   /** 필터 전용 행. 기본 `true` */
   filter?: boolean;
   /**
+   * 필터줄을 **펼친 채로** 열지. 기본 `false` — 접혀 있고, 도구줄의 깔때기로 편다.
+   *
+   * 도구줄이 없는 그리드(`tools: false`)는 접는 단추가 없으므로 이 값을 적지
+   * 않아도 펼친 채로 뜬다.
+   */
+  filterVisible?: boolean;
+  /**
    * 필터줄 값이 바뀐 뒤 불린다. `active` 는 걸린 필터가 하나라도 있는가.
    *
    * 필터줄은 `setFilter()` 로 거는 프로그램 방식이라 vxe 의 `filterChange`
@@ -432,7 +495,8 @@ export interface GridFeatureFlags {
   /** 컬럼 정렬. 기본 `true` */
   sort?: boolean;
   /**
-   * 아래 도구줄(보이는 컬럼 · 전체화면 · 엑셀 · 재조회 · 필터 초기화). 기본 `true`
+   * 아래 도구줄(보이는 컬럼 · 전체화면 · 엑셀 · 재조회 · 필터 초기화 · 필터 펴기).
+   * 기본 `true`
    */
   tools?: boolean;
   /**
@@ -829,7 +893,14 @@ function createHeaderRenderers(
 function createToolsRenderer(
   getGrid: () => any,
   getApi: () => any,
-  resetFilters: () => void,
+  filters: {
+    /** 지금 필터줄이 펴져 있는가. 렌더가 이 값을 읽으므로 바뀌면 아이콘이 바뀐다. */
+    visible: Ref<boolean>;
+    /** 필터줄에 든 값을 모두 비운다. */
+    reset: () => void;
+    /** 필터줄을 펴고 접는다. */
+    toggle: () => void;
+  },
   flags: Required<Pick<GridFeatureFlags, 'filter'>> & GridFeatureFlags,
   canQuery: boolean,
 ) {
@@ -937,9 +1008,26 @@ function createToolsRenderer(
     if (canQuery || flags.onRefresh) {
       buttons.push(button('lucide:refresh-cw', $t('common.refresh'), onRefresh));
     }
+    /**
+     * 필터 초기화 · 필터 펴기/접기 — 둘은 붙어 있다.
+     *
+     * 접혀 있는 동안 '초기화' 는 뺀다. 접을 때 값을 이미 비웠으므로 눌러도
+     * 아무 일이 없다(재조회 아이콘과 같은 규칙).
+     */
     if (flags.filter) {
+      if (filters.visible.value) {
+        buttons.push(
+          button('lucide:filter-x', $t('common.resetFilter'), filters.reset),
+        );
+      }
       buttons.push(
-        button('lucide:filter-x', $t('common.resetFilter'), resetFilters),
+        button(
+          filters.visible.value ? FILTER_OFF_ICON : 'lucide:filter',
+          filters.visible.value
+            ? $t('common.hideFilter')
+            : $t('common.showFilter'),
+          filters.toggle,
+        ),
       );
     }
 
@@ -1101,6 +1189,8 @@ export function createGridFeatures(
 
   const noop = {
     decorateColumns: withSeq,
+    /** 필터줄이 없는 길이다. 감싸개가 이 값을 보고 표시를 붙일 일도 없다. */
+    filtersVisible: null,
     options: gridOptions
       ? {
           ...options,
@@ -1119,6 +1209,27 @@ export function createGridFeatures(
   if (!flags.sort && !flags.filter && !flags.tools) return noop;
 
   const renderers = createHeaderRenderers(getGrid, flags);
+
+  /**
+   * 필터줄이 지금 펴져 있는가.
+   *
+   * 기본은 **접힘**이다. 다만 도구줄이 없으면 펼 단추가 없으므로 펴 둔다.
+   */
+  const filtersVisible = ref(flags.filterVisible ?? !flags.tools);
+
+  function toggleFilters() {
+    const next = !filtersVisible.value;
+    filtersVisible.value = next;
+
+    // 접을 때는 걸려 있던 값을 비운다 — 안 보이는 필터가 자료를 거르면 안 된다.
+    if (!next) renderers.resetFilters();
+
+    /**
+     * 머리글 높이가 한 줄만큼 바뀐다. vxe 는 그 높이를 **DOM 에서 재서** 본문
+     * 높이를 잡으므로, 다시 재라고 알려 주지 않으면 표 아래가 그만큼 비거나 잘린다.
+     */
+    nextTick(() => getGrid()?.recalculate?.(true));
+  }
 
   const decorateColumns = (columns: any) =>
     Array.isArray(columns)
@@ -1148,6 +1259,32 @@ export function createGridFeatures(
       ...gridOptions.toolbarConfig,
     };
   }
+  /**
+   * **보이는 컬럼 고르기 창에서 필터줄 칸을 뺀다.**
+   *
+   * vxe 의 컬럼 설정 창은 컬럼 나무를 통째로 훑으므로(`customColumnList`),
+   * 아무것도 안 하면 값 칸 하나가 목록에 **두 줄**로 나온다 — 이름을 가진
+   * 묶음(1행)과 이름이 빈 필터줄 칸(2행)이다. 빈 줄은 무엇을 끄는 것인지
+   * 알 수 없고, 그것만 따로 꺼 봐야 머리글에 이름칸만 남아 어그러진다.
+   *
+   * `visibleMethod` 는 **목록에 줄을 그릴지**를 정한다(vxe 가 두 방식
+   * — 모달 · 간단 팝업 — 에서 모두 본다). 필터줄 칸을 빼면 관리 대상은
+   * 이름 있는 칸 하나로 정리된다.
+   *
+   * **끄고 켜는 것은 저절로 따라온다.** vxe 는 칸 하나를 껐다 켤 때
+   * `eachTree([column], …)` 로 **자손까지** `visible` 을 함께 바꾼다
+   * (`changeCheckboxOption`). 목록에서 뺀 것이지 나무에서 뺀 것이 아니므로
+   * 필터줄은 늘 제 이름칸을 따라 사라지고 나타난다.
+   *
+   * 화면이 일부러 적어 둔 `customConfig` 는 덮지 않는다(도구줄과 같은 규칙).
+   */
+  if (flags.filter) {
+    nextGridOptions.customConfig = {
+      visibleMethod: ({ column }: any) => !isFilterRowColumn(column),
+      ...gridOptions.customConfig,
+    };
+  }
+
   if (Array.isArray(nextGridOptions.columns)) {
     nextGridOptions.columns = decorateColumns(nextGridOptions.columns);
   }
@@ -1158,7 +1295,11 @@ export function createGridFeatures(
     renderTools = createToolsRenderer(
       getGrid,
       getApi,
-      renderers.resetFilters,
+      {
+        reset: renderers.resetFilters,
+        toggle: toggleFilters,
+        visible: filtersVisible,
+      },
       flags,
       // 조회 함수가 있어야 재조회를 부를 수 있다.
       Boolean(gridOptions.proxyConfig?.ajax?.query),
@@ -1184,6 +1325,7 @@ export function createGridFeatures(
 
   return {
     decorateColumns,
+    filtersVisible,
     options: { ...options, gridOptions: nextGridOptions },
     renderTools,
   };

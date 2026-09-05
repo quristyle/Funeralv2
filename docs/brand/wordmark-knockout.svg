@@ -1,9 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 30" width="120" height="30" role="img">
-  <title>JSINI 워드마크 녹아웃</title>
-  <desc>JSINI 대문자 워드마크. 트래킹 10 유닛, J 상단 45° 블레이드 컷</desc>
-    <path d="M16,6 L22,0 L22,30 L0,30 L0,24 L16,24 Z" fill="#FFFFFF"/>
-    <path d="M32,0 L54,0 L54,6 L38,6 L38,12 L54,12 L54,30 L32,30 L32,24 L48,24 L48,18 L32,18 Z" fill="#FFFFFF"/>
-    <path d="M64,0 L70,0 L70,30 L64,30 Z" fill="#FFFFFF"/>
-    <path d="M80,30 L80,0 L86,0 L98,20 L98,0 L104,0 L104,30 L98,30 L86,10 L86,30 Z" fill="#FFFFFF"/>
-    <path d="M114,0 L120,0 L120,30 L114,30 Z" fill="#FFFFFF"/>
-</svg>

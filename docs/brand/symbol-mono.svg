@@ -1,7 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120" role="img">
-  <title>JSINI 심볼 1색</title>
-  <desc>J 실루엣에 녹아웃 키라인을 둔 단색 심볼</desc>
-    <path d="M58,30 L102,30 L102,42 L70,42 L70,54 L102,54 L102,90 L58,90 L58,78 L90,78 L90,66 L58,66 Z" fill="#0A0A0A"/>
-    <path d="M50,42 L62,30 L62,90 L18,90 L18,78 L50,78 Z" fill="none" stroke="#FFFFFF" stroke-width="4"/>
-    <path d="M50,42 L62,30 L62,90 L18,90 L18,78 L50,78 Z" fill="#0A0A0A"/>
-</svg>

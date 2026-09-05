@@ -137,10 +137,11 @@ async function handleSave() {
 
 <template>
   <Page auto-content-height content-class="page-fill-last">
-    <div class="mb-4 flex items-center justify-between bg-card p-4 rounded-lg shadow-sm border border-border">
+    <!-- `jsini-searchbar` — 조회부 라벨이 세로로 눕지 않게 한다 (styles/index.css) -->
+    <div class="jsini-searchbar mb-4 flex items-center justify-between bg-card p-4 rounded-lg shadow-sm border border-border">
       <div class="flex items-center gap-4">
         <div class="flex items-center gap-2">
-          <span class="font-semibold text-sm">회사 필터:</span>
+          <span class="font-semibold text-sm">회사</span>
           <BizSelect
             v-model:value="filterCompanyId"
             type="funeralCompany"
@@ -152,15 +153,10 @@ async function handleSave() {
           />
         </div>
       </div>
-      <GridIconButton
-        v-perm:create
-        icon="vxe-icon-add"
-        title="신규 건물 등록"
-        @click="onCreate"
-      />
+
     </div>
 
-    <Grid table-title="건물 정보 목록">
+    <Grid >
       <!--
         사진은 여러 장이라 가로로 늘어놓고 넘치면 그 안에서 스크롤한다.
         각 장은 줄 높이를 꽉 채우고(`height="100%"`), `fit="cover"` 라

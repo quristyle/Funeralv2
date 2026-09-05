@@ -2,13 +2,14 @@ import { ref, watch } from 'vue';
 import { useDebounceFn } from '@vueuse/core';
 import { message } from 'ant-design-vue';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import { getDevices, createDevice, updateDevice, deleteDevice } from '#/api/funeral/building';
+import { getDevices, deleteDevice } from '#/api/funeral/building';
 import type { BuildingApi } from '#/api/funeral/building';
 
 export function useDeviceGrid(
-  selectedDevice: ReturnType<typeof ref<BuildingApi.Device | null>>,
-  onRowClick: (row: BuildingApi.Device) => void,
-  onPanelClose: () => void,
+  /** 행을 두 번 누르거나 [수정] 을 눌렀을 때 — 수정 서랍을 연다. */
+  onEditRow: (row: BuildingApi.Device) => void,
+  /** 지운 장비가 서랍에 열려 있으면 닫게 알린다. */
+  onDeleted: (row: BuildingApi.Device) => void,
   /** 그리드 아래 도구줄의 [추가]. 목록 위쪽 아이콘과 같은 일을 한다. */
   onCreate?: () => void,
 ) {
@@ -97,15 +98,16 @@ export function useDeviceGrid(
             if (selectedFloorId.value) params.floorId = selectedFloorId.value;
             if (selectedRoomId.value) params.roomId = selectedRoomId.value;
 
-            selectedDevice.value = null;
             return await getDevices(params);
           },
         },
       },
     } as any,
     gridEvents: {
-      cellClick: ({ row }: { row: BuildingApi.Device }) => {
-        onRowClick(row);
+      // 한 번 누르면 그 행이 켜지기만 한다(vxe 의 `isCurrent`).
+      // 두 번 누르면 수정 서랍이 열린다 — [수정] 아이콘과 같은 자리로 간다.
+      cellDblclick: ({ row }: { row: BuildingApi.Device }) => {
+        onEditRow(row);
       },
     },
   });
@@ -125,9 +127,7 @@ export function useDeviceGrid(
     try {
       await deleteDevice(row.id);
       message.success('장비가 삭제되었습니다.');
-      if (selectedDevice.value?.id === row.id) {
-        onPanelClose();
-      }
+      onDeleted(row);
       gridApi.query();
     } catch {
       message.error('삭제 실패');
@@ -141,45 +141,22 @@ export function useDeviceGrid(
     }, 1000);
   }
 
-  async function handleSaveDevice(
-    formModel: {
-      id: string;
-      name: string;
-      shortName: string;
-      code: string;
-      deviceType: string;
-      ipAddress: string;
-      macAddress: string;
-      status: 'ONLINE' | 'OFFLINE' | 'UNKNOWN';
-      companyId: string;
-      buildingId: string;
-      floorId: string;
-      roomId: string;
-      sortOrder: number;
-    },
-    onSuccess: () => void,
-  ) {
-    try {
-      if (formModel.id) {
-        await updateDevice(formModel.id, formModel);
-        message.success('장비 정보가 수정되었습니다.');
-      } else {
-        await createDevice(formModel);
-        message.success('장비가 성공적으로 등록되었습니다.');
-      }
-      onSuccess();
-      gridApi.query();
-    } catch {
-      message.error('저장 실패');
-    }
-  }
-
-  function setCurrentRow(row: BuildingApi.Device) {
-    gridApi.grid?.setCurrentRow?.(row);
-  }
-
-  function clearCurrentRow() {
-    gridApi.grid?.clearCurrentRow?.();
+  /**
+   * 서랍에서 저장한 장비를 목록에서 그 행만 갈아 끼운다.
+   *
+   * [장비 관리] 탭은 타이핑이 멈출 때마다 스스로 저장하므로, 그때마다 목록 전체를
+   * 다시 부르면 서랍 뒤에서 표가 계속 깜박인다. 바뀐 한 줄만 손본다.
+   */
+  function replaceRow(device: BuildingApi.Device) {
+    const grid = gridApi.grid;
+    if (!grid) return;
+    const rows = (grid.getData?.() ?? []) as BuildingApi.Device[];
+    const target = rows.find((r) => r.id === device.id);
+    if (!target) return;
+    Object.assign(target, device);
+    // 바꾼 값을 그 행의 원본으로 삼는다(수정 표시 삼각형이 남지 않게).
+    grid.reloadRow?.(target, null);
+    grid.setCurrentRow?.(target);
   }
 
   return {
@@ -191,8 +168,6 @@ export function useDeviceGrid(
     gridApi,
     handleDelete,
     handleReboot,
-    handleSaveDevice,
-    setCurrentRow,
-    clearCurrentRow,
+    replaceRow,
   };
 }

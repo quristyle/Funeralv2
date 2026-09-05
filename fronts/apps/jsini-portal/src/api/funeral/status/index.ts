@@ -100,6 +100,14 @@ export namespace StatusApi {
     /** 발인 일시 범위 */
     burialStartDate?: string;
     burialEndDate?: string;
+    /**
+     * 응답의 자세함.
+     *
+     * `full`(기본)은 장비 목록·영정 사진·상주까지 붙인다 — 호실을 직접 조작하는
+     * 밀도(운영)가 쓴다. `summary` 는 감시·상황판 밀도용으로, 타일에 그리지 않는
+     * 칸을 빼고 보낸다. 시설 수십 곳을 60초마다 다시 받을 때 차이가 크다.
+     */
+    detail?: 'full' | 'summary';
   }
 }
 

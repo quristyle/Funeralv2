@@ -15,6 +15,8 @@
   "all": "전체",
   "exportExcel": "엑셀 내려받기",
   "resetFilter": "필터 초기화",
+  "showFilter": "필터 사용",
+  "hideFilter": "필터 사용 안 함",
   "chooseColumns": "보이는 컬럼 고르기",
   "seq": "순번",
   "addRow": "추가",

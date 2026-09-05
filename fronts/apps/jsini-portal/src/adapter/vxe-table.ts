@@ -18,7 +18,7 @@ import { Button, Image, Popconfirm, Switch, Tag } from 'ant-design-vue';
 
 import { $t, $te } from '#/locales';
 
-import { createGridFeatures } from './vxe-grid-features';
+import { createGridFeatures, FILTER_HIDDEN_CLASS } from './vxe-grid-features';
 
 /**
  * 조회 응답에서 행 목록을 꺼낸다.
@@ -119,17 +119,55 @@ setupVbenVxeTable({
         },
 
         /**
-         * 페이저는 **전역에서 건드리지 않는다.**
+         * 페이저는 **쓰지 않는 것이 기본**이다 (2026-09-05).
          *
-         * 한 번 `enabled: false` 로 못 박아 봤다가 전 화면이 비었다.
-         * vxe 는 페이저가 켜져 있으면 `result` · `page.total` 을 보고,
-         * 꺼져 있으면 응답 전체를 목록으로 본다 — 서로 다른 자리를 읽는다.
+         * ------------------------------------------------------------
+         * 왜 껐나
+         * ------------------------------------------------------------
          *
-         * **어느 쪽이든 배열과 봉투를 모두 받도록** 아래 `response` 에서 셋을
-         * 다 지정했다(`list` · `result` · `total`). 그래서 조회 함수가 무엇을
-         * 돌려주든 화면이 맞춰 줄 필요가 없다 — 예전에는 "봉투를 그대로 돌려주거나,
-         * 배열을 돌려주려면 페이저를 꺼라" 는 규칙을 화면마다 지켜야 했다.
+         * 우리 조회는 거의 다 **전량을 한 번에 받는다.** 그런데 vxe 는
+         * `proxyConfig` 와 페이저가 함께 켜져 있으면 받은 배열을 **그 쪽에 그릴
+         * 행 그대로** 쓰고 스스로 자르지 않는다. 그래서 켜 두면 쪽 번호가
+         * 생기는데 눌러도 같은 자료가 나오는 **장식 페이저**가 된다.
+         *
+         * 게다가 전역에 적지 않으면 꺼지지도 않았다 — vxe 자체 기본값이
+         * `grid.pagerConfig.enabled = true` 이고, 그것이 프리셋
+         * (`use-vxe-grid.vue` 의 `enabled: false`)보다 **앞서** 병합되기 때문이다.
+         * 화면 71곳 중 52곳이 `enabled: false` 를 손으로 적고 있었던 이유가 이것이다.
+         *
+         * ------------------------------------------------------------
+         * 예전에 껐다가 전 화면이 비었던 것은 이미 해결됐다
+         * ------------------------------------------------------------
+         *
+         * vxe 는 페이저가 켜져 있으면 `result` · `page.total` 을 보고, 꺼져 있으면
+         * 응답 전체를 목록으로 본다 — 서로 다른 자리를 읽는다. 그때는 그 차이를
+         * 화면이 맞춰야 했다.
+         *
+         * 지금은 아래 `response` 에 셋을 다 지정해 두어(`list` · `result` · `total`)
+         * **어느 쪽이든 배열과 봉투를 모두 받는다.** 그래서 이 값을 뒤집어도
+         * 조회 함수는 한 줄도 고칠 것이 없다.
+         *
+         * ------------------------------------------------------------
+         * 페이저가 필요한 화면은 켠다
+         * ------------------------------------------------------------
+         *
+         * 화면이 적은 값이 전역을 이긴다.
+         *
+         * ```ts
+         * gridOptions: { pagerConfig: { enabled: true, pageSize: 20 } }
+         * ```
+         *
+         * **켤 거면 서버가 쪽 단위로 잘라 줘야 한다.** `query({ page, sorts })` 를
+         * 받아 `{ page: { total }, result }` 를 돌려주는 형태다
+         * (`portal/system/push/logs.vue` 가 본이다 — 31,604건).
+         * 전량을 받으면서 켜면 위에 적은 장식 페이저가 된다.
+         *
+         * 이미 켜 둔 화면 넷은 그대로다 — 발송 이력 · 다국어 관리 ·
+         * 헬프데스크 요청 관리 · 기상 이벤트.
          */
+        pagerConfig: {
+          enabled: false,
+        },
 
         formConfig: {
           // vxe-table의 폼 설정을 전역적으로 비활성화하고 formOptions를 사용합니다.
@@ -497,6 +535,7 @@ export const useVbenVxeGrid = <T extends Record<string, any>>(
 
   const {
     decorateColumns,
+    filtersVisible,
     options: prepared,
     renderTools,
   } = createGridFeatures(
@@ -580,7 +619,29 @@ export const useVbenVxeGrid = <T extends Record<string, any>>(
           [renderTools('bottom'), slots.bottom?.(params)].filter(Boolean),
       };
 
-      return () => h(RawGrid, { ...attrs }, { ...slots, ...children });
+      /**
+       * 필터줄이 접혀 있으면 표시를 하나 붙인다 — 감추는 일은 CSS 가 한다
+       * (`styles/index.css` 의 `.jsini-nofilter`).
+       *
+       * `gridClass` 로 넘기는 이유: 그것이 vxe 그리드 뿌리에 그대로 붙는
+       * 유일한 통로다(`use-vxe-grid.vue` 의 `:class`). 화면이 이미 준 값은
+       * 배열로 함께 넘겨 살린다.
+       *
+       * 이 렌더가 `filtersVisible` 을 읽으므로, 도구줄에서 접고 펼 때
+       * 감싸개가 다시 그려지며 표시가 붙었다 떨어진다.
+       */
+      return () =>
+        h(
+          RawGrid,
+          {
+            ...attrs,
+            gridClass: [
+              (attrs as any).gridClass,
+              filtersVisible?.value === false ? FILTER_HIDDEN_CLASS : '',
+            ],
+          },
+          { ...slots, ...children },
+        );
     },
   });
 

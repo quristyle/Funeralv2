@@ -36,6 +36,7 @@ const [Grid, gridApi] = useVbenVxeGrid({
         slots: { default: 'action' }
       }
     ],
+    gridFeatures: { onCreate: () => openUpload() },
     height: 'auto',
     /**
      * 미리보기를 80px 폭으로 키웠으므로 줄도 그만큼 높여야 한다.
@@ -81,14 +82,8 @@ async function handleDelete(row: any) {
 
 <template>
   <Page auto-content-height>
-    <Grid table-title="장비 디스플레이용 배경 이미지 리소스 목록">
-      <template #toolbar-tools>
-        <GridIconButton
-          icon="vxe-icon-add"
-          title="신규 배경 등록"
-          @click="openUpload"
-        />
-      </template>
+    <Grid >
+
 
       <!-- 미리보기 슬롯 정의 -->
       <template #preview="{ row }">

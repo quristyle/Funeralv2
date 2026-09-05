@@ -84,72 +84,80 @@ export function useDeviceAttribute() {
     }
   }
 
-  /** 장비 속성 저장 (Upsert) */
-  async function handleAttrSave(deviceId: string) {
-    if (!deviceAttr.value) return;
+  /**
+   * 장비 속성 저장 (Upsert)
+   *
+   * `source` 를 주면 그것을 보낸다 — [화면 표시] 탭이 초안을 따로 들고 있어서다
+   * (49번 문서 D-DV5). 주지 않으면 지금 불러 둔 값을 그대로 보낸다.
+   *
+   * 저장은 곧바로 장비로 방송된다(`DeviceAttributeService`). 그래서 부르는 쪽이
+   * '언제 나갈지'를 정할 수 있어야 한다.
+   */
+  async function handleAttrSave(
+    deviceId: string,
+    source?: BuildingApi.DeviceAttribute,
+  ) {
+    const value = source ?? deviceAttr.value;
+    if (!value) return;
     attrSaving.value = true;
     try {
       const payload: Omit<BuildingApi.DeviceAttribute, 'id'> = {
         deviceId,
-        displayOrientation: deviceAttr.value.displayOrientation,
-        portraitOrientation: deviceAttr.value.portraitOrientation,
-        videoOrientation: deviceAttr.value.videoOrientation,
-        displayPaddingTop: deviceAttr.value.displayPaddingTop,
-        displayPaddingLeft: deviceAttr.value.displayPaddingLeft,
-        displayPaddingRight: deviceAttr.value.displayPaddingRight,
-        displayPaddingBottom: deviceAttr.value.displayPaddingBottom,
-        contentIntervalSec: deviceAttr.value.contentIntervalSec,
-        isScreensaverEnabled: deviceAttr.value.isScreensaverEnabled,
-        screensaverTimeoutSec: deviceAttr.value.screensaverTimeoutSec,
-        isMemorialPhotoEnabled: deviceAttr.value.isMemorialPhotoEnabled,
-        memorialPhotoEffect: deviceAttr.value.memorialPhotoEffect,
-        photoVerticalAlignment: deviceAttr.value.photoVerticalAlignment,
-        photoHorizontalAlignment: deviceAttr.value.photoHorizontalAlignment,
-        isDeceasedNameVisible: deviceAttr.value.isDeceasedNameVisible,
-        isFamilyContactVisible: deviceAttr.value.isFamilyContactVisible,
-        memorialPaddingTop: deviceAttr.value.memorialPaddingTop,
-        memorialPaddingLeft: deviceAttr.value.memorialPaddingLeft,
-        memorialPaddingRight: deviceAttr.value.memorialPaddingRight,
-        memorialPaddingBottom: deviceAttr.value.memorialPaddingBottom,
-        isVideoEnabled: deviceAttr.value.isVideoEnabled,
-        isMusicEnabled: deviceAttr.value.isMusicEnabled,
-        videoId: deviceAttr.value.videoId,
-        musicId: deviceAttr.value.musicId,
-        musicVolume: deviceAttr.value.musicVolume,
-        isMediaLoop: deviceAttr.value.isMediaLoop,
-        isMuted: deviceAttr.value.isMuted,
-        isBackgroundImageEnabled: deviceAttr.value.isBackgroundImageEnabled,
-        backgroundImageId: deviceAttr.value.backgroundImageId,
-        backgroundOrientation: deviceAttr.value.backgroundOrientation ?? 'HORIZONTAL',
-        isFloorGuideEnabled: deviceAttr.value.isFloorGuideEnabled,
-        isRoomAssignmentVisible: deviceAttr.value.isRoomAssignmentVisible,
-        isActiveRoomsOnly: deviceAttr.value.isActiveRoomsOnly,
-        floorGuideRefreshSec: deviceAttr.value.floorGuideRefreshSec,
-        isTouchEnabled: deviceAttr.value.isTouchEnabled,
-        isQrCodeVisible: deviceAttr.value.isQrCodeVisible,
-        isBuildingMapVisible: deviceAttr.value.isBuildingMapVisible,
-        entranceGreeting: deviceAttr.value.entranceGreeting,
-        isNoticeVisible: deviceAttr.value.isNoticeVisible,
-        noticeScrollSpeed: deviceAttr.value.noticeScrollSpeed,
-        isMemorialPhotoKeepAspectRatio: deviceAttr.value.isMemorialPhotoKeepAspectRatio,
-        remark: deviceAttr.value.remark,
+        displayOrientation: value.displayOrientation,
+        portraitOrientation: value.portraitOrientation,
+        videoOrientation: value.videoOrientation,
+        displayPaddingTop: value.displayPaddingTop,
+        displayPaddingLeft: value.displayPaddingLeft,
+        displayPaddingRight: value.displayPaddingRight,
+        displayPaddingBottom: value.displayPaddingBottom,
+        contentIntervalSec: value.contentIntervalSec,
+        isScreensaverEnabled: value.isScreensaverEnabled,
+        screensaverTimeoutSec: value.screensaverTimeoutSec,
+        isMemorialPhotoEnabled: value.isMemorialPhotoEnabled,
+        memorialPhotoEffect: value.memorialPhotoEffect,
+        photoVerticalAlignment: value.photoVerticalAlignment,
+        photoHorizontalAlignment: value.photoHorizontalAlignment,
+        isDeceasedNameVisible: value.isDeceasedNameVisible,
+        isFamilyContactVisible: value.isFamilyContactVisible,
+        memorialPaddingTop: value.memorialPaddingTop,
+        memorialPaddingLeft: value.memorialPaddingLeft,
+        memorialPaddingRight: value.memorialPaddingRight,
+        memorialPaddingBottom: value.memorialPaddingBottom,
+        isVideoEnabled: value.isVideoEnabled,
+        isMusicEnabled: value.isMusicEnabled,
+        videoId: value.videoId,
+        musicId: value.musicId,
+        musicVolume: value.musicVolume,
+        isMediaLoop: value.isMediaLoop,
+        isMuted: value.isMuted,
+        isBackgroundImageEnabled: value.isBackgroundImageEnabled,
+        backgroundImageId: value.backgroundImageId,
+        backgroundOrientation: value.backgroundOrientation ?? 'HORIZONTAL',
+        isFloorGuideEnabled: value.isFloorGuideEnabled,
+        isRoomAssignmentVisible: value.isRoomAssignmentVisible,
+        isActiveRoomsOnly: value.isActiveRoomsOnly,
+        floorGuideRefreshSec: value.floorGuideRefreshSec,
+        isTouchEnabled: value.isTouchEnabled,
+        isQrCodeVisible: value.isQrCodeVisible,
+        isBuildingMapVisible: value.isBuildingMapVisible,
+        entranceGreeting: value.entranceGreeting,
+        isNoticeVisible: value.isNoticeVisible,
+        noticeScrollSpeed: value.noticeScrollSpeed,
+        isMemorialPhotoKeepAspectRatio: value.isMemorialPhotoKeepAspectRatio,
+        remark: value.remark,
       };
       const result = await upsertDeviceAttribute(payload);
       const saved = (result as any)?.result?.[0] ?? (result as any)?.result ?? result;
       if (saved && typeof saved === 'object') {
         deviceAttr.value = saved as BuildingApi.DeviceAttribute;
       }
-      message.success('장비 속성이 저장되었습니다.');
+      // 저장이 곧 장비 반영이다. 「저장됐다」가 아니라 어디까지 갔는지 말한다.
+      message.success('장비에 적용했습니다.');
     } catch {
-      message.error('장비 속성 저장에 실패했습니다.');
+      message.error('적용에 실패했습니다.');
     } finally {
       attrSaving.value = false;
     }
-  }
-
-  /** 장비 속성 기본값으로 초기화 */
-  function handleAttrReset(deviceId: string) {
-    deviceAttr.value = { id: deviceAttr.value?.id ?? '', ...defaultAttr(deviceId) };
   }
 
   /** 속성 상태 초기화 */
@@ -163,7 +171,6 @@ export function useDeviceAttribute() {
     attrSaving,
     loadDeviceAttribute,
     handleAttrSave,
-    handleAttrReset,
     resetAttr,
   };
 }

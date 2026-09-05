@@ -147,7 +147,8 @@ async function handleSave() {
 
 <template>
   <Page auto-content-height content-class="page-fill-last">
-    <div class="mb-4 flex items-center justify-between bg-card p-4 rounded border">
+    <!-- `jsini-searchbar` — 조회부 라벨이 세로로 눕지 않게 한다 (styles/index.css) -->
+    <div class="jsini-searchbar mb-4 flex items-center justify-between bg-card p-4 rounded border">
       <div class="flex items-center gap-4">
         <div class="flex items-center gap-2">
           <span class="font-semibold text-sm">회사 필터:</span>

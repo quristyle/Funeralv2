@@ -54,6 +54,7 @@ const [Grid, gridApi] = useVbenVxeGrid({
         slots: { default: 'action' }
       }
     ],
+    gridFeatures: { onCreate: () => openUpload() },
     height: 'auto',
     /**
      * 커버를 칸에 꽉 채우므로 줄 높이가 곧 이미지 높이다.
@@ -190,21 +191,9 @@ function formatDate(dateStr?: string) {
 
 <template>
   <Page auto-content-height>
-    <Grid table-title="관내 방송 및 제례용 음원 리소스 목록">
-      <template #toolbar-tools>
-        <GridIconButton
-          icon="vxe-icon-add"
-          title="신규 음원 등록"
-          @click="openUpload"
-        />
-      </template>
+    <Grid >
 
-      <!--
-        `fit="cover"` — 칸을 꽉 채운다. 비율은 그대로고 넘치는 가장자리만 잘린다.
-        커버는 대개 정사각형이라 좌우가 조금 잘린다 — 여백을 두는 것보다
-        목록에서 알아보기 쉬운 쪽을 골랐다.
-        바탕의 격자무늬는 투명한 부분을 알아보게 하려는 것이다.
-      -->
+
       <template #thumbnail="{ row }">
         <div class="size-full bg-[url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%228%22 height=%228%22 viewBox=%220 0 8 8%22><rect width=%224%22 height=%224%22 fill=%22%23ccc%22/><rect x=%224%22 y=%224%22 width=%224%22 height=%224%22 fill=%22%23ccc%22/></svg>')] bg-white overflow-hidden">
           <ImagePreview

@@ -1,58 +1,31 @@
 <script lang="ts" setup>
-import { computed, onMounted, onUnmounted, ref } from 'vue';
+import { onMounted, onUnmounted, ref } from 'vue';
 import * as signalR from '@microsoft/signalr';
-import { ColPage } from '@vben/common-ui';
-import { IconifyIcon } from '@vben/icons';
+import { Page } from '@vben/common-ui';
 import type { BuildingApi } from '#/api/funeral/building';
 import { useDeviceGrid } from './composables/use-device-grid';
-import { useDeviceConfig } from './composables/use-device-config';
-import { useDeviceAttribute } from './composables/use-device-attribute';
-import { getDevice } from '#/api/funeral/building';
 import DeviceListPanel from './modules/device-list-panel.vue';
-import DeviceDetailPanel from './modules/device-detail-panel.vue';
 import DeviceFormDrawer from './modules/device-form-drawer.vue';
 
-// ─── 공통 상태 ──────────────────────────────────────────────────
-const selectedDevice = ref<BuildingApi.Device | null>(null);
-const activeTab = ref<string>('config');
-const showConfigPanel = computed(() => selectedDevice.value !== null);
+// ---------------------------------------------------------------------------
+// 장비 관리
+//
+// 예전에는 화면이 좌우로 갈려 왼쪽이 목록, 오른쪽이 상세 패널이었다. 둘 다 좁아서
+// 목록은 열이 잘리고 설정은 세로로 길어졌다. 상세 패널을 걷어내고 그 일을 전부
+// 서랍(`device-form-drawer.vue`)으로 옮겼다 — 목록은 화면 전체를 쓴다.
+// ---------------------------------------------------------------------------
 
-// ─── 모달 ref ───────────────────────────────────────────────────
 const deviceFormDrawerRef = ref<InstanceType<typeof DeviceFormDrawer> | null>(null);
 
-// ─── composables ──────────────────────────────────────────────
-const configComposable = useDeviceConfig();
-const attrComposable = useDeviceAttribute();
-
-function closePanel() {
-  selectedDevice.value = null;
-  configComposable.resetConfig();
-  attrComposable.resetAttr();
-  gridComposable.clearCurrentRow();
+/** 목록의 [수정] 아이콘 · 행 두 번 누르기 — 정보 · 설정 · 속성 · 화면 구성이 모두 서랍에 있다. */
+function openEditDrawer(row: BuildingApi.Device) {
+  deviceFormDrawerRef.value?.openEdit(row);
 }
 
-function onRowClick(row: BuildingApi.Device) {
-  if (selectedDevice.value?.id === row.id) return;
-  selectedDevice.value = row;
-  gridComposable.setCurrentRow(row);
-  configComposable.loadDeviceConfig(row.id);
-  attrComposable.loadDeviceAttribute(row.id);
-}
-
-/** 장비 관리 탭에서 정보 저장 후 호출되는 함수 */
-async function onDeviceManaged() {
-  // 그리드 목록 새로고침
-  gridComposable.gridApi.query();
-  if (selectedDevice.value) {
-    // 현재 선택된 장비의 최신 정보를 다시 불러와 패널에 반영
-    const updatedDevice = await getDevice(selectedDevice.value.id);
-    // 지워진 장비를 다시 부르면 아무것도 안 온다. 그때는 고른 것을 그대로 둔다.
-    selectedDevice.value = updatedDevice ?? selectedDevice.value;
-  }
-}
-
-const gridComposable = useDeviceGrid(selectedDevice, onRowClick, closePanel, () =>
-  deviceFormDrawerRef.value?.openCreate(),
+const gridComposable = useDeviceGrid(
+  openEditDrawer,
+  (row) => deviceFormDrawerRef.value?.closeIfDevice(row.id),
+  () => deviceFormDrawerRef.value?.openCreate(),
 );
 
 // ---------------------------------------------------------------------------
@@ -90,12 +63,9 @@ function initStatusHub() {
   statusHub.on('DeviceStatusChanged', (deviceCode: string, status: string) => {
     // 서버는 문자열로 보내지만 Device.status 는 리터럴 유니온이라 좁혀서 넣는다.
     const nextStatus = status as BuildingApi.Device['status'];
-    // 상세 패널에 열려 있는 장비라면 뱃지를 즉시 갱신한다.
-    const current = selectedDevice.value;
-    if (current && current.code === deviceCode) {
-      selectedDevice.value = { ...current, status: nextStatus };
-    }
-    // 좌측 목록의 상태 표시도 맞춘다.
+    // 서랍이 그 장비를 열고 있다면 머리말 뱃지를 즉시 갱신한다.
+    deviceFormDrawerRef.value?.applyStatus(deviceCode, nextStatus);
+    // 목록의 상태 표시도 맞춘다.
     scheduleGridRefresh();
   });
 
@@ -122,120 +92,40 @@ const {
   handleDelete,
   handleReboot,
 } = gridComposable;
-
-const {
-  deviceConfig,
-  configLoading,
-  configSaving,
-  powerOnTimeVal,
-  powerOffTimeVal,
-  rebootTimeVal,
-  handleConfigSave,
-  handleConfigReset,
-} = configComposable;
-
-const {
-  deviceAttr,
-  attrLoading,
-  attrSaving,
-  handleAttrSave,
-  handleAttrReset,
-} = attrComposable;
 </script>
 
 <template>
-  <ColPage
-    auto-content-height
-    :left-width="50"
-    :left-min-width="25"
-    :left-max-width="80"
-    :resizable="true"
-    :split-line="true"
-    :split-handle="true"
-  >
-    <!-- ── 좌측: 장비 목록 패널 ────────────────────────────────── -->
-    <template #left>
-      <DeviceListPanel
-        :Grid="Grid"
-        :selected-company-id="selectedCompanyId"
-        :selected-building-id="selectedBuildingId"
-        :selected-floor-id="selectedFloorId"
-        :selected-room-id="selectedRoomId"
-        :show-config-panel="showConfigPanel"
-        @update:selected-company-id="(v) => selectedCompanyId = v"
-        @update:selected-building-id="(v) => selectedBuildingId = v"
-        @update:selected-floor-id="(v) => selectedFloorId = v"
-        @update:selected-room-id="(v) => selectedRoomId = v"
-        @create="deviceFormDrawerRef?.openCreate()"
-        @edit="(row) => deviceFormDrawerRef?.openEdit(row)"
-        @delete="handleDelete"
-        @reboot="handleReboot"
-      />
-    </template>
+  <Page auto-content-height>
+    <DeviceListPanel
+      :Grid="Grid"
+      :selected-company-id="selectedCompanyId"
+      :selected-building-id="selectedBuildingId"
+      :selected-floor-id="selectedFloorId"
+      :selected-room-id="selectedRoomId"
+      @update:selected-company-id="(v) => selectedCompanyId = v"
+      @update:selected-building-id="(v) => selectedBuildingId = v"
+      @update:selected-floor-id="(v) => selectedFloorId = v"
+      @update:selected-room-id="(v) => selectedRoomId = v"
+      @create="deviceFormDrawerRef?.openCreate()"
+      @edit="openEditDrawer"
+      @delete="handleDelete"
+      @reboot="handleReboot"
+    />
 
-    <!-- ── 우측: 장비 상세 패널 ────────────────────────────────── -->
-    <transition name="slide-panel">
-      <DeviceDetailPanel
-        v-if="showConfigPanel && selectedDevice"
-        :device="selectedDevice"
-        :active-tab="activeTab"
-        :device-config="deviceConfig"
-        :config-loading="configLoading"
-        :config-saving="configSaving"
-        :power-on-time-val="powerOnTimeVal"
-        :power-off-time-val="powerOffTimeVal"
-        :reboot-time-val="rebootTimeVal"
-        :device-attr="deviceAttr"
-        :attr-loading="attrLoading"
-        :attr-saving="attrSaving"
-        @close="closePanel"
-        @update:activeTab="(val) => activeTab = val"
-        @config-save="handleConfigSave(selectedDevice!.id)"
-        @config-reset="handleConfigReset(selectedDevice!.id)"
-        @update:powerOnTimeVal="(val) => powerOnTimeVal = val"
-        @update:powerOffTimeVal="(val) => powerOffTimeVal = val"
-        @update:rebootTimeVal="(val) => rebootTimeVal = val"
-        @device-managed="onDeviceManaged"
-        @attr-save="handleAttrSave(selectedDevice!.id)"
-        @attr-reset="handleAttrReset(selectedDevice!.id)"
-      />
-
-      <!-- 미선택 안내 -->
-      <div
-        v-else
-        class="flex h-full items-center justify-center text-muted-foreground"
-      >
-        <div class="text-center">
-          <IconifyIcon icon="lucide:monitor-dot" class="mx-auto mb-3 size-12 opacity-30" />
-          <p class="text-sm">장비를 선택하면 설정 패널이 표시됩니다.</p>
-        </div>
-      </div>
-    </transition>
-
-    <!-- ── 장비 등록/수정 모달 ──────────────────────────────────── -->
+    <!-- ── 장비 서랍 (등록 · 수정 · 설정 · 속성 · 화면 구성) ────── -->
     <DeviceFormDrawer
       :ref="(el) => { deviceFormDrawerRef = el as InstanceType<typeof DeviceFormDrawer> | null }"
       :selected-company-id="selectedCompanyId"
       :selected-building-id="selectedBuildingId"
       :selected-floor-id="selectedFloorId"
       :selected-room-id="selectedRoomId"
-      @saved="gridComposable.gridApi.query()"
+      @created="gridComposable.gridApi.query()"
+      @updated="(device) => gridComposable.replaceRow(device)"
     />
-  </ColPage>
+  </Page>
 </template>
 
 <style scoped>
-/* ── 설정 패널 슬라이드 애니메이션 ────────────────────── */
-.slide-panel-enter-active,
-.slide-panel-leave-active {
-  transition: opacity 0.2s ease, transform 0.2s ease;
-}
-.slide-panel-enter-from,
-.slide-panel-leave-to {
-  opacity: 0;
-  transform: translateX(16px);
-}
-
 /* ── VXE 현재 행 하이라이트 ──────────────────────────── */
 :deep(.vxe-table--current-row) {
   background-color: hsl(var(--primary) / 0.1) !important;

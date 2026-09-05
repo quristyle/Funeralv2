@@ -1,10 +1,23 @@
 <script lang="ts" setup>
 import { ref, watch } from 'vue';
 import {
-  Alert, Button, Divider, Form, message, Slider, Spin, Switch, TimePicker,
+  Alert, Button, Divider, Form, Slider, Spin, Switch, TimePicker,
 } from 'ant-design-vue';
-import { setDeviceScreenPower } from '#/api/funeral/building';
+import { IconifyIcon } from '@vben/icons';
 import type { BuildingApi } from '#/api/funeral/building';
+
+// ---------------------------------------------------------------------------
+// [하드웨어] 탭 — 49번 문서 D-DV2 · D-DV5
+//
+// 여기 있는 값은 **바꾸면 곧바로 장비에 반영된다**(자동 저장 + `DeviceChanged`).
+// [화면 표시] 탭처럼 초안을 두지 않은 이유: 음량과 밝기는 귀와 눈으로 확인하며
+// 맞추는 값이라 즉시 반영이 오히려 맞다. 조문객이 보는 화면을 흔드는 것은
+// 화면 표시 쪽이지 볼륨이 아니다.
+//
+// 저장되지 않는 즉시 명령(화면 켜기/끄기 · 앱 재시작)은 서랍 머리말로 옮겼다.
+// 저장되는 예약값 사이에 일회성 명령이 끼어 있던 것이 이 화면에서 가장 섞인
+// 부분이었다.
+// ---------------------------------------------------------------------------
 
 const props = defineProps<{
   deviceConfig: BuildingApi.DeviceConfig | null;
@@ -14,7 +27,6 @@ const props = defineProps<{
   powerOffTimeVal: any;
   rebootTimeVal: any;
   deviceId: string;
-  deviceCode: string;
 }>();
 
 const emit = defineEmits<{
@@ -24,27 +36,6 @@ const emit = defineEmits<{
   (e: 'update:powerOffTimeVal', val: any): void;
   (e: 'update:rebootTimeVal', val: any): void;
 }>();
-
-// 원격 화면 전원 명령 전송 중 여부
-const isPowerSending = ref(false);
-
-/// [원격 화면 전원 제어]
-/// 아래의 '자동 전원 제어'가 예약(시각) 기반인 것과 달리, 지금 즉시 화면을 끄고 켠다.
-/// DB 에 저장되지 않는 일회성 명령이라 장비가 온라인일 때만 전달되고,
-/// 장비가 재기동되면 화면은 항상 켜진 상태로 뜬다.
-async function handleScreenPower(state: 'OFF' | 'ON') {
-  if (!props.deviceCode || isPowerSending.value) return;
-
-  isPowerSending.value = true;
-  try {
-    await setDeviceScreenPower(props.deviceCode, state);
-    message.success(`화면 ${state === 'ON' ? '켜기' : '끄기'} 명령을 전송했습니다.`);
-  } catch {
-    message.error('명령 전송에 실패했습니다. 장비가 오프라인일 수 있습니다.');
-  } finally {
-    isPowerSending.value = false;
-  }
-}
 
 // 자동 저장을 위한 디바운스 타이머
 const debounceTimer = ref<NodeJS.Timeout | null>(null);
@@ -155,6 +146,14 @@ watch(
         description="아래 항목을 설정한 뒤 저장하면 장비 기본 설정이 등록됩니다."
       />
 
+      <div class="mb-3 flex items-start gap-1.5 rounded-md bg-muted/60 px-3 py-2 text-xs text-muted-foreground">
+        <IconifyIcon icon="lucide:zap" class="mt-0.5 size-3.5 shrink-0" />
+        <span>
+          여기서 바꾼 값은 잠시 뒤 저장되어 <b class="font-medium text-foreground">장비에 바로 반영</b>됩니다.
+          화면에 무엇을 어떻게 띄울지는 [화면 표시] 탭에서 맞춘 뒤 적용합니다.
+        </span>
+      </div>
+
       <Form layout="vertical" size="small">
         <Form.Item label="기기 음량 (Volume)">
           <Slider v-model:value="deviceConfig.volume" :min="0" :max="100" />
@@ -163,20 +162,6 @@ watch(
         <Form.Item label="화면 밝기 (Brightness)">
           <Slider v-model:value="deviceConfig.brightness" :min="0" :max="100" />
           <div class="text-right text-xs text-muted-foreground">{{ deviceConfig.brightness }}%</div>
-        </Form.Item>
-        <Divider />
-        <!--
-          즉시 실행되는 원격 화면 전원 제어.
-          아래 '자동 전원 제어'는 시각 예약이고, 이쪽은 지금 바로 끄고 켜는 명령이다.
-        -->
-        <Form.Item label="원격 화면 전원 (즉시 실행)">
-          <div class="flex items-center gap-2">
-            <Button :loading="isPowerSending" @click="handleScreenPower('ON')">화면 켜기</Button>
-            <Button danger :loading="isPowerSending" @click="handleScreenPower('OFF')">화면 끄기</Button>
-          </div>
-          <div class="mt-1 text-xs text-muted-foreground">
-            장비가 온라인일 때만 전달되며 저장되지 않습니다. 재기동 시 화면은 다시 켜집니다.
-          </div>
         </Form.Item>
         <Divider />
         <Form.Item label="자동 전원 제어">
