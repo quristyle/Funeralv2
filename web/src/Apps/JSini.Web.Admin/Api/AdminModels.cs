@@ -110,6 +110,17 @@ public sealed class CompanyDto
     public int Status { get; set; } = 1;
     public int SortOrder { get; set; }
 
+    public DateTime? ApprovalDate { get; set; }
+
+    /// <summary>
+    /// 이 회사를 어느 업무 시스템에 노출할지 (<c>COMPANY_USAGE_LOCATION</c> 의 코드값).
+    ///
+    /// <b>목록을 좁히는 열쇠다.</b> 장례식장 화면들은
+    /// <c>FUNERAL_HOME_MANAGEMENT_SYSTEM</c> 이 걸린 회사만 읽는다.
+    /// 비워 두면 그 화면들의 회사 드롭다운에서 사라진다.
+    /// </summary>
+    public List<string> UsageLocations { get; set; } = [];
+
     /// <summary>이 회사에 속한 사람 수. 서버가 세어 준다 — 보내지 않는다.</summary>
     public int UserCount { get; set; }
 
@@ -577,6 +588,17 @@ public sealed class SaveCompanyDto
     public string? Remark { get; set; }
     public int Status { get; set; } = 1;
     public int SortOrder { get; set; }
+    public DateTime? ApprovalDate { get; set; }
+
+    /// <summary>
+    /// 사용처 코드값들.
+    ///
+    /// <b>서버 쪽이 일부러 nullable 이다</b> — 값을 싣지 않은 요청은 사용처를
+    /// 건드리지 않는다. 일부 칸만 보내는 호출자가 사용처를 통째로 지우는 일을
+    /// 막기 위한 것이다. 여기서는 화면이 늘 전체를 보내므로 빈 목록이
+    /// '전부 해제' 가 된다.
+    /// </summary>
+    public List<string>? UsageLocations { get; set; }
 }
 
 /// <summary>부서 등록·수정.</summary>

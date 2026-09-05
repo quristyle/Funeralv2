@@ -3,6 +3,28 @@
 @*
     [회사 목록] — DB 메뉴 `/system/company`.
     이력: Vue `views/portal/system/company/list` → 여기.
+
+    [읽기만 되는 「관리」 화면이었다]
+
+    등록·수정·삭제가 하나도 없었다. 클라이언트에는 셋 다 있었고
+    (`CreateCompanyAsync` · `UpdateCompanyAsync` · `DeleteCompanyAsync`)
+    화면이 부르지 않았을 뿐이다. 회사는 포털에서만 만들 수 있으므로,
+    여기서 못 하면 어디서도 못 한다.
+
+    [사용처가 화면에 없었다]
+
+    서버가 `usageLocations` 를 주는데 모델에 그릇이 없어 **받자마자 버려지고
+    있었다.** 그런데 이 값이 회사 관리에서 가장 중요하다 — 어느 업무 시스템에
+    그 회사를 노출할지가 여기서 정해진다. 장례식장 화면들은
+    `FUNERAL_HOME_MANAGEMENT_SYSTEM` 이 걸린 회사만 읽으므로, 비워 두면
+    그 화면들의 회사 드롭다운에서 조용히 사라진다.
+
+    고를 값은 공통코드(`COMPANY_USAGE_LOCATION`)가 정한다 — 화면에 적어 두지
+    않는다. 업무 시스템이 늘 때마다 화면을 고치게 된다.
+
+    [사람·부서 수는 서버가 세어 준다]
+
+    보내지 않는다. 저장 폼에도 없다 — 있으면 사람이 고칠 수 있는 값처럼 보인다.
 *@
 
 @inherits DataPage
@@ -12,46 +34,237 @@
 
 <PageHeading Title="회사 목록" Scope="포털관리" />
 
-<div class="jsini-toolbar">
-    <DxTextBox @bind-Text="_keyword" NullText="회사명 검색" Style="width: 220px"
-               ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
-    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@ReloadAsync" />
-</div>
+<CrudGrid TItem="CompanyDto"
+          Data="@Shown"
+          EditFormTitle="회사"
+          ExportName="회사목록"
+          PageSize="20"
+          OnNew="@FillNew"
+          OnSave="@SaveAsync"
+          OnDelete="@DeleteAsync"
+          Reload="@ReloadAsync">
+    <ChildContent>
+        <DxTextBox @bind-Text="_keyword" NullText="회사명 검색" Style="width: 220px"
+                   ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
 
+        <DxComboBox Data="@_usages" TextFieldName="@nameof(CommonCodeDto.CodeName)"
+                    ValueFieldName="@nameof(CommonCodeDto.CodeValue)"
+                    @bind-Value="_usageFilter" NullText="사용처 전체" Style="width: 200px"
+                    ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
 
-<DxGrid Data="@Shown" ShowFilterRow="false" PageSize="20">
+        <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@ReloadAsync" />
+    </ChildContent>
+
     <Columns>
-        <DxGridDataColumn FieldName="@nameof(CompanyDto.Name)" Caption="회사명" MinWidth="200" />
-        <DxGridDataColumn FieldName="@nameof(CompanyDto.ShortName)" Caption="약칭" Width="120" />
-        <DxGridDataColumn FieldName="@nameof(CompanyDto.BusinessNumber)" Caption="사업자번호" Width="150" />
-        <DxGridDataColumn FieldName="@nameof(CompanyDto.Representative)" Caption="대표자" Width="120" />
+        <DxGridDataColumn FieldName="@nameof(CompanyDto.Name)" Caption="회사명" MinWidth="180" />
+        <DxGridDataColumn FieldName="@nameof(CompanyDto.ShortName)" Caption="약칭" Width="110" />
+        <DxGridDataColumn FieldName="@nameof(CompanyDto.BusinessNumber)" Caption="사업자번호" Width="140" />
+        <DxGridDataColumn FieldName="@nameof(CompanyDto.Representative)" Caption="대표자" Width="110" />
+
+        <DxGridDataColumn Caption="사용처" MinWidth="200" AllowSort="false">
+            <CellDisplayTemplate Context="cell">
+                @{
+                    var c = (CompanyDto)cell.DataItem;
+                }
+                @if (c.UsageLocations.Count == 0)
+                {
+                    @* 어디에도 안 걸린 회사는 업무 화면의 드롭다운에서 사라진다.
+                       빈칸으로 두면 그것이 눈에 안 띈다. *@
+                    <span class="jsini-badge jsini-badge--off">없음</span>
+                }
+                else
+                {
+                    @foreach (var code in c.UsageLocations)
+                    {
+                        <span class="jsini-badge">@UsageName(code)</span>
+                    }
+                }
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+
+        <DxGridDataColumn Caption="사람 · 부서" Width="110" AllowSort="false">
+            <CellDisplayTemplate Context="cell">
+                @{
+                    var c = (CompanyDto)cell.DataItem;
+                }
+                <span class="ad-stamp">@c.UserCount 명 · @c.DeptCount 부서</span>
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+
         <DxGridDataColumn Caption="상태" Width="90">
             <CellDisplayTemplate Context="cell">
-                @{ var c = (CompanyDto)cell.DataItem; }
+                @{
+                    var c = (CompanyDto)cell.DataItem;
+                }
                 <span class="jsini-badge @(c.Status == 1 ? "jsini-badge--on" : "jsini-badge--off")">
                     @(c.Status == 1 ? "사용" : "중지")
                 </span>
             </CellDisplayTemplate>
         </DxGridDataColumn>
-        <DxGridDataColumn FieldName="@nameof(CompanyDto.Remark)" Caption="비고" MinWidth="160" />
+
+        <DxGridDataColumn FieldName="@nameof(CompanyDto.Remark)" Caption="비고" MinWidth="140" />
     </Columns>
-</DxGrid>
+
+    <EditForm Context="edit">
+        @{
+            var company = (CompanyDto)edit.EditModel;
+        }
+
+        <DxFormLayout>
+            <DxFormLayoutItem Caption="회사명" ColSpanMd="6">
+                <DxTextBox @bind-Text="company.Name" />
+            </DxFormLayoutItem>
+            <DxFormLayoutItem Caption="약칭" ColSpanMd="6">
+                <DxTextBox @bind-Text="company.ShortName" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="사업자번호" ColSpanMd="6">
+                <DxTextBox @bind-Text="company.BusinessNumber" />
+            </DxFormLayoutItem>
+            <DxFormLayoutItem Caption="대표자" ColSpanMd="6">
+                <DxTextBox @bind-Text="company.Representative" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="우편번호" ColSpanMd="4">
+                <DxTextBox @bind-Text="company.ZipCode" />
+            </DxFormLayoutItem>
+            <DxFormLayoutItem Caption="주소" ColSpanMd="8">
+                <DxTextBox @bind-Text="company.Address" />
+            </DxFormLayoutItem>
+            <DxFormLayoutItem Caption="상세 주소" ColSpanMd="12">
+                <DxTextBox @bind-Text="company.AddressDetail" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="사용처" ColSpanMd="12">
+                @* 여러 곳에 걸릴 수 있다. 하나만 고르게 두면 헬프데스크에도
+                   장례식장에도 나오는 회사를 표현할 수 없다. *@
+                <DxTagBox Data="@_usages"
+                          TextFieldName="@nameof(CommonCodeDto.CodeName)"
+                          ValueFieldName="@nameof(CommonCodeDto.CodeValue)"
+                          Values="@company.UsageLocations"
+                          ValuesChanged="@((IEnumerable<string> v) => company.UsageLocations = [.. v])"
+                          NullText="고르지 않으면 어느 업무 화면에도 안 나옵니다" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="승인일" ColSpanMd="4">
+                <DxDateEdit @bind-Date="company.ApprovalDate" />
+            </DxFormLayoutItem>
+            <DxFormLayoutItem Caption="순서" ColSpanMd="4">
+                <DxSpinEdit @bind-Value="company.SortOrder" MinValue="0" />
+            </DxFormLayoutItem>
+            <DxFormLayoutItem Caption="상태" ColSpanMd="4">
+                <DxComboBox Data="@Statuses" TextFieldName="Name" ValueFieldName="Code"
+                            @bind-Value="company.Status" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="비고" ColSpanMd="12">
+                <DxTextBox @bind-Text="company.Remark" />
+            </DxFormLayoutItem>
+        </DxFormLayout>
+    </EditForm>
+</CrudGrid>
 
 <PageNotice Text="@Notice" Tone="@Tone" />
 
 @code {
-    private IReadOnlyList<CompanyDto> _all = [];
-    private string? _keyword;
+    private sealed record StatusOption(int Code, string Name);
 
-    private IReadOnlyList<CompanyDto> Shown => string.IsNullOrWhiteSpace(_keyword)
-        ? _all
-        : [.. _all.Where(c => c.Name.Contains(_keyword, StringComparison.OrdinalIgnoreCase))];
+    private static readonly StatusOption[] Statuses =
+    [
+        new(1, "사용"),
+        new(0, "중지"),
+    ];
+
+    private IReadOnlyList<CompanyDto> _all = [];
+    private IReadOnlyList<CommonCodeDto> _usages = [];
+
+    private string? _keyword;
+    private string? _usageFilter;
+
+    private IReadOnlyList<CompanyDto> Shown
+    {
+        get
+        {
+            var rows = _all.AsEnumerable();
+
+            if (!string.IsNullOrWhiteSpace(_keyword))
+            {
+                rows = rows.Where(c =>
+                    c.Name.Contains(_keyword, StringComparison.OrdinalIgnoreCase)
+                    || (c.ShortName?.Contains(_keyword, StringComparison.OrdinalIgnoreCase) ?? false));
+            }
+
+            if (!string.IsNullOrEmpty(_usageFilter))
+            {
+                rows = rows.Where(c => c.UsageLocations.Contains(_usageFilter, StringComparer.Ordinal));
+            }
+
+            return [.. rows];
+        }
+    }
 
     protected override Task OnInitializedAsync() => ReloadAsync();
 
     private Task ReloadAsync() => LoadAsync(async () =>
     {
-        _all = await Api.GetCompaniesAsync();
+        // 사용처 코드는 회사 목록과 무관하게 늘 같다. 나란히 부른다.
+        var companies = Api.GetCompaniesAsync();
+        var usages = Api.GetCodesAsync("COMPANY_USAGE_LOCATION");
+
+        await Task.WhenAll(companies, usages);
+
+        _all = companies.Result;
+        _usages = usages.Result;
+
         return _all.Count;
     }, "등록된 회사가 없습니다.", "회사 목록을 읽지 못했습니다");
+
+    /// <summary>코드값을 사람이 읽는 이름으로. 모르는 코드는 값 그대로 보여 준다.</summary>
+    private string UsageName(string code) =>
+        _usages.FirstOrDefault(u => string.Equals(u.CodeValue, code, StringComparison.Ordinal))?.CodeName ?? code;
+
+    private void FillNew(CompanyDto company)
+    {
+        company.Status = 1;
+
+        // 새 회사는 목록 끝에 붙인다. 0 으로 두면 이미 있는 회사들 사이에
+        // 끼어들어 순서가 뒤섞인다.
+        company.SortOrder = _all.Count == 0 ? 0 : _all.Max(c => c.SortOrder) + 1;
+
+        // 조건줄에서 사용처를 골라 두고 등록을 누르는 흐름이 자연스럽다.
+        company.UsageLocations = string.IsNullOrEmpty(_usageFilter) ? [] : [_usageFilter];
+    }
+
+    private async Task SaveAsync((CompanyDto Item, bool IsNew) e)
+    {
+        var payload = new SaveCompanyDto
+        {
+            Name = e.Item.Name,
+            ShortName = e.Item.ShortName,
+            BusinessNumber = e.Item.BusinessNumber,
+            Representative = e.Item.Representative,
+            ZipCode = e.Item.ZipCode,
+            Address = e.Item.Address,
+            AddressDetail = e.Item.AddressDetail,
+            Remark = e.Item.Remark,
+            Status = e.Item.Status,
+            SortOrder = e.Item.SortOrder,
+            ApprovalDate = e.Item.ApprovalDate,
+
+            // 화면은 늘 전체를 보낸다. 그래서 빈 목록이 '전부 해제' 로 통한다 —
+            // 서버는 값을 안 실은 요청과 빈 목록을 구별한다.
+            UsageLocations = e.Item.UsageLocations,
+        };
+
+        if (e.IsNew)
+        {
+            await Api.CreateCompanyAsync(payload);
+        }
+        else
+        {
+            await Api.UpdateCompanyAsync(e.Item.Id, payload);
+        }
+    }
+
+    private Task DeleteAsync(CompanyDto company) => Api.DeleteCompanyAsync(company.Id);
 }
