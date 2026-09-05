@@ -32,6 +32,14 @@ public sealed class AuthTokenHandler(
     /// </summary>
     private readonly SemaphoreSlim _refreshLock = new(1, 1);
 
+    /// <summary>
+    /// 갱신 요청이 <b>세션을 거절했는가</b>(401·403). 참일 때만 토큰을 버린다.
+    ///
+    /// 갱신 경로가 아예 없거나(404) 서버에 닿지 못한 것은 세션이 죽었다는
+    /// 근거가 아니다. 그것으로 토큰을 버리면 멀쩡한 토큰까지 잃는다.
+    /// </summary>
+    private bool _sessionRejected;
+
     protected override async Task<HttpResponseMessage> SendAsync(
         HttpRequestMessage request,
         CancellationToken cancellationToken)
@@ -56,11 +64,25 @@ public sealed class AuthTokenHandler(
 
         response.Dispose();
 
-        if (!await TryRefreshAsync(staleToken, cancellationToken))
-        {
-            tokens.Clear();
+        var refreshed = await TryRefreshAsync(staleToken, cancellationToken);
 
-            // 갱신까지 실패했다. 401 을 그대로 돌려주면 GatewayClient 가
+        if (!refreshed)
+        {
+            // **갱신할 길이 없을 때는 토큰을 버리지 않는다.**
+            //
+            // 버리면 그 표시가 스코프 끝까지 남아서, 이 뒤의 호출이 전부 토큰
+            // 없이 나가고 화면 전체가 「로그인이 필요합니다」로 끝난다.
+            // 스쳐 지나갈 401 하나가 로그아웃으로 번지는 것이다 — 실제로
+            // 화면 열몇 개가 그렇게 들쭉날쭉하게 실패하고 있었다.
+            //
+            // 정말로 세션이 죽었다면 다음 호출도 401 을 받는다. 그때 셸이
+            // 로그인으로 보내므로 늦지 않는다.
+            if (_sessionRejected)
+            {
+                tokens.Clear();
+            }
+
+            // 401 을 그대로 돌려주면 GatewayClient 가
             // ApiException(IsUnauthorized) 로 바꾸고, 셸이 로그인으로 보낸다.
             return new HttpResponseMessage(HttpStatusCode.Unauthorized)
             {
@@ -118,8 +140,17 @@ public sealed class AuthTokenHandler(
             using var response = await base.SendAsync(request, cancellationToken);
             if (!response.IsSuccessStatusCode)
             {
-                logger.LogInformation(
-                    "토큰 갱신 실패 ({Status}). 다시 로그인해야 한다.", (int)response.StatusCode);
+                // 401·403 만 「세션이 죽었다」로 읽는다. 404 는 갱신 경로가
+                // 없다는 뜻일 뿐이고(지금 AuthServer 가 그렇다), 그것으로
+                // 들고 있는 토큰까지 버릴 이유가 없다.
+                _sessionRejected =
+                    response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden;
+
+                logger.Log(
+                    _sessionRejected ? LogLevel.Information : LogLevel.Debug,
+                    "토큰 갱신 실패 ({Status}). 세션 거절 여부: {Rejected}",
+                    (int)response.StatusCode, _sessionRejected);
+
                 return false;
             }
 

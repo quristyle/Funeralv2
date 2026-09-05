@@ -11,3 +11,11 @@
 ::deep .monaco-editor-container {
   height: 100%;
 }
+
+/* 자리표시 한 줄. Monaco 에 그 기능이 없어 편집기 위에 적는다. */
+.pm-editor__hint {
+  margin-bottom: 0.3rem;
+  font-size: 0.78rem;
+  opacity: 0.65;
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+}

@@ -6,6 +6,19 @@
 
     내 수신 설정과 등록된 기기를 본다.
 
+    [주소가 틀려 404 였다]
+
+    알림 서비스의 게이트웨이 접두사는 `notification` 이고 서비스 안의 묶음은
+    `/notifications` 다. 둘 다 있어야 한다 — `notify/preferences/me` 로 부르던
+    동안 이 화면은 늘 「설정을 읽지 못했습니다」였다.
+
+    [응답이 설정만 오는 것이 아니다]
+
+    설정과 함께 **푸시를 보낼 수 있는 서버인지**(`pushAvailable`)와 등록된
+    기기가 같이 온다. 앞엣것이 중요하다 — 서버에 VAPID 키가 없으면 스위치를
+    켜도 아무 일도 일어나지 않는데, 그것을 안 알려 주면 사용자는 자기 기기
+    문제로 여긴다.
+
     [구독 등록·해제는 여기서 하지 않는다]
 
     브라우저 푸시 구독은 **브라우저 권한**이 필요해서 자바스크립트가 있어야
@@ -20,7 +33,22 @@
 
 <PageHeading Title="알림 설정" Scope="포털관리" />
 
-@if (_pref is not null)
+<PageNotice Text="@Notice" Tone="@Tone" />
+
+@if (_settings is { PushAvailable: false })
+{
+    @* 서버가 푸시를 못 보내는 상태다. 스위치를 켜도 소용없다는 것을 먼저 말한다. *@
+    <PageNotice Tone="NoticeTone.Warning"
+                Text="서버에 푸시 발송 키(VAPID)가 설정되어 있지 않습니다. 푸시를 켜도 알림이 가지 않습니다." />
+}
+
+@if (_settings is not null && !_settings.Preference.Saved)
+{
+    <PageNotice Tone="NoticeTone.Info"
+                Text="아직 알림 설정을 정한 적이 없어 기본값을 보여 주고 있습니다. 스위치를 한 번 누르면 저장됩니다." />
+}
+
+@if (_settings is not null)
 {
     <section class="ad-settings">
         <div class="ad-setting">
@@ -28,7 +56,8 @@
                 <div class="ad-setting__name">푸시 알림</div>
                 <div class="ad-setting__desc">브라우저로 알림을 받습니다.</div>
             </div>
-            <DxCheckBox Checked="@_pref.PushEnabled" CheckedChanged="@((bool v) => ToggleAsync(p => p.PushEnabled = v))" />
+            <DxCheckBox Checked="@_settings.Preference.PushEnabled"
+                        CheckedChanged="@((bool v) => ToggleAsync(p => p.PushEnabled = v))" />
         </div>
 
         <div class="ad-setting">
@@ -36,44 +65,86 @@
                 <div class="ad-setting__name">이메일 알림</div>
                 <div class="ad-setting__desc">같은 내용을 이메일로도 받습니다.</div>
             </div>
-            <DxCheckBox Checked="@_pref.EmailEnabled" CheckedChanged="@((bool v) => ToggleAsync(p => p.EmailEnabled = v))" />
+            <DxCheckBox Checked="@_settings.Preference.EmailEnabled"
+                        CheckedChanged="@((bool v) => ToggleAsync(p => p.EmailEnabled = v))" />
+        </div>
+
+        <div class="ad-setting">
+            <div>
+                <div class="ad-setting__name">기상 특보</div>
+                <div class="ad-setting__desc">생활과환경이 특보를 받으면 알립니다.</div>
+            </div>
+            <DxCheckBox Checked="@_settings.Preference.WeatherEnabled"
+                        CheckedChanged="@((bool v) => ToggleAsync(p => p.WeatherEnabled = v))" />
         </div>
     </section>
+
+    @if (_settings.Preference.UpdatedAt is { } at)
+    {
+        <div class="ad-stamp">마지막 저장 @at.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</div>
+    }
 }
 
 <div class="jsini-toolbar">
     <PermissionView Action="MenuAction.Update">
-        <DxButton Text="시험 발송" RenderStyle="ButtonRenderStyle.Secondary" Click="@TestAsync" />
+        <DxButton Text="시험 발송" RenderStyle="ButtonRenderStyle.Secondary" SizeMode="SizeMode.Small"
+                  Click="@TestAsync" />
     </PermissionView>
+
+    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Secondary" SizeMode="SizeMode.Small"
+              IconCssClass="jsini-icon-refresh" Click="@ReloadAsync" />
 </div>
 
-<h2 class="ad-subhead">등록된 기기</h2>
-<DxGrid Data="@_subs" ShowFilterRow="false" PageSizeSelectorVisible="false" PagerVisible="false">
+<h2 class="ad-subhead">등록된 기기 (@Devices.Count)</h2>
+
+<DxGrid Data="@Devices" ShowFilterRow="false" ShowSearchBox="false"
+        PageSizeSelectorVisible="false" PagerVisible="false">
     <Columns>
-        <DxGridDataColumn FieldName="@nameof(PushSubscriptionDto.UserAgent)" Caption="기기" MinWidth="320" />
-        <DxGridDataColumn FieldName="@nameof(PushSubscriptionDto.CreatedAt)" Caption="등록" Width="150" DisplayFormat="yyyy-MM-dd HH:mm" />
-        <DxGridDataColumn FieldName="@nameof(PushSubscriptionDto.LastUsedAt)" Caption="최근 사용" Width="150" DisplayFormat="yyyy-MM-dd HH:mm" />
+        <DxGridDataColumn FieldName="@nameof(PushDeviceDto.UserAgent)" Caption="기기" MinWidth="320" />
+        <DxGridDataColumn FieldName="@nameof(PushDeviceDto.CreatedAt)" Caption="등록" Width="150"
+                          DisplayFormat="yyyy-MM-dd HH:mm" />
+        <DxGridDataColumn FieldName="@nameof(PushDeviceDto.LastUsedAt)" Caption="최근 사용" Width="150"
+                          DisplayFormat="yyyy-MM-dd HH:mm" />
     </Columns>
 </DxGrid>
 
-<PageNotice Text="@Notice" Tone="@Tone" />
-
 @code {
-    private NotificationPreferenceDto? _pref;
-    private IReadOnlyList<PushSubscriptionDto> _subs = [];
+    private NotificationSettingsDto? _settings;
+    private PushSubscriptionListDto? _subscriptions;
 
-    protected override Task OnInitializedAsync() => LoadAsync(async () =>
+    /// <summary>
+    /// 기기 목록.
+    ///
+    /// 두 곳에서 온다 — 설정 응답의 <c>devices</c> 와 구독 목록. 보통 같지만
+    /// 한쪽이 비는 경우가 있어 **더 많이 담긴 쪽**을 쓴다.
+    /// </summary>
+    private IReadOnlyList<PushDeviceDto> Devices
     {
-        var pref = Api.GetMyPreferencesAsync();
+        get
+        {
+            var fromSettings = _settings?.Devices ?? [];
+            var fromSubs = _subscriptions?.Items ?? [];
+
+            return fromSubs.Count >= fromSettings.Count ? fromSubs : fromSettings;
+        }
+    }
+
+    protected override Task OnInitializedAsync() => ReloadAsync();
+
+    private Task ReloadAsync() => LoadAsync(async () =>
+    {
+        var settings = Api.GetMyPreferencesAsync();
         var subs = Api.GetMySubscriptionsAsync();
 
-        await Task.WhenAll(pref, subs);
+        await Task.WhenAll(settings, subs);
 
-        _pref = pref.Result ?? new NotificationPreferenceDto();
-        _subs = subs.Result;
+        _settings = settings.Result ?? new NotificationSettingsDto();
+        _subscriptions = subs.Result;
 
-        return _subs.Count;
-    }, "등록된 기기가 없습니다. 브라우저에서 알림을 허용하면 여기 나타납니다.", "설정을 읽지 못했습니다");
+        // 설정을 읽었으면 화면은 채워진 것이다. 기기가 없다고 「없습니다」를
+        // 띄우면 설정을 못 읽은 것처럼 보인다.
+        return 1;
+    }, "설정을 받지 못했습니다.", "설정을 읽지 못했습니다");
 
     /// <summary>
     /// 스위치를 누르는 즉시 저장한다. 저장 단추를 따로 두면 무엇을 바꿨는지
@@ -81,10 +152,20 @@
     /// </summary>
     private async Task ToggleAsync(Action<NotificationPreferenceDto> change)
     {
-        if (_pref is null) return;
+        if (_settings is null)
+        {
+            return;
+        }
 
-        change(_pref);
-        await RunAsync(() => Api.SaveMyPreferencesAsync(_pref), "저장했습니다.", "저장하지 못했습니다");
+        change(_settings.Preference);
+
+        if (await RunAsync(() => Api.SaveMyPreferencesAsync(_settings.Preference),
+                           "저장했습니다.", "저장하지 못했습니다"))
+        {
+            // 저장했으니 「아직 정한 적 없음」 안내를 내린다.
+            _settings.Preference.Saved = true;
+            _settings.Preference.UpdatedAt = DateTime.UtcNow;
+        }
     }
 
     private Task TestAsync() => RunAsync(

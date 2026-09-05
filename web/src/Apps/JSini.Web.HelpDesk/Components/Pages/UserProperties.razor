@@ -5,44 +5,183 @@
     이력: Vue `views/helpdesk/system/user-properties` → 여기.
     엔드포인트: `user-properties`
 
-    **서버가 준 대로 보여 주는 화면이다**(AutoGrid). 칸을 손으로 적지 않은
-    이유는 그 부품의 주석에 있다 — 요약하면, 이런 화면이 마흔 개고 백엔드가
-    칸을 더할 때마다 화면을 고치러 가는 것이 이득이 아니기 때문이다.
+    [표가 아니라 키-값이다]
 
-    매일 들여다보는 화면이 되면 그때 칸을 손으로 적는다.
+    이 화면은 `AutoGrid` 로 두고 있었는데, 서버가 주는 것은 **행 목록이 아니라
+    사전**이다 — `{ "key1": "값", "key2": "값" }`. 배열을 기대하는 부품에
+    사전을 주면 아무 줄도 안 나온다.
 
-    사용자별 설정값을 키-값으로 다룬다. 화면을 늘리지 않고 설정을 늘리려고
-    만든 자리라, 무엇이 들어 있는지는 서버가 정한다.
+    게다가 이 엔드포인트는 봉투에서 `success` 가 아니라 `ok` 로 말한다.
+    받는 쪽이 `success` 만 보고 있어 화면이 늘 「요청을 처리하지
+    못했습니다」로 끝났다(봉투 쪽에서 흡수하도록 고쳤다).
+
+    [연결이 없으면 저장할 자리가 없다]
+
+    이 표(`userproperty`)의 사용자 키가 **정수**다(담당자·고객의 내부 번호).
+    포털 로그인 아이디는 문자열이라 그대로 넣을 수 없어, 계정 연결이 없으면
+    저장이 409 로 거절된다. 서버가 그 이유를 문구로 준다 — 화면은 그것을
+    그대로 보여 주고, 미리 안내도 띄운다.
+
+    [무엇이 들어 있는지는 서버가 정한다]
+
+    화면을 늘리지 않고 설정을 늘리려고 만든 자리다. 그래서 키를 화면이 알지
+    않는다 — 있는 그대로 보여 주고 값만 고치게 한다.
 *@
+
+@using System.Text.Json
+@using JSini.Web.HelpDesk.Api
 
 @inherits DataPage
 @inject HelpDeskApi Api
+@inject HelpDeskContext Context
 
 <PageTitle>사용자 속성 · 헬프데스크</PageTitle>
 
 <PageHeading Title="사용자 속성" Scope="헬프데스크" />
 
+<div class="jsini-toolbar">
+    <DxTextBox @bind-Text="_newKey" NullText="새 키" Style="width: 170px"
+               ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+
+    <DxTextBox @bind-Text="_newValue" NullText="값" Style="width: 220px"
+               ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+
+    <PermissionView Action="MenuAction.Create">
+        <DxButton Text="추가" RenderStyle="ButtonRenderStyle.Primary" SizeMode="SizeMode.Small"
+                  IconCssClass="jsini-icon-plus" Enabled="@_linked" Click="@AddAsync" />
+    </PermissionView>
+
+    <div class="jsini-toolbar__spacer"></div>
+
+    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Secondary" SizeMode="SizeMode.Small"
+              IconCssClass="jsini-icon-refresh" Click="@ReloadAsync" />
+</div>
+
 <PageNotice Text="@Notice" Tone="@Tone" />
 
-<AutoGrid Data="@_rows" Loading="@Loading" Captions="@Captions" HiddenCols="id" PageSize="20" />
+@if (!_linked)
+{
+    <PageNotice Tone="NoticeTone.Warning"
+                Text="포털 계정에 이어진 헬프데스크 사용자가 없어 개인 설정을 저장할 수 없습니다. 「계정 연결」 화면에서 이어 주십시오." />
+}
+
+<DxGrid Data="@_rows" ShowSearchBox="false" PageSize="20">
+    <Columns>
+        <DxGridDataColumn FieldName="@nameof(UserProperty.Key)" Caption="키" Width="240" />
+
+        <DxGridDataColumn Caption="값" MinWidth="280">
+            <CellDisplayTemplate Context="cell">
+                @{
+                    var row = (UserProperty)cell.DataItem;
+                }
+                <DxTextBox Text="@row.Value"
+                           TextChanged="@((string v) => { row.Value = v; })"
+                           ReadOnly="@(!_linked)" />
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+
+        <DxGridDataColumn Caption="" Width="90" AllowSort="false">
+            <CellDisplayTemplate Context="cell">
+                @{
+                    var row = (UserProperty)cell.DataItem;
+                }
+                <PermissionView Action="MenuAction.Update">
+                    <DxButton Text="저장" SizeMode="SizeMode.Small"
+                              RenderStyle="ButtonRenderStyle.Secondary"
+                              Enabled="@_linked"
+                              Click="@(() => SaveAsync(row))" />
+                </PermissionView>
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+    </Columns>
+</DxGrid>
 
 @code {
-    private DataTable _rows = JsonTable.Empty;
-
-    /// <summary>칸 이름표. 여기 적은 순서가 표의 앞쪽 순서다.</summary>
-    private static readonly Dictionary<string, string> Captions = new(StringComparer.Ordinal)
+    /// <summary>속성 한 줄. 서버는 사전으로 주고받는다 — 표로 보이려고 편 것이다.</summary>
+    private sealed class UserProperty
     {
-        ["key"] = "키",
-        ["value"] = "값",
-        ["description"] = "설명",
-    };
+        public string Key { get; set; } = string.Empty;
+        public string Value { get; set; } = string.Empty;
+    }
+
+    private List<UserProperty> _rows = [];
+
+    /// <summary>헬프데스크 사용자와 이어져 있는가. 서버가 응답에 실어 준다.</summary>
+    private bool _linked;
+
+    private string? _newKey;
+    private string? _newValue;
 
     protected override Task OnInitializedAsync() => ReloadAsync();
 
     private Task ReloadAsync() => LoadAsync(async () =>
     {
         var json = await Api.GetAsync<JsonElement>("user-properties");
-        _rows = JsonTable.From(json);
-        return _rows.Rows.Count;
+
+        _linked = json.TryGetProperty("linked", out var linked) && linked.ValueKind == JsonValueKind.True;
+        _rows = ToRows(json);
+
+        return _rows.Count;
     }, "등록된 속성이 없습니다.", "속성을 읽지 못했습니다");
+
+    /// <summary>사전을 표로 편다. 키 순서로 세워 두어야 저장 뒤에 자리가 안 바뀐다.</summary>
+    private static List<UserProperty> ToRows(JsonElement json)
+    {
+        if (!json.TryGetProperty("data", out var data) || data.ValueKind != JsonValueKind.Object)
+        {
+            return [];
+        }
+
+        return
+        [
+            .. data.EnumerateObject()
+                .Select(p => new UserProperty
+                {
+                    Key = p.Name,
+                    Value = p.Value.ValueKind == JsonValueKind.String
+                        ? p.Value.GetString() ?? string.Empty
+                        : p.Value.ToString(),
+                })
+                .OrderBy(p => p.Key, StringComparer.OrdinalIgnoreCase)
+        ];
+    }
+
+    /// <summary>
+    /// 한 줄을 저장한다.
+    ///
+    /// 서버가 <b>보낸 키만</b> 고친다(upsert). 그래서 표 전체를 보내지 않고
+    /// 고친 한 줄만 보낸다 — 전체를 보내면 다른 사람이 그사이에 넣은 키를
+    /// 덮어쓸 수 있다.
+    /// </summary>
+    private Task SaveAsync(UserProperty row) => RunAsync(
+        () => Api.PutAsync("user-properties", new Dictionary<string, string> { [row.Key] = row.Value }),
+        "저장했습니다.",
+        "저장하지 못했습니다");
+
+    private async Task AddAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_newKey))
+        {
+            Say("키를 넣으십시오.", NoticeTone.Warning);
+            return;
+        }
+
+        var key = _newKey.Trim();
+
+        if (_rows.Any(r => string.Equals(r.Key, key, StringComparison.OrdinalIgnoreCase)))
+        {
+            Say("이미 있는 키입니다. 표에서 값을 고치십시오.", NoticeTone.Warning);
+            return;
+        }
+
+        if (await RunAsync(
+                () => Api.PutAsync("user-properties",
+                    new Dictionary<string, string> { [key] = _newValue ?? string.Empty }),
+                "추가했습니다.", "추가하지 못했습니다"))
+        {
+            _newKey = null;
+            _newValue = null;
+            await ReloadAsync();
+        }
+    }
 }

@@ -161,7 +161,7 @@ public sealed class HelpDeskApi(HttpClient http)
                 return null;
             }
 
-            if (!envelope.Success)
+            if (!envelope.IsSuccess)
             {
                 throw new ApiException(
                     string.IsNullOrWhiteSpace(envelope.Message) ? "요청을 처리하지 못했습니다." : envelope.Message,

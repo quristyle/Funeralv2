@@ -238,19 +238,64 @@ public sealed class NotificationPreferenceDto
     public bool PushEnabled { get; set; }
     public bool EmailEnabled { get; set; }
 
-    /// <summary>방해 금지 시작 시각 (<c>HH:mm</c>). 비면 쓰지 않는다.</summary>
-    public string? QuietFrom { get; set; }
+    /// <summary>기상 특보 알림을 받는가. 생활과환경이 이 값을 본다.</summary>
+    public bool WeatherEnabled { get; set; }
 
-    public string? QuietTo { get; set; }
+    /// <summary>
+    /// 저장된 설정인가. 거짓이면 서버가 준 <b>기본값</b>이라는 뜻이다.
+    ///
+    /// 화면이 이것을 구별해야 「아직 정한 적 없음」과 「전부 꺼 둠」이
+    /// 같아 보이지 않는다.
+    /// </summary>
+    public bool Saved { get; set; }
+
+    public DateTime? UpdatedAt { get; set; }
 }
 
-/// <summary>등록된 푸시 구독(기기) 하나.</summary>
-public sealed class PushSubscriptionDto
+/// <summary>
+/// 내 알림 설정 응답 전체.
+///
+/// 설정만 오는 것이 아니라 <b>푸시를 쓸 수 있는 환경인지</b>와 등록된 기기까지
+/// 함께 온다. 셋이 한 화면에서 같이 쓰이므로 통째로 받는다.
+/// </summary>
+public sealed class NotificationSettingsDto
 {
-    public string Id { get; set; } = string.Empty;
+    /// <summary>설정 주인의 종류(<c>jsini</c> · <c>helpdesk</c>).</summary>
+    public string? OwnerType { get; set; }
+
+    public string? OwnerKey { get; set; }
+
+    public NotificationPreferenceDto Preference { get; set; } = new();
+
+    /// <summary>
+    /// 서버가 푸시를 보낼 수 있는 상태인가(VAPID 키가 설정돼 있는가).
+    /// 거짓이면 스위치를 켜도 아무 일이 일어나지 않는다.
+    /// </summary>
+    public bool PushAvailable { get; set; }
+
+    /// <summary>브라우저가 구독을 만들 때 쓰는 공개 키.</summary>
+    public string? VapidPublicKey { get; set; }
+
+    /// <summary>이 계정으로 등록된 기기들.</summary>
+    public List<PushDeviceDto> Devices { get; set; } = [];
+}
+
+/// <summary>푸시를 받도록 등록된 기기 하나.</summary>
+public sealed class PushDeviceDto
+{
+    public string? Id { get; set; }
     public string? UserAgent { get; set; }
     public DateTime? CreatedAt { get; set; }
     public DateTime? LastUsedAt { get; set; }
+}
+
+/// <summary>
+/// 구독 목록 응답. <b>배열이 아니라 <c>{ items, count }</c> 객체다.</b>
+/// </summary>
+public sealed class PushSubscriptionListDto
+{
+    public List<PushDeviceDto> Items { get; set; } = [];
+    public int Count { get; set; }
 }
 
 /// <summary>로그인한 사람의 정보.</summary>
@@ -287,11 +332,35 @@ public sealed class DeployStatusDto
     public DateTimeOffset? GeneratedAt { get; set; }
     public GithubStatusDto Github { get; set; } = new();
 
-    /// <summary>도커 컨테이너들. 서버가 소켓에서 읽어 온 그대로다.</summary>
-    public List<DockerContainerDto> Docker { get; set; } = [];
+    /// <summary>
+    /// 도커 쪽. <b>배열이 아니라 객체다.</b>
+    ///
+    /// 한동안 <c>List&lt;DockerContainerDto&gt;</c> 로 선언해 두어 두 화면이
+    /// 「응답을 해석하지 못했습니다」로 끝났다 — 배열 자리에 객체가 오면
+    /// System.Text.Json 이 예외를 던지고, 표가 비는 것이 아니라 화면 전체가
+    /// 안 뜬다.
+    /// </summary>
+    public DockerStatusDto Docker { get; set; } = new();
 }
 
-/// <summary>GitHub 쪽 상태.</summary>
+/// <summary>도커 쪽 상태. 소켓을 못 읽으면 <see cref="Available"/> 가 거짓이다.</summary>
+public sealed class DockerStatusDto
+{
+    /// <summary>도커 소켓을 읽을 수 있었는가. 거짓이면 목록이 비어 있다.</summary>
+    public bool Available { get; set; }
+
+    /// <summary>못 읽었을 때의 이유.</summary>
+    public string? Error { get; set; }
+
+    /// <summary>compose 로 뜬 컨테이너들. compose 가 아닌 것은 서버가 걸러 준다.</summary>
+    public List<DockerContainerDto> Containers { get; set; } = [];
+
+    public List<DockerImageDto> Images { get; set; } = [];
+
+    /// <summary>이미지가 차지한 용량 합계(MB). 배포 태그가 얼마나 쌓였는지 본다.</summary>
+    public long ImagesTotalMb { get; set; }
+}
+
 public sealed class GithubStatusDto
 {
     /// <summary>읽지 못했을 때의 이유. 정상이면 <c>null</c>.</summary>
@@ -304,39 +373,86 @@ public sealed class GithubStatusDto
 /// <summary>워크플로 실행 한 건.</summary>
 public sealed class GithubRunDto
 {
+    public long Id { get; set; }
     public string? Name { get; set; }
+
+    /// <summary><c>queued</c> · <c>in_progress</c> · <c>completed</c>.</summary>
     public string? Status { get; set; }
+
+    /// <summary><c>success</c> · <c>failure</c> · <c>cancelled</c>. 진행 중이면 <c>null</c>.</summary>
     public string? Conclusion { get; set; }
-    public string? HeadBranch { get; set; }
-    public DateTimeOffset? CreatedAt { get; set; }
+
+    /// <summary>서버가 <c>branch</c> 로 보낸다 — <c>head_branch</c> 가 아니다.</summary>
+    public string? Branch { get; set; }
+
+    public string? Sha { get; set; }
+
+    /// <summary>무엇이 이 실행을 걸었는가 (<c>push</c> · <c>workflow_dispatch</c>).</summary>
+    public string? Event { get; set; }
+
+    /// <summary>건 사람의 GitHub 아이디.</summary>
+    public string? Actor { get; set; }
+
+    /// <summary>커밋 제목. 어느 변경의 배포인지 이것으로 안다.</summary>
+    public string? Title { get; set; }
+
+    public DateTimeOffset? StartedAt { get; set; }
+    public DateTimeOffset? UpdatedAt { get; set; }
+
+    /// <summary>걸린 시간(초). 아직 시작하지 않았으면 <c>null</c>.</summary>
+    public double? DurationSec { get; set; }
+
     public string? HtmlUrl { get; set; }
 }
 
-/// <summary>셀프 호스티드 러너 하나.</summary>
 public sealed class GithubRunnerDto
 {
     public string? Name { get; set; }
+
+    /// <summary><c>online</c> · <c>offline</c>.</summary>
     public string? Status { get; set; }
+
     public bool Busy { get; set; }
+
+    /// <summary>러너에 붙은 꼬리표(<c>self-hosted</c> · <c>Linux</c> · <c>prod</c>).</summary>
+    public List<string> Labels { get; set; } = [];
 }
 
-/// <summary>도커 컨테이너 하나.</summary>
+/// <summary>컨테이너 한 개.</summary>
 public sealed class DockerContainerDto
 {
-    public string? Name { get; set; }
+    /// <summary>compose 서비스 이름. <b>서버가 <c>service</c> 로 보낸다.</b></summary>
+    public string? Service { get; set; }
+
+    public string? Project { get; set; }
     public string? Image { get; set; }
+
+    /// <summary>이미지 태그. 어느 판이 떠 있는지 이것으로 본다.</summary>
+    public string? Tag { get; set; }
+
+    /// <summary><c>running</c> · <c>exited</c> · <c>restarting</c>.</summary>
     public string? State { get; set; }
+
+    /// <summary>사람이 읽는 가동 문구 (<c>Up 3 days</c>).</summary>
     public string? Status { get; set; }
+
+    public DateTimeOffset? CreatedAt { get; set; }
 }
 
+/// <summary>쌓여 있는 이미지 한 개. <c>funeralv2-*</c> 만 담긴다.</summary>
+public sealed class DockerImageDto
+{
+    /// <summary>저장소:태그 전체 이름. 서버가 한 칸으로 보낸다.</summary>
+    public string? Name { get; set; }
 
-// ── 저장용 DTO ──────────────────────────────────────────────
-//
-// 조회용과 갈라 둔다. 조회 응답에는 서버가 채워 주는 칸(회사 이름·사람 수·
-// 만든 때)이 섞여 있는데, 그것을 그대로 되돌려 보내면 서버가 무시하거나
-// 거절한다. **보낼 칸만** 담는다.
+    public long SizeMb { get; set; }
 
-/// <summary>계정 등록·수정.</summary>
+    /// <summary>지금 어떤 컨테이너가 쓰고 있는가. 거짓이면 지워도 되는 것이다.</summary>
+    public bool InUse { get; set; }
+
+    public DateTimeOffset? CreatedAt { get; set; }
+}
+
 public sealed class SaveAccountDto
 {
     /// <summary>로그인 아이디. <b>등록할 때만</b> 쓴다 — 수정에서는 바꿀 수 없다.</summary>
@@ -641,4 +757,62 @@ public sealed class ReleaseRunEventDto
     public string? Step { get; set; }
     public string Message { get; set; } = string.Empty;
     public DateTime At { get; set; }
+}
+
+
+// ── 게이트웨이 상태 ─────────────────────────────────────────
+
+/// <summary>
+/// <c>gateway/status</c> 응답.
+///
+/// **봉투에 <c>result</c> 한 겹이 없다** — <c>data</c> 가 곧 이 객체다.
+/// 그래서 <c>GetFlexibleAsync</c> 로 읽는다.
+/// </summary>
+public sealed class GatewayStatusDto
+{
+    public ServiceHealth? Gateway { get; set; }
+
+    /// <summary>게이트웨이가 아는 서비스들. 화면이 목록을 들고 있지 않다.</summary>
+    public List<ServiceHealth> Services { get; set; } = [];
+}
+
+/// <summary>서비스 하나를 눌러 본 결과.</summary>
+public sealed class ServiceHealth
+{
+    /// <summary>게이트웨이의 클러스터 이름(<c>auth-cluster</c>). 없으면 게이트웨이 자신이다.</summary>
+    public string? Cluster { get; set; }
+
+    public string? Destination { get; set; }
+    public string? Address { get; set; }
+
+    /// <summary><c>UP</c> · <c>DOWN</c>.</summary>
+    public string? Status { get; set; }
+
+    public int? HttpStatus { get; set; }
+
+    /// <summary>왕복 시간(ms). 살아 있어도 느린 것을 이것으로 본다.</summary>
+    public int? LatencyMs { get; set; }
+
+    public string? Error { get; set; }
+    public string? Reason { get; set; }
+
+    /// <summary>그 서비스가 스스로 보고한 의존성(DB · 메시지 큐).</summary>
+    public List<ServiceDependency> Dependencies { get; set; } = [];
+
+    /// <summary>표에 보여 줄 이름. 클러스터 이름에서 접미사를 뗀다.</summary>
+    public string Name => Cluster is { Length: > 0 } c
+        ? (c.EndsWith("-cluster", StringComparison.OrdinalIgnoreCase) ? c[..^8] : c)
+        : "gateway";
+}
+
+/// <summary>서비스가 보고한 의존성 하나.</summary>
+public sealed class ServiceDependency
+{
+    public string? Name { get; set; }
+
+    /// <summary><c>Healthy</c> · <c>Degraded</c> · <c>Unhealthy</c>.</summary>
+    public string? Status { get; set; }
+
+    public string? Description { get; set; }
+    public double? DurationMs { get; set; }
 }

@@ -48,7 +48,17 @@ public sealed class TokenStore(IHttpContextAccessor httpContextAccessor) : IToke
     /// </summary>
     private ClaimsPrincipal? User => _user ?? httpContextAccessor.HttpContext?.User;
 
-    public void Initialize(ClaimsPrincipal user) => _user = user;
+    /// <summary>
+    /// 사용자를 넘겨받는다. <b>버림 표시도 함께 되돌린다.</b>
+    ///
+    /// 새 사용자를 받았다는 것은 새 토큰이 왔다는 뜻이다. 되돌리지 않으면
+    /// 앞선 401 한 번 때문에 세워진 표시가 남아 계속 토큰 없이 나간다.
+    /// </summary>
+    public void Initialize(ClaimsPrincipal user)
+    {
+        _user = user;
+        _cleared = false;
+    }
 
     public ValueTask<string?> GetAccessTokenAsync(CancellationToken cancellationToken = default)
     {
@@ -57,7 +67,15 @@ public sealed class TokenStore(IHttpContextAccessor httpContextAccessor) : IToke
             return ValueTask.FromResult<string?>(null);
         }
 
-        return ValueTask.FromResult(_refreshed ?? User?.FindFirstValue(AccessTokenClaim));
+        // 넘겨받은 사용자에게 토큰 클레임이 없으면 HttpContext 쪽을 다시 본다.
+        //
+        // 레이아웃이 사용자를 넘기기 전에 화면이 먼저 게이트웨이를 부르는
+        // 순간이 있다. 그때 한쪽만 보면 토큰이 잠깐 비어 401 을 한 번 맞고,
+        // 그 401 이 갱신 실패 → 토큰 버림으로 번졌다.
+        return ValueTask.FromResult(
+            _refreshed
+            ?? _user?.FindFirstValue(AccessTokenClaim)
+            ?? httpContextAccessor.HttpContext?.User.FindFirstValue(AccessTokenClaim));
     }
 
     public ValueTask<string?> GetRefreshCookieAsync(CancellationToken cancellationToken = default)
@@ -67,7 +85,9 @@ public sealed class TokenStore(IHttpContextAccessor httpContextAccessor) : IToke
             return ValueTask.FromResult<string?>(null);
         }
 
-        return ValueTask.FromResult(User?.FindFirstValue(RefreshCookieClaim));
+        return ValueTask.FromResult(
+            _user?.FindFirstValue(RefreshCookieClaim)
+            ?? httpContextAccessor.HttpContext?.User.FindFirstValue(RefreshCookieClaim));
     }
 
     public void UpdateAccessToken(string accessToken)

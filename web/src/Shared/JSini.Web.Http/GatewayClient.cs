@@ -232,6 +232,114 @@ public sealed class GatewayClient(HttpClient http)
         return await response.Content.ReadFromJsonAsync<T>(JsonOptions, cancellationToken);
     }
 
+    /// <summary>
+    /// 봉투 모양을 <b>가리지 않고</b> 객체 하나를 읽는다.
+    ///
+    /// 게이트웨이를 지나는 응답이 세 가지다 —
+    /// <c>{data:{result:[…]}}</c>(funeralv2) · <c>{data:…}</c>(헬프데스크) ·
+    /// 맨 JSON. 앞의 것만 아는 <see cref="GetOneAsync{T}"/> 로는 나머지 둘이
+    /// 「응답을 해석하지 못했습니다」로 끝난다.
+    ///
+    /// <b>새 API 에는 쓰지 않는다.</b> 이미 그렇게 굳어 버린 곳만 받아 준다 —
+    /// 헬프데스크의 푸시 통계, 게이트웨이 자기 상태.
+    /// </summary>
+    public async Task<T?> GetFlexibleAsync<T>(
+        string path,
+        CancellationToken cancellationToken = default)
+    {
+        var payload = await ReadPayloadAsync(path, cancellationToken);
+
+        return payload is null || payload.Value.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined
+            ? default
+            : payload.Value.Deserialize<T>(JsonOptions);
+    }
+
+    /// <summary>봉투 모양을 가리지 않고 목록을 읽는다. 무엇이 와도 배열이다.</summary>
+    public async Task<IReadOnlyList<T>> GetFlexibleListAsync<T>(
+        string path,
+        CancellationToken cancellationToken = default)
+    {
+        var payload = await ReadPayloadAsync(path, cancellationToken);
+
+        if (payload is not { } value)
+        {
+            return [];
+        }
+
+        return value.ValueKind switch
+        {
+            JsonValueKind.Array => value.Deserialize<List<T>>(JsonOptions) ?? [],
+
+            // 한 건만 올 때 배열로 감싸지 않는 엔드포인트가 있다.
+            JsonValueKind.Object => value.Deserialize<T>(JsonOptions) is { } one ? [one] : [],
+
+            _ => [],
+        };
+    }
+
+    /// <summary>
+    /// 응답에서 <b>알맹이</b>를 꺼낸다. 세 모양을 차례로 벗긴다.
+    ///
+    /// 봉투가 실패를 담고 있으면(<c>success: false</c>) 그 메시지로 던진다 —
+    /// 그러지 않으면 화면이 「자료가 없습니다」로 잘못 안내한다.
+    /// </summary>
+    private async Task<JsonElement?> ReadPayloadAsync(string path, CancellationToken cancellationToken)
+    {
+        using var response = await http.GetAsync(path, cancellationToken);
+        await EnsureHttpSuccessAsync(response, path, cancellationToken);
+
+        JsonDocument? document;
+        try
+        {
+            document = await response.Content.ReadFromJsonAsync<JsonDocument>(JsonOptions, cancellationToken);
+        }
+        catch (JsonException ex)
+        {
+            throw new ApiException($"응답을 해석하지 못했습니다. ({path})", response.StatusCode, innerException: ex);
+        }
+
+        if (document is null)
+        {
+            return null;
+        }
+
+        using (document)
+        {
+            var root = document.RootElement;
+
+            if (root.ValueKind == JsonValueKind.Array)
+            {
+                return root.Clone();
+            }
+
+            if (root.ValueKind != JsonValueKind.Object)
+            {
+                return root.Clone();
+            }
+
+            if (root.TryGetProperty("success", out var success)
+                && success.ValueKind == JsonValueKind.False)
+            {
+                var message = root.TryGetProperty("message", out var m) ? m.GetString() : null;
+
+                throw new ApiException(
+                    string.IsNullOrWhiteSpace(message) ? $"요청을 처리하지 못했습니다. ({path})" : message,
+                    response.StatusCode);
+            }
+
+            if (!root.TryGetProperty("data", out var data))
+            {
+                // 봉투가 아니다. 몸통이 곧 알맹이다.
+                return root.Clone();
+            }
+
+            // funeralv2 봉투는 한 겹 더 있다.
+            return data.ValueKind == JsonValueKind.Object && data.TryGetProperty("result", out var result)
+                ? result.Clone()
+                : data.Clone();
+        }
+    }
+
     /// <summary>파일을 내려받는다. 바이트를 메모리에 다 올리지 않도록 스트림으로 준다.</summary>
     public async Task<Stream> GetStreamAsync(
         string path,

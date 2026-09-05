@@ -4,9 +4,26 @@
     [MSA 서버 상태] — DB 메뉴 `/system/server-status`.
     이력: Vue `views/portal/system/server-status/index` → 여기.
 
-    배포 현황 응답 안의 **도커 컨테이너 목록**을 그대로 본다. 서비스마다 따로
-    헬스체크를 부르지 않는다 — 부르면 화면이 서비스 목록을 알아야 하고,
-    서비스를 늘릴 때 화면을 고쳐야 한다.
+    두 곳을 함께 본다.
+
+      게이트웨이  `gateway/status` — 서비스마다 헬스체크를 눌러 본 결과
+      도커        `auth/deploy-status` 안의 컨테이너 · 이미지
+
+    앞엣것이 「지금 응답하는가」, 뒤엣것이 「어느 판이 떠 있는가」다. 둘이
+    어긋날 때가 실제로 있다 — 컨테이너는 running 인데 응답을 못 하는 경우.
+    한쪽만 보면 그 상태를 놓친다.
+
+    [컨테이너 목록이 배열이 아니라 객체 안에 있었다]
+
+    `docker` 를 배열로 받고 있어서 화면이 통째로 「응답을 해석하지
+    못했습니다」로 끝났다. 서버는 `{ available, containers[], images[] }` 를
+    보낸다. 소켓을 못 읽으면 `available` 이 거짓이고, 그때는 목록이 아니라
+    **이유**를 보여 줘야 한다.
+
+    [서비스 목록을 화면이 들고 있지 않다]
+
+    게이트웨이가 자기가 아는 서비스를 눌러 보고 결과를 준다. 화면이 목록을
+    가지면 서비스를 늘릴 때마다 화면을 고쳐야 한다.
 *@
 
 @inherits DataPage
@@ -17,43 +34,160 @@
 <PageHeading Title="MSA 서버 상태" Scope="포털관리" />
 
 <div class="jsini-toolbar">
-    <DxButton Text="새로 고침" RenderStyle="ButtonRenderStyle.Primary" Click="@ReloadAsync" />
+    <DxButton Text="새로 고침" RenderStyle="ButtonRenderStyle.Primary" SizeMode="SizeMode.Small"
+              IconCssClass="jsini-icon-refresh" Click="@ReloadAsync" />
+
     @if (_status?.GeneratedAt is { } at)
     {
         <span class="ad-stamp">@at.LocalDateTime.ToString("yyyy-MM-dd HH:mm:ss") 기준</span>
     }
 </div>
 
-<DxGrid Data="@Containers" ShowFilterRow="false" PageSize="30">
-    <Columns>
-        <DxGridDataColumn FieldName="@nameof(DockerContainerDto.Name)" Caption="컨테이너" MinWidth="200" />
-        <DxGridDataColumn FieldName="@nameof(DockerContainerDto.Image)" Caption="이미지" MinWidth="260" />
-        <DxGridDataColumn Caption="상태" Width="110">
-            <CellDisplayTemplate Context="cell">
-                @{
-                    var c = (DockerContainerDto)cell.DataItem;
-                    var up = string.Equals(c.State, "running", StringComparison.OrdinalIgnoreCase);
-                }
-                <span class="jsini-badge @(up ? "jsini-badge--on" : "jsini-badge--warn")">@(c.State ?? "?")</span>
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
-        <DxGridDataColumn FieldName="@nameof(DockerContainerDto.Status)" Caption="가동" MinWidth="180" />
-    </Columns>
-</DxGrid>
-
 <PageNotice Text="@Notice" Tone="@Tone" />
+
+<h2 class="ad-subhead">서비스 응답</h2>
+
+@if (_services.Count == 0)
+{
+    <PageNotice Text="게이트웨이가 서비스 상태를 주지 않았습니다." Tone="NoticeTone.Info" />
+}
+else
+{
+    <DxGrid Data="@_services" ShowFilterRow="false" ShowSearchBox="false"
+            PageSizeSelectorVisible="false" PagerVisible="false">
+        <Columns>
+            <DxGridDataColumn FieldName="@nameof(ServiceHealth.Name)" Caption="서비스" Width="180" />
+
+            <DxGridDataColumn Caption="상태" Width="110">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var svc = (ServiceHealth)cell.DataItem;
+                        var up = string.Equals(svc.Status, "UP", StringComparison.OrdinalIgnoreCase);
+                    }
+                    <span class="jsini-badge @(up ? "jsini-badge--on" : "jsini-badge--off")">
+                        @(svc.Status ?? "?")
+                    </span>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn Caption="응답" Width="90">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var svc = (ServiceHealth)cell.DataItem;
+                    }
+                    @* 살아 있어도 느린 것을 여기서 본다. 배포 직후에 특히 쓸모가 있다. *@
+                    @(svc.LatencyMs is { } ms ? $"{ms}ms" : "-")
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn Caption="의존성" MinWidth="220">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var svc = (ServiceHealth)cell.DataItem;
+                    }
+                    @* 서비스는 떠 있는데 그 서비스의 DB 가 죽어 있는 상태가 실제로
+                       있다. 그때 「UP」만 보면 원인을 못 찾는다. *@
+                    @string.Join(" · ", svc.Dependencies.Select(d => $"{d.Name} {d.Status}"))
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn FieldName="@nameof(ServiceHealth.Address)" Caption="주소" Width="200" />
+            <DxGridDataColumn FieldName="@nameof(ServiceHealth.Error)" Caption="이유" MinWidth="160" />
+        </Columns>
+    </DxGrid>
+}
+
+<h2 class="ad-subhead">컨테이너</h2>
+
+@if (_status is not null && !_status.Docker.Available)
+{
+    @* 목록이 빈 것과 「읽을 수 없었다」는 다른 일이다. 구별해서 말해야
+       사람이 도커 소켓 권한을 보러 갈지 판단할 수 있다. *@
+    <PageNotice Tone="NoticeTone.Warning"
+                Text="@($"도커를 읽지 못했습니다 — {_status.Docker.Error ?? "소켓에 접근할 수 없습니다."}")" />
+}
+else
+{
+    <DxGrid Data="@Containers" ShowFilterRow="false" ShowSearchBox="false" PageSize="30">
+        <Columns>
+            <DxGridDataColumn FieldName="@nameof(DockerContainerDto.Service)" Caption="서비스" Width="170" />
+            <DxGridDataColumn FieldName="@nameof(DockerContainerDto.Tag)" Caption="태그" Width="130" />
+
+            <DxGridDataColumn Caption="상태" Width="110">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var c = (DockerContainerDto)cell.DataItem;
+                        var up = string.Equals(c.State, "running", StringComparison.OrdinalIgnoreCase);
+                    }
+                    <span class="jsini-badge @(up ? "jsini-badge--on" : "jsini-badge--off")">@(c.State ?? "?")</span>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn FieldName="@nameof(DockerContainerDto.Status)" Caption="가동" Width="160" />
+            <DxGridDataColumn FieldName="@nameof(DockerContainerDto.Image)" Caption="이미지" MinWidth="240" />
+            <DxGridDataColumn FieldName="@nameof(DockerContainerDto.CreatedAt)" Caption="만든 때" Width="150"
+                              DisplayFormat="yyyy-MM-dd HH:mm" />
+        </Columns>
+    </DxGrid>
+}
+
+@if (Images.Count > 0)
+{
+    <h2 class="ad-subhead">쌓인 이미지 (@_status!.Docker.ImagesTotalMb MB)</h2>
+
+    <DxGrid Data="@Images" ShowFilterRow="false" ShowSearchBox="false" PageSize="15">
+        <Columns>
+            <DxGridDataColumn FieldName="@nameof(DockerImageDto.Name)" Caption="이미지" MinWidth="300" />
+            <DxGridDataColumn FieldName="@nameof(DockerImageDto.SizeMb)" Caption="MB" Width="90" />
+
+            <DxGridDataColumn Caption="사용" Width="90">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var image = (DockerImageDto)cell.DataItem;
+                    }
+                    @* 안 쓰는 이미지가 곧 지울 수 있는 용량이다. 배포를 거듭하면
+                       이것만 수십 GB 가 된다. *@
+                    <span class="jsini-badge @(image.InUse ? "jsini-badge--on" : "")">
+                        @(image.InUse ? "사용 중" : "미사용")
+                    </span>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn FieldName="@nameof(DockerImageDto.CreatedAt)" Caption="만든 때" Width="150"
+                              DisplayFormat="yyyy-MM-dd HH:mm" />
+        </Columns>
+    </DxGrid>
+}
 
 @code {
     private DeployStatusDto? _status;
+    private IReadOnlyList<ServiceHealth> _services = [];
 
-    private IReadOnlyList<DockerContainerDto> Containers => _status?.Docker ?? [];
+    private IReadOnlyList<DockerContainerDto> Containers => _status?.Docker.Containers ?? [];
+    private IReadOnlyList<DockerImageDto> Images => _status?.Docker.Images ?? [];
 
     protected override Task OnInitializedAsync() => ReloadAsync();
 
     private Task ReloadAsync() => LoadAsync(async () =>
     {
+        // 둘 중 하나가 실패해도 나머지는 보여 준다. 서버 상태를 보러 온
+        // 사람에게 「둘 다 못 읽었습니다」는 쓸모가 없다.
+        _services = await SafeAsync(Api.GetServiceHealthAsync, []);
         _status = await Api.GetDeployStatusAsync();
-        return Containers.Count;
-    }, "컨테이너 정보를 받지 못했습니다. 서버에서 도커 소켓을 읽을 수 있는지 확인하십시오.",
-       "서버 상태를 읽지 못했습니다");
+
+        return _services.Count + Containers.Count;
+    }, "상태 정보를 받지 못했습니다.", "서버 상태를 읽지 못했습니다");
+
+    /// <summary>실패해도 화면을 세우지 않는 조회. 빈 값으로 떨어진다.</summary>
+    private static async Task<T> SafeAsync<T>(Func<CancellationToken, Task<T>> load, T fallback)
+    {
+        try
+        {
+            return await load(default);
+        }
+        catch (ApiException)
+        {
+            return fallback;
+        }
+    }
 }

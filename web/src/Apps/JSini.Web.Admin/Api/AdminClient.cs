@@ -169,47 +169,66 @@ public sealed class AdminClient(GatewayClient gateway)
 
     // ── 푸시 (HelpDeskServer 의 대시보드 그룹) ──────────────────
 
+    // 아래 넷은 **헬프데스크 서비스**의 통계다. 그쪽 봉투는 `data` 안에
+    // `result` 한 겹이 없어서, 그 겹을 전제하는 GetOneAsync/GetListAsync 로는
+    // 「응답을 해석하지 못했습니다」로 끝난다. 모양을 가리지 않는 쪽을 쓴다.
     public Task<PushStatsDto?> GetPushStatsAsync(int days = 7, CancellationToken ct = default)
-        => gateway.GetOneAsync<PushStatsDto>($"helpdesk/dashboard/push-stats?days={days}", ct);
+        => gateway.GetFlexibleAsync<PushStatsDto>($"helpdesk/dashboard/push-stats?days={days}", ct);
 
     public Task<IReadOnlyList<PushTrendPointDto>> GetPushTrendAsync(
         string interval = "daily", int days = 30, CancellationToken ct = default)
-        => gateway.GetListAsync<PushTrendPointDto>(
+        => gateway.GetFlexibleListAsync<PushTrendPointDto>(
             $"helpdesk/dashboard/push-success-trend?interval={interval}&days={days}", ct);
 
     public Task<IReadOnlyList<PushFailureReasonDto>> GetPushFailureReasonsAsync(
         int days = 7, int topN = 5, CancellationToken ct = default)
-        => gateway.GetListAsync<PushFailureReasonDto>(
+        => gateway.GetFlexibleListAsync<PushFailureReasonDto>(
             $"helpdesk/dashboard/push-failure-reasons?days={days}&topN={topN}", ct);
 
     public Task<IReadOnlyList<PushLogDto>> GetPushLogsAsync(
         int page = 1, int pageSize = 50, string? reason = null, CancellationToken ct = default)
-        => gateway.GetListAsync<PushLogDto>(
+        => gateway.GetFlexibleListAsync<PushLogDto>(
             "helpdesk/dashboard/push-logs" + Query(("page", page), ("pageSize", pageSize), ("failureReason", reason)), ct);
 
     /// <summary>내 알림 이력 (알림함).</summary>
     public Task<IReadOnlyList<NotificationDto>> GetMyNotificationsAsync(
         int page = 1, int pageSize = 50, CancellationToken ct = default)
-        => gateway.GetListAsync<NotificationDto>(
+        => gateway.GetFlexibleListAsync<NotificationDto>(
             "helpdesk/push/notifications" + Query(("page", page), ("pageSize", pageSize)), ct);
 
     public Task MarkNotificationReadAsync(int id, CancellationToken ct = default)
         => gateway.PostAsync($"helpdesk/push/notifications/{id}/read", new { }, ct);
 
+    /// <summary>게이트웨이가 서비스를 하나씩 눌러 본 결과. 자기 상태도 함께 온다.</summary>
+    public Task<GatewayStatusDto?> GetGatewayStatusAsync(CancellationToken ct = default)
+        => gateway.GetFlexibleAsync<GatewayStatusDto>("gateway/status", ct);
+
+    /// <summary>서비스별 응답 상태만 꺼내 준다. 못 읽으면 빈 목록.</summary>
+    public async Task<IReadOnlyList<ServiceHealth>> GetServiceHealthAsync(CancellationToken ct = default)
+        => (await GetGatewayStatusAsync(ct))?.Services ?? [];
+
     // ── 알림 설정 (NotificationServer) ─────────────────────────
 
-    public Task<NotificationPreferenceDto?> GetMyPreferencesAsync(CancellationToken ct = default)
-        => gateway.GetOneAsync<NotificationPreferenceDto>("notify/preferences/me", ct);
+    // 알림 서비스의 게이트웨이 접두사는 **`notification`** 이고, 서비스 안의
+    // 묶음은 **`/notifications`** 다. 둘 다 있어야 한다 — `notify/...` 로
+    // 부르던 동안 네 화면이 조용히 404 였다.
 
+    public Task<NotificationSettingsDto?> GetMyPreferencesAsync(CancellationToken ct = default)
+        => gateway.GetOneAsync<NotificationSettingsDto>("notification/notifications/preferences/me", ct);
+
+    /// <summary>
+    /// 설정을 저장한다. <b>감싸지 않고 설정만</b> 보낸다 — 서버가 받는 것은
+    /// 응답의 <c>preference</c> 자리에 해당하는 모양이다.
+    /// </summary>
     public Task SaveMyPreferencesAsync(NotificationPreferenceDto pref, CancellationToken ct = default)
-        => gateway.PutAsync("notify/preferences/me", pref, ct);
+        => gateway.PutAsync("notification/notifications/preferences/me", pref, ct);
 
-    public Task<IReadOnlyList<PushSubscriptionDto>> GetMySubscriptionsAsync(CancellationToken ct = default)
-        => gateway.GetListAsync<PushSubscriptionDto>("notify/subscriptions/me", ct);
+    public Task<PushSubscriptionListDto?> GetMySubscriptionsAsync(CancellationToken ct = default)
+        => gateway.GetOneAsync<PushSubscriptionListDto>("notification/notifications/subscriptions/me", ct);
 
     /// <summary>시험 발송. 내 기기로 한 통 보낸다.</summary>
     public Task SendTestPushAsync(CancellationToken ct = default)
-        => gateway.PostAsync("notify/push/test", new { }, ct);
+        => gateway.PostAsync("notification/notifications/push/test", new { }, ct);
 
     // ── 메뉴 ────────────────────────────────────────────────────
 

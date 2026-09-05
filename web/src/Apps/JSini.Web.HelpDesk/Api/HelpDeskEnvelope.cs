@@ -24,6 +24,21 @@ internal sealed class HelpDeskEnvelope<T>
     [JsonPropertyName("success")]
     public bool Success { get; set; }
 
+    /// <summary>
+    /// 일부 엔드포인트는 <c>success</c> 대신 <c>ok</c> 로 말한다.
+    ///
+    /// 이식한 코드라 두 이름이 섞여 있다. 한쪽만 보면 그 엔드포인트를 쓰는
+    /// 화면이 「요청을 처리하지 못했습니다」로 끝난다 — 사용자 속성 화면이
+    /// 실제로 그랬다. 서버를 통일하는 편이 맞지만 그건 JinReception 과 함께
+    /// 봐야 하는 일이라, 받는 쪽에서 흡수한다.
+    /// </summary>
+    [JsonPropertyName("ok")]
+    public bool? Ok { get; set; }
+
+    /// <summary>성공했는가. 두 이름 중 하나라도 참이면 성공이다.</summary>
+    [JsonIgnore]
+    public bool IsSuccess => Success || Ok == true;
+
     [JsonPropertyName("message")]
     public string Message { get; set; } = string.Empty;
 

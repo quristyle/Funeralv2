@@ -6,6 +6,13 @@
 
     GitHub 워크플로 실행 이력과 셀프 호스티드 러너 상태를 본다.
 
+    [칸 이름이 서버와 어긋나 있었다]
+
+    `head_branch` · `created_at` 은 **GitHub API 의** 이름이고, 우리 서버는
+    그것을 `branch` · `startedAt` 으로 바꿔 보낸다. 그 이름으로 받고 있어서
+    브랜치·시각 칸이 늘 비어 있었다. 예외가 나지 않는 종류의 어긋남이라
+    「자료가 없나 보다」로 읽혔다.
+
     [GitHub 이 안 읽혀도 화면은 뜬다]
 
     서버가 둘을 따로 긁어 합쳐 주고, GitHub 쪽이 실패하면 `github.error` 에
@@ -21,10 +28,17 @@
 <PageHeading Title="배포 현황" Scope="포털관리" />
 
 <div class="jsini-toolbar">
-    <DxButton Text="새로 고침" RenderStyle="ButtonRenderStyle.Primary" Click="@ReloadAsync" />
+    <DxButton Text="새로 고침" RenderStyle="ButtonRenderStyle.Primary" SizeMode="SizeMode.Small"
+              IconCssClass="jsini-icon-refresh" Click="@ReloadAsync" />
+
     @if (_status?.Repo is { Length: > 0 } repo)
     {
         <span class="ad-stamp">@repo</span>
+    }
+
+    @if (_status?.GeneratedAt is { } at)
+    {
+        <span class="ad-stamp">@at.LocalDateTime.ToString("yyyy-MM-dd HH:mm:ss") 기준</span>
     }
 </div>
 
@@ -34,34 +48,80 @@
 }
 
 <h2 class="ad-subhead">워크플로 실행</h2>
-<DxGrid Data="@Runs" ShowFilterRow="false" PageSize="15">
+
+<DxGrid Data="@Runs" ShowFilterRow="false" ShowSearchBox="false" PageSize="15">
     <Columns>
-        <DxGridDataColumn FieldName="@nameof(GithubRunDto.CreatedAt)" Caption="시각" Width="160" DisplayFormat="yyyy-MM-dd HH:mm" />
-        <DxGridDataColumn FieldName="@nameof(GithubRunDto.Name)" Caption="워크플로" MinWidth="200" />
-        <DxGridDataColumn FieldName="@nameof(GithubRunDto.HeadBranch)" Caption="브랜치" Width="130" />
-        <DxGridDataColumn FieldName="@nameof(GithubRunDto.Status)" Caption="상태" Width="120" />
-        <DxGridDataColumn Caption="결과" Width="110">
+        <DxGridDataColumn FieldName="@nameof(GithubRunDto.StartedAt)" Caption="시각" Width="150"
+                          DisplayFormat="yyyy-MM-dd HH:mm" />
+        <DxGridDataColumn FieldName="@nameof(GithubRunDto.Name)" Caption="워크플로" Width="150" />
+
+        @* 커밋 제목이 있어야 「무엇을 배포한 실행인가」를 안다. 옛 화면에도 있었다. *@
+        <DxGridDataColumn FieldName="@nameof(GithubRunDto.Title)" Caption="내용" MinWidth="240" />
+
+        <DxGridDataColumn FieldName="@nameof(GithubRunDto.Branch)" Caption="브랜치" Width="100" />
+        <DxGridDataColumn FieldName="@nameof(GithubRunDto.Actor)" Caption="건 사람" Width="110" />
+
+        <DxGridDataColumn Caption="걸린 시간" Width="90">
             <CellDisplayTemplate Context="cell">
                 @{
                     var run = (GithubRunDto)cell.DataItem;
-                    var ok = string.Equals(run.Conclusion, "success", StringComparison.OrdinalIgnoreCase);
                 }
-                <span class="jsini-badge @(ok ? "jsini-badge--on" : "jsini-badge--warn")">
-                    @(run.Conclusion ?? "진행 중")
-                </span>
+                @(run.DurationSec is { } sec ? $"{sec:F0}초" : "-")
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+
+        <DxGridDataColumn Caption="결과" Width="100">
+            <CellDisplayTemplate Context="cell">
+                @{
+                    var run = (GithubRunDto)cell.DataItem;
+                }
+                <span class="jsini-badge @ConclusionClass(run)">@ConclusionText(run)</span>
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+
+        <DxGridDataColumn Caption="" Width="70" AllowSort="false">
+            <CellDisplayTemplate Context="cell">
+                @{
+                    var run = (GithubRunDto)cell.DataItem;
+                }
+                @if (run.HtmlUrl is { Length: > 0 } url)
+                {
+                    @* 실패한 실행의 로그는 GitHub 에서만 볼 수 있다. 그 자리로 바로 보낸다. *@
+                    <a href="@url" target="_blank" rel="noopener">로그</a>
+                }
             </CellDisplayTemplate>
         </DxGridDataColumn>
     </Columns>
 </DxGrid>
 
 <h2 class="ad-subhead">러너</h2>
-<DxGrid Data="@Runners" ShowFilterRow="false" PageSizeSelectorVisible="false" PagerVisible="false">
+
+<DxGrid Data="@Runners" ShowFilterRow="false" ShowSearchBox="false"
+        PageSizeSelectorVisible="false" PagerVisible="false">
     <Columns>
-        <DxGridDataColumn FieldName="@nameof(GithubRunnerDto.Name)" Caption="이름" MinWidth="200" />
-        <DxGridDataColumn FieldName="@nameof(GithubRunnerDto.Status)" Caption="상태" Width="130" />
-        <DxGridDataColumn Caption="작업" Width="110">
+        <DxGridDataColumn FieldName="@nameof(GithubRunnerDto.Name)" Caption="이름" Width="180" />
+
+        <DxGridDataColumn Caption="상태" Width="110">
+            <CellDisplayTemplate Context="cell">
+                @{
+                    var runner = (GithubRunnerDto)cell.DataItem;
+                    var online = string.Equals(runner.Status, "online", StringComparison.OrdinalIgnoreCase);
+                }
+                <span class="jsini-badge @(online ? "jsini-badge--on" : "jsini-badge--off")">
+                    @(online ? "온라인" : "오프라인")
+                </span>
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+
+        <DxGridDataColumn Caption="작업" Width="100">
             <CellDisplayTemplate Context="cell">
                 @(((GithubRunnerDto)cell.DataItem).Busy ? "실행 중" : "대기")
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+
+        <DxGridDataColumn Caption="꼬리표" MinWidth="200">
+            <CellDisplayTemplate Context="cell">
+                @string.Join(" · ", ((GithubRunnerDto)cell.DataItem).Labels)
             </CellDisplayTemplate>
         </DxGridDataColumn>
     </Columns>
@@ -82,4 +142,25 @@
         _status = await Api.GetDeployStatusAsync();
         return Runs.Count + Runners.Count;
     }, "배포 이력을 받지 못했습니다.", "배포 현황을 읽지 못했습니다");
+
+    /// <summary>결과 문구. 아직 안 끝난 실행은 <c>conclusion</c> 이 비어 있다.</summary>
+    private static string ConclusionText(GithubRunDto run) => run.Conclusion?.ToLowerInvariant() switch
+    {
+        "success" => "성공",
+        "failure" => "실패",
+        "cancelled" => "취소",
+        "skipped" => "건너뜀",
+        null or "" => string.Equals(run.Status, "completed", StringComparison.OrdinalIgnoreCase)
+            ? "알 수 없음"
+            : "진행 중",
+        _ => run.Conclusion!,
+    };
+
+    private static string ConclusionClass(GithubRunDto run) => run.Conclusion?.ToLowerInvariant() switch
+    {
+        "success" => "jsini-badge--on",
+        "failure" => "jsini-badge--off",
+        null or "" => "jsini-badge--warn",
+        _ => "",
+    };
 }
