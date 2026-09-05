@@ -19,6 +19,13 @@
         옛 화면은 빈 카드에서 바로 되돌릴 수 있었다. 잘못 출상 처리했을 때
         고인 목록까지 찾아가지 않아도 된다.
 
+    [고인명·기간으로 좁힐 수 있다]
+
+    서버가 `name` · 입관 기간 · 발인 기간을 받는데 화면이 건물·층만 보내고
+    있었다. 호실이 서른 개가 넘는 시설에서는 「이번 주 발인」만 보고 싶은 때가
+    많다. 기간 둘은 접어 둔다 — 이 화면은 상황판으로 띄워 두는 일이 많아
+    조건줄이 두 줄이 되는 것이 아깝다.
+
     [고치러 가는 길은 걸되, 고치는 일은 여기서 하지 않는다]
 
     옛 화면은 카드 위에서 고인 자료를 고치고 호실을 옮기고 장비를 설정했다.
@@ -42,9 +49,39 @@
 <PageHeading Title="빈소현황" Scope="장례식장" />
 
 <BuildingFilter @bind-BuildingId="_buildingId" @bind-FloorId="_floorId" ShowFloor="true" Search="@ReloadAsync">
+    <DxTextBox @bind-Text="_name" NullText="고인명" Style="width: 140px"
+               ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+
     <DxCheckBox @bind-Checked="_onlyInUse">사용 중만</DxCheckBox>
     <DxCheckBox @bind-Checked="_onlyAlert">장비 이상만</DxCheckBox>
+
+    @* 기간 둘은 접어 둔다. 늘 펼쳐 두면 조건줄이 두 줄이 되는데, 이 화면은
+       상황판으로 띄워 두는 일이 많아 위쪽을 먹는 것이 아깝다. *@
+    <DxButton Text="@(_showDates ? "기간 접기" : "기간 조건")" SizeMode="SizeMode.Small"
+              RenderStyle="ButtonRenderStyle.Link" Click="@(() => _showDates = !_showDates)" />
 </BuildingFilter>
+
+@if (_showDates)
+{
+    <div class="jsini-toolbar">
+        <span class="fn-note">입관</span>
+        <DxDateEdit @bind-Date="_coffinFrom" NullText="시작"
+                    ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        <DxDateEdit @bind-Date="_coffinTo" NullText="끝"
+                    ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+
+        <span class="fn-note">발인</span>
+        <DxDateEdit @bind-Date="_burialFrom" NullText="시작"
+                    ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        <DxDateEdit @bind-Date="_burialTo" NullText="끝"
+                    ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+
+        <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" SizeMode="SizeMode.Small"
+                  Click="@ReloadAsync" />
+        <DxButton Text="기간 지우기" RenderStyle="ButtonRenderStyle.Secondary" SizeMode="SizeMode.Small"
+                  Click="@ClearDatesAsync" />
+    </div>
+}
 
 <PageNotice Text="@Notice" Tone="@Tone" />
 
@@ -184,6 +221,14 @@
     private bool _onlyInUse;
     private bool _onlyAlert;
 
+    private string? _name;
+    private bool _showDates;
+
+    private DateTime? _coffinFrom;
+    private DateTime? _coffinTo;
+    private DateTime? _burialFrom;
+    private DateTime? _burialTo;
+
     private RoomBoard? _board;
 
     /// <summary>서버가 준 원본. 조건을 바꿔도 다시 부르지 않게 들고 있는다.</summary>
@@ -222,11 +267,30 @@
 
     private Task ReloadAsync() => LoadAsync(async () =>
     {
-        _board = await Api.GetRoomBoardAsync(buildingId: _buildingId, floorId: _floorId);
+        // **이름을 붙여 넘긴다.** 첫 인자가 `companyId` 라, 자리로 넘기면
+        // 건물이 회사 자리에 들어가 조건이 통째로 어긋난다.
+        _board = await Api.GetRoomBoardAsync(
+            buildingId: _buildingId,
+            floorId: _floorId,
+            name: string.IsNullOrWhiteSpace(_name) ? null : _name.Trim(),
+            coffinStartDate: _coffinFrom,
+            coffinEndDate: _coffinTo,
+            burialStartDate: _burialFrom,
+            burialEndDate: _burialTo);
         _rooms = _board?.Rooms ?? [];
 
         return _rooms.Count;
     }, "조건에 맞는 호실이 없습니다.", "빈소현황을 읽지 못했습니다");
+
+    private Task ClearDatesAsync()
+    {
+        _coffinFrom = null;
+        _coffinTo = null;
+        _burialFrom = null;
+        _burialTo = null;
+
+        return ReloadAsync();
+    }
 
     /// <summary>
     /// 출상 취소. 그 호실에 고인이 다시 배정된다.
