@@ -383,3 +383,13 @@
   grid-template-columns: repeat(4, 1fr);
   gap: 0.25rem;
 }
+
+/* 카드에서 고치러 가는 길. 배지처럼 보이면 상태로 읽히므로 링크로 둔다. */
+.fn-card__links {
+  display: flex;
+  gap: 0.6rem;
+  margin-top: 0.5rem;
+  padding-top: 0.4rem;
+  border-top: 1px solid var(--jsini-border);
+  font-size: 0.78rem;
+}

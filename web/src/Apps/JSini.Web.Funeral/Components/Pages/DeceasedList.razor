@@ -134,6 +134,16 @@
                 OnSaved="@ReloadAsync" />
 
 @code {
+    /// <summary>
+    /// 주소로 받은 검색어 (<c>?keyword=</c>).
+    ///
+    /// 빈소현황 카드에서 「고인 자료」로 건너올 때 그 고인의 이름을 실어 보낸다.
+    /// 안 받으면 목록 맨 앞으로 떨어져 다시 찾아야 하고, 그러면 링크를 걸어 둔
+    /// 뜻이 없다.
+    /// </summary>
+    [Parameter, SupplyParameterFromQuery(Name = "keyword")]
+    public string? Keyword { get; set; }
+
     private string? _keyword;
 
     private bool _editing;
@@ -144,7 +154,23 @@
     /// <summary>줄마다 고른 이동 대상. 하나로 두면 한 줄에서 고른 값이 다른 줄에도 뜬다.</summary>
     private readonly Dictionary<string, string?> _targets = new(StringComparer.Ordinal);
 
-    protected override Task OnInitializedAsync() => ReloadAsync();
+    /// <summary>
+    /// 주소가 바뀌어도 다시 읽는다. <c>OnInitializedAsync</c> 만 걸면 같은
+    /// 화면에서 검색어만 바뀔 때 목록이 그대로다.
+    /// </summary>
+    protected override Task OnParametersSetAsync()
+    {
+        if (!string.Equals(_appliedKeyword, Keyword, StringComparison.Ordinal))
+        {
+            _appliedKeyword = Keyword;
+            _keyword = Keyword;
+        }
+
+        return ReloadAsync();
+    }
+
+    /// <summary>마지막으로 반영한 주소 검색어. 사용자가 칸을 고친 것을 덮지 않으려고 둔다.</summary>
+    private string? _appliedKeyword;
 
     private Task ReloadAsync() => LoadAsync(async () =>
     {
