@@ -1,0 +1,222 @@
+@*
+    자료(영상·음원·장식·배경) 목록 한 벌.
+
+    [화면 넷이 같은 표를 본다]
+
+    자료는 한 표(`media_sources`)에 있고 `SourceType` 으로 갈린다. 화면을 넷으로
+    나눈 것은 **업무가 다르기 때문**이다 — 영상은 빈소에 틀고, 음원은 건물에
+    배정하고, 배경·장식은 장비 속성에 붙는다.
+
+    그래도 「목록을 보고 이름·정렬을 고치고 지우는」 부분은 넷이 똑같다.
+    손으로 네 번 적으면 반드시 갈라지고, 갈라지는 곳은 늘 권한 판정과 실패
+    처리다. 그래서 여기로 모았다.
+
+    [올리는 것은 없다]
+
+    자료를 새로 만들려면 FileServer 에 파일을 먼저 올리고 받은 식별자를 매다는
+    두 단계가 필요하다. 어디까지 옮길지는 결정 목록 **D5** 다. 그래서 이
+    부품은 **이미 올라온 자료의 정보를 고치고 지우는 것**만 한다.
+
+    [재처리는 화면마다 다르다]
+
+    영상은 미리보기 그림과 webm 을, 음원은 변환본을 다시 만든다. 장식·배경은
+    파생물이 없어 재처리가 없다. 그래서 그 단추는 부르는 쪽이 넘긴다.
+*@
+
+@inherits DataPage
+
+@inject FuneralApi Api
+
+<CrudGrid TItem="MediaSource"
+          Data="@Shown"
+          EditFormTitle="@Title"
+          ExportName="@Title"
+          PageSize="20"
+          OnSave="@SaveAsync"
+          OnDelete="@DeleteAsync"
+          Reload="@ReloadAsync">
+    <ChildContent>
+        <DxTextBox @bind-Text="_keyword" NullText="이름 검색" Style="width: 220px"
+                   ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+    </ChildContent>
+
+    <Columns>
+        @if (ShowThumbnail)
+        {
+            <DxGridDataColumn Caption="" Width="80" AllowSort="false">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var m = (MediaSource)cell.DataItem;
+                    }
+                    @if (m.ThumbnailUrl is { Length: > 0 } thumb)
+                    {
+                        <img class="fn-thumb" src="@thumb" alt="" loading="lazy" />
+                    }
+                    else
+                    {
+                        @* 미리보기가 아직 안 만들어진 것과 만들다 실패한 것이
+                           같아 보인다. 재처리 단추가 그 자리에 있다. *@
+                        <span class="fn-thumb fn-thumb--none">없음</span>
+                    }
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+        }
+
+        <DxGridDataColumn FieldName="@nameof(MediaSource.Name)" Caption="이름" MinWidth="200" />
+        <DxGridDataColumn FieldName="@nameof(MediaSource.ShortName)" Caption="약칭" Width="120" />
+
+        <DxGridDataColumn Caption="크기" Width="100">
+            <CellDisplayTemplate Context="cell">
+                @FormatSize(((MediaSource)cell.DataItem).FileSize)
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+
+        <DxGridDataColumn FieldName="@nameof(MediaSource.SortOrder)" Caption="정렬" Width="80" />
+        <DxGridDataColumn FieldName="@nameof(MediaSource.Remark)" Caption="비고" MinWidth="150" />
+
+        @if (Retries.Count > 0)
+        {
+            @* 단추 수만큼 폭을 준다. `Width` 는 CSS 길이라 숫자만 주면 안 된다. *@
+            <DxGridDataColumn Caption="재처리" Width="@($"{60 + (Retries.Count * 60)}px")" AllowSort="false">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var m = (MediaSource)cell.DataItem;
+                    }
+                    <div class="d-flex gap-1">
+                        @foreach (var (kind, label) in Retries)
+                        {
+                            <PermissionView Action="MenuAction.Update">
+                                <DxButton Text="@label" SizeMode="SizeMode.Small"
+                                          RenderStyle="ButtonRenderStyle.Secondary"
+                                          Click="@(() => RetryAsync(m.Id, kind))" />
+                            </PermissionView>
+                        }
+                    </div>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+        }
+    </Columns>
+
+    <EditForm Context="edit">
+        @{
+            var m = (MediaSource)edit.EditModel;
+        }
+        <DxFormLayout CssClass="fn-editform">
+            <DxFormLayoutItem Caption="이름" ColSpanMd="8">
+                <DxTextBox @bind-Text="m.Name" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="정렬" ColSpanMd="4">
+                <DxSpinEdit @bind-Value="m.SortOrder" MinValue="0" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="약칭" ColSpanMd="12">
+                @* 빈소 화면처럼 자리가 좁은 곳이 이 값을 쓴다. *@
+                <DxTextBox @bind-Text="m.ShortName" NullText="좁은 화면에 쓰는 짧은 이름" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="비고" ColSpanMd="12">
+                <DxMemo @bind-Text="m.Remark" Rows="3" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="파일" ColSpanMd="12">
+                @* 파일 자체는 바꿀 수 없다(D5). 무엇이 매달려 있는지만 보여 준다 —
+                   이름만 보고 「어느 파일이었지」를 알 수 없어서다. *@
+                <DxTextBox Text="@m.Url" ReadOnly="true" />
+            </DxFormLayoutItem>
+        </DxFormLayout>
+    </EditForm>
+</CrudGrid>
+
+@code {
+    /// <summary>이 화면이 다루는 자료 종류. 서버가 이 값으로 걸러 준다.</summary>
+    [Parameter, EditorRequired] public string SourceType { get; set; } = string.Empty;
+
+    /// <summary>편집 창과 엑셀 파일에 쓸 이름.</summary>
+    [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
+
+    /// <summary>미리보기 그림 칸을 보여 줄지. 영상만 참이다.</summary>
+    [Parameter] public bool ShowThumbnail { get; set; }
+
+    /// <summary>
+    /// 재처리 단추들. <c>(종류, 이름)</c>.
+    ///
+    /// 종류는 <c>thumbnail</c> · <c>webm</c> · <c>audio</c> 셋이다.
+    /// 파생물이 없는 자료(장식·배경)는 비워 둔다.
+    /// </summary>
+    [Parameter] public IReadOnlyList<(string Kind, string Label)> Retries { get; set; } = [];
+
+    private IReadOnlyList<MediaSource> _all = [];
+    private string? _keyword;
+
+    private IReadOnlyList<MediaSource> Shown
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(_keyword))
+            {
+                return _all;
+            }
+
+            var k = _keyword.Trim();
+            return [.. _all.Where(m =>
+                m.Name.Contains(k, StringComparison.OrdinalIgnoreCase)
+                || (m.ShortName?.Contains(k, StringComparison.OrdinalIgnoreCase) ?? false))];
+        }
+    }
+
+    protected override Task OnInitializedAsync() => ReloadAsync();
+
+    private Task ReloadAsync() => LoadAsync(async () =>
+    {
+        _all = await Api.GetMediaSourcesAsync(SourceType);
+        return _all.Count;
+    }, "등록된 자료가 없습니다.", "목록을 읽지 못했습니다");
+
+    /// <summary>
+    /// 정보를 저장한다. <b>등록은 없다</b> — 파일을 올릴 길이 아직 없어서다.
+    ///
+    /// 종류를 다시 실어 보낸다. 안 실으면 서버가 빈 값으로 덮어써서 그 자료가
+    /// 어느 화면에도 안 나오게 된다.
+    /// </summary>
+    private Task SaveAsync((MediaSource Item, bool IsNew) e)
+    {
+        e.Item.SourceType = SourceType;
+        return Api.UpdateMediaSourceAsync(e.Item.Id, e.Item);
+    }
+
+    private Task DeleteAsync(MediaSource m) => Api.DeleteMediaSourceAsync(m.Id);
+
+    /// <summary>바이트를 사람이 읽는 단위로. 1MB 미만은 KB 로 둔다.</summary>
+    private static string FormatSize(long? bytes)
+    {
+        if (bytes is null or 0)
+        {
+            return "-";
+        }
+
+        var mb = bytes.Value / 1024d / 1024d;
+        return mb >= 1 ? $"{mb:0.0} MB" : $"{Math.Round(bytes.Value / 1024d)} KB";
+    }
+
+    /// <summary>
+    /// 변환 재처리.
+    ///
+    /// 성공하면 목록을 다시 읽는다 — 변환은 비동기라 지금 당장 바뀌지는 않지만,
+    /// 무언가 반응이 있어야 두 번 누르지 않는다.
+    /// </summary>
+    private async Task RetryAsync(string id, string kind)
+    {
+        var run = kind switch
+        {
+            "thumbnail" => Api.RetryThumbnailAsync(id),
+            "webm" => Api.RetryWebmAsync(id),
+            _ => Api.RetryAudioAsync(id),
+        };
+
+        if (await RunAsync(() => run, "재처리를 걸었습니다. 잠시 뒤 반영됩니다.", "재처리를 걸지 못했습니다"))
+        {
+            await ReloadAsync();
+        }
+    }
+}

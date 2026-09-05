@@ -41,6 +41,15 @@
         <DxGridDataColumn FieldName="@nameof(Deceased.RoomName)" Caption="호실" Width="130" />
         <DxGridDataColumn FieldName="@nameof(Deceased.DeathDate)" Caption="임종" Width="120" DisplayFormat="yyyy-MM-dd" />
         <DxGridDataColumn FieldName="@nameof(Deceased.FuneralDate)" Caption="발인" Width="150" DisplayFormat="yyyy-MM-dd HH:mm" />
+
+        <DxGridDataColumn Caption="상태" Width="110">
+            <CellDisplayTemplate Context="cell">
+                @{
+                    var d = (Deceased)cell.DataItem;
+                }
+                <span class="jsini-badge @StatusClass(d.Status)">@StatusText(d.Status)</span>
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
         <DxGridDataColumn Caption="호실 이동" Width="230">
             <CellDisplayTemplate Context="cell">
                 @{
@@ -58,6 +67,43 @@
                         <DxButton Text="이동" SizeMode="SizeMode.Small" RenderStyle="ButtonRenderStyle.Secondary"
                                   Click="@(() => MoveAsync(d))" />
                     </div>
+                </PermissionView>
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+
+        <DxGridDataColumn Caption="발인" Width="150" AllowSort="false">
+            <CellDisplayTemplate Context="cell">
+                @{
+                    var d = (Deceased)cell.DataItem;
+                }
+                <PermissionView Action="MenuAction.Update">
+                    @if (IsDeparted(d.Status))
+                    {
+                        @* 발인은 되돌릴 수 있다 — 서버가 그 길을 열어 두었다.
+                           실수로 눌렀을 때 손쓸 방법이 있는 것과 없는 것은 다르다. *@
+                        <DxButton Text="발인 취소" SizeMode="SizeMode.Small"
+                                  RenderStyle="ButtonRenderStyle.Secondary"
+                                  Click="@(() => CancelDepartureAsync(d))" />
+                    }
+                    else
+                    {
+                        <DxButton Text="발인 처리" SizeMode="SizeMode.Small"
+                                  RenderStyle="ButtonRenderStyle.Secondary"
+                                  Click="@(() => DepartAsync(d))" />
+                    }
+                </PermissionView>
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+
+        <DxGridDataColumn Caption="" Width="80" AllowSort="false">
+            <CellDisplayTemplate Context="cell">
+                @{
+                    var d = (Deceased)cell.DataItem;
+                }
+                <PermissionView Action="MenuAction.Delete">
+                    <DxButton Text="삭제" SizeMode="SizeMode.Small"
+                              RenderStyle="ButtonRenderStyle.Secondary"
+                              Click="@(() => DeleteAsync(d))" />
                 </PermissionView>
             </CellDisplayTemplate>
         </DxGridDataColumn>
@@ -114,4 +160,64 @@
             await ReloadAsync();
         }
     }
+
+    /// <summary>
+    /// 발인 처리.
+    ///
+    /// 호실이 비고 현황판에서 내려간다. <b>되돌릴 수 있다</b> —
+    /// 그래서 확인 창을 따로 띄우지 않는다. 되돌릴 수 없는 일이었다면
+    /// 한 번 더 물었을 것이다.
+    /// </summary>
+    private async Task DepartAsync(Deceased d)
+    {
+        if (await RunAsync(() => Api.DepartDeceasedAsync(d.Id),
+                           $"{d.Name} 님을 발인 처리했습니다.", "발인 처리를 하지 못했습니다"))
+        {
+            await ReloadAsync();
+        }
+    }
+
+    /// <summary>발인 취소. 호실이 다시 차고 현황판에 올라온다.</summary>
+    private async Task CancelDepartureAsync(Deceased d)
+    {
+        if (await RunAsync(() => Api.CancelDeceasedDepartureAsync(d.Id),
+                           $"{d.Name} 님의 발인을 되돌렸습니다.", "되돌리지 못했습니다"))
+        {
+            await ReloadAsync();
+        }
+    }
+
+    /// <summary>
+    /// 삭제.
+    ///
+    /// 발인 처리와 다르다 — 기록이 사라진다. 과금·호실 이력이 이 고인을
+    /// 가리키고 있으면 서버가 막는다.
+    /// </summary>
+    private async Task DeleteAsync(Deceased d)
+    {
+        if (await RunAsync(() => Api.DeleteDeceasedAsync(d.Id),
+                           $"{d.Name} 님의 기록을 지웠습니다.", "지우지 못했습니다"))
+        {
+            await ReloadAsync();
+        }
+    }
+
+    /// <summary>발인이 끝난 상태인가.</summary>
+    private static bool IsDeparted(string? status) =>
+        status is "FUNERAL_DEPARTURE_COMPLETED" or "COMPLETED";
+
+    private static string StatusText(string? status) => status switch
+    {
+        "FUNERAL_IN_PROGRESS" => "장례 중",
+        "FUNERAL_DEPARTURE_COMPLETED" => "발인 완료",
+        "COMPLETED" => "종료",
+        _ => status ?? "-",
+    };
+
+    private static string StatusClass(string? status) => status switch
+    {
+        "FUNERAL_IN_PROGRESS" => "jsini-badge--warn",
+        "FUNERAL_DEPARTURE_COMPLETED" or "COMPLETED" => "jsini-badge--on",
+        _ => "",
+    };
 }

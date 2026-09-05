@@ -4,100 +4,37 @@
     [영상 관리] — DB 메뉴 `/building/video`.
     이력: Vue `views/funeral/building/video/index` → 여기.
 
-    자료는 한 표(`media_sources`)에 있고 `SourceType` 으로 갈린다. 화면을 나눈
-    것은 업무가 다르기 때문이다 — 영상은 빈소에 틀고, 음원은 건물에 배정하고,
-    배경·장식은 장비 속성에 붙는다.
+    영상은 빈소 디스플레이에서 튼다. 브라우저가 바로 못 트는 형식이 섞여
+    있어 서버가 webm 을 따로 만들고, 목록용 미리보기 그림도 만든다.
+    둘 다 비동기라 방금 올린 자료는 잠깐 비어 있는 것이 정상이다.
+
+    [수정과 삭제가 빠져 있었다]
+
+    목록과 재처리는 있었지만 **이름·정렬을 고치거나 지울 수가 없었다.**
+    클라이언트에는 메서드가 있었고 화면만 안 부르고 있었다.
+
+    [화면 넷이 같은 표를 본다]
+
+    자료는 한 표(`media_sources`)에 있고 `SourceType` 으로 갈린다. 그 넷이
+    목록·수정·삭제·재처리를 똑같이 하므로 `MediaSourceList` 한 벌로 모았다 —
+    손으로 네 번 적으면 반드시 갈라지고, 갈라지는 곳은 늘 권한 판정과 실패
+    처리다.
+
+    **올리는 것은 아직 없다**(결정 목록 D5).
 *@
 
 @inherits DataPage
-@inject FuneralApi Api
 
 <PageTitle>영상 관리 · 장례식장</PageTitle>
 
 <PageHeading Title="영상 관리" Scope="장례식장" />
 
-<div class="jsini-toolbar">
-    <DxTextBox @bind-Text="_keyword" NullText="이름 검색" Style="width: 220px"
-               ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
-    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@ReloadAsync" />
-</div>
-
-<DxGrid Data="@Shown" ShowFilterRow="false" PageSize="20">
-    <Columns>
-        <DxGridDataColumn FieldName="@nameof(MediaSource.Name)" Caption="이름" MinWidth="200" />
-        <DxGridDataColumn FieldName="@nameof(MediaSource.ShortName)" Caption="약칭" Width="120" />
-        <DxGridDataColumn Caption="크기" Width="110">
-            <CellDisplayTemplate>
-                @{ var m = (MediaSource)context.DataItem; }
-                @FormatSize(m.FileSize)
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
-        <DxGridDataColumn FieldName="@nameof(MediaSource.SortOrder)" Caption="정렬" Width="80" />
-        <DxGridDataColumn FieldName="@nameof(MediaSource.Remark)" Caption="비고" MinWidth="160" />
-        <DxGridDataColumn Caption="재처리" Width="170">
-            <CellDisplayTemplate>
-                @{ var m = (MediaSource)context.DataItem; }
-                <PermissionView Action="MenuAction.Update">
-                    <div class="d-flex gap-1">
-                        @* 변환이 실패한 자료를 다시 돌린다. 원본은 두고 파생물만 다시 만든다. *@
-                        <DxButton Text="썸네일" SizeMode="SizeMode.Small" RenderStyle="ButtonRenderStyle.Secondary"
-                                  Click="@(() => RetryAsync(m.Id, "thumbnail"))" />
-                        <DxButton Text="변환" SizeMode="SizeMode.Small" RenderStyle="ButtonRenderStyle.Secondary"
-                                  Click="@(() => RetryAsync(m.Id, "webm"))" />
-                    </div>
-                </PermissionView>
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
-    </Columns>
-</DxGrid>
-
-<PageNotice Text="@Notice" Tone="@Tone" />
+<MediaSourceList SourceType="VIDEO"
+                 Title="영상"
+                 ShowThumbnail="true"
+                 Retries="@Retries" />
 
 @code {
-    /// <summary>이 화면이 다루는 자료 종류. 서버가 이 값으로 걸러 준다.</summary>
-    private const string SourceType = "VIDEO";
-
-    private IReadOnlyList<MediaSource> _all = [];
-    private string? _keyword;
-
-    private IReadOnlyList<MediaSource> Shown => string.IsNullOrWhiteSpace(_keyword)
-        ? _all
-        : [.. _all.Where(m => m.Name.Contains(_keyword, StringComparison.OrdinalIgnoreCase))];
-
-    protected override Task OnInitializedAsync() => ReloadAsync();
-
-    private Task ReloadAsync() => LoadAsync(async () =>
-    {
-        _all = await Api.GetMediaSourcesAsync(SourceType);
-        return _all.Count;
-    }, "등록된 자료가 없습니다.", "목록을 읽지 못했습니다");
-
-    /// <summary>바이트를 사람이 읽는 단위로. 1MB 미만은 KB 로 둔다.</summary>
-    private static string FormatSize(long? bytes)
-    {
-        if (bytes is null or 0) return "-";
-        var mb = bytes.Value / 1024d / 1024d;
-        return mb >= 1 ? $"{mb:0.0} MB" : $"{Math.Round(bytes.Value / 1024d)} KB";
-    }
-
-    /// <summary>
-    /// 변환 재처리. 어느 파생물을 다시 만들지 이름으로 고른다.
-    ///
-    /// 성공하면 목록을 다시 읽는다 — 변환은 비동기라 지금 당장 바뀌지는 않지만,
-    /// 상태 칸이 '처리 중' 으로 바뀌는 것을 보여 줘야 두 번 누르지 않는다.
-    /// </summary>
-    private async Task RetryAsync(string id, string kind)
-    {
-        var run = kind switch
-        {
-            "thumbnail" => Api.RetryThumbnailAsync(id),
-            "webm" => Api.RetryWebmAsync(id),
-            _ => Api.RetryAudioAsync(id),
-        };
-
-        if (await RunAsync(() => run, "재처리를 요청했습니다.", "재처리를 요청하지 못했습니다"))
-        {
-            await ReloadAsync();
-        }
-    }
+    /// <summary>재처리 단추들. 파생물이 없으면 비운다.</summary>
+    private static readonly IReadOnlyList<(string Kind, string Label)> Retries = [("thumbnail", "미리보기"), ("webm", "webm")];
 }
