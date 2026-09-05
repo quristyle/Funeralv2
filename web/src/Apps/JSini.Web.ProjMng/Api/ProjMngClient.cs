@@ -30,6 +30,14 @@ public sealed class ProjMngClient(GatewayClient gateway, ILogger<ProjMngClient> 
     /// <summary>개발 도구 — 프로젝트 DB 메타 조회.</summary>
     private const string DevUrl = $"{Prefix}/Dev";
 
+    /// <summary>
+    /// 생 SQL 실행 통로. 등록된 액션이 아니라 <b>보낸 문장을 그대로</b> 돌린다.
+    ///
+    /// 봉투가 다른 것들과 달라서 전용 주소를 쓴다 — 여기는 액션 이름이 아니라
+    /// <c>{ db_nick, query }</c> 를 받는다.
+    /// </summary>
+    private const string DevSqlUrl = $"{Prefix}/Dev/sql";
+
     /// <summary>서버측 파일 스캔 (<c>md_*</c>).</summary>
     private const string MediaUrl = $"{Prefix}/Media";
 
@@ -120,8 +128,45 @@ public sealed class ProjMngClient(GatewayClient gateway, ILogger<ProjMngClient> 
         => DbContAsync(procName, parameters, "delete", cancellationToken: cancellationToken);
 
     /// <summary>
+    /// **보낸 SQL 을 그대로** 대상 DB 에서 실행한다.
+    ///
+    /// [등록된 액션과 다르다]
+    ///
+    /// <see cref="JsContAsync"/> 는 <c>projmng.devsqlresp</c> 에 <b>미리
+    /// 등록된</b> 질의를 이름으로 부른다. 여기는 문장을 직접 보낸다.
+    ///
+    /// 한동안 「DB 쿼리 테스터」가 <c>dbtester</c> 라는 액션을 부르고 있었는데
+    /// 그런 이름이 등록돼 있지 않아 늘 「정의되지 않았습니다」로 끝났다.
+    /// 옛 화면이 쓰던 길이 이쪽이다.
+    ///
+    /// <b>DML 이 그대로 나간다.</b> 화면이 그 사실을 사용자에게 밝혀야 한다.
+    /// </summary>
+    /// <param name="dbNick">대상 DB 의 별칭 (<c>projmng.devdbinfo.db_nick</c>)</param>
+    /// <param name="query">실행할 문장</param>
+    /// <param name="breakOnCount">건수가 많으면 중간에 끊을지</param>
+    /// <param name="cancellationToken">취소 토큰</param>
+    public Task<ProjMngResult> RawSqlAsync(
+        string dbNick,
+        string query,
+        bool breakOnCount = true,
+        CancellationToken cancellationToken = default)
+        => PostAsync(
+            DevSqlUrl,
+            new Dictionary<string, string>
+            {
+                ["db_nick"] = dbNick,
+                ["query"] = query,
+                ["isBreakCnt"] = breakOnCount ? "true" : string.Empty,
+            },
+            cancellationToken);
+
+    /// <summary>
     /// 개발 도구 조회. 프로시저 이름 규칙을 따르지 않는 액션 이름을 쓴다
     /// (<c>tablelist</c> · <c>proclist</c> · <c>columnsOftable</c> …).
+    ///
+    /// <b>이름이 <c>projmng.devsqlresp</c> 에 등록돼 있어야 한다.</b> 없는 이름을
+    /// 보내면 「dbtype … 가 정의 되지 않았습니다」로 끝난다 — 화면이 지어낸
+    /// 이름을 쓰다가 실제로 그랬다.
     /// </summary>
     /// <param name="actionName">액션 이름</param>
     /// <param name="parameters">파라미터</param>
@@ -173,6 +218,27 @@ public sealed class ProjMngClient(GatewayClient gateway, ILogger<ProjMngClient> 
     /// 알 수 없게 된다. 오류 안내는 화면이 <see cref="ProjMngResult.ProcCode"/> 와
     /// 로그로 판단한다.
     /// </summary>
+    /// <summary>
+    /// 생 SQL 통로용 보내기. 본문이 <see cref="ProjMngRequest"/> 가 아니라
+    /// 평평한 사전이라 따로 둔다.
+    /// </summary>
+    private async Task<ProjMngResult> PostAsync(
+        string url,
+        Dictionary<string, string> payload,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await gateway.PostObjectAsync<ProjMngResult>(url, payload, cancellationToken)
+                   ?? ProjMngResult.Empty;
+        }
+        catch (ApiException ex)
+        {
+            logger.LogWarning(ex, "생 SQL 실행 실패: {Url}", url);
+            return ProjMngResult.Empty;
+        }
+    }
+
     private async Task<ProjMngResult> PostAsync(
         string url,
         ProjMngRequest payload,

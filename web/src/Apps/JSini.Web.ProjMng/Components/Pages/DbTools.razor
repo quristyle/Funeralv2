@@ -2,71 +2,292 @@
 @using System.Data
 
 @*
-    [DB 툴 (쿼리 분석 및 실행)]
+    [DB 개체 탐색] — DB 메뉴 `/projmng/db/tools`.
+    이력: 옛 Blazor `Pages/Develop/DBTools.razor` → Vue `views/projmng/develop/db-tools.vue` → 여기.
 
-    이력: Vue `views/projmng/develop/db-tools.vue` → 여기.
-    프로젝트 DB 구조 및 저장 프로시저 쿼리를 분석/실행한다.
+    고른 프로젝트 DB 의 **속을 들여다본다** — 테이블·프로시저·본문·앞 10건.
+
+    [SQL 실행기가 되어 있었다]
+
+    옛 화면은 탐색기인데 이 화면은 SQL 을 쳐서 실행하는 곳이 되어 있었다.
+    그건 옆 화면(「DB 쿼리 테스터」)이 하는 일이라 둘이 같은 화면이 됐고,
+    정작 **탐색은 아무 데서도 할 수 없었다.**
+
+    게다가 부르던 액션(`dbtool_exec`)이 서버에 없다. 등록된 이름을 다 뒤져도
+    없어서 늘 「정의 되지 않았습니다」로 끝났다.
+
+    [등록된 액션만 부를 수 있다]
+
+    개발 도구 통로는 **미리 등록된 질의**를 이름으로 부른다
+    (`projmng.devsqlresp`). DB 종류마다 따로 등록돼 있어, 어떤 종류에는 있고
+    어떤 종류에는 없다.
+
+        POSTGRESQL   tablelist · proclist · columnsOftable · procInfo …
+        MSSQL        위에 더해 viewlist · dblinkInfo · tableFragmentation …
+        MYSQL        tablelist · proclist · columnsOftable · viewlist
+
+    그래서 「이 DB 종류에는 그 목록이 없다」가 정상인 경우가 있다. 화면이
+    그것을 오류가 아니라 안내로 보여 준다.
+
+    [미리보기는 생 SQL 이다]
+
+    앞 10건은 등록된 질의가 아니라 문장을 만들어 보낸다. 테이블 이름이 그
+    문장에 들어가므로 **서버가 준 이름만** 쓴다 — 사용자가 친 글자를 넣지 않는다.
 *@
 
+@inherits DataPage
 @inject ProjMngClient Client
 
-<PageTitle>DB 툴 · 프로젝트관리</PageTitle>
+<PageTitle>DB 개체 탐색 · 프로젝트관리</PageTitle>
 
-<PageHeading Title="DB 툴" Scope="프로젝트관리" />
+<PageHeading Title="DB 개체 탐색" Scope="프로젝트관리" />
 
 <SearchBar>
     <ChildContent>
         <CodeSelect CodeId="projlist" @bind-Value="_projectCode" OnChanged="@(_ => OnProjectChanged())" />
-        <CodeSelect CodeId="projdb" CodeKey="@_projectCode" EtcFix="true" @bind-Value="_dbCode" OnChanged="@(item => _dbItem = item)" />
+        <CodeSelect CodeId="projdb" CodeKey="@_projectCode" EtcFix="true" @bind-Value="_dbCode"
+                    OnChanged="@(item => OnDbChanged(item))" />
+        <DxTextBox @bind-Text="_keyword" NullText="이름으로 거르기" Style="width: 180px"
+                   ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
     </ChildContent>
     <Actions>
         <PermissionView Action="MenuAction.Search">
-            <DxButton Text="실행" RenderStyle="ButtonRenderStyle.Primary" Click="@ExecuteAsync" />
+            <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@ReloadAsync" />
         </PermissionView>
     </Actions>
 </SearchBar>
 
-<SplitPane Size="40">
-    <First>
-        <div class="d-flex flex-column h-100">
-            <div class="mb-2 fw-bold">SQL / Procedure 스크립트</div>
-            <CodeEditor @bind-Value="_sqlScript" Height="100%" Language="sql" />
-        </div>
-    </First>
-    <Second>
-        <div class="d-flex flex-column h-100">
-            <div class="mb-2 fw-bold">실행 결과</div>
-            <DynamicGrid Data="@_resultGrid" Loading="@_loading" ExportName="DB툴결과" HideAdd="true" />
-        </div>
-    </Second>
-</SplitPane>
+<PageNotice Text="@Notice" Tone="@Tone" />
+
+@if (_dbItem is null)
+{
+    <PageNotice Text="프로젝트와 DB 를 고르십시오." Tone="NoticeTone.Info" />
+}
+else
+{
+    <DxTabs @bind-ActiveTabIndex="_tab">
+        <DxTabPage Text="테이블">
+            <div class="pm-tab-body">
+                <SplitPane Size="45">
+                    <First>
+                        <DynamicGrid Data="@_tables" Loading="@Loading" ExportName="테이블목록"
+                                     HideAdd="true" PageSize="30"
+                                     OnRowClick="@PreviewAsync" />
+                    </First>
+                    <Second>
+                        @if (_previewOf is null)
+                        {
+                            <PageNotice Text="테이블을 고르면 앞 10건을 보여 줍니다." Tone="NoticeTone.Info" />
+                        }
+                        else
+                        {
+                            <h2 class="pm-subhead">@_previewOf · 앞 10건</h2>
+                            <DynamicGrid Data="@_preview" Loading="@Loading" ExportName="미리보기"
+                                         HideAdd="true" PageSize="10" />
+                        }
+                    </Second>
+                </SplitPane>
+            </div>
+        </DxTabPage>
+
+        <DxTabPage Text="프로시저 · 함수">
+            <div class="pm-tab-body">
+                <SplitPane Size="45">
+                    <First>
+                        <DynamicGrid Data="@_procs" Loading="@Loading" ExportName="프로시저목록"
+                                     HideAdd="true" PageSize="30"
+                                     OnRowClick="@ShowProcAsync" />
+                    </First>
+                    <Second>
+                        @if (_procName is null)
+                        {
+                            <PageNotice Text="프로시저를 고르면 본문을 보여 줍니다." Tone="NoticeTone.Info" />
+                        }
+                        else
+                        {
+                            <h2 class="pm-subhead">@_procName</h2>
+
+                            @* 읽기 전용이다. 여기서 고쳐 저장하는 길은 없다 —
+                               프로시저를 바꾸는 것은 배포에 속하는 일이다. *@
+                            <CodeEditor Value="@_procBody" ReadOnly="true" Height="420px" Language="sql" />
+                        }
+                    </Second>
+                </SplitPane>
+            </div>
+        </DxTabPage>
+    </DxTabs>
+}
 
 @code {
     private string? _projectCode;
     private string? _dbCode;
     private CommonCodeItem? _dbItem;
-    private string _sqlScript = "-- SQL Script here\nSELECT NOW();";
-    private ProjMngTable _resultGrid = ProjMngTable.Empty;
-    private bool _loading;
+    private string? _keyword;
+
+    private int _tab;
+
+    private ProjMngTable _tables = ProjMngTable.Empty;
+    private ProjMngTable _procs = ProjMngTable.Empty;
+    private ProjMngTable _preview = ProjMngTable.Empty;
+
+    private string? _previewOf;
+    private string? _procName;
+    private string? _procBody;
+
+    private string? DbNick => _dbItem?.Others.GetValueOrDefault("db_nick");
+
+    /// <summary>
+    /// 개발 도구 통로에 실어 보낼 값들.
+    ///
+    /// 넷 다 있어야 한다 — 서버가 <c>db</c>(종류)로 등록된 질의를 고르고,
+    /// <c>dbnick</c> 으로 접속하고, <c>schema</c> 로 범위를 좁힌다.
+    /// </summary>
+    private Dictionary<string, object?> Params() => new()
+    {
+        ["db"] = _dbItem?.Others.GetValueOrDefault("db_type") ?? string.Empty,
+        ["dbnick"] = DbNick ?? string.Empty,
+        ["schema"] = _dbItem?.Others.GetValueOrDefault("db_schema") ?? string.Empty,
+        ["db_rid"] = _dbCode ?? string.Empty,
+        ["param1"] = _keyword ?? string.Empty,
+    };
 
     private void OnProjectChanged()
     {
         _dbCode = null;
         _dbItem = null;
+        Clear();
     }
 
-    private async Task ExecuteAsync()
+    private async Task OnDbChanged(CommonCodeItem? item)
     {
-        _loading = true;
-        try
+        _dbItem = item;
+        Clear();
+
+        if (item is not null)
         {
-            var p = new Dictionary<string, object?> { ["param1"] = _sqlScript };
-            var res = await Client.JsContAsync("dbtool_exec", p);
-            _resultGrid = ProjMngTable.From(res);
+            await ReloadAsync();
         }
-        finally
+    }
+
+    private void Clear()
+    {
+        _tables = ProjMngTable.Empty;
+        _procs = ProjMngTable.Empty;
+        _preview = ProjMngTable.Empty;
+        _previewOf = null;
+        _procName = null;
+        _procBody = null;
+    }
+
+    private Task ReloadAsync() => LoadAsync(async () =>
+    {
+        if (string.IsNullOrWhiteSpace(DbNick))
         {
-            _loading = false;
+            throw new ApiException("DB 를 고르십시오.");
         }
+
+        var parameters = Params();
+
+        // 둘을 나란히 부른다. 한쪽이 그 DB 종류에 등록돼 있지 않아도
+        // 나머지는 보여 준다 — 「이 종류에는 없다」가 정상인 경우가 있다.
+        var tables = Client.JsContAsync("tablelist", parameters);
+        var procs = Client.JsContAsync("proclist", parameters);
+
+        await Task.WhenAll(tables, procs);
+
+        _tables = ProjMngTable.From(tables.Result);
+        _procs = ProjMngTable.From(procs.Result);
+
+        return _tables.Table.Rows.Count + _procs.Table.Rows.Count;
+    }, "이 DB 에서 읽을 수 있는 개체가 없습니다.", "개체 목록을 읽지 못했습니다");
+
+    /// <summary>
+    /// 고른 테이블의 앞 10건.
+    ///
+    /// 등록된 질의가 아니라 문장을 만들어 보낸다. 그래서 이름을 **서버가 준
+    /// 것에서만** 가져온다 — 사용자가 친 글자를 넣지 않는다.
+    /// </summary>
+    private Task PreviewAsync(DataRow? row)
+    {
+        var name = row is null ? null : FirstValue(row, "table_name", "tablename", "name", "tbl_nm");
+
+        if (name is null)
+        {
+            _previewOf = null;
+            _preview = ProjMngTable.Empty;
+            return Task.CompletedTask;
+        }
+
+        return LoadAsync(async () =>
+        {
+            var schema = _dbItem?.Others.GetValueOrDefault("db_schema");
+            var qualified = string.IsNullOrWhiteSpace(schema) ? name : $"{schema}.{name}";
+
+            var result = await Client.RawSqlAsync(DbNick!, $"SELECT * FROM {qualified} LIMIT 10");
+
+            _previewOf = qualified;
+            _preview = ProjMngTable.From(result);
+
+            return _preview.Table.Rows.Count;
+        }, "그 테이블에 자료가 없습니다.", "미리보기를 읽지 못했습니다");
+    }
+
+    /// <summary>고른 프로시저의 본문. 목록에 이미 실려 오면 그것을 쓴다.</summary>
+    private Task ShowProcAsync(DataRow? row)
+    {
+        if (row is null)
+        {
+            _procName = null;
+            _procBody = null;
+            return Task.CompletedTask;
+        }
+
+        _procName = FirstValue(row, "proc_name", "procname", "name", "routine_name");
+        _procBody = FirstValue(row, "proc_body", "definition", "src", "routine_definition", "text");
+
+        if (_procBody is null && _procName is not null)
+        {
+            // 목록에 본문이 없으면 따로 물어본다. 이 액션이 없는 DB 종류가 있다.
+            return LoadAsync(async () =>
+            {
+                var parameters = Params();
+                parameters["param1"] = _procName;
+
+                var result = await Client.JsContAsync("procInfo", parameters);
+                var table = ProjMngTable.From(result);
+
+                _procBody = table.Table.Rows.Count > 0
+                    ? FirstValue(table.Table.Rows[0], "proc_body", "definition", "src", "routine_definition", "text")
+                    : null;
+
+                return _procBody is null ? 0 : 1;
+            }, "이 DB 종류에서는 본문을 읽을 수 없습니다.", "본문을 읽지 못했습니다");
+        }
+
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// 여러 이름 중 먼저 있는 칸의 값.
+    ///
+    /// DB 종류마다 등록된 질의가 달라 <b>칸 이름이 제각각</b>이다. 하나만
+    /// 보고 있으면 그 종류에서만 빈칸이 되는데, 원인이 화면에서 안 보인다.
+    /// </summary>
+    private static string? FirstValue(DataRow row, params string[] columns)
+    {
+        foreach (var column in columns)
+        {
+            if (row.Table.Columns.Contains(column) && row[column] is not DBNull and var value)
+            {
+                var text = value?.ToString();
+
+                if (!string.IsNullOrWhiteSpace(text))
+                {
+                    return text;
+                }
+            }
+        }
+
+        return null;
     }
 }

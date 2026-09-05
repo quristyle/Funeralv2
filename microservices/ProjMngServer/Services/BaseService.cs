@@ -103,31 +103,52 @@ public class BaseService {
   }
 
 
-  // dbinfo 정보 을 가져온다.
+  /// <summary>
+  /// 등록된 DB 접속 정보를 가져온다. 없으면 <c>null</c>.
+  ///
+  /// <para>
+  /// [캐시에 null 을 넣으면 안 된다 — 실제로 밟았다]
+  /// </para>
+  /// <para>
+  /// 예전에는 못 찾았을 때도 결과를 캐시에 넣었다. 그 값이 <c>null</c> 이라,
+  /// 다음 호출부터 캐시를 훑는 반복문이 그 자리에서 NullReferenceException
+  /// 으로 터졌다. <b>한 번만 잘못 물으면 프로세스를 다시 띄울 때까지 전부
+  /// 죽는다.</b>
+  /// </para>
+  /// <para>
+  /// DB 를 고르지 않고 「DB 쿼리 테스터」·「DB 개체 탐색」의 실행을 누르면
+  /// 빈 이름으로 물어보게 되고, 그것이 그 상태를 만든다.
+  /// </para>
+  /// </summary>
   public DbInfo GetDbInfo(string db_nick) {
 
-    DbInfo result = null;// AppData.DB_Infos.TryGetValue(db_nick, out var dbValue) ? dbValue :null;
+    // 빈 이름은 물어볼 것이 없다. DB 까지 가지 않는다.
+    if (string.IsNullOrWhiteSpace(db_nick)) {
+      return null;
+    }
 
-    foreach( var di in AppData.DB_Infos) {
-      if( di.Db_nick == db_nick) {
-        result = di; break;
+    // null 을 건너뛴다. 예전 판이 넣어 둔 것이 남아 있어도 살아남게.
+    foreach (var di in AppData.DB_Infos) {
+      if (di != null && di.Db_nick == db_nick) {
+        return di;
       }
     }
 
-    if (result == null) { // 없으면 가져온다.
+    var connectionString = _configuration.GetConnectionString("jsini");
+    using (IDbConnection db = new NpgsqlConnection(connectionString)) {
 
-      var connectionString = _configuration.GetConnectionString("jsini");
-      using (IDbConnection db = new NpgsqlConnection(connectionString)) {
+      var parameters = new DynamicParameters();
+      parameters.Add(ConstInfo.db_nick_key, db_nick);
 
-        var parameters = new DynamicParameters();
-        parameters.Add(ConstInfo.db_nick_key, db_nick);
-        result = db.Query<DbInfo>(sql: ConstInfo.dbConQuery, param: parameters).ToList().FirstOrDefault();
+      var found = db.Query<DbInfo>(sql: ConstInfo.dbConQuery, param: parameters).FirstOrDefault();
 
-        AppData.DB_Infos.Add(result);
+      // **찾은 것만 넣는다.** 못 찾은 것을 넣으면 위 반복문이 터진다.
+      if (found != null) {
+        AppData.DB_Infos.Add(found);
       }
-    }
 
-    return result;
+      return found;
+    }
   }
 
 

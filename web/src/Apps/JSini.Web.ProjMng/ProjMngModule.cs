@@ -20,6 +20,14 @@ public sealed class ProjMngModule : IPortalModule
 
     public string RoutePrefix => "/projmng";
 
+    /// <summary>
+    /// 이 업무 전용 스타일. 셸이 <c>&lt;head&gt;</c> 에 실어 준다.
+    ///
+    /// 한동안 이것이 없어서 화면들이 쓰는 <c>pm-*</c> 클래스 몇 개가
+    /// 정의되지 않은 채였다. 화면은 뜨고 글자도 보이므로 눈에 잘 안 띈다.
+    /// </summary>
+    public string? StyleSheet => "_content/JSini.Web.ProjMng/projmng.css";
+
     public void ConfigureServices(IServiceCollection services, IConfiguration configuration)
     {
         services.AddScoped<ProjMngClient>();

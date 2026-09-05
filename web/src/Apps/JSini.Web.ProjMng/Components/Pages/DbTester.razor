@@ -2,79 +2,95 @@
 @using System.Data
 
 @*
-    [DB 테스터]
+    [DB 쿼리 테스터] — DB 메뉴 `/projmng/db/tester`.
+    이력: 옛 Blazor `Pages/Develop/DBTester.razor` → Vue `views/projmng/develop/db-tester.vue` → 여기.
 
-    이력: Vue `views/projmng/develop/db-tester.vue` → 여기.
-    임의의 SQL 쿼리를 대상 DB에 직접 수행하여 결과를 확인하는 개발 도구.
+    고른 프로젝트 DB 에 문장을 그대로 실행해 본다.
+
+    [없는 액션을 부르고 있었다 — 늘 실패했다]
+
+    `dbtester` 라는 이름으로 개발 도구 통로(`/Dev`)를 부르고 있었다. 그 통로는
+    **미리 등록된** 질의만 이름으로 부르는 곳이고(`projmng.devsqlresp`),
+    거기에 `dbtester` 라는 이름이 없다. 그래서 무엇을 쳐도
+
+        dbtype POSTGRESQL 의 dbtester 가 정의 되지 않았습니다.
+
+    로 끝났다. 옛 화면이 쓰던 길은 따로 있다 — `POST /Dev/sql` 에 문장을 그대로
+    싣는 전용 통로다.
+
+    [DB 를 고르지 않으면 실행하지 않는다]
+
+    별칭이 비면 서버가 접속 정보를 못 찾는다. 예전에는 그 상태로 보내면 서버가
+    NullReferenceException 을 냈고, **그 실패가 서버의 캐시를 더럽혀 그 뒤로
+    모든 DB 도구가 죽었다**(백엔드도 함께 고쳤다). 화면에서 먼저 막는다.
 *@
 
+@inherits DataPage
 @inject ProjMngClient Client
 
-<PageTitle>DB 테스터 · 프로젝트관리</PageTitle>
+<PageTitle>DB 쿼리 테스터 · 프로젝트관리</PageTitle>
 
-<PageHeading Title="DB 테스터" Scope="프로젝트관리" />
+<PageHeading Title="DB 쿼리 테스터" Scope="프로젝트관리" />
 
 <SearchBar>
     <ChildContent>
         <CodeSelect CodeId="projlist" @bind-Value="_projectCode" OnChanged="@(_ => OnProjectChanged())" />
-        <CodeSelect CodeId="projdb" CodeKey="@_projectCode" EtcFix="true" @bind-Value="_dbCode" OnChanged="@(item => _dbItem = item)" />
+        <CodeSelect CodeId="projdb" CodeKey="@_projectCode" EtcFix="true" @bind-Value="_dbCode"
+                    OnChanged="@(item => _dbItem = item)" />
     </ChildContent>
     <Actions>
         <PermissionView Action="MenuAction.Search">
-            <DxButton Text="쿼리 실행" RenderStyle="ButtonRenderStyle.Primary" Click="@ExecuteQueryAsync" />
+            <DxButton Text="쿼리 실행" RenderStyle="ButtonRenderStyle.Primary" Click="@ExecuteAsync" />
         </PermissionView>
     </Actions>
 </SearchBar>
 
-<Notice>
-    여기서 쿼리를 실행하면 대상 DB에 직접 수행됩니다. DML(UPDATE/DELETE) 실행 시 주의하세요.
-</Notice>
+@* 되돌릴 수 없는 일을 할 수 있는 화면이다. 그 사실을 조건줄 바로 아래에 둔다. *@
+<PageNotice Tone="NoticeTone.Warning"
+            Text="여기서 실행한 문장은 대상 DB 에 그대로 나갑니다. UPDATE·DELETE 는 되돌릴 수 없습니다." />
+
+<PageNotice Text="@Notice" Tone="@Tone" />
 
 <div class="mb-3">
-    <CodeEditor @bind-Value="_query" Height="180px" Language="sql" Placeholder="SELECT * FROM table_name WHERE ..." />
+    <CodeEditor @bind-Value="_query" Height="200px" Language="sql"
+                Placeholder="SELECT * FROM table_name WHERE ..." />
 </div>
 
-<DynamicGrid Data="@_resultGrid" Loading="@_loading" ExportName="DB테스터결과" HideAdd="true" />
+<DynamicGrid Data="@_result" Loading="@Loading" ExportName="쿼리결과" HideAdd="true" />
 
 @code {
     private string? _projectCode;
     private string? _dbCode;
     private CommonCodeItem? _dbItem;
+
     private string _query = "SELECT 1 AS TEST;";
-    private ProjMngTable _resultGrid = ProjMngTable.Empty;
-    private bool _loading;
+    private ProjMngTable _result = ProjMngTable.Empty;
+
+    /// <summary>대상 DB 의 별칭. 서버가 이 값으로 접속 정보를 찾는다.</summary>
+    private string? DbNick => _dbItem?.Others.GetValueOrDefault("db_nick");
 
     private void OnProjectChanged()
     {
         _dbCode = null;
         _dbItem = null;
+        _result = ProjMngTable.Empty;
     }
 
-    private async Task ExecuteQueryAsync()
+    private Task ExecuteAsync() => LoadAsync(async () =>
     {
-        if (string.IsNullOrWhiteSpace(_query)) return;
-        _loading = true;
-        try
+        if (string.IsNullOrWhiteSpace(DbNick))
         {
-            var p = new Dictionary<string, object?>
-            {
-                ["param1"] = _query
-            };
-            if (_dbItem != null)
-            {
-                p["db_ip"] = _dbItem.Others.GetValueOrDefault("val");
-                p["db_port"] = _dbItem.Others.GetValueOrDefault("val2");
-                p["db_name"] = _dbItem.Others.GetValueOrDefault("val3");
-                p["db_user"] = _dbItem.Others.GetValueOrDefault("prop");
-                p["db_pw"] = _dbItem.Others.GetValueOrDefault("etc");
-                p["db_type"] = _dbItem.Others.GetValueOrDefault("srt");
-            }
-            var res = await Client.JsContAsync("dbtester", p);
-            _resultGrid = ProjMngTable.From(res);
+            throw new ApiException("실행할 DB 를 고르십시오.");
         }
-        finally
+
+        if (string.IsNullOrWhiteSpace(_query))
         {
-            _loading = false;
+            throw new ApiException("실행할 문장을 넣으십시오.");
         }
-    }
+
+        var result = await Client.RawSqlAsync(DbNick, _query);
+        _result = ProjMngTable.From(result);
+
+        return _result.Table.Rows.Count;
+    }, "결과가 없습니다.", "쿼리를 실행하지 못했습니다");
 }
