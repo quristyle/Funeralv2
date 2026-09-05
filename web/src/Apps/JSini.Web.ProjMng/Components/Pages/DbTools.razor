@@ -4,8 +4,10 @@
 @*
     [DB 개체 탐색] — DB 메뉴 `/projmng/db/tools`.
     이력: 옛 Blazor `Pages/Develop/DBTools.razor` → Vue `views/projmng/develop/db-tools.vue` → 여기.
+    호출: 개발도구 `tablelist` · `proclist`, `/Dev/sql`(미리보기),
+          프로시저 `sp_dev_db_prop_exec` (`db_pkey='sp_fmt'` — 생성 템플릿)
 
-    고른 프로젝트 DB 의 **속을 들여다본다** — 테이블·프로시저·본문·앞 10건.
+    고른 프로젝트 DB 의 **속을 들여다본다** — 테이블·프로시저·함수·본문·앞 10건.
 
     [SQL 실행기가 되어 있었다]
 
@@ -29,10 +31,23 @@
     그래서 「이 DB 종류에는 그 목록이 없다」가 정상인 경우가 있다. 화면이
     그것을 오류가 아니라 안내로 보여 준다.
 
+    [칸 이름을 짐작으로 적고 있었다]
+
+    본문과 이름을 `proc_name` · `proc_body` 같은 이름에서 찾고 있었는데,
+    `proclist` 가 실제로 주는 칸은 `procedurename` · `routine_definition` 이다
+    (직접 불러 확인했다). 그래서 목록은 떠도 **행을 골라도 본문이 안 나왔고**,
+    없는 이름으로 `procInfo` 를 한 번 더 부르고 있었다.
+
+    [프로시저와 함수는 한 번에 읽어 나눈다]
+
+    `proclist` 한 번이 둘 다 준다. 가르는 것은 `pgtype` 이다 — `sql` 이면
+    함수, 그 밖(`plpgsql` 등)이면 프로시저. 옛 화면도 그렇게 갈랐다.
+
     [미리보기는 생 SQL 이다]
 
     앞 10건은 등록된 질의가 아니라 문장을 만들어 보낸다. 테이블 이름이 그
     문장에 들어가므로 **서버가 준 이름만** 쓴다 — 사용자가 친 글자를 넣지 않는다.
+    문법도 DB 종류마다 다르다(`limit` 대 `top`).
 *@
 
 @inherits DataPage
@@ -90,35 +105,99 @@ else
             </div>
         </DxTabPage>
 
-        <DxTabPage Text="프로시저 · 함수">
+        <DxTabPage Text="프로시저">
             <div class="pm-tab-body">
                 <SplitPane Size="45">
                     <First>
                         <DynamicGrid Data="@_procs" Loading="@Loading" ExportName="프로시저목록"
-                                     HideAdd="true" PageSize="30"
-                                     OnRowClick="@ShowProcAsync" />
+                                     HiddenCols="@BodyColumns" HideAdd="true" PageSize="30"
+                                     OnRowClick="@ShowRoutineAsync" />
                     </First>
                     <Second>
-                        @if (_procName is null)
+                        @if (_routineName is null)
                         {
                             <PageNotice Text="프로시저를 고르면 본문을 보여 줍니다." Tone="NoticeTone.Info" />
                         }
                         else
                         {
-                            <h2 class="pm-subhead">@_procName</h2>
+                            <h2 class="pm-subhead">@_routineName</h2>
 
                             @* 읽기 전용이다. 여기서 고쳐 저장하는 길은 없다 —
                                프로시저를 바꾸는 것은 배포에 속하는 일이다. *@
-                            <CodeEditor Value="@_procBody" ReadOnly="true" Height="420px" Language="sql" />
+                            <CodeEditor Value="@_routineBody" ReadOnly="true" Height="420px" Language="pgsql" />
                         }
                     </Second>
                 </SplitPane>
+            </div>
+        </DxTabPage>
+
+        <DxTabPage Text="함수">
+            <div class="pm-tab-body">
+                <SplitPane Size="45">
+                    <First>
+                        <DynamicGrid Data="@_funcs" Loading="@Loading" ExportName="함수목록"
+                                     HiddenCols="@BodyColumns" HideAdd="true" PageSize="30"
+                                     OnRowClick="@ShowRoutineAsync" />
+                    </First>
+                    <Second>
+                        @if (_routineName is null)
+                        {
+                            <PageNotice Text="함수를 고르면 본문을 보여 줍니다." Tone="NoticeTone.Info" />
+                        }
+                        else
+                        {
+                            <h2 class="pm-subhead">@_routineName</h2>
+                            <CodeEditor Value="@_routineBody" ReadOnly="true" Height="420px" Language="pgsql" />
+                        }
+                    </Second>
+                </SplitPane>
+            </div>
+        </DxTabPage>
+
+        <DxTabPage Text="생성 템플릿">
+            <div class="pm-tab-body">
+                <PageNotice Tone="NoticeTone.Info"
+                            Text="새 프로시저를 만들 때 쓰는 뼈대입니다. DB 속성(sp_fmt)에 등록된 것이 있으면 그것을, 없으면 DB 종류별 기본 뼈대를 보여 줍니다." />
+
+                <CodeEditor Value="@_template" ReadOnly="true" Height="440px" Language="pgsql" />
             </div>
         </DxTabPage>
     </DxTabs>
 }
 
 @code {
+    /// <summary>
+    /// 목록에서 감출 칸. 본문은 통째로 실려 오는데, 그리드 셀에 몇 천 자가
+    /// 들어가면 표를 읽을 수가 없다. 본문은 오른쪽 편집기에서 본다.
+    /// </summary>
+    private const string BodyColumns = "routine_definition,Routine_Definition";
+
+    /// <summary>
+    /// DB 종류별 기본 프로시저 뼈대. 옛 <c>WasmUtil</c> 의 상수를 옮긴 것이다.
+    /// EDB 는 PostgreSQL 호환이라 같은 것을 쓴다(옛 화면과 같은 분기).
+    /// </summary>
+    private const string PostgresTemplate = """
+        CREATE OR REPLACE PROCEDURE {schema}.{name}(
+          INOUT p_cursor refcursor,
+          p_param1 text DEFAULT NULL
+        )
+        LANGUAGE plpgsql AS $$
+        BEGIN
+          OPEN p_cursor FOR SELECT 1;
+        END;
+        $$;
+        """;
+
+    private const string MssqlTemplate = """
+        CREATE OR ALTER PROCEDURE {schema}.{name}
+          @p_param1 nvarchar(100) = NULL
+        AS
+        BEGIN
+          SET NOCOUNT ON;
+          -- TODO
+        END
+        """;
+
     private string? _projectCode;
     private string? _dbCode;
     private CommonCodeItem? _dbItem;
@@ -128,13 +207,16 @@ else
 
     private ProjMngTable _tables = ProjMngTable.Empty;
     private ProjMngTable _procs = ProjMngTable.Empty;
+    private ProjMngTable _funcs = ProjMngTable.Empty;
     private ProjMngTable _preview = ProjMngTable.Empty;
 
     private string? _previewOf;
-    private string? _procName;
-    private string? _procBody;
+    private string? _routineName;
+    private string? _routineBody;
+    private string? _template;
 
     private string? DbNick => _dbItem?.Others.GetValueOrDefault("db_nick");
+    private string DbType => _dbItem?.Others.GetValueOrDefault("db_type") ?? string.Empty;
 
     /// <summary>
     /// 개발 도구 통로에 실어 보낼 값들.
@@ -144,7 +226,7 @@ else
     /// </summary>
     private Dictionary<string, object?> Params() => new()
     {
-        ["db"] = _dbItem?.Others.GetValueOrDefault("db_type") ?? string.Empty,
+        ["db"] = DbType,
         ["dbnick"] = DbNick ?? string.Empty,
         ["schema"] = _dbItem?.Others.GetValueOrDefault("db_schema") ?? string.Empty,
         ["db_rid"] = _dbCode ?? string.Empty,
@@ -173,10 +255,12 @@ else
     {
         _tables = ProjMngTable.Empty;
         _procs = ProjMngTable.Empty;
+        _funcs = ProjMngTable.Empty;
         _preview = ProjMngTable.Empty;
         _previewOf = null;
-        _procName = null;
-        _procBody = null;
+        _routineName = null;
+        _routineBody = null;
+        _template = null;
     }
 
     private Task ReloadAsync() => LoadAsync(async () =>
@@ -188,18 +272,82 @@ else
 
         var parameters = Params();
 
-        // 둘을 나란히 부른다. 한쪽이 그 DB 종류에 등록돼 있지 않아도
-        // 나머지는 보여 준다 — 「이 종류에는 없다」가 정상인 경우가 있다.
+        // 나란히 부른다. 한쪽이 그 DB 종류에 등록돼 있지 않아도 나머지는
+        // 보여 준다 — 「이 종류에는 없다」가 정상인 경우가 있다.
         var tables = Client.JsContAsync("tablelist", parameters);
-        var procs = Client.JsContAsync("proclist", parameters);
+        var routines = Client.JsContAsync("proclist", parameters);
+        var template = LoadTemplateAsync();
 
-        await Task.WhenAll(tables, procs);
+        await Task.WhenAll(tables, routines, template);
 
         _tables = ProjMngTable.From(tables.Result);
-        _procs = ProjMngTable.From(procs.Result);
+        SplitRoutines(routines.Result);
 
-        return _tables.Table.Rows.Count + _procs.Table.Rows.Count;
+        return _tables.Table.Rows.Count + _procs.Table.Rows.Count + _funcs.Table.Rows.Count;
     }, "이 DB 에서 읽을 수 있는 개체가 없습니다.", "개체 목록을 읽지 못했습니다");
+
+    /// <summary>
+    /// <c>proclist</c> 한 번이 프로시저와 함수를 다 준다. 가르는 것은
+    /// <c>pgtype</c> — <c>sql</c> 이면 함수다.
+    ///
+    /// 그 칸이 없는 DB 종류에서는 <b>가르지 않는다.</b> 잘못 갈라 한쪽 탭이
+    /// 통째로 비면 「이 DB 에는 프로시저가 없다」로 읽힌다.
+    /// </summary>
+    private void SplitRoutines(ProjMngResult result)
+    {
+        var rows = result.Rows ?? [];
+
+        var hasKind = rows.Any(r =>
+            r.Keys.Any(k => string.Equals(k, "pgtype", StringComparison.OrdinalIgnoreCase)));
+
+        if (!hasKind)
+        {
+            _procs = ProjMngTable.From(result);
+            _funcs = ProjMngTable.Empty;
+            return;
+        }
+
+        static bool IsFunction(ProjMngRow row) =>
+            string.Equals(Value(row, "pgtype"), "sql", StringComparison.OrdinalIgnoreCase);
+
+        _procs = ProjMngTable.From(new ProjMngResult
+        {
+            Cols = result.Cols,
+            Rows = [.. rows.Where(r => !IsFunction(r))],
+        });
+
+        _funcs = ProjMngTable.From(new ProjMngResult
+        {
+            Cols = result.Cols,
+            Rows = [.. rows.Where(IsFunction)],
+        });
+    }
+
+    /// <summary>
+    /// 프로시저 생성 뼈대. DB 속성에 등록된 것이 우선이고, 없으면 종류별 기본.
+    ///
+    /// 없다고 실패로 만들지 않는다 — 이 탭이 비는 것과 화면 전체가 실패하는
+    /// 것은 다른 일이다.
+    /// </summary>
+    private async Task LoadTemplateAsync()
+    {
+        var saved = await Client.DbContAsync("sp_dev_db_prop_exec", new Dictionary<string, object?>
+        {
+            ["req_type"] = "srch",
+            ["db_rid"] = _dbCode ?? string.Empty,
+            ["db_pkey"] = "sp_fmt",
+        });
+
+        var registered = saved.Rows?.FirstOrDefault() is { } row ? Value(row, "db_pvalue") : string.Empty;
+
+        _template = !string.IsNullOrWhiteSpace(registered)
+            ? registered
+            : DbType.ToUpperInvariant() switch
+            {
+                "MSSQL" => MssqlTemplate,
+                _ => PostgresTemplate,
+            };
+    }
 
     /// <summary>
     /// 고른 테이블의 앞 10건.
@@ -209,7 +357,7 @@ else
     /// </summary>
     private Task PreviewAsync(DataRow? row)
     {
-        var name = row is null ? null : FirstValue(row, "table_name", "tablename", "name", "tbl_nm");
+        var name = row is null ? null : FirstValue(row, "tablename", "table_name", "name");
 
         if (name is null)
         {
@@ -220,10 +368,25 @@ else
 
         return LoadAsync(async () =>
         {
-            var schema = _dbItem?.Others.GetValueOrDefault("db_schema");
+            // 스키마도 서버가 준 것을 쓴다. 목록에 실려 오면 그것이 정확하다 —
+            // DB 설정의 기본 스키마와 다른 자리에 있는 표가 있다.
+            var schema = FirstValue(row!, "nspname", "schemaname")
+                         ?? _dbItem?.Others.GetValueOrDefault("db_schema");
+
             var qualified = string.IsNullOrWhiteSpace(schema) ? name : $"{schema}.{name}";
 
-            var result = await Client.RawSqlAsync(DbNick!, $"SELECT * FROM {qualified} LIMIT 10");
+            // 문법이 종류마다 다르다. 옛 화면은 오라클 문법(`rownum`)만 있었고,
+            // 실제 대상이 PostgreSQL·MSSQL 이라 그 둘로 나눈다.
+            var sql = DbType.Equals("MSSQL", StringComparison.OrdinalIgnoreCase)
+                ? $"SELECT TOP 10 * FROM {qualified}"
+                : $"SELECT * FROM {qualified} LIMIT 10";
+
+            var result = await Client.RawSqlAsync(DbNick!, sql);
+
+            if (result.ProcCode < 0)
+            {
+                throw new ApiException(result.Message ?? "미리보기를 읽지 못했습니다.");
+            }
 
             _previewOf = qualified;
             _preview = ProjMngTable.From(result);
@@ -232,35 +395,35 @@ else
         }, "그 테이블에 자료가 없습니다.", "미리보기를 읽지 못했습니다");
     }
 
-    /// <summary>고른 프로시저의 본문. 목록에 이미 실려 오면 그것을 쓴다.</summary>
-    private Task ShowProcAsync(DataRow? row)
+    /// <summary>고른 프로시저·함수의 본문. 목록에 이미 실려 오면 그것을 쓴다.</summary>
+    private Task ShowRoutineAsync(DataRow? row)
     {
         if (row is null)
         {
-            _procName = null;
-            _procBody = null;
+            _routineName = null;
+            _routineBody = null;
             return Task.CompletedTask;
         }
 
-        _procName = FirstValue(row, "proc_name", "procname", "name", "routine_name");
-        _procBody = FirstValue(row, "proc_body", "definition", "src", "routine_definition", "text");
+        _routineName = FirstValue(row, "procedurename", "proc_name", "procname", "name", "routine_name");
+        _routineBody = FirstValue(row, "routine_definition", "proc_body", "definition", "src", "text");
 
-        if (_procBody is null && _procName is not null)
+        if (_routineBody is null && _routineName is not null)
         {
             // 목록에 본문이 없으면 따로 물어본다. 이 액션이 없는 DB 종류가 있다.
             return LoadAsync(async () =>
             {
                 var parameters = Params();
-                parameters["param1"] = _procName;
+                parameters["param1"] = _routineName;
 
                 var result = await Client.JsContAsync("procInfo", parameters);
                 var table = ProjMngTable.From(result);
 
-                _procBody = table.Table.Rows.Count > 0
-                    ? FirstValue(table.Table.Rows[0], "proc_body", "definition", "src", "routine_definition", "text")
+                _routineBody = table.Table.Rows.Count > 0
+                    ? FirstValue(table.Table.Rows[0], "routine_definition", "proc_body", "definition", "src", "text")
                     : null;
 
-                return _procBody is null ? 0 : 1;
+                return _routineBody is null ? 0 : 1;
             }, "이 DB 종류에서는 본문을 읽을 수 없습니다.", "본문을 읽지 못했습니다");
         }
 
@@ -289,5 +452,19 @@ else
         }
 
         return null;
+    }
+
+    /// <summary>와이어에서 온 행의 값. 칸 이름의 대소문자를 가리지 않는다.</summary>
+    private static string Value(ProjMngRow row, string column)
+    {
+        foreach (var (key, value) in row)
+        {
+            if (string.Equals(key, column, StringComparison.OrdinalIgnoreCase))
+            {
+                return value?.ToString() ?? string.Empty;
+            }
+        }
+
+        return string.Empty;
     }
 }
