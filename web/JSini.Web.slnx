@@ -17,6 +17,9 @@
   <Folder Name="/src/Shell/">
     <Project Path="src/Shell/JSini.Web.Shell/JSini.Web.Shell.csproj" />
   </Folder>
+  <Folder Name="/src/Site/">
+    <Project Path="src/Site/JSini.PublicSite/JSini.PublicSite.csproj" />
+  </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/JSini.Web.Architecture.Tests/JSini.Web.Architecture.Tests.csproj" />
   </Folder>

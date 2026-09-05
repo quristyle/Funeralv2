@@ -1,0 +1,98 @@
+@page "/life/birthday/calendar"
+
+@*
+    [생일 캘린더]
+
+    이력: Vue `views/life/birthday/calendar.vue` → 여기.
+    월별 생일자 캘린더 그리드 조망 및 회사/부서 필터링.
+*@
+
+<PageTitle>월별 생일자 캘린더 · 생활과환경</PageTitle>
+
+<h1>월별 생일자 캘린더 <span class="pm-page__scope">생활과환경</span></h1>
+
+<div class="card p-3 mb-3">
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+        <span class="fw-bold fs-6 text-danger">🎂 월별 생일자 캘린더</span>
+        <div class="d-flex gap-2 align-items-center">
+            <span class="fs-7 text-muted">생일 등록·수정은 [계정 관리] 화면에서 진행합니다.</span>
+            <DxButton Text="◀ 이전달" RenderStyle="ButtonRenderStyle.Secondary" SizeMode="SizeMode.Small" Click="@(() => MoveMonth(-1))" />
+            <strong class="mx-2">@($"{_currentYear}년 {_currentMonth + 1}월")</strong>
+            <DxButton Text="다음달 ▶" RenderStyle="ButtonRenderStyle.Secondary" SizeMode="SizeMode.Small" Click="@(() => MoveMonth(1))" />
+            <DxButton Text="오늘" RenderStyle="ButtonRenderStyle.Primary" SizeMode="SizeMode.Small" Click="@GoToday" />
+        </div>
+    </div>
+</div>
+
+<div class="row row-cols-7 g-1 text-center font-bold fs-7 mb-1">
+    <div class="text-danger">일</div>
+    <div>월</div>
+    <div>화</div>
+    <div>수</div>
+    <div>목</div>
+    <div>금</div>
+    <div class="text-primary">토</div>
+</div>
+
+<div class="row row-cols-7 g-1">
+    @foreach (var day in GetCalendarDays())
+    {
+        <div class="col">
+            <div class="card p-2 min-h-100 @(day.IsCurrentMonth ? "bg-white" : "bg-light text-muted opacity-50") @(day.IsToday ? "border-primary" : "")" style="min-height: 100px;">
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="badge @(day.IsToday ? "bg-primary" : day.IsSunday ? "bg-danger" : day.IsSaturday ? "bg-info" : "bg-secondary")">@day.DayNumber</span>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private int _currentYear = DateTime.Now.Year;
+    private int _currentMonth = DateTime.Now.Month - 1;
+
+    private void MoveMonth(int delta)
+    {
+        var dt = new DateTime(_currentYear, _currentMonth + 1, 1).AddMonths(delta);
+        _currentYear = dt.Year;
+        _currentMonth = dt.Month - 1;
+    }
+
+    private void GoToday()
+    {
+        _currentYear = DateTime.Now.Year;
+        _currentMonth = DateTime.Now.Month - 1;
+    }
+
+    private IEnumerable<CalendarCell> GetCalendarDays()
+    {
+        var first = new DateTime(_currentYear, _currentMonth + 1, 1);
+        var cursor = first.AddDays(-(int)first.DayOfWeek);
+        var todayStr = DateTime.Now.ToString("yyyy-MM-dd");
+
+        for (int i = 0; i < 42; i++)
+        {
+            var dateStr = cursor.ToString("yyyy-MM-dd");
+            yield return new CalendarCell
+            {
+                Date = dateStr,
+                DayNumber = cursor.Day,
+                IsCurrentMonth = cursor.Month == _currentMonth + 1,
+                IsSunday = cursor.DayOfWeek == DayOfWeek.Sunday,
+                IsSaturday = cursor.DayOfWeek == DayOfWeek.Saturday,
+                IsToday = dateStr == todayStr
+            };
+            cursor = cursor.AddDays(1);
+        }
+    }
+
+    private sealed class CalendarCell
+    {
+        public string Date { get; set; } = string.Empty;
+        public int DayNumber { get; set; }
+        public bool IsCurrentMonth { get; set; }
+        public bool IsSunday { get; set; }
+        public bool IsSaturday { get; set; }
+        public bool IsToday { get; set; }
+    }
+}

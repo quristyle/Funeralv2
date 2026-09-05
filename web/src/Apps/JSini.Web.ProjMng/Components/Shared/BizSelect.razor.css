@@ -1,0 +1,13 @@
+/* 가로로 찌그러지는 것을 막는 최소 너비 — Vue 의 .jsini-bizselect 와 같은 뜻.
+   폭 자체는 화면이 정한다(조건줄의 flex 배치). */
+::deep .pm-biz-select {
+  min-width: 160px;
+  max-width: 100%;
+}
+
+/* 모바일에서는 최소 너비를 풀어 화면 폭 안에서 줄어들 수 있게 한다 */
+@media (max-width: 767px) {
+  ::deep .pm-biz-select {
+    min-width: 0;
+  }
+}

@@ -24,6 +24,7 @@ public sealed class ProjMngModule : IPortalModule
     {
         services.AddScoped<ProjMngClient>();
         services.AddScoped<CommonCodes>();
+        services.AddScoped<BizOptions>();
 
         // 이 앱 전용 서비스만 여기 등록한다.
         // 게이트웨이 클라이언트·권한·알림은 셸이 이미 올려 두었다.

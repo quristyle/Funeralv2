@@ -5,7 +5,7 @@ Claude Code가 작업 성격에 따라 자동으로 위임하거나, "backend-de
 | 에이전트 | 담당 | 비고 |
 |---|---|---|
 | `backend-dev` | `microservices/`, `ApiGateway/` (.NET 10 + EF Core) | 마이그레이션 추가 시 운영 DB 반영 보고 |
-| `frontend-dev` | `fronts/` (Vue3 vben, 포털·소개 사이트) | 모바일 동작 확인 포함 |
+| `frontend-dev` | `web/` (.NET 10 Blazor + DevExpress, Piral MFE) | `@page` ↔ DB 메뉴 경로 대조 포함 |
 | `player-dev` | `funeralv2_player/` (Flutter) | API 하위 호환 점검 포함 |
 | `code-reviewer` | 커밋 전 변경분 리뷰 (읽기 전용) | 비밀값 유출을 최우선으로 점검 |
 | `prod-ops` | 운영 서버(jin114.co.kr) SSH·컨테이너·로그 | 조회가 기본, 상태 변경은 승인 후 |

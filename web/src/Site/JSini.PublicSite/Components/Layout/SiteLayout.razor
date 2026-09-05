@@ -1,0 +1,32 @@
+@*
+    소개 사이트 레이아웃 — 머리글 · 본문 · 바닥글.
+
+    본문은 세로로 길어진다. 업무 화면의 "한 화면에 담는다" 규칙은 여기 해당하지
+    않는다 — 소개 사이트는 스크롤이 서술 수단이다.
+*@
+
+@inherits LayoutComponentBase
+
+<div class="site">
+    <SiteHeader Locale="@Locale" />
+    <main class="site__main">
+        @Body
+    </main>
+    <SiteFooter Locale="@Locale" />
+</div>
+
+@code {
+    /// <summary>
+    /// 지금 화면의 언어.
+    ///
+    /// 레이아웃은 라우트 매개변수를 받지 못하므로(그건 화면의 것이다) 주소에서
+    /// 직접 뗀다. 화면마다 `Locale` 을 캐스케이딩으로 흘리는 방법도 있지만,
+    /// 그러면 화면 일곱 곳이 전부 그 배관을 알아야 한다.
+    /// </summary>
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
+
+    private string Locale => SiteMessages.Normalize(
+        Navigation.ToBaseRelativePath(Navigation.Uri)
+            .Split('/', StringSplitOptions.RemoveEmptyEntries)
+            .FirstOrDefault());
+}

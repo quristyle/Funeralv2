@@ -1,0 +1,88 @@
+@page "/admin/system/account"
+@using JSini.Web.Admin.Api
+
+@*
+    [시스템 사용자 계정 관리]
+
+    이력: Vue `views/portal/system/user` → 여기.
+    포털 계정(scom.accounts), 권한 그룹 매핑 및 계정 상태를 관리한다.
+*@
+
+@inject AdminClient Client
+
+<PageTitle>사용자 계정 관리 · 포털관리</PageTitle>
+
+<h1>사용자 계정 관리 <span class="pm-page__scope">포털관리</span></h1>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="d-flex gap-2">
+        <DxTextBox @bind-Text="_keyword" NullText="이름 또는 이메일 검색" Style="width: 240px" ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@LoadDataAsync" />
+    </div>
+    <PermissionView Action="MenuAction.Create">
+        <DxButton Text="계정 추가" RenderStyle="ButtonRenderStyle.Success" />
+    </PermissionView>
+</div>
+
+<DxGrid Data="@_users" Loading="@_loading" PageSize="15">
+    <Columns>
+        <DxGridDataColumn FieldName="Username" Caption="계정 ID" Width="130px" />
+        <DxGridDataColumn FieldName="FullName" Caption="성명" Width="120px" />
+        <DxGridDataColumn FieldName="Email" Caption="이메일" MinWidth="180" />
+        <DxGridDataColumn FieldName="Department" Caption="부서" Width="140px" />
+        <DxGridDataColumn FieldName="IsActive" Caption="상태" Width="90px">
+            <CellDisplayTemplate>
+                <span class="badge @((bool)context.Value! ? "bg-success" : "bg-danger")">
+                    @((bool)context.Value! ? "활성" : "잠금")
+                </span>
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+        <DxGridDataColumn Caption="관리" Width="120px">
+            <CellDisplayTemplate>
+                <div class="d-flex gap-1 justify-content-center">
+                    <PermissionView Action="MenuAction.Update">
+                        <DxButton Text="수정" RenderStyle="ButtonRenderStyle.Secondary" SizeMode="SizeMode.Small" />
+                    </PermissionView>
+                    <PermissionView Action="MenuAction.Delete">
+                        <DxButton Text="삭제" RenderStyle="ButtonRenderStyle.Danger" SizeMode="SizeMode.Small" />
+                    </PermissionView>
+                </div>
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+    </Columns>
+</DxGrid>
+
+@code {
+    private List<UserItemDto> _users = [];
+    private string? _keyword;
+    private bool _loading;
+
+    protected override Task OnInitializedAsync() => LoadDataAsync();
+
+    private Task LoadDataAsync()
+    {
+        _loading = true;
+        try
+        {
+            _users =
+            [
+                new UserItemDto { Username = "admin", FullName = "시스템 관리자", Email = "admin@jsini.co.kr", Department = "IT운영팀", IsActive = true },
+                new UserItemDto { Username = "user01", FullName = "홍길동", Email = "user01@jsini.co.kr", Department = "장례사업부", IsActive = true }
+            ];
+        }
+        finally
+        {
+            _loading = false;
+        }
+        return Task.CompletedTask;
+    }
+
+    public sealed class UserItemDto
+    {
+        public string Username { get; set; } = string.Empty;
+        public string FullName { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public string Department { get; set; } = string.Empty;
+        public bool IsActive { get; set; }
+    }
+}

@@ -1,0 +1,122 @@
+@page "/{Locale}/downloads"
+
+@*
+    자료실.
+
+    [분류 거르기를 주소로 옮겼다]
+
+    원본은 버튼을 눌러 `active` 상태를 바꿨다. 이 앱에는 회로가 없어 그 상태를
+    서버가 들고 있을 수 없다. 대신 `?category=...` 로 둔다 — 오히려 이쪽이 낫다.
+      · 거른 화면을 그대로 링크로 보낼 수 있다
+      · 뒤로 가기가 기대대로 동작한다
+      · 검색 엔진이 분류별로 따로 인식한다
+*@
+
+@inject SiteApi Api
+
+<PageTitle>@T.Nav.Downloads — JSINI</PageTitle>
+<HeadContent>
+    <meta name="description" content="@($"JSINI — {T.Nav.Downloads}")" />
+    <meta property="og:title" content="@($"{T.Nav.Downloads} — JSINI")" />
+</HeadContent>
+
+<section class="page-head">
+    <div class="wrap">
+        <h1 class="h-display text-4xl">@T.Nav.Downloads</h1>
+    </div>
+</section>
+
+<section class="wrap wrap--mid section">
+    @if (Categories.Count > 0)
+    {
+        <div class="chips">
+            <a class="chip @(string.IsNullOrEmpty(Category) ? "chip--on" : "")"
+               href="@($"/{L}/downloads")">ALL</a>
+
+            @foreach (var c in Categories)
+            {
+                <a class="chip @(Category == c ? "chip--on" : "")"
+                   href="@($"/{L}/downloads?category={Uri.EscapeDataString(c)}")">@c</a>
+            }
+        </div>
+    }
+
+    @if (Shown.Count == 0)
+    {
+        <p class="muted text-sm">@T.Common.Empty</p>
+    }
+    else
+    {
+        <ul class="dl-list">
+            @foreach (var d in Shown)
+            {
+                <li class="dl-item">
+                    <div class="dl-item__body">
+                        <p class="dl-item__title">@d.Title</p>
+                        @if (!string.IsNullOrWhiteSpace(d.Description))
+                        {
+                            <p class="dl-item__desc">@d.Description</p>
+                        }
+                        <p class="dl-item__meta">
+                            @if (!string.IsNullOrWhiteSpace(d.FileName))
+                            {
+                                <span>@d.FileName</span>
+                            }
+                            @if (d.FileSize is > 0)
+                            {
+                                <span> · @FormatSize(d.FileSize.Value)</span>
+                            }
+                            <span> · @d.DownloadCount</span>
+                        </p>
+                    </div>
+
+                    @*
+                        SiteServer 를 한 번 거친다. 그쪽이 횟수를 세고 FileServer 로
+                        302 로 넘긴다. FileServer 를 직접 가리키면 셀 수가 없다.
+                        넘겨받는 파일은 FileServer 의 `is_public` 이 켜져 있어야 한다.
+                    *@
+                    <a class="btn-outline-dark" href="@Api.PublicUrl(d.DownloadUrl)">@T.Common.Download</a>
+                </li>
+            }
+        </ul>
+    }
+</section>
+
+@code {
+    [Parameter] public string? Locale { get; set; }
+
+    /// <summary>거를 분류. 없으면 전체.</summary>
+    [SupplyParameterFromQuery(Name = "category")]
+    public string? Category { get; set; }
+
+    private Messages T => SiteMessages.For(Locale);
+    private string L => SiteMessages.Normalize(Locale);
+
+    private List<DownloadItem> _items = [];
+
+    private List<string> Categories =>
+        [.. _items.Select(x => x.Category)
+                  .Where(c => !string.IsNullOrWhiteSpace(c))
+                  .Select(c => c!)
+                  .Distinct(StringComparer.Ordinal)];
+
+    private List<DownloadItem> Shown => string.IsNullOrEmpty(Category)
+        ? _items
+        : [.. _items.Where(x => string.Equals(x.Category, Category, StringComparison.Ordinal))];
+
+    /// <summary>1MB 를 넘으면 MB, 아니면 KB. 원본과 같은 규칙이다.</summary>
+    private static string FormatSize(long bytes)
+    {
+        var mb = bytes / 1024d / 1024d;
+        return mb >= 1 ? $"{mb:0.0} MB" : $"{Math.Round(bytes / 1024d)} KB";
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        // **분류로 걸러 달라고 서버에 넘기지 않는다.** 분류 단추를 그리려면
+        // 어차피 전체 목록이 필요하고, 자료실은 목록이 길어야 수십 건이다.
+        // 분류마다 따로 부르면 왕복만 늘고 단추가 사라진다.
+        _items = await Api.DownloadsAsync(L);
+        Api.RecordVisit($"/{L}/downloads", L);
+    }
+}

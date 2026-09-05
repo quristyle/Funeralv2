@@ -1,0 +1,327 @@
+namespace JSini.Web.HelpDesk.Api;
+
+// 헬프데스크 도메인 DTO. HelpDeskServer 의 Models/* 및
+// Vue 의 fronts/apps/jsini-portal/src/api/helpdesk/types.ts 와 대응한다.
+//
+// 서버가 camelCase 로 내려주고 HelpDeskApi 의 JsonOptions 가 대소문자를 가리지
+// 않으므로 [JsonPropertyName] 은 이름이 규칙대로 못 가는 곳에만 붙인다.
+
+/// <summary>모든 엔티티가 공유하는 감사 필드.</summary>
+public abstract class HdEntity
+{
+    public int Id { get; set; }
+    public DateTime? CreatedAt { get; set; }
+    public string? CreatedBy { get; set; }
+    public DateTime? ModifiedAt { get; set; }
+    public string? ModifiedBy { get; set; }
+}
+
+/// <summary>고객사.</summary>
+public sealed class Company : HdEntity
+{
+    public string Name { get; set; } = string.Empty;
+}
+
+/// <summary>팀.</summary>
+public sealed class Team : HdEntity
+{
+    public string Name { get; set; } = string.Empty;
+    public string? Remark { get; set; }
+}
+
+/// <summary>관리자(담당자).</summary>
+public sealed class Admin : HdEntity
+{
+    public string LoginId { get; set; } = string.Empty;
+    public string UserName { get; set; } = string.Empty;
+    public string? Email { get; set; }
+    public string? Photo { get; set; }
+    public bool? IsDeleted { get; set; }
+    public List<AdminTeam>? AdminTeams { get; set; }
+}
+
+/// <summary>관리자-팀 매핑.</summary>
+public sealed class AdminTeam
+{
+    public int AdminId { get; set; }
+    public int TeamId { get; set; }
+    public Team? Team { get; set; }
+}
+
+/// <summary>고객.</summary>
+public sealed class Customer : HdEntity
+{
+    public string LoginId { get; set; } = string.Empty;
+    public string UserName { get; set; } = string.Empty;
+    public int CompanyId { get; set; }
+    public Company? Company { get; set; }
+    public string? Email { get; set; }
+    public string? Photo { get; set; }
+    public string? Sex { get; set; }
+    public string? Status { get; set; }
+    public string? Remake { get; set; }
+    public bool? IsDeleted { get; set; }
+}
+
+/// <summary>
+/// 개선요청(티켓).
+/// 상태(<see cref="Status"/>)는 서버가 이름으로 실어 보내고
+/// (Completed·Consultation·Delete·InProgress·Negotiation·Pending·Rejected·UserCompleted),
+/// 검색 조건에는 열거형 순번(0~7)을 받는다. 유형은
+/// Addition·Bug·Emergency·Error·Etc·Improvement·Question.
+/// </summary>
+public sealed class ImprovementRequest : HdEntity
+{
+    public string Title { get; set; } = string.Empty;
+    public string Status { get; set; } = "Pending";
+    public string? StatusName { get; set; }
+    public string? IpType { get; set; }
+    public string? Content { get; set; }
+    public string? Description { get; set; }
+    public bool? IsEmergency { get; set; }
+    public int? CustomerId { get; set; }
+    public Customer? Customer { get; set; }
+    public int? CompanyId { get; set; }
+    public Company? Company { get; set; }
+    public int? AdminId { get; set; }
+    public Admin? Admin { get; set; }
+    public int? AssignedAdminId { get; set; }
+    public Admin? AssignedAdmin { get; set; }
+    public int? ProjectId { get; set; }
+    public DateTime? DueDate { get; set; }
+    public DateTime? CompletedAt { get; set; }
+    public DateTime? CompletededAt { get; set; }
+    public string? MainPhoto { get; set; }
+    public int? AttachmentCount { get; set; }
+    public List<Attachment>? Attachments { get; set; }
+    public List<ImprovementComment>? Comments { get; set; }
+}
+
+/// <summary>요청 댓글.</summary>
+public sealed class ImprovementComment : HdEntity
+{
+    public int RequestId { get; set; }
+    public string Content { get; set; } = string.Empty;
+    public string? AuthorName { get; set; }
+    /// <summary>admin | customer.</summary>
+    public string? AuthorType { get; set; }
+    public int? ParentId { get; set; }
+    public List<Attachment>? Attachments { get; set; }
+}
+
+/// <summary>첨부파일.</summary>
+public sealed class Attachment : HdEntity
+{
+    public string FileName { get; set; } = string.Empty;
+    public string? FilePath { get; set; }
+    public long? FileSize { get; set; }
+    public string? ContentType { get; set; }
+    public string? EntityType { get; set; }
+    public int? EntityId { get; set; }
+}
+
+/// <summary>프로젝트.</summary>
+public sealed class Project : HdEntity
+{
+    public string Name { get; set; } = string.Empty;
+    public int? CompanyId { get; set; }
+    public int? TeamId { get; set; }
+    public Team? Team { get; set; }
+    public DateTime? ProjectStart { get; set; }
+    public DateTime? ProjectEnd { get; set; }
+    public string? Remark { get; set; }
+}
+
+/// <summary>WBS 작업 항목. 기본키가 <c>wbsRid</c> 다.</summary>
+public sealed class Wbs
+{
+    public int WbsRid { get; set; }
+    public int ProjectId { get; set; }
+    public string WbsName { get; set; } = string.Empty;
+    public string? WbsCode { get; set; }
+    public int? WbsLevel { get; set; }
+    public string? WbsType { get; set; }
+    public int? ParentWbsId { get; set; }
+    public string? Status { get; set; }
+    public string? Priority { get; set; }
+    public double? Progress { get; set; }
+    public string? RiskLevel { get; set; }
+    public int? ManagerId { get; set; }
+    public int? ResponsibleUserId { get; set; }
+    public DateTime? PlanStart { get; set; }
+    public DateTime? PlanEnd { get; set; }
+    public DateTime? ActualStart { get; set; }
+    public DateTime? ActualEnd { get; set; }
+}
+
+/// <summary>
+/// 서버가 내려주는 WBS 트리 노드.
+/// 원본이 PrimeVue TreeTable 구조 그대로다 — 실제 값은 <see cref="Data"/> 안에 있다.
+/// </summary>
+public sealed class WbsTreeNode
+{
+    public string Key { get; set; } = string.Empty;
+    public Wbs Data { get; set; } = new();
+    public List<WbsTreeNode>? Children { get; set; }
+}
+
+/// <summary>WBS 선후행 연결.</summary>
+public sealed class WbsLink
+{
+    public int Id { get; set; }
+    public int Source { get; set; }
+    public int Target { get; set; }
+    public string? Type { get; set; }
+}
+
+/// <summary>WBS 다이어그램. <c>diagramData</c> 에 그래프 정의가 문자열로 들어 있다.</summary>
+public sealed class WbsDiagram
+{
+    public int WbsRid { get; set; }
+    public string? DiagramData { get; set; }
+}
+
+/// <summary>일정. <b>기본키만 uuid(문자열)다</b> — jsini.schedules.id 가 uuid 타입.</summary>
+public sealed class Schedule
+{
+    public string Id { get; set; } = string.Empty;
+    public string Title { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public DateTime? StartDate { get; set; }
+    public DateTime? EndDate { get; set; }
+    public int? CompanyId { get; set; }
+    /// <summary>특정 회사에 묶이지 않은 공통 일정인지.</summary>
+    public bool? IsCommon { get; set; }
+    public bool? IsCompleted { get; set; }
+    public DateTime? CompletedDate { get; set; }
+    public DateTime? CreatedAt { get; set; }
+    public string? CreatedBy { get; set; }
+}
+
+/// <summary>체크리스트 항목.</summary>
+public sealed class Checklist : HdEntity
+{
+    public string ItemName { get; set; } = string.Empty;
+    public string? Category { get; set; }
+    public bool? IsChecked { get; set; }
+    public DateTime? CompletedAt { get; set; }
+    public string? Note { get; set; }
+    public int? SortOrder { get; set; }
+}
+
+/// <summary>funeralv2 계정 ↔ 헬프데스크 계정 매핑.</summary>
+public sealed class AuthUserLink
+{
+    public int Id { get; set; }
+    public string AuthUserId { get; set; } = string.Empty;
+    public int HelpdeskUserId { get; set; }
+    /// <summary>admin | customer.</summary>
+    public string UserType { get; set; } = "admin";
+    public string? UserName { get; set; }
+    public DateTime? CreatedAt { get; set; }
+}
+
+/// <summary>
+/// 현재 토큰이 해석된 헬프데스크 신원.
+///
+/// 두 가지를 구분해 담는다.
+/// <list type="bullet">
+///   <item><see cref="IsAdmin"/> — <b>무엇을 할 수 있는가.</b> 포털 역할이 관리자면
+///     계정 연결이 없어도 참이다. 조회·관리 화면을 열지 결정하는 값이다.</item>
+///   <item><see cref="Linked"/> / <see cref="HelpdeskUserId"/> — <b>'내 것'을 가리킬 수
+///     있는가.</b> 작성자·담당자·댓글은 헬프데스크 내부 ID 를 참조하므로 연결이
+///     없으면 "내가 쓴 것"을 찾을 수 없다.</item>
+/// </list>
+/// </summary>
+public sealed class HelpdeskIdentity
+{
+    public bool? IsAdmin { get; set; }
+    public bool? Linked { get; set; }
+    /// <summary>담당자 권한이 계정 연결이 아니라 포털 역할에서 온 것인가.</summary>
+    public bool? AdminByRole { get; set; }
+    public int? HelpdeskUserId { get; set; }
+    public string? CompanyId { get; set; }
+    /// <summary>admin | customer | null.</summary>
+    public string? LoginType { get; set; }
+    public string? UserName { get; set; }
+}
+
+/// <summary>관리자·고객을 합친 사용자 한 줄 (담당자 선택 등에 사용).</summary>
+public sealed class HdUser
+{
+    public int UserId { get; set; }
+    public string UserName { get; set; } = string.Empty;
+    public string UserType { get; set; } = string.Empty;
+}
+
+// ── util (MC 모델 · 파서) ─────────────────────────────────────────
+
+/// <summary>프로토콜 규격(모델).</summary>
+public sealed class McModel
+{
+    public int Id { get; set; }
+    public string McName { get; set; } = string.Empty;
+    /// <summary>전문 시작을 알리는 키 바이트.</summary>
+    public string? StartKey { get; set; }
+    public List<ParseItem>? ParseItems { get; set; }
+    public List<AckFind>? AckFinds { get; set; }
+    public List<BinarySample>? Samples { get; set; }
+}
+
+/// <summary>전문 종류를 가려내는 규칙(키 바이트 + 블록 분해 방식).</summary>
+public sealed class ParseItem
+{
+    public int Id { get; set; }
+    public string Desc { get; set; } = string.Empty;
+    public List<int>? Keys { get; set; }
+    public int? KeyIdx { get; set; }
+    /// <summary>블록 분해 길이. '8' 또는 '4,2,1,1' 처럼 콤마로 구분.</summary>
+    public string? BlocParseLength { get; set; }
+    /// <summary>블록 해석 방식 — number 또는 date.</summary>
+    public string? BlocParseType { get; set; }
+    /// <summary>수신/송신 구분.</summary>
+    public string? PTYPE { get; set; }
+    public int? MC_ModelsId { get; set; }
+    public List<TagItem>? TagItems { get; set; }
+}
+
+/// <summary>전문에서 뽑아낼 태그(필드) 정의.</summary>
+public sealed class TagItem
+{
+    public int Id { get; set; }
+    public string Desc { get; set; } = string.Empty;
+    /// <summary>블록 내 시작 바이트 위치(0부터).</summary>
+    public int? TagIdx { get; set; }
+    /// <summary>읽을 바이트 수.</summary>
+    public int? TagLength { get; set; }
+    public string? DataType { get; set; }
+    public int? SortNo { get; set; }
+    public int? ParseItemId { get; set; }
+}
+
+/// <summary>ACK 프레임 판정 규칙.</summary>
+public sealed class AckFind
+{
+    public int Id { get; set; }
+    public int? MC_ModelsId { get; set; }
+    public string? StartCalcIdx { get; set; }
+    public string? StartCalcTarget { get; set; }
+    public string? StartCalcArrow { get; set; }
+    public string? StartCalcEquals { get; set; }
+    public string? StartCalcValue { get; set; }
+    public string? EndCalcIdx { get; set; }
+    public string? EndCalcTarget { get; set; }
+    public string? EndCalcArrow { get; set; }
+    public string? EndCalcEquals { get; set; }
+    public string? EndCalcValue { get; set; }
+}
+
+/// <summary>보관된 전문 샘플. 목록 조회에는 content 가 빠져 있다.</summary>
+public sealed class BinarySample
+{
+    public int Id { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public string? Content { get; set; }
+    public int? MC_ModelsId { get; set; }
+    public DateTime? CreatedAt { get; set; }
+}

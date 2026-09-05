@@ -5,14 +5,16 @@
 
     [셸이 하는 일은 넷뿐이다]
       · 로그인·로그아웃 (인증 쿠키를 굽는 유일한 곳)
-      · 업무 경로를 MFE 로 넘기기 (YARP)
+      · 업무 MFE 모듈을 찾아 등록하고 한 라우터로 합치기
       · 첫 화면과 오류 화면
       · 진단 (어느 MFE 가 붙어 있나)
 
     [셸이 하지 않는 일]
       업무 화면을 그리지 않는다. 업무 API 를 부르지 않는다.
-      업무 앱을 참조하지 않는다 — 애초에 별도 프로세스라 참조할 수도 없고,
-      목록은 설정(PortalApps)에서 읽는다.
+      업무 모듈의 **타입을 이름으로 알지 않는다** — 아래 ProjectReference 는
+      DLL 을 출력 폴더에 모으기 위한 것이고, 셸 코드에는 `using JSini.Web.Funeral`
+      같은 줄이 한 곳도 없다. 모듈은 어셈블리를 훑어 IPortalModule 구현으로 찾는다
+      (PortalModuleRegistry). 그래서 모듈을 넣고 빼는 데 셸 코드를 고칠 일이 없다.
 
     레이아웃·권한·메뉴는 JSini.Web.Components(Blazor Common)에 있다.
     셸과 업무 앱 일곱이 같은 껍데기를 그려야 하기 때문이다.
@@ -24,7 +26,10 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Yarp.ReverseProxy" />
+    <PackageReference Include="Piral.Blazor.Orchestrator" />
+    <PackageReference Include="Piral.Blazor.Shared" />
+    <PackageReference Include="NuGet.Packaging" />
+    <PackageReference Include="NuGet.Protocol" />
   </ItemGroup>
 
   <ItemGroup>
@@ -32,6 +37,45 @@
     <ProjectReference Include="..\..\Shared\JSini.Web.Components\JSini.Web.Components.csproj" />
     <ProjectReference Include="..\..\Shared\JSini.Web.Http\JSini.Web.Http.csproj" />
     <ProjectReference Include="..\..\Shared\JSini.Web.Models\JSini.Web.Models.csproj" />
+  </ItemGroup>
+
+  <!--
+    업무 MFE 모듈 — **빌드 시점 합성(build-time composition)**.
+
+    [왜 참조가 필요한가]
+
+    한때 이 묶음이 없었다. 업무 앱이 각자 프로세스였고 셸은 YARP 로 넘기기만
+    했으니 참조할 이유가 없었다. 단일 셸로 합치면서 그 전제가 사라졌는데
+    참조는 돌아오지 않았고, 그 결과 **셸 출력 폴더에 모듈 DLL 이 하나도 없었다**.
+    PortalModuleRegistry 가 훑을 대상이 없으니 Router 의 AdditionalAssemblies 가
+    비고, 업무 경로가 전부 404 가 됐다 — 빌드는 통과하고 테스트도 통과했다
+    (테스트 프로젝트는 여섯 개를 직접 참조하므로 자기 폴더에는 다 있었다).
+    그래서 아래 `업무_모듈이_셸_출력에_실려_있다` 테스트를 새로 붙였다.
+
+    [참조가 격리를 깨지 않는 이유]
+
+    방향이 셸 → 모듈 한 쪽뿐이다. 모듈은 셸을 참조하지 않고(규칙 1), 서로도
+    참조하지 않는다(규칙 2). 셸 코드는 모듈 타입 이름을 한 번도 적지 않는다 —
+    어셈블리를 훑어 IPortalModule 로 찾을 뿐이라, 모듈을 빼려면 이 줄만 지우면 된다.
+
+    [Razor 클래스 라이브러리라서 딸려 오는 것]
+
+    ProjMng 의 wwwroot(monaco 등)가 _content/JSini.Web.ProjMng/... 로 함께
+    실린다. DLL 만 복사하는 방식이었다면 이 정적 자원이 통째로 빠졌을 것이다.
+
+    [다음 단계 — 런타임 파일럿]
+
+    Piral 의 진짜 이점(무중단 개별 배포)은 모듈을 nupkg 파일럿으로 말아
+    런타임에 싣는 것이다. 그 seam 은 Program.cs 의 IMfLoaderService 에 있다.
+    지금은 빌드 시점 합성이고, 그때가 되면 이 ItemGroup 이 사라진다.
+  -->
+  <ItemGroup Label="업무 MFE 모듈">
+    <ProjectReference Include="..\..\Apps\JSini.Web.Admin\JSini.Web.Admin.csproj" />
+    <ProjectReference Include="..\..\Apps\JSini.Web.Funeral\JSini.Web.Funeral.csproj" />
+    <ProjectReference Include="..\..\Apps\JSini.Web.HelpDesk\JSini.Web.HelpDesk.csproj" />
+    <ProjectReference Include="..\..\Apps\JSini.Web.LifeEnv\JSini.Web.LifeEnv.csproj" />
+    <ProjectReference Include="..\..\Apps\JSini.Web.ProjMng\JSini.Web.ProjMng.csproj" />
+    <ProjectReference Include="..\..\Apps\JSini.Web.Site\JSini.Web.Site.csproj" />
   </ItemGroup>
 
 </Project>

@@ -1,0 +1,210 @@
+@*
+    포털 계정·사업장 셀렉트 — Vue 의 `BizSelect.vue` 를 잇는다.
+
+    `Type` 하나만 주면 나머지(어느 MSA 의 어느 API 를 어떻게 부르는지)는
+    DB 메타데이터(`scom.biz_select_configs`)가 정한다 — `Api/BizOptions.cs` 참고.
+    프로젝트관리에서는 담당자(portal_account) 를 고르는 화면 네 개가 쓴다
+    (todo · todo-monitor · user · monitoring).
+
+    [값은 문자열이다]
+
+    원본 값이 숫자 ID 여도 문자열로 통일한다. 이 앱의 파라미터는 결국
+    프로시저 문자열 사전(`MainParam`)으로 나가므로 여기서 맞춰 두는 편이
+    화면마다 변환하는 것보다 낫다. Vue 의 `value: any` 와 다른 점이다.
+
+    [다중선택은 태그박스다]
+
+    Vue 는 antd Select 에 `mode="multiple"` 을 넘겼다. DevExpress 는 다중선택이
+    별도 부품(DxTagBox)이라 `Multiple` 파라미터로 가른다.
+*@
+
+@inject BizOptions Options
+
+@if (Multiple)
+{
+    <DxTagBox Data="@_options"
+              TextFieldName="@nameof(BizOption.Label)"
+              ValueFieldName="@nameof(BizOption.Value)"
+              Values="@Values"
+              ValuesChanged="@((IEnumerable<string> values) => OnPickedManyAsync(values))"
+              NullText="@Placeholder"
+              SearchMode="@(ShowSearch ? ListSearchMode.AutoSearch : ListSearchMode.None)"
+              SearchFilterCondition="ListSearchFilterCondition.Contains"
+              Enabled="@(!Disabled)"
+              CssClass="pm-biz-select"
+              SizeMode="SizeMode.Small" />
+}
+else
+{
+    <DxComboBox Data="@_options"
+                TextFieldName="@nameof(BizOption.Label)"
+                ValueFieldName="@nameof(BizOption.Value)"
+                Value="@Value"
+                ValueChanged="@((string? value) => OnPickedAsync(value))"
+                NullText="@Placeholder"
+                SearchMode="@(ShowSearch ? ListSearchMode.AutoSearch : ListSearchMode.None)"
+                SearchFilterCondition="ListSearchFilterCondition.Contains"
+                ClearButtonDisplayMode="@(AllowClear ? DataEditorClearButtonDisplayMode.Auto : DataEditorClearButtonDisplayMode.Never)"
+                Enabled="@(!Disabled)"
+                CssClass="pm-biz-select"
+                SizeMode="SizeMode.Small" />
+}
+
+@code {
+    private List<BizOption> _options = [];
+
+    /// <summary>마지막으로 읽은 조합. 같은 조합이면 다시 읽지 않는다 — Vue 의 deep watch 대응.</summary>
+    private (string Type, string ParamsKey)? _loadedFor;
+
+    /// <summary>비즈니스 타입 — 예: <c>portal_account</c> · <c>company</c>. 메타데이터의 키다.</summary>
+    [Parameter, EditorRequired] public string Type { get; set; } = string.Empty;
+
+    /// <summary>조회 시 함께 보내는 런타임 파라미터.</summary>
+    [Parameter] public IReadOnlyDictionary<string, object?>? Params { get; set; }
+
+    /// <summary>고른 값 (단일 선택).</summary>
+    [Parameter] public string? Value { get; set; }
+
+    [Parameter] public EventCallback<string?> ValueChanged { get; set; }
+
+    /// <summary>고른 값들 (다중 선택). <see cref="Multiple"/> 일 때만 쓴다.</summary>
+    [Parameter] public IEnumerable<string>? Values { get; set; }
+
+    [Parameter] public EventCallback<IEnumerable<string>?> ValuesChanged { get; set; }
+
+    /// <summary>다중선택. Vue 의 <c>mode="multiple"</c> 대응.</summary>
+    [Parameter] public bool Multiple { get; set; }
+
+    /// <summary>
+    /// 고른 항목 전체. 라벨·값 말고 다른 컬럼이 필요한 화면이 받는다.
+    /// Vue 의 <c>change(value, item)</c> 두 번째 인자 대응.
+    /// </summary>
+    [Parameter] public EventCallback<BizOption?> OnChanged { get; set; }
+
+    /// <summary>목록을 읽은 뒤 원본 행들을 올려 준다. Vue 의 <c>loaded</c> 대응.</summary>
+    [Parameter] public EventCallback<IReadOnlyList<BizOption>> OnLoaded { get; set; }
+
+    /// <summary>맨 앞에 "전체" 항목을 넣는다.</summary>
+    [Parameter] public bool ShowAll { get; set; }
+
+    /// <summary>"전체" 항목의 값. 기본은 빈 문자열.</summary>
+    [Parameter] public string AllValue { get; set; } = string.Empty;
+
+    /// <summary>목록을 읽은 뒤 값이 비어 있으면 첫 항목을 자동으로 고른다.</summary>
+    [Parameter] public bool AutoSelectFirst { get; set; }
+
+    /// <summary>
+    /// 이 파라미터들이 채워지기 전에는 조회하지 않는다.
+    /// 상위 선택에 딸린 셀렉트가 빈 목록을 받아 엉뚱한 첫 항목을
+    /// 자동 선택하는 것을 막는다 (Vue 의 <c>requiredParams</c>).
+    /// </summary>
+    [Parameter] public IReadOnlyList<string>? RequiredParams { get; set; }
+
+    /// <summary>목록 안에서 타자로 거른다. Vue 의 <c>show-search</c> 대응. 기본 켜짐.</summary>
+    [Parameter] public bool ShowSearch { get; set; } = true;
+
+    [Parameter] public string Placeholder { get; set; } = "선택";
+
+    [Parameter] public bool AllowClear { get; set; }
+
+    [Parameter] public bool Disabled { get; set; }
+
+    /// <summary>
+    /// 예전부터 이름으로 걸려 있던 상위 조건 세 쌍. Vue 의 <c>LEGACY_REQUIRED</c> —
+    /// 그 화면들이 프로퍼티를 따로 주지 않고 이 동작에 기대고 있어 그대로 지킨다.
+    /// </summary>
+    private static readonly Dictionary<string, string> LegacyRequired = new(StringComparer.Ordinal)
+    {
+        ["dept"] = "companyId",
+        ["building"] = "companyId",
+        ["floor"] = "buildingId",
+    };
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var key = (Type, ParamsKey());
+        if (_loadedFor == key)
+        {
+            return;
+        }
+
+        _loadedFor = key;
+        await LoadAsync();
+    }
+
+    /// <summary>목록을 다시 읽는다. 화면이 저장 뒤 새로고침할 때 부른다 (Vue 의 <c>reload</c>).</summary>
+    public Task ReloadAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        if (string.IsNullOrWhiteSpace(Type))
+        {
+            return;
+        }
+
+        if (ShouldWait())
+        {
+            _options = [];
+            return;
+        }
+
+        var loaded = await Options.GetAsync(Type, Params);
+
+        _options = ShowAll
+            ? [new BizOption(AllValue, "전체", new Dictionary<string, string>()), .. loaded]
+            : [.. loaded];
+
+        await OnLoaded.InvokeAsync(loaded);
+
+        // 값이 비어 있을 때만 첫 항목을 자동 선택한다 — 이미 고른 값은 지키고,
+        // 자동 선택도 값 변경이므로 화면이 그 신호로 최초 조회를 걸 수 있게 올린다.
+        if (AutoSelectFirst && _options.Count > 0 && string.IsNullOrEmpty(Value) && !Multiple)
+        {
+            await SetValueAsync(_options[0].Value, _options[0]);
+        }
+    }
+
+    /// <summary>상위 선택을 기다려야 하는가 — 넘겼는데 비어 있는 필수 키가 있으면 참.</summary>
+    private bool ShouldWait()
+    {
+        if (Params is null)
+        {
+            return false;
+        }
+
+        var keys = new List<string>(RequiredParams ?? []);
+        if (LegacyRequired.TryGetValue(Type, out var legacy))
+        {
+            keys.Add(legacy);
+        }
+
+        return keys.Any(key =>
+            Params.TryGetValue(key, out var value)
+            && (value is null || value is string text && text.Length == 0));
+    }
+
+    /// <summary>파라미터 사전을 비교 가능한 문자열로. Vue 의 <c>JSON.stringify</c> 비교 대응.</summary>
+    private string ParamsKey() =>
+        Params is null
+            ? string.Empty
+            : string.Join('|', Params.OrderBy(p => p.Key, StringComparer.Ordinal)
+                .Select(p => $"{p.Key}={p.Value}"));
+
+    private Task OnPickedAsync(string? value) =>
+        SetValueAsync(value, _options.FirstOrDefault(o =>
+            string.Equals(o.Value, value, StringComparison.Ordinal)));
+
+    private async Task SetValueAsync(string? value, BizOption? item)
+    {
+        Value = value;
+        await ValueChanged.InvokeAsync(value);
+        await OnChanged.InvokeAsync(item);
+    }
+
+    private async Task OnPickedManyAsync(IEnumerable<string>? values)
+    {
+        Values = values;
+        await ValuesChanged.InvokeAsync(values);
+        await OnChanged.InvokeAsync(null);
+    }
+}

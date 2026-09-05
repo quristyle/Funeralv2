@@ -1,0 +1,98 @@
+@page "/admin/system/menu"
+@using JSini.Web.Admin.Api
+
+@*
+    [시스템 메뉴 관리]
+
+    이력: Vue `views/portal/system/menu/list.vue` → 여기.
+    포털 시스템 메뉴 노출, 아이콘, 순서 및 모듈별 라우트 연동 정보를 관리한다.
+*@
+
+@inject AdminClient Client
+
+<PageTitle>시스템 메뉴 관리 · 포털관리</PageTitle>
+
+<h1>시스템 메뉴 관리 <span class="pm-page__scope">포털관리</span></h1>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="d-flex gap-2">
+        <DxTextBox @bind-Text="_keyword" NullText="메뉴명 또는 경로 검색" Style="width: 240px" ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@LoadDataAsync" />
+    </div>
+    <PermissionView Action="MenuAction.Create">
+        <DxButton Text="메뉴 추가" RenderStyle="ButtonRenderStyle.Success" />
+    </PermissionView>
+</div>
+
+<DxGrid Data="@_menus" Loading="@_loading" PageSize="20">
+    <Columns>
+        <DxGridDataColumn FieldName="OrderNo" Caption="순서" Width="70px" />
+        <DxGridDataColumn FieldName="Title" Caption="메뉴명" MinWidth="180" />
+        <DxGridDataColumn FieldName="Path" Caption="라우트 경로 (페이지)" MinWidth="200">
+            <CellDisplayTemplate>
+                <code class="text-primary">@context.Value</code>
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+        <DxGridDataColumn FieldName="ModuleKey" Caption="모듈" Width="100px">
+            <CellDisplayTemplate>
+                <span class="badge bg-secondary">@context.Value</span>
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+        <DxGridDataColumn FieldName="IsVisible" Caption="노출" Width="80px">
+            <CellDisplayTemplate>
+                <span class="badge @((bool)context.Value! ? "bg-success" : "bg-secondary")">
+                    @((bool)context.Value! ? "표시" : "숨김")
+                </span>
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+        <DxGridDataColumn Caption="관리" Width="120px">
+            <CellDisplayTemplate>
+                <div class="d-flex gap-1 justify-content-center">
+                    <PermissionView Action="MenuAction.Update">
+                        <DxButton Text="수정" RenderStyle="ButtonRenderStyle.Secondary" SizeMode="SizeMode.Small" />
+                    </PermissionView>
+                    <PermissionView Action="MenuAction.Delete">
+                        <DxButton Text="삭제" RenderStyle="ButtonRenderStyle.Danger" SizeMode="SizeMode.Small" />
+                    </PermissionView>
+                </div>
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+    </Columns>
+</DxGrid>
+
+@code {
+    private List<MenuItemDto> _menus = [];
+    private string? _keyword;
+    private bool _loading;
+
+    protected override Task OnInitializedAsync() => LoadDataAsync();
+
+    private Task LoadDataAsync()
+    {
+        _loading = true;
+        try
+        {
+            _menus =
+            [
+                new MenuItemDto { OrderNo = 1, Title = "장례 관리", Path = "/funeral/status", ModuleKey = "funeral", IsVisible = true },
+                new MenuItemDto { OrderNo = 2, Title = "헬프데스크", Path = "/helpdesk/dashboard", ModuleKey = "helpdesk", IsVisible = true },
+                new MenuItemDto { OrderNo = 3, Title = "프로젝트관리", Path = "/projmng/manage", ModuleKey = "projmng", IsVisible = true },
+                new MenuItemDto { OrderNo = 4, Title = "생활과환경", Path = "/life/weather/dashboard", ModuleKey = "life", IsVisible = true }
+            ];
+        }
+        finally
+        {
+            _loading = false;
+        }
+        return Task.CompletedTask;
+    }
+
+    public sealed class MenuItemDto
+    {
+        public int OrderNo { get; set; }
+        public string Title { get; set; } = string.Empty;
+        public string Path { get; set; } = string.Empty;
+        public string ModuleKey { get; set; } = string.Empty;
+        public bool IsVisible { get; set; }
+    }
+}

@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <!--
+    회사 소개 사이트 (:5556). Vue 원본: fronts/apps/jsini-site (vite-ssg).
+
+    포털 셸(:5557)과 **무관한 별도 공개 사이트**다 — MFE 도, 인증도, 셸 프록시도 없다.
+    그래서 web/ 의 공유 프로젝트(Abstractions·Components·Http·Models)를 하나도
+    참조하지 않는다. 참조가 생기는 순간 공개 사이트가 업무 포털의 배포 일정에 묶인다.
+
+    DevExpress 도 쓰지 않는다 — 공개 사이트에 라이선스 컴포넌트를 넣을 이유가 없고,
+    화면 전부가 순수 HTML/CSS 로 충분하다.
+
+    렌더링은 **정적 SSR 전용**이다. 인터랙티브 회로가 없으므로 blazor.web.js 를
+    싣지 않고, 문의 폼도 일반 폼 POST 로 처리한다. 원본이 정적 프리렌더(vite-ssg)를
+    골랐던 이유(첫 화면 속도·검색 노출)를 서버 렌더로 그대로 잇는다.
+  -->
+
+  <PropertyGroup>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <UserSecretsId>jsini-public-site</UserSecretsId>
+  </PropertyGroup>
+
+</Project>

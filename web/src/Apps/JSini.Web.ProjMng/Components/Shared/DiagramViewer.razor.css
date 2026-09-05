@@ -1,0 +1,13 @@
+.pm-diagram {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  cursor: default;
+
+  /* 모눈 배경 — Vue 원본과 같은 표기. 도형이 없는 캔버스도 "여기가 캔버스다"
+     라고 말해 준다. */
+  background-image: radial-gradient(circle, rgb(128 128 128 / 25%) 1px, transparent 1px);
+  background-size: 16px 16px;
+  border: 1px solid var(--jsini-border, #e3e5e8);
+  border-radius: 6px;
+}

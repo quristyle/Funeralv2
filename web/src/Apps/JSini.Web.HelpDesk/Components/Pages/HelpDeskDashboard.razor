@@ -1,0 +1,93 @@
+@page "/helpdesk/dashboard"
+@using JSini.Web.HelpDesk.Api
+
+@*
+    [헬프데스크 대시보드]
+
+    이력: Vue `views/helpdesk/dashboard/index.vue` → 여기.
+    서비스 요청 처리 현황 및 통계 현황판.
+*@
+
+@inject HelpDeskApi Api
+
+<PageTitle>헬프데스크 대시보드 · 헬프데스크</PageTitle>
+
+<h1>헬프데스크 대시보드 <span class="pm-page__scope">헬프데스크</span></h1>
+
+<div class="row g-3 mb-4">
+    <div class="col-12 col-md-3">
+        <div class="card p-3 bg-primary text-white">
+            <div class="fs-7">신규 접수</div>
+            <div class="display-6 font-black">12건</div>
+        </div>
+    </div>
+    <div class="col-12 col-md-3">
+        <div class="card p-3 bg-warning text-dark">
+            <div class="fs-7">처리 중</div>
+            <div class="display-6 font-black">5건</div>
+        </div>
+    </div>
+    <div class="col-12 col-md-3">
+        <div class="card p-3 bg-success text-white">
+            <div class="fs-7">처리 완료</div>
+            <div class="display-6 font-black">48건</div>
+        </div>
+    </div>
+    <div class="col-12 col-md-3">
+        <div class="card p-3 bg-secondary text-white">
+            <div class="fs-7">전체 요청</div>
+            <div class="display-6 font-black">65건</div>
+        </div>
+    </div>
+</div>
+
+<div class="card p-3">
+    <h5 class="fw-bold mb-3">📋 최근 서비스 요청 목록</h5>
+    <DxGrid Data="@_recentRequests" Loading="@_loading" PageSize="10">
+        <Columns>
+            <DxGridDataColumn FieldName="ReqNo" Caption="요청 번호" Width="120px" />
+            <DxGridDataColumn FieldName="Title" Caption="요청 제목" MinWidth="250" />
+            <DxGridDataColumn FieldName="Category" Caption="유형" Width="120px" />
+            <DxGridDataColumn FieldName="Status" Caption="상태" Width="100px">
+                <CellDisplayTemplate>
+                    <span class="badge bg-warning text-dark">@context.Value</span>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+            <DxGridDataColumn FieldName="CreatedAt" Caption="접수일" Width="140px" DisplayFormat="yyyy-MM-dd" />
+        </Columns>
+    </DxGrid>
+</div>
+
+@code {
+    private List<RequestSummaryDto> _recentRequests = [];
+    private bool _loading;
+
+    protected override Task OnInitializedAsync() => LoadDataAsync();
+
+    private Task LoadDataAsync()
+    {
+        _loading = true;
+        try
+        {
+            _recentRequests =
+            [
+                new RequestSummaryDto { ReqNo = "REQ-2026-001", Title = "장례식장 시스템 접속 불가 문의", Category = "시스템 장애", Status = "처리중", CreatedAt = DateTime.Now },
+                new RequestSummaryDto { ReqNo = "REQ-2026-002", Title = "엑셀 서식 출력 기능 개선 요청", Category = "기능 개선", Status = "접수", CreatedAt = DateTime.Now.AddDays(-1) }
+            ];
+        }
+        finally
+        {
+            _loading = false;
+        }
+        return Task.CompletedTask;
+    }
+
+    public sealed class RequestSummaryDto
+    {
+        public string ReqNo { get; set; } = string.Empty;
+        public string Title { get; set; } = string.Empty;
+        public string Category { get; set; } = string.Empty;
+        public string Status { get; set; } = string.Empty;
+        public DateTime CreatedAt { get; set; }
+    }
+}

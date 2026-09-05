@@ -1,0 +1,40 @@
+@page "/projmng/source/glue"
+@using System.Data
+
+@*
+    [Glue 추적]
+
+    이력: Vue `views/projmng/develop/glue-trace.vue` → 여기.
+    서비스 Glue 레이어 추적 및 연동 로직 검증.
+*@
+
+@inject ProjMngClient Client
+
+<PageTitle>Glue 추적 · 프로젝트관리</PageTitle>
+
+<h1>Glue 추적 <span class="pm-page__scope">프로젝트관리</span></h1>
+
+<SearchBar>
+    <ChildContent>
+        <DxTextBox @bind-Text="_keyword" NullText="추적 키워드 검색" Style="width: 240px" />
+    </ChildContent>
+    <Actions>
+        <PermissionView Action="MenuAction.Search">
+            <DxButton Text="추적 조회" RenderStyle="ButtonRenderStyle.Primary" Click="@SearchAsync" />
+        </PermissionView>
+    </Actions>
+</SearchBar>
+
+<DynamicGrid Data="@_grid.Data" Loading="@_grid.IsLoading" ExportName="Glue추적" HideAdd="true" />
+
+@code {
+    private ProcGrid _grid = default!;
+    private string? _keyword;
+
+    protected override void OnInitialized()
+    {
+        _grid = new ProcGrid(Client, "sp_dev_proj_exec");
+    }
+
+    private Task SearchAsync() => _grid.LoadAsync(new Dictionary<string, object?> { ["keyword"] = _keyword });
+}

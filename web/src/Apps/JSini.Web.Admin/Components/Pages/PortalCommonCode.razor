@@ -1,0 +1,86 @@
+@page "/admin/system/common-code"
+@using JSini.Web.Admin.Api
+
+@*
+    [포털 시스템 공통코드 관리]
+
+    이력: Vue `views/portal/system/common-code` → 여기.
+    포털 시스템 전역 코드(scom)그룹 및 세부 코드 마스터를 관리한다.
+*@
+
+@inject AdminClient Client
+
+<PageTitle>포털 공통코드 관리 · 포털관리</PageTitle>
+
+<h1>포털 공통코드 관리 <span class="pm-page__scope">포털관리</span></h1>
+
+<div class="row g-3">
+    <div class="col-12 col-md-5">
+        <div class="card p-3">
+            <div class="mb-2 fw-bold">코드 그룹 목록</div>
+            <DxGrid Data="@_codeGroups" Loading="@_loading" PageSize="15">
+                <Columns>
+                    <DxGridDataColumn FieldName="GroupCode" Caption="그룹 코드" Width="120px" />
+                    <DxGridDataColumn FieldName="GroupName" Caption="그룹명" MinWidth="140" />
+                </Columns>
+            </DxGrid>
+        </div>
+    </div>
+    <div class="col-12 col-md-7">
+        <div class="card p-3">
+            <div class="mb-2 fw-bold">상세 코드 목록</div>
+            <DxGrid Data="@_codeDetails" Loading="@_loading" PageSize="15">
+                <Columns>
+                    <DxGridDataColumn FieldName="Code" Caption="코드" Width="100px" />
+                    <DxGridDataColumn FieldName="Name" Caption="코드명" MinWidth="140" />
+                    <DxGridDataColumn FieldName="SortOrder" Caption="순서" Width="70px" />
+                </Columns>
+            </DxGrid>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<CodeGroupDto> _codeGroups = [];
+    private List<CodeDetailDto> _codeDetails = [];
+    private bool _loading;
+
+    protected override Task OnInitializedAsync() => LoadDataAsync();
+
+    private Task LoadDataAsync()
+    {
+        _loading = true;
+        try
+        {
+            _codeGroups =
+            [
+                new CodeGroupDto { GroupCode = "SYS_STATUS", GroupName = "시스템 상태 코드" },
+                new CodeGroupDto { GroupCode = "USER_TYPE", GroupName = "사용자 구분 코드" }
+            ];
+
+            _codeDetails =
+            [
+                new CodeDetailDto { Code = "ACTIVE", Name = "정상", SortOrder = 1 },
+                new CodeDetailDto { Code = "INACTIVE", Name = "중지", SortOrder = 2 }
+            ];
+        }
+        finally
+        {
+            _loading = false;
+        }
+        return Task.CompletedTask;
+    }
+
+    public sealed class CodeGroupDto
+    {
+        public string GroupCode { get; set; } = string.Empty;
+        public string GroupName { get; set; } = string.Empty;
+    }
+
+    public sealed class CodeDetailDto
+    {
+        public string Code { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public int SortOrder { get; set; }
+    }
+}

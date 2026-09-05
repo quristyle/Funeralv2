@@ -1,0 +1,200 @@
+@page "/projmng/db/table"
+@using System.Data
+
+@*
+    [테이블 · 컬럼 설명 관리]
+
+    이력: Vue `views/projmng/develop/table-manage.vue` → 여기.
+    호출: 개발도구 `tablelist`, `columnsOftable`,
+          `tableCommentUpdate`, `columnsCommentUpdate`, `columnsCommentAdd`
+
+    대상 DB의 테이블·컬럼 설명(코멘트)을 읽고 고친다.
+    왼쪽에서 테이블을 고르면 오른쪽에 컬럼이 나오고, 설명을 고쳐 저장하면
+    대상 DB의 코멘트를 갱신한다.
+*@
+
+@inject ProjMngClient Client
+
+<PageTitle>테이블·컬럼 설명 관리 · 프로젝트관리</PageTitle>
+
+<h1>테이블·컬럼 설명 관리 <span class="pm-page__scope">프로젝트관리</span></h1>
+
+<SearchBar>
+    <ChildContent>
+        <CodeSelect CodeId="projlist" @bind-Value="_projectCode" OnChanged="@OnProjectChanged" />
+        <CodeSelect CodeId="projdb" CodeKey="@_projectCode" EtcFix="true" @bind-Value="_dbCode" OnChanged="@(item => _dbItem = item)" />
+        <DxTextBox @bind-Text="_keyword" NullText="테이블 검색" ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" Style="width: 200px" />
+    </ChildContent>
+    <Actions>
+        <PermissionView Action="MenuAction.Search">
+            <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@SearchAsync" />
+        </PermissionView>
+    </Actions>
+</SearchBar>
+
+<Notice>
+    여기서 저장하면 프로젝트관리 DB가 아니라 대상 DB의 코멘트가 바뀝니다.
+</Notice>
+
+<SplitPane Size="45">
+    <First>
+        <div class="d-flex flex-column h-100">
+            <div class="mb-1 d-flex justify-content-end">
+                <PermissionView Action="MenuAction.Update">
+                    <DxButton Text="테이블 설명 반영" RenderStyle="ButtonRenderStyle.Secondary" SizeMode="SizeMode.Small" Click="@SaveTableCommentAsync" />
+                </PermissionView>
+            </div>
+            <div class="flex-grow-1 min-h-0">
+                <DynamicGrid Data="@_tableGrid"
+                             Loading="@_isTableLoading"
+                             ExportName="테이블설명"
+                             HideAdd="true"
+                             OnRowClick="@OnTableSelectAsync" />
+            </div>
+        </div>
+    </First>
+    <Second>
+        <div class="d-flex flex-column h-100">
+            <div class="mb-1 d-flex justify-content-end">
+                <PermissionView Action="MenuAction.Update">
+                    <DxButton Text="컬럼 설명 반영" RenderStyle="ButtonRenderStyle.Secondary" SizeMode="SizeMode.Small" Click="@SaveColumnCommentAsync" />
+                </PermissionView>
+            </div>
+            <div class="flex-grow-1 min-h-0">
+                <DynamicGrid Data="@_columnGrid"
+                             Loading="@_isColumnLoading"
+                             ExportName="컬럼설명"
+                             HideAdd="true" />
+            </div>
+        </div>
+    </Second>
+</SplitPane>
+
+@code {
+    private string? _projectCode;
+    private string? _dbCode;
+    private CommonCodeItem? _dbItem;
+    private string? _keyword;
+
+    private DataRow? _selectedTable;
+
+    private ProjMngTable _tableGrid = ProjMngTable.Empty;
+    private ProjMngTable _columnGrid = ProjMngTable.Empty;
+    private bool _isTableLoading;
+    private bool _isColumnLoading;
+
+    private void OnProjectChanged(CommonCodeItem? item = null)
+    {
+        _dbCode = null;
+        _dbItem = null;
+    }
+
+    private Dictionary<string, object?> BaseParams()
+    {
+        var dict = new Dictionary<string, object?>();
+        if (_dbItem != null)
+        {
+            dict["db_ip"] = _dbItem.Others.GetValueOrDefault("val") ?? _dbItem.Others.GetValueOrDefault("db_ip");
+            dict["db_port"] = _dbItem.Others.GetValueOrDefault("val2") ?? _dbItem.Others.GetValueOrDefault("db_port");
+            dict["db_name"] = _dbItem.Others.GetValueOrDefault("val3") ?? _dbItem.Others.GetValueOrDefault("db_name");
+            dict["db_user"] = _dbItem.Others.GetValueOrDefault("prop") ?? _dbItem.Others.GetValueOrDefault("db_user");
+            dict["db_pw"] = _dbItem.Others.GetValueOrDefault("etc") ?? _dbItem.Others.GetValueOrDefault("db_pw");
+            dict["db_type"] = _dbItem.Others.GetValueOrDefault("srt") ?? _dbItem.Others.GetValueOrDefault("db_type");
+        }
+        return dict;
+    }
+
+    private async Task SearchAsync()
+    {
+        _selectedTable = null;
+        _columnGrid = ProjMngTable.Empty;
+        _isTableLoading = true;
+        try
+        {
+            var p = BaseParams();
+            p["param1"] = _keyword ?? string.Empty;
+            var res = await Client.JsContAsync("tablelist", p);
+            _tableGrid = ProjMngTable.From(res);
+        }
+        finally
+        {
+            _isTableLoading = false;
+        }
+    }
+
+    private async Task OnTableSelectAsync(DataRow? row)
+    {
+        _selectedTable = row;
+        if (row is null)
+        {
+            _columnGrid = ProjMngTable.Empty;
+            return;
+        }
+
+        _isColumnLoading = true;
+        try
+        {
+            var tableName = GetTableName(row);
+            var p = BaseParams();
+            p["param1"] = tableName;
+            var res = await Client.JsContAsync("columnsOftable", p);
+            _columnGrid = ProjMngTable.From(res);
+        }
+        finally
+        {
+            _isColumnLoading = false;
+        }
+    }
+
+    private string GetTableName(DataRow? row)
+    {
+        if (row is null) return string.Empty;
+        if (row.Table.Columns.Contains("TableName")) return row["TableName"]?.ToString() ?? string.Empty;
+        if (row.Table.Columns.Contains("tablename")) return row["tablename"]?.ToString() ?? string.Empty;
+        return string.Empty;
+    }
+
+    private string GetTableName(Dictionary<string, object?> row)
+    {
+        if (row.TryGetValue("TableName", out var v1) && v1 != null) return v1.ToString() ?? string.Empty;
+        if (row.TryGetValue("tablename", out var v2) && v2 != null) return v2.ToString() ?? string.Empty;
+        return string.Empty;
+    }
+
+    private async Task SaveTableCommentAsync()
+    {
+        var changed = _tableGrid.ChangedRows();
+        if (changed.Count == 0) return;
+
+        foreach (var row in changed)
+        {
+            var p = BaseParams();
+            p["param1"] = GetTableName(row);
+            p["param2"] = (row.TryGetValue("Description", out var d1) ? d1 : row.GetValueOrDefault("description"))?.ToString() ?? string.Empty;
+            await Client.JsContAsync("tableCommentUpdate", p);
+        }
+        await SearchAsync();
+    }
+
+    private async Task SaveColumnCommentAsync()
+    {
+        var changed = _columnGrid.ChangedRows();
+        if (changed.Count == 0 || _selectedTable is null) return;
+
+        var tableName = GetTableName(_selectedTable);
+        foreach (var row in changed)
+        {
+            var p = BaseParams();
+            p["param1"] = tableName;
+            p["param2"] = (row.TryGetValue("ColumnName", out var c1) ? c1 : row.GetValueOrDefault("columnname"))?.ToString() ?? string.Empty;
+            p["param3"] = (row.TryGetValue("Description", out var d1) ? d1 : row.GetValueOrDefault("description"))?.ToString() ?? string.Empty;
+
+            var res = await Client.JsContAsync("columnsCommentUpdate", p);
+            if (res.ProcCode < 0)
+            {
+                await Client.JsContAsync("columnsCommentAdd", p);
+            }
+        }
+        await OnTableSelectAsync(_selectedTable);
+    }
+}

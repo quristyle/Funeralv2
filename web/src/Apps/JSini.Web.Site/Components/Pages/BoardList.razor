@@ -1,0 +1,71 @@
+@page "/site/board"
+
+@*
+    [사이트 게시판 관리]
+
+    이력: Vue `views/portal/site/board` → 여기.
+    사이트 문의 및 자유 게시판 글 이력을 관리한다.
+*@
+
+<PageTitle>게시판 관리 · 소개사이트·AI</PageTitle>
+
+<h1>게시판 관리 <span class="pm-page__scope">소개사이트·AI</span></h1>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="d-flex gap-2">
+        <DxTextBox @bind-Text="_keyword" NullText="게시글 제목 검색" Style="width: 240px" ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@LoadDataAsync" />
+    </div>
+</div>
+
+<DxGrid Data="@_boards" Loading="@_loading" PageSize="15">
+    <Columns>
+        <DxGridDataColumn FieldName="Id" Caption="번호" Width="70px" />
+        <DxGridDataColumn FieldName="Title" Caption="제목" MinWidth="250" />
+        <DxGridDataColumn FieldName="AuthorName" Caption="작성자" Width="120px" />
+        <DxGridDataColumn FieldName="CreatedAt" Caption="작성일" Width="140px" DisplayFormat="yyyy-MM-dd" />
+        <DxGridDataColumn Caption="관리" Width="120px">
+            <CellDisplayTemplate>
+                <div class="d-flex gap-1 justify-content-center">
+                    <PermissionView Action="MenuAction.Delete">
+                        <DxButton Text="삭제" RenderStyle="ButtonRenderStyle.Danger" SizeMode="SizeMode.Small" />
+                    </PermissionView>
+                </div>
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+    </Columns>
+</DxGrid>
+
+@code {
+    private List<BoardItemDto> _boards = [];
+    private string? _keyword;
+    private bool _loading;
+
+    protected override Task OnInitializedAsync() => LoadDataAsync();
+
+    private Task LoadDataAsync()
+    {
+        _loading = true;
+        try
+        {
+            _boards =
+            [
+                new BoardItemDto { Id = 101, Title = "시스템 도입 문의 드립니다.", AuthorName = "홍길동", CreatedAt = DateTime.Now.AddDays(-2) },
+                new BoardItemDto { Id = 102, Title = "서비스 견적 요청 건", AuthorName = "김철수", CreatedAt = DateTime.Now.AddDays(-1) }
+            ];
+        }
+        finally
+        {
+            _loading = false;
+        }
+        return Task.CompletedTask;
+    }
+
+    public sealed class BoardItemDto
+    {
+        public int Id { get; set; }
+        public string Title { get; set; } = string.Empty;
+        public string AuthorName { get; set; } = string.Empty;
+        public DateTime CreatedAt { get; set; }
+    }
+}

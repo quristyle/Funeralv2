@@ -1,0 +1,66 @@
+@page "/{Locale}/news"
+
+@inject SiteApi Api
+
+<PageTitle>@T.Nav.News — JSINI</PageTitle>
+<HeadContent>
+    <meta name="description" content="@($"JSINI — {T.Nav.News}")" />
+    <meta property="og:title" content="@($"{T.Nav.News} — JSINI")" />
+</HeadContent>
+
+<section class="page-head">
+    <div class="wrap">
+        <h1 class="h-display text-4xl">@T.Nav.News</h1>
+    </div>
+</section>
+
+<section class="wrap section">
+    @*
+        원본에는 "불러오는 중" 상태가 있었다. 여기에는 없다 — 서버가 목록을
+        받은 뒤에 HTML 을 내보내므로, 브라우저가 그 화면을 볼 일 자체가 없다.
+    *@
+    @if (_posts.Count == 0)
+    {
+        <p class="muted text-sm">@T.Common.Empty</p>
+    }
+    else
+    {
+        <div class="cards-news">
+            @foreach (var p in _posts)
+            {
+                <a class="post-card" href="@($"/{L}/news/{p.Slug}")">
+                    @if (!string.IsNullOrWhiteSpace(p.CoverUrl))
+                    {
+                        <div class="post-card__cover">
+                            <img src="@Api.PublicUrl(p.CoverUrl)" alt="@p.Title" loading="lazy" />
+                        </div>
+                    }
+                    @if (p.PublishedAt is not null)
+                    {
+                        <time class="post-card__date">@p.PublishedAt.Value.ToString("yyyy-MM-dd")</time>
+                    }
+                    <h2 class="post-card__title">@p.Title</h2>
+                    @if (!string.IsNullOrWhiteSpace(p.Summary))
+                    {
+                        <p class="post-card__summary clamp-3">@p.Summary</p>
+                    }
+                </a>
+            }
+        </div>
+    }
+</section>
+
+@code {
+    [Parameter] public string? Locale { get; set; }
+
+    private Messages T => SiteMessages.For(Locale);
+    private string L => SiteMessages.Normalize(Locale);
+
+    private List<PostListItem> _posts = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _posts = await Api.PostsAsync(L, 50);
+        Api.RecordVisit($"/{L}/news", L);
+    }
+}

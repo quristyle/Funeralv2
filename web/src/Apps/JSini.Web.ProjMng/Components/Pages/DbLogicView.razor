@@ -1,0 +1,38 @@
+@page "/projmng/sys/db-logic"
+@using System.Data
+
+@*
+    [DB 로직 메인 관리]
+
+    이력: Vue `views/projmng/sys/db-logic.vue` → 여기.
+    시스템 DB 로직 마스터 프로시저 및 응답 규약을 관리한다.
+*@
+
+@inject ProjMngClient Client
+
+<PageTitle>DB 로직 관리 · 프로젝트관리</PageTitle>
+
+<h1>DB 로직 관리 <span class="pm-page__scope">프로젝트관리</span></h1>
+
+<SearchBar>
+    <Actions>
+        <PermissionView Action="MenuAction.Search">
+            <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@SearchAsync" />
+        </PermissionView>
+    </Actions>
+</SearchBar>
+
+<DynamicGrid Data="@_grid.Data" Loading="@_grid.IsLoading" ExportName="DB로직" OnRefresh="@SearchAsync" OnSave="@(() => _grid.SaveAsync())" OnDelete="@(row => _grid.DeleteAsync(row))" />
+
+@code {
+    private ProcGrid _grid = default!;
+
+    protected override void OnInitialized()
+    {
+        _grid = new ProcGrid(Client, "sp_devsqlresp_base_exec");
+    }
+
+    protected override Task OnInitializedAsync() => SearchAsync();
+
+    private Task SearchAsync() => _grid.LoadAsync();
+}

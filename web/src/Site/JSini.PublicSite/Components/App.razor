@@ -1,0 +1,49 @@
+@*
+    문서 껍데기.
+
+    [blazor.web.js 가 없다]
+
+    이 앱은 정적 SSR 전용이다. 스크립트를 실으면 브라우저가 회로를 열려고 하고,
+    서버에는 그것을 받을 것이 없어 콘솔에 오류만 남는다. 히어로 배경 모션은
+    Blazor 와 무관한 평범한 JS 파일 하나로 돈다(shard-motion.js).
+
+    [<title> 과 메타를 여기서 정하지 않는다]
+
+    화면마다 달라야 하므로 각 화면이 <PageTitle> · <HeadContent> 로 넣는다.
+    원본(vite-ssg)은 빌드 뒤 HTML 을 문자열로 치환했는데, 서버 렌더에서는
+    그럴 필요가 없다.
+*@
+<!DOCTYPE html>
+<html lang="@SiteMessages.Normalize(Locale)">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <base href="/" />
+
+    <link rel="icon" href="favicon.ico" />
+    <link rel="stylesheet" href="site.css" />
+
+    <HeadOutlet />
+</head>
+
+<body>
+    <Routes />
+
+    @* 히어로 배경 모션. defer 라 첫 그림을 막지 않는다. *@
+    <script src="shard-motion.js" defer></script>
+</body>
+
+</html>
+
+@code {
+    /// <summary>
+    /// 주소의 언어 조각. 문서의 <c>lang</c> 특성에 넣는다 —
+    /// 스크린 리더와 검색 엔진이 이 값을 읽는다.
+    ///
+    /// 라우트 매개변수를 여기서 볼 수 없으므로 경로에서 직접 뗀다.
+    /// </summary>
+    [CascadingParameter] private HttpContext HttpContext { get; set; } = default!;
+
+    private string? Locale => HttpContext.Request.Path.Value?.Split('/', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
+}

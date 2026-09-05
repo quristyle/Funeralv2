@@ -1,0 +1,166 @@
+@page "/life/weather/manage/standards"
+@using JSini.Web.LifeEnv.Api
+
+@*
+    [기상 판정 기준 관리]
+
+    이력: Vue `views/life/weather/standards.vue` → 여기.
+    실황이 어떤 조건일 때 이벤트로 기록할지 정하는 기준(카테고리, 임계값, 체감온도 등)을 관리한다.
+*@
+
+@inject LifeEnvClient Client
+
+<PageTitle>기상 판정 기준 관리 · 생활과환경</PageTitle>
+
+<h1>기상 판정 기준 관리 <span class="pm-page__scope">생활과환경</span></h1>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="d-flex gap-2">
+        <DxTextBox @bind-Text="_searchText" NullText="검색 (명칭, 조건 등)" Style="width: 240px" ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@LoadDataAsync" />
+    </div>
+    <PermissionView Action="MenuAction.Create">
+        <DxButton Text="기준 추가" RenderStyle="ButtonRenderStyle.Success" Click="@OpenCreateDialog" />
+    </PermissionView>
+</div>
+
+<DxGrid Data="@FilteredItems" Loading="@_loading" PageSize="20" KeyFieldName="Id">
+    <Columns>
+        <DxGridDataColumn FieldName="Category" Caption="구분" Width="100px">
+            <CellDisplayTemplate>
+                <span class="badge bg-primary">@GetCategoryLabel(context.Value?.ToString())</span>
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+        <DxGridDataColumn FieldName="Name" Caption="명칭" MinWidth="130" />
+        <DxGridDataColumn FieldName="ConditionText" Caption="조건/설명" MinWidth="160" />
+        <DxGridDataColumn Caption="비교 기준 및 수치" MinWidth="220">
+            <CellDisplayTemplate>
+                @{
+                    var row = (WeatherStandard)context.DataItem;
+                }
+                <div class="d-flex align-items-center gap-1 flex-wrap fs-7">
+                    <span class="badge bg-secondary">@row.Operator</span>
+                    <strong class="text-danger">
+                        @if (row.Operator is "BT" or "NB")
+                        {
+                            @($"{row.ThresholdValue} ~ {row.ThresholdValue2}")
+                        }
+                        else if (row.Operator is "DGE" or "DLE")
+                        {
+                            @($"기준: {row.ThresholdValue}, 차이: {row.ThresholdValue2}")
+                        }
+                        else
+                        {
+                            @row.ThresholdValue
+                        }
+                        <small class="text-muted font-normal">@row.Unit</small>
+                    </strong>
+                    @if (row.Duration.HasValue)
+                    {
+                        <span class="text-primary font-bold">(@row.Duration 일 이상)</span>
+                    }
+                    @if (row.UseSensibleTemp)
+                    {
+                        <span class="badge bg-warning text-dark">체감온도</span>
+                    }
+                </div>
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+        <DxGridDataColumn FieldName="WorkStatus" Caption="작업상태" Width="130px">
+            <CellDisplayTemplate>
+                <span class="badge @GetStatusBadgeClass(context.Value?.ToString())">
+                    @GetStatusLabel(context.Value?.ToString())
+                </span>
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+        <DxGridDataColumn FieldName="SortOrder" Caption="순서" Width="80px" />
+        <DxGridDataColumn Caption="관리" Width="120px">
+            <CellDisplayTemplate>
+                @{
+                    var item = (WeatherStandard)context.DataItem;
+                }
+                <div class="d-flex gap-1 justify-content-center">
+                    <PermissionView Action="MenuAction.Update">
+                        <DxButton Text="수정" RenderStyle="ButtonRenderStyle.Secondary" SizeMode="SizeMode.Small" Click="@(() => OpenEditDialog(item))" />
+                    </PermissionView>
+                    <PermissionView Action="MenuAction.Delete">
+                        <DxButton Text="삭제" RenderStyle="ButtonRenderStyle.Danger" SizeMode="SizeMode.Small" Click="@(() => DeleteAsync(item))" />
+                    </PermissionView>
+                </div>
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+    </Columns>
+</DxGrid>
+
+@code {
+    private List<WeatherStandard> _items = [];
+    private string? _searchText;
+    private bool _loading;
+
+    private IEnumerable<WeatherStandard> FilteredItems
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(_searchText)) return _items;
+            var s = _searchText.Trim().ToLowerInvariant();
+            return _items.Where(i => (i.Name?.ToLowerInvariant().Contains(s) ?? false) ||
+                                     (i.ConditionText?.ToLowerInvariant().Contains(s) ?? false) ||
+                                     (i.Category?.ToLowerInvariant().Contains(s) ?? false));
+        }
+    }
+
+    protected override Task OnInitializedAsync() => LoadDataAsync();
+
+    private async Task LoadDataAsync()
+    {
+        _loading = true;
+        try
+        {
+            var list = await Client.GetStandardsAsync();
+            _items = list.OrderBy(x => x.SortOrder).ToList();
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void OpenCreateDialog() { }
+    private void OpenEditDialog(WeatherStandard item) { }
+
+    private async Task DeleteAsync(WeatherStandard item)
+    {
+        await Client.DeleteStandardAsync(item.Id);
+        await LoadDataAsync();
+    }
+
+    private static string GetCategoryLabel(string? cat) => cat switch
+    {
+        "WIND" => "풍속",
+        "RAIN" => "강우",
+        "SNOW" => "강설",
+        "HEAT" => "폭염",
+        "COLD" => "한파",
+        "T1H" => "기온",
+        "REH" => "습도",
+        _ => cat ?? string.Empty
+    };
+
+    private static string GetStatusLabel(string? status) => status switch
+    {
+        "ALLOW" => "작업 가능",
+        "CAUTION" => "주의",
+        "RESTRICTED" => "작업 제한",
+        "SUSPENDED" => "작업 중지",
+        _ => status ?? string.Empty
+    };
+
+    private static string GetStatusBadgeClass(string? status) => status switch
+    {
+        "ALLOW" => "bg-success",
+        "CAUTION" => "bg-warning text-dark",
+        "RESTRICTED" => "bg-warning text-dark",
+        "SUSPENDED" => "bg-danger",
+        _ => "bg-secondary"
+    };
+}

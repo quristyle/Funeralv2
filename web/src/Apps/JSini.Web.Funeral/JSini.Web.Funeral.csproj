@@ -1,28 +1,18 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+<Project Sdk="Microsoft.NET.Sdk.Razor">
 
   <!--
-    장례식장 업무 MFE. **독립 Blazor Web App 이다** — 자기 프로세스, 자기 포트(:5561),
-    자기 컨테이너로 배포된다. 셸은 이 앱 앞에서 경로로 프록시만 한다.
-
-    Vue 원본: fronts/apps/jsini-portal/src/views/... 를 옮겨 온다.
-
-    [이 앱이 참조해도 되는 것은 이 넷뿐이다]
-
-      JSini.Web.Abstractions  셸과의 계약 (IPortalModule · 권한 · 메뉴)
-      JSini.Web.Components    Blazor Common — 레이아웃 · DevExpress 래퍼 · 공통 등록
-      JSini.Web.Http          게이트웨이 클라이언트
-      JSini.Web.Models        Shared Models — 여러 앱이 함께 쓰는 DTO
-
-    셸과 다른 업무 앱은 참조하지 않는다. 애초에 별도 프로세스라 참조할 이유도
-    없지만, 참조가 생기면 "독립 배포" 가 거짓이 된다 — 배포는 갈라졌는데 빌드가
-    묶여 있으면 한쪽을 고칠 때 다른 쪽도 다시 내보내야 한다.
-    JSini.Web.Architecture.Tests 가 막는다.
+    장례식장 업무 Piral MFE 모듈.
+    단일 셸에서 동적으로 로드되는 Razor Class Library (Pilet) 모듈이다.
   -->
 
   <PropertyGroup>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <UserSecretsId>jsini-web-funeral</UserSecretsId>
   </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Piral.Blazor.Shared" />
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\Shared\JSini.Web.Abstractions\JSini.Web.Abstractions.csproj" />

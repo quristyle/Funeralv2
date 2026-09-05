@@ -1,0 +1,62 @@
+@*
+    헬프데스크 계정 연결 상태 안내 — Vue 의 shared/account-notice.vue.
+
+    포털로 계정을 단일화했지만, 기존 헬프데스크 데이터(요청 작성자·담당자·댓글)는
+    헬프데스크 내부 계정 ID 를 참조한다. 그래서 두 가지가 서로 다른 이야기다.
+
+    - **무엇을 볼 수 있는가** — 포털 역할이 정한다. 연결이 없어도 관리자는 조회한다.
+    - **무엇이 '내 것'인가** — 연결이 있어야 정해진다. 없으면 "내가 쓴 댓글"을 못 찾는다.
+
+    이 부품을 놓기만 하면 신원이 채워진다 — 스스로 LoadIdentityAsync 를 부르고,
+    컨텍스트가 한 번만 조회하므로 중복 호출은 비용이 없다.
+*@
+
+@inject HelpDeskContext HelpDesk
+
+@if (_show)
+{
+    <div class="@($"hd-notice hd-notice--{(_admin ? "info" : "warn")}")"
+         style="@NoticeStyle">
+        <div style="font-weight:600; margin-bottom:2px;">@_message</div>
+        <div style="font-size:0.85rem; opacity:0.85;">@_description</div>
+    </div>
+}
+
+@code {
+    [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
+
+    private bool _show;
+    private bool _admin;
+    private string _message = string.Empty;
+    private string _description = string.Empty;
+
+    private string NoticeStyle => _admin
+        ? "margin-bottom:12px; padding:10px 14px; border-radius:6px; border:1px solid #91caff; background:#e6f4ff; color:#003a8c;"
+        : "margin-bottom:12px; padding:10px 14px; border-radius:6px; border:1px solid #ffe58f; background:#fffbe6; color:#613400;";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await HelpDesk.LoadIdentityAsync();
+
+        _show = HelpDesk.IdentityChecked && !HelpDesk.IsLinked;
+        if (!_show)
+        {
+            return;
+        }
+
+        var who = "현재";
+        if (AuthState is not null)
+        {
+            var user = (await AuthState).User;
+            who = user.Identity?.Name ?? "현재";
+        }
+
+        _admin = HelpDesk.IsUnlinkedAdmin;
+        _message = _admin
+            ? $"{who} 계정은 포털 관리자 역할로 헬프데스크를 조회·관리합니다."
+            : $"{who} 계정에 연결된 헬프데스크 사용자가 없습니다.";
+        _description = _admin
+            ? "조회와 관리는 그대로 하실 수 있습니다. 다만 이 계정은 헬프데스크 담당자 레코드에 이어져 있지 않아, 나에게 배정된 요청·내가 쓴 댓글·알림 구독처럼 \"내 것\"을 가리키는 기능은 비어 있습니다. 필요하시면 헬프데스크 설정 › 계정 연결에서 담당자 레코드와 이어 주세요."
+            : "헬프데스크 설정 › 계정 연결 화면에서 이 포털 계정을 헬프데스크 담당자 또는 고객 계정과 연결해야 요청 데이터를 볼 수 있습니다.";
+    }
+}

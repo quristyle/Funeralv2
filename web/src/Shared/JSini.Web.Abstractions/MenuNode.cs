@@ -16,6 +16,24 @@ public sealed record MenuNode
     /// </summary>
     public required string Path { get; init; }
 
+    /// <summary>
+    /// 사이드바가 실제로 거는 링크 주소.
+    ///
+    /// **<see cref="Path"/> 와 갈라 둔 이유가 있다.** 둘은 이행이 끝날 때까지
+    /// 다를 수 있다 — DB 의 <c>path</c> 는 Vue 시절 경로(<c>/room_status</c>)
+    /// 인데 Blazor 라우트는 업무 접두사가 붙은 <c>/funeral/room-status</c> 다.
+    ///
+    /// 그 차이를 <see cref="Path"/> 쪽에서 흡수하면 안 된다. 권한표와
+    /// 즐겨찾기가 그 값을 열쇠로 쓰기 때문에, 바꾸는 순간 <b>권한이 없는데
+    /// 메뉴가 보이는</b> 쪽으로 틀린다. 그래서 링크만 옮긴다.
+    ///
+    /// 비워 두면 <see cref="Path"/> 를 쓴다.
+    /// </summary>
+    public string? Href { get; init; }
+
+    /// <summary>사이드바가 걸 주소. <see cref="Href"/> 가 있으면 그것, 없으면 <see cref="Path"/>.</summary>
+    public string LinkTarget => string.IsNullOrEmpty(Href) ? Path : Href;
+
     /// <summary>사이드바에 보이는 이름.</summary>
     public required string Title { get; init; }
 

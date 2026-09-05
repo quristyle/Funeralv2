@@ -1,0 +1,56 @@
+@page "/life/weather/warning"
+@using JSini.Web.LifeEnv.Api
+@using WeatherWarningItem = JSini.Web.LifeEnv.Api.WeatherWarning
+
+@*
+    [기상 특보 현황]
+
+    이력: Vue `views/life/weather/warning.vue` → 여기.
+    기상청발표 특보 및 통보문 종합 현황을 조회한다.
+*@
+
+@inject LifeEnvClient Client
+
+<PageTitle>기상 특보 현황 · 생활과환경</PageTitle>
+
+<h1>기상 특보 현황 <span class="pm-page__scope">생활과환경</span></h1>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="d-flex gap-2">
+        <DxButton Text="새로고침" RenderStyle="ButtonRenderStyle.Primary" Click="@LoadDataAsync" />
+    </div>
+</div>
+
+<DxGrid Data="@_warnings" Loading="@_loading" PageSize="15" KeyFieldName="Id">
+    <Columns>
+        <DxGridDataColumn FieldName="TmFc" Caption="발표 시각" Width="150px" />
+        <DxGridDataColumn FieldName="Title" Caption="특보 제목" MinWidth="200" />
+        <DxGridDataColumn FieldName="Command" Caption="명령" Width="100px">
+            <CellDisplayTemplate>
+                <span class="badge bg-warning text-dark">@context.Value</span>
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+        <DxGridDataColumn FieldName="Content" Caption="발표 내용" MinWidth="300" />
+    </Columns>
+</DxGrid>
+
+@code {
+    private List<WeatherWarningItem> _warnings = [];
+    private bool _loading;
+
+    protected override Task OnInitializedAsync() => LoadDataAsync();
+
+    private async Task LoadDataAsync()
+    {
+        _loading = true;
+        try
+        {
+            var res = await Client.GetWarningsAsync(all: true);
+            _warnings = res.ToList();
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+}

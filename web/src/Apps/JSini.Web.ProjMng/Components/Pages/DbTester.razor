@@ -1,0 +1,80 @@
+@page "/projmng/db/tester"
+@using System.Data
+
+@*
+    [DB 테스터]
+
+    이력: Vue `views/projmng/develop/db-tester.vue` → 여기.
+    임의의 SQL 쿼리를 대상 DB에 직접 수행하여 결과를 확인하는 개발 도구.
+*@
+
+@inject ProjMngClient Client
+
+<PageTitle>DB 테스터 · 프로젝트관리</PageTitle>
+
+<h1>DB 테스터 <span class="pm-page__scope">프로젝트관리</span></h1>
+
+<SearchBar>
+    <ChildContent>
+        <CodeSelect CodeId="projlist" @bind-Value="_projectCode" OnChanged="@(_ => OnProjectChanged())" />
+        <CodeSelect CodeId="projdb" CodeKey="@_projectCode" EtcFix="true" @bind-Value="_dbCode" OnChanged="@(item => _dbItem = item)" />
+    </ChildContent>
+    <Actions>
+        <PermissionView Action="MenuAction.Search">
+            <DxButton Text="쿼리 실행" RenderStyle="ButtonRenderStyle.Primary" Click="@ExecuteQueryAsync" />
+        </PermissionView>
+    </Actions>
+</SearchBar>
+
+<Notice>
+    여기서 쿼리를 실행하면 대상 DB에 직접 수행됩니다. DML(UPDATE/DELETE) 실행 시 주의하세요.
+</Notice>
+
+<div class="mb-3">
+    <CodeEditor @bind-Value="_query" Height="180px" Language="sql" Placeholder="SELECT * FROM table_name WHERE ..." />
+</div>
+
+<DynamicGrid Data="@_resultGrid" Loading="@_loading" ExportName="DB테스터결과" HideAdd="true" />
+
+@code {
+    private string? _projectCode;
+    private string? _dbCode;
+    private CommonCodeItem? _dbItem;
+    private string _query = "SELECT 1 AS TEST;";
+    private ProjMngTable _resultGrid = ProjMngTable.Empty;
+    private bool _loading;
+
+    private void OnProjectChanged()
+    {
+        _dbCode = null;
+        _dbItem = null;
+    }
+
+    private async Task ExecuteQueryAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_query)) return;
+        _loading = true;
+        try
+        {
+            var p = new Dictionary<string, object?>
+            {
+                ["param1"] = _query
+            };
+            if (_dbItem != null)
+            {
+                p["db_ip"] = _dbItem.Others.GetValueOrDefault("val");
+                p["db_port"] = _dbItem.Others.GetValueOrDefault("val2");
+                p["db_name"] = _dbItem.Others.GetValueOrDefault("val3");
+                p["db_user"] = _dbItem.Others.GetValueOrDefault("prop");
+                p["db_pw"] = _dbItem.Others.GetValueOrDefault("etc");
+                p["db_type"] = _dbItem.Others.GetValueOrDefault("srt");
+            }
+            var res = await Client.JsContAsync("dbtester", p);
+            _resultGrid = ProjMngTable.From(res);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+}

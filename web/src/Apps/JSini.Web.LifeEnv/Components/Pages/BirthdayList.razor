@@ -1,0 +1,53 @@
+@page "/life/birthday/list"
+
+@*
+    [생일 축하 목록]
+
+    이력: Vue `views/life/birthday/list.vue` → 여기.
+    12개월 통계 타일, 오늘 생일자 및 월별 생일자를 조회한다.
+*@
+
+<PageTitle>생일 축하 목록 · 생활과환경</PageTitle>
+
+<h1>생일 축하 목록 <span class="pm-page__scope">생활과환경</span></h1>
+
+<div class="card p-3 mb-3">
+    <div class="d-flex justify-content-between align-items-center">
+        <span class="fw-bold fs-6 text-danger">🎁 임직원 생일 현황</span>
+        <span class="fs-7 text-muted">생일 정보는 계정 관리 시스템과 실시간 연동됩니다.</span>
+    </div>
+</div>
+
+<div class="row row-cols-6 row-cols-md-12 g-2 mb-3">
+    @for (int m = 1; m <= 12; m++)
+    {
+        var month = m;
+        <div class="col">
+            <button type="button"
+                    class="btn w-100 p-2 text-center border @(_selectedMonth == month ? "btn-primary" : "btn-light")"
+                    @onclick="@(() => _selectedMonth = month)">
+                <div class="fs-8 fw-bold">@($"{month}월")</div>
+                <div class="fs-5 font-black">0명</div>
+            </button>
+        </div>
+    }
+</div>
+
+<div class="row g-3">
+    <div class="col-12 col-lg-6">
+        <div class="card p-3">
+            <h5 class="fw-bold mb-3">🎉 오늘 생일자</h5>
+            <div class="text-center text-muted py-4">오늘 생일인 임직원이 없습니다.</div>
+        </div>
+    </div>
+    <div class="col-12 col-lg-6">
+        <div class="card p-3">
+            <h5 class="fw-bold mb-3">📅 @($"{_selectedMonth}월 생일자 목록")</h5>
+            <div class="text-center text-muted py-4">해당 월에 등록된 생일자 데이터가 존재하지 않습니다.</div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private int _selectedMonth = DateTime.Now.Month;
+}

@@ -1,0 +1,233 @@
+@page "/{Locale}/contact"
+
+@*
+    문의.
+
+    [정적 SSR 폼이다]
+
+    회로가 없으므로 `@@bind` 로 서버 상태를 물고 있지 않는다. 폼을 통째로 POST
+    하고, 서버가 받아 처리한 뒤 그 결과를 그린다 — 옛날 방식 그대로다.
+    Blazor 의 `EditForm Method="post"` + `[SupplyParameterFromForm]` 이
+    위조방지 토큰까지 함께 다뤄 준다.
+
+    [본문이 서식 편집기가 아니라 여러 줄 입력이다]
+
+    원본은 굵게·색·목록이 되는 경량 편집기(contenteditable)를 써서 본문을 HTML 로
+    보냈다. 그건 자바스크립트가 있어야 하고, 받은 HTML 을 서버가 정제해야 한다.
+    문의 한 통에 그 표면을 여는 값이 없다고 보고 평문으로 받는다 —
+    **서버가 어차피 태그를 걷어내고 저장한다.** 서식이 필요해지면 그때
+    편집기와 정제를 함께 넣는다.
+*@
+
+@inject SiteApi Api
+
+<PageTitle>@T.Contact.Title — JSINI</PageTitle>
+<HeadContent>
+    <meta name="description" content="@T.Contact.Lead" />
+    <meta property="og:title" content="@($"{T.Contact.Title} — JSINI")" />
+</HeadContent>
+
+<section class="page-head">
+    <div class="wrap">
+        <h1 class="h-display text-4xl">@T.Contact.Title</h1>
+        <p class="page-head__lead">@T.Contact.Lead</p>
+    </div>
+</section>
+
+<section class="wrap wrap--form section">
+    @if (_done)
+    {
+        @* 접수 완료. 폼을 치우고 결과만 남긴다 — 두 번 보내는 것을 막는다. *@
+        <div class="done-box">
+            <div class="shard-rule shard-rule--short"></div>
+            <p class="done-box__text">@T.Contact.Form.Done</p>
+            <a class="link-quiet done-box__mail" href="mailto:@T.Contact.Email">@T.Contact.Email</a>
+        </div>
+    }
+    else
+    {
+        <EditForm Model="@Input" FormName="contact" OnValidSubmit="@SubmitAsync" method="post" class="form">
+            <AntiforgeryToken />
+
+            <div class="form__grid">
+                <label class="field">
+                    <span class="field__label">@T.Contact.Form.Name</span>
+                    <InputText @bind-Value="Input!.Name" autocomplete="name" required />
+                </label>
+
+                <label class="field">
+                    <span class="field__label">
+                        @T.Contact.Form.Company
+                        <span class="field__optional">(@T.Contact.Form.Optional)</span>
+                    </span>
+                    <InputText @bind-Value="Input!.Company" autocomplete="organization" />
+                </label>
+
+                <label class="field">
+                    <span class="field__label">@T.Contact.Form.EmailField</span>
+                    <InputText @bind-Value="Input!.Email" type="email" autocomplete="email" required />
+                </label>
+
+                <label class="field">
+                    <span class="field__label">
+                        @T.Contact.Form.Phone
+                        <span class="field__optional">(@T.Contact.Form.Optional)</span>
+                    </span>
+                    <InputText @bind-Value="Input!.Phone" type="tel" autocomplete="tel" />
+                </label>
+            </div>
+
+            <label class="field">
+                <span class="field__label">@T.Contact.Form.Subject</span>
+                <InputText @bind-Value="Input!.Subject" />
+            </label>
+
+            <label class="field">
+                <span class="field__label">@T.Contact.Form.Message</span>
+                <InputTextArea @bind-Value="Input!.Message" rows="8" required />
+            </label>
+
+            @*
+                허니팟.
+
+                `display: none` 을 쓰지 않는다 — 요즘 봇은 그것을 보고 건너뛴다.
+                화면 밖으로 밀어 두고 `aria-hidden` · `tabindex="-1"` 로 사람과
+                보조기기의 동선에서 뺀다. 자동완성도 끈다(브라우저가 채우면 사람이 걸린다).
+            *@
+            <div class="honeypot" aria-hidden="true">
+                <label>
+                    Website
+                    <InputText @bind-Value="Input!.Website" tabindex="-1" autocomplete="off" />
+                </label>
+            </div>
+
+            @* 개인정보 동의. 문구는 DB 에서 오고, 체크하지 않으면 보낼 수 없다. *@
+            <div class="consent">
+                <p class="field__label">@T.Contact.Form.ConsentTitle</p>
+                <RichText Text="@ConsentBody" Gap="mt-3" Class="consent__body" />
+
+                <label class="consent__check">
+                    <InputCheckbox @bind-Value="Input!.Consent" required />
+                    <span>@T.Contact.Form.Consent</span>
+                </label>
+            </div>
+
+            @if (_error is not null)
+            {
+                <p class="form__error">@_error</p>
+            }
+
+            <div>
+                <button type="submit" class="btn-outline-dark btn-outline-dark--lg">
+                    @T.Contact.Form.Submit
+                </button>
+            </div>
+        </EditForm>
+    }
+</section>
+
+@code {
+    [Parameter] public string? Locale { get; set; }
+
+    private Messages T => SiteMessages.For(Locale);
+    private string L => SiteMessages.Normalize(Locale);
+
+    /// <summary>
+    /// 폼이 실어 보내는 값. POST 로 돌아올 때 Blazor 가 여기에 채워 준다.
+    /// </summary>
+    /// 초기값을 주지 않는다(BL0008) — POST 로 돌아올 때 Blazor 가 통째로 갈아
+    /// 끼우므로, 초기값이 있으면 그것이 null 로 덮이는 경우가 생긴다.
+    /// 대신 첫 GET 에서 OnInitialized 가 채운다.
+    [SupplyParameterFromForm]
+    private ContactInput? Input { get; set; }
+
+    private Section? _consent;
+    private bool _done;
+    private string? _error;
+
+    /// <summary>
+    /// 동의 문구. DB(<c>site.sections</c> 의 <c>contact.consent</c>)가 정본이다 —
+    /// 법률 문구라 코드 배포 없이 고칠 수 있어야 한다.
+    /// 블록이 없으면 코드에 둔 문장을 쓴다. <b>동의 문구가 아예 안 보이는 것이 더 나쁘다.</b>
+    /// </summary>
+    private string ConsentBody =>
+        string.IsNullOrWhiteSpace(_consent?.Body) ? T.Contact.Form.ConsentFallback : _consent.Body!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Input ??= new ContactInput();
+
+        var rows = await Api.SectionsAsync(L, "contact.");
+        _consent = rows.FirstOrDefault(r => r.SectionKey == "contact.consent");
+
+        // POST 로 다시 들어온 요청에서는 세지 않는다. 한 번 본 화면이다.
+        if (!HttpMethods.IsPost(HttpContext?.Request.Method ?? "GET"))
+        {
+            Api.RecordVisit($"/{L}/contact", L);
+        }
+    }
+
+    [CascadingParameter] private HttpContext? HttpContext { get; set; }
+
+    private async Task SubmitAsync()
+    {
+        _error = null;
+
+        var name = Input!.Name?.Trim() ?? string.Empty;
+        var email = Input!.Email?.Trim() ?? string.Empty;
+        var message = Input!.Message?.Trim() ?? string.Empty;
+
+        // 브라우저의 `required` 만 믿지 않는다. 개발자 도구로 지우면 그만이고,
+        // 스크립트가 폼을 직접 POST 할 수도 있다.
+        if (name.Length == 0 || email.Length == 0 || message.Length == 0 || !Input!.Consent)
+        {
+            _error = T.Contact.Form.Required;
+            return;
+        }
+
+        var result = await Api.SubmitInquiryAsync(new InquiryRequest
+        {
+            Name = name,
+            Company = Blank(Input!.Company),
+            Email = email,
+            Phone = Blank(Input!.Phone),
+            // 제목을 비워 두면 본문 앞머리를 쓴다. 담당자 목록에서 빈 줄이 늘어서는 것을 막는다.
+            Subject = string.IsNullOrWhiteSpace(Input!.Subject)
+                ? message[..Math.Min(40, message.Length)]
+                : Input!.Subject.Trim(),
+            Message = message,
+            Locale = L,
+            Consent = Input!.Consent,
+            Website = Input!.Website,
+        });
+
+        if (result.Ok)
+        {
+            _done = true;
+            return;
+        }
+
+        _error = result.RateLimited ? T.Contact.Form.RateLimited : T.Contact.Form.Failed;
+    }
+
+    private static string? Blank(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    /// <summary>폼이 실어 보내는 칸들.</summary>
+    public sealed class ContactInput
+    {
+        public string? Name { get; set; }
+        public string? Company { get; set; }
+        public string? Email { get; set; }
+        public string? Phone { get; set; }
+        public string? Subject { get; set; }
+        public string? Message { get; set; }
+        public bool Consent { get; set; }
+
+        /// <summary>
+        /// 허니팟. 사람에게는 보이지 않는 칸이라 <b>비어 있어야 정상</b>이다.
+        /// 채워져 있으면 서버가 조용히 버리고 성공 응답을 준다 — 봇에게 단서를 주지 않는다.
+        /// </summary>
+        public string? Website { get; set; }
+    }
+}

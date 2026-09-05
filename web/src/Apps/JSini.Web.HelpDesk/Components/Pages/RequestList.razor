@@ -1,0 +1,79 @@
+@page "/helpdesk/request/list"
+@using JSini.Web.HelpDesk.Api
+
+@*
+    [서비스 요청 목록]
+
+    이력: Vue `views/helpdesk/request/list.vue` → 여기.
+    접수된 헬프데스크 서비스 요청 현황 및 처리 내역을 관리한다.
+*@
+
+@inject HelpDeskApi Api
+
+<PageTitle>서비스 요청 목록 · 헬프데스크</PageTitle>
+
+<h1>서비스 요청 목록 <span class="pm-page__scope">헬프데스크</span></h1>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="d-flex gap-2">
+        <DxTextBox @bind-Text="_keyword" NullText="요청번호 또는 제목 검색" Style="width: 240px" ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@LoadDataAsync" />
+    </div>
+</div>
+
+<DxGrid Data="@_requests" Loading="@_loading" PageSize="15">
+    <Columns>
+        <DxGridDataColumn FieldName="ReqNo" Caption="요청 번호" Width="130px" />
+        <DxGridDataColumn FieldName="Title" Caption="제목" MinWidth="250" />
+        <DxGridDataColumn FieldName="Requester" Caption="요청자" Width="120px" />
+        <DxGridDataColumn FieldName="Status" Caption="상태" Width="100px">
+            <CellDisplayTemplate>
+                <span class="badge bg-info">@context.Value</span>
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+        <DxGridDataColumn FieldName="CreatedAt" Caption="접수일" Width="140px" DisplayFormat="yyyy-MM-dd" />
+        <DxGridDataColumn Caption="관리" Width="120px">
+            <CellDisplayTemplate>
+                <div class="d-flex gap-1 justify-content-center">
+                    <PermissionView Action="MenuAction.Update">
+                        <DxButton Text="상세" RenderStyle="ButtonRenderStyle.Secondary" SizeMode="SizeMode.Small" />
+                    </PermissionView>
+                </div>
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+    </Columns>
+</DxGrid>
+
+@code {
+    private List<HelpDeskRequestItemDto> _requests = [];
+    private string? _keyword;
+    private bool _loading;
+
+    protected override Task OnInitializedAsync() => LoadDataAsync();
+
+    private Task LoadDataAsync()
+    {
+        _loading = true;
+        try
+        {
+            _requests =
+            [
+                new HelpDeskRequestItemDto { ReqNo = "REQ-2026-001", Title = "장례식장 시스템 접속 오류 건", Requester = "홍길동", Status = "접수", CreatedAt = DateTime.Now }
+            ];
+        }
+        finally
+        {
+            _loading = false;
+        }
+        return Task.CompletedTask;
+    }
+
+    public sealed class HelpDeskRequestItemDto
+    {
+        public string ReqNo { get; set; } = string.Empty;
+        public string Title { get; set; } = string.Empty;
+        public string Requester { get; set; } = string.Empty;
+        public string Status { get; set; } = string.Empty;
+        public DateTime CreatedAt { get; set; }
+    }
+}

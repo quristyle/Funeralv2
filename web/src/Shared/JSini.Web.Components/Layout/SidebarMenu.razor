@@ -21,7 +21,7 @@
                         }
                         else
                         {
-                            <NavLink class="jsini-menu__link" href="@node.Path">@node.Title</NavLink>
+                            <NavLink class="jsini-menu__link" href="@node.LinkTarget">@node.Title</NavLink>
                         }
                     </summary>
                     <SidebarMenu Nodes="@node.Children" />
@@ -32,13 +32,13 @@
                 @* 외부 링크는 새 창으로. rel 을 붙여 두는 이유는 열린 창이
                    window.opener 로 이 포털을 건드리지 못하게 하려는 것이다. *@
                 <a class="jsini-menu__link"
-                   href="@(node.Link ?? node.Path)"
+                   href="@(node.Link ?? node.LinkTarget)"
                    target="_blank"
                    rel="noopener noreferrer">@node.Title</a>
             }
             else
             {
-                <NavLink class="jsini-menu__link" href="@node.Path" Match="NavLinkMatch.Prefix">
+                <NavLink class="jsini-menu__link" href="@node.LinkTarget" Match="NavLinkMatch.Prefix">
                     @node.Title
                 </NavLink>
             }
@@ -60,8 +60,8 @@
 
     private static bool Contains(MenuNode node, string path)
     {
-        if (!string.IsNullOrEmpty(node.Path)
-            && path.StartsWith(node.Path, StringComparison.OrdinalIgnoreCase))
+        if (!string.IsNullOrEmpty(node.LinkTarget)
+            && path.StartsWith(node.LinkTarget, StringComparison.OrdinalIgnoreCase))
         {
             return true;
         }

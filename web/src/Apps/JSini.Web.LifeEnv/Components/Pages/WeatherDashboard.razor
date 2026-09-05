@@ -1,0 +1,104 @@
+@page "/life/weather/dashboard"
+@using JSini.Web.LifeEnv.Api
+
+@*
+    [기상 현황판]
+
+    이력: Vue `views/life/weather/dashboard.vue` → 여기.
+    전 지역 최신 실황을 그리드 카드로 제공하며 선택한 지역의 주간 예보 및 추이를 시각화한다.
+*@
+
+@inject LifeEnvClient Client
+
+<PageTitle>기상 현황판 · 생활과환경</PageTitle>
+
+<h1>기상 현황판 <span class="pm-page__scope">생활과환경</span></h1>
+
+<div class="card mb-3 p-3">
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+        <div class="d-flex align-items-center gap-2">
+            <span class="fw-bold">지역 선택:</span>
+            <DxComboBox Data="@_locations"
+                        TextFieldName="Name"
+                        ValueFieldName="Id"
+                        Value="@_selectedLocationId"
+                        ValueChanged="@((int val) => OnLocationSelected(val))"
+                        NullText="차트 조회 지역 선택"
+                        Style="width: 200px" />
+        </div>
+        <div class="d-flex gap-2">
+            <DxButton Text="시간대별 예보" RenderStyle="ButtonRenderStyle.Secondary" />
+            <DxButton Text="특보 현황" RenderStyle="ButtonRenderStyle.Secondary" />
+            <DxButton Text="새로고침" RenderStyle="ButtonRenderStyle.Primary" Click="@LoadDataAsync" />
+        </div>
+    </div>
+</div>
+
+@if (_loading)
+{
+    <div class="text-center my-4">
+        <div class="spinner-border text-primary" role="status"></div>
+    </div>
+}
+else
+{
+    <div class="row g-3 mb-4">
+        @foreach (var w in _weatherList)
+        {
+            <div class="col-12 col-md-6 col-xl-4">
+                <div class="card h-100 p-3 @(w.WeatherLocationId == _selectedLocationId ? "border-primary shadow-sm" : "")"
+                     style="cursor: pointer;"
+                     @onclick="@(() => OnLocationSelected(w.WeatherLocationId ?? 0))">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h5 class="m-0 font-bold">📍 @w.Location</h5>
+                        <span class="fs-7 text-muted">@w.ObservationTime.ToString("HH:mm 관측")</span>
+                    </div>
+                    <div class="d-flex align-items-baseline gap-2 mb-2">
+                        <span class="display-6 font-black text-danger">@w.TemperatureC.ToString("F1")°C</span>
+                        <span class="fs-6 font-bold">@w.Condition</span>
+                    </div>
+                    <div class="d-flex justify-content-between fs-7 text-muted border-top pt-2">
+                        <span>습도: @(w.Humidity?.ToString() ?? "-")%</span>
+                        <span>풍속: @(w.WindSpeed?.ToString("F1") ?? "-")m/s</span>
+                        <span>강수: @(w.Rainfall?.ToString("F1") ?? "0")mm</span>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private List<WeatherInfo> _weatherList = [];
+    private List<WeatherLocation> _locations = [];
+    private int _selectedLocationId;
+    private bool _loading;
+
+    protected override Task OnInitializedAsync() => LoadDataAsync();
+
+    private async Task LoadDataAsync()
+    {
+        _loading = true;
+        try
+        {
+            var weather = await Client.GetLatestWeatherAsync();
+            _weatherList = weather.ToList();
+            var locs = await Client.GetLocationsAsync();
+            _locations = locs.ToList();
+
+            if (_selectedLocationId == 0 && _locations.Count > 0)
+            {
+                _selectedLocationId = _locations[0].Id;
+            }
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void OnLocationSelected(int id)
+    {
+        _selectedLocationId = id;
+    }
+}

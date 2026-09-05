@@ -1,0 +1,76 @@
+@page "/admin/auth/role"
+@using JSini.Web.Admin.Api
+
+@*
+    [권한 그룹(역할) 관리]
+
+    이력: Vue `views/portal/system/role` → 여기.
+    역할 그룹 및 메뉴별 접근 권한 매핑을 관리한다.
+*@
+
+@inject AdminClient Client
+
+<PageTitle>권한 그룹 관리 · 포털관리</PageTitle>
+
+<h1>권한 그룹 관리 <span class="pm-page__scope">포털관리</span></h1>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="d-flex gap-2">
+        <DxTextBox @bind-Text="_keyword" NullText="역할명 검색" Style="width: 240px" ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@LoadDataAsync" />
+    </div>
+    <PermissionView Action="MenuAction.Create">
+        <DxButton Text="역할 추가" RenderStyle="ButtonRenderStyle.Success" />
+    </PermissionView>
+</div>
+
+<DxGrid Data="@_roles" Loading="@_loading" PageSize="15">
+    <Columns>
+        <DxGridDataColumn FieldName="RoleCode" Caption="역할 코드" Width="140px" />
+        <DxGridDataColumn FieldName="RoleName" Caption="역할명" MinWidth="180" />
+        <DxGridDataColumn FieldName="Description" Caption="설명" MinWidth="250" />
+        <DxGridDataColumn Caption="관리" Width="120px">
+            <CellDisplayTemplate>
+                <div class="d-flex gap-1 justify-content-center">
+                    <PermissionView Action="MenuAction.Update">
+                        <DxButton Text="권한 설정" RenderStyle="ButtonRenderStyle.Secondary" SizeMode="SizeMode.Small" />
+                    </PermissionView>
+                </div>
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+    </Columns>
+</DxGrid>
+
+@code {
+    private List<RoleItemDto> _roles = [];
+    private string? _keyword;
+    private bool _loading;
+
+    protected override Task OnInitializedAsync() => LoadDataAsync();
+
+    private Task LoadDataAsync()
+    {
+        _loading = true;
+        try
+        {
+            _roles =
+            [
+                new RoleItemDto { RoleCode = "SUPER_ADMIN", RoleName = "최고 관리자", Description = "전체 모듈 제어 및 시스템 설정 권한" },
+                new RoleItemDto { RoleCode = "FUNERAL_MANAGER", RoleName = "장례 관리자", Description = "장례 ERP 전용 관리 권한" },
+                new RoleItemDto { RoleCode = "USER", RoleName = "일반 사용자", Description = "기본 조회 권한" }
+            ];
+        }
+        finally
+        {
+            _loading = false;
+        }
+        return Task.CompletedTask;
+    }
+
+    public sealed class RoleItemDto
+    {
+        public string RoleCode { get; set; } = string.Empty;
+        public string RoleName { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+    }
+}

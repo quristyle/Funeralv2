@@ -1,0 +1,147 @@
+@*
+    날짜 선택 + 기간 탭 — 스케줄러 화면(Vue `projmng/proj/scheduler.vue`)용.
+
+    Vue 원본의 도구줄은 ‹ YYYY-MM › 월 이동뿐이었다. 여기서는 그 이동에
+    기간 프리셋(오늘/주/월)과 기준일 직접 선택(DxDateEdit)을 더했다 —
+    달력 화면은 월 프리셋으로 원본과 같이 쓰고, 할일 계열 화면은 하루짜리
+    조회에 같은 부품을 쓴다.
+
+    [구간은 계산값이다]
+
+    화면과는 (Preset, Anchor) 두 값으로 바인딩하고, 실제 조회에 쓰는
+    (Start, End) 는 그 둘에서 계산해 RangeChanged 로 올린다. 구간을 직접
+    바인딩하게 하면 프리셋과 구간이 어긋난 상태가 표현 가능해진다.
+
+    [처음에는 올리지 않는다]
+
+    최초 조회 신호는 화면의 몫이다 — 이 화면들은 CodeSelect 가 첫 항목을
+    고르는 신호로 최초 조회를 걸므로(Wbs.razor 참고), 여기서도 올리면
+    같은 조회가 두 번 나간다.
+*@
+
+<div class="pm-dates">
+    <div class="pm-dates__tabs" role="tablist">
+        @foreach (var preset in Presets)
+        {
+            var current = preset;
+            <button type="button"
+                    role="tab"
+                    class="pm-dates__tab @(current == Preset ? "pm-dates__tab--on" : null)"
+                    @onclick="@(() => SetPresetAsync(current))">
+                @TabText(current)
+            </button>
+        }
+    </div>
+
+    <div class="pm-dates__nav">
+        <DxButton Text="‹"
+                  RenderStyle="ButtonRenderStyle.Secondary"
+                  RenderStyleMode="ButtonRenderStyleMode.Outline"
+                  SizeMode="SizeMode.Small"
+                  aria-label="이전"
+                  Click="@(() => ShiftAsync(-1))" />
+
+        <span class="pm-dates__label">@Label</span>
+
+        <DxButton Text="›"
+                  RenderStyle="ButtonRenderStyle.Secondary"
+                  RenderStyleMode="ButtonRenderStyleMode.Outline"
+                  SizeMode="SizeMode.Small"
+                  aria-label="다음"
+                  Click="@(() => ShiftAsync(1))" />
+    </div>
+
+    @if (ShowDateEdit)
+    {
+        <DxDateEdit Date="@Anchor"
+                    DateChanged="@((DateTime date) => SetAnchorAsync(date))"
+                    SizeMode="SizeMode.Small"
+                    CssClass="pm-dates__edit" />
+    }
+</div>
+
+@code {
+    /// <summary>기준일. 이 날이 속한 프리셋 구간이 곧 조회 구간이다.</summary>
+    [Parameter] public DateTime Anchor { get; set; } = DateTime.Today;
+
+    [Parameter] public EventCallback<DateTime> AnchorChanged { get; set; }
+
+    /// <summary>켜져 있는 기간 프리셋.</summary>
+    [Parameter] public DateRangePreset Preset { get; set; } = DateRangePreset.Month;
+
+    [Parameter] public EventCallback<DateRangePreset> PresetChanged { get; set; }
+
+    /// <summary>보여 줄 프리셋 탭. 하나만 남기면 탭 없이 이동 버튼만 쓰는 화면이 된다.</summary>
+    [Parameter] public IReadOnlyList<DateRangePreset> Presets { get; set; } =
+        [DateRangePreset.Day, DateRangePreset.Week, DateRangePreset.Month];
+
+    /// <summary>프리셋·기준일이 바뀔 때마다 계산된 구간을 올린다. 최초 렌더에는 올리지 않는다.</summary>
+    [Parameter] public EventCallback<DateRange> RangeChanged { get; set; }
+
+    /// <summary>기준일 직접 선택기를 보인다. 이동 버튼만으로 충분한 화면은 끈다.</summary>
+    [Parameter] public bool ShowDateEdit { get; set; } = true;
+
+    /// <summary>지금 구간. 화면이 <c>@@ref</c> 로 조회 파라미터를 꺼낼 때 쓴다.</summary>
+    public DateRange Range => DateRange.Of(Preset, Anchor);
+
+    private string Label => Preset switch
+    {
+        DateRangePreset.Day => Anchor.ToString("yyyy-MM-dd"),
+        DateRangePreset.Week => $"{Range.Start:MM.dd} ~ {Range.End:MM.dd}",
+        _ => Anchor.ToString("yyyy-MM"),
+    };
+
+    private static string TabText(DateRangePreset preset) => preset switch
+    {
+        DateRangePreset.Day => "오늘",
+        DateRangePreset.Week => "주",
+        _ => "월",
+    };
+
+    private async Task SetPresetAsync(DateRangePreset preset)
+    {
+        if (preset == Preset)
+        {
+            return;
+        }
+
+        Preset = preset;
+
+        // "오늘" 탭은 이름 그대로 오늘로 돌아온다 — 지난달을 보다가 눌렀을 때
+        // 지난달의 같은 날이 나오면 이름이 거짓말이 된다.
+        if (preset == DateRangePreset.Day)
+        {
+            Anchor = DateTime.Today;
+            await AnchorChanged.InvokeAsync(Anchor);
+        }
+
+        await PresetChanged.InvokeAsync(preset);
+        await RangeChanged.InvokeAsync(Range);
+    }
+
+    /// <summary>프리셋 단위로 앞뒤 이동. 월은 달 단위로 옮겨야 31일에서 밀리지 않는다.</summary>
+    private async Task ShiftAsync(int direction)
+    {
+        Anchor = Preset switch
+        {
+            DateRangePreset.Day => Anchor.AddDays(direction),
+            DateRangePreset.Week => Anchor.AddDays(direction * 7),
+            _ => Anchor.AddMonths(direction),
+        };
+
+        await AnchorChanged.InvokeAsync(Anchor);
+        await RangeChanged.InvokeAsync(Range);
+    }
+
+    private async Task SetAnchorAsync(DateTime date)
+    {
+        if (date.Date == Anchor.Date)
+        {
+            return;
+        }
+
+        Anchor = date.Date;
+        await AnchorChanged.InvokeAsync(Anchor);
+        await RangeChanged.InvokeAsync(Range);
+    }
+}

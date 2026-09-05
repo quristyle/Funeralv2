@@ -1,9 +1,8 @@
-# web/ — Blazor 업무 포털 (이행 중)
+# web/ — .NET 10 Blazor 프론트 (Piral.Blazor MFE)
 
-`fronts/apps/jsini-portal`(Vue3 + vben, 약 90,000줄)을 .NET 10 + Blazor +
-DevExpress 로 옮기는 자리다. **업무별로 독립 배포되는 MFE 구조**로 다시 짠다.
-
-지금은 골격만 서 있다 — 업무 앱 여섯 개가 껍데기이고 화면은 아직 옮기지 않았다.
+옛 Vue3 + vben 포털(약 90,000줄)을 .NET 10 + Blazor + DevExpress 로 옮기는 자리다.
+원본은 2026-09-05 에 저장소에서 걷어냈다 — 필요하면 git 이력에서 꺼낸다
+(`git log --diff-filter=D -- fronts`).
 
 ## 구조
 
@@ -14,134 +13,183 @@ DevExpress 로 옮기는 자리다. **업무별로 독립 배포되는 MFE 구�
                    │  Nginx / LB    │
                    └───┬────────┬───┘
                        │        │
-              ┌────────▼──┐  ┌──▼─────────────┐
-              │Blazor Shell│  │  API Gateway   │
-              │   :5557    │  │     :5265      │
-              └─────┬──────┘  └──┬─────────────┘
-         YARP 경로 프록시           │
-    ┌────────┬──────┴───┬────────┐│  ┌────────┬─────────┐
-    ▼        ▼          ▼        ▼│  ▼        ▼         ▼
- Funeral  HelpDesk   Admin    …  ││ Auth   funeralv2   AI
-  :5561    :5562     :5563       ││ :5264   :5320    :5029
-    │        │          │        ││
-    └────────┴──────────┴────────┼┘
-                                 └── 각 MFE 가 게이트웨이를 **직접** 부른다
-                                     (셸을 거치지 않는다 — 병목이 된다)
+     ┌─────────────────▼──┐  ┌──▼─────────────┐
+     │ Blazor 업무 포털   │  │  API Gateway   │
+     │      :5557         │  │     :5265      │
+     │ ┌────────────────┐ │  └──┬─────────────┘
+     │ │ 셸             │ │     │
+     │ │  로그인·레이아웃 │ │     │  ┌────────┬─────────┐
+     │ ├────────────────┤ │     ▼  ▼        ▼         ▼
+     │ │ Funeral        │ │   Auth   funeralv2   AI  …
+     │ │ HelpDesk       │─┼─────┘   :5320    :5029
+     │ │ Admin          │ │   :5264
+     │ │ Site           │ │
+     │ │ LifeEnv        │ │  각 모듈이 게이트웨이를 **직접** 부른다
+     │ │ ProjMng        │ │  (BFF — 토큰은 브라우저로 안 내려간다)
+     │ └────────────────┘ │
+     └────────────────────┘
+     ┌────────────────────┐
+     │ 회사 소개 사이트    │  포털과 **무관하다.** 인증도, 공유 프로젝트 참조도 없다.
+     │      :5556         │  정적 SSR 전용.
+     └────────────────────┘
 ```
-
-각 MFE 는 **자기 프로세스, 자기 포트, 자기 컨테이너**다.
-사용자는 `:5557` 하나만 본다.
 
 ```
 web/
   JSini.Web.slnx
-  .keys/                            Data Protection 키 링 (git 미포함)
   src/
-    Shell/JSini.Web.Shell/          :5557  로그인 · YARP 라우팅 · 홈 · 오류
+    Shell/JSini.Web.Shell/          :5557  셸 (로그인 · 레이아웃 · 모듈 등록)
     Shared/
       JSini.Web.Abstractions/       계약 (IPortalModule · 권한 · 메뉴). 구현 없음
-      JSini.Web.Models/             Shared Models — 여러 앱이 쓰는 DTO
+      JSini.Web.Models/             여러 모듈이 쓰는 DTO
       JSini.Web.Http/               게이트웨이 클라이언트 + BFF 토큰 처리
-      JSini.Web.Components/         Blazor Common — 레이아웃 · DevExpress · 공통 등록
+      JSini.Web.Components/         Blazor Common — 레이아웃 · 메뉴 · DevExpress 래퍼
     Apps/
-      JSini.Web.Funeral/   :5561  /funeral    ← views/funeral        (21,900줄)
-      JSini.Web.HelpDesk/  :5562  /helpdesk   ← views/helpdesk       (18,900줄)
-      JSini.Web.Admin/     :5563  /admin      ← views/portal/{system,release,notice,auth}
-      JSini.Web.Site/      :5564  /site       ← views/portal/{site,ai}
-      JSini.Web.LifeEnv/   :5565  /life       ← views/life           (5,500줄)
-      JSini.Web.ProjMng/   :5566  /projmng    ← views/projmng        (4,600줄)
+      JSini.Web.Funeral/            /funeral
+      JSini.Web.HelpDesk/           /helpdesk
+      JSini.Web.Admin/              /admin
+      JSini.Web.Site/               /site
+      JSini.Web.LifeEnv/            /life
+      JSini.Web.ProjMng/            /projmng
+    Site/JSini.PublicSite/          :5556  회사 소개 사이트 (정적 SSR)
+  docs/
+    menu-route-map.md               DB 메뉴 179건 ↔ Blazor 라우트 정본 표
+    menu-path-cutover.sql           DB path 를 새 경로로 바꾸는 SQL (아직 안 돌렸다)
   tests/JSini.Web.Architecture.Tests/
 ```
 
-## 대화형이 안 되는 두 가지 함정 (둘 다 실제로 밟음)
+## 모듈은 어떻게 실리는가 — **빌드 시점 합성**
+
+셸 코드에는 `using JSini.Web.Funeral` 같은 줄이 **한 곳도 없다.** 모듈은
+출력 폴더의 `JSini.Web.*.dll` 을 훑어 `IPortalModule` 구현으로 찾는다
+(`PortalModuleRegistry`). 그 DLL 이 거기 있는 것은 셸 csproj 의
+`ProjectReference` 덕분이고, 그게 전부다.
+
+### 이 구조에서 실제로 한 번 크게 밟은 것
+
+한동안 **셸 출력 폴더에 모듈 DLL 이 하나도 없었다.** 모듈이 각자 프로세스이던
+시절에 참조를 뗐고, 단일 셸로 합치면서 다시 붙이지 않았다. 증상은
+**"메뉴를 눌러도 화면이 안 열린다"** 하나였고, 그런데
+
+- 빌드가 통과했다 (셸은 모듈 타입을 안 쓰니까)
+- 아키텍처 테스트도 통과했다 (테스트 프로젝트는 여섯 모듈을 직접 참조한다)
+- 셸은 멀쩡히 떴고 로그인도 됐다
+
+그래서 세 겹으로 막아 두었다.
+
+1. `appsettings.json` 의 `PortalApps` 에 **기대 목록**을 적어 두고 기동 때 대조한다.
+   어긋나면 `LogCritical`.
+2. 첫 화면(`/`)이 기대·실제를 나란히 보여 준다.
+3. `ShellCompositionTests` 가 셸 csproj 를 읽어 참조 여부를 빌드 때 검사한다.
+
+### `AddAdditionalAssemblies` 를 빠뜨리면 같은 증상이 난다
+
+`Routes.razor` 의 `<Router AdditionalAssemblies>` 만으로는 부족하다. 그건
+회로가 붙은 뒤 브라우저 안에서 도는 라우팅이고, **첫 요청이 404 냐 아니냐를
+정하는 것은 엔드포인트 라우팅**이다. 둘 다 적어야 한다.
+
+```csharp
+app.MapMicrofrontends<App>()
+    .AddInteractiveServerRenderMode()
+    .AddAdditionalAssemblies([.. moduleRegistry.Assemblies]);   // ← 이것
+```
+
+### Piral.Blazor 는 어디까지 쓰고 있나
+
+모듈 컨테이너(모듈별 DI 격리)와 `PageScripts`/`PageStyles` 주입을 쓴다.
+**런타임 파일럿 로딩은 아직 쓰지 않는다** — 모듈이 빌드 시점에 합성되기 때문이다.
+
+기본 `MfDiscoveryLoaderService` 는 설정이 없으면 `feed.piral.cloud` 를 본다.
+기동할 때마다 바깥으로 나가고 우리 파일럿은 거기 없으므로, 로컬 캐시만 보는
+`MfSnapshotLoaderService` 로 갈아 끼웠다(`Microfrontends:CacheDir`).
+
+무중단 개별 배포가 필요해지면 각 모듈을 nupkg 파일럿으로 말아 그 폴더에
+떨어뜨리는 것이 다음 단계고, **그때 고칠 곳은 `Program.cs` 의 그 한 줄과
+셸 csproj 의 `업무 MFE 모듈` ItemGroup 뿐**이다.
+
+## 대화형이 안 되는 함정 (실제로 밟음)
 
 **증상이 같아서 특히 나쁘다** — 화면은 멀쩡히 그려지는데(프리렌더는 되니까)
 버튼이 하나도 안 눌린다. `curl` 로는 정상으로 보이고 **브라우저 콘솔을 봐야**
-원인이 보인다. 화면을 옮기다 "왜 안 눌리지" 가 되면 여기부터 의심하라.
-
-### `UseRouting()` 을 명시적으로 불러야 한다
-
-안 부르면 `WebApplication` 이 파이프라인 **맨 앞**에 자동으로 끼워 넣는데,
-그건 앱의 `UsePathBase("/funeral")` 보다 앞이다. 라우팅이 접두사가 붙은 원래
-경로로 매칭을 시도해 회로 협상이 **405** 가 된다.
+원인이 보인다.
 
 ### `FallbackPolicy` 를 쓰면 안 된다
 
 `options.FallbackPolicy = options.DefaultPolicy` 는 **명시적 정책이 없는 모든
 엔드포인트**에 걸린다. Blazor 회로(`_blazor`)도 예외가 아니라서 협상이 401 →
-`/login` 리다이렉트 → 업무 앱에는 그런 화면이 없음 → 다시 → **ERR_TOO_MANY_REDIRECTS**.
+`/login` 리다이렉트 → 다시 → **ERR_TOO_MANY_REDIRECTS**.
 
-같은 보호는 각 앱 `Components/_Imports.razor` 의 `@attribute [Authorize]` 로
+같은 보호는 각 모듈 `Components/_Imports.razor` 의 `@attribute [Authorize]` 로
 얻는다. 컴포넌트에 걸리므로 회로를 건드리지 않고, 새 화면에서 빠뜨릴 수도 없다.
 
-둘 다 `JSiniWebApp.UseJSiniWebApp()` 한 곳에서 처리한다.
+### 미들웨어 순서
 
-## 프로세스가 갈라져서 생긴 규칙 세 가지
+`UseRouting` → `MapStaticAssets` → `UseAuthentication` → `UseAuthorization`
+→ `UseAntiforgery`. 위조방지가 인증보다 앞에 있으면 폼 제출이 익명으로 처리된다.
 
-앱이 별도 프로세스가 되면서 **컴파일러가 잡아 주던 것들을 프로세스 경계가
-가져갔다.** 아래 셋은 어겨도 빌드가 통과하고, 운영에서 그 업무만 조용히 깨진다.
-그래서 전부 테스트로 못박았다.
-
-### 1. `@page` 에 자기 접두사를 적지 않는다
-
-`UsePathBase("/funeral")` 이 이미 접두사를 뗀다.
-
-```razor
-@page "/status"        ✅ 실제 주소 /funeral/status
-@page "/funeral/status" ❌ 실제 주소 /funeral/funeral/status — 아무도 못 연다
-```
-
-RCL 이던 시절과 **정반대**다. 그때는 모두 한 라우터에 들어가서 접두사를 적어야 했다.
-
-### 2. 셸의 `PortalApps` 설정과 앱의 `RoutePrefix` 가 같아야 한다
-
-셸은 `appsettings.json` 의 `RoutePrefix` 로 넘기고, 앱은
-`IPortalModule.RoutePrefix` 로 `UsePathBase` 를 잡는다. 어긋나면 셸은 넘기는데
-앱이 "내 경로가 아니다" 며 404 를 낸다. 각 파일만 보면 둘 다 정상으로 보인다.
-
-### 3. Data Protection 키 링과 응용프로그램 이름이 일곱 앱에서 같아야 한다
-
-셸이 로그인 쿠키를 굽고, 업무 앱들이 그 쿠키에서 게이트웨이 토큰을 꺼내 쓴다.
-어긋나면 증상은 **"로그인은 되는데 업무 화면을 누르면 다시 로그인"** 이다.
-
-`SetApplicationName` 을 빼먹으면 기본값이 어셈블리 이름이라 반드시 이렇게 된다.
-
-→ 셋 다 `JSiniWebApp.AddJSiniWebApp()` 한 곳에서 처리한다. **앱의 Program.cs 는
-이 메서드를 부르는 것 말고 할 일이 없어야 한다.**
+전부 `JSiniWebApp.UseJSiniWebApp()` 한 곳에서 처리한다.
 
 ## 지켜야 하는 의존 규칙
 
-1. 업무 앱 → 셸 참조 **금지** (앱이 아는 셸은 `Abstractions` 뿐)
-2. 업무 앱 → 다른 업무 앱 참조 **금지**
-3. `@page` 에 자기 접두사 중복 **금지**
-4. `Components`(Blazor Common) → 업무 앱 참조 **금지**
-5. 앱 `Key`·`RoutePrefix` 중복 **금지**
-6. 셸 설정과 앱 선언 **일치**
+1. 업무 모듈 → 셸 참조 **금지** (모듈이 아는 셸은 `Abstractions` 뿐)
+2. 업무 모듈 → 다른 업무 모듈 참조 **금지**
+3. `@page` 는 **자기 접두사로 시작**한다
+4. `Components`(Blazor Common) → 업무 모듈 참조 **금지**
+5. 모듈 `Key`·`RoutePrefix` 중복 **금지**
+6. 셸 `PortalApps` 설정과 모듈 선언 **일치**
+7. 셸은 **모든** 업무 모듈을 `ProjectReference` 로 참조한다
+8. 모듈마다 포괄 라우트(`_Pending.razor`)가 **정확히 하나**
 
-전부 `tests/JSini.Web.Architecture.Tests` 가 검사한다(20건). **문서로 두지 않는
+전부 `tests/JSini.Web.Architecture.Tests` 가 검사한다(64건). **문서로 두지 않는
 이유는 아무도 문서를 읽으면서 ProjectReference 를 추가하지 않기 때문이다.**
 
-공유가 필요할 때: **두 앱이 쓰면 복제, 세 번째 앱부터 승격.**
-화면 조각은 `Components`, DTO 는 `Models` 로. 이 규칙이 없으면 공용
-라이브러리가 모든 앱의 결합 지점이 되어 앱을 나눈 의미가 사라진다.
+공유가 필요할 때: **두 모듈이 쓰면 복제, 세 번째부터 승격.**
+화면 조각은 `Components`, DTO 는 `Models` 로.
 
 ## 라우팅 소유권이 뒤집혔다
 
 | | Vue | Blazor |
 |---|---|---|
-| 라우트 정의 | DB `scom.system_menus.component` (Vue 파일 경로) | 앱의 `@page` |
+| 라우트 정의 | DB `scom.system_menus.component` (Vue 파일 경로) | 모듈의 `@page` |
 | DB 역할 | 라우트 **생성원** | 메뉴 노출·권한 **테이블** |
 | 연결 고리 | `component` | `path` |
 | 불일치 발견 | 런타임 `console.warn` | 기동 로그 + 아키텍처 테스트 |
 
-DB 의 `component` 컬럼은 **더 이상 읽지 않는다.** 권한 판정은 예전부터 `path`
-기준이었으므로(`/auth/menu/permissions`) 그쪽은 그대로다.
+DB 의 `component` 컬럼은 **더 이상 읽지 않는다.**
 
-`MenuProvider.ReportRouteMismatch` 가 DB 메뉴 경로와 앱의 `@page`(접두사를 붙인
-전체 경로)를 대조해 로그로 남긴다. **이행이 끝나면 이 로그가 비어야 한다.**
+### **`@page` 를 DB 메뉴 경로에 맞춘다** — 가장 자주 밟는 함정
 
-부수 효과로 Vue 의 `refreshAccessMenus`(없어진 라우트를 `removeRoute` 로 걷어내던
-동기화 로직)가 통째로 사라졌다. 라우트가 절대 바뀌지 않기 때문이다.
+화면을 다 만들어 놓고도 메뉴로 열리지 않는 일이 실제로 열몇 건 있었다.
+`DbTester.razor` 가 `/projmng/develop/db-tester` 인데 DB 메뉴는
+`/projmng/db/tester` 인 식이다. **각 파일만 보면 둘 다 정상으로 보인다.**
+
+정본은 [docs/menu-route-map.md](docs/menu-route-map.md) 다. 화면을 옮기기 전에
+그 표에서 목적지 경로를 먼저 확인한다.
+
+### 옛 경로는 `RouteAliases` 가 흡수한다
+
+DB 의 `path` 69건(장례식장·포털관리·소개사이트)은 아직 Vue 시절 경로다
+(`/room_status`, `/portal/notice`). 바꾸는 SQL 은
+[docs/menu-path-cutover.sql](docs/menu-path-cutover.sql) 에 준비돼 있지만
+**아직 돌리지 않았다.**
+
+대신 `JSini.Web.Components/Menu/RouteAliases.cs` 가 옛 경로를 새 경로로 옮긴다.
+그래서 DB 를 안 바꿔도 메뉴가 열리고, 나중에 SQL 을 돌려도 그대로 동작한다(멱등).
+
+**`MenuNode.Path` 는 건드리지 않는다.** 권한표와 즐겨찾기의 열쇠가 그 값이라,
+바꾸면 *권한이 없는데 메뉴가 보이는* 쪽으로 틀린다. 링크 주소(`Href`)만 옮긴다.
+
+### 아직 안 옮긴 화면은 "준비 중" 으로 받는다
+
+모듈마다 포괄 라우트가 하나 있다(`Components/Pages/_Pending.razor` →
+`@page "/funeral/{*rest}"`). 라우트 우선순위가 리터럴 > 매개변수 > 포괄이라
+실제 화면이 있으면 언제나 그쪽이 이긴다.
+
+빈 404 로 두면 **"아직 안 옮긴 화면"** 과 **"주소를 잘못 친 것"** 이 구분되지
+않는다. 앞엣것은 기다리면 되는 일이고 뒤엣것은 신고할 일인데, 화면이 같으면
+둘 다 신고가 들어온다.
+
+**이행이 끝나면 이 여섯 파일을 지운다. 남아 있다는 것 자체가 표시다.**
 
 ## 인증 — BFF
 
@@ -149,13 +197,12 @@ DB 의 `component` 컬럼은 **더 이상 읽지 않는다.** 권한 판정은 �
 JWT 는 그 쿠키의 클레임에 암호화되어 들어 있다. Vue 때 `accessToken` 이 브라우저
 메모리에 있던 것과 다르다 — XSS 로 토큰이 새는 경로가 사라졌다.
 
-**이 설계가 MFE 구조를 가능하게 한다.** 토큰이 쿠키 안에 있으므로 키 링만
-공유되면 어느 앱이든 꺼내 쓸 수 있다. 별도 세션 저장소가 필요 없다.
-
 로그인·로그아웃 화면만 정적 SSR 이다(`[ExcludeFromInteractiveRouting]`).
-회로 안에서는 `Set-Cookie` 를 붙일 수 없기 때문이다. 그래서 **로그인은 셸에만
-있고**, 업무 앱에서 인증이 풀리면 `OnRedirectToLogin` 이 PathBase 를 벗어난
-절대 경로로 셸에 보낸다.
+회로 안에서는 `Set-Cookie` 를 붙일 수 없기 때문이다.
+
+Data Protection 키 링을 폴더에 두는 것은 이제 **재기동 때 로그인이 풀리지 않게**
+하려는 것이다. 프로세스가 일곱이던 시절에는 그 일곱이 쿠키를 함께 풀어야 해서
+필수였고, 어긋나면 "로그인은 되는데 업무 화면을 누르면 다시 로그인" 이 났다.
 
 ## DevExpress
 
@@ -176,16 +223,17 @@ CI(GitHub Actions)에서도 같은 파일이 필요하다 — 시크릿으로 �
 ## 개발 명령
 
 ```
-dev.bat mfe               Blazor 포털 전체 (셸 + 업무 MFE 6개)
-dev.bat blazor uiprojmng  셸과 프로젝트관리만 (한 업무만 고칠 때)
-dev.bat portal mfe        Vue(:5555)와 Blazor를 나란히 — 화면 대조용
-dev.bat stop mfe          전체 중지
+dev.bat blazor            업무 포털 (:5557)
+dev.bat web               회사 소개 사이트 (:5556)
+dev.bat stop blazor       중지
 ```
 
-기본 `dev.bat`(=all)에는 Blazor 가 **들어 있지 않다** — 넣으면 창이 열아홉 개
-뜬다. 일상 작업은 아직 Vue 포털이다. 컷오버 때 `SVC_KEYS_DEFAULT` 를 바꾼다.
+`front` · `portal` · `mfe` 는 `blazor` 의 옛 이름이라 그대로 받아 준다.
 
 빌드·테스트는 `web/` 에서 `dotnet build` / `dotnet test`.
+
+**포털이 떠 있으면 빌드가 실패한다** — 실행 중인 프로세스가 DLL 을 물고 있어
+복사가 안 된다(MSB3027). `dev.bat stop blazor` 를 먼저 한다.
 
 ## 화면 이관 — DevExpress 그리드에서 먼저 알아야 할 것
 
@@ -209,10 +257,9 @@ DevExpress 는 자료 원본에서 편집 모델을 리플렉션으로 만드는
 
 - **타입별 정렬·필터** — 문자열로 뭉개면 숫자 10 이 2 보다 앞에 온다
 - **타입별 편집기** — 날짜는 달력, 불리언은 체크박스가 알아서 뜬다
-- **변경 추적** — `DataRowState` 가 Added·Modified 를 알려 준다.
-  Vue 가 `quri_ischange` 를 손으로 붙이고 지우던 일이 통째로 사라졌다
+- **변경 추적** — `DataRowState` 가 Added·Modified 를 알려 준다
 
-### ProjMng — 부품과 진행 상황
+### ProjMng — 부품
 
 프로젝트관리는 보통 CRUD 가 아니다. **저장 프로시저 이름을 실어 보내면 결과와
 함께 컬럼 메타를 돌려주는 범용 통로**이고, 업무 로직은 전부 DB 에 있다.
@@ -221,51 +268,51 @@ DevExpress 는 자료 원본에서 편집 모델을 리플렉션으로 만드는
 Api/ProjMngClient.cs   DbCont · DbSave · DbDelete · JsCont · MdCont
 Api/ProjMngTable.cs    프로시저 결과 → DataTable (타입 변환·변경 추적)
 Api/ProcGrid.cs        조회·저장·삭제 묶음 (Vue 의 useProcGrid)
-Api/CommonCodes.cs     공통코드 조회·캐시 (sp_projCommon 직접 호출)
-Components/Shared/DynamicGrid.razor  메타 구동 그리드 (드롭다운 컬럼 포함)
-Components/Shared/CodeSelect.razor   공통코드 드롭다운
-Components/Shared/SearchBar.razor    조건줄
-Components/Shared/SplitPane.razor    마스터-디테일 좌우 분할
-Components/Shared/Notice.razor       화면 안내줄
+Api/CommonCodes.cs     공통코드 조회·캐시
+Api/BizOptions.cs      포털 계정 목록 조회·캐시
+Components/Shared/DynamicGrid.razor   메타 구동 그리드 (드롭다운 컬럼 포함)
+Components/Shared/CodeSelect.razor    공통코드 드롭다운
+Components/Shared/BizSelect.razor     포털 계정 드롭다운
+Components/Shared/CodeEditor.razor    monaco 편집기 (JS interop)
+Components/Shared/DiagramViewer.razor 다이어그램
+Components/Shared/DateRangeTabs.razor 기간 선택 + 탭
+Components/Shared/SearchBar.razor     조건줄
+Components/Shared/SplitPane.razor     마스터-디테일 좌우 분할
+Components/Shared/Notice.razor        화면 안내줄
 ```
 
 이 부품들이 서면 화면은 **"어떤 프로시저를 어떤 파라미터로 부르는가"** 만 적으면
 된다. `Wbs.razor`(약 60줄)와 `CommonCode.razor`(약 90줄)가 그 본보기다.
 
-**이식 완료 7 / 27**
+## 회사 소개 사이트 (`src/Site/JSini.PublicSite`)
 
-| 화면 | 라우트 | 프로시저 |
-|---|---|---|
-| 공통코드 | `/comm/common-code` | `sp_devcomm_exec` (마스터-디테일) |
-| WBS | `/proj/wbs` | `sp_proj_wbs_exec` |
-| 소스 정보 | `/proj/source` | `sp_dev_srcinfo_exec` (+상세) |
-| 프로젝트 목록 | `/proj/manage` | `sp_dev_proj_exec` |
-| 소스 스캐너 | `/proj/scaner` | `md_blazor_scan` |
-| DB 로직 항목 | `/sys/db-logic-item` | `sp_devsqlresp_base_exec` |
-| 서버 모니터 | `/external/jsini` | (iframe) |
+**정적 SSR 전용이다.** `AddInteractiveServerComponents()` 를 부르지 않는다 —
+회로도, `blazor.web.js` 도, 사용자별 서버 상태도 없다. 검색 봇과 링크 미리보기가
+대부분인 트래픽에 회로를 열어 줄 이유가 없다.
 
-**남은 20개는 부품이 하나씩 더 필요하다** — 화면이 어려운 게 아니라 부품이 없다.
-
-| 막는 것 | 화면 수 | 대상 |
-|---|---|---|
-| 코드 편집기 (Vue 는 monaco) | 9 | db-tester · db-tools · glue-trace · source-trace · code · component · db · db-logic · sheet |
-| 다이어그램 (Vue 는 maxgraph) | 3 | erd · flow · use-case |
-| 포털 계정 셀렉트 (biz-select) | 4 | todo · todo-monitor · user · monitoring |
-| 날짜 선택 + 탭 | 1 | scheduler |
-| 없음 (바로 가능) | 3 | table-manage · funeral-monitor · com-test/fast-test |
-
-원본이 Blazor 였다 (`C:\ProjMng\ProjMngWasm`, 51 razor / 약 9,900줄).
-구조 참고로 쓸 만하지만 **정본은 현행 Vue** — 이식 뒤에 고쳐진 것이 있다.
+- 공유 프로젝트(Abstractions·Components·Http·Models)를 **하나도 참조하지 않는다.**
+  참조가 생기는 순간 공개 사이트가 업무 포털의 배포 일정에 묶인다.
+- DevExpress 도 쓰지 않는다. 화면 전부가 순수 HTML/CSS 로 충분하다.
+- Tailwind 를 가져오지 않았다. .NET 빌드 옆에 node 빌드를 붙이면 Vue 를
+  걷어낸 의미가 없다. 원본의 유틸리티를 이름 있는 클래스로 옮겨 적었다(`wwwroot/site.css`).
+- 회로가 없어서 달라진 것 셋:
+  - 자료실 분류 거르기 → `?category=` 질의 문자열 (링크로 보낼 수 있고 뒤로 가기가 된다)
+  - 모바일 차림표 → `<details>` (브라우저가 여닫으므로 JS 가 필요 없다)
+  - 문의 본문 → 서식 편집기 대신 여러 줄 입력 (서버가 어차피 태그를 걷어낸다)
+- 히어로 배경 모션은 Blazor 와 무관한 평범한 JS 한 장이다(`wwwroot/shard-motion.js`).
 
 ## 남은 일
 
-- [ ] ProjMng 나머지 20개 — 위 표의 부품부터 만든다.
-      코드 편집기가 9개를 풀므로 그것이 우선이다 (Vue 는 monaco 를 JS interop 으로 썼다)
-- [ ] 순차 이관: LifeEnv → Site → Admin → HelpDesk → Funeral
-- [ ] 멀티탭 레이아웃 — **독립 앱 구조에서는 설계가 다시 필요하다.**
-      업무를 옮길 때 문서가 새로 로드되므로 탭 상태를 앱이 들고 있을 수 없다.
-- [ ] PWA·웹푸시 이식 (`push-sw.js` + 매니페스트. 오프라인 캐시는 포기)
-- [ ] SignalR `DeviceHub` 연결 (Funeral 앱. 회로마다 연결하지 말고 공용 연결 + 팬아웃)
-- [ ] `scom.system_menus.path` 가 앱 접두사 규칙과 맞는지 실측 — **백엔드 세션과 조율 필요**
-- [ ] 운영 배포: 컨테이너 7개 + `.keys` 공유 볼륨 + nginx. `deploy/docker/` 갱신
-- [ ] `fronts/apps/jsini-site` → 정적 SSR 별도 앱 (셸과 무관, 병행 가능)
+- [ ] **화면 이관** — DB 메뉴 179건 중 화면이 있는 것이 44건이다.
+      남은 것은 헬프데스크 41 · 장례식장 32 · 포털관리 18 · 프로젝트관리 21 · 생활과환경 3.
+      원본은 git 이력의 `fronts/apps/jsini-portal/src/views/` 에 있다.
+- [ ] `docs/menu-path-cutover.sql` 실행 — **운영 DB 를 바꾼다.** 안 돌려도
+      `RouteAliases` 가 흡수하므로 급하지 않다. 돌리면 별칭표를 지울 수 있다.
+- [ ] 멀티탭 레이아웃 — 한 프로세스·한 회로가 되면서 오히려 쉬워졌다.
+      문서가 새로 로드되지 않으므로 탭 상태를 레이아웃이 들고 있을 수 있다.
+- [ ] PWA·웹푸시 이관 (`push-sw.js` + 매니페스트. 오프라인 캐시는 포기)
+- [ ] SignalR `DeviceHub` 연결 (Funeral 모듈. 회로마다 연결하지 말고 공용 연결 + 팬아웃)
+- [ ] **운영 배포 파이프라인** — 옛 `deploy-portal.yml` · `deploy-site.yml` 은
+      vite 정적 빌드를 `/srv/jsini/{portal,site}` 로 rsync 하는 것이었고,
+      프론트가 .NET 프로세스가 되면서 성립하지 않아 지웠다. 컨테이너 두 개 +
+      nginx 리버스 프록시로 다시 짜야 한다. `deploy/docker/` 갱신 필요.

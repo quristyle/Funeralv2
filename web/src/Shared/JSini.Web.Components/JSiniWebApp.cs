@@ -227,9 +227,14 @@ public static class JSiniWebApp
 
         app.MapStaticAssets().AllowAnonymous();
 
-        app.UseAntiforgery();
+        // **순서가 이 셋의 전부다.** 인증 → 인가 → 위조방지.
+        //
+        // 한때 UseAntiforgery 가 맨 앞에 있었다. 그러면 위조방지 미들웨어가
+        // 아직 익명인 요청을 검사하게 되어, 로그인 폼 제출 같은 것이 조용히
+        // 익명으로 처리된다. ASP.NET Core 가 문서로 정해 둔 순서가 이쪽이다.
         app.UseAuthentication();
         app.UseAuthorization();
+        app.UseAntiforgery();
 
         return app;
     }

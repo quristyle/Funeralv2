@@ -1,0 +1,60 @@
+@page "/life/weather/events"
+@using JSini.Web.LifeEnv.Api
+
+@*
+    [기준 초과 이벤트 이력]
+
+    이력: Vue `views/life/weather/events.vue` → 여기.
+    설정된 판정 기준을 초과한 실시간 관측 이벤트 기록 이력을 조회한다.
+*@
+
+@inject LifeEnvClient Client
+
+<PageTitle>기준 초과 이벤트 이력 · 생활과환경</PageTitle>
+
+<h1>기준 초과 이벤트 이력 <span class="pm-page__scope">생활과환경</span></h1>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="d-flex gap-2">
+        <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@LoadDataAsync" />
+    </div>
+</div>
+
+<DxGrid Data="@_events" Loading="@_loading" PageSize="20" KeyFieldName="Id">
+    <Columns>
+        <DxGridDataColumn FieldName="EventTime" Caption="발생 시각" Width="170px" DisplayFormat="yyyy-MM-dd HH:mm" />
+        <DxGridDataColumn FieldName="MeasuredValue" Caption="측정 수치" Width="120px">
+            <CellDisplayTemplate>
+                <strong class="text-danger">@context.Value</strong>
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+        <DxGridDataColumn FieldName="IsNotified" Caption="알림 전송" Width="100px">
+            <CellDisplayTemplate>
+                <span class="badge @((bool)context.Value! ? "bg-success" : "bg-secondary")">
+                    @((bool)context.Value! ? "발송됨" : "미발송")
+                </span>
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+    </Columns>
+</DxGrid>
+
+@code {
+    private List<WeatherEventRecord> _events = [];
+    private bool _loading;
+
+    protected override Task OnInitializedAsync() => LoadDataAsync();
+
+    private async Task LoadDataAsync()
+    {
+        _loading = true;
+        try
+        {
+            var res = await Client.GetEventsAsync(1, 100);
+            _events = res?.Items ?? [];
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+}

@@ -1,0 +1,85 @@
+@page "/funeral/status/deceased-status"
+
+@*
+    [고인 현황 관리]
+
+    이력: Vue `views/funeral/status/deceased-status` → 여기.
+    장례식장 입실 고인 정보 및 안치 현황을 관리한다.
+*@
+
+<PageTitle>고인 현황 관리 · 장례식장</PageTitle>
+
+<h1>고인 현황 관리 <span class="pm-page__scope">장례식장</span></h1>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="d-flex gap-2">
+        <DxTextBox @bind-Text="_keyword" NullText="고인명 또는 상주명 검색" Style="width: 240px" ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@LoadDataAsync" />
+    </div>
+    <PermissionView Action="MenuAction.Create">
+        <DxButton Text="안치 등록" RenderStyle="ButtonRenderStyle.Success" />
+    </PermissionView>
+</div>
+
+<DxGrid Data="@_deceasedList" Loading="@_loading" PageSize="15">
+    <Columns>
+        <DxGridDataColumn FieldName="RoomName" Caption="빈소/안치실" Width="130px" />
+        <DxGridDataColumn FieldName="DeceasedName" Caption="고인명" Width="120px">
+            <CellDisplayTemplate>
+                <strong>🕯️ @context.Value</strong>
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+        <DxGridDataColumn FieldName="ChiefMourner" Caption="상주명" Width="120px" />
+        <DxGridDataColumn FieldName="EnterTime" Caption="입실 일시" Width="160px" DisplayFormat="yyyy-MM-dd HH:mm" />
+        <DxGridDataColumn FieldName="CarryingTime" Caption="발인 일시" Width="160px" DisplayFormat="yyyy-MM-dd HH:mm" />
+        <DxGridDataColumn FieldName="Status" Caption="상태" Width="90px">
+            <CellDisplayTemplate>
+                <span class="badge bg-primary">@context.Value</span>
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+        <DxGridDataColumn Caption="관리" Width="120px">
+            <CellDisplayTemplate>
+                <div class="d-flex gap-1 justify-content-center">
+                    <PermissionView Action="MenuAction.Update">
+                        <DxButton Text="수정" RenderStyle="ButtonRenderStyle.Secondary" SizeMode="SizeMode.Small" />
+                    </PermissionView>
+                </div>
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+    </Columns>
+</DxGrid>
+
+@code {
+    private List<DeceasedItemDto> _deceasedList = [];
+    private string? _keyword;
+    private bool _loading;
+
+    protected override Task OnInitializedAsync() => LoadDataAsync();
+
+    private Task LoadDataAsync()
+    {
+        _loading = true;
+        try
+        {
+            _deceasedList =
+            [
+                new DeceasedItemDto { RoomName = "특1호실", DeceasedName = "故 홍길동", ChiefMourner = "홍상주", EnterTime = DateTime.Now.AddDays(-1), CarryingTime = DateTime.Now.AddDays(1), Status = "안치중" }
+            ];
+        }
+        finally
+        {
+            _loading = false;
+        }
+        return Task.CompletedTask;
+    }
+
+    public sealed class DeceasedItemDto
+    {
+        public string RoomName { get; set; } = string.Empty;
+        public string DeceasedName { get; set; } = string.Empty;
+        public string ChiefMourner { get; set; } = string.Empty;
+        public DateTime EnterTime { get; set; }
+        public DateTime CarryingTime { get; set; }
+        public string Status { get; set; } = string.Empty;
+    }
+}

@@ -1,0 +1,42 @@
+@page "/projmng/db/code"
+@using System.Data
+
+@*
+    [프로젝트 코드 목록]
+
+    이력: Vue `views/projmng/proj/code.vue` → 여기.
+    프로젝트에 등록된 소스 코드 마스터 정보를 관리한다.
+*@
+
+@inject ProjMngClient Client
+
+<PageTitle>프로젝트 코드 · 프로젝트관리</PageTitle>
+
+<h1>프로젝트 코드 <span class="pm-page__scope">프로젝트관리</span></h1>
+
+<SearchBar>
+    <ChildContent>
+        <CodeSelect CodeId="projlist" @bind-Value="_projectCode" OnChanged="@(_ => SearchAsync())" />
+    </ChildContent>
+    <Actions>
+        <PermissionView Action="MenuAction.Search">
+            <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@SearchAsync" />
+        </PermissionView>
+    </Actions>
+</SearchBar>
+
+<DynamicGrid Data="@_grid.Data" Loading="@_grid.IsLoading" ExportName="프로젝트코드" OnRefresh="@SearchAsync" OnSave="@(() => _grid.SaveAsync(Params()))" OnDelete="@(row => _grid.DeleteAsync(row))" />
+
+@code {
+    private ProcGrid _grid = default!;
+    private string? _projectCode;
+
+    protected override void OnInitialized()
+    {
+        _grid = new ProcGrid(Client, "sp_dev_srcinfo_exec");
+    }
+
+    private Dictionary<string, object?> Params() => new() { ["prj_rid"] = _projectCode ?? string.Empty };
+
+    private Task SearchAsync() => _grid.LoadAsync(Params());
+}

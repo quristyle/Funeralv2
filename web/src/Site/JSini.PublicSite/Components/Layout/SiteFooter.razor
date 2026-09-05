@@ -1,0 +1,35 @@
+@*
+    바닥글.
+*@
+
+<footer class="site-footer">
+    <div class="wrap site-footer__inner">
+        <div class="site-footer__cols">
+            <div>
+                <BrandLogo Knockout="true" Height="26" />
+                <p class="site-footer__lead">@T.Hero.Lead</p>
+            </div>
+
+            <div class="site-footer__contact">
+                <span class="site-footer__label">Contact</span>
+                <a href="mailto:@T.Contact.Email">@T.Contact.Email</a>
+
+                @*
+                    관리 포털은 다른 오리진이다(admin.jsini.co.kr). 오리진을 나눠야
+                    공개 사이트와 업무 시스템의 토큰·쿠키 표면이 섞이지 않는다.
+                *@
+                <a class="site-footer__portal" href="https://admin.jsini.co.kr" rel="noopener">
+                    @T.Footer.Portal →
+                </a>
+            </div>
+        </div>
+
+        <div class="site-footer__rights">© @DateTime.Now.Year @T.Footer.Rights</div>
+    </div>
+</footer>
+
+@code {
+    [Parameter, EditorRequired] public string Locale { get; set; } = SiteMessages.DefaultLocale;
+
+    private Messages T => SiteMessages.For(Locale);
+}

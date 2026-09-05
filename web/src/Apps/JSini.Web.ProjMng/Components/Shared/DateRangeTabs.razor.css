@@ -1,0 +1,49 @@
+.pm-dates {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.pm-dates__tabs {
+  display: flex;
+  overflow: hidden;
+  border: 1px solid var(--jsini-border, #e3e5e8);
+  border-radius: 6px;
+}
+
+.pm-dates__tab {
+  padding: 0.25rem 0.7rem;
+  font-size: 0.8rem;
+  color: inherit;
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+}
+
+.pm-dates__tab + .pm-dates__tab {
+  border-left: 1px solid var(--jsini-border, #e3e5e8);
+}
+
+.pm-dates__tab--on {
+  color: #fff;
+  background: var(--jsini-primary, #3b82f6);
+}
+
+.pm-dates__nav {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+/* 구간 표기가 "3.01 ~ 3.07" 과 "2026-09" 를 오가도 옆 버튼이 밀리지 않게 */
+.pm-dates__label {
+  min-width: 6.5rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+::deep .pm-dates__edit {
+  width: 9rem;
+}

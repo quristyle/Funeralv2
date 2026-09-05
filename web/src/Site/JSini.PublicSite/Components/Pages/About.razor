@@ -1,0 +1,51 @@
+@page "/{Locale}/about"
+
+@inject SiteApi Api
+
+<PageTitle>@T.Nav.About — JSINI</PageTitle>
+<HeadContent>
+    <meta name="description" content="@($"JSINI — {T.Nav.About}")" />
+    <meta property="og:title" content="@($"{T.Nav.About} — JSINI")" />
+</HeadContent>
+
+<section class="page-head">
+    <div class="wrap">
+        <h1 class="h-display text-4xl">@T.Nav.About</h1>
+    </div>
+</section>
+
+<section class="wrap wrap--narrow section">
+    @if (_sections.Count == 0)
+    {
+        <p class="muted text-sm">@T.Common.Empty</p>
+    }
+
+    @foreach (var s in _sections)
+    {
+        <article class="prose-block">
+            <div class="shard-rule shard-rule--short"></div>
+            <h2 class="h-display text-2xl">@s.Title</h2>
+            @if (!string.IsNullOrWhiteSpace(s.Subtitle))
+            {
+                <p class="muted mt-2 text-sm">@s.Subtitle</p>
+            }
+            @* 문단과 굵은 글씨만 살린다. 이유는 RichText 주석에 있다. *@
+            <RichText Text="@s.Body" Class="mt-6 text-sm body-copy body-copy--loose" />
+        </article>
+    }
+</section>
+
+@code {
+    [Parameter] public string? Locale { get; set; }
+
+    private Messages T => SiteMessages.For(Locale);
+    private string L => SiteMessages.Normalize(Locale);
+
+    private List<Section> _sections = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _sections = await Api.SectionsAsync(L, "about.");
+        Api.RecordVisit($"/{L}/about", L);
+    }
+}

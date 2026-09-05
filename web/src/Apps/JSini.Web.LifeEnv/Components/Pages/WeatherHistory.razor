@@ -1,0 +1,84 @@
+@page "/life/weather/history"
+@using JSini.Web.LifeEnv.Api
+
+@*
+    [기상 실측 이력]
+
+    이력: Vue `views/life/weather/history.vue` → 여기.
+    관측 지역별 과거 실측 데이터 이력을 조회한다.
+*@
+
+@inject LifeEnvClient Client
+
+<PageTitle>기상 실측 이력 · 생활과환경</PageTitle>
+
+<h1>기상 실측 이력 <span class="pm-page__scope">생활과환경</span></h1>
+
+<div class="card p-3 mb-3">
+    <div class="d-flex align-items-center gap-2">
+        <span class="fw-bold">지역 선택:</span>
+        <DxComboBox Data="@_locations"
+                    TextFieldName="Name"
+                    ValueFieldName="Name"
+                    Value="@_selectedLocationName"
+                    ValueChanged="@((string name) => OnLocationChanged(name))"
+                    NullText="지역을 선택하세요"
+                    Style="width: 200px" />
+        <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@LoadHistoryAsync" />
+    </div>
+</div>
+
+<DxGrid Data="@_history" Loading="@_loading" PageSize="20" KeyFieldName="Id">
+    <Columns>
+        <DxGridDataColumn FieldName="ObservationTime" Caption="관측 시각" Width="170px" DisplayFormat="yyyy-MM-dd HH:mm" />
+        <DxGridDataColumn FieldName="Location" Caption="지역" Width="120px" />
+        <DxGridDataColumn FieldName="TemperatureC" Caption="기온" Width="100px">
+            <CellDisplayTemplate>
+                <strong class="text-danger">@context.Value°C</strong>
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+        <DxGridDataColumn FieldName="Condition" Caption="기상 상태" MinWidth="130" />
+        <DxGridDataColumn FieldName="Humidity" Caption="습도(%)" Width="90px" />
+        <DxGridDataColumn FieldName="WindSpeed" Caption="풍속(m/s)" Width="100px" />
+        <DxGridDataColumn FieldName="Rainfall" Caption="강수량(mm)" Width="100px" />
+    </Columns>
+</DxGrid>
+
+@code {
+    private List<WeatherLocation> _locations = [];
+    private List<WeatherInfo> _history = [];
+    private string? _selectedLocationName;
+    private bool _loading;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var locs = await Client.GetLocationsAsync();
+        _locations = locs.ToList();
+        if (_locations.Count > 0)
+        {
+            _selectedLocationName = _locations[0].Name;
+            await LoadHistoryAsync();
+        }
+    }
+
+    private async Task OnLocationChanged(string name)
+    {
+        _selectedLocationName = name;
+        await LoadHistoryAsync();
+    }
+
+    private async Task LoadHistoryAsync()
+    {
+        if (string.IsNullOrEmpty(_selectedLocationName)) return;
+        _loading = true;
+        try
+        {
+            var res = await Client.GetHistoryAsync(_selectedLocationName, 7);
+            _history = res.ToList();
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+}

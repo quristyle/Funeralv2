@@ -1,0 +1,72 @@
+@page "/projmng/db/tools"
+@using System.Data
+
+@*
+    [DB 툴 (쿼리 분석 및 실행)]
+
+    이력: Vue `views/projmng/develop/db-tools.vue` → 여기.
+    프로젝트 DB 구조 및 저장 프로시저 쿼리를 분석/실행한다.
+*@
+
+@inject ProjMngClient Client
+
+<PageTitle>DB 툴 · 프로젝트관리</PageTitle>
+
+<h1>DB 툴 <span class="pm-page__scope">프로젝트관리</span></h1>
+
+<SearchBar>
+    <ChildContent>
+        <CodeSelect CodeId="projlist" @bind-Value="_projectCode" OnChanged="@(_ => OnProjectChanged())" />
+        <CodeSelect CodeId="projdb" CodeKey="@_projectCode" EtcFix="true" @bind-Value="_dbCode" OnChanged="@(item => _dbItem = item)" />
+    </ChildContent>
+    <Actions>
+        <PermissionView Action="MenuAction.Search">
+            <DxButton Text="실행" RenderStyle="ButtonRenderStyle.Primary" Click="@ExecuteAsync" />
+        </PermissionView>
+    </Actions>
+</SearchBar>
+
+<SplitPane Size="40">
+    <First>
+        <div class="d-flex flex-column h-100">
+            <div class="mb-2 fw-bold">SQL / Procedure 스크립트</div>
+            <CodeEditor @bind-Value="_sqlScript" Height="100%" Language="sql" />
+        </div>
+    </First>
+    <Second>
+        <div class="d-flex flex-column h-100">
+            <div class="mb-2 fw-bold">실행 결과</div>
+            <DynamicGrid Data="@_resultGrid" Loading="@_loading" ExportName="DB툴결과" HideAdd="true" />
+        </div>
+    </Second>
+</SplitPane>
+
+@code {
+    private string? _projectCode;
+    private string? _dbCode;
+    private CommonCodeItem? _dbItem;
+    private string _sqlScript = "-- SQL Script here\nSELECT NOW();";
+    private ProjMngTable _resultGrid = ProjMngTable.Empty;
+    private bool _loading;
+
+    private void OnProjectChanged()
+    {
+        _dbCode = null;
+        _dbItem = null;
+    }
+
+    private async Task ExecuteAsync()
+    {
+        _loading = true;
+        try
+        {
+            var p = new Dictionary<string, object?> { ["param1"] = _sqlScript };
+            var res = await Client.JsContAsync("dbtool_exec", p);
+            _resultGrid = ProjMngTable.From(res);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+}

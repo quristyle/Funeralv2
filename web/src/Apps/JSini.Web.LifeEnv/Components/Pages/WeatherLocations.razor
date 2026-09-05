@@ -1,0 +1,118 @@
+@page "/life/weather/manage/locations"
+@using JSini.Web.LifeEnv.Api
+
+@*
+    [관측 지역 관리]
+
+    이력: Vue `views/life/weather/locations.vue` → 여기.
+    기상청 API 연동을 위한 NX/NY 격자좌표 및 지역 정보를 관리한다.
+*@
+
+@inject LifeEnvClient Client
+
+<PageTitle>관측 지역 관리 · 생활과환경</PageTitle>
+
+<h1>관측 지역 관리 <span class="pm-page__scope">생활과환경</span></h1>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h5 class="m-0 font-bold">관측 대상 지역 목록</h5>
+        <span class="text-muted fs-7">기상청 API 연동을 위한 NX, NY 좌표 정보를 관리합니다.</span>
+    </div>
+    <PermissionView Action="MenuAction.Create">
+        <DxButton Text="지역 추가" RenderStyle="ButtonRenderStyle.Primary" Click="@LoadDataAsync" />
+    </PermissionView>
+</div>
+
+<DxGrid Data="@_items" Loading="@_loading" PageSize="20" KeyFieldName="Id">
+    <Columns>
+        <DxGridDataColumn FieldName="SortOrder" Caption="순서" Width="70px" />
+        <DxGridDataColumn FieldName="Name" Caption="지역 명칭" MinWidth="150">
+            <CellDisplayTemplate>
+                <strong>📍 @context.Value</strong>
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+        <DxGridDataColumn Caption="좌표 (NX, NY)" Width="130px">
+            <CellDisplayTemplate>
+                @{
+                    var loc = (WeatherLocation)context.DataItem;
+                }
+                <span class="badge bg-light text-dark border">@loc.Nx, @loc.Ny</span>
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+        <DxGridDataColumn FieldName="WarningAreaCode" Caption="특보구역" Width="130px">
+            <CellDisplayTemplate>
+                @if (!string.IsNullOrEmpty(context.Value?.ToString()))
+                {
+                    <span class="badge bg-warning text-dark">@context.Value</span>
+                }
+                else
+                {
+                    <span class="text-muted">-</span>
+                }
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+        <DxGridDataColumn Caption="중기예보 코드" Width="170px">
+            <CellDisplayTemplate>
+                @{
+                    var loc = (WeatherLocation)context.DataItem;
+                }
+                <div class="fs-8 text-muted">
+                    @if (!string.IsNullOrEmpty(loc.MidTermLandCode)) { <div>육상: @loc.MidTermLandCode</div> }
+                    @if (!string.IsNullOrEmpty(loc.MidTermTempCode)) { <div>기온: @loc.MidTermTempCode</div> }
+                    @if (string.IsNullOrEmpty(loc.MidTermLandCode) && string.IsNullOrEmpty(loc.MidTermTempCode)) { <div>-</div> }
+                </div>
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+        <DxGridDataColumn FieldName="Description" Caption="설명" MinWidth="160" />
+        <DxGridDataColumn FieldName="IsActive" Caption="상태" Width="90px">
+            <CellDisplayTemplate>
+                <span class="badge @((bool)context.Value! ? "bg-success" : "bg-secondary")">
+                    @((bool)context.Value! ? "사용중" : "중지")
+                </span>
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+        <DxGridDataColumn Caption="작업" Width="150px">
+            <CellDisplayTemplate>
+                @{
+                    var item = (WeatherLocation)context.DataItem;
+                }
+                <div class="d-flex gap-1 justify-content-center">
+                    <PermissionView Action="MenuAction.Update">
+                        <DxButton Text="수정" RenderStyle="ButtonRenderStyle.Secondary" SizeMode="SizeMode.Small" />
+                    </PermissionView>
+                    <PermissionView Action="MenuAction.Delete">
+                        <DxButton Text="삭제" RenderStyle="ButtonRenderStyle.Danger" SizeMode="SizeMode.Small" Click="@(() => DeleteAsync(item))" />
+                    </PermissionView>
+                </div>
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+    </Columns>
+</DxGrid>
+
+@code {
+    private List<WeatherLocation> _items = [];
+    private bool _loading;
+
+    protected override Task OnInitializedAsync() => LoadDataAsync();
+
+    private async Task LoadDataAsync()
+    {
+        _loading = true;
+        try
+        {
+            var list = await Client.GetLocationsAsync();
+            _items = list.OrderBy(x => x.SortOrder).ToList();
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task DeleteAsync(WeatherLocation item)
+    {
+        await Client.DeleteLocationAsync(item.Id);
+        await LoadDataAsync();
+    }
+}

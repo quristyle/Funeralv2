@@ -1,0 +1,61 @@
+@*
+    DB 에서 온 본문을 문단과 굵은 글씨까지만 살려서 보여 준다.
+
+    **`MarkupString` 을 쓰지 않는다.** 관리 화면에서 쓴 글이라도 HTML 로 넣는 순간
+    XSS 경로가 된다. 대신 문자열을 조각으로 잘라 마크업으로 그린다 — Razor 가
+    알아서 escape 하므로 어떤 값이 들어와도 태그로 해석되지 않는다.
+
+    알아보는 것은 둘뿐이다.
+      · 빈 줄     → 문단 나눔
+      · `**...**` → 굵게
+
+    마크다운 렌더러를 얹지 않은 이유: 링크·이미지·표까지 받으면 정제(sanitize)가
+    필요해지고, 그 정제는 틀리기 쉬운 코드다. 소개 문구에 필요한 것은 이 둘이다.
+    더 필요해지면 그때 렌더러와 정제를 **함께** 넣는다.
+*@
+
+<div class="@Class">
+    @foreach (var (paragraph, index) in Paragraphs.Select((p, i) => (p, i)))
+    {
+        <p class="rich-p @(index == 0 ? "" : Gap)">
+            @foreach (var part in paragraph)
+            {
+                @if (part.Bold)
+                {
+                    <strong>@part.Text</strong>
+                }
+                else
+                {
+                    @part.Text
+                }
+            }
+        </p>
+    }
+</div>
+
+@code {
+    /// <summary>DB 본문. 비어 있으면 아무것도 그리지 않는다.</summary>
+    [Parameter] public string? Text { get; set; }
+
+    /// <summary>바깥에서 주는 글자 크기·색 등.</summary>
+    [Parameter] public string? Class { get; set; }
+
+    /// <summary>문단 사이 여백 클래스.</summary>
+    [Parameter] public string Gap { get; set; } = "mt-4";
+
+    private sealed record Part(string Text, bool Bold);
+
+    private IEnumerable<List<Part>> Paragraphs =>
+        (Text ?? string.Empty)
+            .Split("\n\n", StringSplitOptions.None)
+            .Select(p => p.Trim())
+            .Where(p => p.Length > 0)
+            .Select(Split);
+
+    /// <summary>
+    /// 한 문단을 굵은 조각과 보통 조각으로 자른다.
+    /// `**` 개수가 홀수여도 깨지지 않는다 — 마지막 조각이 그냥 보통 글씨가 된다.
+    /// </summary>
+    private static List<Part> Split(string paragraph) =>
+        [.. paragraph.Split("**").Select((text, i) => new Part(text, i % 2 == 1))];
+}

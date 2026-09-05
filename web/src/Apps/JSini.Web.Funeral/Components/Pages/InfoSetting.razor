@@ -1,0 +1,42 @@
+@page "/funeral/setting/environment"
+
+@*
+    [장례식장 기본정보 설정]
+
+    이력: Vue `views/funeral/info` → 여기.
+    장례식장 사업자 정보, 연동 VAPID 키, 플레이어 해상도 및 기본 설정을 관리한다.
+*@
+
+<PageTitle>기본정보 설정 · 장례식장</PageTitle>
+
+<h1>기본정보 설정 <span class="pm-page__scope">장례식장</span></h1>
+
+<div class="card p-4 mx-auto" style="max-width: 800px;">
+    <h5 class="fw-bold mb-4">⚙️ 장례식장 사업장 및 통합 정보</h5>
+
+    <div class="row g-3 mb-3">
+        <div class="col-md-6">
+            <label class="form-label fw-bold">장례식장명</label>
+            <DxTextBox @bind-Text="_funeralName" />
+        </div>
+        <div class="col-md-6">
+            <label class="form-label fw-bold">대표 전화번호</label>
+            <DxTextBox @bind-Text="_phone" />
+        </div>
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label fw-bold">도로명 주소</label>
+        <DxTextBox @bind-Text="_address" />
+    </div>
+
+    <div class="d-flex justify-content-end gap-2 mt-4">
+        <DxButton Text="설정 저장" RenderStyle="ButtonRenderStyle.Primary" />
+    </div>
+</div>
+
+@code {
+    private string _funeralName = "JSini 시범 장례식장";
+    private string _phone = "02-1234-5678";
+    private string _address = "서울특별시 강남구 테헤란로 123";
+}

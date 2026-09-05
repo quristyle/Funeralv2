@@ -1,0 +1,84 @@
+@page "/site/banner"
+
+@*
+    [회사 소개 사이트 배너 관리]
+
+    이력: Vue `views/portal/site/banner` → 여기.
+    메인 배너 및 홍보 이미지/링크를 관리한다.
+*@
+
+<PageTitle>배너 관리 · 소개사이트·AI</PageTitle>
+
+<h1>배너 관리 <span class="pm-page__scope">소개사이트·AI</span></h1>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="d-flex gap-2">
+        <DxTextBox @bind-Text="_keyword" NullText="배너 제목 검색" Style="width: 240px" ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@LoadDataAsync" />
+    </div>
+    <PermissionView Action="MenuAction.Create">
+        <DxButton Text="배너 등록" RenderStyle="ButtonRenderStyle.Success" />
+    </PermissionView>
+</div>
+
+<DxGrid Data="@_banners" Loading="@_loading" PageSize="15">
+    <Columns>
+        <DxGridDataColumn FieldName="SortOrder" Caption="순서" Width="80px" />
+        <DxGridDataColumn FieldName="Title" Caption="배너 제목" MinWidth="200" />
+        <DxGridDataColumn FieldName="TargetUrl" Caption="이동 URL" MinWidth="200" />
+        <DxGridDataColumn FieldName="IsActive" Caption="상태" Width="90px">
+            <CellDisplayTemplate>
+                <span class="badge @((bool)context.Value! ? "bg-success" : "bg-secondary")">
+                    @((bool)context.Value! ? "게시중" : "숨김")
+                </span>
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+        <DxGridDataColumn Caption="관리" Width="120px">
+            <CellDisplayTemplate>
+                <div class="d-flex gap-1 justify-content-center">
+                    <PermissionView Action="MenuAction.Update">
+                        <DxButton Text="수정" RenderStyle="ButtonRenderStyle.Secondary" SizeMode="SizeMode.Small" />
+                    </PermissionView>
+                    <PermissionView Action="MenuAction.Delete">
+                        <DxButton Text="삭제" RenderStyle="ButtonRenderStyle.Danger" SizeMode="SizeMode.Small" />
+                    </PermissionView>
+                </div>
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+    </Columns>
+</DxGrid>
+
+@code {
+    private List<BannerItemDto> _banners = [];
+    private string? _keyword;
+    private bool _loading;
+
+    protected override Task OnInitializedAsync() => LoadDataAsync();
+
+    private Task LoadDataAsync()
+    {
+        _loading = true;
+        try
+        {
+            _banners =
+            [
+                new BannerItemDto { Id = 1, SortOrder = 1, Title = "JSini 업무 포털 개편 안내", TargetUrl = "/notice/1", IsActive = true },
+                new BannerItemDto { Id = 2, SortOrder = 2, Title = "새로운 장례식장 ERP 시스템 출시", TargetUrl = "/site/intro", IsActive = true }
+            ];
+        }
+        finally
+        {
+            _loading = false;
+        }
+        return Task.CompletedTask;
+    }
+
+    public sealed class BannerItemDto
+    {
+        public int Id { get; set; }
+        public int SortOrder { get; set; }
+        public string Title { get; set; } = string.Empty;
+        public string TargetUrl { get; set; } = string.Empty;
+        public bool IsActive { get; set; }
+    }
+}

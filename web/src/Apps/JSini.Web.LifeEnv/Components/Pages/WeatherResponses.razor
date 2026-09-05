@@ -1,0 +1,90 @@
+@page "/life/weather/responses"
+@using JSini.Web.LifeEnv.Api
+
+@*
+    [기상 대응 요령 관리]
+
+    이력: Vue `views/life/weather/responses.vue` → 여기.
+    판정 기준별 조치 사항 및 대응 요령을 관리한다.
+*@
+
+@inject LifeEnvClient Client
+
+<PageTitle>기상 대응 요령 관리 · 생활과환경</PageTitle>
+
+<h1>기상 대응 요령 관리 <span class="pm-page__scope">생활과환경</span></h1>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="d-flex gap-2">
+        <DxComboBox Data="@_standards"
+                    TextFieldName="Name"
+                    ValueFieldName="Id"
+                    Value="@_selectedStandardId"
+                    ValueChanged="@((int id) => OnStandardChanged(id))"
+                    NullText="판정 기준을 선택하세요"
+                    Style="width: 240px" />
+        <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@LoadDataAsync" />
+    </div>
+    <PermissionView Action="MenuAction.Create">
+        <DxButton Text="요령 추가" RenderStyle="ButtonRenderStyle.Success" />
+    </PermissionView>
+</div>
+
+<DxGrid Data="@_responses" Loading="@_loading" PageSize="20" KeyFieldName="Id">
+    <Columns>
+        <DxGridDataColumn FieldName="SortOrder" Caption="순서" Width="70px" />
+        <DxGridDataColumn FieldName="ActionContent" Caption="조치 및 대응 내용" MinWidth="300" />
+        <DxGridDataColumn FieldName="Description" Caption="비고/설명" MinWidth="160" />
+        <DxGridDataColumn Caption="관리" Width="120px">
+            <CellDisplayTemplate>
+                <div class="d-flex gap-1 justify-content-center">
+                    <PermissionView Action="MenuAction.Update">
+                        <DxButton Text="수정" RenderStyle="ButtonRenderStyle.Secondary" SizeMode="SizeMode.Small" />
+                    </PermissionView>
+                    <PermissionView Action="MenuAction.Delete">
+                        <DxButton Text="삭제" RenderStyle="ButtonRenderStyle.Danger" SizeMode="SizeMode.Small" />
+                    </PermissionView>
+                </div>
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+    </Columns>
+</DxGrid>
+
+@code {
+    private List<WeatherStandard> _standards = [];
+    private List<WeatherResponseItem> _responses = [];
+    private int _selectedStandardId;
+    private bool _loading;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var stds = await Client.GetStandardsAsync();
+        _standards = stds.ToList();
+        if (_standards.Count > 0)
+        {
+            _selectedStandardId = _standards[0].Id;
+            await LoadDataAsync();
+        }
+    }
+
+    private async Task OnStandardChanged(int id)
+    {
+        _selectedStandardId = id;
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        if (_selectedStandardId == 0) return;
+        _loading = true;
+        try
+        {
+            var res = await Client.GetResponsesByStandardAsync(_selectedStandardId);
+            _responses = res.OrderBy(x => x.SortOrder).ToList();
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+}

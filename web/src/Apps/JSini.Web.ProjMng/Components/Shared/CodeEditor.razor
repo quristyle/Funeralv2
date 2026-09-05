@@ -21,7 +21,17 @@
 
     바깥에서 값이 바뀔 때만 편집기에 밀어 넣는다. 편집기가 낸 변경까지
     되돌려 넣으면 타이핑 중에 커서가 맨 앞으로 튄다.
+
+    [변경 이벤트는 debounce 를 거친다]
+
+    Blazor Server 에서 변경 콜백 하나가 회로 왕복 두 번이다(이벤트 수신 +
+    GetValue). 키 입력마다 그러면 타자 속도로 회로를 두들기게 되므로,
+    입력이 잠시 멈춘 뒤(기본 300ms)에만 값을 읽어 올린다. 대기 중에는
+    바깥 값도 밀어 넣지 않는다 — 그 사이 부모가 다른 이유로 렌더되면
+    아직 안 올라간 타이핑을 옛 값으로 덮어쓰기 때문이다.
 *@
+
+@implements IAsyncDisposable
 
 <div class="pm-editor" style="height: @Height">
     <StandaloneCodeEditor @ref="_editor"
@@ -45,6 +55,9 @@
     /// <summary>편집기가 스스로 낸 마지막 값. 되먹임을 가르는 기준이다.</summary>
     private string? _lastPushed;
 
+    /// <summary>대기 중인 debounce. 새 입력이 오면 이전 것을 취소한다.</summary>
+    private CancellationTokenSource? _debounce;
+
     private bool _ready;
 
     [Parameter] public string? Value { get; set; }
@@ -58,6 +71,9 @@
 
     /// <summary>CSS 높이. <c>100%</c> 를 주려면 부모에 높이가 정해져 있어야 한다.</summary>
     [Parameter] public string Height { get; set; } = "240px";
+
+    /// <summary>입력이 이만큼(ms) 멈춘 뒤에 <see cref="ValueChanged"/> 를 올린다.</summary>
+    [Parameter] public int DebounceMs { get; set; } = 300;
 
     /// <summary>
     /// 편집기 옵션.
@@ -96,11 +112,13 @@
             _ready = true;
         }
 
-        // 바깥에서 바뀐 값만 밀어 넣는다.
+        // 바깥에서 바뀐 값만 밀어 넣는다. 편집기가 낸 변경이 아직 debounce 를
+        // 기다리는 동안에는 밀지 않는다 — Value 파라미터는 그 시점에 옛 값이라,
+        // 밀면 사용자가 방금 친 내용을 옛 값으로 되덮는다.
         var incoming = Value ?? string.Empty;
         var pushed = false;
 
-        if (_ready && incoming != (_lastPushed ?? string.Empty))
+        if (_ready && _debounce is null && incoming != (_lastPushed ?? string.Empty))
         {
             _lastPushed = incoming;
             await _editor.SetValue(incoming);
@@ -122,16 +140,62 @@
         }
     }
 
+    /// <summary>
+    /// 편집기의 변경 신호. 입력이 <see cref="DebounceMs"/> 만큼 멈춘 뒤에만
+    /// 값을 읽어 올린다 — 연타 중에는 이전 대기를 취소하고 다시 기다린다.
+    /// </summary>
     private async Task OnEditorChangedAsync(ModelContentChangedEvent _)
     {
-        if (_editor is null)
-        {
-            return;
-        }
+        _debounce?.Cancel();
+        _debounce?.Dispose();
+        var cts = _debounce = new CancellationTokenSource();
 
-        var text = await _editor.GetValue();
-        _lastPushed = text;
-        await ValueChanged.InvokeAsync(text);
+        try
+        {
+            await Task.Delay(DebounceMs, cts.Token);
+
+            if (_editor is null)
+            {
+                return;
+            }
+
+            var text = await _editor.GetValue();
+            _lastPushed = text;
+
+            // 올리기 전에 대기 표식을 지운다 — ValueChanged 가 부모를 렌더시키고,
+            // 그 렌더의 OnAfterRenderAsync 가 "대기 중" 이라며 새 값 반영을
+            // 건너뛰면 안 된다.
+            if (ReferenceEquals(_debounce, cts))
+            {
+                _debounce = null;
+            }
+
+            await ValueChanged.InvokeAsync(text);
+        }
+        catch (OperationCanceledException)
+        {
+            // 더 새 입력이 왔다. 그쪽 대기가 값을 올린다.
+        }
+        catch (JSDisconnectedException)
+        {
+            // 회로가 끊겼다. 올릴 곳이 없다.
+        }
+        finally
+        {
+            cts.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// 대기 중인 debounce 를 끊는다. 편집기 자신(모나코 인스턴스)의 파괴는
+    /// BlazorMonaco 의 <c>StandaloneCodeEditor</c> 가 자기 Dispose 에서 한다 —
+    /// 자식 컴포넌트라 이 컴포넌트가 사라질 때 함께 정리된다.
+    /// </summary>
+    public ValueTask DisposeAsync()
+    {
+        _debounce?.Cancel();
+        _debounce = null;
+        return ValueTask.CompletedTask;
     }
 
     /// <summary>

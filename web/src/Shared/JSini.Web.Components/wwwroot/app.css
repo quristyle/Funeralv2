@@ -286,3 +286,54 @@ body {
 .jsini-diagnostics__facts dd {
   margin: 0;
 }
+
+/* ── 준비 중 안내 (아직 안 옮긴 화면) ────────────────────── */
+
+.jsini-pending {
+  max-width: 620px;
+  padding: 2rem 0;
+}
+
+.jsini-pending__title {
+  margin-bottom: 0.75rem;
+}
+
+.jsini-pending__lead {
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.jsini-pending__facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.35rem 1rem;
+  margin: 1.25rem 0;
+  padding: 0.9rem 1rem;
+  border-radius: 6px;
+  background: var(--jsini-surface-muted, rgba(127, 127, 127, 0.08));
+  font-size: 0.9rem;
+}
+
+.jsini-pending__facts dt {
+  color: var(--jsini-text-muted);
+}
+
+.jsini-pending__facts dd {
+  margin: 0;
+}
+
+.jsini-pending__facts code {
+  user-select: all; /* 주소를 한 번에 집어 신고에 붙일 수 있게 */
+}
+
+.jsini-pending__hint {
+  font-size: 0.9rem;
+  color: var(--jsini-text-muted);
+  line-height: 1.6;
+}
+
+.jsini-pending__actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1.5rem;
+}

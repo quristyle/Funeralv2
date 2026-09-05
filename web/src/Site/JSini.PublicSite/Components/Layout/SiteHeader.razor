@@ -1,0 +1,79 @@
+@*
+    머리글. 상단에 붙어 따라온다.
+
+    [모바일 차림표를 <details> 로 연다]
+
+    원본은 Vue 의 `ref(false)` 로 열고 닫았다. 이 앱에는 회로가 없어 그 상태를
+    서버가 들고 있을 수 없다. `<details>` 는 브라우저가 스스로 여닫으므로
+    자바스크립트도 회로도 필요 없고, 키보드와 스크린 리더 동작도 표준으로 따라온다.
+*@
+
+<header class="site-header">
+    <div class="wrap site-header__bar">
+        <a href="@Link("/")" class="site-header__brand" aria-label="JSINI">
+            <BrandLogo Height="24" />
+        </a>
+
+        <nav class="site-header__nav" aria-label="주요 메뉴">
+            @foreach (var item in Items)
+            {
+                <NavLink class="site-header__link" href="@item.Href" Match="NavLinkMatch.All">@item.Label</NavLink>
+            }
+
+            @* 언어 전환. 지금 보고 있는 화면의 다른 언어 주소로 간다. *@
+            <a class="site-header__lang"
+               href="@OtherLocalePath"
+               aria-label="@($"{T.Common.LangLabel}: {SiteMessages.Other(Locale).ToUpperInvariant()}")">
+                @SiteMessages.Other(Locale).ToUpperInvariant()
+            </a>
+        </nav>
+
+        <details class="site-header__mobile">
+            <summary class="site-header__toggle" aria-label="메뉴">
+                <span></span><span></span><span></span>
+            </summary>
+
+            <nav class="site-header__drawer" aria-label="주요 메뉴">
+                @foreach (var item in Items)
+                {
+                    <a class="site-header__drawer-link" href="@item.Href">@item.Label</a>
+                }
+                <a class="site-header__drawer-link" href="@OtherLocalePath">
+                    @SiteMessages.Other(Locale).ToUpperInvariant()
+                </a>
+            </nav>
+        </details>
+    </div>
+</header>
+
+@code {
+    [Parameter, EditorRequired] public string Locale { get; set; } = SiteMessages.DefaultLocale;
+
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
+
+    private Messages T => SiteMessages.For(Locale);
+
+    private string Link(string path) => $"/{Locale}{(path == "/" ? string.Empty : path)}";
+
+    private (string Href, string Label)[] Items =>
+    [
+        (Link("/about"), T.Nav.About),
+        (Link("/work"), T.Nav.Work),
+        (Link("/news"), T.Nav.News),
+        (Link("/downloads"), T.Nav.Downloads),
+        (Link("/contact"), T.Nav.Contact),
+    ];
+
+    /// <summary>같은 화면의 다른 언어 주소. 언어 조각만 갈아 끼운다.</summary>
+    private string OtherLocalePath
+    {
+        get
+        {
+            var rest = Navigation.ToBaseRelativePath(Navigation.Uri)
+                .Split('/', StringSplitOptions.RemoveEmptyEntries)
+                .Skip(1);
+
+            return $"/{SiteMessages.Other(Locale)}{string.Concat(rest.Select(s => "/" + s))}";
+        }
+    }
+}

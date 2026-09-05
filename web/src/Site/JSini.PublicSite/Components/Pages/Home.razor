@@ -1,0 +1,121 @@
+@page "/{Locale}"
+
+@*
+    첫 화면.
+
+    [DB 가 비어 있어도 그려진다]
+
+    아래 두 덩어리(문구 블록 · 뉴스)는 있으면 붙고 없으면 빠진다. SiteApi 가
+    실패를 빈 목록으로 바꾸므로, 게이트웨이가 내려가 있어도 히어로는 나온다.
+    소개 사이트가 백엔드 상태에 묶여 죽는 것이 최악이기 때문이다.
+*@
+
+@inject SiteApi Api
+
+<PageTitle>JSINI</PageTitle>
+<HeadContent>
+    <meta name="description" content="@T.Hero.Lead" />
+    <meta property="og:site_name" content="JSINI" />
+    <meta property="og:title" content="JSINI" />
+</HeadContent>
+
+@*
+    히어로. 문구는 왼쪽, 모션은 오른쪽이다.
+    모션 위에 글자를 얹지 않는다 — 움직이는 배경 위의 글자는 읽기 어렵다.
+*@
+<section class="hero">
+    <div class="wrap hero__grid">
+        <div>
+            <p class="hero__eyebrow">@T.Hero.Eyebrow</p>
+            <h1 class="h-display hero__headline">@T.Hero.Headline</h1>
+            <p class="hero__lead">@T.Hero.Lead</p>
+            <a class="btn-outline-light" href="@Link("/work")">@T.Hero.Cta</a>
+        </div>
+
+        <div class="hero__motion" aria-hidden="true">
+            @* 그리는 것은 wwwroot/shard-motion.js 다. 회로가 없으므로 평범한 JS 다. *@
+            <canvas data-shard-motion></canvas>
+        </div>
+    </div>
+</section>
+
+@if (_sections.Count > 0)
+{
+    <section class="wrap section">
+        <div class="cards-3">
+            @foreach (var s in _sections)
+            {
+                <article>
+                    <div class="shard-rule shard-rule--short"></div>
+                    <h2 class="h-display text-xl">@s.Title</h2>
+                    @if (!string.IsNullOrWhiteSpace(s.Subtitle))
+                    {
+                        <p class="muted mt-2 text-sm">@s.Subtitle</p>
+                    }
+                    <RichText Text="@s.Body" Class="mt-4 text-sm body-copy" />
+                </article>
+            }
+        </div>
+    </section>
+}
+
+@if (_posts.Count > 0)
+{
+    <section class="section section--ruled">
+        <div class="wrap">
+            <div class="section__head">
+                <h2 class="h-display text-2xl">@T.Nav.News</h2>
+                <a class="link-quiet" href="@Link("/news")">@T.Common.ReadMore →</a>
+            </div>
+
+            <div class="cards-3 mt-10">
+                @foreach (var p in _posts)
+                {
+                    <a class="post-card" href="@Link($"/news/{p.Slug}")">
+                        @if (!string.IsNullOrWhiteSpace(p.CoverUrl))
+                        {
+                            <div class="post-card__cover">
+                                <img src="@Api.PublicUrl(p.CoverUrl)" alt="@p.Title" loading="lazy" />
+                            </div>
+                        }
+                        @if (p.PublishedAt is not null)
+                        {
+                            <time class="post-card__date">@p.PublishedAt.Value.ToString("yyyy-MM-dd")</time>
+                        }
+                        <h3 class="post-card__title">@p.Title</h3>
+                        @if (!string.IsNullOrWhiteSpace(p.Summary))
+                        {
+                            <p class="post-card__summary clamp-2">@p.Summary</p>
+                        }
+                    </a>
+                }
+            </div>
+        </div>
+    </section>
+}
+
+@code {
+    [Parameter] public string? Locale { get; set; }
+
+    private Messages T => SiteMessages.For(Locale);
+    private string L => SiteMessages.Normalize(Locale);
+    private string Link(string path) => $"/{L}{path}";
+
+    private List<Section> _sections = [];
+    private List<PostListItem> _posts = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        // 둘을 나란히 부른다. 순서에 의미가 없고, 소개 사이트에서는 첫 바이트까지의
+        // 시간이 곧 이탈률이다.
+        var sections = Api.SectionsAsync(L, "home.");
+        var posts = Api.PostsAsync(L, 3);
+
+        await Task.WhenAll(sections, posts);
+
+        _sections = sections.Result;
+        _posts = posts.Result;
+
+        Api.RecordVisit($"/{L}", L);
+    }
+}

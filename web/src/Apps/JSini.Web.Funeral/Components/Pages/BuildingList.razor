@@ -1,0 +1,75 @@
+@page "/funeral/building/info"
+
+@*
+    [시설/건물 관리]
+
+    이력: Vue `views/funeral/building` → 여기.
+    장례식장 층/동/빈소/안치실/영결식장 시설 정보를 관리한다.
+*@
+
+<PageTitle>시설/건물 관리 · 장례식장</PageTitle>
+
+<h1>시설/건물 관리 <span class="pm-page__scope">장례식장</span></h1>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="d-flex gap-2">
+        <DxTextBox @bind-Text="_keyword" NullText="시설/빈소명 검색" Style="width: 240px" ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@LoadDataAsync" />
+    </div>
+    <PermissionView Action="MenuAction.Create">
+        <DxButton Text="시설 추가" RenderStyle="ButtonRenderStyle.Success" />
+    </PermissionView>
+</div>
+
+<DxGrid Data="@_buildings" Loading="@_loading" PageSize="15">
+    <Columns>
+        <DxGridDataColumn FieldName="Floor" Caption="위치/층" Width="100px" />
+        <DxGridDataColumn FieldName="Name" Caption="시설/빈소명" MinWidth="180" />
+        <DxGridDataColumn FieldName="Type" Caption="구분" Width="120px" />
+        <DxGridDataColumn FieldName="Capacity" Caption="수용 인원" Width="100px" />
+        <DxGridDataColumn Caption="관리" Width="120px">
+            <CellDisplayTemplate>
+                <div class="d-flex gap-1 justify-content-center">
+                    <PermissionView Action="MenuAction.Update">
+                        <DxButton Text="수정" RenderStyle="ButtonRenderStyle.Secondary" SizeMode="SizeMode.Small" />
+                    </PermissionView>
+                </div>
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+    </Columns>
+</DxGrid>
+
+@code {
+    private List<BuildingItemDto> _buildings = [];
+    private string? _keyword;
+    private bool _loading;
+
+    protected override Task OnInitializedAsync() => LoadDataAsync();
+
+    private Task LoadDataAsync()
+    {
+        _loading = true;
+        try
+        {
+            _buildings =
+            [
+                new BuildingItemDto { Floor = "3층", Name = "특1호실", Type = "빈소", Capacity = "100명" },
+                new BuildingItemDto { Floor = "2층", Name = "2호실", Type = "빈소", Capacity = "60명" },
+                new BuildingItemDto { Floor = "지하1층", Name = "안치실 1~6호", Type = "안치실", Capacity = "6구" }
+            ];
+        }
+        finally
+        {
+            _loading = false;
+        }
+        return Task.CompletedTask;
+    }
+
+    public sealed class BuildingItemDto
+    {
+        public string Floor { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public string Type { get; set; } = string.Empty;
+        public string Capacity { get; set; } = string.Empty;
+    }
+}

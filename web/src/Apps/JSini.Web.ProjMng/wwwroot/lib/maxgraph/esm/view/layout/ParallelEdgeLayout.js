@@ -1,0 +1,195 @@
+/*
+Copyright 2021-present The maxGraph project Contributors
+Copyright (c) 2006-2015, JGraph Ltd
+Copyright (c) 2006-2015, Gaudenz Alder
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+import Point from '../geometry/Point.js';
+import GraphLayout from './GraphLayout.js';
+import ObjectIdentity from '../../util/ObjectIdentity.js';
+import { isNullish } from '../../internal/utils.js';
+/**
+ * Extends {@link GraphLayout} for arranging parallel edges.
+ *
+ * This layout works on edges for all pairs of vertices where there is more than one edge connecting the latter.
+ *
+ * Example:
+ *
+ * ```javascript
+ * const layout = new ParallelEdgeLayout(graph);
+ * layout.execute(graph.getDefaultParent());
+ * ```
+ *
+ * To run the layout for the parallel edges of a changed edge only, the following code can be used.
+ *
+ * ```javascript
+ * const layout = new ParallelEdgeLayout(graph);
+ *
+ * graph.addListener(InternalEvent.CELL_CONNECTED, (sender, evt) => {
+ *   const model = graph.getDataModel();
+ *   const edge = evt.getProperty('edge');
+ *   const src = model.getTerminal(edge, true);
+ *   const trg = model.getTerminal(edge, false);
+ *
+ *   layout.isEdgeIgnored = (edge2) => {
+ *     const src2 = model.getTerminal(edge2, true);
+ *     const trg2 = model.getTerminal(edge2, false);
+ *
+ *     return !(model.isEdge(edge2) && ((src === src2 && trg === trg2) || (src === trg2 && trg === src2)));
+ *   };
+ *
+ *   layout.execute(graph.getDefaultParent());
+ * });
+ * ```
+ *
+ * @category Layout
+ */
+class ParallelEdgeLayout extends GraphLayout {
+    constructor(graph) {
+        super(graph);
+        /**
+         * Defines the spacing between parallel edges.
+         * @default 20
+         */
+        this.spacing = 20;
+        /**
+         * Specifies whether only overlapping edges should be considered parallel.
+         * @default false
+         */
+        this.checkOverlap = false;
+    }
+    /**
+     * Implements {@link GraphLayout.execute}.
+     */
+    execute(parent, cells = null) {
+        const lookup = this.findParallels(parent, cells);
+        this.graph.batchUpdate(() => {
+            for (const parallels of Object.values(lookup)) {
+                if (parallels.length > 1) {
+                    this.layout(parallels);
+                }
+            }
+        });
+    }
+    /**
+     * Finds the parallel edges in the given parent.
+     */
+    findParallels(parent, cells = null) {
+        const lookup = Object.create(null);
+        const addCell = (cell) => {
+            if (!this.isEdgeIgnored(cell)) {
+                const id = this.getEdgeId(cell);
+                if (!isNullish(id)) {
+                    (lookup[id] ?? (lookup[id] = [])).push(cell);
+                }
+            }
+        };
+        if (cells) {
+            for (const cell of cells) {
+                addCell(cell);
+            }
+        }
+        else {
+            const model = this.graph.getDataModel();
+            const childCount = parent.getChildCount();
+            for (let i = 0; i < childCount; i += 1) {
+                addCell(parent.getChildAt(i));
+            }
+        }
+        return lookup;
+    }
+    /**
+     * Returns a unique ID for the given edge.
+     * The id is independent of the edge direction and is built using the visible terminals of the given edge.
+     */
+    getEdgeId(edge) {
+        const view = this.graph.getView();
+        // Cannot use cached visible terminal because this could be triggered in BEFORE_UNDO
+        let src = view.getVisibleTerminal(edge, true);
+        let trg = view.getVisibleTerminal(edge, false);
+        let pts = '';
+        if (src != null && trg != null) {
+            src = ObjectIdentity.get(src);
+            trg = ObjectIdentity.get(trg);
+            if (this.checkOverlap) {
+                const state = view.getState(edge);
+                if (state != null && state.absolutePoints != null) {
+                    const tmp = [];
+                    for (let i = 0; i < state.absolutePoints.length; i += 1) {
+                        const pt = state.absolutePoints[i];
+                        if (pt != null) {
+                            tmp.push(pt.x, pt.y);
+                        }
+                    }
+                    pts = tmp.join(',');
+                }
+            }
+            return (src > trg ? `${trg}-${src}` : `${src}-${trg}`) + pts;
+        }
+        return null;
+    }
+    /**
+     * Lays out the parallel edges in the given array.
+     */
+    layout(parallels) {
+        const edge = parallels[0];
+        const view = this.graph.getView();
+        const model = this.graph.getDataModel();
+        const src = view.getVisibleTerminal(edge, true).getGeometry();
+        const trg = view.getVisibleTerminal(edge, false).getGeometry();
+        let x0;
+        let y0;
+        // Routes multiple loops
+        if (src === trg) {
+            x0 = src.x + src.width + this.spacing;
+            y0 = src.y + src.height / 2;
+            for (let i = 0; i < parallels.length; i += 1) {
+                this.route(parallels[i], x0, y0);
+                x0 += this.spacing;
+            }
+        }
+        else if (src != null && trg != null) {
+            // Routes parallel edges
+            const scx = src.x + src.width / 2;
+            const scy = src.y + src.height / 2;
+            const tcx = trg.x + trg.width / 2;
+            const tcy = trg.y + trg.height / 2;
+            const dx = tcx - scx;
+            const dy = tcy - scy;
+            const len = Math.sqrt(dx * dx + dy * dy);
+            if (len > 0) {
+                x0 = scx + dx / 2;
+                y0 = scy + dy / 2;
+                const nx = (dy * this.spacing) / len;
+                const ny = (dx * this.spacing) / len;
+                x0 += (nx * (parallels.length - 1)) / 2;
+                y0 -= (ny * (parallels.length - 1)) / 2;
+                for (let i = 0; i < parallels.length; i += 1) {
+                    this.route(parallels[i], x0, y0);
+                    x0 -= nx;
+                    y0 += ny;
+                }
+            }
+        }
+    }
+    /**
+     * Routes the given edge via the given point.
+     */
+    route(edge, x, y) {
+        if (this.graph.isCellMovable(edge)) {
+            this.setEdgePoints(edge, [new Point(x, y)]);
+        }
+    }
+}
+export default ParallelEdgeLayout;

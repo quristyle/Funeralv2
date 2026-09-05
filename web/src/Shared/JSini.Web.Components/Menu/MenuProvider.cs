@@ -40,7 +40,11 @@ public sealed class MenuProvider(
         try
         {
             var wire = await gateway.GetListAsync<MenuWireDto>("auth/menu/all", cancellationToken);
-            _all = [.. wire.Select(w => w.ToNode())];
+
+            // 옛 DB 경로를 Blazor 라우트로 옮긴다. Path 는 그대로 두고 Href 만
+            // 채운다 — 권한표의 열쇠가 Path 이기 때문이다(RouteAliases 참고).
+            _all = [.. wire.Select(w => WithHref(w.ToNode()))];
+
             logger.LogInformation("메뉴를 읽었다: 최상위 {Count}개", _all.Count);
         }
         catch (ApiException ex)
@@ -53,6 +57,16 @@ public sealed class MenuProvider(
 
         Reapply();
     }
+
+    /// <summary>
+    /// 트리 전체에 링크 주소를 채운다. 외부 링크는 건드리지 않는다 —
+    /// 앱 라우트가 아니라 옮길 대상이 아니다.
+    /// </summary>
+    private static MenuNode WithHref(MenuNode node) => node with
+    {
+        Href = node.IsExternalLink ? node.Link ?? node.Path : RouteAliases.Resolve(node.Path),
+        Children = [.. node.Children.Select(WithHref)],
+    };
 
     public void SetViewport(Viewport viewport)
     {
@@ -110,9 +124,11 @@ public sealed class MenuProvider(
             foreach (var node in nodes)
             {
                 // 묶음과 외부 링크는 화면이 없는 것이 정상이다.
-                if (!node.IsCatalog && !node.IsExternalLink && !string.IsNullOrWhiteSpace(node.Path))
+                // **Path 가 아니라 LinkTarget 으로 대조한다.** 사용자가 실제로
+                // 열게 되는 주소가 그것이고, 라우트가 있느냐는 그 주소로 판정해야 한다.
+                if (!node.IsCatalog && !node.IsExternalLink && !string.IsNullOrWhiteSpace(node.LinkTarget))
                 {
-                    into.Add(node.Path);
+                    into.Add(node.LinkTarget);
                 }
                 Collect(node.Children, into);
             }
@@ -164,10 +180,22 @@ public sealed class RouteInventory
                 foreach (var attribute in type.GetCustomAttributes(
                     typeof(Microsoft.AspNetCore.Components.RouteAttribute), inherit: false))
                 {
-                    if (attribute is Microsoft.AspNetCore.Components.RouteAttribute route)
+                    if (attribute is not Microsoft.AspNetCore.Components.RouteAttribute route)
                     {
-                        paths.Add(Combine(prefix, route.Template));
+                        continue;
                     }
+
+                    // 포괄 라우트(`/funeral/{*rest}`)는 세지 않는다.
+                    //
+                    // 그건 화면이 아니라 "아직 화면이 없다" 를 알리는 안내다.
+                    // 세어 버리면 그 업무의 모든 메뉴가 화면이 있는 것으로
+                    // 보여서, 이 대조가 뜻하는 바가 통째로 사라진다.
+                    if (route.Template.Contains("{*", StringComparison.Ordinal))
+                    {
+                        continue;
+                    }
+
+                    paths.Add(Combine(prefix, route.Template));
                 }
             }
         }

@@ -67,19 +67,14 @@ public sealed class DependencyRuleTests
     }
 
     /// <summary>
-    /// 규칙 3. <b><c>@page</c> 에 자기 접두사를 적지 않는다.</b>
+    /// 규칙 3. <b><c>@page</c> 는 자기 모듈의 라우트 접두사로 시작한다.</b>
     ///
-    /// 독립 앱이 되면서 규칙이 뒤집혔다. RCL 이던 시절에는 모두 한 라우터에
-    /// 들어가서 <c>@page "/funeral/status"</c> 라고 적어야 했지만, 지금은
-    /// <c>UsePathBase("/funeral")</c> 가 접두사를 <b>떼고</b> 넘긴다.
-    /// 여기에 접두사를 또 적으면 실제 주소가 <c>/funeral/funeral/status</c> 가
-    /// 되어 아무도 열 수 없는 화면이 된다.
-    ///
-    /// 빌드는 통과하고, 그 화면만 조용히 404 다. 화면을 250개 옮기는 동안
-    /// 반드시 몇 번은 이렇게 적게 되므로 테스트로 막는다.
+    /// Piral MFE 구조에서는 단일 SPA 라우터에서 모든 화면을 처리하므로,
+    /// 각 모듈의 모든 <c>@page</c> 는 자기 <c>RoutePrefix</c>(예: <c>/funeral</c>)
+    /// 아래에 있어야 충돌 없이 라우팅된다.
     /// </summary>
     [Fact]
-    public void 앱의_라우트에_자기_접두사를_중복해서_적지_않는다()
+    public void 앱의_라우트는_자기_접두사로_시작한다()
     {
         var offenders = new List<string>();
 
@@ -90,12 +85,11 @@ public sealed class DependencyRuleTests
                 foreach (var route in type.GetCustomAttributes(typeof(RouteAttribute), false)
                              .Cast<RouteAttribute>())
                 {
-                    if (route.Template.StartsWith(descriptor.RoutePrefix, StringComparison.OrdinalIgnoreCase))
+                    if (!route.Template.StartsWith(descriptor.RoutePrefix, StringComparison.OrdinalIgnoreCase))
                     {
                         offenders.Add(
                             $"{descriptor.Key}: @page \"{route.Template}\" 는 "
-                            + $"{descriptor.RoutePrefix}{route.Template} 가 된다. "
-                            + "접두사를 빼라 (UsePathBase 가 붙여 준다).");
+                            + $"접두사 '{descriptor.RoutePrefix}' 로 시작해야 한다.");
                     }
                 }
             }

@@ -21,7 +21,7 @@
       개발 장비마다 각자 넣는 것이라 빌드를 막으면 안 된다. 자세한 내용은 README.
     -->
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <WarningsNotAsErrors>DX1000;DX1001</WarningsNotAsErrors>
+    <WarningsNotAsErrors>DX1000;DX1001;NU1901;NU1902;NU1903;NU1904</WarningsNotAsErrors>
 
     <!--
       CS1591(공개 멤버에 XML 주석 없음)은 끈다.

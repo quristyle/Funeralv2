@@ -1,0 +1,48 @@
+@page "/projmng/tool/fast-test"
+@using System.Data
+
+@*
+    [Fast 호출 테스트]
+
+    이력: Vue `views/projmng/proj/fast-test.vue` → 여기.
+    프로시저: `sp_proj_wbs_exec`
+*@
+
+@inject ProjMngClient Client
+
+<PageTitle>Fast 호출 테스트 · 프로젝트관리</PageTitle>
+
+<h1>Fast 호출 테스트 <span class="pm-page__scope">프로젝트관리</span></h1>
+
+<SearchBar>
+    <ChildContent>
+        <CodeSelect CodeId="projlist" @bind-Value="_projectCode" OnChanged="@(_ => SearchAsync())" />
+    </ChildContent>
+    <Actions>
+        <PermissionView Action="MenuAction.Search">
+            <DxButton Text="호출" RenderStyle="ButtonRenderStyle.Primary" Click="@SearchAsync" />
+        </PermissionView>
+    </Actions>
+</SearchBar>
+
+<DynamicGrid Data="@_grid.Data"
+             Loading="@_grid.IsLoading"
+             ExportName="fast-test" />
+
+@code {
+    private ProcGrid _grid = default!;
+    private string? _projectCode = "7";
+
+    protected override void OnInitialized()
+    {
+        _grid = new ProcGrid(Client, "sp_proj_wbs_exec") { IsServerFix = true };
+    }
+
+    private Task SearchAsync()
+    {
+        return _grid.LoadAsync(new Dictionary<string, object?>
+        {
+            ["prj_rid"] = _projectCode ?? "7"
+        });
+    }
+}

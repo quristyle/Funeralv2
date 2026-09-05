@@ -1,0 +1,70 @@
+@*
+    아직 옮겨 오지 않은 화면에 닿았을 때 나오는 안내.
+
+    [빈 404 로 두지 않는 이유]
+
+    DB 메뉴는 179건인데 Blazor 로 옮긴 화면은 그보다 훨씬 적다. 이행하는
+    동안에는 "메뉴에는 있는데 화면이 없는" 상태가 정상이다.
+
+    그때 사용자가 보는 것이 "페이지를 찾을 수 없습니다" 뿐이면 두 가지가
+    구분되지 않는다 — **아직 안 옮긴 화면**과 **주소를 잘못 친 것**. 앞엣것은
+    기다리면 되는 일이고 뒤엣것은 신고할 일인데, 화면이 같으면 둘 다 신고가
+    들어온다. 그래서 어느 쪽인지 화면에 적는다.
+
+    이행이 끝나면 이 컴포넌트와 각 모듈의 포괄 라우트를 함께 지운다.
+    **그때까지 남은 화면 수를 세는 자리이기도 하다.**
+*@
+
+@inject IReadOnlyList<IPortalModule> Modules
+@inject NavigationManager Navigation
+
+<PageTitle>준비 중 · JSini 포털</PageTitle>
+
+<div class="jsini-pending">
+    <h1 class="jsini-pending__title">아직 준비 중인 화면입니다</h1>
+
+    <p class="jsini-pending__lead">
+        @(Module?.DisplayName ?? "이 업무")의 화면을 Vue 포털에서 옮겨 오는 중입니다.
+        메뉴에는 있지만 아직 만들어지지 않았습니다.
+    </p>
+
+    <dl class="jsini-pending__facts">
+        <dt>주소</dt>
+        <dd><code>@CurrentPath</code></dd>
+
+        <dt>업무</dt>
+        <dd>@(Module is null ? "알 수 없음" : $"{Module.DisplayName} ({Module.Key})")</dd>
+    </dl>
+
+    <p class="jsini-pending__hint">
+        주소를 잘못 입력한 것이 아니라면 그대로 두셔도 됩니다 — 이행이 끝나면 이 자리에 화면이 나옵니다.
+        급히 필요하시면 아직 <strong>Vue 포털</strong>에서 같은 메뉴를 쓰실 수 있습니다.
+    </p>
+
+    <div class="jsini-pending__actions">
+        <DxButton Text="포털 첫 화면으로" NavigateUrl="/" RenderStyle="ButtonRenderStyle.Primary" />
+
+        @if (Module is not null)
+        {
+            <DxButton Text="@($"{Module.DisplayName} 첫 화면으로")"
+                      NavigateUrl="@Module.RoutePrefix"
+                      RenderStyle="ButtonRenderStyle.Secondary" />
+        }
+    </div>
+</div>
+
+@code {
+    private string CurrentPath => "/" + Navigation
+        .ToBaseRelativePath(Navigation.Uri)
+        .Split('?', '#')[0]
+        .TrimStart('/');
+
+    /// <summary>
+    /// 이 주소를 소유한 모듈. 접두사가 가장 긴 것을 고른다 —
+    /// 접두사가 겹치는 모듈은 아키텍처 테스트가 막지만, 고르는 규칙 자체는
+    /// 겹쳐도 옳게 동작하는 쪽으로 둔다.
+    /// </summary>
+    private IPortalModule? Module => Modules
+        .Where(m => CurrentPath.StartsWith(m.RoutePrefix, StringComparison.OrdinalIgnoreCase))
+        .MaxBy(m => m.RoutePrefix.Length);
+}

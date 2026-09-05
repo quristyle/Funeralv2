@@ -1,0 +1,49 @@
+/*
+Copyright 2023-present The maxGraph project Contributors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+import { registerModelCodecs } from './register-model-codecs.js';
+import { getPrettyXml, getXml, parseXml } from '../util/xmlUtils.js';
+import Codec from './Codec.js';
+/**
+ * Convenient utility class using {@link Codec} to manage maxGraph model import and export.
+ *
+ * **WARN**: this is an experimental feature that is subject to change (class and method names).
+ *
+ * @experimental
+ * @since 0.6.0
+ * @category Serialization with Codecs
+ */
+// Include 'XML' in the class name as there were past discussions about supporting other format like JSON for example
+// See https://github.com/maxGraph/maxGraph/discussions/60 for more details.
+export class ModelXmlSerializer {
+    constructor(dataModel) {
+        this.dataModel = dataModel;
+        this.registerCodecs();
+    }
+    import(input) {
+        const doc = typeof input === 'string' ? parseXml(input) : input.ownerDocument;
+        new Codec(doc).decode(doc.documentElement, this.dataModel);
+    }
+    export(options) {
+        const encodedNode = new Codec().encode(this.dataModel);
+        return (options?.pretty ?? true) ? getPrettyXml(encodedNode) : getXml(encodedNode);
+    }
+    /**
+     * Hook for replacing codecs registered by default (model codecs).
+     */
+    registerCodecs() {
+        registerModelCodecs();
+    }
+}

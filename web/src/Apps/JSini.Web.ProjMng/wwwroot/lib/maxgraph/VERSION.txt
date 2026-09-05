@@ -1,0 +1,5 @@
+@maxgraph/core 0.24.0 (lib/esm 의 *.js 만)
+
+출처: fronts/apps/jsini-portal/node_modules/@maxgraph/core (pnpm)
+갱신: 같은 경로에서 *.js 를 다시 복사한다. 운영에서 외부 CDN 을 쓰지 않기 위해
+로컬 정적 자산으로 실었다 — DiagramViewer.razor / js/diagram-viewer.js 가 쓴다.

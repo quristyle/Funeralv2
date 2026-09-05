@@ -1,0 +1,115 @@
+@*
+    다이어그램 — ERD·플로우·유스케이스 3화면용. Vue 의 `erd-diagram.vue` 를 잇는다.
+
+    [뷰어가 아니라 편집기다]
+
+    Vue 원본을 확인한 결과 읽기 전용 렌더가 아니다 — 도형을 끌어 옮기고,
+    크기를 바꾸고, 도형끼리 선으로 잇고, 그 배치를 저장한다(`save()` 가 좌표를
+    되돌려 담는다). 그래서 SVG 직접 렌더가 아니라 maxgraph 를 그대로 쓴다.
+    엔진은 로컬 정적 자산이다 — wwwroot/lib/maxgraph (CDN 아님, VERSION.txt 참고).
+
+    [무게는 처음 쓸 때 진다]
+
+    maxgraph 는 이 컴포넌트가 처음 만들어질 때 JS 모듈 import 로 로드된다.
+    Monaco 처럼 App.razor 에 실지 않았다 — 다이어그램은 27화면 중 3개만 쓴다.
+
+    [화면과의 계약]
+
+    화면이 @ref 로 잡고 LoadAsync/SaveAsync 를 부른다 (Vue 의 defineExpose 와
+    같은 구도). 값 바인딩이 아닌 이유: 그리는 쪽(모델)과 사용자가 만지는 쪽
+    (캔버스)이 계속 어긋나는 것이 정상 상태라, 저장 버튼을 눌렀을 때만
+    캔버스를 모델로 되돌리는 편이 맞다.
+*@
+
+@implements IAsyncDisposable
+@inject IJSRuntime Js
+
+<div class="pm-diagram" style="height: @Height" @ref="_container"></div>
+
+@code {
+    private ElementReference _container;
+    private IJSObjectReference? _module;
+    private IJSObjectReference? _instance;
+
+    /// <summary>CSS 높이. <c>100%</c> 를 주려면 부모에 높이가 정해져 있어야 한다.</summary>
+    [Parameter] public string Height { get; set; } = "100%";
+
+    /// <summary>모델을 캔버스에 그린다. 기존 도형은 모두 지운다.</summary>
+    public async Task LoadAsync(ErdModel model)
+    {
+        var instance = await EnsureAsync();
+        await instance.InvokeVoidAsync("load", model);
+    }
+
+    /// <summary>
+    /// 캔버스의 현재 상태(사용자가 옮긴 좌표·크기, 이은 선)를 모델로 되돌린다.
+    /// 이름·설명은 캔버스에서 고칠 수 없으므로 넣었던 값이 그대로 돌아온다.
+    /// </summary>
+    public async Task<ErdModel> SaveAsync()
+    {
+        if (_instance is null)
+        {
+            return ErdModel.Empty;
+        }
+
+        return await _instance.InvokeAsync<ErdModel>("save");
+    }
+
+    public Task ZoomInAsync() => InvokeIfReadyAsync("zoomIn");
+
+    public Task ZoomOutAsync() => InvokeIfReadyAsync("zoomOut");
+
+    /// <summary>전체가 보이게 맞추고 가운데로 둔다.</summary>
+    public Task FitAsync() => InvokeIfReadyAsync("fit");
+
+    private async Task<IJSObjectReference> EnsureAsync()
+    {
+        if (_instance is not null)
+        {
+            return _instance;
+        }
+
+        // 문서 base(/projmng/) 기준 상대 경로 — 셸 뒤에서도, 단독(:5566)으로도 맞는다.
+        _module ??= await Js.InvokeAsync<IJSObjectReference>("import", "./js/diagram-viewer.js");
+        _instance = await _module.InvokeAsync<IJSObjectReference>("create", _container);
+        return _instance;
+    }
+
+    private async Task InvokeIfReadyAsync(string method)
+    {
+        if (_instance is not null)
+        {
+            await _instance.InvokeVoidAsync(method);
+        }
+    }
+
+    /// <summary>
+    /// 회로가 끊기거나 화면을 떠날 때 그래프를 파괴한다. 안 하면 maxgraph 가
+    /// document 에 걸어 둔 리스너가 남는다. 회로가 이미 끊긴 뒤라면 JS 를 부를
+    /// 수 없으므로 조용히 넘어간다 — 그 경우 브라우저 문서도 함께 사라진다.
+    /// </summary>
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            if (_instance is not null)
+            {
+                await _instance.InvokeVoidAsync("destroy");
+                await _instance.DisposeAsync();
+            }
+
+            if (_module is not null)
+            {
+                await _module.DisposeAsync();
+            }
+        }
+        catch (JSDisconnectedException)
+        {
+            // 회로가 먼저 끊겼다. 정리할 브라우저가 이미 없다.
+        }
+        catch (ObjectDisposedException)
+        {
+            // 회로 종료와 경쟁했다. 결과는 같다.
+        }
+    }
+}

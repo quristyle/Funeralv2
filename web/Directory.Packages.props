@@ -52,6 +52,15 @@
          공용으로 올릴지 정한다(두 앱까지는 복제, 세 번째부터 승격). -->
     <PackageVersion Include="BlazorMonaco" Version="3.5.0" />
 
+    <!-- ── Piral.Blazor MFE 오케스트레이션 ──────────────────────── -->
+    <PackageVersion Include="Piral.Blazor.Orchestrator" Version="1.0.0" />
+    <PackageVersion Include="Piral.Blazor.Shared" Version="1.0.0" />
+    <PackageVersion Include="Piral.Blazor.Core" Version="10.0.19" />
+    <PackageVersion Include="Piral.Blazor.Utils" Version="10.0.19" />
+    <!-- Piral.Blazor.Orchestrator 가 끌고 오는 NuGet 6.8.1 전이 의존성 보안 패치 -->
+    <PackageVersion Include="NuGet.Packaging" Version="6.12.1" />
+    <PackageVersion Include="NuGet.Protocol" Version="6.12.1" />
+
     <!-- ── 셸의 역방향 프록시 ─────────────────────────────────────
          셸이 경로 접두사로 업무 MFE 에 넘긴다. ApiGateway 와 같은 버전을 쓴다 —
          같은 저장소에서 YARP 를 두 버전 굴리면 설정 문법 차이로 헷갈린다. -->

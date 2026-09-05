@@ -3,8 +3,8 @@
 .github
 .vscode
 .claude
-fronts
 docs
+web
 deploy
 scripts
 funeralv2_player

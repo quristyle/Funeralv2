@@ -1,0 +1,83 @@
+@page "/admin/release"
+@using JSini.Web.Admin.Api
+
+@*
+    [릴리스 노트 관리]
+
+    이력: Vue `views/portal/release/index.vue` → 여기.
+    시스템 버전별 업데이트 내용 및 변경 이력을 조회 및 관리한다.
+*@
+
+@inject AdminClient Client
+
+<PageTitle>릴리스 노트 · 포털관리</PageTitle>
+
+<h1>릴리스 노트 <span class="pm-page__scope">포털관리</span></h1>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="d-flex gap-2">
+        <DxTextBox @bind-Text="_keyword" NullText="버전 또는 내용 검색" Style="width: 240px" ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@LoadDataAsync" />
+    </div>
+    <PermissionView Action="MenuAction.Create">
+        <DxButton Text="릴리스 등록" RenderStyle="ButtonRenderStyle.Success" />
+    </PermissionView>
+</div>
+
+<DxGrid Data="@_releases" Loading="@_loading" PageSize="15">
+    <Columns>
+        <DxGridDataColumn FieldName="Version" Caption="버전" Width="120px">
+            <CellDisplayTemplate>
+                <span class="badge bg-primary fs-7">@context.Value</span>
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+        <DxGridDataColumn FieldName="Title" Caption="제목" MinWidth="200" />
+        <DxGridDataColumn FieldName="ReleaseDate" Caption="배포일" Width="140px" DisplayFormat="yyyy-MM-dd" />
+        <DxGridDataColumn Caption="관리" Width="120px">
+            <CellDisplayTemplate>
+                <div class="d-flex gap-1 justify-content-center">
+                    <PermissionView Action="MenuAction.Update">
+                        <DxButton Text="수정" RenderStyle="ButtonRenderStyle.Secondary" SizeMode="SizeMode.Small" />
+                    </PermissionView>
+                    <PermissionView Action="MenuAction.Delete">
+                        <DxButton Text="삭제" RenderStyle="ButtonRenderStyle.Danger" SizeMode="SizeMode.Small" />
+                    </PermissionView>
+                </div>
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+    </Columns>
+</DxGrid>
+
+@code {
+    private List<ReleaseItemDto> _releases = [];
+    private string? _keyword;
+    private bool _loading;
+
+    protected override Task OnInitializedAsync() => LoadDataAsync();
+
+    private Task LoadDataAsync()
+    {
+        _loading = true;
+        try
+        {
+            // Sample release items setup
+            _releases =
+            [
+                new ReleaseItemDto { Version = "v2.5.0", Title = ".NET 10 & DevExpress 26.1 MFE Architecture Migration", ReleaseDate = DateTime.Now },
+                new ReleaseItemDto { Version = "v2.4.0", Title = "JSini Portal Multi-tenant Gateway Enhancement", ReleaseDate = DateTime.Now.AddDays(-15) }
+            ];
+        }
+        finally
+        {
+            _loading = false;
+        }
+        return Task.CompletedTask;
+    }
+
+    public sealed class ReleaseItemDto
+    {
+        public string Version { get; set; } = string.Empty;
+        public string Title { get; set; } = string.Empty;
+        public DateTime ReleaseDate { get; set; }
+    }
+}

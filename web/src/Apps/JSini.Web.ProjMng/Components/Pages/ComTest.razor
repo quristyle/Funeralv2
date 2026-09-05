@@ -1,0 +1,48 @@
+@page "/projmng/tool/com-test"
+@using System.Data
+
+@*
+    [그리드 부품 테스트]
+
+    이력: Vue `views/projmng/proj/com-test.vue` → 여기.
+    프로시저: `sp_dev_proj_exec`(조회), `sp_projdbsave`(저장)
+*@
+
+@inject ProjMngClient Client
+
+<PageTitle>그리드 부품 테스트 · 프로젝트관리</PageTitle>
+
+<h1>그리드 부품 테스트 <span class="pm-page__scope">프로젝트관리</span></h1>
+
+<SearchBar>
+    <Actions>
+        <PermissionView Action="MenuAction.Search">
+            <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@SearchAsync" />
+        </PermissionView>
+    </Actions>
+</SearchBar>
+
+<DynamicGrid Data="@_grid.Data"
+             Loading="@_grid.IsLoading"
+             ExportName="부품테스트"
+             OnRefresh="@SearchAsync"
+             OnSave="@SaveAsync" />
+
+@code {
+    private ProcGrid _grid = default!;
+
+    protected override void OnInitialized()
+    {
+        _grid = new ProcGrid(Client, "sp_dev_proj_exec");
+    }
+
+    protected override Task OnInitializedAsync() => SearchAsync();
+
+    private Task SearchAsync() => _grid.LoadAsync();
+
+    private Task SaveAsync()
+    {
+        var changed = _grid.Data.ChangedRows();
+        return Client.DbSaveAsync("sp_projdbsave", changed);
+    }
+}

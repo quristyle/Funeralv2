@@ -26,7 +26,6 @@
 ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 SECRETS_FILE="$ROOT_DIR/scripts/secrets.env"   # 있으면 서비스에 환경변수로 실어 준다 (git 제외)
-FRONTEND_DIR="$ROOT_DIR/fronts"
 
 #############################################
 # 서비스 목록
@@ -49,38 +48,17 @@ SERVICES=(
   "notify|Notification Server|microservices/NotificationServer|5460|NOTIFY"
   # 생활과환경(기상·생일). GHUB(SK가스 지허브)에서 이식했다.
   "life|LifeEnv Server|microservices/LifeEnvServer|5490|LIFEENV"
+  # ── 프론트 ────────────────────────────────────────────────
+  # 이제 프론트도 .NET 이다. Vue/pnpm 포털을 걷어내면서 pnpm 전용 처리(FRONTS 표 ·
+  # 의존성 설치 · vite 기동)가 통째로 사라졌고, 두 프론트가 나머지 서비스와
+  # 똑같이 이 표에서 다뤄진다.
+  #
+  # 업무 포털 셸 :5557 — 업무 MFE 여섯이 이 한 프로세스 안에 실린다.
+  "blazor|Blazor 업무 포털|web/src/Shell/JSini.Web.Shell|5557|PORTAL_SHELL"
+  # 회사 소개 사이트 :5556 — 정적 SSR 전용. 포털과 무관하고 인증도 없다.
+  "web|회사 소개 사이트|web/src/Site/JSini.PublicSite|5556|PUBLIC_SITE"
 )
 
-# 프론트엔드는 dotnet 서비스가 아니라 따로 다룬다.
-# 형식: 이름|표시이름|상대경로|포트|pnpm 필터
-#
-# 프론트가 둘이 되면서 변수 하나(FRONT_KEY)로는 표현이 안 됐다. 표로 바꿨다.
-# 셋째가 붙어도 여기에 한 줄만 더하면 된다.
-#
-# 이름이 바뀌었다: 예전 `front` 는 이제 `portal` 이다. `web` 이 회사 소개 사이트다.
-FRONTS=(
-  "portal|Portal Frontend (vite)|fronts|5555|@vben/jsini-portal"
-  "web|Site Frontend (vite)|fronts|5556|@jsini/site"
-)
-
-front_keys()   { printf '%s
-' "${FRONTS[@]}" | cut -d'|' -f1; }
-front_field()  {   # front_field <이름> <필드번호>
-    local key="$1" idx="$2" row
-    for row in "${FRONTS[@]}"; do
-        if [ "${row%%|*}" = "$key" ]; then
-            printf '%s
-' "$row" | cut -d'|' -f"$idx"
-            return 0
-        fi
-    done
-    return 1
-}
-is_front()     { front_field "$1" 1 >/dev/null 2>&1; }
-front_label()  { front_field "$1" 2; }
-front_dir()    { echo "$ROOT_DIR/$(front_field "$1" 3)"; }
-front_port()   { front_field "$1" 4; }
-front_filter() { front_field "$1" 5; }
 
 #############################################
 # 서비스 표 조회 도우미
@@ -104,7 +82,6 @@ svc_keys() {
 }
 
 svc_exists() {
-    is_front "$1" && return 0
     svc_field "$1" 1 >/dev/null 2>&1
 }
 
@@ -182,7 +159,7 @@ pids_in_dir() {   # pids_in_dir <절대경로>
 
     # 개발 서버로 볼 수 있는 것만 후보로 삼는다. 그 디렉터리에서 열어 둔
     # 편집기나 셸까지 죽이면 안 된다.
-    for pid in $(pgrep -f 'dotnet|pnpm|vite|node' 2>/dev/null); do
+    for pid in $(pgrep -f 'dotnet' 2>/dev/null); do
         case "$protected" in *" $pid "*) continue ;; esac
 
         cwd="$(pid_cwd "$pid")"
@@ -229,21 +206,6 @@ stop_dir() {   # stop_dir <절대경로> <표시이름>
 stop_service() {   # stop_service <이름>
     local key="$1" port pid
 
-    if is_front "$key"; then
-        # **디렉터리로 찾지 않는다.** 프론트가 둘 다 `fronts` 아래에서 돌기 때문에
-        # 작업 디렉터리로 고르면 한쪽을 내릴 때 다른 쪽까지 죽는다. 포트로만 고른다.
-        FRONT_STOP_LABEL="$(front_label "$key")"
-        # vite 는 fronts/apps/... 아래에서 돌 수도 있다. 포트로 한 번 더 확인한다.
-        pid="$(pid_on_port "$(front_port "$key")")"
-        if [ -n "$pid" ]; then
-            kill "$pid" 2>/dev/null && sleep 1
-            kill -9 "$pid" 2>/dev/null
-            echo "   ✓ $FRONT_STOP_LABEL 종료"
-        else
-            echo "   · $FRONT_STOP_LABEL 은 실행 중이 아님"
-        fi
-        return 0
-    fi
 
     stop_dir "$(svc_dir "$key")" "$(svc_label "$key")"
 
@@ -263,17 +225,6 @@ stop_service() {   # stop_service <이름>
 build_service() {   # build_service <이름>
     local key="$1"
 
-    if is_front "$key"; then
-        # 프론트는 워크스페이스 하나를 공유한다. 여러 개를 함께 띄워도 설치는 한 번이면 된다.
-        if [ -n "${PNPM_INSTALLED:-}" ]; then
-            echo "   · $(front_label "$key") 의존성 설치 (이미 했음)"
-            return 0
-        fi
-        echo "   · $(front_label "$key") 의존성 설치..."
-        (cd "$FRONTEND_DIR" && pnpm install) || return 1
-        PNPM_INSTALLED=1
-        return 0
-    fi
 
     echo "   · $(svc_label "$key") 빌드..."
     (cd "$(svc_dir "$key")" && dotnet build) || return 1
@@ -282,15 +233,6 @@ build_service() {   # build_service <이름>
 start_service() {   # start_service <이름>
     local key="$1"
 
-    if is_front "$key"; then
-        local nvm_init='export NVM_DIR=\"$HOME/.nvm\"; [ -s \"$NVM_DIR/nvm.sh\" ] && . \"$NVM_DIR/nvm.sh\";'
-        local dir filter
-        dir="$(front_dir "$key")"
-        filter="$(front_filter "$key")"
-        run_terminal "${nvm_init} cd \\\"$dir\\\" && pnpm --filter $filter dev"
-        echo "   ✓ $(front_label "$key") 기동"
-        return 0
-    fi
 
     # scripts/secrets.env 가 있으면 환경변수로 실어 준다.
     # 없으면 아무 일도 하지 않고 appsettings.json 값이 그대로 쓰인다.
@@ -321,9 +263,6 @@ EOF
     local key
     for key in $(svc_keys); do
         printf "  %-10s %s (포트 %s)\n" "$key" "$(svc_label "$key")" "$(svc_port "$key")"
-    done
-    for key in $(front_keys); do
-        printf "  %-10s %s (포트 %s)\n" "$key" "$(front_label "$key")" "$(front_port "$key")"
     done
     cat <<EOF
 
@@ -361,12 +300,8 @@ print_status() {
     printf "  %-10s %-6s %-6s %s\n" "----------" "----" "-----" "-------"
 
     local key port state
-    for key in $(svc_keys) $(front_keys); do
-        if is_front "$key"; then
-            port="$(front_port "$key")"
-        else
+    for key in $(svc_keys); do
             port="$(svc_port "$key")"
-        fi
 
         if port_is_open "$port"; then
             state="$(printf '%s' "${C_UP}UP${C_OFF}")"
@@ -374,11 +309,7 @@ print_status() {
             state="$(printf '%s' "${C_DOWN}DOWN${C_OFF}")"
         fi
 
-        if is_front "$key"; then
-            print_status_row "$key" "$port" "$state" "$(front_label "$key")"
-        else
             print_status_row "$key" "$port" "$state" "$(svc_label "$key")"
-        fi
     done
     echo
 }
@@ -426,7 +357,6 @@ case "$COMMAND" in
 
     list)
         svc_keys
-        front_keys
         exit 0
         ;;
 
@@ -440,7 +370,7 @@ case "$COMMAND" in
         echo "   전체 중지"
         echo "===================================================="
         # 게이트웨이를 먼저 내려 외부 요청을 끊고 나머지를 정리한다.
-        for key in $(svc_keys) $(front_keys); do
+        for key in $(svc_keys); do
             stop_service "$key"
         done
         echo
@@ -458,7 +388,7 @@ case "$COMMAND" in
         fi
         for key in "$@"; do
             if ! svc_exists "$key"; then
-                echo "❌ 알 수 없는 서비스: $key   (사용 가능: $(svc_keys | tr '\n' ' ')$(front_keys | tr '\n' ' '))"
+                echo "❌ 알 수 없는 서비스: $key   (사용 가능: $(svc_keys | tr '\n' ' '))"
                 exit 1
             fi
         done
@@ -483,7 +413,7 @@ case "$COMMAND" in
         echo "   JSini 관리 포털 — 전체 빌드 및 시작"
         echo "===================================================="
         # shellcheck disable=SC2046
-        restart_services $(svc_keys) $(front_keys)
+        restart_services $(svc_keys)
         exit 0
         ;;
 

@@ -1,0 +1,94 @@
+@page "/admin/notice"
+@using JSini.Web.Admin.Api
+
+@*
+    [공지사항 관리]
+
+    이력: Vue `views/portal/notice/list.vue` → 여기.
+    모든 MSA 사용자에게 노출되는 공지사항 목록 및 팝업 여부/게시 기간/전체 공개 여부를 관리한다.
+*@
+
+@inject AdminClient Client
+
+<PageTitle>공지사항 관리 · 포털관리</PageTitle>
+
+<h1>공지사항 관리 <span class="pm-page__scope">포털관리</span></h1>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="d-flex gap-2">
+        <DxTextBox @bind-Text="_keyword" NullText="제목 또는 내용 검색" Style="width: 240px" ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@SearchAsync" />
+    </div>
+    <PermissionView Action="MenuAction.Create">
+        <DxButton Text="공지 작성" RenderStyle="ButtonRenderStyle.Success" Click="@(() => OpenSaveDialog())" />
+    </PermissionView>
+</div>
+
+<DxGrid Data="@_notices" Loading="@_loading" PageSize="15" KeyFieldName="Id">
+    <Columns>
+        <DxGridDataColumn FieldName="Title" Caption="제목" MinWidth="200">
+            <CellDisplayTemplate>
+                <div class="d-flex align-items-center gap-2">
+                    @if (((NoticeDto)context.DataItem).IsPopup)
+                    {
+                        <span class="badge bg-danger">팝업</span>
+                    }
+                    @if (((NoticeDto)context.DataItem).IsPublic)
+                    {
+                        <span class="badge bg-info">전체공개</span>
+                    }
+                    <strong>@context.Value</strong>
+                </div>
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+        <DxGridDataColumn FieldName="AuthorName" Caption="작성자" Width="120px" />
+        <DxGridDataColumn FieldName="StartAt" Caption="게시 시작" Width="140px" DisplayFormat="yyyy-MM-dd HH:mm" />
+        <DxGridDataColumn FieldName="EndAt" Caption="게시 종료" Width="140px" DisplayFormat="yyyy-MM-dd HH:mm" />
+        <DxGridDataColumn FieldName="CreatedAt" Caption="작성일" Width="140px" DisplayFormat="yyyy-MM-dd" />
+        <DxGridDataColumn Caption="관리" Width="120px">
+            <CellDisplayTemplate>
+                @{
+                    var notice = (NoticeDto)context.DataItem;
+                }
+                <div class="d-flex gap-1 justify-content-center">
+                    <PermissionView Action="MenuAction.Update">
+                        <DxButton Text="수정" RenderStyle="ButtonRenderStyle.Secondary" SizeMode="SizeMode.Small" Click="@(() => OpenSaveDialog(notice))" />
+                    </PermissionView>
+                    <PermissionView Action="MenuAction.Delete">
+                        <DxButton Text="삭제" RenderStyle="ButtonRenderStyle.Danger" SizeMode="SizeMode.Small" Click="@(() => DeleteNoticeAsync(notice.Id))" />
+                    </PermissionView>
+                </div>
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+    </Columns>
+</DxGrid>
+
+@code {
+    private List<NoticeDto> _notices = [];
+    private string? _keyword;
+    private bool _loading;
+
+    protected override Task OnInitializedAsync() => SearchAsync();
+
+    private async Task SearchAsync()
+    {
+        _loading = true;
+        try
+        {
+            var list = await Client.GetNoticesAsync(_keyword);
+            _notices = list.ToList();
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void OpenSaveDialog(NoticeDto? notice = null) { }
+
+    private async Task DeleteNoticeAsync(string id)
+    {
+        await Client.DeleteNoticeAsync(id);
+        await SearchAsync();
+    }
+}
