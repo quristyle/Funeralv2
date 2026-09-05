@@ -6,6 +6,16 @@
 
     로그인한 사람의 정보와 최근 활동을 본다.
 
+    [읽기만 하고 있었다]
+
+    이름·연락처·이메일·생일을 바꿀 길이 없었다. 서버에는
+    `POST auth/user/profile` 이 있고 클라이언트에만 빠져 있었다.
+
+    [생일은 다른 화면이 읽는다]
+
+    생활과환경의 「생일 목록」이 이 값을 본다. 여기서 비워 두면 그 목록에
+    나오지 않는다 — 개인이 직접 정하는 것이 맞아서 그렇게 두었다.
+
     [비밀번호 변경은 여기 없다]
 
     옛 화면에는 비밀번호 변경 폼이 함께 있었다. 그건 **쿠키를 다시 굽는 흐름**이라
@@ -20,16 +30,14 @@
 
 <PageHeading Title="내 정보" Scope="포털관리" />
 
+<PageNotice Text="@Notice" Tone="@Tone" />
+
 @if (_info is not null)
 {
     <div class="jsini-stats">
         <div class="jsini-stat">
             <div class="jsini-stat__label">아이디</div>
             <div class="jsini-stat__value ad-stat--text">@(_info.Username ?? _info.UserId ?? "-")</div>
-        </div>
-        <div class="jsini-stat">
-            <div class="jsini-stat__label">이름</div>
-            <div class="jsini-stat__value ad-stat--text">@(_info.RealName ?? "-")</div>
         </div>
         <div class="jsini-stat">
             <div class="jsini-stat__label">회사</div>
@@ -39,31 +47,85 @@
             <div class="jsini-stat__label">부서</div>
             <div class="jsini-stat__value ad-stat--text">@(_info.DeptName ?? "-")</div>
         </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">마지막 접속</div>
+            <div class="jsini-stat__value ad-stat--text">
+                @(_info.LastLoginAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "-")
+            </div>
+        </div>
     </div>
 
     @if (_info.RoleNames.Count > 0)
     {
+        @* 역할은 여기서 못 바꾼다. 회사·부서에서 물려받는 것이 섞여 있어
+           개인이 정할 수 있는 값이 아니다 — 바꾸는 곳은 「사람롤」이다. *@
         <PageNotice Text="@($"역할: {string.Join(", ", _info.RoleNames)}")" />
     }
+
+    <h2 class="ad-subhead">고치기</h2>
+
+    <DxFormLayout CssClass="ad-editform ad-profile">
+        <DxFormLayoutItem Caption="이름" ColSpanMd="6">
+            <DxTextBox @bind-Text="_edit.RealName" />
+        </DxFormLayoutItem>
+
+        <DxFormLayoutItem Caption="이메일" ColSpanMd="6">
+            @* 남과 겹치면 서버가 409 로 거절한다. 그 문구를 그대로 보여 준다. *@
+            <DxTextBox @bind-Text="_edit.Email" NullText="user@example.com" />
+        </DxFormLayoutItem>
+
+        <DxFormLayoutItem Caption="연락처" ColSpanMd="6">
+            <DxTextBox @bind-Text="_edit.Phone" NullText="010-0000-0000" />
+        </DxFormLayoutItem>
+
+        <DxFormLayoutItem Caption="생일" ColSpanMd="4">
+            <DxDateEdit Date="@_birthDate"
+                        DateChanged="@((DateTime? d) => { _birthDate = d; })"
+                        NullText="비워 둘 수 있다"
+                        ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        </DxFormLayoutItem>
+
+        <DxFormLayoutItem Caption="음력" ColSpanMd="2">
+            <DxCheckBox @bind-Checked="_isLunar">음력</DxCheckBox>
+        </DxFormLayoutItem>
+
+        <DxFormLayoutItem Caption="소개" ColSpanMd="12">
+            <DxMemo @bind-Text="_edit.Introduction" Rows="3" NullText="한 줄 소개" />
+        </DxFormLayoutItem>
+    </DxFormLayout>
+
+    <div class="jsini-toolbar">
+        <div class="jsini-toolbar__spacer"></div>
+        <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Primary" SizeMode="SizeMode.Small"
+                  Click="@SaveAsync" />
+        <DxButton Text="되돌리기" RenderStyle="ButtonRenderStyle.Secondary" SizeMode="SizeMode.Small"
+                  Click="@Revert" />
+    </div>
 }
 
 <h2 class="ad-subhead">최근 활동</h2>
-<DxGrid Data="@_activity" ShowFilterRow="false" PageSize="20">
+
+<DxGrid Data="@_activity" ShowFilterRow="false" ShowSearchBox="false" PageSize="20">
     <Columns>
-        <DxGridDataColumn FieldName="@nameof(UserActivityDto.CreatedAt)" Caption="시각" Width="160" DisplayFormat="yyyy-MM-dd HH:mm" />
+        <DxGridDataColumn FieldName="@nameof(UserActivityDto.CreatedAt)" Caption="시각" Width="160"
+                          DisplayFormat="yyyy-MM-dd HH:mm" />
         <DxGridDataColumn FieldName="@nameof(UserActivityDto.Action)" Caption="동작" Width="160" />
         <DxGridDataColumn FieldName="@nameof(UserActivityDto.Detail)" Caption="내용" MinWidth="260" />
         <DxGridDataColumn FieldName="@nameof(UserActivityDto.IpAddress)" Caption="접속지" Width="150" />
     </Columns>
 </DxGrid>
 
-<PageNotice Text="@Notice" Tone="@Tone" />
-
 @code {
     private UserInfoDto? _info;
     private IReadOnlyList<UserActivityDto> _activity = [];
 
-    protected override Task OnInitializedAsync() => LoadAsync(async () =>
+    private UpdateProfileDto _edit = new();
+    private DateTime? _birthDate;
+    private bool _isLunar;
+
+    protected override Task OnInitializedAsync() => ReloadAsync();
+
+    private Task ReloadAsync() => LoadAsync(async () =>
     {
         var info = Api.GetMyInfoAsync();
         var activity = Api.GetMyActivityAsync();
@@ -73,6 +135,45 @@
         _info = info.Result;
         _activity = activity.Result;
 
+        Revert();
+
         return _activity.Count;
     }, "최근 활동 기록이 없습니다.", "내 정보를 읽지 못했습니다");
+
+    /// <summary>받아 온 값으로 폼을 되돌린다. 처음 채울 때도 이것을 쓴다.</summary>
+    private void Revert()
+    {
+        if (_info is null)
+        {
+            return;
+        }
+
+        _edit = new UpdateProfileDto
+        {
+            RealName = _info.RealName,
+            Email = _info.Email,
+            Phone = _info.Phone,
+            Introduction = _info.Introduction,
+        };
+
+        _birthDate = DateTime.TryParse(_info.BirthDate, out var d) ? d : null;
+        _isLunar = _info.BirthDateIsLunar;
+    }
+
+    /// <summary>
+    /// 저장한다.
+    ///
+    /// 생일은 <c>yyyy-MM-dd</c> 글자로 보낸다. <b>비웠으면 빈 문자열</b>이다 —
+    /// <c>null</c> 로 보내면 서버가 「건드리지 말라」로 읽어 옛 값이 남는다.
+    /// </summary>
+    private async Task SaveAsync()
+    {
+        _edit.BirthDate = _birthDate?.ToString("yyyy-MM-dd") ?? string.Empty;
+        _edit.BirthDateIsLunar = _isLunar;
+
+        if (await RunAsync(() => Api.UpdateMyProfileAsync(_edit), "저장했습니다.", "저장하지 못했습니다"))
+        {
+            await ReloadAsync();
+        }
+    }
 }

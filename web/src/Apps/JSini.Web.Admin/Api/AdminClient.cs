@@ -360,6 +360,15 @@ public sealed class AdminClient(GatewayClient gateway)
         => gateway.GetListAsync<UserActivityDto>("auth/user/activity", ct);
 
     /// <summary>
+    /// 내 정보를 고친다.
+    ///
+    /// 이메일·전화가 남과 겹치면 서버가 <b>409</b> 로 이유를 말해 준다 —
+    /// 그 문구를 그대로 보여 줘야 사용자가 무엇을 고칠지 안다.
+    /// </summary>
+    public Task UpdateMyProfileAsync(UpdateProfileDto profile, CancellationToken ct = default)
+        => gateway.PostAsync("auth/user/profile", profile, ct);
+
+    /// <summary>
     /// 확인용 주소를 불러 참·거짓만 꺼낸다. 서버가 봉투에 <c>bool</c> 하나를
     /// 실어 준다(<c>{ result: [true] }</c>).
     ///

@@ -164,8 +164,37 @@ public sealed class BizSelectConfigDto
     /// <summary>어느 서비스로 나갈지 (<c>auth</c> · <c>helpdesk</c>).</summary>
     public string ServiceCode { get; set; } = "auth";
 
+    /// <summary>서비스 <b>안쪽</b> 경로. 게이트웨이 접두사는 빼고 적는다.</summary>
     public string ApiUrl { get; set; } = string.Empty;
+
     public string HttpMethod { get; set; } = "GET";
+
+    // ── 아래 셋이 없으면 드롭다운이 빈 채로 뜬다 ─────────
+    //
+    // 자료는 오는데 **어느 칸을 보여 주고 어느 칸을 값으로 쓸지** 모르기
+    // 때문이다. 화면에서 그 원인이 안 보이면 「서버가 안 준다」로 읽힌다.
+
+    /// <summary>사람에게 보여 줄 칸 이름.</summary>
+    public string? LabelField { get; set; }
+
+    /// <summary>저장될 값이 담긴 칸 이름.</summary>
+    public string? ValueField { get; set; }
+
+    /// <summary>응답에서 목록이 들어 있는 자리. funeralv2 봉투는 <c>result</c>.</summary>
+    public string? ResultPath { get; set; }
+
+    /// <summary>특별한 가공이 필요할 때만 쓰는 처리기 이름.</summary>
+    public string? ProcessorType { get; set; }
+
+    /// <summary>늘 함께 보내는 고정 값. JSON 객체 글자다.</summary>
+    public string? StaticParams { get; set; }
+
+    /// <summary>화면이 넘긴 값을 본문 어디에 넣을지. 점 표기.</summary>
+    public string? ParamPath { get; set; }
+
+    public string? Remark { get; set; }
+
+    public DateTime? CreatedAt { get; set; }
 }
 
 /// <summary>플레이어 배포 상태.</summary>
@@ -309,6 +338,49 @@ public sealed class UserInfoDto
     public string? DeptName { get; set; }
     public string? Desc { get; set; }
     public List<string> RoleNames { get; set; } = [];
+
+    // ── 고칠 수 있는 것들 ────────────────────────────────
+    //
+    // 응답에는 이보다 훨씬 많은 칸이 온다(보안 설정·알림 설정 …).
+    // 화면이 쓰는 것만 담는다 — 안 쓰는 칸을 DTO 에 두면 「여기서 고칠 수
+    // 있나」로 읽힌다.
+
+    public string? Email { get; set; }
+    public string? Phone { get; set; }
+
+    /// <summary>한 줄 소개.</summary>
+    public string? Introduction { get; set; }
+
+    /// <summary>생년월일 <c>yyyy-MM-dd</c>. 생일 화면이 이 값을 읽는다.</summary>
+    public string? BirthDate { get; set; }
+
+    public bool BirthDateIsLunar { get; set; }
+
+    /// <summary>프로필 사진 주소. 없는 쪽이 흔하다.</summary>
+    public string? Avatar { get; set; }
+
+    public DateTime? LastLoginAt { get; set; }
+    public string? LastLoginIp { get; set; }
+}
+
+/// <summary>
+/// 내 정보 저장.
+///
+/// <b>null 과 빈 문자열이 다르다.</b> 서버가 <c>null</c> 인 칸은 건드리지 않고
+/// 빈 문자열은 「지운다」로 읽는다. 그래서 화면이 안 고친 칸을 <c>null</c> 로
+/// 두면 그 값이 살아남는다.
+/// </summary>
+public sealed class UpdateProfileDto
+{
+    public string? RealName { get; set; }
+    public string? Introduction { get; set; }
+    public string? Email { get; set; }
+    public string? Phone { get; set; }
+
+    /// <summary><c>yyyy-MM-dd</c>. 빈 문자열이면 지운다.</summary>
+    public string? BirthDate { get; set; }
+
+    public bool? BirthDateIsLunar { get; set; }
 }
 
 /// <summary>내 활동 기록 한 줄.</summary>

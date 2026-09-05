@@ -17,6 +17,36 @@
     <DxDateEdit @bind-Date="_to" NullText="종료일" Style="width: 150px" />
 </BuildingFilter>
 
+@if (_summary is not null)
+{
+    <div class="jsini-stats">
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">고인</div>
+            <div class="jsini-stat__value">@_summary.DeceasedCount</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">사용 건수</div>
+            <div class="jsini-stat__value">@_summary.RoomUsageCount</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">사용 일수</div>
+            <div class="jsini-stat__value">@_summary.TotalUseDays</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">금액</div>
+            <div class="jsini-stat__value">@_summary.TotalAmount.ToString("N0")</div>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(_roomId))
+    {
+        @* 요약은 호실 조건을 받지 않는다. 안 밝히면 타일과 표의 건수가 어긋난
+           것을 오류로 읽는다. *@
+        <PageNotice Tone="NoticeTone.Info"
+                    Text="위 요약은 건물·기간 기준입니다. 호실 조건은 아래 표에만 걸립니다." />
+    }
+}
+
 <DxGrid Data="@_rows" ShowFilterRow="false" PageSize="20">
     <Columns>
         <DxGridDataColumn FieldName="@nameof(RoomUsage.BuildingName)" Caption="건물" Width="140" />
@@ -48,12 +78,25 @@
     private DateTime? _to;
 
     private IReadOnlyList<RoomUsage> _rows = [];
+    private StatSummary? _summary;
 
     protected override Task OnInitializedAsync() => ReloadAsync();
 
     private Task ReloadAsync() => LoadAsync(async () =>
     {
-        _rows = await Api.GetRoomUsageStatsAsync(_buildingId, _roomId, _from, _to);
+        // 요약과 목록을 나란히 부른다. 순서에 의미가 없다.
+        //
+        // 요약은 **호실 조건을 받지 않는다** — 서버가 건물과 기간까지만
+        // 받는다. 그래서 호실을 골랐을 때 타일과 표의 건수가 다를 수 있고,
+        // 그 사실을 화면에 적어 둔다.
+        var rows = Api.GetRoomUsageStatsAsync(_buildingId, _roomId, _from, _to);
+        var summary = Api.GetStatSummaryAsync(_buildingId, _from, _to);
+
+        await Task.WhenAll(rows, summary);
+
+        _rows = rows.Result;
+        _summary = summary.Result;
+
         return _rows.Count;
     }, "조건에 맞는 자료가 없습니다.", "사용 내역을 읽지 못했습니다");
 }
