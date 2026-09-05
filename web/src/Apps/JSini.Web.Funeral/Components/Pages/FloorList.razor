@@ -3,48 +3,142 @@
 @*
     [층 관리] — DB 메뉴 `/building/floor`.
     이력: Vue `views/funeral/building/floor/index` → 여기.
+
+    [읽기만 하고 있었다]
+
+    등록·수정·삭제가 빠져 있었다. 클라이언트에는 이미 있었고 화면만 안
+    부르고 있었다.
+
+    [층은 반드시 건물에 붙는다]
+
+    그래서 등록할 때 건물을 고르지 않으면 저장돼도 목록에 안 보인다 —
+    어느 건물에도 속하지 않기 때문이다. 조건줄에서 고른 건물을 새 층의
+    기본값으로 넣어 그 실수를 줄인다.
 *@
 
+@inherits DataPage
 @inject FuneralApi Api
 
 <PageTitle>층 관리 · 장례식장</PageTitle>
 
 <PageHeading Title="층 관리" Scope="장례식장" />
 
-<BuildingFilter @bind-BuildingId="_buildingId" Search="@LoadAsync" />
+<BuildingFilter @bind-BuildingId="_buildingId" Search="@ReloadAsync" />
 
-<DxGrid Data="@_floors" ShowFilterRow="false" PageSize="20" >
+<CrudGrid TItem="Floor"
+          Data="@_floors"
+          EditFormTitle="층"
+          ExportName="층"
+          PageSize="20"
+          OnNew="@FillNew"
+          OnSave="@SaveAsync"
+          OnDelete="@DeleteAsync"
+          Reload="@ReloadAsync">
     <Columns>
         <DxGridDataColumn FieldName="@nameof(Floor.BuildingName)" Caption="건물" Width="180" />
         <DxGridDataColumn FieldName="@nameof(Floor.Name)" Caption="층" MinWidth="140" />
         <DxGridDataColumn FieldName="@nameof(Floor.SortOrder)" Caption="정렬" Width="80" />
+
+        <DxGridDataColumn Caption="호실" Width="70">
+            <CellDisplayTemplate Context="cell">
+                @{
+                    var f = (Floor)cell.DataItem;
+                }
+                @_roomCount.GetValueOrDefault(f.Id)
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+
         <DxGridDataColumn FieldName="@nameof(Floor.Remark)" Caption="비고" MinWidth="200" />
     </Columns>
-</DxGrid>
 
-<PageNotice Text="@_notice" Tone="@_tone" />
+    <EditForm Context="edit">
+        @{
+            var f = (Floor)edit.EditModel;
+        }
+        <DxFormLayout CssClass="fn-editform">
+            <DxFormLayoutItem Caption="건물" ColSpanMd="12">
+                <DxComboBox Data="@_buildings" @bind-Value="f.BuildingId"
+                            TextFieldName="@nameof(Building.Name)"
+                            ValueFieldName="@nameof(Building.Id)"
+                            NullText="건물을 고르십시오" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="층 이름" ColSpanMd="8">
+                <DxTextBox @bind-Text="f.Name" NullText="1층 · 지하1층" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="정렬" ColSpanMd="4">
+                @* 이름으로 세우면 「지하1층」이 「1층」보다 앞에 온다. 그래서
+                   순서를 값으로 따로 둔다. *@
+                <DxSpinEdit @bind-Value="f.SortOrder" MinValue="0" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="비고" ColSpanMd="12">
+                <DxMemo @bind-Text="f.Remark" Rows="3" />
+            </DxFormLayoutItem>
+        </DxFormLayout>
+    </EditForm>
+</CrudGrid>
 
 @code {
     private string? _buildingId;
+
     private IReadOnlyList<Floor> _floors = [];
-    private string? _notice;
-    private NoticeTone _tone = NoticeTone.Info;
+    private IReadOnlyList<Building> _buildings = [];
 
-    protected override Task OnInitializedAsync() => LoadAsync();
+    /// <summary>층별 호실 수. 지우기 전에 비어 있는지 본다.</summary>
+    private Dictionary<string, int> _roomCount = [];
 
-    private async Task LoadAsync()
+    protected override Task OnInitializedAsync() => ReloadAsync();
+
+    private Task ReloadAsync() => LoadAsync(async () =>
     {
-        try
+        // 건물 목록은 편집 폼의 고르개가 쓴다. 목록보다 먼저 있어야
+        // 첫 등록에서 빈 고르개가 뜨지 않는다.
+        _buildings = await Api.GetBuildingsAsync();
+        _floors = await Api.GetFloorsAsync(_buildingId);
+
+        var rooms = await Api.GetRoomsAsync(_buildingId);
+        _roomCount = rooms
+            .Where(r => r.FloorId is not null)
+            .GroupBy(r => r.FloorId!)
+            .ToDictionary(g => g.Key, g => g.Count());
+
+        return _floors.Count;
+    }, "조건에 맞는 층이 없습니다.", "층 목록을 읽지 못했습니다");
+
+    /// <summary>
+    /// 새 층의 기본값.
+    ///
+    /// 조건줄에서 고른 건물을 그대로 넣는다. 안 넣으면 어느 건물에도 속하지
+    /// 않은 층이 만들어져 목록에서 사라진다. 정렬은 마지막 뒤에 붙인다 —
+    /// 0 으로 두면 새 층이 맨 앞에 끼어든다.
+    /// </summary>
+    private void FillNew(Floor f)
+    {
+        f.BuildingId = _buildingId ?? _buildings.FirstOrDefault()?.Id ?? string.Empty;
+        f.SortOrder = _floors.Count == 0 ? 1 : _floors.Max(x => x.SortOrder) + 1;
+    }
+
+    private Task SaveAsync((Floor Item, bool IsNew) e)
+    {
+        if (string.IsNullOrWhiteSpace(e.Item.BuildingId))
         {
-            _floors = await Api.GetFloorsAsync(_buildingId);
-            _notice = _floors.Count == 0 ? "조건에 맞는 층이 없습니다." : null;
-            _tone = NoticeTone.Info;
+            throw new ApiException("건물을 고르십시오.");
         }
-        catch (ApiException ex)
+
+        return e.IsNew
+            ? Api.CreateFloorAsync(e.Item)
+            : Api.UpdateFloorAsync(e.Item.Id, e.Item);
+    }
+
+    private async Task DeleteAsync(Floor f)
+    {
+        if (_roomCount.GetValueOrDefault(f.Id) is > 0 and var rooms)
         {
-            _floors = [];
-            _notice = $"층 목록을 읽지 못했습니다 — {ex.Message}";
-            _tone = NoticeTone.Error;
+            throw new ApiException($"이 층에 호실이 {rooms}개 있습니다. 호실을 먼저 정리하십시오.");
         }
+
+        await Api.DeleteFloorAsync(f.Id);
     }
 }

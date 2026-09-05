@@ -3,60 +3,176 @@
 @*
     [호실 관리] — DB 메뉴 `/building/room`.
     이력: Vue `views/funeral/building/room/index` → 여기.
+
+    [읽기만 하고 있었고, 구분이 코드값 그대로 보였다]
+
+    등록·수정·삭제가 빠져 있었다. 그리고 「구분」 칸에 `FUNERAL_HALL` 같은
+    **코드값이 그대로** 나오고 있었다 — 옛 화면은 공통코드 `ROOM_TYPE` 을 읽어
+    「빈소」로 옮겨 보여 주었다.
+
+    [호실은 층에 붙는다]
+
+    건물만 고르고 층을 안 고르면 어느 층에도 속하지 않은 호실이 만들어진다.
+    등록 폼에서 층을 반드시 고르게 한다.
+
+    [상태는 지우는 것과 다르다]
+
+    쓰지 않는 호실은 지우지 않고 `INACTIVE` 로 둔다. 그 호실을 가리키는 옛
+    기록(고인 이력·과금)이 남아 있어 지우면 그 기록이 끊긴다.
 *@
 
+@inherits DataPage
 @inject FuneralApi Api
+@inject CommonCodeClient Codes
 
 <PageTitle>호실 관리 · 장례식장</PageTitle>
 
 <PageHeading Title="호실 관리" Scope="장례식장" />
 
-<BuildingFilter @bind-BuildingId="_buildingId" @bind-FloorId="_floorId" ShowFloor="true" Search="@LoadAsync" />
+<BuildingFilter @bind-BuildingId="_buildingId" @bind-FloorId="_floorId" ShowFloor="true" Search="@ReloadAsync" />
 
-<DxGrid Data="@_rooms" ShowFilterRow="false" PageSize="20" >
+<CrudGrid TItem="Room"
+          Data="@_rooms"
+          EditFormTitle="호실"
+          ExportName="호실"
+          PageSize="20"
+          OnNew="@FillNew"
+          OnSave="@SaveAsync"
+          OnDelete="@DeleteAsync"
+          Reload="@ReloadAsync">
     <Columns>
         <DxGridDataColumn FieldName="@nameof(Room.FloorName)" Caption="층" Width="120" />
         <DxGridDataColumn FieldName="@nameof(Room.Name)" Caption="호실" MinWidth="160" />
         <DxGridDataColumn FieldName="@nameof(Room.ShortName)" Caption="약칭" Width="110" />
-        <DxGridDataColumn FieldName="@nameof(Room.RoomType)" Caption="구분" Width="120" />
-        <DxGridDataColumn FieldName="@nameof(Room.Status)" Caption="상태" Width="100">
-            <CellDisplayTemplate>
+
+        <DxGridDataColumn Caption="구분" Width="120">
+            <CellDisplayTemplate Context="cell">
+                @* 저장된 것은 코드값이고 보여 줄 것은 이름이다. 코드 목록에 없는
+                   옛 값이면 값을 그대로 보여 준다 — 빈칸으로 두면 자료가 없는
+                   것처럼 보인다. *@
+                @_roomTypeLabel(((Room)cell.DataItem).RoomType)
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+
+        <DxGridDataColumn Caption="상태" Width="100">
+            <CellDisplayTemplate Context="cell">
                 @{
-                    var room = (Room)context.DataItem;
+                    var room = (Room)cell.DataItem;
                 }
                 <span class="jsini-badge @(room.Status == "ACTIVE" ? "jsini-badge--on" : "jsini-badge--off")">
                     @(room.Status == "ACTIVE" ? "사용" : "미사용")
                 </span>
             </CellDisplayTemplate>
         </DxGridDataColumn>
+
         <DxGridDataColumn FieldName="@nameof(Room.Remark)" Caption="비고" MinWidth="160" />
     </Columns>
-</DxGrid>
 
-<PageNotice Text="@_notice" Tone="@_tone" />
+    <EditForm Context="edit">
+        @{
+            var r = (Room)edit.EditModel;
+        }
+        <DxFormLayout CssClass="fn-editform">
+            <DxFormLayoutItem Caption="건물" ColSpanMd="6">
+                <DxComboBox Data="@_buildings" Value="@r.BuildingId"
+                            ValueChanged="@((string? v) => { r.BuildingId = v; r.FloorId = null; })"
+                            TextFieldName="@nameof(Building.Name)"
+                            ValueFieldName="@nameof(Building.Id)"
+                            NullText="건물을 고르십시오" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="층" ColSpanMd="6">
+                @* 건물을 바꾸면 층을 다시 골라야 한다. 위에서 FloorId 를 비우는
+                   이유가 그것이다 — 안 비우면 다른 건물의 층이 붙는다. *@
+                <DxComboBox Data="@FloorsOf(r.BuildingId)" @bind-Value="r.FloorId"
+                            TextFieldName="@nameof(Floor.Name)"
+                            ValueFieldName="@nameof(Floor.Id)"
+                            NullText="층을 고르십시오" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="호실 이름" ColSpanMd="8">
+                <DxTextBox @bind-Text="r.Name" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="약칭" ColSpanMd="4">
+                <DxTextBox @bind-Text="r.ShortName" NullText="현황판에 쓰는 짧은 이름" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="구분" ColSpanMd="6">
+                <DxComboBox Data="@_roomTypes" @bind-Value="r.RoomType"
+                            TextFieldName="@nameof(CommonCode.CodeName)"
+                            ValueFieldName="@nameof(CommonCode.CodeValue)"
+                            NullText="구분을 고르십시오" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="사용" ColSpanMd="6">
+                <DxCheckBox Checked="@(r.Status == "ACTIVE")"
+                            CheckedChanged="@((bool v) => r.Status = v ? "ACTIVE" : "INACTIVE")">
+                    사용
+                </DxCheckBox>
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="비고" ColSpanMd="12">
+                <DxMemo @bind-Text="r.Remark" Rows="3" />
+            </DxFormLayoutItem>
+        </DxFormLayout>
+    </EditForm>
+</CrudGrid>
 
 @code {
     private string? _buildingId;
     private string? _floorId;
+
     private IReadOnlyList<Room> _rooms = [];
-    private string? _notice;
-    private NoticeTone _tone = NoticeTone.Info;
+    private IReadOnlyList<Building> _buildings = [];
+    private IReadOnlyList<Floor> _floors = [];
+    private IReadOnlyList<CommonCode> _roomTypes = [];
 
-    protected override Task OnInitializedAsync() => LoadAsync();
+    /// <summary>코드값 → 이름. 표가 쓴다.</summary>
+    private Func<string?, string> _roomTypeLabel = v => v ?? string.Empty;
 
-    private async Task LoadAsync()
+    protected override Task OnInitializedAsync() => ReloadAsync();
+
+    private Task ReloadAsync() => LoadAsync(async () =>
     {
-        try
-        {
-            _rooms = await Api.GetRoomsAsync(_buildingId, _floorId);
-            _notice = _rooms.Count == 0 ? "조건에 맞는 호실이 없습니다." : null;
-            _tone = NoticeTone.Info;
-        }
-        catch (ApiException ex)
-        {
-            _rooms = [];
-            _notice = $"호실 목록을 읽지 못했습니다 — {ex.Message}";
-            _tone = NoticeTone.Error;
-        }
+        _buildings = await Api.GetBuildingsAsync();
+        _floors = await Api.GetFloorsAsync();
+
+        _roomTypes = await Codes.GetAsync("ROOM_TYPE");
+        _roomTypeLabel = await Codes.LabelerAsync("ROOM_TYPE");
+
+        _rooms = await Api.GetRoomsAsync(_buildingId, _floorId);
+
+        return _rooms.Count;
+    }, "조건에 맞는 호실이 없습니다.", "호실 목록을 읽지 못했습니다");
+
+    /// <summary>고른 건물의 층만. 건물을 안 골랐으면 전부.</summary>
+    private IReadOnlyList<Floor> FloorsOf(string? buildingId) =>
+        string.IsNullOrEmpty(buildingId)
+            ? _floors
+            : [.. _floors.Where(f => f.BuildingId == buildingId)];
+
+    private void FillNew(Room r)
+    {
+        // 조건줄에서 고른 것을 그대로 물려준다. 안 넣으면 어느 층에도 속하지
+        // 않은 호실이 만들어져 목록에서 사라진다.
+        r.BuildingId = _buildingId;
+        r.FloorId = _floorId;
+        r.Status = "ACTIVE";
+        r.RoomType = _roomTypes.FirstOrDefault()?.CodeValue ?? string.Empty;
     }
+
+    private Task SaveAsync((Room Item, bool IsNew) e)
+    {
+        if (string.IsNullOrWhiteSpace(e.Item.FloorId))
+        {
+            throw new ApiException("층을 고르십시오. 층이 없으면 목록에 나오지 않습니다.");
+        }
+
+        return e.IsNew
+            ? Api.CreateRoomAsync(e.Item)
+            : Api.UpdateRoomAsync(e.Item.Id, e.Item);
+    }
+
+    private Task DeleteAsync(Room r) => Api.DeleteRoomAsync(r.Id);
 }

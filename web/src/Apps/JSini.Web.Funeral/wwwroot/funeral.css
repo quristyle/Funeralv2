@@ -224,3 +224,37 @@
   font-size: 0.8rem;
   color: var(--jsini-text-muted);
 }
+
+/* F.A.Q 항목의 관리 단추. 답변 아래 오른쪽에 조용히 둔다 —
+   읽으러 온 사람에게 먼저 보이면 안 되는 것들이다. */
+.fn-faq__tools {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.25rem;
+  padding: 0 0.2rem 0.4rem;
+}
+
+/* Q&A 글의 단추 줄. 본문 아래 오른쪽에 조용히 둔다. */
+.fn-qna__tools {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.25rem;
+  margin-top: 0.2rem;
+}
+
+/* 답글 창 맨 위의 「무엇에 답하는가」. 대상을 안 보여 주면 깊은 스레드에서
+   엉뚱한 글에 답글을 단다. */
+.fn-qna__quote {
+  margin-bottom: 0.6rem;
+  padding: 0.5rem 0.7rem;
+  background: var(--jsini-surface);
+  border-left: 3px solid var(--jsini-border);
+  font-size: 0.82rem;
+}
+
+.fn-qna__quote-label {
+  display: block;
+  font-weight: 600;
+  opacity: 0.6;
+  font-size: 0.75rem;
+}

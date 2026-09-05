@@ -6,6 +6,23 @@
 
     질문과 답글이 **같은 모양**이다(`ParentId` 로만 갈린다). 그래서 깊이 제한이
     없고, 화면도 재귀로 그린다.
+
+    [읽기만 하고 있었다]
+
+    옛 화면에는 질문 등록·답글·수정·삭제·공개 전환이 있었다. 클라이언트에는
+    메서드가 다 있었고 화면만 안 부르고 있었다 — Q&A 인데 **글을 쓸 수가
+    없었다.**
+
+    [답글은 뿌리를 물려받는다]
+
+    답글을 달 때 `parentId` 만 보내면 서버가 뿌리(`rootId`)를 찾아 이어 준다.
+    화면이 뿌리를 계산하지 않는 이유는, 깊은 답글에서 그 계산이 어긋나면
+    스레드가 둘로 갈라지고 되돌리기 어렵기 때문이다.
+
+    [비공개 전환은 답글까지 함께 물어본다]
+
+    질문을 비공개로 돌리면서 답글은 공개로 두면 답만 보이고 무엇에 대한
+    답인지 알 수 없다. 뿌리 글에서는 「답글까지」를 함께 묻는다.
 *@
 
 @inherits DataPage
@@ -16,30 +33,247 @@
 <PageHeading Title="Q & A" Scope="장례식장" />
 
 <div class="jsini-toolbar">
-    <DxTextBox @bind-Text="_keyword" NullText="제목·내용 검색" Style="width: 240px"
+    <DxTextBox @bind-Text="_keyword" NullText="제목·내용 검색" Style="width: 220px"
                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
-    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@ReloadAsync" />
-</div>
 
-<div class="fn-qna">
-    @foreach (var post in _items)
+    <DxComboBox Data="@FilterOptions" @bind-Value="_filter"
+                TextFieldName="Text" ValueFieldName="Value"
+                NullText="전체" Style="width: 140px"
+                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+
+    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" SizeMode="SizeMode.Small"
+              IconCssClass="jsini-icon-refresh" Click="@ReloadAsync" />
+
+    <div class="jsini-toolbar__spacer"></div>
+
+    @if (_canWrite)
     {
-        <QnaThread Post="post" Depth="0" />
+        <PermissionView Action="MenuAction.Create">
+            <DxButton Text="질문 등록" RenderStyle="ButtonRenderStyle.Primary" SizeMode="SizeMode.Small"
+                      IconCssClass="jsini-icon-plus" Click="@StartAsk" />
+        </PermissionView>
     }
 </div>
 
 <PageNotice Text="@Notice" Tone="@Tone" />
 
+<div class="fn-qna">
+    @foreach (var post in _items)
+    {
+        <QnaThread Post="post" Depth="0"
+                   CanReply="@_canWrite" CanManage="@_canManage"
+                   Reply="@StartReply" Edit="@StartEdit"
+                   Delete="@DeleteAsync" ToggleVisibility="@ToggleVisibilityAsync" />
+    }
+</div>
+
+@if (_total > _items.Count)
+{
+    <PageNotice Tone="NoticeTone.Info"
+                Text="@($"전체 {_total}건 중 {_items.Count}건입니다. 검색으로 좁히십시오.")" />
+}
+
+@* ── 글쓰기 · 수정 ─────────────────────────────────── *@
+<DxPopup @bind-Visible="_editing" HeaderText="@EditTitle"
+         Width="680" CloseOnOutsideClick="false" ShowFooter="true">
+    <BodyContentTemplate Context="popup">
+        @if (_replyTo is not null)
+        {
+            <div class="fn-qna__quote">
+                <span class="fn-qna__quote-label">답글 대상</span>
+                @(_replyTo.Title ?? PlainHead(_replyTo.Content))
+            </div>
+        }
+
+        <DxFormLayout CssClass="fn-editform">
+            @if (_replyTo is null)
+            {
+                @* 답글에는 제목이 없다. 서버가 뿌리의 제목을 쓰기 때문이다. *@
+                <DxFormLayoutItem Caption="제목" ColSpanMd="12">
+                    <DxTextBox @bind-Text="_title" />
+                </DxFormLayoutItem>
+            }
+
+            <DxFormLayoutItem Caption="내용" ColSpanMd="12">
+                <DxMemo @bind-Text="_content" Rows="10" NullText="내용을 적으십시오" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="공개" ColSpanMd="12">
+                <DxCheckBox @bind-Checked="_isPublic">다른 사람도 볼 수 있게 한다</DxCheckBox>
+            </DxFormLayoutItem>
+        </DxFormLayout>
+    </BodyContentTemplate>
+
+    <FooterContentTemplate>
+        <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Primary" Click="@SaveAsync" />
+        <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary" Click="@(() => _editing = false)" />
+    </FooterContentTemplate>
+</DxPopup>
+
 @code {
     private string? _keyword;
+    private string? _filter;
+
     private IReadOnlyList<QnaPost> _items = [];
+    private int _total;
+
+    private bool _canWrite;
+    private bool _canManage;
+
+    private bool _editing;
+
+    /// <summary>고치고 있는 글. 새 글이면 <c>null</c>.</summary>
+    private QnaPost? _target;
+
+    /// <summary>답글을 다는 대상. 새 질문이면 <c>null</c>.</summary>
+    private QnaPost? _replyTo;
+
+    private string? _title;
+    private string? _content;
+    private bool _isPublic = true;
+
+    private string EditTitle => _replyTo is not null ? "답글" : _target is not null ? "글 수정" : "질문 등록";
+
+    private static readonly object[] FilterOptions =
+    [
+        new { Value = "mine", Text = "내 글" },
+        new { Value = "unanswered", Text = "답변 대기" },
+        new { Value = "answered", Text = "답변 완료" },
+    ];
 
     protected override Task OnInitializedAsync() => ReloadAsync();
 
     private Task ReloadAsync() => LoadAsync(async () =>
     {
-        var list = await Api.GetQnaListAsync(keyword: _keyword);
+        var list = await Api.GetQnaListAsync(_filter, _keyword, pageSize: 50);
+
         _items = list.Items;
+        _total = list.Total;
+        _canWrite = list.CanWrite;
+        _canManage = list.CanManage;
+
         return _items.Count;
     }, "등록된 글이 없습니다.", "Q&A 를 읽지 못했습니다");
+
+    private void StartAsk()
+    {
+        _target = null;
+        _replyTo = null;
+        _title = null;
+        _content = null;
+        _isPublic = true;
+        _editing = true;
+    }
+
+    private void StartReply(QnaPost post)
+    {
+        _target = null;
+        _replyTo = post;
+        _title = null;
+        _content = null;
+
+        // 답글은 대상의 공개 여부를 따라간다. 비공개 질문에 공개 답글이 붙으면
+        // 질문 없이 답만 보이게 된다.
+        _isPublic = post.IsPublic;
+        _editing = true;
+    }
+
+    private void StartEdit(QnaPost post)
+    {
+        _target = post;
+        _replyTo = null;
+        _title = post.Title;
+        _content = post.Content;
+        _isPublic = post.IsPublic;
+        _editing = true;
+    }
+
+    private async Task SaveAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_content))
+        {
+            Say("내용을 적으십시오.", NoticeTone.Warning);
+            return;
+        }
+
+        bool saved;
+
+        if (_target is not null)
+        {
+            saved = await RunAsync(
+                () => Api.UpdateQnaPostAsync(_target.Id, new
+                {
+                    title = _title,
+                    content = _content,
+                    isPublic = _isPublic,
+                }),
+                "저장했습니다.", "저장하지 못했습니다");
+        }
+        else
+        {
+            // 답글이면 parentId 만 보낸다. 뿌리는 서버가 찾는다 — 화면이
+            // 계산해 보내면 깊은 답글에서 어긋나 스레드가 갈라진다.
+            saved = await RunAsync(
+                () => Api.CreateQnaPostAsync(new
+                {
+                    parentId = _replyTo?.Id,
+                    title = _replyTo is null ? _title : null,
+                    content = _content,
+                    isPublic = _isPublic,
+                }),
+                _replyTo is null ? "등록했습니다." : "답글을 달았습니다.",
+                "등록하지 못했습니다");
+        }
+
+        if (!saved)
+        {
+            // 창을 닫지 않는다. 닫으면 쓴 내용이 사라진다.
+            return;
+        }
+
+        _editing = false;
+        await ReloadAsync();
+    }
+
+    private async Task DeleteAsync(QnaPost post)
+    {
+        if (await RunAsync(() => Api.DeleteQnaPostAsync(post.Id),
+                           "지웠습니다. 답글도 함께 지워집니다.", "지우지 못했습니다"))
+        {
+            await ReloadAsync();
+        }
+    }
+
+    /// <summary>
+    /// 공개 여부를 뒤집는다.
+    ///
+    /// 뿌리 글이면 답글까지 함께 바꾼다. 질문만 비공개로 돌리면 답글이 남아
+    /// 무엇에 대한 답인지 모르는 글이 떠 있게 된다.
+    /// </summary>
+    private async Task ToggleVisibilityAsync(QnaPost post)
+    {
+        var next = !post.IsPublic;
+
+        if (await RunAsync(
+                () => Api.SetQnaVisibilityAsync(post.Id, next, includeReplies: post.Depth == 0),
+                next ? "공개로 바꿨습니다." : "비공개로 바꿨습니다.",
+                "공개 여부를 바꾸지 못했습니다"))
+        {
+            await ReloadAsync();
+        }
+    }
+
+    /// <summary>답글 대상 안내에 쓸 한 줄. 태그를 걷어내고 앞부분만.</summary>
+    private static string PlainHead(string? html)
+    {
+        if (string.IsNullOrWhiteSpace(html))
+        {
+            return string.Empty;
+        }
+
+        var text = System.Net.WebUtility.HtmlDecode(
+            System.Text.RegularExpressions.Regex.Replace(html, "<[^>]+>", " ")).Trim();
+
+        return text.Length <= 60 ? text : text[..60] + "…";
+    }
 }

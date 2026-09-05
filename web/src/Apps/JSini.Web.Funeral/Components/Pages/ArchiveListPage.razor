@@ -7,6 +7,15 @@
     **내려받기는 AuthServer 를 거친다.** 서버가 횟수를 세고 FileServer 로 302 로
     넘긴다. FileServer 를 직접 가리키면 셀 수가 없다.
 
+    [읽기만 하고 있었다 — 이제 자료 정보는 고칠 수 있다]
+
+    등록·수정·삭제가 빠져 있었다. 클라이언트에는 메서드가 있었고 화면만 안
+    부르고 있었다.
+
+    **파일을 올리는 것은 아직 없다.** 첨부는 FileServer 에 먼저 올리고 받은
+    식별자를 여기에 매다는 두 단계라, 어디까지 옮길지 정해야 한다
+    (결정 목록 D5). 지금은 **이미 매달린 파일을 보여 주고 자료 정보만** 고친다.
+
     **파일 이름이 화면 이름과 다르다.** 컴포넌트 이름을 자료 타입과 같게 두면
     화면 안에서 자료 타입이 가려진다 — Razor 가 만드는 클래스가 같은
     네임스페이스에 있어 더 가깝기 때문이다. 아키텍처 테스트가 이 충돌을 막는다.
@@ -20,22 +29,75 @@
 <PageHeading Title="자료실" Scope="장례식장" />
 
 <div class="jsini-toolbar">
-    <DxTextBox @bind-Text="_keyword" NullText="자료명 검색" Style="width: 240px"
+    <DxTextBox @bind-Text="_keyword" NullText="자료명 검색" Style="width: 220px"
                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
-    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@ReloadAsync" />
+
+    <DxComboBox Data="@_categories" @bind-Value="_category"
+                NullText="분류 전체" Style="width: 150px"
+                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+
+    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" SizeMode="SizeMode.Small"
+              IconCssClass="jsini-icon-refresh" Click="@ReloadAsync" />
+
+    <div class="jsini-toolbar__spacer"></div>
+
+    @if (_canManage)
+    {
+        <PermissionView Action="MenuAction.Create">
+            <DxButton Text="등록" RenderStyle="ButtonRenderStyle.Primary" SizeMode="SizeMode.Small"
+                      IconCssClass="jsini-icon-plus" Click="@StartNew" />
+        </PermissionView>
+    }
 </div>
 
-<DxGrid Data="@_items" ShowFilterRow="false" PageSize="20"
+<DxGrid Data="@_items" ShowFilterRow="false" ShowSearchBox="false" PageSize="20"
         DetailExpandButtonDisplayMode="GridDetailExpandButtonDisplayMode.Auto">
     <Columns>
-        <DxGridDataColumn FieldName="@nameof(Archive.Title)" Caption="자료명" MinWidth="220" />
-        <DxGridDataColumn FieldName="@nameof(Archive.Category)" Caption="분류" Width="140" />
-        <DxGridDataColumn FieldName="@nameof(Archive.CreatedAt)" Caption="등록일" Width="130" DisplayFormat="yyyy-MM-dd" />
-        <DxGridDataColumn Caption="첨부" Width="90">
+        <DxGridDataColumn Caption="자료명" MinWidth="220">
+            <CellDisplayTemplate Context="cell">
+                @{
+                    var a = (Archive)cell.DataItem;
+                }
+                @if (a.Status != 1)
+                {
+                    <span class="jsini-badge jsini-badge--off">중지</span>
+                }
+                <span>@a.Title</span>
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+
+        <DxGridDataColumn FieldName="@nameof(Archive.Category)" Caption="분류" Width="130" />
+        <DxGridDataColumn FieldName="@nameof(Archive.DownloadCount)" Caption="내려받기" Width="90" />
+        <DxGridDataColumn FieldName="@nameof(Archive.CreatedAt)" Caption="등록일" Width="120" DisplayFormat="yyyy-MM-dd" />
+
+        <DxGridDataColumn Caption="첨부" Width="80">
             <CellDisplayTemplate Context="cell">
                 @(((Archive)cell.DataItem).Files.Count) 개
             </CellDisplayTemplate>
         </DxGridDataColumn>
+
+        @if (_canManage)
+        {
+            <DxGridDataColumn Caption="관리" Width="120" AllowSort="false">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var a = (Archive)cell.DataItem;
+                    }
+                    <div class="d-flex gap-1">
+                        <PermissionView Action="MenuAction.Update">
+                            <DxButton Text="수정" SizeMode="SizeMode.Small"
+                                      RenderStyle="ButtonRenderStyle.Secondary"
+                                      Click="@(() => StartEdit(a))" />
+                        </PermissionView>
+                        <PermissionView Action="MenuAction.Delete">
+                            <DxButton Text="삭제" SizeMode="SizeMode.Small"
+                                      RenderStyle="ButtonRenderStyle.Secondary"
+                                      Click="@(() => DeleteAsync(a))" />
+                        </PermissionView>
+                    </div>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+        }
     </Columns>
     <DetailRowTemplate Context="detail">
         @{
@@ -62,18 +124,147 @@
 
 <PageNotice Text="@Notice" Tone="@Tone" />
 
+@* ── 자료 정보 편집 ─────────────────────────────────── *@
+<DxPopup @bind-Visible="_editing" HeaderText="@(_isNew ? "자료 등록" : "자료 수정")"
+         Width="660" CloseOnOutsideClick="false" ShowFooter="true">
+    <BodyContentTemplate Context="popup">
+        @if (_isNew)
+        {
+            @* 파일을 못 올린다는 것을 미리 말한다. 등록해 놓고 첨부를 못 붙여
+               헤매는 것보다 낫다. *@
+            <PageNotice Tone="NoticeTone.Info"
+                        Text="파일 첨부는 아직 옮기지 않았습니다. 자료 정보만 등록되고 첨부는 비어 있습니다." />
+        }
+
+        <DxFormLayout CssClass="fn-editform">
+            <DxFormLayoutItem Caption="자료명" ColSpanMd="12">
+                <DxTextBox @bind-Text="_edit.Title" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="분류" ColSpanMd="6">
+                <DxComboBox Data="@_categories" @bind-Value="_edit.Category"
+                            AllowUserInput="true" NullText="분류 (직접 입력 가능)"
+                            ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="정렬" ColSpanMd="3">
+                <DxSpinEdit @bind-Value="_edit.OrderNo" MinValue="0" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="사용" ColSpanMd="3">
+                <DxCheckBox Checked="@(_edit.Status == 1)"
+                            CheckedChanged="@((bool v) => _edit.Status = v ? 1 : 0)">
+                    사용
+                </DxCheckBox>
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="설명" ColSpanMd="12">
+                <DxMemo @bind-Text="_edit.Description" Rows="6" />
+            </DxFormLayoutItem>
+        </DxFormLayout>
+    </BodyContentTemplate>
+
+    <FooterContentTemplate>
+        <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Primary" Click="@SaveAsync" />
+        <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary" Click="@(() => _editing = false)" />
+    </FooterContentTemplate>
+</DxPopup>
+
 @code {
     private string? _keyword;
+    private string? _category;
+
     private IReadOnlyList<Archive> _items = [];
+    private IReadOnlyList<string> _categories = [];
+
+    /// <summary>서버가 「이 사람은 고칠 수 있다」고 한 경우에만 참.</summary>
+    private bool _canManage;
+
+    private bool _editing;
+    private bool _isNew;
+    private Archive _edit = new();
 
     protected override Task OnInitializedAsync() => ReloadAsync();
 
     private Task ReloadAsync() => LoadAsync(async () =>
     {
-        var list = await Api.GetArchiveListAsync(keyword: _keyword);
+        var list = await Api.GetArchiveListAsync(_category, _keyword);
+
         _items = list.Items;
+        _categories = list.Categories;
+        _canManage = list.CanManage;
+
         return _items.Count;
     }, "등록된 자료가 없습니다.", "자료실을 읽지 못했습니다");
+
+    private void StartNew()
+    {
+        _isNew = true;
+        _edit = new Archive
+        {
+            Category = _category,
+            Status = 1,
+            OrderNo = _items.Count == 0 ? 1 : _items.Max(a => a.OrderNo) + 1,
+        };
+        _editing = true;
+    }
+
+    /// <summary>복사본을 띄운다. 원본을 묶으면 취소해도 표에 바뀐 값이 남는다.</summary>
+    private void StartEdit(Archive a)
+    {
+        _isNew = false;
+        _edit = new Archive
+        {
+            Id = a.Id,
+            Title = a.Title,
+            Description = a.Description,
+            Category = a.Category,
+            OrderNo = a.OrderNo,
+            Status = a.Status,
+        };
+        _editing = true;
+    }
+
+    private async Task SaveAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_edit.Title))
+        {
+            Say("자료명을 넣으십시오.", NoticeTone.Warning);
+            return;
+        }
+
+        // 첨부는 보내지 않는다. 보내면 서버가 「보낸 그대로가 최종」으로 보고
+        // 이미 매달린 파일을 지운다.
+        var body = new
+        {
+            title = _edit.Title,
+            description = _edit.Description,
+            category = _edit.Category,
+            orderNo = _edit.OrderNo,
+            status = _edit.Status,
+        };
+
+        var saved = await RunAsync(
+            () => _isNew ? Api.CreateArchiveAsync(body) : Api.UpdateArchiveAsync(_edit.Id, body),
+            _isNew ? "등록했습니다." : "저장했습니다.",
+            _isNew ? "등록하지 못했습니다" : "저장하지 못했습니다");
+
+        if (!saved)
+        {
+            return;
+        }
+
+        _editing = false;
+        await ReloadAsync();
+    }
+
+    private async Task DeleteAsync(Archive a)
+    {
+        if (await RunAsync(() => Api.DeleteArchiveAsync(a.Id), "지웠습니다.", "지우지 못했습니다"))
+        {
+            await ReloadAsync();
+        }
+    }
 
     private static string FormatSize(long? bytes)
     {

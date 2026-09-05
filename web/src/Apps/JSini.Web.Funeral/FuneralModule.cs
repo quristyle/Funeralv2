@@ -37,6 +37,10 @@ public sealed class FuneralModule : IPortalModule
         services.AddScoped<FuneralApi>();
         services.AddScoped<HelpApi>();
 
+        // 공통코드. 호실 구분·사망 종류 같은 고르개가 쓴다.
+        // 회로 하나에 하나여야 캐시가 산다 — 그래서 scoped 다.
+        services.AddScoped<CommonCodeClient>();
+
         // 업로드만 멀티파트라 GatewayClient 를 쓸 수 없다. 같은 주소와 같은
         // 토큰 처리(AuthTokenHandler)로 붙여서 인증이 갈라지지 않게 한다.
         var baseUrl = configuration["Gateway:BaseUrl"] ?? "http://localhost:5265/api/";
