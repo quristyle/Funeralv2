@@ -1,0 +1,23 @@
+<Solution>
+  <Folder Name="/src/" />
+  <Folder Name="/src/Apps/">
+    <Project Path="src/Apps/JSini.Web.Admin/JSini.Web.Admin.csproj" />
+    <Project Path="src/Apps/JSini.Web.Funeral/JSini.Web.Funeral.csproj" />
+    <Project Path="src/Apps/JSini.Web.HelpDesk/JSini.Web.HelpDesk.csproj" />
+    <Project Path="src/Apps/JSini.Web.LifeEnv/JSini.Web.LifeEnv.csproj" />
+    <Project Path="src/Apps/JSini.Web.ProjMng/JSini.Web.ProjMng.csproj" />
+    <Project Path="src/Apps/JSini.Web.Site/JSini.Web.Site.csproj" />
+  </Folder>
+  <Folder Name="/src/Shared/">
+    <Project Path="src/Shared/JSini.Web.Abstractions/JSini.Web.Abstractions.csproj" />
+    <Project Path="src/Shared/JSini.Web.Components/JSini.Web.Components.csproj" />
+    <Project Path="src/Shared/JSini.Web.Http/JSini.Web.Http.csproj" />
+    <Project Path="src/Shared/JSini.Web.Models/JSini.Web.Models.csproj" />
+  </Folder>
+  <Folder Name="/src/Shell/">
+    <Project Path="src/Shell/JSini.Web.Shell/JSini.Web.Shell.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/JSini.Web.Architecture.Tests/JSini.Web.Architecture.Tests.csproj" />
+  </Folder>
+</Solution>

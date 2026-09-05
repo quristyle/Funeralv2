@@ -1,0 +1,17 @@
+@*
+    주어진 주소로 보낸다. 마크업으로 "여기서는 다른 데로 간다" 를 드러내려고
+    컴포넌트로 둔다 — `OnInitialized` 안에서 NavigateTo 를 부르는 코드가 화면마다
+    흩어지면 어디서 튕기는지 좇기 어렵다.
+*@
+
+@inject NavigationManager Navigation
+
+@code {
+    /// <summary>보낼 주소.</summary>
+    [Parameter, EditorRequired] public string Url { get; set; } = "/";
+
+    /// <summary>서버를 다시 밟을지. 쿠키를 굽거나 지우는 경로에서만 켠다.</summary>
+    [Parameter] public bool ForceLoad { get; set; }
+
+    protected override void OnInitialized() => Navigation.NavigateTo(Url, ForceLoad);
+}

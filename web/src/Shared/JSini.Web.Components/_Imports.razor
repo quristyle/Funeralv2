@@ -1,0 +1,20 @@
+@using System.Net.Http
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.AspNetCore.Components.Routing
+@using Microsoft.AspNetCore.Components.Web
+@using Microsoft.JSInterop
+
+@using DevExpress.Blazor
+
+@using JSini.Web.Abstractions
+@using JSini.Web.Http
+@using JSini.Web.Models
+@using JSini.Web.Components
+
+@* 하위 폴더가 곧 네임스페이스다. 여기서 한 번 열어 두면 각 앱의 _Imports 는
+   `@using JSini.Web.Components...` 를 폴더 수만큼 적지 않아도 된다. *@
+@using JSini.Web.Components.Data
+@using JSini.Web.Components.Layout
+@using JSini.Web.Components.Security

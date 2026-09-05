@@ -1,0 +1,23 @@
+@page "/"
+
+@*
+    장례식장 앱의 첫 화면. 브라우저에서는 <b>/funeral</b> 다.
+
+    [@page 에 접두사를 적지 않는다]
+
+    Program.cs 의 UsePathBase("/funeral") 가 이미 접두사를 떼고 넘긴다.
+    여기에 "/funeral" 를 또 적으면 실제 주소가 /funeral/funeral 가 되어
+    아무도 열 수 없는 화면이 된다. 빌드는 통과하므로 눈으로는 안 보인다 —
+    그래서 아키텍처 테스트가 이걸 막는다.
+
+    실제 화면을 옮겨 오면 이 자리표시는 지운다.
+*@
+
+<PageTitle>장례식장</PageTitle>
+
+<h1>장례식장</h1>
+
+<p>
+    MFE <code>/funeral</code> 가 붙었다. 이 앱은 독립 프로세스로 돌고,
+    셸이 <code>/funeral/*</code> 를 여기로 넘긴다.
+</p>

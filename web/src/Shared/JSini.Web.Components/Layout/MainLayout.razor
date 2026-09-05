@@ -1,0 +1,117 @@
+@*
+    포털 레이아웃. 사이드바 + 헤더 + 본문.
+
+    [모듈은 이 파일을 모른다]
+
+    레이아웃은 셸의 것이고 모듈은 자기 화면만 그린다. 모듈이 레이아웃을 아는
+    순간 "레이아웃을 고치면 모듈 여섯 개를 다시 봐야 한다" 가 되어 격리가 깨진다.
+
+    [멀티탭은 아직 없다]
+
+    vben 포털에는 업무 탭을 여러 개 열어 두는 기능이 있었다. Blazor 에서는
+    라우팅과 컴포넌트 수명이 엮인 자리라 따로 설계가 필요하다 — 골격 단계에서
+    어설프게 넣으면 250개 화면이 그 위에 얹힌 뒤에 못 고친다. 별도 과제로 뺀다.
+*@
+
+@inherits LayoutComponentBase
+@implements IDisposable
+
+@inject IMenuProvider Menus
+@inject IPermissionContext Permissions
+@inject ITokenStore Tokens
+@inject AuthenticationStateProvider AuthState
+
+<DxLayoutBreakpoint DeviceSize="DeviceSize.XSmall" @bind-IsActive="_isPhone" />
+<DxLayoutBreakpoint DeviceSize="DeviceSize.Small" @bind-IsActive="_isTablet" />
+
+<div class="jsini-shell">
+
+    <aside class="jsini-shell__sidebar @(_sidebarOpen ? "" : "jsini-shell__sidebar--collapsed")">
+        <div class="jsini-shell__brand">
+            <span class="jsini-shell__brand-mark">JSini</span>
+        </div>
+
+        <nav class="jsini-shell__nav">
+            <SidebarMenu Nodes="@Menus.VisibleMenus" />
+        </nav>
+    </aside>
+
+    <div class="jsini-shell__main">
+        <header class="jsini-shell__header">
+            <DxButton RenderStyle="ButtonRenderStyle.Link"
+                      IconCssClass="jsini-icon-menu"
+                      Click="@ToggleSidebar"
+                      Attributes="@(new Dictionary<string, object> { ["aria-label"] = "메뉴 열기" })" />
+
+            <div class="jsini-shell__header-spacer"></div>
+
+            <ThemeToggle />
+            <UserMenu />
+        </header>
+
+        <main class="jsini-shell__content">
+            @Body
+        </main>
+    </div>
+
+</div>
+
+@code {
+    private bool _sidebarOpen = true;
+    private bool _isPhone;
+    private bool _isTablet;
+
+    protected override void OnInitialized()
+    {
+        Menus.MenusChanged += OnMenusChanged;
+    }
+
+    /// <summary>
+    /// **순서가 셋 다 중요하다.**
+    ///
+    /// ① 토큰 — 게이트웨이를 부르려면 먼저 있어야 한다. 그리고 이 값은
+    ///    `AuthenticationStateProvider` 에서만 나오는데, 그건 **Razor 컴포넌트
+    ///    안에서만** 물을 수 있다. HTTP 핸들러에서 물으면 예외로 죽는다.
+    ///    그래서 컴포넌트인 여기가 물어서 넘겨 준다.
+    /// ② 권한표 — 메뉴를 거르는 데 쓴다.
+    /// ③ 메뉴 — 권한표가 없는 상태에서 읽으면 걸러지지 않은 목록이 한 번
+    ///    보였다가 바뀐다. Vue 에서도 같은 이유로 권한을 먼저 읽었다.
+    /// </summary>
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthState.GetAuthenticationStateAsync();
+        Tokens.Initialize(state.User);
+
+        await Permissions.ReloadAsync();
+        await Menus.ReloadAsync();
+    }
+
+    /// <summary>
+    /// 화면 크기가 바뀌면 메뉴를 다시 거른다 (`use_mobile` · `use_tablet`).
+    ///
+    /// Vue 에서는 `matchMedia` 를 직접 구독했다. Blazor Server 는 브라우저 상태를
+    /// 모르므로 DevExpress 의 DxLayoutBreakpoint 가 알려 주는 것을 받아 옮긴다.
+    /// 경계값(767 / 1023)은 Vue 때와 같아야 한다 — 사용자가 같은 기기에서
+    /// 다른 메뉴를 보면 안 된다.
+    /// </summary>
+    protected override void OnParametersSet()
+    {
+        var viewport = _isPhone ? Viewport.Phone
+            : _isTablet ? Viewport.Tablet
+            : Viewport.Desktop;
+
+        Menus.SetViewport(viewport);
+
+        // 휴대폰에서는 사이드바가 본문을 덮으므로 접힌 채로 시작한다.
+        if (_isPhone && _sidebarOpen)
+        {
+            _sidebarOpen = false;
+        }
+    }
+
+    private void ToggleSidebar() => _sidebarOpen = !_sidebarOpen;
+
+    private void OnMenusChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Menus.MenusChanged -= OnMenusChanged;
+}

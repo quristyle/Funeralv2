@@ -1,0 +1,420 @@
+@using System.Data
+@inject CommonCodes Codes
+
+@*
+    메타 구동 그리드 — 옛 Blazor 의 `QuriDynamicGrid`, Vue 의 `dynamic-grid.vue` 를 잇는다.
+
+    [컬럼을 코드에 적지 않는다]
+
+    프로젝트관리 화면들은 컬럼을 미리 알지 못한다. 저장 프로시저가 결과와 함께
+    컬럼 메타를 돌려주고, 그리드가 그것을 보고 그린다.
+
+        cols : { cm_cd: "System.String", cm_srt: "System.Int32", cre_dt: "System.DateTime" }
+
+    이 그리드가 서면 화면은 "어떤 프로시저를 어떤 파라미터로 부르는가" 만 적으면
+    된다. 프로젝트관리 화면 27개가 그만큼 얇아진다.
+
+    [변경 추적을 손으로 하지 않는다]
+
+    Vue 는 편집한 행에 `quri_ischange` 를 붙여 두었다가 저장할 때 골라냈다.
+    여기서는 DataTable 의 RowState 가 그 일을 한다 — 붙이는 것을 잊거나
+    지우는 것을 잊는 종류의 버그가 아예 생기지 않는다.
+*@
+
+<div class="pm-grid">
+
+    <div class="pm-grid__toolbar">
+        @if (OnRefresh.HasDelegate)
+        {
+            <PermissionView Action="MenuAction.Search">
+                <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary"
+                          Click="@(() => OnRefresh.InvokeAsync())" />
+            </PermissionView>
+        }
+
+        @if (OnSave.HasDelegate && !HideAdd)
+        {
+            <PermissionView Action="MenuAction.Create">
+                <DxButton Text="행 추가" RenderStyle="ButtonRenderStyle.Secondary"
+                          Click="@AddRowAsync" />
+            </PermissionView>
+        }
+
+        @if (OnSave.HasDelegate)
+        {
+            <PermissionView Action="MenuAction.Update">
+                <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Secondary"
+                          Enabled="@Data.HasChanges"
+                          Click="@(() => OnSave.InvokeAsync())" />
+            </PermissionView>
+        }
+
+        @if (OnDelete.HasDelegate)
+        {
+            <PermissionView Action="MenuAction.Delete">
+                <DxButton Text="삭제" RenderStyle="ButtonRenderStyle.Danger"
+                          Enabled="@(_selected is not null)"
+                          Click="@DeleteRowAsync" />
+            </PermissionView>
+        }
+
+        <PermissionView Action="MenuAction.Excel">
+            <DxButton Text="엑셀" RenderStyle="ButtonRenderStyle.Secondary"
+                      Click="@ExportAsync" />
+        </PermissionView>
+
+        @Toolbar
+
+        @if (Data.HasChanges)
+        {
+            @* 프로젝트관리는 여러 행을 고친 뒤 한 번에 저장한다. 고쳐 놓고 저장을
+               안 누른 채 다른 항목을 고르면 변경이 조용히 사라지므로 늘 보이게 둔다. *@
+            <span class="pm-grid__dirty">저장하지 않은 변경이 있습니다</span>
+        }
+    </div>
+
+    @if (Loading)
+    {
+        <DxLoadingPanel Visible="true" IsContentBlocked="true" Text="조회 중…" />
+    }
+
+    <DxGrid @ref="_grid"
+            Data="@Data.Table"
+            ShowFilterRow="true"
+            ColumnResizeMode="GridColumnResizeMode.NextColumn"
+            EditMode="GridEditMode.EditRow"
+            PageSize="@PageSize"
+            FocusedRowEnabled="true"
+            FocusedRowChanged="@OnFocusedRowChanged"
+            CustomizeEditModel="@OnCustomizeEditModelAsync"
+            EditModelSaving="@OnEditModelSavingAsync"
+            CssClass="pm-grid__table">
+        <Columns>
+            @foreach (var column in _columns)
+            {
+                @if (column.Options is null)
+                {
+                    <DxGridDataColumn FieldName="@column.Name"
+                                      Caption="@column.Name"
+                                      MinWidth="@column.Width"
+                                      ReadOnly="@column.IsReadOnly"
+                                      DisplayFormat="@column.Format" />
+                }
+                else
+                {
+                    @* 코드 컬럼. 셀에는 이름을 보여 주고 저장은 코드값으로 한다 —
+                       사용자에게 'A01' 을 보여 줘 봐야 뜻을 알 수 없다. *@
+                    <DxGridDataColumn FieldName="@column.Name"
+                                      Caption="@column.Name"
+                                      MinWidth="@column.Width"
+                                      ReadOnly="@column.IsReadOnly">
+                        <CellDisplayTemplate>
+                            @LabelOf(column, context.Value)
+                        </CellDisplayTemplate>
+                        <CellEditTemplate>
+                            <DxComboBox Data="@column.Options"
+                                        TextFieldName="@nameof(CommonCodeItem.Name)"
+                                        ValueFieldName="@nameof(CommonCodeItem.Code)"
+                                        Value="@(CellText(context, column.Name))"
+                                        ValueChanged="@((string? value) => SetCell(context, column.Name, value))"
+                                        ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto"
+                                        NullText="선택" />
+                        </CellEditTemplate>
+                    </DxGridDataColumn>
+                }
+            }
+        </Columns>
+        <EmptyDataAreaTemplate>
+            <div class="pm-grid__empty">조회된 자료가 없습니다.</div>
+        </EmptyDataAreaTemplate>
+    </DxGrid>
+
+</div>
+
+@code {
+    private IGrid? _grid;
+    private DataRow? _selected;
+
+    /// <summary>그릴 컬럼. 표가 바뀔 때만 다시 만든다.</summary>
+    private List<GridColumn> _columns = [];
+
+    /// <summary>마지막으로 컬럼을 만든 근거. 같은 표면 다시 만들지 않는다.</summary>
+    private ProjMngTable? _builtFrom;
+
+    /// <summary>프로시저 결과를 옮긴 표. <c>ProcGrid.Data</c> 를 그대로 넘긴다.</summary>
+    [Parameter, EditorRequired] public ProjMngTable Data { get; set; } = ProjMngTable.Empty;
+
+    /// <summary>조회 중인가. 부모의 <c>ProcGrid.IsLoading</c> 을 넘긴다.</summary>
+    [Parameter] public bool Loading { get; set; }
+
+    /// <summary>숨길 컬럼. 쉼표로 구분 — 예: <c>"cm_rid,cm_prop"</c></summary>
+    [Parameter] public string HiddenCols { get; set; } = string.Empty;
+
+    /// <summary>편집을 막을 컬럼. 쉼표로 구분.</summary>
+    [Parameter] public string ReadonlyCols { get; set; } = string.Empty;
+
+    /// <summary>
+    /// 드롭다운으로 편집할 컬럼. <c>컬럼명|공통코드ID</c> 를 쉼표로 구분한다.
+    /// 예: <c>"cm_type|CODE_TYPE,db_type|db"</c>
+    ///
+    /// 지정한 컬럼은 셀에 <b>코드가 아니라 이름</b>이 보이고, 편집할 때
+    /// 목록에서 고르게 된다. 저장되는 값은 코드다.
+    /// </summary>
+    [Parameter] public string DropdownCols { get; set; } = string.Empty;
+
+    /// <summary>한 쪽에 보여 줄 건수. 프로젝트관리는 전량 조회라 넉넉히 잡는다.</summary>
+    [Parameter] public int PageSize { get; set; } = 50;
+
+    /// <summary>행 추가 버튼을 감출 때(조회 전용 목록).</summary>
+    [Parameter] public bool HideAdd { get; set; }
+
+    /// <summary>내려받을 엑셀 파일 이름(확장자 없이).</summary>
+    [Parameter] public string ExportName { get; set; } = "projmng";
+
+    /// <summary>툴바 오른쪽에 덧붙일 것.</summary>
+    [Parameter] public RenderFragment? Toolbar { get; set; }
+
+    /// <summary>조회를 눌렀다. 자료는 부모가 들고 있으므로 부모가 다시 받아 온다.</summary>
+    [Parameter] public EventCallback OnRefresh { get; set; }
+
+    /// <summary>저장을 눌렀다. 부모가 <c>ProcGrid.SaveAsync</c> 를 부른다.</summary>
+    [Parameter] public EventCallback OnSave { get; set; }
+
+    /// <summary>삭제를 눌렀다. 확인 창은 부모가 띄운다 — 무엇을 지우는지 아는 것은 화면이다.</summary>
+    [Parameter] public EventCallback<DataRow> OnDelete { get; set; }
+
+    /// <summary>
+    /// 행을 새로 넣었다. 부모가 부모 키 등 기본값을 채울 수 있다
+    /// (마스터-디테일에서 디테일 행에 상위 코드를 채우는 자리).
+    /// </summary>
+    [Parameter] public EventCallback<DataRow> OnAdd { get; set; }
+
+    /// <summary>행을 골랐다. 마스터-디테일에서 디테일을 다시 읽는 자리.</summary>
+    [Parameter] public EventCallback<DataRow?> OnRowClick { get; set; }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        // 표가 바뀌었을 때만 컬럼을 다시 만든다. 매번 만들면 DxGrid 가 컬럼을
+        // 통째로 다시 그려서 사용자가 조정한 폭과 필터가 날아간다.
+        if (!ReferenceEquals(_builtFrom, Data))
+        {
+            _builtFrom = Data;
+            _columns = await BuildColumnsAsync();
+            _selected = null;
+        }
+    }
+
+    /// <summary>
+    /// 컬럼 메타에서 그릴 컬럼을 만든다. <b>프로시저가 준 순서를 그대로 지킨다.</b>
+    /// </summary>
+    private async Task<List<GridColumn>> BuildColumnsAsync()
+    {
+        var hidden = SplitToSet(HiddenCols);
+        var readOnly = SplitToSet(ReadonlyCols);
+        var dropdowns = ParseDropdowns();
+
+        var columns = new List<GridColumn>();
+
+        foreach (var name in Data.ColumnOrder)
+        {
+            if (hidden.Contains(name))
+            {
+                continue;
+            }
+
+            var type = Data.Table.Columns[name]!.DataType;
+
+            IReadOnlyList<CommonCodeItem>? options = null;
+            if (dropdowns.TryGetValue(name, out var codeId))
+            {
+                // 캐시가 있으므로 화면마다 같은 코드를 다시 읽지 않는다.
+                options = await Codes.GetAsync(codeId);
+            }
+
+            columns.Add(new GridColumn(
+                name, WidthOf(type), readOnly.Contains(name), FormatOf(type), options));
+        }
+
+        return columns;
+    }
+
+    /// <summary><c>"cm_type|CODE_TYPE,db_type|db"</c> 를 컬럼명 → 코드ID 로 푼다.</summary>
+    private Dictionary<string, string> ParseDropdowns()
+    {
+        var map = new Dictionary<string, string>(StringComparer.Ordinal);
+
+        foreach (var entry in (DropdownCols ?? string.Empty)
+                     .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            var parts = entry.Split('|', 2);
+            if (parts.Length == 2 && parts[0].Length > 0 && parts[1].Length > 0)
+            {
+                map[parts[0].Trim()] = parts[1].Trim();
+            }
+        }
+
+        return map;
+    }
+
+    /// <summary>
+    /// 코드값에 해당하는 이름. 못 찾으면 코드값을 그대로 보여 준다 —
+    /// 목록에서 빠진 옛 코드가 빈칸으로 보이면 사용자가 자료가 사라진 줄 안다.
+    /// </summary>
+    private static string LabelOf(GridColumn column, object? value)
+    {
+        var code = value == DBNull.Value ? null : value?.ToString();
+        if (string.IsNullOrEmpty(code))
+        {
+            return string.Empty;
+        }
+
+        var match = column.Options?.FirstOrDefault(o =>
+            string.Equals(o.Code, code, StringComparison.Ordinal));
+
+        return match?.Name ?? code;
+    }
+
+    /// <summary>
+    /// 타입에 따라 최소 폭을 정한다. 옛 Blazor 와 Vue 가 쓰던 값을 그대로 옮긴다 —
+    /// 사용자가 익숙한 밀도를 바꾸지 않는다.
+    /// </summary>
+    private static int WidthOf(Type type)
+    {
+        if (type == typeof(bool)) return 70;
+        if (type == typeof(DateTime)) return 140;
+        if (type == typeof(short) || type == typeof(int) || type == typeof(long)) return 90;
+        return 140;
+    }
+
+    /// <summary>
+    /// 날짜는 <c>yyyy-MM-dd</c> 로 보여 준다.
+    ///
+    /// 프로시저가 돌려주는 날짜에는 시각이 거의 늘 <c>00:00:00</c> 으로 붙어 있는데,
+    /// 그대로 두면 칸이 넓어지고 읽기 어렵다. Vue 도 같은 형식으로 잘라 보여 줬다.
+    /// </summary>
+    private static string? FormatOf(Type type) => type == typeof(DateTime) ? "yyyy-MM-dd" : null;
+
+    private static HashSet<string> SplitToSet(string value) =>
+        [.. (value ?? string.Empty)
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)];
+
+    private async Task OnFocusedRowChanged(GridFocusedRowChangedEventArgs args)
+    {
+        // DataTable 을 넘기면 그리드가 행을 DataRowView 로 감싸 준다.
+        _selected = (args.DataItem as DataRowView)?.Row;
+        await OnRowClick.InvokeAsync(_selected);
+    }
+
+    /// <summary>
+    /// 편집을 시작할 때 편집용 행을 만들어 준다.
+    ///
+    /// **DataTable 을 쓰면 이 처리가 필수다.** DevExpress 는 자료 원본에서
+    /// 편집 모델을 리플렉션으로 만드는데 DataTable 에는 그럴 타입이 없다.
+    /// 없으면 편집을 여는 순간 이렇게 죽는다:
+    ///   "Cannot create an edit model automatically.
+    ///    Handle the CustomizeEditModel event to supply a custom edit model."
+    ///
+    /// 떼어 낸 행(<c>NewRow</c>)을 편집 모델로 준다. 표에는 아직 들어가지
+    /// 않으므로 사용자가 취소하면 아무 일도 없었던 것이 된다.
+    /// </summary>
+    private async Task OnCustomizeEditModelAsync(GridCustomizeEditModelEventArgs args)
+    {
+        var edit = Data.Table.NewRow();
+
+        if (args.IsNew)
+        {
+            // 부모가 부모 키 등 기본값을 채울 기회. **편집기를 열기 전이어야 한다** —
+            // 열고 나서 채우면 사용자가 빈 칸을 먼저 보게 되고, 직접 채워 넣는다.
+            await OnAdd.InvokeAsync(edit);
+        }
+        else if (args.DataItem is DataRowView view)
+        {
+            edit.ItemArray = view.Row.ItemArray;
+        }
+
+        args.EditModel = edit;
+    }
+
+    /// <summary>
+    /// 편집을 마쳤다. 편집용 행의 값을 표에 옮긴다.
+    ///
+    /// 여기서 서버로 보내지 않는다 — 프로젝트관리는 여러 행을 고친 뒤 한 번에
+    /// 저장하는 방식이라, 행마다 보내면 프로시저 호출이 행 수만큼 나간다.
+    /// 표에 옮기면 DataTable 의 RowState 가 Added·Modified 로 바뀌고,
+    /// 저장할 때 그 행만 골라 나간다.
+    /// </summary>
+    private Task OnEditModelSavingAsync(GridEditModelSavingEventArgs args)
+    {
+        var edit = (DataRow)args.EditModel;
+
+        if (args.IsNew)
+        {
+            Data.Table.Rows.Add(edit.ItemArray);
+        }
+        else if (args.DataItem is DataRowView view)
+        {
+            view.Row.ItemArray = edit.ItemArray;
+        }
+
+        return Task.CompletedTask;
+    }
+
+    /// <summary>툴바의 행 추가. 그리드의 새 행 편집기를 연다.</summary>
+    private async Task AddRowAsync()
+    {
+        if (_grid is not null)
+        {
+            await _grid.StartEditNewRowAsync();
+        }
+    }
+
+    private async Task DeleteRowAsync()
+    {
+        if (_selected is null)
+        {
+            return;
+        }
+
+        await OnDelete.InvokeAsync(_selected);
+    }
+
+    /// <summary>
+    /// 지금 보고 있는 그대로(정렬·필터가 적용된 상태) 엑셀로 내린다.
+    /// 원본 전체가 아니라 화면과 같은 것을 내리는 편이 맞다 —
+    /// 사용자는 방금 걸러 놓은 것을 받으리라 기대한다.
+    /// </summary>
+    private async Task ExportAsync()
+    {
+        if (_grid is not null)
+        {
+            await _grid.ExportToXlsxAsync($"{ExportName}.xlsx");
+        }
+    }
+
+    /// <summary>편집 중인 행에서 값을 읽는다.</summary>
+    private static string? CellText(GridDataColumnCellEditTemplateContext context, string field)
+    {
+        var value = context.EditModel is DataRow row && row.Table.Columns.Contains(field)
+            ? row[field]
+            : context.GetRowValue(field);
+
+        return value == DBNull.Value ? null : value?.ToString();
+    }
+
+    /// <summary>편집 중인 행에 값을 쓴다.</summary>
+    private static void SetCell(GridDataColumnCellEditTemplateContext context, string field, object? value)
+    {
+        if (context.EditModel is DataRow row && row.Table.Columns.Contains(field))
+        {
+            row[field] = value ?? (object)DBNull.Value;
+        }
+    }
+
+    /// <summary>그릴 컬럼 하나.</summary>
+    private sealed record GridColumn(
+        string Name,
+        int Width,
+        bool IsReadOnly,
+        string? Format,
+        IReadOnlyList<CommonCodeItem>? Options);
+}

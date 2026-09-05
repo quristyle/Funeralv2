@@ -29,3 +29,8 @@ scripts/projmng-db-migration/dsn.env
 # GHUB(생활과환경) DB 이관 접속 정보 (템플릿은 dsn.env.example 로 추적)
 scripts/ghub-db-migration/dsn.env
 __pycache__/
+
+# Blazor 포털의 Data Protection 키 링.
+# 셸과 업무 MFE 일곱 개가 이 키로 같은 인증 쿠키를 읽는다(web/CLAUDE.md).
+# 키 자체는 비밀값이라 커밋하지 않는다 — 개발 장비마다 처음 기동할 때 만들어진다.
+web/.keys/

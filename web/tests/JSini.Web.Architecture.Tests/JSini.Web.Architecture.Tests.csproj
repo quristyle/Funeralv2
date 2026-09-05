@@ -1,0 +1,56 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    의존 규칙을 **테스트로** 강제한다.
+
+    이 구조의 유일한 실패 모드는 규칙이 조용히 무너지는 것이다. 업무 앱 하나가
+    다른 앱을 참조하고, 그게 리뷰를 통과하고, 반년 뒤에는 여섯 앱이 서로 얽혀
+    "독립 배포" 가 거짓이 된다. 문서로는 못 막는다 — 아무도 문서를 읽으면서
+    ProjectReference 를 추가하지 않는다.
+
+    [모든 앱을 참조해야 한다]
+
+    셸이 업무 앱을 참조하지 않게 되면서(각자 독립 프로세스라 참조할 수 없다),
+    셸만 참조해서는 업무 앱을 볼 수 없게 됐다. 그래서 여기서 일곱 개를 모두
+    직접 참조한다. **테스트 프로젝트가 유일하게 전부를 아는 자리다.**
+
+    이 참조는 규칙 위반이 아니다 — 테스트는 배포되지 않으므로 앱 사이에
+    런타임 결합을 만들지 않는다.
+  -->
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Shell\JSini.Web.Shell\JSini.Web.Shell.csproj" />
+  </ItemGroup>
+
+  <ItemGroup Label="업무 MFE — 규칙 검사 대상">
+    <ProjectReference Include="..\..\src\Apps\JSini.Web.Admin\JSini.Web.Admin.csproj" />
+    <ProjectReference Include="..\..\src\Apps\JSini.Web.Funeral\JSini.Web.Funeral.csproj" />
+    <ProjectReference Include="..\..\src\Apps\JSini.Web.HelpDesk\JSini.Web.HelpDesk.csproj" />
+    <ProjectReference Include="..\..\src\Apps\JSini.Web.LifeEnv\JSini.Web.LifeEnv.csproj" />
+    <ProjectReference Include="..\..\src\Apps\JSini.Web.ProjMng\JSini.Web.ProjMng.csproj" />
+    <ProjectReference Include="..\..\src\Apps\JSini.Web.Site\JSini.Web.Site.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      셸의 appsettings 를 읽어 PortalApps 목록과 각 앱의 RoutePrefix 를 대조한다.
+      이 둘이 어긋나면 셸은 넘기는데 앱이 404 를 낸다 — 프로세스가 갈라진 뒤
+      가장 흔한 사고라 테스트로 잡는다.
+    -->
+    <None Include="..\..\src\Shell\JSini.Web.Shell\appsettings.json"
+          Link="shell.appsettings.json"
+          CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    게이트웨이로 나가는 HTTP 를 담당한다. **화면 코드는 없다** —
+    Razor 컴포넌트가 필요하면 JSini.Web.Components 로 간다.
+
+    이 프로젝트는 JSini.Web.Abstractions 조차 참조하지 않는다. 순수하게 HTTP 만
+    다루므로 메뉴·권한 계약을 알 필요가 없고, 모르는 편이 재사용에 낫다.
+  -->
+
+  <PropertyGroup>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+</Project>

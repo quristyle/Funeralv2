@@ -1,0 +1,9 @@
+/* iframe 이 남은 높이를 다 차지해야 모니터가 읽힌다. */
+.pm-frame {
+  width: 100%;
+  height: calc(100vh - 56px - 10rem);
+  min-height: 360px;
+  border: 1px solid var(--jsini-border, #e3e5e8);
+  border-radius: 8px;
+  background: #fff;
+}

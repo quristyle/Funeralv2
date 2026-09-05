@@ -1,0 +1,152 @@
+@using BlazorMonaco
+@using BlazorMonaco.Editor
+
+@*
+    코드 편집기 — 옛 Blazor 의 `QuriCodeEditor`, Vue 의 `code-editor.vue` 를 잇는다.
+
+    [셋 다 Monaco 다]
+
+    옛 Blazor(ProjMngWasm)가 BlazorMonaco 를 썼고, Vue 이식본도 monaco 를 직접
+    감쌌다. 여기서도 같은 것을 쓴다 — 화면 9개가 SQL·템플릿을 편집하는데
+    구문 강조·접기·찾기바꾸기·다중 커서가 실제로 쓰이고 있다.
+
+    [Vue 판보다 단순해진 자리]
+
+    Vue 는 워커 배선과 언어 개별 등록을 손으로 해야 했다(`monaco-setup.ts`) —
+    번들러가 monaco 를 통째로 끌고 오면 TypeScript·CSS 언어 서비스까지 딸려
+    왔기 때문이다. BlazorMonaco 는 min 빌드를 정적 자원으로 실어 주므로
+    그 배선이 필요 없다. 대신 언어를 골라 담을 수도 없다 — 전부 실린다.
+
+    [값 되먹임]
+
+    바깥에서 값이 바뀔 때만 편집기에 밀어 넣는다. 편집기가 낸 변경까지
+    되돌려 넣으면 타이핑 중에 커서가 맨 앞으로 튄다.
+*@
+
+<div class="pm-editor" style="height: @Height">
+    <StandaloneCodeEditor @ref="_editor"
+                          Id="@_id"
+                          ConstructionOptions="@BuildOptions"
+                          OnDidChangeModelContent="@OnEditorChangedAsync"
+                          CssClass="pm-editor__inner" />
+</div>
+
+@code {
+    [Inject] private IJSRuntime Js { get; set; } = default!;
+
+    private StandaloneCodeEditor? _editor;
+
+    /// <summary>
+    /// 편집기 DOM 요소의 id. 한 화면에 편집기가 둘 이상 있을 수 있어
+    /// (예: DB 속성 화면) 겹치지 않는 값을 만든다.
+    /// </summary>
+    private readonly string _id = $"pm-editor-{Guid.NewGuid():N}";
+
+    /// <summary>편집기가 스스로 낸 마지막 값. 되먹임을 가르는 기준이다.</summary>
+    private string? _lastPushed;
+
+    private bool _ready;
+
+    [Parameter] public string? Value { get; set; }
+
+    [Parameter] public EventCallback<string?> ValueChanged { get; set; }
+
+    /// <summary>구문 종류 (<c>pgsql</c> · <c>json</c> · <c>csharp</c> …).</summary>
+    [Parameter] public string Language { get; set; } = "pgsql";
+
+    [Parameter] public bool ReadOnly { get; set; }
+
+    /// <summary>CSS 높이. <c>100%</c> 를 주려면 부모에 높이가 정해져 있어야 한다.</summary>
+    [Parameter] public string Height { get; set; } = "240px";
+
+    /// <summary>
+    /// 편집기 옵션.
+    ///
+    /// 값은 여기서 넣지 않는다 — 옵션은 편집기를 만들 때 <b>한 번만</b> 평가되므로,
+    /// 나중에 바깥에서 값이 바뀌면 반영되지 않는다. 값은 OnAfterRender 에서 민다.
+    /// </summary>
+    private StandaloneEditorConstructionOptions BuildOptions(StandaloneCodeEditor editor) => new()
+    {
+        Language = ToMonacoLanguage(Language),
+        ReadOnly = ReadOnly,
+        AutomaticLayout = true,
+        FontSize = 12,
+        LineNumbers = "on",
+        Minimap = new EditorMinimapOptions { Enabled = false },
+        ScrollBeyondLastLine = false,
+        TabSize = 2,
+        WordWrap = "off",
+        RenderLineHighlight = "line",
+        SmoothScrolling = true,
+    };
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_editor is null)
+        {
+            return;
+        }
+
+        if (firstRender)
+        {
+            // 테마는 문서의 data-theme 를 따라간다(theme.js 가 정한다).
+            // 흰 배경에 밝은 편집기가 얹히면 그 부분만 튀어 보인다.
+            var dark = await Js.InvokeAsync<bool>("jsiniTheme.isDark");
+            await Global.SetTheme(Js, dark ? "vs-dark" : "vs");
+            _ready = true;
+        }
+
+        // 바깥에서 바뀐 값만 밀어 넣는다.
+        var incoming = Value ?? string.Empty;
+        var pushed = false;
+
+        if (_ready && incoming != (_lastPushed ?? string.Empty))
+        {
+            _lastPushed = incoming;
+            await _editor.SetValue(incoming);
+            pushed = true;
+        }
+
+        if (firstRender || pushed)
+        {
+            // **값을 밀 때마다 레이아웃을 직접 불러야 한다.**
+            //
+            // AutomaticLayout 을 켜 두어도 Blazor Server 에서는 제때 걸리지 않는다.
+            // 증상이 둘로 나타난다.
+            //   · 첫 렌더 — 편집기는 만들어지고 값도 들어가는데(getValue 는 내용을
+            //     돌려준다) 화면에 줄이 하나도 안 그려진다. 테두리만 있는 빈 칸이다.
+            //   · 값 교체 — 모델은 새 값인데 보이는 줄은 옛 내용 그대로다.
+            //     화면들이 항목을 고를 때마다 편집기 내용을 갈아 끼우므로
+            //     (DB 로직·프로젝트 DB 속성 …) 이쪽이 특히 자주 걸린다.
+            await _editor.Layout();
+        }
+    }
+
+    private async Task OnEditorChangedAsync(ModelContentChangedEvent _)
+    {
+        if (_editor is null)
+        {
+            return;
+        }
+
+        var text = await _editor.GetValue();
+        _lastPushed = text;
+        await ValueChanged.InvokeAsync(text);
+    }
+
+    /// <summary>
+    /// 화면이 넘기는 언어 이름을 Monaco 언어 id 로 바꾼다.
+    /// 모르는 이름은 <c>plaintext</c> 로 떨어뜨린다 — 편집 자체는 막지 않는다.
+    /// Vue 의 <c>toMonacoLanguage</c> 와 같은 표를 쓴다.
+    /// </summary>
+    private static string ToMonacoLanguage(string? language) =>
+        (language ?? string.Empty).Trim().ToLowerInvariant() switch
+        {
+            "" => "plaintext",
+            "c#" or "cs" => "csharp",
+            "mssql" => "sql",
+            "postgres" or "postgresql" => "pgsql",
+            "text" or "txt" => "plaintext",
+            var name => name,
+        };
+}

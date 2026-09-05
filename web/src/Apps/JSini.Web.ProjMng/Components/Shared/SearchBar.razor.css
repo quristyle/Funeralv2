@@ -1,0 +1,26 @@
+.pm-search {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 0.5rem;
+  border: 1px solid var(--jsini-border, #e3e5e8);
+  border-radius: 8px;
+  background: var(--jsini-surface, #f5f6f8);
+}
+
+.pm-search__fields {
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.pm-search__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}

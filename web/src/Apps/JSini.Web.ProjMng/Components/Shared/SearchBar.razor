@@ -1,0 +1,28 @@
+@*
+    검색 줄 — 옛 Blazor 의 `QuriSearchs`, Vue 의 `search-bar.vue` 를 잇는다.
+
+    왼쪽에 조건 입력기, 오른쪽에 버튼을 둔다.
+
+    [최초 조회를 기다리지 않는다]
+
+    옛 Blazor 는 드롭다운이 모두 로드될 때까지 기다렸다가 최초 조회를 걸었다
+    (`AllLoadComplete`). 여기서는 CodeSelect 가 값이 정해질 때 OnChanged 를
+    올려 주므로 그 신호로 조회하면 된다 — 별도의 대기 장치가 필요 없다.
+*@
+
+<div class="pm-search">
+    <div class="pm-search__fields">
+        @ChildContent
+    </div>
+    <div class="pm-search__actions">
+        @Actions
+    </div>
+</div>
+
+@code {
+    /// <summary>왼쪽에 놓을 조건 입력기들.</summary>
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    /// <summary>오른쪽에 놓을 버튼들.</summary>
+    [Parameter] public RenderFragment? Actions { get; set; }
+}

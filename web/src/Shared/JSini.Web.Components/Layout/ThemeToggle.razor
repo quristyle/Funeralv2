@@ -1,0 +1,35 @@
+@*
+    라이트/다크 전환.
+
+    스타일시트를 새로 내려받지 않고 미리 실어 둔 둘을 껐다 켠다(App.razor 참고).
+    전환할 때 화면이 하얗게 번쩍이지 않게 하려는 것이다. 실제 조작과 저장은
+    wwwroot/theme.js 가 하고, 여기서는 부르기만 한다 — 첫 화면이 그려지기 전에
+    테마가 정해져야 하는데 Blazor 회로는 그보다 늦게 붙기 때문이다.
+*@
+
+@inject IJSRuntime Js
+
+<DxButton RenderStyle="ButtonRenderStyle.Link"
+          Text="@(_dark ? "라이트" : "다크")"
+          Click="@ToggleAsync" />
+
+@code {
+    private bool _dark;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        // theme.js 가 이미 정해 둔 값을 읽어 버튼 문구를 맞춘다.
+        _dark = await Js.InvokeAsync<bool>("jsiniTheme.isDark");
+        StateHasChanged();
+    }
+
+    private async Task ToggleAsync()
+    {
+        _dark = await Js.InvokeAsync<bool>("jsiniTheme.toggle");
+    }
+}

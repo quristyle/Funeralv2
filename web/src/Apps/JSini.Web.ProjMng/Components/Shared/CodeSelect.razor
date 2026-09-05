@@ -1,0 +1,118 @@
+@*
+    공통코드 드롭다운 — 옛 Blazor 의 `QuriDropDown`, Vue 의 `code-select.vue` 를 잇는다.
+
+    코드 ID 만 주면 `sp_projCommon` 을 읽어 목록을 채운다.
+    화면들이 DB·프로젝트·구분값을 고를 때 거의 다 이걸 쓴다.
+
+    [바뀐 값만이 아니라 항목 전체를 올려 준다]
+
+    개발 도구 화면들이 `Others["db_nick"]` · `Others["db_schema"]` 같은 부가
+    컬럼을 프로시저 파라미터로 다시 실어 보내야 한다. 코드만 올려 주면 화면이
+    목록을 다시 뒤져야 하고, 그러면 목록을 화면마다 들고 있어야 한다.
+*@
+
+@inject CommonCodes Codes
+
+<DxComboBox Data="@_items"
+            TextFieldName="@nameof(CommonCodeItem.Name)"
+            ValueFieldName="@nameof(CommonCodeItem.Code)"
+            Value="@Value"
+            ValueChanged="@((string? code) => OnPickedAsync(code))"
+            NullText="@Placeholder"
+            ClearButtonDisplayMode="@(AllowClear ? DataEditorClearButtonDisplayMode.Auto : DataEditorClearButtonDisplayMode.Never)"
+            Enabled="@(!Disabled)"
+            CssClass="pm-code-select"
+            SizeMode="SizeMode.Small" />
+
+@code {
+    private List<CommonCodeItem> _items = [];
+
+    /// <summary>마지막으로 읽은 조합. 같은 조합이면 다시 읽지 않는다.</summary>
+    private (string CodeId, string CodeKey)? _loadedFor;
+
+    /// <summary>공통코드 ID — 예: <c>db</c> · <c>CODE_TYPE</c> · <c>projlist</c></summary>
+    [Parameter, EditorRequired] public string CodeId { get; set; } = string.Empty;
+
+    /// <summary>코드 조회 시 함께 넘기는 보조 키 (<c>etc0</c>).</summary>
+    [Parameter] public string CodeKey { get; set; } = string.Empty;
+
+    /// <summary>고른 코드값.</summary>
+    [Parameter] public string? Value { get; set; }
+
+    [Parameter] public EventCallback<string?> ValueChanged { get; set; }
+
+    /// <summary>
+    /// 고른 항목 전체. 부가 컬럼이 필요한 화면이 받는다.
+    /// 목록을 읽고 첫 항목을 자동으로 골랐을 때도 올라온다 — 그래야 화면이
+    /// 그 신호로 최초 조회를 걸 수 있다.
+    /// </summary>
+    [Parameter] public EventCallback<CommonCodeItem?> OnChanged { get; set; }
+
+    [Parameter] public string Placeholder { get; set; } = "선택";
+
+    /// <summary>목록을 읽은 뒤 첫 항목을 자동으로 고른다.</summary>
+    [Parameter] public bool AutoSelectFirst { get; set; } = true;
+
+    /// <summary>맨 앞에 "전체"(빈 코드) 항목을 넣는다. 옛 이름은 <c>IsAll</c>.</summary>
+    [Parameter] public bool ShowAll { get; set; }
+
+    /// <summary>
+    /// <see cref="CodeKey"/> 가 비어 있으면 조회하지 않는다. 옛 이름은 <c>IsEtcFix</c>.
+    /// 상위 선택에 딸린 코드에 쓴다 — 프로젝트를 고르기 전에는 그 프로젝트의
+    /// DB 목록을 읽어 봐야 의미가 없다.
+    /// </summary>
+    [Parameter] public bool EtcFix { get; set; }
+
+    [Parameter] public bool AllowClear { get; set; }
+
+    [Parameter] public bool Disabled { get; set; }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var key = (CodeId, CodeKey);
+        if (_loadedFor == key)
+        {
+            return;
+        }
+
+        _loadedFor = key;
+
+        if (EtcFix && string.IsNullOrEmpty(CodeKey))
+        {
+            // 상위를 아직 안 골랐다. 목록을 비우고 고른 값도 되돌린다 —
+            // 안 그러면 옛 상위에 딸린 값이 남아 엉뚱한 조회가 나간다.
+            _items = [];
+            await SetValueAsync(null, null);
+            return;
+        }
+
+        var loaded = await Codes.GetAsync(CodeId, CodeKey);
+
+        _items = ShowAll
+            ? [new CommonCodeItem(string.Empty, "전체", new Dictionary<string, string>()), .. loaded]
+            : [.. loaded];
+
+        // 이미 고른 값이 새 목록에 있으면 그대로 둔다. 없으면 다시 고른다.
+        var current = _items.FirstOrDefault(i =>
+            string.Equals(i.Code, Value, StringComparison.Ordinal));
+
+        if (current is not null)
+        {
+            return;
+        }
+
+        var first = AutoSelectFirst ? _items.FirstOrDefault() : null;
+        await SetValueAsync(first?.Code, first);
+    }
+
+    private Task OnPickedAsync(string? code) =>
+        SetValueAsync(code, _items.FirstOrDefault(i =>
+            string.Equals(i.Code, code, StringComparison.Ordinal)));
+
+    private async Task SetValueAsync(string? code, CommonCodeItem? item)
+    {
+        Value = code;
+        await ValueChanged.InvokeAsync(code);
+        await OnChanged.InvokeAsync(item);
+    }
+}

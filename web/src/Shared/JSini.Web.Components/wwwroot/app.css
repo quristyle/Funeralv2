@@ -1,0 +1,288 @@
+/*
+  셸 레이아웃. DevExpress 테마 **뒤에** 실린다(App.razor 의 link 순서).
+
+  [여기에 넣는 것과 넣지 않는 것]
+
+  · 넣는 것 — 셸의 뼈대(사이드바·헤더·본문 배치), 로그인·오류 화면
+  · 넣지 않는 것 — 업무 화면의 스타일. 그건 각 모듈의 CSS isolation
+    (`.razor.css`)으로 간다. 여기에 업무별 규칙이 쌓이기 시작하면 모듈을
+    나눈 의미가 스타일에서부터 사라진다.
+
+  [색을 변수로 두는 이유]
+
+  다크 모드가 스타일시트 두 장을 갈아 끼우는 방식이라(theme.js), 우리 색도
+  같은 신호(`data-theme`)를 따라야 한다. 값을 직접 박으면 다크에서 흰 배경에
+  흰 글씨가 되는 자리가 생긴다.
+*/
+
+:root {
+  --jsini-sidebar-width: 240px;
+  --jsini-header-height: 56px;
+
+  --jsini-bg: #ffffff;
+  --jsini-surface: #f5f6f8;
+  --jsini-border: #e3e5e8;
+  --jsini-text: #1f2328;
+  --jsini-text-muted: #6b7280;
+  --jsini-accent: #7b1fa2;
+}
+
+:root[data-theme='dark'] {
+  --jsini-bg: #16181d;
+  --jsini-surface: #1e2128;
+  --jsini-border: #2d313a;
+  --jsini-text: #e6e8ea;
+  --jsini-text-muted: #9aa1ab;
+  --jsini-accent: #c07ee0;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  background: var(--jsini-bg);
+  color: var(--jsini-text);
+  font-family: 'Pretendard', 'Malgun Gothic', system-ui, sans-serif;
+}
+
+/* ── 셸 뼈대 ─────────────────────────────────────────────── */
+
+.jsini-shell {
+  display: flex;
+  min-height: 100vh;
+}
+
+.jsini-shell__sidebar {
+  width: var(--jsini-sidebar-width);
+  flex: 0 0 var(--jsini-sidebar-width);
+  background: var(--jsini-surface);
+  border-right: 1px solid var(--jsini-border);
+  overflow-y: auto;
+  transition: margin-left 0.15s ease;
+}
+
+/*
+  접을 때 width 가 아니라 margin-left 로 밀어낸다. width 를 0 으로 하면
+  안쪽 글자가 접히는 동안 우그러져 보인다.
+*/
+.jsini-shell__sidebar--collapsed {
+  margin-left: calc(-1 * var(--jsini-sidebar-width));
+}
+
+.jsini-shell__brand {
+  height: var(--jsini-header-height);
+  display: flex;
+  align-items: center;
+  padding: 0 1rem;
+  border-bottom: 1px solid var(--jsini-border);
+}
+
+.jsini-shell__brand-mark {
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--jsini-accent);
+}
+
+.jsini-shell__main {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-width: 0; /* 그리드가 넘칠 때 본문이 사이드바를 밀지 않게 한다 */
+}
+
+.jsini-shell__header {
+  height: var(--jsini-header-height);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 1rem;
+  border-bottom: 1px solid var(--jsini-border);
+  background: var(--jsini-bg);
+}
+
+.jsini-shell__header-spacer {
+  flex: 1 1 auto;
+}
+
+.jsini-shell__user {
+  color: var(--jsini-text-muted);
+  font-size: 0.9rem;
+}
+
+.jsini-shell__logout {
+  display: inline;
+}
+
+.jsini-shell__logout-button {
+  background: none;
+  border: none;
+  color: var(--jsini-text-muted);
+  cursor: pointer;
+  font: inherit;
+  padding: 0.25rem 0.5rem;
+}
+
+.jsini-shell__logout-button:hover {
+  color: var(--jsini-text);
+  text-decoration: underline;
+}
+
+.jsini-shell__content {
+  flex: 1 1 auto;
+  padding: 1.25rem;
+  overflow-x: auto;
+}
+
+/* ── 사이드바 메뉴 ───────────────────────────────────────── */
+
+.jsini-menu {
+  list-style: none;
+  margin: 0;
+  padding: 0.5rem 0;
+}
+
+.jsini-menu .jsini-menu {
+  padding: 0 0 0 0.75rem;
+}
+
+.jsini-menu__link {
+  display: block;
+  padding: 0.45rem 1rem;
+  color: var(--jsini-text);
+  text-decoration: none;
+  font-size: 0.925rem;
+  border-radius: 4px;
+}
+
+.jsini-menu__link:hover {
+  background: color-mix(in srgb, var(--jsini-accent) 12%, transparent);
+}
+
+/* NavLink 가 붙이는 클래스. 지금 열린 화면을 표시한다. */
+.jsini-menu__link.active {
+  background: color-mix(in srgb, var(--jsini-accent) 18%, transparent);
+  color: var(--jsini-accent);
+  font-weight: 600;
+}
+
+.jsini-menu__summary {
+  padding: 0.45rem 1rem;
+  cursor: pointer;
+  font-size: 0.925rem;
+  color: var(--jsini-text-muted);
+  user-select: none;
+}
+
+/* 묶음 안의 링크는 summary 의 padding 을 두 번 받지 않게 한다. */
+.jsini-menu__summary .jsini-menu__link {
+  display: inline-block;
+  padding: 0;
+}
+
+/* ── 그리드 래퍼 ─────────────────────────────────────────── */
+
+.jsini-grid__toolbar {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.jsini-grid__empty {
+  padding: 2rem;
+  text-align: center;
+  color: var(--jsini-text-muted);
+}
+
+/* ── 로그인 · 안내 화면 ──────────────────────────────────── */
+
+.jsini-bare {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.jsini-login__card {
+  width: min(360px, 100%);
+  padding: 2rem;
+  background: var(--jsini-surface);
+  border: 1px solid var(--jsini-border);
+  border-radius: 8px;
+}
+
+.jsini-login__title {
+  margin: 0 0 1.5rem;
+  font-size: 1.25rem;
+  text-align: center;
+  color: var(--jsini-accent);
+}
+
+.jsini-login__label {
+  display: block;
+  margin: 0.75rem 0 0.25rem;
+  font-size: 0.85rem;
+  color: var(--jsini-text-muted);
+}
+
+.jsini-login__input {
+  width: 100%;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--jsini-border);
+  border-radius: 4px;
+  background: var(--jsini-bg);
+  color: var(--jsini-text);
+  font: inherit;
+  box-sizing: border-box;
+}
+
+.jsini-login__submit {
+  width: 100%;
+  margin-top: 1.25rem;
+  padding: 0.6rem;
+  border: none;
+  border-radius: 4px;
+  background: var(--jsini-accent);
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.jsini-login__error {
+  padding: 0.6rem 0.75rem;
+  margin-bottom: 0.5rem;
+  border-radius: 4px;
+  background: color-mix(in srgb, #d32f2f 15%, transparent);
+  color: #d32f2f;
+  font-size: 0.875rem;
+}
+
+.jsini-message {
+  text-align: center;
+  max-width: 480px;
+}
+
+.jsini-message__trace code {
+  user-select: all; /* 사용자가 추적 번호를 한 번에 집을 수 있게 */
+}
+
+/* ── 진단 화면 ───────────────────────────────────────────── */
+
+.jsini-diagnostics__facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.35rem 1rem;
+  margin-top: 1.5rem;
+  font-size: 0.9rem;
+}
+
+.jsini-diagnostics__facts dt {
+  color: var(--jsini-text-muted);
+}
+
+.jsini-diagnostics__facts dd {
+  margin: 0;
+}

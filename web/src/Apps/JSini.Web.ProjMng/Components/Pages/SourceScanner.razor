@@ -1,0 +1,63 @@
+@page "/proj/scaner"
+
+@*
+    [소스 스캐너]
+
+    이력: 옛 Blazor `Pages/Proj/ProjScaner.razor` (`/proj-scaner`)
+          → Vue `views/projmng/proj/scaner.vue` → 여기.
+    호출: `md_blazor_scan` (서버가 프로젝트 소스 경로를 훑는다)
+
+    소스에서 화면 목록을 뽑아 보여 준다. 메뉴 관리 화면의
+    "파일에서 메뉴 읽기" 가 쓰는 것과 같은 스캔 결과다.
+
+    저장 동작은 없다 — 옛 화면도 그랬고, 등록은 메뉴 관리에서 한다.
+    그 사실을 화면에 적어 두어야 사용자가 저장 버튼을 찾지 않는다.
+*@
+
+@inject ProjMngClient Client
+
+<PageTitle>소스 스캐너 · 프로젝트관리</PageTitle>
+
+<h1>소스 스캐너</h1>
+
+<Notice>
+    스캔 결과만 보여 줍니다. 화면을 메뉴로 등록하는 일은 포털의 [메뉴 관리]에서 합니다.
+</Notice>
+
+<SearchBar>
+    <ChildContent>
+        <CodeSelect CodeId="projlist" @bind-Value="_projectCode" OnChanged="@(_ => ScanAsync())" />
+    </ChildContent>
+    <Actions>
+        <PermissionView Action="MenuAction.Search">
+            <DxButton Text="스캔" RenderStyle="ButtonRenderStyle.Primary" Click="@ScanAsync" />
+        </PermissionView>
+    </Actions>
+</SearchBar>
+
+@* 저장·삭제 콜백을 주지 않으면 DynamicGrid 가 그 버튼들을 아예 그리지 않는다. *@
+<DynamicGrid Data="@_data" Loading="@_loading" ExportName="소스스캔" />
+
+@code {
+    private ProjMngTable _data = ProjMngTable.Empty;
+    private bool _loading;
+    private string? _projectCode;
+
+    private async Task ScanAsync()
+    {
+        _loading = true;
+        try
+        {
+            var result = await Client.MdContAsync("md_blazor_scan", new Dictionary<string, object?>
+            {
+                ["prj_rid"] = _projectCode ?? string.Empty,
+            });
+
+            _data = ProjMngTable.From(result);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+}

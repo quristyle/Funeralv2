@@ -1,0 +1,13 @@
+.pm-editor {
+  width: 100%;
+  border: 1px solid var(--jsini-border, #e3e5e8);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+/* Monaco 는 자기 컨테이너의 높이를 그대로 쓴다. 100% 를 주지 않으면
+   높이 0 으로 잡혀 편집기가 안 보인다 — "빈 칸이 뜬다" 의 흔한 원인이다. */
+::deep .pm-editor__inner,
+::deep .monaco-editor-container {
+  height: 100%;
+}

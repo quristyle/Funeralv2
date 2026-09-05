@@ -1,0 +1,104 @@
+@page "/login"
+@layout BareLayout
+@attribute [AllowAnonymous]
+
+@*
+    [ExcludeFromInteractiveRouting]
+
+    이 화면은 정적 SSR 로 돌아야 한다. 로그인 성공 시 인증 쿠키를 구워야 하는데,
+    회로 안에서는 HTTP 응답이 이미 나간 뒤라 Set-Cookie 를 붙일 수 없다.
+    App.razor 가 이 표시를 보고 렌더 모드를 정한다.
+*@
+@attribute [ExcludeFromInteractiveRouting]
+
+@* 주입 이름을 `Login` 으로 두면 컴포넌트 클래스 이름과 겹쳐서 CS0542 가 난다. *@
+@inject LoginService Auth
+@inject NavigationManager Navigation
+
+<PageTitle>로그인 · JSini 포털</PageTitle>
+
+<div class="jsini-login">
+    <div class="jsini-login__card">
+        <h1 class="jsini-login__title">JSini 포털</h1>
+
+        @if (_error is not null)
+        {
+            <div class="jsini-login__error" role="alert">@_error</div>
+        }
+
+        <EditForm Model="@Input" FormName="login" OnValidSubmit="@SubmitAsync">
+            <DataAnnotationsValidator />
+
+            <label class="jsini-login__label" for="username">아이디</label>
+            <InputText id="username" class="jsini-login__input"
+                       @bind-Value="Input!.Username" autocomplete="username" />
+            <ValidationMessage For="@(() => Input!.Username)" />
+
+            <label class="jsini-login__label" for="password">비밀번호</label>
+            <InputText id="password" type="password" class="jsini-login__input"
+                       @bind-Value="Input!.Password" autocomplete="current-password" />
+            <ValidationMessage For="@(() => Input!.Password)" />
+
+            <button type="submit" class="jsini-login__submit">로그인</button>
+        </EditForm>
+    </div>
+</div>
+
+@code {
+    [CascadingParameter] private HttpContext HttpContext { get; set; } = default!;
+
+    @* 초기값을 선언부에 두면 폼 제출 때 null 로 덮일 수 있다(BL0008).
+       OnInitialized 에서 비어 있을 때만 채운다. *@
+    [SupplyParameterFromForm] private LoginInput? Input { get; set; }
+
+    /// <summary>
+    /// 로그인 전에 가려던 곳. 즐겨찾기나 알림 링크로 들어온 사람을 원래
+    /// 자리로 돌려보내려고 들고 다닌다.
+    /// </summary>
+    [SupplyParameterFromQuery] private string? ReturnUrl { get; set; }
+
+    private string? _error;
+
+    protected override void OnInitialized() => Input ??= new LoginInput();
+
+    private async Task SubmitAsync()
+    {
+        var result = await Auth.SignInAsync(HttpContext, Input!.Username, Input.Password);
+
+        if (!result.Succeeded)
+        {
+            _error = result.Message;
+            return;
+        }
+
+        // 비밀번호가 만료된 계정은 게이트웨이가 다른 경로를 모두 403 으로 막는다.
+        // 어디로 보내든 403 만 보게 되므로 곧바로 변경 화면으로 안내한다.
+        var destination = result.PasswordExpired
+            ? "/password/change"
+            : SafeReturnUrl();
+
+        // forceLoad: 방금 구운 쿠키를 브라우저가 들고 다시 들어와야
+        // 인증된 상태로 회로가 만들어진다.
+        Navigation.NavigateTo(destination, forceLoad: true);
+    }
+
+    /// <summary>
+    /// 돌아갈 주소를 안전한 것으로만 추린다.
+    ///
+    /// `returnUrl` 을 그대로 믿으면 남이 만든 링크로 외부 사이트에 보낼 수 있다
+    /// (오픈 리다이렉트). 로그인 직후라 사용자가 주소를 잘 보지 않는 시점이라
+    /// 특히 위험하다. 그래서 **이 사이트 안의 절대 경로**만 받는다.
+    /// `//evil.com` 은 프로토콜 상대 URL 이라 `/` 로 시작해도 밖으로 나간다.
+    /// </summary>
+    private string SafeReturnUrl()
+    {
+        if (string.IsNullOrWhiteSpace(ReturnUrl)
+            || !ReturnUrl.StartsWith('/')
+            || ReturnUrl.StartsWith("//", StringComparison.Ordinal))
+        {
+            return "/";
+        }
+
+        return ReturnUrl;
+    }
+}

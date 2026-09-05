@@ -1,0 +1,10 @@
+@page "/_smoke"
+@attribute [AllowAnonymous]
+<h1>smoke</h1>
+<CodeEditor @bind-Value="_sql" Language="pgsql" Height="220px" />
+<p id="out">길이=@(_sql?.Length ?? 0)</p>
+<button id="setbtn" @onclick="SetFromOutside">바깥에서 바꾸기</button>
+@code {
+    private string? _sql = "select cm_cd, cm_nm\nfrom projmng.dev_comm\nwhere cm_type = 'X';";
+    private void SetFromOutside() => _sql = "SELECT 1";
+}

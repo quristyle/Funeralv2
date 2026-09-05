@@ -1,0 +1,46 @@
+/*
+  이 앱에서만 쓰는 스타일. CSS isolation 이라 클래스 이름이 다른 앱과 부딪히지 않는다.
+
+  공통 라이브러리(JSini.Web.Components/wwwroot/app.css)에 넣지 않는 이유:
+  거기에 업무별 규칙이 쌓이기 시작하면 앱을 나눈 의미가 스타일에서부터 사라진다.
+*/
+
+.pm-grid {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0; /* 부모가 flex 일 때 그리드가 넘치지 않게 */
+}
+
+.pm-grid__toolbar {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
+}
+
+/*
+  저장하지 않은 변경이 있다는 표시.
+
+  프로젝트관리는 여러 행을 고친 뒤 한 번에 저장하는 방식이라, 고쳐 놓고
+  저장을 안 누른 채 다른 코드를 고르면 변경이 조용히 사라진다.
+  건수를 늘 보이게 두어 그 사고를 줄인다.
+*/
+.pm-grid__dirty {
+  margin-left: auto;
+  font-size: 0.8rem;
+  color: #d97706;
+  font-weight: 600;
+}
+
+.pm-grid__table {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.pm-grid__empty {
+  padding: 2rem;
+  text-align: center;
+  color: var(--jsini-text-muted, #6b7280);
+}

@@ -1,0 +1,47 @@
+@page "/proj/manage"
+
+@*
+    [프로젝트 목록]
+
+    이력: 옛 Blazor `Pages/Proj/ProjMng.razor` (`/projmng`)
+          → Vue `views/projmng/proj/manage.vue` → 여기.
+    프로시저: `sp_dev_proj_exec`
+
+    관리 대상 프로젝트를 등록·수정한다. **여기 등록된 프로젝트가 나머지 화면의
+    프로젝트 드롭다운(`projlist` 공통코드)에 나온다** — 그래서 저장 뒤 공통코드
+    캐시를 비운다. 안 비우면 방금 만든 프로젝트가 다른 화면에서 안 보인다.
+*@
+
+@inject ProjMngClient Client
+@inject CommonCodes Codes
+
+<PageTitle>프로젝트 목록 · 프로젝트관리</PageTitle>
+
+<h1>프로젝트 목록</h1>
+
+<DynamicGrid Data="@_grid.Data"
+             Loading="@_grid.IsLoading"
+             ExportName="프로젝트목록"
+             OnRefresh="@SearchAsync"
+             OnSave="@SaveAsync" />
+
+@code {
+    private ProcGrid _grid = default!;
+
+    protected override void OnInitialized() => _grid = new ProcGrid(Client, "sp_dev_proj_exec");
+
+    protected override Task OnInitializedAsync() => SearchAsync();
+
+    private Task SearchAsync() => _grid.LoadAsync(new Dictionary<string, object?>());
+
+    private async Task SaveAsync()
+    {
+        var saved = await _grid.SaveAsync();
+
+        if (saved.ProcCode >= 0)
+        {
+            // 프로젝트가 바뀌면 다른 화면의 projlist 드롭다운도 새로 읽어야 한다.
+            Codes.Clear();
+        }
+    }
+}

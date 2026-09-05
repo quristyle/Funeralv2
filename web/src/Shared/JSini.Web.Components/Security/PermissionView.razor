@@ -1,0 +1,75 @@
+@*
+    권한이 있을 때만 안쪽을 그린다.
+
+    Vue 의 `v-perm` 디렉티브를 이어받는 자리다. 쓰는 모양:
+
+        <PermissionView Action="MenuAction.Create">
+            <DxButton Text="등록" Click="OnCreate" />
+        </PermissionView>
+
+    [경로를 안 주면 지금 화면의 경로를 쓴다]
+
+    권한은 화면(경로)마다 정해지므로 판정에 경로가 필요하다. 화면마다 자기 경로를
+    적어 넣게 하면 `@page` 와 어긋나는 순간 조용히 틀린 권한을 보게 된다. 그래서
+    기본값은 지금 열려 있는 라우트에서 가져온다. `Path` 를 넘기는 것은 남의 화면
+    권한을 봐야 하는 드문 경우뿐이다.
+
+    [보이지 않는 것과 막히는 것은 다르다]
+
+    여기서 감추는 것은 정리지 통제가 아니다. 실제 통제는 서버가 한다.
+    감추기만 하고 서버에서 막지 않으면 "버튼이 없으니 안전하다" 는 착각이 남는다.
+*@
+
+@if (_allowed)
+{
+    @ChildContent
+}
+else
+{
+    @NotAllowed
+}
+
+@code {
+    [Inject] private IPermissionContext Permissions { get; set; } = default!;
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
+
+    /// <summary>권한이 있을 때 그릴 내용.</summary>
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    /// <summary>
+    /// 권한이 없을 때 그릴 내용. 보통 비워 둔다(= 아무것도 안 보인다).
+    /// 자리를 남겨야 하는 표 안에서만 쓴다.
+    /// </summary>
+    [Parameter] public RenderFragment? NotAllowed { get; set; }
+
+    /// <summary>따질 동작. 기본은 열람.</summary>
+    [Parameter] public MenuAction Action { get; set; } = MenuAction.View;
+
+    /// <summary>
+    /// 권한을 따질 화면 경로. 비우면 지금 열려 있는 화면의 경로를 쓴다.
+    /// </summary>
+    [Parameter] public string? Path { get; set; }
+
+    private bool _allowed;
+
+    protected override void OnParametersSet()
+    {
+        var path = string.IsNullOrWhiteSpace(Path) ? CurrentPath() : Path;
+        _allowed = Permissions.Can(path, Action);
+    }
+
+    /// <summary>
+    /// 지금 열려 있는 화면의 경로. 쿼리스트링과 호스트는 떼어 낸다 —
+    /// 권한표의 열쇠는 `scom.system_menus.path` 이고 거기에는 그런 것이 없다.
+    /// </summary>
+    private string CurrentPath()
+    {
+        var relative = Navigation.ToBaseRelativePath(Navigation.Uri);
+        var cut = relative.IndexOfAny(['?', '#']);
+        if (cut >= 0)
+        {
+            relative = relative[..cut];
+        }
+        return "/" + relative.TrimStart('/');
+    }
+}

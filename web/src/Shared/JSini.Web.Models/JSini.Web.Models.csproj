@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Shared Models — 게이트웨이를 오가는 DTO.
+
+    [왜 백엔드의 DTO 를 직접 참조하지 않나]
+
+    백엔드 서비스는 열 개가 넘고 프레임워크 이행 일정이 서로 다르다. 프론트가
+    그 프로젝트들을 직접 참조하면 백엔드 한 곳이 net10 으로 못 올라올 때 프론트
+    전체가 멈춘다. 게다가 각 서비스의 DTO 에는 EF 엔티티 참조 같은 서버 전용
+    의존이 섞여 있다.
+
+    그래서 **와이어에 실제로 오가는 모양만** 여기에 다시 적는다. 손으로 맞추는
+    비용이 있지만, 봉투와 주요 DTO 는 몇 년째 모양이 바뀌지 않았다.
+
+    [여기에 넣지 않는 것]
+
+    한 업무만 쓰는 DTO 는 그 앱에 둔다. 여기 모으면 헬프데스크 DTO 를 고칠 때
+    장례식장까지 다시 빌드된다 — 격리를 위해 앱을 나눈 의미가 사라진다.
+    두 앱이 쓰면 복제하고, 세 번째부터 여기로 올린다.
+  -->
+
+  <PropertyGroup>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!--
+      와이어 DTO 가 셸이 다루는 모양(MenuNode)으로 자기를 옮길 수 있어야 한다.
+      변환을 DTO 쪽에 두는 이유: 서버 응답이 바뀌면 고칠 곳이 DTO 한 파일로 모인다.
+      화면 쪽에 두면 앱 일곱 개가 각자 옮기게 되고, 그중 하나만 안 고쳐진다.
+    -->
+    <ProjectReference Include="..\JSini.Web.Abstractions\JSini.Web.Abstractions.csproj" />
+  </ItemGroup>
+
+</Project>

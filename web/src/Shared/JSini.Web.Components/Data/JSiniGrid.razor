@@ -1,0 +1,157 @@
+@*
+    목록 화면의 표준 그리드. DevExpress 의 DxGrid 를 감싼다.
+
+    [왜 감싸나]
+
+    모듈 여섯 개가 DxGrid 를 직접 쓰면 쪽 크기·필터 행·빈 목록 문구가 화면마다
+    달라진다. 화면이 250개 넘게 옮겨 오는 동안 그 차이는 되돌릴 수 없다.
+    Vue 에서 `adapter/vxe-table.ts` 로 vxe-table 을 감싸 두었던 것과 같은 이유고,
+    그때 정해 둔 기본값을 여기로 옮긴다.
+
+    [툴바를 그리드 밖에 두는 이유]
+
+    등록·삭제·엑셀 버튼은 권한에 따라 사라진다. 그리드 안쪽 템플릿에 넣으면
+    DevExpress 버전이 올라갈 때 템플릿 이름이 바뀌어 함께 깨진다. 밖에 두면
+    래퍼가 온전히 통제한다.
+*@
+
+@typeparam TItem
+
+<div class="jsini-grid">
+
+    @if (Toolbar is not null || ShowStandardToolbar)
+    {
+        <div class="jsini-grid__toolbar">
+            @if (ShowStandardToolbar)
+            {
+                <PermissionView Action="MenuAction.Create" Path="@PermissionPath">
+                    <DxButton Text="등록"
+                              IconCssClass="jsini-icon-add"
+                              RenderStyle="ButtonRenderStyle.Primary"
+                              Click="@(() => OnCreate.InvokeAsync())" />
+                </PermissionView>
+
+                <PermissionView Action="MenuAction.Delete" Path="@PermissionPath">
+                    <DxButton Text="삭제"
+                              IconCssClass="jsini-icon-delete"
+                              RenderStyle="ButtonRenderStyle.Danger"
+                              Enabled="@HasSelection"
+                              Click="@(() => OnDelete.InvokeAsync())" />
+                </PermissionView>
+
+                <PermissionView Action="MenuAction.Excel" Path="@PermissionPath">
+                    <DxButton Text="엑셀"
+                              IconCssClass="jsini-icon-excel"
+                              RenderStyle="ButtonRenderStyle.Secondary"
+                              Click="@ExportXlsxAsync" />
+                </PermissionView>
+            }
+
+            @Toolbar
+        </div>
+    }
+
+    <DxGrid @ref="_grid"
+            Data="@Data"
+            KeyFieldName="@KeyFieldName"
+            PageSize="@PageSize"
+            ShowFilterRow="@ShowFilterRow"
+            ShowGroupPanel="@ShowGroupPanel"
+            ColumnResizeMode="GridColumnResizeMode.NextColumn"
+            SelectionMode="@SelectionMode"
+            @bind-SelectedDataItems="@SelectedItems"
+            CssClass="@CssClass">
+        <Columns>
+            @Columns
+        </Columns>
+        <EmptyDataAreaTemplate>
+            <div class="jsini-grid__empty">@EmptyText</div>
+        </EmptyDataAreaTemplate>
+    </DxGrid>
+
+</div>
+
+@code {
+    private IGrid? _grid;
+
+    /// <summary>보여 줄 자료. 서버 쪽 페이징을 하는 화면은 한 쪽만 넘긴다.</summary>
+    [Parameter, EditorRequired] public object Data { get; set; } = default!;
+
+    /// <summary>열 정의. <c>DxGridDataColumn</c> 들을 넣는다.</summary>
+    [Parameter, EditorRequired] public RenderFragment Columns { get; set; } = default!;
+
+    /// <summary>
+    /// 행을 가리키는 열 이름. 선택·수정에 쓴다.
+    /// 비워 두면 선택 상태가 정렬·필터 뒤에 어긋나므로 목록 화면에서는 꼭 준다.
+    /// </summary>
+    [Parameter] public string? KeyFieldName { get; set; }
+
+    /// <summary>
+    /// 한 쪽에 보여 줄 건수. 기본 20 은 Vue 때 쓰던 값과 같다 —
+    /// 사용자가 익숙한 밀도를 바꾸지 않는다.
+    /// </summary>
+    [Parameter] public int PageSize { get; set; } = 20;
+
+    /// <summary>열 밑의 필터 입력줄. 목록 화면은 기본으로 켠다.</summary>
+    [Parameter] public bool ShowFilterRow { get; set; } = true;
+
+    /// <summary>열을 끌어다 묶는 영역. 대부분의 업무 화면에는 필요 없다.</summary>
+    [Parameter] public bool ShowGroupPanel { get; set; }
+
+    /// <summary>선택 방식. 기본은 여러 건(삭제·일괄 처리 때문).</summary>
+    [Parameter] public GridSelectionMode SelectionMode { get; set; } = GridSelectionMode.Multiple;
+
+    /// <summary>선택된 행들.</summary>
+    [Parameter] public IReadOnlyList<object>? SelectedItems { get; set; }
+
+    /// <summary>선택이 바뀌었을 때.</summary>
+    [Parameter] public EventCallback<IReadOnlyList<object>> SelectedItemsChanged { get; set; }
+
+    /// <summary>표준 툴바(등록·삭제·엑셀)를 그릴지. 권한에 따라 각 버튼이 사라진다.</summary>
+    [Parameter] public bool ShowStandardToolbar { get; set; } = true;
+
+    /// <summary>표준 툴바 오른쪽에 덧붙일 버튼들.</summary>
+    [Parameter] public RenderFragment? Toolbar { get; set; }
+
+    /// <summary>등록 버튼을 눌렀을 때.</summary>
+    [Parameter] public EventCallback OnCreate { get; set; }
+
+    /// <summary>삭제 버튼을 눌렀을 때. 확인 창은 부르는 쪽이 띄운다.</summary>
+    [Parameter] public EventCallback OnDelete { get; set; }
+
+    /// <summary>내려받을 엑셀 파일 이름(확장자 없이).</summary>
+    [Parameter] public string ExportFileName { get; set; } = "목록";
+
+    /// <summary>자료가 없을 때 보여 줄 문구.</summary>
+    [Parameter] public string EmptyText { get; set; } = "표시할 자료가 없습니다.";
+
+    /// <summary>
+    /// 권한을 따질 화면 경로. 비우면 지금 열려 있는 화면의 경로를 쓴다
+    /// (<c>PermissionView</c> 가 알아서 한다).
+    /// </summary>
+    [Parameter] public string? PermissionPath { get; set; }
+
+    /// <summary>바깥에서 덧붙일 CSS 클래스.</summary>
+    [Parameter] public string? CssClass { get; set; }
+
+    private bool HasSelection => SelectedItems is { Count: > 0 };
+
+    /// <summary>
+    /// 지금 보고 있는 그대로(정렬·필터가 적용된 상태) 엑셀로 내린다.
+    ///
+    /// 원본 전체가 아니라 화면과 같은 것을 내리는 편이 맞다 — 사용자는 방금
+    /// 걸러 놓은 것을 받으리라 기대한다.
+    /// </summary>
+    private async Task ExportXlsxAsync()
+    {
+        if (_grid is null)
+        {
+            return;
+        }
+
+        await _grid.ExportToXlsxAsync($"{ExportFileName}.xlsx", new GridXlExportOptions
+        {
+            ExportSelectedRowsOnly = false,
+        });
+    }
+}

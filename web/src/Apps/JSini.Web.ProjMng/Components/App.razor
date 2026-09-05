@@ -1,0 +1,45 @@
+@*
+    프로젝트관리 앱의 문서 껍데기.
+
+    base href 가 "/projmng/" 인 것이 핵심이다. 이 앱은 셸 뒤 /projmng 아래에서
+    서비스되므로, 이게 없으면 정적자원과 Blazor 회로 주소가 루트로 나가서
+    404 가 된다.
+
+    <head> 의 공통 부분(테마 CSS 순서 · 테마 스크립트)은 JSiniHead 가 갖고 있다 —
+    앱이 일곱 개라 각자 적으면 언젠가 하나가 어긋난다.
+*@
+<!DOCTYPE html>
+<html lang="ko" data-theme="light">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <base href="/projmng/" />
+
+    <JSiniHead ScopedCssBundle="JSini.Web.ProjMng.styles.css" />
+
+    <ImportMap />
+    <HeadOutlet @rendermode="InteractiveServer" />
+</head>
+
+<body>
+    <script src="_content/JSini.Web.Components/theme.js"></script>
+
+    @*
+        Monaco(BlazorMonaco). **이 앱에만 있다** — 화면 9개가 SQL·템플릿을 편집한다.
+
+        앱 전체에 싣는 것이 낭비이긴 하다(27개 중 9개만 쓴다). 편집기가 뜨기 전에
+        스크립트가 있어야 해서 화면 단위로 지연 로드하려면 배선이 하나 더 붙는데,
+        프로젝트관리는 사내 개발 도구라 첫 로드 한 번을 감수하는 편을 골랐다.
+        무거워지면 CodeEditor 안에서 동적으로 주입하는 방식으로 바꾼다.
+    *@
+    <script src="_content/BlazorMonaco/jsInterop.js"></script>
+    <script src="_content/BlazorMonaco/lib/monaco-editor/min/vs/loader.js"></script>
+    <script src="_content/BlazorMonaco/lib/monaco-editor/min/vs/editor/editor.main.js"></script>
+
+    <Routes @rendermode="InteractiveServer" />
+
+    <script src="_framework/blazor.web.js"></script>
+</body>
+
+</html>

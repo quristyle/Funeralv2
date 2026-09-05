@@ -1,0 +1,15 @@
+@page "/forbidden"
+@layout BareLayout
+
+@*
+    권한 없는 화면에 들어왔을 때. 사이드바에서 걸러진 화면도 주소로는 열리므로
+    이 자리가 필요하다 — 목록에서 지우는 것은 정리지 통제가 아니다.
+*@
+
+<PageTitle>권한 없음</PageTitle>
+
+<div class="jsini-message">
+    <h1>권한이 없습니다</h1>
+    <p>이 화면을 열 권한이 없습니다. 필요하다면 관리자에게 요청하세요.</p>
+    <a href="/">첫 화면으로</a>
+</div>

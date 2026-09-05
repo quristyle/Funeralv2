@@ -1,0 +1,39 @@
+.pm-split {
+  display: flex;
+  gap: 0.75rem;
+  align-items: stretch;
+
+  /* 헤더(56px)와 본문 여백을 뺀 나머지를 채운다. 그리드가 자기 높이를
+     가지려면 조상 어딘가에서 높이가 정해져 있어야 한다. */
+  height: calc(100vh - 56px - 2.5rem);
+  min-height: 320px;
+}
+
+.pm-split__first {
+  flex: 0 0 auto;
+  min-width: 0; /* 그리드가 넓어져도 오른쪽을 밀지 않게 */
+  overflow: hidden;
+}
+
+.pm-split__second {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* 좁은 화면에서는 위아래로 쌓는다. 옆으로 나란히 두면 둘 다 못 읽는다. */
+@media (max-width: 900px) {
+  .pm-split {
+    flex-direction: column;
+    height: auto;
+  }
+
+  .pm-split__first {
+    flex-basis: auto !important;
+    min-height: 320px;
+  }
+
+  .pm-split__second {
+    min-height: 320px;
+  }
+}

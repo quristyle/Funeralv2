@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    셸과 모듈이 함께 아는 유일한 계약. **여기에는 구현이 없다.**
+
+    이 프로젝트가 무거워지면 모듈 사이의 결합이 이 프로젝트를 통해 되살아난다.
+    인터페이스·레코드·열거형만 둔다.
+  -->
+
+  <PropertyGroup>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!--
+      PackageReference 가 아니라 FrameworkReference 를 쓴다. IServiceCollection ·
+      IConfiguration 만 있으면 되는데, 패키지로 받으면 중앙 관리(CPM)에 버전을
+      또 하나 얹어야 하고 런타임과 어긋날 수 있다. 프레임워크 참조는 그럴 일이 없다.
+    -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+</Project>

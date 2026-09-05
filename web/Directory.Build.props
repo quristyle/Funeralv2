@@ -1,0 +1,40 @@
+<Project>
+
+  <!--
+    web/ 아래 모든 .csproj 에 공통으로 걸리는 설정.
+
+    루트(C:\Funeralv2\Directory.Build.props)는 여기까지 오지 않는다 — MSBuild 는
+    위로 올라가다 처음 만난 Directory.Build.props 에서 멈춘다. 백엔드는 서비스 이행
+    일정에 맞춰 프레임워크를 올리고, 프론트는 처음부터 net10.0 이다. 두 쪽이 서로의
+    일정에 묶이지 않도록 파일을 따로 둔다.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+
+    <!--
+      경고를 오류로 올린다. 모듈이 열 개로 갈라지면 경고는 아무도 읽지 않는다.
+      DevExpress 평가판 경고(DX1000/DX1001)만 예외로 둔다 — 라이선스 파일은
+      개발 장비마다 각자 넣는 것이라 빌드를 막으면 안 된다. 자세한 내용은 README.
+    -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <WarningsNotAsErrors>DX1000;DX1001</WarningsNotAsErrors>
+
+    <!--
+      CS1591(공개 멤버에 XML 주석 없음)은 끈다.
+
+      이 저장소는 "무엇을 하는지" 가 아니라 "왜 그렇게 했는지" 를 주석으로 남긴다.
+      공개 멤버마다 한 줄씩 채우도록 강제하면 `/// <summary>이름</summary>` 같은
+      빈 껍데기가 늘어나고, 정작 읽어야 할 주석이 그 사이에 묻힌다.
+
+      반대로 CS1573(문서에 빠진 매개변수)·CS1574(가리키는 대상이 없는 cref)는
+      그대로 오류로 둔다. 이건 스타일이 아니라 **틀린 문서**라서, 읽는 사람을
+      엉뚱한 곳으로 보낸다.
+    -->
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+</Project>

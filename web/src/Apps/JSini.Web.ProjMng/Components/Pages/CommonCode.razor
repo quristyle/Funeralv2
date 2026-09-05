@@ -1,0 +1,125 @@
+@page "/comm/common-code"
+@using System.Data
+
+@*
+    [프로젝트 공통코드 관리]
+
+    이력: 옛 Blazor `Pages/Comm/CommCodeMng.razor` (`/commcode`)
+          → Vue `views/projmng/comm/common-code.vue`
+          → 여기. Vue 판이 정본이다 (옛 Blazor 뒤로 고쳐진 것이 있다).
+
+    프로시저: `sp_devcomm_exec`
+
+    왼쪽에서 코드 그룹(main)을 고르면 오른쪽에 그 하위 코드가 나온다.
+    하위에 행을 추가하면 상위 코드(`cm_pcd`)를 자동으로 채운다.
+
+    [포털의 공통코드 화면과 다른 것이다]
+
+    포털에도 공통코드 화면이 있지만 그건 포털 자신의 코드(`scom`)다.
+    이 화면은 프로젝트관리(`projmng`) 코드를 다룬다. 헷갈려서 잘못 고치면
+    엉뚱한 쪽이 바뀌므로 제목에 그 구분을 적어 둔다.
+*@
+
+@inject ProjMngClient Client
+
+<PageTitle>공통코드 · 프로젝트관리</PageTitle>
+
+<h1>공통코드 <span class="pm-page__scope">프로젝트관리</span></h1>
+
+<SplitPane Size="35">
+    <First>
+        <DynamicGrid Data="@_main.Data"
+                     Loading="@_main.IsLoading"
+                     HiddenCols="cm_rid,cm_prop,cm_pcd,cm_val,cm_val2,cm_val3,cm_srt"
+                     ExportName="공통코드-그룹"
+                     OnRefresh="@SearchAsync"
+                     OnSave="@SaveMainAsync"
+                     OnRowClick="@OnMainSelectedAsync" />
+    </First>
+    <Second>
+        <DynamicGrid Data="@_detail.Data"
+                     Loading="@_detail.IsLoading"
+                     HiddenCols="cm_rid,cm_prop"
+                     ExportName="공통코드-상세"
+                     HideAdd="@(_selectedMain is null)"
+                     OnSave="@SaveDetailAsync"
+                     OnAdd="@OnDetailAddAsync"
+                     OnDelete="@DeleteDetailAsync" />
+    </Second>
+</SplitPane>
+
+@code {
+    private const string Proc = "sp_devcomm_exec";
+
+    private ProcGrid _main = default!;
+    private ProcGrid _detail = default!;
+
+    /// <summary>고른 상위 코드. 하위 행을 새로 만들 때 부모 키로 쓴다.</summary>
+    private DataRow? _selectedMain;
+
+    protected override void OnInitialized()
+    {
+        _main = new ProcGrid(Client, Proc);
+        _detail = new ProcGrid(Client, Proc);
+    }
+
+    protected override Task OnInitializedAsync() => SearchAsync();
+
+    private async Task SearchAsync()
+    {
+        _selectedMain = null;
+        _detail.Clear();
+        await _main.LoadAsync(new Dictionary<string, object?> { ["srch_type"] = "main" });
+    }
+
+    private async Task OnMainSelectedAsync(DataRow? row)
+    {
+        _selectedMain = row;
+
+        if (row is null)
+        {
+            _detail.Clear();
+            return;
+        }
+
+        await _detail.LoadAsync(new Dictionary<string, object?>
+        {
+            ["cm_pcd"] = ParentCode(),
+        });
+    }
+
+    private Task SaveMainAsync() => _main.SaveAsync();
+
+    private Task SaveDetailAsync() => _detail.SaveAsync(new Dictionary<string, object?>
+    {
+        ["cm_pcd"] = ParentCode(),
+    });
+
+    /// <summary>
+    /// 하위 행을 새로 만들면 상위 코드를 채워 준다.
+    /// 옛 Blazor 의 `AddBtnEvent2` 가 하던 일이다 — 안 채우면 저장할 때
+    /// 부모 없는 코드가 들어가 목록에서 사라진다.
+    /// </summary>
+    private Task OnDetailAddAsync(DataRow row)
+    {
+        if (row.Table.Columns.Contains("cm_pcd"))
+        {
+            row["cm_pcd"] = ParentCode();
+        }
+        return Task.CompletedTask;
+    }
+
+    private Task DeleteDetailAsync(DataRow row) => _detail.DeleteAsync(row);
+
+    /// <summary>고른 상위 코드의 코드값. 없으면 빈 문자열.</summary>
+    private string ParentCode()
+    {
+        if (_selectedMain is null || !_selectedMain.Table.Columns.Contains("cm_cd"))
+        {
+            return string.Empty;
+        }
+
+        var value = _selectedMain["cm_cd"];
+        return value == DBNull.Value ? string.Empty : value.ToString() ?? string.Empty;
+    }
+}

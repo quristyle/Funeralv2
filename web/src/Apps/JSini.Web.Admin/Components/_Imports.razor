@@ -1,0 +1,26 @@
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.AspNetCore.Components.Routing
+@using Microsoft.AspNetCore.Components.Web
+@using Microsoft.JSInterop
+@using static Microsoft.AspNetCore.Components.Web.RenderMode
+
+@using DevExpress.Blazor
+
+@using JSini.Web.Abstractions
+@using JSini.Web.Http
+@using JSini.Web.Models
+@using JSini.Web.Components
+@using JSini.Web.Components.Data
+@using JSini.Web.Components.Layout
+@using JSini.Web.Components.Security
+
+@using JSini.Web.Admin
+@using JSini.Web.Admin.Components
+
+@* 이 폴더의 모든 화면은 로그인해야 볼 수 있다.
+   여기 두는 이유: 화면마다 [Authorize] 를 붙이는 방식이면 250개를 옮기는 동안
+   반드시 몇 개를 빠뜨리고, 그 화면만 조용히 공개된다.
+   공개해야 하는 화면만 [AllowAnonymous] 를 명시한다 (로그인·오류). *@
+@attribute [Authorize]

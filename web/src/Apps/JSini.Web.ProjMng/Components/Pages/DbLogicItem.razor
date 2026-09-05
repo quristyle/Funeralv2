@@ -1,0 +1,36 @@
+@page "/sys/db-logic-item"
+
+@*
+    [DB 로직 항목]
+
+    이력: 옛 Blazor `Pages/Sys/DbLogicItem.razor` (`/db-logic-item`)
+          → Vue `views/projmng/sys/db-logic-item.vue` → 여기.
+    프로시저: `sp_devsqlresp_base_exec`
+
+    [DB 로직] 화면이 쓰는 항목의 뼈대를 관리한다 — 어떤 이름의 시스템 쿼리가
+    있는지, 그 기본값은 무엇인지. 여기 항목이 있어야 DB 종류별 쿼리를 등록할 수 있다.
+*@
+
+@inject ProjMngClient Client
+
+<PageTitle>DB 로직 항목 · 프로젝트관리</PageTitle>
+
+<h1>DB 로직 항목</h1>
+
+<DynamicGrid Data="@_grid.Data"
+             Loading="@_grid.IsLoading"
+             ExportName="DB로직항목"
+             OnRefresh="@SearchAsync"
+             OnSave="@(() => _grid.SaveAsync())"
+             OnDelete="@(row => _grid.DeleteAsync(row))" />
+
+@code {
+    private ProcGrid _grid = default!;
+
+    protected override void OnInitialized() =>
+        _grid = new ProcGrid(Client, "sp_devsqlresp_base_exec");
+
+    protected override Task OnInitializedAsync() => SearchAsync();
+
+    private Task SearchAsync() => _grid.LoadAsync(new Dictionary<string, object?>());
+}

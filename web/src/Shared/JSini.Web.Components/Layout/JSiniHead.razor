@@ -1,0 +1,48 @@
+@*
+    모든 앱의 <head> 에 들어가는 공통 부분.
+
+    [왜 컴포넌트로 빼나]
+
+    Shell 과 업무 앱 여섯 개가 각자 App.razor 를 갖는다(base href 가 서로 달라서
+    합칠 수 없다). 그런데 CSS 링크 순서와 테마 스크립트는 <b>일곱 곳이 모두 같아야
+    한다</b> — 하나만 어긋나면 그 업무 화면만 글꼴이나 색이 다르게 보이고, 사용자는
+    "헬프데스크만 이상하다" 고 말하게 된다. 원인을 찾기 어려운 종류의 차이다.
+
+    [CSS 순서]
+
+    DevExpress 테마가 먼저, 우리 스타일이 나중이다. 반대로 두면 사이드바 폭이나
+    글꼴 같은 우리 값이 테마에 덮인다.
+
+    [테마를 두 장 다 싣는 이유]
+
+    다크 모드를 전환할 때 스타일시트를 새로 내려받으면 화면이 한 번 하얗게
+    번쩍인다. 둘을 미리 싣고 `disabled` 로 껐다 켠다.
+*@
+
+<link rel="stylesheet"
+      href="_content/DevExpress.Blazor.Themes/blazing-berry.bs5.min.css"
+      data-jsini-theme="light" />
+<link rel="stylesheet"
+      href="_content/DevExpress.Blazor.Themes/blazing-dark.bs5.min.css"
+      data-jsini-theme="dark" disabled />
+
+<link rel="stylesheet" href="_content/JSini.Web.Components/app.css" />
+
+@if (ScopedCssBundle is { Length: > 0 })
+{
+    <link rel="stylesheet" href="@Assets[ScopedCssBundle]" />
+}
+
+@code {
+    /// <summary>
+    /// 이 앱의 CSS isolation 번들 이름 (<c>JSini.Web.ProjMng.styles.css</c>).
+    ///
+    /// 업무 화면의 스타일은 각 앱의 <c>.razor.css</c> 에 둔다 — 공통 라이브러리에
+    /// 쌓기 시작하면 앱을 나눈 의미가 스타일에서부터 사라진다. 그 번들을 싣는
+    /// 자리가 여기다.
+    ///
+    /// <b>scoped CSS 가 하나도 없는 앱은 넘기지 않는다.</b> 번들 자체가 만들어지지
+    /// 않아서 <c>@@Assets[...]</c> 가 던진다.
+    /// </summary>
+    [Parameter] public string? ScopedCssBundle { get; set; }
+}

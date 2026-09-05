@@ -1,0 +1,26 @@
+@*
+    좌우 분할. 마스터-디테일 화면이 쓴다.
+
+    DevExpress 의 DxSplitter 를 쓰지 않고 CSS 로 두는 이유: 이 화면들에 필요한
+    것은 "왼쪽 몇 %, 오른쪽 나머지" 하나뿐인데, DxSplitter 를 쓰면 각 창의
+    스크롤 컨테이너가 하나 더 생겨 안쪽 그리드의 높이 계산이 어긋난다.
+    사용자가 경계를 끄는 기능이 실제로 필요해지면 그때 바꾼다.
+*@
+
+<div class="pm-split">
+    <div class="pm-split__first" style="flex-basis: @(Size)%">
+        @First
+    </div>
+    <div class="pm-split__second">
+        @Second
+    </div>
+</div>
+
+@code {
+    /// <summary>왼쪽 창의 너비 비율(%).</summary>
+    [Parameter] public int Size { get; set; } = 35;
+
+    [Parameter] public RenderFragment? First { get; set; }
+
+    [Parameter] public RenderFragment? Second { get; set; }
+}

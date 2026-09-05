@@ -10,6 +10,8 @@ setlocal enabledelayedexpansion
 ::   dev.bat auth            AuthServer 만 재기동
 ::   dev.bat auth file       여러 개 지정도 된다
 ::   dev.bat site web        회사 소개 사이트만 (백엔드 :5480 + 프론트 :5556)
+::   dev.bat mfe             Blazor 포털 전체 (셸 :5557 + 업무 MFE 6개). 이행 중인 새 프론트다.
+::                           기본 `dev.bat` 에는 들어 있지 않다 — 창이 열아홉 개가 된다.
 ::   dev.bat stop auth       AuthServer 만 중지
 ::   dev.bat allstop         전체 중지
 ::   dev.bat status          지금 무엇이 떠 있는지 확인
@@ -72,7 +74,19 @@ if exist "%SECRETS_FILE%" (
 ::
 :: 이름이 바뀌었다: 예전 `front` 는 이제 `portal` 이다. 프론트가 둘이라 어느 쪽인지
 :: 이름만으로 알 수 있어야 한다. `web` 이 회사 소개 사이트다.
-set "SVC_KEYS=gateway auth funeral ai file helpdesk projmng site notify life portal web"
+set "SVC_KEYS=gateway auth funeral ai file helpdesk projmng site notify life portal web blazor uifuneral uihelpdesk uiadmin uisite uilife uiprojmng"
+
+:: `dev.bat all` 이 띄우는 기본 묶음. **Blazor 포털은 빠져 있다.**
+::
+:: 이행하는 동안 Blazor 쪽은 프로세스가 일곱 개다(셸 + 업무 MFE 여섯). 이걸
+:: 기본에 넣으면 아무 생각 없이 `dev.bat` 를 쳤을 때 창이 열아홉 개 뜬다.
+:: 일상 작업은 아직 Vue 포털이므로 Blazor 는 `dev.bat mfe` 로 따로 띄운다.
+:: 컷오버 때 이 줄에서 portal·web 을 빼고 blazor 묶음을 넣는다.
+set "SVC_KEYS_DEFAULT=gateway auth funeral ai file helpdesk projmng site notify life portal web"
+
+:: 그룹 별칭. 이름 하나가 여러 서비스로 펼쳐진다.
+:: TARGETS 는 문자열을 이어 붙이는 방식이라 여러 개를 한꺼번에 넣어도 그대로 돈다.
+set "GROUP_mfe=blazor uifuneral uihelpdesk uiadmin uisite uilife uiprojmng"
 
 set "SVC_gateway=API Gateway|ApiGateway|5265|GATEWAY|%START_CMD%"
 set "SVC_auth=Auth Server|microservices\AuthServer|5264|AUTH|%START_CMD%"
@@ -88,6 +102,30 @@ set "SVC_notify=Notification Server|microservices\NotificationServer|5460|NOTIFY
 set "SVC_life=LifeEnv Server|microservices\LifeEnvServer|5490|LIFEENV|%START_CMD%"
 set "SVC_portal=Portal Frontend|fronts|5555|-|pnpm --filter @vben/jsini-portal dev"
 set "SVC_web=Site Frontend|fronts|5556|-|pnpm --filter @jsini/site dev"
+:: Blazor 포털(web\). Vue 포털(portal, 5555)을 대체할 것이지만 이행하는 동안에는
+:: 둘을 나란히 띄워 화면을 대조해야 하므로 포트를 나눈다. 컷오버 때 5555 를 넘겨받는다.
+::
+:: SERVER_NAME 이 `-` 가 아니다 — `-` 는 "pnpm 워크스페이스 프론트" 라는 뜻이라
+:: 빌드 대신 pnpm install 을 한다. 이건 .NET 프로젝트라 다른 백엔드와 똑같이
+:: dotnet build / dotnet run 이면 된다. PORTAL_WEB 은 셸이 읽지 않지만,
+:: 표의 다섯 칸을 채워야 기존 분기가 그대로 통한다.
+:: ── Blazor 포털 (web\) ─────────────────────────────────────────
+::
+:: 셸 하나 + 업무 MFE 여섯. **각자 독립 프로세스다** — 셸이 경로 접두사로
+:: 앞에서 프록시한다(/funeral → :5561 …). 사용자는 :5557 만 본다.
+::
+:: 다 띄우려면 `dev.bat mfe`. 한 업무만 고칠 때는 `dev.bat blazor uiprojmng`
+:: 처럼 셸과 그 앱만 띄우면 된다 — 나머지 경로는 502 가 나지만 그 업무는 돈다.
+::
+:: SERVER_NAME 이 `-` 가 아니다. `-` 는 "pnpm 워크스페이스 프론트" 라는 뜻이라
+:: 빌드 대신 pnpm install 을 한다. 이건 .NET 이라 dotnet build/run 이면 된다.
+set "SVC_blazor=Blazor Shell|web\src\Shell\JSini.Web.Shell|5557|PORTAL_SHELL|%START_CMD%"
+set "SVC_uifuneral=MFE 장례식장|web\src\Apps\JSini.Web.Funeral|5561|UI_FUNERAL|%START_CMD%"
+set "SVC_uihelpdesk=MFE 헬프데스크|web\src\Apps\JSini.Web.HelpDesk|5562|UI_HELPDESK|%START_CMD%"
+set "SVC_uiadmin=MFE 포털관리|web\src\Apps\JSini.Web.Admin|5563|UI_ADMIN|%START_CMD%"
+set "SVC_uisite=MFE 소개사이트|web\src\Apps\JSini.Web.Site|5564|UI_SITE|%START_CMD%"
+set "SVC_uilife=MFE 생활과환경|web\src\Apps\JSini.Web.LifeEnv|5565|UI_LIFE|%START_CMD%"
+set "SVC_uiprojmng=MFE 프로젝트관리|web\src\Apps\JSini.Web.ProjMng|5566|UI_PROJMNG|%START_CMD%"
 
 :: ============================================================
 :: 인자 해석
@@ -194,7 +232,7 @@ if not "%~2"=="" (
 echo ====================================================
 echo    JSini 관리 포털 — 전체 빌드 및 시작
 echo ====================================================
-set "TARGETS=%SVC_KEYS%"
+set "TARGETS=%SVC_KEYS_DEFAULT%"
 call :restart_services
 goto end
 
@@ -246,9 +284,15 @@ exit /b 0
 ::
 :: 예전 이름도 받아 준다. `front` 로 손이 굳은 사람이 오류를 보지 않게 하려는 것이다.
 :: ALIAS_OUT 에 진짜 이름을 담아 돌려준다 — 부르는 쪽은 그것을 TARGETS 에 넣는다.
+:: 그룹 별칭도 여기서 펼친다 (`mfe` → 셸 + 업무 MFE 여섯).
+:: 부르는 쪽이 ALIAS_OUT 을 TARGETS 에 이어 붙이므로 여러 개를 돌려줘도 된다.
 :svc_exists
 set "ALIAS_OUT=%~1"
 if /i "%~1"=="front" set "ALIAS_OUT=portal"
+if /i "%~1"=="mfe" (
+    set "ALIAS_OUT=%GROUP_mfe%"
+    exit /b 0
+)
 if not defined SVC_!ALIAS_OUT! exit /b 1
 exit /b 0
 
@@ -421,6 +465,9 @@ echo 예시
 echo   dev.bat auth              AuthServer 만 다시 띄운다
 echo   dev.bat site web          소개 사이트 백엔드와 프론트를 다시 띄운다
 echo   dev.bat projmng portal    ProjMng 와 업무 포털을 다시 띄운다
+echo   dev.bat mfe               Blazor 포털 전체 ^(셸 :5557 + 업무 MFE 6개^)
+echo   dev.bat blazor uiprojmng  셸과 프로젝트관리 MFE 만 ^(한 업무만 고칠 때^)
+echo   dev.bat portal mfe        Vue 포털^(:5555^)과 Blazor 포털을 나란히 띄운다
 echo   dev.bat stop helpdesk     헬프데스크만 내린다
 echo   dev.bat allstop           전부 내린다
 exit /b 0

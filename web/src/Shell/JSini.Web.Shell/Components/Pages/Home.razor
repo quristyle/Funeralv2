@@ -1,0 +1,41 @@
+@page "/"
+
+@*
+    로그인 뒤 첫 화면. 지금은 업무 MFE 가 제대로 붙었는지 보여 주는 진단 화면이다.
+
+    Vue 의 `views/portal/dashboard` 를 옮겨 오면 이 자리가 대시보드가 된다.
+    그때도 이 표는 어딘가(예: /admin 앱의 진단 화면)에 남겨 두는 편이 낫다 —
+    MFE 하나가 죽었을 때 가장 먼저 볼 곳이기 때문이다.
+*@
+
+@inject IReadOnlyList<PortalApp> Apps
+@inject IMenuProvider Menus
+@inject IPermissionContext Permissions
+
+<PageTitle>JSini 포털</PageTitle>
+
+<h1>JSini 포털</h1>
+
+<section class="jsini-diagnostics">
+    <h2>붙어 있는 업무 MFE</h2>
+
+    <DxGrid Data="@Apps" ShowFilterRow="false" PageSizeSelectorVisible="false">
+        <Columns>
+            <DxGridDataColumn FieldName="Key" Caption="식별자" Width="120px" />
+            <DxGridDataColumn FieldName="DisplayName" Caption="이름" />
+            <DxGridDataColumn FieldName="RoutePrefix" Caption="경로" Width="140px" />
+            <DxGridDataColumn FieldName="Address" Caption="주소" />
+        </Columns>
+    </DxGrid>
+
+    <dl class="jsini-diagnostics__facts">
+        <dt>업무 MFE</dt>
+        <dd>@Apps.Count 개 (각자 독립 프로세스)</dd>
+
+        <dt>보이는 최상위 메뉴</dt>
+        <dd>@Menus.VisibleMenus.Count 개</dd>
+
+        <dt>권한표</dt>
+        <dd>@(Permissions.IsLoaded ? "읽음" : "아직 못 읽음 — 지금은 아무것도 거르지 않는다")</dd>
+    </dl>
+</section>
