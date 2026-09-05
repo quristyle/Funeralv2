@@ -48,15 +48,20 @@
 <div class="jsini-shell @(_sidebarOpen ? "" : "jsini-shell--collapsed")">
 
     <header class="jsini-header">
-        <DxButton RenderStyle="ButtonRenderStyle.Link"
-                  SizeMode="SizeMode.Small"
-                  IconCssClass="jsini-icon-menu"
-                  Title="메뉴 접기/펴기"
-                  Click="@ToggleSidebar" />
+        @* 데모의 헤더 왼쪽은 [동그란 접기 단추][로고][세로 선][이름] 이다.
+           선은 로고와 글자를 갈라 주는 것뿐이라 화면 읽기에는 쓸모가 없다. *@
+        <span class="jsini-header__toggle">
+            <DxButton RenderStyle="ButtonRenderStyle.Link"
+                      SizeMode="SizeMode.Small"
+                      IconCssClass="jsini-icon-menu"
+                      Title="메뉴 접기/펴기"
+                      Click="@ToggleSidebar" />
+        </span>
 
         <a class="jsini-header__brand" href="/">
             <img class="jsini-header__logo"
                  src="_content/JSini.Web.Components/brand/app-icon.svg" alt="" />
+            <span class="jsini-header__sep" aria-hidden="true"></span>
             <span class="jsini-header__brand-text">JSINI</span>
         </a>
 

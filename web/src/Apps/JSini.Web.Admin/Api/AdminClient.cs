@@ -46,6 +46,12 @@ public sealed class AdminClient(GatewayClient gateway)
     public Task<IReadOnlyList<AccountDto>> GetAccountsAsync(CancellationToken ct = default)
         => gateway.GetListAsync<AccountDto>("auth/system/account/list", ct);
 
+    public Task CreateAccountAsync(SaveAccountDto account, CancellationToken ct = default)
+        => gateway.PostAsync("auth/system/account", account, ct);
+
+    public Task UpdateAccountAsync(string id, SaveAccountDto account, CancellationToken ct = default)
+        => gateway.PutAsync($"auth/system/account/{id}", account, ct);
+
     public Task DeleteAccountAsync(string id, CancellationToken ct = default)
         => gateway.DeleteAsync($"auth/system/account/{id}", ct);
 
@@ -53,6 +59,12 @@ public sealed class AdminClient(GatewayClient gateway)
 
     public Task<IReadOnlyList<RoleDto>> GetRolesAsync(CancellationToken ct = default)
         => gateway.GetListAsync<RoleDto>("auth/system/role/list", ct);
+
+    public Task CreateRoleAsync(SaveRoleDto role, CancellationToken ct = default)
+        => gateway.PostAsync("auth/system/role", role, ct);
+
+    public Task UpdateRoleAsync(string id, SaveRoleDto role, CancellationToken ct = default)
+        => gateway.PutAsync($"auth/system/role/{id}", role, ct);
 
     public Task DeleteRoleAsync(string id, CancellationToken ct = default)
         => gateway.DeleteAsync($"auth/system/role/{id}", ct);
@@ -84,6 +96,12 @@ public sealed class AdminClient(GatewayClient gateway)
     public Task<IReadOnlyList<CompanyDto>> GetCompaniesAsync(CancellationToken ct = default)
         => gateway.GetListAsync<CompanyDto>("auth/system/companies", ct);
 
+    public Task CreateCompanyAsync(SaveCompanyDto company, CancellationToken ct = default)
+        => gateway.PostAsync("auth/system/companies", company, ct);
+
+    public Task UpdateCompanyAsync(string id, SaveCompanyDto company, CancellationToken ct = default)
+        => gateway.PutAsync($"auth/system/companies/{id}", company, ct);
+
     public Task DeleteCompanyAsync(string id, CancellationToken ct = default)
         => gateway.DeleteAsync($"auth/system/companies/{id}", ct);
 
@@ -92,6 +110,12 @@ public sealed class AdminClient(GatewayClient gateway)
 
     public Task<IReadOnlyList<DeptDto>> GetDeptsAsync(CancellationToken ct = default)
         => gateway.GetListAsync<DeptDto>("auth/system/dept/list", ct);
+
+    public Task CreateDeptAsync(SaveDeptDto dept, CancellationToken ct = default)
+        => gateway.PostAsync("auth/system/dept", dept, ct);
+
+    public Task UpdateDeptAsync(string id, SaveDeptDto dept, CancellationToken ct = default)
+        => gateway.PutAsync($"auth/system/dept/{id}", dept, ct);
 
     public Task DeleteDeptAsync(string id, CancellationToken ct = default)
         => gateway.DeleteAsync($"auth/system/dept/{id}", ct);
@@ -121,7 +145,13 @@ public sealed class AdminClient(GatewayClient gateway)
     public Task<IReadOnlyList<BizSelectConfigDto>> GetBizSelectConfigsAsync(CancellationToken ct = default)
         => gateway.GetListAsync<BizSelectConfigDto>("auth/system/biz-select/configs", ct);
 
-    public Task DeleteBizSelectConfigAsync(int id, CancellationToken ct = default)
+    public Task CreateBizSelectConfigAsync(BizSelectConfigDto config, CancellationToken ct = default)
+        => gateway.PostAsync("auth/system/biz-select/config", config, ct);
+
+    public Task UpdateBizSelectConfigAsync(string id, BizSelectConfigDto config, CancellationToken ct = default)
+        => gateway.PutAsync($"auth/system/biz-select/config/{id}", config, ct);
+
+    public Task DeleteBizSelectConfigAsync(string id, CancellationToken ct = default)
         => gateway.DeleteAsync($"auth/system/biz-select/config/{id}", ct);
 
     // ── 상태 ────────────────────────────────────────────────────

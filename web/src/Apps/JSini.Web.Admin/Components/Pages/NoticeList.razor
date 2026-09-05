@@ -1,94 +1,167 @@
 @page "/admin/notice"
-@using JSini.Web.Admin.Api
 
 @*
-    [공지사항 관리]
-
+    [공지사항 관리] — DB 메뉴 `/portal/notice`.
     이력: Vue `views/portal/notice/list.vue` → 여기.
-    모든 MSA 사용자에게 노출되는 공지사항 목록 및 팝업 여부/게시 기간/전체 공개 여부를 관리한다.
+
+    공지는 이 포털이 관리하고 **모든 MSA 사용자에게 공통으로** 보인다.
+    각 서비스가 자기 공지를 따로 두지 않는다.
+
+    [전체 공개와 팝업은 다른 것이다]
+
+    · `IsPublic` — 로그인하지 않아도 보인다. 화면이 뜨는 순간 팝업으로 뜬다.
+    · `IsPopup`  — 팝업으로 띄울지. 끄면 공지 목록에만 남는다.
+
+    둘을 하나로 합치자는 이야기가 나올 때마다 갈렸다. 로그인 화면에 띄우고 싶은
+    공지(점검 안내)와 로그인 뒤에만 띄우고 싶은 공지(사내 안내)가 실제로 있다.
+
+    [첨부와 서식 본문은 아직 없다]
+
+    옛 화면은 첨부파일을 FileServer 에 올리고 본문을 서식 편집기로 썼다.
+    그 둘은 결정 목록 D5(첨부)에 적어 두었다 — 지금은 여러 줄 입력이다.
+    본문에 HTML 이 들어 있어도 **태그를 걷어내고** 보여 준다.
 *@
 
-@inject AdminClient Client
+@inject AdminClient Api
 
 <PageTitle>공지사항 관리 · 포털관리</PageTitle>
 
-<h1>공지사항 관리 <span class="pm-page__scope">포털관리</span></h1>
+<PageHeading Title="공지사항 관리" Scope="포털관리" />
 
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <div class="d-flex gap-2">
-        <DxTextBox @bind-Text="_keyword" NullText="제목 또는 내용 검색" Style="width: 240px" ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
-        <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@SearchAsync" />
-    </div>
-    <PermissionView Action="MenuAction.Create">
-        <DxButton Text="공지 작성" RenderStyle="ButtonRenderStyle.Success" Click="@(() => OpenSaveDialog())" />
-    </PermissionView>
-</div>
+<CrudGrid TItem="NoticeDto"
+          Data="@_notices"
+          EditFormTitle="공지"
+          ExportName="공지사항"
+          PageSize="20"
+          OnNew="@FillNew"
+          OnSave="@SaveAsync"
+          OnDelete="@DeleteAsync"
+          Reload="@ReloadAsync">
+    <ChildContent>
+        <DxTextBox @bind-Text="_keyword" NullText="제목·내용 검색" Style="width: 220px"
+                   ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+    </ChildContent>
 
-<DxGrid Data="@_notices" Loading="@_loading" PageSize="15" KeyFieldName="Id">
     <Columns>
-        <DxGridDataColumn FieldName="Title" Caption="제목" MinWidth="200">
-            <CellDisplayTemplate>
-                <div class="d-flex align-items-center gap-2">
-                    @if (((NoticeDto)context.DataItem).IsPopup)
-                    {
-                        <span class="badge bg-danger">팝업</span>
-                    }
-                    @if (((NoticeDto)context.DataItem).IsPublic)
-                    {
-                        <span class="badge bg-info">전체공개</span>
-                    }
-                    <strong>@context.Value</strong>
-                </div>
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
-        <DxGridDataColumn FieldName="AuthorName" Caption="작성자" Width="120px" />
-        <DxGridDataColumn FieldName="StartAt" Caption="게시 시작" Width="140px" DisplayFormat="yyyy-MM-dd HH:mm" />
-        <DxGridDataColumn FieldName="EndAt" Caption="게시 종료" Width="140px" DisplayFormat="yyyy-MM-dd HH:mm" />
-        <DxGridDataColumn FieldName="CreatedAt" Caption="작성일" Width="140px" DisplayFormat="yyyy-MM-dd" />
-        <DxGridDataColumn Caption="관리" Width="120px">
-            <CellDisplayTemplate>
+        <DxGridDataColumn FieldName="@nameof(NoticeDto.Title)" Caption="제목" MinWidth="220">
+            <CellDisplayTemplate Context="cell">
                 @{
-                    var notice = (NoticeDto)context.DataItem;
+                    var n = (NoticeDto)cell.DataItem;
                 }
-                <div class="d-flex gap-1 justify-content-center">
-                    <PermissionView Action="MenuAction.Update">
-                        <DxButton Text="수정" RenderStyle="ButtonRenderStyle.Secondary" SizeMode="SizeMode.Small" Click="@(() => OpenSaveDialog(notice))" />
-                    </PermissionView>
-                    <PermissionView Action="MenuAction.Delete">
-                        <DxButton Text="삭제" RenderStyle="ButtonRenderStyle.Danger" SizeMode="SizeMode.Small" Click="@(() => DeleteNoticeAsync(notice.Id))" />
-                    </PermissionView>
+                <div class="d-flex align-items-center gap-1">
+                    @if (n.IsPopup)
+                    {
+                        <span class="jsini-badge jsini-badge--warn">팝업</span>
+                    }
+                    @if (n.IsPublic)
+                    {
+                        <span class="jsini-badge jsini-badge--on">전체공개</span>
+                    }
+                    <span>@n.Title</span>
                 </div>
             </CellDisplayTemplate>
         </DxGridDataColumn>
+        <DxGridDataColumn FieldName="@nameof(NoticeDto.AuthorName)" Caption="작성자" Width="110" />
+        <DxGridDataColumn FieldName="@nameof(NoticeDto.StartAt)" Caption="게시 시작" Width="140" DisplayFormat="yyyy-MM-dd HH:mm" />
+        <DxGridDataColumn FieldName="@nameof(NoticeDto.EndAt)" Caption="게시 종료" Width="140" DisplayFormat="yyyy-MM-dd HH:mm" />
+        <DxGridDataColumn FieldName="@nameof(NoticeDto.OrderNo)" Caption="순서" Width="80" />
+        <DxGridDataColumn Caption="상태" Width="90">
+            <CellDisplayTemplate Context="cell">
+                @{
+                    var n = (NoticeDto)cell.DataItem;
+                }
+                <span class="jsini-badge @(n.Status == 1 ? "jsini-badge--on" : "jsini-badge--off")">
+                    @(n.Status == 1 ? "사용" : "중지")
+                </span>
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+        <DxGridDataColumn FieldName="@nameof(NoticeDto.CreatedAt)" Caption="작성일" Width="120" DisplayFormat="yyyy-MM-dd" />
     </Columns>
-</DxGrid>
+
+    <EditForm Context="edit">
+        @{
+            var n = (NoticeDto)edit.EditModel;
+        }
+        <DxFormLayout CssClass="ad-editform">
+            <DxFormLayoutItem Caption="제목" ColSpanMd="12">
+                <DxTextBox @bind-Text="n.Title" NullText="공지 제목" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="내용" ColSpanMd="12">
+                <DxMemo @bind-Text="n.Content" Rows="10" NullText="공지 내용" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="게시 시작" ColSpanMd="6">
+                <DxDateEdit @bind-Date="n.StartAt" TimeSectionVisible="true" NullText="비우면 즉시" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="게시 종료" ColSpanMd="6">
+                <DxDateEdit @bind-Date="n.EndAt" TimeSectionVisible="true" NullText="비우면 무기한" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="정렬 순서" ColSpanMd="4">
+                <DxSpinEdit @bind-Value="n.OrderNo" MinValue="0" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="팝업" ColSpanMd="4">
+                <DxCheckBox @bind-Checked="n.IsPopup">화면에 팝업으로 띄운다</DxCheckBox>
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="전체 공개" ColSpanMd="4">
+                <DxCheckBox @bind-Checked="n.IsPublic">로그인 전에도 보인다</DxCheckBox>
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="사용" ColSpanMd="12">
+                @* 상태를 숫자로 두면 화면에서 0/1 을 외워야 한다. 스위치로 가린다. *@
+                <DxCheckBox Checked="@(n.Status == 1)"
+                            CheckedChanged="@((bool v) => n.Status = v ? 1 : 0)">
+                    사용
+                </DxCheckBox>
+            </DxFormLayoutItem>
+        </DxFormLayout>
+    </EditForm>
+</CrudGrid>
 
 @code {
-    private List<NoticeDto> _notices = [];
     private string? _keyword;
-    private bool _loading;
+    private IReadOnlyList<NoticeDto> _notices = [];
 
-    protected override Task OnInitializedAsync() => SearchAsync();
+    protected override Task OnInitializedAsync() => ReloadAsync();
 
-    private async Task SearchAsync()
+    private async Task ReloadAsync() => _notices = await Api.GetNoticesAsync(_keyword);
+
+    /// <summary>
+    /// 새 공지의 기본값.
+    ///
+    /// 팝업은 켜고 전체 공개는 끈다 — 옛 화면과 같다. 전체 공개는 로그인하지
+    /// 않은 사람에게도 보이는 것이라 **켜는 쪽을 기본으로 두면 안 된다.**
+    /// </summary>
+    private void FillNew(NoticeDto n)
     {
-        _loading = true;
-        try
-        {
-            var list = await Client.GetNoticesAsync(_keyword);
-            _notices = list.ToList();
-        }
-        finally
-        {
-            _loading = false;
-        }
+        n.IsPopup = true;
+        n.IsPublic = false;
+        n.Status = 1;
+        n.OrderNo = 0;
     }
 
-    private void OpenSaveDialog(NoticeDto? notice = null) { }
-
-    private async Task DeleteNoticeAsync(string id)
+    private Task SaveAsync((NoticeDto Item, bool IsNew) e)
     {
-        await Client.DeleteNoticeAsync(id);
-        await SearchAsync();
+        var body = new SaveNoticeDto
+        {
+            Title = e.Item.Title,
+            Content = e.Item.Content,
+            IsPopup = e.Item.IsPopup,
+            IsPublic = e.Item.IsPublic,
+            OrderNo = e.Item.OrderNo,
+            Status = e.Item.Status,
+            StartAt = e.Item.StartAt,
+            EndAt = e.Item.EndAt,
+        };
+
+        return e.IsNew
+            ? Api.CreateNoticeAsync(body)
+            : Api.UpdateNoticeAsync(e.Item.Id, body);
     }
+
+    private Task DeleteAsync(NoticeDto n) => Api.DeleteNoticeAsync(n.Id);
 }

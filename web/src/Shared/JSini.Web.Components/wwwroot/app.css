@@ -25,9 +25,8 @@
 */
 
 :root {
-  --jsini-sidebar-width: 248px;
-  --jsini-sidebar-collapsed: 0px;
-  --jsini-header-height: 44px;
+  --jsini-sidebar-width: 330px;
+  --jsini-header-height: 3.5rem;
 
   /* DevExpress 가 주는 값이 있으면 그것을 쓴다. 두 번째 값은 그 테마가
      변수를 안 내보낼 때를 위한 것이다. */
@@ -69,6 +68,15 @@ body {
 
 /* ── 셸 뼈대 ─────────────────────────────────────────────────
 
+   **DevExpress 데모(demos.devexpress.com/blazor)의 치수를 그대로 옮겼다.**
+   데모의 `dx-demo.css` 에서 값을 읽어 왔다 — 눈대중이 아니다.
+
+     헤더        3.5rem   (56px)
+     사이드바     330px
+     검색 칸      3rem     (48px)
+     브레드크럼   3rem
+     본문 여백    1.1rem 1.5rem 0
+
    격자 두 줄 · 두 칸이다.
 
      ┌──────────────────────────────┐
@@ -77,8 +85,9 @@ body {
      │ 사이드바   │ 본문              │
      └───────────┴──────────────────┘
 
-   사이드바를 접을 때 **격자를 바꾸지 않고 폭만 0 으로** 만든다. 격자를 바꾸면
-   본문이 통째로 다시 배치되어 스크롤 위치가 튄다.
+   사이드바를 접을 때 **격자를 바꾸지 않고 폭만 0 으로** 만든다. 데모도 그렇게
+   한다(`width: 0` + `transition: width .2s`). 격자를 바꾸면 본문이 통째로 다시
+   배치되어 스크롤 위치가 튄다.
    ------------------------------------------------------------ */
 
 .jsini-shell {
@@ -87,41 +96,61 @@ body {
   grid-template-rows: var(--jsini-header-height) 1fr;
   height: 100vh;
   overflow: hidden;
-  transition: grid-template-columns 0.16s ease;
+  transition: grid-template-columns 0.2s ease-in-out;
 }
 
 .jsini-shell--collapsed {
-  grid-template-columns: var(--jsini-sidebar-collapsed) 1fr;
+  grid-template-columns: 0 1fr;
 }
 
-/* ── 헤더 ─────────────────────────────────────────────────── */
+/* ── 헤더 ─────────────────────────────────────────────────
+
+   데모: 높이 3.5rem, 아래에 옅은 그림자(테두리가 아니다).
+   그림자를 쓰면 스크롤한 본문이 헤더 밑으로 들어갈 때 층이 생긴다.
+   ---------------------------------------------------------- */
 
 .jsini-header {
   grid-column: 1 / -1;
   display: flex;
   align-items: center;
-  gap: 0.25rem;
+  height: var(--jsini-header-height);
   padding: 0 0.5rem;
   background: var(--jsini-bg);
-  border-bottom: 1px solid var(--jsini-border);
-  z-index: 20;
+  box-shadow: 0 2px 6px 0 rgb(0 0 0 / 12%);
+  z-index: 1030;
+}
+
+/* 메뉴 접기 단추. 데모는 동그란 단추다. */
+.jsini-header .jsini-header__toggle .dxbl-btn {
+  border-radius: 50%;
+  padding: 0.5rem;
 }
 
 .jsini-header__brand {
   display: flex;
   align-items: center;
-  gap: 0.45rem;
-  padding: 0 0.5rem;
+  gap: 0.75rem;
+  margin-left: 0.5rem;
   color: inherit;
   text-decoration: none;
 }
 
-.jsini-header__logo { height: 22px; width: auto; }
+.jsini-header__logo {
+  width: 32px;
+  height: 32px;
+}
+
+/* 로고와 글자 사이의 세로 선. 데모의 `.logo-sep` 과 같다. */
+.jsini-header__sep {
+  width: 1px;
+  height: 2rem;
+  background: currentcolor;
+  opacity: 0.15;
+}
 
 .jsini-header__brand-text {
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
 }
 
 .jsini-header__spacer { flex: 1; }
@@ -130,57 +159,172 @@ body {
   padding: 0 0.6rem;
   color: var(--jsini-accent);
   text-decoration: none;
-  font-size: 0.875rem;
 }
 
-/* ── 사이드바 ─────────────────────────────────────────────── */
+/* ── 사이드바 ─────────────────────────────────────────────
+
+   데모: 330px, 오른쪽에 안쪽 그림자와 1px 선.
+   안쪽 그림자가 있어야 본문과 판이 갈려 보인다 — 선만으로는 밋밋하다.
+   ---------------------------------------------------------- */
 
 .jsini-shell__sidebar {
   grid-row: 2;
   grid-column: 1;
-  background: var(--jsini-surface);
+  background: var(--jsini-bg);
   border-right: 1px solid var(--jsini-border);
-  overflow: hidden auto;
-
-  /* 접었을 때 내용이 삐져나오지 않게. 폭이 0 이어도 자식은 제 폭을 고집한다. */
+  box-shadow: inset -140px -8px 30px -100px rgb(0 0 0 / 8%);
+  overflow: hidden;
   min-width: 0;
 }
 
-.jsini-shell--collapsed .jsini-shell__sidebar { border-right-width: 0; }
+.jsini-shell--collapsed .jsini-shell__sidebar {
+  border-right-width: 0;
+  box-shadow: none;
+}
 
 .jsini-sidebar {
   display: flex;
   flex-direction: column;
-  min-height: 100%;
+  height: 100%;
   width: var(--jsini-sidebar-width);
 }
 
-.jsini-sidebar__section {
-  padding: 0.6rem 0.9rem 0.25rem;
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--jsini-text-muted);
+/* ── 사이드바 검색 · 트리 ────────────────────────────────
+
+   **검색 칸을 따로 만들지 않았다.** DxTreeView 의 `ShowFilterPanel` 이 자기
+   맨 위에 입력 칸을 하나 그리고, 그것이 곧 데모의 "Find demo by keyword"
+   자리다. 돋보기 아이콘까지 DevExpress 가 그려 준다. 우리가 입력 칸을 따로
+   두면 거르는 일을 직접 해야 하고 — 걸린 가지 전체를 펼치는 것까지 —
+   그건 이미 있는 것을 다시 만드는 일이다.
+
+   그래서 여기서는 **생김새만** 데모에 맞춘다.
+   높이 3rem · 바탕 한 톤 짙게 · 아래 선 하나 · 테두리 없음.
+
+   [실제로 그려지는 모양]
+
+     div.jsini-sidebar__tree.dxbl-treeview
+       └ dxbl-treeview.dxbl-treeview-container
+          ├ dxbl-input-editor.dxbl-navigation-filter     ← 검색 칸
+          │   ├ button                                    돋보기
+          │   └ input.dxbl-text-edit-input
+          └ dxbl-scroll-viewer                            ← 여기만 구른다
+             └ div.dxbl-scroll-viewer-content
+                └ ul.dxbl-treeview-items-container[data-is-root]
+                   └ li.dxbl-treeview-item
+                      └ div.dxbl-treeview-item-content
+                         ├ button                         펼침
+                         └ div.dxbl-treeview-item-container[aria-level]
+
+   겉껍데기가 세 겹(`dxbl-treeview` · `dxbl-treeview-container` ·
+   `dxbl-scroll-viewer`)이라 **그 셋에 다 flex 를 걸어야** 검색 칸이 위에
+   고정되고 트리만 구른다. 한 겹이라도 빠뜨리면 높이가 안 흘러서 트리가
+   사이드바 밖으로 넘친다.
+   ---------------------------------------------------------- */
+
+.jsini-sidebar__tree {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+
+  /* 데모가 자기 CSS 에서 바꾸는 것은 이 둘과 최상위 글자 굵기뿐이다.
+     여기서 색과 선을 직접 칠하기 시작하면 테마 스물둘이 전부 어긋난다. */
+  --dxbl-treeview-spacing-x: 0.5rem;
+  --dxbl-treeview-spacing-y: 0.5rem;
+  --dxbl-treeview-navigation-filter-bottom-spacing: 0;
 }
+
+.jsini-sidebar__tree > .dxbl-treeview-container {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 검색 칸 — 데모의 3rem 줄. 줄 전체가 검색 칸처럼 보이게 테두리를 걷어낸다. */
+.jsini-sidebar__tree .dxbl-navigation-filter {
+  flex: 0 0 auto;
+  height: 3rem;
+  min-height: 3rem;
+  margin: 0 0 0.35rem;
+  padding: 0 0.75rem;
+  background: var(--jsini-surface);
+  border: 0;
+  border-bottom: 1px solid var(--jsini-border);
+  border-radius: 0;
+  box-shadow: none;
+}
+
+/* 돋보기와 지우기 단추. DevExpress 가 그린 것을 옅게만 만든다. */
+.jsini-sidebar__tree .dxbl-navigation-filter > .dxbl-btn {
+  background: none;
+  border: 0;
+  box-shadow: none;
+  opacity: 0.6;
+  padding: 0 0.4rem 0 0;
+}
+
+.jsini-sidebar__tree .dxbl-navigation-filter > .dxbl-text-edit-input {
+  background: transparent;
+}
+
+/* 트리 본문만 구른다. 트리 전체를 굴리면 메뉴를 내려보다가 검색 칸이 화면
+   밖으로 나가서, 179개 중에 찾다 말고 다시 올라와야 한다. */
+.jsini-sidebar__tree .dxbl-scroll-viewer {
+  flex: 1;
+  min-height: 0;
+  padding: 0 var(--dxbl-treeview-spacing-x) var(--dxbl-treeview-spacing-y);
+}
+
+/* 최상위(업무 묶음)만 굵게. 데모의 사이드바가 그렇게 생겼다.
+
+   `aria-level` 로 고른다. 부모를 여섯 겹 타고 내려가는 선택자보다 짧고,
+   DevExpress 가 겉껍데기를 한 겹 더 넣어도 안 깨진다. */
+.jsini-sidebar__tree .dxbl-treeview-item-container[aria-level='1'] {
+  --dxbl-treeview-font-weight: 600;
+}
+
+/* 메뉴 제목을 대문자로 바꾸지 않는다 — 한글에는 뜻이 없고, 영문 제목만
+   혼자 커 보인다. */
+.jsini-sidebar__tree .dxbl-treeview-item-container {
+  text-transform: none;
+}
+
+/* 제목이 길면 자른다. 메뉴 이름이 스무 자를 넘는 것이 실제로 있고
+   (「빈소 디스플레이 재생목록 관리」), 줄바꿈하면 트리가 들쭉날쭉해진다. */
+.jsini-sidebar__tree .dxbl-treeview-item-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── 사이드바 즐겨찾기 ────────────────────────────────────── */
 
 .jsini-sidebar__favorites {
   border-bottom: 1px solid var(--jsini-border);
-  padding-bottom: 0.4rem;
+  padding-bottom: 0.35rem;
+}
+
+.jsini-sidebar__section {
+  padding: 0.6rem 1rem 0.25rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  opacity: 0.6;
 }
 
 .jsini-sidebar__favorite {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
-  padding: 0.35rem 0.9rem;
+  gap: 0.45rem;
+  padding: 0.3rem 1rem;
   color: inherit;
   text-decoration: none;
-  font-size: 0.875rem;
 }
 
 .jsini-sidebar__favorite:hover {
-  background: color-mix(in srgb, var(--jsini-accent) 10%, transparent);
+  background: color-mix(in srgb, currentcolor 7%, transparent);
 }
 
 .jsini-sidebar__favorite.active {
@@ -188,23 +332,11 @@ body {
   font-weight: 600;
 }
 
-/* 즐겨찾기 이름이 길면 자른다 — 넘치면 사이드바에 가로 스크롤이 생긴다. */
+/* 이름이 길면 자른다 — 넘치면 사이드바에 가로 스크롤이 생긴다. */
 .jsini-sidebar__favorite-text {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.jsini-sidebar__tree { flex: 1; }
-
-/* 검색 칸을 위쪽에 붙여 둔다. DevExpress 데모의 "Find demo by keyword" 자리다. */
-.jsini-sidebar__tree .dxbl-treeview-filter-panel {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  padding: 0.5rem 0.6rem;
-  background: var(--jsini-surface);
-  border-bottom: 1px solid var(--jsini-border);
 }
 
 /* ── 본문 쪽 ─────────────────────────────────────────────── */
@@ -218,19 +350,26 @@ body {
   overflow: hidden;
 }
 
+/* 데모: padding 1.1rem 1.5rem 0 */
 .jsini-shell__content {
   flex: 1;
-  padding: 1rem 1.25rem 2rem;
+  padding: 1.1rem 1.5rem 2rem;
   overflow: auto;
 }
 
-/* ── 탭 줄 ───────────────────────────────────────────────── */
+/* ── 탭 줄 ───────────────────────────────────────────────
+
+   데모에는 없다(문서 사이트라 탭이 필요 없다). vben 에 있던 것을 되살린
+   자리라, 데모의 브레드크럼 줄과 같은 높이·같은 바탕으로 맞춰 두 줄이
+   한 덩어리로 보이게 한다.
+   ---------------------------------------------------------- */
 
 .jsini-tabs {
   display: flex;
   align-items: center;
   gap: 0.25rem;
-  padding: 0 0.35rem;
+  height: 2.5rem;
+  padding: 0 0.5rem;
   background: var(--jsini-surface);
   border-bottom: 1px solid var(--jsini-border);
 }
@@ -240,37 +379,37 @@ body {
 .jsini-tabs__list {
   display: flex;
   flex: 1;
-  gap: 0.2rem;
+  gap: 0.15rem;
+  height: 100%;
+  align-items: stretch;
   overflow-x: auto;
-  scrollbar-width: thin;
+  scrollbar-width: none;
 }
+
+.jsini-tabs__list::-webkit-scrollbar { display: none; }
 
 .jsini-tab {
   display: flex;
   align-items: center;
   flex: 0 0 auto;
   max-width: 190px;
-  border: 1px solid transparent;
-  border-bottom: none;
-  background: transparent;
+  border-bottom: 2px solid transparent;
 }
 
-.jsini-tab:hover { background: var(--jsini-bg); }
+.jsini-tab:hover {
+  background: color-mix(in srgb, currentcolor 6%, transparent);
+}
 
+/* 켜진 탭은 **아래 선**으로 표시한다. 배경을 칠하면 테마 22가지에서
+   저마다 다른 색과 부딪친다. */
 .jsini-tab--active {
-  background: var(--jsini-bg);
-  border-color: var(--jsini-border);
-}
-
-/* 켜진 탭이 본문과 이어져 보이게 아래 테두리를 덮는다. */
-.jsini-tab--active::after {
-  content: '';
-  position: absolute;
+  border-bottom-color: var(--jsini-accent);
 }
 
 .jsini-tab__link {
   display: block;
-  padding: 0.4rem 0.35rem 0.4rem 0.7rem;
+  padding: 0 0.3rem 0 0.65rem;
+  line-height: 2.4rem;
   color: inherit;
   text-decoration: none;
   font-size: 0.82rem;
@@ -279,52 +418,73 @@ body {
   white-space: nowrap;
 }
 
-.jsini-tab--active .jsini-tab__link {
-  color: var(--jsini-accent);
-  font-weight: 600;
-}
+.jsini-tab--active .jsini-tab__link { font-weight: 600; }
 
 .jsini-tab__close {
   border: 0;
   background: none;
   cursor: pointer;
-  padding: 0 0.45rem 0 0.2rem;
-  color: var(--jsini-text-muted);
+  padding: 0 0.45rem 0 0.15rem;
+  opacity: 0.5;
   font-size: 0.95rem;
   line-height: 1;
+  color: inherit;
 }
 
-.jsini-tab__close:hover { color: var(--jsini-text); }
+.jsini-tab__close:hover { opacity: 1; }
 
-/* ── 브레드크럼 ──────────────────────────────────────────── */
+/* ── 브레드크럼 ──────────────────────────────────────────
+
+   데모: 높이 3rem, 바탕이 본문보다 한 톤 짙고, 아래에 선.
+   칸은 opacity .6 이고 사이의 구분은 **작은 삼각형**이다(글자 › 가 아니다).
+   ---------------------------------------------------------- */
 
 .jsini-crumbs {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 0.3rem;
-  padding: 0.45rem 1.25rem;
+  height: 3rem;
+  min-height: 3rem;
+  padding: 0 1.5rem;
+  background: var(--jsini-surface);
   border-bottom: 1px solid var(--jsini-border);
-  font-size: 0.8rem;
-  color: var(--jsini-text-muted);
+  overflow-x: auto;
+  scrollbar-width: none;
 }
 
+.jsini-crumbs::-webkit-scrollbar { display: none; }
+
 .jsini-crumbs__item {
+  display: inline-block;
+  margin-right: 0.8rem;
+  white-space: nowrap;
+  opacity: 0.6;
   color: inherit;
   text-decoration: none;
 }
 
-a.jsini-crumbs__item:hover {
-  color: var(--jsini-accent);
-  text-decoration: underline;
-}
+a.jsini-crumbs__item:hover { opacity: 1; }
 
 .jsini-crumbs__item--current {
-  color: var(--jsini-text);
+  opacity: 1;
   font-weight: 600;
 }
 
-.jsini-crumbs__sep { opacity: 0.5; }
+/* 삼각형 구분자. 데모가 테두리로 만든다 — 글꼴에 없는 글자를 쓰지 않아
+   어느 환경에서나 같게 보인다. */
+.jsini-crumbs__sep {
+  display: inline-block;
+  width: 0;
+  height: 0;
+  margin-right: 0.8rem;
+  border: 5px solid transparent;
+  border-left-color: currentcolor;
+  opacity: 0.45;
+}
+
+.jsini-crumbs__home {
+  display: inline-flex;
+  align-items: center;
+}
 
 /* ── 아이콘 ───────────────────────────────────────────────
 
@@ -430,13 +590,19 @@ a.jsini-crumbs__item:hover {
     grid-template-columns: 1fr;
   }
 
+  /* 데모의 330px 를 그대로 두면 360px 짜리 화면을 거의 다 덮어서 본문이
+     보이지 않는다. 화면 폭의 85% 로 묶는다. */
+  .jsini-shell__sidebar,
+  .jsini-sidebar {
+    width: min(330px, 85vw);
+  }
+
   .jsini-shell__sidebar {
     position: fixed;
     top: var(--jsini-header-height);
     bottom: 0;
     left: 0;
-    z-index: 30;
-    width: var(--jsini-sidebar-width);
+    z-index: 1030;
     box-shadow: 0 0 24px rgb(0 0 0 / 25%);
   }
 
@@ -444,7 +610,7 @@ a.jsini-crumbs__item:hover {
 
   .jsini-shell__main { grid-column: 1; }
 
-  .jsini-shell__content { padding: 0.75rem; }
+  .jsini-shell__content { padding: 0.75rem 0.75rem 1.5rem; }
 
   .jsini-crumbs { padding-left: 0.75rem; padding-right: 0.75rem; }
 
@@ -761,6 +927,11 @@ a.jsini-crumbs__item:hover {
   flex-direction: column;
   gap: 0.5rem;
   padding: 0.75rem 0.9rem 0.9rem;
+
+  /* 묶음이 셋(Fluent · Classic · Bootstrap)이라 낮은 화면에서는 넘친다.
+     창 안에서 구르게 둔다 — 창 자체를 늘리면 아래쪽 항목이 화면 밖으로 나간다. */
+  max-height: min(78vh, 620px);
+  overflow: hidden auto;
 }
 
 .jsini-theme__group {
@@ -796,6 +967,9 @@ a.jsini-crumbs__item:hover {
   font-size: 0.8rem;
   text-align: left;
 }
+
+.jsini-theme__mode,
+.jsini-theme__item { border-radius: 0.25rem; }
 
 .jsini-theme__mode { text-align: center; }
 
@@ -849,7 +1023,21 @@ a.jsini-crumbs__item:hover {
   cursor: pointer;
 }
 
+/* Classic 넷과 Bootstrap 여섯. 두 칸으로 두면 창이 그만큼 짧아진다. */
 .jsini-theme__classic {
   display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 0.35rem;
+}
+
+/* 도구줄 아이콘 두 개 더. 나머지는 위 아이콘 묶음에 있다. */
+
+.jsini-icon-plus {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M7 1h2v6h6v2H9v6H7V9H1V7h6z'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M7 1h2v6h6v2H9v6H7V9H1V7h6z'/%3E%3C/svg%3E");
+}
+
+.jsini-icon-excel {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M2 1h8l4 4v10H2zm7 1v3h3zM4.6 7l1.6 2.2L4.6 11.4h1.5l.9-1.3.9 1.3h1.5L8.2 9.2 9.8 7H8.3l-.9 1.3L6.5 7z'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M2 1h8l4 4v10H2zm7 1v3h3zM4.6 7l1.6 2.2L4.6 11.4h1.5l.9-1.3.9 1.3h1.5L8.2 9.2 9.8 7H8.3l-.9 1.3L6.5 7z'/%3E%3C/svg%3E");
 }

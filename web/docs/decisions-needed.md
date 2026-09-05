@@ -4,7 +4,7 @@
 > 여기 적어 두고 다른 일을 계속했다. 각 항목에는 결정을 내리는 데 필요한
 > 사실과, 확인할 수 있는 파일 링크가 붙어 있다.
 >
-> 작성 시작: 2026-09-06 · 마지막 갱신: 2026-09-06
+> 작성 시작: 2026-09-06 · 마지막 갱신: 2026-09-06 (D13 결정 반영)
 >
 > **결정 방법** — 각 항목의 `결정:` 줄에 고른 것을 적어 주십시오.
 > 그대로 구현하겠습니다.
@@ -27,7 +27,7 @@
 | [D10](#d10-알림-실시간-수신을-붙일까) | SignalR·웹푸시 | 없음 | 중간 |
 | [D11](#d11-ai-대화-화면을-어디까지-살릴까) | AI 에이전트 | 화면만 있음 | 낮음 |
 | [D12](#d12-대시보드-첫-화면을-무엇으로-채울까) | `/` · `/workspace` | 진단 화면 | 높음 |
-| [D13](#d13-bootstrap-테마-묶음을-넣을까) | 테마 창의 Bootstrap 묶음 | 없음 | 낮음 |
+| ~~[D13](#d13-bootstrap-테마-묶음을-넣을까)~~ | 테마 창의 Bootstrap 묶음 | **정해짐 — 넣었다** | — |
 
 ---
 
@@ -301,27 +301,37 @@ AI 단추가 있어 본문 오른쪽에 대화창이 열렸다.
 
 ---
 
-## D13. Bootstrap 테마 묶음을 넣을까
+## ~~D13. Bootstrap 테마 묶음을 넣을까~~ — 정해짐
 
 **무엇** — DevExpress 데모의 테마 창에는 묶음이 셋이다.
 
 | 묶음 | 항목 | 우리 상태 |
 |---|---|---|
-| DevExpress Fluent | Light/Dark × 강조색 11 + 사용자 지정 | **넣었다** |
-| DevExpress Classic | Blazing Berry · Blazing Dark · Purple · Office White | **넣었다** |
-| Bootstrap | Default · Default Dark · Cerulean · Flatly · Journal · Lumen | 없음 |
+| DevExpress Fluent | Light/Dark × 강조색 11 + 사용자 지정 | 넣었다 |
+| DevExpress Classic | Blazing Berry · Blazing Dark · Purple · Office White | 넣었다 |
+| Bootstrap | Default · Default Dark · Cerulean · Flatly · Journal · Lumen | **넣었다** |
 
-**왜 못 넣었나** — Bootstrap 묶음은 DevExpress 가 주는 것이 아니다.
-`bootstrap-external` 테마는 **Bootstrap 5 호환 스타일시트를 따로 실어야** 돌아가고,
-데모는 [Bootswatch](https://bootswatch.com) 파일을 자기 wwwroot 에 넣어 두고 쓴다.
+**결정: 넣는다.** — 2026-09-06, 사용자 지시("해당 부분도 함께 적용하라").
 
-**정할 것** — Bootswatch 파일 6장(합쳐 약 1.2MB)을 저장소에 넣을지.
+**한 일**
 
-- 넣는다 (MIT 라이선스라 문제없다. 다만 **바깥에서 받아 오지 않고 파일을 커밋**해야 한다 —
-  런타임에 CDN 을 부르는 것은 준수사항 위반이다)
-- 안 넣는다 (Fluent 이 22가지 조합 + 사용자 지정 색을 주므로 부족하지 않다)
+- Bootstrap 5.3.3 과 Bootswatch 넷(Cerulean · Flatly · Journal · Lumen)을
+  [`wwwroot/bootstrap/`](../src/Shared/JSini.Web.Components/wwwroot/bootstrap/)
+  에 커밋했다. 합쳐 1.2MB, MIT. **CDN 을 부르지 않는다** — 그 이유는 그 폴더의
+  [README](../src/Shared/JSini.Web.Components/wwwroot/bootstrap/README.md) 에 적었다.
+- Default 와 Default Dark 는 **같은 파일**이다. Bootstrap 5.3 부터 어두운 쪽이
+  별도 파일이 아니라 `<html data-bs-theme="dark">` 로 켜진다.
+- 고르면 스타일시트가 두 장 실린다 — Bootstrap 본체와, 그 색을 DevExpress
+  부품으로 옮겨 주는 `bootstrap-external.bs5.min.css`. **순서가 뒤집히면
+  DevExpress 부품만 옛 색으로 남는다.**
+  [`theme.js`](../src/Shared/JSini.Web.Components/wwwroot/theme.js) 의
+  `priorityOf` 가 그 순서를 지킨다.
 
-**결정:**
+**곁가지로 고친 것** — 이 일을 하다 붙박이 테마 `<link>` 넷이
+[`JSiniHead.razor`](../src/Shared/JSini.Web.Components/Layout/JSiniHead.razor)
+에 남아 있는 것을 발견했다. theme.js 는 **자기가 만든 링크만** 껐다 켜므로
+붙박이 office-white 는 끌 방법이 없어, 어떤 테마를 골라도 늘 함께 켜져 있었다.
+걷어냈다.
 
 ---
 

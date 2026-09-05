@@ -28,6 +28,34 @@
   var STORAGE_KEY = 'jsini.theme';
   var FLUENT = '_content/DevExpress.Blazor.Themes.Fluent/';
   var CLASSIC = '_content/DevExpress.Blazor.Themes/';
+  var BOOTSTRAP = '_content/JSini.Web.Components/bootstrap/';
+
+  /**
+   * Bootstrap 을 고르면 스타일시트가 **두 장**이다.
+   *
+   *   1) Bootstrap(또는 Bootswatch) 본체 — 색과 변수를 정한다
+   *   2) DevExpress 의 bootstrap-external.bs5.min.css — 그 변수를 읽어
+   *      그리드 · 달력 · 팝업에 옮긴다
+   *
+   * **순서가 뒤집히면 안 된다.** 2) 가 1) 의 --bs-* 를 읽는 쪽이라,
+   * 1) 이 뒤에 오면 DevExpress 부품만 옛 색으로 남는다.
+   * 그 순서는 priorityOf 가 지킨다.
+   */
+  var BOOTSTRAP_THEMES = [
+    { id: 'default', name: 'Default', file: 'bootstrap.min.css', dark: false },
+    { id: 'default-dark', name: 'Default Dark', file: 'bootstrap.min.css', dark: true },
+    { id: 'cerulean', name: 'Cerulean', file: 'cerulean.min.css', dark: false },
+    { id: 'flatly', name: 'Flatly', file: 'flatly.min.css', dark: false },
+    { id: 'journal', name: 'Journal', file: 'journal.min.css', dark: false },
+    { id: 'lumen', name: 'Lumen', file: 'lumen.min.css', dark: false },
+  ];
+
+  function bootstrapTheme(id) {
+    for (var i = 0; i < BOOTSTRAP_THEMES.length; i++) {
+      if (BOOTSTRAP_THEMES[i].id === id) return BOOTSTRAP_THEMES[i];
+    }
+    return null;
+  }
 
   /**
    * 고를 수 있는 것들. DevExpress 데모의 테마 창과 같은 구성이다.
@@ -77,10 +105,71 @@
   var links = {};
 
   /**
+   * 스타일시트를 꽂을 자리.
+   *
+   * [왜 순서를 우리가 정해야 하나]
+   *
+   * 붙이는 차례대로 <head> 뒤에 쌓으면 **고르는 차례에 따라 순서가 달라진다.**
+   * Cerulean 을 먼저 고르면 [cerulean][dx-external] 이 되지만, 그 뒤에 Flatly 로
+   * 바꾸면 dx-external 은 이미 있으므로 flatly 만 뒤에 붙어
+   * [cerulean][dx-external][flatly] 가 된다 — DevExpress 부품이 flatly 색을 못
+   * 읽는다. 같은 화면인데 **어떤 차례로 눌렀느냐에 따라** 달라지는 것이라
+   * 재현하기도 나쁘다.
+   *
+   * 그래서 주소마다 자리 번호를 주고 그 자리에 꽂는다. 다 실린 뒤에 옮기는
+   * 방법도 있지만, <link> 를 옮기면 잠깐 스타일이 빠져 번쩍인다.
+   */
+  function priorityOf(href) {
+    if (href.indexOf(FLUENT) === 0) {
+      if (href.indexOf('core') >= 0) return 10;
+      if (href.indexOf('global') >= 0) return 11;
+      if (href.indexOf('modes/') >= 0) return 12;
+      return 13;                                   // accents
+    }
+    if (href.indexOf(BOOTSTRAP) === 0) return 30;            // Bootstrap 본체가 먼저
+    if (href.indexOf('bootstrap-external') >= 0) return 31;  // DevExpress 다리
+    return 20;                                               // Classic 한 장짜리
+  }
+
+  /**
+   * 테마 <link> 는 여기까지다. 이 자리표 뒤는 우리 CSS(app.css · 모듈)다.
+   *
+   * 이 스크립트는 <head> 안에서 동기로 돌므로, 지금 이 자리가 곧
+   * "DevExpress 테마 다음, 우리 CSS 앞" 이다.
+   */
+  var boundary = document.createElement('meta');
+  boundary.setAttribute('name', 'jsini-theme-boundary');
+
+  (function () {
+    var script = document.currentScript;
+
+    if (script && script.parentNode) {
+      script.parentNode.insertBefore(boundary, script);
+    } else {
+      document.head.appendChild(boundary);
+    }
+  })();
+
+  /** 자리 번호에 맞는 곳에 꽂는다. 뒤에 올 것이 없으면 자리표 바로 앞. */
+  function insertOrdered(link, href) {
+    var priority = priorityOf(href);
+    var existing = document.head.querySelectorAll('link[data-jsini-theme]');
+
+    for (var i = 0; i < existing.length; i++) {
+      if (priorityOf(existing[i].getAttribute('href')) > priority) {
+        document.head.insertBefore(link, existing[i]);
+        return;
+      }
+    }
+
+    document.head.insertBefore(link, boundary);
+  }
+
+  /**
    * 스타일시트를 붙인다(이미 있으면 그대로 쓴다).
    * 다 실렸을 때 콜백을 부른다 — 실패해도 부른다(그 테마만 안 예뻐질 뿐이다).
    */
-  function ensure(href, onReady) {
+  function ensure(href, onReady, startEnabled) {
     var existing = links[href];
 
     if (existing) {
@@ -96,7 +185,17 @@
     var link = document.createElement('link');
     link.rel = 'stylesheet';
     link.href = href;
-    link.disabled = true;
+
+    // **첫 적용만 켠 채로 만든다.**
+    //
+    // 꺼 둔 스타일시트는 브라우저가 그림을 미루지 않는다. 그래서 첫 방문에
+    // 맨몸 HTML 이 한 번 보였다가 테마가 입혀진다(FOUC). 처음에는 갈아 끼울
+    // 옛 테마가 없으니 켠 채로 만들어도 번쩍일 일이 없고, 그러면 브라우저가
+    // 이 파일을 기다렸다가 그린다.
+    //
+    // 두 번째부터는 꺼서 만든다 — 다 실린 뒤에 옛 것과 한꺼번에 바꿔야
+    // 그 사이에 두 테마가 겹쳐 보이지 않는다.
+    link.disabled = !startEnabled;
     link.setAttribute('data-jsini-theme', '');
 
     link.addEventListener('load', function () {
@@ -109,7 +208,7 @@
       onReady();
     }, { once: true });
 
-    document.head.appendChild(link);
+    insertOrdered(link, href);
     links[href] = link;
     return link;
   }
@@ -118,6 +217,14 @@
   function sheetsFor(spec) {
     if (spec.family === 'classic') {
       return [CLASSIC + spec.classic + '.bs5.min.css'];
+    }
+
+    if (spec.family === 'bootstrap') {
+      var theme = bootstrapTheme(spec.bootstrap) || BOOTSTRAP_THEMES[0];
+
+      // Default 와 Default Dark 는 **같은 파일**이다. 5.3 부터 어두운 쪽이
+      // 별도 파일이 아니라 data-bs-theme="dark" 로 켜지기 때문이다.
+      return [BOOTSTRAP + theme.file, CLASSIC + 'bootstrap-external.bs5.min.css'];
     }
 
     return [
@@ -207,6 +314,11 @@
   var current = null;
 
   function isDark(spec) {
+    if (spec.family === 'bootstrap') {
+      var bs = bootstrapTheme(spec.bootstrap);
+      return bs ? bs.dark : false;
+    }
+
     if (spec.family === 'classic') {
       for (var i = 0; i < CLASSIC_THEMES.length; i++) {
         if (CLASSIC_THEMES[i].id === spec.classic) return CLASSIC_THEMES[i].dark;
@@ -219,6 +331,7 @@
   function apply(spec, done) {
     var wanted = sheetsFor(spec);
     var pending = wanted.length;
+    var initial = current === null;
 
     function ready() {
       if (--pending > 0) return;
@@ -235,6 +348,15 @@
       root.setAttribute('data-theme', isDark(spec) ? 'dark' : 'light');
       root.setAttribute('data-dx-family', spec.family);
 
+      // Bootstrap 5.3 의 어두운 쪽 스위치. 다른 테마에서는 붙어 있으면 안 된다 —
+      // Bootstrap 이 안 실린 채로 이 표시만 남으면 아무 일도 안 하지만,
+      // Bootstrap 으로 돌아왔을 때 Default 인데 어둡게 나온다.
+      if (spec.family === 'bootstrap' && isDark(spec)) {
+        root.setAttribute('data-bs-theme', 'dark');
+      } else {
+        root.removeAttribute('data-bs-theme');
+      }
+
       // DevExpress Fluent 이 밝기별 클래스를 본다.
       root.classList.toggle('dxbl-theme-fluent-mode-light',
         spec.family === 'fluent' && spec.mode === 'light');
@@ -246,7 +368,7 @@
     }
 
     for (var i = 0; i < wanted.length; i++) {
-      ensure(wanted[i], ready);
+      ensure(wanted[i], ready, initial);
     }
   }
 
@@ -281,6 +403,12 @@
       return DEFAULT;
     }
 
+    if (spec.family === 'bootstrap') {
+      return bootstrapTheme(spec.bootstrap)
+        ? { family: 'bootstrap', bootstrap: spec.bootstrap }
+        : DEFAULT;
+    }
+
     var mode = spec.mode === 'dark' ? 'dark' : 'light';
     var accent = DEFAULT.accent;
 
@@ -305,6 +433,7 @@
         modes: FLUENT_MODES,
         accents: FLUENT_ACCENTS,
         classic: CLASSIC_THEMES,
+        bootstrap: BOOTSTRAP_THEMES,
       };
     },
 
@@ -329,6 +458,14 @@
     /** Classic 한 장짜리 테마를 고른다. */
     setClassic: function (id) {
       var spec = normalize({ family: 'classic', classic: id });
+      apply(spec);
+      save(spec);
+      return spec;
+    },
+
+    /** Bootstrap(또는 Bootswatch) 테마를 고른다. */
+    setBootstrap: function (id) {
+      var spec = normalize({ family: 'bootstrap', bootstrap: id });
       apply(spec);
       save(spec);
       return spec;

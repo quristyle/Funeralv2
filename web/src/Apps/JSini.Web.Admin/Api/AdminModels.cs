@@ -54,6 +54,17 @@ public sealed class AccountDto
     public DateTime CreatedAt { get; set; }
     public List<string> RoleNames { get; set; } = [];
 
+    /// <summary>가진 역할의 식별자. 편집 폼이 이 값으로 역할을 고른다.</summary>
+    public List<string> RoleIds { get; set; } = [];
+
+    /// <summary>생일. 생활과환경의 생일 화면이 이 값을 읽는다.</summary>
+    public DateOnly? BirthDate { get; set; }
+
+    public bool BirthDateIsLunar { get; set; }
+
+    /// <summary>축하 대상인가. 끄면 생일 목록에 나오지 않는다.</summary>
+    public bool BirthdayCelebrated { get; set; } = true;
+
     /// <summary>표에 한 칸으로 보여 줄 역할 이름들.</summary>
     public string RoleText => string.Join(", ", RoleNames);
 }
@@ -63,6 +74,8 @@ public sealed class RoleDto
 {
     public string Id { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
+    public string? Remark { get; set; }
+    public int Status { get; set; } = 1;
     public List<string> Permissions { get; set; } = [];
 }
 
@@ -91,8 +104,17 @@ public sealed class CompanyDto
     public string? BusinessNumber { get; set; }
     public string? Representative { get; set; }
     public string? ZipCode { get; set; }
+    public string? Address { get; set; }
+    public string? AddressDetail { get; set; }
     public string? Remark { get; set; }
     public int Status { get; set; } = 1;
+    public int SortOrder { get; set; }
+
+    /// <summary>이 회사에 속한 사람 수. 서버가 세어 준다 — 보내지 않는다.</summary>
+    public int UserCount { get; set; }
+
+    /// <summary>이 회사의 부서 수. 서버가 세어 준다.</summary>
+    public int DeptCount { get; set; }
 }
 
 /// <summary>부서. 트리라서 자식을 안고 온다.</summary>
@@ -305,4 +327,80 @@ public sealed class DockerContainerDto
     public string? Image { get; set; }
     public string? State { get; set; }
     public string? Status { get; set; }
+}
+
+
+// ── 저장용 DTO ──────────────────────────────────────────────
+//
+// 조회용과 갈라 둔다. 조회 응답에는 서버가 채워 주는 칸(회사 이름·사람 수·
+// 만든 때)이 섞여 있는데, 그것을 그대로 되돌려 보내면 서버가 무시하거나
+// 거절한다. **보낼 칸만** 담는다.
+
+/// <summary>계정 등록·수정.</summary>
+public sealed class SaveAccountDto
+{
+    /// <summary>로그인 아이디. <b>등록할 때만</b> 쓴다 — 수정에서는 바꿀 수 없다.</summary>
+    public string LoginId { get; set; } = string.Empty;
+
+    public string UserName { get; set; } = string.Empty;
+    public string? Email { get; set; }
+    public string? Phone { get; set; }
+
+    /// <summary>ACTIVE · LOCKED · RESIGNED.</summary>
+    public string Status { get; set; } = "ACTIVE";
+
+    public string? DeptId { get; set; }
+    public List<string> RoleIds { get; set; } = [];
+
+    public DateOnly? BirthDate { get; set; }
+    public bool BirthDateIsLunar { get; set; }
+
+    /// <summary>축하 대상인가. 끄면 생일 목록에 나오지 않는다.</summary>
+    public bool BirthdayCelebrated { get; set; } = true;
+}
+
+/// <summary>역할 등록·수정.</summary>
+public sealed class SaveRoleDto
+{
+    /// <summary>
+    /// 역할 식별자. 등록할 때 사람이 정한다(<c>ADMIN</c> 처럼).
+    ///
+    /// 자동 번호가 아닌 이유는 권한 판정과 로그에 그대로 찍히기 때문이다 —
+    /// 숫자면 무슨 역할인지 알 수 없다. 수정할 때는 바꾸지 않는다.
+    /// </summary>
+    public string? Id { get; set; }
+
+    public string Name { get; set; } = string.Empty;
+    public string? Remark { get; set; }
+    public int Status { get; set; } = 1;
+    public List<string> Permissions { get; set; } = [];
+}
+
+/// <summary>회사 등록·수정.</summary>
+public sealed class SaveCompanyDto
+{
+    public string Name { get; set; } = string.Empty;
+    public string? ShortName { get; set; }
+    public string? BusinessNumber { get; set; }
+    public string? Representative { get; set; }
+    public string? ZipCode { get; set; }
+    public string? Address { get; set; }
+    public string? AddressDetail { get; set; }
+    public string? Remark { get; set; }
+    public int Status { get; set; } = 1;
+    public int SortOrder { get; set; }
+}
+
+/// <summary>부서 등록·수정.</summary>
+public sealed class SaveDeptDto
+{
+    public string Name { get; set; } = string.Empty;
+
+    /// <summary>상위 부서. 비우면 최상위다.</summary>
+    public string? Pid { get; set; }
+
+    public string? CompanyId { get; set; }
+    public string? Remark { get; set; }
+    public int Status { get; set; } = 1;
+    public int SortOrder { get; set; }
 }

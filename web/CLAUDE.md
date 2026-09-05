@@ -255,6 +255,41 @@ CI(GitHub Actions)에서도 같은 파일이 필요하다 — 시크릿으로 �
 25.1 대로 내리지 않는다: net8.0 타겟이고, 취약점이 있는
 `System.Security.Cryptography.Xml` 8.0.2 를 끌고 온다(NU1903, 고위험 8건).
 
+### 테마 — `<head>` 에 테마 `<link>` 를 적지 않는다
+
+고를 수 있는 것이 스물둘이고(Fluent 22조합 · Classic 넷 · Bootstrap 여섯)
+Classic 은 한 장이 2.8MB 다. 다 적으면 첫 방문에 십몇 MB 를 받는다.
+
+전부 `JSini.Web.Components/wwwroot/theme.js` 가 한다 — 저장된 선택을 읽어
+필요한 것만 꽂고, 한 번 꽂은 것은 지우지 않고 `disabled` 로 껐다 켠다.
+
+**붙박이 `<link>` 를 하나라도 두면 그것만 끌 수 없다.** theme.js 는 자기가
+만든 것만 관리하기 때문이다. 한동안 `office-white` 가 그렇게 남아 있어서
+어떤 테마를 골라도 늘 함께 켜져 있었다.
+
+두 가지가 순서에 걸려 있다.
+
+- `theme.js` 는 **`app.css` 보다 앞**에 있어야 한다. 꽂는 자리가 스크립트
+  자리라, 뒤에 두면 테마가 우리 CSS 를 덮어 사이드바 폭과 헤더 높이가
+  테마마다 달라진다. 자리표(`meta[name=jsini-theme-boundary]`)로 지킨다.
+- Bootstrap 을 고르면 스타일시트가 **두 장**이다 — Bootstrap 본체가 먼저,
+  DevExpress 의 `bootstrap-external.bs5.min.css` 가 나중. 뒤집히면 DevExpress
+  부품만 옛 색으로 남는다. `priorityOf` 가 지킨다.
+
+Bootstrap · Bootswatch 파일은 `wwwroot/bootstrap/` 에 커밋해 두었다
+(MIT, 1.2MB). **런타임에 CDN 을 부르지 않는다.**
+
+### 레이아웃 치수는 DevExpress 데모에서 가져왔다
+
+헤더 3.5rem · 사이드바 330px · 검색 3rem · 브레드크럼 3rem ·
+본문 여백 `1.1rem 1.5rem`. 눈대중이 아니라 데모의 `dx-demo.css` 에서 읽은
+값이다. 고칠 일이 있으면 거기를 먼저 본다.
+
+사이드바 검색은 우리가 만든 칸이 아니라 `DxTreeView` 의 `ShowFilterPanel`
+이다(돋보기 아이콘까지 DevExpress 가 그린다). 겉껍데기가 세 겹이라
+`.dxbl-treeview` · `.dxbl-treeview-container` · `.dxbl-scroll-viewer` 에
+**모두** flex 를 걸어야 검색 칸이 고정되고 트리만 구른다.
+
 ## 개발 명령
 
 ```

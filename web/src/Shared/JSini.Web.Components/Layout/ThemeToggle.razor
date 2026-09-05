@@ -12,6 +12,9 @@
         DevExpress Classic
           Blazing Berry · Blazing Dark · Purple · Office White
 
+        Bootstrap
+          Default · Default Dark · Cerulean · Flatly · Journal · Lumen
+
     [고를 수 있는 것은 DevExpress 가 주는 것뿐이다]
 
     색을 우리가 만들지 않는다. DevExpress 컴포넌트가 그 테마의 변수로 그려지므로,
@@ -19,12 +22,15 @@
     Custom Color 도 마찬가지다 — 우리가 색을 칠하는 것이 아니라 DevExpress 가
     **덮어쓸 수 있게 열어 둔 변수**(`--dxbl-accent-color-*`)를 채운다.
 
-    [Bootstrap 묶음은 아직 없다]
+    [Bootstrap 묶음은 파일을 저장소에 넣었다]
 
-    데모에는 Bootstrap(Default · Cerulean · Flatly …)도 있다. 그것은 Bootswatch
-    스타일시트를 따로 실어야 하는데 우리 저장소에 그 파일이 없다 — 바깥에서
-    받아 오는 것은 준수사항 위반이라 파일을 넣을지부터 정해야 한다.
-    결정 목록 D13 에 적어 두었다.
+    Bootstrap 5.3.3 과 Bootswatch 넷(Cerulean · Flatly · Journal · Lumen)은
+    DevExpress 가 주는 것이 아니라 따로 실어야 한다. CDN 을 부르지 않는 것이
+    이 저장소의 규칙이라 `wwwroot/bootstrap/` 에 넣어 두었다(MIT, 1.2MB).
+    왜 넣었는지는 그 폴더의 README 에 적어 두었다.
+
+    고르면 스타일시트가 **두 장** 실린다 — Bootstrap 본체와, 그 색을 DevExpress
+    부품으로 옮겨 주는 `bootstrap-external.bs5.min.css`. 순서는 theme.js 가 지킨다.
 
     [정적 SSR 에서는 창이 비어 있다]
 
@@ -105,6 +111,19 @@
                 }
             </div>
 
+            <div class="jsini-theme__group">Bootstrap</div>
+
+            <div class="jsini-theme__classic">
+                @foreach (var theme in _catalog.Bootstrap)
+                {
+                    <button type="button"
+                            class="jsini-theme__item @(IsBootstrap(theme.Id) ? "jsini-theme__item--on" : "")"
+                            @onclick="@(() => SetBootstrapAsync(theme.Id))">
+                        @theme.Name
+                    </button>
+                }
+            </div>
+
         </div>
     </BodyContentTemplate>
 </DxDropDown>
@@ -122,16 +141,20 @@
     private sealed record Catalog(
         IReadOnlyList<ModeInfo> Modes,
         IReadOnlyList<AccentInfo> Accents,
-        IReadOnlyList<ClassicInfo> Classic);
+        IReadOnlyList<ClassicInfo> Classic,
+        IReadOnlyList<ClassicInfo> Bootstrap);
 
     private sealed record ModeInfo(string Id, string Name, bool Dark);
     private sealed record AccentInfo(string Id, string Name, string Swatch);
+
+    /// <summary>한 장짜리 테마. Classic 과 Bootstrap 이 같은 모양이라 함께 쓴다.</summary>
     private sealed record ClassicInfo(string Id, string Name, bool Dark);
 
     /// <summary>지금 고른 것. theme.js 의 모양 그대로다.</summary>
-    private sealed record Current(string Family, string? Mode, string? Accent, string? Custom, string? Classic);
+    private sealed record Current(
+        string Family, string? Mode, string? Accent, string? Custom, string? Classic, string? Bootstrap);
 
-    private Catalog _catalog = new([], [], []);
+    private Catalog _catalog = new([], [], [], []);
 
     private bool _open;
     private string _family = "fluent";
@@ -139,10 +162,12 @@
     private string _accent = "blue";
     private string? _custom;
     private string? _classic;
+    private string? _bootstrap;
 
     private bool IsFluentMode(string id) => _family == "fluent" && _mode == id;
     private bool IsFluentAccent(string id) => _family == "fluent" && _custom is null && _accent == id;
     private bool IsClassic(string id) => _family == "classic" && _classic == id;
+    private bool IsBootstrap(string id) => _family == "bootstrap" && _bootstrap == id;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -181,6 +206,9 @@
     private async Task SetClassicAsync(string id) =>
         Read(await Js.InvokeAsync<Current>("jsiniTheme.setClassic", id));
 
+    private async Task SetBootstrapAsync(string id) =>
+        Read(await Js.InvokeAsync<Current>("jsiniTheme.setBootstrap", id));
+
     private void Read(Current? c)
     {
         if (c is null) return;
@@ -190,6 +218,7 @@
         _accent = c.Accent ?? "blue";
         _custom = c.Custom;
         _classic = c.Classic;
+        _bootstrap = c.Bootstrap;
     }
 
     private static bool IsHex(string value)
