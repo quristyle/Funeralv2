@@ -1,18 +1,32 @@
 @*
-    테마 전환. DevExpress 데모 오른쪽 위의 그것과 같은 자리·같은 쓰임이다.
+    테마 전환. DevExpress 데모(demos.devexpress.com/blazor) 오른쪽 위의 그것을
+    그대로 본떴다 — 같은 묶음, 같은 항목.
 
-    [고를 수 있는 것은 DevExpress 가 주는 테마다]
+        DevExpress Fluent
+          [Light] [Dark]
+          Preset Colors
+          ● Blue  ● Cool Blue  ● Desert  ● Mint  ● Moss  ● Orchid
+          ● Purple ● Rose ● Rust ● Steel ● Storm
+          Custom Color  [#hex]
 
-    직접 색을 만들지 않는다. DevExpress 컴포넌트가 그 테마의 변수로 그려지므로,
+        DevExpress Classic
+          Blazing Berry · Blazing Dark · Purple · Office White
+
+    [고를 수 있는 것은 DevExpress 가 주는 것뿐이다]
+
+    색을 우리가 만들지 않는다. DevExpress 컴포넌트가 그 테마의 변수로 그려지므로,
     우리가 색을 따로 정하면 그리드·달력·팝업만 다른 색이 된다.
+    Custom Color 도 마찬가지다 — 우리가 색을 칠하는 것이 아니라 DevExpress 가
+    **덮어쓸 수 있게 열어 둔 변수**(`--dxbl-accent-color-*`)를 채운다.
 
-    [스타일시트를 새로 받지 않는다]
+    [Bootstrap 묶음은 아직 없다]
 
-    넷을 미리 싣고 `disabled` 만 바꾼다(JSiniHead 참고). 실제 조작과 저장은
-    wwwroot/theme.js 가 하고 여기서는 부르기만 한다 — 첫 화면이 그려지기 전에
-    테마가 정해져야 하는데 Blazor 회로는 그보다 늦게 붙기 때문이다.
+    데모에는 Bootstrap(Default · Cerulean · Flatly …)도 있다. 그것은 Bootswatch
+    스타일시트를 따로 실어야 하는데 우리 저장소에 그 파일이 없다 — 바깥에서
+    받아 오는 것은 준수사항 위반이라 파일을 넣을지부터 정해야 한다.
+    결정 목록 D13 에 적어 두었다.
 
-    [정적 SSR 에서는 목록이 비어 있다]
+    [정적 SSR 에서는 창이 비어 있다]
 
     회로가 붙기 전에는 JS 를 부를 수 없어 `OnAfterRenderAsync` 에서 읽는다.
     그 전까지는 단추만 있고 눌러도 아무 일도 없다 — 로그인 화면이 그 상태다.
@@ -20,30 +34,115 @@
 
 @inject IJSRuntime Js
 
-<DxDropDownButton Text="@_currentName"
-                  IconCssClass="jsini-icon-palette"
-                  RenderStyle="ButtonRenderStyle.Link"
-                  SizeMode="SizeMode.Small"
-                  DropDownWidth="200"
-                  Title="테마">
-    <Items>
-        @foreach (var theme in _themes)
-        {
-            <DxDropDownButtonItem Text="@theme.Name"
-                                  IconCssClass="@(theme.Id == _currentId ? "jsini-icon-check" : "jsini-icon-blank")"
-                                  Click="@(() => SetAsync(theme.Id))" />
-        }
-    </Items>
-</DxDropDownButton>
+<DxDropDown @bind-IsOpen="_open"
+            PositionMode="DropDownPositionMode.Bottom"
+            PositionTarget=".jsini-theme-anchor"
+            HeaderVisible="false"
+            FooterVisible="false"
+            CloseMode="DropDownCloseMode.Close"
+            Width="290"
+            CssClass="jsini-theme-drop">
+    <BodyContentTemplate>
+        <div class="jsini-theme">
+
+            <div class="jsini-theme__group">DevExpress Fluent</div>
+
+            <div class="jsini-theme__modes">
+                @foreach (var mode in _catalog.Modes)
+                {
+                    <button type="button"
+                            class="jsini-theme__mode @(IsFluentMode(mode.Id) ? "jsini-theme__mode--on" : "")"
+                            @onclick="@(() => SetFluentAsync(mode.Id, _accent))">
+                        @mode.Name
+                    </button>
+                }
+            </div>
+
+            <div class="jsini-theme__label">Preset Colors</div>
+
+            <div class="jsini-theme__swatches">
+                @foreach (var accent in _catalog.Accents)
+                {
+                    <button type="button"
+                            class="jsini-theme__swatch @(IsFluentAccent(accent.Id) ? "jsini-theme__swatch--on" : "")"
+                            style="--swatch: @accent.Swatch"
+                            title="@accent.Name"
+                            aria-label="@accent.Name"
+                            @onclick="@(() => SetFluentAsync(_mode, accent.Id))">
+                    </button>
+                }
+            </div>
+
+            <div class="jsini-theme__label">Custom Color</div>
+
+            <div class="jsini-theme__custom">
+                @* 색 고르개와 글자 칸을 함께 둔다. 데모도 그렇다 —
+                   눈으로 고르는 사람과 브랜드 색 코드를 가진 사람이 다르다. *@
+                <input type="color" class="jsini-theme__picker"
+                       value="@(_custom ?? "#0f6cbd")"
+                       @onchange="@(e => SetCustomAsync(e.Value?.ToString()))" />
+
+                <DxTextBox Text="@_custom" TextChanged="@((string v) => SetCustomAsync(v))"
+                           NullText="#RRGGBB" SizeMode="SizeMode.Small" Width="110" />
+
+                @if (_custom is not null)
+                {
+                    <DxButton Text="지우기" RenderStyle="ButtonRenderStyle.Link" SizeMode="SizeMode.Small"
+                              Click="@(() => SetCustomAsync(null))" />
+                }
+            </div>
+
+            <div class="jsini-theme__group">DevExpress Classic</div>
+
+            <div class="jsini-theme__classic">
+                @foreach (var theme in _catalog.Classic)
+                {
+                    <button type="button"
+                            class="jsini-theme__item @(IsClassic(theme.Id) ? "jsini-theme__item--on" : "")"
+                            @onclick="@(() => SetClassicAsync(theme.Id))">
+                        @theme.Name
+                    </button>
+                }
+            </div>
+
+        </div>
+    </BodyContentTemplate>
+</DxDropDown>
+
+<span class="jsini-theme-anchor">
+    <DxButton RenderStyle="ButtonRenderStyle.Link"
+              SizeMode="SizeMode.Small"
+              IconCssClass="jsini-icon-palette"
+              Title="테마"
+              Click="@(() => _open = !_open)" />
+</span>
 
 @code {
-    /// <summary>theme.js 가 알려 주는 테마 한 줄.</summary>
-    private sealed record ThemeInfo(string Id, string Name, bool Dark);
+    /// <summary>theme.js 가 알려 주는 목록.</summary>
+    private sealed record Catalog(
+        IReadOnlyList<ModeInfo> Modes,
+        IReadOnlyList<AccentInfo> Accents,
+        IReadOnlyList<ClassicInfo> Classic);
 
-    private IReadOnlyList<ThemeInfo> _themes = [];
-    private string _currentId = string.Empty;
+    private sealed record ModeInfo(string Id, string Name, bool Dark);
+    private sealed record AccentInfo(string Id, string Name, string Swatch);
+    private sealed record ClassicInfo(string Id, string Name, bool Dark);
 
-    private string _currentName = "테마";
+    /// <summary>지금 고른 것. theme.js 의 모양 그대로다.</summary>
+    private sealed record Current(string Family, string? Mode, string? Accent, string? Custom, string? Classic);
+
+    private Catalog _catalog = new([], [], []);
+
+    private bool _open;
+    private string _family = "fluent";
+    private string _mode = "light";
+    private string _accent = "blue";
+    private string? _custom;
+    private string? _classic;
+
+    private bool IsFluentMode(string id) => _family == "fluent" && _mode == id;
+    private bool IsFluentAccent(string id) => _family == "fluent" && _custom is null && _accent == id;
+    private bool IsClassic(string id) => _family == "classic" && _classic == id;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -52,20 +151,50 @@
             return;
         }
 
-        // theme.js 가 이미 정해 둔 값을 읽어 화면을 맞춘다.
-        _themes = await Js.InvokeAsync<ThemeInfo[]>("jsiniTheme.list");
-        _currentId = await Js.InvokeAsync<string>("jsiniTheme.current");
-        _currentName = NameOf(_currentId);
+        _catalog = await Js.InvokeAsync<Catalog>("jsiniTheme.catalog");
+        Read(await Js.InvokeAsync<Current>("jsiniTheme.current"));
 
         StateHasChanged();
     }
 
-    private async Task SetAsync(string id)
+    private async Task SetFluentAsync(string mode, string accent)
     {
-        _currentId = await Js.InvokeAsync<string>("jsiniTheme.set", id);
-        _currentName = NameOf(_currentId);
+        // 프리셋을 고르면 사용자 지정 색은 물러난다. 둘을 함께 켜 두면
+        // 어느 쪽이 이겼는지 화면만 보고는 알 수 없다.
+        Read(await Js.InvokeAsync<Current>("jsiniTheme.setFluent", mode, accent, null));
     }
 
-    private string NameOf(string id) =>
-        _themes.FirstOrDefault(t => t.Id == id)?.Name ?? "테마";
+    private async Task SetCustomAsync(string? hex)
+    {
+        var trimmed = hex?.Trim();
+
+        // 여섯 자리 색이 아니면 무시한다. 반쯤 친 값마다 테마를 바꾸면
+        // 글자 칸에 타이핑하는 동안 화면이 요동친다.
+        if (!string.IsNullOrEmpty(trimmed) && !IsHex(trimmed))
+        {
+            return;
+        }
+
+        Read(await Js.InvokeAsync<Current>("jsiniTheme.setFluent", _mode, _accent, trimmed));
+    }
+
+    private async Task SetClassicAsync(string id) =>
+        Read(await Js.InvokeAsync<Current>("jsiniTheme.setClassic", id));
+
+    private void Read(Current? c)
+    {
+        if (c is null) return;
+
+        _family = c.Family;
+        _mode = c.Mode ?? "light";
+        _accent = c.Accent ?? "blue";
+        _custom = c.Custom;
+        _classic = c.Classic;
+    }
+
+    private static bool IsHex(string value)
+    {
+        var body = value.StartsWith('#') ? value[1..] : value;
+        return body.Length == 6 && body.All(Uri.IsHexDigit);
+    }
 }

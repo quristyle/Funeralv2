@@ -27,7 +27,7 @@
 :root {
   --jsini-sidebar-width: 248px;
   --jsini-sidebar-collapsed: 0px;
-  --jsini-header-height: 48px;
+  --jsini-header-height: 44px;
 
   /* DevExpress 가 주는 값이 있으면 그것을 쓴다. 두 번째 값은 그 테마가
      변수를 안 내보낼 때를 위한 것이다. */
@@ -48,14 +48,21 @@
   --jsini-accent: var(--dxbl-primary, #c07ee0);
 }
 
+/*
+  글꼴과 글자 크기를 **여기서 정하지 않는다.**
+
+  DevExpress 테마가 `body { font-size: var(--dxds-font-size-base-md) }` 처럼
+  자기 값을 건다. 우리가 뒤에 실려서 `font-size: 14px` 를 박으면 그 값이 이기고,
+  테마를 바꿔도 글자 크기가 안 따라온다 — 데모와 다르게 보이는 자리가 그것이었다.
+
+  배경·글자색만 정한다. 그것도 테마 변수를 먼저 보고 없을 때만 우리 값이다.
+*/
 html,
 body {
   height: 100%;
   margin: 0;
   background: var(--jsini-bg);
   color: var(--jsini-text);
-  font-family: 'Pretendard', 'Malgun Gothic', system-ui, sans-serif;
-  font-size: 14px;
 }
 
 .jsini-hidden { display: none !important; }
@@ -739,4 +746,110 @@ a.jsini-crumbs__item:hover {
 .jsini-group-link__hint {
   font-size: 0.8rem;
   color: var(--jsini-text-muted);
+}
+
+/* ── 테마 창 ──────────────────────────────────────────────
+
+   DevExpress 데모의 테마 창을 본떴다. 묶음 제목 · 밝기 두 칸 ·
+   색 동그라미 격자 · 사용자 지정 색 · Classic 목록.
+   ---------------------------------------------------------- */
+
+.jsini-theme-anchor { display: inline-flex; }
+
+.jsini-theme {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem 0.9rem 0.9rem;
+}
+
+.jsini-theme__group {
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding-top: 0.35rem;
+}
+
+.jsini-theme__group:not(:first-child) {
+  border-top: 1px solid var(--jsini-border);
+  margin-top: 0.35rem;
+}
+
+.jsini-theme__label {
+  font-size: 0.72rem;
+  color: var(--jsini-text-muted);
+}
+
+.jsini-theme__modes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.4rem;
+}
+
+.jsini-theme__mode,
+.jsini-theme__item {
+  border: 1px solid var(--jsini-border);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  padding: 0.35rem 0.5rem;
+  font: inherit;
+  font-size: 0.8rem;
+  text-align: left;
+}
+
+.jsini-theme__mode { text-align: center; }
+
+.jsini-theme__mode:hover,
+.jsini-theme__item:hover {
+  border-color: var(--jsini-accent);
+}
+
+/* 고른 것은 테두리와 굵기로 표시한다. 배경을 칠하면 테마 색과 부딪친다. */
+.jsini-theme__mode--on,
+.jsini-theme__item--on {
+  border-color: var(--jsini-accent);
+  border-width: 2px;
+  font-weight: 700;
+}
+
+.jsini-theme__swatches {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 0.4rem;
+}
+
+.jsini-theme__swatch {
+  width: 100%;
+  aspect-ratio: 1;
+  border: 2px solid transparent;
+  border-radius: 50%;
+  background: var(--swatch);
+  cursor: pointer;
+  padding: 0;
+}
+
+/* 고른 색은 테두리를 띄운다. 색 위에 체크를 얹으면 밝은 색에서 안 보인다. */
+.jsini-theme__swatch--on {
+  outline: 2px solid var(--jsini-text);
+  outline-offset: 2px;
+}
+
+.jsini-theme__custom {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.jsini-theme__picker {
+  width: 34px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--jsini-border);
+  background: none;
+  cursor: pointer;
+}
+
+.jsini-theme__classic {
+  display: grid;
+  gap: 0.35rem;
 }
