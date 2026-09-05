@@ -1,39 +1,51 @@
 /*
-  셸 레이아웃. DevExpress 테마 **뒤에** 실린다(App.razor 의 link 순서).
+  셸 레이아웃. DevExpress 테마 **뒤에** 실린다(JSiniHead 의 link 순서).
+
+  [DevExpress 데모의 껍데기를 본떴다]
+
+  demos.devexpress.com/blazor 의 배치를 그대로 가져왔다 — 얇은 상단 바,
+  왼쪽에 검색이 달린 메뉴 판, 본문 위의 현재 위치 줄.
+  업무 화면이 145개라 껍데기가 스스로를 드러내지 않는 편이 낫고,
+  그 데모가 정확히 그렇게 생겼다.
 
   [여기에 넣는 것과 넣지 않는 것]
 
-  · 넣는 것 — 셸의 뼈대(사이드바·헤더·본문 배치), 로그인·오류 화면
-  · 넣지 않는 것 — 업무 화면의 스타일. 그건 각 모듈의 CSS isolation
-    (`.razor.css`)으로 간다. 여기에 업무별 규칙이 쌓이기 시작하면 모듈을
-    나눈 의미가 스타일에서부터 사라진다.
+  · 넣는 것 — 셸의 뼈대(헤더·사이드바·탭·브레드크럼), 로그인·오류 화면,
+    모듈 여섯이 함께 쓰는 화면 조각(제목 줄·안내 줄·통계 타일)
+  · 넣지 않는 것 — 한 업무만 쓰는 스타일. 그건 그 모듈의 wwwroot 로 간다
+    (`IPortalModule.StyleSheet`). 여기에 업무별 규칙이 쌓이면 모듈을 나눈
+    의미가 스타일에서부터 사라진다.
 
-  [색을 변수로 두는 이유]
+  [색을 DevExpress 변수에 붙이는 이유]
 
-  다크 모드가 스타일시트 두 장을 갈아 끼우는 방식이라(theme.js), 우리 색도
-  같은 신호(`data-theme`)를 따라야 한다. 값을 직접 박으면 다크에서 흰 배경에
-  흰 글씨가 되는 자리가 생긴다.
+  테마가 다섯이고 사용자가 고른다. 우리 색을 직접 박으면 그리드·달력·팝업만
+  테마를 따라가고 사이드바·헤더는 그대로 남아서 **한 화면에 두 테마**가 된다.
+  DevExpress 가 내보내는 변수(`--dxbl-*`)를 먼저 쓰고, 없을 때만 우리 값으로
+  떨어진다.
 */
 
 :root {
-  --jsini-sidebar-width: 240px;
-  --jsini-header-height: 56px;
+  --jsini-sidebar-width: 248px;
+  --jsini-sidebar-collapsed: 0px;
+  --jsini-header-height: 48px;
 
-  --jsini-bg: #ffffff;
-  --jsini-surface: #f5f6f8;
-  --jsini-border: #e3e5e8;
-  --jsini-text: #1f2328;
+  /* DevExpress 가 주는 값이 있으면 그것을 쓴다. 두 번째 값은 그 테마가
+     변수를 안 내보낼 때를 위한 것이다. */
+  --jsini-bg: var(--dxbl-body-bg, #ffffff);
+  --jsini-surface: var(--dxbl-panel-bg, #f7f8fa);
+  --jsini-border: var(--dxbl-border-color, #e3e5e8);
+  --jsini-text: var(--dxbl-body-color, #1f2328);
   --jsini-text-muted: #6b7280;
-  --jsini-accent: #7b1fa2;
+  --jsini-accent: var(--dxbl-primary, #7b1fa2);
 }
 
 :root[data-theme='dark'] {
-  --jsini-bg: #16181d;
-  --jsini-surface: #1e2128;
-  --jsini-border: #2d313a;
-  --jsini-text: #e6e8ea;
+  --jsini-bg: var(--dxbl-body-bg, #16181d);
+  --jsini-surface: var(--dxbl-panel-bg, #1e2128);
+  --jsini-border: var(--dxbl-border-color, #2d313a);
+  --jsini-text: var(--dxbl-body-color, #e6e8ea);
   --jsini-text-muted: #9aa1ab;
-  --jsini-accent: #c07ee0;
+  --jsini-accent: var(--dxbl-primary, #c07ee0);
 }
 
 html,
@@ -43,140 +55,394 @@ body {
   background: var(--jsini-bg);
   color: var(--jsini-text);
   font-family: 'Pretendard', 'Malgun Gothic', system-ui, sans-serif;
+  font-size: 14px;
 }
 
-/* ── 셸 뼈대 ─────────────────────────────────────────────── */
+.jsini-hidden { display: none !important; }
+
+/* ── 셸 뼈대 ─────────────────────────────────────────────────
+
+   격자 두 줄 · 두 칸이다.
+
+     ┌──────────────────────────────┐
+     │ 헤더 (두 칸에 걸친다)          │
+     ├───────────┬──────────────────┤
+     │ 사이드바   │ 본문              │
+     └───────────┴──────────────────┘
+
+   사이드바를 접을 때 **격자를 바꾸지 않고 폭만 0 으로** 만든다. 격자를 바꾸면
+   본문이 통째로 다시 배치되어 스크롤 위치가 튄다.
+   ------------------------------------------------------------ */
 
 .jsini-shell {
-  display: flex;
-  min-height: 100vh;
+  display: grid;
+  grid-template-columns: var(--jsini-sidebar-width) 1fr;
+  grid-template-rows: var(--jsini-header-height) 1fr;
+  height: 100vh;
+  overflow: hidden;
+  transition: grid-template-columns 0.16s ease;
 }
+
+.jsini-shell--collapsed {
+  grid-template-columns: var(--jsini-sidebar-collapsed) 1fr;
+}
+
+/* ── 헤더 ─────────────────────────────────────────────────── */
+
+.jsini-header {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0 0.5rem;
+  background: var(--jsini-bg);
+  border-bottom: 1px solid var(--jsini-border);
+  z-index: 20;
+}
+
+.jsini-header__brand {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0 0.5rem;
+  color: inherit;
+  text-decoration: none;
+}
+
+.jsini-header__logo { height: 22px; width: auto; }
+
+.jsini-header__brand-text {
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  font-size: 0.95rem;
+}
+
+.jsini-header__spacer { flex: 1; }
+
+.jsini-header__login {
+  padding: 0 0.6rem;
+  color: var(--jsini-accent);
+  text-decoration: none;
+  font-size: 0.875rem;
+}
+
+/* ── 사이드바 ─────────────────────────────────────────────── */
 
 .jsini-shell__sidebar {
-  width: var(--jsini-sidebar-width);
-  flex: 0 0 var(--jsini-sidebar-width);
+  grid-row: 2;
+  grid-column: 1;
   background: var(--jsini-surface);
   border-right: 1px solid var(--jsini-border);
-  overflow-y: auto;
-  transition: margin-left 0.15s ease;
+  overflow: hidden auto;
+
+  /* 접었을 때 내용이 삐져나오지 않게. 폭이 0 이어도 자식은 제 폭을 고집한다. */
+  min-width: 0;
 }
 
-/*
-  접을 때 width 가 아니라 margin-left 로 밀어낸다. width 를 0 으로 하면
-  안쪽 글자가 접히는 동안 우그러져 보인다.
-*/
-.jsini-shell__sidebar--collapsed {
-  margin-left: calc(-1 * var(--jsini-sidebar-width));
-}
+.jsini-shell--collapsed .jsini-shell__sidebar { border-right-width: 0; }
 
-.jsini-shell__brand {
-  height: var(--jsini-header-height);
-  display: flex;
-  align-items: center;
-  padding: 0 1rem;
-  border-bottom: 1px solid var(--jsini-border);
-}
-
-.jsini-shell__brand-mark {
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  color: var(--jsini-accent);
-}
-
-.jsini-shell__main {
-  flex: 1 1 auto;
+.jsini-sidebar {
   display: flex;
   flex-direction: column;
-  min-width: 0; /* 그리드가 넘칠 때 본문이 사이드바를 밀지 않게 한다 */
+  min-height: 100%;
+  width: var(--jsini-sidebar-width);
 }
 
-.jsini-shell__header {
-  height: var(--jsini-header-height);
+.jsini-sidebar__section {
+  padding: 0.6rem 0.9rem 0.25rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--jsini-text-muted);
+}
+
+.jsini-sidebar__favorites {
+  border-bottom: 1px solid var(--jsini-border);
+  padding-bottom: 0.4rem;
+}
+
+.jsini-sidebar__favorite {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0 1rem;
-  border-bottom: 1px solid var(--jsini-border);
-  background: var(--jsini-bg);
-}
-
-.jsini-shell__header-spacer {
-  flex: 1 1 auto;
-}
-
-.jsini-shell__user {
-  color: var(--jsini-text-muted);
-  font-size: 0.9rem;
-}
-
-.jsini-shell__logout {
-  display: inline;
-}
-
-.jsini-shell__logout-button {
-  background: none;
-  border: none;
-  color: var(--jsini-text-muted);
-  cursor: pointer;
-  font: inherit;
-  padding: 0.25rem 0.5rem;
-}
-
-.jsini-shell__logout-button:hover {
-  color: var(--jsini-text);
-  text-decoration: underline;
-}
-
-.jsini-shell__content {
-  flex: 1 1 auto;
-  padding: 1.25rem;
-  overflow-x: auto;
-}
-
-/* ── 사이드바 메뉴 ───────────────────────────────────────── */
-
-.jsini-menu {
-  list-style: none;
-  margin: 0;
-  padding: 0.5rem 0;
-}
-
-.jsini-menu .jsini-menu {
-  padding: 0 0 0 0.75rem;
-}
-
-.jsini-menu__link {
-  display: block;
-  padding: 0.45rem 1rem;
-  color: var(--jsini-text);
+  gap: 0.4rem;
+  padding: 0.35rem 0.9rem;
+  color: inherit;
   text-decoration: none;
-  font-size: 0.925rem;
-  border-radius: 4px;
+  font-size: 0.875rem;
 }
 
-.jsini-menu__link:hover {
-  background: color-mix(in srgb, var(--jsini-accent) 12%, transparent);
+.jsini-sidebar__favorite:hover {
+  background: color-mix(in srgb, var(--jsini-accent) 10%, transparent);
 }
 
-/* NavLink 가 붙이는 클래스. 지금 열린 화면을 표시한다. */
-.jsini-menu__link.active {
-  background: color-mix(in srgb, var(--jsini-accent) 18%, transparent);
+.jsini-sidebar__favorite.active {
   color: var(--jsini-accent);
   font-weight: 600;
 }
 
-.jsini-menu__summary {
-  padding: 0.45rem 1rem;
-  cursor: pointer;
-  font-size: 0.925rem;
-  color: var(--jsini-text-muted);
-  user-select: none;
+/* 즐겨찾기 이름이 길면 자른다 — 넘치면 사이드바에 가로 스크롤이 생긴다. */
+.jsini-sidebar__favorite-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-/* 묶음 안의 링크는 summary 의 padding 을 두 번 받지 않게 한다. */
-.jsini-menu__summary .jsini-menu__link {
+.jsini-sidebar__tree { flex: 1; }
+
+/* 검색 칸을 위쪽에 붙여 둔다. DevExpress 데모의 "Find demo by keyword" 자리다. */
+.jsini-sidebar__tree .dxbl-treeview-filter-panel {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 0.5rem 0.6rem;
+  background: var(--jsini-surface);
+  border-bottom: 1px solid var(--jsini-border);
+}
+
+/* ── 본문 쪽 ─────────────────────────────────────────────── */
+
+.jsini-shell__main {
+  grid-row: 2;
+  grid-column: 2;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.jsini-shell__content {
+  flex: 1;
+  padding: 1rem 1.25rem 2rem;
+  overflow: auto;
+}
+
+/* ── 탭 줄 ───────────────────────────────────────────────── */
+
+.jsini-tabs {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0 0.35rem;
+  background: var(--jsini-surface);
+  border-bottom: 1px solid var(--jsini-border);
+}
+
+/* 탭이 많아지면 가로로 넘긴다. 줄바꿈하면 탭 줄이 두세 줄이 되어
+   본문이 그만큼 좁아진다. */
+.jsini-tabs__list {
+  display: flex;
+  flex: 1;
+  gap: 0.2rem;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.jsini-tab {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  max-width: 190px;
+  border: 1px solid transparent;
+  border-bottom: none;
+  background: transparent;
+}
+
+.jsini-tab:hover { background: var(--jsini-bg); }
+
+.jsini-tab--active {
+  background: var(--jsini-bg);
+  border-color: var(--jsini-border);
+}
+
+/* 켜진 탭이 본문과 이어져 보이게 아래 테두리를 덮는다. */
+.jsini-tab--active::after {
+  content: '';
+  position: absolute;
+}
+
+.jsini-tab__link {
+  display: block;
+  padding: 0.4rem 0.35rem 0.4rem 0.7rem;
+  color: inherit;
+  text-decoration: none;
+  font-size: 0.82rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.jsini-tab--active .jsini-tab__link {
+  color: var(--jsini-accent);
+  font-weight: 600;
+}
+
+.jsini-tab__close {
+  border: 0;
+  background: none;
+  cursor: pointer;
+  padding: 0 0.45rem 0 0.2rem;
+  color: var(--jsini-text-muted);
+  font-size: 0.95rem;
+  line-height: 1;
+}
+
+.jsini-tab__close:hover { color: var(--jsini-text); }
+
+/* ── 브레드크럼 ──────────────────────────────────────────── */
+
+.jsini-crumbs {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  padding: 0.45rem 1.25rem;
+  border-bottom: 1px solid var(--jsini-border);
+  font-size: 0.8rem;
+  color: var(--jsini-text-muted);
+}
+
+.jsini-crumbs__item {
+  color: inherit;
+  text-decoration: none;
+}
+
+a.jsini-crumbs__item:hover {
+  color: var(--jsini-accent);
+  text-decoration: underline;
+}
+
+.jsini-crumbs__item--current {
+  color: var(--jsini-text);
+  font-weight: 600;
+}
+
+.jsini-crumbs__sep { opacity: 0.5; }
+
+/* ── 아이콘 ───────────────────────────────────────────────
+
+   글꼴을 하나 더 싣지 않는다. 필요한 것이 열몇 개뿐이라
+   그림 문자를 마스크로 쓰면 **테마 색을 그대로 따라온다** —
+   컬러 이모지를 그대로 쓰면 다크 모드에서 혼자 튄다.
+   ---------------------------------------------------------- */
+
+[class^='jsini-icon-'],
+[class*=' jsini-icon-'] {
   display: inline-block;
-  padding: 0;
+  width: 1em;
+  height: 1em;
+  vertical-align: -0.125em;
+  background-color: currentColor;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+}
+
+.jsini-icon-blank { background-color: transparent; }
+
+.jsini-icon-menu {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M1 3h14v1.6H1zM1 7.2h14v1.6H1zM1 11.4h14V13H1z'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M1 3h14v1.6H1zM1 7.2h14v1.6H1zM1 11.4h14V13H1z'/%3E%3C/svg%3E");
+}
+
+.jsini-icon-home {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 1 0 8h2.4v7h4V10h3.2v5h4V8H16z'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 1 0 8h2.4v7h4V10h3.2v5h4V8H16z'/%3E%3C/svg%3E");
+}
+
+.jsini-icon-star,
+.jsini-icon-star-on {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='m8 1 2.1 4.3 4.7.7-3.4 3.3.8 4.7L8 11.8 3.8 14l.8-4.7L1.2 6l4.7-.7z'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='m8 1 2.1 4.3 4.7.7-3.4 3.3.8 4.7L8 11.8 3.8 14l.8-4.7L1.2 6l4.7-.7z'/%3E%3C/svg%3E");
+}
+
+/* 담긴 상태만 색으로 구분한다. 모양까지 바꾸면 두 아이콘을 관리하게 된다. */
+.jsini-icon-star-on { background-color: #e2a400; }
+
+.jsini-icon-refresh {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 2a6 6 0 1 0 5.7 4.1h-1.7A4.4 4.4 0 1 1 8 3.6c1.2 0 2.3.5 3.1 1.3L8.8 7.2H14V2l-1.8 1.8A5.9 5.9 0 0 0 8 2z'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 2a6 6 0 1 0 5.7 4.1h-1.7A4.4 4.4 0 1 1 8 3.6c1.2 0 2.3.5 3.1 1.3L8.8 7.2H14V2l-1.8 1.8A5.9 5.9 0 0 0 8 2z'/%3E%3C/svg%3E");
+}
+
+.jsini-icon-expand {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M1 1h6v2H3v4H1zM9 1h6v6h-2V3H9zM1 9h2v4h4v2H1zM13 9h2v6H9v-2h4z'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M1 1h6v2H3v4H1zM9 1h6v6h-2V3H9zM1 9h2v4h4v2H1zM13 9h2v6H9v-2h4z'/%3E%3C/svg%3E");
+}
+
+.jsini-icon-bell {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 1a1.2 1.2 0 0 1 1.2 1.2v.5A4.5 4.5 0 0 1 12.5 7v3l1.5 2H2l1.5-2V7a4.5 4.5 0 0 1 3.3-4.3v-.5A1.2 1.2 0 0 1 8 1zM6.2 13h3.6a1.8 1.8 0 0 1-3.6 0z'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 1a1.2 1.2 0 0 1 1.2 1.2v.5A4.5 4.5 0 0 1 12.5 7v3l1.5 2H2l1.5-2V7a4.5 4.5 0 0 1 3.3-4.3v-.5A1.2 1.2 0 0 1 8 1zM6.2 13h3.6a1.8 1.8 0 0 1-3.6 0z'/%3E%3C/svg%3E");
+}
+
+.jsini-icon-user {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 8a3.4 3.4 0 1 0 0-6.8A3.4 3.4 0 0 0 8 8zm0 1.5c-3 0-6 1.5-6 3.4V15h12v-2.1c0-1.9-3-3.4-6-3.4z'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 8a3.4 3.4 0 1 0 0-6.8A3.4 3.4 0 0 0 8 8zm0 1.5c-3 0-6 1.5-6 3.4V15h12v-2.1c0-1.9-3-3.4-6-3.4z'/%3E%3C/svg%3E");
+}
+
+.jsini-icon-logout {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M6 1h8v14H6v-2h6V3H6zM7.2 8 4 4.8v2.4H0v1.6h4v2.4z'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M6 1h8v14H6v-2h6V3H6zM7.2 8 4 4.8v2.4H0v1.6h4v2.4z'/%3E%3C/svg%3E");
+}
+
+.jsini-icon-palette {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 1a7 7 0 0 0 0 14c.8 0 1.4-.6 1.4-1.4 0-.4-.1-.7-.4-1-.2-.2-.4-.6-.4-1 0-.7.6-1.3 1.4-1.3H11a4 4 0 0 0 4-4C15 3.4 11.9 1 8 1zM4.2 8a1.2 1.2 0 1 1 0-2.4 1.2 1.2 0 0 1 0 2.4zm2.4-3.2a1.2 1.2 0 1 1 0-2.4 1.2 1.2 0 0 1 0 2.4zm2.8 0a1.2 1.2 0 1 1 0-2.4 1.2 1.2 0 0 1 0 2.4zM12 8a1.2 1.2 0 1 1 0-2.4A1.2 1.2 0 0 1 12 8z'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 1a7 7 0 0 0 0 14c.8 0 1.4-.6 1.4-1.4 0-.4-.1-.7-.4-1-.2-.2-.4-.6-.4-1 0-.7.6-1.3 1.4-1.3H11a4 4 0 0 0 4-4C15 3.4 11.9 1 8 1zM4.2 8a1.2 1.2 0 1 1 0-2.4 1.2 1.2 0 0 1 0 2.4zm2.4-3.2a1.2 1.2 0 1 1 0-2.4 1.2 1.2 0 0 1 0 2.4zm2.8 0a1.2 1.2 0 1 1 0-2.4 1.2 1.2 0 0 1 0 2.4zM12 8a1.2 1.2 0 1 1 0-2.4A1.2 1.2 0 0 1 12 8z'/%3E%3C/svg%3E");
+}
+
+.jsini-icon-check {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M6.2 12.4 1.6 7.8l1.6-1.6 3 3 6-6L13.8 5z'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M6.2 12.4 1.6 7.8l1.6-1.6 3 3 6-6L13.8 5z'/%3E%3C/svg%3E");
+}
+
+.jsini-icon-pin {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M9.6 1 8.4 2.2l.6.6-2.7 2.7-2.4-.4-1.2 1.2 3.2 3.2L2 13.4V15h1.6l3.9-3.9 3.2 3.2 1.2-1.2-.4-2.4 2.7-2.7.6.6L15.8 7.2z'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M9.6 1 8.4 2.2l.6.6-2.7 2.7-2.4-.4-1.2 1.2 3.2 3.2L2 13.4V15h1.6l3.9-3.9 3.2 3.2 1.2-1.2-.4-2.4 2.7-2.7.6.6L15.8 7.2z'/%3E%3C/svg%3E");
+}
+
+.jsini-icon-close {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M12.7 4.7 11.3 3.3 8 6.6 4.7 3.3 3.3 4.7 6.6 8l-3.3 3.3 1.4 1.4L8 9.4l3.3 3.3 1.4-1.4L9.4 8z'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M12.7 4.7 11.3 3.3 8 6.6 4.7 3.3 3.3 4.7 6.6 8l-3.3 3.3 1.4 1.4L8 9.4l3.3 3.3 1.4-1.4L9.4 8z'/%3E%3C/svg%3E");
+}
+
+.jsini-icon-more {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='3' cy='8' r='1.5'/%3E%3Ccircle cx='8' cy='8' r='1.5'/%3E%3Ccircle cx='13' cy='8' r='1.5'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='3' cy='8' r='1.5'/%3E%3Ccircle cx='8' cy='8' r='1.5'/%3E%3Ccircle cx='13' cy='8' r='1.5'/%3E%3C/svg%3E");
+}
+
+/* ── 좁은 화면 ───────────────────────────────────────────
+
+   휴대폰에서는 사이드바가 본문을 **덮는다.** 밀어내면 240px 짜리 판 때문에
+   본문이 화면 밖으로 나간다. 메뉴를 누르면 레이아웃이 알아서 접는다.
+   ---------------------------------------------------------- */
+
+@media (max-width: 767px) {
+  .jsini-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .jsini-shell__sidebar {
+    position: fixed;
+    top: var(--jsini-header-height);
+    bottom: 0;
+    left: 0;
+    z-index: 30;
+    width: var(--jsini-sidebar-width);
+    box-shadow: 0 0 24px rgb(0 0 0 / 25%);
+  }
+
+  .jsini-shell--collapsed .jsini-shell__sidebar { display: none; }
+
+  .jsini-shell__main { grid-column: 1; }
+
+  .jsini-shell__content { padding: 0.75rem; }
+
+  .jsini-crumbs { padding-left: 0.75rem; padding-right: 0.75rem; }
+
+  /* 좁은 화면에서 브랜드 글자는 뺀다. 도구 단추가 밀려 나간다. */
+  .jsini-header__brand-text { display: none; }
 }
 
 /* ── 그리드 래퍼 ─────────────────────────────────────────── */

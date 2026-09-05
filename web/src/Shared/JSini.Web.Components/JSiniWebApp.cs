@@ -1,5 +1,6 @@
 using System.Reflection;
 using JSini.Web.Abstractions;
+using JSini.Web.Components.Layout;
 using JSini.Web.Components.Menu;
 using JSini.Web.Components.Security;
 using JSini.Web.Http;
@@ -178,6 +179,13 @@ public static class JSiniWebApp
         services.AddScoped<IPermissionContext, PermissionContext>();
         services.AddScoped<MenuProvider>();
         services.AddScoped<IMenuProvider>(sp => sp.GetRequiredService<MenuProvider>());
+
+        // ── 셸 상태 ──────────────────────────────────────────────
+        //
+        // 셋 다 scoped 다 — 회로 하나가 곧 사용자 한 명의 창 하나다.
+        // 싱글턴으로 두면 열어 둔 탭과 즐겨찾기가 모든 사용자에게 공유된다.
+        services.AddScoped<MenuFavorites>();
+        services.AddScoped<PortalTabs>();
 
         services.AddSingleton(RouteInventory.Build(
             routePrefix,

@@ -79,6 +79,46 @@ public sealed class MenuProvider(
         Reapply();
     }
 
+    /// <summary>
+    /// 이 주소에 이르는 메뉴 줄기를 뿌리부터.
+    ///
+    /// 가장 <b>긴</b> 짝을 고른다. <c>/funeral</c> 과 <c>/funeral/status</c> 가
+    /// 둘 다 있을 때 앞엣것에 먼저 걸리면 브레드크럼이 한 칸에서 멈춘다.
+    /// </summary>
+    public IReadOnlyList<MenuNode> Trail(string? href)
+    {
+        if (string.IsNullOrWhiteSpace(href))
+        {
+            return [];
+        }
+
+        var best = new List<MenuNode>();
+        Walk(_all, [], href, best);
+        return best;
+
+        static void Walk(
+            IReadOnlyList<MenuNode> nodes,
+            List<MenuNode> path,
+            string href,
+            List<MenuNode> best)
+        {
+            foreach (var node in nodes)
+            {
+                path.Add(node);
+
+                if (string.Equals(node.LinkTarget, href, StringComparison.OrdinalIgnoreCase)
+                    && path.Count > best.Count)
+                {
+                    best.Clear();
+                    best.AddRange(path);
+                }
+
+                Walk(node.Children, path, href, best);
+                path.RemoveAt(path.Count - 1);
+            }
+        }
+    }
+
     /// <summary>들고 있던 원본을 지금 기준으로 다시 거른다.</summary>
     private void Reapply()
     {

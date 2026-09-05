@@ -24,6 +24,19 @@ public interface IMenuProvider
     /// <summary>메뉴가 다시 걸러졌을 때 알린다(권한 갱신·화면 크기 변경).</summary>
     event Action? MenusChanged;
 
+    /// <summary>
+    /// 이 주소에 이르는 메뉴 줄기를 뿌리부터 돌려준다. 못 찾으면 빈 목록.
+    ///
+    /// 브레드크럼과 탭 이름이 쓴다. <b>거르기 전 원본</b>에서 찾는다 —
+    /// 걸러진 목록에서 찾으면 권한 때문에 사이드바에 없는 화면을 주소로 열었을 때
+    /// 브레드크럼이 통째로 비어 "여기가 어디인지" 를 알 수 없다.
+    ///
+    /// 주소는 <b>링크 주소</b>(<see cref="MenuNode.LinkTarget"/>)로 맞춘다 —
+    /// 브라우저에 떠 있는 값이 그것이기 때문이다.
+    /// </summary>
+    /// <param name="href">전체 경로 (<c>/projmng/proj/wbs</c>). 질의 문자열은 뗀 것.</param>
+    IReadOnlyList<MenuNode> Trail(string? href);
+
     /// <summary>서버에서 메뉴 트리를 다시 읽고 거른다.</summary>
     Task ReloadAsync(CancellationToken cancellationToken = default);
 

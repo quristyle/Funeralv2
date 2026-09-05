@@ -1,20 +1,49 @@
 @*
-    오른쪽 위 사용자 영역. 이름과 로그아웃.
+    오른쪽 위 사용자 영역. vben 의 user-dropdown 을 옮긴 것이다.
 
-    로그아웃이 폼 제출인 이유: 쿠키를 지우는 것은 서버가 하는 일이고, Blazor
-    회로 안에서 NavigateTo 로는 쿠키가 지워지지 않는다. antiforgery 토큰까지
-    함께 가야 하므로 평범한 POST 폼으로 둔다.
+    [로그아웃이 폼 제출인 이유]
+
+    쿠키를 지우는 것은 서버가 하는 일이고, Blazor 회로 안에서 NavigateTo 로는
+    쿠키가 지워지지 않는다. antiforgery 토큰까지 함께 가야 하므로 평범한 POST
+    폼으로 둔다. **드롭다운 안에 폼을 넣지 않는다** — DevExpress 드롭다운은
+    항목을 별도 레이어에 그려서 폼 밖으로 나가고, 그러면 제출이 안 된다.
+    그래서 드롭다운은 "로그아웃" 을 눌렀을 때 감춰 둔 폼을 JS 로 제출한다.
 *@
+
+@inject IJSRuntime Js
+@inject NavigationManager Navigation
 
 <AuthorizeView>
     <Authorized>
-        <span class="jsini-shell__user">@context.User.Identity?.Name</span>
-        <form action="/logout" method="post" class="jsini-shell__logout">
+        <DxDropDownButton Text="@context.User.Identity?.Name"
+                          IconCssClass="jsini-icon-user"
+                          RenderStyle="ButtonRenderStyle.Link"
+                          SizeMode="SizeMode.Small"
+                          DropDownWidth="180">
+            <Items>
+                <DxDropDownButtonItem Text="내 정보"
+                                      IconCssClass="jsini-icon-user"
+                                      Click="@(() => Navigation.NavigateTo("/admin/profile"))" />
+                <DxDropDownButtonItem Text="알림 설정"
+                                      IconCssClass="jsini-icon-bell"
+                                      Click="@(() => Navigation.NavigateTo("/admin/push/setting"))" />
+                <DxDropDownButtonItem Text="로그아웃"
+                                      IconCssClass="jsini-icon-logout"
+                                      Click="@LogoutAsync" />
+            </Items>
+        </DxDropDownButton>
+
+        @* 감춰 둔 진짜 로그아웃 폼. 위 항목이 이것을 제출한다. *@
+        <form id="jsini-logout-form" action="/logout" method="post" class="jsini-hidden">
             <AntiforgeryToken />
-            <button type="submit" class="jsini-shell__logout-button">로그아웃</button>
         </form>
     </Authorized>
     <NotAuthorized>
-        <a class="jsini-shell__login-link" href="/login">로그인</a>
+        <a class="jsini-header__login" href="/login">로그인</a>
     </NotAuthorized>
 </AuthorizeView>
+
+@code {
+    private Task LogoutAsync() =>
+        Js.InvokeVoidAsync("document.getElementById('jsini-logout-form').submit").AsTask();
+}

@@ -169,22 +169,38 @@ public class MenuFavoriteService : IMenuFavoriteService
     /// </summary>
     private async Task<List<MenuFavoriteDto>> LoadAsync(string accountId)
     {
-        return await _context.MenuFavorites
+        var rows = await _context.MenuFavorites
             .AsNoTracking()
             .Where(f => f.AccountId == accountId)
             .Join(_context.SystemMenus.Where(m => m.Status == 1),
                   f => f.MenuId, m => m.Id,
-                  (f, m) => new MenuFavoriteDto
-                  {
-                      MenuId = m.Id,
-                      Path = m.Path,
-                      Name = m.Name,
-                      Title = m.Title ?? m.Name,
-                      Icon = m.Icon,
-                      SortOrder = f.SortOrder,
-                  })
-            .OrderBy(d => d.SortOrder)
+                  (f, m) => new { Menu = m, f.SortOrder })
+            .OrderBy(x => x.SortOrder)
             .ToListAsync();
+
+        // 제목의 다국어를 붙인다.
+        //
+        // **메뉴를 내려보내는 세 번째 자리다.** 앞의 둘(MenuService · SystemMenuService)에만
+        // 붙여 두었더니 사이드바 본문은 "프로필" 인데 즐겨찾기 묶음만
+        // `page.auth.profile` 로 보였다. 같은 실수를 세 번 하지 않으려고
+        // 옮기는 코드는 MenuTitleTranslator 한 벌뿐이다.
+        var titles = await MenuTitleTranslator.LoadAsync(
+            _context, [.. rows.Select(x => x.Menu)], locale: null);
+
+        return
+        [
+            .. rows.Select(x => new MenuFavoriteDto
+            {
+                MenuId = x.Menu.Id,
+                Path = x.Menu.Path,
+                Name = x.Menu.Name,
+                Title = MenuTitleTranslator.Resolve(x.Menu.Title, titles)
+                        ?? x.Menu.Title
+                        ?? x.Menu.Name,
+                Icon = x.Menu.Icon,
+                SortOrder = x.SortOrder,
+            })
+        ];
     }
 
     /// <summary>

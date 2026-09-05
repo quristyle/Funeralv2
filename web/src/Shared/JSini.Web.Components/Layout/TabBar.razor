@@ -1,0 +1,109 @@
+@*
+    열어 둔 화면 탭 줄. vben 의 tabbar 를 옮긴 것이다.
+
+    [DxTabs 를 쓰지 않았다]
+
+    DxTabs 는 탭마다 내용을 안고 있는 부품이다. 여기 필요한 것은 **주소 목록**
+    뿐이고 내용은 라우터가 그린다(PortalTabs 주석 참고). DxTabs 에 빈 탭을
+    늘어놓으면 탭 수만큼 빈 패널이 만들어지고, 닫기·고정·오른쪽 메뉴를 다시
+    붙여야 해서 얻는 것이 없다.
+
+    [탭이 라우팅을 하지 않는다]
+
+    누르면 `NavigationManager` 로 이동하고, **이동한 결과를 보고** 탭이 켜진다.
+    반대로 만들면 주소와 화면이 어긋나서 새로 고침·뒤로 가기·즐겨찾기가 깨진다.
+*@
+
+@implements IDisposable
+
+@inject PortalTabs Tabs
+@inject NavigationManager Navigation
+
+@if (Tabs.Items.Count > 0)
+{
+    <div class="jsini-tabs">
+        <div class="jsini-tabs__list">
+            @foreach (var tab in Tabs.Items)
+            {
+                var active = string.Equals(tab.Href, Tabs.ActiveHref, StringComparison.OrdinalIgnoreCase);
+
+                <div class="jsini-tab @(active ? "jsini-tab--active" : "") @(tab.Pinned ? "jsini-tab--pinned" : "")">
+                    <a class="jsini-tab__link" href="@tab.Href" title="@tab.Href">
+                        @if (tab.Pinned)
+                        {
+                            <span class="jsini-icon-pin" aria-hidden="true"></span>
+                        }
+                        @tab.Title
+                    </a>
+
+                    @* 고정한 탭은 닫기 단추를 그리지 않는다. 그려 두고 눌러도
+                       안 닫히면 고장으로 읽힌다. *@
+                    @if (!tab.Pinned)
+                    {
+                        <button type="button" class="jsini-tab__close"
+                                title="닫기" aria-label="@($"{tab.Title} 닫기")"
+                                @onclick="@(() => Close(tab.Href))">×</button>
+                    }
+                </div>
+            }
+        </div>
+
+        <DxDropDownButton IconCssClass="jsini-icon-more"
+                          RenderStyle="ButtonRenderStyle.Link"
+                          SizeMode="SizeMode.Small"
+                          DropDownWidth="200"
+                          Title="탭">
+            <Items>
+                <DxDropDownButtonItem Text="@(IsPinned ? "고정 해제" : "이 탭 고정")"
+                                      IconCssClass="jsini-icon-pin"
+                                      Click="@TogglePin" />
+                <DxDropDownButtonItem Text="다른 탭 닫기"
+                                      IconCssClass="jsini-icon-close"
+                                      Click="@CloseOthers" />
+                <DxDropDownButtonItem Text="모두 닫기"
+                                      IconCssClass="jsini-icon-close"
+                                      Click="@CloseAll" />
+            </Items>
+        </DxDropDownButton>
+    </div>
+}
+
+@code {
+    private bool IsPinned => Tabs.Items
+        .FirstOrDefault(t => string.Equals(t.Href, Tabs.ActiveHref, StringComparison.OrdinalIgnoreCase))
+        ?.Pinned ?? false;
+
+    protected override void OnInitialized() => Tabs.Changed += OnTabsChanged;
+
+    private void OnTabsChanged() => InvokeAsync(StateHasChanged);
+
+    private void Close(string href)
+    {
+        var next = Tabs.Close(href);
+
+        if (next is not null)
+        {
+            Navigation.NavigateTo(next);
+        }
+    }
+
+    private void TogglePin()
+    {
+        if (Tabs.ActiveHref is { } href)
+        {
+            Tabs.TogglePin(href);
+        }
+    }
+
+    private void CloseOthers()
+    {
+        if (Tabs.ActiveHref is { } href)
+        {
+            Tabs.CloseOthers(href);
+        }
+    }
+
+    private void CloseAll() => Navigation.NavigateTo(Tabs.CloseAll());
+
+    public void Dispose() => Tabs.Changed -= OnTabsChanged;
+}

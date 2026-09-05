@@ -1,20 +1,49 @@
 @*
-    라이트/다크 전환.
+    테마 전환. DevExpress 데모 오른쪽 위의 그것과 같은 자리·같은 쓰임이다.
 
-    스타일시트를 새로 내려받지 않고 미리 실어 둔 둘을 껐다 켠다(App.razor 참고).
-    전환할 때 화면이 하얗게 번쩍이지 않게 하려는 것이다. 실제 조작과 저장은
-    wwwroot/theme.js 가 하고, 여기서는 부르기만 한다 — 첫 화면이 그려지기 전에
+    [고를 수 있는 것은 DevExpress 가 주는 테마다]
+
+    직접 색을 만들지 않는다. DevExpress 컴포넌트가 그 테마의 변수로 그려지므로,
+    우리가 색을 따로 정하면 그리드·달력·팝업만 다른 색이 된다.
+
+    [스타일시트를 새로 받지 않는다]
+
+    넷을 미리 싣고 `disabled` 만 바꾼다(JSiniHead 참고). 실제 조작과 저장은
+    wwwroot/theme.js 가 하고 여기서는 부르기만 한다 — 첫 화면이 그려지기 전에
     테마가 정해져야 하는데 Blazor 회로는 그보다 늦게 붙기 때문이다.
+
+    [정적 SSR 에서는 목록이 비어 있다]
+
+    회로가 붙기 전에는 JS 를 부를 수 없어 `OnAfterRenderAsync` 에서 읽는다.
+    그 전까지는 단추만 있고 눌러도 아무 일도 없다 — 로그인 화면이 그 상태다.
 *@
 
 @inject IJSRuntime Js
 
-<DxButton RenderStyle="ButtonRenderStyle.Link"
-          Text="@(_dark ? "라이트" : "다크")"
-          Click="@ToggleAsync" />
+<DxDropDownButton Text="@_currentName"
+                  IconCssClass="jsini-icon-palette"
+                  RenderStyle="ButtonRenderStyle.Link"
+                  SizeMode="SizeMode.Small"
+                  DropDownWidth="200"
+                  Title="테마">
+    <Items>
+        @foreach (var theme in _themes)
+        {
+            <DxDropDownButtonItem Text="@theme.Name"
+                                  IconCssClass="@(theme.Id == _currentId ? "jsini-icon-check" : "jsini-icon-blank")"
+                                  Click="@(() => SetAsync(theme.Id))" />
+        }
+    </Items>
+</DxDropDownButton>
 
 @code {
-    private bool _dark;
+    /// <summary>theme.js 가 알려 주는 테마 한 줄.</summary>
+    private sealed record ThemeInfo(string Id, string Name, bool Dark);
+
+    private IReadOnlyList<ThemeInfo> _themes = [];
+    private string _currentId = string.Empty;
+
+    private string _currentName = "테마";
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -23,13 +52,20 @@
             return;
         }
 
-        // theme.js 가 이미 정해 둔 값을 읽어 버튼 문구를 맞춘다.
-        _dark = await Js.InvokeAsync<bool>("jsiniTheme.isDark");
+        // theme.js 가 이미 정해 둔 값을 읽어 화면을 맞춘다.
+        _themes = await Js.InvokeAsync<ThemeInfo[]>("jsiniTheme.list");
+        _currentId = await Js.InvokeAsync<string>("jsiniTheme.current");
+        _currentName = NameOf(_currentId);
+
         StateHasChanged();
     }
 
-    private async Task ToggleAsync()
+    private async Task SetAsync(string id)
     {
-        _dark = await Js.InvokeAsync<bool>("jsiniTheme.toggle");
+        _currentId = await Js.InvokeAsync<string>("jsiniTheme.set", id);
+        _currentName = NameOf(_currentId);
     }
+
+    private string NameOf(string id) =>
+        _themes.FirstOrDefault(t => t.Id == id)?.Name ?? "테마";
 }

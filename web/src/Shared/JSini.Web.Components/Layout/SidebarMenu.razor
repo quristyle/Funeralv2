@@ -1,84 +1,80 @@
 @*
-    사이드바 메뉴 트리. 이미 걸러진 목록을 받아 그리기만 한다.
+    사이드바 메뉴. DevExpress 데모의 왼쪽 판을 본떴다 —
+    맨 위에 검색, 그 아래에 접히는 트리.
 
-    거르기를 여기서 하지 않는 것이 중요하다 — 권한 판정이 MenuFilter 와 여기로
+    [DxTreeView 로 갈아탄 이유]
+
+    직접 그리던 `<details>` 트리는 **메뉴 검색이 없었다.** 메뉴가 179개인데
+    찾을 방법이 스크롤뿐이라, vben 에 있던 검색이 사라진 것이 가장 크게 아쉬운
+    자리였다. DxTreeView 는 `ShowFilterPanel` 하나로 그것을 준다 — 걸린 가지만
+    남기고 펼쳐 준다.
+
+    [거르기를 여기서 하지 않는다]
+
+    이미 걸러진 목록을 받아 그리기만 한다. 권한 판정이 MenuFilter 와 여기로
     갈라지면 둘이 어긋나고, 그 어긋남은 "어떤 사용자에게만" 나타나서 재현이 어렵다.
+
+    [즐겨찾기가 맨 위에 붙는다]
+
+    vben 이 그랬다. 매일 여는 화면이 서너 개인데 그것이 179개 사이에 묻혀 있으면
+    검색을 매번 해야 한다. 자료는 백엔드에 그대로 남아 있었다(MenuFavorites 참고).
 *@
 
-<ul class="jsini-menu">
-    @foreach (var node in Nodes)
+@implements IDisposable
+
+@inject MenuFavorites Favorites
+@inject NavigationManager Navigation
+
+<div class="jsini-sidebar">
+
+    @if (Favorites.IsLoaded && Favorites.Items.Count > 0)
     {
-        <li class="jsini-menu__item">
-            @if (node.Children.Count > 0)
+        <div class="jsini-sidebar__favorites">
+            <div class="jsini-sidebar__section">즐겨찾기</div>
+
+            @foreach (var favorite in Favorites.Items)
             {
-                @* 자식이 있으면 펼침 묶음. 자기 화면이 있는 메뉴도 자식을 가질 수
-                   있으므로(예: 현황관리), 제목 자체를 링크로 둘지는 IsCatalog 로 가른다. *@
-                <details class="jsini-menu__group" open="@IsOpen(node)">
-                    <summary class="jsini-menu__summary">
-                        @if (node.IsCatalog)
-                        {
-                            <span>@node.Title</span>
-                        }
-                        else
-                        {
-                            <NavLink class="jsini-menu__link" href="@node.LinkTarget">@node.Title</NavLink>
-                        }
-                    </summary>
-                    <SidebarMenu Nodes="@node.Children" />
-                </details>
-            }
-            else if (node.IsExternalLink)
-            {
-                @* 외부 링크는 새 창으로. rel 을 붙여 두는 이유는 열린 창이
-                   window.opener 로 이 포털을 건드리지 못하게 하려는 것이다. *@
-                <a class="jsini-menu__link"
-                   href="@(node.Link ?? node.LinkTarget)"
-                   target="_blank"
-                   rel="noopener noreferrer">@node.Title</a>
-            }
-            else
-            {
-                <NavLink class="jsini-menu__link" href="@node.LinkTarget" Match="NavLinkMatch.Prefix">
-                    @node.Title
+                <NavLink class="jsini-sidebar__favorite" href="@favorite.Href" Match="NavLinkMatch.All">
+                    <span class="jsini-icon-star"></span>
+                    <span class="jsini-sidebar__favorite-text">@favorite.Label</span>
                 </NavLink>
             }
-        </li>
+        </div>
     }
-</ul>
+
+    @*
+        메뉴 트리.
+
+        · ShowFilterPanel — 사이드바 상단의 메뉴 검색. DevExpress 데모의
+          "Find demo by keyword" 와 같은 자리다.
+        · FilterMode=EntireBranch — 걸린 항목의 **가지 전체**를 남긴다. Nodes 로
+          두면 걸린 잎만 남아서 그것이 어느 업무의 화면인지 알 수 없다.
+        · AllowSelectNodes + NavigateUrl — 누르면 그 주소로 간다. 우리가 Click 을
+          받아 NavigateTo 하지 않는다. NavigateUrl 이면 가운데 클릭으로 새 탭에
+          열리고 마우스를 올렸을 때 주소가 보인다.
+    *@
+    <DxTreeView Data="@Nodes"
+                CssClass="jsini-sidebar__tree"
+                ShowFilterPanel="true"
+                FilterMode="NavigationFilterMode.EntireBranch"
+                FilterNullText="메뉴 검색"
+                AllowSelectNodes="true"
+                AnimationType="LayoutAnimationType.Slide">
+        <DataMappings>
+            <DxTreeViewDataMapping Text="@nameof(MenuNode.Title)"
+                                   Children="@nameof(MenuNode.Children)"
+                                   NavigateUrl="@nameof(MenuNode.NavigateUrl)" />
+        </DataMappings>
+    </DxTreeView>
+</div>
 
 @code {
     /// <summary>그릴 메뉴들. **이미 걸러진 것**이어야 한다.</summary>
     [Parameter, EditorRequired] public IReadOnlyList<MenuNode> Nodes { get; set; } = [];
 
-    /// <summary>
-    /// 이 묶음을 펼친 채로 그릴지.
-    ///
-    /// 지금 열려 있는 화면이 이 묶음 안에 있으면 펼친다. 접힌 채로 두면 새로
-    /// 고침한 사용자가 자기가 어디 있는지 알 수 없다.
-    /// </summary>
-    private bool IsOpen(MenuNode node) => Contains(node, CurrentPath());
+    protected override void OnInitialized() => Favorites.Changed += OnFavoritesChanged;
 
-    private static bool Contains(MenuNode node, string path)
-    {
-        if (!string.IsNullOrEmpty(node.LinkTarget)
-            && path.StartsWith(node.LinkTarget, StringComparison.OrdinalIgnoreCase))
-        {
-            return true;
-        }
+    private void OnFavoritesChanged() => InvokeAsync(StateHasChanged);
 
-        return node.Children.Any(child => Contains(child, path));
-    }
-
-    [Inject] private NavigationManager Navigation { get; set; } = default!;
-
-    private string CurrentPath()
-    {
-        var relative = Navigation.ToBaseRelativePath(Navigation.Uri);
-        var cut = relative.IndexOfAny(['?', '#']);
-        if (cut >= 0)
-        {
-            relative = relative[..cut];
-        }
-        return "/" + relative.TrimStart('/');
-    }
+    public void Dispose() => Favorites.Changed -= OnFavoritesChanged;
 }

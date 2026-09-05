@@ -1,16 +1,33 @@
 @*
-    포털 레이아웃. 사이드바 + 헤더 + 본문.
+    포털 레이아웃. DevExpress 데모(demos.devexpress.com/blazor)의 껍데기를 본떴다.
+
+        ┌──────────────────────────────────────────────────────┐
+        │ ☰  JSini            [즐겨찾기 새로고침 전체화면 알림] [테마] [사용자] │  헤더
+        ├───────────────┬──────────────────────────────────────┤
+        │ 🔍 메뉴 검색  │ [탭] [탭] [탭]                        │  탭 줄
+        │ ★ 즐겨찾기    ├──────────────────────────────────────┤
+        │ ▸ 장례식장    │ 홈 › 프로젝트관리 › 프로젝트 › WBS     │  브레드크럼
+        │ ▸ 헬프데스크  ├──────────────────────────────────────┤
+        │ ▸ …           │                                      │
+        │               │            @Body                      │
+        └───────────────┴──────────────────────────────────────┘
 
     [모듈은 이 파일을 모른다]
 
-    레이아웃은 셸의 것이고 모듈은 자기 화면만 그린다. 모듈이 레이아웃을 아는
-    순간 "레이아웃을 고치면 모듈 여섯 개를 다시 봐야 한다" 가 되어 격리가 깨진다.
+    레이아웃은 공용이고 모듈은 자기 화면만 그린다. 모듈이 레이아웃을 아는 순간
+    "레이아웃을 고치면 모듈 여섯 개를 다시 봐야 한다" 가 되어 격리가 깨진다.
 
-    [멀티탭은 아직 없다]
+    [DxDrawer 를 쓰지 않았다]
 
-    vben 포털에는 업무 탭을 여러 개 열어 두는 기능이 있었다. Blazor 에서는
-    라우팅과 컴포넌트 수명이 엮인 자리라 따로 설계가 필요하다 — 골격 단계에서
-    어설프게 넣으면 250개 화면이 그 위에 얹힌 뒤에 못 고친다. 별도 과제로 뺀다.
+    DxDrawer 는 본문 위를 덮거나 밀어내는 서랍이다. 여기 필요한 것은 **늘 자리를
+    차지하는 판**이고, 접었을 때도 격자가 그대로여야 본문이 출렁이지 않는다.
+    CSS 격자 한 줄이면 되는 일이라 부품을 얹지 않았다.
+
+    [주소가 바뀔 때 하는 일이 셋이다]
+
+    탭 열기 · 브레드크럼 다시 만들기 · 휴대폰에서 사이드바 접기.
+    `NavigationManager.LocationChanged` 한 곳에서 처리한다 — 화면마다 알리면
+    반드시 몇 개를 빠뜨리고, 그 화면만 탭이 안 열린다.
 *@
 
 @inherits LayoutComponentBase
@@ -19,35 +36,45 @@
 @inject IMenuProvider Menus
 @inject IPermissionContext Permissions
 @inject ITokenStore Tokens
+@inject MenuFavorites Favorites
+@inject PortalTabs Tabs
 @inject AuthenticationStateProvider AuthState
+@inject NavigationManager Navigation
+@inject IJSRuntime Js
 
 <DxLayoutBreakpoint DeviceSize="DeviceSize.XSmall" @bind-IsActive="_isPhone" />
 <DxLayoutBreakpoint DeviceSize="DeviceSize.Small" @bind-IsActive="_isTablet" />
 
-<div class="jsini-shell">
+<div class="jsini-shell @(_sidebarOpen ? "" : "jsini-shell--collapsed")">
 
-    <aside class="jsini-shell__sidebar @(_sidebarOpen ? "" : "jsini-shell__sidebar--collapsed")">
-        <div class="jsini-shell__brand">
-            <span class="jsini-shell__brand-mark">JSini</span>
-        </div>
+    <header class="jsini-header">
+        <DxButton RenderStyle="ButtonRenderStyle.Link"
+                  SizeMode="SizeMode.Small"
+                  IconCssClass="jsini-icon-menu"
+                  Title="메뉴 접기/펴기"
+                  Click="@ToggleSidebar" />
 
-        <nav class="jsini-shell__nav">
-            <SidebarMenu Nodes="@Menus.VisibleMenus" />
-        </nav>
+        <a class="jsini-header__brand" href="/">
+            <img class="jsini-header__logo"
+                 src="_content/JSini.Web.Components/brand/app-icon.svg" alt="" />
+            <span class="jsini-header__brand-text">JSINI</span>
+        </a>
+
+        <div class="jsini-header__spacer"></div>
+
+        <HeaderTools MenuPath="@_menuPath" />
+        <ThemeToggle />
+        <UserMenu />
+    </header>
+
+    <aside class="jsini-shell__sidebar">
+        <SidebarMenu Nodes="@Menus.VisibleMenus" />
     </aside>
 
     <div class="jsini-shell__main">
-        <header class="jsini-shell__header">
-            <DxButton RenderStyle="ButtonRenderStyle.Link"
-                      IconCssClass="jsini-icon-menu"
-                      Click="@ToggleSidebar"
-                      Attributes="@(new Dictionary<string, object> { ["aria-label"] = "메뉴 열기" })" />
+        <TabBar />
 
-            <div class="jsini-shell__header-spacer"></div>
-
-            <ThemeToggle />
-            <UserMenu />
-        </header>
+        <Breadcrumb Trail="@_trail" />
 
         <main class="jsini-shell__content">
             @Body
@@ -61,21 +88,28 @@
     private bool _isPhone;
     private bool _isTablet;
 
+    /// <summary>지금 화면의 메뉴 줄기. 브레드크럼이 쓴다.</summary>
+    private IReadOnlyList<MenuNode> _trail = [];
+
+    /// <summary>지금 화면의 DB 메뉴 경로. 즐겨찾기 단추가 쓴다.</summary>
+    private string? _menuPath;
+
     protected override void OnInitialized()
     {
         Menus.MenusChanged += OnMenusChanged;
+        Navigation.LocationChanged += OnLocationChanged;
     }
 
     /// <summary>
-    /// **순서가 셋 다 중요하다.**
+    /// **순서가 넷 다 중요하다.**
     ///
     /// ① 토큰 — 게이트웨이를 부르려면 먼저 있어야 한다. 그리고 이 값은
     ///    `AuthenticationStateProvider` 에서만 나오는데, 그건 **Razor 컴포넌트
     ///    안에서만** 물을 수 있다. HTTP 핸들러에서 물으면 예외로 죽는다.
-    ///    그래서 컴포넌트인 여기가 물어서 넘겨 준다.
     /// ② 권한표 — 메뉴를 거르는 데 쓴다.
     /// ③ 메뉴 — 권한표가 없는 상태에서 읽으면 걸러지지 않은 목록이 한 번
-    ///    보였다가 바뀐다. Vue 에서도 같은 이유로 권한을 먼저 읽었다.
+    ///    보였다가 바뀐다.
+    /// ④ 즐겨찾기 — 메뉴가 있어야 이름을 붙일 수 있다.
     /// </summary>
     protected override async Task OnInitializedAsync()
     {
@@ -84,6 +118,32 @@
 
         await Permissions.ReloadAsync();
         await Menus.ReloadAsync();
+        await Favorites.ReloadAsync();
+
+        Track();
+    }
+
+    /// <summary>
+    /// 워터마크를 건다. 로그인 아이디를 화면 위에 옅게 반복해 깐다.
+    ///
+    /// 화면 촬영을 막으려는 것이 아니다 — 막을 수 없다. **찍힌 사진에서 누구
+    /// 화면인지 드러나게** 하는 것이 목적이고, 고인·상주 정보가 나오는 화면이
+    /// 있어 옛 포털도 같은 이유로 켜 두었다.
+    /// </summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        var state = await AuthState.GetAuthenticationStateAsync();
+        var name = state.User.Identity?.Name;
+
+        if (!string.IsNullOrWhiteSpace(name))
+        {
+            await Js.InvokeVoidAsync("jsiniWatermark.show", name);
+        }
     }
 
     /// <summary>
@@ -111,7 +171,59 @@
 
     private void ToggleSidebar() => _sidebarOpen = !_sidebarOpen;
 
-    private void OnMenusChanged() => InvokeAsync(StateHasChanged);
+    private void OnMenusChanged()
+    {
+        // 메뉴가 늦게 도착하면 그때 브레드크럼과 탭 이름이 채워진다.
+        Track();
+        InvokeAsync(StateHasChanged);
+    }
 
-    public void Dispose() => Menus.MenusChanged -= OnMenusChanged;
+    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    {
+        Track();
+
+        // 휴대폰에서는 메뉴를 누르면 사이드바가 본문을 덮은 채로 남는다.
+        if (_isPhone)
+        {
+            _sidebarOpen = false;
+        }
+
+        InvokeAsync(StateHasChanged);
+    }
+
+    /// <summary>지금 주소를 보고 탭·브레드크럼·즐겨찾기 열쇠를 맞춘다.</summary>
+    private void Track()
+    {
+        var href = CurrentHref();
+
+        _trail = Menus.Trail(href);
+        _menuPath = _trail.Count > 0 ? _trail[^1].Path : null;
+
+        // 로그인·오류 화면은 탭으로 만들지 않는다. 메뉴에 없는 화면도 마찬가지다 —
+        // 진단 화면과 "준비 중" 안내가 탭을 채우면 정작 업무 탭이 밀려난다.
+        if (_trail.Count > 0)
+        {
+            Tabs.Open(href, _trail[^1].Title);
+        }
+    }
+
+    /// <summary>브라우저에 떠 있는 경로. 질의 문자열과 조각은 뗀다.</summary>
+    private string CurrentHref()
+    {
+        var relative = Navigation.ToBaseRelativePath(Navigation.Uri);
+        var cut = relative.IndexOfAny(['?', '#']);
+
+        if (cut >= 0)
+        {
+            relative = relative[..cut];
+        }
+
+        return "/" + relative.TrimStart('/');
+    }
+
+    public void Dispose()
+    {
+        Menus.MenusChanged -= OnMenusChanged;
+        Navigation.LocationChanged -= OnLocationChanged;
+    }
 }

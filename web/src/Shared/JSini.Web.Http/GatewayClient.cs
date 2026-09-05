@@ -114,6 +114,34 @@ public sealed class GatewayClient(HttpClient http)
         => SendAsync<object>(HttpMethod.Delete, path, null, cancellationToken);
 
     /// <summary>
+    /// 보내고 <b>바뀐 목록 전체</b>를 받는다.
+    ///
+    /// 목록을 다루는 API 중에는 한 건을 더한 뒤 그 한 건이 아니라 바뀐 목록을
+    /// 통째로 돌려주는 것이 있다(즐겨찾기가 그렇다). 화면이 손으로 더하고 빼는
+    /// 대신 서버가 준 것을 그대로 쓰면 <b>정렬 순서가 어긋나지 않는다</b> —
+    /// 순서를 서버가 정하기 때문이다.
+    ///
+    /// <see cref="PostAsync{T}"/> 는 첫 칸만 꺼내므로 그 자리에 쓸 수 없다.
+    /// </summary>
+    public async Task<IReadOnlyList<T>> PostListAsync<T>(
+        string path,
+        object? body,
+        CancellationToken cancellationToken = default)
+    {
+        var payload = await SendAsync<T>(HttpMethod.Post, path, body, cancellationToken);
+        return payload?.Result ?? [];
+    }
+
+    /// <summary>지우고 <b>바뀐 목록 전체</b>를 받는다. 이유는 <see cref="PostListAsync{T}"/> 와 같다.</summary>
+    public async Task<IReadOnlyList<T>> DeleteListAsync<T>(
+        string path,
+        CancellationToken cancellationToken = default)
+    {
+        var payload = await SendAsync<T>(HttpMethod.Delete, path, null, cancellationToken);
+        return payload?.Result ?? [];
+    }
+
+    /// <summary>
     /// <c>data.result</c> 가 배열이 아니라 <b>객체 하나</b>인 응답을 읽는다.
     ///
     /// 서버가 <c>Result</c>+<c>TotalCount</c> 를 가진 DTO 를 돌려줄 때의 모양이다

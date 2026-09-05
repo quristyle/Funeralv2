@@ -26,14 +26,40 @@
 *@
 <link rel="icon" type="image/svg+xml" href="_content/JSini.Web.Components/brand/favicon.svg" />
 
+@*
+    DevExpress 테마 넷을 **모두 미리** 싣고 `disabled` 로 하나만 켠다.
+    theme.js 가 <head> 바로 다음에서 골라 준다 — 회로가 붙기 전이라 첫 그림부터
+    맞는 테마로 나온다.
+
+    새로 내려받는 방식은 쓰지 않는다. 전환할 때 화면이 한 번 하얗게 번쩍인다.
+    넷을 합쳐 약 1.2MB 인데 캐시가 한 번만 받으므로 감당할 만하다.
+
+    `bootstrap-external` 은 뺐다. 그것만 Bootstrap 5 테마 파일을 따로
+    요구해서(우리는 그 파일이 없다) 고르면 화면이 무너진다.
+*@
+<link rel="stylesheet"
+      href="_content/DevExpress.Blazor.Themes/office-white.bs5.min.css"
+      data-jsini-theme="office-white" />
 <link rel="stylesheet"
       href="_content/DevExpress.Blazor.Themes/blazing-berry.bs5.min.css"
-      data-jsini-theme="light" />
+      data-jsini-theme="blazing-berry" disabled />
+<link rel="stylesheet"
+      href="_content/DevExpress.Blazor.Themes/purple.bs5.min.css"
+      data-jsini-theme="purple" disabled />
 <link rel="stylesheet"
       href="_content/DevExpress.Blazor.Themes/blazing-dark.bs5.min.css"
-      data-jsini-theme="dark" disabled />
+      data-jsini-theme="blazing-dark" disabled />
 
 <link rel="stylesheet" href="_content/JSini.Web.Components/app.css" />
+
+@*
+    테마 스크립트. **<head> 안에서, 스타일시트 바로 다음에** 돈다.
+
+    body 로 내리면 브라우저가 기본 테마로 한 번 그린 화면을 보여 준 뒤 바뀐다
+    (FOUC). 여기 두면 첫 그림부터 맞는 테마다. `defer` 도 `async` 도 붙이지
+    않는 이유가 그것이다 — 동기로 돌아야 한다.
+*@
+<script src="_content/JSini.Web.Components/theme.js"></script>
 
 @* 모듈 전용 스타일. 셸은 모듈 이름을 알지 못하고 모듈이 스스로 알려 준다
    (IPortalModule.StyleSheet). 그래야 모듈을 넣고 빼는 데 셸을 고칠 일이 없다.

@@ -34,6 +34,18 @@ public sealed record MenuNode
     /// <summary>사이드바가 걸 주소. <see cref="Href"/> 가 있으면 그것, 없으면 <see cref="Path"/>.</summary>
     public string LinkTarget => string.IsNullOrEmpty(Href) ? Path : Href;
 
+    /// <summary>
+    /// 트리가 링크로 걸 주소. <b>묶음은 <c>null</c> 이다.</b>
+    ///
+    /// 묶음(CATALOG)에 주소를 주면 눌렀을 때 펼치는 대신 어딘가로 가 버린다.
+    /// 그런데 묶음에는 화면이 없으므로 "준비 중" 안내가 뜨고, 사용자는 메뉴가
+    /// 고장 난 줄 안다. <c>null</c> 이면 DevExpress 트리가 펼침만 한다.
+    ///
+    /// <c>DxTreeViewDataMapping.NavigateUrl</c> 이 이 이름을 리플렉션으로 찾으므로
+    /// 이름을 바꾸면 사이드바 링크가 통째로 죽는다.
+    /// </summary>
+    public string? NavigateUrl => IsCatalog ? null : LinkTarget;
+
     /// <summary>사이드바에 보이는 이름.</summary>
     public required string Title { get; init; }
 
