@@ -1026,6 +1026,54 @@ public sealed class AiProviderStatusDto
     public List<AiProviderDto> Providers { get; set; } = [];
 }
 
+/// <summary>
+/// 제공자 하나를 실제로 눌러 본 결과 (<c>ai/health/deep</c> 응답).
+///
+/// <para>
+/// 헬스체크와 다른 것을 본다. 헬스체크는 <b>서비스</b>가 사는지 보고, 이것은
+/// <b>그 제공자로 정말 답이 나오는지</b> 본다 — 가장 짧은 질문을 하나 던진다.
+/// 자동 전환을 끄고 부르므로 다른 제공자가 대신 답해 '정상' 으로 보이는 일이 없다.
+/// </para>
+/// <para>
+/// <b>실패도 200 으로 온다.</b> 「점검이 실패했다」는 것 자체가 정상적인 응답이고,
+/// 화면은 그 이유를 읽어 보여 주어야 한다.
+/// </para>
+/// </summary>
+public sealed class AiDeepCheckDto
+{
+    public bool Ok { get; set; }
+
+    public string? Provider { get; set; }
+
+    public string? ProviderName { get; set; }
+
+    public string? Model { get; set; }
+
+    public int LatencyMs { get; set; }
+
+    /// <summary>답이 실제로 생성됐는가. 연결은 됐는데 빈 답이 오는 경우가 있다.</summary>
+    public bool Generated { get; set; }
+
+    /// <summary>한도 초과인가. <b>고장이 아니다</b> — 화면이 다른 색으로 보여 준다.</summary>
+    public bool RateLimited { get; set; }
+
+    public string? Message { get; set; }
+}
+
+/// <summary>제공자별로 고를 수 있는 모델 (<c>ai/models</c> 응답).</summary>
+public sealed class AiProviderModelsDto
+{
+    public string Provider { get; set; } = string.Empty;
+
+    /// <summary>사용자가 모델을 고를 수 있는가. 거짓이면 목록은 참고용이다.</summary>
+    public bool AllowModelChoice { get; set; }
+
+    /// <summary>무료 모델만 쓰는가.</summary>
+    public bool FreeOnly { get; set; }
+
+    public List<string> Models { get; set; } = [];
+}
+
 /// <summary>AI 제공자 하나.</summary>
 public sealed class AiProviderDto
 {

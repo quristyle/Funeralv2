@@ -216,6 +216,20 @@ public sealed class AdminClient(GatewayClient gateway)
     public Task<AiProviderStatusDto?> GetAiProvidersAsync(CancellationToken ct = default)
         => gateway.GetOneAsync<AiProviderStatusDto>("ai/providers", ct);
 
+    /// <summary>제공자별로 고를 수 있는 모델 목록.</summary>
+    public Task<IReadOnlyList<AiProviderModelsDto>> GetAiModelsAsync(CancellationToken ct = default)
+        => gateway.GetListAsync<AiProviderModelsDto>("ai/models", ct);
+
+    /// <summary>
+    /// 제공자를 하나 실제로 눌러 본다 (「정밀 확인」).
+    ///
+    /// <b>돈이 드는 호출이다</b> — 유료 제공자에게 질문을 하나 던진다.
+    /// 그래서 화면이 자동으로 부르지 않고 사람이 눌렀을 때만 나간다.
+    /// </summary>
+    public Task<AiDeepCheckDto?> DeepCheckAiAsync(string provider, CancellationToken ct = default)
+        => gateway.PostAsync<AiDeepCheckDto>(
+            $"ai/health/deep{Query(("provider", provider))}", new { }, ct);
+
     // ── 알림 설정 (NotificationServer) ─────────────────────────
 
     // 알림 서비스의 게이트웨이 접두사는 **`notification`** 이고, 서비스 안의

@@ -325,3 +325,21 @@
   gap: 0.35rem;
   flex-wrap: wrap;
 }
+
+/* ── AI 정밀 확인 칸 ─────────────────────────────────────
+
+   단추 · 결과 배지 · 이유가 한 칸에 들어간다. 이유가 길어서 줄바꿈을
+   허용해야 하는데, 그러면 행 높이가 들쭉날쭉해진다 — 이유만 작게 접어 둔다.
+   ---------------------------------------------------------- */
+
+.ad-deep {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.ad-deep .ad-stamp {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
