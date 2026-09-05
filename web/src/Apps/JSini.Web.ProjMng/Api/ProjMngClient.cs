@@ -211,16 +211,15 @@ public sealed class ProjMngClient(GatewayClient gateway, ILogger<ProjMngClient> 
     }
 
     /// <summary>
-    /// 실패해도 예외를 위로 던지지 않는다.
-    ///
-    /// 화면은 빈 결과를 받아 계속 그린다 — 옛 Blazor 와 Vue 모두 그렇게 동작했고,
-    /// 프로시저 하나가 실패했다고 화면 전체가 사라지면 사용자가 무엇을 했는지
-    /// 알 수 없게 된다. 오류 안내는 화면이 <see cref="ProjMngResult.ProcCode"/> 와
-    /// 로그로 판단한다.
-    /// </summary>
-    /// <summary>
     /// 생 SQL 통로용 보내기. 본문이 <see cref="ProjMngRequest"/> 가 아니라
     /// 평평한 사전이라 따로 둔다.
+    ///
+    /// <para>
+    /// 아래 <see cref="PostAsync(string, ProjMngRequest, CancellationToken)"/> 와
+    /// 마찬가지로 <b>실패해도 예외를 위로 던지지 않는다.</b> 화면은 빈 결과를
+    /// 받아 계속 그린다 — 옛 Blazor 와 Vue 모두 그랬고, 프로시저 하나가
+    /// 실패했다고 화면 전체가 사라지면 사용자가 무엇을 했는지 알 수 없게 된다.
+    /// </para>
     /// </summary>
     private async Task<ProjMngResult> PostAsync(
         string url,
@@ -235,7 +234,14 @@ public sealed class ProjMngClient(GatewayClient gateway, ILogger<ProjMngClient> 
         catch (ApiException ex)
         {
             logger.LogWarning(ex, "생 SQL 실행 실패: {Url}", url);
-            return ProjMngResult.Empty;
+
+            return new ProjMngResult
+            {
+                ProcCode = -1,
+                Cols = [],
+                Rows = [],
+                Message = ex.Message,
+            };
         }
     }
 
@@ -252,11 +258,16 @@ public sealed class ProjMngClient(GatewayClient gateway, ILogger<ProjMngClient> 
         catch (ApiException ex)
         {
             logger.LogWarning(ex, "프로시저 호출 실패: {ProcName}", payload.ProcName);
+
+            // **문구를 버리지 않는다.** 서버는 업무 실패를 음수 코드와 함께
+            // 사람이 읽을 문구로 알린다("등록된 경로가 서버에 없습니다: …").
+            // 그것을 삼키면 화면에 빈 표만 남아, 무엇을 고쳐야 하는지 알 수 없다.
             return new ProjMngResult
             {
                 ProcCode = -1,
                 Cols = [],
                 Rows = [],
+                Message = ex.Message,
             };
         }
     }

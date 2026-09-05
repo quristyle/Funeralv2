@@ -1,15 +1,26 @@
 @page "/projmng/design/flow"
 
 @*
-    [업무 흐름]
-
+    [업무 흐름] — DB 메뉴 `/projmng/design/flow`.
     이력: 옛 Blazor `Pages/Proj/ProjFlow.razor` → Vue `views/projmng/proj/flow.vue` → 여기.
-    프로시저: `sp_dev_db_prop_exec` (`db_pkey='flow'`)
+    프로시저: `sp_dev_db_prop_exec` (`db_pkey='flow'`) · 개발도구 `tablelist`
 
     프로젝트 DB 하나에 붙는 업무 흐름도다. ERD 와 같은 속성 표에 열쇠만 달리 넣는다.
 
-    ERD 와 달리 **원본에서 끌어올 목록이 없다.** 그림 자체가 사람이 그린 것이라
-    저장본을 읽어 그대로 그리고, 편집한 결과를 같은 자리에 되돌려 쓴다.
+    [ERD 와 무엇이 다른가]
+
+    ERD 는 DB 에서 사라진 테이블을 **말없이 그대로 둔다.** 여기서는 사라졌다는
+    사실이 곧 업무가 바뀌었다는 뜻이라, 설명에 `(삭제됨)` 을 붙여 눈에 띄게 한다.
+    옛 화면이 두 화면을 가른 지점이 바로 그것이고, 그 비교를 하려면 대상 DB 의
+    실제 테이블 목록(`tablelist`)이 필요하다. **그 조회가 통째로 빠져 있었다** —
+    그래서 저장본을 그대로 그리기만 했고, ERD 와 다를 것이 없었다.
+
+    [옛 도구로 그린 그림을 덮어쓰지 않는다]
+
+    `db_pkey='flow'` 로 저장된 것 중에는 우리 JSON 이 아니라 **mxGraph(draw.io)
+    XML** 이 있다. 옛 도구로 그린 것이다. 그것을 우리 파서에 넣으면 조용히 빈
+    그림이 되고, 그 상태로 저장을 누르면 **사람이 그린 그림이 사라진다.**
+    실제로 그런 자료가 남아 있어(`db_rid=4`), 읽는 쪽에서 알아보고 저장을 막는다.
 *@
 
 @inherits DataPage
@@ -33,7 +44,8 @@
             <DxButton Text="불러오기" RenderStyle="ButtonRenderStyle.Primary" Click="@LoadDiagramAsync" />
         </PermissionView>
         <PermissionView Action="MenuAction.Update">
-            <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Success" Click="@SaveDiagramAsync" />
+            <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Success"
+                      Enabled="@(!_legacyDrawing)" Click="@SaveDiagramAsync" />
         </PermissionView>
     </Actions>
 </SearchBar>
@@ -55,6 +67,14 @@
     /// <summary>저장본의 행 키. 저장할 때 같은 행을 갱신하려면 필요하다.</summary>
     private string _propRowId = string.Empty;
 
+    /// <summary>
+    /// 저장본이 옛 도구(mxGraph)의 것인가.
+    ///
+    /// 그렇다면 우리는 그것을 그리지도 고치지도 못한다. **저장을 막는 표시**다 —
+    /// 덮어쓰면 사람이 그린 그림이 사라진다.
+    /// </summary>
+    private bool _legacyDrawing;
+
     private Task ZoomInAsync() => _diagram?.ZoomInAsync() ?? Task.CompletedTask;
     private Task ZoomOutAsync() => _diagram?.ZoomOutAsync() ?? Task.CompletedTask;
     private Task FitAsync() => _diagram?.FitAsync() ?? Task.CompletedTask;
@@ -69,11 +89,34 @@
 
         return LoadAsync(async () =>
         {
+            // ① 저장본
             var saved = await Client.DbContAsync(Proc, SavedParams());
             var first = saved.Rows?.FirstOrDefault();
 
             _propRowId = Pick(first, "db_prid");
-            var model = ErdModel.Parse(Pick(first, "db_pvalue"));
+
+            var raw = Pick(first, "db_pvalue");
+            _legacyDrawing = IsLegacyDrawing(raw);
+
+            if (_legacyDrawing)
+            {
+                // 파서에 넣으면 조용히 빈 그림이 된다. 그 상태를 사용자가
+                // "아직 안 그렸다" 로 읽고 새로 그려 저장하면 옛 그림이 사라진다.
+                Say("옛 도구(draw.io)로 그린 그림입니다. 여기서는 열지 못하고, 덮어쓰지 않도록 저장을 막았습니다.",
+                    NoticeTone.Warning);
+
+                return 1;
+            }
+
+            var model = ErdModel.Parse(raw);
+
+            // ② 대상 DB 의 실제 테이블 목록. 이것이 있어야 사라진 것을 알아본다.
+            var tables = await Client.JsContAsync(
+                "tablelist",
+                new Dictionary<string, object?> { ["db_rid"] = _dbCode },
+                isProjDb: true);
+
+            Merge(model, tables);
 
             if (_diagram is not null)
             {
@@ -81,12 +124,78 @@
             }
 
             return model.Entities.Count;
-        }, "저장된 그림이 없습니다. 새로 그려 저장하십시오.", "업무 흐름를 읽지 못했습니다");
+        }, "저장된 그림이 없습니다. 새로 그려 저장하십시오.", "업무 흐름을 읽지 못했습니다");
     }
+
+    /// <summary>
+    /// 저장본과 실제 테이블 목록을 합친다.
+    ///
+    /// 배치(x/y)는 저장본 값을 그대로 둔다 — 건드리면 사용자가 놓은 자리가
+    /// 흐트러진다. 새 테이블은 더하고, <b>DB 에서 사라진 것은 지우지 않고
+    /// 표시만 남긴다.</b> 목록 조회가 잠깐 실패했을 때 그림이 통째로 비는 것보다
+    /// 낫다는 옛 판단을 그대로 따른다.
+    /// </summary>
+    private static void Merge(ErdModel model, ProjMngResult tables)
+    {
+        var live = new HashSet<string>(StringComparer.Ordinal);
+        var known = model.Entities.ToDictionary(e => e.Id, StringComparer.Ordinal);
+
+        foreach (var row in tables.Rows ?? [])
+        {
+            var name = Pick(row, "TableName", "tablename");
+            if (string.IsNullOrWhiteSpace(name)) continue;
+
+            live.Add(name);
+
+            var desc = Pick(row, "Description", "description");
+
+            if (known.TryGetValue(name, out var exist))
+            {
+                model.Entities[model.Entities.IndexOf(exist)] = exist with { Desc = desc };
+            }
+            else
+            {
+                model.Entities.Add(new ErdEntity { Id = name, Name = name, Desc = desc });
+            }
+        }
+
+        // 목록을 못 읽었으면 아무것도 표시하지 않는다. 전부 (삭제됨) 이 붙어
+        // 버리면 그림이 못 쓰게 되고, 그것이 저장까지 되면 되돌리기 어렵다.
+        if (live.Count == 0)
+        {
+            return;
+        }
+
+        for (var i = 0; i < model.Entities.Count; i++)
+        {
+            var entity = model.Entities[i];
+            var desc = entity.Desc ?? string.Empty;
+
+            if (live.Contains(entity.Id) || desc.Contains("(삭제됨)", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            model.Entities[i] = entity with { Desc = $"{desc}(삭제됨)" };
+        }
+    }
+
+    /// <summary>
+    /// 옛 도구가 저장한 것인가. mxGraph 는 XML 이고 우리 것은 JSON 이라
+    /// 첫 글자로 갈린다.
+    /// </summary>
+    private static bool IsLegacyDrawing(string raw) =>
+        raw.TrimStart().StartsWith('<');
 
     private async Task SaveDiagramAsync()
     {
         if (_diagram is null) return;
+
+        if (_legacyDrawing)
+        {
+            Say("옛 도구로 그린 그림이라 덮어쓸 수 없습니다.", NoticeTone.Warning);
+            return;
+        }
 
         var model = await _diagram.SaveAsync();
 
@@ -108,8 +217,26 @@
         ["db_pkey"] = PropKey,
     };
 
-    private static string Pick(ProjMngRow? row, string name) =>
-        row is not null && row.TryGetValue(name, out var value) && value is not null
-            ? value.ToString() ?? string.Empty
-            : string.Empty;
+    private static string Pick(ProjMngRow? row, params string[] names)
+    {
+        if (row is null)
+        {
+            return string.Empty;
+        }
+
+        foreach (var name in names)
+        {
+            if (row.TryGetValue(name, out var value) && value is not null)
+            {
+                var text = value.ToString();
+
+                if (!string.IsNullOrEmpty(text))
+                {
+                    return text;
+                }
+            }
+        }
+
+        return string.Empty;
+    }
 }

@@ -1,0 +1,113 @@
+@*
+    소스 묶음 드롭다운 — 고른 프로젝트에 등록된 소스를 고른다.
+
+    [CodeSelect 를 쓰지 않는 이유]
+
+    다른 드롭다운은 전부 공통코드(`sp_projCommon`)로 채우는데, 소스 목록의
+    공통코드(`srclist`)는 **등록되어 있지 않다.** 옛 Vue 가 그것을 부르고
+    있었고, 늘 빈 목록이었다(게이트웨이로 직접 불러 확인했다).
+
+    소스의 정본은 `sp_dev_srcinfo_exec` — 「소스 정보」 화면이 등록하고 읽는
+    그 표다. 코드 한 겹을 거치지 않고 그것을 읽는다.
+*@
+
+@inject ProjMngClient Client
+
+<DxComboBox Data="@_items"
+            TextFieldName="@nameof(SourceItem.Nick)"
+            ValueFieldName="@nameof(SourceItem.Rid)"
+            Value="@Value"
+            ValueChanged="@((string? rid) => PickAsync(rid))"
+            NullText="@Placeholder"
+            ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Never"
+            Enabled="@(_items.Count > 0)"
+            CssClass="pm-code-select"
+            SizeMode="SizeMode.Small" />
+
+@code {
+    private List<SourceItem> _items = [];
+
+    /// <summary>마지막으로 읽은 프로젝트. 같은 값이면 다시 읽지 않는다.</summary>
+    private string? _loadedFor;
+
+    /// <summary>어느 프로젝트의 소스인가. 비어 있으면 조회하지 않는다.</summary>
+    [Parameter, EditorRequired] public string? ProjectCode { get; set; }
+
+    /// <summary>고른 소스 키(<c>src_rid</c>).</summary>
+    [Parameter] public string? Value { get; set; }
+
+    [Parameter] public EventCallback<string?> ValueChanged { get; set; }
+
+    /// <summary>
+    /// 고른 항목 전체. 언어·경로 같은 부가 컬럼이 필요한 화면이 받는다.
+    /// 목록을 읽고 첫 항목을 자동으로 골랐을 때도 올라온다 — 화면이 그
+    /// 신호로 최초 조회를 건다.
+    /// </summary>
+    [Parameter] public EventCallback<SourceItem?> OnChanged { get; set; }
+
+    [Parameter] public string Placeholder { get; set; } = "소스 선택";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var key = ProjectCode ?? string.Empty;
+
+        if (string.Equals(_loadedFor, key, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        _loadedFor = key;
+
+        if (string.IsNullOrEmpty(key))
+        {
+            // 프로젝트를 아직 안 골랐다. 목록도 고른 값도 비운다 —
+            // 남겨 두면 옛 프로젝트의 소스로 엉뚱한 조회가 나간다.
+            _items = [];
+            await SetAsync(null, null);
+            return;
+        }
+
+        var result = await Client.DbContAsync("sp_dev_srcinfo_exec", new Dictionary<string, object?>
+        {
+            ["req_type"] = "srch",
+            ["prj_rid"] = key,
+        });
+
+        _items = [.. (result.Rows ?? []).Select(ToItem).Where(i => i.Rid.Length > 0)];
+
+        var first = _items.FirstOrDefault();
+        await SetAsync(first?.Rid, first);
+    }
+
+    private static SourceItem ToItem(ProjMngRow row)
+    {
+        var others = row.ToDictionary(
+            pair => pair.Key,
+            pair => pair.Value?.ToString() ?? string.Empty,
+            StringComparer.Ordinal);
+
+        var rid = others.GetValueOrDefault("src_rid", string.Empty);
+
+        // 이름을 안 적어 둔 소스가 있다. 그때는 키라도 보여 준다 —
+        // 빈 줄이 늘어선 드롭다운은 고를 수가 없다.
+        var nick = others.GetValueOrDefault("src_nick", string.Empty);
+        var lang = others.GetValueOrDefault("src_lang", string.Empty);
+
+        if (string.IsNullOrWhiteSpace(nick))
+        {
+            nick = string.IsNullOrWhiteSpace(lang) ? $"소스 {rid}" : $"소스 {rid} ({lang})";
+        }
+
+        return new SourceItem(rid, nick, others);
+    }
+
+    private Task PickAsync(string? rid) =>
+        SetAsync(rid, _items.FirstOrDefault(i => string.Equals(i.Rid, rid, StringComparison.Ordinal)));
+
+    private async Task SetAsync(string? rid, SourceItem? item)
+    {
+        Value = rid;
+        await ValueChanged.InvokeAsync(rid);
+        await OnChanged.InvokeAsync(item);
+    }
+}

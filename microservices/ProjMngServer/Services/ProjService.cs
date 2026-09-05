@@ -509,17 +509,67 @@ public class ProjService : BaseService {
 
   }
 
+  /// <summary>
+  /// 소스 상세에서 그 확장자에 딸린 행을 찾는다. <b>경로가 적힌 행을 먼저</b> 고른다.
+  ///
+  /// <para>
+  /// [같은 칸에 다른 것이 들어 있다]
+  /// </para>
+  /// <para>
+  /// <c>url_pattern</c> 은 <c>src_pattern_grp</c> 에 따라 뜻이 다르다 —
+  /// <c>src_path</c> 면 훑을 뿌리 경로이고, <c>url</c> 이면 화면 주소를 뽑는
+  /// 정규식이다. 예전에는 확장자만 보고 첫 행을 집어서, <c>url</c> 행이 먼저
+  /// 오는 소스(razor)에서는 <b>정규식을 경로라고 들고 가</b> 파일 훑기가
+  /// 그 자리에서 터졌다. 「소스 추적」이 늘 500 이던 이유다.
+  /// </para>
+  /// <para>
+  /// 그런 행이 없으면 예전처럼 첫 행을 준다 — 옛 자료를 깨지 않는다.
+  /// </para>
+  /// </summary>
   IDictionary<string,object> GetUrlPattern(IDictionary<string, string> param, string src_extend) {
 
     var srcInfo = GetData("sp_dev_srcinfo_dtl_exec", param);
-   IDictionary<string,object> ccc = srcInfo.Data
-  .OfType<IDictionary<string, object>>()
-  .FirstOrDefault(d => d.ContainsKey("src_extend") && d["src_extend"]?.ToString() == src_extend);
 
-    // string path = ccc?["url_pattern"]?.ToString();// @"c:\projects\ProjMng\samples\";
+    var rows = srcInfo.Data
+      .OfType<IDictionary<string, object>>()
+      .Where(d => d.ContainsKey("src_extend") && d["src_extend"]?.ToString() == src_extend)
+      .ToList();
 
-    // return path;
-    return ccc;
+    var byExtend = rows.FirstOrDefault(d => d.GetValue("src_pattern_grp") == "src_path");
+    if (byExtend != null) { return byExtend; }
+
+    // 확장자에 딸린 경로가 없다. 소스 하나에 뿌리 경로는 보통 하나이므로
+    // **확장자를 안 적어 둔 경로 행**을 쓴다 — 그렇게 등록된 소스가 실제로 있다.
+    var anyPath = srcInfo.Data
+      .OfType<IDictionary<string, object>>()
+      .FirstOrDefault(d => d.GetValue("src_pattern_grp") == "src_path");
+
+    return anyPath ?? rows.FirstOrDefault();
+  }
+
+  /// <summary>
+  /// 훑을 뿌리 경로가 쓸 만한지 본다. 아니면 그 이유를 <paramref name="reason"/> 에 담는다.
+  ///
+  /// <para>
+  /// 서버가 훑는 것은 <b>서버 장비의 디스크</b>다. 등록된 경로가 그 장비에
+  /// 없는 것은 흔한 일이고(개발 장비에 등록해 둔 경로가 대부분이다),
+  /// 그것이 500 일 이유가 없다. 빈 결과와 안내로 돌려준다.
+  /// </para>
+  /// </summary>
+  static bool CanScan(string path, out string reason) {
+
+    if (string.IsNullOrWhiteSpace(path)) {
+      reason = "소스 상세에 훑을 경로(src_pattern_grp='src_path')가 등록되어 있지 않습니다.";
+      return false;
+    }
+
+    if (!Directory.Exists(path)) {
+      reason = $"등록된 경로가 서버에 없습니다: {path}";
+      return false;
+    }
+
+    reason = null;
+    return true;
   }
 
   public ResultInfo<Dictionary<string, string>> GetMdGlueData(RequestDto dto) {
@@ -556,8 +606,19 @@ public class ProjService : BaseService {
 
 
 
-    if (!string.IsNullOrEmpty(path)) {
+    if (!CanScan(path, out string reason)) {
 
+      // 훑을 수 없으면 **DB 를 건드리지 않는다.** 예전에는 여기서 그냥 지나쳐
+      // 「수집했다」처럼 끝났고, 화면은 왜 아무것도 안 늘었는지 알 수 없었다.
+      ri.Code = -88;
+      ri.Message = reason;
+      ri.Data = aaa;
+
+      GetRes<Dictionary<string, string>>(ref ri, param, DateTime.Now, DateTime.Now, DateTime.Now);
+      return ri;
+    }
+
+    {
       List<Dictionary<string, string>> rowdata = new();
 
       var activeList = ActivityParser.ParseActivityFiles(path);
@@ -621,9 +682,18 @@ public class ProjService : BaseService {
 
     //string path = GetUrlPattern(param, extend); // jsp, blazor 등의 url_patten 을 가져온다.
     List<Dictionary<string, string>> rowdata = new();
-    if (!string.IsNullOrEmpty(path)) {
 
+    if (!CanScan(path, out string reason)) {
 
+      ri.Message = reason;
+      ri.Code = -88;
+      ri.Data = rowdata;
+
+      GetRes<Dictionary<string, string>>(ref ri, param, DateTime.Now, DateTime.Now, DateTime.Now);
+      return ri;
+    }
+
+    {
       var activeList = ActivityParser.ParseSrcFiles(path, extend, skipStr);
 
       foreach (var item in activeList) {

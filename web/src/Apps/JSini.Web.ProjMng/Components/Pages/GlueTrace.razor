@@ -2,39 +2,210 @@
 @using System.Data
 
 @*
-    [Glue 추적]
+    [Glue 서비스 추적] — DB 메뉴 `/projmng/source/glue`.
+    이력: 옛 Blazor `Pages/Develop/GlueTraceMng.razor` → Vue
+          `views/projmng/develop/glue-trace.vue` → 여기.
+    프로시저: `sp_dev_activityinfo_exec`(조회) · `md_glue_service`(재수집)
 
-    이력: Vue `views/projmng/develop/glue-trace.vue` → 여기.
-    서비스 Glue 레이어 추적 및 연동 로직 검증.
+    Glue 프레임워크의 서비스 정의(`*-service.xml` · `*.glue_sql`)를 서버가
+    훑어 DB 에 쌓아 두고, 이 화면이 그것을 읽는다. 액티비티 종류가 `sql` 인
+    행을 고르면 그 쿼리가 편집기에 뜬다.
+
+    [엉뚱한 프로시저를 부르고 있었다]
+
+    이 화면은 `sp_dev_proj_exec` 를 `keyword` 로 부르고 있었다. 그건
+    **프로젝트 목록**이고 `keyword` 라는 파라미터도 없다. 그래서 무엇을 쳐도
+    프로젝트 일곱 건이 나왔다 — Glue 자료는 한 줄도 나온 적이 없다.
+    실제 자료는 `sp_dev_activityinfo_exec` 에 3,947 건 쌓여 있다.
+
+    [거르는 열쇠는 소스다]
+
+    이 프로시저는 `prj_rid` 를 보지 않고 `src_rid` 로만 거른다(직접 불러
+    확인했다). 그래서 조건줄의 프로젝트는 소스 목록을 좁히는 몫이고,
+    조회에 실제로 쓰이는 값은 소스다.
+
+    [재수집은 되돌릴 수 없다]
+
+    「재수집」은 서버가 파일을 다시 훑어 **DB 를 덮어쓴다.** 조회가 아니라
+    바꾸는 동작이라 확인을 한 번 받는다. 권한도 조회가 아니라 수정 쪽이다.
 *@
 
+@inherits DataPage
 @inject ProjMngClient Client
 
-<PageTitle>Glue 추적 · 프로젝트관리</PageTitle>
+<PageTitle>Glue 서비스 추적 · 프로젝트관리</PageTitle>
 
-<PageHeading Title="Glue 추적" Scope="프로젝트관리" />
+<PageHeading Title="Glue 서비스 추적" Scope="프로젝트관리" />
 
 <SearchBar>
     <ChildContent>
-        <DxTextBox @bind-Text="_keyword" NullText="추적 키워드 검색" Style="width: 240px" />
+        <CodeSelect CodeId="projlist" @bind-Value="_projectCode" OnChanged="@(_ => Clear())" />
+        <SourceSelect ProjectCode="@_projectCode" @bind-Value="_sourceCode"
+                      OnChanged="@(item => OnSourceChangedAsync(item))" />
     </ChildContent>
     <Actions>
         <PermissionView Action="MenuAction.Search">
-            <DxButton Text="추적 조회" RenderStyle="ButtonRenderStyle.Primary" Click="@SearchAsync" />
+            <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@SearchAsync" />
+        </PermissionView>
+        <PermissionView Action="MenuAction.Update">
+            <DxButton Text="재수집" RenderStyle="ButtonRenderStyle.Secondary" Click="@(() => _confirmRecollect = true)" />
         </PermissionView>
     </Actions>
 </SearchBar>
 
-<DynamicGrid Data="@_grid.Data" Loading="@_grid.IsLoading" ExportName="Glue추적" HideAdd="true" />
+<PageNotice Text="@Notice" Tone="@Tone" />
+
+<SplitPane Size="55">
+    <First>
+        <DynamicGrid Data="@_grid.Data" Loading="@_grid.IsLoading" ExportName="glue추적"
+                     HiddenCols="src_rid" HideAdd="true" OnRefresh="@SearchAsync"
+                     OnRowClick="@OnRowPicked" />
+    </First>
+    <Second>
+        @if (_query is null)
+        {
+            <PageNotice Text="종류가 sql 인 행을 고르면 쿼리가 나옵니다." Tone="NoticeTone.Info" />
+        }
+        else
+        {
+            <h2 class="pm-subhead">@_queryOf</h2>
+            <CodeEditor Value="@_query" ReadOnly="true" Height="420px" Language="pgsql" />
+        }
+    </Second>
+</SplitPane>
+
+<DxPopup @bind-Visible="_confirmRecollect" HeaderText="Glue 정의 재수집" Width="480px">
+    <BodyContentTemplate Context="popup">
+        <p>
+            서버가 등록된 소스 경로를 다시 훑어 <b>이 소스의 Glue 자료를 덮어씁니다.</b>
+            되돌릴 수 없습니다.
+        </p>
+        <p class="pm-muted">
+            서버 장비에 그 경로가 없으면 아무것도 바꾸지 않고 이유를 알려 줍니다.
+        </p>
+
+        <div class="jsini-toolbar">
+            <DxButton Text="재수집" RenderStyle="ButtonRenderStyle.Danger" Click="@RecollectAsync" />
+            <DxButton Text="취소" RenderStyle="ButtonRenderStyle.Secondary"
+                      Click="@(() => _confirmRecollect = false)" />
+        </div>
+    </BodyContentTemplate>
+</DxPopup>
 
 @code {
     private ProcGrid _grid = default!;
-    private string? _keyword;
+
+    private string? _projectCode;
+    private string? _sourceCode;
+
+    private bool _confirmRecollect;
+
+    private string? _query;
+    private string? _queryOf;
 
     protected override void OnInitialized()
     {
-        _grid = new ProcGrid(Client, "sp_dev_proj_exec");
+        _grid = new ProcGrid(Client, "sp_dev_activityinfo_exec");
     }
 
-    private Task SearchAsync() => _grid.LoadAsync(new Dictionary<string, object?> { ["keyword"] = _keyword });
+    private async Task OnSourceChangedAsync(SourceItem? item)
+    {
+        Clear();
+
+        if (item is not null)
+        {
+            await SearchAsync();
+        }
+    }
+
+    private void Clear()
+    {
+        _query = null;
+        _queryOf = null;
+    }
+
+    private Task SearchAsync() => LoadAsync(async () =>
+    {
+        if (string.IsNullOrWhiteSpace(_sourceCode))
+        {
+            throw new ApiException("조회할 소스를 고르십시오.");
+        }
+
+        Clear();
+
+        await _grid.LoadAsync(new Dictionary<string, object?>
+        {
+            ["req_type"] = "srch",
+            ["prj_rid"] = _projectCode ?? string.Empty,
+            ["src_rid"] = _sourceCode,
+        });
+
+        return _grid.Data.Table.Rows.Count;
+    }, "그 소스에 쌓인 Glue 자료가 없습니다. 「재수집」으로 모을 수 있습니다.", "Glue 자료를 읽지 못했습니다");
+
+    /// <summary>
+    /// 고른 행의 쿼리.
+    ///
+    /// 종류가 <c>sql</c> 인 행만 본문이 있다. 나머지(<c>proc</c>)는 프로시저
+    /// 이름만 있고 본문은 DB 쪽에 있다 — 옛 화면도 그래서 비워 두었다.
+    /// </summary>
+    private void OnRowPicked(DataRow? row)
+    {
+        if (row is null)
+        {
+            Clear();
+            return;
+        }
+
+        var type = Cell(row, "activity_type");
+
+        if (!string.Equals(type, "sql", StringComparison.OrdinalIgnoreCase))
+        {
+            Clear();
+            return;
+        }
+
+        _query = Cell(row, "active_context");
+        _queryOf = $"{Cell(row, "servicename")} · {Cell(row, "transitionname")}";
+    }
+
+    private static string Cell(DataRow row, string column) =>
+        row.Table.Columns.Contains(column) ? row[column]?.ToString() ?? string.Empty : string.Empty;
+
+    /// <summary>
+    /// 서버가 파일을 다시 훑어 DB 를 채운다.
+    ///
+    /// 결과 자체는 비어서 온다(수집만 하고 돌려주지 않는다). 그래서 끝난 뒤
+    /// 목록을 **다시 읽어** 얼마나 쌓였는지 보여 준다 — 안 그러면 사용자가
+    /// 무엇이 달라졌는지 알 수 없다.
+    /// </summary>
+    private async Task RecollectAsync()
+    {
+        _confirmRecollect = false;
+
+        if (string.IsNullOrWhiteSpace(_sourceCode))
+        {
+            Say("재수집할 소스를 고르십시오.", NoticeTone.Warning);
+            return;
+        }
+
+        var ok = await RunAsync(async () =>
+        {
+            var result = await Client.MdContAsync("md_glue_service", new Dictionary<string, object?>
+            {
+                ["prj_rid"] = _projectCode ?? string.Empty,
+                ["src_rid"] = _sourceCode,
+            });
+
+            if (result.ProcCode < 0)
+            {
+                throw new ApiException(result.Message ?? "재수집하지 못했습니다.");
+            }
+        }, "재수집했습니다.", "재수집하지 못했습니다");
+
+        if (ok)
+        {
+            await SearchAsync();
+        }
+    }
 }

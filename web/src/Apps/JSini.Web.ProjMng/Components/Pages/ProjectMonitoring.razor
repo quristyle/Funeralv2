@@ -5,7 +5,8 @@
 
     이력: 옛 Blazor `Pages/Proj/ProjMonitoring.razor` → Vue `views/projmng/proj/monitoring.vue` → 여기.
     프로시저: `sp_proj_wbs_exec`(WBS) · `sp_dev_srcinfo_exec`(소스) ·
-              `sp_proj_user_map_list`(담당자) · `sp_projdblist`(DB)
+              `sp_proj_user_map_list`(담당자) · `sp_projdblist`(DB) ·
+              `md_blazor_scan`(소스 스캔)
 
     한 프로젝트의 상태를 네 각도에서 한 화면에 모은다.
 
@@ -13,6 +14,18 @@
 
     서로 기다릴 이유가 없다. 차례로 부르면 왕복이 넷 쌓여서, 자료가 많은
     프로젝트에서 화면이 눈에 띄게 늦게 뜬다.
+
+    [DB 목록을 거르는 열쇠만 다르다]
+
+    나머지 셋은 `prj_rid` 인데 `sp_projdblist` 만 `proj_rid` 를 본다.
+    한동안 여기에도 `prj_rid` 를 넘기고 있었고, 그러면 **걸러지지 않아
+    등록된 DB 전부(12건)가 나온다.** 숫자가 그럴듯해서 틀렸다는 것이
+    드러나지 않는 종류의 어긋남이다.
+
+    [소스 스캔은 눌러서 한다]
+
+    서버가 등록된 소스 경로를 훑어 화면 수를 센다. 디스크를 훑는 일이라
+    오래 걸릴 수 있어 조회에 딸려 돌지 않는다 — 옛 화면도 그랬다.
 *@
 
 @inherits DataPage
@@ -29,6 +42,7 @@
     <Actions>
         <PermissionView Action="MenuAction.Search">
             <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@SearchAsync" />
+            <DxButton Text="소스 스캔" RenderStyle="ButtonRenderStyle.Secondary" Click="@ScanAsync" />
         </PermissionView>
     </Actions>
 </SearchBar>
@@ -50,6 +64,10 @@
         <div class="jsini-stat__label">연결 DB</div>
         <div class="jsini-stat__value">@_dbs.Data.Table.Rows.Count</div>
     </div>
+    <div class="jsini-stat">
+        <div class="jsini-stat__label">스캔된 화면</div>
+        <div class="jsini-stat__value">@(_scanned is null ? "–" : _scanned.Table.Rows.Count.ToString())</div>
+    </div>
 </div>
 
 <PageNotice Text="@Notice" Tone="@Tone" />
@@ -67,6 +85,18 @@
     <DxTabPage Text="DB">
         <DynamicGrid Data="@_dbs.Data" Loading="@_dbs.IsLoading" ExportName="연결DB" OnRefresh="@SearchAsync" />
     </DxTabPage>
+    <DxTabPage Text="스캔된 화면">
+        @if (_scanned is null)
+        {
+            <PageNotice Text="「소스 스캔」을 누르면 서버가 소스 경로를 훑어 화면 목록을 셉니다."
+                        Tone="NoticeTone.Info" />
+        }
+        else
+        {
+            <DynamicGrid Data="@_scanned" Loading="@Loading" ExportName="소스스캔"
+                         HideAdd="true" OnRefresh="@ScanAsync" />
+        }
+    </DxTabPage>
 </DxTabs>
 
 @code {
@@ -74,6 +104,12 @@
     private ProcGrid _source = default!;
     private ProcGrid _users = default!;
     private ProcGrid _dbs = default!;
+
+    /// <summary>
+    /// 소스 스캔 결과. <c>null</c> 은 "아직 안 눌렀다" 는 뜻이다 —
+    /// 0 건과 구분해야 한다. 스캔은 조회에 딸려 돌지 않는다.
+    /// </summary>
+    private ProjMngTable? _scanned;
 
     private string? _projectCode;
 
@@ -91,16 +127,44 @@
     {
         var p = new Dictionary<string, object?> { ["prj_rid"] = _projectCode ?? string.Empty };
 
+        // DB 목록만 열쇠 이름이 다르다. `prj_rid` 를 넘기면 걸러지지 않고
+        // 등록된 DB 전부가 나온다 — 화면에는 그럴듯한 숫자로 보인다.
+        var dbParam = new Dictionary<string, object?> { ["proj_rid"] = _projectCode ?? string.Empty };
+
+        _scanned = null;
+
         // 넷을 나란히. 서로 기다릴 이유가 없다.
         await Task.WhenAll(
             _wbs.LoadAsync(new Dictionary<string, object?>(p) { ["schedule_type"] = "WBS" }),
             _source.LoadAsync(p),
             _users.LoadAsync(p),
-            _dbs.LoadAsync(p));
+            _dbs.LoadAsync(dbParam));
 
         return _wbs.Data.Table.Rows.Count
              + _source.Data.Table.Rows.Count
              + _users.Data.Table.Rows.Count
              + _dbs.Data.Table.Rows.Count;
     }, "그 프로젝트에 등록된 자료가 없습니다.", "진행 현황을 읽지 못했습니다");
+
+    /// <summary>
+    /// 서버가 소스 경로를 훑어 화면 목록을 센다.
+    ///
+    /// 훑는 것은 <b>서버 장비의 디스크</b>라, 등록된 경로가 그 장비에 없으면
+    /// 아무것도 안 나온다. 그것을 오류가 아니라 안내로 보여 준다.
+    /// </summary>
+    private Task ScanAsync() => LoadAsync(async () =>
+    {
+        var result = await Client.MdContAsync("md_blazor_scan", new Dictionary<string, object?>
+        {
+            ["prj_rid"] = _projectCode ?? string.Empty,
+        });
+
+        if (result.ProcCode < 0)
+        {
+            throw new ApiException(result.Message ?? "소스를 훑지 못했습니다.");
+        }
+
+        _scanned = ProjMngTable.From(result);
+        return _scanned.Table.Rows.Count;
+    }, "훑어서 찾은 화면이 없습니다. 「소스 정보」에 경로가 등록돼 있는지 보십시오.", "소스를 훑지 못했습니다");
 }
