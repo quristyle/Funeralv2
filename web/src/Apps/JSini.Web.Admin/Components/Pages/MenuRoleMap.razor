@@ -1,0 +1,101 @@
+@page "/admin/auth/menu-role"
+
+@*
+    [메뉴별 권한] — DB 메뉴 `/auth/menu-role`.
+    이력: Vue `views/portal/auth/menu-role/index` → 여기.
+
+    역할을 고르면 메뉴마다 **버튼 단위 권한**이 나온다. 조회만 켜고 등록은 끄는
+    식으로 화면 안에서 버튼을 켜고 끈다 — 그 판정을 `PermissionView` 가 읽는다.
+
+    [통째로 저장한다]
+
+    바뀐 줄만 보내지 않는다. 서버가 목록을 그대로 받아 덮어쓰므로, 목록에 없는
+    메뉴는 권한이 풀린다. 부분 저장으로 두면 "지운 권한이 안 지워진다" 가 생긴다.
+*@
+
+@inherits DataPage
+@inject AdminClient Api
+
+<PageTitle>메뉴별 권한 · 포털관리</PageTitle>
+
+<PageHeading Title="메뉴별 권한" Scope="포털관리" />
+
+<div class="jsini-toolbar">
+    <DxComboBox Data="@_roles" @bind-Value="_roleId"
+                TextFieldName="@nameof(RoleDto.Name)" ValueFieldName="@nameof(RoleDto.Id)"
+                NullText="역할을 고르십시오" Style="width: 240px" />
+    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@ReloadAsync" />
+
+    <div class="jsini-toolbar__spacer"></div>
+
+    <PermissionView Action="MenuAction.Update">
+        <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Success"
+                  Enabled="@(_roleId is not null && _menus.Count > 0)" Click="@SaveAsync" />
+    </PermissionView>
+</div>
+
+<DxGrid Data="@_menus" ShowFilterRow="false" PageSize="30">
+    <Columns>
+        <DxGridDataColumn FieldName="@nameof(RoleMenuDto.MenuName)" Caption="메뉴" MinWidth="220" />
+        <DxGridDataColumn Caption="조회" Width="70">
+            <CellDisplayTemplate Context="c"><DxCheckBox Checked="@(((RoleMenuDto)c.DataItem).CanView)" CheckedChanged="@((bool v) => ((RoleMenuDto)c.DataItem).CanView = v)" /></CellDisplayTemplate>
+        </DxGridDataColumn>
+        <DxGridDataColumn Caption="검색" Width="70">
+            <CellDisplayTemplate Context="c"><DxCheckBox Checked="@(((RoleMenuDto)c.DataItem).CanSearch)" CheckedChanged="@((bool v) => ((RoleMenuDto)c.DataItem).CanSearch = v)" /></CellDisplayTemplate>
+        </DxGridDataColumn>
+        <DxGridDataColumn Caption="등록" Width="70">
+            <CellDisplayTemplate Context="c"><DxCheckBox Checked="@(((RoleMenuDto)c.DataItem).CanCreate)" CheckedChanged="@((bool v) => ((RoleMenuDto)c.DataItem).CanCreate = v)" /></CellDisplayTemplate>
+        </DxGridDataColumn>
+        <DxGridDataColumn Caption="수정" Width="70">
+            <CellDisplayTemplate Context="c"><DxCheckBox Checked="@(((RoleMenuDto)c.DataItem).CanUpdate)" CheckedChanged="@((bool v) => ((RoleMenuDto)c.DataItem).CanUpdate = v)" /></CellDisplayTemplate>
+        </DxGridDataColumn>
+        <DxGridDataColumn Caption="삭제" Width="70">
+            <CellDisplayTemplate Context="c"><DxCheckBox Checked="@(((RoleMenuDto)c.DataItem).CanDelete)" CheckedChanged="@((bool v) => ((RoleMenuDto)c.DataItem).CanDelete = v)" /></CellDisplayTemplate>
+        </DxGridDataColumn>
+        <DxGridDataColumn Caption="출력" Width="70">
+            <CellDisplayTemplate Context="c"><DxCheckBox Checked="@(((RoleMenuDto)c.DataItem).CanPrint)" CheckedChanged="@((bool v) => ((RoleMenuDto)c.DataItem).CanPrint = v)" /></CellDisplayTemplate>
+        </DxGridDataColumn>
+        <DxGridDataColumn Caption="엑셀" Width="70">
+            <CellDisplayTemplate Context="c"><DxCheckBox Checked="@(((RoleMenuDto)c.DataItem).CanExcel)" CheckedChanged="@((bool v) => ((RoleMenuDto)c.DataItem).CanExcel = v)" /></CellDisplayTemplate>
+        </DxGridDataColumn>
+    </Columns>
+</DxGrid>
+
+<PageNotice Text="@Notice" Tone="@Tone" />
+
+@code {
+    private IReadOnlyList<RoleDto> _roles = [];
+    private string? _roleId;
+    private IReadOnlyList<RoleMenuDto> _menus = [];
+
+    protected override Task OnInitializedAsync() => ReloadAsync();
+
+    private Task ReloadAsync() => LoadAsync(async () =>
+    {
+        if (_roles.Count == 0)
+        {
+            _roles = await Api.GetRolesAsync();
+        }
+
+        if (string.IsNullOrWhiteSpace(_roleId))
+        {
+            _menus = [];
+            Say("역할을 고르고 조회하십시오.");
+            return -1;
+        }
+
+        _menus = await Api.GetRoleMenusAsync(_roleId);
+        return _menus.Count;
+    }, "그 역할에 걸린 메뉴가 없습니다.", "메뉴 권한을 읽지 못했습니다");
+
+    private async Task SaveAsync()
+    {
+        if (_roleId is null) return;
+
+        if (await RunAsync(() => Api.SaveRoleMenusAsync(_roleId, _menus),
+                "저장했습니다.", "저장하지 못했습니다"))
+        {
+            await ReloadAsync();
+        }
+    }
+}

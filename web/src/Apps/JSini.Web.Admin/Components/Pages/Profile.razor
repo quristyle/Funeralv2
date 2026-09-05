@@ -1,0 +1,78 @@
+@page "/admin/profile"
+
+@*
+    [내 정보] — DB 메뉴 `/profile`.
+    이력: Vue `views/portal/_core/profile/index` → 여기.
+
+    로그인한 사람의 정보와 최근 활동을 본다.
+
+    [비밀번호 변경은 여기 없다]
+
+    옛 화면에는 비밀번호 변경 폼이 함께 있었다. 그건 **쿠키를 다시 굽는 흐름**이라
+    회로 안에서 처리할 수 없고(Set-Cookie 를 붙일 수 없다) 셸의 정적 SSR 화면으로
+    가야 한다. 그 화면을 만들 때 여기서 링크를 건다.
+*@
+
+@inherits DataPage
+@inject AdminClient Api
+
+<PageTitle>내 정보 · 포털관리</PageTitle>
+
+<PageHeading Title="내 정보" Scope="포털관리" />
+
+@if (_info is not null)
+{
+    <div class="jsini-stats">
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">아이디</div>
+            <div class="jsini-stat__value ad-stat--text">@(_info.Username ?? _info.UserId ?? "-")</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">이름</div>
+            <div class="jsini-stat__value ad-stat--text">@(_info.RealName ?? "-")</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">회사</div>
+            <div class="jsini-stat__value ad-stat--text">@(_info.CompanyName ?? "-")</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">부서</div>
+            <div class="jsini-stat__value ad-stat--text">@(_info.DeptName ?? "-")</div>
+        </div>
+    </div>
+
+    @if (_info.RoleNames.Count > 0)
+    {
+        <PageNotice Text="@($"역할: {string.Join(", ", _info.RoleNames)}")" />
+    }
+}
+
+<h2 class="ad-subhead">최근 활동</h2>
+<DxGrid Data="@_activity" ShowFilterRow="false" PageSize="20">
+    <Columns>
+        <DxGridDataColumn FieldName="@nameof(UserActivityDto.CreatedAt)" Caption="시각" Width="160" DisplayFormat="yyyy-MM-dd HH:mm" />
+        <DxGridDataColumn FieldName="@nameof(UserActivityDto.Action)" Caption="동작" Width="160" />
+        <DxGridDataColumn FieldName="@nameof(UserActivityDto.Detail)" Caption="내용" MinWidth="260" />
+        <DxGridDataColumn FieldName="@nameof(UserActivityDto.IpAddress)" Caption="접속지" Width="150" />
+    </Columns>
+</DxGrid>
+
+<PageNotice Text="@Notice" Tone="@Tone" />
+
+@code {
+    private UserInfoDto? _info;
+    private IReadOnlyList<UserActivityDto> _activity = [];
+
+    protected override Task OnInitializedAsync() => LoadAsync(async () =>
+    {
+        var info = Api.GetMyInfoAsync();
+        var activity = Api.GetMyActivityAsync();
+
+        await Task.WhenAll(info, activity);
+
+        _info = info.Result;
+        _activity = activity.Result;
+
+        return _activity.Count;
+    }, "최근 활동 기록이 없습니다.", "내 정보를 읽지 못했습니다");
+}

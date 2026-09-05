@@ -1,0 +1,62 @@
+@page "/admin/system/i18n"
+
+@*
+    [다국어 관리] — DB 메뉴 `/system/i18n`.
+    이력: Vue `views/portal/system/i18n/list` → 여기.
+
+    화면 문구의 번역을 다룬다. **메뉴 제목도 여기 값을 쓴다** — 사이드바가
+    `system.menu.title` 같은 키를 그대로 보여 주던 것을 서버가 이 표로 옮겨
+    준다(`MenuTitleTranslator`).
+
+    그래서 여기서 값을 고치면 **사이드바가 바로 바뀐다.** 메뉴를 다시 읽는
+    시점부터다.
+*@
+
+@inherits DataPage
+@inject AdminClient Api
+
+<PageTitle>다국어 관리 · 포털관리</PageTitle>
+
+<PageHeading Title="다국어 관리" Scope="포털관리" />
+
+<div class="jsini-toolbar">
+    <DxComboBox Data="@Locales" @bind-Value="_locale" Style="width: 120px" />
+    <DxTextBox @bind-Text="_keyword" NullText="키·값 검색" Style="width: 240px"
+               ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@ReloadAsync" />
+</div>
+
+<PageNotice Text="메뉴 제목도 이 표를 씁니다. 값을 고치면 사이드바 문구가 함께 바뀝니다." />
+
+<DxGrid Data="@Shown" ShowFilterRow="false" PageSize="30">
+    <Columns>
+        <DxGridDataColumn FieldName="@nameof(I18nResourceDto.Key)" Caption="키" MinWidth="240" />
+        <DxGridDataColumn FieldName="@nameof(I18nResourceDto.Value)" Caption="값" MinWidth="240" />
+        <DxGridDataColumn FieldName="@nameof(I18nResourceDto.Category)" Caption="분류" Width="140" />
+        <DxGridDataColumn FieldName="@nameof(I18nResourceDto.Locale)" Caption="언어" Width="80" />
+    </Columns>
+</DxGrid>
+
+<PageNotice Text="@Notice" Tone="@Tone" />
+
+@code {
+    private static readonly string[] Locales = ["ko", "en"];
+
+    private string _locale = "ko";
+    private string? _keyword;
+    private IReadOnlyList<I18nResourceDto> _all = [];
+
+    private IReadOnlyList<I18nResourceDto> Shown => string.IsNullOrWhiteSpace(_keyword)
+        ? _all
+        : [.. _all.Where(r =>
+            r.Key.Contains(_keyword, StringComparison.OrdinalIgnoreCase)
+            || r.Value.Contains(_keyword, StringComparison.OrdinalIgnoreCase))];
+
+    protected override Task OnInitializedAsync() => ReloadAsync();
+
+    private Task ReloadAsync() => LoadAsync(async () =>
+    {
+        _all = await Api.GetI18nAsync(_locale);
+        return _all.Count;
+    }, "그 언어에 등록된 자원이 없습니다.", "다국어 자원을 읽지 못했습니다");
+}

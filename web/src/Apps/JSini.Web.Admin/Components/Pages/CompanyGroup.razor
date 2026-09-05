@@ -1,0 +1,26 @@
+@page "/admin/company"
+
+@*
+    [회사 관리] — DB 메뉴 `/company`.
+
+    자식이 있는데 DB 유형이 CATALOG 가 아니라 사이드바에서 누를 수 있다.
+    누르면 열릴 화면이 있어야 해서 길잡이를 둔다(GroupLinks 주석 참고).
+*@
+
+<PageTitle>회사 관리 · 포털관리</PageTitle>
+
+<PageHeading Title="회사 관리" Scope="포털관리" />
+
+<PageNotice Text="아래 화면 중에서 고르십시오." />
+
+<GroupLinks Links="@Links" />
+
+@code {
+    private static readonly (string Href, string Title, string Hint)[] Links =
+    [
+        ("/admin/company/list", "회사 목록", "회사를 등록하고 고친다"),
+        ("/admin/company/dept", "부서 관리", "부서 트리를 다룬다"),
+        ("/admin/company/user", "회사 사용자", "회사에 속한 사람을 본다"),
+        ("/admin/company/org-chart", "조직도", "회사 · 부서 · 사람을 트리로 본다"),
+    ];
+}

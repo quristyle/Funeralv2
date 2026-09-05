@@ -1,0 +1,117 @@
+@page "/funeral/deceased"
+
+@*
+    [고인 관리] — DB 메뉴 `/building/deceased`.
+    이력: Vue `views/funeral/building/deceased/index` → 여기.
+
+    고인 자료를 등록하고 고친다. 고인 현황(`/funeral/status/deceased-status`)과
+    쓰임이 다르다 — **그쪽은 진행 상태를 다루고(출상 처리), 여기는 인적 사항과
+    호실 배정을 다룬다.**
+
+    [호실 이동을 여기서 한다]
+
+    배정만 바꾸고 인적 사항은 건드리지 않는다. 서버에 그 전용 통로가 따로
+    있는 이유가 그것이다(`MoveDeceasedRoomAsync`) — 상세 저장으로 옮기면
+    같은 요청에 이름·나이까지 실려 나가고, 그 사이에 다른 사람이 고친 값을 덮는다.
+*@
+
+@inherits DataPage
+@inject FuneralApi Api
+
+<PageTitle>고인 관리 · 장례식장</PageTitle>
+
+<PageHeading Title="고인 관리" Scope="장례식장" />
+
+<div class="jsini-toolbar">
+    <DxTextBox @bind-Text="_keyword" NullText="고인명 검색" Style="width: 200px"
+               ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@ReloadAsync" />
+</div>
+
+<DxGrid Data="@_rows" ShowFilterRow="false" PageSize="20">
+    <Columns>
+        <DxGridDataColumn FieldName="@nameof(Deceased.Name)" Caption="고인" MinWidth="120" />
+        <DxGridDataColumn Caption="성별" Width="80">
+            <CellDisplayTemplate Context="cell">
+                @(((Deceased)cell.DataItem).Gender == "FEMALE" ? "여" : "남")
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+        <DxGridDataColumn FieldName="@nameof(Deceased.Age)" Caption="나이" Width="80" />
+        <DxGridDataColumn FieldName="@nameof(Deceased.Religion)" Caption="종교" Width="110" />
+        <DxGridDataColumn FieldName="@nameof(Deceased.RoomName)" Caption="호실" Width="130" />
+        <DxGridDataColumn FieldName="@nameof(Deceased.DeathDate)" Caption="임종" Width="120" DisplayFormat="yyyy-MM-dd" />
+        <DxGridDataColumn FieldName="@nameof(Deceased.FuneralDate)" Caption="발인" Width="150" DisplayFormat="yyyy-MM-dd HH:mm" />
+        <DxGridDataColumn Caption="호실 이동" Width="230">
+            <CellDisplayTemplate Context="cell">
+                @{
+                    var d = (Deceased)cell.DataItem;
+                }
+                <PermissionView Action="MenuAction.Update">
+                    <div class="d-flex gap-1">
+                        @* 배정 가능한 호실만 나온다 — ACTIVE 이고 비어 있는 것.
+                           전체 호실을 보여 주면 이미 찬 방을 고르게 된다. *@
+                        <DxComboBox Data="@_available" Value="@GetTarget(d.Id)"
+                                    ValueChanged="@((string? v) => SetTarget(d.Id, v))"
+                                    ValueExpression="@(() => GetTarget(d.Id))"
+                                    TextFieldName="@nameof(Room.Name)" ValueFieldName="@nameof(Room.Id)"
+                                    NullText="옮길 호실" Style="width: 140px" />
+                        <DxButton Text="이동" SizeMode="SizeMode.Small" RenderStyle="ButtonRenderStyle.Secondary"
+                                  Click="@(() => MoveAsync(d))" />
+                    </div>
+                </PermissionView>
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+    </Columns>
+</DxGrid>
+
+<PageNotice Text="@Notice" Tone="@Tone" />
+
+@code {
+    private string? _keyword;
+    private IReadOnlyList<Deceased> _rows = [];
+    private IReadOnlyList<Room> _available = [];
+
+    /// <summary>줄마다 고른 이동 대상. 하나로 두면 한 줄에서 고른 값이 다른 줄에도 뜬다.</summary>
+    private readonly Dictionary<string, string?> _targets = new(StringComparer.Ordinal);
+
+    protected override Task OnInitializedAsync() => ReloadAsync();
+
+    private Task ReloadAsync() => LoadAsync(async () =>
+    {
+        var query = new Dictionary<string, string?>();
+        if (!string.IsNullOrWhiteSpace(_keyword)) query["keyword"] = _keyword;
+
+        // 목록과 빈 호실을 나란히. 이동 드롭다운이 바로 채워져 있어야 한다.
+        var rows = Api.GetDeceasedListAsync(query);
+        var rooms = Api.GetAvailableRoomsAsync();
+
+        await Task.WhenAll(rows, rooms);
+
+        _rows = rows.Result;
+        _available = rooms.Result;
+        _targets.Clear();
+
+        return _rows.Count;
+    }, "조건에 맞는 고인 자료가 없습니다.", "고인 목록을 읽지 못했습니다");
+
+    private string? GetTarget(string id) => _targets.GetValueOrDefault(id);
+
+    private void SetTarget(string id, string? value) => _targets[id] = value;
+
+    private async Task MoveAsync(Deceased d)
+    {
+        var target = GetTarget(d.Id);
+
+        if (string.IsNullOrWhiteSpace(target))
+        {
+            Say("옮길 호실을 고르십시오.", NoticeTone.Warning);
+            return;
+        }
+
+        if (await RunAsync(() => Api.MoveDeceasedRoomAsync(d.Id, target),
+                $"{d.Name} 님을 옮겼습니다.", "호실을 옮기지 못했습니다"))
+        {
+            await ReloadAsync();
+        }
+    }
+}

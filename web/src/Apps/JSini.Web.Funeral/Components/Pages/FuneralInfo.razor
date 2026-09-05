@@ -1,0 +1,53 @@
+@page "/funeral/status/funeral-info"
+
+@*
+    [빈소 정보] — DB 메뉴 `/status/funeral-info`.
+    이력: Vue `views/funeral/status/funeral-info/index` → 여기.
+*@
+
+@inherits DataPage
+@inject FuneralApi Api
+
+<PageTitle>빈소 정보 · 장례식장</PageTitle>
+
+<PageHeading Title="빈소 정보" Scope="장례식장" />
+
+<BuildingFilter @bind-BuildingId="_buildingId" @bind-FloorId="_floorId" ShowFloor="true" Search="@ReloadAsync">
+    <DxCheckBox @bind-Checked="_onlyInUse">사용 중만</DxCheckBox>
+</BuildingFilter>
+
+<DxGrid Data="@_rows" ShowFilterRow="false" PageSize="20">
+    <Columns>
+        <DxGridDataColumn FieldName="@nameof(FuneralStatus.RoomName)" Caption="호실" Width="120" />
+        <DxGridDataColumn FieldName="@nameof(FuneralStatus.FloorName)" Caption="층" Width="90" />
+        <DxGridDataColumn FieldName="@nameof(FuneralStatus.DeceasedName)" Caption="고인" MinWidth="120" />
+        <DxGridDataColumn FieldName="@nameof(FuneralStatus.ChiefMourner)" Caption="상주" MinWidth="120" />
+        <DxGridDataColumn FieldName="@nameof(FuneralStatus.StartTime)" Caption="입실" Width="150" DisplayFormat="yyyy-MM-dd HH:mm" />
+        <DxGridDataColumn FieldName="@nameof(FuneralStatus.DischargeTime)" Caption="발인" Width="150" DisplayFormat="yyyy-MM-dd HH:mm" />
+        <DxGridDataColumn FieldName="@nameof(FuneralStatus.Status)" Caption="사용" Width="90">
+            <CellDisplayTemplate>
+                @{ var r = (FuneralStatus)context.DataItem; }
+                <span class="jsini-badge @(r.Occupied ? "jsini-badge--on" : "jsini-badge--off")">
+                    @(r.Occupied ? "사용" : "빈방")
+                </span>
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+    </Columns>
+</DxGrid>
+
+<PageNotice Text="@Notice" Tone="@Tone" />
+
+@code {
+    private string? _buildingId;
+    private string? _floorId;
+    private bool _onlyInUse;
+    private IReadOnlyList<FuneralStatus> _rows = [];
+
+    protected override Task OnInitializedAsync() => ReloadAsync();
+
+    private Task ReloadAsync() => LoadAsync(async () =>
+    {
+        _rows = await Api.GetFuneralStatusesAsync(_buildingId, _floorId, _onlyInUse ? true : null);
+        return _rows.Count;
+    }, "조건에 맞는 빈소가 없습니다.", "빈소 현황을 읽지 못했습니다");
+}

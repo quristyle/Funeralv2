@@ -1,0 +1,114 @@
+/* ============================================================
+   포털관리 모듈 전용 스타일.
+
+   모듈 안에서만 쓰이므로 Blazor Common 으로 올리지 않는다.
+   ============================================================ */
+
+.ad-subhead {
+  margin: 1.5rem 0 0.75rem;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+/* 값이 숫자가 아니라 글자인 통계 타일. 기본 크기(1.5rem)로 두면
+   저장소 경로 같은 긴 값이 두 줄로 넘쳐 타일 높이가 들쭉날쭉해진다. */
+.ad-stat--text {
+  font-size: 0.95rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ad-stamp {
+  font-size: 0.8rem;
+  color: var(--jsini-text-muted);
+}
+
+/* ── 좌우 두 판 (사용자별 권한) ─────────────────────────── */
+
+.ad-two-pane {
+  display: grid;
+  gap: 1rem;
+}
+
+@media (width >= 1024px) {
+  .ad-two-pane { grid-template-columns: 1fr 1fr; }
+}
+
+/* ── 조직도 ─────────────────────────────────────────────── */
+
+.ad-org { display: grid; gap: 1px; }
+
+/* 깊이를 CSS 변수로 받는다. 여섯 단계에서 멈춘다 —
+   더 들여쓰면 좁은 화면에서 이름이 보이지 않는다. */
+.ad-org__dept {
+  margin-left: calc(min(var(--depth), 6) * 1.1rem);
+  border: 1px solid var(--jsini-border);
+  border-left-width: 3px;
+}
+
+.ad-org__summary {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0.75rem;
+  cursor: pointer;
+}
+
+.ad-org__name { font-weight: 600; }
+
+.ad-org__count,
+.ad-org__company,
+.ad-org__id,
+.ad-org__role {
+  font-size: 0.8rem;
+  color: var(--jsini-text-muted);
+}
+
+.ad-org__people {
+  margin: 0;
+  padding: 0.25rem 0.75rem 0.6rem 1.5rem;
+  list-style: none;
+}
+
+.ad-org__people li {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.15rem 0;
+}
+
+.ad-org__empty {
+  padding: 0.3rem 0.75rem 0.6rem;
+  font-size: 0.8rem;
+  color: var(--jsini-text-muted);
+}
+
+/* ── 설정 줄 ────────────────────────────────────────────── */
+
+.ad-settings { margin-bottom: 1rem; }
+
+.ad-setting {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.7rem 0;
+  border-bottom: 1px solid var(--jsini-border);
+}
+
+.ad-setting__name { font-weight: 600; }
+
+.ad-setting__desc {
+  margin-top: 0.15rem;
+  font-size: 0.8rem;
+  color: var(--jsini-text-muted);
+}
+
+/* ── 외부 화면 iframe ───────────────────────────────────── */
+
+.ad-frame {
+  width: 100%;
+  height: min(70vh, 780px);
+  border: 1px solid var(--jsini-border);
+}

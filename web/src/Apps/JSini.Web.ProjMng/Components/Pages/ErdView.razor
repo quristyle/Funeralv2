@@ -1,0 +1,162 @@
+@page "/projmng/design/erd"
+
+@*
+    [ERD]
+
+    이력: 옛 Blazor `Pages/Proj/ProjERD.razor` → Vue `views/projmng/proj/erd.vue` → 여기.
+    프로시저: `sp_dev_db_prop_exec` (`db_pkey='erd'`), 개발도구 `tablelist`
+
+    저장된 ERD JSON 을 읽고, 대상 DB 의 실제 테이블 목록과 합쳐 그린다.
+
+    [사라진 테이블을 지우지 않는다]
+
+    저장본에 있는 것은 배치(x/y)를 유지하고 설명만 갱신한다. 저장본에 없는 새
+    테이블은 더한다. **DB 에서 사라진 테이블은 지우지 않는다** — 옛 화면이 그렇게
+    판단했고 그 판단이 옳다. 테이블 목록 조회가 잠깐 실패했을 때 그림이 통째로
+    비어 버리는 것보다 낫다.
+*@
+
+@inherits DataPage
+@inject ProjMngClient Client
+
+<PageTitle>ERD · 프로젝트관리</PageTitle>
+
+<PageHeading Title="ERD" Scope="프로젝트관리" />
+
+<SearchBar>
+    <ChildContent>
+        <CodeSelect CodeId="projlist" @bind-Value="_projectCode" />
+        <CodeSelect CodeId="projdb" CodeKey="@(_projectCode ?? string.Empty)" @bind-Value="_dbCode" EtcFix="true" />
+    </ChildContent>
+    <Actions>
+        <DxButton Text="축소" SizeMode="SizeMode.Small" RenderStyle="ButtonRenderStyle.Secondary" Click="@ZoomOutAsync" />
+        <DxButton Text="확대" SizeMode="SizeMode.Small" RenderStyle="ButtonRenderStyle.Secondary" Click="@ZoomInAsync" />
+        <DxButton Text="맞춤" SizeMode="SizeMode.Small" RenderStyle="ButtonRenderStyle.Secondary" Click="@FitAsync" />
+
+        <PermissionView Action="MenuAction.Search">
+            <DxButton Text="불러오기" RenderStyle="ButtonRenderStyle.Primary" Click="@LoadDiagramAsync" />
+        </PermissionView>
+        <PermissionView Action="MenuAction.Update">
+            <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Success" Click="@SaveDiagramAsync" />
+        </PermissionView>
+    </Actions>
+</SearchBar>
+
+<PageNotice Text="@Notice" Tone="@Tone" />
+
+<div class="pm-diagram-host">
+    <DiagramViewer @ref="_diagram" Height="100%" />
+</div>
+
+@code {
+    private const string Proc = "sp_dev_db_prop_exec";
+    private const string PropKey = "erd";
+
+    private DiagramViewer? _diagram;
+    private string? _projectCode;
+    private string? _dbCode;
+
+    /// <summary>저장본의 행 키. 저장할 때 같은 행을 갱신하려면 필요하다.</summary>
+    private string _propRowId = string.Empty;
+
+    private Task ZoomInAsync() => _diagram?.ZoomInAsync() ?? Task.CompletedTask;
+    private Task ZoomOutAsync() => _diagram?.ZoomOutAsync() ?? Task.CompletedTask;
+    private Task FitAsync() => _diagram?.FitAsync() ?? Task.CompletedTask;
+
+    private Task LoadDiagramAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_dbCode))
+        {
+            Say("DB 를 먼저 고르십시오.", NoticeTone.Warning);
+            return Task.CompletedTask;
+        }
+
+        return LoadAsync(async () =>
+        {
+            // ① 저장본
+            var saved = await Client.DbContAsync(Proc, SavedParams());
+            var first = saved.Rows?.FirstOrDefault();
+
+            _propRowId = Pick(first, "db_prid");
+            var model = ErdModel.Parse(Pick(first, "db_pvalue"));
+
+            // ② 대상 DB 의 실제 테이블 목록
+            var tables = await Client.JsContAsync(
+                "tablelist",
+                new Dictionary<string, object?> { ["db_rid"] = _dbCode },
+                isProjDb: true);
+
+            // ③ 합친다. 배치는 저장본 값을 그대로 둔다 —
+            //    x/y 를 건드리면 사용자가 배치한 것이 흐트러진다.
+            var known = model.Entities.ToDictionary(e => e.Id, StringComparer.Ordinal);
+
+            foreach (var row in tables.Rows ?? [])
+            {
+                var name = Pick(row, "TableName", "tablename");
+                if (string.IsNullOrWhiteSpace(name)) continue;
+
+                var desc = Pick(row, "Description", "description");
+
+                if (known.TryGetValue(name, out var exist))
+                {
+                    model.Entities[model.Entities.IndexOf(exist)] = exist with { Desc = desc };
+                }
+                else
+                {
+                    model.Entities.Add(new ErdEntity { Id = name, Name = name, Desc = desc });
+                }
+            }
+
+            if (_diagram is not null)
+            {
+                await _diagram.LoadAsync(model);
+            }
+
+            return model.Entities.Count;
+        }, "그릴 테이블이 없습니다.", "ERD 를 읽지 못했습니다");
+    }
+
+    private async Task SaveDiagramAsync()
+    {
+        if (_diagram is null) return;
+
+        var model = await _diagram.SaveAsync();
+
+        var row = new Dictionary<string, object?>(SavedParams())
+        {
+            ["db_prid"] = _propRowId,
+            ["db_pvalue"] = model.ToJson(),
+
+            // 변경 표시. 서버가 이 값으로 저장 대상을 고른다.
+            ["quri_ischange"] = true,
+        };
+
+        await RunAsync(
+            () => Client.DbSaveAsync(Proc, [row], SavedParams()),
+            "저장했습니다.", "저장하지 못했습니다");
+    }
+
+    private Dictionary<string, object?> SavedParams() => new()
+    {
+        ["db_rid"] = _dbCode ?? string.Empty,
+        ["db_pkey"] = PropKey,
+    };
+
+    /// <summary>
+    /// 프로시저마다 컬럼 대소문자가 달라서 몇 가지 이름을 차례로 본다
+    /// (PostgreSQL 통로는 소문자, 옛 SQL Server 통로는 파스칼로 준다).
+    /// </summary>
+    private static string Pick(ProjMngRow? row, params string[] names)
+    {
+        if (row is null) return string.Empty;
+
+        foreach (var name in names)
+        {
+            if (row.TryGetValue(name, out var value) && value is not null)
+            {
+                return value.ToString() ?? string.Empty;
+            }
+        }
+        return string.Empty;
+    }
+}

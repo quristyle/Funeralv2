@@ -16,6 +16,9 @@ public sealed class AdminModule : IPortalModule
 
     public string RoutePrefix => "/admin";
 
+    /// <summary>포털관리 화면들이 함께 쓰는 스타일 (조직도 · 설정 줄 · 두 판 배치).</summary>
+    public string? StyleSheet => "_content/JSini.Web.Admin/admin.css";
+
     public void ConfigureServices(IServiceCollection services, IConfiguration configuration)
     {
         services.AddScoped<AdminClient>();

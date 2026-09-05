@@ -1,0 +1,82 @@
+@page "/projmng/proj/user"
+@using System.Data
+
+@*
+    [프로젝트 담당자]
+
+    이력: 옛 Blazor `Pages/Proj/ProjUser.razor` → Vue `views/projmng/proj/user.vue` → 여기.
+    프로시저: `sp_dev_proj_user_map_exec` (조회·저장·삭제)
+
+    프로젝트에 사람을 배정한다. 새 행에는 프로젝트 키를 자동으로 채운다 —
+    안 채우면 저장할 때 어느 프로젝트 것인지 알 수 없어 목록에서 사라진다.
+*@
+
+@inherits DataPage
+@inject ProjMngClient Client
+
+<PageTitle>프로젝트 담당자 · 프로젝트관리</PageTitle>
+
+<PageHeading Title="프로젝트 담당자" Scope="프로젝트관리" />
+
+<SearchBar>
+    <ChildContent>
+        <CodeSelect CodeId="projlist" @bind-Value="_projectCode" OnChanged="@(_ => SearchAsync())" />
+        <BizSelect Type="portal_account" @bind-Value="_userCode" ShowAll="true" />
+    </ChildContent>
+    <Actions>
+        <PermissionView Action="MenuAction.Search">
+            <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@SearchAsync" />
+        </PermissionView>
+        <PermissionView Action="MenuAction.Update">
+            <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Success" Click="@SaveAsync" />
+        </PermissionView>
+    </Actions>
+</SearchBar>
+
+<PageNotice Text="@Notice" Tone="@Tone" />
+
+<DynamicGrid Data="@_grid.Data"
+             Loading="@_grid.IsLoading"
+             HiddenCols="prj_rid,cre_user,cre_dt,mod_user,mod_dt"
+             ExportName="프로젝트담당자"
+             OnRefresh="@SearchAsync"
+             OnSave="@SaveAsync"
+             OnAdd="@FillProject"
+             OnDelete="@(row => _grid.DeleteAsync(row))" />
+
+@code {
+    private const string Proc = "sp_dev_proj_user_map_exec";
+
+    private ProcGrid _grid = default!;
+    private string? _projectCode;
+    private string? _userCode;
+
+    protected override void OnInitialized() => _grid = new ProcGrid(Client, Proc);
+
+    protected override Task OnInitializedAsync() => SearchAsync();
+
+    private Dictionary<string, object?> Params() => new()
+    {
+        ["prj_rid"] = _projectCode ?? string.Empty,
+        ["user_id"] = _userCode ?? string.Empty,
+    };
+
+    private Task SearchAsync() => LoadAsync(async () =>
+    {
+        await _grid.LoadAsync(Params());
+        return _grid.Data.Table.Rows.Count;
+    }, "배정된 담당자가 없습니다.", "담당자를 읽지 못했습니다");
+
+    private Task SaveAsync() => RunAsync(
+        () => _grid.SaveAsync(Params()), "저장했습니다.", "저장하지 못했습니다");
+
+    /// <summary>새 행에 프로젝트 키를 채운다 (옛 <c>NewRowCreate</c>).</summary>
+    private Task FillProject(DataRow row)
+    {
+        if (row.Table.Columns.Contains("prj_rid"))
+        {
+            row["prj_rid"] = _projectCode ?? string.Empty;
+        }
+        return Task.CompletedTask;
+    }
+}

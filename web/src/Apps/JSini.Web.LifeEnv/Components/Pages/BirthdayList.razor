@@ -4,50 +4,107 @@
     [생일 축하 목록]
 
     이력: Vue `views/life/birthday/list.vue` → 여기.
-    12개월 통계 타일, 오늘 생일자 및 월별 생일자를 조회한다.
+    API: `auth/birthday/{current|list}` · `auth/birthday/message`
+
+    한동안 이 화면은 하드코딩한 자료를 보여 주고 있었다. 실제 API 에 붙였다.
+
+    [음력 생일은 서버가 환산해 준다]
+
+    음력은 해마다 양력 날짜가 달라진다. 화면이 환산하면 브라우저마다 다른 달력
+    구현을 쓰게 되므로, 서버가 그 해 기준 날짜(`OccurrenceDate`)를 함께 준다.
 *@
+
+@inherits DataPage
+@inject BirthdayClient Api
 
 <PageTitle>생일 축하 목록 · 생활과환경</PageTitle>
 
-<h1>생일 축하 목록 <span class="pm-page__scope">생활과환경</span></h1>
+<PageHeading Title="생일 축하 목록" Scope="생활과환경" />
 
-<div class="card p-3 mb-3">
-    <div class="d-flex justify-content-between align-items-center">
-        <span class="fw-bold fs-6 text-danger">🎁 임직원 생일 현황</span>
-        <span class="fs-7 text-muted">생일 정보는 계정 관리 시스템과 실시간 연동됩니다.</span>
-    </div>
+<div class="jsini-toolbar">
+    <DxComboBox Data="@Months" @bind-Value="_month" NullText="이번 달" Style="width: 130px"
+                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto">
+        <ItemTemplate>@context 월</ItemTemplate>
+    </DxComboBox>
+    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@ReloadAsync" />
 </div>
 
-<div class="row row-cols-6 row-cols-md-12 g-2 mb-3">
-    @for (int m = 1; m <= 12; m++)
-    {
-        var month = m;
-        <div class="col">
-            <button type="button"
-                    class="btn w-100 p-2 text-center border @(_selectedMonth == month ? "btn-primary" : "btn-light")"
-                    @onclick="@(() => _selectedMonth = month)">
-                <div class="fs-8 fw-bold">@($"{month}월")</div>
-                <div class="fs-5 font-black">0명</div>
-            </button>
-        </div>
-    }
-</div>
+<DxGrid Data="@_people" ShowFilterRow="false" PageSize="20">
+    <Columns>
+        <DxGridDataColumn FieldName="@nameof(BirthdayPerson.OccurrenceDate)" Caption="생일" Width="120" DisplayFormat="yyyy-MM-dd" />
+        <DxGridDataColumn FieldName="@nameof(BirthdayPerson.Name)" Caption="이름" MinWidth="120" />
+        <DxGridDataColumn FieldName="@nameof(BirthdayPerson.CompanyName)" Caption="회사" Width="160" />
+        <DxGridDataColumn FieldName="@nameof(BirthdayPerson.DepartmentName)" Caption="부서" Width="160" />
+        <DxGridDataColumn Caption="구분" Width="90">
+            <CellDisplayTemplate Context="cell">
+                @(((BirthdayPerson)cell.DataItem).IsLunar ? "음력" : "양력")
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+        <DxGridDataColumn Caption="축하" MinWidth="280">
+            <CellDisplayTemplate Context="cell">
+                @{
+                    var person = (BirthdayPerson)cell.DataItem;
+                }
+                @if (person.IsCelebrated)
+                {
+                    <div class="le-send">
+                        <DxTextBox Text="@GetDraft(person.SubjectId)"
+                                   TextChanged="@((string v) => SetDraft(person.SubjectId, v))"
+                                   NullText="축하 한마디" Style="width: 200px" />
+                        <DxButton Text="보내기" SizeMode="SizeMode.Small" RenderStyle="ButtonRenderStyle.Secondary"
+                                  Click="@(() => SendAsync(person))" />
+                    </div>
+                }
+                else
+                {
+                    <span class="jsini-badge jsini-badge--off">대상 아님</span>
+                }
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+    </Columns>
+</DxGrid>
 
-<div class="row g-3">
-    <div class="col-12 col-lg-6">
-        <div class="card p-3">
-            <h5 class="fw-bold mb-3">🎉 오늘 생일자</h5>
-            <div class="text-center text-muted py-4">오늘 생일인 임직원이 없습니다.</div>
-        </div>
-    </div>
-    <div class="col-12 col-lg-6">
-        <div class="card p-3">
-            <h5 class="fw-bold mb-3">📅 @($"{_selectedMonth}월 생일자 목록")</h5>
-            <div class="text-center text-muted py-4">해당 월에 등록된 생일자 데이터가 존재하지 않습니다.</div>
-        </div>
-    </div>
-</div>
+<PageNotice Text="@Notice" Tone="@Tone" />
 
 @code {
-    private int _selectedMonth = DateTime.Now.Month;
+    private static readonly int[] Months = [.. Enumerable.Range(1, 12)];
+
+    private int? _month;
+    private IReadOnlyList<BirthdayPerson> _people = [];
+
+    /// <summary>
+    /// 보내기 전 문구. 사람마다 따로 들고 있어야 한다 — 하나로 두면 한 칸에 쓴
+    /// 글이 다른 사람 칸에도 나타난다.
+    /// </summary>
+    private readonly Dictionary<string, string> _drafts = new(StringComparer.Ordinal);
+
+    protected override Task OnInitializedAsync() => ReloadAsync();
+
+    private Task ReloadAsync() => LoadAsync(async () =>
+    {
+        _people = await Api.GetMonthAsync(_month);
+        return _people.Count;
+    }, "그 달에 생일자가 없습니다.", "생일 목록을 읽지 못했습니다");
+
+    private string GetDraft(string id) => _drafts.GetValueOrDefault(id, string.Empty);
+
+    private void SetDraft(string id, string value) => _drafts[id] = value;
+
+    private async Task SendAsync(BirthdayPerson person)
+    {
+        var text = GetDraft(person.SubjectId).Trim();
+
+        if (text.Length == 0)
+        {
+            Say("보낼 문구를 적으십시오.", NoticeTone.Warning);
+            return;
+        }
+
+        if (await RunAsync(() => Api.SendAsync(person.SubjectId, text),
+                $"{person.Name} 님에게 축하를 보냈습니다.", "축하를 보내지 못했습니다"))
+        {
+            // 보낸 문구는 지운다. 남겨 두면 같은 글을 두 번 보내기 쉽다.
+            _drafts.Remove(person.SubjectId);
+        }
+    }
 }

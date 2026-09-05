@@ -1,0 +1,59 @@
+@page "/admin/status/server"
+
+@*
+    [MSA 서버 상태] — DB 메뉴 `/system/server-status`.
+    이력: Vue `views/portal/system/server-status/index` → 여기.
+
+    배포 현황 응답 안의 **도커 컨테이너 목록**을 그대로 본다. 서비스마다 따로
+    헬스체크를 부르지 않는다 — 부르면 화면이 서비스 목록을 알아야 하고,
+    서비스를 늘릴 때 화면을 고쳐야 한다.
+*@
+
+@inherits DataPage
+@inject AdminClient Api
+
+<PageTitle>MSA 서버 상태 · 포털관리</PageTitle>
+
+<PageHeading Title="MSA 서버 상태" Scope="포털관리" />
+
+<div class="jsini-toolbar">
+    <DxButton Text="새로 고침" RenderStyle="ButtonRenderStyle.Primary" Click="@ReloadAsync" />
+    @if (_status?.GeneratedAt is { } at)
+    {
+        <span class="ad-stamp">@at.LocalDateTime.ToString("yyyy-MM-dd HH:mm:ss") 기준</span>
+    }
+</div>
+
+<DxGrid Data="@Containers" ShowFilterRow="false" PageSize="30">
+    <Columns>
+        <DxGridDataColumn FieldName="@nameof(DockerContainerDto.Name)" Caption="컨테이너" MinWidth="200" />
+        <DxGridDataColumn FieldName="@nameof(DockerContainerDto.Image)" Caption="이미지" MinWidth="260" />
+        <DxGridDataColumn Caption="상태" Width="110">
+            <CellDisplayTemplate Context="cell">
+                @{
+                    var c = (DockerContainerDto)cell.DataItem;
+                    var up = string.Equals(c.State, "running", StringComparison.OrdinalIgnoreCase);
+                }
+                <span class="jsini-badge @(up ? "jsini-badge--on" : "jsini-badge--warn")">@(c.State ?? "?")</span>
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+        <DxGridDataColumn FieldName="@nameof(DockerContainerDto.Status)" Caption="가동" MinWidth="180" />
+    </Columns>
+</DxGrid>
+
+<PageNotice Text="@Notice" Tone="@Tone" />
+
+@code {
+    private DeployStatusDto? _status;
+
+    private IReadOnlyList<DockerContainerDto> Containers => _status?.Docker ?? [];
+
+    protected override Task OnInitializedAsync() => ReloadAsync();
+
+    private Task ReloadAsync() => LoadAsync(async () =>
+    {
+        _status = await Api.GetDeployStatusAsync();
+        return Containers.Count;
+    }, "컨테이너 정보를 받지 못했습니다. 서버에서 도커 소켓을 읽을 수 있는지 확인하십시오.",
+       "서버 상태를 읽지 못했습니다");
+}

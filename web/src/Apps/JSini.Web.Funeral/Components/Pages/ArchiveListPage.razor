@@ -1,0 +1,84 @@
+@page "/funeral/help/archive"
+
+@*
+    [자료실] — DB 메뉴 `/help/archive`.
+    이력: Vue `views/funeral/help/archive/index` → 여기.
+
+    **내려받기는 AuthServer 를 거친다.** 서버가 횟수를 세고 FileServer 로 302 로
+    넘긴다. FileServer 를 직접 가리키면 셀 수가 없다.
+
+    **파일 이름이 화면 이름과 다르다.** 컴포넌트 이름을 자료 타입과 같게 두면
+    화면 안에서 자료 타입이 가려진다 — Razor 가 만드는 클래스가 같은
+    네임스페이스에 있어 더 가깝기 때문이다. 아키텍처 테스트가 이 충돌을 막는다.
+*@
+
+@inherits DataPage
+@inject HelpApi Api
+
+<PageTitle>자료실 · 장례식장</PageTitle>
+
+<PageHeading Title="자료실" Scope="장례식장" />
+
+<div class="jsini-toolbar">
+    <DxTextBox @bind-Text="_keyword" NullText="자료명 검색" Style="width: 240px"
+               ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@ReloadAsync" />
+</div>
+
+<DxGrid Data="@_items" ShowFilterRow="false" PageSize="20"
+        DetailExpandButtonDisplayMode="GridDetailExpandButtonDisplayMode.Auto">
+    <Columns>
+        <DxGridDataColumn FieldName="@nameof(Archive.Title)" Caption="자료명" MinWidth="220" />
+        <DxGridDataColumn FieldName="@nameof(Archive.Category)" Caption="분류" Width="140" />
+        <DxGridDataColumn FieldName="@nameof(Archive.CreatedAt)" Caption="등록일" Width="130" DisplayFormat="yyyy-MM-dd" />
+        <DxGridDataColumn Caption="첨부" Width="90">
+            <CellDisplayTemplate Context="cell">
+                @(((Archive)cell.DataItem).Files.Count) 개
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+    </Columns>
+    <DetailRowTemplate Context="detail">
+        @{
+            var archive = (Archive)detail.DataItem;
+        }
+        @if (archive.Files.Count == 0)
+        {
+            <PageNotice Text="첨부된 파일이 없습니다." />
+        }
+        else
+        {
+            <ul class="fn-files">
+                @foreach (var file in archive.Files)
+                {
+                    <li class="fn-files__item">
+                        <a href="@file.DownloadUrl">@file.FileName</a>
+                        <span class="fn-files__size">@FormatSize(file.FileSize)</span>
+                    </li>
+                }
+            </ul>
+        }
+    </DetailRowTemplate>
+</DxGrid>
+
+<PageNotice Text="@Notice" Tone="@Tone" />
+
+@code {
+    private string? _keyword;
+    private IReadOnlyList<Archive> _items = [];
+
+    protected override Task OnInitializedAsync() => ReloadAsync();
+
+    private Task ReloadAsync() => LoadAsync(async () =>
+    {
+        var list = await Api.GetArchiveListAsync(keyword: _keyword);
+        _items = list.Items;
+        return _items.Count;
+    }, "등록된 자료가 없습니다.", "자료실을 읽지 못했습니다");
+
+    private static string FormatSize(long? bytes)
+    {
+        if (bytes is null or 0) return string.Empty;
+        var mb = bytes.Value / 1024d / 1024d;
+        return mb >= 1 ? $"{mb:0.0} MB" : $"{Math.Round(bytes.Value / 1024d)} KB";
+    }
+}

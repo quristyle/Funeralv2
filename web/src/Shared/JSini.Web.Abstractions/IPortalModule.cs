@@ -63,6 +63,26 @@ public interface IPortalModule
     Assembly Assembly => GetType().Assembly;
 
     /// <summary>
+    /// 이 모듈만 쓰는 스타일시트의 주소. 없으면 <c>null</c>.
+    ///
+    /// [왜 모듈이 알려 줘야 하나]
+    ///
+    /// 셸의 <c>&lt;head&gt;</c> 는 한 벌뿐인데 모듈은 여섯이다. 셸이 모듈 이름을
+    /// 적어 두는 방식이면 모듈을 넣고 뺄 때마다 셸을 고쳐야 하고, 그건 이
+    /// 구조가 피하려던 바로 그것이다.
+    ///
+    /// [화면마다 <c>.razor.css</c> 를 쓰지 않는 이유]
+    ///
+    /// CSS isolation 은 컴포넌트 하나에 묶인다. 그런데 한 업무의 화면 서른 개가
+    /// 같은 카드·안내 줄 모양을 쓰므로, isolation 으로 하면 같은 규칙을 서른 번
+    /// 복사하게 되고 그중 하나만 여백이 달라진다.
+    ///
+    /// 값은 RCL 정적자원 관례를 따른다 —
+    /// <c>_content/JSini.Web.Funeral/funeral.css</c>.
+    /// </summary>
+    string? StyleSheet => null;
+
+    /// <summary>
     /// 이 모듈이 쓰는 서비스를 등록한다. 셸의 <c>Program.cs</c> 가 기동 때 한 번 부른다.
     ///
     /// 여기서 등록하는 것은 <b>이 모듈 것만</b>이다. 공통 서비스(HTTP 클라이언트,

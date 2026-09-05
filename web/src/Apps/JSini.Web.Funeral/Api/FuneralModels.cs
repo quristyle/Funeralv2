@@ -389,6 +389,16 @@ public sealed class FuneralStatus
     public List<Device>? Devices { get; set; }
 
     public DateTime? UpdatedAt { get; set; }
+
+    /// <summary>
+    /// 지금 고인이 모셔져 있는가.
+    ///
+    /// <b><c>Status</c> 문자열을 화면에서 비교하지 않는다.</b> 서버가 쓰는 값이
+    /// EMPTY · IN_USE 두 가지만이 아니고(출상 대기 같은 중간 상태가 있다),
+    /// 화면마다 각자 비교하면 어느 화면은 중간 상태를 빈방으로 센다.
+    /// 판정을 여기 한 줄로 모아 둔다.
+    /// </summary>
+    public bool Occupied => !string.IsNullOrEmpty(DeceasedId);
 }
 
 /// <summary>현황 요약 숫자</summary>

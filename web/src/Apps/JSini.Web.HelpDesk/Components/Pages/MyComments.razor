@@ -1,0 +1,45 @@
+@page "/helpdesk/request/my-comments"
+
+@*
+    [내 댓글] — DB 메뉴 `/helpdesk/request/my-comments`.
+    이력: Vue `views/helpdesk/request/my-comments` → 여기.
+    엔드포인트: `comments/my`
+
+    **서버가 준 대로 보여 주는 화면이다**(AutoGrid). 칸을 손으로 적지 않은
+    이유는 그 부품의 주석에 있다 — 요약하면, 이런 화면이 마흔 개고 백엔드가
+    칸을 더할 때마다 화면을 고치러 가는 것이 이득이 아니기 때문이다.
+
+    매일 들여다보는 화면이 되면 그때 칸을 손으로 적는다.
+*@
+
+@inherits DataPage
+@inject HelpDeskApi Api
+
+<PageTitle>내 댓글 · 헬프데스크</PageTitle>
+
+<PageHeading Title="내 댓글" Scope="헬프데스크" />
+
+<PageNotice Text="@Notice" Tone="@Tone" />
+
+<AutoGrid Data="@_rows" Loading="@Loading" Captions="@Captions" HiddenCols="id" PageSize="20" />
+
+@code {
+    private DataTable _rows = JsonTable.Empty;
+
+    /// <summary>칸 이름표. 여기 적은 순서가 표의 앞쪽 순서다.</summary>
+    private static readonly Dictionary<string, string> Captions = new(StringComparer.Ordinal)
+    {
+        ["requestTitle"] = "요청",
+        ["content"] = "내용",
+        ["createdAt"] = "작성일",
+    };
+
+    protected override Task OnInitializedAsync() => ReloadAsync();
+
+    private Task ReloadAsync() => LoadAsync(async () =>
+    {
+        var json = await Api.GetAsync<JsonElement>("comments/my");
+        _rows = JsonTable.From(json);
+        return _rows.Rows.Count;
+    }, "작성한 댓글이 없습니다.", "댓글을 읽지 못했습니다");
+}

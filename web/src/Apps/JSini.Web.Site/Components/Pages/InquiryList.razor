@@ -1,0 +1,118 @@
+@page "/site/inquiries"
+
+@*
+    [사이트 문의내역] — DB 메뉴 `/company/site-inquiries`.
+    이력: Vue `views/portal/site/inquiries` → 여기.
+
+    회사 소개 사이트(jsini.co.kr)의 문의 폼으로 들어온 것을 본다.
+
+    [답장은 여기서 보내지 않는다]
+
+    서버에 답장 엔드포인트가 있지만(`/admin/inquiries/{id}/reply`) 메일을
+    보내는 동작이라 되돌릴 수 없다. **상태 전환만 옮겼다** — 실수로 눌러
+    고객에게 빈 메일이 나가는 것보다, 담당자가 메일 도구로 답하고 여기서
+    상태만 바꾸는 편이 낫다. 답장까지 옮길 때는 미리보기와 확인을 함께 붙인다.
+*@
+
+@inherits DataPage
+@inject SiteAdminClient Api
+
+<PageTitle>사이트 문의내역 · 소개사이트·AI</PageTitle>
+
+<PageHeading Title="사이트 문의내역" Scope="소개사이트·AI" />
+
+<div class="jsini-toolbar">
+    <DxComboBox Data="@Statuses" @bind-Value="_status" NullText="상태 전체" Style="width: 160px"
+                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto">
+        <ItemTemplate>@StatusText(context)</ItemTemplate>
+    </DxComboBox>
+    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@ReloadAsync" />
+</div>
+
+<DxGrid Data="@_rows" ShowFilterRow="false" PageSize="20"
+        DetailExpandButtonDisplayMode="GridDetailExpandButtonDisplayMode.Auto">
+    <Columns>
+        <DxGridDataColumn FieldName="@nameof(InquiryDto.CreatedAt)" Caption="접수" Width="150" DisplayFormat="yyyy-MM-dd HH:mm" />
+        <DxGridDataColumn FieldName="@nameof(InquiryDto.Name)" Caption="이름" Width="120" />
+        <DxGridDataColumn FieldName="@nameof(InquiryDto.Company)" Caption="회사" Width="150" />
+        <DxGridDataColumn FieldName="@nameof(InquiryDto.Subject)" Caption="제목" MinWidth="220" />
+        <DxGridDataColumn FieldName="@nameof(InquiryDto.Category)" Caption="분류" Width="120" />
+        <DxGridDataColumn Caption="상태" Width="110">
+            <CellDisplayTemplate Context="cell">
+                @{
+                    var q = (InquiryDto)cell.DataItem;
+                }
+                <span class="jsini-badge @(q.Status == "new" ? "jsini-badge--warn" : "jsini-badge--off")">
+                    @StatusText(q.Status)
+                </span>
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+    </Columns>
+
+    <DetailRowTemplate Context="detail">
+        @{
+            var q = (InquiryDto)detail.DataItem;
+        }
+        <div class="st-inquiry">
+            <dl class="st-inquiry__facts">
+                <dt>이메일</dt><dd><a href="mailto:@q.Email">@q.Email</a></dd>
+                <dt>연락처</dt><dd>@(q.Phone ?? "-")</dd>
+                <dt>언어</dt><dd>@q.Locale</dd>
+
+                @* 개인정보 처리 근거. 동의 시각과 접수 출처를 남겨 두어야
+                   나중에 "동의 없이 받았다" 는 다툼에 답할 수 있다. *@
+                <dt>동의 시각</dt><dd>@q.ConsentedAt.ToString("yyyy-MM-dd HH:mm:ss")</dd>
+                <dt>접수 IP</dt><dd>@(q.ClientIp ?? "-")</dd>
+            </dl>
+
+            <div class="st-inquiry__message">@q.Message</div>
+
+            <PermissionView Action="MenuAction.Update">
+                <div class="st-inquiry__actions">
+                    @foreach (var next in Statuses.Where(s => s != q.Status))
+                    {
+                        <DxButton Text="@($"{StatusText(next)} 으로")" SizeMode="SizeMode.Small"
+                                  RenderStyle="ButtonRenderStyle.Secondary"
+                                  Click="@(() => SetStatusAsync(q, next))" />
+                    }
+                </div>
+            </PermissionView>
+        </div>
+    </DetailRowTemplate>
+</DxGrid>
+
+<PageNotice Text="@Notice" Tone="@Tone" />
+
+@code {
+    /// <summary>서버가 쓰는 상태 값. 화면 문구는 <see cref="StatusText"/> 가 만든다.</summary>
+    private static readonly string[] Statuses = ["new", "reading", "replied", "closed"];
+
+    private string? _status;
+    private IReadOnlyList<InquiryDto> _rows = [];
+
+    protected override Task OnInitializedAsync() => ReloadAsync();
+
+    private Task ReloadAsync() => LoadAsync(async () =>
+    {
+        _rows = await Api.GetInquiriesAsync(_status);
+        return _rows.Count;
+    }, "조건에 맞는 문의가 없습니다.", "문의내역을 읽지 못했습니다");
+
+    private async Task SetStatusAsync(InquiryDto q, string status)
+    {
+        if (await RunAsync(() => Api.SetStatusAsync(q.Id, status),
+                $"'{q.Subject}' 를 {StatusText(status)} 으로 바꿨습니다.", "상태를 바꾸지 못했습니다"))
+        {
+            await ReloadAsync();
+        }
+    }
+
+    private static string StatusText(string status) => status switch
+    {
+        "new" => "접수",
+        "reading" => "확인 중",
+        "replied" => "답변 완료",
+        "closed" => "종료",
+        _ => status,
+    };
+}

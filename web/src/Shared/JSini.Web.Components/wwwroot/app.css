@@ -337,3 +337,140 @@ body {
   gap: 0.5rem;
   margin-top: 1.5rem;
 }
+
+/* ── 화면 공통 (모듈 여섯이 함께 쓴다) ───────────────────── */
+
+.jsini-page-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.jsini-page-head__title {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 700;
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+/* 업무 이름. 제목과 같은 크기로 두면 어느 쪽이 화면 이름인지 헷갈린다. */
+.jsini-page-head__scope {
+  font-size: 0.8rem;
+  font-weight: 400;
+  color: var(--jsini-text-muted);
+}
+
+.jsini-page-head__actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+/* 조건줄. 좁은 화면에서 줄바꿈되게 둔다 — 가로 스크롤이 생기면
+   오른쪽 끝의 조회 단추가 화면 밖으로 나간다. */
+.jsini-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.jsini-toolbar__spacer { flex: 1; }
+
+.jsini-notice {
+  margin: 0.75rem 0;
+  padding: 0.6rem 0.85rem;
+  font-size: 0.875rem;
+  border-left: 3px solid;
+}
+
+.jsini-notice--info {
+  border-color: var(--jsini-text-muted);
+  background: color-mix(in srgb, var(--jsini-text-muted) 8%, transparent);
+}
+
+.jsini-notice--warning {
+  border-color: #b26a00;
+  background: color-mix(in srgb, #b26a00 10%, transparent);
+}
+
+.jsini-notice--error {
+  border-color: #d32f2f;
+  background: color-mix(in srgb, #d32f2f 10%, transparent);
+  color: #d32f2f;
+}
+
+/* 상태 표시. 글자만으로도 읽히게 두고 색은 거들기만 한다 —
+   색으로만 구분하면 색각 이상이 있는 사용자가 못 읽는다. */
+.jsini-badge {
+  display: inline-block;
+  padding: 0.1rem 0.5rem;
+  font-size: 0.75rem;
+  border: 1px solid;
+}
+
+.jsini-badge--on { border-color: #2e7d32; color: #2e7d32; }
+.jsini-badge--off { border-color: var(--jsini-text-muted); color: var(--jsini-text-muted); }
+.jsini-badge--warn { border-color: #b26a00; color: #b26a00; }
+
+/* 통계 타일 묶음. 화면 위쪽에 숫자 넷 안팎을 늘어놓는 자리다. */
+.jsini-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.jsini-stat {
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--jsini-border, #e0e0e0);
+}
+
+.jsini-stat__label {
+  font-size: 0.75rem;
+  color: var(--jsini-text-muted);
+}
+
+.jsini-stat__value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+/* ── 묶음 메뉴 길잡이 ────────────────────────────────────── */
+
+.jsini-group-links {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.jsini-group-link {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--jsini-border);
+  color: inherit;
+  text-decoration: none;
+  transition: border-color 0.15s, background-color 0.15s;
+}
+
+.jsini-group-link:hover {
+  border-color: var(--jsini-accent, #3b6cff);
+  background: color-mix(in srgb, var(--jsini-accent, #3b6cff) 6%, transparent);
+}
+
+.jsini-group-link__title { font-weight: 600; }
+
+.jsini-group-link__hint {
+  font-size: 0.8rem;
+  color: var(--jsini-text-muted);
+}

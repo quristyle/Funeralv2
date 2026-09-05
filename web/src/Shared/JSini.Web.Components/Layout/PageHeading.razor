@@ -1,0 +1,33 @@
+@*
+    화면 제목 줄.
+
+    제목 옆에 업무 이름을 작게 붙인다. 여섯 업무가 한 껍데기 안에 있으므로
+    **지금 보고 있는 것이 어느 업무인지**가 제목만으로 드러나야 한다.
+    사이드바가 접혀 있을 때 특히 그렇다.
+*@
+
+<div class="jsini-page-head">
+    <h1 class="jsini-page-head__title">
+        @Title
+        @if (!string.IsNullOrWhiteSpace(Scope))
+        {
+            <span class="jsini-page-head__scope">@Scope</span>
+        }
+    </h1>
+
+    @if (ChildContent is not null)
+    {
+        <div class="jsini-page-head__actions">@ChildContent</div>
+    }
+</div>
+
+@code {
+    /// <summary>화면 이름. DB 메뉴의 제목과 같게 둔다.</summary>
+    [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
+
+    /// <summary>업무 이름 (<c>장례식장</c>).</summary>
+    [Parameter] public string? Scope { get; set; }
+
+    /// <summary>제목 줄 오른쪽에 놓을 단추들.</summary>
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

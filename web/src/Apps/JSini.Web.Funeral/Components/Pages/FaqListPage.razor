@@ -1,0 +1,72 @@
+@page "/funeral/help/faq"
+
+@*
+    [F.A.Q] — DB 메뉴 `/help/faq`.
+    이력: Vue `views/funeral/help/faq/index` → 여기.
+
+    답변이 HTML 이라 **본문을 그대로 넣지 않는다.** 관리 화면에서 쓴 글이라도
+    HTML 을 그대로 넣으면 XSS 경로가 된다. 태그를 걷어낸 글자만 보여 준다.
+
+    서식이 필요해지면 그때 정제(sanitize)와 함께 넣는다 — 정제 없이 넣는 것은
+    "지금은 관리자만 쓰니까 괜찮다" 로 시작해서 반드시 새어 나간다.
+
+    **파일 이름이 화면 이름과 다르다.** 컴포넌트 이름을 자료 타입과 같게 두면
+    화면 안에서 자료 타입이 가려진다 — Razor 가 만드는 클래스가 같은
+    네임스페이스에 있어 더 가깝기 때문이다. 아키텍처 테스트가 이 충돌을 막는다.
+*@
+
+@inherits DataPage
+@inject HelpApi Api
+
+<PageTitle>F.A.Q · 장례식장</PageTitle>
+
+<PageHeading Title="F.A.Q" Scope="장례식장" />
+
+<div class="jsini-toolbar">
+    <DxTextBox @bind-Text="_keyword" NullText="질문 검색" Style="width: 240px"
+               ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@ReloadAsync" />
+</div>
+
+@foreach (var group in _items.GroupBy(f => string.IsNullOrWhiteSpace(f.Category) ? "기타" : f.Category))
+{
+    <section class="fn-faq">
+        <h2 class="fn-subhead">@group.Key</h2>
+
+        @foreach (var faq in group)
+        {
+            <details class="fn-faq__item">
+                <summary class="fn-faq__q">@faq.Question</summary>
+                <div class="fn-faq__a">@PlainText(faq.Answer)</div>
+            </details>
+        }
+    </section>
+}
+
+<PageNotice Text="@Notice" Tone="@Tone" />
+
+@code {
+    private string? _keyword;
+    private IReadOnlyList<Faq> _items = [];
+
+    protected override Task OnInitializedAsync() => ReloadAsync();
+
+    private Task ReloadAsync() => LoadAsync(async () =>
+    {
+        var list = await Api.GetFaqListAsync(keyword: _keyword);
+        _items = list.Items;
+        return _items.Count;
+    }, "등록된 질문이 없습니다.", "F.A.Q 를 읽지 못했습니다");
+
+    /// <summary>
+    /// HTML 에서 태그를 걷어낸다.
+    ///
+    /// 정규식으로 HTML 을 다루는 것은 일반적으로 나쁜 방법이지만, 여기서는
+    /// **파싱이 아니라 제거**가 목적이라 안전한 쪽이다 — 무엇이 남든 태그로
+    /// 해석되지 않는다.
+    /// </summary>
+    private static string PlainText(string? html) => string.IsNullOrWhiteSpace(html)
+        ? string.Empty
+        : System.Net.WebUtility.HtmlDecode(
+            System.Text.RegularExpressions.Regex.Replace(html, "<[^>]+>", " ")).Trim();
+}

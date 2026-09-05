@@ -1,0 +1,105 @@
+@page "/projmng/todo/list"
+@using System.Data
+
+@*
+    [할일]
+
+    이력: 옛 Blazor `Pages/Home/HomeTodo.razor` → Vue `views/projmng/home/todo.vue` → 여기.
+    프로시저: `sp_home_todo_exec`(조회·저장·삭제), `sp_home_todo_make`(생성)
+
+    날짜별 할일을 다룬다. "생성" 은 그 날짜의 할일을 규칙에 따라 서버가
+    한꺼번에 만들어 주는 동작이다(옛 `OnMakeWrk`).
+
+    [담당자는 포털 계정을 읽는다]
+
+    이식 전에는 프로젝트관리가 들고 있던 자체 사용자 표(`projmng.dev_user`)를
+    공통코드로 읽었다. **사용자의 정본은 포털 한 곳**이라 그쪽으로 옮겼다.
+    값은 로그인 아이디다 — `home_todo.target_user` 에 쌓인 값이 아이디이기 때문이다.
+*@
+
+@inherits DataPage
+@inject ProjMngClient Client
+
+<PageTitle>할일 · 프로젝트관리</PageTitle>
+
+<PageHeading Title="할일" Scope="프로젝트관리" />
+
+<SearchBar>
+    <ChildContent>
+        <DxDateEdit @bind-Date="_targetDate" Style="width: 150px" />
+        <BizSelect Type="portal_account" @bind-Value="_userCode" ShowAll="true" />
+        <CodeSelect CodeId="yn" @bind-Value="_completeYn" ShowAll="true" />
+        <CodeSelect CodeId="todo_state" @bind-Value="_todoState" ShowAll="true" />
+    </ChildContent>
+    <Actions>
+        <PermissionView Action="MenuAction.Search">
+            <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@SearchAsync" />
+        </PermissionView>
+        <PermissionView Action="MenuAction.Create">
+            <DxButton Text="생성" RenderStyle="ButtonRenderStyle.Secondary" Click="@MakeAsync" />
+        </PermissionView>
+        <PermissionView Action="MenuAction.Update">
+            <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Success" Click="@SaveAsync" />
+        </PermissionView>
+    </Actions>
+</SearchBar>
+
+<PageNotice Text="@Notice" Tone="@Tone" />
+
+<DynamicGrid Data="@_grid.Data"
+             Loading="@_grid.IsLoading"
+             ExportName="할일"
+             OnRefresh="@SearchAsync"
+             OnSave="@SaveAsync"
+             OnDelete="@(row => _grid.DeleteAsync(row))" />
+
+@code {
+    private const string Proc = "sp_home_todo_exec";
+
+    private ProcGrid _grid = default!;
+
+    private DateTime? _targetDate = DateTime.Today;
+    private string? _userCode;
+    private string? _completeYn;
+    private string? _todoState;
+
+    protected override void OnInitialized() => _grid = new ProcGrid(Client, Proc);
+
+    protected override Task OnInitializedAsync() => SearchAsync();
+
+    private Dictionary<string, object?> Params() => new()
+    {
+        ["target_user"] = _userCode ?? string.Empty,
+
+        // 서버가 문자열 YYYYMMDD 를 기대한다. DateTime 을 그대로 보내면
+        // 시각까지 붙어서 그 날 자정에 만든 것만 걸린다.
+        ["target_day"] = _targetDate?.ToString("yyyyMMdd") ?? string.Empty,
+        ["is_complete"] = _completeYn ?? string.Empty,
+        ["todo_state"] = _todoState ?? string.Empty,
+    };
+
+    private Task SearchAsync() => LoadAsync(async () =>
+    {
+        await _grid.LoadAsync(Params());
+        return _grid.Data.Table.Rows.Count;
+    }, "그 날짜에 할일이 없습니다. [생성] 을 누르면 규칙대로 만들어 줍니다.", "할일을 읽지 못했습니다");
+
+    private Task SaveAsync() => RunAsync(
+        () => _grid.SaveAsync(Params()), "저장했습니다.", "저장하지 못했습니다");
+
+    /// <summary>그 날짜의 할일을 서버가 만들어 준다. 만든 뒤 바로 다시 읽는다.</summary>
+    private async Task MakeAsync()
+    {
+        var made = await RunAsync(
+            () => Client.DbContAsync("sp_home_todo_make", new Dictionary<string, object?>
+            {
+                ["target_day"] = _targetDate?.ToString("yyyyMMdd") ?? string.Empty,
+            }),
+            "할일을 만들었습니다.", "할일을 만들지 못했습니다");
+
+        if (made)
+        {
+            await SearchAsync();
+        }
+    }
+}

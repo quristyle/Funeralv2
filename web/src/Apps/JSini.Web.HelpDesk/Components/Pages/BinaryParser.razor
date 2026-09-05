@@ -1,0 +1,57 @@
+@page "/helpdesk/util/binary-parser"
+
+@*
+    [바이너리 파서] — DB 메뉴 `/helpdesk/util/binary-parser`.
+    이력: Vue `views/helpdesk/util/binary-parser.vue` → 여기.
+    엔드포인트: `POST utils/parse-binary`
+
+    설비가 보낸 전문을 사람이 읽을 수 있게 푼다. 16진수로 적은 전문을 규칙에 따라 푼다.
+
+    [원문을 지우지 않는다]
+
+    푼 결과만 남기지 않고 넣은 원문을 화면에 그대로 둔다. 파싱이 틀렸을 때
+    무엇을 넣었는지 알아야 고칠 수 있는데, 지워 버리면 다시 붙여 넣어야 한다.
+*@
+
+@inherits DataPage
+@inject HelpDeskApi Api
+
+<PageTitle>바이너리 파서 · 헬프데스크</PageTitle>
+
+<PageHeading Title="바이너리 파서" Scope="헬프데스크" />
+
+<div class="hd-form">
+    <label class="hd-field">
+        <span class="hd-field__label">원문</span>
+        <DxMemo @bind-Text="_raw" Rows="8" NullText="16진수 전문을 붙여 넣으십시오 (예: 02 30 31 …)" />
+    </label>
+
+    <div>
+        <DxButton Text="풀기" RenderStyle="ButtonRenderStyle.Primary" Click="@ParseAsync" />
+    </div>
+</div>
+
+<PageNotice Text="@Notice" Tone="@Tone" />
+
+<AutoGrid Data="@_rows" Loading="@Loading" PageSize="30" />
+
+@code {
+    private string? _raw;
+    private DataTable _rows = JsonTable.Empty;
+
+    private Task ParseAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_raw))
+        {
+            Say("풀 원문을 넣으십시오.", NoticeTone.Warning);
+            return Task.CompletedTask;
+        }
+
+        return LoadAsync(async () =>
+        {
+            var json = await Api.PostAsync<JsonElement>("utils/parse-binary", new { raw = _raw });
+            _rows = JsonTable.From(json);
+            return _rows.Rows.Count;
+        }, "푼 결과가 없습니다. 원문 모양을 확인하십시오.", "풀지 못했습니다");
+    }
+}

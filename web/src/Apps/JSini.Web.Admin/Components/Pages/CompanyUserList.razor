@@ -1,0 +1,63 @@
+@page "/admin/company/user"
+
+@*
+    [회사 사용자] — DB 메뉴 `/company/user`.
+    이력: Vue `views/portal/system/company-user/index` → 여기.
+
+    회사를 고르면 그 회사에 속한 사람이 나온다. **회사를 고르기 전에는 아무것도
+    부르지 않는다** — 전 사용자를 한 번에 읽으면 회사가 여럿인 환경에서 첫 조회가
+    수천 줄이 된다.
+*@
+
+@inherits DataPage
+@inject AdminClient Api
+
+<PageTitle>회사 사용자 · 포털관리</PageTitle>
+
+<PageHeading Title="회사 사용자" Scope="포털관리" />
+
+<div class="jsini-toolbar">
+    <DxComboBox Data="@_companies" @bind-Value="_companyId"
+                TextFieldName="@nameof(CompanyDto.Name)" ValueFieldName="@nameof(CompanyDto.Id)"
+                NullText="회사를 고르십시오" Style="width: 240px" />
+    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@ReloadAsync" />
+</div>
+
+
+<DxGrid Data="@Shown" ShowFilterRow="false" PageSize="20">
+    <Columns>
+        <DxGridDataColumn FieldName="@nameof(AccountDto.LoginId)" Caption="아이디" Width="140" />
+        <DxGridDataColumn FieldName="@nameof(AccountDto.UserName)" Caption="이름" Width="130" />
+        <DxGridDataColumn FieldName="@nameof(AccountDto.DeptName)" Caption="부서" Width="160" />
+        <DxGridDataColumn FieldName="@nameof(AccountDto.Email)" Caption="이메일" MinWidth="200" />
+        <DxGridDataColumn FieldName="@nameof(AccountDto.Phone)" Caption="연락처" Width="140" />
+        <DxGridDataColumn FieldName="@nameof(AccountDto.RoleText)" Caption="역할" MinWidth="180" />
+    </Columns>
+</DxGrid>
+
+<PageNotice Text="@Notice" Tone="@Tone" />
+
+@code {
+    private IReadOnlyList<CompanyDto> _companies = [];
+    private string? _companyId;
+    private IReadOnlyList<AccountDto> _users = [];
+
+    private IReadOnlyList<AccountDto> Shown => _users;
+
+    protected override Task OnInitializedAsync() => ReloadAsync();
+
+    private Task ReloadAsync() => LoadAsync(async () =>
+    {
+        _companies = _companies.Count == 0 ? await Api.GetCompaniesAsync() : _companies;
+
+        if (string.IsNullOrWhiteSpace(_companyId))
+        {
+            _users = [];
+            Say("회사를 고르고 조회하십시오.", NoticeTone.Info);
+            return -1;
+        }
+
+        _users = await Api.GetCompanyUsersAsync(_companyId);
+        return _users.Count;
+    }, "그 회사에 속한 사용자가 없습니다.", "사용자 목록을 읽지 못했습니다");
+}

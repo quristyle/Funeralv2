@@ -1,0 +1,25 @@
+@page "/admin/common"
+
+@*
+    [공통] — DB 메뉴 `/common`.
+
+    자식이 있는데 DB 유형이 CATALOG 가 아니라 사이드바에서 누를 수 있다.
+    누르면 열릴 화면이 있어야 해서 길잡이를 둔다(GroupLinks 주석 참고).
+*@
+
+<PageTitle>공통 · 포털관리</PageTitle>
+
+<PageHeading Title="공통" Scope="포털관리" />
+
+<PageNotice Text="아래 화면 중에서 고르십시오." />
+
+<GroupLinks Links="@Links" />
+
+@code {
+    private static readonly (string Href, string Title, string Hint)[] Links =
+    [
+        ("/admin/system/common-code", "공통코드", "코드 그룹과 항목"),
+        ("/admin/system/i18n", "다국어 관리", "화면 문구의 번역"),
+        ("/admin/system/metadata", "메타데이터 관리", "드롭다운이 무엇을 읽을지 정한다"),
+    ];
+}

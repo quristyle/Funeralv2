@@ -1,0 +1,64 @@
+@page "/funeral/info/deceased-search"
+
+@*
+    [고인 정보 조회] — DB 메뉴 `/info/deceased-search`.
+    이력: Vue `views/funeral/info/deceased-search/index` → 여기.
+
+    고인 현황(`/funeral/status/deceased-status`)과 화면이 비슷하지만 쓰임이 다르다.
+    그쪽은 **지금 진행 중인 것**을 다루고 출상 단추가 있다. 여기는 **지난 것까지
+    찾는** 조회 전용이라 바꾸는 단추가 없다.
+*@
+
+@inherits DataPage
+@inject FuneralApi Api
+
+<PageTitle>고인 정보 조회 · 장례식장</PageTitle>
+
+<PageHeading Title="고인 정보 조회" Scope="장례식장" />
+
+<BuildingFilter @bind-BuildingId="_buildingId" @bind-RoomId="_roomId" ShowRoom="true" Search="@ReloadAsync">
+    <DxTextBox @bind-Text="_keyword" NullText="고인·상주명" Style="width: 180px"
+               ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+    <DxDateEdit @bind-Date="_from" NullText="시작일" Style="width: 150px" />
+    <DxDateEdit @bind-Date="_to" NullText="종료일" Style="width: 150px" />
+</BuildingFilter>
+
+<PageNotice Text="이 화면은 조회만 합니다. 등록·수정은 고인 현황에서 합니다." />
+
+<DxGrid Data="@_rows" ShowFilterRow="false" PageSize="20">
+    <Columns>
+        <DxGridDataColumn FieldName="@nameof(DeceasedLookup.Name)" Caption="고인" MinWidth="120" />
+        <DxGridDataColumn Caption="성별" Width="80">
+            <CellDisplayTemplate>
+                @(((DeceasedLookup)context.DataItem).Gender == "FEMALE" ? "여" : "남")
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+        <DxGridDataColumn FieldName="@nameof(DeceasedLookup.Age)" Caption="나이" Width="80" />
+        <DxGridDataColumn FieldName="@nameof(DeceasedLookup.MournerNames)" Caption="상주" MinWidth="140" />
+        <DxGridDataColumn FieldName="@nameof(DeceasedLookup.BuildingName)" Caption="건물" Width="130" />
+        <DxGridDataColumn FieldName="@nameof(DeceasedLookup.RoomName)" Caption="호실" Width="110" />
+        <DxGridDataColumn FieldName="@nameof(DeceasedLookup.DeathDate)" Caption="임종" Width="120" DisplayFormat="yyyy-MM-dd" />
+        <DxGridDataColumn FieldName="@nameof(DeceasedLookup.BurialDate)" Caption="발인" Width="150" DisplayFormat="yyyy-MM-dd HH:mm" />
+        <DxGridDataColumn FieldName="@nameof(DeceasedLookup.BurialPlot)" Caption="장지" MinWidth="130" />
+    </Columns>
+</DxGrid>
+
+<PageNotice Text="@Notice" Tone="@Tone" />
+
+@code {
+    private string? _buildingId;
+    private string? _roomId;
+    private string? _keyword;
+    private DateTime? _from;
+    private DateTime? _to;
+
+    private IReadOnlyList<DeceasedLookup> _rows = [];
+
+    protected override Task OnInitializedAsync() => ReloadAsync();
+
+    private Task ReloadAsync() => LoadAsync(async () =>
+    {
+        _rows = await Api.SearchDeceasedAsync(_buildingId, _roomId, _keyword, null, _from, _to);
+        return _rows.Count;
+    }, "조건에 맞는 고인 자료가 없습니다.", "고인 정보를 읽지 못했습니다");
+}

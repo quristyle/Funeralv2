@@ -20,7 +20,7 @@ public class MenuService : IMenuService
     /// 사용자가 접근 가능한 모든 메뉴 목록을 트리 구조로 반환
     /// </summary>
     /// <param name="userId">사용자 식별자</param>
-    public async Task<List<MenuDto>> GetAllMenusAsync(string userId)
+    public async Task<List<MenuDto>> GetAllMenusAsync(string userId, string? locale = null)
     {
         // 1. 모든 활성 메뉴 조회
         var allMenus = await _context.SystemMenus
@@ -28,8 +28,16 @@ public class MenuService : IMenuService
             .OrderBy(m => m.OrderNo)
             .ToListAsync();
 
-        // 2. 트리 구조로 변환
-        var menuTree = BuildMenuTree(allMenus, null);
+        // 2. 제목의 다국어를 붙일 사전을 읽는다 (왕복 한 번).
+        //
+        // **사이드바가 키를 그대로 보여 주던 것을 여기서 고쳤다.** 메뉴를
+        // 내려보내는 곳이 둘인데(여기와 SystemMenuService) 한동안 뒤엣것만
+        // 번역을 붙였다. 그래서 메뉴 관리 화면에서는 "메뉴 관리" 로 보이는
+        // 항목이 사이드바에서는 system.menu.title 로 보였다.
+        var titles = await MenuTitleTranslator.LoadAsync(_context, allMenus, locale);
+
+        // 3. 트리 구조로 변환
+        var menuTree = BuildMenuTree(allMenus, null, titles);
 
         return menuTree;
     }
@@ -269,7 +277,8 @@ public class MenuService : IMenuService
         return true;
     }
 
-    private List<MenuDto> BuildMenuTree(List<Entities.SystemMenu> allMenus, string? pid)
+    private List<MenuDto> BuildMenuTree(
+        List<Entities.SystemMenu> allMenus, string? pid, Dictionary<string, string> titles)
     {
         return allMenus
             .Where(m => m.Pid == pid)
@@ -281,6 +290,9 @@ public class MenuService : IMenuService
                 Meta = new MenuMetaDto
                 {
                     Title = m.Title ?? m.Name,
+                    // 사전에서 찾았을 때만 담는다. 못 찾으면 null 이라
+                    // 화면이 저장된 제목을 그대로 쓴다.
+                    TitleText = MenuTitleTranslator.Resolve(m.Title, titles),
                     Icon = m.Icon,
                     Order = m.OrderNo,
                     HideInMenu = m.HideInMenu,
@@ -308,7 +320,7 @@ public class MenuService : IMenuService
                     UseMobile = m.UseMobile,
                     UseTablet = m.UseTablet
                 },
-                Children = BuildMenuTree(allMenus, m.Id)
+                Children = BuildMenuTree(allMenus, m.Id, titles)
             })
             .ToList();
     }

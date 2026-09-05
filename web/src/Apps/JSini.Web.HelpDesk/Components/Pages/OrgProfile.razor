@@ -1,0 +1,50 @@
+@page "/helpdesk/org/profile"
+
+@*
+    [내 프로필] — DB 메뉴 `/helpdesk/org/profile`.
+    이력: Vue `views/helpdesk/org/profile` → 여기.
+    엔드포인트: `admins/me`
+
+    **서버가 준 대로 보여 주는 화면이다**(AutoGrid). 칸을 손으로 적지 않은
+    이유는 그 부품의 주석에 있다 — 요약하면, 이런 화면이 마흔 개고 백엔드가
+    칸을 더할 때마다 화면을 고치러 가는 것이 이득이 아니기 때문이다.
+
+    매일 들여다보는 화면이 되면 그때 칸을 손으로 적는다.
+
+    헬프데스크에서의 내 신원을 본다. **포털 계정과 다른 것**이다 — 헬프데스크는
+    자체 사용자 표를 쓰고, 포털 계정과는 계정 연결(`/helpdesk/system/account-link`)
+    로 이어진다.
+*@
+
+@inherits DataPage
+@inject HelpDeskApi Api
+
+<PageTitle>내 프로필 · 헬프데스크</PageTitle>
+
+<PageHeading Title="내 프로필" Scope="헬프데스크" />
+
+<PageNotice Text="@Notice" Tone="@Tone" />
+
+<AutoGrid Data="@_rows" Loading="@Loading" Captions="@Captions" HiddenCols="id" PageSize="20" />
+
+@code {
+    private DataTable _rows = JsonTable.Empty;
+
+    /// <summary>칸 이름표. 여기 적은 순서가 표의 앞쪽 순서다.</summary>
+    private static readonly Dictionary<string, string> Captions = new(StringComparer.Ordinal)
+    {
+        ["name"] = "이름",
+        ["teamName"] = "팀",
+        ["email"] = "이메일",
+        ["phone"] = "연락처",
+    };
+
+    protected override Task OnInitializedAsync() => ReloadAsync();
+
+    private Task ReloadAsync() => LoadAsync(async () =>
+    {
+        var json = await Api.GetAsync<JsonElement>("admins/me");
+        _rows = JsonTable.From(json);
+        return _rows.Rows.Count;
+    }, "헬프데스크 계정이 연결되어 있지 않습니다. 계정 연결 화면을 보십시오.", "프로필을 읽지 못했습니다");
+}

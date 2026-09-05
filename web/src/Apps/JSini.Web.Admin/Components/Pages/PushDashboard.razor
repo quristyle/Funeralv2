@@ -1,0 +1,102 @@
+@page "/admin/push/dashboard"
+
+@*
+    [푸시 현황] — DB 메뉴 `/system/push/dashboard`.
+    이력: Vue `views/portal/system/push/dashboard` → 여기.
+
+    발송 건수 · 성공률 · 실패 사유를 한 화면에 모은다.
+
+    [차트를 넣지 않았다]
+
+    Vue 는 echarts 로 추이를 그렸다. 여기서는 표로 둔다 — 차트 라이브러리를
+    하나 더 얹는 값어치가 있는지 확인되지 않았고, 실제로 보는 것은 "어제보다
+    나빠졌나" 와 "무엇 때문에 실패했나" 둘이다. 표로도 읽힌다.
+    필요해지면 그때 넣는다.
+*@
+
+@inherits DataPage
+@inject AdminClient Api
+
+<PageTitle>푸시 현황 · 포털관리</PageTitle>
+
+<PageHeading Title="푸시 현황" Scope="포털관리" />
+
+<div class="jsini-toolbar">
+    <DxComboBox Data="@DayOptions" @bind-Value="_days" Style="width: 130px">
+        <ItemTemplate>최근 @context 일</ItemTemplate>
+    </DxComboBox>
+    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@ReloadAsync" />
+</div>
+
+@if (_stats is not null)
+{
+    <div class="jsini-stats">
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">발송</div>
+            <div class="jsini-stat__value">@_stats.TotalSent</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">성공</div>
+            <div class="jsini-stat__value">@_stats.SuccessCount</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">실패</div>
+            <div class="jsini-stat__value">@_stats.FailureCount</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">성공률</div>
+            <div class="jsini-stat__value">@_stats.SuccessRate.ToString("0.0")%</div>
+        </div>
+    </div>
+}
+
+<h2 class="ad-subhead">성공률 추이</h2>
+<DxGrid Data="@_trend" ShowFilterRow="false" PageSize="15">
+    <Columns>
+        <DxGridDataColumn FieldName="@nameof(PushTrendPointDto.Period)" Caption="기간" Width="160" />
+        <DxGridDataColumn FieldName="@nameof(PushTrendPointDto.Sent)" Caption="발송" Width="100" />
+        <DxGridDataColumn FieldName="@nameof(PushTrendPointDto.Success)" Caption="성공" Width="100" />
+        <DxGridDataColumn Caption="성공률" Width="110">
+            <CellDisplayTemplate Context="cell">
+                @(((PushTrendPointDto)cell.DataItem).SuccessRate.ToString("0.0"))%
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+    </Columns>
+</DxGrid>
+
+<h2 class="ad-subhead">실패 사유</h2>
+<DxGrid Data="@_reasons" ShowFilterRow="false" PageSizeSelectorVisible="false" PagerVisible="false">
+    <Columns>
+        <DxGridDataColumn FieldName="@nameof(PushFailureReasonDto.Reason)" Caption="사유" MinWidth="260" />
+        <DxGridDataColumn FieldName="@nameof(PushFailureReasonDto.Count)" Caption="건수" Width="110" />
+    </Columns>
+</DxGrid>
+
+<PageNotice Text="@Notice" Tone="@Tone" />
+
+@code {
+    private static readonly int[] DayOptions = [7, 14, 30, 90];
+
+    private int _days = 7;
+    private PushStatsDto? _stats;
+    private IReadOnlyList<PushTrendPointDto> _trend = [];
+    private IReadOnlyList<PushFailureReasonDto> _reasons = [];
+
+    protected override Task OnInitializedAsync() => ReloadAsync();
+
+    private Task ReloadAsync() => LoadAsync(async () =>
+    {
+        // 셋을 나란히. 서로 기다릴 이유가 없다.
+        var stats = Api.GetPushStatsAsync(_days);
+        var trend = Api.GetPushTrendAsync(days: _days);
+        var reasons = Api.GetPushFailureReasonsAsync(_days);
+
+        await Task.WhenAll(stats, trend, reasons);
+
+        _stats = stats.Result;
+        _trend = trend.Result;
+        _reasons = reasons.Result;
+
+        return (_stats?.TotalSent ?? 0) + _trend.Count;
+    }, "그 기간에 발송 내역이 없습니다.", "푸시 현황을 읽지 못했습니다");
+}

@@ -1,0 +1,22 @@
+@page "/funeral/help"
+
+@*
+    [도움말] — DB 메뉴 `/help`. 자식이 셋인 묶음이지만 유형이 CATALOG 가 아니다.
+*@
+
+<PageTitle>도움말 · 장례식장</PageTitle>
+
+<PageHeading Title="도움말" Scope="장례식장" />
+
+<PageNotice Text="아래 화면 중에서 고르십시오." />
+
+<GroupLinks Links="@Links" />
+
+@code {
+    private static readonly (string Href, string Title, string Hint)[] Links =
+    [
+        ("/funeral/help/qna", "Q & A", "묻고 답하기"),
+        ("/funeral/help/faq", "F.A.Q", "자주 묻는 질문"),
+        ("/funeral/help/archive", "자료실", "내려받을 수 있는 자료"),
+    ];
+}

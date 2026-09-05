@@ -1,0 +1,45 @@
+@page "/funeral/help/qna"
+
+@*
+    [Q & A] — DB 메뉴 `/help/qna`.
+    이력: Vue `views/funeral/help/qna/index` → 여기.
+
+    질문과 답글이 **같은 모양**이다(`ParentId` 로만 갈린다). 그래서 깊이 제한이
+    없고, 화면도 재귀로 그린다.
+*@
+
+@inherits DataPage
+@inject HelpApi Api
+
+<PageTitle>Q &amp; A · 장례식장</PageTitle>
+
+<PageHeading Title="Q & A" Scope="장례식장" />
+
+<div class="jsini-toolbar">
+    <DxTextBox @bind-Text="_keyword" NullText="제목·내용 검색" Style="width: 240px"
+               ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@ReloadAsync" />
+</div>
+
+<div class="fn-qna">
+    @foreach (var post in _items)
+    {
+        <QnaThread Post="post" Depth="0" />
+    }
+</div>
+
+<PageNotice Text="@Notice" Tone="@Tone" />
+
+@code {
+    private string? _keyword;
+    private IReadOnlyList<QnaPost> _items = [];
+
+    protected override Task OnInitializedAsync() => ReloadAsync();
+
+    private Task ReloadAsync() => LoadAsync(async () =>
+    {
+        var list = await Api.GetQnaListAsync(keyword: _keyword);
+        _items = list.Items;
+        return _items.Count;
+    }, "등록된 글이 없습니다.", "Q&A 를 읽지 못했습니다");
+}

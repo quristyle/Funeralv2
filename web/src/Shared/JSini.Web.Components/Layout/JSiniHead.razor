@@ -35,10 +35,25 @@
 
 <link rel="stylesheet" href="_content/JSini.Web.Components/app.css" />
 
+@* 모듈 전용 스타일. 셸은 모듈 이름을 알지 못하고 모듈이 스스로 알려 준다
+   (IPortalModule.StyleSheet). 그래야 모듈을 넣고 빼는 데 셸을 고칠 일이 없다.
+
+   여섯 개를 한꺼번에 싣는다. 지금 보는 업무의 것만 싣는 방법도 있지만, 그러면
+   업무를 옮길 때마다 스타일시트를 새로 내려받아 화면이 한 번 번쩍인다. *@
+@foreach (var module in Modules)
+{
+    @if (!string.IsNullOrWhiteSpace(module.StyleSheet))
+    {
+        <link rel="stylesheet" href="@module.StyleSheet" />
+    }
+}
+
 @if (ScopedCssBundle is { Length: > 0 })
 {
     <link rel="stylesheet" href="@Assets[ScopedCssBundle]" />
 }
+
+@inject IReadOnlyList<IPortalModule> Modules
 
 @code {
     /// <summary>

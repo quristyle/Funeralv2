@@ -1,0 +1,53 @@
+@page "/helpdesk/request/manage"
+
+@*
+    [요청 처리] — DB 메뉴 `/helpdesk/request/manage`.
+    이력: Vue `views/helpdesk/request/manage` → 여기.
+    엔드포인트: `requests/srch`
+
+    **서버가 준 대로 보여 주는 화면이다**(AutoGrid). 칸을 손으로 적지 않은
+    이유는 그 부품의 주석에 있다 — 요약하면, 이런 화면이 마흔 개고 백엔드가
+    칸을 더할 때마다 화면을 고치러 가는 것이 이득이 아니기 때문이다.
+
+    매일 들여다보는 화면이 되면 그때 칸을 손으로 적는다.
+
+    담당자가 배정된 요청을 처리하는 화면이다. 목록(`/helpdesk/request/list`)과
+    자료는 같고 **보는 사람이 다르다** — 그쪽은 요청자, 여기는 처리자다.
+*@
+
+@inherits DataPage
+@inject HelpDeskApi Api
+
+<PageTitle>요청 처리 · 헬프데스크</PageTitle>
+
+<PageHeading Title="요청 처리" Scope="헬프데스크" />
+
+<PageNotice Text="@Notice" Tone="@Tone" />
+
+<AutoGrid Data="@_rows" Loading="@Loading" Captions="@Captions" HiddenCols="id" PageSize="30" />
+
+@code {
+    private DataTable _rows = JsonTable.Empty;
+
+    /// <summary>칸 이름표. 여기 적은 순서가 표의 앞쪽 순서다.</summary>
+    private static readonly Dictionary<string, string> Captions = new(StringComparer.Ordinal)
+    {
+        ["reqNo"] = "요청번호",
+        ["title"] = "제목",
+        ["companyName"] = "고객사",
+        ["requesterName"] = "요청자",
+        ["adminName"] = "담당자",
+        ["statusName"] = "상태",
+        ["createdAt"] = "접수일",
+        ["completedAt"] = "완료일",
+    };
+
+    protected override Task OnInitializedAsync() => ReloadAsync();
+
+    private Task ReloadAsync() => LoadAsync(async () =>
+    {
+        var json = await Api.GetAsync<JsonElement>("requests/srch");
+        _rows = JsonTable.From(json);
+        return _rows.Rows.Count;
+    }, "처리할 요청이 없습니다.", "요청 목록을 읽지 못했습니다");
+}

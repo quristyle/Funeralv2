@@ -1,0 +1,226 @@
+/* ============================================================
+   장례식장 모듈 전용 스타일.
+
+   [CSS isolation(.razor.css)을 쓰지 않는 이유]
+
+   아래 클래스들은 화면 여럿이 함께 쓴다(빈소현황 카드 · 설정 줄 · 자료 목록).
+   isolation 은 컴포넌트 하나에 묶이므로, 공유하려면 화면마다 같은 규칙을
+   복사해야 한다. 그러면 어느 화면 하나만 여백이 달라진다.
+
+   모듈 안에서만 쓰이므로 Blazor Common 으로 올리지 않는다 —
+   올리면 이 스타일이 여섯 모듈 전체의 결합 지점이 된다.
+   ============================================================ */
+
+.fn-subhead {
+  margin: 1.5rem 0 0.75rem;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+/* ── 빈소현황 카드판 ────────────────────────────────────── */
+
+.fn-board {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 0.75rem;
+}
+
+.fn-card {
+  border: 1px solid var(--jsini-border);
+  padding: 0.85rem 1rem;
+}
+
+/* 사용 중인 호실을 왼쪽 띠로 구분한다. 배경색으로 칠하면 카드가 스무 개일 때
+   화면이 얼룩덜룩해져서 오히려 안 읽힌다. */
+.fn-card--in-use { border-left: 3px solid #2e7d32; }
+
+.fn-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.fn-card__room { font-weight: 700; }
+
+.fn-card__body { margin-top: 0.6rem; }
+
+.fn-card__body--empty {
+  color: var(--jsini-text-muted);
+  font-size: 0.875rem;
+}
+
+.fn-card__name { font-size: 1.05rem; font-weight: 700; }
+
+.fn-card__facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.2rem 0.75rem;
+  margin: 0.5rem 0 0;
+  font-size: 0.8rem;
+}
+
+.fn-card__facts dt { color: var(--jsini-text-muted); }
+.fn-card__facts dd { margin: 0; }
+
+/* ── 모바일 현황 ────────────────────────────────────────── */
+
+.fn-mobile {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.fn-mobile__card {
+  border: 1px solid var(--jsini-border);
+  padding: 0.75rem 0.9rem;
+}
+
+.fn-mobile__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.fn-mobile__room { font-weight: 700; }
+.fn-mobile__name { margin-top: 0.4rem; font-size: 1.05rem; }
+
+.fn-mobile__meta {
+  margin-top: 0.2rem;
+  font-size: 0.8rem;
+  color: var(--jsini-text-muted);
+}
+
+/* ── 미리보기 ───────────────────────────────────────────── */
+
+.fn-preview {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 0.75rem;
+}
+
+.fn-preview__item {
+  margin: 0;
+  border: 1px solid var(--jsini-border);
+}
+
+.fn-preview__item img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  background: #000;
+}
+
+/* 오프라인 자리를 그림과 같은 높이로 잡아 둔다 — 안 잡으면 장비가 끊길 때마다
+   격자가 위아래로 출렁인다. */
+.fn-preview__offline {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 16 / 9;
+  background: color-mix(in srgb, var(--jsini-text-muted) 10%, transparent);
+  color: var(--jsini-text-muted);
+  font-size: 0.875rem;
+}
+
+.fn-preview__caption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+}
+
+/* ── 환경설정 ───────────────────────────────────────────── */
+
+.fn-settings { margin-bottom: 1.5rem; }
+
+.fn-setting {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.7rem 0;
+  border-bottom: 1px solid var(--jsini-border);
+}
+
+.fn-setting__name { font-weight: 600; }
+
+.fn-setting__desc {
+  margin-top: 0.15rem;
+  font-size: 0.8rem;
+  color: var(--jsini-text-muted);
+}
+
+/* ── 도움말 ─────────────────────────────────────────────── */
+
+.fn-faq { margin-bottom: 1.5rem; }
+
+.fn-faq__item { border-bottom: 1px solid var(--jsini-border); }
+
+.fn-faq__q {
+  padding: 0.7rem 0;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.fn-faq__a {
+  padding: 0 0 0.9rem;
+  font-size: 0.9rem;
+  line-height: 1.7;
+  color: var(--jsini-text-muted);
+  white-space: pre-line;
+}
+
+.fn-qna { display: grid; gap: 0.5rem; }
+
+/* 깊이를 CSS 변수로 받는다. 깊이마다 클래스를 만들면 몇 단계에서 바닥난다.
+   여덟 단계에서 들여쓰기를 멈춰 좁은 화면에서 본문이 사라지지 않게 한다. */
+.fn-qna__post {
+  margin-left: calc(min(var(--depth), 8) * 1.25rem);
+  border: 1px solid var(--jsini-border);
+  border-left-width: 3px;
+  padding: 0.7rem 0.9rem;
+}
+
+.fn-qna__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--jsini-text-muted);
+}
+
+.fn-qna__title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--jsini-text, inherit);
+}
+
+.fn-qna__body {
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+  line-height: 1.7;
+  white-space: pre-line;
+}
+
+/* ── 첨부 파일 목록 ─────────────────────────────────────── */
+
+.fn-files {
+  margin: 0;
+  padding: 0.5rem 0;
+  list-style: none;
+}
+
+.fn-files__item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.35rem 0;
+}
+
+.fn-files__size {
+  font-size: 0.8rem;
+  color: var(--jsini-text-muted);
+}

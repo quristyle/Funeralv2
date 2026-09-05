@@ -1,0 +1,57 @@
+@page "/admin/company/list"
+
+@*
+    [회사 목록] — DB 메뉴 `/system/company`.
+    이력: Vue `views/portal/system/company/list` → 여기.
+*@
+
+@inherits DataPage
+@inject AdminClient Api
+
+<PageTitle>회사 목록 · 포털관리</PageTitle>
+
+<PageHeading Title="회사 목록" Scope="포털관리" />
+
+<div class="jsini-toolbar">
+    <DxTextBox @bind-Text="_keyword" NullText="회사명 검색" Style="width: 220px"
+               ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@ReloadAsync" />
+</div>
+
+
+<DxGrid Data="@Shown" ShowFilterRow="false" PageSize="20">
+    <Columns>
+        <DxGridDataColumn FieldName="@nameof(CompanyDto.Name)" Caption="회사명" MinWidth="200" />
+        <DxGridDataColumn FieldName="@nameof(CompanyDto.ShortName)" Caption="약칭" Width="120" />
+        <DxGridDataColumn FieldName="@nameof(CompanyDto.BusinessNumber)" Caption="사업자번호" Width="150" />
+        <DxGridDataColumn FieldName="@nameof(CompanyDto.Representative)" Caption="대표자" Width="120" />
+        <DxGridDataColumn Caption="상태" Width="90">
+            <CellDisplayTemplate Context="cell">
+                @{ var c = (CompanyDto)cell.DataItem; }
+                <span class="jsini-badge @(c.Status == 1 ? "jsini-badge--on" : "jsini-badge--off")">
+                    @(c.Status == 1 ? "사용" : "중지")
+                </span>
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+        <DxGridDataColumn FieldName="@nameof(CompanyDto.Remark)" Caption="비고" MinWidth="160" />
+    </Columns>
+</DxGrid>
+
+<PageNotice Text="@Notice" Tone="@Tone" />
+
+@code {
+    private IReadOnlyList<CompanyDto> _all = [];
+    private string? _keyword;
+
+    private IReadOnlyList<CompanyDto> Shown => string.IsNullOrWhiteSpace(_keyword)
+        ? _all
+        : [.. _all.Where(c => c.Name.Contains(_keyword, StringComparison.OrdinalIgnoreCase))];
+
+    protected override Task OnInitializedAsync() => ReloadAsync();
+
+    private Task ReloadAsync() => LoadAsync(async () =>
+    {
+        _all = await Api.GetCompaniesAsync();
+        return _all.Count;
+    }, "등록된 회사가 없습니다.", "회사 목록을 읽지 못했습니다");
+}

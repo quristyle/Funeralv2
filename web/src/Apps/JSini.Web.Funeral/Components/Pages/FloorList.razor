@@ -1,0 +1,50 @@
+@page "/funeral/building/floor"
+
+@*
+    [층 관리] — DB 메뉴 `/building/floor`.
+    이력: Vue `views/funeral/building/floor/index` → 여기.
+*@
+
+@inject FuneralApi Api
+
+<PageTitle>층 관리 · 장례식장</PageTitle>
+
+<PageHeading Title="층 관리" Scope="장례식장" />
+
+<BuildingFilter @bind-BuildingId="_buildingId" Search="@LoadAsync" />
+
+<DxGrid Data="@_floors" ShowFilterRow="false" PageSize="20" >
+    <Columns>
+        <DxGridDataColumn FieldName="@nameof(Floor.BuildingName)" Caption="건물" Width="180" />
+        <DxGridDataColumn FieldName="@nameof(Floor.Name)" Caption="층" MinWidth="140" />
+        <DxGridDataColumn FieldName="@nameof(Floor.SortOrder)" Caption="정렬" Width="80" />
+        <DxGridDataColumn FieldName="@nameof(Floor.Remark)" Caption="비고" MinWidth="200" />
+    </Columns>
+</DxGrid>
+
+<PageNotice Text="@_notice" Tone="@_tone" />
+
+@code {
+    private string? _buildingId;
+    private IReadOnlyList<Floor> _floors = [];
+    private string? _notice;
+    private NoticeTone _tone = NoticeTone.Info;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            _floors = await Api.GetFloorsAsync(_buildingId);
+            _notice = _floors.Count == 0 ? "조건에 맞는 층이 없습니다." : null;
+            _tone = NoticeTone.Info;
+        }
+        catch (ApiException ex)
+        {
+            _floors = [];
+            _notice = $"층 목록을 읽지 못했습니다 — {ex.Message}";
+            _tone = NoticeTone.Error;
+        }
+    }
+}

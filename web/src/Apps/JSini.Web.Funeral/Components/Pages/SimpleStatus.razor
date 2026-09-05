@@ -1,0 +1,46 @@
+@page "/funeral/status/simple"
+
+@*
+    [간편 현황] — DB 메뉴 `/status/simple`.
+    이력: Vue `views/funeral/status/simple/index` → 여기.
+
+    칸을 넷으로 줄인 현황이다. 안내 데스크에서 크게 띄워 두는 화면이라
+    한눈에 읽히는 것이 목적이고, 그래서 기본이 **사용 중만**이다.
+*@
+
+@inherits DataPage
+@inject FuneralApi Api
+
+<PageTitle>간편 현황 · 장례식장</PageTitle>
+
+<PageHeading Title="간편 현황" Scope="장례식장" />
+
+<BuildingFilter @bind-BuildingId="_buildingId" @bind-FloorId="_floorId" ShowFloor="true" Search="@ReloadAsync">
+    <DxCheckBox @bind-Checked="_onlyInUse">사용 중만</DxCheckBox>
+</BuildingFilter>
+
+<DxGrid Data="@_rows" ShowFilterRow="false" PageSize="30">
+    <Columns>
+        <DxGridDataColumn FieldName="@nameof(FuneralStatus.RoomName)" Caption="호실" Width="130" />
+        <DxGridDataColumn FieldName="@nameof(FuneralStatus.DeceasedName)" Caption="고인" MinWidth="140" />
+        <DxGridDataColumn FieldName="@nameof(FuneralStatus.ChiefMourner)" Caption="상주" MinWidth="140" />
+        <DxGridDataColumn FieldName="@nameof(FuneralStatus.DischargeTime)" Caption="발인" Width="150" DisplayFormat="yyyy-MM-dd HH:mm" />
+    </Columns>
+</DxGrid>
+
+<PageNotice Text="@Notice" Tone="@Tone" />
+
+@code {
+    private string? _buildingId;
+    private string? _floorId;
+    private bool _onlyInUse = true;
+    private IReadOnlyList<FuneralStatus> _rows = [];
+
+    protected override Task OnInitializedAsync() => ReloadAsync();
+
+    private Task ReloadAsync() => LoadAsync(async () =>
+    {
+        _rows = await Api.GetFuneralStatusesAsync(_buildingId, _floorId, _onlyInUse ? true : null);
+        return _rows.Count;
+    }, "조건에 맞는 빈소가 없습니다.", "빈소 현황을 읽지 못했습니다");
+}

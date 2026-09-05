@@ -1,0 +1,84 @@
+@*
+    건물 · 층 · 호실 조건줄.
+
+    장례식장 화면 대부분이 이 셋으로 목록을 좁힌다. 화면마다 각자 그리면
+    "어느 화면은 층까지 있고 어느 화면은 없다" 가 되고, 무엇보다 **건물을 바꿨을 때
+    층 목록을 다시 읽는 것을 한 화면에서 빠뜨린다.** 그 화면만 옛 층 목록이 남는다.
+
+    필요한 만큼만 켠다 — `ShowFloor` · `ShowRoom`.
+*@
+
+@inject FuneralApi Api
+
+<div class="fn-filter">
+    <DxComboBox Data="@_buildings" @bind-Value="@BuildingId"
+                TextFieldName="@nameof(Building.Name)" ValueFieldName="@nameof(Building.Id)"
+                NullText="건물 전체" ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto"
+                Style="width: 180px" />
+
+    @if (ShowFloor)
+    {
+        <DxComboBox Data="@_floors" @bind-Value="@FloorId"
+                    TextFieldName="@nameof(Floor.Name)" ValueFieldName="@nameof(Floor.Id)"
+                    NullText="층 전체" ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto"
+                    Style="width: 140px" />
+    }
+
+    @if (ShowRoom)
+    {
+        <DxComboBox Data="@_rooms" @bind-Value="@RoomId"
+                    TextFieldName="@nameof(Room.Name)" ValueFieldName="@nameof(Room.Id)"
+                    NullText="호실 전체" ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto"
+                    Style="width: 160px" />
+    }
+
+    @ChildContent
+
+    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@(() => Search.InvokeAsync())" />
+</div>
+
+@code {
+    [Parameter] public string? BuildingId { get; set; }
+    [Parameter] public EventCallback<string?> BuildingIdChanged { get; set; }
+
+    [Parameter] public string? FloorId { get; set; }
+    [Parameter] public EventCallback<string?> FloorIdChanged { get; set; }
+
+    [Parameter] public string? RoomId { get; set; }
+    [Parameter] public EventCallback<string?> RoomIdChanged { get; set; }
+
+    [Parameter] public bool ShowFloor { get; set; }
+    [Parameter] public bool ShowRoom { get; set; }
+
+    /// <summary>조건줄 오른쪽에 화면별 조건을 더 붙일 자리.</summary>
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    /// <summary>조회 단추를 눌렀을 때.</summary>
+    [Parameter] public EventCallback Search { get; set; }
+
+    private IReadOnlyList<Building> _buildings = [];
+    private IReadOnlyList<Floor> _floors = [];
+    private IReadOnlyList<Room> _rooms = [];
+
+    private string? _loadedFor;
+
+    protected override async Task OnInitializedAsync()
+        => _buildings = await Api.GetBuildingsAsync();
+
+    /// <summary>
+    /// 건물이 바뀌면 층·호실을 다시 읽는다.
+    ///
+    /// **`_loadedFor` 로 한 번만 읽는다.** OnParametersSetAsync 는 부모가 다시
+    /// 그릴 때마다 불리므로, 그냥 두면 화면을 건드릴 때마다 게이트웨이로 나간다.
+    /// </summary>
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!ShowFloor && !ShowRoom) return;
+        if (_loadedFor == BuildingId) return;
+
+        _loadedFor = BuildingId;
+
+        if (ShowFloor) _floors = await Api.GetFloorsAsync(BuildingId);
+        if (ShowRoom) _rooms = await Api.GetRoomsAsync(BuildingId, FloorId);
+    }
+}

@@ -21,6 +21,9 @@ public sealed class HelpDeskModule : IPortalModule
 
     public string RoutePrefix => "/helpdesk";
 
+    /// <summary>헬프데스크 화면들이 함께 쓰는 스타일 (요청 상세 · 입력 폼).</summary>
+    public string? StyleSheet => "_content/JSini.Web.HelpDesk/helpdesk.css";
+
     public void ConfigureServices(IServiceCollection services, IConfiguration configuration)
     {
         // 이 모듈 전용 서비스만 여기 등록한다.

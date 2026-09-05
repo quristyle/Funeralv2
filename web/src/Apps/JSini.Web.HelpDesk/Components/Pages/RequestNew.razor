@@ -1,0 +1,81 @@
+@page "/helpdesk/request/new"
+
+@*
+    [요청 등록] — DB 메뉴 `/helpdesk/request/new`.
+    이력: Vue `views/helpdesk/request/new.vue` → 여기.
+    엔드포인트: `POST requests`
+
+    [첨부는 아직 못 붙인다]
+
+    Vue 는 파일을 함께 올렸다(`PostMultipartAsync`). 그 배관은 `HelpDeskApi` 에
+    이미 있지만, 파일 고르기는 브라우저 상태라 회로가 붙은 뒤에만 다룰 수 있고
+    업로드 진행률·취소까지 붙여야 쓸 만해진다. **본문 등록을 먼저 옮기고**
+    첨부는 그 다음이다 — 지금도 등록한 뒤 상세에서 붙일 수 있다.
+*@
+
+@inherits DataPage
+@inject HelpDeskApi Api
+@inject HelpDeskContext Context
+@inject NavigationManager Navigation
+
+<PageTitle>요청 등록 · 헬프데스크</PageTitle>
+
+<PageHeading Title="요청 등록" Scope="헬프데스크" />
+
+@if (!Context.CanUse)
+{
+    <PageNotice Tone="NoticeTone.Warning">
+        헬프데스크 계정이 연결되어 있지 않습니다.
+        <a href="/helpdesk/system/account-link">계정 연결</a> 화면에서 먼저 연결하십시오.
+    </PageNotice>
+}
+else
+{
+    <div class="hd-form">
+        <label class="hd-field">
+            <span class="hd-field__label">제목</span>
+            <DxTextBox @bind-Text="_title" NullText="무엇이 필요하신지 한 줄로" />
+        </label>
+
+        <label class="hd-field">
+            <span class="hd-field__label">내용</span>
+            <DxMemo @bind-Text="_content" Rows="10" NullText="증상 · 재현 방법 · 언제부터인지" />
+        </label>
+
+        <div>
+            <PermissionView Action="MenuAction.Create">
+                <DxButton Text="등록" RenderStyle="ButtonRenderStyle.Primary" Click="@SubmitAsync" />
+            </PermissionView>
+        </div>
+    </div>
+}
+
+<PageNotice Text="@Notice" Tone="@Tone" />
+
+@code {
+    private string? _title;
+    private string? _content;
+
+    protected override Task OnInitializedAsync() => Context.LoadIdentityAsync();
+
+    private async Task SubmitAsync()
+    {
+        // 브라우저의 required 만 믿지 않는다. 서버도 다시 보지만, 여기서 막으면
+        // 왕복 한 번을 아끼고 무엇이 빠졌는지 바로 알려 줄 수 있다.
+        if (string.IsNullOrWhiteSpace(_title) || string.IsNullOrWhiteSpace(_content))
+        {
+            Say("제목과 내용을 채워 주십시오.", NoticeTone.Warning);
+            return;
+        }
+
+        var ok = await RunAsync(
+            () => Api.PostAsync("requests", new { title = _title!.Trim(), content = _content!.Trim() }),
+            "요청을 등록했습니다.", "요청을 등록하지 못했습니다");
+
+        if (ok)
+        {
+            // 목록으로 보낸다. 등록 화면에 남겨 두면 같은 요청을 두 번 넣기 쉽다.
+            Navigation.NavigateTo("/helpdesk/request/list");
+        }
+    }
+}

@@ -1,0 +1,98 @@
+@page "/funeral/building/music-build"
+
+@*
+    [건물별 음원] — DB 메뉴 `/building/music-build`.
+    이력: Vue `views/funeral/building/music-build/index` → 여기.
+
+    음원 하나를 고르면 **모든 건물이 배정 여부와 함께** 온다. 배정된 건물만
+    받는 방식은 쓰지 않는다 — 그러면 "배정 안 된 건물" 을 따로 구해서 빼야 하고,
+    그 사이에 건물이 늘면 화면에 안 보인다.
+
+    저장은 **통째로 바꾼다**. 목록에 없는 건물은 배정이 풀린다.
+*@
+
+@inherits DataPage
+@inject FuneralApi Api
+
+<PageTitle>건물별 음원 · 장례식장</PageTitle>
+
+<PageHeading Title="건물별 음원" Scope="장례식장" />
+
+<div class="jsini-toolbar">
+    <DxComboBox Data="@_musics" @bind-Value="_musicId"
+                TextFieldName="@nameof(MediaSource.Name)" ValueFieldName="@nameof(MediaSource.Id)"
+                NullText="음원을 고르십시오" Style="width: 260px" />
+    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@LoadMappingAsync" />
+
+    <div class="jsini-toolbar__spacer"></div>
+
+    <PermissionView Action="MenuAction.Update">
+        <DxButton Text="배정 저장" RenderStyle="ButtonRenderStyle.Success"
+                  Enabled="@(_musicId is not null)" Click="@SaveAsync" />
+    </PermissionView>
+</div>
+
+@if (_musicId is null)
+{
+    <PageNotice Text="음원을 먼저 고르십시오." />
+}
+else
+{
+    <DxGrid Data="@_mappings" ShowFilterRow="false" PageSize="20">
+        <Columns>
+            <DxGridDataColumn Caption="배정" Width="80">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var m = (BuildingMusicMapping)cell.DataItem;
+                    }
+                    <DxCheckBox Checked="@m.Mapped" CheckedChanged="@((bool v) => m.Mapped = v)" />
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+            <DxGridDataColumn FieldName="@nameof(BuildingMusicMapping.BuildingName)" Caption="건물" MinWidth="200" />
+            <DxGridDataColumn FieldName="@nameof(BuildingMusicMapping.BuildingShortName)" Caption="약칭" Width="120" />
+            <DxGridDataColumn FieldName="@nameof(BuildingMusicMapping.Address)" Caption="주소" MinWidth="240" />
+        </Columns>
+    </DxGrid>
+}
+
+<PageNotice Text="@Notice" Tone="@Tone" />
+
+@code {
+    private IReadOnlyList<MediaSource> _musics = [];
+    private string? _musicId;
+    private IReadOnlyList<BuildingMusicMapping> _mappings = [];
+
+    protected override Task OnInitializedAsync() => LoadAsync(async () =>
+    {
+        _musics = await Api.GetMediaSourcesAsync("AUDIO");
+        return _musics.Count;
+    }, "등록된 음원이 없습니다.", "음원 목록을 읽지 못했습니다");
+
+    private Task LoadMappingAsync()
+    {
+        if (_musicId is null)
+        {
+            Say("음원을 먼저 고르십시오.", NoticeTone.Warning);
+            return Task.CompletedTask;
+        }
+
+        return LoadAsync(async () =>
+        {
+            _mappings = await Api.GetBuildingsForMusicAsync(_musicId);
+            return _mappings.Count;
+        }, "건물이 없습니다.", "배정 현황을 읽지 못했습니다");
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_musicId is null) return;
+
+        var chosen = _mappings.Where(m => m.Mapped).Select(m => m.BuildingId).ToList();
+
+        if (await RunAsync(() => Api.SaveBuildingsForMusicAsync(_musicId, chosen),
+                $"건물 {chosen.Count}곳에 배정했습니다.", "배정을 저장하지 못했습니다"))
+        {
+            await LoadMappingAsync();
+        }
+    }
+}

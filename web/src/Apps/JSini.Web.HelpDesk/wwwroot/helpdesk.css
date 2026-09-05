@@ -1,0 +1,68 @@
+/* ============================================================
+   헬프데스크 모듈 전용 스타일.
+
+   모듈 안에서만 쓰이므로 Blazor Common 으로 올리지 않는다.
+   ============================================================ */
+
+.hd-subhead {
+  margin: 1.5rem 0 0.75rem;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+/* ── 입력 폼 (요청 등록 · 파서) ─────────────────────────── */
+
+.hd-form {
+  display: grid;
+  gap: 1rem;
+  max-width: 46rem;
+  margin-bottom: 1.25rem;
+}
+
+.hd-field {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.hd-field__label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--jsini-text-muted);
+}
+
+/* ── 요청 상세 ──────────────────────────────────────────── */
+
+.hd-facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.25rem 1rem;
+  margin: 0 0 1rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--jsini-border);
+  font-size: 0.9rem;
+}
+
+.hd-facts dt { color: var(--jsini-text-muted); }
+.hd-facts dd { margin: 0; }
+
+/* 본문. 줄바꿈을 살린다 — 폼에서 여러 줄로 쓴 글이라
+   한 줄로 뭉개면 재현 방법을 읽을 수 없다. */
+.hd-content {
+  padding: 0.9rem 1rem;
+  background: color-mix(in srgb, var(--jsini-text-muted) 8%, transparent);
+  font-size: 0.9rem;
+  line-height: 1.7;
+  white-space: pre-line;
+}
+
+.hd-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.hd-actions a {
+  text-decoration: none;
+  padding: 0.25rem 0.75rem;
+}

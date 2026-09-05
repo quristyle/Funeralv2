@@ -1,0 +1,49 @@
+@page "/admin/company/dept"
+
+@*
+    [부서 관리] — DB 메뉴 `/system/dept`.
+    이력: Vue `views/portal/system/dept/list` → 여기.
+
+    부서는 트리다. 서버가 `Children` 을 안고 내려 주므로 화면은 그대로 편다.
+
+    [사람 수가 둘이다]
+
+    `UserCount` 는 이 부서에 직접 속한 사람, `TotalUserCount` 는 하위 부서까지
+    합한 수다. 둘 다 보여 준다 — 하나만 두면 "부서에 사람이 없다고 나오는데
+    실제로는 있다"(하위에 있다)가 되거나 그 반대가 된다.
+*@
+
+@inherits DataPage
+@inject AdminClient Api
+
+<PageTitle>부서 관리 · 포털관리</PageTitle>
+
+<PageHeading Title="부서 관리" Scope="포털관리" />
+
+<div class="jsini-toolbar">
+    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@ReloadAsync" />
+</div>
+
+<DxTreeList Data="@_depts" ChildrenFieldName="@nameof(DeptDto.Children)" KeyFieldName="@nameof(DeptDto.Id)">
+    <Columns>
+        <DxTreeListDataColumn FieldName="@nameof(DeptDto.Name)" Caption="부서" MinWidth="240" />
+        <DxTreeListDataColumn FieldName="@nameof(DeptDto.CompanyName)" Caption="회사" Width="180" />
+        <DxTreeListDataColumn FieldName="@nameof(DeptDto.UserCount)" Caption="직접" Width="90" />
+        <DxTreeListDataColumn FieldName="@nameof(DeptDto.TotalUserCount)" Caption="하위 포함" Width="110" />
+        <DxTreeListDataColumn FieldName="@nameof(DeptDto.Remark)" Caption="비고" MinWidth="180" />
+    </Columns>
+</DxTreeList>
+
+<PageNotice Text="@Notice" Tone="@Tone" />
+
+@code {
+    private IReadOnlyList<DeptDto> _depts = [];
+
+    protected override Task OnInitializedAsync() => ReloadAsync();
+
+    private Task ReloadAsync() => LoadAsync(async () =>
+    {
+        _depts = await Api.GetDeptsAsync();
+        return _depts.Count;
+    }, "등록된 부서가 없습니다.", "부서 목록을 읽지 못했습니다");
+}

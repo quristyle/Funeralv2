@@ -1,0 +1,74 @@
+@page "/helpdesk/system/account-link"
+
+@*
+    [계정 연결] — DB 메뉴 `/helpdesk/system/account-link`.
+    이력: Vue `views/helpdesk/system/account-link.vue` → 여기.
+    엔드포인트: `auth-links`
+
+    [왜 연결이 필요한가]
+
+    헬프데스크는 **자체 사용자 표**를 쓴다. 포털 계정과 열쇠가 달라
+    (`(int Admin.Id, UserType)` 대 포털 로그인 아이디) 자동으로 이어지지 않는다.
+    표를 새로 설계하면 이을 수 있지만, 이미 쌓인 요청·댓글·구독이 그 열쇠를
+    참조하고 있어 옮기는 비용이 크다. 그래서 연결 표를 하나 두고 이어 준다.
+
+    로그인한 사람의 연결 상태를 보여 주고, 안 이어져 있으면 무엇을 해야 하는지 적는다.
+*@
+
+@inherits DataPage
+@inject HelpDeskApi Api
+@inject HelpDeskContext Context
+
+<PageTitle>계정 연결 · 헬프데스크</PageTitle>
+
+<PageHeading Title="계정 연결" Scope="헬프데스크" />
+
+@if (Context.IdentityChecked)
+{
+    @if (Context.IsLinked)
+    {
+        <PageNotice Text="@($"포털 계정이 헬프데스크 사용자 {Context.HelpdeskUserId} 번과 연결되어 있습니다.")" />
+    }
+    else if (Context.IsAdmin)
+    {
+        <PageNotice Tone="NoticeTone.Warning">
+            관리자 권한은 있지만 헬프데스크 사용자와 연결되어 있지 않습니다.
+            요청 등록·댓글처럼 <strong>사람이 주인인 기능</strong>은 연결한 뒤에 쓸 수 있습니다.
+        </PageNotice>
+    }
+    else
+    {
+        <PageNotice Tone="NoticeTone.Warning">
+            헬프데스크 계정이 연결되어 있지 않습니다. 헬프데스크 관리자에게 연결을 요청하십시오.
+        </PageNotice>
+    }
+}
+
+<h2 class="hd-subhead">연결 목록</h2>
+<AutoGrid Data="@_links" Loading="@Loading" Captions="@Captions" PageSize="20" />
+
+<PageNotice Text="@Notice" Tone="@Tone" />
+
+@code {
+    private static readonly Dictionary<string, string> Captions = new(StringComparer.Ordinal)
+    {
+        ["portalUserId"] = "포털 계정",
+        ["helpdeskUserId"] = "헬프데스크 사용자",
+        ["userType"] = "구분",
+        ["createdAt"] = "연결일",
+    };
+
+    private DataTable _links = JsonTable.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Context.LoadIdentityAsync();
+
+        await LoadAsync(async () =>
+        {
+            var json = await Api.GetAsync<JsonElement>("auth-links");
+            _links = JsonTable.From(json);
+            return _links.Rows.Count;
+        }, "연결된 계정이 없습니다.", "연결 목록을 읽지 못했습니다");
+    }
+}

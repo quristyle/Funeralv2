@@ -1,0 +1,102 @@
+@page "/funeral/room-status"
+
+@*
+    [빈소현황] — DB 메뉴 `/room_status`.
+    이력: Vue `views/funeral/building/status/index` → 여기.
+
+    **호실 · 고인 · 장비를 서버가 붙여서 한 번에 준다**(`room-board`). 화면이
+    셋을 따로 부르고 조인하던 방식은 쓰지 않는다 — 호실이 서른 개면 요청이
+    아흔 번이었고, 그 사이에 자료가 바뀌면 짝이 어긋났다.
+*@
+
+@inherits DataPage
+@inject FuneralApi Api
+
+<PageTitle>빈소현황 · 장례식장</PageTitle>
+
+<PageHeading Title="빈소현황" Scope="장례식장" />
+
+<BuildingFilter @bind-BuildingId="_buildingId" @bind-FloorId="_floorId" ShowFloor="true" Search="@ReloadAsync">
+    <DxCheckBox @bind-Checked="_onlyInUse">사용 중만</DxCheckBox>
+</BuildingFilter>
+
+@if (_board is not null)
+{
+    <div class="jsini-stats">
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">전체 호실</div>
+            <div class="jsini-stat__value">@_board.Summary.TotalRooms</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">사용 중</div>
+            <div class="jsini-stat__value">@_board.Summary.UsingRooms</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">빈 호실</div>
+            <div class="jsini-stat__value">@_board.Summary.EmptyRooms</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">장비 온라인</div>
+            <div class="jsini-stat__value">@_board.Summary.OnlineDevices / @_board.Summary.TotalDevices</div>
+        </div>
+    </div>
+
+    <div class="fn-board">
+        @foreach (var room in _board.Rooms)
+        {
+            <article class="fn-card @(room.Occupied ? "fn-card--in-use" : "")">
+                <header class="fn-card__head">
+                    <span class="fn-card__room">@room.RoomName</span>
+                    <span class="jsini-badge @(room.Occupied ? "jsini-badge--on" : "jsini-badge--off")">
+                        @(room.Occupied ? "사용 중" : "비어 있음")
+                    </span>
+                </header>
+
+                @if (room.Occupied)
+                {
+                    <div class="fn-card__body">
+                        <div class="fn-card__name">@room.DeceasedName</div>
+                        <dl class="fn-card__facts">
+                            <dt>상주</dt><dd>@(room.ChiefMourner ?? "-")</dd>
+                            <dt>입실</dt><dd>@Fmt(room.StartTime)</dd>
+                            <dt>발인</dt><dd>@Fmt(room.DischargeTime)</dd>
+                        </dl>
+                    </div>
+                }
+                else
+                {
+                    <div class="fn-card__body fn-card__body--empty">비어 있습니다</div>
+                }
+            </article>
+        }
+    </div>
+}
+
+<PageNotice Text="@Notice" Tone="@Tone" />
+
+@code {
+    private string? _buildingId;
+    private string? _floorId;
+    private bool _onlyInUse;
+    private RoomBoard? _board;
+
+    protected override Task OnInitializedAsync() => ReloadAsync();
+
+    private Task ReloadAsync() => LoadAsync(async () =>
+    {
+        _board = await Api.GetRoomBoardAsync(
+            buildingId: _buildingId, floorId: _floorId);
+
+        if (_board is not null && _onlyInUse)
+        {
+            // 서버에 조건을 넘기지 않고 여기서 거른다. 요약 숫자(전체·빈 호실)는
+            // 걸러지기 전 기준이어야 하기 때문이다 — 서버에서 거르면 "전체 호실 3"
+            // 처럼 보인다.
+            _board.Rooms = [.. _board.Rooms.Where(r => r.Occupied)];
+        }
+
+        return _board?.Rooms.Count ?? 0;
+    }, "조건에 맞는 호실이 없습니다.", "빈소현황을 읽지 못했습니다");
+
+    private static string Fmt(DateTime? value) => value?.ToString("yyyy-MM-dd HH:mm") ?? "-";
+}

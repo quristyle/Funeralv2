@@ -1,0 +1,21 @@
+@page "/funeral/stat"
+
+@*
+    [통계] — DB 메뉴 `/stat`. 자식이 둘인 묶음이지만 유형이 CATALOG 가 아니다.
+*@
+
+<PageTitle>통계 · 장례식장</PageTitle>
+
+<PageHeading Title="통계" Scope="장례식장" />
+
+<PageNotice Text="아래 화면 중에서 고르십시오." />
+
+<GroupLinks Links="@Links" />
+
+@code {
+    private static readonly (string Href, string Title, string Hint)[] Links =
+    [
+        ("/funeral/stat/billing", "요금 내역", "고인별 시설 사용 요금"),
+        ("/funeral/stat/room-usage", "호실 사용 내역", "호실별 사용 일수와 금액"),
+    ];
+}

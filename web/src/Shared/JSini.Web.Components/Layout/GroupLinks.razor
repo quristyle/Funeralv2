@@ -1,0 +1,38 @@
+@*
+    묶음 메뉴의 길잡이.
+
+    [이 컴포넌트가 필요한 이유]
+
+    DB 메뉴 179건 중에는 **자식이 있는데 유형이 CATALOG 가 아닌** 것이 여럿이다
+    (`/status` · `/info` · `/stat` · `/setting` · `/help` · `/auth`). 사이드바는
+    유형으로 갈라 보므로 그런 메뉴에는 링크가 걸리고, 사용자가 누르면 열릴
+    화면이 있어야 한다.
+
+    DB 에서 유형을 CATALOG 로 고치는 방법도 있다. 그런데 운영에서 그 메뉴들에
+    **열람 권한을 걸어 두고 있어서**(자식이 아니라 부모에 걸린 건이 있다) 유형을
+    바꾸면 권한 판정이 함께 흔들린다. 화면 쪽에서 받는 편이 안전하다.
+*@
+
+<div class="jsini-group-links">
+    @foreach (var link in Links)
+    {
+        <a class="jsini-group-link" href="@link.Href">
+            <span class="jsini-group-link__title">@link.Title</span>
+            @if (!string.IsNullOrWhiteSpace(link.Hint))
+            {
+                <span class="jsini-group-link__hint">@link.Hint</span>
+            }
+        </a>
+    }
+</div>
+
+@code {
+    /// <summary>
+    /// 하위 화면들. 주소는 <b>전체 경로</b>다 (<c>/funeral/status/simple</c>).
+    ///
+    /// 권한으로 거르지 않는다 — 여기서 거르면 사이드바의 판정과 갈라져서
+    /// "목록에는 있는데 길잡이에는 없다" 가 생긴다. 실제 통제는 서버가 한다.
+    /// </summary>
+    [Parameter, EditorRequired]
+    public IReadOnlyList<(string Href, string Title, string Hint)> Links { get; set; } = [];
+}

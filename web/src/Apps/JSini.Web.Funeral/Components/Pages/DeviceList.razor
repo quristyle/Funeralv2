@@ -1,0 +1,95 @@
+@page "/funeral/building/device"
+
+@*
+    [기기 관리] — DB 메뉴 `/building/device`.
+    이력: Vue `views/funeral/building/device/index` → 여기.
+
+    빈소마다 놓인 디스플레이·플레이어 장비다.
+
+    **온·오프라인은 서버가 판정해 `Status` 로 내려 준다.** 화면이 `LastSeenAt`
+    을 보고 직접 재지 않는다 — 재면 브라우저 시계 기준이 되어, 시각이 어긋난
+    장비에서는 멀쩡한 기기가 오프라인으로 보인다.
+*@
+
+@inherits DataPage
+@inject FuneralApi Api
+
+<PageTitle>기기 관리 · 장례식장</PageTitle>
+
+<PageHeading Title="기기 관리" Scope="장례식장" />
+
+<BuildingFilter @bind-BuildingId="_buildingId" @bind-FloorId="_floorId" @bind-RoomId="_roomId"
+                ShowFloor="true" ShowRoom="true" Search="@ReloadAsync" />
+
+<div class="jsini-stats">
+    <div class="jsini-stat">
+        <div class="jsini-stat__label">전체</div>
+        <div class="jsini-stat__value">@_devices.Count</div>
+    </div>
+    <div class="jsini-stat">
+        <div class="jsini-stat__label">온라인</div>
+        <div class="jsini-stat__value">@_devices.Count(d => d.Status == "ONLINE")</div>
+    </div>
+</div>
+
+<DxGrid Data="@_devices" ShowFilterRow="false" PageSize="20">
+    <Columns>
+        <DxGridDataColumn FieldName="@nameof(Device.Code)" Caption="코드" Width="120" />
+        <DxGridDataColumn FieldName="@nameof(Device.Name)" Caption="기기명" MinWidth="160" />
+        <DxGridDataColumn FieldName="@nameof(Device.RoomName)" Caption="호실" Width="130" />
+        <DxGridDataColumn FieldName="@nameof(Device.DeviceType)" Caption="종류" Width="110" />
+        <DxGridDataColumn FieldName="@nameof(Device.IpAddress)" Caption="IP" Width="140" />
+        <DxGridDataColumn FieldName="@nameof(Device.Status)" Caption="상태" Width="100">
+            <CellDisplayTemplate>
+                @{ var d = (Device)context.DataItem; }
+                <span class="jsini-badge @(d.Status == "ONLINE" ? "jsini-badge--on" : "jsini-badge--off")">
+                    @(d.Status == "ONLINE" ? "온라인" : "오프라인")
+                </span>
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+        <DxGridDataColumn FieldName="@nameof(Device.LastSeenAt)" Caption="최근 연결" Width="150" DisplayFormat="yyyy-MM-dd HH:mm" />
+        <DxGridDataColumn Caption="원격" Width="190">
+            <CellDisplayTemplate>
+                @{ var d = (Device)context.DataItem; }
+                <PermissionView Action="MenuAction.Update">
+                    <div class="d-flex gap-1">
+                        @* 화면 전원은 DB 에 남지 않는 즉시 명령이다. *@
+                        <DxButton Text="켜기" SizeMode="SizeMode.Small" RenderStyle="ButtonRenderStyle.Secondary"
+                                  Click="@(() => PowerAsync(d.Code, "ON"))" />
+                        <DxButton Text="끄기" SizeMode="SizeMode.Small" RenderStyle="ButtonRenderStyle.Secondary"
+                                  Click="@(() => PowerAsync(d.Code, "OFF"))" />
+                        <DxButton Text="재시작" SizeMode="SizeMode.Small" RenderStyle="ButtonRenderStyle.Secondary"
+                                  Click="@(() => RestartAsync(d.Code))" />
+                    </div>
+                </PermissionView>
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+    </Columns>
+</DxGrid>
+
+<PageNotice Text="@Notice" Tone="@Tone" />
+
+@code {
+    private string? _buildingId;
+    private string? _floorId;
+    private string? _roomId;
+    private IReadOnlyList<Device> _devices = [];
+
+    protected override Task OnInitializedAsync() => ReloadAsync();
+
+    private Task ReloadAsync() => LoadAsync(async () =>
+    {
+        _devices = await Api.GetDevicesAsync(_buildingId, _floorId, _roomId);
+        return _devices.Count;
+    }, "조건에 맞는 기기가 없습니다.", "기기 목록을 읽지 못했습니다");
+
+    private Task PowerAsync(string code, string state) => RunAsync(
+        () => Api.SetDeviceScreenPowerAsync(code, state),
+        $"{code} 화면을 {(state == "ON" ? "켜" : "꺼")}도록 보냈습니다.",
+        "명령을 보내지 못했습니다");
+
+    private Task RestartAsync(string code) => RunAsync(
+        () => Api.RestartDeviceAppAsync(code),
+        $"{code} 플레이어를 다시 시작하도록 보냈습니다.",
+        "명령을 보내지 못했습니다");
+}

@@ -1,0 +1,93 @@
+@page "/funeral/setting/environment"
+
+@*
+    [환경설정] — DB 메뉴 `/setting/environment`.
+    이력: Vue `views/funeral/setting/environment/index` → 여기.
+
+    **파일 이름이 화면 이름과 다르다.** 컴포넌트를 `EnvironmentSetting` 으로 두면
+    같은 이름의 자료 타입(`Api.EnvironmentSetting`)을 가린다. 아키텍처 테스트가
+    이 충돌을 막는다.
+
+    환경설정은 한 표(`environment_settings`)에 있고 `GroupName` 으로 묶인다.
+    화면을 둘로 나눈 것은 **누가 만지느냐가 다르기 때문**이다 — 환경설정은
+    시설 담당자가, 업무 옵션은 업무 관리자가 본다.
+
+    이 화면은 시설·표시에 관한 묶음만 보여 준다.
+
+    [스위치를 누르는 즉시 저장한다]
+
+    저장 단추를 따로 두지 않는다. 스위치가 열몇 개인데 단추가 하나면 "무엇을
+    바꿨는지" 를 사용자가 기억해야 하고, 실수로 저장 없이 나가면 조용히 사라진다.
+    한 줄씩 저장하는 API(`UpdateEnvironmentSettingAsync`)가 그래서 있다.
+*@
+
+@inherits DataPage
+@inject FuneralApi Api
+
+<PageTitle>환경설정 · 장례식장</PageTitle>
+
+<PageHeading Title="환경설정" Scope="장례식장" />
+
+<PageNotice Text="스위치를 누르면 바로 저장됩니다." />
+
+@foreach (var group in Groups)
+{
+    <section class="fn-settings">
+        <h2 class="fn-subhead">@group.Key</h2>
+
+        @foreach (var setting in group)
+        {
+            <div class="fn-setting">
+                <div class="fn-setting__text">
+                    <div class="fn-setting__name">@setting.Name</div>
+                    @if (!string.IsNullOrWhiteSpace(setting.Description))
+                    {
+                        <div class="fn-setting__desc">@setting.Description</div>
+                    }
+                </div>
+
+                <PermissionView Action="MenuAction.Update">
+                    @* 스위치 하나가 곧 저장이다. 값이 바뀐 것만 서버로 보낸다. *@
+                    <DxCheckBox Checked="@setting.Enabled"
+                                CheckedChanged="@((bool v) => ToggleAsync(setting, v))" />
+                </PermissionView>
+            </div>
+        }
+    </section>
+}
+
+<PageNotice Text="@Notice" Tone="@Tone" />
+
+@code {
+    /// <summary>이 화면이 보여 줄 묶음. 서버가 GroupName 으로 갈라 준다.</summary>
+    private static readonly string[] Wanted = ["환경", "기본", "시설", "GENERAL", "FACILITY"];
+
+    private IReadOnlyList<EnvironmentSetting> _all = [];
+
+    private IEnumerable<IGrouping<string, EnvironmentSetting>> Groups =>
+        _all.Where(s => Wanted.Contains(s.GroupName, StringComparer.OrdinalIgnoreCase))
+            .GroupBy(s => s.GroupName)
+            .OrderBy(g => g.Key, StringComparer.Ordinal);
+
+    protected override Task OnInitializedAsync() => ReloadAsync();
+
+    private Task ReloadAsync() => LoadAsync(async () =>
+    {
+        _all = await Api.GetEnvironmentSettingsAsync();
+        return Groups.Sum(g => g.Count());
+    }, "설정 항목이 없습니다.", "설정을 읽지 못했습니다");
+
+    private async Task ToggleAsync(EnvironmentSetting setting, bool value)
+    {
+        // **화면 값을 먼저 바꾼다.** 서버 왕복을 기다리면 스위치가 눌린 뒤
+        // 잠깐 제자리에 있어서 사용자가 한 번 더 누른다.
+        setting.Enabled = value;
+
+        if (!await RunAsync(() => Api.UpdateEnvironmentSettingAsync(setting.Code, value),
+                $"{setting.Name} 을(를) {(value ? "켰" : "껐")}습니다.", "저장하지 못했습니다"))
+        {
+            // 실패했으면 되돌린다 — 안 되돌리면 화면과 서버가 어긋난 채로 남는다.
+            setting.Enabled = !value;
+        }
+    }
+}

@@ -1,0 +1,120 @@
+@page "/admin/company/org-chart"
+
+@*
+    [조직도] — DB 메뉴 `/company/org-chart`.
+    이력: Vue `views/portal/system/company-user/org-chart` → 여기.
+
+    회사 → 부서 → 사람을 한 트리로 본다.
+
+    [사람은 부서를 눌렀을 때만 읽는다]
+
+    부서가 수십 개인데 미리 다 읽으면 첫 조회가 사람 수천 명이 된다. 부서를
+    펼칠 때 그 부서만 부른다. 한 번 읽은 부서는 다시 부르지 않는다.
+*@
+
+@inherits DataPage
+@inject AdminClient Api
+
+<PageTitle>조직도 · 포털관리</PageTitle>
+
+<PageHeading Title="조직도" Scope="포털관리" />
+
+<div class="jsini-toolbar">
+    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@ReloadAsync" />
+</div>
+
+<div class="ad-org">
+    @foreach (var dept in Flatten(_depts, 0))
+    {
+        <details class="ad-org__dept" style="--depth: @dept.Depth" @ontoggle="@(() => LoadUsersAsync(dept.Node.Id))">
+            <summary class="ad-org__summary">
+                <span class="ad-org__name">@dept.Node.Name</span>
+                <span class="ad-org__count">@dept.Node.UserCount 명</span>
+                @if (!string.IsNullOrWhiteSpace(dept.Node.CompanyName))
+                {
+                    <span class="ad-org__company">@dept.Node.CompanyName</span>
+                }
+            </summary>
+
+            @if (_users.TryGetValue(dept.Node.Id, out var people))
+            {
+                @if (people.Count == 0)
+                {
+                    <div class="ad-org__empty">이 부서에 직접 속한 사람이 없습니다.</div>
+                }
+                else
+                {
+                    <ul class="ad-org__people">
+                        @foreach (var p in people)
+                        {
+                            <li>
+                                <strong>@p.UserName</strong>
+                                <span class="ad-org__id">@p.LoginId</span>
+                                @if (!string.IsNullOrWhiteSpace(p.RoleText))
+                                {
+                                    <span class="ad-org__role">@p.RoleText</span>
+                                }
+                            </li>
+                        }
+                    </ul>
+                }
+            }
+            else
+            {
+                <div class="ad-org__empty">펼치면 사람을 읽습니다.</div>
+            }
+        </details>
+    }
+</div>
+
+<PageNotice Text="@Notice" Tone="@Tone" />
+
+@code {
+    private IReadOnlyList<DeptDto> _depts = [];
+
+    /// <summary>부서별로 한 번 읽은 사람들. 다시 펼쳐도 서버로 나가지 않는다.</summary>
+    private readonly Dictionary<string, IReadOnlyList<AccountDto>> _users = new(StringComparer.Ordinal);
+
+    private sealed record Flat(DeptDto Node, int Depth);
+
+    protected override Task OnInitializedAsync() => ReloadAsync();
+
+    private Task ReloadAsync() => LoadAsync(async () =>
+    {
+        _depts = await Api.GetDeptsAsync();
+        _users.Clear();
+        return _depts.Count;
+    }, "등록된 부서가 없습니다.", "조직도를 읽지 못했습니다");
+
+    /// <summary>트리를 깊이와 함께 한 줄씩 편다. 들여쓰기는 CSS 변수로 넘긴다.</summary>
+    private static IEnumerable<Flat> Flatten(IReadOnlyList<DeptDto> nodes, int depth)
+    {
+        foreach (var node in nodes)
+        {
+            yield return new Flat(node, depth);
+
+            if (node.Children is { Count: > 0 })
+            {
+                foreach (var child in Flatten(node.Children, depth + 1))
+                {
+                    yield return child;
+                }
+            }
+        }
+    }
+
+    private async Task LoadUsersAsync(string deptId)
+    {
+        if (_users.ContainsKey(deptId)) return;
+
+        // 실패해도 화면을 죽이지 않는다. 그 부서만 "펼치면 읽습니다" 로 남는다.
+        try
+        {
+            _users[deptId] = await Api.GetDeptUsersAsync(deptId);
+        }
+        catch (ApiException ex)
+        {
+            Say($"부서 사람을 읽지 못했습니다 — {ex.Message}", NoticeTone.Error);
+        }
+    }
+}

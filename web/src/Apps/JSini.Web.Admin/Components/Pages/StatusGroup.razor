@@ -1,0 +1,26 @@
+@page "/admin/status"
+
+@*
+    [상태 관리] — DB 메뉴 `/system/status`.
+
+    자식이 있는데 DB 유형이 CATALOG 가 아니라 사이드바에서 누를 수 있다.
+    누르면 열릴 화면이 있어야 해서 길잡이를 둔다(GroupLinks 주석 참고).
+*@
+
+<PageTitle>상태 관리 · 포털관리</PageTitle>
+
+<PageHeading Title="상태 관리" Scope="포털관리" />
+
+<PageNotice Text="아래 화면 중에서 고르십시오." />
+
+<GroupLinks Links="@Links" />
+
+@code {
+    private static readonly (string Href, string Title, string Hint)[] Links =
+    [
+        ("/admin/status/server", "MSA 서버 상태", "서비스가 살아 있는지"),
+        ("/admin/status/deploy", "배포 현황", "GitHub 실행 이력과 컨테이너 상태"),
+        ("/admin/status/player-release", "플레이어 릴리스", "플레이어 배포 상태"),
+        ("/admin/status/jin114", "JIN 보안 모니터링", "외부 모니터링 화면"),
+    ];
+}

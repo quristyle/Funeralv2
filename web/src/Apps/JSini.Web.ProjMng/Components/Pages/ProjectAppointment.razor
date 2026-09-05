@@ -1,0 +1,88 @@
+@page "/projmng/proj/appointment"
+@using System.Data
+
+@*
+    [투입 관리]
+
+    이력: 옛 Blazor `Pages/Proj/ProjAppointment.razor` → Vue `views/projmng/proj/appointment` → 여기.
+    프로시저: `sp_dev_proj_user_map_exec` (담당자 배정과 같은 표)
+
+    사람을 프로젝트에 **언제부터 언제까지** 투입하는지를 다룬다. 담당자 화면과
+    같은 표를 쓰지만 보는 각도가 다르다 — 그쪽은 "이 프로젝트에 누가", 여기는
+    "이 사람이 언제" 다. 그래서 조건의 주인공이 사람이고 기간 탭이 붙는다.
+*@
+
+@inherits DataPage
+@inject ProjMngClient Client
+
+<PageTitle>투입 관리 · 프로젝트관리</PageTitle>
+
+<PageHeading Title="투입 관리" Scope="프로젝트관리" />
+
+<SearchBar>
+    <ChildContent>
+        <BizSelect Type="portal_account" @bind-Value="_userCode" ShowAll="true" />
+        <CodeSelect CodeId="projlist" @bind-Value="_projectCode" ShowAll="true" />
+    </ChildContent>
+    <Actions>
+        <PermissionView Action="MenuAction.Search">
+            <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@SearchAsync" />
+        </PermissionView>
+        <PermissionView Action="MenuAction.Update">
+            <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Success" Click="@SaveAsync" />
+        </PermissionView>
+    </Actions>
+</SearchBar>
+
+<DateRangeTabs @ref="_range" RangeChanged="@(_ => SearchAsync())" />
+
+<PageNotice Text="@Notice" Tone="@Tone" />
+
+<DynamicGrid Data="@_grid.Data"
+             Loading="@_grid.IsLoading"
+             HiddenCols="cre_user,cre_dt,mod_user,mod_dt"
+             ExportName="투입관리"
+             OnRefresh="@SearchAsync"
+             OnSave="@SaveAsync"
+             OnAdd="@FillUser"
+             OnDelete="@(row => _grid.DeleteAsync(row))" />
+
+@code {
+    private const string Proc = "sp_dev_proj_user_map_exec";
+
+    private ProcGrid _grid = default!;
+    private DateRangeTabs? _range;
+
+    private string? _userCode;
+    private string? _projectCode;
+
+    protected override void OnInitialized() => _grid = new ProcGrid(Client, Proc);
+
+    protected override Task OnInitializedAsync() => SearchAsync();
+
+    private Dictionary<string, object?> Params() => new()
+    {
+        ["user_id"] = _userCode ?? string.Empty,
+        ["prj_rid"] = _projectCode ?? string.Empty,
+        ["start_day"] = _range?.Range.Start.ToString("yyyyMMdd") ?? string.Empty,
+        ["end_day"] = _range?.Range.End.ToString("yyyyMMdd") ?? string.Empty,
+    };
+
+    private Task SearchAsync() => LoadAsync(async () =>
+    {
+        await _grid.LoadAsync(Params());
+        return _grid.Data.Table.Rows.Count;
+    }, "그 기간에 투입 내역이 없습니다.", "투입 내역을 읽지 못했습니다");
+
+    private Task SaveAsync() => RunAsync(
+        () => _grid.SaveAsync(Params()), "저장했습니다.", "저장하지 못했습니다");
+
+    private Task FillUser(DataRow row)
+    {
+        if (row.Table.Columns.Contains("user_id"))
+        {
+            row["user_id"] = _userCode ?? string.Empty;
+        }
+        return Task.CompletedTask;
+    }
+}

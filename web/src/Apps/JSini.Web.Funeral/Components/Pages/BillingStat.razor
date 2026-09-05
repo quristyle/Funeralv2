@@ -1,0 +1,104 @@
+@page "/funeral/stat/billing"
+
+@*
+    [요금 내역] — DB 메뉴 `/stat/billing`.
+    이력: Vue `views/funeral/stat/billing/index` → 여기.
+
+    고인 한 명이 여러 시설을 쓰므로 **한 줄 안에 항목이 여러 개**다. 표를 두 겹으로
+    만들지 않고 상세 행(`DetailRowTemplate`)으로 편다 — 두 표를 나란히 두면
+    어느 항목이 어느 고인 것인지 눈으로 이어야 한다.
+*@
+
+@inherits DataPage
+@inject FuneralApi Api
+
+<PageTitle>요금 내역 · 장례식장</PageTitle>
+
+<PageHeading Title="요금 내역" Scope="장례식장" />
+
+<BuildingFilter @bind-BuildingId="_buildingId" Search="@ReloadAsync">
+    <DxDateEdit @bind-Date="_from" NullText="시작일" Style="width: 150px" />
+    <DxDateEdit @bind-Date="_to" NullText="종료일" Style="width: 150px" />
+</BuildingFilter>
+
+@if (_summary is not null)
+{
+    <div class="jsini-stats">
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">고인</div>
+            <div class="jsini-stat__value">@_summary.DeceasedCount</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">사용 일수</div>
+            <div class="jsini-stat__value">@_summary.TotalUseDays</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">합계</div>
+            <div class="jsini-stat__value">@_summary.TotalAmount.ToString("N0")</div>
+        </div>
+    </div>
+}
+
+<DxGrid Data="@_rows" ShowFilterRow="false" PageSize="20" DetailExpandButtonDisplayMode="GridDetailExpandButtonDisplayMode.Auto">
+    <Columns>
+        <DxGridDataColumn FieldName="@nameof(Billing.DeceasedName)" Caption="고인" MinWidth="120" />
+        <DxGridDataColumn FieldName="@nameof(Billing.BuildingName)" Caption="건물" Width="140" />
+        <DxGridDataColumn FieldName="@nameof(Billing.RoomName)" Caption="호실" Width="110" />
+        <DxGridDataColumn FieldName="@nameof(Billing.StartTime)" Caption="입실" Width="150" DisplayFormat="yyyy-MM-dd HH:mm" />
+        <DxGridDataColumn FieldName="@nameof(Billing.UseDays)" Caption="사용일" Width="90" />
+        <DxGridDataColumn FieldName="@nameof(Billing.TotalAmount)" Caption="금액" Width="130" DisplayFormat="N0" />
+    </Columns>
+    <DetailRowTemplate Context="detail">
+        @{
+            var b = (Billing)detail.DataItem;
+        }
+        @if (b.Items.Count == 0)
+        {
+            <PageNotice Text="세부 항목이 없습니다." />
+        }
+        else
+        {
+            <DxGrid Data="@b.Items" ShowFilterRow="false" PageSizeSelectorVisible="false" PagerVisible="false">
+                <Columns>
+                    <DxGridDataColumn FieldName="@nameof(BillingItem.Title)" Caption="항목" MinWidth="180" />
+                    <DxGridDataColumn FieldName="@nameof(BillingItem.UnitPrice)" Caption="단가" Width="120" DisplayFormat="N0" />
+                    <DxGridDataColumn Caption="일할" Width="80">
+                        @* 바깥 DetailRowTemplate 도 `context` 를 쓴다. 이름을 갈라
+                           주지 않으면 Razor 가 어느 쪽인지 못 정해 빌드가 선다. *@
+                        <CellDisplayTemplate Context="cell">
+                            @(((BillingItem)cell.DataItem).ApplyPerDay ? "예" : "-")
+                        </CellDisplayTemplate>
+                    </DxGridDataColumn>
+                    <DxGridDataColumn FieldName="@nameof(BillingItem.Amount)" Caption="금액" Width="120" DisplayFormat="N0" />
+                    <DxGridDataColumn FieldName="@nameof(BillingItem.Remark)" Caption="비고" MinWidth="160" />
+                </Columns>
+            </DxGrid>
+        }
+    </DetailRowTemplate>
+</DxGrid>
+
+<PageNotice Text="@Notice" Tone="@Tone" />
+
+@code {
+    private string? _buildingId;
+    private DateTime? _from;
+    private DateTime? _to;
+
+    private IReadOnlyList<Billing> _rows = [];
+    private StatSummary? _summary;
+
+    protected override Task OnInitializedAsync() => ReloadAsync();
+
+    private Task ReloadAsync() => LoadAsync(async () =>
+    {
+        // 요약과 목록을 나란히 부른다. 순서에 의미가 없다.
+        var rows = Api.GetBillingStatsAsync(_buildingId, _from, _to);
+        var summary = Api.GetStatSummaryAsync(_buildingId, _from, _to);
+
+        await Task.WhenAll(rows, summary);
+
+        _rows = rows.Result;
+        _summary = summary.Result;
+        return _rows.Count;
+    }, "조건에 맞는 자료가 없습니다.", "요금 내역을 읽지 못했습니다");
+}

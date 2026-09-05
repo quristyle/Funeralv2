@@ -1,0 +1,25 @@
+@page "/admin/auth"
+
+@*
+    [권한] — DB 메뉴 `/auth`.
+
+    자식이 있는데 DB 유형이 CATALOG 가 아니라 사이드바에서 누를 수 있다.
+    누르면 열릴 화면이 있어야 해서 길잡이를 둔다(GroupLinks 주석 참고).
+*@
+
+<PageTitle>권한 · 포털관리</PageTitle>
+
+<PageHeading Title="권한" Scope="포털관리" />
+
+<PageNotice Text="아래 화면 중에서 고르십시오." />
+
+<GroupLinks Links="@Links" />
+
+@code {
+    private static readonly (string Href, string Title, string Hint)[] Links =
+    [
+        ("/admin/auth/role", "권한 그룹 관리", "역할을 만들고 지운다"),
+        ("/admin/auth/user-role", "사용자별 권한", "사람에게 역할을 준다"),
+        ("/admin/auth/menu-role", "메뉴별 권한", "역할이 볼 수 있는 메뉴와 버튼을 정한다"),
+    ];
+}

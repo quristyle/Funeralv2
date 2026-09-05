@@ -1,0 +1,45 @@
+@page "/helpdesk/hanju/collection-status"
+
+@*
+    [수집 현황] — DB 메뉴 `/helpdesk/hanju/collection-status`.
+    이력: Vue `views/helpdesk/hanju/collection-status` → 여기.
+    프로시저: `P_QURI_SERVER_REPORT` (`QueryType = 'COLLECTION_STATUS'`)
+
+    자료가 제때 들어오고 있는지 본다.
+
+    [프로시저 하나에 QueryType 만 다르다]
+
+    한주 화면 다섯이 같은 프로시저를 부르고 조회 종류만 다르다. 옛 화면도
+    그랬고, 그 통로를 `OadrApi.GetServerReportAsync` 가 감싼다.
+
+    **서버가 준 대로 보여 준다**(AutoGrid). 프로시저가 돌려주는 칸이 조회
+    종류마다 다르고 늘어나기도 해서, 칸을 박아 두면 새 칸이 조용히 사라진다.
+*@
+
+@inherits DataPage
+@inject OadrApi Oadr
+
+<PageTitle>수집 현황 · 헬프데스크</PageTitle>
+
+<PageHeading Title="수집 현황" Scope="헬프데스크" />
+
+<div class="jsini-toolbar">
+    <DxButton Text="새로 고침" RenderStyle="ButtonRenderStyle.Primary" Click="@ReloadAsync" />
+</div>
+
+<PageNotice Text="@Notice" Tone="@Tone" />
+
+<AutoGrid Data="@_rows" Loading="@Loading" PageSize="30" />
+
+@code {
+    private DataTable _rows = JsonTable.Empty;
+
+    protected override Task OnInitializedAsync() => ReloadAsync();
+
+    private Task ReloadAsync() => LoadAsync(async () =>
+    {
+        var json = await Oadr.GetServerReportAsync<JsonElement>("COLLECTION_STATUS");
+        _rows = JsonTable.From(json);
+        return _rows.Rows.Count;
+    }, "조회 결과가 없습니다.", "수집 현황를 읽지 못했습니다");
+}

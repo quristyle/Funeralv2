@@ -1,0 +1,115 @@
+@page "/projmng/design/flow"
+
+@*
+    [업무 흐름]
+
+    이력: 옛 Blazor `Pages/Proj/ProjFlow.razor` → Vue `views/projmng/proj/flow.vue` → 여기.
+    프로시저: `sp_dev_db_prop_exec` (`db_pkey='flow'`)
+
+    프로젝트 DB 하나에 붙는 업무 흐름도다. ERD 와 같은 속성 표에 열쇠만 달리 넣는다.
+
+    ERD 와 달리 **원본에서 끌어올 목록이 없다.** 그림 자체가 사람이 그린 것이라
+    저장본을 읽어 그대로 그리고, 편집한 결과를 같은 자리에 되돌려 쓴다.
+*@
+
+@inherits DataPage
+@inject ProjMngClient Client
+
+<PageTitle>업무 흐름 · 프로젝트관리</PageTitle>
+
+<PageHeading Title="업무 흐름" Scope="프로젝트관리" />
+
+<SearchBar>
+    <ChildContent>
+        <CodeSelect CodeId="projlist" @bind-Value="_projectCode" />
+        <CodeSelect CodeId="projdb" CodeKey="@(_projectCode ?? string.Empty)" @bind-Value="_dbCode" EtcFix="true" />
+    </ChildContent>
+    <Actions>
+        <DxButton Text="축소" SizeMode="SizeMode.Small" RenderStyle="ButtonRenderStyle.Secondary" Click="@ZoomOutAsync" />
+        <DxButton Text="확대" SizeMode="SizeMode.Small" RenderStyle="ButtonRenderStyle.Secondary" Click="@ZoomInAsync" />
+        <DxButton Text="맞춤" SizeMode="SizeMode.Small" RenderStyle="ButtonRenderStyle.Secondary" Click="@FitAsync" />
+
+        <PermissionView Action="MenuAction.Search">
+            <DxButton Text="불러오기" RenderStyle="ButtonRenderStyle.Primary" Click="@LoadDiagramAsync" />
+        </PermissionView>
+        <PermissionView Action="MenuAction.Update">
+            <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Success" Click="@SaveDiagramAsync" />
+        </PermissionView>
+    </Actions>
+</SearchBar>
+
+<PageNotice Text="@Notice" Tone="@Tone" />
+
+<div class="pm-diagram-host">
+    <DiagramViewer @ref="_diagram" Height="100%" />
+</div>
+
+@code {
+    private const string Proc = "sp_dev_db_prop_exec";
+    private const string PropKey = "flow";
+
+    private DiagramViewer? _diagram;
+    private string? _projectCode;
+    private string? _dbCode;
+
+    /// <summary>저장본의 행 키. 저장할 때 같은 행을 갱신하려면 필요하다.</summary>
+    private string _propRowId = string.Empty;
+
+    private Task ZoomInAsync() => _diagram?.ZoomInAsync() ?? Task.CompletedTask;
+    private Task ZoomOutAsync() => _diagram?.ZoomOutAsync() ?? Task.CompletedTask;
+    private Task FitAsync() => _diagram?.FitAsync() ?? Task.CompletedTask;
+
+    private Task LoadDiagramAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_dbCode))
+        {
+            Say("DB 를 먼저 고르십시오.", NoticeTone.Warning);
+            return Task.CompletedTask;
+        }
+
+        return LoadAsync(async () =>
+        {
+            var saved = await Client.DbContAsync(Proc, SavedParams());
+            var first = saved.Rows?.FirstOrDefault();
+
+            _propRowId = Pick(first, "db_prid");
+            var model = ErdModel.Parse(Pick(first, "db_pvalue"));
+
+            if (_diagram is not null)
+            {
+                await _diagram.LoadAsync(model);
+            }
+
+            return model.Entities.Count;
+        }, "저장된 그림이 없습니다. 새로 그려 저장하십시오.", "업무 흐름를 읽지 못했습니다");
+    }
+
+    private async Task SaveDiagramAsync()
+    {
+        if (_diagram is null) return;
+
+        var model = await _diagram.SaveAsync();
+
+        var row = new Dictionary<string, object?>(SavedParams())
+        {
+            ["db_prid"] = _propRowId,
+            ["db_pvalue"] = model.ToJson(),
+            ["quri_ischange"] = true,
+        };
+
+        await RunAsync(
+            () => Client.DbSaveAsync(Proc, [row], SavedParams()),
+            "저장했습니다.", "저장하지 못했습니다");
+    }
+
+    private Dictionary<string, object?> SavedParams() => new()
+    {
+        ["db_rid"] = _dbCode ?? string.Empty,
+        ["db_pkey"] = PropKey,
+    };
+
+    private static string Pick(ProjMngRow? row, string name) =>
+        row is not null && row.TryGetValue(name, out var value) && value is not null
+            ? value.ToString() ?? string.Empty
+            : string.Empty;
+}

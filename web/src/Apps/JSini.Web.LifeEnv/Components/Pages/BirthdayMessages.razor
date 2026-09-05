@@ -1,0 +1,74 @@
+@page "/life/birthday/messages"
+
+@*
+    [생일 메시지 확인]
+
+    이력: Vue `views/life/birthday/messages.vue` → 여기.
+    API: `auth/birthday/message`(받은 것) · `auth/birthday/message/sent`(보낸 것)
+         · `auth/birthday/today/messages`(오늘의 생일자들이 받은 것)
+
+    세 목록이 모양은 같고 내용이 다르다. 탭으로 나누되 표는 하나로 둔다 —
+    셋을 따로 만들면 칸 하나를 고칠 때 세 곳을 고쳐야 한다.
+*@
+
+@inherits DataPage
+@inject BirthdayClient Api
+
+<PageTitle>생일 메시지 확인 · 생활과환경</PageTitle>
+
+<PageHeading Title="생일 메시지 확인" Scope="생활과환경" />
+
+<DxTabs @bind-ActiveTabIndex="_tabIndex" TabClick="@(_ => ReloadAsync())">
+    <DxTabPage Text="받은 축하" />
+    <DxTabPage Text="보낸 축하" />
+    <DxTabPage Text="오늘의 축하" />
+</DxTabs>
+
+<DxGrid Data="@_messages" ShowFilterRow="false" PageSize="20">
+    <Columns>
+        <DxGridDataColumn FieldName="@nameof(BirthdayMessage.CreatedAt)" Caption="보낸 때" Width="150" DisplayFormat="yyyy-MM-dd HH:mm" />
+        <DxGridDataColumn Caption="@PersonCaption" MinWidth="160">
+            <CellDisplayTemplate Context="cell">
+                @{
+                    var m = (BirthdayMessage)cell.DataItem;
+                }
+                @(_tabIndex == 1 ? m.RecipientName : m.SenderName)
+                @if (Department(m) is { Length: > 0 } dept)
+                {
+                    <span class="le-dept">@dept</span>
+                }
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+        @if (_tabIndex == 2)
+        {
+            <DxGridDataColumn FieldName="@nameof(BirthdayMessage.RecipientName)" Caption="받는 사람" Width="140" />
+        }
+        <DxGridDataColumn FieldName="@nameof(BirthdayMessage.Content)" Caption="내용" MinWidth="280" />
+    </Columns>
+</DxGrid>
+
+<PageNotice Text="@Notice" Tone="@Tone" />
+
+@code {
+    private int _tabIndex;
+    private IReadOnlyList<BirthdayMessage> _messages = [];
+
+    private string PersonCaption => _tabIndex == 1 ? "받는 사람" : "보낸 사람";
+
+    protected override Task OnInitializedAsync() => ReloadAsync();
+
+    private Task ReloadAsync() => LoadAsync(async () =>
+    {
+        _messages = _tabIndex switch
+        {
+            1 => await Api.GetSentAsync(),
+            2 => await Api.GetTodayMessagesAsync(),
+            _ => await Api.GetReceivedAsync(),
+        };
+
+        return _messages.Count;
+    }, "메시지가 없습니다.", "메시지를 읽지 못했습니다");
+
+    private static string Department(BirthdayMessage m) =>
+        m.SenderDepartment ?? m.RecipientDepartment ?? string.Empty;
+}

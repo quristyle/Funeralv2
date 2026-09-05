@@ -1,0 +1,70 @@
+@page "/admin/status/player-release"
+
+@*
+    [플레이어 릴리스] — DB 메뉴 `/system/player-release`.
+    이력: Vue `views/portal/system/player-release/index` → 여기.
+
+    빈소 디스플레이 플레이어의 배포 상태를 본다.
+
+    [여기서는 배포를 걸지 않는다]
+
+    옛 화면에는 "릴리스" 단추가 있어 태그를 만들고 워크플로를 돌렸다.
+    되돌리기 어려운 동작이라 **상태 확인만 옮겼다** — 배포는 승인 절차를
+    정한 뒤에 붙인다.
+*@
+
+@inherits DataPage
+@inject AdminClient Api
+
+<PageTitle>플레이어 릴리스 · 포털관리</PageTitle>
+
+<PageHeading Title="플레이어 릴리스" Scope="포털관리" />
+
+<div class="jsini-toolbar">
+    <DxButton Text="새로 고침" RenderStyle="ButtonRenderStyle.Primary" Click="@ReloadAsync" />
+</div>
+
+@if (_status is not null)
+{
+    @if (!_status.Configured)
+    {
+        <PageNotice Text="@($"배포 설정이 갖춰지지 않았습니다 — {_status.SetupHint}")" Tone="NoticeTone.Warning" />
+    }
+
+    <div class="jsini-stats">
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">저장소</div>
+            <div class="jsini-stat__value ad-stat--text">@_status.Repository</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">브랜치</div>
+            <div class="jsini-stat__value ad-stat--text">@_status.Branch</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">최신 커밋</div>
+            <div class="jsini-stat__value ad-stat--text">@(_status.HeadSha?[..Math.Min(7, _status.HeadSha.Length)] ?? "-")</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">배포 가능</div>
+            <div class="jsini-stat__value">
+                <span class="jsini-badge @(_status.CanRelease ? "jsini-badge--on" : "jsini-badge--off")">
+                    @(_status.CanRelease ? "예" : "아니오")
+                </span>
+            </div>
+        </div>
+    </div>
+}
+
+<PageNotice Text="배포를 거는 기능은 아직 옮기지 않았습니다. 이 화면은 상태 확인용입니다." />
+
+<PageNotice Text="@Notice" Tone="@Tone" />
+
+@code {
+    private PlayerReleaseDto? _status;
+
+    protected override Task OnInitializedAsync() => ReloadAsync();
+
+    private Task ReloadAsync() => LoadOneAsync(
+        () => Api.GetPlayerReleaseStatusAsync(), v => _status = v,
+        "배포 상태를 받지 못했습니다.", "배포 상태를 읽지 못했습니다");
+}

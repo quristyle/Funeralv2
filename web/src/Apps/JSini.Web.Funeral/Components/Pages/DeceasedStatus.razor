@@ -1,85 +1,126 @@
 @page "/funeral/status/deceased-status"
 
 @*
-    [고인 현황 관리]
+    [고인 현황] — DB 메뉴 `/status/deceased-status`.
+    이력: Vue `views/funeral/status/deceased-status/index` → 여기.
 
-    이력: Vue `views/funeral/status/deceased-status` → 여기.
-    장례식장 입실 고인 정보 및 안치 현황을 관리한다.
+    한동안 이 화면은 하드코딩한 자료를 보여 주고 있었다. 실제 API 에 붙였다.
+
+    출상 처리와 취소를 여기서 한다. **배정만 바꾸고 인적 사항은 건드리지 않는다** —
+    출상한 뒤에도 고인 자료는 조회와 정산에 쓰이기 때문이다.
 *@
 
-<PageTitle>고인 현황 관리 · 장례식장</PageTitle>
+@inherits DataPage
+@inject FuneralApi Api
 
-<h1>고인 현황 관리 <span class="pm-page__scope">장례식장</span></h1>
+<PageTitle>고인 현황 · 장례식장</PageTitle>
 
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <div class="d-flex gap-2">
-        <DxTextBox @bind-Text="_keyword" NullText="고인명 또는 상주명 검색" Style="width: 240px" ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
-        <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@LoadDataAsync" />
-    </div>
-    <PermissionView Action="MenuAction.Create">
-        <DxButton Text="안치 등록" RenderStyle="ButtonRenderStyle.Success" />
-    </PermissionView>
+<PageHeading Title="고인 현황" Scope="장례식장" />
+
+<div class="jsini-toolbar">
+    <DxTextBox @bind-Text="_keyword" NullText="고인명 검색" Style="width: 200px"
+               ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+    <DxComboBox Data="@Statuses" @bind-Value="_status" NullText="상태 전체"
+                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" Style="width: 170px">
+        <ItemTemplate>@StatusText(context)</ItemTemplate>
+    </DxComboBox>
+    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@ReloadAsync" />
 </div>
 
-<DxGrid Data="@_deceasedList" Loading="@_loading" PageSize="15">
+<DxGrid Data="@_rows" ShowFilterRow="false" PageSize="20">
     <Columns>
-        <DxGridDataColumn FieldName="RoomName" Caption="빈소/안치실" Width="130px" />
-        <DxGridDataColumn FieldName="DeceasedName" Caption="고인명" Width="120px">
+        <DxGridDataColumn FieldName="@nameof(Deceased.Name)" Caption="고인" MinWidth="120" />
+        <DxGridDataColumn Caption="성별" Width="80">
             <CellDisplayTemplate>
-                <strong>🕯️ @context.Value</strong>
+                @(((Deceased)context.DataItem).Gender == "FEMALE" ? "여" : "남")
             </CellDisplayTemplate>
         </DxGridDataColumn>
-        <DxGridDataColumn FieldName="ChiefMourner" Caption="상주명" Width="120px" />
-        <DxGridDataColumn FieldName="EnterTime" Caption="입실 일시" Width="160px" DisplayFormat="yyyy-MM-dd HH:mm" />
-        <DxGridDataColumn FieldName="CarryingTime" Caption="발인 일시" Width="160px" DisplayFormat="yyyy-MM-dd HH:mm" />
-        <DxGridDataColumn FieldName="Status" Caption="상태" Width="90px">
+        <DxGridDataColumn FieldName="@nameof(Deceased.Age)" Caption="나이" Width="80" />
+        <DxGridDataColumn FieldName="@nameof(Deceased.RoomName)" Caption="호실" Width="130" />
+        <DxGridDataColumn FieldName="@nameof(Deceased.DeathDate)" Caption="임종" Width="130" DisplayFormat="yyyy-MM-dd" />
+        <DxGridDataColumn FieldName="@nameof(Deceased.BurialDate)" Caption="발인" Width="150" DisplayFormat="yyyy-MM-dd HH:mm" />
+        <DxGridDataColumn Caption="상태" Width="110">
             <CellDisplayTemplate>
-                <span class="badge bg-primary">@context.Value</span>
+                @{
+                    var d = (Deceased)context.DataItem;
+                }
+                <span class="jsini-badge @(d.Status == Departed ? "jsini-badge--off" : "jsini-badge--on")">
+                    @StatusText(d.Status)
+                </span>
             </CellDisplayTemplate>
         </DxGridDataColumn>
-        <DxGridDataColumn Caption="관리" Width="120px">
+        <DxGridDataColumn Caption="처리" Width="130">
             <CellDisplayTemplate>
-                <div class="d-flex gap-1 justify-content-center">
-                    <PermissionView Action="MenuAction.Update">
-                        <DxButton Text="수정" RenderStyle="ButtonRenderStyle.Secondary" SizeMode="SizeMode.Small" />
-                    </PermissionView>
-                </div>
+                @{
+                    var row = (Deceased)context.DataItem;
+                }
+                <PermissionView Action="MenuAction.Update">
+                    @if (row.Status == Departed)
+                    {
+                        <DxButton Text="출상 취소" SizeMode="SizeMode.Small" RenderStyle="ButtonRenderStyle.Secondary"
+                                  Click="@(() => CancelAsync(row))" />
+                    }
+                    else
+                    {
+                        <DxButton Text="출상" SizeMode="SizeMode.Small" RenderStyle="ButtonRenderStyle.Secondary"
+                                  Click="@(() => DepartAsync(row))" />
+                    }
+                </PermissionView>
             </CellDisplayTemplate>
         </DxGridDataColumn>
     </Columns>
 </DxGrid>
 
+<PageNotice Text="@Notice" Tone="@Tone" />
+
 @code {
-    private List<DeceasedItemDto> _deceasedList = [];
+    /// <summary>출상 완료 상태. 서버가 쓰는 값이다.</summary>
+    private const string Departed = "DEPARTED";
+
+    /// <summary>거를 수 있는 상태. 화면 문구는 <see cref="StatusText"/> 가 만든다.</summary>
+    private static readonly string[] Statuses = ["FUNERAL_IN_PROGRESS", Departed];
+
     private string? _keyword;
-    private bool _loading;
+    private string? _status;
+    private IReadOnlyList<Deceased> _rows = [];
 
-    protected override Task OnInitializedAsync() => LoadDataAsync();
+    protected override Task OnInitializedAsync() => ReloadAsync();
 
-    private Task LoadDataAsync()
+    private Task ReloadAsync() => LoadAsync(async () =>
     {
-        _loading = true;
-        try
+        // 이 API 는 조건을 사전으로 받는다 (백엔드가 검색 칸을 계속 늘려 와서
+        // 매개변수를 하나씩 붙이는 방식을 그만뒀다). 값이 비면 넣지 않는다 —
+        // 빈 문자열을 보내면 서버가 "빈 이름" 으로 걸러 0건이 된다.
+        var query = new Dictionary<string, string?>();
+        if (!string.IsNullOrWhiteSpace(_keyword)) query["keyword"] = _keyword;
+        if (!string.IsNullOrWhiteSpace(_status)) query["status"] = _status;
+
+        _rows = await Api.GetDeceasedListAsync(query);
+        return _rows.Count;
+    }, "조건에 맞는 고인 자료가 없습니다.", "고인 목록을 읽지 못했습니다");
+
+    private async Task DepartAsync(Deceased d)
+    {
+        if (await RunAsync(() => Api.DepartDeceasedAsync(d.Id),
+                $"{d.Name} 출상 처리했습니다.", "출상 처리하지 못했습니다"))
         {
-            _deceasedList =
-            [
-                new DeceasedItemDto { RoomName = "특1호실", DeceasedName = "故 홍길동", ChiefMourner = "홍상주", EnterTime = DateTime.Now.AddDays(-1), CarryingTime = DateTime.Now.AddDays(1), Status = "안치중" }
-            ];
+            await ReloadAsync();
         }
-        finally
-        {
-            _loading = false;
-        }
-        return Task.CompletedTask;
     }
 
-    public sealed class DeceasedItemDto
+    private async Task CancelAsync(Deceased d)
     {
-        public string RoomName { get; set; } = string.Empty;
-        public string DeceasedName { get; set; } = string.Empty;
-        public string ChiefMourner { get; set; } = string.Empty;
-        public DateTime EnterTime { get; set; }
-        public DateTime CarryingTime { get; set; }
-        public string Status { get; set; } = string.Empty;
+        if (await RunAsync(() => Api.CancelDeceasedDepartureAsync(d.Id),
+                $"{d.Name} 출상을 취소했습니다.", "출상을 취소하지 못했습니다"))
+        {
+            await ReloadAsync();
+        }
     }
+
+    private static string StatusText(string status) => status switch
+    {
+        Departed => "출상",
+        "FUNERAL_IN_PROGRESS" => "진행 중",
+        _ => status,
+    };
 }

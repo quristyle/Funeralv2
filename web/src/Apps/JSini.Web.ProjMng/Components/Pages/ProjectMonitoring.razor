@@ -1,0 +1,106 @@
+@page "/projmng/proj/monitoring"
+
+@*
+    [프로젝트 진행 현황]
+
+    이력: 옛 Blazor `Pages/Proj/ProjMonitoring.razor` → Vue `views/projmng/proj/monitoring.vue` → 여기.
+    프로시저: `sp_proj_wbs_exec`(WBS) · `sp_dev_srcinfo_exec`(소스) ·
+              `sp_proj_user_map_list`(담당자) · `sp_projdblist`(DB)
+
+    한 프로젝트의 상태를 네 각도에서 한 화면에 모은다.
+
+    [넷을 나란히 부른다]
+
+    서로 기다릴 이유가 없다. 차례로 부르면 왕복이 넷 쌓여서, 자료가 많은
+    프로젝트에서 화면이 눈에 띄게 늦게 뜬다.
+*@
+
+@inherits DataPage
+@inject ProjMngClient Client
+
+<PageTitle>프로젝트 진행 현황 · 프로젝트관리</PageTitle>
+
+<PageHeading Title="프로젝트 진행 현황" Scope="프로젝트관리" />
+
+<SearchBar>
+    <ChildContent>
+        <CodeSelect CodeId="projlist" @bind-Value="_projectCode" OnChanged="@(_ => SearchAsync())" />
+    </ChildContent>
+    <Actions>
+        <PermissionView Action="MenuAction.Search">
+            <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@SearchAsync" />
+        </PermissionView>
+    </Actions>
+</SearchBar>
+
+<div class="jsini-stats">
+    <div class="jsini-stat">
+        <div class="jsini-stat__label">WBS 항목</div>
+        <div class="jsini-stat__value">@_wbs.Data.Table.Rows.Count</div>
+    </div>
+    <div class="jsini-stat">
+        <div class="jsini-stat__label">소스</div>
+        <div class="jsini-stat__value">@_source.Data.Table.Rows.Count</div>
+    </div>
+    <div class="jsini-stat">
+        <div class="jsini-stat__label">담당자</div>
+        <div class="jsini-stat__value">@_users.Data.Table.Rows.Count</div>
+    </div>
+    <div class="jsini-stat">
+        <div class="jsini-stat__label">연결 DB</div>
+        <div class="jsini-stat__value">@_dbs.Data.Table.Rows.Count</div>
+    </div>
+</div>
+
+<PageNotice Text="@Notice" Tone="@Tone" />
+
+<DxTabs>
+    <DxTabPage Text="WBS">
+        <DynamicGrid Data="@_wbs.Data" Loading="@_wbs.IsLoading" ExportName="WBS현황" OnRefresh="@SearchAsync" />
+    </DxTabPage>
+    <DxTabPage Text="소스">
+        <DynamicGrid Data="@_source.Data" Loading="@_source.IsLoading" ExportName="소스현황" OnRefresh="@SearchAsync" />
+    </DxTabPage>
+    <DxTabPage Text="담당자">
+        <DynamicGrid Data="@_users.Data" Loading="@_users.IsLoading" ExportName="담당자" OnRefresh="@SearchAsync" />
+    </DxTabPage>
+    <DxTabPage Text="DB">
+        <DynamicGrid Data="@_dbs.Data" Loading="@_dbs.IsLoading" ExportName="연결DB" OnRefresh="@SearchAsync" />
+    </DxTabPage>
+</DxTabs>
+
+@code {
+    private ProcGrid _wbs = default!;
+    private ProcGrid _source = default!;
+    private ProcGrid _users = default!;
+    private ProcGrid _dbs = default!;
+
+    private string? _projectCode;
+
+    protected override void OnInitialized()
+    {
+        _wbs = new ProcGrid(Client, "sp_proj_wbs_exec");
+        _source = new ProcGrid(Client, "sp_dev_srcinfo_exec");
+        _users = new ProcGrid(Client, "sp_proj_user_map_list");
+        _dbs = new ProcGrid(Client, "sp_projdblist");
+    }
+
+    protected override Task OnInitializedAsync() => SearchAsync();
+
+    private Task SearchAsync() => LoadAsync(async () =>
+    {
+        var p = new Dictionary<string, object?> { ["prj_rid"] = _projectCode ?? string.Empty };
+
+        // 넷을 나란히. 서로 기다릴 이유가 없다.
+        await Task.WhenAll(
+            _wbs.LoadAsync(new Dictionary<string, object?>(p) { ["schedule_type"] = "WBS" }),
+            _source.LoadAsync(p),
+            _users.LoadAsync(p),
+            _dbs.LoadAsync(p));
+
+        return _wbs.Data.Table.Rows.Count
+             + _source.Data.Table.Rows.Count
+             + _users.Data.Table.Rows.Count
+             + _dbs.Data.Table.Rows.Count;
+    }, "그 프로젝트에 등록된 자료가 없습니다.", "진행 현황을 읽지 못했습니다");
+}

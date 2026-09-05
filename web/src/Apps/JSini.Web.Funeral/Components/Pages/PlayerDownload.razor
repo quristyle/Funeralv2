@@ -1,0 +1,64 @@
+@page "/funeral/player-download"
+
+@*
+    [플레이어 다운로드] — DB 메뉴 `/system/player-download`.
+    이력: Vue `views/funeral/player-download/index` → 여기.
+
+    빈소 디스플레이에 설치하는 Flutter 플레이어를 내려받는 곳이다.
+    자료실과 같은 통로를 쓴다 — 파일 보관·횟수 집계를 두 벌 만들 이유가 없고,
+    **분류(`플레이어`)로만 갈린다.**
+*@
+
+@inherits DataPage
+@inject HelpApi Api
+
+<PageTitle>플레이어 다운로드 · 장례식장</PageTitle>
+
+<PageHeading Title="플레이어 다운로드" Scope="장례식장" />
+
+<PageNotice>
+    빈소 디스플레이 장비에 설치하는 플레이어입니다.
+    설치 뒤에는 <strong>기기 관리</strong> 화면에서 장비가 온라인으로 잡히는지 확인하십시오.
+</PageNotice>
+
+<DxGrid Data="@_items" ShowFilterRow="false" PageSize="20"
+        DetailExpandButtonDisplayMode="GridDetailExpandButtonDisplayMode.Auto">
+    <Columns>
+        <DxGridDataColumn FieldName="@nameof(Archive.Title)" Caption="버전·자료명" MinWidth="220" />
+        <DxGridDataColumn FieldName="@nameof(Archive.CreatedAt)" Caption="배포일" Width="130" DisplayFormat="yyyy-MM-dd" />
+        <DxGridDataColumn Caption="파일" Width="90">
+            <CellDisplayTemplate Context="cell">
+                @(((Archive)cell.DataItem).Files.Count) 개
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+    </Columns>
+    <DetailRowTemplate Context="detail">
+        @{
+            var archive = (Archive)detail.DataItem;
+        }
+        <ul class="fn-files">
+            @foreach (var file in archive.Files)
+            {
+                <li class="fn-files__item">
+                    <a href="@file.DownloadUrl">@file.FileName</a>
+                </li>
+            }
+        </ul>
+    </DetailRowTemplate>
+</DxGrid>
+
+<PageNotice Text="@Notice" Tone="@Tone" />
+
+@code {
+    /// <summary>자료실에서 플레이어 배포본만 골라 내는 분류 이름.</summary>
+    private const string Category = "플레이어";
+
+    private IReadOnlyList<Archive> _items = [];
+
+    protected override Task OnInitializedAsync() => LoadAsync(async () =>
+    {
+        var list = await Api.GetArchiveListAsync(category: Category);
+        _items = list.Items;
+        return _items.Count;
+    }, "배포된 플레이어가 없습니다.", "플레이어 목록을 읽지 못했습니다");
+}

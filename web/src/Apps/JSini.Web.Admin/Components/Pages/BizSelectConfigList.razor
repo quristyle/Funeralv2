@@ -1,0 +1,53 @@
+@page "/admin/system/metadata"
+
+@*
+    [메타데이터 관리] — DB 메뉴 `/system/metadata_manager`.
+    이력: Vue `views/portal/system/biz-select-config/list` → 여기.
+
+    화면의 드롭다운이 **무엇을 어디서 읽을지** 정하는 표다. 코드를 고치지 않고
+    드롭다운을 늘리려고 만든 자리라, 이 표가 곧 메타데이터다.
+
+    `BizSelect` 부품이 `BizType` 으로 여기를 찾아 `ApiUrl` 을 부른다.
+*@
+
+@inherits DataPage
+@inject AdminClient Api
+
+<PageTitle>메타데이터 관리 · 포털관리</PageTitle>
+
+<PageHeading Title="메타데이터 관리" Scope="포털관리" />
+
+<div class="jsini-toolbar">
+    <DxTextBox @bind-Text="_keyword" NullText="타입 검색" Style="width: 220px"
+               ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@ReloadAsync" />
+</div>
+
+
+<DxGrid Data="@Shown" ShowFilterRow="false" PageSize="20">
+    <Columns>
+        <DxGridDataColumn FieldName="@nameof(BizSelectConfigDto.BizType)" Caption="타입" Width="200" />
+        <DxGridDataColumn FieldName="@nameof(BizSelectConfigDto.ServiceCode)" Caption="서비스" Width="120" />
+        <DxGridDataColumn FieldName="@nameof(BizSelectConfigDto.HttpMethod)" Caption="방식" Width="90" />
+        <DxGridDataColumn FieldName="@nameof(BizSelectConfigDto.ApiUrl)" Caption="주소" MinWidth="300" />
+    </Columns>
+</DxGrid>
+
+<PageNotice Text="@Notice" Tone="@Tone" />
+
+@code {
+    private IReadOnlyList<BizSelectConfigDto> _all = [];
+    private string? _keyword;
+
+    private IReadOnlyList<BizSelectConfigDto> Shown => string.IsNullOrWhiteSpace(_keyword)
+        ? _all
+        : [.. _all.Where(c => c.BizType.Contains(_keyword, StringComparison.OrdinalIgnoreCase))];
+
+    protected override Task OnInitializedAsync() => ReloadAsync();
+
+    private Task ReloadAsync() => LoadAsync(async () =>
+    {
+        _all = await Api.GetBizSelectConfigsAsync();
+        return _all.Count;
+    }, "등록된 메타데이터가 없습니다.", "메타데이터를 읽지 못했습니다");
+}

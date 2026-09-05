@@ -1,0 +1,34 @@
+@page "/admin/status/jin114"
+
+@*
+    [JIN 보안 모니터링] — DB 메뉴 `/system/server-status/jin114` (유형 EMBEDDED).
+    이력: Vue 는 iframe 라우트로 두었다 → 여기.
+
+    바깥 화면을 iframe 으로 띄우기만 한다. 대상이 https 라 혼합 콘텐츠 문제는
+    없지만, 상대가 `X-Frame-Options` 를 걸어 두면 빈 칸으로 뜬다.
+    그때 사용자가 "서버가 죽었다" 고 읽지 않도록 새 창으로 열 길을 함께 둔다.
+*@
+
+<PageTitle>JIN 보안 모니터링 · 포털관리</PageTitle>
+
+<PageHeading Title="JIN 보안 모니터링" Scope="포털관리" />
+
+<PageNotice>
+    아래가 비어 있으면 상대 사이트가 iframe 을 막은 것입니다. 새 창으로 열어 주세요.
+    <DxButton Text="새 창으로 열기" RenderStyle="ButtonRenderStyle.Link" Click="@OpenAsync" />
+</PageNotice>
+
+<iframe class="ad-frame" src="@Target" title="JIN 보안 모니터링"></iframe>
+
+@code {
+    [Inject] private IJSRuntime Js { get; set; } = default!;
+
+    private const string Target = "https://sec.jin114.co.kr/";
+
+    /// <summary>
+    /// 새 창으로 연다. <c>noopener</c> 를 붙여 열린 창이 <c>window.opener</c> 로
+    /// 이 포털을 건드리지 못하게 한다.
+    /// </summary>
+    private async Task OpenAsync() =>
+        await Js.InvokeVoidAsync("open", Target, "_blank", "noopener");
+}

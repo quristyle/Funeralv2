@@ -1,0 +1,72 @@
+/* ============================================================
+   생활과환경 모듈 전용 스타일 (생일 화면).
+
+   모듈 안에서만 쓰이므로 Blazor Common 으로 올리지 않는다 —
+   올리면 이 스타일이 여섯 모듈 전체의 결합 지점이 된다.
+   ============================================================ */
+
+.le-send {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.le-month {
+  min-width: 8rem;
+  text-align: center;
+  font-weight: 700;
+}
+
+.le-dept {
+  margin-left: 0.4rem;
+  font-size: 0.75rem;
+  color: var(--jsini-text-muted);
+}
+
+/* ── 생일 캘린더 ────────────────────────────────────────── */
+
+.le-calendar {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 1px;
+  background: var(--jsini-border);
+  border: 1px solid var(--jsini-border);
+}
+
+.le-day {
+  min-height: 6rem;
+  padding: 0.35rem 0.4rem;
+  background: var(--jsini-surface, #fff);
+}
+
+/* 앞뒤 달의 칸. 격자를 7의 배수로 채우느라 들어온 것이라 흐리게 둔다 —
+   빼 버리면 줄이 어긋나고, 같게 두면 이 달이 어디까지인지 안 보인다. */
+.le-day--other { opacity: 0.45; }
+
+.le-day__no {
+  font-size: 0.75rem;
+  color: var(--jsini-text-muted);
+}
+
+.le-day__event {
+  margin-top: 0.2rem;
+  padding: 0.1rem 0.3rem;
+  font-size: 0.75rem;
+  background: color-mix(in srgb, #2e7d32 12%, transparent);
+  border-left: 2px solid #2e7d32;
+
+  /* 이름이 길면 자른다. 넘치면 칸이 늘어나 격자가 들쭉날쭉해진다. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.le-day__lunar {
+  margin-left: 0.25rem;
+  font-size: 0.65rem;
+  color: var(--jsini-text-muted);
+}
+
+@media (max-width: 640px) {
+  .le-day { min-height: 4rem; }
+}

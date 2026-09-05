@@ -32,11 +32,17 @@ public sealed class MenuWireDto
     [JsonPropertyName("children")]
     public List<MenuWireDto>? Children { get; set; }
 
+    /// <summary>비어 있지 않은 첫 값. 전부 비면 빈 문자열.</summary>
+    private static string FirstNonBlank(params string?[] candidates) =>
+        candidates.FirstOrDefault(c => !string.IsNullOrWhiteSpace(c)) ?? string.Empty;
+
     /// <summary>셸이 다루는 모양(<see cref="MenuNode"/>)으로 옮긴다.</summary>
     public MenuNode ToNode() => new()
     {
         Path = Path,
-        Title = string.IsNullOrWhiteSpace(Meta.Title) ? Name : Meta.Title,
+        // 서버가 옮겨 준 글자가 있으면 그것을 쓴다. 없으면 저장된 제목,
+        // 그것도 비면 메뉴 이름으로 떨어진다.
+        Title = FirstNonBlank(Meta.TitleText, Meta.Title, Name),
         Icon = Meta.Icon,
 
         // 유형은 CATALOG · MENU · EMBEDDED · LINK · BUTTON 다섯 가지다.
@@ -62,6 +68,22 @@ public sealed class MenuMetaWireDto
 {
     [JsonPropertyName("title")]
     public string Title { get; set; } = string.Empty;
+
+    /// <summary>
+    /// 서버가 옮겨 둔 제목. <b>있으면 이것을 찍는다.</b>
+    ///
+    /// <see cref="Title"/> 에는 번역 키(<c>system.menu.title</c>)와 이미 완성된
+    /// 글자(<c>공통코드</c>)가 섞여 있다. 179건 중 17건이 키다.
+    ///
+    /// 화면이 제목마다 번역 함수를 부르는 방식은 쓰지 않는다 — 대부분이 키가
+    /// 아니라서 "그런 키는 없다" 경고만 수백 줄 쏟아진다(Vue 에서 실제로 그랬고,
+    /// 그게 사이드바가 늦게 뜨던 이유였다). 서버가
+    /// <c>scom.i18n_resources</c> 를 한 번 읽어 <b>찾았을 때만</b> 담아 준다.
+    ///
+    /// 못 찾으면 <c>null</c> 이고, 그때는 저장된 제목이 이미 사람이 읽는 글자라는 뜻이다.
+    /// </summary>
+    [JsonPropertyName("titleText")]
+    public string? TitleText { get; set; }
 
     [JsonPropertyName("icon")]
     public string? Icon { get; set; }

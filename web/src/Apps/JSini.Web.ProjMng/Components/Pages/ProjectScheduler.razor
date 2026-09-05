@@ -1,0 +1,102 @@
+@page "/projmng/proj/scheduler"
+@using System.Data
+
+@*
+    [프로젝트 일정표]
+
+    이력: 옛 Blazor `Pages/Proj/ProjScheduler.razor` → Vue `views/projmng/proj/scheduler.vue` → 여기.
+    프로시저: `sp_proj_wbs_exec` (`schedule_type = 'SCHEDULE'`)
+
+    **WBS 와 같은 프로시저·같은 표를 쓴다.** `schedule_type` 하나로 갈린다 —
+    WBS 는 산출물 단위, 일정표는 날짜 단위로 같은 자료를 달리 본다.
+
+    기간은 프리셋 탭(주·월·분기)으로 고른다. 옛 화면은 시작·종료를 손으로
+    넣게 했는데, 실제로 쓰는 구간이 몇 가지뿐이라 탭이 빠르다.
+*@
+
+@inherits DataPage
+@inject ProjMngClient Client
+
+<PageTitle>프로젝트 일정표 · 프로젝트관리</PageTitle>
+
+<PageHeading Title="프로젝트 일정표" Scope="프로젝트관리" />
+
+<SearchBar>
+    <ChildContent>
+        <CodeSelect CodeId="projlist" @bind-Value="_projectCode" OnChanged="@(_ => SearchAsync())" />
+        <CodeSelect CodeId="compstat" @bind-Value="_completeState" ShowAll="true" />
+    </ChildContent>
+    <Actions>
+        <PermissionView Action="MenuAction.Search">
+            <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@SearchAsync" />
+        </PermissionView>
+        <PermissionView Action="MenuAction.Update">
+            <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Success" Click="@SaveAsync" />
+        </PermissionView>
+    </Actions>
+</SearchBar>
+
+<DateRangeTabs @ref="_range" RangeChanged="@(_ => SearchAsync())" />
+
+<PageNotice Text="@Notice" Tone="@Tone" />
+
+<DynamicGrid Data="@_grid.Data"
+             Loading="@_grid.IsLoading"
+             DropdownCols="schedule_type|schedule_type"
+             HiddenCols="prj_rid,proc_lvl,build_user,build_status,build_chk_dt,qc_chk_dt,cre_user,cre_dt,mod_user,mod_dt"
+             ExportName="일정표"
+             OnRefresh="@SearchAsync"
+             OnSave="@SaveAsync"
+             OnAdd="@FillProject"
+             OnDelete="@(row => _grid.DeleteAsync(row))" />
+
+@code {
+    private const string Proc = "sp_proj_wbs_exec";
+
+    /// <summary>이 화면이 다루는 일정 종류. WBS 화면과 표를 나누는 유일한 값이다.</summary>
+    private const string ScheduleType = "SCHEDULE";
+
+    private ProcGrid _grid = default!;
+    private DateRangeTabs? _range;
+
+    private string? _projectCode;
+    private string? _completeState;
+
+    protected override void OnInitialized() => _grid = new ProcGrid(Client, Proc);
+
+    protected override Task OnInitializedAsync() => SearchAsync();
+
+    private Dictionary<string, object?> Params() => new()
+    {
+        ["prj_rid"] = _projectCode ?? string.Empty,
+        ["compstat"] = _completeState ?? string.Empty,
+        ["schedule_type"] = ScheduleType,
+        ["start_day"] = _range?.Range.Start.ToString("yyyyMMdd") ?? string.Empty,
+        ["end_day"] = _range?.Range.End.ToString("yyyyMMdd") ?? string.Empty,
+    };
+
+    private Task SearchAsync() => LoadAsync(async () =>
+    {
+        await _grid.LoadAsync(Params());
+        return _grid.Data.Table.Rows.Count;
+    }, "그 기간에 일정이 없습니다.", "일정표를 읽지 못했습니다");
+
+    private Task SaveAsync() => RunAsync(
+        () => _grid.SaveAsync(Params()), "저장했습니다.", "저장하지 못했습니다");
+
+    private Task FillProject(DataRow row)
+    {
+        if (row.Table.Columns.Contains("prj_rid"))
+        {
+            row["prj_rid"] = _projectCode ?? string.Empty;
+        }
+
+        // 일정표에서 만든 행은 일정표에 남아야 한다. 비워 두면 WBS 로 새어 간다.
+        if (row.Table.Columns.Contains("schedule_type"))
+        {
+            row["schedule_type"] = ScheduleType;
+        }
+
+        return Task.CompletedTask;
+    }
+}

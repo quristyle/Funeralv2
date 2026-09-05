@@ -1,0 +1,59 @@
+@page "/funeral/info/preview"
+
+@*
+    [미리보기] — DB 메뉴 `/info/preview`.
+    이력: Vue `views/funeral/info/preview/index` → 여기.
+
+    빈소 화면에 지금 무엇이 나오고 있는지 본다. 서버가 장비마다 미리보기 주소를
+    준다(`PreviewUrl`).
+
+    **오프라인 장비는 그림을 걸지 않는다.** 걸어 두면 브라우저가 끊긴 주소로
+    수십 번 요청하고, 그 실패가 콘솔을 덮어 진짜 오류가 묻힌다.
+*@
+
+@inherits DataPage
+@inject FuneralApi Api
+
+<PageTitle>미리보기 · 장례식장</PageTitle>
+
+<PageHeading Title="미리보기" Scope="장례식장" />
+
+<BuildingFilter @bind-BuildingId="_buildingId" @bind-RoomId="_roomId" ShowRoom="true" Search="@ReloadAsync" />
+
+<div class="fn-preview">
+    @foreach (var p in _rows)
+    {
+        <figure class="fn-preview__item">
+            @if (p.IsOnline && !string.IsNullOrWhiteSpace(p.PreviewUrl))
+            {
+                <img src="@p.PreviewUrl" alt="@p.Name" loading="lazy" />
+            }
+            else
+            {
+                <div class="fn-preview__offline">연결되어 있지 않습니다</div>
+            }
+            <figcaption class="fn-preview__caption">
+                <span>@p.RoomName</span>
+                <span class="jsini-badge @(p.IsOnline ? "jsini-badge--on" : "jsini-badge--off")">
+                    @(p.IsOnline ? "온라인" : "오프라인")
+                </span>
+            </figcaption>
+        </figure>
+    }
+</div>
+
+<PageNotice Text="@Notice" Tone="@Tone" />
+
+@code {
+    private string? _buildingId;
+    private string? _roomId;
+    private IReadOnlyList<DevicePreview> _rows = [];
+
+    protected override Task OnInitializedAsync() => ReloadAsync();
+
+    private Task ReloadAsync() => LoadAsync(async () =>
+    {
+        _rows = await Api.GetDevicePreviewsAsync(_buildingId, _roomId);
+        return _rows.Count;
+    }, "조건에 맞는 장비가 없습니다.", "미리보기를 읽지 못했습니다");
+}

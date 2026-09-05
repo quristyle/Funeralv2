@@ -1,0 +1,82 @@
+@page "/projmng/todo/monitor"
+
+@*
+    [할일 정산 현황]
+
+    이력: 옛 Blazor `Pages/Home/HomeTodoMonitor.razor` → Vue `views/projmng/home/todo-monitor.vue` → 여기.
+    프로시저: `sp_home_todo_pay`(정산 집계), `sp_home_todo_exec`(할일 목록)
+
+    옛 화면은 차트를 붙이려다 그만두고 정산 집계만 부르는 상태였다
+    (`OnLoadWrk` 첫 줄이 `OnLoadPay(); return;` 이었다). Vue 이식본이 그 동작을
+    살리면서 할일 목록도 탭으로 함께 붙였고, 여기서도 그대로 둔다.
+
+    **탭을 바꿀 때만 그쪽을 읽는다.** 둘 다 미리 읽어 두면 안 볼 탭 때문에
+    프로시저를 한 번 더 부르게 된다.
+*@
+
+@inherits DataPage
+@inject ProjMngClient Client
+
+<PageTitle>할일 정산 현황 · 프로젝트관리</PageTitle>
+
+<PageHeading Title="할일 정산 현황" Scope="프로젝트관리" />
+
+<SearchBar>
+    <ChildContent>
+        <DxDateEdit @bind-Date="_targetDate" Style="width: 150px" />
+        <BizSelect Type="portal_account" @bind-Value="_userCode" ShowAll="true" />
+    </ChildContent>
+    <Actions>
+        <PermissionView Action="MenuAction.Search">
+            <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@SearchAsync" />
+        </PermissionView>
+    </Actions>
+</SearchBar>
+
+<PageNotice Text="@Notice" Tone="@Tone" />
+
+<DxTabs @bind-ActiveTabIndex="_tabIndex" TabClick="@(_ => SearchAsync())">
+    <DxTabPage Text="정산 집계">
+        <DynamicGrid Data="@_pay.Data" Loading="@_pay.IsLoading" ExportName="할일정산" OnRefresh="@SearchAsync" />
+    </DxTabPage>
+    <DxTabPage Text="할일 목록">
+        <DynamicGrid Data="@_todo.Data" Loading="@_todo.IsLoading" ExportName="할일목록" OnRefresh="@SearchAsync" />
+    </DxTabPage>
+</DxTabs>
+
+@code {
+    private ProcGrid _pay = default!;
+    private ProcGrid _todo = default!;
+
+    private DateTime? _targetDate = DateTime.Today;
+    private string? _userCode;
+    private int _tabIndex;
+
+    protected override void OnInitialized()
+    {
+        _pay = new ProcGrid(Client, "sp_home_todo_pay");
+        _todo = new ProcGrid(Client, "sp_home_todo_exec");
+    }
+
+    protected override Task OnInitializedAsync() => SearchAsync();
+
+    private Task SearchAsync() => LoadAsync(async () =>
+    {
+        if (_tabIndex == 0)
+        {
+            // 정산은 날짜로 좁히지 않는다 — 옛 화면과 같다. 담당자별 누계다.
+            await _pay.LoadAsync(new Dictionary<string, object?>
+            {
+                ["target_user"] = _userCode ?? string.Empty,
+            });
+            return _pay.Data.Table.Rows.Count;
+        }
+
+        await _todo.LoadAsync(new Dictionary<string, object?>
+        {
+            ["target_user"] = _userCode ?? string.Empty,
+            ["target_day"] = _targetDate?.ToString("yyyyMMdd") ?? string.Empty,
+        });
+        return _todo.Data.Table.Rows.Count;
+    }, "조회 결과가 없습니다.", "정산 현황을 읽지 못했습니다");
+}

@@ -37,9 +37,23 @@ public class MenuDto
 public class MenuMetaDto
 {
     /// <summary>
-    /// 메뉴 표시 제목
+    /// 저장된 메뉴 제목. 번역 키(<c>system.menu.title</c>)와 이미 완성된
+    /// 글자(<c>공통코드</c>)가 섞여 있다.
     /// </summary>
     public string Title { get; set; } = string.Empty;
+
+    /// <summary>
+    /// 화면에 그대로 찍을 제목 — <b>서버가 옮겨 둔 글자</b>다.
+    ///
+    /// <c>scom.i18n_resources</c> 에서 <b>찾았을 때만</b> 담고, 못 찾으면
+    /// <c>null</c> 이다. 화면은 이 값이 있으면 그것을, 없으면
+    /// <see cref="Title"/> 을 찍는다.
+    ///
+    /// 한동안 이 칸이 <b>메뉴 관리 화면용 DTO 에만</b> 있었다. 그래서 관리
+    /// 화면에서는 "메뉴 관리" 로 보이는 항목이 사이드바에서는
+    /// <c>system.menu.title</c> 로 보였다.
+    /// </summary>
+    public string? TitleText { get; set; }
 
     /// <summary>
     /// 메뉴 아이콘 명칭

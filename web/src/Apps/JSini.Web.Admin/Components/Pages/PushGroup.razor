@@ -1,0 +1,26 @@
+@page "/admin/push"
+
+@*
+    [알림 관리] — DB 메뉴 `/system/push`.
+
+    자식이 있는데 DB 유형이 CATALOG 가 아니라 사이드바에서 누를 수 있다.
+    누르면 열릴 화면이 있어야 해서 길잡이를 둔다(GroupLinks 주석 참고).
+*@
+
+<PageTitle>알림 관리 · 포털관리</PageTitle>
+
+<PageHeading Title="알림 관리" Scope="포털관리" />
+
+<PageNotice Text="아래 화면 중에서 고르십시오." />
+
+<GroupLinks Links="@Links" />
+
+@code {
+    private static readonly (string Href, string Title, string Hint)[] Links =
+    [
+        ("/admin/push/dashboard", "푸시 현황", "발송 건수 · 성공률 · 실패 사유"),
+        ("/admin/push/logs", "발송 이력", "한 건씩 들여다본다"),
+        ("/admin/push/history", "내 알림함", "내가 받은 알림"),
+        ("/admin/push/setting", "알림 설정", "내 수신 설정과 등록된 기기"),
+    ];
+}

@@ -1,0 +1,53 @@
+@page "/helpdesk/util/diagram"
+
+@*
+    [다이어그램] — DB 메뉴 `/helpdesk/util/diagram`.
+    이력: Vue `views/helpdesk/util/diagram` → 여기.
+    엔드포인트: `wbs-diagram`
+
+    **서버가 준 대로 보여 주는 화면이다**(AutoGrid). 칸을 손으로 적지 않은
+    이유는 그 부품의 주석에 있다 — 요약하면, 이런 화면이 마흔 개고 백엔드가
+    칸을 더할 때마다 화면을 고치러 가는 것이 이득이 아니기 때문이다.
+
+    매일 들여다보는 화면이 되면 그때 칸을 손으로 적는다.
+
+    저장된 다이어그램 목록이다. **그림 자체는 아직 그리지 않는다** —
+    프로젝트관리 쪽 `DiagramViewer` 를 여기서도 쓰려면 부품을 공용으로 올려야
+    하는데(두 모듈이 쓰면 복제, 세 번째부터 승격), 아직 두 번째다.
+    세 번째 모듈이 필요해질 때 함께 올린다.
+
+    **파일 이름이 화면 이름과 다르다.** 컴포넌트를 `WbsDiagram` 으로 두면 같은
+    이름의 자료 타입을 가린다. 아키텍처 테스트가 이 충돌을 막는다.
+*@
+
+@inherits DataPage
+@inject HelpDeskApi Api
+
+<PageTitle>다이어그램 · 헬프데스크</PageTitle>
+
+<PageHeading Title="다이어그램" Scope="헬프데스크" />
+
+<PageNotice Text="@Notice" Tone="@Tone" />
+
+<AutoGrid Data="@_rows" Loading="@Loading" Captions="@Captions" HiddenCols="id" PageSize="20" />
+
+@code {
+    private DataTable _rows = JsonTable.Empty;
+
+    /// <summary>칸 이름표. 여기 적은 순서가 표의 앞쪽 순서다.</summary>
+    private static readonly Dictionary<string, string> Captions = new(StringComparer.Ordinal)
+    {
+        ["name"] = "이름",
+        ["projectName"] = "프로젝트",
+        ["updatedAt"] = "수정일",
+    };
+
+    protected override Task OnInitializedAsync() => ReloadAsync();
+
+    private Task ReloadAsync() => LoadAsync(async () =>
+    {
+        var json = await Api.GetAsync<JsonElement>("wbs-diagram");
+        _rows = JsonTable.From(json);
+        return _rows.Rows.Count;
+    }, "저장된 다이어그램이 없습니다.", "다이어그램 목록을 읽지 못했습니다");
+}

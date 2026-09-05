@@ -1,0 +1,70 @@
+@page "/admin/push/history"
+
+@*
+    [내 알림함] — DB 메뉴 `/system/push/history`.
+    이력: Vue `views/portal/system/push/history` → 여기.
+
+    내가 받은 알림을 본다. 읽음 처리는 서버에 남는다 —
+    화면에서만 지우면 다른 기기에서 다시 안 읽은 것으로 보인다.
+*@
+
+@inherits DataPage
+@inject AdminClient Api
+
+<PageTitle>내 알림함 · 포털관리</PageTitle>
+
+<PageHeading Title="내 알림함" Scope="포털관리" />
+
+<div class="jsini-toolbar">
+    <DxCheckBox @bind-Checked="_unreadOnly">안 읽은 것만</DxCheckBox>
+    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@ReloadAsync" />
+</div>
+
+<DxGrid Data="@Shown" ShowFilterRow="false" PageSize="30">
+    <Columns>
+        <DxGridDataColumn FieldName="@nameof(NotificationDto.CreatedAt)" Caption="받은 때" Width="150" DisplayFormat="yyyy-MM-dd HH:mm" />
+        <DxGridDataColumn FieldName="@nameof(NotificationDto.Title)" Caption="제목" MinWidth="200" />
+        <DxGridDataColumn FieldName="@nameof(NotificationDto.Body)" Caption="내용" MinWidth="280" />
+        <DxGridDataColumn Caption="상태" Width="120">
+            <CellDisplayTemplate Context="cell">
+                @{ var n = (NotificationDto)cell.DataItem; }
+                @if (n.IsRead)
+                {
+                    <span class="jsini-badge jsini-badge--off">읽음</span>
+                }
+                else
+                {
+                    <DxButton Text="읽음 처리" SizeMode="SizeMode.Small" RenderStyle="ButtonRenderStyle.Secondary"
+                              Click="@(() => MarkReadAsync(n))" />
+                }
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+    </Columns>
+</DxGrid>
+
+<PageNotice Text="@Notice" Tone="@Tone" />
+
+@code {
+    private bool _unreadOnly;
+    private IReadOnlyList<NotificationDto> _all = [];
+
+    private IReadOnlyList<NotificationDto> Shown =>
+        _unreadOnly ? [.. _all.Where(n => !n.IsRead)] : _all;
+
+    protected override Task OnInitializedAsync() => ReloadAsync();
+
+    private Task ReloadAsync() => LoadAsync(async () =>
+    {
+        _all = await Api.GetMyNotificationsAsync();
+        return _all.Count;
+    }, "받은 알림이 없습니다.", "알림을 읽지 못했습니다");
+
+    private async Task MarkReadAsync(NotificationDto n)
+    {
+        if (await RunAsync(() => Api.MarkNotificationReadAsync(n.Id),
+                "읽음으로 표시했습니다.", "표시하지 못했습니다"))
+        {
+            n.IsRead = true;
+        }
+    }
+}

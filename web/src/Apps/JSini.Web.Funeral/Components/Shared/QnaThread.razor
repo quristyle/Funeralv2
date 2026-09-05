@@ -1,0 +1,62 @@
+@*
+    Q&A 한 글과 그 답글들.
+
+    **재귀 컴포넌트다.** 질문과 답글이 같은 모양이라(ParentId 로만 갈린다)
+    깊이 제한이 없고, 화면도 같은 부품이 자기를 다시 부른다.
+
+    들여쓰기는 CSS 변수로 넘긴다 — 깊이마다 클래스를 만들면 다섯 단계쯤에서
+    클래스가 바닥나고, 그 밑은 들여쓰기가 멈춘 것처럼 보인다.
+*@
+
+<article class="fn-qna__post" style="--depth: @Depth">
+    <header class="fn-qna__head">
+        @if (!string.IsNullOrWhiteSpace(Post.Title))
+        {
+            <span class="fn-qna__title">@Post.Title</span>
+        }
+        <span class="fn-qna__author">@(Post.AuthorName ?? "익명")</span>
+        <span class="fn-qna__date">@(Post.CreatedAt?.ToString("yyyy-MM-dd HH:mm") ?? "")</span>
+
+        @if (Post.IsAnswer)
+        {
+            <span class="jsini-badge jsini-badge--on">답변</span>
+        }
+        else if (Post.IsAnswered is true)
+        {
+            <span class="jsini-badge jsini-badge--on">답변 완료</span>
+        }
+        else if (Post.Depth == 0)
+        {
+            <span class="jsini-badge jsini-badge--warn">답변 대기</span>
+        }
+    </header>
+
+    @* 본문이 HTML 이라 그대로 넣지 않는다. 태그를 걷어낸 글자만 보여 준다 —
+       관리자가 쓴 글이라도 HTML 을 그대로 넣으면 XSS 경로가 된다. *@
+    <div class="fn-qna__body">@PlainText(Post.Content)</div>
+</article>
+
+@foreach (var child in Post.Children)
+{
+    <QnaThread Post="child" Depth="@(Depth + 1)" />
+}
+
+@code {
+    /// <summary>그릴 글.</summary>
+    [Parameter, EditorRequired] public QnaPost Post { get; set; } = new();
+
+    /// <summary>들여쓰기 깊이. 뿌리가 0.</summary>
+    [Parameter] public int Depth { get; set; }
+
+    /// <summary>
+    /// HTML 에서 태그를 걷어낸다.
+    ///
+    /// 정규식으로 HTML 을 다루는 것은 보통 나쁜 방법이지만, 여기서는
+    /// <b>파싱이 아니라 제거</b>가 목적이라 안전한 쪽이다 — 무엇이 남든
+    /// 태그로 해석되지 않는다.
+    /// </summary>
+    private static string PlainText(string? html) => string.IsNullOrWhiteSpace(html)
+        ? string.Empty
+        : System.Net.WebUtility.HtmlDecode(
+            System.Text.RegularExpressions.Regex.Replace(html, "<[^>]+>", " ")).Trim();
+}

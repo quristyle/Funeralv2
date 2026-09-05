@@ -1,0 +1,102 @@
+@page "/funeral/status/funeral-status"
+
+@*
+    [빈소 현황] — DB 메뉴 `/status/funeral-status`.
+    이력: Vue `views/funeral/status/funeral-status/index` → 여기.
+
+    **파일 이름이 화면 이름과 다르다.** 컴포넌트를 `FuneralStatus` 로 두면 같은
+    이름의 자료 타입(`Api.FuneralStatus`)을 가린다 — Razor 가 만드는 클래스는
+    `Components.Pages` 네임스페이스에 들어가고 그쪽이 더 가까워서, 화면 안에서
+    `FuneralStatus` 라고 쓰면 자료가 아니라 화면 자신을 가리킨다. 실제로 밟은
+    함정이라 이름을 갈라 둔다.
+
+    한동안 이 화면은 하드코딩한 자료를 보여 주고 있었다(골격을 잡을 때 넣은 것).
+    실제 API 에 붙였다.
+*@
+
+@inherits DataPage
+@inject FuneralApi Api
+
+<PageTitle>빈소 현황 · 장례식장</PageTitle>
+
+<PageHeading Title="빈소 현황" Scope="장례식장" />
+
+<BuildingFilter @bind-BuildingId="_buildingId" @bind-FloorId="_floorId" ShowFloor="true" Search="@ReloadAsync">
+    <DxCheckBox @bind-Checked="_onlyInUse">사용 중만</DxCheckBox>
+</BuildingFilter>
+
+@if (_board is not null)
+{
+    <div class="jsini-stats">
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">전체 호실</div>
+            <div class="jsini-stat__value">@_board.Summary.TotalRooms</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">사용 중</div>
+            <div class="jsini-stat__value">@_board.Summary.UsingRooms</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">장비 온라인</div>
+            <div class="jsini-stat__value">@_board.Summary.OnlineDevices / @_board.Summary.TotalDevices</div>
+        </div>
+    </div>
+}
+
+<DxGrid Data="@_rows" ShowFilterRow="false" PageSize="20">
+    <Columns>
+        <DxGridDataColumn FieldName="RoomName" Caption="호실" Width="120" />
+        <DxGridDataColumn FieldName="FloorName" Caption="층" Width="90" />
+        <DxGridDataColumn FieldName="DeceasedName" Caption="고인" MinWidth="120" />
+        <DxGridDataColumn FieldName="ChiefMourner" Caption="상주" MinWidth="120" />
+        <DxGridDataColumn FieldName="StartTime" Caption="입실" Width="150" DisplayFormat="yyyy-MM-dd HH:mm" />
+        <DxGridDataColumn FieldName="DischargeTime" Caption="출상" Width="150" DisplayFormat="yyyy-MM-dd HH:mm" />
+        <DxGridDataColumn FieldName="UseDays" Caption="사용일" Width="90" />
+        <DxGridDataColumn Caption="장비" Width="110">
+            <CellDisplayTemplate>
+                @{
+                    var r = (JSini.Web.Funeral.Api.FuneralStatus)context.DataItem;
+                    var allOnline = r.DeviceCount > 0 && r.OnlineDeviceCount == r.DeviceCount;
+                }
+                @* 온라인/전체. 하나라도 끊겨 있으면 눈에 띄어야 한다. *@
+                <span class="jsini-badge @(allOnline ? "jsini-badge--on" : "jsini-badge--warn")">
+                    @r.OnlineDeviceCount / @r.DeviceCount
+                </span>
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+        <DxGridDataColumn Caption="상태" Width="100">
+            <CellDisplayTemplate>
+                @{
+                    var s = (JSini.Web.Funeral.Api.FuneralStatus)context.DataItem;
+                }
+                <span class="jsini-badge @(s.Occupied ? "jsini-badge--on" : "jsini-badge--off")">
+                    @(s.Occupied ? "사용" : "빈방")
+                </span>
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+    </Columns>
+</DxGrid>
+
+<PageNotice Text="@Notice" Tone="@Tone" />
+
+@code {
+    private string? _buildingId;
+    private string? _floorId;
+    private bool _onlyInUse;
+
+    private StatusBoard? _board;
+    private IReadOnlyList<JSini.Web.Funeral.Api.FuneralStatus> _rows = [];
+
+    protected override Task OnInitializedAsync() => ReloadAsync();
+
+    private Task ReloadAsync() => LoadAsync(async () =>
+    {
+        // 요약과 목록을 한 번에 받는다. 따로 부르면 두 왕복 사이에 자료가 바뀌어
+        // "사용 중 5" 인데 목록은 4줄인 상태가 생긴다.
+        _board = await Api.GetFuneralStatusBoardAsync(_buildingId, _floorId);
+        var rooms = _board?.Rooms ?? [];
+
+        _rows = _onlyInUse ? [.. rooms.Where(r => r.Occupied)] : rooms;
+        return _rows.Count;
+    }, "조건에 맞는 빈소가 없습니다.", "빈소 현황을 읽지 못했습니다");
+}

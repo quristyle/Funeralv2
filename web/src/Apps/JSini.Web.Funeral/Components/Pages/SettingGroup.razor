@@ -1,0 +1,21 @@
+@page "/funeral/setting"
+
+@*
+    [설정] — DB 메뉴 `/setting`. 자식이 둘인 묶음이지만 유형이 CATALOG 가 아니다.
+*@
+
+<PageTitle>설정 · 장례식장</PageTitle>
+
+<PageHeading Title="설정" Scope="장례식장" />
+
+<PageNotice Text="아래 화면 중에서 고르십시오." />
+
+<GroupLinks Links="@Links" />
+
+@code {
+    private static readonly (string Href, string Title, string Hint)[] Links =
+    [
+        ("/funeral/setting/environment", "환경설정", "장례식장 기본 정보와 기능 스위치"),
+        ("/funeral/setting/work-options", "업무 옵션", "업무 흐름에 관한 스위치"),
+    ];
+}

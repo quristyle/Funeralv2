@@ -1,0 +1,30 @@
+@page "/funeral/status"
+
+@*
+    [현황관리] — DB 메뉴 `/status`.
+
+    **자식이 다섯인데 DB 유형이 CATALOG 가 아니다.** 그래서 사이드바에서
+    누를 수 있고, 누르면 열릴 화면이 있어야 한다. 하위 화면으로 가는 길잡이를 둔다.
+
+    묶음 메뉴에 링크가 걸린 것을 DB 에서 고치는 방법도 있지만, 운영에서 메뉴를
+    그렇게 쓰고 있으므로 화면 쪽에서 받는다.
+*@
+
+<PageTitle>현황관리 · 장례식장</PageTitle>
+
+<PageHeading Title="현황관리" Scope="장례식장" />
+
+<PageNotice Text="아래 화면 중에서 고르십시오." />
+
+<GroupLinks Links="@Links" />
+
+@code {
+    private static readonly (string Href, string Title, string Hint)[] Links =
+    [
+        ("/funeral/status/funeral-info", "빈소 정보", "빈소별 고인·상주·시설 사용 정보"),
+        ("/funeral/status/funeral-status", "빈소 현황", "호실별 사용 현황과 장비 상태"),
+        ("/funeral/status/deceased-status", "고인 현황", "고인 목록과 진행 상태"),
+        ("/funeral/status/simple", "간편 현황", "한 화면에 줄여 담은 현황"),
+        ("/funeral/status/mobile", "모바일 현황", "휴대폰에서 보는 현황"),
+    ];
+}

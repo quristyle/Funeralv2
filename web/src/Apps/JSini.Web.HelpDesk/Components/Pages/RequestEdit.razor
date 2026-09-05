@@ -1,0 +1,129 @@
+@page "/helpdesk/request/edit/{Id}"
+
+@*
+    [요청 수정] — DB 메뉴 `/helpdesk/request/edit/:id`.
+    이력: Vue `views/helpdesk/request/edit.vue` → 여기.
+    엔드포인트: `requests/{id}` · `requests/{id}/comments`
+
+    주소에 자료 키가 들어간다(`{id}`). DB 메뉴는 vben 표기 `:id` 로 적혀 있고,
+    `RouteAliases` 가 Blazor 표기로 옮겨 대조한다 — 그 둘이 어긋나면 이 화면이
+    늘 "메뉴에는 있는데 화면이 없다" 로 잘못 보고된다.
+
+    [상태 전환만 옮겼다]
+
+    Vue 는 제목·내용·담당자·첨부를 모두 고칠 수 있었다. 그중 **되돌리기 어려운
+    것**(담당자 재배정은 알림이 나간다)과 첨부는 아직 옮기지 않았다.
+    상태 전환은 이력이 남고 되돌릴 수 있어 먼저 옮겼다.
+*@
+
+@inherits DataPage
+@inject HelpDeskApi Api
+
+<PageTitle>요청 수정 · 헬프데스크</PageTitle>
+
+<PageHeading Title="요청 수정" Scope="헬프데스크" />
+
+<PageNotice Text="@Notice" Tone="@Tone" />
+
+@if (_request is not null)
+{
+    <dl class="hd-facts">
+        <dt>요청번호</dt><dd>@Text("reqNo")</dd>
+        <dt>제목</dt><dd>@Text("title")</dd>
+        <dt>고객사</dt><dd>@Text("companyName")</dd>
+        <dt>요청자</dt><dd>@Text("requesterName")</dd>
+        <dt>담당자</dt><dd>@Text("adminName")</dd>
+        <dt>상태</dt><dd>@Text("statusName")</dd>
+        <dt>접수</dt><dd>@Text("createdAt")</dd>
+    </dl>
+
+    <div class="hd-content">@Text("content")</div>
+
+    <div class="hd-form">
+        <label class="hd-field">
+            <span class="hd-field__label">상태 바꾸기</span>
+            <DxComboBox Data="@Statuses" @bind-Value="_status" NullText="새 상태" Style="width: 200px" />
+        </label>
+
+        <div>
+            <PermissionView Action="MenuAction.Update">
+                <DxButton Text="상태 저장" RenderStyle="ButtonRenderStyle.Primary" Click="@SaveStatusAsync" />
+            </PermissionView>
+        </div>
+    </div>
+
+}
+
+<h2 class="hd-subhead">처리 이력</h2>
+<AutoGrid Data="@_comments" Loading="@Loading" Captions="@CommentCaptions" PageSize="20" />
+
+@code {
+    /// <summary>주소의 요청 키.</summary>
+    [Parameter] public string Id { get; set; } = string.Empty;
+
+    private static readonly Dictionary<string, string> CommentCaptions = new(StringComparer.Ordinal)
+    {
+        ["authorName"] = "작성자",
+        ["content"] = "내용",
+        ["createdAt"] = "작성일",
+    };
+
+    private JsonElement? _request;
+    private DataTable _comments = JsonTable.Empty;
+
+    private string? _status;
+
+    /// <summary>서버가 쓰는 상태 값.</summary>
+    private static readonly string[] Statuses = ["OPEN", "IN_PROGRESS", "DONE", "CLOSED"];
+
+    /// <summary>
+    /// 주소가 바뀌면 다시 읽는다.
+    ///
+    /// <c>OnInitializedAsync</c> 가 아니라 <c>OnParametersSetAsync</c> 인 이유는,
+    /// 같은 화면에서 다른 요청으로 이동할 때 Blazor 가 컴포넌트를 다시 만들지
+    /// 않기 때문이다 — 초기화에만 걸어 두면 주소만 바뀌고 내용이 그대로다.
+    /// </summary>
+    protected override Task OnParametersSetAsync() => ReloadAsync();
+
+    private Task ReloadAsync() => LoadAsync(async () =>
+    {
+        // 본문과 이력을 나란히. 서로 기다릴 이유가 없다.
+        var request = Api.GetAsync<JsonElement>($"requests/{Id}");
+        var comments = Api.GetAsync<JsonElement>($"requests/{Id}/comments");
+
+        await Task.WhenAll(request, comments);
+
+        _request = request.Result;
+        _comments = JsonTable.From(comments.Result);
+
+        return _request is null ? 0 : 1;
+    }, "그런 요청을 찾지 못했습니다.", "요청을 읽지 못했습니다");
+
+    /// <summary>
+    /// 응답에서 칸 하나를 글자로 꺼낸다.
+    ///
+    /// DTO 를 두지 않은 이유는 <c>JsonTable</c> 주석과 같다 — 이 응답의 칸이
+    /// 백엔드 사정으로 늘고 줄어서, 박아 두면 새 칸이 조용히 사라진다.
+    /// </summary>
+    private async Task SaveStatusAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_status))
+        {
+            Say("바꿀 상태를 고르십시오.", NoticeTone.Warning);
+            return;
+        }
+
+        if (await RunAsync(() => Api.PutAsync($"requests/{Id}", new { status = _status }),
+                "상태를 바꿨습니다.", "상태를 바꾸지 못했습니다"))
+        {
+            await ReloadAsync();
+        }
+    }
+
+    private string Text(string name) =>
+        _request is { ValueKind: JsonValueKind.Object } obj
+        && obj.TryGetProperty(name, out var value)
+        && value.ValueKind is not (JsonValueKind.Null or JsonValueKind.Undefined)
+            ? value.ToString()
+            : "-";
+}

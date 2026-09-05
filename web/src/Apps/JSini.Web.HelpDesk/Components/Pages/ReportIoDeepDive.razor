@@ -1,0 +1,50 @@
+@page "/helpdesk/report/io-deep-dive"
+
+@*
+    [IO 심층 분석] — DB 메뉴 `/helpdesk/report/io-deep-dive`.
+    이력: Vue `views/helpdesk/report/io-deep-dive` → 여기.
+    엔드포인트: `dashboard/report/emergency`
+
+    **서버가 준 대로 보여 주는 화면이다**(AutoGrid). 칸을 손으로 적지 않은
+    이유는 그 부품의 주석에 있다 — 요약하면, 이런 화면이 마흔 개고 백엔드가
+    칸을 더할 때마다 화면을 고치러 가는 것이 이득이 아니기 때문이다.
+
+    매일 들여다보는 화면이 되면 그때 칸을 손으로 적는다.
+
+    [보고서는 서버가 집계한 것을 그대로 본다]
+
+    화면에서 다시 세지 않는다. 세면 같은 숫자를 두 곳에서 계산하게 되고,
+    반드시 어긋난다 — 기간 경계를 어떻게 잡느냐가 늘 다르기 때문이다.
+*@
+
+@inherits DataPage
+@inject HelpDeskApi Api
+
+<PageTitle>IO 심층 분석 · 헬프데스크</PageTitle>
+
+<PageHeading Title="IO 심층 분석" Scope="헬프데스크" />
+
+<PageNotice Text="@Notice" Tone="@Tone" />
+
+<AutoGrid Data="@_rows" Loading="@Loading" Captions="@Captions" HiddenCols="id" PageSize="30" />
+
+@code {
+    private DataTable _rows = JsonTable.Empty;
+
+    /// <summary>칸 이름표. 여기 적은 순서가 표의 앞쪽 순서다.</summary>
+    private static readonly Dictionary<string, string> Captions = new(StringComparer.Ordinal)
+    {
+        ["companyName"] = "고객사",
+        ["count"] = "건수",
+        ["avgHours"] = "평균 처리(h)",
+    };
+
+    protected override Task OnInitializedAsync() => ReloadAsync();
+
+    private Task ReloadAsync() => LoadAsync(async () =>
+    {
+        var json = await Api.GetAsync<JsonElement>("dashboard/report/emergency");
+        _rows = JsonTable.From(json);
+        return _rows.Rows.Count;
+    }, "집계할 자료가 없습니다.", "IO 심층 분석를 읽지 못했습니다");
+}

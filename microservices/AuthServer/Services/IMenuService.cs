@@ -12,7 +12,13 @@ public interface IMenuService
     /// </summary>
     /// <param name="userId">사용자 아이디</param>
     /// <returns>메뉴 DTO 리스트</returns>
-    Task<List<MenuDto>> GetAllMenusAsync(string userId);
+    /// <param name="userId">메뉴를 볼 사용자</param>
+    /// <param name="locale">
+    /// 제목을 옮길 언어. 비우면 <c>ko</c>.
+    /// 제목의 다국어는 여기서 함께 붙여 <c>meta.titleText</c> 로 내려보낸다 —
+    /// 화면이 제목마다 번역 함수를 부르지 않게 하려는 것이다.
+    /// </param>
+    Task<List<MenuDto>> GetAllMenusAsync(string userId, string? locale = null);
     /// <summary>
     /// 메뉴의 위치(부모)와 순서를 변경합니다.
     /// </summary>

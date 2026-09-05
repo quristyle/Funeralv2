@@ -1,0 +1,52 @@
+@page "/funeral/status/mobile"
+
+@*
+    [모바일 현황] — DB 메뉴 `/status/mobile`.
+    이력: Vue `views/funeral/status/mobile/index` → 여기.
+
+    **표가 아니라 카드다.** 좁은 화면에서 표는 가로로 잘리고, 가로 스크롤이
+    생기면 손가락으로 세로로 밀 때마다 표가 옆으로 흔들린다.
+*@
+
+@inherits DataPage
+@inject FuneralApi Api
+
+<PageTitle>모바일 현황 · 장례식장</PageTitle>
+
+<PageHeading Title="모바일 현황" Scope="장례식장" />
+
+<BuildingFilter @bind-BuildingId="_buildingId" Search="@ReloadAsync" />
+
+<div class="fn-mobile">
+    @foreach (var r in _rows)
+    {
+        <article class="fn-mobile__card">
+            <div class="fn-mobile__head">
+                <span class="fn-mobile__room">@r.RoomName</span>
+                <span class="jsini-badge @(r.Occupied ? "jsini-badge--on" : "jsini-badge--off")">
+                    @(r.Occupied ? "사용" : "빈방")
+                </span>
+            </div>
+            @if (r.Occupied)
+            {
+                <div class="fn-mobile__name">@r.DeceasedName</div>
+                <div class="fn-mobile__meta">상주 @(r.ChiefMourner ?? "-") · 발인 @(r.DischargeTime?.ToString("MM-dd HH:mm") ?? "-")</div>
+            }
+        </article>
+    }
+</div>
+
+<PageNotice Text="@Notice" Tone="@Tone" />
+
+@code {
+    private string? _buildingId;
+    private IReadOnlyList<FuneralStatus> _rows = [];
+
+    protected override Task OnInitializedAsync() => ReloadAsync();
+
+    private Task ReloadAsync() => LoadAsync(async () =>
+    {
+        _rows = await Api.GetFuneralStatusesAsync(_buildingId);
+        return _rows.Count;
+    }, "조건에 맞는 빈소가 없습니다.", "빈소 현황을 읽지 못했습니다");
+}

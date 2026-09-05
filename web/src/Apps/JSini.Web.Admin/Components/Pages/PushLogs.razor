@@ -1,0 +1,54 @@
+@page "/admin/push/logs"
+
+@*
+    [발송 이력] — DB 메뉴 `/system/push/logs`.
+    이력: Vue `views/portal/system/push/logs` → 여기.
+
+    한 건씩 들여다본다. 실패한 것만 보는 일이 많아 사유로 거를 수 있게 둔다.
+*@
+
+@inherits DataPage
+@inject AdminClient Api
+
+<PageTitle>발송 이력 · 포털관리</PageTitle>
+
+<PageHeading Title="발송 이력" Scope="포털관리" />
+
+<div class="jsini-toolbar">
+    <DxTextBox @bind-Text="_reason" NullText="실패 사유로 거르기" Style="width: 240px"
+               ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@ReloadAsync" />
+</div>
+
+<DxGrid Data="@_logs" ShowFilterRow="false" PageSize="30">
+    <Columns>
+        <DxGridDataColumn FieldName="@nameof(PushLogDto.SentAt)" Caption="보낸 때" Width="150" DisplayFormat="yyyy-MM-dd HH:mm" />
+        <DxGridDataColumn FieldName="@nameof(PushLogDto.TargetUser)" Caption="대상" Width="140" />
+        <DxGridDataColumn FieldName="@nameof(PushLogDto.Title)" Caption="제목" MinWidth="180" />
+        <DxGridDataColumn FieldName="@nameof(PushLogDto.Body)" Caption="내용" MinWidth="240" />
+        <DxGridDataColumn Caption="결과" Width="90">
+            <CellDisplayTemplate Context="cell">
+                @{ var log = (PushLogDto)cell.DataItem; }
+                <span class="jsini-badge @(log.Success ? "jsini-badge--on" : "jsini-badge--warn")">
+                    @(log.Success ? "성공" : "실패")
+                </span>
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+        <DxGridDataColumn FieldName="@nameof(PushLogDto.FailureReason)" Caption="실패 사유" MinWidth="200" />
+    </Columns>
+</DxGrid>
+
+<PageNotice Text="@Notice" Tone="@Tone" />
+
+@code {
+    private string? _reason;
+    private IReadOnlyList<PushLogDto> _logs = [];
+
+    protected override Task OnInitializedAsync() => ReloadAsync();
+
+    private Task ReloadAsync() => LoadAsync(async () =>
+    {
+        _logs = await Api.GetPushLogsAsync(reason: _reason);
+        return _logs.Count;
+    }, "조건에 맞는 발송 내역이 없습니다.", "발송 이력을 읽지 못했습니다");
+}

@@ -1,0 +1,75 @@
+@page "/funeral/info/my-info"
+
+@*
+    [내 정보] — DB 메뉴 `/info/my-info`.
+    이력: Vue `views/funeral/info/my-info/index` → 여기.
+
+    **파일 이름이 화면 이름과 다르다.** 컴포넌트를 `MyInfo` 로 두면 같은 이름의
+    자료 타입(`Api.MyInfo`)을 가린다 — Razor 가 만드는 클래스는 `Components.Pages`
+    네임스페이스에 들어가고 그쪽이 더 가까워서, 화면 안에서 `MyInfo` 라고 쓰면
+    자료가 아니라 화면 자신을 가리킨다.
+
+    로그인한 사람의 권한과 담당 범위를 보여 준다. 환경설정 값도 함께 오는데
+    **여기서는 읽기만 한다** — 바꾸는 곳은 환경설정 화면 하나여야 한다.
+    두 곳에서 바꿀 수 있으면 어느 쪽이 마지막인지 알 수 없다.
+*@
+
+@inherits DataPage
+@inject FuneralApi Api
+
+<PageTitle>내 정보 · 장례식장</PageTitle>
+
+<PageHeading Title="내 정보" Scope="장례식장" />
+
+@if (_info is not null)
+{
+    <div class="jsini-stats">
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">아이디</div>
+            <div class="jsini-stat__value">@_info.UserId</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">권한</div>
+            <div class="jsini-stat__value">@(_info.Role ?? "-")</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">담당 건물</div>
+            <div class="jsini-stat__value">@_info.BuildingCount</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">사용 중 호실</div>
+            <div class="jsini-stat__value">@_info.RoomsInUse</div>
+        </div>
+    </div>
+
+    <h2 class="fn-subhead">적용된 환경설정</h2>
+    <PageNotice Text="값을 바꾸려면 설정 › 환경설정에서 하십시오." />
+
+    <DxGrid Data="@_info.Settings" ShowFilterRow="false" PageSize="20">
+        <Columns>
+            <DxGridDataColumn FieldName="@nameof(EnvironmentSetting.GroupName)" Caption="구분" Width="140" />
+            <DxGridDataColumn FieldName="@nameof(EnvironmentSetting.Name)" Caption="항목" MinWidth="200" />
+            <DxGridDataColumn Caption="상태" Width="100">
+                <CellDisplayTemplate>
+                    @{
+                        var s = (EnvironmentSetting)context.DataItem;
+                    }
+                    <span class="jsini-badge @(s.Enabled ? "jsini-badge--on" : "jsini-badge--off")">
+                        @(s.Enabled ? "켜짐" : "꺼짐")
+                    </span>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+            <DxGridDataColumn FieldName="@nameof(EnvironmentSetting.Description)" Caption="설명" MinWidth="240" />
+        </Columns>
+    </DxGrid>
+}
+
+<PageNotice Text="@Notice" Tone="@Tone" />
+
+@code {
+    private MyInfo? _info;
+
+    protected override Task OnInitializedAsync()
+        => LoadOneAsync(() => Api.GetMyInfoAsync(), v => _info = v,
+            "내 정보를 찾지 못했습니다.", "내 정보를 읽지 못했습니다");
+}

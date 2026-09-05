@@ -1,0 +1,85 @@
+@page "/admin/status/deploy"
+
+@*
+    [배포 현황] — DB 메뉴 `/system/deploy-status`.
+    이력: Vue `views/portal/system/deploy-status/index` → 여기.
+
+    GitHub 워크플로 실행 이력과 셀프 호스티드 러너 상태를 본다.
+
+    [GitHub 이 안 읽혀도 화면은 뜬다]
+
+    서버가 둘을 따로 긁어 합쳐 주고, GitHub 쪽이 실패하면 `github.error` 에
+    이유가 담긴다. 그때도 컨테이너 목록은 온다 — 배포가 안 되는 이유를 보러
+    들어온 사람에게 빈 화면을 주지 않는다.
+*@
+
+@inherits DataPage
+@inject AdminClient Api
+
+<PageTitle>배포 현황 · 포털관리</PageTitle>
+
+<PageHeading Title="배포 현황" Scope="포털관리" />
+
+<div class="jsini-toolbar">
+    <DxButton Text="새로 고침" RenderStyle="ButtonRenderStyle.Primary" Click="@ReloadAsync" />
+    @if (_status?.Repo is { Length: > 0 } repo)
+    {
+        <span class="ad-stamp">@repo</span>
+    }
+</div>
+
+@if (_status?.Github.Error is { Length: > 0 } error)
+{
+    <PageNotice Text="@($"GitHub 을 읽지 못했습니다 — {error}")" Tone="NoticeTone.Warning" />
+}
+
+<h2 class="ad-subhead">워크플로 실행</h2>
+<DxGrid Data="@Runs" ShowFilterRow="false" PageSize="15">
+    <Columns>
+        <DxGridDataColumn FieldName="@nameof(GithubRunDto.CreatedAt)" Caption="시각" Width="160" DisplayFormat="yyyy-MM-dd HH:mm" />
+        <DxGridDataColumn FieldName="@nameof(GithubRunDto.Name)" Caption="워크플로" MinWidth="200" />
+        <DxGridDataColumn FieldName="@nameof(GithubRunDto.HeadBranch)" Caption="브랜치" Width="130" />
+        <DxGridDataColumn FieldName="@nameof(GithubRunDto.Status)" Caption="상태" Width="120" />
+        <DxGridDataColumn Caption="결과" Width="110">
+            <CellDisplayTemplate Context="cell">
+                @{
+                    var run = (GithubRunDto)cell.DataItem;
+                    var ok = string.Equals(run.Conclusion, "success", StringComparison.OrdinalIgnoreCase);
+                }
+                <span class="jsini-badge @(ok ? "jsini-badge--on" : "jsini-badge--warn")">
+                    @(run.Conclusion ?? "진행 중")
+                </span>
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+    </Columns>
+</DxGrid>
+
+<h2 class="ad-subhead">러너</h2>
+<DxGrid Data="@Runners" ShowFilterRow="false" PageSizeSelectorVisible="false" PagerVisible="false">
+    <Columns>
+        <DxGridDataColumn FieldName="@nameof(GithubRunnerDto.Name)" Caption="이름" MinWidth="200" />
+        <DxGridDataColumn FieldName="@nameof(GithubRunnerDto.Status)" Caption="상태" Width="130" />
+        <DxGridDataColumn Caption="작업" Width="110">
+            <CellDisplayTemplate Context="cell">
+                @(((GithubRunnerDto)cell.DataItem).Busy ? "실행 중" : "대기")
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+    </Columns>
+</DxGrid>
+
+<PageNotice Text="@Notice" Tone="@Tone" />
+
+@code {
+    private DeployStatusDto? _status;
+
+    private IReadOnlyList<GithubRunDto> Runs => _status?.Github.Runs ?? [];
+    private IReadOnlyList<GithubRunnerDto> Runners => _status?.Github.Runners ?? [];
+
+    protected override Task OnInitializedAsync() => ReloadAsync();
+
+    private Task ReloadAsync() => LoadAsync(async () =>
+    {
+        _status = await Api.GetDeployStatusAsync();
+        return Runs.Count + Runners.Count;
+    }, "배포 이력을 받지 못했습니다.", "배포 현황을 읽지 못했습니다");
+}
