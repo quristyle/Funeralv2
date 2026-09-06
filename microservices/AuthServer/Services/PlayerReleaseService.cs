@@ -283,6 +283,70 @@ public class PlayerReleaseService : IPlayerReleaseService
         return run;
     }
 
+    // ── 최신 릴리스와 첨부 파일 ─────────────────────────────
+
+    public async Task<PlayerReleaseLatestDto> GetLatestAsync()
+    {
+        var latest = new PlayerReleaseLatestDto
+        {
+            ReleasesUrl = $"https://github.com/{_options.Owner}/{_options.Repo}/releases",
+        };
+
+        if (!_options.IsConfigured)
+        {
+            latest.Warning =
+                "AuthServer 에 GitHub 설정이 없습니다. Owner · Repo · Token 을 채우면 " +
+                "설치 파일 목록이 나옵니다.";
+            return latest;
+        }
+
+        try
+        {
+            // 한 번도 발행하지 않았으면 404 다 — 오류가 아니라 '아직 없음' 이다.
+            var release = await GetJsonAsync("releases/latest", allowNotFound: true);
+
+            if (release is null)
+            {
+                latest.Warning =
+                    "아직 발행된 릴리스가 없습니다. 저장소에 버전 태그(예: v1.0.0)를 " +
+                    "푸시하면 설치 파일이 자동으로 만들어집니다.";
+                return latest;
+            }
+
+            latest.Published = true;
+            latest.TagName = Str(release.Value, "tag_name");
+            latest.HtmlUrl = Str(release.Value, "html_url");
+
+            if (release.Value.TryGetProperty("published_at", out var at) &&
+                at.ValueKind == JsonValueKind.String &&
+                at.TryGetDateTime(out var published))
+            {
+                latest.PublishedAt = published;
+            }
+
+            if (release.Value.TryGetProperty("assets", out var assets) &&
+                assets.ValueKind == JsonValueKind.Array)
+            {
+                latest.Assets = assets.EnumerateArray().Select(a => new PlayerReleaseAssetDto
+                {
+                    DownloadCount = a.TryGetProperty("download_count", out var c) &&
+                                    c.TryGetInt32(out var count) ? count : 0,
+                    DownloadUrl = Str(a, "browser_download_url") ?? string.Empty,
+                    Name = Str(a, "name") ?? string.Empty,
+                    Size = a.TryGetProperty("size", out var s) && s.TryGetInt64(out var size) ? size : 0,
+                }).ToList();
+            }
+        }
+        catch (Exception ex)
+        {
+            // 화면은 떠야 한다. 조회가 실패해도 안내만 띄우고 넘어간다.
+            _log.LogWarning(ex, "최신 릴리스 조회 실패");
+            latest.Warning = "GitHub 에서 릴리스 정보를 가져오지 못했습니다. 잠시 뒤 다시 시도하십시오.";
+        }
+
+        return latest;
+    }
+
     // ── 도우미 ──────────────────────────────────────────────
 
     private static string? Str(JsonElement e, string name) =>

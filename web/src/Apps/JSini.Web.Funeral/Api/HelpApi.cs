@@ -114,6 +114,39 @@ public sealed class ArchiveList
 }
 
 /// <summary>
+/// 최신 플레이어 릴리스. AuthServer 의 <c>PlayerReleaseLatestDto</c> 와 짝이다.
+/// </summary>
+public sealed class PlayerLatest
+{
+    /// <summary>릴리스가 하나라도 있는가. 없으면 <see cref="Warning"/> 에 까닭이 있다.</summary>
+    public bool Published { get; set; }
+
+    public string? TagName { get; set; }
+    public DateTime? PublishedAt { get; set; }
+    public string? HtmlUrl { get; set; }
+
+    /// <summary>릴리스 목록 화면. 「전체 버전 보기」가 연다.</summary>
+    public string ReleasesUrl { get; set; } = string.Empty;
+
+    public List<PlayerAsset> Assets { get; set; } = [];
+
+    /// <summary>릴리스가 없거나 GitHub 이 응답하지 않을 때의 안내.</summary>
+    public string? Warning { get; set; }
+}
+
+/// <summary>릴리스에 첨부된 설치 파일 하나</summary>
+public sealed class PlayerAsset
+{
+    public string Name { get; set; } = string.Empty;
+
+    /// <summary>브라우저가 GitHub 에서 바로 받는 주소.</summary>
+    public string DownloadUrl { get; set; } = string.Empty;
+
+    public long Size { get; set; }
+    public int DownloadCount { get; set; }
+}
+
+/// <summary>
 /// AuthServer 의 도움말 API 호출 (F.A.Q · Q&amp;A · 자료실).
 /// </summary>
 public sealed class HelpApi(GatewayClient gateway)
@@ -179,4 +212,18 @@ public sealed class HelpApi(GatewayClient gateway)
 
     public Task DeleteArchiveAsync(string id, CancellationToken ct = default)
         => gateway.DeleteAsync($"auth/help/archives/{id}", ct);
+
+    // ── 플레이어 배포본 ─────────────────────────────────────────
+
+    /// <summary>
+    /// 최신 플레이어 릴리스와 그 첨부 파일.
+    ///
+    /// <para>
+    /// 경로가 <c>player-release</c> 인 것은 <b>포털관리의 릴리스 화면과 같은 통로</b>이기
+    /// 때문이다 — 한쪽이 발행하고 한쪽이 내려받는다. GitHub 토큰은 AuthServer 에만 있다.
+    /// </para>
+    /// </summary>
+    public async Task<PlayerLatest> GetPlayerLatestAsync(CancellationToken ct = default)
+        => await gateway.GetOneAsync<PlayerLatest>("auth/system/player-release/latest", ct)
+           ?? new PlayerLatest();
 }

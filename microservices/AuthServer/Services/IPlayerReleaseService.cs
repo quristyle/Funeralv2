@@ -32,4 +32,14 @@ public interface IPlayerReleaseService
 
     /// <summary>그 태그로 도는 워크플로의 진행 상황. 화면이 폴링한다.</summary>
     Task<PlayerReleaseRunDto> GetRunAsync(string tag);
+
+    /// <summary>
+    /// 최신 릴리스와 첨부 파일. 다운로드 화면이 OS 별로 짝지어 보여 준다.
+    ///
+    /// <para>
+    /// 릴리스가 없거나 GitHub 이 응답하지 않아도 <b>던지지 않는다</b> —
+    /// 화면은 떠야 하고, 그 사정은 안내로 말한다.
+    /// </para>
+    /// </summary>
+    Task<PlayerReleaseLatestDto> GetLatestAsync();
 }

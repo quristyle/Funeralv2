@@ -74,6 +74,21 @@ public static class PlayerReleaseEndpoints
         .WithName("CreatePlayerRelease")
         .WithOpenApi();
 
+        // ── 최신 릴리스와 첨부 파일 ─────────────────────────
+        //
+        // 다운로드 화면이 OS 별 카드에 파일을 짝지어 보여 준다.
+        // **발행 권한과 무관하다** — 내려받는 것은 로그인한 사람 누구나 한다.
+        group.MapGet("/latest", async (UserContext? user,
+            [FromServices] IPlayerReleaseService service) =>
+        {
+            if (user is null) return Results.Unauthorized();
+
+            var latest = await service.GetLatestAsync();
+            return Results.Ok(ApiResponse<PlayerReleaseLatestDto>.Ok(latest));
+        })
+        .WithName("GetPlayerReleaseLatest")
+        .WithOpenApi();
+
         // ── 진행 상황 (화면이 폴링한다) ─────────────────────
         group.MapGet("/runs/{tag}", async (string tag, UserContext? user,
             [FromServices] IPlayerReleaseService service) =>

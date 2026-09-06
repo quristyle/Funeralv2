@@ -409,3 +409,103 @@
 .fn-upload {
   margin-bottom: 0.75rem;
 }
+
+/* ── 플레이어 내려받기 ────────────────────────────────────
+
+   OS 별 카드 일곱 장. 넓은 화면에서 셋, 좁으면 하나씩 선다.
+   카드 영역만 안에서 구른다 — 쪽 전체가 구르면 조건줄이 밀려난다. */
+
+.fn-pd {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: 1fr;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+}
+
+@media (width >= 768px) {
+  .fn-pd { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (width >= 1280px) {
+  .fn-pd { grid-template-columns: repeat(3, 1fr); }
+}
+
+.fn-pd__card {
+  display: flex;
+  flex-direction: column;
+  padding: 1rem;
+  border: 1px solid var(--jsini-border);
+  border-radius: 0.6rem;
+  background: var(--jsini-surface);
+}
+
+.fn-pd__title { font-size: var(--jsini-fs-lg); font-weight: 600; }
+
+.fn-pd__sub {
+  margin-top: 0.15rem;
+  font-size: var(--jsini-fs-xs);
+  color: var(--jsini-text-muted);
+}
+
+.fn-pd__reqs {
+  margin: 0.9rem 0 0;
+  padding-left: 1.1rem;
+  font-size: var(--jsini-fs-xs);
+  color: var(--jsini-text-muted);
+}
+
+.fn-pd__reqs li { padding: 0.1rem 0; }
+
+.fn-pd__steps {
+  margin-top: 0.9rem;
+  padding: 0.6rem;
+  border-radius: 0.4rem;
+  background: var(--jsini-theme-hover);
+}
+
+.fn-pd__steps-title {
+  margin-bottom: 0.3rem;
+  font-size: var(--jsini-fs-2xs);
+  font-weight: 600;
+  color: var(--jsini-text-muted);
+}
+
+/* 명령어가 길다. 줄바꿈을 막으면 카드가 가로로 늘어난다. */
+.fn-pd__step {
+  font-size: var(--jsini-fs-2xs);
+  line-height: 1.6;
+  word-break: break-all;
+}
+
+/* 카드 높이가 제각각이라 단추를 바닥에 붙인다 — 줄이 맞아야 눈이 쉬어 간다. */
+.fn-pd__foot { margin-top: auto; padding-top: 1rem; }
+
+.fn-pd__download {
+  display: block;
+  text-align: center;
+  text-decoration: none;
+}
+
+.fn-pd__download--off { opacity: 0.55; cursor: default; }
+
+.fn-pd__asset {
+  margin-top: 0.4rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
+  font-size: var(--jsini-fs-2xs);
+  color: var(--jsini-text-muted);
+}
+
+.fn-pd__note {
+  flex-shrink: 0;
+  padding-top: 0.9rem;
+  font-size: var(--jsini-fs-xs);
+  color: var(--jsini-text-muted);
+}
+
+.fn-pd__tag { display: inline-flex; align-items: center; gap: 0.5rem; }
+
+.fn-pd__link { text-decoration: none; }

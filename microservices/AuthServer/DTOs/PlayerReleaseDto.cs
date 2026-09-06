@@ -139,3 +139,51 @@ public class PlayerReleaseJobDto
     /// <summary>지금 돌고 있는 단계 이름. 끝났으면 null.</summary>
     public string? CurrentStep { get; set; }
 }
+
+/// <summary>
+/// 최신 릴리스와 그 첨부 파일.
+///
+/// <para>
+/// 다운로드 화면(<c>/system/player-download</c>)이 OS 별 카드에 파일을 짝지어
+/// 보여 주려고 쓴다. <b>화면이 GitHub 을 직접 부르지 않는 이유</b>는 이 파일의
+/// <see cref="PlayerReleaseStatusDto"/> 와 같다 — 비공개 저장소로 바뀌어도
+/// 서버 토큰으로 계속 읽히고, 익명 호출의 시간당 60회 제한에 걸리지 않는다.
+/// </para>
+/// </summary>
+public class PlayerReleaseLatestDto
+{
+    /// <summary>릴리스가 하나라도 있는가. 없으면 나머지는 비어 있다.</summary>
+    public bool Published { get; set; }
+
+    /// <summary>버전 태그 (<c>v1.0.1</c>)</summary>
+    public string? TagName { get; set; }
+
+    /// <summary>발행 시각</summary>
+    public DateTime? PublishedAt { get; set; }
+
+    /// <summary>GitHub 릴리스 화면 주소</summary>
+    public string? HtmlUrl { get; set; }
+
+    /// <summary>릴리스 목록 화면 주소. 「전체 버전 보기」가 연다.</summary>
+    public string ReleasesUrl { get; set; } = string.Empty;
+
+    /// <summary>첨부 파일들</summary>
+    public List<PlayerReleaseAssetDto> Assets { get; set; } = new();
+
+    /// <summary>설정이 없거나 GitHub 이 응답하지 않을 때 화면에 띄울 안내</summary>
+    public string? Warning { get; set; }
+}
+
+/// <summary>릴리스에 첨부된 설치 파일 하나</summary>
+public class PlayerReleaseAssetDto
+{
+    public string Name { get; set; } = string.Empty;
+
+    /// <summary>브라우저가 바로 받는 주소. 공개 저장소라 인증이 필요 없다.</summary>
+    public string DownloadUrl { get; set; } = string.Empty;
+
+    public long Size { get; set; }
+
+    /// <summary>GitHub 이 세어 준 내려받은 횟수</summary>
+    public int DownloadCount { get; set; }
+}
