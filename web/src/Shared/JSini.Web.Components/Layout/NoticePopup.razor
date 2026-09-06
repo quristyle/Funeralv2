@@ -23,22 +23,33 @@
     그것은 브라우저가 게이트웨이와 같은 오리진에 있던 Vue 시절 주소다.
     지금은 셸이 중계한다 — `FileDownload.UrlFor`. 로그인 여부에 따라 무엇이
     내려가는지는 그쪽 주석에 적었고, **여기서 가르지 않는다.**
+
+    [머리를 잡고 옮길 수 있다]
+
+    공지가 길면 창이 화면 가운데를 덮는다. 그 뒤의 화면을 보면서 공지를
+    읽어야 하는 일이 있어(점검 안내를 보며 그 화면을 확인하는 식) 창을
+    옆으로 밀 수 있어야 한다.
+
+    **머리로만 잡는다**(`AllowDragByHeaderOnly`). 본문까지 잡히면 글을 끌어
+    고르려는 동작이 창 옮기기로 먹혀서, 공지를 복사할 수가 없다.
 *@
 
 <DxPopup Visible="@Visible"
          VisibleChanged="@SetVisibleAsync"
-         CssClass="jsini-notice"
-         HeaderCssClass="jsini-notice__head"
-         FooterCssClass="jsini-notice__foot"
+         CssClass="jsini-notice-popup"
+         HeaderCssClass="jsini-notice-popup__head"
+         FooterCssClass="jsini-notice-popup__foot"
          Width="min(640px, calc(100vw - 2rem))"
          MaxHeight="86vh"
          ShowFooter="true"
-         CloseOnOutsideClick="false">
+         CloseOnOutsideClick="false"
+         AllowDrag="true"
+         AllowDragByHeaderOnly="true">
 
     <HeaderContentTemplate>
         @if (Current is { } head)
         {
-            <div class="jsini-notice__title">
+            <div class="jsini-notice-popup__title">
                 <div class="jsini-tags">
                     <span>@head.Title</span>
 
@@ -53,7 +64,7 @@
                     }
                 </div>
 
-                <div class="jsini-notice__meta">
+                <div class="jsini-notice-popup__meta">
                     @PostedOn(head)
 
                     @if (Notices.Count > 1)
@@ -70,7 +81,7 @@
         {
             @* 본문의 서식(제목·목록·표)이 어떻게 보이는지는 app.css 가 정한다.
                테마 CSS 는 DevExpress 부품만 겨누므로 여기 태그들은 손이 안 닿는다. *@
-            <div class="jsini-notice__body">
+            <div class="jsini-notice-popup__body">
                 @if (NoticeHtml.Sanitize(body.Content) is { Length: > 0 } markup)
                 {
                     @((MarkupString)markup)
@@ -83,20 +94,20 @@
 
             @if (body.Files.Count > 0)
             {
-                <div class="jsini-notice__files">
-                    <div class="jsini-notice__files-head">첨부파일 @body.Files.Count</div>
+                <div class="jsini-notice-popup__files">
+                    <div class="jsini-notice-popup__files-head">첨부파일 @body.Files.Count</div>
 
                     @* 파일 이름을 자르지 않는다. 실제 첨부에 마흔 자짜리가 있어
                        `…` 로 가리면 무엇을 내려받는지 알 수 없고, 확장자가
                        잘리면 더 나쁘다. 자르는 대신 줄바꿈을 허용한다. *@
-                    <ul class="jsini-notice__file-list">
+                    <ul class="jsini-notice-popup__file-list">
                         @foreach (var file in body.Files)
                         {
                             <li>
-                                <a class="jsini-notice__file"
+                                <a class="jsini-notice-popup__file"
                                    href="@FileDownload.UrlFor(file.FileId, file.FileName)">
-                                    <span class="jsini-notice__file-name">@file.FileName</span>
-                                    <span class="jsini-notice__file-size">@Human(file.FileSize)</span>
+                                    <span class="jsini-notice-popup__file-name">@file.FileName</span>
+                                    <span class="jsini-notice-popup__file-size">@Human(file.FileSize)</span>
                                 </a>
                             </li>
                         }
@@ -120,18 +131,18 @@
             <DxCheckBox @bind-Checked="_dismiss">오늘 하루 보지 않기</DxCheckBox>
         }
 
-        <span class="jsini-notice__gap"></span>
+        <span class="jsini-notice-popup__gap"></span>
 
         @* 공지가 여럿이면 어디쯤인지 점으로 보여 주고, 눌러서 바로 넘어간다. *@
         @if (Notices.Count > 1)
         {
-            <div class="jsini-notice__dots">
+            <div class="jsini-notice-popup__dots">
                 @for (var i = 0; i < Notices.Count; i++)
                 {
                     var at = i;
 
                     <button type="button"
-                            class="jsini-notice__dot @(at == _index ? "is-on" : null)"
+                            class="jsini-notice-popup__dot @(at == _index ? "is-on" : null)"
                             title="@Notices[at].Title"
                             aria-label="@($"{at + 1}번째 공지")"
                             @onclick="@(() => GoTo(at))"></button>

@@ -1979,68 +1979,68 @@ a.jsini-crumbs__item:hover { opacity: 1; }
    목록에 점이 안 붙는다(테마 reset 이 `list-style` 을 지운다).
    ---------------------------------------------------------- */
 
-.jsini-notice__title {
+.jsini-notice-popup__title {
   min-width: 0;
 }
 
-.jsini-notice__meta {
+.jsini-notice-popup__meta {
   margin-top: 0.15rem;
   font-size: var(--jsini-fs-xs);
   font-weight: 400;
   color: var(--jsini-text-muted);
 }
 
-.jsini-notice__foot {
+.jsini-notice-popup__foot {
   display: flex;
   align-items: center;
   gap: 0.5rem;
 }
 
-.jsini-notice__gap { flex: 1; }
+.jsini-notice-popup__gap { flex: 1; }
 
 /* 한 줄짜리 공지도 있다. 최소 높이가 없으면 창이 제목 줄만 하게 쪼그라들어
    공지가 아니라 알림처럼 보인다. 최대 높이는 창(86vh)이 이미 잡고 있고,
    여기서는 넘칠 때 본문만 구르게 한다 — 창째로 구르면 제목이 밀려 올라간다. */
-.jsini-notice__body {
+.jsini-notice-popup__body {
   min-height: 8.5rem;
   max-height: 56vh;
   overflow-y: auto;
   line-height: 1.7;
 }
 
-.jsini-notice__body > :first-child { margin-top: 0; }
-.jsini-notice__body > :last-child { margin-bottom: 0; }
+.jsini-notice-popup__body > :first-child { margin-top: 0; }
+.jsini-notice-popup__body > :last-child { margin-bottom: 0; }
 
-.jsini-notice__body p { margin: 0 0 0.6rem; }
+.jsini-notice-popup__body p { margin: 0 0 0.6rem; }
 
-.jsini-notice__body h1,
-.jsini-notice__body h2,
-.jsini-notice__body h3,
-.jsini-notice__body h4 {
+.jsini-notice-popup__body h1,
+.jsini-notice-popup__body h2,
+.jsini-notice-popup__body h3,
+.jsini-notice-popup__body h4 {
   margin: 0.9rem 0 0.4rem;
   font-weight: 600;
 }
 
-.jsini-notice__body h1 { font-size: var(--jsini-fs-xl); }
-.jsini-notice__body h2 { font-size: var(--jsini-fs-lg); }
-.jsini-notice__body h3,
-.jsini-notice__body h4 { font-size: var(--jsini-fs-md); }
+.jsini-notice-popup__body h1 { font-size: var(--jsini-fs-xl); }
+.jsini-notice-popup__body h2 { font-size: var(--jsini-fs-lg); }
+.jsini-notice-popup__body h3,
+.jsini-notice-popup__body h4 { font-size: var(--jsini-fs-md); }
 
-.jsini-notice__body ul,
-.jsini-notice__body ol {
+.jsini-notice-popup__body ul,
+.jsini-notice-popup__body ol {
   margin: 0 0 0.6rem;
   padding-left: 1.4rem;
   list-style: revert;
 }
 
-.jsini-notice__body blockquote {
+.jsini-notice-popup__body blockquote {
   margin: 0 0 0.6rem;
   padding-left: 0.75rem;
   border-left: 3px solid var(--jsini-border);
   color: var(--jsini-text-muted);
 }
 
-.jsini-notice__body pre {
+.jsini-notice-popup__body pre {
   margin: 0 0 0.6rem;
   padding: 0.5rem 0.75rem;
   overflow-x: auto;
@@ -2050,44 +2050,44 @@ a.jsini-crumbs__item:hover { opacity: 1; }
   font-size: var(--jsini-fs-sm);
 }
 
-.jsini-notice__body img {
+.jsini-notice-popup__body img {
   max-width: 100%;
   height: auto;
   border-radius: 0.25rem;
 }
 
-.jsini-notice__body a {
+.jsini-notice-popup__body a {
   color: var(--jsini-accent);
   text-decoration: underline;
 }
 
-.jsini-notice__body table {
+.jsini-notice-popup__body table {
   width: 100%;
   margin: 0 0 0.6rem;
   border-collapse: collapse;
 }
 
-.jsini-notice__body th,
-.jsini-notice__body td {
+.jsini-notice-popup__body th,
+.jsini-notice-popup__body td {
   padding: 0.25rem 0.5rem;
   border: 1px solid var(--jsini-border);
   text-align: left;
 }
 
-.jsini-notice__body th {
+.jsini-notice-popup__body th {
   font-weight: 600;
   background: var(--jsini-surface);
 }
 
 /* 공지가 여럿일 때 어디쯤인지 알려 주는 점들. 지금 보는 것만 길쭉해진다 —
    색으로만 가르면 옅은 테마에서 켜진 점과 꺼진 점이 구분되지 않는다. */
-.jsini-notice__dots {
+.jsini-notice-popup__dots {
   display: flex;
   align-items: center;
   gap: 0.35rem;
 }
 
-.jsini-notice__dot {
+.jsini-notice-popup__dot {
   width: 0.4rem;
   height: 0.4rem;
   padding: 0;
@@ -2098,11 +2098,11 @@ a.jsini-crumbs__item:hover { opacity: 1; }
   transition: width 0.15s, background-color 0.15s;
 }
 
-.jsini-notice__dot:hover {
+.jsini-notice-popup__dot:hover {
   background: color-mix(in srgb, currentcolor 55%, transparent);
 }
 
-.jsini-notice__dot.is-on {
+.jsini-notice-popup__dot.is-on {
   width: 1rem;
   background: var(--jsini-accent);
 }
@@ -2110,20 +2110,20 @@ a.jsini-crumbs__item:hover { opacity: 1; }
 /* 첨부. 이름을 자르지 않고 줄바꿈으로 흘린다 — 실제 첨부에 마흔 자짜리가
    있어 `…` 로 가리면 무엇을 내려받는지 알 수 없고, 확장자가 잘리면 더 나쁘다.
    파일명에는 띄어쓰기가 없는 경우가 많아 `word-break` 는 끊을 자리를 못 찾는다. */
-.jsini-notice__files {
+.jsini-notice-popup__files {
   margin-top: 0.9rem;
   padding-top: 0.75rem;
   border-top: 1px solid var(--jsini-border);
 }
 
-.jsini-notice__files-head {
+.jsini-notice-popup__files-head {
   margin-bottom: 0.4rem;
   font-size: var(--jsini-fs-xs);
   font-weight: 600;
   color: var(--jsini-text-muted);
 }
 
-.jsini-notice__file-list {
+.jsini-notice-popup__file-list {
   display: flex;
   flex-wrap: wrap;
   gap: 0.4rem;
@@ -2133,9 +2133,9 @@ a.jsini-crumbs__item:hover { opacity: 1; }
   min-width: 0;
 }
 
-.jsini-notice__file-list li { max-width: 100%; }
+.jsini-notice-popup__file-list li { max-width: 100%; }
 
-.jsini-notice__file {
+.jsini-notice-popup__file {
   display: inline-flex;
   align-items: flex-start;
   gap: 0.35rem;
@@ -2148,17 +2148,17 @@ a.jsini-crumbs__item:hover { opacity: 1; }
   color: inherit;
 }
 
-.jsini-notice__file:hover {
+.jsini-notice-popup__file:hover {
   border-color: var(--jsini-accent);
   color: var(--jsini-accent);
 }
 
-.jsini-notice__file-name {
+.jsini-notice-popup__file-name {
   min-width: 0;
   word-break: break-all;
 }
 
-.jsini-notice__file-size {
+.jsini-notice-popup__file-size {
   flex: 0 0 auto;
   white-space: nowrap;
   color: var(--jsini-text-muted);
