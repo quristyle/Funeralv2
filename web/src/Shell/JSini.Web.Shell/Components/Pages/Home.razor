@@ -3,114 +3,28 @@
 @page "/analytics"
 
 @*
-    로그인 뒤 첫 화면. 지금은 업무 MFE 가 제대로 붙었는지 보여 주는 진단 화면이다.
+    로그인 뒤 첫 화면. **일부러 비워 두었다 — D12 결정.**
 
-    Vue 의 `views/portal/dashboard` 를 옮겨 오면 이 자리가 대시보드가 된다.
-    그때도 이 표는 어딘가(예: /admin 의 진단 화면)에 남겨 두는 편이 낫다 —
-    모듈 하나가 안 붙었을 때 가장 먼저 볼 곳이기 때문이다.
+    무엇을 얹을지는 나중에 정한다. 그때까지 여기에 아무것도 그리지 않는다.
+    후보(오늘의 생일자·내 요청 현황·빈소 사용 현황·기상 특보·최근 공지·
+    즐겨찾기)와 각각의 재료는 `web/docs/decisions-needed.md` 의 D12 에 있다.
 
-    **표의 요점은 "기대" 와 "실제" 를 나란히 두는 것이다.** 실제만 보여 주면
-    여섯 개여야 할 것이 다섯 개인 상태가 정상으로 보인다.
+    [진단 표는 여기 있던 것을 옮겼다]
+
+    어느 업무 MFE 모듈이 붙었는지 보여 주던 표가 원래 이 자리였다.
+    모듈 하나가 안 붙었을 때 가장 먼저 볼 곳이라 지우지 않고
+    [`/diagnostics`](Diagnostics.razor) 로 옮겼다. 포털관리 첫 화면(`/admin`)에
+    그리로 가는 링크가 있다.
 
     [/workspace · /analytics 도 여기로 받는다]
 
     DB 메뉴에 그 둘이 있다(`page.dashboard.workspace` · `page.dashboard.analytics`).
     vben 템플릿이 딸려 보낸 데모 대시보드라 우리 업무 화면이 아니고, 옮겨 올
     내용이 없다. 그런데 `/workspace` 는 계정의 기본 홈 경로(`UserInfoDto.HomePath`)
-    라서 **404 로 두면 로그인 직후 빈 화면을 보는 사람이 생긴다.**
+    라서 **404 로 두면 로그인 직후 빈 화면이 아니라 오류를 보는 사람이 생긴다.**
 
     그래서 셋을 같은 화면으로 받는다. 메뉴에서 그 둘을 감추면
     (컷오버 SQL 이 `hide_in_menu` 를 켠다) 이 줄들을 지운다.
 *@
 
-@inject IReadOnlyList<PortalApp> Expected
-@inject IReadOnlyList<IPortalModule> Loaded
-@inject RouteInventory Routes
-@inject IMenuProvider Menus
-@inject IPermissionContext Permissions
-
 <PageTitle>JSini 포털</PageTitle>
-
-<h1>JSini 포털</h1>
-
-<section class="jsini-diagnostics">
-    <h2>업무 MFE 모듈</h2>
-
-    <DxGrid Data="@Rows" ShowFilterRow="false" PageSizeSelectorVisible="false">
-        <Columns>
-            <DxGridDataColumn FieldName="Key" Caption="식별자" Width="120px" />
-            <DxGridDataColumn FieldName="DisplayName" Caption="이름" />
-            <DxGridDataColumn FieldName="RoutePrefix" Caption="경로" Width="140px" />
-            <DxGridDataColumn FieldName="RouteCount" Caption="화면 수" Width="100px" />
-            <DxGridDataColumn FieldName="Status" Caption="상태" Width="140px" />
-        </Columns>
-    </DxGrid>
-
-    <dl class="jsini-diagnostics__facts">
-        <dt>붙은 모듈</dt>
-        <dd>@Loaded.Count / @Expected.Count 개</dd>
-
-        <dt>라우트</dt>
-        <dd>@Routes.Paths.Count 개</dd>
-
-        <dt>보이는 최상위 메뉴</dt>
-        <dd>@Menus.VisibleMenus.Count 개</dd>
-
-        <dt>권한표</dt>
-        <dd>@(Permissions.IsLoaded ? "읽음" : "아직 못 읽음 — 지금은 아무것도 거르지 않는다")</dd>
-    </dl>
-</section>
-
-@code {
-    private sealed record Row(
-        string Key,
-        string DisplayName,
-        string RoutePrefix,
-        int RouteCount,
-        string Status);
-
-    private IReadOnlyList<Row> Rows => BuildRows();
-
-    private List<Row> BuildRows()
-    {
-        var rows = new List<Row>();
-
-        foreach (var expected in Expected)
-        {
-            var module = Loaded.FirstOrDefault(m =>
-                string.Equals(m.Key, expected.Key, StringComparison.OrdinalIgnoreCase));
-
-            var status = module is null ? "❌ 안 붙음"
-                : module.RoutePrefix != expected.RoutePrefix ? "⚠ 접두사 어긋남"
-                : "✅ 정상";
-
-            rows.Add(new Row(
-                expected.Key,
-                expected.DisplayName,
-                module?.RoutePrefix ?? expected.RoutePrefix,
-                CountRoutes(expected.RoutePrefix),
-                status));
-        }
-
-        // 설정에 없는데 붙어 있는 모듈. 있으면 안 되는 상태는 아니지만
-        // (누가 참조만 넣고 설정을 잊었을 수 있다) 보이지 않으면 안 된다.
-        foreach (var module in Loaded)
-        {
-            if (!Expected.Any(e => string.Equals(e.Key, module.Key, StringComparison.OrdinalIgnoreCase)))
-            {
-                rows.Add(new Row(
-                    module.Key,
-                    module.DisplayName,
-                    module.RoutePrefix,
-                    CountRoutes(module.RoutePrefix),
-                    "⚠ 설정에 없음"));
-            }
-        }
-
-        return rows;
-    }
-
-    private int CountRoutes(string prefix) => Routes.Paths.Count(p =>
-        p.StartsWith(prefix + "/", StringComparison.OrdinalIgnoreCase)
-        || string.Equals(p, prefix, StringComparison.OrdinalIgnoreCase));
-}

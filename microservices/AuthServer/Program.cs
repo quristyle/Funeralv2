@@ -77,6 +77,8 @@ builder.Services.AddScoped<ITimezoneService, TimezoneService>();
 builder.Services.AddScoped<IMenuService, MenuService>();
 builder.Services.AddScoped<IMenuFavoriteService, MenuFavoriteService>();
 builder.Services.AddScoped<IRoleAssignmentService, RoleAssignmentService>();
+// 로그인과 갱신이 **같은 코드로** 토큰을 만들게 한다 (AccessTokenFactory 머리말 참고).
+builder.Services.AddScoped<AccessTokenFactory>();
 builder.Services.AddScoped<IRoleService, RoleService>();
 builder.Services.AddScoped<IDepartmentService, DepartmentService>();
 builder.Services.AddScoped<ISystemMenuService, SystemMenuService>();

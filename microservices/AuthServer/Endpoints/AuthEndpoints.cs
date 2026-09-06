@@ -1,12 +1,9 @@
-﻿using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using System.Text;
+﻿using System.Security.Claims;
 using AuthServer.Data;
 using AuthServer.DTOs;
 using AuthServer.Services;
 using AuthServer.Entities;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.IdentityModel.Tokens;
 using JSini.Shared.DTOs;
 
 namespace AuthServer.Endpoints;
@@ -19,7 +16,7 @@ public static class AuthEndpoints
 
         group.MapPost("/login", async (LoginRequestDto request, AppDbContext db, IConfiguration config,
             IHostEnvironment env, ILogger<Account> logger,
-            IRoleAssignmentService roleAssignmentService, ILoginLogService loginLog,
+            AccessTokenFactory tokenFactory, ILoginLogService loginLog,
             HttpContext http) =>
         {
             logger.LogInformation("로그인 시도: {Username}", request.Username);
@@ -124,97 +121,22 @@ public static class AuthEndpoints
             }
 
             // 3. 토큰 발급
-            // 토큰을 **발급하는** 자리다. 여기서 폴백 키를 쓰면 게이트웨이가 검증하지 못하는
-            // 토큰이 나가거나, 더 나쁘게는 잘 알려진 키로 서명된 토큰이 나간다 (결정 D1-B).
-            var secretKey = JSini.Shared.Infrastructure.JwtKeyGuard.Require(
-                config, "JwtSettings:SecretKey", "AuthServer");
-            var tokenHandler = new JwtSecurityTokenHandler();
-            var key = Encoding.ASCII.GetBytes(secretKey);
-            
-            // ── 토큰에 담는 신원 ──────────────────────────────────
+            //    무엇을 담는지·왜 담는지는 AccessTokenFactory 에 있다.
+            //    **갱신(`/refresh`)과 한 벌의 코드를 쓴다** — 복사해 두면 한쪽에만
+            //    클레임을 더하는 날이 오고, 그때 증상이 「일주일 뒤부터 권한이 없다」다.
+            var issued = await tokenFactory.IssueAsync(account, loginAt);
+            var accessToken = issued.AccessToken;
+
+            // ── 갱신 쿠키 ────────────────────────────────────────
             //
-            // 헬프데스크·프로젝트관리처럼 이식해 온 서비스는 "지금 요청한 사람이 누구인가" 를
-            // 게이트웨이가 붙여 주는 헤더나 토큰 클레임으로만 알 수 있다. 그 서비스들이
-            // 자기 사용자 테이블 대신 JSini 계정을 쓰게 하려면 아래 값이 토큰에 있어야 한다.
-            //
-            //   - 역할(Role)  : 프로젝트관리의 직접 쿼리 실행 권한 확인 등
-            //   - 이메일      : 헬프데스크 계정 연결의 이메일 대조
-            //   - 회사        : 고객 범위 제한
-            //
-            // 예전에는 세 가지가 모두 없어서, 게이트웨이가 늘 X-User-Role: User 만 보냈고
-            // 헬프데스크의 이메일 대조는 한 번도 동작하지 못했다.
-            // 역할은 세 단계로 걸 수 있다 — 회사 · 부서 · 사람. **셋을 모두 합친다.**
-            // 예전에는 사람에게 직접 걸린 것만 봤다. 그러면 회사·부서에 걸어 둔 역할이
-            // 토큰에 실리지 않아, 화면에서는 역할이 보이는데 실제 권한은 없는 상태가 된다.
-            var effective = await roleAssignmentService.ResolveEffectiveRolesAsync(account.Id);
-            var roleIds = effective.RoleIds;
-
-            var email = await db.AccountProfileDetails
-                .Where(p => p.AccountId == account.Id && p.DetailType == "Email")
-                .OrderByDescending(p => p.IsPrimary)
-                .Select(p => p.Content)
-                .FirstOrDefaultAsync();
-
-            // 이 계정이 어느 MSA 레코드에서 왔는지. 형식은 `<서비스>:<테이블>:<원본키>` 다.
-            //   helpdesk:admin:4      → jsini.admin.id = 4
-            //   projmng:dev_user:jskim → projmng.dev_user.user_id = 'jskim'
-            //
-            // 이관 스크립트(docs/sql/msa_user_import.sql)가 계정을 만들 때 남긴 값이라
-            // **추정이 아니라 확정된 대응 관계**다. 이관 시 아이디 충돌을 피하려고 접두어를
-            // 붙였기 때문에(`jskim` → `pm_jskim`) 로그인 아이디만으로는 원본을 찾을 수 없다.
-            // 그래서 이 값을 신원과 함께 내려보내, 각 서비스가 자기 체계의 사용자를 찾을 수 있게 한다.
-            var msaSource = await db.AccountProfileDetails
-                .Where(p => p.AccountId == account.Id && p.DetailType == "MsaSource")
-                .OrderByDescending(p => p.IsPrimary)
-                .Select(p => p.Content)
-                .FirstOrDefaultAsync();
-
-            var claims = new List<Claim>
+            // access token 이 만료되면 프런트가 `auth/refresh` 로 이 쿠키를 들고 온다.
+            // 브라우저에는 이 쿠키가 저장되지만 **셸 서버가 대신 들고 다닌다** —
+            // 포털은 BFF 라 토큰이 브라우저로 내려가지 않는다(web/CLAUDE.md).
+            if (tokenFactory.RefreshEnabled)
             {
-                new Claim(ClaimTypes.NameIdentifier, account.UserId),
-                new Claim(ClaimTypes.Name, account.UserName ?? string.Empty),
-                new Claim("Id", account.Id),
-                new Claim("RealName", account.RealName ?? account.UserName ?? string.Empty),
-                new Claim("CompanyId", account.CompanyId ?? string.Empty)
-            };
-
-            if (!string.IsNullOrWhiteSpace(email))
-            {
-                claims.Add(new Claim(ClaimTypes.Email, email));
+                AccessTokenFactory.AppendRefreshCookie(
+                    http.Response, issued.RefreshToken, issued.RefreshExpiresAt, !env.IsDevelopment());
             }
-
-            if (!string.IsNullOrWhiteSpace(msaSource))
-            {
-                claims.Add(new Claim("MsaSource", msaSource));
-            }
-
-            // 비밀번호를 마지막으로 바꾼 시각. 게이트웨이가 매 요청마다 여기서 만료를 다시 계산한다.
-            // 만료 여부(불린)가 아니라 시각을 싣는 이유: 토큰 수명이 7일이라
-            // 불린을 실으면 토큰을 받은 뒤 만료되는 구간을 놓친다.
-            if (account.PasswordChangedAt is not null)
-            {
-                claims.Add(new Claim(
-                    "PwdChangedAt",
-                    DateTime.SpecifyKind(account.PasswordChangedAt.Value, DateTimeKind.Utc)
-                        .ToString("o", System.Globalization.CultureInfo.InvariantCulture)));
-            }
-
-            foreach (var roleId in roleIds)
-            {
-                claims.Add(new Claim(ClaimTypes.Role, roleId));
-            }
-
-            var tokenDescriptor = new SecurityTokenDescriptor
-            {
-                Subject = new ClaimsIdentity(claims),
-                Expires = DateTime.UtcNow.AddDays(7),
-                Issuer = "funeralv2-auth",
-                Audience = "funeralv2-services",
-                SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
-            };
-
-            var token = tokenHandler.CreateToken(tokenDescriptor);
-            var accessToken = tokenHandler.WriteToken(token);
 
             // ── 파일 읽기용 쿠키 ──────────────────────────────────
             //
@@ -244,7 +166,8 @@ public static class AuthEndpoints
                 Secure = !env.IsDevelopment(),
                 SameSite = SameSiteMode.Lax,
                 Path = "/api/file",
-                Expires = new DateTimeOffset(tokenDescriptor.Expires!.Value, TimeSpan.Zero)
+                Expires = new DateTimeOffset(
+                    DateTime.SpecifyKind(issued.AccessExpiresAt, DateTimeKind.Utc))
             });
 
             // 결과 데이터를 DTO에 담기
@@ -260,8 +183,83 @@ public static class AuthEndpoints
             return Results.Ok(ApiResponse<LoginResponseDto>.Ok(loginResult));
         });
 
+        // ── 토큰 갱신 ────────────────────────────────────────────
+        //
+        // **왜 있어야 하나** — 프런트(`AuthTokenHandler`)는 401 을 받으면 여기로
+        // 갱신하러 온다. 그런데 이 경로가 없어서 늘 404 였다. access token 수명이
+        // 7일이라 드러나지 않았을 뿐이고, 「갱신 실패 = 세션이 죽었다」로 읽는
+        // 코드와 만나면 스쳐 지나갈 401 하나가 화면 전체를 로그아웃시킨다.
+        //
+        // **인증을 걸지 않는다.** 여기 오는 사람은 이미 access token 이 만료된
+        // 상태다. 인증을 걸면 갱신하러 올 수 있는 사람은 갱신이 필요 없는 사람뿐이다.
+        // 신원의 근거는 헤더가 아니라 **갱신 쿠키**이고, 그 검증은
+        // AccessTokenFactory 가 한다.
+        //
+        // 속도 제한을 따로 걸지 않았다(게이트웨이의 `auth-attempts` 는
+        // `/api/auth/login` 에만 붙는다). 갱신 쿠키는 서명된 토큰이라 찍어
+        // 맞힐 수 있는 값이 아니고, 정상적으로도 며칠에 한 번만 오는 경로다.
+        group.MapPost("/refresh", async (
+            HttpContext http, IHostEnvironment env,
+            AccessTokenFactory tokenFactory, ILogger<Account> logger) =>
+        {
+            if (!tokenFactory.RefreshEnabled)
+            {
+                // 설정으로 꺼 둔 상태다. 「세션이 죽었다」가 아니므로 401 이 아니다 —
+                // 프런트는 401·403 만 세션 거절로 읽고 나머지는 토큰을 그대로 둔다.
+                return Results.Json(
+                    ApiResponse<object>.Fail("토큰 갱신이 꺼져 있습니다.", "404"), statusCode: 404);
+            }
+
+            var cookie = http.Request.Cookies[AccessTokenFactory.RefreshCookieName];
+            var account = await tokenFactory.ValidateRefreshTokenAsync(cookie);
+
+            if (account is null)
+            {
+                // 쿠키가 없거나·기간이 지났거나·비밀번호가 바뀌었다.
+                // 셋 다 「다시 로그인해야 한다」는 같은 결론이라 401 로 합친다.
+                // 남은 쿠키가 계속 401 을 부르지 않게 지워 준다.
+                AccessTokenFactory.DeleteRefreshCookie(http.Response, !env.IsDevelopment());
+
+                logger.LogInformation("토큰 갱신 거절 (쿠키 {Has})", cookie is null ? "없음" : "있음");
+                return Results.Json(
+                    ApiResponse<object>.Fail("다시 로그인해 주세요.", "401"), statusCode: 401);
+            }
+
+            // 역할·이메일을 **다시 읽어** 새 토큰에 싣는다. 갱신 토큰에 얼려 두면
+            // 역할을 바꿔도 옛 권한이 만료일까지 따라다닌다.
+            var issued = await tokenFactory.IssueAsync(account, DateTime.UtcNow);
+
+            // 갱신 쿠키도 새로 굽는다(회전). 이렇게 해야 계속 쓰는 사람은
+            // 다시 로그인할 일이 없고, 쓰지 않으면 30일 뒤 저절로 만료된다.
+            AccessTokenFactory.AppendRefreshCookie(
+                http.Response, issued.RefreshToken, issued.RefreshExpiresAt, !env.IsDevelopment());
+
+            // 파일 읽기용 쿠키도 함께 갱신한다. 안 하면 갱신 뒤에도 사진만
+            // 옛 토큰으로 나가다가 만료되어 **글은 보이는데 사진만 안 나온다.**
+            http.Response.Cookies.Append("jsini_file_at", issued.AccessToken, new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = !env.IsDevelopment(),
+                SameSite = SameSiteMode.Lax,
+                Path = "/api/file",
+                Expires = new DateTimeOffset(
+                    DateTime.SpecifyKind(issued.AccessExpiresAt, DateTimeKind.Utc))
+            });
+
+            // 봉투의 `data` 에 토큰 문자열을 그대로 싣는다 —
+            // 프런트(`AuthTokenHandler.ReadTokenAsync`)가 `data` 와
+            // `data.result[0]` 둘 다 받지만, 옛 Vue 의 `refreshTokenApi` 와 같은
+            // 모양(문자열)이 정본이다.
+            return Results.Ok(ApiResponse<string>.Ok(issued.AccessToken));
+        });
+
         group.MapPost("/logout", (HttpContext http, IHostEnvironment env) =>
         {
+            // 갱신 쿠키를 지운다. **이 방식에서 세션을 즉시 끊는 유일한 수단이다** —
+            // 갱신 토큰을 DB 에 두지 않아 서버가 따로 무효화할 곳이 없다
+            // (그 판단의 근거는 AccessTokenFactory 머리말에 있다).
+            AccessTokenFactory.DeleteRefreshCookie(http.Response, !env.IsDevelopment());
+
             // 파일 읽기용 쿠키를 지운다. 지우지 않으면 로그아웃한 뒤에도
             // 브라우저에 남은 쿠키로 사진을 계속 볼 수 있다.
             // 심을 때와 옵션이 같아야 브라우저가 같은 쿠키로 알아본다(특히 Path).

@@ -141,8 +141,9 @@ public sealed class AuthTokenHandler(
             if (!response.IsSuccessStatusCode)
             {
                 // 401·403 만 「세션이 죽었다」로 읽는다. 404 는 갱신 경로가
-                // 없다는 뜻일 뿐이고(지금 AuthServer 가 그렇다), 그것으로
-                // 들고 있는 토큰까지 버릴 이유가 없다.
+                // 없다는 뜻일 뿐이고(AuthServer 가 `Auth:RefreshTokenDays` 를
+                // 0 으로 두면 그렇게 답한다), 그것으로 들고 있는 토큰까지
+                // 버릴 이유가 없다.
                 _sessionRejected =
                     response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden;
 

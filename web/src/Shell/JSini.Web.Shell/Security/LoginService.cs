@@ -158,6 +158,9 @@ public sealed class LoginService(
         }
     }
 
+    /// <summary>AuthServer 가 심는 갱신 쿠키 이름. 그쪽 <c>AccessTokenFactory</c> 와 짝이다.</summary>
+    private const string RefreshCookieName = "jsini_rt";
+
     /// <summary>
     /// <c>Set-Cookie</c> 헤더에서 리프레시 쿠키를 꺼낸다.
     ///
@@ -165,10 +168,15 @@ public sealed class LoginService(
     /// <c>HttpOnly</c>·<c>Expires</c> 같은 속성은 브라우저에게 하는 지시라
     /// 서버가 서버에게 보낼 때는 실으면 안 된다.
     ///
-    /// 이름을 정해 놓고 찾지 않는 이유: AuthServer 가 쿠키 이름을 바꾸면 여기가
-    /// 조용히 멈춘다. 세션 쿠키가 하나뿐이므로 첫 번째 것을 쓴다.
+    /// <para>
+    /// <b>이름으로 찾는다.</b> 한동안 「첫 번째 것」을 썼는데, 로그인 응답에는
+    /// 파일 읽기용 쿠키(<c>jsini_file_at</c>)도 함께 실려 있다. 그때는 갱신 쿠키가
+    /// 아예 없어서 우연히 문제가 되지 않았을 뿐이고, 갱신 쿠키가 생긴 지금
+    /// 순서에 기대면 <b>파일 쿠키를 갱신 쿠키로 착각</b>한다. 그러면 갱신이 늘
+    /// 401 이고, 증상은 「일주일 뒤 갑자기 로그아웃」이다.
+    /// </para>
     /// </summary>
-    private static string? ExtractRefreshCookie(HttpResponseMessage response)
+    private string? ExtractRefreshCookie(HttpResponseMessage response)
     {
         if (!response.Headers.TryGetValues("Set-Cookie", out var cookies))
         {
@@ -178,12 +186,23 @@ public sealed class LoginService(
         foreach (var cookie in cookies)
         {
             var pair = cookie.Split(';', 2)[0].Trim();
-            if (pair.Length > 0 && pair.Contains('='))
+            var separator = pair.IndexOf('=');
+            if (separator <= 0)
+            {
+                continue;
+            }
+
+            if (pair.AsSpan(0, separator).Equals(RefreshCookieName, StringComparison.Ordinal))
             {
                 return pair;
             }
         }
 
+        // 이름이 안 맞으면 조용히 넘기지 않는다 — AuthServer 가 이름을 바꾸면
+        // 갱신만 멈추고 로그인은 멀쩡해서, 알아채는 데 며칠이 걸린다.
+        logger.LogWarning(
+            "로그인 응답에서 갱신 쿠키({Name})를 찾지 못했다. AuthServer 의 쿠키 이름이 바뀌었는지 확인한다.",
+            RefreshCookieName);
         return null;
     }
 
