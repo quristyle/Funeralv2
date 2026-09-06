@@ -121,6 +121,50 @@ public sealed class PortalTabsTests
     }
 
     [Fact]
+    public void 적어_둔_고정_탭을_되살린다()
+    {
+        var tabs = new PortalTabs();
+        tabs.Open("/지금", "지금 보는 화면");
+
+        tabs.RestorePinned([new PinnedTab("/가", "가"), new PinnedTab("/나", "나")]);
+
+        // 되살린 것이 앞쪽에, 적어 둔 순서대로.
+        Assert.Equal(["/가", "/나", "/지금"], Hrefs(tabs));
+        Assert.All(tabs.Items.Take(2), t => Assert.True(t.Pinned));
+
+        // 보고 있던 화면은 건드리지 않는다.
+        Assert.Equal("/지금", tabs.ActiveHref);
+    }
+
+    [Fact]
+    public void 보고_있는_화면이_고정_대상이면_자리를_안_옮긴다()
+    {
+        var tabs = new PortalTabs();
+        tabs.Open("/가", "가");
+        tabs.Open("/지금", "지금");
+
+        tabs.RestorePinned([new PinnedTab("/지금", "지금")]);
+
+        // 자리는 그대로고 표시만 켜진다 — 옮기면 보던 탭이 눈앞에서 뛴다.
+        Assert.Equal(["/가", "/지금"], Hrefs(tabs));
+        Assert.True(tabs.Items[1].Pinned);
+        Assert.Equal("/지금", tabs.ActiveHref);
+    }
+
+    [Fact]
+    public void 고정_목록은_고정한_것만_준다()
+    {
+        var tabs = Four(active: "/a");
+        tabs.TogglePin("/b");
+        tabs.TogglePin("/d");
+
+        Assert.Equal(["/b", "/d"], [.. tabs.PinnedTabs.Select(p => p.Href)]);
+
+        tabs.TogglePin("/b");
+        Assert.Equal(["/d"], [.. tabs.PinnedTabs.Select(p => p.Href)]);
+    }
+
+    [Fact]
     public void 전부_닫히면_첫_화면으로_보낸다()
     {
         var tabs = Four(active: "/a");

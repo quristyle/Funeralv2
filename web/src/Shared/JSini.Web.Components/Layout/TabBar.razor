@@ -13,18 +13,27 @@
     누르면 `NavigationManager` 로 이동하고, **이동한 결과를 보고** 탭이 켜진다.
     반대로 만들면 주소와 화면이 어긋나서 새로 고침·뒤로 가기·즐겨찾기가 깨진다.
 
-    [오른쪽 클릭 메뉴는 **누른 탭**에 대해 연다]
+    [메뉴는 하나다. 여는 길이 둘일 뿐이다]
 
-    오른쪽 끝의 「⋯」 은 늘 **보고 있는 탭**을 다룬다. 오른쪽 클릭은 다르다 —
-    누른 탭이 대상이라, 보고 있지 않은 탭도 그 자리에서 닫고 고정할 수 있다.
-    둘을 같은 동작으로 두면 「이 탭을 닫으려고 눌렀는데 다른 탭이 닫혔다」가
-    된다.
+    오른쪽 클릭은 **누른 탭**을, 오른쪽 끝의 「⋯」 은 **보고 있는 탭**을 다룬다.
+    다른 것은 대상뿐이고 **항목은 같다.**
+
+    한동안 「⋯」 이 자기 항목을 따로 들고 있었고 셋뿐이었다. 그래서 같은
+    자리에서 할 수 있는 일이 어느 쪽으로 열었느냐에 따라 달랐다 — 「아까는
+    있던 항목이 없다」가 된다.
 
     창은 하나만 두고 `_target` 을 갈아 끼운다. 탭마다 창을 그리면 탭 열두 개에
     창 열두 개가 만들어지고, 그 안의 항목까지 전부 다시 그려진다.
+
+    [고정한 탭은 새로고침 뒤에도 남는다]
+
+    브라우저에 적어 둔다(`localStorage`). 왜 서버가 아닌지는 아래 저장 코드의
+    주석에 적었다.
 *@
 
 @implements IDisposable
+
+@using System.Text.Json
 
 @inject PortalTabs Tabs
 @inject MenuFavorites Favorites
@@ -62,27 +71,20 @@
             }
         </div>
 
-        <DxDropDownButton IconCssClass="jsini-icon-more"
-                          RenderStyle="ButtonRenderStyle.Link"
-                          DropDownWidth="200"
-                          Title="탭">
-            <Items>
-                <DxDropDownButtonItem Text="@(IsPinned ? "고정 해제" : "이 탭 고정")"
-                                      IconCssClass="jsini-icon-pin"
-                                      Click="@TogglePin" />
-                <DxDropDownButtonItem Text="다른 탭 닫기"
-                                      IconCssClass="jsini-icon-close"
-                                      Click="@CloseOthers" />
-                <DxDropDownButtonItem Text="모두 닫기"
-                                      IconCssClass="jsini-icon-close"
-                                      Click="@CloseAll" />
-            </Items>
-        </DxDropDownButton>
+        @* 오른쪽 끝 단추. 오른쪽 클릭과 **같은 창**을 연다 — 대상만 「보고 있는
+           탭」으로 바뀐다. 항목을 따로 적어 두었을 때 셋만 있었고, 그래서
+           같은 자리에서 할 수 있는 일이 어느 쪽으로 열었느냐에 따라 달랐다. *@
+        <span id="jsini-tabs-more">
+            <DxButton IconCssClass="jsini-icon-more"
+                      RenderStyle="ButtonRenderStyle.Link"
+                      Title="탭"
+                      Click="@OpenMenuForActiveAsync" />
+        </span>
     </div>
 
     @* 오른쪽 클릭 창. 항목은 `_target` 을 보고 그때그때 이름이 바뀐다
        (고정/고정 해제 · 담기/빼기). 대상이 없으면 아무것도 그리지 않는다. *@
-    <DxContextMenu @ref="_menu" CssClass="jsini-tabmenu">
+    <DxContextMenu @ref="_menu" CssClass="jsini-tabmenu" PositionTarget="#jsini-tabs-more">
         <Items>
             @if (_target is { } t)
             {
@@ -136,13 +138,16 @@
     /// <summary>오른쪽 클릭한 탭. 창이 열려 있는 동안만 값이 있다.</summary>
     private PortalTab? _target;
 
-    private bool IsPinned => Tabs.Items
-        .FirstOrDefault(t => string.Equals(t.Href, Tabs.ActiveHref, StringComparison.OrdinalIgnoreCase))
-        ?.Pinned ?? false;
+    /// <summary>적어 둔 고정 탭을 이미 되살렸는가. 회로마다 한 번만 읽는다.</summary>
+    private bool _restored;
+
+    /// <summary>고정 탭을 적어 두는 자리. 브라우저(이 기기)에 남는다.</summary>
+    private const string PinnedKey = "jsini-tabs-pinned";
 
     protected override void OnInitialized()
     {
         Tabs.Changed += OnTabsChanged;
+        Tabs.PinsChanged += OnPinsChanged;
         Favorites.Changed += OnTabsChanged;
     }
 
@@ -165,6 +170,21 @@
         if (_menu is not null)
         {
             await _menu.ShowAsync(args);
+        }
+    }
+
+    /// <summary>
+    /// 오른쪽 끝 단추로 여는 길. <b>대상이 「보고 있는 탭」이라는 것만 다르고</b>
+    /// 항목은 오른쪽 클릭과 똑같다.
+    /// </summary>
+    private async Task OpenMenuForActiveAsync()
+    {
+        _target = Tabs.Items.FirstOrDefault(IsActive) ?? Tabs.Items.FirstOrDefault();
+        StateHasChanged();
+
+        if (_menu is not null && _target is not null)
+        {
+            await _menu.ShowAsync(ContextMenuPosition.Bottom);
         }
     }
 
@@ -220,23 +240,80 @@
 
     private void Close(string href) => GoAfter(Tabs.Close(href));
 
-    private void TogglePin()
-    {
-        if (Tabs.ActiveHref is { } href)
-        {
-            Tabs.TogglePin(href);
-        }
-    }
-
-    private void CloseOthers()
-    {
-        if (Tabs.ActiveHref is { } href)
-        {
-            GoAfter(Tabs.CloseOthers(href));
-        }
-    }
-
     private void CloseAll() => Navigation.NavigateTo(Tabs.CloseAll());
+
+    /* ── 고정 탭은 브라우저에 적어 둔다 ──────────────────────────
+
+       탭 목록은 회로 하나(= 브라우저 탭 하나)에 사는 값이라 F5 를 누르면
+       회로와 함께 사라진다. 고정은 「이 화면은 늘 열어 둔다」는 뜻이라 그렇게
+       사라지면 기능이 없는 것과 같다 — 실제로 「고정해 두고 새로고침하면
+       고정이 풀려 있다」로 나타났다.
+
+       [왜 서버가 아니라 브라우저인가]
+
+       고정은 **이 기기에서 지금 하는 일**에 대한 표시다. 사무실에서 고정해
+       둔 탭이 집 노트북에서도 열리면 그건 즐겨찾기지 고정이 아니다.
+       즐겨찾기는 이미 서버에 있다(`MenuFavorites`).
+
+       [회로가 붙은 뒤에 읽는다]
+
+       프리렌더 중에는 JS 를 부를 수 없다. 그래서 첫 렌더 뒤에 읽고, 읽은
+       것을 되살리면 탭 줄이 한 번 더 그려진다.
+    */
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || _restored)
+        {
+            return;
+        }
+
+        _restored = true;
+
+        try
+        {
+            var saved = await Js.InvokeAsync<string?>("localStorage.getItem", PinnedKey);
+
+            if (string.IsNullOrWhiteSpace(saved))
+            {
+                return;
+            }
+
+            var pinned = JsonSerializer.Deserialize<List<PinnedTab>>(saved);
+
+            if (pinned is { Count: > 0 })
+            {
+                Tabs.RestorePinned(pinned);
+            }
+        }
+        catch (JsonException)
+        {
+            // 적어 둔 것이 깨졌으면 지우고 넘어간다. 고정 몇 개 때문에
+            // 포털이 안 열리면 안 된다.
+            await Js.InvokeVoidAsync("localStorage.removeItem", PinnedKey);
+        }
+    }
+
+    private async void OnPinsChanged()
+    {
+        try
+        {
+            var pinned = Tabs.PinnedTabs;
+
+            if (pinned.Count == 0)
+            {
+                await Js.InvokeVoidAsync("localStorage.removeItem", PinnedKey);
+                return;
+            }
+
+            await Js.InvokeVoidAsync("localStorage.setItem", PinnedKey, JsonSerializer.Serialize(pinned));
+        }
+        catch (JSException)
+        {
+            // 저장소를 못 쓰는 브라우저(사생활 보호 모드)가 있다. 고정은 이번
+            // 회로 동안 그대로 듣고, 다음 새로고침에 풀릴 뿐이다.
+        }
+    }
 
     /// <summary>탭을 닫은 결과 옮겨 갈 곳이 생겼으면 옮긴다.</summary>
     private void GoAfter(string? next)
@@ -250,6 +327,7 @@
     public void Dispose()
     {
         Tabs.Changed -= OnTabsChanged;
+        Tabs.PinsChanged -= OnPinsChanged;
         Favorites.Changed -= OnTabsChanged;
     }
 }

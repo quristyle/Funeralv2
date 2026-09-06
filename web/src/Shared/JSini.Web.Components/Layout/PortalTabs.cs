@@ -135,6 +135,75 @@ public sealed class PortalTabs
 
         tab.Pinned = !tab.Pinned;
         Changed?.Invoke();
+        PinsChanged?.Invoke();
+    }
+
+    /// <summary>
+    /// 고정 목록이 바뀌었다. <b>브라우저에 적어 두는 쪽</b>이 듣는다.
+    ///
+    /// <para>
+    /// <see cref="Changed"/> 와 따로 두는 이유는 울리는 횟수가 다르기
+    /// 때문이다. 그쪽은 화면을 옮길 때마다 울리고(탭 하나 열 때마다),
+    /// 이쪽은 사람이 고정을 누를 때만 울린다. 하나로 합치면 화면을 옮길
+    /// 때마다 브라우저 저장소에 쓰게 된다.
+    /// </para>
+    /// </summary>
+    public event Action? PinsChanged;
+
+    /// <summary>고정해 둔 탭들. 브라우저에 적어 둘 값이다.</summary>
+    public IReadOnlyList<PinnedTab> PinnedTabs =>
+        [.. _tabs.Where(t => t.Pinned).Select(t => new PinnedTab(t.Href, t.Title))];
+
+    /// <summary>
+    /// 적어 둔 고정 탭을 되살린다. <b>회로가 새로 열릴 때 한 번</b> 부른다.
+    ///
+    /// <para>
+    /// [왜 필요한가 — 새로고침하면 고정이 풀려 있었다]
+    /// </para>
+    ///
+    /// <para>
+    /// 탭 목록은 회로 하나(= 브라우저 탭 하나)에 사는 값이라, F5 를 누르면
+    /// 회로와 함께 사라진다. 고정은 <b>「이 화면은 늘 열어 둔다」는 뜻</b>이라
+    /// 그렇게 사라지면 기능 자체가 없는 것과 같다.
+    /// </para>
+    ///
+    /// <para>
+    /// 되살린 탭은 <b>앞쪽에</b> 적어 둔 순서대로 놓는다. 지금 보고 있는
+    /// 화면은 건드리지 않는다 — 되살리기가 주소를 바꾸면 새로고침할 때마다
+    /// 엉뚱한 화면으로 튄다.
+    /// </para>
+    /// </summary>
+    public void RestorePinned(IEnumerable<PinnedTab> pinned)
+    {
+        var at = 0;
+
+        foreach (var item in pinned)
+        {
+            if (string.IsNullOrWhiteSpace(item.Href))
+            {
+                continue;
+            }
+
+            var existing = _tabs.FirstOrDefault(t => Same(t.Href, item.Href));
+
+            if (existing is not null)
+            {
+                // 지금 보고 있는 화면이 그 탭일 수 있다. 자리는 그대로 두고
+                // 고정 표시만 켠다 — 옮기면 보던 탭이 눈앞에서 뛴다.
+                existing.Pinned = true;
+                continue;
+            }
+
+            _tabs.Insert(Math.Min(at++, _tabs.Count), new PortalTab
+            {
+                Href = item.Href,
+                Title = string.IsNullOrWhiteSpace(item.Title) ? item.Href : item.Title,
+                Pinned = true,
+                LastSeen = DateTime.UtcNow,
+            });
+        }
+
+        Changed?.Invoke();
     }
 
     /// <summary>지금 탭만 남기고 닫는다. 고정한 탭은 남는다.</summary>
@@ -250,6 +319,17 @@ public sealed class PortalTabs
     private static bool Same(string? a, string? b) =>
         string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
 }
+
+/// <summary>
+/// 브라우저에 적어 두는 고정 탭 한 줄.
+///
+/// <para>
+/// 이름까지 함께 적는 이유는 되살릴 때 메뉴가 아직 안 와 있기 때문이다.
+/// 이름이 없으면 새로고침 직후 탭에 주소가 그대로 보였다가 메뉴가 도착하면
+/// 제목으로 바뀐다.
+/// </para>
+/// </summary>
+public sealed record PinnedTab(string Href, string Title);
 
 /// <summary>열어 둔 화면 하나.</summary>
 public sealed class PortalTab
