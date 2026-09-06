@@ -65,7 +65,7 @@
                 Text="포털 계정에 이어진 헬프데스크 사용자가 없어 개인 설정을 저장할 수 없습니다. 「계정 연결」 화면에서 이어 주십시오." />
 }
 
-<DxGrid Data="@_rows" ShowSearchBox="false" PageSize="20">
+<CommGrd TItem="UserProperty" Data="@_rows" PageSize="20">
     <Columns>
         <DxGridDataColumn FieldName="@nameof(UserProperty.Key)" Caption="키" Width="240" />
 
@@ -94,7 +94,7 @@
             </CellDisplayTemplate>
         </DxGridDataColumn>
     </Columns>
-</DxGrid>
+</CommGrd>
 
 @code {
     /// <summary>속성 한 줄. 서버는 사전으로 주고받는다 — 표로 보이려고 편 것이다.</summary>

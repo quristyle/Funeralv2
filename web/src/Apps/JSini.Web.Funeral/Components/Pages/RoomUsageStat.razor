@@ -47,7 +47,7 @@
     }
 }
 
-<DxGrid Data="@_rows" ShowFilterRow="false" PageSize="20">
+<CommGrd TItem="RoomUsage" Data="@_rows" PageSize="20">
     <Columns>
         <DxGridDataColumn FieldName="@nameof(RoomUsage.BuildingName)" Caption="건물" Width="140" />
         <DxGridDataColumn FieldName="@nameof(RoomUsage.RoomName)" Caption="호실" Width="120" />
@@ -67,7 +67,7 @@
             </CellDisplayTemplate>
         </DxGridDataColumn>
     </Columns>
-</DxGrid>
+</CommGrd>
 
 <PageNotice Text="@Notice" Tone="@Tone" />
 

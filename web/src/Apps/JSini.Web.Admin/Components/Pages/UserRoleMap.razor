@@ -148,7 +148,7 @@
                 }
                 else
                 {
-                    <DxGrid Data="@_assigned" ShowSearchBox="true" PageSize="15">
+                    <CommGrd TItem="AccountMenuItemDto" Data="@_assigned" ShowSearchBox="true">
                         <Columns>
                             <DxGridDataColumn FieldName="@nameof(AccountMenuItemDto.Breadcrumb)" Caption="메뉴" MinWidth="240" />
                             <DxGridDataColumn FieldName="@nameof(AccountMenuItemDto.Path)" Caption="경로" Width="200" />
@@ -160,7 +160,7 @@
                                 </CellDisplayTemplate>
                             </DxGridDataColumn>
                         </Columns>
-                    </DxGrid>
+                    </CommGrd>
                 }
             }
         }

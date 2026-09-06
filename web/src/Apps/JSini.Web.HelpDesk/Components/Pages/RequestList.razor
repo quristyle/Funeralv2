@@ -64,7 +64,7 @@
                 Text="포털 계정에 이어진 헬프데스크 사용자가 없어 「내 요청」을 가려낼 수 없습니다. 「계정 연결」 화면에서 연결하십시오." />
 }
 
-<DxGrid Data="@_rows" ShowSearchBox="false" PageSize="20">
+<CommGrd TItem="ImprovementRequest" Data="@_rows" PageSize="20">
     <Columns>
         <DxGridDataColumn FieldName="@nameof(ImprovementRequest.Id)" Caption="번호" Width="80" />
 
@@ -126,7 +126,7 @@
             </CellDisplayTemplate>
         </DxGridDataColumn>
     </Columns>
-</DxGrid>
+</CommGrd>
 
 @if (_total > _rows.Count)
 {

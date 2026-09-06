@@ -56,18 +56,18 @@
     </div>
 </PermissionView>
 
-<CrudGrid TItem="MediaSource"
-          Data="@Shown"
-          EditFormTitle="@Title"
-          ExportName="@Title"
-          PageSize="20"
-          OnSave="@SaveAsync"
-          OnDelete="@DeleteAsync"
-          Reload="@ReloadAsync">
-    <ChildContent>
+<CommGrd TItem="MediaSource"
+         Data="@Shown"
+         EditFormTitle="@Title"
+         ExportName="@Title"
+         PageSize="20"
+         OnSave="@SaveAsync"
+         OnDelete="@DeleteAsync"
+         Reload="@ReloadAsync">
+    <Toolbar>
         <DxTextBox @bind-Text="_keyword" NullText="이름 검색" Style="width: 220px"
                    ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
-    </ChildContent>
+    </Toolbar>
 
     <Columns>
         @if (ShowThumbnail)
@@ -126,7 +126,7 @@
         }
     </Columns>
 
-    <EditForm Context="edit">
+    <EditFormTemplate Context="edit">
         @{
             var m = (MediaSource)edit.EditModel;
         }
@@ -154,8 +154,8 @@
                 <DxTextBox Text="@m.Url" ReadOnly="true" />
             </DxFormLayoutItem>
         </DxFormLayout>
-    </EditForm>
-</CrudGrid>
+    </EditFormTemplate>
+</CommGrd>
 
 @code {
     /// <summary>이 화면이 다루는 자료 종류. 서버가 이 값으로 걸러 준다.</summary>

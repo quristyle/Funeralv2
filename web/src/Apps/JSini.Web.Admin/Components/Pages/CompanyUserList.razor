@@ -47,7 +47,7 @@
 
 <PageNotice Text="@Notice" Tone="@Tone" />
 
-<DxGrid Data="@Shown" ShowFilterRow="false" PageSize="20">
+<CommGrd TItem="AccountDto" Data="@Shown" PageSize="20">
     <Columns>
         <DxGridDataColumn FieldName="@nameof(AccountDto.LoginId)" Caption="아이디" Width="140" />
         <DxGridDataColumn FieldName="@nameof(AccountDto.UserName)" Caption="이름" Width="130" />
@@ -71,7 +71,7 @@
             </CellDisplayTemplate>
         </DxGridDataColumn>
     </Columns>
-</DxGrid>
+</CommGrd>
 
 <DxPopup @bind-Visible="_adding" HeaderText="회사에 사람 넣기" Width="620px" ShowFooter="false">
     <BodyContentTemplate Context="popup">
@@ -84,17 +84,17 @@
         }
         else
         {
-            <DxGrid Data="@_candidates" ShowFilterRow="false" PageSize="10"
-                    SelectionMode="GridSelectionMode.Multiple"
-                    @bind-SelectedDataItems="_picked"
-                    ShowAllRowsSelectionCheckbox="true">
+            <CommGrd TItem="AccountDto" Data="@_candidates" PageSize="10"
+                     SelectionMode="GridSelectionMode.Multiple"
+                     @bind-SelectedDataItems="_picked"
+                     ShowAllRowsSelectionCheckbox="true">
                 <Columns>
                     <DxGridSelectionColumn Width="50px" />
                     <DxGridDataColumn FieldName="@nameof(AccountDto.LoginId)" Caption="아이디" Width="140" />
                     <DxGridDataColumn FieldName="@nameof(AccountDto.UserName)" Caption="이름" Width="130" />
                     <DxGridDataColumn FieldName="@nameof(AccountDto.Email)" Caption="이메일" MinWidth="180" />
                 </Columns>
-            </DxGrid>
+            </CommGrd>
         }
 
         <div class="jsini-toolbar">

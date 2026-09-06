@@ -39,7 +39,7 @@
 
 <PageNotice Text="@Notice" Tone="@Tone" />
 
-<DxGrid Data="@_timeline" Loading="@Loading" PageSize="20">
+<CommGrd TItem="WeatherTimelinePoint" Data="@_timeline" Loading="@Loading" PageSize="20">
     <Columns>
         <DxGridDataColumn FieldName="Date" Caption="날짜" Width="110px" />
         <DxGridDataColumn FieldName="Time" Caption="시각" Width="90px" />
@@ -56,7 +56,7 @@
         <DxGridDataColumn FieldName="Sky" Caption="하늘 상태" MinWidth="120" />
         <DxGridDataColumn FieldName="WindSpeed" Caption="풍속(m/s)" Width="100px" />
     </Columns>
-</DxGrid>
+</CommGrd>
 
 @code {
     private List<WeatherLocation> _locations = [];

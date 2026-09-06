@@ -35,19 +35,19 @@
 
 <PageHeading Title="역할 관리" Scope="포털관리" />
 
-<CrudGrid TItem="RoleDto"
-          Data="@Shown"
-          EditFormTitle="역할"
-          ExportName="역할"
-          PageSize="20"
-          OnNew="@FillNew"
-          OnSave="@SaveAsync"
-          OnDelete="@DeleteAsync"
-          Reload="@ReloadAsync">
-    <ChildContent>
+<CommGrd TItem="RoleDto"
+         Data="@Shown"
+         EditFormTitle="역할"
+         ExportName="역할"
+         PageSize="20"
+         OnNew="@FillNew"
+         OnSave="@SaveAsync"
+         OnDelete="@DeleteAsync"
+         Reload="@ReloadAsync">
+    <Toolbar>
         <DxTextBox @bind-Text="_keyword" NullText="역할 이름·식별자 검색" Style="width: 220px"
                    ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
-    </ChildContent>
+    </Toolbar>
 
     <Columns>
         <DxGridDataColumn FieldName="@nameof(RoleDto.Id)" Caption="식별자" Width="170" />
@@ -87,7 +87,7 @@
         </DxGridDataColumn>
     </Columns>
 
-    <EditForm Context="edit">
+    <EditFormTemplate Context="edit">
         @{
             var r = (RoleDto)edit.EditModel;
             var isNew = !_all.Any(x => x.Id == r.Id);
@@ -113,8 +113,8 @@
                 </DxCheckBox>
             </DxFormLayoutItem>
         </DxFormLayout>
-    </EditForm>
-</CrudGrid>
+    </EditFormTemplate>
+</CommGrd>
 
 @if (_usersOf is not null)
 {
@@ -126,7 +126,7 @@
     }
     else
     {
-        <DxGrid Data="@_users" ShowFilterRow="false" PageSize="15">
+        <CommGrd TItem="RoleUserDto" Data="@_users">
             <Columns>
                 <DxGridDataColumn FieldName="@nameof(RoleUserDto.LoginId)" Caption="아이디" Width="150" />
                 <DxGridDataColumn FieldName="@nameof(RoleUserDto.UserName)" Caption="이름" Width="140" />
@@ -138,7 +138,7 @@
                    메뉴를 주고 있으면 접근이 그대로다. *@
                 <DxGridDataColumn FieldName="@nameof(RoleUserDto.RoleNames)" Caption="가진 역할" MinWidth="200" />
             </Columns>
-        </DxGrid>
+        </CommGrd>
     }
 
     <p class="ad-stamp">

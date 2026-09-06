@@ -68,8 +68,8 @@
 }
 else
 {
-    <DxGrid Data="@_services" ShowFilterRow="false" ShowSearchBox="false"
-            PageSizeSelectorVisible="false" PagerVisible="false">
+    <CommGrd TItem="ServiceHealth" Data="@_services"
+             PageSizeSelectorVisible="false" PagerVisible="false">
         <Columns>
             <DxGridDataColumn FieldName="@nameof(ServiceHealth.Name)" Caption="서비스" Width="180" />
 
@@ -109,7 +109,7 @@ else
             <DxGridDataColumn FieldName="@nameof(ServiceHealth.Address)" Caption="주소" Width="200" />
             <DxGridDataColumn FieldName="@nameof(ServiceHealth.Error)" Caption="이유" MinWidth="160" />
         </Columns>
-    </DxGrid>
+    </CommGrd>
 }
 
 <h2 class="ad-subhead">AI 제공자</h2>
@@ -128,8 +128,8 @@ else
                     Text="@($"잠시 쉬는 모델: {string.Join(", ", _ai.RestingModels)}")" />
     }
 
-    <DxGrid Data="@_ai.Providers" ShowFilterRow="false" ShowSearchBox="false"
-            PageSizeSelectorVisible="false" PagerVisible="false">
+    <CommGrd TItem="object" Data="@_ai.Providers"
+             PageSizeSelectorVisible="false" PagerVisible="false">
         <Columns>
             <DxGridDataColumn Caption="제공자" Width="180">
                 <CellDisplayTemplate Context="cell">
@@ -220,7 +220,7 @@ else
                 </CellDisplayTemplate>
             </DxGridDataColumn>
         </Columns>
-    </DxGrid>
+    </CommGrd>
 }
 
 <h2 class="ad-subhead">컨테이너</h2>
@@ -234,7 +234,7 @@ else
 }
 else
 {
-    <DxGrid Data="@Containers" ShowFilterRow="false" ShowSearchBox="false" PageSize="30">
+    <CommGrd TItem="DockerContainerDto" Data="@Containers" PageSize="30">
         <Columns>
             <DxGridDataColumn FieldName="@nameof(DockerContainerDto.Service)" Caption="서비스" Width="170" />
             <DxGridDataColumn FieldName="@nameof(DockerContainerDto.Tag)" Caption="태그" Width="130" />
@@ -254,7 +254,7 @@ else
             <DxGridDataColumn FieldName="@nameof(DockerContainerDto.CreatedAt)" Caption="만든 때" Width="150"
                               DisplayFormat="yyyy-MM-dd HH:mm" />
         </Columns>
-    </DxGrid>
+    </CommGrd>
 }
 
 @if (Images.Count > 0)
@@ -279,7 +279,7 @@ else
         </span>
     </div>
 
-    <DxGrid Data="@Images" ShowFilterRow="false" ShowSearchBox="false" PageSize="15">
+    <CommGrd TItem="DockerImageDto" Data="@Images">
         <Columns>
             <DxGridDataColumn FieldName="@nameof(DockerImageDto.Name)" Caption="이미지" MinWidth="300" />
             <DxGridDataColumn FieldName="@nameof(DockerImageDto.SizeMb)" Caption="MB" Width="90" />
@@ -300,7 +300,7 @@ else
             <DxGridDataColumn FieldName="@nameof(DockerImageDto.CreatedAt)" Caption="만든 때" Width="150"
                               DisplayFormat="yyyy-MM-dd HH:mm" />
         </Columns>
-    </DxGrid>
+    </CommGrd>
 }
 
 @* 정리 확인 창. **지울 목록은 서버가 준 그대로다** — 여기 보이는 것이

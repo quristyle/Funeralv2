@@ -1,127 +1,19 @@
 @*
-    공통 그리드. DevExpress 의 `DxGrid` 를 감싼다.
+    공통 그리드. DevExpress 의 DxGrid 를 감싼다.
 
-    ────────────────────────────────────────────────────────────
-    [무엇을 해결하는가]
+    두 가지만 알면 된다.
 
-    표가 백 개가 넘는데 쪽 크기 · 검색칸 · 빈 목록 문구 · 엑셀 내보내기를
-    화면마다 손으로 적고 있었다(`PageSize` 만 123곳). 손으로 적으면 갈라지고,
-    갈라진 것은 되돌릴 수 없다.
+    1. 선언하지 않은 파라미터는 전부 Extra 로 받아 DxGrid 에 그대로 넘긴다.
+       @@attributes 가 **맨 뒤**라서 화면이 준 값이 아래 기본값을 이긴다.
+       순서를 바꾸면 화면 설정이 조용히 무시된다.
 
-    ────────────────────────────────────────────────────────────
-    [설계의 핵심 — 화면이 준 값이 언제나 이긴다]
+    2. splat 되는 값은 Razor 가 형을 몰라 문자열로 온다. Coerce 가 DxGrid 의
+       파라미터 형을 보고 맞춰 준다. 없으면 ShowFilterRow="true" 가 500 을 낸다.
 
-    이 부품의 앞선 판(`JSiniGrid`)은 **쓰는 화면이 하나도 없었다.** 이유가
-    분명하다. `DxGrid` 의 파라미터가 **116개**인데 그중 9개만 통과시켰다.
-    `SearchText` 나 `DetailRowTemplate` 이 필요한 화면은 쓸 방법이 없어서
-    `DxGrid` 로 돌아갔고, **한 화면이라도 못 쓰면 래퍼는 전부에서 안 쓰인다.**
-
-    그래서 여기서는 **선언하지 않은 파라미터를 전부 받아 그대로 넘긴다**
-    (`Extra`). `DxGrid` 자신이 `CaptureUnmatchedValues` 를 열어 두었으므로
-    (`Attributes`), 이름을 잘못 적어도 예외 없이 HTML 속성으로 떨어진다.
-
-    우선순위는 **적는 차례**가 정한다 — Blazor 는 `@@attributes` 뒤에 적힌 것이
-    이기고 앞에 적힌 것은 진다. 그래서 아래 `<DxGrid>` 는
-
-        기본값들 …            ← 이 부품이 정하는 것
-        @@attributes="Extra"   ← 화면이 준 것. **맨 뒤라서 이긴다**
-
-    순서다. `{...기본값, ...화면값}` 과 같은 뜻이고, 옛 Vue 의 vxe 어댑터가
-    하던 것과 같다.
-
-    ────────────────────────────────────────────────────────────
-    [규칙 — `DxGrid` 에 있는 이름을 여기서 선언하지 않는다]
-
-    선언하는 순간 그 값이 `Extra` 로 안 오고 이 부품의 속성에 잡혀서, 손으로
-    다시 넘겨야 한다. 넘기는 것을 빠뜨리면 **화면이 적은 값이 조용히 무시된다.**
-
-    예외는 둘뿐이다 — `Data` 와 `Columns`. 모든 표가 주는 것이라 빠뜨리면
-    빌드에서 잡히는 편이 낫다.
-
-    ────────────────────────────────────────────────────────────
-    [형은 이 부품이 맞춰 준다 — 실제로 500 을 맞고 넣었다]
-
-    splat 되는 속성은 **Razor 가 형을 모른다.** 선언된 파라미터가 아니라서
-    참고할 형이 없고, 그래서 `ShowFilterRow="true"` 를 HTML 속성처럼
-    **문자열 "true"** 로 넘긴다. DevExpress 는 그것을 `bool` 에 넣으려다 죽는다 —
-
-        Unable to set property 'ShowFilterRow' on object of type 'DxGrid'.
-        Unable to cast object of type 'System.String' to type 'System.Boolean'.
-
-    `ShowFilterRow="@@true"` 로 쓰면 피할 수 있다. 그러나 **빌드가 안 잡아 주고
-    화면을 열어야 터지는** 종류라, 표를 백 개 옮기는 동안 반드시 몇 개를
-    빠뜨리고 그 화면만 500 이 난다.
-
-    그래서 넘기기 전에 `DxGrid` 의 파라미터 형을 보고 문자열을 맞춰 준다
-    (`Coerce`). `ShowFilterRow="true"` 도 `ShowFilterRow="@@true"` 도 둘 다 된다.
-    형이 안 맞으면 **어느 속성의 어떤 값인지** 적어 던진다 — DevExpress 가
-    던지는 문구만으로는 어느 화면의 어느 줄인지 알 수 없다.
-
-    [자식 템플릿은 `@@attributes` 로 못 넘어간다]
-
-    `<Columns>` · `<EditFormTemplate>` 처럼 **자식 요소로 주는 것**은 splat 이
-    안 된다. `DxGrid` 의 `RenderFragment` 파라미터가 19개인데, 여기서는 지금
-    쓰이는 것만 열어 두었다. 필요해지면 그때 하나씩 연다 —
-    `DetailRowTemplate` · `TotalSummary` · `ToolbarTemplate` 따위.
-
-    ────────────────────────────────────────────────────────────
-    [줄을 누르면 그 줄이 골라진다]
-
-    `SelectionMode="Single"` + `AllowSelectRowByClick` 이 기본이다. 누르면
-    줄 전체의 바탕이 바뀌어 **지금 보고 있는 줄이 어느 것인지** 눈에 남는다.
-    칸이 아홉 열 되는 표에서 오른쪽 끝 값을 읽다가 줄을 놓치는 일이 흔하다.
-
-    여러 줄을 골라야 하는 표(일괄 처리)는 화면에서
-    `SelectionMode="GridSelectionMode.Multiple"` 로 덮는다.
-
-    ────────────────────────────────────────────────────────────
-    [쪽 나누기는 기본으로 켜진다 — 한 쪽에 **15건**]
-
-    표가 자기 내용만큼 늘어나면 아래 띠(등록·조회·엑셀)와 페이저가 화면 밖으로
-    나간다. 실제로 「아이콘이 전혀 안 보인다」로 나타났다 — 한 줄이 152px 이던
-    표가 3157px 였고 아이콘은 y=3367 에 있었다.
-
-    15건인 이유: 아래 띠가 **굴리지 않고 보이는** 한도다. 한 줄 40px 이면
-    자료가 600px, 여기에 칸 머리·조회 영역·제목 줄을 더하면 노트북 화면
-    (720~800px)에 꼭 찬다. 스무 건이면 그 선을 넘는다.
-
-    건수를 바꾸려면 화면에서 `PageSize="30"` 처럼 적으면 된다(splat 이 이긴다).
-    자료가 아무리 많아도 표 자체는 `--commgrd-max-height` 안에서 굴러간다.
-
-    ────────────────────────────────────────────────────────────
-    [표의 도구줄은 **아래**에 있다]
-
-        ┌──────────────────────────────┐
-        │            표                 │
-        ├──────────────────────────────┤
-        │  ＋  ↻  ⌸                     │  ← 등록 · 다시 읽기 · 엑셀
-        └──────────────────────────────┘
-
-    위가 아니라 아래인 이유: 화면 위쪽은 이미 제목 줄과 조회 영역(`CommSch`)이
-    차지한다. 거기에 표의 단추까지 얹으면 **자료가 시작되기 전에 줄이 셋**이고,
-    화면을 열자마자 보이는 것이 죄다 단추가 된다.
-
-    `DxGrid` 에는 하단 슬롯이 없다(있는 것은 상단 `ToolbarTemplate` 과 칸별
-    `ColumnFooterTemplate` 뿐이다). 그래서 이 부품이 띠를 직접 그린다 —
-    DevExpress 템플릿 이름에 묶이지 않는다는 뜻이기도 하다.
-
-    아이콘만 놓고 글자는 `Title` 로 넘긴다. 셋 다 늘 같은 자리·같은 차례라
-    몇 번 쓰면 글자를 안 읽게 되고, 글자를 놓으면 띠가 두꺼워져 표가 짧아진다.
-
-    ────────────────────────────────────────────────────────────
-    [등록·수정·삭제는 있을 때만 붙는다]
-
-    `OnSave` 를 주면 아래 띠에 「등록」이, 표에 「수정」 칸이 생긴다.
-    `OnDelete` 를 주면 「삭제」가 붙고, `Reload` 를 주면 「다시 읽기」가 선다.
-    안 주면 아무것도 안 생긴다 — 읽기 전용 표도 이 부품 하나로 쓴다.
-
-    **켜져 있어도 권한이 없으면 안 보인다.** `PermissionView` 가 DB 메뉴의
-    `use_create` · `use_excel` 플래그를 본다 — 화면을 고치지 않고 DB 에서
-    끌 수 있다. 「다시 읽기」만 권한을 안 따진다(볼 수 있으면 다시 읽을 수도 있다).
-
-    편집을 팝업으로 두는 이유: 관리 화면의 칸이 여덟에서 열두 개다. 줄 안에서
-    편집하면 표가 옆으로 늘어나 가로 스크롤이 생기고, 그 상태에서는 어느 칸을
-    고치는지 보이지 않는다.
+    3. FocusedRowEnabled 를 켜 두는 이유는 **색**이다. 선택만 켜면 테마의
+       옅은 색(#e7eff9, 흰 바탕 대비 3%)이 걸려 골랐는지 눈에 안 띈다.
+       강조 줄까지 켜면 DevExpress 가 진한 강조색을 칠한다(#0b5699 · 흰 글자).
+       둘 다 테마 값이고 강조색을 바꾸면 함께 따라온다 — 재어 확인했다.
 *@
 
 @typeparam TItem
@@ -130,41 +22,23 @@
 
 <div class="commgrd">
 
-    @* 표 위는 화면이 채우는 자리다. 등록·조회는 표 아래 띠로 내려갔다. *@
     @if (Toolbar is not null)
     {
         <div class="commgrd__toolbar">@Toolbar</div>
     }
 
-    @* 저장·삭제 결과. 화면이 조회 결과를 알리는 자리는 화면이 따로 둔다. *@
     <PageNotice Text="@Notice" Tone="@Tone" />
 
-    @*
-        아래 DxGrid 의 속성 차례가 곧 우선순위다.
-
-          Data  →  기본값들  →  Extra(splat)  →  자식 템플릿
-
-        Extra 가 **맨 뒤**라서 화면이 준 값이 위의 기본값을 덮는다.
-        생성된 C# 에서 확인했다 — 기본값 열, 그다음 AddMultipleAttributes,
-        그다음 Columns.
-
-        [속성 목록 **안**에 Razor 주석을 적지 않는다]
-
-        적으면 Razor 가 그 주석을 **속성 이름으로 삼는다.**
-        AddComponentParameter("(주석 글자)", true) 가 만들어지고, 그 이름이
-        DxGrid 의 미매칭 수집(Attributes)으로 흘러 들어가 HTML 속성으로 찍힌다.
-        **빌드는 멀쩡히 통과한다** — 생성 코드를 열어 보기 전에는 모른다.
-        여기서 실제로 한 번 만들어 놓고 잡았다. 설명은 이렇게 태그 위에 둔다.
-    *@
     <DxGrid @ref="_grid"
             Data="@Data"
             PageSize="15"
             PagerVisible="true"
             PagerSummaryVisible="true"
-            ShowSearchBox="true"
+            ShowSearchBox="false"
             TextWrapEnabled="false"
             SelectionMode="GridSelectionMode.Single"
             AllowSelectRowByClick="true"
+            FocusedRowEnabled="true"
             ColumnResizeMode="GridColumnResizeMode.NextColumn"
             EditMode="GridEditMode.PopupEditForm"
             PopupEditFormHeaderText="@EditFormTitle"
@@ -172,19 +46,21 @@
             EditModelSaving="@OnEditModelSavingAsync"
             DataItemDeleting="@OnDataItemDeletingAsync"
             FilterCriteriaChanged="@OnFilterCriteriaChanged"
+            CustomizeElement="@OnCustomizeElement"
+            LayoutAutoSaving="@OnLayoutChanged"
+            DetailRowDisplayMode="@(DetailRowTemplate is null ? GridDetailRowDisplayMode.Never : GridDetailRowDisplayMode.Auto)"
+            DetailExpandButtonDisplayMode="@(DetailRowTemplate is null ? GridDetailExpandButtonDisplayMode.Never : GridDetailExpandButtonDisplayMode.Auto)"
             @attributes="_forwarded"
-            ShowFilterRow="@_filterRow">
+            ShowFilterRow="@_filterRow"
+            VirtualScrollingEnabled="@_virtualScroll">
 
         <Columns>
             @if (ShowRowNumber)
             {
-                @* 순번 칸. **화면이 적지 않는다** — 백 개 넘는 표가 저마다
-                   폭도 정렬도 다르게 적으면 표마다 왼쪽 끝이 어긋난다.
-
-                   정렬·묶기·폭 조절을 막는다. 순번은 자료가 아니라 **지금 화면에서
-                   몇 번째 줄인가**라, 그것으로 정렬한다는 말이 성립하지 않는다. *@
+                @* AllowResize 는 DxGridDataColumn 에 없는 이름이라 적으면 죽는다. *@
                 <DxGridDataColumn Caption="No" Width="58" MinWidth="58"
-                                  AllowSort="false" AllowGroup="false" AllowResize="false">
+                                  AllowSort="false" AllowGroup="false"
+                                  FilterRowEditorVisible="false">
                     <CellDisplayTemplate Context="cell">
                         <span class="commgrd__no">@RowNumber(cell.VisibleIndex)</span>
                     </CellDisplayTemplate>
@@ -210,8 +86,6 @@
 
                             @if (OnDelete.HasDelegate)
                             {
-                                @* 확인 창은 DevExpress 가 띄운다. 우리가 따로 만들면
-                                   화면마다 문구가 달라진다. *@
                                 <PermissionView Action="MenuAction.Delete">
                                     <DxButton Text="삭제"
                                               RenderStyle="ButtonRenderStyle.Secondary"
@@ -238,18 +112,13 @@
         <EditFormTemplate Context="edit">
             @EditFormTemplate?.Invoke(edit)
         </EditFormTemplate>
+
+        <DetailRowTemplate Context="detail">
+            @DetailRowTemplate?.Invoke(detail)
+        </DetailRowTemplate>
     </DxGrid>
 
-    @*
-        하단 띠 = **표의 도구줄**이다. 등록 · 다시 읽기 · 엑셀이 여기 선다.
-
-        아이콘만 놓는다. 글자를 함께 놓으면 띠가 두꺼워져 표가 그만큼 짧아지고,
-        셋 다 늘 같은 자리·같은 차례라 몇 번 쓰면 글자를 안 읽게 된다.
-        대신 **셋 다 `Title` 을 단다** — 처음 보는 사람은 얹어 보고 안다.
-
-        크기(`SizeMode`)를 여기서 정하지 않는다 — 화면 어디에서도 정하지 않는다.
-        사용자가 테마 서랍에서 고른 것이 `SizeModeScope` 를 타고 내려온다.
-    *@
+    @* 표의 도구줄. 페이저 줄이 있으면 그 왼쪽에 겹쳐 앉는다(app.css). *@
     @if (ShowFooter)
     {
         <div class="commgrd__footer">
@@ -265,7 +134,6 @@
 
             @if (Reload.HasDelegate)
             {
-                @* 권한으로 감싸지 않는다. 화면을 볼 수 있으면 다시 읽을 수도 있다. *@
                 <DxButton IconCssClass="jsini-icon-refresh"
                           Title="다시 읽기"
                           RenderStyle="ButtonRenderStyle.Link"
@@ -274,9 +142,6 @@
 
             @if (ShowFilterToggle)
             {
-                @* 칸 머리 아래의 검색 줄을 켜고 끈다. 조회 영역(CommSch)의
-                   조건과는 **다른 것**이다 — 저쪽은 서버에 물을 조건이고
-                   이쪽은 받아 온 표 안에서 걸러 보는 것이다. *@
                 <DxButton IconCssClass="jsini-icon-filter"
                           Title="@(_filterRow ? "칸별 검색 줄 감추기" : "칸별 검색 줄 보이기")"
                           RenderStyle="ButtonRenderStyle.Link"
@@ -286,8 +151,6 @@
 
             @if (_hasFilter)
             {
-                @* 걸린 것이 있을 때만 나온다. 늘 보이면 「지울 게 있나」를
-                   눌러 봐야 알게 된다. 칸 머리의 깔때기로 건 것도 함께 지운다. *@
                 <DxButton IconCssClass="jsini-icon-filter-off"
                           Title="칸별 검색 지우기"
                           RenderStyle="ButtonRenderStyle.Link"
@@ -316,32 +179,29 @@
 </div>
 
 @code {
-    // ── DxGrid 와 이름이 겹치는 둘. 모든 표가 주므로 명시한다 ──────────
-
     /// <summary>표에 넣을 자료.</summary>
     [Parameter, EditorRequired] public object Data { get; set; } = default!;
 
-    /// <summary>표의 칸들. 관리 칸은 여기서 적지 않는다 — 이 부품이 붙인다.</summary>
+    /// <summary>표의 칸들. 순번·관리 칸은 이 부품이 붙인다.</summary>
     [Parameter, EditorRequired] public RenderFragment? Columns { get; set; }
 
-    // ── 자식 템플릿. splat 이 안 되므로 명시한다 ────────────────────
-
-    /// <summary>팝업 편집 폼. 주지 않으면 편집 폼이 비어 있다.</summary>
+    /// <summary>팝업 편집 폼.</summary>
     [Parameter] public RenderFragment<GridEditFormTemplateContext>? EditFormTemplate { get; set; }
 
-    /// <summary>도구줄 왼쪽에 놓을 조회 조건.</summary>
+    /// <summary>표 위에 놓을 것. 보통은 비운다 — 조건은 CommSch 로 간다.</summary>
     [Parameter] public RenderFragment? Toolbar { get; set; }
 
-    /// <summary>하단 띠의 엑셀 아이콘 오른쪽.</summary>
+    /// <summary>아래 띠의 아이콘 오른쪽.</summary>
     [Parameter] public RenderFragment? FooterLeft { get; set; }
 
-    /// <summary>하단 띠의 오른쪽 끝.</summary>
+    /// <summary>아래 띠의 오른쪽 끝.</summary>
     [Parameter] public RenderFragment? FooterRight { get; set; }
 
-    /// <summary>빈 목록 자리를 통째로 갈아 끼울 때. 보통은 <see cref="EmptyText"/> 로 충분하다.</summary>
+    /// <summary>빈 목록 자리를 통째로 갈아 끼울 때.</summary>
     [Parameter] public RenderFragment? EmptyArea { get; set; }
 
-    // ── 이 부품만의 설정. DxGrid 에 없는 이름이라야 한다 ─────────────
+    /// <summary>줄을 펼쳤을 때 안에 그릴 것.</summary>
+    [Parameter] public RenderFragment<GridDetailRowTemplateContext>? DetailRowTemplate { get; set; }
 
     /// <summary>자료가 없을 때 보여 줄 문구.</summary>
     [Parameter] public string EmptyText { get; set; } = "표시할 자료가 없습니다.";
@@ -349,43 +209,27 @@
     /// <summary>팝업 편집 폼의 제목.</summary>
     [Parameter] public string EditFormTitle { get; set; } = "편집";
 
-    /// <summary>
-    /// 하단 띠 자체를 보일지.
-    ///
-    /// <para>
-    /// <b>끄면 등록 · 다시 읽기 · 칸별 검색 · 엑셀이 함께 사라진다.</b> 그 띠가
-    /// 이 표의 도구줄이기 때문이다. 표를 자료 표시로만 쓰는 자리(대시보드 안의
-    /// 작은 목록 따위)에서만 끈다.
-    /// </para>
-    /// </summary>
+    /// <summary>아래 띠를 보일지. 끄면 등록·다시 읽기·칸별 검색·엑셀이 함께 사라진다.</summary>
     [Parameter] public bool ShowFooter { get; set; } = true;
 
-    /// <summary>
-    /// 맨 왼쪽에 순번 칸을 둘지. <b>기본으로 켜진다.</b>
-    ///
-    /// <para>
-    /// 쪽을 넘겨도 이어지는 번호다(<c>16, 17 …</c>). 쪽마다 1 부터 다시 세면
-    /// 「아까 그 줄」을 번호로 가리킬 수 없고, 건수를 세는 데에도 쓸 수 없다.
-    /// </para>
-    /// </summary>
+    /// <summary>맨 왼쪽 순번 칸. 쪽을 넘겨도 이어지는 번호다.</summary>
     [Parameter] public bool ShowRowNumber { get; set; } = true;
 
-    /// <summary>
-    /// 칸별 검색 줄을 켜고 끄는 단추를 아래 띠에 둘지.
-    ///
-    /// <para>
-    /// 처음 상태는 화면이 <c>ShowFilterRow</c> 로 정한다. 그 뒤로는 사람이 이
-    /// 단추로 바꾼다 — <b>화면이 준 값은 시작값일 뿐</b>이고 도중에 바뀌어도
-    /// 따라가지 않는다. 따라가면 사람이 방금 끈 것을 화면이 다시 켜게 된다.
-    /// </para>
-    /// </summary>
+    /// <summary>칸별 검색 줄 토글 단추. 시작 상태는 화면의 <c>ShowFilterRow</c> 가 정한다.</summary>
     [Parameter] public bool ShowFilterToggle { get; set; } = true;
 
-    /// <summary>
-    /// 엑셀 내보내기. <b>기본으로 켜져 있다</b> — 필요 없는 표만 끈다.
-    /// 켜져 있어도 메뉴에 <c>use_excel</c> 권한이 없으면 안 보인다.
-    /// </summary>
+    /// <summary>엑셀 내보내기. 켜져 있어도 <c>use_excel</c> 권한이 없으면 안 보인다.</summary>
     [Parameter] public bool ShowExcelExport { get; set; } = true;
+
+    /// <summary>
+    /// 짝수 줄에 옅은 바탕을 깐다(줄무늬).
+    ///
+    /// <para>
+    /// 칸이 열몇 개인 표에서 오른쪽 끝 값을 읽다가 한 줄 위아래를 잘못
+    /// 짚는 것을 막는다. 끄는 자리는 줄이 서넛뿐인 대시보드 안의 작은 표다.
+    /// </para>
+    /// </summary>
+    [Parameter] public bool AlternateRows { get; set; } = true;
 
     /// <summary>내려받을 파일 이름(확장자 없이).</summary>
     [Parameter] public string ExportName { get; set; } = "목록";
@@ -393,109 +237,171 @@
     /// <summary>새 행의 기본값을 채운다. 부모 키를 여기서 넣는다.</summary>
     [Parameter] public Action<TItem>? OnNew { get; set; }
 
-    /// <summary>저장. 두 번째 인자가 <c>true</c> 면 새 자료다. 주면 「등록」·「수정」이 생긴다.</summary>
+    /// <summary>저장. 주면 「등록」·「수정」이 생긴다.</summary>
     [Parameter] public EventCallback<(TItem Item, bool IsNew)> OnSave { get; set; }
 
     /// <summary>삭제. 주면 「삭제」가 생긴다.</summary>
     [Parameter] public EventCallback<TItem> OnDelete { get; set; }
 
-    /// <summary>목록을 다시 읽는다. 저장·삭제 뒤에도 이것을 부른다.</summary>
+    /// <summary>목록을 다시 읽는다. 저장·삭제 뒤에도 부른다.</summary>
     [Parameter] public EventCallback Reload { get; set; }
 
-    /// <summary>
-    /// 선언하지 않은 <b>모든</b> DxGrid 파라미터. 화면이 적은 그대로 넘어간다.
-    ///
-    /// <para>
-    /// 이 부품이 존재할 수 있는 이유가 이 한 줄이다 — 감싸면서 막지 않는다.
-    /// 넘길 자리는 <c>&lt;DxGrid&gt;</c> 의 <b>맨 마지막</b>이어야 한다(머리말 참고).
-    /// </para>
-    /// </summary>
+    /// <summary>선언하지 않은 모든 DxGrid 파라미터.</summary>
     [Parameter(CaptureUnmatchedValues = true)]
     public IReadOnlyDictionary<string, object>? Extra { get; set; }
 
-    /// <summary>
-    /// 감싼 <c>DxGrid</c>. 화면이 DevExpress API 를 직접 불러야 할 때 쓴다
-    /// (<c>&lt;CommGrd @@ref="_grid" /&gt;</c> 뒤에 <c>_grid.Grid</c>).
-    /// </summary>
+    /// <summary>감싼 DxGrid. 화면이 DevExpress API 를 직접 불러야 할 때.</summary>
     public IGrid? Grid => _grid;
 
     private IGrid? _grid;
-
-    /// <summary>형을 맞춘 뒤의 <see cref="Extra"/>. 실제로 넘어가는 것은 이것이다.</summary>
     private IReadOnlyDictionary<string, object>? _forwarded;
 
-    /// <summary>
-    /// <c>DxGrid</c> 의 파라미터 이름 → 형. 한 번만 훑는다.
-    ///
-    /// 이름은 대소문자를 가리지 않고 찾는다 — Blazor 가 그렇게 맞추므로
-    /// 화면이 <c>showfilterrow</c> 라고 적어도 같은 파라미터다.
-    /// </summary>
+    private bool _filterRow;
+    private bool _filterRowSeeded;
+    private bool _hasFilter;
+    private bool _virtualScroll;
+
     private static readonly Dictionary<string, Type> DxGridParameterTypes =
         typeof(DxGrid)
             .GetProperties(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance)
             .Where(p => p.IsDefined(typeof(ParameterAttribute), inherit: true))
             .ToDictionary(p => p.Name, p => p.PropertyType, StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>칸별 검색 줄이 켜져 있나. 화면이 준 값으로 시작해 사람이 바꾼다.</summary>
-    private bool _filterRow;
-
-    private bool _filterRowSeeded;
-
-    /// <summary>지금 걸린 칸별 조건이 있나. 있을 때만 지우기 아이콘이 나온다.</summary>
-    private bool _hasFilter;
-
     protected override void OnParametersSet()
     {
         _forwarded = Coerce(Extra);
 
-        // **한 번만** 읽는다. 매번 읽으면 사람이 끈 것을 다시 켜게 된다.
+        // 시작값이라 한 번만 읽는다. 매번 읽으면 사람이 끈 것을 다시 켜게 된다.
         if (!_filterRowSeeded)
         {
             _filterRowSeeded = true;
-            _filterRow = ReadSeed("ShowFilterRow");
+            _filterRow = Read("ShowFilterRow") is bool flag && flag;
         }
+
+        _virtualScroll = VirtualScrolling();
     }
 
-    /// <summary>splat 으로 들어온 <c>bool</c> 시작값 하나를 읽는다. 없으면 <c>false</c>.</summary>
-    private bool ReadSeed(string name)
+    /// <summary>
+    /// 쪽나누기를 끈 화면에서만 가상 스크롤을 켠다. 둘은 함께 못 쓴다 —
+    /// 가상 스크롤을 켜면 DevExpress 가 페이저를 감춘다.
+    /// </summary>
+    private bool VirtualScrolling()
+    {
+        if (Read("VirtualScrollingEnabled") is bool explicitly)
+        {
+            return explicitly;
+        }
+
+        return Read("PageSize") is int pageSize && pageSize <= 0;
+    }
+
+    /// <summary>splat 으로 들어온 값 하나를 이름으로 찾는다.</summary>
+    private object? Read(string name)
     {
         if (_forwarded is null)
         {
-            return false;
+            return null;
         }
 
         foreach (var (key, value) in _forwarded)
         {
             if (string.Equals(key, name, StringComparison.OrdinalIgnoreCase))
             {
-                return value is bool flag && flag;
+                return value;
             }
         }
 
-        return false;
+        return null;
     }
 
     /// <summary>
-    /// 줄 번호. <b>쪽을 넘겨도 이어진다.</b>
+    /// 줄 번호.
     ///
     /// <para>
-    /// <c>VisibleIndex</c> 는 지금 쪽 안에서의 자리라 쪽마다 0 부터 다시 센다.
-    /// 앞 쪽들의 건수를 더해 전체 순번으로 만든다. 표가 아직 안 붙었으면
-    /// (<c>_grid</c> 가 <c>null</c>) 첫 쪽으로 본다 — 첫 그림에서만 잠깐이다.
+    /// <c>VisibleIndex</c> 는 <b>쪽 안의 자리가 아니라 전체에서의 자리</b>다.
+    /// 한동안 여기에 앞 쪽들의 건수를 더하고 있어서 2쪽이 16 이 아니라 31 로
+    /// 시작했다. 문서로는 갈리지 않아 화면에서 재어 확인했다 — 2쪽 첫 줄에
+    /// 줄무늬가 걸렸고(홀수), 그것이 15 라는 뜻이다.
     /// </para>
     /// </summary>
-    private int RowNumber(int visibleIndex)
+    private static int RowNumber(int visibleIndex) => visibleIndex + 1;
+
+    /// <summary>이 쪽의 첫 줄이 전체에서 몇 번째인가. 쪽이 없으면 0 이다.</summary>
+    private int PageOffset => _grid is null ? 0 : _grid.PageIndex * Math.Max(_grid.PageSize, 0);
+
+    private readonly Dictionary<string, GridColumnSortOrder> _sortSeen = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// 칸 머리 클릭을 오름 → 내림 → 없음으로 돌린다. DevExpress 는 둘만 오가서
+    /// 원래 차례로 되돌릴 길이 없다. 내림이던 칸이 다시 오름이 되면 세 번째
+    /// 클릭이므로 정렬을 푼다.
+    ///
+    /// <para>
+    /// [왜 <c>OnAfterRender</c> 가 아닌가 — 한동안 안 돌고 있었다]
+    /// </para>
+    ///
+    /// <para>
+    /// 정렬은 <c>DxGrid</c> <b>안에서 끝나는 일</b>이라 부모인 우리는 다시
+    /// 그려지지 않는다. <c>OnAfterRender</c> 에 두었을 때 칸 머리를 세 번
+    /// 눌러도 아무 일이 없던 이유가 그것이다 — 코드가 틀린 것이 아니라
+    /// 아예 불리지 않았다. 대신 layout 이 바뀔 때 알려 주는
+    /// <c>LayoutAutoSaving</c> 에 건다.
+    /// </para>
+    /// </summary>
+    private Task OnLayoutChanged(GridPersistentLayoutEventArgs e)
     {
-        var before = _grid is null ? 0 : _grid.PageIndex * _grid.PageSize;
-        return before + visibleIndex + 1;
+        if (_grid is null)
+        {
+            return Task.CompletedTask;
+        }
+
+        string? release = null;
+        var now = new Dictionary<string, GridColumnSortOrder>(StringComparer.Ordinal);
+
+        foreach (var column in _grid.GetSortedColumns())
+        {
+            if (column.FieldName is not { Length: > 0 } field)
+            {
+                continue;
+            }
+
+            now[field] = column.SortOrder;
+
+            if (_sortSeen.TryGetValue(field, out var before)
+                && before == GridColumnSortOrder.Descending
+                && column.SortOrder == GridColumnSortOrder.Ascending)
+            {
+                release = field;
+            }
+        }
+
+        _sortSeen.Clear();
+
+        foreach (var (name, order) in now)
+        {
+            _sortSeen[name] = order;
+        }
+
+        if (release is null)
+        {
+            return Task.CompletedTask;
+        }
+
+        // 기억에서도 지운다. 안 지우면 다음 첫 클릭이 또 세 번째로 읽힌다.
+        _sortSeen.Remove(release);
+
+        // 알림을 받는 도중에 layout 을 또 건드리지 않는다. 한 박자 뒤로 미룬다.
+        var target = release;
+        _ = InvokeAsync(() => _grid.SortBy(target, GridColumnSortOrder.None));
+
+        return Task.CompletedTask;
     }
 
     private void ToggleFilterRow()
     {
         _filterRow = !_filterRow;
 
-        // 줄을 감출 때 걸려 있던 조건까지 지운다. 안 지우면 **보이지 않는
-        // 조건에 걸러진 표**가 남아서, 자료가 왜 적은지 알 방법이 없어진다.
+        // 줄을 감출 때 조건도 지운다. 안 지우면 보이지 않는 조건에 걸러진 표가 남는다.
         if (!_filterRow && _hasFilter)
         {
             ClearFilter();
@@ -508,31 +414,37 @@
         _hasFilter = false;
     }
 
-    /// <summary>
-    /// 칸별 조건이 바뀔 때마다 「걸린 것이 있나」만 갱신한다.
-    ///
-    /// <para>
-    /// <b>화면이 같은 이름을 주면 이 처리가 밀려난다</b>(splat 이 뒤에 오므로).
-    /// 그때는 지우기 아이콘이 안 뜬다 — 그 화면이 조건을 직접 다루겠다는
-    /// 뜻이므로 그대로 둔다.
-    /// </para>
-    /// </summary>
     private void OnFilterCriteriaChanged(GridFilterCriteriaChangedEventArgs e)
     {
         // CriteriaOperator 는 `==` 를 재정의해서 null 비교가 예상과 다르게 돈다.
-        // 참조 비교로 확인하는 것이 DevExpress 가 안내하는 방법이다.
         _hasFilter = !ReferenceEquals(_grid?.GetFilterCriteria(), null);
     }
 
     /// <summary>
-    /// splat 으로 들어온 문자열을 <c>DxGrid</c> 가 기다리는 형으로 바꾼다.
+    /// 짝수 줄에 표시 클래스를 붙인다. 색은 CSS 가 정한다.
     ///
     /// <para>
-    /// 이미 형이 맞는 것(<c>@@true</c> 처럼 식으로 준 것)은 건드리지 않는다.
-    /// <c>DxGrid</c> 에 없는 이름도 그대로 둔다 — 그건 오타이거나 진짜 HTML
-    /// 속성이고, DevExpress 가 <c>Attributes</c> 로 받아 속성으로 찍어 준다.
+    /// DevExpress 에는 줄무늬 파라미터가 없다 — 공식으로 안내하는 길이
+    /// 이 <c>CustomizeElement</c> 다. 색은 CSS 가 정하므로 선택색을 이기지 않는다.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>쪽 안의 자리</b>로 센다. <c>VisibleIndex</c> 는 전체 기준이라
+    /// 그대로 쓰면 홀수 개짜리 쪽 다음부터 무늬가 뒤집혀, 쪽을 넘길 때마다
+    /// 첫 줄이 칠해졌다 말았다 한다.
     /// </para>
     /// </summary>
+    private void OnCustomizeElement(GridCustomizeElementEventArgs e)
+    {
+        if (AlternateRows
+            && e.ElementType == GridElementType.DataRow
+            && (e.VisibleIndex - PageOffset) % 2 == 1)
+        {
+            e.CssClass = "commgrd__row--alt";
+        }
+    }
+
+    /// <summary>splat 으로 들어온 문자열을 DxGrid 가 기다리는 형으로 바꾼다.</summary>
     private static IReadOnlyDictionary<string, object>? Coerce(IReadOnlyDictionary<string, object>? source)
     {
         if (source is null || source.Count == 0)
@@ -540,8 +452,7 @@
             return source;
         }
 
-        // 바꿀 것이 하나도 없으면 원본을 그대로 쓴다. 매번 사전을 새로 만들면
-        // Blazor 가 파라미터가 바뀐 줄 알고 표를 다시 그린다.
+        // 바꿀 것이 없으면 원본을 그대로 쓴다. 새 사전을 만들면 표가 다시 그려진다.
         Dictionary<string, object>? changed = null;
 
         foreach (var (name, value) in source)
@@ -569,8 +480,6 @@
             }
             catch (Exception ex)
             {
-                // DevExpress 가 던지는 문구("String 을 Boolean 으로 못 바꾼다")만으로는
-                // 어느 화면의 어느 속성인지 알 수 없다. 여기서 이름과 값을 붙여 준다.
                 throw new InvalidOperationException(
                     $"CommGrd: DxGrid 의 '{name}' 에 준 값 \"{text}\" 을(를) {want.Name} 으로 읽지 못했습니다. "
                     + $"식으로 주려면 {name}=\"@(…)\" 로 적으십시오.", ex);
@@ -583,39 +492,20 @@
         return changed ?? source;
     }
 
-    /// <summary>
-    /// 등록 팝업을 연다.
-    ///
-    /// <para>
-    /// <b>바깥에서도 부를 수 있다.</b> 도구줄을 끄고 조회 영역(<c>CommSch</c>)에
-    /// 등록 단추를 둔 화면이 이것을 쓴다 —
-    /// <c>&lt;CommGrd @@ref="_grid"&gt;</c> 뒤에 <c>_grid.StartNewAsync()</c>.
-    /// </para>
-    /// </summary>
+    /// <summary>등록 팝업을 연다. 바깥에서도 부를 수 있다.</summary>
     public Task StartNewAsync() => _grid?.StartEditNewRowAsync() ?? Task.CompletedTask;
 
     private Task EditAsync(int visibleIndex) => _grid?.StartEditRowAsync(visibleIndex) ?? Task.CompletedTask;
 
     private void ConfirmDelete(int visibleIndex) => _grid?.ShowRowDeleteConfirmation(visibleIndex);
 
-    /// <summary>
-    /// 지금 보고 있는 그대로(정렬·필터·검색이 걸린 상태) 내린다.
-    ///
-    /// 원본 전량을 뽑으면 「보이는 것과 다른 파일」이 나온다 — 사용자는 방금
-    /// 걸러 놓은 것을 받으리라 기대한다.
-    /// </summary>
+    /// <summary>지금 보이는 그대로(정렬·필터가 걸린 상태) 내린다.</summary>
     private Task ExportAsync() =>
         _grid?.ExportToXlsxAsync($"{ExportName}.xlsx", new GridXlExportOptions
         {
             ExportSelectedRowsOnly = false,
         }) ?? Task.CompletedTask;
 
-    /// <summary>
-    /// 새 행의 기본값을 채운다.
-    ///
-    /// DevExpress 는 편집 모델을 리플렉션으로 만든다. 그대로 두면 모든 칸이
-    /// 비어 있고, 부모 키가 빈 자료가 저장된다.
-    /// </summary>
     private void OnCustomizeEditModel(GridCustomizeEditModelEventArgs e)
     {
         if (e.IsNew && e.EditModel is TItem item)
@@ -638,8 +528,7 @@
 
         if (!saved)
         {
-            // 실패하면 팝업을 닫지 않는다. 닫으면 사용자가 쓴 내용이 사라지고,
-            // 무엇이 잘못됐는지 고칠 기회도 없어진다.
+            // 실패하면 팝업을 닫지 않는다. 닫으면 쓴 내용이 사라진다.
             e.Cancel = true;
             return;
         }

@@ -16,7 +16,7 @@
     <DxCheckBox @bind-Checked="_onlyInUse">사용 중만</DxCheckBox>
 </BuildingFilter>
 
-<DxGrid Data="@_rows" ShowFilterRow="false" PageSize="20">
+<CommGrd TItem="FuneralStatus" Data="@_rows" PageSize="20">
     <Columns>
         <DxGridDataColumn FieldName="@nameof(FuneralStatus.RoomName)" Caption="호실" Width="120" />
         <DxGridDataColumn FieldName="@nameof(FuneralStatus.FloorName)" Caption="층" Width="90" />
@@ -33,7 +33,7 @@
             </CellDisplayTemplate>
         </DxGridDataColumn>
     </Columns>
-</DxGrid>
+</CommGrd>
 
 <PageNotice Text="@Notice" Tone="@Tone" />
 

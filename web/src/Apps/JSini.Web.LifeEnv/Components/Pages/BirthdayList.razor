@@ -117,7 +117,7 @@
 
 <h2 class="le-today__head">@CurrentMonth 월 생일자</h2>
 
-<DxGrid Data="@_people" ShowFilterRow="false" PageSize="20">
+<CommGrd TItem="BirthdayPerson" Data="@_people" PageSize="20">
     <Columns>
         <DxGridDataColumn FieldName="@nameof(BirthdayPerson.OccurrenceDate)" Caption="생일" Width="120" DisplayFormat="yyyy-MM-dd" />
         <DxGridDataColumn FieldName="@nameof(BirthdayPerson.Name)" Caption="이름" MinWidth="120" />
@@ -150,7 +150,7 @@
             </CellDisplayTemplate>
         </DxGridDataColumn>
     </Columns>
-</DxGrid>
+</CommGrd>
 
 @code {
     private static readonly int[] Months = [.. Enumerable.Range(1, 12)];

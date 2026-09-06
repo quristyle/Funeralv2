@@ -60,7 +60,7 @@
 
 <PageNotice Text="@Notice" Tone="@Tone" />
 
-<DxGrid Data="@Shown" ShowFilterRow="false" ShowSearchBox="false" PageSize="30">
+<CommGrd TItem="Pair" Data="@Shown" PageSize="30">
     <Columns>
         <DxGridDataColumn Caption="키" MinWidth="240">
             <CellDisplayTemplate Context="cell">
@@ -131,7 +131,7 @@
             </CellDisplayTemplate>
         </DxGridDataColumn>
     </Columns>
-</DxGrid>
+</CommGrd>
 
 <DxPopup @bind-Visible="_editing" HeaderText="@(_isNew ? "다국어 등록" : "다국어 수정")"
          Width="640" CloseOnOutsideClick="false" ShowFooter="true">

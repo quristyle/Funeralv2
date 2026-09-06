@@ -80,7 +80,7 @@
     </div>
 }
 
-<DxGrid Data="@_trend" ShowFilterRow="false" PageSize="15">
+<CommGrd TItem="PushTrendPointDto" Data="@_trend">
     <Columns>
         <DxGridDataColumn FieldName="@nameof(PushTrendPointDto.Period)" Caption="기간" Width="160" />
         <DxGridDataColumn FieldName="@nameof(PushTrendPointDto.Sent)" Caption="발송" Width="100" />
@@ -91,7 +91,7 @@
             </CellDisplayTemplate>
         </DxGridDataColumn>
     </Columns>
-</DxGrid>
+</CommGrd>
 
 <h2 class="ad-subhead">실패 사유</h2>
 
@@ -111,12 +111,12 @@
     </div>
 }
 
-<DxGrid Data="@_reasons" ShowFilterRow="false" PageSizeSelectorVisible="false" PagerVisible="false">
+<CommGrd TItem="PushFailureReasonDto" Data="@_reasons" PageSizeSelectorVisible="false" PagerVisible="false">
     <Columns>
         <DxGridDataColumn FieldName="@nameof(PushFailureReasonDto.Reason)" Caption="사유" MinWidth="260" />
         <DxGridDataColumn FieldName="@nameof(PushFailureReasonDto.Count)" Caption="건수" Width="110" />
     </Columns>
-</DxGrid>
+</CommGrd>
 
 <PageNotice Text="@Notice" Tone="@Tone" />
 

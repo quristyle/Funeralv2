@@ -56,7 +56,7 @@
 
 <h2 class="ad-section">걸 수 있는 대상</h2>
 
-<DxGrid Data="@(_targets?.Items ?? [])" ShowSearchBox="false" PageSize="15">
+<CommGrd TItem="object" Data="@(_targets?.Items ?? [])">
     <Columns>
         <DxGridDataColumn FieldName="@nameof(ReleaseTargetDto.Name)" Caption="대상" MinWidth="180" />
         <DxGridDataColumn FieldName="@nameof(ReleaseTargetDto.Key)" Caption="키" Width="150" />
@@ -109,11 +109,11 @@
             </CellDisplayTemplate>
         </DxGridDataColumn>
     </Columns>
-</DxGrid>
+</CommGrd>
 
 <h2 class="ad-section">최근 실행</h2>
 
-<DxGrid Data="@_runs" ShowSearchBox="false" PageSize="20">
+<CommGrd TItem="ReleaseRunDto" Data="@_runs" PageSize="20">
     <Columns>
         <DxGridDataColumn FieldName="@nameof(ReleaseRunDto.TargetName)" Caption="대상" MinWidth="160" />
 
@@ -149,7 +149,7 @@
             </CellDisplayTemplate>
         </DxGridDataColumn>
     </Columns>
-</DxGrid>
+</CommGrd>
 
 @* ── 진행 기록 ─────────────────────────────────────── *@
 <DxPopup @bind-Visible="_showingRun" HeaderText="@RunHeader" Width="820" ShowFooter="true">

@@ -54,7 +54,7 @@
 
 <PageNotice Text="@Notice" Tone="@Tone" />
 
-<DxGrid Data="@Shown" ShowSearchBox="false" PageSize="25">
+<CommGrd TItem="WeatherEventRecord" Data="@Shown" PageSize="25">
     <Columns>
         <DxGridDataColumn FieldName="@nameof(WeatherEventRecord.EventTime)" Caption="발생 시각" Width="160"
                           DisplayFormat="yyyy-MM-dd HH:mm" />
@@ -125,7 +125,7 @@
             </CellDisplayTemplate>
         </DxGridDataColumn>
     </Columns>
-</DxGrid>
+</CommGrd>
 
 @if (_total > _events.Count)
 {

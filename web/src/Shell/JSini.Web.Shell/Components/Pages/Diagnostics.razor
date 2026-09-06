@@ -29,7 +29,7 @@
 <PageHeading Title="업무 MFE 합성 진단" Scope="셸" />
 
 <section class="jsini-diagnostics">
-    <DxGrid Data="@Rows" ShowFilterRow="false" PageSizeSelectorVisible="false">
+    <CommGrd TItem="Row" Data="@Rows" PageSizeSelectorVisible="false">
         <Columns>
             <DxGridDataColumn FieldName="Key" Caption="식별자" Width="120px" />
             <DxGridDataColumn FieldName="DisplayName" Caption="이름" />
@@ -37,7 +37,7 @@
             <DxGridDataColumn FieldName="RouteCount" Caption="화면 수" Width="100px" />
             <DxGridDataColumn FieldName="Status" Caption="상태" Width="140px" />
         </Columns>
-    </DxGrid>
+    </CommGrd>
 
     <dl class="jsini-diagnostics__facts">
         <dt>붙은 모듈</dt>

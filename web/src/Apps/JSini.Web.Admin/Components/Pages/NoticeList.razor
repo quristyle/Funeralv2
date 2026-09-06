@@ -28,19 +28,19 @@
 
 <PageHeading Title="공지사항 관리" Scope="포털관리" />
 
-<CrudGrid TItem="NoticeDto"
-          Data="@_notices"
-          EditFormTitle="공지"
-          ExportName="공지사항"
-          PageSize="20"
-          OnNew="@FillNew"
-          OnSave="@SaveAsync"
-          OnDelete="@DeleteAsync"
-          Reload="@ReloadAsync">
-    <ChildContent>
+<CommGrd TItem="NoticeDto"
+         Data="@_notices"
+         EditFormTitle="공지"
+         ExportName="공지사항"
+         PageSize="20"
+         OnNew="@FillNew"
+         OnSave="@SaveAsync"
+         OnDelete="@DeleteAsync"
+         Reload="@ReloadAsync">
+    <Toolbar>
         <DxTextBox @bind-Text="_keyword" NullText="제목·내용 검색" Style="width: 220px"
                    ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
-    </ChildContent>
+    </Toolbar>
 
     <Columns>
         <DxGridDataColumn FieldName="@nameof(NoticeDto.Title)" Caption="제목" MinWidth="220">
@@ -78,7 +78,7 @@
         <DxGridDataColumn FieldName="@nameof(NoticeDto.CreatedAt)" Caption="작성일" Width="120" DisplayFormat="yyyy-MM-dd" />
     </Columns>
 
-    <EditForm Context="edit">
+    <EditFormTemplate Context="edit">
         @{
             var n = (NoticeDto)edit.EditModel;
         }
@@ -119,8 +119,8 @@
                 </DxCheckBox>
             </DxFormLayoutItem>
         </DxFormLayout>
-    </EditForm>
-</CrudGrid>
+    </EditFormTemplate>
+</CommGrd>
 
 @code {
     private string? _keyword;

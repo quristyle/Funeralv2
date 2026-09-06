@@ -58,8 +58,7 @@
     }
 </div>
 
-<DxGrid Data="@_items" ShowFilterRow="false" ShowSearchBox="false" PageSize="20"
-        DetailExpandButtonDisplayMode="GridDetailExpandButtonDisplayMode.Auto">
+<CommGrd TItem="Archive" Data="@_items" PageSize="20">
     <Columns>
         <DxGridDataColumn Caption="자료명" MinWidth="220">
             <CellDisplayTemplate Context="cell">
@@ -128,7 +127,7 @@
             </ul>
         }
     </DetailRowTemplate>
-</DxGrid>
+</CommGrd>
 
 <PageNotice Text="@Notice" Tone="@Tone" />
 

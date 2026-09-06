@@ -67,6 +67,51 @@ public sealed class AccountDto
 
     /// <summary>표에 한 칸으로 보여 줄 역할 이름들.</summary>
     public string RoleText => string.Join(", ", RoleNames);
+
+    /// <summary>
+    /// 편집 폼의 역할 고르개가 묶이는 자리. <see cref="RoleIds"/> 와 같은 값이다.
+    ///
+    /// <para>
+    /// [왜 같은 값을 두 번 두는가 — 팝업이 열리지 않았다]
+    /// </para>
+    ///
+    /// <para>
+    /// DevExpress 편집기는 팝업 안에서 검증 표현식(<c>ValuesExpression</c>)을
+    /// 요구하는데, 그 식이 <b>순수한 멤버 접근이어야 한다.</b> 형이 안 맞아
+    /// <c>(IEnumerable&lt;string&gt;)a.RoleIds</c> 로 적으면 식에 형변환
+    /// 마디가 끼어 이렇게 거절한다 —
+    /// </para>
+    ///
+    /// <code>
+    /// The provided expression contains a UnaryExpression which is not supported.
+    /// </code>
+    ///
+    /// <para>
+    /// <b>화면에는 아무 표시도 나지 않는다.</b> 등록 단추를 눌러도 팝업이
+    /// 그냥 안 열리고, 원인은 브라우저 콘솔에만 있다. 형이 맞는 창을
+    /// 하나 내면 화면은 <c>@@bind-Values="a.Roles"</c> 한 줄로 끝난다.
+    /// </para>
+    /// </summary>
+    public IEnumerable<string> Roles
+    {
+        get => RoleIds;
+        set => RoleIds = [.. value];
+    }
+
+    /// <summary>
+    /// 편집 폼의 생일 칸이 묶이는 자리. <see cref="BirthDate"/> 와 같은 값이다.
+    ///
+    /// <para>
+    /// 자료는 <c>DateOnly</c> 인데 <c>DxDateEdit</c> 은 <c>DateTime?</c> 을
+    /// 다룬다. 옮기는 일을 화면에서 메서드로 하면 <see cref="Roles"/> 와 같은
+    /// 이유로 거절당한다 — 메서드 호출도 멤버 접근이 아니다.
+    /// </para>
+    /// </summary>
+    public DateTime? BirthDateTime
+    {
+        get => BirthDate?.ToDateTime(TimeOnly.MinValue);
+        set => BirthDate = value is null ? null : DateOnly.FromDateTime(value.Value);
+    }
 }
 
 /// <summary>권한 그룹.</summary>

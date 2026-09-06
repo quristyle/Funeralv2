@@ -56,7 +56,7 @@
 
 @if (_byHour)
 {
-    <DxGrid Data="@_hourly" ShowSearchBox="false" PageSize="30">
+    <CommGrd TItem="HourlyTemp" Data="@_hourly" PageSize="30">
         <Columns>
             <DxGridDataColumn FieldName="@nameof(HourlyTemp.Date)" Caption="날짜" Width="160" />
 
@@ -87,11 +87,11 @@
                 </CellDisplayTemplate>
             </DxGridDataColumn>
         </Columns>
-    </DxGrid>
+    </CommGrd>
 }
 else
 {
-    <DxGrid Data="@_history" ShowSearchBox="false" PageSize="30">
+    <CommGrd TItem="WeatherInfo" Data="@_history" PageSize="30">
         <Columns>
             <DxGridDataColumn FieldName="@nameof(WeatherInfo.ObservationTime)" Caption="관측 시각" Width="170"
                               DisplayFormat="yyyy-MM-dd HH:mm" />
@@ -120,7 +120,7 @@ else
             <DxGridDataColumn FieldName="@nameof(WeatherInfo.Rainfall)" Caption="강수(mm)" Width="100" />
             <DxGridDataColumn FieldName="@nameof(WeatherInfo.Snowfall)" Caption="적설(cm)" Width="100" />
         </Columns>
-    </DxGrid>
+    </CommGrd>
 }
 
 @code {

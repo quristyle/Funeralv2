@@ -38,7 +38,7 @@
 }
 else
 {
-    <DxGrid Data="@_mappings" ShowFilterRow="false" PageSize="20">
+    <CommGrd TItem="BuildingMusicMapping" Data="@_mappings" PageSize="20">
         <Columns>
             <DxGridDataColumn Caption="배정" Width="80">
                 <CellDisplayTemplate Context="cell">
@@ -52,7 +52,7 @@ else
             <DxGridDataColumn FieldName="@nameof(BuildingMusicMapping.BuildingShortName)" Caption="약칭" Width="120" />
             <DxGridDataColumn FieldName="@nameof(BuildingMusicMapping.Address)" Caption="주소" MinWidth="240" />
         </Columns>
-    </DxGrid>
+    </CommGrd>
 }
 
 <PageNotice Text="@Notice" Tone="@Tone" />

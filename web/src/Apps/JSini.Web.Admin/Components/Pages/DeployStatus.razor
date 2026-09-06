@@ -49,7 +49,7 @@
 
 <h2 class="ad-subhead">워크플로 실행</h2>
 
-<DxGrid Data="@Runs" ShowFilterRow="false" ShowSearchBox="false" PageSize="15">
+<CommGrd TItem="GithubRunDto" Data="@Runs">
     <Columns>
         <DxGridDataColumn FieldName="@nameof(GithubRunDto.StartedAt)" Caption="시각" Width="150"
                           DisplayFormat="yyyy-MM-dd HH:mm" />
@@ -92,12 +92,12 @@
             </CellDisplayTemplate>
         </DxGridDataColumn>
     </Columns>
-</DxGrid>
+</CommGrd>
 
 <h2 class="ad-subhead">러너</h2>
 
-<DxGrid Data="@Runners" ShowFilterRow="false" ShowSearchBox="false"
-        PageSizeSelectorVisible="false" PagerVisible="false">
+<CommGrd TItem="GithubRunnerDto" Data="@Runners"
+         PageSizeSelectorVisible="false" PagerVisible="false">
     <Columns>
         <DxGridDataColumn FieldName="@nameof(GithubRunnerDto.Name)" Caption="이름" Width="180" />
 
@@ -125,7 +125,7 @@
             </CellDisplayTemplate>
         </DxGridDataColumn>
     </Columns>
-</DxGrid>
+</CommGrd>
 
 <PageNotice Text="@Notice" Tone="@Tone" />
 

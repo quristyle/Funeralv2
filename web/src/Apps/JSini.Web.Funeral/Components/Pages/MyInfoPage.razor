@@ -45,7 +45,7 @@
     <h2 class="fn-subhead">적용된 환경설정</h2>
     <PageNotice Text="값을 바꾸려면 설정 › 환경설정에서 하십시오." />
 
-    <DxGrid Data="@_info.Settings" ShowFilterRow="false" PageSize="20">
+    <CommGrd TItem="object" Data="@_info.Settings" PageSize="20">
         <Columns>
             <DxGridDataColumn FieldName="@nameof(EnvironmentSetting.GroupName)" Caption="구분" Width="140" />
             <DxGridDataColumn FieldName="@nameof(EnvironmentSetting.Name)" Caption="항목" MinWidth="200" />
@@ -61,7 +61,7 @@
             </DxGridDataColumn>
             <DxGridDataColumn FieldName="@nameof(EnvironmentSetting.Description)" Caption="설명" MinWidth="240" />
         </Columns>
-    </DxGrid>
+    </CommGrd>
 }
 
 <PageNotice Text="@Notice" Tone="@Tone" />

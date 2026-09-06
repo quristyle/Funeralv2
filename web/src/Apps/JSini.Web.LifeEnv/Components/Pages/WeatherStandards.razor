@@ -32,19 +32,19 @@
 
 <PageHeading Title="기상 판정 기준" Scope="생활과환경" />
 
-<CrudGrid TItem="WeatherStandard"
-          Data="@Shown"
-          EditFormTitle="판정 기준"
-          ExportName="판정기준"
-          PageSize="20"
-          OnNew="@FillNew"
-          OnSave="@SaveAsync"
-          OnDelete="@DeleteAsync"
-          Reload="@ReloadAsync">
-    <ChildContent>
+<CommGrd TItem="WeatherStandard"
+         Data="@Shown"
+         EditFormTitle="판정 기준"
+         ExportName="판정기준"
+         PageSize="20"
+         OnNew="@FillNew"
+         OnSave="@SaveAsync"
+         OnDelete="@DeleteAsync"
+         Reload="@ReloadAsync">
+    <Toolbar>
         <DxTextBox @bind-Text="_keyword" NullText="명칭·조건 검색" Style="width: 220px"
                    ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
-    </ChildContent>
+    </Toolbar>
 
     <Columns>
         <DxGridDataColumn Caption="구분" Width="90">
@@ -91,7 +91,7 @@
         <DxGridDataColumn FieldName="@nameof(WeatherStandard.SortOrder)" Caption="순서" Width="70" />
     </Columns>
 
-    <EditForm Context="edit">
+    <EditFormTemplate Context="edit">
         @{
             var std = (WeatherStandard)edit.EditModel;
         }
@@ -182,8 +182,8 @@
                 </DxFormLayoutItem>
             }
         </DxFormLayout>
-    </EditForm>
-</CrudGrid>
+    </EditFormTemplate>
+</CommGrd>
 
 @code {
     private IReadOnlyList<WeatherStandard> _all = [];
@@ -203,7 +203,7 @@
     private static readonly object[] Operators =
     [
         new { Value = "GE", Text = "이상 (≥)" },
-        new { Value = "GT", Text = "초과 (>)" },
+        new { Value = "GT", Text = "초과 ( >)" },
         new { Value = "LE", Text = "이하 (≤)" },
         new { Value = "LT", Text = "미만 (<)" },
         new { Value = "EQ", Text = "같음 (=)" },
@@ -279,11 +279,11 @@
 
     private Task DeleteAsync(WeatherStandard std) => Client.DeleteStandardAsync(std.Id);
 
-    /// <summary>값이 둘 필요한 연산자인가.</summary>
+    /// <summary >값이 둘 필요한 연산자인가.</summary >
     private static bool NeedsTwo(string? op) =>
         op is "BT" or "NB" or "DGE" or "DLE";
 
-    /// <summary>두 번째 값이 「범위의 끝」이 아니라 「차이」인 연산자인가.</summary>
+    /// <summary >두 번째 값이 「범위의 끝」이 아니라 「차이」인 연산자인가.</summary >
     private static bool IsDiff(string? op) => op is "DGE" or "DLE";
 
     private static string ThresholdText(WeatherStandard row) => row.Operator switch

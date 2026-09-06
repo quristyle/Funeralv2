@@ -24,19 +24,19 @@
 
 <PageHeading Title="건물 관리" Scope="장례식장" />
 
-<CrudGrid TItem="Building"
-          Data="@Shown"
-          EditFormTitle="건물"
-          ExportName="건물"
-          PageSize="20"
-          OnNew="@FillNew"
-          OnSave="@SaveAsync"
-          OnDelete="@DeleteAsync"
-          Reload="@ReloadAsync">
-    <ChildContent>
+<CommGrd TItem="Building"
+         Data="@Shown"
+         EditFormTitle="건물"
+         ExportName="건물"
+         PageSize="20"
+         OnNew="@FillNew"
+         OnSave="@SaveAsync"
+         OnDelete="@DeleteAsync"
+         Reload="@ReloadAsync">
+    <Toolbar>
         <DxTextBox @bind-Text="_keyword" NullText="건물명·주소 검색" Style="width: 220px"
                    ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
-    </ChildContent>
+    </Toolbar>
 
     <Columns>
         <DxGridDataColumn FieldName="@nameof(Building.Name)" Caption="건물명" MinWidth="180" />
@@ -56,7 +56,7 @@
         <DxGridDataColumn FieldName="@nameof(Building.Remark)" Caption="비고" MinWidth="140" />
     </Columns>
 
-    <EditForm Context="edit">
+    <EditFormTemplate Context="edit">
         @{
             var b = (Building)edit.EditModel;
         }
@@ -86,8 +86,8 @@
                 <DxMemo @bind-Text="b.Remark" Rows="3" />
             </DxFormLayoutItem>
         </DxFormLayout>
-    </EditForm>
-</CrudGrid>
+    </EditFormTemplate>
+</CommGrd>
 
 @code {
     private IReadOnlyList<Building> _all = [];
@@ -145,7 +145,7 @@
         // 층이 남아 있으면 지우지 않는다. 서버도 막지만 여기서 먼저 말해 주는
         // 편이 낫다 — 「삭제하지 못했습니다」만 보면 왜인지 알 수 없다.
         //
-        // 예외로 알린다. CrudGrid 가 그것을 받아 안내로 바꾸고 목록을 그대로 둔다.
+        // 예외로 알린다. CommGrd 가 그것을 받아 안내로 바꾸고 목록을 그대로 둔다.
         if (_floorCount.GetValueOrDefault(b.Id) is > 0 and var floors)
         {
             throw new ApiException($"이 건물에 층이 {floors}개 있습니다. 층을 먼저 정리하십시오.");

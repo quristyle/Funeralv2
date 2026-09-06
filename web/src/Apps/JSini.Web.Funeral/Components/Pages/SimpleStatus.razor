@@ -19,14 +19,14 @@
     <DxCheckBox @bind-Checked="_onlyInUse">사용 중만</DxCheckBox>
 </BuildingFilter>
 
-<DxGrid Data="@_rows" ShowFilterRow="false" PageSize="30">
+<CommGrd TItem="FuneralStatus" Data="@_rows" PageSize="30">
     <Columns>
         <DxGridDataColumn FieldName="@nameof(FuneralStatus.RoomName)" Caption="호실" Width="130" />
         <DxGridDataColumn FieldName="@nameof(FuneralStatus.DeceasedName)" Caption="고인" MinWidth="140" />
         <DxGridDataColumn FieldName="@nameof(FuneralStatus.ChiefMourner)" Caption="상주" MinWidth="140" />
         <DxGridDataColumn FieldName="@nameof(FuneralStatus.DischargeTime)" Caption="발인" Width="150" DisplayFormat="yyyy-MM-dd HH:mm" />
     </Columns>
-</DxGrid>
+</CommGrd>
 
 <PageNotice Text="@Notice" Tone="@Tone" />
 

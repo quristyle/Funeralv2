@@ -62,12 +62,10 @@
 
         @* 고른 줄이 바뀌면 오른쪽을 다시 읽어야 하므로 `@@bind-` 대신
            값과 변경을 따로 받는다. 둘을 같이 쓸 수는 없다. *@
-        <DxGrid Data="@ShownGroups"
-                SelectionMode="GridSelectionMode.Single"
-                SelectedDataItem="@_group"
-                SelectedDataItemChanged="@OnGroupChangedAsync"
-                ShowSearchBox="false"
-                PageSize="25">
+        <CommGrd TItem="CommonCodeGroupDto" Data="@ShownGroups"
+                 SelectedDataItem="@_group"
+                 SelectedDataItemChanged="@((object? item) => OnGroupChangedAsync(item))"
+                 PageSize="25">
             <Columns>
                 <DxGridDataColumn FieldName="@nameof(CommonCodeGroupDto.GroupCode)" Caption="코드" Width="140" />
                 <DxGridDataColumn FieldName="@nameof(CommonCodeGroupDto.GroupName)" Caption="묶음 이름" MinWidth="130" />
@@ -91,7 +89,7 @@
                     </CellDisplayTemplate>
                 </DxGridDataColumn>
             </Columns>
-        </DxGrid>
+        </CommGrd>
     </section>
 
     @* ── 오른쪽: 고른 묶음의 코드들 ────────────────────── *@
@@ -146,7 +144,7 @@
             }
             else
             {
-                <DxGrid Data="@_codes" PageSize="25" ShowSearchBox="true">
+                <CommGrd TItem="CommonCodeDto" Data="@_codes" PageSize="25" ShowSearchBox="true">
                     <Columns>
                         <DxGridDataColumn FieldName="@nameof(CommonCodeDto.CodeValue)" Caption="값" Width="160" />
                         <DxGridDataColumn FieldName="@nameof(CommonCodeDto.CodeName)" Caption="이름" MinWidth="200" />
@@ -164,7 +162,7 @@
                             </CellDisplayTemplate>
                         </DxGridDataColumn>
                     </Columns>
-                </DxGrid>
+                </CommGrd>
             }
         }
     </section>

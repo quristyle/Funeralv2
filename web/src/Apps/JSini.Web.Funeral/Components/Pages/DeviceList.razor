@@ -79,9 +79,8 @@
 
 <PageNotice Text="@Notice" Tone="@Tone" />
 
-<DxGrid Data="@_devices" ShowFilterRow="false" PageSize="20"
-        SelectionMode="GridSelectionMode.Single"
-        SelectedDataItemChanged="@(item => SelectAsync(item as Device))">
+<CommGrd TItem="Device" Data="@_devices" PageSize="20"
+         SelectedDataItemChanged="@((object? item) => SelectAsync(item as Device))">
     <Columns>
         <DxGridDataColumn FieldName="@nameof(Device.Code)" Caption="코드" Width="120" />
         <DxGridDataColumn FieldName="@nameof(Device.Name)" Caption="기기명" MinWidth="160" />
@@ -141,7 +140,7 @@
             </CellDisplayTemplate>
         </DxGridDataColumn>
     </Columns>
-</DxGrid>
+</CommGrd>
 
 <DeviceEditor @bind-Visible="_editing" DeviceId="@_editingId" OnSaved="@ReloadAsync" />
 

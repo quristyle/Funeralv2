@@ -787,7 +787,7 @@ a.jsini-crumbs__item:hover { opacity: 1; }
 .commsch {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-end;
+  align-items: center;
   gap: 0.75rem 1rem;
   padding: 0.85rem 1rem;
   margin-bottom: 0.9rem;
@@ -801,17 +801,33 @@ a.jsini-crumbs__item:hover { opacity: 1; }
 .commsch__fields {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-end;
+  align-items: center;
   gap: 0.7rem 1rem;
   flex: 1 1 auto;
   min-width: 0;
 }
 
+/* 라벨은 칸 왼쪽에 붙는다. 조건이 대개 둘에서 넷이라 한 줄에 다 들어가고,
+   판이 한 줄 높이로 끝난다 — 본문을 꽉 채워 쓰는 화면에서 그 한 줄이
+   표의 한 줄이다. */
 .commsch__item {
   display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
+  align-items: center;
+  gap: 0.4rem;
   min-width: 0;
+}
+
+/* `CommSch Stacked="true"` 일 때만 세로로 돌린다. 판이 붙인 클래스를 받으므로
+   **한 판의 칸 전부**가 함께 돌아간다. 칸마다 다르면 그것이 제일 지저분하다. */
+.commsch--stacked,
+.commsch--stacked .commsch__fields {
+  align-items: flex-end;
+}
+
+.commsch--stacked .commsch__item {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2rem;
 }
 
 .commsch__label {
@@ -1012,6 +1028,34 @@ a.jsini-crumbs__item:hover { opacity: 1; }
    아이콘을 두 벌 관리하게 된다. */
 .commgrd__icon--on { color: var(--jsini-accent); }
 .commgrd__icon--warn { color: #d9534f; }
+
+/* ── 줄무늬 ──────────────────────────────────────────────
+
+   짝수 줄에 옅은 바탕. `CustomizeElement` 가 클래스를 붙이고 색은 여기서 정한다.
+
+   **고정색을 쓰지 않는다.** 테마가 스물둘이고 어두운 것이 섞여 있어, 옅은
+   회색을 박으면 어두운 테마에서 그 줄만 밝게 뜬다. 글자색을 4% 섞어 만들면
+   밝은 테마에서는 어둡게, 어두운 테마에서는 밝게 — 어느 쪽이든 「한 톤 차이」가
+   된다. 테마 서랍의 고른 항목(`--jsini-theme-picked`)과 같은 방식이다.
+
+   **선택 줄을 이기지 않아야 한다.** DevExpress 의 선택 규칙이 클래스 여섯 개
+   짜리(0,6,0)라, 이 규칙을 그보다 낮게(0,3,2) 두어 고른 줄에서는 선택색이
+   그대로 이긴다. 여기에 클래스를 더 붙이면 고른 줄이 줄무늬에 묻힌다. */
+.commgrd .dxbl-grid-table > tbody > tr.commgrd__row--alt {
+  background-color: color-mix(in srgb, var(--dxbl-grid-color, currentColor) 4%, transparent);
+}
+
+/* ── 칸 머리는 가운데 정렬 ────────────────────────────────
+
+   DevExpress 의 머리 칸은 flex 고, 그 안 첫 `span` 이 글자, 뒤따르는 것이
+   정렬 화살표와 깔때기다. 그 span 이 남은 폭을 다 먹으므로(`flex-grow: 1`)
+   글자만 가운데로 보내면 아이콘은 제자리에 남는다.
+
+   자료 칸은 건드리지 않는다 — 숫자는 오른쪽, 글자는 왼쪽이 읽기 좋고
+   그것은 칸마다 `TextAlignment` 로 정할 일이다. */
+.commgrd .dxbl-grid-header-content > span:first-child {
+  text-align: center;
+}
 
 /* ── 아이콘을 페이저 줄에 얹는다 ──────────────────────────
 

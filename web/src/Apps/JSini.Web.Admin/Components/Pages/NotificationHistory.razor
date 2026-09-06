@@ -20,7 +20,7 @@
     <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@ReloadAsync" />
 </div>
 
-<DxGrid Data="@Shown" ShowFilterRow="false" PageSize="30">
+<CommGrd TItem="NotificationDto" Data="@Shown" PageSize="30">
     <Columns>
         <DxGridDataColumn FieldName="@nameof(NotificationDto.CreatedAt)" Caption="받은 때" Width="150" DisplayFormat="yyyy-MM-dd HH:mm" />
         <DxGridDataColumn FieldName="@nameof(NotificationDto.Title)" Caption="제목" MinWidth="200" />
@@ -40,7 +40,7 @@
             </CellDisplayTemplate>
         </DxGridDataColumn>
     </Columns>
-</DxGrid>
+</CommGrd>
 
 <PageNotice Text="@Notice" Tone="@Tone" />
 

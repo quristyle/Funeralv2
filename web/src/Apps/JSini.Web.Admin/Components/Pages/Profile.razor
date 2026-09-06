@@ -137,7 +137,7 @@
 
 <h2 class="ad-subhead">최근 활동</h2>
 
-<DxGrid Data="@_activity" ShowFilterRow="false" ShowSearchBox="false" PageSize="20">
+<CommGrd TItem="UserActivityDto" Data="@_activity" PageSize="20">
     <Columns>
         <DxGridDataColumn FieldName="@nameof(UserActivityDto.CreatedAt)" Caption="시각" Width="160"
                           DisplayFormat="yyyy-MM-dd HH:mm" />
@@ -145,7 +145,7 @@
         <DxGridDataColumn FieldName="@nameof(UserActivityDto.Detail)" Caption="내용" MinWidth="260" />
         <DxGridDataColumn FieldName="@nameof(UserActivityDto.IpAddress)" Caption="접속지" Width="150" />
     </Columns>
-</DxGrid>
+</CommGrd>
 
 @code {
     private UserInfoDto? _info;

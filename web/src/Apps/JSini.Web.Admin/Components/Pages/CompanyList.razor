@@ -34,16 +34,16 @@
 
 <PageHeading Title="회사 목록" Scope="포털관리" />
 
-<CrudGrid TItem="CompanyDto"
-          Data="@Shown"
-          EditFormTitle="회사"
-          ExportName="회사목록"
-          PageSize="20"
-          OnNew="@FillNew"
-          OnSave="@SaveAsync"
-          OnDelete="@DeleteAsync"
-          Reload="@ReloadAsync">
-    <ChildContent>
+<CommGrd TItem="CompanyDto"
+         Data="@Shown"
+         EditFormTitle="회사"
+         ExportName="회사목록"
+         PageSize="20"
+         OnNew="@FillNew"
+         OnSave="@SaveAsync"
+         OnDelete="@DeleteAsync"
+         Reload="@ReloadAsync">
+    <Toolbar>
         <DxTextBox @bind-Text="_keyword" NullText="회사명 검색" Style="width: 220px"
                    ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
 
@@ -53,7 +53,7 @@
                     ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
 
         <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@ReloadAsync" />
-    </ChildContent>
+    </Toolbar>
 
     <Columns>
         <DxGridDataColumn FieldName="@nameof(CompanyDto.Name)" Caption="회사명" MinWidth="180" />
@@ -105,7 +105,7 @@
         <DxGridDataColumn FieldName="@nameof(CompanyDto.Remark)" Caption="비고" MinWidth="140" />
     </Columns>
 
-    <EditForm Context="edit">
+    <EditFormTemplate Context="edit">
         @{
             var company = (CompanyDto)edit.EditModel;
         }
@@ -161,8 +161,8 @@
                 <DxTextBox @bind-Text="company.Remark" />
             </DxFormLayoutItem>
         </DxFormLayout>
-    </EditForm>
-</CrudGrid>
+    </EditFormTemplate>
+</CommGrd>
 
 <PageNotice Text="@Notice" Tone="@Tone" />
 

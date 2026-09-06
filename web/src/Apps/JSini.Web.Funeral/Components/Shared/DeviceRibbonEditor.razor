@@ -49,7 +49,7 @@
 }
 else
 {
-    <DxGrid Data="@_ribbons" ShowFilterRow="false" PagerVisible="false" PageSizeSelectorVisible="false">
+    <CommGrd TItem="DeviceRibbon" Data="@_ribbons" PagerVisible="false" PageSizeSelectorVisible="false">
         <Columns>
             <DxGridDataColumn Caption="이미지" MinWidth="200">
                 <CellDisplayTemplate>
@@ -130,7 +130,7 @@ else
                 </CellDisplayTemplate>
             </DxGridDataColumn>
         </Columns>
-    </DxGrid>
+    </CommGrd>
 }
 
 @code {

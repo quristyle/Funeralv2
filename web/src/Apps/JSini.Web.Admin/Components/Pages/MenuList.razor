@@ -76,7 +76,7 @@
 *@
 @if (Filtering)
 {
-    <DxGrid Data="@Flat" PageSize="30" ShowSearchBox="false">
+    <CommGrd TItem="SystemMenuDto" Data="@Flat" PageSize="30">
         <Columns>
             <DxGridDataColumn Caption="메뉴" MinWidth="220">
                 <CellDisplayTemplate Context="cell">
@@ -94,7 +94,7 @@
                 </CellDisplayTemplate>
             </DxGridDataColumn>
         </Columns>
-    </DxGrid>
+    </CommGrd>
 }
 else
 {

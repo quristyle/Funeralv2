@@ -131,7 +131,7 @@
 
 <h2 class="hd-section">최근 접수</h2>
 
-<DxGrid Data="@_recent" ShowSearchBox="false" PageSize="10">
+<CommGrd TItem="ImprovementRequest" Data="@_recent" PageSize="10">
     <Columns>
         <DxGridDataColumn FieldName="@nameof(ImprovementRequest.Id)" Caption="번호" Width="80" />
         <DxGridDataColumn FieldName="@nameof(ImprovementRequest.Title)" Caption="제목" MinWidth="260" />
@@ -170,7 +170,7 @@
             </CellDisplayTemplate>
         </DxGridDataColumn>
     </Columns>
-</DxGrid>
+</CommGrd>
 
 @code {
     private sealed record Tile(string Label, int Count);
@@ -227,7 +227,7 @@
     private IReadOnlyList<Slice> Slices =>
         [.. Tiles.Where(t => t.Count > 0).Select(t => new Slice(t.Label, t.Count))];
 
-    /// <summary>조각 색. <see cref="Slices"/> 와 같은 조건·순서로 골라야 어긋나지 않는다.</summary>
+    /// <summary>조각 색. <see cref="Slices" /> 와 같은 조건·순서로 골라야 어긋나지 않는다.</summary>
     private string[] SlicePalette =>
         [.. Tiles.Where(t => t.Count > 0).Select(t => StatusColors[t.Label])];
 

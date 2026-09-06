@@ -97,8 +97,8 @@
 
 <h2 class="ad-subhead">등록된 기기 (@Devices.Count)</h2>
 
-<DxGrid Data="@Devices" ShowFilterRow="false" ShowSearchBox="false"
-        PageSizeSelectorVisible="false" PagerVisible="false">
+<CommGrd TItem="PushDeviceDto" Data="@Devices"
+         PageSizeSelectorVisible="false" PagerVisible="false">
     <Columns>
         <DxGridDataColumn FieldName="@nameof(PushDeviceDto.UserAgent)" Caption="기기" MinWidth="320" />
         <DxGridDataColumn FieldName="@nameof(PushDeviceDto.CreatedAt)" Caption="등록" Width="150"
@@ -106,7 +106,7 @@
         <DxGridDataColumn FieldName="@nameof(PushDeviceDto.LastUsedAt)" Caption="최근 사용" Width="150"
                           DisplayFormat="yyyy-MM-dd HH:mm" />
     </Columns>
-</DxGrid>
+</CommGrd>
 
 @code {
     private NotificationSettingsDto? _settings;

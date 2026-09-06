@@ -20,7 +20,7 @@
     <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@ReloadAsync" />
 </div>
 
-<DxGrid Data="@_logs" ShowFilterRow="false" PageSize="30">
+<CommGrd TItem="PushLogDto" Data="@_logs" PageSize="30">
     <Columns>
         <DxGridDataColumn FieldName="@nameof(PushLogDto.SentAt)" Caption="보낸 때" Width="150" DisplayFormat="yyyy-MM-dd HH:mm" />
         <DxGridDataColumn FieldName="@nameof(PushLogDto.TargetUser)" Caption="대상" Width="140" />
@@ -36,7 +36,7 @@
         </DxGridDataColumn>
         <DxGridDataColumn FieldName="@nameof(PushLogDto.FailureReason)" Caption="실패 사유" MinWidth="200" />
     </Columns>
-</DxGrid>
+</CommGrd>
 
 <PageNotice Text="@Notice" Tone="@Tone" />
 

@@ -69,7 +69,7 @@
 
 <PageNotice Text="@Notice" Tone="@Tone" />
 
-<DxGrid Data="@_links" Loading="@Loading" PageSize="20" KeyFieldName="Id">
+<CommGrd TItem="AuthUserLink" Data="@_links" Loading="@Loading" PageSize="20" KeyFieldName="Id">
     <Columns>
         <DxGridDataColumn FieldName="AuthUserId" Caption="JSini 포털 계정" MinWidth="180" />
         <DxGridDataColumn FieldName="UserType" Caption="구분" Width="100px">
@@ -92,7 +92,7 @@
             </CellDisplayTemplate>
         </DxGridDataColumn>
     </Columns>
-</DxGrid>
+</CommGrd>
 
 <DxPopup @bind-Visible="_editing" HeaderText="계정 연결" Width="520px">
     <BodyContentTemplate Context="popup">

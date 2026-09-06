@@ -58,7 +58,7 @@
 
 <PageNotice Text="@Notice" Tone="@Tone" />
 
-<DxGrid Data="@_rows" ShowSearchBox="false" PageSize="25">
+<CommGrd TItem="ImprovementRequest" Data="@_rows" PageSize="25">
     <Columns>
         <DxGridDataColumn FieldName="@nameof(ImprovementRequest.Id)" Caption="번호" Width="80" />
 
@@ -138,7 +138,7 @@
             </CellDisplayTemplate>
         </DxGridDataColumn>
     </Columns>
-</DxGrid>
+</CommGrd>
 
 @if (_total > _rows.Count)
 {
@@ -251,7 +251,7 @@
         var span = to - from;
 
         return span < TimeSpan.Zero ? "-"
-            : span.TotalDays >= 1 ? $"{(int)span.TotalDays}일"
+            : span.TotalDays>= 1 ? $"{(int)span.TotalDays}일"
             : $"{(int)span.TotalHours}시간";
     }
 
