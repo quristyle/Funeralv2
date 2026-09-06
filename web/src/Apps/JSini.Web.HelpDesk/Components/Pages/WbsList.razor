@@ -3,13 +3,25 @@
 @*
     [WBS] — DB 메뉴 `/helpdesk/project/wbs`.
     이력: Vue `views/helpdesk/project/wbs` → 여기.
-    엔드포인트: `wbs`
+    엔드포인트: `wbs/flat?projectId=` (조회) · `wbs` (등록 · 수정 · 삭제)
 
-    **서버가 준 대로 보여 주는 화면이다**(AutoGrid). 칸을 손으로 적지 않은
-    이유는 그 부품의 주석에 있다 — 요약하면, 이런 화면이 마흔 개고 백엔드가
-    칸을 더할 때마다 화면을 고치러 가는 것이 이득이 아니기 때문이다.
+    [읽기만 남아 있었다]
 
-    매일 들여다보는 화면이 되면 그때 칸을 손으로 적는다.
+    원본은 프로젝트를 고르고 **작업을 등록·수정·삭제하는 화면**이다(331줄).
+    옮길 때는 `wbs` 전체를 읽어 보여 주는 표 한 장이 되어 있었다 —
+    작업을 넣을 수도 진척을 고칠 수도 없었다. **WBS 는 짜는 것이지 보는 것이
+    아니다**(보는 자리는 간트와 읽기 전용 WBS 가 따로 있다).
+
+    [프로젝트를 먼저 고른다]
+
+    프로젝트를 안 고르면 모든 프로젝트의 작업이 한 표에 섞인다. 원본도 프로젝트
+    고르개가 먼저였다 — 서버가 `projectId` 로 거른다.
+
+    [트리가 아니라 평평한 목록으로 받는다]
+
+    `wbs/` 는 트리(`WbsTreeNode`)를 주고 `wbs/flat` 은 평평한 줄을 준다.
+    편집하는 화면이라 뒤엣것을 쓴다 — **상위 작업은 값으로 고른다.**
+    트리에서 끌어 옮기는 것은 원본에도 없었다.
 *@
 
 @inherits DataPage
@@ -17,31 +29,245 @@
 
 <PageTitle>WBS · 헬프데스크</PageTitle>
 
+<div class="jsini-toolbar">
+    <DxComboBox Data="@_projects" TextFieldName="@nameof(Project.Name)"
+                ValueFieldName="@nameof(Project.Id)"
+                Value="@_projectId" ValueChanged="@((int? v) => PickProjectAsync(v))"
+                ValueExpression="@(() => _projectId)"
+                NullText="프로젝트를 고르십시오" Style="width: 280px"
+                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+
+    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@ReloadAsync" />
+
+    <div class="jsini-toolbar__spacer"></div>
+
+    <PermissionView Action="MenuAction.Create">
+        <DxButton Text="작업 등록" RenderStyle="ButtonRenderStyle.Success"
+                  Enabled="@(_projectId is not null)" Click="@(() => StartNew(null))" />
+    </PermissionView>
+</div>
+
 <PageNotice Text="@Notice" Tone="@Tone" />
 
-<AutoGrid Data="@_rows" Loading="@Loading" Captions="@Captions" HiddenCols="id" PageSize="30" />
+<CommCont>
+    <CommGrd TItem="Wbs" Data="@_items" PageSize="30">
+        <Columns>
+            <DxGridDataColumn FieldName="@nameof(Wbs.WbsCode)" Caption="코드" Width="120" />
+            <DxGridDataColumn FieldName="@nameof(Wbs.WbsName)" Caption="작업" MinWidth="240" />
+            <DxGridDataColumn FieldName="@nameof(Wbs.Status)" Caption="상태" Width="110" />
+            <DxGridDataColumn FieldName="@nameof(Wbs.Priority)" Caption="중요도" Width="100" />
+
+            <DxGridDataColumn Caption="진척" Width="90">
+                <CellDisplayTemplate Context="cell">
+                    @(((Wbs)cell.DataItem).Progress?.ToString("0") ?? "0")%
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn FieldName="@nameof(Wbs.PlanStart)" Caption="시작" Width="120"
+                              DisplayFormat="yyyy-MM-dd" />
+            <DxGridDataColumn FieldName="@nameof(Wbs.PlanEnd)" Caption="종료" Width="120"
+                              DisplayFormat="yyyy-MM-dd" />
+
+            <DxGridDataColumn Caption="" Width="200" AllowSort="false">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var item = (Wbs)cell.DataItem;
+                    }
+                    <div class="jsini-actions">
+                        <PermissionView Action="MenuAction.Create">
+                            @* 이 작업 아래에 하위 작업. 등록 폼에서 상위를 찾아
+                               고르게 하면 작업이 수십 개일 때 자리를 잃는다. *@
+                            <DxButton Text="하위 추가" RenderStyle="ButtonRenderStyle.Secondary"
+                                      Click="@(() => StartNew(item))" />
+                        </PermissionView>
+                        <PermissionView Action="MenuAction.Update">
+                            <DxButton Text="수정" RenderStyle="ButtonRenderStyle.Secondary"
+                                      Click="@(() => StartEdit(item))" />
+                        </PermissionView>
+                        <PermissionView Action="MenuAction.Delete">
+                            <DxButton Text="삭제" RenderStyle="ButtonRenderStyle.Secondary"
+                                      Click="@(() => DeleteAsync(item))" />
+                        </PermissionView>
+                    </div>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+        </Columns>
+    </CommGrd>
+</CommCont>
+
+<DxPopup @bind-Visible="_editing" HeaderText="@(_form.WbsRid == 0 ? "작업 등록" : "작업 수정")"
+         Width="640px" ShowFooter="false">
+    <BodyContentTemplate Context="popup">
+        <DxFormLayout>
+            <DxFormLayoutItem Caption="작업" ColSpanMd="8">
+                <DxTextBox @bind-Text="_form.WbsName" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="코드" ColSpanMd="4">
+                <DxTextBox @bind-Text="_form.WbsCode" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="상위 작업" ColSpanMd="12">
+                @* 자기 자신은 뺀다. 자기 밑으로 들어가면 나무가 고리가 된다. *@
+                <DxComboBox Data="@ParentChoices" TextFieldName="@nameof(Wbs.WbsName)"
+                            ValueFieldName="@nameof(Wbs.WbsRid)"
+                            @bind-Value="_form.ParentWbsId" NullText="최상위"
+                            ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="상태" ColSpanMd="4">
+                <DxComboBox Data="@Statuses" @bind-Value="_form.Status" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="중요도" ColSpanMd="4">
+                <DxComboBox Data="@Priorities" @bind-Value="_form.Priority" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="진척(%)" ColSpanMd="4">
+                <DxSpinEdit Value="@(_form.Progress ?? 0)"
+                            ValueChanged="@((double v) => _form.Progress = v)"
+                            MinValue="0" MaxValue="100" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="시작" ColSpanMd="6">
+                <DxDateEdit @bind-Date="_form.PlanStart" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="종료" ColSpanMd="6">
+                <DxDateEdit @bind-Date="_form.PlanEnd" />
+            </DxFormLayoutItem>
+        </DxFormLayout>
+
+        <div class="jsini-toolbar">
+            <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Primary" Click="@SaveAsync" />
+            <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary"
+                      Click="@(() => _editing = false)" />
+        </div>
+    </BodyContentTemplate>
+</DxPopup>
 
 @code {
-    private DataTable _rows = JsonTable.Empty;
+    private static readonly string[] Statuses = ["Pending", "InProgress", "Completed", "Hold"];
+    private static readonly string[] Priorities = ["High", "Medium", "Low"];
 
-    /// <summary>칸 이름표. 여기 적은 순서가 표의 앞쪽 순서다.</summary>
-    private static readonly Dictionary<string, string> Captions = new(StringComparer.Ordinal)
+    private IReadOnlyList<Project> _projects = [];
+    private IReadOnlyList<Wbs> _items = [];
+
+    private int? _projectId;
+
+    private bool _editing;
+    private Wbs _form = new();
+
+    /// <summary>상위로 고를 수 있는 작업. 자기 자신은 뺀다.</summary>
+    private IReadOnlyList<Wbs> ParentChoices =>
+        [.. _items.Where(w => w.WbsRid != _form.WbsRid)];
+
+    protected override Task OnInitializedAsync() => LoadAsync(async () =>
     {
-        ["wbsName"] = "작업",
-        ["projectName"] = "프로젝트",
-        ["adminName"] = "담당",
-        ["startDate"] = "시작",
-        ["endDate"] = "종료",
-        ["progress"] = "진척",
-        ["statusName"] = "상태",
-    };
+        _projects = await Api.GetListAsync<Project>("projects");
 
-    protected override Task OnInitializedAsync() => ReloadAsync();
+        // 프로젝트를 안 고르면 모든 작업이 한 표에 섞인다. 첫 것을 잡아 준다.
+        _projectId ??= _projects.FirstOrDefault()?.Id;
+
+        if (_projectId is not null)
+        {
+            _items = await Api.GetListAsync<Wbs>("wbs/flat", new { projectId = _projectId });
+        }
+
+        return _items.Count;
+    }, "등록된 작업이 없습니다.", "WBS 를 읽지 못했습니다");
+
+    private Task PickProjectAsync(int? projectId)
+    {
+        _projectId = projectId;
+        return ReloadAsync();
+    }
 
     private Task ReloadAsync() => LoadAsync(async () =>
     {
-        var json = await Api.GetAsync<JsonElement>("wbs");
-        _rows = JsonTable.From(json);
-        return _rows.Rows.Count;
-    }, "등록된 작업이 없습니다.", "WBS 를 읽지 못했습니다");
+        if (_projectId is null)
+        {
+            _items = [];
+            return 0;
+        }
+
+        _items = await Api.GetListAsync<Wbs>("wbs/flat", new { projectId = _projectId });
+        return _items.Count;
+    }, "그 프로젝트에 등록된 작업이 없습니다.", "WBS 를 읽지 못했습니다");
+
+    /// <summary>새 작업. 부모를 주면 그 아래에 붙는다.</summary>
+    private void StartNew(Wbs? parent)
+    {
+        _form = new Wbs
+        {
+            ProjectId = _projectId ?? 0,
+            ParentWbsId = parent?.WbsRid,
+            Status = "Pending",
+            Priority = "Medium",
+            Progress = 0,
+        };
+        _editing = true;
+    }
+
+    /// <summary>편집 창에 <b>복사본</b>을 띄운다. 취소해도 표가 안 바뀐다.</summary>
+    private void StartEdit(Wbs item)
+    {
+        _form = new Wbs
+        {
+            WbsRid = item.WbsRid,
+            ProjectId = item.ProjectId,
+            WbsName = item.WbsName,
+            WbsCode = item.WbsCode,
+            ParentWbsId = item.ParentWbsId,
+            Status = item.Status,
+            Priority = item.Priority,
+            Progress = item.Progress,
+            PlanStart = item.PlanStart,
+            PlanEnd = item.PlanEnd,
+        };
+        _editing = true;
+    }
+
+    private async Task SaveAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_form.WbsName))
+        {
+            Say("작업 이름을 넣으십시오.", NoticeTone.Warning);
+            return;
+        }
+
+        if (_form.PlanEnd is { } end && _form.PlanStart is { } start && end < start)
+        {
+            Say("종료일이 시작일보다 앞섭니다.", NoticeTone.Warning);
+            return;
+        }
+
+        var isNew = _form.WbsRid == 0;
+        _form.ProjectId = _projectId ?? _form.ProjectId;
+
+        if (await RunAsync(
+                () => isNew
+                    ? Api.PostAsync("wbs", _form)
+                    : Api.PutAsync($"wbs/{_form.WbsRid}", _form),
+                isNew ? "등록했습니다." : "저장했습니다.",
+                isNew ? "등록하지 못했습니다" : "저장하지 못했습니다"))
+        {
+            _editing = false;
+            await ReloadAsync();
+        }
+    }
+
+    /// <summary>
+    /// 지운다. <b>하위 작업이 있으면 서버가 막는다</b> — 화면이 미리 세지 않는
+    /// 이유는, 화면이 보고 있는 것이 방금 읽은 값이라 그 사이에 바뀌었을 수
+    /// 있어서다. 판정은 한 곳에서 한다.
+    /// </summary>
+    private async Task DeleteAsync(Wbs item)
+    {
+        if (await RunAsync(() => Api.DeleteAsync($"wbs/{item.WbsRid}"),
+                $"{item.WbsName} 을(를) 지웠습니다.", "지우지 못했습니다"))
+        {
+            await ReloadAsync();
+        }
+    }
 }
