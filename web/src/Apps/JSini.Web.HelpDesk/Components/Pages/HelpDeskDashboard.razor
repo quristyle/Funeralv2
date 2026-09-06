@@ -26,6 +26,21 @@
     포털 계정과 헬프데스크 사용자가 이어져 있어야 「내 것」을 셀 수 있다.
     연결이 없는 관리자는 조회는 되지만 자기 통계가 비므로, 안내를 띄우고
     전체 상태 집계(`requests/status-count`)로 대신한다.
+
+    [차트 — D3 결정 반영]
+
+    옛 화면(customer.vue)의 상태 도넛과 월별 접수·완료 막대를 DevExpress
+    차트로 되살렸다 — D3: 「DevExpress Blazor 차트를, 기존에 차트가 있던
+    화면에」. 색도 옛 화면의 상태 팔레트 그대로다.
+
+      도넛      타일과 같은 `_counts` 를 그린다 — 재료를 따로 부르지 않는다.
+                옛 화면이 도넛 가운데 띄우던 총건수는 제목에 적었다
+                (DxPieChart 에는 가운데 글자 자리가 없다).
+      월별 막대 `dashboard/my-monthly-stats`. 옛 화면에서도 고객 화면에만
+                있었고, 서버도 같은 선을 긋는다 — 고객으로 연결된 계정만
+                부를 수 있고 담당자가 부르면 403 이다. 그래서 신원을 보고
+                건너뛴다. 옛 화면의 「막대 클릭 → 일별 추이」 내려가기는
+                일별 자료를 주는 통로가 따로 없어 옮기지 않았다.
 *@
 
 @using System.Text.Json
@@ -73,6 +88,46 @@
         </div>
     }
 </div>
+
+@if (TotalTileCount > 0)
+{
+    <div class="hd-charts">
+        <div class="hd-chart">
+            <h3 class="hd-chart__title">상태 분포 · 총 @(TotalTileCount)건</h3>
+            <DxPieChart Data="@Slices" InnerDiameter="0.65" Palette="@SlicePalette"
+                        Width="100%" Height="240px">
+                <DxPieChartSeries T="Slice" TArgument="string" TValue="int"
+                                  ArgumentField="s => s.Label" ValueField="s => s.Count"
+                                  Name="상태별 건수" />
+                <DxChartLegend Position="RelativePosition.Outside"
+                               VerticalAlignment="VerticalEdge.Bottom"
+                               HorizontalAlignment="HorizontalAlignment.Center" />
+                <DxChartTooltip Enabled="true">
+                    <div class="p-2">@context.Point.Argument · @(context.Point.Value)건</div>
+                </DxChartTooltip>
+            </DxPieChart>
+        </div>
+
+        @* 서버가 빈 달도 0 으로 채워 12칸을 주므로, 개수가 아니라 합으로 판단한다. *@
+        @if (_monthly.Sum(m => m.Total + m.Completed) > 0)
+        {
+            <div class="hd-chart">
+                <h3 class="hd-chart__title">월별 접수 · 완료 (우리 회사, 최근 12개월)</h3>
+                <DxChart Data="@_monthly" Palette="@MonthlyPalette" Width="100%" Height="240px">
+                    <DxChartBarSeries T="MonthPoint" TArgument="string" TValue="int"
+                                      ArgumentField="p => p.Label" ValueField="p => p.Total"
+                                      Name="접수" />
+                    <DxChartBarSeries T="MonthPoint" TArgument="string" TValue="int"
+                                      ArgumentField="p => p.Label" ValueField="p => p.Completed"
+                                      Name="완료" />
+                    <DxChartTooltip Enabled="true">
+                        <div class="p-2">@context.Point.Argument · @context.Point.SeriesName @(context.Point.Value)건</div>
+                    </DxChartTooltip>
+                </DxChart>
+            </div>
+        }
+    </div>
+}
 
 <h2 class="hd-section">최근 접수</h2>
 
@@ -145,6 +200,41 @@
 
     private int Count(string key) => _counts.GetValueOrDefault(key);
 
+    // ── 차트 재료 ───────────────────────────────────────────
+
+    private sealed record Slice(string Label, int Count);
+
+    private sealed record MonthPoint(string Label, int Total, int Completed);
+
+    /// <summary>옛 화면(customer.vue)의 상태 팔레트 그대로. 열쇠는 타일 이름.</summary>
+    private static readonly Dictionary<string, string> StatusColors = new(StringComparer.Ordinal)
+    {
+        ["대기"] = "#3B82F6",
+        ["진행"] = "#F97316",
+        ["완료"] = "#22C55E",
+        ["종료"] = "#16A34A",
+        ["협의"] = "#EAB308",
+        ["반려"] = "#EF4444",
+    };
+
+    /// <summary>접수·완료 막대 색 — 옛 화면의 월별 차트 색 그대로.</summary>
+    private static readonly string[] MonthlyPalette = ["#42A5F5", "#66BB6A"];
+
+    /// <summary>
+    /// 도넛 조각. 0 건인 상태는 뺀다 — 조각은 안 그려지는데 범례만 남아
+    /// 도넛과 범례가 어긋나 보인다.
+    /// </summary>
+    private IReadOnlyList<Slice> Slices =>
+        [.. Tiles.Where(t => t.Count > 0).Select(t => new Slice(t.Label, t.Count))];
+
+    /// <summary>조각 색. <see cref="Slices"/> 와 같은 조건·순서로 골라야 어긋나지 않는다.</summary>
+    private string[] SlicePalette =>
+        [.. Tiles.Where(t => t.Count > 0).Select(t => StatusColors[t.Label])];
+
+    private int TotalTileCount => Tiles.Sum(t => t.Count);
+
+    private IReadOnlyList<MonthPoint> _monthly = [];
+
     protected override async Task OnInitializedAsync()
     {
         // 신원을 먼저 안다. 담당자냐 고객이냐에 따라 부를 주소가 갈린다.
@@ -156,11 +246,50 @@
     {
         _counts = await LoadCountsAsync();
         _recent = await LoadRecentAsync();
+        _monthly = await LoadMonthlyAsync();
 
         // 집계가 비어도 화면은 타일 여섯을 0 으로 그린다 — 그것이 사실이다.
         // 「없습니다」 는 최근 접수까지 비었을 때만 띄운다.
         return _counts.Count + _recent.Count;
     }, "아직 접수된 요청이 없습니다.", "현황을 읽지 못했습니다");
+
+    /// <summary>
+    /// 월별 접수·완료 (최근 12개월). <b>고객으로 연결된 계정만</b> 부를 수 있는
+    /// 주소라(담당자는 403) 신원을 보고 건너뛴다 — 머리 주석 참고.
+    /// </summary>
+    private async Task<IReadOnlyList<MonthPoint>> LoadMonthlyAsync()
+    {
+        if (!Context.IsLinked || Context.IsAdmin)
+        {
+            return [];
+        }
+
+        try
+        {
+            var rows = await Api.GetListAsync<MonthlyStat>("dashboard/my-monthly-stats");
+            return [.. rows.Select(r => new MonthPoint(MonthLabel(r.Month), r.TotalCount, r.CompletedCount))];
+        }
+        catch (ApiException)
+        {
+            // 곁들이는 차트다. 이것이 거절당했다고(권한 판정이 서버와 어긋나는
+            // 경우 등) 타일·최근 접수까지 오류로 덮지 않는다 — 차트만 뺀다.
+            return [];
+        }
+    }
+
+    /// <summary>서버의 <c>yyyy-MM</c> 을 옛 화면과 같은 <c>n월</c> 로 줄인다.</summary>
+    private static string MonthLabel(string? month)
+    {
+        var parts = (month ?? string.Empty).Split('-');
+        return parts.Length == 2 && int.TryParse(parts[1], out var m) ? $"{m}월" : month ?? string.Empty;
+    }
+
+    private sealed class MonthlyStat
+    {
+        public string? Month { get; set; }
+        public int TotalCount { get; set; }
+        public int CompletedCount { get; set; }
+    }
 
     /// <summary>
     /// 상태별 건수를 읽는다. <b>부를 주소가 신원에 따라 셋으로 갈린다.</b>

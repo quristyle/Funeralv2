@@ -13,6 +13,22 @@
 
     고객사별 요청 현황이다. 헬프데스크 현황(`/helpdesk/dashboard`)이 전체를
     본다면 여기는 **고객사 단위**로 갈라 본다.
+
+    [이름표가 서버와 달랐다]
+
+    이름표에 `openCount`·`closedCount`·`totalCount` 가 적혀 있었는데 서버
+    (`DashboardEndpoints.cs` 의 company-stats)는 그런 칸을 주지 않는다 —
+    상태별 칸(`pendingCount` …)과 `completionRate` 를 준다. AutoGrid 는
+    모르는 칸도 그대로 보여 주므로 표는 나왔지만, 이름표가 안 붙고 순서도
+    엉켰다. 실제 응답 칸으로 바로잡았다.
+
+    [차트 — D3 결정 반영]
+
+    옛 화면(customer.vue)은 도넛·막대(echarts)를 그리던 화면이라 D3 결정
+    대상이다. 다만 옛 화면은 「내 요청」 기준이었고 이 화면은 고객사별
+    집계라, 같은 상태 팔레트로 **고객사별 누적 막대**를 그린다 — 옛 일별
+    추이 차트와 같은 누적 막대 종류다. 재료는 표와 같은 응답이고 따로
+    부르지 않는다.
 *@
 
 @inherits DataPage
@@ -24,19 +40,62 @@
 
 <PageNotice Text="@Notice" Tone="@Tone" />
 
+@if (_chart.Count > 0)
+{
+    <div class="hd-charts">
+        <div class="hd-chart">
+            <h3 class="hd-chart__title">고객사별 접수 구성</h3>
+            <DxChart Data="@_chart" Palette="@StatusPalette" Width="100%" Height="300px">
+                <DxChartStackedBarSeries T="CompanyPoint" TArgument="string" TValue="int"
+                                         ArgumentField="p => p.Company" ValueField="p => p.Pending" Name="대기" />
+                <DxChartStackedBarSeries T="CompanyPoint" TArgument="string" TValue="int"
+                                         ArgumentField="p => p.Company" ValueField="p => p.InProgress" Name="진행" />
+                <DxChartStackedBarSeries T="CompanyPoint" TArgument="string" TValue="int"
+                                         ArgumentField="p => p.Company" ValueField="p => p.Consultation" Name="협의" />
+                <DxChartStackedBarSeries T="CompanyPoint" TArgument="string" TValue="int"
+                                         ArgumentField="p => p.Company" ValueField="p => p.Negotiation" Name="논의" />
+                <DxChartStackedBarSeries T="CompanyPoint" TArgument="string" TValue="int"
+                                         ArgumentField="p => p.Company" ValueField="p => p.Completed" Name="완료" />
+                <DxChartStackedBarSeries T="CompanyPoint" TArgument="string" TValue="int"
+                                         ArgumentField="p => p.Company" ValueField="p => p.Rejected" Name="반려" />
+                <DxChartTooltip Enabled="true">
+                    <div class="p-2">@context.Point.Argument · @context.Point.SeriesName @(context.Point.Value)건</div>
+                </DxChartTooltip>
+            </DxChart>
+        </div>
+    </div>
+}
+
 <AutoGrid Data="@_rows" Loading="@Loading" Captions="@Captions" HiddenCols="id" PageSize="30" />
 
 @code {
     private DataTable _rows = JsonTable.Empty;
 
-    /// <summary>칸 이름표. 여기 적은 순서가 표의 앞쪽 순서다.</summary>
+    /// <summary>칸 이름표. 여기 적은 순서가 표의 앞쪽 순서다. 칸 이름은 서버 응답과 대조했다 — 머리 주석 참고.</summary>
     private static readonly Dictionary<string, string> Captions = new(StringComparer.Ordinal)
     {
         ["companyName"] = "고객사",
-        ["openCount"] = "진행 중",
-        ["closedCount"] = "완료",
-        ["totalCount"] = "전체",
+        ["pendingCount"] = "대기",
+        ["inProgressCount"] = "진행",
+        ["consultationCount"] = "협의",
+        ["negotiationCount"] = "논의",
+        ["completedCount"] = "완료",
+        ["rejectedCount"] = "반려",
+        ["completionRate"] = "완료율(%)",
+        ["lastPendingDate"] = "최근 대기 접수",
     };
+
+    // ── 차트 재료 ───────────────────────────────────────────
+
+    private sealed record CompanyPoint(
+        string Company, int Pending, int InProgress, int Consultation,
+        int Negotiation, int Completed, int Rejected);
+
+    /// <summary>옛 화면(customer.vue)의 상태 팔레트 — 시리즈 순서와 같아야 한다.</summary>
+    private static readonly string[] StatusPalette =
+        ["#3B82F6", "#F97316", "#EAB308", "#A855F7", "#22C55E", "#EF4444"];
+
+    private IReadOnlyList<CompanyPoint> _chart = [];
 
     protected override Task OnInitializedAsync() => ReloadAsync();
 
@@ -44,6 +103,34 @@
     {
         var json = await Api.GetAsync<JsonElement>("dashboard/company-stats");
         _rows = JsonTable.From(json);
+        _chart = ToChart(_rows);
         return _rows.Rows.Count;
     }, "집계할 고객사가 없습니다.", "고객사 현황을 읽지 못했습니다");
+
+    /// <summary>
+    /// 표와 같은 응답에서 차트 재료를 뽑는다. 칸이 있는지 먼저 본다 —
+    /// AutoGrid 방식 화면이라 서버가 칸을 바꿔도 표는 살아야 하고,
+    /// 그때 차트만 조용히 빠지는 쪽이 화면이 죽는 쪽보다 낫다.
+    /// </summary>
+    private static IReadOnlyList<CompanyPoint> ToChart(DataTable rows)
+    {
+        if (!rows.Columns.Contains("companyName"))
+        {
+            return [];
+        }
+
+        return [.. rows.Rows.Cast<DataRow>().Select(r => new CompanyPoint(
+            r["companyName"] as string ?? "-",
+            Cell(r, "pendingCount"),
+            Cell(r, "inProgressCount"),
+            Cell(r, "consultationCount"),
+            Cell(r, "negotiationCount"),
+            Cell(r, "completedCount"),
+            Cell(r, "rejectedCount")))];
+    }
+
+    private static int Cell(DataRow row, string column) =>
+        row.Table.Columns.Contains(column) && row[column] is not DBNull
+            ? Convert.ToInt32(row[column])
+            : 0;
 }

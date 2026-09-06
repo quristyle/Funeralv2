@@ -100,3 +100,30 @@
   font-size: 0.78rem;
   color: var(--jsini-text-muted);
 }
+
+/* ── 차트 (D3 — 옛 화면에 echarts 가 있던 곳에만) ────────────
+
+   대시보드·보고서의 차트 묶음. 타일과 같은 이유로 `auto-fit` 이다 —
+   데스크톱에서는 나란히, 모바일에서는 아래로 접힌다.
+   `min-width: 0` 이 없으면 차트 캔버스가 그리드 칸을 밀어 넓혀서
+   좁은 화면에서 가로 스크롤이 생긴다.
+   ---------------------------------------------------------- */
+
+.hd-charts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1rem;
+  margin: 0.75rem 0;
+}
+
+.hd-chart {
+  min-width: 0;
+  border: 1px solid var(--jsini-border);
+  padding: 0.75rem 1rem 0.5rem;
+}
+
+.hd-chart__title {
+  margin: 0 0 0.5rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+}

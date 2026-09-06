@@ -3,7 +3,7 @@
 @*
     [가용성 분석] — DB 메뉴 `/helpdesk/report/availability`.
     이력: Vue `views/helpdesk/report/availability` → 여기.
-    엔드포인트: `dashboard/report/quality`
+    엔드포인트: `requests/report/quality`
 
     **서버가 준 대로 보여 주는 화면이다**(AutoGrid). 칸을 손으로 적지 않은
     이유는 그 부품의 주석에 있다 — 요약하면, 이런 화면이 마흔 개고 백엔드가
@@ -15,6 +15,21 @@
 
     화면에서 다시 세지 않는다. 세면 같은 숫자를 두 곳에서 계산하게 되고,
     반드시 어긋난다 — 기간 경계를 어떻게 잡느냐가 늘 다르기 때문이다.
+
+    [응답이 배열이 아니라 객체다 — 표가 늘 비어 있었다]
+
+    `report/quality` 는 비율 넷과 건수 둘을 담은 <b>객체 하나</b>를 준다.
+    `JsonTable.From` 은 배열만 표로 옮기므로 이 화면의 표는 지금까지 한 줄도
+    나온 적이 없다. 같은 객체를 아래 차트가 그린다 — 표는 이 화면을 손볼 때
+    (칸을 손으로 적을 때) 함께 정리한다.
+
+    [차트 — D3 결정 반영]
+
+    옛 화면은 한주 OADR 의 PLE·I/O 추이를 선 두 장(echarts)으로 그리던
+    화면이라 D3 결정 대상이다. 다만 이관하면서 자료가 품질 지표 객체로
+    바뀌었고, 시계열이 아니라서 옛 종류(선)를 그릴 수 없다 — 지표별
+    <b>막대</b>(0~100%)로 대신한다. 장애 예측 화면도 같은 응답을 읽는다 —
+    거기는 위험 신호 두 지표만 그린다(그 화면 주석 참고).
 *@
 
 @inherits DataPage
@@ -25,6 +40,28 @@
 <PageHeading Title="가용성 분석" Scope="헬프데스크" />
 
 <PageNotice Text="@Notice" Tone="@Tone" />
+
+@if (_analyzed > 0)
+{
+    <div class="hd-charts">
+        <div class="hd-chart">
+            <h3 class="hd-chart__title">@(_periodLabel) 품질 지표 (분석 대상 @(_analyzed)건)</h3>
+            <DxChart Data="@_bars" Palette="@BarPalette" Width="100%" Height="280px">
+                <DxChartBarSeries T="RatioBar" TArgument="string" TValue="double"
+                                  ArgumentField="b => b.Label" ValueField="b => b.Value"
+                                  Name="비율(%)" />
+                <DxChartValueAxis>
+                    <DxChartAxisRange StartValue="@(0)" EndValue="@(100)" />
+                    <DxChartAxisTitle Text="%" />
+                </DxChartValueAxis>
+                <DxChartLegend Visible="false" />
+                <DxChartTooltip Enabled="true">
+                    <div class="p-2">@context.Point.Argument · @context.Point.Value%</div>
+                </DxChartTooltip>
+            </DxChart>
+        </div>
+    </div>
+}
 
 <AutoGrid Data="@_rows" Loading="@Loading" Captions="@Captions" HiddenCols="id" PageSize="30" />
 
@@ -38,15 +75,58 @@
         ["score"] = "지표",
     };
 
+    // ── 차트 재료 ───────────────────────────────────────────
+
+    private sealed record RatioBar(string Label, double Value);
+
+    private static readonly string[] BarPalette = ["#42A5F5"];
+
+    private IReadOnlyList<RatioBar> _bars = [];
+
+    /// <summary>분석 대상 건수(<c>totalAnalyzed</c>). 0 이면 그릴 것이 없다.</summary>
+    private int _analyzed;
+
+    private string _periodLabel = string.Empty;
+
     protected override Task OnInitializedAsync() => ReloadAsync();
 
     private Task ReloadAsync() => LoadAsync(async () =>
     {
         // 보고서는 `requests` 묶음 밑이고 `year`·`month` 가 필수다.
         var now = DateTime.Now;
+        _periodLabel = $"{now.Year}년 {now.Month}월";
+
         var json = await Api.GetAsync<JsonElement>(
             "requests/report/quality", new { year = now.Year, month = now.Month });
         _rows = JsonTable.From(json);
-        return _rows.Rows.Count;
-    }, "집계할 자료가 없습니다.", "가용성 분석를 읽지 못했습니다");
+        _bars = ToBars(json);
+        _analyzed = Num(json, "totalAnalyzed");
+
+        // 응답이 객체라 표는 비고(위 주석) 차트만 남는다.
+        // 차트에 그릴 것이 있으면 「없습니다」 를 띄우지 않는다.
+        return _rows.Rows.Count + (_analyzed > 0 ? 1 : 0);
+    }, "집계할 자료가 없습니다.", "가용성 분석을 읽지 못했습니다");
+
+    /// <summary>지표 막대. 칸 이름은 서버 `report/quality` 응답과 대조했다.</summary>
+    private static IReadOnlyList<RatioBar> ToBars(JsonElement json) =>
+    [
+        new("SR 비율", Dbl(json, "srRatio")),
+        new("결함 비율", Dbl(json, "bugRatio")),
+        new("재오픈율", Dbl(json, "reopenRate")),
+        new("변경 성공률", Dbl(json, "changeSuccessRate")),
+    ];
+
+    private static double Dbl(JsonElement json, string name) =>
+        json.ValueKind == JsonValueKind.Object
+        && json.TryGetProperty(name, out var value)
+        && value.ValueKind == JsonValueKind.Number
+            ? value.GetDouble()
+            : 0;
+
+    private static int Num(JsonElement json, string name) =>
+        json.ValueKind == JsonValueKind.Object
+        && json.TryGetProperty(name, out var value)
+        && value.TryGetInt32(out var n)
+            ? n
+            : 0;
 }

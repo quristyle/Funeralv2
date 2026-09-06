@@ -3,7 +3,7 @@
 @*
     [주간 리포트] — DB 메뉴 `/helpdesk/report/weekly`.
     이력: Vue `views/helpdesk/report/weekly` → 여기.
-    엔드포인트: `dashboard/my-monthly-stats`
+    엔드포인트: `dashboard/my-monthly-stats`(고객) · `dashboard/admin-contribution-trend`(담당자)
 
     **서버가 준 대로 보여 주는 화면이다**(AutoGrid). 칸을 손으로 적지 않은
     이유는 그 부품의 주석에 있다 — 요약하면, 이런 화면이 마흔 개고 백엔드가
@@ -15,6 +15,22 @@
 
     화면에서 다시 세지 않는다. 세면 같은 숫자를 두 곳에서 계산하게 되고,
     반드시 어긋난다 — 기간 경계를 어떻게 잡느냐가 늘 다르기 때문이다.
+
+    [차트 — D3 결정 반영]
+
+    옛 화면은 한주 OADR 의 주간 지표를 막대+선 혼합(echarts)으로 그리던
+    화면이라 D3 결정 대상이다. 이관하면서 자료가 헬프데스크 추이로 바뀌었지만
+    두 갈래 모두 시계열이라 같은 종류로 그린다.
+
+      고객    월별 접수·완료 → 옛 종류 그대로 막대(접수)+선(완료)
+      담당자  주별 완료 52주(`total`) → 막대 하나. 담당자별 몫(`admins`)은
+              중첩 배열이라 표에 원문(JSON)으로 남는다 — 사람별로 갈라
+              그리는 것은 칸을 손으로 적을 때 함께 한다.
+
+    차트 재료는 표와 같은 응답이고 따로 부르지 않는다. 칸 이름은 서버
+    (`my-monthly-stats` 의 MonthlyStatsDto, `admin-contribution-trend` 의
+    익명 DTO)와 대조했다 — 이름표에 있던 `period`·`openCount`·`closedCount`
+    는 서버가 주지 않는 칸이라 실제 칸으로 바로잡았다.
 *@
 
 @inherits DataPage
@@ -27,18 +43,62 @@
 
 <PageNotice Text="@Notice" Tone="@Tone" />
 
+@if (_trend.Sum(p => p.Total + p.Completed) > 0)
+{
+    <div class="hd-charts">
+        <div class="hd-chart">
+            <h3 class="hd-chart__title">@(_customer ? "월별 접수 · 완료 (우리 회사, 최근 12개월)" : "주별 완료 추이 (최근 52주)")</h3>
+            <DxChart Data="@_trend" Palette="@TrendPalette" Width="100%" Height="280px">
+                @if (_customer)
+                {
+                    <DxChartBarSeries T="TrendPoint" TArgument="string" TValue="int"
+                                      ArgumentField="p => p.Label" ValueField="p => p.Total"
+                                      Name="접수" />
+                    <DxChartLineSeries T="TrendPoint" TArgument="string" TValue="int"
+                                       ArgumentField="p => p.Label" ValueField="p => p.Completed"
+                                       Name="완료" />
+                }
+                else
+                {
+                    <DxChartBarSeries T="TrendPoint" TArgument="string" TValue="int"
+                                      ArgumentField="p => p.Label" ValueField="p => p.Total"
+                                      Name="주별 완료" />
+                }
+                <DxChartTooltip Enabled="true">
+                    <div class="p-2">@context.Point.Argument · @context.Point.SeriesName @(context.Point.Value)건</div>
+                </DxChartTooltip>
+            </DxChart>
+        </div>
+    </div>
+}
+
 <AutoGrid Data="@_rows" Loading="@Loading" Captions="@Captions" HiddenCols="id" PageSize="30" />
 
 @code {
     private DataTable _rows = JsonTable.Empty;
 
-    /// <summary>칸 이름표. 여기 적은 순서가 표의 앞쪽 순서다.</summary>
+    /// <summary>칸 이름표. 두 갈래의 칸을 함께 적는다 — 응답에 없는 칸은 AutoGrid 가 그냥 넘긴다.</summary>
     private static readonly Dictionary<string, string> Captions = new(StringComparer.Ordinal)
     {
-        ["period"] = "기간",
-        ["openCount"] = "접수",
-        ["closedCount"] = "완료",
+        ["month"] = "월",
+        ["totalCount"] = "접수",
+        ["completedCount"] = "완료",
+        ["week"] = "주(시작일)",
+        ["total"] = "완료",
+        ["admins"] = "담당자별 몫(원문)",
     };
+
+    // ── 차트 재료 ───────────────────────────────────────────
+
+    private sealed record TrendPoint(string Label, int Total, int Completed);
+
+    /// <summary>접수·완료 색 — 옛 화면의 접수·완료 색 그대로.</summary>
+    private static readonly string[] TrendPalette = ["#42A5F5", "#66BB6A"];
+
+    private IReadOnlyList<TrendPoint> _trend = [];
+
+    /// <summary>고객 갈래였는가. 차트의 시리즈 구성이 갈래를 따라간다.</summary>
+    private bool _customer;
 
     protected override Task OnInitializedAsync() => ReloadAsync();
 
@@ -47,11 +107,45 @@
         // `my-monthly-stats` 는 **고객으로 연결된 계정만** 부를 수 있다
         // (담당자가 부르면 403). 이 화면은 담당자도 보므로 신원에 따라 갈린다.
         await Context.LoadIdentityAsync();
+        _customer = Context.IsLinked && !Context.IsAdmin;
 
-        var json = Context.IsLinked && !Context.IsAdmin
+        var json = _customer
             ? await Api.GetAsync<JsonElement>("dashboard/my-monthly-stats")
             : await Api.GetAsync<JsonElement>("dashboard/admin-contribution-trend");
         _rows = JsonTable.From(json);
+        _trend = ToTrend(_rows, _customer);
         return _rows.Rows.Count;
     }, "집계할 자료가 없습니다.", "주간 리포트를 읽지 못했습니다");
+
+    /// <summary>
+    /// 표와 같은 응답에서 추이 점을 뽑는다. 칸이 있는지 먼저 본다 —
+    /// 서버가 칸을 바꾸면 차트만 조용히 빠지고 표는 남는다.
+    /// </summary>
+    private static IReadOnlyList<TrendPoint> ToTrend(DataTable rows, bool customer)
+    {
+        var argColumn = customer ? "month" : "week";
+        var totalColumn = customer ? "totalCount" : "total";
+
+        if (!rows.Columns.Contains(argColumn) || !rows.Columns.Contains(totalColumn))
+        {
+            return [];
+        }
+
+        return [.. rows.Rows.Cast<DataRow>().Select(r => new TrendPoint(
+            customer ? MonthLabel(r[argColumn] as string) : r[argColumn] as string ?? "-",
+            Cell(r, totalColumn),
+            Cell(r, "completedCount")))];
+    }
+
+    /// <summary>서버의 <c>yyyy-MM</c> 을 옛 화면과 같은 <c>n월</c> 로 줄인다.</summary>
+    private static string MonthLabel(string? month)
+    {
+        var parts = (month ?? string.Empty).Split('-');
+        return parts.Length == 2 && int.TryParse(parts[1], out var m) ? $"{m}월" : month ?? string.Empty;
+    }
+
+    private static int Cell(DataRow row, string column) =>
+        row.Table.Columns.Contains(column) && row[column] is not DBNull
+            ? Convert.ToInt32(row[column])
+            : 0;
 }

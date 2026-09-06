@@ -3,7 +3,7 @@
 @*
     [원인 분석] — DB 메뉴 `/helpdesk/report/root-cause`.
     이력: Vue `views/helpdesk/report/root-cause` → 여기.
-    엔드포인트: `dashboard/report/collaboration`
+    엔드포인트: `requests/report/collaboration`
 
     **서버가 준 대로 보여 주는 화면이다**(AutoGrid). 칸을 손으로 적지 않은
     이유는 그 부품의 주석에 있다 — 요약하면, 이런 화면이 마흔 개고 백엔드가
@@ -15,6 +15,21 @@
 
     화면에서 다시 세지 않는다. 세면 같은 숫자를 두 곳에서 계산하게 되고,
     반드시 어긋난다 — 기간 경계를 어떻게 잡느냐가 늘 다르기 때문이다.
+
+    [응답이 배열이 아니라 객체다 — 표가 늘 비어 있었다]
+
+    `report/collaboration` 은 협업 지표와 우수 협업 사용자 다섯
+    (`topEngagedUsers`)을 담은 <b>객체 하나</b>를 준다. `JsonTable.From` 은
+    배열만 표로 옮기므로 이 화면의 표는 지금까지 한 줄도 나온 적이 없다.
+    그 객체 안의 `topEngagedUsers` 를 아래 차트가 그린다 — 표는 이 화면을
+    손볼 때(칸을 손으로 적을 때) 함께 정리한다.
+
+    [차트 — D3 결정 반영]
+
+    옛 화면은 한주 OADR 의 메모리 배분을 도넛(echarts)으로 그리던 화면이라
+    D3 결정 대상이다. 이관하면서 자료가 협업 보고서로 바뀌었지만 종류는 옛
+    그대로 **도넛**이다 — 우수 협업 사용자 다섯의 기여 점수(`total` =
+    댓글 + 확정×2, 가중치는 서버가 정한다) 구성을 그린다.
 *@
 
 @inherits DataPage
@@ -25,6 +40,27 @@
 <PageHeading Title="원인 분석" Scope="헬프데스크" />
 
 <PageNotice Text="@Notice" Tone="@Tone" />
+
+@if (_slices.Count > 0)
+{
+    <div class="hd-charts">
+        <div class="hd-chart">
+            <h3 class="hd-chart__title">@(_periodLabel) 우수 협업 사용자 (기여 점수 · 사용자 확정률 @(_confirmationRate)%)</h3>
+            <DxPieChart Data="@_slices" InnerDiameter="0.6" Palette="@SlicePalette"
+                        Width="100%" Height="280px">
+                <DxPieChartSeries T="UserSlice" TArgument="string" TValue="double"
+                                  ArgumentField="s => s.Label" ValueField="s => s.Value"
+                                  Name="기여 점수" />
+                <DxChartLegend Position="RelativePosition.Outside"
+                               VerticalAlignment="VerticalEdge.Bottom"
+                               HorizontalAlignment="HorizontalAlignment.Center" />
+                <DxChartTooltip Enabled="true">
+                    <div class="p-2">@context.Point.Argument · @(context.Point.Value)점</div>
+                </DxChartTooltip>
+            </DxPieChart>
+        </div>
+    </div>
+}
 
 <AutoGrid Data="@_rows" Loading="@Loading" Captions="@Captions" HiddenCols="id" PageSize="30" />
 
@@ -38,15 +74,66 @@
         ["count"] = "건수",
     };
 
+    // ── 차트 재료 ───────────────────────────────────────────
+
+    private sealed record UserSlice(string Label, double Value);
+
+    /// <summary>옛 화면(root-cause.vue) 도넛의 팔레트에 두 색을 보탠 것 — 조각이 최대 다섯이다.</summary>
+    private static readonly string[] SlicePalette =
+        ["#3B82F6", "#6366F1", "#22C55E", "#F59E0B", "#94A3B8"];
+
+    private IReadOnlyList<UserSlice> _slices = [];
+
+    /// <summary>사용자 확정률(%). 제목에 함께 적는다.</summary>
+    private double _confirmationRate;
+
+    private string _periodLabel = string.Empty;
+
     protected override Task OnInitializedAsync() => ReloadAsync();
 
     private Task ReloadAsync() => LoadAsync(async () =>
     {
         // 보고서는 `requests` 묶음 밑이고 `year`·`month` 가 필수다.
         var now = DateTime.Now;
+        _periodLabel = $"{now.Year}년 {now.Month}월";
+
         var json = await Api.GetAsync<JsonElement>(
             "requests/report/collaboration", new { year = now.Year, month = now.Month });
         _rows = JsonTable.From(json);
-        return _rows.Rows.Count;
-    }, "집계할 자료가 없습니다.", "원인 분석를 읽지 못했습니다");
+        _slices = ToSlices(json);
+        _confirmationRate = Dbl(json, "confirmationRate");
+
+        // 응답이 객체라 표는 비고(위 주석) 차트만 남는다.
+        // 차트에 그릴 것이 있으면 「없습니다」 를 띄우지 않는다.
+        return _rows.Rows.Count + _slices.Count;
+    }, "집계할 자료가 없습니다.", "원인 분석을 읽지 못했습니다");
+
+    /// <summary>
+    /// 객체 응답에서 `topEngagedUsers` 만 뽑는다. 칸 이름(name·company·total)은
+    /// 서버 `report/collaboration` 응답과 대조했다. 점수 0 은 뺀다 — 조각은
+    /// 안 그려지는데 범례만 남는다.
+    /// </summary>
+    private static IReadOnlyList<UserSlice> ToSlices(JsonElement json)
+    {
+        if (json.ValueKind != JsonValueKind.Object
+            || !json.TryGetProperty("topEngagedUsers", out var users)
+            || users.ValueKind != JsonValueKind.Array)
+        {
+            return [];
+        }
+
+        return [.. users.EnumerateArray()
+            .Where(u => u.ValueKind == JsonValueKind.Object)
+            .Select(u => new UserSlice(
+                u.TryGetProperty("name", out var name) ? name.GetString() ?? "-" : "-",
+                Dbl(u, "total")))
+            .Where(s => s.Value > 0)];
+    }
+
+    private static double Dbl(JsonElement json, string name) =>
+        json.ValueKind == JsonValueKind.Object
+        && json.TryGetProperty(name, out var value)
+        && value.ValueKind == JsonValueKind.Number
+            ? value.GetDouble()
+            : 0;
 }

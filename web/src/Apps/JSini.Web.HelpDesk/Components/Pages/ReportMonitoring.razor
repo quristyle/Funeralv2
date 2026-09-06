@@ -15,7 +15,25 @@
 
     화면에서 다시 세지 않는다. 세면 같은 숫자를 두 곳에서 계산하게 되고,
     반드시 어긋난다 — 기간 경계를 어떻게 잡느냐가 늘 다르기 때문이다.
+
+    [응답이 배열이 아니라 객체다 — 표가 늘 비어 있었다]
+
+    `admin-stats` 는 상태별 건수를 담은 <b>객체 하나</b>를 준다.
+    `JsonTable.From` 은 배열만 표로 옮기므로 이 화면의 표는 지금까지 한 줄도
+    나온 적이 없다. 같은 객체를 아래 차트가 그린다 — 표는 이 화면을 손볼 때
+    (칸을 손으로 적을 때) 함께 정리한다.
+
+    [차트 — D3 결정 반영]
+
+    옛 화면은 한주 OADR 의 서버 지표(CPU·I/O·PLE·TPS)를 선 여덟 장으로
+    그리던 화면이라 D3 결정 대상이다. 다만 이관하면서 자료가 OADR 이 아니라
+    헬프데스크 `admin-stats`(내 배정 현황)로 바뀌었고, 이 재료는 시계열이
+    아니라서 옛 종류(선)를 그릴 수 없다 — 상태별 <b>막대</b>로 대신한다.
+    OADR 지표 선 차트가 다시 필요하면 자료부터 `OadrApi.GetServerReportAsync`
+    로 되돌리는 결정이 먼저다(한주 화면 다섯이 그 통로를 이미 쓴다).
 *@
+
+@using System.Text.Json
 
 @inherits DataPage
 @inject HelpDeskApi Api
@@ -25,6 +43,24 @@
 <PageHeading Title="운영 모니터링" Scope="헬프데스크" />
 
 <PageNotice Text="@Notice" Tone="@Tone" />
+
+@if (_bars.Sum(b => b.Count) > 0)
+{
+    <div class="hd-charts">
+        <div class="hd-chart">
+            <h3 class="hd-chart__title">내 배정 현황 (상태별)</h3>
+            <DxChart Data="@_bars" Palette="@BarPalette" Width="100%" Height="280px">
+                <DxChartBarSeries T="StatusBar" TArgument="string" TValue="int"
+                                  ArgumentField="b => b.Label" ValueField="b => b.Count"
+                                  Name="건수" />
+                <DxChartLegend Visible="false" />
+                <DxChartTooltip Enabled="true">
+                    <div class="p-2">@context.Point.Argument · @(context.Point.Value)건</div>
+                </DxChartTooltip>
+            </DxChart>
+        </div>
+    </div>
+}
 
 <AutoGrid Data="@_rows" Loading="@Loading" Captions="@Captions" HiddenCols="id" PageSize="30" />
 
@@ -40,12 +76,47 @@
         ["avgHours"] = "평균 처리(h)",
     };
 
+    // ── 차트 재료 ───────────────────────────────────────────
+
+    private sealed record StatusBar(string Label, int Count);
+
+    private static readonly string[] BarPalette = ["#42A5F5"];
+
+    private IReadOnlyList<StatusBar> _bars = [];
+
     protected override Task OnInitializedAsync() => ReloadAsync();
 
     private Task ReloadAsync() => LoadAsync(async () =>
     {
         var json = await Api.GetAsync<JsonElement>("dashboard/admin-stats");
         _rows = JsonTable.From(json);
-        return _rows.Rows.Count;
-    }, "집계할 자료가 없습니다.", "운영 모니터링를 읽지 못했습니다");
+        _bars = ToBars(json);
+
+        // 응답이 객체라 표는 비고(위 주석) 차트만 남는다.
+        // 차트에 그릴 것이 있으면 「없습니다」 를 띄우지 않는다.
+        return _rows.Rows.Count + (_bars.Sum(b => b.Count) > 0 ? 1 : 0);
+    }, "집계할 자료가 없습니다.", "운영 모니터링을 읽지 못했습니다");
+
+    /// <summary>
+    /// 상태별 건수 막대. 칸 이름은 서버 <c>AdminStatsDto</c> 와 대조했다.
+    /// 대기는 「내 것」이 아니라 <b>팀 관할 미배정</b> 건수라(서버 주석) 이름을
+    /// 따로 붙인다 — 「대기」로만 적으면 내 배정 대기로 읽힌다.
+    /// </summary>
+    private static IReadOnlyList<StatusBar> ToBars(JsonElement json) =>
+    [
+        new("미배정(팀)", Num(json, "pendingCount")),
+        new("진행", Num(json, "inProgressCount")),
+        new("협의", Num(json, "consultationCount")),
+        new("논의", Num(json, "negotiationCount")),
+        new("완료", Num(json, "completedCount")),
+        new("종료", Num(json, "userCompletedCount")),
+        new("반려", Num(json, "rejectedCount")),
+    ];
+
+    private static int Num(JsonElement json, string name) =>
+        json.ValueKind == JsonValueKind.Object
+        && json.TryGetProperty(name, out var value)
+        && value.TryGetInt32(out var n)
+            ? n
+            : 0;
 }
