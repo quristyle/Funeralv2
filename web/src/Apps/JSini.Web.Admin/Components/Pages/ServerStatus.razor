@@ -28,6 +28,12 @@
     사람이 눌렀을 때만 나간다. 백엔드 주석이 「화면의 정밀 확인 버튼」을
     가리키고 있는데 그 버튼이 화면에 없었다.
 
+    [스스로 새로 고치지 않고 있었다]
+
+    장애를 지켜보는 자리인데 사람이 조회를 눌러야 값이 바뀌었다. 옛 화면은
+    10초마다 되물었다 — 같은 간격으로 되돌린다. **정밀 확인은 자동으로 부르지
+    않는다**(위 줄 참고): 돈이 드는 호출이라 사람이 누를 때만 나간다.
+
     [컨테이너 목록이 배열이 아니라 객체 안에 있었다]
 
     `docker` 를 배열로 받고 있어서 화면이 통째로 「응답을 해석하지
@@ -41,7 +47,7 @@
     가지면 서비스를 늘릴 때마다 화면을 고쳐야 한다.
 *@
 
-@inherits DataPage
+@inherits AutoRefreshPage
 @inject AdminClient Api
 
 <PageTitle>MSA 서버 상태 · 포털관리</PageTitle>
@@ -370,7 +376,30 @@ else
     private IReadOnlyList<DockerContainerDto> Containers => _status?.Docker.Containers ?? [];
     private IReadOnlyList<DockerImageDto> Images => _status?.Docker.Images ?? [];
 
-    protected override Task OnInitializedAsync() => ReloadAsync();
+    /// <summary>옛 화면과 같은 10초. 이 화면은 장애를 지켜보는 자리다.</summary>
+    protected override TimeSpan RefreshInterval => TimeSpan.FromSeconds(10);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await ReloadAsync();
+        StartAutoRefresh();
+    }
+
+    /// <summary>
+    /// 자동 조회.
+    ///
+    /// <para>
+    /// <b>정밀 확인(`ai/health/deep`)은 부르지 않는다</b> — 유료 제공자에게
+    /// 실제 요청을 보내는 것이라 10초마다 돌면 돈이 나간다. 그것은 사람이
+    /// 누를 때만 한다. 옛 화면도 자동 갱신에서는 목록만 다시 읽었다.
+    /// </para>
+    /// </summary>
+    protected override async Task RefreshAsync()
+    {
+        _services = await SafeAsync(Api.GetServiceHealthAsync, []);
+        _ai = await SafeAsync(Api.GetAiProvidersAsync, null);
+        _status = await Api.GetDeployStatusAsync();
+    }
 
     private Task ReloadAsync() => LoadAsync(async () =>
     {
