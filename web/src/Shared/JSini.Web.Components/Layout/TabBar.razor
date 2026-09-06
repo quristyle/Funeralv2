@@ -12,12 +12,24 @@
 
     누르면 `NavigationManager` 로 이동하고, **이동한 결과를 보고** 탭이 켜진다.
     반대로 만들면 주소와 화면이 어긋나서 새로 고침·뒤로 가기·즐겨찾기가 깨진다.
+
+    [오른쪽 클릭 메뉴는 **누른 탭**에 대해 연다]
+
+    오른쪽 끝의 「⋯」 은 늘 **보고 있는 탭**을 다룬다. 오른쪽 클릭은 다르다 —
+    누른 탭이 대상이라, 보고 있지 않은 탭도 그 자리에서 닫고 고정할 수 있다.
+    둘을 같은 동작으로 두면 「이 탭을 닫으려고 눌렀는데 다른 탭이 닫혔다」가
+    된다.
+
+    창은 하나만 두고 `_target` 을 갈아 끼운다. 탭마다 창을 그리면 탭 열두 개에
+    창 열두 개가 만들어지고, 그 안의 항목까지 전부 다시 그려진다.
 *@
 
 @implements IDisposable
 
 @inject PortalTabs Tabs
+@inject MenuFavorites Favorites
 @inject NavigationManager Navigation
+@inject IJSRuntime Js
 
 @if (Tabs.Items.Count > 0)
 {
@@ -27,7 +39,9 @@
             {
                 var active = string.Equals(tab.Href, Tabs.ActiveHref, StringComparison.OrdinalIgnoreCase);
 
-                <div class="jsini-tab @(active ? "jsini-tab--active" : "") @(tab.Pinned ? "jsini-tab--pinned" : "")">
+                <div class="jsini-tab @(active ? "jsini-tab--active" : "") @(tab.Pinned ? "jsini-tab--pinned" : "")"
+                     @oncontextmenu="@(args => OpenMenuAsync(args, tab))"
+                     @oncontextmenu:preventDefault="true">
                     <a class="jsini-tab__link" href="@tab.Href" title="@tab.Href">
                         @if (tab.Pinned)
                         {
@@ -65,26 +79,146 @@
             </Items>
         </DxDropDownButton>
     </div>
+
+    @* 오른쪽 클릭 창. 항목은 `_target` 을 보고 그때그때 이름이 바뀐다
+       (고정/고정 해제 · 담기/빼기). 대상이 없으면 아무것도 그리지 않는다. *@
+    <DxContextMenu @ref="_menu" CssClass="jsini-tabmenu">
+        <Items>
+            @if (_target is { } t)
+            {
+                <DxContextMenuItem Text="새로 고침"
+                                   IconCssClass="jsini-icon-refresh"
+                                   Enabled="@IsActive(t)"
+                                   Click="@(() => Refresh(t))" />
+
+                <DxContextMenuItem Text="@(t.Pinned ? "고정 해제" : "고정")"
+                                   IconCssClass="jsini-icon-pin"
+                                   Click="@(() => Tabs.TogglePin(t.Href))" />
+
+                <DxContextMenuItem Text="@(IsFavorite(t) ? "즐겨찾기에서 빼기" : "즐겨찾기에 담기")"
+                                   IconCssClass="@(IsFavorite(t) ? "jsini-icon-star-on" : "jsini-icon-star")"
+                                   Enabled="@(MenuPathOf(t).Length > 0)"
+                                   Click="@(() => ToggleFavoriteAsync(t))" />
+
+                <DxContextMenuItem Text="새 창으로 열기"
+                                   IconCssClass="jsini-icon-expand"
+                                   Click="@(() => OpenInNewWindowAsync(t))" />
+
+                @* 여기부터 닫는 것들. 구분선을 두는 이유는 위쪽이 되돌릴 수 있는
+                   일이고 아래쪽은 그렇지 않기 때문이다. *@
+                <DxContextMenuItem Text="닫기"
+                                   IconCssClass="jsini-icon-close"
+                                   BeginGroup="true"
+                                   Enabled="@(!t.Pinned)"
+                                   Click="@(() => Close(t.Href))" />
+
+                <DxContextMenuItem Text="왼쪽 탭 닫기"
+                                   Enabled="@(HasClosableSide(t, left: true))"
+                                   Click="@(() => GoAfter(Tabs.CloseLeft(t.Href)))" />
+
+                <DxContextMenuItem Text="오른쪽 탭 닫기"
+                                   Enabled="@(HasClosableSide(t, left: false))"
+                                   Click="@(() => GoAfter(Tabs.CloseRight(t.Href)))" />
+
+                <DxContextMenuItem Text="다른 탭 닫기"
+                                   Click="@(() => GoAfter(Tabs.CloseOthers(t.Href)))" />
+
+                <DxContextMenuItem Text="모두 닫기"
+                                   Click="@CloseAll" />
+            }
+        </Items>
+    </DxContextMenu>
 }
 
 @code {
+    private DxContextMenu? _menu;
+
+    /// <summary>오른쪽 클릭한 탭. 창이 열려 있는 동안만 값이 있다.</summary>
+    private PortalTab? _target;
+
     private bool IsPinned => Tabs.Items
         .FirstOrDefault(t => string.Equals(t.Href, Tabs.ActiveHref, StringComparison.OrdinalIgnoreCase))
         ?.Pinned ?? false;
 
-    protected override void OnInitialized() => Tabs.Changed += OnTabsChanged;
+    protected override void OnInitialized()
+    {
+        Tabs.Changed += OnTabsChanged;
+        Favorites.Changed += OnTabsChanged;
+    }
 
     private void OnTabsChanged() => InvokeAsync(StateHasChanged);
 
-    private void Close(string href)
+    /// <summary>
+    /// 오른쪽 클릭한 자리에 창을 연다.
+    ///
+    /// <para>
+    /// 대상을 먼저 세우고 <b>한 번 다시 그린 뒤</b> 연다. 안 그러면 창이 이전
+    /// 대상의 항목(고정/담기 여부)을 그린 채로 뜬다 — 이름만 틀린 것이 아니라
+    /// 누르면 다른 탭이 닫힌다.
+    /// </para>
+    /// </summary>
+    private async Task OpenMenuAsync(MouseEventArgs args, PortalTab tab)
     {
-        var next = Tabs.Close(href);
+        _target = tab;
+        StateHasChanged();
 
-        if (next is not null)
+        if (_menu is not null)
         {
-            Navigation.NavigateTo(next);
+            await _menu.ShowAsync(args);
         }
     }
+
+    private bool IsActive(PortalTab tab) =>
+        string.Equals(tab.Href, Tabs.ActiveHref, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// 이 탭의 <b>DB 메뉴 경로</b>. 즐겨찾기는 이 값으로 담긴다.
+    ///
+    /// <para>
+    /// 탭이 들고 있는 것은 링크 주소(<c>/funeral/room-status</c>)인데 즐겨찾기
+    /// 표에 쌓인 것은 DB 경로(<c>/room_status</c>)다. 섞으면 이미 담아 둔 것이
+    /// 안 담긴 것으로 보인다(<c>MenuFavorites</c> 주석 참고).
+    /// </para>
+    /// </summary>
+    private static string MenuPathOf(PortalTab tab) => RouteAliases.ToMenuPath(tab.Href);
+
+    private bool IsFavorite(PortalTab tab) => Favorites.Contains(MenuPathOf(tab));
+
+    private async Task ToggleFavoriteAsync(PortalTab tab)
+    {
+        if (MenuPathOf(tab) is { Length: > 0 } path)
+        {
+            await Favorites.ToggleAsync(path);
+        }
+    }
+
+    /// <summary>
+    /// 같은 주소로 다시 이동시켜 화면만 새로 만든다. <c>forceLoad</c> 를 켜지
+    /// 않는다 — 켜면 문서를 새로 받아 회로가 끊기고 탭이 통째로 사라진다.
+    /// </summary>
+    private void Refresh(PortalTab tab) =>
+        Navigation.NavigateTo(tab.Href, forceLoad: false, replace: true);
+
+    private Task OpenInNewWindowAsync(PortalTab tab) =>
+        Js.InvokeVoidAsync("open", tab.Href, "_blank", "noopener").AsTask();
+
+    /// <summary>그쪽에 닫을 것이 하나라도 있는가. 없으면 항목을 꺼 둔다.</summary>
+    private bool HasClosableSide(PortalTab tab, bool left)
+    {
+        var pivot = Tabs.Items.ToList().FindIndex(t =>
+            string.Equals(t.Href, tab.Href, StringComparison.OrdinalIgnoreCase));
+
+        if (pivot < 0)
+        {
+            return false;
+        }
+
+        return Tabs.Items
+            .Select((t, i) => (t, i))
+            .Any(x => !x.t.Pinned && (left ? x.i < pivot : x.i > pivot));
+    }
+
+    private void Close(string href) => GoAfter(Tabs.Close(href));
 
     private void TogglePin()
     {
@@ -98,11 +232,24 @@
     {
         if (Tabs.ActiveHref is { } href)
         {
-            Tabs.CloseOthers(href);
+            GoAfter(Tabs.CloseOthers(href));
         }
     }
 
     private void CloseAll() => Navigation.NavigateTo(Tabs.CloseAll());
 
-    public void Dispose() => Tabs.Changed -= OnTabsChanged;
+    /// <summary>탭을 닫은 결과 옮겨 갈 곳이 생겼으면 옮긴다.</summary>
+    private void GoAfter(string? next)
+    {
+        if (next is not null)
+        {
+            Navigation.NavigateTo(next);
+        }
+    }
+
+    public void Dispose()
+    {
+        Tabs.Changed -= OnTabsChanged;
+        Favorites.Changed -= OnTabsChanged;
+    }
 }

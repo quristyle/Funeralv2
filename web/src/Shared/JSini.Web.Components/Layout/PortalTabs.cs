@@ -138,10 +138,80 @@ public sealed class PortalTabs
     }
 
     /// <summary>지금 탭만 남기고 닫는다. 고정한 탭은 남는다.</summary>
-    public void CloseOthers(string href)
+    /// <returns>옮겨 갈 주소. 보고 있던 탭이 닫혔을 때만 값이 있다.</returns>
+    public string? CloseOthers(string href)
     {
         _tabs.RemoveAll(t => !Same(t.Href, href) && !t.Pinned);
         Changed?.Invoke();
+
+        return AfterBulkClose();
+    }
+
+    /// <summary>
+    /// 이 탭의 <b>왼쪽</b> 탭들을 닫는다. 고정한 탭은 남는다.
+    ///
+    /// <para>
+    /// 「다른 탭 닫기」와 따로 두는 이유는 쓰는 방식이 다르기 때문이다 —
+    /// 왼쪽은 이미 지나온 화면이고 오른쪽은 방금 벌여 둔 화면이다.
+    /// 하나로 뭉개면 둘 중 하나는 늘 아까운 것을 함께 닫는다.
+    /// </para>
+    /// </summary>
+    /// <returns>옮겨 갈 주소. 보고 있던 탭이 닫혔을 때만 값이 있다.</returns>
+    public string? CloseLeft(string href) => CloseSide(href, left: true);
+
+    /// <summary>이 탭의 <b>오른쪽</b> 탭들을 닫는다. 고정한 탭은 남는다.</summary>
+    /// <returns>옮겨 갈 주소. 보고 있던 탭이 닫혔을 때만 값이 있다.</returns>
+    public string? CloseRight(string href) => CloseSide(href, left: false);
+
+    private string? CloseSide(string href, bool left)
+    {
+        var pivot = _tabs.FindIndex(t => Same(t.Href, href));
+        if (pivot < 0)
+        {
+            return null;
+        }
+
+        // 자리로 지운다. 지우는 도중에 자리가 밀리므로 뒤에서 앞으로 간다.
+        for (var i = _tabs.Count - 1; i >= 0; i--)
+        {
+            if (i == pivot || _tabs[i].Pinned)
+            {
+                continue;
+            }
+
+            if (left ? i < pivot : i > pivot)
+            {
+                _tabs.RemoveAt(i);
+            }
+        }
+
+        Changed?.Invoke();
+        return AfterBulkClose();
+    }
+
+    /// <summary>
+    /// 여럿을 닫은 뒤 보고 있던 탭이 사라졌는지 본다.
+    ///
+    /// <para>
+    /// 사라졌으면 옮겨 갈 주소를 돌려준다. 안 옮기면 주소는 그대로인데 그
+    /// 탭만 없는 상태가 되어, 탭 줄과 화면이 어긋난 채로 남는다.
+    /// </para>
+    /// </summary>
+    private string? AfterBulkClose()
+    {
+        if (_tabs.Any(t => Same(t.Href, ActiveHref)))
+        {
+            return null;
+        }
+
+        if (_tabs.Count == 0)
+        {
+            ActiveHref = null;
+            return "/";
+        }
+
+        ActiveHref = _tabs[0].Href;
+        return _tabs[0].Href;
     }
 
     /// <summary>전부 닫는다. 고정한 탭은 남는다.</summary>
