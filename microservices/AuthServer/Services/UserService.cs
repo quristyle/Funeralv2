@@ -182,6 +182,25 @@ public class UserService : IUserService
     /// <summary>
     /// 신규 계정을 생성합니다.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// [비밀번호를 평문으로 넣던 자리다]
+    /// </para>
+    ///
+    /// <para>
+    /// 한동안 <c>Password = "1234"</c> 였다. <see cref="PasswordHasher.Verify"/> 가
+    /// 해시 형식이 아닌 저장값을 평문으로 보고 비교하는(의도된 하위호환) 덕분에
+    /// 로그인은 됐고, 로그인에 성공하면 그때 해시로 승격됐다. 문제는
+    /// <b>한 번도 로그인하지 않은 계정</b>이다 — 그런 계정은 DB 에 비밀번호가
+    /// 그대로 보이는 채로 남는다. 만들어만 두고 아직 안 쓰는 계정이라 오래 남는다.
+    /// </para>
+    ///
+    /// <para>
+    /// 지금은 <see cref="InitialPassword"/> 가 정한 값을 해시해 넣고, 발급한
+    /// 평문은 <see cref="AccountDto.InitialPassword"/> 로 <b>이 응답에만</b> 실어
+    /// 보낸다. 그리고 만료 시계를 이미 지난 시각으로 두어 첫 로그인에서 바꾸게 한다.
+    /// </para>
+    /// </remarks>
     public async Task<AccountDto> CreateAccountAsync(CreateAccountDto dto)
     {
         string? validDeptId = null;
@@ -196,12 +215,22 @@ public class UserService : IUserService
             }
         }
 
+        // 발급한 평문은 여기서만 손에 있다. 저장은 해시로 하고, 이 값은
+        // 응답에 한 번 실어 보낸 뒤 버린다 — 로그에도 남기지 않는다.
+        var initialPassword = InitialPassword.Issue(_config);
+
         var account = new Account
         {
             UserId = dto.LoginId,
             UserName = dto.UserName,
             RealName = dto.UserName,
-            Password = "1234", // 기본 비밀번호 설정
+            Password = PasswordHasher.Hash(initialPassword),
+
+            // 첫 로그인에서 곧바로 바꾸게 한다. 90일 정책이 그대로 그 일을 하므로
+            // 「첫 로그인인가」를 따로 두지 않는다 — PasswordPolicy 참고.
+            PasswordChangedAt = PasswordPolicy.AlreadyExpiredAt(
+                PasswordPolicy.ExpiryDays(_config), DateTime.UtcNow),
+
             DepartmentId = validDeptId,
             CompanyId = companyId,
             BirthDate = dto.BirthDate,
@@ -296,7 +325,10 @@ public class UserService : IUserService
             RoleNames = roleNames,
             BirthDate = account.BirthDate,
             BirthDateIsLunar = account.BirthDateIsLunar,
-            BirthdayCelebrated = account.BirthdayCelebrated
+            BirthdayCelebrated = account.BirthdayCelebrated,
+
+            // 발급한 평문을 돌려주는 유일한 자리. 다음 조회부터는 null 이다.
+            InitialPassword = initialPassword
         };
     }
 

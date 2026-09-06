@@ -81,6 +81,17 @@ public sealed class AccountDto
     /// <summary>축하 대상인가. 끄면 생일 목록에 나오지 않는다.</summary>
     public bool BirthdayCelebrated { get; set; } = true;
 
+    /// <summary>
+    /// 등록할 때 서버가 발급한 첫 비밀번호. <b>등록 응답에만 담긴다</b> —
+    /// 목록에는 언제나 <c>null</c> 이다.
+    ///
+    /// <para>
+    /// 서버는 해시만 들고 있으므로 <b>이 값을 놓치면 다시 알 방법이 없다.</b>
+    /// 화면이 등록 직후 한 번 띄워서 사람이 옮겨 적게 한다.
+    /// </para>
+    /// </summary>
+    public string? InitialPassword { get; set; }
+
     /// <summary>표에 한 칸으로 보여 줄 역할 이름들.</summary>
     public string RoleText => string.Join(", ", RoleNames);
 

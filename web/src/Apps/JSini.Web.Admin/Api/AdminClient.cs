@@ -46,8 +46,15 @@ public sealed class AdminClient(GatewayClient gateway)
     public Task<IReadOnlyList<AccountDto>> GetAccountsAsync(CancellationToken ct = default)
         => gateway.GetListAsync<AccountDto>("auth/system/account/list", ct);
 
-    public Task CreateAccountAsync(SaveAccountDto account, CancellationToken ct = default)
-        => gateway.PostAsync("auth/system/account", account, ct);
+    /// <summary>
+    /// 계정을 만든다.
+    ///
+    /// <b>돌려받는 값을 버리면 안 된다.</b> 서버가 발급한 첫 비밀번호가
+    /// <see cref="AccountDto.InitialPassword"/> 에 실려 오는데, 저장은 해시로
+    /// 되어 있어 <b>이 응답을 놓치면 아무도 그 값을 알 수 없다.</b>
+    /// </summary>
+    public Task<AccountDto?> CreateAccountAsync(SaveAccountDto account, CancellationToken ct = default)
+        => gateway.PostAsync<AccountDto>("auth/system/account", account, ct);
 
     public Task UpdateAccountAsync(string id, SaveAccountDto account, CancellationToken ct = default)
         => gateway.PutAsync($"auth/system/account/{id}", account, ct);

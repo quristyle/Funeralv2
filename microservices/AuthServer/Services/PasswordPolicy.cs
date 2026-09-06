@@ -61,6 +61,25 @@ public static class PasswordPolicy
         DateTime.SpecifyKind(passwordChangedAt, DateTimeKind.Utc).AddDays(expiryDays);
 
     /// <summary>
+    /// <b>이미 만료된 것으로 치는</b> 기준 시각. 새로 만든 계정이 첫 로그인에서
+    /// 곧바로 비밀번호를 바꾸도록 이 값을 넣는다.
+    ///
+    /// <para>
+    /// 「첫 로그인이면 바꾸게 한다」를 위해 칸을 새로 만들지 않는 이유가 여기 있다 —
+    /// 이미 있는 90일 정책이 그 일을 그대로 한다. 관리자가 발급한 비밀번호는
+    /// 사람 손을 거쳐 전달되므로 애초에 만료된 것으로 두는 편이 사실에 가깝다.
+    /// </para>
+    ///
+    /// <para>
+    /// 정책이 꺼져 있으면(<paramref name="expiryDays"/> 가 0 이하) 기준 일수를
+    /// 알 수 없으므로 <see cref="DefaultExpiryDays"/> 로 잡는다. 지금은 아무 일도
+    /// 하지 않지만, 나중에 정책을 켜면 그때부터 제대로 걸린다.
+    /// </para>
+    /// </summary>
+    public static DateTime AlreadyExpiredAt(int expiryDays, DateTime utcNow) =>
+        utcNow.AddDays(-(IsEnabled(expiryDays) ? expiryDays : DefaultExpiryDays) - 1);
+
+    /// <summary>
     /// 만료까지 남은 일수. 정책이 꺼져 있거나 기준 시각을 모르면 null 이다.
     /// 이미 지났으면 0 을 준다(음수를 내려보내면 화면에서 다루기 번거롭다).
     /// </summary>

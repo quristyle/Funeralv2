@@ -45,6 +45,18 @@ public class AccountDto
 
     /// <summary>생일 축하(생일 화면 노출·메시지) 대상인지</summary>
     public bool BirthdayCelebrated { get; set; } = true;
+
+    /// <summary>
+    /// 계정을 만들면서 발급한 첫 비밀번호. <b>등록 응답에만 담긴다</b> —
+    /// 목록·수정 응답에서는 언제나 <c>null</c> 이다.
+    ///
+    /// <para>
+    /// 저장은 해시로 하므로 <b>이 순간이 지나면 아무도 값을 알 수 없다.</b>
+    /// 관리자 화면이 이 값을 사람에게 한 번 보여 주고, 그다음은 본인이
+    /// 첫 로그인에서 바꾼다(<see cref="Services.PasswordPolicy.AlreadyExpiredAt"/>).
+    /// </para>
+    /// </summary>
+    public string? InitialPassword { get; set; }
 }
 
 /// <summary>
