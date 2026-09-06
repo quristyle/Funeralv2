@@ -12,6 +12,9 @@
 
   <ItemGroup>
     <PackageReference Include="Piral.Blazor.Shared" />
+
+    <!-- 장비 실시간 상태. 이 모듈만 듣는다 — 까닭은 Directory.Packages.props 참고. -->
+    <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" />
   </ItemGroup>
 
   <ItemGroup>

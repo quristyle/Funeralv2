@@ -41,6 +41,11 @@ public sealed class FuneralModule : IPortalModule
         // 회로 하나에 하나여야 캐시가 산다 — 그래서 scoped 다.
         services.AddScoped<CommonCodeClient>();
 
+        // 장비 실시간 상태. **싱글턴이다** — 화면마다 허브에 붙으면 관리자
+        // 수만큼 연결이 생긴다. 사용자 토큰을 쓰지 않으므로(허브는 인증 없이
+        // 받는다) 싱글턴이어도 신원이 섞이지 않는다.
+        services.AddSingleton<DeviceStatusRelay>();
+
         // 업로드만 멀티파트라 GatewayClient 를 쓸 수 없다. 같은 주소와 같은
         // 토큰 처리(AuthTokenHandler)로 붙여서 인증이 갈라지지 않게 한다.
         var baseUrl = configuration["Gateway:BaseUrl"] ?? "http://localhost:5265/api/";

@@ -29,6 +29,13 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- ── 장비 실시간 상태 (SignalR 클라이언트) ─────────────────
+         빈소 화면이 붙고 떨어질 때 funeralv2Api 가 `DeviceStatusChanged` 를
+         방송한다. 기기 관리 화면이 그것을 받아 켜짐/꺼짐을 바로 고친다.
+
+         **JSini.Web.Funeral 만 참조한다** — 그 방송을 듣는 화면이 거기뿐이다. -->
+    <PackageVersion Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.0" />
+
     <!-- ── DevExpress Blazor ───────────────────────────────────── -->
     <PackageVersion Include="DevExpress.Blazor" Version="$(DevExpressVersion)" />
     <PackageVersion Include="DevExpress.Blazor.Themes" Version="$(DevExpressVersion)" />

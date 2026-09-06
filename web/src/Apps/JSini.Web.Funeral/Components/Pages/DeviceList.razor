@@ -17,6 +17,13 @@
     을 보고 직접 재지 않는다 — 재면 브라우저 시계 기준이 되어, 시각이 어긋난
     장비에서는 멀쩡한 기기가 오프라인으로 보인다.
 
+    [상태가 조회한 시점에 굳어 있었다]
+
+    장비가 붙고 떨어질 때 `DeviceHub` 가 `DeviceStatusChanged` 를 방송하는데
+    아무도 듣지 않았다. 그래서 **실제로는 켜져 있는 장비가 꺼짐으로 남아 있고**,
+    새로 고침을 눌러야 맞았다. 원본(Vue)은 브라우저마다 허브에 붙었다 —
+    여기서는 포털이 한 번 붙어 열려 있는 화면들에 나눠 준다(`DeviceStatusRelay`).
+
     [원격 업데이트 지시가 없었다]
 
     켜기·끄기·재시작만 있었다. 플레이어에게 「지금 새 판을 확인하라」고
@@ -53,7 +60,9 @@
 *@
 
 @inherits DataPage
+@implements IDisposable
 @inject FuneralApi Api
+@inject DeviceStatusRelay Status
 
 <PageTitle>기기 관리 · 장례식장</PageTitle>
 
@@ -431,7 +440,51 @@ else if (_attribute is not null)
     private IReadOnlyList<MediaSource> _audios = [];
     private IReadOnlyList<MediaSource> _backgrounds = [];
 
-    protected override Task OnInitializedAsync() => ReloadAsync();
+    /// <summary>장비 상태 방송 구독. 화면이 사라질 때 놓는다.</summary>
+    private IDisposable? _statusWatch;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // 목록을 읽기 전에 듣기 시작한다. 읽는 사이에 온 방송도 받는다 —
+        // 방송이 목록보다 먼저 오면 그 장비는 다음 방송까지 옛 상태로 남는다.
+        _statusWatch = Status.Subscribe(OnStatusChanged);
+
+        await ReloadAsync();
+    }
+
+    /// <summary>
+    /// 장비가 붙거나 떨어졌다.
+    ///
+    /// <para>
+    /// <b>목록을 다시 읽지 않는다.</b> 원본(Vue)은 방송을 받을 때마다 목록을
+    /// 다시 조회했다(0.5초로 묶어서). 정전 복구처럼 한 건물이 동시에 켜지면
+    /// 그 한 번이 수십 장비의 조회가 된다. 바뀐 것은 상태 한 칸뿐이라
+    /// 들고 있는 자료에서 그 칸만 고친다.
+    /// </para>
+    ///
+    /// <para>
+    /// 허브 스레드에서 불린다 — <c>InvokeAsync</c> 로 회로에 넘겨야 한다.
+    /// </para>
+    /// </summary>
+    private void OnStatusChanged(string deviceCode, string status)
+    {
+        var device = _devices.FirstOrDefault(d =>
+            string.Equals(d.Code, deviceCode, StringComparison.OrdinalIgnoreCase));
+
+        if (device is null)
+        {
+            return;
+        }
+
+        device.Status = status;
+
+        if (string.Equals(status, "ONLINE", StringComparison.OrdinalIgnoreCase))
+        {
+            device.LastSeenAt = DateTime.Now;
+        }
+
+        _ = InvokeAsync(StateHasChanged);
+    }
 
     private Task ReloadAsync() => LoadAsync(async () =>
     {
@@ -618,4 +671,10 @@ else if (_attribute is not null)
         () => Api.UpdateDeviceNowAsync(code),
         $"{code} 에 새 판 확인을 보냈습니다. 새 판이 없으면 그대로 둡니다.",
         "명령을 보내지 못했습니다");
+
+    /// <summary>
+    /// 그만 듣는다. <b>빠뜨리면 죽은 회로를 계속 붙들고 있게 된다</b> —
+    /// 연결은 프로세스에 하나뿐이라 구독 목록만 쌓인다.
+    /// </summary>
+    public void Dispose() => _statusWatch?.Dispose();
 }
