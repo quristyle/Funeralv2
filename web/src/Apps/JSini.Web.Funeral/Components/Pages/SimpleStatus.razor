@@ -6,9 +6,15 @@
 
     칸을 넷으로 줄인 현황이다. 안내 데스크에서 크게 띄워 두는 화면이라
     한눈에 읽히는 것이 목적이고, 그래서 기본이 **사용 중만**이다.
+
+    [스스로 새로 고치지 않고 있었다]
+
+    띄워 두는 화면이라 사람이 새로 고침을 누르러 오지 않는다. 옛 화면은 30초
+    시계를 돌렸는데 옮기면서 빠졌다 — 안내 데스크 화면이 아침에 띄운 상태로
+    굳어 있었다는 뜻이다. `AutoRefreshPage` 가 그 시계를 든다.
 *@
 
-@inherits DataPage
+@inherits AutoRefreshPage
 @inject FuneralApi Api
 
 <PageTitle>간편 현황 · 장례식장</PageTitle>
@@ -36,11 +42,19 @@
     private bool _onlyInUse = true;
     private IReadOnlyList<FuneralStatus> _rows = [];
 
-    protected override Task OnInitializedAsync() => ReloadAsync();
+    protected override async Task OnInitializedAsync()
+    {
+        await ReloadAsync();
+        StartAutoRefresh();
+    }
 
     private Task ReloadAsync() => LoadAsync(async () =>
     {
         _rows = await Api.GetFuneralStatusesAsync(_buildingId, _floorId, _onlyInUse ? true : null);
         return _rows.Count;
     }, "조건에 맞는 빈소가 없습니다.", "빈소 현황을 읽지 못했습니다");
+
+    /// <summary>자동 조회. 안내 줄을 건드리지 않는다 — 까닭은 `AutoRefreshPage` 에 있다.</summary>
+    protected override async Task RefreshAsync() =>
+        _rows = await Api.GetFuneralStatusesAsync(_buildingId, _floorId, _onlyInUse ? true : null);
 }

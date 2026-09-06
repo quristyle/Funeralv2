@@ -111,6 +111,14 @@
             @{
                 var archive = (Archive)detail.DataItem;
             }
+            @* 설명은 **HTML 이다.** 옛 화면이 서식 편집기로 썼고, 자료실 설명에는
+               「어떤 장비에 쓰는 판인지」 같은 여러 줄 안내가 들어 있다.
+               정제해서 그린다 — 공지 본문과 같은 길이다. *@
+            @if (!string.IsNullOrWhiteSpace(archive.Description))
+            {
+                <div class="fn-faq__a">@((MarkupString)NoticeHtml.Sanitize(archive.Description))</div>
+            }
+
             @if (archive.Files.Count == 0)
             {
                 <PageNotice Text="첨부된 파일이 없습니다." />
@@ -162,7 +170,11 @@
             </DxFormLayoutItem>
 
             <DxFormLayoutItem Caption="설명" ColSpanMd="12">
-                <DxMemo @bind-Text="_edit.Description" Rows="6" />
+                @* 서식 편집기로 되돌렸다. 여러 줄 입력으로 두면 저장된 설명의
+                   태그가 글자로 보이고, 새로 쓴 것은 줄바꿈이 사라진다. *@
+                <DxHtmlEditor @bind-Markup="_edit.Description"
+                              BindMarkupMode="HtmlEditorBindMarkupMode.OnDelayedInput"
+                              CssClass="fn-editor" NullText="자료 설명" />
             </DxFormLayoutItem>
 
             <DxFormLayoutItem Caption="첨부" ColSpanMd="12">

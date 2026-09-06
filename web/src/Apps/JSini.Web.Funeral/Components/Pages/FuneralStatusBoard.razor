@@ -14,7 +14,7 @@
     실제 API 에 붙였다.
 *@
 
-@inherits DataPage
+@inherits AutoRefreshPage
 @inject FuneralApi Api
 
 <PageTitle>빈소 현황 · 장례식장</PageTitle>
@@ -87,7 +87,11 @@
     private StatusBoard? _board;
     private IReadOnlyList<JSini.Web.Funeral.Api.FuneralStatus> _rows = [];
 
-    protected override Task OnInitializedAsync() => ReloadAsync();
+    protected override async Task OnInitializedAsync()
+    {
+        await ReloadAsync();
+        StartAutoRefresh();
+    }
 
     private Task ReloadAsync() => LoadAsync(async () =>
     {
@@ -99,4 +103,12 @@
         _rows = _onlyInUse ? [.. rooms.Where(r => r.Occupied)] : rooms;
         return _rows.Count;
     }, "조건에 맞는 빈소가 없습니다.", "빈소 현황을 읽지 못했습니다");
+
+    /// <summary>자동 조회. 사무실에 띄워 두는 화면이라 스스로 맞아야 한다.</summary>
+    protected override async Task RefreshAsync()
+    {
+        _board = await Api.GetFuneralStatusBoardAsync(_buildingId, _floorId);
+        var rooms = _board?.Rooms ?? [];
+        _rows = _onlyInUse ? [.. rooms.Where(r => r.Occupied)] : rooms;
+    }
 }

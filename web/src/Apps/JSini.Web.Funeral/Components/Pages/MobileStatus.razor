@@ -8,7 +8,7 @@
     생기면 손가락으로 세로로 밀 때마다 표가 옆으로 흔들린다.
 *@
 
-@inherits DataPage
+@inherits AutoRefreshPage
 @inject FuneralApi Api
 
 <PageTitle>모바일 현황 · 장례식장</PageTitle>
@@ -40,11 +40,19 @@
     private string? _buildingId;
     private IReadOnlyList<FuneralStatus> _rows = [];
 
-    protected override Task OnInitializedAsync() => ReloadAsync();
+    protected override async Task OnInitializedAsync()
+    {
+        await ReloadAsync();
+        StartAutoRefresh();
+    }
 
     private Task ReloadAsync() => LoadAsync(async () =>
     {
         _rows = await Api.GetFuneralStatusesAsync(_buildingId);
         return _rows.Count;
     }, "조건에 맞는 빈소가 없습니다.", "빈소 현황을 읽지 못했습니다");
+
+    /// <summary>자동 조회. 손에 들고 보는 화면이라 더 자주 맞아야 한다.</summary>
+    protected override async Task RefreshAsync() =>
+        _rows = await Api.GetFuneralStatusesAsync(_buildingId);
 }

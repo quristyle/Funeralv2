@@ -5,7 +5,7 @@
     이력: Vue `views/funeral/status/funeral-info/index` → 여기.
 *@
 
-@inherits DataPage
+@inherits AutoRefreshPage
 @inject FuneralApi Api
 
 <PageTitle>빈소 정보 · 장례식장</PageTitle>
@@ -43,11 +43,19 @@
     private bool _onlyInUse;
     private IReadOnlyList<FuneralStatus> _rows = [];
 
-    protected override Task OnInitializedAsync() => ReloadAsync();
+    protected override async Task OnInitializedAsync()
+    {
+        await ReloadAsync();
+        StartAutoRefresh();
+    }
 
     private Task ReloadAsync() => LoadAsync(async () =>
     {
         _rows = await Api.GetFuneralStatusesAsync(_buildingId, _floorId, _onlyInUse ? true : null);
         return _rows.Count;
     }, "조건에 맞는 빈소가 없습니다.", "빈소 현황을 읽지 못했습니다");
+
+    /// <summary>자동 조회. 로비에 띄워 두는 화면이라 스스로 맞아야 한다.</summary>
+    protected override async Task RefreshAsync() =>
+        _rows = await Api.GetFuneralStatusesAsync(_buildingId, _floorId, _onlyInUse ? true : null);
 }
