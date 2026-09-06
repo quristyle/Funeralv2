@@ -14,8 +14,6 @@
 
 <PageTitle>고인 정보 조회 · 장례식장</PageTitle>
 
-<PageHeading Title="고인 정보 조회" Scope="장례식장" />
-
 <BuildingFilter @bind-BuildingId="_buildingId" @bind-RoomId="_roomId" ShowRoom="true" Search="@ReloadAsync">
     <DxTextBox @bind-Text="_keyword" NullText="고인·상주명" Style="width: 180px"
                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
@@ -25,25 +23,27 @@
 
 <PageNotice Text="이 화면은 조회만 합니다. 등록·수정은 고인 현황에서 합니다." />
 
-<CommGrd TItem="DeceasedLookup" Data="@_rows" PageSize="20">
-    <Columns>
-        <DxGridDataColumn FieldName="@nameof(DeceasedLookup.Name)" Caption="고인" MinWidth="120" />
-        <DxGridDataColumn Caption="성별" Width="80">
-            <CellDisplayTemplate>
-                @(((DeceasedLookup)context.DataItem).Gender == "FEMALE" ? "여" : "남")
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
-        <DxGridDataColumn FieldName="@nameof(DeceasedLookup.Age)" Caption="나이" Width="80" />
-        <DxGridDataColumn FieldName="@nameof(DeceasedLookup.MournerNames)" Caption="상주" MinWidth="140" />
-        <DxGridDataColumn FieldName="@nameof(DeceasedLookup.BuildingName)" Caption="건물" Width="130" />
-        <DxGridDataColumn FieldName="@nameof(DeceasedLookup.RoomName)" Caption="호실" Width="110" />
-        <DxGridDataColumn FieldName="@nameof(DeceasedLookup.DeathDate)" Caption="임종" Width="120" DisplayFormat="yyyy-MM-dd" />
-        <DxGridDataColumn FieldName="@nameof(DeceasedLookup.BurialDate)" Caption="발인" Width="150" DisplayFormat="yyyy-MM-dd HH:mm" />
-        <DxGridDataColumn FieldName="@nameof(DeceasedLookup.BurialPlot)" Caption="장지" MinWidth="130" />
-    </Columns>
-</CommGrd>
-
 <PageNotice Text="@Notice" Tone="@Tone" />
+
+<CommCont>
+    <CommGrd TItem="DeceasedLookup" Data="@_rows" PageSize="20">
+        <Columns>
+            <DxGridDataColumn FieldName="@nameof(DeceasedLookup.Name)" Caption="고인" MinWidth="120" />
+            <DxGridDataColumn Caption="성별" Width="80">
+                <CellDisplayTemplate>
+                    @(((DeceasedLookup)context.DataItem).Gender == "FEMALE" ? "여" : "남")
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+            <DxGridDataColumn FieldName="@nameof(DeceasedLookup.Age)" Caption="나이" Width="80" />
+            <DxGridDataColumn FieldName="@nameof(DeceasedLookup.MournerNames)" Caption="상주" MinWidth="140" />
+            <DxGridDataColumn FieldName="@nameof(DeceasedLookup.BuildingName)" Caption="건물" Width="130" />
+            <DxGridDataColumn FieldName="@nameof(DeceasedLookup.RoomName)" Caption="호실" Width="110" />
+            <DxGridDataColumn FieldName="@nameof(DeceasedLookup.DeathDate)" Caption="임종" Width="120" DisplayFormat="yyyy-MM-dd" />
+            <DxGridDataColumn FieldName="@nameof(DeceasedLookup.BurialDate)" Caption="발인" Width="150" DisplayFormat="yyyy-MM-dd HH:mm" />
+            <DxGridDataColumn FieldName="@nameof(DeceasedLookup.BurialPlot)" Caption="장지" MinWidth="130" />
+        </Columns>
+    </CommGrd>
+</CommCont>
 
 @code {
     private string? _buildingId;

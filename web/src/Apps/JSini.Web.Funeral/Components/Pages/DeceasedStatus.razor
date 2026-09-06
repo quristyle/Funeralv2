@@ -35,8 +35,6 @@
 
 <PageTitle>고인 현황 · 장례식장</PageTitle>
 
-<PageHeading Title="고인 현황" Scope="장례식장" />
-
 <div class="jsini-toolbar">
     <DxTextBox @bind-Text="_keyword" NullText="고인명 검색" Style="width: 200px"
                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
@@ -47,57 +45,59 @@
     <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@ReloadAsync" />
 </div>
 
-<CommGrd TItem="Deceased" Data="@_rows" PageSize="20">
-    <Columns>
-        <DxGridDataColumn FieldName="@nameof(Deceased.Name)" Caption="고인" MinWidth="120" />
-        <DxGridDataColumn Caption="성별" Width="80">
-            <CellDisplayTemplate>
-                @(((Deceased)context.DataItem).Gender == "FEMALE" ? "여" : "남")
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
-        <DxGridDataColumn FieldName="@nameof(Deceased.Age)" Caption="나이" Width="80" />
-        <DxGridDataColumn FieldName="@nameof(Deceased.RoomName)" Caption="호실" Width="130" />
-        <DxGridDataColumn FieldName="@nameof(Deceased.DeathDate)" Caption="임종" Width="130" DisplayFormat="yyyy-MM-dd" />
-        <DxGridDataColumn FieldName="@nameof(Deceased.BurialDate)" Caption="발인" Width="150" DisplayFormat="yyyy-MM-dd HH:mm" />
-        <DxGridDataColumn Caption="상태" Width="110">
-            <CellDisplayTemplate>
-                @{
-                    var d = (Deceased)context.DataItem;
-                }
-                <span class="jsini-badge @(d.Status == Departed ? "jsini-badge--off" : "jsini-badge--on")">
-                    @StatusText(d.Status)
-                </span>
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
-        <DxGridDataColumn Caption="처리" Width="210">
-            <CellDisplayTemplate>
-                @{
-                    var row = (Deceased)context.DataItem;
-                }
-                <div class="jsini-actions">
-                    <PermissionView Action="MenuAction.Update">
-                        @if (row.Status == Departed)
-                        {
-                            <DxButton Text="출상 취소" RenderStyle="ButtonRenderStyle.Secondary"
-                                      Click="@(() => CancelAsync(row))" />
-                        }
-                        else
-                        {
-                            <DxButton Text="출상" RenderStyle="ButtonRenderStyle.Secondary"
-                                      Click="@(() => DepartAsync(row))" />
-                        }
-
-                        @* 영정 사진 (D5). 빈소 디스플레이가 띄우는 그 사진이다. *@
-                        <DxButton Text="영정" RenderStyle="ButtonRenderStyle.Secondary"
-                                  Click="@(() => StartPhotoAsync(row))" />
-                    </PermissionView>
-                </div>
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
-    </Columns>
-</CommGrd>
-
 <PageNotice Text="@Notice" Tone="@Tone" />
+
+<CommCont>
+    <CommGrd TItem="Deceased" Data="@_rows" PageSize="20">
+        <Columns>
+            <DxGridDataColumn FieldName="@nameof(Deceased.Name)" Caption="고인" MinWidth="120" />
+            <DxGridDataColumn Caption="성별" Width="80">
+                <CellDisplayTemplate>
+                    @(((Deceased)context.DataItem).Gender == "FEMALE" ? "여" : "남")
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+            <DxGridDataColumn FieldName="@nameof(Deceased.Age)" Caption="나이" Width="80" />
+            <DxGridDataColumn FieldName="@nameof(Deceased.RoomName)" Caption="호실" Width="130" />
+            <DxGridDataColumn FieldName="@nameof(Deceased.DeathDate)" Caption="임종" Width="130" DisplayFormat="yyyy-MM-dd" />
+            <DxGridDataColumn FieldName="@nameof(Deceased.BurialDate)" Caption="발인" Width="150" DisplayFormat="yyyy-MM-dd HH:mm" />
+            <DxGridDataColumn Caption="상태" Width="110">
+                <CellDisplayTemplate>
+                    @{
+                        var d = (Deceased)context.DataItem;
+                    }
+                    <span class="jsini-badge @(d.Status == Departed ? "jsini-badge--off" : "jsini-badge--on")">
+                        @StatusText(d.Status)
+                    </span>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+            <DxGridDataColumn Caption="처리" Width="210">
+                <CellDisplayTemplate>
+                    @{
+                        var row = (Deceased)context.DataItem;
+                    }
+                    <div class="jsini-actions">
+                        <PermissionView Action="MenuAction.Update">
+                            @if (row.Status == Departed)
+                            {
+                                <DxButton Text="출상 취소" RenderStyle="ButtonRenderStyle.Secondary"
+                                          Click="@(() => CancelAsync(row))" />
+                            }
+                            else
+                            {
+                                <DxButton Text="출상" RenderStyle="ButtonRenderStyle.Secondary"
+                                          Click="@(() => DepartAsync(row))" />
+                            }
+
+                            @* 영정 사진 (D5). 빈소 디스플레이가 띄우는 그 사진이다. *@
+                            <DxButton Text="영정" RenderStyle="ButtonRenderStyle.Secondary"
+                                      Click="@(() => StartPhotoAsync(row))" />
+                        </PermissionView>
+                    </div>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+        </Columns>
+    </CommGrd>
+</CommCont>
 
 @* ── 영정 사진 (D5) ─────────────────────────────────── *@
 <DxPopup @bind-Visible="_photoOpen" HeaderText="@($"영정 사진 · {_photoOf?.Name}")"

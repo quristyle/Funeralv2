@@ -34,8 +34,6 @@
 
 <PageTitle>자료실 · 장례식장</PageTitle>
 
-<PageHeading Title="자료실" Scope="장례식장" />
-
 <div class="jsini-toolbar">
     <DxTextBox @bind-Text="_keyword" NullText="자료명 검색" Style="width: 220px"
                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
@@ -58,78 +56,80 @@
     }
 </div>
 
-<CommGrd TItem="Archive" Data="@_items" PageSize="20">
-    <Columns>
-        <DxGridDataColumn Caption="자료명" MinWidth="220">
-            <CellDisplayTemplate Context="cell">
-                @{
-                    var a = (Archive)cell.DataItem;
-                }
-                @if (a.Status != 1)
-                {
-                    <span class="jsini-badge jsini-badge--off">중지</span>
-                }
-                <span>@a.Title</span>
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
+<PageNotice Text="@Notice" Tone="@Tone" />
 
-        <DxGridDataColumn FieldName="@nameof(Archive.Category)" Caption="분류" Width="130" />
-        <DxGridDataColumn FieldName="@nameof(Archive.DownloadCount)" Caption="내려받기" Width="90" />
-        <DxGridDataColumn FieldName="@nameof(Archive.CreatedAt)" Caption="등록일" Width="120" DisplayFormat="yyyy-MM-dd" />
-
-        <DxGridDataColumn Caption="첨부" Width="80">
-            <CellDisplayTemplate Context="cell">
-                @(((Archive)cell.DataItem).Files.Count) 개
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
-
-        @if (_canManage)
-        {
-            <DxGridDataColumn Caption="관리" Width="120" AllowSort="false">
+<CommCont>
+    <CommGrd TItem="Archive" Data="@_items" PageSize="20">
+        <Columns>
+            <DxGridDataColumn Caption="자료명" MinWidth="220">
                 <CellDisplayTemplate Context="cell">
                     @{
                         var a = (Archive)cell.DataItem;
                     }
-                    <div class="jsini-actions">
-                        <PermissionView Action="MenuAction.Update">
-                            <DxButton Text="수정"
-                                      RenderStyle="ButtonRenderStyle.Secondary"
-                                      Click="@(() => StartEdit(a))" />
-                        </PermissionView>
-                        <PermissionView Action="MenuAction.Delete">
-                            <DxButton Text="삭제"
-                                      RenderStyle="ButtonRenderStyle.Secondary"
-                                      Click="@(() => DeleteAsync(a))" />
-                        </PermissionView>
-                    </div>
+                    @if (a.Status != 1)
+                    {
+                        <span class="jsini-badge jsini-badge--off">중지</span>
+                    }
+                    <span>@a.Title</span>
                 </CellDisplayTemplate>
             </DxGridDataColumn>
-        }
-    </Columns>
-    <DetailRowTemplate Context="detail">
-        @{
-            var archive = (Archive)detail.DataItem;
-        }
-        @if (archive.Files.Count == 0)
-        {
-            <PageNotice Text="첨부된 파일이 없습니다." />
-        }
-        else
-        {
-            <ul class="fn-files">
-                @foreach (var file in archive.Files)
-                {
-                    <li class="fn-files__item">
-                        <a href="@file.DownloadUrl">@file.FileName</a>
-                        <span class="fn-files__size">@FormatSize(file.FileSize)</span>
-                    </li>
-                }
-            </ul>
-        }
-    </DetailRowTemplate>
-</CommGrd>
 
-<PageNotice Text="@Notice" Tone="@Tone" />
+            <DxGridDataColumn FieldName="@nameof(Archive.Category)" Caption="분류" Width="130" />
+            <DxGridDataColumn FieldName="@nameof(Archive.DownloadCount)" Caption="내려받기" Width="90" />
+            <DxGridDataColumn FieldName="@nameof(Archive.CreatedAt)" Caption="등록일" Width="120" DisplayFormat="yyyy-MM-dd" />
+
+            <DxGridDataColumn Caption="첨부" Width="80">
+                <CellDisplayTemplate Context="cell">
+                    @(((Archive)cell.DataItem).Files.Count) 개
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            @if (_canManage)
+            {
+                <DxGridDataColumn Caption="관리" Width="120" AllowSort="false">
+                    <CellDisplayTemplate Context="cell">
+                        @{
+                            var a = (Archive)cell.DataItem;
+                        }
+                        <div class="jsini-actions">
+                            <PermissionView Action="MenuAction.Update">
+                                <DxButton Text="수정"
+                                          RenderStyle="ButtonRenderStyle.Secondary"
+                                          Click="@(() => StartEdit(a))" />
+                            </PermissionView>
+                            <PermissionView Action="MenuAction.Delete">
+                                <DxButton Text="삭제"
+                                          RenderStyle="ButtonRenderStyle.Secondary"
+                                          Click="@(() => DeleteAsync(a))" />
+                            </PermissionView>
+                        </div>
+                    </CellDisplayTemplate>
+                </DxGridDataColumn>
+            }
+        </Columns>
+        <DetailRowTemplate Context="detail">
+            @{
+                var archive = (Archive)detail.DataItem;
+            }
+            @if (archive.Files.Count == 0)
+            {
+                <PageNotice Text="첨부된 파일이 없습니다." />
+            }
+            else
+            {
+                <ul class="fn-files">
+                    @foreach (var file in archive.Files)
+                    {
+                        <li class="fn-files__item">
+                            <a href="@file.DownloadUrl">@file.FileName</a>
+                            <span class="fn-files__size">@FormatSize(file.FileSize)</span>
+                        </li>
+                    }
+                </ul>
+            }
+        </DetailRowTemplate>
+    </CommGrd>
+</CommCont>
 
 @* ── 자료 정보 편집 ─────────────────────────────────── *@
 <DxPopup @bind-Visible="_editing" HeaderText="@(_isNew ? "자료 등록" : "자료 수정")"

@@ -34,8 +34,6 @@
 
 <PageTitle>요청 처리 · 헬프데스크</PageTitle>
 
-<PageHeading Title="요청 처리" Scope="헬프데스크" />
-
 <div class="jsini-toolbar">
     <DxTextBox @bind-Text="_keyword" NullText="제목 검색" Style="width: 200px"
                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
@@ -58,87 +56,89 @@
 
 <PageNotice Text="@Notice" Tone="@Tone" />
 
-<CommGrd TItem="ImprovementRequest" Data="@_rows" PageSize="25">
-    <Columns>
-        <DxGridDataColumn FieldName="@nameof(ImprovementRequest.Id)" Caption="번호" Width="80" />
+<CommCont>
+    <CommGrd TItem="ImprovementRequest" Data="@_rows" PageSize="25">
+        <Columns>
+            <DxGridDataColumn FieldName="@nameof(ImprovementRequest.Id)" Caption="번호" Width="80" />
 
-        <DxGridDataColumn Caption="제목" MinWidth="260">
-            <CellDisplayTemplate Context="cell">
-                @{
-                    var r = (ImprovementRequest)cell.DataItem;
-                }
-                <div class="jsini-tags">
-                    @if (r.IsEmergency == true)
-                    {
-                        <span class="jsini-badge jsini-badge--off">긴급</span>
+            <DxGridDataColumn Caption="제목" MinWidth="260">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var r = (ImprovementRequest)cell.DataItem;
                     }
-                    <span>@r.Title</span>
-                </div>
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
+                    <div class="jsini-tags">
+                        @if (r.IsEmergency == true)
+                        {
+                            <span class="jsini-badge jsini-badge--off">긴급</span>
+                        }
+                        <span>@r.Title</span>
+                    </div>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
 
-        <DxGridDataColumn Caption="고객사" Width="140">
-            <CellDisplayTemplate Context="cell">
-                @{
-                    var r = (ImprovementRequest)cell.DataItem;
-                }
-                @* 회사가 요청에 직접 붙기도 하고 고객을 거쳐 붙기도 한다.
-                   한쪽만 보면 표의 절반이 빈다. *@
-                @(r.Company?.Name ?? r.Customer?.Company?.Name ?? "-")
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
+            <DxGridDataColumn Caption="고객사" Width="140">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var r = (ImprovementRequest)cell.DataItem;
+                    }
+                    @* 회사가 요청에 직접 붙기도 하고 고객을 거쳐 붙기도 한다.
+                       한쪽만 보면 표의 절반이 빈다. *@
+                    @(r.Company?.Name ?? r.Customer?.Company?.Name ?? "-")
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
 
-        <DxGridDataColumn Caption="요청자" Width="110">
-            <CellDisplayTemplate Context="cell">
-                @(((ImprovementRequest)cell.DataItem).Customer?.UserName ?? "-")
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
+            <DxGridDataColumn Caption="요청자" Width="110">
+                <CellDisplayTemplate Context="cell">
+                    @(((ImprovementRequest)cell.DataItem).Customer?.UserName ?? "-")
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
 
-        <DxGridDataColumn Caption="담당자" Width="110">
-            <CellDisplayTemplate Context="cell">
-                @{
-                    var r = (ImprovementRequest)cell.DataItem;
-                }
-                @if (r.Admin is null)
-                {
-                    <span class="jsini-badge jsini-badge--warn">미배정</span>
-                }
-                else
-                {
-                    @r.Admin.UserName
-                }
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
+            <DxGridDataColumn Caption="담당자" Width="110">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var r = (ImprovementRequest)cell.DataItem;
+                    }
+                    @if (r.Admin is null)
+                    {
+                        <span class="jsini-badge jsini-badge--warn">미배정</span>
+                    }
+                    else
+                    {
+                        @r.Admin.UserName
+                    }
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
 
-        <DxGridDataColumn Caption="상태" Width="90">
-            <CellDisplayTemplate Context="cell">
-                @{
-                    var r = (ImprovementRequest)cell.DataItem;
-                }
-                <span class="jsini-badge @StatusClass(r.Status)">@StatusText(r)</span>
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
+            <DxGridDataColumn Caption="상태" Width="90">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var r = (ImprovementRequest)cell.DataItem;
+                    }
+                    <span class="jsini-badge @StatusClass(r.Status)">@StatusText(r)</span>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
 
-        <DxGridDataColumn FieldName="@nameof(ImprovementRequest.CreatedAt)" Caption="접수" Width="150"
-                          DisplayFormat="yyyy-MM-dd HH:mm" />
+            <DxGridDataColumn FieldName="@nameof(ImprovementRequest.CreatedAt)" Caption="접수" Width="150"
+                              DisplayFormat="yyyy-MM-dd HH:mm" />
 
-        <DxGridDataColumn Caption="경과" Width="80">
-            <CellDisplayTemplate Context="cell">
-                @Elapsed((ImprovementRequest)cell.DataItem)
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
+            <DxGridDataColumn Caption="경과" Width="80">
+                <CellDisplayTemplate Context="cell">
+                    @Elapsed((ImprovementRequest)cell.DataItem)
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
 
-        <DxGridDataColumn Caption="" Width="80" AllowSort="false">
-            <CellDisplayTemplate Context="cell">
-                @{
-                    var r = (ImprovementRequest)cell.DataItem;
-                }
-                <DxButton Text="상세" RenderStyle="ButtonRenderStyle.Link"
-                          Click="@(() => { Navigation.NavigateTo($"/helpdesk/request/{r.Id}"); })" />
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
-    </Columns>
-</CommGrd>
+            <DxGridDataColumn Caption="" Width="80" AllowSort="false">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var r = (ImprovementRequest)cell.DataItem;
+                    }
+                    <DxButton Text="상세" RenderStyle="ButtonRenderStyle.Link"
+                              Click="@(() => { Navigation.NavigateTo($"/helpdesk/request/{r.Id}"); })" />
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+        </Columns>
+    </CommGrd>
+</CommCont>
 
 @if (_total > _rows.Count)
 {

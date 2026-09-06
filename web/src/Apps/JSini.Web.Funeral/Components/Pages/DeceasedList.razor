@@ -40,24 +40,30 @@
 
 <PageTitle>고인 관리 · 장례식장</PageTitle>
 
-<PageHeading Title="고인 관리" Scope="장례식장" />
-
 <BuildingFilter @bind-BuildingId="_buildingId" @bind-FloorId="_floorId" @bind-RoomId="_roomId"
                 ShowFloor="true" ShowRoom="true" Search="@ReloadAsync">
-    <DxTextBox @bind-Text="_keyword" NullText="고인명" Style="width: 150px"
-               ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+    <ChildContent>
+        <CommSchItem Label="고인명">
+            <DxTextBox @bind-Text="_keyword" NullText="이름" Style="width: 150px"
+                       ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        </CommSchItem>
 
-    <DxComboBox Data="@Statuses" TextFieldName="Name" ValueFieldName="Code"
-                @bind-Value="_status" NullText="상태 전체" Style="width: 140px"
-                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        <CommSchItem Label="상태">
+            <DxComboBox Data="@Statuses" TextFieldName="Name" ValueFieldName="Code"
+                        @bind-Value="_status" NullText="전체" Style="width: 140px"
+                        ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        </CommSchItem>
+    </ChildContent>
 
-    @* 기간 둘은 접어 둔다. 늘 펼치면 조건줄이 두 줄이 된다. *@
-    <DxButton Text="@(_showDates ? "기간 접기" : "기간 조건")"
-              RenderStyle="ButtonRenderStyle.Link" Click="@(() => _showDates = !_showDates)" />
+    <Actions>
+        @* 기간 둘은 접어 둔다. 늘 펼치면 조건줄이 두 줄이 된다. *@
+        <DxButton Text="@(_showDates ? "기간 접기" : "기간 조건")"
+                  RenderStyle="ButtonRenderStyle.Link" Click="@(() => _showDates = !_showDates)" />
 
-    <PermissionView Action="MenuAction.Create">
-        <DxButton Text="고인 등록" RenderStyle="ButtonRenderStyle.Success" Click="@OpenNew" />
-    </PermissionView>
+        <PermissionView Action="MenuAction.Create">
+            <DxButton Text="고인 등록" RenderStyle="ButtonRenderStyle.Success" Click="@OpenNew" />
+        </PermissionView>
+    </Actions>
 </BuildingFilter>
 
 @if (_showDates)
@@ -82,96 +88,98 @@
     </div>
 }
 
-<CommGrd TItem="Deceased" Data="@_rows" PageSize="20">
-    <Columns>
-        <DxGridDataColumn FieldName="@nameof(Deceased.Name)" Caption="고인" MinWidth="120" />
-        <DxGridDataColumn Caption="성별" Width="80">
-            <CellDisplayTemplate Context="cell">
-                @(((Deceased)cell.DataItem).Gender == "FEMALE" ? "여" : "남")
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
-        <DxGridDataColumn FieldName="@nameof(Deceased.Age)" Caption="나이" Width="80" />
-        <DxGridDataColumn FieldName="@nameof(Deceased.Religion)" Caption="종교" Width="110" />
-        <DxGridDataColumn FieldName="@nameof(Deceased.RoomName)" Caption="호실" Width="130" />
-        <DxGridDataColumn FieldName="@nameof(Deceased.DeathDate)" Caption="임종" Width="120" DisplayFormat="yyyy-MM-dd" />
-        <DxGridDataColumn FieldName="@nameof(Deceased.FuneralDate)" Caption="발인" Width="150" DisplayFormat="yyyy-MM-dd HH:mm" />
-
-        <DxGridDataColumn Caption="상태" Width="110">
-            <CellDisplayTemplate Context="cell">
-                @{
-                    var d = (Deceased)cell.DataItem;
-                }
-                <span class="jsini-badge @StatusClass(d.Status)">@StatusText(d.Status)</span>
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
-        <DxGridDataColumn Caption="호실 이동" Width="230">
-            <CellDisplayTemplate Context="cell">
-                @{
-                    var d = (Deceased)cell.DataItem;
-                }
-                <PermissionView Action="MenuAction.Update">
-                    <div class="jsini-actions">
-                        @* 배정 가능한 호실만 나온다 — ACTIVE 이고 비어 있는 것.
-                           전체 호실을 보여 주면 이미 찬 방을 고르게 된다. *@
-                        <DxComboBox Data="@_available" Value="@GetTarget(d.Id)"
-                                    ValueChanged="@((string? v) => SetTarget(d.Id, v))"
-                                    ValueExpression="@(() => GetTarget(d.Id))"
-                                    TextFieldName="@nameof(Room.Name)" ValueFieldName="@nameof(Room.Id)"
-                                    NullText="옮길 호실" Style="width: 140px" />
-                        <DxButton Text="이동" RenderStyle="ButtonRenderStyle.Secondary"
-                                  Click="@(() => MoveAsync(d))" />
-                    </div>
-                </PermissionView>
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
-
-        <DxGridDataColumn Caption="발인" Width="150" AllowSort="false">
-            <CellDisplayTemplate Context="cell">
-                @{
-                    var d = (Deceased)cell.DataItem;
-                }
-                <PermissionView Action="MenuAction.Update">
-                    @if (IsDeparted(d.Status))
-                    {
-                        @* 발인은 되돌릴 수 있다 — 서버가 그 길을 열어 두었다.
-                           실수로 눌렀을 때 손쓸 방법이 있는 것과 없는 것은 다르다. *@
-                        <DxButton Text="발인 취소"
-                                  RenderStyle="ButtonRenderStyle.Secondary"
-                                  Click="@(() => CancelDepartureAsync(d))" />
-                    }
-                    else
-                    {
-                        <DxButton Text="발인 처리"
-                                  RenderStyle="ButtonRenderStyle.Secondary"
-                                  Click="@(() => DepartAsync(d))" />
-                    }
-                </PermissionView>
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
-
-        <DxGridDataColumn Caption="" Width="80" AllowSort="false">
-            <CellDisplayTemplate Context="cell">
-                @{
-                    var d = (Deceased)cell.DataItem;
-                }
-                <div class="jsini-actions">
-                    <PermissionView Action="MenuAction.Update">
-                        <DxButton Text="수정"
-                                  RenderStyle="ButtonRenderStyle.Secondary"
-                                  Click="@(() => OpenEdit(d))" />
-                    </PermissionView>
-                    <PermissionView Action="MenuAction.Delete">
-                        <DxButton Text="삭제"
-                                  RenderStyle="ButtonRenderStyle.Secondary"
-                                  Click="@(() => DeleteAsync(d))" />
-                    </PermissionView>
-                </div>
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
-    </Columns>
-</CommGrd>
-
 <PageNotice Text="@Notice" Tone="@Tone" />
+
+<CommCont>
+    <CommGrd TItem="Deceased" Data="@_rows" PageSize="20">
+        <Columns>
+            <DxGridDataColumn FieldName="@nameof(Deceased.Name)" Caption="고인" MinWidth="120" />
+            <DxGridDataColumn Caption="성별" Width="80">
+                <CellDisplayTemplate Context="cell">
+                    @(((Deceased)cell.DataItem).Gender == "FEMALE" ? "여" : "남")
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+            <DxGridDataColumn FieldName="@nameof(Deceased.Age)" Caption="나이" Width="80" />
+            <DxGridDataColumn FieldName="@nameof(Deceased.Religion)" Caption="종교" Width="110" />
+            <DxGridDataColumn FieldName="@nameof(Deceased.RoomName)" Caption="호실" Width="130" />
+            <DxGridDataColumn FieldName="@nameof(Deceased.DeathDate)" Caption="임종" Width="120" DisplayFormat="yyyy-MM-dd" />
+            <DxGridDataColumn FieldName="@nameof(Deceased.FuneralDate)" Caption="발인" Width="150" DisplayFormat="yyyy-MM-dd HH:mm" />
+
+            <DxGridDataColumn Caption="상태" Width="110">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var d = (Deceased)cell.DataItem;
+                    }
+                    <span class="jsini-badge @StatusClass(d.Status)">@StatusText(d.Status)</span>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+            <DxGridDataColumn Caption="호실 이동" Width="230">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var d = (Deceased)cell.DataItem;
+                    }
+                    <PermissionView Action="MenuAction.Update">
+                        <div class="jsini-actions">
+                            @* 배정 가능한 호실만 나온다 — ACTIVE 이고 비어 있는 것.
+                               전체 호실을 보여 주면 이미 찬 방을 고르게 된다. *@
+                            <DxComboBox Data="@_available" Value="@GetTarget(d.Id)"
+                                        ValueChanged="@((string? v) => SetTarget(d.Id, v))"
+                                        ValueExpression="@(() => GetTarget(d.Id))"
+                                        TextFieldName="@nameof(Room.Name)" ValueFieldName="@nameof(Room.Id)"
+                                        NullText="옮길 호실" Style="width: 140px" />
+                            <DxButton Text="이동" RenderStyle="ButtonRenderStyle.Secondary"
+                                      Click="@(() => MoveAsync(d))" />
+                        </div>
+                    </PermissionView>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn Caption="발인" Width="150" AllowSort="false">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var d = (Deceased)cell.DataItem;
+                    }
+                    <PermissionView Action="MenuAction.Update">
+                        @if (IsDeparted(d.Status))
+                        {
+                            @* 발인은 되돌릴 수 있다 — 서버가 그 길을 열어 두었다.
+                               실수로 눌렀을 때 손쓸 방법이 있는 것과 없는 것은 다르다. *@
+                            <DxButton Text="발인 취소"
+                                      RenderStyle="ButtonRenderStyle.Secondary"
+                                      Click="@(() => CancelDepartureAsync(d))" />
+                        }
+                        else
+                        {
+                            <DxButton Text="발인 처리"
+                                      RenderStyle="ButtonRenderStyle.Secondary"
+                                      Click="@(() => DepartAsync(d))" />
+                        }
+                    </PermissionView>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn Caption="" Width="80" AllowSort="false">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var d = (Deceased)cell.DataItem;
+                    }
+                    <div class="jsini-actions">
+                        <PermissionView Action="MenuAction.Update">
+                            <DxButton Text="수정"
+                                      RenderStyle="ButtonRenderStyle.Secondary"
+                                      Click="@(() => OpenEdit(d))" />
+                        </PermissionView>
+                        <PermissionView Action="MenuAction.Delete">
+                            <DxButton Text="삭제"
+                                      RenderStyle="ButtonRenderStyle.Secondary"
+                                      Click="@(() => DeleteAsync(d))" />
+                        </PermissionView>
+                    </div>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+        </Columns>
+    </CommGrd>
+</CommCont>
 
 <DeceasedEditor @bind-Visible="_editing" DeceasedId="@_editingId" Rooms="@_available"
                 OnSaved="@ReloadAsync" />

@@ -20,32 +20,38 @@
 
 @inject FuneralApi Api
 
-<div class="fn-filter">
-    <DxComboBox Data="@_buildings" @bind-Value="@BuildingId"
-                TextFieldName="@nameof(Building.Name)" ValueFieldName="@nameof(Building.Id)"
-                NullText="건물 전체" ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto"
-                Style="width: 180px" />
+<CommSch OnSearch="@Search" Actions="@Actions">
+    <Fields>
+        <CommSchItem Label="건물">
+            <DxComboBox Data="@_buildings" @bind-Value="@BuildingId"
+                        TextFieldName="@nameof(Building.Name)" ValueFieldName="@nameof(Building.Id)"
+                        NullText="전체" ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto"
+                        Style="width: 180px" />
+        </CommSchItem>
 
-    @if (ShowFloor)
-    {
-        <DxComboBox Data="@_floors" @bind-Value="@FloorId"
-                    TextFieldName="@nameof(Floor.Name)" ValueFieldName="@nameof(Floor.Id)"
-                    NullText="층 전체" ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto"
-                    Style="width: 140px" />
-    }
+        @if (ShowFloor)
+        {
+            <CommSchItem Label="층">
+                <DxComboBox Data="@_floors" @bind-Value="@FloorId"
+                            TextFieldName="@nameof(Floor.Name)" ValueFieldName="@nameof(Floor.Id)"
+                            NullText="전체" ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto"
+                            Style="width: 140px" />
+            </CommSchItem>
+        }
 
-    @if (ShowRoom)
-    {
-        <DxComboBox Data="@_rooms" @bind-Value="@RoomId"
-                    TextFieldName="@nameof(Room.Name)" ValueFieldName="@nameof(Room.Id)"
-                    NullText="호실 전체" ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto"
-                    Style="width: 160px" />
-    }
+        @if (ShowRoom)
+        {
+            <CommSchItem Label="호실">
+                <DxComboBox Data="@_rooms" @bind-Value="@RoomId"
+                            TextFieldName="@nameof(Room.Name)" ValueFieldName="@nameof(Room.Id)"
+                            NullText="전체" ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto"
+                            Style="width: 160px" />
+            </CommSchItem>
+        }
 
-    @ChildContent
-
-    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@(() => Search.InvokeAsync())" />
-</div>
+        @ChildContent
+    </Fields>
+</CommSch>
 
 @code {
     [Parameter] public string? BuildingId { get; set; }
@@ -62,6 +68,17 @@
 
     /// <summary>조건줄 오른쪽에 화면별 조건을 더 붙일 자리.</summary>
     [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    /// <summary>
+    /// 이 화면만의 단추(등록·일괄처리 따위). <b>조건이 아니라 조작이다.</b>
+    ///
+    /// <para>
+    /// 조건 사이에 끼우지 않는 이유는 자리가 흔들리기 때문이다 — 조건이
+    /// 하나 늘 때마다 단추가 옆으로 밀린다. 오른쪽 끝 묶음에 붙으면
+    /// 조건이 몇 개든 늘 같은 자리에 있다.
+    /// </para>
+    /// </summary>
+    [Parameter] public RenderFragment? Actions { get; set; }
 
     /// <summary>조회 단추를 눌렀을 때.</summary>
     [Parameter] public EventCallback Search { get; set; }

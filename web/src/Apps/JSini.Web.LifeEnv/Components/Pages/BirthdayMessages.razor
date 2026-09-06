@@ -16,38 +16,38 @@
 
 <PageTitle>생일 메시지 확인 · 생활과환경</PageTitle>
 
-<PageHeading Title="생일 메시지 확인" Scope="생활과환경" />
-
 <DxTabs @bind-ActiveTabIndex="_tabIndex" TabClick="@(_ => ReloadAsync())">
     <DxTabPage Text="받은 축하" />
     <DxTabPage Text="보낸 축하" />
     <DxTabPage Text="오늘의 축하" />
 </DxTabs>
 
-<CommGrd TItem="BirthdayMessage" Data="@_messages" PageSize="20">
-    <Columns>
-        <DxGridDataColumn FieldName="@nameof(BirthdayMessage.CreatedAt)" Caption="보낸 때" Width="150" DisplayFormat="yyyy-MM-dd HH:mm" />
-        <DxGridDataColumn Caption="@PersonCaption" MinWidth="160">
-            <CellDisplayTemplate Context="cell">
-                @{
-                    var m = (BirthdayMessage)cell.DataItem;
-                }
-                @(_tabIndex == 1 ? m.RecipientName : m.SenderName)
-                @if (Department(m) is { Length: > 0 } dept)
-                {
-                    <span class="le-dept">@dept</span>
-                }
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
-        @if (_tabIndex == 2)
-        {
-            <DxGridDataColumn FieldName="@nameof(BirthdayMessage.RecipientName)" Caption="받는 사람" Width="140" />
-        }
-        <DxGridDataColumn FieldName="@nameof(BirthdayMessage.Content)" Caption="내용" MinWidth="280" />
-    </Columns>
-</CommGrd>
-
 <PageNotice Text="@Notice" Tone="@Tone" />
+
+<CommCont>
+    <CommGrd TItem="BirthdayMessage" Data="@_messages" PageSize="20">
+        <Columns>
+            <DxGridDataColumn FieldName="@nameof(BirthdayMessage.CreatedAt)" Caption="보낸 때" Width="150" DisplayFormat="yyyy-MM-dd HH:mm" />
+            <DxGridDataColumn Caption="@PersonCaption" MinWidth="160">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var m = (BirthdayMessage)cell.DataItem;
+                    }
+                    @(_tabIndex == 1 ? m.RecipientName : m.SenderName)
+                    @if (Department(m) is { Length: > 0 } dept)
+                    {
+                        <span class="le-dept">@dept</span>
+                    }
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+            @if (_tabIndex == 2)
+            {
+                <DxGridDataColumn FieldName="@nameof(BirthdayMessage.RecipientName)" Caption="받는 사람" Width="140" />
+            }
+            <DxGridDataColumn FieldName="@nameof(BirthdayMessage.Content)" Caption="내용" MinWidth="280" />
+        </Columns>
+    </CommGrd>
+</CommCont>
 
 @code {
     private int _tabIndex;

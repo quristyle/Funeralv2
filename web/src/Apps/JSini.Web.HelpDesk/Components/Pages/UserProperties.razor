@@ -37,8 +37,6 @@
 
 <PageTitle>사용자 속성 · 헬프데스크</PageTitle>
 
-<PageHeading Title="사용자 속성" Scope="헬프데스크" />
-
 <div class="jsini-toolbar">
     <DxTextBox @bind-Text="_newKey" NullText="새 키" Style="width: 170px"
                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
@@ -65,36 +63,38 @@
                 Text="포털 계정에 이어진 헬프데스크 사용자가 없어 개인 설정을 저장할 수 없습니다. 「계정 연결」 화면에서 이어 주십시오." />
 }
 
-<CommGrd TItem="UserProperty" Data="@_rows" PageSize="20">
-    <Columns>
-        <DxGridDataColumn FieldName="@nameof(UserProperty.Key)" Caption="키" Width="240" />
+<CommCont>
+    <CommGrd TItem="UserProperty" Data="@_rows" PageSize="20">
+        <Columns>
+            <DxGridDataColumn FieldName="@nameof(UserProperty.Key)" Caption="키" Width="240" />
 
-        <DxGridDataColumn Caption="값" MinWidth="280">
-            <CellDisplayTemplate Context="cell">
-                @{
-                    var row = (UserProperty)cell.DataItem;
-                }
-                <DxTextBox Text="@row.Value"
-                           TextChanged="@((string v) => { row.Value = v; })"
-                           ReadOnly="@(!_linked)" />
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
+            <DxGridDataColumn Caption="값" MinWidth="280">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var row = (UserProperty)cell.DataItem;
+                    }
+                    <DxTextBox Text="@row.Value"
+                               TextChanged="@((string v) => { row.Value = v; })"
+                               ReadOnly="@(!_linked)" />
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
 
-        <DxGridDataColumn Caption="" Width="90" AllowSort="false">
-            <CellDisplayTemplate Context="cell">
-                @{
-                    var row = (UserProperty)cell.DataItem;
-                }
-                <PermissionView Action="MenuAction.Update">
-                    <DxButton Text="저장"
-                              RenderStyle="ButtonRenderStyle.Secondary"
-                              Enabled="@_linked"
-                              Click="@(() => SaveAsync(row))" />
-                </PermissionView>
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
-    </Columns>
-</CommGrd>
+            <DxGridDataColumn Caption="" Width="90" AllowSort="false">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var row = (UserProperty)cell.DataItem;
+                    }
+                    <PermissionView Action="MenuAction.Update">
+                        <DxButton Text="저장"
+                                  RenderStyle="ButtonRenderStyle.Secondary"
+                                  Enabled="@_linked"
+                                  Click="@(() => SaveAsync(row))" />
+                    </PermissionView>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+        </Columns>
+    </CommGrd>
+</CommCont>
 
 @code {
     /// <summary>속성 한 줄. 서버는 사전으로 주고받는다 — 표로 보이려고 편 것이다.</summary>

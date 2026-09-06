@@ -13,8 +13,6 @@
 
 <PageTitle>호실 사용 이력 · 장례식장</PageTitle>
 
-<PageHeading Title="호실 사용 이력" Scope="장례식장" />
-
 <BuildingFilter @bind-BuildingId="_buildingId" @bind-RoomId="_roomId" ShowRoom="true" Search="@ReloadAsync">
     <DxTextBox @bind-Text="_keyword" NullText="고인명 검색" Style="width: 180px"
                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
@@ -23,29 +21,31 @@
     <DxCheckBox @bind-Checked="_inUse">사용 중만</DxCheckBox>
 </BuildingFilter>
 
-<CommGrd TItem="RoomHistory" Data="@_rows" PageSize="20">
-    <Columns>
-        <DxGridDataColumn FieldName="@nameof(RoomHistory.BuildingName)" Caption="건물" Width="140" />
-        <DxGridDataColumn FieldName="@nameof(RoomHistory.RoomName)" Caption="호실" Width="120" />
-        <DxGridDataColumn FieldName="@nameof(RoomHistory.DeceasedName)" Caption="고인" MinWidth="120" />
-        <DxGridDataColumn FieldName="@nameof(RoomHistory.StartTime)" Caption="입실" Width="150" DisplayFormat="yyyy-MM-dd HH:mm" />
-        <DxGridDataColumn FieldName="@nameof(RoomHistory.EndTime)" Caption="퇴실" Width="150" DisplayFormat="yyyy-MM-dd HH:mm" />
-        <DxGridDataColumn FieldName="@nameof(RoomHistory.UseDays)" Caption="사용일" Width="90" />
-        <DxGridDataColumn FieldName="@nameof(RoomHistory.BurialPlot)" Caption="장지" MinWidth="130" />
-        <DxGridDataColumn Caption="상태" Width="100">
-            <CellDisplayTemplate>
-                @{
-                    var h = (RoomHistory)context.DataItem;
-                }
-                <span class="jsini-badge @(h.InUse ? "jsini-badge--on" : "jsini-badge--off")">
-                    @(h.InUse ? "사용 중" : "종료")
-                </span>
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
-    </Columns>
-</CommGrd>
-
 <PageNotice Text="@Notice" Tone="@Tone" />
+
+<CommCont>
+    <CommGrd TItem="RoomHistory" Data="@_rows" PageSize="20">
+        <Columns>
+            <DxGridDataColumn FieldName="@nameof(RoomHistory.BuildingName)" Caption="건물" Width="140" />
+            <DxGridDataColumn FieldName="@nameof(RoomHistory.RoomName)" Caption="호실" Width="120" />
+            <DxGridDataColumn FieldName="@nameof(RoomHistory.DeceasedName)" Caption="고인" MinWidth="120" />
+            <DxGridDataColumn FieldName="@nameof(RoomHistory.StartTime)" Caption="입실" Width="150" DisplayFormat="yyyy-MM-dd HH:mm" />
+            <DxGridDataColumn FieldName="@nameof(RoomHistory.EndTime)" Caption="퇴실" Width="150" DisplayFormat="yyyy-MM-dd HH:mm" />
+            <DxGridDataColumn FieldName="@nameof(RoomHistory.UseDays)" Caption="사용일" Width="90" />
+            <DxGridDataColumn FieldName="@nameof(RoomHistory.BurialPlot)" Caption="장지" MinWidth="130" />
+            <DxGridDataColumn Caption="상태" Width="100">
+                <CellDisplayTemplate>
+                    @{
+                        var h = (RoomHistory)context.DataItem;
+                    }
+                    <span class="jsini-badge @(h.InUse ? "jsini-badge--on" : "jsini-badge--off")">
+                        @(h.InUse ? "사용 중" : "종료")
+                    </span>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+        </Columns>
+    </CommGrd>
+</CommCont>
 
 @code {
     private string? _buildingId;

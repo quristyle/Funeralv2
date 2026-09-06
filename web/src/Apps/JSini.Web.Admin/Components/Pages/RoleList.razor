@@ -33,7 +33,14 @@
 
 <PageTitle>역할 관리 · 포털관리</PageTitle>
 
-<PageHeading Title="역할 관리" Scope="포털관리" />
+<CommSch>
+    <Fields>
+        <CommSchItem Label="검색어">
+            <DxTextBox @bind-Text="_keyword" NullText="역할 이름·식별자 검색" Style="width: 220px"
+                       ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        </CommSchItem>
+    </Fields>
+</CommSch>
 
 <CommGrd TItem="RoleDto"
          Data="@Shown"
@@ -44,11 +51,6 @@
          OnSave="@SaveAsync"
          OnDelete="@DeleteAsync"
          Reload="@ReloadAsync">
-    <Toolbar>
-        <DxTextBox @bind-Text="_keyword" NullText="역할 이름·식별자 검색" Style="width: 220px"
-                   ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
-    </Toolbar>
-
     <Columns>
         <DxGridDataColumn FieldName="@nameof(RoleDto.Id)" Caption="식별자" Width="170" />
         <DxGridDataColumn FieldName="@nameof(RoleDto.Name)" Caption="역할 이름" MinWidth="160" />

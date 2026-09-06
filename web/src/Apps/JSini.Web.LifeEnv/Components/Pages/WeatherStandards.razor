@@ -30,160 +30,164 @@
 
 <PageTitle>기상 판정 기준 · 생활과환경</PageTitle>
 
-<PageHeading Title="기상 판정 기준" Scope="생활과환경" />
+<CommSch>
+    <Fields>
+        <CommSchItem Label="검색어">
+            <DxTextBox @bind-Text="_keyword" NullText="명칭·조건 검색" Style="width: 220px"
+                       ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        </CommSchItem>
+    </Fields>
+</CommSch>
 
-<CommGrd TItem="WeatherStandard"
-         Data="@Shown"
-         EditFormTitle="판정 기준"
-         ExportName="판정기준"
-         PageSize="20"
-         OnNew="@FillNew"
-         OnSave="@SaveAsync"
-         OnDelete="@DeleteAsync"
-         Reload="@ReloadAsync">
-    <Toolbar>
-        <DxTextBox @bind-Text="_keyword" NullText="명칭·조건 검색" Style="width: 220px"
-                   ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
-    </Toolbar>
+<CommCont>
+    <CommGrd TItem="WeatherStandard"
+             Data="@Shown"
+             EditFormTitle="판정 기준"
+             ExportName="판정기준"
+             PageSize="20"
+             OnNew="@FillNew"
+             OnSave="@SaveAsync"
+             OnDelete="@DeleteAsync"
+             Reload="@ReloadAsync">
+        <Columns>
+            <DxGridDataColumn Caption="구분" Width="90">
+                <CellDisplayTemplate Context="cell">
+                    <span class="jsini-badge">@CategoryLabel(((WeatherStandard)cell.DataItem).Category)</span>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
 
-    <Columns>
-        <DxGridDataColumn Caption="구분" Width="90">
-            <CellDisplayTemplate Context="cell">
-                <span class="jsini-badge">@CategoryLabel(((WeatherStandard)cell.DataItem).Category)</span>
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
+            <DxGridDataColumn FieldName="@nameof(WeatherStandard.Name)" Caption="명칭" MinWidth="130" />
+            <DxGridDataColumn FieldName="@nameof(WeatherStandard.ConditionText)" Caption="조건" MinWidth="160" />
 
-        <DxGridDataColumn FieldName="@nameof(WeatherStandard.Name)" Caption="명칭" MinWidth="130" />
-        <DxGridDataColumn FieldName="@nameof(WeatherStandard.ConditionText)" Caption="조건" MinWidth="160" />
-
-        <DxGridDataColumn Caption="판정" MinWidth="220">
-            <CellDisplayTemplate Context="cell">
-                @{
-                    var row = (WeatherStandard)cell.DataItem;
-                }
-                <div class="lf-threshold">
-                    <span class="jsini-badge">@OperatorLabel(row.Operator)</span>
-                    <strong>@ThresholdText(row)</strong>
-                    <small>@row.Unit</small>
-
-                    @if (row.Duration is > 0)
-                    {
-                        <span class="lf-threshold__note">@row.Duration 일 이상</span>
+            <DxGridDataColumn Caption="판정" MinWidth="220">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var row = (WeatherStandard)cell.DataItem;
                     }
+                    <div class="lf-threshold">
+                        <span class="jsini-badge">@OperatorLabel(row.Operator)</span>
+                        <strong>@ThresholdText(row)</strong>
+                        <small>@row.Unit</small>
 
-                    @if (row.UseSensibleTemp)
-                    {
-                        <span class="jsini-badge jsini-badge--warn">체감온도</span>
+                        @if (row.Duration is > 0)
+                        {
+                            <span class="lf-threshold__note">@row.Duration 일 이상</span>
+                        }
+
+                        @if (row.UseSensibleTemp)
+                        {
+                            <span class="jsini-badge jsini-badge--warn">체감온도</span>
+                        }
+                    </div>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn Caption="작업상태" Width="110">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var row = (WeatherStandard)cell.DataItem;
                     }
-                </div>
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
+                    <span class="jsini-badge @StatusClass(row.WorkStatus)">@StatusLabel(row.WorkStatus)</span>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
 
-        <DxGridDataColumn Caption="작업상태" Width="110">
-            <CellDisplayTemplate Context="cell">
-                @{
-                    var row = (WeatherStandard)cell.DataItem;
+            <DxGridDataColumn FieldName="@nameof(WeatherStandard.SortOrder)" Caption="순서" Width="70" />
+        </Columns>
+
+        <EditFormTemplate Context="edit">
+            @{
+                var std = (WeatherStandard)edit.EditModel;
+            }
+            <DxFormLayout CssClass="lf-editform">
+                <DxFormLayoutItem Caption="구분" ColSpanMd="4">
+                    <DxComboBox Data="@Categories" @bind-Value="std.Category"
+                                TextFieldName="Text" ValueFieldName="Value" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="명칭" ColSpanMd="8">
+                    <DxTextBox @bind-Text="std.Name" NullText="강풍 주의" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="조건 설명" ColSpanMd="12">
+                    @* 사람이 읽는 문장이다. 대응 요령 화면이 「언제 나가는가」를
+                       이 문장으로 보여 준다. *@
+                    <DxTextBox @bind-Text="std.ConditionText" NullText="순간 풍속 14m/s 이상" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="연산자" ColSpanMd="4">
+                    <DxComboBox Data="@Operators" @bind-Value="std.Operator"
+                                TextFieldName="Text" ValueFieldName="Value" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="@(NeedsTwo(std.Operator) ? "값 1" : "임계값")" ColSpanMd="4">
+                    <DxSpinEdit @bind-Value="std.ThresholdValue" />
+                </DxFormLayoutItem>
+
+                @if (NeedsTwo(std.Operator))
+                {
+                    <DxFormLayoutItem Caption="@(IsDiff(std.Operator) ? "차이" : "값 2")" ColSpanMd="4">
+                        <DxSpinEdit @bind-Value="std.ThresholdValue2" />
+                    </DxFormLayoutItem>
                 }
-                <span class="jsini-badge @StatusClass(row.WorkStatus)">@StatusLabel(row.WorkStatus)</span>
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
+                else
+                {
+                    <DxFormLayoutItem Caption="단위" ColSpanMd="4">
+                        <DxTextBox @bind-Text="std.Unit" NullText="m/s · mm · ℃" />
+                    </DxFormLayoutItem>
+                }
 
-        <DxGridDataColumn FieldName="@nameof(WeatherStandard.SortOrder)" Caption="순서" Width="70" />
-    </Columns>
+                @if (NeedsTwo(std.Operator))
+                {
+                    <DxFormLayoutItem Caption="단위" ColSpanMd="4">
+                        <DxTextBox @bind-Text="std.Unit" NullText="m/s · mm · ℃" />
+                    </DxFormLayoutItem>
+                }
 
-    <EditFormTemplate Context="edit">
-        @{
-            var std = (WeatherStandard)edit.EditModel;
-        }
-        <DxFormLayout CssClass="lf-editform">
-            <DxFormLayoutItem Caption="구분" ColSpanMd="4">
-                <DxComboBox Data="@Categories" @bind-Value="std.Category"
-                            TextFieldName="Text" ValueFieldName="Value" />
-            </DxFormLayoutItem>
-
-            <DxFormLayoutItem Caption="명칭" ColSpanMd="8">
-                <DxTextBox @bind-Text="std.Name" NullText="강풍 주의" />
-            </DxFormLayoutItem>
-
-            <DxFormLayoutItem Caption="조건 설명" ColSpanMd="12">
-                @* 사람이 읽는 문장이다. 대응 요령 화면이 「언제 나가는가」를
-                   이 문장으로 보여 준다. *@
-                <DxTextBox @bind-Text="std.ConditionText" NullText="순간 풍속 14m/s 이상" />
-            </DxFormLayoutItem>
-
-            <DxFormLayoutItem Caption="연산자" ColSpanMd="4">
-                <DxComboBox Data="@Operators" @bind-Value="std.Operator"
-                            TextFieldName="Text" ValueFieldName="Value" />
-            </DxFormLayoutItem>
-
-            <DxFormLayoutItem Caption="@(NeedsTwo(std.Operator) ? "값 1" : "임계값")" ColSpanMd="4">
-                <DxSpinEdit @bind-Value="std.ThresholdValue" />
-            </DxFormLayoutItem>
-
-            @if (NeedsTwo(std.Operator))
-            {
-                <DxFormLayoutItem Caption="@(IsDiff(std.Operator) ? "차이" : "값 2")" ColSpanMd="4">
-                    <DxSpinEdit @bind-Value="std.ThresholdValue2" />
-                </DxFormLayoutItem>
-            }
-            else
-            {
-                <DxFormLayoutItem Caption="단위" ColSpanMd="4">
-                    <DxTextBox @bind-Text="std.Unit" NullText="m/s · mm · ℃" />
-                </DxFormLayoutItem>
-            }
-
-            @if (NeedsTwo(std.Operator))
-            {
-                <DxFormLayoutItem Caption="단위" ColSpanMd="4">
-                    <DxTextBox @bind-Text="std.Unit" NullText="m/s · mm · ℃" />
-                </DxFormLayoutItem>
-            }
-
-            <DxFormLayoutItem Caption="작업상태" ColSpanMd="4">
-                <DxComboBox Data="@Statuses" @bind-Value="std.WorkStatus"
-                            TextFieldName="Text" ValueFieldName="Value"
-                            NullText="정하지 않음"
-                            ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
-            </DxFormLayoutItem>
-
-            <DxFormLayoutItem Caption="지속(일)" ColSpanMd="4">
-                @* 폭염·한파처럼 「며칠 이어져야」 걸리는 기준이 있다.
-                   비우면 한 번만 넘어도 걸린다. *@
-                <DxSpinEdit @bind-Value="std.Duration" MinValue="0" NullText="즉시" />
-            </DxFormLayoutItem>
-
-            <DxFormLayoutItem Caption="순서" ColSpanMd="4">
-                <DxSpinEdit @bind-Value="std.SortOrder" MinValue="0" />
-            </DxFormLayoutItem>
-
-            <DxFormLayoutItem Caption="재발송 대기(분)" ColSpanMd="4">
-                @* 0 이면 실황을 읽을 때마다 알린다. 한파처럼 오래 이어지는
-                   기준에서 그러면 알림이 쏟아진다. *@
-                <DxSpinEdit @bind-Value="std.NotificationInterval" MinValue="0" NullText="매번" />
-            </DxFormLayoutItem>
-
-            <DxFormLayoutItem Caption="체감온도" ColSpanMd="8">
-                <DxCheckBox @bind-Checked="std.UseSensibleTemp">
-                    기온 대신 체감온도로 견준다
-                </DxCheckBox>
-            </DxFormLayoutItem>
-
-            @if (string.Equals(std.Category, "COLD", StringComparison.OrdinalIgnoreCase))
-            {
-                @* 한파만 쓰는 복합 조건이다. 다른 구분에서 보여 주면 무슨
-                   값인지 알 수 없는 칸이 둘 는다. *@
-                <DxFormLayoutItem Caption="전일 대비 하강" ColSpanMd="6">
-                    <DxSpinEdit @bind-Value="std.PrevDayDiff" NullText="쓰지 않음" />
+                <DxFormLayoutItem Caption="작업상태" ColSpanMd="4">
+                    <DxComboBox Data="@Statuses" @bind-Value="std.WorkStatus"
+                                TextFieldName="Text" ValueFieldName="Value"
+                                NullText="정하지 않음"
+                                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
                 </DxFormLayoutItem>
 
-                <DxFormLayoutItem Caption="평년 대비 차이" ColSpanMd="6">
-                    <DxSpinEdit @bind-Value="std.AvgYearDiff" NullText="쓰지 않음" />
+                <DxFormLayoutItem Caption="지속(일)" ColSpanMd="4">
+                    @* 폭염·한파처럼 「며칠 이어져야」 걸리는 기준이 있다.
+                       비우면 한 번만 넘어도 걸린다. *@
+                    <DxSpinEdit @bind-Value="std.Duration" MinValue="0" NullText="즉시" />
                 </DxFormLayoutItem>
-            }
-        </DxFormLayout>
-    </EditFormTemplate>
-</CommGrd>
+
+                <DxFormLayoutItem Caption="순서" ColSpanMd="4">
+                    <DxSpinEdit @bind-Value="std.SortOrder" MinValue="0" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="재발송 대기(분)" ColSpanMd="4">
+                    @* 0 이면 실황을 읽을 때마다 알린다. 한파처럼 오래 이어지는
+                       기준에서 그러면 알림이 쏟아진다. *@
+                    <DxSpinEdit @bind-Value="std.NotificationInterval" MinValue="0" NullText="매번" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="체감온도" ColSpanMd="8">
+                    <DxCheckBox @bind-Checked="std.UseSensibleTemp">
+                        기온 대신 체감온도로 견준다
+                    </DxCheckBox>
+                </DxFormLayoutItem>
+
+                @if (string.Equals(std.Category, "COLD", StringComparison.OrdinalIgnoreCase))
+                {
+                    @* 한파만 쓰는 복합 조건이다. 다른 구분에서 보여 주면 무슨
+                       값인지 알 수 없는 칸이 둘 는다. *@
+                    <DxFormLayoutItem Caption="전일 대비 하강" ColSpanMd="6">
+                        <DxSpinEdit @bind-Value="std.PrevDayDiff" NullText="쓰지 않음" />
+                    </DxFormLayoutItem>
+
+                    <DxFormLayoutItem Caption="평년 대비 차이" ColSpanMd="6">
+                        <DxSpinEdit @bind-Value="std.AvgYearDiff" NullText="쓰지 않음" />
+                    </DxFormLayoutItem>
+                }
+            </DxFormLayout>
+        </EditFormTemplate>
+    </CommGrd>
+</CommCont>
 
 @code {
     private IReadOnlyList<WeatherStandard> _all = [];

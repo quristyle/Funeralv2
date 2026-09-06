@@ -458,6 +458,154 @@
   margin-right: 0.4rem;
 }
 
+/* ── 공지 팝업 (NoticeView) ───────────────────────────────
+
+   사용자에게 공지가 실제로 보이는 창. 관리 화면의 미리보기가 같은 것을 쓴다.
+
+   본문이 서식 편집기로 쓴 HTML 이라 **여기서 그 서식의 모양을 정한다.**
+   테마 CSS 는 DevExpress 부품만 겨누므로 `<h2>`·`<ul>`·`<table>` 같은 것은
+   브라우저 기본값으로 나온다 — 그대로 두면 제목이 본문보다 두 배 크고
+   목록에 점이 안 붙는다(테마 reset 이 `list-style` 을 지운다).
+   ---------------------------------------------------------- */
+
+.ad-notice__title {
+  min-width: 0;
+}
+
+.ad-notice__meta {
+  margin-top: 0.15rem;
+  font-size: var(--jsini-fs-xs);
+  font-weight: 400;
+  color: var(--jsini-text-muted);
+}
+
+.ad-notice__foot {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.ad-notice__gap { flex: 1; }
+
+/* 한 줄짜리 공지도 있다. 최소 높이가 없으면 창이 제목 줄만 하게 쪼그라들어
+   공지가 아니라 알림처럼 보인다. 최대 높이는 창(86vh)이 이미 잡고 있고,
+   여기서는 넘칠 때 본문만 구르게 한다 — 창째로 구르면 제목이 밀려 올라간다. */
+.ad-notice__body {
+  min-height: 8.5rem;
+  max-height: 56vh;
+  overflow-y: auto;
+  line-height: 1.7;
+}
+
+.ad-notice__body > :first-child { margin-top: 0; }
+.ad-notice__body > :last-child { margin-bottom: 0; }
+
+.ad-notice__body p { margin: 0 0 0.6rem; }
+
+.ad-notice__body h1,
+.ad-notice__body h2,
+.ad-notice__body h3,
+.ad-notice__body h4 {
+  margin: 0.9rem 0 0.4rem;
+  font-weight: 600;
+}
+
+.ad-notice__body h1 { font-size: var(--jsini-fs-xl); }
+.ad-notice__body h2 { font-size: var(--jsini-fs-lg); }
+.ad-notice__body h3,
+.ad-notice__body h4 { font-size: var(--jsini-fs-md); }
+
+.ad-notice__body ul,
+.ad-notice__body ol {
+  margin: 0 0 0.6rem;
+  padding-left: 1.4rem;
+  list-style: revert;
+}
+
+.ad-notice__body blockquote {
+  margin: 0 0 0.6rem;
+  padding-left: 0.75rem;
+  border-left: 3px solid var(--jsini-border);
+  color: var(--jsini-text-muted);
+}
+
+.ad-notice__body pre {
+  margin: 0 0 0.6rem;
+  padding: 0.5rem 0.75rem;
+  overflow-x: auto;
+  background: var(--jsini-surface);
+  border-radius: 0.25rem;
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  font-size: var(--jsini-fs-sm);
+}
+
+.ad-notice__body img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.25rem;
+}
+
+.ad-notice__body a {
+  color: var(--jsini-accent);
+  text-decoration: underline;
+}
+
+.ad-notice__body table {
+  width: 100%;
+  margin: 0 0 0.6rem;
+  border-collapse: collapse;
+}
+
+.ad-notice__body th,
+.ad-notice__body td {
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--jsini-border);
+  text-align: left;
+}
+
+.ad-notice__body th {
+  font-weight: 600;
+  background: var(--jsini-surface);
+}
+
+/* 공지가 여럿일 때 어디쯤인지 알려 주는 점들. 지금 보는 것만 길쭉해진다 —
+   색으로만 가르면 옅은 테마에서 켜진 점과 꺼진 점이 구분되지 않는다. */
+.ad-notice__dots {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.ad-notice__dot {
+  width: 0.4rem;
+  height: 0.4rem;
+  padding: 0;
+  border: 0;
+  border-radius: 9999px;
+  background: color-mix(in srgb, currentcolor 30%, transparent);
+  cursor: pointer;
+  transition: width 0.15s, background-color 0.15s;
+}
+
+.ad-notice__dot:hover {
+  background: color-mix(in srgb, currentcolor 55%, transparent);
+}
+
+.ad-notice__dot.is-on {
+  width: 1rem;
+  background: var(--jsini-accent);
+}
+
+/* ── 공지 본문 편집기 (DxHtmlEditor) ──────────────────────
+
+   등록·수정 창 안에 들어간다. 창이 폼 높이를 따라 자라므로 편집기에 높이를
+   주지 않으면 글이 늘어날 때마다 창이 화면 밖까지 자란다.
+   ---------------------------------------------------------- */
+
+.ad-notice-editor {
+  height: 20rem;
+}
+
 /* 이미지 정리 확인 창의 목록 (D17).
    태그가 수십 개일 수 있어 창이 화면 밖으로 자라지 않게 여기서만 구른다. */
 .ad-cleanup-list {

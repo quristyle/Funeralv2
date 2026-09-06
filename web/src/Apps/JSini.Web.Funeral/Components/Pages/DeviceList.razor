@@ -57,13 +57,13 @@
 
 <PageTitle>기기 관리 · 장례식장</PageTitle>
 
-<PageHeading Title="기기 관리" Scope="장례식장" />
-
 <BuildingFilter @bind-BuildingId="_buildingId" @bind-FloorId="_floorId" @bind-RoomId="_roomId"
                 ShowFloor="true" ShowRoom="true" Search="@ReloadAsync">
-    <PermissionView Action="MenuAction.Create">
-        <DxButton Text="기기 등록" RenderStyle="ButtonRenderStyle.Success" Click="@OpenNew" />
-    </PermissionView>
+    <Actions>
+        <PermissionView Action="MenuAction.Create">
+            <DxButton Text="기기 등록" RenderStyle="ButtonRenderStyle.Success" Click="@OpenNew" />
+        </PermissionView>
+    </Actions>
 </BuildingFilter>
 
 <div class="jsini-stats">
@@ -79,68 +79,70 @@
 
 <PageNotice Text="@Notice" Tone="@Tone" />
 
-<CommGrd TItem="Device" Data="@_devices" PageSize="20"
-         SelectedDataItemChanged="@((object? item) => SelectAsync(item as Device))">
-    <Columns>
-        <DxGridDataColumn FieldName="@nameof(Device.Code)" Caption="코드" Width="120" />
-        <DxGridDataColumn FieldName="@nameof(Device.Name)" Caption="기기명" MinWidth="160" />
-        <DxGridDataColumn FieldName="@nameof(Device.RoomName)" Caption="호실" Width="130" />
-        <DxGridDataColumn FieldName="@nameof(Device.DeviceType)" Caption="종류" Width="110">
-            <CellDisplayTemplate>
-                @{ var d = (Device)context.DataItem; }
-                <span>@TypeName(d.DeviceType)</span>
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
-        <DxGridDataColumn FieldName="@nameof(Device.IpAddress)" Caption="IP" Width="140" />
-        <DxGridDataColumn FieldName="@nameof(Device.Status)" Caption="상태" Width="100">
-            <CellDisplayTemplate>
-                @{ var d = (Device)context.DataItem; }
-                <span class="jsini-badge @(d.Status == "ONLINE" ? "jsini-badge--on" : "jsini-badge--off")">
-                    @(d.Status == "ONLINE" ? "온라인" : "오프라인")
-                </span>
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
-        <DxGridDataColumn FieldName="@nameof(Device.LastSeenAt)" Caption="최근 연결" Width="150" DisplayFormat="yyyy-MM-dd HH:mm" />
-        <DxGridDataColumn Caption="관리" Width="130" AllowSort="false">
-            <CellDisplayTemplate>
-                @{ var d = (Device)context.DataItem; }
-                <div class="jsini-actions">
-                    <PermissionView Action="MenuAction.Update">
-                        <DxButton Text="수정"
-                                  RenderStyle="ButtonRenderStyle.Secondary"
-                                  Click="@(() => OpenEdit(d))" />
-                    </PermissionView>
-                    <PermissionView Action="MenuAction.Delete">
-                        <DxButton Text="삭제"
-                                  RenderStyle="ButtonRenderStyle.Secondary"
-                                  Click="@(() => DeleteAsync(d))" />
-                    </PermissionView>
-                </div>
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
-
-        <DxGridDataColumn Caption="원격" Width="270">
-            <CellDisplayTemplate>
-                @{ var d = (Device)context.DataItem; }
-                <PermissionView Action="MenuAction.Update">
+<CommCont>
+    <CommGrd TItem="Device" Data="@_devices" PageSize="20"
+             SelectedDataItemChanged="@((object? item) => SelectAsync(item as Device))">
+        <Columns>
+            <DxGridDataColumn FieldName="@nameof(Device.Code)" Caption="코드" Width="120" />
+            <DxGridDataColumn FieldName="@nameof(Device.Name)" Caption="기기명" MinWidth="160" />
+            <DxGridDataColumn FieldName="@nameof(Device.RoomName)" Caption="호실" Width="130" />
+            <DxGridDataColumn FieldName="@nameof(Device.DeviceType)" Caption="종류" Width="110">
+                <CellDisplayTemplate>
+                    @{ var d = (Device)context.DataItem; }
+                    <span>@TypeName(d.DeviceType)</span>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+            <DxGridDataColumn FieldName="@nameof(Device.IpAddress)" Caption="IP" Width="140" />
+            <DxGridDataColumn FieldName="@nameof(Device.Status)" Caption="상태" Width="100">
+                <CellDisplayTemplate>
+                    @{ var d = (Device)context.DataItem; }
+                    <span class="jsini-badge @(d.Status == "ONLINE" ? "jsini-badge--on" : "jsini-badge--off")">
+                        @(d.Status == "ONLINE" ? "온라인" : "오프라인")
+                    </span>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+            <DxGridDataColumn FieldName="@nameof(Device.LastSeenAt)" Caption="최근 연결" Width="150" DisplayFormat="yyyy-MM-dd HH:mm" />
+            <DxGridDataColumn Caption="관리" Width="130" AllowSort="false">
+                <CellDisplayTemplate>
+                    @{ var d = (Device)context.DataItem; }
                     <div class="jsini-actions">
-                        @* 화면 전원은 DB 에 남지 않는 즉시 명령이다. *@
-                        <DxButton Text="켜기" RenderStyle="ButtonRenderStyle.Secondary"
-                                  Click="@(() => PowerAsync(d.Code, "ON"))" />
-                        <DxButton Text="끄기" RenderStyle="ButtonRenderStyle.Secondary"
-                                  Click="@(() => PowerAsync(d.Code, "OFF"))" />
-                        <DxButton Text="재시작" RenderStyle="ButtonRenderStyle.Secondary"
-                                  Click="@(() => RestartAsync(d.Code))" />
-                        @* 새 판이 없으면 아무 일도 일어나지 않는다 — 릴리스 판정은
-                           플레이어가 스스로 한다. 그래서 확인 창을 두지 않는다. *@
-                        <DxButton Text="업데이트" RenderStyle="ButtonRenderStyle.Secondary"
-                                  Click="@(() => UpdateNowAsync(d.Code))" />
+                        <PermissionView Action="MenuAction.Update">
+                            <DxButton Text="수정"
+                                      RenderStyle="ButtonRenderStyle.Secondary"
+                                      Click="@(() => OpenEdit(d))" />
+                        </PermissionView>
+                        <PermissionView Action="MenuAction.Delete">
+                            <DxButton Text="삭제"
+                                      RenderStyle="ButtonRenderStyle.Secondary"
+                                      Click="@(() => DeleteAsync(d))" />
+                        </PermissionView>
                     </div>
-                </PermissionView>
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
-    </Columns>
-</CommGrd>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn Caption="원격" Width="270">
+                <CellDisplayTemplate>
+                    @{ var d = (Device)context.DataItem; }
+                    <PermissionView Action="MenuAction.Update">
+                        <div class="jsini-actions">
+                            @* 화면 전원은 DB 에 남지 않는 즉시 명령이다. *@
+                            <DxButton Text="켜기" RenderStyle="ButtonRenderStyle.Secondary"
+                                      Click="@(() => PowerAsync(d.Code, "ON"))" />
+                            <DxButton Text="끄기" RenderStyle="ButtonRenderStyle.Secondary"
+                                      Click="@(() => PowerAsync(d.Code, "OFF"))" />
+                            <DxButton Text="재시작" RenderStyle="ButtonRenderStyle.Secondary"
+                                      Click="@(() => RestartAsync(d.Code))" />
+                            @* 새 판이 없으면 아무 일도 일어나지 않는다 — 릴리스 판정은
+                               플레이어가 스스로 한다. 그래서 확인 창을 두지 않는다. *@
+                            <DxButton Text="업데이트" RenderStyle="ButtonRenderStyle.Secondary"
+                                      Click="@(() => UpdateNowAsync(d.Code))" />
+                        </div>
+                    </PermissionView>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+        </Columns>
+    </CommGrd>
+</CommCont>
 
 <DeviceEditor @bind-Visible="_editing" DeviceId="@_editingId" OnSaved="@ReloadAsync" />
 

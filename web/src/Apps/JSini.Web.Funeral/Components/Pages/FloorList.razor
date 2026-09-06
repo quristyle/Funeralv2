@@ -21,64 +21,64 @@
 
 <PageTitle>층 관리 · 장례식장</PageTitle>
 
-<PageHeading Title="층 관리" Scope="장례식장" />
-
 <BuildingFilter @bind-BuildingId="_buildingId" Search="@ReloadAsync" />
 
-<CommGrd TItem="Floor"
-         Data="@_floors"
-         EditFormTitle="층"
-         ExportName="층"
-         PageSize="20"
-         OnNew="@FillNew"
-         OnSave="@SaveAsync"
-         OnDelete="@DeleteAsync"
-         Reload="@ReloadAsync">
-    <Columns>
-        <DxGridDataColumn FieldName="@nameof(Floor.BuildingName)" Caption="건물" Width="180" />
-        <DxGridDataColumn FieldName="@nameof(Floor.Name)" Caption="층" MinWidth="140" />
-        <DxGridDataColumn FieldName="@nameof(Floor.SortOrder)" Caption="정렬" Width="80" />
+<CommCont>
+    <CommGrd TItem="Floor"
+             Data="@_floors"
+             EditFormTitle="층"
+             ExportName="층"
+             PageSize="20"
+             OnNew="@FillNew"
+             OnSave="@SaveAsync"
+             OnDelete="@DeleteAsync"
+             Reload="@ReloadAsync">
+        <Columns>
+            <DxGridDataColumn FieldName="@nameof(Floor.BuildingName)" Caption="건물" Width="180" />
+            <DxGridDataColumn FieldName="@nameof(Floor.Name)" Caption="층" MinWidth="140" />
+            <DxGridDataColumn FieldName="@nameof(Floor.SortOrder)" Caption="정렬" Width="80" />
 
-        <DxGridDataColumn Caption="호실" Width="70">
-            <CellDisplayTemplate Context="cell">
-                @{
-                    var f = (Floor)cell.DataItem;
-                }
-                @_roomCount.GetValueOrDefault(f.Id)
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
+            <DxGridDataColumn Caption="호실" Width="70">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var f = (Floor)cell.DataItem;
+                    }
+                    @_roomCount.GetValueOrDefault(f.Id)
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
 
-        <DxGridDataColumn FieldName="@nameof(Floor.Remark)" Caption="비고" MinWidth="200" />
-    </Columns>
+            <DxGridDataColumn FieldName="@nameof(Floor.Remark)" Caption="비고" MinWidth="200" />
+        </Columns>
 
-    <EditFormTemplate Context="edit">
-        @{
-            var f = (Floor)edit.EditModel;
-        }
-        <DxFormLayout CssClass="fn-editform">
-            <DxFormLayoutItem Caption="건물" ColSpanMd="12">
-                <DxComboBox Data="@_buildings" @bind-Value="f.BuildingId"
-                            TextFieldName="@nameof(Building.Name)"
-                            ValueFieldName="@nameof(Building.Id)"
-                            NullText="건물을 고르십시오" />
-            </DxFormLayoutItem>
+        <EditFormTemplate Context="edit">
+            @{
+                var f = (Floor)edit.EditModel;
+            }
+            <DxFormLayout CssClass="fn-editform">
+                <DxFormLayoutItem Caption="건물" ColSpanMd="12">
+                    <DxComboBox Data="@_buildings" @bind-Value="f.BuildingId"
+                                TextFieldName="@nameof(Building.Name)"
+                                ValueFieldName="@nameof(Building.Id)"
+                                NullText="건물을 고르십시오" />
+                </DxFormLayoutItem>
 
-            <DxFormLayoutItem Caption="층 이름" ColSpanMd="8">
-                <DxTextBox @bind-Text="f.Name" NullText="1층 · 지하1층" />
-            </DxFormLayoutItem>
+                <DxFormLayoutItem Caption="층 이름" ColSpanMd="8">
+                    <DxTextBox @bind-Text="f.Name" NullText="1층 · 지하1층" />
+                </DxFormLayoutItem>
 
-            <DxFormLayoutItem Caption="정렬" ColSpanMd="4">
-                @* 이름으로 세우면 「지하1층」이 「1층」보다 앞에 온다. 그래서
-                   순서를 값으로 따로 둔다. *@
-                <DxSpinEdit @bind-Value="f.SortOrder" MinValue="0" />
-            </DxFormLayoutItem>
+                <DxFormLayoutItem Caption="정렬" ColSpanMd="4">
+                    @* 이름으로 세우면 「지하1층」이 「1층」보다 앞에 온다. 그래서
+                       순서를 값으로 따로 둔다. *@
+                    <DxSpinEdit @bind-Value="f.SortOrder" MinValue="0" />
+                </DxFormLayoutItem>
 
-            <DxFormLayoutItem Caption="비고" ColSpanMd="12">
-                <DxMemo @bind-Text="f.Remark" Rows="3" />
-            </DxFormLayoutItem>
-        </DxFormLayout>
-    </EditFormTemplate>
-</CommGrd>
+                <DxFormLayoutItem Caption="비고" ColSpanMd="12">
+                    <DxMemo @bind-Text="f.Remark" Rows="3" />
+                </DxFormLayoutItem>
+            </DxFormLayout>
+        </EditFormTemplate>
+    </CommGrd>
+</CommCont>
 
 @code {
     private string? _buildingId;

@@ -28,11 +28,20 @@
     가로 스크롤 저편으로 밀려나고, 화면마다 조건 자리가 달라진다.
     `CommCont` 로 감싸야 표가 본문 높이를 꽉 채우고 쪽 스크롤이 안 생긴다.
 
-    [첨부와 서식 본문은 아직 없다]
+    [본문은 서식 편집기다]
 
-    옛 화면은 첨부파일을 FileServer 에 올리고 본문을 서식 편집기로 썼다.
-    그 둘은 결정 목록 D5(첨부)에 적어 두었다 — 지금은 여러 줄 입력이다.
-    본문에 HTML 이 들어 있어도 **태그를 걷어내고** 보여 준다.
+    옛 화면과 같이 본문을 `DxHtmlEditor` 로 쓴다. DB 의 `notices.content` 는
+    처음부터 HTML 을 담는 칸이었고(엔티티 주석도 그렇게 적혀 있다), 여러 줄
+    입력으로 두는 동안에는 옛 공지에 든 태그가 글자로 보였다.
+
+    **`DxRichEdit` 이 아니다.** 그쪽은 문서(docx·rtf)를 다루는 부품이라
+    `DevExpress.Blazor.RichEdit` 패키지를 하나 더 끌고 오고, 내보내는 것도
+    HTML 조각이 아니라 문서다. 우리가 저장하는 것은 HTML 조각이다.
+
+    [첨부는 아직 없다]
+
+    옛 화면은 첨부파일을 FileServer 에 올렸다. 결정 목록 D5 에 적어 두었고,
+    붙일 때는 `FilePicker` 를 쓴다 — 백엔드는 이미 `notice_files` 를 들고 있다.
 *@
 
 @inherits DataPage
@@ -61,6 +70,16 @@
              OnSave="@SaveAsync"
              OnDelete="@DeleteAsync"
              Reload="@ReloadAsync">
+
+        @* 관리 칸의 「수정」 앞에 미리보기를 하나 더 둔다. 제목 칸에 끼워 넣지
+           않는 이유는 조작이 늘 오른쪽 끝에 있어야 찾을 수 있기 때문이다. *@
+        <RowActions Context="row">
+            <DxButton IconCssClass="jsini-icon-eye"
+                      Title="공지 미리보기"
+                      RenderStyle="ButtonRenderStyle.Link"
+                      Click="@(() => Preview(row))" />
+        </RowActions>
+
         <Columns>
             <DxGridDataColumn FieldName="@nameof(NoticeDto.Title)" Caption="제목" MinWidth="220">
                 <CellDisplayTemplate Context="cell">
@@ -106,8 +125,15 @@
                     <DxTextBox @bind-Text="n.Title" NullText="공지 제목" />
                 </DxFormLayoutItem>
 
+                @* 값을 흘려보내는 시점을 OnDelayedInput 으로 바꾼다. 기본값
+                   (OnLostFocus)이면 마지막으로 친 글이 편집기 안에 남아 있는
+                   채로 저장이 돌 수 있다 — 팝업의 「저장」은 편집기 바깥이라
+                   초점이 빠지기는 하지만, 그 순서를 기대고 있으면 안 된다. *@
                 <DxFormLayoutItem Caption="내용" ColSpanMd="12">
-                    <DxMemo @bind-Text="n.Content" Rows="10" NullText="공지 내용" />
+                    <DxHtmlEditor @bind-Markup="n.Content"
+                                  BindMarkupMode="HtmlEditorBindMarkupMode.OnDelayedInput"
+                                  CssClass="ad-notice-editor"
+                                  NullText="공지 내용" />
                 </DxFormLayoutItem>
 
                 <DxFormLayoutItem Caption="게시 시작" ColSpanMd="6">
@@ -140,9 +166,17 @@
     </CommGrd>
 </CommCont>
 
+@* 미리보기. 사용자에게 실제로 뜨는 화면을 그대로 쓴다. *@
+<NoticeView Notices="@_preview" @bind-Visible="_previewing" Preview="true" />
+
 @code {
     private string? _keyword;
     private IReadOnlyList<NoticeDto> _notices = [];
+
+    /// <summary>미리보기로 띄운 공지. 한 건이지만 화면이 목록을 받으므로 목록으로 넘긴다.</summary>
+    private IReadOnlyList<NoticeDto> _preview = [];
+
+    private bool _previewing;
 
     protected override Task OnInitializedAsync() => ReloadAsync();
 
@@ -194,4 +228,19 @@
     }
 
     private Task DeleteAsync(NoticeDto n) => Api.DeleteNoticeAsync(n.Id);
+
+    /// <summary>
+    /// 공지 하나를 사용자가 볼 화면 그대로 띄운다.
+    ///
+    /// <para>
+    /// 목록을 <b>새로 만들어</b> 넘긴다. 같은 배열을 고쳐 쓰면
+    /// <c>NoticeView</c> 가 목록이 바뀐 것을 알아채지 못해, 다른 공지를
+    /// 눌러도 앞서 본 것이 그대로 뜬다 — 그쪽은 참조로 본다.
+    /// </para>
+    /// </summary>
+    private void Preview(NoticeDto n)
+    {
+        _preview = [n];
+        _previewing = true;
+    }
 }

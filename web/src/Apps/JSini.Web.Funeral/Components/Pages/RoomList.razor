@@ -37,97 +37,97 @@
 
 <PageTitle>호실 관리 · 장례식장</PageTitle>
 
-<PageHeading Title="호실 관리" Scope="장례식장" />
-
 <BuildingFilter @bind-BuildingId="_buildingId" @bind-FloorId="_floorId" ShowFloor="true" Search="@ReloadAsync" />
 
-<CommGrd TItem="Room"
-         Data="@_rooms"
-         EditFormTitle="호실"
-         ExportName="호실"
-         PageSize="20"
-         OnNew="@FillNew"
-         OnSave="@SaveAsync"
-         OnDelete="@DeleteAsync"
-         Reload="@ReloadAsync">
-    <Columns>
-        <DxGridDataColumn FieldName="@nameof(Room.FloorName)" Caption="층" Width="120" />
-        <DxGridDataColumn FieldName="@nameof(Room.Name)" Caption="호실" MinWidth="160" />
-        <DxGridDataColumn FieldName="@nameof(Room.ShortName)" Caption="약칭" Width="110" />
+<CommCont>
+    <CommGrd TItem="Room"
+             Data="@_rooms"
+             EditFormTitle="호실"
+             ExportName="호실"
+             PageSize="20"
+             OnNew="@FillNew"
+             OnSave="@SaveAsync"
+             OnDelete="@DeleteAsync"
+             Reload="@ReloadAsync">
+        <Columns>
+            <DxGridDataColumn FieldName="@nameof(Room.FloorName)" Caption="층" Width="120" />
+            <DxGridDataColumn FieldName="@nameof(Room.Name)" Caption="호실" MinWidth="160" />
+            <DxGridDataColumn FieldName="@nameof(Room.ShortName)" Caption="약칭" Width="110" />
 
-        <DxGridDataColumn Caption="구분" Width="120">
-            <CellDisplayTemplate Context="cell">
-                @* 저장된 것은 코드값이고 보여 줄 것은 이름이다. 코드 목록에 없는
-                   옛 값이면 값을 그대로 보여 준다 — 빈칸으로 두면 자료가 없는
-                   것처럼 보인다. *@
-                @_roomTypeLabel(((Room)cell.DataItem).RoomType)
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
+            <DxGridDataColumn Caption="구분" Width="120">
+                <CellDisplayTemplate Context="cell">
+                    @* 저장된 것은 코드값이고 보여 줄 것은 이름이다. 코드 목록에 없는
+                       옛 값이면 값을 그대로 보여 준다 — 빈칸으로 두면 자료가 없는
+                       것처럼 보인다. *@
+                    @_roomTypeLabel(((Room)cell.DataItem).RoomType)
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
 
-        <DxGridDataColumn Caption="상태" Width="100">
-            <CellDisplayTemplate Context="cell">
-                @{
-                    var room = (Room)cell.DataItem;
-                }
-                <span class="jsini-badge @(room.Status == "ACTIVE" ? "jsini-badge--on" : "jsini-badge--off")">
-                    @(room.Status == "ACTIVE" ? "사용" : "미사용")
-                </span>
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
+            <DxGridDataColumn Caption="상태" Width="100">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var room = (Room)cell.DataItem;
+                    }
+                    <span class="jsini-badge @(room.Status == "ACTIVE" ? "jsini-badge--on" : "jsini-badge--off")">
+                        @(room.Status == "ACTIVE" ? "사용" : "미사용")
+                    </span>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
 
-        <DxGridDataColumn FieldName="@nameof(Room.Remark)" Caption="비고" MinWidth="160" />
-    </Columns>
+            <DxGridDataColumn FieldName="@nameof(Room.Remark)" Caption="비고" MinWidth="160" />
+        </Columns>
 
-    <EditFormTemplate Context="edit">
-        @{
-            var r = (Room)edit.EditModel;
-        }
-        <DxFormLayout CssClass="fn-editform">
-            <DxFormLayoutItem Caption="건물" ColSpanMd="6">
-                @* 건물을 바꾸면 층을 비워야 해서 @@bind- 를 못 쓴다. 대신 식을
-                   직접 준다 — 형변환도 메서드도 없는 순수한 멤버 접근이어야 한다. *@
-                <DxComboBox Data="@_buildings" Value="@r.BuildingId"
-                            ValueChanged="@((string? v) => { r.BuildingId = v; r.FloorId = null; })"
-                            ValueExpression="@(() => r.BuildingId)"
-                            TextFieldName="@nameof(Building.Name)"
-                            ValueFieldName="@nameof(Building.Id)"
-                            NullText="건물을 고르십시오" />
-            </DxFormLayoutItem>
+        <EditFormTemplate Context="edit">
+            @{
+                var r = (Room)edit.EditModel;
+            }
+            <DxFormLayout CssClass="fn-editform">
+                <DxFormLayoutItem Caption="건물" ColSpanMd="6">
+                    @* 건물을 바꾸면 층을 비워야 해서 @@bind- 를 못 쓴다. 대신 식을
+                       직접 준다 — 형변환도 메서드도 없는 순수한 멤버 접근이어야 한다. *@
+                    <DxComboBox Data="@_buildings" Value="@r.BuildingId"
+                                ValueChanged="@((string? v) => { r.BuildingId = v; r.FloorId = null; })"
+                                ValueExpression="@(() => r.BuildingId)"
+                                TextFieldName="@nameof(Building.Name)"
+                                ValueFieldName="@nameof(Building.Id)"
+                                NullText="건물을 고르십시오" />
+                </DxFormLayoutItem>
 
-            <DxFormLayoutItem Caption="층" ColSpanMd="6">
-                @* 건물을 바꾸면 층을 다시 골라야 한다. 위에서 FloorId 를 비우는
-                   이유가 그것이다 — 안 비우면 다른 건물의 층이 붙는다. *@
-                <DxComboBox Data="@FloorsOf(r.BuildingId)" @bind-Value="r.FloorId"
-                            TextFieldName="@nameof(Floor.Name)"
-                            ValueFieldName="@nameof(Floor.Id)"
-                            NullText="층을 고르십시오" />
-            </DxFormLayoutItem>
+                <DxFormLayoutItem Caption="층" ColSpanMd="6">
+                    @* 건물을 바꾸면 층을 다시 골라야 한다. 위에서 FloorId 를 비우는
+                       이유가 그것이다 — 안 비우면 다른 건물의 층이 붙는다. *@
+                    <DxComboBox Data="@FloorsOf(r.BuildingId)" @bind-Value="r.FloorId"
+                                TextFieldName="@nameof(Floor.Name)"
+                                ValueFieldName="@nameof(Floor.Id)"
+                                NullText="층을 고르십시오" />
+                </DxFormLayoutItem>
 
-            <DxFormLayoutItem Caption="호실 이름" ColSpanMd="8">
-                <DxTextBox @bind-Text="r.Name" />
-            </DxFormLayoutItem>
+                <DxFormLayoutItem Caption="호실 이름" ColSpanMd="8">
+                    <DxTextBox @bind-Text="r.Name" />
+                </DxFormLayoutItem>
 
-            <DxFormLayoutItem Caption="약칭" ColSpanMd="4">
-                <DxTextBox @bind-Text="r.ShortName" NullText="현황판에 쓰는 짧은 이름" />
-            </DxFormLayoutItem>
+                <DxFormLayoutItem Caption="약칭" ColSpanMd="4">
+                    <DxTextBox @bind-Text="r.ShortName" NullText="현황판에 쓰는 짧은 이름" />
+                </DxFormLayoutItem>
 
-            <DxFormLayoutItem Caption="구분" ColSpanMd="6">
-                <DxComboBox Data="@_roomTypes" @bind-Value="r.RoomType"
-                            TextFieldName="@nameof(CommonCode.CodeName)"
-                            ValueFieldName="@nameof(CommonCode.CodeValue)"
-                            NullText="구분을 고르십시오" />
-            </DxFormLayoutItem>
+                <DxFormLayoutItem Caption="구분" ColSpanMd="6">
+                    <DxComboBox Data="@_roomTypes" @bind-Value="r.RoomType"
+                                TextFieldName="@nameof(CommonCode.CodeName)"
+                                ValueFieldName="@nameof(CommonCode.CodeValue)"
+                                NullText="구분을 고르십시오" />
+                </DxFormLayoutItem>
 
-            <DxFormLayoutItem Caption="사용" ColSpanMd="6">
-                <DxCheckBox @bind-Checked="r.IsActive">사용</DxCheckBox>
-            </DxFormLayoutItem>
+                <DxFormLayoutItem Caption="사용" ColSpanMd="6">
+                    <DxCheckBox @bind-Checked="r.IsActive">사용</DxCheckBox>
+                </DxFormLayoutItem>
 
-            <DxFormLayoutItem Caption="비고" ColSpanMd="12">
-                <DxMemo @bind-Text="r.Remark" Rows="3" />
-            </DxFormLayoutItem>
-        </DxFormLayout>
-    </EditFormTemplate>
-</CommGrd>
+                <DxFormLayoutItem Caption="비고" ColSpanMd="12">
+                    <DxMemo @bind-Text="r.Remark" Rows="3" />
+                </DxFormLayoutItem>
+            </DxFormLayout>
+        </EditFormTemplate>
+    </CommGrd>
+</CommCont>
 
 @code {
     private string? _buildingId;

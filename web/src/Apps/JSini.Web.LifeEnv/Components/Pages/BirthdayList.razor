@@ -37,8 +37,6 @@
 
 <PageTitle>생일 축하 목록 · 생활과환경</PageTitle>
 
-<PageHeading Title="생일 축하 목록" Scope="생활과환경" />
-
 <div class="jsini-toolbar">
     <DxComboBox Data="@_companies" TextFieldName="@nameof(OrgCompany.Name)" ValueFieldName="@nameof(OrgCompany.Id)"
                 Value="@_companyId" ValueChanged="@((string? v) => OnCompanyChangedAsync(v))"

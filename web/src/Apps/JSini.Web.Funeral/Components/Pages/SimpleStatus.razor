@@ -13,22 +13,22 @@
 
 <PageTitle>간편 현황 · 장례식장</PageTitle>
 
-<PageHeading Title="간편 현황" Scope="장례식장" />
-
 <BuildingFilter @bind-BuildingId="_buildingId" @bind-FloorId="_floorId" ShowFloor="true" Search="@ReloadAsync">
     <DxCheckBox @bind-Checked="_onlyInUse">사용 중만</DxCheckBox>
 </BuildingFilter>
 
-<CommGrd TItem="FuneralStatus" Data="@_rows" PageSize="30">
-    <Columns>
-        <DxGridDataColumn FieldName="@nameof(FuneralStatus.RoomName)" Caption="호실" Width="130" />
-        <DxGridDataColumn FieldName="@nameof(FuneralStatus.DeceasedName)" Caption="고인" MinWidth="140" />
-        <DxGridDataColumn FieldName="@nameof(FuneralStatus.ChiefMourner)" Caption="상주" MinWidth="140" />
-        <DxGridDataColumn FieldName="@nameof(FuneralStatus.DischargeTime)" Caption="발인" Width="150" DisplayFormat="yyyy-MM-dd HH:mm" />
-    </Columns>
-</CommGrd>
-
 <PageNotice Text="@Notice" Tone="@Tone" />
+
+<CommCont>
+    <CommGrd TItem="FuneralStatus" Data="@_rows" PageSize="30">
+        <Columns>
+            <DxGridDataColumn FieldName="@nameof(FuneralStatus.RoomName)" Caption="호실" Width="130" />
+            <DxGridDataColumn FieldName="@nameof(FuneralStatus.DeceasedName)" Caption="고인" MinWidth="140" />
+            <DxGridDataColumn FieldName="@nameof(FuneralStatus.ChiefMourner)" Caption="상주" MinWidth="140" />
+            <DxGridDataColumn FieldName="@nameof(FuneralStatus.DischargeTime)" Caption="발인" Width="150" DisplayFormat="yyyy-MM-dd HH:mm" />
+        </Columns>
+    </CommGrd>
+</CommCont>
 
 @code {
     private string? _buildingId;

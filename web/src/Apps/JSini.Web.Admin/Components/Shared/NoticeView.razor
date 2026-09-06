@@ -1,0 +1,191 @@
+@*
+    [공지 팝업] — 사용자에게 공지가 실제로 보이는 화면.
+    이력: Vue `components/notice/notice-popup.vue` → 여기. 이행 때 빠져 있었다.
+
+    공지 관리 화면의 「미리보기」가 이것을 그대로 쓴다. **미리보기 전용 화면을
+    따로 만들지 않는다** — 따로 만들면 둘이 갈라지고, 갈라진 줄은 실제 공지가
+    사용자에게 뜬 뒤에야 안다.
+
+    [아직 붙지 않은 것 — 스스로 뜨는 자리]
+
+    옛 화면은 앱 껍데기에 하나 놓여 스스로 조회했다(로그인 전에는 공개 공지만,
+    로그인 뒤에는 전부). 그 자리는 아직 없다. 붙이려면 셋이 필요하다.
+
+      · `NoticeDto` 를 `JSini.Web.Models` 로, 팝업 조회를 `JSini.Web.Http` 로
+        올린다 — 셸은 업무 모듈을 이름으로 알지 못한다.
+      · 백엔드는 이미 있다 (`GET /auth/notices/popup` · `/popup/public`).
+      · 「오늘 하루 보지 않기」 는 localStorage 라 JS interop 한 벌이 붙는다.
+
+    지금 넣지 않은 이유는 **여기서 그 체크상자가 아무 일도 안 하기 때문**이다.
+    미리보기는 흔적을 남기지 않는다 — 관리자가 확인만 하는 자리다.
+
+    [본문은 걸러서 넣는다]
+
+    본문이 서식(HTML)이라 `MarkupString` 으로 그린다. 그대로 넣으면 XSS 경로가
+    되므로 `NoticeHtml` 이 **아는 태그와 아는 속성만** 통과시킨다. 이유는 그
+    파일 주석에 적었다.
+*@
+
+<DxPopup Visible="@Visible"
+         VisibleChanged="@SetVisibleAsync"
+         CssClass="ad-notice"
+         HeaderCssClass="ad-notice__head"
+         FooterCssClass="ad-notice__foot"
+         Width="min(640px, calc(100vw - 2rem))"
+         MaxHeight="86vh"
+         ShowFooter="true"
+         CloseOnOutsideClick="false">
+
+    <HeaderContentTemplate>
+        @if (Current is { } head)
+        {
+            <div class="ad-notice__title">
+                <div class="jsini-tags">
+                    <span>@head.Title</span>
+
+                    @if (Preview)
+                    {
+                        <span class="jsini-badge jsini-badge--warn">미리보기</span>
+                    }
+
+                    @if (head.IsPublic)
+                    {
+                        <span class="jsini-badge jsini-badge--on">전체공개</span>
+                    }
+                </div>
+
+                <div class="ad-notice__meta">
+                    @PostedOn(head)
+
+                    @if (Notices.Count > 1)
+                    {
+                        <span> · 공지 @(_index + 1) / @Notices.Count</span>
+                    }
+                </div>
+            </div>
+        }
+    </HeaderContentTemplate>
+
+    <BodyContentTemplate>
+        @if (Current is { } body)
+        {
+            @* 본문의 서식(제목·목록·표)이 어떻게 보이는지는 admin.css 가 정한다.
+               테마 CSS 는 DevExpress 부품만 겨누므로 여기 태그들은 손이 안 닿는다. *@
+            <div class="ad-notice__body">
+                @if (NoticeHtml.Sanitize(body.Content) is { Length: > 0 } markup)
+                {
+                    @((MarkupString)markup)
+                }
+                else
+                {
+                    <p class="jsini-text-muted">내용이 없습니다.</p>
+                }
+            </div>
+        }
+    </BodyContentTemplate>
+
+    <FooterContentTemplate>
+        @if (Preview)
+        {
+            <span class="jsini-text-muted">실제 사용자에게 보이는 그대로입니다.</span>
+        }
+
+        <span class="ad-notice__gap"></span>
+
+        @* 공지가 여럿이면 어디쯤인지 점으로 보여 주고, 눌러서 바로 넘어간다. *@
+        @if (Notices.Count > 1)
+        {
+            <div class="ad-notice__dots">
+                @for (var i = 0; i < Notices.Count; i++)
+                {
+                    var at = i;
+
+                    <button type="button"
+                            class="ad-notice__dot @(at == _index ? "is-on" : null)"
+                            title="@Notices[at].Title"
+                            aria-label="@($"{at + 1}번째 공지")"
+                            @onclick="@(() => _index = at)"></button>
+                }
+            </div>
+
+            <DxButton Text="이전" RenderStyle="ButtonRenderStyle.Secondary"
+                      Enabled="@(_index > 0)" Click="@(() => _index--)" />
+        }
+
+        <DxButton Text="@(_index < Notices.Count - 1 ? "다음" : "닫기")"
+                  RenderStyle="ButtonRenderStyle.Primary"
+                  Click="@NextAsync" />
+    </FooterContentTemplate>
+</DxPopup>
+
+@code {
+    /// <summary>띄울 공지들. 순서대로 하나씩 넘긴다.</summary>
+    [Parameter, EditorRequired] public IReadOnlyList<NoticeDto> Notices { get; set; } = [];
+
+    /// <summary>창이 떠 있는지.</summary>
+    [Parameter] public bool Visible { get; set; }
+
+    /// <summary>창이 닫히면 알린다.</summary>
+    [Parameter] public EventCallback<bool> VisibleChanged { get; set; }
+
+    /// <summary>
+    /// 관리 화면의 미리보기인지.
+    ///
+    /// <para>
+    /// 딱지를 하나 더 달고 아래 안내 줄이 바뀐다. 실제 공지와 <b>본문이
+    /// 보이는 모양은 같다</b> — 그것이 이 화면을 함께 쓰는 이유다.
+    /// </para>
+    /// </summary>
+    [Parameter] public bool Preview { get; set; }
+
+    /// <summary>지금 보고 있는 공지의 자리.</summary>
+    private int _index;
+
+    /// <summary>목록이 바뀌었는지 보는 표. 같은 값이 다시 들어와도 자리를 잃지 않는다.</summary>
+    private object? _seen;
+
+    private NoticeDto? Current =>
+        _index >= 0 && _index < Notices.Count ? Notices[_index] : null;
+
+    /// <summary>
+    /// 목록이 <b>실제로</b> 바뀔 때만 첫 장으로 되돌린다.
+    ///
+    /// <para>
+    /// 렌더마다 되돌리면 「다음」을 눌러도 제자리다 — 부모가 다시 그려지는
+    /// 것만으로 파라미터는 다시 들어오기 때문이다. 값이 아니라
+    /// <b>참조</b>로 본다.
+    /// </para>
+    /// </summary>
+    protected override void OnParametersSet()
+    {
+        if (ReferenceEquals(_seen, Notices))
+        {
+            return;
+        }
+
+        _seen = Notices;
+        _index = 0;
+    }
+
+    /// <summary>「다음」은 한 장씩 넘기고, 마지막 장에서는 닫는다.</summary>
+    private Task NextAsync()
+    {
+        if (_index < Notices.Count - 1)
+        {
+            _index++;
+            return Task.CompletedTask;
+        }
+
+        return SetVisibleAsync(false);
+    }
+
+    private Task SetVisibleAsync(bool visible)
+    {
+        Visible = visible;
+        return VisibleChanged.InvokeAsync(visible);
+    }
+
+    /// <summary>게시일. 시작일이 있으면 그것을, 없으면 등록일을 보여 준다.</summary>
+    private static string PostedOn(NoticeDto notice) =>
+        (notice.StartAt ?? notice.CreatedAt).ToString("yyyy. MM. dd.");
+}

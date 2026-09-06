@@ -71,7 +71,7 @@
 
             @if (OnSave.HasDelegate || OnDelete.HasDelegate || RowActions is not null)
             {
-                <DxGridDataColumn Caption="관리" Width="@ActionsColumnWidth" MinWidth="@ActionsColumnWidth"
+                <DxGridDataColumn Caption="관리" Width="@ActionsColumnWidth" MinWidth="@ActionsPixels"
                                   AllowSort="false" AllowGroup="false">
                     <CellDisplayTemplate Context="cell">
                         <div class="commgrd__actions">
@@ -279,9 +279,12 @@
     /// <summary>감싼 DxGrid. 화면이 DevExpress API 를 직접 불러야 할 때.</summary>
     public IGrid? Grid => _grid;
 
-    /// <summary>관리 칸 너비. DxGridDataColumn 은 글자로 받는다.</summary>
+    /// <summary>관리 칸 너비(px).</summary>
+    private int ActionsPixels => ActionsWidth ?? (RowActions is null ? 84 : 116);
+
+    /// <summary><c>Width</c> 는 글자로, <c>MinWidth</c> 는 정수로 받는다.</summary>
     private string ActionsColumnWidth =>
-        (ActionsWidth ?? (RowActions is null ? 84 : 116)).ToString(System.Globalization.CultureInfo.InvariantCulture);
+        ActionsPixels.ToString(System.Globalization.CultureInfo.InvariantCulture);
 
     private IGrid? _grid;
     private IReadOnlyDictionary<string, object>? _forwarded;

@@ -32,138 +32,142 @@
 
 <PageTitle>회사 목록 · 포털관리</PageTitle>
 
-<PageHeading Title="회사 목록" Scope="포털관리" />
+<CommSch OnSearch="@ReloadAsync">
+    <Fields>
+        <CommSchItem Label="검색어">
+            <DxTextBox @bind-Text="_keyword" NullText="회사명" Style="width: 220px"
+                       ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        </CommSchItem>
 
-<CommGrd TItem="CompanyDto"
-         Data="@Shown"
-         EditFormTitle="회사"
-         ExportName="회사목록"
-         PageSize="20"
-         OnNew="@FillNew"
-         OnSave="@SaveAsync"
-         OnDelete="@DeleteAsync"
-         Reload="@ReloadAsync">
-    <Toolbar>
-        <DxTextBox @bind-Text="_keyword" NullText="회사명 검색" Style="width: 220px"
-                   ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
-
-        <DxComboBox Data="@_usages" TextFieldName="@nameof(CommonCodeDto.CodeName)"
-                    ValueFieldName="@nameof(CommonCodeDto.CodeValue)"
-                    @bind-Value="_usageFilter" NullText="사용처 전체" Style="width: 200px"
-                    ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
-
-        <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@ReloadAsync" />
-    </Toolbar>
-
-    <Columns>
-        <DxGridDataColumn FieldName="@nameof(CompanyDto.Name)" Caption="회사명" MinWidth="180" />
-        <DxGridDataColumn FieldName="@nameof(CompanyDto.ShortName)" Caption="약칭" Width="110" />
-        <DxGridDataColumn FieldName="@nameof(CompanyDto.BusinessNumber)" Caption="사업자번호" Width="140" />
-        <DxGridDataColumn FieldName="@nameof(CompanyDto.Representative)" Caption="대표자" Width="110" />
-
-        <DxGridDataColumn Caption="사용처" MinWidth="200" AllowSort="false">
-            <CellDisplayTemplate Context="cell">
-                @{
-                    var c = (CompanyDto)cell.DataItem;
-                }
-                @if (c.UsageLocations.Count == 0)
-                {
-                    @* 어디에도 안 걸린 회사는 업무 화면의 드롭다운에서 사라진다.
-                       빈칸으로 두면 그것이 눈에 안 띈다. *@
-                    <span class="jsini-badge jsini-badge--off">없음</span>
-                }
-                else
-                {
-                    @foreach (var code in c.UsageLocations)
-                    {
-                        <span class="jsini-badge">@UsageName(code)</span>
-                    }
-                }
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
-
-        <DxGridDataColumn Caption="사람 · 부서" Width="110" AllowSort="false">
-            <CellDisplayTemplate Context="cell">
-                @{
-                    var c = (CompanyDto)cell.DataItem;
-                }
-                <span class="ad-stamp">@c.UserCount 명 · @c.DeptCount 부서</span>
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
-
-        <DxGridDataColumn Caption="상태" Width="90">
-            <CellDisplayTemplate Context="cell">
-                @{
-                    var c = (CompanyDto)cell.DataItem;
-                }
-                <span class="jsini-badge @(c.Status == 1 ? "jsini-badge--on" : "jsini-badge--off")">
-                    @(c.Status == 1 ? "사용" : "중지")
-                </span>
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
-
-        <DxGridDataColumn FieldName="@nameof(CompanyDto.Remark)" Caption="비고" MinWidth="140" />
-    </Columns>
-
-    <EditFormTemplate Context="edit">
-        @{
-            var company = (CompanyDto)edit.EditModel;
-        }
-
-        <DxFormLayout>
-            <DxFormLayoutItem Caption="회사명" ColSpanMd="6">
-                <DxTextBox @bind-Text="company.Name" />
-            </DxFormLayoutItem>
-            <DxFormLayoutItem Caption="약칭" ColSpanMd="6">
-                <DxTextBox @bind-Text="company.ShortName" />
-            </DxFormLayoutItem>
-
-            <DxFormLayoutItem Caption="사업자번호" ColSpanMd="6">
-                <DxTextBox @bind-Text="company.BusinessNumber" />
-            </DxFormLayoutItem>
-            <DxFormLayoutItem Caption="대표자" ColSpanMd="6">
-                <DxTextBox @bind-Text="company.Representative" />
-            </DxFormLayoutItem>
-
-            <DxFormLayoutItem Caption="우편번호" ColSpanMd="4">
-                <DxTextBox @bind-Text="company.ZipCode" />
-            </DxFormLayoutItem>
-            <DxFormLayoutItem Caption="주소" ColSpanMd="8">
-                <DxTextBox @bind-Text="company.Address" />
-            </DxFormLayoutItem>
-            <DxFormLayoutItem Caption="상세 주소" ColSpanMd="12">
-                <DxTextBox @bind-Text="company.AddressDetail" />
-            </DxFormLayoutItem>
-
-            <DxFormLayoutItem Caption="사용처" ColSpanMd="12">
-                @* 여러 곳에 걸릴 수 있다. 하나만 고르게 두면 헬프데스크에도
-                   장례식장에도 나오는 회사를 표현할 수 없다. *@
-                <DxTagBox Data="@_usages"
-                          TextFieldName="@nameof(CommonCodeDto.CodeName)"
-                          ValueFieldName="@nameof(CommonCodeDto.CodeValue)"
-                          @bind-Values="company.Usages"
-                          NullText="고르지 않으면 어느 업무 화면에도 안 나옵니다" />
-            </DxFormLayoutItem>
-
-            <DxFormLayoutItem Caption="승인일" ColSpanMd="4">
-                <DxDateEdit @bind-Date="company.ApprovalDate" />
-            </DxFormLayoutItem>
-            <DxFormLayoutItem Caption="순서" ColSpanMd="4">
-                <DxSpinEdit @bind-Value="company.SortOrder" MinValue="0" />
-            </DxFormLayoutItem>
-            <DxFormLayoutItem Caption="상태" ColSpanMd="4">
-                <DxComboBox Data="@Statuses" TextFieldName="Name" ValueFieldName="Code"
-                            @bind-Value="company.Status" />
-            </DxFormLayoutItem>
-
-            <DxFormLayoutItem Caption="비고" ColSpanMd="12">
-                <DxTextBox @bind-Text="company.Remark" />
-            </DxFormLayoutItem>
-        </DxFormLayout>
-    </EditFormTemplate>
-</CommGrd>
+        <CommSchItem Label="사용처">
+            <DxComboBox Data="@_usages" TextFieldName="@nameof(CommonCodeDto.CodeName)"
+                        ValueFieldName="@nameof(CommonCodeDto.CodeValue)"
+                        @bind-Value="_usageFilter" NullText="전체" Style="width: 200px"
+                        ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        </CommSchItem>
+    </Fields>
+</CommSch>
 
 <PageNotice Text="@Notice" Tone="@Tone" />
+
+<CommCont>
+    <CommGrd TItem="CompanyDto"
+             Data="@Shown"
+             EditFormTitle="회사"
+             ExportName="회사목록"
+             PageSize="20"
+             OnNew="@FillNew"
+             OnSave="@SaveAsync"
+             OnDelete="@DeleteAsync"
+             Reload="@ReloadAsync">
+        <Columns>
+            <DxGridDataColumn FieldName="@nameof(CompanyDto.Name)" Caption="회사명" MinWidth="180" />
+            <DxGridDataColumn FieldName="@nameof(CompanyDto.ShortName)" Caption="약칭" Width="110" />
+            <DxGridDataColumn FieldName="@nameof(CompanyDto.BusinessNumber)" Caption="사업자번호" Width="140" />
+            <DxGridDataColumn FieldName="@nameof(CompanyDto.Representative)" Caption="대표자" Width="110" />
+
+            <DxGridDataColumn Caption="사용처" MinWidth="200" AllowSort="false">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var c = (CompanyDto)cell.DataItem;
+                    }
+                    @if (c.UsageLocations.Count == 0)
+                    {
+                        @* 어디에도 안 걸린 회사는 업무 화면의 드롭다운에서 사라진다.
+                           빈칸으로 두면 그것이 눈에 안 띈다. *@
+                        <span class="jsini-badge jsini-badge--off">없음</span>
+                    }
+                    else
+                    {
+                        @foreach (var code in c.UsageLocations)
+                        {
+                            <span class="jsini-badge">@UsageName(code)</span>
+                        }
+                    }
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn Caption="사람 · 부서" Width="110" AllowSort="false">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var c = (CompanyDto)cell.DataItem;
+                    }
+                    <span class="ad-stamp">@c.UserCount 명 · @c.DeptCount 부서</span>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn Caption="상태" Width="90">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var c = (CompanyDto)cell.DataItem;
+                    }
+                    <span class="jsini-badge @(c.Status == 1 ? "jsini-badge--on" : "jsini-badge--off")">
+                        @(c.Status == 1 ? "사용" : "중지")
+                    </span>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn FieldName="@nameof(CompanyDto.Remark)" Caption="비고" MinWidth="140" />
+        </Columns>
+
+        <EditFormTemplate Context="edit">
+            @{
+                var company = (CompanyDto)edit.EditModel;
+            }
+
+            <DxFormLayout>
+                <DxFormLayoutItem Caption="회사명" ColSpanMd="6">
+                    <DxTextBox @bind-Text="company.Name" />
+                </DxFormLayoutItem>
+                <DxFormLayoutItem Caption="약칭" ColSpanMd="6">
+                    <DxTextBox @bind-Text="company.ShortName" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="사업자번호" ColSpanMd="6">
+                    <DxTextBox @bind-Text="company.BusinessNumber" />
+                </DxFormLayoutItem>
+                <DxFormLayoutItem Caption="대표자" ColSpanMd="6">
+                    <DxTextBox @bind-Text="company.Representative" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="우편번호" ColSpanMd="4">
+                    <DxTextBox @bind-Text="company.ZipCode" />
+                </DxFormLayoutItem>
+                <DxFormLayoutItem Caption="주소" ColSpanMd="8">
+                    <DxTextBox @bind-Text="company.Address" />
+                </DxFormLayoutItem>
+                <DxFormLayoutItem Caption="상세 주소" ColSpanMd="12">
+                    <DxTextBox @bind-Text="company.AddressDetail" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="사용처" ColSpanMd="12">
+                    @* 여러 곳에 걸릴 수 있다. 하나만 고르게 두면 헬프데스크에도
+                       장례식장에도 나오는 회사를 표현할 수 없다. *@
+                    <DxTagBox Data="@_usages"
+                              TextFieldName="@nameof(CommonCodeDto.CodeName)"
+                              ValueFieldName="@nameof(CommonCodeDto.CodeValue)"
+                              @bind-Values="company.Usages"
+                              NullText="고르지 않으면 어느 업무 화면에도 안 나옵니다" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="승인일" ColSpanMd="4">
+                    <DxDateEdit @bind-Date="company.ApprovalDate" />
+                </DxFormLayoutItem>
+                <DxFormLayoutItem Caption="순서" ColSpanMd="4">
+                    <DxSpinEdit @bind-Value="company.SortOrder" MinValue="0" />
+                </DxFormLayoutItem>
+                <DxFormLayoutItem Caption="상태" ColSpanMd="4">
+                    <DxComboBox Data="@Statuses" TextFieldName="Name" ValueFieldName="Code"
+                                @bind-Value="company.Status" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="비고" ColSpanMd="12">
+                    <DxTextBox @bind-Text="company.Remark" />
+                </DxFormLayoutItem>
+            </DxFormLayout>
+        </EditFormTemplate>
+    </CommGrd>
+</CommCont>
 
 @code {
     private sealed record StatusOption(int Code, string Name);

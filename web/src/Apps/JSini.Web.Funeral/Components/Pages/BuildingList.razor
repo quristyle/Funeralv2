@@ -22,72 +22,76 @@
 
 <PageTitle>건물 관리 · 장례식장</PageTitle>
 
-<PageHeading Title="건물 관리" Scope="장례식장" />
+<CommSch>
+    <Fields>
+        <CommSchItem Label="검색어">
+            <DxTextBox @bind-Text="_keyword" NullText="건물명·주소 검색" Style="width: 220px"
+                       ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        </CommSchItem>
+    </Fields>
+</CommSch>
 
-<CommGrd TItem="Building"
-         Data="@Shown"
-         EditFormTitle="건물"
-         ExportName="건물"
-         PageSize="20"
-         OnNew="@FillNew"
-         OnSave="@SaveAsync"
-         OnDelete="@DeleteAsync"
-         Reload="@ReloadAsync">
-    <Toolbar>
-        <DxTextBox @bind-Text="_keyword" NullText="건물명·주소 검색" Style="width: 220px"
-                   ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
-    </Toolbar>
+<CommCont>
+    <CommGrd TItem="Building"
+             Data="@Shown"
+             EditFormTitle="건물"
+             ExportName="건물"
+             PageSize="20"
+             OnNew="@FillNew"
+             OnSave="@SaveAsync"
+             OnDelete="@DeleteAsync"
+             Reload="@ReloadAsync">
+        <Columns>
+            <DxGridDataColumn FieldName="@nameof(Building.Name)" Caption="건물명" MinWidth="180" />
+            <DxGridDataColumn FieldName="@nameof(Building.ShortName)" Caption="약칭" Width="110" />
+            <DxGridDataColumn FieldName="@nameof(Building.Address)" Caption="주소" MinWidth="240" />
+            <DxGridDataColumn FieldName="@nameof(Building.ZipCode)" Caption="우편번호" Width="100" />
 
-    <Columns>
-        <DxGridDataColumn FieldName="@nameof(Building.Name)" Caption="건물명" MinWidth="180" />
-        <DxGridDataColumn FieldName="@nameof(Building.ShortName)" Caption="약칭" Width="110" />
-        <DxGridDataColumn FieldName="@nameof(Building.Address)" Caption="주소" MinWidth="240" />
-        <DxGridDataColumn FieldName="@nameof(Building.ZipCode)" Caption="우편번호" Width="100" />
+            <DxGridDataColumn Caption="층" Width="70">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var b = (Building)cell.DataItem;
+                    }
+                    @_floorCount.GetValueOrDefault(b.Id)
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
 
-        <DxGridDataColumn Caption="층" Width="70">
-            <CellDisplayTemplate Context="cell">
-                @{
-                    var b = (Building)cell.DataItem;
-                }
-                @_floorCount.GetValueOrDefault(b.Id)
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
+            <DxGridDataColumn FieldName="@nameof(Building.Remark)" Caption="비고" MinWidth="140" />
+        </Columns>
 
-        <DxGridDataColumn FieldName="@nameof(Building.Remark)" Caption="비고" MinWidth="140" />
-    </Columns>
+        <EditFormTemplate Context="edit">
+            @{
+                var b = (Building)edit.EditModel;
+            }
+            <DxFormLayout CssClass="fn-editform">
+                <DxFormLayoutItem Caption="건물명" ColSpanMd="8">
+                    <DxTextBox @bind-Text="b.Name" />
+                </DxFormLayoutItem>
 
-    <EditFormTemplate Context="edit">
-        @{
-            var b = (Building)edit.EditModel;
-        }
-        <DxFormLayout CssClass="fn-editform">
-            <DxFormLayoutItem Caption="건물명" ColSpanMd="8">
-                <DxTextBox @bind-Text="b.Name" />
-            </DxFormLayoutItem>
+                <DxFormLayoutItem Caption="약칭" ColSpanMd="4">
+                    @* 빈소 현황판처럼 자리가 좁은 화면이 이 값을 쓴다. *@
+                    <DxTextBox @bind-Text="b.ShortName" NullText="현황판에 쓰는 짧은 이름" />
+                </DxFormLayoutItem>
 
-            <DxFormLayoutItem Caption="약칭" ColSpanMd="4">
-                @* 빈소 현황판처럼 자리가 좁은 화면이 이 값을 쓴다. *@
-                <DxTextBox @bind-Text="b.ShortName" NullText="현황판에 쓰는 짧은 이름" />
-            </DxFormLayoutItem>
+                <DxFormLayoutItem Caption="우편번호" ColSpanMd="4">
+                    <DxTextBox @bind-Text="b.ZipCode" />
+                </DxFormLayoutItem>
 
-            <DxFormLayoutItem Caption="우편번호" ColSpanMd="4">
-                <DxTextBox @bind-Text="b.ZipCode" />
-            </DxFormLayoutItem>
+                <DxFormLayoutItem Caption="주소" ColSpanMd="8">
+                    <DxTextBox @bind-Text="b.Address" />
+                </DxFormLayoutItem>
 
-            <DxFormLayoutItem Caption="주소" ColSpanMd="8">
-                <DxTextBox @bind-Text="b.Address" />
-            </DxFormLayoutItem>
+                <DxFormLayoutItem Caption="상세 주소" ColSpanMd="12">
+                    <DxTextBox @bind-Text="b.AddressDetail" />
+                </DxFormLayoutItem>
 
-            <DxFormLayoutItem Caption="상세 주소" ColSpanMd="12">
-                <DxTextBox @bind-Text="b.AddressDetail" />
-            </DxFormLayoutItem>
-
-            <DxFormLayoutItem Caption="비고" ColSpanMd="12">
-                <DxMemo @bind-Text="b.Remark" Rows="3" />
-            </DxFormLayoutItem>
-        </DxFormLayout>
-    </EditFormTemplate>
-</CommGrd>
+                <DxFormLayoutItem Caption="비고" ColSpanMd="12">
+                    <DxMemo @bind-Text="b.Remark" Rows="3" />
+                </DxFormLayoutItem>
+            </DxFormLayout>
+        </EditFormTemplate>
+    </CommGrd>
+</CommCont>
 
 @code {
     private IReadOnlyList<Building> _all = [];

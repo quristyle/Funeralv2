@@ -35,8 +35,6 @@
 
 <PageTitle>계정 연결 · 헬프데스크</PageTitle>
 
-<PageHeading Title="계정 연결" Scope="헬프데스크" />
-
 @if (Context.IdentityChecked)
 {
     @if (Context.IsLinked)
@@ -69,30 +67,32 @@
 
 <PageNotice Text="@Notice" Tone="@Tone" />
 
-<CommGrd TItem="AuthUserLink" Data="@_links" Loading="@Loading" PageSize="20" KeyFieldName="Id">
-    <Columns>
-        <DxGridDataColumn FieldName="AuthUserId" Caption="JSini 포털 계정" MinWidth="180" />
-        <DxGridDataColumn FieldName="UserType" Caption="구분" Width="100px">
-            <CellDisplayTemplate>
-                <span class="jsini-badge">@TypeName(context.Value as string)</span>
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
-        <DxGridDataColumn FieldName="UserName" Caption="헬프데스크 사용자" MinWidth="160" />
-        <DxGridDataColumn FieldName="HelpdeskUserId" Caption="내부 ID" Width="90px" />
-        <DxGridDataColumn FieldName="CreatedAt" Caption="연결일" Width="160px" DisplayFormat="yyyy-MM-dd HH:mm" />
-        <DxGridDataColumn Caption="" Width="90px" AllowSort="false">
-            <CellDisplayTemplate>
-                @{
-                    var link = (AuthUserLink)context.DataItem;
-                }
-                <PermissionView Action="MenuAction.Delete">
-                    <DxButton Text="해제" RenderStyle="ButtonRenderStyle.Danger"
-                              Click="@(() => _removing = link)" />
-                </PermissionView>
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
-    </Columns>
-</CommGrd>
+<CommCont>
+    <CommGrd TItem="AuthUserLink" Data="@_links" Loading="@Loading" PageSize="20" KeyFieldName="Id">
+        <Columns>
+            <DxGridDataColumn FieldName="AuthUserId" Caption="JSini 포털 계정" MinWidth="180" />
+            <DxGridDataColumn FieldName="UserType" Caption="구분" Width="100px">
+                <CellDisplayTemplate>
+                    <span class="jsini-badge">@TypeName(context.Value as string)</span>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+            <DxGridDataColumn FieldName="UserName" Caption="헬프데스크 사용자" MinWidth="160" />
+            <DxGridDataColumn FieldName="HelpdeskUserId" Caption="내부 ID" Width="90px" />
+            <DxGridDataColumn FieldName="CreatedAt" Caption="연결일" Width="160px" DisplayFormat="yyyy-MM-dd HH:mm" />
+            <DxGridDataColumn Caption="" Width="90px" AllowSort="false">
+                <CellDisplayTemplate>
+                    @{
+                        var link = (AuthUserLink)context.DataItem;
+                    }
+                    <PermissionView Action="MenuAction.Delete">
+                        <DxButton Text="해제" RenderStyle="ButtonRenderStyle.Danger"
+                                  Click="@(() => _removing = link)" />
+                    </PermissionView>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+        </Columns>
+    </CommGrd>
+</CommCont>
 
 <DxPopup @bind-Visible="_editing" HeaderText="계정 연결" Width="520px">
     <BodyContentTemplate Context="popup">

@@ -3,6 +3,16 @@
 
     왼쪽에 조건 입력기, 오른쪽에 버튼을 둔다.
 
+    [지금은 `CommSch` 로 그린다]
+
+    조회 영역의 생김새는 포털 전체가 하나여야 한다 — 화면이 백 개가 넘으므로
+    **같은 자리에 있는 것이 예쁜 것보다 중요하다.** 그래서 이 부품은 자기
+    마크업을 버리고 공용 조회판을 감싸기만 한다.
+
+    이름을 남겨 두는 이유는 프로젝트관리 화면 스물넷이 이것을 쓰고 있고,
+    그 화면들에는 이 이름이 「조건줄」로 읽히기 때문이다. 화면을 손댈 때
+    하나씩 `CommSch` 로 바꾸면 되고, 그때까지 겉모습은 이미 같다.
+
     [최초 조회를 기다리지 않는다]
 
     옛 Blazor 는 드롭다운이 모두 로드될 때까지 기다렸다가 최초 조회를 걸었다
@@ -10,14 +20,7 @@
     올려 주므로 그 신호로 조회하면 된다 — 별도의 대기 장치가 필요 없다.
 *@
 
-<div class="pm-search">
-    <div class="pm-search__fields">
-        @ChildContent
-    </div>
-    <div class="pm-search__actions">
-        @Actions
-    </div>
-</div>
+<CommSch Fields="@ChildContent" Actions="@Actions" />
 
 @code {
     /// <summary>왼쪽에 놓을 조건 입력기들.</summary>

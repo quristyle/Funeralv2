@@ -33,8 +33,6 @@
 
 <PageTitle>다국어 관리 · 포털관리</PageTitle>
 
-<PageHeading Title="다국어 관리" Scope="포털관리" />
-
 <div class="jsini-toolbar">
     <DxComboBox Data="@_categories" @bind-Value="_category"
                 NullText="분류 전체" Style="width: 170px"
@@ -60,78 +58,80 @@
 
 <PageNotice Text="@Notice" Tone="@Tone" />
 
-<CommGrd TItem="Pair" Data="@Shown" PageSize="30">
-    <Columns>
-        <DxGridDataColumn Caption="키" MinWidth="240">
-            <CellDisplayTemplate Context="cell">
-                @{
-                    var pair = (Pair)cell.DataItem;
-                }
-                <span class="ad-code">@pair.Key</span>
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
+<CommCont>
+    <CommGrd TItem="Pair" Data="@Shown" PageSize="30">
+        <Columns>
+            <DxGridDataColumn Caption="키" MinWidth="240">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var pair = (Pair)cell.DataItem;
+                    }
+                    <span class="ad-code">@pair.Key</span>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
 
-        <DxGridDataColumn Caption="한국어" MinWidth="220">
-            <CellDisplayTemplate Context="cell">
-                @{
-                    var pair = (Pair)cell.DataItem;
-                }
-                @if (pair.Ko is null)
-                {
-                    @* 한국어가 없으면 화면에 **키가 그대로** 보인다.
-                       그게 「사이드바에 system.menu.title 이 뜬다」의 원인이었다. *@
-                    <span class="jsini-badge jsini-badge--off">없음</span>
-                }
-                else
-                {
-                    @pair.Ko.Value
-                }
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
+            <DxGridDataColumn Caption="한국어" MinWidth="220">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var pair = (Pair)cell.DataItem;
+                    }
+                    @if (pair.Ko is null)
+                    {
+                        @* 한국어가 없으면 화면에 **키가 그대로** 보인다.
+                           그게 「사이드바에 system.menu.title 이 뜬다」의 원인이었다. *@
+                        <span class="jsini-badge jsini-badge--off">없음</span>
+                    }
+                    else
+                    {
+                        @pair.Ko.Value
+                    }
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
 
-        <DxGridDataColumn Caption="영어" MinWidth="200">
-            <CellDisplayTemplate Context="cell">
-                @{
-                    var pair = (Pair)cell.DataItem;
-                }
-                @if (pair.En is null)
-                {
-                    <span class="jsini-badge jsini-badge--off">없음</span>
-                }
-                else
-                {
-                    @pair.En.Value
-                }
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
+            <DxGridDataColumn Caption="영어" MinWidth="200">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var pair = (Pair)cell.DataItem;
+                    }
+                    @if (pair.En is null)
+                    {
+                        <span class="jsini-badge jsini-badge--off">없음</span>
+                    }
+                    else
+                    {
+                        @pair.En.Value
+                    }
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
 
-        <DxGridDataColumn Caption="분류" Width="150">
-            <CellDisplayTemplate Context="cell">
-                @(((Pair)cell.DataItem).Category ?? "-")
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
+            <DxGridDataColumn Caption="분류" Width="150">
+                <CellDisplayTemplate Context="cell">
+                    @(((Pair)cell.DataItem).Category ?? "-")
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
 
-        <DxGridDataColumn Caption="관리" Width="120" AllowSort="false">
-            <CellDisplayTemplate Context="cell">
-                @{
-                    var pair = (Pair)cell.DataItem;
-                }
-                <div class="jsini-actions">
-                    <PermissionView Action="MenuAction.Update">
-                        <DxButton Text="수정"
-                                  RenderStyle="ButtonRenderStyle.Secondary"
-                                  Click="@(() => StartEdit(pair))" />
-                    </PermissionView>
-                    <PermissionView Action="MenuAction.Delete">
-                        <DxButton Text="삭제"
-                                  RenderStyle="ButtonRenderStyle.Secondary"
-                                  Click="@(() => DeleteAsync(pair))" />
-                    </PermissionView>
-                </div>
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
-    </Columns>
-</CommGrd>
+            <DxGridDataColumn Caption="관리" Width="120" AllowSort="false">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var pair = (Pair)cell.DataItem;
+                    }
+                    <div class="jsini-actions">
+                        <PermissionView Action="MenuAction.Update">
+                            <DxButton Text="수정"
+                                      RenderStyle="ButtonRenderStyle.Secondary"
+                                      Click="@(() => StartEdit(pair))" />
+                        </PermissionView>
+                        <PermissionView Action="MenuAction.Delete">
+                            <DxButton Text="삭제"
+                                      RenderStyle="ButtonRenderStyle.Secondary"
+                                      Click="@(() => DeleteAsync(pair))" />
+                        </PermissionView>
+                    </div>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+        </Columns>
+    </CommGrd>
+</CommCont>
 
 <DxPopup @bind-Visible="_editing" HeaderText="@(_isNew ? "다국어 등록" : "다국어 수정")"
          Width="640" CloseOnOutsideClick="false" ShowFooter="true">

@@ -508,7 +508,16 @@ Components/Shared/Notice.razor        화면 안내줄
 
 - `DataPage` 를 상속한다 (`@inherits DataPage`). 조회·빈 결과·실패를 한 곳에서 처리한다.
   `LoadAsync` 는 건수를 돌려주고, 0 이면 "없습니다" 를 띄운다. `RunAsync` 는 저장·삭제용이다.
-- 제목 줄은 `PageHeading`, 안내 줄은 `PageNotice`, 묶음 길잡이는 `GroupLinks`.
+- **제목 줄을 두지 않는다.** 어느 화면인지는 사이드바와 브레드크럼이 이미
+  말해 준다 — 세 곳에 같은 글자가 있으면 본문만 좁아진다. `PageHeading` 은
+  2026-09-06 에 147개 화면에서 걷어내고 부품도 지웠다.
+- 화면은 **조회 영역(`CommSch`) → 자료 영역(`CommCont` + `CommGrd`)** 으로 쌓는다.
+  조건을 표 안 도구줄에 두지 않는다 — 표가 넓어질수록 조건이 가로 스크롤
+  저편으로 밀려나고, 화면마다 조건 자리가 달라진다. `CommCont` 로 감싸야
+  표가 본문 높이를 꽉 채우고 쪽 스크롤이 안 생긴다.
+  **대시보드처럼 키 큰 조각이 여럿 쌓인 화면은 감싸지 않는다** — 감싸면
+  남은 높이를 그 판이 다 먹어 아래가 잘린다.
+- 안내 줄은 `PageNotice`, 묶음 길잡이는 `GroupLinks`.
 - 조건줄은 `jsini-toolbar`, 통계 타일은 `jsini-stats`, 상태 표시는 `jsini-badge`.
 - 모듈 전용 스타일은 그 모듈 `wwwroot/*.css` 에 두고
   `IPortalModule.StyleSheet` 로 알린다. 셸은 모듈 이름을 알지 못한다.
@@ -602,6 +611,14 @@ Components/Shared/Notice.razor        화면 안내줄
       첨부 업로드는 여섯 화면에(D5), 잠금화면(D7) · 헤더 AI 대화창(D11) ·
       이미지 정리 단추(D17).)
 
+- [ ] **공지 팝업이 스스로 뜨는 자리** — 화면 자체는 옮겼다
+      (`JSini.Web.Admin/Components/Shared/NoticeView.razor`, 지금은 공지 관리의
+      미리보기가 쓴다). 옛 Vue 는 앱 껍데기에 하나 두고 스스로 조회했는데
+      (로그인 전엔 공개 공지만, 로그인 뒤엔 전부), 그 자리가 아직 없다.
+      백엔드는 이미 있다 — `GET /auth/notices/popup` · `/popup/public`.
+      **셸은 업무 모듈을 이름으로 알지 못하므로** 붙이려면 `NoticeDto` 를
+      `Models` 로, 팝업 조회를 `Http` 로 올려야 한다. 「오늘 하루 보지 않기」는
+      localStorage 라 JS interop 한 벌이 함께 붙는다.
 - [ ] **첨부는 `FilePicker` 한 벌로 올린다** (`Components/Data/FilePicker.razor`).
       **DevExpress `DxUpload` 을 쓰면 안 된다** — 그것은 브라우저가 직접
       POST 하는데 BFF 라 브라우저에 게이트웨이 토큰이 없다. 표준 `InputFile`

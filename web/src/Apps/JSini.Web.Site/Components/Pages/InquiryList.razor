@@ -19,8 +19,6 @@
 
 <PageTitle>사이트 문의내역 · 소개사이트·AI</PageTitle>
 
-<PageHeading Title="사이트 문의내역" Scope="소개사이트·AI" />
-
 <div class="jsini-toolbar">
     <DxComboBox Data="@Statuses" @bind-Value="_status" NullText="상태 전체" Style="width: 160px"
                 ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto">
@@ -29,58 +27,60 @@
     <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@ReloadAsync" />
 </div>
 
-<CommGrd TItem="InquiryDto" Data="@_rows" PageSize="20">
-    <Columns>
-        <DxGridDataColumn FieldName="@nameof(InquiryDto.CreatedAt)" Caption="접수" Width="150" DisplayFormat="yyyy-MM-dd HH:mm" />
-        <DxGridDataColumn FieldName="@nameof(InquiryDto.Name)" Caption="이름" Width="120" />
-        <DxGridDataColumn FieldName="@nameof(InquiryDto.Company)" Caption="회사" Width="150" />
-        <DxGridDataColumn FieldName="@nameof(InquiryDto.Subject)" Caption="제목" MinWidth="220" />
-        <DxGridDataColumn FieldName="@nameof(InquiryDto.Category)" Caption="분류" Width="120" />
-        <DxGridDataColumn Caption="상태" Width="110">
-            <CellDisplayTemplate Context="cell">
-                @{
-                    var q = (InquiryDto)cell.DataItem;
-                }
-                <span class="jsini-badge @(q.Status == "new" ? "jsini-badge--warn" : "jsini-badge--off")">
-                    @StatusText(q.Status)
-                </span>
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
-    </Columns>
-
-    <DetailRowTemplate Context="detail">
-        @{
-            var q = (InquiryDto)detail.DataItem;
-        }
-        <div class="st-inquiry">
-            <dl class="st-inquiry__facts">
-                <dt>이메일</dt><dd><a href="mailto:@q.Email">@q.Email</a></dd>
-                <dt>연락처</dt><dd>@(q.Phone ?? "-")</dd>
-                <dt>언어</dt><dd>@q.Locale</dd>
-
-                @* 개인정보 처리 근거. 동의 시각과 접수 출처를 남겨 두어야
-                   나중에 "동의 없이 받았다" 는 다툼에 답할 수 있다. *@
-                <dt>동의 시각</dt><dd>@q.ConsentedAt.ToString("yyyy-MM-dd HH:mm:ss")</dd>
-                <dt>접수 IP</dt><dd>@(q.ClientIp ?? "-")</dd>
-            </dl>
-
-            <div class="st-inquiry__message">@q.Message</div>
-
-            <PermissionView Action="MenuAction.Update">
-                <div class="st-inquiry__actions">
-                    @foreach (var next in Statuses.Where(s => s != q.Status))
-                    {
-                        <DxButton Text="@($"{StatusText(next)} 으로")"
-                                  RenderStyle="ButtonRenderStyle.Secondary"
-                                  Click="@(() => SetStatusAsync(q, next))" />
-                    }
-                </div>
-            </PermissionView>
-        </div>
-    </DetailRowTemplate>
-</CommGrd>
-
 <PageNotice Text="@Notice" Tone="@Tone" />
+
+<CommCont>
+    <CommGrd TItem="InquiryDto" Data="@_rows" PageSize="20">
+        <Columns>
+            <DxGridDataColumn FieldName="@nameof(InquiryDto.CreatedAt)" Caption="접수" Width="150" DisplayFormat="yyyy-MM-dd HH:mm" />
+            <DxGridDataColumn FieldName="@nameof(InquiryDto.Name)" Caption="이름" Width="120" />
+            <DxGridDataColumn FieldName="@nameof(InquiryDto.Company)" Caption="회사" Width="150" />
+            <DxGridDataColumn FieldName="@nameof(InquiryDto.Subject)" Caption="제목" MinWidth="220" />
+            <DxGridDataColumn FieldName="@nameof(InquiryDto.Category)" Caption="분류" Width="120" />
+            <DxGridDataColumn Caption="상태" Width="110">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var q = (InquiryDto)cell.DataItem;
+                    }
+                    <span class="jsini-badge @(q.Status == "new" ? "jsini-badge--warn" : "jsini-badge--off")">
+                        @StatusText(q.Status)
+                    </span>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+        </Columns>
+
+        <DetailRowTemplate Context="detail">
+            @{
+                var q = (InquiryDto)detail.DataItem;
+            }
+            <div class="st-inquiry">
+                <dl class="st-inquiry__facts">
+                    <dt>이메일</dt><dd><a href="mailto:@q.Email">@q.Email</a></dd>
+                    <dt>연락처</dt><dd>@(q.Phone ?? "-")</dd>
+                    <dt>언어</dt><dd>@q.Locale</dd>
+
+                    @* 개인정보 처리 근거. 동의 시각과 접수 출처를 남겨 두어야
+                       나중에 "동의 없이 받았다" 는 다툼에 답할 수 있다. *@
+                    <dt>동의 시각</dt><dd>@q.ConsentedAt.ToString("yyyy-MM-dd HH:mm:ss")</dd>
+                    <dt>접수 IP</dt><dd>@(q.ClientIp ?? "-")</dd>
+                </dl>
+
+                <div class="st-inquiry__message">@q.Message</div>
+
+                <PermissionView Action="MenuAction.Update">
+                    <div class="st-inquiry__actions">
+                        @foreach (var next in Statuses.Where(s => s != q.Status))
+                        {
+                            <DxButton Text="@($"{StatusText(next)} 으로")"
+                                      RenderStyle="ButtonRenderStyle.Secondary"
+                                      Click="@(() => SetStatusAsync(q, next))" />
+                        }
+                    </div>
+                </PermissionView>
+            </div>
+        </DetailRowTemplate>
+    </CommGrd>
+</CommCont>
 
 @code {
     /// <summary>서버가 쓰는 상태 값. 화면 문구는 <see cref="StatusText" /> 가 만든다.</summary>

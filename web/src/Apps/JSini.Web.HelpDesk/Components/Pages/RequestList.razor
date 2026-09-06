@@ -33,8 +33,6 @@
 
 <PageTitle>내 요청 · 헬프데스크</PageTitle>
 
-<PageHeading Title="내 요청" Scope="헬프데스크" />
-
 <div class="jsini-toolbar">
     <DxTextBox @bind-Text="_keyword" NullText="제목 검색" Style="width: 220px"
                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
@@ -64,69 +62,71 @@
                 Text="포털 계정에 이어진 헬프데스크 사용자가 없어 「내 요청」을 가려낼 수 없습니다. 「계정 연결」 화면에서 연결하십시오." />
 }
 
-<CommGrd TItem="ImprovementRequest" Data="@_rows" PageSize="20">
-    <Columns>
-        <DxGridDataColumn FieldName="@nameof(ImprovementRequest.Id)" Caption="번호" Width="80" />
+<CommCont>
+    <CommGrd TItem="ImprovementRequest" Data="@_rows" PageSize="20">
+        <Columns>
+            <DxGridDataColumn FieldName="@nameof(ImprovementRequest.Id)" Caption="번호" Width="80" />
 
-        <DxGridDataColumn Caption="제목" MinWidth="280">
-            <CellDisplayTemplate Context="cell">
-                @{
-                    var r = (ImprovementRequest)cell.DataItem;
-                }
-                <div class="jsini-tags">
-                    @if (r.IsEmergency == true)
-                    {
-                        <span class="jsini-badge jsini-badge--off">긴급</span>
+            <DxGridDataColumn Caption="제목" MinWidth="280">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var r = (ImprovementRequest)cell.DataItem;
                     }
-                    @if (r.AttachmentCount is > 0)
-                    {
-                        <span class="jsini-badge">첨부 @r.AttachmentCount</span>
+                    <div class="jsini-tags">
+                        @if (r.IsEmergency == true)
+                        {
+                            <span class="jsini-badge jsini-badge--off">긴급</span>
+                        }
+                        @if (r.AttachmentCount is > 0)
+                        {
+                            <span class="jsini-badge">첨부 @r.AttachmentCount</span>
+                        }
+                        <span>@r.Title</span>
+                    </div>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn Caption="담당자" Width="120">
+                <CellDisplayTemplate Context="cell">
+                    @(((ImprovementRequest)cell.DataItem).Admin?.UserName ?? "미배정")
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn Caption="상태" Width="100">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var r = (ImprovementRequest)cell.DataItem;
                     }
-                    <span>@r.Title</span>
-                </div>
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
+                    <span class="jsini-badge @StatusClass(r.Status)">@StatusText(r)</span>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
 
-        <DxGridDataColumn Caption="담당자" Width="120">
-            <CellDisplayTemplate Context="cell">
-                @(((ImprovementRequest)cell.DataItem).Admin?.UserName ?? "미배정")
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
+            <DxGridDataColumn FieldName="@nameof(ImprovementRequest.CreatedAt)" Caption="접수" Width="150"
+                              DisplayFormat="yyyy-MM-dd HH:mm" />
 
-        <DxGridDataColumn Caption="상태" Width="100">
-            <CellDisplayTemplate Context="cell">
-                @{
-                    var r = (ImprovementRequest)cell.DataItem;
-                }
-                <span class="jsini-badge @StatusClass(r.Status)">@StatusText(r)</span>
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
+            <DxGridDataColumn Caption="완료" Width="150">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var r = (ImprovementRequest)cell.DataItem;
+                    }
+                    @* 서버가 `completededAt`(오타)과 `completedAt` 을 둘 다 쓴다.
+                       한쪽만 보면 화면에 따라 완료일이 비어 보인다. *@
+                    @((r.CompletededAt ?? r.CompletedAt)?.ToString("yyyy-MM-dd HH:mm") ?? "-")
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
 
-        <DxGridDataColumn FieldName="@nameof(ImprovementRequest.CreatedAt)" Caption="접수" Width="150"
-                          DisplayFormat="yyyy-MM-dd HH:mm" />
-
-        <DxGridDataColumn Caption="완료" Width="150">
-            <CellDisplayTemplate Context="cell">
-                @{
-                    var r = (ImprovementRequest)cell.DataItem;
-                }
-                @* 서버가 `completededAt`(오타)과 `completedAt` 을 둘 다 쓴다.
-                   한쪽만 보면 화면에 따라 완료일이 비어 보인다. *@
-                @((r.CompletededAt ?? r.CompletedAt)?.ToString("yyyy-MM-dd HH:mm") ?? "-")
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
-
-        <DxGridDataColumn Caption="" Width="80" AllowSort="false">
-            <CellDisplayTemplate Context="cell">
-                @{
-                    var r = (ImprovementRequest)cell.DataItem;
-                }
-                <DxButton Text="상세" RenderStyle="ButtonRenderStyle.Link"
-                          Click="@(() => { Navigation.NavigateTo($"/helpdesk/request/{r.Id}"); })" />
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
-    </Columns>
-</CommGrd>
+            <DxGridDataColumn Caption="" Width="80" AllowSort="false">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var r = (ImprovementRequest)cell.DataItem;
+                    }
+                    <DxButton Text="상세" RenderStyle="ButtonRenderStyle.Link"
+                              Click="@(() => { Navigation.NavigateTo($"/helpdesk/request/{r.Id}"); })" />
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+        </Columns>
+    </CommGrd>
+</CommCont>
 
 @if (_total > _rows.Count)
 {

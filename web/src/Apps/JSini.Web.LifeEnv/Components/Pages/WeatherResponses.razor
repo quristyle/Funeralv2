@@ -24,68 +24,74 @@
 
 <PageTitle>기상 대응 요령 · 생활과환경</PageTitle>
 
-<PageHeading Title="기상 대응 요령" Scope="생활과환경" />
-
-<CommGrd TItem="WeatherResponseItem"
-         Data="@_responses"
-         EditFormTitle="대응 요령"
-         ExportName="대응요령"
-         PageSize="20"
-         OnNew="@FillNew"
-         OnSave="@SaveAsync"
-         OnDelete="@DeleteAsync"
-         Reload="@ReloadAsync">
-    <Toolbar>
-        <DxComboBox Data="@_standards"
-                    TextFieldName="@nameof(WeatherStandard.Name)"
-                    ValueFieldName="@nameof(WeatherStandard.Id)"
-                    Value="@_standardId"
-                    ValueChanged="@((int id) => OnStandardChangedAsync(id))"
-                    NullText="판정 기준을 고르십시오"
-                    Style="width: 260px" />
+<CommSch>
+    <Fields>
+        <CommSchItem Label="판정 기준">
+            <DxComboBox Data="@_standards"
+                        TextFieldName="@nameof(WeatherStandard.Name)"
+                        ValueFieldName="@nameof(WeatherStandard.Id)"
+                        Value="@_standardId"
+                        ValueChanged="@((int id) => OnStandardChangedAsync(id))"
+                        NullText="고르십시오"
+                        Style="width: 260px" />
+        </CommSchItem>
 
         @if (Selected is { } std)
         {
             @* 어떤 조건일 때 이 요령이 나가는지 함께 보여 준다. 요령만 보면
                「언제 나가는 것인가」를 알 수 없다. *@
-            <span class="lf-condition">@std.ConditionText</span>
+            <CommSchItem Label="발동 조건">
+                <span class="lf-condition">@std.ConditionText</span>
+            </CommSchItem>
         }
-    </Toolbar>
+    </Fields>
+</CommSch>
 
-    <Columns>
-        <DxGridDataColumn FieldName="@nameof(WeatherResponseItem.SortOrder)" Caption="순서" Width="70" />
-        <DxGridDataColumn FieldName="@nameof(WeatherResponseItem.ActionContent)" Caption="조치 및 대응 내용" MinWidth="300" />
-        <DxGridDataColumn FieldName="@nameof(WeatherResponseItem.Description)" Caption="비고" MinWidth="160" />
-    </Columns>
+<CommCont>
+    <CommGrd TItem="WeatherResponseItem"
+             Data="@_responses"
+             EditFormTitle="대응 요령"
+             ExportName="대응요령"
+             PageSize="20"
+             OnNew="@FillNew"
+             OnSave="@SaveAsync"
+             OnDelete="@DeleteAsync"
+             Reload="@ReloadAsync">
+        <Columns>
+            <DxGridDataColumn FieldName="@nameof(WeatherResponseItem.SortOrder)" Caption="순서" Width="70" />
+            <DxGridDataColumn FieldName="@nameof(WeatherResponseItem.ActionContent)" Caption="조치 및 대응 내용" MinWidth="300" />
+            <DxGridDataColumn FieldName="@nameof(WeatherResponseItem.Description)" Caption="비고" MinWidth="160" />
+        </Columns>
 
-    <EditFormTemplate Context="edit">
-        @{
-            var item = (WeatherResponseItem)edit.EditModel;
-        }
-        <DxFormLayout CssClass="lf-editform">
-            <DxFormLayoutItem Caption="판정 기준" ColSpanMd="8">
-                <DxComboBox Data="@_standards" @bind-Value="item.WeatherStandardId"
-                            TextFieldName="@nameof(WeatherStandard.Name)"
-                            ValueFieldName="@nameof(WeatherStandard.Id)"
-                            NullText="기준을 고르십시오" />
-            </DxFormLayoutItem>
+        <EditFormTemplate Context="edit">
+            @{
+                var item = (WeatherResponseItem)edit.EditModel;
+            }
+            <DxFormLayout CssClass="lf-editform">
+                <DxFormLayoutItem Caption="판정 기준" ColSpanMd="8">
+                    <DxComboBox Data="@_standards" @bind-Value="item.WeatherStandardId"
+                                TextFieldName="@nameof(WeatherStandard.Name)"
+                                ValueFieldName="@nameof(WeatherStandard.Id)"
+                                NullText="기준을 고르십시오" />
+                </DxFormLayoutItem>
 
-            <DxFormLayoutItem Caption="순서" ColSpanMd="4">
-                <DxSpinEdit @bind-Value="item.SortOrder" MinValue="0" />
-            </DxFormLayoutItem>
+                <DxFormLayoutItem Caption="순서" ColSpanMd="4">
+                    <DxSpinEdit @bind-Value="item.SortOrder" MinValue="0" />
+                </DxFormLayoutItem>
 
-            <DxFormLayoutItem Caption="조치 내용" ColSpanMd="12">
-                <DxMemo @bind-Text="item.ActionContent" Rows="4"
-                        NullText="알림에 실릴 문장" />
-            </DxFormLayoutItem>
+                <DxFormLayoutItem Caption="조치 내용" ColSpanMd="12">
+                    <DxMemo @bind-Text="item.ActionContent" Rows="4"
+                            NullText="알림에 실릴 문장" />
+                </DxFormLayoutItem>
 
-            <DxFormLayoutItem Caption="비고" ColSpanMd="12">
-                <DxMemo @bind-Text="item.Description" Rows="3"
-                        NullText="알림에 실리지 않는 메모" />
-            </DxFormLayoutItem>
-        </DxFormLayout>
-    </EditFormTemplate>
-</CommGrd>
+                <DxFormLayoutItem Caption="비고" ColSpanMd="12">
+                    <DxMemo @bind-Text="item.Description" Rows="3"
+                            NullText="알림에 실리지 않는 메모" />
+                </DxFormLayoutItem>
+            </DxFormLayout>
+        </EditFormTemplate>
+    </CommGrd>
+</CommCont>
 
 @code {
     private IReadOnlyList<WeatherStandard> _standards = [];

@@ -19,8 +19,6 @@
 
 <PageTitle>빈소 현황 · 장례식장</PageTitle>
 
-<PageHeading Title="빈소 현황" Scope="장례식장" />
-
 <BuildingFilter @bind-BuildingId="_buildingId" @bind-FloorId="_floorId" ShowFloor="true" Search="@ReloadAsync">
     <DxCheckBox @bind-Checked="_onlyInUse">사용 중만</DxCheckBox>
 </BuildingFilter>
@@ -43,41 +41,43 @@
     </div>
 }
 
-<CommGrd TItem="JSini.Web.Funeral.Api.FuneralStatus" Data="@_rows" PageSize="20">
-    <Columns>
-        <DxGridDataColumn FieldName="RoomName" Caption="호실" Width="120" />
-        <DxGridDataColumn FieldName="FloorName" Caption="층" Width="90" />
-        <DxGridDataColumn FieldName="DeceasedName" Caption="고인" MinWidth="120" />
-        <DxGridDataColumn FieldName="ChiefMourner" Caption="상주" MinWidth="120" />
-        <DxGridDataColumn FieldName="StartTime" Caption="입실" Width="150" DisplayFormat="yyyy-MM-dd HH:mm" />
-        <DxGridDataColumn FieldName="DischargeTime" Caption="출상" Width="150" DisplayFormat="yyyy-MM-dd HH:mm" />
-        <DxGridDataColumn FieldName="UseDays" Caption="사용일" Width="90" />
-        <DxGridDataColumn Caption="장비" Width="110">
-            <CellDisplayTemplate>
-                @{
-                    var r = (JSini.Web.Funeral.Api.FuneralStatus)context.DataItem;
-                    var allOnline = r.DeviceCount > 0 && r.OnlineDeviceCount == r.DeviceCount;
-                }
-                @* 온라인/전체. 하나라도 끊겨 있으면 눈에 띄어야 한다. *@
-                <span class="jsini-badge @(allOnline ? "jsini-badge--on" : "jsini-badge--warn")">
-                    @r.OnlineDeviceCount / @r.DeviceCount
-                </span>
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
-        <DxGridDataColumn Caption="상태" Width="100">
-            <CellDisplayTemplate>
-                @{
-                    var s = (JSini.Web.Funeral.Api.FuneralStatus)context.DataItem;
-                }
-                <span class="jsini-badge @(s.Occupied ? "jsini-badge--on" : "jsini-badge--off")">
-                    @(s.Occupied ? "사용" : "빈방")
-                </span>
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
-    </Columns>
-</CommGrd>
-
 <PageNotice Text="@Notice" Tone="@Tone" />
+
+<CommCont>
+    <CommGrd TItem="JSini.Web.Funeral.Api.FuneralStatus" Data="@_rows" PageSize="20">
+        <Columns>
+            <DxGridDataColumn FieldName="RoomName" Caption="호실" Width="120" />
+            <DxGridDataColumn FieldName="FloorName" Caption="층" Width="90" />
+            <DxGridDataColumn FieldName="DeceasedName" Caption="고인" MinWidth="120" />
+            <DxGridDataColumn FieldName="ChiefMourner" Caption="상주" MinWidth="120" />
+            <DxGridDataColumn FieldName="StartTime" Caption="입실" Width="150" DisplayFormat="yyyy-MM-dd HH:mm" />
+            <DxGridDataColumn FieldName="DischargeTime" Caption="출상" Width="150" DisplayFormat="yyyy-MM-dd HH:mm" />
+            <DxGridDataColumn FieldName="UseDays" Caption="사용일" Width="90" />
+            <DxGridDataColumn Caption="장비" Width="110">
+                <CellDisplayTemplate>
+                    @{
+                        var r = (JSini.Web.Funeral.Api.FuneralStatus)context.DataItem;
+                        var allOnline = r.DeviceCount > 0 && r.OnlineDeviceCount == r.DeviceCount;
+                    }
+                    @* 온라인/전체. 하나라도 끊겨 있으면 눈에 띄어야 한다. *@
+                    <span class="jsini-badge @(allOnline ? "jsini-badge--on" : "jsini-badge--warn")">
+                        @r.OnlineDeviceCount / @r.DeviceCount
+                    </span>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+            <DxGridDataColumn Caption="상태" Width="100">
+                <CellDisplayTemplate>
+                    @{
+                        var s = (JSini.Web.Funeral.Api.FuneralStatus)context.DataItem;
+                    }
+                    <span class="jsini-badge @(s.Occupied ? "jsini-badge--on" : "jsini-badge--off")">
+                        @(s.Occupied ? "사용" : "빈방")
+                    </span>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+        </Columns>
+    </CommGrd>
+</CommCont>
 
 @code {
     private string? _buildingId;

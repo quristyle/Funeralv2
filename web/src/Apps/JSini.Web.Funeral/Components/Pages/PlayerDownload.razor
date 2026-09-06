@@ -14,39 +14,39 @@
 
 <PageTitle>플레이어 다운로드 · 장례식장</PageTitle>
 
-<PageHeading Title="플레이어 다운로드" Scope="장례식장" />
-
 <PageNotice>
     빈소 디스플레이 장비에 설치하는 플레이어입니다.
     설치 뒤에는 <strong>기기 관리</strong> 화면에서 장비가 온라인으로 잡히는지 확인하십시오.
 </PageNotice>
 
-<CommGrd TItem="Archive" Data="@_items" PageSize="20">
-    <Columns>
-        <DxGridDataColumn FieldName="@nameof(Archive.Title)" Caption="버전·자료명" MinWidth="220" />
-        <DxGridDataColumn FieldName="@nameof(Archive.CreatedAt)" Caption="배포일" Width="130" DisplayFormat="yyyy-MM-dd" />
-        <DxGridDataColumn Caption="파일" Width="90">
-            <CellDisplayTemplate Context="cell">
-                @(((Archive)cell.DataItem).Files.Count) 개
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
-    </Columns>
-    <DetailRowTemplate Context="detail">
-        @{
-            var archive = (Archive)detail.DataItem;
-        }
-        <ul class="fn-files">
-            @foreach (var file in archive.Files)
-            {
-                <li class="fn-files__item">
-                    <a href="@file.DownloadUrl">@file.FileName</a>
-                </li>
-            }
-        </ul>
-    </DetailRowTemplate>
-</CommGrd>
-
 <PageNotice Text="@Notice" Tone="@Tone" />
+
+<CommCont>
+    <CommGrd TItem="Archive" Data="@_items" PageSize="20">
+        <Columns>
+            <DxGridDataColumn FieldName="@nameof(Archive.Title)" Caption="버전·자료명" MinWidth="220" />
+            <DxGridDataColumn FieldName="@nameof(Archive.CreatedAt)" Caption="배포일" Width="130" DisplayFormat="yyyy-MM-dd" />
+            <DxGridDataColumn Caption="파일" Width="90">
+                <CellDisplayTemplate Context="cell">
+                    @(((Archive)cell.DataItem).Files.Count) 개
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+        </Columns>
+        <DetailRowTemplate Context="detail">
+            @{
+                var archive = (Archive)detail.DataItem;
+            }
+            <ul class="fn-files">
+                @foreach (var file in archive.Files)
+                {
+                    <li class="fn-files__item">
+                        <a href="@file.DownloadUrl">@file.FileName</a>
+                    </li>
+                }
+            </ul>
+        </DetailRowTemplate>
+    </CommGrd>
+</CommCont>
 
 @code {
     /// <summary>자료실에서 플레이어 배포본만 골라 내는 분류 이름.</summary>

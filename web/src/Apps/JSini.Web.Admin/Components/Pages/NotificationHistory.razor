@@ -13,36 +13,36 @@
 
 <PageTitle>내 알림함 · 포털관리</PageTitle>
 
-<PageHeading Title="내 알림함" Scope="포털관리" />
-
 <div class="jsini-toolbar">
     <DxCheckBox @bind-Checked="_unreadOnly">안 읽은 것만</DxCheckBox>
     <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@ReloadAsync" />
 </div>
 
-<CommGrd TItem="NotificationDto" Data="@Shown" PageSize="30">
-    <Columns>
-        <DxGridDataColumn FieldName="@nameof(NotificationDto.CreatedAt)" Caption="받은 때" Width="150" DisplayFormat="yyyy-MM-dd HH:mm" />
-        <DxGridDataColumn FieldName="@nameof(NotificationDto.Title)" Caption="제목" MinWidth="200" />
-        <DxGridDataColumn FieldName="@nameof(NotificationDto.Body)" Caption="내용" MinWidth="280" />
-        <DxGridDataColumn Caption="상태" Width="120">
-            <CellDisplayTemplate Context="cell">
-                @{ var n = (NotificationDto)cell.DataItem; }
-                @if (n.IsRead)
-                {
-                    <span class="jsini-badge jsini-badge--off">읽음</span>
-                }
-                else
-                {
-                    <DxButton Text="읽음 처리" RenderStyle="ButtonRenderStyle.Secondary"
-                              Click="@(() => MarkReadAsync(n))" />
-                }
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
-    </Columns>
-</CommGrd>
-
 <PageNotice Text="@Notice" Tone="@Tone" />
+
+<CommCont>
+    <CommGrd TItem="NotificationDto" Data="@Shown" PageSize="30">
+        <Columns>
+            <DxGridDataColumn FieldName="@nameof(NotificationDto.CreatedAt)" Caption="받은 때" Width="150" DisplayFormat="yyyy-MM-dd HH:mm" />
+            <DxGridDataColumn FieldName="@nameof(NotificationDto.Title)" Caption="제목" MinWidth="200" />
+            <DxGridDataColumn FieldName="@nameof(NotificationDto.Body)" Caption="내용" MinWidth="280" />
+            <DxGridDataColumn Caption="상태" Width="120">
+                <CellDisplayTemplate Context="cell">
+                    @{ var n = (NotificationDto)cell.DataItem; }
+                    @if (n.IsRead)
+                    {
+                        <span class="jsini-badge jsini-badge--off">읽음</span>
+                    }
+                    else
+                    {
+                        <DxButton Text="읽음 처리" RenderStyle="ButtonRenderStyle.Secondary"
+                                  Click="@(() => MarkReadAsync(n))" />
+                    }
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+        </Columns>
+    </CommGrd>
+</CommCont>
 
 @code {
     private bool _unreadOnly;

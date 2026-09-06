@@ -31,8 +31,6 @@
 
 <PageTitle>기준 초과 이벤트 · 생활과환경</PageTitle>
 
-<PageHeading Title="기준 초과 이벤트" Scope="생활과환경" />
-
 <div class="jsini-toolbar">
     <DxComboBox Data="@_locations" @bind-Value="_locationId"
                 TextFieldName="@nameof(WeatherLocation.Name)"
@@ -54,78 +52,80 @@
 
 <PageNotice Text="@Notice" Tone="@Tone" />
 
-<CommGrd TItem="WeatherEventRecord" Data="@Shown" PageSize="25">
-    <Columns>
-        <DxGridDataColumn FieldName="@nameof(WeatherEventRecord.EventTime)" Caption="발생 시각" Width="160"
-                          DisplayFormat="yyyy-MM-dd HH:mm" />
+<CommCont>
+    <CommGrd TItem="WeatherEventRecord" Data="@Shown" PageSize="25">
+        <Columns>
+            <DxGridDataColumn FieldName="@nameof(WeatherEventRecord.EventTime)" Caption="발생 시각" Width="160"
+                              DisplayFormat="yyyy-MM-dd HH:mm" />
 
-        <DxGridDataColumn Caption="지역" Width="140">
-            <CellDisplayTemplate Context="cell">
-                @{
-                    var e = (WeatherEventRecord)cell.DataItem;
-                }
-                @* 실황에 지역 이름(`Location`)이 함께 온다. 비어 있으면
-                   지역 식별자로 표에서 찾는다. *@
-                @(e.WeatherInfo?.Location is { Length: > 0 } name
-                    ? name
-                    : LocationName(e.WeatherInfo?.WeatherLocationId))
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
+            <DxGridDataColumn Caption="지역" Width="140">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var e = (WeatherEventRecord)cell.DataItem;
+                    }
+                    @* 실황에 지역 이름(`Location`)이 함께 온다. 비어 있으면
+                       지역 식별자로 표에서 찾는다. *@
+                    @(e.WeatherInfo?.Location is { Length: > 0 } name
+                        ? name
+                        : LocationName(e.WeatherInfo?.WeatherLocationId))
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
 
-        <DxGridDataColumn Caption="걸린 기준" MinWidth="220">
-            <CellDisplayTemplate Context="cell">
-                @{
-                    var e = (WeatherEventRecord)cell.DataItem;
-                    var std = e.WeatherStandard;
-                }
-                @if (std is null)
-                {
-                    <span class="jsini-text-muted">기준 정보 없음</span>
-                }
-                else
-                {
-                    <span>@std.Name</span>
-                    <span class="lf-condition">@std.ConditionText</span>
-                }
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
+            <DxGridDataColumn Caption="걸린 기준" MinWidth="220">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var e = (WeatherEventRecord)cell.DataItem;
+                        var std = e.WeatherStandard;
+                    }
+                    @if (std is null)
+                    {
+                        <span class="jsini-text-muted">기준 정보 없음</span>
+                    }
+                    else
+                    {
+                        <span>@std.Name</span>
+                        <span class="lf-condition">@std.ConditionText</span>
+                    }
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
 
-        <DxGridDataColumn Caption="측정값" Width="110">
-            <CellDisplayTemplate Context="cell">
-                @{
-                    var e = (WeatherEventRecord)cell.DataItem;
-                }
-                @* 숫자만 있으면 기온인지 풍속인지 알 수 없다. 단위를 붙인다. *@
-                <strong>@e.MeasuredValue</strong>
-                <small>@e.WeatherStandard?.Unit</small>
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
+            <DxGridDataColumn Caption="측정값" Width="110">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var e = (WeatherEventRecord)cell.DataItem;
+                    }
+                    @* 숫자만 있으면 기온인지 풍속인지 알 수 없다. 단위를 붙인다. *@
+                    <strong>@e.MeasuredValue</strong>
+                    <small>@e.WeatherStandard?.Unit</small>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
 
-        <DxGridDataColumn Caption="알림" Width="90">
-            <CellDisplayTemplate Context="cell">
-                @{
-                    var e = (WeatherEventRecord)cell.DataItem;
-                }
-                <span class="jsini-badge @(e.IsNotified ? "jsini-badge--on" : "jsini-badge--off")">
-                    @(e.IsNotified ? "발송" : "미발송")
-                </span>
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
+            <DxGridDataColumn Caption="알림" Width="90">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var e = (WeatherEventRecord)cell.DataItem;
+                    }
+                    <span class="jsini-badge @(e.IsNotified ? "jsini-badge--on" : "jsini-badge--off")">
+                        @(e.IsNotified ? "발송" : "미발송")
+                    </span>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
 
-        <DxGridDataColumn Caption="" Width="80" AllowSort="false">
-            <CellDisplayTemplate Context="cell">
-                @{
-                    var e = (WeatherEventRecord)cell.DataItem;
-                }
-                <PermissionView Action="MenuAction.Delete">
-                    <DxButton Text="삭제"
-                              RenderStyle="ButtonRenderStyle.Secondary"
-                              Click="@(() => DeleteAsync(e))" />
-                </PermissionView>
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
-    </Columns>
-</CommGrd>
+            <DxGridDataColumn Caption="" Width="80" AllowSort="false">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var e = (WeatherEventRecord)cell.DataItem;
+                    }
+                    <PermissionView Action="MenuAction.Delete">
+                        <DxButton Text="삭제"
+                                  RenderStyle="ButtonRenderStyle.Secondary"
+                                  Click="@(() => DeleteAsync(e))" />
+                    </PermissionView>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+        </Columns>
+    </CommGrd>
+</CommCont>
 
 @if (_total > _events.Count)
 {

@@ -31,106 +31,110 @@
 
 <PageTitle>메타데이터 관리 · 포털관리</PageTitle>
 
-<PageHeading Title="메타데이터 관리" Scope="포털관리" />
+<CommSch>
+    <Fields>
+        <CommSchItem Label="검색어">
+            <DxTextBox @bind-Text="_keyword" NullText="타입·주소 검색" Style="width: 220px"
+                       ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        </CommSchItem>
+    </Fields>
+</CommSch>
 
-<CommGrd TItem="BizSelectConfigDto"
-         Data="@Shown"
-         EditFormTitle="메타데이터"
-         ExportName="메타데이터"
-         PageSize="20"
-         OnNew="@FillNew"
-         OnSave="@SaveAsync"
-         OnDelete="@DeleteAsync"
-         Reload="@ReloadAsync">
-    <Toolbar>
-        <DxTextBox @bind-Text="_keyword" NullText="타입·주소 검색" Style="width: 220px"
-                   ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
-    </Toolbar>
+<CommCont>
+    <CommGrd TItem="BizSelectConfigDto"
+             Data="@Shown"
+             EditFormTitle="메타데이터"
+             ExportName="메타데이터"
+             PageSize="20"
+             OnNew="@FillNew"
+             OnSave="@SaveAsync"
+             OnDelete="@DeleteAsync"
+             Reload="@ReloadAsync">
+        <Columns>
+            <DxGridDataColumn FieldName="@nameof(BizSelectConfigDto.BizType)" Caption="타입" Width="170" />
+            <DxGridDataColumn FieldName="@nameof(BizSelectConfigDto.ServiceCode)" Caption="서비스" Width="100" />
+            <DxGridDataColumn FieldName="@nameof(BizSelectConfigDto.HttpMethod)" Caption="방식" Width="80" />
+            <DxGridDataColumn FieldName="@nameof(BizSelectConfigDto.ApiUrl)" Caption="주소" MinWidth="260" />
 
-    <Columns>
-        <DxGridDataColumn FieldName="@nameof(BizSelectConfigDto.BizType)" Caption="타입" Width="170" />
-        <DxGridDataColumn FieldName="@nameof(BizSelectConfigDto.ServiceCode)" Caption="서비스" Width="100" />
-        <DxGridDataColumn FieldName="@nameof(BizSelectConfigDto.HttpMethod)" Caption="방식" Width="80" />
-        <DxGridDataColumn FieldName="@nameof(BizSelectConfigDto.ApiUrl)" Caption="주소" MinWidth="260" />
+            <DxGridDataColumn Caption="이름/값 칸" Width="170">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var c = (BizSelectConfigDto)cell.DataItem;
+                    }
+                    @* 이 둘이 비면 드롭다운이 빈 채로 뜬다. 표에서 바로 보이게 한다. *@
+                    @if (string.IsNullOrWhiteSpace(c.LabelField) || string.IsNullOrWhiteSpace(c.ValueField))
+                    {
+                        <span class="jsini-badge jsini-badge--off">비어 있음</span>
+                    }
+                    else
+                    {
+                        <span class="ad-code">@c.LabelField / @c.ValueField</span>
+                    }
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
 
-        <DxGridDataColumn Caption="이름/값 칸" Width="170">
-            <CellDisplayTemplate Context="cell">
-                @{
-                    var c = (BizSelectConfigDto)cell.DataItem;
-                }
-                @* 이 둘이 비면 드롭다운이 빈 채로 뜬다. 표에서 바로 보이게 한다. *@
-                @if (string.IsNullOrWhiteSpace(c.LabelField) || string.IsNullOrWhiteSpace(c.ValueField))
-                {
-                    <span class="jsini-badge jsini-badge--off">비어 있음</span>
-                }
-                else
-                {
-                    <span class="ad-code">@c.LabelField / @c.ValueField</span>
-                }
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
+            <DxGridDataColumn FieldName="@nameof(BizSelectConfigDto.Remark)" Caption="설명" MinWidth="200" />
+        </Columns>
 
-        <DxGridDataColumn FieldName="@nameof(BizSelectConfigDto.Remark)" Caption="설명" MinWidth="200" />
-    </Columns>
+        <EditFormTemplate Context="edit">
+            @{
+                var c = (BizSelectConfigDto)edit.EditModel;
+            }
+            <DxFormLayout CssClass="ad-editform">
+                <DxFormLayoutItem Caption="타입" ColSpanMd="6">
+                    @* 화면이 이 이름으로 찾는다. 바꾸면 그 이름을 쓰던 드롭다운이
+                       조용히 빈다 — 화면 쪽 코드가 이 값을 글자로 들고 있어서다. *@
+                    <DxTextBox @bind-Text="c.BizType" NullText="portal_account" />
+                </DxFormLayoutItem>
 
-    <EditFormTemplate Context="edit">
-        @{
-            var c = (BizSelectConfigDto)edit.EditModel;
-        }
-        <DxFormLayout CssClass="ad-editform">
-            <DxFormLayoutItem Caption="타입" ColSpanMd="6">
-                @* 화면이 이 이름으로 찾는다. 바꾸면 그 이름을 쓰던 드롭다운이
-                   조용히 빈다 — 화면 쪽 코드가 이 값을 글자로 들고 있어서다. *@
-                <DxTextBox @bind-Text="c.BizType" NullText="portal_account" />
-            </DxFormLayoutItem>
+                <DxFormLayoutItem Caption="서비스" ColSpanMd="3">
+                    <DxComboBox Data="@Services" @bind-Value="c.ServiceCode" />
+                </DxFormLayoutItem>
 
-            <DxFormLayoutItem Caption="서비스" ColSpanMd="3">
-                <DxComboBox Data="@Services" @bind-Value="c.ServiceCode" />
-            </DxFormLayoutItem>
+                <DxFormLayoutItem Caption="방식" ColSpanMd="3">
+                    <DxComboBox Data="@Methods" @bind-Value="c.HttpMethod" />
+                </DxFormLayoutItem>
 
-            <DxFormLayoutItem Caption="방식" ColSpanMd="3">
-                <DxComboBox Data="@Methods" @bind-Value="c.HttpMethod" />
-            </DxFormLayoutItem>
+                <DxFormLayoutItem Caption="주소" ColSpanMd="12">
+                    <DxTextBox @bind-Text="c.ApiUrl" NullText="/building/source/list?type=BACKGROUND" />
+                </DxFormLayoutItem>
 
-            <DxFormLayoutItem Caption="주소" ColSpanMd="12">
-                <DxTextBox @bind-Text="c.ApiUrl" NullText="/building/source/list?type=BACKGROUND" />
-            </DxFormLayoutItem>
+                <DxFormLayoutItem Caption="이름 칸" ColSpanMd="4">
+                    @* 사람에게 보여 줄 칸. 비면 드롭다운이 빈 줄로 뜬다. *@
+                    <DxTextBox @bind-Text="c.LabelField" NullText="name" />
+                </DxFormLayoutItem>
 
-            <DxFormLayoutItem Caption="이름 칸" ColSpanMd="4">
-                @* 사람에게 보여 줄 칸. 비면 드롭다운이 빈 줄로 뜬다. *@
-                <DxTextBox @bind-Text="c.LabelField" NullText="name" />
-            </DxFormLayoutItem>
+                <DxFormLayoutItem Caption="값 칸" ColSpanMd="4">
+                    @* 저장될 값. 비면 고를 수는 있는데 아무것도 안 담긴다. *@
+                    <DxTextBox @bind-Text="c.ValueField" NullText="id" />
+                </DxFormLayoutItem>
 
-            <DxFormLayoutItem Caption="값 칸" ColSpanMd="4">
-                @* 저장될 값. 비면 고를 수는 있는데 아무것도 안 담긴다. *@
-                <DxTextBox @bind-Text="c.ValueField" NullText="id" />
-            </DxFormLayoutItem>
+                <DxFormLayoutItem Caption="결과 경로" ColSpanMd="4">
+                    @* 응답에서 목록이 들어 있는 자리. funeralv2 봉투는 `result` 다. *@
+                    <DxTextBox @bind-Text="c.ResultPath" NullText="result" />
+                </DxFormLayoutItem>
 
-            <DxFormLayoutItem Caption="결과 경로" ColSpanMd="4">
-                @* 응답에서 목록이 들어 있는 자리. funeralv2 봉투는 `result` 다. *@
-                <DxTextBox @bind-Text="c.ResultPath" NullText="result" />
-            </DxFormLayoutItem>
+                <DxFormLayoutItem Caption="고정 파라미터" ColSpanMd="6">
+                    @* 늘 함께 보내는 값. JSON 객체 글자다. *@
+                    <DxTextBox @bind-Text="c.StaticParams" NullText='{"status": 1}' />
+                </DxFormLayoutItem>
 
-            <DxFormLayoutItem Caption="고정 파라미터" ColSpanMd="6">
-                @* 늘 함께 보내는 값. JSON 객체 글자다. *@
-                <DxTextBox @bind-Text="c.StaticParams" NullText='{"status": 1}' />
-            </DxFormLayoutItem>
+                <DxFormLayoutItem Caption="파라미터 경로" ColSpanMd="6">
+                    @* 화면이 넘긴 값을 본문 어디에 넣을지. 점 표기다. *@
+                    <DxTextBox @bind-Text="c.ParamPath" NullText="params.filter" />
+                </DxFormLayoutItem>
 
-            <DxFormLayoutItem Caption="파라미터 경로" ColSpanMd="6">
-                @* 화면이 넘긴 값을 본문 어디에 넣을지. 점 표기다. *@
-                <DxTextBox @bind-Text="c.ParamPath" NullText="params.filter" />
-            </DxFormLayoutItem>
+                <DxFormLayoutItem Caption="처리기" ColSpanMd="6">
+                    <DxTextBox @bind-Text="c.ProcessorType" NullText="특별한 가공이 필요할 때만" />
+                </DxFormLayoutItem>
 
-            <DxFormLayoutItem Caption="처리기" ColSpanMd="6">
-                <DxTextBox @bind-Text="c.ProcessorType" NullText="특별한 가공이 필요할 때만" />
-            </DxFormLayoutItem>
-
-            <DxFormLayoutItem Caption="설명" ColSpanMd="12">
-                <DxTextBox @bind-Text="c.Remark" NullText="어느 화면의 무슨 드롭다운인가" />
-            </DxFormLayoutItem>
-        </DxFormLayout>
-    </EditFormTemplate>
-</CommGrd>
+                <DxFormLayoutItem Caption="설명" ColSpanMd="12">
+                    <DxTextBox @bind-Text="c.Remark" NullText="어느 화면의 무슨 드롭다운인가" />
+                </DxFormLayoutItem>
+            </DxFormLayout>
+        </EditFormTemplate>
+    </CommGrd>
+</CommCont>
 
 @code {
     private IReadOnlyList<BizSelectConfigDto> _all = [];

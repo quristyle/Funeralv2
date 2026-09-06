@@ -34,135 +34,135 @@
 
 <PageTitle>관측 지역 관리 · 생활과환경</PageTitle>
 
-<PageHeading Title="관측 지역 관리" Scope="생활과환경" />
+<CommCont>
+    <CommGrd TItem="WeatherLocation"
+             Data="@_items"
+             EditFormTitle="관측 지역"
+             ExportName="관측지역"
+             PageSize="20"
+             OnNew="@FillNew"
+             OnSave="@SaveAsync"
+             OnDelete="@DeleteAsync"
+             Reload="@ReloadAsync">
+        <Columns>
+            <DxGridDataColumn FieldName="@nameof(WeatherLocation.SortOrder)" Caption="순서" Width="70" />
 
-<CommGrd TItem="WeatherLocation"
-         Data="@_items"
-         EditFormTitle="관측 지역"
-         ExportName="관측지역"
-         PageSize="20"
-         OnNew="@FillNew"
-         OnSave="@SaveAsync"
-         OnDelete="@DeleteAsync"
-         Reload="@ReloadAsync">
-    <Columns>
-        <DxGridDataColumn FieldName="@nameof(WeatherLocation.SortOrder)" Caption="순서" Width="70" />
+            <DxGridDataColumn Caption="지역" MinWidth="160">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var loc = (WeatherLocation)cell.DataItem;
+                    }
+                    <strong>@loc.Name</strong>
+                    @if (!loc.IsActive)
+                    {
+                        <span class="jsini-badge jsini-badge--off">중지</span>
+                    }
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
 
-        <DxGridDataColumn Caption="지역" MinWidth="160">
-            <CellDisplayTemplate Context="cell">
-                @{
-                    var loc = (WeatherLocation)cell.DataItem;
-                }
-                <strong>@loc.Name</strong>
-                @if (!loc.IsActive)
-                {
-                    <span class="jsini-badge jsini-badge--off">중지</span>
-                }
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
+            <DxGridDataColumn Caption="격자" Width="110">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var loc = (WeatherLocation)cell.DataItem;
+                    }
+                    <span class="jsini-badge">@loc.Nx, @loc.Ny</span>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
 
-        <DxGridDataColumn Caption="격자" Width="110">
-            <CellDisplayTemplate Context="cell">
-                @{
-                    var loc = (WeatherLocation)cell.DataItem;
-                }
-                <span class="jsini-badge">@loc.Nx, @loc.Ny</span>
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
+            <DxGridDataColumn FieldName="@nameof(WeatherLocation.WarningAreaCode)" Caption="특보구역" Width="120" />
 
-        <DxGridDataColumn FieldName="@nameof(WeatherLocation.WarningAreaCode)" Caption="특보구역" Width="120" />
+            <DxGridDataColumn Caption="중기예보" Width="180">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var loc = (WeatherLocation)cell.DataItem;
+                    }
+                    @* 육상·기온 코드가 따로다. 둘 다 있어야 중기예보가 온다. *@
+                    <span class="lf-code">@(loc.MidTermLandCode ?? "-") / @(loc.MidTermTempCode ?? "-")</span>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
 
-        <DxGridDataColumn Caption="중기예보" Width="180">
-            <CellDisplayTemplate Context="cell">
-                @{
-                    var loc = (WeatherLocation)cell.DataItem;
-                }
-                @* 육상·기온 코드가 따로다. 둘 다 있어야 중기예보가 온다. *@
-                <span class="lf-code">@(loc.MidTermLandCode ?? "-") / @(loc.MidTermTempCode ?? "-")</span>
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
+            <DxGridDataColumn FieldName="@nameof(WeatherLocation.Description)" Caption="설명" MinWidth="160" />
+        </Columns>
 
-        <DxGridDataColumn FieldName="@nameof(WeatherLocation.Description)" Caption="설명" MinWidth="160" />
-    </Columns>
-
-    <EditFormTemplate Context="edit">
-        @{
-            var loc = (WeatherLocation)edit.EditModel;
-        }
-        <DxFormLayout CssClass="lf-editform">
-            <DxFormLayoutItem Caption="좌표 검색" ColSpanMd="12">
-                <div class="jsini-inline">
-                    <DxTextBox @bind-Text="_search" NullText="서울 강남구 · 부산 해운대구"
-                               Style="flex: 1" />
-                    <DxButton Text="찾기" RenderStyle="ButtonRenderStyle.Secondary"
-                              Click="@SearchGridAsync" />
-                </div>
-            </DxFormLayoutItem>
-
-            @if (_found.Count > 0)
-            {
-                <DxFormLayoutItem Caption="검색 결과" ColSpanMd="12">
-                    @* 고르면 이름과 격자가 채워진다. 중기예보·특보구역 코드는
-                       이 검색이 주지 않아 아래에서 따로 골라야 한다. *@
-                    <div class="lf-grid-results">
-                        @foreach (var g in _found)
-                        {
-                            <button type="button" class="lf-grid-result"
-                                    @onclick="@(() => Apply(loc, g))">
-                                <span class="lf-grid-result__name">@GridName(g)</span>
-                                <span class="lf-grid-result__xy">@g.Nx, @g.Ny</span>
-                            </button>
-                        }
+        <EditFormTemplate Context="edit">
+            @{
+                var loc = (WeatherLocation)edit.EditModel;
+            }
+            <DxFormLayout CssClass="lf-editform">
+                <DxFormLayoutItem Caption="좌표 검색" ColSpanMd="12">
+                    <div class="jsini-inline">
+                        <DxTextBox @bind-Text="_search" NullText="서울 강남구 · 부산 해운대구"
+                                   Style="flex: 1" />
+                        <DxButton Text="찾기" RenderStyle="ButtonRenderStyle.Secondary"
+                                  Click="@SearchGridAsync" />
                     </div>
                 </DxFormLayoutItem>
-            }
 
-            <DxFormLayoutItem Caption="지역 명칭" ColSpanMd="8">
-                <DxTextBox @bind-Text="loc.Name" />
-            </DxFormLayoutItem>
+                @if (_found.Count > 0)
+                {
+                    <DxFormLayoutItem Caption="검색 결과" ColSpanMd="12">
+                        @* 고르면 이름과 격자가 채워진다. 중기예보·특보구역 코드는
+                           이 검색이 주지 않아 아래에서 따로 골라야 한다. *@
+                        <div class="lf-grid-results">
+                            @foreach (var g in _found)
+                            {
+                                <button type="button" class="lf-grid-result"
+                                        @onclick="@(() => Apply(loc, g))">
+                                    <span class="lf-grid-result__name">@GridName(g)</span>
+                                    <span class="lf-grid-result__xy">@g.Nx, @g.Ny</span>
+                                </button>
+                            }
+                        </div>
+                    </DxFormLayoutItem>
+                }
 
-            <DxFormLayoutItem Caption="순서" ColSpanMd="4">
-                <DxSpinEdit @bind-Value="loc.SortOrder" MinValue="0" />
-            </DxFormLayoutItem>
+                <DxFormLayoutItem Caption="지역 명칭" ColSpanMd="8">
+                    <DxTextBox @bind-Text="loc.Name" />
+                </DxFormLayoutItem>
 
-            <DxFormLayoutItem Caption="NX" ColSpanMd="3">
-                <DxSpinEdit @bind-Value="loc.Nx" MinValue="0" />
-            </DxFormLayoutItem>
+                <DxFormLayoutItem Caption="순서" ColSpanMd="4">
+                    <DxSpinEdit @bind-Value="loc.SortOrder" MinValue="0" />
+                </DxFormLayoutItem>
 
-            <DxFormLayoutItem Caption="NY" ColSpanMd="3">
-                <DxSpinEdit @bind-Value="loc.Ny" MinValue="0" />
-            </DxFormLayoutItem>
+                <DxFormLayoutItem Caption="NX" ColSpanMd="3">
+                    <DxSpinEdit @bind-Value="loc.Nx" MinValue="0" />
+                </DxFormLayoutItem>
 
-            <DxFormLayoutItem Caption="특보구역" ColSpanMd="6">
-                @* 구역 코드는 기상청이 정한 값(`RegId`)이고 보여 줄 것은
-                   약어(`RegKo`)다. 코드를 손으로 넣게 두면 한 글자 틀려도
-                   조용히 특보가 안 들어온다. *@
-                <DxComboBox Data="@_zones" @bind-Value="loc.WarningAreaCode"
-                            TextFieldName="@nameof(WeatherWarningZone.RegKo)"
-                            ValueFieldName="@nameof(WeatherWarningZone.RegId)"
-                            NullText="특보를 받지 않는다"
-                            ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
-            </DxFormLayoutItem>
+                <DxFormLayoutItem Caption="NY" ColSpanMd="3">
+                    <DxSpinEdit @bind-Value="loc.Ny" MinValue="0" />
+                </DxFormLayoutItem>
 
-            <DxFormLayoutItem Caption="중기 육상" ColSpanMd="6">
-                <DxTextBox @bind-Text="loc.MidTermLandCode" NullText="11B00000" />
-            </DxFormLayoutItem>
+                <DxFormLayoutItem Caption="특보구역" ColSpanMd="6">
+                    @* 구역 코드는 기상청이 정한 값(`RegId`)이고 보여 줄 것은
+                       약어(`RegKo`)다. 코드를 손으로 넣게 두면 한 글자 틀려도
+                       조용히 특보가 안 들어온다. *@
+                    <DxComboBox Data="@_zones" @bind-Value="loc.WarningAreaCode"
+                                TextFieldName="@nameof(WeatherWarningZone.RegKo)"
+                                ValueFieldName="@nameof(WeatherWarningZone.RegId)"
+                                NullText="특보를 받지 않는다"
+                                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+                </DxFormLayoutItem>
 
-            <DxFormLayoutItem Caption="중기 기온" ColSpanMd="6">
-                <DxTextBox @bind-Text="loc.MidTermTempCode" NullText="11B10101" />
-            </DxFormLayoutItem>
+                <DxFormLayoutItem Caption="중기 육상" ColSpanMd="6">
+                    <DxTextBox @bind-Text="loc.MidTermLandCode" NullText="11B00000" />
+                </DxFormLayoutItem>
 
-            <DxFormLayoutItem Caption="설명" ColSpanMd="12">
-                <DxTextBox @bind-Text="loc.Description" />
-            </DxFormLayoutItem>
+                <DxFormLayoutItem Caption="중기 기온" ColSpanMd="6">
+                    <DxTextBox @bind-Text="loc.MidTermTempCode" NullText="11B10101" />
+                </DxFormLayoutItem>
 
-            <DxFormLayoutItem Caption="사용" ColSpanMd="12">
-                @* 끄면 수집을 멈춘다. 지우면 그 지역의 옛 기록이 끊긴다. *@
-                <DxCheckBox @bind-Checked="loc.IsActive">수집한다</DxCheckBox>
-            </DxFormLayoutItem>
-        </DxFormLayout>
-    </EditFormTemplate>
-</CommGrd>
+                <DxFormLayoutItem Caption="설명" ColSpanMd="12">
+                    <DxTextBox @bind-Text="loc.Description" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="사용" ColSpanMd="12">
+                    @* 끄면 수집을 멈춘다. 지우면 그 지역의 옛 기록이 끊긴다. *@
+                    <DxCheckBox @bind-Checked="loc.IsActive">수집한다</DxCheckBox>
+                </DxFormLayoutItem>
+            </DxFormLayout>
+        </EditFormTemplate>
+    </CommGrd>
+</CommCont>
 
 @code {
     private IReadOnlyList<WeatherLocation> _items = [];

@@ -46,19 +46,28 @@
 
 <PageTitle>빈소현황 · 장례식장</PageTitle>
 
-<PageHeading Title="빈소현황" Scope="장례식장" />
-
 <BuildingFilter @bind-BuildingId="_buildingId" @bind-FloorId="_floorId" ShowFloor="true" Search="@ReloadAsync">
-    <DxTextBox @bind-Text="_name" NullText="고인명" Style="width: 140px"
-               ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+    <ChildContent>
+        <CommSchItem Label="고인명">
+            <DxTextBox @bind-Text="_name" NullText="이름" Style="width: 140px"
+                       ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        </CommSchItem>
 
-    <DxCheckBox @bind-Checked="_onlyInUse">사용 중만</DxCheckBox>
-    <DxCheckBox @bind-Checked="_onlyAlert">장비 이상만</DxCheckBox>
+        <CommSchItem>
+            <DxCheckBox @bind-Checked="_onlyInUse">사용 중만</DxCheckBox>
+        </CommSchItem>
 
-    @* 기간 둘은 접어 둔다. 늘 펼쳐 두면 조건줄이 두 줄이 되는데, 이 화면은
-       상황판으로 띄워 두는 일이 많아 위쪽을 먹는 것이 아깝다. *@
-    <DxButton Text="@(_showDates ? "기간 접기" : "기간 조건")"
-              RenderStyle="ButtonRenderStyle.Link" Click="@(() => _showDates = !_showDates)" />
+        <CommSchItem>
+            <DxCheckBox @bind-Checked="_onlyAlert">장비 이상만</DxCheckBox>
+        </CommSchItem>
+    </ChildContent>
+
+    <Actions>
+        @* 기간 둘은 접어 둔다. 늘 펼쳐 두면 조건줄이 두 줄이 되는데, 이 화면은
+           상황판으로 띄워 두는 일이 많아 위쪽을 먹는 것이 아깝다. *@
+        <DxButton Text="@(_showDates ? "기간 접기" : "기간 조건")"
+                  RenderStyle="ButtonRenderStyle.Link" Click="@(() => _showDates = !_showDates)" />
+    </Actions>
 </BuildingFilter>
 
 @if (_showDates)
