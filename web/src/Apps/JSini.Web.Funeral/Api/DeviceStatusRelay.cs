@@ -50,6 +50,9 @@ public sealed class DeviceStatusRelay(IConfiguration configuration, ILogger<Devi
     /// <summary>지금 듣고 있는 화면들. 화면이 사라지면 스스로 빠진다.</summary>
     private readonly List<Action<string, string>> _listeners = [];
 
+    /// <summary>호실 배정이 바뀌었다는 방송을 듣는 화면들(빈소현황).</summary>
+    private readonly List<Action<string>> _assignmentListeners = [];
+
     private readonly SemaphoreSlim _gate = new(1, 1);
 
     private HubConnection? _hub;
@@ -72,6 +75,27 @@ public sealed class DeviceStatusRelay(IConfiguration configuration, ILogger<Devi
         _ = EnsureConnectedAsync();
 
         return new Subscription(this, onChanged);
+    }
+
+    /// <summary>
+    /// 호실 배정이 바뀌는 것을 듣는다 — 고인 등록·호실 이동·출상·출상 취소가
+    /// 모두 이 방송을 낸다(<c>DeviceHubSender</c>). 인자는 바뀐 호실 식별자다.
+    ///
+    /// <para>
+    /// 빈소현황이 이것을 듣는다. <b>바뀐 칸만 고칠 수가 없어서</b>(호실 하나가
+    /// 바뀌면 고인·상주·장비가 통째로 달라진다) 듣는 쪽에서 다시 읽는다.
+    /// </para>
+    /// </summary>
+    public IDisposable SubscribeAssignments(Action<string> onChanged)
+    {
+        lock (_assignmentListeners)
+        {
+            _assignmentListeners.Add(onChanged);
+        }
+
+        _ = EnsureConnectedAsync();
+
+        return new AssignmentSubscription(this, onChanged);
     }
 
     private async Task EnsureConnectedAsync()
@@ -133,6 +157,28 @@ public sealed class DeviceStatusRelay(IConfiguration configuration, ILogger<Devi
                 }
             });
 
+            hub.On<string>("RoomAssignmentChanged", roomId =>
+            {
+                Action<string>[] listeners;
+
+                lock (_assignmentListeners)
+                {
+                    listeners = [.. _assignmentListeners];
+                }
+
+                foreach (var listener in listeners)
+                {
+                    try
+                    {
+                        listener(roomId);
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogDebug(ex, "호실 배정 변경을 화면에 전하지 못했다: {RoomId}", roomId);
+                    }
+                }
+            });
+
             await hub.StartAsync();
             _hub = hub;
 
@@ -166,6 +212,17 @@ public sealed class DeviceStatusRelay(IConfiguration configuration, ILogger<Devi
             lock (relay._listeners)
             {
                 relay._listeners.Remove(handler);
+            }
+        }
+    }
+
+    private sealed class AssignmentSubscription(DeviceStatusRelay relay, Action<string> handler) : IDisposable
+    {
+        public void Dispose()
+        {
+            lock (relay._assignmentListeners)
+            {
+                relay._assignmentListeners.Remove(handler);
             }
         }
     }

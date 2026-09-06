@@ -26,6 +26,17 @@
     많다. 기간 둘은 접어 둔다 — 이 화면은 상황판으로 띄워 두는 일이 많아
     조건줄이 두 줄이 되는 것이 아깝다.
 
+    [스스로 새로 고치지 않고 있었다]
+
+    이 화면은 **상황판으로 띄워 둔다** — 사람이 새로 고침을 누르러 오지 않는다.
+    옛 화면은 60초 폴링에 실시간 방송(`DeviceStatusChanged` ·
+    `RoomAssignmentChanged`)까지 함께 썼는데 여기서는 둘 다 없어서, 띄워 둔
+    화면이 몇 시간 전 상태로 남았다. 폴링은 방송을 놓쳤을 때의 보험이다.
+
+    **조용히 읽는다.** 안내 줄을 건드리면 아무도 안 만졌는데 「조회 결과가
+    없습니다」가 떴다 사라진다 — 상황판에서 그 깜빡임은 누가 무언가 눌렀다는
+    신호로 읽힌다.
+
     [고치러 가는 길은 걸되, 고치는 일은 여기서 하지 않는다]
 
     옛 화면은 카드 위에서 고인 자료를 고치고 호실을 옮기고 장비를 설정했다.
@@ -42,7 +53,9 @@
 *@
 
 @inherits DataPage
+@implements IDisposable
 @inject FuneralApi Api
+@inject DeviceStatusRelay Status
 
 <PageTitle>빈소현황 · 장례식장</PageTitle>
 
@@ -271,7 +284,90 @@
         }
     }
 
-    protected override Task OnInitializedAsync() => ReloadAsync();
+    // ── 스스로 새로 고친다 ──────────────────────────────────
+    //
+    // 이 화면은 **상황판으로 띄워 둔다.** 사람이 새로 고침을 누르러 오지
+    // 않는다는 뜻이다. 옛 화면은 60초 폴링 + 실시간 방송 둘 다 썼고,
+    // 여기서는 그것을 그대로 옮긴다 — 폴링은 방송을 놓쳤을 때의 보험이다.
+
+    private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(60);
+
+    private Timer? _poll;
+    private IDisposable? _statusWatch;
+    private IDisposable? _assignmentWatch;
+
+    /// <summary>
+    /// 방송이 몰릴 때 다시 읽기를 묶는 자리. 한 건물의 화면이 동시에 켜지면
+    /// 방송이 수십 개 온다 — 그때마다 읽으면 조회가 그만큼 나간다.
+    /// </summary>
+    private CancellationTokenSource? _debounce;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _statusWatch = Status.Subscribe((_, _) => ScheduleReload());
+        _assignmentWatch = Status.SubscribeAssignments(_ => ScheduleReload());
+
+        _poll = new Timer(_ => ScheduleReload(), null, PollInterval, PollInterval);
+
+        await ReloadAsync();
+    }
+
+    /// <summary>
+    /// 0.8초 뒤에 다시 읽는다. 그 사이에 또 불리면 시계를 다시 맞춘다.
+    ///
+    /// <para>
+    /// <b>조용히 읽는다</b> — <c>LoadAsync</c> 를 쓰면 안내 줄이 깜빡이고
+    /// 「조회 결과가 없습니다」가 스스로 떴다 사라진다. 상황판에서 그 깜빡임은
+    /// 사람이 무언가 눌렀다는 신호로 읽힌다.
+    /// </para>
+    /// </summary>
+    private void ScheduleReload()
+    {
+        _debounce?.Cancel();
+        _debounce?.Dispose();
+        _debounce = new CancellationTokenSource();
+
+        var token = _debounce.Token;
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(800), token);
+                await InvokeAsync(ReloadSilentlyAsync);
+            }
+            catch (OperationCanceledException)
+            {
+                // 다음 것이 이어받는다.
+            }
+        }, token);
+    }
+
+    /// <summary>안내 줄을 건드리지 않고 자료만 갈아 끼운다.</summary>
+    private async Task ReloadSilentlyAsync()
+    {
+        try
+        {
+            var board = await Api.GetRoomBoardAsync(
+                buildingId: _buildingId,
+                floorId: _floorId,
+                name: string.IsNullOrWhiteSpace(_name) ? null : _name.Trim(),
+                coffinStartDate: _coffinFrom,
+                coffinEndDate: _coffinTo,
+                burialStartDate: _burialFrom,
+                burialEndDate: _burialTo);
+
+            _board = board;
+            _rooms = board?.Rooms ?? [];
+            StateHasChanged();
+        }
+        catch (ApiException)
+        {
+            // 스스로 도는 조회다. 실패하면 다음 차례에 다시 해 본다 —
+            // 사람이 보고 있지 않을 때 빨간 줄을 띄워 봐야 소용이 없고,
+            // 그 순간의 화면(마지막으로 성공한 자료)이 더 쓸모 있다.
+        }
+    }
 
     private Task ReloadAsync() => LoadAsync(async () =>
     {
@@ -330,4 +426,19 @@
     };
 
     private static string Fmt(DateTime? value) => value?.ToString("yyyy-MM-dd HH:mm") ?? "-";
+
+    /// <summary>
+    /// 시계와 방송 구독을 놓는다.
+    ///
+    /// <b>빠뜨리면 화면을 닫아도 60초마다 조회가 계속 나간다</b> — 상황판으로
+    /// 띄워 두는 화면이라 열고 닫기를 반복하면 그만큼 쌓인다.
+    /// </summary>
+    public void Dispose()
+    {
+        _poll?.Dispose();
+        _debounce?.Cancel();
+        _debounce?.Dispose();
+        _statusWatch?.Dispose();
+        _assignmentWatch?.Dispose();
+    }
 }
