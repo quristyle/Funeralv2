@@ -4,115 +4,1032 @@
     [조직도] — DB 메뉴 `/company/org-chart`.
     이력: Vue `views/portal/system/company-user/org-chart` → 여기.
 
-    회사 → 부서 → 사람을 한 트리로 본다.
+    회사 → 부서 → 사람을 **그림 한 장**으로 보고, 끌어다 놓아 소속을 바꾼다.
 
-    [사람은 부서를 눌렀을 때만 읽는다]
+    ────────────────────────────────────────────────────────────
+    [읽기만 되는 화면이 아니다]
 
-    부서가 수십 개인데 미리 다 읽으면 첫 조회가 사람 수천 명이 된다. 부서를
-    펼칠 때 그 부서만 부른다. 한 번 읽은 부서는 다시 부르지 않는다.
+    한동안 여기 있던 것은 부서를 접었다 펴는 목록이었다. 원본을 확인해 보니
+    조직도는 **보는 화면이자 고치는 화면**이다 — 부서를 만들고, 부서를 다른
+    부서 밑으로 옮기고, 사람을 부서로 옮긴다. 그 셋이 빠지면 관리자는
+    부서 관리 화면과 계정 관리 화면을 오가며 같은 일을 해야 한다.
+
+    ────────────────────────────────────────────────────────────
+    [사람을 미리 다 읽는다 — 부서 하나씩이 아니라]
+
+    「펼칠 때 그 부서만 읽기」는 목록에서나 되는 이야기다. 조직도는 한 장에
+    전부 보여 주는 그림이라 처음부터 다 있어야 한다. 대신 **고른 회사 하나**로
+    좁히고(`GetDeptsAsync(회사)`), 부서별 조회를 몇 개씩 묶어 나란히 부른다.
+    원본은 부서 수만큼 순서대로 기다렸다 — 부서가 서른이면 서른 번이다.
+
+    ────────────────────────────────────────────────────────────
+    [옮기는 길이 둘이다 — 끌기와 단추]
+
+    HTML5 끌기는 **모바일 브라우저에서 동작하지 않는다.** 그래서 노드마다
+    [이동] 단추를 두고 팝업에서 대상 부서를 고른다. 부르는 API 는 끌어다
+    놓았을 때와 같은 것이다(`MoveDeptAsync` · `MoveUserDeptAsync`) —
+    같은 일을 하는 저장 경로를 둘로 만들면 한쪽에만 규칙이 붙는다.
+
+    끌기 값은 `DataTransfer` 에 싣지 않고 **회로가 들고 있는다**(`_drag`).
+    Blazor 는 `dragstart` 에서 `dataTransfer.setData` 를 걸 수 없고, 어차피
+    끌기 시작과 놓기가 같은 회로 안에서 일어난다.
+
+    ────────────────────────────────────────────────────────────
+    [화면 이동·확대만 JS 다]
+
+    노드 배치도 연결선도 C# 이 계산한다. 브라우저로 넘긴 것은 끌어서 움직이고
+    휠로 키우는 것 하나뿐이다 — 그것을 회로로 넘기면 마우스가 움직일 때마다
+    서버를 왕복한다. 까닭은 `wwwroot/js/org-chart.js` 머리말에 있다.
 *@
 
 @inherits DataPage
+@implements IAsyncDisposable
 @inject AdminClient Api
+@inject IJSRuntime Js
+@inject IPermissionContext Permissions
+@inject NavigationManager Nav
 
 <PageTitle>조직도 · 포털관리</PageTitle>
 
-<div class="jsini-toolbar">
-    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@ReloadAsync" />
-</div>
+<CommSch OnSearch="@ReloadAsync">
+    <Fields>
+        <CommSchItem Label="회사">
+            <DxComboBox Data="@_companies" TextFieldName="@nameof(CompanyDto.Name)"
+                        ValueFieldName="@nameof(CompanyDto.Id)"
+                        Value="@_companyId"
+                        ValueChanged="@((string? v) => PickCompanyAsync(v))"
+                        ValueExpression="@(() => _companyId)"
+                        NullText="회사를 고르십시오" Style="width: 220px" />
+        </CommSchItem>
 
-<div class="ad-org">
-    @foreach (var dept in Flatten(_depts, 0))
-    {
-        <details class="ad-org__dept" style="--depth: @dept.Depth" @ontoggle="@(() => LoadUsersAsync(dept.Node.Id))">
-            <summary class="ad-org__summary">
-                <span class="ad-org__name">@dept.Node.Name</span>
-                <span class="ad-org__count">@dept.Node.UserCount 명</span>
-                @if (!string.IsNullOrWhiteSpace(dept.Node.CompanyName))
-                {
-                    <span class="ad-org__company">@dept.Node.CompanyName</span>
-                }
-            </summary>
+        <CommSchItem Label="방향">
+            @* 단추 두 개로 방향을 바꾼다. DxButtonGroup 은 자식을 `Items` 로 받아
+               그냥 넣으면 열 때 500 이 난다(사람롤 화면 주석 참고). *@
+            <div class="jsini-inline">
+                <DxButton Text="세로"
+                          RenderStyle="@(_vertical ? ButtonRenderStyle.Primary : ButtonRenderStyle.Secondary)"
+                          Click="@(() => SetDirection(true))" />
+                <DxButton Text="가로"
+                          RenderStyle="@(_vertical ? ButtonRenderStyle.Secondary : ButtonRenderStyle.Primary)"
+                          Click="@(() => SetDirection(false))" />
+            </div>
+        </CommSchItem>
+    </Fields>
 
-            @if (_users.TryGetValue(dept.Node.Id, out var people))
-            {
-                @if (people.Count == 0)
-                {
-                    <div class="ad-org__empty">이 부서에 직접 속한 사람이 없습니다.</div>
-                }
-                else
-                {
-                    <ul class="ad-org__people">
-                        @foreach (var p in people)
-                        {
-                            <li>
-                                <strong>@p.UserName</strong>
-                                <span class="ad-org__id">@p.LoginId</span>
-                                @if (!string.IsNullOrWhiteSpace(p.RoleText))
-                                {
-                                    <span class="ad-org__role">@p.RoleText</span>
-                                }
-                            </li>
-                        }
-                    </ul>
-                }
-            }
-            else
-            {
-                <div class="ad-org__empty">펼치면 사람을 읽습니다.</div>
-            }
-        </details>
-    }
-</div>
+    <Actions>
+        <PermissionView Action="MenuAction.Create">
+            @* 부서가 하나도 없으면 조직도에 회사 노드만 있고 그 카드의 단추는
+               찾기 어렵다. 첫 부서를 만드는 길을 위에도 둔다. *@
+            <DxButton Text="부서 추가" RenderStyle="ButtonRenderStyle.Secondary"
+                      Enabled="@(!string.IsNullOrEmpty(_companyId))"
+                      Click="@(() => OpenAddDept(null))" />
+        </PermissionView>
+
+        <DxButton Text="미소속 사용자"
+                  RenderStyle="@(_showUnassigned ? ButtonRenderStyle.Primary : ButtonRenderStyle.Secondary)"
+                  Click="@ToggleUnassignedAsync" />
+
+        <DxButton Text="화면 맞춤" RenderStyle="ButtonRenderStyle.Secondary" Click="@FitAsync" />
+    </Actions>
+</CommSch>
 
 <PageNotice Text="@Notice" Tone="@Tone" />
 
+<CommCont>
+    <div class="ad-orgc-wrap">
+
+        <div class="ad-orgc" @ref="_viewport">
+
+            <div class="ad-orgc__legend">
+                끌어다 놓거나 노드의 [이동] 으로 소속을 바꿉니다.
+                확대는 휠·두 손가락, 이동은 빈 곳 끌기입니다.
+            </div>
+
+            <div class="ad-orgc__zoom no-pan">
+                <button type="button" title="확대" @onclick="@(() => ZoomAsync("zoomIn"))">＋</button>
+                <button type="button" title="축소" @onclick="@(() => ZoomAsync("zoomOut"))">－</button>
+            </div>
+
+            @* 판에는 인라인 스타일을 **적지 않는다.** 화면 이동·확대가 이 판의
+               `transform` 을 쓰는데, Blazor 가 여기에 style 을 다시 쓰면 그 변환이
+               지워진다. 크기는 안쪽 svg 가 정하고, 「화면 맞춤」에는 값을 넘긴다. *@
+            <div class="ad-orgc__stage" @ref="_stage">
+
+                <svg class="ad-orgc__links" width="@N(_stageWidth)" height="@N(_stageHeight)">
+                    @foreach (var node in _nodes.Where(n => n.ParentX is not null))
+                    {
+                        <path d="@LinkPath(node)" />
+                    }
+                </svg>
+
+                @foreach (var node in _nodes)
+                {
+                    <div class="ad-orgc__node ad-orgc__node--@Kind(node)"
+                         style="left: @Px(node.X); top: @Px(node.Y)"
+                         draggable="@Draggable(node)"
+                         @ondragstart="@(() => BeginDrag(node))"
+                         @ondragover:preventDefault="true"
+                         @ondrop:preventDefault="true"
+                         @ondrop="@(() => DropAsync(node))">
+
+                        @if (node.Kind == OrgKind.User)
+                        {
+                            <span class="ad-orgc__face">
+                                @if (!string.IsNullOrWhiteSpace(node.Avatar))
+                                {
+                                    <img src="@FileDownload.RelayUrl(node.Avatar)" alt="" />
+                                }
+                                else
+                                {
+                                    @Initial(node.Name)
+                                }
+                            </span>
+                        }
+                        else
+                        {
+                            <span class="ad-orgc__icon">@(node.Kind == OrgKind.Company ? "회사" : "부서")</span>
+                        }
+
+                        <span class="ad-orgc__text">
+                            <span class="ad-orgc__name" title="@node.Name">@node.Name</span>
+                            <span class="ad-orgc__sub" title="@Sub(node)">@Sub(node)</span>
+                        </span>
+
+                        @* 단추는 캔버스가 가로채면 안 된다 — `no-pan` 이 그 표시다. *@
+                        @if (node.Kind != OrgKind.User)
+                        {
+                            <PermissionView Action="MenuAction.Create">
+                                <button type="button" class="ad-orgc__btn no-pan" title="하위 부서 추가"
+                                        @onclick="@(() => OpenAddDept(node.Kind == OrgKind.Dept ? node : null))">
+                                    ＋
+                                </button>
+                            </PermissionView>
+                        }
+
+                        @if (node.Kind != OrgKind.Company)
+                        {
+                            <PermissionView Action="MenuAction.Update">
+                                <button type="button" class="ad-orgc__btn no-pan" title="다른 부서로 이동"
+                                        @onclick="@(() => OpenMove(node.Kind, node.Id, node.Name))">
+                                    ↦
+                                </button>
+                            </PermissionView>
+                        }
+                    </div>
+                }
+            </div>
+
+            @if (Loading)
+            {
+                <div class="ad-orgc__busy">조직도를 읽는 중…</div>
+            }
+        </div>
+
+        @* 미소속 사용자.
+
+           행이 싣는 끌기 값은 조직도의 사람 노드와 **같은 모양**이라
+           부서 노드의 놓기 처리를 그대로 쓴다. *@
+        @if (_showUnassigned)
+        {
+            <div class="ad-orgc__side no-pan">
+                <div class="ad-orgc__side-head">
+                    <span class="ad-orgc__side-title">미소속 사용자</span>
+                    <span class="jsini-text-muted">@_unassigned.Count</span>
+                    <div class="commcont__spacer"></div>
+                    <DxButton Text="새로고침" RenderStyle="ButtonRenderStyle.Secondary"
+                              Click="@LoadUnassignedAsync" />
+                </div>
+
+                <div class="ad-orgc__side-hint">
+                    어느 회사에도 속하지 않은 사람입니다. 부서 노드로 끌어다 놓거나
+                    행의 [이동] 을 누르면 그 부서 소속이 됩니다.
+                </div>
+
+                <div class="ad-orgc__side-list">
+                    @foreach (var user in _unassigned)
+                    {
+                        <div class="ad-orgc__row" draggable="@(CanMove ? "true" : "false")"
+                             @ondragstart="@(() => BeginDragUser(user.Id))">
+
+                            <span class="ad-orgc__face">
+                                @if (!string.IsNullOrWhiteSpace(user.Avatar))
+                                {
+                                    <img src="@FileDownload.RelayUrl(user.Avatar)" alt="" />
+                                }
+                                else
+                                {
+                                    @Initial(string.IsNullOrWhiteSpace(user.UserName) ? user.LoginId : user.UserName)
+                                }
+                            </span>
+
+                            <span class="ad-orgc__text">
+                                <span class="ad-orgc__name">
+                                    @(string.IsNullOrWhiteSpace(user.UserName) ? user.LoginId : user.UserName)
+                                </span>
+                                <span class="ad-orgc__sub">@user.LoginId · @(user.Email ?? "-")</span>
+                            </span>
+
+                            <PermissionView Action="MenuAction.Update">
+                                <button type="button" class="ad-orgc__btn" title="부서로 이동"
+                                        @onclick="@(() => OpenMove(OrgKind.User, user.Id,
+                                                    string.IsNullOrWhiteSpace(user.UserName) ? user.LoginId : user.UserName))">
+                                    ↦
+                                </button>
+                            </PermissionView>
+                        </div>
+                    }
+
+                    @if (_unassigned.Count == 0)
+                    {
+                        <div class="ad-orgc__side-empty">미소속 사용자가 없습니다.</div>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+</CommCont>
+
+<DxPopup @bind-Visible="_adding" HeaderText="@AddTitle" Width="420px" ShowFooter="false">
+    <BodyContentTemplate>
+        <div class="jsini-hint">
+            @(_addParent is null
+                ? "회사 바로 아래에 새 부서를 만듭니다."
+                : $"'{_addParent.Name}' 아래에 새 부서를 만듭니다.")
+        </div>
+
+        <DxTextBox @bind-Text="_addName" NullText="부서명" />
+
+        <div class="jsini-toolbar">
+            <DxButton Text="만들기" RenderStyle="ButtonRenderStyle.Primary" Click="@AddDeptAsync" />
+            <DxButton Text="취소" RenderStyle="ButtonRenderStyle.Secondary"
+                      Click="@(() => _adding = false)" />
+        </div>
+    </BodyContentTemplate>
+</DxPopup>
+
+<DxPopup @bind-Visible="_moving" HeaderText="@MoveTitle" Width="480px" ShowFooter="false">
+    <BodyContentTemplate>
+        @{
+            var choices = MoveChoices();
+        }
+
+        <div class="jsini-hint">
+            @(_moveKind == OrgKind.Dept
+                ? "이 부서(하위 부서·소속 사용자 포함)를 옮길 곳을 고르십시오."
+                : "이 사람을 소속시킬 부서를 고르십시오.")
+        </div>
+
+        <div class="ad-orgc__picks">
+            @if (_moveKind == OrgKind.Dept)
+            {
+                @* 부서는 회사 직속으로도 옮길 수 있다 — 회사 노드에 놓았을 때와 같다. *@
+                <button type="button"
+                        class="ad-orgc__pick @(_moveTarget == ToCompany ? "ad-orgc__pick--on" : null)"
+                        @onclick="@(() => _moveTarget = ToCompany)">
+                    [회사 직속] @_companyName
+                </button>
+            }
+
+            @foreach (var choice in choices)
+            {
+                <button type="button"
+                        class="ad-orgc__pick @(_moveTarget == choice.Node.Id ? "ad-orgc__pick--on" : null)"
+                        style="padding-left: @Px(8 + choice.Depth * 16)"
+                        @onclick="@(() => _moveTarget = choice.Node.Id)">
+                    @choice.Node.Name
+                </button>
+            }
+
+            @if (choices.Count == 0 && _moveKind != OrgKind.Dept)
+            {
+                <div class="ad-orgc__side-empty">옮길 수 있는 부서가 없습니다.</div>
+            }
+        </div>
+
+        <div class="jsini-toolbar">
+            <DxButton Text="이동" RenderStyle="ButtonRenderStyle.Primary" Click="@MoveAsync" />
+            <DxButton Text="취소" RenderStyle="ButtonRenderStyle.Secondary"
+                      Click="@(() => _moving = false)" />
+        </div>
+    </BodyContentTemplate>
+</DxPopup>
+
 @code {
-    private IReadOnlyList<DeptDto> _depts = [];
+    /// <summary>이동 팝업에서 「회사 직속」을 뜻하는 값. 부서를 옮길 때만 나온다.</summary>
+    private const string ToCompany = "__COMPANY__";
 
-    /// <summary>부서별로 한 번 읽은 사람들. 다시 펼쳐도 서버로 나가지 않는다.</summary>
-    private readonly Dictionary<string, IReadOnlyList<AccountDto>> _users = new(StringComparer.Ordinal);
+    private enum OrgKind { Company, Dept, User }
 
-    private sealed record Flat(DeptDto Node, int Depth);
+    /// <summary>
+    /// 그려질 노드 하나. 회사·부서·사람이 같은 모양으로 들어온다 —
+    /// 배치와 연결선이 셋을 가리지 않기 때문이다.
+    /// </summary>
+    private sealed class Node
+    {
+        public string Id { get; init; } = string.Empty;
+        public OrgKind Kind { get; init; }
+        public string Name { get; init; } = string.Empty;
+        public int Depth { get; init; }
+        public string? ParentId { get; init; }
+        public List<Node> Children { get; } = [];
 
-    protected override Task OnInitializedAsync() => ReloadAsync();
+        public string? LoginId { get; init; }
+        public string? Email { get; init; }
+        public string? Avatar { get; init; }
 
+        /// <summary>이 부서에 직접 속한 사람 수. 부서 노드만 쓴다.</summary>
+        public int UserCount { get; init; }
+
+        public double X { get; set; }
+        public double Y { get; set; }
+
+        /// <summary>선을 받아 올 자리. 배치가 끝난 뒤 채운다.</summary>
+        public double? ParentX { get; set; }
+
+        public double? ParentY { get; set; }
+
+        /// <summary>
+        /// 세로 조직도에서 부서 아래 세로로 쌓인 사람일 때, <b>바로 위</b> 노드.
+        ///
+        /// <para>
+        /// 부서에서 사람마다 부챗살로 선을 그으면 한 칸에 겹쳐 읽을 수 없다.
+        /// 위에서 아래로 이어 긋기 위한 값이다.
+        /// </para>
+        /// </summary>
+        public string? StackPrevId { get; set; }
+    }
+
+    private sealed record Choice(Node Node, int Depth);
+
+    // ── 배치 치수 ────────────────────────────────────────────
+    //
+    // 카드가 180×50 이다. 원본(Vue)의 값을 그대로 옮겼다 — 눈대중으로 다시
+    // 잡으면 부서가 열몇 개일 때 선이 카드에 닿거나 멀어진다.
+
+    private const double CardWidth = 180;
+    private const double CardHeight = 50;
+
+    /// <summary>부서 아래 사람을 쌓는 간격. 카드 높이보다 8px 넓다.</summary>
+    private const double UserStackGap = 58;
+
+    private IReadOnlyList<CompanyDto> _companies = [];
+    private string? _companyId;
+    private string _companyName = "회사";
+
+    private Node? _root;
+    private List<Node> _nodes = [];
+    private double _stageWidth = 1;
+    private double _stageHeight = 1;
+
+    private bool _vertical = true;
+
+    private bool _showUnassigned;
+    private IReadOnlyList<AccountDto> _unassigned = [];
+
+    // 부서 추가
+    private bool _adding;
+    private Node? _addParent;
+    private string _addName = string.Empty;
+
+    // 이동
+    private bool _moving;
+    private OrgKind _moveKind;
+    private string? _moveId;
+    private string _moveName = string.Empty;
+    private string? _moveTarget;
+
+    /// <summary>끌고 있는 것. 놓을 때 이 값을 본다.</summary>
+    private (OrgKind Kind, string Id)? _drag;
+
+    private ElementReference _viewport;
+    private ElementReference _stage;
+    private IJSObjectReference? _module;
+    private IJSObjectReference? _canvas;
+
+    /// <summary>다시 그린 뒤 화면을 맞춰야 하는가. 조회·방향 전환 뒤에 선다.</summary>
+    private bool _needsFit;
+
+    private string AddTitle => _addParent is null
+        ? $"[{_companyName}] 회사 직속 부서 추가"
+        : $"[{_addParent.Name}] 하위 부서 추가";
+
+    private string MoveTitle =>
+        $"[{_moveName}] {(_moveKind == OrgKind.Dept ? "부서" : "사용자")} 이동";
+
+    /// <summary>
+    /// 옮길 수 있는가. 단추는 <c>PermissionView</c> 가 감추지만 <b>끌기는 속성</b>이라
+    /// 여기서 따로 본다 — 감추기만 하고 끌기가 열려 있으면 단추 없는 사람이
+    /// 끌어서 옮길 수 있다. (실제 통제는 서버가 한다.)
+    /// </summary>
+    private bool CanMove => Permissions.Can(CurrentPath(), MenuAction.Update);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync(async () =>
+        {
+            _companies = await Api.GetCompaniesAsync();
+
+            // 회사를 고르지 않으면 아무것도 안 나오는 화면이라 첫 회사를 잡아 준다.
+            _companyId ??= _companies.FirstOrDefault()?.Id;
+            return _companies.Count;
+        }, "등록된 회사가 없습니다.", "회사 목록을 읽지 못했습니다");
+
+        if (!string.IsNullOrEmpty(_companyId))
+        {
+            await ReloadAsync();
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_module is null)
+        {
+            _module = await Js.InvokeAsync<IJSObjectReference>(
+                "import", "./_content/JSini.Web.Admin/js/org-chart.js");
+            _canvas = await _module.InvokeAsync<IJSObjectReference>("create", _viewport, _stage);
+        }
+
+        if (_needsFit && _canvas is not null)
+        {
+            _needsFit = false;
+            await _canvas.InvokeVoidAsync("fit", _stageWidth, _stageHeight);
+        }
+    }
+
+    private async Task PickCompanyAsync(string? companyId)
+    {
+        _companyId = companyId;
+        await ReloadAsync();
+    }
+
+    /// <summary>세로·가로를 바꾼다. 자료는 그대로고 배치만 다시 잡는다.</summary>
+    private void SetDirection(bool vertical)
+    {
+        if (_vertical == vertical) return;
+
+        _vertical = vertical;
+        Layout();
+        _needsFit = true;
+    }
+
+    /// <summary>
+    /// 조직도를 다시 읽는다.
+    ///
+    /// <para>
+    /// 부서를 먼저 받고, 그 부서들의 사람을 <b>몇 개씩 묶어</b> 나란히 받는다.
+    /// 한꺼번에 다 던지면 부서가 많은 회사에서 게이트웨이로 수십 개가 동시에
+    /// 나가고, 하나씩 기다리면 부서 수만큼 왕복한다.
+    /// </para>
+    /// </summary>
     private Task ReloadAsync() => LoadAsync(async () =>
     {
-        _depts = await Api.GetDeptsAsync();
-        _users.Clear();
-        return _depts.Count;
-    }, "등록된 부서가 없습니다.", "조직도를 읽지 못했습니다");
+        if (string.IsNullOrEmpty(_companyId))
+        {
+            _root = null;
+            _nodes = [];
+            return 0;
+        }
 
-    /// <summary>트리를 깊이와 함께 한 줄씩 편다. 들여쓰기는 CSS 변수로 넘긴다.</summary>
-    private static IEnumerable<Flat> Flatten(IReadOnlyList<DeptDto> nodes, int depth)
+        var depts = await Api.GetDeptsAsync(_companyId);
+
+        var flat = new List<DeptDto>();
+        Flatten(depts, flat);
+
+        var people = new Dictionary<string, IReadOnlyList<AccountDto>>(StringComparer.Ordinal);
+
+        foreach (var chunk in flat.Chunk(6))
+        {
+            var loaded = await Task.WhenAll(chunk.Select(async d => (d.Id, Users: await Api.GetDeptUsersAsync(d.Id))));
+
+            foreach (var (id, users) in loaded)
+            {
+                people[id] = users;
+            }
+        }
+
+        _companyName = flat.FirstOrDefault()?.CompanyName
+            ?? _companies.FirstOrDefault(c => c.Id == _companyId)?.Name
+            ?? "회사";
+
+        _root = new Node
+        {
+            Id = _companyId,
+            Kind = OrgKind.Company,
+            Name = _companyName,
+            Depth = 0,
+        };
+
+        _root.Children.AddRange(BuildDepts(depts, people, 1));
+
+        Layout();
+        _needsFit = true;
+
+        return flat.Count;
+    }, "이 회사에는 등록된 부서가 없습니다.", "조직도를 읽지 못했습니다");
+
+    private static List<Node> BuildDepts(
+        IEnumerable<DeptDto> depts,
+        IReadOnlyDictionary<string, IReadOnlyList<AccountDto>> people,
+        int depth)
+    {
+        var nodes = new List<Node>();
+
+        foreach (var dept in depts)
+        {
+            var node = new Node
+            {
+                Id = dept.Id,
+                Kind = OrgKind.Dept,
+                Name = dept.Name,
+                Depth = depth,
+                ParentId = dept.Pid,
+                UserCount = dept.UserCount,
+            };
+
+            // 사람이 먼저, 하위 부서가 나중이다. 세로 조직도에서 사람은 한 칸에
+            // 쌓이고 부서는 옆으로 갈라지므로 순서가 곧 그림의 순서가 된다.
+            if (people.TryGetValue(dept.Id, out var users))
+            {
+                node.Children.AddRange(users.Select(u => new Node
+                {
+                    Id = u.Id,
+                    Kind = OrgKind.User,
+                    Name = string.IsNullOrWhiteSpace(u.UserName) ? u.LoginId : u.UserName,
+                    Depth = depth + 1,
+                    ParentId = dept.Id,
+                    LoginId = u.LoginId,
+                    Email = u.Email,
+                    Avatar = u.Avatar,
+                }));
+            }
+
+            node.Children.AddRange(BuildDepts(dept.Children ?? [], people, depth + 1));
+            nodes.Add(node);
+        }
+
+        return nodes;
+    }
+
+    // ── 배치 ────────────────────────────────────────────────
+    //
+    // 원본(Vue)의 계산을 그대로 옮겼다. 사람을 한 칸에 쌓는 것이 그중 핵심이다 —
+    // 사람도 잎 하나가 한 칸(200px)을 쓰던 때는 여덟 명짜리 부서 하나가 1600px
+    // 을 먹어, 부서 몇 개만 있어도 좌우로 한참 끌어야 전체가 보였다.
+
+    private void Layout()
+    {
+        _nodes = [];
+
+        var root = _root;
+
+        if (root is null)
+        {
+            _stageWidth = 1;
+            _stageHeight = 1;
+            return;
+        }
+
+        var xGap = _vertical ? 200d : 250d;
+        var yGap = _vertical ? 120d : 70d;
+
+        var xCounter = 0;
+        var yCounter = 0;
+
+        void Traverse(Node node)
+        {
+            node.X = _vertical ? xCounter * xGap : node.Depth * xGap;
+            node.Y = _vertical ? node.Depth * yGap : yCounter * yGap;
+            node.StackPrevId = null;
+            _nodes.Add(node);
+
+            var stacked = _vertical
+                ? node.Children.Where(c => c.Kind == OrgKind.User).ToList()
+                : new List<Node>();
+
+            var branching = _vertical
+                ? node.Children.Where(c => c.Kind != OrgKind.User).ToList()
+                : node.Children;
+
+            if (stacked.Count > 0)
+            {
+                // 사람이 몇이든 한 칸이다. 부서의 x 는 자식들의 가운데로 보정되므로
+                // 사람 묶음에도 자기 칸이 있어야 하위 부서 칸과 겹치지 않는다.
+                var column = xCounter;
+                xCounter++;
+
+                for (var i = 0; i < stacked.Count; i++)
+                {
+                    var user = stacked[i];
+                    user.X = column * xGap;
+                    user.Y = ((node.Depth + 1) * yGap) + (i * UserStackGap);
+                    user.StackPrevId = i == 0 ? node.Id : stacked[i - 1].Id;
+                    _nodes.Add(user);
+                }
+            }
+
+            if (branching.Count > 0)
+            {
+                foreach (var child in branching)
+                {
+                    Traverse(child);
+                }
+            }
+            else if (stacked.Count == 0)
+            {
+                // 자식이 없는 잎이다. 자기 칸을 하나 쓴다.
+                if (_vertical)
+                {
+                    xCounter++;
+                }
+                else
+                {
+                    yCounter++;
+                }
+            }
+        }
+
+        Traverse(root);
+        Center(root);
+
+        // 같은 식별자가 두 번 오는 일은 없어야 하지만, 그것 때문에 화면이 통째로
+        // 죽지는 않게 한다(ToDictionary 는 던진다).
+        var byId = new Dictionary<string, Node>(StringComparer.Ordinal);
+
+        foreach (var node in _nodes)
+        {
+            byId[node.Id] = node;
+        }
+
+        foreach (var node in _nodes)
+        {
+            node.ParentX = null;
+            node.ParentY = null;
+
+            // 쌓인 사람은 부서가 아니라 바로 위 노드에서 선을 받는다.
+            // 최상위 부서(Pid 가 비어 있다)는 회사에서 받는다.
+            var fromId = node.StackPrevId
+                ?? node.ParentId
+                ?? (ReferenceEquals(node, root) ? null : root.Id);
+
+            if (fromId is not null && byId.TryGetValue(fromId, out var from) && !ReferenceEquals(from, node))
+            {
+                node.ParentX = from.X;
+                node.ParentY = from.Y;
+            }
+        }
+
+        _stageWidth = _nodes.Count == 0 ? 1 : _nodes.Max(n => n.X) + CardWidth + 10;
+        _stageHeight = _nodes.Count == 0 ? 1 : _nodes.Max(n => n.Y) + CardHeight + 20;
+    }
+
+    /// <summary>부모를 자식들 가운데로 옮긴다. 아래에서 위로 올라오며 맞춘다.</summary>
+    private void Center(Node node)
+    {
+        if (node.Children.Count == 0) return;
+
+        foreach (var child in node.Children)
+        {
+            Center(child);
+        }
+
+        if (_vertical)
+        {
+            node.X = (node.Children.Min(c => c.X) + node.Children.Max(c => c.X)) / 2;
+        }
+        else
+        {
+            node.Y = (node.Children.Min(c => c.Y) + node.Children.Max(c => c.Y)) / 2;
+        }
+    }
+
+    /// <summary>
+    /// 연결선. 세로는 부모 아래에서 자식 위로, 가로는 부모 오른쪽에서 자식 왼쪽으로
+    /// 3차 베지어를 긋는다.
+    /// </summary>
+    private string LinkPath(Node node)
+    {
+        var sx = node.ParentX!.Value;
+        var sy = node.ParentY!.Value;
+
+        if (_vertical)
+        {
+            // 쌓인 사람 사이는 8px 이다. 그 사이에 곡선을 그으면 조절점이
+            // 시작점보다 **위**로 잡혀 선이 되돌아 휜다 — 짧은 직선이 맞다.
+            if (node.StackPrevId is not null)
+            {
+                return $"M {N(sx + (CardWidth / 2))} {N(sy + CardHeight)} " +
+                       $"L {N(node.X + (CardWidth / 2))} {N(node.Y)}";
+            }
+
+            var cy = (sy + node.Y) / 2;
+
+            return $"M {N(sx + (CardWidth / 2))} {N(sy + CardHeight)} " +
+                   $"C {N(sx + (CardWidth / 2))} {N(cy)}, " +
+                   $"{N(node.X + (CardWidth / 2))} {N(cy)}, " +
+                   $"{N(node.X + (CardWidth / 2))} {N(node.Y)}";
+        }
+
+        var cx = (sx + node.X) / 2;
+
+        return $"M {N(sx + CardWidth)} {N(sy + (CardHeight / 2))} " +
+               $"C {N(cx)} {N(sy + (CardHeight / 2))}, " +
+               $"{N(cx)} {N(node.Y + (CardHeight / 2))}, " +
+               $"{N(node.X)} {N(node.Y + (CardHeight / 2))}";
+    }
+
+    // ── 끌어다 놓기 ──────────────────────────────────────────
+
+    private void BeginDrag(Node node)
+    {
+        if (node.Kind == OrgKind.Company) return;
+
+        _drag = (node.Kind, node.Id);
+    }
+
+    private void BeginDragUser(string userId) => _drag = (OrgKind.User, userId);
+
+    /// <summary>
+    /// 노드 위에 놓았다. 회사에 놓으면 회사 직속으로, 부서에 놓으면 그 아래로 간다.
+    /// 사람은 부서에만 놓을 수 있다.
+    /// </summary>
+    private async Task DropAsync(Node target)
+    {
+        var drag = _drag;
+        _drag = null;
+
+        if (drag is null || !CanMove) return;
+        if (string.Equals(drag.Value.Id, target.Id, StringComparison.Ordinal)) return;
+
+        if (target.Kind == OrgKind.User)
+        {
+            return;
+        }
+
+        if (drag.Value.Kind == OrgKind.User)
+        {
+            if (target.Kind == OrgKind.Company)
+            {
+                Say("사람은 부서로만 옮길 수 있습니다.", NoticeTone.Warning);
+                return;
+            }
+
+            await ApplyMoveAsync(OrgKind.User, drag.Value.Id, target.Id);
+            return;
+        }
+
+        // 부서를 회사에 놓으면 상위가 없어진다(회사 직속).
+        await ApplyMoveAsync(OrgKind.Dept, drag.Value.Id,
+            target.Kind == OrgKind.Company ? null : target.Id);
+    }
+
+    // ── 이동 팝업 (끌기의 터치 대체 경로) ────────────────────
+
+    private void OpenMove(OrgKind kind, string id, string name)
+    {
+        _moveKind = kind;
+        _moveId = id;
+        _moveName = name;
+        _moveTarget = null;
+        _moving = true;
+    }
+
+    /// <summary>
+    /// 옮겨 갈 수 있는 부서. 이미 받아 둔 나무를 편 것이라 서버를 다시 부르지 않는다.
+    ///
+    /// <para>
+    /// 부서를 옮길 때는 <b>자기 자신과 그 아래 전부</b>를 뺀다 — 자기 밑으로
+    /// 들어가면 나무가 고리가 되어 목록이 통째로 사라진다.
+    /// </para>
+    /// </summary>
+    private List<Choice> MoveChoices()
+    {
+        var choices = new List<Choice>();
+
+        void Walk(IEnumerable<Node> nodes, int depth)
+        {
+            foreach (var node in nodes)
+            {
+                if (node.Kind != OrgKind.Dept) continue;
+
+                if (_moveKind == OrgKind.Dept && string.Equals(node.Id, _moveId, StringComparison.Ordinal))
+                {
+                    // 건너뛰면 재귀도 멈춰 하위가 함께 빠진다.
+                    continue;
+                }
+
+                choices.Add(new Choice(node, depth));
+                Walk(node.Children, depth + 1);
+            }
+        }
+
+        if (_root is not null)
+        {
+            Walk(_root.Children, 0);
+        }
+
+        return choices;
+    }
+
+    private async Task MoveAsync()
+    {
+        if (_moveId is null) return;
+
+        if (_moveTarget is null)
+        {
+            Say("옮길 부서를 고르십시오.", NoticeTone.Warning);
+            return;
+        }
+
+        var target = _moveTarget == ToCompany ? null : _moveTarget;
+
+        if (_moveKind == OrgKind.User && target is null)
+        {
+            Say("사람은 부서로만 옮길 수 있습니다.", NoticeTone.Warning);
+            return;
+        }
+
+        if (await ApplyMoveAsync(_moveKind, _moveId, target))
+        {
+            _moving = false;
+        }
+    }
+
+    /// <summary>
+    /// 끌어다 놓기와 이동 팝업이 <b>함께 쓰는</b> 저장 경로.
+    /// 둘로 나누면 한쪽에만 규칙이 붙는다.
+    /// </summary>
+    private async Task<bool> ApplyMoveAsync(OrgKind kind, string id, string? targetDeptId)
+    {
+        var ok = await RunAsync(
+            () => kind == OrgKind.Dept
+                ? Api.MoveDeptAsync(id, targetDeptId)
+                : Api.MoveUserDeptAsync(id, targetDeptId),
+            kind == OrgKind.Dept
+                ? targetDeptId is null ? "부서를 회사 직속으로 옮겼습니다." : "부서를 옮겼습니다."
+                : "소속을 바꿨습니다.",
+            "옮기지 못했습니다");
+
+        if (!ok) return false;
+
+        await ReloadAsync();
+
+        // 미소속에서 끌어온 사람은 이제 소속이 있다. 목록을 다시 받는다.
+        if (_showUnassigned)
+        {
+            await LoadUnassignedAsync();
+        }
+
+        return true;
+    }
+
+    // ── 부서 추가 ────────────────────────────────────────────
+
+    private void OpenAddDept(Node? parent)
+    {
+        _addParent = parent;
+        _addName = string.Empty;
+        _adding = true;
+    }
+
+    private async Task AddDeptAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_addName))
+        {
+            Say("부서명을 넣으십시오.", NoticeTone.Warning);
+            return;
+        }
+
+        if (string.IsNullOrEmpty(_companyId))
+        {
+            Say("회사를 먼저 고르십시오.", NoticeTone.Warning);
+            return;
+        }
+
+        var saved = await RunAsync(
+            () => Api.CreateDeptAsync(new SaveDeptDto
+            {
+                Name = _addName.Trim(),
+                Pid = _addParent?.Id,
+                CompanyId = _companyId,
+                Status = 1,
+            }),
+            _addParent is null ? "회사 직속 부서를 만들었습니다." : $"[{_addParent.Name}] 아래에 부서를 만들었습니다.",
+            "부서를 만들지 못했습니다");
+
+        if (saved)
+        {
+            _adding = false;
+            await ReloadAsync();
+        }
+    }
+
+    // ── 미소속 사용자 ────────────────────────────────────────
+
+    private async Task ToggleUnassignedAsync()
+    {
+        _showUnassigned = !_showUnassigned;
+
+        if (_showUnassigned)
+        {
+            await LoadUnassignedAsync();
+        }
+    }
+
+    /// <summary>
+    /// 회사 인자를 넘기지 않는다 — 「어느 회사에도 없는 사람」이라 어느 회사
+    /// 조직도를 보고 있든 후보가 같다.
+    /// </summary>
+    private Task LoadUnassignedAsync() => LoadAsync(async () =>
+    {
+        _unassigned = await Api.GetDeptEligibleUsersAsync();
+        return 1;   // 비어 있어도 옆 목록이 스스로 말한다. 안내 줄까지 쓰지 않는다.
+    }, failMessage: "미소속 사용자를 읽지 못했습니다");
+
+    private Task FitAsync() =>
+        _canvas is null
+            ? Task.CompletedTask
+            : _canvas.InvokeVoidAsync("fit", _stageWidth, _stageHeight).AsTask();
+
+    private Task ZoomAsync(string method) =>
+        _canvas is null ? Task.CompletedTask : _canvas.InvokeVoidAsync(method).AsTask();
+
+    // ── 잔손질 ──────────────────────────────────────────────
+
+    private static void Flatten(IEnumerable<DeptDto> nodes, List<DeptDto> into)
     {
         foreach (var node in nodes)
         {
-            yield return new Flat(node, depth);
+            into.Add(node);
 
             if (node.Children is { Count: > 0 })
             {
-                foreach (var child in Flatten(node.Children, depth + 1))
-                {
-                    yield return child;
-                }
+                Flatten(node.Children, into);
             }
         }
     }
 
-    private async Task LoadUsersAsync(string deptId)
+    private static string Kind(Node node) => node.Kind switch
     {
-        if (_users.ContainsKey(deptId)) return;
+        OrgKind.Company => "company",
+        OrgKind.Dept => "dept",
+        _ => "user",
+    };
 
-        // 실패해도 화면을 죽이지 않는다. 그 부서만 "펼치면 읽습니다" 로 남는다.
+    private string Sub(Node node) => node.Kind switch
+    {
+        OrgKind.Company => "회사",
+        OrgKind.Dept => $"{node.UserCount}명",
+        _ => node.Email ?? node.LoginId ?? string.Empty,
+    };
+
+    private static string Initial(string? name) =>
+        string.IsNullOrWhiteSpace(name) ? "?" : name.Trim()[..1].ToUpperInvariant();
+
+    private string Draggable(Node node) =>
+        CanMove && node.Kind != OrgKind.Company ? "true" : "false";
+
+    /// <summary>인라인 스타일에 쓸 픽셀 값. 자리 표기가 지역에 따라 흔들리면 안 된다.</summary>
+    private static string Px(double value) => N(value) + "px";
+
+    private static string N(double value) =>
+        value.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+
+    /// <summary>
+    /// 지금 화면의 경로. 권한표의 열쇠라 쿼리스트링을 떼어 낸다
+    /// (<c>PermissionView</c> 와 같은 규칙).
+    /// </summary>
+    private string CurrentPath()
+    {
+        var relative = Nav.ToBaseRelativePath(Nav.Uri);
+        var cut = relative.IndexOfAny(['?', '#']);
+
+        if (cut >= 0)
+        {
+            relative = relative[..cut];
+        }
+
+        return "/" + relative.TrimStart('/');
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        // 회로가 이미 끊겼으면 JS 를 부를 수 없다. 화면을 옮기며 늘 지나는 길이라
+        // 예외를 남기지 않는다.
         try
         {
-            _users[deptId] = await Api.GetDeptUsersAsync(deptId);
+            if (_canvas is not null)
+            {
+                await _canvas.InvokeVoidAsync("dispose");
+                await _canvas.DisposeAsync();
+            }
+
+            if (_module is not null)
+            {
+                await _module.DisposeAsync();
+            }
         }
-        catch (ApiException ex)
+        catch (JSDisconnectedException)
         {
-            Say($"부서 사람을 읽지 못했습니다 — {ex.Message}", NoticeTone.Error);
         }
     }
 }

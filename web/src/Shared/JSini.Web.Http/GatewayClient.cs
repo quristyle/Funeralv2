@@ -255,12 +255,25 @@ public sealed class GatewayClient(HttpClient http)
     /// 다르게 다루는 자리라 판단을 넘긴다.
     /// </para>
     /// </summary>
+    /// <param name="method">HTTP 메서드</param>
+    /// <param name="path">게이트웨이 기준 경로</param>
+    /// <param name="content">
+    /// 실어 보낼 것. <b>멀티파트를 보낼 때 쓴다</b> — 첨부 올리기가 그렇다.
+    /// 부르는 쪽이 만들고 부르는 쪽이 <c>Dispose</c> 한다.
+    /// </param>
+    /// <param name="cancellationToken">취소 토큰</param>
     public async Task<HttpResponseMessage> SendRawAsync(
         HttpMethod method,
         string path,
+        HttpContent? content = null,
         CancellationToken cancellationToken = default)
     {
         using var request = new HttpRequestMessage(method, path);
+
+        if (content is not null)
+        {
+            request.Content = content;
+        }
 
         try
         {
@@ -271,6 +284,12 @@ public sealed class GatewayClient(HttpClient http)
         {
             throw new ApiException(
                 "서버에 연결하지 못했습니다.", statusCode: null, innerException: ex);
+        }
+        finally
+        {
+            // `request` 를 버리면 그 안에 담긴 content 도 함께 버려진다.
+            // 부르는 쪽이 들고 있는 것을 우리가 죽이지 않게 떼어 놓는다.
+            request.Content = null;
         }
     }
 

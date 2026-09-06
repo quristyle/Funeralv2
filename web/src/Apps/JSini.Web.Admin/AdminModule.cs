@@ -43,17 +43,10 @@ public sealed class AdminModule : IPortalModule
             .ConfigurePrimaryHttpMessageHandler(ServiceCollectionExtensions.NoCookieJar)
             .AddHttpMessageHandler<AuthTokenHandler>();
 
-        // 프로필 사진 업로드. 공지 첨부와 경로가 다르다(파일 **그룹**) —
-        // 왜 그룹이어야 하는지는 ProfileImageClient 머리말에 있다.
-        services.AddHttpClient<ProfileImageClient>(client =>
-            {
-                client.BaseAddress = new Uri(baseUrl);
-
-                // 얼굴 사진 몇 장이라 크지 않다. 그래도 휴대폰 원본은 한 장이
-                // 10MB 를 넘는 일이 흔해 기본 100초로는 모자란다.
-                client.Timeout = TimeSpan.FromMinutes(5);
-            })
-            .ConfigurePrimaryHttpMessageHandler(ServiceCollectionExtensions.NoCookieJar)
-            .AddHttpMessageHandler<AuthTokenHandler>();
+        // 프로필 사진 업로드는 여기 없다. 브라우저가 `DxUpload` 으로 셸의
+        // `/uploads/profile-photo` 로 보내고 셸이 게이트웨이로 넘긴다
+        // (`JSini.Web.Components/Data/ProfilePhotoUpload`). 모듈이 들고 있던
+        // `ProfileImageClient` 는 그래서 지웠다 — 같은 일을 하는 통로를 둘 두면
+        // 언젠가 한쪽에만 규칙이 붙는다.
     }
 }

@@ -132,11 +132,10 @@ public static class ServiceCollectionExtensions
     /// </para>
     ///
     /// <para>
-    /// 멀티파트 업로드는 <c>GatewayClient</c> 로 못 해서 모듈마다 자기
-    /// <c>HttpClient</c> 를 등록한다(<c>NoticeUploadClient</c> ·
-    /// <c>ProfileImageClient</c> · 장례식장의 <c>FileUploadClient</c>).
+    /// 멀티파트 업로드를 모듈마다 자기 <c>HttpClient</c> 로 하는 곳이 있다
+    /// (<c>NoticeUploadClient</c> · 장례식장의 <c>FileUploadClient</c>).
     /// 그것들도 게이트웨이로 나가므로 같은 함정에 걸린다. 여기가
-    /// <c>private</c> 이던 동안 그 셋에는 쿠키 통이 켜져 있었다.
+    /// <c>private</c> 이던 동안 그쪽에는 쿠키 통이 켜져 있었다.
     /// </para>
     /// </remarks>
     public static HttpMessageHandler NoCookieJar() => new HttpClientHandler

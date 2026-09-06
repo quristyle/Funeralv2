@@ -31,6 +31,14 @@ public sealed class AccountDto
     public DateTime CreatedAt { get; set; }
     public List<string> RoleNames { get; set; } = [];
 
+    /// <summary>
+    /// 프로필 사진 주소. 계정 확장 속성(<c>account_profile_details</c> 의
+    /// <c>Avatar</c>)이라 <b>DB 에 <c>/api/file/…</c> 상대경로로 들어 있다</b> —
+    /// 화면에 걸 때 <see cref="JSini.Web.Components.Data.FileDownload.RelayUrl"/>
+    /// 를 씌운다. 조직도가 사람 노드에 쓴다.
+    /// </summary>
+    public string? Avatar { get; set; }
+
     /// <summary>가진 역할의 식별자. 편집 폼이 이 값으로 역할을 고른다.</summary>
     public List<string> RoleIds { get; set; } = [];
 

@@ -160,7 +160,20 @@ public sealed class AdminClient(GatewayClient gateway)
         => gateway.PostAsync("auth/system/companies/users/remove", userIds, ct);
 
     public Task<IReadOnlyList<DeptDto>> GetDeptsAsync(CancellationToken ct = default)
-        => gateway.GetListAsync<DeptDto>("auth/system/dept/list", ct);
+        => GetDeptsAsync(null, ct);
+
+    /// <summary>
+    /// 부서 나무.
+    ///
+    /// <para>
+    /// <b>회사를 비우는 것은 「전체」가 아니다</b> — 서버가 <b>요청한 사람의
+    /// 회사</b>로 좁힌다(<c>DepartmentService.GetDeptListAsync</c>). 조직도처럼
+    /// 남의 회사를 골라 보는 화면은 반드시 식별자를 넘긴다.
+    /// </para>
+    /// </summary>
+    public Task<IReadOnlyList<DeptDto>> GetDeptsAsync(string? companyId, CancellationToken ct = default)
+        => gateway.GetListAsync<DeptDto>(
+            "auth/system/dept/list" + Query(("companyId", companyId)), ct);
 
     public Task CreateDeptAsync(SaveDeptDto dept, CancellationToken ct = default)
         => gateway.PostAsync("auth/system/dept", dept, ct);
@@ -173,6 +186,34 @@ public sealed class AdminClient(GatewayClient gateway)
 
     public Task<IReadOnlyList<AccountDto>> GetDeptUsersAsync(string deptId, CancellationToken ct = default)
         => gateway.GetListAsync<AccountDto>($"auth/system/dept/{deptId}/users", ct);
+
+    /// <summary>
+    /// 부서가 없는 사람.
+    ///
+    /// <para>
+    /// 회사를 <b>비우면 회사도 부서도 없는 사람</b>만 온다. 회사를 주면 그 회사에
+    /// 속했는데 부서만 없는 사람이 함께 온다 — 조직도의 「미소속」 목록은 앞엣것을
+    /// 쓴다(어느 회사 조직도를 보고 있든 후보가 같아야 한다).
+    /// </para>
+    /// </summary>
+    public Task<IReadOnlyList<AccountDto>> GetDeptEligibleUsersAsync(
+        string? companyId = null, CancellationToken ct = default)
+        => gateway.GetListAsync<AccountDto>(
+            "auth/system/dept/eligible-users" + Query(("companyId", companyId)), ct);
+
+    /// <summary>
+    /// 부서를 다른 부서 아래로 옮긴다. <b>하위 부서와 소속 인원이 함께 따라간다.</b>
+    /// 상위를 비우면 회사 직속이 된다.
+    /// </summary>
+    public Task MoveDeptAsync(string id, string? parentId, CancellationToken ct = default)
+        => gateway.PostAsync(
+            $"auth/system/dept/{id}/move" + Query(("parentId", parentId)), null, ct);
+
+    /// <summary>사람의 부서 소속을 바꾼다. 부서를 비우면 소속이 풀린다.</summary>
+    public Task MoveUserDeptAsync(string accountId, string? departmentId, CancellationToken ct = default)
+        => gateway.PostAsync(
+            "auth/system/dept/user/move" + Query(("accountId", accountId), ("departmentId", departmentId)),
+            null, ct);
 
     // ── 다국어 ──────────────────────────────────────────────────
 
@@ -515,8 +556,9 @@ public sealed class AdminClient(GatewayClient gateway)
 
     // ── 프로필 사진 (FileServer 파일 그룹) ──────────────────────
     //
-    // 올리는 것만 `ProfileImageClient` 가 한다(멀티파트라 GatewayClient 에
-    // 자리가 없다). 나머지 셋은 평범한 JSON 이라 여기 둔다.
+    // 올리는 것은 여기 없다 — 브라우저가 `DxUpload` 으로 셸의
+    // `/uploads/profile-photo` 로 보내고, 그 중계가 그룹·대표까지 계정에 적는다
+    // (`ProfilePhotoUpload`). 여기 셋은 그 뒤에 읽고 고치는 일이다.
 
     /// <summary>그룹 안의 사진들. 그룹이 없으면 부르지 않는다.</summary>
     public Task<IReadOnlyList<GroupFileDto>> GetGroupFilesAsync(string groupId, CancellationToken ct = default)

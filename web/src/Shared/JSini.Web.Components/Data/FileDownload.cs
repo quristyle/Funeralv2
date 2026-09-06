@@ -246,7 +246,8 @@ public static class FileDownload
 
         try
         {
-            upstream = await gateway.SendRawAsync(HttpMethod.Get, upstreamPath, cancellationToken);
+            upstream = await gateway.SendRawAsync(
+                HttpMethod.Get, upstreamPath, cancellationToken: cancellationToken);
         }
         catch (ApiException ex)
         {

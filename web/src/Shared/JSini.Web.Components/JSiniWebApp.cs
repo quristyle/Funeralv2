@@ -270,6 +270,12 @@ public static class JSiniWebApp
         // 사람의 요청도 익명으로 나가서 공개 파일만 내려간다.
         app.MapJSiniFileDownload();
 
+        // 프로필 사진 올리기 중계. 같은 이유로 인증 뒤에 열고, **위조방지
+        // (UseAntiforgery) 뒤**여야 한다 — 그 미들웨어가 서 있어야
+        // `DisableAntiforgery()` 가 뜻을 갖는다. 무엇을 대신 검사하는지는
+        // ProfilePhotoUpload 머리말에 있다.
+        app.MapJSiniProfilePhotoUpload();
+
         return app;
     }
 }
