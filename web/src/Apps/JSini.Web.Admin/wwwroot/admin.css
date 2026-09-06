@@ -503,7 +503,11 @@
 
 /* ── 내 정보 (Profile) ────────────────────────────────────
 
-   왼쪽에 얼굴·이름·탭 목록, 오른쪽에 고른 탭. Vue 원본의 배치를 옮긴 것이다.
+   왼쪽에 얼굴·이름, 오른쪽에 `DxTabs`(탭 머리가 왼쪽)와 그 내용.
+
+   탭 목록·이름값 목록·고정탭 두 판은 **DevExpress 부품이 그린다.** 여기 남은
+   것은 그 부품에 없는 것뿐이다 — 얼굴 동그라미(이미지·카드 부품이 없다),
+   사진 격자(갤러리 부품이 없다), 설정 줄.
 
    좁은 화면에서는 위아래로 쌓는다 — 240px 짜리 판을 옆에 붙여 두면 본문이
    읽을 수 없을 만큼 좁아진다.
@@ -511,12 +515,12 @@
 
 .ad-profile {
   display: grid;
-  grid-template-columns: minmax(220px, 240px) 1fr;
+  grid-template-columns: minmax(200px, 220px) 1fr;
   gap: 1rem;
   align-items: start;
 }
 
-@media (max-width: 991px) {
+@media (max-width: 1199px) {
   .ad-profile { grid-template-columns: 1fr; }
 }
 
@@ -583,7 +587,7 @@
   opacity: 1;
 }
 
-.ad-profile__who { margin: 0.75rem 0; }
+.ad-profile__who { margin-top: 0.75rem; }
 
 .ad-profile__name {
   font-size: var(--jsini-fs-lg);
@@ -596,84 +600,44 @@
   color: var(--jsini-text-muted);
 }
 
-.ad-profile__tabs {
-  display: grid;
-  gap: 0.15rem;
-  padding-top: 0.75rem;
-  border-top: 1px solid var(--jsini-border);
+/* DxTabs 의 탭 머리 폭을 고정한다.
+
+   안 정하면 가장 긴 이름(「프로필 사진 관리」)이 들어가지 못해 DevExpress 가
+   좌우 스크롤 단추를 붙이고, 탭을 옮길 때마다 본문 왼쪽 선이 움직인다.
+
+   **선택자 이름을 눈대중으로 적으면 안 된다** — 떠 있는 화면에서 읽은 것이다.
+   `dxbl-tabs-nav` 로 적어 두었던 동안 이 규칙은 아무 일도 하지 않았다.
+   26.1 의 구조는 이렇다.
+
+     dxbl-tabs.dxbl-tabs-left
+       ├ dxbl-tab-list.dxbl-tabs-tablist   ← 탭 머리
+       │   └ dxbl-tab-item.dxbl-tabs-item
+       └ div.dxbl-tabs-content-panel       ← 내용 */
+.ad-profile__tabs .dxbl-tabs-tablist {
+  flex: 0 0 9.5rem;
 }
 
-.ad-profile__tab {
-  padding: 0.55rem 0.7rem;
-  border: 0;
-  border-radius: 0.25rem;
-  background: transparent;
-  color: inherit;
-  font: inherit;
+/* 세로 목록에서는 글자가 왼쪽에 붙어야 읽힌다. 가운데로 두면 길이가
+   다른 일곱 줄이 들쭉날쭉해진다. */
+.ad-profile__tabs .dxbl-tabs-item {
+  justify-content: flex-start;
   text-align: left;
-  cursor: pointer;
 }
 
-.ad-profile__tab:hover {
-  background: color-mix(in srgb, currentcolor 7%, transparent);
-}
-
-/* 고른 탭은 **면으로** 칠한다. 테두리를 두르면 그 줄만 키가 커져 목록이
-   들썩인다 — 테마 서랍에서 겪은 것과 같다. */
-.ad-profile__tab.is-on {
-  background: color-mix(in srgb, var(--jsini-accent) 14%, transparent);
-  font-weight: 600;
-}
-
-.ad-profile__body {
-  padding: 1rem 1.15rem;
-  border: 1px solid var(--jsini-border);
-  border-radius: 0.35rem;
-}
-
-/* ── 이름·값 목록 (계정 정보) ─────────────────────────────
-
-   `<dl>` 을 격자 두 칸으로 편다. 표로 두지 않은 이유는 정렬·필터가 필요 없고
-   줄마다 값의 생김새가 달라서다(딱지 · 시각 · 등폭 주소).
-   ---------------------------------------------------------- */
-
-.ad-desc {
-  display: grid;
-  grid-template-columns: 140px 1fr;
-  gap: 0;
-  margin: 0 0 1rem;
-  border: 1px solid var(--jsini-border);
-  border-radius: 0.25rem;
-  font-size: var(--jsini-fs-sm);
-}
-
-@media (max-width: 575px) {
-  .ad-desc { grid-template-columns: 1fr; }
-}
-
-.ad-desc dt,
-.ad-desc dd {
-  margin: 0;
-  padding: 0.5rem 0.7rem;
-  border-bottom: 1px solid var(--jsini-border);
-}
-
-.ad-desc dt {
-  font-weight: 600;
-  color: var(--jsini-text-muted);
-  background: color-mix(in srgb, currentcolor 4%, transparent);
-}
-
-.ad-desc dd {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.35rem;
+.ad-profile__tabs .dxbl-tabs-content-panel {
   min-width: 0;
 }
 
-/* 마지막 줄의 밑줄은 바깥 테두리와 겹친다. */
-.ad-desc > :nth-last-child(-n + 2) { border-bottom: 0; }
+/* 이름·값 줄. `DxFormLayoutItem` 안에 넣은 읽기 전용 값이다 —
+   입력기가 아니라 글자라서 세로 가운데를 직접 맞춘다. */
+.ad-desc__value {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 1.9rem;
+  font-size: var(--jsini-fs-sm);
+}
 
 /* 주소·식별자는 등폭이라야 자릿수가 읽힌다. */
 .ad-desc__mono {
@@ -690,8 +654,8 @@
 
 /* ── 고정탭 관리 ──────────────────────────────────────────
 
-   왼쪽이 고정된 것, 오른쪽이 아닌 것. 끌어다 놓는 자리라 **점선 테두리**로
-   「여기에 놓을 수 있다」를 드러낸다.
+   두 판 모두 `DxListBox` 다. 왼쪽이 고정된 것(순서가 뜻을 가진다),
+   오른쪽이 아닌 것(138건이라 검색 칸이 있어야 쓸 수 있다).
    ---------------------------------------------------------- */
 
 .ad-pin {
@@ -705,82 +669,25 @@
   .ad-pin { grid-template-columns: 1fr; }
 }
 
-.ad-pin__zone {
-  padding: 0.75rem;
-  border: 2px dashed var(--jsini-border);
-  border-radius: 0.35rem;
-  min-width: 0;
-}
-
-.ad-pin__zone.is-over { border-color: var(--jsini-accent); }
+.ad-pin__pane { min-width: 0; }
 
 .ad-pin__head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.4rem;
 }
 
 .ad-pin__title { font-weight: 600; }
 
-.ad-pin__empty {
-  margin: 0;
-  padding: 2rem 0;
-  color: var(--jsini-text-muted);
-  font-size: var(--jsini-fs-sm);
-  text-align: center;
-}
-
-.ad-pin__list {
-  display: grid;
-  gap: 0.3rem;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-/* 오른쪽은 백몇 건이 온다. 판이 세로로 끝없이 자라지 않게 여기서만 구른다. */
-.ad-pin__list--scroll {
-  max-height: 32rem;
-  overflow-y: auto;
-  padding-right: 0.25rem;
-}
-
-.ad-pin__item {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.3rem 0.5rem;
-  border: 1px solid var(--jsini-border);
-  border-radius: 0.25rem;
-  background: var(--jsini-surface);
-  cursor: grab;
-}
-
-.ad-pin__item:active { cursor: grabbing; }
-
-.ad-pin__item:hover { border-color: var(--jsini-accent); }
-
-.ad-pin__label {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: var(--jsini-fs-sm);
-}
-
-.ad-pin__no {
-  flex: 0 0 auto;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: var(--jsini-fs-xs);
-  color: var(--jsini-text-muted);
-}
+/* 목록 높이를 못 정하면 DxListBox 가 내용만큼 자란다. 오른쪽은 138건이라
+   판이 화면 밖까지 늘어난다 — 목록 안에서 구르게 가둔다. */
+.ad-pin__list { height: 22rem; }
 
 /* ── 프로필 사진 관리 ─────────────────────────────────────
 
-   정사각 카드 격자. 개수가 서른까지라 목록보다 격자가 한눈에 들어온다.
+   정사각 카드 격자. DevExpress 에 이미지 갤러리 부품이 없다.
    ---------------------------------------------------------- */
 
 .ad-photos {
@@ -836,8 +743,6 @@
   border-top: 1px solid var(--jsini-border);
 }
 
-.ad-photo__open { font-size: var(--jsini-fs-sm); }
-
 .ad-photo__name {
   padding: 0 0.35rem 0.35rem;
   overflow: hidden;
@@ -846,4 +751,14 @@
   font-size: var(--jsini-fs-xs);
   color: var(--jsini-text-muted);
   text-align: center;
+}
+
+/* 크게 보기 창 안의 그림. 창이 화면보다 커지지 않게 여기서 가둔다 —
+   DxPopup 은 내용 크기를 따라간다. */
+.ad-photo__full {
+  display: block;
+  max-width: 100%;
+  max-height: 70vh;
+  margin: 0 auto;
+  object-fit: contain;
 }

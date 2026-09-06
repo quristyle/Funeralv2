@@ -19,20 +19,52 @@
 
     한동안 이 자리에는 그 가운데 **「기본 설정」의 절반만** 있었다. 나머지
     여섯은 화면이 없는 채로 서버 API 와 DB 칸이 그대로 살아 있었다 —
-    자료는 쌓이는데 사람이 볼 길이 없었다. 특히
-    `account_profile_details` 의 보안·알림 설정 일곱 칸은 켜고 끄는 화면이
-    아예 사라져 있었다.
+    자료는 쌓이는데 사람이 볼 길이 없었다.
 
-    [탭을 DevExpress 부품으로 두지 않았다]
+    ────────────────────────────────────────────────────────────
+    [손으로 그린 것을 DevExpress 부품으로 바꿨다]
 
-    `DxTabs` 는 탭 머리를 자기가 그린다. 여기 필요한 것은 **왼쪽 판**이고
-    (얼굴 · 이름 · 소속이 탭 목록 위에 얹힌다) 그것이 원본의 생김새이기도
-    하다. 탭 머리 위치를 부품 설정으로 밀어 넣는 것보다 격자 두 칸이 단순하다.
+    처음에는 탭 목록·이름값 목록·고정탭 두 판을 전부 손으로 그렸다. 대응하는
+    부품이 있는 것은 모두 갈아 끼웠다 — **같은 모양을 두 벌 유지하지 않으려는
+    것**이고, 테마·크기(SizeMode) 선택을 따라가는 것도 부품 쪽이다.
+
+    | 자리 | 전 | 후 |
+    |---|---|---|
+    | 탭 목록 | `<button class="ad-profile__tab">` × 7 | `DxTabs` + `DxTabPage` (`TabsPosition.Left`) |
+    | 이름·값 목록 | `<dl class="ad-desc">` | `DxFormLayout` + `DxFormLayoutItem` |
+    | 묶음 제목 | `<h2 class="ad-section">` | `DxFormLayoutGroup` |
+    | 고정탭 두 판 | `<ul>` + 끌어놓기 | `DxListBox` × 2 + `DxButton` |
+    | 사진 미리보기 | `target="_blank"` 링크 | `DxPopup` |
+    | 조회 중 | `<p>읽는 중…</p>` | `DxLoadingPanel` |
+
+    남긴 것과 이유:
+
+    · **얼굴 동그라미** — DevExpress 에 이미지·카드 부품이 없다(`DxImage` ·
+      `DxCard` 가 없다). 26.1 에서 확인했다.
+    · **역할 딱지** — 읽기 전용 칩 부품이 없다. `DxTagBox` 는 입력기라,
+      잠가 두면 「지금은 못 바꾸지만 언젠가 바꿀 수 있는 값」으로 읽힌다.
+    · **켬·끔** — `DxSwitch` 가 **없다.** `DxCheckBox` 가 DevExpress 가 주는
+      유일한 켬·끔이고 이미 그것을 쓰고 있다.
+    · **첨부 고르기** — `DxUpload` 을 쓰면 안 된다. 브라우저가 직접 POST 하는데
+      BFF 라 브라우저에 게이트웨이 토큰이 없다(web/CLAUDE.md). `FilePicker` 다.
+
+    [고정탭에서 끌어놓기를 잃었다 — 대신 검색을 얻었다]
+
+    `DxListBox` 에는 끌어놓기가 없다(`DxSortable` · `DxDropTarget` 도 26.1 에
+    없다). 그래서 옮기는 일은 단추로만 한다.
+
+    **그래도 이쪽이 낫다고 봤다.** 미고정 목록이 138건이라 원본에서도 끌어
+    옮기려면 한참 굴려 찾아야 했다. `DxListBox` 의 검색 칸이 그 일을 대신하고,
+    여러 건을 골라 한 번에 옮길 수도 있다. 순서는 원래도 ↑·↓ 단추가 있었다.
+
+    끌어놓기가 꼭 필요하면 되살릴 자리는 이 파일 하나다.
+    ────────────────────────────────────────────────────────────
 
     [`?tab=` 로 바로 열 수 있다]
 
     Vue 가 `?tab=password` 를 받았다. 그 규약을 지킨다 — 헤더의 사용자 메뉴가
-    「프로필 사진」·「고정탭 관리」로 곧장 보낼 때 쓴다.
+    「프로필 사진」·「고정탭 관리」로 곧장 보낼 때 쓴다. `DxTabs` 는 자리를
+    번호(`ActiveTabIndex`)로 다루므로 이름↔번호를 이 화면이 맞춰 준다.
 
     [비밀번호는 여기서 바꾸지 않는다 — `/password/change` 로 보낸다]
 
@@ -46,8 +78,7 @@
 
     고치려면 바꾼 직후 재로그인을 시켜야 하는데, 그 흐름을 두 화면이 각자
     들고 있으면 갈라진다. 그래서 폼을 셸의 `/password/change` 한 곳에만 두고
-    여기서는 만료 상태만 보여 주고 그리로 보낸다. Vue 도 같은 이유로
-    바꾼 직후 로그아웃시켰다(`password-setting.vue` 주석).
+    여기서는 만료 상태만 보여 주고 그리로 보낸다.
 
     [생일은 다른 화면이 읽는다]
 
@@ -58,12 +89,6 @@
 
     회사 · 부서 · 사람 세 단계에서 걸린 것을 합친 값이라 개인이 정할 수 있는
     값이 아니다. 바꾸는 곳은 「사람롤」이다.
-
-    [화면 안내(`PageNotice`)를 왼쪽 판 위가 아니라 본문 안에 둔다]
-
-    저장·고정·삭제가 전부 오른쪽 판에서 일어난다. 안내를 화면 맨 위에 두면
-    긴 탭(계정 정보·고정탭)에서는 방금 누른 자리와 안내가 한 화면에 같이
-    보이지 않는다.
 *@
 
 @using JSini.Web.Components.Menu
@@ -83,7 +108,8 @@
 
 <div class="ad-profile">
 
-    @* ══ 왼쪽 판: 얼굴 · 이름 · 탭 목록 ═══════════════════ *@
+    @* ══ 왼쪽 판: 얼굴 · 이름 ══════════════════════════════
+       DevExpress 에 이미지·카드 부품이 없어 이 조각만 손으로 그린다. *@
     <aside class="ad-profile__side">
         <button type="button" class="ad-profile__photo"
                 title="프로필 사진 관리"
@@ -112,549 +138,536 @@
                 <div class="ad-profile__org">@org</div>
             }
         </div>
-
-        <nav class="ad-profile__tabs">
-            @foreach (var entry in Tabs)
-            {
-                var tab = entry.Tab;
-
-                <button type="button"
-                        class="ad-profile__tab @(_tab == tab ? "is-on" : "")"
-                        aria-current="@(_tab == tab ? "page" : null)"
-                        @onclick="@(() => Go(tab))">
-                    @entry.Label
-                </button>
-            }
-        </nav>
     </aside>
 
-    @* ══ 오른쪽 판: 고른 탭 ═══════════════════════════════ *@
-    <section class="ad-profile__body">
+    @* ══ 오른쪽: 탭 머리(왼쪽) + 내용 ══════════════════════
+
+       `RenderMode` 를 기본값(고른 탭만 그린다)으로 둔다. 일곱 탭을 한꺼번에
+       그리면 안 들어간 탭의 그리드·목록까지 만들어진다. *@
+    <div class="ad-profile__body">
 
         <PageNotice Text="@Notice" Tone="@Tone" />
 
-        @if (_info is null)
-        {
-            <p class="jsini-hint">내 정보를 읽는 중입니다…</p>
-        }
+        <DxLoadingPanel Visible="@(_info is null)"
+                        IsContentBlocked="true"
+                        IndicatorAreaVisible="false"
+                        Text="내 정보를 읽는 중입니다…">
 
-        @* ── 기본 설정 ─────────────────────────────────── *@
-        else if (_tab == Tab.Basic)
-        {
-            <h2 class="ad-section">기본 설정</h2>
-
-            <DxFormLayout CssClass="ad-editform">
-                <DxFormLayoutItem Caption="이름" ColSpanMd="6">
-                    <DxTextBox @bind-Text="_edit.RealName" />
-                </DxFormLayoutItem>
-
-                @* 로그인 아이디는 계정의 열쇠다. 바꾸는 길을 두면 즐겨찾기·권한·
-                   감사 기록이 가리키는 대상이 흔들린다 — 보여만 준다. *@
-                <DxFormLayoutItem Caption="사용자명" ColSpanMd="6">
-                    <DxTextBox Text="@(_info.Username ?? _info.UserId)" ReadOnly="true" />
-                </DxFormLayoutItem>
-
-                <DxFormLayoutItem Caption="이메일" ColSpanMd="6">
-                    @* 남과 겹치면 서버가 409 로 거절한다. 그 문구를 그대로 보여 준다. *@
-                    <DxTextBox @bind-Text="_edit.Email" NullText="user@example.com" />
-                </DxFormLayoutItem>
-
-                <DxFormLayoutItem Caption="전화번호" ColSpanMd="6">
-                    <DxTextBox @bind-Text="_edit.Phone" NullText="010-0000-0000" />
-                </DxFormLayoutItem>
-
-                <DxFormLayoutItem Caption="생년월일" ColSpanMd="4">
-                    <DxDateEdit Date="@_birthDate"
-                                DateChanged="@((DateTime? d) => { _birthDate = d; })"
-                                NullText="비워 둘 수 있다"
-                                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
-                </DxFormLayoutItem>
-
-                <DxFormLayoutItem Caption="음력" ColSpanMd="2">
-                    <DxCheckBox @bind-Checked="_isLunar">음력 생일입니다</DxCheckBox>
-                </DxFormLayoutItem>
-
-                <DxFormLayoutItem Caption="역할" ColSpanMd="6">
-                    @* 편집기가 아니라 딱지로 둔다. 잠긴 입력 칸으로 두면 「지금은
-                       못 바꾸지만 언젠가 바꿀 수 있는 값」으로 읽힌다. *@
-                    @if (_info.RoleLabels.Count > 0)
-                    {
-                        <div class="jsini-tags">
-                            @foreach (var role in _info.RoleLabels)
-                            {
-                                <span class="jsini-badge">@role</span>
-                            }
-                        </div>
-                    }
-                    else
-                    {
-                        <span class="jsini-text-muted">배정된 역할이 없습니다.</span>
-                    }
-                </DxFormLayoutItem>
-
-                <DxFormLayoutItem Caption="자기소개" ColSpanMd="12">
-                    <DxMemo @bind-Text="_edit.Introduction" Rows="3" NullText="한 줄 소개" />
-                </DxFormLayoutItem>
-            </DxFormLayout>
-
-            <div class="jsini-toolbar">
-                <div class="jsini-toolbar__spacer"></div>
-                <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Primary" Click="@SaveBasicAsync" />
-                <DxButton Text="되돌리기" RenderStyle="ButtonRenderStyle.Secondary" Click="@Revert" />
-            </div>
-
-            <p class="jsini-hint">
-                생년월일은 생활과환경의 「생일 목록」이 읽습니다. 비워 두면 그
-                목록에 나오지 않습니다.
-            </p>
-        }
-
-        @* ── 계정 정보 ─────────────────────────────────── *@
-        else if (_tab == Tab.Account)
-        {
-            @if (_info.PasswordExpired)
+            @if (_info is not null)
             {
-                <PageNotice Tone="NoticeTone.Error"
-                            Text="비밀번호 사용 기간이 지났습니다. 바꾸기 전까지 다른 화면을 쓸 수 없습니다." />
-            }
+                @* `DxTabs` 에는 `CssClass` 가 없다(26.1 에서 확인). 남는 속성은
+                   `Attributes` 로 흘러가므로 `class` 를 그대로 적는다. *@
+                <DxTabs TabsPosition="TabsPosition.Left"
+                        ActiveTabIndex="@TabIndex"
+                        ActiveTabIndexChanged="@OnTabIndexChanged"
+                        class="ad-profile__tabs">
 
-            @* 최근 30일 안에 실패가 있으면 알린다. 접속 기록을 펼쳐 보지 않아도
-               「누가 두드렸다」는 사실은 바로 알아야 한다. *@
-            @if (_activity is { RecentFailCount: > 0 })
-            {
-                <PageNotice Tone="NoticeTone.Warning" Text="@FailNotice" />
-            }
+                    @* ── 기본 설정 ─────────────────────────── *@
+                    <DxTabPage Text="기본 설정">
+                        <DxFormLayout CssClass="ad-editform">
+                            <DxFormLayoutItem Caption="이름" ColSpanMd="6">
+                                <DxTextBox @bind-Text="_edit.RealName" />
+                            </DxFormLayoutItem>
 
-            <h2 class="ad-section">계정</h2>
+                            @* 로그인 아이디는 계정의 열쇠다. 바꾸는 길을 두면 즐겨찾기·
+                               권한·감사 기록이 가리키는 대상이 흔들린다 — 보여만 준다. *@
+                            <DxFormLayoutItem Caption="사용자명" ColSpanMd="6">
+                                <DxTextBox Text="@(_info.Username ?? _info.UserId)" ReadOnly="true" />
+                            </DxFormLayoutItem>
 
-            <dl class="ad-desc">
-                <dt>가입일</dt>
-                <dd>
-                    @Dt(_info.CreatedAt)
-                    @if (_activity is not null)
-                    {
-                        <span class="jsini-text-muted"> (@(_activity.AccountAgeDays)일째)</span>
-                    }
-                </dd>
+                            <DxFormLayoutItem Caption="이메일" ColSpanMd="6">
+                                @* 남과 겹치면 서버가 409 로 거절한다. 그 문구를 그대로 보여 준다. *@
+                                <DxTextBox @bind-Text="_edit.Email" NullText="user@example.com" />
+                            </DxFormLayoutItem>
 
-                <dt>역할</dt>
-                <dd>
-                    @if (_info.RoleLabels.Count > 0)
-                    {
-                        <span class="jsini-tags">
-                            @foreach (var role in _info.RoleLabels)
-                            {
-                                <span class="jsini-badge">@role</span>
-                            }
-                        </span>
-                    }
-                    else
-                    {
-                        <span class="jsini-text-muted">배정된 역할이 없습니다.</span>
-                    }
-                </dd>
+                            <DxFormLayoutItem Caption="전화번호" ColSpanMd="6">
+                                <DxTextBox @bind-Text="_edit.Phone" NullText="010-0000-0000" />
+                            </DxFormLayoutItem>
 
-                @* 이관 계정만 값이 있다. 저쪽 시스템의 어느 레코드에서 왔는지다. *@
-                @if (_info.MsaSource is { Length: > 0 } source)
-                {
-                    <dt>이관 출처</dt>
-                    <dd><span class="ad-desc__mono">@source</span></dd>
-                }
-            </dl>
+                            <DxFormLayoutItem Caption="생년월일" ColSpanMd="4">
+                                <DxDateEdit Date="@_birthDate"
+                                            DateChanged="@((DateTime? d) => { _birthDate = d; })"
+                                            NullText="비워 둘 수 있다"
+                                            ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+                            </DxFormLayoutItem>
 
-            <h2 class="ad-section">접속</h2>
+                            <DxFormLayoutItem Caption="음력" ColSpanMd="2">
+                                <DxCheckBox @bind-Checked="_isLunar">음력 생일입니다</DxCheckBox>
+                            </DxFormLayoutItem>
 
-            <dl class="ad-desc">
-                <dt>최근 로그인</dt>
-                <dd>
-                    @Dt(_info.LastLoginAt)
-                    <span class="ad-desc__mono jsini-text-muted">@_info.LastLoginIp</span>
-                </dd>
-
-                @* 지난번 접속. 낯선 시각·주소가 보이면 남이 들어온 것이다 —
-                   그 판단을 사용자가 할 수 있게 지금 접속과 나란히 둔다. *@
-                <dt>이전 접속</dt>
-                <dd>
-                    @if (_activity?.PreviousLogin is { } prev)
-                    {
-                        @Dt(prev.At)
-                        <span class="ad-desc__mono jsini-text-muted">@prev.Ip</span>
-                        @if (prev.Device is { Length: > 0 } device)
-                        {
-                            <span class="jsini-text-muted"> · @device</span>
-                        }
-                    }
-                    else
-                    {
-                        <span class="jsini-text-muted">기록 없음</span>
-                    }
-                </dd>
-
-                <dt>로그인 횟수</dt>
-                <dd>
-                    @if (_activity is not null)
-                    {
-                        @($"{_activity.LoginCount:N0}회")
-                        <span class="jsini-text-muted"> (기록을 남기기 시작한 뒤)</span>
-                    }
-                    else
-                    {
-                        <span class="jsini-text-muted">기록 없음</span>
-                    }
-                </dd>
-            </dl>
-
-            <h2 class="ad-section">비밀번호</h2>
-
-            <dl class="ad-desc">
-                <dt>변경일</dt>
-                <dd>@Dt(_info.PasswordChangedAt)</dd>
-
-                @* 만료 정책이 꺼져 있으면(설정 0) 남은 일수 칸 자체가 뜻이 없다. *@
-                @if (_info.PasswordPolicyOn)
-                {
-                    <dt>만료</dt>
-                    <dd>
-                        <span class="jsini-badge @RemainBadge">@RemainText</span>
-                        <span class="jsini-text-muted">
-                            @Dt(_info.PasswordExpiresAt) 까지 (@(_info.PasswordExpiryDays)일 주기)
-                        </span>
-                    </dd>
-                }
-            </dl>
-
-            <h2 class="ad-section">최근 접속 기록</h2>
-
-            <CommGrd TItem="LoginLogDto" Data="@Recent" PageSize="10"
-                     ShowExcelExport="false" ExportName="접속기록"
-                     EmptyText="접속 기록이 없습니다.">
-                <Columns>
-                    @* 그리드는 시간대를 옮겨 주지 않는다. `At` 을 그대로 걸면
-                       표만 아홉 시간 뒤처져 보인다(LoginLogDto.AtLocal 주석). *@
-                    <DxGridDataColumn FieldName="@nameof(LoginLogDto.AtLocal)" Caption="시각" Width="160"
-                                      DisplayFormat="yyyy-MM-dd HH:mm" />
-                    <DxGridDataColumn FieldName="@nameof(LoginLogDto.ResultLabel)" Caption="결과" Width="120" />
-                    <DxGridDataColumn FieldName="@nameof(LoginLogDto.Ip)" Caption="접속 IP" Width="140" />
-
-                    @* 줄인 이름을 보여 주고 원문은 얹어 본다 — 원문(UserAgent)은
-                       길어서 그대로 두면 표가 무너진다. *@
-                    <DxGridDataColumn FieldName="@nameof(LoginLogDto.DeviceLabel)" Caption="기기"
-                                      MinWidth="200" TextAlignment="GridTextAlignment.Left">
-                        <CellDisplayTemplate>
-                            @{
-                                var row = (LoginLogDto)context.DataItem;
-                            }
-                            <span title="@row.UserAgent">@row.DeviceLabel</span>
-                        </CellDisplayTemplate>
-                    </DxGridDataColumn>
-                </Columns>
-            </CommGrd>
-
-            <p class="jsini-hint">
-                접속 IP 는 요청 헤더에서 얻은 값이라 참고용입니다. 기록은 이 표가
-                만들어진 뒤의 로그인부터 쌓입니다. 모르는 접속이 보이면
-                비밀번호를 바꾸십시오.
-            </p>
-        }
-
-        @* ── 고정탭 관리 ───────────────────────────────── *@
-        else if (_tab == Tab.FixedTabs)
-        {
-            <h2 class="ad-section">고정탭 관리</h2>
-
-            <p class="jsini-hint">
-                항목을 반대쪽으로 끌어다 놓으면 고정·해제됩니다. 고정된 메뉴
-                안에서 끌면 순서가 바뀌고, 사이드바의 즐겨찾기 탭에 이 순서대로
-                나타납니다. 끌기 어려운 환경에서는 각 항목의 단추(↑ · ↓ ·
-                고정·해제)를 쓰십시오.
-            </p>
-
-            <div class="ad-pin">
-
-                @* 고정된 메뉴 *@
-                <div class="ad-pin__zone @(_over == Zone.Pinned ? "is-over" : "")"
-                     @ondragover:preventDefault="true"
-                     @ondragover="@(() => _over = Zone.Pinned)"
-                     @ondragleave="@(() => _over = Zone.None)"
-                     @ondrop:preventDefault="true"
-                     @ondrop="@DropOnPinnedZoneAsync">
-
-                    <div class="ad-pin__head">
-                        <span class="ad-pin__title">고정된 메뉴</span>
-                        <span class="jsini-text-muted">@Pinned.Count 개</span>
-                    </div>
-
-                    @if (Pinned.Count == 0)
-                    {
-                        <p class="ad-pin__empty">오른쪽에서 메뉴를 끌어다 놓으면 고정됩니다.</p>
-                    }
-
-                    <ul class="ad-pin__list">
-                        @for (var i = 0; i < Pinned.Count; i++)
-                        {
-                            var index = i;
-                            var item = Pinned[index];
-
-                            <li class="ad-pin__item" draggable="true"
-                                @key="item.Path"
-                                @ondragstart="@(() => _drag = new Drag(Zone.Pinned, item.Path))"
-                                @ondragend="@ClearDrag"
-                                @ondragover:preventDefault="true"
-                                @ondrop:preventDefault="true"
-                                @ondrop:stopPropagation="true"
-                                @ondrop="@(() => DropOnPinnedItemAsync(index))">
-
-                                <span class="ad-pin__label" title="@item.Path">@item.Label</span>
-                                <span class="ad-pin__no">@(index + 1)</span>
-
-                                @* 끌기가 뜨지 않는 환경(터치)용. 저장은 드래그와 같은
-                                   reorder 를 그대로 쓴다 — 두 길이 갈라지지 않게. *@
-                                <DxButton RenderStyle="ButtonRenderStyle.Link" Text="↑" Title="위로"
-                                          Enabled="@(index > 0)"
-                                          Click="@(() => MoveAsync(index, -1))" />
-                                <DxButton RenderStyle="ButtonRenderStyle.Link" Text="↓" Title="아래로"
-                                          Enabled="@(index < Pinned.Count - 1)"
-                                          Click="@(() => MoveAsync(index, 1))" />
-                                <DxButton RenderStyle="ButtonRenderStyle.Link" Text="해제"
-                                          Click="@(() => UnpinAsync(item.Path))" />
-                            </li>
-                        }
-                    </ul>
-                </div>
-
-                @* 고정되지 않은 메뉴 *@
-                <div class="ad-pin__zone @(_over == Zone.Unpinned ? "is-over" : "")"
-                     @ondragover:preventDefault="true"
-                     @ondragover="@(() => _over = Zone.Unpinned)"
-                     @ondragleave="@(() => _over = Zone.None)"
-                     @ondrop:preventDefault="true"
-                     @ondrop="@DropOnUnpinnedZoneAsync">
-
-                    <div class="ad-pin__head">
-                        <span class="ad-pin__title">고정되지 않은 메뉴</span>
-                        <span class="jsini-text-muted">@Unpinned.Count 개</span>
-                    </div>
-
-                    <ul class="ad-pin__list ad-pin__list--scroll">
-                        @foreach (var node in Unpinned)
-                        {
-                            var path = node.Path;
-
-                            <li class="ad-pin__item" draggable="true"
-                                @key="path"
-                                @ondragstart="@(() => _drag = new Drag(Zone.Unpinned, path))"
-                                @ondragend="@ClearDrag">
-
-                                <span class="ad-pin__label" title="@path">@node.Title</span>
-                                <DxButton RenderStyle="ButtonRenderStyle.Link" Text="고정"
-                                          Click="@(() => PinAsync(path))" />
-                            </li>
-                        }
-                    </ul>
-                </div>
-            </div>
-
-            @if (_hiddenPins > 0)
-            {
-                @* 담아 둔 경로가 지금 내 메뉴에 없을 수 있다 — 권한이 바뀌었거나
-                   메뉴가 지워진 경우다. 조용히 빼면 「해제했는데도 남아 있다」로
-                   보인다. *@
-                <p class="jsini-hint">
-                    담아 둔 @_hiddenPins 개는 지금 내 메뉴에 없어 위 목록에 나오지
-                    않습니다. 사이드바에도 보이지 않습니다.
-                </p>
-            }
-        }
-
-        @* ── 보안 설정 ─────────────────────────────────── *@
-        else if (_tab == Tab.Security)
-        {
-            <h2 class="ad-section">보안 설정</h2>
-
-            <section class="ad-settings">
-                @* 첫 줄은 켬·끔이 아니다. Vue 는 여기에 「현재 비밀번호 강도: 강함」
-                   이라는 **고정된 글자**를 박아 두었는데, 서버는 강도를 재지도
-                   저장하지도 않는다 — 아무 근거 없는 글자였다. 실제로 아는 값
-                   (마지막 변경일)을 보여 주고 바꾸는 길을 준다. *@
-                <div class="ad-setting">
-                    <div>
-                        <div class="ad-setting__name">계정 비밀번호</div>
-                        <div class="ad-setting__desc">@PasswordSummary</div>
-                    </div>
-                    <DxButton Text="바꾸기" RenderStyle="ButtonRenderStyle.Secondary"
-                              Click="@(() => Navigation.NavigateTo("/password/change"))" />
-                </div>
-
-                @foreach (var row in SecurityRows)
-                {
-                    <div class="ad-setting">
-                        <div>
-                            <div class="ad-setting__name">@row.Name</div>
-                            <div class="ad-setting__desc">@row.Desc</div>
-                        </div>
-                        <DxCheckBox Checked="@row.Value"
-                                    CheckedChanged="@((bool v) => ToggleSettingAsync(row.Field, v))" />
-                    </div>
-                }
-            </section>
-
-            <p class="jsini-hint">
-                켜 둔 값은 계정에 기록됩니다. <b>실제 2차 인증 흐름은 아직 붙지
-                않았습니다</b> — 지금은 의사를 남겨 두는 자리입니다.
-            </p>
-        }
-
-        @* ── 비밀번호 변경 ─────────────────────────────── *@
-        else if (_tab == Tab.Password)
-        {
-            <h2 class="ad-section">비밀번호 변경</h2>
-
-            <PageNotice Text="@ExpiryText" Tone="@ExpiryTone" />
-
-            <dl class="ad-desc">
-                <dt>변경일</dt>
-                <dd>@Dt(_info.PasswordChangedAt)</dd>
-
-                @if (_info.PasswordPolicyOn)
-                {
-                    <dt>만료</dt>
-                    <dd>
-                        <span class="jsini-badge @RemainBadge">@RemainText</span>
-                        <span class="jsini-text-muted">
-                            @Dt(_info.PasswordExpiresAt) 까지 (@(_info.PasswordExpiryDays)일 주기)
-                        </span>
-                    </dd>
-                }
-            </dl>
-
-            <p class="jsini-hint">
-                바꾸고 나면 <b>새 비밀번호로 다시 로그인</b>해야 합니다. 지금
-                들고 있는 인증에는 바꾸기 전 시각이 들어 있어, 재로그인하지
-                않으면 바꿨는데도 계속 막힙니다. 그 뒤처리까지 하는 전용 화면에서
-                처리합니다.
-            </p>
-
-            <div class="jsini-toolbar">
-                <div class="jsini-toolbar__spacer"></div>
-                <DxButton Text="비밀번호 변경 화면으로" RenderStyle="ButtonRenderStyle.Primary"
-                          Click="@(() => Navigation.NavigateTo("/password/change"))" />
-            </div>
-        }
-
-        @* ── 새 메시지 알림 ────────────────────────────── *@
-        else if (_tab == Tab.Notice)
-        {
-            <h2 class="ad-section">새 메시지 알림</h2>
-
-            <section class="ad-settings">
-                @foreach (var row in NoticeRows)
-                {
-                    <div class="ad-setting">
-                        <div>
-                            <div class="ad-setting__name">@row.Name</div>
-                            <div class="ad-setting__desc">@row.Desc</div>
-                        </div>
-                        <DxCheckBox Checked="@row.Value"
-                                    CheckedChanged="@((bool v) => ToggleSettingAsync(row.Field, v))" />
-                    </div>
-                }
-            </section>
-
-            <p class="jsini-hint">
-                여기는 <b>무엇을 알릴지</b>를 고르는 자리입니다. 어떤 길로 받을지
-                (브라우저 푸시 · 이메일)는 <a href="/admin/push/setting">알림 설정</a>
-                에서 정합니다.
-            </p>
-        }
-
-        @* ── 프로필 사진 관리 ──────────────────────────── *@
-        else if (_tab == Tab.Avatar)
-        {
-            <h2 class="ad-section">프로필 사진 관리</h2>
-
-            <p class="jsini-hint">
-                사진을 여러 장 올려 두고 그중 하나를 <b>대표</b>로 고릅니다.
-                헤더와 이 화면에 보이는 것은 대표 사진입니다. 최대 @PhotoLimit 장.
-            </p>
-
-            @* DxUpload 를 쓰지 않는다 — 그것은 브라우저가 직접 POST 하는데 BFF 라
-               브라우저에 게이트웨이 토큰이 없다(web/CLAUDE.md). FilePicker 는
-               회로(서버)로 받아 서버가 게이트웨이로 올린다. *@
-            <FilePicker MaxFiles="@PhotoLimit" Accept="image/*" MaxBytes="10485760"
-                        Hint="여기를 눌러 사진을 고르십시오 (한 장 10MB 까지)"
-                        FilesChanged="@(f => _picked = f)" />
-
-            <div class="jsini-toolbar">
-                <div class="jsini-toolbar__spacer"></div>
-                <DxButton Text="올리기" RenderStyle="ButtonRenderStyle.Primary"
-                          Enabled="@(_picked.Count > 0 && !_uploading)"
-                          Click="@UploadAsync" />
-            </div>
-
-            @if (_photos.Count == 0)
-            {
-                <p class="jsini-hint">올려 둔 사진이 없습니다.</p>
-            }
-            else
-            {
-                <ul class="ad-photos">
-                    @foreach (var photo in _photos)
-                    {
-                        var id = photo.Id ?? string.Empty;
-                        var url = FileDownload.UrlFor(id, photo.OriginalName);
-                        var isRep = photo.IsRepresentative;
-
-                        <li class="ad-photo @(isRep ? "is-rep" : "")" @key="id">
-                            <img class="ad-photo__img" src="@url" alt="@photo.OriginalName" />
-
-                            @if (isRep)
-                            {
-                                <span class="ad-photo__rep">대표</span>
-                            }
-
-                            <div class="ad-photo__bar">
-                                @if (!isRep)
+                            <DxFormLayoutItem Caption="역할" ColSpanMd="6">
+                                @* 딱지로 둔다. `DxTagBox` 는 입력기라 잠가 두면 「지금은
+                                   못 바꾸지만 언젠가 바꿀 수 있는 값」으로 읽힌다. *@
+                                @if (_info.RoleLabels.Count > 0)
                                 {
-                                    <DxButton RenderStyle="ButtonRenderStyle.Link" Text="대표로"
-                                              Click="@(() => SetRepresentativeAsync(photo))" />
+                                    <div class="jsini-tags">
+                                        @foreach (var role in _info.RoleLabels)
+                                        {
+                                            <span class="jsini-badge">@role</span>
+                                        }
+                                    </div>
                                 }
-                                <a class="ad-photo__open" href="@url" target="_blank" rel="noopener">원본</a>
-                                <DxButton RenderStyle="ButtonRenderStyle.Link" Text="삭제"
-                                          Click="@(() => DeletePhotoAsync(photo))" />
+                                else
+                                {
+                                    <span class="jsini-text-muted">배정된 역할이 없습니다.</span>
+                                }
+                            </DxFormLayoutItem>
+
+                            <DxFormLayoutItem Caption="자기소개" ColSpanMd="12">
+                                <DxMemo @bind-Text="_edit.Introduction" Rows="3" NullText="한 줄 소개" />
+                            </DxFormLayoutItem>
+                        </DxFormLayout>
+
+                        <div class="jsini-toolbar">
+                            <div class="jsini-toolbar__spacer"></div>
+                            <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Primary"
+                                      Click="@SaveBasicAsync" />
+                            <DxButton Text="되돌리기" RenderStyle="ButtonRenderStyle.Secondary"
+                                      Click="@Revert" />
+                        </div>
+
+                        <p class="jsini-hint">
+                            생년월일은 생활과환경의 「생일 목록」이 읽습니다. 비워 두면
+                            그 목록에 나오지 않습니다.
+                        </p>
+                    </DxTabPage>
+
+                    @* ── 계정 정보 ─────────────────────────── *@
+                    <DxTabPage Text="계정 정보">
+                        @if (_info.PasswordExpired)
+                        {
+                            <PageNotice Tone="NoticeTone.Error"
+                                        Text="비밀번호 사용 기간이 지났습니다. 바꾸기 전까지 다른 화면을 쓸 수 없습니다." />
+                        }
+
+                        @* 최근 30일 안에 실패가 있으면 알린다. 접속 기록을 펼쳐 보지
+                           않아도 「누가 두드렸다」는 사실은 바로 알아야 한다. *@
+                        @if (_activity is { RecentFailCount: > 0 })
+                        {
+                            <PageNotice Tone="NoticeTone.Warning" Text="@FailNotice" />
+                        }
+
+                        @* 읽기 전용이라 입력기를 두지 않는다. 값을 글자로 넣어도
+                           캡션 폭·줄 간격은 DxFormLayout 이 맞춰 준다. *@
+                        <DxFormLayout CssClass="ad-editform">
+
+                            <DxFormLayoutGroup Caption="계정" ColSpanMd="12" Decoration="FormLayoutGroupDecoration.Card">
+                                <DxFormLayoutItem Caption="가입일" ColSpanMd="12">
+                                    <span class="ad-desc__value">
+                                        @Dt(_info.CreatedAt)
+                                        @if (_activity is not null)
+                                        {
+                                            <span class="jsini-text-muted">(@(_activity.AccountAgeDays)일째)</span>
+                                        }
+                                    </span>
+                                </DxFormLayoutItem>
+
+                                <DxFormLayoutItem Caption="역할" ColSpanMd="12">
+                                    @if (_info.RoleLabels.Count > 0)
+                                    {
+                                        <div class="jsini-tags">
+                                            @foreach (var role in _info.RoleLabels)
+                                            {
+                                                <span class="jsini-badge">@role</span>
+                                            }
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <span class="jsini-text-muted">배정된 역할이 없습니다.</span>
+                                    }
+                                </DxFormLayoutItem>
+
+                                @* 이관 계정만 값이 있다. 저쪽 시스템의 어느 레코드에서 왔는지다. *@
+                                @if (_info.MsaSource is { Length: > 0 } source)
+                                {
+                                    <DxFormLayoutItem Caption="이관 출처" ColSpanMd="12">
+                                        <span class="ad-desc__mono">@source</span>
+                                    </DxFormLayoutItem>
+                                }
+                            </DxFormLayoutGroup>
+
+                            <DxFormLayoutGroup Caption="접속" ColSpanMd="12" Decoration="FormLayoutGroupDecoration.Card">
+                                <DxFormLayoutItem Caption="최근 로그인" ColSpanMd="12">
+                                    <span class="ad-desc__value">
+                                        @Dt(_info.LastLoginAt)
+                                        <span class="ad-desc__mono jsini-text-muted">@_info.LastLoginIp</span>
+                                    </span>
+                                </DxFormLayoutItem>
+
+                                @* 지난번 접속. 낯선 시각·주소가 보이면 남이 들어온 것이다 —
+                                   그 판단을 사용자가 할 수 있게 지금 접속과 나란히 둔다. *@
+                                <DxFormLayoutItem Caption="이전 접속" ColSpanMd="12">
+                                    <span class="ad-desc__value">
+                                        @if (_activity?.PreviousLogin is { } prev)
+                                        {
+                                            @Dt(prev.At)
+                                            <span class="ad-desc__mono jsini-text-muted">@prev.Ip</span>
+                                            @if (prev.Device is { Length: > 0 } device)
+                                            {
+                                                <span class="jsini-text-muted">· @device</span>
+                                            }
+                                        }
+                                        else
+                                        {
+                                            <span class="jsini-text-muted">기록 없음</span>
+                                        }
+                                    </span>
+                                </DxFormLayoutItem>
+
+                                <DxFormLayoutItem Caption="로그인 횟수" ColSpanMd="12">
+                                    <span class="ad-desc__value">
+                                        @if (_activity is not null)
+                                        {
+                                            @($"{_activity.LoginCount:N0}회")
+                                            <span class="jsini-text-muted">(기록을 남기기 시작한 뒤)</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="jsini-text-muted">기록 없음</span>
+                                        }
+                                    </span>
+                                </DxFormLayoutItem>
+                            </DxFormLayoutGroup>
+
+                            <DxFormLayoutGroup Caption="비밀번호" ColSpanMd="12" Decoration="FormLayoutGroupDecoration.Card">
+                                <DxFormLayoutItem Caption="변경일" ColSpanMd="12">
+                                    <span class="ad-desc__value">@Dt(_info.PasswordChangedAt)</span>
+                                </DxFormLayoutItem>
+
+                                @* 만료 정책이 꺼져 있으면(설정 0) 남은 일수 칸 자체가 뜻이 없다. *@
+                                @if (_info.PasswordPolicyOn)
+                                {
+                                    <DxFormLayoutItem Caption="만료" ColSpanMd="12">
+                                        <span class="ad-desc__value">
+                                            <span class="jsini-badge @RemainBadge">@RemainText</span>
+                                            <span class="jsini-text-muted">
+                                                @Dt(_info.PasswordExpiresAt) 까지 (@(_info.PasswordExpiryDays)일 주기)
+                                            </span>
+                                        </span>
+                                    </DxFormLayoutItem>
+                                }
+                            </DxFormLayoutGroup>
+
+                        </DxFormLayout>
+
+                        @* `CommCont` 로 감싸지 않는다 — 그 판은 남은 본문 높이를
+                           다 먹는데, 이 탭에는 위에 폼 묶음 셋이 쌓여 있어
+                           표가 잘린다(web/CLAUDE.md 의 그 단서). *@
+                        <h2 class="ad-section">최근 접속 기록</h2>
+
+                        <CommGrd TItem="LoginLogDto" Data="@Recent" PageSize="10"
+                                 ShowExcelExport="false" ExportName="접속기록"
+                                 EmptyText="접속 기록이 없습니다.">
+                            <Columns>
+                                    @* 그리드는 시간대를 옮겨 주지 않는다. `At` 을 그대로 걸면
+                                       표만 아홉 시간 뒤처져 보인다(LoginLogDto.AtLocal 주석). *@
+                                    <DxGridDataColumn FieldName="@nameof(LoginLogDto.AtLocal)" Caption="시각"
+                                                      Width="160" DisplayFormat="yyyy-MM-dd HH:mm" />
+                                    <DxGridDataColumn FieldName="@nameof(LoginLogDto.ResultLabel)" Caption="결과" Width="120" />
+                                    <DxGridDataColumn FieldName="@nameof(LoginLogDto.Ip)" Caption="접속 IP" Width="140" />
+
+                                    @* 줄인 이름을 보여 주고 원문은 얹어 본다 — 원문(UserAgent)은
+                                       길어서 그대로 두면 표가 무너진다. *@
+                                    <DxGridDataColumn FieldName="@nameof(LoginLogDto.DeviceLabel)" Caption="기기"
+                                                      MinWidth="200" TextAlignment="GridTextAlignment.Left">
+                                        <CellDisplayTemplate>
+                                            @{
+                                                var row = (LoginLogDto)context.DataItem;
+                                            }
+                                            <span title="@row.UserAgent">@row.DeviceLabel</span>
+                                        </CellDisplayTemplate>
+                                    </DxGridDataColumn>
+                            </Columns>
+                        </CommGrd>
+
+                        <p class="jsini-hint">
+                            접속 IP 는 요청 헤더에서 얻은 값이라 참고용입니다. 기록은 이 표가
+                            만들어진 뒤의 로그인부터 쌓입니다. 모르는 접속이 보이면
+                            비밀번호를 바꾸십시오.
+                        </p>
+                    </DxTabPage>
+
+                    @* ── 고정탭 관리 ───────────────────────── *@
+                    <DxTabPage Text="고정탭 관리">
+                        <p class="jsini-hint">
+                            왼쪽이 사이드바 즐겨찾기에 나타나는 메뉴이고, 그 순서대로
+                            보입니다. 오른쪽에서 골라 「고정」을 누르고, 순서는 ↑·↓ 로
+                            바꿉니다. 여러 건을 함께 고를 수 있습니다.
+                        </p>
+
+                        <div class="ad-pin">
+
+                            @* 고정된 메뉴. 순서가 뜻을 가지므로 검색 칸을 두지 않는다 —
+                               걸러 놓고 ↑·↓ 를 누르면 화면에 안 보이는 이웃과 자리를
+                               바꾸게 되어 무엇이 일어났는지 알 수 없다. *@
+                            <div class="ad-pin__pane">
+                                <div class="ad-pin__head">
+                                    <span class="ad-pin__title">고정된 메뉴</span>
+                                    <span class="jsini-text-muted">@Pinned.Count 개</span>
+                                </div>
+
+                                <DxListBox TData="MenuFavorite" TValue="MenuFavorite"
+                                           Data="@Pinned"
+                                           Values="@_pickedPinsSource"
+                                           ValuesChanged="@((IEnumerable<MenuFavorite> v) => PickPins(v))"
+                                           TextFieldName="@nameof(MenuFavorite.Label)"
+                                           SelectionMode="ListBoxSelectionMode.Multiple"
+                                           ShowCheckboxes="true"
+                                           CssClass="ad-pin__list">
+                                    <EmptyDataAreaTemplate>
+                                        오른쪽에서 골라 「고정」을 누르십시오.
+                                    </EmptyDataAreaTemplate>
+                                </DxListBox>
+
+                                <div class="jsini-actions">
+                                    <DxButton Text="↑ 위로" RenderStyle="ButtonRenderStyle.Secondary"
+                                              Enabled="@CanMoveUp" Click="@(() => MoveAsync(-1))" />
+                                    <DxButton Text="↓ 아래로" RenderStyle="ButtonRenderStyle.Secondary"
+                                              Enabled="@CanMoveDown" Click="@(() => MoveAsync(1))" />
+                                    <DxButton Text="해제 →" RenderStyle="ButtonRenderStyle.Secondary"
+                                              Enabled="@(_pickedPins.Count > 0)" Click="@UnpinAsync" />
+                                </div>
                             </div>
 
-                            <span class="ad-photo__name" title="@photo.OriginalName">@photo.OriginalName</span>
-                        </li>
-                    }
-                </ul>
+                            @* 고정되지 않은 메뉴. 138건이라 **검색 칸이 있어야 쓸 수 있다.** *@
+                            <div class="ad-pin__pane">
+                                <div class="ad-pin__head">
+                                    <span class="ad-pin__title">고정되지 않은 메뉴</span>
+                                    <span class="jsini-text-muted">@Unpinned.Count 개</span>
+                                </div>
+
+                                <DxListBox TData="MenuNode" TValue="MenuNode"
+                                           Data="@Unpinned"
+                                           Values="@_pickedMenusSource"
+                                           ValuesChanged="@((IEnumerable<MenuNode> v) => PickMenus(v))"
+                                           TextFieldName="@nameof(MenuNode.Title)"
+                                           SelectionMode="ListBoxSelectionMode.Multiple"
+                                           ShowCheckboxes="true"
+                                           ShowSearchBox="true"
+                                           SearchBoxNullText="메뉴 찾기"
+                                           CssClass="ad-pin__list">
+                                    <EmptyDataAreaTemplate>
+                                        모든 메뉴가 고정되어 있습니다.
+                                    </EmptyDataAreaTemplate>
+                                </DxListBox>
+
+                                <div class="jsini-actions">
+                                    <DxButton Text="← 고정" RenderStyle="ButtonRenderStyle.Primary"
+                                              Enabled="@(_pickedMenus.Count > 0)" Click="@PinAsync" />
+                                </div>
+                            </div>
+                        </div>
+
+                        @if (_hiddenPins > 0)
+                        {
+                            @* 담아 둔 경로가 지금 내 메뉴에 없을 수 있다 — 권한이 바뀌었거나
+                               메뉴가 지워진 경우다. 조용히 빼면 「해제했는데도 남아 있다」로
+                               보인다. *@
+                            <p class="jsini-hint">
+                                담아 둔 @_hiddenPins 개는 지금 내 메뉴에 없어 위 목록에 나오지
+                                않습니다. 사이드바에도 보이지 않습니다.
+                            </p>
+                        }
+                    </DxTabPage>
+
+                    @* ── 보안 설정 ─────────────────────────── *@
+                    <DxTabPage Text="보안 설정">
+                        <section class="ad-settings">
+                            @* 첫 줄은 켬·끔이 아니다. Vue 는 여기에 「현재 비밀번호 강도:
+                               강함」이라는 **고정된 글자**를 박아 두었는데, 서버는 강도를
+                               재지도 저장하지도 않는다 — 아무 근거 없는 글자였다. 실제로
+                               아는 값(마지막 변경일)을 보여 주고 바꾸는 길을 준다. *@
+                            <div class="ad-setting">
+                                <div>
+                                    <div class="ad-setting__name">계정 비밀번호</div>
+                                    <div class="ad-setting__desc">@PasswordSummary</div>
+                                </div>
+                                <DxButton Text="바꾸기" RenderStyle="ButtonRenderStyle.Secondary"
+                                          Click="@(() => Navigation.NavigateTo("/password/change"))" />
+                            </div>
+
+                            @foreach (var row in SecurityRows)
+                            {
+                                <div class="ad-setting">
+                                    <div>
+                                        <div class="ad-setting__name">@row.Name</div>
+                                        <div class="ad-setting__desc">@row.Desc</div>
+                                    </div>
+                                    @* `DxSwitch` 는 DevExpress 에 없다. 켬·끔은 이것뿐이다. *@
+                                    <DxCheckBox Checked="@row.Value"
+                                                CheckedChanged="@((bool v) => ToggleSettingAsync(row.Field, v))" />
+                                </div>
+                            }
+                        </section>
+
+                        <p class="jsini-hint">
+                            켜 둔 값은 계정에 기록됩니다. <b>실제 2차 인증 흐름은 아직 붙지
+                            않았습니다</b> — 지금은 의사를 남겨 두는 자리입니다.
+                        </p>
+                    </DxTabPage>
+
+                    @* ── 비밀번호 변경 ─────────────────────── *@
+                    <DxTabPage Text="비밀번호 변경">
+                        <PageNotice Text="@ExpiryText" Tone="@ExpiryTone" />
+
+                        <DxFormLayout CssClass="ad-editform">
+                            <DxFormLayoutItem Caption="변경일" ColSpanMd="12">
+                                <span class="ad-desc__value">@Dt(_info.PasswordChangedAt)</span>
+                            </DxFormLayoutItem>
+
+                            @if (_info.PasswordPolicyOn)
+                            {
+                                <DxFormLayoutItem Caption="만료" ColSpanMd="12">
+                                    <span class="ad-desc__value">
+                                        <span class="jsini-badge @RemainBadge">@RemainText</span>
+                                        <span class="jsini-text-muted">
+                                            @Dt(_info.PasswordExpiresAt) 까지 (@(_info.PasswordExpiryDays)일 주기)
+                                        </span>
+                                    </span>
+                                </DxFormLayoutItem>
+                            }
+                        </DxFormLayout>
+
+                        <p class="jsini-hint">
+                            바꾸고 나면 <b>새 비밀번호로 다시 로그인</b>해야 합니다. 지금
+                            들고 있는 인증에는 바꾸기 전 시각이 들어 있어, 재로그인하지
+                            않으면 바꿨는데도 계속 막힙니다. 그 뒤처리까지 하는 전용
+                            화면에서 처리합니다.
+                        </p>
+
+                        <div class="jsini-toolbar">
+                            <div class="jsini-toolbar__spacer"></div>
+                            <DxButton Text="비밀번호 변경 화면으로" RenderStyle="ButtonRenderStyle.Primary"
+                                      Click="@(() => Navigation.NavigateTo("/password/change"))" />
+                        </div>
+                    </DxTabPage>
+
+                    @* ── 새 메시지 알림 ─────────────────────── *@
+                    <DxTabPage Text="새 메시지 알림">
+                        <section class="ad-settings">
+                            @foreach (var row in NoticeRows)
+                            {
+                                <div class="ad-setting">
+                                    <div>
+                                        <div class="ad-setting__name">@row.Name</div>
+                                        <div class="ad-setting__desc">@row.Desc</div>
+                                    </div>
+                                    <DxCheckBox Checked="@row.Value"
+                                                CheckedChanged="@((bool v) => ToggleSettingAsync(row.Field, v))" />
+                                </div>
+                            }
+                        </section>
+
+                        <p class="jsini-hint">
+                            여기는 <b>무엇을 알릴지</b>를 고르는 자리입니다. 어떤 길로
+                            받을지(브라우저 푸시 · 이메일)는
+                            <a href="/admin/push/setting">알림 설정</a> 에서 정합니다.
+                        </p>
+                    </DxTabPage>
+
+                    @* ── 프로필 사진 관리 ───────────────────── *@
+                    <DxTabPage Text="프로필 사진 관리">
+                        <p class="jsini-hint">
+                            사진을 여러 장 올려 두고 그중 하나를 <b>대표</b>로 고릅니다.
+                            헤더와 이 화면에 보이는 것은 대표 사진입니다. 최대 @PhotoLimit 장.
+                        </p>
+
+                        @* DxUpload 을 쓰지 않는다 — 그것은 브라우저가 직접 POST 하는데
+                           BFF 라 브라우저에 게이트웨이 토큰이 없다(web/CLAUDE.md).
+                           FilePicker 는 회로(서버)로 받아 서버가 게이트웨이로 올린다. *@
+                        <FilePicker MaxFiles="@PhotoLimit" Accept="image/*" MaxBytes="10485760"
+                                    Hint="여기를 눌러 사진을 고르십시오 (한 장 10MB 까지)"
+                                    FilesChanged="@(f => _picked = f)" />
+
+                        <div class="jsini-toolbar">
+                            <div class="jsini-toolbar__spacer"></div>
+                            <DxButton Text="올리기" RenderStyle="ButtonRenderStyle.Primary"
+                                      Enabled="@(_picked.Count > 0 && !_uploading)"
+                                      Click="@UploadAsync" />
+                        </div>
+
+                        @if (_photos.Count == 0)
+                        {
+                            <p class="jsini-hint">올려 둔 사진이 없습니다.</p>
+                        }
+                        else
+                        {
+                            @* 격자 카드. DevExpress 에 이미지 갤러리 부품이 없다. *@
+                            <ul class="ad-photos">
+                                @foreach (var photo in _photos)
+                                {
+                                    var id = photo.Id ?? string.Empty;
+                                    var url = FileDownload.UrlFor(id, photo.OriginalName);
+                                    var isRep = photo.IsRepresentative;
+
+                                    <li class="ad-photo @(isRep ? "is-rep" : "")" @key="id">
+                                        <img class="ad-photo__img" src="@url" alt="@photo.OriginalName" />
+
+                                        @if (isRep)
+                                        {
+                                            <span class="ad-photo__rep">대표</span>
+                                        }
+
+                                        <div class="ad-photo__bar">
+                                            <DxButton RenderStyle="ButtonRenderStyle.Link" Text="크게"
+                                                      Click="@(() => Preview(photo))" />
+                                            @if (!isRep)
+                                            {
+                                                <DxButton RenderStyle="ButtonRenderStyle.Link" Text="대표로"
+                                                          Click="@(() => SetRepresentativeAsync(photo))" />
+                                            }
+                                            <DxButton RenderStyle="ButtonRenderStyle.Link" Text="삭제"
+                                                      Click="@(() => DeletePhotoAsync(photo))" />
+                                        </div>
+
+                                        <span class="ad-photo__name" title="@photo.OriginalName">
+                                            @photo.OriginalName
+                                        </span>
+                                    </li>
+                                }
+                            </ul>
+                        }
+
+                        <p class="jsini-hint">
+                            개발 장비에서 올린 사진은 운영 서버에 실제 바이트가 없습니다 —
+                            목록에는 보이는데 그림이 깨지면 그 경우입니다.
+                        </p>
+                    </DxTabPage>
+
+                </DxTabs>
             }
 
-            <p class="jsini-hint">
-                개발 장비에서 올린 사진은 운영 서버에 실제 바이트가 없습니다 —
-                목록에는 보이는데 그림이 깨지면 그 경우입니다.
-            </p>
-        }
-
-    </section>
+        </DxLoadingPanel>
+    </div>
 </div>
+
+@* 사진 크게 보기. Vue 원본에도 있던 미리보기 창이고, 한동안 새 창으로
+   여는 링크로 대신하고 있었다 — 창을 옮겨 다니지 않아도 되는 쪽이 맞다. *@
+<DxPopup Visible="@(_preview is not null)"
+         VisibleChanged="@((bool v) => { if (!v) _preview = null; })"
+         HeaderText="@(_preview?.OriginalName ?? "사진")"
+         Width="min(720px, 92vw)"
+         ShowFooter="false">
+    <BodyContentTemplate>
+        @if (_preview?.Id is { Length: > 0 } previewId)
+        {
+            <img class="ad-photo__full"
+                 src="@FileDownload.UrlFor(previewId, _preview.OriginalName)"
+                 alt="@_preview.OriginalName" />
+        }
+    </BodyContentTemplate>
+</DxPopup>
 
 @code {
     /// <summary>사진은 서른 장까지. Vue 의 <c>:limit="30"</c> 을 그대로 옮겼다.</summary>
     private const int PhotoLimit = 30;
 
+    /// <summary>
+    /// 탭. <b>선언 순서가 <c>DxTabs</c> 안의 <c>DxTabPage</c> 순서와 같아야 한다</b> —
+    /// 그 부품은 자리를 번호로 다루므로 둘이 어긋나면 <c>?tab=</c> 이 엉뚱한 탭을 연다.
+    /// </summary>
     private enum Tab { Basic, Account, FixedTabs, Security, Password, Notice, Avatar }
-
-    /// <summary>왼쪽 목록. 순서도 Vue 원본과 같다.</summary>
-    private static readonly (Tab Tab, string Label)[] Tabs =
-    [
-        (Tab.Basic, "기본 설정"),
-        (Tab.Account, "계정 정보"),
-        (Tab.FixedTabs, "고정탭 관리"),
-        (Tab.Security, "보안 설정"),
-        (Tab.Password, "비밀번호 변경"),
-        (Tab.Notice, "새 메시지 알림"),
-        (Tab.Avatar, "프로필 사진 관리"),
-    ];
 
     /// <summary><c>?tab=</c> 로 받는 이름. Vue 가 쓰던 글자와 같다.</summary>
     private static readonly Dictionary<string, Tab> TabNames = new(StringComparer.OrdinalIgnoreCase)
@@ -670,6 +683,9 @@
 
     private Tab _tab = Tab.Basic;
 
+    /// <summary><c>DxTabs</c> 가 쓰는 번호. 열거형 값이 곧 자리다.</summary>
+    private int TabIndex => (int)_tab;
+
     private UserInfoDto? _info;
     private AccountActivityDto? _activity;
 
@@ -679,18 +695,42 @@
 
     // ── 고정탭 ──────────────────────────────────────────────
 
-    private enum Zone { None, Pinned, Unpinned }
-
-    private sealed record Drag(Zone From, string Path);
-
-    private Drag? _drag;
-    private Zone _over = Zone.None;
-
     /// <summary>내 메뉴를 펼쳐 「열 수 있는 화면」만 남긴 것.</summary>
     private IReadOnlyList<MenuNode> _screens = [];
 
     /// <summary>담아 뒀지만 지금 내 메뉴에 없는 개수.</summary>
     private int _hiddenPins;
+
+    /// <summary>왼쪽 목록에서 고른 것들.</summary>
+    private IEnumerable<MenuFavorite> _pickedPinsSource = [];
+
+    /// <summary>오른쪽 목록에서 고른 것들.</summary>
+    private IEnumerable<MenuNode> _pickedMenusSource = [];
+
+    /// <summary>
+    /// 고른 것을 목록으로 굳혀 둔 것.
+    /// </summary>
+    /// <remarks>
+    /// <c>DxListBox.Values</c> 는 <b><c>IEnumerable&lt;T&gt;</c> 여야 한다</b> —
+    /// 그래서 부품에 물리는 값(<c>_picked…Source</c>)과 화면이 읽는 값을 갈라
+    /// 두었다. 화면은 개수와 첫 항목을 자주 묻는데(단추 켜기·끄기 · 순서 옮기기),
+    /// 지연 열거를 그대로 두면 렌더마다 여러 번 돈다.
+    /// </remarks>
+    private IReadOnlyList<MenuFavorite> _pickedPins = [];
+
+    private IReadOnlyList<MenuNode> _pickedMenus = [];
+
+    private void PickPins(IEnumerable<MenuFavorite>? values)
+    {
+        _pickedPinsSource = values ?? [];
+        _pickedPins = [.. _pickedPinsSource];
+    }
+
+    private void PickMenus(IEnumerable<MenuNode>? values)
+    {
+        _pickedMenusSource = values ?? [];
+        _pickedMenus = [.. _pickedMenusSource];
+    }
 
     // ── 사진 ────────────────────────────────────────────────
 
@@ -698,6 +738,9 @@
     private IReadOnlyList<GroupFileDto> _photos = [];
     private string? _avatarGroupId;
     private bool _uploading;
+
+    /// <summary>크게 보고 있는 사진. <c>null</c> 이면 창이 닫혀 있다.</summary>
+    private GroupFileDto? _preview;
 
     // ── 켬·끔 한 줄 ─────────────────────────────────────────
 
@@ -746,6 +789,39 @@
     /// <summary>담기지 않은 화면들. 담긴 것은 <b>DB 경로</b>로 판정한다.</summary>
     private IReadOnlyList<MenuNode> Unpinned =>
         [.. _screens.Where(m => !Favorites.Contains(m.Path))];
+
+    /// <summary>
+    /// 순서 단추를 켤 수 있는가. <b>한 건만 골랐을 때만</b> 켠다 —
+    /// 여러 건을 한꺼번에 올리고 내리는 규칙은 사람마다 다르게 기대하고,
+    /// 어느 쪽으로 정해도 나머지 절반은 틀린 것으로 본다.
+    /// </summary>
+    private bool CanMoveUp => PickedPinIndex > 0;
+
+    private bool CanMoveDown => PickedPinIndex >= 0 && PickedPinIndex < Pinned.Count - 1;
+
+    /// <summary>고른 한 건의 자리. 하나가 아니면 <c>-1</c>.</summary>
+    private int PickedPinIndex
+    {
+        get
+        {
+            if (_pickedPins.Count != 1)
+            {
+                return -1;
+            }
+
+            var path = _pickedPins[0].Path;
+
+            for (var i = 0; i < Pinned.Count; i++)
+            {
+                if (string.Equals(Pinned[i].Path, path, StringComparison.OrdinalIgnoreCase))
+                {
+                    return i;
+                }
+            }
+
+            return -1;
+        }
+    }
 
     private string Initial
     {
@@ -822,8 +898,7 @@
 
         // 얼굴은 레이아웃이 읽는다. **이 화면이 먼저 뜰 수 있다** — 그때는
         // 왼쪽 판이 첫 글자만 그리고 있다가, 레이아웃이 다 읽으면 이 알림을
-        // 받아 사진으로 바뀐다. 실제로 헤더에는 사진이 있는데 이 화면만
-        // 첫 글자로 남아 있었다.
+        // 받아 사진으로 바뀐다.
         Me.Changed += OnMeChanged;
 
         RebuildScreens();
@@ -873,6 +948,17 @@
             && TabNames.TryGetValue(name, out var tab))
         {
             _tab = tab;
+        }
+    }
+
+    /// <summary>
+    /// <c>DxTabs</c> 에서 탭을 눌렀을 때. 번호를 열거형으로 되돌려 받는다.
+    /// </summary>
+    private void OnTabIndexChanged(int index)
+    {
+        if (Enum.IsDefined(typeof(Tab), index))
+        {
+            Go((Tab)index);
         }
     }
 
@@ -1038,77 +1124,72 @@
         }
     }
 
-    private Task PinAsync(string path) => RunAsync(
-        () => Favorites.AddAsync(path), "고정했습니다.", "고정하지 못했습니다");
-
-    private Task UnpinAsync(string path) => RunAsync(
-        () => Favorites.RemoveAsync(path), "해제했습니다.", "해제하지 못했습니다");
-
-    /// <summary>고정 칸의 빈 곳에 놓았을 때 — 맨 뒤에 붙인다.</summary>
-    private async Task DropOnPinnedZoneAsync()
+    /// <summary>고른 것들을 담는다. 여러 건을 한 번에 받는다.</summary>
+    private async Task PinAsync()
     {
-        var drag = TakeDrag();
+        // 목록이 바뀌면서 고른 것이 사라지므로 먼저 꺼내 둔다.
+        var paths = _pickedMenus.Select(m => m.Path).ToList();
 
-        if (drag is null || drag.From == Zone.Pinned)
+        if (paths.Count == 0)
         {
             return;
         }
 
-        await PinAsync(drag.Path);
+        PickMenus(null);
+
+        await RunAsync(
+            async () =>
+            {
+                // 한 건씩 보낸다 — 서버가 여러 건을 받는 경로를 주지 않는다.
+                // 중간에 실패하면 거기서 멈추고 앞엣것은 담긴 채로 남는다.
+                foreach (var path in paths)
+                {
+                    await Favorites.AddAsync(path);
+                }
+            },
+            $"{paths.Count}개를 고정했습니다.",
+            "고정하지 못했습니다");
     }
 
-    /// <summary>미고정 칸에 놓았을 때 — 고정을 푼다.</summary>
-    private async Task DropOnUnpinnedZoneAsync()
+    /// <summary>고른 것들을 뺀다.</summary>
+    private async Task UnpinAsync()
     {
-        var drag = TakeDrag();
+        var paths = _pickedPins.Select(p => p.Path).ToList();
 
-        if (drag is null || drag.From == Zone.Unpinned)
+        if (paths.Count == 0)
         {
             return;
         }
 
-        await UnpinAsync(drag.Path);
+        PickPins(null);
+
+        await RunAsync(
+            async () =>
+            {
+                foreach (var path in paths)
+                {
+                    await Favorites.RemoveAsync(path);
+                }
+            },
+            $"{paths.Count}개를 해제했습니다.",
+            "해제하지 못했습니다");
     }
 
     /// <summary>
-    /// 고정 칸의 어느 항목 위에 놓았을 때 — <b>그 자리로 끼워 넣는다.</b>
+    /// 고른 한 건을 한 칸 위·아래로 옮긴다.
     ///
     /// <para>
-    /// 미고정 쪽에서 왔으면 먼저 담고 나서 순서를 준다. 담기 전에 순서를
-    /// 보내면 서버가 그 경로를 즐겨찾기에서 못 찾는다.
+    /// <b>순서를 통째로 보낸다.</b> 「이것을 저기로」가 아니라 「전체가 이
+    /// 순서다」로 보내야 중간에 실패했을 때 서버와 화면이 서로 다른 순서로
+    /// 남지 않는다.
     /// </para>
     /// </summary>
-    private async Task DropOnPinnedItemAsync(int targetIndex)
+    private async Task MoveAsync(int delta)
     {
-        var drag = TakeDrag();
-
-        if (drag is null)
-        {
-            return;
-        }
-
-        if (drag.From == Zone.Unpinned
-            && !await RunAsync(() => Favorites.AddAsync(drag.Path), "고정했습니다.", "고정하지 못했습니다"))
-        {
-            return;
-        }
-
-        var paths = Pinned.Select(p => p.Path)
-            .Where(p => !string.Equals(p, drag.Path, StringComparison.OrdinalIgnoreCase))
-            .ToList();
-
-        paths.Insert(Math.Clamp(targetIndex, 0, paths.Count), drag.Path);
-
-        await RunAsync(
-            () => Favorites.ReorderAsync(paths), "순서를 저장했습니다.", "순서를 저장하지 못했습니다");
-    }
-
-    /// <summary>한 칸 위·아래로. 저장은 드래그와 같은 <c>reorder</c> 다.</summary>
-    private async Task MoveAsync(int index, int delta)
-    {
+        var index = PickedPinIndex;
         var target = index + delta;
 
-        if (target < 0 || target >= Pinned.Count)
+        if (index < 0 || target < 0 || target >= Pinned.Count)
         {
             return;
         }
@@ -1123,21 +1204,9 @@
             () => Favorites.ReorderAsync(paths), "순서를 저장했습니다.", "순서를 저장하지 못했습니다");
     }
 
-    private void ClearDrag()
-    {
-        _drag = null;
-        _over = Zone.None;
-    }
-
-    /// <summary>끌던 것을 꺼내고 비운다. 놓은 뒤에도 남아 있으면 다음 놓기가 섞인다.</summary>
-    private Drag? TakeDrag()
-    {
-        var drag = _drag;
-        ClearDrag();
-        return drag;
-    }
-
     // ── 사진 ────────────────────────────────────────────────
+
+    private void Preview(GroupFileDto photo) => _preview = photo;
 
     private async Task LoadPhotosAsync()
     {
@@ -1270,6 +1339,12 @@
             () => Api.DeleteFileAsync(fileId), "사진을 지웠습니다.", "사진을 지우지 못했습니다"))
         {
             return;
+        }
+
+        // 지운 것을 크게 보고 있었으면 창을 닫는다.
+        if (_preview?.Id == fileId)
+        {
+            _preview = null;
         }
 
         await LoadPhotosAsync();
