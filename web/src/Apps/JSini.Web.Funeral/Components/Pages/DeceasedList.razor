@@ -110,7 +110,7 @@
                     var d = (Deceased)cell.DataItem;
                 }
                 <PermissionView Action="MenuAction.Update">
-                    <div class="d-flex gap-1">
+                    <div class="jsini-actions">
                         @* 배정 가능한 호실만 나온다 — ACTIVE 이고 비어 있는 것.
                            전체 호실을 보여 주면 이미 찬 방을 고르게 된다. *@
                         <DxComboBox Data="@_available" Value="@GetTarget(d.Id)"
@@ -154,7 +154,7 @@
                 @{
                     var d = (Deceased)cell.DataItem;
                 }
-                <div class="d-flex gap-1">
+                <div class="jsini-actions">
                     <PermissionView Action="MenuAction.Update">
                         <DxButton Text="수정"
                                   RenderStyle="ButtonRenderStyle.Secondary"

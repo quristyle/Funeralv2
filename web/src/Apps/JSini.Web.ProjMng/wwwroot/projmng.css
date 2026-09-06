@@ -56,3 +56,26 @@
   color: var(--jsini-text-muted);
   font-size: var(--jsini-fs-md);
 }
+
+/* ── 외부 화면 iframe ────────────────────────────────────
+
+   Glances 모니터 둘(서버 모니터 · 장례 프레임 서버 모니터)이 쓴다.
+   화면 하나만 쓰던 동안에는 `ServerMonitor.razor.css` 에 있었는데,
+   둘째가 생기면서 이리로 옮겼다.
+
+   남은 높이를 다 차지해야 모니터가 읽힌다. 높이를 안 정하면 iframe 은
+   기본값 150px 로 나오고, 화면은 「서버가 아무것도 안 보내는 것」처럼 보인다.
+   ---------------------------------------------------------- */
+
+.pm-frame {
+  width: 100%;
+  height: calc(100vh - 56px - 10rem);
+  min-height: 360px;
+  border: 1px solid var(--jsini-border, #e3e5e8);
+  border-radius: 8px;
+  background: #fff;
+}
+
+/* SQL 편집기와 아래 결과 표 사이. 붙어 있으면 편집기 테두리와 표 머리가
+   한 줄로 보여 어디까지가 입력칸인지 흐려진다. */
+.pm-query { margin-bottom: 1rem; }

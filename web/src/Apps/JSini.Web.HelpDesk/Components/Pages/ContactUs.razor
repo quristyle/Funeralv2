@@ -14,28 +14,28 @@
 
 <PageHeading Title="문의하기" Scope="헬프데스크" />
 
-<div class="card p-4 mx-auto" style="max-width: 800px;">
-    <h5 class="fw-bold mb-4">✉️ 고객센터 / 헬프데스크 문의 접수</h5>
+<div class="hd-form">
+    <h2 class="hd-form__title">✉️ 고객센터 / 헬프데스크 문의 접수</h2>
 
-    <div class="mb-3">
-        <label class="form-label fw-bold">문의 제목</label>
+    <div class="hd-form__field">
+        <label class="hd-form__label">문의 제목</label>
         <DxTextBox @bind-Text="_title" NullText="문의 제목을 입력하세요" Style="width: 100%" />
     </div>
 
-    <div class="mb-3">
-        <label class="form-label fw-bold">문의 유형</label>
+    <div class="hd-form__field">
+        <label class="hd-form__label">문의 유형</label>
         <DxComboBox Data="@_types"
                     Value="@_selectedType"
                     ValueChanged="@((string val) => _selectedType = val)"
                     Style="width: 100%" />
     </div>
 
-    <div class="mb-4">
-        <label class="form-label fw-bold">문의 상세 내용</label>
+    <div class="hd-form__field">
+        <label class="hd-form__label">문의 상세 내용</label>
         <DxMemo @bind-Text="_content" NullText="상세 문의 내용을 작성해 주세요..." Rows="8" Style="width: 100%" />
     </div>
 
-    <div class="d-flex justify-content-end gap-2">
+    <div class="hd-form__actions">
         @* 「취소」가 아무 일도 안 하고 있었다. 적던 것을 비우는 단추다 —
            나가는 것이 아니라 처음부터 다시 쓰는 자리라 그렇다. *@
         <DxButton Text="취소" RenderStyle="ButtonRenderStyle.Secondary" Click="@Reset" />

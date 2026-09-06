@@ -131,7 +131,7 @@
                                            TextChanged="@((string v) => mourner.Contact = v)" />
                             </DeviceField>
                             <DeviceField Label="대표 · 빼기">
-                                <div class="d-flex gap-2">
+                                <div class="jsini-inline">
                                     <DxCheckBox Checked="@mourner.IsChief"
                                                 CheckedChanged="@((bool v) => SetChief(mourner, v))">대표</DxCheckBox>
                                     <DxButton Text="빼기"

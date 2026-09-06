@@ -72,7 +72,7 @@
                 @{
                     var r = (RoleDto)cell.DataItem;
                 }
-                <div class="d-flex gap-1">
+                <div class="jsini-actions">
                     <DxButton Text="메뉴"
                               RenderStyle="ButtonRenderStyle.Link"
                               Click="@(() => Navigation.NavigateTo($"/admin/auth/menu-role?role={Uri.EscapeDataString(r.Id)}"))" />

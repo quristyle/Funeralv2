@@ -12,15 +12,16 @@
 <PageHeading Title="장례 프레임 서버 모니터" Scope="프로젝트관리" />
 
 <Notice>
-    <div class="d-flex justify-content-between align-items-center">
+    <div class="jsini-split">
         <span>대상이 http 라 포털(https) 안에서는 브라우저가 표시를 막을 수 있습니다. 빈 화면으로 보이면 새 창으로 여세요.</span>
         <DxButton Text="새 창으로 열기" RenderStyle="ButtonRenderStyle.Secondary" Click="@OpenTarget" />
     </div>
 </Notice>
 
-<div class="flex-grow-1 h-100 min-h-0">
-    <iframe src="@Target" class="w-100 h-100 border rounded" title="장례 프레임 서버 모니터"></iframe>
-</div>
+@* 서버 모니터 화면과 같은 틀을 쓴다 — 높이는 `pm-frame` 이 정한다.
+   전에는 부모에 `h-100` 을 걸고 자식에게 물려주는 식이었는데, 그 클래스가
+   기본 테마에는 없어서 iframe 이 기본 높이(150px)로 나왔다. *@
+<iframe src="@Target" class="pm-frame" title="장례 프레임 서버 모니터"></iframe>
 
 @code {
     private const string Target = "http://funeralfr.jsini.co.kr:61208";

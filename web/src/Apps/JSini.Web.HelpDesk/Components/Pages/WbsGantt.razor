@@ -66,7 +66,7 @@
                 <DxButton Text="일" RenderStyle="@StyleFor(GanttScale.Day)" Click="@(() => _scale = GanttScale.Day)" />
                 <DxButton Text="주" RenderStyle="@StyleFor(GanttScale.Week)" Click="@(() => _scale = GanttScale.Week)" />
                 <DxButton Text="월" RenderStyle="@StyleFor(GanttScale.Month)" Click="@(() => _scale = GanttScale.Month)" />
-                <span style="color: var(--jsini-text-muted); font-size: var(--jsini-fs-sm);">읽기 전용입니다. 일정 수정은 WBS 관리 화면에서 합니다.</span>
+                <span class="jsini-hint">읽기 전용입니다. 일정 수정은 WBS 관리 화면에서 합니다.</span>
             </div>
 
             <DxScheduler StartDate="@_rangeStart"
