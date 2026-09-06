@@ -12,6 +12,11 @@
     매일 들여다보는 화면이 되면 그때 칸을 손으로 적는다.
 
     최근 접수된 것을 흐름으로 본다. 상황판에 띄워 두는 화면이라 한 줄이 짧다.
+    [최근 목록만 남아 있었다]
+
+    옛 화면은 **담당자별·고객사별 처리 현황**을 함께 보여 주었다. 최근 목록만
+    있으면 「밀린 것이 있다」는 알아도 **누구에게 몰려 있는지**를 모른다 —
+    이 화면은 그것을 보고 배정을 조정하는 자리다.
 *@
 
 @inherits DataPage
@@ -21,10 +26,50 @@
 
 <PageNotice Text="@Notice" Tone="@Tone" />
 
+@* 담당자별 처리 현황. **누가 몰려 있는지**를 먼저 본다 —
+   최근 목록만 있으면 「밀린 것이 있다」는 알아도 누구에게인지 모른다. *@
+@if (_admins.Rows.Count > 0)
+{
+    <h2 class="ad-subhead">담당자별</h2>
+
+    <AutoGrid Data="@_admins" Loading="@Loading" Captions="@AdminCaptions"
+              HiddenCols="adminId,photo" PageSize="15" />
+}
+
+@if (_companies.Rows.Count > 0)
+{
+    <h2 class="ad-subhead">고객사별</h2>
+
+    <AutoGrid Data="@_companies" Loading="@Loading" Captions="@CompanyCaptions"
+              HiddenCols="companyId" PageSize="15" />
+}
+
+<h2 class="ad-subhead">최근 접수</h2>
+
 <AutoGrid Data="@_rows" Loading="@Loading" Captions="@Captions" HiddenCols="id" PageSize="30" />
 
 @code {
     private DataTable _rows = JsonTable.Empty;
+    private DataTable _admins = JsonTable.Empty;
+    private DataTable _companies = JsonTable.Empty;
+
+    private static readonly Dictionary<string, string> AdminCaptions = new(StringComparer.Ordinal)
+    {
+        ["adminName"] = "담당자",
+        ["inProgressCount"] = "진행 중",
+        ["completedCount"] = "완료",
+        ["consultationCount"] = "협의",
+        ["negotiationCount"] = "조율",
+        ["rejectedCount"] = "반려",
+    };
+
+    private static readonly Dictionary<string, string> CompanyCaptions = new(StringComparer.Ordinal)
+    {
+        ["companyName"] = "고객사",
+        ["openCount"] = "진행 중",
+        ["closedCount"] = "완료",
+        ["totalCount"] = "전체",
+    };
 
     /// <summary>칸 이름표. 여기 적은 순서가 표의 앞쪽 순서다.</summary>
     private static readonly Dictionary<string, string> Captions = new(StringComparer.Ordinal)
@@ -45,8 +90,31 @@
     {
         // `requests/recent` 는 없다. 최근 목록도 통계 묶음에 있고,
         // **`topN` 이 필수다** — 안 보내면 400 이 난다.
-        var json = await Api.GetAsync<JsonElement>("dashboard/requests/recent", new { topN = 50 });
-        _rows = JsonTable.From(json);
-        return _rows.Rows.Count;
+        // 셋을 나란히. **하나가 실패해도 나머지를 보여 준다** —
+        // 지켜보는 화면이라 절반이라도 떠 있는 편이 낫다.
+        var recent = SafeAsync(() => Api.GetAsync<JsonElement>("dashboard/requests/recent", new { topN = 50 }));
+        var admins = SafeAsync(() => Api.GetAsync<JsonElement>("dashboard/all-admin-stats"));
+        var companies = SafeAsync(() => Api.GetAsync<JsonElement>("dashboard/company-stats"));
+
+        await Task.WhenAll(recent, admins, companies);
+
+        _rows = JsonTable.From(recent.Result);
+        _admins = JsonTable.From(admins.Result);
+        _companies = JsonTable.From(companies.Result);
+
+        return _rows.Rows.Count + _admins.Rows.Count;
     }, "최근 접수된 요청이 없습니다.", "요청 현황을 읽지 못했습니다");
+
+    /// <summary>실패를 삼키고 <c>default</c> 를 돌려준다.</summary>
+    private static async Task<T?> SafeAsync<T>(Func<Task<T?>> load)
+    {
+        try
+        {
+            return await load();
+        }
+        catch (ApiException)
+        {
+            return default;
+        }
+    }
 }
