@@ -167,3 +167,14 @@
   gap: 0.5rem;
   justify-content: flex-end;
 }
+
+/* 나란한 두 표(상태별·유형별). 좁으면 위아래로 쌓인다. */
+.hd-two {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: 1fr;
+}
+
+@media (width >= 1024px) {
+  .hd-two { grid-template-columns: 1fr 1fr; }
+}

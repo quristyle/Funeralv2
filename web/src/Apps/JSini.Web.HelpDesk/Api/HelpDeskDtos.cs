@@ -384,3 +384,46 @@ public sealed class ScheduleDto
     /// </summary>
     public bool AllDay => true;
 }
+
+/// <summary>
+/// 한 달치 요청 통계. 서버의 <c>MaintenanceReportDto</c> 와 짝이다.
+/// </summary>
+/// <remarks>
+/// SM 모니터링과 월간 보고서가 같은 것을 쓴다 — 한쪽만 고치면 두 화면의
+/// 숫자가 달라진다.
+/// </remarks>
+public sealed class MonthlyReport
+{
+    public int Year { get; set; }
+    public int Month { get; set; }
+
+    /// <summary>그 달에 접수된 건수.</summary>
+    public int TotalCreated { get; set; }
+
+    public int AdminCompletedCount { get; set; }
+    public int UserCompletedCount { get; set; }
+    public int PendingCount { get; set; }
+    public int InProgressCount { get; set; }
+    public int ConsultationCount { get; set; }
+    public int NegotiationCount { get; set; }
+
+    public double ResolutionRate { get; set; }
+
+    public Dictionary<string, int>? RequestsByStatus { get; set; }
+    public Dictionary<string, int>? RequestsByType { get; set; }
+
+    /// <summary>평균 해결 시간(시간). SM 계약에서 실제로 따지는 숫자다(MTTR).</summary>
+    public double AvgResolutionTime { get; set; }
+
+    public Dictionary<string, int>? ResolutionTimeDistribution { get; set; }
+
+    public List<DailyRequestStat>? DailyStats { get; set; }
+}
+
+/// <summary>날짜별 접수·완료 건수.</summary>
+public sealed class DailyRequestStat
+{
+    public int Day { get; set; }
+    public int CreatedCount { get; set; }
+    public int CompletedCount { get; set; }
+}
