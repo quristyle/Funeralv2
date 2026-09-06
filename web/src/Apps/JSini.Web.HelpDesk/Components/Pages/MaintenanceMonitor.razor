@@ -3,42 +3,138 @@
 @*
     [유지보수 현황] — DB 메뉴 `/helpdesk/monitor/maintenance`.
     이력: Vue `views/helpdesk/monitor/maintenance` → 여기.
-    엔드포인트: `dashboard/company-stats`
+    엔드포인트: `requests/report/monthly`
 
-    **서버가 준 대로 보여 주는 화면이다**(AutoGrid). 칸을 손으로 적지 않은
-    이유는 그 부품의 주석에 있다 — 요약하면, 이런 화면이 마흔 개고 백엔드가
-    칸을 더할 때마다 화면을 고치러 가는 것이 이득이 아니기 때문이다.
+    ────────────────────────────────────────────────────────────
+    [고객사별 건수 표 한 장만 남아 있었다]
 
-    매일 들여다보는 화면이 되면 그때 칸을 손으로 적는다.
+    원본은 **고객사에게 보여 주는 월간 현황**이다(493줄). 한 달을 골라 접수·완료·
+    진행 중과 **평균 해결 시간**, 최근 완료한 건을 함께 본다. 옮길 때는
+    `dashboard/company-stats` 하나를 부르는 표가 되어 있었다 —
+    **기간을 고를 수조차 없었다.**
+
+    ────────────────────────────────────────────────────────────
+    [기본이 지난달이다]
+
+    이 화면은 「지난달에 무엇을 했나」를 보여 주는 자리다. 원본도 지난달로
+    열었다 — 이번 달은 아직 진행 중이라 숫자가 매일 바뀐다.
+
+    ────────────────────────────────────────────────────────────
+    [고객으로 연결된 계정은 자기 회사만 본다]
+
+    서버가 `companyId` 로 거른다. 관리자는 비워 두고 전체를 본다 —
+    화면이 판단하지 않고 신원을 그대로 넘긴다.
 *@
 
 @inherits DataPage
 @inject HelpDeskApi Api
+@inject HelpDeskContext Context
 
 <PageTitle>유지보수 현황 · 헬프데스크</PageTitle>
 
+<div class="jsini-toolbar">
+    <DxSpinEdit @bind-Value="_year" MinValue="2000" MaxValue="2100" Style="width: 110px" />
+    <DxSpinEdit @bind-Value="_month" MinValue="1" MaxValue="12" Style="width: 90px" />
+    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@ReloadAsync" />
+</div>
+
 <PageNotice Text="@Notice" Tone="@Tone" />
 
-<AutoGrid Data="@_rows" Loading="@Loading" Captions="@Captions" HiddenCols="id" PageSize="30" />
+@if (_report is not null)
+{
+    <div class="jsini-stats">
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">접수</div>
+            <div class="jsini-stat__value">@_report.TotalCreated</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">완료</div>
+            <div class="jsini-stat__value">@_report.AdminCompletedCount</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">사용자 종료</div>
+            <div class="jsini-stat__value">@_report.UserCompletedCount</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">진행 중</div>
+            <div class="jsini-stat__value">@_report.InProgressCount</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">해결률</div>
+            <div class="jsini-stat__value">@_report.ResolutionRate.ToString("0.0")%</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">평균 해결</div>
+            <div class="jsini-stat__value">@_report.AvgResolutionTime.ToString("0.0")시간</div>
+        </div>
+    </div>
+}
+
+@if (_daily.Count > 0)
+{
+    <h2 class="ad-subhead">날짜별 접수 · 완료</h2>
+
+    <DxChart Data="@_daily" Width="100%" Height="240px">
+        <DxChartLegend Position="RelativePosition.Outside" />
+        <DxChartBarSeries T="DailyRequestStat" TArgument="int" TValue="int"
+                          ArgumentField="d => d.Day" ValueField="d => d.CreatedCount" Name="접수" />
+        <DxChartBarSeries T="DailyRequestStat" TArgument="int" TValue="int"
+                          ArgumentField="d => d.Day" ValueField="d => d.CompletedCount" Name="완료" />
+    </DxChart>
+}
+
+@* 해결까지 걸린 시간의 분포. 평균 하나로는 「대부분 하루 안이고 몇 건이
+   오래 끌었다」와 「전부 고르게 사흘」이 같아 보인다. *@
+@if (_spread.Count > 0)
+{
+    <h2 class="ad-subhead">해결 시간 분포</h2>
+
+    <CommGrd TItem="Bucket" Data="@_spread" PageSize="10">
+        <Columns>
+            <DxGridDataColumn FieldName="@nameof(Bucket.Label)" Caption="구간" MinWidth="160" />
+            <DxGridDataColumn FieldName="@nameof(Bucket.Count)" Caption="건수" Width="110" />
+        </Columns>
+    </CommGrd>
+}
 
 @code {
-    private DataTable _rows = JsonTable.Empty;
+    /// <summary>해결 시간 구간 한 칸.</summary>
+    public sealed record Bucket(string Label, int Count);
 
-    /// <summary>칸 이름표. 여기 적은 순서가 표의 앞쪽 순서다.</summary>
-    private static readonly Dictionary<string, string> Captions = new(StringComparer.Ordinal)
+    private int _year;
+    private int _month;
+
+    private MonthlyReport? _report;
+    private IReadOnlyList<DailyRequestStat> _daily = [];
+    private IReadOnlyList<Bucket> _spread = [];
+
+    protected override async Task OnInitializedAsync()
     {
-        ["companyName"] = "고객사",
-        ["openCount"] = "진행 중",
-        ["closedCount"] = "완료",
-        ["totalCount"] = "전체",
-    };
+        // 지난달로 연다 — 이번 달은 아직 진행 중이라 숫자가 매일 바뀐다.
+        var last = DateTime.Today.AddMonths(-1);
+        _year = last.Year;
+        _month = last.Month;
 
-    protected override Task OnInitializedAsync() => ReloadAsync();
+        await ReloadAsync();
+    }
 
     private Task ReloadAsync() => LoadAsync(async () =>
     {
-        var json = await Api.GetAsync<JsonElement>("dashboard/company-stats");
-        _rows = JsonTable.From(json);
-        return _rows.Rows.Count;
-    }, "집계할 고객사가 없습니다.", "현황을 읽지 못했습니다");
+        await Context.LoadIdentityAsync();
+
+        // 고객으로 연결된 계정은 자기 회사만 본다. 관리자는 비워 전체를 본다.
+        _report = Context.CompanyId is { } companyId
+            ? await Api.GetAsync<MonthlyReport>(
+                "requests/report/monthly", new { year = _year, month = _month, companyId })
+            : await Api.GetAsync<MonthlyReport>(
+                "requests/report/monthly", new { year = _year, month = _month });
+
+        _daily = _report?.DailyStats ?? [];
+
+        _spread = _report?.ResolutionTimeDistribution is { Count: > 0 } dist
+            ? [.. dist.Select(kv => new Bucket(kv.Key, kv.Value))]
+            : [];
+
+        return _report?.TotalCreated ?? 0;
+    }, "그 달에 접수된 요청이 없습니다.", "현황을 읽지 못했습니다");
 }
