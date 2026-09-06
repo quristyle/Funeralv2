@@ -100,8 +100,34 @@
             </CellDisplayTemplate>
         </DxGridDataColumn>
 
+        @* 변환 상태. **없으면 「왜 안 나오는지」를 알 길이 없다** — 재처리
+           단추만 있고 이유가 없었다. 실패한 것은 마우스를 올리면 서버가 준
+           오류와 실행 명령이 나온다(따질 때 그 명령이 필요하다). *@
+        <DxGridDataColumn Caption="변환" Width="100">
+            <CellDisplayTemplate Context="cell">
+                @{
+                    var m = (MediaSource)cell.DataItem;
+                }
+                <span class="jsini-badge @StatusClass(m.Status)" title="@StatusDetail(m)">
+                    @StatusLabel(m.Status)
+                </span>
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+
         <DxGridDataColumn FieldName="@nameof(MediaSource.SortOrder)" Caption="정렬" Width="80" />
         <DxGridDataColumn FieldName="@nameof(MediaSource.Remark)" Caption="비고" MinWidth="150" />
+
+        @* 재생·보기. 원본이 브라우저가 못 트는 형식일 수 있어 **변환본을
+           먼저 본다**(HasWebm). 배경·장식 그림은 그대로 띄운다. *@
+        <DxGridDataColumn Caption="보기" Width="80" AllowSort="false">
+            <CellDisplayTemplate Context="cell">
+                @{
+                    var m = (MediaSource)cell.DataItem;
+                }
+                <DxButton Text="재생" RenderStyle="ButtonRenderStyle.Secondary"
+                          Click="@(() => Preview(m))" />
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
 
         @if (Retries.Count > 0)
         {
@@ -157,6 +183,54 @@
     </EditFormTemplate>
 </CommGrd>
 
+@*
+    재생 창.
+
+    브라우저에게 <b>변환본을 먼저</b> 준다. 원본이 그대로 안 열리는 형식이라
+    서버가 변환본을 만들어 두는 것이므로, 원본을 먼저 주면 「소리만 나고
+    화면이 검다」 같은 모양이 된다.
+
+    주소는 셸 중계 경로로 옮긴다 — 저장된 값이 `/api/file/...` 라 포털에서는
+    404 다(`FileDownload` 머리말).
+*@
+<DxPopup @bind-Visible="_previewing" HeaderText="@(_preview?.Name ?? "재생")"
+         Width="720px" ShowFooter="false">
+    <BodyContentTemplate>
+        @if (_preview is not null)
+        {
+            var url = FileDownload.RelayUrl(PlayUrl(_preview));
+
+            @if (string.Equals(SourceType, "AUDIO", StringComparison.Ordinal))
+            {
+                <audio class="fn-preview__player" src="@url" controls autoplay></audio>
+            }
+            else if (string.Equals(SourceType, "VIDEO", StringComparison.Ordinal))
+            {
+                @* `preload="none"` 을 쓰지 않는다. 창을 열자마자 트는 자리라
+                   미리 받는 편이 빠르다. *@
+                <video class="fn-preview__player" src="@url" controls autoplay></video>
+            }
+            else
+            {
+                <img class="fn-preview__player" src="@url" alt="@_preview.Name" />
+            }
+
+            <div class="jsini-hint">
+                @if (_preview.HasWebm)
+                {
+                    <text>변환본(H.264)을 틉니다. </text>
+                }
+                @_preview.Url
+            </div>
+        }
+
+        <div class="jsini-toolbar">
+            <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary"
+                      Click="@(() => _previewing = false)" />
+        </div>
+    </BodyContentTemplate>
+</DxPopup>
+
 @code {
     /// <summary>이 화면이 다루는 자료 종류. 서버가 이 값으로 걸러 준다.</summary>
     [Parameter, EditorRequired] public string SourceType { get; set; } = string.Empty;
@@ -189,6 +263,11 @@
 
     private IReadOnlyList<MediaSource> _all = [];
     private string? _keyword;
+
+    /// <summary>재생 창에 걸린 자료. 닫으면 비운다 — 안 비우면 소리가 계속 난다.</summary>
+    private MediaSource? _preview;
+
+    private bool _previewing;
 
     // ── 올리기 (D5) ─────────────────────────────────────────
 
@@ -325,6 +404,76 @@
         {
             _uploading = false;
         }
+    }
+
+    // ── 재생 · 변환 상태 ────────────────────────────────────
+
+    private void Preview(MediaSource m)
+    {
+        _preview = m;
+        _previewing = true;
+    }
+
+    /// <summary>
+    /// 무엇을 틀 것인가. <b>변환본이 있으면 그것을 먼저 준다</b> —
+    /// 원본이 브라우저가 못 여는 형식이라 변환본이 있는 것이다.
+    /// </summary>
+    private static string PlayUrl(MediaSource m) =>
+        m.HasWebm && !string.IsNullOrWhiteSpace(m.WebmUrl) ? m.WebmUrl
+        : !string.IsNullOrWhiteSpace(m.AacUrl) ? m.AacUrl
+        : m.Url;
+
+    private static string StatusLabel(string? status) => status switch
+    {
+        "COMPLETED" => "완료",
+        "PROCESSING" => "변환 중",
+        "READY" => "준비",
+        "FAILED" => "실패",
+        null or "" => "-",
+        _ => status,
+    };
+
+    private static string StatusClass(string? status) => status switch
+    {
+        "COMPLETED" => "jsini-badge--on",
+        "FAILED" => "jsini-badge--off",
+        _ => string.Empty,
+    };
+
+    /// <summary>
+    /// 마우스를 올렸을 때 나오는 자세한 사정.
+    ///
+    /// <para>
+    /// 실패한 것에는 <b>실행 명령까지</b> 담는다. ffmpeg 이 무엇을 하다 죽었는지는
+    /// 그 줄을 봐야 알 수 있고, 그것을 못 보면 재처리 단추를 눌러 보는 것 말고
+    /// 할 수 있는 일이 없다.
+    /// </para>
+    /// </summary>
+    private static string? StatusDetail(MediaSource m)
+    {
+        if (!string.Equals(m.Status, "FAILED", StringComparison.Ordinal))
+        {
+            return m.ConversionCompletedAt is { } done ? $"{done:yyyy-MM-dd HH:mm} 완료" : null;
+        }
+
+        var lines = new List<string>();
+
+        if (!string.IsNullOrWhiteSpace(m.ErrorMessage))
+        {
+            lines.Add(m.ErrorMessage);
+        }
+
+        if (!string.IsNullOrWhiteSpace(m.ConversionCommand))
+        {
+            lines.Add($"명령: {m.ConversionCommand}");
+        }
+
+        if (m.ConversionStartedAt is { } started)
+        {
+            lines.Add($"시작: {started:yyyy-MM-dd HH:mm}");
+        }
+
+        return lines.Count == 0 ? "변환에 실패했습니다." : string.Join('\n', lines);
     }
 
     /// <summary>바이트를 사람이 읽는 단위로. 1MB 미만은 KB 로 둔다.</summary>

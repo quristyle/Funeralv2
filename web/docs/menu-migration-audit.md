@@ -171,3 +171,29 @@ AI 대화 클라이언트를 `AddJSiniGateway` 에서 등록하는 것과 같은
 **장례식장 모듈만** 참조) · `FuneralModule`(싱글턴 등록)
 
 **확인.** 빌드·테스트 통과. 실제 방송 수신은 못 봤다 — 빈소 장비가 붙어야 한다.
+
+### 6~8. `/funeral/building/{video,audio,background}` — 영상 · 음원 · 배경 · **보완**
+
+원본: `funeral/building/video/index.vue`(337줄) · `audio`(307줄) · `background`(125줄)
+
+세 화면은 한 표(`media_sources`)를 `SourceType` 으로 갈라 보는 것이라 Blazor 는
+`MediaSourceList` 한 벌로 모아 두었다. 그래서 이번 보완도 세 화면에 함께 걸린다.
+
+**빠져 있던 것 둘**
+
+1. **변환 상태.** 서버는 `Status` · `ErrorMessage` · `ConversionCommand` ·
+   시작·완료 시각을 주는데 **모델에 칸 자체가 없었다.** 재처리 단추만 있고
+   「왜 안 나오는지」를 볼 길이 없었다 — 올린 직후 변환 중인 것과 변환에
+   실패한 것이 화면에서 똑같아 보였다. 딱지로 보여 주고, 실패한 것은 마우스를
+   올리면 서버가 준 오류와 **실행한 ffmpeg 명령**이 나온다(따질 때 그 줄이 필요하다).
+2. **재생·보기.** 원본에는 재생 단추와 창이 있었다. **변환본을 먼저 튼다**
+   (`HasWebm`) — 원본이 브라우저가 못 여는 형식이라 서버가 변환본을 만들어
+   두는 것이므로, 원본을 먼저 주면 「소리만 나고 화면이 검다」가 된다.
+   음원은 `<audio>`, 영상은 `<video>`, 배경·장식은 `<img>` 다.
+
+**함께 고친 곳**: `FuneralModels.cs`(`MediaSource` 에 변환 관련 일곱 칸) ·
+`MediaSourceList.razor` · `funeral.css`(`.fn-preview__player`)
+
+**남은 차이(의도적).** 원본 영상 화면은 목록 칸에 썸네일을 크게 깔고 클릭하면
+확대했다. Blazor 는 작은 썸네일 칸 + 재생 창이다 — 그리드 줄 높이가 고정이라
+칸 안에서 사진이 납작해진다(건물 화면과 같은 사정).

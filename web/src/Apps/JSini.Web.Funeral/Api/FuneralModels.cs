@@ -145,6 +145,37 @@ public sealed class MediaSource
     public string? ThumbnailUrl { get; set; }
     public string? ThumbnailFileId { get; set; }
     public string? OriginalFileId { get; set; }
+
+    /// <summary>
+    /// 브라우저가 바로 트는 변환본(H.264). 원본이 그대로 안 열리는 형식일 때
+    /// 서버가 만들어 둔다. <b>재생은 이것을 먼저 본다.</b>
+    /// </summary>
+    public string? WebmUrl { get; set; }
+
+    /// <summary>변환본이 실제로 있는가. 서버가 판정해 준다.</summary>
+    public bool HasWebm { get; set; }
+
+    /// <summary>음원 변환본(AAC).</summary>
+    public string? AacUrl { get; set; }
+
+    /// <summary>
+    /// 변환 상태 — <c>READY</c> · <c>PROCESSING</c> · <c>COMPLETED</c> · <c>FAILED</c>.
+    ///
+    /// <para>
+    /// 올린 직후에는 변환이 아직 안 끝났을 수 있다. <b>이 값이 없으면 화면에서
+    /// 「왜 안 나오는지」를 알 길이 없다</b> — 재처리 단추만 있고 이유가 없었다.
+    /// </para>
+    /// </summary>
+    public string Status { get; set; } = "COMPLETED";
+
+    /// <summary>변환이 실패한 이유. 실패했을 때만 있다.</summary>
+    public string? ErrorMessage { get; set; }
+
+    /// <summary>실패를 따질 때 쓰는 실제 실행 명령(ffmpeg).</summary>
+    public string? ConversionCommand { get; set; }
+
+    public DateTime? ConversionStartedAt { get; set; }
+    public DateTime? ConversionCompletedAt { get; set; }
 }
 
 /// <summary>고인 (목록용)</summary>

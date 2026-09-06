@@ -509,3 +509,13 @@
 .fn-pd__tag { display: inline-flex; align-items: center; gap: 0.5rem; }
 
 .fn-pd__link { text-decoration: none; }
+
+/* 자료 재생 창. 창 폭에 맞추고 높이는 내용이 정한다 —
+   세로 영상까지 한 크기로 잡으면 위아래가 검게 남는다. */
+.fn-preview__player {
+  display: block;
+  width: 100%;
+  max-height: 60vh;
+  margin-bottom: 0.5rem;
+  background: #000;
+}
