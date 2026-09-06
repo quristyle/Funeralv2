@@ -2,14 +2,35 @@
 
 @*
     [전체 일정] — DB 메뉴 `/helpdesk/schedule/all`.
-    이력: Vue `views/helpdesk/schedule/all` → 여기.
-    엔드포인트: `schedules`
+    이력: Vue `views/helpdesk/schedule/index` → 여기.
+    엔드포인트: `schedules` (조회 · 등록 · 수정 · 삭제)
 
-    **서버가 준 대로 보여 주는 화면이다**(AutoGrid). 칸을 손으로 적지 않은
-    이유는 그 부품의 주석에 있다 — 요약하면, 이런 화면이 마흔 개고 백엔드가
-    칸을 더할 때마다 화면을 고치러 가는 것이 이득이 아니기 때문이다.
+    ────────────────────────────────────────────────────────────
+    [표 한 장만 남아 있었다]
 
-    매일 들여다보는 화면이 되면 그때 칸을 손으로 적는다.
+    원본은 **달력**이다(845줄). 왼쪽에 달, 오른쪽에 목록, 칸을 눌러 등록하고
+    일정을 끌어다 날짜를 바꾸고, 완료 표시를 그 자리에서 토글했다. 옮길 때는
+    「서버가 준 대로 보여 주는 표」(AutoGrid) 한 장이 되어 있었다 —
+    **일정을 등록할 수도, 고칠 수도 없었다.**
+
+    일정은 「무엇이 있나」보다 **「언제 비어 있나」**를 보는 자료다. 표로 보면
+    그 빈자리가 안 보인다.
+
+    ────────────────────────────────────────────────────────────
+    [달력은 DxScheduler 다 — 새 라이브러리를 얹지 않는다]
+
+    프로젝트 간트를 타임라인으로 옮길 때 쓴 것과 같은 부품이다(D4).
+    끌어서 날짜 바꾸기와 창에서 고치기가 그 부품에 이미 있다.
+
+    **날짜만 있고 시각이 없는 일정이다.** 서버가 `StartDate`·`EndDate` 를
+    날짜로 다루므로 종일 일정으로 그린다 — 시간표처럼 그리면 모든 일정이
+    자정에 붙어 한 줄로 겹친다.
+
+    ────────────────────────────────────────────────────────────
+    [완료된 것을 기본으로 감춘다]
+
+    원본이 그랬다. 지난 일정이 쌓이면 달력이 회색으로 덮여 이번 주에 무엇이
+    있는지 안 보인다.
 *@
 
 @inherits DataPage
@@ -17,29 +38,339 @@
 
 <PageTitle>전체 일정 · 헬프데스크</PageTitle>
 
+<div class="jsini-toolbar">
+    <DxComboBox Data="@DoneOptions" TextFieldName="Name" ValueFieldName="Code"
+                @bind-Value="_done" Style="width: 140px" />
+
+    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@ReloadAsync" />
+
+    <div class="jsini-toolbar__spacer"></div>
+
+    <PermissionView Action="MenuAction.Create">
+        <DxButton Text="일정 등록" RenderStyle="ButtonRenderStyle.Success" Click="@StartNew" />
+    </PermissionView>
+</div>
+
 <PageNotice Text="@Notice" Tone="@Tone" />
 
-<AutoGrid Data="@_rows" Loading="@Loading" Captions="@Captions" HiddenCols="id" PageSize="30" />
+<DxTabs>
+    <DxTabPage Text="달력">
+        @if (_storage is not null)
+        {
+            @* 끌어 옮기기와 창에서 고치기는 부품이 준다. 저장은 우리가 서버로
+               보낸다(`AppointmentInserting` · `Updating` · `Removing`). *@
+            <DxScheduler DataStorage="@_storage"
+                         StartDate="@_month"
+                         AppointmentInserting="@OnInsertingAsync"
+                         AppointmentUpdating="@OnUpdatingAsync"
+                         AppointmentRemoving="@OnRemovingAsync">
+                <DxSchedulerMonthView />
+            </DxScheduler>
+        }
+    </DxTabPage>
+
+    <DxTabPage Text="표">
+        @* 표도 남긴다 — 「이번 달」이 아니라 「전부」를 훑을 때는 이쪽이 빠르다. *@
+        <CommGrd TItem="ScheduleDto" Data="@_shown" PageSize="30">
+            <Columns>
+                <DxGridDataColumn FieldName="@nameof(ScheduleDto.Title)" Caption="일정" MinWidth="220" />
+                <DxGridDataColumn FieldName="@nameof(ScheduleDto.StartDate)" Caption="시작" Width="130"
+                                  DisplayFormat="yyyy-MM-dd" />
+                <DxGridDataColumn FieldName="@nameof(ScheduleDto.EndDate)" Caption="종료" Width="130"
+                                  DisplayFormat="yyyy-MM-dd" />
+                <DxGridDataColumn Caption="구분" Width="100">
+                    <CellDisplayTemplate Context="cell">
+                        @(((ScheduleDto)cell.DataItem).IsCommon ? "공통" : "고객사")
+                    </CellDisplayTemplate>
+                </DxGridDataColumn>
+                <DxGridDataColumn Caption="상태" Width="100">
+                    <CellDisplayTemplate Context="cell">
+                        @{
+                            var s = (ScheduleDto)cell.DataItem;
+                        }
+                        <span class="jsini-badge @(s.IsCompleted ? "jsini-badge--off" : "jsini-badge--on")">
+                            @(s.IsCompleted ? "완료" : "진행")
+                        </span>
+                    </CellDisplayTemplate>
+                </DxGridDataColumn>
+                <DxGridDataColumn Caption="" Width="140" AllowSort="false">
+                    <CellDisplayTemplate Context="cell">
+                        @{
+                            var s = (ScheduleDto)cell.DataItem;
+                        }
+                        <div class="jsini-actions">
+                            <PermissionView Action="MenuAction.Update">
+                                <DxButton Text="수정" RenderStyle="ButtonRenderStyle.Secondary"
+                                          Click="@(() => StartEdit(s))" />
+                                <DxButton Text="@(s.IsCompleted ? "되돌리기" : "완료")"
+                                          RenderStyle="ButtonRenderStyle.Secondary"
+                                          Click="@(() => ToggleDoneAsync(s))" />
+                            </PermissionView>
+                        </div>
+                    </CellDisplayTemplate>
+                </DxGridDataColumn>
+            </Columns>
+        </CommGrd>
+    </DxTabPage>
+</DxTabs>
+
+<DxPopup @bind-Visible="_editing" HeaderText="@(_form.Id is null ? "일정 등록" : "일정 수정")"
+         Width="560px" ShowFooter="false">
+    <BodyContentTemplate Context="popup">
+        <DxFormLayout>
+            <DxFormLayoutItem Caption="일정" ColSpanMd="12">
+                <DxTextBox @bind-Text="_form.Title" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="시작" ColSpanMd="6">
+                <DxDateEdit @bind-Date="_form.StartDate" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="종료" ColSpanMd="6">
+                <DxDateEdit @bind-Date="_form.EndDate" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="공통 일정" ColSpanMd="6">
+                @* 공통이면 모든 고객사에 보인다. 서버가 그렇게 거른다. *@
+                <DxCheckBox @bind-Checked="_form.IsCommon">모든 고객사에 보인다</DxCheckBox>
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="완료" ColSpanMd="6">
+                <DxCheckBox @bind-Checked="_form.IsCompleted">끝났다</DxCheckBox>
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="설명" ColSpanMd="12">
+                <DxMemo @bind-Text="_form.Description" Rows="4" />
+            </DxFormLayoutItem>
+        </DxFormLayout>
+
+        <div class="jsini-toolbar">
+            <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Primary" Click="@SaveAsync" />
+
+            @if (_form.Id is not null)
+            {
+                <PermissionView Action="MenuAction.Delete">
+                    <DxButton Text="삭제" RenderStyle="ButtonRenderStyle.Secondary" Click="@DeleteAsync" />
+                </PermissionView>
+            }
+
+            <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary"
+                      Click="@(() => _editing = false)" />
+        </div>
+    </BodyContentTemplate>
+</DxPopup>
 
 @code {
-    private DataTable _rows = JsonTable.Empty;
+    private sealed record Option(string Code, string Name);
 
-    /// <summary>칸 이름표. 여기 적은 순서가 표의 앞쪽 순서다.</summary>
-    private static readonly Dictionary<string, string> Captions = new(StringComparer.Ordinal)
-    {
-        ["title"] = "일정",
-        ["adminName"] = "담당",
-        ["startAt"] = "시작",
-        ["endAt"] = "종료",
-        ["companyName"] = "고객사",
-    };
+    private static readonly Option[] DoneOptions =
+    [
+        new("incomplete", "미완료"),
+        new("all", "전체"),
+        new("completed", "완료"),
+    ];
+
+    private IReadOnlyList<ScheduleDto> _all = [];
+    private IReadOnlyList<ScheduleDto> _shown = [];
+
+    /// <summary>기본이 미완료다. 지난 일정이 쌓이면 이번 주가 안 보인다.</summary>
+    private string _done = "incomplete";
+
+    private DxSchedulerDataStorage? _storage;
+    private DateTime _month = DateTime.Today;
+
+    private bool _editing;
+    private ScheduleDto _form = new();
 
     protected override Task OnInitializedAsync() => ReloadAsync();
 
     private Task ReloadAsync() => LoadAsync(async () =>
     {
-        var json = await Api.GetAsync<JsonElement>("schedules");
-        _rows = JsonTable.From(json);
-        return _rows.Rows.Count;
+        _all = await Api.GetListAsync<ScheduleDto>("schedules");
+        Apply();
+        return _shown.Count;
     }, "등록된 일정이 없습니다.", "일정을 읽지 못했습니다");
+
+    /// <summary>거르고 달력 재료를 다시 만든다.</summary>
+    private void Apply()
+    {
+        _shown = _done switch
+        {
+            "completed" => [.. _all.Where(s => s.IsCompleted)],
+            "incomplete" => [.. _all.Where(s => !s.IsCompleted)],
+            _ => _all,
+        };
+
+        _storage = new DxSchedulerDataStorage
+        {
+            AppointmentsSource = _shown,
+            AppointmentMappings = new DxSchedulerAppointmentMappings
+            {
+                Id = nameof(ScheduleDto.Id),
+                Start = nameof(ScheduleDto.StartDate),
+                End = nameof(ScheduleDto.EndDate),
+                Subject = nameof(ScheduleDto.Title),
+                Description = nameof(ScheduleDto.Description),
+
+                // 날짜만 있는 자료다. 시간표로 그리면 전부 자정에 붙는다.
+                AllDay = nameof(ScheduleDto.AllDay),
+            },
+        };
+    }
+
+    private void StartNew()
+    {
+        _form = new ScheduleDto
+        {
+            StartDate = DateTime.Today,
+            EndDate = DateTime.Today,
+            IsCommon = true,
+        };
+        _editing = true;
+    }
+
+    /// <summary>
+    /// 편집 창에 <b>복사본</b>을 띄운다. 원본을 그대로 묶으면 취소해도 화면에는
+    /// 이미 바뀐 값이 남는다.
+    /// </summary>
+    private void StartEdit(ScheduleDto s)
+    {
+        _form = new ScheduleDto
+        {
+            Id = s.Id,
+            Title = s.Title,
+            Description = s.Description,
+            StartDate = s.StartDate,
+            EndDate = s.EndDate,
+            IsCommon = s.IsCommon,
+            CompanyId = s.CompanyId,
+            IsCompleted = s.IsCompleted,
+            CompletedDate = s.CompletedDate,
+        };
+        _editing = true;
+    }
+
+    private async Task SaveAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_form.Title))
+        {
+            Say("일정 이름을 넣으십시오.", NoticeTone.Warning);
+            return;
+        }
+
+        if (_form.EndDate < _form.StartDate)
+        {
+            Say("종료일이 시작일보다 앞섭니다.", NoticeTone.Warning);
+            return;
+        }
+
+        // 완료 표시를 켜면 완료일도 함께 넣는다 — 서버가 그 값으로 이력을 남긴다.
+        _form.CompletedDate = _form.IsCompleted ? _form.CompletedDate ?? DateTime.Today : null;
+
+        var isNew = _form.Id is null;
+
+        if (await RunAsync(
+                () => isNew
+                    ? Api.PostAsync("schedules", _form)
+                    : Api.PutAsync($"schedules/{_form.Id}", _form),
+                isNew ? "등록했습니다." : "저장했습니다.",
+                isNew ? "등록하지 못했습니다" : "저장하지 못했습니다"))
+        {
+            _editing = false;
+            await ReloadAsync();
+        }
+    }
+
+    private async Task DeleteAsync()
+    {
+        if (_form.Id is null) return;
+
+        if (await RunAsync(() => Api.DeleteAsync($"schedules/{_form.Id}"),
+                "지웠습니다.", "지우지 못했습니다"))
+        {
+            _editing = false;
+            await ReloadAsync();
+        }
+    }
+
+    /// <summary>완료 토글. 표에서 그 자리에서 누른다 — 원본도 그랬다.</summary>
+    private async Task ToggleDoneAsync(ScheduleDto s)
+    {
+        var next = new ScheduleDto
+        {
+            Id = s.Id,
+            Title = s.Title,
+            Description = s.Description,
+            StartDate = s.StartDate,
+            EndDate = s.EndDate,
+            IsCommon = s.IsCommon,
+            CompanyId = s.CompanyId,
+            IsCompleted = !s.IsCompleted,
+            CompletedDate = s.IsCompleted ? null : DateTime.Today,
+        };
+
+        if (await RunAsync(() => Api.PutAsync($"schedules/{s.Id}", next),
+                next.IsCompleted ? "완료로 바꿨습니다." : "진행으로 되돌렸습니다.",
+                "바꾸지 못했습니다"))
+        {
+            await ReloadAsync();
+        }
+    }
+
+    // ── 달력에서 바로 고치기 ────────────────────────────────
+    //
+    // 부품이 만든 약속(Appointment)을 우리 자료로 옮겨 서버로 보낸다.
+    // **부품이 자기 저장소를 먼저 고치므로** 실패하면 다시 읽어 되돌린다.
+
+    private async Task OnInsertingAsync(SchedulerAppointmentOperationEventArgs e)
+    {
+        var appointment = e.Appointment;
+
+        _form = new ScheduleDto
+        {
+            Title = appointment.Subject ?? "새 일정",
+            Description = appointment.Description,
+            StartDate = appointment.Start,
+            EndDate = appointment.End,
+            IsCommon = true,
+        };
+
+        await SaveAsync();
+    }
+
+    private async Task OnUpdatingAsync(SchedulerAppointmentOperationEventArgs e)
+    {
+        // 끌어 옮기거나 창에서 고친 것. 날짜와 제목만 바뀐다.
+        var source = _all.FirstOrDefault(s =>
+            s.Id is not null && string.Equals(s.Id.ToString(), e.Appointment.Id?.ToString(), StringComparison.Ordinal));
+
+        if (source is null)
+        {
+            return;
+        }
+
+        _form = new ScheduleDto
+        {
+            Id = source.Id,
+            Title = e.Appointment.Subject ?? source.Title,
+            Description = e.Appointment.Description ?? source.Description,
+            StartDate = e.Appointment.Start,
+            EndDate = e.Appointment.End,
+            IsCommon = source.IsCommon,
+            CompanyId = source.CompanyId,
+            IsCompleted = source.IsCompleted,
+            CompletedDate = source.CompletedDate,
+        };
+
+        await SaveAsync();
+    }
+
+    private async Task OnRemovingAsync(SchedulerAppointmentOperationEventArgs e)
+    {
+        _form = new ScheduleDto { Id = ParseId(e.Appointment.Id) };
+        await DeleteAsync();
+    }
+
+    private static Guid? ParseId(object? value) =>
+        Guid.TryParse(value?.ToString(), out var id) ? id : null;
 }

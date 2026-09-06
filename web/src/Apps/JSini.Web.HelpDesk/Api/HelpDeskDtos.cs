@@ -348,3 +348,39 @@ public sealed class BinarySample
     public int? MC_ModelsId { get; set; }
     public DateTime? CreatedAt { get; set; }
 }
+
+/// <summary>
+/// 일정 한 건. HelpDeskServer 의 <c>Schedule</c> 과 짝이다.
+/// </summary>
+/// <remarks>
+/// <b>날짜만 있고 시각이 없다.</b> 서버가 <c>DateTime</c> 으로 들고 있지만
+/// 실제로 쓰는 것은 날짜뿐이라, 달력에는 종일 일정으로 그린다 —
+/// 시간표로 그리면 모든 일정이 자정에 붙어 한 줄로 겹친다.
+/// </remarks>
+public sealed class ScheduleDto
+{
+    public Guid? Id { get; set; }
+
+    public string Title { get; set; } = string.Empty;
+
+    public string? Description { get; set; }
+
+    public DateTime StartDate { get; set; }
+
+    public DateTime EndDate { get; set; }
+
+    /// <summary>공통 일정인가. 참이면 모든 고객사에 보인다.</summary>
+    public bool IsCommon { get; set; }
+
+    /// <summary>공통이 아닐 때의 대상 고객사.</summary>
+    public int? CompanyId { get; set; }
+
+    public bool IsCompleted { get; set; }
+
+    public DateTime? CompletedDate { get; set; }
+
+    /// <summary>
+    /// 달력 부품에 넘길 「종일」 표시. <b>늘 참이다</b> — 서버로는 보내지 않는다.
+    /// </summary>
+    public bool AllDay => true;
+}
