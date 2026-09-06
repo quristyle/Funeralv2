@@ -59,6 +59,13 @@ public sealed class Room
     public string RoomType { get; set; } = string.Empty;
     /// <summary>ACTIVE · INACTIVE</summary>
     public string Status { get; set; } = "ACTIVE";
+
+    /// <summary>
+    /// 나열 순서. <b>이름으로 세우면 「101호」보다 「10호」가 앞에 온다</b>(글자 순서라
+    /// 그렇다). 현황판과 목록이 이 값으로 줄을 세운다.
+    /// </summary>
+    public int SortOrder { get; set; }
+
     public string? Remark { get; set; }
 
     /// <summary>
