@@ -1,17 +1,30 @@
 @page "/helpdesk/project/gantt"
+@using System.Globalization
 
 @*
     [프로젝트 간트] — DB 메뉴 `/helpdesk/project/gantt`.
-    이력: Vue `views/helpdesk/project/gantt` → 여기.
-    엔드포인트: `project/flat`
+    이력: Vue `views/helpdesk/project/gantt-view`(WBS 간트를 그대로 재사용하던
+          디버그 출신 화면) → 기간이 보이는 표 → 여기(타임라인).
+    엔드포인트: `project`
 
-    **서버가 준 대로 보여 주는 화면이다**(AutoGrid). 칸을 손으로 적지 않은
-    이유는 그 부품의 주석에 있다 — 요약하면, 이런 화면이 마흔 개고 백엔드가
-    칸을 더할 때마다 화면을 고치러 가는 것이 이득이 아니기 때문이다.
+    [간트를 DxScheduler 타임라인으로 흉내낸다 — D4 결정]
 
-    매일 들여다보는 화면이 되면 그때 칸을 손으로 적는다.
+    전용 간트 라이브러리를 얹지 않는다. 패키지에 있는 DxScheduler 의 타임라인
+    뷰로 프로젝트를 기간 막대로 그린다 — 프로젝트를 appointment(시작·끝·제목)로,
+    팀을 자원(행)으로 매핑한다. 편집 기능은 전부 꺼 두었다(저장 통로를 붙이는
+    것은 이번 범위가 아니다).
 
-    간트 차트는 아직 옮기지 않았다. 이유는 WBS 간트 화면 주석과 같다.
+    옛 Vue 는 이 주소에서 WBS 간트를 그대로 다시 보여 줬다. 같은 화면을 두 번
+    두지 않는다 — WBS 는 `/helpdesk/project/wbs-gantt` 에 있고, 여기는 화면
+    이름대로 **프로젝트** 일정을 그린다. 재료도 이 화면이 원래 받던 `project`
+    목록 그대로다.
+
+    [표는 탭으로 같이 둔다]
+
+    서버가 준 대로 보여 주는 표다(AutoGrid). 칸을 손으로 적지 않은 이유는 그
+    부품의 주석에 있다. 예전 이름표(companyName·managerName·startDate …)는
+    응답에 없는 칸이라 하나도 안 맞고 있었다 — 실제 칸 이름(projectStart …)으로
+    바로잡고, 중첩 객체인 team 은 teamName 칸으로 펴서 넣는다.
 *@
 
 @inherits DataPage
@@ -21,24 +34,95 @@
 
 <PageHeading Title="프로젝트 간트" Scope="헬프데스크" />
 
-<PageNotice Text="간트 차트는 아직 옮기지 않았습니다. 같은 자료를 표로 보여 줍니다." Tone="NoticeTone.Warning" />
-
 <PageNotice Text="@Notice" Tone="@Tone" />
 
-<AutoGrid Data="@_rows" Loading="@Loading" Captions="@Captions" HiddenCols="id" PageSize="30" />
+<DxTabs>
+    <DxTabPage Text="타임라인">
+        @if (_storage is null)
+        {
+            <PageNotice Text="기간(시작·종료일)이 입력된 프로젝트가 없어 타임라인을 그릴 수 없습니다."
+                        Tone="NoticeTone.Info" />
+        }
+        else
+        {
+            if (_undated > 0)
+            {
+                <PageNotice Text="@($"기간이 없는 프로젝트 {_undated}건은 타임라인에 나오지 않습니다. 「표」 탭에는 있습니다.")"
+                            Tone="NoticeTone.Info" />
+            }
+
+            <div class="jsini-toolbar">
+                <DxButton Text="주" RenderStyle="@StyleFor(GanttScale.Week)" Click="@(() => _scale = GanttScale.Week)" />
+                <DxButton Text="월" RenderStyle="@StyleFor(GanttScale.Month)" Click="@(() => _scale = GanttScale.Month)" />
+                <span style="color: var(--jsini-text-muted); font-size: 0.8rem;">읽기 전용입니다. 일정 수정은 프로젝트 관리 화면에서 합니다.</span>
+            </div>
+
+            <DxScheduler StartDate="@_rangeStart"
+                         DataStorage="@_storage"
+                         GroupType="SchedulerGroupType.Resource"
+                         AllowCreateAppointment="false"
+                         AllowEditAppointment="false"
+                         AllowDeleteAppointment="false"
+                         AllowDragAppointment="false"
+                         AllowResizeAppointment="false">
+                <DxSchedulerTimelineView Duration="@_rangeDuration" CellMinWidth="@CellMinWidth">
+                    <Scales>
+                        @if (_scale == GanttScale.Week)
+                        {
+                            <DxSchedulerTimeScale Unit="SchedulerTimeScaleUnit.Month" UnitCount="1" />
+                            <DxSchedulerTimeScale Unit="SchedulerTimeScaleUnit.Week" UnitCount="1" />
+                        }
+                        else
+                        {
+                            <DxSchedulerTimeScale Unit="SchedulerTimeScaleUnit.Year" UnitCount="1" />
+                            <DxSchedulerTimeScale Unit="SchedulerTimeScaleUnit.Month" UnitCount="1" />
+                        }
+                    </Scales>
+                </DxSchedulerTimelineView>
+            </DxScheduler>
+        }
+    </DxTabPage>
+    <DxTabPage Text="표">
+        <AutoGrid Data="@_rows" Loading="@Loading" Captions="@Captions"
+                  HiddenCols="id,teamId,team" PageSize="30" />
+    </DxTabPage>
+</DxTabs>
 
 @code {
     private DataTable _rows = JsonTable.Empty;
+
+    /// <summary>타임라인 재료. <c>null</c> 은 "그릴 막대가 하나도 없다" 는 뜻이다.</summary>
+    private DxSchedulerDataStorage? _storage;
+
+    /// <summary>기간이 없어 타임라인에서 빠진 프로젝트 수. 표에는 있다.</summary>
+    private int _undated;
+
+    private DateTime _rangeStart = DateTime.Today;
+    private TimeSpan _rangeDuration = TimeSpan.FromDays(30);
+
+    // 프로젝트는 달 단위로 움직인다 — WBS 간트와 달리 "일" 눈금은 두지 않았다.
+    private GanttScale _scale = GanttScale.Month;
+
+    private enum GanttScale { Week, Month }
+
+    private int CellMinWidth => _scale == GanttScale.Week ? 80 : 100;
+
+    private ButtonRenderStyle StyleFor(GanttScale scale) =>
+        _scale == scale ? ButtonRenderStyle.Primary : ButtonRenderStyle.Secondary;
+
+    /// <summary>타임라인 막대 하나 = 프로젝트 하나. End 는 종료일 다음 자정(경계 배타).</summary>
+    private sealed record GanttBar(int Id, string Subject, DateTime Start, DateTime End, int GroupId);
+
+    /// <summary>타임라인의 행 = 팀.</summary>
+    private sealed record GanttGroup(int Id, string Name);
 
     /// <summary>칸 이름표. 여기 적은 순서가 표의 앞쪽 순서다.</summary>
     private static readonly Dictionary<string, string> Captions = new(StringComparer.Ordinal)
     {
         ["name"] = "프로젝트",
-        ["companyName"] = "고객사",
-        ["managerName"] = "담당",
-        ["startDate"] = "시작",
-        ["endDate"] = "종료",
-        ["progress"] = "진척",
+        ["teamName"] = "팀",
+        ["projectStart"] = "시작",
+        ["projectEnd"] = "종료",
     };
 
     protected override Task OnInitializedAsync() => ReloadAsync();
@@ -47,7 +131,143 @@
     {
         // `project/flat` 은 없다. 프로젝트 목록은 `project` 하나뿐이다.
         var json = await Api.GetAsync<JsonElement>("project");
-        _rows = JsonTable.From(json);
+
+        _rows = ToTable(json);
+        BuildTimeline(json);
+
         return _rows.Rows.Count;
     }, "등록된 프로젝트가 없습니다.", "프로젝트를 읽지 못했습니다");
+
+    /// <summary>중첩 객체 team 에서 이름만 꺼내 teamName 칸으로 편다.</summary>
+    private static DataTable ToTable(JsonElement projects)
+    {
+        if (projects.ValueKind != JsonValueKind.Array)
+        {
+            return JsonTable.From(projects);
+        }
+
+        var enriched = new List<Dictionary<string, object?>>();
+
+        foreach (var p in projects.EnumerateArray())
+        {
+            if (p.ValueKind != JsonValueKind.Object) continue;
+
+            var row = new Dictionary<string, object?>(StringComparer.Ordinal);
+            foreach (var prop in p.EnumerateObject())
+            {
+                row[prop.Name] = prop.Value;
+            }
+            row["teamName"] = TeamName(p);
+            enriched.Add(row);
+        }
+
+        return JsonTable.From(JsonSerializer.SerializeToElement(enriched));
+    }
+
+    private void BuildTimeline(JsonElement projects)
+    {
+        _undated = 0;
+
+        if (projects.ValueKind != JsonValueKind.Array)
+        {
+            _storage = null;
+            return;
+        }
+
+        var bars = new List<GanttBar>();
+        var teamNames = new Dictionary<int, string>();
+
+        foreach (var p in projects.EnumerateArray())
+        {
+            if (p.ValueKind != JsonValueKind.Object) continue;
+
+            var start = Date(p, "projectStart");
+            var end = Date(p, "projectEnd");
+            start ??= end;
+            end ??= start;
+
+            if (start is null || end is null)
+            {
+                _undated++;
+                continue;
+            }
+            if (end < start) end = start; // 뒤집힌 자료는 하루짜리로 보여 준다
+
+            var teamId = Int(p, "teamId") ?? 0;
+            if (teamId != 0 && TeamName(p) is { Length: > 0 } teamName)
+            {
+                teamNames[teamId] = teamName;
+            }
+
+            bars.Add(new GanttBar(
+                Int(p, "id") ?? bars.Count,
+                Str(p, "name") ?? "(이름 없음)",
+                start.Value,
+                end.Value.AddDays(1),
+                teamId));
+        }
+
+        if (bars.Count == 0)
+        {
+            _storage = null;
+            return;
+        }
+
+        var groups = bars.Select(b => b.GroupId).Distinct().OrderBy(id => id)
+            .Select(id => new GanttGroup(id, id == 0
+                ? "(팀 미지정)"
+                : teamNames.GetValueOrDefault(id, $"팀 {id}")))
+            .ToList();
+
+        _rangeStart = bars.Min(b => b.Start).AddDays(-3);
+        var rangeEnd = bars.Max(b => b.End).AddDays(3);
+        _rangeDuration = rangeEnd - _rangeStart;
+
+        // 잘못 입력된 날짜 하나(1900년 등)가 타임라인을 몇 km 로 늘리는 것을 막는다.
+        // 3년을 넘으면 최근 쪽을 남긴다 — 보러 오는 것은 늘 지금 근처다.
+        var cap = TimeSpan.FromDays(1100);
+        if (_rangeDuration > cap)
+        {
+            _rangeStart = rangeEnd - cap;
+            _rangeDuration = cap;
+        }
+
+        _storage = new DxSchedulerDataStorage
+        {
+            AppointmentsSource = bars,
+            AppointmentMappings = new DxSchedulerAppointmentMappings
+            {
+                // Id 매핑은 안 한다 — 읽기 전용이라 저장소가 붙이는 내부 id 로 충분하다.
+                Start = nameof(GanttBar.Start),
+                End = nameof(GanttBar.End),
+                Subject = nameof(GanttBar.Subject),
+                ResourceId = nameof(GanttBar.GroupId),
+            },
+            ResourcesSource = groups,
+            ResourceMappings = new DxSchedulerResourceMappings
+            {
+                Id = nameof(GanttGroup.Id),
+                Caption = nameof(GanttGroup.Name),
+            },
+        };
+    }
+
+    // ── JSON 읽기 도우미 ─────────────────────────────────────────
+
+    private static string? TeamName(JsonElement project) =>
+        project.TryGetProperty("team", out var team) && team.ValueKind == JsonValueKind.Object
+            ? Str(team, "name")
+            : null;
+
+    private static string? Str(JsonElement e, string name) =>
+        e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
+
+    private static int? Int(JsonElement e, string name) =>
+        e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.Number && v.TryGetInt32(out var i)
+            ? i : null;
+
+    private static DateTime? Date(JsonElement e, string name) =>
+        Str(e, name) is { } text
+        && DateTime.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var d)
+            ? d.Date : null;
 }
