@@ -71,15 +71,16 @@
 
             @if (OnSave.HasDelegate || OnDelete.HasDelegate)
             {
-                <DxGridDataColumn Caption="관리" Width="120" MinWidth="120"
+                <DxGridDataColumn Caption="관리" Width="84" MinWidth="84"
                                   AllowSort="false" AllowGroup="false">
                     <CellDisplayTemplate Context="cell">
                         <div class="commgrd__actions">
                             @if (OnSave.HasDelegate)
                             {
                                 <PermissionView Action="MenuAction.Update">
-                                    <DxButton Text="수정"
-                                              RenderStyle="ButtonRenderStyle.Secondary"
+                                    <DxButton IconCssClass="jsini-icon-edit"
+                                              Title="수정"
+                                              RenderStyle="ButtonRenderStyle.Link"
                                               Click="@(() => EditAsync(cell.VisibleIndex))" />
                                 </PermissionView>
                             }
@@ -87,8 +88,10 @@
                             @if (OnDelete.HasDelegate)
                             {
                                 <PermissionView Action="MenuAction.Delete">
-                                    <DxButton Text="삭제"
-                                              RenderStyle="ButtonRenderStyle.Secondary"
+                                    <DxButton IconCssClass="jsini-icon-trash"
+                                              Title="삭제"
+                                              CssClass="commgrd__icon--warn"
+                                              RenderStyle="ButtonRenderStyle.Link"
                                               Click="@(() => ConfirmDelete(cell.VisibleIndex))" />
                                 </PermissionView>
                             }

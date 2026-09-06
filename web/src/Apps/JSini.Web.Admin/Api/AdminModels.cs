@@ -13,6 +13,22 @@ public sealed class NoticeDto
     public DateTime? EndAt { get; set; }
     public DateTime CreatedAt { get; set; }
     public string? AuthorName { get; set; }
+
+    /// <summary>
+    /// 편집 폼의 「사용」 스위치가 묶이는 자리. <see cref="Status"/> 의 0/1 을 가린다.
+    ///
+    /// <para>
+    /// 팝업 안 편집기는 <c>@@bind-</c> 로 묶어야 한다. <c>Checked</c> 와
+    /// <c>CheckedChanged</c> 를 따로 주면 검증 식이 없어 <b>팝업이 말없이
+    /// 안 열린다</b> — 화면에는 아무 표시도 안 나고 브라우저 콘솔에만
+    /// <c>requires a value for the 'CheckedExpression' property</c> 가 남는다.
+    /// </para>
+    /// </summary>
+    public bool IsActive
+    {
+        get => Status == 1;
+        set => Status = value ? 1 : 0;
+    }
 }
 
 public sealed class SaveNoticeDto
@@ -122,6 +138,13 @@ public sealed class RoleDto
     public string? Remark { get; set; }
     public int Status { get; set; } = 1;
     public List<string> Permissions { get; set; } = [];
+
+    /// <summary>편집 폼의 「사용」 스위치가 묶이는 자리. <see cref="NoticeDto.IsActive"/> 와 같은 이유다.</summary>
+    public bool IsActive
+    {
+        get => Status == 1;
+        set => Status = value ? 1 : 0;
+    }
 }
 
 /// <summary>역할이 가진 메뉴별 권한. 저장할 때도 같은 모양으로 돌려보낸다.</summary>
@@ -359,6 +382,16 @@ public sealed class CompanyDto
     /// 비워 두면 그 화면들의 회사 드롭다운에서 사라진다.
     /// </summary>
     public List<string> UsageLocations { get; set; } = [];
+
+    /// <summary>
+    /// 편집 폼의 사용처 고르개가 묶이는 자리. <see cref="AccountDto.Roles"/> 와 같은 이유다 —
+    /// 형이 안 맞으면 팝업이 말없이 안 열린다.
+    /// </summary>
+    public IEnumerable<string> Usages
+    {
+        get => UsageLocations;
+        set => UsageLocations = [.. value];
+    }
 
     /// <summary>이 회사에 속한 사람 수. 서버가 세어 준다 — 보내지 않는다.</summary>
     public int UserCount { get; set; }

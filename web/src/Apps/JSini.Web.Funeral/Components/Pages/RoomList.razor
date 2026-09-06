@@ -84,8 +84,11 @@
         }
         <DxFormLayout CssClass="fn-editform">
             <DxFormLayoutItem Caption="건물" ColSpanMd="6">
+                @* 건물을 바꾸면 층을 비워야 해서 @@bind- 를 못 쓴다. 대신 식을
+                   직접 준다 — 형변환도 메서드도 없는 순수한 멤버 접근이어야 한다. *@
                 <DxComboBox Data="@_buildings" Value="@r.BuildingId"
                             ValueChanged="@((string? v) => { r.BuildingId = v; r.FloorId = null; })"
+                            ValueExpression="@(() => r.BuildingId)"
                             TextFieldName="@nameof(Building.Name)"
                             ValueFieldName="@nameof(Building.Id)"
                             NullText="건물을 고르십시오" />
@@ -116,10 +119,7 @@
             </DxFormLayoutItem>
 
             <DxFormLayoutItem Caption="사용" ColSpanMd="6">
-                <DxCheckBox Checked="@(r.Status == "ACTIVE")"
-                            CheckedChanged="@((bool v) => r.Status = v ? "ACTIVE" : "INACTIVE")">
-                    사용
-                </DxCheckBox>
+                <DxCheckBox @bind-Checked="r.IsActive">사용</DxCheckBox>
             </DxFormLayoutItem>
 
             <DxFormLayoutItem Caption="비고" ColSpanMd="12">

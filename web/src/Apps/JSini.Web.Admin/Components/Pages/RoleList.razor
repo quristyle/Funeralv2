@@ -107,10 +107,7 @@
             </DxFormLayoutItem>
 
             <DxFormLayoutItem Caption="사용" ColSpanMd="12">
-                <DxCheckBox Checked="@(r.Status == 1)"
-                            CheckedChanged="@((bool v) => r.Status = v ? 1 : 0)">
-                    사용
-                </DxCheckBox>
+                <DxCheckBox @bind-Checked="r.IsActive">사용</DxCheckBox>
             </DxFormLayoutItem>
         </DxFormLayout>
     </EditFormTemplate>

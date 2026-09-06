@@ -50,6 +50,21 @@ public sealed class Room
     /// <summary>ACTIVE · INACTIVE</summary>
     public string Status { get; set; } = "ACTIVE";
     public string? Remark { get; set; }
+
+    /// <summary>
+    /// 편집 폼의 「사용」 스위치가 묶이는 자리.
+    ///
+    /// <para>
+    /// 팝업 안 편집기는 <c>@@bind-</c> 로 묶어야 한다 — 값과 콜백을 따로 주면
+    /// 검증 식이 없어 <b>팝업이 말없이 안 열린다.</b> 자료가 글자라 그대로는
+    /// 못 묶으므로 형이 맞는 창을 낸다.
+    /// </para>
+    /// </summary>
+    public bool IsActive
+    {
+        get => Status == "ACTIVE";
+        set => Status = value ? "ACTIVE" : "INACTIVE";
+    }
 }
 
 /// <summary>장비 (DID · 키오스크 · 현판 등)</summary>

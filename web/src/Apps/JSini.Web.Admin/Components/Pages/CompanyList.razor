@@ -141,8 +141,7 @@
                 <DxTagBox Data="@_usages"
                           TextFieldName="@nameof(CommonCodeDto.CodeName)"
                           ValueFieldName="@nameof(CommonCodeDto.CodeValue)"
-                          Values="@company.UsageLocations"
-                          ValuesChanged="@((IEnumerable<string> v) => company.UsageLocations = [.. v])"
+                          @bind-Values="company.Usages"
                           NullText="고르지 않으면 어느 업무 화면에도 안 나옵니다" />
             </DxFormLayoutItem>
 
