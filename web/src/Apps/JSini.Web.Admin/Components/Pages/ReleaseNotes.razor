@@ -21,15 +21,18 @@
     실행 하나에 수백 줄이 붙는다(`Events`). 목록에서 다 받으면 표가 무거워져서
     한 건을 고를 때만 따로 읽는다 — 옛 화면도 그랬다.
 
-    [스스로 새로 고치지 않는다]
+    [도는 동안에만 스스로 새로 고친다]
 
-    옛 화면은 도는 중이면 2초마다 되물었다. 그 폴링은 회로가 붙어 있는 동안
-    계속 게이트웨이를 두드리는 것이라, 보고 있지 않은 탭에서도 돈다.
-    지금은 「조회」를 누르면 다시 읽는다. 실시간이 필요해지면 SignalR 로
-    붙이는 편이 낫다(결정 목록 D10).
+    한동안 아무 때도 새로 고치지 않았다. 「폴링은 보고 있지 않은 탭에서도
+    돈다」는 걱정 때문이었는데, 그 결과 **배포가 끝났는지 보려면 사람이
+    조회를 계속 눌러야 했다** — 배포는 몇 분씩 걸린다.
+
+    그래서 **도는 것이 있을 때만** 시계를 켠다(3초). 대기·진행 중인 실행이
+    하나도 없으면 시계를 끈다 — 놀고 있는 화면은 게이트웨이를 두드리지 않는다.
+    옛 화면은 2초였고 조건 없이 돌았다.
 *@
 
-@inherits DataPage
+@inherits AutoRefreshPage
 @inject AdminClient Api
 
 <PageTitle>배포 도구 · 포털관리</PageTitle>
@@ -202,12 +205,55 @@
     private ReleaseRunDto? _run;
     private string RunHeader => _run is null ? "진행 기록" : $"{_run.TargetName} · {_run.RequestedAt:yyyy-MM-dd HH:mm}";
 
-    protected override Task OnInitializedAsync() => ReloadAsync();
+    /// <summary>도는 것을 지켜볼 때의 간격. 옛 화면은 2초였다.</summary>
+    protected override TimeSpan RefreshInterval => TimeSpan.FromSeconds(3);
+
+    /// <summary>대기·진행 중인 실행이 하나라도 있는가. 시계를 켜고 끄는 조건이다.</summary>
+    private bool AnyRunning => _runs.Any(r =>
+        string.Equals(r.Status, "running", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(r.Status, "queued", StringComparison.OrdinalIgnoreCase));
+
+    protected override async Task OnInitializedAsync()
+    {
+        await ReloadAsync();
+
+        if (AnyRunning)
+        {
+            StartAutoRefresh();
+        }
+    }
+
+    /// <summary>
+    /// 자동 조회. 도는 것이 없어지면 **시계를 끈다** — 다 끝난 화면이
+    /// 3초마다 게이트웨이를 두드릴 이유가 없다.
+    /// </summary>
+    protected override async Task RefreshAsync()
+    {
+        _targets = await Api.GetReleaseTargetsAsync();
+        _runs = await Api.GetReleaseRunsAsync();
+
+        // 열어 둔 진행 기록도 함께 맞춘다 — 그 창을 보고 있는 중일 것이다.
+        if (_showingRun && _run is not null)
+        {
+            _run = await Api.GetReleaseRunAsync(_run.Id) ?? _run;
+        }
+
+        if (!AnyRunning)
+        {
+            Dispose();
+        }
+    }
 
     private Task ReloadAsync() => LoadAsync(async () =>
     {
         _targets = await Api.GetReleaseTargetsAsync();
         _runs = await Api.GetReleaseRunsAsync();
+
+        // 조회를 누른 뒤에 도는 것이 생겼으면 그때부터 지켜본다.
+        if (AnyRunning)
+        {
+            StartAutoRefresh();
+        }
 
         // 대상이 없을 때만 "없습니다" 다. 실행 기록은 처음에 비어 있는 것이
         // 정상이라 그것으로 판단하면 안 된다.
