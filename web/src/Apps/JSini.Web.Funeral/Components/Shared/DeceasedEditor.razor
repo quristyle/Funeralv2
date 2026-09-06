@@ -27,6 +27,7 @@
 @inherits DataPage
 @inject FuneralApi Api
 @inject FileUploadClient Upload
+@inject CommonCodeClient Codes
 
 <DxPopup Visible="@Visible" VisibleChanged="@OnVisibleChanged"
          HeaderText="@(IsNew ? "고인 등록" : "고인 수정")" Width="880px" ShowFooter="false">
@@ -149,6 +150,90 @@
                                     Hint="입구 모니터·분향소 화면에서 순서대로 돕니다." />
                     </DeviceField>
                 </div>
+            </section>
+
+            @*
+                시설 사용.
+
+                안치실·염습실처럼 **빈소와 따로 쓰는 자리**를 언제부터 언제까지
+                썼는지 적는다. 이 값이 정산으로 그대로 간다 — 시간과 단가를
+                넣으면 금액이 나온다.
+            *@
+            <section class="fn-devsec is-on">
+                <h3 class="fn-devsec__head">
+                    시설 사용
+                    <span class="fn-note">정산의 항목이 됩니다.</span>
+                </h3>
+
+                <div class="jsini-toolbar">
+                    <DxButton Text="시설 추가"
+                              RenderStyle="ButtonRenderStyle.Secondary" Click="@AddFacility" />
+                </div>
+
+                @if (_form.Facilities.Count == 0)
+                {
+                    <p class="fn-note">등록된 시설 사용이 없습니다.</p>
+                }
+                else
+                {
+                    <div class="fn-devsec__body">
+                        @foreach (var facility in _form.Facilities)
+                        {
+                            <DeviceField Label="시설">
+                                <DxComboBox Data="@_roomTypes" Value="@facility.FacilityType"
+                                            ValueChanged="@((string v) => facility.FacilityType = v)"
+                                            ValueExpression="@(() => facility.FacilityType)"
+                                            TextFieldName="@nameof(CommonCode.CodeName)"
+                                            ValueFieldName="@nameof(CommonCode.CodeValue)"
+                                            NullText="시설 유형" />
+                            </DeviceField>
+
+                            <DeviceField Label="시작">
+                                <DxDateEdit Date="@facility.StartTime"
+                                            DateChanged="@((DateTime? v) => SetFacilityTime(facility, v, null))"
+                                            DateExpression="@(() => facility.StartTime)"
+                                            TimeSectionVisible="true" />
+                            </DeviceField>
+
+                            <DeviceField Label="종료">
+                                <DxDateEdit Date="@facility.EndTime"
+                                            DateChanged="@((DateTime? v) => SetFacilityTime(facility, null, v))"
+                                            DateExpression="@(() => facility.EndTime)"
+                                            TimeSectionVisible="true" />
+                            </DeviceField>
+
+                            <DeviceField Label="사용 시간">
+                                @* 시작·종료를 넣으면 저절로 채워진다. 손으로도 고칠 수 있다 —
+                                   실제로 쓴 시간이 시계와 다른 경우가 있다. *@
+                                <DxSpinEdit Value="@facility.UseHours"
+                                            ValueChanged="@((double v) => SetFacilityHours(facility, v))"
+                                            ValueExpression="@(() => facility.UseHours)"
+                                            MinValue="0" />
+                            </DeviceField>
+
+                            <DeviceField Label="단가">
+                                <DxSpinEdit Value="@facility.UnitPrice"
+                                            ValueChanged="@((decimal v) => SetFacilityPrice(facility, v))"
+                                            ValueExpression="@(() => facility.UnitPrice)"
+                                            MinValue="0" />
+                            </DeviceField>
+
+                            <DeviceField Label="금액">
+                                @* 사용 시간 × 단가. 서버가 다시 세지 않으므로 여기서 맞춘다. *@
+                                <span class="fn-note">@facility.TotalPrice.ToString("N0") 원</span>
+                            </DeviceField>
+
+                            <DeviceField Label="비고" Wide="true">
+                                <div class="jsini-inline">
+                                    <DxTextBox Text="@facility.Remark"
+                                               TextChanged="@((string v) => facility.Remark = v)" />
+                                    <DxButton Text="빼기" RenderStyle="ButtonRenderStyle.Secondary"
+                                              Click="@(() => _form.Facilities.Remove(facility))" />
+                                </div>
+                            </DeviceField>
+                        }
+                    </div>
+                }
             </section>
 
             <section class="fn-devsec is-on">
@@ -279,6 +364,9 @@
     private DeceasedDetail? _form;
     private string? _loadedFor;
 
+    /// <summary>시설 유형 고르개. 호실과 같은 공통코드를 쓴다(원본도 그랬다).</summary>
+    private IReadOnlyList<CommonCode> _roomTypes = [];
+
     private bool IsNew => string.IsNullOrEmpty(DeceasedId);
 
     /// <summary>영정사진 올리는 중인가. 두 번 고르는 것을 막는다.</summary>
@@ -323,6 +411,20 @@
 
     private Task LoadAsync2() => LoadAsync(async () =>
     {
+        // 시설 유형 고르개가 쓴다. 못 읽어도 폼은 뜬다 — 그때는 코드값이
+        // 그대로 보이고, 고르지 못할 뿐이다.
+        if (_roomTypes.Count == 0)
+        {
+            try
+            {
+                _roomTypes = await Codes.GetAsync("ROOM_TYPE");
+            }
+            catch (ApiException)
+            {
+                _roomTypes = [];
+            }
+        }
+
         if (IsNew)
         {
             _form = new DeceasedDetail();
@@ -395,6 +497,51 @@
             await OnVisibleChanged(false);
             await OnSaved.InvokeAsync();
         }
+    }
+
+    // ── 시설 사용 ───────────────────────────────────────────
+    //
+    // 안치실·염습실처럼 빈소와 따로 쓰는 자리를 적는다. 이 값이 정산으로 간다.
+
+    private void AddFacility()
+    {
+        // 단가 기본값은 원본과 같다. 시설마다 다르면 그 자리에서 고친다.
+        _form?.Facilities.Add(new DeceasedFacility { UnitPrice = 50000 });
+    }
+
+    /// <summary>
+    /// 시작·종료를 넣으면 <b>사용 시간과 금액이 저절로 채워진다.</b>
+    /// 손으로도 고칠 수 있다 — 실제로 쓴 시간이 시계와 다른 경우가 있다.
+    /// </summary>
+    private static void SetFacilityTime(DeceasedFacility facility, DateTime? start, DateTime? end)
+    {
+        if (start is not null)
+        {
+            facility.StartTime = start;
+        }
+
+        if (end is not null)
+        {
+            facility.EndTime = end;
+        }
+
+        if (facility.StartTime is { } from && facility.EndTime is { } to && to > from)
+        {
+            facility.UseHours = Math.Round((to - from).TotalHours, 1);
+            facility.TotalPrice = Math.Round(facility.UnitPrice * (decimal)facility.UseHours);
+        }
+    }
+
+    private static void SetFacilityHours(DeceasedFacility facility, double hours)
+    {
+        facility.UseHours = hours;
+        facility.TotalPrice = Math.Round(facility.UnitPrice * (decimal)hours);
+    }
+
+    private static void SetFacilityPrice(DeceasedFacility facility, decimal price)
+    {
+        facility.UnitPrice = price;
+        facility.TotalPrice = Math.Round(price * (decimal)facility.UseHours);
     }
 
     // ── 영정사진 ────────────────────────────────────────────
