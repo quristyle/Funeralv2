@@ -1314,3 +1314,60 @@ a.jsini-crumbs__item:hover { opacity: 1; }
   -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M7.2 1h1.6v1.6h2.4A2.8 2.8 0 0 1 14 5.4v5.2a2.8 2.8 0 0 1-2.8 2.8H4.8A2.8 2.8 0 0 1 2 10.6V5.4a2.8 2.8 0 0 1 2.8-2.8h2.4zM5.8 6.6a1.2 1.2 0 1 0 0 2.4 1.2 1.2 0 0 0 0-2.4zm4.4 0a1.2 1.2 0 1 0 0 2.4 1.2 1.2 0 0 0 0-2.4zM0 6.4h1.2v3.2H0zm14.8 0H16v3.2h-1.2z'/%3E%3C/svg%3E");
   mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M7.2 1h1.6v1.6h2.4A2.8 2.8 0 0 1 14 5.4v5.2a2.8 2.8 0 0 1-2.8 2.8H4.8A2.8 2.8 0 0 1 2 10.6V5.4a2.8 2.8 0 0 1 2.8-2.8h2.4zM5.8 6.6a1.2 1.2 0 1 0 0 2.4 1.2 1.2 0 0 0 0-2.4zm4.4 0a1.2 1.2 0 1 0 0 2.4 1.2 1.2 0 0 0 0-2.4zM0 6.4h1.2v3.2H0zm14.8 0H16v3.2h-1.2z'/%3E%3C/svg%3E");
 }
+
+/* ── 첨부 고르기 (D5) ────────────────────────────────────────
+   DevExpress 부품이 아니라 표준 `InputFile` 이다 — 그 이유는 FilePicker
+   머리말에 있다(BFF 라 브라우저에 게이트웨이 토큰이 없다). 그래서 생김새는
+   여기서 직접 맞춘다. */
+.jsini-picker {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.jsini-picker__drop {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.75rem;
+  border: 1px dashed var(--jsini-border);
+  border-radius: 0.5rem;
+  background: var(--jsini-surface);
+  cursor: pointer;
+}
+
+.jsini-picker__hint {
+  color: var(--jsini-text-muted);
+  font-size: 0.8rem;
+}
+
+.jsini-picker__progress {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  color: var(--jsini-text-muted);
+  font-size: 0.8rem;
+}
+
+.jsini-picker__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.jsini-picker__item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.3rem 0.1rem;
+  border-bottom: 1px solid var(--jsini-border);
+}
+
+.jsini-picker__name {
+  flex: 1;
+  word-break: break-all;
+}
+
+.jsini-picker__size {
+  color: var(--jsini-text-muted);
+  font-size: 0.8rem;
+  white-space: nowrap;
+}

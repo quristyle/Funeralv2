@@ -14,10 +14,24 @@
     조회 조건을 `keyword` 라는 이름으로 보내고 있었다. 서버가 받는 이름은
     `name` 이다 — 모르는 이름은 그냥 무시되므로 **오류 없이 전체가 나온다.**
     게이트웨이로 확인했다: `keyword=홍길동` → 2건(전체), `name=홍길동` → 1건.
+
+    [영정 사진 — D5]
+
+    빈소 디스플레이가 띄우는 그 사진이다. 올릴 자리가 포털 어디에도 없었다.
+
+    두 단계다 — FileServer 에 올려 식별자를 받고, 고인 상세의
+    `memorialPhotoFileId` · `memorialPhotoUrl` 에 매단다. 목록 자료
+    (`Deceased`)에는 그 칸이 없어서 **상세를 읽어 그 위에 얹어 저장한다.**
+    목록 자료로 저장하면 상세에만 있는 칸(상주·계약자·시설)이 통째로 빈 값이 된다.
+
+    **보정본은 건드리지 않는다.** 서버는 보정본(`memorialEditedPhoto*`)이
+    있으면 그쪽을 먼저 골라 플레이어에 준다. 원본만 갈아 끼우면 화면에는
+    옛 보정본이 계속 나오므로, 원본을 새로 올릴 때 보정본을 비운다.
 *@
 
 @inherits DataPage
 @inject FuneralApi Api
+@inject FileUploadClient Files
 
 <PageTitle>고인 현황 · 장례식장</PageTitle>
 
@@ -55,29 +69,79 @@
                 </span>
             </CellDisplayTemplate>
         </DxGridDataColumn>
-        <DxGridDataColumn Caption="처리" Width="130">
+        <DxGridDataColumn Caption="처리" Width="210">
             <CellDisplayTemplate>
                 @{
                     var row = (Deceased)context.DataItem;
                 }
-                <PermissionView Action="MenuAction.Update">
-                    @if (row.Status == Departed)
-                    {
-                        <DxButton Text="출상 취소" SizeMode="SizeMode.Small" RenderStyle="ButtonRenderStyle.Secondary"
-                                  Click="@(() => CancelAsync(row))" />
-                    }
-                    else
-                    {
-                        <DxButton Text="출상" SizeMode="SizeMode.Small" RenderStyle="ButtonRenderStyle.Secondary"
-                                  Click="@(() => DepartAsync(row))" />
-                    }
-                </PermissionView>
+                <div class="d-flex gap-1">
+                    <PermissionView Action="MenuAction.Update">
+                        @if (row.Status == Departed)
+                        {
+                            <DxButton Text="출상 취소" SizeMode="SizeMode.Small" RenderStyle="ButtonRenderStyle.Secondary"
+                                      Click="@(() => CancelAsync(row))" />
+                        }
+                        else
+                        {
+                            <DxButton Text="출상" SizeMode="SizeMode.Small" RenderStyle="ButtonRenderStyle.Secondary"
+                                      Click="@(() => DepartAsync(row))" />
+                        }
+
+                        @* 영정 사진 (D5). 빈소 디스플레이가 띄우는 그 사진이다. *@
+                        <DxButton Text="영정" SizeMode="SizeMode.Small" RenderStyle="ButtonRenderStyle.Secondary"
+                                  Click="@(() => StartPhotoAsync(row))" />
+                    </PermissionView>
+                </div>
             </CellDisplayTemplate>
         </DxGridDataColumn>
     </Columns>
 </DxGrid>
 
 <PageNotice Text="@Notice" Tone="@Tone" />
+
+@* ── 영정 사진 (D5) ─────────────────────────────────── *@
+<DxPopup @bind-Visible="_photoOpen" HeaderText="@($"영정 사진 · {_photoOf?.Name}")"
+         Width="480" CloseOnOutsideClick="false" ShowFooter="true">
+    <BodyContentTemplate>
+        @if (_detail is null)
+        {
+            <PageNotice Text="고인 자료를 읽는 중입니다…" Tone="NoticeTone.Info" />
+        }
+        else
+        {
+            @* 지금 걸린 사진. 「없음」과 「못 읽었다」를 구분하려면 보여 줘야 한다. *@
+            @if (CurrentPhoto is { Length: > 0 } url)
+            {
+                <img class="fn-memorial" src="@url" alt="지금 걸린 영정 사진" />
+            }
+            else
+            {
+                <PageNotice Text="아직 영정 사진이 없습니다." Tone="NoticeTone.Info" />
+            }
+
+            <FilePicker @ref="_photoPicker"
+                        MaxFiles="1"
+                        MaxBytes="@(20L * 1024 * 1024)"
+                        Accept="image/*"
+                        Hint="영정 사진을 고르세요 (한 장 · 20MB 까지)"
+                        FilesChanged="@(files => _photoPicked = files.Count > 0 ? files[0] : null)" />
+
+            @if (_detail.MemorialEditedPhotoFileId is { Length: > 0 })
+            {
+                <PageNotice Tone="NoticeTone.Warning"
+                            Text="보정본이 걸려 있습니다. 새 사진을 올리면 보정본은 지워지고 올린 사진이 그대로 나갑니다." />
+            }
+        }
+    </BodyContentTemplate>
+    <FooterContentTemplate>
+        <DxButton Text="@(_photoSaving ? "올리는 중…" : "올리기")"
+                  RenderStyle="ButtonRenderStyle.Primary"
+                  Enabled="@(!_photoSaving && _photoPicked is not null)"
+                  Click="@SavePhotoAsync" />
+        <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary"
+                  Enabled="@(!_photoSaving)" Click="@(() => _photoOpen = false)" />
+    </FooterContentTemplate>
+</DxPopup>
 
 @code {
     /// <summary>출상 완료 상태. 서버가 쓰는 값이다.</summary>
@@ -89,6 +153,30 @@
     private string? _keyword;
     private string? _status;
     private IReadOnlyList<Deceased> _rows = [];
+
+    // ── 영정 사진 (D5) ──────────────────────────────────────
+
+    private bool _photoOpen;
+    private bool _photoSaving;
+
+    /// <summary>지금 창을 연 고인. 제목에 이름을 띄운다.</summary>
+    private Deceased? _photoOf;
+
+    /// <summary>
+    /// 고인 상세. <b>목록 자료로 저장하면 안 되기 때문에</b> 읽는다 —
+    /// 상세에만 있는 칸(상주·계약자·시설)이 통째로 빈 값이 된다.
+    /// </summary>
+    private DeceasedDetail? _detail;
+
+    private FilePicker? _photoPicker;
+    private PickedFile? _photoPicked;
+
+    /// <summary>지금 걸린 사진. 서버와 같은 순서로 고른다 — 보정본이 먼저다.</summary>
+    private string? CurrentPhoto =>
+        _detail is null ? null
+        : string.IsNullOrWhiteSpace(_detail.MemorialEditedPhotoUrl)
+            ? _detail.MemorialPhotoUrl
+            : _detail.MemorialEditedPhotoUrl;
 
     protected override Task OnInitializedAsync() => ReloadAsync();
 
@@ -122,6 +210,83 @@
                 $"{d.Name} 출상을 취소했습니다.", "출상을 취소하지 못했습니다"))
         {
             await ReloadAsync();
+        }
+    }
+
+    // ── 영정 사진 (D5) ──────────────────────────────────────
+
+    /// <summary>창을 열면서 상세를 읽는다. 지금 무엇이 걸려 있는지 보여 줘야 한다.</summary>
+    private async Task StartPhotoAsync(Deceased d)
+    {
+        _photoOf = d;
+        _detail = null;
+        _photoPicked = null;
+        _photoOpen = true;
+
+        await LoadOneAsync(
+            () => Api.GetDeceasedDetailAsync(d.Id),
+            detail => _detail = detail,
+            "고인 자료를 찾지 못했습니다.",
+            "고인 자료를 읽지 못했습니다");
+    }
+
+    /// <summary>
+    /// 사진을 올려 고인에게 매단다. <b>두 단계다</b> — 머리말 참고.
+    /// </summary>
+    private async Task SavePhotoAsync()
+    {
+        if (_photoPicked is null || _detail is null || _photoOf is null || _photoSaving)
+        {
+            return;
+        }
+
+        _photoSaving = true;
+        try
+        {
+            UploadedFile? uploaded = null;
+
+            var sent = await RunAsync(async () =>
+            {
+                await using var stream = _photoPicked.OpenRead();
+                uploaded = await Files.UploadAsync(stream, _photoPicked.Name, _photoPicked.ContentType);
+            }, string.Empty, "사진을 올리지 못했습니다");
+
+            if (!sent || uploaded is null)
+            {
+                return;
+            }
+
+            // 읽어 둔 상세 **위에 얹어** 저장한다. 새 객체를 만들어 보내면
+            // 상주·계약자·시설이 빈 값으로 덮인다.
+            _detail.MemorialPhotoFileId = uploaded.FileId ?? uploaded.Id;
+            _detail.MemorialPhotoUrl = uploaded.BestUrl;
+
+            // 보정본을 비운다. 안 비우면 서버가 그쪽을 먼저 골라, 새로 올렸는데
+            // 빈소 화면에는 옛 사진이 계속 나온다.
+            _detail.MemorialEditedPhotoFileId = null;
+            _detail.MemorialEditedPhotoUrl = null;
+
+            var saved = await RunAsync(
+                () => Api.SaveDeceasedDetailAsync(_photoOf.Id, _detail),
+                string.Empty,
+                "사진은 올라갔지만 고인 자료에 매달지 못했습니다");
+
+            if (!saved)
+            {
+                return;
+            }
+
+            _photoOpen = false;
+            if (_photoPicker is not null)
+            {
+                await _photoPicker.ClearAsync();
+            }
+
+            Say($"{_photoOf.Name} 영정 사진을 올렸습니다.");
+        }
+        finally
+        {
+            _photoSaving = false;
         }
     }
 

@@ -18,7 +18,7 @@
     손으로 네 번 적으면 반드시 갈라지고, 갈라지는 곳은 늘 권한 판정과 실패
     처리다.
 
-    **올리는 것은 아직 없다**(결정 목록 D5).
+    올리기는 D5 로 붙였다 — 자세한 것은 `MediaSourceList` 머리말에 있다.
 *@
 
 @inherits DataPage
@@ -27,9 +27,12 @@
 
 <PageHeading Title="배경 이미지 관리" Scope="장례식장" />
 
+@* 배경은 그림 한 장이다. 그래서 상한을 따로 준다 — 넘으면 파일 고르는 자리에서 미리 막힌다. *@
 <MediaSourceList SourceType="BACKGROUND"
                  Title="배경"
                  ShowThumbnail="true"
+                 Accept="image/*"
+                 MaxBytes="@(20L * 1024 * 1024)"
                  Retries="@Retries" />
 
 @code {

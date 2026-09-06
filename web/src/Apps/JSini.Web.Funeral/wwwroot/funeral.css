@@ -393,3 +393,19 @@
   border-top: 1px solid var(--jsini-border);
   font-size: 0.78rem;
 }
+
+/* 영정 사진 미리보기 (D5). 세로로 긴 사진이 많아 폭이 아니라 높이를 잡는다. */
+.fn-memorial {
+  display: block;
+  max-height: 16rem;
+  max-width: 100%;
+  margin: 0 auto 0.75rem;
+  border: 1px solid var(--jsini-border);
+  border-radius: 0.35rem;
+  object-fit: contain;
+}
+
+/* 자료실 첨부 목록 안의 「빼기」 단추 자리. */
+.fn-upload {
+  margin-bottom: 0.75rem;
+}

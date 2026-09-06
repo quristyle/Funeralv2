@@ -20,7 +20,7 @@
     손으로 네 번 적으면 반드시 갈라지고, 갈라지는 곳은 늘 권한 판정과 실패
     처리다.
 
-    **올리는 것은 아직 없다**(결정 목록 D5).
+    올리기는 D5 로 붙였다 — 자세한 것은 `MediaSourceList` 머리말에 있다.
 *@
 
 @inherits DataPage
@@ -29,9 +29,13 @@
 
 <PageHeading Title="영상 관리" Scope="장례식장" />
 
+@* 영상 원본은 크다. 300MB 는 실제로 올라오는 것들(빈소 안내 영상)보다
+   넉넉하게 잡은 값이고, 넘으면 파일 고르는 자리에서 미리 막힌다. *@
 <MediaSourceList SourceType="VIDEO"
                  Title="영상"
                  ShowThumbnail="true"
+                 Accept="video/*"
+                 MaxBytes="@(300L * 1024 * 1024)"
                  Retries="@Retries" />
 
 @code {

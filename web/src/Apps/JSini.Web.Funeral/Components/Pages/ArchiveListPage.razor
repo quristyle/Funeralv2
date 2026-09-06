@@ -12,9 +12,16 @@
     등록·수정·삭제가 빠져 있었다. 클라이언트에는 메서드가 있었고 화면만 안
     부르고 있었다.
 
-    **파일을 올리는 것은 아직 없다.** 첨부는 FileServer 에 먼저 올리고 받은
-    식별자를 여기에 매다는 두 단계라, 어디까지 옮길지 정해야 한다
-    (결정 목록 D5). 지금은 **이미 매달린 파일을 보여 주고 자료 정보만** 고친다.
+    [첨부 올리기 — D5]
+
+    두 단계다. 파일을 FileServer 에 올려(`file/upload`) 식별자를 받고, 그것을
+    자료의 `files` 목록에 담아 저장한다.
+
+    **`files` 는 보낸 그대로가 최종이다** — 빠진 것은 지워진다(서버 DTO 주석).
+    그래서 수정할 때는 **이미 매달린 것을 함께 실어 보내야** 한다. 안 그러면
+    이름만 고쳤는데 첨부가 통째로 사라진다. 화면이 지금 매달린 목록을 들고
+    있다가 새로 올린 것을 뒤에 붙여 보낸다. 첨부를 빼는 것도 같은 길이다 —
+    목록에서 빼고 저장하면 없어진다.
 
     **파일 이름이 화면 이름과 다르다.** 컴포넌트 이름을 자료 타입과 같게 두면
     화면 안에서 자료 타입이 가려진다 — Razor 가 만드는 클래스가 같은
@@ -23,6 +30,7 @@
 
 @inherits DataPage
 @inject HelpApi Api
+@inject FileUploadClient Files
 
 <PageTitle>자료실 · 장례식장</PageTitle>
 
@@ -128,14 +136,6 @@
 <DxPopup @bind-Visible="_editing" HeaderText="@(_isNew ? "자료 등록" : "자료 수정")"
          Width="660" CloseOnOutsideClick="false" ShowFooter="true">
     <BodyContentTemplate Context="popup">
-        @if (_isNew)
-        {
-            @* 파일을 못 올린다는 것을 미리 말한다. 등록해 놓고 첨부를 못 붙여
-               헤매는 것보다 낫다. *@
-            <PageNotice Tone="NoticeTone.Info"
-                        Text="파일 첨부는 아직 옮기지 않았습니다. 자료 정보만 등록되고 첨부는 비어 있습니다." />
-        }
-
         <DxFormLayout CssClass="fn-editform">
             <DxFormLayoutItem Caption="자료명" ColSpanMd="12">
                 <DxTextBox @bind-Text="_edit.Title" />
@@ -161,12 +161,40 @@
             <DxFormLayoutItem Caption="설명" ColSpanMd="12">
                 <DxMemo @bind-Text="_edit.Description" Rows="6" />
             </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="첨부" ColSpanMd="12">
+                @* 이미 매달린 것. **여기서 빼고 저장하면 지워진다** — 서버가
+                   보낸 목록을 그대로 최종으로 삼기 때문이다. 그 말을 적어 둔다. *@
+                @if (_attached.Count > 0)
+                {
+                    <ul class="fn-files">
+                        @foreach (var file in _attached.ToList())
+                        {
+                            <li class="fn-files__item">
+                                <span>@file.FileName</span>
+                                <span class="fn-files__size">@FormatSize(file.FileSize)</span>
+                                <DxButton Text="빼기" SizeMode="SizeMode.Small"
+                                          RenderStyle="ButtonRenderStyle.Link"
+                                          Click="@(() => _attached.Remove(file))" />
+                            </li>
+                        }
+                    </ul>
+                }
+
+                <FilePicker @ref="_picker"
+                            MaxFiles="10"
+                            MaxBytes="@(100L * 1024 * 1024)"
+                            Hint="자료 파일을 고르세요 (최대 10개 · 한 개 100MB). 저장할 때 함께 올라갑니다."
+                            FilesChanged="@(files => _picked = files)" />
+            </DxFormLayoutItem>
         </DxFormLayout>
     </BodyContentTemplate>
 
     <FooterContentTemplate>
-        <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Primary" Click="@SaveAsync" />
-        <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary" Click="@(() => _editing = false)" />
+        <DxButton Text="@(_saving ? "저장 중…" : "저장")" RenderStyle="ButtonRenderStyle.Primary"
+                  Enabled="@(!_saving)" Click="@SaveAsync" />
+        <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary"
+                  Enabled="@(!_saving)" Click="@(() => _editing = false)" />
     </FooterContentTemplate>
 </DxPopup>
 
@@ -183,6 +211,18 @@
     private bool _editing;
     private bool _isNew;
     private Archive _edit = new();
+    private bool _saving;
+
+    // ── 첨부 (D5) ───────────────────────────────────────────
+
+    /// <summary>
+    /// 지금 이 자료에 매달려 있는 파일. <b>저장할 때 이대로 다시 보낸다</b> —
+    /// 서버가 보낸 목록을 최종으로 삼아 빠진 것을 지우기 때문이다.
+    /// </summary>
+    private List<ArchiveFile> _attached = [];
+
+    private FilePicker? _picker;
+    private IReadOnlyList<PickedFile> _picked = [];
 
     protected override Task OnInitializedAsync() => ReloadAsync();
 
@@ -206,6 +246,8 @@
             Status = 1,
             OrderNo = _items.Count == 0 ? 1 : _items.Max(a => a.OrderNo) + 1,
         };
+        _attached = [];
+        _picked = [];
         _editing = true;
     }
 
@@ -222,6 +264,11 @@
             OrderNo = a.OrderNo,
             Status = a.Status,
         };
+
+        // 첨부도 복사본이다. 원본 목록을 그대로 쓰면 창에서 「빼기」를 누른 것이
+        // 저장하지 않아도 표에 반영된다.
+        _attached = [.. a.Files];
+        _picked = [];
         _editing = true;
     }
 
@@ -233,29 +280,87 @@
             return;
         }
 
-        // 첨부는 보내지 않는다. 보내면 서버가 「보낸 그대로가 최종」으로 보고
-        // 이미 매달린 파일을 지운다.
-        var body = new
+        _saving = true;
+        try
         {
-            title = _edit.Title,
-            description = _edit.Description,
-            category = _edit.Category,
-            orderNo = _edit.OrderNo,
-            status = _edit.Status,
-        };
+            // ① 새로 고른 파일부터 FileServer 로. 실패하면 자료를 건드리지 않는다 —
+            //    반쯤 저장된 상태를 만들지 않는 편이 낫다.
+            var files = new List<object>(_attached.Count + _picked.Count);
+            var sort = 0;
 
-        var saved = await RunAsync(
-            () => _isNew ? Api.CreateArchiveAsync(body) : Api.UpdateArchiveAsync(_edit.Id, body),
-            _isNew ? "등록했습니다." : "저장했습니다.",
-            _isNew ? "등록하지 못했습니다" : "저장하지 못했습니다");
+            foreach (var file in _attached)
+            {
+                files.Add(new
+                {
+                    fileId = file.FileId,
+                    fileName = file.FileName,
+                    fileSize = file.FileSize,
+                    contentType = file.ContentType,
+                    sortNo = sort++,
+                });
+            }
 
-        if (!saved)
-        {
-            return;
+            foreach (var pick in _picked)
+            {
+                UploadedFile? uploaded = null;
+
+                var sent = await RunAsync(async () =>
+                {
+                    await using var stream = pick.OpenRead();
+                    uploaded = await Files.UploadAsync(stream, pick.Name, pick.ContentType);
+                }, string.Empty, $"{pick.Name} 을(를) 올리지 못했습니다");
+
+                if (!sent || uploaded is null)
+                {
+                    return;
+                }
+
+                files.Add(new
+                {
+                    fileId = uploaded.FileId ?? uploaded.Id,
+                    fileName = pick.Name,
+                    fileSize = uploaded.FileSize ?? pick.Size,
+                    contentType = pick.ContentType,
+                    sortNo = sort++,
+                });
+            }
+
+            // ② 자료를 저장한다. **`files` 는 보낸 그대로가 최종이다** —
+            //    이미 매달린 것을 함께 실어야 지워지지 않는다(머리말 참고).
+            var body = new
+            {
+                title = _edit.Title,
+                description = _edit.Description,
+                category = _edit.Category,
+                orderNo = _edit.OrderNo,
+                status = _edit.Status,
+                files,
+            };
+
+            var saved = await RunAsync(
+                () => _isNew ? Api.CreateArchiveAsync(body) : Api.UpdateArchiveAsync(_edit.Id, body),
+                string.Empty,
+                _isNew ? "등록하지 못했습니다" : "저장하지 못했습니다");
+
+            if (!saved)
+            {
+                return;
+            }
+
+            _editing = false;
+            if (_picker is not null)
+            {
+                await _picker.ClearAsync();
+            }
+
+            // 다시 읽는 것이 먼저다 — ReloadAsync 가 안내 줄을 비운다.
+            await ReloadAsync();
+            Say(_isNew ? "등록했습니다." : "저장했습니다.");
         }
-
-        _editing = false;
-        await ReloadAsync();
+        finally
+        {
+            _saving = false;
+        }
     }
 
     private async Task DeleteAsync(Archive a)

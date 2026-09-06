@@ -3,14 +3,28 @@
 @*
     [요청 등록] — DB 메뉴 `/helpdesk/request/new`.
     이력: Vue `views/helpdesk/request/new.vue` → 여기.
-    엔드포인트: `POST requests`
+    엔드포인트: `POST requests` (폼) · `POST files/upload` (첨부)
 
-    [첨부는 아직 못 붙인다]
+    [등록이 늘 500 이었다 — 이번에 함께 고쳤다]
 
-    Vue 는 파일을 함께 올렸다(`PostMultipartAsync`). 그 배관은 `HelpDeskApi` 에
-    이미 있지만, 파일 고르기는 브라우저 상태라 회로가 붙은 뒤에만 다룰 수 있고
-    업로드 진행률·취소까지 붙여야 쓸 만해진다. **본문 등록을 먼저 옮기고**
-    첨부는 그 다음이다 — 지금도 등록한 뒤 상세에서 붙일 수 있다.
+    `POST requests` 는 **폼을 읽는다**(`httpRequest.ReadFormAsync()`).
+    화면은 JSON 을 보내고 있었고, JSON 본문에 `ReadFormAsync` 를 부르면
+    `Incorrect Content-Type: application/json` 으로 500 이 난다.
+    칸 이름도 어긋나 있었다 — 서버가 읽는 것은 `Title` · `Description` 인데
+    `content` 로 보내고 있었다. **되던 적이 없는 화면**이다.
+
+    [첨부는 등록한 뒤에 따로 올린다 — D5]
+
+    `POST requests` 도 폼에 실린 파일을 받기는 한다. 그런데 그 길은 파일을
+    **서버 디스크에 직접 쓴다**(`FileStorage_BasePath`, 기본
+    `/home/lee/jinAttachment`). 백엔드가 그 방식을 그만두기로 하고
+    (FileUploadEndpoints 머리말의 결정 D5-B) 새로 만든 길이
+    `POST files/upload` 이고, 그쪽은 바이트를 FileServer 로 보내고 파일
+    아이디만 남긴다. 그래서 **등록은 파일 없이** 하고 첨부는 그 길로 올린다.
+
+    대가는 실패 구간이 둘이라는 것이다 — 요청은 들어갔는데 첨부가 실패할 수
+    있다. 그때 「등록하지 못했습니다」로 뭉뚱그리면 사용자가 같은 요청을 다시
+    넣는다. 그래서 무엇이 됐고 무엇이 안 됐는지 갈라서 말한다.
 *@
 
 @inherits DataPage
@@ -42,9 +56,23 @@ else
             <DxMemo @bind-Text="_content" Rows="10" NullText="증상 · 재현 방법 · 언제부터인지" />
         </label>
 
+        <div class="hd-field">
+            <span class="hd-field__label">첨부</span>
+            @* 옛 화면이 가장 많이 받던 것이 증상 화면 캡처다. 그래서 여러 장을
+               받고, 종류는 제한하지 않는다 — 로그 파일을 올리는 일도 있다. *@
+            <FilePicker @ref="_picker"
+                        MaxFiles="5"
+                        MaxBytes="@(20L * 1024 * 1024)"
+                        Hint="증상 화면 캡처나 로그를 함께 올릴 수 있습니다 (최대 5개 · 한 개 20MB)"
+                        FilesChanged="@(files => _files = files)" />
+        </div>
+
         <div>
             <PermissionView Action="MenuAction.Create">
-                <DxButton Text="등록" RenderStyle="ButtonRenderStyle.Primary" Click="@SubmitAsync" />
+                <DxButton Text="@(_saving ? "등록 중…" : "등록")"
+                          RenderStyle="ButtonRenderStyle.Primary"
+                          Enabled="@(!_saving)"
+                          Click="@SubmitAsync" />
             </PermissionView>
         </div>
     </div>
@@ -55,6 +83,10 @@ else
 @code {
     private string? _title;
     private string? _content;
+    private bool _saving;
+
+    private FilePicker? _picker;
+    private IReadOnlyList<PickedFile> _files = [];
 
     protected override Task OnInitializedAsync() => Context.LoadIdentityAsync();
 
@@ -68,14 +100,123 @@ else
             return;
         }
 
-        var ok = await RunAsync(
-            () => Api.PostAsync("requests", new { title = _title!.Trim(), content = _content!.Trim() }),
-            "요청을 등록했습니다.", "요청을 등록하지 못했습니다");
-
-        if (ok)
+        _saving = true;
+        try
         {
-            // 목록으로 보낸다. 등록 화면에 남겨 두면 같은 요청을 두 번 넣기 쉽다.
-            Navigation.NavigateTo("/helpdesk/request/list");
+            var created = await CreateAsync();
+            if (created is null)
+            {
+                return;
+            }
+
+            var failed = await UploadAsync(created.Value);
+
+            if (failed == 0)
+            {
+                if (_picker is not null)
+                {
+                    await _picker.ClearAsync();
+                }
+
+                // 목록으로 보낸다. 등록 화면에 남겨 두면 같은 요청을 두 번 넣기 쉽다.
+                Navigation.NavigateTo("/helpdesk/request/list");
+                return;
+            }
+
+            // **목록으로 보내지 않는다.** 요청은 이미 들어갔으므로 다시 등록하면
+            // 안 되고, 첨부만 다시 올릴 자리는 상세 화면이다. 그 말을 해 준다.
+            Say($"요청은 등록했지만 첨부 {failed}개를 올리지 못했습니다. "
+                + $"요청 {created} 번 상세에서 다시 올려 주십시오.", NoticeTone.Warning);
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    /// <summary>
+    /// 요청을 만든다. 성공하면 새 요청 번호.
+    ///
+    /// <b>폼으로 보낸다</b> — 서버가 <c>ReadFormAsync</c> 로 읽기 때문이다.
+    /// 칸 이름은 서버가 꺼내 쓰는 그대로여야 한다(<c>Title</c> · <c>Description</c>).
+    /// ASP.NET Core 는 모르는 칸을 말없이 버리므로, 틀려도 오류가 아니라
+    /// **빈 값으로 저장**된다.
+    /// </summary>
+    private async Task<int?> CreateAsync()
+    {
+        int? id = null;
+
+        var ok = await RunAsync(async () =>
+        {
+            using var form = new MultipartFormDataContent
+            {
+                { new StringContent(_title!.Trim()), "Title" },
+                { new StringContent(_content!.Trim()), "Description" },
+            };
+
+            // 고객으로 연결된 계정이면 서버가 자기 것으로 고정하므로 이 값을
+            // 무시한다. 담당자가 대신 등록하는 길만 이 값을 쓴다.
+            if (Context.HelpdeskUserId is { } customerId)
+            {
+                form.Add(new StringContent(customerId.ToString()), "CustomerId");
+            }
+
+            var created = await Api.PostMultipartAsync<ImprovementRequest>("requests", form);
+            id = created?.Id;
+        }, "요청을 등록했습니다.", "요청을 등록하지 못했습니다");
+
+        return ok ? id : null;
+    }
+
+    /// <summary>
+    /// 첨부를 올린다. 돌려주는 값은 <b>실패한 개수</b>다.
+    ///
+    /// 한 번에 다 보낸다 — 서버가 <c>IFormFileCollection</c> 을 받고, 하나라도
+    /// 실패하면 502 에 어느 것이 실패했는지 담아 준다.
+    /// </summary>
+    private async Task<int> UploadAsync(int requestId)
+    {
+        if (_files.Count == 0)
+        {
+            return 0;
+        }
+
+        var streams = new List<Stream>(_files.Count);
+        try
+        {
+            using var form = new MultipartFormDataContent
+            {
+                { new StringContent("ImprovementRequest"), "entityType" },
+                { new StringContent(requestId.ToString()), "entityId" },
+            };
+
+            foreach (var file in _files)
+            {
+                var stream = file.OpenRead();
+                streams.Add(stream);
+
+                var part = new StreamContent(stream);
+                part.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(file.ContentType);
+
+                // 칸 이름이 `files` 여야 한다 — 서버가 그 이름으로 묶어 받는다.
+                form.Add(part, "files", file.Name);
+            }
+
+            await Api.PostMultipartAsync<object>("files/upload", form);
+            return 0;
+        }
+        catch (ApiException)
+        {
+            // 어느 것이 실패했는지는 서버가 메시지에 담아 주지만, 여기서는
+            // 개수만 쓴다 — 부르는 쪽이 「상세에서 다시 올리라」고 안내한다.
+            return _files.Count;
+        }
+        finally
+        {
+            foreach (var stream in streams)
+            {
+                await stream.DisposeAsync();
+            }
         }
     }
 }

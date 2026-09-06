@@ -11,11 +11,15 @@
     손으로 네 번 적으면 반드시 갈라지고, 갈라지는 곳은 늘 권한 판정과 실패
     처리다. 그래서 여기로 모았다.
 
-    [올리는 것은 없다]
+    [올리기 — D5]
 
-    자료를 새로 만들려면 FileServer 에 파일을 먼저 올리고 받은 식별자를 매다는
-    두 단계가 필요하다. 어디까지 옮길지는 결정 목록 **D5** 다. 그래서 이
-    부품은 **이미 올라온 자료의 정보를 고치고 지우는 것**만 한다.
+    자료를 새로 만드는 것은 **두 단계**다. 파일을 FileServer 에 올려
+    (`file/upload`) 식별자와 주소를 받고, 그것을 `source` 에 매단다.
+    한 단계로 합칠 수 없다 — 자료 표는 파일 바이트를 갖지 않고 주소만 갖는다.
+
+    두 단계라 **중간에서 끊길 수 있다.** 파일은 올라갔는데 자료를 못 만들면
+    FileServer 에 주인 없는 파일이 남는다. 그래서 그 경우를 「등록하지
+    못했습니다」로 뭉뚱그리지 않고, 파일은 올라갔다는 것까지 말한다.
 
     [재처리는 화면마다 다르다]
 
@@ -26,6 +30,31 @@
 @inherits DataPage
 
 @inject FuneralApi Api
+@inject FileUploadClient Files
+
+@* 올리기 자리 (D5). 표 위에 둔다 — 「무엇이 있는지」보다 「새로 올리는 것」이
+   이 화면에 오는 더 흔한 이유다. 권한이 없으면 통째로 감춘다. *@
+<PermissionView Action="MenuAction.Create">
+    <div class="fn-upload">
+        <FilePicker @ref="_picker"
+                    MaxFiles="1"
+                    MaxBytes="@MaxBytes"
+                    Accept="@Accept"
+                    Hint="@($"{Title} 파일을 고르세요 (한 개 · {MaxBytes / 1024 / 1024}MB 까지)")"
+                    FilesChanged="@OnPickedAsync" />
+
+        @if (_picked is not null)
+        {
+            <div class="jsini-toolbar">
+                <DxTextBox @bind-Text="_uploadName" NullText="목록에 보일 이름" Style="width: 260px" />
+                <DxButton Text="@(_uploading ? "올리는 중…" : "올리기")"
+                          RenderStyle="ButtonRenderStyle.Primary"
+                          Enabled="@(!_uploading)"
+                          Click="@UploadAsync" />
+            </div>
+        }
+    </div>
+</PermissionView>
 
 <CrudGrid TItem="MediaSource"
           Data="@Shown"
@@ -146,8 +175,27 @@
     /// </summary>
     [Parameter] public IReadOnlyList<(string Kind, string Label)> Retries { get; set; } = [];
 
+    /// <summary>
+    /// 파일 고르기 창의 <c>accept</c>. 화면마다 다르다 — 영상 자리에 mp3 를
+    /// 고르면 목록에는 뜨는데 플레이어가 못 튼다.
+    /// </summary>
+    [Parameter] public string? Accept { get; set; }
+
+    /// <summary>
+    /// 한 개 최대 크기(바이트). 영상은 크고 장식 그림은 작다.
+    /// 기본 300MB 는 영상 기준이다.
+    /// </summary>
+    [Parameter] public long MaxBytes { get; set; } = 300L * 1024 * 1024;
+
     private IReadOnlyList<MediaSource> _all = [];
     private string? _keyword;
+
+    // ── 올리기 (D5) ─────────────────────────────────────────
+
+    private FilePicker? _picker;
+    private PickedFile? _picked;
+    private string? _uploadName;
+    private bool _uploading;
 
     private IReadOnlyList<MediaSource> Shown
     {
@@ -186,6 +234,98 @@
     }
 
     private Task DeleteAsync(MediaSource m) => Api.DeleteMediaSourceAsync(m.Id);
+
+    // ── 올리기 (D5) ─────────────────────────────────────────
+
+    /// <summary>
+    /// 파일을 고르면 이름 칸을 파일 이름으로 미리 채운다.
+    ///
+    /// 확장자는 뗀다 — 목록에 보일 이름이지 파일 이름이 아니다.
+    /// 사람이 고칠 수 있게 두되 <b>비워 두고 시작하지 않는다.</b> 비워 두면
+    /// 이름을 안 적고 올려 목록이 「(이름 없음)」으로 채워진다.
+    /// </summary>
+    private void OnPickedAsync(IReadOnlyList<PickedFile> files)
+    {
+        _picked = files.Count > 0 ? files[0] : null;
+
+        if (_picked is not null && string.IsNullOrWhiteSpace(_uploadName))
+        {
+            _uploadName = Path.GetFileNameWithoutExtension(_picked.Name);
+        }
+    }
+
+    /// <summary>
+    /// 파일을 올리고 자료로 매단다. <b>두 단계다</b> — 머리말 참고.
+    /// </summary>
+    private async Task UploadAsync()
+    {
+        if (_picked is null || _uploading)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_uploadName))
+        {
+            Say("목록에 보일 이름을 적어 주십시오.", NoticeTone.Warning);
+            return;
+        }
+
+        _uploading = true;
+        try
+        {
+            UploadedFile? uploaded = null;
+
+            // ① 파일을 FileServer 로. 실패하면 여기서 끝난다 — 자료를 만들지 않는다.
+            var sent = await RunAsync(async () =>
+            {
+                await using var stream = _picked.OpenRead();
+                uploaded = await Files.UploadAsync(stream, _picked.Name, _picked.ContentType);
+            }, string.Empty, "파일을 올리지 못했습니다");
+
+            if (!sent || uploaded is null)
+            {
+                return;
+            }
+
+            // ② 자료로 매단다. 여기서 실패하면 **파일은 이미 올라가 있다.**
+            //    그 사실을 말해 준다 — 「등록 실패」로만 알리면 같은 파일을
+            //    몇 번이고 다시 올려 주인 없는 파일만 쌓인다.
+            var linked = await RunAsync(
+                () => Api.CreateMediaSourceAsync(new MediaSource
+                {
+                    Name = _uploadName!.Trim(),
+                    SourceType = SourceType,
+                    Url = uploaded.BestUrl ?? string.Empty,
+                    OriginalFileId = uploaded.FileId ?? uploaded.Id,
+                    ThumbnailUrl = uploaded.ThumbnailUrl,
+                    ThumbnailFileId = uploaded.ThumbnailFileId,
+                    FileSize = uploaded.FileSize ?? _picked.Size,
+                }),
+                string.Empty,
+                "파일은 올라갔지만 목록에 매달지 못했습니다");
+
+            if (!linked)
+            {
+                return;
+            }
+
+            _picked = null;
+            _uploadName = null;
+            if (_picker is not null)
+            {
+                await _picker.ClearAsync();
+            }
+
+            // **다시 읽는 것이 먼저다.** ReloadAsync 가 시작할 때 안내 줄을
+            // 비우므로, 성공 문구를 먼저 적으면 그 자리에서 지워진다.
+            await ReloadAsync();
+            Say($"{Title} 을(를) 올렸습니다. 변환은 잠시 뒤 끝납니다.");
+        }
+        finally
+        {
+            _uploading = false;
+        }
+    }
 
     /// <summary>바이트를 사람이 읽는 단위로. 1MB 미만은 KB 로 둔다.</summary>
     private static string FormatSize(long? bytes)
