@@ -13,7 +13,7 @@
 
 .fn-subhead {
   margin: 1.5rem 0 0.75rem;
-  font-size: 1rem;
+  font-size: var(--jsini-fs-lg);
   font-weight: 700;
 }
 
@@ -47,17 +47,17 @@
 
 .fn-card__body--empty {
   color: var(--jsini-text-muted);
-  font-size: 0.875rem;
+  font-size: var(--jsini-fs-md);
 }
 
-.fn-card__name { font-size: 1.05rem; font-weight: 700; }
+.fn-card__name { font-size: var(--jsini-fs-xl); font-weight: 700; }
 
 .fn-card__facts {
   display: grid;
   grid-template-columns: max-content 1fr;
   gap: 0.2rem 0.75rem;
   margin: 0.5rem 0 0;
-  font-size: 0.8rem;
+  font-size: var(--jsini-fs-sm);
 }
 
 .fn-card__facts dt { color: var(--jsini-text-muted); }
@@ -82,11 +82,11 @@
 }
 
 .fn-mobile__room { font-weight: 700; }
-.fn-mobile__name { margin-top: 0.4rem; font-size: 1.05rem; }
+.fn-mobile__name { margin-top: 0.4rem; font-size: var(--jsini-fs-xl); }
 
 .fn-mobile__meta {
   margin-top: 0.2rem;
-  font-size: 0.8rem;
+  font-size: var(--jsini-fs-sm);
   color: var(--jsini-text-muted);
 }
 
@@ -120,7 +120,7 @@
   aspect-ratio: 16 / 9;
   background: color-mix(in srgb, var(--jsini-text-muted) 10%, transparent);
   color: var(--jsini-text-muted);
-  font-size: 0.875rem;
+  font-size: var(--jsini-fs-md);
 }
 
 .fn-preview__caption {
@@ -128,7 +128,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 0.5rem 0.75rem;
-  font-size: 0.875rem;
+  font-size: var(--jsini-fs-md);
 }
 
 /* ── 환경설정 ───────────────────────────────────────────── */
@@ -148,7 +148,7 @@
 
 .fn-setting__desc {
   margin-top: 0.15rem;
-  font-size: 0.8rem;
+  font-size: var(--jsini-fs-sm);
   color: var(--jsini-text-muted);
 }
 
@@ -166,7 +166,7 @@
 
 .fn-faq__a {
   padding: 0 0 0.9rem;
-  font-size: 0.9rem;
+  font-size: var(--jsini-fs-md);
   line-height: 1.7;
   color: var(--jsini-text-muted);
   white-space: pre-line;
@@ -188,19 +188,19 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem;
-  font-size: 0.8rem;
+  font-size: var(--jsini-fs-sm);
   color: var(--jsini-text-muted);
 }
 
 .fn-qna__title {
-  font-size: 0.95rem;
+  font-size: var(--jsini-fs-lg);
   font-weight: 700;
   color: var(--jsini-text, inherit);
 }
 
 .fn-qna__body {
   margin-top: 0.5rem;
-  font-size: 0.9rem;
+  font-size: var(--jsini-fs-md);
   line-height: 1.7;
   white-space: pre-line;
 }
@@ -221,7 +221,7 @@
 }
 
 .fn-files__size {
-  font-size: 0.8rem;
+  font-size: var(--jsini-fs-sm);
   color: var(--jsini-text-muted);
 }
 
@@ -249,14 +249,14 @@
   padding: 0.5rem 0.7rem;
   background: var(--jsini-surface);
   border-left: 3px solid var(--jsini-border);
-  font-size: 0.82rem;
+  font-size: var(--jsini-fs-sm);
 }
 
 .fn-qna__quote-label {
   display: block;
   font-weight: 600;
   opacity: 0.6;
-  font-size: 0.75rem;
+  font-size: var(--jsini-fs-xs);
 }
 
 /* ── 자료 미리보기 ───────────────────────────────────────
@@ -279,7 +279,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.7rem;
+  font-size: var(--jsini-fs-2xs);
   opacity: 0.5;
   border: 1px dashed var(--jsini-border);
 }
@@ -308,7 +308,7 @@
 }
 
 .fn-card__sub {
-  font-size: 0.78rem;
+  font-size: var(--jsini-fs-xs);
   opacity: 0.65;
 }
 
@@ -322,7 +322,7 @@
 
 .fn-note {
   margin-left: 0.4rem;
-  font-size: 0.78rem;
+  font-size: var(--jsini-fs-xs);
   font-weight: 400;
   color: var(--jsini-text-muted);
 }
@@ -347,7 +347,7 @@
 
 .fn-devsec__head {
   margin: 0 0 0.5rem;
-  font-size: 0.85rem;
+  font-size: var(--jsini-fs-md);
   font-weight: 700;
 }
 
@@ -368,7 +368,7 @@
 }
 
 .fn-field__label {
-  font-size: 0.72rem;
+  font-size: var(--jsini-fs-2xs);
   letter-spacing: 0.03em;
   color: var(--jsini-text-muted);
 }
@@ -391,7 +391,7 @@
   margin-top: 0.5rem;
   padding-top: 0.4rem;
   border-top: 1px solid var(--jsini-border);
-  font-size: 0.78rem;
+  font-size: var(--jsini-fs-xs);
 }
 
 /* 영정 사진 미리보기 (D5). 세로로 긴 사진이 많아 폭이 아니라 높이를 잡는다. */

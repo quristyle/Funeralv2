@@ -9,6 +9,11 @@ using Piral.Blazor.Orchestrator.Loader;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// 로컬 개별 설정을 위한 appsettings.Local.json 추가 (Git 제외).
+// 백엔드 서비스 전부가 쓰는 것과 같은 관례다. 셸에서는 개발용 로그인
+// 미리 채우기(DevLogin)가 이 파일에만 들어간다.
+builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: true);
+
 // ── 업무 MFE 모듈 검색 ────────────────────────────────────────────
 //
 // **AddJSiniWebApp 보다 먼저 해야 한다.** 라우트 인벤토리(RouteInventory)가

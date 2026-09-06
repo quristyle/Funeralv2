@@ -6,8 +6,8 @@ namespace JSini.Web.Shell.Components.Pages;
 public sealed class LoginInput
 {
     [Required(ErrorMessage = "아이디를 입력하세요.")]
-    public string Username { get; set; } = string.Empty;
+    public string Username { get; set; } = "quristyle";//string.Empty;
 
     [Required(ErrorMessage = "비밀번호를 입력하세요.")]
-    public string Password { get; set; } = string.Empty;
+    public string Password { get; set; } = "1";//string.Empty;
 }

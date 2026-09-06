@@ -75,4 +75,64 @@ public sealed class RouteAliasTests
     [InlineData("   ")]
     public void 빈_경로는_빈_값이_된다(string? path)
         => Assert.Equal(string.Empty, RouteAliases.Resolve(path));
+
+    /// <summary>
+    /// Blazor 라우트로 물어도 DB 메뉴 경로를 찾아야 한다.
+    ///
+    /// <para>
+    /// <b>실제로 밟은 것을 못박는다.</b> 권한표의 열쇠는 DB 의 <c>path</c> 인데
+    /// <c>PermissionView</c> 는 지금 열려 있는 주소로 묻는다. 되돌리지 않으면
+    /// 옛 경로를 쓰는 69개 화면에서 등록·수정·삭제·엑셀 단추가 <b>말없이 전부</b>
+    /// 사라진다. 사이드바는 <c>MenuNode.Path</c> 로 물어서 멀쩡하기 때문에
+    /// 「메뉴는 보이는데 화면 안 단추만 없다」로 나타난다 — 원인을 찾기 나쁘다.
+    /// </para>
+    /// </summary>
+    [Theory]
+    [InlineData("/admin/system/account", "/system/account")]
+    [InlineData("/admin/system/common-code", "/system/common-code")]
+    [InlineData("/funeral/room-status", "/room_status")]
+    [InlineData("/admin/notice", "/portal/notice")]
+    [InlineData("/site/ai/chat", "/ai/chat")]
+    public void 라우트로_물어도_DB_경로를_찾는다(string route, string expected)
+        => Assert.Equal(expected, RouteAliases.ToMenuPath(route));
+
+    /// <summary>
+    /// 표에 없는 라우트는 그대로 지나간다. 이미 DB 경로인 업무(헬프데스크·
+    /// 프로젝트관리·생활과환경)와, 컷오버 SQL 을 돌린 뒤를 위한 것이다(멱등).
+    /// </summary>
+    [Theory]
+    [InlineData("/helpdesk/dashboard")]
+    [InlineData("/projmng/proj/wbs")]
+    [InlineData("/life/weather/dashboard")]
+    [InlineData("/system/account")]
+    public void 표에_없는_라우트는_그대로_둔다(string route)
+        => Assert.Equal(route, RouteAliases.ToMenuPath(route));
+
+    /// <summary>
+    /// 옮겼다가 되돌리면 제자리다.
+    ///
+    /// 표 전체를 훑는다. 한 줄만 어긋나도 그 화면의 단추가 통째로 사라지는데,
+    /// 눈으로는 179개 메뉴 중 하나라 한동안 아무도 모른다.
+    /// </summary>
+    [Fact]
+    public void 옮겼다가_되돌리면_제자리다()
+    {
+        var broken = new List<string>();
+
+        foreach (var dbPath in RouteAliases.MenuPaths)
+        {
+            var route = RouteAliases.Resolve(dbPath);
+            var back = RouteAliases.ToMenuPath(route);
+
+            // 두 옛 경로가 같은 라우트로 가면 되돌릴 때 하나만 살아남는다.
+            // 그 자체는 표의 문제이므로 여기서 드러나야 한다.
+            if (!string.Equals(back, dbPath, StringComparison.OrdinalIgnoreCase))
+            {
+                broken.Add($"{dbPath} → {route} → {back}");
+            }
+        }
+
+        Assert.True(broken.Count == 0,
+            "옮겼다가 되돌렸을 때 제자리가 아닌 경로:\n  " + string.Join("\n  ", broken));
+    }
 }

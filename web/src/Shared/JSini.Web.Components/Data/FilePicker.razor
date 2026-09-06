@@ -41,7 +41,7 @@
     {
         <div class="jsini-picker__progress">
             <span>@_busyName 받는 중… @_busyPercent%</span>
-            <DxButton Text="취소" RenderStyle="ButtonRenderStyle.Secondary" SizeMode="SizeMode.Small"
+            <DxButton Text="취소" RenderStyle="ButtonRenderStyle.Secondary"
                       Click="@Cancel" />
         </div>
     }
@@ -54,7 +54,7 @@
                 <li class="jsini-picker__item">
                     <span class="jsini-picker__name">@file.Name</span>
                     <span class="jsini-picker__size">@Human(file.Size)</span>
-                    <DxButton Text="빼기" RenderStyle="ButtonRenderStyle.Link" SizeMode="SizeMode.Small"
+                    <DxButton Text="빼기" RenderStyle="ButtonRenderStyle.Link"
                               Enabled="@(!_busy)" Click="@(() => RemoveAsync(file))" />
                 </li>
             }

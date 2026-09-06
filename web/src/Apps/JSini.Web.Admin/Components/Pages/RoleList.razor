@@ -73,13 +73,13 @@
                     var r = (RoleDto)cell.DataItem;
                 }
                 <div class="d-flex gap-1">
-                    <DxButton Text="메뉴" SizeMode="SizeMode.Small"
+                    <DxButton Text="메뉴"
                               RenderStyle="ButtonRenderStyle.Link"
                               Click="@(() => Navigation.NavigateTo($"/admin/auth/menu-role?role={Uri.EscapeDataString(r.Id)}"))" />
-                    <DxButton Text="사용자" SizeMode="SizeMode.Small"
+                    <DxButton Text="사용자"
                               RenderStyle="ButtonRenderStyle.Link"
                               Click="@(() => Navigation.NavigateTo($"/admin/auth/user-role?role={Uri.EscapeDataString(r.Id)}"))" />
-                    <DxButton Text="누가?" SizeMode="SizeMode.Small"
+                    <DxButton Text="누가?"
                               RenderStyle="ButtonRenderStyle.Link"
                               Click="@(() => ShowUsersAsync(r))" />
                 </div>

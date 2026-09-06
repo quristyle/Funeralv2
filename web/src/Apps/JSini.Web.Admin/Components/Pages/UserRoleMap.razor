@@ -45,18 +45,18 @@
     @* 단추 두 개로 모드를 바꾼다. DxButtonGroup 은 자식을 `Items` 로 받아
        그냥 넣으면 열 때 500 이 난다 — 라우트 매개변수와 같은 종류의 실수로,
        컴파일은 통과하고 열 때 죽는다. *@
-    <DxButton Text="사람" SizeMode="SizeMode.Small"
+    <DxButton Text="사람"
               RenderStyle="@(_mode == Mode.Account ? ButtonRenderStyle.Primary : ButtonRenderStyle.Secondary)"
               Click="@(() => SwitchAsync(Mode.Account))" />
 
-    <DxButton Text="회사·부서" SizeMode="SizeMode.Small"
+    <DxButton Text="회사·부서"
               RenderStyle="@(_mode == Mode.Scope ? ButtonRenderStyle.Primary : ButtonRenderStyle.Secondary)"
               Click="@(() => SwitchAsync(Mode.Scope))" />
 
     <DxTextBox @bind-Text="_keyword" NullText="이름·아이디·부서·회사" Style="width: 240px"
                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
 
-    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Secondary" SizeMode="SizeMode.Small"
+    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Secondary"
               IconCssClass="jsini-icon-refresh" Click="@ReloadAsync" />
 </div>
 
@@ -123,13 +123,13 @@
                         <PermissionView Action="MenuAction.Update">
                             @if (direct)
                             {
-                                <DxButton Text="빼기" SizeMode="SizeMode.Small"
+                                <DxButton Text="빼기"
                                           RenderStyle="ButtonRenderStyle.Secondary"
                                           Click="@(() => RemoveAsync(role.Id))" />
                             }
                             else
                             {
-                                <DxButton Text="걸기" SizeMode="SizeMode.Small"
+                                <DxButton Text="걸기"
                                           RenderStyle="ButtonRenderStyle.Secondary"
                                           Click="@(() => AssignAsync(role.Id))" />
                             }

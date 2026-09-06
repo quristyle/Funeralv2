@@ -37,7 +37,6 @@
         <DxButton Text="‹"
                   RenderStyle="ButtonRenderStyle.Secondary"
                   RenderStyleMode="ButtonRenderStyleMode.Outline"
-                  SizeMode="SizeMode.Small"
                   aria-label="이전"
                   Click="@(() => ShiftAsync(-1))" />
 
@@ -46,7 +45,6 @@
         <DxButton Text="›"
                   RenderStyle="ButtonRenderStyle.Secondary"
                   RenderStyleMode="ButtonRenderStyleMode.Outline"
-                  SizeMode="SizeMode.Small"
                   aria-label="다음"
                   Click="@(() => ShiftAsync(1))" />
     </div>
@@ -55,7 +53,6 @@
     {
         <DxDateEdit Date="@Anchor"
                     DateChanged="@((DateTime date) => SetAnchorAsync(date))"
-                    SizeMode="SizeMode.Small"
                     CssClass="pm-dates__edit" />
     }
 </div>

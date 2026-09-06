@@ -1,0 +1,102 @@
+@*
+    공통 조회 영역. 화면 위쪽에 **조건과 단추를 모아 두는 판**이다.
+
+    ────────────────────────────────────────────────────────────
+    [화면을 두 층으로 나눈다]
+
+        ┌──────────────────────────────────────────────┐
+        │ 검색어 [        ]  상태 [   ]   [등록][초기화][조회] │  조회 영역 (CommSch)
+        ├──────────────────────────────────────────────┤
+        │                                              │
+        │                 표                            │  자료 영역 (CommGrd)
+        │                                              │
+        └──────────────────────────────────────────────┘
+
+    조건을 표 안쪽 도구줄에 두면 **표가 넓어질수록 조건이 밀려난다.** 칸이
+    열몇 개인 관리 화면에서는 가로 스크롤 저편으로 사라지기도 한다. 판을
+    따로 세우면 표가 어떻게 생겼든 조건은 늘 같은 자리, 같은 모양이다.
+
+    화면이 백 개가 넘는다. **같은 자리에 있는 것이 예쁜 것보다 중요하다.**
+
+    ────────────────────────────────────────────────────────────
+    [칸은 `CommSchItem` 으로 적는다]
+
+        <CommSch OnSearch="@@ReloadAsync" OnReset="@@ResetAsync">
+            <Fields>
+                <CommSchItem Label="검색어">
+                    <DxTextBox @@bind-Text="_keyword" Style="width: 240px" />
+                </CommSchItem>
+            </Fields>
+            <Actions>
+                <DxButton Text="등록" Click="@@StartNewAsync" />
+            </Actions>
+        </CommSch>
+
+    `Fields` 는 왼쪽에 흘러 담기고 `Actions` 는 오른쪽 끝에 붙는다.
+    좁은 화면에서는 단추 줄이 아래로 내려간다.
+
+    ────────────────────────────────────────────────────────────
+    [「조회」와 「초기화」는 이 판이 그린다]
+
+    `OnSearch` 를 주면 조회가, `OnReset` 을 주면 초기화가 생긴다. 안 주면
+    안 생긴다 — 조건이 즉시 반영되는 화면(브라우저 쪽에서 거르는 화면)은
+    조회 단추가 없어도 된다.
+
+    **단추 순서를 화면이 정하지 않는다.** 화면마다 조회가 왼쪽이었다가
+    오른쪽이었다가 하면, 백 개를 오가는 사람이 매번 눈으로 찾아야 한다.
+    화면 고유의 단추(`Actions`)가 먼저, 그다음 초기화, 조회가 맨 오른쪽이다.
+
+    ────────────────────────────────────────────────────────────
+    [Enter 로 조회하지 않는다]
+
+    조건 칸에 드롭다운이 섞여 있어서(상태 · 기간 · 담당자) Enter 가 목록을
+    고르는 뜻인지 조회하라는 뜻인지 갈린다. 둘을 겹치면 고르려다 조회되는
+    일이 생긴다. 필요한 화면이 나오면 그 화면에서 칸에 직접 건다.
+*@
+
+<div class="commsch">
+
+    <div class="commsch__fields">
+        @Fields
+    </div>
+
+    <div class="commsch__actions">
+        @Actions
+
+        @if (OnReset.HasDelegate)
+        {
+            <DxButton Text="초기화"
+                      RenderStyle="ButtonRenderStyle.Secondary"
+                      IconCssClass="jsini-icon-undo"
+                      Click="@(() => OnReset.InvokeAsync())" />
+        }
+
+        @if (OnSearch.HasDelegate)
+        {
+            <DxButton Text="@SearchText"
+                      RenderStyle="ButtonRenderStyle.Primary"
+                      IconCssClass="jsini-icon-search"
+                      Click="@(() => OnSearch.InvokeAsync())" />
+        }
+    </div>
+
+</div>
+
+@code {
+    /// <summary>조회 조건들. <c>CommSchItem</c> 을 넣는다.</summary>
+    [Parameter] public RenderFragment? Fields { get; set; }
+
+    /// <summary>
+    /// 이 화면만의 단추(등록·일괄처리 따위). 오른쪽 묶음의 <b>맨 앞</b>에 선다.
+    /// </summary>
+    [Parameter] public RenderFragment? Actions { get; set; }
+
+    /// <summary>조회. 주지 않으면 조회 단추가 생기지 않는다.</summary>
+    [Parameter] public EventCallback OnSearch { get; set; }
+
+    /// <summary>조건을 비우고 다시 읽는다. 주지 않으면 초기화 단추가 생기지 않는다.</summary>
+    [Parameter] public EventCallback OnReset { get; set; }
+
+    /// <summary>조회 단추의 글자. 「검색」으로 부르는 화면이 있어 열어 둔다.</summary>
+    [Parameter] public string SearchText { get; set; } = "조회";
+}

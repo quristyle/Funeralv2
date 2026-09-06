@@ -187,16 +187,16 @@ else
                     <div class="d-flex gap-1">
                         @* 옛 화면의 카테고리 라디오 자리. 자료는 한 번 받아 두고
                            고른 항목만 다시 그린다 — 단추마다 서버를 부르지 않는다. *@
-                        <DxButton Text="기온" SizeMode="SizeMode.Small"
+                        <DxButton Text="기온"
                                   RenderStyle="@MetricStyle(TrendMetric.Temp)"
                                   Click="@(() => _metric = TrendMetric.Temp)" />
-                        <DxButton Text="강수" SizeMode="SizeMode.Small"
+                        <DxButton Text="강수"
                                   RenderStyle="@MetricStyle(TrendMetric.Rain)"
                                   Click="@(() => _metric = TrendMetric.Rain)" />
-                        <DxButton Text="바람" SizeMode="SizeMode.Small"
+                        <DxButton Text="바람"
                                   RenderStyle="@MetricStyle(TrendMetric.Wind)"
                                   Click="@(() => _metric = TrendMetric.Wind)" />
-                        <DxButton Text="습도" SizeMode="SizeMode.Small"
+                        <DxButton Text="습도"
                                   RenderStyle="@MetricStyle(TrendMetric.Humid)"
                                   Click="@(() => _metric = TrendMetric.Humid)" />
                     </div>

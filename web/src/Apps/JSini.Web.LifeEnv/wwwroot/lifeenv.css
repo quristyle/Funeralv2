@@ -19,7 +19,7 @@
 
 .le-dept {
   margin-left: 0.4rem;
-  font-size: 0.75rem;
+  font-size: var(--jsini-fs-xs);
   color: var(--jsini-text-muted);
 }
 
@@ -44,14 +44,14 @@
 .le-day--other { opacity: 0.45; }
 
 .le-day__no {
-  font-size: 0.75rem;
+  font-size: var(--jsini-fs-xs);
   color: var(--jsini-text-muted);
 }
 
 .le-day__event {
   margin-top: 0.2rem;
   padding: 0.1rem 0.3rem;
-  font-size: 0.75rem;
+  font-size: var(--jsini-fs-xs);
   background: color-mix(in srgb, #2e7d32 12%, transparent);
   border-left: 2px solid #2e7d32;
 
@@ -63,7 +63,7 @@
 
 .le-day__lunar {
   margin-left: 0.25rem;
-  font-size: 0.65rem;
+  font-size: var(--jsini-fs-2xs);
   color: var(--jsini-text-muted);
 }
 
@@ -80,7 +80,7 @@
 /* 기상청 코드. 등폭으로 두어야 자릿수가 눈에 들어온다. */
 .lf-code {
   font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
-  font-size: 0.78rem;
+  font-size: var(--jsini-fs-xs);
   opacity: 0.8;
 }
 
@@ -107,7 +107,7 @@
   background: transparent;
   color: inherit;
   font: inherit;
-  font-size: 0.8rem;
+  font-size: var(--jsini-fs-sm);
   cursor: pointer;
 }
 
@@ -122,7 +122,7 @@
 
 /* 고른 판정 기준의 조건 문장. 요령만 보면 「언제 나가는 것인가」를 알 수 없다. */
 .lf-condition {
-  font-size: 0.82rem;
+  font-size: var(--jsini-fs-sm);
   opacity: 0.7;
 }
 
@@ -132,14 +132,14 @@
   align-items: center;
   gap: 0.35rem;
   flex-wrap: wrap;
-  font-size: 0.82rem;
+  font-size: var(--jsini-fs-sm);
 }
 
 .lf-threshold small { opacity: 0.6; }
 
 .lf-threshold__note {
   opacity: 0.7;
-  font-size: 0.78rem;
+  font-size: var(--jsini-fs-xs);
 }
 
 /* 전날 대비 오르내림. 색만으로는 색약에게 안 보이므로 화살표를 함께 쓴다. */
@@ -165,7 +165,7 @@
 
 .le-warn__count {
   margin-left: auto;
-  font-size: 0.8rem;
+  font-size: var(--jsini-fs-sm);
   color: var(--jsini-text-muted);
 }
 
@@ -210,13 +210,13 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 0.82rem;
+  font-size: var(--jsini-fs-sm);
   font-weight: 700;
 }
 
 .le-warn__when {
   flex: 0 0 auto;
-  font-size: 0.72rem;
+  font-size: var(--jsini-fs-2xs);
   color: var(--jsini-text-muted);
 }
 
@@ -227,7 +227,7 @@
   padding: 0.05rem 0.3rem;
   border: 1px solid rgba(211, 47, 47, 0.35);
   border-radius: 0.2rem;
-  font-size: 0.68rem;
+  font-size: var(--jsini-fs-2xs);
   color: #d32f2f;
 }
 
@@ -236,7 +236,7 @@
 .le-warn__label {
   display: block;
   margin-bottom: 0.25rem;
-  font-size: 0.65rem;
+  font-size: var(--jsini-fs-2xs);
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--jsini-text-muted);
@@ -273,7 +273,7 @@
 }
 
 .le-warn__time {
-  font-size: 0.72rem;
+  font-size: var(--jsini-fs-2xs);
   color: var(--jsini-text-muted);
 }
 
@@ -293,10 +293,10 @@
   padding: 0.15rem 0;
 }
 
-.le-warn__areaName { font-size: 0.78rem; font-weight: 700; }
+.le-warn__areaName { font-size: var(--jsini-fs-xs); font-weight: 700; }
 
 .le-warn__zone {
-  font-size: 0.68rem;
+  font-size: var(--jsini-fs-2xs);
   color: var(--jsini-text-muted);
 }
 
@@ -305,20 +305,20 @@
   border: 1px solid rgba(211, 47, 47, 0.3);
   border-radius: 0.2rem;
   background: var(--jsini-surface, #fff);
-  font-size: 0.68rem;
+  font-size: var(--jsini-fs-2xs);
   font-weight: 600;
   color: #d32f2f;
 }
 
 .le-warn__content {
   margin: 0;
-  font-size: 0.76rem;
+  font-size: var(--jsini-fs-xs);
   color: var(--jsini-text-muted);
 }
 
 .le-warn__other {
   margin: 0.2rem 0 0;
-  font-size: 0.7rem;
+  font-size: var(--jsini-fs-2xs);
   color: var(--jsini-text-muted);
 }
 
@@ -331,20 +331,20 @@
 
 .le-warn__msgTitle {
   margin: 0 0 0.2rem;
-  font-size: 0.95rem;
+  font-size: var(--jsini-fs-lg);
   font-weight: 700;
 }
 
 .le-warn__matched {
   margin: 0.3rem 0 0;
-  font-size: 0.78rem;
+  font-size: var(--jsini-fs-xs);
 }
 
 .le-warn__section { margin-top: 0.8rem; }
 
 .le-warn__sectionTitle {
   margin: 0 0 0.25rem;
-  font-size: 0.75rem;
+  font-size: var(--jsini-fs-xs);
   font-weight: 700;
   color: var(--jsini-text-muted);
 }
@@ -353,7 +353,7 @@
    줄바꿈은 컴포넌트가 <br> 로 바꿔 넣지만, 긴 낱말은 여기서 접는다. */
 .le-warn__text {
   margin: 0;
-  font-size: 0.8rem;
+  font-size: var(--jsini-fs-sm);
   line-height: 1.55;
   word-break: break-word;
 }
@@ -405,18 +405,18 @@
 }
 
 .le-month__no {
-  font-size: 0.7rem;
+  font-size: var(--jsini-fs-2xs);
   color: var(--jsini-text-muted);
 }
 
 .le-month__total {
-  font-size: 1.1rem;
+  font-size: var(--jsini-fs-xl);
   font-weight: 700;
   line-height: 1.1;
 }
 
 .le-month__split {
-  font-size: 0.62rem;
+  font-size: var(--jsini-fs-2xs);
   color: var(--jsini-text-muted);
 }
 
@@ -446,13 +446,13 @@
 
 .le-today__head {
   margin: 0 0 0.4rem;
-  font-size: 0.9rem;
+  font-size: var(--jsini-fs-md);
   font-weight: 700;
 }
 
 .le-today__empty {
   margin: 0;
-  font-size: 0.8rem;
+  font-size: var(--jsini-fs-sm);
   color: var(--jsini-text-muted);
 }
 
@@ -475,12 +475,12 @@
 .le-today__msg:last-child { border-bottom: 0; }
 
 .le-today__from {
-  font-size: 0.7rem;
+  font-size: var(--jsini-fs-2xs);
   color: var(--jsini-text-muted);
 }
 
 .le-today__text {
-  font-size: 0.82rem;
+  font-size: var(--jsini-fs-sm);
   word-break: break-word;
 }
 
@@ -505,11 +505,11 @@
 }
 
 .le-cur__temp {
-  font-size: 1.8rem;
+  font-size: var(--jsini-fs-4xl);
   font-weight: 800;
 }
 
-.le-cur__cond { font-size: 0.95rem; font-weight: 600; }
+.le-cur__cond { font-size: var(--jsini-fs-lg); font-weight: 600; }
 
 /* 주간 예보. 열 칸이 한 줄에 들어가야 「주간」으로 읽힌다 —
    세로로 쌓으면 그냥 목록이 된다. 좁으면 옆으로 굴린다. */
@@ -532,20 +532,20 @@
   text-align: center;
 }
 
-.le-week__when { font-size: 0.82rem; font-weight: 700; }
+.le-week__when { font-size: var(--jsini-fs-sm); font-weight: 700; }
 
 .le-week__date,
 .le-week__pop {
-  font-size: 0.68rem;
+  font-size: var(--jsini-fs-2xs);
   color: var(--jsini-text-muted);
 }
 
-.le-week__sky { font-size: 0.74rem; }
+.le-week__sky { font-size: var(--jsini-fs-xs); }
 
 .le-week__temp {
   display: flex;
   justify-content: center;
   gap: 0.4rem;
-  font-size: 0.95rem;
+  font-size: var(--jsini-fs-lg);
   font-weight: 700;
 }

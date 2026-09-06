@@ -115,7 +115,7 @@
                         @foreach (var (kind, label) in Retries)
                         {
                             <PermissionView Action="MenuAction.Update">
-                                <DxButton Text="@label" SizeMode="SizeMode.Small"
+                                <DxButton Text="@label"
                                           RenderStyle="ButtonRenderStyle.Secondary"
                                           Click="@(() => RetryAsync(m.Id, kind))" />
                             </PermissionView>

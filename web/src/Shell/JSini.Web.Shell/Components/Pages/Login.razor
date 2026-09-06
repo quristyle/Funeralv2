@@ -14,6 +14,9 @@
 @* 주입 이름을 `Login` 으로 두면 컴포넌트 클래스 이름과 겹쳐서 CS0542 가 난다. *@
 @inject LoginService Auth
 @inject NavigationManager Navigation
+@inject IWebHostEnvironment Env
+@inject IConfiguration Config
+@inject ILoggerFactory Loggers
 
 <PageTitle>로그인 · JSini 포털</PageTitle>
 
@@ -59,7 +62,90 @@
 
     private string? _error;
 
-    protected override void OnInitialized() => Input ??= new LoginInput();
+    /// <summary>자동 로그인을 이번만 건너뛴다 — <c>/login?noauto=1</c>.</summary>
+    [SupplyParameterFromQuery(Name = "noauto")] private string? NoAuto { get; set; }
+
+    /// <summary>
+    /// 폼을 만들고, <b>개발 장비에서는 그대로 로그인까지 해 버린다.</b>
+    ///
+    /// <para>
+    /// 화면을 다듬는 동안 하루에도 몇 번씩 재기동하는데, 그때마다 로그인 화면을
+    /// 지나가는 것이 작업 시간의 잡음이다. 그래서 개발 중에는 이 화면이
+    /// <b>보이지 않고</b> 곧바로 들어간다.
+    /// </para>
+    ///
+    /// <para>
+    /// [막는 곳이 셋이다]
+    /// </para>
+    ///
+    /// <list type="number">
+    ///   <item><c>IsDevelopment()</c> — 운영에서는 아예 안 돈다.</item>
+    ///   <item><c>DevLogin</c> 설정이 있어야 한다. 그 값은
+    ///         <c>appsettings.Local.json</c>(git 제외)에만 있다.
+    ///         <b>값을 소스에 적지 않는다</b> — 개발 환경이 운영 DB 를 바라보고
+    ///         있어 여기 적히는 것은 진짜 계정의 진짜 비밀번호다.</item>
+    ///   <item><c>DevLogin:Auto</c> 를 <c>false</c> 로 두면 채우기만 하고
+    ///         들어가지는 않는다.</item>
+    /// </list>
+    ///
+    /// <para>
+    /// 한 번만 건너뛰려면 <c>/login?noauto=1</c>. 로그아웃한 뒤 다른 계정으로
+    /// 들어가 볼 때 쓴다 — 그냥 로그아웃하면 이 화면이 다시 넣어 버린다.
+    /// </para>
+    ///
+    /// <para>
+    /// 들어갈 때마다 경고를 남긴다. <b>조용히 로그인되는 것이 가장 나쁘다</b> —
+    /// 로그를 보는 사람이 그 요청을 누가 한 것인지 알 수 있어야 한다.
+    /// </para>
+    /// </summary>
+    protected override async Task OnInitializedAsync()
+    {
+        // 폼 제출로 들어온 요청이면 사용자가 친 값이 들어 있다. 손대지 않는다.
+        if (Input is not null)
+        {
+            return;
+        }
+
+        Input = new LoginInput();
+
+        if (!Env.IsDevelopment())
+        {
+            return;
+        }
+
+        var id = Config["DevLogin:Username"];
+        var password = Config["DevLogin:Password"];
+
+        if (string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(password))
+        {
+            return;
+        }
+
+        Input.Username = id;
+        Input.Password = password;
+
+        if (!Config.GetValue("DevLogin:Auto", true) || NoAuto == "1")
+        {
+            return;
+        }
+
+        var result = await Auth.SignInAsync(HttpContext, id, password);
+
+        if (!result.Succeeded)
+        {
+            // 화면에 남겨 둔다. 자동으로 들어가려다 실패한 것이라 사용자가
+            // 손으로 다시 눌러 볼 수 있어야 한다.
+            _error = result.Message;
+            return;
+        }
+
+        Loggers.CreateLogger<Login>().LogWarning(
+            "개발 자동 로그인: {LoginId}. 끄려면 appsettings.Local.json 의 DevLogin:Auto 를 false 로 두십시오.", id);
+
+        Navigation.NavigateTo(
+            result.PasswordExpired ? "/password/change" : SafeReturnUrl(),
+            forceLoad: true);
+    }
 
     private async Task SubmitAsync()
     {

@@ -14,7 +14,7 @@
 
 .pm-dates__tab {
   padding: 0.25rem 0.7rem;
-  font-size: 0.8rem;
+  font-size: var(--jsini-fs-sm);
   color: inherit;
   cursor: pointer;
   background: transparent;
@@ -39,7 +39,7 @@
 /* 구간 표기가 "3.01 ~ 3.07" 과 "2026-09" 를 오가도 옆 버튼이 밀리지 않게 */
 .pm-dates__label {
   min-width: 6.5rem;
-  font-size: 0.85rem;
+  font-size: var(--jsini-fs-md);
   font-weight: 600;
   text-align: center;
 }

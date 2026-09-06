@@ -44,7 +44,7 @@
                 NullText="분류 전체" Style="width: 150px"
                 ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
 
-    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" SizeMode="SizeMode.Small"
+    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary"
               IconCssClass="jsini-icon-refresh" Click="@ReloadAsync" />
 
     <div class="jsini-toolbar__spacer"></div>
@@ -52,7 +52,7 @@
     @if (_canManage)
     {
         <PermissionView Action="MenuAction.Create">
-            <DxButton Text="등록" RenderStyle="ButtonRenderStyle.Primary" SizeMode="SizeMode.Small"
+            <DxButton Text="등록" RenderStyle="ButtonRenderStyle.Primary"
                       IconCssClass="jsini-icon-plus" Click="@StartNew" />
         </PermissionView>
     }
@@ -93,12 +93,12 @@
                     }
                     <div class="jsini-actions">
                         <PermissionView Action="MenuAction.Update">
-                            <DxButton Text="수정" SizeMode="SizeMode.Small"
+                            <DxButton Text="수정"
                                       RenderStyle="ButtonRenderStyle.Secondary"
                                       Click="@(() => StartEdit(a))" />
                         </PermissionView>
                         <PermissionView Action="MenuAction.Delete">
-                            <DxButton Text="삭제" SizeMode="SizeMode.Small"
+                            <DxButton Text="삭제"
                                       RenderStyle="ButtonRenderStyle.Secondary"
                                       Click="@(() => DeleteAsync(a))" />
                         </PermissionView>
@@ -173,7 +173,7 @@
                             <li class="fn-files__item">
                                 <span>@file.FileName</span>
                                 <span class="fn-files__size">@FormatSize(file.FileSize)</span>
-                                <DxButton Text="빼기" SizeMode="SizeMode.Small"
+                                <DxButton Text="빼기"
                                           RenderStyle="ButtonRenderStyle.Link"
                                           Click="@(() => _attached.Remove(file))" />
                             </li>

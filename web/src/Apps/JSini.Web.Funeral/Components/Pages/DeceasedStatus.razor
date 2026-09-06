@@ -78,17 +78,17 @@
                     <PermissionView Action="MenuAction.Update">
                         @if (row.Status == Departed)
                         {
-                            <DxButton Text="출상 취소" SizeMode="SizeMode.Small" RenderStyle="ButtonRenderStyle.Secondary"
+                            <DxButton Text="출상 취소" RenderStyle="ButtonRenderStyle.Secondary"
                                       Click="@(() => CancelAsync(row))" />
                         }
                         else
                         {
-                            <DxButton Text="출상" SizeMode="SizeMode.Small" RenderStyle="ButtonRenderStyle.Secondary"
+                            <DxButton Text="출상" RenderStyle="ButtonRenderStyle.Secondary"
                                       Click="@(() => DepartAsync(row))" />
                         }
 
                         @* 영정 사진 (D5). 빈소 디스플레이가 띄우는 그 사진이다. *@
-                        <DxButton Text="영정" SizeMode="SizeMode.Small" RenderStyle="ButtonRenderStyle.Secondary"
+                        <DxButton Text="영정" RenderStyle="ButtonRenderStyle.Secondary"
                                   Click="@(() => StartPhotoAsync(row))" />
                     </PermissionView>
                 </div>

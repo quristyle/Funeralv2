@@ -76,17 +76,17 @@
                     <PermissionView Action="MenuAction.Create">
                         @* 이 부서 아래에 새 부서를 만든다. 등록 폼에서 상위를
                            찾아 고르게 하면 부서가 수십 개일 때 자리를 잃는다. *@
-                        <DxButton Text="하위 추가" SizeMode="SizeMode.Small"
+                        <DxButton Text="하위 추가"
                                   RenderStyle="ButtonRenderStyle.Secondary"
                                   Click="@(() => OpenChild(d))" />
                     </PermissionView>
                     <PermissionView Action="MenuAction.Update">
-                        <DxButton Text="수정" SizeMode="SizeMode.Small"
+                        <DxButton Text="수정"
                                   RenderStyle="ButtonRenderStyle.Secondary"
                                   Click="@(() => OpenEdit(d))" />
                     </PermissionView>
                     <PermissionView Action="MenuAction.Delete">
-                        <DxButton Text="삭제" SizeMode="SizeMode.Small"
+                        <DxButton Text="삭제"
                                   RenderStyle="ButtonRenderStyle.Secondary"
                                   Click="@(() => DeleteAsync(d))" />
                     </PermissionView>

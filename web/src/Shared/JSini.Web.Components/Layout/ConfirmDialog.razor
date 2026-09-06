@@ -1,0 +1,107 @@
+@*
+    되돌릴 수 없는 동작을 하기 전에 한 번 묻는다.
+
+    [왜 부품으로 두는가]
+
+    옛 Vue 포털은 삭제마다 `Popconfirm` 을 달았는데, Blazor 로 옮기면서
+    그것이 통째로 빠져 있었다 — 표 안의 작은 링크 단추를 누르는 즉시 지워졌다.
+    화면마다 팝업을 하나씩 적으면 반드시 몇 개를 빠뜨리고, 빠뜨린 화면은
+    **누군가 잘못 지울 때까지 아무도 모른다.**
+
+    [쓰는 법]
+
+        <ConfirmDialog @@ref="_confirm" />
+
+        if (!await _confirm!.AskAsync($"「{이름}」 을(를) 지웁니다."))
+        {
+            return;
+        }
+
+    [왜 `Task<bool>` 인가]
+
+    부르는 쪽이 `if (…) return;` 한 줄로 끝나야 한다. 콜백을 받는 방식이면
+    "확인을 눌렀을 때 할 일" 을 따로 떼어 두어야 해서, 지우는 코드가 화면
+    아래쪽으로 흩어진다. 답이 올 때까지 기다리는 것은 `TaskCompletionSource`
+    가 한다 — 창을 띄우고, 사람이 누르면 그 결과를 넘긴다.
+
+    `RunContinuationsAsynchronously` 를 켠다. 안 켜면 답을 넘기는 그 자리에서
+    기다리던 코드가 이어 돌아, 렌더 중에 렌더를 부르는 모양이 된다.
+*@
+
+<DxPopup Visible="@_visible"
+         VisibleChanged="@OnVisibleChanged"
+         HeaderText="@_title"
+         Width="420"
+         CloseOnOutsideClick="false"
+         ShowFooter="true"
+         CssClass="jsini-confirm">
+    <BodyContentTemplate>
+        <div class="jsini-confirm__body">@_message</div>
+    </BodyContentTemplate>
+
+    <FooterContentTemplate>
+        @* 확인이 왼쪽이다. DevExpress 데모·Windows 관례가 그렇고,
+           무엇보다 「닫기」가 오른쪽 끝에 있어야 습관대로 눌러도 안 지워진다. *@
+        <DxButton Text="@_confirmText" RenderStyle="@_confirmStyle" Click="@(() => Answer(true))" />
+        <DxButton Text="취소" RenderStyle="ButtonRenderStyle.Secondary" Click="@(() => Answer(false))" />
+    </FooterContentTemplate>
+</DxPopup>
+
+@code {
+    private TaskCompletionSource<bool>? _pending;
+
+    private bool _visible;
+    private string _message = string.Empty;
+    private string _title = "확인";
+    private string _confirmText = "삭제";
+    private ButtonRenderStyle _confirmStyle = ButtonRenderStyle.Danger;
+
+    /// <summary>
+    /// 묻고 답을 기다린다. 확인이면 <c>true</c>.
+    ///
+    /// <para>
+    /// <paramref name="message"/> 에는 <b>무엇이 사라지는지</b>를 적는다.
+    /// "정말 삭제하시겠습니까?" 만으로는 어느 줄을 눌렀는지 확인할 수 없어
+    /// 묻는 의미가 절반쯤 없어진다.
+    /// </para>
+    /// </summary>
+    public Task<bool> AskAsync(
+        string message,
+        string title = "확인",
+        string confirmText = "삭제",
+        ButtonRenderStyle confirmStyle = ButtonRenderStyle.Danger)
+    {
+        // 앞의 물음이 남아 있으면 「아니오」로 닫는다. 둘이 겹쳐 뜨면 사람이
+        // 어느 쪽에 답한 것인지 알 수 없고, 안 물어본 것이 지워질 수 있다.
+        _pending?.TrySetResult(false);
+
+        _message = message;
+        _title = title;
+        _confirmText = confirmText;
+        _confirmStyle = confirmStyle;
+
+        _pending = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _visible = true;
+
+        StateHasChanged();
+        return _pending.Task;
+    }
+
+    /// <summary>바깥에서 닫힌 것(Esc · X)도 「아니오」다.</summary>
+    private void OnVisibleChanged(bool visible)
+    {
+        if (!visible)
+        {
+            Answer(false);
+        }
+    }
+
+    private void Answer(bool confirmed)
+    {
+        _visible = false;
+
+        var pending = _pending;
+        _pending = null;
+        pending?.TrySetResult(confirmed);
+    }
+}

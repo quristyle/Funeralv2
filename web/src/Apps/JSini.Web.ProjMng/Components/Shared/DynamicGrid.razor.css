@@ -29,7 +29,7 @@
 */
 .pm-grid__dirty {
   margin-left: auto;
-  font-size: 0.8rem;
+  font-size: var(--jsini-fs-sm);
   color: #d97706;
   font-weight: 600;
 }

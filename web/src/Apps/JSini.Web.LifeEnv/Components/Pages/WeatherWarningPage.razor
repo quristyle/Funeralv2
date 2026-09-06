@@ -55,7 +55,7 @@
     <DxComboBox Data="@_commands" Value="@_command"
                 ValueChanged="@((string? v) => _command = v)"
                 NullText="명령 전체" ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto"
-                SizeMode="SizeMode.Small" Style="width: 160px" />
+                Style="width: 160px" />
 
     <DxButton Text="새로고침" RenderStyle="ButtonRenderStyle.Primary" Click="@LoadAsync" />
 

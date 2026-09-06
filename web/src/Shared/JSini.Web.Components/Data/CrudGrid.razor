@@ -37,7 +37,7 @@
     @if (OnSave.HasDelegate)
     {
         <PermissionView Action="MenuAction.Create">
-            <DxButton Text="등록" RenderStyle="ButtonRenderStyle.Primary" SizeMode="SizeMode.Small"
+            <DxButton Text="등록" RenderStyle="ButtonRenderStyle.Primary"
                       IconCssClass="jsini-icon-plus" Click="@StartNewAsync" />
         </PermissionView>
     }
@@ -48,12 +48,12 @@
            않는다 — 다시 모으면 화면에 건 필터·정렬이 빠져 "보이는 것과 다른
            파일" 이 나온다. *@
         <PermissionView Action="MenuAction.Excel">
-            <DxButton Text="엑셀" RenderStyle="ButtonRenderStyle.Secondary" SizeMode="SizeMode.Small"
+            <DxButton Text="엑셀" RenderStyle="ButtonRenderStyle.Secondary"
                       IconCssClass="jsini-icon-excel" Click="@ExportAsync" />
         </PermissionView>
     }
 
-    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Secondary" SizeMode="SizeMode.Small"
+    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Secondary"
               IconCssClass="jsini-icon-refresh" Click="@(() => Reload.InvokeAsync())" />
 </div>
 
@@ -81,7 +81,7 @@
                         @if (OnSave.HasDelegate)
                         {
                             <PermissionView Action="MenuAction.Update">
-                                <DxButton Text="수정" SizeMode="SizeMode.Small"
+                                <DxButton Text="수정"
                                           RenderStyle="ButtonRenderStyle.Secondary"
                                           Click="@(() => EditAsync(cell.VisibleIndex))" />
                             </PermissionView>
@@ -92,7 +92,7 @@
                             @* 확인 창은 DevExpress 가 띄운다. 우리가 따로 만들면
                                화면마다 문구가 달라진다. *@
                             <PermissionView Action="MenuAction.Delete">
-                                <DxButton Text="삭제" SizeMode="SizeMode.Small"
+                                <DxButton Text="삭제"
                                           RenderStyle="ButtonRenderStyle.Secondary"
                                           Click="@(() => ConfirmDelete(cell.VisibleIndex))" />
                             </PermissionView>

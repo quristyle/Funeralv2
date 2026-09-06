@@ -71,7 +71,7 @@
                 <div class="st-inquiry__actions">
                     @foreach (var next in Statuses.Where(s => s != q.Status))
                     {
-                        <DxButton Text="@($"{StatusText(next)} 으로")" SizeMode="SizeMode.Small"
+                        <DxButton Text="@($"{StatusText(next)} 으로")"
                                   RenderStyle="ButtonRenderStyle.Secondary"
                                   Click="@(() => SetStatusAsync(q, next))" />
                     }

@@ -52,7 +52,7 @@
                 ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
 
     @* 기간 둘은 접어 둔다. 늘 펼치면 조건줄이 두 줄이 된다. *@
-    <DxButton Text="@(_showDates ? "기간 접기" : "기간 조건")" SizeMode="SizeMode.Small"
+    <DxButton Text="@(_showDates ? "기간 접기" : "기간 조건")"
               RenderStyle="ButtonRenderStyle.Link" Click="@(() => _showDates = !_showDates)" />
 
     <PermissionView Action="MenuAction.Create">
@@ -75,9 +75,9 @@
         <DxDateEdit @bind-Date="_funeralTo" NullText="끝"
                     ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
 
-        <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" SizeMode="SizeMode.Small"
+        <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary"
                   Click="@ReloadAsync" />
-        <DxButton Text="기간 지우기" RenderStyle="ButtonRenderStyle.Secondary" SizeMode="SizeMode.Small"
+        <DxButton Text="기간 지우기" RenderStyle="ButtonRenderStyle.Secondary"
                   Click="@ClearDatesAsync" />
     </div>
 }
@@ -118,7 +118,7 @@
                                     ValueExpression="@(() => GetTarget(d.Id))"
                                     TextFieldName="@nameof(Room.Name)" ValueFieldName="@nameof(Room.Id)"
                                     NullText="옮길 호실" Style="width: 140px" />
-                        <DxButton Text="이동" SizeMode="SizeMode.Small" RenderStyle="ButtonRenderStyle.Secondary"
+                        <DxButton Text="이동" RenderStyle="ButtonRenderStyle.Secondary"
                                   Click="@(() => MoveAsync(d))" />
                     </div>
                 </PermissionView>
@@ -135,13 +135,13 @@
                     {
                         @* 발인은 되돌릴 수 있다 — 서버가 그 길을 열어 두었다.
                            실수로 눌렀을 때 손쓸 방법이 있는 것과 없는 것은 다르다. *@
-                        <DxButton Text="발인 취소" SizeMode="SizeMode.Small"
+                        <DxButton Text="발인 취소"
                                   RenderStyle="ButtonRenderStyle.Secondary"
                                   Click="@(() => CancelDepartureAsync(d))" />
                     }
                     else
                     {
-                        <DxButton Text="발인 처리" SizeMode="SizeMode.Small"
+                        <DxButton Text="발인 처리"
                                   RenderStyle="ButtonRenderStyle.Secondary"
                                   Click="@(() => DepartAsync(d))" />
                     }
@@ -156,12 +156,12 @@
                 }
                 <div class="d-flex gap-1">
                     <PermissionView Action="MenuAction.Update">
-                        <DxButton Text="수정" SizeMode="SizeMode.Small"
+                        <DxButton Text="수정"
                                   RenderStyle="ButtonRenderStyle.Secondary"
                                   Click="@(() => OpenEdit(d))" />
                     </PermissionView>
                     <PermissionView Action="MenuAction.Delete">
-                        <DxButton Text="삭제" SizeMode="SizeMode.Small"
+                        <DxButton Text="삭제"
                                   RenderStyle="ButtonRenderStyle.Secondary"
                                   Click="@(() => DeleteAsync(d))" />
                     </PermissionView>

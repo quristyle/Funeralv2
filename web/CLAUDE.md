@@ -279,6 +279,25 @@ Classic 은 한 장이 2.8MB 다. 다 적으면 첫 방문에 십몇 MB 를 받�
 Bootstrap · Bootswatch 파일은 `wwwroot/bootstrap/` 에 커밋해 두었다
 (MIT, 1.2MB). **런타임에 CDN 을 부르지 않는다.**
 
+#### 화면에 Bootstrap 유틸리티 클래스를 쓰지 않는다 (실제로 밟음)
+
+`d-flex` · `gap-1` · `text-muted` 같은 것들이다. Bootstrap 이 실려 있을 때만
+있는 클래스인데, **기본 테마인 Fluent 에는 Bootstrap 이 없다.** 그래서
+Classic 이나 Bootstrap 테마로 보면 멀쩡하고 기본 테마에서만 어긋난다 —
+고른 테마에 따라 달라지는 것이라 재현 조건을 찾기 나쁘다.
+
+떠 있는 화면에서 잰 값:
+
+| 테마 | `.d-flex` |
+|---|---|
+| **Fluent Light (기본값)** | `display: block` |
+| Classic Blazing Berry | `display: flex` |
+| Bootstrap Flatly | `display: flex` |
+
+공통코드 화면의 「수정·삭제」 단추가 그래서 붙어 나왔다. 표 안의 단추 묶음은
+`jsini-actions`(app.css)를 쓴다. **razor 파일 스물몇 개가 아직 같은 클래스를
+쓰고 있다** — 눈에 띄면 그때 바꾼다.
+
 #### 꺼 둔 `<link>` 는 브라우저가 안 받는다 (실제로 밟음)
 
 증상은 **"테마를 골라도 아무 일이 없는데 F5 하면 적용돼 있다"** 였다.
@@ -309,6 +328,86 @@ theme.js 는 새 스타일시트가 다 실린 뒤에 옛 것을 끈다(그 사�
 단추로 탭 이동이 들어가지 않는다.
 
 덮개는 **헤더를 덮지 않는다.** 덮으면 방금 누른 테마 아이콘으로 다시 닫을 수 없다.
+
+#### 서랍의 생김새는 [docs/테마캡쳐.png](docs/테마캡쳐.png) 가 정본이다
+
+데모의 테마 창을 찍어 둔 그림이다. **치수와 색을 눈대중으로 맞추지 않는다** —
+그 그림의 픽셀에서 읽는다. 실제로 그렇게 뽑은 값들이다.
+
+| | 값 |
+|---|---|
+| 색 네모 | 20×20, 모서리 0.3rem |
+| 목록 | 두 칸, 줄 높이 ~37px |
+| 밝기·크기 칸 | 한 덩어리(segmented), 칸 하나 ~83×35 |
+| 묶음 제목 | 굵게 + **아래**에 밑줄 |
+| 고른 것 | 옅은 면 (`#f4f4f3` 언저리) |
+
+Fluent 강조색 열한 개와 Classic·Bootstrap 열 개의 스와치 색도 전부 그
+그림에서 읽었다(`theme.js`). 한동안 비슷해 보이는 색을 손으로 적어 두었는데,
+**고르기 전 네모와 고른 뒤 화면 색이 서로 달랐다.**
+
+고른 것은 **면으로** 칠한다. 테두리를 두르면 그 줄만 키가 커져 목록이 들썩인다.
+그 면 색은 테마 변수가 아니라 글자색을 옅게 섞어 만든다
+(`--jsini-theme-picked`) — `--jsini-surface` 는 판 배경과 같아지는 테마가 있어
+그런 테마에서는 고른 항목이 표시가 안 났다.
+
+#### 세로 flex 안의 줄은 **눌린다** (실제로 밟음)
+
+서랍 속(`.jsini-theme`)이 세로 flex 인데, 그 자식은 기본으로 줄어들 수 있다
+(`flex-shrink: 1`). 항목이 스물하나가 되어 판보다 길어지자 **굴리는 대신 전부
+납작해졌다** — 34px 이어야 할 밝기 칸이 12px 로 찌그러져 글자가 잘렸다.
+
+목록은 grid 라 멀쩡해 보여서 더 찾기 나빴다. `.jsini-theme > * { flex: 0 0 auto }`
+한 줄로 막는다.
+
+### 크기 — **화면에 `SizeMode` 를 적지 않는다**
+
+DevExpress 가 주는 크기는 셋뿐이다(`SizeMode.Small` · `Medium` · `Large`).
+서랍 맨 위에서 고르고, 기본값은 DevExpress 기본과 같은 **Medium** 이다.
+
+한동안 화면마다 `SizeMode="SizeMode.Small"` 을 손으로 박아 두었다 — **145곳**
+이었다. 사실상 Small 이 기본이었고, 그래서 "내용이 좀 작게 느껴진다" 는 말이
+나왔다. 전부 걷어냈다. **새 화면에서도 적지 않는다** — 적는 순간 그 부품만
+사용자의 선택을 안 따른다.
+
+값이 내려가는 길은 `Routes.razor` 를 감싼 `SizeModeScope` 다. DevExpress 부품은
+크기를 `[CascadingParameter(Name = "ParentSizeMode")]` 로 받으므로, 라우터를
+한 번 감싸면 그리드·편집기·단추·팝업이 모두 받아 간다.
+
+> 그 이름은 `DxComponentBase.ParentSizeModeCascadeName` 에 상수로 있지만
+> **internal 이라 참조할 수 없다.** `ThemeSize.CascadeName` 에 글자를 다시
+> 적어 두었다. 어긋나도 예외가 나지 않고 **크기만 안 먹는다.**
+
+#### 크기는 테마와 달리 **서버가 알아야 한다**
+
+테마는 스타일시트라 브라우저가 `<link>` 를 갈아 끼우면 끝이다. 크기는 다르다 —
+`dxbl-sm`/`dxbl-lg` 는 **서버가 HTML 을 만들 때** 부품 뿌리에 붙인다.
+`<html>` 에 클래스를 하나 붙여 두는 식으로는 아무 일도 일어나지 않는다
+(테마 CSS 가 `.dxbl-btn.dxbl-sm` 처럼 **부품 자신**을 겨눈다).
+
+그래서 첫 그림이 이미 맞으려면 값을 두 곳에서 얻어야 한다.
+
+| 시점 | 어디서 | 없으면 |
+|---|---|---|
+| 프리렌더 | 요청에 실려 온 `jsini.size` 쿠키 (theme.js 가 굽는다) | 늘 Medium 으로 그려진다 |
+| 회로 시작 | 프리렌더가 남긴 `PersistentComponentState` | 회로가 붙는 순간 Medium 으로 되돌아간다 |
+
+회로에는 HttpContext 가 없어 쿠키를 다시 읽을 수 없다 — 두 번째 칸이 그래서 있다.
+
+#### 글자 크기를 `rem` 으로 박지 않는다 — `--jsini-fs-*` 사다리를 쓴다
+
+`rem` 은 `<html>`(16px)에 묶이는데 **본문은 14px 이다**(테마가 body 에
+`--dxds-font-size-base-md` 를 건다). 그래서 `font-size: 0.8rem` 라벨은 옆에 선
+DevExpress 편집기보다 작고, 크기를 Large 로 바꿔도 꿈쩍하지 않는다.
+
+사다리의 뿌리(`--jsini-fs-base`)가 크기 모드를 따라간다 — Small 0.75rem ·
+Medium 0.875rem · Large 1rem. **DevExpress 가 정한 값을 그대로 옮긴 것**이지
+우리가 고른 값이 아니다. `data-dx-size` 는 theme.js 가 `<head>` 안에서 동기로
+세우므로 글자 크기는 스타일시트를 기다리지 않는다.
+
+단은 `2xs · xs · sm · md · lg · xl · 2xl · 3xl · 4xl` 아홉이고, Medium 에서
+옛 하드코딩 값과 거의 같은 픽셀이 되도록 배수를 잡았다 — **Medium 화면은
+이 작업 전과 같고, Small·Large 를 골랐을 때 비로소 따라온다.**
 
 ### 레이아웃 치수는 DevExpress 데모에서 가져왔다
 

@@ -41,7 +41,7 @@
                 NullText="전체" Style="width: 140px"
                 ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
 
-    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" SizeMode="SizeMode.Small"
+    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary"
               IconCssClass="jsini-icon-refresh" Click="@ReloadAsync" />
 
     <div class="jsini-toolbar__spacer"></div>
@@ -49,7 +49,7 @@
     @if (_canWrite)
     {
         <PermissionView Action="MenuAction.Create">
-            <DxButton Text="질문 등록" RenderStyle="ButtonRenderStyle.Primary" SizeMode="SizeMode.Small"
+            <DxButton Text="질문 등록" RenderStyle="ButtonRenderStyle.Primary"
                       IconCssClass="jsini-icon-plus" Click="@StartAsk" />
         </PermissionView>
     }

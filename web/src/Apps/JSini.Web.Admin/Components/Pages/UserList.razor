@@ -20,6 +20,18 @@
     등록하면 서버가 초기 비밀번호를 정하고, 바꾸는 것은 본인이
     `/admin/profile` 에서 한다. 관리자가 남의 비밀번호를 직접 넣는 길을
     열어 두면 그 값이 화면·로그·요청 본문에 남는다.
+
+    [공통 부품을 처음 적용한 화면이다 — 화면 구성이 세 층이다]
+
+        조회 영역 (CommSch)   조건 · 초기화 · 조회
+        자료 영역 (CommGrd)   표 · 관리 칸
+        표 아래 띠            등록 · 다시 읽기 · 엑셀   ← CommGrd 가 저절로 그린다
+
+    쪽 크기 · 검색칸 · 등록 · 엑셀은 이제 이 파일에 안 적는다. `CommGrd` 가
+    정하고, 다르게 하고 싶을 때만 `DxGrid` 파라미터를 그대로 적으면 그것이 이긴다.
+
+    조건을 표 안쪽에 두던 것을 위로 올렸다. 표가 넓어질수록 조건이 밀려나기
+    때문이다 — 이 화면은 칸이 아홉이다.
 *@
 
 @inherits DataPage
@@ -27,119 +39,141 @@
 
 <PageTitle>계정 관리 · 포털관리</PageTitle>
 
-<PageHeading Title="계정 관리" Scope="포털관리" />
+@* 조회 결과·실패 안내. 저장·삭제 안내는 CommGrd 가 자기 자리에 띄운다. *@
+<PageNotice Text="@Notice" Tone="@Tone" />
 
-<CrudGrid TItem="AccountDto"
-          Data="@Shown"
-          EditFormTitle="계정"
-          ExportName="계정"
-          PageSize="20"
-          OnNew="@FillNew"
-          OnSave="@SaveAsync"
-          OnDelete="@DeleteAsync"
-          Reload="@ReloadAsync">
-    <ChildContent>
-        <DxTextBox @bind-Text="_keyword" NullText="아이디·이름·이메일 검색" Style="width: 230px"
-                   ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+@* ── 조회 영역 ────────────────────────────────────────────
 
-        <DxComboBox Data="@StatusFilters" @bind-Value="_status"
-                    NullText="전체 상태" Style="width: 120px"
-                    ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
-    </ChildContent>
+   거르기는 브라우저 쪽에서 하므로 조건을 고치는 즉시 표가 반응한다.
+   그래도 「조회」를 둔다 — 다른 사람이 방금 등록한 계정을 보려면 서버에
+   다시 물어야 하고, 그 뜻으로 누르는 단추가 화면마다 같은 자리에 있어야 한다. *@
+<CommSch OnSearch="@ReloadAsync" OnReset="@ResetAsync">
+    <Fields>
+        <CommSchItem Label="검색어">
+            <DxTextBox @bind-Text="_keyword" NullText="아이디·이름·이메일" Style="width: 240px"
+                       ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        </CommSchItem>
 
-    <Columns>
-        <DxGridDataColumn FieldName="@nameof(AccountDto.LoginId)" Caption="아이디" Width="130" />
-        <DxGridDataColumn FieldName="@nameof(AccountDto.UserName)" Caption="이름" Width="110" />
-        <DxGridDataColumn FieldName="@nameof(AccountDto.Email)" Caption="이메일" MinWidth="180" />
-        <DxGridDataColumn FieldName="@nameof(AccountDto.Phone)" Caption="연락처" Width="130" />
-        <DxGridDataColumn FieldName="@nameof(AccountDto.CompanyName)" Caption="회사" Width="130" />
-        <DxGridDataColumn FieldName="@nameof(AccountDto.DeptName)" Caption="부서" Width="130" />
+        <CommSchItem Label="상태">
+            <DxComboBox Data="@StatusFilters" @bind-Value="_status"
+                        NullText="전체" Style="width: 140px"
+                        ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        </CommSchItem>
+    </Fields>
+</CommSch>
 
-        @* 역할은 여러 개라 문자열로 이어 보여 준다. 칸을 나누면 사람마다
-           개수가 달라 표가 들쭉날쭉해진다. *@
-        <DxGridDataColumn FieldName="@nameof(AccountDto.RoleText)" Caption="역할" MinWidth="150" />
+@* ── 자료 영역 ────────────────────────────────────────────
 
-        <DxGridDataColumn Caption="상태" Width="90">
-            <CellDisplayTemplate Context="cell">
-                @{
-                    var a = (AccountDto)cell.DataItem;
-                }
-                <span class="jsini-badge @StatusClass(a.Status)">@StatusText(a.Status)</span>
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
+   자료 영역이 하나뿐이라 `Title` 을 비운다 — 화면 제목이 이미 그 이름이다.
+   둘 이상이면 그때 이름을 단다.
 
-        <DxGridDataColumn FieldName="@nameof(AccountDto.CreatedAt)" Caption="등록일" Width="110"
-                          DisplayFormat="yyyy-MM-dd" />
-    </Columns>
+   `PageSize` 도 `ShowSearchBox` 도 적지 않는다 — CommGrd 의 기본값을 쓴다.
+   여기서 적은 것은 이 화면에서만 다른 값(`ShowFilterRow`)이다. *@
+<CommCont>
+    <CommGrd TItem="AccountDto"
+             Data="@Shown"
+             EditFormTitle="계정"
+             ExportName="계정"
+             EmptyText="등록된 계정이 없습니다."
+             ShowFilterRow="true"
+             OnNew="@FillNew"
+             OnSave="@SaveAsync"
+             OnDelete="@DeleteAsync"
+             Reload="@ReloadAsync">
+        <Columns>
+            <DxGridDataColumn FieldName="@nameof(AccountDto.LoginId)" Caption="아이디" Width="130" />
+            <DxGridDataColumn FieldName="@nameof(AccountDto.UserName)" Caption="이름" Width="110" />
+            <DxGridDataColumn FieldName="@nameof(AccountDto.Email)" Caption="이메일" MinWidth="180" />
+            <DxGridDataColumn FieldName="@nameof(AccountDto.Phone)" Caption="연락처" Width="130" />
+            <DxGridDataColumn FieldName="@nameof(AccountDto.CompanyName)" Caption="회사" Width="130" />
+            <DxGridDataColumn FieldName="@nameof(AccountDto.DeptName)" Caption="부서" Width="130" />
 
-    <EditForm Context="edit">
-        @{
-            var a = (AccountDto)edit.EditModel;
-            var isNew = string.IsNullOrEmpty(a.Id);
-        }
-        <DxFormLayout CssClass="ad-editform">
-            <DxFormLayoutItem Caption="로그인 아이디" ColSpanMd="6">
-                @* 수정할 때는 읽기 전용이다. 위 주석 참고. *@
-                <DxTextBox @bind-Text="a.LoginId" ReadOnly="@(!isNew)"
-                           NullText="영문·숫자" />
-            </DxFormLayoutItem>
+            @* 역할은 여러 개라 문자열로 이어 보여 준다. 칸을 나누면 사람마다
+               개수가 달라 표가 들쭉날쭉해진다. *@
+            <DxGridDataColumn FieldName="@nameof(AccountDto.RoleText)" Caption="역할" MinWidth="150" />
 
-            <DxFormLayoutItem Caption="이름" ColSpanMd="6">
-                <DxTextBox @bind-Text="a.UserName" />
-            </DxFormLayoutItem>
+            <DxGridDataColumn Caption="상태" Width="90">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var a = (AccountDto)cell.DataItem;
+                    }
+                    <span class="jsini-badge @StatusClass(a.Status)">@StatusText(a.Status)</span>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
 
-            <DxFormLayoutItem Caption="이메일" ColSpanMd="6">
-                <DxTextBox @bind-Text="a.Email" NullText="user@example.com" />
-            </DxFormLayoutItem>
+            <DxGridDataColumn FieldName="@nameof(AccountDto.CreatedAt)" Caption="등록일" Width="110"
+                              DisplayFormat="yyyy-MM-dd" />
+        </Columns>
 
-            <DxFormLayoutItem Caption="연락처" ColSpanMd="6">
-                <DxTextBox @bind-Text="a.Phone" NullText="010-0000-0000" />
-            </DxFormLayoutItem>
+        <EditFormTemplate Context="edit">
+            @{
+                var a = (AccountDto)edit.EditModel;
+                var isNew = string.IsNullOrEmpty(a.Id);
+            }
+            <DxFormLayout CssClass="ad-editform">
+                <DxFormLayoutItem Caption="로그인 아이디 " ColSpanMd="6">
+                    @* 수정할 때는 읽기 전용이다. 위 주석 참고. *@
+                    <DxTextBox @bind-Text="a.LoginId" ReadOnly="@(!isNew)"
+                               NullText="영문·숫자" />
+                </DxFormLayoutItem>
 
-            <DxFormLayoutItem Caption="부서" ColSpanMd="6">
-                <DxComboBox Data="@_depts" @bind-Value="a.DeptId"
-                            TextFieldName="@nameof(DeptDto.Name)"
-                            ValueFieldName="@nameof(DeptDto.Id)"
-                            NullText="소속 없음"
-                            ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
-            </DxFormLayoutItem>
+                <DxFormLayoutItem Caption="이름" ColSpanMd="6">
+                    <DxTextBox @bind-Text="a.UserName" />
+                </DxFormLayoutItem>
 
-            <DxFormLayoutItem Caption="상태" ColSpanMd="6">
-                <DxComboBox Data="@StatusOptions" @bind-Value="a.Status"
-                            TextFieldName="Text" ValueFieldName="Value" />
-            </DxFormLayoutItem>
+                <DxFormLayoutItem Caption="이메일" ColSpanMd="6">
+                    <DxTextBox @bind-Text="a.Email" NullText="user@example.com" />
+                </DxFormLayoutItem>
 
-            <DxFormLayoutItem Caption="역할" ColSpanMd="12">
-                @* 여러 개를 고른다. 한 사람이 「장례 관리자」와 「헬프데스크
-                   담당」을 함께 가지는 경우가 실제로 있다. *@
-                @* DxTagBox 는 `IEnumerable<string>` 을 주고받는데 자료는
-                   `List<string>` 이다. `@@bind-` 로는 형이 안 맞아 값과 변경을
-                   따로 받는다. *@
-                <DxTagBox Data="@_roles"
-                          Values="@a.RoleIds"
-                          ValuesChanged="@((IEnumerable<string> v) => a.RoleIds = [.. v])"
-                          TextFieldName="@nameof(RoleDto.Name)"
-                          ValueFieldName="@nameof(RoleDto.Id)"
-                          NullText="역할 없음" />
-            </DxFormLayoutItem>
+                <DxFormLayoutItem Caption="연락처" ColSpanMd="6">
+                    <DxTextBox @bind-Text="a.Phone" NullText="010-0000-0000" />
+                </DxFormLayoutItem>
 
-            <DxFormLayoutItem Caption="생일" ColSpanMd="5">
-                @* 생활과환경의 생일 화면이 이 값을 읽는다. *@
-                <DxDateEdit Date="@ToDate(a.BirthDate)"
-                            DateChanged="@((DateTime? d) => { a.BirthDate = ToDateOnly(d); })"
-                            NullText="비워 둘 수 있다" />
-            </DxFormLayoutItem>
+                <DxFormLayoutItem Caption="부서" ColSpanMd="6">
+                    <DxComboBox Data="@_depts" @bind-Value="a.DeptId"
+                                TextFieldName="@nameof(DeptDto.Name)"
+                                ValueFieldName="@nameof(DeptDto.Id)"
+                                NullText="소속 없음"
+                                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+                </DxFormLayoutItem>
 
-            <DxFormLayoutItem Caption="음력" ColSpanMd="3">
-                <DxCheckBox @bind-Checked="a.BirthDateIsLunar">음력</DxCheckBox>
-            </DxFormLayoutItem>
+                <DxFormLayoutItem Caption="상태" ColSpanMd="6">
+                    <DxComboBox Data="@StatusOptions" @bind-Value="a.Status"
+                                TextFieldName="Text" ValueFieldName="Value" />
+                </DxFormLayoutItem>
 
-            <DxFormLayoutItem Caption="축하 대상" ColSpanMd="4">
-                <DxCheckBox @bind-Checked="a.BirthdayCelebrated">생일 목록에 넣는다</DxCheckBox>
-            </DxFormLayoutItem>
-        </DxFormLayout>
-    </EditForm>
-</CrudGrid>
+                <DxFormLayoutItem Caption="역할" ColSpanMd="12">
+                    @* 여러 개를 고른다. 한 사람이 「장례 관리자」와 「헬프데스크
+                       담당」을 함께 가지는 경우가 실제로 있다. *@
+                    @* DxTagBox 는 `IEnumerable<string>` 을 주고받는데 자료는
+                       `List<string>` 이다. `@@bind-` 로는 형이 안 맞아 값과 변경을
+                       따로 받는다. *@
+                    <DxTagBox Data="@_roles"
+                              Values="@a.RoleIds"
+                              ValuesChanged="@((IEnumerable<string> v) => a.RoleIds = [.. v])"
+                              TextFieldName="@nameof(RoleDto.Name)"
+                              ValueFieldName="@nameof(RoleDto.Id)"
+                              NullText="역할 없음" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="생일" ColSpanMd="5">
+                    @* 생활과환경의 생일 화면이 이 값을 읽는다. *@
+                    <DxDateEdit Date="@ToDate(a.BirthDate)"
+                                DateChanged="@((DateTime? d) => { a.BirthDate = ToDateOnly(d); })"
+                                NullText="비워 둘 수 있다" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="음력" ColSpanMd="3">
+                    <DxCheckBox @bind-Checked="a.BirthDateIsLunar">음력</DxCheckBox>
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="축하 대상" ColSpanMd="4">
+                    <DxCheckBox @bind-Checked="a.BirthdayCelebrated">생일 목록에 넣는다</DxCheckBox>
+                </DxFormLayoutItem>
+            </DxFormLayout>
+        </EditFormTemplate>
+    </CommGrd>
+</CommCont>
 
 @code {
     private IReadOnlyList<AccountDto> _all = [];
@@ -205,6 +239,20 @@
         _all = await Api.GetAccountsAsync();
         return _all.Count;
     }, "등록된 계정이 없습니다.", "계정 목록을 읽지 못했습니다");
+
+    /// <summary>
+    /// 조건을 비우고 다시 읽는다.
+    ///
+    /// 비우기만 해도 표는 즉시 전체로 돌아가지만(거르기가 브라우저 쪽이라),
+    /// 다시 읽는 것까지 함께 한다 — 「초기화」를 누르는 사람은 대개
+    /// 처음 들어온 상태를 기대한다.
+    /// </summary>
+    private Task ResetAsync()
+    {
+        _keyword = null;
+        _status = null;
+        return ReloadAsync();
+    }
 
     private void FillNew(AccountDto a)
     {

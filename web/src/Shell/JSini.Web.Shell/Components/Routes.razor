@@ -1,9 +1,14 @@
 @*
     셸의 라우팅. Piral MFE 모듈의 어셈블리들을 AdditionalAssemblies 로 받아
     단일 SPA 안에서 모든 업무 화면을 매끄럽게 처리한다.
+
+    라우터를 SizeModeScope 로 감싼다 — 사용자가 고른 DevExpress 크기를 부품
+    전체에 흘리는 자리다. **레이아웃이 아니라 여기여야** 팝업 · 알림 · 확인창과
+    로그인 화면까지 함께 받는다. 자세한 것은 그 컴포넌트의 머리말에 있다.
 *@
 @inject PortalModuleRegistry ModuleRegistry
 
+<SizeModeScope>
 <Router AppAssembly="@typeof(Program).Assembly" AdditionalAssemblies="@ModuleRegistry.Assemblies">
     <Found Context="routeData">
         <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)">
@@ -32,3 +37,4 @@
         </LayoutView>
     </NotFound>
 </Router>
+</SizeModeScope>

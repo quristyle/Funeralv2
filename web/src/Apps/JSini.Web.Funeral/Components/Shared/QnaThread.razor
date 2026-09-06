@@ -52,15 +52,15 @@
     <footer class="fn-qna__tools">
         @if (CanReply)
         {
-            <DxButton Text="답글" SizeMode="SizeMode.Small" RenderStyle="ButtonRenderStyle.Link"
+            <DxButton Text="답글" RenderStyle="ButtonRenderStyle.Link"
                       Click="@(() => Reply.InvokeAsync(Post))" />
         }
 
         @if (Post.CanEdit)
         {
-            <DxButton Text="수정" SizeMode="SizeMode.Small" RenderStyle="ButtonRenderStyle.Link"
+            <DxButton Text="수정" RenderStyle="ButtonRenderStyle.Link"
                       Click="@(() => Edit.InvokeAsync(Post))" />
-            <DxButton Text="삭제" SizeMode="SizeMode.Small" RenderStyle="ButtonRenderStyle.Link"
+            <DxButton Text="삭제" RenderStyle="ButtonRenderStyle.Link"
                       Click="@(() => Delete.InvokeAsync(Post))" />
         }
 
@@ -69,7 +69,7 @@
             @* 공개 여부는 관리자만 바꾼다. 답글까지 함께 바꿀지는 뿌리 글에서만
                뜻이 있어 그 자리에서 묻는다. *@
             <DxButton Text="@(Post.IsPublic ? "비공개로" : "공개로")"
-                      SizeMode="SizeMode.Small" RenderStyle="ButtonRenderStyle.Link"
+            RenderStyle="ButtonRenderStyle.Link"
                       Click="@(() => ToggleVisibility.InvokeAsync(Post))" />
         }
     </footer>

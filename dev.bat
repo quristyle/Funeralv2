@@ -11,6 +11,7 @@ setlocal enabledelayedexpansion
 ::   dev.bat auth file       여러 개 지정도 된다
 ::   dev.bat site web        회사 소개 사이트만 (백엔드 :5480 + 프론트 :5556)
 ::   dev.bat blazor          업무 포털만 (:5557)
+::   (모든 기동이 감시 모드다 - 고치면 다시 띄우지 않아도 반영된다)
 ::   dev.bat stop auth       AuthServer 만 중지
 ::   dev.bat allstop         전체 중지
 ::   dev.bat status          지금 무엇이 떠 있는지 확인
@@ -22,9 +23,15 @@ setlocal enabledelayedexpansion
 ::   · 중지는 scripts\dev-stop.ps1 에 맡긴다. 윈도우에는 /proc 이 없어 작업
 ::     디렉터리(cwd)로 프로세스를 고를 수 없고, 배치에는 부모 프로세스를 따라
 ::     올라갈 방법도 없다. 포트 + 실행 파일 경로 + 부모 사슬로 같은 일을 한다.
-::   · 기동은 dotnet run --no-build 다. 앞 단계에서 이미 빌드했으므로 다시 빌드하지 않는다.
-::     리눅스/맥처럼 파일 변경 감지를 쓰려면 아래 START_CMD 를
-::     dotnet watch run --no-hot-reload 로 바꾸면 된다.
+::   · 기동은 dotnet watch run 이다. **모든 서비스가 감시 모드로 돈다** —
+::     고치면 다시 띄우지 않아도 반영된다(Hot Reload).
+::
+:: ── 감시 모드에서 알아 둘 것 둘 ─────────────────────────────
+::   · 감시 중인 서비스는 자기 DLL 을 물고 있다. 그래서 **다른 창에서
+::     dotnet build 를 하면 MSB3027 로 실패한다.** 빌드하려면 그 서비스를
+::     먼저 내린다 (dev.bat stop <서비스>).
+::   · 고칠 수 없는 종류의 수정(타입 추가·시그니처 변경)은 되묻지 않고
+::     그냥 다시 띄운다 (DOTNET_WATCH_RESTART_ON_RUDE_EDIT).
 :: ============================================================
 
 set "EXITCODE=0"
@@ -34,8 +41,14 @@ if "%ROOT_DIR:~-1%"=="\" set "ROOT_DIR=%ROOT_DIR:~0,-1%"
 
 set "SECRETS_FILE=%ROOT_DIR%\scripts\secrets.env"
 
-:: 서비스 기동 명령. 파일 변경 감지를 원하면 여기를 바꾼다.
-set "START_CMD=dotnet run --no-build"
+:: 서비스 기동 명령.
+::
+:: **`--no-build` 를 붙이지 않는다.** 감시가 스스로 컴파일해서 갈아 끼우는데,
+:: 처음부터 빌드를 건너뛰면 무엇을 기준으로 갈아 끼울지 알 수 없다.
+::
+:: 운영과 같은 방식(감시 없이)으로 돌려 봐야 할 때만 아래를
+:: `dotnet run --no-build` 로 바꾼다.
+set "START_CMD=dotnet watch run"
 
 :: ------------------------------------------------------------
 :: scripts\secrets.env 가 있으면 이 스크립트의 환경에 실어 둔다.
@@ -119,6 +132,7 @@ if /i "%CMD%"=="list"    goto cmd_list
 if /i "%CMD%"=="status"  goto cmd_status
 if /i "%CMD%"=="allstop" goto cmd_allstop
 if /i "%CMD%"=="stop"    goto cmd_stop
+if /i "%CMD%"=="watch"   goto cmd_watch
 if /i "%CMD%"=="all"     goto cmd_all
 goto cmd_restart
 
@@ -213,6 +227,18 @@ echo ====================================================
 set "TARGETS=%SVC_KEYS_DEFAULT%"
 call :restart_services
 goto end
+
+:: ------------------------------------------------------------
+:: watch — 이제 평소 기동과 같은 일이다.
+::
+:: 한동안 감시 모드가 따로 있었지만 지금은 **모든 기동이 감시 모드**라
+:: 구분할 것이 없다. 손에 익은 이름이라 그대로 받아 주기만 한다
+:: (`dev.bat watch blazor` = `dev.bat blazor`).
+:: ------------------------------------------------------------
+:cmd_watch
+shift
+if "%~1"=="" goto cmd_all
+goto cmd_restart
 
 :: ------------------------------------------------------------
 :cmd_restart
@@ -340,9 +366,20 @@ exit /b 0
 call :svc_get %~1
 
 set "SERVER_NAME=!SVC_NAME!"
-set "DOTNET_WATCH_HOT_RELOAD=0"
+
+:: 감시 모드로 띄운다. 고치면 다시 띄우지 않아도 반영된다.
+::
+:: **끄지 않는다.** 예전에는 여기서 DOTNET_WATCH_HOT_RELOAD 를 0 으로 박아
+:: 두어서, 기동 명령을 dotnet watch 로 바꿔도 핫 리로드가 안 걸렸다 —
+:: 「감시로 띄웠는데 왜 안 바뀌지」로 나타난다.
+set "DOTNET_WATCH_HOT_RELOAD=1"
+
+:: 고칠 수 없는 수정(타입 추가·시그니처 변경)은 되묻지 않고 다시 띄운다.
+:: 물어보면 창을 들여다볼 때까지 서비스가 멈춰 있다.
+set "DOTNET_WATCH_RESTART_ON_RUDE_EDIT=1"
+
 start "!SVC_LABEL!" /D "!SVC_DIR!" cmd /k !SVC_CMD!
-echo    [OK] !SVC_LABEL! 기동 ^(포트 !SVC_PORT!^)
+echo    [OK] !SVC_LABEL! 기동 ^(포트 !SVC_PORT! · 감시 중 - 고치면 반영^)
 timeout /t 2 /nobreak > nul
 exit /b 0
 
@@ -398,6 +435,7 @@ echo.
 echo   ^(없음^)              전체 재기동 - 중지, 빌드, 기동
 echo   all                 위와 같음
 echo   ^<서비스^> [^<서비스^>] 지정한 서비스만 재기동 - 그 서비스만 빌드한다
+echo   watch ^<서비스^>...   위와 같음 - 모든 기동이 감시 모드다
 echo   stop ^<서비스^>...    지정한 서비스만 중지
 echo   allstop             전체 중지
 echo   status              지금 무엇이 떠 있는지 확인
@@ -412,6 +450,7 @@ for %%k in (%SVC_KEYS%) do (
 )
 echo.
 echo 예시
+echo   dev.bat watch blazor      업무 포털을 감시 기동 ^(고치면 즉시 반영^)
 echo   dev.bat auth              AuthServer 만 다시 띄운다
 echo   dev.bat site web          소개 사이트 백엔드^(:5480^)와 프론트^(:5556^)를 다시 띄운다
 echo   dev.bat projmng blazor    ProjMng 백엔드와 업무 포털을 다시 띄운다

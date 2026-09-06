@@ -60,7 +60,7 @@ else
                                 ValueFieldName="@nameof(MediaSource.Id)"
                                 Value="@r.MediaSourceId"
                                 ValueChanged="@((string? v) => r.MediaSourceId = v ?? string.Empty)"
-                                NullText="이미지를 고르십시오" SizeMode="SizeMode.Small" />
+                                NullText="이미지를 고르십시오" />
                 </CellDisplayTemplate>
             </DxGridDataColumn>
 
@@ -70,7 +70,7 @@ else
                         var r = (DeviceRibbon)context.DataItem;
                     }
                     <DxSpinEdit Value="@r.PositionLeft" ValueChanged="@((double v) => r.PositionLeft = v)"
-                                MinValue="0" MaxValue="100" Increment="0.5" SizeMode="SizeMode.Small" />
+                                MinValue="0" MaxValue="100" Increment="0.5" />
                 </CellDisplayTemplate>
             </DxGridDataColumn>
 
@@ -80,7 +80,7 @@ else
                         var r = (DeviceRibbon)context.DataItem;
                     }
                     <DxSpinEdit Value="@r.PositionTop" ValueChanged="@((double v) => r.PositionTop = v)"
-                                MinValue="0" MaxValue="100" Increment="0.5" SizeMode="SizeMode.Small" />
+                                MinValue="0" MaxValue="100" Increment="0.5" />
                 </CellDisplayTemplate>
             </DxGridDataColumn>
 
@@ -90,7 +90,7 @@ else
                         var r = (DeviceRibbon)context.DataItem;
                     }
                     <DxSpinEdit Value="@r.Width" ValueChanged="@((double v) => r.Width = v)"
-                                MinValue="0" MaxValue="100" Increment="0.5" SizeMode="SizeMode.Small" />
+                                MinValue="0" MaxValue="100" Increment="0.5" />
                 </CellDisplayTemplate>
             </DxGridDataColumn>
 
@@ -100,7 +100,7 @@ else
                         var r = (DeviceRibbon)context.DataItem;
                     }
                     <DxSpinEdit Value="@r.Height" ValueChanged="@((double v) => r.Height = v)"
-                                MinValue="0" MaxValue="100" Increment="0.5" SizeMode="SizeMode.Small" />
+                                MinValue="0" MaxValue="100" Increment="0.5" />
                 </CellDisplayTemplate>
             </DxGridDataColumn>
 
@@ -111,7 +111,7 @@ else
                     }
                     @* 겹칠 때 누가 위인가. 값이 클수록 나중에 그려진다. *@
                     <DxSpinEdit Value="@r.SortOrder" ValueChanged="@((int v) => r.SortOrder = v)"
-                                MinValue="0" SizeMode="SizeMode.Small" />
+                                MinValue="0" />
                 </CellDisplayTemplate>
             </DxGridDataColumn>
 
@@ -123,7 +123,7 @@ else
                     <PermissionView Action="MenuAction.Update">
                         @* 목록에서만 뺀다. 실제로 지워지는 것은 저장할 때다 —
                            서버가 전부 지우고 보낸 목록으로 다시 만든다. *@
-                        <DxButton Text="빼기" SizeMode="SizeMode.Small"
+                        <DxButton Text="빼기"
                                   RenderStyle="ButtonRenderStyle.Secondary"
                                   Click="@(() => Remove(r))" />
                     </PermissionView>

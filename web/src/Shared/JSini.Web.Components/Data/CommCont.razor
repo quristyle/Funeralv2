@@ -1,0 +1,94 @@
+@*
+    자료 영역. 조회 영역(`CommSch`) 아래에서 **내용을 담는 판**이다.
+
+    ────────────────────────────────────────────────────────────
+    [화면은 이 부품들을 쌓아 만든다]
+
+        <PageHeading />          제목 줄
+        <CommSch>   …  </CommSch>    조건
+        <CommCont>  …  </CommCont>   자료          ← 여기
+        <CommCont>  …  </CommCont>   자료가 둘이면 하나 더
+
+    조회 영역이 정해진 모양을 갖는 것처럼 자료 영역도 그래야 한다.
+    지금은 화면마다 `<h2>` 를 직접 적거나, 아무것도 없이 표만 놓거나,
+    `<div>` 로 감싸거나 제각각이다. **화면이 백 개가 넘으면 그 차이가
+    되돌릴 수 없다** — 같은 자리에 있는 것이 예쁜 것보다 중요하다.
+
+    ────────────────────────────────────────────────────────────
+    [테두리를 두르지 않는다]
+
+    안에 들어오는 것이 대개 `CommGrd` 인데 그 표에 이미 테두리가 있다.
+    한 겹 더 두르면 선이 두 줄로 겹쳐 보인다. 이 판이 주는 것은
+    **제목 줄과 간격**이고, 그 둘이 통일의 대부분이다.
+
+    바탕을 칠하고 싶은 화면은 `CssClass` 로 덧붙인다.
+
+    ────────────────────────────────────────────────────────────
+    [제목은 없어도 된다]
+
+    자료 영역이 하나뿐이면 화면 제목(`PageHeading`)이 이미 그 이름이다.
+    거기에 또 제목을 달면 같은 말이 두 줄이 된다. **둘 이상일 때** 비로소
+    이름이 필요하다 — 「사용자」와 「그 사용자의 권한」처럼.
+
+    ────────────────────────────────────────────────────────────
+    [쓰는 모양]
+
+        <CommCont Title="계정 목록" Hint="총 65건">
+            <Actions>
+                <DxButton Text="일괄 잠금" Click="@@LockAllAsync" />
+            </Actions>
+            <ChildContent>
+                <CommGrd … />
+            </ChildContent>
+        </CommCont>
+
+    단추가 없으면 `<ChildContent>` 를 적지 않고 내용만 넣어도 된다.
+*@
+
+<section class="commcont @CssClass">
+
+    @if (!string.IsNullOrWhiteSpace(Title) || Actions is not null)
+    {
+        <div class="commcont__head">
+            @if (!string.IsNullOrWhiteSpace(Title))
+            {
+                <h2 class="commcont__title">@Title</h2>
+            }
+
+            @if (!string.IsNullOrWhiteSpace(Hint))
+            {
+                <span class="commcont__hint">@Hint</span>
+            }
+
+            <div class="commcont__spacer"></div>
+
+            @Actions
+        </div>
+    }
+
+    <div class="commcont__body">
+        @ChildContent
+    </div>
+
+</section>
+
+@code {
+    /// <summary>
+    /// 구역 이름. <b>자료 영역이 하나뿐이면 비워 둔다</b> — 화면 제목과
+    /// 같은 말이 두 줄이 된다.
+    /// </summary>
+    [Parameter] public string? Title { get; set; }
+
+    /// <summary>제목 옆에 옅게 붙는 한마디(건수 · 기준 시각 따위).</summary>
+    [Parameter] public string? Hint { get; set; }
+
+    /// <summary>제목 줄 오른쪽 끝에 놓을 단추들. 표 자체의 단추는 여기가 아니라
+    /// <c>CommGrd</c> 의 아래 띠에 선다.</summary>
+    [Parameter] public RenderFragment? Actions { get; set; }
+
+    /// <summary>담을 내용. 보통 <c>CommGrd</c> 하나다.</summary>
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    /// <summary>바깥에서 덧붙일 CSS 클래스.</summary>
+    [Parameter] public string? CssClass { get; set; }
+}

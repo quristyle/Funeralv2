@@ -47,13 +47,13 @@
                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
 
     <PermissionView Action="MenuAction.Create">
-        <DxButton Text="추가" RenderStyle="ButtonRenderStyle.Primary" SizeMode="SizeMode.Small"
+        <DxButton Text="추가" RenderStyle="ButtonRenderStyle.Primary"
                   IconCssClass="jsini-icon-plus" Enabled="@_linked" Click="@AddAsync" />
     </PermissionView>
 
     <div class="jsini-toolbar__spacer"></div>
 
-    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Secondary" SizeMode="SizeMode.Small"
+    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Secondary"
               IconCssClass="jsini-icon-refresh" Click="@ReloadAsync" />
 </div>
 
@@ -86,7 +86,7 @@
                     var row = (UserProperty)cell.DataItem;
                 }
                 <PermissionView Action="MenuAction.Update">
-                    <DxButton Text="저장" SizeMode="SizeMode.Small"
+                    <DxButton Text="저장"
                               RenderStyle="ButtonRenderStyle.Secondary"
                               Enabled="@_linked"
                               Click="@(() => SaveAsync(row))" />

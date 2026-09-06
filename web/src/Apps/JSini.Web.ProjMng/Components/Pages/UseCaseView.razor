@@ -24,9 +24,9 @@
         <CodeSelect CodeId="projlist" @bind-Value="_projectCode" />
     </ChildContent>
     <Actions>
-        <DxButton Text="축소" SizeMode="SizeMode.Small" RenderStyle="ButtonRenderStyle.Secondary" Click="@ZoomOutAsync" />
-        <DxButton Text="확대" SizeMode="SizeMode.Small" RenderStyle="ButtonRenderStyle.Secondary" Click="@ZoomInAsync" />
-        <DxButton Text="맞춤" SizeMode="SizeMode.Small" RenderStyle="ButtonRenderStyle.Secondary" Click="@FitAsync" />
+        <DxButton Text="축소" RenderStyle="ButtonRenderStyle.Secondary" Click="@ZoomOutAsync" />
+        <DxButton Text="확대" RenderStyle="ButtonRenderStyle.Secondary" Click="@ZoomInAsync" />
+        <DxButton Text="맞춤" RenderStyle="ButtonRenderStyle.Secondary" Click="@FitAsync" />
 
         <PermissionView Action="MenuAction.Search">
             <DxButton Text="불러오기" RenderStyle="ButtonRenderStyle.Primary" Click="@LoadDiagramAsync" />

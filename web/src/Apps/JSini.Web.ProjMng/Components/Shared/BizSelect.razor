@@ -31,8 +31,7 @@
               SearchMode="@(ShowSearch ? ListSearchMode.AutoSearch : ListSearchMode.None)"
               SearchFilterCondition="ListSearchFilterCondition.Contains"
               Enabled="@(!Disabled)"
-              CssClass="pm-biz-select"
-              SizeMode="SizeMode.Small" />
+              CssClass="pm-biz-select" />
 }
 else
 {
@@ -46,8 +45,7 @@ else
                 SearchFilterCondition="ListSearchFilterCondition.Contains"
                 ClearButtonDisplayMode="@(AllowClear ? DataEditorClearButtonDisplayMode.Auto : DataEditorClearButtonDisplayMode.Never)"
                 Enabled="@(!Disabled)"
-                CssClass="pm-biz-select"
-                SizeMode="SizeMode.Small" />
+                CssClass="pm-biz-select" />
 }
 
 @code {

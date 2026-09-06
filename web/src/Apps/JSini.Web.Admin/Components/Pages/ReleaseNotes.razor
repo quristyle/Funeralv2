@@ -37,7 +37,7 @@
 <PageHeading Title="배포 도구" Scope="포털관리" />
 
 <div class="jsini-toolbar">
-    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" SizeMode="SizeMode.Small"
+    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary"
               IconCssClass="jsini-icon-refresh" Click="@ReloadAsync" />
 </div>
 
@@ -144,7 +144,7 @@
                 @{
                     var r = (ReleaseRunDto)cell.DataItem;
                 }
-                <DxButton Text="기록" SizeMode="SizeMode.Small" RenderStyle="ButtonRenderStyle.Link"
+                <DxButton Text="기록" RenderStyle="ButtonRenderStyle.Link"
                           Click="@(() => ShowRunAsync(r.Id))" />
             </CellDisplayTemplate>
         </DxGridDataColumn>

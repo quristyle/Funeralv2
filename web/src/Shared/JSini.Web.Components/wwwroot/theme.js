@@ -31,6 +31,37 @@
   var BOOTSTRAP = '_content/JSini.Web.Components/bootstrap/';
 
   /**
+   * 크기 모드 쿠키.
+   *
+   * [왜 테마와 달리 쿠키까지 굽나]
+   *
+   * 테마는 스타일시트라 브라우저에서 갈아 끼우면 끝이다. 크기는 다르다 —
+   * DevExpress 는 부품 뿌리에 `dxbl-sm`/`dxbl-lg` 클래스를 **서버가 그릴 때**
+   * 붙인다(SizeMode). 그래서 서버가 첫 그림을 그리는 순간 이미 알고 있어야
+   * 하고, 그때 읽을 수 있는 것은 요청에 실려 온 쿠키뿐이다.
+   *
+   * 없으면 프리렌더는 Medium 으로 그려졌다가 회로가 붙으면서 고른 크기로
+   * 다시 그려진다 — 화면이 한 번 출렁인다.
+   *
+   * HttpOnly 가 아니다. 여기서 써야 하기 때문이고, 담기는 값은 'small' 셋 중
+   * 하나뿐이라 새어도 잃을 것이 없다.
+   */
+  var SIZE_COOKIE = 'jsini.size';
+
+  /**
+   * 고를 수 있는 크기. **DevExpress 가 주는 것이 이 셋뿐이다**
+   * (`DevExpress.Blazor.SizeMode` — Small · Medium · Large).
+   *
+   * 우리가 네 번째를 만들지 않는다. 만들면 그 크기에서만 그리드·달력·팝업이
+   * 따라오지 않아 한 화면에 두 크기가 된다.
+   */
+  var SIZES = [
+    { id: 'small', name: 'Small' },
+    { id: 'medium', name: 'Medium' },
+    { id: 'large', name: 'Large' },
+  ];
+
+  /**
    * Bootstrap 을 고르면 스타일시트가 **두 장**이다.
    *
    *   1) Bootstrap(또는 Bootswatch) 본체 — 색과 변수를 정한다
@@ -42,12 +73,12 @@
    * 그 순서는 priorityOf 가 지킨다.
    */
   var BOOTSTRAP_THEMES = [
-    { id: 'default', name: 'Default', file: 'bootstrap.min.css', dark: false },
-    { id: 'default-dark', name: 'Default Dark', file: 'bootstrap.min.css', dark: true },
-    { id: 'cerulean', name: 'Cerulean', file: 'cerulean.min.css', dark: false },
-    { id: 'flatly', name: 'Flatly', file: 'flatly.min.css', dark: false },
-    { id: 'journal', name: 'Journal', file: 'journal.min.css', dark: false },
-    { id: 'lumen', name: 'Lumen', file: 'lumen.min.css', dark: false },
+    { id: 'default', name: 'Default', file: 'bootstrap.min.css', dark: false, swatch: '#027bff' },
+    { id: 'default-dark', name: 'Default Dark', file: 'bootstrap.min.css', dark: true, swatch: '#212529' },
+    { id: 'cerulean', name: 'Cerulean', file: 'cerulean.min.css', dark: false, swatch: '#2ea4e7' },
+    { id: 'flatly', name: 'Flatly', file: 'flatly.min.css', dark: false, swatch: '#dbe4ec' },
+    { id: 'journal', name: 'Journal', file: 'journal.min.css', dark: false, swatch: '#eb6864' },
+    { id: 'lumen', name: 'Lumen', file: 'lumen.min.css', dark: false, swatch: '#158cba' },
   ];
 
   function bootstrapTheme(id) {
@@ -68,26 +99,33 @@
     { id: 'dark', name: 'Dark', dark: true },
   ];
 
-  /** 강조색 프리셋. 파일 이름이 곧 식별자다. */
+  /**
+   * 강조색 프리셋. 파일 이름이 곧 식별자다.
+   *
+   * **`swatch` 는 눈대중이 아니다.** 데모 테마 창 캡처(docs/테마캡쳐.png)에서
+   * 색 네모의 픽셀을 그대로 읽었다. 한동안 비슷해 보이는 색을 손으로 적어
+   * 두었는데, 고르기 전과 고른 뒤의 화면 색이 서로 달라 **어느 것을 골랐는지
+   * 네모만 보고는 알 수 없었다.**
+   */
   var FLUENT_ACCENTS = [
     { id: 'blue', name: 'Blue', swatch: '#0f6cbd' },
-    { id: 'cool-blue', name: 'Cool Blue', swatch: '#3b5b8c' },
-    { id: 'desert', name: 'Desert', swatch: '#a67c52' },
-    { id: 'mint', name: 'Mint', swatch: '#3a8f6f' },
-    { id: 'moss', name: 'Moss', swatch: '#5c7a3a' },
-    { id: 'orchid', name: 'Orchid', swatch: '#9a4f96' },
-    { id: 'purple', name: 'Purple', swatch: '#6f42c1' },
-    { id: 'rose', name: 'Rose', swatch: '#b8436b' },
-    { id: 'rust', name: 'Rust', swatch: '#b1562a' },
-    { id: 'steel', name: 'Steel', swatch: '#4a6572' },
-    { id: 'storm', name: 'Storm', swatch: '#5a5f6e' },
+    { id: 'cool-blue', name: 'Cool Blue', swatch: '#2d7d9a' },
+    { id: 'desert', name: 'Desert', swatch: '#847545' },
+    { id: 'mint', name: 'Mint', swatch: '#018574' },
+    { id: 'moss', name: 'Moss', swatch: '#486860' },
+    { id: 'orchid', name: 'Orchid', swatch: '#c239b3' },
+    { id: 'purple', name: 'Purple', swatch: '#5b5fc7' },
+    { id: 'rose', name: 'Rose', swatch: '#ea005e' },
+    { id: 'rust', name: 'Rust', swatch: '#da3b01' },
+    { id: 'steel', name: 'Steel', swatch: '#68768a' },
+    { id: 'storm', name: 'Storm', swatch: '#6d6a68' },
   ];
 
   var CLASSIC_THEMES = [
-    { id: 'blazing-berry', name: 'Blazing Berry', dark: false },
-    { id: 'blazing-dark', name: 'Blazing Dark', dark: true },
-    { id: 'purple', name: 'Purple', dark: false },
-    { id: 'office-white', name: 'Office White', dark: false },
+    { id: 'blazing-berry', name: 'Blazing Berry', dark: false, swatch: '#5c2d91' },
+    { id: 'blazing-dark', name: 'Blazing Dark', dark: true, swatch: '#46444a' },
+    { id: 'purple', name: 'Purple', dark: false, swatch: '#7989ff' },
+    { id: 'office-white', name: 'Office White', dark: false, swatch: '#fe7109' },
   ];
 
   /**
@@ -97,7 +135,7 @@
    * Classic 을 기본으로 두지 않는 이유는 파일이 2.8MB 라 첫 방문이 느려서다
    * (Fluent 은 core 1.6MB 에 밝기·강조색이 100KB 남짓이다).
    */
-  var DEFAULT = { family: 'fluent', mode: 'light', accent: 'blue', custom: null };
+  var DEFAULT = { family: 'fluent', mode: 'light', accent: 'blue', custom: null, size: 'medium' };
 
   // ── 스타일시트 관리 ───────────────────────────────────────
 
@@ -350,6 +388,16 @@
 
   var current = null;
 
+  /**
+   * 방금 **고른** 것. `current` 와 다르다.
+   *
+   * `current` 는 스타일시트가 다 실린 뒤에야 채워진다(그 전에는 아직 옛 테마가
+   * 화면에 있으니 그게 맞다). 그런데 크기는 스타일시트를 기다리지 않으므로,
+   * 그 사이에 크기를 물으면 `current` 는 아직 null 이거나 옛 값이다.
+   * 실제로 첫 로드 직후 쿠키를 구울 때 여기에 걸렸다.
+   */
+  var chosen = null;
+
   function isDark(spec) {
     if (spec.family === 'bootstrap') {
       var bs = bootstrapTheme(spec.bootstrap);
@@ -369,6 +417,15 @@
     var wanted = sheetsFor(spec);
     var pending = wanted.length;
     var initial = current === null;
+
+    chosen = spec;
+
+    // **크기는 스타일시트를 기다리지 않는다.**
+    //
+    // 아래 ready() 안에 두면 테마 CSS 를 다 받은 뒤에야 글자 크기가 잡혀
+    // 본문이 한 번 출렁인다. 크기는 우리 CSS 변수(app.css 의 --jsini-fs-*)
+    // 하나로 끝나고 어느 테마를 골랐는지와 무관하므로 지금 바로 세운다.
+    document.documentElement.setAttribute('data-dx-size', spec.size);
 
     function ready() {
       if (--pending > 0) return;
@@ -425,25 +482,57 @@
     } catch (e) {
       /* 저장 못 해도 이번 화면은 정상 동작한다. */
     }
+
+    saveSizeCookie(spec.size);
   }
 
-  /** 저장된 값을 지금 아는 모양으로 좁힌다. 모르는 값이면 기본값으로. */
+  /**
+   * 크기만 쿠키로도 남긴다 — 서버가 첫 그림을 그릴 때 읽는다(SIZE_COOKIE 주석).
+   *
+   * `SameSite=Lax` 는 인증 쿠키와 같은 값이다. 여기에 담기는 것은 화면 취향뿐이라
+   * 더 조일 이유도 없고, 느슨하게 할 이유는 더 없다.
+   */
+  function saveSizeCookie(size) {
+    try {
+      document.cookie =
+        SIZE_COOKIE + '=' + size + ';path=/;max-age=31536000;samesite=lax';
+    } catch (e) {
+      /* 쿠키를 막아 둔 브라우저. 회로가 붙은 뒤에 맞춰진다 — 첫 그림만 기본 크기다. */
+    }
+  }
+
+  /** 아는 크기면 그대로, 모르면 기본값. */
+  function normalizeSize(value) {
+    for (var i = 0; i < SIZES.length; i++) {
+      if (SIZES[i].id === value) return value;
+    }
+    return DEFAULT.size;
+  }
+
+  /**
+   * 저장된 값을 지금 아는 모양으로 좁힌다. 모르는 값이면 기본값으로.
+   *
+   * **크기는 테마 묶음과 따로 논다.** 테마를 Classic 으로 바꿔도 고른 크기는
+   * 그대로여야 하므로, 어느 갈래로 빠지든 크기는 따로 실어 준다.
+   */
   function normalize(spec) {
     if (!spec || typeof spec !== 'object') return DEFAULT;
+
+    var size = normalizeSize(spec.size);
 
     if (spec.family === 'classic') {
       for (var i = 0; i < CLASSIC_THEMES.length; i++) {
         if (CLASSIC_THEMES[i].id === spec.classic) {
-          return { family: 'classic', classic: spec.classic };
+          return { family: 'classic', classic: spec.classic, size: size };
         }
       }
-      return DEFAULT;
+      return fallback(size);
     }
 
     if (spec.family === 'bootstrap') {
       return bootstrapTheme(spec.bootstrap)
-        ? { family: 'bootstrap', bootstrap: spec.bootstrap }
-        : DEFAULT;
+        ? { family: 'bootstrap', bootstrap: spec.bootstrap, size: size }
+        : fallback(size);
     }
 
     var mode = spec.mode === 'dark' ? 'dark' : 'light';
@@ -458,10 +547,26 @@
       mode: mode,
       accent: accent,
       custom: parseHex(spec.custom) ? spec.custom : null,
+      size: size,
+    };
+  }
+
+  /** 테마는 기본값으로 돌리되 크기는 살린다. */
+  function fallback(size) {
+    return {
+      family: DEFAULT.family,
+      mode: DEFAULT.mode,
+      accent: DEFAULT.accent,
+      custom: DEFAULT.custom,
+      size: size,
     };
   }
 
   apply(normalize(stored()));
+
+  // 저장은 했는데 쿠키가 없는 사람이 있다 — 크기를 넣기 전부터 쓰던 사람이다.
+  // 서랍을 열어 보지 않아도 다음 새로고침부터는 서버가 알도록 지금 구워 둔다.
+  saveSizeCookie(chosen.size);
 
   window.jsiniTheme = {
     /** 고를 수 있는 것들. 테마 창이 이 목록을 그린다. */
@@ -471,12 +576,13 @@
         accents: FLUENT_ACCENTS,
         classic: CLASSIC_THEMES,
         bootstrap: BOOTSTRAP_THEMES,
+        sizes: SIZES,
       };
     },
 
-    /** 지금 고른 것. */
+    /** 지금 고른 것. 스타일시트가 아직 오는 중이면 방금 고른 쪽을 준다. */
     current: function () {
-      return current;
+      return current || chosen;
     },
 
     /** 지금 테마가 어두운가. */
@@ -486,28 +592,49 @@
 
     /** Fluent 을 고른다. 밝기와 강조색을 함께 넘긴다. */
     setFluent: function (mode, accent, custom) {
-      var spec = normalize({ family: 'fluent', mode: mode, accent: accent, custom: custom });
-      apply(spec);
-      save(spec);
-      return spec;
+      return commit({
+        family: 'fluent', mode: mode, accent: accent, custom: custom, size: chosen.size,
+      });
     },
 
     /** Classic 한 장짜리 테마를 고른다. */
     setClassic: function (id) {
-      var spec = normalize({ family: 'classic', classic: id });
-      apply(spec);
-      save(spec);
-      return spec;
+      return commit({ family: 'classic', classic: id, size: chosen.size });
     },
 
     /** Bootstrap(또는 Bootswatch) 테마를 고른다. */
     setBootstrap: function (id) {
-      var spec = normalize({ family: 'bootstrap', bootstrap: id });
-      apply(spec);
-      save(spec);
-      return spec;
+      return commit({ family: 'bootstrap', bootstrap: id, size: chosen.size });
+    },
+
+    /**
+     * 크기를 고른다 (small · medium · large).
+     *
+     * 테마는 건드리지 않는다 — 지금 것을 그대로 두고 크기만 갈아 끼운다.
+     * 스타일시트가 바뀌지 않으므로 다시 받는 것도 없다.
+     *
+     * 화면(ThemeToggle)이 이 뒤에 DevExpress 쪽 SizeMode 도 함께 바꾼다.
+     * 여기서 하는 일은 우리 CSS 변수와 저장뿐이다.
+     */
+    setSize: function (id) {
+      var spec = {};
+
+      for (var key in chosen) {
+        if (Object.prototype.hasOwnProperty.call(chosen, key)) spec[key] = chosen[key];
+      }
+
+      spec.size = id;
+      return commit(spec);
     },
   };
+
+  /** 좁히고 · 적용하고 · 저장한다. 네 setter 가 똑같이 하던 일이다. */
+  function commit(raw) {
+    var spec = normalize(raw);
+    apply(spec);
+    save(spec);
+    return spec;
+  }
 
   /**
    * 전체화면 토글.

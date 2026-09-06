@@ -65,7 +65,7 @@
 
     <div class="jsini-toolbar__spacer"></div>
 
-    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Secondary" SizeMode="SizeMode.Small"
+    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Secondary"
               IconCssClass="jsini-icon-refresh" Click="@ReloadAsync" />
 </div>
 
@@ -165,7 +165,7 @@
                 @{
                     var r = (ImprovementRequest)cell.DataItem;
                 }
-                <DxButton Text="상세" SizeMode="SizeMode.Small" RenderStyle="ButtonRenderStyle.Link"
+                <DxButton Text="상세" RenderStyle="ButtonRenderStyle.Link"
                           Click="@(() => { Navigation.NavigateTo($"/helpdesk/request/{r.Id}"); })" />
             </CellDisplayTemplate>
         </DxGridDataColumn>

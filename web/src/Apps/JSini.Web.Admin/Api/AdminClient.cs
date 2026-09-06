@@ -287,6 +287,27 @@ public sealed class AdminClient(GatewayClient gateway)
         => gateway.PostAsync<AiDeepCheckDto>(
             $"ai/health/deep{Query(("provider", provider))}", new { }, ct);
 
+    /// <summary>
+    /// 한글 이름을 주면 AI 가 쓸 만한 <b>영문 코드</b>를 하나 골라 준다.
+    /// 「사용 여부」→ <c>USE_YN</c> 같은 식이다.
+    ///
+    /// <para>
+    /// <b>제공자·모델을 지정하지 않는다.</b> 옛 Vue 화면은 사용자가 환경설정에서
+    /// 고른 것을 실어 보냈는데, 지금 포털에는 그 설정 자체가 없다. 비워 두면
+    /// 서버가 기본 제공자를 쓴다 — 나중에 설정이 생기면 여기에 붙인다.
+    /// </para>
+    ///
+    /// <para>
+    /// <paramref name="natural"/> 은 축약형(<c>USE_YN</c>) 대신 풀어 쓴 영문을
+    /// 달라는 뜻이다. 코드 값에는 축약형이 맞아서 기본이 <c>false</c> 다.
+    /// </para>
+    ///
+    /// <para><b>돈이 드는 호출이다.</b> 사람이 이름을 다 친 뒤에만 나가게 한다.</para>
+    /// </summary>
+    public Task<string?> SuggestCodeAsync(string word, bool natural = false, CancellationToken ct = default)
+        => gateway.GetOneAsync<string>(
+            $"ai/suggest-code{Query(("word", word), ("natural", natural))}", ct);
+
     // ── 알림 설정 (NotificationServer) ─────────────────────────
 
     // 알림 서비스의 게이트웨이 접두사는 **`notification`** 이고, 서비스 안의

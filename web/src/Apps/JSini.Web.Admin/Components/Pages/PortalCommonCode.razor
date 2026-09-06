@@ -22,6 +22,18 @@
 
     `/projmng/common/code` 는 ProjMng 서버의 저장 프로시저가 다루는 별개 표다.
     이름이 같아서 헷갈리지만 서로 자료를 주고받지 않는다.
+
+    [옛 화면에 있다가 빠졌던 것 넷 — 되살렸다]
+
+    · **AI 코드 추천** — 이름을 치면 영문 코드를 하나 제안한다(`AiCodeSuggest`).
+      묶음 코드와 코드 값 두 자리 모두. 등록할 때만 뜬다.
+    · **코드 값은 수정할 때 잠근다** — 묶음 코드와 같은 이유다. 화면과 저장
+      프로시저가 그 값을 **이름으로** 부르므로, 바꾸면 참조가 조용히 끊긴다.
+      묶음 코드만 잠그고 코드 값은 열려 있었다.
+    · **삭제 전에 묻는다** — 표 안의 작은 링크 단추라 오클릭이 나기 쉽고
+      되돌릴 수 없다. `ConfirmDialog` 가 무엇이 사라지는지 이름까지 보여 준다.
+    · **`d-flex gap-1` 을 걷어냈다** — Bootstrap 유틸리티라 기본 테마인
+      Fluent 에서는 아무 일도 하지 않아 단추가 붙어 나왔다. `jsini-actions` 로.
 *@
 
 @inherits DataPage
@@ -43,7 +55,7 @@
 
             <PermissionView Action="MenuAction.Create">
                 <DxButton IconCssClass="jsini-icon-plus" Title="묶음 등록"
-                          RenderStyle="ButtonRenderStyle.Primary" SizeMode="SizeMode.Small"
+                          RenderStyle="ButtonRenderStyle.Primary"
                           Click="@StartNewGroup" />
             </PermissionView>
         </div>
@@ -64,14 +76,14 @@
                         @{
                             var g = (CommonCodeGroupDto)cell.DataItem;
                         }
-                        <div class="d-flex gap-1">
+                        <div class="jsini-actions">
                             <PermissionView Action="MenuAction.Update">
-                                <DxButton Text="수정" SizeMode="SizeMode.Small"
+                                <DxButton Text="수정"
                                           RenderStyle="ButtonRenderStyle.Link"
                                           Click="@(() => StartEditGroup(g))" />
                             </PermissionView>
                             <PermissionView Action="MenuAction.Delete">
-                                <DxButton Text="삭제" SizeMode="SizeMode.Small"
+                                <DxButton Text="삭제"
                                           RenderStyle="ButtonRenderStyle.Link"
                                           Click="@(() => DeleteGroupAsync(g))" />
                             </PermissionView>
@@ -102,11 +114,11 @@
                 <div class="jsini-toolbar__spacer"></div>
 
                 <PermissionView Action="MenuAction.Create">
-                    <DxButton Text="코드 등록" RenderStyle="ButtonRenderStyle.Primary" SizeMode="SizeMode.Small"
+                    <DxButton Text="코드 등록" RenderStyle="ButtonRenderStyle.Primary"
                               IconCssClass="jsini-icon-plus" Click="@StartNewCode" />
                 </PermissionView>
 
-                <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Secondary" SizeMode="SizeMode.Small"
+                <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Secondary"
                           IconCssClass="jsini-icon-refresh" Click="@ReloadCodesAsync" />
             </div>
 
@@ -166,11 +178,21 @@
             <DxFormLayoutItem Caption="묶음 코드" ColSpanMd="12">
                 @* 코드는 화면과 프로시저가 이름으로 부르는 값이라 등록할 때만 정한다. *@
                 <DxTextBox @bind-Text="_groupEdit.GroupCode" ReadOnly="@(!_newGroup)"
-                           NullText="SYS_STATUS 처럼 영문 대문자" />
+                           NullText="@(_newGroup ? "SYS_STATUS 처럼 영문 대문자" : "수정할 수 없습니다")" />
             </DxFormLayoutItem>
 
             <DxFormLayoutItem Caption="묶음 이름" ColSpanMd="12">
-                <DxTextBox @bind-Text="_groupEdit.GroupName" />
+                @* 다 치고 잠깐 멈추면 그때 AI 에게 묻는다. 멈추는 일은 브라우저가
+                   한다(`OnDelayedInput`) — 글자마다 회로를 왕복하지 않는다. *@
+                <DxTextBox @bind-Text="_groupEdit.GroupName"
+                           BindValueMode="BindValueMode.OnDelayedInput"
+                           InputDelay="500" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem ColSpanMd="12" CaptionPosition="CaptionPosition.Vertical">
+                <AiCodeSuggest Word="@_groupEdit.GroupName"
+                               Enabled="@_newGroup"
+                               OnPick="@(code => _groupEdit.GroupCode = code)" />
             </DxFormLayoutItem>
 
             <DxFormLayoutItem Caption="순서" ColSpanMd="6">
@@ -199,11 +221,22 @@
     <BodyContentTemplate Context="popup">
         <DxFormLayout CssClass="ad-editform">
             <DxFormLayoutItem Caption="값" ColSpanMd="6">
-                <DxTextBox @bind-Text="_codeEdit.CodeValue" NullText="ACTIVE" />
+                @* 묶음 코드와 같은 이유로 등록할 때만 정한다 — 화면과 프로시저가
+                   이 값을 이름으로 부른다. 바꾸면 참조가 조용히 끊긴다. *@
+                <DxTextBox @bind-Text="_codeEdit.CodeValue" ReadOnly="@(!_newCode)"
+                           NullText="@(_newCode ? "ACTIVE" : "수정할 수 없습니다")" />
             </DxFormLayoutItem>
 
             <DxFormLayoutItem Caption="이름" ColSpanMd="6">
-                <DxTextBox @bind-Text="_codeEdit.CodeName" NullText="정상" />
+                <DxTextBox @bind-Text="_codeEdit.CodeName" NullText="정상"
+                           BindValueMode="BindValueMode.OnDelayedInput"
+                           InputDelay="500" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem ColSpanMd="12" CaptionPosition="CaptionPosition.Vertical">
+                <AiCodeSuggest Word="@_codeEdit.CodeName"
+                               Enabled="@_newCode"
+                               OnPick="@(code => _codeEdit.CodeValue = code)" />
             </DxFormLayoutItem>
 
             @if (_group?.IsHierarchical == true)
@@ -244,6 +277,9 @@
     </FooterContentTemplate>
 </DxPopup>
 
+@* 삭제 확인. 옛 Vue 화면의 Popconfirm 자리다 — 옮기면서 빠져 있었다. *@
+<ConfirmDialog @ref="_confirm" />
+
 @code {
     private IReadOnlyList<CommonCodeGroupDto> _groups = [];
     private IReadOnlyList<CommonCodeDto> _codes = [];
@@ -260,6 +296,8 @@
     private bool _newCode;
     private string _codeId = string.Empty;
     private CommonCodeDto _codeEdit = new();
+
+    private ConfirmDialog? _confirm;
 
     private IReadOnlyList<CommonCodeGroupDto> ShownGroups
     {
@@ -399,6 +437,22 @@
 
     private async Task DeleteGroupAsync(CommonCodeGroupDto g)
     {
+        // 묶음을 지우면 그 안의 코드가 함께 사라진다. 무엇이 몇 건 사라지는지
+        // 적어 준다 — "정말 삭제하시겠습니까?" 만으로는 어느 줄을 눌렀는지
+        // 확인할 수 없어 묻는 의미가 절반쯤 없어진다.
+        // 식별자로 견준다. 목록을 다시 읽으면 같은 묶음이라도 **다른 인스턴스**라
+        // 참조로 견주면 건수 안내가 조용히 사라진다.
+        var count = _group is not null && _group.Id == g.Id ? FlattenCodes(_codes).Count : 0;
+        var scope = count > 0 ? $"\n안에 든 코드 {count}건도 함께 사라집니다." : string.Empty;
+
+        var ok = await _confirm!.AskAsync(
+            $"묶음 「{g.GroupName}」({g.GroupCode}) 을(를) 지웁니다.{scope}\n되돌릴 수 없습니다.");
+
+        if (!ok)
+        {
+            return;
+        }
+
         if (await RunAsync(() => Api.DeleteCodeGroupAsync(g.Id), "지웠습니다.", "지우지 못했습니다"))
         {
             await ReloadGroupsAsync();
@@ -496,6 +550,14 @@
             return;
         }
 
+        var ok = await _confirm!.AskAsync(
+            $"코드 「{c.CodeName}」({c.CodeValue}) 을(를) 지웁니다.\n되돌릴 수 없습니다.");
+
+        if (!ok)
+        {
+            return;
+        }
+
         if (await RunAsync(() => Api.DeleteCodeAsync(c.Id), "지웠습니다.", "지우지 못했습니다"))
         {
             await ReloadCodesAsync();
@@ -527,13 +589,13 @@
         @(c.Status == 1 ? "사용" : "중지")
     </span>;
 
-    private RenderFragment CodeActions(CommonCodeDto c) =>@<div class="d-flex gap-1">
+    private RenderFragment CodeActions(CommonCodeDto c) =>@<div class="jsini-actions">
         <PermissionView Action="MenuAction.Update">
-            <DxButton Text="수정" SizeMode="SizeMode.Small" RenderStyle="ButtonRenderStyle.Secondary"
+            <DxButton Text="수정" RenderStyle="ButtonRenderStyle.Secondary"
                       Click="@(() => StartEditCode(c))" />
         </PermissionView>
         <PermissionView Action="MenuAction.Delete">
-            <DxButton Text="삭제" SizeMode="SizeMode.Small" RenderStyle="ButtonRenderStyle.Secondary"
+            <DxButton Text="삭제" RenderStyle="ButtonRenderStyle.Secondary"
                       Click="@(() => DeleteCodeAsync(c))" />
         </PermissionView>
     </div>;

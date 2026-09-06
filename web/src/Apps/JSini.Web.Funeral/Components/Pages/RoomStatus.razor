@@ -57,7 +57,7 @@
 
     @* 기간 둘은 접어 둔다. 늘 펼쳐 두면 조건줄이 두 줄이 되는데, 이 화면은
        상황판으로 띄워 두는 일이 많아 위쪽을 먹는 것이 아깝다. *@
-    <DxButton Text="@(_showDates ? "기간 접기" : "기간 조건")" SizeMode="SizeMode.Small"
+    <DxButton Text="@(_showDates ? "기간 접기" : "기간 조건")"
               RenderStyle="ButtonRenderStyle.Link" Click="@(() => _showDates = !_showDates)" />
 </BuildingFilter>
 
@@ -76,9 +76,9 @@
         <DxDateEdit @bind-Date="_burialTo" NullText="끝"
                     ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
 
-        <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" SizeMode="SizeMode.Small"
+        <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary"
                   Click="@ReloadAsync" />
-        <DxButton Text="기간 지우기" RenderStyle="ButtonRenderStyle.Secondary" SizeMode="SizeMode.Small"
+        <DxButton Text="기간 지우기" RenderStyle="ButtonRenderStyle.Secondary"
                   Click="@ClearDatesAsync" />
     </div>
 }
@@ -203,7 +203,6 @@
                                되돌릴 수 있게 둔다. *@
                             <PermissionView Action="MenuAction.Update">
                                 <DxButton Text="@($"故 {room.LastDepartedDeceasedName} 출상 취소")"
-                                          SizeMode="SizeMode.Small"
                                           RenderStyle="ButtonRenderStyle.Secondary"
                                           Click="@(() => CancelDepartureAsync(room))" />
                             </PermissionView>

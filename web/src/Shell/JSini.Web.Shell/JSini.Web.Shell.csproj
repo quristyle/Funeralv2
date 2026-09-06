@@ -25,6 +25,19 @@
     <UserSecretsId>jsini-web-shell</UserSecretsId>
   </PropertyGroup>
 
+  <!--
+    개발 장비 전용 설정(git 제외). 로그인 화면 미리 채우기가 여기 들어간다.
+
+    Web SDK 는 `appsettings.*.json` 을 자동으로 Content 로 잡아 **배포본에도**
+    넣는다. 이 파일은 진짜 계정의 비밀번호를 담으므로 출력 폴더까지만 두고
+    publish 에서는 뺀다 — git 에서 뺀 것을 배포에서 다시 흘리면 소용이 없다.
+  -->
+  <ItemGroup>
+    <Content Update="appsettings.Local.json"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="Never" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="Piral.Blazor.Orchestrator" />
     <PackageReference Include="Piral.Blazor.Shared" />

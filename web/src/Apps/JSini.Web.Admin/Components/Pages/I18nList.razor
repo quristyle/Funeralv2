@@ -48,11 +48,11 @@
     <div class="jsini-toolbar__spacer"></div>
 
     <PermissionView Action="MenuAction.Create">
-        <DxButton Text="등록" RenderStyle="ButtonRenderStyle.Primary" SizeMode="SizeMode.Small"
+        <DxButton Text="등록" RenderStyle="ButtonRenderStyle.Primary"
                   IconCssClass="jsini-icon-plus" Click="@StartNew" />
     </PermissionView>
 
-    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Secondary" SizeMode="SizeMode.Small"
+    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Secondary"
               IconCssClass="jsini-icon-refresh" Click="@ReloadAsync" />
 </div>
 
@@ -118,12 +118,12 @@
                 }
                 <div class="d-flex gap-1">
                     <PermissionView Action="MenuAction.Update">
-                        <DxButton Text="수정" SizeMode="SizeMode.Small"
+                        <DxButton Text="수정"
                                   RenderStyle="ButtonRenderStyle.Secondary"
                                   Click="@(() => StartEdit(pair))" />
                     </PermissionView>
                     <PermissionView Action="MenuAction.Delete">
-                        <DxButton Text="삭제" SizeMode="SizeMode.Small"
+                        <DxButton Text="삭제"
                                   RenderStyle="ButtonRenderStyle.Secondary"
                                   Click="@(() => DeleteAsync(pair))" />
                     </PermissionView>

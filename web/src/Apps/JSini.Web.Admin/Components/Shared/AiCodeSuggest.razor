@@ -1,0 +1,168 @@
+@*
+    한글 이름을 주면 AI 가 영문 코드를 하나 골라 준다. 누르면 칸에 들어간다.
+    옛 Vue 포털의 `components/ai-code-suggester` 를 옮긴 것이다.
+
+    [무엇을 대신하는가]
+
+    공통코드는 **이름은 한글, 값은 영문 대문자**다(「사용 여부」→ `USE_YN`).
+    영문을 짓는 일이 매번 손에 걸려서, 옛 화면은 이름을 치는 동안 AI 에게
+    물어 한 개를 제안했다. 묶음 코드와 코드 값 두 자리에 같은 부품이 붙었다.
+
+    [등록할 때만 뜬다]
+
+    수정 화면에서는 코드가 이미 정해져 있고 바꿀 수도 없다(참조가 끊긴다).
+    거기에 추천을 띄우면 누르라는 뜻으로 읽힌다. `Enabled` 로 끈다.
+
+    [디바운스는 여기서 하지 않는다]
+
+    `DxTextBox` 의 `BindValueMode="OnDelayedInput"` + `InputDelay` 가
+    **브라우저 안에서** 멈춘다. Blazor Server 라 그 편이 낫다 — 여기서 타이머를
+    돌리면 글자마다 회로를 한 번씩 왕복한 뒤에야 멈추게 된다.
+
+    그래서 이 부품이 할 일은 「값이 바뀌었으면 한 번 물어본다」뿐이다.
+
+    [늦게 온 답을 버린다]
+
+    AI 응답은 초 단위라 이름을 고쳐 치면 이전 요청이 나중에 도착할 수 있다.
+    그러면 지금 이름과 안 맞는 코드가 남는다. 물어볼 때마다 번호를 매기고
+    **마지막 번호의 답만** 받는다.
+*@
+
+@inject AdminClient Api
+
+@if (Enabled && !string.IsNullOrWhiteSpace(Word))
+{
+    <div class="ad-ai-suggest">
+        <span class="ad-ai-suggest__label">AI 추천</span>
+
+        @if (_asking)
+        {
+            <span class="ad-ai-suggest__hint">고르는 중…</span>
+        }
+        else if (!string.IsNullOrWhiteSpace(_code))
+        {
+            <DxButton Text="@_code" RenderStyle="ButtonRenderStyle.Link" Click="@PickAsync" />
+            <span class="ad-ai-suggest__hint">누르면 칸에 넣는다</span>
+        }
+        else if (_failed is not null)
+        {
+            <span class="ad-ai-suggest__hint">@_failed</span>
+        }
+    </div>
+}
+
+@code {
+    /// <summary>AI 에게 줄 한글 이름. 비면 아무것도 하지 않는다.</summary>
+    [Parameter] public string? Word { get; set; }
+
+    /// <summary>고른 코드를 받는 곳.</summary>
+    [Parameter] public EventCallback<string> OnPick { get; set; }
+
+    /// <summary>등록 중일 때만 켠다. 꺼져 있으면 묻지도 않는다.</summary>
+    [Parameter] public bool Enabled { get; set; } = true;
+
+    /// <summary>축약형(<c>USE_YN</c>) 대신 풀어 쓴 영문을 받고 싶을 때.</summary>
+    [Parameter] public bool Natural { get; set; }
+
+    private string? _code;
+    private string? _failed;
+    private bool _asking;
+
+    /// <summary>마지막으로 물어본 이름. 같은 값에 두 번 묻지 않는다.</summary>
+    private string? _asked;
+
+    /// <summary>물어본 차례. 마지막 것의 답만 받는다.</summary>
+    private int _turn;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var word = Word?.Trim();
+
+        if (!Enabled || string.IsNullOrEmpty(word))
+        {
+            Clear();
+            return;
+        }
+
+        if (word == _asked)
+        {
+            return;
+        }
+
+        _asked = word;
+        await AskAsync(word);
+    }
+
+    private async Task AskAsync(string word)
+    {
+        var turn = ++_turn;
+
+        _asking = true;
+        _code = null;
+        _failed = null;
+
+        try
+        {
+            var suggested = await Api.SuggestCodeAsync(word, Natural);
+
+            if (turn != _turn)
+            {
+                return;
+            }
+
+            _code = suggested?.Trim();
+
+            // 빈 답도 실패다. 「AI 추천」 이라고 써 놓고 아무것도 없으면
+            // 눌러야 하는지 기다려야 하는지 알 수 없다.
+            if (string.IsNullOrEmpty(_code))
+            {
+                _failed = "받지 못했습니다.";
+            }
+        }
+        catch (ApiException ex)
+        {
+            if (turn != _turn)
+            {
+                return;
+            }
+
+            // 대개 「키가 없다」·「하루 한도를 다 썼다」다. 서버가 준 말을 그대로
+            // 보여 준다 — 여기서 뭉뚱그리면 설정을 고칠 수 있는 사람이 못 고친다.
+            _failed = ex.Message;
+        }
+        catch (Exception)
+        {
+            if (turn != _turn)
+            {
+                return;
+            }
+
+            // AI 가 안 되는 것으로 등록이 막히면 안 된다. 조용히 접는다.
+            _failed = "받지 못했습니다.";
+        }
+        finally
+        {
+            if (turn == _turn)
+            {
+                _asking = false;
+                StateHasChanged();
+            }
+        }
+    }
+
+    private async Task PickAsync()
+    {
+        if (!string.IsNullOrWhiteSpace(_code))
+        {
+            await OnPick.InvokeAsync(_code);
+        }
+    }
+
+    private void Clear()
+    {
+        _asked = null;
+        _code = null;
+        _failed = null;
+        _asking = false;
+    }
+}

@@ -104,7 +104,27 @@ function Get-PortPid([int]$p) {
 #
 # 넉넉해 보이지만 위험하지 않다. 이 판정은 **이미 이 서비스의 것으로 확인된
 # 프로세스의 직계 조상**에만 쓰이고, dev.bat 자신과 그 조상은 따로 보호한다.
-$devPattern = 'dotnet\s+(run|watch)|corepack|pnpm|vite'
+#
+# ── `dotnet-watch` 를 반드시 넣는다 (실제로 밟았다) ──────────
+#
+# 감시 모드의 사슬은 네 겹이다.
+#
+#   cmd /k dotnet watch run                     ← 여기까지 내려야 한다
+#     └ dotnet watch run
+#         └ dotnet "…\DotnetTools\dotnet-watch\…\dotnet-watch.dll" …
+#             └ dotnet run --no-build --framework …
+#                 └ <서비스>.exe                ← 포트를 잡고 있는 것
+#
+# 세 번째 줄의 명령줄에는 `dotnet-watch.dll` 이 있을 뿐 「dotnet 공백 watch」가
+# 없다. 그래서 `dotnet\s+(run|watch)` 로는 안 걸리고, 거기서 거슬러 올라가기가
+# 멈춰 **위의 두 겹이 살아남았다.**
+#
+# 살아남은 `dotnet watch` 는 자식이 죽은 것을 보고 **다시 띄운다.** 그래서
+#   · dev.bat 이 "종료" 라고 찍은 뒤 잠시 뒤 서비스가 되살아나고
+#   · 되살아난 놈이 DLL 을 물어 다른 창의 빌드가 MSB3027 로 실패하고
+#   · 재기동할 때마다 창이 하나씩 쌓인다 (실제로 58개가 쌓여 있었다)
+#
+$devPattern = 'dotnet\s+(run|watch)|dotnet-watch|corepack|pnpm|vite'
 
 function Test-DevProcess($proc) {
     if (-not $proc) { return $false }
@@ -249,8 +269,9 @@ if ($targets.Count -eq 0) {
     exit 1
 }
 
-# 위(맨 위 셸)부터 보낸다. 감시 기능이 붙은 런처가 자식을 다시 띄우지 못하게 하려는 것이다.
-# (지금 기동 명령은 dotnet run 이라 다시 띄우지 않지만, dotnet watch 로 바꿔도 이대로 맞다)
+# 위(맨 위 셸)부터 보낸다. **감시 런처가 자식을 다시 띄우지 못하게** 하려는 것이다.
+# 기동 명령이 `dotnet watch run` 이라 이 순서가 실제로 중요하다 — 자식을 먼저
+# 죽이면 그 사이에 감시가 새로 띄운다.
 foreach ($pass in 1, 2) {
     foreach ($procId in ($targets | Sort-Object)) {
         try { Stop-Process -Id $procId -Force -ErrorAction Stop } catch { }

@@ -1,4 +1,5 @@
 using JSini.Web.Abstractions;
+using JSini.Web.Components.Menu;
 using JSini.Web.Models.Menu;
 using JSini.Web.Http;
 
@@ -71,12 +72,34 @@ public sealed class PermissionContext(
     /// 앞뒤 공백을 떼고, 소문자로 내리고, 끝의 <c>/</c> 를 지운다
     /// (경로가 <c>/</c> 하나뿐일 때는 남긴다). Vue 의 <c>normalize()</c> 와
     /// <b>같은 규칙</b>이어야 한다 — 다르면 DB 에 있는 권한이 조용히 안 걸린다.
+    ///
+    /// <para>
+    /// [Blazor 라우트로 물어도 찾을 수 있어야 한다 — 실제로 밟았다]
+    /// </para>
+    ///
+    /// <para>
+    /// 열쇠는 DB 의 <c>path</c>(<c>/system/account</c>)인데 <c>PermissionView</c>
+    /// 는 <b>지금 열려 있는 주소</b>(<c>/admin/system/account</c>)로 묻는다.
+    /// 옛 경로를 쓰는 69개 화면에서 그 둘이 달라 아무것도 못 찾았고, 못 찾으면
+    /// 「권한 없음」이라 <b>등록·수정·삭제·엑셀 단추가 말없이 전부 사라졌다.</b>
+    /// 사이드바는 <c>MenuNode.Path</c> 로 물어서 멀쩡했기 때문에
+    /// 「메뉴는 보이는데 화면 안 단추만 없다」로 나타났다.
+    /// </para>
+    ///
+    /// <para>
+    /// 그래서 <b>여기서</b> 되돌린다. 판정이 이 한 곳뿐이므로 사이드바·진입
+    /// 가드·화면 단추가 모두 같은 열쇠를 쓰게 된다. 들어오는 표(DB 경로)에는
+    /// 아무 일도 하지 않는다 — 되돌릴 것이 없다(멱등).
+    /// </para>
     /// </summary>
     private static string Normalize(string path)
     {
         var trimmed = path.Trim().ToLowerInvariant();
-        return trimmed.Length > 1 && trimmed.EndsWith('/')
+
+        var cut = trimmed.Length > 1 && trimmed.EndsWith('/')
             ? trimmed[..^1]
             : trimmed;
+
+        return RouteAliases.ToMenuPath(cut);
     }
 }

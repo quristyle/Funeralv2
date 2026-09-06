@@ -117,6 +117,9 @@ public static class RouteAliases
         ["/company/site-inquiries"] = "/site/inquiries",
     };
 
+    /// <summary>표에 담긴 DB 메뉴 경로 전부. 검사용이다.</summary>
+    public static IEnumerable<string> MenuPaths => Map.Keys;
+
     /// <summary>
     /// DB 경로를 Blazor 라우트로 옮긴다. 표에 없으면 그대로 돌려준다.
     ///
@@ -136,6 +139,60 @@ public static class RouteAliases
         return resolved.Contains("/:", StringComparison.Ordinal)
             ? ToBlazorParameters(resolved)
             : resolved;
+    }
+
+    /// <summary>
+    /// <see cref="Resolve"/> 의 <b>반대</b> — Blazor 라우트를 DB 메뉴 경로로 되돌린다.
+    ///
+    /// <para>
+    /// [왜 필요한가 — 화면 안 단추가 전부 사라져 있었다]
+    /// </para>
+    ///
+    /// <para>
+    /// 권한표의 열쇠는 DB 의 <c>path</c> 다(<c>/system/account</c>). 그런데
+    /// <c>PermissionView</c> 는 <b>지금 열려 있는 주소</b>로 묻는다
+    /// (<c>/admin/system/account</c>). 둘이 다르니 찾지 못하고, 찾지 못하면
+    /// 「권한 없음」이라 등록·수정·삭제·엑셀 단추가 <b>말없이 전부</b> 사라진다.
+    /// </para>
+    ///
+    /// <para>
+    /// 사이드바는 멀쩡했다 — 그쪽은 <c>MenuNode.Path</c>(= DB 경로)로 묻기
+    /// 때문이다. 그래서 「메뉴는 보이는데 화면 안 단추만 없다」로 나타났고,
+    /// 옛 경로를 쓰는 69개 화면이 다 그랬다.
+    /// </para>
+    ///
+    /// <para>
+    /// 표에 없으면 그대로 돌려준다. 이미 DB 경로이거나(헬프데스크·프로젝트관리),
+    /// 컷오버 SQL 을 돌린 뒤라면 옮길 것이 없다(멱등).
+    /// </para>
+    /// </summary>
+    public static string ToMenuPath(string? route)
+    {
+        if (string.IsNullOrWhiteSpace(route))
+        {
+            return string.Empty;
+        }
+
+        return Reverse.TryGetValue(route, out var menuPath) ? menuPath : route;
+    }
+
+    /// <summary>
+    /// <see cref="Map"/> 을 뒤집은 것. 같은 라우트로 가는 옛 경로가 둘 이상이면
+    /// <b>먼저 적힌 것</b>을 쓴다 — 뒤엣것으로 덮으면 표의 줄 순서를 바꿨을 뿐인데
+    /// 권한이 달라진다.
+    /// </summary>
+    private static readonly Dictionary<string, string> Reverse = BuildReverse();
+
+    private static Dictionary<string, string> BuildReverse()
+    {
+        var reverse = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var (menuPath, route) in Map)
+        {
+            reverse.TryAdd(route, menuPath);
+        }
+
+        return reverse;
     }
 
     private static string ToBlazorParameters(string path) =>

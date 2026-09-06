@@ -11,7 +11,7 @@
   grid-template-columns: max-content 1fr;
   gap: 0.2rem 0.9rem;
   margin: 0;
-  font-size: 0.85rem;
+  font-size: var(--jsini-fs-md);
 }
 
 .st-inquiry__facts dt { color: var(--jsini-text-muted); }
@@ -22,7 +22,7 @@
 .st-inquiry__message {
   padding: 0.7rem 0.9rem;
   background: color-mix(in srgb, var(--jsini-text-muted) 8%, transparent);
-  font-size: 0.9rem;
+  font-size: var(--jsini-fs-md);
   line-height: 1.7;
   white-space: pre-line;
 }

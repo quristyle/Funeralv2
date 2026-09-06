@@ -49,7 +49,7 @@
 <PageHeading Title="MSA 서버 상태" Scope="포털관리" />
 
 <div class="jsini-toolbar">
-    <DxButton Text="새로 고침" RenderStyle="ButtonRenderStyle.Primary" SizeMode="SizeMode.Small"
+    <DxButton Text="새로 고침" RenderStyle="ButtonRenderStyle.Primary"
               IconCssClass="jsini-icon-refresh" Click="@ReloadAsync" />
 
     @if (_status?.GeneratedAt is { } at)
@@ -198,7 +198,7 @@ else
                         var result = _deep.GetValueOrDefault(p.Key);
                     }
                     <div class="ad-deep">
-                        <DxButton Text="확인" SizeMode="SizeMode.Small"
+                        <DxButton Text="확인"
                                   RenderStyle="ButtonRenderStyle.Secondary"
                                   Enabled="@(_checking != p.Key)"
                                   Click="@(() => DeepCheckAsync(p.Key))" />
@@ -272,7 +272,7 @@ else
        이유: 권한표의 이름과 서버 판정이 어긋나면 **단추가 사라져 원인을
        찾을 수 없다.** 권한이 없으면 눌렀을 때 서버가 이유를 말해 준다. *@
     <div class="jsini-toolbar">
-        <DxButton Text="쌓인 이미지 정리" RenderStyle="ButtonRenderStyle.Secondary" SizeMode="SizeMode.Small"
+        <DxButton Text="쌓인 이미지 정리" RenderStyle="ButtonRenderStyle.Secondary"
                   Enabled="@(!_cleaning)" Click="@PreviewCleanupAsync" />
         <span class="ad-stamp">
             사용 중 태그와 저장소마다 최근 것 몇 개는 남깁니다. 지우기 전에 목록을 보여 줍니다.

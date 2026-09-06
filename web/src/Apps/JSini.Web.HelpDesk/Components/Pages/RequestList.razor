@@ -44,13 +44,13 @@
                 NullText="전체 상태" Style="width: 130px"
                 ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
 
-    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" SizeMode="SizeMode.Small"
+    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary"
               IconCssClass="jsini-icon-refresh" Click="@ReloadAsync" />
 
     <div class="jsini-toolbar__spacer"></div>
 
     <PermissionView Action="MenuAction.Create">
-        <DxButton Text="요청 등록" RenderStyle="ButtonRenderStyle.Primary" SizeMode="SizeMode.Small"
+        <DxButton Text="요청 등록" RenderStyle="ButtonRenderStyle.Primary"
                   IconCssClass="jsini-icon-plus"
                   Click="@(() => { Navigation.NavigateTo("/helpdesk/request/new"); })" />
     </PermissionView>
@@ -121,7 +121,7 @@
                 @{
                     var r = (ImprovementRequest)cell.DataItem;
                 }
-                <DxButton Text="상세" SizeMode="SizeMode.Small" RenderStyle="ButtonRenderStyle.Link"
+                <DxButton Text="상세" RenderStyle="ButtonRenderStyle.Link"
                           Click="@(() => { Navigation.NavigateTo($"/helpdesk/request/{r.Id}"); })" />
             </CellDisplayTemplate>
         </DxGridDataColumn>

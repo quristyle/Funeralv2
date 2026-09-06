@@ -191,6 +191,10 @@ public static class JSiniWebApp
         // 화면이 덮이면 안 된다.
         services.AddScoped<ScreenLock>();
 
+        // DevExpress 크기 모드(Small · Medium · Large)도 사람마다 다르다.
+        // 값을 흘리는 것은 SizeModeScope 가 하고, 여기는 그것이 읽을 자리다.
+        services.AddScoped<ThemeSize>();
+
         services.AddSingleton(RouteInventory.Build(
             routePrefix,
             routeAssemblies.Length > 0 ? routeAssemblies : [Assembly.GetEntryAssembly()!]));

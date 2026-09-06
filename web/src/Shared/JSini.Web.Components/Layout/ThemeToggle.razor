@@ -1,19 +1,42 @@
 @*
     테마 전환. DevExpress 데모(demos.devexpress.com/blazor) 오른쪽 위의 그것을
-    그대로 본떴다 — 같은 묶음, 같은 항목.
+    그대로 본떴다 — 같은 묶음, 같은 항목, 같은 생김새.
+
+    **정본은 `docs/테마캡쳐.png` 다.** 데모 창을 찍어 둔 것이고, 아래 치수와
+    색은 눈대중이 아니라 그 그림의 픽셀에서 읽었다.
+
+        크기                        ← 데모에는 없다. 우리가 더한 묶음이다
+        ───────────────────────
+        [ Small │ Medium │ Large ]
 
         DevExpress Fluent
-          [Light] [Dark]
-          Preset Colors
-          ● Blue  ● Cool Blue  ● Desert  ● Mint  ● Moss  ● Orchid
-          ● Purple ● Rose ● Rust ● Steel ● Storm
-          Custom Color  [#hex]
+        ───────────────────────
+        [ ☀ Light │ ☾ Dark ]
+        Preset Colors
+        ■ Blue          ■ Cool Blue
+        ■ Desert        ■ Mint
+        …                          (열한 개, 두 칸)
+        Custom Color
+        [ #hex                ][■]
 
         DevExpress Classic
-          Blazing Berry · Blazing Dark · Purple · Office White
+        ───────────────────────
+        ■ Blazing Berry  ■ Blazing Dark
+        ■ Purple         ■ Office White
 
         Bootstrap
-          Default · Default Dark · Cerulean · Flatly · Journal · Lumen
+        ───────────────────────
+        ■ Default        ■ Default Dark
+        …                          (여섯 개, 두 칸)
+
+    [색 네모에 이름을 붙인다 — 동그라미만 놓지 않는다]
+
+    한동안 동그라미 열한 개를 격자로 놓고 이름은 `title` 로만 두었다. Moss 와
+    Steel 처럼 어두운 색끼리는 **눈으로 구별이 안 되고**, 이름을 보려면 얹어
+    봐야 했다. 고를 때마다 얹어 볼 수는 없다. 데모가 네모+이름인 이유다.
+
+    고른 것은 **면으로** 칠한다(테두리가 아니다). 테두리를 두르면 그 줄만
+    키가 커져 목록이 들썩인다.
 
     [고를 수 있는 것은 DevExpress 가 주는 것뿐이다]
 
@@ -53,6 +76,7 @@
 *@
 
 @inject IJSRuntime Js
+@inject ThemeSize Size
 
 @* 덮개. 서랍 밖을 누르면 닫힌다. 헤더는 덮지 않는다 —
    덮으면 방금 누른 테마 아이콘으로 다시 닫을 수 없다. *@
@@ -72,14 +96,34 @@
 
     <div class="jsini-theme">
 
+        @* 크기가 맨 위다. 테마 스물둘 중 하나를 고르는 일보다 글씨가 작다·
+           크다를 고치는 일이 훨씬 잦고, 아래에 두면 굴려 내려가야 보인다.
+
+           데모에는 없는 묶음이라 생김새를 정해야 했는데, 밝기(Light/Dark)와
+           같은 것을 쓴다 — 둘 다 「한 줄에서 하나만 고르는」 것이다. *@
+        <div class="jsini-theme__group">크기</div>
+
+        <div class="jsini-theme__segmented">
+            @foreach (var size in _catalog.Sizes)
+            {
+                <button type="button"
+                        class="jsini-theme__seg @(IsSize(size.Id) ? "jsini-theme__seg--on" : "")"
+                        @onclick="@(() => SetSizeAsync(size.Id))">
+                    @size.Name
+                </button>
+            }
+        </div>
+
         <div class="jsini-theme__group">DevExpress Fluent</div>
 
-        <div class="jsini-theme__modes">
+        <div class="jsini-theme__segmented">
             @foreach (var mode in _catalog.Modes)
             {
                 <button type="button"
-                        class="jsini-theme__mode @(IsFluentMode(mode.Id) ? "jsini-theme__mode--on" : "")"
+                        class="jsini-theme__seg @(IsFluentMode(mode.Id) ? "jsini-theme__seg--on" : "")"
                         @onclick="@(() => SetFluentAsync(mode.Id, _accent))">
+                    <span class="@(mode.Dark ? "jsini-icon-moon" : "jsini-icon-sun")"
+                          aria-hidden="true"></span>
                     @mode.Name
                 </button>
             }
@@ -87,15 +131,17 @@
 
         <div class="jsini-theme__label">Preset Colors</div>
 
-        <div class="jsini-theme__swatches">
+        @* 색 네모만 놓지 않고 **이름을 함께** 놓는다(데모와 같다). 동그라미
+           열한 개만 늘어놓으면 Moss 와 Steel 처럼 어두운 색끼리는 구별이
+           안 되고, 얹어 봐야 이름이 뜬다 — 고를 때마다 얹어 볼 수는 없다. *@
+        <div class="jsini-theme__list">
             @foreach (var accent in _catalog.Accents)
             {
                 <button type="button"
-                        class="jsini-theme__swatch @(IsFluentAccent(accent.Id) ? "jsini-theme__swatch--on" : "")"
-                        style="--swatch: @accent.Swatch"
-                        title="@accent.Name"
-                        aria-label="@accent.Name"
+                        class="jsini-theme__item @(IsFluentAccent(accent.Id) ? "jsini-theme__item--on" : "")"
                         @onclick="@(() => SetFluentAsync(_mode, accent.Id))">
+                    <span class="jsini-theme__chip" aria-hidden="true" style="--swatch: @accent.Swatch"></span>
+                    <span class="jsini-theme__name">@accent.Name</span>
                 </button>
             }
         </div>
@@ -103,44 +149,50 @@
         <div class="jsini-theme__label">Custom Color</div>
 
         <div class="jsini-theme__custom">
-            @* 색 고르개와 글자 칸을 함께 둔다. 데모도 그렇다 —
-               눈으로 고르는 사람과 브랜드 색 코드를 가진 사람이 다르다. *@
+            @* 글자 칸이 넓고 색 고르개가 오른쪽 끝의 네모다 — 데모의 배치다.
+               둘 다 두는 이유: 눈으로 고르는 사람과 브랜드 색 코드를 가진
+               사람이 다르다. *@
+            <DxTextBox Text="@_custom" TextChanged="@((string v) => SetCustomAsync(v))"
+                       NullText="#hex" CssClass="jsini-theme__hex" />
+
             <input type="color" class="jsini-theme__picker"
+                   title="색 고르기"
                    value="@(_custom ?? "#0f6cbd")"
                    @onchange="@(e => SetCustomAsync(e.Value?.ToString()))" />
 
-            <DxTextBox Text="@_custom" TextChanged="@((string v) => SetCustomAsync(v))"
-                       NullText="#RRGGBB" Width="120" />
-
             @if (_custom is not null)
             {
-                <DxButton Text="지우기" RenderStyle="ButtonRenderStyle.Link"
+                <DxButton IconCssClass="jsini-icon-close"
+                          Title="사용자 지정 색 지우기"
+                          RenderStyle="ButtonRenderStyle.Link"
                           Click="@(() => SetCustomAsync(null))" />
             }
         </div>
 
         <div class="jsini-theme__group">DevExpress Classic</div>
 
-        <div class="jsini-theme__classic">
+        <div class="jsini-theme__list">
             @foreach (var theme in _catalog.Classic)
             {
                 <button type="button"
                         class="jsini-theme__item @(IsClassic(theme.Id) ? "jsini-theme__item--on" : "")"
                         @onclick="@(() => SetClassicAsync(theme.Id))">
-                    @theme.Name
+                    <span class="jsini-theme__chip" aria-hidden="true" style="--swatch: @theme.Swatch"></span>
+                    <span class="jsini-theme__name">@theme.Name</span>
                 </button>
             }
         </div>
 
         <div class="jsini-theme__group">Bootstrap</div>
 
-        <div class="jsini-theme__classic">
+        <div class="jsini-theme__list">
             @foreach (var theme in _catalog.Bootstrap)
             {
                 <button type="button"
                         class="jsini-theme__item @(IsBootstrap(theme.Id) ? "jsini-theme__item--on" : "")"
                         @onclick="@(() => SetBootstrapAsync(theme.Id))">
-                    @theme.Name
+                    <span class="jsini-theme__chip" aria-hidden="true" style="--swatch: @theme.Swatch"></span>
+                    <span class="jsini-theme__name">@theme.Name</span>
                 </button>
             }
         </div>
@@ -161,19 +213,24 @@
         IReadOnlyList<ModeInfo> Modes,
         IReadOnlyList<AccentInfo> Accents,
         IReadOnlyList<ClassicInfo> Classic,
-        IReadOnlyList<ClassicInfo> Bootstrap);
+        IReadOnlyList<ClassicInfo> Bootstrap,
+        IReadOnlyList<SizeInfo> Sizes);
 
     private sealed record ModeInfo(string Id, string Name, bool Dark);
     private sealed record AccentInfo(string Id, string Name, string Swatch);
 
+    /// <summary>크기 하나. DevExpress 가 주는 셋뿐이다 (Small · Medium · Large).</summary>
+    private sealed record SizeInfo(string Id, string Name);
+
     /// <summary>한 장짜리 테마. Classic 과 Bootstrap 이 같은 모양이라 함께 쓴다.</summary>
-    private sealed record ClassicInfo(string Id, string Name, bool Dark);
+    private sealed record ClassicInfo(string Id, string Name, bool Dark, string Swatch);
 
     /// <summary>지금 고른 것. theme.js 의 모양 그대로다.</summary>
     private sealed record Current(
-        string Family, string? Mode, string? Accent, string? Custom, string? Classic, string? Bootstrap);
+        string Family, string? Mode, string? Accent, string? Custom,
+        string? Classic, string? Bootstrap, string? Size);
 
-    private Catalog _catalog = new([], [], [], []);
+    private Catalog _catalog = new([], [], [], [], []);
 
     private bool _open;
     private string _family = "fluent";
@@ -187,6 +244,9 @@
     private bool IsFluentAccent(string id) => _family == "fluent" && _custom is null && _accent == id;
     private bool IsClassic(string id) => _family == "classic" && _classic == id;
     private bool IsBootstrap(string id) => _family == "bootstrap" && _bootstrap == id;
+
+    // 크기는 테마 묶음과 따로 논다 — Classic 을 골라도 크기는 그대로다.
+    private bool IsSize(string id) => ThemeSize.Name(Size.Current) == id;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -222,6 +282,22 @@
         Read(await Js.InvokeAsync<Current>("jsiniTheme.setFluent", _mode, _accent, trimmed));
     }
 
+    /// <summary>
+    /// 크기를 바꾼다. <b>두 곳을 함께 움직여야 한다.</b>
+    ///
+    /// · theme.js — 우리 CSS 의 글자 크기 사다리(<c>--jsini-fs-*</c>)와 저장·쿠키
+    /// · <see cref="ThemeSize"/> — DevExpress 부품이 받는 SizeMode
+    ///
+    /// 한쪽만 바꾸면 글자만 커지고 단추·그리드는 그대로이거나(또는 그 반대)
+    /// 한 화면에 두 크기가 된다. 저장은 theme.js 쪽만 한다 — 서버는 다음
+    /// 새로고침 때 그 쿠키를 읽는다.
+    /// </summary>
+    private async Task SetSizeAsync(string id)
+    {
+        Read(await Js.InvokeAsync<Current>("jsiniTheme.setSize", id));
+        Size.Set(ThemeSize.Parse(id));
+    }
+
     private async Task SetClassicAsync(string id) =>
         Read(await Js.InvokeAsync<Current>("jsiniTheme.setClassic", id));
 
@@ -238,6 +314,13 @@
         _custom = c.Custom;
         _classic = c.Classic;
         _bootstrap = c.Bootstrap;
+
+        // 브라우저가 아는 크기를 서버 쪽에도 맞춘다.
+        //
+        // 보통은 이미 같다 — 서버가 첫 그림을 그릴 때 같은 값을 쿠키에서
+        // 읽었기 때문이다. 다른 경우는 쿠키를 막아 둔 브라우저다. 그때는
+        // 브라우저 쪽(localStorage)이 정답이므로 여기서 한 번 맞춰 준다.
+        Size.Set(ThemeSize.Parse(c.Size));
     }
 
     private static bool IsHex(string value)

@@ -6,7 +6,7 @@
 
 .hd-subhead {
   margin: 1.5rem 0 0.75rem;
-  font-size: 1rem;
+  font-size: var(--jsini-fs-lg);
   font-weight: 700;
 }
 
@@ -25,7 +25,7 @@
 }
 
 .hd-field__label {
-  font-size: 0.75rem;
+  font-size: var(--jsini-fs-xs);
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: var(--jsini-text-muted);
@@ -40,7 +40,7 @@
   margin: 0 0 1rem;
   padding: 0.9rem 1rem;
   border: 1px solid var(--jsini-border);
-  font-size: 0.9rem;
+  font-size: var(--jsini-fs-md);
 }
 
 .hd-facts dt { color: var(--jsini-text-muted); }
@@ -51,7 +51,7 @@
 .hd-content {
   padding: 0.9rem 1rem;
   background: color-mix(in srgb, var(--jsini-text-muted) 8%, transparent);
-  font-size: 0.9rem;
+  font-size: var(--jsini-fs-md);
   line-height: 1.7;
   white-space: pre-line;
 }
@@ -86,7 +86,7 @@
 
 .hd-section {
   margin: 1.4rem 0 0.5rem;
-  font-size: 0.95rem;
+  font-size: var(--jsini-fs-lg);
   font-weight: 600;
 }
 
@@ -97,7 +97,7 @@
 
 .hd-note {
   margin-left: 0.4rem;
-  font-size: 0.78rem;
+  font-size: var(--jsini-fs-xs);
   color: var(--jsini-text-muted);
 }
 
@@ -124,6 +124,6 @@
 
 .hd-chart__title {
   margin: 0 0 0.5rem;
-  font-size: 0.95rem;
+  font-size: var(--jsini-fs-lg);
   font-weight: 600;
 }

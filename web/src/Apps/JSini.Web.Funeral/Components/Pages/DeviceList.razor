@@ -107,12 +107,12 @@
                 @{ var d = (Device)context.DataItem; }
                 <div class="d-flex gap-1">
                     <PermissionView Action="MenuAction.Update">
-                        <DxButton Text="수정" SizeMode="SizeMode.Small"
+                        <DxButton Text="수정"
                                   RenderStyle="ButtonRenderStyle.Secondary"
                                   Click="@(() => OpenEdit(d))" />
                     </PermissionView>
                     <PermissionView Action="MenuAction.Delete">
-                        <DxButton Text="삭제" SizeMode="SizeMode.Small"
+                        <DxButton Text="삭제"
                                   RenderStyle="ButtonRenderStyle.Secondary"
                                   Click="@(() => DeleteAsync(d))" />
                     </PermissionView>
@@ -126,15 +126,15 @@
                 <PermissionView Action="MenuAction.Update">
                     <div class="d-flex gap-1">
                         @* 화면 전원은 DB 에 남지 않는 즉시 명령이다. *@
-                        <DxButton Text="켜기" SizeMode="SizeMode.Small" RenderStyle="ButtonRenderStyle.Secondary"
+                        <DxButton Text="켜기" RenderStyle="ButtonRenderStyle.Secondary"
                                   Click="@(() => PowerAsync(d.Code, "ON"))" />
-                        <DxButton Text="끄기" SizeMode="SizeMode.Small" RenderStyle="ButtonRenderStyle.Secondary"
+                        <DxButton Text="끄기" RenderStyle="ButtonRenderStyle.Secondary"
                                   Click="@(() => PowerAsync(d.Code, "OFF"))" />
-                        <DxButton Text="재시작" SizeMode="SizeMode.Small" RenderStyle="ButtonRenderStyle.Secondary"
+                        <DxButton Text="재시작" RenderStyle="ButtonRenderStyle.Secondary"
                                   Click="@(() => RestartAsync(d.Code))" />
                         @* 새 판이 없으면 아무 일도 일어나지 않는다 — 릴리스 판정은
                            플레이어가 스스로 한다. 그래서 확인 창을 두지 않는다. *@
-                        <DxButton Text="업데이트" SizeMode="SizeMode.Small" RenderStyle="ButtonRenderStyle.Secondary"
+                        <DxButton Text="업데이트" RenderStyle="ButtonRenderStyle.Secondary"
                                   Click="@(() => UpdateNowAsync(d.Code))" />
                     </div>
                 </PermissionView>
