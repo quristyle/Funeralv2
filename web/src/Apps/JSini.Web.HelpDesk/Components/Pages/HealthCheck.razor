@@ -14,9 +14,13 @@
 
     **서버가 준 대로 보여 준다**(AutoGrid). 프로시저가 돌려주는 칸이 조회
     종류마다 다르고 늘어나기도 해서, 칸을 박아 두면 새 칸이 조용히 사라진다.
+    [스스로 새로 고치지 않고 있었다]
+
+    옛 화면은 60초마다 되물었다. 설비가 살아 있는지 보는 화면이라 띄워 두는
+    자리인데, 사람이 새로 고침을 눌러야 값이 바뀌고 있었다.
 *@
 
-@inherits DataPage
+@inherits AutoRefreshPage
 @inject OadrApi Oadr
 
 <PageTitle>헬스체크 · 헬프데스크</PageTitle>
@@ -32,7 +36,14 @@
 @code {
     private DataTable _rows = JsonTable.Empty;
 
-    protected override Task OnInitializedAsync() => ReloadAsync();
+    /// <summary>옛 화면과 같은 60초. 설비가 살아 있는지 지켜보는 자리다.</summary>
+    protected override TimeSpan RefreshInterval => TimeSpan.FromSeconds(60);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await ReloadAsync();
+        StartAutoRefresh();
+    }
 
     private Task ReloadAsync() => LoadAsync(async () =>
     {
@@ -40,4 +51,11 @@
         _rows = JsonTable.From(json);
         return _rows.Rows.Count;
     }, "조회 결과가 없습니다.", "헬스체크를 읽지 못했습니다");
+
+    /// <summary>자동 조회. 안내 줄을 건드리지 않는다.</summary>
+    protected override async Task RefreshAsync()
+    {
+        var json = await Oadr.GetServerReportAsync<JsonElement>("HEALTH_CHECK");
+        _rows = JsonTable.From(json);
+    }
 }
