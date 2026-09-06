@@ -32,3 +32,10 @@
   flex-wrap: wrap;
   gap: 0.4rem;
 }
+
+/* AI 대화 화면 (D11). 알맹이는 공용 `AiChatPanel` 이고, 여기서는 자리만 준다.
+   높이를 고정하는 이유: 대화 기록이 스스로 구르려면 부모의 높이가 정해져야
+   한다. `height: 100%` 로 두면 본문이 늘어나 페이지 전체가 구른다. */
+.site-ai-chat {
+  height: min(70vh, 44rem);
+}

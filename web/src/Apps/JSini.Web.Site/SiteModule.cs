@@ -25,9 +25,8 @@ public sealed class SiteModule : IPortalModule
         // 관리 조회는 게이트웨이 클라이언트로 나간다 (문의내역).
         services.AddScoped<SiteAdminClient>();
 
-        services.AddHttpClient<AiChatClient>(client =>
-        {
-            client.BaseAddress = new Uri(configuration["Gateway:BaseUrl"] ?? "http://localhost:5265/");
-        }).AddHttpMessageHandler<AuthTokenHandler>();
+        // AI 대화 클라이언트는 여기서 등록하지 않는다 — 공용
+        // `AddJSiniGateway` 로 옮겼다(D11). 헤더의 대화창이 레이아웃에 있고,
+        // 레이아웃은 업무 모듈을 참조할 수 없기 때문이다.
     }
 }

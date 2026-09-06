@@ -111,9 +111,14 @@ public static class DeployStatusEndpoints
             if (!File.Exists(socketPath))
                 return Results.Json(ApiResponse<object>.Fail("이 환경에는 Docker 소켓이 없습니다.", "400"), statusCode: 400);
 
+            // `?dryRun=true` 면 지우지 않고 지울 목록만 준다. 화면이 확인 창에
+            // 그대로 띄운다 — 무엇이 사라지는지 보여 주지 않고 되돌릴 수 없는
+            // 단추를 누르게 하지 않는다.
+            var dryRun = string.Equals(http.Request.Query["dryRun"], "true", StringComparison.OrdinalIgnoreCase);
+
             try
             {
-                var result = await CleanupImagesAsync(socketPath, ct);
+                var result = await CleanupImagesAsync(socketPath, dryRun, ct);
                 return Results.Ok(ApiResponse<object>.Ok(result));
             }
             catch (Exception ex)
@@ -340,7 +345,18 @@ public static class DeployStatusEndpoints
     /// funeralv2-* 저장소마다 사용 중 태그 + 최근 <see cref="KeepRecentTags"/>개만 남기고
     /// 지운 뒤, 이름 없는(dangling) 레이어를 정리한다.
     /// </summary>
-    private static async Task<object> CleanupImagesAsync(string socketPath, CancellationToken ct)
+    /// <param name="socketPath">도커 소켓 경로</param>
+    /// <param name="dryRun">
+    /// 참이면 <b>지우지 않고 지울 목록만</b> 돌려준다.
+    ///
+    /// 화면이 「무엇이 지워지는지」를 먼저 보여 주고 확인받기 위한 것이다.
+    /// 그 목록을 화면이 스스로 계산하게 두지 않는 이유: 그러면 「무엇을 남길지」
+    /// 규칙이 서버와 화면 두 곳에 생기고, 한쪽만 고치는 날 <b>확인 창에 보여 준
+    /// 것과 실제로 지워지는 것이 달라진다.</b> 되돌릴 수 없는 동작에서 그 어긋남은
+    /// 그냥 사고다.
+    /// </param>
+    /// <param name="ct">취소 토큰</param>
+    private static async Task<object> CleanupImagesAsync(string socketPath, bool dryRun, CancellationToken ct)
     {
         using var client = CreateDockerClient(socketPath);
 
@@ -352,37 +368,64 @@ public static class DeployStatusEndpoints
         }
 
         // 저장소별 태그 목록 (생성 시각 내림차순)
-        var byRepo = new Dictionary<string, List<(string Name, long Created)>>();
+        var byRepo = new Dictionary<string, List<(string Name, long Created, long Size)>>();
         using (var idoc = JsonDocument.Parse(await client.GetStringAsync("/images/json", ct)))
         {
             foreach (var i in idoc.RootElement.EnumerateArray())
             {
                 if (i.GetProperty("RepoTags").ValueKind != JsonValueKind.Array) continue;
                 var created = i.GetProperty("Created").GetInt64();
+                var size = i.TryGetProperty("Size", out var s) ? s.GetInt64() : 0;
                 foreach (var t in i.GetProperty("RepoTags").EnumerateArray())
                 {
                     var name = t.GetString() ?? "";
                     var repoIdx = name.LastIndexOf(':');
                     if (repoIdx < 0 || !name.Contains("funeralv2-")) continue;
                     var repoName = name[..repoIdx];
-                    (byRepo.TryGetValue(repoName, out var list) ? list : byRepo[repoName] = []).Add((name, created));
+                    (byRepo.TryGetValue(repoName, out var list) ? list : byRepo[repoName] = [])
+                        .Add((name, created, size));
                 }
             }
         }
 
         var removed = new List<string>();
         var errors = new List<string>();
+        long candidateBytes = 0;
+
         foreach (var (_, tags) in byRepo)
         {
             var candidates = tags.OrderByDescending(t => t.Created)
                 .Where(t => !imagesInUse.Contains(t.Name))
                 .Skip(KeepRecentTags);
-            foreach (var (name, _) in candidates)
+
+            foreach (var (name, _, size) in candidates)
             {
+                if (dryRun)
+                {
+                    removed.Add(name);
+                    candidateBytes += size;
+                    continue;
+                }
+
                 var res = await client.DeleteAsync($"/images/{Uri.EscapeDataString(name)}", ct);
                 if (res.IsSuccessStatusCode) removed.Add(name);
                 else errors.Add($"{name}: {(int)res.StatusCode}");
             }
+        }
+
+        if (dryRun)
+        {
+            return new
+            {
+                dryRun = true,
+                removed,
+                errors,
+                keptRecent = KeepRecentTags,
+                // **회수량이 아니라 상한이다.** 도커 이미지의 Size 는 공유 레이어를
+                // 저마다 온전히 세므로, 태그 열 개를 더하면 실제 회수량보다 훨씬 크다.
+                // 화면도 그 말로 적어 둔다.
+                spaceReclaimedMb = candidateBytes / (1024 * 1024),
+            };
         }
 
         // 이름 잃은 레이어 정리 — 실제 디스크 회수는 대부분 여기서 일어난다.
@@ -398,6 +441,7 @@ public static class DeployStatusEndpoints
 
         return new
         {
+            dryRun = false,
             removed,
             errors,
             keptRecent = KeepRecentTags,

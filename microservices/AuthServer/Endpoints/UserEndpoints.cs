@@ -104,6 +104,35 @@ public static class UserEndpoints
         .WithName("ChangePassword")
         .WithOpenApi();
 
+        // ── 비밀번호 확인 (잠금화면) ────────────────────────────
+        //
+        // **아무것도 바꾸지 않는다.** 맞는지만 보고 참·거짓을 준다.
+        //
+        // 잠금화면(D7)이 쓴다. 로그인 API 를 다시 부르는 길도 있었지만 그러면
+        // 새 토큰이 발급되어 기존 세션과 섞인다 — 잠금을 푸는 일이 조용히
+        // 재로그인이 되는 셈이라, 확인만 하는 경로를 따로 뒀다.
+        //
+        // **틀렸을 때 401 이 아니라 200 + false 를 준다.** 401 을 주면
+        // 프런트의 `AuthTokenHandler` 가 세션이 죽은 것으로 읽고 토큰을 버려,
+        // 비밀번호를 한 번 잘못 치면 **화면 전체가 로그아웃된다.**
+        //
+        // 속도 제한은 게이트웨이가 로그인과 같은 정책(`auth-attempts`)으로 건다.
+        // 안 걸면 로그인에 걸어 둔 제한을 이 경로로 우회할 수 있다.
+        group.MapPost("/verify-password", async (
+            UserContext? user, [FromBody] VerifyPasswordDto request,
+            [FromServices] IUserService userService) =>
+        {
+            if (user is null)
+            {
+                return Results.Json(ApiResponse<object>.Fail("인증 정보가 없습니다.", "401"), statusCode: 401);
+            }
+
+            var matched = await userService.VerifyPasswordAsync(user.UserId, request.Password);
+            return Results.Ok(ApiResponse<bool>.Ok(matched));
+        })
+        .WithName("VerifyPassword")
+        .WithOpenApi();
+
         // ── 화면 환경설정 (계정별) ──────────────────────────────
         //
         // 예전에는 브라우저 로컬스토리지에만 있어서 **사람이 아니라 브라우저에 붙었다.**

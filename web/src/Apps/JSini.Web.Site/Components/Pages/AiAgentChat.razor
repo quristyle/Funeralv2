@@ -1,102 +1,27 @@
 @page "/site/ai/chat"
-@using JSini.Web.Site.Api
 
 @*
-    [AI 에이전트 대화]
-
+    [AI 에이전트 대화] — DB 메뉴 `/site/ai/chat`.
     이력: Vue `views/portal/ai/chat.vue` → 여기.
-    AIAgentServer와의 실시간 스트리밍 대화를 제공하는 대화 화면.
-*@
 
-@inject AiChatClient ChatClient
+    [알맹이는 공용 부품이다 — D11]
+
+    옛 포털처럼 헤더에서 여는 대화창을 되살리면서, 말풍선·스트리밍·오류
+    처리를 `AiChatPanel` 한 벌로 모았다. 이 화면과 헤더 서랍이 **같은 것**을
+    쓴다. 복사해 두면 한쪽에만 고침이 들어가고, 그 어긋남은 「화면에서는
+    되는데 헤더에서는 안 된다」로 나타난다.
+
+    그래서 이 화면에 남는 것은 **제목과 넓은 자리**뿐이다. 서랍보다 넓게
+    쓰고 싶을 때 오는 자리다.
+*@
 
 <PageTitle>AI 에이전트 대화 · 소개사이트·AI</PageTitle>
 
 <PageHeading Title="AI 에이전트 대화" Scope="소개사이트·AI" />
 
-<div class="card p-3 mb-3 d-flex flex-column" style="height: 600px;">
-    <div class="flex-grow-1 overflow-auto mb-3 border rounded p-3 bg-light">
-        @if (_messages.Count == 0)
-        {
-            <div class="text-center text-muted my-5">
-                <h5>🤖 AI 에이전트와 대화를 시작해보세요</h5>
-                <p class="fs-7">질문이나 필요한 작업을 입력하시면 실시간으로 답변해 드립니다.</p>
-            </div>
-        }
-        else
-        {
-            @foreach (var msg in _messages)
-            {
-                <div class="d-flex mb-3 @(msg.Role == "user" ? "justify-content-end" : "justify-content-start")">
-                    <div class="p-3 rounded shadow-sm max-w-75 @(msg.Role == "user" ? "bg-primary text-white" : "bg-white text-dark border")">
-                        <div class="fw-bold mb-1 fs-7">@(msg.Role == "user" ? "나" : "AI Assistant")</div>
-                        <div class="whitespace-pre-wrap">@msg.Content</div>
-                    </div>
-                </div>
-            }
-        }
+<PageNotice Tone="NoticeTone.Info"
+            Text="새로고침하면 대화가 사라집니다. 서버에 대화를 저장하는 통로가 아직 없습니다." />
 
-        @if (_isStreaming)
-        {
-            <div class="d-flex align-items-center gap-2 text-primary fs-7">
-                <div class="spinner-border spinner-border-sm" role="status"></div>
-                <span>답변을 생성 중입니다...</span>
-            </div>
-        }
-    </div>
-
-    <div class="d-flex gap-2">
-        <DxTextBox @bind-Text="_inputMessage"
-                   NullText="메시지를 입력하세요 (Enter 키로 전송)..."
-                   Style="width: 100%"
-                   ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
-        <DxButton Text="전송"
-                  RenderStyle="ButtonRenderStyle.Primary"
-                  Enabled="@(!_isStreaming && !string.IsNullOrWhiteSpace(_inputMessage))"
-                  Click="@SendMessageAsync" />
-    </div>
+<div class="site-ai-chat">
+    <AiChatPanel />
 </div>
-
-@code {
-    private List<AiChatMessage> _messages = [];
-    private string? _inputMessage;
-    private bool _isStreaming;
-
-    private async Task SendMessageAsync()
-    {
-        if (string.IsNullOrWhiteSpace(_inputMessage) || _isStreaming) return;
-
-        var userText = _inputMessage.Trim();
-        _inputMessage = string.Empty;
-
-        _messages.Add(new AiChatMessage("user", userText));
-        _messages.Add(new AiChatMessage("assistant", string.Empty));
-        var assistantIndex = _messages.Count - 1;
-
-        _isStreaming = true;
-        StateHasChanged();
-
-        try
-        {
-            await foreach (var part in ChatClient.StreamAsync(_messages.Take(_messages.Count - 1).ToList()))
-            {
-                if (!string.IsNullOrEmpty(part.Text))
-                {
-                    var current = _messages[assistantIndex];
-                    _messages[assistantIndex] = new AiChatMessage("assistant", current.Content + part.Text);
-                    StateHasChanged();
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            var current = _messages[assistantIndex];
-            _messages[assistantIndex] = new AiChatMessage("assistant", current.Content + $"\n[오류 발생: {ex.Message}]");
-        }
-        finally
-        {
-            _isStreaming = false;
-            StateHasChanged();
-        }
-    }
-}

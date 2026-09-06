@@ -207,6 +207,20 @@ public sealed class AdminClient(GatewayClient gateway)
     public Task<DeployStatusDto?> GetDeployStatusAsync(CancellationToken ct = default)
         => gateway.GetOneAsync<DeployStatusDto>("auth/deploy-status", ct);
 
+    /// <summary>
+    /// 쌓인 도커 이미지를 정리한다 (D17). <b>관리자만</b> — 판정은 서버가 한다.
+    ///
+    /// <para>
+    /// <paramref name="dryRun"/> 이 참이면 <b>지우지 않고 지울 목록만</b> 받는다.
+    /// 화면이 그것을 확인 창에 그대로 띄운다. 목록을 화면이 스스로 계산하지
+    /// 않는 이유는 서버 쪽 주석에 있다 — 규칙이 두 곳에 생기면 <b>보여 준 것과
+    /// 지워지는 것이 달라진다.</b>
+    /// </para>
+    /// </summary>
+    public Task<DockerCleanupDto?> CleanupDockerImagesAsync(bool dryRun, CancellationToken ct = default)
+        => gateway.PostAsync<DockerCleanupDto>(
+            $"auth/deploy-status/cleanup?dryRun={(dryRun ? "true" : "false")}", body: null, ct);
+
     public Task<PlayerReleaseDto?> GetPlayerReleaseStatusAsync(CancellationToken ct = default)
         => gateway.GetOneAsync<PlayerReleaseDto>("auth/system/player-release/status", ct);
 

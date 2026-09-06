@@ -50,6 +50,22 @@ public interface IUserService
     Task<ChangePasswordResult> ChangePasswordAsync(string userId, ChangePasswordDto dto);
 
     /// <summary>
+    /// 비밀번호가 맞는지 <b>확인만</b> 한다. 아무것도 바꾸지 않는다.
+    /// </summary>
+    /// <remarks>
+    /// 잠금화면이 쓴다(D7). 로그인 API 를 다시 부르는 방법도 있었지만 그러면
+    /// <b>새 토큰이 발급되어 기존 세션과 섞인다</b> — 잠금을 푸는 일이 조용히
+    /// 재로그인이 되는 셈이라, 확인만 하는 길을 따로 뒀다.
+    ///
+    /// <para>
+    /// 돌려주는 것은 참·거짓뿐이다. "계정이 없다" 와 "비밀번호가 틀리다" 를
+    /// 구분해 주지 않는다 — 여기 오는 사람은 이미 로그인한 사람이라
+    /// 구분해 봐야 알려 줄 것이 없고, 구분하면 계정을 골라내는 데 쓰인다.
+    /// </para>
+    /// </remarks>
+    Task<bool> VerifyPasswordAsync(string userId, string password);
+
+    /// <summary>
     /// 로그인한 사용자의 설정을 업데이트합니다.
     /// </summary>
     Task<bool> UpdateSettingAsync(string userId, UpdateSettingDto dto);

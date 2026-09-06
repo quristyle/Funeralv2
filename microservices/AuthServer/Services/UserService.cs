@@ -664,6 +664,29 @@ public class UserService : IUserService
     }
 
     /// <summary>
+    /// 비밀번호가 맞는지 확인만 한다. 잠금화면이 쓴다(D7).
+    /// </summary>
+    /// <remarks>
+    /// <b>일부러 아무것도 바꾸지 않는다.</b> 로그인에는 있는 곁일(해시 승격 ·
+    /// 접속 기록 · 만료 시계)을 여기서 하면, 잠금을 푼 것이 로그인 기록으로
+    /// 남아 「접속 기록」 화면이 실제와 달라진다.
+    /// </remarks>
+    public async Task<bool> VerifyPasswordAsync(string userId, string password)
+    {
+        if (string.IsNullOrEmpty(password))
+        {
+            return false;
+        }
+
+        var account = await _db.Accounts
+            .AsNoTracking()
+            .FirstOrDefaultAsync(a => a.UserId == userId || a.Id == userId);
+
+        // 저장값이 아직 평문인 계정도 그대로 통과한다 — PasswordHasher 참고.
+        return account is not null && PasswordHasher.Verify(account.Password, password);
+    }
+
+    /// <summary>
     /// 로그인한 사용자의 설정을 업데이트합니다.
     /// </summary>
     public async Task<bool> UpdateSettingAsync(string userId, UpdateSettingDto dto)

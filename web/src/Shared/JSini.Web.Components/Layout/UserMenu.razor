@@ -10,15 +10,17 @@
     그래서 드롭다운은 "로그아웃" 을 눌렀을 때 감춰 둔 폼을 JS 로 제출한다.
 *@
 
+@using JSini.Web.Components.Security
+
 @inject IJSRuntime Js
 @inject NavigationManager Navigation
+@inject ScreenLock Lock
 
 <AuthorizeView>
     <Authorized>
         <DxDropDownButton Text="@context.User.Identity?.Name"
                           IconCssClass="jsini-icon-user"
                           RenderStyle="ButtonRenderStyle.Link"
-                          SizeMode="SizeMode.Small"
                           DropDownWidth="180">
             <Items>
                 <DxDropDownButtonItem Text="내 정보"
@@ -27,6 +29,11 @@
                 <DxDropDownButtonItem Text="알림 설정"
                                       IconCssClass="jsini-icon-bell"
                                       Click="@(() => Navigation.NavigateTo("/admin/push/setting"))" />
+                @* 잠금은 로그아웃이 아니다 — 세션은 그대로 두고 화면만 덮는다.
+                   무엇을 막고 무엇을 못 막는지는 LockScreen 머리말에 있다. *@
+                <DxDropDownButtonItem Text="화면 잠금"
+                                      IconCssClass="jsini-icon-lock"
+                                      Click="@(() => Lock.LockAsync())" />
                 <DxDropDownButtonItem Text="로그아웃"
                                       IconCssClass="jsini-icon-logout"
                                       Click="@LogoutAsync" />

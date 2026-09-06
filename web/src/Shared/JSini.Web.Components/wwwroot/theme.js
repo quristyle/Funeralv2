@@ -166,50 +166,87 @@
   }
 
   /**
+   * 한 번 실린 스타일시트를 켜고 끈다.
+   *
+   * 이미 받아 둔 것이라 `disabled` 로 즉시 바뀐다. `media` 를 함께 되돌리는
+   * 것은 처음에 `not all` 로 만들어졌을 수 있기 때문이다 — 그대로 두면
+   * `disabled = false` 로 켜도 적용되지 않는다.
+   */
+  function setActive(link, on) {
+    link.media = 'all';
+    link.disabled = !on;
+  }
+
+  /** 다 실렸을 때 부를 것을 걸어 둔다. 이미 실렸으면 바로 부른다. */
+  function whenReady(link, callback) {
+    if (link.__loaded) {
+      callback();
+      return;
+    }
+
+    link.__waiters = link.__waiters || [];
+    link.__waiters.push(callback);
+  }
+
+  /** 다 실렸다고 알린다. 두 번 불러도 한 번만 통한다. */
+  function settle(link) {
+    if (link.__loaded) return;
+
+    link.__loaded = true;
+
+    var waiters = link.__waiters || [];
+    link.__waiters = [];
+
+    for (var i = 0; i < waiters.length; i++) {
+      waiters[i]();
+    }
+  }
+
+  /**
    * 스타일시트를 붙인다(이미 있으면 그대로 쓴다).
    * 다 실렸을 때 콜백을 부른다 — 실패해도 부른다(그 테마만 안 예뻐질 뿐이다).
    */
   function ensure(href, onReady, startEnabled) {
-    var existing = links[href];
+    var link = links[href];
 
-    if (existing) {
-      if (existing.__loaded) {
-        onReady();
-      } else {
-        existing.addEventListener('load', onReady, { once: true });
-        existing.addEventListener('error', onReady, { once: true });
-      }
-      return existing;
+    if (!link) {
+      link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = href;
+      link.setAttribute('data-jsini-theme', '');
+
+      // **첫 적용만 켠 채로 만든다.**
+      //
+      // 처음에는 갈아 끼울 옛 테마가 없으니 켠 채로 만들어도 번쩍일 일이 없고,
+      // 그러면 브라우저가 이 파일을 기다렸다가 그린다(맨몸 화면이 안 스친다).
+      //
+      // 두 번째부터는 꺼서 만든다 — 다 실린 뒤에 옛 것과 한꺼번에 바꿔야
+      // 그 사이에 두 테마가 겹쳐 보이지 않는다.
+      //
+      // [끄는 방법이 `disabled` 면 안 된다 — 실제로 밟았다]
+      //
+      // `link.disabled = true` 로 만든 <link> 는 브라우저가 **아예 내려받지
+      // 않는다.** 요청도, `load` 도, `sheet` 도 없다. 그래서 여기서 기다리는
+      // 콜백이 영영 안 불리고 테마가 바뀌지 않았다. 새로고침하면 그때는
+      // 첫 적용이라 켠 채로 만들어져 적용된 것처럼 보였다 —
+      // **"고르면 아무 일도 없는데 F5 하면 바뀐다"** 가 그 증상이다.
+      //
+      // `media = 'not all'` 은 다르다. 정상으로 받아 오고 `load` 도 오는데
+      // 적용만 안 된다. 다 받은 뒤 `media` 를 되돌리면서 켠다(setActive).
+      link.media = startEnabled ? 'all' : 'not all';
+
+      link.addEventListener('load', function () { settle(link); }, { once: true });
+      link.addEventListener('error', function () { settle(link); }, { once: true });
+
+      // 못 받아도 넘어간다. 안 그러면 한 장이 막혔을 때 그 테마에서
+      // 영영 못 벗어난다 — 안 예쁜 것보다 안 바뀌는 것이 나쁘다.
+      window.setTimeout(function () { settle(link); }, 4000);
+
+      insertOrdered(link, href);
+      links[href] = link;
     }
 
-    var link = document.createElement('link');
-    link.rel = 'stylesheet';
-    link.href = href;
-
-    // **첫 적용만 켠 채로 만든다.**
-    //
-    // 꺼 둔 스타일시트는 브라우저가 그림을 미루지 않는다. 그래서 첫 방문에
-    // 맨몸 HTML 이 한 번 보였다가 테마가 입혀진다(FOUC). 처음에는 갈아 끼울
-    // 옛 테마가 없으니 켠 채로 만들어도 번쩍일 일이 없고, 그러면 브라우저가
-    // 이 파일을 기다렸다가 그린다.
-    //
-    // 두 번째부터는 꺼서 만든다 — 다 실린 뒤에 옛 것과 한꺼번에 바꿔야
-    // 그 사이에 두 테마가 겹쳐 보이지 않는다.
-    link.disabled = !startEnabled;
-    link.setAttribute('data-jsini-theme', '');
-
-    link.addEventListener('load', function () {
-      link.__loaded = true;
-      onReady();
-    }, { once: true });
-
-    link.addEventListener('error', function () {
-      link.__loaded = true;
-      onReady();
-    }, { once: true });
-
-    insertOrdered(link, href);
-    links[href] = link;
+    whenReady(link, onReady);
     return link;
   }
 
@@ -338,7 +375,7 @@
 
       // **다 실린 뒤에** 갈아 끼운다. 순서를 바꾸면 화면이 번쩍인다.
       for (var href in links) {
-        links[href].disabled = wanted.indexOf(href) < 0;
+        setActive(links[href], wanted.indexOf(href) >= 0);
       }
 
       applyCustomAccent(spec.family === 'fluent' ? spec.custom : null);
@@ -535,6 +572,24 @@
     hide: function () {
       var el = document.getElementById('jsini-watermark');
       if (el) el.remove();
+    },
+  };
+
+  /**
+   * AI 대화창의 스크롤 (D11).
+   *
+   * 답이 한 글자씩 붙는 동안 늘 맨 아래가 보여야 한다. Blazor Server 는
+   * 브라우저의 스크롤 위치를 모르므로 이 한 줄만 JS 로 한다.
+   *
+   * **사람이 위로 올려 지난 대화를 읽고 있으면 끌어내리지 않는다.**
+   * 끌어내리면 읽던 자리를 계속 빼앗긴다. 바닥 근처(48px 안)일 때만 따라간다.
+   */
+  window.jsiniChat = {
+    toBottom: function (el) {
+      if (!el) return;
+      var gap = el.scrollHeight - el.scrollTop - el.clientHeight;
+      if (gap > 48) return;
+      el.scrollTop = el.scrollHeight;
     },
   };
 })();

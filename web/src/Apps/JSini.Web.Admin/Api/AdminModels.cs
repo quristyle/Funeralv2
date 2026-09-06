@@ -638,6 +638,34 @@ public sealed class DockerStatusDto
     public long ImagesTotalMb { get; set; }
 }
 
+/// <summary>
+/// 이미지 정리 결과 (D17). <c>auth/deploy-status/cleanup</c> 이 돌려준다.
+/// </summary>
+public sealed class DockerCleanupDto
+{
+    /// <summary>지우지 않고 목록만 본 것인가. 확인 창이 이 값을 보고 문구를 가른다.</summary>
+    public bool DryRun { get; set; }
+
+    /// <summary>
+    /// 지웠거나(<see cref="DryRun"/> 이 거짓) 지울(참) 태그들.
+    /// <b>이 목록은 서버가 만든다</b> — 화면이 같은 규칙을 다시 적으면
+    /// 한쪽만 고치는 날 보여 준 것과 지워지는 것이 달라진다.
+    /// </summary>
+    public List<string> Removed { get; set; } = [];
+
+    /// <summary>지우다 실패한 것들(<c>이름: 상태코드</c>). 비어 있으면 다 지웠다.</summary>
+    public List<string> Errors { get; set; } = [];
+
+    /// <summary>저장소마다 남겨 둔 최근 태그 수. 롤백 여지다.</summary>
+    public int KeptRecent { get; set; }
+
+    /// <summary>
+    /// 실제로 회수한 용량(MB). <b>미리보기일 때는 회수량이 아니라 상한이다</b> —
+    /// 도커의 이미지 크기는 공유 레이어를 저마다 온전히 세기 때문이다.
+    /// </summary>
+    public long SpaceReclaimedMb { get; set; }
+}
+
 public sealed class GithubStatusDto
 {
     /// <summary>읽지 못했을 때의 이유. 정상이면 <c>null</c>.</summary>

@@ -1,0 +1,213 @@
+@*
+    AI 대화 알맹이 (D11). 껍데기가 둘이라 갈라 두었다 —
+    화면 하나(`/site/ai/chat`)와 헤더에서 여는 서랍이 **같은 이것**을 쓴다.
+
+    [왜 갈랐나]
+
+    옛 포털도 화면과 헤더 대화창 둘 다 있었다. 복사해 두면 한쪽에만 고침이
+    들어가고, 그 어긋남은 「화면에서는 되는데 헤더에서는 안 된다」로 나타난다.
+    말풍선·스트리밍·오류 처리는 한 벌만 있으면 된다.
+
+    [안내는 답이 아니다]
+
+    서버는 답 글자와 안내(`notice`)를 갈라 보낸다. 안내를 답에 이어 붙이면
+    화면이 그것을 답의 일부로 저장하고 **다음 턴 문맥으로 다시 올려보낸다.**
+    그래서 안내는 따로 모아 따로 보여 준다.
+
+    [대화는 이 부품이 들고 있다]
+
+    회로가 살아 있는 동안만 남는다. 서버에 대화를 저장하는 통로가 아직 없어서
+    새로고침하면 사라진다 — 옛 포털도 그랬다.
+*@
+
+@implements IDisposable
+
+@inject AiChatClient Chat
+
+<div class="jsini-chat">
+    <div class="jsini-chat__log" @ref="_logRef">
+        @if (_messages.Count == 0)
+        {
+            <p class="jsini-chat__empty">
+                무엇이든 물어보세요. 답은 오는 대로 한 글자씩 나타납니다.
+            </p>
+        }
+
+        @foreach (var message in _messages)
+        {
+            <div class="jsini-chat__row jsini-chat__row--@(message.Role == "user" ? "me" : "ai")">
+                <div class="jsini-chat__bubble">
+                    @* `white-space: pre-wrap` 로 줄바꿈을 살린다. HTML 로 그리지
+                       않는다 — 답에 태그가 섞여 오면 그대로 실행된다. *@
+                    @message.Content
+                </div>
+            </div>
+        }
+
+        @if (_notices.Count > 0)
+        {
+            <div class="jsini-chat__notices">
+                @foreach (var notice in _notices)
+                {
+                    <div class="jsini-chat__notice">@notice</div>
+                }
+            </div>
+        }
+
+        @if (_streaming)
+        {
+            <div class="jsini-chat__typing">답변을 만들고 있습니다…</div>
+        }
+    </div>
+
+    @* 폼을 쓰지 않는다. 이 부품이 서랍(레이아웃) 안에도 들어가는데, 거기서
+       폼은 진짜 POST 로 새는 길이 된다 — 잠금화면에서 실제로 밟았다. *@
+    <div class="jsini-chat__input" @onkeydown="@OnKeyDownAsync">
+        <DxTextBox @bind-Text="@_input"
+                   BindValueMode="BindValueMode.OnInput"
+                   NullText="메시지를 입력하고 Enter"
+                   Enabled="@(!_streaming)"
+                   CssClass="jsini-chat__box" />
+
+        <DxButton Text="전송"
+                  RenderStyle="ButtonRenderStyle.Primary"
+                  Enabled="@(!_streaming && !string.IsNullOrWhiteSpace(_input))"
+                  Click="@SendAsync" />
+
+        <DxButton Text="비우기"
+                  RenderStyle="ButtonRenderStyle.Secondary"
+                  Enabled="@(!_streaming && _messages.Count > 0)"
+                  Click="@Clear" />
+    </div>
+</div>
+
+@code {
+    private readonly List<AiChatMessage> _messages = [];
+
+    /// <summary>서버가 답과 갈라 보낸 안내. 대화 문맥에는 넣지 않는다.</summary>
+    private readonly List<string> _notices = [];
+
+    private string? _input;
+    private bool _streaming;
+
+    private ElementReference _logRef;
+
+    /// <summary>새 글자가 붙을 때마다 맨 아래로 따라 내려갈지. 렌더 뒤에 본다.</summary>
+    private bool _scrollPending;
+
+    /// <summary>화면을 떠나면 흐르던 스트림을 끊는다. 안 끊으면 서랍을 닫아도 계속 받는다.</summary>
+    private CancellationTokenSource? _cts;
+
+    [Inject] private IJSRuntime Js { get; set; } = default!;
+
+    private async Task OnKeyDownAsync(KeyboardEventArgs e)
+    {
+        // Shift+Enter 는 줄바꿈 자리라 비워 둔다(지금은 한 줄 입력이라 아무 일도
+        // 없지만, 여러 줄로 바꿀 때 여기만 고치면 된다).
+        if (e.Key is "Enter" or "NumpadEnter" && !e.ShiftKey)
+        {
+            await SendAsync();
+        }
+    }
+
+    private async Task SendAsync()
+    {
+        if (_streaming || string.IsNullOrWhiteSpace(_input))
+        {
+            return;
+        }
+
+        var text = _input.Trim();
+        _input = string.Empty;
+
+        _messages.Add(new AiChatMessage("user", text));
+
+        // 답이 들어갈 빈 자리를 먼저 만든다. 조각이 올 때마다 이 칸만 갈아 끼운다.
+        _messages.Add(new AiChatMessage("assistant", string.Empty));
+        var slot = _messages.Count - 1;
+
+        _streaming = true;
+        _scrollPending = true;
+        StateHasChanged();
+
+        _cts?.Cancel();
+        _cts?.Dispose();
+        _cts = new CancellationTokenSource();
+
+        try
+        {
+            // 마지막 빈 칸은 보내지 않는다 — 서버 문맥에 빈 답이 섞인다.
+            var context = _messages.Take(_messages.Count - 1).ToList();
+
+            await foreach (var part in Chat.StreamAsync(context, _cts.Token))
+            {
+                if (part.Notice is { Length: > 0 } notice)
+                {
+                    _notices.Add(notice);
+                }
+                else if (part.Text is { Length: > 0 } piece)
+                {
+                    _messages[slot] = _messages[slot] with
+                    {
+                        Content = _messages[slot].Content + piece,
+                    };
+                }
+
+                _scrollPending = true;
+                StateHasChanged();
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // 서랍을 닫았거나 화면을 떠났다. 알릴 것이 없다.
+        }
+        catch (Exception ex)
+        {
+            // 오류를 **답에 이어 붙이지 않는다.** 붙이면 다음 턴 문맥에 실려
+            // 나가서 AI 가 그 문장을 자기가 한 말로 읽는다.
+            _notices.Add($"답을 받지 못했습니다 — {ex.Message}");
+        }
+        finally
+        {
+            // 한 글자도 못 받았으면 빈 말풍선이 남는다. 지운다.
+            if (_messages.Count > slot && _messages[slot].Content.Length == 0)
+            {
+                _messages.RemoveAt(slot);
+            }
+
+            _streaming = false;
+            _scrollPending = true;
+            StateHasChanged();
+        }
+    }
+
+    private void Clear()
+    {
+        _messages.Clear();
+        _notices.Clear();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_scrollPending)
+        {
+            return;
+        }
+        _scrollPending = false;
+
+        try
+        {
+            await Js.InvokeVoidAsync("jsiniChat.toBottom", _logRef);
+        }
+        catch (JSException)
+        {
+            // 스크롤은 곁일이다. 못 해도 대화는 된다.
+        }
+    }
+
+    public void Dispose()
+    {
+        _cts?.Cancel();
+        _cts?.Dispose();
+    }
+}

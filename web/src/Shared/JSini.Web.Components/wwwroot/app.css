@@ -406,13 +406,13 @@ body {
   border-bottom-color: var(--jsini-accent);
 }
 
+/* 글자 크기를 정하지 않는다 — 테마가 주는 기본값을 쓴다(파일 첫머리 참고). */
 .jsini-tab__link {
   display: block;
   padding: 0 0.3rem 0 0.65rem;
   line-height: 2.4rem;
   color: inherit;
   text-decoration: none;
-  font-size: 0.82rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -426,7 +426,7 @@ body {
   cursor: pointer;
   padding: 0 0.45rem 0 0.15rem;
   opacity: 0.5;
-  font-size: 0.95rem;
+  font: inherit;
   line-height: 1;
   color: inherit;
 }
@@ -547,6 +547,11 @@ a.jsini-crumbs__item:hover { opacity: 1; }
 .jsini-icon-user {
   -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 8a3.4 3.4 0 1 0 0-6.8A3.4 3.4 0 0 0 8 8zm0 1.5c-3 0-6 1.5-6 3.4V15h12v-2.1c0-1.9-3-3.4-6-3.4z'/%3E%3C/svg%3E");
   mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 8a3.4 3.4 0 1 0 0-6.8A3.4 3.4 0 0 0 8 8zm0 1.5c-3 0-6 1.5-6 3.4V15h12v-2.1c0-1.9-3-3.4-6-3.4z'/%3E%3C/svg%3E");
+}
+
+.jsini-icon-lock {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 1a3.4 3.4 0 0 0-3.4 3.4V6H3.4v9h9.2V6h-1.2V4.4A3.4 3.4 0 0 0 8 1zm0 1.6a1.8 1.8 0 0 1 1.8 1.8V6H6.2V4.4A1.8 1.8 0 0 1 8 2.6zm0 6a1.4 1.4 0 0 1 .7 2.6V13H7.3v-1.8A1.4 1.4 0 0 1 8 8.6z'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 1a3.4 3.4 0 0 0-3.4 3.4V6H3.4v9h9.2V6h-1.2V4.4A3.4 3.4 0 0 0 8 1zm0 1.6a1.8 1.8 0 0 1 1.8 1.8V6H6.2V4.4A1.8 1.8 0 0 1 8 2.6zm0 6a1.4 1.4 0 0 1 .7 2.6V13H7.3v-1.8A1.4 1.4 0 0 1 8 8.6z'/%3E%3C/svg%3E");
 }
 
 .jsini-icon-logout {
@@ -914,23 +919,89 @@ a.jsini-crumbs__item:hover { opacity: 1; }
   color: var(--jsini-text-muted);
 }
 
-/* ── 테마 창 ──────────────────────────────────────────────
+/* ── 테마 서랍 ────────────────────────────────────────────
 
-   DevExpress 데모의 테마 창을 본떴다. 묶음 제목 · 밝기 두 칸 ·
-   색 동그라미 격자 · 사용자 지정 색 · Classic 목록.
+   DevExpress 데모의 테마 판을 본떴다. **떠 있는 창이 아니라 서랍이다** —
+   헤더 아래부터 화면 바닥까지 오른쪽을 채우고 옆에서 밀려 들어온다.
+
+   안은 데모와 같은 구성이다: 묶음 제목 · 밝기 두 칸 · 색 동그라미 격자 ·
+   사용자 지정 색 · Classic 목록 · Bootstrap 목록.
+
+   [닫혀 있을 때도 화면에 있다]
+
+   `display: none` 이 아니라 **화면 밖으로 밀어 둔다**. 그래야 여닫는 것이
+   미끄러져 보인다. 자리에서 사라지지 않아도 `position: fixed` 라
+   가로 스크롤을 만들지 않는다.
    ---------------------------------------------------------- */
 
 .jsini-theme-anchor { display: inline-flex; }
 
+/* 덮개. 헤더 아래부터 깐다 — 헤더까지 덮으면 방금 누른 테마 아이콘으로
+   다시 닫을 수 없다. */
+.jsini-theme-scrim {
+  position: fixed;
+  inset: var(--jsini-header-height) 0 0 0;
+  background: rgb(0 0 0 / 28%);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s ease-in-out, visibility 0.2s;
+  z-index: 1035;
+}
+
+.jsini-theme-scrim--on {
+  opacity: 1;
+  visibility: visible;
+}
+
+.jsini-theme-panel {
+  position: fixed;
+  top: var(--jsini-header-height);
+  right: 0;
+  bottom: 0;
+  width: min(340px, 100vw);
+  display: flex;
+  flex-direction: column;
+  background: var(--jsini-bg);
+  color: var(--jsini-text);
+  border-left: 1px solid var(--jsini-border);
+  box-shadow: -10px 0 28px rgb(0 0 0 / 14%);
+  transform: translateX(100%);
+  transition: transform 0.22s ease-in-out;
+  z-index: 1036;
+}
+
+.jsini-theme-panel--on { transform: none; }
+
+/* 접힌 서랍 안으로 탭 이동이 들어가면 안 된다 — 보이지도 않는 단추에
+   초점이 가서 화면이 엉뚱한 곳으로 굴러간다. */
+.jsini-theme-panel:not(.jsini-theme-panel--on) {
+  visibility: hidden;
+  transition: transform 0.22s ease-in-out, visibility 0.22s;
+}
+
+.jsini-theme-panel__head {
+  display: flex;
+  align-items: center;
+  height: 3rem;
+  min-height: 3rem;
+  padding: 0 0.5rem 0 1rem;
+  background: var(--jsini-surface);
+  border-bottom: 1px solid var(--jsini-border);
+}
+
+.jsini-theme-panel__title {
+  flex: 1;
+  font-weight: 600;
+}
+
+/* 묶음이 셋(Fluent · Classic · Bootstrap)이라 낮은 화면에서는 넘친다.
+   머리말은 붙박이로 두고 목록만 구른다. */
 .jsini-theme {
+  flex: 1;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  padding: 0.75rem 0.9rem 0.9rem;
-
-  /* 묶음이 셋(Fluent · Classic · Bootstrap)이라 낮은 화면에서는 넘친다.
-     창 안에서 구르게 둔다 — 창 자체를 늘리면 아래쪽 항목이 화면 밖으로 나간다. */
-  max-height: min(78vh, 620px);
+  padding: 0.75rem 1rem 1.25rem;
   overflow: hidden auto;
 }
 
@@ -1040,4 +1111,206 @@ a.jsini-crumbs__item:hover { opacity: 1; }
 .jsini-icon-excel {
   -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M2 1h8l4 4v10H2zm7 1v3h3zM4.6 7l1.6 2.2L4.6 11.4h1.5l.9-1.3.9 1.3h1.5L8.2 9.2 9.8 7H8.3l-.9 1.3L6.5 7z'/%3E%3C/svg%3E");
   mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M2 1h8l4 4v10H2zm7 1v3h3zM4.6 7l1.6 2.2L4.6 11.4h1.5l.9-1.3.9 1.3h1.5L8.2 9.2 9.8 7H8.3l-.9 1.3L6.5 7z'/%3E%3C/svg%3E");
+}
+
+/* ── 잠금화면 (D7) ────────────────────────────────────────────
+   레이아웃 격자 바깥에 덮는다. 격자 안에 두면 본문 자리에만 깔리고
+   헤더·사이드바가 그대로 눌린다.
+
+   z-index 를 크게 두는 이유: DevExpress 의 드롭다운·팝업이 1000 대를 쓴다.
+   덮개가 그보다 낮으면 열어 둔 차림표가 덮개 **위로** 뜬다. */
+.jsini-lock {
+  position: fixed;
+  inset: 0;
+  z-index: 20000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--jsini-bg);
+  /* 뒤에 있던 화면이 비쳐 보이면 「덮었다」가 아니라 「멈췄다」로 읽힌다.
+     불투명하게 덮되, 살짝 비치게 두어 어디로 돌아가는지는 알 수 있게 한다. */
+  background: color-mix(in srgb, var(--jsini-bg) 92%, transparent);
+  backdrop-filter: blur(6px);
+}
+
+.jsini-lock__panel {
+  width: min(22rem, calc(100vw - 2rem));
+  padding: 2rem 1.75rem;
+  border: 1px solid var(--jsini-border);
+  border-radius: 0.75rem;
+  background: var(--jsini-surface);
+  box-shadow: 0 1.5rem 3rem rgb(0 0 0 / 25%);
+  text-align: center;
+}
+
+.jsini-lock__icon {
+  width: 2.5rem;
+  height: 2.5rem;
+  margin: 0 auto 0.75rem;
+  background-color: var(--jsini-accent);
+}
+
+.jsini-lock__title {
+  margin: 0 0 0.25rem;
+  font-size: 1.05rem;
+}
+
+.jsini-lock__who {
+  margin: 0 0 1.25rem;
+  color: var(--jsini-text-muted);
+}
+
+.jsini-lock__form {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.jsini-lock__hint {
+  margin: 1.25rem 0 0.25rem;
+  color: var(--jsini-text-muted);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.jsini-lock__logout {
+  margin: 0;
+}
+
+/* ── AI 대화 (D11) ────────────────────────────────────────────
+   화면(/site/ai/chat)과 헤더 서랍이 같은 부품을 쓰므로 스타일도 한 벌이다.
+   높이는 부모가 정한다 — 서랍은 화면 높이, 화면은 아래 site-ai-chat 이 정한다. */
+.jsini-chat {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.jsini-chat__log {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0.75rem;
+  border: 1px solid var(--jsini-border);
+  border-radius: 0.5rem;
+  background: var(--jsini-bg);
+}
+
+.jsini-chat__empty {
+  margin: 2rem 0;
+  color: var(--jsini-text-muted);
+  text-align: center;
+}
+
+.jsini-chat__row {
+  display: flex;
+  margin-bottom: 0.6rem;
+}
+
+.jsini-chat__row--me { justify-content: flex-end; }
+.jsini-chat__row--ai { justify-content: flex-start; }
+
+.jsini-chat__bubble {
+  max-width: 80%;
+  padding: 0.55rem 0.75rem;
+  border-radius: 0.6rem;
+  /* 줄바꿈을 살린다. 답을 HTML 로 그리지 않으므로 이 한 줄이 서식의 전부다. */
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.55;
+}
+
+.jsini-chat__row--me .jsini-chat__bubble {
+  background: var(--jsini-accent);
+  color: #fff;
+}
+
+.jsini-chat__row--ai .jsini-chat__bubble {
+  background: var(--jsini-surface);
+  border: 1px solid var(--jsini-border);
+}
+
+/* 안내는 말풍선이 아니다 — 대화 문맥에 들어가지 않는 곁말이라 다르게 보인다. */
+.jsini-chat__notices {
+  margin-top: 0.5rem;
+}
+
+.jsini-chat__notice {
+  padding: 0.35rem 0.6rem;
+  margin-bottom: 0.3rem;
+  border-left: 3px solid var(--jsini-accent);
+  color: var(--jsini-text-muted);
+  font-size: 0.8rem;
+}
+
+.jsini-chat__typing {
+  padding: 0.35rem 0.2rem;
+  color: var(--jsini-text-muted);
+  font-size: 0.8rem;
+}
+
+.jsini-chat__input {
+  display: flex;
+  gap: 0.4rem;
+  padding-top: 0.6rem;
+}
+
+.jsini-chat__box { flex: 1; }
+
+/* ── AI 대화 서랍 ────────────────────────────────────────────
+   본문 위에 겹친다. 닫혀도 DOM 에 남는다 — 지웠다 만들면 대화가 사라진다.
+   `visibility` 를 함께 끄는 이유: transform 만으로 밀어 두면 화면 밖의 것이
+   여전히 탭 순서에 남아 Tab 키가 보이지 않는 칸으로 들어간다. */
+.jsini-ai-drawer {
+  position: fixed;
+  top: var(--jsini-header-height);
+  right: 0;
+  bottom: 0;
+  width: min(26rem, 100vw);
+  z-index: 1040;
+  display: flex;
+  flex-direction: column;
+  background: var(--jsini-bg);
+  border-left: 1px solid var(--jsini-border);
+  box-shadow: -0.5rem 0 1.5rem rgb(0 0 0 / 12%);
+  transform: translateX(100%);
+  visibility: hidden;
+  transition: transform 0.2s ease-in-out, visibility 0.2s;
+}
+
+.jsini-ai-drawer--open {
+  transform: translateX(0);
+  visibility: visible;
+}
+
+.jsini-ai-drawer__head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.5rem 0.5rem 0.9rem;
+  border-bottom: 1px solid var(--jsini-border);
+}
+
+.jsini-ai-drawer__title {
+  flex: 1;
+  font-weight: 600;
+}
+
+.jsini-ai-drawer__body {
+  flex: 1;
+  min-height: 0;
+  padding: 0.75rem;
+}
+
+.jsini-ai-drawer__foot {
+  margin: 0;
+  padding: 0 0.9rem 0.75rem;
+  color: var(--jsini-text-muted);
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.jsini-icon-robot {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M7.2 1h1.6v1.6h2.4A2.8 2.8 0 0 1 14 5.4v5.2a2.8 2.8 0 0 1-2.8 2.8H4.8A2.8 2.8 0 0 1 2 10.6V5.4a2.8 2.8 0 0 1 2.8-2.8h2.4zM5.8 6.6a1.2 1.2 0 1 0 0 2.4 1.2 1.2 0 0 0 0-2.4zm4.4 0a1.2 1.2 0 1 0 0 2.4 1.2 1.2 0 0 0 0-2.4zM0 6.4h1.2v3.2H0zm14.8 0H16v3.2h-1.2z'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M7.2 1h1.6v1.6h2.4A2.8 2.8 0 0 1 14 5.4v5.2a2.8 2.8 0 0 1-2.8 2.8H4.8A2.8 2.8 0 0 1 2 10.6V5.4a2.8 2.8 0 0 1 2.8-2.8h2.4zM5.8 6.6a1.2 1.2 0 1 0 0 2.4 1.2 1.2 0 0 0 0-2.4zm4.4 0a1.2 1.2 0 1 0 0 2.4 1.2 1.2 0 0 0 0-2.4zM0 6.4h1.2v3.2H0zm14.8 0H16v3.2h-1.2z'/%3E%3C/svg%3E");
 }

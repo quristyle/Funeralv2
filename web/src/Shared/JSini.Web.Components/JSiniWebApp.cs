@@ -187,6 +187,10 @@ public static class JSiniWebApp
         services.AddScoped<MenuFavorites>();
         services.AddScoped<PortalTabs>();
 
+        // 잠금화면(D7)도 같은 이유로 scoped 다 — 한 사람이 잠갔다고 모두의
+        // 화면이 덮이면 안 된다.
+        services.AddScoped<ScreenLock>();
+
         services.AddSingleton(RouteInventory.Build(
             routePrefix,
             routeAssemblies.Length > 0 ? routeAssemblies : [Assembly.GetEntryAssembly()!]));

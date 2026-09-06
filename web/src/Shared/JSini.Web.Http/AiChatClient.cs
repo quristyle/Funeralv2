@@ -2,7 +2,7 @@ using System.Net.Http.Json;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 
-namespace JSini.Web.Site.Api;
+namespace JSini.Web.Http;
 
 /// <summary>대화 한 줄. 서버(AIAgentServer)의 <c>Message</c> 와 같은 모양이다.</summary>
 /// <param name="Role"><c>user</c> · <c>assistant</c> · <c>system</c></param>
@@ -34,6 +34,13 @@ public sealed record AiChatPart(string? Text, string? Notice, string? Kind);
 /// Vue 는 환경설정에서 고른 공급자(<c>currentAiProvider</c>)를 실어 보냈다.
 /// Blazor 포털에는 아직 그 환경설정 화면이 없으므로 보내지 않는다 —
 /// 서버가 기본 공급자로 처리한다(<c>ChatRequestDto.Provider</c> 주석 참고).
+///
+/// [왜 공유 자리에 있나 — 소개사이트 모듈에 있던 것을 옮겼다]
+///
+/// D11 로 헤더에서 여는 대화창을 되살리면서, 이 클라이언트를 **레이아웃**이
+/// 써야 하게 됐다. 레이아웃은 공용(<c>JSini.Web.Components</c>)이고 업무
+/// 모듈을 참조할 수 없다(의존 규칙 4). 화면 하나가 쓰던 것이 셸 기능이 된
+/// 경우라 승격했다. 화면(<c>/site/ai/chat</c>)은 그대로 이것을 쓴다.
 /// </summary>
 public sealed class AiChatClient(HttpClient http)
 {

@@ -261,6 +261,24 @@ else
 {
     <h2 class="ad-subhead">쌓인 이미지 (@_status!.Docker.ImagesTotalMb MB)</h2>
 
+    @* 정리 단추 (D17). 옛 화면에도 있던 것을 되살렸다.
+
+       **되돌릴 수 없다** — 지운 이미지를 되살리려면 다시 빌드해야 한다.
+       그래서 곧바로 지우지 않고, 서버에 「지울 목록만」 먼저 물어(dryRun)
+       그 목록을 보여 준 뒤 확인을 받는다. 목록을 화면이 계산하지 않는 이유는
+       AdminClient 쪽 주석에 있다.
+
+       권한은 서버가 본다(ADMINISTRATOR 계열). 화면에서 단추를 감추지 않는
+       이유: 권한표의 이름과 서버 판정이 어긋나면 **단추가 사라져 원인을
+       찾을 수 없다.** 권한이 없으면 눌렀을 때 서버가 이유를 말해 준다. *@
+    <div class="jsini-toolbar">
+        <DxButton Text="쌓인 이미지 정리" RenderStyle="ButtonRenderStyle.Secondary" SizeMode="SizeMode.Small"
+                  Enabled="@(!_cleaning)" Click="@PreviewCleanupAsync" />
+        <span class="ad-stamp">
+            사용 중 태그와 저장소마다 최근 것 몇 개는 남깁니다. 지우기 전에 목록을 보여 줍니다.
+        </span>
+    </div>
+
     <DxGrid Data="@Images" ShowFilterRow="false" ShowSearchBox="false" PageSize="15">
         <Columns>
             <DxGridDataColumn FieldName="@nameof(DockerImageDto.Name)" Caption="이미지" MinWidth="300" />
@@ -285,6 +303,50 @@ else
     </DxGrid>
 }
 
+@* 정리 확인 창. **지울 목록은 서버가 준 그대로다** — 여기 보이는 것이
+   그대로 지워진다. *@
+<DxPopup @bind-Visible="@_confirmVisible" HeaderText="쌓인 이미지를 정리합니다"
+         ShowFooter="true" Width="42rem">
+    <BodyContentTemplate>
+        @if (_preview is null or { Removed.Count: 0 })
+        {
+            <p>지울 이미지가 없습니다. 사용 중이거나 최근 것이라 모두 남겨 둡니다.</p>
+        }
+        else
+        {
+            <p>
+                <b>@_preview.Removed.Count 개</b>를 지웁니다.
+                저장소마다 사용 중 태그와 최근 @_preview.KeptRecent 개는 남습니다.
+            </p>
+
+            <ul class="ad-cleanup-list">
+                @foreach (var name in _preview.Removed)
+                {
+                    <li>@name</li>
+                }
+            </ul>
+
+            @* 「최대」라고 적는다. 도커의 이미지 크기는 공유 레이어를 저마다
+               온전히 세므로 이 합은 실제 회수량보다 크다. 정확한 값을 아는
+               길이 없으니 부풀린 숫자를 확정처럼 보여 주지 않는다. *@
+            <p class="ad-stamp">최대 @_preview.SpaceReclaimedMb MB 정도가 줄어듭니다.</p>
+
+            <PageNotice Tone="NoticeTone.Warning"
+                        Text="되돌릴 수 없습니다. 지운 이미지가 다시 필요하면 그 태그를 다시 빌드해야 합니다." />
+        }
+    </BodyContentTemplate>
+    <FooterContentTemplate>
+        <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary"
+                  Click="@(() => _confirmVisible = false)" />
+        @if (_preview is { Removed.Count: > 0 })
+        {
+            <DxButton Text="@(_cleaning ? "지우는 중…" : "지운다")"
+                      RenderStyle="ButtonRenderStyle.Danger"
+                      Enabled="@(!_cleaning)" Click="@RunCleanupAsync" />
+        }
+    </FooterContentTemplate>
+</DxPopup>
+
 @code {
     private DeployStatusDto? _status;
     private IReadOnlyList<ServiceHealth> _services = [];
@@ -296,6 +358,16 @@ else
 
     /// <summary>지금 확인 중인 제공자. 같은 단추를 두 번 누르는 것을 막는다.</summary>
     private string? _checking;
+
+    // ── 이미지 정리 (D17) ───────────────────────────────────
+
+    /// <summary>서버에게 물어 온 「지울 목록」. 확인 창이 이것을 그대로 보여 준다.</summary>
+    private DockerCleanupDto? _preview;
+
+    private bool _confirmVisible;
+
+    /// <summary>미리보기·지우기가 도는 중. 같은 단추를 두 번 누르는 것을 막는다.</summary>
+    private bool _cleaning;
 
     private IReadOnlyList<DockerContainerDto> Containers => _status?.Docker.Containers ?? [];
     private IReadOnlyList<DockerImageDto> Images => _status?.Docker.Images ?? [];
@@ -313,6 +385,85 @@ else
 
         return _services.Count + Containers.Count;
     }, "상태 정보를 받지 못했습니다.", "서버 상태를 읽지 못했습니다");
+
+    /// <summary>
+    /// 「지울 목록만」 먼저 물어보고 확인 창을 연다 (D17).
+    ///
+    /// 목록이 비어도 창은 연다 — 눌렀는데 아무 일도 일어나지 않으면 고장으로
+    /// 읽힌다. 「지울 것이 없습니다」도 답이다.
+    /// </summary>
+    private async Task PreviewCleanupAsync()
+    {
+        if (_cleaning) return;
+
+        _cleaning = true;
+        _preview = null;
+        try
+        {
+            var ok = await RunAsync(
+                async () => _preview = await Api.CleanupDockerImagesAsync(dryRun: true),
+                okMessage: string.Empty,
+                failMessage: "지울 목록을 받지 못했습니다");
+
+            if (ok)
+            {
+                // RunAsync 가 성공 문구를 남기는데, 여기서는 창이 곧 답이라
+                // 안내 줄을 비운다.
+                Say(null);
+                _confirmVisible = true;
+            }
+        }
+        finally
+        {
+            _cleaning = false;
+        }
+    }
+
+    /// <summary>
+    /// 실제로 지운다. <b>여기부터는 되돌릴 수 없다.</b>
+    ///
+    /// 끝나면 상태를 다시 읽는다 — 「쌓인 이미지」 표가 줄어든 것이 보여야
+    /// 정말 지워졌는지 알 수 있다.
+    /// </summary>
+    private async Task RunCleanupAsync()
+    {
+        if (_cleaning) return;
+
+        _cleaning = true;
+        try
+        {
+            DockerCleanupDto? result = null;
+            var ok = await RunAsync(
+                async () => result = await Api.CleanupDockerImagesAsync(dryRun: false),
+                okMessage: "이미지를 정리했습니다.",
+                failMessage: "이미지를 정리하지 못했습니다");
+
+            _confirmVisible = false;
+
+            // **다시 읽는 것이 먼저다.** ReloadAsync 는 시작할 때 안내 줄을
+            // 비우므로, 결과를 먼저 적으면 그 자리에서 지워진다. 표가 줄어든
+            // 것을 보여 준 다음 무엇을 했는지 말한다.
+            await ReloadAsync();
+
+            if (ok && result is not null)
+            {
+                // 일부만 지워지는 일이 있다(다른 태그가 같은 레이어를 잡고 있는
+                // 경우 등). 「정리했습니다」로 뭉뚱그리면 표가 안 줄어든 이유를
+                // 알 수 없으므로 실패 건수를 함께 말한다.
+                var message = $"이미지 {result.Removed.Count}개를 지웠습니다 ({result.SpaceReclaimedMb} MB 회수).";
+                if (result.Errors.Count > 0)
+                {
+                    message += $" 지우지 못한 것 {result.Errors.Count}개 — {string.Join(", ", result.Errors.Take(3))}";
+                }
+
+                Say(message, result.Errors.Count > 0 ? NoticeTone.Warning : NoticeTone.Info);
+            }
+        }
+        finally
+        {
+            _cleaning = false;
+        }
+    }
 
     private IReadOnlyList<string> ModelsOf(string key) =>
         _models.FirstOrDefault(m => string.Equals(m.Provider, key, StringComparison.OrdinalIgnoreCase))?.Models ?? [];

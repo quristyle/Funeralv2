@@ -55,6 +55,21 @@ public static class ServiceCollectionExtensions
             })
             .AddHttpMessageHandler<AuthTokenHandler>();
 
+        // ── AI 대화 (D11) ────────────────────────────────────
+        //
+        // 봉투를 벗기는 GatewayClient 로는 `text/event-stream` 을 흘려 읽을 수
+        // 없어 클라이언트가 따로다. 여기서 등록하는 이유는 **헤더의 대화창**이
+        // 레이아웃(공용)에 있기 때문이다 — 모듈이 등록하면 레이아웃이 못 쓴다.
+        //
+        // 스트리밍이라 시간 제한을 길게 둔다. 기본 100초면 긴 답의 중간에서
+        // 끊기고, 증상은 「답이 하다 말았다」라 원인이 시간 제한으로 안 보인다.
+        services.AddHttpClient<AiChatClient>(client =>
+            {
+                client.BaseAddress = new Uri(baseUrl);
+                client.Timeout = TimeSpan.FromMinutes(10);
+            })
+            .AddHttpMessageHandler<AuthTokenHandler>();
+
         return services;
     }
 }

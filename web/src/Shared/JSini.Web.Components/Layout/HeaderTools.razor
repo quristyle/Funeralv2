@@ -20,26 +20,22 @@
 @inject IJSRuntime Js
 
 <DxButton RenderStyle="ButtonRenderStyle.Link"
-          SizeMode="SizeMode.Small"
           IconCssClass="@(IsFavorite ? "jsini-icon-star-on" : "jsini-icon-star")"
           Title="@(IsFavorite ? "즐겨찾기에서 빼기" : "즐겨찾기에 담기")"
           Enabled="@(MenuPath is not null)"
           Click="@ToggleFavoriteAsync" />
 
 <DxButton RenderStyle="ButtonRenderStyle.Link"
-          SizeMode="SizeMode.Small"
           IconCssClass="jsini-icon-refresh"
           Title="화면 새로 고침"
           Click="@Refresh" />
 
 <DxButton RenderStyle="ButtonRenderStyle.Link"
-          SizeMode="SizeMode.Small"
           IconCssClass="jsini-icon-expand"
           Title="전체화면"
           Click="@ToggleFullScreenAsync" />
 
 <DxButton RenderStyle="ButtonRenderStyle.Link"
-          SizeMode="SizeMode.Small"
           IconCssClass="jsini-icon-bell"
           Title="알림"
           Click="@(() => Navigation.NavigateTo("/admin/push/history"))" />

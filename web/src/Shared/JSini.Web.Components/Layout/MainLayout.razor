@@ -36,6 +36,7 @@
 @inject IMenuProvider Menus
 @inject IPermissionContext Permissions
 @inject ITokenStore Tokens
+@inject ScreenLock Lock
 @inject MenuFavorites Favorites
 @inject PortalTabs Tabs
 @inject AuthenticationStateProvider AuthState
@@ -52,7 +53,6 @@
            선은 로고와 글자를 갈라 주는 것뿐이라 화면 읽기에는 쓸모가 없다. *@
         <span class="jsini-header__toggle">
             <DxButton RenderStyle="ButtonRenderStyle.Link"
-                      SizeMode="SizeMode.Small"
                       IconCssClass="jsini-icon-menu"
                       Title="메뉴 접기/펴기"
                       Click="@ToggleSidebar" />
@@ -68,6 +68,13 @@
         <div class="jsini-header__spacer"></div>
 
         <HeaderTools MenuPath="@_menuPath" />
+
+        @* AI 대화 서랍 (D11). 단추가 헤더에 있고 판은 본문 오른쪽에 겹친다.
+           헤더 안에 두는 이유: 서랍이 헤더의 형제여야 본문 위로 온전히
+           덮인다. HeaderTools 에 넣지 않은 것은 그쪽이 「지금 화면에 대한
+           도구」 묶음이기 때문이다 — 이것은 화면과 무관하다. *@
+        <AiChatDrawer />
+
         <ThemeToggle />
         <UserMenu />
     </header>
@@ -88,6 +95,11 @@
 
 </div>
 
+@* 잠금 덮개 (D7). 격자 **바깥**에 둔다 — 안에 두면 격자 칸 하나를 차지해
+   덮개가 본문 자리에만 깔린다. 화면을 갈아 끼우지 않고 덮기만 하는 이유는
+   그 부품의 머리말에 있다. *@
+<LockScreen UserName="@_userName" />
+
 @code {
     private bool _sidebarOpen = true;
     private bool _isPhone;
@@ -98,6 +110,9 @@
 
     /// <summary>지금 화면의 DB 메뉴 경로. 즐겨찾기 단추가 쓴다.</summary>
     private string? _menuPath;
+
+    /// <summary>잠금 덮개에 띄우는 이름. 누구 화면인지 알려 준다.</summary>
+    private string? _userName;
 
     protected override void OnInitialized()
     {
@@ -120,6 +135,7 @@
     {
         var state = await AuthState.GetAuthenticationStateAsync();
         Tokens.Initialize(state.User);
+        _userName = state.User.Identity?.Name;
 
         await Permissions.ReloadAsync();
         await Menus.ReloadAsync();
@@ -149,6 +165,11 @@
         {
             await Js.InvokeVoidAsync("jsiniWatermark.show", name);
         }
+
+        // 잠금 표시는 브라우저에 남는다(sessionStorage). 새로고침해도 덮개가
+        // 다시 덮이게 하려면 회로가 붙은 **뒤에** 읽어야 한다 — 프리렌더
+        // 중에는 JS 를 부를 수 없다.
+        await Lock.RestoreAsync();
     }
 
     /// <summary>

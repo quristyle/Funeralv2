@@ -36,101 +36,120 @@
 
     회로가 붙기 전에는 JS 를 부를 수 없어 `OnAfterRenderAsync` 에서 읽는다.
     그 전까지는 단추만 있고 눌러도 아무 일도 없다 — 로그인 화면이 그 상태다.
+
+    [떠 있는 창이 아니라 오른쪽 서랍이다]
+
+    데모도 그렇게 한다 — 헤더 아래부터 화면 바닥까지 오른쪽을 채우는 판이
+    옆에서 밀려 들어온다. 묶음이 셋(Fluent · Classic · Bootstrap)이라 항목이
+    스물이 넘는데, 떠 있는 창으로 두면 그 안에서 또 굴려야 하고 창 밖을
+    스치기만 해도 닫힌다. 서랍은 열어 둔 채로 여러 개를 눌러 볼 수 있다.
+
+    `DxDropDown` 을 쓰지 않는다. 위치를 잡아 주는 것이 그 부품의 일인데
+    여기서는 자리가 고정(오른쪽 전체)이라 잡아 줄 것이 없고, 밀려 들어오는
+    움직임은 CSS transform 한 줄이다.
+
+    `DxDrawer` 도 아니다. 그건 본문을 안고 밀어내는 부품이라 레이아웃을
+    통째로 감싸야 한다 — 셸이 이미 격자로 서 있어서 얹을 자리가 없다.
 *@
 
 @inject IJSRuntime Js
 
-<DxDropDown @bind-IsOpen="_open"
-            PositionMode="DropDownPositionMode.Bottom"
-            PositionTarget=".jsini-theme-anchor"
-            HeaderVisible="false"
-            FooterVisible="false"
-            CloseMode="DropDownCloseMode.Close"
-            Width="290"
-            CssClass="jsini-theme-drop">
-    <BodyContentTemplate>
-        <div class="jsini-theme">
+@* 덮개. 서랍 밖을 누르면 닫힌다. 헤더는 덮지 않는다 —
+   덮으면 방금 누른 테마 아이콘으로 다시 닫을 수 없다. *@
+<div class="jsini-theme-scrim @(_open ? "jsini-theme-scrim--on" : "")"
+     @onclick="@(() => _open = false)"></div>
 
-            <div class="jsini-theme__group">DevExpress Fluent</div>
+<aside class="jsini-theme-panel @(_open ? "jsini-theme-panel--on" : "")"
+       aria-hidden="@(_open ? "false" : "true")">
 
-            <div class="jsini-theme__modes">
-                @foreach (var mode in _catalog.Modes)
-                {
-                    <button type="button"
-                            class="jsini-theme__mode @(IsFluentMode(mode.Id) ? "jsini-theme__mode--on" : "")"
-                            @onclick="@(() => SetFluentAsync(mode.Id, _accent))">
-                        @mode.Name
-                    </button>
-                }
-            </div>
+    <div class="jsini-theme-panel__head">
+        <span class="jsini-theme-panel__title">테마</span>
+        <DxButton RenderStyle="ButtonRenderStyle.Link"
+                  IconCssClass="jsini-icon-close"
+                  Title="닫기"
+                  Click="@(() => _open = false)" />
+    </div>
 
-            <div class="jsini-theme__label">Preset Colors</div>
+    <div class="jsini-theme">
 
-            <div class="jsini-theme__swatches">
-                @foreach (var accent in _catalog.Accents)
-                {
-                    <button type="button"
-                            class="jsini-theme__swatch @(IsFluentAccent(accent.Id) ? "jsini-theme__swatch--on" : "")"
-                            style="--swatch: @accent.Swatch"
-                            title="@accent.Name"
-                            aria-label="@accent.Name"
-                            @onclick="@(() => SetFluentAsync(_mode, accent.Id))">
-                    </button>
-                }
-            </div>
+        <div class="jsini-theme__group">DevExpress Fluent</div>
 
-            <div class="jsini-theme__label">Custom Color</div>
-
-            <div class="jsini-theme__custom">
-                @* 색 고르개와 글자 칸을 함께 둔다. 데모도 그렇다 —
-                   눈으로 고르는 사람과 브랜드 색 코드를 가진 사람이 다르다. *@
-                <input type="color" class="jsini-theme__picker"
-                       value="@(_custom ?? "#0f6cbd")"
-                       @onchange="@(e => SetCustomAsync(e.Value?.ToString()))" />
-
-                <DxTextBox Text="@_custom" TextChanged="@((string v) => SetCustomAsync(v))"
-                           NullText="#RRGGBB" SizeMode="SizeMode.Small" Width="110" />
-
-                @if (_custom is not null)
-                {
-                    <DxButton Text="지우기" RenderStyle="ButtonRenderStyle.Link" SizeMode="SizeMode.Small"
-                              Click="@(() => SetCustomAsync(null))" />
-                }
-            </div>
-
-            <div class="jsini-theme__group">DevExpress Classic</div>
-
-            <div class="jsini-theme__classic">
-                @foreach (var theme in _catalog.Classic)
-                {
-                    <button type="button"
-                            class="jsini-theme__item @(IsClassic(theme.Id) ? "jsini-theme__item--on" : "")"
-                            @onclick="@(() => SetClassicAsync(theme.Id))">
-                        @theme.Name
-                    </button>
-                }
-            </div>
-
-            <div class="jsini-theme__group">Bootstrap</div>
-
-            <div class="jsini-theme__classic">
-                @foreach (var theme in _catalog.Bootstrap)
-                {
-                    <button type="button"
-                            class="jsini-theme__item @(IsBootstrap(theme.Id) ? "jsini-theme__item--on" : "")"
-                            @onclick="@(() => SetBootstrapAsync(theme.Id))">
-                        @theme.Name
-                    </button>
-                }
-            </div>
-
+        <div class="jsini-theme__modes">
+            @foreach (var mode in _catalog.Modes)
+            {
+                <button type="button"
+                        class="jsini-theme__mode @(IsFluentMode(mode.Id) ? "jsini-theme__mode--on" : "")"
+                        @onclick="@(() => SetFluentAsync(mode.Id, _accent))">
+                    @mode.Name
+                </button>
+            }
         </div>
-    </BodyContentTemplate>
-</DxDropDown>
+
+        <div class="jsini-theme__label">Preset Colors</div>
+
+        <div class="jsini-theme__swatches">
+            @foreach (var accent in _catalog.Accents)
+            {
+                <button type="button"
+                        class="jsini-theme__swatch @(IsFluentAccent(accent.Id) ? "jsini-theme__swatch--on" : "")"
+                        style="--swatch: @accent.Swatch"
+                        title="@accent.Name"
+                        aria-label="@accent.Name"
+                        @onclick="@(() => SetFluentAsync(_mode, accent.Id))">
+                </button>
+            }
+        </div>
+
+        <div class="jsini-theme__label">Custom Color</div>
+
+        <div class="jsini-theme__custom">
+            @* 색 고르개와 글자 칸을 함께 둔다. 데모도 그렇다 —
+               눈으로 고르는 사람과 브랜드 색 코드를 가진 사람이 다르다. *@
+            <input type="color" class="jsini-theme__picker"
+                   value="@(_custom ?? "#0f6cbd")"
+                   @onchange="@(e => SetCustomAsync(e.Value?.ToString()))" />
+
+            <DxTextBox Text="@_custom" TextChanged="@((string v) => SetCustomAsync(v))"
+                       NullText="#RRGGBB" Width="120" />
+
+            @if (_custom is not null)
+            {
+                <DxButton Text="지우기" RenderStyle="ButtonRenderStyle.Link"
+                          Click="@(() => SetCustomAsync(null))" />
+            }
+        </div>
+
+        <div class="jsini-theme__group">DevExpress Classic</div>
+
+        <div class="jsini-theme__classic">
+            @foreach (var theme in _catalog.Classic)
+            {
+                <button type="button"
+                        class="jsini-theme__item @(IsClassic(theme.Id) ? "jsini-theme__item--on" : "")"
+                        @onclick="@(() => SetClassicAsync(theme.Id))">
+                    @theme.Name
+                </button>
+            }
+        </div>
+
+        <div class="jsini-theme__group">Bootstrap</div>
+
+        <div class="jsini-theme__classic">
+            @foreach (var theme in _catalog.Bootstrap)
+            {
+                <button type="button"
+                        class="jsini-theme__item @(IsBootstrap(theme.Id) ? "jsini-theme__item--on" : "")"
+                        @onclick="@(() => SetBootstrapAsync(theme.Id))">
+                    @theme.Name
+                </button>
+            }
+        </div>
+
+    </div>
+</aside>
 
 <span class="jsini-theme-anchor">
     <DxButton RenderStyle="ButtonRenderStyle.Link"
-              SizeMode="SizeMode.Small"
               IconCssClass="jsini-icon-palette"
               Title="테마"
               Click="@(() => _open = !_open)" />

@@ -1,0 +1,56 @@
+@*
+    헤더에서 여는 AI 대화 서랍 (D11).
+
+    옛 포털은 헤더에 AI 단추가 있고 누르면 본문 오른쪽에 대화창이 열렸다.
+    이식본에는 화면 하나(`/site/ai/chat`)만 있어서, 무엇을 보다가 물어보려면
+    보던 화면을 떠나야 했다. 그것이 이 기능의 요점이다 —
+    **보던 화면을 그대로 두고 옆에서 묻는다.**
+
+    [DxDrawer 를 쓰지 않았다]
+
+    레이아웃이 사이드바에서 그랬던 것과 같은 이유다. 여기 필요한 것은 본문
+    위에 겹치는 판이고, `position: fixed` 한 줄이면 된다. 부품을 얹으면
+    레이아웃 격자와 서랍의 밀어내기가 서로 싸운다.
+
+    [닫아도 대화가 남는다]
+
+    `@@if` 로 지웠다 다시 만들면 부품이 새로 만들어져 대화가 사라진다.
+    그러면 「닫았다 열었더니 방금 물어본 것이 없다」가 된다. 그래서 열림 여부는
+    CSS 로만 다루고 알맹이는 계속 살려 둔다.
+
+    [회로가 사는 동안만이다]
+
+    새로고침하면 사라진다 — 서버에 대화를 저장하는 통로가 아직 없다.
+    옛 포털도 그랬다.
+*@
+
+<DxButton RenderStyle="ButtonRenderStyle.Link"
+          IconCssClass="jsini-icon-robot"
+          Title="@(_open ? "AI 대화 닫기" : "AI 에게 묻기")"
+          Click="@Toggle" />
+
+<aside class="jsini-ai-drawer @(_open ? "jsini-ai-drawer--open" : "")"
+       aria-hidden="@(_open ? "false" : "true")">
+    <header class="jsini-ai-drawer__head">
+        <span class="jsini-ai-drawer__title">AI 에게 묻기</span>
+        <DxButton RenderStyle="ButtonRenderStyle.Link" SizeMode="SizeMode.Small"
+                  Text="✕" Title="닫기" Click="@Toggle" />
+    </header>
+
+    <div class="jsini-ai-drawer__body">
+        @* 화면 하나(`/site/ai/chat`)와 **같은 부품**이다. 복사해 두면 한쪽에만
+           고침이 들어가 「화면에서는 되는데 헤더에서는 안 된다」가 된다. *@
+        <AiChatPanel />
+    </div>
+
+    <p class="jsini-ai-drawer__foot">
+        새로고침하면 대화가 사라집니다. 남겨 두려면
+        <a href="/site/ai/chat">AI 에이전트 대화</a> 화면에서 이어가세요.
+    </p>
+</aside>
+
+@code {
+    private bool _open;
+
+    private void Toggle() => _open = !_open;
+}

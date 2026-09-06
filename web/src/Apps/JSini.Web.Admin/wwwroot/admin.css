@@ -423,3 +423,15 @@
   gap: 0.2rem;
   margin-right: 0.4rem;
 }
+
+/* 이미지 정리 확인 창의 목록 (D17).
+   태그가 수십 개일 수 있어 창이 화면 밖으로 자라지 않게 여기서만 구른다. */
+.ad-cleanup-list {
+  max-height: 16rem;
+  overflow-y: auto;
+  margin: 0.5rem 0;
+  padding-left: 1.25rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.8rem;
+  line-height: 1.6;
+}

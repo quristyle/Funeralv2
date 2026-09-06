@@ -1,0 +1,175 @@
+@*
+    잠금화면 (D7). vben 의 `LockScreen` 을 옮긴 것이다.
+
+    자리를 비울 때 화면을 덮고, 돌아와서 비밀번호를 넣어야 걷힌다.
+    잠그는 단추는 오른쪽 위 사용자 차림표에 있다.
+
+    [무엇을 막고 무엇을 못 막나]
+
+    **보안 경계가 아니다.** 잠긴 동안에도 토큰은 살아 있고 API 는 부를 수 있다 —
+    개발자 도구를 열면 우회할 수 있다. 막으려는 것은 **지나가는 사람**이지
+    공격자가 아니다. vben 도 같은 수준이었다. 그 말을 화면에도 적어 둔다.
+
+    [확인은 서버가 한다 — D7 결정]
+
+    로그인 API 를 다시 부르는 길도 있었지만 그러면 **새 토큰이 발급되어 기존
+    세션과 섞인다.** 잠금을 푸는 일이 조용히 재로그인이 되는 셈이다.
+    그래서 확인만 하는 경로를 AuthServer 에 새로 뒀다
+    (`auth/user/verify-password` — 아무것도 바꾸지 않고 참·거짓만 준다).
+
+    [틀렸을 때 200 + false 인 이유]
+
+    그 경로는 비밀번호가 틀려도 401 이 아니라 200 에 `false` 를 준다.
+    401 을 주면 `AuthTokenHandler` 가 세션이 죽은 것으로 읽고 토큰을 버려서,
+    **비밀번호를 한 번 잘못 치면 화면 전체가 로그아웃된다.**
+
+    [덮기만 하고 화면을 갈아 끼우지 않는다]
+
+    라우팅으로 잠금 화면으로 보내면 열려 있던 화면과 탭이 사라진다. 돌아와서
+    하던 일을 이어 가는 것이 이 기능의 목적이라, 레이아웃 위에 덮개만 올린다.
+*@
+
+@using JSini.Web.Http
+@using JSini.Web.Components.Security
+
+@implements IDisposable
+
+@inject ScreenLock Lock
+@inject GatewayClient Gateway
+
+@if (Lock.IsLocked)
+{
+    <div class="jsini-lock" role="dialog" aria-modal="true" aria-label="화면 잠김">
+        <div class="jsini-lock__panel">
+            <div class="jsini-lock__icon jsini-icon-lock" aria-hidden="true"></div>
+
+            <h2 class="jsini-lock__title">화면이 잠겨 있습니다</h2>
+            <p class="jsini-lock__who">@_name</p>
+
+            @* **폼을 쓰지 않는다.** 처음에 `EditForm` 으로 만들었더니 잠금 해제가
+               회로 안에서 처리되지 않고 **진짜 POST 로 나가서** 화면이
+               「어느 폼이 제출됐는지 모르겠다」는 오류로 바뀌었다. 이 부품은
+               레이아웃에 얹혀 있어 정적 SSR 로 그려지는 순간이 있고, 그때
+               폼이 있으면 그 길로 샌다.
+
+               필요한 것은 단추 하나와 엔터뿐이라 폼이 없어도 된다. 엔터는
+               감싼 div 의 keydown 으로 받는다. *@
+            <div class="jsini-lock__form" @onkeydown="@OnKeyDownAsync">
+                @* 값을 입력할 때마다 넘긴다. 기본값(`OnLostFocus`)이면 칸에 치고
+                   곧바로 **엔터**를 누르는 흔한 길에서 아직 안 넘어온 빈 값으로
+                   확인이 나가 "비밀번호를 입력해 주세요" 가 뜬다.
+
+                   **`@@bind-Text:event="oninput"` 로는 안 된다** — DxTextBox 는
+                   평범한 input 이 아니라 자기 사용자 정의 요소라 그 지시를
+                   조용히 무시한다(그려진 것을 보면 `bind-value-mode` 가 그대로
+                   `OnLostFocus` 다). 부품이 주는 `BindValueMode` 를 써야 한다. *@
+                <DxTextBox @bind-Text="@_password"
+                           BindValueMode="BindValueMode.OnInput"
+                           Password="true"
+                           NullText="비밀번호"
+                           Enabled="@(!_busy)"
+                           CssClass="jsini-lock__input" />
+
+                <DxButton Text="@(_busy ? "확인 중…" : "잠금 해제")"
+                          Enabled="@(!_busy)"
+                          Click="@UnlockAsync"
+                          RenderStyle="ButtonRenderStyle.Primary"
+                          CssClass="jsini-lock__submit" />
+            </div>
+
+            <PageNotice Text="@_error" Tone="NoticeTone.Error" />
+
+            @* 잠금은 예의 수준이다. 정말로 끊어야 하면 로그아웃해야 한다는 것을
+               여기서 밝혀 둔다 — 밝히지 않으면 이것을 보안으로 믿는다.
+
+               로그아웃이 폼 제출인 이유는 UserMenu 와 같다 — 쿠키를 지우는 것은
+               서버가 하는 일이라 회로 안의 NavigateTo 로는 지워지지 않는다. *@
+            <p class="jsini-lock__hint">
+                자리를 오래 비우거나 남이 쓰는 기기라면 잠금이 아니라 로그아웃이 맞습니다.
+            </p>
+
+            <form action="/logout" method="post" class="jsini-lock__logout">
+                <AntiforgeryToken />
+                <DxButton SubmitFormOnClick="true" Text="로그아웃"
+                          RenderStyle="ButtonRenderStyle.Link" SizeMode="SizeMode.Small" />
+            </form>
+        </div>
+    </div>
+}
+
+@code {
+    /// <summary>덮개에 띄우는 이름. 누구 화면인지 알려 준다.</summary>
+    [Parameter]
+    public string? UserName { get; set; }
+
+    private string _password = string.Empty;
+    private string? _error;
+    private bool _busy;
+
+    private string _name = string.Empty;
+
+    protected override void OnInitialized() => Lock.Changed += OnLockChanged;
+
+    protected override void OnParametersSet() => _name = UserName ?? string.Empty;
+
+    private void OnLockChanged()
+    {
+        if (!Lock.IsLocked)
+        {
+            // 걷힐 때 손에 든 것을 지운다. 남겨 두면 다음에 잠글 때
+            // 지난번 오류 문구가 그대로 떠 있다.
+            _password = string.Empty;
+            _error = null;
+        }
+
+        InvokeAsync(StateHasChanged);
+    }
+
+    /// <summary>엔터로도 풀린다. 폼이 없으므로 여기서 직접 받는다.</summary>
+    private Task OnKeyDownAsync(KeyboardEventArgs e) =>
+        e.Key is "Enter" or "NumpadEnter" ? UnlockAsync() : Task.CompletedTask;
+
+    private async Task UnlockAsync()
+    {
+        if (_busy)
+        {
+            return;
+        }
+
+        _error = null;
+
+        if (string.IsNullOrEmpty(_password))
+        {
+            _error = "비밀번호를 입력해 주세요.";
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            var matched = await Gateway.PostAsync<bool>(
+                "auth/user/verify-password", new { password = _password });
+
+            if (matched)
+            {
+                await Lock.UnlockAsync();
+                return;
+            }
+
+            _error = "비밀번호가 맞지 않습니다.";
+            _password = string.Empty;
+        }
+        catch (ApiException ex)
+        {
+            // 시도 제한(429)에 걸리면 그 말을 그대로 보여 준다.
+            // 「비밀번호가 틀렸다」로 뭉뚱그리면 몇 분을 더 헛되이 두드린다.
+            _error = ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    public void Dispose() => Lock.Changed -= OnLockChanged;
+}
