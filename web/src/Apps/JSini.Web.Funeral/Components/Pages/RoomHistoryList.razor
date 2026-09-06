@@ -28,7 +28,37 @@
         <Columns>
             <DxGridDataColumn FieldName="@nameof(RoomHistory.BuildingName)" Caption="건물" Width="140" />
             <DxGridDataColumn FieldName="@nameof(RoomHistory.RoomName)" Caption="호실" Width="120" />
+            @* 영정사진. 이름만 있으면 동명이인을 가릴 수가 없다 —
+               서버가 아이디를 함께 주고 있었다. *@
+            <DxGridDataColumn Caption="" Width="60" AllowSort="false">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var h = (RoomHistory)cell.DataItem;
+                        var photo = h.MemorialPhotoFileId is { Length: > 0 } id
+                            ? FileDownload.UrlFor(id)
+                            : FileDownload.RelayUrl(h.MemorialPhotoUrl);
+                    }
+                    @if (!string.IsNullOrWhiteSpace(photo))
+                    {
+                        <img class="fn-thumb" src="@photo" alt="" loading="lazy" />
+                    }
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
             <DxGridDataColumn FieldName="@nameof(RoomHistory.DeceasedName)" Caption="고인" MinWidth="120" />
+
+            <DxGridDataColumn Caption="성별" Width="70">
+                <CellDisplayTemplate Context="cell">
+                    @(((RoomHistory)cell.DataItem).Gender switch
+                    {
+                        "FEMALE" => "여",
+                        "MALE" => "남",
+                        _ => "-",
+                    })
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn FieldName="@nameof(RoomHistory.Age)" Caption="나이" Width="70" />
             <DxGridDataColumn FieldName="@nameof(RoomHistory.StartTime)" Caption="입실" Width="150" DisplayFormat="yyyy-MM-dd HH:mm" />
             <DxGridDataColumn FieldName="@nameof(RoomHistory.EndTime)" Caption="퇴실" Width="150" DisplayFormat="yyyy-MM-dd HH:mm" />
             <DxGridDataColumn FieldName="@nameof(RoomHistory.UseDays)" Caption="사용일" Width="90" />

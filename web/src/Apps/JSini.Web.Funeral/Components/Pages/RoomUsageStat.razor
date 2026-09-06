@@ -51,6 +51,9 @@
     <CommGrd TItem="RoomUsage" Data="@_rows" PageSize="20">
         <Columns>
             <DxGridDataColumn FieldName="@nameof(RoomUsage.BuildingName)" Caption="건물" Width="140" />
+            @* 건물이 여럿인 시설에서는 층까지 봐야 어느 방인지 안다 —
+               호실 이름이 층마다 같은 곳이 있다(101호가 건물마다 있다). *@
+            <DxGridDataColumn FieldName="@nameof(RoomUsage.FloorName)" Caption="층" Width="90" />
             <DxGridDataColumn FieldName="@nameof(RoomUsage.RoomName)" Caption="호실" Width="120" />
             <DxGridDataColumn FieldName="@nameof(RoomUsage.DeceasedName)" Caption="고인" MinWidth="120" />
             <DxGridDataColumn FieldName="@nameof(RoomUsage.StartTime)" Caption="입실" Width="150" DisplayFormat="yyyy-MM-dd HH:mm" />

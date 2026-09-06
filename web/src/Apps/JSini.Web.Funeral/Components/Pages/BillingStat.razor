@@ -43,7 +43,18 @@
         <DxGridDataColumn FieldName="@nameof(Billing.BuildingName)" Caption="건물" Width="140" />
         <DxGridDataColumn FieldName="@nameof(Billing.RoomName)" Caption="호실" Width="110" />
         <DxGridDataColumn FieldName="@nameof(Billing.StartTime)" Caption="입실" Width="150" DisplayFormat="yyyy-MM-dd HH:mm" />
+
+        @* 퇴실이 비어 있으면 아직 쓰는 중이다. 사용일수만 보면 그것을 알 수
+           없어 「왜 이 건은 금액이 안 늘지」가 된다. *@
+        <DxGridDataColumn FieldName="@nameof(Billing.EndTime)" Caption="퇴실" Width="150" DisplayFormat="yyyy-MM-dd HH:mm" />
+
         <DxGridDataColumn FieldName="@nameof(Billing.UseDays)" Caption="사용일" Width="90" />
+
+        <DxGridDataColumn Caption="항목" Width="80">
+            <CellDisplayTemplate Context="cell">
+                @(((Billing)cell.DataItem).Items.Count)
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
         <DxGridDataColumn FieldName="@nameof(Billing.TotalAmount)" Caption="금액" Width="130" DisplayFormat="N0" />
     </Columns>
     <DetailRowTemplate Context="detail">

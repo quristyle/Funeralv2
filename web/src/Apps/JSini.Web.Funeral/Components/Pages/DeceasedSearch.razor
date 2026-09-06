@@ -28,6 +28,23 @@
 <CommCont>
     <CommGrd TItem="DeceasedLookup" Data="@_rows" PageSize="20">
         <Columns>
+            @* 사진. 조회 화면이라 더 쓸모가 있다 — 이름이 같은 분이 있을 때
+               사람이 가릴 수 있는 것은 얼굴이다. 서버가 이미 주고 있었다. *@
+            <DxGridDataColumn Caption="" Width="60" AllowSort="false">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var d = (DeceasedLookup)cell.DataItem;
+                        var photo = d.MemorialPhotoFileId is { Length: > 0 } id
+                            ? FileDownload.UrlFor(id)
+                            : FileDownload.RelayUrl(d.MemorialPhotoUrl);
+                    }
+                    @if (!string.IsNullOrWhiteSpace(photo))
+                    {
+                        <img class="fn-thumb" src="@photo" alt="" loading="lazy" />
+                    }
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
             <DxGridDataColumn FieldName="@nameof(DeceasedLookup.Name)" Caption="고인" MinWidth="120" />
             <DxGridDataColumn Caption="성별" Width="80">
                 <CellDisplayTemplate>
@@ -35,7 +52,27 @@
                 </CellDisplayTemplate>
             </DxGridDataColumn>
             <DxGridDataColumn FieldName="@nameof(DeceasedLookup.Age)" Caption="나이" Width="80" />
+            <DxGridDataColumn FieldName="@nameof(DeceasedLookup.Religion)" Caption="종교" Width="90" />
             <DxGridDataColumn FieldName="@nameof(DeceasedLookup.MournerNames)" Caption="상주" MinWidth="140" />
+
+            @* 상태. 이 화면은 지난 고인까지 함께 나오는 자리라
+               「지금 빈소에 계신 분」과 이미 끝난 건을 가려야 한다. *@
+            <DxGridDataColumn Caption="상태" Width="120">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var d = (DeceasedLookup)cell.DataItem;
+                    }
+                    <span class="jsini-badge @(d.Status == "FUNERAL_IN_PROGRESS" ? "jsini-badge--on" : "jsini-badge--off")">
+                        @(d.Status switch
+                        {
+                            "FUNERAL_IN_PROGRESS" => "진행 중",
+                            "FUNERAL_DEPARTURE_COMPLETED" => "출상 완료",
+                            "COMPLETED" => "종료",
+                            _ => d.Status,
+                        })
+                    </span>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
             <DxGridDataColumn FieldName="@nameof(DeceasedLookup.BuildingName)" Caption="건물" Width="130" />
             <DxGridDataColumn FieldName="@nameof(DeceasedLookup.RoomName)" Caption="호실" Width="110" />
             <DxGridDataColumn FieldName="@nameof(DeceasedLookup.DeathDate)" Caption="임종" Width="120" DisplayFormat="yyyy-MM-dd" />
