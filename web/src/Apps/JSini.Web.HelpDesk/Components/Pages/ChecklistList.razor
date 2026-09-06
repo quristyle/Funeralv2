@@ -3,13 +3,25 @@
 @*
     [체크리스트] — DB 메뉴 `/helpdesk/system/checklist`.
     이력: Vue `views/helpdesk/system/checklist` → 여기.
-    엔드포인트: `checklists`
+    엔드포인트: `checklists` (조회 · 등록 · 수정 · 삭제)
 
-    **서버가 준 대로 보여 주는 화면이다**(AutoGrid). 칸을 손으로 적지 않은
-    이유는 그 부품의 주석에 있다 — 요약하면, 이런 화면이 마흔 개고 백엔드가
-    칸을 더할 때마다 화면을 고치러 가는 것이 이득이 아니기 때문이다.
+    [읽기만 남아 있었다]
 
-    매일 들여다보는 화면이 되면 그때 칸을 손으로 적는다.
+    원본은 **체크하는 화면**이다(367줄). 항목을 켜고 끄면 그 자리에서 저장되고
+    분류별로 몇 개를 끝냈는지가 위에 나온다. 옮길 때는 서버가 준 대로 보여 주는
+    표 한 장이 되어 **체크할 수가 없었다** — 체크리스트에서 체크가 빠지면
+    남는 것은 목록뿐이다.
+
+    [체크는 누르는 즉시 저장한다]
+
+    저장 단추를 따로 두지 않는다. 항목이 수십 개인데 단추가 하나면 무엇을
+    바꿨는지 사람이 기억해야 하고, 저장 없이 나가면 조용히 사라진다.
+    (장례식장 업무 설정과 같은 판단이다.)
+
+    [분류는 항목이 들고 있다]
+
+    서버에 분류 전용 통로가 없다. 그래서 분류 이름을 바꾸는 것은 **그 분류의
+    항목을 하나씩 고치는 일**이다 — 원본도 그렇게 했다.
 *@
 
 @inherits DataPage
@@ -17,27 +29,195 @@
 
 <PageTitle>체크리스트 · 헬프데스크</PageTitle>
 
+<div class="jsini-toolbar">
+    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@ReloadAsync" />
+
+    <div class="jsini-toolbar__spacer"></div>
+
+    @if (_items.Count > 0)
+    {
+        <span class="jsini-badge">@_items.Count(i => i.IsChecked == true) / @_items.Count</span>
+    }
+
+    <PermissionView Action="MenuAction.Create">
+        <DxButton Text="항목 등록" RenderStyle="ButtonRenderStyle.Success" Click="@StartNew" />
+    </PermissionView>
+</div>
+
 <PageNotice Text="@Notice" Tone="@Tone" />
 
-<AutoGrid Data="@_rows" Loading="@Loading" Captions="@Captions" HiddenCols="id" PageSize="20" />
+<CommCont>
+    <CommGrd TItem="Checklist" Data="@_items" PageSize="30">
+        <Columns>
+            <DxGridDataColumn Caption="확인" Width="80">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var item = (Checklist)cell.DataItem;
+                    }
+                    @* 누르는 즉시 저장이다. *@
+                    <DxCheckBox Checked="@(item.IsChecked == true)"
+                                CheckedChanged="@((bool v) => ToggleAsync(item, v))" />
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn FieldName="@nameof(Checklist.Category)" Caption="분류" Width="160" />
+            <DxGridDataColumn FieldName="@nameof(Checklist.ItemName)" Caption="항목" MinWidth="240" />
+            <DxGridDataColumn FieldName="@nameof(Checklist.Note)" Caption="비고" MinWidth="200" />
+            <DxGridDataColumn FieldName="@nameof(Checklist.CompletedAt)" Caption="확인 시각" Width="150"
+                              DisplayFormat="yyyy-MM-dd HH:mm" />
+
+            <DxGridDataColumn Caption="" Width="140" AllowSort="false">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var item = (Checklist)cell.DataItem;
+                    }
+                    <div class="jsini-actions">
+                        <PermissionView Action="MenuAction.Update">
+                            <DxButton Text="수정" RenderStyle="ButtonRenderStyle.Secondary"
+                                      Click="@(() => StartEdit(item))" />
+                        </PermissionView>
+                        <PermissionView Action="MenuAction.Delete">
+                            <DxButton Text="삭제" RenderStyle="ButtonRenderStyle.Secondary"
+                                      Click="@(() => DeleteAsync(item))" />
+                        </PermissionView>
+                    </div>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+        </Columns>
+    </CommGrd>
+</CommCont>
+
+<DxPopup @bind-Visible="_editing" HeaderText="@(_form.Id == 0 ? "항목 등록" : "항목 수정")"
+         Width="520px" ShowFooter="false">
+    <BodyContentTemplate Context="popup">
+        <DxFormLayout>
+            <DxFormLayoutItem Caption="분류" ColSpanMd="12">
+                @* 이미 쓰는 분류를 고르거나 새로 적는다. 목록에만 가두면
+                   분류를 늘릴 때마다 코드를 고쳐야 한다. *@
+                <DxComboBox Data="@_categories" @bind-Value="_form.Category"
+                            AllowUserInput="true" NullText="분류 (직접 입력 가능)"
+                            ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="항목" ColSpanMd="12">
+                <DxTextBox @bind-Text="_form.ItemName" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="비고" ColSpanMd="12">
+                <DxMemo @bind-Text="_form.Note" Rows="3" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="정렬" ColSpanMd="6">
+                <DxSpinEdit Value="@(_form.SortOrder ?? 0)"
+                            ValueChanged="@((int v) => _form.SortOrder = v)" MinValue="0" />
+            </DxFormLayoutItem>
+        </DxFormLayout>
+
+        <div class="jsini-toolbar">
+            <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Primary" Click="@SaveAsync" />
+            <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary"
+                      Click="@(() => _editing = false)" />
+        </div>
+    </BodyContentTemplate>
+</DxPopup>
 
 @code {
-    private DataTable _rows = JsonTable.Empty;
+    private IReadOnlyList<Checklist> _items = [];
+    private IReadOnlyList<string> _categories = [];
 
-    /// <summary>칸 이름표. 여기 적은 순서가 표의 앞쪽 순서다.</summary>
-    private static readonly Dictionary<string, string> Captions = new(StringComparer.Ordinal)
-    {
-        ["title"] = "항목",
-        ["categoryName"] = "분류",
-        ["isActive"] = "사용",
-    };
+    private bool _editing;
+    private Checklist _form = new();
 
     protected override Task OnInitializedAsync() => ReloadAsync();
 
     private Task ReloadAsync() => LoadAsync(async () =>
     {
-        var json = await Api.GetAsync<JsonElement>("checklists");
-        _rows = JsonTable.From(json);
-        return _rows.Rows.Count;
+        _items = await Api.GetListAsync<Checklist>("checklists");
+
+        _categories = [.. _items
+            .Select(i => i.Category)
+            .Where(c => !string.IsNullOrWhiteSpace(c))
+            .Select(c => c!)
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(c => c, StringComparer.Ordinal)];
+
+        return _items.Count;
     }, "등록된 체크리스트가 없습니다.", "체크리스트를 읽지 못했습니다");
+
+    /// <summary>
+    /// 확인 표시를 바꾼다. <b>확인 시각도 함께 넣는다</b> — 언제 봤는지가
+    /// 체크 자체보다 쓸모 있을 때가 많다.
+    /// </summary>
+    private async Task ToggleAsync(Checklist item, bool marked)
+    {
+        var next = new Checklist
+        {
+            Id = item.Id,
+            ItemName = item.ItemName,
+            Category = item.Category,
+            Note = item.Note,
+            SortOrder = item.SortOrder,
+            IsChecked = marked,
+            CompletedAt = marked ? DateTime.Now : null,
+        };
+
+        if (await RunAsync(() => Api.PutAsync($"checklists/{item.Id}", next),
+                marked ? "확인했습니다." : "확인을 풀었습니다.", "바꾸지 못했습니다"))
+        {
+            await ReloadAsync();
+        }
+    }
+
+    private void StartNew()
+    {
+        _form = new Checklist { SortOrder = _items.Count == 0 ? 1 : _items.Max(i => i.SortOrder ?? 0) + 1 };
+        _editing = true;
+    }
+
+    /// <summary>편집 창에 <b>복사본</b>을 띄운다. 취소해도 목록이 안 바뀐다.</summary>
+    private void StartEdit(Checklist item)
+    {
+        _form = new Checklist
+        {
+            Id = item.Id,
+            ItemName = item.ItemName,
+            Category = item.Category,
+            Note = item.Note,
+            SortOrder = item.SortOrder,
+            IsChecked = item.IsChecked,
+            CompletedAt = item.CompletedAt,
+        };
+        _editing = true;
+    }
+
+    private async Task SaveAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_form.ItemName))
+        {
+            Say("항목 이름을 넣으십시오.", NoticeTone.Warning);
+            return;
+        }
+
+        var isNew = _form.Id == 0;
+
+        if (await RunAsync(
+                () => isNew
+                    ? Api.PostAsync("checklists", _form)
+                    : Api.PutAsync($"checklists/{_form.Id}", _form),
+                isNew ? "등록했습니다." : "저장했습니다.",
+                isNew ? "등록하지 못했습니다" : "저장하지 못했습니다"))
+        {
+            _editing = false;
+            await ReloadAsync();
+        }
+    }
+
+    private async Task DeleteAsync(Checklist item)
+    {
+        if (await RunAsync(() => Api.DeleteAsync($"checklists/{item.Id}"),
+                "지웠습니다.", "지우지 못했습니다"))
+        {
+            await ReloadAsync();
+        }
+    }
 }
