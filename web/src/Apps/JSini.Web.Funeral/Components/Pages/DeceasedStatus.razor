@@ -58,6 +58,8 @@
             </DxGridDataColumn>
             <DxGridDataColumn FieldName="@nameof(Deceased.Age)" Caption="나이" Width="80" />
             <DxGridDataColumn FieldName="@nameof(Deceased.RoomName)" Caption="호실" Width="130" />
+            @* 종교. 장례 절차와 제단 차림이 이 값에 따라 다르다. *@
+            <DxGridDataColumn FieldName="@nameof(Deceased.Religion)" Caption="종교" Width="100" />
             <DxGridDataColumn FieldName="@nameof(Deceased.DeathDate)" Caption="임종" Width="130" DisplayFormat="yyyy-MM-dd" />
             <DxGridDataColumn FieldName="@nameof(Deceased.BurialDate)" Caption="발인" Width="150" DisplayFormat="yyyy-MM-dd HH:mm" />
             <DxGridDataColumn Caption="상태" Width="110">

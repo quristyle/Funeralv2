@@ -16,6 +16,7 @@
 
 @inherits DataPage
 @inject FuneralApi Api
+@inject NavigationManager Navigation
 
 <PageTitle>내 정보 · 장례식장</PageTitle>
 
@@ -40,8 +41,22 @@
         </div>
     </div>
 
-    <h2 class="fn-subhead">적용된 환경설정</h2>
-    <PageNotice Text="값을 바꾸려면 설정 › 환경설정에서 하십시오." />
+    @* 원본에는 「프로필 수정」과 「업무 설정」으로 가는 단추가 있었다.
+       이 화면은 보기만 하는 자리라, 고치러 갈 길이 없으면 사용자가 메뉴를
+       처음부터 찾아 들어가야 한다.
+
+       **가리키는 곳이 환경설정이 아니라 업무 설정이다** — 아래 목록은
+       `environment_settings`(장례식장 업무 규칙)이고 그것을 고치는 화면은
+       업무 설정이다. 안내 문구가 환경설정을 가리키고 있었다. *@
+    <div class="jsini-toolbar">
+        <DxButton Text="프로필 수정" RenderStyle="ButtonRenderStyle.Secondary"
+                  Click="@(() => Navigation.NavigateTo("/admin/profile"))" />
+        <DxButton Text="업무 설정" RenderStyle="ButtonRenderStyle.Primary"
+                  Click="@(() => Navigation.NavigateTo("/funeral/setting/work-options"))" />
+    </div>
+
+    <h2 class="fn-subhead">적용된 업무 설정</h2>
+    <PageNotice Text="값을 바꾸려면 위 「업무 설정」에서 하십시오." />
 
     <CommGrd TItem="object" Data="@_info.Settings" PageSize="20">
         <Columns>

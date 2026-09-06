@@ -579,3 +579,13 @@
 .fn-editor {
   height: 18rem;
 }
+
+/* 미리보기 카드의 곁들이는 줄. 장비명·코드·유형·최근 접속이 한 줄씩 흐른다. */
+.fn-preview__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.15rem 0.5rem;
+  padding: 0.3rem 0.5rem 0.5rem;
+  font-size: var(--jsini-fs-2xs);
+  color: var(--jsini-text-muted);
+}

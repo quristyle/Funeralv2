@@ -30,12 +30,28 @@
             {
                 <div class="fn-preview__offline">연결되어 있지 않습니다</div>
             }
+            @* 원본 카드가 달고 있던 것들 — 장비명·코드·유형·최근 접속.
+               미리보기 그림만 있으면 **어느 장비인지 알 수가 없다.**
+               호실이 없는 장비(입구 안내·키오스크)가 특히 그렇다. *@
             <figcaption class="fn-preview__caption">
-                <span>@p.RoomName</span>
+                <span>@(string.IsNullOrWhiteSpace(p.RoomName) ? p.Name : p.RoomName)</span>
                 <span class="jsini-badge @(p.IsOnline ? "jsini-badge--on" : "jsini-badge--off")">
                     @(p.IsOnline ? "온라인" : "오프라인")
                 </span>
             </figcaption>
+
+            <div class="fn-preview__meta">
+                <span>@p.Name</span>
+                <span>@(p.DeviceCode ?? "코드 없음")</span>
+                <span>@(p.DeviceType ?? "종류 미지정")</span>
+                <span>최근 @(p.LastConnectedAt?.ToString("MM-dd HH:mm") ?? "-")</span>
+
+                @if (!string.IsNullOrWhiteSpace(p.PreviewUrl))
+                {
+                    @* 그림은 한 장면이다. 실제 화면을 그대로 보려면 새 창에서 연다. *@
+                    <a href="@FileDownload.RelayUrl(p.PreviewUrl)" target="_blank" rel="noopener">크게 보기</a>
+                }
+            </div>
         </figure>
     }
 </div>
