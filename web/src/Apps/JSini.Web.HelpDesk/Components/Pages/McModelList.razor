@@ -46,7 +46,7 @@
     <div>
         <h2 class="ad-subhead">설비 모델</h2>
 
-        <CommGrd TItem="McModel" Data="@_models" PageSize="15">
+        <CommGrd TItem="McModel" Data="@_models">
             <Columns>
                 <DxGridDataColumn FieldName="@nameof(McModel.McName)" Caption="모델" MinWidth="160" />
                 <DxGridDataColumn FieldName="@nameof(McModel.StartKey)" Caption="시작 키" Width="120" />
@@ -92,7 +92,7 @@
                 </PermissionView>
             </div>
 
-            <CommGrd TItem="ParseItem" Data="@_items" PageSize="15">
+            <CommGrd TItem="ParseItem" Data="@_items">
                 <Columns>
                     <DxGridDataColumn FieldName="@nameof(ParseItem.Desc)" Caption="설명" MinWidth="180" />
                     <DxGridDataColumn FieldName="@nameof(ParseItem.PTYPE)" Caption="구분" Width="90" />
