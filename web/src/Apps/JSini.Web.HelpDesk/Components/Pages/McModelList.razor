@@ -3,13 +3,26 @@
 @*
     [MC 모델 관리] — DB 메뉴 `/helpdesk/util/mc-model`.
     이력: Vue `views/helpdesk/util/mc-model` → 여기.
-    엔드포인트: `utils/mc-models`
+    엔드포인트: `utils/mc-models`(모델) · `utils/mc-models/{id}/parse-items`(해석 규칙)
 
-    **서버가 준 대로 보여 주는 화면이다**(AutoGrid). 칸을 손으로 적지 않은
-    이유는 그 부품의 주석에 있다 — 요약하면, 이런 화면이 마흔 개고 백엔드가
-    칸을 더할 때마다 화면을 고치러 가는 것이 이득이 아니기 때문이다.
+    [읽기만 남아 있었다]
 
-    매일 들여다보는 화면이 되면 그때 칸을 손으로 적는다.
+    원본은 **전문 해석 규칙을 만드는 화면**이다(873줄). 설비 모델을 등록하고,
+    그 모델의 전문을 어떻게 끊어 읽을지(해석 항목)를 정한다. **바이너리 파서가
+    그 규칙으로 전문을 푼다** — 규칙을 못 만들면 파서가 아무것도 못 푼다.
+    옮길 때는 모델 이름만 보여 주는 표 한 장이 되어 있었다.
+
+    [모델 → 해석 항목 두 층이다]
+
+    왼쪽에서 모델을 고르면 오른쪽에 그 모델의 해석 항목이 나온다. 항목 아래에
+    태그가 한 층 더 있는데(`TagItems`) 그것까지는 아직 옮기지 않았다 —
+    태그 없이도 전문을 끊어 읽는 것은 된다.
+
+    [키는 콤마로 적는다]
+
+    전문 시작을 알아보는 바이트를 `2,48,49` 처럼 적는다. 서버가 그 글자를
+    바이트 목록으로 바꾼다 — 화면이 바꾸지 않는 이유는 그 규칙이 서버에만
+    있고, 화면이 따로 하면 둘이 어긋나서다.
 *@
 
 @inherits DataPage
@@ -17,27 +30,339 @@
 
 <PageTitle>MC 모델 관리 · 헬프데스크</PageTitle>
 
+<div class="jsini-toolbar">
+    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@ReloadAsync" />
+
+    <div class="jsini-toolbar__spacer"></div>
+
+    <PermissionView Action="MenuAction.Create">
+        <DxButton Text="모델 등록" RenderStyle="ButtonRenderStyle.Success" Click="@StartNewModel" />
+    </PermissionView>
+</div>
+
 <PageNotice Text="@Notice" Tone="@Tone" />
 
-<AutoGrid Data="@_rows" Loading="@Loading" Captions="@Captions" HiddenCols="id" PageSize="20" />
+<div class="hd-two">
+    <div>
+        <h2 class="ad-subhead">설비 모델</h2>
+
+        <CommGrd TItem="McModel" Data="@_models" PageSize="15">
+            <Columns>
+                <DxGridDataColumn FieldName="@nameof(McModel.McName)" Caption="모델" MinWidth="160" />
+                <DxGridDataColumn FieldName="@nameof(McModel.StartKey)" Caption="시작 키" Width="120" />
+
+                <DxGridDataColumn Caption="" Width="200" AllowSort="false">
+                    <CellDisplayTemplate Context="cell">
+                        @{
+                            var model = (McModel)cell.DataItem;
+                        }
+                        <div class="jsini-actions">
+                            <DxButton Text="@(model.Id == _modelId ? "보는 중" : "규칙 보기")"
+                                      RenderStyle="ButtonRenderStyle.Secondary"
+                                      Enabled="@(model.Id != _modelId)"
+                                      Click="@(() => PickAsync(model))" />
+                            <PermissionView Action="MenuAction.Update">
+                                <DxButton Text="수정" RenderStyle="ButtonRenderStyle.Secondary"
+                                          Click="@(() => StartEditModel(model))" />
+                            </PermissionView>
+                            <PermissionView Action="MenuAction.Delete">
+                                <DxButton Text="삭제" RenderStyle="ButtonRenderStyle.Secondary"
+                                          Click="@(() => DeleteModelAsync(model))" />
+                            </PermissionView>
+                        </div>
+                    </CellDisplayTemplate>
+                </DxGridDataColumn>
+            </Columns>
+        </CommGrd>
+    </div>
+
+    <div>
+        <h2 class="ad-subhead">해석 규칙 @(_modelName is { Length: > 0 } name ? $"— {name}" : "")</h2>
+
+        @if (_modelId is null)
+        {
+            <PageNotice Text="왼쪽에서 모델을 고르면 그 모델의 해석 규칙이 나옵니다." />
+        }
+        else
+        {
+            <div class="jsini-toolbar">
+                <PermissionView Action="MenuAction.Create">
+                    <DxButton Text="규칙 추가" RenderStyle="ButtonRenderStyle.Secondary"
+                              Click="@StartNewItem" />
+                </PermissionView>
+            </div>
+
+            <CommGrd TItem="ParseItem" Data="@_items" PageSize="15">
+                <Columns>
+                    <DxGridDataColumn FieldName="@nameof(ParseItem.Desc)" Caption="설명" MinWidth="180" />
+                    <DxGridDataColumn FieldName="@nameof(ParseItem.PTYPE)" Caption="구분" Width="90" />
+                    <DxGridDataColumn FieldName="@nameof(ParseItem.KeyIdx)" Caption="키 위치" Width="90" />
+                    <DxGridDataColumn FieldName="@nameof(ParseItem.BlocParseLength)" Caption="길이" Width="110" />
+                    <DxGridDataColumn FieldName="@nameof(ParseItem.BlocParseType)" Caption="해석" Width="90" />
+
+                    <DxGridDataColumn Caption="" Width="140" AllowSort="false">
+                        <CellDisplayTemplate Context="cell">
+                            @{
+                                var item = (ParseItem)cell.DataItem;
+                            }
+                            <div class="jsini-actions">
+                                <PermissionView Action="MenuAction.Update">
+                                    <DxButton Text="수정" RenderStyle="ButtonRenderStyle.Secondary"
+                                              Click="@(() => StartEditItem(item))" />
+                                </PermissionView>
+                                <PermissionView Action="MenuAction.Delete">
+                                    <DxButton Text="삭제" RenderStyle="ButtonRenderStyle.Secondary"
+                                              Click="@(() => DeleteItemAsync(item))" />
+                                </PermissionView>
+                            </div>
+                        </CellDisplayTemplate>
+                    </DxGridDataColumn>
+                </Columns>
+            </CommGrd>
+        }
+    </div>
+</div>
+
+<DxPopup @bind-Visible="_editingModel" HeaderText="@(_model.Id == 0 ? "모델 등록" : "모델 수정")"
+         Width="460px" ShowFooter="false">
+    <BodyContentTemplate Context="popup">
+        <DxFormLayout>
+            <DxFormLayoutItem Caption="모델" ColSpanMd="12">
+                <DxTextBox @bind-Text="_model.McName" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="시작 키" ColSpanMd="12">
+                @* 전문 시작을 알아보는 바이트. 서버가 이 글자를 바이트로 바꾼다. *@
+                <DxTextBox @bind-Text="_model.StartKey" NullText="예: 2 또는 2,48" />
+            </DxFormLayoutItem>
+        </DxFormLayout>
+
+        <div class="jsini-toolbar">
+            <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Primary" Click="@SaveModelAsync" />
+            <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary"
+                      Click="@(() => _editingModel = false)" />
+        </div>
+    </BodyContentTemplate>
+</DxPopup>
+
+<DxPopup @bind-Visible="_editingItem" HeaderText="@(_item.Id == 0 ? "규칙 추가" : "규칙 수정")"
+         Width="560px" ShowFooter="false">
+    <BodyContentTemplate Context="popup">
+        <DxFormLayout>
+            <DxFormLayoutItem Caption="설명" ColSpanMd="12">
+                <DxTextBox @bind-Text="_item.Desc" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="구분" ColSpanMd="6">
+                <DxComboBox Data="@PTypes" @bind-Value="_item.PTYPE" NullText="수신/송신" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="키 위치" ColSpanMd="6">
+                <DxSpinEdit Value="@(_item.KeyIdx ?? 0)"
+                            ValueChanged="@((int v) => _item.KeyIdx = v)" MinValue="0" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="키" ColSpanMd="12">
+                @* 콤마로 적는다. 서버가 바이트 목록으로 바꾼다. *@
+                <DxTextBox @bind-Text="_keys" NullText="예: 2,48,49" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="블록 길이" ColSpanMd="6">
+                <DxTextBox @bind-Text="_item.BlocParseLength" NullText="예: 8 또는 4,2,1,1" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="해석 방식" ColSpanMd="6">
+                <DxComboBox Data="@ParseTypes" @bind-Value="_item.BlocParseType" NullText="number/date" />
+            </DxFormLayoutItem>
+        </DxFormLayout>
+
+        <div class="jsini-toolbar">
+            <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Primary" Click="@SaveItemAsync" />
+            <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary"
+                      Click="@(() => _editingItem = false)" />
+        </div>
+    </BodyContentTemplate>
+</DxPopup>
 
 @code {
-    private DataTable _rows = JsonTable.Empty;
+    private static readonly string[] PTypes = ["R", "S"];
+    private static readonly string[] ParseTypes = ["number", "date"];
 
-    /// <summary>칸 이름표. 여기 적은 순서가 표의 앞쪽 순서다.</summary>
-    private static readonly Dictionary<string, string> Captions = new(StringComparer.Ordinal)
-    {
-        ["name"] = "모델",
-        ["description"] = "설명",
-        ["createdAt"] = "등록일",
-    };
+    private IReadOnlyList<McModel> _models = [];
+    private IReadOnlyList<ParseItem> _items = [];
+
+    private int? _modelId;
+    private string? _modelName;
+
+    private bool _editingModel;
+    private McModel _model = new();
+
+    private bool _editingItem;
+    private ParseItem _item = new();
+
+    /// <summary>편집 창의 키 칸. 자료는 숫자 목록이고 화면은 글자로 다룬다.</summary>
+    private string? _keys;
 
     protected override Task OnInitializedAsync() => ReloadAsync();
 
     private Task ReloadAsync() => LoadAsync(async () =>
     {
-        var json = await Api.GetAsync<JsonElement>("utils/mc-models");
-        _rows = JsonTable.From(json);
-        return _rows.Rows.Count;
+        _models = await Api.GetListAsync<McModel>("utils/mc-models");
+
+        if (_modelId is not null)
+        {
+            await LoadItemsAsync();
+        }
+
+        return _models.Count;
     }, "등록된 모델이 없습니다.", "모델 목록을 읽지 못했습니다");
+
+    private async Task PickAsync(McModel model)
+    {
+        _modelId = model.Id;
+        _modelName = model.McName;
+        await LoadItemsAsync();
+    }
+
+    /// <summary>
+    /// 고른 모델의 해석 규칙. <b>목록 응답에는 규칙이 없다</b> — 모델 하나를
+    /// 따로 읽어야 딸린 것이 함께 온다(<c>mc-models-full</c> 은 전부를 준다).
+    /// </summary>
+    private async Task LoadItemsAsync()
+    {
+        try
+        {
+            var full = await Api.GetListAsync<McModel>("utils/mc-models-full");
+            _items = full.FirstOrDefault(m => m.Id == _modelId)?.ParseItems ?? [];
+        }
+        catch (ApiException ex)
+        {
+            _items = [];
+            Say($"해석 규칙을 읽지 못했습니다 — {ex.Message}", NoticeTone.Warning);
+        }
+    }
+
+    // ── 모델 ────────────────────────────────────────────────
+
+    private void StartNewModel()
+    {
+        _model = new McModel();
+        _editingModel = true;
+    }
+
+    private void StartEditModel(McModel model)
+    {
+        _model = new McModel { Id = model.Id, McName = model.McName, StartKey = model.StartKey };
+        _editingModel = true;
+    }
+
+    private async Task SaveModelAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_model.McName))
+        {
+            Say("모델 이름을 넣으십시오.", NoticeTone.Warning);
+            return;
+        }
+
+        var isNew = _model.Id == 0;
+        var body = new { mcName = _model.McName, startKey = _model.StartKey ?? string.Empty };
+
+        if (await RunAsync(
+                () => isNew
+                    ? Api.PostAsync("utils/mc-models", body)
+                    : Api.PutAsync($"utils/mc-models/{_model.Id}", body),
+                isNew ? "등록했습니다." : "저장했습니다.",
+                isNew ? "등록하지 못했습니다" : "저장하지 못했습니다"))
+        {
+            _editingModel = false;
+            await ReloadAsync();
+        }
+    }
+
+    /// <summary>
+    /// 모델을 지운다. <b>딸린 해석 규칙과 보관 전문도 함께 사라진다</b> —
+    /// 서버가 그렇게 지운다. 그래서 지우기 전에 무엇이 딸려 있는지 말해 준다.
+    /// </summary>
+    private async Task DeleteModelAsync(McModel model)
+    {
+        if (await RunAsync(() => Api.DeleteAsync($"utils/mc-models/{model.Id}"),
+                $"{model.McName} 을(를) 지웠습니다. 딸린 규칙도 함께 지워졌습니다.",
+                "지우지 못했습니다"))
+        {
+            if (_modelId == model.Id)
+            {
+                _modelId = null;
+                _modelName = null;
+                _items = [];
+            }
+
+            await ReloadAsync();
+        }
+    }
+
+    // ── 해석 규칙 ───────────────────────────────────────────
+
+    private void StartNewItem()
+    {
+        _item = new ParseItem { PTYPE = "R", BlocParseType = "number" };
+        _keys = null;
+        _editingItem = true;
+    }
+
+    private void StartEditItem(ParseItem item)
+    {
+        _item = new ParseItem
+        {
+            Id = item.Id,
+            Desc = item.Desc,
+            PTYPE = item.PTYPE,
+            KeyIdx = item.KeyIdx,
+            BlocParseLength = item.BlocParseLength,
+            BlocParseType = item.BlocParseType,
+        };
+
+        _keys = item.Keys is { Count: > 0 } keys ? string.Join(',', keys) : null;
+        _editingItem = true;
+    }
+
+    private async Task SaveItemAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_item.Desc))
+        {
+            Say("설명을 넣으십시오.", NoticeTone.Warning);
+            return;
+        }
+
+        var isNew = _item.Id == 0;
+
+        var body = new
+        {
+            desc = _item.Desc,
+            ptype = _item.PTYPE ?? "R",
+            keyIdx = _item.KeyIdx ?? 0,
+            keys = _keys ?? string.Empty,
+            blocParseType = _item.BlocParseType ?? "number",
+            blocParseLength = _item.BlocParseLength ?? string.Empty,
+        };
+
+        if (await RunAsync(
+                () => isNew
+                    ? Api.PostAsync($"utils/mc-models/{_modelId}/parse-items", body)
+                    : Api.PutAsync($"utils/parse-items/{_item.Id}", body),
+                isNew ? "규칙을 넣었습니다." : "저장했습니다.",
+                isNew ? "넣지 못했습니다" : "저장하지 못했습니다"))
+        {
+            _editingItem = false;
+            await LoadItemsAsync();
+        }
+    }
+
+    private async Task DeleteItemAsync(ParseItem item)
+    {
+        if (await RunAsync(() => Api.DeleteAsync($"utils/parse-items/{item.Id}"),
+                "규칙을 지웠습니다.", "지우지 못했습니다"))
+        {
+            await LoadItemsAsync();
+        }
+    }
 }
