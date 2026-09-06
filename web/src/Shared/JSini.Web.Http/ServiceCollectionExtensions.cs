@@ -9,6 +9,18 @@ namespace JSini.Web.Http;
 public static class ServiceCollectionExtensions
 {
     /// <summary>
+    /// <b>토큰을 붙이지 않는</b> 게이트웨이 클라이언트의 이름.
+    ///
+    /// <para>
+    /// 로그인 전에도 부를 수 있는 몇 안 되는 경로가 쓴다(공개 공지). Vue 의
+    /// <c>baseRequestClient</c> 자리다 — 그쪽도 인터셉터를 떼어 둔 이유가
+    /// 같았다. 토큰을 붙이는 클라이언트로 부르면 만료된 토큰 하나 때문에
+    /// 401 → 갱신 → 로그인 화면에서 다시 로그인으로 튕긴다.
+    /// </para>
+    /// </summary>
+    public const string AnonymousClientName = "JSini.Gateway.Anonymous";
+
+    /// <summary>
     /// <see cref="GatewayClient"/> 와 토큰 처리를 등록한다.
     ///
     /// [클라이언트를 하나만 두는 이유]
@@ -53,7 +65,18 @@ public static class ServiceCollectionExtensions
                 // 기본 100초는 짧아서 큰 목록에서 끊긴다.
                 client.Timeout = TimeSpan.FromMinutes(3);
             })
+            .ConfigurePrimaryHttpMessageHandler(NoCookieJar)
             .AddHttpMessageHandler<AuthTokenHandler>();
+
+        // ── 로그인 전에도 부르는 경로 ─────────────────────────
+        //
+        // 토큰 핸들러를 붙이지 않는다. 이유는 AnonymousClientName 주석에 있다.
+        services.AddHttpClient(AnonymousClientName, client =>
+            {
+                client.BaseAddress = new Uri(baseUrl);
+                client.Timeout = TimeSpan.FromSeconds(20);
+            })
+            .ConfigurePrimaryHttpMessageHandler(NoCookieJar);
 
         // ── AI 대화 (D11) ────────────────────────────────────
         //
@@ -68,8 +91,56 @@ public static class ServiceCollectionExtensions
                 client.BaseAddress = new Uri(baseUrl);
                 client.Timeout = TimeSpan.FromMinutes(10);
             })
+            .ConfigurePrimaryHttpMessageHandler(NoCookieJar)
             .AddHttpMessageHandler<AuthTokenHandler>();
 
         return services;
     }
+
+    /// <summary>
+    /// 쿠키 통을 끈다. <b>게이트웨이로 나가는 모든 클라이언트에 붙인다.</b>
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// [실제로 밟았다 — 익명 요청이 남의 신원으로 나갔다]
+    /// </para>
+    ///
+    /// <para>
+    /// <c>HttpClientFactory</c> 는 <b>기본 핸들러를 사용자와 무관하게 돌려 쓴다.</b>
+    /// 그 핸들러가 쿠키 통을 들고 있으면(기본값이 그렇다) 어느 한 사람의
+    /// 로그인 응답에 실려 온 쿠키가 통에 남아 <b>그 뒤의 모든 요청</b>에
+    /// 딸려 나간다 — 다른 사용자의 요청에도, 로그인하지 않은 요청에도.
+    /// </para>
+    ///
+    /// <para>
+    /// AuthServer 는 로그인할 때 <c>jsini_file_at</c> 을 심고, 게이트웨이는
+    /// 파일 읽기 경로에서 <b>그 쿠키를 신원으로 받는다</b>. 그래서 첨부 중계
+    /// (<c>FileDownload</c>)를 붙이자 <b>로그인하지 않은 요청이 비공개 공지의
+    /// 첨부를 받아 갔다.</b> 로그인 화면에서 재현했다.
+    /// </para>
+    ///
+    /// <para>
+    /// 끄더라도 잃는 것이 없다. 우리가 쿠키를 쓰는 곳은 토큰 갱신 한 군데뿐이고,
+    /// 거기서는 <c>ITokenStore</c> 가 사용자별로 들고 있는 값을
+    /// <c>Cookie</c> 헤더에 <b>직접</b> 싣는다(<c>AuthTokenHandler</c>).
+    /// 셸의 로그인 전용 클라이언트가 같은 이유로 이미 이렇게 하고 있었는데,
+    /// 정작 게이트웨이 클라이언트에는 빠져 있었다.
+    /// </para>
+    ///
+    /// <para>
+    /// [모듈이 등록하는 클라이언트도 붙여야 해서 <c>public</c> 이다]
+    /// </para>
+    ///
+    /// <para>
+    /// 멀티파트 업로드는 <c>GatewayClient</c> 로 못 해서 모듈마다 자기
+    /// <c>HttpClient</c> 를 등록한다(<c>NoticeUploadClient</c> ·
+    /// <c>ProfileImageClient</c> · 장례식장의 <c>FileUploadClient</c>).
+    /// 그것들도 게이트웨이로 나가므로 같은 함정에 걸린다. 여기가
+    /// <c>private</c> 이던 동안 그 셋에는 쿠키 통이 켜져 있었다.
+    /// </para>
+    /// </remarks>
+    public static HttpMessageHandler NoCookieJar() => new HttpClientHandler
+    {
+        UseCookies = false,
+    };
 }

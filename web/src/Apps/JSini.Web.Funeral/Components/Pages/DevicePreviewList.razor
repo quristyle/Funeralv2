@@ -24,7 +24,7 @@
         <figure class="fn-preview__item">
             @if (p.IsOnline && !string.IsNullOrWhiteSpace(p.PreviewUrl))
             {
-                <img src="@p.PreviewUrl" alt="@p.Name" loading="lazy" />
+                <img src="@FileDownload.RelayUrl(p.PreviewUrl)" alt="@p.Name" loading="lazy" />
             }
             else
             {

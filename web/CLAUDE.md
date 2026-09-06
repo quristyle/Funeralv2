@@ -239,6 +239,86 @@ Data Protection 키 링을 폴더에 두는 것은 이제 **재기동 때 로그
 하려는 것이다. 프로세스가 일곱이던 시절에는 그 일곱이 쿠키를 함께 풀어야 해서
 필수였고, 어긋나면 "로그인은 되는데 업무 화면을 누르면 다시 로그인" 이 났다.
 
+### 게이트웨이로 나가는 `HttpClient` 는 **쿠키 통을 꺼 둔다** (실제로 밟음)
+
+`HttpClientFactory` 는 기본 핸들러를 **사용자와 무관하게 돌려 쓴다.** 그 핸들러가
+쿠키 통을 들고 있으면(기본값이 그렇다) 어느 한 사람의 로그인 응답에 실려 온
+쿠키가 통에 남아 **그 뒤의 모든 요청**에 딸려 나간다 — 다른 사용자의 요청에도,
+로그인하지 않은 요청에도.
+
+AuthServer 는 로그인할 때 `jsini_file_at` 쿠키를 심고 게이트웨이는 **파일 읽기
+경로에서 그것을 신원으로 받는다.** 그래서 첨부 중계를 붙이자
+**로그인하지 않은 요청이 비공개 공지의 첨부를 받아 갔다.** 로그인 화면에서
+재현했다. 셸의 로그인 전용 클라이언트는 같은 이유로 이미 꺼 두고 있었는데
+게이트웨이 클라이언트에만 빠져 있었다(`ServiceCollectionExtensions.NoCookieJar`).
+
+꺼도 잃는 것이 없다 — 우리가 쿠키를 쓰는 곳은 토큰 갱신 하나뿐이고 거기서는
+`ITokenStore` 가 사용자별로 들고 있는 값을 `Cookie` 헤더에 직접 싣는다.
+
+### 첨부 내려받기는 셸이 중계한다 (`FileDownload`)
+
+백엔드가 주는 `/api/file/download/...` 는 **브라우저가 게이트웨이와 같은
+오리진이던 Vue 시절 주소**다. 지금 브라우저가 보는 것은 포털(:5557)이고 거기에는
+`/api` 가 없다 — 그대로 쓰면 404 다. `FileDownload.UrlFor(fileId, fileName)` 로
+`/files/{id}` 를 만들고, 셸이 게이트웨이로 중계한다.
+
+**익명과 로그인을 셸이 가르지 않는다.** 지금 요청의 신원을 그대로 흘려보내면
+FileServer 의 `PublicFileAccessFilter` 가 판정한다 — 로그인 요청이면 통과,
+익명이면 `is_public` 인 파일만. 공지 첨부의 `is_public` 은 AuthServer 가 공지를
+저장할 때 맞춘다(`PublicFileSyncService` · D-S10). **가르는 코드를 프론트에 또
+두면 언젠가 백엔드와 어긋나고, 어긋나는 쪽은 늘 「열려서는 안 되는데 열린」 쪽이다.**
+
+> 옛 공지 본문에 박힌 `<img src="/api/file/download/{id}">` 도 같은 이유로 깨진다.
+> `NoticeHtml` 이 **보여 줄 때만** 중계 경로로 옮긴다 — DB 는 건드리지 않는다.
+
+### `AddHttpClient<T>` 의 타입 이름은 저장소 전체에서 유일해야 한다 (실제로 밟음)
+
+클라이언트 이름을 **네임스페이스를 빼고 타입 이름만으로** 짓는다. 그래서 두
+모듈에 같은 이름의 타입이 있으면 나중 등록이 던진다. 그런데 그 예외가
+**어디에도 드러나지 않는다** — `PortalModuleRegistry` 가 잡아 삼키고, 모듈은
+이미 목록에 들어간 뒤라 기동 대조(`PortalApps`)도 통과한다. 결과는 **그 모듈의
+서비스 절반만 등록된 채 뜨는 것**이고, 화면은 열리고 그 서비스를 쓰는 동작에서만
+죽는다. 장례식장·포털관리에 `FileUploadClient` 가 둘 생기면서 실제로 그랬다.
+`HttpClientNamingTests` 가 이제 빌드 때 막는다.
+
+## 공지 팝업
+
+공지는 포털관리가 관리하지만 **보이는 것은 모든 화면**이다. 그래서 DTO 는
+`Models`, 조회는 `Components/Layout/NoticeClient`, 화면은
+`Components/Layout/NoticePopup` 에 있다 — 셸은 업무 모듈을 이름으로 알지 못하므로
+포털관리 모듈에 두면 레이아웃이 못 쓴다.
+
+| 자리 | 무엇을 띄우나 |
+|---|---|
+| `MainLayout` (`NoticeAutoPopup`) | 로그인한 사용자. 공개 공지까지 함께 |
+| `Login` 화면 (`Public="true"`) | `is_public` 인 것만 |
+| 공지 관리의 「미리보기」 (`Preview="true"`) | 고른 한 건. **같은 화면을 그대로 쓴다** |
+
+로그인 화면은 정적 SSR 이라 회로가 없다. 그래도 **부품 하나만 대화형 섬**으로
+만들 수 있다 — `<NoticeAutoPopup Public="true" @rendermode="InteractiveServer" />`.
+`blazor.web.js` 는 App.razor 가 언제나 싣고 있어서 더 얹을 것이 없다.
+
+### 「한 번만 뜬다」를 부품 수명에 기대면 안 된다 (실제로 밟음)
+
+`OnAfterRenderAsync(firstRender)` 만으로는 모자랐다. **업무를 옮길 때 레이아웃이
+통째로 다시 만들어지기 때문**이다 — 화면이 다른 모듈에 있으면 Piral 의 모듈
+컨테이너가 갈리면서 `MainLayout` 이 새로 생기고 `firstRender` 가 또 참이 된다.
+첫 화면에서 장례식장 도움말로 옮기자 공지가 다시 떴다.
+
+> 같은 이유로 **모듈을 넘나들 때마다 메뉴·권한·즐겨찾기를 다시 읽는다.**
+> 공지와 별개의 문제이고 아직 손대지 않았다.
+
+그래서 닫았다는 사실을 브라우저에 적어 둔다.
+
+| 저장소 | 열쇠 | 무엇을 기억하나 | 언제까지 |
+|---|---|---|---|
+| sessionStorage | `jsini-notice-closed:user` · `:public` | 이 탭에서 닫았다 | 탭을 닫을 때까지 |
+| localStorage | `jsini-notice-dismissed` | 이 공지는 오늘 안 본다 | 날짜가 바뀔 때까지 |
+
+**공개용과 로그인용 열쇠가 따로다.** 하나로 두면 로그인 화면에서 공개 공지를
+닫은 사람이 로그인한 뒤 사내 공지를 못 본다. 그리고 로그인 화면이 뜨면
+`:user` 를 지운다 — 곧 로그인할 참이니 다시 띄워야 한다.
+
 ## DevExpress
 
 버전은 `Directory.Packages.props` 의 `DevExpressVersion` 한 줄에서만 정한다.
@@ -615,14 +695,6 @@ Components/Shared/Notice.razor        화면 안내줄
       첨부 업로드는 여섯 화면에(D5), 잠금화면(D7) · 헤더 AI 대화창(D11) ·
       이미지 정리 단추(D17).)
 
-- [ ] **공지 팝업이 스스로 뜨는 자리** — 화면 자체는 옮겼다
-      (`JSini.Web.Admin/Components/Shared/NoticeView.razor`, 지금은 공지 관리의
-      미리보기가 쓴다). 옛 Vue 는 앱 껍데기에 하나 두고 스스로 조회했는데
-      (로그인 전엔 공개 공지만, 로그인 뒤엔 전부), 그 자리가 아직 없다.
-      백엔드는 이미 있다 — `GET /auth/notices/popup` · `/popup/public`.
-      **셸은 업무 모듈을 이름으로 알지 못하므로** 붙이려면 `NoticeDto` 를
-      `Models` 로, 팝업 조회를 `Http` 로 올려야 한다. 「오늘 하루 보지 않기」는
-      localStorage 라 JS interop 한 벌이 함께 붙는다.
 - [ ] **첨부는 `FilePicker` 한 벌로 올린다** (`Components/Data/FilePicker.razor`).
       **DevExpress `DxUpload` 을 쓰면 안 된다** — 그것은 브라우저가 직접
       POST 하는데 BFF 라 브라우저에 게이트웨이 토큰이 없다. 표준 `InputFile`

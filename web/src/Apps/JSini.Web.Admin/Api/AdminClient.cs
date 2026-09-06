@@ -1,4 +1,5 @@
 using JSini.Web.Http;
+using JSini.Web.Models;
 
 namespace JSini.Web.Admin.Api;
 
@@ -461,28 +462,29 @@ public sealed class AdminClient(GatewayClient gateway)
 
     // ── 내 정보 ─────────────────────────────────────────────────
 
-    /// <summary>
-    /// 비밀번호를 바꾼다.
-    ///
-    /// <para>
-    /// <b>쿠키를 다시 굽지 않는다.</b> 서버는 비밀번호 해시와 만료 시계만 고치고
-    /// 새 토큰을 주지 않는다 — 로그인 상태는 그대로다. 한동안 「쿠키를 다시 구워야
-    /// 해서 회로 안에서 못 한다」고 적혀 있었는데, 서버를 읽어 보면 그렇지 않다.
-    /// </para>
-    /// <para>
-    /// 실패 이유를 구분해 준다(이전 비밀번호 불일치 · 지금 것과 같음 …).
-    /// 90일 만료 때문에 어쩔 수 없이 이 화면에 오는 경우가 있어, 뭉뚱그린 문구를
-    /// 주면 무엇을 고쳐야 할지 알 수 없다.
-    /// </para>
-    /// </summary>
-    public Task ChangePasswordAsync(string oldPassword, string newPassword, CancellationToken ct = default)
-        => gateway.PostAsync("auth/user/change-password", new { oldPassword, newPassword }, ct);
+    // 비밀번호 변경(`auth/user/change-password`)은 여기 없다. 셸의
+    // `/password/change` 가 게이트웨이를 직접 부른다 — 바꾼 직후 재로그인까지
+    // 시켜야 해서 두 곳에 두면 뒤처리가 갈라진다(Profile.razor 머리말 참고).
 
     public Task<UserInfoDto?> GetMyInfoAsync(CancellationToken ct = default)
         => gateway.GetOneAsync<UserInfoDto>("auth/user/info", ct);
 
-    public Task<IReadOnlyList<UserActivityDto>> GetMyActivityAsync(CancellationToken ct = default)
-        => gateway.GetListAsync<UserActivityDto>("auth/user/activity", ct);
+    /// <summary>
+    /// 접속 이력과 거기서 셈한 값들. <b>객체 하나</b>다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b><c>GetListAsync</c> 로 부르면 안 된다.</b> 한동안 그렇게 적혀 있었고,
+    /// 봉투가 객체 하나도 <c>result: [obj]</c> 로 싣는 탓에 <b>예외 없이</b>
+    /// 칸이 전부 비어 있는 한 줄이 나왔다 — 표에 빈 줄 하나가 그려져
+    /// 「아직 기록이 없구나」로 읽혔다. 실제로는 로그인 횟수도 실패 기록도
+    /// 다 와 있었다.
+    /// </para>
+    /// </remarks>
+    /// <param name="limit">최근 접속 기록을 몇 줄까지 받을지.</param>
+    /// <param name="ct">취소 토큰</param>
+    public Task<AccountActivityDto?> GetMyActivityAsync(int limit = 10, CancellationToken ct = default)
+        => gateway.GetOneAsync<AccountActivityDto>($"auth/user/activity?limit={limit}", ct);
 
     /// <summary>
     /// 내 정보를 고친다.
@@ -492,6 +494,41 @@ public sealed class AdminClient(GatewayClient gateway)
     /// </summary>
     public Task UpdateMyProfileAsync(UpdateProfileDto profile, CancellationToken ct = default)
         => gateway.PostAsync("auth/user/profile", profile, ct);
+
+    /// <summary>
+    /// 켬·끔 하나를 저장한다 (보안 설정 · 알림 설정).
+    /// </summary>
+    /// <remarks>
+    /// 칸을 통째로 보내는 저장이 아니라 <b>한 칸씩</b>이다. 서버가 그렇게
+    /// 생겼다 — <c>account_profile_details</c> 에 이름·값 한 쌍으로 쌓인다.
+    /// 그래서 화면도 스위치를 누르는 즉시 저장하고 「저장」 단추를 두지 않는다.
+    /// </remarks>
+    /// <param name="fieldName">
+    /// 저장 이름. <c>UserInfoDto</c> 의 속성 이름과 <b>글자 그대로</b> 같아야 한다
+    /// (<c>SecurityPhone</c> · <c>AccountPasswordNotify</c> …).
+    /// </param>
+    /// <param name="value">켤지(<c>true</c>) 끌지.</param>
+    /// <param name="ct">취소 토큰</param>
+    public Task UpdateMySettingAsync(string fieldName, bool value, CancellationToken ct = default)
+        => gateway.PostAsync("auth/user/settings",
+            new UpdateSettingDto { FieldName = fieldName, Value = value }, ct);
+
+    // ── 프로필 사진 (FileServer 파일 그룹) ──────────────────────
+    //
+    // 올리는 것만 `ProfileImageClient` 가 한다(멀티파트라 GatewayClient 에
+    // 자리가 없다). 나머지 셋은 평범한 JSON 이라 여기 둔다.
+
+    /// <summary>그룹 안의 사진들. 그룹이 없으면 부르지 않는다.</summary>
+    public Task<IReadOnlyList<GroupFileDto>> GetGroupFilesAsync(string groupId, CancellationToken ct = default)
+        => gateway.GetListAsync<GroupFileDto>($"file/group/{groupId}", ct);
+
+    /// <summary>대표 사진을 정한다. 그룹 안에서 하나뿐이다.</summary>
+    public Task SetRepresentativeFileAsync(string groupId, string fileId, CancellationToken ct = default)
+        => gateway.PutAsync($"file/group/{groupId}/representative/{fileId}", null, ct);
+
+    /// <summary>사진 한 장을 지운다.</summary>
+    public Task DeleteFileAsync(string fileId, CancellationToken ct = default)
+        => gateway.DeleteAsync($"file/{fileId}", ct);
 
     /// <summary>
     /// 확인용 주소를 불러 참·거짓만 꺼낸다. 서버가 봉투에 <c>bool</c> 하나를

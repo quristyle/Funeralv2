@@ -1,6 +1,7 @@
 using System.Text;
+using JSini.Web.Components.Data;
 
-namespace JSini.Web.Admin.Components.Shared;
+namespace JSini.Web.Components.Layout;
 
 /// <summary>
 /// 공지 본문(HTML)을 화면에 넣기 전에 거르는 곳.
@@ -293,16 +294,44 @@ public static class NoticeHtml
 
         if (name.Equals("href", StringComparison.OrdinalIgnoreCase))
         {
-            return HasScheme(trimmed, LinkSchemes) ? trimmed : null;
+            return HasScheme(trimmed, LinkSchemes) ? Relay(trimmed) : null;
         }
 
         if (name.Equals("src", StringComparison.OrdinalIgnoreCase))
         {
-            return HasScheme(trimmed, ImageSchemes) ? trimmed : null;
+            return HasScheme(trimmed, ImageSchemes) ? Relay(trimmed) : null;
         }
 
         return trimmed;
     }
+
+    /// <summary>
+    /// 본문에 박혀 있는 <c>/api/file/…</c> 주소를 셸의 중계 경로로 옮긴다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// [실제로 밟았다 — 옛 공지의 그림이 안 나온다]
+    /// </para>
+    ///
+    /// <para>
+    /// Vue 시절 서식 편집기가 그림을 올리면 본문에
+    /// <c>&lt;img src="/api/file/download/{guid}"&gt;</c> 가 박혔다. 그때는
+    /// 브라우저가 게이트웨이와 같은 오리진이라 열렸지만, 지금 브라우저가 보는
+    /// 것은 포털(:5557)이고 <b>거기에는 <c>/api</c> 가 없다.</b> 그래서 옛
+    /// 공지를 열면 본문 그림이 전부 깨진 네모로 나온다.
+    /// </para>
+    ///
+    /// <para>
+    /// 저장된 값을 고치지 않고 <b>보여 줄 때만</b> 옮긴다. DB 를 건드리면
+    /// 되돌릴 수 없고, 옛 값이 그대로 있어야 나중에 무엇이 있었는지 알 수 있다.
+    /// </para>
+    ///
+    /// <para>
+    /// 규칙은 <see cref="FileDownload.RelayUrl"/> 한 곳에 있다 — DB 에 저장된
+    /// 영정 사진·미디어 주소도 같은 모양이라 같은 것을 쓴다.
+    /// </para>
+    /// </remarks>
+    private static string Relay(string url) => FileDownload.RelayUrl(url) ?? url;
 
     /// <summary>
     /// 주소가 아는 시작으로 열리는지 본다.

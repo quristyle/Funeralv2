@@ -122,6 +122,12 @@ builder.Services.AddScoped<IReleaseService, ReleaseService>();
 // 생일 축하 푸시 (D-G1a) — NotificationServer 의 기존 /notifications/push 를 부른다.
 builder.Services.AddHttpClient<AuthServer.Services.BirthdayNotifyClient>();
 
+// 계정 안내 메일 (비밀번호 재설정 · 가입 신청·승인). 같은 NotificationServer 의
+// /emails/send 를 부른다. 실패를 삼키지 않는 이유는 그 클래스 주석에 있다.
+builder.Services.AddHttpClient<AuthServer.Services.AccountMailClient>();
+builder.Services.AddScoped<IPasswordResetService, PasswordResetService>();
+builder.Services.AddScoped<ISignupService, SignupService>();
+
 builder.Services.Configure<AuthServer.DTOs.GitHubOptions>(
     builder.Configuration.GetSection("GitHub"));
 builder.Services.AddHttpClient();
@@ -174,6 +180,10 @@ app.UseAuthorization();
 
 // 엔드포인트 등록
 app.MapAuthEndpoints();
+
+// 로그인하지 않은 사람이 부르는 둘. 게이트웨이가 시도 제한을 걸어 둔다.
+app.MapPasswordResetEndpoints();
+app.MapSignupEndpoints();
 
 
 app.MapUserEndpoints();

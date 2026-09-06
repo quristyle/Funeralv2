@@ -43,6 +43,7 @@ public sealed class HelpDeskModule : IPortalModule
                 client.BaseAddress = new Uri(baseUrl + "helpdesk/");
                 client.Timeout = TimeSpan.FromMinutes(3);
             })
+            .ConfigurePrimaryHttpMessageHandler(ServiceCollectionExtensions.NoCookieJar)
             .AddHttpMessageHandler<AuthTokenHandler>();
 
         // 한주 OADR 외부 시스템. 게이트웨이 /api/oadr 라우트가 중계한다.
@@ -51,6 +52,7 @@ public sealed class HelpDeskModule : IPortalModule
                 client.BaseAddress = new Uri(baseUrl + "oadr/");
                 client.Timeout = TimeSpan.FromMinutes(3);
             })
+            .ConfigurePrimaryHttpMessageHandler(ServiceCollectionExtensions.NoCookieJar)
             .AddHttpMessageHandler<AuthTokenHandler>();
 
         // 회로(사용자) 수명의 캐시들 — Vue 의 Pinia 스토어와 같은 폭이다.

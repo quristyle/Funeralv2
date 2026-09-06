@@ -1,4 +1,4 @@
-using JSini.Web.Admin.Components.Shared;
+using JSini.Web.Components.Layout;
 using Xunit;
 
 namespace JSini.Web.Architecture.Tests;
@@ -111,6 +111,26 @@ public sealed class NoticeHtmlTests
         Assert.Equal(
             "<p title=\"가 &gt; 나\">글</p>",
             NoticeHtml.Sanitize("<p title=\"가 > 나\">글</p>"));
+
+    /// <summary>
+    /// Vue 시절 본문에 박힌 <c>/api/file/…</c> 는 포털 오리진에 없다.
+    /// 저장된 값을 고치지 않고 보여 줄 때만 셸의 중계 경로로 옮긴다.
+    /// </summary>
+    [Theory]
+    [InlineData("<p><img src=\"/api/file/download/79b266d9-16ff-49f9-809d-0957f8705ac6\" /></p>")]
+    [InlineData("<p><img src=\"/api/file/download/id/79b266d9-16ff-49f9-809d-0957f8705ac6\" /></p>")]
+    [InlineData("<p><img src=\"/api/file/thumbnail/79b266d9-16ff-49f9-809d-0957f8705ac6\" /></p>")]
+    public void 본문의_옛_파일_주소를_중계_경로로_옮긴다(string html) =>
+        Assert.Equal(
+            "<p><img src=\"/files/79b266d9-16ff-49f9-809d-0957f8705ac6\" /></p>",
+            NoticeHtml.Sanitize(html));
+
+    /// <summary>파일 주소가 아닌 것은 그대로 둔다.</summary>
+    [Fact]
+    public void 파일_주소가_아니면_건드리지_않는다() =>
+        Assert.Equal(
+            "<p><a href=\"https://jin114.co.kr/api/file/download/x\">밖</a></p>",
+            NoticeHtml.Sanitize("<p><a href=\"https://jin114.co.kr/api/file/download/x\">밖</a></p>"));
 
     [Fact]
     public void 주석은_사라진다() =>

@@ -1,0 +1,252 @@
+@*
+    [공지 팝업이 스스로 뜨는 자리]
+    이력: Vue `app.vue` 에 놓여 있던 `<NoticePopup mode="auto">` → 여기.
+
+    두 자리에 놓인다.
+
+      · 레이아웃(`MainLayout`) — 로그인한 사용자. 공개 공지까지 함께 뜬다.
+      · 로그인 화면(`Login`)   — `Public="true"`. 공개 공지만 뜬다.
+
+    [로그인 화면은 정적 SSR 이라 섬으로 넣는다]
+
+    로그인 화면은 회로 없이 돈다(`[ExcludeFromInteractiveRouting]` — 쿠키를
+    구워야 해서다). 그래도 **그 안의 부품 하나만 대화형으로** 만들 수 있다.
+    그래서 `Login.razor` 는 이 부품에 `@@rendermode` 를 붙여 쓴다.
+
+    [왜 OnAfterRender 인가]
+
+    브라우저 저장소를 읽어야 하는데 프리렌더 중에는 JS 를 부를 수 없다
+    (`JavaScript interop calls cannot be issued during server-side prerendering`).
+    회로가 붙은 **뒤**에 읽는다.
+
+    [「한 번만 뜬다」를 부품 수명에 기대지 않는다 — 실제로 밟았다]
+
+    `OnAfterRenderAsync(firstRender)` 만으로는 모자랐다. **업무를 옮길 때
+    레이아웃이 통째로 다시 만들어지기 때문**이다 — 화면이 다른 모듈에 있으면
+    Piral 의 모듈 컨테이너가 갈리면서 `MainLayout` 이 새로 생기고, 그러면
+    `firstRender` 가 또 참이 된다. 실제로 첫 화면에서 장례식장 도움말로 옮기자
+    공지가 다시 떴다(메뉴·권한도 함께 다시 읽힌다 — 그건 별건이다).
+
+    그래서 **닫았다는 사실을 브라우저에 적어 둔다**(sessionStorage).
+    탭을 닫으면 사라지므로 다음에 새로 열면 다시 뜬다. 잠금화면도 같은 자리를
+    쓴다(`ScreenLock`).
+
+    | 저장소 | 열쇠 | 무엇을 기억하나 | 언제까지 |
+    |---|---|---|---|
+    | sessionStorage | `jsini-notice-closed` | 이 탭에서 닫았다 | 탭을 닫을 때까지 |
+    | localStorage | `jsini-notice-dismissed` | 이 공지는 오늘 안 본다 | 날짜가 바뀔 때까지 |
+*@
+
+@using Microsoft.Extensions.Logging
+
+@inject NoticeClient Notices
+@inject IJSRuntime Js
+@inject ILogger<NoticeAutoPopup> Log
+
+<NoticePopup Notices="@_notices"
+             Visible="@_open"
+             VisibleChanged="@OpenChangedAsync"
+             OnDismissed="@DismissAsync" />
+
+@code {
+    /// <summary>
+    /// 로그인 화면인지. 참이면 공개 공지만 읽는다.
+    /// </summary>
+    [Parameter] public bool Public { get; set; }
+
+    /// <summary>브라우저에 「오늘 하루 보지 않기」를 적어 두는 열쇠. Vue 때와 같다.</summary>
+    private const string StorageKey = "jsini-notice-dismissed";
+
+    /// <summary>
+    /// 이 탭에서 이미 닫았다는 표시. 머리말의 표를 보라.
+    ///
+    /// <para>
+    /// <b>공개 공지와 로그인 뒤 공지를 따로 센다.</b> 하나로 두면 로그인 화면에서
+    /// 공개 공지를 닫은 사람이 로그인한 뒤 사내 공지를 못 본다 — 같은 탭이라
+    /// 표시가 그대로 남기 때문이다.
+    /// </para>
+    /// </summary>
+    private string ClosedKey => Public ? "jsini-notice-closed:public" : "jsini-notice-closed:user";
+
+    /// <summary>로그인 화면이 지워 주는 열쇠. 곧 로그인할 참이니 다시 띄워야 한다.</summary>
+    private const string UserClosedKey = "jsini-notice-closed:user";
+
+    private IReadOnlyList<NoticeDto> _notices = [];
+    private bool _open;
+
+    /// <summary>오늘 안 보기로 해 둔 공지들. 저장할 때 다시 쓴다.</summary>
+    private HashSet<string> _dismissed = new(StringComparer.Ordinal);
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        // 로그인 화면을 본다는 것은 곧 로그인한다는 뜻이다. 로그인 뒤 공지를
+        // 닫아 둔 표시를 여기서 지워야 **다시 로그인할 때 또 뜬다.**
+        if (Public)
+        {
+            await ForgetAsync(UserClosedKey);
+        }
+
+        // 이 탭에서 이미 닫았으면 조회조차 하지 않는다.
+        if (await AlreadyClosedAsync())
+        {
+            return;
+        }
+
+        _dismissed = await ReadDismissedAsync();
+
+        IReadOnlyList<NoticeDto> list;
+
+        try
+        {
+            list = Public
+                ? await Notices.GetPublicPopupAsync()
+                : await Notices.GetPopupAsync();
+        }
+        catch (Exception ex)
+        {
+            // **공지를 못 읽었다고 화면 진입을 막지 않는다.** 옛 화면도 같았다 —
+            // 안내를 못 본 것과 로그인이 안 되는 것은 무게가 다르다.
+            Log.LogWarning(ex, "팝업 공지를 읽지 못했습니다 (공개 전용: {Public}).", Public);
+            return;
+        }
+
+        var fresh = list.Where(n => !_dismissed.Contains(n.Id)).ToList();
+
+        if (fresh.Count == 0)
+        {
+            return;
+        }
+
+        _notices = fresh;
+        _open = true;
+
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// 창이 닫히면 이 탭에 표시를 남긴다. 그래야 화면을 옮겨 다녀도 다시 뜨지 않는다.
+    /// </summary>
+    private async Task OpenChangedAsync(bool open)
+    {
+        _open = open;
+
+        if (open)
+        {
+            return;
+        }
+
+        try
+        {
+            await Js.InvokeVoidAsync("sessionStorage.setItem", ClosedKey, "1");
+        }
+        catch (JSException ex)
+        {
+            // 못 적어도 이번 탭에서 한 번 더 뜨는 것이 전부다.
+            Log.LogDebug(ex, "공지 팝업을 닫았다는 표시를 남기지 못했습니다.");
+        }
+    }
+
+    /// <summary>표시를 지운다.</summary>
+    private async Task ForgetAsync(string key)
+    {
+        try
+        {
+            await Js.InvokeVoidAsync("sessionStorage.removeItem", key);
+        }
+        catch (JSException ex)
+        {
+            Log.LogDebug(ex, "공지 팝업 표시를 지우지 못했습니다.");
+        }
+    }
+
+    /// <summary>이 탭에서 이미 닫았는가.</summary>
+    private async Task<bool> AlreadyClosedAsync()
+    {
+        try
+        {
+            return await Js.InvokeAsync<string?>("sessionStorage.getItem", ClosedKey) is { Length: > 0 };
+        }
+        catch (JSException ex)
+        {
+            // 읽지 못하면 띄우는 쪽으로 기운다. 안내를 한 번 더 보는 것이
+            // 못 보는 것보다 낫다.
+            Log.LogDebug(ex, "공지 팝업 표시를 읽지 못했습니다.");
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// 「오늘 하루 보지 않기」로 닫은 공지를 브라우저에 적어 둔다.
+    /// </summary>
+    private async Task DismissAsync(string noticeId)
+    {
+        _dismissed.Add(noticeId);
+
+        var payload = System.Text.Json.JsonSerializer.Serialize(
+            new DismissRecord { Until = Today(), Ids = [.. _dismissed] });
+
+        try
+        {
+            await Js.InvokeVoidAsync("localStorage.setItem", StorageKey, payload);
+        }
+        catch (JSException ex)
+        {
+            // 사생활 보호 모드에서는 setItem 이 던진다. 이번 창에서만 안 보이고
+            // 끝날 뿐이라 사용자에게 말할 일이 아니다.
+            Log.LogDebug(ex, "「오늘 하루 보지 않기」를 저장하지 못했습니다.");
+        }
+    }
+
+    /// <summary>
+    /// 오늘 안 보기로 해 둔 공지를 읽는다. 날짜가 지났으면 없던 일로 한다.
+    /// </summary>
+    private async Task<HashSet<string>> ReadDismissedAsync()
+    {
+        try
+        {
+            var raw = await Js.InvokeAsync<string?>("localStorage.getItem", StorageKey);
+
+            if (string.IsNullOrWhiteSpace(raw))
+            {
+                return new HashSet<string>(StringComparer.Ordinal);
+            }
+
+            var saved = System.Text.Json.JsonSerializer.Deserialize<DismissRecord>(raw);
+
+            // 「오늘 하루」다. 날짜가 바뀌면 전부 다시 보인다.
+            return saved is not null && saved.Until == Today()
+                ? new HashSet<string>(saved.Ids, StringComparer.Ordinal)
+                : new HashSet<string>(StringComparer.Ordinal);
+        }
+        catch (Exception ex) when (ex is JSException or System.Text.Json.JsonException)
+        {
+            // 값이 깨져 있으면 없는 것으로 본다. 공지를 한 번 더 보는 쪽이
+            // 안 보이는 쪽보다 낫다.
+            Log.LogDebug(ex, "저장된 「오늘 하루 보지 않기」를 읽지 못했습니다.");
+            return new HashSet<string>(StringComparer.Ordinal);
+        }
+    }
+
+    /// <summary>
+    /// 브라우저 기준이 아니라 <b>서버 기준</b> 날짜다.
+    ///
+    /// <para>
+    /// 회로 안에서는 서버 시간밖에 없다. 사용자가 다른 시간대에 있으면
+    /// 「하루」의 경계가 몇 시간 어긋나는데, 어긋나는 결과는 공지를 한 번 더
+    /// 보거나 몇 시간 덜 보는 것뿐이라 시간대를 받아 오지 않는다.
+    /// </para>
+    /// </summary>
+    private static string Today() => DateTime.Now.ToString("yyyy-MM-dd");
+
+    /// <summary>localStorage 에 적어 두는 모양. Vue 때와 같은 칸 이름이다.</summary>
+    private sealed class DismissRecord
+    {
+        public string Until { get; set; } = string.Empty;
+        public List<string> Ids { get; set; } = [];
+    }
+}

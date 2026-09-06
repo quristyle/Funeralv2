@@ -68,4 +68,15 @@ public static class LoginFailReason
 
     /// <summary>비밀번호가 다르다</summary>
     public const string BadPassword = "BAD_PASSWORD";
+
+    /// <summary>
+    /// 비밀번호는 맞았지만 쓸 수 있는 계정이 아니다 (승인 대기 · 정지).
+    ///
+    /// <para>
+    /// 비밀번호가 맞았다는 뜻이므로 <see cref="BadPassword"/> 와 섞으면 안 된다 —
+    /// 「누가 내 아이디를 두드리고 있다」를 보려고 만든 기록에서 이 둘은 무게가
+    /// 아주 다르다.
+    /// </para>
+    /// </summary>
+    public const string NotActive = "NOT_ACTIVE";
 }

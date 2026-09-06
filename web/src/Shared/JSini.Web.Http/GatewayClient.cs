@@ -132,6 +132,16 @@ public sealed class GatewayClient(HttpClient http)
         return payload?.Result ?? [];
     }
 
+    /// <summary>고치고 <b>바뀐 목록 전체</b>를 받는다. 이유는 <see cref="PostListAsync{T}"/> 와 같다.</summary>
+    public async Task<IReadOnlyList<T>> PutListAsync<T>(
+        string path,
+        object? body,
+        CancellationToken cancellationToken = default)
+    {
+        var payload = await SendAsync<T>(HttpMethod.Put, path, body, cancellationToken);
+        return payload?.Result ?? [];
+    }
+
     /// <summary>지우고 <b>바뀐 목록 전체</b>를 받는다. 이유는 <see cref="PostListAsync{T}"/> 와 같다.</summary>
     public async Task<IReadOnlyList<T>> DeleteListAsync<T>(
         string path,
@@ -230,6 +240,38 @@ public sealed class GatewayClient(HttpClient http)
         using var response = await http.GetAsync(path, cancellationToken);
         await EnsureHttpSuccessAsync(response, path, cancellationToken);
         return await response.Content.ReadFromJsonAsync<T>(JsonOptions, cancellationToken);
+    }
+
+    /// <summary>
+    /// 응답을 <b>해석하지 않고</b> 그대로 돌려준다. 부르는 쪽이 <c>Dispose</c> 한다.
+    ///
+    /// <para>
+    /// 파일처럼 JSON 이 아닌 것을 흘려보낼 때 쓴다(<c>FileDownload</c>).
+    /// 헤더만 받은 시점에 돌아오므로 큰 파일도 메모리에 통째로 올리지 않는다.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>상태 코드를 여기서 던지지 않는다.</b> 부르는 쪽이 404 와 403 을 서로
+    /// 다르게 다루는 자리라 판단을 넘긴다.
+    /// </para>
+    /// </summary>
+    public async Task<HttpResponseMessage> SendRawAsync(
+        HttpMethod method,
+        string path,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = new HttpRequestMessage(method, path);
+
+        try
+        {
+            return await http.SendAsync(
+                request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+        }
+        catch (HttpRequestException ex)
+        {
+            throw new ApiException(
+                "서버에 연결하지 못했습니다.", statusCode: null, innerException: ex);
+        }
     }
 
     /// <summary>

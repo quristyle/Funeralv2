@@ -1,0 +1,153 @@
+@page "/admin/system/signup"
+
+@*
+    [가입 신청] — 로그인 화면의 「가입 신청」으로 들어온 것을 승인하거나 거절한다.
+
+    [DB 메뉴에 없다]
+
+    179건 어디에도 대응하는 항목이 없다 — 옛 Vue 에는 이 기능 자체가 없었기
+    때문이다(가입 화면이 껍데기였다). 그래서 사이드바에 뜨지 않고, 계정 관리
+    화면의 단추로 들어온다. 메뉴에 올리려면 `scom.system_menus` 에
+    `/admin/system/signup` 을 더하면 된다 — 라우트가 이미 그 값이다.
+
+    [승인은 상태 하나를 바꾸는 일이다]
+
+    신청은 처음부터 계정으로 만들어지고 상태만 PENDING 이다. 그래서 승인은
+    그 값을 ACTIVE 로 바꾸는 것이 전부고, 옮겨 적는 코드가 없다. 사연은
+    AuthServer 의 `SignupService` 주석에 있다.
+
+    [거절하면 사라진다]
+
+    상태만 REJECTED 로 두면 그 아이디가 영영 묶여서, 잘못 적어 거절당한
+    사람이 같은 아이디로 다시 신청할 수 없다. 그래서 지운다. 누가 언제 무슨
+    사유로 거절했는지는 AuthServer 로그에 남는다.
+
+    [소속과 역할은 여기서 정하지 않는다]
+
+    신청서에 그 칸이 없다 — 있으면 신청자가 스스로 권한을 고르는 셈이다.
+    승인한 뒤 계정 관리에서 붙인다. 승인 직후 그리로 가라는 안내를 띄우는
+    이유가 그것이다.
+*@
+
+@inherits DataPage
+@inject SignupClient Api
+@inject NavigationManager Navigation
+
+<PageTitle>가입 신청 · 포털관리</PageTitle>
+
+<PageNotice Text="@Notice" Tone="@Tone" />
+
+<CommCont>
+    <CommGrd TItem="SignupPendingDto"
+             Data="@_pending"
+             ExportName="가입신청"
+             EmptyText="승인을 기다리는 신청이 없습니다."
+             Reload="@ReloadAsync"
+             ActionsWidth="150">
+        <Toolbar>
+            <DxButton Text="계정 관리로" RenderStyle="ButtonRenderStyle.Secondary"
+                      Click="@(() => Navigation.NavigateTo("/admin/system/account"))" />
+        </Toolbar>
+
+        <Columns>
+            <DxGridDataColumn FieldName="@nameof(SignupPendingDto.LoginId)" Caption="아이디" Width="130" />
+            <DxGridDataColumn FieldName="@nameof(SignupPendingDto.UserName)" Caption="이름" Width="110" />
+            <DxGridDataColumn FieldName="@nameof(SignupPendingDto.Email)" Caption="이메일" MinWidth="180" />
+            <DxGridDataColumn FieldName="@nameof(SignupPendingDto.Phone)" Caption="연락처" Width="130" />
+            <DxGridDataColumn FieldName="@nameof(SignupPendingDto.Note)" Caption="하실 말씀" MinWidth="200" />
+            <DxGridDataColumn FieldName="@nameof(SignupPendingDto.RequestedAt)" Caption="신청일" Width="140"
+                              DisplayFormat="yyyy-MM-dd HH:mm" />
+        </Columns>
+
+        <RowActions Context="row">
+            <DxButton Text="승인" RenderStyle="ButtonRenderStyle.Primary"
+                      Click="@(() => ApproveAsync(row))" />
+            <DxButton Text="거절" RenderStyle="ButtonRenderStyle.Secondary"
+                      Click="@(() => AskRejectAsync(row))" />
+        </RowActions>
+    </CommGrd>
+</CommCont>
+
+@* 거절 사유를 묻는 창. 사유는 없어도 되지만 **신청자에게 그대로 메일로 간다** —
+   빈 채로 보내면 왜 안 됐는지 알 길이 없어 같은 신청이 다시 들어온다. *@
+<DxPopup @bind-Visible="_rejecting" HeaderText="가입 신청 거절" Width="420px" ShowFooter="true">
+    <BodyContentTemplate>
+        <p class="jsini-hint">
+            @(_target?.UserName ?? "-") (@(_target?.LoginId ?? "-")) 님의 신청을 거절합니다.
+            <b>신청은 지워집니다.</b>
+        </p>
+
+        <DxMemo @bind-Text="_reason" Rows="3"
+                NullText="거절 사유 (신청자에게 메일로 그대로 갑니다)" />
+    </BodyContentTemplate>
+
+    <FooterContentTemplate>
+        <DxButton Text="거절" RenderStyle="ButtonRenderStyle.Danger" Click="@RejectAsync" />
+        <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary"
+                  Click="@(() => _rejecting = false)" />
+    </FooterContentTemplate>
+</DxPopup>
+
+@code {
+    private IReadOnlyList<SignupPendingDto> _pending = [];
+
+    private bool _rejecting;
+    private SignupPendingDto? _target;
+    private string? _reason;
+
+    protected override Task OnInitializedAsync() => ReloadAsync();
+
+    private Task ReloadAsync() => LoadAsync(async () =>
+    {
+        _pending = await Api.GetPendingAsync();
+        return _pending.Count;
+    }, "승인을 기다리는 신청이 없습니다.", "신청 목록을 읽지 못했습니다");
+
+    private async Task ApproveAsync(SignupPendingDto row)
+    {
+        var ok = await RunAsync(
+            () => Api.ApproveAsync(row.Id),
+            $"{row.UserName} 님을 승인했습니다. 소속과 역할은 계정 관리에서 붙여 주십시오.",
+            "승인하지 못했습니다");
+
+        if (ok)
+        {
+            await ReloadAsync();
+
+            // 승인 문구를 조회 안내가 덮는다 — 목록이 비면 LoadAsync 가
+            // "없습니다" 를 띄우기 때문이다. 다시 세워 준다.
+            Say($"{row.UserName} 님을 승인했습니다. 소속과 역할은 계정 관리에서 붙여 주십시오.");
+        }
+    }
+
+    private Task AskRejectAsync(SignupPendingDto row)
+    {
+        _target = row;
+        _reason = null;
+        _rejecting = true;
+        return Task.CompletedTask;
+    }
+
+    private async Task RejectAsync()
+    {
+        if (_target is null)
+        {
+            return;
+        }
+
+        var name = _target.UserName;
+
+        var ok = await RunAsync(
+            () => Api.RejectAsync(_target.Id, _reason),
+            $"{name} 님의 신청을 거절했습니다.",
+            "거절하지 못했습니다");
+
+        _rejecting = false;
+
+        if (ok)
+        {
+            await ReloadAsync();
+            Say($"{name} 님의 신청을 거절했습니다.");
+        }
+    }
+}

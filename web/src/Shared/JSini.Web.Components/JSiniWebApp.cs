@@ -1,5 +1,6 @@
 using System.Reflection;
 using JSini.Web.Abstractions;
+using JSini.Web.Components.Data;
 using JSini.Web.Components.Layout;
 using JSini.Web.Components.Menu;
 using JSini.Web.Components.Security;
@@ -180,12 +181,23 @@ public static class JSiniWebApp
         services.AddScoped<MenuProvider>();
         services.AddScoped<IMenuProvider>(sp => sp.GetRequiredService<MenuProvider>());
 
+        // 팝업 공지. **레이아웃과 로그인 화면이 함께 쓴다** — 포털관리 모듈에
+        // 두면 레이아웃이 못 쓴다(셸은 모듈을 이름으로 알지 못한다).
+        services.AddScoped<NoticeClient>();
+
         // ── 셸 상태 ──────────────────────────────────────────────
         //
         // 셋 다 scoped 다 — 회로 하나가 곧 사용자 한 명의 창 하나다.
         // 싱글턴으로 두면 열어 둔 탭과 즐겨찾기가 모든 사용자에게 공유된다.
         services.AddScoped<MenuFavorites>();
         services.AddScoped<PortalTabs>();
+
+        // 헤더의 사용자 단추가 얼굴과 이름을 여기서 얻는다. 쿠키 클레임에는
+        // 사진이 없어 게이트웨이에 한 번 물어야 한다(CurrentUser 머리말).
+        services.AddScoped<CurrentUser>();
+
+        // 테마 서랍을 사용자 메뉴에서도 열 수 있게 하는 손잡이.
+        services.AddScoped<ThemeDrawer>();
 
         // 잠금화면(D7)도 같은 이유로 scoped 다 — 한 사람이 잠갔다고 모두의
         // 화면이 덮이면 안 된다.
@@ -251,6 +263,12 @@ public static class JSiniWebApp
         app.UseAuthentication();
         app.UseAuthorization();
         app.UseAntiforgery();
+
+        // 첨부 내려받기 중계 (D5). **인증 뒤에 열어야 한다** — 이 경로는
+        // 지금 요청의 신원을 그대로 게이트웨이로 흘려보내는 것이 전부이고,
+        // 그 신원이 서는 곳이 UseAuthentication 이다. 앞에 두면 로그인한
+        // 사람의 요청도 익명으로 나가서 공개 파일만 내려간다.
+        app.MapJSiniFileDownload();
 
         return app;
     }

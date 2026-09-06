@@ -38,6 +38,7 @@
 @inject ITokenStore Tokens
 @inject ScreenLock Lock
 @inject MenuFavorites Favorites
+@inject CurrentUser Me
 @inject PortalTabs Tabs
 @inject AuthenticationStateProvider AuthState
 @inject NavigationManager Navigation
@@ -100,6 +101,13 @@
    그 부품의 머리말에 있다. *@
 <LockScreen UserName="@_userName" />
 
+@* 로그인 직후 뜨는 공지 팝업. 격자 바깥에 두는 이유는 잠금 덮개와 같다.
+
+   **잠금 덮개보다 앞에 두지 않는다.** 덮개는 z-index 20000 이고 이 창은
+   DevExpress 기본값(1000대)이라, 잠긴 화면 위로 공지가 뜨는 일은 없다 —
+   잠긴 화면에 공지가 보이면 그것만으로 잠금이 무의미해진다. *@
+<NoticeAutoPopup />
+
 @code {
     private bool _sidebarOpen = true;
     private bool _isPhone;
@@ -130,6 +138,11 @@
     /// ③ 메뉴 — 권한표가 없는 상태에서 읽으면 걸러지지 않은 목록이 한 번
     ///    보였다가 바뀐다.
     /// ④ 즐겨찾기 — 메뉴가 있어야 이름을 붙일 수 있다.
+    ///
+    /// <para>
+    /// 헤더의 얼굴(<see cref="CurrentUser"/>)은 <b>맨 뒤</b>다. 사이드바가
+    /// 그려지는 것이 먼저고, 얼굴은 늦게 떠도 이름 첫 글자가 자리를 지킨다.
+    /// </para>
     /// </summary>
     protected override async Task OnInitializedAsync()
     {
@@ -140,6 +153,7 @@
         await Permissions.ReloadAsync();
         await Menus.ReloadAsync();
         await Favorites.ReloadAsync();
+        await Me.ReloadAsync();
 
         Track();
     }

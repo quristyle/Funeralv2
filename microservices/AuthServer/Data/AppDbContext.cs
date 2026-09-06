@@ -46,9 +46,18 @@ public class AppDbContext : DbContext
     public DbSet<ReleaseRunEvent> ReleaseRunEvents { get; set; }
     public DbSet<BirthdayMessage> BirthdayMessages { get; set; }
 
+    /// <summary>비밀번호 재설정 링크. 해시만 들어 있다 — 엔티티 주석 참고.</summary>
+    public DbSet<PasswordResetToken> PasswordResetTokens { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+
+        // 재설정은 토큰 해시로만 찾는다. 색인이 없으면 링크를 누를 때마다
+        // 표를 통째로 훑는다 — 그리고 이 표는 지우지 않고 쌓인다.
+        modelBuilder.Entity<PasswordResetToken>()
+            .HasIndex(t => t.TokenHash)
+            .IsUnique();
 
         modelBuilder.Entity<RoleAccount>()
             .HasIndex(ra => new { ra.RoleId, ra.AccountId })
