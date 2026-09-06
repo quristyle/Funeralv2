@@ -429,13 +429,24 @@ public sealed class MonthlyReport
 
     public double ResolutionRate { get; set; }
 
-    public Dictionary<string, int>? RequestsByStatus { get; set; }
-    public Dictionary<string, int>? RequestsByType { get; set; }
+    /// <summary>
+    /// 상태별 건수. <b>배열이다 — 사전이 아니다.</b>
+    ///
+    /// <para>
+    /// 서버가 <c>Dictionary&lt;string,int&gt;</c> 를 들고 있지만 직렬화하면
+    /// <c>[{"key":"…","value":0}]</c> 로 나간다. 사전으로 받으면 **묶음 전체가
+    /// 해석에 실패해** 화면이 통째로 빈다(실제로 밟았다 —
+    /// 「응답을 해석하지 못했습니다」).
+    /// </para>
+    /// </summary>
+    public List<KeyCount>? RequestsByStatus { get; set; }
+
+    public List<KeyCount>? RequestsByType { get; set; }
 
     /// <summary>평균 해결 시간(시간). SM 계약에서 실제로 따지는 숫자다(MTTR).</summary>
     public double AverageResolutionTimeHours { get; set; }
 
-    public Dictionary<string, int>? ResolutionTimeDistribution { get; set; }
+    public List<KeyCount>? ResolutionTimeDistribution { get; set; }
 
     public List<DailyRequestStat>? DailyStats { get; set; }
 }
@@ -449,4 +460,11 @@ public sealed class DailyRequestStat
     public int RequestCount { get; set; }
 
     public int CompletedCount { get; set; }
+}
+
+/// <summary>이름과 건수 한 쌍. 서버가 사전을 이 모양으로 내보낸다.</summary>
+public sealed class KeyCount
+{
+    public string Key { get; set; } = string.Empty;
+    public int Value { get; set; }
 }

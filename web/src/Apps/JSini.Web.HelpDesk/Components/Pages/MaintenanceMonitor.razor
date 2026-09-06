@@ -135,6 +135,13 @@
             ? [.. dist.Select(kv => new Bucket(kv.Key, kv.Value))]
             : [];
 
+        // 전부 0 이면 보여 줄 것이 없다. 구간 이름만 늘어놓으면 자료가 있는
+        // 것처럼 읽힌다.
+        if (_spread.All(b => b.Count == 0))
+        {
+            _spread = [];
+        }
+
         return _report?.TotalRequests ?? 0;
     }, "그 달에 접수된 요청이 없습니다.", "현황을 읽지 못했습니다");
 }

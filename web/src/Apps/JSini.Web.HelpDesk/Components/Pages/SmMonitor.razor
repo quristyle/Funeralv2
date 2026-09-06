@@ -196,6 +196,7 @@
         }
     }
 
-    private static IReadOnlyList<Pair> Pairs(Dictionary<string, int>? source) =>
+    /// <summary>서버가 준 (이름, 건수) 배열을 많은 차례로 세운다.</summary>
+    private static IReadOnlyList<Pair> Pairs(List<KeyCount>? source) =>
         source is null ? [] : [.. source.Select(kv => new Pair(kv.Key, kv.Value)).OrderByDescending(p => p.Value)];
 }

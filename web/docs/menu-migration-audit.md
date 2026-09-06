@@ -609,6 +609,15 @@ SM 은 「밀린 것이 몇 건인가」보다 **「누가 몰려 있고 무엇�
 - MTTR·해결률은 서버가 이미 계산해 준다(`requests/report/monthly`) —
   화면이 다시 세지 않는다. 월간 보고서 화면과 같은 값을 봐야 한다
 
+**밟은 함정 둘** — 둘 다 「빌드는 되는데 화면이 빈다」였다.
+
+1. **칸 이름을 읽기 좋게 바꿔 적었다.** 서버는 `totalRequests` ·
+   `averageResolutionTimeHours` 를 주는데 `TotalCreated` · `AvgResolutionTime`
+   으로 받고 있었다. 봉투를 벗기는 쪽은 대소문자만 무시할 뿐 이름은 그대로 본다
+2. **사전이 사전으로 오지 않는다.** 서버가 `Dictionary<string,int>` 를 들고
+   있지만 직렬화하면 `[{"key":"…","value":0}]` 배열이다. 사전으로 받으면
+   **묶음 전체가 해석에 실패해** 화면이 통째로 빈다
+
 ### 102. `/helpdesk/monitor/maintenance` — 유지보수 현황 · **다시 씀**
 
 원본: `helpdesk/monitor/maintenance.vue` (493줄)
