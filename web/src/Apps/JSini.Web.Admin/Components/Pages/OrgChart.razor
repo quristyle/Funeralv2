@@ -705,6 +705,18 @@
     /// <summary>
     /// 연결선. 세로는 부모 아래에서 자식 위로, 가로는 부모 오른쪽에서 자식 왼쪽으로
     /// 3차 베지어를 긋는다.
+    ///
+    /// <para>
+    /// [조절점은 <b>선의 두 끝</b> 사이에서 잡는다]
+    /// </para>
+    ///
+    /// <para>
+    /// 원본(Vue)은 두 <b>카드의 좌표</b> 사이에서 잡았다(<c>(sourceX + targetX) / 2</c>).
+    /// 카드 크기가 빠져 있어서, 가로 조직도에서는 조절점이 시작점보다 뒤에
+    /// 놓인다 — 칸 간격 250 에 카드가 180 이라 실제로 남는 자리가 70 뿐이다.
+    /// 선이 왼쪽으로 한 번 물러났다 가는 S 자가 되어 부모가 어느 쪽인지
+    /// 헷갈린다. 끝점 기준으로 잡으면 늘 앞으로만 흐른다.
+    /// </para>
     /// </summary>
     private string LinkPath(Node node)
     {
@@ -721,7 +733,7 @@
                        $"L {N(node.X + (CardWidth / 2))} {N(node.Y)}";
             }
 
-            var cy = (sy + node.Y) / 2;
+            var cy = ((sy + CardHeight) + node.Y) / 2;
 
             return $"M {N(sx + (CardWidth / 2))} {N(sy + CardHeight)} " +
                    $"C {N(sx + (CardWidth / 2))} {N(cy)}, " +
@@ -729,7 +741,7 @@
                    $"{N(node.X + (CardWidth / 2))} {N(node.Y)}";
         }
 
-        var cx = (sx + node.X) / 2;
+        var cx = ((sx + CardWidth) + node.X) / 2;
 
         return $"M {N(sx + CardWidth)} {N(sy + (CardHeight / 2))} " +
                $"C {N(cx)} {N(sy + (CardHeight / 2))}, " +
