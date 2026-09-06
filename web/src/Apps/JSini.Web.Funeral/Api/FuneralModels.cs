@@ -22,6 +22,16 @@ public sealed class Building
     public string? Remark { get; set; }
     public string? BuildingPhotoGroupId { get; set; }
     public string? ParkingPhotoGroupId { get; set; }
+
+    /// <summary>
+    /// 전경 사진 주소들. <b>서버가 세어 준다 — 보내지 않는다.</b>
+    /// 목록에서 「몇 장인가」를 보여 주는 데만 쓴다(그룹 아이디가 정본이다).
+    /// </summary>
+    public List<string> BuildingPhotos { get; set; } = [];
+
+    /// <summary>주차장 안내 이미지 주소들. <see cref="BuildingPhotos"/> 와 같다.</summary>
+    public List<string> ParkingPhotos { get; set; } = [];
+
     public DateTime? CreatedAt { get; set; }
 }
 

@@ -94,6 +94,21 @@ public static class ServiceCollectionExtensions
             .ConfigurePrimaryHttpMessageHandler(NoCookieJar)
             .AddHttpMessageHandler<AuthTokenHandler>();
 
+        // ── 사진 그룹 (ImageGroup 부품) ───────────────────────
+        //
+        // 여기서 등록하는 이유는 AI 대화와 같다 — 쓰는 부품이 Blazor Common 에
+        // 있어서, 모듈이 등록하면 다른 모듈이 그 부품을 못 쓴다.
+        //
+        // 휴대폰 사진은 한 장이 10MB 를 넘는 일이 흔하고 한 번에 여러 장을
+        // 올린다. 기본 100초로는 모자란다.
+        services.AddHttpClient<FileGroupClient>(client =>
+            {
+                client.BaseAddress = new Uri(baseUrl);
+                client.Timeout = TimeSpan.FromMinutes(5);
+            })
+            .ConfigurePrimaryHttpMessageHandler(NoCookieJar)
+            .AddHttpMessageHandler<AuthTokenHandler>();
+
         return services;
     }
 

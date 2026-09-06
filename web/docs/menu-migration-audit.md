@@ -69,3 +69,44 @@ GitHub 에만 있으므로 **화면이 늘 비어 있었다.** 자료실 화면�
 **확인.** `dotnet build`(web · AuthServer) · 아키텍처 테스트 129건 통과.
 화면 확인은 못 했다 — 이 장비에서 GitHub 토큰 설정 여부를 모른다. 설정이 없으면
 카드는 다 「파일 없음」으로 뜨고 안내가 붙는다(그 자체가 정상 동작이다).
+
+### 2. `/funeral/building/info` — 건물 관리 · **보완**
+
+원본: `funeral/building/info/index.vue` (287줄)
+
+**빠져 있던 것**
+
+| 무엇 | 어떻게 됐나 |
+|---|---|
+| 약어(3자리) | 칸이 없었다. **서버가 필수로 받는다**(`BuildingCreateDto.Abbreviation` 에 `[Required]`) — 등록이 400 으로 떨어지고 있었다. 목록 칸과 편집 칸을 붙였다 |
+| 건물 전경 사진 (다중) | 올리는 자리가 없었다. 서버는 그동안에도 `building_photo_group_id` 를 들고 있었다 |
+| 주차장 안내 이미지 (다중) | 위와 같다 (`parking_photo_group_id`) |
+
+**새로 만든 공용 부품 — `ImageGroup`.** 사진 묶음은 건물 말고도 여러 화면이 쓴다
+(고인 가족사진 등). Blazor Common 에 두고 클라이언트(`FileGroupClient`)는
+`JSini.Web.Http` 에 뒀다 — 부품이 공용이라 모듈이 등록하면 다른 모듈이 못 쓴다.
+AI 대화 클라이언트를 `AddJSiniGateway` 에서 등록하는 것과 같은 이유다.
+
+- 고르는 즉시 올라간다. **첫 장을 올릴 때 서버가 그룹 아이디를 발급**하기 때문이다 —
+  저장할 때 올리는 흐름이면 「저장 → 발급 → 다시 저장」이 되어야 한다
+- 미리 보기는 셸 중계 경로(`/files/{id}`)를 쓴다. FileServer 가 주는
+  `/api/file/...` 는 포털(:5557)에서 404 다
+- 대표 사진 지정은 부품에 있지만 건물 화면에서는 끈다(원본에 없다)
+
+**의도적 차이 둘**
+
+1. **회사 고르개를 두지 않았다.** 원본은 위에 `BizSelect(funeralCompany)` 가 있고
+   회사별로 건물을 걸러 봤다. Blazor 는 **회사를 서버가 토큰에서 정한다** —
+   화면이 회사를 넘기면 남의 회사에 건물을 만드는 길이 열린다. 장례식장 모듈에는
+   회사 목록 API 자체가 아직 없다. 여러 회사를 오가는 운영자가 생기면 그때
+   붙인다(남는 일에 적어 둔다).
+2. **목록의 사진 칸은 썸네일이 아니라 장수다.** 원본은 칸 안에 사진을 가로로
+   늘어놓았는데, DevExpress 그리드는 줄 높이가 고정이라 그 자리에서 사진이
+   납작해진다. 보고 고치는 것은 편집 창에서 한다.
+
+**함께 고친 곳**: `JSini.Web.Http/FileGroupClient.cs`(신규) ·
+`ServiceCollectionExtensions`(등록) · `Components/Data/ImageGroup.razor`(신규) ·
+`app.css`(`.jsini-imggroup*`) · `FuneralModels.cs`(`BuildingPhotos` · `ParkingPhotos`)
+
+**확인.** 빌드·아키텍처 테스트 129건 통과. 사진 올리기는 **실제로 해 보지 않았다** —
+운영 DB·운영 파일 저장소에 그대로 들어가기 때문이다.
