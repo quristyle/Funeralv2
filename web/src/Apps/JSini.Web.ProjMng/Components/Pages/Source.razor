@@ -12,11 +12,14 @@
     Glue 추적 화면이 서버에서 파일을 훑을 수 있다.
 *@
 
+@inherits DataPage
 @inject ProjMngClient Client
 
 <PageTitle>소스 정보 · 프로젝트관리</PageTitle>
 
 <PageHeading Title="소스 정보" Scope="프로젝트관리" />
+
+<PageNotice Text="@Notice" Tone="@Tone" />
 
 <SearchBar>
     <ChildContent>
@@ -34,9 +37,9 @@
         <DynamicGrid Data="@_src.Data"
                      Loading="@_src.IsLoading"
                      ExportName="소스정보"
-                     OnSave="@(() => _src.SaveAsync())"
+                     OnSave="@SaveSourceAsync"
                      OnAdd="@FillProject"
-                     OnDelete="@(row => _src.DeleteAsync(row))"
+                     OnDelete="@DeleteSourceAsync"
                      OnRowClick="@OnSourceSelectedAsync" />
     </First>
     <Second>
@@ -44,9 +47,9 @@
                      Loading="@_detail.IsLoading"
                      ExportName="소스정보-상세"
                      HideAdd="@(_selectedSource is null)"
-                     OnSave="@(() => _detail.SaveAsync())"
+                     OnSave="@SaveDetailAsync"
                      OnAdd="@FillSourceKey"
-                     OnDelete="@(row => _detail.DeleteAsync(row))" />
+                     OnDelete="@DeleteDetailAsync" />
     </Second>
 </SplitPane>
 
@@ -63,7 +66,7 @@
         _detail = new ProcGrid(Client, "sp_dev_srcinfo_dtl_exec");
     }
 
-    private async Task SearchAsync()
+    private Task SearchAsync() => LoadAsync(async () =>
     {
         _selectedSource = null;
         _detail.Clear();
@@ -71,22 +74,41 @@
         {
             ["prj_rid"] = _projectCode ?? string.Empty,
         });
-    }
 
-    private async Task OnSourceSelectedAsync(DataRow? row)
+        return _src.Data.Table.Rows.Count;
+    }, "소스 정보가 없습니다.", "소스 목록을 읽지 못했습니다");
+
+    private Task SaveSourceAsync() =>
+        RunAsync(() => _src.SaveAsync(), "저장했습니다.", "저장하지 못했습니다");
+
+    private Task DeleteSourceAsync(DataRow row) =>
+        RunAsync(() => _src.DeleteAsync(row), "삭제했습니다.", "삭제하지 못했습니다");
+
+    private Task SaveDetailAsync() =>
+        RunAsync(() => _detail.SaveAsync(), "저장했습니다.", "저장하지 못했습니다");
+
+    private Task DeleteDetailAsync(DataRow row) =>
+        RunAsync(() => _detail.DeleteAsync(row), "삭제했습니다.", "삭제하지 못했습니다");
+
+    private Task OnSourceSelectedAsync(DataRow? row)
     {
         _selectedSource = row;
 
         if (row is null)
         {
             _detail.Clear();
-            return;
+            return Task.CompletedTask;
         }
 
-        await _detail.LoadAsync(new Dictionary<string, object?>
+        return LoadAsync(async () =>
         {
-            ["src_rid"] = SourceKey(),
-        });
+            await _detail.LoadAsync(new Dictionary<string, object?>
+            {
+                ["src_rid"] = SourceKey(),
+            });
+
+            return _detail.Data.Table.Rows.Count;
+        }, "상세 정보가 없습니다.", "상세를 읽지 못했습니다");
     }
 
     private Task FillProject(DataRow row)

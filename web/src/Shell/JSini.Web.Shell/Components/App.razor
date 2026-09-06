@@ -22,6 +22,34 @@
 <body>
     <Routes @rendermode="@RenderModeForPage" />
 
+    @*
+        회로가 끊겼을 때 뜨는 막대.
+
+        [없으면 아무 표시 없이 화면이 굳는다 — 실제로 여러 번 밟았다]
+
+        Blazor Server 는 탭마다 서버에 회로를 하나 두고, 화면 상태와 컴포넌트
+        트리가 전부 거기 있다. 수명 주기나 이벤트 처리기에서 예외가 밖으로
+        나가면 ASP.NET Core 는 **그 회로를 통째로 내린다.** 그 화면만이 아니라
+        탭 전체다 — 사이드바도 헤더도 안 눌린다.
+
+        Blazor 는 그때 `id="blazor-error-ui"` 인 요소를 보여 주도록 되어 있는데,
+        그 요소를 우리가 두지 않아 **아무 일도 일어나지 않았다.** 증상이
+        「화면이 안 열린다」·「단추가 안 눌린다」 하나로 뭉개져서, 원인이
+        Razor 주석 한 줄인지 서버가 죽은 것인지 구분할 수 없었다.
+
+        기본은 `display: none` 이고 Blazor 가 필요할 때 켠다. 스타일을 여기
+        인라인으로 두는 이유는, 이 막대가 떠야 하는 상황이 바로 **뭔가 크게
+        잘못된 상황**이라 스타일시트가 안 실렸을 수도 있기 때문이다.
+    *@
+    <div id="blazor-error-ui" style="display: none; position: fixed; bottom: 0; left: 0; right: 0;
+                                     z-index: 1100; padding: 0.9rem 1.2rem; background: #fff3cd;
+                                     color: #664d03; border-top: 1px solid #ffe69c;
+                                     box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.15);">
+        연결이 끊겼습니다. 새로고침하면 다시 이어집니다.
+        <a href="" class="reload">새로고침</a>
+        <a href="" class="dismiss" style="float: right;">닫기</a>
+    </div>
+
     <script src="_framework/blazor.web.js"></script>
 </body>
 

@@ -69,12 +69,17 @@
 
             @Columns
 
-            @if (OnSave.HasDelegate || OnDelete.HasDelegate)
+            @if (OnSave.HasDelegate || OnDelete.HasDelegate || RowActions is not null)
             {
-                <DxGridDataColumn Caption="관리" Width="84" MinWidth="84"
+                <DxGridDataColumn Caption="관리" Width="@ActionsColumnWidth" MinWidth="@ActionsColumnWidth"
                                   AllowSort="false" AllowGroup="false">
                     <CellDisplayTemplate Context="cell">
                         <div class="commgrd__actions">
+                            @if (RowActions is not null && cell.DataItem is TItem row)
+                            {
+                                @RowActions(row)
+                            }
+
                             @if (OnSave.HasDelegate)
                             {
                                 <PermissionView Action="MenuAction.Update">
@@ -206,6 +211,24 @@
     /// <summary>줄을 펼쳤을 때 안에 그릴 것.</summary>
     [Parameter] public RenderFragment<GridDetailRowTemplateContext>? DetailRowTemplate { get; set; }
 
+    /// <summary>
+    /// 관리 칸에서 「수정」 앞에 놓을 단추들. 그 줄의 자료를 그대로 받는다.
+    ///
+    /// <para>
+    /// 미리보기·복제처럼 <b>그 화면에만 있는 동작</b>을 두는 자리다. 제목 칸의
+    /// <c>CellDisplayTemplate</c> 에 끼워 넣으면 화면마다 조작 자리가 달라져,
+    /// 「관리 칸에 있겠거니」 하고 오른쪽 끝을 보는 사람이 못 찾는다.
+    /// </para>
+    /// </summary>
+    [Parameter] public RenderFragment<TItem>? RowActions { get; set; }
+
+    /// <summary>
+    /// 관리 칸의 너비(px). 비우면 단추 수에 맞춘 기본값을 쓴다 —
+    /// 수정·삭제 둘이면 84, <see cref="RowActions"/> 가 있으면 116.
+    /// 단추를 셋 이상 넣으면 여기서 직접 정한다.
+    /// </summary>
+    [Parameter] public int? ActionsWidth { get; set; }
+
     /// <summary>자료가 없을 때 보여 줄 문구.</summary>
     [Parameter] public string EmptyText { get; set; } = "표시할 자료가 없습니다.";
 
@@ -255,6 +278,10 @@
 
     /// <summary>감싼 DxGrid. 화면이 DevExpress API 를 직접 불러야 할 때.</summary>
     public IGrid? Grid => _grid;
+
+    /// <summary>관리 칸 너비. DxGridDataColumn 은 글자로 받는다.</summary>
+    private string ActionsColumnWidth =>
+        (ActionsWidth ?? (RowActions is null ? 84 : 116)).ToString(System.Globalization.CultureInfo.InvariantCulture);
 
     private IGrid? _grid;
     private IReadOnlyDictionary<string, object>? _forwarded;

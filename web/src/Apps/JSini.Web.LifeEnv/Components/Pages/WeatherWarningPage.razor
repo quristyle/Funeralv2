@@ -45,6 +45,7 @@
     자료가 들어오기 시작하면 그때 붙인다.
 *@
 
+@inherits DataPage
 @inject LifeEnvClient Client
 
 <PageTitle>기상 특보 현황 · 생활과환경</PageTitle>
@@ -57,12 +58,12 @@
                 NullText="명령 전체" ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto"
                 Style="width: 160px" />
 
-    <DxButton Text="새로고침" RenderStyle="ButtonRenderStyle.Primary" Click="@LoadAsync" />
+    <DxButton Text="새로고침" RenderStyle="ButtonRenderStyle.Primary" Click="@ReloadAsync" />
 
     <span class="le-warn__count">최근 48시간 @Groups.Count 건</span>
 </div>
 
-<PageNotice Text="@_notice" Tone="@_tone" />
+<PageNotice Text="@Notice" Tone="@Tone" />
 
 <div class="le-warn">
     <div class="le-warn__list">
@@ -198,10 +199,7 @@
     /// <summary>본문에서 칠할 구역명. 긴 것부터 — 짧은 것이 먼저 먹으면 겹친다.</summary>
     private List<string> _keywords = [];
 
-    private string? _notice;
-    private NoticeTone _tone = NoticeTone.Info;
-
-    protected override Task OnInitializedAsync() => LoadAsync();
+    protected override Task OnInitializedAsync() => ReloadAsync();
 
     private List<WarningGroup> Groups
     {
@@ -222,14 +220,11 @@
         }
     }
 
-    private async Task LoadAsync()
+    private Task ReloadAsync() => LoadAsync(async () =>
     {
-        _notice = null;
-        _tone = NoticeTone.Info;
         _selectedId = null;
         _detail = null;
 
-        try
         {
             // 구역 마스터는 특보와 무관하게 늘 같다. 나란히 부른다.
             var warnings = Client.GetWarningsAsync(all: true);
@@ -256,23 +251,16 @@
                 .Distinct(StringComparer.Ordinal)
                 .Order(StringComparer.Ordinal)];
 
-            if (_warnings.Count == 0)
-            {
-                _notice = "최근 48시간 안에 발표된 특보가 없습니다.";
-            }
-            else
+            if (_warnings.Count > 0)
             {
                 // 맨 위 그룹을 자동으로 편다. 오른쪽이 비어 있으면 이 화면이
                 // 무엇을 보여 주는 곳인지 알기 어렵다.
                 await SelectAsync(Groups[0].Latest.Id);
             }
         }
-        catch (ApiException ex)
-        {
-            _notice = $"특보를 읽지 못했습니다 — {ex.Message}";
-            _tone = NoticeTone.Error;
-        }
-    }
+
+        return _warnings.Count;
+    }, "최근 48시간 안에 발표된 특보가 없습니다.", "특보를 읽지 못했습니다");
 
     private async Task SelectAsync(int id)
     {
@@ -306,8 +294,7 @@
         }
         catch (ApiException ex)
         {
-            _notice = $"통보문을 읽지 못했습니다 — {ex.Message}";
-            _tone = NoticeTone.Error;
+            Say($"통보문을 읽지 못했습니다 — {ex.Message}", NoticeTone.Error);
         }
         finally
         {

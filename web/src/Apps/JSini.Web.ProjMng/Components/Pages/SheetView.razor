@@ -8,11 +8,14 @@
     프로젝트 업무 시트 및 그리드 메타데이터를 조망한다.
 *@
 
+@inherits DataPage
 @inject ProjMngClient Client
 
 <PageTitle>프로젝트 시트 · 프로젝트관리</PageTitle>
 
 <PageHeading Title="프로젝트 시트" Scope="프로젝트관리" />
+
+<PageNotice Text="@Notice" Tone="@Tone" />
 
 <SearchBar>
     <ChildContent>
@@ -25,7 +28,7 @@
     </Actions>
 </SearchBar>
 
-<DynamicGrid Data="@_grid.Data" Loading="@_grid.IsLoading" ExportName="프로젝트시트" OnRefresh="@SearchAsync" OnSave="@(() => _grid.SaveAsync(Params()))" OnDelete="@(row => _grid.DeleteAsync(row))" />
+<DynamicGrid Data="@_grid.Data" Loading="@_grid.IsLoading" ExportName="프로젝트시트" OnRefresh="@SearchAsync" OnSave="@SaveAsync" OnDelete="@DeleteAsync" />
 
 @code {
     private ProcGrid _grid = default!;
@@ -38,5 +41,20 @@
 
     private Dictionary<string, object?> Params() => new() { ["prj_rid"] = _projectCode ?? string.Empty, ["req_type"] = "sheet" };
 
-    private Task SearchAsync() => _grid.LoadAsync(Params());
+    private Task SearchAsync() => LoadAsync(async () =>
+    {
+        await _grid.LoadAsync(Params());
+        return _grid.Data.Table.Rows.Count;
+    }, "조회 결과가 없습니다.", "조회하지 못했습니다");
+
+    private Task DeleteAsync(System.Data.DataRow row) =>
+        RunAsync(() => _grid.DeleteAsync(row), "삭제했습니다.", "삭제하지 못했습니다");
+
+    private async Task SaveAsync()
+    {
+        if (await RunAsync(() => _grid.SaveAsync(Params()), "저장했습니다.", "저장하지 못했습니다"))
+        {
+            Say(_grid.LastMessage ?? "저장했습니다.");
+        }
+    }
 }

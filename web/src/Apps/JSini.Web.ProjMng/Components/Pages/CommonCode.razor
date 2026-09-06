@@ -20,11 +20,14 @@
     엉뚱한 쪽이 바뀌므로 제목에 그 구분을 적어 둔다.
 *@
 
+@inherits DataPage
 @inject ProjMngClient Client
 
 <PageTitle>공통코드 · 프로젝트관리</PageTitle>
 
 <PageHeading Title="공통코드" Scope="프로젝트관리" />
+
+<PageNotice Text="@Notice" Tone="@Tone" />
 
 <SplitPane Size="35">
     <First>
@@ -65,35 +68,42 @@
 
     protected override Task OnInitializedAsync() => SearchAsync();
 
-    private async Task SearchAsync()
+    private Task SearchAsync() => LoadAsync(async () =>
     {
         _selectedMain = null;
         _detail.Clear();
         await _main.LoadAsync(new Dictionary<string, object?> { ["srch_type"] = "main" });
-    }
 
-    private async Task OnMainSelectedAsync(DataRow? row)
+        return _main.Data.Table.Rows.Count;
+    }, "공통코드가 없습니다.", "공통코드를 읽지 못했습니다");
+
+    private Task OnMainSelectedAsync(DataRow? row)
     {
         _selectedMain = row;
 
         if (row is null)
         {
             _detail.Clear();
-            return;
+            return Task.CompletedTask;
         }
 
-        await _detail.LoadAsync(new Dictionary<string, object?>
+        return LoadAsync(async () =>
         {
-            ["cm_pcd"] = ParentCode(),
-        });
+            await _detail.LoadAsync(new Dictionary<string, object?>
+            {
+                ["cm_pcd"] = ParentCode(),
+            });
+
+            return _detail.Data.Table.Rows.Count;
+        }, "하위 코드가 없습니다.", "하위 코드를 읽지 못했습니다");
     }
 
-    private Task SaveMainAsync() => _main.SaveAsync();
+    private Task SaveMainAsync() =>
+        RunAsync(() => _main.SaveAsync(), "저장했습니다.", "저장하지 못했습니다");
 
-    private Task SaveDetailAsync() => _detail.SaveAsync(new Dictionary<string, object?>
-    {
-        ["cm_pcd"] = ParentCode(),
-    });
+    private Task SaveDetailAsync() => RunAsync(
+        () => _detail.SaveAsync(new Dictionary<string, object?> { ["cm_pcd"] = ParentCode() }),
+        "저장했습니다.", "저장하지 못했습니다");
 
     /// <summary>
     /// 하위 행을 새로 만들면 상위 코드를 채워 준다.
@@ -109,7 +119,8 @@
         return Task.CompletedTask;
     }
 
-    private Task DeleteDetailAsync(DataRow row) => _detail.DeleteAsync(row);
+    private Task DeleteDetailAsync(DataRow row) =>
+        RunAsync(() => _detail.DeleteAsync(row), "삭제했습니다.", "삭제하지 못했습니다");
 
     /// <summary>고른 상위 코드의 코드값. 없으면 빈 문자열.</summary>
     private string ParentCode()

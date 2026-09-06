@@ -1,3 +1,5 @@
+using JSini.Web.Http;
+
 namespace JSini.Web.ProjMng.Api;
 
 /// <summary>공통코드 한 건.</summary>
@@ -59,10 +61,29 @@ public sealed class CommonCodes(ProjMngClient client)
             return cached;
         }
 
-        var result = await client.DbContAsync(
-            Proc,
-            new Dictionary<string, object?> { ["code_id"] = codeId, ["etc0"] = key },
-            cancellationToken: cancellationToken);
+        ProjMngResult result;
+
+        try
+        {
+            result = await client.DbContAsync(
+                Proc,
+                new Dictionary<string, object?> { ["code_id"] = codeId, ["etc0"] = key },
+                cancellationToken: cancellationToken);
+        }
+        catch (ApiException)
+        {
+            // 드롭다운 하나가 못 읽었다고 화면을 죽이지 않는다.
+            //
+            // 이 메서드는 `CodeSelect` 가 그리는 중에 부른다. 여기서 예외가
+            // 밖으로 나가면 **회로가 통째로 끊겨** 탭 전체가 멎는다 — 화면이
+            // DataPage 를 상속했는지와 무관하다. 그 감싸개는 화면이 부르는
+            // 조회를 감쌀 뿐, 부품이 스스로 부르는 것까지 덮지 못한다.
+            //
+            // 빈 목록을 돌려주면 고르개가 비어 보인다. 캐시에는 넣지 않으므로
+            // 서버가 돌아오면 다음 조회에서 저절로 채워진다.
+            // `BizOptions` 가 같은 자리에서 같은 선택을 한다.
+            return [];
+        }
 
         var items = new List<CommonCodeItem>(result.Rows?.Count ?? 0);
 

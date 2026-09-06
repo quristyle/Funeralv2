@@ -8,11 +8,14 @@
     시스템 DB 로직 마스터 프로시저 및 응답 규약을 관리한다.
 *@
 
+@inherits DataPage
 @inject ProjMngClient Client
 
 <PageTitle>DB 로직 관리 · 프로젝트관리</PageTitle>
 
 <PageHeading Title="DB 로직 관리" Scope="프로젝트관리" />
+
+<PageNotice Text="@Notice" Tone="@Tone" />
 
 <SearchBar>
     <Actions>
@@ -22,7 +25,7 @@
     </Actions>
 </SearchBar>
 
-<DynamicGrid Data="@_grid.Data" Loading="@_grid.IsLoading" ExportName="DB로직" OnRefresh="@SearchAsync" OnSave="@(() => _grid.SaveAsync())" OnDelete="@(row => _grid.DeleteAsync(row))" />
+<DynamicGrid Data="@_grid.Data" Loading="@_grid.IsLoading" ExportName="DB로직" OnRefresh="@SearchAsync" OnSave="@SaveAsync" OnDelete="@DeleteAsync" />
 
 @code {
     private ProcGrid _grid = default!;
@@ -34,5 +37,21 @@
 
     protected override Task OnInitializedAsync() => SearchAsync();
 
-    private Task SearchAsync() => _grid.LoadAsync();
+    private Task SearchAsync() => LoadAsync(async () =>
+    {
+        await _grid.LoadAsync();
+        return _grid.Data.Table.Rows.Count;
+    }, "조회 결과가 없습니다.", "조회하지 못했습니다");
+
+    private async Task SaveAsync()
+    {
+        if (await RunAsync(() => _grid.SaveAsync(),
+                "저장했습니다.", "저장하지 못했습니다"))
+        {
+            Say(_grid.LastMessage ?? "저장했습니다.");
+        }
+    }
+
+    private Task DeleteAsync(System.Data.DataRow row) =>
+        RunAsync(() => _grid.DeleteAsync(row), "삭제했습니다.", "삭제하지 못했습니다");
 }

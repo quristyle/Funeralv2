@@ -8,11 +8,14 @@
     프로시저: `sp_proj_wbs_exec`
 *@
 
+@inherits DataPage
 @inject ProjMngClient Client
 
 <PageTitle>Fast 호출 테스트 · 프로젝트관리</PageTitle>
 
 <PageHeading Title="Fast 호출 테스트" Scope="프로젝트관리" />
+
+<PageNotice Text="@Notice" Tone="@Tone" />
 
 <SearchBar>
     <ChildContent>
@@ -38,11 +41,13 @@
         _grid = new ProcGrid(Client, "sp_proj_wbs_exec") { IsServerFix = true };
     }
 
-    private Task SearchAsync()
+    private Task SearchAsync() => LoadAsync(async () =>
     {
-        return _grid.LoadAsync(new Dictionary<string, object?>
+        await _grid.LoadAsync(new Dictionary<string, object?>
         {
             ["prj_rid"] = _projectCode ?? "7"
         });
-    }
+
+        return _grid.Data.Table.Rows.Count;
+    }, "조회 결과가 없습니다.", "조회하지 못했습니다");
 }

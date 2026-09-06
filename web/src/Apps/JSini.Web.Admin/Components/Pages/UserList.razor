@@ -36,7 +36,7 @@
              Data="@Shown"
              EditFormTitle="계정"
              ExportName="계정"
-             EmptyText="@EmptyText"
+             EmptyText="조건에 맞는 계정이 없습니다."
              OnNew="@FillNew"
              OnSave="@SaveAsync"
              OnDelete="@DeleteAsync"
@@ -168,42 +168,32 @@
         }
     }
 
-    private bool _searched;
-
-    /// <summary>「아직 안 찾았다」와 「찾았는데 없다」를 가른다.</summary>
-    private string EmptyText => _searched
-        ? "조건에 맞는 계정이 없습니다."
-        : "조회를 누르면 목록을 읽습니다.";
-
     /// <summary>
-    /// 목록은 「조회」를 눌러야 읽는다. 편집 폼이 쓰는 역할·부서만 미리 받아
-    /// 둔다 — 조회 없이 바로 「등록」을 누르면 빈 고르개가 보이기 때문이다.
+    /// 화면을 열면 바로 읽는다. 역할·부서도 함께 받는다 — 조회 전에 바로
+    /// 「등록」을 눌러도 편집 폼의 고르개가 비어 있으면 안 되기 때문이다.
     /// </summary>
     protected override Task OnInitializedAsync() => LoadAsync(async () =>
     {
         _roles = await Api.GetRolesAsync();
         _depts = Flatten(await Api.GetDeptsAsync());
+        _all = await Api.GetAccountsAsync();
 
-        // 0 을 돌려주면 DataPage 가 「없습니다」를 띄운다. 아직 안 찾아본 것이다.
-        return 1;
-    }, failMessage: "역할·부서 목록을 읽지 못했습니다");
+        return _all.Count;
+    }, "계정이 없습니다.", "계정 목록을 읽지 못했습니다");
 
     /// <summary>「조회」와 저장·삭제 뒤가 부른다.</summary>
     private Task ReloadAsync() => LoadAsync(async () =>
     {
         _all = await Api.GetAccountsAsync();
-        _searched = true;
         return _all.Count;
     }, "조건에 맞는 계정이 없습니다.", "계정 목록을 읽지 못했습니다");
 
-    /// <summary>처음 들어온 상태로 되돌린다. 다시 읽지는 않는다.</summary>
-    private void Reset()
+    /// <summary>조건을 비우고 전체를 다시 읽는다.</summary>
+    private Task Reset()
     {
         _keyword = null;
         _status = null;
-        _all = [];
-        _searched = false;
-        Say(null);
+        return ReloadAsync();
     }
 
     private void FillNew(AccountDto a)

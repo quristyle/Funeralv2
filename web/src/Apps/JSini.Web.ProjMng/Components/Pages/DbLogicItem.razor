@@ -11,18 +11,21 @@
     있는지, 그 기본값은 무엇인지. 여기 항목이 있어야 DB 종류별 쿼리를 등록할 수 있다.
 *@
 
+@inherits DataPage
 @inject ProjMngClient Client
 
 <PageTitle>DB 로직 항목 · 프로젝트관리</PageTitle>
 
 <PageHeading Title="DB 로직 항목" Scope="프로젝트관리" />
 
+<PageNotice Text="@Notice" Tone="@Tone" />
+
 <DynamicGrid Data="@_grid.Data"
              Loading="@_grid.IsLoading"
              ExportName="DB로직항목"
              OnRefresh="@SearchAsync"
-             OnSave="@(() => _grid.SaveAsync())"
-             OnDelete="@(row => _grid.DeleteAsync(row))" />
+             OnSave="@SaveAsync"
+             OnDelete="@DeleteAsync" />
 
 @code {
     private ProcGrid _grid = default!;
@@ -32,5 +35,21 @@
 
     protected override Task OnInitializedAsync() => SearchAsync();
 
-    private Task SearchAsync() => _grid.LoadAsync(new Dictionary<string, object?>());
+    private Task SearchAsync() => LoadAsync(async () =>
+    {
+        await _grid.LoadAsync(new Dictionary<string, object?>());
+        return _grid.Data.Table.Rows.Count;
+    }, "조회 결과가 없습니다.", "조회하지 못했습니다");
+
+    private async Task SaveAsync()
+    {
+        if (await RunAsync(() => _grid.SaveAsync(),
+                "저장했습니다.", "저장하지 못했습니다"))
+        {
+            Say(_grid.LastMessage ?? "저장했습니다.");
+        }
+    }
+
+    private Task DeleteAsync(System.Data.DataRow row) =>
+        RunAsync(() => _grid.DeleteAsync(row), "삭제했습니다.", "삭제하지 못했습니다");
 }

@@ -13,11 +13,14 @@
     안 채우면 저장할 때 어느 프로젝트 것인지 알 수 없어 목록에서 사라진다.
 *@
 
+@inherits DataPage
 @inject ProjMngClient Client
 
 <PageTitle>WBS · 프로젝트관리</PageTitle>
 
 <PageHeading Title="WBS" Scope="프로젝트관리" />
+
+<PageNotice Text="@Notice" Tone="@Tone" />
 
 <SearchBar>
     <ChildContent>
@@ -39,9 +42,9 @@
              HiddenCols="prj_rid,proc_lvl,build_user,build_status,build_chk_dt,qc_chk_dt,cre_user,cre_dt,mod_user,mod_dt"
              ExportName="WBS"
              OnRefresh="@SearchAsync"
-             OnSave="@(() => _grid.SaveAsync(Params()))"
+             OnSave="@SaveAsync"
              OnAdd="@FillProject"
-             OnDelete="@(row => _grid.DeleteAsync(row))" />
+             OnDelete="@DeleteAsync" />
 
 @code {
     private ProcGrid _grid = default!;
@@ -58,7 +61,11 @@
         ["schedule_type"] = "WBS",
     };
 
-    private Task SearchAsync() => _grid.LoadAsync(Params());
+    private Task SearchAsync() => LoadAsync(async () =>
+    {
+        await _grid.LoadAsync(Params());
+        return _grid.Data.Table.Rows.Count;
+    }, "조회 결과가 없습니다.", "조회하지 못했습니다");
 
     /// <summary>새 행에 프로젝트 키를 채운다 (옛 <c>NewRowCreate</c>).</summary>
     private Task FillProject(DataRow row)
@@ -68,5 +75,16 @@
             row["prj_rid"] = _projectCode ?? string.Empty;
         }
         return Task.CompletedTask;
+    }
+
+    private Task DeleteAsync(System.Data.DataRow row) =>
+        RunAsync(() => _grid.DeleteAsync(row), "삭제했습니다.", "삭제하지 못했습니다");
+
+    private async Task SaveAsync()
+    {
+        if (await RunAsync(() => _grid.SaveAsync(Params()), "저장했습니다.", "저장하지 못했습니다"))
+        {
+            Say(_grid.LastMessage ?? "저장했습니다.");
+        }
     }
 }
