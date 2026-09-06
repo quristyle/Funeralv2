@@ -3,13 +3,20 @@
 @*
     [프로젝트 관리] — DB 메뉴 `/helpdesk/project/manage`.
     이력: Vue `views/helpdesk/project/manage` → 여기.
-    엔드포인트: `project`
+    엔드포인트: `project` (조회 · 등록 · 수정 · 삭제)
 
-    **서버가 준 대로 보여 주는 화면이다**(AutoGrid). 칸을 손으로 적지 않은
-    이유는 그 부품의 주석에 있다 — 요약하면, 이런 화면이 마흔 개고 백엔드가
-    칸을 더할 때마다 화면을 고치러 가는 것이 이득이 아니기 때문이다.
+    [읽기만 남아 있었다]
 
-    매일 들여다보는 화면이 되면 그때 칸을 손으로 적는다.
+    원본은 프로젝트를 **등록·수정·삭제하는 화면**이다(97줄). 옮길 때는 서버가
+    준 대로 보여 주는 표 한 장이 되어 있었다 — 프로젝트를 만들 수 없으면
+    WBS 도 간트도 얹을 자리가 없다. 이 모듈에서 **제일 먼저 하는 일**이
+    빠져 있던 셈이다.
+
+    [기간을 비워 두면 간트에 안 나온다]
+
+    프로젝트 간트는 기간이 있는 것만 막대로 그린다(그 화면이 「기간이 없는
+    프로젝트 n건은 타임라인에 나오지 않습니다」라고 말한다). 등록할 때 기간을
+    권하는 이유가 그것이다 — 막지는 않는다. 기간을 나중에 정하는 일이 실제로 있다.
 *@
 
 @inherits DataPage
@@ -17,30 +24,184 @@
 
 <PageTitle>프로젝트 관리 · 헬프데스크</PageTitle>
 
+<div class="jsini-toolbar">
+    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@ReloadAsync" />
+
+    <div class="jsini-toolbar__spacer"></div>
+
+    <PermissionView Action="MenuAction.Create">
+        <DxButton Text="프로젝트 등록" RenderStyle="ButtonRenderStyle.Success" Click="@StartNew" />
+    </PermissionView>
+</div>
+
 <PageNotice Text="@Notice" Tone="@Tone" />
 
-<AutoGrid Data="@_rows" Loading="@Loading" Captions="@Captions" HiddenCols="id" PageSize="20" />
+<CommCont>
+    <CommGrd TItem="Project" Data="@_items" PageSize="20">
+        <Columns>
+            <DxGridDataColumn FieldName="@nameof(Project.Name)" Caption="프로젝트" MinWidth="240" />
+
+            <DxGridDataColumn Caption="담당 팀" Width="160">
+                <CellDisplayTemplate Context="cell">
+                    @(((Project)cell.DataItem).Team?.Name ?? "-")
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn FieldName="@nameof(Project.ProjectStart)" Caption="시작" Width="130"
+                              DisplayFormat="yyyy-MM-dd" />
+            <DxGridDataColumn FieldName="@nameof(Project.ProjectEnd)" Caption="종료" Width="130"
+                              DisplayFormat="yyyy-MM-dd" />
+            <DxGridDataColumn FieldName="@nameof(Project.Remark)" Caption="비고" MinWidth="200" />
+
+            <DxGridDataColumn Caption="" Width="140" AllowSort="false">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var item = (Project)cell.DataItem;
+                    }
+                    <div class="jsini-actions">
+                        <PermissionView Action="MenuAction.Update">
+                            <DxButton Text="수정" RenderStyle="ButtonRenderStyle.Secondary"
+                                      Click="@(() => StartEdit(item))" />
+                        </PermissionView>
+                        <PermissionView Action="MenuAction.Delete">
+                            <DxButton Text="삭제" RenderStyle="ButtonRenderStyle.Secondary"
+                                      Click="@(() => DeleteAsync(item))" />
+                        </PermissionView>
+                    </div>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+        </Columns>
+    </CommGrd>
+</CommCont>
+
+<DxPopup @bind-Visible="_editing" HeaderText="@(_form.Id == 0 ? "프로젝트 등록" : "프로젝트 수정")"
+         Width="560px" ShowFooter="false">
+    <BodyContentTemplate Context="popup">
+        <DxFormLayout>
+            <DxFormLayoutItem Caption="프로젝트" ColSpanMd="12">
+                <DxTextBox @bind-Text="_form.Name" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="담당 팀" ColSpanMd="12">
+                <DxComboBox Data="@_teams" TextFieldName="@nameof(Team.Name)"
+                            ValueFieldName="@nameof(Team.Id)"
+                            @bind-Value="_form.TeamId" NullText="팀 없음"
+                            ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="시작" ColSpanMd="6">
+                <DxDateEdit @bind-Date="_form.ProjectStart" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="종료" ColSpanMd="6">
+                <DxDateEdit @bind-Date="_form.ProjectEnd" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="비고" ColSpanMd="12">
+                <DxMemo @bind-Text="_form.Remark" Rows="3" />
+            </DxFormLayoutItem>
+        </DxFormLayout>
+
+        @if (_form.ProjectStart is null || _form.ProjectEnd is null)
+        {
+            @* 막지는 않는다. 기간을 나중에 정하는 일이 실제로 있다. *@
+            <div class="jsini-hint">기간을 비우면 간트 타임라인에 나오지 않습니다.</div>
+        }
+
+        <div class="jsini-toolbar">
+            <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Primary" Click="@SaveAsync" />
+            <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary"
+                      Click="@(() => _editing = false)" />
+        </div>
+    </BodyContentTemplate>
+</DxPopup>
 
 @code {
-    private DataTable _rows = JsonTable.Empty;
+    private IReadOnlyList<Project> _items = [];
+    private IReadOnlyList<Team> _teams = [];
 
-    /// <summary>칸 이름표. 여기 적은 순서가 표의 앞쪽 순서다.</summary>
-    private static readonly Dictionary<string, string> Captions = new(StringComparer.Ordinal)
-    {
-        ["name"] = "프로젝트",
-        ["companyName"] = "고객사",
-        ["managerName"] = "담당",
-        ["startDate"] = "시작",
-        ["endDate"] = "종료",
-        ["progress"] = "진척",
-    };
+    private bool _editing;
+    private Project _form = new();
 
     protected override Task OnInitializedAsync() => ReloadAsync();
 
     private Task ReloadAsync() => LoadAsync(async () =>
     {
-        var json = await Api.GetAsync<JsonElement>("project");
-        _rows = JsonTable.From(json);
-        return _rows.Rows.Count;
+        _items = await Api.GetListAsync<Project>("project");
+
+        // 팀 목록은 편집 폼의 고르개가 쓴다. 못 읽어도 프로젝트는 보여 준다.
+        try
+        {
+            _teams = await Api.GetListAsync<Team>("teams");
+        }
+        catch (ApiException)
+        {
+            _teams = [];
+        }
+
+        return _items.Count;
     }, "등록된 프로젝트가 없습니다.", "프로젝트를 읽지 못했습니다");
+
+    private void StartNew()
+    {
+        _form = new Project();
+        _editing = true;
+    }
+
+    /// <summary>편집 창에 <b>복사본</b>을 띄운다. 취소해도 표가 안 바뀐다.</summary>
+    private void StartEdit(Project item)
+    {
+        _form = new Project
+        {
+            Id = item.Id,
+            Name = item.Name,
+            TeamId = item.TeamId,
+            CompanyId = item.CompanyId,
+            ProjectStart = item.ProjectStart,
+            ProjectEnd = item.ProjectEnd,
+            Remark = item.Remark,
+        };
+        _editing = true;
+    }
+
+    private async Task SaveAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_form.Name))
+        {
+            Say("프로젝트 이름을 넣으십시오.", NoticeTone.Warning);
+            return;
+        }
+
+        if (_form.ProjectEnd is { } end && _form.ProjectStart is { } start && end < start)
+        {
+            Say("종료일이 시작일보다 앞섭니다.", NoticeTone.Warning);
+            return;
+        }
+
+        var isNew = _form.Id == 0;
+
+        if (await RunAsync(
+                () => isNew
+                    ? Api.PostAsync("project", _form)
+                    : Api.PutAsync($"project/{_form.Id}", _form),
+                isNew ? "등록했습니다." : "저장했습니다.",
+                isNew ? "등록하지 못했습니다" : "저장하지 못했습니다"))
+        {
+            _editing = false;
+            await ReloadAsync();
+        }
+    }
+
+    /// <summary>
+    /// 지운다. <b>WBS 가 달려 있으면 서버가 막는다</b> — 화면이 미리 세지 않는
+    /// 이유는 그 판단이 서버에만 있고, 화면이 따로 하면 둘이 어긋나서다.
+    /// </summary>
+    private async Task DeleteAsync(Project item)
+    {
+        if (await RunAsync(() => Api.DeleteAsync($"project/{item.Id}"),
+                $"{item.Name} 을(를) 지웠습니다.", "지우지 못했습니다"))
+        {
+            await ReloadAsync();
+        }
+    }
 }
