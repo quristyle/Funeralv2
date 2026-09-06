@@ -286,22 +286,18 @@ public static class FileDownload
             // 찍혔다. 그러면 「없는 파일을 가리키고 있다」로 읽힌다 —
             // 실제로는 그 파일이 멀쩡히 있고 인증이 잠깐 끊긴 것이었다.
             //
-            // 그래서 로그인한 요청에는 위쪽 사정을 그대로 넘긴다. 익명에게는
-            // 계속 404 다.
+            // 그래서 **인증 관련 두 가지만** 로그인한 요청에 그대로 넘긴다.
+            // 익명에게는 계속 404 다.
+            //
+            // 5xx 는 일부러 404 로 남겨 둔다. FileServer 는 <b>없는 아이디에도
+            // 500 을 준다</b>(`download/id/{id}` 의 마지막 catch — 메타가 없으면
+            // FileNotFoundException 이 아닌 예외가 난다). 그것을 502 로 올리면
+            // 「지워진 첨부」가 전부 게이트웨이 장애처럼 보인다 — 고치는 자리는
+            // FileServer 쪽이고, 여기서 뒤집으면 공지 첨부까지 함께 바뀐다.
             http.Response.StatusCode = authenticated
-                ? (int)upstream.StatusCode switch
-                {
-                    // 인증이 끊겼다. 「파일이 없다」와 전혀 다른 일이다.
-                    StatusCodes.Status401Unauthorized => StatusCodes.Status401Unauthorized,
-
-                    // 로그인은 됐는데 이 파일은 못 본다. 숨길 이유가 없다.
-                    StatusCodes.Status403Forbidden => StatusCodes.Status403Forbidden,
-
-                    // 위쪽이 아픈 것을 우리 쪽 404 로 바꾸지 않는다.
-                    >= 500 => StatusCodes.Status502BadGateway,
-
-                    _ => StatusCodes.Status404NotFound,
-                }
+                && (int)upstream.StatusCode is
+                    StatusCodes.Status401Unauthorized or StatusCodes.Status403Forbidden
+                ? (int)upstream.StatusCode
                 : StatusCodes.Status404NotFound;
 
             return;

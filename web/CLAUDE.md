@@ -259,8 +259,21 @@ AuthServer 는 로그인할 때 `jsini_file_at` 쿠키를 심고 게이트웨이
 
 백엔드가 주는 `/api/file/download/...` 는 **브라우저가 게이트웨이와 같은
 오리진이던 Vue 시절 주소**다. 지금 브라우저가 보는 것은 포털(:5557)이고 거기에는
-`/api` 가 없다 — 그대로 쓰면 404 다. `FileDownload.UrlFor(fileId, fileName)` 로
-`/files/{id}` 를 만들고, 셸이 게이트웨이로 중계한다.
+`/api` 가 없다 — 그대로 쓰면 404 다. 셸이 중계한다.
+
+| 쓸 것 | 어디에 |
+|---|---|
+| `FileDownload.UrlFor(fileId, fileName)` | 공지 첨부처럼 파일 아이디를 아는 자리 |
+| `FileDownload.ArchiveUrlFor(archiveId, fileId, fileName)` | 자료실 · 플레이어 다운로드 — **내려받은 횟수를 센다** |
+| `FileDownload.RelayUrl(저장된값)` | DB 에 `/api/...` 로 박혀 있는 값 (영정 사진 · 미디어 썸네일) |
+
+자료실이 갈래가 다른 이유는 FileServer 로 바로 가지 않기 때문이다.
+`auth/help/archives/…/download` 를 거쳐야 횟수가 올라가고(자료실의 「내려받기」
+칸이 그 숫자다) 그쪽이 다시 FileServer 로 302 로 넘긴다.
+
+`RelayUrl` 은 파일 주소가 아니면 그대로 돌려주므로 아무 값에나 씌워도 안전하다.
+운영 DB 에 그런 상대경로가 66건이고 **절대 URL 은 한 건도 없다.** DB 는
+건드리지 않는다 — 절대 URL 로 박아 넣으면 환경을 옮길 때 다시 깨진다.
 
 **익명과 로그인을 셸이 가르지 않는다.** 지금 요청의 신원을 그대로 흘려보내면
 FileServer 의 `PublicFileAccessFilter` 가 판정한다 — 로그인 요청이면 통과,
