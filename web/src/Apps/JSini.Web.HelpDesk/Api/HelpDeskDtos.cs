@@ -380,9 +380,15 @@ public sealed class ScheduleDto
     public DateTime? CompletedDate { get; set; }
 
     /// <summary>
-    /// 달력 부품에 넘길 「종일」 표시. <b>늘 참이다</b> — 서버로는 보내지 않는다.
+    /// 달력 부품에 넘길 「종일」 표시.
+    ///
+    /// <para>
+    /// <b>읽기 전용으로 두면 안 된다.</b> DxScheduler 는 약속을 만들 때 이 칸에
+    /// 값을 <b>써 넣는다</b> — get 만 있으면 그 자리에서 500 이 난다(실제로 밟았다).
+    /// 기본값이 참이고 서버는 이 칸을 모른다.
+    /// </para>
     /// </summary>
-    public bool AllDay => true;
+    public bool AllDay { get; set; } = true;
 }
 
 /// <summary>
