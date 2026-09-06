@@ -150,7 +150,7 @@
                             @if (room.PhotoUrl is { Length: > 0 } photo)
                             {
                                 @* 영정. 서버가 보정본을 골라 준다. *@
-                                <img class="fn-card__photo" src="@photo" alt="" loading="lazy" />
+                                <img class="fn-card__photo" src="@FileDownload.RelayUrl(photo)" alt="" loading="lazy" />
                             }
 
                             <div>

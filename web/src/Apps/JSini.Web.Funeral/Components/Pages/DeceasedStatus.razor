@@ -112,7 +112,7 @@
             @* 지금 걸린 사진. 「없음」과 「못 읽었다」를 구분하려면 보여 줘야 한다. *@
             @if (CurrentPhoto is { Length: > 0 } url)
             {
-                <img class="fn-memorial" src="@url" alt="지금 걸린 영정 사진" />
+                <img class="fn-memorial" src="@FileDownload.RelayUrl(url)" alt="지금 걸린 영정 사진" />
             }
             else
             {

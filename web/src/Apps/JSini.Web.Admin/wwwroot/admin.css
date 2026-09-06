@@ -458,142 +458,16 @@
   margin-right: 0.4rem;
 }
 
-/* ── 공지 팝업 (NoticeView) ───────────────────────────────
-
-   사용자에게 공지가 실제로 보이는 창. 관리 화면의 미리보기가 같은 것을 쓴다.
-
-   본문이 서식 편집기로 쓴 HTML 이라 **여기서 그 서식의 모양을 정한다.**
-   테마 CSS 는 DevExpress 부품만 겨누므로 `<h2>`·`<ul>`·`<table>` 같은 것은
-   브라우저 기본값으로 나온다 — 그대로 두면 제목이 본문보다 두 배 크고
-   목록에 점이 안 붙는다(테마 reset 이 `list-style` 을 지운다).
-   ---------------------------------------------------------- */
-
-.ad-notice__title {
-  min-width: 0;
-}
-
-.ad-notice__meta {
-  margin-top: 0.15rem;
-  font-size: var(--jsini-fs-xs);
-  font-weight: 400;
-  color: var(--jsini-text-muted);
-}
-
-.ad-notice__foot {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.ad-notice__gap { flex: 1; }
-
-/* 한 줄짜리 공지도 있다. 최소 높이가 없으면 창이 제목 줄만 하게 쪼그라들어
-   공지가 아니라 알림처럼 보인다. 최대 높이는 창(86vh)이 이미 잡고 있고,
-   여기서는 넘칠 때 본문만 구르게 한다 — 창째로 구르면 제목이 밀려 올라간다. */
-.ad-notice__body {
-  min-height: 8.5rem;
-  max-height: 56vh;
+/* 이미지 정리 확인 창의 목록 (D17).
+   태그가 수십 개일 수 있어 창이 화면 밖으로 자라지 않게 여기서만 구른다. */
+.ad-cleanup-list {
+  max-height: 16rem;
   overflow-y: auto;
-  line-height: 1.7;
-}
-
-.ad-notice__body > :first-child { margin-top: 0; }
-.ad-notice__body > :last-child { margin-bottom: 0; }
-
-.ad-notice__body p { margin: 0 0 0.6rem; }
-
-.ad-notice__body h1,
-.ad-notice__body h2,
-.ad-notice__body h3,
-.ad-notice__body h4 {
-  margin: 0.9rem 0 0.4rem;
-  font-weight: 600;
-}
-
-.ad-notice__body h1 { font-size: var(--jsini-fs-xl); }
-.ad-notice__body h2 { font-size: var(--jsini-fs-lg); }
-.ad-notice__body h3,
-.ad-notice__body h4 { font-size: var(--jsini-fs-md); }
-
-.ad-notice__body ul,
-.ad-notice__body ol {
-  margin: 0 0 0.6rem;
-  padding-left: 1.4rem;
-  list-style: revert;
-}
-
-.ad-notice__body blockquote {
-  margin: 0 0 0.6rem;
-  padding-left: 0.75rem;
-  border-left: 3px solid var(--jsini-border);
-  color: var(--jsini-text-muted);
-}
-
-.ad-notice__body pre {
-  margin: 0 0 0.6rem;
-  padding: 0.5rem 0.75rem;
-  overflow-x: auto;
-  background: var(--jsini-surface);
-  border-radius: 0.25rem;
-  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  margin: 0.5rem 0;
+  padding-left: 1.25rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: var(--jsini-fs-sm);
-}
-
-.ad-notice__body img {
-  max-width: 100%;
-  height: auto;
-  border-radius: 0.25rem;
-}
-
-.ad-notice__body a {
-  color: var(--jsini-accent);
-  text-decoration: underline;
-}
-
-.ad-notice__body table {
-  width: 100%;
-  margin: 0 0 0.6rem;
-  border-collapse: collapse;
-}
-
-.ad-notice__body th,
-.ad-notice__body td {
-  padding: 0.25rem 0.5rem;
-  border: 1px solid var(--jsini-border);
-  text-align: left;
-}
-
-.ad-notice__body th {
-  font-weight: 600;
-  background: var(--jsini-surface);
-}
-
-/* 공지가 여럿일 때 어디쯤인지 알려 주는 점들. 지금 보는 것만 길쭉해진다 —
-   색으로만 가르면 옅은 테마에서 켜진 점과 꺼진 점이 구분되지 않는다. */
-.ad-notice__dots {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-}
-
-.ad-notice__dot {
-  width: 0.4rem;
-  height: 0.4rem;
-  padding: 0;
-  border: 0;
-  border-radius: 9999px;
-  background: color-mix(in srgb, currentcolor 30%, transparent);
-  cursor: pointer;
-  transition: width 0.15s, background-color 0.15s;
-}
-
-.ad-notice__dot:hover {
-  background: color-mix(in srgb, currentcolor 55%, transparent);
-}
-
-.ad-notice__dot.is-on {
-  width: 1rem;
-  background: var(--jsini-accent);
+  line-height: 1.6;
 }
 
 /* ── 공지 본문 편집기 (DxHtmlEditor) ──────────────────────
@@ -606,14 +480,370 @@
   height: 20rem;
 }
 
-/* 이미지 정리 확인 창의 목록 (D17).
-   태그가 수십 개일 수 있어 창이 화면 밖으로 자라지 않게 여기서만 구른다. */
-.ad-cleanup-list {
-  max-height: 16rem;
-  overflow-y: auto;
-  margin: 0.5rem 0;
-  padding-left: 1.25rem;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+/* 편집 창에서 이미 매달려 있는 첨부 목록.
+   이름·크기·빼기가 한 줄이고, 이름이 길면 줄바꿈으로 흘린다. */
+.ad-attached {
+  margin: 0 0 0.4rem;
+  padding: 0;
+  list-style: none;
+}
+
+.ad-attached li {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.15rem 0;
   font-size: var(--jsini-fs-sm);
-  line-height: 1.6;
+}
+
+.ad-attached li a {
+  min-width: 0;
+  word-break: break-all;
+}
+
+/* ── 내 정보 (Profile) ────────────────────────────────────
+
+   왼쪽에 얼굴·이름·탭 목록, 오른쪽에 고른 탭. Vue 원본의 배치를 옮긴 것이다.
+
+   좁은 화면에서는 위아래로 쌓는다 — 240px 짜리 판을 옆에 붙여 두면 본문이
+   읽을 수 없을 만큼 좁아진다.
+   ---------------------------------------------------------- */
+
+.ad-profile {
+  display: grid;
+  grid-template-columns: minmax(220px, 240px) 1fr;
+  gap: 1rem;
+  align-items: start;
+}
+
+@media (max-width: 991px) {
+  .ad-profile { grid-template-columns: 1fr; }
+}
+
+.ad-profile__side,
+.ad-profile__body {
+  min-width: 0;
+}
+
+.ad-profile__side {
+  padding: 1rem 0.75rem;
+  border: 1px solid var(--jsini-border);
+  border-radius: 0.35rem;
+  text-align: center;
+}
+
+/* 얼굴. 눌러서 사진 관리 탭으로 가므로 단추여야 한다 —
+   div 로 두면 키보드로 갈 수 없다. */
+.ad-profile__photo {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 96px;
+  height: 96px;
+  padding: 0;
+  overflow: hidden;
+  border: 2px dashed var(--jsini-border);
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+}
+
+.ad-profile__photo:hover { border-color: var(--jsini-accent); }
+
+.ad-profile__photo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* 사진이 없는 계정이 훨씬 많다. 첫 글자를 크게 두어 **비어 보이지 않게** 한다. */
+.ad-profile__photo-initial {
+  font-size: 2.2rem;
+  font-weight: 600;
+  color: var(--jsini-text-muted);
+}
+
+/* 얹었을 때만 보이는 글자. 안 얹으면 얼굴을 가리지 않는다. */
+.ad-profile__photo-veil {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgb(0 0 0 / 45%);
+  color: #fff;
+  font-size: var(--jsini-fs-xs);
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.ad-profile__photo:hover .ad-profile__photo-veil,
+.ad-profile__photo:focus-visible .ad-profile__photo-veil {
+  opacity: 1;
+}
+
+.ad-profile__who { margin: 0.75rem 0; }
+
+.ad-profile__name {
+  font-size: var(--jsini-fs-lg);
+  font-weight: 700;
+}
+
+.ad-profile__id,
+.ad-profile__org {
+  font-size: var(--jsini-fs-sm);
+  color: var(--jsini-text-muted);
+}
+
+.ad-profile__tabs {
+  display: grid;
+  gap: 0.15rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--jsini-border);
+}
+
+.ad-profile__tab {
+  padding: 0.55rem 0.7rem;
+  border: 0;
+  border-radius: 0.25rem;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ad-profile__tab:hover {
+  background: color-mix(in srgb, currentcolor 7%, transparent);
+}
+
+/* 고른 탭은 **면으로** 칠한다. 테두리를 두르면 그 줄만 키가 커져 목록이
+   들썩인다 — 테마 서랍에서 겪은 것과 같다. */
+.ad-profile__tab.is-on {
+  background: color-mix(in srgb, var(--jsini-accent) 14%, transparent);
+  font-weight: 600;
+}
+
+.ad-profile__body {
+  padding: 1rem 1.15rem;
+  border: 1px solid var(--jsini-border);
+  border-radius: 0.35rem;
+}
+
+/* ── 이름·값 목록 (계정 정보) ─────────────────────────────
+
+   `<dl>` 을 격자 두 칸으로 편다. 표로 두지 않은 이유는 정렬·필터가 필요 없고
+   줄마다 값의 생김새가 달라서다(딱지 · 시각 · 등폭 주소).
+   ---------------------------------------------------------- */
+
+.ad-desc {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 0;
+  margin: 0 0 1rem;
+  border: 1px solid var(--jsini-border);
+  border-radius: 0.25rem;
+  font-size: var(--jsini-fs-sm);
+}
+
+@media (max-width: 575px) {
+  .ad-desc { grid-template-columns: 1fr; }
+}
+
+.ad-desc dt,
+.ad-desc dd {
+  margin: 0;
+  padding: 0.5rem 0.7rem;
+  border-bottom: 1px solid var(--jsini-border);
+}
+
+.ad-desc dt {
+  font-weight: 600;
+  color: var(--jsini-text-muted);
+  background: color-mix(in srgb, currentcolor 4%, transparent);
+}
+
+.ad-desc dd {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+/* 마지막 줄의 밑줄은 바깥 테두리와 겹친다. */
+.ad-desc > :nth-last-child(-n + 2) { border-bottom: 0; }
+
+/* 주소·식별자는 등폭이라야 자릿수가 읽힌다. */
+.ad-desc__mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  word-break: break-all;
+}
+
+/* jsini-badge 에는 위험 색이 없다(켬·끔·주의 셋뿐). 만료된 비밀번호는
+   「주의」로는 모자라서 여기서만 하나 더 둔다. */
+.ad-badge--err {
+  border-color: #c0392b;
+  color: #c0392b;
+}
+
+/* ── 고정탭 관리 ──────────────────────────────────────────
+
+   왼쪽이 고정된 것, 오른쪽이 아닌 것. 끌어다 놓는 자리라 **점선 테두리**로
+   「여기에 놓을 수 있다」를 드러낸다.
+   ---------------------------------------------------------- */
+
+.ad-pin {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  align-items: start;
+}
+
+@media (max-width: 991px) {
+  .ad-pin { grid-template-columns: 1fr; }
+}
+
+.ad-pin__zone {
+  padding: 0.75rem;
+  border: 2px dashed var(--jsini-border);
+  border-radius: 0.35rem;
+  min-width: 0;
+}
+
+.ad-pin__zone.is-over { border-color: var(--jsini-accent); }
+
+.ad-pin__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.ad-pin__title { font-weight: 600; }
+
+.ad-pin__empty {
+  margin: 0;
+  padding: 2rem 0;
+  color: var(--jsini-text-muted);
+  font-size: var(--jsini-fs-sm);
+  text-align: center;
+}
+
+.ad-pin__list {
+  display: grid;
+  gap: 0.3rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* 오른쪽은 백몇 건이 온다. 판이 세로로 끝없이 자라지 않게 여기서만 구른다. */
+.ad-pin__list--scroll {
+  max-height: 32rem;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+}
+
+.ad-pin__item {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--jsini-border);
+  border-radius: 0.25rem;
+  background: var(--jsini-surface);
+  cursor: grab;
+}
+
+.ad-pin__item:active { cursor: grabbing; }
+
+.ad-pin__item:hover { border-color: var(--jsini-accent); }
+
+.ad-pin__label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--jsini-fs-sm);
+}
+
+.ad-pin__no {
+  flex: 0 0 auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--jsini-fs-xs);
+  color: var(--jsini-text-muted);
+}
+
+/* ── 프로필 사진 관리 ─────────────────────────────────────
+
+   정사각 카드 격자. 개수가 서른까지라 목록보다 격자가 한눈에 들어온다.
+   ---------------------------------------------------------- */
+
+.ad-photos {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0.75rem;
+  margin: 0.75rem 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ad-photo {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--jsini-border);
+  border-radius: 0.35rem;
+}
+
+/* 대표는 테두리 색으로 표시한다. 카드가 정사각이라 줄 높이가 들썩일 일이 없다. */
+.ad-photo.is-rep {
+  border-color: var(--jsini-accent);
+  border-width: 2px;
+}
+
+.ad-photo__img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  background: color-mix(in srgb, currentcolor 5%, transparent);
+}
+
+.ad-photo__rep {
+  position: absolute;
+  top: 0.35rem;
+  left: 0.35rem;
+  padding: 0.05rem 0.35rem;
+  border-radius: 999px;
+  background: var(--jsini-accent);
+  color: #fff;
+  font-size: var(--jsini-fs-2xs);
+  font-weight: 700;
+}
+
+.ad-photo__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem;
+  padding: 0.2rem;
+  border-top: 1px solid var(--jsini-border);
+}
+
+.ad-photo__open { font-size: var(--jsini-fs-sm); }
+
+.ad-photo__name {
+  padding: 0 0.35rem 0.35rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--jsini-fs-xs);
+  color: var(--jsini-text-muted);
+  text-align: center;
 }

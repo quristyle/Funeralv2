@@ -83,6 +83,49 @@ public sealed class MenuFavorites(GatewayClient gateway, ILogger<MenuFavorites> 
         Changed?.Invoke();
         return !wasFavorite;
     }
+
+    // ── 「고정탭 관리」 화면이 쓰는 셋 ──────────────────────────
+    //
+    // 위의 ToggleAsync 와 달리 **실패를 삼키지 않는다.** 헤더의 별은 눌러도
+    // 아무 일이 없으면 다시 누르면 그만이지만, 관리 화면은 여러 건을 옮겨
+    // 놓는 자리라 「저장된 줄 알았는데 아니었다」가 그대로 남는다.
+    // 화면의 DataPage.RunAsync 가 ApiException 을 받아 이유를 띄운다.
+
+    /// <summary>담는다. 이미 담겨 있으면 서버가 그대로 둔다.</summary>
+    public async Task AddAsync(string path, CancellationToken ct = default)
+    {
+        Items = await gateway.PostListAsync<MenuFavorite>(Path, new { path }, ct);
+        Changed?.Invoke();
+    }
+
+    /// <summary>뺀다. 담겨 있지 않아도 오류가 아니다.</summary>
+    public async Task RemoveAsync(string path, CancellationToken ct = default)
+    {
+        Items = await gateway.DeleteListAsync<MenuFavorite>(
+            $"{Path}?path={Uri.EscapeDataString(path)}", ct);
+        Changed?.Invoke();
+    }
+
+    /// <summary>
+    /// 순서를 다시 매긴다. <b>원하는 순서대로의 경로 목록을 통째로</b> 보낸다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 「이것을 저기로」가 아니라 「전체가 이 순서다」로 보내는 이유는, 한 칸씩
+    /// 주고받으면 중간에 실패했을 때 서버와 화면의 순서가 <b>서로 다른 채로</b>
+    /// 남기 때문이다. 통째로 보내면 성공이면 같고 실패면 안 바뀐다.
+    /// </para>
+    /// <para>
+    /// 경로는 <b>DB 에 저장된 그대로</b>다 — <c>RouteAliases</c> 로 옮긴 값을
+    /// 보내면 서버가 그 메뉴를 못 찾는다.
+    /// </para>
+    /// </remarks>
+    public async Task ReorderAsync(IEnumerable<string> paths, CancellationToken ct = default)
+    {
+        Items = await gateway.PutListAsync<MenuFavorite>(
+            $"{Path}/order", new { paths = paths.ToList() }, ct);
+        Changed?.Invoke();
+    }
 }
 
 /// <summary>담아 둔 메뉴 하나. AuthServer 의 <c>MenuFavoriteDto</c> 와 짝이다.</summary>

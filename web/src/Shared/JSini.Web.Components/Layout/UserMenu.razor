@@ -1,44 +1,168 @@
 @*
     오른쪽 위 사용자 영역. vben 의 user-dropdown 을 옮긴 것이다.
 
+    [얼굴을 띄운다]
+
+    한동안 로그인 아이디 글자만 있었다. 헤더에서 「지금 누구로 들어와 있는가」
+    를 알아보는 데 얼굴만 한 것이 없다 — 장례식장은 한 PC 를 여러 사람이
+    번갈아 쓰는 자리가 있어서 특히 그렇다.
+
+    사진은 `CurrentUser` 가 게이트웨이에서 한 번 읽어 들고 있다. **쿠키
+    클레임에는 사진이 없다** — 거기 있는 것은 아이디와 실명까지다.
+    사진이 없는 계정이 훨씬 많아서, 없을 때는 이름 첫 글자를 동그라미에
+    넣는다. **없는 것이 오류처럼 보이면 안 된다.**
+
+    [DevExpress 드롭다운을 쓰지 않았다]
+
+    `DxDropDownButton` 은 단추 얼굴을 글자와 아이콘으로만 그린다. 여기 필요한
+    것은 사진 한 장이고, 펼친 판 맨 위에는 이름·소속 두 줄이 들어간다 —
+    항목(`DxDropDownButtonItem`)으로는 만들 수 없는 모양이다.
+    테마 서랍도 같은 이유로 손으로 그렸다.
+
     [로그아웃이 폼 제출인 이유]
 
     쿠키를 지우는 것은 서버가 하는 일이고, Blazor 회로 안에서 NavigateTo 로는
     쿠키가 지워지지 않는다. antiforgery 토큰까지 함께 가야 하므로 평범한 POST
-    폼으로 둔다. **드롭다운 안에 폼을 넣지 않는다** — DevExpress 드롭다운은
-    항목을 별도 레이어에 그려서 폼 밖으로 나가고, 그러면 제출이 안 된다.
-    그래서 드롭다운은 "로그아웃" 을 눌렀을 때 감춰 둔 폼을 JS 로 제출한다.
+    폼으로 둔다. 셸 `Program.cs` 가 GET 을 받지 않는 이유도 있다 — GET 이면
+    이미지 태그 하나로 남을 로그아웃시킬 수 있다.
+
+    [모듈 경로를 글자로 적는다]
+
+    `/admin/profile` · `/admin/push/setting` 은 포털관리 모듈의 라우트다.
+    셸은 업무 모듈을 이름으로 알지 못하므로(web/CLAUDE.md) 타입을 참조해서
+    가져올 길이 없고, 여기서는 주소를 글자로 적는 수밖에 없다.
+    **모듈 쪽 `@@page` 를 옮기면 이 파일도 함께 고쳐야 한다.**
+    `RouteInventory` 가 기동 때 라우트 목록을 들고 있으므로, 나중에 이 글자들이
+    실제로 있는 라우트인지 대조하는 편이 낫다.
 *@
 
 @using JSini.Web.Components.Security
 
+@implements IDisposable
+
 @inject IJSRuntime Js
 @inject NavigationManager Navigation
 @inject ScreenLock Lock
+@inject ThemeDrawer Theme
+@inject CurrentUser Me
 
 <AuthorizeView>
     <Authorized>
-        <DxDropDownButton Text="@context.User.Identity?.Name"
-                          IconCssClass="jsini-icon-user"
-                          RenderStyle="ButtonRenderStyle.Link"
-                          DropDownWidth="180">
-            <Items>
-                <DxDropDownButtonItem Text="내 정보"
-                                      IconCssClass="jsini-icon-user"
-                                      Click="@(() => Navigation.NavigateTo("/admin/profile"))" />
-                <DxDropDownButtonItem Text="알림 설정"
-                                      IconCssClass="jsini-icon-bell"
-                                      Click="@(() => Navigation.NavigateTo("/admin/push/setting"))" />
+        <div class="jsini-user">
+
+            @* 얼굴 단추. 눌러서 여는 자리라 `<button>` 이어야 한다 —
+               div 로 두면 키보드로 갈 수 없다. *@
+            <button type="button"
+                    class="jsini-user__face @(_open ? "is-on" : "")"
+                    title="@(Me.DisplayName ?? context.User.Identity?.Name)"
+                    aria-haspopup="menu"
+                    aria-expanded="@(_open ? "true" : "false")"
+                    @onclick="@(() => _open = !_open)">
+                @if (Me.AvatarUrl is { Length: > 0 } avatar)
+                {
+                    @* 못 받아 오면 깨진 그림 대신 첫 글자로 돌아간다
+                       (CurrentUser.MarkAvatarUnavailable 참고). *@
+                    <img class="jsini-user__img" src="@avatar" alt=""
+                         @onerror="@(() => Me.MarkAvatarUnavailable())" />
+                }
+                else
+                {
+                    <span class="jsini-user__initial">@Initial(context)</span>
+                }
+            </button>
+
+            @* 덮개. 판 밖을 누르면 닫힌다. **헤더는 덮지 않는다** —
+               덮으면 방금 누른 얼굴로 다시 닫을 수 없다(테마 서랍과 같다). *@
+            @if (_open)
+            {
+                <div class="jsini-user__scrim" @onclick="@Close"></div>
+            }
+
+            @*
+                닫혀 있을 때는 **그리지 않는다.**
+
+                테마 서랍처럼 `visibility: hidden` 으로 감춰 두는 길도 있는데,
+                그쪽은 열어 둔 채로 여러 개를 눌러 보는 판이라 여닫는 움직임이
+                필요했다. 이 목록은 하나 누르면 닫히므로 얻는 것이 없고,
+                감춰 둔 단추 열한 개가 탭 이동에 끼는 것만 남는다.
+            *@
+            @if (_open)
+            {
+                <div class="jsini-user__menu" role="menu">
+
+                <div class="jsini-user__head">
+                    @if (Me.AvatarUrl is { Length: > 0 } headAvatar)
+                    {
+                        <img class="jsini-user__head-img" src="@headAvatar" alt=""
+                             @onerror="@(() => Me.MarkAvatarUnavailable())" />
+                    }
+                    else
+                    {
+                        <span class="jsini-user__head-initial">@Initial(context)</span>
+                    }
+
+                    <div class="jsini-user__head-text">
+                        <div class="jsini-user__head-name">
+                            @(Me.DisplayName ?? context.User.Identity?.Name)
+                        </div>
+                        <div class="jsini-user__head-sub">
+                            @(Me.Username ?? context.User.Identity?.Name)
+                        </div>
+                        @if (Me.Affiliation is { Length: > 0 } org)
+                        {
+                            <div class="jsini-user__head-sub">@org</div>
+                        }
+                    </div>
+                </div>
+
+                <div class="jsini-user__group">내 정보</div>
+
+                @foreach (var item in ProfileItems)
+                {
+                    <button type="button" class="jsini-user__item" role="menuitem"
+                            @onclick="@(() => GoTo(item.Href))">
+                        <span class="@item.Icon"></span>
+                        <span class="jsini-user__item-text">@item.Label</span>
+                    </button>
+                }
+
+                <div class="jsini-user__group">알림</div>
+
+                @foreach (var item in NoticeItems)
+                {
+                    <button type="button" class="jsini-user__item" role="menuitem"
+                            @onclick="@(() => GoTo(item.Href))">
+                        <span class="@item.Icon"></span>
+                        <span class="jsini-user__item-text">@item.Label</span>
+                    </button>
+                }
+
+                <div class="jsini-user__group">화면</div>
+
+                <button type="button" class="jsini-user__item" role="menuitem"
+                        @onclick="@OpenTheme">
+                    <span class="jsini-icon-palette"></span>
+                    <span class="jsini-user__item-text">환경설정 (테마 · 크기)</span>
+                </button>
+
                 @* 잠금은 로그아웃이 아니다 — 세션은 그대로 두고 화면만 덮는다.
                    무엇을 막고 무엇을 못 막는지는 LockScreen 머리말에 있다. *@
-                <DxDropDownButtonItem Text="화면 잠금"
-                                      IconCssClass="jsini-icon-lock"
-                                      Click="@(() => Lock.LockAsync())" />
-                <DxDropDownButtonItem Text="로그아웃"
-                                      IconCssClass="jsini-icon-logout"
-                                      Click="@LogoutAsync" />
-            </Items>
-        </DxDropDownButton>
+                <button type="button" class="jsini-user__item" role="menuitem"
+                        @onclick="@LockAsync">
+                    <span class="jsini-icon-lock"></span>
+                    <span class="jsini-user__item-text">화면 잠금</span>
+                </button>
+
+                <div class="jsini-user__sep"></div>
+
+                <button type="button" class="jsini-user__item jsini-user__item--out" role="menuitem"
+                        @onclick="@LogoutAsync">
+                    <span class="jsini-icon-logout"></span>
+                    <span class="jsini-user__item-text">로그아웃</span>
+                </button>
+                </div>
+            }
+        </div>
 
         @* 감춰 둔 진짜 로그아웃 폼. 위 항목이 이것을 제출한다. *@
         <form id="jsini-logout-form" action="/logout" method="post" class="jsini-hidden">
@@ -51,6 +175,81 @@
 </AuthorizeView>
 
 @code {
-    private Task LogoutAsync() =>
-        Js.InvokeVoidAsync("document.getElementById('jsini-logout-form').submit").AsTask();
+    /// <summary>펼친 판의 항목 하나.</summary>
+    private sealed record Item(string Label, string Href, string Icon);
+
+    /// <summary>
+    /// 내 정보 묶음. 전부 <c>/admin/profile</c> 의 탭이다 — 그 화면이
+    /// <c>?tab=</c> 를 받으므로 목록에서 곧장 그 자리를 열 수 있다.
+    /// </summary>
+    private static readonly Item[] ProfileItems =
+    [
+        new("내 정보", "/admin/profile?tab=basic", "jsini-icon-user"),
+        new("계정 정보 · 접속 기록", "/admin/profile?tab=account", "jsini-icon-eye"),
+        new("프로필 사진", "/admin/profile?tab=avatar", "jsini-icon-edit"),
+        new("고정탭 관리", "/admin/profile?tab=fixedTabs", "jsini-icon-star"),
+        new("보안 설정", "/admin/profile?tab=security", "jsini-icon-lock"),
+
+        // 비밀번호만 프로필 밖이다. 바꾼 뒤 재로그인까지 시켜야 해서 셸에
+        // 전용 화면이 있다(Profile.razor 머리말).
+        new("비밀번호 변경", "/password/change", "jsini-icon-lock"),
+    ];
+
+    private static readonly Item[] NoticeItems =
+    [
+        new("알림 설정 (푸시 · 이메일)", "/admin/push/setting", "jsini-icon-bell"),
+        new("새 메시지 알림", "/admin/profile?tab=notice", "jsini-icon-bell"),
+    ];
+
+    private bool _open;
+
+    protected override void OnInitialized() => Me.Changed += OnMeChanged;
+
+    public void Dispose() => Me.Changed -= OnMeChanged;
+
+    private void OnMeChanged() => InvokeAsync(StateHasChanged);
+
+    /// <summary>사진이 없을 때 동그라미에 넣을 글자 한 자.</summary>
+    private string Initial(AuthenticationState state)
+    {
+        if (Me.IsLoaded)
+        {
+            return Me.Initial;
+        }
+
+        // 아직 못 읽었으면 쿠키 클레임의 이름으로 대신한다. 헤더가 잠깐
+        // 「?」로 보이는 것보다 낫다.
+        var name = state.User.Identity?.Name;
+        return string.IsNullOrWhiteSpace(name) ? "?" : name.Trim()[..1].ToUpperInvariant();
+    }
+
+    private void Close() => _open = false;
+
+    /// <summary>
+    /// 항목을 눌렀을 때. <b>먼저 닫고 옮긴다</b> — 같은 화면 안의 다른 탭으로
+    /// 갈 때는 판이 저절로 사라지지 않는다.
+    /// </summary>
+    private void GoTo(string href)
+    {
+        Close();
+        Navigation.NavigateTo(href);
+    }
+
+    private void OpenTheme()
+    {
+        Close();
+        Theme.Open();
+    }
+
+    private Task LockAsync()
+    {
+        Close();
+        return Lock.LockAsync();
+    }
+
+    private Task LogoutAsync()
+    {
+        Close();
+        return Js.InvokeVoidAsync("document.getElementById('jsini-logout-form').submit").AsTask();
+    }
 }

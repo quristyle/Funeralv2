@@ -79,7 +79,7 @@
                     }
                     @if (m.ThumbnailUrl is { Length: > 0 } thumb)
                     {
-                        <img class="fn-thumb" src="@thumb" alt="" loading="lazy" />
+                        <img class="fn-thumb" src="@FileDownload.RelayUrl(thumb)" alt="" loading="lazy" />
                     }
                     else
                     {

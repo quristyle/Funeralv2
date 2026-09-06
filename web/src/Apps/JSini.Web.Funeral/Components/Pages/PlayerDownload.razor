@@ -36,11 +36,15 @@
             @{
                 var archive = (Archive)detail.DataItem;
             }
+            @* 서버가 준 `DownloadUrl`(`/api/auth/help/…`)을 그대로 쓰지 않는다.
+               브라우저가 게이트웨이와 같은 오리진이던 Vue 시절 주소라 포털에서는
+               404 다. 셸이 중계한다 — 이유는 `FileDownload` 머리말에 있다.
+               횟수를 세는 경로를 그대로 거치므로 「내려받기」 숫자는 계속 올라간다. *@
             <ul class="fn-files">
                 @foreach (var file in archive.Files)
                 {
                     <li class="fn-files__item">
-                        <a href="@file.DownloadUrl">@file.FileName</a>
+                        <a href="@FileDownload.ArchiveUrlFor(archive.Id, file.FileId, file.FileName)">@file.FileName</a>
                     </li>
                 }
             </ul>

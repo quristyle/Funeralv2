@@ -517,6 +517,7 @@ var passwordExpiryAllowList = new[]
     "/api/auth/login",                   // 익명 경로지만 명시해 둔다
     "/api/auth/logout",                  // 잠긴 상태에서 나갈 길은 항상 열려 있어야 한다
     "/api/auth/user/change-password",    // 이 차단을 푸는 유일한 방법
+    "/api/auth/password",                // 비밀번호 찾기(익명 경로지만, 로그인한 채로 열 수 있다)
     "/api/auth/user/verify-password",    // 잠금화면을 푸는 길은 잠긴 상태에서도 열려 있어야 한다
     "/api/auth/user/info",               // /profile 화면이 만료 안내를 그리는 데 쓴다
     "/api/auth/codes",                   // 로그인 직후 프론트가 항상 부른다

@@ -66,6 +66,36 @@ public static class AuthEndpoints
                 return Results.Json(ApiResponse<object>.Fail("아이디 또는 비밀번호가 잘못되었습니다.", "401"), statusCode: 401);
             }
 
+            // ── 2-0. 계정 상태 ────────────────────────────────────
+            //
+            // **비밀번호가 맞은 다음에 본다.** 먼저 보면 아이디만 넣어 보고
+            // "승인 대기 중" 이라는 답을 받을 수 있어, 그 아이디가 있다는 것이
+            // 새어 나간다. 로그인 실패 문구를 뭉뚱그려 둔 뜻이 사라진다.
+            //
+            // 상태는 계정 표의 칸이 아니라 account_profile_details 의 Status 다
+            // (계정 관리가 예전부터 그 자리에 넣어 왔다). 값이 아예 없는 옛
+            // 계정은 ACTIVE 로 본다 — 없다는 이유로 전원을 막을 수는 없다.
+            var status = await db.AccountProfileDetails
+                .Where(d => d.AccountId == account.Id && d.DetailType == SignupService.StatusDetail)
+                .Select(d => d.Content)
+                .FirstOrDefaultAsync();
+
+            if (!string.IsNullOrWhiteSpace(status) &&
+                !string.Equals(status, SignupService.StatusActive, StringComparison.OrdinalIgnoreCase))
+            {
+                logger.LogWarning("로그인 거절 — 계정 상태 {Status}: {Username}", status, request.Username);
+
+                await loginLog.WriteAsync(
+                    account.Id, request.Username, success: false, LoginFailReason.NotActive,
+                    ResolveClientIp(http), http.Request.Headers.UserAgent.ToString());
+
+                var message = string.Equals(status, SignupService.StatusPending, StringComparison.OrdinalIgnoreCase)
+                    ? "가입 승인을 기다리는 계정입니다. 승인되면 알려 드립니다."
+                    : "지금은 사용할 수 없는 계정입니다. 관리자에게 문의해 주십시오.";
+
+                return Results.Json(ApiResponse<object>.Fail(message, "403"), statusCode: 403);
+            }
+
             // 2-1. 평문이거나 옛 기준으로 해시된 값이면 이 기회에 다시 해시해 저장한다.
             //      로그인에 성공한 지금이 평문 비밀번호를 아는 유일한 시점이다.
             //      저장에 실패해도 로그인 자체는 막지 않는다.

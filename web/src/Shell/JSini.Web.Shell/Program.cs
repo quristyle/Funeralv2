@@ -46,6 +46,10 @@ builder.AddJSiniWebApp(
 
 builder.Services.AddScoped<LoginService>();
 
+// 로그인 전에 부르는 계정 경로들 (가입 신청 · 비밀번호 찾기).
+// 토큰을 붙이지 않는 클라이언트를 쓰는 이유는 그 클래스 주석에 있다.
+builder.Services.AddScoped<AccountClient>();
+
 // 셸이 기대하는 모듈 목록(appsettings 의 PortalApps). 진단 화면과 기동 대조에 쓴다.
 var expectedApps = PortalApp.Read(builder.Configuration);
 builder.Services.AddSingleton<IReadOnlyList<PortalApp>>(expectedApps);

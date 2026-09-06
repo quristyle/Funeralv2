@@ -29,6 +29,14 @@
             <div class="jsini-login__error" role="alert">@_error</div>
         }
 
+        @* 로그인 화면은 정적 SSR 이라(쿠키를 구워야 한다) 회로가 없다.
+           그래도 부품 하나만 대화형 섬으로 만들 수 있다 — `@@rendermode` 가
+           그것이다. 공지 팝업은 눌러서 넘기고 닫는 것이라 회로가 필요하다.
+
+           `blazor.web.js` 는 App.razor 가 언제나 싣고 있어서 섬 하나를 위해
+           더 얹을 것이 없다. *@
+        <NoticeAutoPopup Public="true" @rendermode="InteractiveServer" />
+
         <EditForm Model="@Input" FormName="login" OnValidSubmit="@SubmitAsync">
             <DataAnnotationsValidator />
 
@@ -44,6 +52,14 @@
 
             <button type="submit" class="jsini-login__submit">로그인</button>
         </EditForm>
+
+        @* 두 화면은 이 화면과 달리 대화형이다. 여기가 정적 SSR 인 것은 쿠키를
+           구워야 해서인데, 저쪽은 구울 쿠키가 없다. 그래서 평범한 링크로 둔다 —
+           EditForm 밖에 있어야 로그인 폼과 함께 제출되지 않는다. *@
+        <div class="jsini-login__links">
+            <a href="/password/forgot">비밀번호를 잊으셨나요?</a>
+            <a href="/register">가입 신청</a>
+        </div>
     </div>
 </div>
 

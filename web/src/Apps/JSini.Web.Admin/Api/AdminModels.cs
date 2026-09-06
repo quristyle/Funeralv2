@@ -1,47 +1,8 @@
 namespace JSini.Web.Admin.Api;
 
-public sealed class NoticeDto
-{
-    public string Id { get; set; } = string.Empty;
-    public string Title { get; set; } = string.Empty;
-    public string Content { get; set; } = string.Empty;
-    public bool IsPopup { get; set; }
-    public bool IsPublic { get; set; }
-    public int OrderNo { get; set; }
-    public int Status { get; set; }
-    public DateTime? StartAt { get; set; }
-    public DateTime? EndAt { get; set; }
-    public DateTime CreatedAt { get; set; }
-    public string? AuthorName { get; set; }
-
-    /// <summary>
-    /// 편집 폼의 「사용」 스위치가 묶이는 자리. <see cref="Status"/> 의 0/1 을 가린다.
-    ///
-    /// <para>
-    /// 팝업 안 편집기는 <c>@@bind-</c> 로 묶어야 한다. <c>Checked</c> 와
-    /// <c>CheckedChanged</c> 를 따로 주면 검증 식이 없어 <b>팝업이 말없이
-    /// 안 열린다</b> — 화면에는 아무 표시도 안 나고 브라우저 콘솔에만
-    /// <c>requires a value for the 'CheckedExpression' property</c> 가 남는다.
-    /// </para>
-    /// </summary>
-    public bool IsActive
-    {
-        get => Status == 1;
-        set => Status = value ? 1 : 0;
-    }
-}
-
-public sealed class SaveNoticeDto
-{
-    public string Title { get; set; } = string.Empty;
-    public string Content { get; set; } = string.Empty;
-    public bool IsPopup { get; set; }
-    public bool IsPublic { get; set; }
-    public int OrderNo { get; set; }
-    public int Status { get; set; } = 1;
-    public DateTime? StartAt { get; set; }
-    public DateTime? EndAt { get; set; }
-}
+// 공지 DTO 는 여기 없다. **레이아웃과 로그인 화면도 쓰기 때문에**
+// JSini.Web.Models 로 올렸다(`Notice.cs`) — 셸은 업무 모듈을 이름으로 알지
+// 못하므로 이 모듈에 두면 관리 화면만 쓸 수 있다.
 
 // ============================================================
 // 포털관리 화면들이 쓰는 자료 모양.
@@ -139,7 +100,10 @@ public sealed class RoleDto
     public int Status { get; set; } = 1;
     public List<string> Permissions { get; set; } = [];
 
-    /// <summary>편집 폼의 「사용」 스위치가 묶이는 자리. <see cref="NoticeDto.IsActive"/> 와 같은 이유다.</summary>
+    /// <summary>
+    /// 편집 폼의 「사용」 스위치가 묶이는 자리.
+    /// <c>JSini.Web.Models.NoticeDto.IsActive</c> 와 같은 이유다.
+    /// </summary>
     public bool IsActive
     {
         get => Status == 1;
@@ -610,7 +574,21 @@ public sealed class PushSubscriptionListDto
     public int Count { get; set; }
 }
 
-/// <summary>로그인한 사람의 정보.</summary>
+/// <summary>
+/// 로그인한 사람의 정보. <c>GET auth/user/info</c> 가 주는 것 <b>전부</b>다.
+/// </summary>
+/// <remarks>
+/// <para>
+/// 한동안 「화면이 쓰는 칸만 담는다」고 열몇 개만 적어 두었다. 그 판단이
+/// 여기서는 틀렸다 — 이 응답은 <b>프로필 화면 하나가 통째로 쓰는 자료</b>고,
+/// 빠뜨린 칸이 곧 옮기지 못한 기능이었다. 보안 설정 넷 · 알림 설정 셋 ·
+/// 비밀번호 만료 다섯 · 역할 식별자 · 이관 출처 · 사진 그룹이 전부 그렇게
+/// 빠져 있었다.
+/// </para>
+/// <para>
+/// 서버 쪽 정본은 AuthServer 의 <c>DTOs/UserInfoDto.cs</c> 다.
+/// </para>
+/// </remarks>
 public sealed class UserInfoDto
 {
     public string? Id { get; set; }
@@ -620,13 +598,23 @@ public sealed class UserInfoDto
     public string? CompanyName { get; set; }
     public string? DeptName { get; set; }
     public string? Desc { get; set; }
+
+    /// <summary>로그인 뒤 갈 기본 화면. 서버가 정해 준다.</summary>
+    public string? HomePath { get; set; }
+
+    /// <summary>역할 식별자(<c>ADMINISTRATOR</c>). 사람에게 보여 줄 값이 아니다.</summary>
+    public List<string> Roles { get; set; } = [];
+
+    /// <summary>역할 이름(<c>관리자</c>). 화면에는 이것을 쓴다.</summary>
     public List<string> RoleNames { get; set; } = [];
 
+    /// <summary>
+    /// 이 계정이 어느 MSA 레코드에서 왔는지(<c>helpdesk:admin:4</c>).
+    /// 이관으로 만들어진 계정만 값이 있다.
+    /// </summary>
+    public string? MsaSource { get; set; }
+
     // ── 고칠 수 있는 것들 ────────────────────────────────
-    //
-    // 응답에는 이보다 훨씬 많은 칸이 온다(보안 설정·알림 설정 …).
-    // 화면이 쓰는 것만 담는다 — 안 쓰는 칸을 DTO 에 두면 「여기서 고칠 수
-    // 있나」로 읽힌다.
 
     public string? Email { get; set; }
     public string? Phone { get; set; }
@@ -639,11 +627,59 @@ public sealed class UserInfoDto
 
     public bool BirthDateIsLunar { get; set; }
 
-    /// <summary>프로필 사진 주소. 없는 쪽이 흔하다.</summary>
+    /// <summary>
+    /// 프로필 사진 주소. 서버가 값이 없으면 <b>바깥 기본 이미지 주소</b>를
+    /// 채워 준다 — 비어 오는 일이 없다.
+    /// </summary>
     public string? Avatar { get; set; }
+
+    /// <summary>사진이 담긴 파일 그룹. 「프로필 사진 관리」가 이 그룹을 다룬다.</summary>
+    public string? AvatarGroupId { get; set; }
+
+    // ── 보안 설정 (켬·끔) ────────────────────────────────
+    //
+    // 저장은 `auth/user/settings` 로 한 칸씩 한다. 저장 이름은 여기 속성
+    // 이름과 같다(`SecurityPhone` …) — 서버가 그 글자를 DetailType 으로
+    // 그대로 쓴다.
+
+    public bool SecurityPhone { get; set; }
+    public bool SecurityQuestion { get; set; }
+    public bool SecurityEmail { get; set; }
+    public bool SecurityMfa { get; set; }
+
+    // ── 알림 설정 (켬·끔) ────────────────────────────────
+
+    public bool SystemMessage { get; set; }
+    public bool TodoTask { get; set; }
+    public bool AccountPasswordNotify { get; set; }
+
+    // ── 계정 이력 (읽기 전용) ────────────────────────────
+
+    /// <summary>가입일.</summary>
+    public DateTime? CreatedAt { get; set; }
 
     public DateTime? LastLoginAt { get; set; }
     public string? LastLoginIp { get; set; }
+
+    /// <summary>비밀번호를 마지막으로 바꾼 시각.</summary>
+    public DateTime? PasswordChangedAt { get; set; }
+
+    /// <summary>비밀번호가 만료되는 시각. 정책이 꺼져 있으면 null.</summary>
+    public DateTime? PasswordExpiresAt { get; set; }
+
+    /// <summary>만료 기준 일수(기본 90). <b>null 이면 정책이 꺼져 있다.</b></summary>
+    public int? PasswordExpiryDays { get; set; }
+
+    /// <summary>만료까지 남은 일수. 이미 지났으면 0.</summary>
+    public int? PasswordDaysRemaining { get; set; }
+
+    public bool PasswordExpired { get; set; }
+
+    /// <summary>만료 정책이 켜져 있는가. 꺼져 있으면 남은 일수 칸 자체가 뜻이 없다.</summary>
+    public bool PasswordPolicyOn => PasswordExpiryDays is > 0;
+
+    /// <summary>역할을 보여 줄 글자. 이름이 없으면 식별자를 쓴다.</summary>
+    public IReadOnlyList<string> RoleLabels => RoleNames.Count > 0 ? RoleNames : Roles;
 }
 
 /// <summary>
@@ -664,14 +700,130 @@ public sealed class UpdateProfileDto
     public string? BirthDate { get; set; }
 
     public bool? BirthDateIsLunar { get; set; }
+
+    /// <summary>대표 사진 주소. 사진 관리 탭이 대표를 바꿀 때만 싣는다.</summary>
+    public string? Avatar { get; set; }
+
+    /// <summary>사진 그룹. 처음 올릴 때 서버가 새로 발급해 준다.</summary>
+    public string? AvatarGroupId { get; set; }
 }
 
-/// <summary>내 활동 기록 한 줄.</summary>
-public sealed class UserActivityDto
+/// <summary>
+/// 켬·끔 하나를 저장한다 (<c>POST auth/user/settings</c>).
+/// </summary>
+/// <remarks>
+/// <c>FieldName</c> 이 그대로 <c>account_profile_details.detail_type</c> 이 된다.
+/// 그래서 <b>철자가 곧 계약</b>이다 — <c>SecurityPhone</c> 을 <c>securityPhone</c>
+/// 으로 보내면 다른 칸이 하나 더 생기고, 조회는 여전히 옛 칸을 보므로
+/// <b>저장은 성공하는데 값이 안 바뀐 것처럼 보인다.</b>
+/// </remarks>
+public sealed class UpdateSettingDto
 {
-    public string? Action { get; set; }
-    public string? Detail { get; set; }
-    public string? IpAddress { get; set; }
+    public string FieldName { get; set; } = string.Empty;
+    public bool Value { get; set; }
+}
+
+/// <summary>접속 기록 한 줄.</summary>
+public sealed class LoginLogDto
+{
+    /// <summary>기록된 시각. <b>UTC 다</b> — 표에는 <see cref="AtLocal"/> 을 쓴다.</summary>
+    public DateTime? At { get; set; }
+
+    /// <summary>
+    /// 우리 시간대로 옮긴 시각. <b>표가 거는 칸은 이쪽이다.</b>
+    /// </summary>
+    /// <remarks>
+    /// <c>At</c> 를 그대로 걸었더니 <b>표만 아홉 시간 뒤처져 보였다.</b>
+    /// 같은 화면 위쪽의 「최근 로그인」은 <c>ToLocalTime()</c> 을 거쳐 21:20 인데
+    /// 표의 같은 줄이 12:20 이었다 — 그리드는 받은 <c>DateTime</c> 을 그대로
+    /// 그리고 시간대를 옮겨 주지 않는다. 두 값이 나란히 있어서 눈에 띄었지
+    /// 표만 있었으면 못 봤을 종류의 어긋남이다.
+    /// </remarks>
+    public DateTime? AtLocal => At?.ToLocalTime();
+
+    public bool Success { get; set; }
+
+    /// <summary>실패 이유(<c>BAD_PASSWORD</c> · <c>NOT_FOUND</c>). 성공이면 null.</summary>
+    public string? FailReason { get; set; }
+
+    public string? Ip { get; set; }
+
+    /// <summary>브라우저·기기 원문. 길어서 표에는 <see cref="Device"/> 를 쓴다.</summary>
+    public string? UserAgent { get; set; }
+
+    /// <summary>사람이 읽게 줄인 기기 이름(<c>Chrome · Windows</c>).</summary>
+    public string? Device { get; set; }
+
+    /// <summary>표에 그릴 결과 글자.</summary>
+    public string ResultLabel => Success
+        ? "성공"
+        : FailReason switch
+        {
+            "BAD_PASSWORD" => "비밀번호 불일치",
+            "NOT_FOUND" => "없는 아이디",
+            _ => "실패",
+        };
+
+    /// <summary>표에 그릴 기기 이름. 원문조차 없으면 「기록 없음」.</summary>
+    public string DeviceLabel => string.IsNullOrWhiteSpace(Device)
+        ? (string.IsNullOrWhiteSpace(UserAgent) ? "기록 없음" : "알 수 없는 기기")
+        : Device;
+}
+
+/// <summary>
+/// 계정 활동. <c>GET auth/user/activity</c> 가 <b>객체 하나</b>로 준다.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>배열이 아니다.</b> 한동안 이 자리를 <c>UserActivityDto</c> 목록
+/// (<c>Action</c>·<c>Detail</c>·<c>IpAddress</c>)으로 적어 두었는데 서버에는
+/// 그런 칸이 없다. 봉투는 객체 하나도 <c>result: [obj]</c> 로 싣기 때문에
+/// 목록으로 읽어도 <b>예외가 나지 않는다</b> — 칸이 전부 <c>null</c> 인 줄이
+/// 하나 그려질 뿐이라 「기록이 아직 없나 보다」로 읽혔다.
+/// </para>
+/// <para>
+/// 자기 것만 볼 수 있다. 조회할 계정을 요청에 싣지 않고 게이트웨이가 넘긴
+/// 신원을 서버가 쓴다.
+/// </para>
+/// </remarks>
+public sealed class AccountActivityDto
+{
+    /// <summary>로그인 성공 횟수 (기록이 쌓이기 시작한 뒤부터).</summary>
+    public int LoginCount { get; set; }
+
+    /// <summary>지난번 접속. 지금 이 접속의 바로 앞이다.</summary>
+    public LoginLogDto? PreviousLogin { get; set; }
+
+    /// <summary>최근 30일 안의 로그인 실패 횟수.</summary>
+    public int RecentFailCount { get; set; }
+
+    public LoginLogDto? LastFail { get; set; }
+
+    /// <summary>이 계정을 써 온 일수.</summary>
+    public int AccountAgeDays { get; set; }
+
+    /// <summary>최근 접속 기록. 최신 순.</summary>
+    public List<LoginLogDto> Recent { get; set; } = [];
+}
+
+/// <summary>
+/// 파일 그룹 안의 사진 한 장. 「프로필 사진 관리」가 쓴다.
+/// </summary>
+/// <remarks>
+/// <c>DownloadUrl</c> 로 오는 <c>/api/file/download/{id}</c> 는 <b>Vue 시절
+/// 주소</b>라 포털 오리진에는 없다. 화면은 이 값을 쓰지 않고
+/// <see cref="JSini.Web.Components.Data.FileDownload"/> 로 셸 중계 경로를 만든다.
+/// </remarks>
+public sealed class GroupFileDto
+{
+    public string? Id { get; set; }
+    public string? OriginalName { get; set; }
+    public long Size { get; set; }
+    public string? ContentType { get; set; }
+    public bool IsImage { get; set; }
+    public bool IsRepresentative { get; set; }
+    public int SortOrder { get; set; }
+    public string? DownloadUrl { get; set; }
     public DateTime? CreatedAt { get; set; }
 }
 

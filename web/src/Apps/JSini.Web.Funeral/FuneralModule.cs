@@ -53,6 +53,7 @@ public sealed class FuneralModule : IPortalModule
                 // 영상 파일이 수백 MB 다. 기본 100초로는 큰 파일에서 끊긴다.
                 client.Timeout = TimeSpan.FromMinutes(10);
             })
+            .ConfigurePrimaryHttpMessageHandler(ServiceCollectionExtensions.NoCookieJar)
             .AddHttpMessageHandler<AuthTokenHandler>();
     }
 }

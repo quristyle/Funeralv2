@@ -263,6 +263,25 @@
     /// <summary>새 행의 기본값을 채운다. 부모 키를 여기서 넣는다.</summary>
     [Parameter] public Action<TItem>? OnNew { get; set; }
 
+    /// <summary>
+    /// 편집 창이 열릴 때. 등록이든 수정이든 부른다 —
+    /// <c>bool</c> 이 「새로 만드는 것인가」다.
+    ///
+    /// <para>
+    /// <b><see cref="OnNew"/> 로는 모자란 자리가 있어 두었다.</b> 폼 안의
+    /// 상태를 화면이 들고 있어야 하는 경우(고른 첨부파일 같은 것)에는
+    /// <b>수정 창을 열 때도</b> 그 상태를 비우거나 채워야 하는데, 그쪽은
+    /// 등록일 때만 불린다. 앞선 편집에서 고른 파일이 그대로 남아 다음
+    /// 공지에 붙는 식으로 틀린다.
+    /// </para>
+    ///
+    /// <para>
+    /// 넘어오는 것은 DevExpress 가 만든 <b>편집 모델</b>(원본의 사본)이다.
+    /// 여기서 고쳐도 저장을 취소하면 표에는 남지 않는다.
+    /// </para>
+    /// </summary>
+    [Parameter] public Action<TItem, bool>? OnEditOpen { get; set; }
+
     /// <summary>저장. 주면 「등록」·「수정」이 생긴다.</summary>
     [Parameter] public EventCallback<(TItem Item, bool IsNew)> OnSave { get; set; }
 
@@ -554,10 +573,17 @@
 
     private void OnCustomizeEditModel(GridCustomizeEditModelEventArgs e)
     {
-        if (e.IsNew && e.EditModel is TItem item)
+        if (e.EditModel is not TItem item)
+        {
+            return;
+        }
+
+        if (e.IsNew)
         {
             OnNew?.Invoke(item);
         }
+
+        OnEditOpen?.Invoke(item, e.IsNew);
     }
 
     private async Task OnEditModelSavingAsync(GridEditModelSavingEventArgs e)

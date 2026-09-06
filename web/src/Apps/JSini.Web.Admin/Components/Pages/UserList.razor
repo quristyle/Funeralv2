@@ -10,6 +10,7 @@
 
 @inherits DataPage
 @inject AdminClient Api
+@inject NavigationManager Navigation
 
 <PageTitle>계정 관리 · 포털관리</PageTitle>
 
@@ -41,6 +42,13 @@
              OnSave="@SaveAsync"
              OnDelete="@DeleteAsync"
              Reload="@ReloadAsync">
+        @* 가입 신청은 DB 메뉴에 없어 사이드바에 뜨지 않는다. 들어가는 길이
+           여기뿐이라 단추를 둔다 — 그 화면의 머리말에 사연이 있다. *@
+        <Toolbar>
+            <DxButton Text="가입 신청" RenderStyle="ButtonRenderStyle.Secondary"
+                      Click="@(() => Navigation.NavigateTo("/admin/system/signup"))" />
+        </Toolbar>
+
         <Columns>
             <DxGridDataColumn FieldName="@nameof(AccountDto.LoginId)" Caption="아이디" Width="130" />
             <DxGridDataColumn FieldName="@nameof(AccountDto.UserName)" Caption="이름" Width="110" />
@@ -134,7 +142,10 @@
     private string? _keyword;
     private string? _status;
 
-    private static readonly string[] StatusFilters = ["ACTIVE", "LOCKED", "RESIGNED"];
+    @* PENDING 은 거르기에만 있고 편집 목록(StatusOptions)에는 없다. 승인은
+       [가입 신청] 화면이 하는 일이라, 여기서 손으로 PENDING 을 지정하면
+       그 사람이 이유 없이 로그인하지 못한다. *@
+    private static readonly string[] StatusFilters = ["PENDING", "ACTIVE", "LOCKED", "RESIGNED"];
 
     private static readonly object[] StatusOptions =
     [
@@ -253,13 +264,14 @@
         "ACTIVE" => "정상",
         "LOCKED" => "잠금",
         "RESIGNED" => "퇴사",
+        "PENDING" => "승인 대기",
         _ => status ?? "-",
     };
 
     private static string StatusClass(string status) => status?.ToUpperInvariant() switch
     {
         "ACTIVE" => "jsini-badge--on",
-        "LOCKED" => "jsini-badge--warn",
+        "LOCKED" or "PENDING" => "jsini-badge--warn",
         _ => "jsini-badge--off",
     };
 }
