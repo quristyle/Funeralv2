@@ -51,6 +51,24 @@
             <div class="jsini-stat__label">성공률</div>
             <div class="jsini-stat__value">@_stats.SuccessRate.ToString("0.0")%</div>
         </div>
+
+        @* **보낸 것과 읽힌 것은 다르다.** 성공률만 보면 「보냈으니 됐다」로
+           끝나고, 아무도 안 읽는 알림을 계속 보내게 된다. *@
+        @if (_engagement is not null)
+        {
+            <div class="jsini-stat">
+                <div class="jsini-stat__label">도달</div>
+                <div class="jsini-stat__value">@_engagement.TotalDelivered</div>
+            </div>
+            <div class="jsini-stat">
+                <div class="jsini-stat__label">열람</div>
+                <div class="jsini-stat__value">@_engagement.TotalRead</div>
+            </div>
+            <div class="jsini-stat">
+                <div class="jsini-stat__label">열람률</div>
+                <div class="jsini-stat__value">@_engagement.ReadRate.ToString("0.0")%</div>
+            </div>
+        }
     </div>
 }
 
@@ -116,6 +134,42 @@
     </Columns>
 </CommGrd>
 
+@* 무엇이 읽히는가. 제목을 바꿔 볼 근거가 여기 있다. *@
+<h2 class="ad-subhead">많이 읽힌 알림</h2>
+
+<CommGrd TItem="PushMessageStatDto" Data="@_messages" PageSize="10">
+    <Columns>
+        <DxGridDataColumn FieldName="@nameof(PushMessageStatDto.Title)" Caption="제목" MinWidth="240" />
+        <DxGridDataColumn FieldName="@nameof(PushMessageStatDto.CreatedAt)" Caption="보낸 때" Width="150"
+                          DisplayFormat="yyyy-MM-dd HH:mm" />
+        <DxGridDataColumn FieldName="@nameof(PushMessageStatDto.RecipientCount)" Caption="대상" Width="90" />
+        <DxGridDataColumn FieldName="@nameof(PushMessageStatDto.DeliveredCount)" Caption="도달" Width="90" />
+        <DxGridDataColumn FieldName="@nameof(PushMessageStatDto.ReadCount)" Caption="열람" Width="90" />
+        <DxGridDataColumn Caption="열람률" Width="100">
+            <CellDisplayTemplate Context="cell">
+                @(((PushMessageStatDto)cell.DataItem).ReadRate.ToString("0.0"))%
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+    </Columns>
+</CommGrd>
+
+@* 누구에게 닿지 않는가. 열람률이 0 인 사람은 구독이 끊겼을 수 있다. *@
+<h2 class="ad-subhead">사람별 수신 · 열람</h2>
+
+<CommGrd TItem="PushUserStatDto" Data="@_users" PageSize="10">
+    <Columns>
+        <DxGridDataColumn FieldName="@nameof(PushUserStatDto.UserName)" Caption="사용자" MinWidth="180" />
+        <DxGridDataColumn FieldName="@nameof(PushUserStatDto.UserType)" Caption="구분" Width="110" />
+        <DxGridDataColumn FieldName="@nameof(PushUserStatDto.TotalReceived)" Caption="수신" Width="90" />
+        <DxGridDataColumn FieldName="@nameof(PushUserStatDto.TotalRead)" Caption="열람" Width="90" />
+        <DxGridDataColumn Caption="열람률" Width="100">
+            <CellDisplayTemplate Context="cell">
+                @(((PushUserStatDto)cell.DataItem).ReadRate.ToString("0.0"))%
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+    </Columns>
+</CommGrd>
+
 <PageNotice Text="@Notice" Tone="@Tone" />
 
 @code {
@@ -125,21 +179,30 @@
     private PushStatsDto? _stats;
     private IReadOnlyList<PushTrendPointDto> _trend = [];
     private IReadOnlyList<PushFailureReasonDto> _reasons = [];
+    private PushEngagementDto? _engagement;
+    private IReadOnlyList<PushMessageStatDto> _messages = [];
+    private IReadOnlyList<PushUserStatDto> _users = [];
 
     protected override Task OnInitializedAsync() => ReloadAsync();
 
     private Task ReloadAsync() => LoadAsync(async () =>
     {
-        // 셋을 나란히. 서로 기다릴 이유가 없다.
+        // 여섯을 나란히. 서로 기다릴 이유가 없다.
         var stats = Api.GetPushStatsAsync(_days);
         var trend = Api.GetPushTrendAsync(days: _days);
         var reasons = Api.GetPushFailureReasonsAsync(_days);
+        var engagement = Api.GetPushEngagementAsync(_days);
+        var messages = Api.GetTopPushMessagesAsync();
+        var users = Api.GetPushUserStatsAsync();
 
-        await Task.WhenAll(stats, trend, reasons);
+        await Task.WhenAll(stats, trend, reasons, engagement, messages, users);
 
         _stats = stats.Result;
         _trend = trend.Result;
         _reasons = reasons.Result;
+        _engagement = engagement.Result;
+        _messages = messages.Result;
+        _users = users.Result;
 
         return (_stats?.TotalSent ?? 0) + _trend.Count;
     }, "그 기간에 발송 내역이 없습니다.", "푸시 현황을 읽지 못했습니다");

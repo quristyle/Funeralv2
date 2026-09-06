@@ -291,6 +291,26 @@ public sealed class AdminClient(GatewayClient gateway)
         => gateway.GetFlexibleListAsync<PushFailureReasonDto>(
             $"helpdesk/dashboard/push-failure-reasons?days={days}&topN={topN}", ct);
 
+    /// <summary>
+    /// 도달·열람 요약. <b>발송 성공과 열람은 다른 이야기다</b> — 성공률만 보면
+    /// 「보냈으니 됐다」로 끝나고, 아무도 안 읽는 알림을 계속 보내게 된다.
+    /// </summary>
+    public Task<PushEngagementDto?> GetPushEngagementAsync(int days = 7, CancellationToken ct = default)
+        => gateway.GetFlexibleAsync<PushEngagementDto>(
+            $"helpdesk/dashboard/push-engagement-stats?days={days}", ct);
+
+    /// <summary>열람률이 높은 메시지. 무엇이 읽히는지 본다.</summary>
+    public Task<IReadOnlyList<PushMessageStatDto>> GetTopPushMessagesAsync(
+        int topN = 10, CancellationToken ct = default)
+        => gateway.GetFlexibleListAsync<PushMessageStatDto>(
+            $"helpdesk/dashboard/top-performing-messages?topN={topN}", ct);
+
+    /// <summary>사람별 수신·열람. 알림이 닿지 않는 사람을 찾는 자리다.</summary>
+    public Task<IReadOnlyList<PushUserStatDto>> GetPushUserStatsAsync(
+        int topN = 20, CancellationToken ct = default)
+        => gateway.GetFlexibleListAsync<PushUserStatDto>(
+            $"helpdesk/dashboard/user-engagement-stats?topN={topN}", ct);
+
     public Task<IReadOnlyList<PushLogDto>> GetPushLogsAsync(
         int page = 1, int pageSize = 50, string? reason = null, CancellationToken ct = default)
         => gateway.GetFlexibleListAsync<PushLogDto>(

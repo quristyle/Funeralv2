@@ -1595,3 +1595,48 @@ public sealed class AiProviderDto
     /// <summary>기본 모델이 안 될 때 차례로 시도할 것들.</summary>
     public List<string> FallbackModels { get; set; } = [];
 }
+
+/// <summary>푸시 도달·열람 요약. 발송 성공과 열람은 다른 이야기다.</summary>
+public sealed class PushEngagementDto
+{
+    /// <summary>보낸 대상 수</summary>
+    public int TotalRecipients { get; set; }
+
+    /// <summary>실제로 기기에 닿은 수</summary>
+    public int TotalDelivered { get; set; }
+
+    /// <summary>열어 본 수</summary>
+    public int TotalRead { get; set; }
+
+    public double DeliveryRate { get; set; }
+
+    /// <summary>닿은 것 중 열어 본 비율</summary>
+    public double ReadRate { get; set; }
+
+    /// <summary>보낸 것 중 열어 본 비율</summary>
+    public double OpenRate { get; set; }
+}
+
+/// <summary>메시지 한 건의 성과.</summary>
+public sealed class PushMessageStatDto
+{
+    public string MessageId { get; set; } = string.Empty;
+    public string? Title { get; set; }
+    public string? Body { get; set; }
+    public DateTime? CreatedAt { get; set; }
+    public int RecipientCount { get; set; }
+    public int DeliveredCount { get; set; }
+    public int ReadCount { get; set; }
+    public double ReadRate { get; set; }
+}
+
+/// <summary>사람 한 명의 수신·열람.</summary>
+public sealed class PushUserStatDto
+{
+    public string UserId { get; set; } = string.Empty;
+    public string? UserType { get; set; }
+    public string? UserName { get; set; }
+    public int TotalReceived { get; set; }
+    public int TotalRead { get; set; }
+    public double ReadRate { get; set; }
+}
