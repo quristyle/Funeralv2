@@ -244,3 +244,25 @@ Blazor 는 위에 음원 고르개 한 칸 + 아래 건물 표다 — 두 판으
 
 **함께 고친 곳**: `DeviceStatusRelay` 에 `SubscribeAssignments` 추가
 (호실 배정 방송. 고인 등록·이동·출상·출상 취소가 모두 이 방송을 낸다)
+
+### 12. `/funeral/deceased` — 고인 관리 · **보완**
+
+원본: `funeral/building/deceased/` 12개 파일 (목록 + 서랍 + 폼 조각 일곱)
+
+**빠져 있던 것 — 사진.** 원본의 폼 조각 일곱 중 `deceased-photo-form` 이 통째로
+없었다. 서버는 `MemorialPhotoFileId` · `MemorialPhotoUrl` · `FamilyPhotoGroupId` 를
+주고받고 있었고 Blazor 모델에도 칸이 있었는데, **화면에 올리는 자리가 없어서
+포털에서는 영정사진을 넣을 수 없었다.** 빈소 화면이 그 사진을 띄우는 것이
+이 시스템의 중심 기능이다.
+
+- **영정사진**(한 장) — `file/upload` 로 바로 올린다. 3:4 세로 틀로 미리 보여
+  준다(빈소 화면이 그 비율이라, 가로 사진을 올렸다는 것을 저장 전에 알아야 한다)
+- **추모 앨범**(여러 장) — 2번에서 만든 `ImageGroup`. 입구 모니터·분향소 화면이
+  순서대로 돌린다. 원본과 같은 상한 20장, 같은 업무 구분(`DECEASED`)
+- 「빼기」는 **연결만 끊는다.** 파일은 FileServer 에 남긴다 — 플레이어가 옛
+  주소를 캐시에 들고 있을 수 있다
+
+**아직 남은 것 — 시설·호실 이력 편집.** 원본에는 `deceased-facilities-form`
+(안치실·염습실 배정)과 `deceased-rooms-form`(호실 배정 이력)이 있다. 서버 DTO 와
+Blazor 모델에는 `Facilities` · `Rooms` 가 있으나 편집 자리가 없다. 호실 **이동**은
+목록에서 되므로 업무가 막히지는 않는다. 다음 차례에 붙인다.
