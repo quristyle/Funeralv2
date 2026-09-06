@@ -622,3 +622,43 @@
 
 /* 추이 차트 위의 단추줄. 차트와 붙어 있으면 차트 제목처럼 읽힌다. */
 .le-trend__head { margin-bottom: 0.5rem; }
+
+/* ── 주간 예보 ────────────────────────────────────────────
+   열흘이 한 줄에 늘어선다. 좁으면 그 줄만 가로로 구른다 —
+   쪽 전체가 구르면 위 그래프가 화면 밖으로 나간다. */
+
+.le-week {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding-bottom: 0.3rem;
+}
+
+.le-week__day {
+  flex: 0 0 7.5rem;
+  padding: 0.6rem;
+  border: 1px solid var(--jsini-border);
+  border-radius: 0.5rem;
+  background: var(--jsini-surface);
+  text-align: center;
+}
+
+.le-week__label { font-weight: 600; }
+
+.le-week__date,
+.le-week__pop {
+  font-size: var(--jsini-fs-2xs);
+  color: var(--jsini-text-muted);
+}
+
+.le-week__sky {
+  margin: 0.35rem 0;
+  font-size: var(--jsini-fs-xs);
+}
+
+.le-week__temp {
+  display: flex;
+  justify-content: center;
+  gap: 0.4rem;
+  font-weight: 600;
+}

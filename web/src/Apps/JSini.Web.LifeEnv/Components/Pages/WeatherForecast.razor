@@ -14,6 +14,20 @@
     비는 때가 있어서 그 둘을 구분해 주지 않으면 아무도 신고하지 않는다.
 
     `DataPage` 를 쓰면 조회·빈 결과·실패가 한 곳에서 갈린다.
+
+    [표만 있고 그림이 없었다]
+
+    옛 화면은 기온·강수확률·습도·풍속을 **그래프**로 보여 주고 그 아래 주간
+    예보를 깔았다. 예보는 「몇 시에 몇 도」보다 **어디서 꺾이는가**를 보는
+    자료다 — 표만 있으면 스물네 줄을 눈으로 훑어 그 꺾임을 찾아야 한다.
+
+    기온과 강수확률을 한 그림에 둔다(축이 둘이다). 옛 화면은 항목마다 그림을
+    따로 그렸는데, 실제로 함께 보는 것은 그 둘이다 — 나머지 값은 표에 있다.
+
+    [주간 예보 통로가 있는데 안 쓰고 있었다]
+
+    `GetMidTermForecastAsync`(오늘~10일)가 클라이언트에 이미 있었다.
+    옛 화면은 그것을 아래에 깔았다.
 *@
 
 @inherits DataPage
@@ -37,6 +51,60 @@
 
 <PageNotice Text="@Notice" Tone="@Tone" />
 
+@* 기온은 선, 강수확률은 막대. 축을 나눠야 둘을 겹쳐 볼 수 있다 —
+   기온은 영하까지 내려가고 확률은 0~100 이라 한 축에 두면 한쪽이 납작해진다. *@
+@if (_timeline.Count > 0)
+{
+    <div class="jsini-card">
+        <DxChart Data="@_timeline" Width="100%" Height="260px">
+            <DxChartTitle Text="기온 · 강수확률" />
+            <DxChartLegend Position="RelativePosition.Outside" />
+
+            <DxChartBarSeries T="WeatherTimelinePoint" TArgument="string" TValue="int"
+                              ArgumentField="p => p.Time"
+                              ValueField="p => p.Pop ?? 0"
+                              Name="강수확률(%)" Axis="pop" />
+
+            <DxChartLineSeries T="WeatherTimelinePoint" TArgument="string" TValue="double"
+                               ArgumentField="p => p.Time"
+                               ValueField="p => p.Temp"
+                               Name="기온(°C)" />
+
+            <DxChartValueAxis>
+                <DxChartAxisTitle Text="기온(°C)" />
+            </DxChartValueAxis>
+
+            <DxChartValueAxis Name="pop" Alignment="ChartAxisAlignment.Far">
+                <DxChartAxisTitle Text="강수확률(%)" />
+            </DxChartValueAxis>
+        </DxChart>
+    </div>
+}
+
+@* 주간 예보. 시간대별 표가 오늘·내일에 그치는 데 비해 이쪽은 열흘을 본다. *@
+@if (_weekly.Count > 0)
+{
+    <h2 class="le-subhead">주간 예보</h2>
+
+    <div class="le-week">
+        @foreach (var day in _weekly)
+        {
+            <div class="le-week__day">
+                <div class="le-week__label">@day.DayDisplay</div>
+                <div class="le-week__date">@day.Date</div>
+                <div class="le-week__sky">@(string.IsNullOrWhiteSpace(day.AmSky) ? day.PmSky : $"{day.AmSky} / {day.PmSky}")</div>
+                <div class="le-week__temp">
+                    <span class="lf-down">@day.MinTemp°</span>
+                    <span class="lf-up">@day.MaxTemp°</span>
+                </div>
+                <div class="le-week__pop">@day.AmPop% / @day.PmPop%</div>
+            </div>
+        }
+    </div>
+}
+
+<h2 class="le-subhead">시간대별</h2>
+
 <CommGrd TItem="WeatherTimelinePoint" Data="@_timeline" Loading="@Loading" PageSize="20">
     <Columns>
         <DxGridDataColumn FieldName="Date" Caption="날짜" Width="110px" />
@@ -59,6 +127,10 @@
 @code {
     private List<WeatherLocation> _locations = [];
     private List<WeatherTimelinePoint> _timeline = [];
+
+    /// <summary>주간(오늘~10일) 예보. 시간대별 표가 못 보여 주는 폭이다.</summary>
+    private List<MidTermForecast> _weekly = [];
+
     private int _selectedLocationId;
 
     protected override Task OnInitializedAsync() => LoadAsync(async () =>
@@ -71,7 +143,7 @@
         }
 
         _selectedLocationId = _locations[0].Id;
-        _timeline = [.. await Client.GetForecastAsync(_selectedLocationId)];
+        await LoadPointAsync();
 
         return _timeline.Count;
     }, "등록된 관측 지역이 없습니다. [관측 지역 관리]에서 먼저 등록하십시오.", "예보를 읽지 못했습니다");
@@ -90,7 +162,30 @@
             return -1;
         }
 
-        _timeline = [.. await Client.GetForecastAsync(_selectedLocationId)];
+        await LoadPointAsync();
         return _timeline.Count;
     }, "그 지역의 예보가 아직 없습니다.", "예보를 읽지 못했습니다");
+
+    /// <summary>
+    /// 한 지역의 시간대별과 주간을 함께 읽는다.
+    ///
+    /// <para>
+    /// <b>주간이 실패해도 시간대별은 보여 준다.</b> 중기 예보는 기상청 쪽
+    /// 자료가 늦게 들어오는 때가 있어, 그것 때문에 화면 전체가 비면
+    /// 「예보가 없다」로 읽힌다.
+    /// </para>
+    /// </summary>
+    private async Task LoadPointAsync()
+    {
+        _timeline = [.. await Client.GetForecastAsync(_selectedLocationId)];
+
+        try
+        {
+            _weekly = [.. await Client.GetMidTermForecastAsync(_selectedLocationId)];
+        }
+        catch (ApiException)
+        {
+            _weekly = [];
+        }
+    }
 }
