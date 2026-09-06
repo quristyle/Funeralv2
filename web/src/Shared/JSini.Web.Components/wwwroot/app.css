@@ -1979,6 +1979,34 @@ a.jsini-crumbs__item:hover { opacity: 1; }
    목록에 점이 안 붙는다(테마 reset 이 `list-style` 을 지운다).
    ---------------------------------------------------------- */
 
+/* ── 공지 팝업의 머리는 잡는 자리다 ──────────────────────────
+
+   `AllowDrag` 로 끌기는 켜 두었는데(NoticePopup) **DevExpress 는 동작만 붙이고
+   커서는 그대로 둔다** — 떠 있는 화면에서 재면 `default` 다. 잡을 수 있다는
+   표시가 없으면 아무도 잡아 보지 않는다.
+
+   `!important` 를 쓴 이유가 있다. 테마가 이 커서를 클래스 여섯 개짜리 규칙으로
+   박아 둔다 —
+
+     .dxbl-modal > .dxbl-modal-root > .dxbl-popup > .dxbl-modal-content
+       .dxbl-popup-header > .dxbl-modal-header { cursor: default }
+
+   이기려면 그 구조를 그대로 흉내 내야 하는데, 그러면 DevExpress 의 DOM 생김새에
+   기대는 자리가 하나 더 늘고 버전이 오를 때 말없이 깨진다. **속성 하나를 이기는
+   쪽이 구조를 베끼는 쪽보다 덜 깨진다.**
+
+   글자 위에서 끌면 글이 선택되면서 창이 안 따라온다. 머리에 있는 것은 제목과
+   날짜뿐이라 골라 담을 일이 없어 선택을 끈다. */
+.jsini-notice-popup__head {
+  cursor: move !important;
+  user-select: none;
+}
+
+/* 닫기 단추는 누르는 자리다. 머리에서 물려받은 `move` 를 되돌린다. */
+.jsini-notice-popup__head button {
+  cursor: pointer !important;
+}
+
 .jsini-notice-popup__title {
   min-width: 0;
 }
