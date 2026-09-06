@@ -6,10 +6,11 @@
 
     이력: Vue `views/life/weather/dashboard.vue` → 여기.
     호출: `life/weather`(전 지역 실황) · `life/weather/locations` ·
-          `life/weather/current/{id}` · `life/weather/mid-term/{id}`
+          `life/weather/current/{id}` · `life/weather/mid-term/{id}` ·
+          `life/weather/forecast/{id}`(-10h~+10h 타임라인, 추이 차트 재료)
 
-    전 지역 최신 실황을 카드로 늘어놓고, 고른 지역의 실황 상세와 주간 예보를
-    아래에 편다.
+    전 지역 최신 실황을 카드로 늘어놓고, 고른 지역의 실황 상세·주간 예보·
+    예보 추이 차트를 아래에 편다.
 
     [실패를 말하지 않고 있었다]
 
@@ -21,7 +22,17 @@
     위 줄에 「선택한 지역의 주간 예보 및 추이를 시각화한다」고 적혀 있었는데,
     고르면 **카드에 테두리만 생겼다.** 주간 예보를 부르는 곳이 화면 어디에도
     없었고(`mid-term`), 어제 대비 기온도 마찬가지였다(`current` 가 준다).
-    클라이언트에는 둘 다 있었다.
+    클라이언트에는 둘 다 있었다. 실황·주간 예보를 먼저 붙였고, 남아 있던
+    「추이 시각화」는 아래 차트로 마저 해소했다.
+
+    [예보 추이 차트 — D3 결정 반영]
+
+    옛 화면의 예보 추이 차트(echarts, 기온/강수/바람/습도 라디오로 갈아
+    끼움)를 DevExpress `DxChart` 로 되살렸다 — D3: 「DevExpress Blazor
+    차트를, 기존에 차트가 있던 화면에」. 재료는 클라이언트에 이미 있던
+    `forecast/{id}` 타임라인이고 카테고리 전환은 받아 둔 자료를 다시 그리기만
+    한다(옛 화면과 같다). 옛 화면의 NOW 주황 점선은 상수선 대신 실측→예보가
+    갈리는 칸의 X 라벨을 「지금」으로 바꿔 표시한다 — 뜻은 같고 부품은 적다.
 
     [어제 대비를 색만으로 보이지 않는다]
 
@@ -162,6 +173,86 @@ else
                 }
             </div>
         }
+
+        <h2 class="le-today__head">예보 추이</h2>
+
+        @if (_trend.Count == 0)
+        {
+            <p class="le-today__empty">이 지역의 예보 추이가 아직 없습니다.</p>
+        }
+        else
+        {
+            <div class="card p-3">
+                <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+                    <div class="d-flex gap-1">
+                        @* 옛 화면의 카테고리 라디오 자리. 자료는 한 번 받아 두고
+                           고른 항목만 다시 그린다 — 단추마다 서버를 부르지 않는다. *@
+                        <DxButton Text="기온" SizeMode="SizeMode.Small"
+                                  RenderStyle="@MetricStyle(TrendMetric.Temp)"
+                                  Click="@(() => _metric = TrendMetric.Temp)" />
+                        <DxButton Text="강수" SizeMode="SizeMode.Small"
+                                  RenderStyle="@MetricStyle(TrendMetric.Rain)"
+                                  Click="@(() => _metric = TrendMetric.Rain)" />
+                        <DxButton Text="바람" SizeMode="SizeMode.Small"
+                                  RenderStyle="@MetricStyle(TrendMetric.Wind)"
+                                  Click="@(() => _metric = TrendMetric.Wind)" />
+                        <DxButton Text="습도" SizeMode="SizeMode.Small"
+                                  RenderStyle="@MetricStyle(TrendMetric.Humid)"
+                                  Click="@(() => _metric = TrendMetric.Humid)" />
+                    </div>
+                    <span class="fs-7 text-muted">지난 10시간 실측 · 「지금」 칸부터 예보</span>
+                </div>
+
+                <DxChart Data="@_trend" Width="100%" Height="280px">
+                    <DxChartLegend Visible="false" />
+                    @switch (_metric)
+                    {
+                        case TrendMetric.Rain:
+                            @* 강수량만 막대로 — 옛 화면과 같다. 강수확률(%)은 단위가
+                               달라 같은 축에 못 올린다. 주간 예보 줄이 이미 보여 준다. *@
+                            <DxChartBarSeries T="TrendPoint" TArgument="string" TValue="double?"
+                                              ArgumentField="p => p.Label"
+                                              ValueField="p => p.Rain"
+                                              Name="강수량(mm)" />
+                            <DxChartValueAxis>
+                                <DxChartAxisTitle Text="강수량(mm)" />
+                            </DxChartValueAxis>
+                            break;
+                        case TrendMetric.Wind:
+                            <DxChartLineSeries T="TrendPoint" TArgument="string" TValue="double"
+                                               ArgumentField="p => p.Label"
+                                               ValueField="p => p.WindSpeed"
+                                               Name="풍속(m/s)" />
+                            <DxChartValueAxis>
+                                <DxChartAxisTitle Text="풍속(m/s)" />
+                            </DxChartValueAxis>
+                            break;
+                        case TrendMetric.Humid:
+                            <DxChartLineSeries T="TrendPoint" TArgument="string" TValue="double?"
+                                               ArgumentField="p => p.Label"
+                                               ValueField="p => p.Humidity"
+                                               Name="습도(%)" />
+                            <DxChartValueAxis>
+                                <DxChartAxisRange StartValue="@(0)" EndValue="@(100)" />
+                                <DxChartAxisTitle Text="습도(%)" />
+                            </DxChartValueAxis>
+                            break;
+                        default:
+                            <DxChartLineSeries T="TrendPoint" TArgument="string" TValue="double"
+                                               ArgumentField="p => p.Label"
+                                               ValueField="p => p.Temp"
+                                               Name="기온(°C)" />
+                            <DxChartValueAxis>
+                                <DxChartAxisTitle Text="기온(°C)" />
+                            </DxChartValueAxis>
+                            break;
+                    }
+                    <DxChartTooltip Enabled="true">
+                        <div class="p-2">@context.Point.Argument · @context.Point.SeriesName @context.Point.Value</div>
+                    </DxChartTooltip>
+                </DxChart>
+            </div>
+        }
     }
 }
 
@@ -172,6 +263,8 @@ else
 
     private WeatherInfo? _current;
     private List<MidTermForecast> _midTerm = [];
+    private List<TrendPoint> _trend = [];
+    private TrendMetric _metric = TrendMetric.Temp;
 
     protected override Task OnInitializedAsync() => LoadDataAsync();
 
@@ -215,15 +308,16 @@ else
     }
 
     /// <summary>
-    /// 고른 지역의 실황 상세와 주간 예보.
+    /// 고른 지역의 실황 상세 · 주간 예보 · 예보 추이(차트 재료).
     ///
-    /// 둘을 나란히 부른다. 실패해도 위 카드는 그대로 둔다 — 한 지역의 예보를
+    /// 셋을 나란히 부른다. 실패해도 위 카드는 그대로 둔다 — 한 지역의 예보를
     /// 못 읽었다고 전 지역 실황까지 사라지면 이 화면을 여는 이유가 없어진다.
     /// </summary>
     private async Task LoadSelectedAsync()
     {
         _current = null;
         _midTerm = [];
+        _trend = [];
 
         if (_selectedLocationId == 0)
         {
@@ -234,17 +328,67 @@ else
         {
             var current = Client.GetCurrentWeatherAsync(_selectedLocationId);
             var midTerm = Client.GetMidTermForecastAsync(_selectedLocationId);
+            var forecast = Client.GetForecastAsync(_selectedLocationId);
 
-            await Task.WhenAll(current, midTerm);
+            await Task.WhenAll(current, midTerm, forecast);
 
             _current = current.Result;
             _midTerm = [.. midTerm.Result];
+            _trend = BuildTrend(forecast.Result);
         }
         catch (ApiException)
         {
             // 위 카드는 이미 그려져 있다. 여기서 화면을 세우지 않는다.
             _current = null;
             _midTerm = [];
+            _trend = [];
         }
     }
+
+    private ButtonRenderStyle MetricStyle(TrendMetric metric)
+        => _metric == metric ? ButtonRenderStyle.Primary : ButtonRenderStyle.Secondary;
+
+    /// <summary>
+    /// 타임라인을 차트 점으로 옮긴다.
+    ///
+    /// X 라벨 규칙은 옛 화면 그대로다 — 날짜가 바뀌는 칸은 M/D, 나머지는 HH시.
+    /// 실측→예보가 갈리는 칸만 「지금」으로 바꾼다(옛 NOW 점선 자리).
+    /// 타임라인이 21시간이라 시각 라벨이 겹칠 일이 없다 — 카테고리 축은
+    /// 같은 라벨을 한 칸으로 합치므로, 하루를 넘는 자료를 다루게 되면
+    /// 라벨에 날짜를 함께 넣어야 한다.
+    /// </summary>
+    private static List<TrendPoint> BuildTrend(IReadOnlyList<WeatherTimelinePoint> rows)
+    {
+        var list = new List<TrendPoint>(rows.Count);
+
+        for (var i = 0; i < rows.Count; i++)
+        {
+            var row = rows[i];
+            var isNow = row.IsForecast && (i == 0 || !rows[i - 1].IsForecast);
+            var isNewDate = i == 0 || row.Date != rows[i - 1].Date;
+
+            var label = isNow
+                ? "지금"
+                : isNewDate ? DayLabel(row.Date) : HourLabel(row.Time);
+
+            list.Add(new TrendPoint(label, row.Temp, row.Rain, row.WindSpeed, row.Reh));
+        }
+
+        return list;
+    }
+
+    /// <summary>yyyyMMdd → "M/d". 형식이 어긋난 값은 그대로 보여 준다 — 라벨 하나 때문에 화면을 세우지 않는다.</summary>
+    private static string DayLabel(string date)
+        => date.Length == 8 && int.TryParse(date[4..6], out var m) && int.TryParse(date[6..8], out var d)
+            ? $"{m}/{d}"
+            : date;
+
+    /// <summary>HHmm → "HH시".</summary>
+    private static string HourLabel(string time)
+        => time.Length >= 2 ? $"{time[..2]}시" : time;
+
+    private enum TrendMetric { Temp, Rain, Wind, Humid }
+
+    /// <summary>차트 한 점. 습도는 실측 구간에 빈 칸이 있을 수 있어 nullable — DxChart 는 null 을 빈 칸으로 건너뛴다.</summary>
+    private sealed record TrendPoint(string Label, double Temp, double? Rain, double WindSpeed, double? Humidity);
 }

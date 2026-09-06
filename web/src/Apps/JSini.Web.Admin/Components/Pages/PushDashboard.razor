@@ -6,12 +6,18 @@
 
     발송 건수 · 성공률 · 실패 사유를 한 화면에 모은다.
 
-    [차트를 넣지 않았다]
+    [차트 — 처음에는 안 넣었다가 D3 결정으로 넣었다]
 
-    Vue 는 echarts 로 추이를 그렸다. 여기서는 표로 둔다 — 차트 라이브러리를
-    하나 더 얹는 값어치가 있는지 확인되지 않았고, 실제로 보는 것은 "어제보다
-    나빠졌나" 와 "무엇 때문에 실패했나" 둘이다. 표로도 읽힌다.
-    필요해지면 그때 넣는다.
+    Vue 는 echarts 로 추이를 그렸다. 이식 때는 표로만 두었다 — 차트
+    라이브러리를 하나 더 얹는 값어치가 확인되지 않아서다. D3 에서
+    「DevExpress Blazor 차트를, 기존에 차트가 있던 화면에」로 정해져
+    DxChart 를 붙였다. 라이브러리 추가가 아니다 — 26.1.4 에 이미 들어 있다.
+
+    성공률 추이는 선이고 축을 0~100 으로 못박는다. 축이 값 따라 늘고 줄면
+    "어제보다 나빠졌나" 를 기울기로 읽을 수 없다 — 옛 화면도 고정이었다.
+    실패 사유는 가로 막대다. 사유 문구가 길어 세로로 세우면 라벨이 겹친다.
+    (옛 Vue 최종본은 실패 사유가 표뿐이었지만 D3 문서가 막대까지 적고 있어
+    함께 붙였다.) 표는 지우지 않았다 — 정확한 값은 표가 빠르다.
 *@
 
 @inherits DataPage
@@ -51,6 +57,29 @@
 }
 
 <h2 class="ad-subhead">성공률 추이</h2>
+
+@if (_trend.Count > 0)
+{
+    <div class="card p-3 mb-3">
+        <DxChart Data="@_trend" Width="100%" Height="240px">
+            <DxChartLegend Visible="false" />
+            <DxChartLineSeries T="PushTrendPointDto" TArgument="string" TValue="double"
+                               ArgumentField="p => p.Period"
+                               ValueField="p => p.SuccessRate"
+                               Name="성공률(%)" />
+            <DxChartValueAxis>
+                <DxChartAxisRange StartValue="@(0)" EndValue="@(100)" />
+            </DxChartValueAxis>
+            <DxChartTooltip Enabled="true">
+                <div class="p-2">
+                    @context.Point.Argument —
+                    성공률 @(context.Point.Value is double rate ? rate.ToString("0.0") : context.Point.Value)%
+                </div>
+            </DxChartTooltip>
+        </DxChart>
+    </div>
+}
+
 <DxGrid Data="@_trend" ShowFilterRow="false" PageSize="15">
     <Columns>
         <DxGridDataColumn FieldName="@nameof(PushTrendPointDto.Period)" Caption="기간" Width="160" />
@@ -65,6 +94,23 @@
 </DxGrid>
 
 <h2 class="ad-subhead">실패 사유</h2>
+
+@if (_reasons.Count > 0)
+{
+    <div class="card p-3 mb-3">
+        <DxChart Data="@_reasons" Width="100%" Height="220px" Rotated="true">
+            <DxChartLegend Visible="false" />
+            <DxChartBarSeries T="PushFailureReasonDto" TArgument="string" TValue="int"
+                              ArgumentField="r => r.Reason"
+                              ValueField="r => r.Count"
+                              Name="건수" />
+            <DxChartTooltip Enabled="true">
+                <div class="p-2">@context.Point.Argument — @(context.Point.Value)건</div>
+            </DxChartTooltip>
+        </DxChart>
+    </div>
+}
+
 <DxGrid Data="@_reasons" ShowFilterRow="false" PageSizeSelectorVisible="false" PagerVisible="false">
     <Columns>
         <DxGridDataColumn FieldName="@nameof(PushFailureReasonDto.Reason)" Caption="사유" MinWidth="260" />

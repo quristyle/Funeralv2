@@ -1,4 +1,5 @@
 @page "/projmng/proj/monitoring"
+@using System.Data
 
 @*
     [프로젝트 진행 현황]
@@ -26,10 +27,20 @@
 
     서버가 등록된 소스 경로를 훑어 화면 수를 센다. 디스크를 훑는 일이라
     오래 걸릴 수 있어 조회에 딸려 돌지 않는다 — 옛 화면도 그랬다.
+
+    [진척 차트 — D3 결정]
+
+    옛 Vue 는 "WBS 진행" 카드에 완료(COMP) 비율 막대(Progress) 하나를 그렸다.
+    차트는 DevExpress 것을 쓰기로 해서 같은 자료(sp_proj_wbs_exec 의
+    wbs_state)를 DxChart 상태별 건수 막대로 그리고, 완료 비율은 차트 제목에
+    적는다 — 막대 하나보다 어느 상태에 몇 건이 몰려 있는지가 보인다.
+    상태 코드는 compstat 공통코드로 이름을 바꾼다. 코드표를 못 읽어도 차트는
+    떠야 하므로, 그때는 코드 그대로 보여 준다.
 *@
 
 @inherits DataPage
 @inject ProjMngClient Client
+@inject CommonCodes Codes
 
 <PageTitle>프로젝트 진행 현황 · 프로젝트관리</PageTitle>
 
@@ -69,6 +80,21 @@
         <div class="jsini-stat__value">@(_scanned is null ? "–" : _scanned.Table.Rows.Count.ToString())</div>
     </div>
 </div>
+
+@if (_stateCounts.Count > 0)
+{
+    <div style="margin: 0.75rem 0;">
+        <DxChart Data="@_stateCounts" Width="100%" Height="240px">
+            <DxChartTitle Text="@ProgressTitle" />
+            <DxChartLegend Visible="false" />
+            <DxChartBarSeries Name="건수"
+                              ArgumentField="@((StateCount s) => s.Name)"
+                              ValueField="@((StateCount s) => s.Count)">
+                <DxChartSeriesLabel Visible="true" />
+            </DxChartBarSeries>
+        </DxChart>
+    </div>
+}
 
 <PageNotice Text="@Notice" Tone="@Tone" />
 
@@ -113,6 +139,24 @@
 
     private string? _projectCode;
 
+    /// <summary>진척 차트 한 점 = WBS 상태 하나.</summary>
+    private sealed record StateCount(string Name, int Count);
+
+    private IReadOnlyList<StateCount> _stateCounts = [];
+
+    /// <summary>완료(COMP) 건수. 판정 기준은 옛 Vue 화면과 같다.</summary>
+    private int _wbsDone;
+
+    private string ProgressTitle
+    {
+        get
+        {
+            var total = _wbs.Data.Table.Rows.Count;
+            var percent = total == 0 ? 0 : (int)Math.Round(_wbsDone * 100.0 / total);
+            return $"WBS 진행 — 완료 {_wbsDone} / 전체 {total} ({percent}%)";
+        }
+    }
+
     protected override void OnInitialized()
     {
         _wbs = new ProcGrid(Client, "sp_proj_wbs_exec");
@@ -132,6 +176,8 @@
         var dbParam = new Dictionary<string, object?> { ["proj_rid"] = _projectCode ?? string.Empty };
 
         _scanned = null;
+        _stateCounts = [];
+        _wbsDone = 0;
 
         // 넷을 나란히. 서로 기다릴 이유가 없다.
         await Task.WhenAll(
@@ -140,11 +186,67 @@
             _users.LoadAsync(p),
             _dbs.LoadAsync(dbParam));
 
+        await BuildProgressAsync();
+
         return _wbs.Data.Table.Rows.Count
              + _source.Data.Table.Rows.Count
              + _users.Data.Table.Rows.Count
              + _dbs.Data.Table.Rows.Count;
     }, "그 프로젝트에 등록된 자료가 없습니다.", "진행 현황을 읽지 못했습니다");
+
+    /// <summary>
+    /// WBS 표에서 상태별 건수를 센다 — 진척 차트의 재료다.
+    ///
+    /// <c>wbs_state</c> 칸이 없으면 차트를 그리지 않는다. 프로시저가 칸을
+    /// 바꿨다는 뜻이라, 틀린 축으로 그려 보여 주는 것보다 안 보이는 편이 낫다.
+    /// </summary>
+    private async Task BuildProgressAsync()
+    {
+        var table = _wbs.Data.Table;
+        if (!table.Columns.Contains("wbs_state") || table.Rows.Count == 0)
+        {
+            _stateCounts = [];
+            _wbsDone = 0;
+            return;
+        }
+
+        // 처음 나온 순서를 지켜 센다 — 코드표를 못 읽었을 때의 축 순서다.
+        var counts = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (DataRow row in table.Rows)
+        {
+            var code = row["wbs_state"] is string s && s.Length > 0 ? s : "(미지정)";
+            counts[code] = counts.GetValueOrDefault(code) + 1;
+        }
+
+        _wbsDone = counts.GetValueOrDefault("COMP");
+
+        // 상태 코드 → 사람이 읽는 이름. 코드표를 못 읽어도 차트는 떠야 한다.
+        IReadOnlyList<CommonCodeItem> codeItems = [];
+        try
+        {
+            codeItems = await Codes.GetAsync("compstat");
+        }
+        catch (ApiException)
+        {
+            // 코드 그대로 보여 준다.
+        }
+
+        // 코드표에 있는 상태를 그 순서대로 앞에, 코드표 밖 상태를 뒤에 둔다.
+        var ordered = new List<StateCount>();
+        foreach (var item in codeItems)
+        {
+            if (counts.Remove(item.Code, out var count))
+            {
+                ordered.Add(new StateCount(item.Name, count));
+            }
+        }
+        foreach (var (code, count) in counts)
+        {
+            ordered.Add(new StateCount(code, count));
+        }
+
+        _stateCounts = ordered;
+    }
 
     /// <summary>
     /// 서버가 소스 경로를 훑어 화면 목록을 센다.
