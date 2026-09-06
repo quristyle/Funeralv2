@@ -574,3 +574,8 @@
   opacity: 0;
   cursor: pointer;
 }
+
+/* 서식 편집기(Q&A · F.A.Q). 높이를 주지 않으면 한 줄로 접혀 나온다. */
+.fn-editor {
+  height: 18rem;
+}

@@ -92,8 +92,17 @@
                 </DxFormLayoutItem>
             }
 
+            @* 본문은 **HTML 이다.** 옛 화면이 서식 편집기로 썼고 저장된 글에
+               태그가 들어 있다. 여기를 여러 줄 입력으로 두면 두 가지가 어긋난다 —
+               고치러 열었을 때 태그가 그대로 보이고, 새로 쓴 글은 줄바꿈이
+               사라진다(HTML 로 그려지므로 개행이 무시된다).
+
+               `DxRichEdit` 이 아니다. 그쪽은 문서(docx)를 다루는 부품이다. *@
             <DxFormLayoutItem Caption="내용" ColSpanMd="12">
-                <DxMemo @bind-Text="_content" Rows="10" NullText="내용을 적으십시오" />
+                <DxHtmlEditor @bind-Markup="_content"
+                              BindMarkupMode="HtmlEditorBindMarkupMode.OnDelayedInput"
+                              CssClass="fn-editor"
+                              NullText="내용을 적으십시오" />
             </DxFormLayoutItem>
 
             <DxFormLayoutItem Caption="공개" ColSpanMd="12">
