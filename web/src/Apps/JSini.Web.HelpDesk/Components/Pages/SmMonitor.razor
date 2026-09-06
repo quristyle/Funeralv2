@@ -42,11 +42,11 @@
     <div class="jsini-stats">
         <div class="jsini-stat">
             <div class="jsini-stat__label">접수</div>
-            <div class="jsini-stat__value">@_report.TotalCreated</div>
+            <div class="jsini-stat__value">@_report.TotalRequests</div>
         </div>
         <div class="jsini-stat">
             <div class="jsini-stat__label">해결</div>
-            <div class="jsini-stat__value">@(_report.AdminCompletedCount + _report.UserCompletedCount)</div>
+            <div class="jsini-stat__value">@(_report.CompletedRequests + _report.UserCompletedRequests)</div>
         </div>
         <div class="jsini-stat">
             <div class="jsini-stat__label">해결률</div>
@@ -55,15 +55,15 @@
         <div class="jsini-stat">
             @* MTTR — 평균 해결 시간. SM 계약에서 실제로 따지는 숫자다. *@
             <div class="jsini-stat__label">평균 해결</div>
-            <div class="jsini-stat__value">@_report.AvgResolutionTime.ToString("0.0")시간</div>
+            <div class="jsini-stat__value">@_report.AverageResolutionTimeHours.ToString("0.0")시간</div>
         </div>
         <div class="jsini-stat">
             <div class="jsini-stat__label">진행 중</div>
-            <div class="jsini-stat__value">@_report.InProgressCount</div>
+            <div class="jsini-stat__value">@_report.InProgressRequests</div>
         </div>
         <div class="jsini-stat">
             <div class="jsini-stat__label">대기</div>
-            <div class="jsini-stat__value">@_report.PendingCount</div>
+            <div class="jsini-stat__value">@_report.PendingRequests</div>
         </div>
     </div>
 }
@@ -177,10 +177,10 @@
         _byType = Pairs(_report?.RequestsByType);
 
         _daily = _report?.DailyStats is { Count: > 0 } days
-            ? [.. days.Select(d => new DailyStat(d.Day, d.CreatedCount, d.CompletedCount))]
+            ? [.. days.Select(d => new DailyStat(d.Day, d.RequestCount, d.CompletedCount))]
             : [];
 
-        return (_report?.TotalCreated ?? 0) + _emergency.Rows.Count;
+        return (_report?.TotalRequests ?? 0) + _emergency.Rows.Count;
     }, "그 달에 접수된 요청이 없습니다.", "현황을 읽지 못했습니다");
 
     /// <summary>실패를 삼키고 <c>default</c> 를 돌려준다. 까닭은 화면 머리말에 있다.</summary>

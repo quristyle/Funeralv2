@@ -395,8 +395,18 @@ public sealed class ScheduleDto
 /// 한 달치 요청 통계. 서버의 <c>MaintenanceReportDto</c> 와 짝이다.
 /// </summary>
 /// <remarks>
-/// SM 모니터링과 월간 보고서가 같은 것을 쓴다 — 한쪽만 고치면 두 화면의
+/// <para>
+/// <b>이름을 서버 것과 똑같이 둔다.</b> 한 번 다르게 적었다가
+/// 「응답을 해석하지 못했습니다」로 화면이 비었다 — <c>TotalCreated</c> ·
+/// <c>AvgResolutionTime</c> 처럼 읽기 좋은 이름을 붙였는데 서버는
+/// <c>totalRequests</c> · <c>averageResolutionTimeHours</c> 를 준다.
+/// 봉투를 벗기는 쪽이 대소문자만 무시할 뿐 이름은 그대로 본다.
+/// </para>
+///
+/// <para>
+/// SM 모니터링과 유지보수 현황이 같은 것을 쓴다 — 한쪽만 고치면 두 화면의
 /// 숫자가 달라진다.
+/// </para>
 /// </remarks>
 public sealed class MonthlyReport
 {
@@ -404,14 +414,18 @@ public sealed class MonthlyReport
     public int Month { get; set; }
 
     /// <summary>그 달에 접수된 건수.</summary>
-    public int TotalCreated { get; set; }
+    public int TotalRequests { get; set; }
 
-    public int AdminCompletedCount { get; set; }
-    public int UserCompletedCount { get; set; }
-    public int PendingCount { get; set; }
-    public int InProgressCount { get; set; }
-    public int ConsultationCount { get; set; }
-    public int NegotiationCount { get; set; }
+    /// <summary>관리자가 완료 처리한 건수.</summary>
+    public int CompletedRequests { get; set; }
+
+    /// <summary>사용자가 종료한 건수.</summary>
+    public int UserCompletedRequests { get; set; }
+
+    public int PendingRequests { get; set; }
+    public int InProgressRequests { get; set; }
+    public int ConsultationRequests { get; set; }
+    public int NegotiationRequests { get; set; }
 
     public double ResolutionRate { get; set; }
 
@@ -419,7 +433,7 @@ public sealed class MonthlyReport
     public Dictionary<string, int>? RequestsByType { get; set; }
 
     /// <summary>평균 해결 시간(시간). SM 계약에서 실제로 따지는 숫자다(MTTR).</summary>
-    public double AvgResolutionTime { get; set; }
+    public double AverageResolutionTimeHours { get; set; }
 
     public Dictionary<string, int>? ResolutionTimeDistribution { get; set; }
 
@@ -430,6 +444,9 @@ public sealed class MonthlyReport
 public sealed class DailyRequestStat
 {
     public int Day { get; set; }
-    public int CreatedCount { get; set; }
+
+    /// <summary>그날 접수된 건수. <b>서버 이름이 <c>requestCount</c> 다.</b></summary>
+    public int RequestCount { get; set; }
+
     public int CompletedCount { get; set; }
 }

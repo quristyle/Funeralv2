@@ -45,19 +45,19 @@
     <div class="jsini-stats">
         <div class="jsini-stat">
             <div class="jsini-stat__label">접수</div>
-            <div class="jsini-stat__value">@_report.TotalCreated</div>
+            <div class="jsini-stat__value">@_report.TotalRequests</div>
         </div>
         <div class="jsini-stat">
             <div class="jsini-stat__label">완료</div>
-            <div class="jsini-stat__value">@_report.AdminCompletedCount</div>
+            <div class="jsini-stat__value">@_report.CompletedRequests</div>
         </div>
         <div class="jsini-stat">
             <div class="jsini-stat__label">사용자 종료</div>
-            <div class="jsini-stat__value">@_report.UserCompletedCount</div>
+            <div class="jsini-stat__value">@_report.UserCompletedRequests</div>
         </div>
         <div class="jsini-stat">
             <div class="jsini-stat__label">진행 중</div>
-            <div class="jsini-stat__value">@_report.InProgressCount</div>
+            <div class="jsini-stat__value">@_report.InProgressRequests</div>
         </div>
         <div class="jsini-stat">
             <div class="jsini-stat__label">해결률</div>
@@ -65,7 +65,7 @@
         </div>
         <div class="jsini-stat">
             <div class="jsini-stat__label">평균 해결</div>
-            <div class="jsini-stat__value">@_report.AvgResolutionTime.ToString("0.0")시간</div>
+            <div class="jsini-stat__value">@_report.AverageResolutionTimeHours.ToString("0.0")시간</div>
         </div>
     </div>
 }
@@ -77,7 +77,7 @@
     <DxChart Data="@_daily" Width="100%" Height="240px">
         <DxChartLegend Position="RelativePosition.Outside" />
         <DxChartBarSeries T="DailyRequestStat" TArgument="int" TValue="int"
-                          ArgumentField="d => d.Day" ValueField="d => d.CreatedCount" Name="접수" />
+                          ArgumentField="d => d.Day" ValueField="d => d.RequestCount" Name="접수" />
         <DxChartBarSeries T="DailyRequestStat" TArgument="int" TValue="int"
                           ArgumentField="d => d.Day" ValueField="d => d.CompletedCount" Name="완료" />
     </DxChart>
@@ -135,6 +135,6 @@
             ? [.. dist.Select(kv => new Bucket(kv.Key, kv.Value))]
             : [];
 
-        return _report?.TotalCreated ?? 0;
+        return _report?.TotalRequests ?? 0;
     }, "그 달에 접수된 요청이 없습니다.", "현황을 읽지 못했습니다");
 }
