@@ -518,6 +518,10 @@ Components/Shared/Notice.razor        화면 안내줄
   **대시보드처럼 키 큰 조각이 여럿 쌓인 화면은 감싸지 않는다** — 감싸면
   남은 높이를 그 판이 다 먹어 아래가 잘린다.
 - 안내 줄은 `PageNotice`, 묶음 길잡이는 `GroupLinks`.
+- 표의 **자료 칸은 가운데 정렬이 기본**이다. 오른쪽·왼쪽으로 두고 싶은 칸만
+  `TextAlignment` 를 적는다 — 적으면 그 값이 이긴다. CSS 로 하지 않는 이유는
+  DevExpress 가 **우리가 정한 것과 자기가 자료형을 보고 정한 것에 같은 클래스**를
+  붙여서, CSS 만으로는 둘을 구분할 수 없기 때문이다.
 - 조건줄은 `jsini-toolbar`, 통계 타일은 `jsini-stats`, 상태 표시는 `jsini-badge`.
 - 모듈 전용 스타일은 그 모듈 `wwwroot/*.css` 에 두고
   `IPortalModule.StyleSheet` 로 알린다. 셸은 모듈 이름을 알지 못한다.

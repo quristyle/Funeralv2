@@ -988,7 +988,18 @@ a.jsini-crumbs__item:hover { opacity: 1; }
 .commgrd__actions {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0.25rem;
+}
+
+/* 자료 칸의 기본 정렬. 어느 칸에 붙일지는 CommGrd 가 정한다 —
+   칸이 TextAlignment 를 직접 정한 자리에는 이 클래스가 안 붙는다.
+
+   DevExpress 의 `.dxbl-align-*` 은 클래스 하나(0,1,0)라 이 규칙이 이긴다.
+   그래서 **붙는 자리를 좁히는 것**으로 뜻을 지킨다 — 여기서 더 넓게 잡으면
+   화면이 오른쪽으로 맞춰 둔 금액 칸까지 가운데로 끌려온다. */
+.commgrd .dxbl-grid-table > tbody > tr > td.commgrd__cell--center {
+  text-align: center;
 }
 
 /* 순번. 자료가 아니라 자리 표시라 옅게, 가운데로. 자릿수가 늘어도 흔들리지

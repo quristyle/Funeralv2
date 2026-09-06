@@ -474,6 +474,19 @@
             && (e.VisibleIndex - PageOffset) % 2 == 1)
         {
             e.CssClass = "commgrd__row--alt";
+            return;
+        }
+
+        // 자료 칸의 기본 정렬은 가운데다. 칸이 TextAlignment 를 직접 정했으면(Auto 가 아니면)
+        // 건드리지 않는다 — 그 값이 그 칸의 뜻이다.
+        //
+        // CSS 로만 하면 이 구분을 할 수 없다. DevExpress 는 우리가 정한 것과
+        // 자기가 자료형을 보고 정한 것(숫자는 오른쪽)에 **같은 클래스**를
+        // 붙이기 때문이다. 여기서는 칸이 선언한 값을 그대로 읽을 수 있다.
+        if (e.ElementType == GridElementType.DataCell
+            && e.Column?.TextAlignment == GridTextAlignment.Auto)
+        {
+            e.CssClass = "commgrd__cell--center";
         }
     }
 
