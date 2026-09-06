@@ -3,17 +3,27 @@
 @*
     [프로시저 결과] — DB 메뉴 `/helpdesk/hanju/procedure-result`.
     이력: Vue `views/helpdesk/hanju/procedure-result` → 여기.
-    프로시저: `P_QURI_SERVER_REPORT` (`QueryType = 'PROCEDURE_RESULT'`)
+    프로시저: `P_QURI_PROC`(목록·인자) → 고른 프로시저 실행
 
-    정기 프로시저가 무엇을 했는지 본다.
+    [고정 조회 한 건이 되어 있었다]
 
-    [프로시저 하나에 QueryType 만 다르다]
+    원본은 **프로시저를 고르고 인자를 넣어 돌리는 화면**이다(410줄).
+    `P_QURI_PROC` 이 「무엇을 돌릴 수 있고 인자가 무엇인지」를 돌려주고,
+    사람이 고른 뒤 값을 채워 실행한다. 옮길 때는
+    `P_QURI_SERVER_REPORT('PROCEDURE_RESULT')` 한 건만 부르는 표가 되어 있었다 —
+    **고를 수도, 인자를 넣을 수도 없었다.** 이 화면의 일 자체가 빠진 셈이다.
 
-    한주 화면 다섯이 같은 프로시저를 부르고 조회 종류만 다르다. 옛 화면도
-    그랬고, 그 통로를 `OadrApi.GetServerReportAsync` 가 감싼다.
+    [무엇을 돌릴 수 있는지는 DB 가 정한다]
 
-    **서버가 준 대로 보여 준다**(AutoGrid). 프로시저가 돌려주는 칸이 조회
-    종류마다 다르고 늘어나기도 해서, 칸을 박아 두면 새 칸이 조용히 사라진다.
+    프로시저 목록과 인자 이름을 화면에 박아 두지 않는다. DB 에 프로시저가
+    늘면 이 화면에 저절로 나온다 — 원본이 그렇게 만들어져 있고, 한주 쪽
+    운영자가 프로시저를 직접 늘린다.
+
+    [인자는 글자로 보낸다]
+
+    `P_QURI_PROC` 이 자료형을 알려 주기는 하지만(`DataType`), 서버가 결국
+    글자로 받아 변환한다. 화면에서 형을 따지면 **DB 가 형을 바꿀 때마다
+    화면이 틀린다** — 힌트로만 보여 준다.
 *@
 
 @inherits DataPage
@@ -22,22 +32,150 @@
 <PageTitle>프로시저 결과 · 헬프데스크</PageTitle>
 
 <div class="jsini-toolbar">
-    <DxButton Text="새로 고침" RenderStyle="ButtonRenderStyle.Primary" Click="@ReloadAsync" />
+    <DxComboBox Data="@_procedures" TextFieldName="@nameof(ProcedureInfo.Name)"
+                ValueFieldName="@nameof(ProcedureInfo.Name)"
+                Value="@_selected" ValueChanged="@((string? v) => Pick(v))"
+                ValueExpression="@(() => _selected)"
+                NullText="프로시저를 고르십시오" Style="width: 300px"
+                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+
+    <DxButton Text="실행" RenderStyle="ButtonRenderStyle.Primary"
+              Enabled="@(_selected is { Length: > 0 })" Click="@RunAsync" />
+
+    <DxButton Text="목록 새로 고침" RenderStyle="ButtonRenderStyle.Secondary" Click="@ReloadAsync" />
 </div>
+
+@if (Description is { Length: > 0 })
+{
+    <div class="jsini-hint">@Description</div>
+}
+
+@if (_parameters.Count > 0)
+{
+    <div class="hd-form">
+        @foreach (var parameter in _parameters)
+        {
+            <label class="hd-field">
+                <span class="hd-field__label">
+                    @parameter.Name
+                    @if (parameter.DataType is { Length: > 0 })
+                    {
+                        <span class="jsini-text-muted"> (@parameter.DataType)</span>
+                    }
+                </span>
+                <DxTextBox Text="@parameter.Value"
+                           TextChanged="@((string v) => parameter.Value = v)" />
+            </label>
+        }
+    </div>
+}
 
 <PageNotice Text="@Notice" Tone="@Tone" />
 
 <AutoGrid Data="@_rows" Loading="@Loading" PageSize="30" />
 
 @code {
+    /// <summary>돌릴 수 있는 프로시저 하나와 그 인자들.</summary>
+    private sealed class ProcedureInfo
+    {
+        public string Name { get; init; } = string.Empty;
+        public string? Description { get; set; }
+        public List<ProcedureParameter> Parameters { get; } = [];
+    }
+
+    /// <summary>인자 한 칸. 값은 사람이 채운다.</summary>
+    private sealed class ProcedureParameter
+    {
+        public string Name { get; init; } = string.Empty;
+        public string? DataType { get; init; }
+        public string? Value { get; set; }
+    }
+
+    private IReadOnlyList<ProcedureInfo> _procedures = [];
+    private IReadOnlyList<ProcedureParameter> _parameters = [];
+
+    private string? _selected;
     private DataTable _rows = JsonTable.Empty;
+
+    private string? Description =>
+        _procedures.FirstOrDefault(p => string.Equals(p.Name, _selected, StringComparison.Ordinal))?.Description;
 
     protected override Task OnInitializedAsync() => ReloadAsync();
 
+    /// <summary>
+    /// 돌릴 수 있는 프로시저 목록. <b>한 프로시저가 인자 수만큼 줄로 온다</b> —
+    /// 이름으로 묶어 인자를 모은다(원본과 같은 처리).
+    /// </summary>
     private Task ReloadAsync() => LoadAsync(async () =>
     {
-        var json = await Oadr.GetServerReportAsync<JsonElement>("PROCEDURE_RESULT");
-        _rows = JsonTable.From(json);
+        var raw = await Oadr.ExecuteProcedureAsync<JsonElement>("P_QURI_PROC");
+        var table = JsonTable.From(raw);
+
+        var map = new Dictionary<string, ProcedureInfo>(StringComparer.Ordinal);
+
+        foreach (DataRow row in table.Rows)
+        {
+            var name = Text(row, "ProcedureName");
+
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                continue;
+            }
+
+            if (!map.TryGetValue(name, out var info))
+            {
+                info = new ProcedureInfo { Name = name, Description = Text(row, "ProcDescription") };
+                map[name] = info;
+            }
+
+            var parameter = Text(row, "ParameterName");
+
+            if (!string.IsNullOrWhiteSpace(parameter))
+            {
+                info.Parameters.Add(new ProcedureParameter
+                {
+                    Name = parameter,
+                    DataType = Text(row, "DataType"),
+                });
+            }
+        }
+
+        _procedures = [.. map.Values.OrderBy(p => p.Name, StringComparer.Ordinal)];
+
+        return _procedures.Count;
+    }, "돌릴 수 있는 프로시저가 없습니다.", "프로시저 목록을 읽지 못했습니다");
+
+    /// <summary>고른 프로시저의 인자 칸을 갈아 끼운다. 앞서 넣은 값은 버린다.</summary>
+    private void Pick(string? name)
+    {
+        _selected = name;
+        _rows = JsonTable.Empty;
+
+        var info = _procedures.FirstOrDefault(p => string.Equals(p.Name, name, StringComparison.Ordinal));
+
+        _parameters = info is null
+            ? []
+            : [.. info.Parameters.Select(p => new ProcedureParameter { Name = p.Name, DataType = p.DataType })];
+    }
+
+    private Task RunAsync() => LoadAsync(async () =>
+    {
+        if (_selected is not { Length: > 0 })
+        {
+            return -1;
+        }
+
+        var parameters = _parameters
+            .Select(p => new OadrApi.OadrParameter(p.Name, p.Value ?? string.Empty))
+            .ToList();
+
+        var raw = await Oadr.ExecuteProcedureAsync<JsonElement>(_selected, parameters);
+        _rows = JsonTable.From(raw);
+
         return _rows.Rows.Count;
-    }, "조회 결과가 없습니다.", "프로시저 결과를 읽지 못했습니다");
+    }, "결과가 없습니다.", "프로시저를 돌리지 못했습니다");
+
+    /// <summary>칸이 없으면 빈 글자. 프로시저마다 주는 칸이 다르다.</summary>
+    private static string? Text(DataRow row, string column) =>
+        row.Table.Columns.Contains(column) ? row[column]?.ToString() : null;
 }
