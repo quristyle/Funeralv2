@@ -103,7 +103,7 @@
                                VerticalAlignment="VerticalEdge.Bottom"
                                HorizontalAlignment="HorizontalAlignment.Center" />
                 <DxChartTooltip Enabled="true">
-                    <div class="p-2">@context.Point.Argument · @(context.Point.Value)건</div>
+                    <div class="jsini-tip">@context.Point.Argument · @(context.Point.Value)건</div>
                 </DxChartTooltip>
             </DxPieChart>
         </div>
@@ -121,7 +121,7 @@
                                       ArgumentField="p => p.Label" ValueField="p => p.Completed"
                                       Name="완료" />
                     <DxChartTooltip Enabled="true">
-                        <div class="p-2">@context.Point.Argument · @context.Point.SeriesName @(context.Point.Value)건</div>
+                        <div class="jsini-tip">@context.Point.Argument · @context.Point.SeriesName @(context.Point.Value)건</div>
                     </DxChartTooltip>
                 </DxChart>
             </div>

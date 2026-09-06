@@ -105,7 +105,7 @@
         <DxGridDataColumn Caption="관리" Width="130" AllowSort="false">
             <CellDisplayTemplate>
                 @{ var d = (Device)context.DataItem; }
-                <div class="d-flex gap-1">
+                <div class="jsini-actions">
                     <PermissionView Action="MenuAction.Update">
                         <DxButton Text="수정" SizeMode="SizeMode.Small"
                                   RenderStyle="ButtonRenderStyle.Secondary"
@@ -124,7 +124,7 @@
             <CellDisplayTemplate>
                 @{ var d = (Device)context.DataItem; }
                 <PermissionView Action="MenuAction.Update">
-                    <div class="d-flex gap-1">
+                    <div class="jsini-actions">
                         @* 화면 전원은 DB 에 남지 않는 즉시 명령이다. *@
                         <DxButton Text="켜기" SizeMode="SizeMode.Small" RenderStyle="ButtonRenderStyle.Secondary"
                                   Click="@(() => PowerAsync(d.Code, "ON"))" />
@@ -289,7 +289,7 @@ else if (_attribute is not null)
                                         @bind-Value="_attribute.BackgroundOrientation" />
                         </DeviceField>
                         <DeviceField Label="반복 · 음소거">
-                            <div class="d-flex gap-2">
+                            <div class="jsini-inline">
                                 <DxCheckBox @bind-Checked="_attribute.IsMediaLoop">반복</DxCheckBox>
                                 <DxCheckBox @bind-Checked="_attribute.IsMuted">음소거</DxCheckBox>
                             </div>

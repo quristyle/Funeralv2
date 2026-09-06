@@ -64,7 +64,7 @@
                         @{
                             var g = (CommonCodeGroupDto)cell.DataItem;
                         }
-                        <div class="d-flex gap-1">
+                        <div class="jsini-actions">
                             <PermissionView Action="MenuAction.Update">
                                 <DxButton Text="수정" SizeMode="SizeMode.Small"
                                           RenderStyle="ButtonRenderStyle.Link"
@@ -527,7 +527,7 @@
         @(c.Status == 1 ? "사용" : "중지")
     </span>;
 
-    private RenderFragment CodeActions(CommonCodeDto c) =>@<div class="d-flex gap-1">
+    private RenderFragment CodeActions(CommonCodeDto c) =>@<div class="jsini-actions">
         <PermissionView Action="MenuAction.Update">
             <DxButton Text="수정" SizeMode="SizeMode.Small" RenderStyle="ButtonRenderStyle.Secondary"
                       Click="@(() => StartEditCode(c))" />

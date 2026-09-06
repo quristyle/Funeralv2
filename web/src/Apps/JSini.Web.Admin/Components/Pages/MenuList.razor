@@ -107,11 +107,13 @@ else
                     @{
                         var m = (SystemMenuDto)cell.DataItem;
                     }
-                    <span class="@(m.Status == 1 ? "" : "ad-menu--off")">@Title(m)</span>
-                    @if (m.Meta.HideInMenu)
-                    {
-                        <span class="jsini-badge jsini-badge--off ms-1">숨김</span>
-                    }
+                    <span class="jsini-tags">
+                        <span class="@(m.Status == 1 ? "" : "ad-menu--off")">@Title(m)</span>
+                        @if (m.Meta.HideInMenu)
+                        {
+                            <span class="jsini-badge jsini-badge--off">숨김</span>
+                        }
+                    </span>
                 </CellDisplayTemplate>
             </DxTreeListDataColumn>
 
@@ -199,7 +201,7 @@ else
             </DxFormLayoutItem>
 
             <DxFormLayoutItem Caption="보이기" ColSpanMd="12">
-                <div class="d-flex flex-wrap gap-3">
+                <div class="ad-checks">
                     <DxCheckBox Checked="@(_edit.Status == 1)"
                                 CheckedChanged="@((bool v) => _edit.Status = v ? 1 : 0)">사용</DxCheckBox>
                     <DxCheckBox @bind-Checked="_edit.Meta.HideInMenu">메뉴에서 숨김</DxCheckBox>
@@ -212,14 +214,14 @@ else
 
             <DxFormLayoutItem Caption="기기" ColSpanMd="12">
                 @* 화면 크기별 노출. 사이드바가 이 값으로 메뉴를 거른다. *@
-                <div class="d-flex gap-3">
+                <div class="ad-checks">
                     <DxCheckBox @bind-Checked="_edit.Meta.UseMobile">휴대폰</DxCheckBox>
                     <DxCheckBox @bind-Checked="_edit.Meta.UseTablet">태블릿</DxCheckBox>
                 </div>
             </DxFormLayoutItem>
 
             <DxFormLayoutItem Caption="허용 동작" ColSpanMd="12">
-                <div class="d-flex flex-wrap gap-3">
+                <div class="ad-checks">
                     <DxCheckBox @bind-Checked="_edit.Permissions.UseView">조회</DxCheckBox>
                     <DxCheckBox @bind-Checked="_edit.Permissions.UseSearch">검색</DxCheckBox>
                     <DxCheckBox @bind-Checked="_edit.Permissions.UseCreate">등록</DxCheckBox>
@@ -396,7 +398,7 @@ else
         return on.Count == 7 ? "전부" : string.Join("·", on);
     }
 
-    private RenderFragment RowActions(SystemMenuDto m) =>@<div class="d-flex gap-1">
+    private RenderFragment RowActions(SystemMenuDto m) =>@<div class="jsini-actions">
         <PermissionView Action="MenuAction.Update">
             <DxButton Text="수정" SizeMode="SizeMode.Small" RenderStyle="ButtonRenderStyle.Secondary"
                       Click="@(() => StartEdit(m))" />

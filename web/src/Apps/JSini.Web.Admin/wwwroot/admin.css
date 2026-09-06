@@ -122,6 +122,16 @@
   --dxbl-form-layout-item-spacing-y: 0.4rem;
 }
 
+/* 한 칸에 체크박스를 여럿 늘어놓는 자리(메뉴 관리의 「보이기」·「허용 동작」).
+   `jsini-inline` 보다 넓게 띄운다 — 이름이 두세 글자라 0.5rem 으로는
+   앞 항목의 글자와 뒤 항목의 네모가 한 덩어리로 읽힌다. */
+.ad-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: center;
+}
+
 /* ── 좌우 분할 (묶음 ↔ 항목) ─────────────────────────────
 
    공통코드처럼 「왼쪽에서 고르면 오른쪽이 바뀌는」 화면이 쓴다.

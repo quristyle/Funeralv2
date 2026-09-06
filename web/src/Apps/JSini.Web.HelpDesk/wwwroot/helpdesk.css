@@ -127,3 +127,43 @@
   font-size: 0.95rem;
   font-weight: 600;
 }
+
+/* ── 문의 접수 폼 ────────────────────────────────────────
+
+   한 줄에 한 칸씩 쌓는 세로 폼. 이 모듈에서 여기 하나뿐이라
+   Blazor Common 으로 올리지 않는다.
+
+   폭을 묶는 것은 입력칸이 `width: 100%` 이기 때문이다 — 안 묶으면
+   와이드 모니터에서 제목 한 줄짜리 칸이 화면 끝까지 늘어난다.
+   ---------------------------------------------------------- */
+
+.hd-form {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 1.25rem 1.5rem;
+  border: 1px solid var(--jsini-border);
+}
+
+.hd-form__title {
+  margin: 0 0 1.25rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.hd-form__field { margin-bottom: 1rem; }
+
+.hd-form__field:last-of-type { margin-bottom: 1.5rem; }
+
+.hd-form__label {
+  display: block;
+  margin-bottom: 0.3rem;
+  font-weight: 600;
+}
+
+/* 보내기·비우기. 폼 끝이라 오른쪽으로 몬다. */
+.hd-form__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}

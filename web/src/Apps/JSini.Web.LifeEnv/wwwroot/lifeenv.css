@@ -549,3 +549,76 @@
   font-size: 0.95rem;
   font-weight: 700;
 }
+
+/* ── 지역 고르는 줄 ─────────────────────────────────────── */
+
+.le-pick__label { font-weight: 600; }
+
+/* ── 전 지역 실황 카드 ──────────────────────────────────────
+
+   현황판 맨 위에 지역 수만큼 늘어놓는 카드다. 지역이 서넛일 때도
+   열댓일 때도 같은 코드가 그려야 해서 칸 수를 고정하지 않고
+   `auto-fill` 로 둔다 — 이 저장소의 다른 타일 묶음과 같은 방식이다.
+
+   전에는 Bootstrap `row` · `col-12 col-md-6 col-xl-4` 였다. 기본 테마인
+   Fluent 에는 그 클래스들이 없어서 카드가 화면 폭을 하나씩 차지하며
+   세로로 쌓였고, 지역이 열이면 실황을 보려고 열 번을 굴려야 했다.
+   ---------------------------------------------------------- */
+
+.le-obs {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.le-obs__card {
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--jsini-border, #e0e0e0);
+  cursor: pointer;
+}
+
+/* 고른 지역. 아래 상세·주간 예보·추이가 이 지역 것이라는 표시다.
+   테두리 색만 바꾸면 얇아서 잘 안 보여 굵기도 함께 준다. */
+.le-obs__card.is-on {
+  border-color: var(--jsini-accent, #7b1fa2);
+  box-shadow: inset 0 0 0 1px var(--jsini-accent, #7b1fa2);
+}
+
+.le-obs__where {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.le-obs__now {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin: 0.5rem 0;
+}
+
+/* 기온은 `.lf-up` 과 같은 빨강이다 — 같은 화면에서 「어제보다 ▲」 와
+   나란히 놓이므로 두 빨강이 어긋나면 다른 뜻처럼 읽힌다. */
+.le-obs__temp {
+  font-size: 1.9rem;
+  font-weight: 800;
+  line-height: 1.1;
+  color: #c0392b;
+}
+
+.le-obs__cond { font-weight: 600; }
+
+/* 습도·풍속·강수. 셋을 고르게 벌린다. */
+.le-obs__facts {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--jsini-border, #e0e0e0);
+  font-size: 0.8rem;
+  color: var(--jsini-text-muted);
+}
+
+/* 추이 차트 위의 단추줄. 차트와 붙어 있으면 차트 제목처럼 읽힌다. */
+.le-trend__head { margin-bottom: 0.5rem; }

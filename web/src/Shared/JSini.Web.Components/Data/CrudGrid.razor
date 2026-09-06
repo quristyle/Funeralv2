@@ -77,7 +77,7 @@
             <DxGridDataColumn Caption="관리" Width="120" MinWidth="120"
                               AllowSort="false" AllowGroup="false">
                 <CellDisplayTemplate Context="cell">
-                    <div class="d-flex gap-1">
+                    <div class="jsini-actions">
                         @if (OnSave.HasDelegate)
                         {
                             <PermissionView Action="MenuAction.Update">

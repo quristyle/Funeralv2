@@ -23,9 +23,9 @@
 
 <PageHeading Title="시간대별 예보" Scope="생활과환경" />
 
-<div class="card p-3 mb-3">
-    <div class="d-flex align-items-center gap-2">
-        <span class="fw-bold">지역 선택:</span>
+<div class="jsini-card">
+    <div class="jsini-inline">
+        <span class="le-pick__label">지역 선택:</span>
         <DxComboBox Data="@_locations"
                     TextFieldName="Name"
                     ValueFieldName="Id"
@@ -45,7 +45,7 @@
         <DxGridDataColumn FieldName="Time" Caption="시각" Width="90px" />
         <DxGridDataColumn FieldName="Temp" Caption="기온(°C)" Width="100px">
             <CellDisplayTemplate>
-                <strong class="text-danger">@context.Value°C</strong>
+                <strong class="lf-up">@context.Value°C</strong>
             </CellDisplayTemplate>
         </DxGridDataColumn>
         <DxGridDataColumn FieldName="Pop" Caption="강수확률" Width="100px">

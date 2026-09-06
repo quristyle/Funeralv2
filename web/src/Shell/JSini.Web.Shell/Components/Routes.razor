@@ -25,9 +25,11 @@
     </Found>
     <NotFound>
         <LayoutView Layout="@typeof(MainLayout)">
-            <div class="p-4">
-                <h2>요청하신 페이지를 찾을 수 없습니다.</h2>
-                <p>존재하지 않거나 권한이 없는 주소입니다.</p>
+            @* 「준비 중」 화면과 같은 틀을 쓴다 — 둘은 형제다.
+               앞엣것은 기다리면 되는 일, 이쪽은 주소를 잘못 친 것이다. *@
+            <div class="jsini-pending">
+                <h2 class="jsini-pending__title">요청하신 페이지를 찾을 수 없습니다.</h2>
+                <p class="jsini-pending__lead">존재하지 않거나 권한이 없는 주소입니다.</p>
             </div>
         </LayoutView>
     </NotFound>

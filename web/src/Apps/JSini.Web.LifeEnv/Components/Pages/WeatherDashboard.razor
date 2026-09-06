@@ -47,10 +47,10 @@
 
 <PageHeading Title="기상 현황판" Scope="생활과환경" />
 
-<div class="card mb-3 p-3">
-    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
-        <div class="d-flex align-items-center gap-2">
-            <span class="fw-bold">지역 선택:</span>
+<div class="jsini-card">
+    <div class="jsini-split">
+        <div class="jsini-inline">
+            <span class="le-pick__label">지역 선택:</span>
             <DxComboBox Data="@_locations"
                         TextFieldName="Name"
                         ValueFieldName="Id"
@@ -59,7 +59,7 @@
                         NullText="차트 조회 지역 선택"
                         Style="width: 200px" />
         </div>
-        <div class="d-flex gap-2">
+        <div class="jsini-inline">
             @* 두 단추는 다른 화면으로 가는 길이다. 한동안 Click 이 안 걸려
                있어서 눌러도 아무 일이 없었다 — 기능이 있는 줄 알고 누르게
                되므로 없는 것보다 나빴다.
@@ -79,32 +79,31 @@
 
 @if (Loading)
 {
-    <div class="text-center my-4">
-        <div class="spinner-border text-primary" role="status"></div>
-    </div>
+    @* 이 저장소의 도는 표시는 DevExpress 것 한 벌이다(DynamicGrid 와 같다).
+       전에는 Bootstrap `spinner-border` 였는데 기본 테마에 그 클래스가 없어
+       아무것도 없는 빈칸이 잠깐 스쳤다. *@
+    <DxLoadingPanel Visible="true" IsContentBlocked="true" Text="조회 중…" />
 }
 else
 {
-    <div class="row g-3 mb-4">
+    <div class="le-obs">
         @foreach (var w in _weatherList)
         {
-            <div class="col-12 col-md-6 col-xl-4">
-                <div class="card h-100 p-3 @(w.WeatherLocationId == _selectedLocationId ? "border-primary shadow-sm" : "")"
-                     style="cursor: pointer;"
-                     @onclick="@(() => OnLocationSelected(w.WeatherLocationId ?? 0))">
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                        <h5 class="m-0 font-bold">📍 @w.Location</h5>
-                        <span class="fs-7 text-muted">@w.ObservationTime.ToString("HH:mm 관측")</span>
-                    </div>
-                    <div class="d-flex align-items-baseline gap-2 mb-2">
-                        <span class="display-6 font-black text-danger">@w.TemperatureC.ToString("F1")°C</span>
-                        <span class="fs-6 font-bold">@w.Condition</span>
-                    </div>
-                    <div class="d-flex justify-content-between fs-7 text-muted border-top pt-2">
-                        <span>습도: @(w.Humidity?.ToString() ?? "-")%</span>
-                        <span>풍속: @(w.WindSpeed?.ToString("F1") ?? "-")m/s</span>
-                        <span>강수: @(w.Rainfall?.ToString("F1") ?? "0")mm</span>
-                    </div>
+            @* 카드를 누르면 아래 실황·주간 예보·추이가 그 지역으로 바뀐다. *@
+            <div class="le-obs__card @(w.WeatherLocationId == _selectedLocationId ? "is-on" : "")"
+                 @onclick="@(() => OnLocationSelected(w.WeatherLocationId ?? 0))">
+                <div class="jsini-split">
+                    <h3 class="le-obs__where">📍 @w.Location</h3>
+                    <span class="jsini-hint">@w.ObservationTime.ToString("HH:mm 관측")</span>
+                </div>
+                <div class="le-obs__now">
+                    <span class="le-obs__temp">@w.TemperatureC.ToString("F1")°C</span>
+                    <span class="le-obs__cond">@w.Condition</span>
+                </div>
+                <div class="le-obs__facts">
+                    <span>습도: @(w.Humidity?.ToString() ?? "-")%</span>
+                    <span>풍속: @(w.WindSpeed?.ToString("F1") ?? "-")m/s</span>
+                    <span>강수: @(w.Rainfall?.ToString("F1") ?? "0")mm</span>
                 </div>
             </div>
         }
@@ -182,9 +181,9 @@ else
         }
         else
         {
-            <div class="card p-3">
-                <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
-                    <div class="d-flex gap-1">
+            <div class="jsini-card">
+                <div class="jsini-split le-trend__head">
+                    <div class="jsini-actions">
                         @* 옛 화면의 카테고리 라디오 자리. 자료는 한 번 받아 두고
                            고른 항목만 다시 그린다 — 단추마다 서버를 부르지 않는다. *@
                         <DxButton Text="기온" SizeMode="SizeMode.Small"
@@ -200,7 +199,7 @@ else
                                   RenderStyle="@MetricStyle(TrendMetric.Humid)"
                                   Click="@(() => _metric = TrendMetric.Humid)" />
                     </div>
-                    <span class="fs-7 text-muted">지난 10시간 실측 · 「지금」 칸부터 예보</span>
+                    <span class="jsini-hint">지난 10시간 실측 · 「지금」 칸부터 예보</span>
                 </div>
 
                 <DxChart Data="@_trend" Width="100%" Height="280px">
@@ -248,7 +247,7 @@ else
                             break;
                     }
                     <DxChartTooltip Enabled="true">
-                        <div class="p-2">@context.Point.Argument · @context.Point.SeriesName @context.Point.Value</div>
+                        <div class="jsini-tip">@context.Point.Argument · @context.Point.SeriesName @context.Point.Value</div>
                     </DxChartTooltip>
                 </DxChart>
             </div>

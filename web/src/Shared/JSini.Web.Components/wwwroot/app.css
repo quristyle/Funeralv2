@@ -189,24 +189,100 @@ body {
   width: var(--jsini-sidebar-width);
 }
 
-/* ── 사이드바 검색 · 트리 ────────────────────────────────
+/* ── 사이드바 검색 ───────────────────────────────────────
 
-   **검색 칸을 따로 만들지 않았다.** DxTreeView 의 `ShowFilterPanel` 이 자기
-   맨 위에 입력 칸을 하나 그리고, 그것이 곧 데모의 "Find demo by keyword"
-   자리다. 돋보기 아이콘까지 DevExpress 가 그려 준다. 우리가 입력 칸을 따로
-   두면 거르는 일을 직접 해야 하고 — 걸린 가지 전체를 펼치는 것까지 —
-   그건 이미 있는 것을 다시 만드는 일이다.
+   **검색 칸은 우리가 그린다.** 한동안 DxTreeView 의 `ShowFilterPanel` 이
+   그린 칸을 썼는데, 그것은 트리 **안쪽** 맨 위에 붙는다. 검색 · 탭 · 트리
+   차례가 되면서 그 칸이 탭보다 아래로 내려가 버려 자리가 맞지 않았다.
 
-   그래서 여기서는 **생김새만** 데모에 맞춘다.
+   거르는 일은 여전히 DevExpress 몫이다 — 여기서 받은 글자를 `FilterString`
+   으로 넘기기만 한다(SidebarMenu.razor 참고).
+
+   생김새는 DevExpress 데모의 "Find demo by keyword" 줄 그대로다.
    높이 3rem · 바탕 한 톤 짙게 · 아래 선 하나 · 테두리 없음.
+   ---------------------------------------------------------- */
+
+.jsini-sidebar__search {
+  flex: 0 0 auto;
+  height: 3rem;
+  display: flex;
+  align-items: center;
+  padding: 0 0.75rem;
+  background: var(--jsini-surface);
+  border-bottom: 1px solid var(--jsini-border);
+}
+
+/* 줄 전체가 검색 칸처럼 보이게 편집기의 테두리·바탕을 걷어낸다. */
+.jsini-sidebar__search-box {
+  width: 100%;
+  --dxbl-text-edit-bg: transparent;
+  --dxbl-text-edit-border-color: transparent;
+  --dxbl-text-edit-box-shadow: none;
+}
+
+/* ── 사이드바 탭 (메뉴 · 즐겨찾기) ────────────────────────
+
+   `DxTabs` 를 쓰지 않는 이유는 SidebarMenu.razor 에 적어 두었다.
+   고른 탭은 색이 아니라 **아래 선**으로 표시한다 — 색만으로 가르면
+   색각 이상이 있는 사용자에게는 두 탭이 같아 보인다.
+   ---------------------------------------------------------- */
+
+.jsini-sidebar__tabs {
+  flex: 0 0 auto;
+  display: flex;
+  border-bottom: 1px solid var(--jsini-border);
+}
+
+.jsini-sidebar__tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.6rem 0.5rem;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+
+  /* 눌린 탭과 자리가 어긋나지 않게 굵기 자리를 미리 잡아 둔다.
+     `font-weight` 만 바꾸면 고를 때마다 글자 폭이 늘어 탭이 흔들린다. */
+  letter-spacing: 0.01em;
+}
+
+.jsini-sidebar__tab:hover {
+  background: color-mix(in srgb, currentcolor 7%, transparent);
+}
+
+.jsini-sidebar__tab.is-on {
+  border-bottom-color: var(--jsini-accent);
+  color: var(--jsini-accent);
+}
+
+/* 담아 둔 개수. 탭 이름과 같은 크기면 어느 쪽이 이름인지 헷갈린다. */
+.jsini-sidebar__tab-count {
+  font-size: 0.7rem;
+  opacity: 0.7;
+}
+
+/* 즐겨찾기가 비었을 때, 그리고 메뉴에 없는 즐겨찾기를 알릴 때. */
+.jsini-sidebar__empty {
+  margin: 0;
+  padding: 1rem;
+  font-size: 0.8rem;
+  line-height: 1.6;
+  color: var(--jsini-text-muted);
+}
+
+/* ── 사이드바 트리 ───────────────────────────────────────
 
    [실제로 그려지는 모양]
 
      div.jsini-sidebar__tree.dxbl-treeview
        └ dxbl-treeview.dxbl-treeview-container
-          ├ dxbl-input-editor.dxbl-navigation-filter     ← 검색 칸
-          │   ├ button                                    돋보기
-          │   └ input.dxbl-text-edit-input
           └ dxbl-scroll-viewer                            ← 여기만 구른다
              └ div.dxbl-scroll-viewer-content
                 └ ul.dxbl-treeview-items-container[data-is-root]
@@ -216,7 +292,7 @@ body {
                          └ div.dxbl-treeview-item-container[aria-level]
 
    겉껍데기가 세 겹(`dxbl-treeview` · `dxbl-treeview-container` ·
-   `dxbl-scroll-viewer`)이라 **그 셋에 다 flex 를 걸어야** 검색 칸이 위에
+   `dxbl-scroll-viewer`)이라 **그 셋에 다 flex 를 걸어야** 위쪽 검색·탭이
    고정되고 트리만 구른다. 한 겹이라도 빠뜨리면 높이가 안 흘러서 트리가
    사이드바 밖으로 넘친다.
    ---------------------------------------------------------- */
@@ -242,33 +318,6 @@ body {
   flex-direction: column;
 }
 
-/* 검색 칸 — 데모의 3rem 줄. 줄 전체가 검색 칸처럼 보이게 테두리를 걷어낸다. */
-.jsini-sidebar__tree .dxbl-navigation-filter {
-  flex: 0 0 auto;
-  height: 3rem;
-  min-height: 3rem;
-  margin: 0 0 0.35rem;
-  padding: 0 0.75rem;
-  background: var(--jsini-surface);
-  border: 0;
-  border-bottom: 1px solid var(--jsini-border);
-  border-radius: 0;
-  box-shadow: none;
-}
-
-/* 돋보기와 지우기 단추. DevExpress 가 그린 것을 옅게만 만든다. */
-.jsini-sidebar__tree .dxbl-navigation-filter > .dxbl-btn {
-  background: none;
-  border: 0;
-  box-shadow: none;
-  opacity: 0.6;
-  padding: 0 0.4rem 0 0;
-}
-
-.jsini-sidebar__tree .dxbl-navigation-filter > .dxbl-text-edit-input {
-  background: transparent;
-}
-
 /* 트리 본문만 구른다. 트리 전체를 굴리면 메뉴를 내려보다가 검색 칸이 화면
    밖으로 나가서, 179개 중에 찾다 말고 다시 올라와야 한다. */
 .jsini-sidebar__tree .dxbl-scroll-viewer {
@@ -291,49 +340,28 @@ body {
   text-transform: none;
 }
 
+/* 검색에 걸린 것이 없을 때 DevExpress 가 넣는 줄. 기본값이
+   "No data to display" 인데, 한국어 화면에서 가장 자주 보이는 자리 중
+   하나가 영어로 남는다. 한국어 리소스는 DevExpress 지역화 서비스로 따로
+   받아야 해서 여기서는 글자만 갈아 끼운다.
+
+   **트리를 우리가 감추고 대신 안내를 띄우는 방법은 쓰지 않는다.** 그러려면
+   무엇이 걸리는지를 우리가 다시 판정해야 하는데, 그 판정이 DevExpress 와
+   조금이라도 어긋나면 **있는 결과를 감추는** 쪽으로 틀린다. 글자만 바꾸면
+   그 틀릴 자리가 없다. */
+.jsini-sidebar__tree .dxbl-treeview-empty-data {
+  font-size: 0;
+}
+
+.jsini-sidebar__tree .dxbl-treeview-empty-data::after {
+  content: "찾는 메뉴가 없습니다.";
+  font-size: 0.8rem;
+  color: var(--jsini-text-muted);
+}
+
 /* 제목이 길면 자른다. 메뉴 이름이 스무 자를 넘는 것이 실제로 있고
    (「빈소 디스플레이 재생목록 관리」), 줄바꿈하면 트리가 들쭉날쭉해진다. */
 .jsini-sidebar__tree .dxbl-treeview-item-text {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* ── 사이드바 즐겨찾기 ────────────────────────────────────── */
-
-.jsini-sidebar__favorites {
-  border-bottom: 1px solid var(--jsini-border);
-  padding-bottom: 0.35rem;
-}
-
-.jsini-sidebar__section {
-  padding: 0.6rem 1rem 0.25rem;
-  font-size: 0.72rem;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  opacity: 0.6;
-}
-
-.jsini-sidebar__favorite {
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-  padding: 0.3rem 1rem;
-  color: inherit;
-  text-decoration: none;
-}
-
-.jsini-sidebar__favorite:hover {
-  background: color-mix(in srgb, currentcolor 7%, transparent);
-}
-
-.jsini-sidebar__favorite.active {
-  color: var(--jsini-accent);
-  font-weight: 600;
-}
-
-/* 이름이 길면 자른다 — 넘치면 사이드바에 가로 스크롤이 생긴다. */
-.jsini-sidebar__favorite-text {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -826,6 +854,63 @@ a.jsini-crumbs__item:hover { opacity: 1; }
 }
 
 .jsini-toolbar__spacer { flex: 1; }
+
+/* ── 배치 — Bootstrap 유틸리티 대신 쓰는 이름들 ───────────── */
+/* 기본 테마인 Fluent 에는 Bootstrap 이 없다. `d-flex` 는 `display: block`,
+   `gap-1` 은 `gap: normal` 이라 **아무 오류 없이** 배치만 어긋난다.
+   Bootstrap 계열 테마로 보는 사람에게는 멀쩡해 보여서 더 늦게 발견된다.
+   web/CLAUDE.md 「화면에 Bootstrap 유틸리티 클래스를 쓰지 않는다」 참고. */
+
+/* 단추 묶음(표의 「관리」 칸)과 이름 앞 딱지 묶음. 하는 일이 달라 이름을
+   나누어 두었다 — 한쪽 간격만 손볼 일이 생기면 그때 갈라 쓴다.
+   좁은 칸에서 줄바꿈되게 둔다. 넘쳐서 잘리면 삭제 단추가 사라진다. */
+.jsini-actions,
+.jsini-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  align-items: center;
+}
+
+/* 한 칸 안에 조작을 나란히 놓는 자리. 단추 묶음보다 넉넉히 띄운다 —
+   체크박스와 입력칸은 붙어 있으면 어느 이름이 어느 것인지 흐려진다. */
+.jsini-inline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+/* 왼쪽에 설명, 오른쪽에 조작을 두고 벌리는 줄. */
+.jsini-split {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* 테두리 상자. Bootstrap `.card` 자리다. */
+.jsini-card {
+  padding: 0.85rem 1rem;
+  margin-bottom: 1rem;
+  border: 1px solid var(--jsini-border, #e0e0e0);
+}
+
+/* 흐린 글씨. 세 화면이 이미 이 이름을 쓰고 있었는데 정의가 없어서
+   여느 글씨와 똑같이 보이고 있었다. */
+.jsini-text-muted { color: var(--jsini-text-muted); }
+
+/* 곁들이는 한 줄(관측 시각·읽기 전용 안내). 흐리고 작다. */
+.jsini-hint {
+  font-size: 0.8rem;
+  color: var(--jsini-text-muted);
+}
+
+/* 차트 툴팁 속 내용. DxChartTooltip 은 테두리·바탕만 그리고 안쪽 여백은
+   주지 않아서, 없으면 글자가 상자 모서리에 붙는다. 대시보드·보고서
+   열한 화면이 같은 모양을 쓴다. */
+.jsini-tip { padding: 0.35rem 0.5rem; }
 
 .jsini-notice {
   margin: 0.75rem 0;

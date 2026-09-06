@@ -60,7 +60,7 @@
 
 @if (_trend.Count > 0)
 {
-    <div class="card p-3 mb-3">
+    <div class="jsini-card">
         <DxChart Data="@_trend" Width="100%" Height="240px">
             <DxChartLegend Visible="false" />
             <DxChartLineSeries T="PushTrendPointDto" TArgument="string" TValue="double"
@@ -71,7 +71,7 @@
                 <DxChartAxisRange StartValue="@(0)" EndValue="@(100)" />
             </DxChartValueAxis>
             <DxChartTooltip Enabled="true">
-                <div class="p-2">
+                <div class="jsini-tip">
                     @context.Point.Argument —
                     성공률 @(context.Point.Value is double rate ? rate.ToString("0.0") : context.Point.Value)%
                 </div>
@@ -97,7 +97,7 @@
 
 @if (_reasons.Count > 0)
 {
-    <div class="card p-3 mb-3">
+    <div class="jsini-card">
         <DxChart Data="@_reasons" Width="100%" Height="220px" Rotated="true">
             <DxChartLegend Visible="false" />
             <DxChartBarSeries T="PushFailureReasonDto" TArgument="string" TValue="int"
@@ -105,7 +105,7 @@
                               ValueField="r => r.Count"
                               Name="건수" />
             <DxChartTooltip Enabled="true">
-                <div class="p-2">@context.Point.Argument — @(context.Point.Value)건</div>
+                <div class="jsini-tip">@context.Point.Argument — @(context.Point.Value)건</div>
             </DxChartTooltip>
         </DxChart>
     </div>
