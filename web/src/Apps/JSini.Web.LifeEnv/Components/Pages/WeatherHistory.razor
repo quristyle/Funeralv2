@@ -25,37 +25,49 @@
 
 <PageTitle>기상 실측 이력 · 생활과환경</PageTitle>
 
-<div class="jsini-toolbar">
-    <DxComboBox Data="@_locations" @bind-Value="_locationId"
-                TextFieldName="@nameof(WeatherLocation.Name)"
-                ValueFieldName="@nameof(WeatherLocation.Id)"
-                NullText="지역을 고르십시오" Style="width: 180px" />
+@* 「같은 시각 비교」도 조건이다 — 어느 표를 그릴지 정하므로 오른쪽 끝에
+   따로 두면 조건이 두 자리로 갈린다. 그 스위치를 켜면 시각 고르개가
+   같은 판 안에 붙는다. *@
+<CommSch OnSearch="@ReloadAsync">
+    <Fields>
+        <CommSchItem Label="지역">
+            <DxComboBox Data="@_locations" @bind-Value="_locationId"
+                        TextFieldName="@nameof(WeatherLocation.Name)"
+                        ValueFieldName="@nameof(WeatherLocation.Id)"
+                        NullText="지역을 고르십시오" Style="width: 180px" />
+        </CommSchItem>
 
-    <DxComboBox Data="@DayOptions" @bind-Value="_days"
-                TextFieldName="Text" ValueFieldName="Value" Style="width: 120px" />
+        <CommSchItem Label="기간">
+            <DxComboBox Data="@DayOptions" @bind-Value="_days"
+                        TextFieldName="Text" ValueFieldName="Value" Style="width: 120px" />
+        </CommSchItem>
 
-    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary"
-              IconCssClass="jsini-icon-refresh" Click="@ReloadAsync" />
+        <CommSchItem>
+            @* 같은 시각끼리 견주는 표로 바꾼다. 관측 시각이 뒤섞인 목록으로는
+               어제보다 더운지 알기 어렵다. *@
+            <DxCheckBox @bind-Checked="_byHour">같은 시각 비교</DxCheckBox>
+        </CommSchItem>
 
-    <div class="jsini-toolbar__spacer"></div>
-
-    @* 같은 시각끼리 견주는 표로 바꾼다. 관측 시각이 뒤섞인 목록으로는
-       어제보다 더운지 알기 어렵다. *@
-    <DxCheckBox @bind-Checked="_byHour">같은 시각 비교</DxCheckBox>
-
-    @if (_byHour)
-    {
-        <DxComboBox Data="@Hours" @bind-Value="_hour" Style="width: 100px">
-            <ItemTemplate>@context 시</ItemTemplate>
-        </DxComboBox>
-    }
-</div>
+        @if (_byHour)
+        {
+            <CommSchItem Label="시각">
+                <DxComboBox Data="@Hours" @bind-Value="_hour" Style="width: 100px">
+                    <ItemTemplate>@context 시</ItemTemplate>
+                </DxComboBox>
+            </CommSchItem>
+        }
+    </Fields>
+</CommSch>
 
 <PageNotice Text="@Notice" Tone="@Tone" />
 
+@* 표는 조건에 따라 둘 중 하나로 갈린다. 자료 영역은 하나이므로 판도 하나다. *@
+<CommCont>
 @if (_byHour)
 {
-    <CommGrd TItem="HourlyTemp" Data="@_hourly" PageSize="30">
+    <CommGrd TItem="HourlyTemp" Data="@_hourly" PageSize="30"
+             ExportName="시각별기온"
+             Reload="@ReloadAsync">
         <Columns>
             <DxGridDataColumn FieldName="@nameof(HourlyTemp.Date)" Caption="날짜" Width="160" />
 
@@ -90,7 +102,9 @@
 }
 else
 {
-    <CommGrd TItem="WeatherInfo" Data="@_history" PageSize="30">
+    <CommGrd TItem="WeatherInfo" Data="@_history" PageSize="30"
+             ExportName="관측이력"
+             Reload="@ReloadAsync">
         <Columns>
             <DxGridDataColumn FieldName="@nameof(WeatherInfo.ObservationTime)" Caption="관측 시각" Width="170"
                               DisplayFormat="yyyy-MM-dd HH:mm" />
@@ -121,6 +135,7 @@ else
         </Columns>
     </CommGrd>
 }
+</CommCont>
 
 @code {
     private IReadOnlyList<WeatherLocation> _locations = [];
