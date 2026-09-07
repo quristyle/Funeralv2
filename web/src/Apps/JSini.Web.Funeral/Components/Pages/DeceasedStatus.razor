@@ -36,20 +36,29 @@
 
 <PageTitle>고인 현황 · 장례식장</PageTitle>
 
-<div class="jsini-toolbar">
-    <DxTextBox @bind-Text="_keyword" NullText="고인명 검색" Style="width: 200px"
-               ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
-    <DxComboBox Data="@Statuses" @bind-Value="_status" NullText="상태 전체"
-                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" Style="width: 170px">
-        <ItemTemplate>@StatusText(context)</ItemTemplate>
-    </DxComboBox>
-    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@ReloadAsync" />
-</div>
+<CommSch OnSearch="@ReloadAsync">
+    <Fields>
+        <CommSchItem Label="고인명">
+            <DxTextBox @bind-Text="_keyword" NullText="이름" Style="width: 200px"
+                       ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        </CommSchItem>
+
+        <CommSchItem Label="상태">
+            <DxComboBox Data="@Statuses" @bind-Value="_status" NullText="전체"
+                        ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" Style="width: 170px">
+                <ItemTemplate>@StatusText(context)</ItemTemplate>
+            </DxComboBox>
+        </CommSchItem>
+    </Fields>
+</CommSch>
 
 <PageNotice Text="@Notice" Tone="@Tone" />
 
 <CommCont>
-    <CommGrd TItem="Deceased" Data="@_rows" PageSize="20">
+    <CommGrd TItem="Deceased" Data="@_rows" PageSize="20"
+             ExportName="고인현황"
+             ActionsWidth="210"
+             Reload="@ReloadAsync">
         <Columns>
             <DxGridDataColumn FieldName="@nameof(Deceased.Name)" Caption="고인" MinWidth="120" />
             <DxGridDataColumn Caption="성별" Width="80">
@@ -73,32 +82,32 @@
                     </span>
                 </CellDisplayTemplate>
             </DxGridDataColumn>
-            <DxGridDataColumn Caption="처리" Width="210">
-                <CellDisplayTemplate>
-                    @{
-                        var row = (Deceased)context.DataItem;
-                    }
-                    <div class="jsini-actions">
-                        <PermissionView Action="MenuAction.Update">
-                            @if (row.Status == Departed)
-                            {
-                                <DxButton Text="출상 취소" RenderStyle="ButtonRenderStyle.Secondary"
-                                          Click="@(() => CancelAsync(row))" />
-                            }
-                            else
-                            {
-                                <DxButton Text="출상" RenderStyle="ButtonRenderStyle.Secondary"
-                                          Click="@(() => DepartAsync(row))" />
-                            }
-
-                            @* 영정 사진 (D5). 빈소 디스플레이가 띄우는 그 사진이다. *@
-                            <DxButton Text="영정" RenderStyle="ButtonRenderStyle.Secondary"
-                                      Click="@(() => StartPhotoAsync(row))" />
-                        </PermissionView>
-                    </div>
-                </CellDisplayTemplate>
-            </DxGridDataColumn>
         </Columns>
+
+        @* 관리 칸은 CommGrd 가 붙인다. 손으로 「처리」 칸을 두면 화면마다
+           조작 자리가 갈려서, 관리 칸에 있겠거니 하고 오른쪽 끝을 보는
+           사람이 못 찾는다. *@
+        <RowActions Context="row">
+            <PermissionView Action="MenuAction.Update">
+                @if (row.Status == Departed)
+                {
+                    <DxButton Text="출상 취소" RenderStyle="ButtonRenderStyle.Link"
+                              Title="출상을 되돌린다"
+                              Click="@(() => CancelAsync(row))" />
+                }
+                else
+                {
+                    <DxButton Text="출상" RenderStyle="ButtonRenderStyle.Link"
+                              Title="출상 처리한다"
+                              Click="@(() => DepartAsync(row))" />
+                }
+
+                @* 영정 사진 (D5). 빈소 디스플레이가 띄우는 그 사진이다. *@
+                <DxButton Text="영정" RenderStyle="ButtonRenderStyle.Link"
+                          Title="빈소 디스플레이가 띄우는 사진"
+                          Click="@(() => StartPhotoAsync(row))" />
+            </PermissionView>
+        </RowActions>
     </CommGrd>
 </CommCont>
 
