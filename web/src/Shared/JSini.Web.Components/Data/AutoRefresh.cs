@@ -51,8 +51,27 @@ public abstract class AutoRefreshPage : DataPage, IDisposable
     protected DateTime? RefreshedAt { get; private set; }
 
     /// <summary>시계를 켠다. 화면의 <c>OnInitializedAsync</c> 끝에서 부른다.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>프리렌더에서는 켜지 않는다.</b> 프리렌더된 화면은 HTML 을 만들고 곧
+    /// 버려지는데, 시계는 그것을 모르고 30초 뒤에 발화한다. 그러면 이미 없는
+    /// 화면에서 <c>InvokeAsync(StateHasChanged)</c> 를 부른다 — 첫 진입마다
+    /// 쓸모없는 시계가 하나씩 생기던 자리다.
+    /// </para>
+    ///
+    /// <para>
+    /// 회로가 붙으면 화면이 새로 만들어지고 그때 다시 부르므로, 실제로 도는
+    /// 시계는 그대로 하나다. <see cref="DataPage"/> 가 프리렌더에서 조회를
+    /// 건너뛰는 것과 같은 이유다.
+    /// </para>
+    /// </remarks>
     protected void StartAutoRefresh()
     {
+        if (!RendererInfo.IsInteractive)
+        {
+            return;
+        }
+
         _timer?.Dispose();
         _timer = new Timer(_ => _ = TickAsync(), null, RefreshInterval, RefreshInterval);
     }

@@ -26,6 +26,61 @@ namespace JSini.Web.Components.Data;
 /// </summary>
 public abstract class DataPage : ComponentBase
 {
+    /// <summary>
+    /// 지금 조회해도 되는가 — <b>회로가 붙어 있는가</b>.
+    /// 프리렌더 중에는 거짓이다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// [화면마다 조회가 두 번 나가고 있었다]
+    /// </para>
+    ///
+    /// <para>
+    /// 포털은 프리렌더를 켜 두었다(<c>RenderMode.InteractiveServer</c> 의 기본값).
+    /// 그러면 첫 진입·F5 마다 화면이 <b>두 번</b> 만들어진다 — 정적 SSR 로 한 번,
+    /// 회로가 붙고 또 한 번. 수명 주기가 통째로 두 번 도니까 조회도 두 번 나갔다.
+    /// </para>
+    ///
+    /// <para>
+    /// 게이트웨이·서비스·DB 를 두 벌 태우고, 사용자는 자료가 <b>떴다 사라졌다
+    /// 다시 뜨는 것</b>을 본다. 화면이 161개라 한 곳에서 막는다.
+    /// </para>
+    ///
+    /// <para>
+    /// [프리렌더를 끄지 않은 이유]
+    /// </para>
+    ///
+    /// <para>
+    /// <c>prerender: false</c> 로 두면 조회는 한 번이 되지만 <b>회로가 붙을
+    /// 때까지 화면이 하얗다</b> — 껍데기도 안 그려진다. 여기서 조회만 건너뛰면
+    /// 레이아웃 · 조건줄 · 빈 표가 즉시 그려지고 자료만 나중에 온다.
+    /// 사용자가 보는 것은 「조회 중인 화면」이고, 그것이 맞는 그림이다.
+    /// </para>
+    ///
+    /// <para>
+    /// [<c>Loading</c> 을 켠 채로 돌아가는 것이 요점이다]
+    /// </para>
+    ///
+    /// <para>
+    /// 끄고 돌아가면 프리렌더된 표가 <b>「조회 결과가 없습니다」</b>를 띄운다 —
+    /// 아직 묻지도 않았는데. 켠 채로 두면 표가 조회 중으로 그려지고, 회로가
+    /// 붙어 실제 조회가 끝날 때 그대로 자료로 바뀐다.
+    /// </para>
+    ///
+    /// <para>
+    /// [정적 SSR 전용 화면에 쓰면 안 된다]
+    /// </para>
+    ///
+    /// <para>
+    /// 회로가 없는 화면이 <c>DataPage</c> 를 상속하면 <b>영원히 조회 중</b>이 된다.
+    /// 지금 <c>[ExcludeFromInteractiveRouting]</c> 을 단 것은 셋이고
+    /// (<c>App</c> · <c>Login</c> · <c>NoticeAutoPopup</c>) 아무것도
+    /// <c>DataPage</c> 를 상속하지 않는다. 그런 화면을 만들 일이 생기면
+    /// 조회를 <c>DataPage</c> 에 맡기지 않는다.
+    /// </para>
+    /// </remarks>
+    private bool CanLoad => RendererInfo.IsInteractive;
+
     /// <summary>안내 줄에 띄울 문구. 없으면 <c>null</c>.</summary>
     protected string? Notice { get; private set; }
 
@@ -54,6 +109,13 @@ public abstract class DataPage : ComponentBase
         Loading = true;
         Notice = null;
         Tone = NoticeTone.Info;
+
+        // **프리렌더에서는 조회하지 않는다.** `Loading` 을 켠 채로 돌아간다 —
+        // 이유는 CanLoad 머리말에 있다.
+        if (!CanLoad)
+        {
+            return;
+        }
 
         try
         {
