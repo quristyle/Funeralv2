@@ -60,7 +60,7 @@
 | 2 | ☑ | `/admin/company/dept` | DeptList.razor |
 | 3 | ☐ | `/funeral/help/faq` | FaqListPage.razor |
 | 4 | ☐ | `/funeral/help/qna` | QnaList.razor |
-| 5 | ☐ | `/funeral/room-status` | RoomStatus.razor |
+| 5 | ☑ | `/funeral/room-status` | RoomStatus.razor |
 | 6 | ☐ | `/helpdesk/hanju/procedure-result` | ProcedureResult.razor |
 | 7 | ☐ | `/helpdesk/util/binary-parser` | BinaryParser.razor |
 | 8 | ☐ | `/life/weather/warning` | WeatherWarningPage.razor |
