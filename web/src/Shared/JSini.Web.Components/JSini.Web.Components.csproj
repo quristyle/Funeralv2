@@ -50,4 +50,16 @@
     <ProjectReference Include="..\JSini.Web.Models\JSini.Web.Models.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!--
+      테스트가 internal 을 볼 수 있게 한다.
+
+      규칙 검사만 하던 테스트 프로젝트에 순수 함수 시험이 이미 여럿 있다
+      (MenuFilterTests · NoticeHtmlTests · FavoriteTreeTests …). 그중 일부는
+      **바깥에 공개할 이유가 없는 판정**이다 — 첨부 중계의 캐시 정책이 그렇다.
+      공개로 올려 시험하면 그 판정이 API 가 되어 아무 데서나 불릴 수 있게 된다.
+    -->
+    <InternalsVisibleTo Include="JSini.Web.Architecture.Tests" />
+  </ItemGroup>
+
 </Project>

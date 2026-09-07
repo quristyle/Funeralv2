@@ -205,7 +205,11 @@ public static class FileDownload
 
         return RelayAsync(
             $"auth/help/archives/{Uri.EscapeDataString(archiveId)}/files/{file}/download",
-            file, name, http, gateway, loggers, cancellationToken);
+            file, name, http, gateway, loggers, cancellationToken,
+            // **여기서는 캐시를 열지 않는다.** 이 경로의 목적 절반이 내려받은
+            // 횟수를 세는 것이라, 브라우저가 캐시본을 쓰면 요청이 서버에 닿지
+            // 않아 숫자가 멈춘다. 자료실 화면의 「내려받기」 칸이 그 숫자다.
+            cacheable: false);
     }
 
     private static Task HandleAsync(
@@ -224,12 +228,22 @@ public static class FileDownload
         }
 
         return RelayAsync(
-            $"file/download/id/{id}", id, name, http, gateway, loggers, cancellationToken);
+            $"file/download/id/{id}", id, name, http, gateway, loggers, cancellationToken,
+            // 이 갈래로 그림이 지나간다 — 헤더의 얼굴 · 영정 사진 · 장비 미리보기 ·
+            // 미디어 썸네일 · 공지 본문의 <img>. 실제로 열지 말지는 형식을 보고
+            // 정한다(Cacheable). 여기서는 "이 경로는 캐시를 허용한다" 까지만 말한다.
+            cacheable: true);
     }
 
     /// <summary>
     /// 게이트웨이의 한 경로를 그대로 흘려보낸다. 두 갈래가 이것을 함께 쓴다 —
     /// FileServer 로 바로 가는 길과, 횟수를 세고 302 로 넘어가는 길.
+    ///
+    /// <para>
+    /// <c>cacheable</c> 은 <b>이 갈래가</b> 캐시를 허용하는지다. 실제로 열리는지는
+    /// 형식까지 보고 정한다(<see cref="Cacheable"/>) — 그림만 열린다.
+    /// 자료실 갈래는 <c>false</c> 이고 이유는 그쪽 호출부 주석에 있다.
+    /// </para>
     /// </summary>
     private static async Task RelayAsync(
         string upstreamPath,
@@ -238,7 +252,8 @@ public static class FileDownload
         HttpContext http,
         GatewayClient gateway,
         ILoggerFactory loggers,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool cacheable)
     {
         var logger = loggers.CreateLogger(typeof(FileDownload));
 
@@ -314,11 +329,119 @@ public static class FileDownload
 
         http.Response.Headers.ContentDisposition = Disposition(name, upstream);
 
-        // 첨부는 사람이 눌러 받는 것이고 공개 여부가 바뀔 수 있다.
-        // 중간 캐시에 남으면 비공개로 되돌린 파일이 계속 나갈 수 있다.
-        http.Response.Headers.CacheControl = "private, no-store";
+        if (Cacheable(cacheable, http.Response.ContentType))
+        {
+            // 이 아이디의 바이트는 절대 바뀌지 않으므로 검증표를 우리가 만들어도 된다.
+            http.Response.Headers.ETag = $"\"{id}\"";
+            http.Response.Headers.CacheControl = $"private, max-age={ImageMaxAgeSeconds}";
+
+            // **위쪽을 부른 뒤에 따진다.** 앞에서 끊으면 판정(FileServer)을 건너뛰게
+            // 되고, 비공개로 되돌린 파일에 계속 304 를 주어 브라우저가 캐시본을
+            // 계속 쓴다 — 틀리는 방향이 「열려서는 안 되는데 열린」 쪽이다.
+            // 여기서 아끼는 것은 판정이 아니라 **바이트 전송**뿐이다.
+            if (NoneMatch(http.Request, id))
+            {
+                http.Response.StatusCode = StatusCodes.Status304NotModified;
+                http.Response.ContentLength = null;
+                return;
+            }
+        }
+        else
+        {
+            // 첨부는 사람이 눌러 받는 것이고 공개 여부가 바뀔 수 있다.
+            // 중간 캐시에 남으면 비공개로 되돌린 파일이 계속 나갈 수 있다.
+            http.Response.Headers.CacheControl = "private, no-store";
+        }
 
         await upstream.Content.CopyToAsync(http.Response.Body, cancellationToken);
+    }
+
+    /// <summary>
+    /// 그림을 브라우저가 들고 있어도 되는 시간(초).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>바이트가 바뀔 걱정은 없다.</b> 주소의 열쇠가 파일 아이디이고 FileServer 는
+    /// 덧쓰지 않는다 — 사진을 바꾸면 아이디가 새로 생긴다. 그래서 이 값을 정하는
+    /// 기준은 「그림이 낡을까」가 아니라 <b>「볼 자격이 없어졌는데 얼마나 더
+    /// 보이느냐」</b> 하나다.
+    /// </para>
+    ///
+    /// <para>
+    /// 5분으로 잡았다. 화면을 옮겨 다니는 동안은 한 번도 다시 받지 않고,
+    /// 권한이 끊긴 뒤 남는 창은 그 사람 브라우저 안에서 5분이다 —
+    /// <c>private</c> 이라 중간 캐시에는 애초에 안 남는다. 그 5분 사이에도
+    /// 그 사람은 방금까지 볼 자격이 있던 사람이다.
+    /// </para>
+    /// </remarks>
+    private const int ImageMaxAgeSeconds = 300;
+
+    /// <summary>
+    /// 이 응답을 브라우저가 들고 있어도 되는가.
+    /// </summary>
+    /// <param name="allowed">
+    /// 이 경로가 캐시를 허용하는가. 자료실 갈래는 <c>false</c> 다 —
+    /// <b>내려받은 횟수를 세는 경로</b>라서, 브라우저가 캐시본을 쓰면 요청이
+    /// 서버에 닿지 않아 숫자가 올라가지 않는다.
+    /// </param>
+    /// <param name="contentType">위쪽이 준 형식.</param>
+    /// <remarks>
+    /// 가르는 기준이 <b>형식</b>인 이유는, 그것이 브라우저가 이 응답을 어떻게
+    /// 다루는지와 정확히 같은 기준이기 때문이다. 화면에 박히는 것(<c>&lt;img&gt;</c>)은
+    /// 목록을 다시 그릴 때마다 다시 요청되므로 캐시가 있어야 하고, 사람이 눌러
+    /// 받는 첨부는 한 번 받으면 끝이라 캐시로 얻을 것이 없다.
+    ///
+    /// <para>
+    /// 이름(<c>?name=</c>)이 있느냐로 가르지 않는다. 그쪽은 <b>부르는 화면이
+    /// 넘겨 주기로 한 값</b>이라 빠뜨리면 조용히 판정이 뒤집힌다.
+    /// </para>
+    /// </remarks>
+    internal static bool Cacheable(bool allowed, string? contentType) =>
+        allowed
+        && contentType is not null
+        && contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// 브라우저가 들고 있는 것이 이 파일과 같은가 (<c>If-None-Match</c>).
+    /// </summary>
+    /// <remarks>
+    /// <c>*</c> 도 받아 준다 — 「무엇이든 들고 있다」는 뜻이고, 이 주소에서
+    /// 나올 수 있는 것은 그 아이디의 바이트 하나뿐이라 언제나 같다.
+    /// </remarks>
+    internal static bool NoneMatch(HttpRequest request, Guid id)
+    {
+        if (request.Headers.IfNoneMatch.Count == 0)
+        {
+            return false;
+        }
+
+        var mine = $"\"{id}\"";
+
+        foreach (var header in request.Headers.IfNoneMatch)
+        {
+            if (string.IsNullOrEmpty(header))
+            {
+                continue;
+            }
+
+            foreach (var tag in header.Split(','))
+            {
+                var trimmed = tag.Trim();
+
+                // 약한 검증표(`W/"…"`)로 돌아오는 경우가 있다. 앞의 표시만 뗀다.
+                if (trimmed.StartsWith("W/", StringComparison.Ordinal))
+                {
+                    trimmed = trimmed[2..];
+                }
+
+                if (trimmed == "*" || string.Equals(trimmed, mine, StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /// <summary>
