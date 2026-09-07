@@ -14,18 +14,18 @@ namespace HelpDeskServer.Migrations
         {
             migrationBuilder.AlterTable(
                 name: "wbslink",
-                schema: "jsini",
+                schema: "helpdesk",
                 comment: "WBS 항목 간의 연결(의존성)을 정의하는 엔티티");
 
             migrationBuilder.AlterTable(
                 name: "project",
-                schema: "jsini",
+                schema: "helpdesk",
                 comment: "프로젝트 엔티티",
                 oldComment: "팀");
 
             migrationBuilder.AlterColumn<string>(
                 name: "type",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "wbslink",
                 type: "text",
                 nullable: false,
@@ -35,7 +35,7 @@ namespace HelpDeskServer.Migrations
 
             migrationBuilder.AlterColumn<int>(
                 name: "targetwbsid",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "wbslink",
                 type: "integer",
                 nullable: false,
@@ -45,7 +45,7 @@ namespace HelpDeskServer.Migrations
 
             migrationBuilder.AlterColumn<int>(
                 name: "sourcewbsid",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "wbslink",
                 type: "integer",
                 nullable: false,
@@ -55,7 +55,7 @@ namespace HelpDeskServer.Migrations
 
             migrationBuilder.AlterColumn<int>(
                 name: "responsibleuserid",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "wbs",
                 type: "integer",
                 nullable: true,
@@ -66,7 +66,7 @@ namespace HelpDeskServer.Migrations
 
             migrationBuilder.AlterColumn<int>(
                 name: "qcuserid",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "wbs",
                 type: "integer",
                 nullable: true,
@@ -77,7 +77,7 @@ namespace HelpDeskServer.Migrations
 
             migrationBuilder.AlterColumn<DateTime>(
                 name: "qccheckdate",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "wbs",
                 type: "timestamp with time zone",
                 nullable: true,
@@ -89,7 +89,7 @@ namespace HelpDeskServer.Migrations
 
             migrationBuilder.AlterColumn<string>(
                 name: "qccheck",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "wbs",
                 type: "character varying(100)",
                 maxLength: 100,
@@ -103,7 +103,7 @@ namespace HelpDeskServer.Migrations
 
             migrationBuilder.AlterColumn<int>(
                 name: "projectid",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "wbs",
                 type: "integer",
                 nullable: true,
@@ -114,7 +114,7 @@ namespace HelpDeskServer.Migrations
 
             migrationBuilder.AlterColumn<int>(
                 name: "parentwbsid",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "wbs",
                 type: "integer",
                 nullable: true,
@@ -125,7 +125,7 @@ namespace HelpDeskServer.Migrations
 
             migrationBuilder.AlterColumn<int>(
                 name: "managerid",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "wbs",
                 type: "integer",
                 nullable: true,
@@ -136,7 +136,7 @@ namespace HelpDeskServer.Migrations
 
             migrationBuilder.AlterColumn<string>(
                 name: "devcheck",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "wbs",
                 type: "character varying(100)",
                 maxLength: 100,
@@ -150,7 +150,7 @@ namespace HelpDeskServer.Migrations
 
             migrationBuilder.AlterColumn<int>(
                 name: "customerid",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "wbs",
                 type: "integer",
                 nullable: true,
@@ -161,7 +161,7 @@ namespace HelpDeskServer.Migrations
 
             migrationBuilder.AlterColumn<int>(
                 name: "customercompanyid",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "wbs",
                 type: "integer",
                 nullable: true,
@@ -172,7 +172,7 @@ namespace HelpDeskServer.Migrations
 
             migrationBuilder.AlterColumn<decimal>(
                 name: "cost",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "wbs",
                 type: "numeric",
                 nullable: true,
@@ -184,7 +184,7 @@ namespace HelpDeskServer.Migrations
 
             migrationBuilder.AlterColumn<string>(
                 name: "comments",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "wbs",
                 type: "text",
                 nullable: true,
@@ -196,7 +196,7 @@ namespace HelpDeskServer.Migrations
 
             migrationBuilder.AlterColumn<int>(
                 name: "builduserid",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "wbs",
                 type: "integer",
                 nullable: true,
@@ -207,7 +207,7 @@ namespace HelpDeskServer.Migrations
 
             migrationBuilder.AlterColumn<decimal>(
                 name: "budget",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "wbs",
                 type: "numeric",
                 nullable: true,
@@ -219,7 +219,7 @@ namespace HelpDeskServer.Migrations
 
             migrationBuilder.AlterColumn<int>(
                 name: "companyid",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "teamcompanies",
                 type: "integer",
                 nullable: false,
@@ -229,7 +229,7 @@ namespace HelpDeskServer.Migrations
 
             migrationBuilder.AlterColumn<int>(
                 name: "teamid",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "teamcompanies",
                 type: "integer",
                 nullable: false,
@@ -239,7 +239,7 @@ namespace HelpDeskServer.Migrations
 
             migrationBuilder.AlterColumn<int>(
                 name: "teamid",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "project",
                 type: "integer",
                 nullable: true,
@@ -250,7 +250,7 @@ namespace HelpDeskServer.Migrations
 
             migrationBuilder.AddColumn<int>(
                 name: "failedloginattempts",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "customer",
                 type: "integer",
                 nullable: false,
@@ -259,7 +259,7 @@ namespace HelpDeskServer.Migrations
 
             migrationBuilder.AddColumn<DateTime>(
                 name: "lockoutend",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "customer",
                 type: "timestamp with time zone",
                 nullable: true,
@@ -267,7 +267,7 @@ namespace HelpDeskServer.Migrations
 
             migrationBuilder.AddColumn<int>(
                 name: "failedloginattempts",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "admin",
                 type: "integer",
                 nullable: false,
@@ -276,7 +276,7 @@ namespace HelpDeskServer.Migrations
 
             migrationBuilder.AddColumn<DateTime>(
                 name: "lockoutend",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "admin",
                 type: "timestamp with time zone",
                 nullable: true,
@@ -284,7 +284,7 @@ namespace HelpDeskServer.Migrations
 
             migrationBuilder.CreateTable(
                 name: "pushmessage",
-                schema: "jsini",
+                schema: "helpdesk",
                 columns: table => new
                 {
                     id = table.Column<int>(type: "integer", nullable: false)
@@ -309,7 +309,7 @@ namespace HelpDeskServer.Migrations
 
             migrationBuilder.CreateTable(
                 name: "pushnotificationlog",
-                schema: "jsini",
+                schema: "helpdesk",
                 columns: table => new
                 {
                     id = table.Column<int>(type: "integer", nullable: false)
@@ -334,7 +334,7 @@ namespace HelpDeskServer.Migrations
 
             migrationBuilder.CreateTable(
                 name: "pushsubscriptions",
-                schema: "jsini",
+                schema: "helpdesk",
                 columns: table => new
                 {
                     endpoint = table.Column<string>(type: "text", nullable: false, comment: "Push Service Endpoint URL (PK)"),
@@ -351,7 +351,7 @@ namespace HelpDeskServer.Migrations
 
             migrationBuilder.CreateTable(
                 name: "userproperty",
-                schema: "jsini",
+                schema: "helpdesk",
                 columns: table => new
                 {
                     id = table.Column<int>(type: "integer", nullable: false)
@@ -377,7 +377,7 @@ namespace HelpDeskServer.Migrations
 
             migrationBuilder.CreateTable(
                 name: "pushmessagerecipient",
-                schema: "jsini",
+                schema: "helpdesk",
                 columns: table => new
                 {
                     id = table.Column<int>(type: "integer", nullable: false)
@@ -405,7 +405,7 @@ namespace HelpDeskServer.Migrations
                     table.ForeignKey(
                         name: "FK_pushmessagerecipient_pushmessage_pushmessageid",
                         column: x => x.pushmessageid,
-                        principalSchema: "jsini",
+                        principalSchema: "helpdesk",
                         principalTable: "pushmessage",
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
@@ -414,13 +414,13 @@ namespace HelpDeskServer.Migrations
 
             migrationBuilder.CreateIndex(
                 name: "IX_pushmessagerecipient_pushmessageid",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "pushmessagerecipient",
                 column: "pushmessageid");
 
             migrationBuilder.CreateIndex(
                 name: "IX_userproperty_userid_usertype_key",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "userproperty",
                 columns: new[] { "userid", "usertype", "key" },
                 unique: true);
@@ -431,58 +431,58 @@ namespace HelpDeskServer.Migrations
         {
             migrationBuilder.DropTable(
                 name: "pushmessagerecipient",
-                schema: "jsini");
+                schema: "helpdesk");
 
             migrationBuilder.DropTable(
                 name: "pushnotificationlog",
-                schema: "jsini");
+                schema: "helpdesk");
 
             migrationBuilder.DropTable(
                 name: "pushsubscriptions",
-                schema: "jsini");
+                schema: "helpdesk");
 
             migrationBuilder.DropTable(
                 name: "userproperty",
-                schema: "jsini");
+                schema: "helpdesk");
 
             migrationBuilder.DropTable(
                 name: "pushmessage",
-                schema: "jsini");
+                schema: "helpdesk");
 
             migrationBuilder.DropColumn(
                 name: "failedloginattempts",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "customer");
 
             migrationBuilder.DropColumn(
                 name: "lockoutend",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "customer");
 
             migrationBuilder.DropColumn(
                 name: "failedloginattempts",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "admin");
 
             migrationBuilder.DropColumn(
                 name: "lockoutend",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "admin");
 
             migrationBuilder.AlterTable(
                 name: "wbslink",
-                schema: "jsini",
+                schema: "helpdesk",
                 oldComment: "WBS 항목 간의 연결(의존성)을 정의하는 엔티티");
 
             migrationBuilder.AlterTable(
                 name: "project",
-                schema: "jsini",
+                schema: "helpdesk",
                 comment: "팀",
                 oldComment: "프로젝트 엔티티");
 
             migrationBuilder.AlterColumn<string>(
                 name: "type",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "wbslink",
                 type: "text",
                 nullable: false,
@@ -492,7 +492,7 @@ namespace HelpDeskServer.Migrations
 
             migrationBuilder.AlterColumn<int>(
                 name: "targetwbsid",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "wbslink",
                 type: "integer",
                 nullable: false,
@@ -502,7 +502,7 @@ namespace HelpDeskServer.Migrations
 
             migrationBuilder.AlterColumn<int>(
                 name: "sourcewbsid",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "wbslink",
                 type: "integer",
                 nullable: false,
@@ -512,7 +512,7 @@ namespace HelpDeskServer.Migrations
 
             migrationBuilder.AlterColumn<int>(
                 name: "responsibleuserid",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "wbs",
                 type: "integer",
                 nullable: true,
@@ -523,7 +523,7 @@ namespace HelpDeskServer.Migrations
 
             migrationBuilder.AlterColumn<int>(
                 name: "qcuserid",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "wbs",
                 type: "integer",
                 nullable: true,
@@ -534,7 +534,7 @@ namespace HelpDeskServer.Migrations
 
             migrationBuilder.AlterColumn<DateTime>(
                 name: "qccheckdate",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "wbs",
                 type: "timestamp with time zone",
                 nullable: true,
@@ -546,7 +546,7 @@ namespace HelpDeskServer.Migrations
 
             migrationBuilder.AlterColumn<string>(
                 name: "qccheck",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "wbs",
                 type: "character varying(100)",
                 maxLength: 100,
@@ -560,7 +560,7 @@ namespace HelpDeskServer.Migrations
 
             migrationBuilder.AlterColumn<int>(
                 name: "projectid",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "wbs",
                 type: "integer",
                 nullable: true,
@@ -571,7 +571,7 @@ namespace HelpDeskServer.Migrations
 
             migrationBuilder.AlterColumn<int>(
                 name: "parentwbsid",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "wbs",
                 type: "integer",
                 nullable: true,
@@ -582,7 +582,7 @@ namespace HelpDeskServer.Migrations
 
             migrationBuilder.AlterColumn<int>(
                 name: "managerid",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "wbs",
                 type: "integer",
                 nullable: true,
@@ -593,7 +593,7 @@ namespace HelpDeskServer.Migrations
 
             migrationBuilder.AlterColumn<string>(
                 name: "devcheck",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "wbs",
                 type: "character varying(100)",
                 maxLength: 100,
@@ -607,7 +607,7 @@ namespace HelpDeskServer.Migrations
 
             migrationBuilder.AlterColumn<int>(
                 name: "customerid",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "wbs",
                 type: "integer",
                 nullable: true,
@@ -618,7 +618,7 @@ namespace HelpDeskServer.Migrations
 
             migrationBuilder.AlterColumn<int>(
                 name: "customercompanyid",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "wbs",
                 type: "integer",
                 nullable: true,
@@ -629,7 +629,7 @@ namespace HelpDeskServer.Migrations
 
             migrationBuilder.AlterColumn<decimal>(
                 name: "cost",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "wbs",
                 type: "numeric",
                 nullable: true,
@@ -641,7 +641,7 @@ namespace HelpDeskServer.Migrations
 
             migrationBuilder.AlterColumn<string>(
                 name: "comments",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "wbs",
                 type: "text",
                 nullable: true,
@@ -653,7 +653,7 @@ namespace HelpDeskServer.Migrations
 
             migrationBuilder.AlterColumn<int>(
                 name: "builduserid",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "wbs",
                 type: "integer",
                 nullable: true,
@@ -664,7 +664,7 @@ namespace HelpDeskServer.Migrations
 
             migrationBuilder.AlterColumn<decimal>(
                 name: "budget",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "wbs",
                 type: "numeric",
                 nullable: true,
@@ -676,7 +676,7 @@ namespace HelpDeskServer.Migrations
 
             migrationBuilder.AlterColumn<int>(
                 name: "companyid",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "teamcompanies",
                 type: "integer",
                 nullable: false,
@@ -686,7 +686,7 @@ namespace HelpDeskServer.Migrations
 
             migrationBuilder.AlterColumn<int>(
                 name: "teamid",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "teamcompanies",
                 type: "integer",
                 nullable: false,
@@ -696,7 +696,7 @@ namespace HelpDeskServer.Migrations
 
             migrationBuilder.AlterColumn<int>(
                 name: "teamid",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "project",
                 type: "integer",
                 nullable: true,

@@ -14,7 +14,7 @@ namespace HelpDeskServer.Migrations
         {
             migrationBuilder.CreateTable(
                 name: "approle",
-                schema: "jsini",
+                schema: "helpdesk",
                 columns: table => new
                 {
                     id = table.Column<int>(type: "integer", nullable: false)
@@ -39,7 +39,7 @@ namespace HelpDeskServer.Migrations
 
             migrationBuilder.CreateTable(
                 name: "appuserrole",
-                schema: "jsini",
+                schema: "helpdesk",
                 columns: table => new
                 {
                     id = table.Column<int>(type: "integer", nullable: false)
@@ -62,7 +62,7 @@ namespace HelpDeskServer.Migrations
                     table.ForeignKey(
                         name: "FK_appuserrole_approle_roleid",
                         column: x => x.roleid,
-                        principalSchema: "jsini",
+                        principalSchema: "helpdesk",
                         principalTable: "approle",
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
@@ -71,7 +71,7 @@ namespace HelpDeskServer.Migrations
 
             migrationBuilder.CreateIndex(
                 name: "IX_appuserrole_roleid",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "appuserrole",
                 column: "roleid");
         }
@@ -81,11 +81,11 @@ namespace HelpDeskServer.Migrations
         {
             migrationBuilder.DropTable(
                 name: "appuserrole",
-                schema: "jsini");
+                schema: "helpdesk");
 
             migrationBuilder.DropTable(
                 name: "approle",
-                schema: "jsini");
+                schema: "helpdesk");
         }
     }
 }

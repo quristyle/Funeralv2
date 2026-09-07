@@ -13,7 +13,7 @@ namespace HelpDeskServer.Migrations
         {
             migrationBuilder.CreateTable(
                 name: "schedules",
-                schema: "jsini",
+                schema: "helpdesk",
                 columns: table => new
                 {
                     id = table.Column<Guid>(type: "uuid", nullable: false),
@@ -38,7 +38,7 @@ namespace HelpDeskServer.Migrations
         {
             migrationBuilder.DropTable(
                 name: "schedules",
-                schema: "jsini");
+                schema: "helpdesk");
         }
     }
 }

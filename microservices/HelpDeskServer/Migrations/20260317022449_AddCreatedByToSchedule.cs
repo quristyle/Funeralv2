@@ -12,7 +12,7 @@ namespace HelpDeskServer.Migrations
         {
             migrationBuilder.AddColumn<string>(
                 name: "createdby",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "schedules",
                 type: "text",
                 nullable: true,
@@ -24,7 +24,7 @@ namespace HelpDeskServer.Migrations
         {
             migrationBuilder.DropColumn(
                 name: "createdby",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "schedules");
         }
     }

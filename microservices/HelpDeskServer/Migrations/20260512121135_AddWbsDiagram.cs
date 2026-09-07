@@ -14,7 +14,7 @@ namespace HelpDeskServer.Migrations
         {
             migrationBuilder.CreateTable(
                 name: "wbsdiagram",
-                schema: "jsini",
+                schema: "helpdesk",
                 columns: table => new
                 {
                     wbsdiagramrid = table.Column<int>(type: "integer", nullable: false, comment: "다이어그램 고유 식별자")
@@ -38,7 +38,7 @@ namespace HelpDeskServer.Migrations
                     table.ForeignKey(
                         name: "FK_wbsdiagram_wbs_wbsrid",
                         column: x => x.wbsrid,
-                        principalSchema: "jsini",
+                        principalSchema: "helpdesk",
                         principalTable: "wbs",
                         principalColumn: "wbsrid",
                         onDelete: ReferentialAction.Cascade);
@@ -47,7 +47,7 @@ namespace HelpDeskServer.Migrations
 
             migrationBuilder.CreateIndex(
                 name: "IX_wbsdiagram_wbsrid",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "wbsdiagram",
                 column: "wbsrid");
         }
@@ -57,7 +57,7 @@ namespace HelpDeskServer.Migrations
         {
             migrationBuilder.DropTable(
                 name: "wbsdiagram",
-                schema: "jsini");
+                schema: "helpdesk");
         }
     }
 }

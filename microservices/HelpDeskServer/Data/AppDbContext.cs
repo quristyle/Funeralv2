@@ -296,7 +296,7 @@ public class AppDbContext : DbContext {
 
   protected override void OnModelCreating(ModelBuilder modelBuilder)
   {
-      modelBuilder.HasDefaultSchema("jsini");
+      modelBuilder.HasDefaultSchema("helpdesk");
 
       // BaseEntity 상속 구조를 명시적으로 TPT로 지정
       foreach (var entityType in modelBuilder.Model.GetEntityTypes())

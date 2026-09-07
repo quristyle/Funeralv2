@@ -12,7 +12,7 @@ namespace HelpDeskServer.Migrations
         {
             migrationBuilder.AddColumn<bool>(
                 name: "isdeleted",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "admin",
                 type: "boolean",
                 nullable: false,
@@ -25,7 +25,7 @@ namespace HelpDeskServer.Migrations
         {
             migrationBuilder.DropColumn(
                 name: "isdeleted",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "admin");
         }
     }

@@ -13,7 +13,7 @@ namespace HelpDeskServer.Migrations
         {
             migrationBuilder.CreateTable(
                 name: "mc_models",
-                schema: "jsini",
+                schema: "helpdesk",
                 columns: table => new
                 {
                     id = table.Column<int>(type: "integer", nullable: false)
@@ -29,7 +29,7 @@ namespace HelpDeskServer.Migrations
 
             migrationBuilder.CreateTable(
                 name: "parse_items",
-                schema: "jsini",
+                schema: "helpdesk",
                 columns: table => new
                 {
                     id = table.Column<int>(type: "integer", nullable: false)
@@ -48,7 +48,7 @@ namespace HelpDeskServer.Migrations
                     table.ForeignKey(
                         name: "FK_parse_items_mc_models_mc_modelsid",
                         column: x => x.mc_modelsid,
-                        principalSchema: "jsini",
+                        principalSchema: "helpdesk",
                         principalTable: "mc_models",
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
@@ -57,7 +57,7 @@ namespace HelpDeskServer.Migrations
 
             migrationBuilder.CreateTable(
                 name: "tag_items",
-                schema: "jsini",
+                schema: "helpdesk",
                 columns: table => new
                 {
                     id = table.Column<int>(type: "integer", nullable: false)
@@ -74,7 +74,7 @@ namespace HelpDeskServer.Migrations
                     table.ForeignKey(
                         name: "FK_tag_items_parse_items_parseitemid",
                         column: x => x.parseitemid,
-                        principalSchema: "jsini",
+                        principalSchema: "helpdesk",
                         principalTable: "parse_items",
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
@@ -83,13 +83,13 @@ namespace HelpDeskServer.Migrations
 
             migrationBuilder.CreateIndex(
                 name: "IX_parse_items_mc_modelsid",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "parse_items",
                 column: "mc_modelsid");
 
             migrationBuilder.CreateIndex(
                 name: "IX_tag_items_parseitemid",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "tag_items",
                 column: "parseitemid");
         }
@@ -99,15 +99,15 @@ namespace HelpDeskServer.Migrations
         {
             migrationBuilder.DropTable(
                 name: "tag_items",
-                schema: "jsini");
+                schema: "helpdesk");
 
             migrationBuilder.DropTable(
                 name: "parse_items",
-                schema: "jsini");
+                schema: "helpdesk");
 
             migrationBuilder.DropTable(
                 name: "mc_models",
-                schema: "jsini");
+                schema: "helpdesk");
         }
     }
 }

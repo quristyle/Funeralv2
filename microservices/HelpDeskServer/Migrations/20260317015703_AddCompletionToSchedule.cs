@@ -13,7 +13,7 @@ namespace HelpDeskServer.Migrations
         {
             migrationBuilder.AddColumn<DateTime>(
                 name: "completeddate",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "schedules",
                 type: "timestamp with time zone",
                 nullable: true,
@@ -21,7 +21,7 @@ namespace HelpDeskServer.Migrations
 
             migrationBuilder.AddColumn<bool>(
                 name: "iscompleted",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "schedules",
                 type: "boolean",
                 nullable: false,
@@ -34,12 +34,12 @@ namespace HelpDeskServer.Migrations
         {
             migrationBuilder.DropColumn(
                 name: "completeddate",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "schedules");
 
             migrationBuilder.DropColumn(
                 name: "iscompleted",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "schedules");
         }
     }

@@ -12,63 +12,63 @@ namespace HelpDeskServer.Migrations
         {
             migrationBuilder.AddColumn<string>(
                 name: "ext1name",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "menu",
                 type: "text",
                 nullable: true);
 
             migrationBuilder.AddColumn<string>(
                 name: "ext2name",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "menu",
                 type: "text",
                 nullable: true);
 
             migrationBuilder.AddColumn<string>(
                 name: "ext3name",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "menu",
                 type: "text",
                 nullable: true);
 
             migrationBuilder.AddColumn<string>(
                 name: "ext4name",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "menu",
                 type: "text",
                 nullable: true);
 
             migrationBuilder.AddColumn<string>(
                 name: "ext5name",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "menu",
                 type: "text",
                 nullable: true);
 
             migrationBuilder.AddColumn<string>(
                 name: "ext6name",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "menu",
                 type: "text",
                 nullable: true);
 
             migrationBuilder.AddColumn<string>(
                 name: "ext7name",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "menu",
                 type: "text",
                 nullable: true);
 
             migrationBuilder.AddColumn<string>(
                 name: "ext8name",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "menu",
                 type: "text",
                 nullable: true);
 
             migrationBuilder.AddColumn<bool>(
                 name: "usecreate",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "menu",
                 type: "boolean",
                 nullable: false,
@@ -76,7 +76,7 @@ namespace HelpDeskServer.Migrations
 
             migrationBuilder.AddColumn<bool>(
                 name: "usedelete",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "menu",
                 type: "boolean",
                 nullable: false,
@@ -84,7 +84,7 @@ namespace HelpDeskServer.Migrations
 
             migrationBuilder.AddColumn<bool>(
                 name: "useext1",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "menu",
                 type: "boolean",
                 nullable: false,
@@ -92,7 +92,7 @@ namespace HelpDeskServer.Migrations
 
             migrationBuilder.AddColumn<bool>(
                 name: "useext2",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "menu",
                 type: "boolean",
                 nullable: false,
@@ -100,7 +100,7 @@ namespace HelpDeskServer.Migrations
 
             migrationBuilder.AddColumn<bool>(
                 name: "useext3",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "menu",
                 type: "boolean",
                 nullable: false,
@@ -108,7 +108,7 @@ namespace HelpDeskServer.Migrations
 
             migrationBuilder.AddColumn<bool>(
                 name: "useext4",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "menu",
                 type: "boolean",
                 nullable: false,
@@ -116,7 +116,7 @@ namespace HelpDeskServer.Migrations
 
             migrationBuilder.AddColumn<bool>(
                 name: "useext5",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "menu",
                 type: "boolean",
                 nullable: false,
@@ -124,7 +124,7 @@ namespace HelpDeskServer.Migrations
 
             migrationBuilder.AddColumn<bool>(
                 name: "useext6",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "menu",
                 type: "boolean",
                 nullable: false,
@@ -132,7 +132,7 @@ namespace HelpDeskServer.Migrations
 
             migrationBuilder.AddColumn<bool>(
                 name: "useext7",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "menu",
                 type: "boolean",
                 nullable: false,
@@ -140,7 +140,7 @@ namespace HelpDeskServer.Migrations
 
             migrationBuilder.AddColumn<bool>(
                 name: "useext8",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "menu",
                 type: "boolean",
                 nullable: false,
@@ -148,7 +148,7 @@ namespace HelpDeskServer.Migrations
 
             migrationBuilder.AddColumn<bool>(
                 name: "useread",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "menu",
                 type: "boolean",
                 nullable: false,
@@ -156,7 +156,7 @@ namespace HelpDeskServer.Migrations
 
             migrationBuilder.AddColumn<bool>(
                 name: "useupdate",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "menu",
                 type: "boolean",
                 nullable: false,
@@ -168,102 +168,102 @@ namespace HelpDeskServer.Migrations
         {
             migrationBuilder.DropColumn(
                 name: "ext1name",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "menu");
 
             migrationBuilder.DropColumn(
                 name: "ext2name",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "menu");
 
             migrationBuilder.DropColumn(
                 name: "ext3name",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "menu");
 
             migrationBuilder.DropColumn(
                 name: "ext4name",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "menu");
 
             migrationBuilder.DropColumn(
                 name: "ext5name",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "menu");
 
             migrationBuilder.DropColumn(
                 name: "ext6name",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "menu");
 
             migrationBuilder.DropColumn(
                 name: "ext7name",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "menu");
 
             migrationBuilder.DropColumn(
                 name: "ext8name",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "menu");
 
             migrationBuilder.DropColumn(
                 name: "usecreate",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "menu");
 
             migrationBuilder.DropColumn(
                 name: "usedelete",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "menu");
 
             migrationBuilder.DropColumn(
                 name: "useext1",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "menu");
 
             migrationBuilder.DropColumn(
                 name: "useext2",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "menu");
 
             migrationBuilder.DropColumn(
                 name: "useext3",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "menu");
 
             migrationBuilder.DropColumn(
                 name: "useext4",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "menu");
 
             migrationBuilder.DropColumn(
                 name: "useext5",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "menu");
 
             migrationBuilder.DropColumn(
                 name: "useext6",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "menu");
 
             migrationBuilder.DropColumn(
                 name: "useext7",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "menu");
 
             migrationBuilder.DropColumn(
                 name: "useext8",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "menu");
 
             migrationBuilder.DropColumn(
                 name: "useread",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "menu");
 
             migrationBuilder.DropColumn(
                 name: "useupdate",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "menu");
         }
     }

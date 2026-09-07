@@ -14,7 +14,7 @@ namespace HelpDeskServer.Migrations
         {
             migrationBuilder.CreateTable(
                 name: "rolemenupermission",
-                schema: "jsini",
+                schema: "helpdesk",
                 columns: table => new
                 {
                     id = table.Column<int>(type: "integer", nullable: false)
@@ -48,14 +48,14 @@ namespace HelpDeskServer.Migrations
                     table.ForeignKey(
                         name: "FK_rolemenupermission_approle_roleid",
                         column: x => x.roleid,
-                        principalSchema: "jsini",
+                        principalSchema: "helpdesk",
                         principalTable: "approle",
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
                         name: "FK_rolemenupermission_menu_menuid",
                         column: x => x.menuid,
-                        principalSchema: "jsini",
+                        principalSchema: "helpdesk",
                         principalTable: "menu",
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
@@ -64,13 +64,13 @@ namespace HelpDeskServer.Migrations
 
             migrationBuilder.CreateIndex(
                 name: "IX_rolemenupermission_menuid",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "rolemenupermission",
                 column: "menuid");
 
             migrationBuilder.CreateIndex(
                 name: "IX_rolemenupermission_roleid",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "rolemenupermission",
                 column: "roleid");
         }
@@ -80,7 +80,7 @@ namespace HelpDeskServer.Migrations
         {
             migrationBuilder.DropTable(
                 name: "rolemenupermission",
-                schema: "jsini");
+                schema: "helpdesk");
         }
     }
 }

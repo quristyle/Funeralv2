@@ -14,12 +14,12 @@ namespace HelpDeskServer.Migrations
         {
             migrationBuilder.DropColumn(
                 name: "logintype",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "menu");
 
             migrationBuilder.CreateTable(
                 name: "menurole",
-                schema: "jsini",
+                schema: "helpdesk",
                 columns: table => new
                 {
                     id = table.Column<int>(type: "integer", nullable: false)
@@ -41,7 +41,7 @@ namespace HelpDeskServer.Migrations
                     table.ForeignKey(
                         name: "FK_menurole_menu_menuid",
                         column: x => x.menuid,
-                        principalSchema: "jsini",
+                        principalSchema: "helpdesk",
                         principalTable: "menu",
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
@@ -50,7 +50,7 @@ namespace HelpDeskServer.Migrations
 
             migrationBuilder.CreateIndex(
                 name: "IX_menurole_menuid",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "menurole",
                 column: "menuid");
         }
@@ -60,11 +60,11 @@ namespace HelpDeskServer.Migrations
         {
             migrationBuilder.DropTable(
                 name: "menurole",
-                schema: "jsini");
+                schema: "helpdesk");
 
             migrationBuilder.AddColumn<string>(
                 name: "logintype",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "menu",
                 type: "text",
                 nullable: false,

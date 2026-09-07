@@ -14,7 +14,7 @@ namespace HelpDeskServer.Migrations
         {
             migrationBuilder.CreateTable(
                 name: "menu",
-                schema: "jsini",
+                schema: "helpdesk",
                 columns: table => new
                 {
                     id = table.Column<int>(type: "integer", nullable: false)
@@ -42,7 +42,7 @@ namespace HelpDeskServer.Migrations
                     table.ForeignKey(
                         name: "FK_menu_menu_parentid",
                         column: x => x.parentid,
-                        principalSchema: "jsini",
+                        principalSchema: "helpdesk",
                         principalTable: "menu",
                         principalColumn: "id");
                 },
@@ -50,7 +50,7 @@ namespace HelpDeskServer.Migrations
 
             migrationBuilder.CreateIndex(
                 name: "IX_menu_parentid",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "menu",
                 column: "parentid");
         }
@@ -60,7 +60,7 @@ namespace HelpDeskServer.Migrations
         {
             migrationBuilder.DropTable(
                 name: "menu",
-                schema: "jsini");
+                schema: "helpdesk");
         }
     }
 }

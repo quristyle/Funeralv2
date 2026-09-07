@@ -14,7 +14,7 @@ namespace HelpDeskServer.Migrations
         {
             migrationBuilder.CreateTable(
                 name: "checklist",
-                schema: "jsini",
+                schema: "helpdesk",
                 columns: table => new
                 {
                     id = table.Column<int>(type: "integer", nullable: false)
@@ -45,7 +45,7 @@ namespace HelpDeskServer.Migrations
         {
             migrationBuilder.DropTable(
                 name: "checklist",
-                schema: "jsini");
+                schema: "helpdesk");
         }
     }
 }

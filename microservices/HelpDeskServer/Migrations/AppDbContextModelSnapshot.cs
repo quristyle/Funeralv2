@@ -17,7 +17,7 @@ namespace HelpDeskServer.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasDefaultSchema("jsini")
+                .HasDefaultSchema("helpdesk")
                 .HasAnnotation("ProductVersion", "10.0.11")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
@@ -116,7 +116,7 @@ namespace HelpDeskServer.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("admin", "jsini", t =>
+                    b.ToTable("admin", "helpdesk", t =>
                         {
                             t.HasComment("관리자");
                         });
@@ -138,7 +138,7 @@ namespace HelpDeskServer.Migrations
 
                     b.HasIndex("TeamId");
 
-                    b.ToTable("adminteams", "jsini", t =>
+                    b.ToTable("adminteams", "helpdesk", t =>
                         {
                             t.HasComment("관리자-팀 매핑 (N:N 관계)");
                         });
@@ -210,7 +210,7 @@ namespace HelpDeskServer.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("approle", "jsini", t =>
+                    b.ToTable("approle", "helpdesk", t =>
                         {
                             t.HasComment("권한 그룹(역할) 엔티티");
                         });
@@ -278,7 +278,7 @@ namespace HelpDeskServer.Migrations
 
                     b.HasIndex("RoleId");
 
-                    b.ToTable("appuserrole", "jsini", t =>
+                    b.ToTable("appuserrole", "helpdesk", t =>
                         {
                             t.HasComment("사용자별 권한 그룹 매핑 엔티티");
                         });
@@ -384,7 +384,7 @@ namespace HelpDeskServer.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("attachment", "jsini", t =>
+                    b.ToTable("attachment", "helpdesk", t =>
                         {
                             t.HasComment("공통 첨부파일");
                         });
@@ -429,7 +429,7 @@ namespace HelpDeskServer.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("auth_user_links", "jsini", t =>
+                    b.ToTable("auth_user_links", "helpdesk", t =>
                         {
                             t.HasComment("funeralv2(AuthServer) 계정과 헬프데스크 계정(Admin/Customer)을 잇는 매핑.\n            \n             헬프데스크는 원래 자체 계정(Admins/Customers)으로만 로그인했다. funeralv2 로 계정을 단일화하면서\n             AuthServer 가 발급한 토큰 하나로 헬프데스크 API 를 쓸 수 있어야 하는데,\n             기존 데이터(요청 작성자·담당자 등)가 모두 헬프데스크 내부 ID 를 참조하고 있어 그 ID 를 버릴 수 없다.\n             그래서 기존 테이블은 건드리지 않고 이 매핑 테이블만 추가해 두 체계를 연결한다.");
                         });
@@ -496,7 +496,7 @@ namespace HelpDeskServer.Migrations
 
                     b.HasIndex("MC_ModelsId");
 
-                    b.ToTable("binarysample", "jsini");
+                    b.ToTable("binarysample", "helpdesk");
                 });
 
             modelBuilder.Entity("HelpDeskServer.Models.Checklist", b =>
@@ -575,7 +575,7 @@ namespace HelpDeskServer.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("checklist", "jsini", t =>
+                    b.ToTable("checklist", "helpdesk", t =>
                         {
                             t.HasComment("시스템 운영전환 체크리스트");
                         });
@@ -693,7 +693,7 @@ namespace HelpDeskServer.Migrations
 
                     b.HasIndex("CompanyId");
 
-                    b.ToTable("customer", "jsini", t =>
+                    b.ToTable("customer", "helpdesk", t =>
                         {
                             t.HasComment("고객");
                         });
@@ -749,7 +749,7 @@ namespace HelpDeskServer.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("customercompany", "jsini", t =>
+                    b.ToTable("customercompany", "helpdesk", t =>
                         {
                             t.HasComment("고객사");
                         });
@@ -839,7 +839,7 @@ namespace HelpDeskServer.Migrations
 
                     b.HasIndex("RequestId");
 
-                    b.ToTable("improvementcomment", "jsini", t =>
+                    b.ToTable("improvementcomment", "helpdesk", t =>
                         {
                             t.HasComment("개선 요청 덧글");
                         });
@@ -945,7 +945,7 @@ namespace HelpDeskServer.Migrations
 
                     b.HasIndex("CustomerId");
 
-                    b.ToTable("improvementrequest", "jsini", t =>
+                    b.ToTable("improvementrequest", "helpdesk", t =>
                         {
                             t.HasComment("개선 요청");
                         });
@@ -1118,7 +1118,7 @@ namespace HelpDeskServer.Migrations
 
                     b.HasIndex("ParentId");
 
-                    b.ToTable("menu", "jsini", t =>
+                    b.ToTable("menu", "helpdesk", t =>
                         {
                             t.HasComment("메뉴 관리 엔티티");
                         });
@@ -1181,7 +1181,7 @@ namespace HelpDeskServer.Migrations
 
                     b.HasIndex("MenuId");
 
-                    b.ToTable("menurole", "jsini", t =>
+                    b.ToTable("menurole", "helpdesk", t =>
                         {
                             t.HasComment("메뉴별 권한 매핑 엔티티");
                         });
@@ -1243,7 +1243,7 @@ namespace HelpDeskServer.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("notice", "jsini", t =>
+                    b.ToTable("notice", "helpdesk", t =>
                         {
                             t.HasComment("공지사항");
                         });
@@ -1316,7 +1316,7 @@ namespace HelpDeskServer.Migrations
 
                     b.HasIndex("TeamId");
 
-                    b.ToTable("project", "jsini", t =>
+                    b.ToTable("project", "helpdesk", t =>
                         {
                             t.HasComment("프로젝트 엔티티");
                         });
@@ -1383,7 +1383,7 @@ namespace HelpDeskServer.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("pushmessage", "jsini", t =>
+                    b.ToTable("pushmessage", "helpdesk", t =>
                         {
                             t.HasComment("발송된 푸시 메시지의 내용을 저장하는 엔티티");
                         });
@@ -1477,7 +1477,7 @@ namespace HelpDeskServer.Migrations
 
                     b.HasIndex("PushMessageId");
 
-                    b.ToTable("pushmessagerecipient", "jsini", t =>
+                    b.ToTable("pushmessagerecipient", "helpdesk", t =>
                         {
                             t.HasComment("특정 사용자에게 발송된 푸시 메시지의 수신 상태를 추적하는 엔티티");
                         });
@@ -1543,7 +1543,7 @@ namespace HelpDeskServer.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("pushnotificationlog", "jsini", t =>
+                    b.ToTable("pushnotificationlog", "helpdesk", t =>
                         {
                             t.HasComment("푸시 알림 발송 기록을 저장하는 엔티티");
                         });
@@ -1583,7 +1583,7 @@ namespace HelpDeskServer.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("pushsubscriptions", "jsini", t =>
+                    b.ToTable("pushsubscriptions", "helpdesk", t =>
                         {
                             t.HasComment("Web Push 구독 정보를 저장하는 엔티티");
                         });
@@ -1693,7 +1693,7 @@ namespace HelpDeskServer.Migrations
 
                     b.HasIndex("RoleId");
 
-                    b.ToTable("rolemenupermission", "jsini", t =>
+                    b.ToTable("rolemenupermission", "helpdesk", t =>
                         {
                             t.HasComment("역할별 메뉴 상세 권한 엔티티");
                         });
@@ -1760,7 +1760,7 @@ namespace HelpDeskServer.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("schedules", "jsini", t =>
+                    b.ToTable("schedules", "helpdesk", t =>
                         {
                             t.HasComment("일정 관리 테이블 모델");
                         });
@@ -1816,7 +1816,7 @@ namespace HelpDeskServer.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("team", "jsini", t =>
+                    b.ToTable("team", "helpdesk", t =>
                         {
                             t.HasComment("팀");
                         });
@@ -1844,7 +1844,7 @@ namespace HelpDeskServer.Migrations
 
                     b.HasIndex("CustomerCompanyId");
 
-                    b.ToTable("teamcompanies", "jsini", t =>
+                    b.ToTable("teamcompanies", "helpdesk", t =>
                         {
                             t.HasComment("팀-회사 관계 (N:N)");
                         });
@@ -1920,7 +1920,7 @@ namespace HelpDeskServer.Migrations
                     b.HasIndex("UserId", "UserType", "Key")
                         .IsUnique();
 
-                    b.ToTable("userproperty", "jsini", t =>
+                    b.ToTable("userproperty", "helpdesk", t =>
                         {
                             t.HasComment("사용자별 확장 속성을 저장하는 엔티티 (예: 알림 설정)");
                         });
@@ -2146,7 +2146,7 @@ namespace HelpDeskServer.Migrations
 
                     b.HasIndex("ResponsibleUserId");
 
-                    b.ToTable("wbs", "jsini", t =>
+                    b.ToTable("wbs", "helpdesk", t =>
                         {
                             t.HasComment("프로젝트 WBS(Work Breakdown Structure) 엔티티\n            대규모 프로젝트에서 작업 단위, 일정, 담당자, 진행률, 리스크 등을 관리");
                         });
@@ -2216,7 +2216,7 @@ namespace HelpDeskServer.Migrations
 
                     b.HasIndex("WbsRid");
 
-                    b.ToTable("wbsdiagram", "jsini", t =>
+                    b.ToTable("wbsdiagram", "helpdesk", t =>
                         {
                             t.HasComment("WBS 항목별 다이어그램 데이터를 저장하는 엔티티");
                         });
@@ -2286,7 +2286,7 @@ namespace HelpDeskServer.Migrations
 
                     b.HasIndex("TargetWbsId");
 
-                    b.ToTable("wbslink", "jsini", t =>
+                    b.ToTable("wbslink", "helpdesk", t =>
                         {
                             t.HasComment("WBS 항목 간의 연결(의존성)을 정의하는 엔티티");
                         });
@@ -2359,7 +2359,7 @@ namespace HelpDeskServer.Migrations
 
                     b.HasIndex("MC_ModelsId");
 
-                    b.ToTable("mc_ack_finds", "jsini");
+                    b.ToTable("mc_ack_finds", "helpdesk");
                 });
 
             modelBuilder.Entity("HelpDeskServer.Utilities.MC_Models", b =>
@@ -2383,7 +2383,7 @@ namespace HelpDeskServer.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("mc_models", "jsini", t =>
+                    b.ToTable("mc_models", "helpdesk", t =>
                         {
                             t.HasComment("특정 장비에 대한 정보");
                         });
@@ -2435,7 +2435,7 @@ namespace HelpDeskServer.Migrations
 
                     b.HasIndex("MC_ModelsId");
 
-                    b.ToTable("parse_items", "jsini", t =>
+                    b.ToTable("parse_items", "helpdesk", t =>
                         {
                             t.HasComment("하나의 전문에 대한 정보");
                         });
@@ -2479,7 +2479,7 @@ namespace HelpDeskServer.Migrations
 
                     b.HasIndex("ParseItemId");
 
-                    b.ToTable("tag_items", "jsini", t =>
+                    b.ToTable("tag_items", "helpdesk", t =>
                         {
                             t.HasComment("하나의 전문에 소속된 테그 정보");
                         });

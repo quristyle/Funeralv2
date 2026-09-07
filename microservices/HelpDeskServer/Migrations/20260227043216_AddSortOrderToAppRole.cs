@@ -12,7 +12,7 @@ namespace HelpDeskServer.Migrations
         {
             migrationBuilder.AddColumn<int>(
                 name: "sortorder",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "approle",
                 type: "integer",
                 nullable: false,
@@ -25,7 +25,7 @@ namespace HelpDeskServer.Migrations
         {
             migrationBuilder.DropColumn(
                 name: "sortorder",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "approle");
         }
     }

@@ -12,7 +12,7 @@ namespace HelpDeskServer.Migrations
         {
             migrationBuilder.AddColumn<bool>(
                 name: "visible",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "menu",
                 type: "boolean",
                 nullable: false,
@@ -25,7 +25,7 @@ namespace HelpDeskServer.Migrations
         {
             migrationBuilder.DropColumn(
                 name: "visible",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "menu");
         }
     }

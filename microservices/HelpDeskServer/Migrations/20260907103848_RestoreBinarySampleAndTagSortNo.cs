@@ -14,7 +14,7 @@ namespace HelpDeskServer.Migrations
         {
             migrationBuilder.AddColumn<int>(
                 name: "sortno",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "tag_items",
                 type: "integer",
                 nullable: false,
@@ -22,7 +22,7 @@ namespace HelpDeskServer.Migrations
 
             migrationBuilder.AddColumn<string>(
                 name: "fileid",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "attachment",
                 type: "text",
                 nullable: true,
@@ -30,7 +30,7 @@ namespace HelpDeskServer.Migrations
 
             migrationBuilder.AddColumn<DateTime>(
                 name: "migratedat",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "attachment",
                 type: "timestamp with time zone",
                 nullable: true,
@@ -38,7 +38,7 @@ namespace HelpDeskServer.Migrations
 
             migrationBuilder.CreateTable(
                 name: "auth_user_links",
-                schema: "jsini",
+                schema: "helpdesk",
                 columns: table => new
                 {
                     id = table.Column<int>(type: "integer", nullable: false, comment: "매핑 식별자")
@@ -57,7 +57,7 @@ namespace HelpDeskServer.Migrations
 
             migrationBuilder.CreateTable(
                 name: "binarysample",
-                schema: "jsini",
+                schema: "helpdesk",
                 columns: table => new
                 {
                     id = table.Column<int>(type: "integer", nullable: false)
@@ -80,7 +80,7 @@ namespace HelpDeskServer.Migrations
                     table.ForeignKey(
                         name: "FK_binarysample_mc_models_mc_modelsid",
                         column: x => x.mc_modelsid,
-                        principalSchema: "jsini",
+                        principalSchema: "helpdesk",
                         principalTable: "mc_models",
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
@@ -88,7 +88,7 @@ namespace HelpDeskServer.Migrations
 
             migrationBuilder.CreateIndex(
                 name: "IX_binarysample_mc_modelsid",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "binarysample",
                 column: "mc_modelsid");
         }
@@ -98,25 +98,25 @@ namespace HelpDeskServer.Migrations
         {
             migrationBuilder.DropTable(
                 name: "auth_user_links",
-                schema: "jsini");
+                schema: "helpdesk");
 
             migrationBuilder.DropTable(
                 name: "binarysample",
-                schema: "jsini");
+                schema: "helpdesk");
 
             migrationBuilder.DropColumn(
                 name: "sortno",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "tag_items");
 
             migrationBuilder.DropColumn(
                 name: "fileid",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "attachment");
 
             migrationBuilder.DropColumn(
                 name: "migratedat",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "attachment");
         }
     }

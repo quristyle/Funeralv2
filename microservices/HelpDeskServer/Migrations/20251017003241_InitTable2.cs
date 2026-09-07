@@ -12,27 +12,27 @@ namespace HelpDeskServer.Migrations
         {
             migrationBuilder.DropForeignKey(
                 name: "FK_wbs_wbs_parentwbswbsrid",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "wbs");
 
             migrationBuilder.RenameColumn(
                 name: "parentwbswbsrid",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "wbs",
                 newName: "parentwbsid");
 
             migrationBuilder.RenameIndex(
                 name: "IX_wbs_parentwbswbsrid",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "wbs",
                 newName: "IX_wbs_parentwbsid");
 
             migrationBuilder.AddForeignKey(
                 name: "FK_wbs_wbs_parentwbsid",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "wbs",
                 column: "parentwbsid",
-                principalSchema: "jsini",
+                principalSchema: "helpdesk",
                 principalTable: "wbs",
                 principalColumn: "wbsrid");
         }
@@ -42,27 +42,27 @@ namespace HelpDeskServer.Migrations
         {
             migrationBuilder.DropForeignKey(
                 name: "FK_wbs_wbs_parentwbsid",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "wbs");
 
             migrationBuilder.RenameColumn(
                 name: "parentwbsid",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "wbs",
                 newName: "parentwbswbsrid");
 
             migrationBuilder.RenameIndex(
                 name: "IX_wbs_parentwbsid",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "wbs",
                 newName: "IX_wbs_parentwbswbsrid");
 
             migrationBuilder.AddForeignKey(
                 name: "FK_wbs_wbs_parentwbswbsrid",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "wbs",
                 column: "parentwbswbsrid",
-                principalSchema: "jsini",
+                principalSchema: "helpdesk",
                 principalTable: "wbs",
                 principalColumn: "wbsrid");
         }

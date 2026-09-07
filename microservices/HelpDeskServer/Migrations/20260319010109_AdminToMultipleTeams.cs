@@ -12,22 +12,22 @@ namespace HelpDeskServer.Migrations
         {
             migrationBuilder.DropForeignKey(
                 name: "FK_admin_team_teamid",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "admin");
 
             migrationBuilder.DropIndex(
                 name: "IX_admin_teamid",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "admin");
 
             migrationBuilder.DropColumn(
                 name: "teamid",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "admin");
 
             migrationBuilder.CreateTable(
                 name: "adminteams",
-                schema: "jsini",
+                schema: "helpdesk",
                 columns: table => new
                 {
                     adminid = table.Column<int>(type: "integer", nullable: false, comment: "관리자 ID"),
@@ -39,14 +39,14 @@ namespace HelpDeskServer.Migrations
                     table.ForeignKey(
                         name: "FK_adminteams_admin_adminid",
                         column: x => x.adminid,
-                        principalSchema: "jsini",
+                        principalSchema: "helpdesk",
                         principalTable: "admin",
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
                         name: "FK_adminteams_team_teamid",
                         column: x => x.teamid,
-                        principalSchema: "jsini",
+                        principalSchema: "helpdesk",
                         principalTable: "team",
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
@@ -55,7 +55,7 @@ namespace HelpDeskServer.Migrations
 
             migrationBuilder.CreateIndex(
                 name: "IX_adminteams_teamid",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "adminteams",
                 column: "teamid");
         }
@@ -65,11 +65,11 @@ namespace HelpDeskServer.Migrations
         {
             migrationBuilder.DropTable(
                 name: "adminteams",
-                schema: "jsini");
+                schema: "helpdesk");
 
             migrationBuilder.AddColumn<int>(
                 name: "teamid",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "admin",
                 type: "integer",
                 nullable: false,
@@ -78,16 +78,16 @@ namespace HelpDeskServer.Migrations
 
             migrationBuilder.CreateIndex(
                 name: "IX_admin_teamid",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "admin",
                 column: "teamid");
 
             migrationBuilder.AddForeignKey(
                 name: "FK_admin_team_teamid",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "admin",
                 column: "teamid",
-                principalSchema: "jsini",
+                principalSchema: "helpdesk",
                 principalTable: "team",
                 principalColumn: "id",
                 onDelete: ReferentialAction.Cascade);

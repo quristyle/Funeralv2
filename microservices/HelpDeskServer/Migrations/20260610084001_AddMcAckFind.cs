@@ -13,7 +13,7 @@ namespace HelpDeskServer.Migrations
         {
             migrationBuilder.CreateTable(
                 name: "mc_ack_finds",
-                schema: "jsini",
+                schema: "helpdesk",
                 columns: table => new
                 {
                     id = table.Column<int>(type: "integer", nullable: false)
@@ -36,7 +36,7 @@ namespace HelpDeskServer.Migrations
                     table.ForeignKey(
                         name: "FK_mc_ack_finds_mc_models_mc_modelsid",
                         column: x => x.mc_modelsid,
-                        principalSchema: "jsini",
+                        principalSchema: "helpdesk",
                         principalTable: "mc_models",
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
@@ -44,7 +44,7 @@ namespace HelpDeskServer.Migrations
 
             migrationBuilder.CreateIndex(
                 name: "IX_mc_ack_finds_mc_modelsid",
-                schema: "jsini",
+                schema: "helpdesk",
                 table: "mc_ack_finds",
                 column: "mc_modelsid");
         }
@@ -54,7 +54,7 @@ namespace HelpDeskServer.Migrations
         {
             migrationBuilder.DropTable(
                 name: "mc_ack_finds",
-                schema: "jsini");
+                schema: "helpdesk");
         }
     }
 }
