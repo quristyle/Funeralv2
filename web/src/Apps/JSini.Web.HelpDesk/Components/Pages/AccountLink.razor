@@ -57,19 +57,24 @@
     }
 }
 
-<div class="jsini-toolbar">
-    <PermissionView Action="MenuAction.Search">
-        <DxButton Text="새로고침" RenderStyle="ButtonRenderStyle.Secondary" Click="@ReloadAsync" />
-    </PermissionView>
-    <PermissionView Action="MenuAction.Create">
-        <DxButton Text="연결 추가" RenderStyle="ButtonRenderStyle.Primary" Click="@OpenCreate" />
-    </PermissionView>
-</div>
+@* 조건이 하나도 없다. 새로고침은 표 아래 띠의 다시 읽기가 대신하고,
+   「연결 추가」는 자기 팝업이 맡아 그 띠를 쓸 수 없으므로 자료 판의 제목
+   줄에 세운다 — 조건줄에 담으면 조건이 어디 있는지가 흐려진다. *@
 
 <PageNotice Text="@Notice" Tone="@Tone" />
 
-<CommCont>
-    <CommGrd TItem="AuthUserLink" Data="@_links" Loading="@Loading" PageSize="20" KeyFieldName="Id">
+<CommCont Title="계정 연결" Hint="@($"{_links.Count}건")">
+    <Actions>
+        <PermissionView Action="MenuAction.Create">
+            <DxButton Text="연결 추가" RenderStyle="ButtonRenderStyle.Secondary"
+                      IconCssClass="jsini-icon-plus" Click="@OpenCreate" />
+        </PermissionView>
+    </Actions>
+
+    <ChildContent>
+    <CommGrd TItem="AuthUserLink" Data="@_links" Loading="@Loading" PageSize="20" KeyFieldName="Id"
+             ExportName="계정연결"
+             Reload="@ReloadAsync">
         <Columns>
             <DxGridDataColumn FieldName="AuthUserId" Caption="JSini 포털 계정" MinWidth="180" />
             <DxGridDataColumn FieldName="UserType" Caption="구분" Width="100px">
@@ -86,16 +91,22 @@
                         var link = (AuthUserLink)context.DataItem;
                     }
                     <PermissionView Action="MenuAction.Delete">
-                        <DxButton Text="해제" RenderStyle="ButtonRenderStyle.Danger"
-                                  Click="@(() => _removing = link)" />
+                        @* 계정을 지우는 것이 아니라 연결만 푼다. CommGrd 의
+                           삭제(휴지통)를 쓰지 않는 이유가 그것이다 — 그 아이콘은
+                           「이 줄이 사라진다」는 뜻이다. *@
+                        <DxButton Text="해제" RenderStyle="ButtonRenderStyle.Link"
+                                  CssClass="commgrd__icon--warn"
+                                  Title="연결만 푼다. 계정은 남는다"
+                                  Click="@(() => RemoveAsync(link))" />
                     </PermissionView>
                 </CellDisplayTemplate>
             </DxGridDataColumn>
         </Columns>
     </CommGrd>
+    </ChildContent>
 </CommCont>
 
-<DxPopup @bind-Visible="_editing" HeaderText="계정 연결" Width="520px">
+<DxPopup @bind-Visible="_editing" HeaderText="계정 연결" Width="520px" ShowFooter="true">
     <BodyContentTemplate Context="popup">
         <div class="hd-form">
             <div class="hd-field">
@@ -129,29 +140,18 @@
             }
         </div>
 
-        <div class="jsini-toolbar">
-            <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Primary" Click="@SaveAsync" />
-            <DxButton Text="취소" RenderStyle="ButtonRenderStyle.Secondary"
-                      Click="@(() => _editing = false)" />
-        </div>
     </BodyContentTemplate>
+
+    <FooterContentTemplate>
+        <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Primary" Click="@SaveAsync" />
+        <DxButton Text="취소" RenderStyle="ButtonRenderStyle.Secondary"
+                  Click="@(() => _editing = false)" />
+    </FooterContentTemplate>
 </DxPopup>
 
-<DxPopup Visible="@(_removing is not null)" VisibleChanged="@((bool v) => { if (!v) _removing = null; })"
-         HeaderText="연결 해제" Width="440px">
-    <BodyContentTemplate Context="popup">
-        <p>
-            <strong>@_removing?.AuthUserId</strong> 의 연결을 해제합니다.
-            그 계정으로 로그인하면 헬프데스크 자료가 「내 것」으로 잡히지 않습니다.
-        </p>
-
-        <div class="jsini-toolbar">
-            <DxButton Text="해제" RenderStyle="ButtonRenderStyle.Danger" Click="@RemoveAsync" />
-            <DxButton Text="취소" RenderStyle="ButtonRenderStyle.Secondary"
-                      Click="@(() => _removing = null)" />
-        </div>
-    </BodyContentTemplate>
-</DxPopup>
+@* 확인은 공통 부품에 맡긴다. 손으로 팝업을 적으면 화면마다 단추 자리와
+   글자가 갈리고, 「취소가 어느 쪽이었나」를 매번 눈으로 찾게 된다. *@
+<ConfirmDialog @ref="_confirm" />
 
 @code {
     private sealed record UserTypeOption(string Code, string Name);
@@ -168,7 +168,7 @@
     private List<BizOption> _accounts = [];
 
     private bool _editing;
-    private AuthUserLink? _removing;
+    private ConfirmDialog? _confirm;
 
     private string? _authUserId;
     private string _userType = "admin";
@@ -258,21 +258,23 @@
         }
     }
 
-    private async Task RemoveAsync()
+    private async Task RemoveAsync(AuthUserLink link)
     {
-        if (_removing is null)
+        // 지운 뒤에 무슨 일이 나는지 적어 준다. 「연결만 푼다」를 모르면
+        // 계정을 지우는 것으로 읽는다.
+        var ok = await _confirm!.AskAsync(
+            $"「{link.AuthUserId}」 의 연결을 해제합니다."
+            + "\n계정은 그대로 남습니다. 다만 그 계정으로 로그인하면 헬프데스크"
+            + " 자료가 「내 것」으로 잡히지 않습니다.",
+            confirmText: "해제");
+
+        if (!ok)
         {
             return;
         }
 
-        var id = _removing.Id;
-        _removing = null;
-
-        var ok = await RunAsync(
-            () => Api.DeleteAsync($"auth-links/{id}"),
-            "연결을 해제했습니다.", "해제하지 못했습니다");
-
-        if (ok)
+        if (await RunAsync(() => Api.DeleteAsync($"auth-links/{link.Id}"),
+                "연결을 해제했습니다.", "해제하지 못했습니다"))
         {
             await ReloadAsync();
         }
