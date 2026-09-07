@@ -110,63 +110,67 @@ public class MenuService : IMenuService
     /// </remarks>
     public async Task<List<MenuPermissionDto>> GetMenuPermissionsAsync(string userId)
     {
+        // ── 왕복 하나로 읽는다 ───────────────────────────────
+        //
+        // 계정 → 역할 → 부여 → 메뉴를 **차례로** 네 번 읽던 자리다. 네 번째가
+        // 세 번째의 결과를 필요로 하는 모양이라 병렬로 돌릴 수도 없었고
+        // (DbContext 는 동시 사용을 허용하지 않는다), 개발 장비처럼 DB 가 원격이면
+        // 왕복 하나가 28.8ms 라 그것만 115ms 였다.
+        //
+        // 조인 하나로 쓸 수 있다. EF 가 계정 서브질의에 LIMIT 1 을 붙인 **한
+        // 문장**으로 번역하는 것을 확인했고, 실제 계정 넷과 없는 계정으로 옛
+        // 방식과 결과가 같은 것도 대조했다.
+        //
+        // [계정을 왜 두 열로 찾나]
+        //
         // 게이트웨이가 넘겨주는 X-User-Id 는 **로그인 아이디**(accounts.user_id)다.
         // JWT 의 NameIdentifier 에 account.UserId 를 담기 때문이다(AuthEndpoints.cs).
         // 반면 role_accounts.account_id 는 **계정 키**(accounts.id)를 가리킨다.
         // 둘은 다른 값이라(예: id=jsini-boss-quristyle / user_id=quristyle)
         // 로그인 아이디로 바로 조회하면 아무 역할도 찾지 못한다.
-        // 그래서 계정을 먼저 찾아 실제 키로 바꾼 뒤 역할을 조회한다.
-        var accountId = await _context.Accounts
-            .Where(a => !a.IsDeleted && (a.UserId == userId || a.Id == userId))
-            .Select(a => a.Id)
-            .FirstOrDefaultAsync();
-
-        if (string.IsNullOrEmpty(accountId))
-        {
-            return new List<MenuPermissionDto>();
-        }
-
-        // 이 사용자가 속한 역할
-        var roleIds = await _context.RoleAccounts
-            .Where(ra => ra.AccountId == accountId && !ra.IsDeleted)
-            .Select(ra => ra.RoleId)
-            .Distinct()
+        //
+        // [Take(1) 을 빼면 안 된다]
+        //
+        // 옛 코드의 FirstOrDefault 자리다. 빼면 두 열 중 어느 쪽으로든 걸리는
+        // 계정이 **여럿** 매칭될 수 있고, 그러면 그 계정들의 역할이 OR 로 합쳐진다 —
+        // 틀리는 방향이 「없는 권한이 생기는」 쪽이라 특히 나쁘다.
+        var rows = await (
+            from a in _context.Accounts
+                .Where(a => !a.IsDeleted && (a.UserId == userId || a.Id == userId))
+                .Take(1)
+            join ra in _context.RoleAccounts on a.Id equals ra.AccountId into ras
+            from ra in ras.Where(r => !r.IsDeleted)
+            join rm in _context.RoleMenus on ra.RoleId equals rm.RoleId into rms
+            from rm in rms.Where(r => !r.IsDeleted)
+            join m in _context.SystemMenus on rm.MenuId equals m.Id
+            select new { Grant = rm, Menu = m })
+            .AsNoTracking()
             .ToListAsync();
 
-        if (roleIds.Count == 0)
+        if (rows.Count == 0)
         {
             return new List<MenuPermissionDto>();
         }
 
-        var grants = await _context.RoleMenus
-            .Where(rm => roleIds.Contains(rm.RoleId) && !rm.IsDeleted)
-            .ToListAsync();
-
-        if (grants.Count == 0)
-        {
-            return new List<MenuPermissionDto>();
-        }
-
-        // 메뉴가 실제로 쓰는 권한 항목
-        var menuIds = grants.Select(g => g.MenuId).Distinct().ToList();
-        var menus = await _context.SystemMenus
-            .Where(m => menuIds.Contains(m.Id))
-            .ToDictionaryAsync(m => m.Id);
-
-        return grants
-            .GroupBy(g => g.MenuId)
+        // [메뉴가 없는 부여는 조인이 걸러 준다]
+        //
+        // 옛 코드는 메뉴를 못 찾으면 권한을 전부 끈 줄을 그대로 내려보냈다.
+        // 안쪽 조인은 그 줄을 아예 빼는데, 받는 쪽에게는 같다 — 프론트가
+        // `Path` 가 빈 줄을 버리고(PermissionContext.Apply), 경로로 찾는
+        // GetEffectivePermissionAsync 도 빈 경로에는 걸리지 않는다.
+        return rows
+            .GroupBy(row => row.Grant.MenuId)
             .Select(g =>
             {
-                menus.TryGetValue(g.Key, out var menu);
+                var menu = g.First().Menu;
 
-                // 메뉴 정보를 못 찾으면 보수적으로 전부 막는다.
                 bool Allow(Func<Entities.RoleMenu, bool> pick, Func<Entities.SystemMenu, bool> used)
-                    => (menu is not null && used(menu)) && g.Any(pick);
+                    => used(menu) && g.Any(row => pick(row.Grant));
 
                 return new MenuPermissionDto
                 {
                     MenuId = g.Key,
-                    Path = menu?.Path ?? string.Empty,
+                    Path = menu.Path ?? string.Empty,
                     CanView = Allow(rm => rm.CanView, m => m.UseView),
                     CanSearch = Allow(rm => rm.CanSearch, m => m.UseSearch),
                     CanCreate = Allow(rm => rm.CanCreate, m => m.UseCreate),
