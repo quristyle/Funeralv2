@@ -32,29 +32,35 @@
 
 <PageTitle>기준 초과 이벤트 · 생활과환경</PageTitle>
 
-<div class="jsini-toolbar">
-    <DxComboBox Data="@_locations" @bind-Value="_locationId"
-                TextFieldName="@nameof(WeatherLocation.Name)"
-                ValueFieldName="@nameof(WeatherLocation.Id)"
-                NullText="지역 전체" Style="width: 170px"
-                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+<CommSch OnSearch="@ReloadAsync">
+    <Fields>
+        <CommSchItem Label="지역">
+            <DxComboBox Data="@_locations" @bind-Value="_locationId"
+                        TextFieldName="@nameof(WeatherLocation.Name)"
+                        ValueFieldName="@nameof(WeatherLocation.Id)"
+                        NullText="전체" Style="width: 170px"
+                        ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        </CommSchItem>
 
-    <DxDateEdit @bind-Date="_from" NullText="시작일" Style="width: 140px"
-                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        <CommSchItem Label="기간">
+            <DxDateEdit @bind-Date="_from" NullText="시작일" Style="width: 140px"
+                        ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+            <DxDateEdit @bind-Date="_to" NullText="종료일" Style="width: 140px"
+                        ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        </CommSchItem>
 
-    <DxDateEdit @bind-Date="_to" NullText="종료일" Style="width: 140px"
-                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
-
-    <DxCheckBox @bind-Checked="_onlyUnsent">미발송만</DxCheckBox>
-
-    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary"
-              IconCssClass="jsini-icon-refresh" Click="@ReloadAsync" />
-</div>
+        <CommSchItem>
+            <DxCheckBox @bind-Checked="_onlyUnsent">미발송만</DxCheckBox>
+        </CommSchItem>
+    </Fields>
+</CommSch>
 
 <PageNotice Text="@Notice" Tone="@Tone" />
 
 <CommCont>
-    <CommGrd TItem="WeatherEventRecord" Data="@Shown" PageSize="25">
+    <CommGrd TItem="WeatherEventRecord" Data="@Shown" PageSize="25"
+             ExportName="기상특보"
+             Reload="@ReloadAsync">
         <Columns>
             <DxGridDataColumn FieldName="@nameof(WeatherEventRecord.EventTime)" Caption="발생 시각" Width="160"
                               DisplayFormat="yyyy-MM-dd HH:mm" />

@@ -42,7 +42,7 @@
 | 32 | ☑ | `/helpdesk/system/user-properties` | UserProperties.razor | 도구줄2 |
 | 33 | ☑ | `/helpdesk/util/mc-model` | McModelList.razor | 도구줄5 · 관리칸2 · 팝업2 |
 | 34 | ☑ | `/life/birthday/list` | BirthdayList.razor | 도구줄1 |
-| 35 | ☐ | `/life/weather/events` | WeatherEvents.razor | 도구줄1 |
+| 35 | ☑ | `/life/weather/events` | WeatherEvents.razor | 도구줄1 |
 | 36 | ☐ | `/life/weather/forecast` | WeatherForecast.razor | 대시보드 |
 | 37 | ☐ | `/life/weather/history` | WeatherHistory.razor | 도구줄2 |
 | 38 | ☐ | `/site/inquiries` | InquiryList.razor | 도구줄1 |
