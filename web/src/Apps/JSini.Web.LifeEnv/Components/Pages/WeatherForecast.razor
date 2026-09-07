@@ -36,19 +36,24 @@
 
 <PageTitle>시간대별 예보 · 생활과환경</PageTitle>
 
-<div class="jsini-card">
-    <div class="jsini-inline">
-        <span class="le-pick__label">지역 선택:</span>
-        <DxComboBox Data="@_locations"
-                    TextFieldName="Name"
-                    ValueFieldName="Id"
-                    Value="@_selectedLocationId"
-                    ValueChanged="@((int id) => OnLocationChanged(id))"
-                    NullText="지역을 선택하세요"
-                    Style="width: 200px" />
-        <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@LoadForecastAsync" />
-    </div>
-</div>
+@* 조건은 지역 하나. 카드 안에 손으로 담고 있었는데, 조건이 카드에 들어가면
+   화면마다 그 카드의 모양과 자리가 달라진다.
+
+   자료 판(`CommCont`)은 쓰지 않는다 — 그림·주간 예보·표가 쌓인 화면이라
+   감싸면 남은 높이를 그 판이 다 먹어 아래가 잘린다. *@
+<CommSch OnSearch="@LoadForecastAsync">
+    <Fields>
+        <CommSchItem Label="지역">
+            <DxComboBox Data="@_locations"
+                        TextFieldName="Name"
+                        ValueFieldName="Id"
+                        Value="@_selectedLocationId"
+                        ValueChanged="@((int id) => OnLocationChanged(id))"
+                        NullText="지역을 고르십시오"
+                        Style="width: 200px" />
+        </CommSchItem>
+    </Fields>
+</CommSch>
 
 <PageNotice Text="@Notice" Tone="@Tone" />
 
@@ -106,7 +111,9 @@
 
 <h2 class="le-subhead">시간대별</h2>
 
-<CommGrd TItem="WeatherTimelinePoint" Data="@_timeline" Loading="@Loading" PageSize="20">
+<CommGrd TItem="WeatherTimelinePoint" Data="@_timeline" Loading="@Loading" PageSize="20"
+         ExportName="시간대별예보"
+         Reload="@LoadForecastAsync">
     <Columns>
         <DxGridDataColumn FieldName="Date" Caption="날짜" Width="110px" />
         <DxGridDataColumn FieldName="Time" Caption="시각" Width="90px" />
