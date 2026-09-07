@@ -19,7 +19,12 @@
 | 3 | A-2 자원 지문 | **고침** | 아홉 개가 `no-cache` → `max-age=31536000, immutable` |
 | 4 | A-1 HTML 압축 | **고침** | 184,455 → **28,845 bytes** (brotli, 6.4배) |
 | 5 | C-2 트리 재생성 | **고침** | 두 번째 업무 전환부터 179노드를 다시 만들지 않는다 |
-| 6~11 | | 손대지 않음 | |
+| 6 | B-2 참조자료 캐시 | **고침** | 다섯 캐시를 회로 바깥으로. 넷은 공용, 하나는 사람마다 |
+| 7 | E-1 권한표 | **고침** | DB 왕복 4 → **1** (조인 한 문장) |
+| 8 | B-1 순차 왕복 | **고침** | 남은 순차 구간 **0곳** (10곳 고침) |
+| 9 | A-5 프리렌더 이중 조회 | **고침** | 조회 2 → 1. 161개 화면이 한 곳에서 |
+| 10 | B-3 서버 페이징 | **일부** | 조용히 잘리던 화면 둘을 고침. 새 seam 은 안 만듦 |
+| 11 | C-4 레이아웃 재생성 | **계측만** | **문서의 설명이 안 맞을 가능성이 크다** — 아래 참고 |
 
 고치면서 **이 문서가 두 군데 틀렸던 것**을 알았다. 해당 항목에 적어 두었다.
 
@@ -29,6 +34,13 @@
 - **A-2** — theme.js 가 꽂는 DevExpress 테마 CSS 도 `@Assets` 로 고칠 수 있다고
   적었는데 안 된다. 그 패키지 정적자원에는 **지문이 붙은 변형이 아예 없다**
   (테마 CSS 44개 중 0개).
+- **A-5** — `DataPage` 에 `PersistentComponentState` 를 넣자고 적었는데 **그렇게
+  할 수 없다.** 자료가 화면의 필드에 있고 `DataPage` 는 그 형을 모른다.
+  대신 **프리렌더에서 조회를 건너뛴다** — 첫 그림도 살리고 조회는 한 번이다.
+- **B-3** — 「지금은 안 아프고 나중에 못 쓰게 된다」고 적었는데 **두 화면은
+  이미 고장 나 있었다.** 자세한 것은 그 항목에.
+- **C-4** — 「Piral 모듈 컨테이너가 갈리면서 레이아웃이 다시 만들어진다」가
+  근거가 약하다. 코드를 읽으면 그렇게 될 이유가 안 보인다 — 그 항목에 적었다.
 
 ---
 
@@ -160,7 +172,7 @@ DevExpress 부품 전체가 한 장에 들어 있다. 지금 쓰는 부품은 �
 `defer` 뒤로 미룬다** — 첫 그림은 프리렌더된 HTML 로 이미 나와 있고, 이 번들이
 필요한 시점은 회로가 붙은 뒤다. 우선순위는 낮다(압축하면 ~90KB).
 
-### A-5. 프리렌더가 켜져 있어 `OnInitializedAsync` 가 두 번 돈다 〔구조적 · 손대지 않음〕
+### A-5. 프리렌더가 켜져 있어 `OnInitializedAsync` 가 두 번 돈다 〔**고침**〕
 
 `App.razor` 가 `RenderMode.InteractiveServer` 를 쓰고 이 값은 `prerender: true`
 다. 그래서 **첫 진입·F5 마다 화면의 조회가 두 번 나간다** — 정적 SSR 로 한 번,
@@ -169,46 +181,66 @@ DevExpress 부품 전체가 한 장에 들어 있다. 지금 쓰는 부품은 �
 
 메뉴 클릭(회로 안 라우팅)에는 해당하지 않는다. 첫 진입에만 걸린다.
 
-**고치는 방법** 은 둘 중 하나다.
+> **이 문서가 처음에 적은 방법이 안 된다.** 「`DataPage` 에
+> `PersistentComponentState` 를 넣는다」고 했는데, **자료가 화면의 필드에 있고
+> `DataPage` 는 그 형을 모른다** — 화면마다 `_all`·`_rows`·`_items` 의 타입이
+> 다르다. 뼈대 한 곳에서 담아 줄 방법이 없다.
 
-- **프리렌더를 끈다** — `@rendermode="new InteractiveServerRenderMode(prerender: false)"`.
-  첫 그림이 늦어지는 대신 조회가 한 번이다. 이 포털은 첫 화면이 로그인 뒤의
-  업무 화면이고 프리렌더된 그리드가 어차피 눌리지 않으므로 손해가 적다.
-- **`PersistentComponentState` 로 넘긴다** — 프리렌더가 읽은 자료를 회로가
-  물려받는다. 이미 `ThemeSize` 가 그 방식을 쓰고 있어 본보기가 있다.
-  화면마다 손으로 적으면 갈라지므로 **`DataPage` 에 넣는다** — 이 뼈대가
-  `LoadAsync` 를 감싸고 있으므로 그 안에서 한 번만 처리하면 161개 화면이 함께 받는다.
+**고친 결과** — `DataPage.LoadAsync` 가 **프리렌더에서는 조회하지 않는다**
+(`RendererInfo.IsInteractive` 로 가른다). 한 곳이고 161개 화면이 함께 받는다.
 
-권하는 쪽은 **`DataPage` 에 `PersistentComponentState`** 다. 프리렌더를 끄면
-첫 그림이 흰 화면이 되어 "느려졌다" 로 읽힌다.
+셋을 골랐다.
+
+- **프리렌더를 끄지 않았다.** `prerender: false` 면 조회는 한 번이 되지만
+  **회로가 붙을 때까지 화면이 하얗다** — 껍데기도 안 그려진다. 조회만
+  건너뛰면 레이아웃 · 조건줄 · 빈 표가 즉시 그려지고 자료만 나중에 온다.
+- **`Loading` 을 켠 채로 돌아간다.** 끄고 돌아가면 프리렌더된 표가
+  **「조회 결과가 없습니다」**를 띄운다 — 아직 묻지도 않았는데.
+- **정적 SSR 전용 화면에 쓰면 영원히 조회 중이 된다.** 지금
+  `[ExcludeFromInteractiveRouting]` 을 단 것은 셋이고(`App` · `Login` ·
+  `NoticeAutoPopup`) 아무것도 `DataPage` 를 상속하지 않는 것을 확인했다.
+
+덤으로 `AutoRefreshPage.StartAutoRefresh` 도 프리렌더에서 켜지 않게 했다.
+프리렌더된 화면은 HTML 만 만들고 버려지는데 시계는 그것을 모르고 30초 뒤에
+발화한다 — 첫 진입마다 쓸모없는 시계가 하나씩 생기던 자리다.
+
+> **로그인이 필요한 실행 경로는 재보지 못했다.** 근거는 프레임워크 속성
+> (`RendererInfo.IsInteractive`)이고, 빌드 · 시험 · 기동까지는 확인했다.
 
 ---
 
 ## B. 같은 업무 안에서 메뉴 클릭
 
-### B-1. 화면 초기화의 왕복이 직렬이다 〔범위 넓음 · 손대지 않음〕
+### B-1. 화면 초기화의 왕복이 직렬이다 〔**고침** — 남은 곳 0〕
 
 `Task.WhenAll` 을 쓰는 곳이 26곳인데 화면은 161개다. 초기화에서 API 를 넷 이상
 부르는 화면 열아홉 개를 찾았다.
 
-| 화면 | 초기화 왕복 |
+> **이 문서가 처음에 센 방식이 틀렸다.** 「화면마다 초기화 왕복 4~10」은
+> **파일 전체의 `await` 을 센 것**이라 과대평가였다. `RoleList` · `MenuList` 는
+> 초기화에서 한 번만 부른다 — 나머지 숫자는 저장 · 삭제 · 상세 같은 다른
+> 메서드의 것이었다.
+>
+> 다시 셌다: **한 메서드 안에 서로 독립인 조회가 둘 이상**인 곳이 **10곳**이다.
+> 그 열 곳을 다 고쳤고 지금 남은 곳은 0 이다.
+
+| 고친 곳 | 나란히 부른 것 |
 |---|---|
-| `Admin/ServerStatus.razor` | 10 |
-| `Admin/UserRoleMap.razor` | 8 |
-| `ProjMng/TableManage.razor` · `Admin/UserList.razor` | 6 |
-| `Admin/ReleaseNotes` · `Profile` · `CompanyUserList` | 5 |
-| 그 밖 열두 화면 | 4 |
+| `Admin/ReleaseNotes` (두 자리) | 대상 · 진행 기록 |
+| `Funeral/BuildingList` | 건물 · 층(건수 세기) |
+| `Funeral/FloorList` | 건물 · 층 · 호실 |
+| `Funeral/RoomList` | 건물 · 층 · 호실구분 · 호실 |
+| `Funeral/BuildingFilter` | 층 · 호실 |
+| `Funeral/DeviceRibbonEditor` | 이미지 목록 · 장식 |
+| `LifeEnv/WeatherEvents` | 지역 · 기록 |
+| `LifeEnv/WeatherLocations` | 관측지역 · 특보구역 |
+| `ProjMng/ErdView` | 저장본 · 대상 DB 테이블 목록 |
 
-`Admin/UserList.razor:238` 이 전형이다.
+`Funeral/RoomList` 이 전형이다.
 
-```csharp
-_roles = await Api.GetRolesAsync();
-_depts = Flatten(await Api.GetDeptsAsync());
-_all   = await Api.GetAccountsAsync();
-```
-
-셋이 서로를 기다릴 이유가 없다. 개발 장비에서 이 셋은 왕복 셋 × (게이트웨이 +
-DB 28.8ms) 다.
+넷이 서로를 기다릴 이유가 없다 — 조건(`_buildingId` · `_floorId`)은 이미
+화면에 있는 값이라 앞의 조회 결과를 쓰지 않는다. 개발 장비에서 이 넷은
+왕복 넷 × (게이트웨이 + DB 28.8ms) 였다.
 
 **고치는 방법** — 서로 의존하지 않는 조회는 `Task.WhenAll` 로 묶는다.
 `LifeEnv/BirthdayList.razor:221` 이 이미 그렇게 하고 있어 본보기가 있다.
@@ -224,7 +256,18 @@ _roles = roles.Result; _depts = Flatten(depts.Result); _all = all.Result;
 > **주의** — 이것은 프론트에서만 안전하다. 백엔드에서 같은 짓을 하면
 > `DbContext` 동시 사용으로 죽는다(`PortalBootstrapEndpoints` 주석 참고).
 
-### B-2. 참조자료 캐시가 `scoped` 다 — 사람마다, 업무를 옮길 때마다 다시 읽는다
+#### 나란히 부르면 오히려 느려지는 짝이 있다
+
+`RoomList` 이 `Codes.GetAsync("ROOM_TYPE")` 와 `Codes.LabelerAsync("ROOM_TYPE")`
+를 잇달아 불렀다. **차례로 부를 때는 두 번째가 통에 맞아 공짜**인데, 나란히
+부르면 둘 다 통을 지나쳐 **두 번 받는다** — 통은 겹쳐 읽는 것을 막지 않는다
+(막으려면 자물쇠가 필요하고, 그 자물쇠가 회로를 붙잡는 쪽이 더 나쁘다).
+
+그래서 목록만 받고 옮기개는 그것으로 만든다 —
+`CommonCodeClient.Labeler` 를 동기 짝으로 붙였다. 같은 자료를 두 번 부르는
+짝이 또 나오면 같은 길로 간다.
+
+### B-2. 참조자료 캐시가 `scoped` 다 — 사람마다, 업무를 옮길 때마다 다시 읽는다 〔**고침**〕
 
 공통코드·회사·부서 목록처럼 **모두에게 같고 거의 안 바뀌는 자료**의 캐시가
 전부 scoped 로 등록돼 있다.
@@ -241,19 +284,42 @@ scoped 는 회로 하나(=사용자 창 하나)다. 그래서 접속자가 백 �
 표를 백 벌 읽는다. 게다가 **업무를 넘나들면 Piral 모듈 컨테이너가 갈리면서
 이 캐시도 함께 사라진다** — 장례식장 → 헬프데스크 → 장례식장 이면 세 번 읽는다.
 
-**고치는 방법** — `PortalBootstrapStore` 가 이미 이 문제를 정확히 풀어 놓았다.
-같은 틀을 쓴다: **싱글턴 + `IMemoryCache` + TTL**. 사용자와 무관한 자료라
-부트스트랩과 달리 열쇠에 사람을 섞을 필요도 없다.
+**고친 결과** — `ReferenceDataStore`(싱글턴 + `IMemoryCache` + TTL 10분)와
+그 손잡이 `ReferenceData`(scoped)를 두고 다섯을 다 옮겼다.
 
-```csharp
-services.AddSingleton<CommonCodeStore>();   // IMemoryCache, TTL 10분
-services.AddScoped<CommonCodes>();          // 얇은 껍데기만 남긴다
-```
+**나눠 써도 되는지를 하나씩 확인했다.** 이것이 이 작업의 위험 전부다 —
+싱글턴 통에 사용자 자료가 들어가면 남의 목록이 보인다.
 
-TTL 은 부트스트랩(2분)보다 길게 잡아도 된다 — 권한과 달리 늦게 반영돼도
-틀리는 방향이 위험하지 않다.
+| 캐시 | 모드 | 근거 |
+|---|---|---|
+| `Funeral/CommonCodeClient` | 공용 | `GET auth/system/common-code/{그룹}` 이 `CommonCodeService` 를 그대로 부르고 그 서비스는 신원을 안 본다 |
+| `ProjMng/BizOptions` · `HelpDesk/BizOptionService` | 공용 | `GET auth/system/biz-select/configs` 도 같다 |
+| `LifeEnv/OrgOptions` (회사) | 공용 | `GET auth/system/companies` 도 같다 |
+| `LifeEnv/OrgOptions` (부서) | 공용 | `GET auth/system/dept/list` 는 `UserContext` 를 **받는다.** 다만 쓰는 분기가 `if (!allCompanies)` 안이라 **우리가 싣는 `allCompanies=true` 에서는** 전 회사를 그대로 준다 |
+| **`ProjMng/CommonCodes`** | **사람마다** | ProjMngServer 의 `UserIdentityActionFilter` 가 **모든 요청 본문에** `SSUserId` 를 넣는다. `sp_projCommon` 이 그걸로 거르는지는 프로시저 안을 봐야 알고, 그 DB(`jsini.co.kr:15432`)가 개발망에서 안 풀려 확인하지 못했다 |
 
-### B-3. 서버 페이징이 사실상 없다 〔구조적 · 손대지 않음〕
+마지막 줄이 판단이 갈린 자리다. 확인하지 못한 것을 나눠 쓰면 틀렸을 때 나는
+일이 **남의 코드 목록이 보이는 것**이고, 사람마다 담아도 **고치려던 문제는
+그대로 사라진다**(업무 전환 때 다시 읽는 일). 잃는 것은 사람 사이의 중복뿐이다.
+
+**옛 걱정이 반대로 풀렸다.** 「싱글턴은 코드를 고친 사람만 새 값을 본다」가
+scoped 를 고른 이유로 적혀 있었는데, 통이 하나면 `Invalidate` 한 번으로
+**모두가** 새 값을 본다. 아무도 안 불러도 TTL 이 지나면 반영된다.
+
+#### 고치면서 잡은 함정 — 형을 열쇠에 안 섞으면 두 모듈이 서로를 덮어쓴다
+
+프로젝트관리와 헬프데스크의 `BizSelectConfig` 는 **이름만 같고 다른 타입**이다
+(모듈끼리 참조가 금지라 각자 자기 DTO 를 갖는다). 열쇠가 같으면
+`IMemoryCache.TryGetValue<T>` 가 형이 안 맞아 `false` 를 주고, 부르는 쪽은
+「없다」고 읽어 다시 담는다. 결과는 **번갈아 서로를 밀어내는 것**이고
+**오류가 나지 않는다** — 캐시를 안 둔 것보다 나쁘다(왕복은 그대로인데
+메모리만 쓴다).
+
+통이 열쇠에 형을 섞어 막는다. 지우면 조용히 되돌아오는 종류라
+`ReferenceDataStore` 시험 7건으로 못 박았고, 형을 빼 보면 정확히 그 하나가
+실패하는 것도 확인했다.
+
+### B-3. 서버 페이징이 사실상 없다 〔**일부 고침** — 이미 고장 난 화면 둘〕
 
 ```
 GetPageAsync (서버 페이징) :   1곳
@@ -265,20 +331,40 @@ GridDevExtremeDataSource / CustomData : 0곳
 클릭 한 번의 값이 (1) 서비스가 전량을 만들고 (2) 게이트웨이가 전량을 옮기고
 (3) 회로가 전량을 들고 있고 (4) DevExpress 가 전량으로 정렬·필터 색인을 만드는 것이다.
 
-지금 자료가 작아서 아직 아프지 않다. 실측한 최대 테이블이 `scom.role_menus`
-829행, `projmng.dev_activityinfo` 3,947행, `jinrecept.jsini.pushnotificationlog`
-31,751행이다. **마지막 것이 화면에 붙는 날 그 화면은 못 쓴다.**
+> **이 문서가 「지금은 안 아프다」고 적었는데 두 화면은 이미 고장 나 있었다.**
+> 다시 재 보니 **현행 DB 는 전부 작다** — 최대가 `scom.role_menus` 829행,
+> `scom.account_login_logs` 669행이다. 31,751행짜리
+> `jinrecept.jsini.pushnotificationlog` 는 **옛 시스템 DB** 라 지금 서비스가
+> 읽지 않는다. 그래서 「자료가 커서 느리다」는 문제는 아직 없다.
+>
+> 그런데 자료 크기와 무관하게 **조용히 잘려 있는 화면**이 있었다. 이쪽이 더
+> 나쁘다 — 느린 것이 아니라 **틀린 것을 보여 준다.**
 
-**고치는 방법** — 전면 개조가 아니라 **큰 표만 골라** `CommGrd` 에 서버 페이징
-길을 하나 낸다.
+| 화면 | 실태 |
+|---|---|
+| **`Admin/PushLogs`** | 클라이언트 `pageSize` 기본값이 50 인데 **화면이 페이지를 넘기지 않았다.** 51번째부터는 볼 방법이 없고 표에 표시도 안 났다 — 표가 30건씩 나누니 「2쪽이 끝」으로 보인다 |
+| **`Admin/NotificationHistory`** | `page`·`pageSize` 를 보내는데 **서버가 그 이름을 안 받는다**(`Skip`/`Take` 가 없다). 보내던 것은 아무 일도 안 했고 그 사람 알림을 **전부** 받아 왔다 |
+| `Funeral/QnaList` | **이미 맞게 되어 있다** — 「전체 N건 중 M건입니다. 검색으로 좁히십시오.」 |
 
-- `CommGrd` 에 `DataProvider` 파라미터를 하나 더 받아, 주면
-  `DxGrid` 의 서버측 데이터 소스로 붙이고 안 주면 지금대로 동작하게 한다.
-  (`GetPageAsync` 가 이미 `page.total` 을 읽으므로 프론트 계약은 서 있다.)
-- 백엔드는 `Take`/`Skip` 을 쓰는 곳이 16곳뿐이다. 페이징이 필요한 엔드포인트를
-  먼저 고른다 — 알림 로그 · 로그인 로그 · 활동 이력이 그 후보다.
-- **당장 할 수 있는 것**: 로그성 화면의 조회 조건에 기간 기본값을 넣어
-  전량이 나오지 않게 한다. 코드 한 줄이고 효과가 가장 크다.
+**고친 결과** — 맞게 되어 있던 `QnaList` 의 문구와 모양을 따랐다.
+
+- `GatewayClient.GetFlexibleCountedListAsync` 를 붙여 **총건수를 함께** 받는다
+  (`totalcount` · `totalCount` · `total` · `page.total` 을 차례로 대 본다).
+  못 찾으면 받은 건수를 총건수로 본다 — 없는 숫자를 지어내지 않는다.
+- `PushLogs` — 상한을 **화면이** 정하고(`Cap = 200`), 넘으면 위에 그렇게 쓴다.
+  그리고 서버가 받는데 아무도 안 싣던 **기간을 실었다**(기본 최근 이레).
+- `NotificationHistory` — 안 먹는 `page`·`pageSize` 를 빼고 **서버가 실제로
+  받는 기간**을 싣는다(기본 최근 한 달). 「안 읽은 것만」은 받아 둔 것에서
+  거른다 — 서버로 보내면 「조회」를 한 번 더 눌러야 한다.
+
+**`CommGrd` 에 서버 페이징 seam 은 만들지 않았다.** 그 화면들의 표가 829행이고,
+DevExpress 의 서버측 자료원은 정렬·거르기 파라미터를 백엔드가 받아 줘야 하는데
+지금 엔드포인트들은 `page`/`pageSize` 만 안다. **쓰는 곳이 없는 추상을 먼저
+만드는 것**은 이 저장소가 정해 둔 방향과 반대다(「두 모듈이 쓰면 복제, 세
+번째부터 승격」). 실제로 큰 표가 화면에 붙는 날 그 엔드포인트와 함께 만든다.
+
+**남은 일** — 전량 조회(`GetListAsync` 102곳)는 표가 작아서 아프지 않다.
+자라는 표가 붙을 때 그 엔드포인트에 정렬·거르기를 받는 페이징을 넣는다.
 
 ### B-4. N+1 〔손대지 않음〕
 
@@ -407,19 +493,45 @@ Blazor Server 에서 JS interop 한 번은 **브라우저까지 갔다 오는 �
 이것을 0 으로 만들려면 C-1 에서 접은 것과 같은 벽에 부딪힌다(탭을 가르는 열쇠).
 C-4 를 잡는 편이 낫다.
 
-### C-4. 근본 — 레이아웃이 왜 다시 만들어지는가
+### C-4. 근본 — 레이아웃이 왜 다시 만들어지는가 〔**계측을 넣었다. 아직 판정 전**〕
 
 C-1~C-3 은 증상을 각각 막는 것이다. 뿌리는 **Piral 모듈 컨테이너가 갈릴 때
 레이아웃까지 함께 새로 만들어지는 것**이다.
 
-여기는 조사가 더 필요하다. `Routes.razor` 는 평범한
-`AuthorizeRouteView DefaultLayout="MainLayout"` 이라 원래는 레이아웃 인스턴스가
-유지되어야 한다. `Piral.Blazor.Orchestrator` 가 모듈 컨테이너를 어떻게 끼우는지
-읽어야 답이 나온다(패키지는 `net8.0` 타겟이다).
+#### 코드를 읽어 보니 그렇게 될 이유가 안 보인다
 
-**당장은 C-1·C-2 로 막고**, 뿌리를 잡으면 그 셋이 다 필요 없어진다. 순서를
-이렇게 두는 이유는 뿌리 쪽이 Piral 을 걷어내거나 갈아 끼우는 결정으로 번질 수
-있어서다 — 지금 얻을 수 있는 것을 먼저 얻는다.
+Piral 을 뜯어보고 우리 렌더 트리를 다시 읽었다. 넷 다 「레이아웃이 다시
+만들어진다」를 뒷받침하지 않는다.
+
+| 살펴본 것 | 결과 |
+|---|---|
+| `Routes.razor` | **기본** `Router` · `AuthorizeRouteView` 다. Piral 의 `MfRouter` · `MfRouteView` 는 우리 트리에 **없다** |
+| 업무 모듈의 `@layout` | **한 곳도 없다.** 전부 `DefaultLayout` 이라 `LayoutView` 가 보는 `Layout` 타입이 안 바뀐다 |
+| `MapMicrofrontends<App>` | `MapRazorComponents` 래퍼다. `App` 을 **열쇠 붙은 부품으로 감싸지 않는다** |
+| `UseMicrofrontendContainers` | DI 공장을 Autofac 으로 바꾼다. **렌더 트리를 건드리지 않는다** |
+
+Blazor 는 `LayoutView` 의 `Layout` 타입이 같으면 인스턴스를 **재사용**한다.
+그러면 레이아웃은 유지되어야 하고, **C-1 · C-2 와 `PortalBootstrapStore` ·
+`ReferenceDataStore` 가 다 없어도 되는 것**이 된다.
+
+반대로 정말 다시 만들어진다면 **원인이 아직 안 밝혀진 것**이다. 그때 후보는
+「메뉴 클릭이 회로 안 라우팅이 아니라 쪽 새로 열기로 처리되고 있다」쪽이다 —
+그러면 레이아웃뿐 아니라 회로가 통째로 새로 생기므로 관찰된 증상이 다 설명된다.
+
+#### 그래서 계측을 넣었다 — 로그인 한 번이면 판정된다
+
+`MainLayout.OnInitializedAsync` 가 만들어진 횟수를 로그로 남긴다.
+
+```
+로그인 → 사이드바로 업무를 두세 번 옮기고 블레이저 로그를 본다
+
+  · 쪽을 새로 열 때만 찍힌다        → 유지된다. 뿌리 문제는 없다
+  · 업무를 옮길 때마다 숫자가 오른다 → 정말 다시 만들어진다
+```
+
+**판정이 끝나면 그 로그를 지운다.** 남겨 두면 평상시 로그가 된다.
+
+이 문서의 숫자를 내가 재지 못한 이유와 같다 — 로그인이 필요한 화면은 못 재봤다.
 
 ---
 
@@ -492,7 +604,7 @@ http.Response.Headers.CacheControl = "private, no-store";
 
 ## E. 백엔드
 
-### E-1. 권한표 조회가 DB 왕복 넷을 직렬로 쓴다 〔손대지 않음〕
+### E-1. 권한표 조회가 DB 왕복 넷을 직렬로 쓴다 〔**고침** — 넷이 하나로〕
 
 `MenuService.GetMenuPermissionsAsync` 는 계정 → 역할 → 부여 → 메뉴 를 차례로 읽는다.
 개발 장비에서 28.8ms × 4 = **115ms**. 메뉴 트리는 `MenuTreeCache` 가 있는데
@@ -501,17 +613,38 @@ http.Response.Headers.CacheControl = "private, no-store";
 `PortalBootstrapEndpoints` 는 그 위에 즐겨찾기·내정보를 더해 왕복 여섯~일곱이다.
 `DbContext` 를 공유해서 병렬로 못 돈다고 주석에 적혀 있고, 그 말이 맞다.
 
-**고치는 방법**
+**고친 결과** — 조인 하나로 줄였다. 왕복 넷이 **하나**다.
 
-1. **한 쿼리로 줄인다.** 계정→역할→부여→메뉴는 조인 하나로 쓸 수 있다.
-   왕복 넷이 하나가 된다. 프론트 계약은 안 바뀐다.
-2. **`DbContextFactory` 를 쓰면 병렬이 열린다.** `AddDbContextFactory` 로
-   바꾸고 넷이 각자 컨텍스트를 받으면 `Task.WhenAll` 이 가능해진다.
-   1번을 먼저 하고, 그래도 모자라면 이쪽이다.
-3. 권한표에도 캐시를 둔다. 열쇠는 계정, TTL 은 짧게 —
-   **틀리는 방향이 「권한이 없는데 보인다」 쪽**이라 부트스트랩의 2분보다 짧게 잡는다.
+확인한 것 셋:
 
-### E-2. `AsNoTracking` 이 절반에만 붙어 있다 〔손대지 않음〕
+1. **EF 가 한 문장으로 번역한다.** `ToQueryString()` 으로 뽑아 보니 계정
+   서브질의에 `LIMIT 1` 이 붙은 단일 `SELECT` 다.
+2. **결과가 옛 방식과 같다.** 뽑은 SQL 과 옛 4단계를 실제 DB 에 나란히 돌려
+   계정 넷(`jskim` 역할 3개 · `admin` · `kggmvp` · `quristyle`)과 **없는 계정**
+   까지 다섯 경우를 해시로 대조했다.
+3. **`Take(1)` 을 빼면 안 된다.** 옛 코드의 `FirstOrDefault` 자리다. 빼면
+   두 열(`user_id` · `id`) 중 어느 쪽으로든 걸리는 계정이 **여럿** 매칭될 수
+   있고, 그러면 그 계정들의 역할이 OR 로 합쳐진다 — 틀리는 방향이
+   **「없는 권한이 생기는」** 쪽이라 특히 나쁘다.
+
+안쪽 조인이 되면서 **메뉴가 없는 부여 줄이 응답에서 빠진다.** 옛 코드는 권한을
+전부 끈 줄을 그대로 내려보냈는데, 받는 쪽에게는 같다 — 프론트가 `Path` 가 빈
+줄을 버리고(`PermissionContext.Apply`) 경로로 찾는 `GetEffectivePermissionAsync`
+도 빈 경로에는 걸리지 않는다.
+
+**캐시는 두지 않았다.** 애초 계획에 있었지만 값이 안 맞는다 — 운영은 DB 가 같은
+호스트라 이 조회가 **1ms 아래**이고, 프론트는 이미 2분을 들고 있다
+(`PortalBootstrapStore`). 거기에 서버 캐시를 더하면 지연이 겹쳐 쌓이는데,
+**틀리는 방향이 「권한이 없는데 메뉴가 보인다」 쪽**이다. 1ms 를 아끼려고
+그 위험을 안고 갈 자리가 아니다.
+
+`AddDbContextFactory` 로 병렬을 여는 것도 하지 않았다 — 조회가 하나가 되어
+병렬로 만들 대상이 없어졌다.
+
+> **로그인이 필요한 실행 경로는 재보지 못했다.** 번역 · SQL 결과 · 빌드 ·
+> 기동(익명 401)까지는 확인했다.
+
+### E-2. `AsNoTracking` 이 절반에만 붙어 있다 〔권한표 한 곳만 붙였다〕
 
 ```
 ToListAsync()  : 268곳
@@ -543,46 +676,61 @@ options.UseNpgsql(cs).UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking)
 
 ## 손대는 순서
 
-| | 무엇 | 상태 | 값 | 품 |
-|---|---|---|---|---|
-| 1 | D — 그림에 `private, max-age` + `ETag` | **고침** | 그림 많은 화면이 눈에 띄게 | 파일 한 곳 |
-| 2 | C-1 — JS interop 여섯을 하나로 | **고침** | 업무 전환마다 왕복 수백 ms | 작다 |
-| 3 | A-2 — `@Assets[]` 로 지문 붙이기 | **고침** | 첫 진입 왕복 아홉 제거 | 작다 |
-| 4 | A-1 — HTML 압축 | **고침** | 첫 진입 전송량 6.4배 | 작다 |
-| 5 | C-2 — 트리 재생성 + 사이드바 재렌더 | **고침** | 사이드바 179노드 | 작다 |
-| 6 | B-2 — 참조자료 캐시를 싱글턴으로 | 남음 | 사람 수·전환 수만큼 곱해지던 것 | 중간 |
-| 7 | E-1 — 권한표 한 쿼리 + 캐시 | 남음 | 부트스트랩 절반 | 중간 |
-| 8 | B-1 — 순차 왕복을 `Task.WhenAll` 로 | 남음 | 화면 열아홉 곳 | 화면 수만큼 |
-| 9 | A-5 — `DataPage` 에 `PersistentComponentState` | 남음 | 첫 진입 조회 절반 | 중간 |
-| 10 | B-3 — 큰 표에 서버 페이징 | 남음 | **지금은 안 아프고 나중에 못 쓰게 된다** | 크다 |
-| 11 | C-4 — 레이아웃 재생성의 뿌리 | 남음 | C 전체가 사라진다 | 조사 필요 |
+| | 무엇 | 상태 |
+|---|---|---|
+| 1 | D-1 그림에 `private, max-age` + `ETag` | **고침** |
+| 2 | C-1 JS interop 여섯을 하나로 | **고침** |
+| 3 | A-2 `@Assets[]` 로 지문 붙이기 | **고침** |
+| 4 | A-1 HTML 압축 | **고침** |
+| 5 | C-2 트리 재생성 + 사이드바 재렌더 | **고침** |
+| 6 | B-2 참조자료 캐시를 회로 바깥으로 | **고침** |
+| 7 | E-1 권한표 조인 하나로 | **고침** (캐시는 일부러 안 둠) |
+| 8 | B-1 순차 왕복을 `Task.WhenAll` 로 | **고침** (남은 곳 0) |
+| 9 | A-5 프리렌더에서 조회 건너뛰기 | **고침** |
+| 10 | B-3 조용히 잘리던 화면 | **일부** (새 seam 은 안 만듦) |
+| 11 | C-4 레이아웃 재생성의 뿌리 | **계측만** — 로그인 한 번이면 판정된다 |
 
-1~5 가 끝났다. 서로 얽히지 않아 따로 되돌릴 수 있고, 건드린 것은 셸 공용
-(`JSini.Web.Components`)뿐이라 업무 모듈 여섯은 한 줄도 안 바뀌었다.
+**11번이 남은 것이 요점이다.** 그것이 「유지된다」로 판정되면 2 · 5 · 6 번과
+`PortalBootstrapStore` 가 막고 있던 문제가 **애초에 없던 것**이 되고, 그때는
+그 통들을 걷어내는 것이 다음 일이 된다.
 
-### 1~5 로 건드린 파일
+### 건드린 파일
 
 ```
 새로 만든 것
   Layout/PortalBoot.cs                      브라우저 상태를 한 왕복으로 (C-1)
+  Data/ReferenceDataStore.cs · ReferenceData.cs   참조자료 통 (B-2)
   tests/…/FileDownloadCacheTests.cs         캐시 판정 시험 28건 (D-1)
+  tests/…/ReferenceDataStoreTests.cs        참조자료 통 시험 7건 (B-2)
+  docs/build-audit-html.sh                  이 문서를 한 장으로 뽑는다
 
-고친 것
+프론트 — 셸 공용 (JSini.Web.Components)
   Data/FileDownload.cs                      그림과 첨부를 가른다 (D-1)
+  Data/DataPage.cs                          프리렌더에서 조회 안 함 (A-5)
+  Data/AutoRefresh.cs                       프리렌더에서 시계 안 켬 (A-5)
   wwwroot/theme.js                          jsiniBoot.read (C-1)
-  Layout/MainLayout.razor                   워터마크를 부트 왕복에 (C-1)
-  Layout/NoticeAutoPopup.razor              읽기 둘 제거 (C-1)
-  Layout/TabBar.razor                       읽기 하나 제거 (C-1)
-  Layout/ThemeToggle.razor                  catalog 를 서랍 열 때로 (C-1)
-  Security/ScreenLock.cs                    읽기 하나 제거 (C-1)
+  Layout/MainLayout.razor                   워터마크를 부트 왕복에 (C-1) · C-4 계측
+  Layout/NoticeAutoPopup.razor · TabBar.razor · ThemeToggle.razor   읽기 제거 (C-1)
+  Security/ScreenLock.cs                    읽기 제거 (C-1)
   Layout/JSiniHead.razor                    @Assets[] (A-2)
-  JSiniWebApp.cs                            응답 압축 (A-1) · PortalBoot 등록
-  Menu/MenuProvider.cs                      MenuTree 통 (C-2)
-  Layout/PortalBootstrap.cs                 그 통을 응답에 매단다 (C-2)
-  JSini.Web.Components.csproj               InternalsVisibleTo
+  JSiniWebApp.cs                            응답 압축 (A-1) · 통 등록
+  Menu/MenuProvider.cs · Layout/PortalBootstrap.cs   MenuTree 통 (C-2)
+  Http/GatewayClient.cs                     총건수 함께 읽기 (B-3)
+
+프론트 — 업무 모듈
+  Funeral/CommonCodeClient.cs               통으로 (B-2) · 동기 Labeler (B-1)
+  ProjMng/CommonCodes.cs · BizOptions.cs    통으로 (B-2)
+  HelpDesk/BizOptionService.cs              통으로 (B-2)
+  LifeEnv/OrgOptions.cs                     통으로 (B-2)
+  화면 열 곳                                Task.WhenAll (B-1)
+  Admin/PushLogs · NotificationHistory      상한·기간·총건수 (B-3)
+  Admin/AdminClient.cs                      위 둘의 계약 (B-3)
+
+백엔드
+  AuthServer/Services/MenuService.cs        권한표 조인 하나로 (E-1)
 ```
 
-아키텍처 테스트는 134 → **162건**(캐시 판정 28건 추가) 전부 통과한다.
+아키텍처 테스트는 134 → **169건** 전부 통과한다.
 
 ---
 
