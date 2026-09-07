@@ -5,8 +5,10 @@ using JSini.Web.Components.Layout;
 using JSini.Web.Components.Menu;
 using JSini.Web.Components.Security;
 using JSini.Web.Http;
+using System.IO.Compression;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
@@ -71,6 +73,65 @@ public static class JSiniWebApp
         // ── 화면 ─────────────────────────────────────────────────
         services.AddDevExpressBlazor();
         services.AddRazorComponents().AddInteractiveServerComponents();
+
+        // ── 응답 압축 ────────────────────────────────────────────
+        //
+        // **HTML 을 아무도 압축하지 않고 있었다.** 정적 자원은 MapStaticAssets 가
+        // 빌드 때 미리 압축해 두지만(.gz/.br 를 함께 만든다) 화면 HTML 은 그
+        // 대상이 아니다. 로그인 화면이 71KB 였고, 업무 화면은 프리렌더된
+        // DevExpress 그리드가 실려 그보다 훨씬 크다.
+        //
+        // 기본 MimeTypes 에 text/html 이 **없다**. 브라우저가 처음 받는 것이
+        // 그것이라 여기서 더한다.
+        //
+        // [앞단 nginx 와 겹쳐도 문제가 없다]
+        //
+        // 이미 압축해서 준 응답에 nginx 가 또 압축하지는 않는다 — Content-Encoding
+        // 이 붙어 있으면 건너뛴다. 그래서 어느 쪽이 하든 결과가 같고, 둘 중
+        // 한쪽만 설정돼 있어도 압축이 된다. nginx 설정은 이 저장소에 없으므로
+        // (서버에서 관리한다) **여기서 하는 것이 확실한 쪽**이다.
+        //
+        // [Brotli 를 먼저 등록한다]
+        //
+        // 협상은 브라우저가 보낸 Accept-Encoding 과 **등록 순서**로 정해진다.
+        // Brotli 가 gzip 보다 20% 가까이 작고 요즘 브라우저는 전부 받는다.
+        // 못 받는 브라우저에는 gzip 이 남는다.
+        services.AddResponseCompression(options =>
+        {
+            // 개발은 http, 운영은 nginx 뒤 https 다. 켜 두지 않으면 운영에서만
+            // 압축이 안 되고, 그 차이는 "운영이 느리다" 로만 보인다.
+            //
+            // BREACH 를 걱정할 자리가 아니다 — 그 공격은 **공격자가 넣은 글자와
+            // 비밀값이 같은 응답에 함께 실릴 때** 성립한다. 여기서 압축하는 것은
+            // 화면 HTML 이고, 위조방지 토큰은 매 요청 달라지며 세션 값은 쿠키에
+            // 있다(본문에 없다).
+            options.EnableForHttps = true;
+
+            options.Providers.Add<BrotliCompressionProvider>();
+            options.Providers.Add<GzipCompressionProvider>();
+
+            options.MimeTypes = ResponseCompressionDefaults.MimeTypes.Concat(
+            [
+                "text/html",
+
+                // 프리렌더된 화면 말고도 우리가 직접 내려주는 것들이다.
+                // 첨부 중계(FileDownload)는 여기 걸리지 않는다 — 그림과
+                // 압축파일은 이미 압축된 형식이라 다시 압축하면 커지고,
+                // 형식이 목록에 없으면 미들웨어가 건드리지 않는다.
+                "application/json",
+                "image/svg+xml",
+            ]);
+        });
+
+        // 압축 세기. 기본값(Fastest)은 HTML 에서 눈에 띄게 덜 줄인다.
+        //
+        // **SmallestSize 로 두지 않는다.** 그쪽은 CPU 를 몇 배 쓰면서 몇 %만 더
+        // 줄이는데, 이 응답은 **사용자마다 매번 새로 만들어지는 것**이라 그 값을
+        // 캐시로 회수할 수 없다. 정적 자원과 다른 점이 그것이다.
+        services.Configure<BrotliCompressionProviderOptions>(
+            o => o.Level = CompressionLevel.Optimal);
+        services.Configure<GzipCompressionProviderOptions>(
+            o => o.Level = CompressionLevel.Optimal);
 
         // ── 앱 사이에 쿠키를 공유하기 위한 키 링 ─────────────────
         //
@@ -203,6 +264,14 @@ public static class JSiniWebApp
         // 레이아웃이 뜰 때 넷을 한 번에 읽는 자리(PortalBootstrap 머리말).
         services.AddScoped<PortalBootstrap>();
 
+        // 브라우저에서 읽어 올 것을 한 왕복으로 읽는 자리(PortalBoot 머리말).
+        //
+        // **scoped 다.** 담는 값이 「이 탭의 것」이고(잠금 · 고정 탭) 저장소
+        // 왕복 한 번이 값의 전부라, 부트스트랩처럼 싱글턴 통으로 올릴 이유가
+        // 없다 — 그렇게 하면 탭을 가르는 열쇠가 필요해지는데 Blazor 는
+        // 부품에게 회로 아이디를 알려 주지 않는다.
+        services.AddScoped<PortalBoot>();
+
         // 그 응답을 사용자별로 잠깐 들고 있는 통.
         //
         // **싱글턴이어야 한다.** scoped 로 두면 모듈 컨테이너가 갈릴 때 통도
@@ -266,6 +335,19 @@ public static class JSiniWebApp
         //
         // 증상이 고약하다: 화면은 멀쩡히 그려지고(프리렌더는 되니까) 버튼만
         // 안 눌린다. 브라우저 콘솔을 봐야 "Failed to complete negotiation" 이 보인다.
+        // **압축은 UseRouting 보다 앞이어야 한다.**
+        //
+        // 이 미들웨어는 응답 스트림을 갈아 끼우는 방식으로 동작하므로, 압축할
+        // 응답을 만드는 미들웨어보다 **앞에** 서 있어야 한다. 뒤에 두면 아무
+        // 일도 일어나지 않고 — 오류도 안 난다. 증상이 「압축을 넣었는데 헤더에
+        // Content-Encoding 이 없다」 하나라 원인이 순서로 보이지 않는다.
+        //
+        // 정적 자원(MapStaticAssets)은 이 미들웨어를 거치지 않는 편이 낫지만
+        // 그렇게 갈라 둘 필요가 없다 — 그쪽은 빌드 때 만들어 둔 .br/.gz 를
+        // 그대로 내려주면서 Content-Encoding 을 이미 붙이고, 이 미들웨어는
+        // 그 헤더가 있는 응답을 건드리지 않는다.
+        app.UseResponseCompression();
+
         app.UseRouting();
 
         app.MapStaticAssets().AllowAnonymous();
