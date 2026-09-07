@@ -94,6 +94,9 @@
        splat 으로 흘러가 람다가 `EventCallback` 으로 감싸이지 않고, 화면이
        그리기도 전에 500 으로 죽는다 — 이 화면도 그래서 안 열리고 있었다. *@
     <CommGrd TItem="Device" Data="@_devices" PageSize="20"
+             ExportName="기기"
+             ActionsWidth="330"
+             Reload="@ReloadAsync"
              SelectedItem="@_selected"
              SelectedItemChanged="@SelectAsync">
         <Columns>
@@ -116,45 +119,43 @@
                 </CellDisplayTemplate>
             </DxGridDataColumn>
             <DxGridDataColumn FieldName="@nameof(Device.LastSeenAt)" Caption="최근 연결" Width="150" DisplayFormat="yyyy-MM-dd HH:mm" />
-            <DxGridDataColumn Caption="관리" Width="130" AllowSort="false">
-                <CellDisplayTemplate>
-                    @{ var d = (Device)context.DataItem; }
-                    <div class="jsini-actions">
-                        <PermissionView Action="MenuAction.Update">
-                            <DxButton Text="수정"
-                                      RenderStyle="ButtonRenderStyle.Secondary"
-                                      Click="@(() => OpenEdit(d))" />
-                        </PermissionView>
-                        <PermissionView Action="MenuAction.Delete">
-                            <DxButton Text="삭제"
-                                      RenderStyle="ButtonRenderStyle.Secondary"
-                                      Click="@(() => DeleteAsync(d))" />
-                        </PermissionView>
-                    </div>
-                </CellDisplayTemplate>
-            </DxGridDataColumn>
-
-            <DxGridDataColumn Caption="원격" Width="270">
-                <CellDisplayTemplate>
-                    @{ var d = (Device)context.DataItem; }
-                    <PermissionView Action="MenuAction.Update">
-                        <div class="jsini-actions">
-                            @* 화면 전원은 DB 에 남지 않는 즉시 명령이다. *@
-                            <DxButton Text="켜기" RenderStyle="ButtonRenderStyle.Secondary"
-                                      Click="@(() => PowerAsync(d.Code, "ON"))" />
-                            <DxButton Text="끄기" RenderStyle="ButtonRenderStyle.Secondary"
-                                      Click="@(() => PowerAsync(d.Code, "OFF"))" />
-                            <DxButton Text="재시작" RenderStyle="ButtonRenderStyle.Secondary"
-                                      Click="@(() => RestartAsync(d.Code))" />
-                            @* 새 판이 없으면 아무 일도 일어나지 않는다 — 릴리스 판정은
-                               플레이어가 스스로 한다. 그래서 확인 창을 두지 않는다. *@
-                            <DxButton Text="업데이트" RenderStyle="ButtonRenderStyle.Secondary"
-                                      Click="@(() => UpdateNowAsync(d.Code))" />
-                        </div>
-                    </PermissionView>
-                </CellDisplayTemplate>
-            </DxGridDataColumn>
         </Columns>
+
+        @* ── 관리 칸 ────────────────────────────────────
+           손으로 적은 칸이 둘이었다(「관리」와 「원격」). 조작 자리가 표 안에
+           둘로 갈리면 무엇을 어디서 하는지 매번 눈으로 찾게 된다. 한 칸으로
+           모으고 아이콘·스타일을 CommGrd 가 붙이는 것에 맞췄다.
+
+           수정은 CommGrd 의 내장 편집을 쓰지 않는다 — 이 화면의 편집은
+           `DeviceEditor` 한 벌이 통째로 맡고 있고, 그것은 팝업 편집 폼이
+           아니라 자기 창을 여는 부품이다. *@
+        <RowActions Context="d">
+            <PermissionView Action="MenuAction.Update">
+                <DxButton IconCssClass="jsini-icon-edit" Title="수정"
+                          RenderStyle="ButtonRenderStyle.Link"
+                          Click="@(() => OpenEdit(d))" />
+            </PermissionView>
+            <PermissionView Action="MenuAction.Delete">
+                <DxButton IconCssClass="jsini-icon-trash" Title="삭제"
+                          CssClass="commgrd__icon--warn"
+                          RenderStyle="ButtonRenderStyle.Link"
+                          Click="@(() => DeleteAsync(d))" />
+            </PermissionView>
+
+            <PermissionView Action="MenuAction.Update">
+                @* 화면 전원은 DB 에 남지 않는 즉시 명령이다. *@
+                <DxButton Text="켜기" RenderStyle="ButtonRenderStyle.Link"
+                          Title="화면을 켠다" Click="@(() => PowerAsync(d.Code, "ON"))" />
+                <DxButton Text="끄기" RenderStyle="ButtonRenderStyle.Link"
+                          Title="화면을 끈다" Click="@(() => PowerAsync(d.Code, "OFF"))" />
+                <DxButton Text="재시작" RenderStyle="ButtonRenderStyle.Link"
+                          Title="플레이어를 다시 띄운다" Click="@(() => RestartAsync(d.Code))" />
+                @* 새 판이 없으면 아무 일도 일어나지 않는다 — 릴리스 판정은
+                   플레이어가 스스로 한다. 그래서 확인 창을 두지 않는다. *@
+                <DxButton Text="업데이트" RenderStyle="ButtonRenderStyle.Link"
+                          Title="새 판이 있으면 받아 간다" Click="@(() => UpdateNowAsync(d.Code))" />
+            </PermissionView>
+        </RowActions>
     </CommGrd>
 </CommCont>
 

@@ -21,7 +21,7 @@
 | 11 | △ | `/admin/status/server` | ServerStatus.razor | 대시보드 · 도구줄2 · 팝업1 |
 | 12 | △ | `/admin/system/menu` | MenuList.razor | 도구줄2 · 관리칸1 · 팝업1 |
 | 13 | △ | `/admin/system/signup` | SignupList.razor | 팝업1 |
-| 14 | ☐ | `/funeral/building/device` | DeviceList.razor | 도구줄1 · 관리칸2 |
+| 14 | ☑ | `/funeral/building/device` | DeviceList.razor | 도구줄1 · 관리칸2 |
 | 15 | ☐ | `/funeral/building/music-build` | MusicBuildingMapping.razor | 도구줄2 |
 | 16 | ☐ | `/funeral/deceased` | DeceasedList.razor | 도구줄1 · 관리칸2 |
 | 17 | ☐ | `/funeral/help/archive` | ArchiveListPage.razor | 도구줄2 · 관리칸1 · 팝업1 |
