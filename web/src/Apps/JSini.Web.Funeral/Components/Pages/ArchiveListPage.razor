@@ -68,7 +68,8 @@
 <CommCont>
     <CommGrd TItem="Archive" Data="@_items" PageSize="20"
              ExportName="자료실"
-             Reload="@ReloadAsync">
+             Reload="@ReloadAsync"
+             RowActions="@(_canManage ? Manage : null)">
         <Columns>
             <DxGridDataColumn Caption="자료명" MinWidth="220">
                 <CellDisplayTemplate Context="cell">
@@ -95,25 +96,7 @@
 
         </Columns>
 
-        @* 관리 칸은 CommGrd 가 붙인다(RowActions). 손으로 칸을 두면 화면마다
-           조작 자리와 아이콘이 갈린다. 관리 권한이 없으면 안이 비고, 그러면
-           CommGrd 도 칸을 그리지 않는다. *@
-        <RowActions Context="a">
-            @if (_canManage)
-            {
-                <PermissionView Action="MenuAction.Update">
-                    <DxButton IconCssClass="jsini-icon-edit" Title="수정"
-                              RenderStyle="ButtonRenderStyle.Link"
-                              Click="@(() => StartEdit(a))" />
-                </PermissionView>
-                <PermissionView Action="MenuAction.Delete">
-                    <DxButton IconCssClass="jsini-icon-trash" Title="삭제"
-                              CssClass="commgrd__icon--warn"
-                              RenderStyle="ButtonRenderStyle.Link"
-                              Click="@(() => DeleteAsync(a))" />
-                </PermissionView>
-            }
-        </RowActions>
+
         <DetailRowTemplate Context="detail">
             @{
                 var archive = (Archive)detail.DataItem;
@@ -221,6 +204,25 @@
 </DxPopup>
 
 @code {
+    /// <summary>
+    /// 관리 칸. <b>권한이 없으면 아예 주지 않는다</b> — 빈 조각을 주면
+    /// CommGrd 가 「단추가 있다」고 보고 칸을 그려서, 자료만 보는 사람에게
+    /// 빈 칸 하나가 남는다.
+    /// </summary>
+    private RenderFragment<Archive> Manage => a =>@<text>
+        <PermissionView Action="MenuAction.Update">
+            <DxButton IconCssClass="jsini-icon-edit" Title="수정"
+                      RenderStyle="ButtonRenderStyle.Link"
+                      Click="@(() => StartEdit(a))" />
+        </PermissionView>
+        <PermissionView Action="MenuAction.Delete">
+            <DxButton IconCssClass="jsini-icon-trash" Title="삭제"
+                      CssClass="commgrd__icon--warn"
+                      RenderStyle="ButtonRenderStyle.Link"
+                      Click="@(() => DeleteAsync(a))" />
+        </PermissionView>
+    </text>;
+
     private string? _keyword;
     private string? _category;
 
