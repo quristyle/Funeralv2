@@ -34,26 +34,32 @@
 
 <PageTitle>내 요청 · 헬프데스크</PageTitle>
 
-<div class="jsini-toolbar">
-    <DxTextBox @bind-Text="_keyword" NullText="제목 검색" Style="width: 220px"
-               ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+@* 「요청 등록」은 표에 줄을 만드는 것이 아니라 **다른 화면으로 건너가는
+   길**이다(`/helpdesk/request/new`). 표 아래 띠의 등록을 쓸 수 없으므로
+   조회 판의 Actions 에 둔다. *@
+<CommSch OnSearch="@ReloadAsync">
+    <Fields>
+        <CommSchItem Label="제목">
+            <DxTextBox @bind-Text="_keyword" NullText="제목으로 찾기" Style="width: 220px"
+                       ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        </CommSchItem>
 
-    <DxComboBox Data="@StatusOptions" @bind-Value="_status"
-                TextFieldName="Text" ValueFieldName="Value"
-                NullText="전체 상태" Style="width: 130px"
-                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        <CommSchItem Label="상태">
+            <DxComboBox Data="@StatusOptions" @bind-Value="_status"
+                        TextFieldName="Text" ValueFieldName="Value"
+                        NullText="전체" Style="width: 130px"
+                        ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        </CommSchItem>
+    </Fields>
 
-    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary"
-              IconCssClass="jsini-icon-refresh" Click="@ReloadAsync" />
-
-    <div class="jsini-toolbar__spacer"></div>
-
-    <PermissionView Action="MenuAction.Create">
-        <DxButton Text="요청 등록" RenderStyle="ButtonRenderStyle.Primary"
-                  IconCssClass="jsini-icon-plus"
-                  Click="@(() => { Navigation.NavigateTo("/helpdesk/request/new"); })" />
-    </PermissionView>
-</div>
+    <Actions>
+        <PermissionView Action="MenuAction.Create">
+            <DxButton Text="요청 등록" RenderStyle="ButtonRenderStyle.Secondary"
+                      IconCssClass="jsini-icon-plus"
+                      Click="@(() => { Navigation.NavigateTo("/helpdesk/request/new"); })" />
+        </PermissionView>
+    </Actions>
+</CommSch>
 
 <PageNotice Text="@Notice" Tone="@Tone" />
 
@@ -64,7 +70,9 @@
 }
 
 <CommCont>
-    <CommGrd TItem="ImprovementRequest" Data="@_rows" PageSize="20">
+    <CommGrd TItem="ImprovementRequest" Data="@_rows" PageSize="20"
+             ExportName="내요청"
+             Reload="@ReloadAsync">
         <Columns>
             <DxGridDataColumn FieldName="@nameof(ImprovementRequest.Id)" Caption="번호" Width="80" />
 
