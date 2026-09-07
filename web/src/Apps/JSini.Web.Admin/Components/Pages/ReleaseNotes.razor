@@ -38,11 +38,8 @@
 
 <PageTitle>배포 도구 · 포털관리</PageTitle>
 
-<div class="jsini-toolbar">
-    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary"
-              IconCssClass="jsini-icon-refresh" Click="@ReloadAsync" />
-</div>
-
+@* 조회 단추를 따로 두지 않는다. 조건이 하나도 없는 화면이라 조회 판을
+   세울 것이 없고, 다시 읽기는 두 표의 아래 띠에 각각 붙는다(`Reload`). *@
 <PageNotice Text="@Notice" Tone="@Tone" />
 
 @if (_targets?.ConfigWarning is { Length: > 0 } warning)
@@ -56,9 +53,10 @@
                 Tone="NoticeTone.Info" />
 }
 
-<h2 class="ad-section">걸 수 있는 대상</h2>
-
-<CommGrd TItem="object" Data="@(_targets?.Items ?? [])">
+<CommCont Title="걸 수 있는 대상">
+    <CommGrd TItem="object" Data="@(_targets?.Items ?? [])"
+             ExportName="배포대상"
+             Reload="@ReloadAsync">
     <Columns>
         <DxGridDataColumn FieldName="@nameof(ReleaseTargetDto.Name)" Caption="대상" MinWidth="180" />
         <DxGridDataColumn FieldName="@nameof(ReleaseTargetDto.Key)" Caption="키" Width="150" />
@@ -111,11 +109,13 @@
             </CellDisplayTemplate>
         </DxGridDataColumn>
     </Columns>
-</CommGrd>
+    </CommGrd>
+</CommCont>
 
-<h2 class="ad-section">최근 실행</h2>
-
-<CommGrd TItem="ReleaseRunDto" Data="@_runs" PageSize="20">
+<CommCont Title="최근 실행" Hint="@($"{_runs.Count}건")">
+    <CommGrd TItem="ReleaseRunDto" Data="@_runs" PageSize="20"
+             ExportName="배포실행"
+             Reload="@ReloadAsync">
     <Columns>
         <DxGridDataColumn FieldName="@nameof(ReleaseRunDto.TargetName)" Caption="대상" MinWidth="160" />
 
@@ -151,7 +151,8 @@
             </CellDisplayTemplate>
         </DxGridDataColumn>
     </Columns>
-</CommGrd>
+    </CommGrd>
+</CommCont>
 
 @* ── 진행 기록 ─────────────────────────────────────── *@
 <DxPopup @bind-Visible="_showingRun" HeaderText="@RunHeader" Width="820" ShowFooter="true">
