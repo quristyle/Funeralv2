@@ -29,8 +29,8 @@
 | 19 | ☑ | `/funeral/stat/billing` | BillingStat.razor | 대시보드 |
 | 20 | ☑ | `/funeral/status/deceased-status` | DeceasedStatus.razor | 도구줄1 · 관리칸1 · 팝업1 |
 | 21 | ☐ | `/helpdesk/dashboard` | HelpDeskDashboard.razor | 대시보드 · 도구줄2 |
-| 22 | ☐ | `/helpdesk/monitor/maintenance` | MaintenanceMonitor.razor | 대시보드 · 도구줄1 |
-| 23 | ☐ | `/helpdesk/monitor/sm` | SmMonitor.razor | 대시보드 · 도구줄1 |
+| 22 | ☑ | `/helpdesk/monitor/maintenance` | MaintenanceMonitor.razor | 대시보드 · 도구줄1 |
+| 23 | ☑ | `/helpdesk/monitor/sm` | SmMonitor.razor | 대시보드 · 도구줄1 |
 | 24 | ☐ | `/helpdesk/project/manage` | ProjectManage.razor | 도구줄3 · 관리칸1 · 팝업1 |
 | 25 | ☐ | `/helpdesk/project/wbs` | WbsList.razor | 도구줄3 · 관리칸1 · 팝업1 |
 | 26 | ☐ | `/helpdesk/request/list` | RequestList.razor | 도구줄2 |

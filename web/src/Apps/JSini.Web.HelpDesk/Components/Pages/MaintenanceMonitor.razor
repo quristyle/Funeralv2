@@ -33,11 +33,19 @@
 
 <PageTitle>유지보수 현황 · 헬프데스크</PageTitle>
 
-<div class="jsini-toolbar">
-    <DxSpinEdit @bind-Value="_year" MinValue="2000" MaxValue="2100" Style="width: 110px" />
-    <DxSpinEdit @bind-Value="_month" MinValue="1" MaxValue="12" Style="width: 90px" />
-    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@ReloadAsync" />
-</div>
+@* 조건은 연·월 둘이다. 자료 판(`CommCont`)은 쓰지 않는다 — 통계 타일과
+   표가 쌓인 화면이라 감싸면 남은 높이를 그 판이 다 먹어 아래가 잘린다. *@
+<CommSch OnSearch="@ReloadAsync">
+    <Fields>
+        <CommSchItem Label="연">
+            <DxSpinEdit @bind-Value="_year" MinValue="2000" MaxValue="2100" Style="width: 110px" />
+        </CommSchItem>
+
+        <CommSchItem Label="월">
+            <DxSpinEdit @bind-Value="_month" MinValue="1" MaxValue="12" Style="width: 90px" />
+        </CommSchItem>
+    </Fields>
+</CommSch>
 
 <PageNotice Text="@Notice" Tone="@Tone" />
 
