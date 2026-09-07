@@ -51,16 +51,22 @@
 
 <PageTitle>기상 특보 현황 · 생활과환경</PageTitle>
 
-<div class="jsini-toolbar">
-    <DxComboBox Data="@_commands" Value="@_command"
-                ValueChanged="@((string? v) => _command = v)"
-                NullText="명령 전체" ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto"
-                Style="width: 160px" />
+<CommSch OnSearch="@ReloadAsync">
+    <Fields>
+        <CommSchItem Label="명령">
+            <DxComboBox Data="@_commands" Value="@_command"
+                        ValueChanged="@((string? v) => _command = v)"
+                        NullText="전체" ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto"
+                        Style="width: 160px" />
+        </CommSchItem>
+    </Fields>
 
-    <DxButton Text="새로고침" RenderStyle="ButtonRenderStyle.Primary" Click="@ReloadAsync" />
-
-    <span class="le-warn__count">최근 48시간 @Groups.Count 건</span>
-</div>
+    <Actions>
+        @* 건수는 단추가 아니지만 판의 오른쪽 끝이 그 자리다. 조건 옆에 두면
+           조건인 줄 읽힌다. *@
+        <span class="le-warn__count">최근 48시간 @Groups.Count 건</span>
+    </Actions>
+</CommSch>
 
 <PageNotice Text="@Notice" Tone="@Tone" />
 
