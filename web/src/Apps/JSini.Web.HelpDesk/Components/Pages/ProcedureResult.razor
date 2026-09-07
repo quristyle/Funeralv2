@@ -32,19 +32,27 @@
 
 <PageTitle>프로시저 결과 · 헬프데스크</PageTitle>
 
-<div class="jsini-toolbar">
-    <DxComboBox Data="@_procedures" TextFieldName="@nameof(ProcedureInfo.Name)"
-                ValueFieldName="@nameof(ProcedureInfo.Name)"
-                Value="@_selected" ValueChanged="@((string? v) => Pick(v))"
-                ValueExpression="@(() => _selected)"
-                NullText="프로시저를 고르십시오" Style="width: 300px"
-                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+@* 「조회」 자리에 「실행」이 온다(`SearchText`). 이 화면에서 오른쪽 끝
+   단추가 하는 일이 조회가 아니라 프로시저 실행이라, 글자만 갈아 끼우고
+   자리는 다른 화면과 같게 둔다. *@
+<CommSch OnSearch="@RunAsync" SearchText="실행">
+    <Fields>
+        <CommSchItem Label="프로시저">
+            <DxComboBox Data="@_procedures" TextFieldName="@nameof(ProcedureInfo.Name)"
+                        ValueFieldName="@nameof(ProcedureInfo.Name)"
+                        Value="@_selected" ValueChanged="@((string? v) => Pick(v))"
+                        ValueExpression="@(() => _selected)"
+                        NullText="프로시저를 고르십시오" Style="width: 300px"
+                        ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        </CommSchItem>
+    </Fields>
 
-    <DxButton Text="실행" RenderStyle="ButtonRenderStyle.Primary"
-              Enabled="@(_selected is { Length: > 0 })" Click="@RunAsync" />
-
-    <DxButton Text="목록 새로 고침" RenderStyle="ButtonRenderStyle.Secondary" Click="@ReloadAsync" />
-</div>
+    <Actions>
+        <DxButton Text="목록 새로 고침" RenderStyle="ButtonRenderStyle.Link"
+                  IconCssClass="jsini-icon-refresh"
+                  Title="프로시저 목록을 다시 읽는다" Click="@ReloadAsync" />
+    </Actions>
+</CommSch>
 
 @if (Description is { Length: > 0 })
 {
