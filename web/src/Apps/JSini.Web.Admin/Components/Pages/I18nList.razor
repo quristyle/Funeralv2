@@ -26,7 +26,25 @@
     [분류로 좁힌다]
 
     자원이 천 건이 넘는다. 「메뉴 제목만 고치겠다」가 흔한 일이라 분류
-    고르개를 둔다.
+    고르개를 둔다. 조건 셋(분류 · 검색어 · 한쪽만 있는 것)은 다 브라우저 안에서
+    거른다 — 키로 묶으려고 어차피 전부 받아 두기 때문이다.
+
+    [화면 구성은 조회 영역 → 자료 영역이다]
+
+    위에 `CommSch`(조건 셋), 아래에 `CommCont` + `CommGrd`. 손으로 적던
+    도구줄이 있었는데 하던 일이 전부 이 둘에 있다 — 조건은 `CommSch` 의
+    `Fields`, 등록·수정·삭제는 `CommGrd` 의 관리 칸과 아래 띠다.
+
+    자료 영역이 하나뿐이라 `CommCont` 의 제목을 비워 둔다. 사이드바와
+    브레드크럼이 이미 「다국어 관리」라고 말한다.
+
+    [편집 모델이 곧 표의 줄이다]
+
+    `Pair` 를 고칠 수 있는 class 로 둔 이유다. DevExpress 가 그 형으로 편집
+    모델(원본의 사본)을 만들어 폼에 넘긴다. 대신 **서버 줄의 식별자는 그
+    모델에 담지 않는다** — 사본에 무엇이 옮겨 오는지에 기대면 조용히 어긋나고,
+    그때 나는 사고가 「수정한 것이 새 줄로 하나 더 생긴다」다. 저장할 때
+    읽어 둔 목록에서 키로 찾는다.
 *@
 
 @inherits DataPage
@@ -34,35 +52,47 @@
 
 <PageTitle>다국어 관리 · 포털관리</PageTitle>
 
-<div class="jsini-toolbar">
-    <DxComboBox Data="@_categories" @bind-Value="_category"
-                NullText="분류 전체" Style="width: 170px"
-                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+@* ── 조회 영역 ─────────────────────────────────────────
+   조건 셋이 다 브라우저 안에서 거른다(`Shown`) — 자원을 전부 받아 두고
+   키로 묶기 때문이다. 그래도 판을 세우는 이유는 **자리**다.
 
-    <DxTextBox @bind-Text="_keyword" NullText="키·값 검색" Style="width: 240px"
-               ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+   「등록」을 여기 두지 않는다 — 표 아래 띠에 이미 있다. *@
+<CommSch OnSearch="@ReloadAsync" OnReset="@ResetAsync">
+    <Fields>
+        <CommSchItem Label="분류">
+            <DxComboBox Data="@_categories" @bind-Value="_category"
+                        NullText="전체" Style="width: 170px"
+                        ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        </CommSchItem>
 
-    <DxCheckBox @bind-Checked="_onlyMissing">한쪽만 있는 것</DxCheckBox>
+        <CommSchItem Label="검색어">
+            <DxTextBox @bind-Text="_keyword" NullText="키 · 값" Style="width: 240px"
+                       ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        </CommSchItem>
 
-    <div class="jsini-toolbar__spacer"></div>
-
-    <PermissionView Action="MenuAction.Create">
-        <DxButton Text="등록" RenderStyle="ButtonRenderStyle.Primary"
-                  IconCssClass="jsini-icon-plus" Click="@StartNew" />
-    </PermissionView>
-
-    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Secondary"
-              IconCssClass="jsini-icon-refresh" Click="@ReloadAsync" />
-</div>
+        <CommSchItem>
+            @* 라벨을 안 붙인다. 스위치 옆 글자가 이미 무엇인지 말한다. *@
+            <DxCheckBox @bind-Checked="_onlyMissing">한쪽만 있는 것</DxCheckBox>
+        </CommSchItem>
+    </Fields>
+</CommSch>
 
 <PageNotice Text="메뉴 제목도 이 표를 씁니다. 값을 고치면 사이드바 문구가 함께 바뀝니다." />
 
 <PageNotice Text="@Notice" Tone="@Tone" />
 
 <CommCont>
-    <CommGrd TItem="Pair" Data="@Shown" PageSize="30">
+    <CommGrd TItem="Pair" Data="@Shown" PageSize="30"
+             EditFormTitle="다국어 자원"
+             ExportName="다국어"
+             OnNew="@FillNew"
+             OnEditOpen="@OnEditOpen"
+             OnSave="@SaveAsync"
+             OnDelete="@DeleteAsync"
+             DeleteConfirm="@DeleteMessage"
+             Reload="@ReloadAsync">
         <Columns>
-            <DxGridDataColumn Caption="키" MinWidth="240">
+            <DxGridDataColumn FieldName="@nameof(Pair.Key)" Caption="키" MinWidth="240">
                 <CellDisplayTemplate Context="cell">
                     @{
                         var pair = (Pair)cell.DataItem;
@@ -71,111 +101,92 @@
                 </CellDisplayTemplate>
             </DxGridDataColumn>
 
-            <DxGridDataColumn Caption="한국어" MinWidth="220">
+            <DxGridDataColumn FieldName="@nameof(Pair.KoValue)" Caption="한국어" MinWidth="220">
                 <CellDisplayTemplate Context="cell">
-                    @{
-                        var pair = (Pair)cell.DataItem;
-                    }
-                    @if (pair.Ko is null)
-                    {
-                        @* 한국어가 없으면 화면에 **키가 그대로** 보인다.
-                           그게 「사이드바에 system.menu.title 이 뜬다」의 원인이었다. *@
-                        <span class="jsini-badge jsini-badge--off">없음</span>
-                    }
-                    else
-                    {
-                        @pair.Ko.Value
-                    }
+                    @* 한국어가 없으면 화면에 **키가 그대로** 보인다.
+                       그게 「사이드바에 system.menu.title 이 뜬다」의 원인이었다. *@
+                    @MissingOr(((Pair)cell.DataItem).KoValue)
                 </CellDisplayTemplate>
             </DxGridDataColumn>
 
-            <DxGridDataColumn Caption="영어" MinWidth="200">
+            <DxGridDataColumn FieldName="@nameof(Pair.EnValue)" Caption="영어" MinWidth="200">
                 <CellDisplayTemplate Context="cell">
-                    @{
-                        var pair = (Pair)cell.DataItem;
-                    }
-                    @if (pair.En is null)
-                    {
-                        <span class="jsini-badge jsini-badge--off">없음</span>
-                    }
-                    else
-                    {
-                        @pair.En.Value
-                    }
+                    @MissingOr(((Pair)cell.DataItem).EnValue)
                 </CellDisplayTemplate>
             </DxGridDataColumn>
 
-            <DxGridDataColumn Caption="분류" Width="150">
+            <DxGridDataColumn FieldName="@nameof(Pair.Category)" Caption="분류" Width="150">
                 <CellDisplayTemplate Context="cell">
                     @(((Pair)cell.DataItem).Category ?? "-")
                 </CellDisplayTemplate>
             </DxGridDataColumn>
-
-            <DxGridDataColumn Caption="관리" Width="120" AllowSort="false">
-                <CellDisplayTemplate Context="cell">
-                    @{
-                        var pair = (Pair)cell.DataItem;
-                    }
-                    <div class="jsini-actions">
-                        <PermissionView Action="MenuAction.Update">
-                            <DxButton Text="수정"
-                                      RenderStyle="ButtonRenderStyle.Secondary"
-                                      Click="@(() => StartEdit(pair))" />
-                        </PermissionView>
-                        <PermissionView Action="MenuAction.Delete">
-                            <DxButton Text="삭제"
-                                      RenderStyle="ButtonRenderStyle.Secondary"
-                                      Click="@(() => DeleteAsync(pair))" />
-                        </PermissionView>
-                    </div>
-                </CellDisplayTemplate>
-            </DxGridDataColumn>
         </Columns>
+
+        @* ── 편집 ──────────────────────────────────────────
+           두 언어를 **한 폼에서** 고친다. 한쪽만 고치면 언어를 바꿨을 때 옛
+           문구가 남아서, 짝으로 놓는 것이 이 화면의 요점이다.
+
+           지역 변수로 한 번 받아 두고 `@@bind-` 는 그 변수에 건다 — 식 안에
+           형변환을 끼우면 DevExpress 가 검증 식을 만들지 못해 팝업이 그냥
+           안 열린다(EditFormBindingTests 주석 참고). *@
+        <EditFormTemplate Context="edit">
+            @{
+                var row = (Pair)edit.EditModel;
+            }
+            <DxFormLayout CssClass="ad-editform">
+                <DxFormLayoutItem Caption="키" ColSpanMd="8">
+                    @* 화면 코드가 이 글자를 들고 있다. 바꾸면 그 자리에 키가 그대로
+                       보이게 된다 — 등록할 때만 정하는 이유다. *@
+                    <DxTextBox @bind-Text="row.Key" ReadOnly="@(!_isNew)"
+                               NullText="@(_isNew ? "system.menu.title" : "수정할 수 없습니다")" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="분류" ColSpanMd="4">
+                    <DxComboBox Data="@_categories" @bind-Value="row.Category"
+                                AllowUserInput="true" NullText="직접 입력 가능"
+                                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="한국어" ColSpanMd="12">
+                    <DxTextBox @bind-Text="row.KoValue" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="영어" ColSpanMd="12">
+                    @* 비워 두면 그 언어에서는 키가 그대로 보인다. 지우려면
+                       비우고 저장한다. *@
+                    <DxTextBox @bind-Text="row.EnValue"
+                               NullText="비우면 그 언어에서 키가 그대로 보인다" />
+                </DxFormLayoutItem>
+            </DxFormLayout>
+        </EditFormTemplate>
     </CommGrd>
 </CommCont>
-
-<DxPopup @bind-Visible="_editing" HeaderText="@(_isNew ? "다국어 등록" : "다국어 수정")"
-         Width="640" CloseOnOutsideClick="false" ShowFooter="true">
-    <BodyContentTemplate Context="popup">
-        <DxFormLayout CssClass="ad-editform">
-            <DxFormLayoutItem Caption="키" ColSpanMd="8">
-                @* 화면 코드가 이 글자를 들고 있다. 바꾸면 그 자리에 키가 그대로
-                   보이게 된다 — 등록할 때만 정하는 이유다. *@
-                <DxTextBox @bind-Text="_key" ReadOnly="@(!_isNew)"
-                           NullText="system.menu.title" />
-            </DxFormLayoutItem>
-
-            <DxFormLayoutItem Caption="분류" ColSpanMd="4">
-                <DxComboBox Data="@_categories" @bind-Value="_editCategory"
-                            AllowUserInput="true" NullText="분류 (직접 입력 가능)"
-                            ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
-            </DxFormLayoutItem>
-
-            <DxFormLayoutItem Caption="한국어" ColSpanMd="12">
-                <DxTextBox @bind-Text="_ko" />
-            </DxFormLayoutItem>
-
-            <DxFormLayoutItem Caption="영어" ColSpanMd="12">
-                @* 비워 두면 그 언어에서는 키가 그대로 보인다. 지우려면
-                   비우고 저장한다. *@
-                <DxTextBox @bind-Text="_en" NullText="비우면 그 언어에서 키가 그대로 보인다" />
-            </DxFormLayoutItem>
-        </DxFormLayout>
-    </BodyContentTemplate>
-
-    <FooterContentTemplate>
-        <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Primary" Click="@SaveAsync" />
-        <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary" Click="@(() => _editing = false)" />
-    </FooterContentTemplate>
-</DxPopup>
 
 @code {
     /// <summary>
     /// 한 키의 두 언어. 서버는 언어별로 한 줄씩 주지만 <b>고칠 때는 짝</b>이다.
     ///
+    /// <para>
     /// 한쪽만 고치면 언어를 바꿨을 때 옛 문구가 남는다. 그래서 화면에서 묶는다.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>record 가 아니라 고칠 수 있는 class 다.</b> 이것이 표의 편집 모델이라
+    /// DevExpress 가 매개변수 없는 생성자로 만들고 칸마다 값을 넣는다 —
+    /// 위치 매개변수 record 는 둘 다 안 된다.
+    /// </para>
     /// </summary>
-    private sealed record Pair(string Key, string? Category, I18nResourceDto? Ko, I18nResourceDto? En);
+    private sealed class Pair
+    {
+        public string Key { get; set; } = string.Empty;
+        public string? Category { get; set; }
+
+        /// <summary>편집 폼이 묶는 값. 표에 보여 주는 것도 이 값이다.</summary>
+        public string? KoValue { get; set; }
+
+        /// <inheritdoc cref="KoValue"/>
+        public string? EnValue { get; set; }
+    }
 
     private IReadOnlyList<I18nResourceDto> _all = [];
     private IReadOnlyList<Pair> _pairs = [];
@@ -185,15 +196,8 @@
     private string? _category;
     private bool _onlyMissing;
 
-    private bool _editing;
+    /// <summary>편집 창이 등록으로 열렸는가. 키를 잠글지 정한다.</summary>
     private bool _isNew;
-    private string? _key;
-    private string? _editCategory;
-    private string? _ko;
-    private string? _en;
-
-    /// <summary>고칠 때 지울지 판단하려고 들고 있는 원본.</summary>
-    private Pair? _target;
 
     private IReadOnlyList<Pair> Shown
     {
@@ -208,7 +212,7 @@
 
             if (_onlyMissing)
             {
-                rows = rows.Where(p => p.Ko is null || p.En is null);
+                rows = rows.Where(p => string.IsNullOrWhiteSpace(p.KoValue) || string.IsNullOrWhiteSpace(p.EnValue));
             }
 
             if (!string.IsNullOrWhiteSpace(_keyword))
@@ -216,8 +220,8 @@
                 var k = _keyword.Trim();
                 rows = rows.Where(p =>
                     p.Key.Contains(k, StringComparison.OrdinalIgnoreCase)
-                    || (p.Ko?.Value.Contains(k, StringComparison.OrdinalIgnoreCase) ?? false)
-                    || (p.En?.Value.Contains(k, StringComparison.OrdinalIgnoreCase) ?? false));
+                    || (p.KoValue?.Contains(k, StringComparison.OrdinalIgnoreCase) ?? false)
+                    || (p.EnValue?.Contains(k, StringComparison.OrdinalIgnoreCase) ?? false));
             }
 
             return [.. rows];
@@ -235,11 +239,13 @@
         [
             .. _all
                 .GroupBy(r => r.Key, StringComparer.Ordinal)
-                .Select(g => new Pair(
-                    g.Key,
-                    g.Select(r => r.Category).FirstOrDefault(c => !string.IsNullOrWhiteSpace(c)),
-                    g.FirstOrDefault(r => r.Locale.StartsWith("ko", StringComparison.OrdinalIgnoreCase)),
-                    g.FirstOrDefault(r => r.Locale.StartsWith("en", StringComparison.OrdinalIgnoreCase))))
+                .Select(g => new Pair
+                {
+                    Key = g.Key,
+                    Category = g.Select(r => r.Category).FirstOrDefault(c => !string.IsNullOrWhiteSpace(c)),
+                    KoValue = Locale(g, "ko")?.Value,
+                    EnValue = Locale(g, "en")?.Value,
+                })
                 .OrderBy(p => p.Key, StringComparer.Ordinal)
         ];
 
@@ -255,73 +261,81 @@
         return _pairs.Count;
     }, "등록된 자원이 없습니다.", "다국어 자원을 읽지 못했습니다");
 
-    private void StartNew()
+    private Task ResetAsync()
     {
-        _isNew = true;
-        _target = null;
-        _key = null;
-        _editCategory = _category;
-        _ko = null;
-        _en = null;
-        _editing = true;
+        _category = null;
+        _keyword = null;
+        _onlyMissing = false;
+
+        return ReloadAsync();
     }
 
-    private void StartEdit(Pair pair)
-    {
-        _isNew = false;
-        _target = pair;
-        _key = pair.Key;
-        _editCategory = pair.Category;
-        _ko = pair.Ko?.Value;
-        _en = pair.En?.Value;
-        _editing = true;
-    }
+    /// <summary>고르고 있던 분류를 새 자원에 물려 준다. 이어서 여러 건 넣는 일이 흔하다.</summary>
+    private void FillNew(Pair row) => row.Category = _category;
+
+    /// <summary>
+    /// 편집 창이 열릴 때. <b>수정으로 열 때도 불린다</b> — 키를 잠그는 것이
+    /// 그 구분에 걸려 있어서, 등록 때만 불리는 <c>OnNew</c> 로는 앞선 등록의
+    /// 상태가 그대로 남는다.
+    /// </summary>
+    private void OnEditOpen(Pair row, bool isNew) => _isNew = isNew;
 
     /// <summary>
     /// 두 언어를 함께 저장한다.
     ///
+    /// <para>
     /// 언어마다 줄이 따로라 최대 두 번 부른다 — 없던 언어는 등록, 있던 언어는
-    /// 수정, 비운 언어는 삭제다. 「비웠다」와 「원래 없었다」를 가르는 것이
+    /// 수정, 비운 언어는 삭제다. <b>「비웠다」와 「원래 없었다」를 가르는 것</b>이
     /// 여기서 중요하다.
+    /// </para>
+    ///
+    /// <para>
+    /// 서버 줄(식별자)은 편집 모델에 없다. <b>일부러 넣지 않았다</b> — 편집
+    /// 모델은 DevExpress 가 만든 사본이라 무엇이 옮겨 오는지에 기대면 조용히
+    /// 어긋나고, 그때 나는 사고가 「수정한 것이 새 줄로 하나 더 생긴다」다.
+    /// 대신 지금 읽어 둔 목록에서 <b>키로 찾는다.</b>
+    /// </para>
     /// </summary>
-    private async Task SaveAsync()
+    private async Task SaveAsync((Pair Item, bool IsNew) e)
     {
-        if (string.IsNullOrWhiteSpace(_key))
+        var key = e.Item.Key?.Trim();
+
+        if (string.IsNullOrWhiteSpace(key))
         {
-            Say("키를 넣으십시오.", NoticeTone.Warning);
-            return;
+            throw new ApiException("키를 넣으십시오.");
         }
 
-        if (string.IsNullOrWhiteSpace(_ko) && string.IsNullOrWhiteSpace(_en))
+        if (string.IsNullOrWhiteSpace(e.Item.KoValue) && string.IsNullOrWhiteSpace(e.Item.EnValue))
         {
-            Say("적어도 한 언어는 값을 넣으십시오.", NoticeTone.Warning);
-            return;
+            throw new ApiException("적어도 한 언어는 값을 넣으십시오.");
         }
 
-        var saved = await RunAsync(async () =>
+        if (e.IsNew && _pairs.Any(p => string.Equals(p.Key, key, StringComparison.Ordinal)))
         {
-            await SaveOneAsync("ko", _ko, _target?.Ko);
-            await SaveOneAsync("en", _en, _target?.En);
-        }, _isNew ? "등록했습니다." : "저장했습니다.", "저장하지 못했습니다");
-
-        if (!saved)
-        {
-            // 창을 닫지 않는다. 닫으면 쓴 내용이 사라진다.
-            return;
+            throw new ApiException($"「{key}」 는 이미 있습니다. 그 줄을 고치십시오.");
         }
 
-        _editing = false;
-        await ReloadAsync();
+        // 수정인데 원본을 못 찾으면 **멈춘다.** 그대로 두면 등록으로 흘러가
+        // 같은 키가 두 벌 생기고, 어느 쪽이 보이는지는 순서가 정한다.
+        var rows = Rows(key);
+
+        if (!e.IsNew && rows.Count == 0)
+        {
+            throw new ApiException("고칠 자원을 찾지 못했습니다. 다시 읽고 시도하십시오.");
+        }
+
+        await SaveOneAsync(key, "ko", e.Item.KoValue, e.Item.Category, Locale(rows, "ko"));
+        await SaveOneAsync(key, "en", e.Item.EnValue, e.Item.Category, Locale(rows, "en"));
     }
 
-    private Task SaveOneAsync(string locale, string? value, I18nResourceDto? existing)
+    private Task SaveOneAsync(string key, string locale, string? value, string? category, I18nResourceDto? existing)
     {
         var body = new I18nResourceDto
         {
-            Key = _key!.Trim(),
+            Key = key,
             Locale = locale,
             Value = value?.Trim() ?? string.Empty,
-            Category = _editCategory,
+            Category = category,
         };
 
         if (existing is null)
@@ -339,24 +353,45 @@
             : Api.UpdateI18nAsync(existing.Id, body);
     }
 
-    private async Task DeleteAsync(Pair pair)
+    /// <summary>
+    /// 삭제 확인 문구. <b>지운 뒤에 무슨 일이 나는지</b>까지 적는다 — 번역이
+    /// 사라진 자리에는 빈칸이 아니라 키가 그대로 보인다. 그 사실을 모르면
+    /// 사이드바에 <c>system.menu.title</c> 이 뜬 것을 별개의 사고로 신고한다.
+    /// </summary>
+    private string DeleteMessage(Pair row)
     {
-        var saved = await RunAsync(async () =>
-        {
-            if (pair.Ko is not null)
-            {
-                await Api.DeleteI18nAsync(pair.Ko.Id);
-            }
+        var langs = string.Join(" · ", Rows(row.Key).Select(r => Language(r.Locale)));
+        var scope = string.IsNullOrEmpty(langs) ? string.Empty : $"\n{langs} 가 사라집니다.";
 
-            if (pair.En is not null)
-            {
-                await Api.DeleteI18nAsync(pair.En.Id);
-            }
-        }, "지웠습니다. 그 키를 쓰던 자리에는 키가 그대로 보입니다.", "지우지 못했습니다");
+        return $"키 「{row.Key}」 의 번역을 지웁니다.{scope}"
+             + "\n그 키를 쓰던 자리에는 키가 그대로 보입니다. 되돌릴 수 없습니다.";
+    }
 
-        if (saved)
+    private async Task DeleteAsync(Pair row)
+    {
+        foreach (var existing in Rows(row.Key))
         {
-            await ReloadAsync();
+            await Api.DeleteI18nAsync(existing.Id);
         }
     }
+
+    /// <summary>그 키의 서버 줄들. 언어마다 한 줄이다.</summary>
+    private List<I18nResourceDto> Rows(string? key) =>
+        string.IsNullOrWhiteSpace(key)
+            ? []
+            : [.. _all.Where(r => string.Equals(r.Key, key, StringComparison.Ordinal))];
+
+    /// <summary>언어 코드가 <c>ko-KR</c> 처럼 지역까지 붙어 오므로 앞만 본다.</summary>
+    private static I18nResourceDto? Locale(IEnumerable<I18nResourceDto> rows, string prefix) =>
+        rows.FirstOrDefault(r => r.Locale.StartsWith(prefix, StringComparison.OrdinalIgnoreCase));
+
+    private static string Language(string locale) =>
+        locale.StartsWith("ko", StringComparison.OrdinalIgnoreCase) ? "한국어"
+        : locale.StartsWith("en", StringComparison.OrdinalIgnoreCase) ? "영어"
+        : locale;
+
+    /// <summary>값이 없으면 「없음」 표를 대신 그린다.</summary>
+    private static RenderFragment MissingOr(string? value) => value is { Length: > 0 }
+        ? @<span>@value</span>
+        : @<span class="jsini-badge jsini-badge--off">없음</span>;
 }
