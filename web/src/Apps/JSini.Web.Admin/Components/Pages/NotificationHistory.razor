@@ -16,8 +16,17 @@
 
 <CommSch OnSearch="@ReloadAsync">
     <Fields>
+        <CommSchItem Label="기간">
+            <DxDateEdit @bind-Date="_from" Style="width: 140px" />
+        </CommSchItem>
+        <CommSchItem Label="~">
+            <DxDateEdit @bind-Date="_to" Style="width: 140px" />
+        </CommSchItem>
         <CommSchItem>
-            @* 라벨을 안 붙인다. 스위치 옆 글자가 이미 무엇인지 말한다. *@
+            @* 라벨을 안 붙인다. 스위치 옆 글자가 이미 무엇인지 말한다.
+
+               **이건 서버에 보내지 않는다.** 받아 둔 것에서 거르므로 누르는
+               즉시 반영된다 — 서버로 보내면 「조회」를 한 번 더 눌러야 한다. *@
             <DxCheckBox @bind-Checked="_unreadOnly">안 읽은 것만</DxCheckBox>
         </CommSchItem>
     </Fields>
@@ -52,6 +61,18 @@
 </CommCont>
 
 @code {
+    /// <summary>
+    /// 조회 기간. <b>기본이 최근 한 달이다.</b>
+    /// </summary>
+    /// <remarks>
+    /// 알림은 지우지 않으므로 자라기만 한다. 전에는 조건 없이 불러
+    /// <b>그 사람의 알림을 전부</b> 받아 왔다(서버에 페이징이 없다 —
+    /// <c>GetMyNotificationsAsync</c> 머리말). 발송 이력(이레)보다 길게 잡은
+    /// 것은 자기 알림함은 드물게 열어 보기 때문이다.
+    /// </remarks>
+    private DateTime? _from = DateTime.Today.AddMonths(-1);
+    private DateTime? _to = DateTime.Today;
+
     private bool _unreadOnly;
     private IReadOnlyList<NotificationDto> _all = [];
 
@@ -62,7 +83,7 @@
 
     private Task ReloadAsync() => LoadAsync(async () =>
     {
-        _all = await Api.GetMyNotificationsAsync();
+        _all = await Api.GetMyNotificationsAsync(_from, _to);
         return _all.Count;
     }, "받은 알림이 없습니다.", "알림을 읽지 못했습니다");
 

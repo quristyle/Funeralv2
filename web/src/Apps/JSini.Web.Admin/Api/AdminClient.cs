@@ -311,16 +311,65 @@ public sealed class AdminClient(GatewayClient gateway)
         => gateway.GetFlexibleListAsync<PushUserStatDto>(
             $"helpdesk/dashboard/user-engagement-stats?topN={topN}", ct);
 
-    public Task<IReadOnlyList<PushLogDto>> GetPushLogsAsync(
-        int page = 1, int pageSize = 50, string? reason = null, CancellationToken ct = default)
-        => gateway.GetFlexibleListAsync<PushLogDto>(
-            "helpdesk/dashboard/push-logs" + Query(("page", page), ("pageSize", pageSize), ("failureReason", reason)), ct);
+    /// <summary>
+    /// 발송 이력. <b>총건수를 함께 돌려준다.</b>
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 전에는 <c>pageSize</c> 기본값이 50 이고 <b>부르는 화면이 페이지를 넘기지
+    /// 않았다.</b> 그래서 51번째부터는 볼 방법이 없었는데 표에 아무 표시도 안 나서
+    /// 사용자는 그게 전부라고 읽었다 — 느린 것보다 나쁘다.
+    /// </para>
+    ///
+    /// <para>
+    /// 기본값을 없애 <b>부르는 자리가 상한을 정하게</b> 했다. 그리고 총건수를
+    /// 함께 받아 화면이 「전체 N건 중 M건」을 말할 수 있게 한다.
+    /// 기간은 서버가 받는데(<c>startDate</c> · <c>endDate</c>) 아무도 안 싣고
+    /// 있었다 — 이력은 자라기만 하므로 조건 없이 부르면 언젠가 못 쓰게 된다.
+    /// </para>
+    /// </remarks>
+    public Task<(IReadOnlyList<PushLogDto> Items, int Total)> GetPushLogsAsync(
+        int pageSize,
+        string? reason = null,
+        DateTime? from = null,
+        DateTime? to = null,
+        CancellationToken ct = default)
+        => gateway.GetFlexibleCountedListAsync<PushLogDto>(
+            "helpdesk/dashboard/push-logs" + Query(
+                ("page", 1),
+                ("pageSize", pageSize),
+                ("failureReason", reason),
+                ("startDate", from?.ToString("yyyy-MM-dd")),
+                ("endDate", to?.ToString("yyyy-MM-dd"))), ct);
 
-    /// <summary>내 알림 이력 (알림함).</summary>
+    /// <summary>
+    /// 내 알림 이력 (알림함).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// [<c>page</c> · <c>pageSize</c> 를 보내고 있었는데 <b>서버가 그 이름을
+    /// 받지 않는다</b>]
+    /// </para>
+    ///
+    /// <para>
+    /// <c>GET /push/notifications</c> 가 받는 것은 <c>startDate</c> ·
+    /// <c>endDate</c> · <c>isRead</c> · <c>userId</c> 넷이고 <c>Skip</c>/<c>Take</c>
+    /// 가 없다. 그래서 페이징을 보내던 것은 <b>아무 일도 하지 않았고</b>,
+    /// 실제로는 그 사람의 알림을 <b>전부</b> 받아 오고 있었다. 알림은 지우지
+    /// 않으므로 자라기만 한다.
+    /// </para>
+    ///
+    /// <para>
+    /// 안 먹는 파라미터를 빼고 <b>서버가 실제로 받는 기간</b>을 싣는다. 아무도
+    /// 안 쓰는 값을 남겨 두면 다음 사람이 「페이징이 되고 있다」고 읽는다.
+    /// </para>
+    /// </remarks>
     public Task<IReadOnlyList<NotificationDto>> GetMyNotificationsAsync(
-        int page = 1, int pageSize = 50, CancellationToken ct = default)
+        DateTime? from = null, DateTime? to = null, CancellationToken ct = default)
         => gateway.GetFlexibleListAsync<NotificationDto>(
-            "helpdesk/push/notifications" + Query(("page", page), ("pageSize", pageSize)), ct);
+            "helpdesk/push/notifications" + Query(
+                ("startDate", from?.ToString("yyyy-MM-dd")),
+                ("endDate", to?.ToString("yyyy-MM-dd"))), ct);
 
     public Task MarkNotificationReadAsync(int id, CancellationToken ct = default)
         => gateway.PostAsync($"helpdesk/push/notifications/{id}/read", new { }, ct);

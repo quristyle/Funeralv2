@@ -316,12 +316,75 @@ public sealed class GatewayClient(HttpClient http)
     }
 
     /// <summary>봉투 모양을 가리지 않고 목록을 읽는다. 무엇이 와도 배열이다.</summary>
-    public async Task<IReadOnlyList<T>> GetFlexibleListAsync<T>(
+    /// <summary>
+    /// 유연한 봉투에서 목록과 <b>총건수</b>를 함께 읽는다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// [잘렸다는 사실을 화면이 알아야 한다]
+    /// </para>
+    ///
+    /// <para>
+    /// 페이지를 넘기지 않는 화면이 <c>pageSize</c> 만큼만 받아 놓고 그것을
+    /// 전부라고 그리던 자리가 있었다. 표에는 아무 표시가 안 나서 사용자는
+    /// <b>그게 전부라고 읽는다</b> — 느린 것보다 나쁘다.
+    /// </para>
+    ///
+    /// <para>
+    /// 총건수를 함께 받으면 화면이 「전체 N건 중 M건」을 말할 수 있다.
+    /// <c>QnaList</c> 가 이미 그렇게 하고 있고 그 문구를 따른다.
+    /// </para>
+    ///
+    /// <para>
+    /// 총건수를 찾지 못하면 <b>받은 건수를 총건수로 본다</b> — 그러면 화면이
+    /// 「잘렸다」고 말하지 않는다. 없는 숫자를 지어내는 것보다 맞다.
+    /// </para>
+    /// </remarks>
+    public async Task<(IReadOnlyList<T> Items, int Total)> GetFlexibleCountedListAsync<T>(
         string path,
         CancellationToken cancellationToken = default)
     {
-        var payload = await ReadPayloadAsync(path, cancellationToken);
+        var (payload, envelope) = await ReadPayloadWithEnvelopeAsync(path, cancellationToken);
+        var items = ReadList<T>(payload);
 
+        return (items, ReadTotal(envelope) ?? items.Count);
+    }
+
+    /// <summary>
+    /// 봉투에서 총건수를 찾는다. 이름이 서비스마다 달라 세 가지를 대 본다 —
+    /// 헬프데스크는 <c>totalcount</c>, 표준 봉투는 <c>page.total</c> 이다.
+    /// </summary>
+    private static int? ReadTotal(JsonElement? envelope)
+    {
+        if (envelope is not { ValueKind: JsonValueKind.Object } root)
+        {
+            return null;
+        }
+
+        foreach (var name in (string[])["totalcount", "totalCount", "total"])
+        {
+            if (root.TryGetProperty(name, out var value)
+                && value.ValueKind == JsonValueKind.Number
+                && value.TryGetInt32(out var number))
+            {
+                return number;
+            }
+        }
+
+        if (root.TryGetProperty("page", out var page)
+            && page.ValueKind == JsonValueKind.Object
+            && page.TryGetProperty("total", out var pageTotal)
+            && pageTotal.ValueKind == JsonValueKind.Number
+            && pageTotal.TryGetInt32(out var fromPage))
+        {
+            return fromPage;
+        }
+
+        return null;
+    }
+
+    private static IReadOnlyList<T> ReadList<T>(JsonElement? payload)
+    {
         if (payload is not { } value)
         {
             return [];
@@ -338,6 +401,13 @@ public sealed class GatewayClient(HttpClient http)
         };
     }
 
+    public async Task<IReadOnlyList<T>> GetFlexibleListAsync<T>(
+        string path,
+        CancellationToken cancellationToken = default)
+    {
+        return ReadList<T>(await ReadPayloadAsync(path, cancellationToken));
+    }
+
     /// <summary>
     /// 응답에서 <b>알맹이</b>를 꺼낸다. 세 모양을 차례로 벗긴다.
     ///
@@ -345,6 +415,18 @@ public sealed class GatewayClient(HttpClient http)
     /// 그러지 않으면 화면이 「자료가 없습니다」로 잘못 안내한다.
     /// </summary>
     private async Task<JsonElement?> ReadPayloadAsync(string path, CancellationToken cancellationToken)
+        => (await ReadPayloadWithEnvelopeAsync(path, cancellationToken)).Payload;
+
+    /// <summary>
+    /// 알맹이와 <b>그것을 감싸고 있던 봉투</b>를 함께 돌려준다.
+    /// </summary>
+    /// <remarks>
+    /// 봉투가 필요한 이유는 총건수가 거기 있기 때문이다(<c>totalcount</c> ·
+    /// <c>page.total</c>). 알맹이만 벗겨 내면 「전부인지」를 알 수 없다.
+    /// 봉투가 아닌 응답(맨 배열)이면 봉투 자리가 <c>null</c> 이다.
+    /// </remarks>
+    private async Task<(JsonElement? Payload, JsonElement? Envelope)> ReadPayloadWithEnvelopeAsync(
+        string path, CancellationToken cancellationToken)
     {
         using var response = await http.GetAsync(path, cancellationToken);
         await EnsureHttpSuccessAsync(response, path, cancellationToken);
@@ -361,7 +443,7 @@ public sealed class GatewayClient(HttpClient http)
 
         if (document is null)
         {
-            return null;
+            return (null, null);
         }
 
         using (document)
@@ -370,12 +452,12 @@ public sealed class GatewayClient(HttpClient http)
 
             if (root.ValueKind == JsonValueKind.Array)
             {
-                return root.Clone();
+                return (root.Clone(), null);
             }
 
             if (root.ValueKind != JsonValueKind.Object)
             {
-                return root.Clone();
+                return (root.Clone(), null);
             }
 
             if (root.TryGetProperty("success", out var success)
@@ -388,16 +470,22 @@ public sealed class GatewayClient(HttpClient http)
                     response.StatusCode);
             }
 
+            var envelope = root.Clone();
+
             if (!root.TryGetProperty("data", out var data))
             {
-                // 봉투가 아니다. 몸통이 곧 알맹이다.
-                return root.Clone();
+                // 봉투가 아니다. 몸통이 곧 알맹이다 — 그리고 그 몸통에
+                // 총건수가 함께 있는 엔드포인트가 있어(헬프데스크) 봉투로도 넘긴다.
+                return (envelope, envelope);
             }
 
             // funeralv2 봉투는 한 겹 더 있다.
-            return data.ValueKind == JsonValueKind.Object && data.TryGetProperty("result", out var result)
+            var payload = data.ValueKind == JsonValueKind.Object
+                          && data.TryGetProperty("result", out var result)
                 ? result.Clone()
                 : data.Clone();
+
+            return (payload, envelope);
         }
     }
 
