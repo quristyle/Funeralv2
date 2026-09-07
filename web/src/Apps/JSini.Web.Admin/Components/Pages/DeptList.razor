@@ -31,18 +31,26 @@
 
 <PageTitle>부서 관리 · 포털관리</PageTitle>
 
-<div class="jsini-toolbar">
-    <DxComboBox Data="@_companies" TextFieldName="@nameof(CompanyDto.Name)"
-                ValueFieldName="@nameof(CompanyDto.Id)"
-                @bind-Value="_companyFilter" NullText="회사 전체" Style="width: 200px"
-                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+@* 조건은 회사 하나. 「부서 등록」은 조건이 아니라 이 화면의 동작이라 그 판의
+   Actions 로 옮겼다 — 한 줄에 섞이면 어느 것이 조건인지 흐려진다.
+   나무로 그리는 화면이라 표 아래 띠가 없어 등록 자리는 여기가 유일하다. *@
+<CommSch OnSearch="@ReloadAsync">
+    <Fields>
+        <CommSchItem Label="회사">
+            <DxComboBox Data="@_companies" TextFieldName="@nameof(CompanyDto.Name)"
+                        ValueFieldName="@nameof(CompanyDto.Id)"
+                        @bind-Value="_companyFilter" NullText="전체" Style="width: 200px"
+                        ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        </CommSchItem>
+    </Fields>
 
-    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@ReloadAsync" />
-
-    <PermissionView Action="MenuAction.Create">
-        <DxButton Text="부서 등록" RenderStyle="ButtonRenderStyle.Success" Click="@OpenNew" />
-    </PermissionView>
-</div>
+    <Actions>
+        <PermissionView Action="MenuAction.Create">
+            <DxButton Text="부서 등록" RenderStyle="ButtonRenderStyle.Secondary"
+                      IconCssClass="jsini-icon-plus" Click="@OpenNew" />
+        </PermissionView>
+    </Actions>
+</CommSch>
 
 <PageNotice Text="@Notice" Tone="@Tone" />
 
@@ -96,7 +104,7 @@
 </DxTreeList>
 
 <DxPopup @bind-Visible="_editing" HeaderText="@(_editingId is null ? "부서 등록" : "부서 수정")"
-         Width="560px" ShowFooter="false">
+         Width="560px" ShowFooter="true">
     <BodyContentTemplate Context="popup">
         <DxFormLayout>
             <DxFormLayoutItem Caption="부서명" ColSpanMd="12">
@@ -131,12 +139,13 @@
             </DxFormLayoutItem>
         </DxFormLayout>
 
-        <div class="jsini-toolbar">
-            <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Primary" Click="@SaveAsync" />
-            <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary"
-                      Click="@(() => _editing = false)" />
-        </div>
     </BodyContentTemplate>
+
+    <FooterContentTemplate>
+        <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Primary" Click="@SaveAsync" />
+        <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary"
+                  Click="@(() => _editing = false)" />
+    </FooterContentTemplate>
 </DxPopup>
 
 @code {
