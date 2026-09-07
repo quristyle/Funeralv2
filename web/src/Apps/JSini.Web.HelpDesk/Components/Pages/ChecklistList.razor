@@ -30,25 +30,24 @@
 
 <PageTitle>체크리스트 · 헬프데스크</PageTitle>
 
-<div class="jsini-toolbar">
-    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@ReloadAsync" />
-
-    <div class="jsini-toolbar__spacer"></div>
-
-    @if (_items.Count > 0)
-    {
-        <span class="jsini-badge">@_items.Count(i => i.IsChecked == true) / @_items.Count</span>
-    }
-
-    <PermissionView Action="MenuAction.Create">
-        <DxButton Text="항목 등록" RenderStyle="ButtonRenderStyle.Success" Click="@StartNew" />
-    </PermissionView>
-</div>
+@* 조건이 하나도 없다. 남은 것은 확인 건수 표시와 등록인데, 등록은 자기
+   팝업이 맡아 표 아래 띠를 쓸 수 없으므로 자료 판의 제목 줄에 둔다 —
+   조건줄(`jsini-toolbar`)에 담으면 조건이 어디 있는지가 흐려진다. *@
 
 <PageNotice Text="@Notice" Tone="@Tone" />
 
-<CommCont>
-    <CommGrd TItem="Checklist" Data="@_items" PageSize="30">
+<CommCont Title="점검 항목" Hint="@Progress">
+    <Actions>
+        <PermissionView Action="MenuAction.Create">
+            <DxButton Text="항목 등록" RenderStyle="ButtonRenderStyle.Secondary"
+                      IconCssClass="jsini-icon-plus" Click="@StartNew" />
+        </PermissionView>
+    </Actions>
+
+    <ChildContent>
+    <CommGrd TItem="Checklist" Data="@_items" PageSize="30"
+             ExportName="점검항목"
+             Reload="@ReloadAsync">
         <Columns>
             <DxGridDataColumn Caption="확인" Width="80">
                 <CellDisplayTemplate Context="cell">
@@ -67,25 +66,24 @@
             <DxGridDataColumn FieldName="@nameof(Checklist.CompletedAt)" Caption="확인 시각" Width="150"
                               DisplayFormat="yyyy-MM-dd HH:mm" />
 
-            <DxGridDataColumn Caption="" Width="140" AllowSort="false">
-                <CellDisplayTemplate Context="cell">
-                    @{
-                        var item = (Checklist)cell.DataItem;
-                    }
-                    <div class="jsini-actions">
-                        <PermissionView Action="MenuAction.Update">
-                            <DxButton Text="수정" RenderStyle="ButtonRenderStyle.Secondary"
-                                      Click="@(() => StartEdit(item))" />
-                        </PermissionView>
-                        <PermissionView Action="MenuAction.Delete">
-                            <DxButton Text="삭제" RenderStyle="ButtonRenderStyle.Secondary"
-                                      Click="@(() => DeleteAsync(item))" />
-                        </PermissionView>
-                    </div>
-                </CellDisplayTemplate>
-            </DxGridDataColumn>
         </Columns>
+
+        @* 관리 칸은 CommGrd 가 붙인다. *@
+        <RowActions Context="item">
+            <PermissionView Action="MenuAction.Update">
+                <DxButton IconCssClass="jsini-icon-edit" Title="수정"
+                          RenderStyle="ButtonRenderStyle.Link"
+                          Click="@(() => StartEdit(item))" />
+            </PermissionView>
+            <PermissionView Action="MenuAction.Delete">
+                <DxButton IconCssClass="jsini-icon-trash" Title="삭제"
+                          CssClass="commgrd__icon--warn"
+                          RenderStyle="ButtonRenderStyle.Link"
+                          Click="@(() => DeleteAsync(item))" />
+            </PermissionView>
+        </RowActions>
     </CommGrd>
+    </ChildContent>
 </CommCont>
 
 <DxPopup @bind-Visible="_editing" HeaderText="@(_form.Id == 0 ? "항목 등록" : "항목 수정")"
@@ -123,6 +121,10 @@
 </DxPopup>
 
 @code {
+    /// <summary>제목 옆에 붙는 확인 건수. 항목이 없으면 아무것도 적지 않는다.</summary>
+    private string? Progress =>
+        _items.Count == 0 ? null : $"{_items.Count(i => i.IsChecked == true)} / {_items.Count} 확인";
+
     private IReadOnlyList<Checklist> _items = [];
     private IReadOnlyList<string> _categories = [];
 
