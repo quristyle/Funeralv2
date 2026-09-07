@@ -1,0 +1,54 @@
+# 화면 구성 통일 진행표 (CommSch · CommCont · CommGrd)
+
+자율 진행용 작업표다. 한 화면을 고치면 바로 커밋·푸시한다(main).
+검증(브라우저·서버 재기동)은 하지 않는다 — 전부 끝낸 뒤 빌드·테스트를 한 번에 돈다.
+
+`대시보드` 표시가 붙은 것은 **CommCont 로 감싸지 않는다.** 키 큰 조각이 여럿
+쌓인 화면을 감싸면 남은 높이를 그 판이 다 먹어 아래가 잘린다(web/CLAUDE.md).
+
+| # | 상태 | 메뉴 URL | 파일 | 비고 |
+|---|---|---|---|---|
+| 1 | ☐ | `/admin/auth/role` | RoleList.razor | 관리칸1 |
+| 2 | ☐ | `/admin/auth/user-role` | UserRoleMap.razor | 도구줄1 |
+| 3 | ☐ | `/admin/company/user` | CompanyUserList.razor | 도구줄3 · 팝업2 |
+| 4 | ☐ | `/admin/profile` | Profile.razor | 대시보드 · 도구줄4 · 관리칸2 · 팝업1 |
+| 5 | ☐ | `/admin/push/dashboard` | PushDashboard.razor | 대시보드 · 도구줄1 |
+| 6 | ☐ | `/admin/push/history` | NotificationHistory.razor | 도구줄1 |
+| 7 | ☐ | `/admin/push/logs` | PushLogs.razor | 도구줄1 |
+| 8 | ☐ | `/admin/push/setting` | NotificationSetting.razor | 도구줄1 |
+| 9 | ☐ | `/admin/release` | ReleaseNotes.razor | 도구줄1 · 팝업1 |
+| 10 | ☐ | `/admin/status/deploy` | DeployStatus.razor | 대시보드 · 도구줄1 |
+| 11 | ☐ | `/admin/status/server` | ServerStatus.razor | 대시보드 · 도구줄2 · 팝업1 |
+| 12 | ☐ | `/admin/system/menu` | MenuList.razor | 도구줄2 · 관리칸1 · 팝업1 |
+| 13 | ☐ | `/admin/system/signup` | SignupList.razor | 팝업1 |
+| 14 | ☐ | `/funeral/building/device` | DeviceList.razor | 도구줄1 · 관리칸2 |
+| 15 | ☐ | `/funeral/building/music-build` | MusicBuildingMapping.razor | 도구줄2 |
+| 16 | ☐ | `/funeral/deceased` | DeceasedList.razor | 도구줄1 · 관리칸2 |
+| 17 | ☐ | `/funeral/help/archive` | ArchiveListPage.razor | 도구줄2 · 관리칸1 · 팝업1 |
+| 18 | ☐ | `/funeral/info/my-info` | MyInfoPage.razor | 대시보드 · 도구줄1 |
+| 19 | ☐ | `/funeral/stat/billing` | BillingStat.razor | 대시보드 |
+| 20 | ☐ | `/funeral/status/deceased-status` | DeceasedStatus.razor | 도구줄1 · 관리칸1 · 팝업1 |
+| 21 | ☐ | `/helpdesk/dashboard` | HelpDeskDashboard.razor | 대시보드 · 도구줄2 |
+| 22 | ☐ | `/helpdesk/monitor/maintenance` | MaintenanceMonitor.razor | 대시보드 · 도구줄1 |
+| 23 | ☐ | `/helpdesk/monitor/sm` | SmMonitor.razor | 대시보드 · 도구줄1 |
+| 24 | ☐ | `/helpdesk/project/manage` | ProjectManage.razor | 도구줄3 · 관리칸1 · 팝업1 |
+| 25 | ☐ | `/helpdesk/project/wbs` | WbsList.razor | 도구줄3 · 관리칸1 · 팝업1 |
+| 26 | ☐ | `/helpdesk/request/list` | RequestList.razor | 도구줄2 |
+| 27 | ☐ | `/helpdesk/request/manage` | RequestManage.razor | 도구줄1 |
+| 28 | ☐ | `/helpdesk/schedule/all` | ScheduleAll.razor | 도구줄3 · 관리칸1 · 팝업1 |
+| 29 | ☐ | `/helpdesk/schedule/my` | ScheduleMy.razor | 도구줄3 · 관리칸1 · 팝업1 |
+| 30 | ☐ | `/helpdesk/system/account-link` | AccountLink.razor | 도구줄3 · 팝업2 |
+| 31 | ☐ | `/helpdesk/system/checklist` | ChecklistList.razor | 도구줄3 · 관리칸1 · 팝업1 |
+| 32 | ☐ | `/helpdesk/system/user-properties` | UserProperties.razor | 도구줄2 |
+| 33 | ☐ | `/helpdesk/util/mc-model` | McModelList.razor | 도구줄5 · 관리칸2 · 팝업2 |
+| 34 | ☐ | `/life/birthday/list` | BirthdayList.razor | 도구줄1 |
+| 35 | ☐ | `/life/weather/events` | WeatherEvents.razor | 도구줄1 |
+| 36 | ☐ | `/life/weather/forecast` | WeatherForecast.razor | 대시보드 |
+| 37 | ☐ | `/life/weather/history` | WeatherHistory.razor | 도구줄2 |
+| 38 | ☐ | `/site/inquiries` | InquiryList.razor | 도구줄1 |
+| 39 | ☐ | `/diagnostics` | Diagnostics.razor | 대시보드 |
+
+## 멈춘 자리 (결정이 필요해 넘긴 것)
+
+없음
+
