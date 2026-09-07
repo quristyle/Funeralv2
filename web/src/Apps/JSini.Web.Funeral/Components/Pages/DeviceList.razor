@@ -89,8 +89,12 @@
 <PageNotice Text="@Notice" Tone="@Tone" />
 
 <CommCont>
+    @* 선택은 CommGrd 가 선언한 이름으로 받는다. DevExpress 이름을 직접 주면
+       splat 으로 흘러가 람다가 `EventCallback` 으로 감싸이지 않고, 화면이
+       그리기도 전에 500 으로 죽는다 — 이 화면도 그래서 안 열리고 있었다. *@
     <CommGrd TItem="Device" Data="@_devices" PageSize="20"
-             SelectedDataItemChanged="@((object? item) => SelectAsync(item as Device))">
+             SelectedItem="@_selected"
+             SelectedItemChanged="@SelectAsync">
         <Columns>
             <DxGridDataColumn FieldName="@nameof(Device.Code)" Caption="코드" Width="120" />
             <DxGridDataColumn FieldName="@nameof(Device.Name)" Caption="기기명" MinWidth="160" />
@@ -179,12 +183,14 @@ else if (_attribute is not null)
         }
     </div>
 
-    @foreach (var section in Sections(_selected.DeviceType))
+    @* 루프 변수를 section 이라 부르지 않는다 — Razor 가 `@section.Label` 의
+       `@section` 을 @section 디렉티브로 읽어서 RZ1011 로 빌드가 막힌다. *@
+    @foreach (var devSec in Sections(_selected.DeviceType))
     {
-        <section class="fn-devsec @(section.Relevant ? "is-on" : string.Empty)">
+        <section class="fn-devsec @(devSec.Relevant ? "is-on" : string.Empty)">
             <h3 class="fn-devsec__head">
-                @section.Label
-                @if (!section.Relevant)
+                @devSec.Label
+                @if (!devSec.Relevant)
                 {
                     @* 이 유형에서는 안 쓰는 묶음이다. 숨기지 않는 이유는
                        유형을 잘못 넣은 장비를 고칠 길이 필요하기 때문이다. *@
@@ -193,7 +199,7 @@ else if (_attribute is not null)
             </h3>
 
             <div class="fn-devsec__body">
-                @switch (section.Key)
+                @switch (devSec.Key)
                 {
                     case "layout":
                         <DeviceField Label="화면 방향">
