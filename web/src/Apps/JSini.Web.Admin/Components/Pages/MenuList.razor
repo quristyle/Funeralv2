@@ -43,22 +43,31 @@
 
 <PageTitle>메뉴 관리 · 포털관리</PageTitle>
 
-<div class="jsini-toolbar">
-    <DxTextBox @bind-Text="_keyword" NullText="메뉴 이름·경로 검색" Style="width: 230px"
-               ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+@* ── 조회 영역 ─────────────────────────────────────────
+   조건 둘은 브라우저 안에서 거른다. 「조회」는 게이트웨이에서 다시 읽는다.
 
-    <DxCheckBox @bind-Checked="_onlyHidden">숨긴 메뉴만</DxCheckBox>
+   「등록」이 조건 옆에 있었다. 조건과 동작이 한 줄에 섞이면 어느 것이
+   조건인지가 흐려져서, 이 화면만의 동작 자리(`Actions`)로 옮겼다.
+   표 아래 띠를 쓰지 않는 이유는 **나무에는 그 띠가 없다**는 것이다 —
+   거르지 않을 때는 `DxTreeList` 로 그리므로 등록 자리가 사라진다. *@
+<CommSch OnSearch="@ReloadAsync">
+    <Fields>
+        <CommSchItem Label="검색어">
+            <DxTextBox @bind-Text="_keyword" NullText="메뉴 이름 · 경로" Style="width: 230px"
+                       ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        </CommSchItem>
 
-    <div class="jsini-toolbar__spacer"></div>
-
-    <PermissionView Action="MenuAction.Create">
-        <DxButton Text="등록" RenderStyle="ButtonRenderStyle.Primary"
-                  IconCssClass="jsini-icon-plus" Click="@StartNew" />
-    </PermissionView>
-
-    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Secondary"
-              IconCssClass="jsini-icon-refresh" Click="@ReloadAsync" />
-</div>
+        <CommSchItem>
+            <DxCheckBox @bind-Checked="_onlyHidden">숨긴 메뉴만</DxCheckBox>
+        </CommSchItem>
+    </Fields>
+    <Actions>
+        <PermissionView Action="MenuAction.Create">
+            <DxButton Text="등록" RenderStyle="ButtonRenderStyle.Secondary"
+                      IconCssClass="jsini-icon-plus" Click="@StartNew" />
+        </PermissionView>
+    </Actions>
+</CommSch>
 
 <PageNotice Text="@Notice" Tone="@Tone" />
 
@@ -80,9 +89,12 @@
     깨진다), 그러면 걸리지도 않은 묶음이 결과에 섞여 무엇이 걸린 것인지
     알 수 없다. 옛 화면도 검색하면 평평해졌다.
 *@
+<CommCont>
 @if (Filtering)
 {
-    <CommGrd TItem="SystemMenuDto" Data="@Flat" PageSize="30">
+    <CommGrd TItem="SystemMenuDto" Data="@Flat" PageSize="30"
+             ExportName="메뉴"
+             Reload="@ReloadAsync">
         <Columns>
             <DxGridDataColumn Caption="메뉴" MinWidth="220">
                 <CellDisplayTemplate Context="cell">
@@ -156,7 +168,18 @@ else
             </DxTreeListDataColumn>
         </Columns>
     </DxTreeList>
+
+    @* 나무에는 표의 아래 띠가 없다. 다시 읽기를 여기서 그린다 — 클래스를
+       CommGrd 와 같은 것으로 써서 조건을 지울 때 자리가 바뀌지 않는다. *@
+    <div class="commgrd__footer">
+        <DxButton IconCssClass="jsini-icon-refresh" Title="다시 읽기"
+                  RenderStyle="ButtonRenderStyle.Link"
+                  Click="@ReloadAsync" />
+
+        <div class="commgrd__spacer"></div>
+    </div>
 }
+</CommCont>
 
 @* 편집 창. DxTreeList 에는 그리드 같은 팝업 편집이 없어 직접 띄운다. *@
 <DxPopup @bind-Visible="_editing" HeaderText="@(_isNew ? "메뉴 등록" : "메뉴 수정")"
@@ -436,13 +459,25 @@ else
         return on.Count == 7 ? "전부" : string.Join("·", on);
     }
 
+    /// <summary>
+    /// 관리 칸. 표와 나무가 같은 것을 쓴다.
+    ///
+    /// <para>
+    /// 아이콘과 스타일을 <c>CommGrd</c> 가 붙이는 것에 맞춰 두었다 —
+    /// 거를 때는 표, 안 거를 때는 나무로 갈아타는 화면이라, 모양이 다르면
+    /// 조건을 지울 때마다 조작 자리가 바뀐 것처럼 보인다.
+    /// </para>
+    /// </summary>
     private RenderFragment RowActions(SystemMenuDto m) =>@<div class="jsini-actions">
         <PermissionView Action="MenuAction.Update">
-            <DxButton Text="수정" RenderStyle="ButtonRenderStyle.Secondary"
+            <DxButton IconCssClass="jsini-icon-edit" Title="수정"
+                      RenderStyle="ButtonRenderStyle.Link"
                       Click="@(() => StartEdit(m))" />
         </PermissionView>
         <PermissionView Action="MenuAction.Delete">
-            <DxButton Text="삭제" RenderStyle="ButtonRenderStyle.Secondary"
+            <DxButton IconCssClass="jsini-icon-trash" Title="삭제"
+                      CssClass="commgrd__icon--warn"
+                      RenderStyle="ButtonRenderStyle.Link"
                       Click="@(() => DeleteAsync(m))" />
         </PermissionView>
     </div>;
