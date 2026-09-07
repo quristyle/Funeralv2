@@ -98,7 +98,11 @@ public sealed class PortalBootstrap(
     private void ApplyAll(PortalBootstrapWire wire)
     {
         permissions.Apply(wire.Permissions);
-        menus.Apply(wire.Menus);
+
+        // 트리를 기억하는 통을 함께 넘긴다. 통이 이 응답에 매달려 있으므로
+        // 두 번째 업무 전환부터는 179노드를 다시 만들지 않고, 결과의 참조가
+        // 같아서 사이드바(DxTreeView)도 다시 그리지 않는다.
+        menus.Apply(wire.Menus, wire.MenuTree);
         favorites.Apply(wire.Favorites);
         me.Apply(wire.User);
     }
@@ -162,5 +166,24 @@ public sealed class PortalBootstrap(
 
         [JsonPropertyName("user")]
         public CurrentUser.UserInfoWire? User { get; set; }
+
+        /// <summary>
+        /// 이 응답으로 만든 메뉴 트리를 기억하는 통.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// <b>여기 사는 것이 요점이다.</b> 통의 수명이 이 응답의 수명과 같으므로
+        /// 「메뉴와 권한표가 그때 그대로냐」를 따로 확인할 필요가 없다 — 통이
+        /// 있으면 그렇다는 뜻이다. 자세한 것은 <see cref="Menu.MenuTree"/>
+        /// 머리말에 있다.
+        /// </para>
+        ///
+        /// <para>
+        /// <c>internal</c> 이라 직렬화에 실리지 않는다(<c>System.Text.Json</c> 은
+        /// 공개 속성만 본다). 서버가 보내 주는 값이 아니라 <b>우리가 받은 뒤에
+        /// 채우는 자리</b>다.
+        /// </para>
+        /// </remarks>
+        internal Menu.MenuTree MenuTree { get; } = new();
     }
 }

@@ -20,6 +20,52 @@ namespace JSini.Web.Components.Menu;
 /// 이제 라우트는 <c>@page</c> 로 고정이라 <b>절대 바뀌지 않는다</b>. 메뉴가
 /// 바뀌면 이 트리만 다시 읽으면 되고, 그 코드가 통째로 사라졌다.
 /// </summary>
+/// <summary>
+/// 걸러 둔 메뉴 트리를 기억하는 통.
+///
+/// [무엇을 막는 것인가]
+///
+/// 사이드바에 들어가는 트리를 만드는 데 두 단계가 있고 둘 다 <b>179노드짜리
+/// 새 객체 그래프</b>를 만든다.
+///
+/// <list type="number">
+///   <item><c>WithHref</c> — 메뉴마다 링크 주소를 풀어 채운다</item>
+///   <item><c>MenuFilter.Filter</c> — 권한과 화면 크기로 거른다</item>
+/// </list>
+///
+/// 왕복도 아니고 조회도 아니라 눈에 안 띄는데, 포털은 <b>업무를 넘나들 때마다
+/// 레이아웃을 새로 만들기 때문에</b>(Piral 모듈 컨테이너가 갈린다) 그 둘이
+/// 화면 전환마다 다시 돌았다. 그리고 결과가 새 객체라
+/// <b><c>DxTreeView</c> 가 179노드를 통째로 다시 그렸다</b> — 값이 한 글자도
+/// 안 달라졌는데 말이다. 아끼려는 것이 계산보다 <b>그 재렌더</b>다.
+///
+/// [수명이 부트스트랩 응답과 같다]
+///
+/// 이 통은 <see cref="Layout.PortalBootstrap.PortalBootstrapWire"/> 안에 산다.
+/// 그래서 <b>열쇠를 만들 필요가 없다</b> — 통이 살아 있다는 것 자체가
+/// 「메뉴와 권한표가 그때 그대로다」라는 뜻이다.
+///
+/// 이것이 요점이다. 권한을 열쇠에 넣거나 TTL 을 따로 두면 <b>권한이 바뀐 뒤에도
+/// 옛 트리를 보여 줄</b> 길이 생기고, 그 틀림은 「권한이 없는데 메뉴가 보인다」
+/// 쪽이다. 통이 응답에 매달려 있으면 응답이 새로 오는 순간 통도 새것이라
+/// 그 길이 아예 없다.
+///
+/// [내용이 불변이라 나눠 써도 된다]
+///
+/// <see cref="MenuNode"/> 는 <c>init</c> 전용 <c>record</c> 다. 그리고 응답은
+/// 사용자별로 통에 담기므로(<see cref="Layout.PortalBootstrapStore"/>) 남의
+/// 메뉴가 섞이지 않는다. 같은 사람이 창을 둘 열면 그 둘이 한 그래프를 함께
+/// 보는데, 아무도 고치지 않으므로 문제가 없다.
+/// </summary>
+public sealed class MenuTree
+{
+    /// <summary>링크를 채운 트리. 화면 크기와 무관하다.</summary>
+    internal IReadOnlyList<MenuNode>? All;
+
+    /// <summary>걸러 둔 트리. 화면 크기마다 하나 — 그것이 거르기의 나머지 입력이다.</summary>
+    internal readonly Dictionary<Viewport, IReadOnlyList<MenuNode>> Visible = [];
+}
+
 public sealed class MenuProvider(
     GatewayClient gateway,
     IPermissionContext permissions,
@@ -28,6 +74,9 @@ public sealed class MenuProvider(
 {
     private IReadOnlyList<MenuNode> _all = [];
     private Viewport _viewport = Viewport.Desktop;
+
+    /// <summary>만들어 둔 트리를 기억하는 통. 부트스트랩이 넘겨 준다.</summary>
+    private MenuTree? _memo;
 
     public IReadOnlyList<MenuNode> VisibleMenus { get; private set; } = [];
 
@@ -57,14 +106,39 @@ public sealed class MenuProvider(
     /// 이미 받아 둔 메뉴를 채운다. 부트스트랩 한 방(<c>PortalBootstrap</c>)이
     /// 쓰는 길이다 — 게이트웨이를 다시 부르지 않는다.
     /// </summary>
-    public void Apply(IReadOnlyList<MenuWireDto> wire)
+    /// <param name="wire">서버가 준 메뉴 목록.</param>
+    /// <param name="memo">
+    /// 만들어 둔 트리를 기억하는 통. 주면 <b>같은 것을 두 번 만들지 않는다</b>.
+    /// 자세한 것은 <see cref="MenuTree"/> 머리말에 있다. 안 주면 매번 만든다 —
+    /// 옛 길(<see cref="ReloadAsync"/>)이 그렇다.
+    /// </param>
+    public void Apply(IReadOnlyList<MenuWireDto> wire, MenuTree? memo = null)
     {
-        // 링크 주소를 채운다. Path 는 그대로 둔다 — 권한표와 즐겨찾기의
-        // 열쇠가 그 값이기 때문이다.
-        _all = [.. wire.Select(w => WithHref(w.ToNode()))];
+        _memo = memo;
 
-        logger.LogInformation("메뉴를 읽었다: 최상위 {Count}개", _all.Count);
-        ReportUnresolvedKeys();
+        if (memo?.All is { } remembered)
+        {
+            // **왕복도 아니고 조회도 아닌데 여기가 비쌌다.** 링크를 채운 트리를
+            // 179노드짜리 새 객체 그래프로 만드는 일이고, 업무를 넘나들 때마다
+            // 레이아웃이 새로 생기니 그때마다 다시 만들고 있었다.
+            _all = remembered;
+        }
+        else
+        {
+            // 링크 주소를 채운다. Path 는 그대로 둔다 — 권한표와 즐겨찾기의
+            // 열쇠가 그 값이기 때문이다.
+            _all = [.. wire.Select(w => WithHref(w.ToNode()))];
+
+            if (memo is not null)
+            {
+                memo.All = _all;
+            }
+
+            // **만들었을 때만 남긴다.** 통에서 꺼낸 것까지 찍으면 업무를
+            // 옮길 때마다 같은 줄이 쌓여 정작 처음 읽은 시점이 묻힌다.
+            logger.LogInformation("메뉴를 읽었다: 최상위 {Count}개", _all.Count);
+            ReportUnresolvedKeys();
+        }
 
         Reapply();
     }
@@ -192,11 +266,45 @@ public sealed class MenuProvider(
         }
     }
 
-    /// <summary>들고 있던 원본을 지금 기준으로 다시 거른다.</summary>
+    /// <summary>
+    /// 들고 있던 원본을 지금 기준으로 다시 거른다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 통이 있으면 <b>앞서 만든 것을 그대로 돌려준다.</b> 값이 같아서 아끼는
+    /// 것이 아니라 <b>참조가 같아야</b> 하기 때문이다 — <c>MenuFilter</c> 는
+    /// 순수 함수라 매번 새 객체 그래프를 만들고(<c>menu with { … }</c>),
+    /// 그러면 <c>DxTreeView</c> 는 자료가 통째로 바뀐 것으로 보아 179노드를
+    /// 다시 그린다. 값이 한 글자도 안 달라졌는데 말이다.
+    /// </para>
+    ///
+    /// <para>
+    /// 열쇠가 화면 크기인 이유는 그것이 <c>MenuFilter</c> 의 나머지 입력이기
+    /// 때문이다. 권한표는 열쇠에 넣지 않는다 — <b>통의 수명이 곧 권한표의
+    /// 수명</b>이라 그럴 필요가 없다(<see cref="MenuTree"/> 머리말).
+    /// </para>
+    /// </remarks>
     private void Reapply()
     {
-        VisibleMenus = MenuFilter.Filter(_all, _viewport, permissions.CanView);
+        VisibleMenus = Filtered();
         MenusChanged?.Invoke();
+    }
+
+    private IReadOnlyList<MenuNode> Filtered()
+    {
+        if (_memo is null)
+        {
+            return MenuFilter.Filter(_all, _viewport, permissions.CanView);
+        }
+
+        if (_memo.Visible.TryGetValue(_viewport, out var remembered))
+        {
+            return remembered;
+        }
+
+        var filtered = MenuFilter.Filter(_all, _viewport, permissions.CanView);
+        _memo.Visible[_viewport] = filtered;
+        return filtered;
     }
 
     /// <summary>
