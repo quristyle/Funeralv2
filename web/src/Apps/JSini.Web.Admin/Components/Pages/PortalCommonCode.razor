@@ -55,6 +55,17 @@
     수정·삭제·등록 자리가 옮겨 다니지 않아야 한다.
 
     편집 폼은 `CodeFields` **한 벌**을 두 팝업이 같이 쓴다.
+
+    [화면 구성은 조회 영역 → 자료 영역이다]
+
+    위에 `CommSch`(묶음 조건), 아래에 `CommCont` 둘(묶음 · 그 묶음의 코드).
+    손으로 적던 도구줄이 셋 있었는데 하던 일이 전부 이 둘에 있다 —
+    조건은 `CommSch` 의 `Fields`, 구역 이름은 `CommCont` 의 `Title`·`Hint`,
+    표의 단추는 `CommGrd` 의 아래 띠다.
+
+    **자료 영역이 둘이라 이름을 적는다.** 하나뿐인 화면은 비워 두는 것이
+    맞다 — 사이드바와 브레드크럼이 이미 그 이름을 말하므로, 거기 또 제목을
+    달면 같은 말이 세 곳에 있고 본문만 좁아진다.
 *@
 
 @inherits DataPage
@@ -64,12 +75,32 @@
 
 <PageNotice Text="@Notice" Tone="@Tone" />
 
+@* ── 조회 영역 ─────────────────────────────────────────
+   조건은 묶음 하나뿐이고 거르는 일도 브라우저 안에서 끝난다(`ShownGroups`).
+   그래도 판을 세우는 이유는 **자리**다 — 조건을 표 안 도구줄에 두면 화면마다
+   위치가 달라지고, 칸이 늘어난 표에서는 가로 스크롤 저편으로 밀려난다.
+
+   「조회」는 게이트웨이에서 묶음을 다시 읽는다. 「등록」을 여기 두지 않는다 —
+   표 아래 띠에 이미 있다. *@
+<CommSch OnSearch="@ReloadGroupsAsync">
+    <Fields>
+        <CommSchItem Label="묶음">
+            <DxTextBox @bind-Text="_groupKeyword" NullText="코드 · 이름" Style="width: 220px"
+                       ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        </CommSchItem>
+    </Fields>
+</CommSch>
+
+@* ── 자료 영역 둘 ───────────────────────────────────────
+   왼쪽에서 고르면 오른쪽이 바뀐다. 자료 영역이 둘이라 **이름이 필요하다** —
+   하나뿐이면 사이드바·브레드크럼이 이미 그 이름을 말하므로 비워 두는 것이
+   맞지만, 둘이면 어느 쪽이 무엇인지 적어야 한다.
+
+   좌우로 앉히는 일은 `ad-split` 이 한다(admin.css). 좁은 화면에서는 위아래로
+   쌓인다 — 320px 짜리 판 둘을 나란히 두면 둘 다 못 읽는다. *@
 <div class="ad-split">
 
-    @* ── 왼쪽: 묶음 ───────────────────────────────────── *@
-    <section class="ad-split__side">
-
-
+    <CommCont Title="코드 묶음" CssClass="ad-split__side">
         @* 고른 줄이 바뀌면 오른쪽을 다시 읽어야 하므로 `@@bind-` 대신
            값과 변경을 따로 받는다. 둘을 같이 쓸 수는 없다.
 
@@ -141,29 +172,31 @@
                 </DxFormLayout>
             </EditFormTemplate>
         </CommGrd>
-    </section>
+    </CommCont>
 
-    @* ── 오른쪽: 고른 묶음의 코드들 ────────────────────── *@
-    <section class="ad-split__main">
-        @if (_group is null)
-        {
+    @if (_group is null)
+    {
+        <CommCont CssClass="ad-split__main">
             <PageNotice Text="왼쪽에서 묶음을 고르십시오." Tone="NoticeTone.Info" />
-        }
-        else
-        {
-            <div class="jsini-toolbar">
-                <strong>@_group.GroupName</strong>
-                <span class="jsini-badge">@_group.GroupCode</span>
-
+        </CommCont>
+    }
+    else
+    {
+        @* 제목이 곧 고른 묶음이다. 이름은 `Title`, 코드는 그 옆에 옅게 붙는
+           `Hint` 로 간다 — 손으로 적던 도구줄이 하던 일이 그 둘이었다. *@
+        <CommCont Title="@_group.GroupName" Hint="@_group.GroupCode" CssClass="ad-split__main">
+            <Actions>
                 @if (_group.IsHierarchical)
                 {
+                    @* 코드가 대·중·소로 겹치는 묶음이라 아래를 나무로 그린다.
+                       왜 그림이 둘인지 알려 주는 유일한 표시다. *@
                     <span class="jsini-badge jsini-badge--warn">계층</span>
                 }
-            </div>
-
-            @if (_group.IsHierarchical)
-            {
-                <DxTreeList Data="@_codes"
+            </Actions>
+            <ChildContent>
+                @if (_group.IsHierarchical)
+                {
+                    <DxTreeList Data="@_codes"
                             ChildrenFieldName="@nameof(CommonCodeDto.Children)"
                             KeyFieldName="@nameof(CommonCodeDto.Id)">
                     <Columns>
@@ -200,10 +233,10 @@
 
                     <div class="commgrd__spacer"></div>
                 </div>
-            }
-            else
-            {
-                <CommGrd TItem="CommonCodeDto" 
+                }
+                else
+                {
+                    <CommGrd TItem="CommonCodeDto" 
                          Data="@_codes" PageSize="25" 
                          EditFormTitle="코드"
                          ExportName="@($"{_group.GroupCode} 코드")"
@@ -230,9 +263,10 @@
                         @CodeFields((CommonCodeDto)edit.EditModel)
                     </EditFormTemplate>
                 </CommGrd>
-            }
-        }
-    </section>
+                }
+            </ChildContent>
+        </CommCont>
+    }
 </div>
 
 @* ── 코드 편집 (나무일 때만) ─────────────────────────────
