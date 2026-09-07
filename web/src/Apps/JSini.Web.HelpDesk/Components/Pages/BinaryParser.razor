@@ -38,25 +38,37 @@
 
 <PageTitle>바이너리 파서 · 헬프데스크</PageTitle>
 
-<div class="jsini-toolbar">
-    <DxComboBox Data="@_models" TextFieldName="@nameof(McModel.McName)" ValueFieldName="@nameof(McModel.Id)"
-                Value="@_modelId" ValueChanged="@((int? v) => PickModelAsync(v))"
-                ValueExpression="@(() => _modelId)"
-                NullText="설비 모델" Style="width: 200px"
-                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+@* 조회 단추를 주지 않는다 — 이 화면은 조회하는 것이 아니라 아래 칸에 붙인
+   전문을 그 자리에서 해석한다. 고르개 둘은 「무엇으로 해석할까」와 「무엇을
+   붙일까」라 조건이고, 나머지 둘은 동작이다. *@
+<CommSch>
+    <Fields>
+        <CommSchItem Label="설비 모델">
+            <DxComboBox Data="@_models" TextFieldName="@nameof(McModel.McName)" ValueFieldName="@nameof(McModel.Id)"
+                        Value="@_modelId" ValueChanged="@((int? v) => PickModelAsync(v))"
+                        ValueExpression="@(() => _modelId)"
+                        NullText="모델을 고르십시오" Style="width: 200px"
+                        ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        </CommSchItem>
 
-    <DxComboBox Data="@_samples" TextFieldName="@nameof(BinarySample.Title)" ValueFieldName="@nameof(BinarySample.Id)"
-                @bind-Value="_sampleId" NullText="보관한 전문" Style="width: 220px"
-                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        <CommSchItem Label="보관한 전문">
+            <DxComboBox Data="@_samples" TextFieldName="@nameof(BinarySample.Title)" ValueFieldName="@nameof(BinarySample.Id)"
+                        @bind-Value="_sampleId" NullText="고르면 불러올 수 있다" Style="width: 220px"
+                        ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        </CommSchItem>
+    </Fields>
 
-    <DxButton Text="불러오기" RenderStyle="ButtonRenderStyle.Secondary"
-              Enabled="@(_sampleId is not null)" Click="@LoadSampleAsync" />
+    <Actions>
+        <DxButton Text="불러오기" RenderStyle="ButtonRenderStyle.Secondary"
+                  Enabled="@(_sampleId is not null)" Click="@LoadSampleAsync" />
 
-    <PermissionView Action="MenuAction.Create">
-        <DxButton Text="이 전문 보관" RenderStyle="ButtonRenderStyle.Secondary"
-                  Enabled="@(_modelId is not null)" Click="@StartSaveSample" />
-    </PermissionView>
-</div>
+        <PermissionView Action="MenuAction.Create">
+            <DxButton Text="이 전문 보관" RenderStyle="ButtonRenderStyle.Secondary"
+                      IconCssClass="jsini-icon-plus"
+                      Enabled="@(_modelId is not null)" Click="@StartSaveSample" />
+        </PermissionView>
+    </Actions>
+</CommSch>
 
 <div class="hd-form">
     <label class="hd-field">
@@ -83,7 +95,7 @@
 
         <DxTextBox @bind-Text="_sampleTitle" NullText="전문 이름" />
 
-        <div class="jsini-toolbar">
+        <div class="jsini-actions">
             <DxButton Text="보관" RenderStyle="ButtonRenderStyle.Primary" Click="@SaveSampleAsync" />
             <DxButton Text="취소" RenderStyle="ButtonRenderStyle.Secondary"
                       Click="@(() => _savingSample = false)" />
