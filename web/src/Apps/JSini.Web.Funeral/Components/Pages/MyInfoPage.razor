@@ -49,17 +49,21 @@
        **가리키는 곳이 환경설정이 아니라 업무 설정이다** — 아래 목록은
        `environment_settings`(장례식장 업무 규칙)이고 그것을 고치는 화면은
        업무 설정이다. 안내 문구가 환경설정을 가리키고 있었다. *@
-    <div class="jsini-toolbar">
-        <DxButton Text="프로필 수정" RenderStyle="ButtonRenderStyle.Secondary"
-                  Click="@(() => Navigation.NavigateTo("/admin/profile"))" />
-        <DxButton Text="업무 설정" RenderStyle="ButtonRenderStyle.Primary"
-                  Click="@(() => Navigation.NavigateTo("/funeral/setting/work-options"))" />
-    </div>
+    @* 「적용된 업무 설정」이 자료 영역이고, 다른 화면으로 건너가는 길은
+       그 판의 제목 줄 오른쪽에 선다. 조건줄(`jsini-toolbar`)에 담고 있었는데
+       그것은 **조건**이라는 뜻이라, 조건이 아닌 것을 담으면 조건이 어디
+       있는지가 흐려진다. *@
+    <CommCont Title="적용된 업무 설정" Hint="값을 바꾸려면 「업무 설정」에서 하십시오">
+        <Actions>
+            <DxButton Text="프로필 수정" RenderStyle="ButtonRenderStyle.Link"
+                      Click="@(() => Navigation.NavigateTo("/admin/profile"))" />
+            <DxButton Text="업무 설정" RenderStyle="ButtonRenderStyle.Secondary"
+                      Click="@(() => Navigation.NavigateTo("/funeral/setting/work-options"))" />
+        </Actions>
 
-    <h2 class="fn-subhead">적용된 업무 설정</h2>
-    <PageNotice Text="값을 바꾸려면 위 「업무 설정」에서 하십시오." />
-
-    <CommGrd TItem="object" Data="@_info.Settings" PageSize="20">
+        <ChildContent>
+    <CommGrd TItem="object" Data="@_info.Settings" PageSize="20"
+             ExportName="적용된업무설정">
         <Columns>
             <DxGridDataColumn FieldName="@nameof(EnvironmentSetting.GroupName)" Caption="구분" Width="140" />
             <DxGridDataColumn FieldName="@nameof(EnvironmentSetting.Name)" Caption="항목" MinWidth="200" />
@@ -76,6 +80,8 @@
             <DxGridDataColumn FieldName="@nameof(EnvironmentSetting.Description)" Caption="설명" MinWidth="240" />
         </Columns>
     </CommGrd>
+        </ChildContent>
+    </CommCont>
 }
 
 <PageNotice Text="@Notice" Tone="@Tone" />
