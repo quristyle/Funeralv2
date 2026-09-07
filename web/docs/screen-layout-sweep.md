@@ -45,7 +45,7 @@
 | 35 | ☑ | `/life/weather/events` | WeatherEvents.razor | 도구줄1 |
 | 36 | ☑ | `/life/weather/forecast` | WeatherForecast.razor | 대시보드 |
 | 37 | ☑ | `/life/weather/history` | WeatherHistory.razor | 도구줄2 |
-| 38 | ☐ | `/site/inquiries` | InquiryList.razor | 도구줄1 |
+| 38 | ☑ | `/site/inquiries` | InquiryList.razor | 도구줄1 |
 | 39 | ☐ | `/diagnostics` | Diagnostics.razor | 대시보드 |
 
 ## 멈춘 자리 (결정이 필요해 넘긴 것)
