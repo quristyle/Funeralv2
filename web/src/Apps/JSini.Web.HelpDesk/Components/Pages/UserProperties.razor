@@ -38,23 +38,26 @@
 
 <PageTitle>사용자 속성 · 헬프데스크</PageTitle>
 
-<div class="jsini-toolbar">
-    <DxTextBox @bind-Text="_newKey" NullText="새 키" Style="width: 170px"
-               ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+@* 조회 판이지만 담긴 것은 **조건이 아니라 새 줄**이다. 이 화면에는 거를
+   조건이 없고(속성이 몇 개다) 대신 키·값을 바로 치는 자리가 있다.
+   조회 단추를 주지 않는다 — 다시 읽기는 표 아래 띠에 있다. *@
+<CommSch>
+    <Fields>
+        <CommSchItem Label="새 속성">
+            <DxTextBox @bind-Text="_newKey" NullText="키" Style="width: 170px"
+                       ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+            <DxTextBox @bind-Text="_newValue" NullText="값" Style="width: 220px"
+                       ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        </CommSchItem>
+    </Fields>
 
-    <DxTextBox @bind-Text="_newValue" NullText="값" Style="width: 220px"
-               ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
-
-    <PermissionView Action="MenuAction.Create">
-        <DxButton Text="추가" RenderStyle="ButtonRenderStyle.Primary"
-                  IconCssClass="jsini-icon-plus" Enabled="@_linked" Click="@AddAsync" />
-    </PermissionView>
-
-    <div class="jsini-toolbar__spacer"></div>
-
-    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Secondary"
-              IconCssClass="jsini-icon-refresh" Click="@ReloadAsync" />
-</div>
+    <Actions>
+        <PermissionView Action="MenuAction.Create">
+            <DxButton Text="추가" RenderStyle="ButtonRenderStyle.Secondary"
+                      IconCssClass="jsini-icon-plus" Enabled="@_linked" Click="@AddAsync" />
+        </PermissionView>
+    </Actions>
+</CommSch>
 
 <PageNotice Text="@Notice" Tone="@Tone" />
 
@@ -65,7 +68,9 @@
 }
 
 <CommCont>
-    <CommGrd TItem="UserProperty" Data="@_rows" PageSize="20">
+    <CommGrd TItem="UserProperty" Data="@_rows" PageSize="20"
+             ExportName="개인설정"
+             Reload="@ReloadAsync">
         <Columns>
             <DxGridDataColumn FieldName="@nameof(UserProperty.Key)" Caption="키" Width="240" />
 
@@ -80,20 +85,18 @@
                 </CellDisplayTemplate>
             </DxGridDataColumn>
 
-            <DxGridDataColumn Caption="" Width="90" AllowSort="false">
-                <CellDisplayTemplate Context="cell">
-                    @{
-                        var row = (UserProperty)cell.DataItem;
-                    }
-                    <PermissionView Action="MenuAction.Update">
-                        <DxButton Text="저장"
-                                  RenderStyle="ButtonRenderStyle.Secondary"
-                                  Enabled="@_linked"
-                                  Click="@(() => SaveAsync(row))" />
-                    </PermissionView>
-                </CellDisplayTemplate>
-            </DxGridDataColumn>
         </Columns>
+
+        @* 관리 칸은 CommGrd 가 붙인다. 「저장」은 줄마다 값을 바로 고치는
+           화면이라 남는다 — 팝업 편집이 아니라 칸 안에서 치고 저장한다. *@
+        <RowActions Context="row">
+            <PermissionView Action="MenuAction.Update">
+                <DxButton IconCssClass="jsini-icon-check" Title="저장"
+                          RenderStyle="ButtonRenderStyle.Link"
+                          Enabled="@_linked"
+                          Click="@(() => SaveAsync(row))" />
+            </PermissionView>
+        </RowActions>
     </CommGrd>
 </CommCont>
 
