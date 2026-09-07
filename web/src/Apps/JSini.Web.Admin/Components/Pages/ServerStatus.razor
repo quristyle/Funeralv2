@@ -53,10 +53,12 @@
 
 <PageTitle>MSA 서버 상태 · 포털관리</PageTitle>
 
-<div class="jsini-toolbar">
-    <DxButton Text="새로 고침" RenderStyle="ButtonRenderStyle.Primary"
-              IconCssClass="jsini-icon-refresh" Click="@ReloadAsync" />
+@* 조회 판을 세울 조건이 없다. 다시 읽기는 표마다 아래 띠에 붙고(`Reload`),
+   언제 읽은 것인지는 도장으로 남긴다.
 
+   자료 판(`CommCont`)도 쓰지 않는다 — 구역이 넷이라 감싸면 남은 높이를 넷이
+   나눠 갖고 어느 표도 제대로 안 보인다(web/CLAUDE.md 의 그 단서). *@
+<div class="ad-stamps">
     @if (_status?.GeneratedAt is { } at)
     {
         <span class="ad-stamp">@at.LocalDateTime.ToString("yyyy-MM-dd HH:mm:ss") 기준</span>
@@ -74,7 +76,9 @@
 else
 {
     <CommGrd TItem="ServiceHealth" Data="@_services"
-             PageSizeSelectorVisible="false" PagerVisible="false">
+             PageSizeSelectorVisible="false" PagerVisible="false"
+             ExportName="서비스응답"
+             Reload="@ReloadAsync">
         <Columns>
             <DxGridDataColumn FieldName="@nameof(ServiceHealth.Name)" Caption="서비스" Width="180" />
 
@@ -134,7 +138,9 @@ else
     }
 
     <CommGrd TItem="object" Data="@_ai.Providers"
-             PageSizeSelectorVisible="false" PagerVisible="false">
+             PageSizeSelectorVisible="false" PagerVisible="false"
+             ExportName="AI제공자"
+             Reload="@ReloadAsync">
         <Columns>
             <DxGridDataColumn Caption="제공자" Width="180">
                 <CellDisplayTemplate Context="cell">
@@ -239,7 +245,9 @@ else
 }
 else
 {
-    <CommGrd TItem="DockerContainerDto" Data="@Containers" PageSize="30">
+    <CommGrd TItem="DockerContainerDto" Data="@Containers" PageSize="30"
+             ExportName="컨테이너"
+             Reload="@ReloadAsync">
         <Columns>
             <DxGridDataColumn FieldName="@nameof(DockerContainerDto.Service)" Caption="서비스" Width="170" />
             <DxGridDataColumn FieldName="@nameof(DockerContainerDto.Tag)" Caption="태그" Width="130" />
@@ -284,7 +292,9 @@ else
         </span>
     </div>
 
-    <CommGrd TItem="DockerImageDto" Data="@Images">
+    <CommGrd TItem="DockerImageDto" Data="@Images"
+             ExportName="쌓인이미지"
+             Reload="@ReloadAsync">
         <Columns>
             <DxGridDataColumn FieldName="@nameof(DockerImageDto.Name)" Caption="이미지" MinWidth="300" />
             <DxGridDataColumn FieldName="@nameof(DockerImageDto.SizeMb)" Caption="MB" Width="90" />

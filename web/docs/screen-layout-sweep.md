@@ -18,7 +18,7 @@
 | 8 | △ | `/admin/push/setting` | NotificationSetting.razor | 도구줄1 |
 | 9 | ☑ | `/admin/release` | ReleaseNotes.razor | 도구줄1 · 팝업1 |
 | 10 | ☑ | `/admin/status/deploy` | DeployStatus.razor | 대시보드 · 도구줄1 |
-| 11 | ☐ | `/admin/status/server` | ServerStatus.razor | 대시보드 · 도구줄2 · 팝업1 |
+| 11 | △ | `/admin/status/server` | ServerStatus.razor | 대시보드 · 도구줄2 · 팝업1 |
 | 12 | ☐ | `/admin/system/menu` | MenuList.razor | 도구줄2 · 관리칸1 · 팝업1 |
 | 13 | ☐ | `/admin/system/signup` | SignupList.razor | 팝업1 |
 | 14 | ☐ | `/funeral/building/device` | DeviceList.razor | 도구줄1 · 관리칸2 |
@@ -54,3 +54,4 @@
 
 - `/admin/profile` — Profile.razor: 목록 화면이 아니라 탭·폼 화면이다. 도구줄은 폼 저장 띠, jsini-actions 는 고정 메뉴 조작이라 조건·관리 칸이 아니다. CommCont 를 쓰지 않는 사유도 이미 주석에 적혀 있다
 - `/admin/push/setting` — NotificationSetting.razor: 조건이 하나도 없는 설정 화면이다. 도구줄에 있는 것은 시험 발송·조회로 조건이 아니고, 설정 폼과 기기 표가 쌓여 있어 CommCont 로 감싸면 아래가 잘린다
+- `/admin/status/server` — ServerStatus.razor: 구역이 넷인 대시보드라 CommCont 로 감싸지 않는다. 「쌓인 이미지 정리」 동작 줄은 그 구역의 것이라 그대로 뒀다
