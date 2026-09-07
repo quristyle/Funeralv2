@@ -1,4 +1,5 @@
 using System.Text.Json;
+using JSini.Web.Components.Data;
 using JSini.Web.Http;
 using Microsoft.Extensions.Logging;
 
@@ -28,6 +29,7 @@ public sealed record BizOptionsResult(IReadOnlyList<JsonElement> Items, IReadOnl
 public sealed class BizOptionService(
     GatewayClient gateway,
     HelpDeskApi helpdesk,
+    ReferenceData data,
     ILogger<BizOptionService> logger)
 {
     /// <summary>biz-select 설정 한 줄. scom.biz_select_configs 와 대응한다.</summary>
@@ -45,8 +47,6 @@ public sealed class BizOptionService(
         public string? StaticParams { get; set; }
         public string? ParamPath { get; set; }
     }
-
-    private IReadOnlyList<BizSelectConfig>? _configs;
 
     /// <summary>
     /// bizType 의 목록을 읽어 원본 행과 셀렉트 옵션을 함께 돌려준다.
@@ -101,10 +101,23 @@ public sealed class BizOptionService(
 
     private async Task<BizSelectConfig?> GetConfigAsync(string bizType, CancellationToken ct)
     {
-        // 설정은 자주 바뀌지 않아 회로(사용자) 수명 동안 캐싱한다 — Vue 의
-        // useBizSelectStore 와 같은 폭이다.
-        _configs ??= await gateway.GetListAsync<BizSelectConfig>("auth/system/biz-select/configs", ct);
-        return _configs.FirstOrDefault(c =>
+        // 설정은 자주 바뀌지 않는다. 한동안 이 클래스가 필드로 들고 있었는데,
+        // 이 서비스가 scoped 라 **업무를 넘나들면 통째로 사라졌고**(Piral 모듈
+        // 컨테이너가 갈린다) 접속자 수만큼 같은 표를 읽었다.
+        //
+        // 묶음 이름을 프로젝트관리와 함께 쓴다 — 그쪽도 같은 엔드포인트를
+        // 읽으므로, 이름이 갈리면 한쪽에서 버려도 다른 쪽이 옛 값을 계속 본다.
+        // 담기는 형이 서로 달라(각자 자기 DTO 다) 값은 따로 앉는다.
+        //
+        // **SharedAsync 인 근거는 백엔드다** — GET /auth/system/biz-select/configs
+        // 는 IBizSelectConfigService 를 그대로 부르고 그 서비스는 지금 요청의
+        // 신원을 보지 않는다.
+        var configs = await data.SharedAsync<IReadOnlyList<BizSelectConfig>>(
+            ReferenceData.Groups.BizSelectConfigs, "all",
+            async () => await gateway.GetListAsync<BizSelectConfig>(
+                "auth/system/biz-select/configs", ct));
+
+        return configs?.FirstOrDefault(c =>
             string.Equals(c.BizType, bizType, StringComparison.OrdinalIgnoreCase));
     }
 

@@ -1,3 +1,4 @@
+using JSini.Web.Components.Data;
 using JSini.Web.Http;
 
 namespace JSini.Web.ProjMng.Api;
@@ -32,17 +33,40 @@ public sealed record CommonCodeItem(
 /// (포털의 범용 셀렉트가 필요한 화면이 나중에 생기면 그때 Blazor Common 으로
 /// 따로 옮긴다. 그건 이 앱만의 문제가 아니다.)
 ///
-/// [수명은 scoped 다]
+/// [회로 바깥에서 캐싱하되 **사람마다 따로 담는다**]
 ///
-/// 회로(사용자) 하나에 하나. 싱글턴으로 두면 코드를 고친 사람의 화면에서만
-/// 캐시가 비고 다른 사용자는 옛 값을 계속 본다 — 그 반대도 마찬가지로 나쁘다.
-/// 코드 종류가 많지 않아 회로마다 다시 읽어도 부담이 없다.
+/// 한동안 이 클래스가 <c>Dictionary</c> 를 직접 들고 있었다. 이 서비스가
+/// scoped 라 <b>업무를 넘나들면 그 표가 통째로 사라졌다</b> — Piral 모듈
+/// 컨테이너가 갈리기 때문이다. 지금은 <see cref="ReferenceData"/> 에 맡긴다.
+///
+/// 다른 참조자료(회사 목록 · 범용 셀렉트 설정 · 장례식장 공통코드)는 모두가
+/// 나눠 쓰는데 <b>여기만 <c>PerUserAsync</c> 다.</b> 이유는 하나다.
+///
+/// <para>
+/// ProjMngServer 의 <c>UserIdentityActionFilter</c> 가 <b>모든 요청의 본문에</b>
+/// 부르는 사람을 실어 넣는다(<c>dto.SSUserId = userId</c>). 그래서
+/// <c>sp_projCommon</c> 은 <b>누가 물었는지를 안다</b> — 그것으로 거르는지는
+/// 프로시저 안을 봐야 알 수 있고, 그 DB(<c>jsini.co.kr:15432</c>)는 개발망에서
+/// 풀리지 않아 확인하지 못했다.
+/// </para>
+///
+/// <para>
+/// 확인하지 못한 것을 나눠 쓰면 틀렸을 때 나는 일이 <b>남의 코드 목록이
+/// 보이는 것</b>이다. 사람마다 담아도 <b>고치려던 문제는 그대로 사라진다</b> —
+/// 업무를 넘나들 때 다시 읽는 일이 없어진다. 잃는 것은 사람 사이의 중복뿐이다.
+/// </para>
+///
+/// <para>
+/// 프로시저가 <c>SSUserId</c> 를 안 본다는 것이 확인되면 <c>SharedAsync</c> 로
+/// 바꾼다. <b>그때 근거를 이 자리에 적는다.</b>
+/// </para>
 /// </summary>
-public sealed class CommonCodes(ProjMngClient client)
+public sealed class CommonCodes(ProjMngClient client, ReferenceData data)
 {
     private const string Proc = "sp_projCommon";
 
-    private readonly Dictionary<string, IReadOnlyList<CommonCodeItem>> _cache = [];
+    /// <summary>참조자료 통 안에서의 묶음 이름. 코드를 고치는 화면이 이 이름으로 버린다.</summary>
+    public const string Group = "projmng.common-code";
 
     /// <summary>
     /// 코드 목록을 읽는다. 같은 <paramref name="codeId"/> 는 한 번만 읽는다.
@@ -55,12 +79,21 @@ public sealed class CommonCodes(ProjMngClient client)
         string key = "",
         CancellationToken cancellationToken = default)
     {
-        var cacheKey = $"{codeId} {key}";
-        if (_cache.TryGetValue(cacheKey, out var cached))
-        {
-            return cached;
-        }
+        var cached = await data.PerUserAsync(Group, $"{codeId} {key}",
+            () => LoadAsync(codeId, key, cancellationToken));
 
+        return cached ?? [];
+    }
+
+    /// <summary>
+    /// 실제로 읽는다. <b><c>null</c> 을 돌려주면 통에 담기지 않는다</b> —
+    /// 실패를 그렇게 알린다.
+    /// </summary>
+    private async Task<IReadOnlyList<CommonCodeItem>?> LoadAsync(
+        string codeId,
+        string key,
+        CancellationToken cancellationToken)
+    {
         ProjMngResult result;
 
         try
@@ -79,10 +112,9 @@ public sealed class CommonCodes(ProjMngClient client)
             // DataPage 를 상속했는지와 무관하다. 그 감싸개는 화면이 부르는
             // 조회를 감쌀 뿐, 부품이 스스로 부르는 것까지 덮지 못한다.
             //
-            // 빈 목록을 돌려주면 고르개가 비어 보인다. 캐시에는 넣지 않으므로
-            // 서버가 돌아오면 다음 조회에서 저절로 채워진다.
-            // `BizOptions` 가 같은 자리에서 같은 선택을 한다.
-            return [];
+            // 고르개가 비어 보인다. 통에는 넣지 않으므로 서버가 돌아오면 다음
+            // 조회에서 저절로 채워진다. `BizOptions` 가 같은 선택을 한다.
+            return null;
         }
 
         var items = new List<CommonCodeItem>(result.Rows?.Count ?? 0);
@@ -102,7 +134,6 @@ public sealed class CommonCodes(ProjMngClient client)
                 others));
         }
 
-        _cache[cacheKey] = items;
         return items;
     }
 
@@ -112,5 +143,9 @@ public sealed class CommonCodes(ProjMngClient client)
     /// 안 부르면 방금 고친 코드가 다른 화면의 드롭다운에 반영되지 않는다.
     /// 사용자는 저장이 안 된 줄 알고 같은 일을 반복한다.
     /// </summary>
-    public void Clear() => _cache.Clear();
+    /// <remarks>
+    /// 통이 하나라 <b>부르면 모두에게 반영된다.</b> 전에는 부른 사람의 회로에서만
+    /// 비어서, 다른 사용자는 옛 값을 계속 봤다.
+    /// </remarks>
+    public void Clear() => data.Invalidate(Group);
 }

@@ -272,6 +272,15 @@ public static class JSiniWebApp
         // 부품에게 회로 아이디를 알려 주지 않는다.
         services.AddScoped<PortalBoot>();
 
+        // 참조자료(공통코드 · 회사 목록 · 범용 셀렉트 설정)를 회로 바깥에서
+        // 들고 있는 통. **싱글턴이어야 하는 이유는 아래 부트스트랩 통과 같다** —
+        // 모듈 컨테이너가 갈릴 때 함께 사라지면 아무것도 막지 못한다.
+        //
+        // 손잡이(ReferenceData)는 scoped 다. 사람을 가르는 열쇠를 만들려면
+        // ITokenStore 를 봐야 하고 그것이 scoped 라서 그렇다.
+        services.AddSingleton<ReferenceDataStore>();
+        services.AddScoped<ReferenceData>();
+
         // 그 응답을 사용자별로 잠깐 들고 있는 통.
         //
         // **싱글턴이어야 한다.** scoped 로 두면 모듈 컨테이너가 갈릴 때 통도

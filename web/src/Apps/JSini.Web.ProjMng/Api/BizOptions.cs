@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Net.Http.Json;
 using System.Text.Json;
+using JSini.Web.Components.Data;
 using JSini.Web.Http;
 using Microsoft.Extensions.Logging;
 
@@ -67,14 +68,29 @@ public sealed record BizOption(
 /// 처음 배열이 나오는 곳을 쓴다. 메타데이터의 <c>resultPath</c> 값을 바꾸지
 /// 않고 세 봉투를 모두 받기 위한 선택이다.
 ///
-/// [수명은 scoped 다]
+/// [설정만 캐시한다 — 그리고 회로 바깥에서 한다]
 ///
-/// 설정 목록을 회로(사용자) 하나 동안 캐시한다. <see cref="CommonCodes"/> 와
-/// 같은 이유다 — 싱글턴 캐시는 사용자 사이에 낡은 값을 나눠 갖게 한다.
+/// 담기는 것은 <b>메타데이터뿐</b>이다. 실제 목록은 매번 새로 읽는다 —
+/// 파라미터가 화면마다 다르고, 그 결과는 자료라 낡으면 안 된다.
+///
+/// <para>
+/// 한동안 그 메타데이터를 이 클래스가 필드로 들고 있었다. 이 서비스가 scoped 라
+/// <b>업무를 넘나들면 통째로 사라졌고</b>(Piral 모듈 컨테이너가 갈린다), 접속자
+/// 수만큼 같은 표를 읽었다. 지금은 <see cref="ReferenceData"/> 에 맡긴다.
+/// </para>
+///
+/// <para>
+/// <b>헬프데스크와 묶음을 나눠 쓴다</b>(<see cref="ReferenceData.Groups.BizSelectConfigs"/>).
+/// 그쪽도 같은 엔드포인트를 읽으므로 이름이 갈리면 아무 오류 없이 통이 둘로
+/// 나뉜다. 그리고 <c>SharedAsync</c> 인 근거는 백엔드다 —
+/// <c>GET /auth/system/biz-select/configs</c> 는 <c>IBizSelectConfigService</c> 를
+/// 그대로 부르고 그 서비스는 신원을 보지 않는다.
+/// </para>
 /// </summary>
 public sealed class BizOptions(
     GatewayClient gateway,
     IHttpClientFactory httpFactory,
+    ReferenceData data,
     ILogger<BizOptions> logger)
 {
     /// <summary>메타데이터 조회 경로. AuthServer 의 시스템 영역이다.</summary>
@@ -84,8 +100,6 @@ public sealed class BizOptions(
     {
         PropertyNameCaseInsensitive = true,
     };
-
-    private IReadOnlyList<BizSelectConfig>? _configs;
 
     /// <summary>
     /// <paramref name="bizType"/> 의 목록을 읽는다.
@@ -153,17 +167,27 @@ public sealed class BizOptions(
     }
 
     /// <summary>
-    /// 설정 캐시를 비운다. 관리 화면에서 메타데이터를 고친 뒤에 부른다 —
-    /// 지금은 그 화면이 Admin 앱에 있으므로 실제로는 회로를 새로 열면 된다.
+    /// 설정 캐시를 비운다. 관리 화면에서 메타데이터를 고친 뒤에 부른다.
     /// </summary>
-    public void ClearCache() => _configs = null;
+    /// <remarks>
+    /// 이제 통이 하나라 <b>부르면 모두에게 반영된다.</b> 전에는 부른 사람의
+    /// 회로에서만 비어서, 그 화면이 Admin 앱에 있는 동안에는 사실상 회로를
+    /// 새로 여는 것 말고는 방법이 없었다.
+    /// </remarks>
+    public void ClearCache() => data.Invalidate(ReferenceData.Groups.BizSelectConfigs);
 
     private async Task<BizSelectConfig?> FindConfigAsync(
         string bizType,
         CancellationToken cancellationToken)
     {
-        _configs ??= await gateway.GetListAsync<BizSelectConfig>(ConfigUrl, cancellationToken);
-        return _configs.FirstOrDefault(c =>
+        // 실패는 **예외로** 알린다. 통은 예외가 지나가면 담지 않으므로
+        // (`cache.Set` 에 닿기 전에 밖으로 나간다) 다음에 다시 시도한다.
+        // 그 예외는 위쪽 GetAsync 의 try 가 받아 빈 목록으로 바꾼다.
+        var configs = await data.SharedAsync<IReadOnlyList<BizSelectConfig>>(
+            ReferenceData.Groups.BizSelectConfigs, "all",
+            async () => await gateway.GetListAsync<BizSelectConfig>(ConfigUrl, cancellationToken));
+
+        return configs?.FirstOrDefault(c =>
             string.Equals(c.BizType, bizType, StringComparison.Ordinal));
     }
 
