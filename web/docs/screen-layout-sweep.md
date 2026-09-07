@@ -56,7 +56,7 @@
 
 | # | 상태 | 메뉴 URL | 파일 |
 |---|---|---|---|
-| 1 | ☐ | `/admin/auth/menu-role` | MenuRoleMap.razor |
+| 1 | ☑ | `/admin/auth/menu-role` | MenuRoleMap.razor |
 | 2 | ☑ | `/admin/company/dept` | DeptList.razor |
 | 3 | ☐ | `/funeral/help/faq` | FaqListPage.razor |
 | 4 | ☐ | `/funeral/help/qna` | QnaList.razor |

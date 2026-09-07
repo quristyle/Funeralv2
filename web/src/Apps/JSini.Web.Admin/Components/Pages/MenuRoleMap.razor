@@ -48,15 +48,24 @@
 
 <PageTitle>메뉴롤 · 포털관리</PageTitle>
 
+@* ── 조회 영역 ─────────────────────────────────────────
+   검색 칸이 왼쪽 판 **머리 안**에 있었다. 조건이 판 안에 들어가면 화면마다
+   그 자리가 달라지고, 판이 좁아질수록 칸도 함께 좁아진다.
+
+   조회 단추는 주지 않는다 — 거르는 일이 브라우저 안에서 끝난다. *@
+<CommSch>
+    <Fields>
+        <CommSchItem Label="메뉴">
+            <DxTextBox @bind-Text="_keyword" NullText="이름 · 경로" Style="width: 240px"
+                       ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        </CommSchItem>
+    </Fields>
+</CommSch>
+
 <PageNotice Text="@Notice" Tone="@Tone" />
 
 <div class="ad-split">
     <div class="ad-split__side">
-        <div class="jsini-toolbar">
-            <DxTextBox @bind-Text="_keyword" NullText="메뉴 검색" Style="width: 100%"
-                       ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
-        </div>
-
         @* 메뉴가 260개가 넘는다. 트리를 통째로 펼쳐 두면 훑을 수가 없어
            DevExpress 의 기본(접힘)을 그대로 쓴다. 검색은 아래 목록으로 받는다. *@
         @if (string.IsNullOrWhiteSpace(_keyword))
