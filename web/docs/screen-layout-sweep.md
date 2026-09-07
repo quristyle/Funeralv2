@@ -46,7 +46,7 @@
 | 36 | ☑ | `/life/weather/forecast` | WeatherForecast.razor | 대시보드 |
 | 37 | ☑ | `/life/weather/history` | WeatherHistory.razor | 도구줄2 |
 | 38 | ☑ | `/site/inquiries` | InquiryList.razor | 도구줄1 |
-| 39 | ☐ | `/diagnostics` | Diagnostics.razor | 대시보드 |
+| 39 | △ | `/diagnostics` | Diagnostics.razor | 대시보드 |
 
 ## 멈춘 자리 (결정이 필요해 넘긴 것)
 
@@ -57,3 +57,4 @@
 - `/admin/status/server` — ServerStatus.razor: 구역이 넷인 대시보드라 CommCont 로 감싸지 않는다. 「쌓인 이미지 정리」 동작 줄은 그 구역의 것이라 그대로 뒀다
 - `/admin/system/menu` — MenuList.razor: 표·나무 두 그림이 편집 폼 한 벌을 같이 써야 해서 CommGrd 의 내장 편집 흐름은 아직 안 옮겼다. 조회 판·자료 판·관리 칸 아이콘만 맞췄다
 - `/admin/system/signup` — SignupList.razor: 이미 CommCont·CommGrd·RowActions·Reload 를 쓴다. 남은 팝업은 편집 폼이 아니라 거절 사유를 묻는 창이라 그대로 둔다
+- `/diagnostics` — Diagnostics.razor: 메뉴가 아니라 셸의 합성 진단 화면이다. 조건이 없고 표 아래에 사실 목록이 붙는 구성이라 조회 판·자료 판을 세울 것이 없다
