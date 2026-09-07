@@ -33,6 +33,13 @@
 
     고칠 수 없다. 역할을 바꾸면 그에 따라 바뀌는 것을 보여 줄 뿐이다.
     메뉴별 권한을 직접 정하는 곳은 `/admin/auth/menu-role` 이다.
+
+    [조건은 `CommSch` 로 세우고 `CommCont` 는 쓰지 않는다]
+
+    오른쪽 판에 **키 큰 조각이 셋** 쌓인다 — 역할 칩, 안내, 메뉴 표.
+    자료 판으로 감싸면 남은 높이를 그 판이 다 먹어 아래가 잘린다
+    (web/CLAUDE.md 의 「대시보드처럼 …」). 표가 하나뿐인 화면이 아니라
+    이 화면은 두 판 구성(`ad-two-pane`)을 그대로 둔다.
 *@
 
 @inherits DataPage
@@ -40,24 +47,30 @@
 
 <PageTitle>사람롤 · 포털관리</PageTitle>
 
-<div class="jsini-toolbar">
-    @* 단추 두 개로 모드를 바꾼다. DxButtonGroup 은 자식을 `Items` 로 받아
-       그냥 넣으면 열 때 500 이 난다 — 라우트 매개변수와 같은 종류의 실수로,
-       컴파일은 통과하고 열 때 죽는다. *@
-    <DxButton Text="사람"
-              RenderStyle="@(_mode == Mode.Account ? ButtonRenderStyle.Primary : ButtonRenderStyle.Secondary)"
-              Click="@(() => SwitchAsync(Mode.Account))" />
+@* ── 조회 영역 ─────────────────────────────────────────
+   무엇을 고를 것인가(사람 ↔ 회사·부서)도 조건이라 여기 둔다. 대상 목록이
+   통째로 바뀌는 스위치라, 왼쪽 판 머리에 두면 조건이 두 자리로 갈린다. *@
+<CommSch OnSearch="@ReloadAsync">
+    <Fields>
+        <CommSchItem Label="대상">
+            @* 단추 두 개로 모드를 바꾼다. DxButtonGroup 은 자식을 `Items` 로 받아
+               그냥 넣으면 열 때 500 이 난다 — 라우트 매개변수와 같은 종류의 실수로,
+               컴파일은 통과하고 열 때 죽는다. *@
+            <DxButton Text="사람"
+                      RenderStyle="@(_mode == Mode.Account ? ButtonRenderStyle.Primary : ButtonRenderStyle.Secondary)"
+                      Click="@(() => SwitchAsync(Mode.Account))" />
 
-    <DxButton Text="회사·부서"
-              RenderStyle="@(_mode == Mode.Scope ? ButtonRenderStyle.Primary : ButtonRenderStyle.Secondary)"
-              Click="@(() => SwitchAsync(Mode.Scope))" />
+            <DxButton Text="회사·부서"
+                      RenderStyle="@(_mode == Mode.Scope ? ButtonRenderStyle.Primary : ButtonRenderStyle.Secondary)"
+                      Click="@(() => SwitchAsync(Mode.Scope))" />
+        </CommSchItem>
 
-    <DxTextBox @bind-Text="_keyword" NullText="이름·아이디·부서·회사" Style="width: 240px"
-               ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
-
-    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Secondary"
-              IconCssClass="jsini-icon-refresh" Click="@ReloadAsync" />
-</div>
+        <CommSchItem Label="검색어">
+            <DxTextBox @bind-Text="_keyword" NullText="이름·아이디·부서·회사" Style="width: 240px"
+                       ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        </CommSchItem>
+    </Fields>
+</CommSch>
 
 <PageNotice Text="@Notice" Tone="@Tone" />
 
