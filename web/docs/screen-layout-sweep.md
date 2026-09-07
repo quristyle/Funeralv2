@@ -8,10 +8,10 @@
 
 | # | 상태 | 메뉴 URL | 파일 | 비고 |
 |---|---|---|---|---|
-| 1 | ☐ | `/admin/auth/role` | RoleList.razor | 관리칸1 |
-| 2 | ☐ | `/admin/auth/user-role` | UserRoleMap.razor | 도구줄1 |
-| 3 | ☐ | `/admin/company/user` | CompanyUserList.razor | 도구줄3 · 팝업2 |
-| 4 | ☐ | `/admin/profile` | Profile.razor | 대시보드 · 도구줄4 · 관리칸2 · 팝업1 |
+| 1 | ☑ | `/admin/auth/role` | RoleList.razor | 관리칸1 |
+| 2 | △ | `/admin/auth/user-role` | UserRoleMap.razor | 도구줄1 |
+| 3 | ☑ | `/admin/company/user` | CompanyUserList.razor | 도구줄3 · 팝업2 |
+| 4 | △ | `/admin/profile` | Profile.razor | 대시보드 · 도구줄4 · 관리칸2 · 팝업1 |
 | 5 | ☐ | `/admin/push/dashboard` | PushDashboard.razor | 대시보드 · 도구줄1 |
 | 6 | ☐ | `/admin/push/history` | NotificationHistory.razor | 도구줄1 |
 | 7 | ☐ | `/admin/push/logs` | PushLogs.razor | 도구줄1 |
@@ -50,5 +50,6 @@
 
 ## 멈춘 자리 (결정이 필요해 넘긴 것)
 
-없음
+- `/admin/auth/user-role` — UserRoleMap.razor: 오른쪽 판에 역할 칩·안내·표가 쌓여 CommCont 로 감싸면 아래가 잘린다 — 조회 판만 적용
 
+- `/admin/profile` — Profile.razor: 목록 화면이 아니라 탭·폼 화면이다. 도구줄은 폼 저장 띠, jsini-actions 는 고정 메뉴 조작이라 조건·관리 칸이 아니다. CommCont 를 쓰지 않는 사유도 이미 주석에 적혀 있다
