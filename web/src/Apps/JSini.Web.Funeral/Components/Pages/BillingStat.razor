@@ -38,7 +38,10 @@
     </div>
 }
 
-<CommGrd TItem="Billing" Data="@_rows" PageSize="20">
+<CommCont>
+<CommGrd TItem="Billing" Data="@_rows" PageSize="20"
+         ExportName="정산"
+         Reload="@ReloadAsync">
     <Columns>
         <DxGridDataColumn FieldName="@nameof(Billing.DeceasedName)" Caption="고인" MinWidth="120" />
         <DxGridDataColumn FieldName="@nameof(Billing.BuildingName)" Caption="건물" Width="140" />
@@ -86,6 +89,7 @@
         }
     </DetailRowTemplate>
 </CommGrd>
+</CommCont>
 
 <PageNotice Text="@Notice" Tone="@Tone" />
 

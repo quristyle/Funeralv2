@@ -26,7 +26,7 @@
 | 16 | ☑ | `/funeral/deceased` | DeceasedList.razor | 도구줄1 · 관리칸2 |
 | 17 | ☐ | `/funeral/help/archive` | ArchiveListPage.razor | 도구줄2 · 관리칸1 · 팝업1 |
 | 18 | ☐ | `/funeral/info/my-info` | MyInfoPage.razor | 대시보드 · 도구줄1 |
-| 19 | ☐ | `/funeral/stat/billing` | BillingStat.razor | 대시보드 |
+| 19 | ☑ | `/funeral/stat/billing` | BillingStat.razor | 대시보드 |
 | 20 | ☐ | `/funeral/status/deceased-status` | DeceasedStatus.razor | 도구줄1 · 관리칸1 · 팝업1 |
 | 21 | ☐ | `/helpdesk/dashboard` | HelpDeskDashboard.razor | 대시보드 · 도구줄2 |
 | 22 | ☐ | `/helpdesk/monitor/maintenance` | MaintenanceMonitor.razor | 대시보드 · 도구줄1 |
