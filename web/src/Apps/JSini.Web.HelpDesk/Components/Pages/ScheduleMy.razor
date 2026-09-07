@@ -47,18 +47,26 @@
 
 <PageTitle>내 일정 · 헬프데스크</PageTitle>
 
-<div class="jsini-toolbar">
-    <DxComboBox Data="@DoneOptions" TextFieldName="Name" ValueFieldName="Code"
-                @bind-Value="_done" Style="width: 140px" />
+@* 조건은 완료 여부 하나. 「일정 등록」은 자기 팝업이 맡아 표 아래 띠를
+   쓸 수 없으므로 그 판의 Actions 로 옮겼다.
 
-    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@ReloadAsync" />
+   자료 판(`CommCont`)은 쓰지 않는다 — 아래가 달력·표 탭 구성이고, 달력은
+   자기 높이를 스스로 정한다. *@
+<CommSch OnSearch="@ReloadAsync">
+    <Fields>
+        <CommSchItem Label="완료">
+            <DxComboBox Data="@DoneOptions" TextFieldName="Name" ValueFieldName="Code"
+                        @bind-Value="_done" Style="width: 140px" />
+        </CommSchItem>
+    </Fields>
 
-    <div class="jsini-toolbar__spacer"></div>
-
-    <PermissionView Action="MenuAction.Create">
-        <DxButton Text="일정 등록" RenderStyle="ButtonRenderStyle.Success" Click="@StartNew" />
-    </PermissionView>
-</div>
+    <Actions>
+        <PermissionView Action="MenuAction.Create">
+            <DxButton Text="일정 등록" RenderStyle="ButtonRenderStyle.Secondary"
+                      IconCssClass="jsini-icon-plus" Click="@StartNew" />
+        </PermissionView>
+    </Actions>
+</CommSch>
 
 <PageNotice Text="@Notice" Tone="@Tone" />
 
@@ -80,7 +88,10 @@
 
     <DxTabPage Text="표">
         @* 표도 남긴다 — 「이번 달」이 아니라 「전부」를 훑을 때는 이쪽이 빠르다. *@
-        <CommGrd TItem="ScheduleDto" Data="@_shown" PageSize="30">
+        <CommGrd TItem="ScheduleDto" Data="@_shown" PageSize="30"
+                 ExportName="내일정"
+                 ActionsWidth="130"
+                 Reload="@ReloadAsync">
             <Columns>
                 <DxGridDataColumn FieldName="@nameof(ScheduleDto.Title)" Caption="일정" MinWidth="220" />
                 <DxGridDataColumn FieldName="@nameof(ScheduleDto.StartDate)" Caption="시작" Width="130"
@@ -102,23 +113,21 @@
                         </span>
                     </CellDisplayTemplate>
                 </DxGridDataColumn>
-                <DxGridDataColumn Caption="" Width="140" AllowSort="false">
-                    <CellDisplayTemplate Context="cell">
-                        @{
-                            var s = (ScheduleDto)cell.DataItem;
-                        }
-                        <div class="jsini-actions">
-                            <PermissionView Action="MenuAction.Update">
-                                <DxButton Text="수정" RenderStyle="ButtonRenderStyle.Secondary"
-                                          Click="@(() => StartEdit(s))" />
-                                <DxButton Text="@(s.IsCompleted ? "되돌리기" : "완료")"
-                                          RenderStyle="ButtonRenderStyle.Secondary"
-                                          Click="@(() => ToggleDoneAsync(s))" />
-                            </PermissionView>
-                        </div>
-                    </CellDisplayTemplate>
-                </DxGridDataColumn>
             </Columns>
+
+            @* 관리 칸은 CommGrd 가 붙인다. 손으로 이름 없는 칸을 두면 화면마다
+               조작 자리와 아이콘이 갈린다. *@
+            <RowActions Context="s">
+                <PermissionView Action="MenuAction.Update">
+                    <DxButton IconCssClass="jsini-icon-edit" Title="수정"
+                              RenderStyle="ButtonRenderStyle.Link"
+                              Click="@(() => StartEdit(s))" />
+                    <DxButton Text="@(s.IsCompleted ? "되돌리기" : "완료")"
+                              RenderStyle="ButtonRenderStyle.Link"
+                              Title="@(s.IsCompleted ? "진행으로 되돌린다" : "완료로 표시한다")"
+                              Click="@(() => ToggleDoneAsync(s))" />
+                </PermissionView>
+            </RowActions>
         </CommGrd>
     </DxTabPage>
 </DxTabs>

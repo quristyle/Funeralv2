@@ -35,8 +35,8 @@
 | 25 | ☑ | `/helpdesk/project/wbs` | WbsList.razor | 도구줄3 · 관리칸1 · 팝업1 |
 | 26 | ☑ | `/helpdesk/request/list` | RequestList.razor | 도구줄2 |
 | 27 | ☑ | `/helpdesk/request/manage` | RequestManage.razor | 도구줄1 |
-| 28 | ☐ | `/helpdesk/schedule/all` | ScheduleAll.razor | 도구줄3 · 관리칸1 · 팝업1 |
-| 29 | ☐ | `/helpdesk/schedule/my` | ScheduleMy.razor | 도구줄3 · 관리칸1 · 팝업1 |
+| 28 | ☑ | `/helpdesk/schedule/all` | ScheduleAll.razor | 도구줄3 · 관리칸1 · 팝업1 |
+| 29 | ☑ | `/helpdesk/schedule/my` | ScheduleMy.razor | 도구줄3 · 관리칸1 · 팝업1 |
 | 30 | ☐ | `/helpdesk/system/account-link` | AccountLink.razor | 도구줄3 · 팝업2 |
 | 31 | ☐ | `/helpdesk/system/checklist` | ChecklistList.razor | 도구줄3 · 관리칸1 · 팝업1 |
 | 32 | ☑ | `/helpdesk/system/user-properties` | UserProperties.razor | 도구줄2 |
