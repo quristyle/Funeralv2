@@ -4,6 +4,17 @@
    모듈 안에서만 쓰이므로 Blazor Common 으로 올리지 않는다.
    ============================================================ */
 
+/* 표시 몇 개를 한 줄에 늘어놓는 자리(내가 무슨 자격으로 보는가 따위).
+   `jsini-toolbar` 를 쓰지 않는 이유는 그것이 **조건줄**이라는 뜻이라서다 —
+   조건이 아닌 것을 거기 담으면 조건이 어디 있는지가 흐려진다. */
+.hd-stamps {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin-bottom: 0.6rem;
+}
+
 .hd-subhead {
   margin: 1.5rem 0 0.75rem;
   font-size: var(--jsini-fs-lg);

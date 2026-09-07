@@ -54,18 +54,18 @@
 
 <PageTitle>헬프데스크 현황 · 헬프데스크</PageTitle>
 
-<div class="jsini-toolbar">
+@* 조건이 하나도 없다. 여기 있는 것은 「내가 무슨 자격으로 보는가」를
+   알려 주는 표시라 조건줄(`jsini-toolbar`)에서 뗀다 — 그 클래스는 조건이라는
+   뜻이고, 조건이 아닌 것을 담으면 조건이 어디 있는지가 흐려진다.
+
+   다시 읽기는 표마다 아래 띠에 붙는다(`Reload`). *@
+<div class="hd-stamps">
     <span class="jsini-badge">@(Context.IsAdmin ? "담당자" : "고객")</span>
 
     @if (Context.IdentityChecked && !Context.IsLinked)
     {
         <span class="jsini-badge jsini-badge--warn">계정 미연결</span>
     }
-
-    <div class="jsini-toolbar__spacer"></div>
-
-    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Secondary"
-              IconCssClass="jsini-icon-refresh" Click="@ReloadAsync" />
 </div>
 
 <PageNotice Text="@Notice" Tone="@Tone" />
@@ -130,7 +130,9 @@
 
 <h2 class="hd-section">최근 접수</h2>
 
-<CommGrd TItem="ImprovementRequest" Data="@_recent" PageSize="10">
+<CommGrd TItem="ImprovementRequest" Data="@_recent" PageSize="10"
+         ExportName="최근요청"
+         Reload="@ReloadAsync">
     <Columns>
         <DxGridDataColumn FieldName="@nameof(ImprovementRequest.Id)" Caption="번호" Width="80" />
         <DxGridDataColumn FieldName="@nameof(ImprovementRequest.Title)" Caption="제목" MinWidth="260" />
