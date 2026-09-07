@@ -31,10 +31,19 @@ public class AppDbContext : DbContext {
   /// <c>relation "jsini.auth_user_links" does not exist</c>. 화면 서른다섯 개가
   /// 통째로 비었고, 원인이 프런트처럼 보였다.
   ///
-  /// 기본값을 그대로 둔 것은 운영을 건드리지 않기 위해서다. 설정을 넣은 곳만
-  /// 달라진다.
+  /// [기본값을 helpdesk 로 올린 이유 — 2026-09-07]
+  ///
+  /// 한동안 기본값이 <c>jsini</c> 였다. 운영을 건드리지 않으려고 그렇게 뒀는데,
+  /// 마이그레이션 파일이 전부 <c>helpdesk</c> 스키마 기준으로 바뀌면서 어긋났다.
+  /// 설정 없이 <c>dotnet ef migrations add</c> 를 하면 모델(<c>jsini</c>)과
+  /// 스냅샷(<c>helpdesk</c>)이 달라 테이블을 통째로 옮기는 마이그레이션이 나온다.
+  ///
+  /// <b>운영은 아직 옛 DB(<c>jinrecept</c> / 스키마 <c>jsini</c>)를 쓴다.</b>
+  /// 그래서 운영 설정 파일(<c>/srv/jsini/config/HelpDeskServer/appsettings.Local.json</c>)에
+  /// <c>Database:Schema=jsini</c> 를 넣어야 한다 — 안 넣고 배포하면 이번엔 반대로
+  /// <c>relation "helpdesk.…" does not exist</c> 로 모든 요청이 500 이 난다.
   /// </summary>
-  public static string Schema { get; set; } = "jsini";
+  public static string Schema { get; set; } = "helpdesk";
 
   private readonly IHttpContextAccessor? _httpContextAccessor;
 

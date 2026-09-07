@@ -52,8 +52,9 @@ if (string.IsNullOrWhiteSpace(connectionString)) {
 
 // 스키마 이름. 헬프데스크 전용 DB 로 옮기면서 스키마가 `jsini` 에서 `helpdesk` 로
 // 바뀌었는데 EF 모델에는 박혀 있었다 — 모든 요청이 500 이었다.
-// 기본값은 옛 이름 그대로라, 설정을 안 넣은 곳은 지금과 똑같이 동작한다.
-AppDbContext.Schema = builder.Configuration["Database:Schema"] ?? "jsini";
+// 기본값은 AppDbContext.Schema 한 곳에만 둔다. 여기에 또 적으면 그쪽을 덮어써서
+// 기본값이 두 군데가 되고, 실제로 그래서 한 번 어긋났다.
+AppDbContext.Schema = builder.Configuration["Database:Schema"] ?? AppDbContext.Schema;
 
 builder.Services.AddDbContext<AppDbContext>(options => options.UseNpgsql(connectionString,
     npgsqlOptions => npgsqlOptions.MigrationsHistoryTable("__EFMigrationsHistory", AppDbContext.Schema)));
