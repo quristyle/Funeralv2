@@ -37,27 +37,33 @@
 
 <PageTitle>F.A.Q · 장례식장</PageTitle>
 
-<div class="jsini-toolbar">
-    <DxTextBox @bind-Text="_keyword" NullText="질문 검색" Style="width: 220px"
-               ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+@* 조건 둘과 등록이 한 줄에 섞여 있었다. 조건은 Fields, 등록은 Actions 로
+   갈랐다 — 카드로 그리는 화면이라 표 아래 띠가 없어 등록 자리는 여기가
+   유일하다. *@
+<CommSch OnSearch="@ReloadAsync">
+    <Fields>
+        <CommSchItem Label="질문">
+            <DxTextBox @bind-Text="_keyword" NullText="질문으로 찾기" Style="width: 220px"
+                       ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        </CommSchItem>
 
-    <DxComboBox Data="@_categories" @bind-Value="_category"
-                NullText="분류 전체" Style="width: 150px"
-                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        <CommSchItem Label="분류">
+            <DxComboBox Data="@_categories" @bind-Value="_category"
+                        NullText="전체" Style="width: 150px"
+                        ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        </CommSchItem>
+    </Fields>
 
-    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary"
-              IconCssClass="jsini-icon-refresh" Click="@ReloadAsync" />
-
-    <div class="jsini-toolbar__spacer"></div>
-
-    @if (_canManage)
-    {
-        <PermissionView Action="MenuAction.Create">
-            <DxButton Text="등록" RenderStyle="ButtonRenderStyle.Primary"
-                      IconCssClass="jsini-icon-plus" Click="@StartNew" />
-        </PermissionView>
-    }
-</div>
+    <Actions>
+        @if (_canManage)
+        {
+            <PermissionView Action="MenuAction.Create">
+                <DxButton Text="등록" RenderStyle="ButtonRenderStyle.Secondary"
+                          IconCssClass="jsini-icon-plus" Click="@StartNew" />
+            </PermissionView>
+        }
+    </Actions>
+</CommSch>
 
 <PageNotice Text="@Notice" Tone="@Tone" />
 
