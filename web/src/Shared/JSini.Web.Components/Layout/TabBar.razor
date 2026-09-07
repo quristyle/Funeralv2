@@ -39,6 +39,7 @@
 @inject MenuFavorites Favorites
 @inject NavigationManager Navigation
 @inject IJSRuntime Js
+@inject PortalBoot Boot
 
 @if (Tabs.Items.Count > 0)
 {
@@ -141,8 +142,15 @@
     /// <summary>적어 둔 고정 탭을 이미 되살렸는가. 회로마다 한 번만 읽는다.</summary>
     private bool _restored;
 
-    /// <summary>고정 탭을 적어 두는 자리. 브라우저(이 기기)에 남는다.</summary>
-    private const string PinnedKey = "jsini-tabs-pinned";
+    /// <summary>
+    /// 고정 탭을 적어 두는 자리. 브라우저(이 기기)에 남는다.
+    ///
+    /// <para>
+    /// <b>정본은 <see cref="PortalBoot.PinnedTabsKey"/> 다.</b> 읽는 일은 그쪽이
+    /// 다른 값들과 함께 한 왕복으로 하고, 여기서는 쓰고 지우는 데만 쓴다.
+    /// </para>
+    /// </summary>
+    private const string PinnedKey = PortalBoot.PinnedTabsKey;
 
     protected override void OnInitialized()
     {
@@ -270,15 +278,17 @@
 
         _restored = true;
 
+        // 저장소를 직접 읽지 않는다. `PortalBoot` 가 잠금 표시·공지 표시·테마와
+        // **한 왕복으로** 읽어 온다 — 이유는 그 클래스 머리말에 있다.
+        var saved = (await Boot.ReadAsync()).PinnedTabsJson;
+
+        if (string.IsNullOrWhiteSpace(saved))
+        {
+            return;
+        }
+
         try
         {
-            var saved = await Js.InvokeAsync<string?>("localStorage.getItem", PinnedKey);
-
-            if (string.IsNullOrWhiteSpace(saved))
-            {
-                return;
-            }
-
             var pinned = JsonSerializer.Deserialize<List<PinnedTab>>(saved);
 
             if (pinned is { Count: > 0 })

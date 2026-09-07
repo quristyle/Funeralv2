@@ -80,6 +80,8 @@
 @inject IJSRuntime Js
 @inject ThemeSize Size
 @inject ThemeDrawer Drawer
+@inject PortalBoot Boot
+@inject ILogger<ThemeToggle> Log
 
 @* 덮개. 서랍 밖을 누르면 닫힌다. 헤더는 덮지 않는다 —
    덮으면 방금 누른 테마 아이콘으로 다시 닫을 수 없다. *@
@@ -207,7 +209,7 @@
     <DxButton RenderStyle="ButtonRenderStyle.Link"
               IconCssClass="jsini-icon-palette"
               Title="테마"
-              Click="@(() => _open = !_open)" />
+              Click="@ToggleAsync" />
 </span>
 
 @code {
@@ -235,6 +237,9 @@
 
     private Catalog _catalog = new([], [], [], [], []);
 
+    /// <summary>목록을 이미 받았는가. 서랍을 처음 열 때 한 번만 받는다.</summary>
+    private bool _catalogLoaded;
+
     private bool _open;
     private string _family = "fluent";
     private string _mode = "light";
@@ -259,12 +264,42 @@
 
     public void Dispose() => Drawer.OpenRequested -= OnOpenRequested;
 
-    private void OnOpenRequested(bool open) => InvokeAsync(() =>
+    /// <summary>
+    /// 사용자 메뉴가 서랍을 열라고 할 때. 단추를 누른 것과 <b>같은 길</b>로
+    /// 보낸다 — 여기서 <c>_open</c> 을 바로 세우면 목록을 받지 않은 채 열려
+    /// 빈 서랍이 뜬다.
+    /// </summary>
+    private void OnOpenRequested(bool open) => InvokeAsync(async () =>
     {
+        if (open)
+        {
+            await EnsureCatalogAsync();
+        }
+
         _open = open;
         StateHasChanged();
     });
 
+    /// <summary>
+    /// 지금 고른 테마를 서버 쪽에 맞춘다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>고를 수 있는 목록(<c>catalog</c>)은 여기서 받지 않는다.</b> 스물둘의
+    /// 이름과 색이 전부 실려 오는데 <b>서랍을 열지 않으면 한 줄도 안 쓴다</b> —
+    /// 게다가 포털은 업무를 넘나들 때마다 레이아웃을 새로 만들어서 그 짐이
+    /// 화면 전환마다 다시 실렸다. 이제 <see cref="ToggleAsync"/> 가 <b>처음
+    /// 열 때</b> 한 번 받는다.
+    /// </para>
+    ///
+    /// <para>
+    /// 지금 고른 것(<c>current</c>)은 반대로 여기서 받아야 한다. 서랍과 무관하게
+    /// <see cref="Read"/> 가 <c>Size.Set</c> 을 부르는데, 그게 <b>쿠키를 막아 둔
+    /// 브라우저에서 크기를 맞추는 유일한 자리</b>다. 다만 왕복을 따로 내지는
+    /// 않는다 — <see cref="PortalBoot"/> 가 잠금 표시·공지 표시·고정 탭과 함께
+    /// 한 번에 실어 온다.
+    /// </para>
+    /// </remarks>
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender)
@@ -272,10 +307,53 @@
             return;
         }
 
-        _catalog = await Js.InvokeAsync<Catalog>("jsiniTheme.catalog");
-        Read(await Js.InvokeAsync<Current>("jsiniTheme.current"));
+        if ((await Boot.ReadAsync()).Theme is { } theme)
+        {
+            Read(new Current(
+                theme.Family, theme.Mode, theme.Accent, theme.Custom,
+                theme.Classic, theme.Bootstrap, theme.Size));
 
-        StateHasChanged();
+            StateHasChanged();
+        }
+    }
+
+    /// <summary>
+    /// 서랍을 여닫는다. <b>처음 열 때</b> 고를 수 있는 목록을 받아 온다.
+    /// </summary>
+    /// <remarks>
+    /// 받아 온 것은 들고 있는다 — 목록은 theme.js 안에 박힌 상수라 바뀌지 않는다.
+    /// 그래서 두 번째부터는 왕복이 없다.
+    /// </remarks>
+    private async Task ToggleAsync()
+    {
+        if (_open)
+        {
+            _open = false;
+            return;
+        }
+
+        await EnsureCatalogAsync();
+        _open = true;
+    }
+
+    private async Task EnsureCatalogAsync()
+    {
+        if (_catalogLoaded)
+        {
+            return;
+        }
+
+        try
+        {
+            _catalog = await Js.InvokeAsync<Catalog>("jsiniTheme.catalog");
+            _catalogLoaded = true;
+        }
+        catch (JSException ex)
+        {
+            // theme.js 가 안 실린 경우다. 서랍은 비어서 열린다 — 여기서
+            // 던지면 회로가 내려가고 화면 전체가 굳는다.
+            Log.LogDebug(ex, "테마 목록을 받지 못했다. 서랍이 비어서 열린다.");
+        }
     }
 
     private async Task SetFluentAsync(string mode, string accent)

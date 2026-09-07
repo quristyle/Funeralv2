@@ -25,10 +25,19 @@ namespace JSini.Web.Components.Security;
 /// 지난주에 잠가 둔 화면이 뜨면 그건 고장으로 읽힌다.
 /// </para>
 /// </summary>
-public sealed class ScreenLock(IJSRuntime js)
+public sealed class ScreenLock(IJSRuntime js, Layout.PortalBoot boot)
 {
-    /// <summary>브라우저에 남기는 표시. <c>theme.js</c> 처럼 별도 파일을 두지 않고 한 줄로 끝낸다.</summary>
-    private const string StorageKey = "jsini.screen-locked";
+    /// <summary>
+    /// 브라우저에 남기는 표시.
+    ///
+    /// <para>
+    /// <b>정본은 <see cref="Layout.PortalBoot.ScreenLockedKey"/> 다.</b> 읽는 일은
+    /// 그쪽이 다른 값들과 함께 한 왕복으로 하고, 여기서는 쓰는 데만 쓴다.
+    /// 열쇠를 두 곳에 적으면 한쪽만 고치는 날이 오고, 그때 증상은
+    /// 「잠갔는데 새로고침하면 풀린다」다.
+    /// </para>
+    /// </summary>
+    private const string StorageKey = Layout.PortalBoot.ScreenLockedKey;
 
     private bool _restored;
 
@@ -43,6 +52,12 @@ public sealed class ScreenLock(IJSRuntime js)
     /// <b>회로가 붙은 뒤에</b> 불러야 한다(<c>OnAfterRenderAsync</c>) —
     /// 프리렌더 중에는 JS 를 부를 수 없다.
     /// </summary>
+    /// <remarks>
+    /// 저장소를 직접 읽지 않는다. <see cref="Layout.PortalBoot"/> 가 다른 값들과
+    /// 함께 <b>한 왕복으로</b> 읽어 온 것을 받는다 — 왜 그렇게 했는지는 그
+    /// 클래스 머리말에 있다. 못 읽었으면 「안 잠긴 것」으로 온다. 그것이
+    /// 맞는 기본값이다 — 읽기 실패로 화면을 덮으면 풀 방법이 없는 상태에 갇힌다.
+    /// </remarks>
     public async Task RestoreAsync()
     {
         if (_restored)
@@ -51,19 +66,12 @@ public sealed class ScreenLock(IJSRuntime js)
         }
         _restored = true;
 
-        try
+        var state = await boot.ReadAsync();
+
+        if (state.ScreenLocked && !IsLocked)
         {
-            var value = await js.InvokeAsync<string?>("sessionStorage.getItem", StorageKey);
-            if (value == "1" && !IsLocked)
-            {
-                IsLocked = true;
-                Changed?.Invoke();
-            }
-        }
-        catch (JSException)
-        {
-            // 저장소를 못 읽는 브라우저 설정이 있다. 못 읽으면 안 잠긴 것으로 둔다 —
-            // 읽기 실패로 화면을 덮으면 풀 방법이 없는 상태에 갇힌다.
+            IsLocked = true;
+            Changed?.Invoke();
         }
     }
 

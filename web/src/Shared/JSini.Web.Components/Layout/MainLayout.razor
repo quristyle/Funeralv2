@@ -40,10 +40,10 @@
 @inject MenuFavorites Favorites
 @inject CurrentUser Me
 @inject PortalBootstrap Bootstrap
+@inject PortalBoot Boot
 @inject PortalTabs Tabs
 @inject AuthenticationStateProvider AuthState
 @inject NavigationManager Navigation
-@inject IJSRuntime Js
 
 <DxLayoutBreakpoint DeviceSize="DeviceSize.XSmall" @bind-IsActive="_isPhone" />
 <DxLayoutBreakpoint DeviceSize="DeviceSize.Small" @bind-IsActive="_isTablet" />
@@ -61,8 +61,10 @@
         </span>
 
         <a class="jsini-header__brand" href="/">
+            @* 지문이 붙은 주소로 나간다 — 안 붙으면 화면을 열 때마다 304 왕복이다.
+               왜 그런지는 JSiniHead 머리말에 있다. *@
             <img class="jsini-header__logo"
-                 src="_content/JSini.Web.Components/brand/app-icon.svg" alt="" />
+                 src="@Assets["_content/JSini.Web.Components/brand/app-icon.svg"]" alt="" />
             <span class="jsini-header__sep" aria-hidden="true"></span>
             <span class="jsini-header__brand-text">JSINI</span>
         </a>
@@ -153,18 +155,46 @@
         Tokens.Initialize(state.User);
         _userName = state.User.Identity?.Name;
 
+        // 워터마크에 쓸 이름을 여기서 넘긴다. **JS 를 부르지 않는다** —
+        // `PortalBoot` 가 잠금 표시·공지 표시·고정 탭·테마를 읽는
+        // **같은 왕복에** 태워 보낸다. 워터마크가 무엇이고 왜 있는지는
+        // OnAfterRenderAsync 머리말에 있다.
+        //
+        // **아래 `Bootstrap.LoadAsync` 보다 앞이어야 한다.** 그것은 게이트웨이를
+        // 부르므로 반드시 한 번 양보하고, 그 순간 Blazor 가 중간 그림을 그리면서
+        // 자식 부품이 생긴다. Blazor 는 `OnAfterRenderAsync` 를 **자식부터**
+        // 부르므로, 뒤에 두면 브라우저 상태를 처음 읽는 사람이 `TabBar` 나
+        // `NoticeAutoPopup` 이 되고 그 왕복에는 이름이 안 실린다.
+        //
+        // 그렇게 되어도 워터마크가 빠지지는 않는다 — `PortalBoot` 가 늦게 온
+        // 이름을 혼자 한 번 걸어 준다. 다만 왕복이 하나 늘어난다.
+        Boot.UseWatermark(_userName);
+
         await Bootstrap.LoadAsync(state.User);
 
         Track();
     }
 
     /// <summary>
-    /// 워터마크를 건다. 로그인 아이디를 화면 위에 옅게 반복해 깐다.
-    ///
-    /// 화면 촬영을 막으려는 것이 아니다 — 막을 수 없다. **찍힌 사진에서 누구
-    /// 화면인지 드러나게** 하는 것이 목적이고, 고인·상주 정보가 나오는 화면이
-    /// 있어 옛 포털도 같은 이유로 켜 두었다.
+    /// 브라우저에 남아 있던 것을 되살린다.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 잠금 표시는 브라우저에 남는다(sessionStorage). 새로고침해도 덮개가
+    /// 다시 덮이게 하려면 회로가 붙은 <b>뒤에</b> 읽어야 한다 — 프리렌더
+    /// 중에는 JS 를 부를 수 없다.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>워터마크를 여기서 걸지 않는다.</b> 로그인 아이디를 화면 위에 옅게
+    /// 깔아 <b>찍힌 사진에서 누구 화면인지 드러나게</b> 하는 것이고(촬영을
+    /// 막으려는 것이 아니다 — 막을 수 없다), 옛 포털도 같은 이유로 켜 두었다.
+    /// 여전히 걸리지만 <b>왕복을 따로 내지 않는다</b> — 이름을
+    /// <see cref="OnInitializedAsync"/> 에서 <see cref="PortalBoot"/> 에 넘겨
+    /// 두고, 그것이 잠금 표시·공지 표시·고정 탭·테마를 읽는 <b>같은 왕복</b>에
+    /// 태워 보낸다.
+    /// </para>
+    /// </remarks>
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender)
@@ -172,17 +202,6 @@
             return;
         }
 
-        var state = await AuthState.GetAuthenticationStateAsync();
-        var name = state.User.Identity?.Name;
-
-        if (!string.IsNullOrWhiteSpace(name))
-        {
-            await Js.InvokeVoidAsync("jsiniWatermark.show", name);
-        }
-
-        // 잠금 표시는 브라우저에 남는다(sessionStorage). 새로고침해도 덮개가
-        // 다시 덮이게 하려면 회로가 붙은 **뒤에** 읽어야 한다 — 프리렌더
-        // 중에는 JS 를 부를 수 없다.
         await Lock.RestoreAsync();
     }
 

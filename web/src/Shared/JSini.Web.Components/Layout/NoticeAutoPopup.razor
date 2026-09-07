@@ -42,6 +42,7 @@
 @inject NoticeClient Notices
 @inject IJSRuntime Js
 @inject ILogger<NoticeAutoPopup> Log
+@inject PortalBoot Boot
 
 <NoticePopup Notices="@_notices"
              Visible="@_open"
@@ -54,8 +55,15 @@
     /// </summary>
     [Parameter] public bool Public { get; set; }
 
-    /// <summary>브라우저에 「오늘 하루 보지 않기」를 적어 두는 열쇠. Vue 때와 같다.</summary>
-    private const string StorageKey = "jsini-notice-dismissed";
+    /// <summary>
+    /// 브라우저에 「오늘 하루 보지 않기」를 적어 두는 열쇠. Vue 때와 같다.
+    ///
+    /// <para>
+    /// <b>정본은 <see cref="PortalBoot.NoticeDismissedKey"/> 다.</b> 읽는 일은
+    /// 그쪽이 다른 값들과 함께 한 왕복으로 하고, 여기서는 쓰는 데만 쓴다.
+    /// </para>
+    /// </summary>
+    private const string StorageKey = PortalBoot.NoticeDismissedKey;
 
     /// <summary>
     /// 이 탭에서 이미 닫았다는 표시. 머리말의 표를 보라.
@@ -66,10 +74,8 @@
     /// 표시가 그대로 남기 때문이다.
     /// </para>
     /// </summary>
-    private string ClosedKey => Public ? "jsini-notice-closed:public" : "jsini-notice-closed:user";
-
-    /// <summary>로그인 화면이 지워 주는 열쇠. 곧 로그인할 참이니 다시 띄워야 한다.</summary>
-    private const string UserClosedKey = "jsini-notice-closed:user";
+    private string ClosedKey =>
+        Public ? PortalBoot.NoticeClosedPublicKey : PortalBoot.NoticeClosedUserKey;
 
     private IReadOnlyList<NoticeDto> _notices = [];
     private bool _open;
@@ -85,19 +91,27 @@
         }
 
         // 로그인 화면을 본다는 것은 곧 로그인한다는 뜻이다. 로그인 뒤 공지를
-        // 닫아 둔 표시를 여기서 지워야 **다시 로그인할 때 또 뜬다.**
+        // 닫아 둔 표시를 지워야 **다시 로그인할 때 또 뜬다.**
+        //
+        // 여기서 JS 를 부르지 않는다 — `PortalBoot` 가 읽기와 **같은 왕복에**
+        // 태워 보내고, 지우기를 먼저 하므로 아래에서 받는 값은 지운 뒤의 값이다.
         if (Public)
         {
-            await ForgetAsync(UserClosedKey);
+            Boot.ForgetUserNoticeClosed();
         }
 
+        // 저장소를 직접 읽지 않는다. 닫힘 표시와 「오늘 하루 보지 않기」를
+        // 따로 읽어 왕복이 둘이던 자리다 — 이제 잠금 표시·고정 탭·테마까지
+        // 함께 **한 왕복**이다(`PortalBoot` 머리말).
+        var browser = await Boot.ReadAsync();
+
         // 이 탭에서 이미 닫았으면 조회조차 하지 않는다.
-        if (await AlreadyClosedAsync())
+        if (browser.NoticeClosed(Public))
         {
             return;
         }
 
-        _dismissed = await ReadDismissedAsync();
+        _dismissed = ParseDismissed(browser.NoticeDismissedJson);
 
         IReadOnlyList<NoticeDto> list;
 
@@ -151,35 +165,6 @@
         }
     }
 
-    /// <summary>표시를 지운다.</summary>
-    private async Task ForgetAsync(string key)
-    {
-        try
-        {
-            await Js.InvokeVoidAsync("sessionStorage.removeItem", key);
-        }
-        catch (JSException ex)
-        {
-            Log.LogDebug(ex, "공지 팝업 표시를 지우지 못했습니다.");
-        }
-    }
-
-    /// <summary>이 탭에서 이미 닫았는가.</summary>
-    private async Task<bool> AlreadyClosedAsync()
-    {
-        try
-        {
-            return await Js.InvokeAsync<string?>("sessionStorage.getItem", ClosedKey) is { Length: > 0 };
-        }
-        catch (JSException ex)
-        {
-            // 읽지 못하면 띄우는 쪽으로 기운다. 안내를 한 번 더 보는 것이
-            // 못 보는 것보다 낫다.
-            Log.LogDebug(ex, "공지 팝업 표시를 읽지 못했습니다.");
-            return false;
-        }
-    }
-
     /// <summary>
     /// 「오늘 하루 보지 않기」로 닫은 공지를 브라우저에 적어 둔다.
     /// </summary>
@@ -203,14 +188,17 @@
     }
 
     /// <summary>
-    /// 오늘 안 보기로 해 둔 공지를 읽는다. 날짜가 지났으면 없던 일로 한다.
+    /// 오늘 안 보기로 해 둔 공지를 옮겨 담는다. 날짜가 지났으면 없던 일로 한다.
     /// </summary>
-    private async Task<HashSet<string>> ReadDismissedAsync()
+    /// <remarks>
+    /// 읽어 오는 일은 <see cref="PortalBoot"/> 가 한다 — 여기는 그 날것 JSON 을
+    /// 받아 푸는 자리다. 그래서 <c>JSException</c> 을 살피지 않는다(JS 를 부르지
+    /// 않으므로 날 수 없다).
+    /// </remarks>
+    private HashSet<string> ParseDismissed(string? raw)
     {
         try
         {
-            var raw = await Js.InvokeAsync<string?>("localStorage.getItem", StorageKey);
-
             if (string.IsNullOrWhiteSpace(raw))
             {
                 return new HashSet<string>(StringComparer.Ordinal);
@@ -223,7 +211,7 @@
                 ? new HashSet<string>(saved.Ids, StringComparer.Ordinal)
                 : new HashSet<string>(StringComparer.Ordinal);
         }
-        catch (Exception ex) when (ex is JSException or System.Text.Json.JsonException)
+        catch (System.Text.Json.JsonException ex)
         {
             // 값이 깨져 있으면 없는 것으로 본다. 공지를 한 번 더 보는 쪽이
             // 안 보이는 쪽보다 낫다.

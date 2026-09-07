@@ -719,4 +719,104 @@
       el.scrollTop = el.scrollHeight;
     },
   };
+
+  /**
+   * 회로가 붙을 때 브라우저에서 읽어 올 것을 **한 번에** 읽는다.
+   *
+   * [무엇을 고친 것인가]
+   *
+   * 레이아웃이 뜰 때 부품 다섯이 저마다 저장소를 읽었다 — 잠금 표시,
+   * 공지 닫힘 표시, 「오늘 하루 보지 않기」, 고정 탭, 지금 테마. 게다가
+   * 워터마크를 거는 호출이 하나 더 있었다.
+   *
+   * Blazor Server 에서 이 호출 하나하나가 **브라우저까지 갔다 오는 왕복
+   * 하나**다. 여섯이 직렬로 나가면 왕복 50ms 환경에서 300ms 가 그냥 붙는다.
+   * 그리고 포털은 **업무를 넘나들 때마다 레이아웃을 새로 만들기 때문에**
+   * (Piral 모듈 컨테이너가 갈린다) 그 여섯이 화면 전환마다 다시 났다.
+   *
+   * [왜 값마다 함수를 두지 않았나]
+   *
+   * `locked()` `pinnedTabs()` 처럼 이름 있는 함수를 두면 읽는 자리가 는다.
+   * 그러면 부품이 늘 때마다 왕복도 함께 늘고, 지금 고친 것이 되돌아온다.
+   * 열쇠 목록을 받아 **사전 하나로** 돌려주면 부품이 몇이든 왕복은 하나다.
+   *
+   * [열쇠를 여기 적어 두지 않는다]
+   *
+   * 열쇠는 서버 쪽(`PortalBoot`)이 들고 있고 이 함수는 받은 것만 읽는다.
+   * 양쪽에 적어 두면 한쪽만 고치는 날이 오고, 그때 증상은 「그 표시가
+   * 조용히 안 읽힌다」다 — 오류가 아니라 기능이 하나 사라지는 쪽이다.
+   *
+   * @param {{watermark?: string|null, forget?: string[],
+   *          session?: string[], local?: string[]}} req
+   * @returns {{session: Object, local: Object, theme: Object}}
+   */
+  window.jsiniBoot = {
+    read: function (req) {
+      req = req || {};
+
+      // 워터마크. **읽기와 같은 왕복에 태우려고 여기 있다.** 이 함수가 하는
+      // 일 중 유일하게 화면을 바꾸는 것이라, 이름에 담지 못한 대신 적어 둔다.
+      //
+      // **거는 것만 한다.** 걷는 일(`jsiniWatermark.hide`)을 여기 태우면
+      // 이름이 안 실려 온 왕복 하나가 방금 걸어 둔 워터마크를 지운다 —
+      // 읽는 순서를 우리가 정하지 못하므로 그 왕복은 실제로 생긴다.
+      if (req.watermark) {
+        window.jsiniWatermark.show(req.watermark);
+      }
+
+      // 지울 것을 **먼저** 지운다. 그러지 않으면 같은 왕복 안에서 방금 지운
+      // 표시를 다시 읽어 돌려주게 된다 — 로그인 화면이 로그인 뒤 공지 표시를
+      // 지우면서 그 값을 함께 읽는 자리가 실제로 그렇다.
+      forget(req.forget);
+
+      return {
+        session: readAll(readSession, req.session),
+        local: readAll(readLocal, req.local),
+
+        // 테마는 저장소가 아니라 위쪽 `jsiniTheme` 가 좁혀 둔 값이다.
+        // 함께 실어 주는 이유는 그것 하나 때문에 왕복을 또 하지 않으려는 것뿐이다.
+        theme: window.jsiniTheme.current(),
+      };
+    },
+  };
+
+  /**
+   * 열쇠 목록을 사전으로 읽는다. 없는 열쇠는 `null` 로 담는다 —
+   * 칸을 빼면 받는 쪽이 「없다」와 「안 읽었다」를 구분할 수 없다.
+   */
+  function readAll(read, keys) {
+    var out = {};
+
+    if (!keys) return out;
+
+    for (var i = 0; i < keys.length; i++) {
+      out[keys[i]] = read(keys[i]);
+    }
+
+    return out;
+  }
+
+  /**
+   * 저장소를 읽는다. **못 읽어도 던지지 않는다.**
+   *
+   * 사생활 보호 모드나 서드파티 차단 설정에서는 `sessionStorage` 에
+   * 손대는 것만으로 던진다. 한 열쇠 때문에 나머지 넷까지 잃으면 안 되므로
+   * 열쇠마다 각자 막는다. 못 읽은 것은 `null` 이고, 그 뜻은 받는 쪽이 정한다.
+   */
+  function readSession(key) {
+    try { return window.sessionStorage.getItem(key); } catch (e) { return null; }
+  }
+
+  function readLocal(key) {
+    try { return window.localStorage.getItem(key); } catch (e) { return null; }
+  }
+
+  /** 세션 저장소에서 지운다. 못 지워도 넘어간다 — 위와 같은 이유다. */
+  function forget(keys) {
+    if (!keys) return;
+
+    for (var i = 0; i < keys.length; i++) {
+      try { window.sessionStorage.removeItem(keys[i]); } catch (e) { /* 위와 같다 */ }
+    }
+  }
 })();
