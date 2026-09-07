@@ -35,30 +35,41 @@
 
 <PageTitle>요청 처리 · 헬프데스크</PageTitle>
 
-<div class="jsini-toolbar">
-    <DxTextBox @bind-Text="_keyword" NullText="제목 검색" Style="width: 200px"
-               ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+@* 조건이 넷이라 한 줄에 다 안 들어간다. `CommSch` 가 넘치는 만큼 아래로
+   흘려 담고, 「조회」는 늘 오른쪽 끝에 남는다. *@
+<CommSch OnSearch="@ReloadAsync">
+    <Fields>
+        <CommSchItem Label="제목">
+            <DxTextBox @bind-Text="_keyword" NullText="제목으로 찾기" Style="width: 200px"
+                       ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        </CommSchItem>
 
-    <DxComboBox Data="@StatusOptions" @bind-Value="_status"
-                TextFieldName="Text" ValueFieldName="Value"
-                NullText="전체 상태" Style="width: 120px"
-                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        <CommSchItem Label="상태">
+            <DxComboBox Data="@StatusOptions" @bind-Value="_status"
+                        TextFieldName="Text" ValueFieldName="Value"
+                        NullText="전체" Style="width: 120px"
+                        ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        </CommSchItem>
 
-    <DxComboBox Data="@Context.AdminOptions" @bind-Value="_adminId"
-                TextFieldName="@nameof(BizOption.Label)" ValueFieldName="@nameof(BizOption.Value)"
-                NullText="전체 담당자" Style="width: 150px"
-                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        <CommSchItem Label="담당자">
+            <DxComboBox Data="@Context.AdminOptions" @bind-Value="_adminId"
+                        TextFieldName="@nameof(BizOption.Label)" ValueFieldName="@nameof(BizOption.Value)"
+                        NullText="전체" Style="width: 150px"
+                        ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        </CommSchItem>
 
-    <DxCheckBox @bind-Checked="_onlyOpen">처리 중인 것만</DxCheckBox>
-
-    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary"
-              IconCssClass="jsini-icon-refresh" Click="@ReloadAsync" />
-</div>
+        <CommSchItem>
+            <DxCheckBox @bind-Checked="_onlyOpen">처리 중인 것만</DxCheckBox>
+        </CommSchItem>
+    </Fields>
+</CommSch>
 
 <PageNotice Text="@Notice" Tone="@Tone" />
 
 <CommCont>
-    <CommGrd TItem="ImprovementRequest" Data="@_rows" PageSize="25">
+    <CommGrd TItem="ImprovementRequest" Data="@_rows" PageSize="25"
+             ExportName="요청관리"
+             Reload="@ReloadAsync">
         <Columns>
             <DxGridDataColumn FieldName="@nameof(ImprovementRequest.Id)" Caption="번호" Width="80" />
 
