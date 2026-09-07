@@ -38,23 +38,31 @@
 
 <PageTitle>생일 축하 목록 · 생활과환경</PageTitle>
 
-<div class="jsini-toolbar">
-    <DxComboBox Data="@_companies" TextFieldName="@nameof(OrgCompany.Name)" ValueFieldName="@nameof(OrgCompany.Id)"
-                Value="@_companyId" ValueChanged="@((string? v) => OnCompanyChangedAsync(v))"
-                NullText="회사 전체" Style="width: 170px"
-                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+@* 자료 판(`CommCont`)은 쓰지 않는다 — 오늘 생일·축하 카드와 달 띠가 위에
+   쌓인 화면이라 감싸면 남은 높이를 그 판이 다 먹어 아래가 잘린다. *@
+<CommSch OnSearch="@ReloadAsync">
+    <Fields>
+        <CommSchItem Label="회사">
+            <DxComboBox Data="@_companies" TextFieldName="@nameof(OrgCompany.Name)" ValueFieldName="@nameof(OrgCompany.Id)"
+                        Value="@_companyId" ValueChanged="@((string? v) => OnCompanyChangedAsync(v))"
+                        NullText="전체" Style="width: 170px"
+                        ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        </CommSchItem>
 
-    <DxComboBox Data="@Departments" TextFieldName="@nameof(OrgDepartment.Name)" ValueFieldName="@nameof(OrgDepartment.Id)"
-                @bind-Value="_departmentId" NullText="부서 전체" Style="width: 170px"
-                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        <CommSchItem Label="부서">
+            <DxComboBox Data="@Departments" TextFieldName="@nameof(OrgDepartment.Name)" ValueFieldName="@nameof(OrgDepartment.Id)"
+                        @bind-Value="_departmentId" NullText="전체" Style="width: 170px"
+                        ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        </CommSchItem>
 
-    <DxComboBox Data="@Months" @bind-Value="_month" NullText="이번 달" Style="width: 130px"
-                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto">
-        <ItemTemplate>@context 월</ItemTemplate>
-    </DxComboBox>
-
-    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@ReloadAsync" />
-</div>
+        <CommSchItem Label="달">
+            <DxComboBox Data="@Months" @bind-Value="_month" NullText="이번 달" Style="width: 130px"
+                        ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto">
+                <ItemTemplate>@context 월</ItemTemplate>
+            </DxComboBox>
+        </CommSchItem>
+    </Fields>
+</CommSch>
 
 @* 열두 달을 한 줄로. 눌러서 그 달을 연다 — 숫자만 보여 주면 결국 위 드롭다운을
    다시 만지게 되고, 그러면 통계가 목록과 따로 노는 장식이 된다. *@
@@ -116,7 +124,9 @@
 
 <h2 class="le-today__head">@CurrentMonth 월 생일자</h2>
 
-<CommGrd TItem="BirthdayPerson" Data="@_people" PageSize="20">
+<CommGrd TItem="BirthdayPerson" Data="@_people" PageSize="20"
+         ExportName="생일자"
+         Reload="@ReloadAsync">
     <Columns>
         <DxGridDataColumn FieldName="@nameof(BirthdayPerson.OccurrenceDate)" Caption="생일" Width="120" DisplayFormat="yyyy-MM-dd" />
         <DxGridDataColumn FieldName="@nameof(BirthdayPerson.Name)" Caption="이름" MinWidth="120" />
