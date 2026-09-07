@@ -160,13 +160,24 @@
 
     private Task ReloadAsync() => LoadAsync(async () =>
     {
-        _buildings = await Api.GetBuildingsAsync();
-        _floors = await Api.GetFloorsAsync();
+        // 넷을 나란히. 서로 기다릴 이유가 없다 — 조건(_buildingId · _floorId)은
+        // 이미 화면에 있는 값이라 앞의 조회 결과를 쓰지 않는다.
+        var buildings = Api.GetBuildingsAsync();
+        var floors = Api.GetFloorsAsync();
+        var types = Codes.GetAsync("ROOM_TYPE");
+        var rooms = Api.GetRoomsAsync(buildingId: _buildingId, floorId: _floorId);
 
-        _roomTypes = await Codes.GetAsync("ROOM_TYPE");
-        _roomTypeLabel = await Codes.LabelerAsync("ROOM_TYPE");
+        await Task.WhenAll(buildings, floors, types, rooms);
 
-        _rooms = await Api.GetRoomsAsync(buildingId: _buildingId, floorId: _floorId);
+        _buildings = buildings.Result;
+        _floors = floors.Result;
+        _roomTypes = types.Result;
+        _rooms = rooms.Result;
+
+        // **옮기개를 따로 부르지 않는다.** `LabelerAsync` 는 같은 목록을 다시
+        // 받는데, 차례로 부를 때는 통에 맞아 공짜지만 나란히 부르면 둘 다
+        // 통을 지나쳐 두 번 받는다.
+        _roomTypeLabel = CommonCodeClient.Labeler(_roomTypes);
 
         return _rooms.Count;
     }, "조건에 맞는 호실이 없습니다.", "호실 목록을 읽지 못했습니다");

@@ -163,18 +163,22 @@
 
     private Task ReloadAsync() => LoadAsync(async () =>
     {
-        // 지역 목록은 고르개와 이름 표시에 함께 쓴다.
-        if (_locations.Count == 0)
-        {
-            _locations = await Client.GetLocationsAsync();
-        }
+        // 지역 목록은 고르개와 이름 표시에 함께 쓴다. 한 번만 읽고, 읽어야 할
+        // 때는 기록과 나란히 받는다 — 조건(_locationId)은 이미 화면에 있는
+        // 값이라 지역 목록을 기다릴 이유가 없다.
+        var locations = _locations.Count == 0 ? Client.GetLocationsAsync() : null;
 
-        var page = await Client.GetEventsAsync(
+        var events = Client.GetEventsAsync(
             1, 200,
             _from?.ToString("yyyy-MM-dd"),
             _to?.ToString("yyyy-MM-dd"),
             _locationId);
 
+        await Task.WhenAll(new Task?[] { locations, events }.OfType<Task>());
+
+        if (locations is not null) _locations = locations.Result;
+
+        var page = events.Result;
         _events = page?.Items ?? [];
         _total = page?.TotalCount ?? _events.Count;
 

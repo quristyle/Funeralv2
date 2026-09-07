@@ -231,8 +231,15 @@
     /// </summary>
     protected override async Task RefreshAsync()
     {
-        _targets = await Api.GetReleaseTargetsAsync();
-        _runs = await Api.GetReleaseRunsAsync();
+        // 둘을 나란히. 서로 기다릴 이유가 없다 — 차례로 부르면 왕복이 둘 쌓인다.
+        // 자동 조회라 3초마다 그 값을 낸다.
+        var targets = Api.GetReleaseTargetsAsync();
+        var runs = Api.GetReleaseRunsAsync();
+
+        await Task.WhenAll(targets, runs);
+
+        _targets = targets.Result;
+        _runs = runs.Result;
 
         // 열어 둔 진행 기록도 함께 맞춘다 — 그 창을 보고 있는 중일 것이다.
         if (_showingRun && _run is not null)
@@ -248,8 +255,14 @@
 
     private Task ReloadAsync() => LoadAsync(async () =>
     {
-        _targets = await Api.GetReleaseTargetsAsync();
-        _runs = await Api.GetReleaseRunsAsync();
+        // 둘을 나란히. 이유는 RefreshAsync 와 같다.
+        var targets = Api.GetReleaseTargetsAsync();
+        var runs = Api.GetReleaseRunsAsync();
+
+        await Task.WhenAll(targets, runs);
+
+        _targets = targets.Result;
+        _runs = runs.Result;
 
         // 조회를 누른 뒤에 도는 것이 생겼으면 그때부터 지켜본다.
         if (AnyRunning)

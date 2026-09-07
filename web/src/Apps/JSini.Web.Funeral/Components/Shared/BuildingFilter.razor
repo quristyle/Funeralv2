@@ -105,7 +105,16 @@
 
         _loadedFor = BuildingId;
 
-        if (ShowFloor) _floors = await Api.GetFloorsAsync(BuildingId);
-        if (ShowRoom) _rooms = await Api.GetRoomsAsync(buildingId: BuildingId, floorId: FloorId);
+        // 둘을 나란히. 켜 둔 것만 부르므로 보통은 하나뿐이고, 둘 다 켜 두는
+        // 화면(미리보기 · 기기 목록)에서 왕복이 하나로 줄어든다.
+        var floors = ShowFloor ? Api.GetFloorsAsync(BuildingId) : null;
+        var rooms = ShowRoom
+            ? Api.GetRoomsAsync(buildingId: BuildingId, floorId: FloorId)
+            : null;
+
+        await Task.WhenAll(new Task?[] { floors, rooms }.OfType<Task>());
+
+        if (floors is not null) _floors = floors.Result;
+        if (rooms is not null) _rooms = rooms.Result;
     }
 }

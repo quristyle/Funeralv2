@@ -176,11 +176,15 @@
 
     private Task ReloadAsync() => LoadAsync(async () =>
     {
-        var list = await Client.GetLocationsAsync();
-        _items = [.. list.OrderBy(x => x.SortOrder)];
+        // 둘을 나란히. 특보구역은 고르개가 쓰는 별개의 목록이라 관측 지역을
+        // 기다릴 이유가 없다.
+        var locations = Client.GetLocationsAsync();
+        var zones = Client.GetWarningZonesAsync();
 
-        // 특보구역 고르개가 쓴다. 목록과 함께 받아 둔다.
-        _zones = await Client.GetWarningZonesAsync();
+        await Task.WhenAll(locations, zones);
+
+        _items = [.. locations.Result.OrderBy(x => x.SortOrder)];
+        _zones = zones.Result;
 
         return _items.Count;
     }, "등록된 관측 지역이 없습니다.", "관측 지역을 읽지 못했습니다");

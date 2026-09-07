@@ -161,14 +161,15 @@ else
             return -1;
         }
 
-        // 이미지 목록은 기기와 무관하다. 한 번만 읽는다.
-        if (_images.Count == 0)
-        {
-            _images = await Api.GetMediaSourcesAsync("IMAGE");
-        }
+        // 이미지 목록은 기기와 무관하다. 한 번만 읽고, 읽어야 할 때는 장식과
+        // 나란히 받는다 — 서로 기다릴 이유가 없다.
+        var images = _images.Count == 0 ? Api.GetMediaSourcesAsync("IMAGE") : null;
+        var ribbons = Api.GetDeviceRibbonsAsync(DeviceId);
 
-        var loaded = await Api.GetDeviceRibbonsAsync(DeviceId);
-        _ribbons = [.. loaded];
+        await Task.WhenAll(new Task?[] { images, ribbons }.OfType<Task>());
+
+        if (images is not null) _images = images.Result;
+        _ribbons = [.. ribbons.Result];
 
         return -1;
     }, string.Empty, "장식을 읽지 못했습니다");

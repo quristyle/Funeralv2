@@ -89,15 +89,15 @@
 
         return LoadAsync(async () =>
         {
-            // ① 저장본
-            var saved = await Client.DbContAsync(Proc, SavedParams());
-            var first = saved.Rows?.FirstOrDefault();
+            // ①② 를 나란히 부른다. 테이블 목록의 조건은 화면이 고른 DB
+            //     (`_dbItem` · `_dbCode`)라 저장본을 기다릴 이유가 없다.
+            //     프로시저 왕복 둘이 하나가 된다.
 
-            _propRowId = Pick(first, "db_prid");
-            var model = ErdModel.Parse(Pick(first, "db_pvalue"));
+            // ① 저장본
+            var savedTask = Client.DbContAsync(Proc, SavedParams());
 
             // ② 대상 DB 의 실제 테이블 목록
-            var tables = await Client.JsContAsync(
+            var tablesTask = Client.JsContAsync(
                 "tablelist",
                 new Dictionary<string, object?>
                 {
@@ -107,6 +107,16 @@
                     ["dbnick"] = _dbItem?.Others.GetValueOrDefault("db_nick") ?? string.Empty,
                     ["db_rid"] = _dbCode ?? string.Empty,
                 });
+
+            await Task.WhenAll(savedTask, tablesTask);
+
+            var saved = savedTask.Result;
+            var tables = tablesTask.Result;
+
+            var first = saved.Rows?.FirstOrDefault();
+
+            _propRowId = Pick(first, "db_prid");
+            var model = ErdModel.Parse(Pick(first, "db_pvalue"));
 
             // ③ 합친다. 배치는 저장본 값을 그대로 둔다 —
             //    x/y 를 건드리면 사용자가 배치한 것이 흐트러진다.

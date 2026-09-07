@@ -170,11 +170,19 @@
 
     private Task ReloadAsync() => LoadAsync(async () =>
     {
-        _all = await Api.GetBuildingsAsync();
-
         // 층은 건물 전체를 한 번에 받아 세어 둔다. 건물마다 따로 물으면
         // 건물 수만큼 왕복이 생긴다.
-        var floors = await Api.GetFloorsAsync();
+        //
+        // 그리고 건물과 나란히 부른다 — 층 조회가 건물 목록을 쓰지 않으므로
+        // 기다릴 이유가 없다.
+        var buildings = Api.GetBuildingsAsync();
+        var floorsTask = Api.GetFloorsAsync();
+
+        await Task.WhenAll(buildings, floorsTask);
+
+        _all = buildings.Result;
+
+        var floors = floorsTask.Result;
         _floorCount = floors
             .GroupBy(f => f.BuildingId)
             .ToDictionary(g => g.Key, g => g.Count());
