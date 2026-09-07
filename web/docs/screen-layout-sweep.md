@@ -12,7 +12,7 @@
 | 2 | △ | `/admin/auth/user-role` | UserRoleMap.razor | 도구줄1 |
 | 3 | ☑ | `/admin/company/user` | CompanyUserList.razor | 도구줄3 · 팝업2 |
 | 4 | △ | `/admin/profile` | Profile.razor | 대시보드 · 도구줄4 · 관리칸2 · 팝업1 |
-| 5 | ☐ | `/admin/push/dashboard` | PushDashboard.razor | 대시보드 · 도구줄1 |
+| 5 | ☑ | `/admin/push/dashboard` | PushDashboard.razor | 대시보드 · 도구줄1 |
 | 6 | ☐ | `/admin/push/history` | NotificationHistory.razor | 도구줄1 |
 | 7 | ☐ | `/admin/push/logs` | PushLogs.razor | 도구줄1 |
 | 8 | ☐ | `/admin/push/setting` | NotificationSetting.razor | 도구줄1 |

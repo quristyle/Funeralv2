@@ -26,12 +26,20 @@
 
 <PageTitle>푸시 현황 · 포털관리</PageTitle>
 
-<div class="jsini-toolbar">
-    <DxComboBox Data="@DayOptions" @bind-Value="_days" Style="width: 130px">
-        <ItemTemplate>최근 @context 일</ItemTemplate>
-    </DxComboBox>
-    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@ReloadAsync" />
-</div>
+@* 조건은 기간 하나뿐이지만 판을 세운다. 화면이 백 개가 넘어서 **같은 자리에
+   있는 것**이 예쁜 것보다 중요하다.
+
+   자료 판(`CommCont`)은 쓰지 않는다 — 이 화면은 통계 타일과 표 넷이 쌓인
+   대시보드다. 감싸면 남은 높이를 그 판이 다 먹어 아래가 잘린다. *@
+<CommSch OnSearch="@ReloadAsync">
+    <Fields>
+        <CommSchItem Label="기간">
+            <DxComboBox Data="@DayOptions" @bind-Value="_days" Style="width: 130px">
+                <ItemTemplate>최근 @context 일</ItemTemplate>
+            </DxComboBox>
+        </CommSchItem>
+    </Fields>
+</CommSch>
 
 @if (_stats is not null)
 {
