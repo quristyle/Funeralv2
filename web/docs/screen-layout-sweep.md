@@ -48,6 +48,23 @@
 | 38 | ☑ | `/site/inquiries` | InquiryList.razor | 도구줄1 |
 | 39 | △ | `/diagnostics` | Diagnostics.razor | 대시보드 |
 
+
+## 2차 — 표(`CommGrd`)가 없어 1차 스캔이 놓친 화면
+
+나무·카드·달력으로 그리는 화면들이다. 표가 없으니 관리 칸은 없고,
+**손으로 적은 조건줄**만 조회 판으로 옮긴다.
+
+| # | 상태 | 메뉴 URL | 파일 |
+|---|---|---|---|
+| 1 | ☐ | `/admin/auth/menu-role` | MenuRoleMap.razor |
+| 2 | ☐ | `/admin/company/dept` | DeptList.razor |
+| 3 | ☐ | `/funeral/help/faq` | FaqListPage.razor |
+| 4 | ☐ | `/funeral/help/qna` | QnaList.razor |
+| 5 | ☐ | `/funeral/room-status` | RoomStatus.razor |
+| 6 | ☐ | `/helpdesk/hanju/procedure-result` | ProcedureResult.razor |
+| 7 | ☐ | `/helpdesk/util/binary-parser` | BinaryParser.razor |
+| 8 | ☐ | `/life/weather/warning` | WeatherWarningPage.razor |
+
 ## 멈춘 자리 (결정이 필요해 넘긴 것)
 
 - `/admin/auth/user-role` — UserRoleMap.razor: 오른쪽 판에 역할 칩·안내·표가 쌓여 CommCont 로 감싸면 아래가 잘린다 — 조회 판만 적용
