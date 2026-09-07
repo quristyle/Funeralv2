@@ -35,32 +35,40 @@
 
 <PageTitle>자료실 · 장례식장</PageTitle>
 
-<div class="jsini-toolbar">
-    <DxTextBox @bind-Text="_keyword" NullText="자료명 검색" Style="width: 220px"
-               ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+@* 「등록」이 조건 옆에 있었다. 조건과 동작이 한 줄에 섞이면 어느 것이
+   조건인지가 흐려진다. 이 화면의 편집은 자기 팝업이 맡고 있어 표 아래 띠의
+   등록을 쓸 수 없으므로, 그 판의 Actions 로 옮겼다. *@
+<CommSch OnSearch="@ReloadAsync">
+    <Fields>
+        <CommSchItem Label="자료명">
+            <DxTextBox @bind-Text="_keyword" NullText="이름" Style="width: 220px"
+                       ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        </CommSchItem>
 
-    <DxComboBox Data="@_categories" @bind-Value="_category"
-                NullText="분류 전체" Style="width: 150px"
-                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        <CommSchItem Label="분류">
+            <DxComboBox Data="@_categories" @bind-Value="_category"
+                        NullText="전체" Style="width: 150px"
+                        ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        </CommSchItem>
+    </Fields>
 
-    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary"
-              IconCssClass="jsini-icon-refresh" Click="@ReloadAsync" />
-
-    <div class="jsini-toolbar__spacer"></div>
-
-    @if (_canManage)
-    {
-        <PermissionView Action="MenuAction.Create">
-            <DxButton Text="등록" RenderStyle="ButtonRenderStyle.Primary"
-                      IconCssClass="jsini-icon-plus" Click="@StartNew" />
-        </PermissionView>
-    }
-</div>
+    <Actions>
+        @if (_canManage)
+        {
+            <PermissionView Action="MenuAction.Create">
+                <DxButton Text="등록" RenderStyle="ButtonRenderStyle.Secondary"
+                          IconCssClass="jsini-icon-plus" Click="@StartNew" />
+            </PermissionView>
+        }
+    </Actions>
+</CommSch>
 
 <PageNotice Text="@Notice" Tone="@Tone" />
 
 <CommCont>
-    <CommGrd TItem="Archive" Data="@_items" PageSize="20">
+    <CommGrd TItem="Archive" Data="@_items" PageSize="20"
+             ExportName="자료실"
+             Reload="@ReloadAsync">
         <Columns>
             <DxGridDataColumn Caption="자료명" MinWidth="220">
                 <CellDisplayTemplate Context="cell">
@@ -85,29 +93,27 @@
                 </CellDisplayTemplate>
             </DxGridDataColumn>
 
+        </Columns>
+
+        @* 관리 칸은 CommGrd 가 붙인다(RowActions). 손으로 칸을 두면 화면마다
+           조작 자리와 아이콘이 갈린다. 관리 권한이 없으면 안이 비고, 그러면
+           CommGrd 도 칸을 그리지 않는다. *@
+        <RowActions Context="a">
             @if (_canManage)
             {
-                <DxGridDataColumn Caption="관리" Width="120" AllowSort="false">
-                    <CellDisplayTemplate Context="cell">
-                        @{
-                            var a = (Archive)cell.DataItem;
-                        }
-                        <div class="jsini-actions">
-                            <PermissionView Action="MenuAction.Update">
-                                <DxButton Text="수정"
-                                          RenderStyle="ButtonRenderStyle.Secondary"
-                                          Click="@(() => StartEdit(a))" />
-                            </PermissionView>
-                            <PermissionView Action="MenuAction.Delete">
-                                <DxButton Text="삭제"
-                                          RenderStyle="ButtonRenderStyle.Secondary"
-                                          Click="@(() => DeleteAsync(a))" />
-                            </PermissionView>
-                        </div>
-                    </CellDisplayTemplate>
-                </DxGridDataColumn>
+                <PermissionView Action="MenuAction.Update">
+                    <DxButton IconCssClass="jsini-icon-edit" Title="수정"
+                              RenderStyle="ButtonRenderStyle.Link"
+                              Click="@(() => StartEdit(a))" />
+                </PermissionView>
+                <PermissionView Action="MenuAction.Delete">
+                    <DxButton IconCssClass="jsini-icon-trash" Title="삭제"
+                              CssClass="commgrd__icon--warn"
+                              RenderStyle="ButtonRenderStyle.Link"
+                              Click="@(() => DeleteAsync(a))" />
+                </PermissionView>
             }
-        </Columns>
+        </RowActions>
         <DetailRowTemplate Context="detail">
             @{
                 var archive = (Archive)detail.DataItem;
