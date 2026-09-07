@@ -74,6 +74,12 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ITimezoneService, TimezoneService>();
+// 사이드바 메뉴 트리는 사용자마다 다르지 않다 — 한 벌만 들고 돌려 쓴다.
+// 포털이 업무 모듈을 넘나들 때마다 메뉴를 다시 읽으므로 왕복이 화면 전환
+// 횟수만큼 났다(MenuTreeCache 머리말).
+builder.Services.AddMemoryCache();
+builder.Services.AddSingleton<MenuTreeCache>();
+
 builder.Services.AddScoped<IMenuService, MenuService>();
 builder.Services.AddScoped<IMenuFavoriteService, MenuFavoriteService>();
 builder.Services.AddScoped<IRoleAssignmentService, RoleAssignmentService>();
@@ -189,6 +195,9 @@ app.MapSignupEndpoints();
 app.MapUserEndpoints();
 app.MapMenuEndpoints();
 app.MapMenuFavoriteEndpoints();
+
+// 위 셋을 한 번에 내려보내는 자리. 포털 레이아웃이 뜰 때 이것만 부른다.
+app.MapPortalBootstrapEndpoints();
 app.MapRoleScopeEndpoints();
 app.MapTimezoneEndpoints();
 app.MapSystemEndpoints();

@@ -177,7 +177,11 @@ public static class JSiniWebApp
         services.AddHttpContextAccessor();
         services.AddScoped<ITokenStore, TokenStore>();
         services.AddJSiniGateway(configuration);
-        services.AddScoped<IPermissionContext, PermissionContext>();
+        // 부트스트랩이 구현체의 Apply 를 부르므로 구현체도 함께 올린다.
+        // 둘이 같은 인스턴스여야 한다 — 따로 등록하면 부트스트랩이 채운
+        // 권한표와 사이드바가 보는 권한표가 다른 물건이 된다.
+        services.AddScoped<PermissionContext>();
+        services.AddScoped<IPermissionContext>(sp => sp.GetRequiredService<PermissionContext>());
         services.AddScoped<MenuProvider>();
         services.AddScoped<IMenuProvider>(sp => sp.GetRequiredService<MenuProvider>());
 
@@ -195,6 +199,17 @@ public static class JSiniWebApp
         // 헤더의 사용자 단추가 얼굴과 이름을 여기서 얻는다. 쿠키 클레임에는
         // 사진이 없어 게이트웨이에 한 번 물어야 한다(CurrentUser 머리말).
         services.AddScoped<CurrentUser>();
+
+        // 레이아웃이 뜰 때 넷을 한 번에 읽는 자리(PortalBootstrap 머리말).
+        services.AddScoped<PortalBootstrap>();
+
+        // 그 응답을 사용자별로 잠깐 들고 있는 통.
+        //
+        // **싱글턴이어야 한다.** scoped 로 두면 모듈 컨테이너가 갈릴 때 통도
+        // 함께 사라져서, 막으려던 바로 그 재조회를 하나도 못 막는다
+        // (PortalBootstrapStore 머리말).
+        services.AddMemoryCache();
+        services.AddSingleton<PortalBootstrapStore>();
 
         // 테마 서랍을 사용자 메뉴에서도 열 수 있게 하는 손잡이.
         services.AddScoped<ThemeDrawer>();

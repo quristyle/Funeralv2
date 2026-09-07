@@ -10,17 +10,28 @@ namespace AuthServer.Services;
 public class MenuService : IMenuService
 {
     private readonly AppDbContext _context;
+    private readonly MenuTreeCache _cache;
 
-    public MenuService(AppDbContext context)
+    public MenuService(AppDbContext context, MenuTreeCache cache)
     {
         _context = context;
+        _cache = cache;
     }
 
     /// <summary>
     /// 사용자가 접근 가능한 모든 메뉴 목록을 트리 구조로 반환
     /// </summary>
-    /// <param name="userId">사용자 식별자</param>
-    public async Task<List<MenuDto>> GetAllMenusAsync(string userId, string? locale = null)
+    /// <param name="userId">
+    /// 사용자 식별자. <b>지금은 쓰지 않는다</b> — 이 응답은 활성 메뉴 전부이고
+    /// 사용자별로 거르는 일은 프론트가 권한표로 한다. 그래서 트리를 사람마다
+    /// 만들지 않고 <see cref="MenuTreeCache"/> 에 한 벌만 둔다.
+    /// 여기서 거르도록 바꾼다면 그 캐시부터 손봐야 한다.
+    /// </param>
+    public Task<List<MenuDto>> GetAllMenusAsync(string userId, string? locale = null) =>
+        _cache.GetOrLoadAsync(locale, () => LoadAllMenusAsync(locale));
+
+    /// <summary>DB 에서 실제로 읽어 트리를 만든다. 캐시가 비었을 때만 돈다.</summary>
+    private async Task<List<MenuDto>> LoadAllMenusAsync(string? locale)
     {
         // 1. 모든 활성 메뉴 조회
         var allMenus = await _context.SystemMenus
@@ -84,6 +95,7 @@ public class MenuService : IMenuService
         }
 
         await _context.SaveChangesAsync();
+        _cache.Invalidate();
         return true;
     }
 
@@ -274,6 +286,7 @@ public class MenuService : IMenuService
         }
 
         await _context.SaveChangesAsync();
+        _cache.Invalidate();
         return true;
     }
 
@@ -286,6 +299,8 @@ public class MenuService : IMenuService
             {
                 Name = m.Name,
                 Path = m.Path,
+                // 프론트가 링크 주소를 푸는 열쇠. Path 가 아니라 이쪽이다.
+                RouteKey = m.RouteKey,
                 Component = m.Component, // ?? "BasicLayout",
                 Meta = new MenuMetaDto
                 {

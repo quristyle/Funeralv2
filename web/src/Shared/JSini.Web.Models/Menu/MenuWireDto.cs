@@ -26,6 +26,18 @@ public sealed class MenuWireDto
     [JsonPropertyName("path")]
     public string Path { get; set; } = string.Empty;
 
+    /// <summary>
+    /// 이 메뉴가 가리키는 화면의 열쇠 (<c>funeral.room-status</c>).
+    /// <c>scom.system_menus.route_key</c> 그대로다.
+    ///
+    /// <b>이것이 <see cref="Path"/> 를 대신해 라우트를 찾는 길이다.</b>
+    /// URL 이 바뀌어도 이 값은 그대로이므로 메뉴가 화면을 잃지 않는다.
+    /// 아직 채우지 않은 메뉴는 <c>null</c> 이고, 그때만 옛 길
+    /// (<c>RouteAliases</c> + <see cref="Path"/>)로 떨어진다.
+    /// </summary>
+    [JsonPropertyName("routeKey")]
+    public string? RouteKey { get; set; }
+
     [JsonPropertyName("meta")]
     public MenuMetaWireDto Meta { get; set; } = new();
 
@@ -40,6 +52,7 @@ public sealed class MenuWireDto
     public MenuNode ToNode() => new()
     {
         Path = Path,
+        RouteKey = string.IsNullOrWhiteSpace(RouteKey) ? null : RouteKey,
         // 서버가 옮겨 준 글자가 있으면 그것을 쓴다. 없으면 저장된 제목,
         // 그것도 비면 메뉴 이름으로 떨어진다.
         Title = FirstNonBlank(Meta.TitleText, Meta.Title, Name),

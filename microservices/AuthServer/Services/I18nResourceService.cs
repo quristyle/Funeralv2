@@ -9,9 +9,15 @@ public class I18nResourceService : II18nResourceService
 {
     private readonly AppDbContext _context;
 
-    public I18nResourceService(AppDbContext context)
+    // 다국어 값을 고치면 **메뉴 제목도 바뀐다** — 서버가 meta.titleText 에
+    // 옮겨 담아 내려보내기 때문이다. 그 트리는 캐시되어 있으므로 여기서
+    // 함께 버리지 않으면 "i18n 을 고쳤는데 사이드바만 옛 글자" 가 된다.
+    private readonly MenuTreeCache _menuCache;
+
+    public I18nResourceService(AppDbContext context, MenuTreeCache menuCache)
     {
         _context = context;
+        _menuCache = menuCache;
     }
 
     public async Task<List<I18nResourceDto>> GetAllResourcesAsync()
@@ -97,6 +103,7 @@ public class I18nResourceService : II18nResourceService
 
         _context.I18nResources.Add(resource);
         await _context.SaveChangesAsync();
+        _menuCache.Invalidate();
 
         return new I18nResourceDto
         {
@@ -119,6 +126,7 @@ public class I18nResourceService : II18nResourceService
         resource.Category = request.Category;
 
         await _context.SaveChangesAsync();
+        _menuCache.Invalidate();
         return true;
     }
 
@@ -129,6 +137,7 @@ public class I18nResourceService : II18nResourceService
 
         _context.I18nResources.Remove(resource);
         await _context.SaveChangesAsync();
+        _menuCache.Invalidate();
         return true;
     }
 
@@ -173,6 +182,7 @@ public class I18nResourceService : II18nResourceService
 
             _context.I18nResources.Add(resource);
             await _context.SaveChangesAsync();
+            _menuCache.Invalidate();
         }
     }
 

@@ -32,6 +32,33 @@ public class SystemMenu : BaseEntity<string>
     [Column("path")]
     public string Path { get; set; } = string.Empty;
 
+    // ── 화면을 가리키는 열쇠 ──────────────────────────────────
+    //
+    // [왜 URL(path) 이 아니라 열쇠인가]
+    //
+    // path 는 역할-메뉴 권한표와 즐겨찾기의 열쇠이기도 하다. 그래서 URL 을
+    // 고치면 그 메뉴의 권한이 조용히 끊긴다 — *권한이 없는데 메뉴가 보이는*
+    // 쪽으로 틀리므로 사실상 못 바꾸는 값이었고, Vue 시절 경로 69건이 그대로
+    // 남아 있는 이유가 그것이다.
+    //
+    // 열쇠를 따로 두면 URL 은 코드가 마음대로 바꿔도 되고 DB 는 화면을 계속
+    // 정확히 가리킨다. 프론트가 실려 있는 화면 목록(RouteInventory)에서
+    // 열쇠로 주소를 푼다 — 사전 조회 한 번이고 DB 를 타지 않는다.
+    //
+    // 아직 안 채운 메뉴는 null 이고, 그때만 프론트가 옛 방식
+    // (RouteAliases + path)으로 떨어진다. 그 수가 곧 남은 이행량이다.
+    //
+    // 주석을 요약(<summary>)에 적지 않는 것은 그 글자가 DB 컬럼 코멘트로
+    // 그대로 들어가기 때문이다.
+
+    /// <summary>이 메뉴가 가리키는 화면의 열쇠 (예: funeral.room-status)</summary>
+    [Column("route_key")]
+    public string? RouteKey { get; set; }
+
+    // Vue 시절의 라우트 생성원이다. Blazor 는 @page 로 컴파일 시점에 라우트가
+    // 정해지므로 DB 문자열이 화면을 만들 수 없다 — **지금은 아무도 읽지 않고**
+    // 값은 이력으로만 남겨 둔다.
+
     /// <summary>
     /// 프론트엔드 컴포넌트 파일 경로
     /// </summary>

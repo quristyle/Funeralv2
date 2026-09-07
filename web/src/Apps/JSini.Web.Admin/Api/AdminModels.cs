@@ -1098,7 +1098,18 @@ public sealed class SystemMenuDto
 {
     public string Id { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
+
+    /// <summary>
+    /// 브라우저 경로. <b>권한표와 즐겨찾기의 열쇠</b>라 함부로 바꾸지 않는다.
+    /// 사용자가 실제로 가는 주소는 <see cref="RouteKey"/> 가 정한다.
+    /// </summary>
     public string Path { get; set; } = string.Empty;
+
+    /// <summary>
+    /// 이 메뉴가 여는 화면의 열쇠 (<c>funeral.room-status</c>).
+    /// 실려 있는 화면 목록에서 고른 값이다.
+    /// </summary>
+    public string? RouteKey { get; set; }
 
     /// <summary>
     /// 옛 Vue 파일 경로. <b>더 이상 읽지 않는다</b> — 라우팅은 Blazor 의
@@ -1171,6 +1182,10 @@ public sealed class SaveSystemMenuDto
 {
     public string Name { get; set; } = string.Empty;
     public string Path { get; set; } = string.Empty;
+
+    /// <summary>여는 화면의 열쇠. 묶음(CATALOG)·바깥 링크는 비운다.</summary>
+    public string? RouteKey { get; set; }
+
     public string? Component { get; set; }
     public string? Pid { get; set; }
     public string? Redirect { get; set; }
@@ -1233,6 +1248,23 @@ public sealed class CommonCodeDto
     public int Status { get; set; } = 1;
     public string? Remark { get; set; }
     public List<CommonCodeDto>? Children { get; set; }
+
+    /// <summary>
+    /// 편집 폼의 「사용」 스위치가 묶이는 자리. <see cref="Status"/> 의 0/1 을 가린다.
+    ///
+    /// <para>
+    /// 편집 폼 안의 편집기는 <c>@bind-</c> 로 묶어야 한다. <c>Checked</c> 와
+    /// <c>CheckedChanged</c> 를 따로 주면 검증 식이 없어 <b>팝업이 말없이
+    /// 안 열린다</b> — 화면에는 아무 표시도 안 나고 브라우저 콘솔에만
+    /// <c>requires a value for the 'CheckedExpression' property</c> 가 남는다.
+    /// <c>NoticeDto.IsActive</c> 와 같은 이유로 낸 창이다.
+    /// </para>
+    /// </summary>
+    public bool IsActive
+    {
+        get => Status == 1;
+        set => Status = value ? 1 : 0;
+    }
 }
 
 /// <summary>코드 등록·수정.</summary>

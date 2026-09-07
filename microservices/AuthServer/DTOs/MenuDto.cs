@@ -11,12 +11,22 @@ public class MenuDto
     public string Name { get; set; } = string.Empty;
 
     /// <summary>
-    /// 브라우저 접속 경로
+    /// 브라우저 접속 경로.
+    ///
+    /// <b>권한표와 즐겨찾기의 열쇠</b>이기도 하다. 링크 주소는 이제
+    /// <see cref="RouteKey"/> 에서 나오므로, 이 값은 옛 경로 그대로여도 된다.
     /// </summary>
     public string Path { get; set; } = string.Empty;
 
     /// <summary>
-    /// 프론트엔드 컴포넌트 경로 (예: layouts/default/index)
+    /// 이 메뉴가 가리키는 화면의 열쇠 (<c>funeral.room-status</c>).
+    /// <b>프론트가 링크 주소를 푸는 값이다.</b> 안 채운 메뉴는 <c>null</c>.
+    /// </summary>
+    public string? RouteKey { get; set; }
+
+    /// <summary>
+    /// 프론트엔드 컴포넌트 경로 (예: layouts/default/index).
+    /// Vue 시절의 라우트 생성원이고 <b>지금은 아무도 읽지 않는다</b>.
     /// </summary>
     public string Component { get; set; } = string.Empty;
 

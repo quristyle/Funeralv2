@@ -44,18 +44,8 @@ public sealed class PermissionContext(
     {
         try
         {
-            var list = await gateway.GetListAsync<MenuPermissionDto>(
-                "auth/menu/permissions", cancellationToken);
-
-            _byPath = list
-                .Where(p => !string.IsNullOrWhiteSpace(p.Path))
-                // 같은 경로가 두 줄 오면 뒤엣것을 쓴다. 서버가 역할을 OR 로 합쳐
-                // 내려주므로 실제로는 겹치지 않지만, 겹쳤을 때 예외로 죽는 것보다
-                // 낫다 — 권한 화면 하나 때문에 포털 전체가 안 뜨면 곤란하다.
-                .ToDictionary(p => Normalize(p.Path), p => p, StringComparer.Ordinal);
-
-            IsLoaded = true;
-            logger.LogInformation("권한표를 읽었다: {Count}건", _byPath.Count);
+            Apply(await gateway.GetListAsync<MenuPermissionDto>(
+                "auth/menu/permissions", cancellationToken));
         }
         catch (ApiException ex)
         {
@@ -64,6 +54,23 @@ public sealed class PermissionContext(
             // 실제 통제는 서버가 계속 하므로 안전 범위 안이다.
             logger.LogWarning(ex, "권한표를 읽지 못했다. 이번에는 거르지 않는다.");
         }
+    }
+
+    /// <summary>
+    /// 이미 받아 둔 권한표를 채운다. 부트스트랩 한 방(<c>PortalBootstrap</c>)이
+    /// 쓰는 길이다 — 게이트웨이를 다시 부르지 않는다.
+    /// </summary>
+    public void Apply(IReadOnlyList<MenuPermissionDto> list)
+    {
+        _byPath = list
+            .Where(p => !string.IsNullOrWhiteSpace(p.Path))
+            // 같은 경로가 두 줄 오면 뒤엣것을 쓴다. 서버가 역할을 OR 로 합쳐
+            // 내려주므로 실제로는 겹치지 않지만, 겹쳤을 때 예외로 죽는 것보다
+            // 낫다 — 권한 화면 하나 때문에 포털 전체가 안 뜨면 곤란하다.
+            .ToDictionary(p => Normalize(p.Path), p => p, StringComparer.Ordinal);
+
+        IsLoaded = true;
+        logger.LogInformation("권한표를 읽었다: {Count}건", _byPath.Count);
     }
 
     /// <summary>

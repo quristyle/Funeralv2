@@ -11,14 +11,20 @@ namespace AuthServer.Services;
 public class SystemMenuService : ISystemMenuService
 {
     private readonly AppDbContext _db;
+    private readonly MenuTreeCache _cache;
 
     /// <summary>
     /// SystemMenuService의 생성자
     /// </summary>
     /// <param name="db">데이터베이스 컨텍스트</param>
-    public SystemMenuService(AppDbContext db)
+    /// <param name="cache">
+    /// 사이드바 메뉴 트리 캐시. 이 화면에서 메뉴를 고치면 사이드바가 보는
+    /// 트리도 낡으므로 저장할 때마다 함께 버린다.
+    /// </param>
+    public SystemMenuService(AppDbContext db, MenuTreeCache cache)
     {
         _db = db;
+        _cache = cache;
     }
 
     /// <summary>
@@ -64,6 +70,7 @@ public class SystemMenuService : ISystemMenuService
                 Id = m.Id,
                 Name = m.Name,
                 Path = m.Path,
+                RouteKey = m.RouteKey,
                 Component = m.Component,
                 Pid = m.Pid,
                 Redirect = m.Redirect,
@@ -196,6 +203,7 @@ public class SystemMenuService : ISystemMenuService
             Id = Guid.NewGuid().ToString(),
             Name = request.Name,
             Path = request.Path,
+            RouteKey = Normalize(request.RouteKey),
             Component = request.Component,
             Pid = request.Pid,
             Redirect = request.Redirect,
@@ -227,6 +235,7 @@ public class SystemMenuService : ISystemMenuService
         ApplyPermissions(menu, request.Permissions);
         _db.SystemMenus.Add(menu);
         await _db.SaveChangesAsync();
+        _cache.Invalidate();
 
         return new SystemMenuDto { Id = menu.Id, Name = menu.Name, Path = menu.Path };
     }
@@ -241,6 +250,7 @@ public class SystemMenuService : ISystemMenuService
 
         menu.Name = request.Name;
         menu.Path = request.Path;
+        menu.RouteKey = Normalize(request.RouteKey);
         menu.Component = request.Component;
         menu.Pid = request.Pid;
         menu.Redirect = request.Redirect;
@@ -273,6 +283,7 @@ public class SystemMenuService : ISystemMenuService
         ApplyPermissions(menu, request.Permissions);
 
         await _db.SaveChangesAsync();
+        _cache.Invalidate();
         return true;
     }
 
@@ -286,6 +297,17 @@ public class SystemMenuService : ISystemMenuService
 
         _db.SystemMenus.Remove(menu);
         await _db.SaveChangesAsync();
+        _cache.Invalidate();
         return true;
     }
+
+    /// <summary>
+    /// 빈 열쇠는 <c>null</c> 로 저장한다.
+    ///
+    /// 빈 문자열로 두면 "가리키는 화면이 없다"(묶음·외부링크)와
+    /// "아직 안 채웠다"가 구분되지 않는다. 프론트는 <c>null</c> 일 때만 옛
+    /// 방식으로 떨어지므로, 그 구분이 이행이 끝났는지를 재는 눈금이다.
+    /// </summary>
+    private static string? Normalize(string? routeKey) =>
+        string.IsNullOrWhiteSpace(routeKey) ? null : routeKey.Trim();
 }

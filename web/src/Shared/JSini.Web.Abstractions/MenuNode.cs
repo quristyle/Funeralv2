@@ -17,6 +17,19 @@ public sealed record MenuNode
     public required string Path { get; init; }
 
     /// <summary>
+    /// 이 메뉴가 가리키는 화면의 열쇠 (<c>funeral.room-status</c>).
+    /// DB <c>scom.system_menus.route_key</c> 값이다.
+    ///
+    /// <b>링크 주소는 이 값에서 나온다.</b> <see cref="Path"/> 가 아니다 —
+    /// 그쪽은 권한표와 즐겨찾기의 열쇠라 함부로 못 바꾸는 값이고, 그래서 옛
+    /// Vue 경로가 그대로 남아 있다(<c>RouteKeyAttribute</c> 머리말).
+    ///
+    /// 아직 채우지 않은 메뉴는 <c>null</c> 이고, 그때는 <c>RouteAliases</c> 가
+    /// <see cref="Path"/> 를 옮기는 옛 길로 떨어진다.
+    /// </summary>
+    public string? RouteKey { get; init; }
+
+    /// <summary>
     /// 사이드바가 실제로 거는 링크 주소.
     ///
     /// **<see cref="Path"/> 와 갈라 둔 이유가 있다.** 둘은 이행이 끝날 때까지

@@ -16,12 +16,21 @@ public class SystemMenuDto
     public string Name { get; set; } = string.Empty;
 
     /// <summary>
-    /// 브라우저 접속 경로
+    /// 브라우저 접속 경로.
+    ///
+    /// <b>역할-메뉴 권한표와 즐겨찾기의 열쇠</b>이므로 함부로 바꾸지 않는다.
+    /// 링크 주소는 <see cref="RouteKey"/> 가 정한다.
     /// </summary>
     public string Path { get; set; } = string.Empty;
 
     /// <summary>
-    /// 프론트엔드 컴포넌트 경로
+    /// 이 메뉴가 가리키는 화면의 열쇠 (<c>funeral.room-status</c>).
+    /// 메뉴 관리 화면이 <b>실려 있는 화면 목록에서 골라</b> 채운다.
+    /// </summary>
+    public string? RouteKey { get; set; }
+
+    /// <summary>
+    /// 프론트엔드 컴포넌트 경로. Vue 시절 값이고 지금은 읽지 않는다.
     /// </summary>
     public string? Component { get; set; }
 
@@ -193,12 +202,18 @@ public class CreateSystemMenuDto
     public string Name { get; set; } = string.Empty;
 
     /// <summary>
-    /// 접속 경로
+    /// 접속 경로. 권한표의 열쇠이기도 하다.
     /// </summary>
     public string Path { get; set; } = string.Empty;
 
     /// <summary>
-    /// 컴포넌트 경로
+    /// 가리킬 화면의 열쇠 (<c>funeral.room-status</c>).
+    /// 메뉴 관리 화면이 목록에서 고른 값을 싣는다. 묶음(CATALOG)은 비운다.
+    /// </summary>
+    public string? RouteKey { get; set; }
+
+    /// <summary>
+    /// 컴포넌트 경로. Vue 시절 값이고 지금은 읽지 않는다.
     /// </summary>
     public string? Component { get; set; }
 

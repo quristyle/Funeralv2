@@ -2133,6 +2133,11 @@ namespace AuthServer.Migrations
                         .HasColumnName("redirect")
                         .HasComment("리다이렉트할 경로 (URL)");
 
+                    b.Property<string>("RouteKey")
+                        .HasColumnType("text")
+                        .HasColumnName("route_key")
+                        .HasComment("이 메뉴가 가리키는 화면의 열쇠 (예: funeral.room-status)");
+
                     b.Property<int>("Status")
                         .HasColumnType("integer")
                         .HasColumnName("status")

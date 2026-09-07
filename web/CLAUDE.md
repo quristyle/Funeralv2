@@ -153,19 +153,59 @@ app.MapMicrofrontends<App>()
 |---|---|---|
 | 라우트 정의 | DB `scom.system_menus.component` (Vue 파일 경로) | 모듈의 `@page` |
 | DB 역할 | 라우트 **생성원** | 메뉴 노출·권한 **테이블** |
-| 연결 고리 | `component` | `path` |
+| 연결 고리 | `component` | **`route_key`** (2026-09-07 이후) |
 | 불일치 발견 | 런타임 `console.warn` | 기동 로그 + 아키텍처 테스트 |
 
 DB 의 `component` 컬럼은 **더 이상 읽지 않는다.**
 
-### **`@page` 를 DB 메뉴 경로에 맞춘다** — 가장 자주 밟는 함정
+## 연결 고리는 URL 이 아니라 **열쇠**다
 
-화면을 다 만들어 놓고도 메뉴로 열리지 않는 일이 실제로 열몇 건 있었다.
+화면마다 `@page` 아래에 열쇠를 하나 적는다.
+
+```razor
+@page "/funeral/room-status"
+@attribute [RouteKey("funeral.room-status")]
+```
+
+DB 는 그 열쇠(`scom.system_menus.route_key`)를 들고, 사이드바가 링크를 걸 때
+기동 때 만들어 둔 표(`RouteInventory.Catalog`)에서 주소를 푼다.
+**사전 조회 한 번이고 DB 를 타지 않는다** — 라우팅 속도는 `@page` 그대로다.
+
+### 왜 URL 을 열쇠로 쓰면 안 됐나
+
+`path` 는 **역할-메뉴 권한표와 즐겨찾기의 열쇠**이기도 하다. 그래서 URL 을
+한 글자만 고쳐도 그 메뉴의 권한이 조용히 끊기고, 끊기는 방향이 *권한이 없는데
+메뉴가 보이는* 쪽이라 특히 나쁘다. 결과로 URL 이 사실상 못 바꾸는 값이 되었고
+Vue 시절 경로 69건이 그대로 남아 있었다.
+
+열쇠를 떼어 놓으면 그 매듭이 풀린다.
+
+| | 소유자 | 바꿔도 되나 |
+|---|---|---|
+| URL (`@page`) | 코드 | **된다.** DB 는 URL 을 모른다 |
+| 열쇠 (`RouteKey`) | 코드가 정하고 DB 가 가리킨다 | 한 번 정하면 안 바꾼다 |
+| `path` | DB | 권한·즐겨찾기가 걸려 있어 안 바꾼다 |
+
+### **가장 자주 밟던 함정이 없어졌다**
+
+화면을 다 만들어 놓고도 메뉴로 열리지 않는 일이 열몇 건 있었다 —
 `DbTester.razor` 가 `/projmng/develop/db-tester` 인데 DB 메뉴는
-`/projmng/db/tester` 인 식이다. **각 파일만 보면 둘 다 정상으로 보인다.**
+`/projmng/db/tester` 인 식이다. **각 파일만 보면 둘 다 정상으로 보였다.**
 
-정본은 [docs/menu-route-map.md](docs/menu-route-map.md) 다. 화면을 옮기기 전에
-그 표에서 목적지 경로를 먼저 확인한다.
+이제 메뉴 관리 화면(`/admin/system/menu`)의 「화면」 칸이 **실려 있는 화면
+목록에서 고르게** 한다. 없는 화면을 가리킬 방법이 아예 없다.
+
+빠뜨림은 `RouteKeyTests` 넷이 빌드 때 막는다 — 화면마다 열쇠가 정확히 하나,
+저장소 전체에서 유일, 자기 모듈 이름으로 시작, 포괄 라우트에는 붙이지 않기.
+
+### 이행 상태 (2026-09-07)
+
+운영 DB 179건 중 **153건에 열쇠가 채워져 있다**(`docs/menu-route-key-backfill.sql`).
+남은 26건은 묶음(CATALOG) 24 + 갈 화면이 없는 vben 대시보드 잔재 2
+(`/analytics` · `/workspace`)라 채울 것이 없다.
+
+열쇠가 없는 메뉴는 아래 `RouteAliases` 로 떨어진다. **그 길이 안 쓰이게 되면
+`RouteAliases` 와 `menu-path-cutover.sql` 을 함께 지운다.**
 
 ### 옛 경로는 `RouteAliases` 가 흡수한다
 
@@ -618,6 +658,40 @@ Components/Shared/Notice.razor        화면 안내줄
 - 조건줄은 `jsini-toolbar`, 통계 타일은 `jsini-stats`, 상태 표시는 `jsini-badge`.
 - 모듈 전용 스타일은 그 모듈 `wwwroot/*.css` 에 두고
   `IPortalModule.StyleSheet` 로 알린다. 셸은 모듈 이름을 알지 못한다.
+
+### `CommGrd` 에 `EventCallback` 을 splat 하면 화면이 500 으로 죽는다
+
+**실제로 두 화면이 그래서 안 열리고 있었다**(공통코드 · 기기관리).
+
+`CommGrd` 는 선언하지 않은 파라미터를 전부 `DxGrid` 로 흘려 보낸다. 편한
+대신 **Razor 가 그 값의 형을 모른다.** 문자열이 어긋나는 것은 `Coerce` 가
+맞춰 주지만 **대리자는 맞춰 줄 수 없다** — 아래처럼 적으면 `EventCallback`
+으로 감싸이지 않은 맨 `Func<object, Task>` 가 넘어간다.
+
+```razor
+@* 틀렸다 — CommGrd 가 선언하지 않은 이름이라 splat 으로 흘러간다 *@
+SelectedDataItemChanged="@((object? item) => OnGroupChangedAsync(item))"
+```
+
+DevExpress 가 대입할 때 형변환에 실패하고 화면은 **그리기도 전에** 500 이
+된다(``Unable to cast … Func`2 … to EventCallback`1``). 빌드도 다른
+테스트도 전부 통과하고 파일만 보면 정상으로 보인다.
+
+고른 줄은 `CommGrd` 가 선언한 이름으로 받는다.
+
+```razor
+SelectedItem="@_group"
+SelectedItemChanged="@OnGroupChangedAsync"
+```
+
+**둘을 같이 준다.** 값 없이 알림만 받으면 화면이 고른 줄을 보관하지 않는다는
+뜻이 되어 강조가 곧 풀린다. 그리고 대리자를 `CommGrd` 안에서 감싸는 것으로는
+안 된다 — 그러면 알림 받는이가 화면이 아니라 `CommGrd` 가 되어 **표만** 다시
+그려지고, 고른 줄에 딸린 칸이 안 바뀐다.
+
+`DxGrid` 의 다른 `EventCallback` 도 같다. 필요해지면 **`CommGrd` 에 먼저
+선언한다.** `CommGrdSplatTests` 가 남은 splat 을 찾아 막는다 — 금지 목록은
+`DxGrid` 를 반사로 훑어 만들므로 DevExpress 를 올려도 따라온다.
 
 ### 사이드바는 검색 · 탭 · 트리 셋이다
 

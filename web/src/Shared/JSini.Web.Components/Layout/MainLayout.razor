@@ -39,6 +39,7 @@
 @inject ScreenLock Lock
 @inject MenuFavorites Favorites
 @inject CurrentUser Me
+@inject PortalBootstrap Bootstrap
 @inject PortalTabs Tabs
 @inject AuthenticationStateProvider AuthState
 @inject NavigationManager Navigation
@@ -129,19 +130,21 @@
     }
 
     /// <summary>
-    /// **순서가 넷 다 중요하다.**
-    ///
-    /// ① 토큰 — 게이트웨이를 부르려면 먼저 있어야 한다. 그리고 이 값은
-    ///    `AuthenticationStateProvider` 에서만 나오는데, 그건 **Razor 컴포넌트
-    ///    안에서만** 물을 수 있다. HTTP 핸들러에서 물으면 예외로 죽는다.
-    /// ② 권한표 — 메뉴를 거르는 데 쓴다.
-    /// ③ 메뉴 — 권한표가 없는 상태에서 읽으면 걸러지지 않은 목록이 한 번
-    ///    보였다가 바뀐다.
-    /// ④ 즐겨찾기 — 메뉴가 있어야 이름을 붙일 수 있다.
+    /// **토큰이 먼저다.** 게이트웨이를 부르려면 있어야 하고, 이 값은
+    /// `AuthenticationStateProvider` 에서만 나오는데 그건 **Razor 컴포넌트
+    /// 안에서만** 물을 수 있다. HTTP 핸들러에서 물으면 예외로 죽는다.
     ///
     /// <para>
-    /// 헤더의 얼굴(<see cref="CurrentUser"/>)은 <b>맨 뒤</b>다. 사이드바가
-    /// 그려지는 것이 먼저고, 얼굴은 늦게 떠도 이름 첫 글자가 자리를 지킨다.
+    /// 그다음 권한표 · 메뉴 · 즐겨찾기 · 내정보를 <b>한 번의 왕복</b>으로
+    /// 받는다(<see cref="PortalBootstrap"/>). 넷을 순차로 부르던 자리였고,
+    /// 이 레이아웃은 <b>업무 모듈을 넘나들 때마다 새로 만들어지므로</b>
+    /// 그 왕복이 화면 전환 횟수만큼 났다.
+    /// </para>
+    ///
+    /// <para>
+    /// 넷 사이의 순서 제약(권한표 → 메뉴 → 즐겨찾기 → 얼굴)은 없어진 것이
+    /// 아니라 <see cref="PortalBootstrap"/> 안으로 옮겨 갔다. 부트스트랩이
+    /// 안 되는 환경에서는 거기서 옛 방식으로 떨어진다.
     /// </para>
     /// </summary>
     protected override async Task OnInitializedAsync()
@@ -150,10 +153,7 @@
         Tokens.Initialize(state.User);
         _userName = state.User.Identity?.Name;
 
-        await Permissions.ReloadAsync();
-        await Menus.ReloadAsync();
-        await Favorites.ReloadAsync();
-        await Me.ReloadAsync();
+        await Bootstrap.LoadAsync(state.User);
 
         Track();
     }

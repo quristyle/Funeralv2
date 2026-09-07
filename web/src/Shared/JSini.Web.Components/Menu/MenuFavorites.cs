@@ -39,8 +39,8 @@ public sealed class MenuFavorites(GatewayClient gateway, ILogger<MenuFavorites> 
     {
         try
         {
-            Items = await gateway.GetListAsync<MenuFavorite>(Path, ct);
-            IsLoaded = true;
+            Apply(await gateway.GetListAsync<MenuFavorite>(Path, ct));
+            return;
         }
         catch (ApiException ex)
         {
@@ -50,6 +50,17 @@ public sealed class MenuFavorites(GatewayClient gateway, ILogger<MenuFavorites> 
             Items = [];
         }
 
+        Changed?.Invoke();
+    }
+
+    /// <summary>
+    /// 이미 받아 둔 목록을 채운다. 부트스트랩 한 방(<c>PortalBootstrap</c>)이
+    /// 쓰는 길이다 — 게이트웨이를 다시 부르지 않는다.
+    /// </summary>
+    public void Apply(IReadOnlyList<MenuFavorite> items)
+    {
+        Items = items;
+        IsLoaded = true;
         Changed?.Invoke();
     }
 

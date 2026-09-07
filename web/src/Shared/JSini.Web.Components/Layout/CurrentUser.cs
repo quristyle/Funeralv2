@@ -94,20 +94,32 @@ public sealed partial class CurrentUser(GatewayClient gateway, ILogger<CurrentUs
     {
         try
         {
-            var info = await gateway.GetOneAsync<Payload>("auth/user/info", cancellationToken);
-
-            if (info is not null)
-            {
-                DisplayName = string.IsNullOrWhiteSpace(info.RealName) ? info.Username : info.RealName;
-                Username = info.Username;
-                Affiliation = Join(info.CompanyName, info.DeptName);
-                AvatarUrl = OwnFileUrl(info.Avatar);
-                IsLoaded = true;
-            }
+            Apply(await gateway.GetOneAsync<UserInfoWire>("auth/user/info", cancellationToken));
+            return;
         }
         catch (ApiException ex)
         {
             logger.LogWarning(ex, "내 정보를 읽지 못했다. 헤더에는 이름만 보인다.");
+        }
+
+        Changed?.Invoke();
+    }
+
+    /// <summary>
+    /// 이미 받아 둔 값을 채운다. 부트스트랩 한 방(<c>PortalBootstrap</c>)이
+    /// 쓰는 길이다 — 게이트웨이를 다시 부르지 않는다.
+    ///
+    /// <c>null</c> 이면 못 읽은 것으로 보고 그대로 둔다.
+    /// </summary>
+    public void Apply(UserInfoWire? info)
+    {
+        if (info is not null)
+        {
+            DisplayName = string.IsNullOrWhiteSpace(info.RealName) ? info.Username : info.RealName;
+            Username = info.Username;
+            Affiliation = Join(info.CompanyName, info.DeptName);
+            AvatarUrl = OwnFileUrl(info.Avatar);
+            IsLoaded = true;
         }
 
         Changed?.Invoke();
@@ -189,7 +201,8 @@ public sealed partial class CurrentUser(GatewayClient gateway, ILogger<CurrentUs
     private static partial Regex LegacyFileUrl();
 
     /// <summary><c>auth/user/info</c> 에서 헤더가 쓰는 칸만.</summary>
-    private sealed class Payload
+    /// <summary><c>/auth/user/info</c> 응답 한 벌. 부트스트랩도 같은 모양을 싣는다.</summary>
+    public sealed class UserInfoWire
     {
         public string? Username { get; set; }
         public string? RealName { get; set; }

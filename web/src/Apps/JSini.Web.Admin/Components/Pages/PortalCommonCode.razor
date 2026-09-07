@@ -1,4 +1,5 @@
 @page "/admin/system/common-code"
+@attribute [RouteKey("admin.system.common-code")]
 
 @*
     [공통코드] — DB 메뉴 `/system/common-code`.
@@ -30,10 +31,30 @@
     · **코드 값은 수정할 때 잠근다** — 묶음 코드와 같은 이유다. 화면과 저장
       프로시저가 그 값을 **이름으로** 부르므로, 바꾸면 참조가 조용히 끊긴다.
       묶음 코드만 잠그고 코드 값은 열려 있었다.
-    · **삭제 전에 묻는다** — 표 안의 작은 링크 단추라 오클릭이 나기 쉽고
-      되돌릴 수 없다. `ConfirmDialog` 가 무엇이 사라지는지 이름까지 보여 준다.
+    · **삭제 전에 묻는다** — 표 안의 작은 단추라 오클릭이 나기 쉽고
+      되돌릴 수 없다. 무엇이 사라지는지 이름까지 보여 준다.
     · **`d-flex gap-1` 을 걷어냈다** — Bootstrap 유틸리티라 기본 테마인
       Fluent 에서는 아무 일도 하지 않아 단추가 붙어 나왔다. `jsini-actions` 로.
+
+    [왼쪽 묶음 표는 CommGrd 에 일을 맡긴다]
+
+    등록·수정·삭제 단추를 손으로 적지 않는다. `OnSave`·`OnDelete`·`Reload` 를
+    주면 CommGrd 가 관리 칸의 아이콘과 아래 띠의 등록 단추를 붙이고, 편집
+    팝업·권한 가리기·실패 안내·목록 다시 읽기를 함께 맡는다. 손으로 적은
+    「수정」·「삭제」 링크가 있었는데, 그러면 화면마다 조작 자리와 아이콘이
+    갈라진다 — 남은 것은 **이 화면만의 것**뿐이어야 한다.
+
+    묶음 삭제는 딸린 코드가 함께 사라져서 확인 문구를 이 화면이 정한다
+    (`DeleteConfirm`). 기본 확인창은 어느 줄을 눌렀는지도 말해 주지 않는다.
+
+    [오른쪽 코드 표는 그림이 둘이라 사정이 다르다]
+
+    평평한 묶음은 CommGrd 라 위와 같이 맡긴다. 계층 묶음은 `DxTreeList` 로
+    갈아타는데 **거기에는 관리 칸도 아래 띠도 없다.** 그래서 그 두 개만 손으로
+    그리고, 클래스와 아이콘을 CommGrd 쪽에 맞춰 둔다 — 묶음을 바꿀 때마다
+    수정·삭제·등록 자리가 옮겨 다니지 않아야 한다.
+
+    편집 폼은 `CodeFields` **한 벌**을 두 팝업이 같이 쓴다.
 *@
 
 @inherits DataPage
@@ -47,46 +68,78 @@
 
     @* ── 왼쪽: 묶음 ───────────────────────────────────── *@
     <section class="ad-split__side">
-        <div class="jsini-toolbar">
-            <DxTextBox @bind-Text="_groupKeyword" NullText="묶음 검색" Style="width: 100%"
-                       ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
 
-            <PermissionView Action="MenuAction.Create">
-                <DxButton IconCssClass="jsini-icon-plus" Title="묶음 등록"
-                          RenderStyle="ButtonRenderStyle.Primary"
-                          Click="@StartNewGroup" />
-            </PermissionView>
-        </div>
 
         @* 고른 줄이 바뀌면 오른쪽을 다시 읽어야 하므로 `@@bind-` 대신
-           값과 변경을 따로 받는다. 둘을 같이 쓸 수는 없다. *@
+           값과 변경을 따로 받는다. 둘을 같이 쓸 수는 없다.
+
+           DevExpress 이름(`SelectedDataItem*`)을 직접 주면 안 된다 — CommGrd 가
+           선언하지 않은 이름은 splat 으로 흘러가고, 그러면 Razor 가 람다를
+           `EventCallback` 으로 감싸 주지 않아 이 화면이 500 으로 죽는다.
+           실제로 그래서 안 열리고 있었다. CommGrd 의 이름을 쓴다. *@
         <CommGrd TItem="CommonCodeGroupDto" Data="@ShownGroups"
-                 SelectedDataItem="@_group"
-                 SelectedDataItemChanged="@((object? item) => OnGroupChangedAsync(item))"
-                 PageSize="25">
+                 SelectedItem="@_group"
+                 SelectedItemChanged="@OnGroupChangedAsync"
+                 EditFormTitle="코드 묶음"
+                 ExportName="코드묶음"
+                 PageSize="25"
+                 OnNew="@FillNewGroup"
+                 OnEditOpen="@OnGroupEditOpen"
+                 OnSave="@SaveGroupAsync"
+                 OnDelete="@DeleteGroupAsync"
+                 DeleteConfirm="@GroupDeleteMessage"
+                 Reload="@ReloadGroupsAsync">
             <Columns>
                 <DxGridDataColumn FieldName="@nameof(CommonCodeGroupDto.GroupCode)" Caption="코드" Width="140" />
                 <DxGridDataColumn FieldName="@nameof(CommonCodeGroupDto.GroupName)" Caption="묶음 이름" MinWidth="130" />
-                <DxGridDataColumn Caption="" Width="86" AllowSort="false">
-                    <CellDisplayTemplate Context="cell">
-                        @{
-                            var g = (CommonCodeGroupDto)cell.DataItem;
-                        }
-                        <div class="jsini-actions">
-                            <PermissionView Action="MenuAction.Update">
-                                <DxButton Text="수정"
-                                          RenderStyle="ButtonRenderStyle.Link"
-                                          Click="@(() => StartEditGroup(g))" />
-                            </PermissionView>
-                            <PermissionView Action="MenuAction.Delete">
-                                <DxButton Text="삭제"
-                                          RenderStyle="ButtonRenderStyle.Link"
-                                          Click="@(() => DeleteGroupAsync(g))" />
-                            </PermissionView>
-                        </div>
-                    </CellDisplayTemplate>
-                </DxGridDataColumn>
             </Columns>
+
+            @* ── 묶음 편집 ──────────────────────────────────
+               DevExpress 가 만든 **편집 모델**(원본의 사본)이 넘어온다.
+               여기서 고쳐도 취소하면 표에는 남지 않는다.
+
+               지역 변수로 한 번 받아 두고 `@@bind-` 는 그 변수에 건다.
+               `@@bind-Text="((CommonCodeGroupDto)edit.EditModel).GroupCode"` 처럼
+               식 안에 형변환을 끼우면 DevExpress 가 검증 식을 만들지 못해
+               팝업이 그냥 안 열린다(EditFormBindingTests 주석 참고). *@
+            <EditFormTemplate Context="edit">
+                @{
+                    var grp = (CommonCodeGroupDto)edit.EditModel;
+                }
+                <DxFormLayout CssClass="ad-editform">
+                    <DxFormLayoutItem Caption="묶음 코드" ColSpanMd="12">
+                        @* 코드는 화면과 프로시저가 이름으로 부르는 값이라 등록할 때만 정한다. *@
+                        <DxTextBox @bind-Text="grp.GroupCode" ReadOnly="@(!_newGroup)"
+                                   NullText="@(_newGroup ? "SYS_STATUS 처럼 영문 대문자" : "수정할 수 없습니다")" />
+                    </DxFormLayoutItem>
+
+                    <DxFormLayoutItem Caption="묶음 이름" ColSpanMd="12">
+                        @* 다 치고 잠깐 멈추면 그때 AI 에게 묻는다. 멈추는 일은 브라우저가
+                           한다(`OnDelayedInput`) — 글자마다 회로를 왕복하지 않는다. *@
+                        <DxTextBox @bind-Text="grp.GroupName"
+                                   BindValueMode="BindValueMode.OnDelayedInput"
+                                   InputDelay="500" />
+                    </DxFormLayoutItem>
+
+                    <DxFormLayoutItem ColSpanMd="12" CaptionPosition="CaptionPosition.Vertical">
+                        <AiCodeSuggest Word="@grp.GroupName"
+                                       Enabled="@_newGroup"
+                                       OnPick="@(code => grp.GroupCode = code)" />
+                    </DxFormLayoutItem>
+
+                    <DxFormLayoutItem Caption="순서" ColSpanMd="6">
+                        <DxSpinEdit @bind-Value="grp.SortOrder" MinValue="0" />
+                    </DxFormLayoutItem>
+
+                    <DxFormLayoutItem Caption="계층" ColSpanMd="6">
+                        <DxCheckBox @bind-Checked="grp.IsHierarchical">코드가 겹친다</DxCheckBox>
+                    </DxFormLayoutItem>
+
+                    <DxFormLayoutItem Caption="비고" ColSpanMd="12">
+                        <DxMemo @bind-Text="grp.Remark" Rows="3" />
+                    </DxFormLayoutItem>
+                </DxFormLayout>
+            </EditFormTemplate>
         </CommGrd>
     </section>
 
@@ -106,16 +159,6 @@
                 {
                     <span class="jsini-badge jsini-badge--warn">계층</span>
                 }
-
-                <div class="jsini-toolbar__spacer"></div>
-
-                <PermissionView Action="MenuAction.Create">
-                    <DxButton Text="코드 등록" RenderStyle="ButtonRenderStyle.Primary"
-                              IconCssClass="jsini-icon-plus" Click="@StartNewCode" />
-                </PermissionView>
-
-                <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Secondary"
-                          IconCssClass="jsini-icon-refresh" Click="@ReloadCodesAsync" />
             </div>
 
             @if (_group.IsHierarchical)
@@ -139,10 +182,37 @@
                         </DxTreeListDataColumn>
                     </Columns>
                 </DxTreeList>
+
+                @* 표 아래 띠. `DxTreeList` 에는 CommGrd 의 그 띠가 없어서 여기서
+                   그린다 — 클래스를 CommGrd 와 같은 것으로 써서 평평한 묶음과
+                   **같은 자리에 같은 아이콘**이 온다. 위쪽에 「코드 등록」 단추를
+                   따로 두면 묶음을 바꿀 때마다 등록 자리가 위아래로 옮겨 다닌다. *@
+                <div class="commgrd__footer">
+                    <PermissionView Action="MenuAction.Create">
+                        <DxButton IconCssClass="jsini-icon-plus" Title="등록"
+                                  RenderStyle="ButtonRenderStyle.Link"
+                                  Click="@StartNewCode" />
+                    </PermissionView>
+
+                    <DxButton IconCssClass="jsini-icon-refresh" Title="다시 읽기"
+                              RenderStyle="ButtonRenderStyle.Link"
+                              Click="@ReloadCodesAsync" />
+
+                    <div class="commgrd__spacer"></div>
+                </div>
             }
             else
             {
-                <CommGrd TItem="CommonCodeDto" Data="@_codes" PageSize="25" ShowSearchBox="true">
+                <CommGrd TItem="CommonCodeDto" 
+                         Data="@_codes" PageSize="25" 
+                         EditFormTitle="코드"
+                         ExportName="@($"{_group.GroupCode} 코드")"
+                         OnNew="@FillNewCode"
+                         OnEditOpen="@OnCodeEditOpen"
+                         OnSave="@SaveCodeAsync"
+                         OnDelete="@DeleteCodeAsync"
+                         DeleteConfirm="@CodeDeleteMessage"
+                         Reload="@ReloadCodesAsync">
                     <Columns>
                         <DxGridDataColumn FieldName="@nameof(CommonCodeDto.CodeValue)" Caption="값" Width="160" />
                         <DxGridDataColumn FieldName="@nameof(CommonCodeDto.CodeName)" Caption="이름" MinWidth="200" />
@@ -154,126 +224,35 @@
                             </CellDisplayTemplate>
                         </DxGridDataColumn>
                         <DxGridDataColumn FieldName="@nameof(CommonCodeDto.Remark)" Caption="비고" MinWidth="150" />
-                        <DxGridDataColumn Caption="관리" Width="130" AllowSort="false">
-                            <CellDisplayTemplate Context="cell">
-                                @CodeActions((CommonCodeDto)cell.DataItem)
-                            </CellDisplayTemplate>
-                        </DxGridDataColumn>
                     </Columns>
+
+                    <EditFormTemplate Context="edit">
+                        @CodeFields((CommonCodeDto)edit.EditModel)
+                    </EditFormTemplate>
                 </CommGrd>
             }
         }
     </section>
 </div>
 
-@* ── 묶음 편집 ──────────────────────────────────────── *@
-<DxPopup @bind-Visible="_editingGroup" HeaderText="@(_newGroup ? "묶음 등록" : "묶음 수정")"
-         Width="520" CloseOnOutsideClick="false" ShowFooter="true">
-    <BodyContentTemplate Context="popup">
-        <DxFormLayout CssClass="ad-editform">
-            <DxFormLayoutItem Caption="묶음 코드" ColSpanMd="12">
-                @* 코드는 화면과 프로시저가 이름으로 부르는 값이라 등록할 때만 정한다. *@
-                <DxTextBox @bind-Text="_groupEdit.GroupCode" ReadOnly="@(!_newGroup)"
-                           NullText="@(_newGroup ? "SYS_STATUS 처럼 영문 대문자" : "수정할 수 없습니다")" />
-            </DxFormLayoutItem>
-
-            <DxFormLayoutItem Caption="묶음 이름" ColSpanMd="12">
-                @* 다 치고 잠깐 멈추면 그때 AI 에게 묻는다. 멈추는 일은 브라우저가
-                   한다(`OnDelayedInput`) — 글자마다 회로를 왕복하지 않는다. *@
-                <DxTextBox @bind-Text="_groupEdit.GroupName"
-                           BindValueMode="BindValueMode.OnDelayedInput"
-                           InputDelay="500" />
-            </DxFormLayoutItem>
-
-            <DxFormLayoutItem ColSpanMd="12" CaptionPosition="CaptionPosition.Vertical">
-                <AiCodeSuggest Word="@_groupEdit.GroupName"
-                               Enabled="@_newGroup"
-                               OnPick="@(code => _groupEdit.GroupCode = code)" />
-            </DxFormLayoutItem>
-
-            <DxFormLayoutItem Caption="순서" ColSpanMd="6">
-                <DxSpinEdit @bind-Value="_groupEdit.SortOrder" MinValue="0" />
-            </DxFormLayoutItem>
-
-            <DxFormLayoutItem Caption="계층" ColSpanMd="6">
-                <DxCheckBox @bind-Checked="_groupEdit.IsHierarchical">코드가 겹친다</DxCheckBox>
-            </DxFormLayoutItem>
-
-            <DxFormLayoutItem Caption="비고" ColSpanMd="12">
-                <DxMemo @bind-Text="_groupEdit.Remark" Rows="3" />
-            </DxFormLayoutItem>
-        </DxFormLayout>
-    </BodyContentTemplate>
-
-    <FooterContentTemplate>
-        <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Primary" Click="@SaveGroupAsync" />
-        <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary" Click="@(() => _editingGroup = false)" />
-    </FooterContentTemplate>
-</DxPopup>
-
-@* ── 코드 편집 ──────────────────────────────────────── *@
+@* ── 코드 편집 (나무일 때만) ─────────────────────────────
+   평평한 묶음은 CommGrd 가 자기 편집 팝업을 띄운다. `DxTreeList` 에는 그것이
+   없어서 이 팝업이 남아 있다. 폼은 `CodeFields` 한 벌을 둘이 같이 쓴다 —
+   두 벌로 두면 한쪽에만 칸이 늘어난다. *@
 <DxPopup @bind-Visible="_editingCode" HeaderText="@(_newCode ? "코드 등록" : "코드 수정")"
          Width="560" CloseOnOutsideClick="false" ShowFooter="true">
     <BodyContentTemplate Context="popup">
-        <DxFormLayout CssClass="ad-editform">
-            <DxFormLayoutItem Caption="값" ColSpanMd="6">
-                @* 묶음 코드와 같은 이유로 등록할 때만 정한다 — 화면과 프로시저가
-                   이 값을 이름으로 부른다. 바꾸면 참조가 조용히 끊긴다. *@
-                <DxTextBox @bind-Text="_codeEdit.CodeValue" ReadOnly="@(!_newCode)"
-                           NullText="@(_newCode ? "ACTIVE" : "수정할 수 없습니다")" />
-            </DxFormLayoutItem>
-
-            <DxFormLayoutItem Caption="이름" ColSpanMd="6">
-                <DxTextBox @bind-Text="_codeEdit.CodeName" NullText="정상"
-                           BindValueMode="BindValueMode.OnDelayedInput"
-                           InputDelay="500" />
-            </DxFormLayoutItem>
-
-            <DxFormLayoutItem ColSpanMd="12" CaptionPosition="CaptionPosition.Vertical">
-                <AiCodeSuggest Word="@_codeEdit.CodeName"
-                               Enabled="@_newCode"
-                               OnPick="@(code => _codeEdit.CodeValue = code)" />
-            </DxFormLayoutItem>
-
-            @if (_group?.IsHierarchical == true)
-            {
-                <DxFormLayoutItem Caption="상위 코드" ColSpanMd="12">
-                    <DxComboBox Data="@ParentCodeChoices" @bind-Value="_codeEdit.ParentId"
-                                TextFieldName="Text" ValueFieldName="Value"
-                                NullText="최상위"
-                                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
-                </DxFormLayoutItem>
-            }
-
-            <DxFormLayoutItem Caption="다국어 키" ColSpanMd="8">
-                @* 넣으면 화면이 그 키로 옮겨 보여 준다. 값은 `/admin/system/i18n`. *@
-                <DxTextBox @bind-Text="_codeEdit.I18nKey" NullText="비워 둘 수 있다" />
-            </DxFormLayoutItem>
-
-            <DxFormLayoutItem Caption="순서" ColSpanMd="4">
-                <DxSpinEdit @bind-Value="_codeEdit.SortOrder" MinValue="0" />
-            </DxFormLayoutItem>
-
-            <DxFormLayoutItem Caption="비고" ColSpanMd="12">
-                <DxMemo @bind-Text="_codeEdit.Remark" Rows="2" />
-            </DxFormLayoutItem>
-
-            <DxFormLayoutItem Caption="사용" ColSpanMd="12">
-                <DxCheckBox Checked="@(_codeEdit.Status == 1)"
-                            CheckedChanged="@((bool v) => _codeEdit.Status = v ? 1 : 0)">
-                    사용
-                </DxCheckBox>
-            </DxFormLayoutItem>
-        </DxFormLayout>
+        @CodeFields(_codeEdit)
     </BodyContentTemplate>
 
     <FooterContentTemplate>
-        <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Primary" Click="@SaveCodeAsync" />
+        <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Primary" Click="@SaveEditingCodeAsync" />
         <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary" Click="@(() => _editingCode = false)" />
     </FooterContentTemplate>
 </DxPopup>
 
-@* 삭제 확인. 옛 Vue 화면의 Popconfirm 자리다 — 옮기면서 빠져 있었다. *@
+@* 삭제 확인. 옛 Vue 화면의 Popconfirm 자리다 — 옮기면서 빠져 있었다.
+   나무일 때 쓴다. 평평한 묶음의 삭제는 CommGrd 가 `DeleteConfirm` 으로 묻는다. *@
 <ConfirmDialog @ref="_confirm" />
 
 @code {
@@ -283,10 +262,8 @@
     private CommonCodeGroupDto? _group;
     private string? _groupKeyword;
 
-    private bool _editingGroup;
+    /// <summary>편집 창이 등록으로 열렸는가. 묶음 코드를 잠글지와 AI 추천을 정한다.</summary>
     private bool _newGroup;
-    private string _groupId = string.Empty;
-    private CommonCodeGroupDto _groupEdit = new();
 
     private bool _editingCode;
     private bool _newCode;
@@ -343,9 +320,8 @@
         return _groups.Count;
     }, "등록된 코드 묶음이 없습니다.", "코드 묶음을 읽지 못했습니다");
 
-    private async Task OnGroupChangedAsync(object? selected)
+    private async Task OnGroupChangedAsync(CommonCodeGroupDto? group)
     {
-        var group = selected as CommonCodeGroupDto;
         _group = group;
         _codes = [];
 
@@ -373,89 +349,144 @@
     }
 
     // ── 묶음 ────────────────────────────────────────────────
+    // 등록·수정·삭제·다시 읽기는 CommGrd 가 몫을 나눠 맡는다. 이 화면이 하는
+    // 것은 **무엇을 채우고 무엇을 보내는가**뿐이다.
 
-    private void StartNewGroup()
+    private void FillNewGroup(CommonCodeGroupDto g) => g.SortOrder = NextGroupSortOrder();
+
+    /// <summary>다음 순서 번호. 마지막 뒤에 붙인다 — 0 으로 두면 맨 앞에 끼어든다.</summary>
+    private int NextGroupSortOrder() =>
+        _groups.Count == 0 ? 1 : _groups.Max(g => g.SortOrder) + 1;
+
+    /// <summary>
+    /// 편집 창이 열릴 때. <b>수정으로 열 때도 불린다</b> — 묶음 코드를 잠그는
+    /// 것과 AI 추천을 감추는 것이 그 구분에 걸려 있어서, 등록 때만 불리는
+    /// <c>OnNew</c> 로는 앞선 등록의 상태가 그대로 남는다.
+    /// </summary>
+    private void OnGroupEditOpen(CommonCodeGroupDto g, bool isNew) => _newGroup = isNew;
+
+    private Task SaveGroupAsync((CommonCodeGroupDto Item, bool IsNew) e)
     {
-        _newGroup = true;
-        _groupId = string.Empty;
-        _groupEdit = new CommonCodeGroupDto();
-        _editingGroup = true;
-    }
-
-    private void StartEditGroup(CommonCodeGroupDto g)
-    {
-        _newGroup = false;
-        _groupId = g.Id;
-
-        // 복사본을 띄운다. 원본을 묶으면 취소해도 표에 바뀐 값이 남는다.
-        _groupEdit = new CommonCodeGroupDto
+        if (string.IsNullOrWhiteSpace(e.Item.GroupCode) || string.IsNullOrWhiteSpace(e.Item.GroupName))
         {
-            Id = g.Id,
-            GroupCode = g.GroupCode,
-            GroupName = g.GroupName,
-            IsHierarchical = g.IsHierarchical,
-            SortOrder = g.SortOrder,
-            Remark = g.Remark,
-        };
-        _editingGroup = true;
-    }
-
-    private async Task SaveGroupAsync()
-    {
-        if (string.IsNullOrWhiteSpace(_groupEdit.GroupCode) || string.IsNullOrWhiteSpace(_groupEdit.GroupName))
-        {
-            Say("묶음 코드와 이름은 반드시 넣어야 합니다.", NoticeTone.Warning);
-            return;
+            // ApiException 으로 올린다. CommGrd 가 잡아 안내로 옮기고 팝업을
+            // 열어 두므로 쓴 내용이 사라지지 않는다.
+            throw new ApiException("묶음 코드와 이름은 반드시 넣어야 합니다.");
         }
 
         var body = new SaveCommonCodeGroupDto
         {
-            GroupCode = _groupEdit.GroupCode,
-            GroupName = _groupEdit.GroupName,
-            IsHierarchical = _groupEdit.IsHierarchical,
-            SortOrder = _groupEdit.SortOrder,
-            Remark = _groupEdit.Remark,
+            GroupCode = e.Item.GroupCode,
+            GroupName = e.Item.GroupName,
+            IsHierarchical = e.Item.IsHierarchical,
+            SortOrder = e.Item.SortOrder,
+            Remark = e.Item.Remark,
         };
 
-        var saved = await RunAsync(
-            () => _newGroup ? Api.CreateCodeGroupAsync(body) : Api.UpdateCodeGroupAsync(_groupId, body),
-            _newGroup ? "등록했습니다." : "저장했습니다.",
-            _newGroup ? "등록하지 못했습니다" : "저장하지 못했습니다");
-
-        if (!saved)
-        {
-            return;
-        }
-
-        _editingGroup = false;
-        await ReloadGroupsAsync();
+        return e.IsNew
+            ? Api.CreateCodeGroupAsync(body)
+            : Api.UpdateCodeGroupAsync(e.Item.Id, body);
     }
 
-    private async Task DeleteGroupAsync(CommonCodeGroupDto g)
+    /// <summary>
+    /// 삭제 확인 문구. 묶음을 지우면 <b>그 안의 코드가 함께 사라진다</b> —
+    /// 무엇이 몇 건 사라지는지 적어 준다. DevExpress 기본 확인창으로는
+    /// 어느 줄을 눌렀는지도 알 수 없어 묻는 의미가 절반쯤 없어진다.
+    ///
+    /// <para>
+    /// 건수는 <b>고른 묶음일 때만</b> 안다 — 오른쪽에 읽어 둔 것이 그 묶음의
+    /// 코드다. 식별자로 견준다. 목록을 다시 읽으면 같은 묶음이라도 <b>다른
+    /// 인스턴스</b>라, 참조로 견주면 건수 안내가 조용히 사라진다.
+    /// </para>
+    /// </summary>
+    private string GroupDeleteMessage(CommonCodeGroupDto g)
     {
-        // 묶음을 지우면 그 안의 코드가 함께 사라진다. 무엇이 몇 건 사라지는지
-        // 적어 준다 — "정말 삭제하시겠습니까?" 만으로는 어느 줄을 눌렀는지
-        // 확인할 수 없어 묻는 의미가 절반쯤 없어진다.
-        // 식별자로 견준다. 목록을 다시 읽으면 같은 묶음이라도 **다른 인스턴스**라
-        // 참조로 견주면 건수 안내가 조용히 사라진다.
         var count = _group is not null && _group.Id == g.Id ? FlattenCodes(_codes).Count : 0;
         var scope = count > 0 ? $"\n안에 든 코드 {count}건도 함께 사라집니다." : string.Empty;
 
-        var ok = await _confirm!.AskAsync(
-            $"묶음 「{g.GroupName}」({g.GroupCode}) 을(를) 지웁니다.{scope}\n되돌릴 수 없습니다.");
-
-        if (!ok)
-        {
-            return;
-        }
-
-        if (await RunAsync(() => Api.DeleteCodeGroupAsync(g.Id), "지웠습니다.", "지우지 못했습니다"))
-        {
-            await ReloadGroupsAsync();
-        }
+        return $"묶음 「{g.GroupName}」({g.GroupCode}) 을(를) 지웁니다.{scope}\n되돌릴 수 없습니다.";
     }
 
+    private Task DeleteGroupAsync(CommonCodeGroupDto g) => Api.DeleteCodeGroupAsync(g.Id);
+
     // ── 코드 ────────────────────────────────────────────────
+
+    private void FillNewCode(CommonCodeDto c)
+    {
+        // 묶음 식별자를 여기서 넣는다. 안 넣으면 저장돼도 어느 묶음인지 몰라
+        // 목록에서 사라진다.
+        c.GroupId = _group?.Id ?? string.Empty;
+        c.Status = 1;
+        c.SortOrder = NextSortOrder();
+    }
+
+    /// <summary>
+    /// 편집 창이 열릴 때. <see cref="OnGroupEditOpen"/> 과 같은 이유로 등록·수정
+    /// 둘 다에서 불려야 한다 — 코드 값을 잠그는 것이 그 구분에 걸려 있다.
+    ///
+    /// <para>
+    /// 상위 코드 고르개가 자기 자신을 빼려면 지금 고치는 것이 누구인지도
+    /// 알아야 한다(<see cref="ParentCodeChoices"/>).
+    /// </para>
+    /// </summary>
+    private void OnCodeEditOpen(CommonCodeDto c, bool isNew)
+    {
+        _newCode = isNew;
+        _codeId = c.Id;
+    }
+
+    /// <summary>다음 순서 번호. 마지막 뒤에 붙인다 — 0 으로 두면 맨 앞에 끼어든다.</summary>
+    private int NextSortOrder()
+    {
+        var all = FlattenCodes(_codes);
+        return all.Count == 0 ? 1 : all.Max(c => c.SortOrder) + 1;
+    }
+
+    private Task SaveCodeAsync((CommonCodeDto Item, bool IsNew) e)
+    {
+        if (string.IsNullOrWhiteSpace(e.Item.CodeValue) || string.IsNullOrWhiteSpace(e.Item.CodeName))
+        {
+            throw new ApiException("코드 값과 이름은 반드시 넣어야 합니다.");
+        }
+
+        var body = new SaveCommonCodeDto
+        {
+            GroupId = e.Item.GroupId,
+            ParentId = e.Item.ParentId,
+            CodeValue = e.Item.CodeValue,
+            CodeName = e.Item.CodeName,
+            I18nKey = e.Item.I18nKey,
+            SortOrder = e.Item.SortOrder,
+            Status = e.Item.Status,
+            Remark = e.Item.Remark,
+        };
+
+        return e.IsNew
+            ? Api.CreateCodeAsync(body)
+            : Api.UpdateCodeAsync(e.Item.Id, body);
+    }
+
+    /// <summary>
+    /// 삭제 확인 문구. 코드에는 딸린 것을 셀 필요가 없다 — 하위가 있으면
+    /// <see cref="DeleteCodeAsync"/> 가 아예 막는다.
+    /// </summary>
+    private static string CodeDeleteMessage(CommonCodeDto c) =>
+        $"코드 「{c.CodeName}」({c.CodeValue}) 을(를) 지웁니다.\n되돌릴 수 없습니다.";
+
+    private Task DeleteCodeAsync(CommonCodeDto c)
+    {
+        // 하위를 남기고 지우면 그 가지가 트리에서 사라져 화면에서 손댈 길이 없어진다.
+        if (c.Children is { Count: > 0 })
+        {
+            throw new ApiException("하위 코드가 있어 지울 수 없습니다.");
+        }
+
+        return Api.DeleteCodeAsync(c.Id);
+    }
+
+    // ── 나무일 때만 도는 길 ─────────────────────────────────
+    // 평평한 묶음은 위의 것들을 CommGrd 가 부른다. DxTreeList 에는 그 흐름이
+    // 없어서 등록·수정·삭제를 여기서 손으로 엮는다.
 
     private void StartNewCode()
     {
@@ -466,22 +497,14 @@
 
         _newCode = true;
         _codeId = string.Empty;
-
-        // 묶음 식별자를 여기서 넣는다. 안 넣으면 저장돼도 어느 묶음인지 몰라
-        // 목록에서 사라진다.
-        _codeEdit = new CommonCodeDto
-        {
-            GroupId = _group.Id,
-            Status = 1,
-            SortOrder = NextSortOrder(),
-        };
+        _codeEdit = new CommonCodeDto();
+        FillNewCode(_codeEdit);
         _editingCode = true;
     }
 
     private void StartEditCode(CommonCodeDto c)
     {
-        _newCode = false;
-        _codeId = c.Id;
+        // 복사본을 띄운다. 원본을 묶으면 취소해도 나무에 바뀐 값이 남는다.
         _codeEdit = new CommonCodeDto
         {
             Id = c.Id,
@@ -494,43 +517,21 @@
             Status = c.Status,
             Remark = c.Remark,
         };
+
+        OnCodeEditOpen(_codeEdit, isNew: false);
         _editingCode = true;
     }
 
-    /// <summary>다음 순서 번호. 마지막 뒤에 붙인다 — 0 으로 두면 맨 앞에 끼어든다.</summary>
-    private int NextSortOrder()
+    private async Task SaveEditingCodeAsync()
     {
-        var all = FlattenCodes(_codes);
-        return all.Count == 0 ? 1 : all.Max(c => c.SortOrder) + 1;
-    }
-
-    private async Task SaveCodeAsync()
-    {
-        if (string.IsNullOrWhiteSpace(_codeEdit.CodeValue) || string.IsNullOrWhiteSpace(_codeEdit.CodeName))
-        {
-            Say("코드 값과 이름은 반드시 넣어야 합니다.", NoticeTone.Warning);
-            return;
-        }
-
-        var body = new SaveCommonCodeDto
-        {
-            GroupId = _codeEdit.GroupId,
-            ParentId = _codeEdit.ParentId,
-            CodeValue = _codeEdit.CodeValue,
-            CodeName = _codeEdit.CodeName,
-            I18nKey = _codeEdit.I18nKey,
-            SortOrder = _codeEdit.SortOrder,
-            Status = _codeEdit.Status,
-            Remark = _codeEdit.Remark,
-        };
-
         var saved = await RunAsync(
-            () => _newCode ? Api.CreateCodeAsync(body) : Api.UpdateCodeAsync(_codeId, body),
+            () => SaveCodeAsync((_codeEdit, _newCode)),
             _newCode ? "등록했습니다." : "저장했습니다.",
             _newCode ? "등록하지 못했습니다" : "저장하지 못했습니다");
 
         if (!saved)
         {
+            // 실패하면 팝업을 닫지 않는다. 닫으면 쓴 내용이 사라진다.
             return;
         }
 
@@ -538,23 +539,14 @@
         await ReloadCodesAsync();
     }
 
-    private async Task DeleteCodeAsync(CommonCodeDto c)
+    private async Task ConfirmDeleteCodeAsync(CommonCodeDto c)
     {
-        if (c.Children is { Count: > 0 })
-        {
-            Say("하위 코드가 있어 지울 수 없습니다.", NoticeTone.Warning);
-            return;
-        }
-
-        var ok = await _confirm!.AskAsync(
-            $"코드 「{c.CodeName}」({c.CodeValue}) 을(를) 지웁니다.\n되돌릴 수 없습니다.");
-
-        if (!ok)
+        if (!await _confirm!.AskAsync(CodeDeleteMessage(c)))
         {
             return;
         }
 
-        if (await RunAsync(() => Api.DeleteCodeAsync(c.Id), "지웠습니다.", "지우지 못했습니다"))
+        if (await RunAsync(() => DeleteCodeAsync(c), "지웠습니다.", "지우지 못했습니다"))
         {
             await ReloadCodesAsync();
         }
@@ -585,14 +577,82 @@
         @(c.Status == 1 ? "사용" : "중지")
     </span>;
 
+    /// <summary>
+    /// 나무의 관리 칸. <b>평평한 묶음에는 없다</b> — 거기는 CommGrd 가
+    /// 아이콘을 붙인다. `DxTreeList` 에 그 흐름이 없어서 남아 있는 것이고,
+    /// 아이콘과 문구를 CommGrd 쪽에 맞춰 둔다.
+    /// </summary>
     private RenderFragment CodeActions(CommonCodeDto c) =>@<div class="jsini-actions">
         <PermissionView Action="MenuAction.Update">
-            <DxButton Text="수정" RenderStyle="ButtonRenderStyle.Secondary"
+            <DxButton IconCssClass="jsini-icon-edit" Title="수정"
+                      RenderStyle="ButtonRenderStyle.Link"
                       Click="@(() => StartEditCode(c))" />
         </PermissionView>
         <PermissionView Action="MenuAction.Delete">
-            <DxButton Text="삭제" RenderStyle="ButtonRenderStyle.Secondary"
-                      Click="@(() => DeleteCodeAsync(c))" />
+            <DxButton IconCssClass="jsini-icon-trash" Title="삭제"
+                      CssClass="commgrd__icon--warn"
+                      RenderStyle="ButtonRenderStyle.Link"
+                      Click="@(() => ConfirmDeleteCodeAsync(c))" />
         </PermissionView>
     </div>;
+
+    /// <summary>
+    /// 코드 편집 폼. CommGrd 의 편집 팝업과 나무용 팝업이 <b>이 한 벌</b>을
+    /// 같이 쓴다.
+    ///
+    /// <para>
+    /// <b>편집기는 반드시 <c>@@bind-</c> 로 묶는다.</b> 여기는
+    /// <c>&lt;EditFormTemplate&gt;</c> 태그 안이 아니라서 <c>EditFormBindingTests</c>
+    /// 가 들여다보지 못한다 — 규칙을 지켜 주는 것이 없으므로 손으로 지킨다.
+    /// 값과 변경을 따로 주면 CommGrd 쪽 팝업이 <b>말없이 안 열린다</b>
+    /// (「사용」 스위치가 <c>CommonCodeDto.IsActive</c> 를 묶는 이유다).
+    /// </para>
+    /// </summary>
+    private RenderFragment CodeFields(CommonCodeDto c) =>@<DxFormLayout CssClass="ad-editform">
+        <DxFormLayoutItem Caption="값" ColSpanMd="6">
+            @* 묶음 코드와 같은 이유로 등록할 때만 정한다 — 화면과 프로시저가
+               이 값을 이름으로 부른다. 바꾸면 참조가 조용히 끊긴다. *@
+            <DxTextBox @bind-Text="c.CodeValue" ReadOnly="@(!_newCode)"
+                       NullText="@(_newCode ? "ACTIVE" : "수정할 수 없습니다")" />
+        </DxFormLayoutItem>
+
+        <DxFormLayoutItem Caption="이름" ColSpanMd="6">
+            <DxTextBox @bind-Text="c.CodeName" NullText="정상"
+                       BindValueMode="BindValueMode.OnDelayedInput"
+                       InputDelay="500" />
+        </DxFormLayoutItem>
+
+        <DxFormLayoutItem ColSpanMd="12" CaptionPosition="CaptionPosition.Vertical">
+            <AiCodeSuggest Word="@c.CodeName"
+                           Enabled="@_newCode"
+                           OnPick="@(code => c.CodeValue = code)" />
+        </DxFormLayoutItem>
+
+        @if (_group?.IsHierarchical == true)
+        {
+            <DxFormLayoutItem Caption="상위 코드" ColSpanMd="12">
+                <DxComboBox Data="@ParentCodeChoices" @bind-Value="c.ParentId"
+                            TextFieldName="Text" ValueFieldName="Value"
+                            NullText="최상위"
+                            ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+            </DxFormLayoutItem>
+        }
+
+        <DxFormLayoutItem Caption="다국어 키" ColSpanMd="8">
+            @* 넣으면 화면이 그 키로 옮겨 보여 준다. 값은 `/admin/system/i18n`. *@
+            <DxTextBox @bind-Text="c.I18nKey" NullText="비워 둘 수 있다" />
+        </DxFormLayoutItem>
+
+        <DxFormLayoutItem Caption="순서" ColSpanMd="4">
+            <DxSpinEdit @bind-Value="c.SortOrder" MinValue="0" />
+        </DxFormLayoutItem>
+
+        <DxFormLayoutItem Caption="비고" ColSpanMd="12">
+            <DxMemo @bind-Text="c.Remark" Rows="2" />
+        </DxFormLayoutItem>
+
+        <DxFormLayoutItem Caption="사용" ColSpanMd="12">
+            <DxCheckBox @bind-Checked="c.IsActive">사용</DxCheckBox>
+        </DxFormLayoutItem>
+    </DxFormLayout>;
 }

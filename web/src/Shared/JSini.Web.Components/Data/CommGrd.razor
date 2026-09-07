@@ -1,7 +1,7 @@
 @*
     공통 그리드. DevExpress 의 DxGrid 를 감싼다.
 
-    두 가지만 알면 된다.
+    네 가지만 알면 된다.
 
     1. 선언하지 않은 파라미터는 전부 Extra 로 받아 DxGrid 에 그대로 넘긴다.
        @@attributes 가 **맨 뒤**라서 화면이 준 값이 아래 기본값을 이긴다.
@@ -14,6 +14,14 @@
        옅은 색(#e7eff9, 흰 바탕 대비 3%)이 걸려 골랐는지 눈에 안 띈다.
        강조 줄까지 켜면 DevExpress 가 진한 강조색을 칠한다(#0b5699 · 흰 글자).
        둘 다 테마 값이고 강조색을 바꾸면 함께 따라온다 — 재어 확인했다.
+
+    4. **고른 줄은 이 부품이 파라미터로 받는다**(`SelectedItem` ·
+       `SelectedItemChanged`). splat 으로 넘기지 못하는 값이라 그렇다 —
+       1번의 이유가 여기서는 문자열이 아니라 **대리자**로 나타난다.
+       DxGrid 의 `SelectedDataItemChanged` 는 `EventCallback<object>` 인데,
+       splat 되는 람다는 Razor 가 감싸 주지 않아 맨 `Func<object, Task>` 로
+       들어간다. DevExpress 가 대입할 때 형변환에 실패하고, 화면은 그리기도
+       전에 500 으로 죽는다. 공통코드·기기관리 두 화면이 그렇게 안 열렸다.
 *@
 
 @typeparam TItem
@@ -48,6 +56,8 @@
             FilterCriteriaChanged="@OnFilterCriteriaChanged"
             CustomizeElement="@OnCustomizeElement"
             LayoutAutoSaving="@OnLayoutChanged"
+            SelectedDataItem="@_selected"
+            SelectedDataItemChanged="@OnSelectedDataItemChangedAsync"
             DetailRowDisplayMode="@(DetailRowTemplate is null ? GridDetailRowDisplayMode.Never : GridDetailRowDisplayMode.Auto)"
             DetailExpandButtonDisplayMode="@(DetailRowTemplate is null ? GridDetailExpandButtonDisplayMode.Never : GridDetailExpandButtonDisplayMode.Auto)"
             @attributes="_forwarded"
@@ -97,7 +107,7 @@
                                               Title="삭제"
                                               CssClass="commgrd__icon--warn"
                                               RenderStyle="ButtonRenderStyle.Link"
-                                              Click="@(() => ConfirmDelete(cell.VisibleIndex))" />
+                                              Click="@(() => ConfirmDeleteAsync(cell.VisibleIndex, cell.DataItem))" />
                                 </PermissionView>
                             }
                         </div>
@@ -125,6 +135,9 @@
             @DetailRowTemplate?.Invoke(detail)
         </DetailRowTemplate>
     </DxGrid>
+
+    @* DeleteConfirm 을 준 화면만 쓴다. 안 준 화면은 DevExpress 기본 확인창이 뜬다. *@
+    <ConfirmDialog @ref="_confirm" />
 
     @* 표의 도구줄. 페이저 줄이 있으면 그 왼쪽에 겹쳐 앉는다(app.css). *@
     @if (ShowFooter)
@@ -291,6 +304,36 @@
     /// <summary>목록을 다시 읽는다. 저장·삭제 뒤에도 부른다.</summary>
     [Parameter] public EventCallback Reload { get; set; }
 
+    /// <summary>
+    /// 삭제 확인 문구를 화면이 정한다. 주면 DevExpress 기본 확인창 대신
+    /// <c>ConfirmDialog</c> 로 묻는다.
+    ///
+    /// <para>
+    /// <b>딸린 것이 함께 사라지는 자리에 쓴다.</b> 기본 확인창은 어느 줄을
+    /// 눌렀는지도, 무엇이 함께 사라지는지도 말해 주지 않아서 묻는 의미가
+    /// 절반쯤 없어진다. 코드 묶음을 지우면 그 안의 코드가 함께 사라지는 것이
+    /// 그런 자리다(<c>PortalCommonCode</c>).
+    /// </para>
+    /// </summary>
+    [Parameter] public Func<TItem, string>? DeleteConfirm { get; set; }
+
+    /// <summary>
+    /// 고른 줄. <see cref="SelectedItemChanged"/> 와 함께 주면
+    /// <c>@bind-SelectedItem</c> 처럼 화면이 선택의 주인이 된다.
+    ///
+    /// <para>
+    /// <b>둘 중 하나만 주지 않는다.</b> 값 없이 알림만 받으면 화면이 고른 줄을
+    /// 보관하지 않는다는 뜻이 되어, 매 렌더마다 선택이 <c>null</c> 로 되돌아간다
+    /// (줄을 눌러도 강조가 곧 풀린다). 값을 주지 않은 렌더에서는 표가 스스로
+    /// 들고 있는 선택을 건드리지 않으므로 그 사고는 나지 않지만, 그때는
+    /// 화면과 표의 선택이 어긋난 채로 돈다.
+    /// </para>
+    /// </summary>
+    [Parameter] public TItem? SelectedItem { get; set; }
+
+    /// <summary>고른 줄이 바뀌었을 때. 여기서 받은 값이 다음 렌더의 선택이 된다.</summary>
+    [Parameter] public EventCallback<TItem?> SelectedItemChanged { get; set; }
+
     /// <summary>선언하지 않은 모든 DxGrid 파라미터.</summary>
     [Parameter(CaptureUnmatchedValues = true)]
     public IReadOnlyDictionary<string, object>? Extra { get; set; }
@@ -308,6 +351,15 @@
     private IGrid? _grid;
     private IReadOnlyDictionary<string, object>? _forwarded;
 
+    /// <summary>표가 지금 들고 있는 선택. 화면이 값을 주면 그것을 따른다.</summary>
+    private object? _selected;
+
+    /// <summary><see cref="DeleteConfirm"/> 을 준 화면에서만 쓰는 확인창.</summary>
+    private ConfirmDialog? _confirm;
+
+    /// <summary>이번 렌더에 화면이 <see cref="SelectedItem"/> 을 주었는가.</summary>
+    private bool _selectionBound;
+
     private bool _filterRow;
     private bool _filterRowSeeded;
     private bool _hasFilter;
@@ -319,9 +371,34 @@
             .Where(p => p.IsDefined(typeof(ParameterAttribute), inherit: true))
             .ToDictionary(p => p.Name, p => p.PropertyType, StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// 화면이 <see cref="SelectedItem"/> 을 <b>주었는지</b> 본다.
+    ///
+    /// <para>
+    /// 값이 <c>null</c> 인 것과 아예 주지 않은 것을 갈라야 해서 파라미터로는
+    /// 알 수 없다 — 둘 다 <c>null</c> 로 보인다. <c>ParameterView</c> 에는
+    /// 화면이 실제로 적어 준 것만 들어 있으므로 여기서만 구분이 된다.
+    /// </para>
+    /// </summary>
+    public override Task SetParametersAsync(ParameterView parameters)
+    {
+        // object 로 받는다. TItem 으로 받으면 값 형식일 때 null 을 캐스팅하다 죽는다.
+        _selectionBound = parameters.TryGetValue<object>(nameof(SelectedItem), out _);
+
+        return base.SetParametersAsync(parameters);
+    }
+
     protected override void OnParametersSet()
     {
         _forwarded = Coerce(Extra);
+
+        // 선택의 주인이 화면이면 그 값을 따른다. 아니면 표가 들고 있는 것을
+        // 그대로 둔다 — 여기서 안 준 값(늘 null)을 덮어쓰면 줄을 눌러도
+        // 강조가 곧 풀린다.
+        if (_selectionBound)
+        {
+            _selected = SelectedItem;
+        }
 
         // 시작값이라 한 번만 읽는다. 매번 읽으면 사람이 끈 것을 다시 켜게 된다.
         if (!_filterRowSeeded)
@@ -522,8 +599,26 @@
 
         foreach (var (name, value) in source)
         {
-            if (value is not string text
-                || !DxGridParameterTypes.TryGetValue(name, out var declared))
+            if (!DxGridParameterTypes.TryGetValue(name, out var declared))
+            {
+                continue;
+            }
+
+            // 대리자는 감쌀 수 없다 — 감싸면 알림 받는이가 이 부품이 되어
+            // 화면이 다시 그려지지 않는다(OnSelectedDataItemChangedAsync 주석).
+            // 그래서 바꿔 주는 대신 여기서 막는다. 안 막으면 DevExpress 가
+            // 대입할 때 죽고, 그때 나오는 말은
+            // "Unable to cast … Func`2 … to EventCallback`1" 뿐이라
+            // 어느 화면의 어느 줄인지 알 수 없다.
+            if (value is Delegate && IsEventCallback(declared))
+            {
+                throw new InvalidOperationException(
+                    $"CommGrd: DxGrid 의 '{name}' 은 EventCallback 이라 splat 으로 넘길 수 없습니다. "
+                    + "CommGrd 가 선언한 파라미터를 쓰십시오 — 선택은 SelectedItem · SelectedItemChanged 입니다. "
+                    + $"그런 파라미터가 없으면 CommGrd 에 먼저 만드십시오({name} 을(를) 그대로 내려보내면 됩니다).");
+            }
+
+            if (value is not string text)
             {
                 continue;
             }
@@ -557,12 +652,55 @@
         return changed ?? source;
     }
 
+    /// <summary>
+    /// DxGrid 의 선택 알림을 화면이 아는 형으로 옮긴다.
+    ///
+    /// <para>
+    /// 이 다리가 있어야 하는 이유는 <b>알림을 누가 받는가</b>다. Razor 가
+    /// 화면의 <c>SelectedItemChanged</c> 를 감쌀 때 받는이로 <b>화면</b>을
+    /// 적어 주므로, 알림이 끝나면 화면이 다시 그려진다. 여기서 대리자를
+    /// 직접 감싸면 받는이가 이 부품이 되어 <b>표만</b> 다시 그려진다 —
+    /// 고른 줄에 딸린 오른쪽 칸이 안 바뀌는 쪽으로 조용히 틀린다.
+    /// </para>
+    /// </summary>
+    private Task OnSelectedDataItemChangedAsync(object? item)
+    {
+        _selected = item;
+
+        return SelectedItemChanged.InvokeAsync(item is TItem typed ? typed : default);
+    }
+
+    private static bool IsEventCallback(Type type) =>
+        type == typeof(EventCallback)
+        || (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(EventCallback<>));
+
     /// <summary>등록 팝업을 연다. 바깥에서도 부를 수 있다.</summary>
     public Task StartNewAsync() => _grid?.StartEditNewRowAsync() ?? Task.CompletedTask;
 
     private Task EditAsync(int visibleIndex) => _grid?.StartEditRowAsync(visibleIndex) ?? Task.CompletedTask;
 
-    private void ConfirmDelete(int visibleIndex) => _grid?.ShowRowDeleteConfirmation(visibleIndex);
+    /// <summary>
+    /// 삭제 확인. <see cref="DeleteConfirm"/> 을 준 화면만 우리 확인창을 쓴다.
+    ///
+    /// <para>
+    /// 우리 확인창을 쓸 때는 DevExpress 에 삭제를 맡기지 않는다 — 맡기면
+    /// 기본 확인창이 <b>한 번 더</b> 뜬다. 지우고 목록을 다시 읽는 일은
+    /// <see cref="DeleteAsync"/> 한 곳에 모아 두어 두 길이 갈리지 않는다.
+    /// </para>
+    /// </summary>
+    private async Task ConfirmDeleteAsync(int visibleIndex, object? dataItem)
+    {
+        if (DeleteConfirm is null || dataItem is not TItem item)
+        {
+            _grid?.ShowRowDeleteConfirmation(visibleIndex);
+            return;
+        }
+
+        if (await _confirm!.AskAsync(DeleteConfirm(item)))
+        {
+            await DeleteAsync(item);
+        }
+    }
 
     /// <summary>지금 보이는 그대로(정렬·필터가 걸린 상태) 내린다.</summary>
     private Task ExportAsync() =>
@@ -615,13 +753,23 @@
             return;
         }
 
-        if (await RunAsync(() => OnDelete.InvokeAsync(item), "삭제했습니다.", "삭제하지 못했습니다"))
-        {
-            await Reload.InvokeAsync();
-        }
-        else
+        // 실패하면 표에서 줄을 걷어내지 않는다. 걷어내면 서버에는 남아 있는데
+        // 화면에서는 사라져, 다시 읽을 때까지 지운 줄 안다.
+        if (!await DeleteAsync(item))
         {
             e.Cancel = true;
         }
+    }
+
+    /// <summary>지우고 목록을 다시 읽는다. 성공했으면 <c>true</c>.</summary>
+    private async Task<bool> DeleteAsync(TItem item)
+    {
+        if (!await RunAsync(() => OnDelete.InvokeAsync(item), "삭제했습니다.", "삭제하지 못했습니다"))
+        {
+            return false;
+        }
+
+        await Reload.InvokeAsync();
+        return true;
     }
 }

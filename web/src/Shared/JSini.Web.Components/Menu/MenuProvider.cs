@@ -1,4 +1,3 @@
-using System.Reflection;
 using JSini.Web.Abstractions;
 using JSini.Web.Models.Menu;
 using JSini.Web.Http;
@@ -24,6 +23,7 @@ namespace JSini.Web.Components.Menu;
 public sealed class MenuProvider(
     GatewayClient gateway,
     IPermissionContext permissions,
+    RouteInventory routes,
     ILogger<MenuProvider> logger) : IMenuProvider
 {
     private IReadOnlyList<MenuNode> _all = [];
@@ -39,13 +39,8 @@ public sealed class MenuProvider(
     {
         try
         {
-            var wire = await gateway.GetListAsync<MenuWireDto>("auth/menu/all", cancellationToken);
-
-            // 옛 DB 경로를 Blazor 라우트로 옮긴다. Path 는 그대로 두고 Href 만
-            // 채운다 — 권한표의 열쇠가 Path 이기 때문이다(RouteAliases 참고).
-            _all = [.. wire.Select(w => WithHref(w.ToNode()))];
-
-            logger.LogInformation("메뉴를 읽었다: 최상위 {Count}개", _all.Count);
+            Apply(await gateway.GetListAsync<MenuWireDto>("auth/menu/all", cancellationToken));
+            return;
         }
         catch (ApiException ex)
         {
@@ -59,14 +54,92 @@ public sealed class MenuProvider(
     }
 
     /// <summary>
+    /// 이미 받아 둔 메뉴를 채운다. 부트스트랩 한 방(<c>PortalBootstrap</c>)이
+    /// 쓰는 길이다 — 게이트웨이를 다시 부르지 않는다.
+    /// </summary>
+    public void Apply(IReadOnlyList<MenuWireDto> wire)
+    {
+        // 링크 주소를 채운다. Path 는 그대로 둔다 — 권한표와 즐겨찾기의
+        // 열쇠가 그 값이기 때문이다.
+        _all = [.. wire.Select(w => WithHref(w.ToNode()))];
+
+        logger.LogInformation("메뉴를 읽었다: 최상위 {Count}개", _all.Count);
+        ReportUnresolvedKeys();
+
+        Reapply();
+    }
+
+    /// <summary>
     /// 트리 전체에 링크 주소를 채운다. 외부 링크는 건드리지 않는다 —
     /// 앱 라우트가 아니라 옮길 대상이 아니다.
     /// </summary>
-    private static MenuNode WithHref(MenuNode node) => node with
+    private MenuNode WithHref(MenuNode node) => node with
     {
-        Href = node.IsExternalLink ? node.Link ?? node.Path : RouteAliases.Resolve(node.Path),
+        Href = HrefOf(node),
         Children = [.. node.Children.Select(WithHref)],
     };
+
+    /// <summary>
+    /// 이 메뉴가 걸 주소를 정한다. <b>순서가 곧 이행 상태다.</b>
+    ///
+    /// <list type="number">
+    ///   <item>외부 링크는 그대로 나간다.</item>
+    ///   <item><b>열쇠가 있으면 카탈로그에서 푼다.</b> 이것이 정본이다 —
+    ///         DB 는 URL 을 모르고, 실려 있는 화면이 자기 주소를 안다.</item>
+    ///   <item>열쇠가 없거나 모르는 열쇠면 옛 길로 떨어진다
+    ///         (<c>RouteAliases</c> 가 <c>Path</c> 를 옮긴다).</item>
+    /// </list>
+    ///
+    /// 3번이 남아 있는 동안에는 DB 백필이 안 끝난 것이다. 다 끝나면 3번과
+    /// <c>RouteAliases</c> 를 함께 지운다.
+    /// </summary>
+    private string HrefOf(MenuNode node)
+    {
+        if (node.IsExternalLink)
+        {
+            return node.Link ?? node.Path;
+        }
+
+        return routes.Resolve(node.RouteKey) ?? RouteAliases.Resolve(node.Path);
+    }
+
+    /// <summary>
+    /// 열쇠는 붙어 있는데 그런 화면이 안 실려 있는 메뉴를 로그로 남긴다.
+    ///
+    /// 이 상태는 <b>메뉴는 보이는데 눌러도 「준비 중」</b>으로 나타난다. 옛
+    /// 경로 불일치와 증상이 같지만 원인이 다르다 — 열쇠를 잘못 적었거나,
+    /// 화면이 지워졌는데 메뉴가 남았거나, 그 모듈이 안 실렸거나다.
+    ///
+    /// 기동을 세우지 않는 이유는 <c>ReportRouteMismatch</c> 와 같다.
+    /// </summary>
+    private void ReportUnresolvedKeys()
+    {
+        var unresolved = new List<string>();
+        Walk(_all);
+
+        if (unresolved.Count > 0)
+        {
+            logger.LogWarning(
+                "열쇠는 있는데 그 화면이 없는 메뉴 {Count}개: {Keys}",
+                unresolved.Count, string.Join(", ", unresolved.Take(20)));
+        }
+
+        void Walk(IReadOnlyList<MenuNode> nodes)
+        {
+            foreach (var node in nodes)
+            {
+                if (!node.IsCatalog
+                    && !node.IsExternalLink
+                    && !string.IsNullOrWhiteSpace(node.RouteKey)
+                    && routes.Resolve(node.RouteKey) is null)
+                {
+                    unresolved.Add(node.RouteKey);
+                }
+
+                Walk(node.Children);
+            }
+        }
+    }
 
     public void SetViewport(Viewport viewport)
     {
@@ -173,90 +246,5 @@ public sealed class MenuProvider(
                 Collect(node.Children, into);
             }
         }
-    }
-}
-
-/// <summary>
-/// 이 앱이 가진 <c>@page</c> 경로를 모아 둔다. 기동 때 한 번 만든다.
-///
-/// 라우트가 컴파일 시점에 고정이라 <b>가능해진</b> 일이다. Vue 에서는 라우트가
-/// DB 에서 만들어졌으니 이런 대조 자체가 성립하지 않았다.
-///
-/// 앱마다 자기 것만 안다 — 업무 앱이 독립 프로세스라 남의 라우트를 볼 방법이 없다.
-/// 그래서 대조도 앱 단위다: 장례식장 앱은 <c>/funeral/*</c> 메뉴만 대조하고
-/// 나머지는 "내 소관이 아님" 으로 넘긴다.
-/// </summary>
-public sealed class RouteInventory
-{
-    private RouteInventory(IReadOnlySet<string> paths)
-    {
-        Paths = paths;
-    }
-
-    /// <summary>
-    /// 이 앱의 라우트를 <b>브라우저에 보이는 전체 경로</b>로 담는다
-    /// (<c>/projmng/status</c>). 매개변수 자리(<c>{id}</c>)는 그대로 둔다.
-    ///
-    /// 앱 안의 <c>@page</c> 는 접두사가 없는 상대 경로다(<c>UsePathBase</c> 가
-    /// 붙여 준다). 그런데 DB 메뉴와 권한표의 열쇠는 접두사가 붙은 전체 경로라,
-    /// 대조하려면 여기서 붙여 두어야 한다.
-    /// </summary>
-    public IReadOnlySet<string> Paths { get; }
-
-    /// <summary>
-    /// 어셈블리를 훑어 <c>@page</c> 를 모으고, 앞에 접두사를 붙인다.
-    /// </summary>
-    /// <param name="routePrefix">이 앱의 접두사 (<c>/projmng</c>). 셸은 빈 문자열.</param>
-    /// <param name="assemblies">라우트를 담고 있는 어셈블리들</param>
-    public static RouteInventory Build(string routePrefix, params Assembly[] assemblies)
-    {
-        var prefix = routePrefix.TrimEnd('/');
-        var paths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-        foreach (var assembly in assemblies)
-        {
-            foreach (var type in assembly.GetTypes())
-            {
-                foreach (var attribute in type.GetCustomAttributes(
-                    typeof(Microsoft.AspNetCore.Components.RouteAttribute), inherit: false))
-                {
-                    if (attribute is not Microsoft.AspNetCore.Components.RouteAttribute route)
-                    {
-                        continue;
-                    }
-
-                    // 포괄 라우트(`/funeral/{*rest}`)는 세지 않는다.
-                    //
-                    // 그건 화면이 아니라 "아직 화면이 없다" 를 알리는 안내다.
-                    // 세어 버리면 그 업무의 모든 메뉴가 화면이 있는 것으로
-                    // 보여서, 이 대조가 뜻하는 바가 통째로 사라진다.
-                    if (route.Template.Contains("{*", StringComparison.Ordinal))
-                    {
-                        continue;
-                    }
-
-                    paths.Add(Combine(prefix, route.Template));
-                }
-            }
-        }
-
-        return new RouteInventory(paths);
-    }
-
-    /// <summary>
-    /// 접두사와 <c>@page</c> 를 이어 붙인다.
-    ///
-    /// 앱의 첫 화면은 <c>@page "/"</c> 이고 그 전체 경로는 <c>/projmng</c> 다 —
-    /// <c>/projmng/</c> 가 아니다. 끝에 <c>/</c> 가 남으면 DB 의 <c>path</c>
-    /// (<c>/projmng</c>)와 안 맞아서 "메뉴는 있는데 화면이 없다" 로 잘못 보고된다.
-    /// </summary>
-    private static string Combine(string prefix, string template)
-    {
-        if (template is "/" or "")
-        {
-            return prefix.Length > 0 ? prefix : "/";
-        }
-
-        return prefix + (template.StartsWith('/') ? template : "/" + template);
     }
 }
