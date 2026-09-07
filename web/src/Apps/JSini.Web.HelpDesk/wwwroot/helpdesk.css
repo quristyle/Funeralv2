@@ -188,4 +188,45 @@
 
 @media (width >= 1024px) {
   .hd-two { grid-template-columns: 1fr 1fr; }
+
+  /* ── 나란한 자료 판이 본문 높이를 채운다 ──────────────
+
+     공통 규칙(app.css)은 `.commcont` 가 셸 본문의 **직속 자식**일 때만 높이를
+     채운다. 나란히 앉히면 판 둘이 `.hd-two` 안에 들어 있어 그 규칙이 안
+     걸리는데, 표의 높이 제한을 푸는 쪽은 그대로 걸려서 넣기만 하면 표가
+     자료만큼 늘어나고 쪽이 통째로 구른다. 같은 일을 여기서 한 번 더 적는다
+     (admin.css 의 `.ad-split` 과 같은 모양). */
+  .jsini-shell__content:has(> .hd-two) {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .jsini-shell__content > .hd-two {
+    flex: 1;
+    min-height: 0;
+
+    /* 줄 높이를 내용이 정하지 않게 한다. 격자 줄의 기본은 `auto` 라서
+       높이를 정해 줘도 줄이 자료만큼 늘어나 그대로 넘친다. */
+    grid-template-rows: minmax(0, 1fr);
+    align-items: stretch;
+  }
+
+  /* 격자 자식은 `min-height: auto` 라 내용보다 작아지지 않는다. */
+  .hd-two > .commcont {
+    min-height: 0;
+  }
+
+  .hd-two > .commcont > .commcont__body {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+}
+
+/* 위아래로 쌓인 자료 판 사이를 벌리는 공통 규칙은 나란히 앉힐 때 오른쪽
+   판만 내려앉게 한다. 여기서 사이를 벌리는 일은 격자의 `gap` 이 한다. */
+.hd-two > .commcont + .commcont {
+  margin-top: 0;
 }

@@ -31,69 +31,76 @@
 
 <PageTitle>MC 모델 관리 · 헬프데스크</PageTitle>
 
-<div class="jsini-toolbar">
-    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@ReloadAsync" />
-
-    <div class="jsini-toolbar__spacer"></div>
-
-    <PermissionView Action="MenuAction.Create">
-        <DxButton Text="모델 등록" RenderStyle="ButtonRenderStyle.Success" Click="@StartNewModel" />
-    </PermissionView>
-</div>
-
+@* 조건이 하나도 없어 조회 판을 세울 것이 없다. 등록은 각 자료 판의 제목
+   줄로, 다시 읽기는 표 아래 띠로 갔다. *@
 <PageNotice Text="@Notice" Tone="@Tone" />
 
 <div class="hd-two">
-    <div>
-        <h2 class="ad-subhead">설비 모델</h2>
+    <CommCont Title="설비 모델" Hint="@($"{_models.Count}개")">
+        <Actions>
+            <PermissionView Action="MenuAction.Create">
+                <DxButton Text="모델 등록" RenderStyle="ButtonRenderStyle.Secondary"
+                          IconCssClass="jsini-icon-plus" Click="@StartNewModel" />
+            </PermissionView>
+        </Actions>
 
-        <CommGrd TItem="McModel" Data="@_models">
+        <ChildContent>
+        <CommGrd TItem="McModel" Data="@_models"
+                 ExportName="설비모델"
+                 ActionsWidth="190"
+                 Reload="@ReloadAsync">
             <Columns>
                 <DxGridDataColumn FieldName="@nameof(McModel.McName)" Caption="모델" MinWidth="160" />
                 <DxGridDataColumn FieldName="@nameof(McModel.StartKey)" Caption="시작 키" Width="120" />
 
-                <DxGridDataColumn Caption="" Width="200" AllowSort="false">
-                    <CellDisplayTemplate Context="cell">
-                        @{
-                            var model = (McModel)cell.DataItem;
-                        }
-                        <div class="jsini-actions">
-                            <DxButton Text="@(model.Id == _modelId ? "보는 중" : "규칙 보기")"
-                                      RenderStyle="ButtonRenderStyle.Secondary"
-                                      Enabled="@(model.Id != _modelId)"
-                                      Click="@(() => PickAsync(model))" />
-                            <PermissionView Action="MenuAction.Update">
-                                <DxButton Text="수정" RenderStyle="ButtonRenderStyle.Secondary"
-                                          Click="@(() => StartEditModel(model))" />
-                            </PermissionView>
-                            <PermissionView Action="MenuAction.Delete">
-                                <DxButton Text="삭제" RenderStyle="ButtonRenderStyle.Secondary"
-                                          Click="@(() => DeleteModelAsync(model))" />
-                            </PermissionView>
-                        </div>
-                    </CellDisplayTemplate>
-                </DxGridDataColumn>
             </Columns>
+
+            @* 관리 칸은 CommGrd 가 붙인다. 「규칙 보기」는 오른쪽 판을 바꾸는
+               이 화면만의 동작이라 「수정」 앞에 선다. *@
+            <RowActions Context="model">
+                <DxButton Text="@(model.Id == _modelId ? "보는 중" : "규칙 보기")"
+                          RenderStyle="ButtonRenderStyle.Link"
+                          Title="이 모델의 해석 규칙을 오른쪽에 편다"
+                          Enabled="@(model.Id != _modelId)"
+                          Click="@(() => PickAsync(model))" />
+                <PermissionView Action="MenuAction.Update">
+                    <DxButton IconCssClass="jsini-icon-edit" Title="수정"
+                              RenderStyle="ButtonRenderStyle.Link"
+                              Click="@(() => StartEditModel(model))" />
+                </PermissionView>
+                <PermissionView Action="MenuAction.Delete">
+                    <DxButton IconCssClass="jsini-icon-trash" Title="삭제"
+                              CssClass="commgrd__icon--warn"
+                              RenderStyle="ButtonRenderStyle.Link"
+                              Click="@(() => DeleteModelAsync(model))" />
+                </PermissionView>
+            </RowActions>
         </CommGrd>
-    </div>
+        </ChildContent>
+    </CommCont>
 
-    <div>
-        <h2 class="ad-subhead">해석 규칙 @(_modelName is { Length: > 0 } name ? $"— {name}" : "")</h2>
+    <CommCont Title="@($"해석 규칙{(_modelName is { Length: > 0 } name ? $" — {name}" : "")}")"
+              Hint="@(_modelId is null ? null : $"{_items.Count}건")">
+        <Actions>
+            @if (_modelId is not null)
+            {
+                <PermissionView Action="MenuAction.Create">
+                    <DxButton Text="규칙 추가" RenderStyle="ButtonRenderStyle.Secondary"
+                              IconCssClass="jsini-icon-plus" Click="@StartNewItem" />
+                </PermissionView>
+            }
+        </Actions>
 
+        <ChildContent>
         @if (_modelId is null)
         {
             <PageNotice Text="왼쪽에서 모델을 고르면 그 모델의 해석 규칙이 나옵니다." />
         }
         else
         {
-            <div class="jsini-toolbar">
-                <PermissionView Action="MenuAction.Create">
-                    <DxButton Text="규칙 추가" RenderStyle="ButtonRenderStyle.Secondary"
-                              Click="@StartNewItem" />
-                </PermissionView>
-            </div>
-
-            <CommGrd TItem="ParseItem" Data="@_items">
+            <CommGrd TItem="ParseItem" Data="@_items"
+                     ExportName="해석규칙"
+                     Reload="@LoadItemsAsync">
                 <Columns>
                     <DxGridDataColumn FieldName="@nameof(ParseItem.Desc)" Caption="설명" MinWidth="180" />
                     <DxGridDataColumn FieldName="@nameof(ParseItem.PTYPE)" Caption="구분" Width="90" />
@@ -101,27 +108,25 @@
                     <DxGridDataColumn FieldName="@nameof(ParseItem.BlocParseLength)" Caption="길이" Width="110" />
                     <DxGridDataColumn FieldName="@nameof(ParseItem.BlocParseType)" Caption="해석" Width="90" />
 
-                    <DxGridDataColumn Caption="" Width="140" AllowSort="false">
-                        <CellDisplayTemplate Context="cell">
-                            @{
-                                var item = (ParseItem)cell.DataItem;
-                            }
-                            <div class="jsini-actions">
-                                <PermissionView Action="MenuAction.Update">
-                                    <DxButton Text="수정" RenderStyle="ButtonRenderStyle.Secondary"
-                                              Click="@(() => StartEditItem(item))" />
-                                </PermissionView>
-                                <PermissionView Action="MenuAction.Delete">
-                                    <DxButton Text="삭제" RenderStyle="ButtonRenderStyle.Secondary"
-                                              Click="@(() => DeleteItemAsync(item))" />
-                                </PermissionView>
-                            </div>
-                        </CellDisplayTemplate>
-                    </DxGridDataColumn>
                 </Columns>
+
+                <RowActions Context="item">
+                    <PermissionView Action="MenuAction.Update">
+                        <DxButton IconCssClass="jsini-icon-edit" Title="수정"
+                                  RenderStyle="ButtonRenderStyle.Link"
+                                  Click="@(() => StartEditItem(item))" />
+                    </PermissionView>
+                    <PermissionView Action="MenuAction.Delete">
+                        <DxButton IconCssClass="jsini-icon-trash" Title="삭제"
+                                  CssClass="commgrd__icon--warn"
+                                  RenderStyle="ButtonRenderStyle.Link"
+                                  Click="@(() => DeleteItemAsync(item))" />
+                    </PermissionView>
+                </RowActions>
             </CommGrd>
         }
-    </div>
+        </ChildContent>
+    </CommCont>
 </div>
 
 <DxPopup @bind-Visible="_editingModel" HeaderText="@(_model.Id == 0 ? "모델 등록" : "모델 수정")"
