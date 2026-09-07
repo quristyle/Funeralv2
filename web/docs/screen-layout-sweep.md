@@ -23,7 +23,7 @@
 | 13 | △ | `/admin/system/signup` | SignupList.razor | 팝업1 |
 | 14 | ☑ | `/funeral/building/device` | DeviceList.razor | 도구줄1 · 관리칸2 |
 | 15 | ☑ | `/funeral/building/music-build` | MusicBuildingMapping.razor | 도구줄2 |
-| 16 | ☐ | `/funeral/deceased` | DeceasedList.razor | 도구줄1 · 관리칸2 |
+| 16 | ☑ | `/funeral/deceased` | DeceasedList.razor | 도구줄1 · 관리칸2 |
 | 17 | ☐ | `/funeral/help/archive` | ArchiveListPage.razor | 도구줄2 · 관리칸1 · 팝업1 |
 | 18 | ☐ | `/funeral/info/my-info` | MyInfoPage.razor | 대시보드 · 도구줄1 |
 | 19 | ☐ | `/funeral/stat/billing` | BillingStat.razor | 대시보드 |
