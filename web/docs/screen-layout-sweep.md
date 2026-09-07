@@ -17,7 +17,7 @@
 | 7 | ☑ | `/admin/push/logs` | PushLogs.razor | 도구줄1 |
 | 8 | △ | `/admin/push/setting` | NotificationSetting.razor | 도구줄1 |
 | 9 | ☑ | `/admin/release` | ReleaseNotes.razor | 도구줄1 · 팝업1 |
-| 10 | ☐ | `/admin/status/deploy` | DeployStatus.razor | 대시보드 · 도구줄1 |
+| 10 | ☑ | `/admin/status/deploy` | DeployStatus.razor | 대시보드 · 도구줄1 |
 | 11 | ☐ | `/admin/status/server` | ServerStatus.razor | 대시보드 · 도구줄2 · 팝업1 |
 | 12 | ☐ | `/admin/system/menu` | MenuList.razor | 도구줄2 · 관리칸1 · 팝업1 |
 | 13 | ☐ | `/admin/system/signup` | SignupList.razor | 팝업1 |

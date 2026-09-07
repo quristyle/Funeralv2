@@ -24,6 +24,17 @@
   color: var(--jsini-text-muted);
 }
 
+/* 도장 몇 개를 한 줄에 늘어놓는 자리(어디서 · 언제 읽은 것인가).
+   `jsini-toolbar` 를 쓰지 않는 이유는 그것이 **조건줄**이라는 뜻이라서다 —
+   조건이 아닌 것을 거기 담으면 조건이 어디 있는지가 흐려진다. */
+.ad-stamps {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.75rem;
+  margin-bottom: 0.6rem;
+}
+
 /* ── 좌우 두 판 (사용자별 권한) ─────────────────────────── */
 
 .ad-two-pane {

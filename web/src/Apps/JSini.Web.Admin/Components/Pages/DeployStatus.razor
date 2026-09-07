@@ -26,10 +26,9 @@
 
 <PageTitle>배포 현황 · 포털관리</PageTitle>
 
-<div class="jsini-toolbar">
-    <DxButton Text="새로 고침" RenderStyle="ButtonRenderStyle.Primary"
-              IconCssClass="jsini-icon-refresh" Click="@ReloadAsync" />
-
+@* 조회 판을 세울 조건이 없다. 다시 읽기는 두 표의 아래 띠에 각각 붙고
+   (`Reload`), 어디서 언제 읽은 것인지는 도장으로 남긴다. *@
+<div class="ad-stamps">
     @if (_status?.Repo is { Length: > 0 } repo)
     {
         <span class="ad-stamp">@repo</span>
@@ -46,9 +45,10 @@
     <PageNotice Text="@($"GitHub 을 읽지 못했습니다 — {error}")" Tone="NoticeTone.Warning" />
 }
 
-<h2 class="ad-subhead">워크플로 실행</h2>
-
-<CommGrd TItem="GithubRunDto" Data="@Runs">
+<CommCont Title="워크플로 실행">
+    <CommGrd TItem="GithubRunDto" Data="@Runs"
+             ExportName="워크플로실행"
+             Reload="@ReloadAsync">
     <Columns>
         <DxGridDataColumn FieldName="@nameof(GithubRunDto.StartedAt)" Caption="시각" Width="150"
                           DisplayFormat="yyyy-MM-dd HH:mm" />
@@ -91,12 +91,14 @@
             </CellDisplayTemplate>
         </DxGridDataColumn>
     </Columns>
-</CommGrd>
+    </CommGrd>
+</CommCont>
 
-<h2 class="ad-subhead">러너</h2>
-
-<CommGrd TItem="GithubRunnerDto" Data="@Runners"
-         PageSizeSelectorVisible="false" PagerVisible="false">
+<CommCont Title="러너" Hint="@($"{Runners.Count}대")">
+    <CommGrd TItem="GithubRunnerDto" Data="@Runners"
+             PageSizeSelectorVisible="false" PagerVisible="false"
+             ExportName="러너"
+             Reload="@ReloadAsync">
     <Columns>
         <DxGridDataColumn FieldName="@nameof(GithubRunnerDto.Name)" Caption="이름" Width="180" />
 
@@ -124,7 +126,8 @@
             </CellDisplayTemplate>
         </DxGridDataColumn>
     </Columns>
-</CommGrd>
+    </CommGrd>
+</CommCont>
 
 <PageNotice Text="@Notice" Tone="@Tone" />
 
