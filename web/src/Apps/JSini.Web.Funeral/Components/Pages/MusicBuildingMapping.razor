@@ -17,31 +17,38 @@
 
 <PageTitle>건물별 음원 · 장례식장</PageTitle>
 
-<div class="jsini-toolbar">
-    <DxComboBox Data="@_musics" @bind-Value="_musicId"
-                TextFieldName="@nameof(MediaSource.Name)" ValueFieldName="@nameof(MediaSource.Id)"
-                NullText="음원을 고르십시오" Style="width: 260px" />
-    <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@LoadMappingAsync" />
+@* 조건은 음원 하나다. 「전체 선택·해제」와 「배정 저장」은 조건이 아니라
+   이 화면만의 동작이라 그 판의 Actions 로 간다 — 한 줄에 섞여 있으면
+   어느 것이 조건인지 흐려진다. *@
+<CommSch OnSearch="@LoadMappingAsync">
+    <Fields>
+        <CommSchItem Label="음원">
+            <DxComboBox Data="@_musics" @bind-Value="_musicId"
+                        TextFieldName="@nameof(MediaSource.Name)" ValueFieldName="@nameof(MediaSource.Id)"
+                        NullText="음원을 고르십시오" Style="width: 260px" />
+        </CommSchItem>
+    </Fields>
 
-    @* 건물이 스물이 넘는 곳이 있다. 하나씩 누르는 것과 「전부 켜고 몇 개만
-       끄는 것」은 손이 크게 다르다. *@
-    @if (_musicId is not null && _mappings.Count > 0)
-    {
-        <DxButton Text="전체 선택" RenderStyle="ButtonRenderStyle.Secondary"
-                  Click="@(() => ToggleAll(true))" />
-        <DxButton Text="전체 해제" RenderStyle="ButtonRenderStyle.Secondary"
-                  Click="@(() => ToggleAll(false))" />
+    <Actions>
+        @* 건물이 스물이 넘는 곳이 있다. 하나씩 누르는 것과 「전부 켜고 몇 개만
+           끄는 것」은 손이 크게 다르다. *@
+        @if (_musicId is not null && _mappings.Count > 0)
+        {
+            <span class="jsini-badge">@_mappings.Count(m => m.Mapped) / @_mappings.Count</span>
 
-        <span class="jsini-badge">@_mappings.Count(m => m.Mapped) / @_mappings.Count</span>
-    }
+            <DxButton Text="전체 선택" RenderStyle="ButtonRenderStyle.Secondary"
+                      Click="@(() => ToggleAll(true))" />
+            <DxButton Text="전체 해제" RenderStyle="ButtonRenderStyle.Secondary"
+                      Click="@(() => ToggleAll(false))" />
+        }
 
-    <div class="jsini-toolbar__spacer"></div>
-
-    <PermissionView Action="MenuAction.Update">
-        <DxButton Text="배정 저장" RenderStyle="ButtonRenderStyle.Success"
-                  Enabled="@(_musicId is not null)" Click="@SaveAsync" />
-    </PermissionView>
-</div>
+        <PermissionView Action="MenuAction.Update">
+            <DxButton Text="배정 저장" RenderStyle="ButtonRenderStyle.Secondary"
+                      IconCssClass="jsini-icon-check"
+                      Enabled="@(_musicId is not null)" Click="@SaveAsync" />
+        </PermissionView>
+    </Actions>
+</CommSch>
 
 @if (_musicId is null)
 {
@@ -49,7 +56,10 @@
 }
 else
 {
-    <CommGrd TItem="BuildingMusicMapping" Data="@_mappings" PageSize="20">
+    <CommCont>
+    <CommGrd TItem="BuildingMusicMapping" Data="@_mappings" PageSize="20"
+             ExportName="건물별음원"
+             Reload="@LoadMappingAsync">
         <Columns>
             <DxGridDataColumn Caption="배정" Width="80">
                 <CellDisplayTemplate Context="cell">
@@ -64,6 +74,7 @@ else
             <DxGridDataColumn FieldName="@nameof(BuildingMusicMapping.Address)" Caption="주소" MinWidth="240" />
         </Columns>
     </CommGrd>
+    </CommCont>
 }
 
 <PageNotice Text="@Notice" Tone="@Tone" />
