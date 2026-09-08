@@ -119,6 +119,30 @@
     · AllowSelectNodes + NavigateUrl — 누르면 그 주소로 간다. 우리가 Click 을
       받아 NavigateTo 하지 않는다. NavigateUrl 이면 가운데 클릭으로 새 탭에
       열리고 마우스를 올렸을 때 주소가 보인다.
+    · NodeExpandCollapseAction=NodeClick — **누르면 펼쳐진다.** 아래 참고.
+
+    [자식이 있는 메뉴는 눌렀을 때 펼쳐져야 한다]
+
+    기본값(`Auto`)은 **선택이 켜져 있으면 더블클릭**으로 펼친다. 그래서 하위
+    메뉴를 보려면 더블클릭하거나 앞의 `>` 를 정확히 눌러야 했다 — 사이드바에서
+    한 번 누르면 열리는 것이 당연하다고 여기는 자리라 「메뉴가 안 열린다」로 읽힌다.
+
+    `NodeClick` 으로 두면 한 번 눌러서 펼쳐진다. 재서 확인한 것 넷:
+
+    | 누른 것 | 무엇이 일어나나 |
+    |---|---|
+    | 묶음 (주소 없음) | 펼침·접힘만. 이동은 없다 |
+    | **자기 화면이 있는 부모** | **펼치고 이동까지 둘 다** |
+    | 그 부모를 또 누름 | 접힌다 (트리의 보통 동작) |
+    | 잎 | 이동한다 |
+
+    두 번째 줄이 이 값을 고른 이유다. 자식이 있으면서 **자기 화면도 있는** 메뉴가
+    여섯이다(현황관리 · 설정 · 정보 · 도움말 · 권한 · 통계). 펼치기가 이동을
+    잡아먹으면 그 여섯 화면을 사이드바로 열 방법이 없어진다 — 확인해 보니
+    DevExpress 는 둘을 다 해 준다.
+
+    세 번째 줄(또 누르면 접힘)은 그대로 둔다. 트리에서 누르는 것이 토글인 것은
+    보통이고, 접는 길을 `>` 하나로 좁히면 정리할 방법이 없어진다.
 *@
 @code {
     private RenderFragment MenuTree(IReadOnlyList<MenuNode> data, string key) =>
@@ -131,6 +155,7 @@
                      FilterMinLength="1"
                      FilterMode="NavigationFilterMode.EntireBranch"
                      AllowSelectNodes="true"
+                     NodeExpandCollapseAction="TreeViewNodeExpandCollapseAction.NodeClick"
                      AnimationType="LayoutAnimationType.Slide">
             <DataMappings>
                 <DxTreeViewDataMapping Text="@nameof(MenuNode.Title)"
