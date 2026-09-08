@@ -1171,30 +1171,35 @@
   align-items: start;
 }
 
-@media (min-width: 992px) {
-  .ad-msa { grid-template-columns: minmax(260px, 30%) 1fr; }
+@media (min-width: 1200px) {
+  .ad-msa { grid-template-columns: 1fr 380px; }
 }
 
-/* 타일이 늘어나도 목록만 구른다. 페이지가 함께 자라면 아래 구역들이 밀린다. */
+/* 카드가 늘어나도 목록만 구른다. 페이지가 함께 자라면 아래 구역들이 밀린다. */
 .ad-msa__list {
+  min-width: 0;
+  max-height: 26rem;
+  overflow-y: auto;
+
+  /* **줄이 아니라 칸이 채워진다.** 서비스가 늘 때 아래로 자라지 않는 것이
+     이 화면의 요점이라, 열 수를 폭이 정하게 둔다(`auto-fill`). */
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 0.5rem;
+  align-content: start;
+}
+
+/* 카드는 단추다 — 눌러서 오른쪽을 바꾸는 것이므로 키보드로도 닿아야 한다.
+   상태는 왼쪽 굵은 선으로 말한다(`ad-card` 와 같은 규칙). 글자(상태 이름)도
+   함께 두는 이유는 색으로만 구분하면 색각 이상이 있는 사용자가 못 읽는다. */
+.ad-msa__card {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
-  max-height: 22rem;
-  overflow-y: auto;
-}
-
-/* 타일은 단추다 — 눌러서 오른쪽을 바꾸는 것이므로 키보드로도 닿아야 한다.
-   상태는 왼쪽 굵은 선으로 말한다(`ad-card` 와 같은 규칙). */
-.ad-msa__tile {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  width: 100%;
-  padding: 0.45rem 0.6rem;
+  padding: 0.5rem 0.6rem;
   border: 1px solid var(--jsini-border, #e0e0e0);
   border-left-width: 3px;
-  border-radius: 0.35rem;
+  border-radius: 0.5rem;
   background: transparent;
   color: inherit;
   font: inherit;
@@ -1202,30 +1207,38 @@
   cursor: pointer;
 }
 
-.ad-msa__tile:hover { background: color-mix(in srgb, currentcolor 5%, transparent); }
+.ad-msa__card:hover { background: color-mix(in srgb, currentcolor 4%, transparent); }
 
-/* 고른 타일. 테두리만 굵게 하면 글자가 밀려 보이므로 바탕으로 표시한다. */
-.ad-msa__tile.is-on {
-  background: color-mix(in srgb, var(--jsini-accent) 12%, transparent);
+/* 고른 카드. 테두리 폭을 바꾸면 카드가 흔들려 보이므로 테를 덧그린다. */
+.ad-msa__card.is-on {
   border-color: var(--jsini-accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--jsini-accent) 35%, transparent);
 }
 
-.ad-msa__tile--up { border-left-color: #2e7d32; }
-.ad-msa__tile--warn { border-left-color: #b26a00; }
-.ad-msa__tile--down { border-left-color: #d32f2f; }
+.ad-msa__card--up { border-left-color: #2e7d32; }
+.ad-msa__card--warn { border-left-color: #b26a00; }
+.ad-msa__card--down { border-left-color: #d32f2f; }
+
+.ad-msa__row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+}
 
 .ad-msa__dot {
   width: 0.5rem;
   height: 0.5rem;
   border-radius: 50%;
   flex: none;
+  margin-left: auto;
   background: currentcolor;
   opacity: 0.35;
 }
 
-.ad-msa__tile--up .ad-msa__dot { background: #2e7d32; opacity: 1; }
-.ad-msa__tile--warn .ad-msa__dot { background: #b26a00; opacity: 1; }
-.ad-msa__tile--down .ad-msa__dot { background: #d32f2f; opacity: 1; }
+.ad-msa__card--up .ad-msa__dot { background: #2e7d32; opacity: 1; }
+.ad-msa__card--warn .ad-msa__dot { background: #b26a00; opacity: 1; }
+.ad-msa__card--down .ad-msa__dot { background: #d32f2f; opacity: 1; }
 
 .ad-msa__name {
   flex: 1;
@@ -1236,17 +1249,25 @@
   font-weight: 600;
 }
 
-/* 딸린 것 요약. 타일에서 「DB 가 죽었다」를 알아채고 눌러 보게 만드는 일만 한다. */
-.ad-msa__deps {
-  display: flex;
-  gap: 0.15rem;
-  flex: none;
+.ad-msa__state { font-size: var(--jsini-fs-sm); }
+
+.ad-msa__card--up .ad-msa__state { color: #2e7d32; }
+.ad-msa__card--warn .ad-msa__state { color: #b26a00; }
+.ad-msa__card--down .ad-msa__state { color: #d32f2f; }
+
+/* 딸린 것 요약. 카드에서 「DB 가 죽었다」를 알아채고 눌러 보게 만드는 일만 한다. */
+.ad-msa__deps { gap: 0.2rem; }
+
+.ad-msa__deps-label {
+  font-size: var(--jsini-fs-sm);
+  color: var(--jsini-text-muted);
 }
 
 .ad-msa__depdot {
   width: 0.4rem;
   height: 0.4rem;
   border-radius: 50%;
+  flex: none;
 }
 
 .ad-msa__depdot--up { background: #2e7d32; }
@@ -1255,9 +1276,15 @@
 
 .ad-msa__latency {
   flex: none;
+  margin-left: auto;
   font-size: var(--jsini-fs-sm);
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
+
+/* 상세 안에 접어 넣은 AI 공급자 카드는 한 줄에 한 장이다. 칸이 380px 이라
+   두 장을 나란히 두면 모델 이름과 한도가 줄바꿈으로 뭉개진다. */
+.ad-msa__detail .ad-deck { margin-bottom: 0; }
 
 /* ── 오른쪽 상세 ──────────────────────────────────────────── */
 

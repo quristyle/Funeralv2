@@ -158,19 +158,31 @@ else
                 var key = KeyOf(svc);
                 var on = key == shown;
 
+                @* 카드 한 장이 서비스 하나다. 석 줄로 읽는다 —
+                   이름 · 상태와 응답 시간 · 연결 점. *@
                 <button type="button"
-                        class="ad-msa__tile ad-msa__tile--@tone @(on ? "is-on" : null)"
+                        class="ad-msa__card ad-msa__card--@tone @(on ? "is-on" : null)"
                         role="option" aria-selected="@on"
+                        title="@meta.Desc"
                         @onclick="@(() => _selectedKey = key)">
-                    <span class="ad-msa__dot"></span>
+                    <span class="ad-msa__row">
+                        <span class="ad-msa__name">@meta.Name</span>
+                        <span class="ad-msa__dot"></span>
+                    </span>
 
-                    <span class="ad-msa__name">@meta.Name</span>
+                    <span class="ad-msa__row">
+                        <span class="ad-msa__state">@LabelOf(tone)</span>
+                        <span class="ad-msa__latency @LatencyClass(svc.LatencyMs)">
+                            @(svc.LatencyMs is { } ms ? $"{ms}ms" : "-")
+                        </span>
+                    </span>
 
-                    @* 딸린 것을 점으로 요약한다. 타일에서 「DB 가 죽었다」를
+                    @* 딸린 것을 점으로 요약한다. 카드에서 「DB 가 죽었다」를
                        알아채고 눌러 보게 만드는 것이 이 점의 일이다. *@
                     @if (svc.Dependencies.Count > 0)
                     {
-                        <span class="ad-msa__deps">
+                        <span class="ad-msa__row ad-msa__deps">
+                            <span class="ad-msa__deps-label">연결</span>
                             @foreach (var dep in svc.Dependencies)
                             {
                                 <span class="ad-msa__depdot ad-msa__depdot--@DepTone(dep.Status)"
@@ -178,10 +190,6 @@ else
                             }
                         </span>
                     }
-
-                    <span class="ad-msa__latency @LatencyClass(svc.LatencyMs)">
-                        @(svc.LatencyMs is { } ms ? $"{ms}ms" : "-")
-                    </span>
                 </button>
             }
         </div>
@@ -260,134 +268,146 @@ else
 
                 @if (string.Equals(sel.Cluster, "ai-cluster", StringComparison.OrdinalIgnoreCase))
                 {
-                    @* AI 는 아래에 제 구역이 따로 있다. 여기서 다시 늘어놓지 않고
-                       그쪽을 가리킨다 — 같은 값을 두 곳에 두면 한쪽만 고쳐진다. *@
-                    <div class="ad-stamp">제공자 · 한도는 아래 「AI 제공자」에 있습니다.</div>
+                    @* ── AI 공급자 ──────────────────────────────
+                       「딸린 것」의 `llm` 은 **기본 공급자 하나**만 찔러 본
+                       결과다. 사람마다 환경설정에서 다른 공급자를 고를 수
+                       있으므로, 고를 수 있는 것 전부의 상태가 여기 필요하다.
+
+                       아래에 제 구역으로 두고 있었는데 옛 화면처럼 상세 안으로
+                       접었다. AI 를 고르지 않았을 때 이 자리를 비워 두는 것이
+                       옳다 — 다른 서비스를 보는 동안 AI 한도가 눈에 걸릴 이유가
+                       없고, 화면 아래로 밀려나 있으면 AIAgentServer 가 빨간
+                       것을 보고도 원인을 여기서 찾지 못한다.
+
+                       사용량은 **실제 요청이 오갈 때 지나간 응답 헤더를 서버가
+                       주워 둔 값**이다. 이 화면을 열어 두는 것만으로는 한도가
+                       줄지 않는다 — 알려고 공급자를 찔러 보면 그 호출이 무료
+                       한도를 깎는다. *@
+                    <div class="ad-msa__section">AI 공급자</div>
+
+        @if (_ai is null)
+        {
+            <PageNotice Text="AI 서버 상태를 읽지 못했습니다." Tone="NoticeTone.Info" />
+        }
+        else
+        {
+            @if (_ai.RestingModels.Count > 0)
+            {
+                @* 쉬는 모델이 있다는 것은 한도를 넘겼거나 오류가 잦았다는 뜻이다.
+                   대화가 느려진 이유가 여기 있을 때가 많다. *@
+                <PageNotice Tone="NoticeTone.Warning"
+                            Text="@($"잠시 쉬는 모델: {string.Join(", ", _ai.RestingModels)}")" />
+            }
+
+            <DxFormLayout CssClass="ad-deck" CaptionPosition="CaptionPosition.Vertical">
+                @foreach (var p in _ai.Providers)
+                {
+                    var models = ModelsOf(p.Key);
+                    var result = _deep.GetValueOrDefault(p.Key);
+
+                    @* 키가 없으면 그 제공자로는 아무것도 못 부른다 — 컨테이너가 떠
+                       있어도 그렇다. 그것을 카드 테두리 색으로 먼저 말한다. *@
+                    <DxFormLayoutGroup Decoration="FormLayoutGroupDecoration.Card"
+                                       ExpandButtonDisplayMode="GroupExpandButtonDisplayMode.None"
+                                       ColSpanXs="12"
+                                       CssClass="@($"ad-card ad-card--{(p.Configured ? "up" : "off")}")">
+                        <CaptionTemplate>
+                            <span class="ad-card__name">@(p.DisplayName ?? p.Key)</span>
+                            @if (p.IsDefault)
+                            {
+                                <span class="jsini-badge jsini-badge--on">기본</span>
+                            }
+                            <span class="jsini-badge @(p.Configured ? "jsini-badge--on" : "jsini-badge--off")">
+                                @(p.Configured ? "키 있음" : "키 없음")
+                            </span>
+                        </CaptionTemplate>
+                        <Items>
+                            <DxFormLayoutItem Caption="모델" ColSpanXs="12">
+                                <Template>
+                                    <span class="ad-code">@(p.Model ?? "-")</span>
+                                </Template>
+                            </DxFormLayoutItem>
+
+                            <DxFormLayoutItem Caption="오늘 사용" ColSpanXs="12">
+                                <Template>
+                                    @* 한도가 0 이면 제한이 없다는 뜻이다. 「0/0」으로 보이면
+                                       다 쓴 것처럼 읽히므로 갈라 적는다. *@
+                                    @if (p.MaxRequestsPerDay > 0)
+                                    {
+                                        <div class="ad-quota">
+                                            <DxProgressBar Value="@p.UsedToday" MinValue="0"
+                                                           MaxValue="@p.MaxRequestsPerDay"
+                                                           CssClass="ad-quota__bar" />
+                                            <span class="ad-stamp">@p.UsedToday / @p.MaxRequestsPerDay</span>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <span>@p.UsedToday <span class="ad-stamp">(무제한)</span></span>
+                                    }
+                                </Template>
+                            </DxFormLayoutItem>
+
+                            @if (p.FallbackModels.Count > 0)
+                            {
+                                <DxFormLayoutItem Caption="대체 모델" ColSpanXs="12">
+                                    <Template>
+                                        <span class="ad-code">@string.Join(", ", p.FallbackModels)</span>
+                                    </Template>
+                                </DxFormLayoutItem>
+                            }
+
+                            @if (models.Count > 0)
+                            {
+                                <DxFormLayoutItem Caption="고를 수 있는 모델" ColSpanXs="12">
+                                    <Template>
+                                        @* 목록이 곧 「무엇으로 바꿀 수 있는가」다. 지금 모델이
+                                           쉬고 있을 때 어디로 옮길 수 있는지가 여기서만 보인다.
+                                           길어서 카드를 밀어내므로 높이를 가둔다. *@
+                                        <div class="ad-modellist ad-code">@string.Join(", ", models)</div>
+                                    </Template>
+                                </DxFormLayoutItem>
+                            }
+
+                            <DxFormLayoutItem ColSpanXs="12">
+                                <Template>
+                                    <div class="ad-deep">
+                                        <DxButton Text="정밀 확인"
+                                                  RenderStyle="ButtonRenderStyle.Secondary"
+                                                  Enabled="@(_checking != p.Key)"
+                                                  Click="@(() => DeepCheckAsync(p.Key))" />
+
+                                        @if (_checking == p.Key)
+                                        {
+                                            <span class="ad-stamp">묻는 중 …</span>
+                                        }
+                                        else if (result is not null)
+                                        {
+                                            @* 한도 초과는 고장이 아니다. 색을 갈라 둔다 —
+                                               같은 붉은색이면 키가 잘못된 것처럼 읽힌다. *@
+                                            <span class="jsini-badge @DeepTone(result)">
+                                                @(result.Ok ? $"{result.LatencyMs}ms" : result.RateLimited ? "한도" : "실패")
+                                            </span>
+                                            <span class="ad-stamp">@result.Message</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="ad-stamp">실제로 한 번 물어봅니다 (돈이 듭니다)</span>
+                                        }
+                                    </div>
+                                </Template>
+                            </DxFormLayoutItem>
+                        </Items>
+                    </DxFormLayoutGroup>
+                }
+            </DxFormLayout>
+        }
                 }
             }
         </div>
     </div>
 }
 
-<h2 class="ad-subhead">AI 제공자</h2>
-
-@if (_ai is null)
-{
-    <PageNotice Text="AI 서버 상태를 읽지 못했습니다." Tone="NoticeTone.Info" />
-}
-else
-{
-    @if (_ai.RestingModels.Count > 0)
-    {
-        @* 쉬는 모델이 있다는 것은 한도를 넘겼거나 오류가 잦았다는 뜻이다.
-           대화가 느려진 이유가 여기 있을 때가 많다. *@
-        <PageNotice Tone="NoticeTone.Warning"
-                    Text="@($"잠시 쉬는 모델: {string.Join(", ", _ai.RestingModels)}")" />
-    }
-
-    <DxFormLayout CssClass="ad-deck" CaptionPosition="CaptionPosition.Vertical">
-        @foreach (var p in _ai.Providers)
-        {
-            var models = ModelsOf(p.Key);
-            var result = _deep.GetValueOrDefault(p.Key);
-
-            @* 키가 없으면 그 제공자로는 아무것도 못 부른다 — 컨테이너가 떠
-               있어도 그렇다. 그것을 카드 테두리 색으로 먼저 말한다. *@
-            <DxFormLayoutGroup Decoration="FormLayoutGroupDecoration.Card"
-                               ExpandButtonDisplayMode="GroupExpandButtonDisplayMode.None"
-                               ColSpanXs="12" ColSpanMd="6" ColSpanXl="4"
-                               CssClass="@($"ad-card ad-card--{(p.Configured ? "up" : "off")}")">
-                <CaptionTemplate>
-                    <span class="ad-card__name">@(p.DisplayName ?? p.Key)</span>
-                    @if (p.IsDefault)
-                    {
-                        <span class="jsini-badge jsini-badge--on">기본</span>
-                    }
-                    <span class="jsini-badge @(p.Configured ? "jsini-badge--on" : "jsini-badge--off")">
-                        @(p.Configured ? "키 있음" : "키 없음")
-                    </span>
-                </CaptionTemplate>
-                <Items>
-                    <DxFormLayoutItem Caption="모델" ColSpanXs="12">
-                        <Template>
-                            <span class="ad-code">@(p.Model ?? "-")</span>
-                        </Template>
-                    </DxFormLayoutItem>
-
-                    <DxFormLayoutItem Caption="오늘 사용" ColSpanXs="12">
-                        <Template>
-                            @* 한도가 0 이면 제한이 없다는 뜻이다. 「0/0」으로 보이면
-                               다 쓴 것처럼 읽히므로 갈라 적는다. *@
-                            @if (p.MaxRequestsPerDay > 0)
-                            {
-                                <div class="ad-quota">
-                                    <DxProgressBar Value="@p.UsedToday" MinValue="0"
-                                                   MaxValue="@p.MaxRequestsPerDay"
-                                                   CssClass="ad-quota__bar" />
-                                    <span class="ad-stamp">@p.UsedToday / @p.MaxRequestsPerDay</span>
-                                </div>
-                            }
-                            else
-                            {
-                                <span>@p.UsedToday <span class="ad-stamp">(무제한)</span></span>
-                            }
-                        </Template>
-                    </DxFormLayoutItem>
-
-                    @if (p.FallbackModels.Count > 0)
-                    {
-                        <DxFormLayoutItem Caption="대체 모델" ColSpanXs="12">
-                            <Template>
-                                <span class="ad-code">@string.Join(", ", p.FallbackModels)</span>
-                            </Template>
-                        </DxFormLayoutItem>
-                    }
-
-                    @if (models.Count > 0)
-                    {
-                        <DxFormLayoutItem Caption="고를 수 있는 모델" ColSpanXs="12">
-                            <Template>
-                                @* 목록이 곧 「무엇으로 바꿀 수 있는가」다. 지금 모델이
-                                   쉬고 있을 때 어디로 옮길 수 있는지가 여기서만 보인다.
-                                   길어서 카드를 밀어내므로 높이를 가둔다. *@
-                                <div class="ad-modellist ad-code">@string.Join(", ", models)</div>
-                            </Template>
-                        </DxFormLayoutItem>
-                    }
-
-                    <DxFormLayoutItem ColSpanXs="12">
-                        <Template>
-                            <div class="ad-deep">
-                                <DxButton Text="정밀 확인"
-                                          RenderStyle="ButtonRenderStyle.Secondary"
-                                          Enabled="@(_checking != p.Key)"
-                                          Click="@(() => DeepCheckAsync(p.Key))" />
-
-                                @if (_checking == p.Key)
-                                {
-                                    <span class="ad-stamp">묻는 중 …</span>
-                                }
-                                else if (result is not null)
-                                {
-                                    @* 한도 초과는 고장이 아니다. 색을 갈라 둔다 —
-                                       같은 붉은색이면 키가 잘못된 것처럼 읽힌다. *@
-                                    <span class="jsini-badge @DeepTone(result)">
-                                        @(result.Ok ? $"{result.LatencyMs}ms" : result.RateLimited ? "한도" : "실패")
-                                    </span>
-                                    <span class="ad-stamp">@result.Message</span>
-                                }
-                                else
-                                {
-                                    <span class="ad-stamp">실제로 한 번 물어봅니다 (돈이 듭니다)</span>
-                                }
-                            </div>
-                        </Template>
-                    </DxFormLayoutItem>
-                </Items>
-            </DxFormLayoutGroup>
-        }
-    </DxFormLayout>
-}
 
 <h2 class="ad-subhead">컨테이너</h2>
 
