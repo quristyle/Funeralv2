@@ -20,8 +20,7 @@ public static class FloorEndpoints
         {
             return await floorService.GetFloorsAsync(buildingId);
         })
-        .WithName("GetFloors")
-        .WithOpenApi();
+        .WithName("GetFloors");
 
         // 층 상세 조회
         group.MapGet("/{id}", async (string id, [FromServices] IFloorService floorService) =>
@@ -33,16 +32,14 @@ public static class FloorEndpoints
             }
             return Results.Ok(result);
         })
-        .WithName("GetFloorById")
-        .WithOpenApi();
+        .WithName("GetFloorById");
 
         // 층 생성
         group.MapPost("/", async ([FromBody] FloorCreateDto dto, [FromServices] IFloorService floorService) =>
         {
             return await floorService.CreateFloorAsync(dto);
         })
-        .WithName("CreateFloor")
-        .WithOpenApi();
+        .WithName("CreateFloor");
 
         // 층 수정
         group.MapPut("/{id}", async (string id, [FromBody] FloorUpdateDto dto, [FromServices] IFloorService floorService) =>
@@ -54,8 +51,7 @@ public static class FloorEndpoints
             }
             return Results.Ok(result);
         })
-        .WithName("UpdateFloor")
-        .WithOpenApi();
+        .WithName("UpdateFloor");
 
         // 층 삭제
         group.MapDelete("/{id}", async (string id, [FromServices] IFloorService floorService) =>
@@ -67,7 +63,6 @@ public static class FloorEndpoints
             }
             return Results.Ok(true);
         })
-        .WithName("DeleteFloor")
-        .WithOpenApi();
+        .WithName("DeleteFloor");
     }
 }

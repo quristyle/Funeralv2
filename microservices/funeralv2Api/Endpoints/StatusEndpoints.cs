@@ -25,8 +25,7 @@ public static class StatusEndpoints
         {
             return await service.GetBoardAsync(buildingId, floorId, onlyInUse ?? false);
         })
-        .WithName("GetFuneralStatusBoard")
-        .WithOpenApi();
+        .WithName("GetFuneralStatusBoard");
 
         // 목록만. 옛 화면들이 목록만 쓰던 자리를 위해 남겨 둔다.
         group.MapGet("/funeral-status/list", async (
@@ -38,8 +37,7 @@ public static class StatusEndpoints
             var board = await service.GetBoardAsync(buildingId, floorId, onlyInUse ?? false);
             return board.Rooms;
         })
-        .WithName("GetFuneralStatuses")
-        .WithOpenApi();
+        .WithName("GetFuneralStatuses");
 
         // 빈소현황 대시보드 — 호실·고인·장비를 서버에서 붙여 한 번에 준다.
         group.MapGet("/room-board", async (
@@ -48,8 +46,7 @@ public static class StatusEndpoints
         {
             return await service.GetRoomBoardAsync(query);
         })
-        .WithName("GetRoomBoard")
-        .WithOpenApi();
+        .WithName("GetRoomBoard");
 
         group.MapGet("/funeral-status/{roomId}", async (
             string roomId,
@@ -62,7 +59,6 @@ public static class StatusEndpoints
             }
             return Results.Ok(result);
         })
-        .WithName("GetFuneralStatusDetail")
-        .WithOpenApi();
+        .WithName("GetFuneralStatusDetail");
     }
 }

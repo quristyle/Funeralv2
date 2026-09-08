@@ -20,8 +20,7 @@ public static class BuildingEndpoints
         {
             return await buildingService.GetBuildingsAsync(companyId);
         })
-        .WithName("GetBuildings")
-        .WithOpenApi();
+        .WithName("GetBuildings");
 
         // 건물 상세 조회
         group.MapGet("/{id}", async (string id, [FromServices] IBuildingService buildingService) =>
@@ -33,16 +32,14 @@ public static class BuildingEndpoints
             }
             return Results.Ok(result);
         })
-        .WithName("GetBuildingById")
-        .WithOpenApi();
+        .WithName("GetBuildingById");
 
         // 건물 생성
         group.MapPost("/", async ([FromBody] BuildingCreateDto dto, [FromServices] IBuildingService buildingService) =>
         {
             return await buildingService.CreateBuildingAsync(dto);
         })
-        .WithName("CreateBuilding")
-        .WithOpenApi();
+        .WithName("CreateBuilding");
 
         // 건물 수정
         group.MapPut("/{id}", async (string id, [FromBody] BuildingUpdateDto dto, [FromServices] IBuildingService buildingService) =>
@@ -54,8 +51,7 @@ public static class BuildingEndpoints
             }
             return Results.Ok(result);
         })
-        .WithName("UpdateBuilding")
-        .WithOpenApi();
+        .WithName("UpdateBuilding");
 
         // 건물 삭제
         group.MapDelete("/{id}", async (string id, [FromServices] IBuildingService buildingService) =>
@@ -67,7 +63,6 @@ public static class BuildingEndpoints
             }
             return Results.Ok(true);
         })
-        .WithName("DeleteBuilding")
-        .WithOpenApi();
+        .WithName("DeleteBuilding");
     }
 }

@@ -42,8 +42,7 @@ public static class InfoEndpoints
             return await service.GetRoomHistoriesAsync(
                 buildingId, roomId, from, to, keyword, inUse);
         })
-        .WithName("GetRoomHistories")
-        .WithOpenApi();
+        .WithName("GetRoomHistories");
 
         // ── 고인 정보 조회 ──────────────────────────────────────
 
@@ -58,8 +57,7 @@ public static class InfoEndpoints
         {
             return await service.SearchDeceasedAsync(keyword, buildingId, roomId, from, to, status);
         })
-        .WithName("SearchDeceased")
-        .WithOpenApi();
+        .WithName("SearchDeceased");
 
         // ── 나의 정보 ───────────────────────────────────────────
 
@@ -67,8 +65,7 @@ public static class InfoEndpoints
         {
             return await service.GetMyInfoAsync(RequireUser(user), user?.Role);
         })
-        .WithName("GetFuneralMyInfo")
-        .WithOpenApi();
+        .WithName("GetFuneralMyInfo");
 
         // ── 미리보기 ────────────────────────────────────────────
 
@@ -79,8 +76,7 @@ public static class InfoEndpoints
         {
             return await service.GetDevicePreviewsAsync(buildingId, roomId);
         })
-        .WithName("GetDevicePreviews")
-        .WithOpenApi();
+        .WithName("GetDevicePreviews");
     }
 
     /// <summary>

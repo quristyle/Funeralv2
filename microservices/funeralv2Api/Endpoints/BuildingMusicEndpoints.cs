@@ -21,8 +21,7 @@ public static class BuildingMusicEndpoints
         {
             return await service.GetBuildingsForMusicAsync(mediaSourceId);
         })
-        .WithName("GetBuildingsForMusic")
-        .WithOpenApi();
+        .WithName("GetBuildingsForMusic");
 
         group.MapPut("/{mediaSourceId}/buildings", async (
             string mediaSourceId,
@@ -32,8 +31,7 @@ public static class BuildingMusicEndpoints
         {
             return await service.SaveAsync(user?.UserId ?? string.Empty, mediaSourceId, dto.BuildingIds);
         })
-        .WithName("SaveBuildingsForMusic")
-        .WithOpenApi();
+        .WithName("SaveBuildingsForMusic");
 
         // 장비가 재생 목록을 받아 갈 때 쓴다.
         group.MapGet("/building/{buildingId}", async (
@@ -42,7 +40,6 @@ public static class BuildingMusicEndpoints
         {
             return await service.GetMusicIdsForBuildingAsync(buildingId);
         })
-        .WithName("GetMusicIdsForBuilding")
-        .WithOpenApi();
+        .WithName("GetMusicIdsForBuilding");
     }
 }

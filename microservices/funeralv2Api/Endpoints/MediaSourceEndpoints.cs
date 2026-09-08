@@ -20,8 +20,7 @@ public static class MediaSourceEndpoints
         {
             return await service.GetMediaSourcesAsync(type);
         })
-        .WithName("GetMediaSources")
-        .WithOpenApi();
+        .WithName("GetMediaSources");
 
         // 미디어 소스 상세 조회
         group.MapGet("/{id}", async (string id, [FromServices] IMediaSourceService service) =>
@@ -33,16 +32,14 @@ public static class MediaSourceEndpoints
             }
             return Results.Ok(result);
         })
-        .WithName("GetMediaSourceById")
-        .WithOpenApi();
+        .WithName("GetMediaSourceById");
 
         // 미디어 소스 생성
         group.MapPost("/", async ([FromBody] MediaSourceCreateDto dto, [FromServices] IMediaSourceService service) =>
         {
             return await service.CreateMediaSourceAsync(dto);
         })
-        .WithName("CreateMediaSource")
-        .WithOpenApi();
+        .WithName("CreateMediaSource");
 
         // 미디어 소스 삭제
         group.MapDelete("/{id}", async (string id, [FromServices] IMediaSourceService service) =>
@@ -54,8 +51,7 @@ public static class MediaSourceEndpoints
             }
             return Results.Ok(true);
         })
-        .WithName("DeleteMediaSource")
-        .WithOpenApi();
+        .WithName("DeleteMediaSource");
 
         // 미디어 소스 변환 상태 업데이트 (FileServer 등에서 비동기 처리 완료 후 알림용)
         group.MapPatch("/{id}/status", async (string id, [FromBody] MediaSourceStatusUpdateDto dto, [FromServices] IMediaSourceService service) =>
@@ -67,8 +63,7 @@ public static class MediaSourceEndpoints
             }
             return Results.Ok(result);
         })
-        .WithName("UpdateMediaSourceStatus")
-        .WithOpenApi();
+        .WithName("UpdateMediaSourceStatus");
 
         // 미디어 소스 썸네일 재추출
         group.MapPost("/{id}/retry/thumbnail", async (string id, [FromServices] IMediaSourceService service) =>
@@ -80,8 +75,7 @@ public static class MediaSourceEndpoints
             }
             return Results.Ok(true);
         })
-        .WithName("RetryMediaSourceThumbnail")
-        .WithOpenApi();
+        .WithName("RetryMediaSourceThumbnail");
 
         // 미디어 소스 WebM 재변환
         group.MapPost("/{id}/retry/webm", async (string id, [FromServices] IMediaSourceService service) =>
@@ -93,8 +87,7 @@ public static class MediaSourceEndpoints
             }
             return Results.Ok(true);
         })
-        .WithName("RetryMediaSourceWebm")
-        .WithOpenApi();
+        .WithName("RetryMediaSourceWebm");
 
         // 미디어 소스 정보 수정
         group.MapPut("/{id}", async (string id, [FromBody] MediaSourceUpdateDto dto, [FromServices] IMediaSourceService service) =>
@@ -106,8 +99,7 @@ public static class MediaSourceEndpoints
             }
             return Results.Ok(result);
         })
-        .WithName("UpdateMediaSource")
-        .WithOpenApi();
+        .WithName("UpdateMediaSource");
 
         // 미디어 소스 Audio 재변환
         group.MapPost("/{id}/retry/audio", async (string id, [FromServices] IMediaSourceService service) =>
@@ -119,7 +111,6 @@ public static class MediaSourceEndpoints
             }
             return Results.Ok(true);
         })
-        .WithName("RetryMediaSourceAudio")
-        .WithOpenApi();
+        .WithName("RetryMediaSourceAudio");
     }
 }

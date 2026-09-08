@@ -24,7 +24,7 @@ public static class DeviceRibbonEndpoints
         {
             var result = await service.GetByDeviceIdAsync(deviceId);
             return Results.Ok(ApiResponse<List<DeviceRibbonDto>>.Ok(result));
-        }).WithName("GetDeviceRibbonsByDeviceId").WithOpenApi();
+        }).WithName("GetDeviceRibbonsByDeviceId");
 
         // 리본 단건 조회
         group.MapGet("/{id}", async (
@@ -37,7 +37,7 @@ public static class DeviceRibbonEndpoints
                 return Results.NotFound(ApiResponse<DeviceRibbonDto>.Fail("리본 설정을 찾을 수 없습니다."));
             }
             return Results.Ok(ApiResponse<DeviceRibbonDto>.Ok(result));
-        }).WithName("GetDeviceRibbon").WithOpenApi();
+        }).WithName("GetDeviceRibbon");
 
         // 리본 단건 생성
         group.MapPost("/", async (
@@ -46,7 +46,7 @@ public static class DeviceRibbonEndpoints
         {
             var result = await service.CreateAsync(dto);
             return Results.Created($"/building/device-ribbon/{result.Id}", ApiResponse<DeviceRibbonDto>.Ok(result));
-        }).WithName("CreateDeviceRibbon").WithOpenApi();
+        }).WithName("CreateDeviceRibbon");
 
         // 리본 단건 수정
         group.MapPut("/{id}", async (
@@ -60,7 +60,7 @@ public static class DeviceRibbonEndpoints
                 return Results.NotFound(ApiResponse<DeviceRibbonDto>.Fail("수정할 리본 설정을 찾을 수 없습니다."));
             }
             return Results.Ok(ApiResponse<DeviceRibbonDto>.Ok(result));
-        }).WithName("UpdateDeviceRibbon").WithOpenApi();
+        }).WithName("UpdateDeviceRibbon");
 
         // 리본 단건 삭제
         group.MapDelete("/{id}", async (
@@ -73,7 +73,7 @@ public static class DeviceRibbonEndpoints
                 return Results.NotFound(ApiResponse<bool>.Fail("삭제할 리본 설정이 없습니다."));
             }
             return Results.Ok(ApiResponse<bool>.Ok(true));
-        }).WithName("DeleteDeviceRibbon").WithOpenApi();
+        }).WithName("DeleteDeviceRibbon");
 
         // 장비 리본 목록 일괄 저장 (전체 교체)
         group.MapPut("/bulk-save", async (
@@ -82,6 +82,6 @@ public static class DeviceRibbonEndpoints
         {
             var result = await service.BulkSaveAsync(dto);
             return Results.Ok(ApiResponse<List<DeviceRibbonDto>>.Ok(result));
-        }).WithName("BulkSaveDeviceRibbons").WithOpenApi();
+        }).WithName("BulkSaveDeviceRibbons");
     }
 }

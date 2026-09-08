@@ -19,8 +19,7 @@ public static class SettingEndpoints
         {
             return await service.GetSettingsAsync(user?.UserId ?? string.Empty);
         })
-        .WithName("GetEnvironmentSettings")
-        .WithOpenApi();
+        .WithName("GetEnvironmentSettings");
 
         group.MapPut("/environment/{code}", async (
             string code,
@@ -35,8 +34,7 @@ public static class SettingEndpoints
             }
             return Results.Ok(result);
         })
-        .WithName("UpdateEnvironmentSetting")
-        .WithOpenApi();
+        .WithName("UpdateEnvironmentSetting");
 
         // 화면의 저장 버튼 하나로 여러 줄을 한 번에 바꾼다.
         group.MapPut("/environment", async (
@@ -46,7 +44,6 @@ public static class SettingEndpoints
         {
             return await service.UpdateSettingsAsync(user?.UserId ?? string.Empty, dto.Settings);
         })
-        .WithName("UpdateEnvironmentSettings")
-        .WithOpenApi();
+        .WithName("UpdateEnvironmentSettings");
     }
 }

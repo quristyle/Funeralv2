@@ -13,7 +13,7 @@ namespace funeralv2Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
     [Migration("20260627063308_moviechange")]
-    partial class moviechange
+    partial class MovieChange
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)

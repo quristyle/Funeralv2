@@ -28,7 +28,7 @@ public static class DeviceAttributeEndpoints
             //    return Results.NotFound(ApiResponse<DeviceAttributeDto>.Fail("장비 속성 정보를 찾을 수 없습니다."));
             //}
             return Results.Ok(ApiResponse<DeviceAttributeDto>.Ok(result));
-        }).WithName("GetDeviceAttribute").WithOpenApi();
+        }).WithName("GetDeviceAttribute");
 
         // 장비 속성 저장 (Upsert: 없으면 생성, 있으면 수정)
         group.MapPut("/", async (
@@ -37,7 +37,7 @@ public static class DeviceAttributeEndpoints
         {
             var result = await service.UpsertAsync(dto);
             return Results.Ok(result);
-        }).WithName("UpsertDeviceAttribute").WithOpenApi();
+        }).WithName("UpsertDeviceAttribute");
 
         // 장비 속성 삭제 (deviceId 기준)
         group.MapDelete("/{deviceId}", async (
@@ -50,6 +50,6 @@ public static class DeviceAttributeEndpoints
                 return Results.NotFound(ApiResponse<bool>.Fail("삭제할 장비 속성이 없습니다."));
             }
             return Results.Ok(success);
-        }).WithName("DeleteDeviceAttribute").WithOpenApi();
+        }).WithName("DeleteDeviceAttribute");
     }
 }

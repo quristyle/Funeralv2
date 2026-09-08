@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace funeralv2Api.Migrations
 {
     /// <inheritdoc />
-    public partial class devicesadd : Migration
+    public partial class DevicesAdd : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)

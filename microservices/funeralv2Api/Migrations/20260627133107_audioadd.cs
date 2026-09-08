@@ -5,7 +5,7 @@
 namespace funeralv2Api.Migrations
 {
     /// <inheritdoc />
-    public partial class audioadd : Migration
+    public partial class AudioAdd : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)

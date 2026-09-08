@@ -13,7 +13,7 @@ namespace funeralv2Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
     [Migration("20260627065735_movirthumbnailadd")]
-    partial class movirthumbnailadd
+    partial class MovieThumbnailAdd
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)

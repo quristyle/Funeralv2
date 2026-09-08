@@ -20,8 +20,7 @@ public static class DeceasedEndpoints
         {
             return await service.GetDeceasedListAsync(searchDto);
         })
-        .WithName("GetDeceasedList")
-        .WithOpenApi();
+        .WithName("GetDeceasedList");
 
         // 고인 등록
         // 상태·호실 배정 검증에 걸리면 400 으로 사유를 돌려준다 (D-RS1 · D-RS6).
@@ -36,8 +35,7 @@ public static class DeceasedEndpoints
                 return Results.BadRequest(ApiResponse<DeceasedDto>.Fail(ex.Message));
             }
         })
-        .WithName("CreateDeceased")
-        .WithOpenApi();
+        .WithName("CreateDeceased");
 
         // 고인 정보 수정
         group.MapPut("/{id}", async (string id, [FromBody] DeceasedUpdateDto dto, [FromServices] IDeceasedService service, UserContext? user) =>
@@ -56,8 +54,7 @@ public static class DeceasedEndpoints
                 return Results.BadRequest(ApiResponse<DeceasedDto>.Fail(ex.Message));
             }
         })
-        .WithName("UpdateDeceased")
-        .WithOpenApi();
+        .WithName("UpdateDeceased");
 
         // 고인 삭제
         group.MapDelete("/{id}", async (string id, [FromServices] IDeceasedService service, UserContext? user) =>
@@ -69,8 +66,7 @@ public static class DeceasedEndpoints
             }
             return Results.Ok(true);
         })
-        .WithName("DeleteDeceased")
-        .WithOpenApi();
+        .WithName("DeleteDeceased");
 
         // 고인 종합 상세 정보 조회
         group.MapGet("/{id}/detail", async (string id, [FromServices] IDeceasedService service) =>
@@ -82,8 +78,7 @@ public static class DeceasedEndpoints
             }
             return Results.Ok(result);
         })
-        .WithName("GetDeceasedDetail")
-        .WithOpenApi();
+        .WithName("GetDeceasedDetail");
 
         // 호실 ID로 현재 고인 상세 정보 조회
         //
@@ -100,8 +95,7 @@ public static class DeceasedEndpoints
             }
             return Results.Ok(result.ToAnonymousDisplay());
         })
-        .WithName("GetDeceasedDetailByDeviceCode")
-        .WithOpenApi();
+        .WithName("GetDeceasedDetailByDeviceCode");
 
         // 장비코드로 입구 안내용 호실 및 고인 종합 상세 정보 목록 조회
         // [익명 라우트] 위와 같다.
@@ -110,8 +104,7 @@ public static class DeceasedEndpoints
             var result = await service.GetEntranceGuideRoomsByDeviceCodeAsync(deviceCode);
             return Results.Ok(result.ToAnonymousDisplay());
         })
-        .WithName("GetEntranceGuideRoomsByDeviceCode")
-        .WithOpenApi();
+        .WithName("GetEntranceGuideRoomsByDeviceCode");
 
         // 장비코드로 키오스크용 건물 전체 호실 및 고인 종합 상세 정보 목록 조회
         // [익명 라우트] 위와 같다.
@@ -120,8 +113,7 @@ public static class DeceasedEndpoints
             var result = await service.GetKioskRoomsByDeviceCodeAsync(deviceCode);
             return Results.Ok(result.ToAnonymousDisplay());
         })
-        .WithName("GetKioskRoomsByDeviceCode")
-        .WithOpenApi();
+        .WithName("GetKioskRoomsByDeviceCode");
 
         // 고인 종합 상세 정보 저장
         group.MapPut("/{id}/detail", async (string id, [FromBody] DeceasedDetailDto dto, [FromServices] IDeceasedService service) =>
@@ -140,8 +132,7 @@ public static class DeceasedEndpoints
                 return Results.BadRequest(ApiResponse<DeceasedDetailDto>.Fail(ex.Message));
             }
         })
-        .WithName("SaveDeceasedDetail")
-        .WithOpenApi();
+        .WithName("SaveDeceasedDetail");
 
         // 고인 종합 상세 정보 저장 (신규 등록 시 ID가 없을 때)
         group.MapPut("/detail", async ([FromBody] DeceasedDetailDto dto, [FromServices] IDeceasedService service) =>
@@ -160,8 +151,7 @@ public static class DeceasedEndpoints
                 return Results.BadRequest(ApiResponse<DeceasedDetailDto>.Fail(ex.Message));
             }
         })
-        .WithName("SaveDeceasedDetailNew")
-        .WithOpenApi();
+        .WithName("SaveDeceasedDetailNew");
 
         // 고인 호실 이동 — 배정만 바꾼다. 대상 호실 검증에 걸리면 400.
         group.MapPut("/{id}/room", async (string id, [FromQuery] string roomId, [FromServices] IDeceasedService service, UserContext? user) =>
@@ -185,8 +175,7 @@ public static class DeceasedEndpoints
                 return Results.BadRequest(ApiResponse<bool>.Fail(ex.Message));
             }
         })
-        .WithName("MoveDeceasedRoom")
-        .WithOpenApi();
+        .WithName("MoveDeceasedRoom");
 
         // 고인 출상 처리 — 상태 전환과 배정 해제만 한다.
         // 예전에는 화면이 전체 PUT 을 재구성해 보냈는데, 목록 DTO 에 없는
@@ -200,8 +189,7 @@ public static class DeceasedEndpoints
             }
             return Results.Ok(true);
         })
-        .WithName("Depart")
-        .WithOpenApi();
+        .WithName("Depart");
 
         // 고인 출상 취소 처리 — 되돌아갈 호실에 다른 고인이 있으면 400.
         // 출상 취소는 관리자 역할만 (47번 문서 D-RS4).
@@ -228,7 +216,6 @@ public static class DeceasedEndpoints
                 return Results.BadRequest(ApiResponse<bool>.Fail(ex.Message));
             }
         })
-        .WithName("CancelDeparture")
-        .WithOpenApi();
+        .WithName("CancelDeparture");
     }
 }

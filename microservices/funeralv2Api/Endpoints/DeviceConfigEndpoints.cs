@@ -23,7 +23,7 @@ public static class DeviceConfigEndpoints
         {
             var result = await service.GetListByDeviceIdAsync(deviceId);
             return Results.Ok(result);
-        }).WithName("GetDeviceConfigList").WithOpenApi();
+        }).WithName("GetDeviceConfigList");
 
         group.MapGet("/{deviceId}", async (
             string deviceId,
@@ -35,7 +35,7 @@ public static class DeviceConfigEndpoints
             //    return Results.NotFound(ApiResponse<DeviceConfigDto>.Fail("장비 기본 설정 정보를 찾을 수 없습니다."));
             //}
             return Results.Ok(result);
-        }).WithName("GetDeviceConfigByDeviceId").WithOpenApi();
+        }).WithName("GetDeviceConfigByDeviceId");
 
         group.MapPut("/", async (
             [FromBody] DeviceConfigUpsertDto dto,
@@ -43,7 +43,7 @@ public static class DeviceConfigEndpoints
         {
             var result = await service.UpsertAsync(dto);
             return Results.Ok(result);
-        }).WithName("UpsertDeviceConfig").WithOpenApi();
+        }).WithName("UpsertDeviceConfig");
 
         group.MapPut("/{id}", async (
             string id,
@@ -58,7 +58,7 @@ public static class DeviceConfigEndpoints
 
             var result = await service.GetByDeviceIdAsync(dto.DeviceId);
             return Results.Ok(result);
-        }).WithName("UpdateDeviceConfig").WithOpenApi();
+        }).WithName("UpdateDeviceConfig");
 
         group.MapDelete("/{deviceId}", async (
             string deviceId,
@@ -70,6 +70,6 @@ public static class DeviceConfigEndpoints
                 return Results.NotFound(ApiResponse<bool>.Fail("삭제할 장비 기본 설정이 없습니다."));
             }
             return Results.Ok(success);
-        }).WithName("DeleteDeviceConfig").WithOpenApi();
+        }).WithName("DeleteDeviceConfig");
     }
 }

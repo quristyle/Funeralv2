@@ -18,6 +18,7 @@ public interface IDeceasedService
     /// 고인 등록. 상태가 허용 값이 아니거나 호실 배정이 불가하면
     /// <see cref="System.InvalidOperationException"/> 을 던진다.
     /// </summary>
+    /// <param name="dto">등록할 고인 정보</param>
     /// <param name="actor">변경한 사용자 (게이트웨이 X-User-Id)</param>
     Task<DeceasedDto> CreateDeceasedAsync(DeceasedCreateDto dto, string? actor = null);
 
@@ -25,12 +26,15 @@ public interface IDeceasedService
     /// 고인 정보 수정. 상태가 허용 값이 아니거나 호실 배정이 불가하면
     /// <see cref="System.InvalidOperationException"/> 을 던진다.
     /// </summary>
+    /// <param name="id">수정할 고인 아이디</param>
+    /// <param name="dto">바꿀 내용</param>
     /// <param name="actor">변경한 사용자 (게이트웨이 X-User-Id)</param>
     Task<DeceasedDto?> UpdateDeceasedAsync(string id, DeceasedUpdateDto dto, string? actor = null);
 
     /// <summary>
     /// 고인 삭제 (Soft Delete)
     /// </summary>
+    /// <param name="id">지울 고인 아이디</param>
     /// <param name="actor">변경한 사용자 (게이트웨이 X-User-Id)</param>
     Task<bool> DeleteDeceasedAsync(string id, string? actor = null);
 
@@ -63,6 +67,8 @@ public interface IDeceasedService
     /// 고인의 호실 이동 — 배정만 바꾸고 인적 사항은 건드리지 않는다.
     /// 대상 호실이 배정 불가하면 <see cref="System.InvalidOperationException"/> 을 던진다.
     /// </summary>
+    /// <param name="deceasedId">옮길 고인 아이디</param>
+    /// <param name="newRoomId">옮겨 갈 호실 아이디</param>
     /// <param name="actor">변경한 사용자 (게이트웨이 X-User-Id)</param>
     Task<bool> MoveRoomAsync(string deceasedId, string newRoomId, string? actor = null);
 
@@ -71,6 +77,7 @@ public interface IDeceasedService
     /// 다른 인적 사항은 건드리지 않는다 (전체 PUT 으로 하면 목록 DTO 에 없는
     /// 칸들이 지워지는 문제가 있었다).
     /// </summary>
+    /// <param name="deceasedId">출상할 고인 아이디</param>
     /// <param name="actor">변경한 사용자 (게이트웨이 X-User-Id)</param>
     Task<bool> DepartAsync(string deceasedId, string? actor = null);
 
@@ -78,6 +85,7 @@ public interface IDeceasedService
     /// 고인의 출상 취소 처리. 되돌아갈 호실에 다른 고인이 입실 중이면
     /// <see cref="System.InvalidOperationException"/> 을 던진다 (옛 시스템과 같은 규칙).
     /// </summary>
+    /// <param name="deceasedId">출상을 되돌릴 고인 아이디</param>
     /// <param name="actor">변경한 사용자 (게이트웨이 X-User-Id)</param>
     Task<bool> CancelDepartureAsync(string deceasedId, string? actor = null);
 }

@@ -86,7 +86,7 @@ public static class PlayerUpdateEndpoints
             await hub.Clients.Group(code).SendAsync("UpdateNow");
             return Results.Ok(ApiResponse<bool>.Ok(true,
                 "업그레이드 지시를 보냈습니다. 장비가 새 버전을 확인해 설치합니다 (몇 분 걸립니다)."));
-        }).WithName("SendPlayerUpdateNow").WithOpenApi();
+        }).WithName("SendPlayerUpdateNow");
 
         // 장비별 보고된 앱 버전 (D-P4). 플레이어 v1.0.2+ 가 접속할 때 보고한 값이다.
         // 메모리 보관이라 서버 재기동 직후에는 비어 있다가 60초 하트비트로 다시 찬다.
@@ -110,6 +110,6 @@ public static class PlayerUpdateEndpoints
                 .OrderBy(x => x.deviceCode)
                 .ToList();
             return Results.Ok(list);
-        }).WithName("GetPlayerVersions").WithOpenApi();
+        }).WithName("GetPlayerVersions");
     }
 }

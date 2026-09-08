@@ -24,8 +24,7 @@ public static class RoomEndpoints
         {
             return await roomService.GetRoomsAsync(companyId, buildingId, floorId);
         })
-        .WithName("GetRooms")
-        .WithOpenApi();
+        .WithName("GetRooms");
 
         // 배정(이동) 가능한 호실 목록 — ACTIVE + 미점유. 빈소현황의 호실 변경이 쓴다.
         group.MapGet("/available", async (
@@ -36,8 +35,7 @@ public static class RoomEndpoints
         {
             return await roomService.GetAvailableRoomsAsync(companyId, buildingId, excludeRoomId);
         })
-        .WithName("GetAvailableRooms")
-        .WithOpenApi();
+        .WithName("GetAvailableRooms");
 
         // 호실 상세 조회
         group.MapGet("/{id}", async (string id, [FromServices] IRoomService roomService) =>
@@ -49,16 +47,14 @@ public static class RoomEndpoints
             }
             return Results.Ok(result);
         })
-        .WithName("GetRoomById")
-        .WithOpenApi();
+        .WithName("GetRoomById");
 
         // 호실 생성
         group.MapPost("/", async ([FromBody] RoomCreateDto dto, [FromServices] IRoomService roomService) =>
         {
             return await roomService.CreateRoomAsync(dto);
         })
-        .WithName("CreateRoom")
-        .WithOpenApi();
+        .WithName("CreateRoom");
 
         // 호실 수정
         group.MapPut("/{id}", async (string id, [FromBody] RoomUpdateDto dto, [FromServices] IRoomService roomService) =>
@@ -70,8 +66,7 @@ public static class RoomEndpoints
             }
             return Results.Ok(result);
         })
-        .WithName("UpdateRoom")
-        .WithOpenApi();
+        .WithName("UpdateRoom");
 
         // 호실 삭제
         group.MapDelete("/{id}", async (string id, [FromServices] IRoomService roomService) =>
@@ -83,7 +78,6 @@ public static class RoomEndpoints
             }
             return Results.Ok(true);
         })
-        .WithName("DeleteRoom")
-        .WithOpenApi();
+        .WithName("DeleteRoom");
     }
 }

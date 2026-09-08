@@ -13,7 +13,7 @@ namespace funeralv2Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
     [Migration("20260625142946_devicesadd")]
-    partial class devicesadd
+    partial class DevicesAdd
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)

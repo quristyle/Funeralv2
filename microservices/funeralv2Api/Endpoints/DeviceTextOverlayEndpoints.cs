@@ -24,7 +24,7 @@ public static class DeviceTextOverlayEndpoints
         {
             var result = await service.GetByDeviceIdAsync(deviceId);
             return Results.Ok(ApiResponse<List<DeviceTextOverlayDto>>.Ok(result));
-        }).WithName("GetDeviceTextOverlaysByDeviceId").WithOpenApi();
+        }).WithName("GetDeviceTextOverlaysByDeviceId");
 
         // 텍스트 오버레이 단건 조회
         group.MapGet("/{id}", async (
@@ -37,7 +37,7 @@ public static class DeviceTextOverlayEndpoints
                 return Results.NotFound(ApiResponse<DeviceTextOverlayDto>.Fail("텍스트 오버레이 설정을 찾을 수 없습니다."));
             }
             return Results.Ok(ApiResponse<DeviceTextOverlayDto>.Ok(result));
-        }).WithName("GetDeviceTextOverlay").WithOpenApi();
+        }).WithName("GetDeviceTextOverlay");
 
         // 텍스트 오버레이 단건 생성
         group.MapPost("/", async (
@@ -46,7 +46,7 @@ public static class DeviceTextOverlayEndpoints
         {
             var result = await service.CreateAsync(dto);
             return Results.Created($"/building/device-text-overlay/{result.Id}", ApiResponse<DeviceTextOverlayDto>.Ok(result));
-        }).WithName("CreateDeviceTextOverlay").WithOpenApi();
+        }).WithName("CreateDeviceTextOverlay");
 
         // 텍스트 오버레이 단건 수정
         group.MapPut("/{id}", async (
@@ -60,7 +60,7 @@ public static class DeviceTextOverlayEndpoints
                 return Results.NotFound(ApiResponse<DeviceTextOverlayDto>.Fail("수정할 텍스트 오버레이 설정을 찾을 수 없습니다."));
             }
             return Results.Ok(ApiResponse<DeviceTextOverlayDto>.Ok(result));
-        }).WithName("UpdateDeviceTextOverlay").WithOpenApi();
+        }).WithName("UpdateDeviceTextOverlay");
 
         // 텍스트 오버레이 단건 삭제
         group.MapDelete("/{id}", async (
@@ -73,7 +73,7 @@ public static class DeviceTextOverlayEndpoints
                 return Results.NotFound(ApiResponse<bool>.Fail("삭제할 텍스트 오버레이 설정이 없습니다."));
             }
             return Results.Ok(ApiResponse<bool>.Ok(true));
-        }).WithName("DeleteDeviceTextOverlay").WithOpenApi();
+        }).WithName("DeleteDeviceTextOverlay");
 
         // 장비 텍스트 오버레이 목록 일괄 저장 (전체 교체)
         group.MapPut("/bulk-save", async (
@@ -82,6 +82,6 @@ public static class DeviceTextOverlayEndpoints
         {
             var result = await service.BulkSaveAsync(dto);
             return Results.Ok(ApiResponse<List<DeviceTextOverlayDto>>.Ok(result));
-        }).WithName("BulkSaveDeviceTextOverlays").WithOpenApi();
+        }).WithName("BulkSaveDeviceTextOverlays");
     }
 }

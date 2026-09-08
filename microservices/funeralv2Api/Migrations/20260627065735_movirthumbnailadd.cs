@@ -5,7 +5,7 @@
 namespace funeralv2Api.Migrations
 {
     /// <inheritdoc />
-    public partial class movirthumbnailadd : Migration
+    public partial class MovieThumbnailAdd : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)

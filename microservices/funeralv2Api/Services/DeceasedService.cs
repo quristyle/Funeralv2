@@ -797,8 +797,11 @@ public class DeceasedService : IDeceasedService
 
 
 
-// 2. 고인 상세 정보 조회
-        var deceased = deceasedId == null ? null : await _context.Deceaseds.AsNoTracking()
+        // 2. 고인 상세 정보 조회
+        // 배정된 고인이 없으면 여기서 끝낸다. 뒤의 조회 두 번을 아낀다.
+        if (string.IsNullOrEmpty(deceasedId)) return null;
+
+        var deceased = await _context.Deceaseds.AsNoTracking()
             .Where(d => d.Id == deceasedId)
             .FirstOrDefaultAsync();
 

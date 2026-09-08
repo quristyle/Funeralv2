@@ -17,11 +17,12 @@ public static class ExampleEndpoints
         {
             return await demoService.GetDemoTableListAsync(page, pageSize);
         })
-        .WithName("GetDemoTableList")
-        .WithOpenApi();
+        .WithName("GetDemoTableList");
 
         // 파일 업로드 예제
-        group.MapPost("/upload", async ([FromForm] IFormFile file, [FromServices] ILoggerFactory loggerFactory) =>
+        // IFormFile 은 [FromForm] 없이도 폼에서 묶인다. 붙여 두면 Swashbuckle 이
+        // 파라미터를 못 읽어 /swagger/v1/swagger.json 이 통째로 500 이 된다.
+        group.MapPost("/upload", async (IFormFile file, [FromServices] ILoggerFactory loggerFactory) =>
         {
             var logger = loggerFactory.CreateLogger("ExampleEndpoints");
             logger.LogInformation("[Upload] Received upload request. FileName: {FileName}, Length: {Length} bytes, ContentType: {ContentType}", 
@@ -52,7 +53,6 @@ public static class ExampleEndpoints
             }
         })
         .WithName("UploadFile")
-        .WithOpenApi()
         .DisableAntiforgery()
         .WithMetadata(new Microsoft.AspNetCore.Mvc.DisableRequestSizeLimitAttribute());
     }

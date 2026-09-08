@@ -33,7 +33,7 @@ public static class DeviceEndpoints
             var filteredResult = await service.GetByFilterAsync(companyId, buildingId, floorId, roomId);
             return Results.Ok(filteredResult);
 
-        }).WithName("GetDevices").WithOpenApi();
+        }).WithName("GetDevices");
 
         // 장비 상세 조회
         group.MapGet("/{id}", async (string id, [FromServices] IDeviceService service) =>
@@ -44,7 +44,7 @@ public static class DeviceEndpoints
                 return Results.NotFound(ApiResponse<DeviceDto>.Fail("장비 정보를 찾을 수 없습니다."));
             }
             return Results.Ok(result);
-        }).WithName("GetDeviceById").WithOpenApi();
+        }).WithName("GetDeviceById");
 
         // 장비 코드로 상세 조회
         //
@@ -60,14 +60,14 @@ public static class DeviceEndpoints
                 return Results.NotFound(ApiResponse<DeviceDto>.Fail("장비 정보를 찾을 수 없습니다."));
             }
             return Results.Ok(result.ToAnonymousDisplay());
-        }).WithName("GetDeviceByCode").WithOpenApi();
+        }).WithName("GetDeviceByCode");
 
         // 장비 생성
         group.MapPost("/", async ([FromBody] DeviceCreateDto dto, [FromServices] IDeviceService service) =>
         {
             var newDevice = await service.CreateAsync(dto);
             return Results.Ok(newDevice);
-        }).WithName("CreateDevice").WithOpenApi();
+        }).WithName("CreateDevice");
 
         // 장비 수정
         group.MapPut("/{id}", async (string id, [FromBody] DeviceUpdateDto dto, [FromServices] IDeviceService service) =>
@@ -78,7 +78,7 @@ public static class DeviceEndpoints
                 return Results.NotFound(ApiResponse<DeviceDto>.Fail("수정할 장비 정보를 찾을 수 없습니다."));
             }
             return Results.Ok(updatedDevice);
-        }).WithName("UpdateDevice").WithOpenApi();
+        }).WithName("UpdateDevice");
 
         // 장비 삭제
         group.MapDelete("/{id}", async (string id, [FromServices] IDeviceService service) =>
@@ -89,7 +89,7 @@ public static class DeviceEndpoints
                 return Results.NotFound(ApiResponse<bool>.Fail("삭제할 장비 정보를 찾을 수 없습니다."));
             }
             return Results.Ok(success);
-        }).WithName("DeleteDevice").WithOpenApi();
+        }).WithName("DeleteDevice");
 
         // 장비 상태 직접 업데이트 (기기코드 기준)
         group.MapPut("/status/{code}", async (
@@ -99,7 +99,7 @@ public static class DeviceEndpoints
         {
             var success = await service.UpdateStatusAsync(code, status);
             return Results.Ok(ApiResponse<bool>.Ok(success));
-        }).WithName("UpdateDeviceStatus").WithOpenApi();
+        }).WithName("UpdateDeviceStatus");
 
         // 원격 모니터 전원 제어 (기기코드 기준)
         //
@@ -151,7 +151,7 @@ public static class DeviceEndpoints
 
             await hubSender.SendScreenPowerAsync(code, normalized == "ON");
             return Results.Ok(ApiResponse<bool>.Ok(true));
-        }).WithName("SetDeviceScreenPower").WithOpenApi();
+        }).WithName("SetDeviceScreenPower");
 
         // 플레이어 앱 재시작 (기기코드 기준) — 47번 문서 D-RS3.
         //
@@ -188,6 +188,6 @@ public static class DeviceEndpoints
 
             await hubSender.SendAppRestartAsync(code);
             return Results.Ok(ApiResponse<bool>.Ok(true));
-        }).WithName("RestartDeviceApp").WithOpenApi();
+        }).WithName("RestartDeviceApp");
     }
 }

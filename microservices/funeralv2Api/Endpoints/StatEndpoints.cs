@@ -21,8 +21,7 @@ public static class StatEndpoints
         {
             return await service.GetBillingAsync(buildingId, from, to);
         })
-        .WithName("GetBillingStats")
-        .WithOpenApi();
+        .WithName("GetBillingStats");
 
         group.MapGet("/room-usage/list", async (
             [FromQuery] string? buildingId,
@@ -33,8 +32,7 @@ public static class StatEndpoints
         {
             return await service.GetRoomUsageAsync(buildingId, roomId, from, to);
         })
-        .WithName("GetRoomUsageStats")
-        .WithOpenApi();
+        .WithName("GetRoomUsageStats");
 
         group.MapGet("/summary", async (
             [FromQuery] string? buildingId,
@@ -44,7 +42,6 @@ public static class StatEndpoints
         {
             return await service.GetSummaryAsync(buildingId, from, to);
         })
-        .WithName("GetStatSummary")
-        .WithOpenApi();
+        .WithName("GetStatSummary");
     }
 }

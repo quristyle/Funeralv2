@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace funeralv2Api.Migrations
 {
     /// <inheritdoc />
-    public partial class moviechange : Migration
+    public partial class MovieChange : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)

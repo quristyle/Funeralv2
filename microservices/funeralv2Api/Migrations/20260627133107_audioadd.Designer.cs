@@ -13,7 +13,7 @@ namespace funeralv2Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
     [Migration("20260627133107_audioadd")]
-    partial class audioadd
+    partial class AudioAdd
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
