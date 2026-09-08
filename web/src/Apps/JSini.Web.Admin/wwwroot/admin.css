@@ -1152,6 +1152,172 @@
   margin-bottom: 1rem;
 }
 
+/* ── MSA 상태: 타일 + 상세 ────────────────────────────────
+
+   카드 한 장에 모든 값을 담으면 서비스 수만큼 세로로 자란다. 왼쪽에 한 줄
+   타일을 세우고 오른쪽에 고른 것 하나만 편다 — 서비스가 스물이 되어도
+   화면 높이는 그대로다.
+
+   `ad-split` 을 쓰지 않는 이유는 그쪽이 **본문 높이를 통째로 차지**하는
+   규칙을 물고 있어서다. 이 화면은 아래에 구역이 셋 더 쌓여 있어 그 규칙을
+   걸면 나머지가 잘린다.
+   ---------------------------------------------------------- */
+
+.ad-msa {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  align-items: start;
+}
+
+@media (min-width: 992px) {
+  .ad-msa { grid-template-columns: minmax(260px, 30%) 1fr; }
+}
+
+/* 타일이 늘어나도 목록만 구른다. 페이지가 함께 자라면 아래 구역들이 밀린다. */
+.ad-msa__list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  max-height: 22rem;
+  overflow-y: auto;
+}
+
+/* 타일은 단추다 — 눌러서 오른쪽을 바꾸는 것이므로 키보드로도 닿아야 한다.
+   상태는 왼쪽 굵은 선으로 말한다(`ad-card` 와 같은 규칙). */
+.ad-msa__tile {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--jsini-border, #e0e0e0);
+  border-left-width: 3px;
+  border-radius: 0.35rem;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ad-msa__tile:hover { background: color-mix(in srgb, currentcolor 5%, transparent); }
+
+/* 고른 타일. 테두리만 굵게 하면 글자가 밀려 보이므로 바탕으로 표시한다. */
+.ad-msa__tile.is-on {
+  background: color-mix(in srgb, var(--jsini-accent) 12%, transparent);
+  border-color: var(--jsini-accent);
+}
+
+.ad-msa__tile--up { border-left-color: #2e7d32; }
+.ad-msa__tile--warn { border-left-color: #b26a00; }
+.ad-msa__tile--down { border-left-color: #d32f2f; }
+
+.ad-msa__dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  flex: none;
+  background: currentcolor;
+  opacity: 0.35;
+}
+
+.ad-msa__tile--up .ad-msa__dot { background: #2e7d32; opacity: 1; }
+.ad-msa__tile--warn .ad-msa__dot { background: #b26a00; opacity: 1; }
+.ad-msa__tile--down .ad-msa__dot { background: #d32f2f; opacity: 1; }
+
+.ad-msa__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+/* 딸린 것 요약. 타일에서 「DB 가 죽었다」를 알아채고 눌러 보게 만드는 일만 한다. */
+.ad-msa__deps {
+  display: flex;
+  gap: 0.15rem;
+  flex: none;
+}
+
+.ad-msa__depdot {
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 50%;
+}
+
+.ad-msa__depdot--up { background: #2e7d32; }
+.ad-msa__depdot--warn { background: #b26a00; }
+.ad-msa__depdot--down { background: #d32f2f; }
+
+.ad-msa__latency {
+  flex: none;
+  font-size: var(--jsini-fs-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── 오른쪽 상세 ──────────────────────────────────────────── */
+
+.ad-msa__detail {
+  border: 1px solid var(--jsini-border, #e0e0e0);
+  border-radius: 0.35rem;
+  padding: 0.9rem 1rem;
+  min-width: 0;
+}
+
+.ad-msa__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.2rem;
+}
+
+/* 이름표와 값을 두 칸으로. 값이 주소처럼 길어도 이름표 칸은 안 밀린다. */
+.ad-msa__facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.3rem 0.75rem;
+  margin: 0.75rem 0 0;
+}
+
+.ad-msa__facts dt {
+  color: var(--jsini-text-muted);
+  font-size: var(--jsini-fs-sm);
+  white-space: nowrap;
+}
+
+.ad-msa__facts dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.ad-msa__section {
+  margin: 0.9rem 0 0.4rem;
+  font-weight: 600;
+  font-size: var(--jsini-fs-sm);
+}
+
+.ad-msa__deplist {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.ad-msa__deplist li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.4rem;
+}
+
 /* 상태를 왼쪽 굵은 선으로 말한다. 카드 열몇 장 중에 빨간 것 하나를 찾는
    자리라, 글자를 읽기 전에 색이 먼저 걸려야 한다. 글자(배지)도 함께 두는
    이유는 색으로만 구분하면 색각 이상이 있는 사용자가 못 읽기 때문이다. */
