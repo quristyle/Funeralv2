@@ -180,9 +180,11 @@ public class LLMService : ILLMService
         // 생각 블록을 걷어낸다. 조각 경계에서 태그가 잘리므로 상태를 들고 가야 한다.
         var reasoning = new ReasoningFilter();
 
-        while (!reader.EndOfStream)
+        // EndOfStream 은 뒤에서 동기로 읽어 버린다(CA2024). 토큰이 한 조각씩 오는
+        // 이 고리에서는 조각마다 스레드를 붙잡는 셈이라, 끝 판정을 ReadLineAsync 의
+        // null 로 대신한다 — 읽는 횟수도 조각당 두 번에서 한 번으로 준다.
+        while (await reader.ReadLineAsync() is { } line)
         {
-            var line = await reader.ReadLineAsync();
             if (string.IsNullOrWhiteSpace(line)) continue;
             if (!line.StartsWith("data: ")) continue;
 

@@ -139,8 +139,7 @@ public static class AIEndpoints
                 providers = list,
             }));
         })
-        .WithName("ListAiProviders")
-        .WithOpenApi();
+        .WithName("ListAiProviders");
 
         // ── 확인된 무료 모델 목록 ────────────────────────────────
         //
@@ -186,8 +185,7 @@ public static class AIEndpoints
                     ?? Array.Empty<string>(),
             }));
         })
-        .WithName("ListFreeModels")
-        .WithOpenApi();
+        .WithName("ListFreeModels");
 
         // ── 정밀 확인 (생성까지 되는지) ──────────────────────────
         //
@@ -274,8 +272,7 @@ public static class AIEndpoints
                 }));
             }
         })
-        .WithName("DeepCheckLlm")
-        .WithOpenApi();
+        .WithName("DeepCheckLlm");
 
         group.MapPost("/chat", async (
             HttpContext context,
@@ -300,8 +297,7 @@ public static class AIEndpoints
                 return AiFailure(ex);
             }
         })
-        .WithName("GeneralChat")
-        .WithOpenApi();
+        .WithName("GeneralChat");
 
         group.MapPost("/chat/stream", async (
             HttpContext context,
@@ -362,8 +358,7 @@ public static class AIEndpoints
                 await context.Response.Body.FlushAsync();
             }
         })
-        .WithName("StreamChat")
-        .WithOpenApi();
+        .WithName("StreamChat");
 
         group.MapGet("/suggest-code", async (
             HttpContext context,
@@ -389,8 +384,7 @@ public static class AIEndpoints
                 return AiFailure(ex);
             }
         })
-        .WithName("SuggestCommonCode")
-        .WithOpenApi();
+        .WithName("SuggestCommonCode");
 
         group.MapGet("/suggest-i18n", async (
             HttpContext context,
@@ -416,8 +410,7 @@ public static class AIEndpoints
                 return AiFailure(ex);
             }
         })
-        .WithName("SuggestI18nTranslation")
-        .WithOpenApi();
+        .WithName("SuggestI18nTranslation");
     }
 
     private static string? ReadProviderHeader(HttpContext context)
