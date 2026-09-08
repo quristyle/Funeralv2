@@ -205,6 +205,24 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
         }
     }
 
+    /// <summary>
+    /// 워터마크를 <b>지금</b> 걸거나 걷는다. 이름이 <c>null</c> 이면 걷는다.
+    ///
+    /// <para>
+    /// <see cref="UseWatermark"/> 와 갈라 둔 이유는 <b>끄는 길이 필요</b>해서다.
+    /// 그쪽은 「읽기 왕복에 태울 이름」을 받아 두는 자리이고, 태워 보내는
+    /// 쪽(theme.js)은 <b>이름이 있을 때만</b> 건다 — 이름이 안 실린 왕복이
+    /// 방금 걸어 둔 것을 지우지 않게 하려고 그렇게 만들어 두었다. 그래서
+    /// 그 길로는 「걷어라」를 말할 수 없다.
+    /// </para>
+    ///
+    /// <para>
+    /// 관리자가 설정을 바꾸면 셸이 이것을 부른다.
+    /// </para>
+    /// </summary>
+    public Task ApplyWatermarkAsync(string? name) =>
+        string.IsNullOrWhiteSpace(name) ? HideWatermarkLateAsync() : ShowWatermarkLateAsync(name);
+
     private async Task ShowWatermarkLateAsync(string? name)
     {
         try
@@ -214,6 +232,18 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
         catch (Exception ex) when (ex is JSException or InvalidOperationException)
         {
             logger.LogDebug(ex, "워터마크를 걸지 못했다.");
+        }
+    }
+
+    private async Task HideWatermarkLateAsync()
+    {
+        try
+        {
+            await js.InvokeVoidAsync("jsiniWatermark.hide");
+        }
+        catch (Exception ex) when (ex is JSException or InvalidOperationException)
+        {
+            logger.LogDebug(ex, "워터마크를 걷지 못했다.");
         }
     }
 

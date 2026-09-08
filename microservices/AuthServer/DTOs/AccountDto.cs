@@ -47,6 +47,22 @@ public class AccountDto
     public bool BirthdayCelebrated { get; set; } = true;
 
     /// <summary>
+    /// 화면에 로그인 아이디 워터마크를 깔지.
+    ///
+    /// <para>
+    /// <b>관리자가 정한다.</b> 사용자 환경설정에 두지 않는 이유는 이 표시가
+    /// 「찍힌 사진에서 누구 화면인지 드러나게」 하려고 있는 것이라, 당사자가
+    /// 스스로 끌 수 있으면 목적이 사라지기 때문이다.
+    /// </para>
+    ///
+    /// <para>
+    /// <c>account_profile_details</c> 의 <c>Watermark</c> 에 담는다. <b>값이
+    /// 없으면 켜진 것</b>이다 — 설정을 안 건드린 계정이 조용히 꺼지면 안 된다.
+    /// </para>
+    /// </summary>
+    public bool Watermark { get; set; } = true;
+
+    /// <summary>
     /// 계정을 만들면서 발급한 첫 비밀번호. <b>등록 응답에만 담긴다</b> —
     /// 목록·수정 응답에서는 언제나 <c>null</c> 이다.
     ///
@@ -64,6 +80,12 @@ public class AccountDto
 /// </summary>
 public class CreateAccountDto
 {
+    /// <summary>
+    /// 워터마크를 깔지. <b><c>null</c> 은 「건드리지 않음」</b>이다 —
+    /// 사진·생년월일과 같은 규칙이다.
+    /// </summary>
+    public bool? Watermark { get; set; }
+
     public string LoginId { get; set; } = string.Empty;
     public string UserName { get; set; } = string.Empty;
     public string? Email { get; set; }
@@ -87,6 +109,12 @@ public class CreateAccountDto
 /// </summary>
 public class UpdateAccountDto
 {
+    /// <summary>
+    /// 워터마크를 깔지. <b><c>null</c> 은 「건드리지 않음」</b>이다 —
+    /// 사진·생년월일과 같은 규칙이다.
+    /// </summary>
+    public bool? Watermark { get; set; }
+
     public string UserName { get; set; } = string.Empty;
     public string? Email { get; set; }
     public string? Phone { get; set; }

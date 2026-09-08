@@ -28,6 +28,51 @@ public class UserService : IUserService
     /// 사용자 정보를 조회하고 DTO로 변환하여 반환
     /// </summary>
     /// <param name="userIdOrKey">사용자 아이디 또는 고유 키</param>
+    /// <summary><c>account_profile_details</c> 의 <c>Watermark</c>. 없으면 켜진 것이다.</summary>
+    private const string WatermarkDetail = "Watermark";
+
+    /// <summary>
+    /// 워터마크 설정을 쓴다.
+    ///
+    /// <para>
+    /// <b>켜는 쪽도 값을 적는다.</b> 「없으면 켜짐」이라 지워도 결과는 같지만,
+    /// 적어 두면 <b>관리자가 한 번 보고 정했다</b>는 사실이 남는다 — 나중에
+    /// 기본값을 바꿀 일이 생겼을 때 「손 안 댄 계정」과 「켜기로 정한 계정」을
+    /// 가를 수 있다.
+    /// </para>
+    /// </summary>
+    private void UpsertWatermark(Entities.Account account, bool on)
+    {
+        var content = on ? "on" : "off";
+        var detail = account.ProfileDetails?.FirstOrDefault(p => p.DetailType == WatermarkDetail);
+
+        if (detail is not null)
+        {
+            detail.Content = content;
+            _db.Entry(detail).State = EntityState.Modified;
+            return;
+        }
+
+        _db.AccountProfileDetails.Add(new AccountProfileDetail
+        {
+            AccountId = account.Id,
+            DetailType = WatermarkDetail,
+            Content = content,
+            IsPrimary = true,
+        });
+    }
+
+    /// <summary>
+    /// 그 계정의 워터마크 설정. <b>「off」 라고 적혀 있을 때만 끈다</b> —
+    /// 값이 없거나 알 수 없는 글자면 켜 둔다. 이 표시는 빠지는 쪽이 사고라,
+    /// 해석이 안 되는 값을 「꺼짐」으로 읽지 않는다.
+    /// </summary>
+    private static bool WatermarkOf(Entities.Account account) =>
+        !string.Equals(
+            account.ProfileDetails?.FirstOrDefault(p => p.DetailType == WatermarkDetail)?.Content,
+            "off",
+            StringComparison.OrdinalIgnoreCase);
+
     public async Task<UserInfoDto?> GetUserInfoAsync(string userIdOrKey)
     {
         // 아이디 또는 UserId로 계정 조회
@@ -82,6 +127,7 @@ public class UserService : IUserService
             DeptName = account.Department?.Name,
             Avatar = !string.IsNullOrEmpty(avatar) ? avatar : "https://gw.alipayobjects.com/zos/antfincdn/XAosXuNZyF/BiazfanxmamNRoxxVxka.png",
             AvatarGroupId = avatarGroupId,
+            Watermark = WatermarkOf(account),
             Desc = email ?? "등록된 설명이 없습니다.",
             HomePath = homePath ?? "/workspace",
             Roles = roleIds,
@@ -158,6 +204,10 @@ public class UserService : IUserService
                 Email = emailDetail?.Content,
                 Phone = phoneDetail?.Content,
                 Status = statusDetail?.Content ?? "ACTIVE",
+
+                // 값이 없으면 켜진 것으로 본다. 설정을 안 건드린 계정이
+                // 조용히 꺼지면 워터마크가 있는 이유가 사라진다.
+                Watermark = WatermarkOf(a),
                 CompanyId = a.CompanyId,
                 CompanyName = a.Company?.Name,
                 DeptId = a.DepartmentId,
@@ -239,6 +289,13 @@ public class UserService : IUserService
         };
 
         _db.Accounts.Add(account);
+
+        // 등록할 때 끄고 만들 수 있다. 켜는 것은 기본값이라 적지 않는다 —
+        // 값이 없는 것이 곧 켜진 것이다.
+        if (dto.Watermark is false)
+        {
+            UpsertWatermark(account, false);
+        }
 
         if (!string.IsNullOrEmpty(dto.Email))
         {
@@ -350,6 +407,13 @@ public class UserService : IUserService
         account.BirthDate = dto.BirthDate;
         account.BirthDateIsLunar = dto.BirthDateIsLunar;
         account.BirthdayCelebrated = dto.BirthdayCelebrated;
+
+        // 워터마크. `null` 은 「건드리지 않음」이라 그 값을 보내지 않는
+        // 호출(다른 화면·옛 클라이언트)이 설정을 지우지 않는다.
+        if (dto.Watermark is { } watermark)
+        {
+            UpsertWatermark(account, watermark);
+        }
 
         // 부서 ID 검증 및 소속 회사 자동 할당
         if (!string.IsNullOrEmpty(dto.DeptId))

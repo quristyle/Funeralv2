@@ -226,6 +226,17 @@
 
         await Bootstrap.LoadAsync(state.User);
 
+        // 부트스트랩이 관리자가 정한 설정을 실어 온다. 그때 비로소 「이 사람은
+        // 워터마크를 끈다」를 알 수 있어서, 위에서 한 번 깔아 둔 것을 여기서
+        // 걷는다. **순서를 뒤집지 않는다** — 모르는 동안은 깔아 두는 쪽이
+        // 맞다(빠지는 쪽이 사고다).
+        await ApplyWatermarkAsync();
+
+        // 관리자가 방금 바꿨을 수 있다. 30초마다 내 설정을 되묻는다 —
+        // 워터마크는 **관리자가 켜면 그 사람 화면에 나타나야** 하는 것이라
+        // 다음 로그인까지 기다릴 수 없다.
+        StartWatermarkWatch();
+
         Track();
     }
 
@@ -334,10 +345,59 @@
         return "/" + relative.TrimStart('/');
     }
 
+    /// <summary>
+    /// 내 설정을 되묻는 시계. 관리자가 워터마크를 켜고 끄는 것을 이것이 옮긴다.
+    ///
+    /// <para>
+    /// <b>업무를 옮길 때 레이아웃이 새로 만들어진다</b>(이 파일 머리말). 그때
+    /// 옛 레이아웃은 <see cref="Dispose"/> 로 이 시계를 끄고 새 레이아웃이
+    /// 자기 것을 켠다 — 시계가 쌓이지 않는다.
+    /// </para>
+    /// </summary>
+    private Timer? _watermarkWatch;
+
+    /// <summary>
+    /// 되묻는 간격.
+    ///
+    /// <para>
+    /// 30초다. 더 짧게 두면 탭마다 게이트웨이 호출이 늘고, 더 길게 두면
+    /// 관리자가 켠 뒤 「왜 안 나오지」 하고 다시 눌러 보게 된다. 이 왕복은
+    /// 헤더가 이미 쓰는 내 정보 조회 하나뿐이라(이름·사진·권한 그룹도 함께
+    /// 새로워진다) 따로 통로를 두지 않았다.
+    /// </para>
+    /// </summary>
+    private static readonly TimeSpan WatermarkWatchInterval = TimeSpan.FromSeconds(30);
+
+    private void StartWatermarkWatch()
+    {
+        _watermarkWatch?.Dispose();
+
+        _watermarkWatch = new Timer(
+            // 회로 밖 스레드에서 온다. `InvokeAsync` 로 회로에 들어가야
+            // JS 호출과 렌더가 안전하다.
+            _ => _ = InvokeAsync(RefreshWatermarkAsync),
+            null,
+            WatermarkWatchInterval,
+            WatermarkWatchInterval);
+    }
+
+    private async Task RefreshWatermarkAsync()
+    {
+        // 실패는 삼킨다. 게이트웨이가 잠깐 안 되는 것과 워터마크가 틀린 것의
+        // 무게가 다르다 — 못 물으면 지금 상태를 그대로 둔다.
+        await Me.ReloadAsync();
+        await ApplyWatermarkAsync();
+    }
+
+    /// <summary>관리자가 정한 값대로 깔거나 걷는다.</summary>
+    private Task ApplyWatermarkAsync() =>
+        Boot.ApplyWatermarkAsync(Me.Watermark ? _userName : null);
+
     public void Dispose()
     {
         Menus.MenusChanged -= OnMenusChanged;
         Navigation.LocationChanged -= OnLocationChanged;
         Me.Changed -= OnMeChanged;
+        _watermarkWatch?.Dispose();
     }
 }

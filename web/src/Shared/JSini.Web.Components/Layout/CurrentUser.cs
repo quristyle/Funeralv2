@@ -87,6 +87,17 @@ public sealed partial class CurrentUser(GatewayClient gateway, ILogger<CurrentUs
     /// <summary>한 번이라도 읽었는가.</summary>
     public bool IsLoaded { get; private set; }
 
+    /// <summary>
+    /// 화면에 워터마크를 깔지. <b>관리자가 정한 값</b>이고 셸이 이것을 보고
+    /// 깔거나 걷는다.
+    ///
+    /// <para>
+    /// 아직 못 읽었을 때는 <c>true</c> 다 — 이 표시는 <b>빠지는 쪽이 사고</b>라,
+    /// 모르는 동안 걷어 두는 것보다 깔아 두는 것이 맞다.
+    /// </para>
+    /// </summary>
+    public bool Watermark { get; private set; } = true;
+
     /// <summary>이름·사진이 바뀌었다. 헤더가 다시 그린다.</summary>
     public event Action? Changed;
 
@@ -139,6 +150,7 @@ public sealed partial class CurrentUser(GatewayClient gateway, ILogger<CurrentUs
                 ? string.Join(" · ", names.Where(n => !string.IsNullOrWhiteSpace(n)))
                 : null;
             AvatarUrl = OwnFileUrl(info.Avatar);
+            Watermark = info.Watermark;
             IsLoaded = true;
         }
 
@@ -232,5 +244,8 @@ public sealed partial class CurrentUser(GatewayClient gateway, ILogger<CurrentUs
 
         /// <summary>권한 그룹의 <b>사람이 읽는 이름</b>. 식별자는 <c>Roles</c> 쪽이다.</summary>
         public List<string>? RoleNames { get; set; }
+
+        /// <summary>워터마크를 깔지. 관리자가 정한 값이다.</summary>
+        public bool Watermark { get; set; } = true;
     }
 }

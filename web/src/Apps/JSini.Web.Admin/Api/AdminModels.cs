@@ -51,6 +51,14 @@ public sealed class AccountDto
     public bool BirthdayCelebrated { get; set; } = true;
 
     /// <summary>
+    /// 화면에 로그인 아이디 워터마크를 깔지. <b>관리자가 정한다</b> —
+    /// 사용자가 자기 것을 끌 수 있으면 「사진에 누구 화면인지 남게」 하려는
+    /// 목적이 사라진다.
+    /// </summary>
+    public bool Watermark { get; set; } = true;
+
+
+    /// <summary>
     /// 등록할 때 서버가 발급한 첫 비밀번호. <b>등록 응답에만 담긴다</b> —
     /// 목록에는 언제나 <c>null</c> 이다.
     ///
@@ -1027,6 +1035,13 @@ public sealed class SaveAccountDto
 
     /// <summary>축하 대상인가. 끄면 생일 목록에 나오지 않는다.</summary>
     public bool BirthdayCelebrated { get; set; } = true;
+
+    /// <summary>
+    /// 워터마크를 깔지. <b><c>null</c> 은 「건드리지 않음」</b>이라 이 값을
+    /// 안 싣는 호출이 설정을 지우지 않는다.
+    /// </summary>
+    public bool? Watermark { get; set; }
+
 }
 
 /// <summary>역할 등록·수정.</summary>

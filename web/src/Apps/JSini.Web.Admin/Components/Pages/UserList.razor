@@ -140,6 +140,19 @@
                 <DxFormLayoutItem Caption="축하 대상" ColSpanMd="4">
                     <DxCheckBox @bind-Checked="a.BirthdayCelebrated">생일 목록에 넣는다</DxCheckBox>
                 </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="워터마크" ColSpanMd="12">
+                    @* 화면 위에 로그인 아이디를 옅게 깔아 두는 표시다. 화면
+                       촬영을 막지는 못한다 — **찍힌 사진에서 누구 화면인지
+                       드러나게** 하려고 있다. 고인·상주 정보가 나오는 화면이
+                       있어 옛 포털도 같은 이유로 켜 두었다.
+
+                       **관리자만 끈다.** 당사자가 자기 것을 끌 수 있으면
+                       그 목적이 사라지므로 환경설정에 두지 않았다. *@
+                    <DxCheckBox @bind-Checked="a.Watermark">
+                        화면에 아이디를 옅게 깐다 (사진에 누구 화면인지 남는다)
+                    </DxCheckBox>
+                </DxFormLayoutItem>
             </DxFormLayout>
         </EditFormTemplate>
     </CommGrd>
@@ -262,6 +275,9 @@
     {
         a.Status = "ACTIVE";
         a.BirthdayCelebrated = true;
+
+        // 새 계정도 켜서 만든다. 기본값과 같은 자리다.
+        a.Watermark = true;
         a.RoleIds = [];
     }
 
@@ -283,6 +299,7 @@
             BirthDate = e.Item.BirthDate,
             BirthDateIsLunar = e.Item.BirthDateIsLunar,
             BirthdayCelebrated = e.Item.BirthdayCelebrated,
+            Watermark = e.Item.Watermark,
         };
 
         if (!e.IsNew)

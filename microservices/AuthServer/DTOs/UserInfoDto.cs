@@ -28,6 +28,18 @@ public class UserInfoDto
     /// <summary>아바타 이미지 파일 그룹 ID</summary>
     public string? AvatarGroupId { get; set; }
 
+    /// <summary>
+    /// 화면에 로그인 아이디 워터마크를 깔지. <b>관리자가 정한다</b> —
+    /// 셸이 이 값을 보고 깔거나 걷는다.
+    ///
+    /// <para>
+    /// 여기 담아 내려보내는 이유는 셸이 <b>이미 부르는 왕복</b>이기 때문이다.
+    /// 워터마크만 따로 묻는 통로를 새로 두면 화면이 뜰 때 왕복이 하나 늘고,
+    /// 그 하나가 늦으면 워터마크 없는 화면이 잠깐 보인다.
+    /// </para>
+    /// </summary>
+    public bool Watermark { get; set; } = true;
+
     /// <summary>사용자 설명 또는 이메일</summary>
     public string? Desc { get; set; }
 
