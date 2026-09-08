@@ -119,7 +119,40 @@
     { id: 'rust', name: 'Rust', swatch: '#da3b01' },
     { id: 'steel', name: 'Steel', swatch: '#68768a' },
     { id: 'storm', name: 'Storm', swatch: '#6d6a68' },
+
+    // ── 우리가 더한 것 ─────────────────────────────────────
+    //
+    // DevExpress 가 주는 강조색 파일은 위 열한 개뿐이다. 그래서 이 둘은
+    // **파일이 아니라 색**이다 — `base` 의 파일을 싣고 그 위에 `custom` 의
+    // 색으로 `--dxbl-accent-color-*` 를 채운다. Custom Color 칸이 하는 일과
+    // 같은 길이고, 다른 것은 색이 이름을 갖는다는 점뿐이다.
+    //
+    // `base` 를 **색이 가까운 것**으로 고른다. 16단계를 우리가 만들어 덮지만
+    // 강조색 파일에는 그 변수를 쓰지 않는 자리가 남아 있어(그림자·테두리
+    // 일부), 먼 색을 밑에 깔면 그 자리만 딴 색으로 뜬다.
+    { id: 'new-berry', name: 'new berry', swatch: '#5c3d85', base: 'purple', custom: '#5c3d85' },
+
+    // 우분투의 그 주황. 공식 브랜드 색이 #E95420 이다.
+    { id: 'ubuntu', name: 'Ubuntu', swatch: '#e95420', base: 'rust', custom: '#e95420' },
   ];
+
+  /** 프리셋 하나. 없는 이름이면 `null`. */
+  function fluentAccent(id) {
+    for (var i = 0; i < FLUENT_ACCENTS.length; i++) {
+      if (FLUENT_ACCENTS[i].id === id) return FLUENT_ACCENTS[i];
+    }
+    return null;
+  }
+
+  /**
+   * 그 프리셋이 실제로 실을 강조색 **파일** 이름.
+   *
+   * 우리가 더한 프리셋은 자기 파일이 없으므로 밑에 깔 것(`base`)을 준다.
+   */
+  function accentFile(id) {
+    var accent = fluentAccent(id);
+    return accent && accent.base ? accent.base : id;
+  }
 
   var CLASSIC_THEMES = [
     { id: 'blazing-berry', name: 'Blazing Berry', dark: false, swatch: '#5c2d91' },
@@ -306,7 +339,7 @@
       FLUENT + 'core.min.css',
       FLUENT + 'global.min.css',
       FLUENT + 'modes/' + spec.mode + '.min.css',
-      FLUENT + 'accents/' + spec.accent + '.min.css',
+      FLUENT + 'accents/' + accentFile(spec.accent) + '.min.css',
     ];
   }
 
@@ -321,6 +354,12 @@
    * 아래로는 검정 쪽으로 섞는다. DevExpress 가 손으로 고른 값만큼 곱지는
    * 않지만, 한 색에서 만드는 이상 이보다 나은 방법이 없다.
    */
+  /** 우리가 더한 프리셋이 들고 있는 색. DevExpress 것에는 없어서 `null`. */
+  function presetColor(id) {
+    var accent = fluentAccent(id);
+    return accent && accent.custom ? accent.custom : null;
+  }
+
   function applyCustomAccent(hex) {
     var id = 'jsini-accent';
     var style = document.getElementById(id);
@@ -435,7 +474,9 @@
         setActive(links[href], wanted.indexOf(href) >= 0);
       }
 
-      applyCustomAccent(spec.family === 'fluent' ? spec.custom : null);
+      // 사용자 지정 색이 있으면 그것, 없으면 프리셋이 들고 있는 색(우리가 더한
+      // 둘). 둘 다 없으면 DevExpress 파일의 색이 그대로 쓰인다.
+      applyCustomAccent(spec.family === 'fluent' ? (spec.custom || presetColor(spec.accent)) : null);
 
       // 우리 CSS 가 보는 표시. 사이드바·헤더 색이 DevExpress 테마와 함께 움직인다.
       var root = document.documentElement;
@@ -536,11 +577,7 @@
     }
 
     var mode = spec.mode === 'dark' ? 'dark' : 'light';
-    var accent = DEFAULT.accent;
-
-    for (var j = 0; j < FLUENT_ACCENTS.length; j++) {
-      if (FLUENT_ACCENTS[j].id === spec.accent) accent = spec.accent;
-    }
+    var accent = fluentAccent(spec.accent) ? spec.accent : DEFAULT.accent;
 
     return {
       family: 'fluent',
