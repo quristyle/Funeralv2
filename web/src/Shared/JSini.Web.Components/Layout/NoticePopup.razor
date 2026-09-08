@@ -33,14 +33,15 @@
     **머리로만 잡는다**(`AllowDragByHeaderOnly`). 본문까지 잡히면 글을 끌어
     고르려는 동작이 창 옮기기로 먹혀서, 공지를 복사할 수가 없다.
 
-    잡는 자리라는 **마우스 모양**은 여기서 정하지 않는다. DevExpress 가 끌 수
-    있는 머리에 스스로 붙이는 `.dxbl-drag` 를 app.css 가 겨눈다 — 팝업마다
-    클래스를 붙이는 것을 기억해야 하면 한 곳은 빠뜨린다.
+    잡는 자리라는 **마우스 모양**은 `jsini-drag-head` 가 정한다(app.css).
+    DevExpress 는 끌 수 있는 머리에 아무 표시도 남기지 않아서, 그 표시는
+    끌기를 켠 쪽이 함께 붙여야 한다 — `CommPopup` 은 스스로 붙인다.
 *@
 
 <DxPopup Visible="@Visible"
          VisibleChanged="@SetVisibleAsync"
          CssClass="jsini-notice-popup"
+         HeaderCssClass="jsini-drag-head"
          FooterCssClass="jsini-notice-popup__foot"
          Width="min(640px, calc(100vw - 2rem))"
          MaxHeight="86vh"

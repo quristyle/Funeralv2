@@ -58,7 +58,7 @@
          VisibleChanged="@OnVisibleChangedAsync"
          HeaderText="@HeaderText"
          CssClass="@CssClass"
-         HeaderCssClass="@HeaderCssClass"
+         HeaderCssClass="@HeaderClass"
          FooterCssClass="@FooterCssClass"
          Width="@Width"
          MaxHeight="@MaxHeight"
@@ -111,6 +111,30 @@
 
     /// <inheritdoc cref="CssClass"/>
     [Parameter] public string? HeaderCssClass { get; set; }
+
+    /// <summary>
+    /// 머리에 실제로 붙는 클래스. <c>jsini-drag-head</c> 를 <b>항상</b> 붙이고
+    /// 화면이 준 것을 뒤에 잇는다.
+    ///
+    /// <para>
+    /// <b>DevExpress 는 끌 수 있는 머리에 아무 표시도 남기지 않는다.</b>
+    /// 테마 CSS 에 <c>.dxbl-drag</c> 를 겨눈 규칙이 있어서 그것을 붙여 주는
+    /// 줄 알았는데, 떠 있는 화면에서 재어 보니 머리의 클래스는
+    /// <c>dxbl-modal-header dxbl-popup-header</c> 뿐이었다. 그 규칙들은
+    /// <c>.dxbl-popup-header &gt; .dxbl-modal-header</c> 처럼 <b>겹친 구조</b>를
+    /// 전제하는데 지금은 두 클래스가 한 요소에 함께 있어, 어느 것도 걸리지
+    /// 않는다.
+    /// </para>
+    ///
+    /// <para>
+    /// 그러니 잡는 자리라는 표시는 <b>우리가 붙여야 한다</b>. 화면이 준
+    /// <see cref="HeaderCssClass"/> 를 덮지 않고 잇는 이유는, 덮으면 그 화면의
+    /// 머리 모양이 말없이 사라지기 때문이다.
+    /// </para>
+    /// </summary>
+    private string HeaderClass => string.IsNullOrWhiteSpace(HeaderCssClass)
+        ? "jsini-drag-head"
+        : $"jsini-drag-head {HeaderCssClass}";
 
     /// <inheritdoc cref="CssClass"/>
     [Parameter] public string? FooterCssClass { get; set; }
