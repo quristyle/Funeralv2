@@ -1990,31 +1990,52 @@ a.jsini-crumbs__item:hover { opacity: 1; }
    목록에 점이 안 붙는다(테마 reset 이 `list-style` 을 지운다).
    ---------------------------------------------------------- */
 
-/* ── 공지 팝업의 머리는 잡는 자리다 ──────────────────────────
+/* ── 끌 수 있는 창의 머리는 잡는 자리다 ──────────────────────
 
-   `AllowDrag` 로 끌기는 켜 두었는데(NoticePopup) **DevExpress 는 동작만 붙이고
-   커서는 그대로 둔다** — 떠 있는 화면에서 재면 `default` 다. 잡을 수 있다는
-   표시가 없으면 아무도 잡아 보지 않는다.
+   `AllowDrag` 를 켜면 **DevExpress 는 동작만 붙이고 커서는 그대로 둔다** —
+   떠 있는 화면에서 재면 `default` 다. 잡을 수 있다는 표시가 없으면 아무도
+   잡아 보지 않는다. 기능이 있는데 없는 것과 같아진다.
 
-   `!important` 를 쓴 이유가 있다. 테마가 이 커서를 클래스 여섯 개짜리 규칙으로
-   박아 둔다 —
+   [`.dxbl-drag` 를 겨눈다]
+
+   DevExpress 가 끌 수 있는 머리에 **스스로 붙이는** 클래스다. 우리 클래스를
+   겨누면 팝업마다 그것을 붙이는 것을 기억해야 하고, 한 곳이라도 빠뜨리면
+   그 창만 잡을 수 있는지 알 수 없다. 붙이는 쪽을 겨누면 CommPopup·공지
+   팝업·앞으로 생길 것까지 한 규칙으로 덮인다.
+
+   [`!important` 를 쓴 이유가 있다]
+
+   테마가 이 커서를 클래스 일곱 개짜리 규칙으로 박아 둔다 —
 
      .dxbl-modal > .dxbl-modal-root > .dxbl-popup > .dxbl-modal-content
-       .dxbl-popup-header > .dxbl-modal-header { cursor: default }
+       .dxbl-popup-header > .dxbl-modal-header.dxbl-drag { cursor: default }
 
    이기려면 그 구조를 그대로 흉내 내야 하는데, 그러면 DevExpress 의 DOM 생김새에
    기대는 자리가 하나 더 늘고 버전이 오를 때 말없이 깨진다. **속성 하나를 이기는
-   쪽이 구조를 베끼는 쪽보다 덜 깨진다.**
-
-   글자 위에서 끌면 글이 선택되면서 창이 안 따라온다. 머리에 있는 것은 제목과
-   날짜뿐이라 골라 담을 일이 없어 선택을 끈다. */
-.jsini-notice-popup__head {
+   쪽이 구조를 베끼는 쪽보다 덜 깨진다.** */
+.dxbl-modal-header.dxbl-drag,
+.dxbl-flyout-header.dxbl-drag,
+.dxbl-dropdown-header.dxbl-drag {
   cursor: move !important;
+
+  /* 글자 위에서 끌면 글이 선택되면서 창이 안 따라온다. 머리에 있는 것은
+     제목뿐이라 골라 담을 일이 없다. */
   user-select: none;
 }
 
-/* 닫기 단추는 누르는 자리다. 머리에서 물려받은 `move` 를 되돌린다. */
-.jsini-notice-popup__head button {
+/* 잡고 있는 동안은 손이 닫힌 모양이다. 「지금 내가 들고 있다」가 손에 남아,
+   놓을 자리를 고르는 동안 창을 눈으로 좇지 않아도 된다. */
+.dxbl-modal-header.dxbl-drag:active,
+.dxbl-flyout-header.dxbl-drag:active,
+.dxbl-dropdown-header.dxbl-drag:active {
+  cursor: grabbing !important;
+}
+
+/* 머리 안의 단추(닫기 X)는 **누르는** 자리다. 머리에서 물려받은 `move` 를
+   되돌린다 — 옮기는 모양이면 닫을 수 있는지 헷갈린다. */
+.dxbl-modal-header.dxbl-drag button,
+.dxbl-flyout-header.dxbl-drag button,
+.dxbl-dropdown-header.dxbl-drag button {
   cursor: pointer !important;
 }
 
