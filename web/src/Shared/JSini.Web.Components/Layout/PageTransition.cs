@@ -61,9 +61,6 @@ public sealed class PageTransition
     /// <summary>지금 옮기는 중인가.</summary>
     public bool IsBusy { get; private set; }
 
-    /// <summary>임시 진단용. 확인 끝나면 지운다.</summary>
-    public string Debug => $"busy={IsBusy} claims={_claims} rendered={_rendered}";
-
     /// <summary>켜지고 꺼질 때 알린다. 레이아웃이 다시 그린다.</summary>
     public event Action? Changed;
 
