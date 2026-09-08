@@ -134,8 +134,8 @@
 </CommCont>
 
 @* ── 자료 정보 편집 ─────────────────────────────────── *@
-<DxPopup @bind-Visible="_editing" HeaderText="@(_isNew ? "자료 등록" : "자료 수정")"
-         Width="660" CloseOnOutsideClick="false" ShowFooter="true">
+<CommPopup @bind-Visible="_editing" HeaderText="@(_isNew ? "자료 등록" : "자료 수정")"
+         Width="660">
     <BodyContentTemplate Context="popup">
         <DxFormLayout CssClass="fn-editform">
             <DxFormLayoutItem Caption="자료명" ColSpanMd="12">
@@ -201,7 +201,7 @@
         <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary"
                   Enabled="@(!_saving)" Click="@(() => _editing = false)" />
     </FooterContentTemplate>
-</DxPopup>
+</CommPopup>
 
 @code {
     /// <summary>

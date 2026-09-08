@@ -29,7 +29,7 @@
 @inject FileUploadClient Upload
 @inject CommonCodeClient Codes
 
-<DxPopup Visible="@Visible" VisibleChanged="@OnVisibleChanged"
+<CommPopup Visible="@Visible" VisibleChanged="@OnVisibleChanged"
          HeaderText="@(IsNew ? "고인 등록" : "고인 수정")" Width="880px" ShowFooter="false">
     <BodyContentTemplate Context="popup">
         <PageNotice Text="@Notice" Tone="@Tone" />
@@ -337,7 +337,7 @@
             </div>
         }
     </BodyContentTemplate>
-</DxPopup>
+</CommPopup>
 
 @code {
     private sealed record Option(string Code, string Name);

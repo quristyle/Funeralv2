@@ -24,7 +24,7 @@
 @inherits DataPage
 @inject FuneralApi Api
 
-<DxPopup Visible="@Visible" VisibleChanged="@OnVisibleChanged"
+<CommPopup Visible="@Visible" VisibleChanged="@OnVisibleChanged"
          HeaderText="@(IsNew ? "기기 등록" : "기기 수정")" Width="720px" ShowFooter="false">
     <BodyContentTemplate Context="popup">
         <PageNotice Text="@Notice" Tone="@Tone" />
@@ -104,7 +104,7 @@
             </div>
         }
     </BodyContentTemplate>
-</DxPopup>
+</CommPopup>
 
 @code {
     private sealed record Option(string Code, string Name);

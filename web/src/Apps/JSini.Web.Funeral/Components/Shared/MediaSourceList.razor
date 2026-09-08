@@ -193,8 +193,8 @@
     주소는 셸 중계 경로로 옮긴다 — 저장된 값이 `/api/file/...` 라 포털에서는
     404 다(`FileDownload` 머리말).
 *@
-<DxPopup @bind-Visible="_previewing" HeaderText="@(_preview?.Name ?? "재생")"
-         Width="720px" ShowFooter="false">
+<CommPopup @bind-Visible="_previewing" HeaderText="@(_preview?.Name ?? "재생")"
+           Width="720px" ShowFooter="false" CloseOnOutsideClick="true">
     <BodyContentTemplate>
         @if (_preview is not null)
         {
@@ -229,7 +229,7 @@
                       Click="@(() => _previewing = false)" />
         </div>
     </BodyContentTemplate>
-</DxPopup>
+</CommPopup>
 
 @code {
     /// <summary>이 화면이 다루는 자료 종류. 서버가 이 값으로 걸러 준다.</summary>

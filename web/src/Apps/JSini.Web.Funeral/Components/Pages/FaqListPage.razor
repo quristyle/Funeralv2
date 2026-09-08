@@ -111,8 +111,8 @@
     </section>
 }
 
-<DxPopup @bind-Visible="_editing" HeaderText="@(_isNew ? "질문 등록" : "질문 수정")"
-         Width="680" CloseOnOutsideClick="false" ShowFooter="true">
+<CommPopup @bind-Visible="_editing" HeaderText="@(_isNew ? "질문 등록" : "질문 수정")"
+         Width="680">
     <BodyContentTemplate Context="popup">
         <DxFormLayout CssClass="fn-editform">
             <DxFormLayoutItem Caption="분류" ColSpanMd="6">
@@ -155,7 +155,7 @@
         <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Primary" Click="@SaveAsync" />
         <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary" Click="@(() => _editing = false)" />
     </FooterContentTemplate>
-</DxPopup>
+</CommPopup>
 
 @code {
     private string? _keyword;

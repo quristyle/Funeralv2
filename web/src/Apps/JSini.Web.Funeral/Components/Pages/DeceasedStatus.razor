@@ -112,8 +112,8 @@
 </CommCont>
 
 @* ── 영정 사진 (D5) ─────────────────────────────────── *@
-<DxPopup @bind-Visible="_photoOpen" HeaderText="@($"영정 사진 · {_photoOf?.Name}")"
-         Width="480" CloseOnOutsideClick="false" ShowFooter="true">
+<CommPopup @bind-Visible="_photoOpen" HeaderText="@($"영정 사진 · {_photoOf?.Name}")"
+         Width="480">
     <BodyContentTemplate>
         @if (_detail is null)
         {
@@ -153,7 +153,7 @@
         <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary"
                   Enabled="@(!_photoSaving)" Click="@(() => _photoOpen = false)" />
     </FooterContentTemplate>
-</DxPopup>
+</CommPopup>
 
 @code {
     /// <summary>출상 완료 상태. 서버가 쓰는 값이다.</summary>
