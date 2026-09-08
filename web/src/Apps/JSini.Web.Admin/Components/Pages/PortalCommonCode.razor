@@ -273,8 +273,8 @@
    평평한 묶음은 CommGrd 가 자기 편집 팝업을 띄운다. `DxTreeList` 에는 그것이
    없어서 이 팝업이 남아 있다. 폼은 `CodeFields` 한 벌을 둘이 같이 쓴다 —
    두 벌로 두면 한쪽에만 칸이 늘어난다. *@
-<DxPopup @bind-Visible="_editingCode" HeaderText="@(_newCode ? "코드 등록" : "코드 수정")"
-         Width="560" CloseOnOutsideClick="false" ShowFooter="true">
+<CommPopup @bind-Visible="_editingCode" HeaderText="@(_newCode ? "코드 등록" : "코드 수정")"
+         Width="560">
     <BodyContentTemplate Context="popup">
         @CodeFields(_codeEdit)
     </BodyContentTemplate>
@@ -283,7 +283,7 @@
         <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Primary" Click="@SaveEditingCodeAsync" />
         <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary" Click="@(() => _editingCode = false)" />
     </FooterContentTemplate>
-</DxPopup>
+</CommPopup>
 
 @* 삭제 확인. 옛 Vue 화면의 Popconfirm 자리다 — 옮기면서 빠져 있었다.
    나무일 때 쓴다. 평평한 묶음의 삭제는 CommGrd 가 `DeleteConfirm` 으로 묻는다. *@

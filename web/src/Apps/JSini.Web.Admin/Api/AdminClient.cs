@@ -378,10 +378,6 @@ public sealed class AdminClient(GatewayClient gateway)
     public Task<GatewayStatusDto?> GetGatewayStatusAsync(CancellationToken ct = default)
         => gateway.GetFlexibleAsync<GatewayStatusDto>("gateway/status", ct);
 
-    /// <summary>서비스별 응답 상태만 꺼내 준다. 못 읽으면 빈 목록.</summary>
-    public async Task<IReadOnlyList<ServiceHealth>> GetServiceHealthAsync(CancellationToken ct = default)
-        => (await GetGatewayStatusAsync(ct))?.Services ?? [];
-
     /// <summary>
     /// AI 제공자 상태.
     ///

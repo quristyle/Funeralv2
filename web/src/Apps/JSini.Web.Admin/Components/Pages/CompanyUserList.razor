@@ -71,7 +71,7 @@
     </CommGrd>
 </CommCont>
 
-<DxPopup @bind-Visible="_adding" HeaderText="회사에 사람 넣기" Width="620px" ShowFooter="true">
+<CommPopup @bind-Visible="_adding" HeaderText="회사에 사람 넣기" Width="620px">
     <BodyContentTemplate Context="popup">
         @if (_candidates.Count == 0)
         {
@@ -103,7 +103,7 @@
         <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary"
                   Click="@(() => _adding = false)" />
     </FooterContentTemplate>
-</DxPopup>
+</CommPopup>
 
 @* 확인은 공통 부품에 맡긴다. 손으로 팝업을 적으면 화면마다 단추 자리와
    글자가 갈리고, 「취소가 어느 쪽이었나」를 매번 눈으로 찾게 된다. *@

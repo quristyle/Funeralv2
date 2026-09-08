@@ -698,10 +698,11 @@
 
 @* 사진 크게 보기. Vue 원본에도 있던 미리보기 창이고, 한동안 새 창으로
    여는 링크로 대신하고 있었다 — 창을 옮겨 다니지 않아도 되는 쪽이 맞다. *@
-<DxPopup Visible="@(_preview is not null)"
+<CommPopup Visible="@(_preview is not null)"
          VisibleChanged="@((bool v) => { if (!v) _preview = null; })"
          HeaderText="@(_preview?.OriginalName ?? "사진")"
          Width="min(720px, 92vw)"
+         CloseOnOutsideClick="true"
          ShowFooter="false">
     <BodyContentTemplate>
         @if (_preview?.Id is { Length: > 0 } previewId)
@@ -711,7 +712,7 @@
                  alt="@_preview.OriginalName" />
         }
     </BodyContentTemplate>
-</DxPopup>
+</CommPopup>
 
 @code {
     /// <summary>사진은 서른 장까지. Vue 의 <c>:limit="30"</c> 을 그대로 옮겼다.</summary>

@@ -103,8 +103,8 @@
     </Columns>
 </DxTreeList>
 
-<DxPopup @bind-Visible="_editing" HeaderText="@(_editingId is null ? "부서 등록" : "부서 수정")"
-         Width="560px" ShowFooter="true">
+<CommPopup @bind-Visible="_editing" HeaderText="@(_editingId is null ? "부서 등록" : "부서 수정")"
+         Width="560px">
     <BodyContentTemplate Context="popup">
         <DxFormLayout>
             <DxFormLayoutItem Caption="부서명" ColSpanMd="12">
@@ -146,7 +146,7 @@
         <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary"
                   Click="@(() => _editing = false)" />
     </FooterContentTemplate>
-</DxPopup>
+</CommPopup>
 
 @code {
     private sealed record StatusOption(int Code, string Name);

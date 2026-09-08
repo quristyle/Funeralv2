@@ -250,7 +250,7 @@
     </div>
 </CommCont>
 
-<DxPopup @bind-Visible="_adding" HeaderText="@AddTitle" Width="420px" ShowFooter="false">
+<CommPopup @bind-Visible="_adding" HeaderText="@AddTitle" Width="420px" ShowFooter="false">
     <BodyContentTemplate>
         <div class="jsini-hint">
             @(_addParent is null
@@ -266,9 +266,9 @@
                       Click="@(() => _adding = false)" />
         </div>
     </BodyContentTemplate>
-</DxPopup>
+</CommPopup>
 
-<DxPopup @bind-Visible="_moving" HeaderText="@MoveTitle" Width="480px" ShowFooter="false">
+<CommPopup @bind-Visible="_moving" HeaderText="@MoveTitle" Width="480px" ShowFooter="false">
     <BodyContentTemplate>
         @{
             var choices = MoveChoices();
@@ -313,7 +313,7 @@
                       Click="@(() => _moving = false)" />
         </div>
     </BodyContentTemplate>
-</DxPopup>
+</CommPopup>
 
 @code {
     /// <summary>이동 팝업에서 「회사 직속」을 뜻하는 값. 부서를 옮길 때만 나온다.</summary>

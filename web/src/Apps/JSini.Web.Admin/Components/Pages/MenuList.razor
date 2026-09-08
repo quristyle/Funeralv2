@@ -50,8 +50,9 @@
 
    「등록」이 조건 옆에 있었다. 조건과 동작이 한 줄에 섞이면 어느 것이
    조건인지가 흐려져서, 이 화면만의 동작 자리(`Actions`)로 옮겼다.
-   표 아래 띠를 쓰지 않는 이유는 **나무에는 그 띠가 없다**는 것이다 —
-   거르지 않을 때는 `DxTreeList` 로 그리므로 등록 자리가 사라진다. *@
+   표·나무의 아래 띠에 두지 않는 이유는 **이 화면이 저장을 그 부품에 맡기지
+   않는다**는 것이다 — 편집 창을 직접 띄우므로(`OnSave` 를 주지 않는다)
+   `CommGrd`·`CommTree` 는 어느 쪽도 등록 단추를 그리지 않는다. *@
 <CommSch OnSearch="@ReloadAsync">
     <Fields>
         <CommSchItem Label="검색어">
@@ -136,23 +137,22 @@ else
        줄을 끌면 **상위와 순서가 함께** 바뀐다. 줄 사이에 놓으면 그 자리의
        형제가 되고, 줄 위에 놓으면 그 메뉴의 하위가 된다.
 
-       `Internal` 로 묶어 둔다 — 다른 부품으로 끌고 나가는 길(`External`)은
-       이 화면에 받을 곳이 없다. 열어 두면 끌다가 사라지는 것처럼 보인다.
+       켜는 것만 여기서 정한다 — 수정 권한이 없으면 아예 끌리지 않는다.
+       놓을 자리를 잡는 값 둘(`AllowedDropTarget` · `DropTargetMode`)은
+       `CommTree` 의 기본값이 이 화면이 쓰던 것과 같아서 적지 않는다.
 
-       `BetweenRows` 여야 **순서**를 바꿀 수 있다. `Component` 로 두면 놓을
-       자리가 「이 표 안」 하나뿐이라 상위 변경만 되고 형제 사이 순서는
-       손댈 수 없다.
-
-       수정 권한이 없으면 아예 끌리지 않는다. 표의 「수정」 단추를 감추는
-       것과 같은 판정을 쓴다(`PermissionPath`) — 두 판정이 갈리면
-       「단추는 없는데 끌어 옮기기는 된다」가 된다. *@
-    <DxTreeList Data="@_menus"
-                ChildrenFieldName="@nameof(SystemMenuDto.Children)"
-                KeyFieldName="@nameof(SystemMenuDto.Id)"
-                AllowDragRows="@_canMove"
-                AllowedDropTarget="TreeListAllowedDropTarget.Internal"
-                DropTargetMode="TreeListDropTargetMode.BetweenRows"
-                ItemsDropped="@OnDroppedAsync">
+       관리 칸도 `CommTree` 가 그린다. 표 쪽과 같은 조각(`RowActions`)을
+       넘기고 너비를 130 으로 맞춰 두어, 검색어를 지워 표 ↔ 나무가 갈릴 때
+       조작 자리가 옮겨 다니지 않는다. *@
+    <CommTree TItem="SystemMenuDto" Data="@_menus"
+              KeyFieldName="@nameof(SystemMenuDto.Id)"
+              ChildrenFieldName="@nameof(SystemMenuDto.Children)"
+              ExportName="메뉴"
+              Reload="@ReloadAsync"
+              RowActions="@RowActions"
+              ActionsWidth="130"
+              AllowDragRows="@_canMove"
+              ItemsDropped="@OnDroppedAsync">
         <Columns>
             <DxTreeListDataColumn Caption="메뉴" MinWidth="240">
                 <CellDisplayTemplate Context="cell">
@@ -194,28 +194,20 @@ else
                     <span class="ad-menu__perm">@(meta.UseMobile ? "폰" : "")@(meta.UseTablet ? " 탭" : "")</span>
                 </CellDisplayTemplate>
             </DxTreeListDataColumn>
-
-            <DxTreeListDataColumn Caption="관리" Width="130" AllowSort="false">
-                <CellDisplayTemplate Context="cell">
-                    @RowActions((SystemMenuDto)cell.DataItem)
-                </CellDisplayTemplate>
-            </DxTreeListDataColumn>
         </Columns>
-    </DxTreeList>
-
-    @* 나무에는 표의 아래 띠가 없다. 다시 읽기를 여기서 그린다 — 클래스를
-       CommGrd 와 같은 것으로 써서 조건을 지울 때 자리가 바뀌지 않는다. *@
-    <div class="commgrd__footer">
-        <DxButton IconCssClass="jsini-icon-refresh" Title="다시 읽기"
-                  RenderStyle="ButtonRenderStyle.Link"
-                  Click="@ReloadAsync" />
-
-        <div class="commgrd__spacer"></div>
-    </div>
+    </CommTree>
 }
 </CommCont>
 
-@* 편집 창. DxTreeList 에는 그리드 같은 팝업 편집이 없어 직접 띄운다. *@
+@* 편집 창을 직접 띄운다. **`CommTree`·`CommGrd` 의 팝업 편집을 쓰지 않는
+   이유는 폼이 이 화면의 것이기 때문이다** — 칸이 스물 남짓이고, 저장 전에
+   이름·경로 중복을 게이트웨이에 물어 보고(`MenuNameExistsAsync`), 「화면」
+   칸은 실려 있는 라우트 목록에서 고른다. 부품의 편집 폼에 그 셋을 얹으면
+   이 화면만 아는 규칙이 공통 부품 쪽으로 새 나간다.
+
+   (한동안 「나무에는 그리드 같은 팝업 편집이 없다」고 적혀 있었는데 그건
+   사실이 아니다 — `TreeListEditMode.PopupEditForm` 이 있고 `CommTree` 가
+   그것을 쓴다. 이 화면이 안 쓰는 것은 위 이유 때문이다.) *@
 @* 창을 `CommPopup` 으로 띄운다. 머리를 잡아 옮길 수 있고, 바깥을 눌러도
    닫히지 않고, 폼이 화면보다 길면 본문만 구른다 — 셋 다 그 부품의 기본값이라
    여기서 적지 않는다. 이 화면은 칸이 스물 남짓이라 마지막 것이 특히 걸린다. *@
@@ -424,7 +416,7 @@ else
     ///
     /// <para>
     /// <c>PermissionView</c> 를 쓸 수 없는 자리라 직접 묻는다 — 끌어 옮기기는
-    /// 그릴지 말지가 아니라 <c>DxTreeList</c> 의 파라미터로 켜고 끄는 것이다.
+    /// 그릴지 말지가 아니라 <c>CommTree</c> 의 파라미터로 켜고 끄는 것이다.
     /// 경로를 꺼내는 규칙은 그 부품과 한 곳(<c>PermissionPath</c>)을 쓴다.
     /// </para>
     /// </summary>
@@ -637,12 +629,19 @@ else
     }
 
     /// <summary>
-    /// 관리 칸. 표와 나무가 같은 것을 쓴다.
+    /// 관리 칸의 단추들. 표와 나무가 <b>같은 조각</b>을 쓴다.
     ///
     /// <para>
-    /// 아이콘과 스타일을 <c>CommGrd</c> 가 붙이는 것에 맞춰 두었다 —
-    /// 거를 때는 표, 안 거를 때는 나무로 갈아타는 화면이라, 모양이 다르면
-    /// 조건을 지울 때마다 조작 자리가 바뀐 것처럼 보인다.
+    /// 거를 때는 표(<c>CommGrd</c>), 안 거를 때는 나무(<c>CommTree</c>)로
+    /// 갈아타는 화면이라 모양이 다르면 <b>조건을 지울 때마다 조작 자리가
+    /// 바뀐 것처럼</b> 보인다. 그래서 한 조각을 두 곳에 넘긴다 — 나무는
+    /// <c>RowActions</c> 파라미터로, 표는 자기 관리 칸 안에서.
+    /// </para>
+    ///
+    /// <para>
+    /// 아이콘과 스타일은 <c>CommGrd</c> 가 붙이는 것에 맞춰 두었다.
+    /// <c>commgrd__icon--warn</c> 은 클래스 하나짜리 색 규칙이라 나무 안에서도
+    /// 그대로 걸린다.
     /// </para>
     /// </summary>
     private RenderFragment RowActions(SystemMenuDto m) =>@<div class="jsini-actions">

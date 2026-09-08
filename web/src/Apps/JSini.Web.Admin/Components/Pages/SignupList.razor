@@ -71,7 +71,7 @@
 
 @* 거절 사유를 묻는 창. 사유는 없어도 되지만 **신청자에게 그대로 메일로 간다** —
    빈 채로 보내면 왜 안 됐는지 알 길이 없어 같은 신청이 다시 들어온다. *@
-<DxPopup @bind-Visible="_rejecting" HeaderText="가입 신청 거절" Width="420px" ShowFooter="true">
+<CommPopup @bind-Visible="_rejecting" HeaderText="가입 신청 거절" Width="420px">
     <BodyContentTemplate>
         <p class="jsini-hint">
             @(_target?.UserName ?? "-") (@(_target?.LoginId ?? "-")) 님의 신청을 거절합니다.
@@ -87,7 +87,7 @@
         <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary"
                   Click="@(() => _rejecting = false)" />
     </FooterContentTemplate>
-</DxPopup>
+</CommPopup>
 
 @code {
     private IReadOnlyList<SignupPendingDto> _pending = [];

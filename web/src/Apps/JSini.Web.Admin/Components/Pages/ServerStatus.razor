@@ -18,6 +18,24 @@
     있고 응답도 하는데 키가 없거나 하루 한도를 다 썼으면** 대화가 안 된다.
     그것은 헬스체크로 잡히지 않는다.
 
+    [서비스와 AI 는 표가 아니라 카드다]
+
+    옛 Vue 화면이 카드였다. 옮기면서 표로 바꿨는데 **표가 맞지 않는 자료**였다.
+
+      · 세로로 읽을 값이 없다. 서비스는 열 개 안팎이고 정렬·검색·내려받기를
+        할 일이 없다. 「지금 어느 것이 빨간가」 하나를 보러 오는 자리다.
+      · 값의 성격이 칸마다 다르다. 의존성은 목록이고, 정밀 확인은 단추와
+        결과가 함께 있는 칸이다. 한 줄에 밀어 넣으면 넘치거나 잘린다.
+      · **DEGRADED 를 표가 못 나눴다.** 「UP 이냐 아니냐」로만 칠해서
+        *프로세스는 살아 있고 딸린 것이 죽은* 상태가 중지와 같은 색이었다.
+
+    카드는 DevExpress 의 `DxFormLayoutGroup`(`Decoration="Card"`)이다. 폭에
+    맞춰 열 수가 바뀌므로(`ColSpanXs/Md/Xl`) **서비스가 늘면 줄이 아니라 칸이
+    채워진다** — Vue 때 카드가 세 줄로 넘쳐 세로 스크롤이 생겼던 자리다.
+
+    컨테이너·쌓인 이미지는 표로 둔다. 그쪽은 수십 줄이 되고 정렬·내려받기가
+    실제로 쓰인다 — 카드로 바꾸면 화면 밖으로 자란다.
+
     [정밀 확인 — 실제로 한 번 물어본다]
 
     키가 있어도 그 장비가 꺼져 있을 수 있다. 헬스체크는 **서비스**가 사는지
@@ -26,8 +44,7 @@
     다른 제공자가 대신 답하면 꺼진 장비가 정상으로 보인다).
 
     **자동으로 부르지 않는다.** 유료 제공자에게는 돈이 드는 호출이라,
-    사람이 눌렀을 때만 나간다. 백엔드 주석이 「화면의 정밀 확인 버튼」을
-    가리키고 있는데 그 버튼이 화면에 없었다.
+    사람이 눌렀을 때만 나간다.
 
     [스스로 새로 고치지 않고 있었다]
 
@@ -45,7 +62,8 @@
     [서비스 목록을 화면이 들고 있지 않다]
 
     게이트웨이가 자기가 아는 서비스를 눌러 보고 결과를 준다. 화면이 목록을
-    가지면 서비스를 늘릴 때마다 화면을 고쳐야 한다.
+    가지면 서비스를 늘릴 때마다 화면을 고쳐야 한다. 아래 `ClusterMeta` 는
+    **꾸밈말일 뿐**이라 빠져도 클러스터 이름이 그대로 나온다.
 *@
 
 @inherits AutoRefreshPage
@@ -53,19 +71,56 @@
 
 <PageTitle>MSA 서버 상태 · 포털관리</PageTitle>
 
-@* 조회 판을 세울 조건이 없다. 다시 읽기는 표마다 아래 띠에 붙고(`Reload`),
-   언제 읽은 것인지는 도장으로 남긴다.
-
-   자료 판(`CommCont`)도 쓰지 않는다 — 구역이 넷이라 감싸면 남은 높이를 넷이
-   나눠 갖고 어느 표도 제대로 안 보인다(web/CLAUDE.md 의 그 단서). *@
-<div class="ad-stamps">
-    @if (_status?.GeneratedAt is { } at)
-    {
-        <span class="ad-stamp">@at.LocalDateTime.ToString("yyyy-MM-dd HH:mm:ss") 기준</span>
-    }
-</div>
-
 <PageNotice Text="@Notice" Tone="@Tone" />
+
+@* ── 게이트웨이 한 줄 ────────────────────────────────────────
+
+   모든 요청이 여기를 지나므로 이것이 죽으면 아래 카드가 전부 빨갛다.
+   그때 서비스를 하나씩 들여다보는 것은 헛수고라, 먼저 눈에 걸리게 맨 위에
+   둔다. 옆의 세 숫자가 아래 카드 열몇 장을 세지 않아도 되게 해 준다. *@
+<DxFormLayout CssClass="ad-deck">
+    <DxFormLayoutGroup Decoration="FormLayoutGroupDecoration.Card"
+                       ExpandButtonDisplayMode="GroupExpandButtonDisplayMode.None"
+                       ColSpanXs="12"
+                       CssClass="@($"ad-card ad-card--{GatewayTone}")">
+        <CaptionTemplate>
+            <span class="ad-card__name">API Gateway</span>
+            <span class="jsini-badge @BadgeOf(GatewayTone)">@LabelOf(GatewayTone)</span>
+            <span class="ad-card__sub">모든 서비스 요청의 단일 진입점</span>
+        </CaptionTemplate>
+        <Items>
+            <DxFormLayoutItem ColSpanXs="12">
+                <Template>
+                    <div class="ad-tally">
+                        <div class="ad-tally__cell ad-tally--up">
+                            <span class="ad-tally__num">@CountOf("up")</span>
+                            <span class="ad-tally__label">정상</span>
+                        </div>
+                        <div class="ad-tally__cell ad-tally--warn">
+                            <span class="ad-tally__num">@CountOf("warn")</span>
+                            <span class="ad-tally__label">응답 이상</span>
+                        </div>
+                        <div class="ad-tally__cell ad-tally--down">
+                            <span class="ad-tally__num">@CountOf("down")</span>
+                            <span class="ad-tally__label">중지</span>
+                        </div>
+
+                        <div class="ad-tally__tail">
+                            <DxButton Text="다시 읽기" RenderStyle="ButtonRenderStyle.Secondary"
+                                      Click="@ReloadAsync" />
+                            @* 도커 쪽 도장(`GeneratedAt`)을 쓰지 않는다 — 소켓을 못
+                               읽으면 그 값이 없거나 낡은 채로 남아, **서비스는 방금
+                               확인했는데 시각만 멎어 있는** 화면이 된다. *@
+                            <span class="ad-stamp">
+                                @(_readAt is { } at ? $"{at:HH:mm:ss} 기준" : "확인 중") · 10초마다
+                            </span>
+                        </div>
+                    </div>
+                </Template>
+            </DxFormLayoutItem>
+        </Items>
+    </DxFormLayoutGroup>
+</DxFormLayout>
 
 <h2 class="ad-subhead">서비스 응답</h2>
 
@@ -75,50 +130,76 @@
 }
 else
 {
-    <CommGrd TItem="ServiceHealth" Data="@_services"
-             PageSizeSelectorVisible="false" PagerVisible="false"
-             ExportName="서비스응답"
-             Reload="@ReloadAsync">
-        <Columns>
-            <DxGridDataColumn FieldName="@nameof(ServiceHealth.Name)" Caption="서비스" Width="180" />
+    @* 카드 한 장이 서비스 하나다. 폭이 좁아지면 두 장 → 한 장으로 접힌다.
 
-            <DxGridDataColumn Caption="상태" Width="110">
-                <CellDisplayTemplate Context="cell">
-                    @{
-                        var svc = (ServiceHealth)cell.DataItem;
-                        var up = string.Equals(svc.Status, "UP", StringComparison.OrdinalIgnoreCase);
-                    }
-                    <span class="jsini-badge @(up ? "jsini-badge--on" : "jsini-badge--off")">
-                        @(svc.Status ?? "?")
-                    </span>
-                </CellDisplayTemplate>
-            </DxGridDataColumn>
+       이름표를 값 **위**에 둔다(`Vertical`). 가로로 두면 DevExpress 가 카드
+       안에 60px 남짓한 이름표 칸을 잡는데, 「고를 수 있는 모델」 같은 이름이
+       거기서 석 줄로 접힌다 — 카드 폭이 350px 안팎이라 그 칸을 넓힐 여유도 없다. *@
+    <DxFormLayout CssClass="ad-deck" CaptionPosition="CaptionPosition.Vertical">
+        @foreach (var svc in SortedServices)
+        {
+            var tone = ToneOf(svc.Status);
+            var meta = MetaOf(svc.Cluster);
 
-            <DxGridDataColumn Caption="응답" Width="90">
-                <CellDisplayTemplate Context="cell">
-                    @{
-                        var svc = (ServiceHealth)cell.DataItem;
-                    }
+            <DxFormLayoutGroup Decoration="FormLayoutGroupDecoration.Card"
+                               ExpandButtonDisplayMode="GroupExpandButtonDisplayMode.None"
+                               ColSpanXs="12" ColSpanMd="6" ColSpanXl="4"
+                               CssClass="@($"ad-card ad-card--{tone}")">
+                <CaptionTemplate>
+                    <span class="ad-card__name">@meta.Name</span>
+                    <span class="jsini-badge @BadgeOf(tone)">@LabelOf(tone)</span>
+
                     @* 살아 있어도 느린 것을 여기서 본다. 배포 직후에 특히 쓸모가 있다. *@
-                    @(svc.LatencyMs is { } ms ? $"{ms}ms" : "-")
-                </CellDisplayTemplate>
-            </DxGridDataColumn>
+                    <span class="ad-card__latency @LatencyClass(svc.LatencyMs)">
+                        @(svc.LatencyMs is { } ms ? $"{ms}ms" : "-")
+                    </span>
+                </CaptionTemplate>
+                <Items>
+                    <DxFormLayoutItem ColSpanXs="12">
+                        <Template>
+                            <div class="ad-card__sub">@meta.Desc</div>
+                            <div class="ad-card__addr">
+                                <span class="ad-code">@(svc.Address ?? "-")</span>
+                                @if (svc.HttpStatus is { } http)
+                                {
+                                    <span class="ad-stamp">HTTP @http</span>
+                                }
+                            </div>
+                        </Template>
+                    </DxFormLayoutItem>
 
-            <DxGridDataColumn Caption="의존성" MinWidth="220">
-                <CellDisplayTemplate Context="cell">
-                    @{
-                        var svc = (ServiceHealth)cell.DataItem;
+                    @if (svc.Error is { Length: > 0 } || svc.Reason is { Length: > 0 })
+                    {
+                        <DxFormLayoutItem ColSpanXs="12">
+                            <Template>
+                                @* 「왜」가 없으면 다음에 무엇을 할지 알 수 없다. *@
+                                <div class="ad-card__why">@(svc.Error ?? svc.Reason)</div>
+                            </Template>
+                        </DxFormLayoutItem>
                     }
-                    @* 서비스는 떠 있는데 그 서비스의 DB 가 죽어 있는 상태가 실제로
-                       있다. 그때 「UP」만 보면 원인을 못 찾는다. *@
-                    @string.Join(" · ", svc.Dependencies.Select(d => $"{d.Name} {d.Status}"))
-                </CellDisplayTemplate>
-            </DxGridDataColumn>
 
-            <DxGridDataColumn FieldName="@nameof(ServiceHealth.Address)" Caption="주소" Width="200" />
-            <DxGridDataColumn FieldName="@nameof(ServiceHealth.Error)" Caption="이유" MinWidth="160" />
-        </Columns>
-    </CommGrd>
+                    @if (svc.Dependencies.Count > 0)
+                    {
+                        <DxFormLayoutItem Caption="딸린 것" ColSpanXs="12">
+                            <Template>
+                                @* 서비스는 떠 있는데 그 서비스의 DB 가 죽어 있는 상태가
+                                   실제로 있다. 그때 「UP」만 보면 원인을 못 찾는다. *@
+                                <div class="ad-deps">
+                                    @foreach (var dep in svc.Dependencies)
+                                    {
+                                        <span class="jsini-badge @DepBadge(dep.Status)"
+                                              title="@dep.Description">
+                                            @DepLabel(dep.Name) @DepText(dep.Status)
+                                        </span>
+                                    }
+                                </div>
+                            </Template>
+                        </DxFormLayoutItem>
+                    }
+                </Items>
+            </DxFormLayoutGroup>
+        }
+    </DxFormLayout>
 }
 
 <h2 class="ad-subhead">AI 제공자</h2>
@@ -137,101 +218,108 @@ else
                     Text="@($"잠시 쉬는 모델: {string.Join(", ", _ai.RestingModels)}")" />
     }
 
-    <CommGrd TItem="object" Data="@_ai.Providers"
-             PageSizeSelectorVisible="false" PagerVisible="false"
-             ExportName="AI제공자"
-             Reload="@ReloadAsync">
-        <Columns>
-            <DxGridDataColumn Caption="제공자" Width="180">
-                <CellDisplayTemplate Context="cell">
-                    @{
-                        var p = (AiProviderDto)cell.DataItem;
-                    }
-                    <span>@(p.DisplayName ?? p.Key)</span>
+    <DxFormLayout CssClass="ad-deck" CaptionPosition="CaptionPosition.Vertical">
+        @foreach (var p in _ai.Providers)
+        {
+            var models = ModelsOf(p.Key);
+            var result = _deep.GetValueOrDefault(p.Key);
+
+            @* 키가 없으면 그 제공자로는 아무것도 못 부른다 — 컨테이너가 떠
+               있어도 그렇다. 그것을 카드 테두리 색으로 먼저 말한다. *@
+            <DxFormLayoutGroup Decoration="FormLayoutGroupDecoration.Card"
+                               ExpandButtonDisplayMode="GroupExpandButtonDisplayMode.None"
+                               ColSpanXs="12" ColSpanMd="6" ColSpanXl="4"
+                               CssClass="@($"ad-card ad-card--{(p.Configured ? "up" : "off")}")">
+                <CaptionTemplate>
+                    <span class="ad-card__name">@(p.DisplayName ?? p.Key)</span>
                     @if (p.IsDefault)
                     {
                         <span class="jsini-badge jsini-badge--on">기본</span>
                     }
-                </CellDisplayTemplate>
-            </DxGridDataColumn>
-
-            <DxGridDataColumn Caption="설정" Width="90">
-                <CellDisplayTemplate Context="cell">
-                    @{
-                        var p = (AiProviderDto)cell.DataItem;
-                    }
-                    @* 키가 없으면 그 제공자로는 아무것도 못 부른다 —
-                       컨테이너가 떠 있어도 그렇다. *@
                     <span class="jsini-badge @(p.Configured ? "jsini-badge--on" : "jsini-badge--off")">
-                        @(p.Configured ? "됨" : "키 없음")
+                        @(p.Configured ? "키 있음" : "키 없음")
                     </span>
-                </CellDisplayTemplate>
-            </DxGridDataColumn>
+                </CaptionTemplate>
+                <Items>
+                    <DxFormLayoutItem Caption="모델" ColSpanXs="12">
+                        <Template>
+                            <span class="ad-code">@(p.Model ?? "-")</span>
+                        </Template>
+                    </DxFormLayoutItem>
 
-            <DxGridDataColumn FieldName="@nameof(AiProviderDto.Model)" Caption="모델" MinWidth="240" />
+                    <DxFormLayoutItem Caption="오늘 사용" ColSpanXs="12">
+                        <Template>
+                            @* 한도가 0 이면 제한이 없다는 뜻이다. 「0/0」으로 보이면
+                               다 쓴 것처럼 읽히므로 갈라 적는다. *@
+                            @if (p.MaxRequestsPerDay > 0)
+                            {
+                                <div class="ad-quota">
+                                    <DxProgressBar Value="@p.UsedToday" MinValue="0"
+                                                   MaxValue="@p.MaxRequestsPerDay"
+                                                   CssClass="ad-quota__bar" />
+                                    <span class="ad-stamp">@p.UsedToday / @p.MaxRequestsPerDay</span>
+                                </div>
+                            }
+                            else
+                            {
+                                <span>@p.UsedToday <span class="ad-stamp">(무제한)</span></span>
+                            }
+                        </Template>
+                    </DxFormLayoutItem>
 
-            <DxGridDataColumn Caption="오늘 사용" Width="120">
-                <CellDisplayTemplate Context="cell">
-                    @{
-                        var p = (AiProviderDto)cell.DataItem;
+                    @if (p.FallbackModels.Count > 0)
+                    {
+                        <DxFormLayoutItem Caption="대체 모델" ColSpanXs="12">
+                            <Template>
+                                <span class="ad-code">@string.Join(", ", p.FallbackModels)</span>
+                            </Template>
+                        </DxFormLayoutItem>
                     }
-                    @* 한도가 0 이면 제한이 없다는 뜻이다. 「0/0」으로 보이면
-                       다 쓴 것처럼 읽히므로 갈라 적는다. *@
-                    @(p.MaxRequestsPerDay > 0 ? $"{p.UsedToday} / {p.MaxRequestsPerDay}" : $"{p.UsedToday} (무제한)")
-                </CellDisplayTemplate>
-            </DxGridDataColumn>
 
-            <DxGridDataColumn Caption="대체 모델" MinWidth="200">
-                <CellDisplayTemplate Context="cell">
-                    @{
-                        var p = (AiProviderDto)cell.DataItem;
+                    @if (models.Count > 0)
+                    {
+                        <DxFormLayoutItem Caption="고를 수 있는 모델" ColSpanXs="12">
+                            <Template>
+                                @* 목록이 곧 「무엇으로 바꿀 수 있는가」다. 지금 모델이
+                                   쉬고 있을 때 어디로 옮길 수 있는지가 여기서만 보인다.
+                                   길어서 카드를 밀어내므로 높이를 가둔다. *@
+                                <div class="ad-modellist ad-code">@string.Join(", ", models)</div>
+                            </Template>
+                        </DxFormLayoutItem>
                     }
-                    <span class="ad-code">@(p.FallbackModels.Count == 0 ? "-" : string.Join(", ", p.FallbackModels))</span>
-                </CellDisplayTemplate>
-            </DxGridDataColumn>
 
-            <DxGridDataColumn Caption="고를 수 있는 모델" MinWidth="200">
-                <CellDisplayTemplate Context="cell">
-                    @{
-                        var p = (AiProviderDto)cell.DataItem;
-                        var models = ModelsOf(p.Key);
-                    }
-                    @* 목록이 곧 「무엇으로 바꿀 수 있는가」다. 지금 모델이 쉬고
-                       있을 때 어디로 옮길 수 있는지가 여기서만 보인다. *@
-                    <span class="ad-code">@(models.Count == 0 ? "-" : string.Join(", ", models))</span>
-                </CellDisplayTemplate>
-            </DxGridDataColumn>
+                    <DxFormLayoutItem ColSpanXs="12">
+                        <Template>
+                            <div class="ad-deep">
+                                <DxButton Text="정밀 확인"
+                                          RenderStyle="ButtonRenderStyle.Secondary"
+                                          Enabled="@(_checking != p.Key)"
+                                          Click="@(() => DeepCheckAsync(p.Key))" />
 
-            <DxGridDataColumn Caption="정밀 확인" Width="230" AllowSort="false">
-                <CellDisplayTemplate Context="cell">
-                    @{
-                        var p = (AiProviderDto)cell.DataItem;
-                        var result = _deep.GetValueOrDefault(p.Key);
-                    }
-                    <div class="ad-deep">
-                        <DxButton Text="확인"
-                                  RenderStyle="ButtonRenderStyle.Secondary"
-                                  Enabled="@(_checking != p.Key)"
-                                  Click="@(() => DeepCheckAsync(p.Key))" />
-
-                        @if (_checking == p.Key)
-                        {
-                            <span class="ad-stamp">묻는 중 …</span>
-                        }
-                        else if (result is not null)
-                        {
-                            @* 한도 초과는 고장이 아니다. 색을 갈라 둔다 —
-                               같은 붉은색이면 키가 잘못된 것처럼 읽힌다. *@
-                            <span class="jsini-badge @DeepTone(result)">
-                                @(result.Ok ? $"{result.LatencyMs}ms" : result.RateLimited ? "한도" : "실패")
-                            </span>
-                            <span class="ad-stamp">@result.Message</span>
-                        }
-                    </div>
-                </CellDisplayTemplate>
-            </DxGridDataColumn>
-        </Columns>
-    </CommGrd>
+                                @if (_checking == p.Key)
+                                {
+                                    <span class="ad-stamp">묻는 중 …</span>
+                                }
+                                else if (result is not null)
+                                {
+                                    @* 한도 초과는 고장이 아니다. 색을 갈라 둔다 —
+                                       같은 붉은색이면 키가 잘못된 것처럼 읽힌다. *@
+                                    <span class="jsini-badge @DeepTone(result)">
+                                        @(result.Ok ? $"{result.LatencyMs}ms" : result.RateLimited ? "한도" : "실패")
+                                    </span>
+                                    <span class="ad-stamp">@result.Message</span>
+                                }
+                                else
+                                {
+                                    <span class="ad-stamp">실제로 한 번 물어봅니다 (돈이 듭니다)</span>
+                                }
+                            </div>
+                        </Template>
+                    </DxFormLayoutItem>
+                </Items>
+            </DxFormLayoutGroup>
+        }
+    </DxFormLayout>
 }
 
 <h2 class="ad-subhead">컨테이너</h2>
@@ -320,8 +408,7 @@ else
 
 @* 정리 확인 창. **지울 목록은 서버가 준 그대로다** — 여기 보이는 것이
    그대로 지워진다. *@
-<DxPopup @bind-Visible="@_confirmVisible" HeaderText="쌓인 이미지를 정리합니다"
-         ShowFooter="true" Width="42rem">
+<CommPopup @bind-Visible="@_confirmVisible" HeaderText="쌓인 이미지를 정리합니다" Width="42rem">
     <BodyContentTemplate>
         @if (_preview is null or { Removed.Count: 0 })
         {
@@ -360,11 +447,17 @@ else
                       Enabled="@(!_cleaning)" Click="@RunCleanupAsync" />
         }
     </FooterContentTemplate>
-</DxPopup>
+</CommPopup>
 
 @code {
     private DeployStatusDto? _status;
     private IReadOnlyList<ServiceHealth> _services = [];
+
+    /// <summary>게이트웨이 자신의 상태. 이것이 죽으면 아래 카드가 전부 빨갛다.</summary>
+    private ServiceHealth? _gateway;
+
+    /// <summary>게이트웨이를 마지막으로 물어본 시각. 실패하면 갱신하지 않는다.</summary>
+    private DateTime? _readAt;
     private AiProviderStatusDto? _ai;
     private IReadOnlyList<AiProviderModelsDto> _models = [];
 
@@ -407,7 +500,7 @@ else
     /// </summary>
     protected override async Task RefreshAsync()
     {
-        _services = await SafeAsync(Api.GetServiceHealthAsync, []);
+        await LoadGatewayAsync();
         _ai = await SafeAsync(Api.GetAiProvidersAsync, null);
         _status = await Api.GetDeployStatusAsync();
     }
@@ -416,7 +509,7 @@ else
     {
         // 둘 중 하나가 실패해도 나머지는 보여 준다. 서버 상태를 보러 온
         // 사람에게 「둘 다 못 읽었습니다」는 쓸모가 없다.
-        _services = await SafeAsync(Api.GetServiceHealthAsync, []);
+        await LoadGatewayAsync();
         _ai = await SafeAsync(Api.GetAiProvidersAsync, null);
         _models = await SafeAsync(Api.GetAiModelsAsync, []);
         _status = await Api.GetDeployStatusAsync();
@@ -502,6 +595,140 @@ else
             _cleaning = false;
         }
     }
+
+    /// <summary>
+    /// 게이트웨이 상태를 한 번 읽어 자신과 서비스 목록을 함께 채운다.
+    ///
+    /// 둘이 <b>같은 응답</b>에서 온다. 따로 부르면 왕복이 두 번이고, 그 사이에
+    /// 값이 갈려 「게이트웨이는 정상인데 서비스가 전부 중지」처럼 어긋난 화면이 난다.
+    /// </summary>
+    private async Task LoadGatewayAsync()
+    {
+        var status = await SafeAsync(Api.GetGatewayStatusAsync, null);
+        if (status is null)
+        {
+            // 못 읽었으면 **마지막으로 성공한 화면을 그대로 둔다.** 여기서 목록을
+            // 비우면 「전부 중지」로 보이는데, 실제로 끊긴 것은 게이트웨이 하나이거나
+            // 우리 쪽 회선일 수 있다. 멎어 있는 시각이 그 사실을 말해 준다.
+            _gateway = null;
+            return;
+        }
+
+        _gateway = status.Gateway;
+        _services = status.Services;
+        _readAt = DateTime.Now;
+    }
+
+    // ── 카드 꾸밈 ───────────────────────────────────────────
+    //
+    // 이름과 한 줄 설명은 **꾸밈말일 뿐**이다. 여기 없는 클러스터가 와도
+    // 클러스터 이름이 그대로 나온다 — 서비스를 늘릴 때 이 표를 고치지
+    // 않아도 화면이 깨지지 않아야 한다.
+
+    private static readonly Dictionary<string, (string Name, string Desc)> ClusterMeta =
+        new(StringComparer.OrdinalIgnoreCase)
+        {
+            ["auth-cluster"] = ("AuthServer", "인증 · JWT 발급 · 공통코드"),
+            ["funeral-cluster"] = ("funeralv2Api", "장례식장 업무 API · 장비 실시간 허브"),
+            ["file-cluster"] = ("FileServer", "파일 올리기 · 변환 · 내려받기"),
+            ["ai-cluster"] = ("AIAgentServer", "AI 에이전트 · 번역 · 추천"),
+            ["helpdesk-cluster"] = ("HelpDeskServer", "헬프데스크 · 요청/WBS · 일정"),
+            ["projmng-cluster"] = ("ProjMngServer", "프로젝트관리 · WBS · 개발도구"),
+            ["site-cluster"] = ("SiteServer", "회사 소개 사이트 · 문의 접수"),
+            ["life-cluster"] = ("LifeEnvServer", "생활과환경 · 기상 · 생일"),
+            ["notification-cluster"] = ("NotificationServer", "푸시 · 이메일 발송"),
+
+            // 우리 서비스가 아니다. 외부 고객사 시스템이라 `/health` 규약을
+            // 따르지 않고 게이트웨이도 헬스체크를 걸지 않는다. 이름을 그대로
+            // 두면 **우리 MSA 하나가 죽은 것처럼 읽힌다.**
+            ["oadr-cluster"] = ("OADR (외부)", "외부 고객사 시스템 · 헬스체크 대상 아님"),
+        };
+
+    private static (string Name, string Desc) MetaOf(string? cluster) =>
+        cluster is { Length: > 0 } c && ClusterMeta.TryGetValue(c, out var meta)
+            ? meta
+            : (cluster ?? "gateway", string.Empty);
+
+    /// <summary>
+    /// 게이트웨이가 주는 <c>UP</c> · <c>DEGRADED</c> · <c>DOWN</c> 를 색 이름으로.
+    ///
+    /// <para>
+    /// <b>가운데를 따로 두는 것이 요점이다.</b> <c>DEGRADED</c> 는 프로세스가
+    /// 살아 있고 <b>딸린 것</b>(DB · AI 모델 · 큐)이 끊긴 상태다. 빨강으로
+    /// 칠하면 「서비스가 죽었다」로 읽혀 엉뚱한 곳을 보러 가게 된다.
+    /// </para>
+    /// </summary>
+    private static string ToneOf(string? status) => status?.ToUpperInvariant() switch
+    {
+        "UP" => "up",
+        "DEGRADED" => "warn",
+        _ => "down",
+    };
+
+    private static string LabelOf(string tone) => tone switch
+    {
+        "up" => "정상",
+        "warn" => "응답 이상",
+        _ => "중지",
+    };
+
+    private static string BadgeOf(string tone) => tone switch
+    {
+        "up" => "jsini-badge--on",
+        "warn" => "jsini-badge--warn",
+        _ => "ad-badge--err",
+    };
+
+    /// <summary>게이트웨이 자신. 응답이 없으면 중지로 본다.</summary>
+    private string GatewayTone => ToneOf(_gateway?.Status ?? (_services.Count > 0 ? "UP" : null));
+
+    private int CountOf(string tone) => _services.Count(s => ToneOf(s.Status) == tone);
+
+    /// <summary>
+    /// 성한 것보다 <b>탈난 것을 먼저</b> 세운다.
+    ///
+    /// <para>
+    /// 게이트웨이가 주는 차례에는 뜻이 없어서, 열몇 장 중에 빨간 카드 한 장을
+    /// 눈으로 찾아야 했다. 카드는 표와 달리 정렬 단추가 없으므로 화면이 정한다.
+    /// 상태가 바뀔 때만 자리가 움직인다 — 그때는 <b>움직이는 것이 맞다.</b>
+    /// </para>
+    /// </summary>
+    private IEnumerable<ServiceHealth> SortedServices => _services
+        .OrderBy(s => ToneOf(s.Status) switch { "down" => 0, "warn" => 1, _ => 2 })
+        .ThenBy(s => MetaOf(s.Cluster).Name, StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>느린 것을 눈에 걸리게 한다. 살아 있는 것과 쓸 만한 것은 다르다.</summary>
+    private static string LatencyClass(int? ms) => ms switch
+    {
+        null => string.Empty,
+        >= 1000 => "ad-lat--bad",
+        >= 300 => "ad-lat--slow",
+        _ => string.Empty,
+    };
+
+    /// <summary>점검 이름을 사람이 읽는 말로. 모르는 이름은 그대로 보여 준다.</summary>
+    private static string DepLabel(string? name) => name switch
+    {
+        "database" => "DB",
+        "llm" => "AI 모델",
+        "release-queue" => "배포 큐",
+        "storage" => "파일 저장소",
+        _ => name ?? "?",
+    };
+
+    private static string DepText(string? status) => status switch
+    {
+        "Healthy" => "연결됨",
+        "Degraded" => "연결 안 됨",
+        _ => "오류",
+    };
+
+    private static string DepBadge(string? status) => status switch
+    {
+        "Healthy" => "jsini-badge--on",
+        "Degraded" => "jsini-badge--warn",
+        _ => "ad-badge--err",
+    };
 
     private IReadOnlyList<string> ModelsOf(string key) =>
         _models.FirstOrDefault(m => string.Equals(m.Provider, key, StringComparison.OrdinalIgnoreCase))?.Models ?? [];

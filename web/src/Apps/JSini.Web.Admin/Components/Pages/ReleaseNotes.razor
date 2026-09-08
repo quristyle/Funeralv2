@@ -155,7 +155,8 @@
 </CommCont>
 
 @* ── 진행 기록 ─────────────────────────────────────── *@
-<DxPopup @bind-Visible="_showingRun" HeaderText="@RunHeader" Width="820" ShowFooter="true">
+<CommPopup @bind-Visible="_showingRun" HeaderText="@RunHeader" Width="820"
+           CloseOnOutsideClick="true">
     <BodyContentTemplate Context="popup">
         @if (_run is null)
         {
@@ -197,7 +198,7 @@
     <FooterContentTemplate>
         <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary" Click="@(() => _showingRun = false)" />
     </FooterContentTemplate>
-</DxPopup>
+</CommPopup>
 
 @code {
     private ReleaseTargetListDto? _targets;

@@ -147,9 +147,8 @@
 
 @* 발급된 첫 비밀번호. 안내 줄이 아니라 창인 이유는 **놓치면 끝**이기 때문이다 —
    줄로 띄우면 다음 조회에 지워지고, 그러면 계정을 지웠다 다시 만드는 수밖에 없다. *@
-<DxPopup @bind-Visible="_issuedVisible"
+<CommPopup @bind-Visible="_issuedVisible"
          HeaderText="첫 비밀번호"
-         ShowFooter="true"
          CloseOnEscape="false"
          CloseOnOutsideClick="false">
     @* Context 이름을 바꿔 둔다. 안쪽 DxFormLayoutItem 이 쓰는 기본 이름
@@ -179,7 +178,7 @@
         <DxButton Text="확인했습니다" RenderStyle="ButtonRenderStyle.Primary"
                   Click="@(() => _issuedVisible = false)" />
     </FooterContentTemplate>
-</DxPopup>
+</CommPopup>
 
 @code {
     private IReadOnlyList<AccountDto> _all = [];
