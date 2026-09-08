@@ -89,8 +89,7 @@ public static class WeatherEventEndpoints
             }));
         })
         .WithName("SendWeatherEvent")
-        .WithTags("Weather")
-        .WithOpenApi();
+        .WithTags("Weather");
     }
 }
 

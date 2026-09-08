@@ -104,8 +104,7 @@ public static class EmailEndpoints
                     statusCode: StatusCodes.Status502BadGateway);
             }
         })
-        .WithName("SendEmailDirect")
-        .WithOpenApi();
+        .WithName("SendEmailDirect");
     }
 
     /// <summary>

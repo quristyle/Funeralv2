@@ -39,7 +39,7 @@ public static class SiteEndpoints
             var rows = await svc.GetSectionsAsync(locale ?? "ko", keyPrefix);
             return Results.Ok(ApiResponse<List<SectionDto>>.Ok(rows));
         })
-        .WithName("GetSections").WithOpenApi();
+        .WithName("GetSections");
 
         pub.MapGet("/posts", async (
             [FromQuery] string? locale, [FromQuery] int? take,
@@ -48,7 +48,7 @@ public static class SiteEndpoints
             var rows = await svc.GetPostsAsync(locale ?? "ko", take ?? 20);
             return Results.Ok(ApiResponse<List<PostListItemDto>>.Ok(rows));
         })
-        .WithName("GetPosts").WithOpenApi();
+        .WithName("GetPosts");
 
         pub.MapGet("/posts/{slug}", async (
             string slug, [FromQuery] string? locale,
@@ -59,7 +59,7 @@ public static class SiteEndpoints
                 ? Results.NotFound(ApiResponse<PostDetailDto>.Fail("글을 찾을 수 없습니다.", "404"))
                 : Results.Ok(ApiResponse<PostDetailDto>.Ok(row));
         })
-        .WithName("GetPost").WithOpenApi();
+        .WithName("GetPost");
 
         pub.MapGet("/downloads", async (
             [FromQuery] string? locale, [FromQuery] string? category,
@@ -68,7 +68,7 @@ public static class SiteEndpoints
             var rows = await svc.GetDownloadsAsync(locale ?? "ko", category);
             return Results.Ok(ApiResponse<List<DownloadDto>>.Ok(rows));
         })
-        .WithName("GetDownloads").WithOpenApi();
+        .WithName("GetDownloads");
 
         // 횟수를 세고 FileServer 로 넘긴다. 브라우저가 FileServer 를 직접 열면 셀 수가 없다.
         //
@@ -83,7 +83,7 @@ public static class SiteEndpoints
                 ? Results.NotFound(ApiResponse<bool>.Fail("자료를 찾을 수 없습니다.", "404"))
                 : Results.Redirect(url);
         })
-        .WithName("DownloadSiteFile").WithOpenApi();
+        .WithName("DownloadSiteFile");
 
         // 문의 접수. 익명 쓰기라 방어가 세 겹이다 —
         // 게이트웨이의 IP 레이트리밋 · 허니팟 · 동의 확인.
@@ -121,7 +121,7 @@ public static class SiteEndpoints
             // id 가 null 이면 허니팟이거나 필수값이 빈 것이다. 둘을 구별해 주지 않는다.
             return Results.Ok(ApiResponse<bool>.Ok(true, "문의가 접수되었습니다."));
         })
-        .WithName("CreateInquiry").WithOpenApi();
+        .WithName("CreateInquiry");
 
         // 조회 집계. 개인을 특정할 값을 쌓지 않는다 — 날짜·경로·언어별 횟수만 올린다.
         // `path` 를 nullable 로 받는다. 필수(non-nullable)로 두면 값이 없을 때
@@ -138,7 +138,7 @@ public static class SiteEndpoints
             await svc.RecordVisitAsync(path, locale ?? "ko");
             return Results.Ok(ApiResponse<bool>.Ok(true));
         })
-        .WithName("RecordVisit").WithOpenApi();
+        .WithName("RecordVisit");
     }
 
     // ── 관리 (인증 필요) ─────────────────────────────────────
@@ -187,7 +187,7 @@ public static class SiteEndpoints
 
             return Results.Ok(ApiResponse<List<InquiryAdminDto>>.Ok(rows));
         })
-        .WithName("AdminListInquiries").WithOpenApi();
+        .WithName("AdminListInquiries");
 
         admin.MapPut("/inquiries/{id:guid}/status", async (
             Guid id, [FromQuery] string value, UserContext? user,
@@ -216,7 +216,7 @@ public static class SiteEndpoints
 
             return Results.Ok(ApiResponse<bool>.Ok(true));
         })
-        .WithName("AdminSetInquiryStatus").WithOpenApi();
+        .WithName("AdminSetInquiryStatus");
 
         // ── 답장 ────────────────────────────────────────────
         //
@@ -270,6 +270,6 @@ public static class SiteEndpoints
 
             return Results.Ok(ApiResponse<bool>.Ok(true, "답장을 보냈습니다."));
         })
-        .WithName("AdminReplyInquiry").WithOpenApi();
+        .WithName("AdminReplyInquiry");
     }
 }

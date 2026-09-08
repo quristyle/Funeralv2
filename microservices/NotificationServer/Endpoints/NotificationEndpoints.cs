@@ -45,8 +45,7 @@ public static class NotificationEndpoints
                 Enabled = v.IsConfigured
             }));
         })
-        .WithName("GetVapidPublicKey")
-        .WithOpenApi();
+        .WithName("GetVapidPublicKey");
 
         // ── 구독 등록 ───────────────────────────────────────
         //
@@ -115,8 +114,7 @@ public static class NotificationEndpoints
             await db.SaveChangesAsync();
             return Results.Ok(ApiResponse<bool>.Ok(true));
         })
-        .WithName("Subscribe")
-        .WithOpenApi();
+        .WithName("Subscribe");
 
         // ── 구독 해제 ───────────────────────────────────────
         group.MapDelete("/subscriptions", async (
@@ -145,8 +143,7 @@ public static class NotificationEndpoints
             await db.SaveChangesAsync();
             return Results.Ok(ApiResponse<bool>.Ok(true));
         })
-        .WithName("Unsubscribe")
-        .WithOpenApi();
+        .WithName("Unsubscribe");
 
         // ── 내 구독 확인 ────────────────────────────────────
         //
@@ -159,8 +156,7 @@ public static class NotificationEndpoints
             var list = await MyDevicesAsync(db, user.UserId);
             return Results.Ok(ApiResponse<object>.Ok(new { items = list, count = list.Count }));
         })
-        .WithName("GetMySubscriptions")
-        .WithOpenApi();
+        .WithName("GetMySubscriptions");
 
         // ── 내 알림 설정 화면이 한 번에 받는 상태 ───────────
         //
@@ -188,8 +184,7 @@ public static class NotificationEndpoints
 
             return Results.Ok(ApiResponse<MyNotificationStateDto>.Ok(state));
         })
-        .WithName("GetMyNotificationPreference")
-        .WithOpenApi();
+        .WithName("GetMyNotificationPreference");
 
         // ── 내 알림 설정 저장 ───────────────────────────────
         //
@@ -213,8 +208,7 @@ public static class NotificationEndpoints
             var saved = await prefs.SaveAsync("jsini", user.UserId, request, user.UserId, ct);
             return Results.Ok(ApiResponse<NotificationPreferenceDto>.Ok(saved));
         })
-        .WithName("UpdateMyNotificationPreference")
-        .WithOpenApi();
+        .WithName("UpdateMyNotificationPreference");
 
         // ── 푸시 발송 ───────────────────────────────────────
         group.MapPost("/push", async (
@@ -240,8 +234,7 @@ public static class NotificationEndpoints
                     ApiResponse<SendPushResultDto>.Ok(result, result.Message ?? "보낸 알림이 없습니다."),
                     statusCode: StatusCodes.Status202Accepted);
         })
-        .WithName("SendPush")
-        .WithOpenApi();
+        .WithName("SendPush");
 
         // ── 나에게 시험 발송 ────────────────────────────────
         //
@@ -279,8 +272,7 @@ public static class NotificationEndpoints
                     ApiResponse<SendPushResultDto>.Ok(result, result.Message ?? "보낸 알림이 없습니다."),
                     statusCode: StatusCodes.Status202Accepted);
         })
-        .WithName("SendTestPushToMe")
-        .WithOpenApi();
+        .WithName("SendTestPushToMe");
 
         // ── 이메일 발송 ─────────────────────────────────────
         //
@@ -301,8 +293,7 @@ public static class NotificationEndpoints
                     message: result.Message ?? "메일 발송 요청에 실패했습니다.",
                     code: "EMAIL_QUEUE_FAILED"));
         })
-        .WithName("SendEmail")
-        .WithOpenApi();
+        .WithName("SendEmail");
     }
 
     /// <summary>

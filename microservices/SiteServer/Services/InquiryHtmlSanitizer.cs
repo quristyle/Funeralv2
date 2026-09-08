@@ -87,10 +87,13 @@ public static class InquiryHtmlSanitizer
                     continue;
                 }
 
+                // 값 없는 속성(<a href>)도 들어온다. 한 번만 꺼내 쓴다.
+                var attrValue = attr.Value ?? string.Empty;
+
                 // font size 는 execCommand fontSize 의 1~7 단계만 (그 밖의 값은 버린다)
                 if (node.Name.Equals("font", StringComparison.OrdinalIgnoreCase) &&
                     attr.Name.Equals("size", StringComparison.OrdinalIgnoreCase) &&
-                    !System.Text.RegularExpressions.Regex.IsMatch(attr.Value.Trim(), "^[1-7]$"))
+                    !System.Text.RegularExpressions.Regex.IsMatch(attrValue.Trim(), "^[1-7]$"))
                 {
                     attr.Remove();
                     continue;
@@ -99,7 +102,7 @@ public static class InquiryHtmlSanitizer
                 // 링크는 http/https/mailto 만. javascript: 류를 막는다.
                 if (node.Name.Equals("a", StringComparison.OrdinalIgnoreCase))
                 {
-                    var href = attr.Value.Trim();
+                    var href = attrValue.Trim();
                     if (!href.StartsWith("http://", StringComparison.OrdinalIgnoreCase) &&
                         !href.StartsWith("https://", StringComparison.OrdinalIgnoreCase) &&
                         !href.StartsWith("mailto:", StringComparison.OrdinalIgnoreCase))
@@ -113,7 +116,7 @@ public static class InquiryHtmlSanitizer
                 if (node.Name.Equals("span", StringComparison.OrdinalIgnoreCase) &&
                     attr.Name.Equals("style", StringComparison.OrdinalIgnoreCase))
                 {
-                    var color = attr.Value
+                    var color = attrValue
                         .Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
                         .Select(s => s.Split(':', 2))
                         .Where(kv => kv.Length == 2 && kv[0].Trim().Equals("color", StringComparison.OrdinalIgnoreCase))
