@@ -13,7 +13,7 @@ namespace ProjModel;
 public class ResultInfo<T> : IResultInfo {
   public int? Code { get; set; } = 0;
   public string? Message { get; set; } = "success";
-  public IDictionary<string, object>? Res { get; set; }
+  public IDictionary<string, object?>? Res { get; set; }
   public IDictionary<string, string>? Cols { get; set; }
   public List<T>? Data { get; set; }
   //public IEnumerable<dynamic>? Data2 { get; set; }
@@ -27,7 +27,7 @@ public class ResultInfo<T> : IResultInfo {
 public interface IResultInfo {
   int? Code { get; }
   string? Message { get; }
-  IDictionary<string, object>? Res { get; }
+  IDictionary<string, object?>? Res { get; }
   IDictionary<string, string>? Cols { get; }
   System.Collections.IEnumerable? Rows { get; }
 }

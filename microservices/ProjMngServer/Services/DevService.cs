@@ -20,7 +20,7 @@ using static System.Runtime.InteropServices.JavaScript.JSType;
 namespace ProjMngServer.Services;
 public class DevService : BaseService {
 
-  public DevService(IConfiguration configuration) { _configuration = configuration; }
+  public DevService(IConfiguration configuration) : base(configuration) { }
 
 
   public ResultInfo<dynamic> GetDataQuery(string dbNick, string query, string isBreakCnt = "") {
@@ -29,10 +29,16 @@ public class DevService : BaseService {
 
     DateTime sdt = DateTime.Now;
 
-    DbInfo di = GetDbInfo(dbNick);
+    // 등록되지 않은 별칭이면 null 이다. 전에는 바로 아래에서 NullReferenceException 이 났다.
+    DbInfo? di = GetDbInfo(dbNick);
+    if (di == null) {
+      ri.Code = -87;
+      ri.Message = $" db_nick {dbNick} 의 접속 정보를 찾지 못했습니다.";
+      return ri;
+    }
 
-    IDbConnection db = null;
-    IDataReader rdr = null;
+    IDbConnection? db = null;
+    IDataReader? rdr = null;
     try {
 
       if (di.Db_type == "POSTGRESQL" || di.Db_type == "EDB") {
@@ -42,6 +48,12 @@ public class DevService : BaseService {
         db = new SqlConnection(di.ToConnectionString());
       }
 
+      // 아는 종류가 아니면 붙을 데가 없다.
+      if (db == null) {
+        ri.Code = -86;
+        ri.Message = $" 지원하지 않는 db_type 입니다: {di.Db_type}";
+        return ri;
+      }
 
       DateTime spdt = DateTime.Now;
       DateTime epdt = DateTime.Now;
@@ -56,9 +68,9 @@ public class DevService : BaseService {
 
       while (rdr.Read()) {
 
-        var expandoObject = new ExpandoObject() as IDictionary<string, object>;
+        var expandoObject = (IDictionary<string, object?>)new ExpandoObject();
         string nm = "";
-        object oval = null;
+        object? oval = null;
         //string empty = null;
         for (int i = 0; i < rdr.FieldCount; i++) {
           nm = rdr.GetName(i);
@@ -153,7 +165,7 @@ public class DevService : BaseService {
     DateTime epdt = DateTime.Now;
 
     //ResultInfo<dynamic> ri = DevExecuteQuery(dbNick, stp, param);
-    ResultInfo<dynamic> ri = null; // DevExecuteQuery(dbNick, dto.ProcName, param);
+    ResultInfo<dynamic>? ri = null; // DevExecuteQuery(dbNick, dto.ProcName, param);
 
 
 
@@ -163,7 +175,8 @@ public class DevService : BaseService {
       //string parameter1 = param.TryGetValue("parameter1", out var parameter1Value) ? parameter1Value : string.Empty;
       string parameter1 = param.GetValue("parameter1");
       var dq = GetProcDbDevsqlresp(dto.ProcName, param["db_rid"].ToString());
-      string query = dq.Dsl_query;// "select now()"; // 여기서 projdb 에 보관된 key의 쿼리를 가져온다.
+      // 등록되지 않은 키면 쿼리가 없다.
+      string query = dq?.Dsl_query ?? string.Empty;
       //if(!string.IsNullOrEmpty(parameter1)) {
         query = query.Replace("$parameter1", parameter1);
       //}
@@ -213,12 +226,15 @@ public class DevService : BaseService {
     ResultInfo<dynamic> ri = new ResultInfo<dynamic>();
 
     // 디비정보 가져오기
-    DbInfo di = GetDbInfo(dbNick);
+    DbInfo? di = GetDbInfo(dbNick);
+    if (di == null) {
+      ri.Code = -87;
+      ri.Message = $" db_nick {dbNick} 의 접속 정보를 찾지 못했습니다.";
+      return ri;
+    }
 
     // 디비의 쿼리 정보 가져오기
-    Devsqlresp dsr = GetDsr(di, stp);
-
-
+    Devsqlresp? dsr = GetDsr(di, stp);
 
     if (dsr == null) {
       ri.Code = -88;
@@ -227,8 +243,8 @@ public class DevService : BaseService {
     }
 
 
-    IDbConnection db = null;
-    IDataReader rdr = null;
+    IDbConnection? db = null;
+    IDataReader? rdr = null;
     try {
 
       if (dsr.Dsl_type == "POSTGRESQL" || dsr.Dsl_type == "EDB") {
@@ -238,14 +254,21 @@ public class DevService : BaseService {
         db = new SqlConnection(di.ToConnectionString());
       }
 
-      param["schema"] = di.Db_schema;
-      param["db_id"] = di.Db_id;
+      param["schema"] = di.Db_schema ?? string.Empty;
+      param["db_id"] = di.Db_id ?? string.Empty;
 
 
       Console.WriteLine($"Dsl_query : {dsr.Dsl_query}");
 
 
-      string directString = ChangeQueryDirectQuery(dsr.Dsl_query, param);
+      // 아는 종류가 아니면 붙을 데가 없다.
+      if (db == null) {
+        ri.Code = -86;
+        ri.Message = $" 지원하지 않는 dsl_type 입니다: {dsr.Dsl_type}";
+        return ri;
+      }
+
+      string directString = ChangeQueryDirectQuery(dsr.Dsl_query ?? string.Empty, param);
 
       Console.WriteLine($"directString : {directString}");
 
@@ -257,9 +280,9 @@ public class DevService : BaseService {
 
       while (rdr.Read()) {
 
-        var expandoObject = new ExpandoObject() as IDictionary<string, object>;
+        var expandoObject = (IDictionary<string, object?>)new ExpandoObject();
         string nm = "";
-        object oval = null;
+        object? oval = null;
         //string empty = null;
         for (int i = 0; i < rdr.FieldCount; i++) {
           nm = rdr.GetName(i);
@@ -300,8 +323,8 @@ public class DevService : BaseService {
 
 
   /// <summary> 디비에 맞는 시스템 쿼리 가져 오기 </summary>
-  private Devsqlresp GetDsr(DbInfo di, string dsrKey) {
-    Devsqlresp result = null;
+  private Devsqlresp? GetDsr(DbInfo di, string dsrKey) {
+    Devsqlresp? result = null;
     foreach (var dsr in AppData.DsrInfos) {
       if (dsr.Dsl_type == di.Db_type && dsr.Dsl_cd == dsrKey) {
         result = dsr;
@@ -309,7 +332,7 @@ public class DevService : BaseService {
       }
     }
     if (result == null) {
-      result = GetDevsqlresp(di.Db_type, dsrKey);
+      result = GetDevsqlresp(di.Db_type ?? string.Empty, dsrKey);
       if (result != null) {
         // db 정보에서 db_nick 또는 dbseq 와 같은 unique key 값으로 관리 필요.. 당분간 주석
         // AppData.DsrInfos.Add(result);
@@ -322,12 +345,13 @@ public class DevService : BaseService {
 
 
 
-  private Devsqlresp GetDsr(string dbNick, string dsrKey) {
+  private Devsqlresp? GetDsr(string dbNick, string dsrKey) {
 
     // 디비정보 가져오기
-    DbInfo di = GetDbInfo(dbNick);
+    DbInfo? di = GetDbInfo(dbNick);
+    if (di == null) return null;
 
-    Devsqlresp result = null;
+    Devsqlresp? result = null;
     foreach (var dsr in AppData.DsrInfos) {
       if (dsr.Dsl_type == di.Db_type && dsr.Dsl_cd == dsrKey) {
         result = dsr;
@@ -335,8 +359,9 @@ public class DevService : BaseService {
       }
     }
     if (result == null) {
-      result = GetDevsqlresp(di.Db_type, dsrKey);
-      AppData.DsrInfos.Add(result);
+      result = GetDevsqlresp(di.Db_type ?? string.Empty, dsrKey);
+      // 못 찾은 것을 넣으면 다음 번 반복문이 터진다.
+      if (result != null) AppData.DsrInfos.Add(result);
     }
 
     return result;
@@ -344,14 +369,14 @@ public class DevService : BaseService {
 
 
   /// <summary> db 에서 dsr 정보를 가져온다. </summary>
-  Devsqlresp GetDevsqlresp(string dsl_type, string dsl_cd) {
+  Devsqlresp? GetDevsqlresp(string dsl_type, string dsl_cd) {
     var connectionString = _configuration.GetConnectionString("jsini");
 
     var parameters = new DynamicParameters();
     parameters.Add("@dsl_type", dsl_type);
     parameters.Add("@dsl_cd", dsl_cd);
 
-    Devsqlresp dsr = null;
+    Devsqlresp? dsr = null;
     using (IDbConnection db = new NpgsqlConnection(connectionString)) {
       dsr = db.Query<Devsqlresp>(sql: ConstInfo.dbVsqlResp, parameters).ToList().FirstOrDefault();
     }
@@ -361,14 +386,14 @@ public class DevService : BaseService {
 
 
 
-  Devsqlresp GetProcDbDevsqlresp(string db_pkey, string db_rid) {
+  Devsqlresp? GetProcDbDevsqlresp(string db_pkey, string db_rid) {
     var connectionString = _configuration.GetConnectionString("jsini");
 
     var parameters = new DynamicParameters();
     parameters.Add("@db_pkey", db_pkey);
     parameters.Add("@db_rid", db_rid);
 
-    Devsqlresp dsr = null;
+    Devsqlresp? dsr = null;
     using (IDbConnection db = new NpgsqlConnection(connectionString)) {
       dsr = db.Query<Devsqlresp>(sql: ConstInfo.ProcDbQuery, parameters).ToList().FirstOrDefault();
     }

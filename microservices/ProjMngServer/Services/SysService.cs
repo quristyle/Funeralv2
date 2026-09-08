@@ -8,7 +8,7 @@ namespace ProjMngServer.Services;
 
 public class SysService : BaseService {
 
-  public SysService(IConfiguration configuration) { _configuration = configuration; }
+  public SysService(IConfiguration configuration) : base(configuration) { }
 
   public ResultInfo<dynamic> GetData(string procedureName, Dictionary<string, string> param) {
 
@@ -19,13 +19,12 @@ public class SysService : BaseService {
     DateTime epdt = DateTime.Now;
 
     IEnumerable<dynamic> aaa = Enumerable.Empty<dynamic>();
-    IDictionary<string, string> bbb = null;
 
     if (string.IsNullOrWhiteSpace(procedureName)) { }
     else {
       var connectionString = _configuration.GetConnectionString("jsini");
 
-      var consDic = connectionString
+      var consDic = (connectionString ?? string.Empty)
      .Split(';', StringSplitOptions.RemoveEmptyEntries)
      .Select(part => part.Split('=', 2))
      .Where(part => part.Length == 2)
@@ -64,7 +63,7 @@ public class SysService : BaseService {
 
           if (ri.Code >= 0) {
 
-            string outCursorParamName = null;
+            string? outCursorParamName = null;
 
             db.Open();
             using (var tran = db.BeginTransaction()) {
@@ -83,7 +82,7 @@ public class SysService : BaseService {
                     parameters.Add(paramName, dbType: DbType.Object, direction: ParameterDirection.Output); // Output refcursor
                   }
                   else {
-                    object paramValue = param.TryGetValue(paramKey, out var value) && value != null ? value.ToString() : null;
+                    object? paramValue = param.TryGetValue(paramKey, out var value) && value != null ? value.ToString() : null;
                     parameters.Add(paramName, paramValue, DbType.String);
 
                   }
@@ -110,10 +109,10 @@ public class SysService : BaseService {
                     if (rdr.HasRows) {
                       while (rdr.Read()) {
 
-                        var expandoObject = new ExpandoObject() as IDictionary<string, object>;
+                        var expandoObject = (IDictionary<string, object?>)new ExpandoObject();
                         string nm = "";
-                        object oval = null;
-                        string empty = null;
+                        object? oval = null;
+                        string? empty = null;
                         for (int i = 0; i < rdr.FieldCount; i++) {
                           nm = rdr.GetName(i);
                           oval = rdr.GetValue(i);

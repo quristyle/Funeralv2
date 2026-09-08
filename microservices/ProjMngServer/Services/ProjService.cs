@@ -10,7 +10,7 @@ namespace ProjMngServer.Services;
 
 public class ProjService : BaseService {
 
-  public ProjService(IConfiguration configuration) { _configuration = configuration; }
+  public ProjService(IConfiguration configuration) : base(configuration) { }
 
   private LogInfo InParamInit(string tname, RequestDto dto) {
 
@@ -57,7 +57,6 @@ public class ProjService : BaseService {
     DateTime epdt = DateTime.Now;
 
     IEnumerable<dynamic> aaa = Enumerable.Empty<dynamic>();
-    IDictionary<string, string> bbb = null;
 
     var connectionString = _configuration.GetConnectionString("jsini");
     if (string.IsNullOrWhiteSpace(procedureName) || string.IsNullOrWhiteSpace(connectionString)) {
@@ -108,7 +107,7 @@ public class ProjService : BaseService {
 
             //Console.WriteLine($" param list : {DateTime.Now.ToShortTimeString()} ");
             //Console.WriteLine($" procedureName : {procedureName} ");
-            string outCursorParamName = null;
+            string? outCursorParamName = null;
 
             db.Open();
             using (var tran = db.BeginTransaction()) {
@@ -134,7 +133,7 @@ public class ProjService : BaseService {
                       //Console.WriteLine($" {paramName} : {param.GetValue("req_ss_user_id")} ");
                     }
                     else {
-                      object paramValue = param.TryGetValue(paramKey, out var value) && value != null ? value.ToString() : null;
+                      object? paramValue = param.TryGetValue(paramKey, out var value) && value != null ? value.ToString() : null;
                       parameters.Add(paramName, paramValue, DbType.String);
                       //Console.WriteLine($" {paramName} : {paramValue} ");
                     }
@@ -163,10 +162,10 @@ public class ProjService : BaseService {
                     if (rdr.HasRows) {
                       while (rdr.Read()) {
 
-                        var expandoObject = new ExpandoObject() as IDictionary<string, object>;
+                                        var expandoObject = (IDictionary<string, object?>)new ExpandoObject();
                         string nm = "";
-                        object oval = null;
-                        string empty = null;
+                        object? oval = null;
+                        string? empty = null;
                         for (int i = 0; i < rdr.FieldCount; i++) {
                           nm = rdr.GetName(i);
                           oval = rdr.GetValue(i);
@@ -266,13 +265,15 @@ public class ProjService : BaseService {
       var newDict = new Dictionary<string, string>(dict.Count);
       foreach (var kv in dict) {
         if (kv.Value == null) {
-          newDict[kv.Key] = null;
+          // Dictionary<string,string> 은 null 을 담을 수 없다. 이 표는 그대로 화면에
+          // 내려가므로 빈 값으로 맞춘다 — BaseModelExtensions.ToDictionary 와 같은 규칙이다.
+          newDict[kv.Key] = string.Empty;
         }
         else if (kv.Value is DateTime dt) {
           newDict[kv.Key] = dt.ToString("yyyyMMdd"); // 필요에 따라 포맷 변경
         }
         else {
-          newDict[kv.Key] = kv.Value.ToString();
+          newDict[kv.Key] = kv.Value.ToString() ?? string.Empty;
         }
       }
       result.Add(newDict);
@@ -292,7 +293,6 @@ public class ProjService : BaseService {
     DateTime epdt = DateTime.Now;
 
     IEnumerable<dynamic> aaa = Enumerable.Empty<dynamic>();
-    IDictionary<string, string> bbb = null;
 
     var connectionString = _configuration.GetConnectionString("jsini");
     if (string.IsNullOrWhiteSpace(procedureName) || string.IsNullOrWhiteSpace(connectionString)) {
@@ -345,7 +345,7 @@ public class ProjService : BaseService {
             //Console.WriteLine($"-------------------------------------------------");
             //Console.WriteLine($" param list : {DateTime.Now.ToShortTimeString()} -------------------------------------------");
             //Console.WriteLine($" procedureName : {procedureName} ");
-            string outCursorParamName = null;
+            string? outCursorParamName = null;
 
             db.Open();
             using (var tran = db.BeginTransaction()) {
@@ -385,7 +385,7 @@ public class ProjService : BaseService {
                       //}
 
                       //var paramValue = param.GetValue(paramKey);
-                      object paramValue = param.TryGetValue(paramKey, out var value) && value != null ? value.ToString() : null;
+                      object? paramValue = param.TryGetValue(paramKey, out var value) && value != null ? value.ToString() : null;
                       if (paramValue == null) {
                         paramValue = itm.GetValue(paramKey);// .TryGetValue(paramKey, out var itm_value) && itm_value != null ? itm_value.ToString() : null;
                       }
@@ -526,11 +526,11 @@ public class ProjService : BaseService {
   /// 그런 행이 없으면 예전처럼 첫 행을 준다 — 옛 자료를 깨지 않는다.
   /// </para>
   /// </summary>
-  IDictionary<string,object> GetUrlPattern(IDictionary<string, string> param, string src_extend) {
+  IDictionary<string,object>? GetUrlPattern(IDictionary<string, string> param, string src_extend) {
 
     var srcInfo = GetData("sp_dev_srcinfo_dtl_exec", param);
 
-    var rows = srcInfo.Data
+    var rows = (srcInfo.Data ?? Enumerable.Empty<dynamic>())
       .OfType<IDictionary<string, object>>()
       .Where(d => d.ContainsKey("src_extend") && d["src_extend"]?.ToString() == src_extend)
       .ToList();
@@ -540,7 +540,7 @@ public class ProjService : BaseService {
 
     // 확장자에 딸린 경로가 없다. 소스 하나에 뿌리 경로는 보통 하나이므로
     // **확장자를 안 적어 둔 경로 행**을 쓴다 — 그렇게 등록된 소스가 실제로 있다.
-    var anyPath = srcInfo.Data
+    var anyPath = (srcInfo.Data ?? Enumerable.Empty<dynamic>())
       .OfType<IDictionary<string, object>>()
       .FirstOrDefault(d => d.GetValue("src_pattern_grp") == "src_path");
 
@@ -568,7 +568,7 @@ public class ProjService : BaseService {
       return false;
     }
 
-    reason = null;
+    reason = string.Empty;
     return true;
   }
 
@@ -578,7 +578,7 @@ public class ProjService : BaseService {
     param["req_type"] = "srch";
 
     ResultInfo<Dictionary<string, string>> ri = new ResultInfo<Dictionary<string, string>>();
-    string src_rid = param["src_rid"]?.ToString();
+    string? src_rid = param["src_rid"]?.ToString();
 
     List<Dictionary<string, string>> aaa = new();
     Dictionary<string, string> col = new Dictionary<string, string>() {
@@ -627,14 +627,14 @@ public class ProjService : BaseService {
 
         Dictionary<string, string> sItem = item.ToDictionary();
         sItem["req_type"] = "save";
-        sItem["src_rid"] = src_rid;
+        sItem["src_rid"] = src_rid ?? string.Empty;
 
         rowdata.Add(item.ToDictionary());
 
       }
 
       ExcuteMultyData( "sp_dev_activityinfo_exec"
-        , new Dictionary<string, string> { { "req_type", "save" }, { "src_rid", src_rid } }
+        , new Dictionary<string, string> { { "req_type", "save" }, { "src_rid", src_rid ?? string.Empty } }
         , rowdata
       );
 
@@ -655,7 +655,7 @@ public class ProjService : BaseService {
     param["req_type"] = "srch";
 
     ResultInfo<Dictionary<string, string>> ri = new ResultInfo<Dictionary<string, string>>();
-    string src_rid = param["src_rid"]?.ToString();
+    string? src_rid = param["src_rid"]?.ToString();
 
     //List<Dictionary<string, string>> aaa = new();
     //Dictionary<string, string> col = new Dictionary<string, string>() {
@@ -758,13 +758,19 @@ public class ProjService : BaseService {
         , { "src_rid", param.GetValue("src_rid")  } 
       });
 
-    var srcInfo = si.Data.ConvertDynamicList<SrcInfo>().FirstOrDefault(); 
+    var srcInfo = si.Data?.ConvertDynamicList<SrcInfo>().FirstOrDefault(); 
+    // 등록된 소스가 없으면 훑을 것도 없다. 전에는 바로 아래에서 터졌다.
+    if (srcInfo == null) {
+      ri.Code = -88;
+      ri.Message = "소스 정보를 찾지 못했습니다.";
+      return;
+    }
 
     ResultInfo<dynamic> si_dtl = GetData("sp_dev_srcinfo_dtl_exec" , new Dictionary<string, string>{ { "req_type", "srch" }
         , { "src_rid", param.GetValue("src_rid")  } 
       }); 
 
-    srcInfo.SiDtlList = si_dtl.Data.ConvertDynamicList<SrcInfoDtl>(); 
+    srcInfo.SiDtlList = si_dtl.Data?.ConvertDynamicList<SrcInfoDtl>() ?? new List<SrcInfoDtl>(); 
 
     Dictionary<string, string> col = new Dictionary<string, string>();
     List<Dictionary<string, string>> aaa = BlazorUtil.GetBlazorMenuList(srcInfo); 

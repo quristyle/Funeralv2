@@ -30,7 +30,7 @@ public static class BaseModelExtensions {
       //  dict[prop.Name] = dt.HasValue ? dt.Value.ToString("yyyy-MM-dd") : "";
       //}
       else if (value != null) {
-        dict[prop.Name.ToLower()] = value.ToString();
+        dict[prop.Name.ToLower()] = value.ToString() ?? "";
       }
       else {
         dict[prop.Name.ToLower()] = "";
@@ -42,30 +42,30 @@ public static class BaseModelExtensions {
   }
 
 
-  public static string GetValue(this IDictionary<string, string> param, string pkey) {
+  public static string GetValue(this IDictionary<string, string>? param, string pkey) {
     if (param == null) { return string.Empty; }
     if (param.TryGetValue(pkey, out var dbValue) && dbValue != null)
-      return dbValue.ToString().Trim();
+      return dbValue.ToString()?.Trim() ?? string.Empty;
 
     // 대소문자 무시하고 키 검색
     var key = param.Keys.FirstOrDefault(k => string.Equals(k, pkey, StringComparison.OrdinalIgnoreCase));
     if (key != null && param.TryGetValue(key, out dbValue) && dbValue != null)
-      return dbValue.ToString().Trim();
+      return dbValue.ToString()?.Trim() ?? string.Empty;
 
     return string.Empty;
   }
 
 
-  public static string GetValue(this IDictionary<string, object> param, string pkey) {
+  public static string GetValue(this IDictionary<string, object>? param, string pkey) {
     //Console.WriteLine($" dicGetValue : {pkey}");
     if (param == null) { return string.Empty; }
     if (param.TryGetValue(pkey, out var dbValue) && dbValue != null)
-      return dbValue.ToString().Trim();
+      return dbValue.ToString()?.Trim() ?? string.Empty;
 
     // 대소문자 무시하고 키 검색
     var key = param.Keys.FirstOrDefault(k => string.Equals(k, pkey, StringComparison.OrdinalIgnoreCase));
     if (key != null && param.TryGetValue(key, out dbValue) && dbValue != null)
-      return dbValue.ToString().Trim();
+      return dbValue.ToString()?.Trim() ?? string.Empty;
 
     return string.Empty;
   }
@@ -164,7 +164,8 @@ public static class ModelHelper {
 
     foreach (var prop in properties) {
       string name = prop.Name.ToLower();
-      string type = prop.PropertyType.FullName;
+      // 제네릭 매개변수 같은 형식은 FullName 이 비어 있다.
+      string type = prop.PropertyType.FullName ?? prop.PropertyType.Name;
 
       if (prop.PropertyType == typeof(DateTime?))
         type = "System.DateTime";

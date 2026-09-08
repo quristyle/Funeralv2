@@ -24,7 +24,7 @@ public class ProjController : ControllerBase {
 
   [HttpPost]
   public ActionResult<ResultInfo<Dictionary<string, object>>> PostBody([FromBody] RequestDto dto) {
-    ResultInfo<dynamic> data = null;
+    ResultInfo<dynamic>? data = null;
     if (
       dto.MultyData == null || dto.MultyData.Count <= 0) {
       data = _projService.GetData(dto); 

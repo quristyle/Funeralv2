@@ -7,8 +7,8 @@ using System.Threading.Tasks;
 namespace ProjModel;
 
   public class LogInfo() {
-    public string TicKs { get; set; }
-    public string Title { get; set; }
-    public string Message { get; set; }
+    public string TicKs { get; set; } = string.Empty;
+    public string Title { get; set; } = string.Empty;
+    public string Message { get; set; } = string.Empty;
   }
 

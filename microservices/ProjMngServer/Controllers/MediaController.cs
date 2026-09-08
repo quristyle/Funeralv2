@@ -41,7 +41,7 @@ public class MediaController : ControllerBase {
     //ResultInfo<dynamic> data = null;
     //if (
     //dto.MultyData == null || dto.MultyData.Count <= 0) {
-    ResultInfo<Dictionary<string, string>> data = null;
+    ResultInfo<Dictionary<string, string>>? data = null;
 
     if (dto.ProcName == "md_blazor_scan") {
       data = _projService.GetMdBlazorData(dto);

@@ -17,7 +17,11 @@ public class BlazorUtil {
 
 
 
-  public static string RemovePath(string input, string pathToRemove) {
+  // 경로를 못 구한 파일(디렉터리 없음)이나 아직 못 정한 기준 경로가 그대로 들어온다.
+  public static string RemovePath(string? input, string? pathToRemove) {
+    if (string.IsNullOrEmpty(input)) return string.Empty;
+    if (string.IsNullOrEmpty(pathToRemove)) return input;
+
     // Normalize the path to remove by replacing backslashes with forward slashes and making it case-insensitive
     string normalizedPath = Regex.Escape(pathToRemove.Replace("\\", "/"));
 
@@ -73,7 +77,7 @@ public class BlazorUtil {
           Dictionary<string, string> binfo = new Dictionary<string, string>();
           binfo.Add("name", Path.GetFileNameWithoutExtension(file));
 
-          string dir = Path.GetDirectoryName(file);
+          string? dir = Path.GetDirectoryName(file);
           string rurl = RemovePath(dir, basePath);
           rurl = RemovePath(rurl, projNamespace);
           rurl = RemovePath(rurl, pageRoot);
@@ -115,7 +119,9 @@ public class BlazorUtil {
 
   /// <summary> 경로에서 확장자에 맞는 파일 리스트를 가져온다. </summary>
   /// <returns></returns>
-  public static string[] GetFiles(string basePath, string projNamespace, string extend) {
+  // 기준 경로가 아직 안 정해졌으면 빈 목록이다.
+  public static string[] GetFiles(string? basePath, string projNamespace, string extend) {
+    if (string.IsNullOrEmpty(basePath)) return Array.Empty<string>();
 
     string folderPath = basePath + @"/" + projNamespace + @"/";
     string searchPattern = $"*.{extend}";
@@ -130,7 +136,8 @@ public class BlazorUtil {
   public static List<Dictionary<string, string>> GetBlazorMenuList(SrcInfo si ) {
 
 
-    string basePath = si.Src_path; // srcInfoData[0]["src_path"].ToString();
+    // 아래에서 대체 경로로 다시 잡을 수 있다 — 그 사이 값이 없을 수 있다.
+    string? basePath = si.Src_path; // srcInfoData[0]["src_path"].ToString();
     string projNamespace = si.Prj_namespace;  // = srcInfoData[0]["prj_namespace"].ToString();  // @"ProjMngWasm";
     string pageRoot = si.Src_ui_root; // = srcInfoData[0]["src_ui_root"].ToString();         // @"Pages";
 
@@ -155,7 +162,8 @@ public class BlazorUtil {
         //string[] files = Directory.Exists(folderPath) ? Directory.GetFiles(folderPath, searchPattern, SearchOption.AllDirectories) : Array.Empty<string>();
         string[] files = GetFiles( basePath,  projNamespace, extend.Url_pattern);
 
-        if ( files == null || files.Length <= 0) {
+        // GetFiles 는 언제나 배열을 돌려준다 — null 검사는 필요 없다.
+        if (files.Length <= 0) {
 
           basePath = si.SiDtlList .Where(dtl => string.Equals(dtl.Src_pattern_grp, "src_path", StringComparison.OrdinalIgnoreCase)) .ToList().FirstOrDefault()?.Url_pattern;
 
@@ -183,7 +191,7 @@ public class BlazorUtil {
               Dictionary<string, string> binfo = new Dictionary<string, string>();
             binfo.Add("name", Path.GetFileNameWithoutExtension(file));
 
-            string dir = Path.GetDirectoryName(file);
+            string? dir = Path.GetDirectoryName(file);
             string rurl = RemovePath(dir, basePath);
             rurl = RemovePath(rurl, projNamespace);
             rurl = RemovePath(rurl, pageRoot);

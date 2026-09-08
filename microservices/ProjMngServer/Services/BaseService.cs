@@ -8,7 +8,13 @@ using System.Runtime.Intrinsics.Arm;
 namespace ProjMngServer.Services;
 public class BaseService {
 
-  protected IConfiguration _configuration;
+  protected readonly IConfiguration _configuration;
+
+  /// <summary>파생 서비스가 반드시 설정을 넘겨주도록 생성자에서 받는다.</summary>
+  /// <param name="configuration">연결 문자열 등을 읽는다</param>
+  protected BaseService(IConfiguration configuration) {
+    _configuration = configuration;
+  }
 
 
   /// <summary>
@@ -39,13 +45,14 @@ public class BaseService {
 
 
   /// <summary> 되돌려줄 response dictionary </summary>
-  protected void GetRes<T>(ref ResultInfo<T> ri, IDictionary<string, string> param
+  // 매개변수 없이 부르는 자리가 있다 (직접 쿼리 실행).
+  protected void GetRes<T>(ref ResultInfo<T> ri, IDictionary<string, string>? param
     , DateTime sdt, DateTime spdt, DateTime epdt
     ) {
 
     var rcnt = 0;
 
-    ri.Res = new Dictionary<string, object>(){
+    ri.Res = new Dictionary<string, object?>(){
           { "p", param },
           { "sdt", sdt.ToString("yyyy.MM.dd HH:mm:ss") },
           { "edt", DateTime.Now.ToString("yyyy.MM.dd HH:mm:ss") },
@@ -94,9 +101,10 @@ public class BaseService {
     if (schemaTable != null) {
 
       foreach (DataRow row in schemaTable.Rows) {
-        string columnName = row["ColumnName"].ToString();
-        string dataType = row["DataType"].ToString();
-        expandoObject.Add(columnName, dataType);
+        // 스키마 표의 칸이 비어 있는 드라이버가 있다. 빈 이름은 담지 않는다.
+        var columnName = row["ColumnName"]?.ToString();
+        if (string.IsNullOrEmpty(columnName)) continue;
+        expandoObject.Add(columnName, row["DataType"]?.ToString() ?? string.Empty);
       }
     }
     return expandoObject;
@@ -120,7 +128,7 @@ public class BaseService {
   /// 빈 이름으로 물어보게 되고, 그것이 그 상태를 만든다.
   /// </para>
   /// </summary>
-  public DbInfo GetDbInfo(string db_nick) {
+  public DbInfo? GetDbInfo(string db_nick) {
 
     // 빈 이름은 물어볼 것이 없다. DB 까지 가지 않는다.
     if (string.IsNullOrWhiteSpace(db_nick)) {
