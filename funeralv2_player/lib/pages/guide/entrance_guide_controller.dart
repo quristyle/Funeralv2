@@ -69,7 +69,7 @@ class EntranceGuideController extends ChangeNotifier with DeviceAutoSync {
           }
           guideRooms = resultList.map((item) => EntranceGuideRoomDto.fromJson(item)).toList();
         } catch (e) {
-          print('[EntranceGuideController] 캐시 파싱 에러: $e');
+          debugPrint('[EntranceGuideController] 캐시 파싱 에러: $e');
         }
       }
 
@@ -114,7 +114,7 @@ class EntranceGuideController extends ChangeNotifier with DeviceAutoSync {
   /// [백그라운드 비동기 서버 동기화 루틴]
   Future<void> _syncWithServer(String serverBaseUrl, String deviceCode, Function() onVideoInitialized) async {
     try {
-      print('[EntranceGuideController] [Background Sync] 시작');
+      debugPrint('[EntranceGuideController] [Background Sync] 시작');
       final fetchedDevice = await _apiService.fetchDevice(serverBaseUrl, deviceCode);
       if (fetchedDevice != null && !_isDisposed) {
         final fetchedRooms = await _apiService.fetchEntranceGuideRooms(serverBaseUrl, deviceCode);
@@ -127,9 +127,9 @@ class EntranceGuideController extends ChangeNotifier with DeviceAutoSync {
         if (!isChanged) {
           // 리스트 개수가 같아도 세부 고인/방 ID 등의 매핑 상태 변경 비교
           for (int i = 0; i < guideRooms.length; i++) {
-            if (guideRooms[i]?.roomId != fetchedRooms[i]?.roomId ||
-                guideRooms[i]?.deceasedDetail?.id != fetchedRooms[i]?.deceasedDetail?.id ||
-                guideRooms[i]?.deceasedDetail?.name != fetchedRooms[i]?.deceasedDetail?.name) {
+            if (guideRooms[i].roomId != fetchedRooms[i].roomId ||
+                guideRooms[i].deceasedDetail?.id != fetchedRooms[i].deceasedDetail?.id ||
+                guideRooms[i].deceasedDetail?.name != fetchedRooms[i].deceasedDetail?.name) {
               isChanged = true;
               break;
             }
@@ -137,7 +137,7 @@ class EntranceGuideController extends ChangeNotifier with DeviceAutoSync {
         }
 
         if (isChanged) {
-          print('[EntranceGuideController] [Background Sync] 변경점 발견 -> UI 리프레시');
+          debugPrint('[EntranceGuideController] [Background Sync] 변경점 발견 -> UI 리프레시');
           device = fetchedDevice;
           guideRooms = fetchedRooms;
 
@@ -169,11 +169,11 @@ class EntranceGuideController extends ChangeNotifier with DeviceAutoSync {
 
           notifyListeners();
         } else {
-          print('[EntranceGuideController] [Background Sync] 변동 사항 없음 -> 기존 뷰 유지');
+          debugPrint('[EntranceGuideController] [Background Sync] 변동 사항 없음 -> 기존 뷰 유지');
         }
       }
     } catch (e) {
-      print('[EntranceGuideController] [Background Sync] 에러: $e');
+      debugPrint('[EntranceGuideController] [Background Sync] 에러: $e');
     } finally {
       if (!_isDisposed) {
         isLoading = false;

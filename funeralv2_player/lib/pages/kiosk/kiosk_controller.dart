@@ -84,7 +84,7 @@ class KioskController extends ChangeNotifier with DeviceAutoSync {
             parkingPhotos = kioskData.parkingPhotos;
           }
         } catch (e) {
-          print('[KioskController] 캐시 파싱 에러: $e');
+          debugPrint('[KioskController] 캐시 파싱 에러: $e');
         }
       }
 
@@ -141,7 +141,7 @@ class KioskController extends ChangeNotifier with DeviceAutoSync {
   /// [백그라운드 비동기 서버 동기화 루틴]
   Future<void> _syncWithServer(String serverBaseUrl, String deviceCode, Function() onVideoInitialized) async {
     try {
-      print('[KioskController] [Background Sync] 시작');
+      debugPrint('[KioskController] [Background Sync] 시작');
       final fetchedDevice = await _apiService.fetchDevice(serverBaseUrl, deviceCode);
       if (fetchedDevice != null && !_isDisposed) {
         final kioskData = await _apiService.fetchKioskRooms(serverBaseUrl, deviceCode);
@@ -155,9 +155,9 @@ class KioskController extends ChangeNotifier with DeviceAutoSync {
         if (!isChanged) {
           // 세부 탭 매핑 상태 비교
           for (int i = 0; i < rooms.length; i++) {
-            if (rooms[i]?.roomId != kioskData.rooms[i]?.roomId ||
-                rooms[i]?.deceasedDetail?.id != kioskData.rooms[i]?.deceasedDetail?.id ||
-                rooms[i]?.deceasedDetail?.name != kioskData.rooms[i]?.deceasedDetail?.name) {
+            if (rooms[i].roomId != kioskData.rooms[i].roomId ||
+                rooms[i].deceasedDetail?.id != kioskData.rooms[i].deceasedDetail?.id ||
+                rooms[i].deceasedDetail?.name != kioskData.rooms[i].deceasedDetail?.name) {
               isChanged = true;
               break;
             }
@@ -165,7 +165,7 @@ class KioskController extends ChangeNotifier with DeviceAutoSync {
         }
 
         if (isChanged) {
-          print('[KioskController] [Background Sync] 변경점 발견 -> UI 리프레시');
+          debugPrint('[KioskController] [Background Sync] 변경점 발견 -> UI 리프레시');
           device = fetchedDevice;
           rooms = kioskData.rooms;
           buildingPhotos = kioskData.buildingPhotos;
@@ -212,11 +212,11 @@ class KioskController extends ChangeNotifier with DeviceAutoSync {
 
           notifyListeners();
         } else {
-          print('[KioskController] [Background Sync] 변동 사항 없음 -> 기존 뷰 유지');
+          debugPrint('[KioskController] [Background Sync] 변동 사항 없음 -> 기존 뷰 유지');
         }
       }
     } catch (e) {
-      print('[KioskController] [Background Sync] 에러: $e');
+      debugPrint('[KioskController] [Background Sync] 에러: $e');
     } finally {
       if (!_isDisposed) {
         isLoading = false;

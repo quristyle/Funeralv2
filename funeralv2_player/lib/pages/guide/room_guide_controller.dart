@@ -97,7 +97,7 @@ class RoomGuideController extends ChangeNotifier with DeviceAutoSync {
   /// [백그라운드 서버 동기화 루틴]
   Future<void> _syncWithServer(String serverBaseUrl, String deviceCode, Function() onRefresh) async {
     try {
-      print('[RoomGuideController] [Background Sync] 시작');
+      debugPrint('[RoomGuideController] [Background Sync] 시작');
       final fetchedDevice = await _apiService.fetchDevice(serverBaseUrl, deviceCode);
       if (fetchedDevice != null && !_isDisposed) {
         DeceasedDto? fetchedDeceased;
@@ -113,7 +113,7 @@ class RoomGuideController extends ChangeNotifier with DeviceAutoSync {
             deceased?.burialDate != fetchedDeceased?.burialDate;
 
         if (isChanged) {
-          print('[RoomGuideController] [Background Sync] 변경점 발견 -> UI 업데이트 수행');
+          debugPrint('[RoomGuideController] [Background Sync] 변경점 발견 -> UI 업데이트 수행');
           device = fetchedDevice;
           deceased = fetchedDeceased;
 
@@ -142,11 +142,11 @@ class RoomGuideController extends ChangeNotifier with DeviceAutoSync {
 
           notifyListeners();
         } else {
-          print('[RoomGuideController] [Background Sync] 변동 사항 없음 -> 기존 뷰 유지');
+          debugPrint('[RoomGuideController] [Background Sync] 변동 사항 없음 -> 기존 뷰 유지');
         }
       }
     } catch (e) {
-      print('[RoomGuideController] [Background Sync] 에러 발생: $e');
+      debugPrint('[RoomGuideController] [Background Sync] 에러 발생: $e');
     } finally {
       if (!_isDisposed) {
         isLoading = false;

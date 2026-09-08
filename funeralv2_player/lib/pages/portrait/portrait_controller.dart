@@ -127,7 +127,7 @@ class PortraitController extends ChangeNotifier with DeviceAutoSync {
   /// [백그라운드 비동기 서버 동기화 루틴]
   Future<void> _syncWithServer(String serverBaseUrl, String deviceCode, Function() onVideoInitialized) async {
     try {
-      print('[PortraitController] [Background Sync] 시작');
+      debugPrint('[PortraitController] [Background Sync] 시작');
       final fetchedDevice = await _apiService.fetchDevice(serverBaseUrl, deviceCode);
       if (fetchedDevice != null && !_isDisposed) {
         DeceasedDto? fetchedDeceased;
@@ -142,7 +142,7 @@ class PortraitController extends ChangeNotifier with DeviceAutoSync {
             deceased?.name != fetchedDeceased?.name;
 
         if (isChanged) {
-          print('[PortraitController] [Background Sync] 변경점 발견 -> UI 리프레시');
+          debugPrint('[PortraitController] [Background Sync] 변경점 발견 -> UI 리프레시');
           device = fetchedDevice;
           deceased = fetchedDeceased;
 
@@ -200,7 +200,7 @@ class PortraitController extends ChangeNotifier with DeviceAutoSync {
 
           notifyListeners();
         } else {
-          print('[PortraitController] [Background Sync] 변동 사항 없음 -> 기존 뷰 유지');
+          debugPrint('[PortraitController] [Background Sync] 변동 사항 없음 -> 기존 뷰 유지');
           // 볼륨 및 음소거 설정 최종 갱신 대응
           if (device!.isMusicEnabled && localMusicPath != null) {
             await playerService.updateMusicVolume(device!.musicVolume, isMuted: device!.isMuted);
@@ -208,7 +208,7 @@ class PortraitController extends ChangeNotifier with DeviceAutoSync {
         }
       }
     } catch (e) {
-      print('[PortraitController] [Background Sync] 에러: $e');
+      debugPrint('[PortraitController] [Background Sync] 에러: $e');
     } finally {
       if (!_isDisposed) {
         isLoading = false;

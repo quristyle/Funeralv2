@@ -62,7 +62,7 @@ class _DeviceDispatcherState extends State<DeviceDispatcher> {
   @override
   void initState() {
     super.initState();
-    print('[Dispatcher] initState() - 장비 초기화 프로세스 시작');
+    debugPrint('[Dispatcher] initState() - 장비 초기화 프로세스 시작');
     _loadDevice();
   }
 
@@ -70,7 +70,7 @@ class _DeviceDispatcherState extends State<DeviceDispatcher> {
   /// 위젯 소멸 시점에 재연결 타이머를 취소하고 SignalR 소켓 커넥션을 물리적으로 파괴합니다.
   @override
   void dispose() {
-    print('[Dispatcher] dispose() - 기존 연결 및 타이머 정리');
+    debugPrint('[Dispatcher] dispose() - 기존 연결 및 타이머 정리');
     _retryTimer?.cancel();
     _signalRService.disconnect(widget.deviceCode);
     super.dispose();
@@ -81,18 +81,18 @@ class _DeviceDispatcherState extends State<DeviceDispatcher> {
   /// 화면이 준비된 직후 백그라운드 비동기로 백엔드 서버에 접속하여, 데이터 변경 감지 시에만 화면을 리프레시합니다.
   Future<void> _loadDevice() async {
     if (_isRefreshing) {
-      print('[Dispatcher] _loadDevice() 스킵: 이미 진행 중입니다.');
+      debugPrint('[Dispatcher] _loadDevice() 스킵: 이미 진행 중입니다.');
       return;
     }
     _isRefreshing = true;
     _retryTimer?.cancel(); 
 
-    print('[Dispatcher] 데이터 로드 루틴 시작 (장비코드: ${widget.deviceCode})');
+    debugPrint('[Dispatcher] 데이터 로드 루틴 시작 (장비코드: ${widget.deviceCode})');
     
     // 1. 즉시 로컬 캐시 DB 조회 시도 (TTV 최적화)
     final cached = await ApiService().getCachedDevice(widget.deviceCode);
     if (cached != null) {
-      print('[Dispatcher] [Cache-First] 로컬 캐시 조회 성공! 화면을 먼저 기동합니다.');
+      debugPrint('[Dispatcher] [Cache-First] 로컬 캐시 조회 성공! 화면을 먼저 기동합니다.');
       if (mounted) {
         setState(() {
           device = cached;
@@ -111,7 +111,7 @@ class _DeviceDispatcherState extends State<DeviceDispatcher> {
     }
 
     try {
-      print('[Dispatcher] [Background] API 서버에 최신 장비 정보 요청 중...');
+      debugPrint('[Dispatcher] [Background] API 서버에 최신 장비 정보 요청 중...');
       final fetched = await ApiService().fetchDevice(widget.serverBaseUrl, widget.deviceCode);
       
       // 잦은 새로고침을 막기 위해 2초의 방어 대기 후 스로틀을 해제합니다.
@@ -130,19 +130,19 @@ class _DeviceDispatcherState extends State<DeviceDispatcher> {
         _isLastConnectionFailed = false; // 연결에 성공했으므로 실패 플래그 해제
 
         if (needsViewRebuild) {
-          print('[Dispatcher] [Background] 뷰 재구성 필요(유형 변경/최초/복구) -> 화면을 새로 구성합니다.');
+          debugPrint('[Dispatcher] [Background] 뷰 재구성 필요(유형 변경/최초/복구) -> 화면을 새로 구성합니다.');
           _handleDeviceLoaded(fetched);
         } else {
           // 디스패처 상태만 최신화(라우팅 및 다음 비교 기준)하고 뷰는 재생성하지 않습니다.
           device = fetched;
           // 활성 화면 컨트롤러가 스스로 서버와 재동기화하도록 전역 신호를 브로드캐스트합니다.
           // (변경분만 제자리 반영: 영상/음원은 실제 소스가 바뀐 경우에만 교체되어 깜빡임이 없습니다.)
-          print('[Dispatcher] [Background] 유형 동일 -> 제자리 동기화 신호 전송(뷰 유지).');
+          debugPrint('[Dispatcher] [Background] 유형 동일 -> 제자리 동기화 신호 전송(뷰 유지).');
           DeviceUpdateBus.instance.ping();
           _connectSignalR();
         }
       } else {
-        print('[Dispatcher] [Background] 서버 응답 없음 -> 기존 로컬 캐시 화면 상태를 계속 유지합니다.');
+        debugPrint('[Dispatcher] [Background] 서버 응답 없음 -> 기존 로컬 캐시 화면 상태를 계속 유지합니다.');
         _isLastConnectionFailed = true; // 서버 응답 실패 마킹
         if (device == null) {
           // 화면도 없고 캐시도 없고 서버 통신도 실패한 예외적 최악의 케이스에만 에러 표출
@@ -154,7 +154,7 @@ class _DeviceDispatcherState extends State<DeviceDispatcher> {
         }
       }
     } catch (e) {
-      print('[Dispatcher] [Background] 서버 조회 중 예외 발생: $e');
+      debugPrint('[Dispatcher] [Background] 서버 조회 중 예외 발생: $e');
       _isRefreshing = false;
       _isLastConnectionFailed = true; // 서버 조회 예외 실패 마킹
       if (mounted && device == null) {
@@ -177,7 +177,7 @@ class _DeviceDispatcherState extends State<DeviceDispatcher> {
         if (_retryCountdown > 1) {
           _retryCountdown--;
         } else {
-          print('[Dispatcher] 타이머 만료 - 서버 재접속을 자동 시도합니다.');
+          debugPrint('[Dispatcher] 타이머 만료 - 서버 재접속을 자동 시도합니다.');
           timer.cancel();
           _loadDevice();
         }
@@ -189,7 +189,7 @@ class _DeviceDispatcherState extends State<DeviceDispatcher> {
   /// 장비 DTO가 확보되면 화면 방향(가로/세로) 정보를 캐싱하고,
   /// 뷰 갱신용 고유 키를 변경한 후 웹소켓 연결을 기동합니다.
   void _handleDeviceLoaded(DeviceDto loadedDevice) {
-    print('[Dispatcher] 최종 데이터 할당 및 화면 준비 완료');
+    debugPrint('[Dispatcher] 최종 데이터 할당 및 화면 준비 완료');
     
     _saveOrientationCache(loadedDevice.displayOrientation);
 
@@ -212,7 +212,7 @@ class _DeviceDispatcherState extends State<DeviceDispatcher> {
       publicIpAddress: widget.publicIpAddress,
       onDeviceChanged: () {
         if (mounted) {
-          print('[Dispatcher] << 서버로부터 설정 변경 신호 수신! 최신화 로직 가동');
+          debugPrint('[Dispatcher] << 서버로부터 설정 변경 신호 수신! 최신화 로직 가동');
           _loadDevice();
         }
       },
@@ -275,7 +275,7 @@ class _DeviceDispatcherState extends State<DeviceDispatcher> {
       );
     }
 
-    print('[Dispatcher] 현재 장비 타입에 맞는 화면을 렌더링합니다: ${device!.deviceType}');
+    debugPrint('[Dispatcher] 현재 장비 타입에 맞는 화면을 렌더링합니다: ${device!.deviceType}');
     
     switch (device!.deviceType) {
       case 'FUNERAL_PORTRAIT':

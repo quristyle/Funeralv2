@@ -111,11 +111,11 @@ class CacheManager {
 
       if (removed > 0) {
         final mb = (freed / 1024 / 1024).toStringAsFixed(1);
-        print('[CacheManager] 캐시 정리: $removed개 삭제, ${mb}MB 확보 '
+        debugPrint('[CacheManager] 캐시 정리: $removed개 삭제, ${mb}MB 확보 '
               '(잔여 ${(total / 1024 / 1024).toStringAsFixed(1)}MB)');
       }
     } catch (e) {
-      print('[CacheManager] 캐시 정리 실패: $e');
+      debugPrint('[CacheManager] 캐시 정리 실패: $e');
     } finally {
       _gcRunning = false;
     }
@@ -142,7 +142,7 @@ class CacheManager {
     
     // 파일 다운로드용 표준 엔드포인트 URL
     final downloadUrl = '$baseUrl/api/file/download/id/$fileId';
-    print('[CacheManager] 최종 다운로드 주소: $downloadUrl');
+    debugPrint('[CacheManager] 최종 다운로드 주소: $downloadUrl');
 
     if (kIsWeb) {
       return downloadUrl;
@@ -177,7 +177,7 @@ class CacheManager {
         return localFilePath;
       }
     } catch (e) {
-      print('캐싱 에러: $e');
+      debugPrint('캐싱 에러: $e');
     }
 
     return null;
@@ -197,7 +197,7 @@ class CacheManager {
     final fixedPath = relativePath.startsWith('/') ? relativePath : '/$relativePath';
     final downloadUrl = '$baseUrl$fixedPath';
     
-    print('[CacheManager] 경로 기반 다운로드 주소: $downloadUrl');
+    debugPrint('[CacheManager] 경로 기반 다운로드 주소: $downloadUrl');
 
     if (kIsWeb) return downloadUrl;
 
@@ -226,7 +226,7 @@ class CacheManager {
         return localFilePath;
       }
     } catch (e) {
-      print('[CacheManager] 경로 캐싱 에러: $e');
+      debugPrint('[CacheManager] 경로 캐싱 에러: $e');
     }
     return null;
   }

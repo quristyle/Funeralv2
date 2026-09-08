@@ -1,7 +1,6 @@
 import 'dart:io' as io;
 import 'package:flutter/foundation.dart'; 
 import 'package:path/path.dart';
-import 'package:sqflite/sqflite.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart'; 
 import '../../models/device_models.dart';
@@ -182,7 +181,7 @@ class LocalDbService {
       map['deviceCode'] = deviceCode; // 이 장비에 대응되는 고인 데이터로 바인딩
       await db.insert('deceased', map, conflictAlgorithm: ConflictAlgorithm.replace);
     } catch (e) {
-      print('[DB Cache] saveDeceased 에러: $e');
+      debugPrint('[DB Cache] saveDeceased 에러: $e');
     }
   }
 
@@ -195,7 +194,7 @@ class LocalDbService {
       if (maps.isEmpty) return null;
       return DeceasedDto.fromJson(maps.first);
     } catch (e) {
-      print('[DB Cache] getDeceasedByDeviceCode 에러: $e');
+      debugPrint('[DB Cache] getDeceasedByDeviceCode 에러: $e');
       return null;
     }
   }

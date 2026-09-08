@@ -64,9 +64,9 @@ class MediaPlayerService {
         await platform.setProperty('video-sync', 'display-resample');
         // 정밀 탐색 적용
         await platform.setProperty('hr-seek', 'yes');
-        print('[Video] mpv 고화질 및 하드웨어 디코딩 속성 설정 완료');
+        debugPrint('[Video] mpv 고화질 및 하드웨어 디코딩 속성 설정 완료');
       } catch (e) {
-        print('[Video] mpv 속성 설정 중 에러: $e');
+        debugPrint('[Video] mpv 속성 설정 중 에러: $e');
       }
     }
   }
@@ -93,7 +93,7 @@ class MediaPlayerService {
       } else {
         final file = io.File(path);
         if (!await file.exists()) {
-          print('[Video] 파일이 존재하지 않음: $path');
+          debugPrint('[Video] 파일이 존재하지 않음: $path');
           return;
         }
         await player.open(Media(file.path));
@@ -101,9 +101,9 @@ class MediaPlayerService {
 
       _currentVideoPath = path; // 현재 로드된 영상 경로 기록
       onInitialized();
-      print('[Video] MediaKit 재생 시작: $path');
+      debugPrint('[Video] MediaKit 재생 시작: $path');
     } catch (e) {
-      print('[Video Error] MediaKit 초기화 실패: $e');
+      debugPrint('[Video Error] MediaKit 초기화 실패: $e');
     }
   }
 
@@ -132,16 +132,16 @@ class MediaPlayerService {
       } else {
         final file = io.File(path);
         if (!await file.exists()) {
-          print('[Music] 파일이 존재하지 않음: $path');
+          debugPrint('[Music] 파일이 존재하지 않음: $path');
           return;
         }
         await _musicPlayer.open(Media(file.path));
       }
 
       _currentMusicPath = path; // 현재 로드된 음원 경로 기록
-      print('[Music] 재생 시작 (볼륨: $vol): $path');
+      debugPrint('[Music] 재생 시작 (볼륨: $vol): $path');
     } catch (e) {
-      print('[Music Error] 재생 실패: $e');
+      debugPrint('[Music Error] 재생 실패: $e');
     }
   }
 

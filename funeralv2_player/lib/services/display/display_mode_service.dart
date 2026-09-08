@@ -78,7 +78,7 @@ class DisplayModeService {
         }
       }
     } catch (e) {
-      print('[DisplayMode] 커넥터 조회 실패: $e');
+      debugPrint('[DisplayMode] 커넥터 조회 실패: $e');
     }
     return _defaultOutput;
   }
@@ -100,7 +100,7 @@ class DisplayModeService {
         }
       }
     } catch (e) {
-      print('[DisplayMode] 모드 목록 조회 실패: $e');
+      debugPrint('[DisplayMode] 모드 목록 조회 실패: $e');
     }
     return modes;
   }
@@ -142,13 +142,13 @@ class DisplayModeService {
         );
 
         if (result.exitCode == 0) {
-          print('[DisplayMode] 적용 완료: $output ${width}x$height');
+          debugPrint('[DisplayMode] 적용 완료: $output ${width}x$height');
           return (true, '${aspect.label} ${width}x$height 적용됨');
         }
         lastError = (result.stderr as String).trim();
-        print('[DisplayMode] ${width}x$height 실패, 다음 후보 시도: $lastError');
+        debugPrint('[DisplayMode] ${width}x$height 실패, 다음 후보 시도: $lastError');
       } on ProcessException catch (e) {
-        print('[DisplayMode] wlr-randr 실행 불가: $e');
+        debugPrint('[DisplayMode] wlr-randr 실행 불가: $e');
         return (false, 'wlr-randr 가 설치되어 있지 않습니다.');
       } catch (e) {
         lastError = '$e';
@@ -168,7 +168,7 @@ class DisplayModeService {
   /// 출력을 껐다 켜면 컴포지터가 EDID 선호 모드로 되돌아가기 때문이다.
   static Future<bool> setScreenPower(bool on) async {
     if (!isSupported) {
-      print('[DisplayMode] 이 플랫폼에서는 모니터 전원 제어를 지원하지 않는다.');
+      debugPrint('[DisplayMode] 이 플랫폼에서는 모니터 전원 제어를 지원하지 않는다.');
       return false;
     }
 
@@ -180,11 +180,11 @@ class DisplayModeService {
       );
 
       if (result.exitCode != 0) {
-        print('[DisplayMode] 모니터 전원 ${on ? "ON" : "OFF"} 실패: ${result.stderr}');
+        debugPrint('[DisplayMode] 모니터 전원 ${on ? "ON" : "OFF"} 실패: ${result.stderr}');
         return false;
       }
 
-      print('[DisplayMode] 모니터 전원 ${on ? "ON" : "OFF"} 완료 ($output)');
+      debugPrint('[DisplayMode] 모니터 전원 ${on ? "ON" : "OFF"} 완료 ($output)');
 
       if (on) {
         // 출력을 다시 켜면 모드가 초기화되므로 저장된 비율을 재적용한다.
@@ -192,7 +192,7 @@ class DisplayModeService {
       }
       return true;
     } catch (e) {
-      print('[DisplayMode] 모니터 전원 제어 오류: $e');
+      debugPrint('[DisplayMode] 모니터 전원 제어 오류: $e');
       return false;
     }
   }
@@ -205,7 +205,7 @@ class DisplayModeService {
       final aspect = await loadSaved();
       await apply(aspect);
     } catch (e) {
-      print('[DisplayMode] 기동 시 적용 실패: $e');
+      debugPrint('[DisplayMode] 기동 시 적용 실패: $e');
     }
   }
 }

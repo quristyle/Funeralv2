@@ -101,7 +101,7 @@ class _RoomGuideViewState extends State<RoomGuideView> {
           Container(
             padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 40),
             decoration: BoxDecoration(
-              color: const Color(0xFFC0A060).withOpacity(0.8),
+              color: const Color(0xFFC0A060).withValues(alpha: 0.8),
               borderRadius: BorderRadius.circular(50),
             ),
             child: Text(

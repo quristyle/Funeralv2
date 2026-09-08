@@ -142,7 +142,7 @@ class _KioskViewState extends State<KioskView> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
       decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.6),
+        color: Colors.black.withValues(alpha: 0.6),
         border: const Border(
           bottom: BorderSide(color: Color(0xFFC5A880), width: 1.5),
         ),
@@ -197,12 +197,12 @@ class _KioskViewState extends State<KioskView> {
           _currentPage = 0;
         });
       },
-      splashColor: const Color(0xFFC5A880).withOpacity(0.3),
+      splashColor: const Color(0xFFC5A880).withValues(alpha: 0.3),
       borderRadius: BorderRadius.circular(30),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 35, vertical: 15),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFFC5A880) : Colors.white.withOpacity(0.05),
+          color: isSelected ? const Color(0xFFC5A880) : Colors.white.withValues(alpha: 0.05),
           borderRadius: BorderRadius.circular(30),
           border: Border.all(
             color: isSelected ? const Color(0xFFC5A880) : Colors.white24,
@@ -211,7 +211,7 @@ class _KioskViewState extends State<KioskView> {
           boxShadow: isSelected
               ? [
                   BoxShadow(
-                    color: const Color(0xFFC5A880).withOpacity(0.4),
+                    color: const Color(0xFFC5A880).withValues(alpha: 0.4),
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   )
@@ -297,7 +297,7 @@ class _KioskViewState extends State<KioskView> {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 30),
       decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.4),
+        color: Colors.black.withValues(alpha: 0.4),
         border: const Border(
           bottom: BorderSide(color: Colors.white10, width: 1),
         ),
@@ -334,8 +334,8 @@ class _KioskViewState extends State<KioskView> {
                         padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 28),
                         decoration: BoxDecoration(
                           color: isSelected
-                              ? const Color(0xFFC5A880).withOpacity(0.2)
-                              : Colors.white.withOpacity(0.03),
+                              ? const Color(0xFFC5A880).withValues(alpha: 0.2)
+                              : Colors.white.withValues(alpha: 0.03),
                           borderRadius: BorderRadius.circular(10),
                           border: Border.all(
                             color: isSelected ? const Color(0xFFC5A880) : Colors.white10,
@@ -368,7 +368,7 @@ class _KioskViewState extends State<KioskView> {
       width: 220,
       padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 15),
       decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.4),
+        color: Colors.black.withValues(alpha: 0.4),
         border: const Border(
           right: BorderSide(color: Colors.white10, width: 1),
         ),
@@ -409,8 +409,8 @@ class _KioskViewState extends State<KioskView> {
                       padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 15),
                       decoration: BoxDecoration(
                         color: isSelected
-                            ? const Color(0xFFC5A880).withOpacity(0.2)
-                            : Colors.white.withOpacity(0.03),
+                            ? const Color(0xFFC5A880).withValues(alpha: 0.2)
+                            : Colors.white.withValues(alpha: 0.03),
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(
                           color: isSelected ? const Color(0xFFC5A880) : Colors.white10,
@@ -449,7 +449,7 @@ class _KioskViewState extends State<KioskView> {
 
     return Container(
       padding: const EdgeInsets.all(30),
-      color: Colors.black.withOpacity(0.1),
+      color: Colors.black.withValues(alpha: 0.1),
       child: Column(
         children: [
           Expanded(
@@ -509,8 +509,8 @@ class _KioskViewState extends State<KioskView> {
                     padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 15),
                     decoration: BoxDecoration(
                       color: _currentPage > 0
-                          ? Colors.white.withOpacity(0.1)
-                          : Colors.white.withOpacity(0.02),
+                          ? Colors.white.withValues(alpha: 0.1)
+                          : Colors.white.withValues(alpha: 0.02),
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
                         color: _currentPage > 0 ? Colors.white30 : Colors.white10,
@@ -556,8 +556,8 @@ class _KioskViewState extends State<KioskView> {
                     padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 15),
                     decoration: BoxDecoration(
                       color: (_currentPage + 1) < maxPage
-                          ? Colors.white.withOpacity(0.1)
-                          : Colors.white.withOpacity(0.02),
+                          ? Colors.white.withValues(alpha: 0.1)
+                          : Colors.white.withValues(alpha: 0.02),
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
                         color: (_currentPage + 1) < maxPage ? Colors.white30 : Colors.white10,
@@ -599,16 +599,16 @@ class _KioskViewState extends State<KioskView> {
 
     return Container(
       decoration: BoxDecoration(
-        color: isOccupied ? Colors.white.withOpacity(0.06) : Colors.white.withOpacity(0.02),
+        color: isOccupied ? Colors.white.withValues(alpha: 0.06) : Colors.white.withValues(alpha: 0.02),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: isOccupied ? const Color(0xFFC5A880).withOpacity(0.6) : Colors.white10,
+          color: isOccupied ? const Color(0xFFC5A880).withValues(alpha: 0.6) : Colors.white10,
           width: 1.2,
         ),
         boxShadow: isOccupied
             ? [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.3),
+                  color: Colors.black.withValues(alpha: 0.3),
                   blurRadius: 10,
                   offset: const Offset(0, 3),
                 )
@@ -622,15 +622,15 @@ class _KioskViewState extends State<KioskView> {
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
               color: isOccupied
-                  ? const Color(0xFFC5A880).withOpacity(0.15)
-                  : Colors.white.withOpacity(0.02),
+                  ? const Color(0xFFC5A880).withValues(alpha: 0.15)
+                  : Colors.white.withValues(alpha: 0.02),
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(10),
                 topRight: Radius.circular(10),
               ),
               border: Border(
                 bottom: BorderSide(
-                  color: isOccupied ? const Color(0xFFC5A880).withOpacity(0.3) : Colors.white10,
+                  color: isOccupied ? const Color(0xFFC5A880).withValues(alpha: 0.3) : Colors.white10,
                   width: 1,
                 ),
               ),
@@ -656,8 +656,8 @@ class _KioskViewState extends State<KioskView> {
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
                     color: isOccupied
-                        ? const Color(0xFFC5A880).withOpacity(0.3)
-                        : Colors.white.withOpacity(0.05),
+                        ? const Color(0xFFC5A880).withValues(alpha: 0.3)
+                        : Colors.white.withValues(alpha: 0.05),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
@@ -700,7 +700,7 @@ class _KioskViewState extends State<KioskView> {
                                   ),
                                   const SizedBox(width: 6),
                                   Text(
-                                    "${deceased.gender ?? ''}/${deceased.age ?? ''}",
+                                    "${deceased.gender}/${deceased.age}",
                                     style: const TextStyle(
                                       color: Colors.white70,
                                       fontSize: 11,
@@ -881,9 +881,9 @@ class _KioskViewState extends State<KioskView> {
           margin: const EdgeInsets.symmetric(horizontal: 100, vertical: 50),
           padding: const EdgeInsets.all(50),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.03),
+            color: Colors.white.withValues(alpha: 0.03),
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: const Color(0xFFC5A880).withOpacity(0.3), width: 1.5),
+            border: Border.all(color: const Color(0xFFC5A880).withValues(alpha: 0.3), width: 1.5),
           ),
           child: const Column(
             mainAxisSize: MainAxisSize.min,
@@ -937,7 +937,7 @@ class _KioskViewState extends State<KioskView> {
                   borderRadius: BorderRadius.circular(15),
                   child: Container(
                     decoration: BoxDecoration(
-                      border: Border.all(color: const Color(0xFFC5A880).withOpacity(0.5), width: 1.5),
+                      border: Border.all(color: const Color(0xFFC5A880).withValues(alpha: 0.5), width: 1.5),
                     ),
                     child: (localPath != null && localPath.isNotEmpty && !kIsWeb)
                         ? Image.file(
@@ -984,7 +984,7 @@ class _KioskViewState extends State<KioskView> {
                   width: 60,
                   height: 60,
                   decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.6),
+                    color: Colors.black.withValues(alpha: 0.6),
                     shape: BoxShape.circle,
                     border: Border.all(color: const Color(0xFFC5A880), width: 1.5),
                   ),
@@ -1013,7 +1013,7 @@ class _KioskViewState extends State<KioskView> {
                   width: 60,
                   height: 60,
                   decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.6),
+                    color: Colors.black.withValues(alpha: 0.6),
                     shape: BoxShape.circle,
                     border: Border.all(color: const Color(0xFFC5A880), width: 1.5),
                   ),
@@ -1032,9 +1032,9 @@ class _KioskViewState extends State<KioskView> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
               decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.7),
+                color: Colors.black.withValues(alpha: 0.7),
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: const Color(0xFFC5A880).withOpacity(0.4), width: 1),
+                border: Border.all(color: const Color(0xFFC5A880).withValues(alpha: 0.4), width: 1),
               ),
               child: Text(
                 "${_currentParkingPageIndex + 1} / ${parkingPhotos.length}",

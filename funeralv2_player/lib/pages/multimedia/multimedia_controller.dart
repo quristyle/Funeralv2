@@ -114,7 +114,7 @@ class MultimediaController extends ChangeNotifier with DeviceAutoSync {
   /// [백그라운드 비동기 서버 동기화 루틴]
   Future<void> _syncWithServer(String serverBaseUrl, String deviceCode, Function() onRefresh) async {
     try {
-      print('[MultimediaController] [Background Sync] 시작');
+      debugPrint('[MultimediaController] [Background Sync] 시작');
       final fetchedDevice = await _apiService.fetchDevice(serverBaseUrl, deviceCode);
       if (fetchedDevice != null && !_isDisposed) {
         DeceasedDto? fetchedDeceased;
@@ -139,7 +139,7 @@ class MultimediaController extends ChangeNotifier with DeviceAutoSync {
         }
 
         if (isChanged) {
-          print('[MultimediaController] [Background Sync] 변경점 발견 -> UI 리프레시');
+          debugPrint('[MultimediaController] [Background Sync] 변경점 발견 -> UI 리프레시');
           device = fetchedDevice;
           deceased = fetchedDeceased;
 
@@ -177,7 +177,7 @@ class MultimediaController extends ChangeNotifier with DeviceAutoSync {
           _startPhotoRotation();
           notifyListeners();
         } else {
-          print('[MultimediaController] [Background Sync] 변동 사항 없음 -> 기존 뷰 유지');
+          debugPrint('[MultimediaController] [Background Sync] 변동 사항 없음 -> 기존 뷰 유지');
           // 볼륨 및 음소거 설정 최종 갱신 대응
           if (device!.isMusicEnabled) {
             await playerService.updateMusicVolume(device!.musicVolume, isMuted: device!.isMuted);
@@ -185,7 +185,7 @@ class MultimediaController extends ChangeNotifier with DeviceAutoSync {
         }
       }
     } catch (e) {
-      print('[MultimediaController] [Background Sync] 에러: $e');
+      debugPrint('[MultimediaController] [Background Sync] 에러: $e');
     } finally {
       if (!_isDisposed) {
         isLoading = false;

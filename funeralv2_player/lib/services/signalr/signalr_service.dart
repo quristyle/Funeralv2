@@ -5,6 +5,7 @@ import '../auth/device_auth.dart';
 import '../display/display_mode_service.dart';
 import '../update/update_service.dart';
 import 'package:signalr_netcore/signalr_client.dart';
+import 'package:flutter/foundation.dart';
 
 /// [실시간 푸시 통신 서비스]
 /// 백엔드의 SignalR 허브와 소켓을 연결하여 장비 설정 변경 등의 실시간 업데이트 메시지를 수신합니다.
@@ -80,19 +81,19 @@ class SignalRService {
 
     // 장비코드가 변경된 경우 기존 소켓 및 타이머를 먼저 강제 정리하고 새롭게 재연결합니다.
     if (_currentDeviceCode != null && _currentDeviceCode != deviceCode) {
-      print('[SignalR] 장비코드 변경 감지: $_currentDeviceCode -> $deviceCode. 기존 세션 정리 후 재시도.');
+      debugPrint('[SignalR] 장비코드 변경 감지: $_currentDeviceCode -> $deviceCode. 기존 세션 정리 후 재시도.');
       await disconnect(_currentDeviceCode!);
     }
 
     // 이미 접속 중이거나 시도 중이면 중복 요청을 무시합니다.
     if (_isConnecting || isConnected) {
-      print('[SignalR] 이미 연결 진행 중이거나 연결된 상태입니다. 연결 요청 스킵.');
+      debugPrint('[SignalR] 이미 연결 진행 중이거나 연결된 상태입니다. 연결 요청 스킵.');
       return;
     }
 
     _isConnecting = true;
     _currentDeviceCode = deviceCode; // 현재 접속 코드 등록
-    print('[SignalR] 연결 프로세스 시작...');
+    debugPrint('[SignalR] 연결 프로세스 시작...');
 
     // 기존의 접속 정보가 있다면 안전하게 먼저 종료 처리합니다.
     // 이 종료로 인해 옛 커넥션의 onclose가 발동하더라도 자동 재연결이 걸리지 않도록 의도적 종료로 표시합니다.
@@ -127,13 +128,13 @@ class SignalRService {
 
     // 연결 세션이 끊어졌을 때의 콜백 등록
     _hubConnection!.onclose(({error}) {
-      print('[SignalR] 연결 완전 종료. error: ${error?.toString()}');
+      debugPrint('[SignalR] 연결 완전 종료. error: ${error?.toString()}');
       _isConnecting = false;
 
       // [의도적 종료 가드] disconnect()나 재연결 준비 과정에서 의도적으로 끊은 경우에는
       // 재연결을 예약하지 않습니다. (좀비 재연결 타이머 생성으로 인한 무한 핑퐁 방지)
       if (_intentionalClose) {
-        print('[SignalR] 의도적 종료로 확인됨 -> 자동 재연결 예약을 건너뜁니다.');
+        debugPrint('[SignalR] 의도적 종료로 확인됨 -> 자동 재연결 예약을 건너뜁니다.');
         return;
       }
 
@@ -154,7 +155,7 @@ class SignalRService {
       _lastActivityAt = DateTime.now();
       final raw = (arguments != null && arguments.isNotEmpty) ? arguments.first?.toString() : null;
       final on = !(raw?.toUpperCase() == 'OFF' || raw?.toLowerCase() == 'false');
-      print('[SignalR] << ScreenPower 수신: $raw -> ${on ? "켜기" : "끄기"}');
+      debugPrint('[SignalR] << ScreenPower 수신: $raw -> ${on ? "켜기" : "끄기"}');
       DisplayModeService.setScreenPower(on);
     });
 
@@ -165,13 +166,13 @@ class SignalRService {
     // 서버에 UnregisterDevice 를 먼저 보내 관리 화면이 즉시 OFFLINE 을 보게 한다.
     _hubConnection!.on('AppRestart', (arguments) async {
       _lastActivityAt = DateTime.now();
-      print('[SignalR] << AppRestart 수신 -> 앱을 종료하고 감독자에게 재기동을 맡긴다.');
+      debugPrint('[SignalR] << AppRestart 수신 -> 앱을 종료하고 감독자에게 재기동을 맡긴다.');
       final code = _currentDeviceCode;
       if (code != null) {
         try {
           await disconnect(code);
         } catch (e) {
-          print('[SignalR] AppRestart 정리 중 에러(무시): $e');
+          debugPrint('[SignalR] AppRestart 정리 중 에러(무시): $e');
         }
       }
       exit(0);
@@ -184,19 +185,19 @@ class SignalRService {
     // (시스템 설치 확인을 원격에서 대신 눌러 줄 수 없다).
     _hubConnection!.on('UpdateNow', (arguments) {
       _lastActivityAt = DateTime.now();
-      print('[SignalR] << UpdateNow 수신 -> 새 버전 확인·설치 시작');
+      debugPrint('[SignalR] << UpdateNow 수신 -> 새 버전 확인·설치 시작');
       unawaited(UpdateService.runRemoteUpdate());
     });
 
     // 3) 'DeviceChanged' 서버 전송 푸시 이벤트 구독 설정
     // 데이터 변경 사항이 밀려올 때 1초 디바운스를 주어 화면 깜빡임과 잦은 API 조회를 방지합니다.
     _hubConnection!.on('DeviceChanged', (arguments) {
-      print('[SignalR] << DeviceChanged 이벤트 수신');
+      debugPrint('[SignalR] << DeviceChanged 이벤트 수신');
       _lastActivityAt = DateTime.now(); // 워치독용 최근 수신 시각 갱신
       _debounceTimer?.cancel();
       _debounceTimer = Timer(const Duration(milliseconds: 1000), () {
         if (_onDeviceChanged != null) {
-          print('[SignalR] DeviceChanged 콜백 실행 (Debounced 1s)');
+          debugPrint('[SignalR] DeviceChanged 콜백 실행 (Debounced 1s)');
           _onDeviceChanged!();
         }
       });
@@ -208,7 +209,7 @@ class SignalRService {
       _intentionalClose = false;
       // 소켓 통신을 기동합니다.
       await _hubConnection!.start();
-      print('[SignalR] 연결 성공!');
+      debugPrint('[SignalR] 연결 성공!');
       _reconnectAttempt = 0;
       _lastActivityAt = DateTime.now();
       _startWatchdog();
@@ -235,11 +236,11 @@ class SignalRService {
 
       // 소켓 연결 및 수동 재연결 성공 시 즉각 서버로부터 설정을 동기화하도록 유도합니다.
       if (_onDeviceChanged != null) {
-        print('[SignalR] 최초/수동 연결 성공에 따른 화면 데이터 갱신 트리거 호출');
+        debugPrint('[SignalR] 최초/수동 연결 성공에 따른 화면 데이터 갱신 트리거 호출');
         _onDeviceChanged!();
       }
     } catch (e) {
-      print('[SignalR] 연결 시작 중 에러: $e');
+      debugPrint('[SignalR] 연결 시작 중 에러: $e');
       _isConnecting = false;
       _scheduleManualReconnect(
         serverUrl: serverUrl,
@@ -260,7 +261,7 @@ class SignalRService {
   /// 이 경우가 가장 치명적이라 실패 시 짧게 재시도한다.
   Future<bool> _registerDevice(String deviceCode, String? ip, String? mac, String? pip) async {
     if (!isConnected) {
-      print('[SignalR] !! 서버에 연결되지 않은 상태라 RegisterDevice를 보낼 수 없습니다.');
+      debugPrint('[SignalR] !! 서버에 연결되지 않은 상태라 RegisterDevice를 보낼 수 없습니다.');
       return false;
     }
 
@@ -270,13 +271,13 @@ class SignalRService {
             .invoke('RegisterDevice', args: [deviceCode, ip ?? "", mac ?? "", pip ?? ""])
             .timeout(const Duration(seconds: 10));
         _lastActivityAt = DateTime.now();
-        print('[SignalR] >> RegisterDevice 완료 (그룹 참여됨): $deviceCode');
+        debugPrint('[SignalR] >> RegisterDevice 완료 (그룹 참여됨): $deviceCode');
         // 앱 버전 보고 (D-P4). 포털이 장비별 현재 버전을 볼 수 있게 한다.
         // 옛 서버(이 메서드가 없는)에서는 실패하는데, 등록과 무관하므로 조용히 넘어간다.
         unawaited(_reportVersion(deviceCode));
         return true;
       } catch (e) {
-        print('[SignalR] !! RegisterDevice 실패 ($attempt/3): $e');
+        debugPrint('[SignalR] !! RegisterDevice 실패 ($attempt/3): $e');
         if (attempt < 3 && isConnected) {
           await Future.delayed(Duration(seconds: attempt * 2));
         }
@@ -284,7 +285,7 @@ class SignalRService {
     }
 
     // 3회 모두 실패했다면 커넥션이 살아있다는 보고 자체를 믿을 수 없다.
-    print('[SignalR] !! RegisterDevice 최종 실패 -> 커넥션을 버리고 재연결한다.');
+    debugPrint('[SignalR] !! RegisterDevice 최종 실패 -> 커넥션을 버리고 재연결한다.');
     return false;
   }
 
@@ -298,9 +299,9 @@ class SignalRService {
       await _hubConnection
           ?.invoke('ReportVersion', args: [deviceCode, version])
           .timeout(const Duration(seconds: 10));
-      print('[SignalR] >> ReportVersion: $version');
+      debugPrint('[SignalR] >> ReportVersion: $version');
     } catch (e) {
-      print('[SignalR] ReportVersion 실패(무시 — 옛 서버일 수 있음): $e');
+      debugPrint('[SignalR] ReportVersion 실패(무시 — 옛 서버일 수 있음): $e');
     }
   }
 
@@ -333,7 +334,7 @@ class SignalRService {
         deviceCode, _lastIpAddress, _lastMacAddress, _lastPublicIpAddress);
 
     if (!ok) {
-      print('[SignalR][하트비트] 등록 실패 -> 좀비 연결로 판단, 강제 재연결');
+      debugPrint('[SignalR][하트비트] 등록 실패 -> 좀비 연결로 판단, 강제 재연결');
       _intentionalClose = true;
       await _disposeConnection();
       _intentionalClose = false;
@@ -361,7 +362,7 @@ class SignalRService {
     // [코드 일치 가드] 이미 다른 장비 코드로 재구성되었거나 완전히 종료(_currentDeviceCode == null)된 경우,
     // 예약 대상이 된 옛 장비 코드로는 재연결을 시도하지 않습니다. (옛 코드 부활로 인한 왕복 방지)
     if (deviceCode != _currentDeviceCode) {
-      print('[SignalR] 재연결 예약 취소: 대상 코드($deviceCode)가 현재 코드($_currentDeviceCode)와 불일치.');
+      debugPrint('[SignalR] 재연결 예약 취소: 대상 코드($deviceCode)가 현재 코드($_currentDeviceCode)와 불일치.');
       return;
     }
 
@@ -372,12 +373,12 @@ class SignalRService {
     final jitterMs = (baseSec * 1000 * 0.3 * (Random().nextDouble() * 2 - 1)).round();
     final delayMs = max(1000, baseSec * 1000 + jitterMs);
     _reconnectAttempt++;
-    print('[SignalR] 재연결 예약: ${(delayMs / 1000).toStringAsFixed(1)}초 후 (기본 ${baseSec}초 + 지터)');
+    debugPrint('[SignalR] 재연결 예약: ${(delayMs / 1000).toStringAsFixed(1)}초 후 (기본 $baseSec초 + 지터)');
 
     _reconnectTimer = Timer(Duration(milliseconds: delayMs), () {
       // 타이머 발동 시점에도 코드가 여전히 유효한지 재확인합니다.
       if (deviceCode != _currentDeviceCode) {
-        print('[SignalR] 재연결 실행 취소: 대상 코드($deviceCode)가 현재 코드($_currentDeviceCode)와 불일치.');
+        debugPrint('[SignalR] 재연결 실행 취소: 대상 코드($deviceCode)가 현재 코드($_currentDeviceCode)와 불일치.');
         return;
       }
       connect(
@@ -413,7 +414,7 @@ class SignalRService {
     // 1) 끊겼는데 재연결 예약이 없는 경우
     if (!isConnected) {
       if (_reconnectTimer == null || !_reconnectTimer!.isActive) {
-        print('[SignalR][워치독] 연결이 끊겼는데 재연결 예약이 없다 -> 재연결 시작');
+        debugPrint('[SignalR][워치독] 연결이 끊겼는데 재연결 예약이 없다 -> 재연결 시작');
         _scheduleManualReconnect(
           serverUrl: serverUrl,
           deviceCode: deviceCode,
@@ -429,7 +430,7 @@ class SignalRService {
     final last = _lastActivityAt;
     if (last == null || DateTime.now().difference(last) < _idleProbeThreshold) return;
 
-    print('[SignalR][워치독] ${_idleProbeThreshold.inMinutes}분간 수신 없음 -> 탐침 전송');
+    debugPrint('[SignalR][워치독] ${_idleProbeThreshold.inMinutes}분간 수신 없음 -> 탐침 전송');
     try {
       // RegisterDevice 는 멱등하므로 살아있는지 확인하는 용도로 안전하게 재호출할 수 있다.
       await _hubConnection!
@@ -437,9 +438,9 @@ class SignalRService {
               args: [deviceCode, _lastIpAddress ?? '', _lastMacAddress ?? '', _lastPublicIpAddress ?? ''])
           .timeout(const Duration(seconds: 10));
       _lastActivityAt = DateTime.now();
-      print('[SignalR][워치독] 탐침 성공. 연결 정상.');
+      debugPrint('[SignalR][워치독] 탐침 성공. 연결 정상.');
     } catch (e) {
-      print('[SignalR][워치독] 탐침 실패 -> 좀비 연결로 판단, 강제 재연결: $e');
+      debugPrint('[SignalR][워치독] 탐침 실패 -> 좀비 연결로 판단, 강제 재연결: $e');
       _intentionalClose = true;
       await _disposeConnection();
       _intentionalClose = false;
@@ -458,7 +459,7 @@ class SignalRService {
   /// 사이니지 설정 모드 진입 등으로 소켓 연결을 의도적으로 끊을 때 호출하며,
   /// 서버에 UnregisterDevice 메서드를 날리고 모든 백그라운드 재연결 타이머를 정지합니다.
   Future<void> disconnect(String deviceCode) async {
-    print('[SignalR] !!! 장치 구독 해제 및 모든 타이머 중단: $deviceCode');
+    debugPrint('[SignalR] !!! 장치 구독 해제 및 모든 타이머 중단: $deviceCode');
     // 의도적 종료로 표시하여, 이어지는 stop()이 트리거하는 onclose가 재연결을 예약하지 못하도록 합니다.
     _intentionalClose = true;
     _currentDeviceCode = null; // 현재 매핑 코드 제거
@@ -481,15 +482,15 @@ class SignalRService {
       if (isConnected) {
         try {
           await _hubConnection!.invoke('UnregisterDevice', args: [deviceCode]);
-          print('[SignalR] >> UnregisterDevice 서버 전송 완료');
+          debugPrint('[SignalR] >> UnregisterDevice 서버 전송 완료');
         } catch (e) {
-          print('[SignalR] 구독 해제 호출 에러: $e');
+          debugPrint('[SignalR] 구독 해제 호출 에러: $e');
         }
       }
       
       // 2. 소켓 연결 해제
       await _disposeConnection();
-      print('[SignalR] 소켓 물리적 연결 종료됨.');
+      debugPrint('[SignalR] 소켓 물리적 연결 종료됨.');
     }
   }
 

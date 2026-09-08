@@ -195,8 +195,8 @@ class _PortraitViewState extends State<PortraitView> {
   Color _getShadowColor(String fontColorStr) {
     Color fontColor = _parseColor(fontColorStr);
     return fontColor.computeLuminance() > 0.5 
-        ? Colors.black.withOpacity(0.8) 
-        : Colors.white.withOpacity(0.8);
+        ? Colors.black.withValues(alpha: 0.8) 
+        : Colors.white.withValues(alpha: 0.8);
   }
 
   /// [레이어 2: 근조 리본 장식 레이어]
@@ -321,8 +321,11 @@ class _PortraitViewState extends State<PortraitView> {
 
     double x = 0;
     double y = (dev.photoVerticalAlignment == 'TOP') ? -1 : (dev.photoVerticalAlignment == 'CENTER' ? 0 : 1);
-    if (dev.photoHorizontalAlignment == 'LEFT') x = -1;
-    else if (dev.photoHorizontalAlignment == 'RIGHT') x = 1;
+    if (dev.photoHorizontalAlignment == 'LEFT') {
+      x = -1;
+    } else if (dev.photoHorizontalAlignment == 'RIGHT') {
+      x = 1;
+    }
 
     int turns = 0;
     switch (dev.portraitOrientation) {
@@ -426,7 +429,7 @@ class _PortraitViewState extends State<PortraitView> {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: padH, vertical: padV),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.04),
+        color: Colors.white.withValues(alpha: 0.04),
         borderRadius: BorderRadius.circular(radius),
         border: Border.all(color: Colors.white12, width: 1),
       ),

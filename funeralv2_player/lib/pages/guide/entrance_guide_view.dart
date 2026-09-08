@@ -38,7 +38,7 @@ class _EntranceGuideViewState extends State<EntranceGuideView> {
   @override
   void initState() {
     super.initState();
-    print('[EntranceView] initState() 호출');
+    debugPrint('[EntranceView] initState() 호출');
     _controller.init(
       widget.serverBaseUrl,
       widget.deviceCode,
@@ -50,7 +50,7 @@ class _EntranceGuideViewState extends State<EntranceGuideView> {
   /// [자원 해제]
   @override
   void dispose() {
-    print('[EntranceView] dispose() 호출');
+    debugPrint('[EntranceView] dispose() 호출');
     _controller.dispose();
     super.dispose();
   }
@@ -101,7 +101,7 @@ class _EntranceGuideViewState extends State<EntranceGuideView> {
       animation: _controller,
       builder: (context, child) {
         final dev = _controller.device;
-        print('[EntranceView] build() - isLoading=${_controller.isLoading}, hasDevice=${dev != null}, roomsCount=${_controller.guideRooms.length}');
+        debugPrint('[EntranceView] build() - isLoading=${_controller.isLoading}, hasDevice=${dev != null}, roomsCount=${_controller.guideRooms.length}');
 
         if (_controller.isLoading && dev == null) {
           return const Center(child: CircularProgressIndicator(color: Color(0xFFC0A060)));
@@ -217,7 +217,7 @@ class _EntranceGuideViewState extends State<EntranceGuideView> {
         color: const Color(0xAA1F2937),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: hasDeceased ? const Color(0x4DC5A880) : Colors.white10, width: 1.5),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 4))],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 10, offset: const Offset(0, 4))],
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(16),
@@ -236,7 +236,7 @@ class _EntranceGuideViewState extends State<EntranceGuideView> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFC5A880).withOpacity(0.2),
+                        color: const Color(0xFFC5A880).withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(4),
                         border: Border.all(color: const Color(0xFFC5A880), width: 0.5),
                       ),
@@ -283,8 +283,8 @@ class _EntranceGuideViewState extends State<EntranceGuideView> {
                                           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                                           margin: const EdgeInsets.only(top: 2),
                                           decoration: BoxDecoration(
-                                            color: const Color(0xFFC5A880).withOpacity(0.1),
-                                            border: Border.all(color: const Color(0xFFC5A880).withOpacity(0.5)),
+                                            color: const Color(0xFFC5A880).withValues(alpha: 0.1),
+                                            border: Border.all(color: const Color(0xFFC5A880).withValues(alpha: 0.5)),
                                             borderRadius: BorderRadius.circular(3),
                                           ),
                                           child: const Text("상주", style: TextStyle(color: Color(0xFFC5A880), fontSize: 10, fontWeight: FontWeight.bold)),

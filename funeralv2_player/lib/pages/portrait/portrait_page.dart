@@ -131,13 +131,19 @@ class _PortraitPageState extends State<PortraitPage> {
 
     // 1) 수평 정렬 매핑 (LEFT, CENTER, RIGHT)
     double x = 0; 
-    if (dev.photoHorizontalAlignment == 'LEFT') x = -1;
-    else if (dev.photoHorizontalAlignment == 'RIGHT') x = 1;
+    if (dev.photoHorizontalAlignment == 'LEFT') {
+      x = -1;
+    } else if (dev.photoHorizontalAlignment == 'RIGHT') {
+      x = 1;
+    }
 
     // 2) 수직 정렬 매핑 (TOP, CENTER, BOTTOM)
     double y = 0; 
-    if (dev.photoVerticalAlignment == 'TOP') y = -1;
-    else if (dev.photoVerticalAlignment == 'BOTTOM') y = 1;
+    if (dev.photoVerticalAlignment == 'TOP') {
+      y = -1;
+    } else if (dev.photoVerticalAlignment == 'BOTTOM') {
+      y = 1;
+    }
     
     final finalAlignment = Alignment(x, y);
 
@@ -235,7 +241,7 @@ class _PortraitPageState extends State<PortraitPage> {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: padH, vertical: padV),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.04),
+        color: Colors.white.withValues(alpha: 0.04),
         borderRadius: BorderRadius.circular(radius),
         border: Border.all(color: Colors.white12, width: 1),
       ),

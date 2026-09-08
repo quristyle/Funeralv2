@@ -308,7 +308,7 @@ class DeceasedDto {
     }
 
     /// JSON이 문자열 형식으로 들어올 수 있는 유연한 리스트 변환 헬퍼 함수
-    List<dynamic> _flexibleList(dynamic input) {
+    List<dynamic> flexibleList(dynamic input) {
       if (input == null) return [];
       if (input is String) {
         try {
@@ -334,14 +334,14 @@ class DeceasedDto {
       roomId: data['roomId'],
       roomName: data['roomName'],
       chiefMourner: data['chiefMourner'],
-      mourners: _flexibleList(data['mourners']).map((i) => MournerDto.fromJson(i)).toList(),
-      familyPhotos: _flexibleList(data['familyPhotos']).map((i) => i.toString()).toList(),
+      mourners: flexibleList(data['mourners']).map((i) => MournerDto.fromJson(i)).toList(),
+      familyPhotos: flexibleList(data['familyPhotos']).map((i) => i.toString()).toList(),
       memorialPhotoUrl: data['memorialPhotoUrl'],
       memorialPhotoFileId: data['memorialPhotoFileId'],
       memorialEditedPhotoUrl: data['memorialEditedPhotoUrl'],
       memorialEditedPhotoFileId: data['memorialEditedPhotoFileId'],
-      deviceRibbons: _flexibleList(data['deviceRibbons']).map((i) => DeviceRibbonDto.fromJson(i)).toList(),
-      deviceTextOverlays: _flexibleList(data['deviceTextOverlays']).map((i) => DeviceTextOverlayDto.fromJson(i)).toList(),
+      deviceRibbons: flexibleList(data['deviceRibbons']).map((i) => DeviceRibbonDto.fromJson(i)).toList(),
+      deviceTextOverlays: flexibleList(data['deviceTextOverlays']).map((i) => DeviceTextOverlayDto.fromJson(i)).toList(),
     );
   }
 

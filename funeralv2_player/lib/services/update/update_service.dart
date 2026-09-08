@@ -531,39 +531,39 @@ try {
   /// **내려받기까지만** 하고, 설치는 현장(리모컨)에서 잇는다.
   static Future<void> runRemoteUpdate() async {
     if (_remoteUpdateRunning) {
-      print('[Update] 원격 지시 중복 수신 — 이미 진행 중이라 무시');
+      debugPrint('[Update] 원격 지시 중복 수신 — 이미 진행 중이라 무시');
       return;
     }
     _remoteUpdateRunning = true;
     try {
       final r = await check();
       if (r.failed) {
-        print('[Update] 원격 지시: 확인 실패 — ${r.error}');
+        debugPrint('[Update] 원격 지시: 확인 실패 — ${r.error}');
         return;
       }
       if (!r.hasUpdate || r.asset == null) {
-        print('[Update] 원격 지시: 새 버전 없음 (현재 ${r.currentVersion}, 최신 ${r.latestVersion})');
+        debugPrint('[Update] 원격 지시: 새 버전 없음 (현재 ${r.currentVersion}, 최신 ${r.latestVersion})');
         return;
       }
 
-      print('[Update] 원격 지시: ${r.latestVersion} 내려받기 시작 (${r.asset!.name})');
+      debugPrint('[Update] 원격 지시: ${r.latestVersion} 내려받기 시작 (${r.asset!.name})');
       final file = await download(r.asset!);
-      print('[Update] 내려받기 완료: ${file.path}');
+      debugPrint('[Update] 내려받기 완료: ${file.path}');
 
       if (Platform.isWindows) {
         if (!await canReplaceInPlace()) {
-          print('[Update] 설치 폴더에 쓸 수 없어 교체 불가 — 수동 설치 필요');
+          debugPrint('[Update] 설치 폴더에 쓸 수 없어 교체 불가 — 수동 설치 필요');
           return;
         }
         await installWindowsUpdate(file); // 돌아오지 않는다 (앱 종료)
       } else if (Platform.isLinux) {
         final fail = await installLinuxUpdate(file);
-        if (fail != null) print('[Update] 리눅스 설치 실패: $fail');
+        if (fail != null) debugPrint('[Update] 리눅스 설치 실패: $fail');
       } else if (Platform.isAndroid) {
-        print('[Update] 안드로이드: 내려받기까지 완료 — 설치는 현장에서 (설정 → 버전 확인 → 설치)');
+        debugPrint('[Update] 안드로이드: 내려받기까지 완료 — 설치는 현장에서 (설정 → 버전 확인 → 설치)');
       }
     } catch (e) {
-      print('[Update] 원격 지시 처리 중 오류: $e');
+      debugPrint('[Update] 원격 지시 처리 중 오류: $e');
     } finally {
       _remoteUpdateRunning = false;
     }

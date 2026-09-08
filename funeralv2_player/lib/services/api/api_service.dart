@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import '../../models/device_models.dart';
 import '../cache/local_db_service.dart';
 import '../auth/device_auth.dart';
+import 'package:flutter/foundation.dart';
 
 /// [API 서비스 클래스]
 /// 장례식장 백엔드 서버와 통신하여 실시간 데이터를 조회하고, 오프라인 작동을 지원하기 위한 로컬 캐시 처리를 수행합니다.
@@ -17,7 +18,7 @@ class ApiService {
     // URL 끝의 '/'를 제거하여 표준 주소 형식을 맞춥니다.
     final baseUrl = serverBaseUrl.endsWith('/') ? serverBaseUrl.substring(0, serverBaseUrl.length - 1) : serverBaseUrl;
     final url = Uri.parse('$baseUrl/api/funeral/building/device/code/$deviceCode');
-    print('[API Request] fetchDevice: $url');
+    debugPrint('[API Request] fetchDevice: $url');
     try {
       final response = await http.get(url, headers: DeviceAuth.headers()).timeout(const Duration(seconds: 15));
       if (response.statusCode == 200) {
@@ -29,7 +30,7 @@ class ApiService {
         return device;
       }
     } catch (e) {
-      print('[API Error] fetchDevice: $e');
+      debugPrint('[API Error] fetchDevice: $e');
     }
     
     // 네트워크 오류 등으로 예외 발생 시 로컬 캐싱된 데이터 반환 (오프라인 지원)
@@ -42,7 +43,7 @@ class ApiService {
   Future<DeceasedDto?> fetchDeceased(String serverBaseUrl, String deviceCode) async {
     final baseUrl = serverBaseUrl.endsWith('/') ? serverBaseUrl.substring(0, serverBaseUrl.length - 1) : serverBaseUrl;
     final url = Uri.parse('$baseUrl/api/funeral/building/deceased/deviceCode/$deviceCode');
-    print('[API Request] fetchDeceased: $url');
+    debugPrint('[API Request] fetchDeceased: $url');
     try {
       final response = await http.get(url, headers: DeviceAuth.headers()).timeout(const Duration(seconds: 15));
       if (response.statusCode == 200) {
@@ -62,7 +63,7 @@ class ApiService {
         }
       }
     } catch (e) {
-      print('[API Error] fetchDeceased: $e');
+      debugPrint('[API Error] fetchDeceased: $e');
     }
     
     // 오프라인 대응: 로컬 캐시 반환
@@ -75,7 +76,7 @@ class ApiService {
   Future<List<EntranceGuideRoomDto>> fetchEntranceGuideRooms(String serverBaseUrl, String deviceCode) async {
     final baseUrl = serverBaseUrl.endsWith('/') ? serverBaseUrl.substring(0, serverBaseUrl.length - 1) : serverBaseUrl;
     final url = Uri.parse('$baseUrl/api/funeral/building/deceased/guide/deviceCode/$deviceCode');
-    print('[API Request] fetchEntranceGuideRooms: $url');
+    debugPrint('[API Request] fetchEntranceGuideRooms: $url');
     try {
       final response = await http.get(url, headers: DeviceAuth.headers()).timeout(const Duration(seconds: 15));
       if (response.statusCode == 200) {
@@ -94,11 +95,11 @@ class ApiService {
         return resultList.map((item) => EntranceGuideRoomDto.fromJson(item)).toList();
       }
     } catch (e) {
-      print('[API Error] fetchEntranceGuideRooms: $e');
+      debugPrint('[API Error] fetchEntranceGuideRooms: $e');
     }
 
     // 오프라인 캐시 로드
-    print('[Cache] 입구 안내 목록 오프라인 캐시 조회를 시도합니다.');
+    debugPrint('[Cache] 입구 안내 목록 오프라인 캐시 조회를 시도합니다.');
     final cachedBody = await _dbService.getEntranceGuide(deviceCode);
     if (cachedBody != null) {
       final json = jsonDecode(cachedBody);
@@ -114,7 +115,7 @@ class ApiService {
   Future<String?> fetchSourcePath(String serverBaseUrl, String sourceId) async {
     final baseUrl = serverBaseUrl.endsWith('/') ? serverBaseUrl.substring(0, serverBaseUrl.length - 1) : serverBaseUrl;
     final url = Uri.parse('$baseUrl/api/funeral/building/source/$sourceId');
-    print('[API Request] fetchSourcePath: $url');
+    debugPrint('[API Request] fetchSourcePath: $url');
     try {
       final response = await http.get(url, headers: DeviceAuth.headers()).timeout(const Duration(seconds: 15));
       if (response.statusCode == 200) {
@@ -128,9 +129,13 @@ class ApiService {
         if (data != null) {
           String? path;
           // 스트리밍 포맷 우선 매핑
-          if (data['hasWebm'] == true && data['webmUrl'] != null) path = data['webmUrl'];
-          else if (data['hasAac'] == true && data['aacUrl'] != null) path = data['aacUrl'];
-          else path = data['url'] ?? data['filePath'] ?? data['path'];
+          if (data['hasWebm'] == true && data['webmUrl'] != null) {
+            path = data['webmUrl'];
+          } else if (data['hasAac'] == true && data['aacUrl'] != null) {
+            path = data['aacUrl'];
+          } else {
+            path = data['url'] ?? data['filePath'] ?? data['path'];
+          }
 
           if (path != null) {
             // 경로 캐시 테이블에 저장
@@ -140,7 +145,7 @@ class ApiService {
         }
       }
     } catch (e) {
-      print('[API Error] fetchSourcePath: $e');
+      debugPrint('[API Error] fetchSourcePath: $e');
     }
     
     // 오프라인 상태일 경우 캐싱되어 있던 경로 반환
@@ -152,7 +157,7 @@ class ApiService {
   Future<KioskGuideResponseDto> fetchKioskRooms(String serverBaseUrl, String deviceCode) async {
     final baseUrl = serverBaseUrl.endsWith('/') ? serverBaseUrl.substring(0, serverBaseUrl.length - 1) : serverBaseUrl;
     final url = Uri.parse('$baseUrl/api/funeral/building/deceased/kiosk/deviceCode/$deviceCode');
-    print('[API Request] fetchKioskRooms: $url');
+    debugPrint('[API Request] fetchKioskRooms: $url');
     try {
       final response = await http.get(url, headers: DeviceAuth.headers()).timeout(const Duration(seconds: 15));
       if (response.statusCode == 200) {
@@ -177,11 +182,11 @@ class ApiService {
         }
       }
     } catch (e) {
-      print('[API Error] fetchKioskRooms: $e');
+      debugPrint('[API Error] fetchKioskRooms: $e');
     }
 
     // 오프라인 캐시 로드
-    print('[Cache] 키오스크 안내 목록 오프라인 캐시 조회를 시도합니다.');
+    debugPrint('[Cache] 키오스크 안내 목록 오프라인 캐시 조회를 시도합니다.');
     final cachedBody = await _dbService.getKioskGuide(deviceCode);
     if (cachedBody != null) {
       try {
@@ -201,7 +206,7 @@ class ApiService {
           return KioskGuideResponseDto.fromJson(targetMap);
         }
       } catch (e) {
-        print('[Cache Error] 키오스크 캐시 디코딩 에러: $e');
+        debugPrint('[Cache Error] 키오스크 캐시 디코딩 에러: $e');
       }
     }
 

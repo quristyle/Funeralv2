@@ -23,7 +23,7 @@ void main() async {
   // 동영상 재생 엔진인 MediaKit을 초기화합니다.
   MediaKit.ensureInitialized();
 
-  print('[Main] 프로그램 구동 시작');
+  debugPrint('[Main] 프로그램 구동 시작');
 
   // 장비 인증 키를 메모리에 올린다. 설정 화면을 열기 전의 첫 동기화(ApiService)도
   // 키를 실어야 하므로 여기서 한 번 읽는다. 키가 없으면 아무 영향이 없다.
@@ -61,17 +61,17 @@ void main() async {
         
         // [로컬 환경 체크] localhost가 아닐 때만 전체화면과 최상단 고정 설정을 적용합니다.
         if (!isLocal) {
-          print('[Main] 상용 환경 감지: 전체화면 및 최상단 고정을 적용합니다.');
+          debugPrint('[Main] 상용 환경 감지: 전체화면 및 최상단 고정을 적용합니다.');
           Future.delayed(const Duration(milliseconds: 200), () async {
             await windowManager.setFullScreen(true);
             await windowManager.setAlwaysOnTop(true);
           });
         } else {
-          print('[Main] 로컬 개발 환경 감지: 전체화면 설정을 건너뜁니다.');
+          debugPrint('[Main] 로컬 개발 환경 감지: 전체화면 설정을 건너뜁니다.');
         }
       });
     } catch (e) {
-      print('[Main] 창 설정 실패: $e');
+      debugPrint('[Main] 창 설정 실패: $e');
     }
   }
 
@@ -87,7 +87,7 @@ void main() async {
   Timer.periodic(const Duration(hours: 6), (_) async {
     final r = await UpdateService.check();
     if (!r.failed && r.hasUpdate) {
-      print('[Update] 새 버전 있음: ${r.currentVersion} → ${r.latestVersion} '
+      debugPrint('[Update] 새 버전 있음: ${r.currentVersion} → ${r.latestVersion} '
           '(설치는 환경 설정 또는 포털 원격 지시로)');
     }
   });
@@ -161,7 +161,7 @@ class _MainRouterState extends State<MainRouter> {
 
   /// 기기 로컬 저장소(SharedPreferences)에서 설정 정보를 읽어오는 함수입니다.
   Future<void> _loadConfiguration() async {
-    print('[MainRouter] _loadConfiguration() 호출됨 - 로컬 SharedPreferences 스캔 시작');
+    debugPrint('[MainRouter] _loadConfiguration() 호출됨 - 로컬 SharedPreferences 스캔 시작');
     final prefs = await SharedPreferences.getInstance();
     
     setState(() {
@@ -180,24 +180,24 @@ class _MainRouterState extends State<MainRouter> {
       isConfigured = deviceCode != null && deviceCode!.isNotEmpty;
       isLoading = false; // 로딩 완료
     });
-    print('[MainRouter] _loadConfiguration() 완료: isConfigured=$isConfigured, code=$deviceCode, displayOrientation=$displayOrientation, displayRotationTurns=$displayRotationTurns');
+    debugPrint('[MainRouter] _loadConfiguration() 완료: isConfigured=$isConfigured, code=$deviceCode, displayOrientation=$displayOrientation, displayRotationTurns=$displayRotationTurns');
   }
 
   /// 사용자가 입력한 새로운 설정 정보를 로컬 저장소에 저장하는 함수입니다.
   Future<void> _saveConfiguration(String server, String code, String ip, String mac, String publicIp, int rotationTurns) async {
-    print('[MainRouter] _saveConfiguration() 저장 진입: code=$code, rotationTurns=$rotationTurns');
+    debugPrint('[MainRouter] _saveConfiguration() 저장 진입: code=$code, rotationTurns=$rotationTurns');
     
     // 기존 장비코드가 존재하고, 새로 입력한 장비코드와 다를 경우 백엔드에 즉시 OFFLINE 처리 요청
     final oldCode = deviceCode;
     if (oldCode != null && oldCode.isNotEmpty && oldCode != code) {
-      print('[MainRouter] 장비코드 변경 감지: $oldCode -> $code. 기존 장비 오프라인 전환 요청 전송.');
+      debugPrint('[MainRouter] 장비코드 변경 감지: $oldCode -> $code. 기존 장비 오프라인 전환 요청 전송.');
       try {
         final cleanServer = server.endsWith('/') ? server.substring(0, server.length - 1) : server;
         final url = Uri.parse('$cleanServer/api/funeral/building/device/status/$oldCode?status=OFFLINE');
         await http.put(url).timeout(const Duration(seconds: 3));
-        print('[MainRouter] 기존 장비($oldCode) OFFLINE 처리 완료');
+        debugPrint('[MainRouter] 기존 장비($oldCode) OFFLINE 처리 완료');
       } catch (e) {
-        print('[MainRouter] 기존 장비 오프라인 처리 통신 실패: $e');
+        debugPrint('[MainRouter] 기존 장비 오프라인 처리 통신 실패: $e');
       }
     }
 
@@ -212,7 +212,7 @@ class _MainRouterState extends State<MainRouter> {
     await prefs.setInt('displayRotationTurns', rotationTurns);
     final String mappedOrientation = (rotationTurns % 2 == 1) ? 'PORTRAIT' : 'LANDSCAPE';
     await prefs.setString('displayOrientation', mappedOrientation);
-    print('[MainRouter] SharedPreferences 쓰기 완료: displayOrientation=$mappedOrientation, displayRotationTurns=$rotationTurns');
+    debugPrint('[MainRouter] SharedPreferences 쓰기 완료: displayOrientation=$mappedOrientation, displayRotationTurns=$rotationTurns');
 
     setState(() {
       serverBaseUrl = server;
@@ -229,7 +229,7 @@ class _MainRouterState extends State<MainRouter> {
   /// 화면의 모습을 그리는 함수입니다. 상태가 바뀔 때마다 다시 호출됩니다.
   @override
   Widget build(BuildContext context) {
-    print('[MainRouter] build() 진입: isLoading=$isLoading, isConfigured=$isConfigured, displayOrientation=$displayOrientation, displayRotationTurns=$displayRotationTurns');
+    debugPrint('[MainRouter] build() 진입: isLoading=$isLoading, isConfigured=$isConfigured, displayOrientation=$displayOrientation, displayRotationTurns=$displayRotationTurns');
     
     // 아직 로딩 중이라면 로딩 바만 중앙에 띄웁니다.
     if (isLoading) {
@@ -238,7 +238,7 @@ class _MainRouterState extends State<MainRouter> {
 
     // 설정이 안 되어 있다면 '환경 설정' 화면을 반환합니다.
     if (!isConfigured) {
-      print('[MainRouter] SettingsScreen 생성 및 전달: '
+      debugPrint('[MainRouter] SettingsScreen 생성 및 전달: '
             'initialOrientation=${displayOrientation ?? 'LANDSCAPE'}, '
             'initialRotationTurns=$displayRotationTurns');
       return SettingsScreen(
@@ -257,7 +257,7 @@ class _MainRouterState extends State<MainRouter> {
     }
 
     // 설정이 완료되었다면 '장비 디스패처'를 반환하여 실제 콘텐츠 화면을 띄웁니다.
-    print('[MainRouter] DeviceDispatcher로 분기합니다. (코드: $deviceCode)');
+    debugPrint('[MainRouter] DeviceDispatcher로 분기합니다. (코드: $deviceCode)');
     return DeviceDispatcher(
       serverBaseUrl: serverBaseUrl!,
       deviceCode: deviceCode!,
@@ -266,7 +266,7 @@ class _MainRouterState extends State<MainRouter> {
       publicIpAddress: publicIpAddress ?? '',
       onOpenSettings: () async {
         // 플레이어 구동 중에 설정을 다시 열고 싶을 때 이 함수가 실행됩니다.
-        print('[MainRouter] 설정 변경 요청 수신 -> 로컬 영속 캐시 동기화 리로드');
+        debugPrint('[MainRouter] 설정 변경 요청 수신 -> 로컬 영속 캐시 동기화 리로드');
         final prefs = await SharedPreferences.getInstance();
         final server = prefs.getString('serverBaseUrl');
         final code = prefs.getString('deviceCode');
@@ -276,7 +276,7 @@ class _MainRouterState extends State<MainRouter> {
         final orientation = prefs.getString('displayOrientation') ?? 'LANDSCAPE';
         final rotation = prefs.getInt('displayRotationTurns') ?? (orientation == 'PORTRAIT' ? 1 : 0);
 
-        print('[MainRouter] 동기화 완료 후 설정 화면 오픈: '
+        debugPrint('[MainRouter] 동기화 완료 후 설정 화면 오픈: '
               'orientation=$orientation, rotation=$rotation');
 
         setState(() {

@@ -108,7 +108,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _screenRotationTurns = widget.initialRotationTurns;
     _alignRotationTurnsWithOrientation();
 
-    print('[SettingsScreen] initState() 완료: '
+    debugPrint('[SettingsScreen] initState() 완료: '
           'initialOrientation=${widget.initialOrientation}, '
           'initialRotationTurns=${widget.initialRotationTurns} '
           '-> _screenRotationTurns=$_screenRotationTurns');
@@ -231,7 +231,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   void didUpdateWidget(covariant SettingsScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-    print('[SettingsScreen] didUpdateWidget() 감지: '
+    debugPrint('[SettingsScreen] didUpdateWidget() 감지: '
           'oldWidget.initialRotationTurns=${oldWidget.initialRotationTurns} '
           '-> widget.initialRotationTurns=${widget.initialRotationTurns}');
     if (oldWidget.initialRotationTurns != widget.initialRotationTurns ||
@@ -240,7 +240,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _screenRotationTurns = widget.initialRotationTurns;
         _alignRotationTurnsWithOrientation();
       });
-      print('[SettingsScreen] didUpdateWidget() 회전값 동기화 완료: _screenRotationTurns=$_screenRotationTurns');
+      debugPrint('[SettingsScreen] didUpdateWidget() 회전값 동기화 완료: _screenRotationTurns=$_screenRotationTurns');
     }
   }
 
@@ -265,7 +265,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         if (localIp != '알 수 없음') break;
       }
     } catch (e) {
-      print('[Network] 로컬 IP 획득 실패: $e');
+      debugPrint('[Network] 로컬 IP 획득 실패: $e');
     }
 
     // 2. MAC 주소 조회 (운영체제 명령어 실행)
@@ -287,7 +287,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         }
       }
     } catch (e) {
-      print('[Network] MAC 주소 획득 실패: $e');
+      debugPrint('[Network] MAC 주소 획득 실패: $e');
     }
 
     // 3. 공인 IP 주소 조회 (인터넷 망 연결 필요)
@@ -297,7 +297,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         publicIp = response.body.trim();
       }
     } catch (e) {
-      print('[Network] 공인 IP 획득 실패: $e');
+      debugPrint('[Network] 공인 IP 획득 실패: $e');
     }
 
     if (mounted) {
@@ -316,7 +316,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final url = _serverController.text.trim();
     if (url.isEmpty) return;
 
-    print('[Settings] 서버 연결 테스트 시도: $url');
+    debugPrint('[Settings] 서버 연결 테스트 시도: $url');
     setState(() {
       _connectionStatus = 'TESTING';
       _statusMessage = '서버 연결 확인 중...';
@@ -333,17 +333,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
       setState(() {
         // HTTP 상태코드가 500 미만(200~499 등)이면 서버 포트 및 라우터 자체는 가동 중인 것으로 식별
         if (response.statusCode < 500) {
-          print('[Settings] 서버 연결 성공 (Status: ${response.statusCode})');
+          debugPrint('[Settings] 서버 연결 성공 (Status: ${response.statusCode})');
           _connectionStatus = 'SUCCESS';
           _statusMessage = '서버 통신 가능 (정상)';
         } else {
-          print('[Settings] 서버 응답 오류: ${response.statusCode}');
+          debugPrint('[Settings] 서버 응답 오류: ${response.statusCode}');
           _connectionStatus = 'FAIL';
           _statusMessage = '서버 응답 오류 (HTTP ${response.statusCode})';
         }
       });
     } catch (e) {
-      print('[Settings] 연결 실패 예외: $e');
+      debugPrint('[Settings] 연결 실패 예외: $e');
       setState(() {
         _connectionStatus = 'FAIL';
         _statusMessage = '접속 실패: 서버가 꺼져있거나 주소가 잘못되었습니다.';
@@ -428,7 +428,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   /// 저해상도 모니터 대응 컨셉(No Scroll)을 유지하기 위해 가로형 레이아웃에서는 입력 폼을 2열로 자동 스위칭하고 여백을 극대화 축소합니다.
   @override
   Widget build(BuildContext context) {
-    print('[SettingsScreen] build() 진입 - 현재 적용할 _screenRotationTurns=$_screenRotationTurns');
+    debugPrint('[SettingsScreen] build() 진입 - 현재 적용할 _screenRotationTurns=$_screenRotationTurns');
     Color statusColor = _connectionStatus == 'SUCCESS' 
         ? Colors.greenAccent 
         : (_connectionStatus == 'FAIL' ? Colors.redAccent : Colors.orangeAccent);
@@ -498,9 +498,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                 margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 decoration: BoxDecoration(
-                  border: Border.all(color: const Color(0xFFC0A060).withOpacity(0.2)),
+                  border: Border.all(color: const Color(0xFFC0A060).withValues(alpha: 0.2)),
                   borderRadius: BorderRadius.circular(12),
-                  color: Colors.white.withOpacity(0.01),
+                  color: Colors.white.withValues(alpha: 0.01),
                 ),
                 child: Form(
                   key: _formKey,
@@ -511,9 +511,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       Container(
                         padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
                         decoration: BoxDecoration(
-                          color: statusColor.withOpacity(0.08),
+                          color: statusColor.withValues(alpha: 0.08),
                           borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: statusColor.withOpacity(0.2)),
+                          border: Border.all(color: statusColor.withValues(alpha: 0.2)),
                         ),
                         child: Row(
                           children: [
@@ -577,9 +577,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       Container(
                         padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 14),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.02),
+                          color: Colors.white.withValues(alpha: 0.02),
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.white.withOpacity(0.05)),
+                          border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
                         ),
                         child: Column(
                           children: [
