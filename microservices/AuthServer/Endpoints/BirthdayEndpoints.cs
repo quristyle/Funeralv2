@@ -115,8 +115,7 @@ public static class BirthdayEndpoints
 
             return Results.Ok(ApiResponse<List<BirthdayCalendarEvent>>.Ok(events));
         })
-        .WithName("GetBirthdayCalendarEvents")
-        .WithOpenApi();
+        .WithName("GetBirthdayCalendarEvents");
 
         // 월별 생일자 수 (올해 기준, 음력은 양력으로 환산해 집계)
         group.MapGet("/stats", async (UserContext? user, [FromServices] AppDbContext db,
@@ -158,8 +157,7 @@ public static class BirthdayEndpoints
 
             return Results.Ok(ApiResponse<BirthdayMonthStat[]>.Ok(stats));
         })
-        .WithName("GetBirthdayStats")
-        .WithOpenApi();
+        .WithName("GetBirthdayStats");
 
         // 월별 생일자 목록 (올해 기준, 음력은 양력으로 환산)
         group.MapGet("/list", async (UserContext? user, [FromServices] AppDbContext db,
@@ -171,8 +169,7 @@ public static class BirthdayEndpoints
             var items = await BuildMonthListAsync(db, month, companyId, departmentId);
             return Results.Ok(ApiResponse<List<BirthdayListItem>>.Ok(items));
         })
-        .WithName("GetBirthdayListByMonth")
-        .WithOpenApi();
+        .WithName("GetBirthdayListByMonth");
 
         // 이번 달(KST) 생일자 목록
         group.MapGet("/current", async (UserContext? user, [FromServices] AppDbContext db,
@@ -183,8 +180,7 @@ public static class BirthdayEndpoints
             var items = await BuildMonthListAsync(db, Kst.Now.Month, companyId, departmentId);
             return Results.Ok(ApiResponse<List<BirthdayListItem>>.Ok(items));
         })
-        .WithName("GetCurrentMonthBirthdays")
-        .WithOpenApi();
+        .WithName("GetCurrentMonthBirthdays");
 
         // 오늘(KST)의 생일자 목록 — 올해 받은 축하 메시지 수를 함께 준다
         group.MapGet("/today", async (UserContext? user, [FromServices] AppDbContext db,
@@ -241,8 +237,7 @@ public static class BirthdayEndpoints
 
             return Results.Ok(ApiResponse<List<BirthdayTodayItem>>.Ok(result));
         })
-        .WithName("GetTodayBirthdays")
-        .WithOpenApi();
+        .WithName("GetTodayBirthdays");
 
         // ── 축하 메시지 ────────────────────────────────────────
 
@@ -279,8 +274,7 @@ public static class BirthdayEndpoints
 
             return Results.Ok(ApiResponse<object>.Ok(null, "축하 메시지를 보냈습니다."));
         })
-        .WithName("SendBirthdayMessage")
-        .WithOpenApi();
+        .WithName("SendBirthdayMessage");
 
         // 오늘(KST)의 생일자들이 올해 받은 축하 메시지 목록
         group.MapGet("/today/messages", async (UserContext? user, [FromServices] AppDbContext db) =>
@@ -345,8 +339,7 @@ public static class BirthdayEndpoints
 
             return Results.Ok(ApiResponse<List<BirthdayTodayMessageItem>>.Ok(result));
         })
-        .WithName("GetTodayBirthdayMessages")
-        .WithOpenApi();
+        .WithName("GetTodayBirthdayMessages");
 
         // 내가 받은 축하 메시지
         group.MapGet("/message", async (UserContext? user, [FromServices] AppDbContext db) =>
@@ -371,8 +364,7 @@ public static class BirthdayEndpoints
 
             return Results.Ok(ApiResponse<List<BirthdayReceivedMessageItem>>.Ok(result));
         })
-        .WithName("GetMyBirthdayMessages")
-        .WithOpenApi();
+        .WithName("GetMyBirthdayMessages");
 
         // 내가 보낸 축하 메시지
         group.MapGet("/message/sent", async (UserContext? user, [FromServices] AppDbContext db) =>
@@ -397,8 +389,7 @@ public static class BirthdayEndpoints
 
             return Results.Ok(ApiResponse<List<BirthdaySentMessageItem>>.Ok(result));
         })
-        .WithName("GetMySentBirthdayMessages")
-        .WithOpenApi();
+        .WithName("GetMySentBirthdayMessages");
     }
 
     // ── 내부 도우미 ──────────────────────────────────────────

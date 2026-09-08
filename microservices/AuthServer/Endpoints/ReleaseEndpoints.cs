@@ -62,8 +62,7 @@ public static class ReleaseEndpoints
             var result = await service.GetTargetsAsync(user.UserId);
             return Results.Ok(ApiResponse<ReleaseTargetListDto>.Ok(result));
         })
-        .WithName("GetReleaseTargets")
-        .WithOpenApi();
+        .WithName("GetReleaseTargets");
 
         // ── 실행 이력 ───────────────────────────────────────
         group.MapGet("/runs", async (UserContext? user, [FromQuery] int? take,
@@ -74,8 +73,7 @@ public static class ReleaseEndpoints
             var runs = await service.GetRunsAsync(take ?? 20);
             return Results.Ok(ApiResponse<List<ReleaseRunDto>>.Ok(runs));
         })
-        .WithName("GetReleaseRuns")
-        .WithOpenApi();
+        .WithName("GetReleaseRuns");
 
         // ── 실행 한 건 (화면이 폴링한다) ─────────────────────
         //
@@ -92,8 +90,7 @@ public static class ReleaseEndpoints
                     message: "실행을 찾을 수 없습니다.", code: "RUN_NOT_FOUND"))
                 : Results.Ok(ApiResponse<ReleaseRunDto>.Ok(run));
         })
-        .WithName("GetReleaseRun")
-        .WithOpenApi();
+        .WithName("GetReleaseRun");
 
         // ── 실행 요청 ───────────────────────────────────────
         group.MapPost("/{key}", async (string key, UserContext? user,
@@ -128,8 +125,7 @@ public static class ReleaseEndpoints
                         message: result.Message, code: "RELEASE_FAILED"))
             };
         })
-        .WithName("TriggerRelease")
-        .WithOpenApi();
+        .WithName("TriggerRelease");
 
         // ── 배포 장비의 보고 (콜백) ──────────────────────────
         //
@@ -175,7 +171,6 @@ public static class ReleaseEndpoints
                     statusCode: StatusCodes.Status403Forbidden)
             };
         })
-        .WithName("ReportReleaseEvents")
-        .WithOpenApi();
+        .WithName("ReportReleaseEvents");
     }
 }

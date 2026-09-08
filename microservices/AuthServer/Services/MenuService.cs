@@ -27,6 +27,7 @@ public class MenuService : IMenuService
     /// 만들지 않고 <see cref="MenuTreeCache"/> 에 한 벌만 둔다.
     /// 여기서 거르도록 바꾼다면 그 캐시부터 손봐야 한다.
     /// </param>
+    /// <param name="locale">제목을 옮길 언어. 비우면 <c>ko</c>. 캐시도 이 값마다 따로 둔다.</param>
     public Task<List<MenuDto>> GetAllMenusAsync(string userId, string? locale = null) =>
         _cache.GetOrLoadAsync(locale, () => LoadAllMenusAsync(locale));
 
@@ -305,7 +306,9 @@ public class MenuService : IMenuService
                 Path = m.Path,
                 // 프론트가 링크 주소를 푸는 열쇠. Path 가 아니라 이쪽이다.
                 RouteKey = m.RouteKey,
-                Component = m.Component, // ?? "BasicLayout",
+                // 엔티티는 비워 둘 수 있지만 DTO 는 빈 문자열까지만 허용한다.
+                // 프론트(Blazor)는 이 칸을 읽지 않는다 — 라우트는 @page 가 정한다.
+                Component = m.Component ?? string.Empty,
                 Meta = new MenuMetaDto
                 {
                     Title = m.Title ?? m.Name,
@@ -322,7 +325,7 @@ public class MenuService : IMenuService
                     KeepAlive = m.KeepAlive,
                     AffixTab = m.AffixTab,
                     DomCached = m.DomCached,
-                    Component = m.Component,
+                    Component = m.Component ?? string.Empty,
                     Authority = string.IsNullOrEmpty(m.Authority) 
                         ? null 
                         : m.Authority.Split(',').ToList(),

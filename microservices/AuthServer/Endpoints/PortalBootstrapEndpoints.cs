@@ -63,7 +63,6 @@ public static class PortalBootstrapEndpoints
                 User = info,
             }));
         })
-        .WithName("GetPortalBootstrap")
-        .WithOpenApi();
+        .WithName("GetPortalBootstrap");
     }
 }

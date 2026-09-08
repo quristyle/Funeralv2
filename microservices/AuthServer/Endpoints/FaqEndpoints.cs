@@ -37,8 +37,7 @@ public static class FaqEndpoints
             var result = await service.GetListAsync(user.UserId, keyword, category);
             return Results.Ok(ApiResponse<FaqListDto>.Ok(result));
         })
-        .WithName("GetFaqs")
-        .WithOpenApi();
+        .WithName("GetFaqs");
 
         group.MapGet("/{id}", async (string id, UserContext? user,
             [FromServices] IFaqService service) =>
@@ -50,8 +49,7 @@ public static class FaqEndpoints
                 ? Results.NotFound(ApiResponse<FaqDto>.Fail("NOT_FOUND", "F.A.Q 를 찾을 수 없습니다."))
                 : Results.Ok(ApiResponse<FaqDto>.Ok(faq));
         })
-        .WithName("GetFaqById")
-        .WithOpenApi();
+        .WithName("GetFaqById");
 
         group.MapPost("/", async ([FromBody] SaveFaqDto request, UserContext? user,
             [FromServices] IFaqService service) =>
@@ -69,8 +67,7 @@ public static class FaqEndpoints
                     statusCode: StatusCodes.Status403Forbidden)
                 : Results.Ok(ApiResponse<FaqDto>.Ok(faq));
         })
-        .WithName("CreateFaq")
-        .WithOpenApi();
+        .WithName("CreateFaq");
 
         group.MapPut("/{id}", async (string id, [FromBody] SaveFaqDto request,
             UserContext? user, [FromServices] IFaqService service) =>
@@ -91,8 +88,7 @@ public static class FaqEndpoints
                 _ => Results.NotFound(ApiResponse<bool>.Fail("NOT_FOUND", "F.A.Q 를 찾을 수 없습니다."))
             };
         })
-        .WithName("UpdateFaq")
-        .WithOpenApi();
+        .WithName("UpdateFaq");
 
         group.MapDelete("/{id}", async (string id, UserContext? user,
             [FromServices] IFaqService service) =>
@@ -109,7 +105,6 @@ public static class FaqEndpoints
                 _ => Results.NotFound(ApiResponse<bool>.Fail("NOT_FOUND", "F.A.Q 를 찾을 수 없습니다."))
             };
         })
-        .WithName("DeleteFaq")
-        .WithOpenApi();
+        .WithName("DeleteFaq");
     }
 }

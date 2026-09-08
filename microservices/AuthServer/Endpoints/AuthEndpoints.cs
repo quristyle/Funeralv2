@@ -322,7 +322,6 @@ public static class AuthEndpoints
             return Results.Ok(ApiResponse<List<string>>.Ok(codes));
         })
         .WithName("GetAccessCodes")
-        .WithOpenApi()
         .RequireAuthorization();
 
 

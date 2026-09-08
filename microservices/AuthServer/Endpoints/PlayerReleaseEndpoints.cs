@@ -33,8 +33,7 @@ public static class PlayerReleaseEndpoints
             var status = await service.GetStatusAsync(user.UserId);
             return Results.Ok(ApiResponse<PlayerReleaseStatusDto>.Ok(status));
         })
-        .WithName("GetPlayerReleaseStatus")
-        .WithOpenApi();
+        .WithName("GetPlayerReleaseStatus");
 
         // ── 릴리스 발행 ────────────────────────────────────
         //
@@ -71,8 +70,7 @@ public static class PlayerReleaseEndpoints
                         message: result.Message, code: "RELEASE_FAILED"))
             };
         })
-        .WithName("CreatePlayerRelease")
-        .WithOpenApi();
+        .WithName("CreatePlayerRelease");
 
         // ── 최신 릴리스와 첨부 파일 ─────────────────────────
         //
@@ -86,8 +84,7 @@ public static class PlayerReleaseEndpoints
             var latest = await service.GetLatestAsync();
             return Results.Ok(ApiResponse<PlayerReleaseLatestDto>.Ok(latest));
         })
-        .WithName("GetPlayerReleaseLatest")
-        .WithOpenApi();
+        .WithName("GetPlayerReleaseLatest");
 
         // ── 진행 상황 (화면이 폴링한다) ─────────────────────
         group.MapGet("/runs/{tag}", async (string tag, UserContext? user,
@@ -98,7 +95,6 @@ public static class PlayerReleaseEndpoints
             var run = await service.GetRunAsync(tag);
             return Results.Ok(ApiResponse<PlayerReleaseRunDto>.Ok(run));
         })
-        .WithName("GetPlayerReleaseRun")
-        .WithOpenApi();
+        .WithName("GetPlayerReleaseRun");
     }
 }

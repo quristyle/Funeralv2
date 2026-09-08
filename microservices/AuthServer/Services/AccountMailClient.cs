@@ -50,6 +50,7 @@ public class AccountMailClient
     /// <c>X-User-Id</c> 에 실을 이름. 사람이 아니라 <b>어느 기능이 보냈는지</b>를
     /// 적는다(<c>AUTH_PASSWORD_RESET</c>). 익명 요청이라 사람 아이디가 없다.
     /// </param>
+    /// <param name="ct">보내는 도중 취소할 때 쓰는 토큰</param>
     public Task<bool> SendAsync(
         string to, string subject, string body, string sender, CancellationToken ct = default)
         => PostAsync(to, null, subject, body, sender, ct);

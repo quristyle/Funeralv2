@@ -28,7 +28,7 @@ public static class MenuFavoriteEndpoints
         // 메뉴 관련이므로 기존 /menu 묶음 아래에 둔다.
         var group = app.MapGroup("/menu/favorites").WithTags("MenuFavorites");
 
-        /// <summary>내 즐겨찾기 목록.</summary>
+        // 내 즐겨찾기 목록.
         group.MapGet("/", async (UserContext? user, [FromServices] IMenuFavoriteService service) =>
         {
             if (user is null) return Results.Unauthorized();
@@ -36,10 +36,9 @@ public static class MenuFavoriteEndpoints
             var list = await service.GetFavoritesAsync(user.UserId);
             return Results.Ok(ApiResponse<List<MenuFavoriteDto>>.Ok(list));
         })
-        .WithName("GetMenuFavorites")
-        .WithOpenApi();
+        .WithName("GetMenuFavorites");
 
-        /// <summary>즐겨찾기에 담는다. 이미 있으면 그대로 둔다.</summary>
+        // 즐겨찾기에 담는다. 이미 있으면 그대로 둔다.
         group.MapPost("/", async (
             UserContext? user,
             [FromBody] MenuFavoriteRequest request,
@@ -63,15 +62,12 @@ public static class MenuFavoriteEndpoints
                     ApiResponse<List<MenuFavoriteDto>>.Fail(ex.Message, "B400", realMessage: ex.Message));
             }
         })
-        .WithName("AddMenuFavorite")
-        .WithOpenApi();
+        .WithName("AddMenuFavorite");
 
-        /// <summary>
-        /// 즐겨찾기에서 뺀다. 없으면 아무 일도 하지 않는다.
-        ///
-        /// 경로를 본문이 아니라 쿼리로 받는다. DELETE 에 본문을 싣는 것은 프록시·클라이언트마다
-        /// 취급이 달라 게이트웨이를 거치는 이 구조에서는 쿼리가 안전하다.
-        /// </summary>
+        // 즐겨찾기에서 뺀다. 없으면 아무 일도 하지 않는다.
+        //
+        // 경로를 본문이 아니라 쿼리로 받는다. DELETE 에 본문을 싣는 것은 프록시·클라이언트마다
+        // 취급이 달라 게이트웨이를 거치는 이 구조에서는 쿼리가 안전하다.
         group.MapDelete("/", async (
             UserContext? user,
             [FromQuery] string path,
@@ -82,13 +78,10 @@ public static class MenuFavoriteEndpoints
             var list = await service.RemoveFavoriteAsync(user.UserId, path);
             return Results.Ok(ApiResponse<List<MenuFavoriteDto>>.Ok(list, "즐겨찾기에서 제거했습니다."));
         })
-        .WithName("RemoveMenuFavorite")
-        .WithOpenApi();
+        .WithName("RemoveMenuFavorite");
 
-        /// <summary>
-        /// 즐겨찾기 순서를 경로 목록의 순서대로 다시 매긴다.
-        /// 고정탭 관리 화면이 드래그 정렬 결과를 통째로 보낸다.
-        /// </summary>
+        // 즐겨찾기 순서를 경로 목록의 순서대로 다시 매긴다.
+        // 고정탭 관리 화면이 드래그 정렬 결과를 통째로 보낸다.
         group.MapPut("/order", async (
             UserContext? user,
             [FromBody] MenuFavoriteOrderRequest request,
@@ -99,8 +92,7 @@ public static class MenuFavoriteEndpoints
             var list = await service.ReorderFavoritesAsync(user.UserId, request.Paths ?? new List<string>());
             return Results.Ok(ApiResponse<List<MenuFavoriteDto>>.Ok(list, "순서를 저장했습니다."));
         })
-        .WithName("ReorderMenuFavorites")
-        .WithOpenApi();
+        .WithName("ReorderMenuFavorites");
     }
 }
 

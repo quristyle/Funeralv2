@@ -35,8 +35,7 @@ public static class HelpArchiveEndpoints
             var result = await service.GetListAsync(user.UserId, keyword, category);
             return Results.Ok(ApiResponse<HelpArchiveListDto>.Ok(result));
         })
-        .WithName("GetHelpArchives")
-        .WithOpenApi();
+        .WithName("GetHelpArchives");
 
         group.MapGet("/{id}", async (string id, UserContext? user,
             [FromServices] IHelpArchiveService service) =>
@@ -48,8 +47,7 @@ public static class HelpArchiveEndpoints
                 ? Results.NotFound(ApiResponse<HelpArchiveDto>.Fail("NOT_FOUND", "자료를 찾을 수 없습니다."))
                 : Results.Ok(ApiResponse<HelpArchiveDto>.Ok(archive));
         })
-        .WithName("GetHelpArchiveById")
-        .WithOpenApi();
+        .WithName("GetHelpArchiveById");
 
         // ── 내려받기 ────────────────────────────────────────────
         //
@@ -68,8 +66,7 @@ public static class HelpArchiveEndpoints
                 ? Results.NotFound(ApiResponse<bool>.Fail("NOT_FOUND", "파일을 찾을 수 없습니다."))
                 : Results.Redirect(url);
         })
-        .WithName("DownloadHelpArchiveFile")
-        .WithOpenApi();
+        .WithName("DownloadHelpArchiveFile");
 
         group.MapPost("/", async ([FromBody] SaveHelpArchiveDto request, UserContext? user,
             [FromServices] IHelpArchiveService service) =>
@@ -87,8 +84,7 @@ public static class HelpArchiveEndpoints
                     statusCode: StatusCodes.Status403Forbidden)
                 : Results.Ok(ApiResponse<HelpArchiveDto>.Ok(archive));
         })
-        .WithName("CreateHelpArchive")
-        .WithOpenApi();
+        .WithName("CreateHelpArchive");
 
         group.MapPut("/{id}", async (string id, [FromBody] SaveHelpArchiveDto request,
             UserContext? user, [FromServices] IHelpArchiveService service) =>
@@ -109,8 +105,7 @@ public static class HelpArchiveEndpoints
                 _ => Results.NotFound(ApiResponse<bool>.Fail("NOT_FOUND", "자료를 찾을 수 없습니다."))
             };
         })
-        .WithName("UpdateHelpArchive")
-        .WithOpenApi();
+        .WithName("UpdateHelpArchive");
 
         group.MapDelete("/{id}", async (string id, UserContext? user,
             [FromServices] IHelpArchiveService service) =>
@@ -127,7 +122,6 @@ public static class HelpArchiveEndpoints
                 _ => Results.NotFound(ApiResponse<bool>.Fail("NOT_FOUND", "자료를 찾을 수 없습니다."))
             };
         })
-        .WithName("DeleteHelpArchive")
-        .WithOpenApi();
+        .WithName("DeleteHelpArchive");
     }
 }

@@ -18,15 +18,13 @@ public static class TimezoneEndpoints
             var timezone = await timezoneService.GetCurrentTimezoneAsync(user.UserId);
             return Results.Ok(ApiResponse<string>.Ok(timezone));
         })
-        .WithName("GetTimezone")
-        .WithOpenApi();
+        .WithName("GetTimezone");
 
         group.MapGet("/getTimezoneOptions", async ([FromServices] ITimezoneService timezoneService) =>
         {
             var options = await timezoneService.GetTimezoneOptionsAsync();
             return Results.Ok(ApiResponse<List<TimezoneOptionDto>>.Ok(options));
         })
-        .WithName("GetTimezoneOptions")
-        .WithOpenApi();
+        .WithName("GetTimezoneOptions");
     }
 }

@@ -34,8 +34,7 @@ public static class NoticeEndpoints
             var notices = await service.GetPopupAsync(publicOnly: true);
             return Results.Ok(ApiResponse<List<NoticeDto>>.Ok(notices));
         })
-        .WithName("GetPublicPopupNotices")
-        .WithOpenApi();
+        .WithName("GetPublicPopupNotices");
 
         // 로그인한 사용자용. 공개 공지까지 함께 내려준다.
         group.MapGet("/popup", async (UserContext? user, [FromServices] INoticeService service) =>
@@ -44,8 +43,7 @@ public static class NoticeEndpoints
             var notices = await service.GetPopupAsync(publicOnly: false);
             return Results.Ok(ApiResponse<List<NoticeDto>>.Ok(notices));
         })
-        .WithName("GetPopupNotices")
-        .WithOpenApi();
+        .WithName("GetPopupNotices");
 
         // ── 관리 ───────────────────────────────────────────────
 
@@ -56,8 +54,7 @@ public static class NoticeEndpoints
             var notices = await service.GetAllAsync(keyword);
             return Results.Ok(ApiResponse<List<NoticeDto>>.Ok(notices));
         })
-        .WithName("GetNotices")
-        .WithOpenApi();
+        .WithName("GetNotices");
 
         group.MapGet("/{id}", async (string id, UserContext? user,
             [FromServices] INoticeService service) =>
@@ -68,8 +65,7 @@ public static class NoticeEndpoints
                 ? Results.NotFound(ApiResponse<NoticeDto>.Fail("NOT_FOUND", "공지를 찾을 수 없습니다."))
                 : Results.Ok(ApiResponse<NoticeDto>.Ok(notice));
         })
-        .WithName("GetNoticeById")
-        .WithOpenApi();
+        .WithName("GetNoticeById");
 
         group.MapPost("/", async ([FromBody] SaveNoticeDto request, UserContext? user,
             [FromServices] INoticeService service) =>
@@ -83,8 +79,7 @@ public static class NoticeEndpoints
             var notice = await service.CreateAsync(request, user.UserId);
             return Results.Ok(ApiResponse<NoticeDto>.Ok(notice));
         })
-        .WithName("CreateNotice")
-        .WithOpenApi();
+        .WithName("CreateNotice");
 
         group.MapPut("/{id}", async (string id, [FromBody] SaveNoticeDto request,
             UserContext? user, [FromServices] INoticeService service) =>
@@ -100,8 +95,7 @@ public static class NoticeEndpoints
                 ? Results.Ok(ApiResponse<bool>.Ok(true))
                 : Results.NotFound(ApiResponse<bool>.Fail("NOT_FOUND", "공지를 찾을 수 없습니다."));
         })
-        .WithName("UpdateNotice")
-        .WithOpenApi();
+        .WithName("UpdateNotice");
 
         group.MapDelete("/{id}", async (string id, UserContext? user,
             [FromServices] INoticeService service) =>
@@ -112,7 +106,6 @@ public static class NoticeEndpoints
                 ? Results.Ok(ApiResponse<bool>.Ok(true))
                 : Results.NotFound(ApiResponse<bool>.Fail("NOT_FOUND", "공지를 찾을 수 없습니다."));
         })
-        .WithName("DeleteNotice")
-        .WithOpenApi();
+        .WithName("DeleteNotice");
     }
 }

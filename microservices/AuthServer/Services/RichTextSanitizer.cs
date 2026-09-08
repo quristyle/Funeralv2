@@ -303,6 +303,9 @@ public static class RichTextSanitizer
     private static void Unwrap(HtmlNode node)
     {
         var parent = node.ParentNode;
+        // 문서에서 이미 떨어져 나온 마디는 옮길 자리가 없다. 자식을 버리고 끝낸다.
+        if (parent is null) return;
+
         foreach (var child in node.ChildNodes.ToList())
         {
             parent.InsertBefore(child, node);

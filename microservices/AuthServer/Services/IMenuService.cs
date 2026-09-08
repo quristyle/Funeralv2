@@ -10,7 +10,6 @@ public interface IMenuService
     /// <summary>
     /// 특정 사용자의 권한에 맞는 모든 메뉴 목록을 조회합니다.
     /// </summary>
-    /// <param name="userId">사용자 아이디</param>
     /// <returns>메뉴 DTO 리스트</returns>
     /// <param name="userId">메뉴를 볼 사용자</param>
     /// <param name="locale">

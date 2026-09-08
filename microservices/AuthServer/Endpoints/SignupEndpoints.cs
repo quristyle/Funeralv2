@@ -39,8 +39,7 @@ public static class SignupEndpoints
                     message: "가입 신청을 받았습니다. 관리자 승인 뒤에 로그인하실 수 있습니다."))
                 : Results.BadRequest(ApiResponse<object>.Fail(error ?? "신청을 받지 못했습니다.", "INVALID"));
         })
-        .WithName("RequestSignup")
-        .WithOpenApi();
+        .WithName("RequestSignup");
 
         // ── 승인 처리 (관리자) ───────────────────────────────
         //
@@ -61,8 +60,7 @@ public static class SignupEndpoints
             var pending = await signup.GetPendingAsync(ct);
             return Results.Ok(ApiResponse<List<SignupPendingDto>>.Ok(pending));
         })
-        .WithName("GetPendingSignups")
-        .WithOpenApi();
+        .WithName("GetPendingSignups");
 
         admin.MapPost("/{id}/approve", async (
             string id,
@@ -84,8 +82,7 @@ public static class SignupEndpoints
                 : Results.BadRequest(ApiResponse<object>.Fail(
                     "승인 대기 중인 신청이 아닙니다. 목록을 다시 읽어 주십시오.", "INVALID"));
         })
-        .WithName("ApproveSignup")
-        .WithOpenApi();
+        .WithName("ApproveSignup");
 
         admin.MapPost("/{id}/reject", async (
             string id,
@@ -106,8 +103,7 @@ public static class SignupEndpoints
                 : Results.BadRequest(ApiResponse<object>.Fail(
                     "승인 대기 중인 신청이 아닙니다. 목록을 다시 읽어 주십시오.", "INVALID"));
         })
-        .WithName("RejectSignup")
-        .WithOpenApi();
+        .WithName("RejectSignup");
     }
 
     /// <summary>요청한 곳의 아이피. <c>PasswordResetEndpoints</c> 에 같은 것이 있다.</summary>

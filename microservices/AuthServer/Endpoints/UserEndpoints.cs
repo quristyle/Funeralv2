@@ -27,8 +27,7 @@ public static class UserEndpoints
 
             return Results.Ok(ApiResponse<UserInfoDto>.Ok(userInfo));
         })
-        .WithName("GetUserInfo")
-        .WithOpenApi();
+        .WithName("GetUserInfo");
 
         // 계정 활동 정보. 계정 정보 화면이 쓴다.
         //
@@ -45,8 +44,7 @@ public static class UserEndpoints
             var activity = await loginLog.GetActivityAsync(user.UserId, limit ?? 10);
             return Results.Ok(ApiResponse<AccountActivityDto>.Ok(activity));
         })
-        .WithName("GetAccountActivity")
-        .WithOpenApi();
+        .WithName("GetAccountActivity");
 
         group.MapPost("/profile", async (UserContext? user, [FromBody] UpdateProfileDto request, [FromServices] IUserService userService) =>
         {
@@ -66,8 +64,7 @@ public static class UserEndpoints
 
             return Results.Ok(ApiResponse<object>.Ok(null));
         })
-        .WithName("UpdateProfile")
-        .WithOpenApi();
+        .WithName("UpdateProfile");
 
         group.MapPost("/change-password", async (UserContext? user, [FromBody] ChangePasswordDto request, [FromServices] IUserService userService) =>
         {
@@ -101,8 +98,7 @@ public static class UserEndpoints
 
             return Results.Ok(ApiResponse<object>.Ok(null));
         })
-        .WithName("ChangePassword")
-        .WithOpenApi();
+        .WithName("ChangePassword");
 
         // ── 비밀번호 확인 (잠금화면) ────────────────────────────
         //
@@ -130,8 +126,7 @@ public static class UserEndpoints
             var matched = await userService.VerifyPasswordAsync(user.UserId, request.Password);
             return Results.Ok(ApiResponse<bool>.Ok(matched));
         })
-        .WithName("VerifyPassword")
-        .WithOpenApi();
+        .WithName("VerifyPassword");
 
         // ── 화면 환경설정 (계정별) ──────────────────────────────
         //
@@ -156,8 +151,7 @@ public static class UserEndpoints
                 Payload = payload
             }));
         })
-        .WithName("GetAccountPreferences")
-        .WithOpenApi();
+        .WithName("GetAccountPreferences");
 
         group.MapPut("/preferences", async (UserContext? user, [FromBody] AccountPreferenceDto request, [FromServices] IAccountPreferenceService service) =>
         {
@@ -182,8 +176,7 @@ public static class UserEndpoints
                 _ => Results.Json(ApiResponse<object>.Fail("환경설정 저장에 실패했습니다.", "400"), statusCode: 400),
             };
         })
-        .WithName("SaveAccountPreferences")
-        .WithOpenApi();
+        .WithName("SaveAccountPreferences");
 
         group.MapPost("/settings", async (UserContext? user, [FromBody] UpdateSettingDto request, [FromServices] IUserService userService) =>
         {
@@ -200,7 +193,6 @@ public static class UserEndpoints
 
             return Results.Ok(ApiResponse<object>.Ok(null));
         })
-        .WithName("UpdateSetting")
-        .WithOpenApi();
+        .WithName("UpdateSetting");
     }
 }

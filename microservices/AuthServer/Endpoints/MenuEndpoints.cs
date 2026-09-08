@@ -25,8 +25,7 @@ public static class MenuEndpoints
             var menus = await menuService.GetAllMenusAsync(user.UserId, locale);
             return Results.Ok(ApiResponse<List<MenuDto>>.Ok(menus));
         })
-        .WithName("GetAllMenus")
-        .WithOpenApi();
+        .WithName("GetAllMenus");
         group.MapPost("/move", async ([FromBody] MoveMenuRequest request, [FromServices] IMenuService menuService) =>
         {
             try
@@ -39,8 +38,7 @@ public static class MenuEndpoints
                 return Results.BadRequest(ApiResponse<bool>.Fail("메뉴 이동 실패", "B400", realMessage: ex.Message));
             }
         })
-        .WithName("MoveMenu")
-        .WithOpenApi();
+        .WithName("MoveMenu");
 
         // 로그인한 사용자가 메뉴별로 가진 실제 권한.
         // 화면은 이 값만 보고 버튼(등록·수정·삭제·출력·엑셀 …)을 켜고 끈다.
@@ -50,8 +48,7 @@ public static class MenuEndpoints
             var permissions = await menuService.GetMenuPermissionsAsync(user.UserId);
             return Results.Ok(ApiResponse<List<MenuPermissionDto>>.Ok(permissions));
         })
-        .WithName("GetMenuPermissions")
-        .WithOpenApi();
+        .WithName("GetMenuPermissions");
     }
 }
 

@@ -25,8 +25,7 @@ public static class CompanyEndpoints
             var companies = await companyService.GetAllCompaniesAsync(usageLocation);
             return Results.Ok(companies);
         })
-        .WithName("GetAllCompanies")
-        .WithOpenApi();
+        .WithName("GetAllCompanies");
 
         // 소속 회사가 없는 사용자 조회 (추가 모달용)
         group.MapGet("/eligible-users", async (ICompanyService companyService) =>
@@ -34,8 +33,7 @@ public static class CompanyEndpoints
             var users = await companyService.GetEligibleUsersAsync();
             return Results.Ok(users);
         })
-        .WithName("GetEligibleUsersForCompany")
-        .WithOpenApi();
+        .WithName("GetEligibleUsersForCompany");
 
         // 소속 회사 해제 (일괄)
         group.MapPost("/users/remove", async ([FromBody] List<string> userIds, ICompanyService companyService) =>
@@ -43,8 +41,7 @@ public static class CompanyEndpoints
             var success = await companyService.RemoveUsersFromCompanyAsync(userIds);
             return Results.Ok(success);
         })
-        .WithName("RemoveUsersFromCompany")
-        .WithOpenApi();
+        .WithName("RemoveUsersFromCompany");
 
         // 특정 회사 소속 사용자 목록 조회
         group.MapGet("/{companyId}/users", async (string companyId, ICompanyService companyService) =>
@@ -52,8 +49,7 @@ public static class CompanyEndpoints
             var users = await companyService.GetCompanyUsersAsync(companyId);
             return Results.Ok(users);
         })
-        .WithName("GetCompanyUsers")
-        .WithOpenApi();
+        .WithName("GetCompanyUsers");
 
         // 회사에 사용자 추가 등록 (일괄)
         group.MapPost("/{companyId}/users", async (string companyId, [FromBody] List<string> userIds, ICompanyService companyService) =>
@@ -61,8 +57,7 @@ public static class CompanyEndpoints
             var success = await companyService.AssignUsersToCompanyAsync(companyId, userIds);
             return Results.Ok(success);
         })
-        .WithName("AssignUsersToCompany")
-        .WithOpenApi();
+        .WithName("AssignUsersToCompany");
 
         // 특정 회사 상세 조회
         group.MapGet("/{id}", async (string id, ICompanyService companyService) =>
@@ -72,8 +67,7 @@ public static class CompanyEndpoints
                 ? Results.Ok(company) 
                 : Results.NotFound(ApiResponse<object>.Fail("회사를 찾을 수 없습니다.", "404"));
         })
-        .WithName("GetCompanyById")
-        .WithOpenApi();
+        .WithName("GetCompanyById");
 
         // 회사 등록
         group.MapPost("/", async (CompanyCreateDto createDto, ICompanyService companyService) =>
@@ -81,8 +75,7 @@ public static class CompanyEndpoints
             var result = await companyService.CreateCompanyAsync(createDto);
             return Results.Ok(result);
         })
-        .WithName("CreateCompany")
-        .WithOpenApi();
+        .WithName("CreateCompany");
 
         // 회사 정보 수정
         group.MapPut("/{id}", async (string id, CompanyCreateDto updateDto, ICompanyService companyService) =>
@@ -92,8 +85,7 @@ public static class CompanyEndpoints
                 ? Results.Ok(true) 
                 : Results.NotFound(ApiResponse<object>.Fail("회사를 찾을 수 없습니다.", "404"));
         })
-        .WithName("UpdateCompany")
-        .WithOpenApi();
+        .WithName("UpdateCompany");
 
         // 회사 삭제
         group.MapDelete("/{id}", async (string id, ICompanyService companyService) =>
@@ -103,7 +95,6 @@ public static class CompanyEndpoints
                 ? Results.Ok(true) 
                 : Results.NotFound(ApiResponse<object>.Fail("회사를 찾을 수 없습니다.", "404"));
         })
-        .WithName("DeleteCompany")
-        .WithOpenApi();
+        .WithName("DeleteCompany");
     }
 }

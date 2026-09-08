@@ -24,10 +24,6 @@ public class UserService : IUserService
         _config = config;
     }
 
-    /// <summary>
-    /// 사용자 정보를 조회하고 DTO로 변환하여 반환
-    /// </summary>
-    /// <param name="userIdOrKey">사용자 아이디 또는 고유 키</param>
     /// <summary><c>account_profile_details</c> 의 <c>Watermark</c>. 없으면 켜진 것이다.</summary>
     private const string WatermarkDetail = "Watermark";
 
@@ -73,6 +69,10 @@ public class UserService : IUserService
             "off",
             StringComparison.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// 사용자 정보를 조회하고 DTO로 변환하여 반환
+    /// </summary>
+    /// <param name="userIdOrKey">사용자 아이디 또는 고유 키</param>
     public async Task<UserInfoDto?> GetUserInfoAsync(string userIdOrKey)
     {
         // 아이디 또는 UserId로 계정 조회

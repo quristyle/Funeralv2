@@ -20,7 +20,7 @@ public static class RoleScopeEndpoints
     {
         var group = app.MapGroup("/system/role-scope").WithTags("RoleScope");
 
-        /// <summary>회사 하나의 조직 트리와 각 단계에 걸린 역할.</summary>
+        // 회사 하나의 조직 트리와 각 단계에 걸린 역할.
         group.MapGet("/tree", async ([FromQuery] string companyId, [FromServices] IRoleAssignmentService service) =>
         {
             try
@@ -32,10 +32,9 @@ public static class RoleScopeEndpoints
                 return Results.NotFound(ApiResponse<object>.Fail(ex.Message, "B404"));
             }
         })
-        .WithName("GetRoleScopeTree")
-        .WithOpenApi();
+        .WithName("GetRoleScopeTree");
 
-        /// <summary>대상에 역할을 건다. 이미 걸려 있으면 그대로 둔다.</summary>
+        // 대상에 역할을 건다. 이미 걸려 있으면 그대로 둔다.
         group.MapPost("/assign", async ([FromBody] RoleAssignRequest request, [FromServices] IRoleAssignmentService service) =>
         {
             try
@@ -52,10 +51,9 @@ public static class RoleScopeEndpoints
                 return Results.BadRequest(ApiResponse<bool>.Fail(ex.Message, "B400"));
             }
         })
-        .WithName("AssignRoleScope")
-        .WithOpenApi();
+        .WithName("AssignRoleScope");
 
-        /// <summary>대상에서 역할을 푼다. 걸려 있지 않아도 오류가 아니다.</summary>
+        // 대상에서 역할을 푼다. 걸려 있지 않아도 오류가 아니다.
         group.MapPost("/remove", async ([FromBody] RoleAssignRequest request, [FromServices] IRoleAssignmentService service) =>
         {
             try
@@ -68,37 +66,29 @@ public static class RoleScopeEndpoints
                 return Results.BadRequest(ApiResponse<bool>.Fail(ex.Message, "B400"));
             }
         })
-        .WithName("RemoveRoleScope")
-        .WithOpenApi();
+        .WithName("RemoveRoleScope");
 
-        /// <summary>
-        /// 그 계정에 실제로 적용되는 역할과 그것이 온 단계.
-        /// 화면이 "이 역할은 부서에서 물려받은 것" 이라고 알려 줄 때 쓴다.
-        /// </summary>
+        // 그 계정에 실제로 적용되는 역할과 그것이 온 단계.
+        // 화면이 "이 역할은 부서에서 물려받은 것" 이라고 알려 줄 때 쓴다.
         group.MapGet("/effective", async ([FromQuery] string accountId, [FromServices] IRoleAssignmentService service) =>
         {
             return Results.Ok(ApiResponse<EffectiveRolesDto>.Ok(await service.ResolveEffectiveRolesAsync(accountId)));
         })
-        .WithName("GetEffectiveRoles")
-        .WithOpenApi();
+        .WithName("GetEffectiveRoles");
 
-        /// <summary>
-        /// 검색용 사람 목록. 회사·부서 이름까지 함께 담아 한 줄로 훑을 수 있게 한다.
-        /// </summary>
+        // 검색용 사람 목록. 회사·부서 이름까지 함께 담아 한 줄로 훑을 수 있게 한다.
         group.MapGet("/accounts", async ([FromServices] IRoleAssignmentService service) =>
         {
             return Results.Ok(ApiResponse<List<AccountPickDto>>.Ok(await service.GetAccountPickListAsync()));
         })
-        .WithName("GetRoleScopeAccounts")
-        .WithOpenApi();
+        .WithName("GetRoleScopeAccounts");
 
-        /// <summary>그 계정이 볼 수 있는 메뉴와 볼 수 없는 메뉴.</summary>
+        // 그 계정이 볼 수 있는 메뉴와 볼 수 없는 메뉴.
         group.MapGet("/menus", async ([FromQuery] string accountId, [FromServices] IRoleAssignmentService service) =>
         {
             return Results.Ok(ApiResponse<AccountMenuAccessDto>.Ok(await service.GetMenuAccessAsync(accountId)));
         })
-        .WithName("GetAccountMenuAccess")
-        .WithOpenApi();
+        .WithName("GetAccountMenuAccess");
     }
 
     private static RoleScopeKind ParseKind(string? kind) => kind?.ToLowerInvariant() switch

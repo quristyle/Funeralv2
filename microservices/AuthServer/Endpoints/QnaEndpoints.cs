@@ -37,8 +37,7 @@ public static class QnaEndpoints
 
             return Results.Ok(ApiResponse<QnaListDto>.Ok(result));
         })
-        .WithName("GetQnaList")
-        .WithOpenApi();
+        .WithName("GetQnaList");
 
         // 글 하나가 속한 스레드를 뿌리부터. 답글을 단 뒤 그 스레드만 다시 그릴 때 쓴다.
         group.MapGet("/{id}", async (string id, UserContext? user,
@@ -51,8 +50,7 @@ public static class QnaEndpoints
                 ? Results.NotFound(ApiResponse<QnaPostDto>.Fail("NOT_FOUND", "글을 찾을 수 없습니다."))
                 : Results.Ok(ApiResponse<QnaPostDto>.Ok(thread));
         })
-        .WithName("GetQnaThread")
-        .WithOpenApi();
+        .WithName("GetQnaThread");
 
         // 질문 등록 (parentId 없음) · 답글 등록 (parentId 있음)
         group.MapPost("/", async ([FromBody] CreateQnaPostDto request, UserContext? user,
@@ -76,8 +74,7 @@ public static class QnaEndpoints
                     "NOT_FOUND", "답글을 달 글을 찾을 수 없습니다."))
             };
         })
-        .WithName("CreateQnaPost")
-        .WithOpenApi();
+        .WithName("CreateQnaPost");
 
         // 수정. 본인 글이거나 관리자여야 한다.
         group.MapPut("/{id}", async (string id, [FromBody] UpdateQnaPostDto request,
@@ -88,8 +85,7 @@ public static class QnaEndpoints
             var result = await service.UpdateAsync(user.UserId, id, request);
             return Respond(result, "수정할 권한이 없습니다.");
         })
-        .WithName("UpdateQnaPost")
-        .WithOpenApi();
+        .WithName("UpdateQnaPost");
 
         // 삭제. 답글까지 함께 지운다.
         group.MapDelete("/{id}", async (string id, UserContext? user,
@@ -100,8 +96,7 @@ public static class QnaEndpoints
             var result = await service.DeleteAsync(user.UserId, id);
             return Respond(result, "삭제할 권한이 없습니다.");
         })
-        .WithName("DeleteQnaPost")
-        .WithOpenApi();
+        .WithName("DeleteQnaPost");
 
         // 공개 여부 변경. 관리자만 부를 수 있다.
         group.MapPut("/{id}/visibility", async (string id,
@@ -113,8 +108,7 @@ public static class QnaEndpoints
             var result = await service.SetVisibilityAsync(user.UserId, id, request);
             return Respond(result, "공개 여부를 정할 권한이 없습니다.");
         })
-        .WithName("SetQnaVisibility")
-        .WithOpenApi();
+        .WithName("SetQnaVisibility");
     }
 
     /// <summary>쓰기 결과를 HTTP 응답으로 옮긴다.</summary>

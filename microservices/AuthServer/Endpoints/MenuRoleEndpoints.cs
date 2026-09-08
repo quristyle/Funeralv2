@@ -41,7 +41,6 @@ public static class MenuRoleEndpoints
                 ? Results.NotFound(ApiResponse<MenuRoleDto>.Fail("메뉴를 찾을 수 없습니다.", "NOT_FOUND"))
                 : Results.Ok(ApiResponse<MenuRoleDto>.Ok(result));
         })
-        .WithName("GetMenuRole")
-        .WithOpenApi();
+        .WithName("GetMenuRole");
     }
 }

@@ -48,8 +48,7 @@ public static class PasswordResetEndpoints
                 data: null!,
                 message: "입력하신 정보와 맞는 계정이 있으면 안내 메일을 보냈습니다."));
         })
-        .WithName("RequestPasswordReset")
-        .WithOpenApi();
+        .WithName("RequestPasswordReset");
 
         // ── 링크로 다시 정하기 ───────────────────────────────
         //
@@ -88,8 +87,7 @@ public static class PasswordResetEndpoints
                         "올바르지 않은 링크입니다. 메일의 주소를 그대로 열었는지 확인해 주십시오.", "INVALID")),
             };
         })
-        .WithName("ResetPassword")
-        .WithOpenApi();
+        .WithName("ResetPassword");
     }
 
     /// <summary>
