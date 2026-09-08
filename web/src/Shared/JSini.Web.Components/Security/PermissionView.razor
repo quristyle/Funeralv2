@@ -54,22 +54,10 @@ else
 
     protected override void OnParametersSet()
     {
-        var path = string.IsNullOrWhiteSpace(Path) ? CurrentPath() : Path;
+        // 경로를 꺼내는 규칙은 `PermissionPath` 한 곳에 둔다. 화면이 스스로
+        // 판정해야 하는 자리(끌어 옮기기 따위)가 생겨서 두 벌이 되었고,
+        // 두 벌이 갈리면 감춘 단추와 화면의 판정이 어긋난다.
+        var path = string.IsNullOrWhiteSpace(Path) ? PermissionPath.Current(Navigation) : Path;
         _allowed = Permissions.Can(path, Action);
-    }
-
-    /// <summary>
-    /// 지금 열려 있는 화면의 경로. 쿼리스트링과 호스트는 떼어 낸다 —
-    /// 권한표의 열쇠는 `scom.system_menus.path` 이고 거기에는 그런 것이 없다.
-    /// </summary>
-    private string CurrentPath()
-    {
-        var relative = Navigation.ToBaseRelativePath(Navigation.Uri);
-        var cut = relative.IndexOfAny(['?', '#']);
-        if (cut >= 0)
-        {
-            relative = relative[..cut];
-        }
-        return "/" + relative.TrimStart('/');
     }
 }

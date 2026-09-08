@@ -472,6 +472,18 @@ public sealed class AdminClient(GatewayClient gateway)
         => gateway.DeleteAsync($"auth/system/menu/{id}", ct);
 
     /// <summary>
+    /// 나무에서 끌어 옮긴 결과를 저장한다. <b>바뀐 묶음을 통째로</b> 보낸다 —
+    /// 한 건만 보내면 형제들의 순번을 서버가 짐작해야 한다.
+    ///
+    /// <para>
+    /// 자기 자신이나 자기 하위를 부모로 지정하면 서버가 막는다(순환 검사).
+    /// 화면도 미리 막지만, 마지막 판단은 서버에 있다.
+    /// </para>
+    /// </summary>
+    public Task ReorderSystemMenusAsync(IReadOnlyList<MenuOrderDto> items, CancellationToken ct = default)
+        => gateway.PostAsync("auth/system/menu/reorder", items, ct);
+
+    /// <summary>
     /// 이름이 이미 쓰이고 있는지. 등록 폼이 저장 전에 묻는다.
     ///
     /// <paramref name="excludeId"/> 는 수정할 때 <b>자기 자신을 빼기</b> 위한

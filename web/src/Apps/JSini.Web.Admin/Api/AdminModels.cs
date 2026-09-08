@@ -1177,6 +1177,26 @@ public sealed class MenuPermissionItemsDto
     public bool UseExcel { get; set; } = true;
 }
 
+/// <summary>
+/// 메뉴 한 건의 자리(부모와 순번). 나무에서 끌어 옮긴 결과를 한 번에 저장할 때 쓴다.
+///
+/// <para>
+/// 화면이 <b>확정한 배치</b>를 그대로 보낸다 — 서버가 다시 계산하지 않는다.
+/// 형제 하나가 움직이면 그 묶음 전체의 순번이 바뀌므로, 한 건만 보내면
+/// 서버가 나머지를 어떻게 밀지 짐작해야 하고 그 짐작이 화면과 어긋난다.
+/// </para>
+/// </summary>
+public sealed class MenuOrderDto
+{
+    public string Id { get; set; } = string.Empty;
+
+    /// <summary>새 부모. 최상위는 <c>null</c>.</summary>
+    public string? Pid { get; set; }
+
+    /// <summary>형제 안에서의 순번. 0 부터.</summary>
+    public int OrderNo { get; set; }
+}
+
 /// <summary>메뉴 등록·수정.</summary>
 public sealed class SaveSystemMenuDto
 {
