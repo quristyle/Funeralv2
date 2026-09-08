@@ -64,9 +64,12 @@
     <PackageVersion Include="Piral.Blazor.Shared" Version="1.0.0" />
     <PackageVersion Include="Piral.Blazor.Core" Version="10.0.19" />
     <PackageVersion Include="Piral.Blazor.Utils" Version="10.0.19" />
-    <!-- Piral.Blazor.Orchestrator 가 끌고 오는 NuGet 6.8.1 전이 의존성 보안 패치 -->
-    <PackageVersion Include="NuGet.Packaging" Version="6.12.1" />
-    <PackageVersion Include="NuGet.Protocol" Version="6.12.1" />
+    <!-- Piral.Blazor.Orchestrator 가 끌고 오는 NuGet 6.8.1 전이 의존성 보안 패치.
+         6.12.1 에도 GHSA-g4vj-cjjj-v7hg 가 걸려(패치 범위 [6.12.0, 6.12.4]) NU1901 이 떴다.
+         6.x 안에서 알려진 권고가 하나도 없는 가장 높은 판이 6.14.3 이다 —
+         Orchestrator 가 NuGet 6.x API 를 쓰므로 7.x 로는 올리지 않는다. -->
+    <PackageVersion Include="NuGet.Packaging" Version="6.14.3" />
+    <PackageVersion Include="NuGet.Protocol" Version="6.14.3" />
 
     <!-- ── 셸의 역방향 프록시 ─────────────────────────────────────
          셸이 경로 접두사로 업무 MFE 에 넘긴다. ApiGateway 와 같은 버전을 쓴다 —
