@@ -104,8 +104,8 @@
     </CommGrd>
 </CommCont>
 
-<DxPopup @bind-Visible="_editing" HeaderText="@(_form.WbsRid == 0 ? "작업 등록" : "작업 수정")"
-         Width="640px" ShowFooter="false">
+<CommPopup @bind-Visible="_editing" HeaderText="@(_form.WbsRid == 0 ? "작업 등록" : "작업 수정")"
+         Width="640px">
     <BodyContentTemplate Context="popup">
         <DxFormLayout>
             <DxFormLayoutItem Caption="작업" ColSpanMd="8">
@@ -147,13 +147,14 @@
             </DxFormLayoutItem>
         </DxFormLayout>
 
-        <div class="jsini-toolbar">
-            <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Primary" Click="@SaveAsync" />
-            <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary"
-                      Click="@(() => _editing = false)" />
-        </div>
     </BodyContentTemplate>
-</DxPopup>
+
+    <FooterContentTemplate>
+        <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Primary" Click="@SaveAsync" />
+        <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary"
+                  Click="@(() => _editing = false)" />
+    </FooterContentTemplate>
+</CommPopup>
 
 @code {
     private static readonly string[] Statuses = ["Pending", "InProgress", "Completed", "Hold"];

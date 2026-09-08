@@ -73,7 +73,7 @@
     </Second>
 </SplitPane>
 
-<DxPopup @bind-Visible="_confirmRecollect" HeaderText="Glue 정의 재수집" Width="480px">
+<CommPopup @bind-Visible="_confirmRecollect" HeaderText="Glue 정의 재수집" Width="480px">
     <BodyContentTemplate Context="popup">
         <p>
             서버가 등록된 소스 경로를 다시 훑어 <b>이 소스의 Glue 자료를 덮어씁니다.</b>
@@ -83,13 +83,14 @@
             서버 장비에 그 경로가 없으면 아무것도 바꾸지 않고 이유를 알려 줍니다.
         </p>
 
-        <div class="jsini-toolbar">
-            <DxButton Text="재수집" RenderStyle="ButtonRenderStyle.Danger" Click="@RecollectAsync" />
-            <DxButton Text="취소" RenderStyle="ButtonRenderStyle.Secondary"
-                      Click="@(() => _confirmRecollect = false)" />
-        </div>
     </BodyContentTemplate>
-</DxPopup>
+
+    <FooterContentTemplate>
+        <DxButton Text="재수집" RenderStyle="ButtonRenderStyle.Danger" Click="@RecollectAsync" />
+        <DxButton Text="취소" RenderStyle="ButtonRenderStyle.Secondary"
+                  Click="@(() => _confirmRecollect = false)" />
+    </FooterContentTemplate>
+</CommPopup>
 
 @code {
     private ProcGrid _grid = default!;

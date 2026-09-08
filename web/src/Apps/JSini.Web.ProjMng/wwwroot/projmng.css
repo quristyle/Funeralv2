@@ -65,15 +65,49 @@
 
    남은 높이를 다 차지해야 모니터가 읽힌다. 높이를 안 정하면 iframe 은
    기본값 150px 로 나오고, 화면은 「서버가 아무것도 안 보내는 것」처럼 보인다.
+
+   [바깥 여백을 숫자로 세지 않는다]
+
+   `calc(100vh - 56px - 10rem)` 으로 재던 자리다. 그 `10rem` 은 머리줄 ·
+   탭 줄 · 길잡이 · 안내 줄 · 본문 여백을 **눈대중으로 합친 값**이라
+   맞을 이유가 없었고, 실제로 틀렸다 — 장례 프레임 모니터는 안내 줄이
+   두 칸짜리(글 + 단추)라 서버 모니터보다 높은데 두 화면이 같은 값을
+   빼고 있어서 **iframe 이 58px 넘쳐 쪽에 세로 막대가 생겼다.**
+
+   본문 칸을 세로 flex 로 세우고 iframe 에 남은 높이를 준다. 안내 줄이
+   몇 줄이 되든, 탭 줄이 생기든 없어지든 화면은 그것을 몰라도 된다.
+   `CommCont` 가 표에 쓰는 것과 같은 수(`app.css` 의 「본문 높이를 꽉
+   채운다」)이고, `:has()` 로 **이 두 화면에만** 건다.
    ---------------------------------------------------------- */
 
 .pm-frame {
   width: 100%;
+
+  /* :has() 를 모르는 브라우저를 위한 옛 값. 아래 규칙이 이기면 안 쓰인다. */
   height: calc(100vh - 56px - 10rem);
+
+  /* 창이 아주 낮을 때의 바닥. 이때는 막대가 생기는 것이 맞다 —
+     그 자리에서 더 줄이면 그래프를 읽을 수 없다. */
   min-height: 360px;
+
   border: 1px solid var(--jsini-border, #e3e5e8);
   border-radius: 8px;
   background: #fff;
+}
+
+.jsini-shell__content:has(> .pm-frame) {
+  display: flex;
+  flex-direction: column;
+}
+
+/* 안내 줄은 제 높이만큼만. 없으면 iframe 에 자리를 뺏겨 글이 눌린다. */
+.jsini-shell__content:has(> .pm-frame) > *:not(.pm-frame) {
+  flex: none;
+}
+
+.jsini-shell__content:has(> .pm-frame) > .pm-frame {
+  flex: 1;
+  height: auto;
 }
 
 /* SQL 편집기와 아래 결과 표 사이. 붙어 있으면 편집기 테두리와 표 머리가

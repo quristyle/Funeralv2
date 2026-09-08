@@ -129,8 +129,8 @@
     </CommCont>
 </div>
 
-<DxPopup @bind-Visible="_editingModel" HeaderText="@(_model.Id == 0 ? "모델 등록" : "모델 수정")"
-         Width="460px" ShowFooter="false">
+<CommPopup @bind-Visible="_editingModel" HeaderText="@(_model.Id == 0 ? "모델 등록" : "모델 수정")"
+         Width="460px">
     <BodyContentTemplate Context="popup">
         <DxFormLayout>
             <DxFormLayoutItem Caption="모델" ColSpanMd="12">
@@ -143,16 +143,17 @@
             </DxFormLayoutItem>
         </DxFormLayout>
 
-        <div class="jsini-toolbar">
-            <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Primary" Click="@SaveModelAsync" />
-            <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary"
-                      Click="@(() => _editingModel = false)" />
-        </div>
     </BodyContentTemplate>
-</DxPopup>
 
-<DxPopup @bind-Visible="_editingItem" HeaderText="@(_item.Id == 0 ? "규칙 추가" : "규칙 수정")"
-         Width="560px" ShowFooter="false">
+    <FooterContentTemplate>
+        <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Primary" Click="@SaveModelAsync" />
+        <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary"
+                  Click="@(() => _editingModel = false)" />
+    </FooterContentTemplate>
+</CommPopup>
+
+<CommPopup @bind-Visible="_editingItem" HeaderText="@(_item.Id == 0 ? "규칙 추가" : "규칙 수정")"
+         Width="560px">
     <BodyContentTemplate Context="popup">
         <DxFormLayout>
             <DxFormLayoutItem Caption="설명" ColSpanMd="12">
@@ -182,13 +183,14 @@
             </DxFormLayoutItem>
         </DxFormLayout>
 
-        <div class="jsini-toolbar">
-            <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Primary" Click="@SaveItemAsync" />
-            <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary"
-                      Click="@(() => _editingItem = false)" />
-        </div>
     </BodyContentTemplate>
-</DxPopup>
+
+    <FooterContentTemplate>
+        <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Primary" Click="@SaveItemAsync" />
+        <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary"
+                  Click="@(() => _editingItem = false)" />
+    </FooterContentTemplate>
+</CommPopup>
 
 @code {
     private static readonly string[] PTypes = ["R", "S"];

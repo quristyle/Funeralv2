@@ -85,7 +85,7 @@
 
 <AutoGrid Data="@_rows" Loading="@Loading" PageSize="30" />
 
-<DxPopup @bind-Visible="_savingSample" HeaderText="전문 보관" Width="420px" ShowFooter="false">
+<CommPopup @bind-Visible="_savingSample" HeaderText="전문 보관" Width="420px">
     <BodyContentTemplate Context="popup">
         <div class="jsini-hint">
             @(_sampleId is null
@@ -95,13 +95,14 @@
 
         <DxTextBox @bind-Text="_sampleTitle" NullText="전문 이름" />
 
-        <div class="jsini-actions">
-            <DxButton Text="보관" RenderStyle="ButtonRenderStyle.Primary" Click="@SaveSampleAsync" />
-            <DxButton Text="취소" RenderStyle="ButtonRenderStyle.Secondary"
-                      Click="@(() => _savingSample = false)" />
-        </div>
     </BodyContentTemplate>
-</DxPopup>
+
+    <FooterContentTemplate>
+        <DxButton Text="보관" RenderStyle="ButtonRenderStyle.Primary" Click="@SaveSampleAsync" />
+        <DxButton Text="취소" RenderStyle="ButtonRenderStyle.Secondary"
+                  Click="@(() => _savingSample = false)" />
+    </FooterContentTemplate>
+</CommPopup>
 
 @code {
     private string? _raw;

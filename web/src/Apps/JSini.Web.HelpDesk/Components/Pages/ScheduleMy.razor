@@ -132,8 +132,8 @@
     </DxTabPage>
 </DxTabs>
 
-<DxPopup @bind-Visible="_editing" HeaderText="@(_form.Id is null ? "일정 등록" : "일정 수정")"
-         Width="560px" ShowFooter="false">
+<CommPopup @bind-Visible="_editing" HeaderText="@(_form.Id is null ? "일정 등록" : "일정 수정")"
+         Width="560px">
     <BodyContentTemplate Context="popup">
         <DxFormLayout>
             <DxFormLayoutItem Caption="일정" ColSpanMd="12">
@@ -162,21 +162,22 @@
             </DxFormLayoutItem>
         </DxFormLayout>
 
-        <div class="jsini-toolbar">
-            <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Primary" Click="@SaveAsync" />
-
-            @if (_form.Id is not null)
-            {
-                <PermissionView Action="MenuAction.Delete">
-                    <DxButton Text="삭제" RenderStyle="ButtonRenderStyle.Secondary" Click="@DeleteAsync" />
-                </PermissionView>
-            }
-
-            <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary"
-                      Click="@(() => _editing = false)" />
-        </div>
     </BodyContentTemplate>
-</DxPopup>
+
+    <FooterContentTemplate>
+        <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Primary" Click="@SaveAsync" />
+
+        @if (_form.Id is not null)
+        {
+            <PermissionView Action="MenuAction.Delete">
+                <DxButton Text="삭제" RenderStyle="ButtonRenderStyle.Secondary" Click="@DeleteAsync" />
+            </PermissionView>
+        }
+
+        <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary"
+                  Click="@(() => _editing = false)" />
+    </FooterContentTemplate>
+</CommPopup>
 
 @code {
     private sealed record Option(string Code, string Name);
