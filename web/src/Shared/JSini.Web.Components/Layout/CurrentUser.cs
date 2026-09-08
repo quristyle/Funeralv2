@@ -63,6 +63,23 @@ public sealed partial class CurrentUser(GatewayClient gateway, ILogger<CurrentUs
     public string? Affiliation { get; private set; }
 
     /// <summary>
+    /// 권한 그룹. 헤더의 로고 옆에 선다.
+    ///
+    /// <para>
+    /// <b>서버가 이미 내려주고 있었다</b>(<c>/auth/user/info</c> 의
+    /// <c>roleNames</c>). 식별자(<c>SYSTEM_ADMINISTRATOR</c>)가 아니라 사람이
+    /// 읽는 이름(<c>시스템관리자</c>)이다 — 회사·부서·사람 세 단계에서 온
+    /// 것이 합쳐진 결과라, 화면이 다시 셀 필요가 없다.
+    /// </para>
+    ///
+    /// <para>
+    /// 여럿일 수 있다. 헤더는 좁으므로 이어 붙여 한 줄로 두고 넘치는 것은
+    /// CSS 가 자른다. 잘린 것은 <c>title</c> 로 보여 준다.
+    /// </para>
+    /// </summary>
+    public string? RoleText { get; private set; }
+
+    /// <summary>
     /// 사진 주소. <b>우리 파일일 때만 값이 있다</b> — 없으면 <see cref="Initial"/> 을 그린다.
     /// </summary>
     public string? AvatarUrl { get; private set; }
@@ -118,6 +135,9 @@ public sealed partial class CurrentUser(GatewayClient gateway, ILogger<CurrentUs
             DisplayName = string.IsNullOrWhiteSpace(info.RealName) ? info.Username : info.RealName;
             Username = info.Username;
             Affiliation = Join(info.CompanyName, info.DeptName);
+            RoleText = info.RoleNames is { Count: > 0 } names
+                ? string.Join(" · ", names.Where(n => !string.IsNullOrWhiteSpace(n)))
+                : null;
             AvatarUrl = OwnFileUrl(info.Avatar);
             IsLoaded = true;
         }
@@ -209,5 +229,8 @@ public sealed partial class CurrentUser(GatewayClient gateway, ILogger<CurrentUs
         public string? CompanyName { get; set; }
         public string? DeptName { get; set; }
         public string? Avatar { get; set; }
+
+        /// <summary>권한 그룹의 <b>사람이 읽는 이름</b>. 식별자는 <c>Roles</c> 쪽이다.</summary>
+        public List<string>? RoleNames { get; set; }
     }
 }

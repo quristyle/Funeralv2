@@ -218,6 +218,18 @@ body {
   height: 32px;
 }
 
+/* ── 브랜드 심볼 (BrandMark) ──────────────────────────────────
+
+   두 획의 색을 테마 토큰으로 준다. 어두운 테마에서는 두 값이 함께 뒤집혀
+   **고르는 일 없이** 따라온다 — 옛 Vue 부품이 밝은 것과 녹아웃 두 벌을
+   들고 있던 자리다. */
+.jsini-brand-mark { display: block; }
+
+/* J 가 본문 글자색, S 가 옅은 색이다. 둘을 같은 색으로 두면 겹친 자리가
+   한 덩어리로 뭉개져 「JS」 로 읽히지 않는다. */
+.jsini-brand-mark__j { fill: var(--jsini-text); }
+.jsini-brand-mark__s { fill: var(--jsini-text-muted); }
+
 /* 로고와 글자 사이의 세로 선. 데모의 `.logo-sep` 과 같다. */
 .jsini-header__sep {
   width: 1px;
@@ -226,9 +238,17 @@ body {
   opacity: 0.15;
 }
 
+/* 로고 옆의 권한 그룹. 역할이 둘이면 「시스템관리자 · 프로젝트관리 관리자」
+   처럼 길어져서 헤더의 다른 것들을 밀어낸다. 자르고 `title` 로 남긴다.
+
+   글자를 벌리지 않는다(`letter-spacing`). 「JSINI」 를 적던 자리라 벌려
+   두었는데, 사람이 읽는 이름에 그것을 걸면 한글 자모가 성기게 보인다. */
 .jsini-header__brand-text {
   font-weight: 600;
-  letter-spacing: 0.06em;
+  max-width: 16rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .jsini-header__spacer { flex: 1; }

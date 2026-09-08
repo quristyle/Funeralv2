@@ -62,12 +62,23 @@
         </span>
 
         <a class="jsini-header__brand" href="/">
-            @* 지문이 붙은 주소로 나간다 — 안 붙으면 화면을 열 때마다 304 왕복이다.
-               왜 그런지는 JSiniHead 머리말에 있다. *@
-            <img class="jsini-header__logo"
-                 src="@Assets["_content/JSini.Web.Components/brand/app-icon.svg"]" alt="" />
-            <span class="jsini-header__sep" aria-hidden="true"></span>
-            <span class="jsini-header__brand-text">JSINI</span>
+            @* 심볼을 인라인으로 그린다(`BrandMark`). 파일로 두면 밝은 테마와
+               어두운 테마에 두 장이 필요하고 화면이 골라 써야 한다 — 옛 Vue
+               부품이 같은 이유로 인라인이었다. *@
+            <BrandMark />
+
+            @* 로고 옆은 **로그인한 사람의 권한 그룹**이다. 「JSINI」 라고 적혀
+               있었는데, 로고가 이미 그 말을 하고 있어서 같은 글자가 두 번
+               있었다. 지금 무슨 권한으로 보고 있는지가 그 자리에 훨씬 값있다 —
+               권한이 화면과 단추를 가르는 포털이라 특히 그렇다.
+
+               못 읽었으면(아직 안 실렸거나 역할이 없으면) 선까지 함께 감춘다.
+               선만 남으면 무엇이 빠진 것처럼 보인다. *@
+            @if (Me.RoleText is { Length: > 0 } roles)
+            {
+                <span class="jsini-header__sep" aria-hidden="true"></span>
+                <span class="jsini-header__brand-text" title="@roles">@roles</span>
+            }
         </a>
 
         <div class="jsini-header__spacer"></div>
@@ -130,7 +141,14 @@
     {
         Menus.MenusChanged += OnMenusChanged;
         Navigation.LocationChanged += OnLocationChanged;
+
+        // 헤더의 권한 그룹이 이 값으로 그려진다. 내 정보는 부트스트랩이
+        // 끝나야 실리므로, 안 듣고 있으면 **그다음 렌더가 올 때까지 비어
+        // 있다** — 메뉴를 한 번 누르기 전에는 로고 옆이 빈 채로 남는다.
+        Me.Changed += OnMeChanged;
     }
+
+    private void OnMeChanged() => InvokeAsync(StateHasChanged);
 
     /// <summary>
     /// **토큰이 먼저다.** 게이트웨이를 부르려면 있어야 하고, 이 값은
@@ -320,5 +338,6 @@
     {
         Menus.MenusChanged -= OnMenusChanged;
         Navigation.LocationChanged -= OnLocationChanged;
+        Me.Changed -= OnMeChanged;
     }
 }
