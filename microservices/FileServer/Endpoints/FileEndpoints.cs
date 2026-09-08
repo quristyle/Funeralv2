@@ -112,7 +112,6 @@ public static class FileEndpoints
             }
         })
         .WithName("UploadFile")
-        .WithOpenApi()
         .DisableAntiforgery();
 
         // 2. 파일 다운로드
@@ -161,8 +160,7 @@ public static class FileEndpoints
             }
         })
         .WithName("DownloadFile")
-        .AddEndpointFilter<PublicFileAccessFilter>()
-        .WithOpenApi();
+        .AddEndpointFilter<PublicFileAccessFilter>();
 
         // 2-1. 파일 아이디로 다운로드
         group.MapGet("/download/id/{id:guid}", async Task<IResult> (Guid id, [FromServices] IFileService fileService, [FromServices] Microsoft.Extensions.Configuration.IConfiguration configuration) =>
@@ -187,8 +185,7 @@ public static class FileEndpoints
             }
         })
         .WithName("DownloadFileById")
-        .AddEndpointFilter<PublicFileAccessFilter>()
-        .WithOpenApi();
+        .AddEndpointFilter<PublicFileAccessFilter>();
 
         // 3. 이미지 썸네일 조회 (기본 150x150)
         group.MapGet("/thumbnail/{id:guid}", async Task<IResult> (Guid id, [FromServices] IFileService fileService, [FromServices] Microsoft.Extensions.Configuration.IConfiguration configuration) =>
@@ -217,8 +214,7 @@ public static class FileEndpoints
             }
         })
         .WithName("GetThumbnail")
-        .AddEndpointFilter<PublicFileAccessFilter>()
-        .WithOpenApi();
+        .AddEndpointFilter<PublicFileAccessFilter>();
 
         // 3-1. 이미지 중간 크기 조회 (기본 600x600)
         group.MapGet("/medium/{id:guid}", async Task<IResult> (Guid id, [FromServices] IFileService fileService, [FromServices] Microsoft.Extensions.Configuration.IConfiguration configuration) =>
@@ -247,8 +243,7 @@ public static class FileEndpoints
             }
         })
         .WithName("GetMediumImage")
-        .AddEndpointFilter<PublicFileAccessFilter>()
-        .WithOpenApi();
+        .AddEndpointFilter<PublicFileAccessFilter>();
 
         // 3-2. 이미지 큰 크기 조회 (기본 1200x1200)
         group.MapGet("/large/{id:guid}", async Task<IResult> (Guid id, [FromServices] IFileService fileService, [FromServices] Microsoft.Extensions.Configuration.IConfiguration configuration) =>
@@ -277,8 +272,7 @@ public static class FileEndpoints
             }
         })
         .WithName("GetLargeImage")
-        .AddEndpointFilter<PublicFileAccessFilter>()
-        .WithOpenApi();
+        .AddEndpointFilter<PublicFileAccessFilter>();
 
         // 4. 이미지 크기 조정 후 조회
         group.MapGet("/resize/{id:guid}", async Task<IResult> (Guid id, [FromQuery] int width, [FromQuery] int height, [FromServices] IFileService fileService, [FromServices] Microsoft.Extensions.Configuration.IConfiguration configuration) =>
@@ -312,8 +306,7 @@ public static class FileEndpoints
             }
         })
         .WithName("GetResizedImage")
-        .AddEndpointFilter<PublicFileAccessFilter>()
-        .WithOpenApi();
+        .AddEndpointFilter<PublicFileAccessFilter>();
 
         // 5. 파일 메타데이터 조회
         group.MapGet("/metadata/{id:guid}", async Task<IResult> (Guid id, [FromServices] IFileService fileService) =>
@@ -344,8 +337,7 @@ public static class FileEndpoints
             }
         })
         .WithName("GetFileMetadata")
-        .AddEndpointFilter<PublicFileAccessFilter>()
-        .WithOpenApi();
+        .AddEndpointFilter<PublicFileAccessFilter>();
 
         // 5-1. 익명 열람 허용 여부 변경
         //
@@ -384,8 +376,7 @@ public static class FileEndpoints
                     statusCode: StatusCodes.Status500InternalServerError);
             }
         })
-        .WithName("SetFilePublic")
-        .WithOpenApi();
+        .WithName("SetFilePublic");
 
         // 6. 파일 삭제
         group.MapDelete("/{id:guid}", async Task<IResult> (Guid id, [FromServices] IFileService fileService) =>
@@ -405,8 +396,7 @@ public static class FileEndpoints
                 return Results.Json(ApiResponse<object>.Fail("ERR_DELETE_FAILED", ex.Message), statusCode: StatusCodes.Status500InternalServerError);
             }
         })
-        .WithName("DeleteFile")
-        .WithOpenApi();
+        .WithName("DeleteFile");
 
         // 7. 파일 그룹 내 다중 파일 업로드
         group.MapPost("/group/upload", async Task<IResult> (
@@ -475,7 +465,6 @@ public static class FileEndpoints
             }
         })
         .WithName("UploadGroupFiles")
-        .WithOpenApi()
         .DisableAntiforgery();
 
         // 8. 파일 그룹 내 대표 파일 지정
@@ -498,8 +487,7 @@ public static class FileEndpoints
                 return Results.Json(ApiResponse<object>.Fail("ERR_SET_REPRESENTATIVE_FAILED", ex.Message), statusCode: StatusCodes.Status500InternalServerError);
             }
         })
-        .WithName("SetRepresentativeFile")
-        .WithOpenApi();
+        .WithName("SetRepresentativeFile");
 
         // 9. 파일 그룹 내 파일 목록 조회
         group.MapGet("/group/{groupId:guid}", async Task<IResult> (
@@ -527,8 +515,7 @@ public static class FileEndpoints
                 return Results.Json(ApiResponse<object>.Fail("ERR_GET_GROUP_FILES_FAILED", ex.Message), statusCode: StatusCodes.Status500InternalServerError);
             }
         })
-        .WithName("GetGroupFiles")
-        .WithOpenApi();
+        .WithName("GetGroupFiles");
 
         // 10. 미디어 트랜스코딩 트리거 API (비디오 및 오디오 공용)
         group.MapPost("/transcode/{id:guid}", async Task<IResult> (Guid id, [FromServices] IFileService fileService) =>
@@ -579,8 +566,7 @@ public static class FileEndpoints
                 return Results.Json(ApiResponse<object>.Fail("ERR_TRANSCODE_TRIGGER_FAILED", ex.Message), statusCode: StatusCodes.Status500InternalServerError);
             }
         })
-        .WithName("TriggerMediaTranscoding")
-        .WithOpenApi();
+        .WithName("TriggerMediaTranscoding");
 
         // 10-1. 썸네일 단독 재추출 API
         group.MapPost("/transcode/thumbnail/{id:guid}", async Task<IResult> (Guid id, [FromServices] IFileService fileService) =>
@@ -595,8 +581,7 @@ public static class FileEndpoints
                 return Results.Json(ApiResponse<object>.Fail("ERR_THUMBNAIL_TRIGGER_FAILED", ex.Message), statusCode: StatusCodes.Status500InternalServerError);
             }
         })
-        .WithName("TriggerThumbnailExtraction")
-        .WithOpenApi();
+        .WithName("TriggerThumbnailExtraction");
 
         // 10-2. WebM 단독 재변환 API
         group.MapPost("/transcode/webm/{id:guid}", async Task<IResult> (Guid id, [FromServices] IFileService fileService) =>
@@ -611,8 +596,7 @@ public static class FileEndpoints
                 return Results.Json(ApiResponse<object>.Fail("ERR_WEBM_TRIGGER_FAILED", ex.Message), statusCode: StatusCodes.Status500InternalServerError);
             }
         })
-        .WithName("TriggerWebmTranscoding")
-        .WithOpenApi();
+        .WithName("TriggerWebmTranscoding");
 
         // 10-3. Audio 단독 인코딩 API (앨범아트 추출 생략)
         group.MapPost("/transcode/audio-only/{id:guid}", async Task<IResult> (Guid id, [FromServices] IFileService fileService) =>
@@ -627,7 +611,6 @@ public static class FileEndpoints
                 return Results.Json(ApiResponse<object>.Fail("ERR_AUDIO_ONLY_TRIGGER_FAILED", ex.Message), statusCode: StatusCodes.Status500InternalServerError);
             }
         })
-        .WithName("TriggerAudioOnlyTranscoding")
-        .WithOpenApi();
+        .WithName("TriggerAudioOnlyTranscoding");
     }
 }
