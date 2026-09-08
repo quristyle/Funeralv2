@@ -611,6 +611,94 @@ body {
   white-space: nowrap;
 }
 
+/* ── 사이드바 바닥 띠 (누구로 접속했나) ───────────────────
+
+   [늘 바닥에 붙는 것은 이 두 줄이 한다]
+
+   `.jsini-sidebar` 가 세로 flex 이고 트리가 `flex: 1; min-height: 0` 이다.
+   그래서 이 띠를 `flex: 0 0 auto` 로 두면 **남는 높이를 트리가 다 먹고**
+   띠는 바닥에 남는다. `position: absolute` 로 붙이지 않는다 — 그러면 트리가
+   띠 아래로 흘러 들어가 마지막 메뉴가 가려진다.
+
+   높이를 고정하지 않는다. 소속이 없는 계정, 아이디가 이름과 같은 계정처럼
+   줄 수가 달라지는 경우가 있어서다 — 고정하면 그때 글자가 잘리거나 빈 칸이 남는다.
+   ---------------------------------------------------------- */
+
+.jsini-sidebar__foot {
+  flex: 0 0 auto;
+  padding: 0.6rem 0.75rem 0.7rem;
+  border-top: 1px solid var(--jsini-border);
+  background: var(--jsini-surface);
+
+  /* 메뉴보다 한 단계 작게. 늘 보이는 띠라 본문과 같은 크기면 시선을 끈다. */
+  font-size: var(--jsini-fs-xs);
+  line-height: 1.45;
+}
+
+.jsini-sidebar__foot-top {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* 이름이 길면 자른다 — 나가기 단추를 밀어내면 안 된다. */
+.jsini-sidebar__foot-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--jsini-fs-sm);
+  font-weight: 600;
+}
+
+.jsini-sidebar__foot-out {
+  flex: 0 0 auto;
+  margin: 0;
+}
+
+/* DevExpress 단추를 쓰지 않는다. 이것은 폼의 제출 단추여야 하고
+   (SidebarFooter 머리말 — 회로가 끊긴 뒤에도 눌려야 한다) DxButton 은
+   자기 클릭 처리를 붙인다. */
+.jsini-sidebar__foot-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.5rem;
+  border: 1px solid var(--jsini-border);
+  border-radius: 0.25rem;
+  background: var(--jsini-bg);
+  color: var(--jsini-text-muted);
+  font: inherit;
+  font-size: var(--jsini-fs-2xs);
+  cursor: pointer;
+}
+
+.jsini-sidebar__foot-button:hover {
+  color: var(--jsini-text);
+  background: var(--jsini-surface);
+}
+
+.jsini-sidebar__foot-line {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--jsini-text-muted);
+}
+
+.jsini-sidebar__foot-ip {
+  display: flex;
+  gap: 0.3rem;
+
+  /* 주소는 숫자와 점이라 고정폭이 읽기 쉽다. */
+  font-variant-numeric: tabular-nums;
+}
+
+.jsini-sidebar__foot-label {
+  flex: 0 0 auto;
+  opacity: 0.75;
+}
+
 /* ── 본문 쪽 ─────────────────────────────────────────────── */
 
 .jsini-shell__main {

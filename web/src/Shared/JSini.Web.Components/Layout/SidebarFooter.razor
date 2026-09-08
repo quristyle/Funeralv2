@@ -1,0 +1,124 @@
+@*
+    사이드바 맨 아래에 붙는 띠. 누구로 접속했는지와 나가는 단추.
+
+        ┌─────────────────────────┐
+        │ 🔍 메뉴 검색            │
+        │ [메뉴] [즐겨찾기]       │
+        │ ▸ 장례식장              │
+        │ ▸ 헬프데스크            │  ← 여기만 구른다
+        │ ▸ …                     │
+        ├─────────────────────────┤
+        │ 홍길동            [나가기]│  ← 늘 바닥에 붙어 있다
+        │ 진이시스템 · 개발팀      │
+        │ 접속 121.130.11.7        │
+        └─────────────────────────┘
+
+    [늘 바닥에 있는 것은 CSS 가 한다]
+
+    `.jsini-sidebar` 가 이미 세로 flex 이고 트리가 `flex: 1; min-height: 0` 이라,
+    이 띠를 트리 **뒤에** `flex: 0 0 auto` 로 두면 그것만으로 바닥에 붙는다.
+    자리를 잡아 두려고 `position` 을 쓰지 않는다 — 그러면 트리가 이 띠 아래로
+    흘러 들어가 마지막 메뉴가 가려진다.
+
+    [접속 주소는 프리렌더가 읽어 회로에 물려준다]
+
+    주소는 **요청**에 붙어 오는 값인데 화면이 사는 곳은 회로다. 회로가 붙은
+    뒤에 `IHttpContextAccessor` 를 물으면 `null` 이거나 엉뚱한 요청을 본다.
+    그래서 프리렌더에서 읽어 `PersistentComponentState` 로 넘긴다 — 크기 모드
+    (`SizeModeScope`)가 이미 같은 길을 쓴다.
+
+    **그 값은 위조할 수 있다.** 무엇에 쓰면 안 되는지는 `ClientAddress` 머리말에.
+
+    [나가기가 평범한 제출 단추인 이유]
+
+    쿠키를 지우는 것은 서버가 하는 일이라 회로 안에서 `NavigateTo` 로는 안 되고,
+    위조방지 토큰도 함께 가야 한다. 그래서 POST 폼이다.
+
+    헤더의 사용자 메뉴(`UserMenu`)도 로그아웃을 갖고 있지만 그쪽은 **JS 로 폼을
+    제출한다** — 펼친 판의 항목이 폼 안에 있지 않아서다. 여기는 단추가 곧 제출
+    단추라 JS 가 필요 없고, **회로가 끊긴 뒤에도 눌러서 나갈 수 있다.**
+    폼 아이디를 그쪽과 갈라 두는 이유는 한 쪽에 같은 아이디가 둘이면 JS 가
+    엉뚱한 것을 제출하기 때문이다.
+*@
+
+@implements IDisposable
+
+@inject CurrentUser Me
+@inject ClientAddress Address
+@inject PersistentComponentState PersistedState
+@inject IHttpContextAccessor Http
+
+<div class="jsini-sidebar__foot">
+
+    <div class="jsini-sidebar__foot-top">
+        <span class="jsini-sidebar__foot-name" title="@Me.DisplayName">
+            @(Me.DisplayName ?? "…")
+        </span>
+
+        @* 폼이 단추를 감싼다. 아래 머리말 참고 — JS 를 쓰지 않는다. *@
+        <form id="jsini-sidebar-logout" action="/logout" method="post"
+              class="jsini-sidebar__foot-out">
+            <AntiforgeryToken />
+            <button type="submit" class="jsini-sidebar__foot-button" title="로그아웃">
+                <span class="jsini-icon-logout" aria-hidden="true"></span>
+                <span>나가기</span>
+            </button>
+        </form>
+    </div>
+
+    @* 소속은 있을 때만. 없는 계정이 있어 빈 줄을 남기지 않는다. *@
+    @if (!string.IsNullOrWhiteSpace(Me.Affiliation))
+    {
+        <div class="jsini-sidebar__foot-line" title="@Me.Affiliation">@Me.Affiliation</div>
+    }
+
+    @* 아이디는 이름과 다를 때만 덧붙인다 — 같으면 같은 글자가 두 줄이 된다. *@
+    @if (!string.IsNullOrWhiteSpace(Me.Username)
+         && !string.Equals(Me.Username, Me.DisplayName, StringComparison.Ordinal))
+    {
+        <div class="jsini-sidebar__foot-line">@Me.Username</div>
+    }
+
+    @if (Address.Current is { Length: > 0 } ip)
+    {
+        <div class="jsini-sidebar__foot-line jsini-sidebar__foot-ip">
+            <span class="jsini-sidebar__foot-label">접속</span>
+            <span>@ip</span>
+        </div>
+    }
+
+</div>
+
+@code {
+    /// <summary>프리렌더가 남기는 값의 열쇠. 이 부품 안에서만 쓴다.</summary>
+    private const string StateKey = "jsini.client-ip";
+
+    private PersistingComponentStateSubscription _persisting;
+
+    protected override void OnInitialized()
+    {
+        // 회로가 붙는 길이 먼저다. 프리렌더가 남긴 것이 있으면 그게 정답이고,
+        // 그때는 HttpContext 가 없어 요청을 볼 수도 없다.
+        Address.Seed(
+            PersistedState.TryTakeFromJson<string>(StateKey, out var persisted)
+                ? persisted
+                : ClientAddress.From(Http.HttpContext));
+
+        _persisting = PersistedState.RegisterOnPersisting(() =>
+        {
+            PersistedState.PersistAsJson(StateKey, Address.Current);
+            return Task.CompletedTask;
+        });
+
+        // 이름·소속은 부트스트랩이 늦게 채운다. 그때 다시 그려야 「…」이 이름으로 바뀐다.
+        Me.Changed += OnMeChanged;
+    }
+
+    private void OnMeChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose()
+    {
+        Me.Changed -= OnMeChanged;
+        _persisting.Dispose();
+    }
+}

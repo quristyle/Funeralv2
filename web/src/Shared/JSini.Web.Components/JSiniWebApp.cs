@@ -292,6 +292,10 @@ public static class JSiniWebApp
         // 테마 서랍을 사용자 메뉴에서도 열 수 있게 하는 손잡이.
         services.AddScoped<ThemeDrawer>();
 
+        // 이 창이 어디서 접속했는지. scoped 인 이유가 잠금과 같다 — 창마다 다르다.
+        // 값을 채우는 곳은 SidebarFooter 이고, 왜 그쪽인지는 ClientAddress 머리말에 있다.
+        services.AddScoped<ClientAddress>();
+
         // 잠금화면(D7)도 같은 이유로 scoped 다 — 한 사람이 잠갔다고 모두의
         // 화면이 덮이면 안 된다.
         services.AddScoped<ScreenLock>();
