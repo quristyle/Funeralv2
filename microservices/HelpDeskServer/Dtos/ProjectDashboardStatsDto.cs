@@ -8,9 +8,9 @@ namespace HelpDeskServer.Dtos
     public class ProjectDashboardStatsDto
     {
         /// <summary>프로젝트 이름</summary>
-        public string ProjectName { get; set; }
+        public string ProjectName { get; set; } = string.Empty;
         /// <summary>담당 팀 이름</summary>
-        public string TeamName { get; set; }
+        public string TeamName { get; set; } = string.Empty;
         /// <summary>프로젝트 시작일</summary>
         public DateTime? StartDate { get; set; }
         /// <summary>프로젝트 종료일</summary>

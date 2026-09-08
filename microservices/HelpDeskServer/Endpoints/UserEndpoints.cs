@@ -18,9 +18,7 @@ public static class UserEndpoints
     {
         var group = app.MapGroup("/api/users").RequireAuthorization();
 
-        /// <summary>
-        /// 관리자가 조회할 수 있는 모든 사용자(관리자, 고객) 목록을 반환합니다.
-        /// </summary>
+        // 관리자가 조회할 수 있는 모든 사용자(관리자, 고객) 목록을 반환합니다.
         // 담당자 권한이면 볼 수 있다. 전에는 헬프데스크 계정 연결이 admin 인 경우만 통과시켜서,
         // 포털에서 관리자 역할을 받은 계정도 연결이 없으면 403 이었다.
         group.MapGet("/", async (AppDbContext db, HttpContext http) =>

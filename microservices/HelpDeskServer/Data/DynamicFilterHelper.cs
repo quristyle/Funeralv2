@@ -9,6 +9,7 @@ using System.Linq.Dynamic.Core; // NuGet: System.Linq.Dynamic.Core
 using System.Linq.Dynamic.Core.Parser;
 using System.Reflection;
 using Microsoft.EntityFrameworkCore;
+using System.Diagnostics.CodeAnalysis;
 
 namespace HelpDeskServer.Data {
   /// <summary>
@@ -650,7 +651,9 @@ namespace HelpDeskServer.Data {
     /// Try to convert raw string to target type (supports Nullable&lt;&gt; and enums)
     /// </summary>
 
-    private static bool TryConvertToType(string raw, Type targetType, out object? converted) {
+    // true 를 돌려줄 때는 converted 가 반드시 채워진다. 그 약속을 특성으로 적어 두면
+    // 호출부 여섯 곳에서 나던 CS8604 가 사라진다 — 호출부마다 군더더기 검사를 넣지 않아도 된다.
+    private static bool TryConvertToType(string raw, Type targetType, [NotNullWhen(true)] out object? converted) {
       converted = null;
       try {
         var destType = Nullable.GetUnderlyingType(targetType) ?? targetType;
@@ -684,7 +687,7 @@ namespace HelpDeskServer.Data {
 
         // numeric types
         converted = Convert.ChangeType(raw, destType);
-        return true;
+        return converted is not null;
       }
       catch {
         return false;

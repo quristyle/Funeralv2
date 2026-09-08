@@ -15,7 +15,7 @@ public static class AuthLinkEndpoints {
   public static void MapAuthLinkEndpoints(this IEndpointRouteBuilder app) {
     var group = app.MapGroup("/api/auth-links").WithTags("AuthLinks").RequireAuthorization();
 
-    /// <summary>등록된 매핑 목록을 반환한다.</summary>
+    // 등록된 매핑 목록을 반환한다.
     group.MapGet("/", (AppDbContext db) => ApiResponseBuilder.CreateAsync(async () => {
       var links = await db.AuthUserLinks.AsNoTracking()
           .OrderBy(l => l.AuthUserId)
@@ -45,7 +45,7 @@ public static class AuthLinkEndpoints {
 
     // ClaimsPrincipal 로 받는다. HttpContext 를 유일한 매개변수로 쓰면 ASP.NET Core 가 핸들러를
     // RequestDelegate 로 간주해 반환한 IResult 를 버리고 빈 200 을 내보낸다.
-    /// <summary>현재 토큰이 어떤 헬프데스크 계정으로 해석되는지 돌려준다. 연결 상태 점검용.</summary>
+    // 현재 토큰이 어떤 헬프데스크 계정으로 해석되는지 돌려준다. 연결 상태 점검용.
     // 연결이 없어도 200 으로 돌려준다.
     //
     // 전에는 uid 가 없으면 예외를 던졌다. 그러면 프론트는 "연결이 없다" 와 "서버가 죽었다" 를
@@ -74,7 +74,7 @@ public static class AuthLinkEndpoints {
       };
     }));
 
-    /// <summary>매핑을 추가하거나 덮어쓴다.</summary>
+    // 매핑을 추가하거나 덮어쓴다.
     group.MapPost("/", (AppDbContext db, IFuneralAccountLinkService linkService, AuthLinkCreateDto dto, HttpContext http) =>
         ApiResponseBuilder.CreateAsync(async () => {
           var userType = dto.UserType?.ToLowerInvariant();
@@ -107,7 +107,7 @@ public static class AuthLinkEndpoints {
           return new { link.Id, link.AuthUserId, link.UserType, link.HelpdeskUserId };
         }, "계정 연결이 저장되었습니다.", 201));
 
-    /// <summary>매핑을 제거한다.</summary>
+    // 매핑을 제거한다.
     group.MapDelete("/{id:int}", (AppDbContext db, IFuneralAccountLinkService linkService, int id) =>
         ApiResponseBuilder.CreateAsync(async () => {
           var link = await db.AuthUserLinks.FirstOrDefaultAsync(l => l.Id == id);

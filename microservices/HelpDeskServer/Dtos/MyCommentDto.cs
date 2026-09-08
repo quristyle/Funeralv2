@@ -32,7 +32,7 @@ public class MyCommentDto {
   public string? RequestStatus { get; set; }
 
 
-  public string AuthorName { get; set; }
+  public string AuthorName { get; set; } = string.Empty;
 
   public string? AuthorPhoto { get; set; }
 

@@ -13,11 +13,8 @@ using System.Text.Json;
 using System.ComponentModel.DataAnnotations;
 using System.Reflection;
 using System.ComponentModel;
-using HelpDeskServer.Data;
-using HelpDeskServer.Models;
 using Microsoft.AspNetCore.Mvc;
 using HelpDeskServer.Services;
-using Microsoft.EntityFrameworkCore;
 using HtmlAgilityPack;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Processing;
@@ -38,11 +35,11 @@ public class FileUtil {
   /// <param name="base64Str"></param>
   /// <param name="subDir"></param>
   /// <returns></returns>
-  public static async Task<string> SaveImageToFile(string base64Str, string subDir
+  public static async Task<string?> SaveImageToFile(string? base64Str, string subDir
   ) {
 
 
-    string chnage_Description = null;
+    string? chnage_Description = null;
 
     if (!string.IsNullOrWhiteSpace(base64Str)) {
       var doc = new HtmlDocument();
@@ -174,7 +171,7 @@ public class FileUtil {
   /// </summary>
   /// <param name="targerString"></param>
   /// <returns></returns>
-  public static async Task<string> GetFirstImageUrl(string targerString) {
+  public static async Task<string> GetFirstImageUrl(string? targerString) {
 
 
     string result = string.Empty;
@@ -227,16 +224,17 @@ public class FileUtil {
   /// <summary>
   /// base64 문자열을 파일로 저장하고 저장된 파일 경로를 반환한다. 
   /// </summary>
-  /// <param name="subDir"></param>
-  /// <param name="base64Str"></param>
-  /// <returns></returns>
-  public static async Task<string> SaveImageFromBase64(string subDir, string base64Str, string conurl = "pubstor") {
+  /// <param name="subDir">저장 기본 경로 아래에 만들 하위 폴더</param>
+  /// <param name="base64Str">data URI 또는 순수 base64 문자열</param>
+  /// <param name="conurl">돌려줄 주소의 앞자리. 기본은 <c>pubstor</c>.</param>
+  /// <returns>저장된 파일의 공개 경로. 저장할 것이 없으면 받은 문자열 그대로.</returns>
+  public static async Task<string?> SaveImageFromBase64(string subDir, string? base64Str, string conurl = "pubstor") {
 
 
 
 
 
-    string result_path = base64Str;
+    string? result_path = base64Str;
 
     if (!string.IsNullOrWhiteSpace(base64Str)) {
 

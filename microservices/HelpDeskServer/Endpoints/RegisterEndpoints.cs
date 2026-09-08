@@ -154,7 +154,7 @@ public static class RegisterEndpoints {
           user_name = admin.UserName;
           login_id = admin.LoginId;
           login_type = "admin";
-          Photo = admin.Photo;
+          Photo = admin.Photo ?? "";
           email = admin.Email;
           user_uid = admin.Id.ToString();
           mustChangePassword = admin.MustChangePassword;
@@ -347,8 +347,6 @@ public static class RegisterEndpoints {
           jsiniRoles = jsini?.Roles ?? new List<string>()
         };
       }
-
-      return null;
     }, "User information retrieved successfully."));
 
   }

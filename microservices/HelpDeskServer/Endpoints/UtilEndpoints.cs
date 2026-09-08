@@ -13,11 +13,13 @@ namespace HelpDeskServer.Endpoints;
 public static class UtilEndpoints {
 
 
-  public static List<MC_Models> MC_MODEL_LIST = null;
+  // 기동 직후에는 비어 있다. 목록을 읽어 오기 전에 조회가 들어올 수 있다.
+  public static List<MC_Models>? MC_MODEL_LIST = null;
 
 // 기기의 장비를 찾아 돌려준다. 모델명으로 찾는다. 모델명은 KEPCO 이런식으로 되어있다. MC_NAME이 KEPCO인 모델을 찾아준다.
-public static MC_Models GetModelByHeader(string mc_name) {
-    if (MC_MODEL_LIST == null) return null;
+// 모델명이 없거나 목록에 없으면 null 이다 — 부르는 쪽이 반드시 확인해야 한다.
+public static MC_Models? GetModelByHeader(string? mc_name) {
+    if (MC_MODEL_LIST == null || mc_name == null) return null;
     return MC_MODEL_LIST.FirstOrDefault(m => string.Equals(m.MC_NAME, mc_name, StringComparison.OrdinalIgnoreCase));
   }
 
@@ -136,13 +138,15 @@ public static MC_Models GetModelByHeader(string mc_name) {
 
                 var model = GetModelByHeader(request.Model);
 
-                bci.TargetContentNotHead = bci.TargetContent.StartsWith(model.StartKey)
+                // 모델을 못 찾으면 머리말을 떼어 낼 기준이 없다. 원문을 그대로 둔다.
+                // 전에는 이 줄에서 곧바로 NullReferenceException 이 났다.
+                bci.TargetContentNotHead = model != null && bci.TargetContent.StartsWith(model.StartKey)
                     ? bci.TargetContent[model.StartKey.Length..].Trim()
                     : bci.TargetContent;
 
 
                 // 3. KEPCO 헤더 감지 시 구조화 분석 실행
-                if ( model.MC_NAME == request.Model ){
+                if ( model != null && model.MC_NAME == request.Model ){
                   var parse_item =    model.FindMatchingItem( matchedHead, lineBytes); // 0x52, 0x00, 0x01
 
                   Console.WriteLine($"Detected model: {model.MC_NAME}, parse_item...{parse_item}");
@@ -641,7 +645,7 @@ private static string CrcResultChangeCont(string crcName, string targetContent) 
 
   }
 
-    private static string Blockstring(ParseItem pitm, byte[] bytes, int sIdx) {
+    private static string Blockstring(ParseItem? pitm, byte[] bytes, int sIdx) {
     if( pitm?.BlocParseType == "date" ) {
         ushort year = BitConverter.ToUInt16(bytes, sIdx);
         byte month = bytes[sIdx + 2];
@@ -652,7 +656,7 @@ private static string CrcResultChangeCont(string crcName, string targetContent) 
     }
   }
 
-    private static object AnalyzeKepcoProtocolStructured( MC_Models model,ParseItem pitm, byte[] bytes, BinaryCalcInfo bci) {
+    private static object AnalyzeKepcoProtocolStructured( MC_Models model, ParseItem? pitm, byte[] bytes, BinaryCalcInfo bci) {
 
 
 

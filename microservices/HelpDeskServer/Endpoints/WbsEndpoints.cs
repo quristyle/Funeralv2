@@ -18,12 +18,12 @@ public class WbsTreeNode {
   /// <summary>
   /// PrimeVue TreeTable에서 각 노드를 고유하게 식별하기 위한 key
   /// </summary>
-  public string Key { get; set; }
+  public required string Key { get; set; }
 
   /// <summary>
   /// 실제 WBS 데이터
   /// </summary>
-  public Wbs Data { get; set; }
+  public required Wbs Data { get; set; }
 
   /// <summary>
   /// 자식 노드들을 담는 리스트
@@ -39,9 +39,9 @@ public class WbsCreateDto {
   [JsonConverter(typeof(NullableIntConverter))]
   public int? ParentWbsId { get; set; }
   /// <summary>WBS 코드</summary>
-  public string WbsCode { get; set; }
+  public string WbsCode { get; set; } = string.Empty;
   /// <summary>WBS 이름</summary>
-  public string WbsName { get; set; }
+  public string WbsName { get; set; } = string.Empty;
   /// <summary>WBS 타입</summary>
   public string? WbsType { get; set; }
   /// <summary>WBS 레벨</summary>
@@ -71,9 +71,9 @@ public class WbsCreateDto {
 /// </summary>
 public class WbsUpdateDto {
   /// <summary>WBS 코드</summary>
-  public string WbsCode { get; set; }
+  public string WbsCode { get; set; } = string.Empty;
   /// <summary>WBS 이름</summary>
-  public string WbsName { get; set; }
+  public string WbsName { get; set; } = string.Empty;
   /// <summary>WBS 타입</summary>
   public string? WbsType { get; set; }
   /// <summary>WBS 레벨</summary>
@@ -93,7 +93,7 @@ public class WbsUpdateDto {
   /// <summary>우선순위</summary>
   public string? Priority { get; set; }
   /// <summary>상태</summary>
-  public string Status { get; set; }
+  public string Status { get; set; } = string.Empty;
   /// <summary>프로젝트 ID</summary>
   public int? ProjectId { get; set; } // ProjectId 추가
   /// <summary>정렬 순서</summary>
@@ -118,7 +118,7 @@ public static class WbsEndpoints {
     public int Id { get; set; }
     /// <summary>Gantt 텍스트</summary>
     [JsonPropertyName("text")]
-    public string Text { get; set; }
+    public string Text { get; set; } = string.Empty;
     /// <summary>Gantt 시작일</summary>
     [JsonPropertyName("start_date")]
     public string? StartDate { get; set; }
@@ -139,12 +139,12 @@ public static class WbsEndpoints {
     /// 원본 WBS 코드
     /// </summary>
     [JsonPropertyName("wbsCode")]
-    public string WbsCode { get; set; }
+    public string WbsCode { get; set; } = string.Empty;
     /// <summary>
     /// 원본 상태
     /// </summary>
     [JsonPropertyName("status")]
-    public string Status { get; set; }
+    public string Status { get; set; } = string.Empty;
     /// <summary>
     /// 원본 우선순위
     /// </summary>
@@ -188,7 +188,7 @@ public static class WbsEndpoints {
     public int Target { get; set; }
     /// <summary>링크 타입</summary>
     [JsonPropertyName("type")]
-    public string Type { get; set; }
+    public string Type { get; set; } = string.Empty;
   }
 
   /// <summary>
@@ -296,9 +296,16 @@ public static class WbsEndpoints {
 
         var flatData = FlattenWbsTree(rootNodes, null);
 
-        // WbsLink 데이터도 함께 조회
-        var links = await db.WbsLinks
-            .Where(l => l.SourceWbs.ProjectId == projectId.Value || l.TargetWbs.ProjectId == projectId.Value) // ProjectId로 링크 필터링
+        // WbsLink 데이터도 함께 조회.
+        // projectId 는 선택 인자다 — 앞의 baseQuery 는 HasValue 를 확인하는데 여기서는
+        // 그냥 .Value 를 꺼내고 있었다. 프로젝트를 지정하지 않고 부르면 그 자리에서
+        // InvalidOperationException 이 났다.
+        var linksQuery = db.WbsLinks.AsQueryable();
+        if (projectId.HasValue) {
+          var pid = projectId.Value;
+          linksQuery = linksQuery.Where(l => l.SourceWbs.ProjectId == pid || l.TargetWbs.ProjectId == pid);
+        }
+        var links = await linksQuery
             .Select(l => new WbsLinkGanttDto {
               Id = l.Id,
               Source = l.SourceWbsId,
@@ -411,9 +418,9 @@ public static class WbsEndpoints {
     var parent = currentWbs.ParentWbs;
 
     // 부모의 모든 자식(형제)들의 진행률을 가져옵니다.
+    // 마지막에 Progress 만 뽑으므로 Include 는 SQL 에 아무 영향이 없다 — 걷어냈다.
     var siblingProgresses = await db.Wbs
-                .Include(w => w.ParentWbs) // 부모 WBS를 함께 조회합니다.
-                .Where(w => w.ParentWbs.WbsRid == currentWbs.ParentWbs.WbsRid)
+                .Where(w => w.ParentWbs!.WbsRid == parent.WbsRid)
         .Select(w => w.Progress)
         .ToListAsync();
 

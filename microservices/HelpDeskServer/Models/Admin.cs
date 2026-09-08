@@ -50,9 +50,7 @@ namespace HelpDeskServer.Models {
     /// <summary>삭제 여부 (Soft Delete)</summary>
     public bool IsDeleted { get; set; } = false;
 
-    /// <summary>
-    /// 사용자 속성들
-    /// </summary>
+    // 사용자 속성들
     //public ICollection<UserProperty> UserProperties { get; set; } = new List<UserProperty>();
 
   }

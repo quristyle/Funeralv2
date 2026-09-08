@@ -97,7 +97,15 @@ namespace HelpDeskServer.Models {
     /// <param name="successMessage">성공 시 메시지</param>
     /// <param name="successStatusCode">성공 시 HTTP 상태 코드</param>
     /// <returns>IResult 형태의 표준 API 응답</returns>
-    public static async Task<IResult> CreateAsync<T>(Func<Task<T?>> action, string successMessage = "Request processed successfully.", int successStatusCode = 200) where T : class {
+    // 시그니처가 Func<Task<T?>> · where T : class 였다.
+    //
+    // Task<T> 는 T 에 대해 불변(invariant)이라, ToListAsync() 가 주는 Task<List<Admin>> 을
+    // Task<List<Admin>?> 자리에 넣을 수 없다 — 호출부 열아홉 곳에서 CS8619 가 났다.
+    // 반대로 CreateAsync<object?> 처럼 nullable 을 명시하면 class 제약과 부딪혀 CS8634 가 났다.
+    //
+    // Func<Task<T>> · where T : class? 로 바꾸면 둘 다 사라진다. ToListAsync 는 T=List<Admin>,
+    // FirstOrDefaultAsync 는 T=Admin? 으로 각각 그대로 맞물린다. 아래 null 검사도 그대로 돈다.
+    public static async Task<IResult> CreateAsync<T>(Func<Task<T>> action, string successMessage = "Request processed successfully.", int successStatusCode = 200) where T : class? {
       var stopwatch = Stopwatch.StartNew();
       var requestTime = DateTime.UtcNow;
 

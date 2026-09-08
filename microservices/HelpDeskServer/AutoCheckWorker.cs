@@ -112,6 +112,8 @@ namespace HelpDeskServer.Services {
 
         }
         catch (Exception ex) {
+          // 삼켜 버리면 자동 점검이 왜 조용한지 알 길이 없다. 남기고 다음 주기로 넘어간다.
+          _logger.LogError(ex, "자동 점검 한 주기가 실패했다. 다음 주기에 다시 시도한다.");
         }
         finally {
           // 1시간 마다 체크 실행

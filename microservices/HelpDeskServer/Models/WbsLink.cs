@@ -14,7 +14,7 @@ public class WbsLink : BaseEntity
     /// <summary>
     /// 소스 WBS 항목 (Navigation property)
     /// </summary>
-    public Wbs SourceWbs { get; set; } // Navigation property
+    public Wbs SourceWbs { get; set; } = null!; // Navigation property — EF 가 채운다
 
     /// <summary>
     /// 타겟 WBS 항목 ID
@@ -23,7 +23,7 @@ public class WbsLink : BaseEntity
     /// <summary>
     /// 타겟 WBS 항목 (Navigation property)
     /// </summary>
-    public Wbs TargetWbs { get; set; } // Navigation property
+    public Wbs TargetWbs { get; set; } = null!; // Navigation property — EF 가 채운다
 
     /// <summary>
     /// 연결 타입 (e.g., "0" for finish-to-start)

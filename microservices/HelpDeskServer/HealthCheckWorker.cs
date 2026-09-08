@@ -22,17 +22,17 @@ namespace HelpDeskServer.Services {
   public class HealthCheckResponse {
 
     [JsonPropertyName("startTime")]
-    public string StartTime { get; set; }
+    public string? StartTime { get; set; }
 
 
     [JsonPropertyName("uptime")]
-    public string Uptime { get; set; }
+    public string? Uptime { get; set; }
 
 
 
 
     [JsonPropertyName("healthChecks")]
-    public HealthChecks healthChecks { get; set; }
+    public HealthChecks? healthChecks { get; set; }
 
 
 
@@ -45,12 +45,12 @@ namespace HelpDeskServer.Services {
     /// 상태
     /// </summary>
     [JsonPropertyName("status")]
-    public string Status { get; set; }
+    public string? Status { get; set; }
     /// <summary>
     /// 체크 항목들
     /// </summary>
     [JsonPropertyName("checks")]
-    public List<HealthCheckItem> Checks { get; set; }
+    public List<HealthCheckItem>? Checks { get; set; }
   }
 
 
@@ -62,14 +62,14 @@ namespace HelpDeskServer.Services {
     /// 이름
     /// </summary>
     [JsonPropertyName("name")]
-    public string Name { get; set; }
+    public string? Name { get; set; }
 
 
     /// <summary>
     /// 상태
     /// </summary>
     [JsonPropertyName("status")]
-    public string Status { get; set; }
+    public string? Status { get; set; }
   }
 
   /// <summary>
@@ -154,7 +154,7 @@ namespace HelpDeskServer.Services {
             _logger.LogInformation($"HealthCheckWorker healthData.{healthData?.Status}");
 
             _logger.LogInformation($"HealthCheckWorker unhealthyChecks.{unhealthyChecks}");
-            _logger.LogInformation($"HealthCheckWorker unhealthyChecks.Any().{unhealthyChecks.Any()}");
+            _logger.LogInformation($"HealthCheckWorker unhealthyChecks.Count.{unhealthyChecks?.Count ?? 0}");
 
 
 

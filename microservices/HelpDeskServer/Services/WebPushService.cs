@@ -245,7 +245,7 @@ public sealed class WebPushService : IWebPushService {
   }
 
 
-  private static string StripHtml(string html) {
+  private static string StripHtml(string? html) {
     if (string.IsNullOrWhiteSpace(html)) return string.Empty;
     var doc = new HtmlDocument();
     doc.LoadHtml(html);

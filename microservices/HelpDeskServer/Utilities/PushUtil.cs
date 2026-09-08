@@ -13,11 +13,8 @@ using System.Text.Json;
 using System.ComponentModel.DataAnnotations;
 using System.Reflection;
 using System.ComponentModel;
-using HelpDeskServer.Data;
-using HelpDeskServer.Models;
 using Microsoft.AspNetCore.Mvc;
 using HelpDeskServer.Services;
-using Microsoft.EntityFrameworkCore;
 using HtmlAgilityPack;
 
 

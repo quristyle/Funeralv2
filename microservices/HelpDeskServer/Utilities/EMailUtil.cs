@@ -13,17 +13,13 @@ using System.Text.Json;
 using System.ComponentModel.DataAnnotations;
 using System.Reflection;
 using System.ComponentModel;
-using HelpDeskServer.Data;
-using HelpDeskServer.Models;
 using Microsoft.AspNetCore.Mvc;
 using HelpDeskServer.Services;
-using Microsoft.EntityFrameworkCore;
 using HtmlAgilityPack;
 using System.Net;
 using System.Net.Mail;
 using System.Net.Security;
 using System.Security.Cryptography.X509Certificates;
-using System.Text;
 
 namespace HelpDeskServer.Utilities;
 
@@ -107,17 +103,16 @@ public class EMailUtil {
   }
 
 
-  /// <summary>
-  /// 이메일 전송 (Git Push 용)
-  /// </summary>
-  /// <param name="subs"></param>
-  /// <param name="title"></param>
-  /// <param name="bodys"></param>
-  /// <param name="provider"></param>
-  /// <param name="loggerFactory"></param>
-  /// <param name="configuration"></param>
-  /// <returns></returns>
   /* // git push 용 이메일 전송 사용안함.
+
+  이메일 전송 (Git Push 용)
+    subs           받는 사람 구독 목록
+    title          제목
+    bodys          본문
+    provider       RabbitMQ 연결 제공자
+    loggerFactory  로거 팩터리
+    configuration  메일 설정
+
   public static async Task SendEmailGitPush(IReadOnlyCollection<Models.PushSubscription> subs
   , string title
   , string bodys
@@ -245,7 +240,6 @@ public class EMailUtil {
       var pass = configuration.GetValue<string>("Email:JinNets:Password") ?? "b0927bbZ1!";
       var fromDisplay = configuration.GetValue<string>("Email:JinNets:FromDisplay") ?? "지원팀";
       var useSsl = configuration.GetValue<bool?>("Email:JinNets:UseSsl") ?? true; // STARTTLS on port 587
-      var ignoreCertErrors = configuration.GetValue<bool?>("Email:IgnoreCertificateErrors") ?? false;
       var timeoutMs = configuration.GetValue<int?>("Email:TimeoutMs") ?? 15000;
 
       if (string.IsNullOrWhiteSpace(mailTos)) {
@@ -253,10 +247,13 @@ public class EMailUtil {
         return;// Task.CompletedTask;
       }
 
-      // (옵션) TLS 인증서 검증 무시 (테스트 전용)
-      if (ignoreCertErrors) {
-        ServicePointManager.ServerCertificateValidationCallback += (sender, certificate, chain, sslPolicyErrors) => true;
-      }
+      // 「TLS 인증서 검증 무시(Email:IgnoreCertificateErrors)」 스위치를 걷어냈다.
+      //
+      // ServicePointManager 로 걸던 방식인데, .NET 10 에서 이 클래스는 사용중지됐고
+      // 무엇보다 **거기 건 설정이 SslStream 에 더는 닿지 않는다** — 켜도 아무 일이
+      // 일어나지 않는 스위치였다. 설정 파일 어디에도 이 키는 없어 실제로 켜진 적도 없다.
+      // 게다가 += 라서 발송할 때마다 전역 콜백이 하나씩 쌓이는 구조였다.
+      // 정말로 필요해지면 System.Net.Mail 이 아니라 MailKit 으로 옮겨야 한다.
 
       using var message = new MailMessage();
       message.From = new MailAddress(user, fromDisplay);

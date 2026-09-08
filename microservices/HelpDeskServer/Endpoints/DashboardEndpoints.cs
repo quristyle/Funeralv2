@@ -22,10 +22,12 @@ public static class DashboardEndpoints {
     // 고객사별 요청 통계를 조회합니다.
     group.MapGet("/company-stats", (AppDbContext db) => ApiResponseBuilder.CreateAsync(async () => {
       var stats = await db.Requests
+          // 앞의 Where 가 걸러 낸 뒤라 SQL 로는 null 이 올 수 없다. 컴파일러는 그것을
+          // 따라가지 못하므로 ! 로 알려 준다 (검사를 한 번 더 넣으면 SQL 도 그만큼 늘어난다).
           .Where(r => r.Customer != null && r.Customer.Company != null)
-          .GroupBy(r => r.Customer.Company)
+          .GroupBy(r => r.Customer!.Company)
           .Select(g => new {
-            Id = g.Key.Id,
+            Id = g.Key!.Id,
             CompanyName = g.Key.Name,
             LastPendingDate = g.Where(r => r.Status == ImprovementStatus.Pending)
                               .OrderByDescending(r => r.CreatedAt)
@@ -327,14 +329,15 @@ public static class DashboardEndpoints {
       }
 
       var customer = await db.Customers.FindAsync(me.HelpdeskUserId.Value);
-      if (customer == null || customer.CompanyId == null) {
+      // CompanyId 는 int 다 — null 검사는 늘 거짓이라 걷어냈다.
+      if (customer == null) {
         return Results.NotFound("Customer or company not found.");
       }
 
       var companyId = customer.CompanyId;
 
       var stats = await db.Requests
-          .Where(r => r.Customer.CompanyId == companyId)
+          .Where(r => r.Customer!.CompanyId == companyId)
           .GroupBy(r => r.Status)
           .Select(g => new { Status = g.Key, Count = g.Count() })
           .ToListAsync();
@@ -364,7 +367,8 @@ public static class DashboardEndpoints {
       }
 
       var customer = await db.Customers.FindAsync(me.HelpdeskUserId.Value);
-      if (customer == null || customer.CompanyId == null) {
+      // CompanyId 는 int 다 — null 검사는 늘 거짓이라 걷어냈다.
+      if (customer == null) {
         return Results.NotFound("Customer or company not found.");
       }
 
@@ -373,7 +377,7 @@ public static class DashboardEndpoints {
       var twelveMonthsAgo = new DateTime(today.Year, today.Month, 1, 0, 0, 0, DateTimeKind.Utc).AddMonths(-11);
 
       var monthlyData = await db.Requests
-          .Where(r => r.Customer.CompanyId == companyId && r.RequestedAt >= twelveMonthsAgo)
+          .Where(r => r.Customer!.CompanyId == companyId && r.RequestedAt >= twelveMonthsAgo)
           .GroupBy(r => new { r.RequestedAt.Year, r.RequestedAt.Month })
           .Select(g => new {
             Year = g.Key.Year,
@@ -410,7 +414,7 @@ public static class DashboardEndpoints {
             .Select(c => new {
               c.Id,
               c.Name,
-              RequestCount = db.Requests.Count(r => r.Customer.CompanyId == c.Id)
+              RequestCount = db.Requests.Count(r => r.Customer!.CompanyId == c.Id)
             }).ToListAsync()));
 
     // 각 팀별 할당된 요청 수를 조회합니다.
@@ -477,7 +481,7 @@ public static class DashboardEndpoints {
 
         var stats = new ProjectDashboardStatsDto {
           ProjectName = project.Name,
-          TeamName = project.Team?.Name,
+          TeamName = project.Team?.Name ?? string.Empty,
           StartDate = project.ProjectStart,
           EndDate = project.ProjectEnd,
           TotalWbsCount = wbsStats?.TotalWbsCount ?? 0,

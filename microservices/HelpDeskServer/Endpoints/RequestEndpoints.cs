@@ -13,11 +13,8 @@ using System.Text.Json;
 using System.ComponentModel.DataAnnotations;
 using System.Reflection;
 using System.ComponentModel;
-using HelpDeskServer.Data;
-using HelpDeskServer.Models;
 using Microsoft.AspNetCore.Mvc;
 using HelpDeskServer.Services;
-using Microsoft.EntityFrameworkCore;
 using HtmlAgilityPack;
 using HelpDeskServer.Utilities;
 
@@ -198,7 +195,7 @@ public static class RequestEndpoints {
       // 해당 월의 요청들 (생성되거나 완료된 것 포함)
       var requests = await db.Requests
           .Include(r => r.Customer)
-          .ThenInclude(c => c.Company)
+          .ThenInclude(c => c!.Company)
           .Include(r => r.Comments)
           .Where(r => (r.RequestedAt >= startDate && r.RequestedAt < endDate) ||
                       (r.CompletededAt >= startDate && r.CompletededAt < endDate) ||
@@ -314,7 +311,7 @@ public static class RequestEndpoints {
       // 1. 접수 정보 중 타입이 '긴급/장애'이고 아직 완료되지 않은 건 조회
       var activeEmergencies = await db.Requests
           .Include(r => r.Customer)
-          .ThenInclude(c => c.Company)
+          .ThenInclude(c => c!.Company)
           .Where(r => r.IpType == ImprovementType.Emergency && 
                       r.Status != ImprovementStatus.Completed && 
                       r.Status != ImprovementStatus.UserCompleted &&
@@ -471,7 +468,7 @@ public static class RequestEndpoints {
           : formCustomerId;
 
       var requestDto = new RequestCreateDto(
-              Title: form["Title"],
+              Title: form["Title"].ToString(),
               Description: form["Description"],
               CustomerId: customerId,
               // 작성자는 폼 값이 아니라 로그인한 JSini 계정에서 정한다.
@@ -487,7 +484,7 @@ public static class RequestEndpoints {
           //Description = requestDto.Description,
           CustomerId = requestDto.CustomerId,
           Status = ImprovementStatus.Pending,
-          CreatedBy = requestDto.CreatedBy,
+          CreatedBy = requestDto.CreatedBy ?? string.Empty,
           MenuContext = requestDto.MenuContext,
           IpType = int.TryParse(form["iptype"], out int iptypeVal) ? (ImprovementType)iptypeVal : 
                    Enum.TryParse<ImprovementType>(form["iptype"], true, out var iptypeEnum) ? iptypeEnum : ImprovementType.Improvement,
@@ -501,7 +498,7 @@ public static class RequestEndpoints {
         // 바로 위에서 저장하여 request.Id가 설정된 후에 처리 시작.
 
         // base64 이미지 파일보관 처리 및 url 변경
-        request.Description = await FileUtil.SaveImageToFile(requestDto.Description, request.Id.ToString());
+        request.Description = await FileUtil.SaveImageToFile(requestDto.Description, request.Id.ToString()) ?? string.Empty;
         // 변경된 문서의 첫번째 이미지 URL을 MainPhoto로 설정
         request.MainPhoto = await FileUtil.GetFirstImageUrl(request.Description);
 
@@ -696,9 +693,10 @@ public static class RequestEndpoints {
     // 수정
     group.MapPut("/{id}", async (HttpRequest httpRequest, AppDbContext db, int id, IConfiguration configuration, ILoggerFactory loggerFactory) => {
       var form = await httpRequest.ReadFormAsync();
-      var title = form["title"];
-      var description = form["description"];
-      var deletedFilesJson = form["deletedFiles"];
+      // StringValues 를 그대로 두면 값이 없을 때 null 로 떨어진다. 여기서 빈 문자열로 고정한다.
+      var title = form["title"].ToString();
+      var description = form["description"].ToString();
+      var deletedFilesJson = form["deletedFiles"].ToString();
       //var MainPhoto = form["MainPhoto"];
 
       var logger = loggerFactory.CreateLogger("RequestEndpoints");
@@ -727,7 +725,7 @@ public static class RequestEndpoints {
         req.Title = title;
         //req.Description = description;
 
-        req.Description = await FileUtil.SaveImageToFile(description, req.Id.ToString());
+        req.Description = await FileUtil.SaveImageToFile(description, req.Id.ToString()) ?? string.Empty;
 
         //req.MainPhoto = MainPhoto;
         req.MainPhoto = await FileUtil.GetFirstImageUrl(req.Description);
@@ -833,7 +831,9 @@ public static class RequestEndpoints {
     var result = new List<dynamic>();
     foreach (var item in items) {
       var expando = (item as object).ToExpandoWithEnumNames() as IDictionary<string, object>;
-      var entityId = (int)expando["id"];
+      // 변환에 실패한 항목은 건너뛴다. 전에는 여기서 그대로 터졌다.
+      if (expando is null || !expando.TryGetValue("id", out var idValue)) continue;
+      var entityId = (int)idValue;
 
       var attachments = attachmentsByEntityId.GetValueOrDefault(entityId, new List<Attachment>());
 

@@ -27,7 +27,8 @@ public class MC_Models {
     ParseItems.Add(temp);
     return temp;
   }
-  public ParseItem? FindMatchingItem(string matchPType, byte[] lineBytes) {
+  // 머리말을 못 찾은 줄도 그대로 들어온다 — 그때는 아무 항목과도 맞지 않는다.
+  public ParseItem? FindMatchingItem(string? matchPType, byte[] lineBytes) {
       return ParseItems.FirstOrDefault(item => item.IsMatch(matchPType, lineBytes));
   }
   public MC_Models CreateModel(string mc_name, string ptype, string startKey, string desc, int keyIdx, IEnumerable<byte> keys, string bptype = "date", string plength = "8") {
@@ -87,7 +88,7 @@ public class ParseItem {
 
     public string Separator => string.Join(" ", Keys.Select(k => k.ToString("X2")));
 
-    public bool IsMatch( string matchPType, byte[] lineBytes) {
+    public bool IsMatch( string? matchPType, byte[] lineBytes) {
 
       Console.WriteLine($"Checking ParseItem: {Desc}, KeyIdx: {KeyIdx}, Keys: {Separator} against lineBytes length: {lineBytes.Length}");
 
@@ -129,7 +130,7 @@ public class TagItem {
 
     /// <summary>
     /// 태그가 가리키는 원본 바이트 구간을 반환한다.
-    /// 표현 문자열로의 변환은 <see cref="ValueConverter"/> 에서 수행한다.
+    /// 표현 문자열로의 변환은 코드북(<see cref="ITagCodeBook"/>)이 맡는다.
     /// </summary>
     public byte[] getValue(byte[] bytes) {
       if (TagLength <= 0 || TagIdx < 0 || TagIdx + TagLength > bytes.Length) {

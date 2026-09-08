@@ -8,7 +8,7 @@ namespace HelpDeskServer.Dtos
         /// <summary>관리자 ID</summary>
         public int AdminId { get; set; }
         /// <summary>관리자 이름</summary>
-        public string AdminName { get; set; }
+        public string AdminName { get; set; } = string.Empty;
         /// <summary>관리자 사진 URL</summary>
         public string? AdminPhoto { get; set; }
         /// <summary>대기 중인 요청 수 (관리 팀 업체)</summary>

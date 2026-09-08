@@ -94,7 +94,7 @@ public static class ScheduleEndpoints
 
         // 수정
         group.MapPut("/{id}", (Guid id, Schedule inputSchedule, AppDbContext db) =>
-            ApiResponseBuilder.CreateAsync<Schedule>(async () =>
+            ApiResponseBuilder.CreateAsync<Schedule?>(async () =>
             {
                 var schedule = await db.Schedules.FirstOrDefaultAsync(s => s.Id == id);
                 if (schedule is null) return null;
@@ -120,7 +120,7 @@ public static class ScheduleEndpoints
 
         // 삭제
         group.MapDelete("/{id}", (Guid id, AppDbContext db) =>
-            ApiResponseBuilder.CreateAsync<object>(async () =>
+            ApiResponseBuilder.CreateAsync<object?>(async () =>
             {
                 var schedule = await db.Schedules.FirstOrDefaultAsync(s => s.Id == id);
                 if (schedule is null) return null;

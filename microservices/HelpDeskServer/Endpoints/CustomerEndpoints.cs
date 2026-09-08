@@ -5,25 +5,16 @@ using HelpDeskServer.Data;
 using System.ComponentModel.DataAnnotations;
 using HelpDeskServer.Services;
 using HelpDeskServer.Dtos;
-using HelpDeskServer.Models;
-using Microsoft.AspNetCore.Routing;
 using System.Dynamic;
-using Microsoft.EntityFrameworkCore;
-using HelpDeskServer.Data;
 using System.Linq.Dynamic.Core;
-using HelpDeskServer.Dtos;
 using HelpDeskServer.Helpers;
 using Microsoft.Extensions.Logging;
 using RabbitMQ.Client;
 using System.Text;
 using System.Text.Json;
-using System.ComponentModel.DataAnnotations;
 using System.Reflection;
 using System.ComponentModel;
-using HelpDeskServer.Data;
-using HelpDeskServer.Models;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 
 namespace HelpDeskServer.Endpoints;

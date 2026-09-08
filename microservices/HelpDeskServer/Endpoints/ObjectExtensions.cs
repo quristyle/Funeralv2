@@ -15,7 +15,7 @@ public static class ObjectExtensions
     /// </summary>
     /// <param name="source">변환할 소스 객체</param>
     /// <returns>변환된 ExpandoObject</returns>
-    public static dynamic ToExpandoWithEnumNames(this object source)
+    public static dynamic? ToExpandoWithEnumNames(this object source)
     {
         if (source is null) return null;
 

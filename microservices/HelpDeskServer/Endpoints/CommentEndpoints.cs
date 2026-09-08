@@ -30,7 +30,7 @@ public static class CommentEndpoints {
       // 2. 각 댓글을 순회하며 base64 이미지를 파일로 변환합니다.
       foreach (var comment in comments) {
         string originalText = comment.CommentText;
-        comment.CommentText = await FileUtil.SaveImageToFile(originalText, "cmt_" + comment.Id.ToString());
+        comment.CommentText = await FileUtil.SaveImageToFile(originalText, "cmt_" + comment.Id.ToString()) ?? string.Empty;
         if (originalText != comment.CommentText) {
           hasChanges = true;
         }
@@ -138,7 +138,7 @@ public static class CommentEndpoints {
       await db.SaveChangesAsync();
 
       // DB에 저장하여 Id가 생성된 후, 이미지 파일을 저장하고 경로를 업데이트합니다.
-      var updatedCommentText = await FileUtil.SaveImageToFile(comment.CommentText, "cmt_" + comment.Id.ToString());
+      var updatedCommentText = await FileUtil.SaveImageToFile(comment.CommentText, "cmt_" + comment.Id.ToString()) ?? string.Empty;
       if (comment.CommentText != updatedCommentText) {
         comment.CommentText = updatedCommentText;
         await db.SaveChangesAsync();
@@ -211,7 +211,7 @@ public static class CommentEndpoints {
       var comment = await db.Comments.FindAsync(id);
       if (comment is null) return null;
 
-      var updatedCommentText = await FileUtil.SaveImageToFile(input.CommentText, "cmt_" + comment.Id.ToString());
+      var updatedCommentText = await FileUtil.SaveImageToFile(input.CommentText, "cmt_" + comment.Id.ToString()) ?? string.Empty;
       if (comment.CommentText != updatedCommentText) {
         comment.CommentText = updatedCommentText;
       }

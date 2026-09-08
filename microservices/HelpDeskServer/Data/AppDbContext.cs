@@ -473,7 +473,7 @@ public class AppDbContext : DbContext {
 
     //var xmlPath = Path.Combine(AppContext.BaseDirectory, "HelpDeskServer.xml");
     var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
-    XDocument xmlDoc = null;
+    XDocument? xmlDoc = null;
     if (File.Exists(xmlPath)) {
       xmlDoc = XDocument.Load(xmlPath);
     }

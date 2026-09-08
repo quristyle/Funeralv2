@@ -18,9 +18,12 @@ public class ContactService {
   /// <summary>
   /// 생성자
   /// </summary>
-  /// <param name="rabbitMqProvider"></param>
-  /// <param name="loggerFactory"></param>
-  /// <param name="configuration"></param>
+  /// <param name="rabbitMqProvider">RabbitMQ 연결을 빌려 주는 제공자</param>
+  /// <param name="loggerFactory">작업마다 로거를 새로 뜨기 위한 팩터리</param>
+  /// <param name="configuration">메일·푸시 설정을 읽는다</param>
+  /// <param name="serviceScopeFactory">백그라운드 작업에서 DbContext 를 여는 스코프 팩터리</param>
+  /// <param name="sender">웹 푸시 발송기</param>
+  /// <param name="adminService">담당자 조회</param>
   public ContactService(IRabbitMqConnectionProvider rabbitMqProvider, ILoggerFactory loggerFactory, IConfiguration configuration,
         IServiceScopeFactory serviceScopeFactory,
         IWebPushService sender,
