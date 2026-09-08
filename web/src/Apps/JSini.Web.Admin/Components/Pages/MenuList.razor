@@ -216,8 +216,11 @@ else
 </CommCont>
 
 @* 편집 창. DxTreeList 에는 그리드 같은 팝업 편집이 없어 직접 띄운다. *@
-<DxPopup @bind-Visible="_editing" HeaderText="@(_isNew ? "메뉴 등록" : "메뉴 수정")"
-         Width="720" CloseOnOutsideClick="false" ShowFooter="true">
+@* 창을 `CommPopup` 으로 띄운다. 머리를 잡아 옮길 수 있고, 바깥을 눌러도
+   닫히지 않고, 폼이 화면보다 길면 본문만 구른다 — 셋 다 그 부품의 기본값이라
+   여기서 적지 않는다. 이 화면은 칸이 스물 남짓이라 마지막 것이 특히 걸린다. *@
+<CommPopup @bind-Visible="_editing" HeaderText="@(_isNew ? "메뉴 등록" : "메뉴 수정")"
+           Width="720">
     <BodyContentTemplate Context="popup">
         <DxFormLayout CssClass="ad-editform">
             <DxFormLayoutItem Caption="메뉴 이름" ColSpanMd="6">
@@ -314,7 +317,7 @@ else
         <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Primary" Click="@SaveAsync" />
         <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary" Click="@(() => _editing = false)" />
     </FooterContentTemplate>
-</DxPopup>
+</CommPopup>
 
 @code {
     private IReadOnlyList<SystemMenuDto> _menus = [];

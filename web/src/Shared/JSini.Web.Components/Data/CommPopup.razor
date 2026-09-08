@@ -1,0 +1,141 @@
+@*
+    공통 팝업. DevExpress 의 DxPopup 을 감싼다.
+
+    ────────────────────────────────────────────────────────────
+    [무엇을 대신하는가]
+
+    편집 창을 화면마다 `DxPopup` 으로 직접 적고 있었다(스물아홉 군데).
+    그러다 보니 같은 창인데 화면마다 다르다 — 어떤 창은 바깥을 눌러도 닫히고
+    어떤 창은 안 닫히고, 어떤 창은 머리를 잡아 옮길 수 있고 나머지는 못 옮긴다.
+    **화면이 백 개가 넘으면 그 차이가 되돌릴 수 없다.**
+
+    ────────────────────────────────────────────────────────────
+    [머리를 잡고 옮길 수 있다]
+
+    창이 화면 가운데를 덮으면 그 뒤의 값을 보면서 고칠 수가 없다. 메뉴 관리
+    처럼 「지금 트리에서 어디였는지」를 보며 고치는 창이 특히 그렇다.
+
+    **머리로만 잡는다**(`AllowDragByHeaderOnly`). 본문까지 잡히면 글을 끌어
+    고르려는 동작이 창 옮기기로 먹혀서, 입력 칸의 글자를 복사할 수 없다.
+    공지 팝업이 같은 이유로 같은 선택을 해 두었다(`NoticePopup`).
+
+    ────────────────────────────────────────────────────────────
+    [바깥을 눌러도 닫히지 않는 것이 기본이다]
+
+    편집 창이 대부분이고, 거기서 바깥 클릭 한 번에 창이 닫히면 **쓰던 내용이
+    사라진다.** 되돌릴 방법이 없는 손실과 한 번 더 눌러야 하는 번거로움을
+    견주면 답이 갈리지 않는다.
+
+    닫혀도 되는 창(미리보기·읽기 전용)은 `CloseOnOutsideClick="true"` 를 적는다.
+
+    ────────────────────────────────────────────────────────────
+    [키가 큰 폼은 본문만 구른다]
+
+    `MaxHeight` 를 두고 `Scrollable` 을 켠다. 안 그러면 칸이 열몇 개인 폼이
+    화면보다 길어져 **바닥의 「저장」이 화면 밖으로 나간다** — 스크롤로도
+    닿지 않는다. 켜 두면 머리와 바닥은 제자리에 남고 본문만 구른다.
+
+    ────────────────────────────────────────────────────────────
+    [splat 을 열어 두지 않는다]
+
+    `CommGrd` 는 선언하지 않은 파라미터를 DxGrid 로 흘려 보내지만, 여기서는
+    그러지 않는다. splat 되는 값은 Razor 가 형을 몰라 문자열로 오고
+    (`ShowFooter="true"` 가 500 을 낸다), 대리자는 아예 감쌀 수 없다.
+    표는 파라미터가 백 개가 넘어 열어 둘 값어치가 있었지만 팝업은 열 개
+    남짓이다.
+
+    그래서 **필요한 파라미터가 없으면 여기에 선언한다.** 빠뜨리면 빌드가
+    그 자리에서 막힌다 — splat 으로 흘려보내 열 때 죽는 것보다 낫다.
+
+    ────────────────────────────────────────────────────────────
+    [묻는 창은 `ConfirmDialog` 다]
+
+    「정말 지웁니까」를 이것으로 새로 짜지 않는다. 그쪽은 답을 `Task<bool>`
+    로 돌려주어 부르는 쪽이 `if (…) return;` 한 줄로 끝난다.
+*@
+
+<DxPopup Visible="@Visible"
+         VisibleChanged="@OnVisibleChangedAsync"
+         HeaderText="@HeaderText"
+         CssClass="@CssClass"
+         HeaderCssClass="@HeaderCssClass"
+         FooterCssClass="@FooterCssClass"
+         Width="@Width"
+         MaxHeight="@MaxHeight"
+         ShowFooter="@ShowFooter"
+         CloseOnOutsideClick="@CloseOnOutsideClick"
+         CloseOnEscape="@CloseOnEscape"
+         Scrollable="@Scrollable"
+         HeaderContentTemplate="@HeaderContentTemplate"
+         BodyContentTemplate="@BodyContentTemplate"
+         FooterContentTemplate="@FooterContentTemplate"
+         AllowDrag="true"
+         AllowDragByHeaderOnly="true" />
+
+@code {
+    /// <summary>창이 열려 있는가. <c>@@bind-Visible</c> 로 묶는다.</summary>
+    [Parameter] public bool Visible { get; set; }
+
+    /// <inheritdoc cref="Visible"/>
+    [Parameter] public EventCallback<bool> VisibleChanged { get; set; }
+
+    /// <summary>머리에 쓸 글자. 머리를 직접 그리려면 <see cref="HeaderContentTemplate"/> 를 쓴다.</summary>
+    [Parameter] public string? HeaderText { get; set; }
+
+    /// <summary>창의 너비(<c>520</c> · <c>min(640px, calc(100vw - 2rem))</c>).</summary>
+    [Parameter] public string? Width { get; set; }
+
+    /// <summary>
+    /// 창의 최대 높이. 기본값이 있는 이유는 위 「키가 큰 폼」 주석에 적었다 —
+    /// 없으면 폼이 화면보다 길어질 때 바닥 단추가 화면 밖으로 나간다.
+    /// </summary>
+    [Parameter] public string MaxHeight { get; set; } = "86vh";
+
+    /// <summary>본문만 구르게 한다. 머리와 바닥은 제자리에 남는다.</summary>
+    [Parameter] public bool Scrollable { get; set; } = true;
+
+    /// <summary>바닥 띠를 보일지. 단추를 <see cref="FooterContentTemplate"/> 에 넣으면 켠다.</summary>
+    [Parameter] public bool ShowFooter { get; set; } = true;
+
+    /// <summary>
+    /// 바깥을 눌렀을 때 닫을지. <b>기본은 닫지 않는다</b> — 편집 창에서
+    /// 그것은 쓰던 내용이 사라지는 일이다.
+    /// </summary>
+    [Parameter] public bool CloseOnOutsideClick { get; set; }
+
+    /// <summary>Esc 로 닫을지. 되돌릴 수 있는 창은 켜 두는 편이 손에 맞다.</summary>
+    [Parameter] public bool CloseOnEscape { get; set; } = true;
+
+    /// <summary>바깥에서 덧붙일 CSS 클래스.</summary>
+    [Parameter] public string? CssClass { get; set; }
+
+    /// <inheritdoc cref="CssClass"/>
+    [Parameter] public string? HeaderCssClass { get; set; }
+
+    /// <inheritdoc cref="CssClass"/>
+    [Parameter] public string? FooterCssClass { get; set; }
+
+    /// <summary>머리를 직접 그린다. 주면 <see cref="HeaderText"/> 대신 이것이 나온다.</summary>
+    [Parameter] public RenderFragment<IPopupElementInfo>? HeaderContentTemplate { get; set; }
+
+    /// <summary>창의 본문. 보통 <c>DxFormLayout</c> 하나다.</summary>
+    [Parameter] public RenderFragment<IPopupElementInfo>? BodyContentTemplate { get; set; }
+
+    /// <summary>바닥 띠의 단추들. 저장이 왼쪽, 닫기가 오른쪽이다.</summary>
+    [Parameter] public RenderFragment<IPopupElementInfo>? FooterContentTemplate { get; set; }
+
+    /// <summary>
+    /// 닫힘을 화면에 알린다.
+    ///
+    /// <para>
+    /// <c>@@bind-Visible</c> 로 묶은 화면은 <see cref="VisibleChanged"/> 가
+    /// 값을 되돌려 주어야 창이 닫힌 것을 안다. 그것을 안 넘기면 X 를 눌러도
+    /// 화면의 <c>_editing</c> 이 <c>true</c> 로 남아 다시 열리지 않는다.
+    /// </para>
+    /// </summary>
+    private Task OnVisibleChangedAsync(bool visible)
+    {
+        Visible = visible;
+        return VisibleChanged.InvokeAsync(visible);
+    }
+}
