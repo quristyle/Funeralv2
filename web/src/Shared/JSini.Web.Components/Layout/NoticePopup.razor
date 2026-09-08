@@ -33,22 +33,17 @@
     **머리로만 잡는다**(`AllowDragByHeaderOnly`). 본문까지 잡히면 글을 끌어
     고르려는 동작이 창 옮기기로 먹혀서, 공지를 복사할 수가 없다.
 
-    잡는 자리라는 **마우스 모양**은 `jsini-drag-head` 가 정한다(app.css).
-    DevExpress 는 끌 수 있는 머리에 아무 표시도 남기지 않아서, 그 표시는
-    끌기를 켠 쪽이 함께 붙여야 한다 — `CommPopup` 은 스스로 붙인다.
+    끌기와 마우스 모양은 이제 `CommPopup` 이 맡는다 — 이 창이 먼저 밟은 것을
+    그 부품이 물려받았다. `MaxHeight`·`ShowFooter`·바깥 클릭 막기도 그쪽
+    기본값과 같아서 여기서 적지 않는다. 남긴 것은 이 창만의 것뿐이다
+    (너비·바닥 띠 클래스·본문 서식).
 *@
 
-<DxPopup Visible="@Visible"
-         VisibleChanged="@SetVisibleAsync"
-         CssClass="jsini-notice-popup"
-         HeaderCssClass="jsini-drag-head"
-         FooterCssClass="jsini-notice-popup__foot"
-         Width="min(640px, calc(100vw - 2rem))"
-         MaxHeight="86vh"
-         ShowFooter="true"
-         CloseOnOutsideClick="false"
-         AllowDrag="true"
-         AllowDragByHeaderOnly="true">
+<CommPopup Visible="@Visible"
+           VisibleChanged="@SetVisibleAsync"
+           CssClass="jsini-notice-popup"
+           FooterCssClass="jsini-notice-popup__foot"
+           Width="min(640px, calc(100vw - 2rem))">
 
     <HeaderContentTemplate>
         @if (Current is { } head)
@@ -161,7 +156,7 @@
                   RenderStyle="ButtonRenderStyle.Primary"
                   Click="@NextAsync" />
     </FooterContentTemplate>
-</DxPopup>
+</CommPopup>
 
 @code {
     /// <summary>띄울 공지들. 순서대로 하나씩 넘긴다.</summary>

@@ -29,16 +29,30 @@
 
     **그 값은 위조할 수 있다.** 무엇에 쓰면 안 되는지는 `ClientAddress` 머리말에.
 
-    [나가기가 평범한 제출 단추인 이유]
+    [나가기는 POST 폼이다]
 
     쿠키를 지우는 것은 서버가 하는 일이라 회로 안에서 `NavigateTo` 로는 안 되고,
-    위조방지 토큰도 함께 가야 한다. 그래서 POST 폼이다.
+    위조방지 토큰도 함께 가야 한다. 그래서 폼을 두고 JS 로 제출한다 —
+    헤더의 사용자 메뉴(`UserMenu`)도 같은 방식이다.
 
-    헤더의 사용자 메뉴(`UserMenu`)도 로그아웃을 갖고 있지만 그쪽은 **JS 로 폼을
-    제출한다** — 펼친 판의 항목이 폼 안에 있지 않아서다. 여기는 단추가 곧 제출
-    단추라 JS 가 필요 없고, **회로가 끊긴 뒤에도 눌러서 나갈 수 있다.**
     폼 아이디를 그쪽과 갈라 두는 이유는 한 쪽에 같은 아이디가 둘이면 JS 가
     엉뚱한 것을 제출하기 때문이다.
+
+    [묻고 나서 나간다 — 그리고 그 대가]
+
+    한동안 단추가 곧 제출 단추(`type="submit"`)여서 **회로가 끊긴 뒤에도 눌러서
+    나갈 수 있었다.** 확인창을 붙이면서 그것을 잃었다 — `ConfirmDialog` 는
+    회로가 있어야 뜬다.
+
+    바꾼 이유는 일관성이다. 이 앱의 모든 확인은 `ConfirmDialog` 로 뜨고,
+    여기만 브라우저 기본 `confirm()` 을 쓰면 로그아웃이 **다른 앱의 창처럼
+    보인다.** 그리고 회로가 끊긴 상황에는 이미 길이 하나 있다 — Blazor 가
+    띄우는 재연결 막대의 「새로고침」이다(`App.razor`).
+
+    **묻는 말에 이름을 넣는다.** 공용 PC 에서 남의 계정으로 들어와 있는 것을
+    모르고 누르는 일이 있고, 그때 알려 줄 마지막 자리가 이 창이다.
+    `ConfirmDialog` 머리말이 말하는 「무엇이 사라지는지 적는다」가 여기서는
+    「누가 나가는지」다.
 *@
 
 @implements IDisposable
@@ -47,6 +61,7 @@
 @inject ClientAddress Address
 @inject PersistentComponentState PersistedState
 @inject IHttpContextAccessor Http
+@inject IJSRuntime Js
 
 <div class="jsini-sidebar__foot">
 
@@ -55,14 +70,19 @@
             @(Me.DisplayName ?? "…")
         </span>
 
-        @* 폼이 단추를 감싼다. 아래 머리말 참고 — JS 를 쓰지 않는다. *@
-        <form id="jsini-sidebar-logout" action="/logout" method="post"
-              class="jsini-sidebar__foot-out">
+        @* 단추는 묻기만 하고, 확인을 받으면 아래 폼을 제출한다.
+
+           `type="button"` 이어야 한다 — `submit` 으로 두면 물어보기 전에
+           폼이 나가 버린다. 그 값 하나가 확인창의 전부다. *@
+        <button type="button" class="jsini-sidebar__foot-button"
+                title="로그아웃" @onclick="@AskThenLogoutAsync">
+            <span class="jsini-icon-logout" aria-hidden="true"></span>
+            <span>나가기</span>
+        </button>
+
+        @* 감춰 둔 진짜 로그아웃 폼. 위 단추가 확인을 받은 뒤 이것을 제출한다. *@
+        <form id="@FormId" action="/logout" method="post" class="jsini-hidden">
             <AntiforgeryToken />
-            <button type="submit" class="jsini-sidebar__foot-button" title="로그아웃">
-                <span class="jsini-icon-logout" aria-hidden="true"></span>
-                <span>나가기</span>
-            </button>
         </form>
     </div>
 
@@ -89,7 +109,53 @@
 
 </div>
 
+@* 확인창은 띠 **바깥**에 둔다. 사이드바는 `overflow: hidden` 이고 휴대폰에서는
+   `position: fixed` 라, 안에 두면 창이 사이드바 폭 안으로 잘린다. *@
+<ConfirmDialog @ref="_confirm" />
+
 @code {
+    /// <summary>
+    /// 로그아웃 폼의 아이디. <b>헤더의 것과 달라야 한다</b> —
+    /// 한 쪽에 같은 아이디가 둘이면 JS 가 엉뚱한 것을 제출한다.
+    /// </summary>
+    private const string FormId = "jsini-sidebar-logout";
+
+    private ConfirmDialog? _confirm;
+
+    /// <summary>
+    /// 묻고, 확인을 받으면 폼을 제출한다.
+    /// </summary>
+    /// <remarks>
+    /// 취소하면 아무 일도 하지 않는다 — 창을 닫는 것(Esc · X)도 취소다
+    /// (<see cref="ConfirmDialog"/> 가 그렇게 다룬다).
+    /// </remarks>
+    private async Task AskThenLogoutAsync()
+    {
+        var who = string.IsNullOrWhiteSpace(Me.DisplayName) ? null : Me.DisplayName;
+
+        var asked = await _confirm!.AskAsync(
+            who is null
+                ? "로그아웃합니다. 저장하지 않은 내용은 사라집니다."
+                : $"「{who}」 계정에서 로그아웃합니다. 저장하지 않은 내용은 사라집니다.",
+            title: "로그아웃",
+            confirmText: "로그아웃",
+
+            // 빨강(Danger)으로 두지 않는다. 지우는 것이 아니라 나가는 것이고,
+            // 삭제 확인과 같은 색이면 「무언가 없어진다」로 읽힌다.
+            confirmStyle: ButtonRenderStyle.Primary);
+
+        if (!asked)
+        {
+            return;
+        }
+
+        // **`document.getElementById('…').submit` 을 그대로 부르면 안 된다.**
+        // Blazor 는 식별자를 `.` 으로 쪼개 이름을 하나씩 찾으므로
+        // `getElementById('…')` 라는 이름의 속성을 뒤지고, 없으니 던진다.
+        // 그 예외는 콘솔에만 찍혀서 **화면은 아무 일도 없는 것처럼 보인다.**
+        await Js.InvokeVoidAsync("jsiniForm.submit", FormId);
+    }
+
     /// <summary>프리렌더가 남기는 값의 열쇠. 이 부품 안에서만 쓴다.</summary>
     private const string StateKey = "jsini.client-ip";
 

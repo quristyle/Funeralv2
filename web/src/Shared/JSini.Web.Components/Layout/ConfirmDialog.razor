@@ -28,13 +28,16 @@
     기다리던 코드가 이어 돌아, 렌더 중에 렌더를 부르는 모양이 된다.
 *@
 
-<DxPopup Visible="@_visible"
-         VisibleChanged="@OnVisibleChanged"
-         HeaderText="@_title"
-         Width="420"
-         CloseOnOutsideClick="false"
-         ShowFooter="true"
-         CssClass="jsini-confirm">
+@* 이 창도 `CommPopup` 을 쓴다. 묻는 창은 짧아서 「본문만 구르기」가 걸릴
+   일이 없지만, **머리를 잡아 옮기는 것**은 여기서도 쓸모가 있다 — 무엇을
+   지우는지 뒤에 가린 표를 보며 답해야 할 때가 있다.
+
+   바깥을 눌러도 닫히지 않는 것과 바닥 띠는 그 부품의 기본값이라 적지 않는다. *@
+<CommPopup Visible="@_visible"
+           VisibleChanged="@OnVisibleChanged"
+           HeaderText="@_title"
+           Width="420"
+           CssClass="jsini-confirm">
     <BodyContentTemplate>
         <div class="jsini-confirm__body">@_message</div>
     </BodyContentTemplate>
@@ -45,7 +48,7 @@
         <DxButton Text="@_confirmText" RenderStyle="@_confirmStyle" Click="@(() => Answer(true))" />
         <DxButton Text="취소" RenderStyle="ButtonRenderStyle.Secondary" Click="@(() => Answer(false))" />
     </FooterContentTemplate>
-</DxPopup>
+</CommPopup>
 
 @code {
     private TaskCompletionSource<bool>? _pending;

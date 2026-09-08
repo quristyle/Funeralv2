@@ -721,6 +721,49 @@
   };
 
   /**
+   * 감춰 둔 폼을 제출한다.
+   *
+   * [이것이 없어서 로그아웃이 조용히 안 되고 있었다]
+   *
+   * 세 곳이 이렇게 부르고 있었다.
+   *
+   *     Js.InvokeVoidAsync("document.getElementById('jsini-logout-form').submit")
+   *
+   * **Blazor 는 그 글자를 `.` 으로 쪼개 이름을 하나씩 찾는다.** 그래서
+   * `document` 에서 `getElementById('jsini-logout-form')` 라는 **이름의 속성**을
+   * 찾고, 없으니 던진다 —
+   * `Could not find '…' ('getElementById('…')' was undefined)`.
+   *
+   * 증상이 나쁜 이유는 **예외가 화면에 안 보인다**는 것이다. 브라우저 콘솔에만
+   * 찍히고 화면은 아무 일도 일어나지 않는다. 그래서 헤더의 「로그아웃」과
+   * 비밀번호를 바꾼 뒤의 로그아웃이 **누르면 아무 반응이 없는 상태**로
+   * 남아 있었다.
+   *
+   * 인자를 받는 함수로 두면 그 쪼개기에 걸릴 것이 없다.
+   *
+   * [왜 폼이어야 하나]
+   *
+   * 쿠키를 지우는 것은 서버 일이라 회로 안에서 주소를 옮기는 것으로는 안 되고,
+   * 위조방지 토큰도 함께 가야 한다. 그리고 셸은 로그아웃을 GET 으로 받지
+   * 않는다 — GET 이면 이미지 태그 하나로 남을 로그아웃시킬 수 있다.
+   */
+  window.jsiniForm = {
+    submit: function (id) {
+      var form = document.getElementById(id);
+
+      if (!form) {
+        // 던지지 않는다. 회로가 죽을 뿐 사용자는 아무것도 알 수 없다.
+        // 콘솔에 남기면 다음 사람이 찾을 수 있다.
+        if (window.console) console.warn('[jsini] 제출할 폼을 찾지 못했다: ' + id);
+        return false;
+      }
+
+      form.submit();
+      return true;
+    },
+  };
+
+  /**
    * 회로가 붙을 때 브라우저에서 읽어 올 것을 **한 번에** 읽는다.
    *
    * [무엇을 고친 것인가]

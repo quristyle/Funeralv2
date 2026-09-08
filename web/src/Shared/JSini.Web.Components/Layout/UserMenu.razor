@@ -250,6 +250,14 @@
     private Task LogoutAsync()
     {
         Close();
-        return Js.InvokeVoidAsync("document.getElementById('jsini-logout-form').submit").AsTask();
+        // **한동안 이 줄이 조용히 아무 일도 하지 않았다.** 아래처럼 적어
+        // 두었는데 Blazor 는 식별자를 `.` 으로 쪼개므로
+        // `getElementById('jsini-logout-form')` 라는 이름의 속성을 찾고 던진다.
+        //
+        //     Js.InvokeVoidAsync("document.getElementById('jsini-logout-form').submit")
+        //
+        // 예외가 브라우저 콘솔에만 남아 **누르면 반응이 없는 상태**로 있었다.
+        // 인자를 받는 함수로 부르면 그 쪼개기에 걸릴 것이 없다(theme.js).
+        return Js.InvokeVoidAsync("jsiniForm.submit", "jsini-logout-form").AsTask();
     }
 }
