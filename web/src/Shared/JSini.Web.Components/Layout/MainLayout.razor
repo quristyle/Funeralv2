@@ -20,8 +20,20 @@
     [DxDrawer 를 쓰지 않았다]
 
     DxDrawer 는 본문 위를 덮거나 밀어내는 서랍이다. 여기 필요한 것은 **늘 자리를
-    차지하는 판**이고, 접었을 때도 격자가 그대로여야 본문이 출렁이지 않는다.
-    CSS 격자 한 줄이면 되는 일이라 부품을 얹지 않았다.
+    차지하는 판**이고, 접었을 때도 본문이 출렁이지 않아야 한다.
+
+    [사이드바와 본문 사이는 `DxSplitter` 다]
+
+    구분선을 끌어 사이드바 폭을 바꾼다(90~640px). 끌어 둔 폭은 브라우저에
+    남는다. 구분선 가운데의 화살표로 접을 수도 있고, 그 접힘은 헤더의 ☰ 와
+    **같은 상태**다.
+
+    **휴대폰에서도 같은 마크업이다.** 그때 사이드바는 본문을 덮어야 하는데
+    (360px 화면에서 나란히 두면 본문이 24px 남는다), 그 일을 CSS 가 한다 —
+    좁은 화면에서 판과 구분선의 상자를 없애면(`display: contents`) 사이드바와
+    본문이 다시 격자 칸이 되어 예전 규칙이 그대로 걸린다. 마크업을 갈아
+    끼우지 않는 이유는 경계를 넘을 때마다 트리와 화면이 다시 만들어지기
+    때문이다.
 
     [주소가 바뀔 때 하는 일이 셋이다]
 
@@ -33,6 +45,7 @@
 @inherits LayoutComponentBase
 @implements IDisposable
 
+@inject PageTransition Transition
 @inject IMenuProvider Menus
 @inject IPermissionContext Permissions
 @inject ITokenStore Tokens
@@ -44,6 +57,7 @@
 @inject PortalTabs Tabs
 @inject AuthenticationStateProvider AuthState
 @inject NavigationManager Navigation
+@inject IJSRuntime Js
 @inject ILogger<MainLayout> Log
 
 <DxLayoutBreakpoint DeviceSize="DeviceSize.XSmall" @bind-IsActive="_isPhone" />
@@ -95,19 +109,51 @@
         <UserMenu />
     </header>
 
-    <aside class="jsini-shell__sidebar">
-        <SidebarMenu Nodes="@Menus.VisibleMenus" />
-    </aside>
+    @* ── 사이드바 ↔ 본문 ────────────────────────────────────
 
-    <div class="jsini-shell__main">
-        <TabBar />
+       구분선을 끌어 폭을 바꾼다(90~640px). 접기는 구분선 가운데의 화살표와
+       헤더의 ☰ 가 **같은 상태**를 나눠 쓴다.
 
-        <Breadcrumb Trail="@_trail" />
+       **휴대폰에서도 이 마크업 하나를 쓴다.** 그때는 사이드바가 본문을
+       덮어야 하는데(360px 화면에서 판을 나란히 두면 본문이 24px 남는다),
+       그 일을 CSS 가 한다 — 좁은 화면에서 판과 구분선의 상자를 없애
+       (`display: contents`) 사이드바·본문이 다시 격자 칸이 된다.
 
-        <main class="jsini-shell__content">
-            @Body
-        </main>
-    </div>
+       화면 크기로 **마크업을 갈아 끼우지 않는 이유**가 있다. 갈아 끼우면
+       경계(767px)를 넘을 때마다 사이드바 트리와 열려 있던 화면이 통째로
+       다시 만들어진다 — 펼쳐 둔 가지가 접히고 화면이 조회를 다시 한다. *@
+    <DxSplitter CssClass="jsini-shell__split" Orientation="Orientation.Horizontal"
+                SeparatorSize="0">
+        <Panes>
+            <DxSplitterPane Size="@($"{_sidebarWidth}px")"
+                            MinSize="90px"
+                            MaxSize="640px"
+                            AllowCollapse="true"
+                            Collapsed="@(!_sidebarOpen)"
+                            CollapsedChanged="@OnSidebarCollapsedChanged"
+                            SizeChanged="@OnSidebarResizedAsync">
+                <aside class="jsini-shell__sidebar">
+                    <SidebarMenu Nodes="@Menus.VisibleMenus" />
+                </aside>
+            </DxSplitterPane>
+
+            <DxSplitterPane>
+                <div class="jsini-shell__main">
+                    <TabBar />
+
+                    <Breadcrumb Trail="@_trail" />
+
+                    <main class="jsini-shell__content">
+                        @* 옮기는 동안 본문을 덮는다. **본문 안에 둔다** — 머리줄·
+                           탭 줄·길잡이는 덮지 않아야 어디로 가는 중인지 읽힌다. *@
+                        <PageSpinner />
+
+                        @Body
+                    </main>
+                </div>
+            </DxSplitterPane>
+        </Panes>
+    </DxSplitter>
 
 </div>
 
@@ -128,8 +174,37 @@
     private bool _isPhone;
     private bool _isTablet;
 
+    /// <summary>
+    /// 사이드바 폭(px). <b>기본값은 DevExpress 데모의 330px 이다</b>
+    /// (`--jsini-sidebar-width` 와 같은 값이라야 휴대폰 갈래와 어긋나지 않는다).
+    ///
+    /// <para>
+    /// 끌어 놓으면 이 값이 바뀌고 브라우저에 남는다. <b>사용자가 아니라
+    /// 기기에 남기는 이유</b>는 알맞은 폭이 화면 크기에 딸린 것이기 때문이다 —
+    /// 노트북에서 좁혀 둔 폭이 사무실 큰 모니터에 따라오면 그때는 그것이
+    /// 불편이 된다.
+    /// </para>
+    /// </summary>
+    private int _sidebarWidth = 330;
+
+    /// <summary>
+    /// 저장해 둔 폭을 이미 읽었나. <b>한 번만 읽는다</b> — 읽기는
+    /// <see cref="PortalBoot"/> 의 공용 왕복에 실려 오고, 두 번째부터는
+    /// 사용자가 방금 끌어 놓은 값을 옛 값으로 되돌리게 된다.
+    /// </summary>
+    private bool _widthRestored;
+
     /// <summary>지금 화면의 메뉴 줄기. 브레드크럼이 쓴다.</summary>
     private IReadOnlyList<MenuNode> _trail = [];
+
+    /// <summary>옮기기 전 갈고리의 등록증. 놓으면 갈고리가 풀린다.</summary>
+    private IDisposable? _navigating;
+
+    /// <summary>지난번에 받은 본문. 라우터가 화면을 갈았는지 이것으로 본다.</summary>
+    private RenderFragment? _body;
+
+    /// <summary>이번 그림에서 본문이 갈렸는가. <c>OnAfterRenderAsync</c> 가 쓰고 끈다.</summary>
+    private bool _bodyChanged;
 
     /// <summary>지금 화면의 DB 메뉴 경로. 즐겨찾기 단추가 쓴다.</summary>
     private string? _menuPath;
@@ -141,6 +216,7 @@
     {
         Menus.MenusChanged += OnMenusChanged;
         Navigation.LocationChanged += OnLocationChanged;
+        _navigating = Navigation.RegisterLocationChangingHandler(OnNavigating);
 
         // 헤더의 권한 그룹이 이 값으로 그려진다. 내 정보는 부트스트랩이
         // 끝나야 실리므로, 안 듣고 있으면 **그다음 렌더가 올 때까지 비어
@@ -262,12 +338,64 @@
     /// </remarks>
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        // **본문이 갈린 그림에서만 알린다** (`_bodyChanged`).
+        //
+        // 아무 그림에서나 알리면 표시가 그 자리에서 걷힌다. 주소가 바뀌면
+        // 그림이 **두 번** 그려지기 때문이다 — 탭·브레드크럼을 맞추려고
+        // 여기서 한 번(`OnLocationChanged`), 라우터가 새 화면을 끼우며 한 번.
+        // 앞엣것에는 새 화면이 아직 없어서 잡은 조회도 없고, 그래서 곧바로
+        // 끝나 버린다. 실제로 그렇게 만들어 놓고 재 보니 켜졌다 꺼지는 데
+        // 35ms 였다 — 사람 눈에는 아무 일도 안 일어난 것과 같다.
+        //
+        // 뒤엣것에서는 이 콜백이 **자식보다 나중**에 불리므로(Blazor 가 자식을
+        // 먼저 부른다) 새 화면의 조회가 이미 잡혀 있다.
+        if (_bodyChanged)
+        {
+            _bodyChanged = false;
+            Transition.Rendered();
+        }
+
         if (!firstRender)
         {
             return;
         }
 
+        await RestoreSidebarWidthAsync();
         await Lock.RestoreAsync();
+    }
+
+    /// <summary>
+    /// 지난번에 끌어 둔 사이드바 폭을 되살린다.
+    ///
+    /// <para>
+    /// <b>왕복을 따로 내지 않는다</b> — <see cref="PortalBoot"/> 가 잠금 표시·
+    /// 공지 표시·고정 탭·테마를 읽는 그 한 번에 실려 온다(열쇠를 그쪽 목록에
+    /// 한 줄 더한 것이 전부다).
+    /// </para>
+    ///
+    /// <para>
+    /// 그래서 <b>첫 그림은 기본 폭(330px)이고</b> 회로가 붙은 뒤 저장된 폭으로
+    /// 한 번 바뀐다. 고정 탭도 같은 자리에서 같은 방식으로 되살아난다.
+    /// 첫 그림부터 맞추려면 값이 쿠키에 있어야 하는데(테마 크기가 그렇다)
+    /// 그건 theme.js 가 굽는 것들과 한 묶음으로 다룰 일이다.
+    /// </para>
+    /// </summary>
+    private async Task RestoreSidebarWidthAsync()
+    {
+        if (_widthRestored)
+        {
+            return;
+        }
+
+        _widthRestored = true;
+
+        if ((await Boot.ReadAsync()).SidebarWidthPx is not int px || px == _sidebarWidth)
+        {
+            return;
+        }
+
+        _sidebarWidth = px;
+        StateHasChanged();
     }
 
     /// <summary>
@@ -280,6 +408,14 @@
     /// </summary>
     protected override void OnParametersSet()
     {
+        // 본문이 갈렸는가. 라우터가 새 화면을 끼울 때만 참조가 바뀐다 —
+        // 까닭은 `OnAfterRenderAsync` 에 적어 두었다.
+        if (!ReferenceEquals(_body, Body))
+        {
+            _body = Body;
+            _bodyChanged = true;
+        }
+
         var viewport = _isPhone ? Viewport.Phone
             : _isTablet ? Viewport.Tablet
             : Viewport.Desktop;
@@ -295,11 +431,110 @@
 
     private void ToggleSidebar() => _sidebarOpen = !_sidebarOpen;
 
+    /// <summary>
+    /// 스플리터의 접기 화살표(구분선 가운데)로 접었다 폈다.
+    ///
+    /// <para>
+    /// 헤더의 ☰ 와 <b>같은 상태를 나눠 쓴다.</b> 따로 두면 화살표로 접고
+    /// ☰ 를 누를 때 아무 일도 안 일어나는 것처럼 보인다 — 부품은 접혀 있다고
+    /// 알고 우리는 펴져 있다고 알기 때문이다.
+    /// </para>
+    /// </summary>
+    private void OnSidebarCollapsedChanged(bool collapsed) => _sidebarOpen = !collapsed;
+
+    /// <summary>
+    /// 끌어서 폭을 바꿨다. 브라우저에 적어 둔다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 넘어오는 값은 <c>"312px"</c> 처럼 <b>단위가 붙은 글자</b>다. 숫자만
+    /// 떠서 담는다 — 저장한 값을 다음에 읽어 다시 <c>px</c> 를 붙이므로,
+    /// 단위째 담아 두면 <c>"312pxpx"</c> 가 되는 자리가 생긴다.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>접힌 상태는 담지 않는다.</b> 접으면 부품이 0 을 알려 주는데 그것을
+    /// 담으면 다음에 열 때 폭 0 인 사이드바가 나온다 — 접힘은 접힘으로
+    /// 기억할 일이고(지금은 기억하지 않는다) 폭과 섞지 않는다.
+    /// </para>
+    /// </remarks>
+    private async Task OnSidebarResizedAsync(string? size)
+    {
+        if (!Pixels(size, out var px))
+        {
+            return;
+        }
+
+        _sidebarWidth = px;
+
+        try
+        {
+            await Js.InvokeVoidAsync("localStorage.setItem", PortalBoot.SidebarWidthKey,
+                px.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        }
+        catch (Exception ex) when (ex is JSException or InvalidOperationException)
+        {
+            // 저장소를 막아 둔 브라우저이거나 회로가 이미 끊겼다. 폭은 이번
+            // 화면에서만 유지된다 — 그 이상 할 일이 없다.
+            Log.LogDebug(ex, "사이드바 폭을 저장하지 못했다.");
+        }
+    }
+
+    /// <summary>
+    /// <c>"312px"</c> 에서 312 를 뜬다. 0 이하나 못 읽는 값은 거른다 —
+    /// 접힘(0)과 이상한 값을 여기서 함께 막는다.
+    /// </summary>
+    private static bool Pixels(string? size, out int px)
+    {
+        px = 0;
+
+        if (size is null)
+        {
+            return false;
+        }
+
+        var digits = size.AsSpan().TrimEnd();
+        var end = 0;
+
+        while (end < digits.Length && (char.IsAsciiDigit(digits[end]) || digits[end] == '.'))
+        {
+            end++;
+        }
+
+        return double.TryParse(digits[..end], System.Globalization.NumberStyles.Float,
+                   System.Globalization.CultureInfo.InvariantCulture, out var value)
+               && value >= 1
+               && (px = (int)Math.Round(value)) > 0;
+    }
+
     private void OnMenusChanged()
     {
         // 메뉴가 늦게 도착하면 그때 브레드크럼과 탭 이름이 채워진다.
         Track();
         InvokeAsync(StateHasChanged);
+    }
+
+    /// <summary>
+    /// 옮기기 <b>전에</b> 표시를 켠다. Vue 의 <c>router.beforeEach</c> 자리다.
+    ///
+    /// <para>
+    /// <b><c>LocationChanged</c> 로는 늦는다.</b> 그 이벤트의 구독자 중
+    /// <c>Router</c> 가 우리보다 먼저다(앱이 뜰 때 붙으므로). 라우터는 자기
+    /// 차례에 새 화면을 <b>그 자리에서</b> 만들어 버리고, 그 화면이 조회를
+    /// 잡으려 할 때 표시는 아직 켜지지도 않은 상태다. 잡히지 않은 조회는
+    /// 세지 않으므로(<see cref="PageTransition.Claim"/>) 표시는 곧바로 걷힌다.
+    /// 재 보니 켜졌다 꺼지는 데 1ms 였다.
+    /// </para>
+    ///
+    /// <para>
+    /// 이 갈고리는 라우터가 움직이기 전에 불린다. 취소하지 않으므로
+    /// (<c>PreventNavigation</c> 을 부르지 않는다) 이동을 막지도 않는다.
+    /// </para>
+    /// </summary>
+    private ValueTask OnNavigating(LocationChangingContext context)
+    {
+        Transition.Begin();
+        return ValueTask.CompletedTask;
     }
 
     private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
@@ -397,6 +632,7 @@
     {
         Menus.MenusChanged -= OnMenusChanged;
         Navigation.LocationChanged -= OnLocationChanged;
+        _navigating?.Dispose();
         Me.Changed -= OnMeChanged;
         _watermarkWatch?.Dispose();
     }

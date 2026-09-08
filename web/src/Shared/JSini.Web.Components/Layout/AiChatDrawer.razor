@@ -1,3 +1,5 @@
+@* 껍데기 크기를 캡에서 멈추려고 받는다 — `ThemeSize.Chrome` 머리말 참고. *@
+@inject ThemeSize Size
 @*
     헤더에서 여는 AI 대화 서랍 (D11).
 
@@ -24,10 +26,14 @@
     옛 포털도 그랬다.
 *@
 
-<DxButton RenderStyle="ButtonRenderStyle.Link"
-          IconCssClass="jsini-icon-robot"
-          Title="@(_open ? "AI 대화 닫기" : "AI 에게 묻기")"
-          Click="@Toggle" />
+@* 아이콘 단추의 **좌우 여백**을 「조금작게」에서 멈춘다 —
+   이유는 `ThemeSize.Chrome` 머리말에. **여기만 감싼다.** *@
+<CascadingValue Name="@ThemeSize.CascadeName" TValue="SizeMode?" Value="@Size.Chrome">
+    <DxButton RenderStyle="ButtonRenderStyle.Link"
+              IconCssClass="jsini-icon-robot"
+              Title="@(_open ? "AI 대화 닫기" : "AI 에게 묻기")"
+              Click="@Toggle" />
+</CascadingValue>
 
 <aside class="jsini-ai-drawer @(_open ? "jsini-ai-drawer--open" : "")"
        aria-hidden="@(_open ? "false" : "true")">

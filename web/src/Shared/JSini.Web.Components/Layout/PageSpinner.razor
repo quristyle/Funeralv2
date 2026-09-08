@@ -1,0 +1,62 @@
+@implements IDisposable
+@inject PageTransition Transition
+
+@*
+    화면을 옮기는 동안 본문 위에 덮는 표시.
+    이력: Vue `layouts/src/basic/content/content-spinner.vue` (+ `VbenSpinner`).
+
+    [그림은 옛 것 그대로다]
+
+    상승 조각 넷이 차례로 오르내린다. 좌표(기울기 22:100 → `skewX(-12.4)`)와
+    엇박(0.12초씩)은 Vue 판에서 그대로 옮겼다. 브랜드 규칙이 심볼(JS 인터록)의
+    기울이기·회전을 금지해서 **심볼을 굴리지 않는 것**이 그때의 결론이었고,
+    그 결론은 여기서도 같다.
+
+    [언제 보일지는 CSS 가 정한다]
+
+    Vue 는 타이머 둘로 다스렸다 — 50ms 지나야 띄우고(순식간에 끝난 이동에서
+    깜빡이지 않게), 한 번 띄우면 500ms 는 유지(띄우자마자 걷혀 껌뻑이지 않게).
+
+    여기서는 **나타날 때만 늦춘다**(`transition-delay`). Blazor Server 에서
+    타이머는 곧 왕복이라, 이동 한 번에 그림을 두 번 더 밀어내게 된다. 늦추기만
+    해도 목적은 같다 — 늦춤보다 빨리 끝난 이동에서는 켜졌다 꺼지는 동안 아무것도
+    안 보이고, 보일 만큼 오래 걸린 이동은 사라질 때 0.28초에 걸쳐 스러진다.
+
+    덮개를 늘 DOM 에 두고 클래스만 바꾸는 이유도 같다. 껐다 켤 때마다 만들면
+    나타나는 전환이 걸리지 않아 그대로 튀어나온다.
+*@
+
+<div class="jsini-pageload @(Transition.IsBusy ? "is-on" : null)" data-dbg="@Transition.Debug" aria-hidden="true">
+    <svg class="jsini-loader" viewBox="0 0 48 48" role="img" aria-label="화면을 여는 중">
+        <g transform="translate(4.84,0) skewX(-12.4)">
+            <rect class="jsini-loader__bar" x="5" y="28" width="6" height="16" opacity="0.3" />
+            <rect class="jsini-loader__bar" x="16" y="22" width="6" height="22" opacity="0.5" />
+            <rect class="jsini-loader__bar" x="27" y="16" width="6" height="28" opacity="0.75" />
+            <rect class="jsini-loader__bar" x="38" y="10" width="6" height="34" opacity="1" />
+        </g>
+    </svg>
+</div>
+
+@code {
+    protected override void OnInitialized() => Transition.Changed += OnChanged;
+
+    /// <summary>
+    /// <b><c>InvokeAsync</c> 로 감싸면 안 된다.</b>
+    ///
+    /// <para>
+    /// 켜라는 신호는 <c>LocationChanged</c> 안에서, 끄라는 신호는 화면의
+    /// 조회가 끝나는 자리에서 온다 — 둘 다 이미 렌더러의 자리(dispatcher)다.
+    /// 거기서 <c>InvokeAsync</c> 를 쓰면 <b>지금 만들고 있는 그림 다음으로
+    /// 미뤄진다.</b>
+    /// </para>
+    ///
+    /// <para>
+    /// 그래서 덮개가 새 화면보다 늦게 켜졌다. 재 보니 본문은 30ms 에 갈리고
+    /// 덮개는 199ms — <b>조회가 끝난 뒤</b>에야 켜졌다가 곧바로 꺼졌다.
+    /// 덮으라고 만든 것이 덮을 일이 끝난 뒤에 나타난 셈이다.
+    /// </para>
+    /// </summary>
+    private void OnChanged() => StateHasChanged();
+
+    public void Dispose() => Transition.Changed -= OnChanged;
+}

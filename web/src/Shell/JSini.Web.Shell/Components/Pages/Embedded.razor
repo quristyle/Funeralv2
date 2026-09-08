@@ -1,0 +1,108 @@
+@page "/embed/{*MenuPath}"
+
+@*
+    [바깥 화면 끼워 넣기] — 유형이 `EMBEDDED` 인 메뉴 **전부**를 받는 화면 하나.
+
+    [왜 화면이 하나인가]
+
+    전에는 그런 메뉴마다 razor 가 하나씩 있었다 — 서버 모니터
+    (`/projmng/external/jsini`) · 장례 프레임 모니터 · JIN 보안 셋이고,
+    셋의 차이는 **박아 둔 주소 한 줄뿐**이었다. 그런데 그 주소는 이미
+    `scom.system_menus.iframe_src` 에 들어 있었다. 결과가 이랬다.
+
+      · 주소가 바뀌면 메뉴관리에서 고쳐도 화면은 옛 주소를 띄웠다
+      · 메뉴를 하나 늘리려면 razor 를 쓰고 **배포**해야 했다
+      · 셋 중 하나만 고치고 나머지를 잊는 길이 늘 열려 있었다
+
+    이제 메뉴관리에서 유형을 `EMBEDDED` 로 두고 iframe 주소만 넣으면 끝이다.
+
+    [주소에 메뉴 경로를 그대로 잇는다]
+
+    `/embed/projmng/external/jsini` 처럼 붙는다(`EmbeddedRoute`). 메뉴마다
+    주소가 달라야 탭·브레드크럼·뒤로 가기가 서로를 가른다. 포괄 라우트라
+    `RouteInventory` 에 실리지 않으므로 **메뉴관리의 「화면」 목록에도 안 뜬다** —
+    고를 필요가 없는 화면이니 그게 맞다.
+
+    [셸에 두는 이유]
+
+    끼워 넣는 메뉴는 업무를 가리지 않는다(지금도 프로젝트관리 둘 · 포털관리
+    하나다). 어느 한 모듈에 두면 그 모듈의 접두사가 주소에 붙어
+    (`/admin/embed/...`) 프로젝트관리 메뉴가 포털관리 주소로 열린다.
+    업무를 안 가리는 화면은 셸의 것이다 — `/password/change` 와 같은 자리다.
+
+    [빈 iframe 을 그냥 두지 않는다]
+
+    상대가 `X-Frame-Options` 를 걸어 두었거나 http 를 https 안에 끼우려 하면
+    브라우저가 막고, 화면에는 **아무 표시 없이 빈 칸**이 남는다. 사용자는
+    그것을 「서버가 죽었다」로 읽는다. 그래서 새 창으로 열 길을 늘 함께 둔다.
+*@
+
+@inject IMenuProvider Menus
+@inject IJSRuntime Js
+
+<PageTitle>@(Menu?.Title ?? "바깥 화면") · JSini 포털</PageTitle>
+
+@if (Source is null)
+{
+    @* 메뉴를 못 찾았거나 주소가 안 채워졌다. 빈 iframe 을 띄우는 것보다
+       **무엇을 해야 하는지** 말하는 편이 낫다 — 고칠 자리가 메뉴관리다. *@
+    <PageNotice Tone="NoticeTone.Warning"
+                Text="@($"이 메뉴에 iframe 주소가 없습니다. 메뉴 관리에서 「iframe 주소」를 채워 주세요. (경로 {Href})")" />
+}
+else
+{
+    <PageNotice>
+        <div class="jsini-split">
+            <span>
+                아래가 비어 있으면 상대 사이트가 iframe 을 막은 것입니다.
+                포털은 https 라 http 주소도 막힐 수 있습니다. 새 창으로 열어 주세요.
+            </span>
+            <DxButton Text="새 창으로 열기" RenderStyle="ButtonRenderStyle.Secondary"
+                      Click="@OpenAsync" />
+        </div>
+    </PageNotice>
+
+    <iframe class="jsini-embed" src="@Source" title="@(Menu?.Title ?? "바깥 화면")"></iframe>
+}
+
+@code {
+    /// <summary>
+    /// 접두사 뒤에 붙은 메뉴 경로 (<c>projmng/external/jsini</c>).
+    /// 라우트가 포괄이라 <b>받는 속성이 반드시 있어야 한다</b> — 없으면
+    /// Blazor 가 값 넣을 곳을 못 찾아 예외를 던진다.
+    /// </summary>
+    [Parameter] public string? MenuPath { get; set; }
+
+    /// <summary>지금 주소. 사이드바가 건 링크와 같은 값이다.</summary>
+    private string Href => EmbeddedRoute.HrefFor(MenuPath ?? string.Empty);
+
+    /// <summary>
+    /// 이 주소가 가리키는 메뉴.
+    ///
+    /// <para>
+    /// <c>Trail</c> 을 쓰는 이유는 그것이 <b>거르기 전 원본</b>에서 찾기
+    /// 때문이다. 걸러진 목록에서 찾으면 메뉴에서 숨긴 화면을 주소로 열었을 때
+    /// 주소를 못 찾아 빈 칸이 뜬다. 줄기의 마지막 칸이 이 화면이다.
+    /// </para>
+    /// </summary>
+    private MenuNode? Menu => Menus.Trail(Href).LastOrDefault();
+
+    /// <summary>
+    /// 띄울 주소. <b>정본은 메뉴관리다</b>(<c>scom.system_menus.iframe_src</c>).
+    /// 화면은 아무 주소도 알고 있지 않다.
+    /// </summary>
+    private string? Source =>
+        Menu?.IframeSrc is { Length: > 0 } src ? src : null;
+
+    /// <summary>
+    /// 새 창으로 연다. <c>noopener</c> 를 붙여 열린 창이 <c>window.opener</c> 로
+    /// 이 포털을 건드리지 못하게 한다.
+    /// </summary>
+    private async Task OpenAsync()
+    {
+        if (Source is { } src)
+        {
+            await Js.InvokeVoidAsync("open", src, "_blank", "noopener");
+        }
+    }
+}

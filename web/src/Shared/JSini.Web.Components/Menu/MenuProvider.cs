@@ -158,6 +158,9 @@ public sealed class MenuProvider(
     ///
     /// <list type="number">
     ///   <item>외부 링크는 그대로 나간다.</item>
+    ///   <item><b>끼워 넣는 메뉴(EMBEDDED)는 공용 화면 하나로 보낸다.</b>
+    ///         열쇠를 보지 않는다 — 고를 화면이 없기 때문이다
+    ///         (<see cref="EmbeddedRoute"/>).</item>
     ///   <item><b>열쇠가 있으면 카탈로그에서 푼다.</b> 이것이 정본이다 —
     ///         DB 는 URL 을 모르고, 실려 있는 화면이 자기 주소를 안다.</item>
     ///   <item>열쇠가 없거나 모르는 열쇠면 옛 길로 떨어진다
@@ -172,6 +175,14 @@ public sealed class MenuProvider(
         if (node.IsExternalLink)
         {
             return node.Link ?? node.Path;
+        }
+
+        // **열쇠보다 앞이다.** 옛 화면 셋의 열쇠가 DB 에 아직 남아 있는데
+        // 그 화면들은 지웠다. 열쇠를 먼저 보면 못 찾아 옛 길로 떨어지고,
+        // 그러면 「준비 중」이 뜬다. 유형과 주소만으로 판단한다.
+        if (node.IsEmbedded && !string.IsNullOrWhiteSpace(node.IframeSrc))
+        {
+            return EmbeddedRoute.HrefFor(node.Path);
         }
 
         return routes.Resolve(node.RouteKey) ?? RouteAliases.Resolve(node.Path);
@@ -202,8 +213,11 @@ public sealed class MenuProvider(
         {
             foreach (var node in nodes)
             {
+                // 끼워 넣는 메뉴는 화면을 안 고른다. 열쇠가 남아 있어도
+                // 읽지 않으므로 「화면이 없다」고 알릴 일이 아니다.
                 if (!node.IsCatalog
                     && !node.IsExternalLink
+                    && !node.IsEmbedded
                     && !string.IsNullOrWhiteSpace(node.RouteKey)
                     && routes.Resolve(node.RouteKey) is null)
                 {

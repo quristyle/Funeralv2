@@ -1,0 +1,183 @@
+@*
+    메뉴 아이콘을 눈으로 보고 고른다.
+
+        아이콘  [◧] [lucide:calendar-days        ] [고르기]
+                ┌──────────────────────────────────────┐
+                │ 🔍 아이콘 검색                        │
+                │ ◧ ◨ ◩ ◪ ▣ ▤ ▥ ▦ ▧ ▨ …               │  ← 여기만 구른다
+                └──────────────────────────────────────┘
+
+    [왜 만들었나 — 이름을 손으로 적고 있었다]
+
+    아이콘 칸이 그냥 글자 입력이었다. DB 에 들어 있는 값은 iconify 이름
+    (`lucide:calendar-days` · `carbon:building`)이고, **외우고 있는 사람이
+    없다.** 게다가 CSS 에 없는 이름을 적으면 오류가 아니라 **동그라미**가
+    나오므로(`MenuIcons` 머리말) 틀려도 저장은 되고 사이드바에서만 이상해진다.
+
+    [고를 수 있는 목록은 「이미 쓰이는 아이콘」이다]
+
+    <c>Available</c> 로 받는다. 부르는 화면이 **이미 들고 있는 메뉴 목록에서**
+    뽑아 넘긴다 — 새 엔드포인트도, 새 생성물도 없다.
+
+    그 목록이 곧 <c>menu-icons.css</c> 에 그림이 있는 것들이라는 것이 요점이다.
+    그 CSS 는 `scripts/build-menu-icons.py` 가 **DB 에 실제로 쓰이는 이름으로**
+    만들기 때문이다. 그래서 **여기서 고른 것은 반드시 그림이 나온다.**
+
+    목록을 코드에 적어 두지 않는 이유는 `MenuIcons` 머리말과 같다 — 적으면
+    CSS 를 다시 만들 때 두 곳을 맞춰야 하고, 어긋나면 아이콘이 사라지는 쪽으로 틀린다.
+
+    [글자 입력을 없애지 않았다]
+
+    **아직 아무 메뉴도 안 쓰는 새 아이콘**을 넣을 길이 있어야 한다. 그때는
+    이름을 적고 `build-menu-icons.py` 를 다시 돌리면 그림이 따라온다. 그 사이에는
+    동그라미가 나오고, 그것을 아래 안내가 미리 말해 준다.
+
+    [팝업으로 띄우지 않는다]
+
+    이 부품이 서는 자리가 이미 팝업 안이다(메뉴 수정 창 — `CommPopup`).
+    팝업 안에 팝업을 띄우면 겹침 순서와 「바깥 누르면 닫힘」이 서로 얽힌다.
+    펼치는 판은 그 문제가 없고, 폼이 길어지는 것은 판이 스스로 구르므로 괜찮다.
+*@
+
+<div class="jsini-iconpick">
+
+    <div class="jsini-iconpick__row">
+        @* 지금 값의 그림. **고르기 전에도 보여야 한다** — 저장된 값이 맞는지
+           확인하는 자리가 여기밖에 없다. 동그라미가 나오면 CSS 에 없는 이름이다. *@
+        <span class="jsini-iconpick__preview @MenuIcons.CssClass(Value)"
+              title="@(string.IsNullOrWhiteSpace(Value) ? "아이콘 없음" : Value)"
+              aria-hidden="true"></span>
+
+        <DxTextBox Text="@Value"
+                   TextChanged="@OnTyped"
+                   BindValueMode="BindValueMode.OnLostFocus"
+                   NullText="비워 둘 수 있다"
+                   ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto"
+                   CssClass="jsini-iconpick__text" />
+
+        <DxButton Text="@(_open ? "닫기" : "고르기")"
+                  RenderStyle="ButtonRenderStyle.Secondary"
+                  Click="@Toggle" />
+    </div>
+
+    @if (_open)
+    {
+        <div class="jsini-iconpick__panel">
+            <DxTextBox Text="@_search"
+                       TextChanged="@((string? t) => _search = t ?? string.Empty)"
+                       BindValueMode="BindValueMode.OnInput"
+                       InputDelay="200"
+                       NullText="아이콘 검색 (lucide · carbon · 이름 조각)"
+                       ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto"
+                       CssClass="jsini-iconpick__search" />
+
+            @if (Shown.Count == 0)
+            {
+                <p class="jsini-iconpick__empty">찾는 아이콘이 없습니다.</p>
+            }
+            else
+            {
+                <div class="jsini-iconpick__grid">
+                    @* 「없음」 칸. 아이콘을 지우려고 글자를 다 지우는 것보다
+                       한 번 누르는 것이 분명하다. *@
+                    <button type="button"
+                            class="jsini-iconpick__cell @(string.IsNullOrWhiteSpace(Value) ? "is-on" : "")"
+                            title="아이콘 없음"
+                            @onclick="@(() => PickAsync(null))">
+                        <span class="jsini-icon-close" aria-hidden="true"></span>
+                    </button>
+
+                    @foreach (var icon in Shown)
+                    {
+                        <button type="button"
+                                class="jsini-iconpick__cell @(icon == Value ? "is-on" : "")"
+                                title="@icon"
+                                @onclick="@(() => PickAsync(icon))">
+                            <span class="@MenuIcons.CssClass(icon)" aria-hidden="true"></span>
+                        </button>
+                    }
+                </div>
+            }
+
+            <p class="jsini-iconpick__note">
+                여기 있는 것은 <b>이미 메뉴가 쓰고 있는 아이콘</b>이라 반드시 그림이 나옵니다.
+                새 아이콘은 위 칸에 iconify 이름을 적고
+                <code>scripts/build-menu-icons.py</code> 를 다시 돌리십시오 —
+                그 전에는 동그라미로 보입니다.
+            </p>
+        </div>
+    }
+
+</div>
+
+@code {
+    /// <summary>지금 아이콘 이름 (<c>lucide:calendar-days</c>). 없으면 <c>null</c>.</summary>
+    [Parameter] public string? Value { get; set; }
+
+    /// <summary>고르거나 적어서 바뀌었을 때.</summary>
+    [Parameter] public EventCallback<string?> ValueChanged { get; set; }
+
+    /// <summary>
+    /// 고를 수 있는 이름들. <b>부르는 화면이 자기가 들고 있는 자료에서 뽑아 준다</b> —
+    /// 왜 그렇게 하는지는 머리말에 있다.
+    /// </summary>
+    [Parameter] public IReadOnlyCollection<string> Available { get; set; } = [];
+
+    private bool _open;
+    private string _search = string.Empty;
+
+    /// <summary>
+    /// 격자에 그릴 것. 중복을 빼고 이름 순으로 세운다.
+    /// </summary>
+    /// <remarks>
+    /// 검색은 <b>이름 조각</b>으로 한다. 접두사(<c>lucide:</c>)도 이름의 일부라
+    /// 「lucide」로 치면 그 묶음만 남는다 — 따로 고르개를 둘 필요가 없다.
+    /// </remarks>
+    private List<string> Shown =>
+        [.. Available
+            .Where(i => !string.IsNullOrWhiteSpace(i))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Where(i => _search.Length == 0
+                     || i.Contains(_search, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(i => i, StringComparer.OrdinalIgnoreCase)];
+
+    private void Toggle()
+    {
+        _open = !_open;
+
+        // 열 때 검색어를 비운다. 남겨 두면 지난번에 치고 닫은 글자 때문에
+        // 격자가 비어서 「아이콘이 없다」로 읽힌다.
+        if (_open)
+        {
+            _search = string.Empty;
+        }
+    }
+
+    /// <summary>
+    /// 격자에서 골랐다. <b>고르면 판을 닫는다</b> — 하나만 고르는 자리라
+    /// 열어 둘 이유가 없고, 닫히는 것이 「골라졌다」는 표시가 된다.
+    /// </summary>
+    private async Task PickAsync(string? icon)
+    {
+        _open = false;
+        await Commit(icon);
+    }
+
+    /// <summary>
+    /// 손으로 적었다. <b>빈 글자는 <c>null</c> 로 바꾼다</b> — DB 에 빈 문자열과
+    /// <c>null</c> 이 섞이면 「아이콘 없음」이 두 값이 된다.
+    /// </summary>
+    private Task OnTyped(string? text) =>
+        Commit(string.IsNullOrWhiteSpace(text) ? null : text.Trim());
+
+    private Task Commit(string? icon)
+    {
+        if (string.Equals(icon, Value, StringComparison.Ordinal))
+        {
+            return Task.CompletedTask;
+        }
+
+        Value = icon;
+        return ValueChanged.InvokeAsync(icon);
+    }
+}

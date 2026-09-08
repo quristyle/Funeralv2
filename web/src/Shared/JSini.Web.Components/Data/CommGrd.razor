@@ -27,6 +27,8 @@
 @typeparam TItem
 
 @inherits DataPage
+@* 껍데기 크기를 캡에서 멈추려고 받는다 — `ThemeSize.Chrome` 머리말 참고. *@
+@inject ThemeSize Size
 
 <div class="commgrd">
 
@@ -139,9 +141,17 @@
     @* DeleteConfirm 을 준 화면만 쓴다. 안 준 화면은 DevExpress 기본 확인창이 뜬다. *@
     <ConfirmDialog @ref="_confirm" />
 
-    @* 표의 도구줄. 페이저 줄이 있으면 그 왼쪽에 겹쳐 앉는다(app.css). *@
+    @* 표의 도구줄. 페이저 줄이 있으면 그 왼쪽에 겹쳐 앉는다(app.css).
+
+       아이콘 단추의 **좌우 여백**을 「조금작게」에서 멈춘다 — 아이콘 그림은
+       `--jsini-icon-size` 가 멈추는데 여백은 DevExpress 가 `SizeMode` 로
+       정해서 계속 자랐다(`ThemeSize.Chrome` 머리말).
+
+       띠 **안쪽만** 감싼다. 표 자체는 사용자가 고른 크기를 그대로 따라야 한다 —
+       줄 높이가 좁아지면 한 화면에 더 많이 보이는 것이 그 선택의 값이다. *@
     @if (ShowFooter)
     {
+        <CascadingValue Name="@ThemeSize.CascadeName" TValue="SizeMode?" Value="@Size.Chrome">
         <div class="commgrd__footer">
             @if (OnSave.HasDelegate)
             {
@@ -195,6 +205,7 @@
 
             @FooterRight
         </div>
+        </CascadingValue>
     }
 
 </div>

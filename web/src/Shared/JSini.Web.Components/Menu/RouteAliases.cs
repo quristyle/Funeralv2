@@ -91,6 +91,13 @@ public static class RouteAliases
         ["/portal/notice"] = "/admin/notice",
         ["/portal/release"] = "/admin/release",
         ["/auth"] = "/admin/auth",
+        // 이 메뉴는 유형이 EMBEDDED 라 **앞으로 가는 길로는 이 줄을 안 탄다** —
+        // `MenuProvider.HrefOf` 가 그보다 앞에서 `/embed/…` 로 보낸다.
+        // 그래도 남겨 두는 것은 띄워 둔 탭 때문이다: 화면을 공용 하나로 합치기
+        // 전까지 사이드바가 이 주소를 걸고 있었고, `MigrationPending` 이
+        // 이 표를 거꾸로 읽어 그 주소를 알아본 뒤 새 자리로 보낸다.
+        ["/system/server-status/jin114"] = "/admin/status/jin114",
+
         ["/system/role-map"] = "/admin/auth/role",
         ["/auth/user-role"] = "/admin/auth/user-role",
         ["/auth/menu-role"] = "/admin/auth/menu-role",
@@ -106,7 +113,6 @@ public static class RouteAliases
         ["/system/push/setting"] = "/admin/push/setting",
         ["/system/status"] = "/admin/status",
         ["/system/server-status"] = "/admin/status/server",
-        ["/system/server-status/jin114"] = "/admin/status/jin114",
         ["/system/deploy-status"] = "/admin/status/deploy",
         ["/system/player-release"] = "/admin/status/player-release",
         ["/profile"] = "/admin/profile",

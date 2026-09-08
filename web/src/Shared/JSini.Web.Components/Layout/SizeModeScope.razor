@@ -54,15 +54,17 @@
     {
         // 회로가 붙는 길이 먼저다. 프리렌더가 남긴 것이 있으면 그게 정답이고,
         // 그때는 HttpContext 가 없어 쿠키를 볼 수도 없다.
+        // **단계 이름을 그대로 나른다.** SizeMode 로 바꿔 실으면 다섯 단계가
+        // 셋으로 뭉개져서, 아주작게로 새로고침하면 작게로 되돌아간다.
         var seed = PersistedState.TryTakeFromJson<string>(StateKey, out var persisted)
-            ? ThemeSize.Parse(persisted)
-            : ThemeSize.Parse(Http.HttpContext?.Request.Cookies[ThemeSize.CookieName]);
+            ? persisted
+            : Http.HttpContext?.Request.Cookies[ThemeSize.CookieName];
 
         Size.Seed(seed);
 
         _persisting = PersistedState.RegisterOnPersisting(() =>
         {
-            PersistedState.PersistAsJson(StateKey, ThemeSize.Name(Size.Current));
+            PersistedState.PersistAsJson(StateKey, Size.Step);
             return Task.CompletedTask;
         });
 

@@ -17,6 +17,8 @@
 
 @inject IReadOnlyList<IPortalModule> Modules
 @inject NavigationManager Navigation
+@inject IMenuProvider Menus
+@using JSini.Web.Components.Menu
 
 <PageTitle>준비 중 · JSini 포털</PageTitle>
 
@@ -54,6 +56,61 @@
 </div>
 
 @code {
+    /// <summary>
+    /// 끼워 넣는 메뉴(EMBEDDED)의 옛 주소로 들어오면 공용 화면으로 보낸다.
+    ///
+    /// <para>
+    /// 그런 메뉴는 한동안 화면을 하나씩 갖고 있었고(<c>/projmng/external/jsini</c>
+    /// 따위) 그 주소가 사람들 즐겨찾기와 띄워 둔 탭에 남아 있다. 화면을
+    /// 공용 하나로 합치면서 그 라우트가 없어졌으므로, 그대로 두면
+    /// <b>모니터를 띄워 두던 사람에게 「준비 중」이 뜬다.</b>
+    /// </para>
+    ///
+    /// <para>
+    /// 여기에 두는 이유는 <b>여섯 모듈의 포괄 라우트가 모두 이 부품으로
+    /// 떨어지기</b> 때문이다. 화면마다 리다이렉트를 두면 합친 의미가 없다.
+    /// 돌 일이 없는 조회다 — 메뉴는 이미 브라우저 안에 있다.
+    /// </para>
+    ///
+    /// <para>
+    /// 공용 화면(<c>/embed/…</c>)은 셸의 라우트라 어느 모듈의 포괄에도 안
+    /// 걸린다. 그래서 여기로 다시 돌아오는 고리가 생기지 않는다.
+    /// </para>
+    /// </summary>
+    protected override void OnParametersSet()
+    {
+        if (Embedded(Menus.AllMenus) is { } node)
+        {
+            Navigation.NavigateTo(EmbeddedRoute.HrefFor(node.Path), replace: true);
+        }
+    }
+
+    /// <summary>지금 주소를 자기 경로로 가진 끼워 넣기 메뉴. 없으면 <c>null</c>.</summary>
+    private MenuNode? Embedded(IReadOnlyList<MenuNode> nodes)
+    {
+        foreach (var node in nodes)
+        {
+            // 옛 주소가 두 갈래다. DB 경로 그대로 열리던 것
+            // (`/projmng/external/jsini`)과, 별칭이 옮겨 주던 것
+            // (`/system/server-status/jin114` → `/admin/status/jin114`).
+            // **둘 다 사이드바가 실제로 걸던 주소**라 어느 쪽이든 탭에 남아 있다.
+            if (node.IsEmbedded
+                && !string.IsNullOrWhiteSpace(node.IframeSrc)
+                && (string.Equals(node.Path, CurrentPath, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(RouteAliases.Resolve(node.Path), CurrentPath, StringComparison.OrdinalIgnoreCase)))
+            {
+                return node;
+            }
+
+            if (Embedded(node.Children) is { } found)
+            {
+                return found;
+            }
+        }
+
+        return null;
+    }
+
     private string CurrentPath => "/" + Navigation
         .ToBaseRelativePath(Navigation.Uri)
         .Split('?', '#')[0]

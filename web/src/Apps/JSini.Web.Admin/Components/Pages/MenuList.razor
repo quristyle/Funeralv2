@@ -225,15 +225,23 @@ else
             </DxFormLayoutItem>
 
             @* 실려 있는 화면에서 고른다. 타이핑이 아니라 고르기라서
-               없는 화면을 가리킬 방법이 없다 — 이 칸이 이 화면의 핵심이다. *@
-            <DxFormLayoutItem Caption="화면" ColSpanMd="12">
-                <DxComboBox Data="@ScreenChoices" @bind-Value="_edit.RouteKey"
-                            TextFieldName="Text" ValueFieldName="Value"
-                            SearchMode="ListSearchMode.AutoSearch"
-                            SearchFilterCondition="ListSearchFilterCondition.Contains"
-                            NullText="화면이 없는 묶음이거나 바깥 링크면 비워 둔다"
-                            ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
-            </DxFormLayoutItem>
+               없는 화면을 가리킬 방법이 없다 — 이 칸이 이 화면의 핵심이다.
+
+               **끼워 넣는 메뉴(EMBEDDED)에는 안 보인다.** 그런 메뉴는 셸의 공용
+               화면 하나가 전부 받고 무엇을 띄울지는 아래 「iframe 주소」가
+               정한다. 고를 것이 없는 칸을 남겨 두면 무엇을 골라야 하는지
+               찾다가 아무것이나 고르게 된다. *@
+            @if (!IsEmbedded)
+            {
+                <DxFormLayoutItem Caption="화면" ColSpanMd="12">
+                    <DxComboBox Data="@ScreenChoices" @bind-Value="_edit.RouteKey"
+                                TextFieldName="Text" ValueFieldName="Value"
+                                SearchMode="ListSearchMode.AutoSearch"
+                                SearchFilterCondition="ListSearchFilterCondition.Contains"
+                                NullText="화면이 없는 묶음이거나 바깥 링크면 비워 둔다"
+                                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+                </DxFormLayoutItem>
+            }
 
             @* 권한표와 즐겨찾기의 열쇠다. 옛 Vue 경로 그대로여도 되고,
                바꾸면 그 메뉴의 권한과 즐겨찾기가 끊긴다. *@
@@ -257,8 +265,15 @@ else
                 <DxSpinEdit @bind-Value="_edit.Meta.Order" MinValue="0" />
             </DxFormLayoutItem>
 
-            <DxFormLayoutItem Caption="아이콘" ColSpanMd="3">
-                <DxTextBox @bind-Text="_edit.Meta.Icon" NullText="비워 둘 수 있다" />
+            @* 아이콘은 **보고 고른다.** 값이 iconify 이름이라(`lucide:calendar-days`)
+               외우고 있는 사람이 없고, 틀린 이름을 적으면 오류가 아니라 동그라미가
+               나와서 저장은 되고 사이드바에서만 이상해진다(`MenuIcons` 머리말).
+
+               고를 수 있는 목록은 **이 화면이 이미 들고 있는 메뉴에서** 뽑는다 —
+               왜 그렇게 하는지는 `IconPicker` 머리말에 있다. 칸이 한 줄보다
+               높아지므로 폭을 12로 준다. *@
+            <DxFormLayoutItem Caption="아이콘" ColSpanMd="12">
+                <IconPicker @bind-Value="_edit.Meta.Icon" Available="@IconChoices" />
             </DxFormLayoutItem>
 
             <DxFormLayoutItem Caption="화면 파일" ColSpanMd="12">
@@ -270,6 +285,24 @@ else
             <DxFormLayoutItem Caption="바깥 링크" ColSpanMd="12">
                 <DxTextBox @bind-Text="_edit.Meta.Link" NullText="https://… (넣으면 새 창으로 연다)" />
             </DxFormLayoutItem>
+
+            @* iframe 주소. **바깥 링크와 다른 칸이다** — 저것은 새 창으로 나가고
+               이것은 화면 안에 끼워 넣는다. 한 칸으로 뭉개면 「새 창으로 열리는데
+               왜 안 끼워지지」가 된다.
+
+               칸이 아예 없었다. DB 도 서버도 이 값을 오래전부터 들고 있었는데
+               (`scom.system_menus.iframe_src`) 여기서 볼 길이 없어서, 주소를
+               고치려면 DB 를 직접 만져야 했다.
+
+               **이 칸이 곧 화면이다.** 채워 저장하면 그것만으로 메뉴가 열린다 —
+               razor 를 쓰거나 배포할 일이 없다. *@
+            @if (IsEmbedded)
+            {
+                <DxFormLayoutItem Caption="iframe 주소" ColSpanMd="12">
+                    <DxTextBox @bind-Text="_edit.Meta.IframeSrc"
+                               NullText="https://… (이 주소를 화면 안에 끼워 넣는다)" />
+                </DxFormLayoutItem>
+            }
 
             <DxFormLayoutItem Caption="보이기" ColSpanMd="12">
                 <div class="ad-checks">
@@ -329,6 +362,18 @@ else
     private bool _isNew;
     private string _editId = string.Empty;
     private SystemMenuDto _edit = new();
+
+    /// <summary>
+    /// 지금 고치는 것이 <b>바깥 화면을 끼워 넣는 메뉴</b>인가.
+    ///
+    /// <para>
+    /// 이 값이 편집 창의 칸 둘을 가른다 — 「화면」은 감추고 「iframe 주소」를
+    /// 내놓는다. 끼워 넣는 메뉴는 셸의 공용 화면 하나(<c>/embed/…</c>)가 전부
+    /// 받으므로 <b>고를 화면이 없다.</b>
+    /// </para>
+    /// </summary>
+    private bool IsEmbedded =>
+        string.Equals(_edit.Type, "EMBEDDED", StringComparison.OrdinalIgnoreCase);
 
     private Stats? _stats;
 
@@ -547,6 +592,34 @@ else
         return _flat.Count;
     }, "등록된 메뉴가 없습니다.", "메뉴 목록을 읽지 못했습니다");
 
+    /// <summary>
+    /// 아이콘 고르개에 줄 목록 — <b>이미 메뉴가 쓰고 있는 아이콘</b>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 새 엔드포인트를 만들지 않는다. 이 화면은 조회할 때 이미 메뉴 전체를
+    /// 받아 두므로(<c>_flat</c>) 거기서 뽑으면 된다.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>그 목록이 곧 그림이 있는 아이콘들이다.</b> <c>menu-icons.css</c> 를
+    /// 만드는 <c>scripts/build-menu-icons.py</c> 가 <b>DB 에 실제로 쓰이는
+    /// 이름으로</b> 만들기 때문이다. 그래서 고른 것은 반드시 그림이 나온다.
+    /// </para>
+    ///
+    /// <para>
+    /// 목록을 코드에 적어 두지 않는 이유는 <c>MenuIcons</c> 머리말과 같다 —
+    /// 적으면 CSS 를 다시 만들 때 두 곳을 맞춰야 하고, 어긋나면 아이콘이
+    /// 사라지는 쪽으로 틀린다.
+    /// </para>
+    /// </remarks>
+    private IReadOnlyCollection<string> IconChoices =>
+        [.. _flat
+            .Select(m => m.Meta.Icon)
+            .Where(i => !string.IsNullOrWhiteSpace(i))
+            .Select(i => i!.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)];
+
     /// <summary>나무를 한 번 훑어 평평한 목록·부모 표·통계를 만든다.</summary>
     private void Index()
     {
@@ -727,6 +800,15 @@ else
             return;
         }
 
+        if (IsEmbedded && string.IsNullOrWhiteSpace(_edit.Meta.IframeSrc))
+        {
+            // 끼워 넣는 메뉴에서 이 칸은 **곧 화면이다.** 비워 두고 저장하면
+            // 메뉴는 생기는데 눌러도 빈 안내만 뜬다 — 그 상태를 만들어 두느니
+            // 여기서 막는 편이 낫다.
+            Say("끼워 넣는 메뉴에는 iframe 주소가 있어야 합니다.", NoticeTone.Warning);
+            return;
+        }
+
         // 이름·경로가 겹치는지 먼저 묻는다. 저장할 때 서버도 검사하지만,
         // 여기서 걸러야 사용자가 폼을 다 채운 뒤에 거절당하지 않는다.
         var duplicate = await Api.MenuNameExistsAsync(_edit.Name, _isNew ? null : _editId)
@@ -742,8 +824,16 @@ else
         {
             Name = _edit.Name,
             Path = _edit.Path,
-            RouteKey = _edit.RouteKey,
-            Component = _edit.Component,
+
+            // 끼워 넣는 메뉴는 화면을 고르지 않으므로 열쇠를 비워 저장한다.
+            // 남겨 두면 **없는 화면을 가리키는 메뉴**가 되어(그 화면들은 공용
+            // 화면 하나로 합치면서 지웠다) 기동 로그에 「화면이 없다」로 잡힌다.
+            RouteKey = IsEmbedded ? null : _edit.RouteKey,
+
+            // 끼워 넣는 메뉴는 공용 화면 하나가 받는다. 여기서 맞춰 두지 않으면
+            // **DB 를 고쳐 놔도 다음에 만든 메뉴부터 다시 갈린다** — 「화면 파일」
+            // 칸이 비어 있거나 옛 Vue 경로가 남아, 화면이 여럿인 것처럼 읽힌다.
+            Component = IsEmbedded ? EmbeddedRoute.ScreenFile : _edit.Component,
             Pid = _edit.Pid,
             Redirect = _edit.Redirect,
             Type = _edit.Type,

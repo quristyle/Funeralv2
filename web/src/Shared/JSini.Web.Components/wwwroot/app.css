@@ -25,8 +25,23 @@
 */
 
 :root {
+  /*
+    사이드바의 **시작 폭**이다. 지금 폭은 여기서 정하지 않는다 —
+    구분선을 끌면 스플리터의 판이 정하고(`MainLayout` 의 `_sidebarWidth`,
+    브라우저에 남는다) 이 값은 그 기본값(330px, DevExpress 데모와 같다)과
+    좁은 화면의 덮개 폭에만 쓰인다.
+
+    **두 곳이 같은 값이어야 한다** — `MainLayout._sidebarWidth` 의 기본값이
+    다르면 첫 그림에서 격자 칸과 판의 폭이 어긋난다.
+  */
   --jsini-sidebar-width: 330px;
-  --jsini-header-height: 3.5rem;
+  /* 데모의 3.5rem 이 「보통」의 값이다. 글자를 작게 하면 그 배율만큼 낮아지고,
+     크게 해도 여기서 멈춘다(`--jsini-chrome-scale`).
+
+     낮아지는 것까지 함께 하는 이유는, 아이콘과 로고만 줄이면 **띠는 그대로
+     높아서** 작은 아이콘이 빈 띠 가운데 떠 보이기 때문이다. 이 값 하나로
+     격자·모바일 사이드바·테마 서랍이 다 따라온다. */
+  --jsini-header-height: calc(3.5rem * var(--jsini-chrome-scale));
 
   /*
     아이콘 한 변의 길이.
@@ -100,6 +115,25 @@
 :root {
   --jsini-fs-base: 0.875rem;
 
+  /* 헤더 껍데기(아이콘 · 로고 · 띠 높이)가 따라갈 배율.
+
+     [글자와 따로 두는 이유가 둘이다]
+
+     하나는 **작아질 때만 따라가야** 한다는 것이다. 글자를 크게 하면 사다리는
+     1rem 까지 오르지만 헤더 아이콘까지 커지면 띠에 아이콘이 꽉 차 답답해진다.
+
+     그래서 이 값은 **「조금작게」에서 멈춘다(0.929).** 「보통」·「크게」를 골라도
+     껍데기는 더 커지지 않는다 — 글자만 커진다. 한동안 캡이 「보통」(1)이었는데
+     그 둘이 여전히 크게 느껴졌다.
+
+     또 하나는 헤더가 본문보다 한 단계 큰 아이콘을 쓰기 때문이다
+     (`.jsini-header` 의 `--jsini-icon-size`). 글자 사다리를 그대로 쓰면
+     그 「한 단계 크게」가 없어진다. 배율만 받아 자기 기준값에 곱한다.
+
+     값은 `--jsini-fs-base / 0.875rem`(보통 기준)이다. CSS 는 길이를 길이로
+     나눌 수 없어서 미리 계산해 적는다 — 사다리를 고치면 이 줄도 같이 고친다. */
+  --jsini-chrome-scale: 0.929;
+
   --jsini-fs-2xs: calc(var(--jsini-fs-base) * 0.78);
   --jsini-fs-xs: calc(var(--jsini-fs-base) * 0.86);
   --jsini-fs-sm: calc(var(--jsini-fs-base) * 0.93);
@@ -111,8 +145,32 @@
   --jsini-fs-4xl: calc(var(--jsini-fs-base) * 2.05);
 }
 
-:root[data-dx-size='small'] { --jsini-fs-base: 0.75rem; }
-:root[data-dx-size='large'] { --jsini-fs-base: 1rem; }
+/* 뿌리 값. **DevExpress 가 정한 세 값 사이에 우리 두 단계를 끼운 것이다.**
+
+   0.75(Small) · 0.875(Medium) · 1(Large) 은 DevExpress 가 정한 값을 그대로
+   옮긴 것이고, 아래 둘은 그 사이·아래로 우리가 넣었다.
+
+     xxsmall  0.625rem   10px   Small 아래
+     xsmall   0.6875rem  11px   Small 아래
+     small    0.75rem    12px   ← DevExpress Small
+     compact  0.8125rem  13px   Small~Medium 사이
+     medium   0.875rem   14px   ← DevExpress Medium (기본값, :root 에 있다)
+     large    1rem       16px   ← DevExpress Large
+
+   **부품 크기는 이 사다리와 별개다.** 우리가 넣은 세 단계는 DevExpress Small 로 접히므로
+   (`ThemeSize.Steps`) 줄 높이·단추 높이는 「작게」와 같고 글자만 다르다.
+   그것이 그 단계들의 뜻이다 — 같은 밀도에서 글자만 조절한다. */
+:root[data-dx-size='xxsmall'] { --jsini-fs-base: 0.625rem; --jsini-chrome-scale: 0.714; }
+:root[data-dx-size='xsmall'] { --jsini-fs-base: 0.6875rem; --jsini-chrome-scale: 0.786; }
+:root[data-dx-size='small'] { --jsini-fs-base: 0.75rem; --jsini-chrome-scale: 0.857; }
+/* 여기가 껍데기의 **최대**다. 아래 둘이 이 값을 그대로 쓴다. */
+:root[data-dx-size='compact'] { --jsini-fs-base: 0.8125rem; --jsini-chrome-scale: 0.929; }
+
+/* **「보통」·「크게」의 배율은 「조금작게」와 같다.** 사다리는 0.875 → 1rem 으로
+   계속 오르지만 껍데기는 여기서 멈춘다 — 글자만 커진다.
+   (`:root` 의 기본값도 같은 0.929 다 — 기본 단계가 「보통」이므로.) */
+:root[data-dx-size='medium'] { --jsini-fs-base: 0.875rem; --jsini-chrome-scale: 0.929; }
+:root[data-dx-size='large'] { --jsini-fs-base: 1rem; --jsini-chrome-scale: 0.929; }
 
 /*
   글꼴은 **여기서 정하지 않는다.** 테마가 거는 것을 쓴다.
@@ -177,6 +235,134 @@ body {
   grid-template-columns: 0 1fr;
 }
 
+/* ── 사이드바 ↔ 본문 사이의 구분선 (DxSplitter) ───────────
+
+   [격자 칸 둘을 부품 하나가 대신한다]
+
+   위 격자는 여전히 두 칸이지만, **넓은 화면에서는 스플리터가 그 두 칸에
+   걸쳐 앉고**(`grid-column: 1 / -1`) 사이드바·본문은 그 부품의 판 안으로
+   들어간다. 그래서 폭을 정하는 것이 `--jsini-sidebar-width` 가 아니라
+   부품의 `Size` 다.
+
+   격자 정의를 그대로 둔 이유는 **휴대폰 갈래가 아직 그것을 쓰기 때문**이다
+   (그때는 스플리터를 쓰지 않는다 — 사이드바가 본문을 덮어야 한다).
+
+   [높이가 흘러야 한다]
+
+   `.jsini-shell` 이 `height: 100vh` 고 이 줄이 `1fr` 이다. 그 높이가 판
+   안쪽까지 내려가야 사이드바 트리와 본문이 각자 안에서 구르므로, 판과
+   그 안쪽에 `min-height: 0` 을 함께 준다 — 한 겹만 빠뜨려도 본문이 판을
+   넘어가고, 넘어간 부분은 잘려서 아래 띠를 누를 수 없게 된다.
+   ---------------------------------------------------------- */
+
+.jsini-shell__split {
+  grid-row: 2;
+  grid-column: 1 / -1;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* 판 안쪽. **여백을 걷어낸다.**
+
+   DevExpress 는 판 안쪽에 여백을 준다(크기 모드마다 다르고 지금 테마에서는
+   16px). 문서 안의 분할 화면에는 맞는 값이지만 여기 들어오는 것은 **셸의
+   판 둘**이라, 그 여백이 사이드바를 안쪽으로 밀어 헤더와 세로줄이 어긋난다 —
+   재어 보니 사이드바가 좌우로 16px, 위아래로 16px 씩 들어와 있었다.
+
+   여백을 쓰는 규칙과 다투지 않고 **그 규칙이 읽는 변수**를 덮는다. 그 값을
+   정하는 규칙이 `.dxbl-splitter.dxbl-lg`(클래스 둘)이라 셋으로 적었다 —
+   크기 모드마다 값이 다르므로 자릿수를 넘겨야 세 모드 모두에서 걸린다. */
+.jsini-shell .jsini-shell__split.dxbl-splitter {
+  --dxbl-splitter-pane-padding-x: 0;
+  --dxbl-splitter-pane-padding-y: 0;
+}
+
+.jsini-shell__split .dxbl-splitter-pane-content {
+  min-width: 0;
+  min-height: 0;
+}
+
+/* 사이드바·본문이 판을 꽉 채우고 넘치는 것은 각자 안에서 구른다. */
+.jsini-shell__split .dxbl-splitter-pane-content > .jsini-shell__sidebar,
+.jsini-shell__split .dxbl-splitter-pane-content > .jsini-shell__main {
+  height: 100%;
+  min-height: 0;
+}
+
+/* ── 구분선 ────────────────────────────────────────────────
+
+   바탕을 비운다. 사이드바가 이미 오른쪽에 선과 안쪽 그림자를 갖고 있어서
+   구분선까지 칠하면 경계가 두 겹으로 보인다. 대신 **마우스를 올리면**
+   강조색을 옅게 깔아 「여기를 끌 수 있다」를 알린다 — 끌 수 있다는 것은
+   해 보기 전에는 보이지 않는 종류다.
+
+   손잡이 그림과 접기 화살표는 DevExpress 가 그린 것을 그대로 둔다.
+   그 둘이 이 자리에서 유일한 단서다.
+   ---------------------------------------------------------- */
+
+.jsini-shell__split > .dxbl-splitter-separator {
+  background-color: transparent;
+
+  /* 잡이(아래 `::before`)가 상자 밖으로 나가야 한다. */
+  position: relative;
+  overflow: visible;
+
+  /* **본문 판보다 위에 있어야 한다.** 본문 판이 DOM 에서 뒤에 있어서, 층을
+     올리지 않으면 넓혀 둔 잡이의 **오른쪽 절반이 본문에 먹힌다** — 재어 보니
+     선 왼쪽 4px 에서는 구분선이 잡히고 오른쪽 4px 에서는 본문이 잡혔다. */
+  z-index: 1;
+}
+
+/* ── 구분선은 자리를 차지하지 않는다. 잡는 자리만 10px ────
+
+   [왜 폭을 0 으로 두는가]
+
+   DevExpress 기본값이 12px 인데 그만큼 **본문이 오른쪽으로 밀린다.** 본문에는
+   이미 좌우 여백(1.5rem)이 있어서 사이드바 오른쪽에 12+24=36px 의 빈 띠가
+   생기고, 탭 줄과 브레드크럼도 그만큼 밀려 헤더·사이드바와 세로줄이 어긋난다.
+
+   2px 로 줄여도 **여전히 벌어져 보인다** — 사이드바에 이미 1px 테두리가
+   있어서 그 옆의 빈 2px 이 「선 두 개」로 읽힌다. 그래서 0 으로 둔다.
+   경계에 보이는 선은 사이드바의 테두리 하나뿐이고, 본문은 그 선에 바로 붙는다.
+
+   폭이 0 이어도 끌 수 있다. 잡는 일은 상자가 아니라 **상자 밖으로 나간
+   의사요소**가 하기 때문이다(아래 `::before`, 좌우 5px씩 10px).
+
+   [본문을 구분선 아래로 겹치게 두지 않는다]
+
+   판을 왼쪽으로 당겨 겹치면(음수 여백) 구분선이 **본문의 첫 12px 위에** 놓인다.
+   그 띠는 화면 왼쪽 끝 전체를 따라 내려가고, 사람들이 실제로 누르는 자리
+   (표의 첫 칸·트리의 펼침 화살표)가 거기 있다 — 벌어져 보이는 것보다
+   **누른 것이 안 눌리는 것**이 나쁘다. 그리고 겹치는 값은 판 크기와 따로
+   관리되는 두 번째 값이 되어, DevExpress 가 크기를 다시 셈할 때마다 어긋난다.
+
+   그래서 **선 자체를 얇게** 한다(2px). 자리 차지는 2px 이고, 잡는 자리는
+   `::before` 로 좌우 4px 씩 넓혀 10px 로 둔다 — 상자 밖으로 나가므로 판을
+   밀지 않고, 마우스는 예전처럼 넉넉히 잡는다. VS Code 도 같은 방식이다.
+
+   손잡이 점과 접기 화살표는 DevExpress 가 이미 상자 밖으로 넘겨 그리고 있어
+   (재어 보니 32px 단추가 12px 상자에서 넘쳐 있었다) 얇아져도 그대로 보인다.
+   ---------------------------------------------------------- */
+
+.jsini-shell__split > .dxbl-splitter-separator::before {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inset-inline: -5px;
+}
+
+/* 마우스를 올리면 **경계에 2px 선**이 뜬다. 잡이(10px)를 통째로 칠하면 방금
+   없앤 「벌어져 보임」이 마우스를 올릴 때마다 되돌아오므로, 잡이 가운데
+   2px 만 칠한다. 자리 차지는 여전히 0 이다 — 칠하는 것은 상자 밖의
+   의사요소다. */
+.jsini-shell__split > .dxbl-splitter-separator:hover::before {
+  background: linear-gradient(
+    to right,
+    transparent calc(50% - 1px),
+    var(--jsini-accent) calc(50% - 1px) calc(50% + 1px),
+    transparent calc(50% + 1px));
+}
+
 /* ── 헤더 ─────────────────────────────────────────────────
 
    데모: 높이 3.5rem, 아래에 옅은 그림자(테두리가 아니다).
@@ -189,9 +375,15 @@ body {
   align-items: center;
   height: var(--jsini-header-height);
 
-  /* 헤더는 3.5rem 짜리 띠고 여기 있는 것이 전부 아이콘 단추다.
-     본문보다 한 단계 크게 — 데모의 상단 바가 그 정도다. */
-  --jsini-icon-size: 1.35rem;
+  /* 헤더는 띠 하나고 여기 있는 것이 전부 아이콘 단추다. 본문보다 한 단계
+     크게 — 데모의 상단 바가 그 정도다.
+
+     그 1.35rem 이 「보통」의 값이고, 글자를 작게 하면 배율만큼 줄어든다.
+     크게 해도 여기서 멈춘다 — 이유는 `--jsini-chrome-scale` 머리말에 있다.
+
+     **글자 사다리(`--jsini-fs-*`)를 직접 쓰지 않는다.** 그러면 「본문보다
+     한 단계 크게」가 없어지고, 크게 골랐을 때 아이콘이 띠를 꽉 채운다. */
+  --jsini-icon-size: calc(1.35rem * var(--jsini-chrome-scale));
   padding: 0 0.5rem;
   background: var(--jsini-bg);
   box-shadow: 0 2px 6px 0 rgb(0 0 0 / 12%);
@@ -213,9 +405,11 @@ body {
   text-decoration: none;
 }
 
+/* 32px 이 「보통」의 값이다. 아이콘과 같은 배율을 쓴다 — 로고만 그대로 두면
+   아이콘이 줄어든 옆에서 혼자 커 보인다. */
 .jsini-header__logo {
-  width: 32px;
-  height: 32px;
+  width: calc(32px * var(--jsini-chrome-scale));
+  height: calc(32px * var(--jsini-chrome-scale));
 }
 
 /* ── 브랜드 심볼 (BrandMark) ──────────────────────────────────
@@ -225,6 +419,27 @@ body {
    들고 있던 자리다. */
 .jsini-brand-mark { display: block; }
 
+/* 헤더의 심볼은 배율을 따른다.
+
+   [왜 CSS 로 덮어야 하나]
+
+   `BrandMark` 는 크기를 **SVG 속성**(`width` · `height`)으로 준다. 속성은
+   CSS 가 덮을 수 있지만 CSS 를 안 쓰면 그 값이 그대로 남는다 — 그래서
+   한동안 아이콘만 줄고 **로고는 꿈쩍하지 않았다.**
+
+   `height: auto` 로 두면 `viewBox`(84×60)가 비율을 지킨다. 높이를 함께
+   계산해 적으면 그 비율을 두 곳에서 관리하게 된다.
+
+   [38 은 `BrandMark.Size` 의 기본값이다]
+
+   그 기본값을 고치면 이 줄도 같이 고쳐야 한다. 헤더로 좁혀 둔 이유는
+   다른 자리에서 `Size` 를 주고 쓸 때 그 값이 이기게 하려는 것이다 —
+   지금 쓰는 곳은 헤더 하나뿐이지만, 좁혀 두면 늘어나도 안 깨진다. */
+.jsini-header .jsini-brand-mark {
+  width: calc(38px * var(--jsini-chrome-scale));
+  height: auto;
+}
+
 /* J 가 본문 글자색, S 가 옅은 색이다. 둘을 같은 색으로 두면 겹친 자리가
    한 덩어리로 뭉개져 「JS」 로 읽히지 않는다. */
 .jsini-brand-mark__j { fill: var(--jsini-text); }
@@ -233,7 +448,9 @@ body {
 /* 로고와 글자 사이의 세로 선. 데모의 `.logo-sep` 과 같다. */
 .jsini-header__sep {
   width: 1px;
-  height: 2rem;
+
+  /* 로고와 같은 배율. 선만 그대로 두면 낮아진 띠를 위아래로 넘친다. */
+  height: calc(2rem * var(--jsini-chrome-scale));
   background: currentcolor;
   opacity: 0.15;
 }
@@ -446,11 +663,22 @@ body {
   box-shadow: none;
 }
 
+/* 사이드바 안쪽 판. **폭을 스스로 정하지 않는다.**
+
+   한동안 `--jsini-sidebar-width`(330px)를 그대로 물고 있었다. 격자가 폭을
+   정하던 시절에는 같은 값이라 문제가 없었는데, 구분선을 끌어 폭을 바꾸게
+   되면서 **판만 330px 에 남았다** — 사이드바를 520px 로 넓혀도 검색 칸과
+   트리는 330px 자리에 그대로 있고 오른쪽 190px 이 빈 채로 남았다.
+
+   지금 폭의 임자는 스플리터의 판이다(`DxSplitterPane.Size`). 여기서는
+   받은 자리를 꽉 채운다. 좁은 화면에서는 사이드바가 본문을 덮는 고정
+   덮개라 그때만 아래 미디어 쿼리가 폭을 다시 정한다. */
 .jsini-sidebar {
   display: flex;
   flex-direction: column;
   height: 100%;
-  width: var(--jsini-sidebar-width);
+  width: 100%;
+  min-width: 0;
 }
 
 /* ── 사이드바 검색 ───────────────────────────────────────
@@ -482,6 +710,48 @@ body {
   --dxbl-text-edit-bg: transparent;
   --dxbl-text-edit-border-color: transparent;
   --dxbl-text-edit-box-shadow: none;
+
+  /* ── Fluent 은 **아래 선을 따로 그린다** ──────────────────
+
+     Classic(Bootstrap 계열)에서는 위 세 줄로 깔끔했는데 Fluent 에서는
+     칸 아래에 짙은 선 하나가 남아 있었다. 테두리 색을 안 따라간 것이 아니라
+     **다른 변수로 그리기 때문**이다 —
+
+         .dxbl-text-edit { border-bottom-color: var(--dxbl-text-edit-underline-color) }
+
+     그 밑줄이 Fluent 입력칸의 표식이다. 상태마다 변수가 따로 있고, 고른
+     상태에서는 테마가 `--…-underline-color` 를 `--…-underline-focused-color`
+     로 갈아 끼우므로 **넷을 다 비워야** 어느 상태에서도 선이 안 남는다.
+     (그래서 하나만 비웠을 때는 눌러 넣는 순간 선이 되돌아왔다.)
+
+     [고른 상태에도 아무것도 그리지 않는다]
+
+     한동안 선 대신 옅은 바탕(강조색 8%)을 깔아 「지금 여기에 있다」를
+     알렸는데, 그 바탕이 둥근 네모로 보여서 **테두리가 되돌아온 것처럼**
+     읽혔다. 이 칸에서 원하는 것은 깔끔함이고, 그래서 바탕도 뺐다.
+
+     남는 단서는 **깜박이는 글자 자리(캐럿)와 지우기 단추**다. 자판으로만
+     옮겨 다니는 사람에게는 약한 단서지만, 이 칸은 사이드바 맨 위에 하나뿐이라
+     「어디에 있는지」를 잃을 자리가 아니다. 표 안의 편집칸처럼 여러 칸이
+     나란한 자리에서는 이 방식을 그대로 쓰지 않는다. */
+  --dxbl-text-edit-underline-color: transparent;
+  --dxbl-text-edit-underline-hovered-color: transparent;
+  --dxbl-text-edit-underline-active-color: transparent;
+  --dxbl-text-edit-underline-focused-color: transparent;
+
+  /* 테두리 쪽도 상태마다 변수가 따로다. **`--…-border-color` 하나만 비우면
+     마우스를 올릴 때 네 변이 다시 나타난다** — 그때는 테마가 그 값을
+     `--…-border-hovered-color` 로 갈아 끼우기 때문이다(누를 때는
+     `-active-color`). 위 밑줄과 같은 얘기라 둘을 나란히 적어 둔다.
+
+     [왜 갈아 끼우는 규칙과 다투지 않는가]
+
+     그 규칙들은 `:not()` 을 넷 달아 자릿수가 다섯이라 우리가 이길 수 없다.
+     대신 **그 규칙이 읽어 가는 변수**를 비운다 — 변수를 정하는 쪽은
+     `.dxbl-text-edit` 하나뿐이고, app.css 가 테마보다 뒤에 꽂히므로
+     같은 자릿수로도 우리 값이 남는다. */
+  --dxbl-text-edit-border-hovered-color: transparent;
+  --dxbl-text-edit-border-active-color: transparent;
 }
 
 /* ── 사이드바 탭 (메뉴 · 즐겨찾기) ────────────────────────
@@ -497,8 +767,56 @@ body {
   border-bottom: 1px solid var(--jsini-border);
 }
 
+/* ── 좁은 사이드바에서는 탭이 그림만 남는다 ────────────────
+
+   구분선으로 90px 까지 좁힐 수 있게 되면서 이 두 칸이 **가로로 넘쳤다** —
+   「메뉴」와 「즐겨찾기 4」에 99px 이 필요한데 판이 89px 이었다. 넘친 것은
+   잘리지 않고 판을 밀어서, 사이드바 안에 가로 스크롤이 생겼다.
+
+   [미디어 질의가 아니라 **컨테이너 질의**다]
+
+   기준이 화면 폭이 아니라 **사이드바 폭**이다. 사람이 구분선을 끌어 정하는
+   값이라 화면 크기와 아무 상관이 없다 — 1920px 모니터에서도 90px 사이드바를
+   쓸 수 있다. `container-type: inline-size` 를 사이드바에 걸어 두면 그 폭으로
+   물을 수 있다.
+
+   경계값 180px 은 **재서 정했다.** 「즐겨찾기 4」가 그림·글자·개수까지
+   들어가려면 69px, 「메뉴」가 30px, 둘 사이 여백까지 99px 이다. 여유를 두어
+   180px 아래에서 글자를 접는다 — 그 밑에서는 두 칸 중 하나가 반드시 잘린다.
+   ---------------------------------------------------------- */
+
+.jsini-sidebar {
+  container-type: inline-size;
+  container-name: jsini-sidebar;
+}
+
+/* 「메뉴」 칸의 그림은 좁을 때만 나온다. 넓을 때 함께 두면 글자와 그림이
+   같은 말을 두 번 하고, 옆 칸(별표+즐겨찾기)과 무게가 어긋난다.
+
+   **자릿수를 하나 올려 적는다.** 아이콘 묶음의 `[class^='jsini-icon-']` 이
+   `display: inline-block` 을 걸고 그 규칙이 이 파일에서 **뒤에** 있어서,
+   클래스 하나로 적으면 안 감춰진다 — 재어 보니 330px 에서도 그림이 나와
+   있었다. */
+.jsini-sidebar__tab > .jsini-sidebar__tab-icon { display: none; }
+
+@container jsini-sidebar (max-width: 180px) {
+  .jsini-sidebar__tab > .jsini-sidebar__tab-icon { display: inline-block; }
+
+  .jsini-sidebar__tab-text,
+  .jsini-sidebar__tab-count {
+    display: none;
+  }
+}
+
 .jsini-sidebar__tab {
   flex: 1;
+
+  /* **`min-width: 0` 이 없으면 줄어들지 않는다.** flex 칸의 기본 최소 크기가
+     내용 크기(min-content)라, 글자를 감춘 뒤에도 남은 그림과 여백이 판보다
+     넓으면 그대로 밀고 나간다. */
+  min-width: 0;
+  overflow: hidden;
+
   display: flex;
   align-items: center;
   justify-content: center;
@@ -509,7 +827,12 @@ body {
   background: none;
   color: inherit;
   font: inherit;
-  font-size: 0.85rem;
+
+  /* 사다리 단으로 적는다. `rem` 으로 박으면 크기 여섯 단계 중 어느 것을
+     골라도 탭만 그대로 있다 — 바로 아래 트리는 따라가므로 그 어긋남이
+     눈에 띈다. sm 은 보통에서 13.0px 로, 박아 두었던 0.85rem(13.6px)과
+     사실상 같다. */
+  font-size: var(--jsini-fs-sm);
   cursor: pointer;
 
   /* 눌린 탭과 자리가 어긋나지 않게 굵기 자리를 미리 잡아 둔다.
@@ -528,7 +851,7 @@ body {
 
 /* 담아 둔 개수. 탭 이름과 같은 크기면 어느 쪽이 이름인지 헷갈린다. */
 .jsini-sidebar__tab-count {
-  font-size: 0.7rem;
+  font-size: var(--jsini-fs-2xs);
   opacity: 0.7;
 }
 
@@ -536,7 +859,7 @@ body {
 .jsini-sidebar__empty {
   margin: 0;
   padding: 1rem;
-  font-size: 0.8rem;
+  font-size: var(--jsini-fs-sm);
   line-height: 1.6;
   color: var(--jsini-text-muted);
 }
@@ -619,12 +942,172 @@ body {
 
 .jsini-sidebar__tree .dxbl-treeview-empty-data::after {
   content: "찾는 메뉴가 없습니다.";
-  font-size: 0.8rem;
+  font-size: var(--jsini-fs-sm);
   color: var(--jsini-text-muted);
 }
 
+/* ── 메뉴 한 줄: [아이콘] 제목 …………… [펼침] ──────────────
+
+   옛 vben 사이드바의 모양이다. 아이콘은 `SidebarMenu.NodeText` 가 그리고
+   (DB 의 iconify 이름 → `menu-icons.css` 의 mask 클래스), **펼침 표시는
+   DevExpress 가 제목 앞에 그린 단추를 여기서 오른쪽 끝으로 옮긴다.**
+
+   [왜 flex 순서가 아니라 절대 자리인가]
+
+   `order` 로 오른쪽에 보내면 그 단추가 **강조 알약 바깥**에 남는다. 색이
+   깔리는 것은 제목을 감싼 `…item-container` 하나뿐이고, 단추는 그 형제라서
+   마우스를 올렸을 때 알약이 화살표 앞에서 끊긴다.
+
+   절대 자리로 띄우면 알약이 줄 전체를 채우고 화살표가 그 위에 앉는다 —
+   vben 이 한 줄 통째로 강조하던 모양과 같아진다. 그 대신 제목이 화살표
+   아래로 흐르지 않게 오른쪽 여백을 준다.
+
+   `…item-content` 는 이미 `position: relative` 다(DevExpress 가 그렇게 준다.
+   재어 확인했다). 그래도 여기 한 줄 적어 둔다 — 그 값이 바뀌면 화살표가
+   사이드바 바깥으로 튀어 나가므로 우리 쪽에서 붙잡고 있어야 한다.
+
+   [`.dxbl-btn-tool` 을 선택자에 하나 더 붙인 이유]
+
+   DevExpress 도 그 단추에 `position: relative` 를 주고 그 규칙이 우리와
+   **자릿수가 같다**(클래스 셋). 테마 CSS 는 theme.js 가 꽂으므로 app.css
+   **뒤**에 들어가고, 같은 자릿수면 뒤엣것이 이긴다 — 그래서 규칙은 실려
+   있는데 화살표가 안 움직였다(브라우저에서 재어 확인했다).
+
+   클래스를 하나 더 붙여 한 칸 이긴다. `!important` 를 쓰지 않는 이유는
+   그것이 이 파일에서 처음이 되기 때문이다 — 한 번 쓰면 다음 사람이 같은
+   자리에서 또 쓰고, 그러면 무엇이 무엇을 이기는지 아무도 모르게 된다.
+   ---------------------------------------------------------- */
+
+.jsini-sidebar__tree .dxbl-treeview-item-content {
+  position: relative;
+}
+
+.jsini-sidebar__tree .dxbl-treeview-item-content > .dxbl-btn.dxbl-btn-tool {
+  position: absolute;
+  right: 0;
+
+  /* 줄 높이가 아니라 **단추 높이**를 지킨 채 가운데로 놓는다.
+     `top: 0; bottom: 0` 으로 잡으면 단추가 줄 높이만큼 늘어나고, 그 안의
+     화살표는 위쪽 여백(9px)에 붙어 있어 눈으로는 위로 치우쳐 보인다. */
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+/* ── 화살표 크기는 글자 크기를 따라간다 ───────────────────
+
+   [무엇이 문제였나 — 재어 본 값]
+
+   테마 서랍에서 크기를 바꾸면 제목과 메뉴 아이콘은 함께 움직이는데
+   **화살표만 두 칸에서 12px 로 같았다.** DevExpress 가 그 그림을 글자가
+   아니라 여백 토큰으로 재기 때문이다 —
+
+       --dxbl-treeview-btn-icon-size-s: var(--dxds-spacing-120)   → 12px
+       --dxbl-treeview-btn-icon-size-m: var(--dxds-spacing-120)   → 12px, 같다
+       --dxbl-treeview-btn-icon-size-l: var(--dxds-spacing-160)   → 16px
+
+   | 크기 | 제목 | 메뉴 아이콘 | 화살표(전) | 화살표(후) |
+   |---|---|---|---|---|
+   | 작게 | 12px | 13.8px | 12px | 12px |
+   | 보통 | 14px | 16.1px | **12px** | **14px** |
+   | 크게 | 16px | 18.4px | 16px | 16px |
+
+   바뀌는 것은 보통 한 칸뿐이다(12 → 14px). 작게·크게는 DevExpress 가 고른
+   값과 우연히 같다 — 그래서 이 고침은 **보통에서만 눈에 띈다.**
+
+   [그림 규칙과 다투지 않고 **그쪽 변수**를 덮는다]
+
+   화살표 그림을 겨누는 DevExpress 규칙은 클래스 여섯 개짜리다 —
+
+       .dxbl-treeview .dxbl-treeview-item > .dxbl-treeview-item-content
+         > .dxbl-btn:not(.dxbl-nav-expand-btn-custom) > .dxbl-image
+
+   그것을 이기려면 우리 선택자도 그만큼 길어져야 하고, 그 길이가 곧
+   **DevExpress 마크업 구조에 대한 의존**이 된다(한 겹만 바뀌어도 안 걸린다).
+   그래서 그 규칙이 **읽는 변수**를 나무 뿌리에서 덮는다. 뿌리에서 그 값을
+   정하는 규칙은 클래스 둘(`.dxbl-treeview.dxbl-sm`)이라 셋으로 이긴다.
+
+   값은 **그 줄의 글자 크기 그대로**다(`--dxbl-treeview-font-size`). 우리가
+   고른 배수가 아니라 DevExpress 가 크기 단마다 정해 둔 값을 그대로 쓰는 것이라,
+   테마를 올려 단 값이 바뀌어도 함께 따라온다. 크게에서는 DevExpress 가
+   원래 고른 16px 과 같아진다.
+   ---------------------------------------------------------- */
+
+.jsini-sidebar .jsini-sidebar__tree.dxbl-treeview {
+  /* ── 메뉴 글자는 **여섯 단계를 그대로 따라간다** ──────────
+
+     [고르는 단계는 여섯인데 DevExpress 는 셋이다]
+
+     테마 서랍의 크기는 가장작게 · 아주작게 · 작게 · 조금작게 · 보통 · 크게
+     여섯이고, 그중 앞의 넷이 DevExpress **Small 하나로 접힌다**
+     (`ThemeSize.Steps` — 없는 SizeMode 를 흘리면 그리드·달력·팝업이 안 따라와
+     한 화면에 두 크기가 된다). 그래서 메뉴 글자가 DevExpress 의 단 값
+     (`--dxbl-treeview-font-size`)에 묶여 있는 동안은 **앞의 네 단계가 전부
+     12px 로 같았다.** 재어 확인했다 —
+
+         가장작게 12 · 아주작게 12 · 작게 12 · 조금작게 12 · 보통 14 · 크게 16
+
+     여섯 단계를 아는 것은 우리 사다리뿐이므로(`--jsini-fs-base` 를
+     `data-dx-size` 로 고른다) 나무의 글자 크기를 그 값으로 덮는다. 그러면
+
+         가장작게 10 · 아주작게 11 · 작게 12 · 조금작게 13 · 보통 14 · 크게 16
+
+     이 되고, 화살표(바로 아래 줄)와 메뉴 아이콘(`1.15em`)이 함께 따라온다.
+
+     [줄 높이는 건드리지 않는다]
+
+     우리가 넣은 네 단계는 **밀도는 「작게」 그대로 두고 글자만 줄이는 것**이
+     뜻이다(사다리 머리말). 줄 높이·단추 높이는 DevExpress 가 Small 로 잡은
+     값을 그대로 쓴다 — 여기서 그것까지 비율로 바꾸면 서랍의 단계가 사실상
+     여섯 개의 밀도가 되어, 부품(그리드·달력)과 어긋나는 자리가 다시 생긴다.
+
+     자릿수로 이긴다: 이 값을 정하는 테마 규칙이 `.dxbl-treeview.dxbl-sm`
+     (클래스 둘)이라 셋으로 적었다. */
+  --dxbl-treeview-font-size: var(--jsini-fs-base);
+
+  --dxbl-treeview-btn-icon-size: var(--dxbl-treeview-font-size);
+}
+
+/* 화살표가 앉을 자리. 제목이 길면 여기서 잘린다.
+
+   `em` 이라 화살표와 함께 커진다. 보통에서 26.6px 로 단추 폭(24px)보다 조금
+   넓다 — 딱 맞추면 긴 제목의 마지막 글자가 화살표에 닿는다.
+
+   선택자가 긴 이유는 위와 같다. 테마가 이 칸에 `padding` 을 **약칭으로**
+   걸어 두어(클래스 넷) 짧게 적으면 우리 값이 덮인다 — 그래서 한동안 이 여백이
+   실제로는 안 걸려 있었다. */
+.jsini-sidebar .jsini-sidebar__tree .dxbl-treeview-item > .dxbl-treeview-item-content > .dxbl-treeview-item-container {
+  padding-right: 1.9em;
+}
+
+/* 아이콘과 제목. 아이콘은 줄지 않고(`flex: 0 0 auto` 는 `.jsini-mi` 가 갖는다)
+   제목만 줄어들어야 하므로 `min-width: 0` 을 준다 — 없으면 제목이 안 잘리고
+   줄 폭을 밀어낸다. */
+.jsini-sidebar__node {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+/* 아이콘은 제목보다 한 톤 옅게. 색을 죽이면 제목이 먼저 읽힌다 —
+   179개를 훑어 내려갈 때 그림이 글자만큼 진하면 둘이 서로를 가린다.
+   고른 줄에서는 글자와 같은 색으로 돌아온다(아래 규칙). */
+.jsini-sidebar__node > .jsini-mi {
+  opacity: 0.65;
+}
+
+.jsini-sidebar__tree .dxbl-treeview-item-container.dxbl-active .jsini-mi,
+.jsini-sidebar__tree .dxbl-treeview-item-container:hover .jsini-mi {
+  opacity: 1;
+}
+
 /* 제목이 길면 자른다. 메뉴 이름이 스무 자를 넘는 것이 실제로 있고
-   (「빈소 디스플레이 재생목록 관리」), 줄바꿈하면 트리가 들쭉날쭉해진다. */
+   (「빈소 디스플레이 재생목록 관리」), 줄바꿈하면 트리가 들쭉날쭉해진다.
+
+   두 자리에 건다 — 우리 템플릿의 제목과, 템플릿이 없을 때 DevExpress 가
+   그리는 제목(즐겨찾기·검색 결과도 같은 템플릿을 쓰므로 지금은 앞엣것만
+   나오지만, 템플릿을 떼면 뒤엣것으로 돌아간다). */
+.jsini-sidebar__node-title,
 .jsini-sidebar__tree .dxbl-treeview-item-text {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -719,6 +1202,86 @@ body {
   opacity: 0.75;
 }
 
+/* ── 아이콘 고르개 (IconPicker) ───────────────────────────
+
+   메뉴 수정 창 안에 들어가므로(팝업 안) **떠 있는 판을 쓰지 않는다.**
+   펼치면 폼이 길어지고, 격자가 스스로 굴러 창이 화면을 넘지 않는다.
+   ---------------------------------------------------------- */
+
+.jsini-iconpick__row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* 지금 값의 그림. 고르기 전에도 보여야 한다 — 저장된 이름이 맞는지
+   확인할 자리가 여기밖에 없다. */
+.jsini-iconpick__preview {
+  flex: 0 0 auto;
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+.jsini-iconpick__text { flex: 1; min-width: 0; }
+
+.jsini-iconpick__panel {
+  margin-top: 0.5rem;
+  padding: 0.6rem;
+  border: 1px solid var(--jsini-border);
+  border-radius: 0.25rem;
+  background: var(--jsini-surface);
+}
+
+.jsini-iconpick__search { width: 100%; }
+
+/* 격자. `auto-fill` 이라 창 폭이 바뀌면 칸 수가 따라온다 — 칸 수를 박으면
+   좁은 화면에서 가로 스크롤이 생긴다.
+
+   높이를 묶어 두고 여기만 구른다. 안 묶으면 아이콘이 140개라 폼이 화면보다
+   길어지고, 그러면 창 전체가 굴러 아래의 「저장」 단추가 멀어진다. */
+.jsini-iconpick__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(2.4rem, 1fr));
+  gap: 0.25rem;
+  max-height: 13rem;
+  overflow-y: auto;
+  margin-top: 0.5rem;
+}
+
+.jsini-iconpick__cell {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 0.25rem;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.jsini-iconpick__cell > span {
+  width: 1.35rem;
+  height: 1.35rem;
+}
+
+.jsini-iconpick__cell:hover { background: var(--jsini-theme-hover); }
+
+/* 고른 칸은 **면으로** 칠한다. 테두리만 두르면 그 칸이 1px 커져 격자가
+   들썩인다 — 테마 서랍에서 같은 이유로 같은 선택을 했다. */
+.jsini-iconpick__cell.is-on {
+  background: var(--jsini-theme-picked);
+  border-color: var(--jsini-border);
+}
+
+.jsini-iconpick__empty,
+.jsini-iconpick__note {
+  margin: 0.5rem 0 0;
+  font-size: var(--jsini-fs-2xs);
+  color: var(--jsini-text-muted);
+}
+
 /* ── 본문 쪽 ─────────────────────────────────────────────── */
 
 .jsini-shell__main {
@@ -735,6 +1298,10 @@ body {
   flex: 1;
   padding: 1.1rem 1.5rem 2rem;
   overflow: auto;
+
+  /* 옮기는 동안의 덮개(`.jsini-pageload`)가 여기에 자리를 잡는다.
+     아래 「화면을 옮기는 동안의 표시」 참고. */
+  position: relative;
 }
 
 /* ── 탭 줄 ───────────────────────────────────────────────
@@ -1010,6 +1577,29 @@ a.jsini-crumbs__item:hover { opacity: 1; }
 @media (max-width: 767px) {
   .jsini-shell {
     grid-template-columns: 1fr;
+  }
+
+  /* ── 좁은 화면에서는 스플리터를 **상자만 없앤다** ────────
+
+     사이드바가 본문을 덮어야 하는 폭이다. 판을 나눠 갖는 부품으로는 덮을 수
+     없으므로 `display: contents` 로 판·판안쪽의 상자를 지운다. 그러면 그
+     안의 사이드바와 본문이 **다시 격자 칸이 되어** 아래 규칙들이 그대로
+     걸린다(사이드바는 `position: fixed` 로 덮고, 본문은 첫 칸을 쓴다).
+
+     부품을 지우지 않고 상자만 없애는 이유는 **마크업을 갈아 끼우지 않기
+     위해서**다. 화면 크기로 갈아 끼우면 경계를 넘을 때마다 사이드바 트리와
+     열려 있던 화면이 통째로 다시 만들어진다.
+
+     DevExpress 가 판에 인라인으로 넣는 폭·좌표는 상자가 없어지면 아무 일도
+     하지 않는다. 구분선은 감춘다 — 끌 자리가 없다. */
+  .jsini-shell__split,
+  .jsini-shell__split > .dxbl-splitter-pane,
+  .jsini-shell__split > .dxbl-splitter-pane > .dxbl-splitter-pane-content {
+    display: contents;
+  }
+
+  .jsini-shell__split > .dxbl-splitter-separator {
+    display: none;
   }
 
   /* 데모의 330px 를 그대로 두면 360px 짜리 화면을 거의 다 덮어서 본문이
@@ -1305,8 +1895,13 @@ a.jsini-crumbs__item:hover { opacity: 1; }
   padding: 0.25rem 0.15rem 0;
 
   /* 글자 없이 아이콘만 있는 자리라 조금 키운다. 글자가 옆에 있으면 그 글자가
-     무엇인지 알려 주지만, 여기서는 아이콘이 유일한 단서다. */
-  --jsini-icon-size: 1.35rem;
+     무엇인지 알려 주지만, 여기서는 아이콘이 유일한 단서다.
+
+     그 1.35rem 은 헤더와 같은 「조금작게」 기준값이고, 헤더와 같은 배율을
+     쓴다(`--jsini-chrome-scale`) — 등록·조회·필터·엑셀 아이콘이 글자 크기를
+     따라 줄어든다. 한동안 고정이라 글자를 「가장작게」로 두면 표 글자만
+     작아지고 이 띠의 아이콘은 그대로 커서 아래쪽이 유독 무거웠다. */
+  --jsini-icon-size: calc(1.35rem * var(--jsini-chrome-scale));
 }
 
 /* 켜진 토글과, 걸린 조건을 지우는 단추. 색으로만 구분한다 — 모양까지 바꾸면
@@ -1419,6 +2014,127 @@ a.jsini-crumbs__item:hover { opacity: 1; }
   height: var(--commgrd-bar-height);
   min-height: 0;
   padding: 0;
+}
+
+/* ── 공통 나무 (CommTree) ────────────────────────────────
+
+   `CommGrd` 와 나란히 두는 규칙이다. 이름을 부품 이름에 맞추는 것은 표와 같은
+   이유다 — 개발자 도구에 `commtree__footer` 라고 적혀 있으면 어느 파일을
+   고쳐야 하는지 바로 보인다.
+
+   **표의 규칙에 묶어 쓰지 않는다.** 겉모습이 같아도 한 선택자로 합치면 표의
+   아래 띠를 고칠 때 나무까지 함께 움직이고, 그 사실이 어디에도 안 적힌다.
+   대신 값이 어긋나지 않게 두 곳에 같은 크기를 적어 둔다.
+
+   [DevExpress 는 나무에도 `dxbl-grid*` 클래스를 쓴다]
+
+   `DxTreeList` 의 뿌리 요소가 `<dxbl-tree-list class="dxbl-grid">` 이고 표·칸
+   머리·페이저 줄의 클래스 이름도 그리드와 같다 — 메뉴 관리 화면의 DOM 에서
+   확인했다. 그래서 안쪽을 겨누는 규칙은 **바깥 클래스만 바꿔** 그대로 옮길 수
+   있다. 아래가 그렇게 옮겨 온 것들이다.
+   ---------------------------------------------------------- */
+
+.commtree {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+
+  /* 아래 띠의 높이. 표(`--commgrd-bar-height`)와 같은 값이어야 표와 나무를
+     오갈 때 아이콘 줄이 위아래로 튀지 않는다. */
+  --commtree-bar-height: 3rem;
+
+  /*
+    나무의 최대 높이. 없으면 아래 띠가 화면 밖으로 나간다 — 자세한 것은 위
+    `--commgrd-max-height` 머리말에 있다.
+
+    **나무에서는 이것 말고 크기를 다스릴 것이 없다.** 쪽나누기를 끄고 있어서
+    (CommTree 머리말 6번) 줄 수만큼 그대로 늘어난다. 묶어 두면 DevExpress 가
+    나무 안쪽에서 굴린다 — 칸 머리는 제자리에 남고 자료만 움직인다.
+  */
+  --commtree-max-height: 58vh;
+}
+
+/* 나무 위 도구줄. 조회 영역(CommSch)을 따로 둔 화면에서는 그려지지 않는다. */
+.commtree__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+/* 왼쪽 묶음과 오른쪽 묶음을 갈라 놓는 빈 칸. */
+.commtree__spacer { flex: 1; }
+
+/* 나무 안 관리 칸의 단추 묶음 (하위 추가 · 수정 · 삭제). */
+.commtree__actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+}
+
+/* 자료 칸의 기본 정렬. 어느 칸에 붙일지는 CommTree 가 정한다.
+
+   **첫 칸에는 붙지 않는다.** 나무의 첫 자료 칸이 계층 칸이라 들여쓰기와 펼침
+   화살표가 그 셀 안에 함께 있다. 가운데로 맞추면 깊이마다 제목이 다른 자리에서
+   시작해 계층이 눈에 안 들어온다. */
+.commtree .dxbl-grid-table > tbody > tr > td.commtree__cell--center {
+  text-align: center;
+}
+
+.commtree__empty {
+  padding: 2rem;
+  text-align: center;
+  color: var(--jsini-text-muted);
+}
+
+/* 나무 아래 띠. 왼쪽 끝이 등록 자리다.
+
+   표와 달리 **페이저 줄에 얹지 않는다** — 쪽나누기를 끄고 있어서 얹을 줄이
+   없다. 화면에서 쪽나누기를 되살리면 이 띠는 페이저 줄 아래 한 줄로 남는다. */
+.commtree__footer {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: var(--commtree-bar-height);
+  padding: 0.25rem 0.15rem 0;
+
+  /* 글자 없이 아이콘만 있는 자리라 조금 키운다. 표의 아래 띠와 같은 값이다. */
+  --jsini-icon-size: 1.35rem;
+}
+
+/* 켜진 토글과, 걸린 조건을 지우는 단추. 색으로만 구분한다. */
+.commtree__icon--on { color: var(--jsini-accent); }
+.commtree__icon--warn { color: #d9534f; }
+
+/* 줄무늬. 고정색을 쓰지 않는 이유와, 선택 줄을 이기지 않게 규칙을 낮게 두는
+   이유는 표의 `commgrd__row--alt` 머리말에 적어 두었다. */
+.commtree .dxbl-grid-table > tbody > tr.commtree__row--alt {
+  background-color: color-mix(in srgb, var(--dxbl-grid-color, currentColor) 4%, transparent);
+}
+
+/* 칸 머리는 가운데 정렬. 계층 칸의 머리도 함께 맞춘다 — 머리에는 들여쓰기가
+   없어서 자료 칸과 달리 어긋나지 않는다. */
+.commtree .dxbl-grid-header-content > span:first-child {
+  text-align: center;
+}
+
+/* 나무를 화면 안에 묶는다. `CommCont` 안에 있으면 아래 규칙이 이것을 대신한다 —
+   그때는 남은 높이를 정확히 채우므로 어림값(58vh)이 필요 없다. */
+.commtree > .dxbl-grid {
+  max-height: var(--commtree-max-height);
+}
+
+/* 자료 영역 안에서는 남은 높이를 정확히 채운다. 모니터 크기와 무관하다. */
+.commcont__body > .commtree {
+  flex: 1;
+  min-height: 0;
+}
+
+.commcont__body > .commtree > .dxbl-grid {
+  height: 100%;
+  max-height: none;
 }
 
 /* ── 로그인 · 안내 화면 ──────────────────────────────────── */
@@ -1954,6 +2670,16 @@ a.jsini-crumbs__item:hover { opacity: 1; }
   overflow: hidden;
 }
 
+/* 크기 칸은 **여섯**이라 판 너비를 다 쓴다.
+
+   밝기(Light/Dark)는 둘이라 `width: max-content` 로 두어도 판의 절반쯤에서
+   끝나는데, 다섯을 그렇게 두면 판을 넘어가 `overflow: hidden` 에 잘린다 —
+   마지막 칸(「크게」)이 사라져도 오류가 안 나서 눈치채기 어렵다.
+   그래서 크기 줄만 폭을 채우고 칸을 고르게 나눈다. */
+.jsini-theme__segmented--fill {
+  width: 100%;
+}
+
 .jsini-theme__seg {
   display: inline-flex;
   align-items: center;
@@ -1967,6 +2693,22 @@ a.jsini-crumbs__item:hover { opacity: 1; }
   font: inherit;
   font-size: var(--jsini-fs-md);
   cursor: pointer;
+}
+
+/* 채우는 줄의 칸.
+
+   `min-width: 0` 이 있어야 한다 — flex 항목의 기본 최소 폭이 내용 크기라,
+   그것 없이는 여섯 칸이 안 줄어들어 판을 넘어간다.
+
+   글자를 사다리에서 두 단 내린다(`--jsini-fs-2xs`). 칸이 여섯이 되면서
+   하나가 50px 도 안 되는데, 「크게」를 골랐을 때 `--jsini-fs-xs` 로 두면
+   네 글자(「가장작게」)가 그 칸을 넘긴다. */
+.jsini-theme__segmented--fill > .jsini-theme__seg {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 0.45rem 0.15rem;
+  font-size: var(--jsini-fs-2xs);
+  white-space: nowrap;
 }
 
 .jsini-theme__seg + .jsini-theme__seg {
@@ -2086,6 +2828,26 @@ a.jsini-crumbs__item:hover { opacity: 1; }
 .jsini-icon-eye {
   -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 3C4.4 3 1.4 5.1 0 8c1.4 2.9 4.4 5 8 5s6.6-2.1 8-5c-1.4-2.9-4.4-5-8-5zm0 8.3A3.3 3.3 0 1 1 8 4.7a3.3 3.3 0 0 1 0 6.6zm0-1.6a1.7 1.7 0 1 0 0-3.4 1.7 1.7 0 0 0 0 3.4z'/%3E%3C/svg%3E");
   mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 3C4.4 3 1.4 5.1 0 8c1.4 2.9 4.4 5 8 5s6.6-2.1 8-5c-1.4-2.9-4.4-5-8-5zm0 8.3A3.3 3.3 0 1 1 8 4.7a3.3 3.3 0 0 1 0 6.6zm0-1.6a1.7 1.7 0 1 0 0-3.4 1.7 1.7 0 0 0 0 3.4z'/%3E%3C/svg%3E");
+}
+
+/* 나무 관리 칸의 「하위 추가」. 아래 띠의 「등록」과 **다른 그림이어야 한다** —
+   같은 더하기를 쓰면 한 줄 안에서 「여기 아래」와 「최상위」가 구분되지 않는다.
+   꺾인 선이 「한 단 아래」를 말한다. */
+.jsini-icon-child-plus {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M2 1h1.6v8.2H7v1.6H2z'/%3E%3Cpath d='M10.6 6.6h1.6v2.8h2.8v1.6h-2.8v2.8h-1.6v-2.8H7.8V9.4h2.8z'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M2 1h1.6v8.2H7v1.6H2z'/%3E%3Cpath d='M10.6 6.6h1.6v2.8h2.8v1.6h-2.8v2.8h-1.6v-2.8H7.8V9.4h2.8z'/%3E%3C/svg%3E");
+}
+
+/* 나무 아래 띠의 펼치기·접기 한 짝. 삼각형이 벌어지면 펼치기,
+   모이면 접기다 — 아이콘 하나로 상태까지 말한다. */
+.jsini-icon-unfold {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 1 3.4 5.6h9.2z'/%3E%3Cpath d='M8 15 3.4 10.4h9.2z'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 1 3.4 5.6h9.2z'/%3E%3Cpath d='M8 15 3.4 10.4h9.2z'/%3E%3C/svg%3E");
+}
+
+.jsini-icon-fold {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.4 1.4h9.2L8 6z'/%3E%3Cpath d='M3.4 14.6h9.2L8 10z'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.4 1.4h9.2L8 6z'/%3E%3Cpath d='M3.4 14.6h9.2L8 10z'/%3E%3C/svg%3E");
 }
 
 /* ── 공지 팝업 (NoticePopup) ───────────────────────────────
@@ -2702,4 +3464,138 @@ a.jsini-crumbs__item:hover { opacity: 1; }
 .jsini-imggroup__empty {
   font-size: var(--jsini-fs-xs);
   color: var(--jsini-text-muted);
+}
+
+/* ── 바깥 화면 끼워 넣기 (Embedded.razor) ─────────────────
+
+   유형이 EMBEDDED 인 메뉴를 받는 공용 화면 하나가 쓴다. 모듈이 아니라 셸의
+   화면이라 여기 둔다 — 전에는 같은 규칙이 `pm-frame`(프로젝트관리)과
+   `ad-frame`(포털관리) 두 벌로 갈려 있었고, 그중 한 벌만 고쳐 둔 적이 있다.
+
+   [바깥 여백을 숫자로 세지 않는다]
+
+   `calc(100vh - 56px - 10rem)` 으로 재던 자리다. 그 `10rem` 은 머리줄 · 탭 줄 ·
+   길잡이 · 안내 줄 · 본문 여백을 눈대중으로 합친 값이라 맞을 이유가 없었고,
+   실제로 틀렸다 — 안내 줄이 한 줄 늘어난 화면에서 iframe 이 58px 넘쳐
+   쪽에 세로 막대가 생겼다.
+
+   본문 칸을 세로 flex 로 세우고 iframe 에 남은 높이를 준다. 안내 줄이 몇
+   줄이 되든 화면은 그것을 몰라도 된다. `CommCont` 가 표에 쓰는 것과 같은
+   수(위 「본문 높이를 꽉 채운다」)이고, `:has()` 로 이 화면에만 건다.
+   ---------------------------------------------------------- */
+
+.jsini-embed {
+  width: 100%;
+
+  /* :has() 를 모르는 브라우저를 위한 바닥. 아래 규칙이 이기면 안 쓰인다. */
+  height: calc(100vh - 56px - 10rem);
+
+  /* 창이 아주 낮을 때의 바닥. 이때는 막대가 생기는 것이 맞다 —
+     그보다 줄이면 끼워 넣은 화면을 읽을 수 없다. */
+  min-height: 360px;
+
+  border: 1px solid var(--jsini-border, #e0e0e0);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.jsini-shell__content:has(> .jsini-embed) {
+  display: flex;
+  flex-direction: column;
+}
+
+/* 안내 줄은 제 높이만큼만. 없으면 iframe 에 자리를 뺏겨 글이 눌린다. */
+.jsini-shell__content:has(> .jsini-embed) > *:not(.jsini-embed) {
+  flex: none;
+}
+
+.jsini-shell__content:has(> .jsini-embed) > .jsini-embed {
+  flex: 1;
+  height: auto;
+}
+
+/* ── 화면을 옮기는 동안의 표시 (PageSpinner) ───────────────
+
+   이력: Vue `content-spinner.vue` + `VbenSpinner`.
+
+   [늘 DOM 에 두고 클래스만 바꾼다]
+
+   보일 때 만들어 넣으면 나타나는 전환이 걸리지 않아 그대로 튀어나온다.
+   깔아 두고 `opacity`·`visibility` 만 움직인다.
+
+   [나타날 때만 늦춘다]
+
+   `transition-delay` 가 Vue 의 타이머 둘(50ms 뒤 표시 · 최소 500ms 유지)을
+   대신한다. 0.12초보다 빨리 끝난 이동에서는 켜졌다 꺼지는 동안 화면에
+   아무것도 안 나타나고, 그보다 오래 걸린 이동만 표시가 뜬다. 사라질 때는
+   늦추지 않고 0.28초에 걸쳐 스러진다.
+
+   Blazor Server 에서 타이머는 곧 왕복이라, 이동 한 번에 그림을 두 번 더
+   밀어내게 된다. CSS 로 하면 그 왕복이 없다.
+
+   [본문 안에 깐다]
+
+   `.jsini-shell__content` 가 자리를 잡아 준다(`position: relative`).
+   머리줄·탭 줄·길잡이는 덮지 않는다 — 어디로 가는 중인지는 보여야 한다.
+   ---------------------------------------------------------- */
+
+.jsini-pageload {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  /* 바탕을 덮되 비치게 둔다. 뒤에 무엇이 있었는지 보이면 「가는 중」으로
+     읽히고, 꽉 막으면 「화면이 사라졌다」로 읽힌다. */
+  background: color-mix(in srgb, var(--jsini-surface, #fff) 72%, transparent);
+  backdrop-filter: blur(2px);
+
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.28s ease, visibility 0.28s ease;
+}
+
+.jsini-pageload.is-on {
+  visibility: visible;
+  opacity: 1;
+
+  /* 여기가 「깜빡임 막기」다. 위 머리말 참고. */
+  transition-delay: 0.12s;
+}
+
+/* 상승 조각 넷. Vue 판의 좌표와 엇박을 그대로 옮겼다 —
+   심볼(JS 인터록)은 굴리지 않는다. 브랜드 규칙이 기울이기·회전을 막는다. */
+.jsini-loader {
+  width: 3rem;
+  height: 3rem;
+  color: var(--jsini-text, currentColor);
+}
+
+.jsini-loader__bar {
+  fill: currentColor;
+  transform-origin: center bottom;
+  animation: jsini-loader-rise 1.1s ease-in-out infinite;
+}
+
+.jsini-loader__bar:nth-child(1) { animation-delay: 0s; }
+.jsini-loader__bar:nth-child(2) { animation-delay: 0.12s; }
+.jsini-loader__bar:nth-child(3) { animation-delay: 0.24s; }
+.jsini-loader__bar:nth-child(4) { animation-delay: 0.36s; }
+
+@keyframes jsini-loader-rise {
+  0%, 100% { transform: scaleY(0.55); }
+  50% { transform: scaleY(1); }
+}
+
+/* 안 보일 때는 애니메이션을 멈춘다. 이동이 없을 때도 계속 돌면 그만큼
+   브라우저가 매 프레임 다시 그린다 — 하루 종일 띄워 두는 화면들이다. */
+.jsini-pageload:not(.is-on) .jsini-loader__bar { animation-play-state: paused; }
+
+/* 움직임을 원하지 않는 사람에게는 멈춘 그림을 준다. */
+@media (prefers-reduced-motion: reduce) {
+  .jsini-loader__bar { animation: none; }
 }

@@ -78,6 +78,12 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
     /// <summary>고정해 둔 탭. 이 브라우저에만 남는다 — 서버에 두면 즐겨찾기가 된다.</summary>
     public const string PinnedTabsKey = "jsini-tabs-pinned";
 
+    /// <summary>
+    /// 끌어 넓혀 둔 사이드바 폭(px). <b>이 브라우저의 것이다</b> —
+    /// 화면 크기에 따라 알맞은 폭이 다르므로 사용자가 아니라 기기에 남는다.
+    /// </summary>
+    public const string SidebarWidthKey = "jsini-sidebar-width";
+
     private static readonly string[] SessionKeys =
     [
         ScreenLockedKey,
@@ -89,6 +95,7 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
     [
         NoticeDismissedKey,
         PinnedTabsKey,
+        SidebarWidthKey,
     ];
 
     /// <summary>
@@ -324,6 +331,18 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
         /// <summary>고정해 둔 탭. 날것 JSON 이고 없으면 <c>null</c>.</summary>
         public string? PinnedTabsJson { get; private init; }
 
+        /// <summary>
+        /// 끌어 넓혀 둔 사이드바 폭(px). 없거나 읽을 수 없으면 <c>null</c> 이고,
+        /// 그때는 기본 폭을 쓴다.
+        ///
+        /// <para>
+        /// <b>여기서 숫자로 옮긴다.</b> 부품이 글자를 받아 각자 파싱하면
+        /// 이상한 값(사람이 저장소를 고친 경우)을 어떻게 다룰지가 부품마다
+        /// 갈린다 — 못 읽으면 없는 것으로 본다.
+        /// </para>
+        /// </summary>
+        public int? SidebarWidthPx { get; private init; }
+
         /// <summary>지금 고른 테마. theme.js 가 안 실렸으면 <c>null</c>.</summary>
         public ThemeWire? Theme { get; private init; }
 
@@ -341,8 +360,16 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
             NoticeClosedForPublic = Has(wire.Session, NoticeClosedPublicKey),
             NoticeDismissedJson = Get(wire.Local, NoticeDismissedKey),
             PinnedTabsJson = Get(wire.Local, PinnedTabsKey),
+            SidebarWidthPx = Pixels(Get(wire.Local, SidebarWidthKey)),
             Theme = wire.Theme,
         };
+
+        /// <summary>저장해 둔 폭을 숫자로. 이상한 값이면 <c>null</c>.</summary>
+        private static int? Pixels(string? value) =>
+            int.TryParse(value, System.Globalization.NumberStyles.Integer,
+                System.Globalization.CultureInfo.InvariantCulture, out var px) && px > 0
+                ? px
+                : null;
 
         private static bool Has(Dictionary<string, string?> from, string key) =>
             Get(from, key) is { Length: > 0 };

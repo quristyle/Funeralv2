@@ -257,6 +257,9 @@ public static class JSiniWebApp
         services.AddScoped<MenuFavorites>();
         services.AddScoped<PortalTabs>();
 
+        // 화면을 옮기는 동안의 표시. 레이아웃이 켜고 `DataPage` 가 끈다.
+        services.AddScoped<PageTransition>();
+
         // 헤더의 사용자 단추가 얼굴과 이름을 여기서 얻는다. 쿠키 클레임에는
         // 사진이 없어 게이트웨이에 한 번 물어야 한다(CurrentUser 머리말).
         services.AddScoped<CurrentUser>();

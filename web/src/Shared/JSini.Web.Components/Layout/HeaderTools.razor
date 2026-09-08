@@ -18,27 +18,39 @@
 @inject MenuFavorites Favorites
 @inject NavigationManager Navigation
 @inject IJSRuntime Js
+@* 껍데기 크기를 캡에서 멈추려고 받는다 — `ThemeSize.Chrome` 머리말 참고. *@
+@inject ThemeSize Size
 
-<DxButton RenderStyle="ButtonRenderStyle.Link"
-          IconCssClass="@(IsFavorite ? "jsini-icon-star-on" : "jsini-icon-star")"
-          Title="@(IsFavorite ? "즐겨찾기에서 빼기" : "즐겨찾기에 담기")"
-          Enabled="@(MenuPath is not null)"
-          Click="@ToggleFavoriteAsync" />
+@* 아이콘 단추의 **좌우 여백**을 「조금작게」에서 멈춘다.
 
-<DxButton RenderStyle="ButtonRenderStyle.Link"
-          IconCssClass="jsini-icon-refresh"
-          Title="화면 새로 고침"
-          Click="@Refresh" />
+   아이콘 그림은 `--jsini-icon-size` 가 멈추게 해 두었지만 여백은
+   DevExpress 가 `SizeMode` 로 정해서 「보통」·「크게」에서 계속 자랐다
+   (3px → 5px → 7px). 그림은 멈췄는데 자리가 벌어지니 아이콘 사이가
+   멀어지는 것으로 보였다. 자세한 것은 `ThemeSize.Chrome` 머리말에.
 
-<DxButton RenderStyle="ButtonRenderStyle.Link"
-          IconCssClass="jsini-icon-expand"
-          Title="전체화면"
-          Click="@ToggleFullScreenAsync" />
+   **여기만 감싼다.** 서랍·판까지 감싸면 그 안의 내용도 함께 작아진다. *@
+<CascadingValue Name="@ThemeSize.CascadeName" TValue="SizeMode?" Value="@Size.Chrome">
+    <DxButton RenderStyle="ButtonRenderStyle.Link"
+              IconCssClass="@(IsFavorite ? "jsini-icon-star-on" : "jsini-icon-star")"
+              Title="@(IsFavorite ? "즐겨찾기에서 빼기" : "즐겨찾기에 담기")"
+              Enabled="@(MenuPath is not null)"
+              Click="@ToggleFavoriteAsync" />
 
-<DxButton RenderStyle="ButtonRenderStyle.Link"
-          IconCssClass="jsini-icon-bell"
-          Title="알림"
-          Click="@(() => Navigation.NavigateTo("/admin/push/history"))" />
+    <DxButton RenderStyle="ButtonRenderStyle.Link"
+              IconCssClass="jsini-icon-refresh"
+              Title="화면 새로 고침"
+              Click="@Refresh" />
+
+    <DxButton RenderStyle="ButtonRenderStyle.Link"
+              IconCssClass="jsini-icon-expand"
+              Title="전체화면"
+              Click="@ToggleFullScreenAsync" />
+
+    <DxButton RenderStyle="ButtonRenderStyle.Link"
+              IconCssClass="jsini-icon-bell"
+              Title="알림"
+              Click="@(() => Navigation.NavigateTo("/admin/push/history"))" />
+</CascadingValue>
 
 @code {
     /// <summary>

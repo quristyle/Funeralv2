@@ -61,11 +61,13 @@ public sealed class MenuWireDto
         // 유형은 CATALOG · MENU · EMBEDDED · LINK · BUTTON 다섯 가지다.
         // 사이드바가 갈라 봐야 하는 것은 "자기 화면이 없는 묶음인가" 하나뿐이다.
         IsCatalog = string.Equals(Meta.Type, "CATALOG", StringComparison.OrdinalIgnoreCase),
+        IsEmbedded = string.Equals(Meta.Type, "EMBEDDED", StringComparison.OrdinalIgnoreCase),
 
         UseMobile = Meta.UseMobile,
         UseTablet = Meta.UseTablet,
         HideInMenu = Meta.HideInMenu ?? false,
         Link = Meta.Link,
+        IframeSrc = Meta.IframeSrc,
         OrderNo = Meta.Order ?? 0,
         Children = Children?.Select(c => c.ToNode()).ToList() ?? [],
     };
@@ -106,6 +108,16 @@ public sealed class MenuMetaWireDto
 
     [JsonPropertyName("link")]
     public string? Link { get; set; }
+
+    /// <summary>
+    /// iframe 으로 띄울 주소. 유형이 <c>EMBEDDED</c> 인 메뉴가 쓴다.
+    ///
+    /// 서버는 오래전부터 보내고 있었는데 여기 칸이 없어 버려지고 있었다.
+    /// 그래서 <b>메뉴 관리에서 고쳐도 화면이 안 바뀌었다</b> — 화면들이
+    /// 주소를 코드에 박아 두고 있었기 때문이다.
+    /// </summary>
+    [JsonPropertyName("iframeSrc")]
+    public string? IframeSrc { get; set; }
 
     [JsonPropertyName("order")]
     public int? Order { get; set; }

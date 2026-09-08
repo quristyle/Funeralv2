@@ -333,14 +333,6 @@
   color: var(--jsini-text-muted);
 }
 
-/* ── 외부 화면 iframe ───────────────────────────────────── */
-
-.ad-frame {
-  width: 100%;
-  height: min(70vh, 780px);
-  border: 1px solid var(--jsini-border);
-}
-
 /* ── 편집 폼 ─────────────────────────────────────────────
 
    팝업 안의 DxFormLayout. 칸 사이가 붙어 있어 답답해 보여서 조금 벌린다.

@@ -25,7 +25,12 @@ public sealed class RouteAliasTests
     [InlineData("/status/deceased-status")]
     [InlineData("/portal/notice")]
     [InlineData("/system/role-map")]
-    [InlineData("/system/server-status/jin114")]
+
+    // `/system/server-status/jin114` 이 여기 있었다. 그 메뉴는 유형이
+    // EMBEDDED 라 이제 이 표를 타지 않는다 — `MenuProvider.HrefOf` 가
+    // 열쇠·별칭보다 **앞에서** 셸의 공용 화면(`/embed/…`)으로 보낸다.
+    // 별칭에 남겨 두면 지워진 화면(`/admin/status/jin114`)을 가리킨다.
+
     [InlineData("/profile")]
     [InlineData("/ai/chat")]
     [InlineData("/company/site-inquiries")]

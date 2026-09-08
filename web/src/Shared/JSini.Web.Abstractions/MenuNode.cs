@@ -75,6 +75,17 @@ public sealed record MenuNode
     /// </summary>
     public bool IsCatalog { get; init; }
 
+    /// <summary>
+    /// 바깥 화면을 끼워 넣는 메뉴인가 (<c>type = 'EMBEDDED'</c>).
+    ///
+    /// <para>
+    /// 이런 메뉴는 <b>가리킬 화면을 고르지 않는다.</b> 공용 화면 하나가 전부
+    /// 받고, 무엇을 띄울지는 <see cref="IframeSrc"/> 가 정한다. 그래서
+    /// <see cref="RouteKey"/> 가 비어 있어도 정상이고, 남아 있어도 읽지 않는다.
+    /// </para>
+    /// </summary>
+    public bool IsEmbedded { get; init; }
+
     /// <summary>휴대폰에서 이 메뉴를 목록에 넣는가 (<c>use_mobile</c>).</summary>
     public bool UseMobile { get; init; } = true;
 
@@ -86,6 +97,25 @@ public sealed record MenuNode
 
     /// <summary>외부 링크. 있으면 앱 안의 화면이 아니라 새 창으로 연다.</summary>
     public string? Link { get; init; }
+
+    /// <summary>
+    /// iframe 으로 띄울 바깥 주소 (<c>scom.system_menus.iframe_src</c>,
+    /// 유형 <c>EMBEDDED</c>).
+    ///
+    /// <para>
+    /// <see cref="Link"/> 와 다르다. 저것은 <b>새 창으로 나가는</b> 주소고
+    /// 이것은 <b>화면 안에 끼워 넣는</b> 주소다. 한 칸으로 뭉개면 「새 창으로
+    /// 열리는데 왜 안 끼워지지」가 된다 — vben 이 둘을 가른 이유가 그것이다.
+    /// </para>
+    ///
+    /// <para>
+    /// 여기까지 나르는 이유는 <b>화면이 주소를 박아 두지 않게</b> 하려는 것이다.
+    /// 세 화면(서버 모니터 · 장례 프레임 모니터 · JIN 보안)이 저마다
+    /// <c>const string Target</c> 에 같은 값을 적어 두고 있었는데, DB 에는
+    /// 그 값이 이미 있었다. 주소가 바뀌면 배포를 해야 했다.
+    /// </para>
+    /// </summary>
+    public string? IframeSrc { get; init; }
 
     /// <summary>같은 부모 안에서의 정렬 순서 (<c>order_no</c>).</summary>
     public int OrderNo { get; init; }

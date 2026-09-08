@@ -27,6 +27,14 @@
     이미 걸러진 목록을 받아 그리기만 한다. 권한 판정이 MenuFilter 와 여기로
     갈라지면 둘이 어긋나고, 그 어긋남은 "어떤 사용자에게만" 나타나서 재현이 어렵다.
 
+    [아이콘과 펼침 표시]
+
+    메뉴마다 아이콘이 붙고(DB 의 `icon`, iconify 이름), 펼침 표시는 **오른쪽
+    끝**에 앉는다 — 옛 vben 사이드바가 그 모양이었다(`sub-menu-content.vue` 는
+    `[아이콘][제목][화살표]` 로 그렸다). 아이콘은 `NodeText` 템플릿이 그리고,
+    펼침 표시는 DevExpress 가 제목 **앞**에 그린 단추를 CSS 가 오른쪽으로
+    옮긴 것이다. 자리만 옮기므로 눌러서 펴는 것도 그대로 된다.
+
     [즐겨찾기도 트리다]
 
     평평한 목록이었을 때는 담아 둔 「목록」이 어느 업무 것인지 알 수 없었다.
@@ -56,21 +64,34 @@
     @* ── 2. 탭 ─────────────────────────────────────────────
        DxTabs 를 쓰지 않는다. 그쪽은 자기 여백과 테두리를 함께 들고 오는데
        330px 사이드바에서는 두 칸에 그 여백이 다 들어가지 않는다. 여기서 필요한
-       것은 둘 중 하나를 고르는 단추 두 개뿐이다. *@
+       것은 둘 중 하나를 고르는 단추 두 개뿐이다.
+
+       [글자를 감쌀 이유가 생겼다]
+
+       사이드바를 90px 까지 좁힐 수 있게 되면서 이 두 칸이 **가로로 넘쳤다**
+       (재어 보니 99px 이 필요했다). 좁을 때는 글자를 감추고 그림만 남기므로
+       (app.css 의 컨테이너 질의) 감출 대상에 이름이 있어야 한다.
+
+       그래서 「메뉴」에도 그림을 하나 붙였다. 넓을 때는 안 보이고 좁아질 때만
+       나온다 — 글자만 감추면 그 칸이 통째로 비어 무엇을 누르는 칸인지 알 수
+       없다. *@
     <div class="jsini-sidebar__tabs" role="tablist">
         <button type="button" role="tab"
                 class="jsini-sidebar__tab @(_tab == Tab.Menu ? "is-on" : "")"
                 aria-selected="@(_tab == Tab.Menu)"
+                title="메뉴"
                 @onclick="@(() => Select(Tab.Menu))">
-            메뉴
+            <span class="jsini-sidebar__tab-icon jsini-icon-menu" aria-hidden="true"></span>
+            <span class="jsini-sidebar__tab-text">메뉴</span>
         </button>
 
         <button type="button" role="tab"
                 class="jsini-sidebar__tab @(_tab == Tab.Favorites ? "is-on" : "")"
                 aria-selected="@(_tab == Tab.Favorites)"
+                title="즐겨찾기"
                 @onclick="@(() => Select(Tab.Favorites))">
             <span class="jsini-icon-star-on" aria-hidden="true"></span>
-            즐겨찾기
+            <span class="jsini-sidebar__tab-text">즐겨찾기</span>
             @if (Favorites.IsLoaded && Favorites.Items.Count > 0)
             {
                 <span class="jsini-sidebar__tab-count">@Favorites.Items.Count</span>
@@ -168,6 +189,7 @@
                      FilterMode="NavigationFilterMode.EntireBranch"
                      AllowSelectNodes="true"
                      NodeExpandCollapseAction="TreeViewNodeExpandCollapseAction.NodeClick"
+                     NodeTextTemplate="@NodeText"
                      AnimationType="LayoutAnimationType.Slide">
             <DataMappings>
                 <DxTreeViewDataMapping Text="@nameof(MenuNode.Title)"
@@ -175,6 +197,33 @@
                                        NavigateUrl="@nameof(MenuNode.NavigateUrl)" />
             </DataMappings>
         </DxTreeView>;
+
+    /// <summary>
+    /// 메뉴 한 줄의 <b>아이콘과 제목</b>. 펼침 표시는 DevExpress 가 그린 것을
+    /// CSS 로 오른쪽 끝에 옮긴다(app.css 의 사이드바 트리 절).
+    ///
+    /// <para>
+    /// [아이콘을 <c>IconCssClass</c> 매핑으로 하지 않은 이유]
+    /// </para>
+    ///
+    /// <para>
+    /// <c>DxTreeViewDataMapping</c> 은 <b>자료의 필드 이름</b>을 받는다. 그래서
+    /// 그 길로 가면 <c>MenuNode</c>(계약 프로젝트)에 CSS 클래스를 만들어 주는
+    /// 속성을 하나 내야 하고, 그러면 화면 표현이 계약 쪽으로 새 나간다.
+    /// 템플릿으로 그리면 그 매핑(<c>MenuIcons</c>)이 이 프로젝트에 남는다.
+    /// </para>
+    ///
+    /// <para>
+    /// 잃는 것이 없는지 확인했다 — DxTreeView 는 검색어에 걸린 글자를
+    /// <b>강조하지 않는다</b>(걸린 줄의 마크업이 맨 <c>span</c> 하나였다).
+    /// 강조가 있었다면 이 템플릿이 그것을 지웠을 것이다.
+    /// </para>
+    /// </summary>
+    private RenderFragment<ITreeViewNodeInfo> NodeText => node =>
+        @<span class="jsini-sidebar__node">
+            <span class="@MenuIcons.CssClass((node.DataItem as MenuNode)?.Icon)" aria-hidden="true"></span>
+            <span class="jsini-sidebar__node-title">@node.Text</span>
+        </span>;
 
     /// <summary>그릴 메뉴들. **이미 걸러진 것**이어야 한다.</summary>
     [Parameter, EditorRequired] public IReadOnlyList<MenuNode> Nodes { get; set; } = [];

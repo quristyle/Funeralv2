@@ -81,6 +81,17 @@ public abstract class DataPage : ComponentBase
     /// </remarks>
     private bool CanLoad => RendererInfo.IsInteractive;
 
+    /// <summary>
+    /// 옮기는 동안의 표시. 이 화면의 <b>첫 조회가 끝날 때까지</b> 덮어 둔다.
+    ///
+    /// <para>
+    /// 화면이 이것을 직접 만질 일은 없다 — <see cref="LoadAsync"/> 가 잡고
+    /// 놓는다. 같은 화면에서 「조회」를 누른 것은 세지 않는다(옮기는 중이
+    /// 아니므로). 자세한 것은 <see cref="PageTransition"/> 머리말에 있다.
+    /// </para>
+    /// </summary>
+    [Inject] private PageTransition Transition { get; set; } = default!;
+
     /// <summary>안내 줄에 띄울 문구. 없으면 <c>null</c>.</summary>
     protected string? Notice { get; private set; }
 
@@ -110,10 +121,16 @@ public abstract class DataPage : ComponentBase
         Notice = null;
         Tone = NoticeTone.Info;
 
+        // **첫 `await` 앞이어야 한다.** 뒤로 밀면 그 사이에 레이아웃의 첫 그림이
+        // 끝나 버려, 조회가 시작되기도 전에 표시가 걷힌다.
+        Transition.Claim();
+
         // **프리렌더에서는 조회하지 않는다.** `Loading` 을 켠 채로 돌아간다 —
-        // 이유는 CanLoad 머리말에 있다.
+        // 이유는 CanLoad 머리말에 있다. 잡은 것은 여기서 놓는다 — 안 놓으면
+        // 회로가 붙기 전까지 표시가 걷히지 않는다.
         if (!CanLoad)
         {
+            Transition.Release();
             return;
         }
 
@@ -135,6 +152,7 @@ public abstract class DataPage : ComponentBase
         finally
         {
             Loading = false;
+            Transition.Release();
         }
     }
 

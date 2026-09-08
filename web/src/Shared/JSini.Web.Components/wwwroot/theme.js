@@ -49,16 +49,44 @@
   var SIZE_COOKIE = 'jsini.size';
 
   /**
-   * 고를 수 있는 크기. **DevExpress 가 주는 것이 이 셋뿐이다**
-   * (`DevExpress.Blazor.SizeMode` — Small · Medium · Large).
+   * 고를 수 있는 크기 — 다섯 단계.
    *
-   * 우리가 네 번째를 만들지 않는다. 만들면 그 크기에서만 그리드·달력·팝업이
-   * 따라오지 않아 한 화면에 두 크기가 된다.
+   * [DevExpress 모드는 여전히 셋이다]
+   *
+   * `DevExpress.Blazor.SizeMode` 가 주는 것은 Small · Medium · Large 뿐이고
+   * **우리가 네 번째를 만들지 않는다.** 없는 값을 흘리면 그 크기에서만
+   * 그리드·달력·팝업이 따라오지 않아 한 화면에 두 크기가 된다.
+   *
+   * 그런데 사람이 고치고 싶어 하는 것은 대개 **글자 크기**이고, 그것은
+   * 우리 사다리(`--jsini-fs-*`)가 따로 갖고 있다. 그래서 단계를 다섯으로
+   * 늘리고 **부품 크기는 가까운 DevExpress 모드로 접는다.**
+   *
+   *   xxsmall  0.625rem   Small     ← 우리가 넣은 것
+   *   xsmall   0.6875rem  Small     ← 우리가 넣은 것
+   *   small    0.75rem    Small
+   *   compact  0.8125rem  Small     ← 우리가 넣은 것
+   *   medium   0.875rem   Medium
+   *   large    1rem       Large
+   *
+   * 접는 표는 **서버 쪽(`ThemeSize.Steps`)에 있다.** 여기 두면 두 곳에
+   * 같은 표가 생기고, 어긋나도 예외가 안 나서 「글자는 바뀌는데 부품이
+   * 안 따라온다」로만 보인다. 이 파일이 아는 것은 아이디와 이름뿐이다.
+   *
+   * `--jsini-fs-base` 를 실제로 정하는 것은 app.css 의
+   * `:root[data-dx-size='…']` 이고, 그 속성은 아래 apply() 가 세운다.
+   *
+   * 이름은 한국어다. 셋일 때는 DevExpress 이름(Small·Medium·Large)을 그대로
+   * 썼지만, 다섯 중 둘은 DevExpress 에 없는 단계라 그 이름을 이어 쓸 수 없다.
+   * 순서대로 읽히는 것이 중요해서
+   * 「가장작게 < 아주작게 < 작게 < 조금작게 < 보통 < 크게」로 둔다.
    */
   var SIZES = [
-    { id: 'small', name: 'Small' },
-    { id: 'medium', name: 'Medium' },
-    { id: 'large', name: 'Large' },
+    { id: 'xxsmall', name: '가장작게' },
+    { id: 'xsmall', name: '아주작게' },
+    { id: 'small', name: '작게' },
+    { id: 'compact', name: '조금작게' },
+    { id: 'medium', name: '보통' },
+    { id: 'large', name: '크게' },
   ];
 
   /**
