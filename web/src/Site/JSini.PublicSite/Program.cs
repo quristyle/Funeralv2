@@ -49,16 +49,23 @@ if (!app.Environment.IsDevelopment())
 //
 // **정적 파일과 프레임워크 경로는 건드리지 않는다.** 파일은 확장자로 가리고
 // (`/site.css`), 프레임워크 경로는 접두사로 가린다.
+//
+// 확장자는 **맨 끝 조각**에서 본다. 첫 조각만 보면 뿌리에 놓인 파일(`/site.css`)만
+// 살아남고 하위 폴더에 놓인 파일은 다 걸린다 — `/assets/work/funeral.svg` 는
+// 첫 조각이 `assets` 라 점이 없으니 `/ko/assets/work/funeral.svg` 로 옮겨지고,
+// 그 주소에는 파일이 없어 404 가 된다. 사례 화면 그림 · 브랜드 로고 · 웹폰트가
+// 그렇게 통째로 안 나왔다.
 app.Use(async (context, next) =>
 {
     var path = context.Request.Path.Value ?? string.Empty;
-    var first = path.Trim('/').Split('/', 2)[0];
+    var trimmed = path.Trim('/');
+    var segments = trimmed.Split('/');
 
     var skip =
-        first.Length == 0
-        || first.Contains('.')
-        || first.StartsWith('_')
-        || SiteMessages.Locales.Contains(first, StringComparer.OrdinalIgnoreCase);
+        trimmed.Length == 0
+        || segments[^1].Contains('.')
+        || segments[0].StartsWith('_')
+        || SiteMessages.Locales.Contains(segments[0], StringComparer.OrdinalIgnoreCase);
 
     if (skip)
     {

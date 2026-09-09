@@ -41,6 +41,18 @@
                         ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
         </CommSchItem>
     </Fields>
+
+    @* 가입 신청은 DB 메뉴에 없어 사이드바에 뜨지 않는다. 들어가는 길이
+       여기뿐이라 단추를 둔다 — 그 화면의 머리말에 사연이 있다.
+
+       **조회 영역에 둔다.** 표 안 도구줄에 두면 칸이 열몇 개인 이 화면에서
+       가로 스크롤 저편으로 밀려나고, 저쪽 화면과 자리도 어긋난다 —
+       저쪽은 조건 칸이 없어 도구줄의 높이 자체가 다르다. 두 화면을
+       오가는 단추이므로 **같은 자리에 있어야** 오가는 것으로 읽힌다. *@
+    <Actions>
+        <DxButton Text="가입 신청" RenderStyle="ButtonRenderStyle.Secondary"
+                  Click="@(() => Navigation.NavigateTo("/admin/system/signup"))" />
+    </Actions>
 </CommSch>
 
 <CommCont>
@@ -53,13 +65,6 @@
              OnSave="@SaveAsync"
              OnDelete="@DeleteAsync"
              Reload="@ReloadAsync">
-        @* 가입 신청은 DB 메뉴에 없어 사이드바에 뜨지 않는다. 들어가는 길이
-           여기뿐이라 단추를 둔다 — 그 화면의 머리말에 사연이 있다. *@
-        <Toolbar>
-            <DxButton Text="가입 신청" RenderStyle="ButtonRenderStyle.Secondary"
-                      Click="@(() => Navigation.NavigateTo("/admin/system/signup"))" />
-        </Toolbar>
-
         <Columns>
             <DxGridDataColumn FieldName="@nameof(AccountDto.LoginId)" Caption="아이디" Width="130" />
             <DxGridDataColumn FieldName="@nameof(AccountDto.UserName)" Caption="이름" Width="110" />

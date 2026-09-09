@@ -226,9 +226,37 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
     /// <para>
     /// 관리자가 설정을 바꾸면 셸이 이것을 부른다.
     /// </para>
+    ///
+    /// <para>
+    /// <b>담아 둔 이름도 함께 고친다.</b> 그러지 않으면 아직 안 나간 읽기
+    /// 왕복이 <see cref="UseWatermark"/> 로 받아 둔 옛 이름을 그대로 싣고
+    /// 나가서, <b>방금 내린 「걷어라」를 덮어쓴다.</b> 실제로 그랬다 —
+    /// 워터마크를 끈 계정이 로그인하면 한 번 걸렸다가 30초 뒤(셸의 되묻는
+    /// 시계) 사라졌다. 셸은 부트스트랩이 통에 맞으면 양보 없이 여기까지
+    /// 오므로, 걷는 호출이 <b>거는 왕복보다 먼저</b> 나간 것이다.
+    /// </para>
     /// </summary>
-    public Task ApplyWatermarkAsync(string? name) =>
-        string.IsNullOrWhiteSpace(name) ? HideWatermarkLateAsync() : ShowWatermarkLateAsync(name);
+    public Task ApplyWatermarkAsync(string? name)
+    {
+        var wanted = string.IsNullOrWhiteSpace(name) ? null : name;
+
+        _watermark = wanted;
+        _watermarkAsked = true;
+
+        if (wanted is null)
+        {
+            // 걷는 것은 <b>언제나 지금 부른다.</b> 읽기가 아직이라도 그렇다 —
+            // 업무를 옮기면 이 통은 새로 생기지만(scoped) 화면에 걸린 것은
+            // 그대로 남아 있어서, 「읽기가 태워 줄 것」에 맡기면 걷히지 않는다
+            // (theme.js 는 <b>거는 것만</b> 한다). 프리렌더 중이면 호출이
+            // 실패하지만 그때는 걸린 것도 없고, 위에서 이름을 지웠으므로
+            // 뒤따르는 읽기가 다시 걸지 않는다.
+            return HideWatermarkLateAsync();
+        }
+
+        // 거는 쪽은 읽기가 아직이면 맡긴다 — 왕복 하나를 아낀다.
+        return _reading is null ? Task.CompletedTask : ShowWatermarkLateAsync(wanted);
+    }
 
     private async Task ShowWatermarkLateAsync(string? name)
     {
