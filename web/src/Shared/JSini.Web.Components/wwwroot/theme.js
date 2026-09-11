@@ -854,8 +854,7 @@
    * 양쪽에 적어 두면 한쪽만 고치는 날이 오고, 그때 증상은 「그 표시가
    * 조용히 안 읽힌다」다 — 오류가 아니라 기능이 하나 사라지는 쪽이다.
    *
-   * @param {{watermark?: string|null, forget?: string[],
-   *          session?: string[], local?: string[]}} req
+   * @param {{watermark?: string|null, session?: string[], local?: string[]}} req
    * @returns {{session: Object, local: Object, theme: Object}}
    */
   window.jsiniBoot = {
@@ -872,10 +871,9 @@
         window.jsiniWatermark.show(req.watermark);
       }
 
-      // 지울 것을 **먼저** 지운다. 그러지 않으면 같은 왕복 안에서 방금 지운
-      // 표시를 다시 읽어 돌려주게 된다 — 로그인 화면이 로그인 뒤 공지 표시를
-      // 지우면서 그 값을 함께 읽는 자리가 실제로 그렇다.
-      forget(req.forget);
+      // 한동안 이 왕복에 「지울 열쇠」도 태웠다(`req.forget`). 로그인 화면이
+      // 로그인 뒤 공지의 닫힘 표시를 지우던 자리인데, 그 화면이 회로를 쓰지
+      // 않게 되면서 `jsiniNotice` 가 직접 지운다 — 태울 것이 없어졌다.
 
       return {
         session: readAll(readSession, req.session),
@@ -887,6 +885,467 @@
       };
     },
   };
+
+  // ── 로그인 화면의 공개 공지 팝업 ────────────────────────────
+  //
+  // [왜 여기 순수 JS 로 있나]
+  //
+  // 이 팝업은 **회로를 기다리지 않는다.** 로그인 화면은 정적 SSR 이라
+  // (쿠키를 구워야 한다) 팝업을 대화형 섬으로 올려 두었더니, 뜨기까지
+  // blazor.web.js → DevExpress 모듈 1.4MB 해석 → initializers → negotiate →
+  // 웹소켓 → 회로 시작 → 저장소 왕복 → 공지 조회를 모두 지나야 했다.
+  // 캐시가 다 찬 개발 장비에서도 로그인 폼보다 460ms 늦었다.
+  //
+  // 지금은 서버가 공지를 첫 HTML 에 함께 실어 보내고(`PublicNoticePopup`),
+  // 넘기기·닫기·「오늘 하루 보지 않기」만 이 코드가 받는다. theme.js 는
+  // <head> 에서 동기로 도므로 그 마크업이 파싱될 때 이미 여기 있다.
+  //
+  // [열쇠와 날짜를 여기 적지 않는다]
+  //
+  // 저장소 열쇠의 정본은 서버(`PortalBoot`)이고, 「오늘」의 기준도 서버다
+  // (로그인 뒤 팝업이 같은 값을 서버 날짜로 읽고 쓴다). 둘 다 마크업의
+  // data- 속성으로 받는다 — 양쪽에 적으면 한쪽만 고치는 날이 오고, 그때
+  // 증상은 「그 표시가 조용히 안 읽힌다」다.
+  window.jsiniNotice = {
+    /**
+     * 팝업 하나를 살린다. **두 번 불러도 한 번만 듣는다** — 인라인
+     * <script> 와 아래 훑기가 같은 요소를 함께 가리킬 수 있다.
+     *
+     * @param {HTMLElement} root `[data-jsini-notice]`
+     */
+    init: function (root) {
+      if (!root || root.dataset.jsiniNoticeReady) return;
+      root.dataset.jsiniNoticeReady = '1';
+
+      // **공지가 없어도 이것은 한다.** 로그인 화면을 본다는 것은 곧
+      // 로그인한다는 뜻이라, 로그인 뒤 공지를 닫아 둔 표시를 지워야
+      // 다시 로그인할 때 그 공지가 또 뜬다.
+      if (root.dataset.forgetKey) forget([root.dataset.forgetKey]);
+
+      var pages = toArray(root.querySelectorAll('[data-notice-id]'));
+
+      if (!pages.length) return;
+
+      // 이 탭에서 방금 닫았으면 아무것도 하지 않는다. 마크업은 `hidden`
+      // 으로 나갔으므로 그대로 두면 된다.
+      if (closedRecently(root.dataset.closedKey)) return;
+
+      var today = root.dataset.today || '';
+      var dismissed = readDismissed(root.dataset.dismissedKey, today);
+
+      // 오늘 안 보기로 해 둔 것을 뺀다. 지운 것이 아니라 감춘 것이다 —
+      // 점과 「공지 2 / 3」이 산 것만 세도록 아래에서 다시 매긴다.
+      var live = [];
+
+      for (var i = 0; i < pages.length; i++) {
+        if (dismissed[pages[i].getAttribute('data-notice-id')]) continue;
+        live.push(pages[i]);
+      }
+
+      if (!live.length) return;
+
+      show(root, pages, live, today);
+    },
+  };
+
+  /**
+   * 팝업을 띄우고 단추를 잇는다.
+   *
+   * 자리(`at`)와 체크해 둔 것(`picked`)만이 이 창의 상태다. DOM 을 상태로
+   * 쓰지 않는다 — 「지금 몇 번째인가」를 보이는 요소로 되짚기 시작하면
+   * 감춰 둔 공지가 그 계산에 섞인다.
+   */
+  function show(root, pages, live, today) {
+    var at = 0;
+    var picked = {};
+    var dots = toArray(root.querySelectorAll('[data-act="goto"]'));
+    var dotBox = root.querySelector('[data-dots]');
+    var prev = root.querySelector('[data-act="prev"]');
+    var next = root.querySelector('[data-act="next"]');
+    var check = root.querySelector('[data-act="dismiss"]');
+    var card = root.querySelector('.jsini-snotice__card') || root;
+
+    // 점은 **공지 수만큼** 나와 있다(서버는 무엇이 걸러질지 모른다).
+    // 점 i 는 공지 i 의 것이라, 산 것만 남기고 번호를 다시 매긴다.
+    var liveDots = [];
+
+    for (var i = 0; i < dots.length; i++) {
+      var alive = i < pages.length && live.indexOf(pages[i]) >= 0;
+
+      dots[i].hidden = !alive;
+
+      if (!alive) continue;
+
+      liveDots.push(dots[i]);
+      dots[i].setAttribute('aria-label', liveDots.length + '번째 공지');
+      dots[i].dataset.at = String(liveDots.length - 1);
+    }
+
+    // 한 건만 남았으면 넘길 것이 없다.
+    if (live.length < 2) {
+      if (dotBox) dotBox.hidden = true;
+      if (prev) prev.hidden = true;
+    }
+
+    root.addEventListener('click', function (e) {
+      var act = e.target.closest ? e.target.closest('[data-act]') : null;
+
+      if (!act || act === check) return;
+
+      var name = act.getAttribute('data-act');
+
+      if (name === 'close') close();
+      else if (name === 'prev') go(at - 1);
+      else if (name === 'goto') go(Number(act.dataset.at));
+      else if (name === 'next') at < live.length - 1 ? go(at + 1) : close();
+    });
+
+    if (check) {
+      check.addEventListener('change', function () {
+        picked[live[at].getAttribute('data-notice-id')] = check.checked;
+      });
+    }
+
+    // Esc 로 닫고, Tab 은 창 안에서만 돈다.
+    //
+    // [초점을 묶는 이유 — DevExpress 팝업이 하던 일이다]
+    //
+    // 그 부품은 창 앞뒤에 초점 울타리(`dxbl-focus-guard`)를 세워 둔다.
+    // 골격을 다시 세우면서 그것까지 따라오지 않아서, **팝업이 떠 있는데
+    // Tab 이 뒤의 로그인 폼으로 새어 나갔다.** 화면을 못 보는 사람에게는
+    // 「공지가 떴다」가 아니라 「아이디 칸이 사라졌다」로 읽힌다.
+    root.__keys = function (e) {
+      if (e.key === 'Escape') { close(); return; }
+      if (e.key !== 'Tab') return;
+
+      var stops = focusables(card);
+
+      if (!stops.length) return;
+
+      var edge = e.shiftKey ? stops[0] : stops[stops.length - 1];
+
+      // 울타리 안이 아니면(뒤의 폼에 있다) 무조건 끌어온다.
+      if (!card.contains(document.activeElement)) {
+        e.preventDefault();
+        stops[0].focus();
+        return;
+      }
+
+      if (document.activeElement !== edge) return;
+
+      e.preventDefault();
+      (e.shiftKey ? stops[stops.length - 1] : stops[0]).focus();
+    };
+
+    document.addEventListener('keydown', root.__keys);
+
+    dragByHead(root, card);
+
+    go(0);
+    root.hidden = false;
+
+    // 창이 떴으니 초점도 창에 있어야 한다. **단추가 아니라 창에 둔다.**
+    //
+    // 한동안 「다음/닫기」에 두었다 — 공지를 읽고 나서 가장 먼저 누를
+    // 것이라 생각해서다. 그런데 로그인 화면에서 **Enter 한 번이 공지를
+    // 닫아 버렸다.** 아이디를 치려고 온 사람이 습관으로 Enter 를 누르거나
+    // 비밀번호 관리자가 채운 뒤 Enter 가 들어가면, 읽지도 않은 공지가
+    // 닫히고 **그 탭에서는 다시 뜨지 않았다.**
+    //
+    // 창에 초점을 두면 Enter 가 아무것도 누르지 않는다. 읽는 프로그램에는
+    // 여전히 「대화창 안」으로 들리고, Tab 을 누르면 아래 울타리가 받는다.
+    card.setAttribute('tabindex', '-1');
+    card.focus();
+
+    /** 다른 공지로. 체크는 공지마다 따로라 옮길 때 지금 것을 기억해 둔다. */
+    function go(target) {
+      if (target < 0 || target >= live.length) return;
+
+      if (check) picked[live[at].getAttribute('data-notice-id')] = check.checked;
+
+      at = target;
+
+      for (var i = 0; i < live.length; i++) {
+        live[i].hidden = i !== at;
+
+        var count = live[i].querySelector('[data-count]');
+
+        if (count) {
+          count.textContent = live.length > 1
+            ? ' · 공지 ' + (i + 1) + ' / ' + live.length
+            : '';
+        }
+      }
+
+      for (var d = 0; d < liveDots.length; d++) {
+        liveDots[d].className = 'jsini-notice-popup__dot' + (d === at ? ' is-on' : '');
+      }
+
+      if (prev) prev.disabled = at === 0;
+      if (next) next.textContent = at < live.length - 1 ? '다음' : '닫기';
+      if (check) check.checked = !!picked[live[at].getAttribute('data-notice-id')];
+    }
+
+    /**
+     * 닫는다. **× 로 닫아도 체크해 둔 것은 기억한다** — × 는 「더 보지
+     * 않겠다」는 뜻이라 무시하면 다음에 또 뜬다.
+     */
+    function close() {
+      if (check) picked[live[at].getAttribute('data-notice-id')] = check.checked;
+
+      root.hidden = true;
+      document.removeEventListener('keydown', root.__keys);
+
+      // 초점을 로그인 폼으로 넘긴다. 창을 닫은 사람이 다음에 할 일이
+      // 아이디를 치는 것이라, 그대로 두면 초점이 사라진 단추에 남는다.
+      var back = document.getElementById('username');
+
+      if (back) back.focus();
+
+      // 닫은 **시각**을 적어 둔다. `'1'` 이 아닌 이유는 `closedRecently` 에.
+      try {
+        window.sessionStorage.setItem(root.dataset.closedKey, String(Date.now()));
+      } catch (e) {
+        // 못 적어도 이번 탭에서 한 번 더 뜨는 것이 전부다.
+      }
+
+      saveDismissed(root.dataset.dismissedKey, today, picked);
+    }
+  }
+
+  /**
+   * 머리를 잡아 창을 옮긴다. `CommPopup` 의
+   * `AllowDrag` + `AllowDragByHeaderOnly` 를 회로 없이 한 것이다.
+   *
+   * [머리로만 잡는다]
+   *
+   * 본문까지 잡히면 글을 끌어 고르려는 동작이 창 옮기기로 먹혀서 **공지를
+   * 복사할 수 없다.** 그래서 `.jsini-drag-head` 안에서 시작한 것만 받는다 —
+   * 그 클래스는 `CommPopup` 이 붙이는 것과 같은 것이고, 마우스 모양과 글자
+   * 선택 막기는 app.css 가 정한다.
+   *
+   * [가운데 정렬을 기준으로 얹는다]
+   *
+   * 창은 flex 가운데 정렬로 앉아 있다. `left`/`top` 을 주면 그 정렬을 걷어내야
+   * 해서 창 크기가 바뀔 때(공지를 넘겨 본문 길이가 달라질 때) 자리가 튄다.
+   * `transform` 으로 **옮긴 거리만** 얹으면 정렬은 그대로 남는다.
+   *
+   * [화면 밖으로 내보내지 않는다]
+   *
+   * 머리를 화면 위로 끌어 올려 버리면 다시 잡을 수 없다 — 닫을 X 도 함께
+   * 나간다. 창이 사방으로 조금씩은 남게 묶는다(`EDGE`).
+   *
+   * 포인터 이벤트로 받으므로 마우스와 손가락이 같은 길을 탄다.
+   * `setPointerCapture` 를 걸어 두면 포인터가 창을 벗어나도 계속 따라온다 —
+   * 걸지 않으면 빠르게 끌 때 창이 손에서 떨어진다.
+   */
+  function dragByHead(root, card) {
+    var EDGE = 40;
+    var dx = 0;
+    var dy = 0;
+    var fromX = 0;
+    var fromY = 0;
+    var moving = false;
+
+    card.addEventListener('pointerdown', function (e) {
+      // 단추는 누르는 자리다. 머리 안이라도 끌기로 먹지 않는다.
+      if (e.button !== 0 || !e.target.closest) return;
+      if (!e.target.closest('.jsini-drag-head')) return;
+      if (e.target.closest('button, a, input, label')) return;
+
+      moving = true;
+      fromX = e.clientX - dx;
+      fromY = e.clientY - dy;
+
+      root.classList.add('jsini-snotice--dragging');
+
+      try {
+        card.setPointerCapture(e.pointerId);
+      } catch (err) {
+        // 못 걸어도 아래 pointermove 가 온다. 빠르게 끌 때만 놓친다.
+      }
+
+      e.preventDefault();
+    });
+
+    card.addEventListener('pointermove', function (e) {
+      if (!moving) return;
+
+      var box = card.getBoundingClientRect();
+
+      // 지금 놓인 자리에서 얼마나 더 갈 수 있는지로 묶는다. 창 크기가
+      // 공지마다 달라서 고정 한계로는 잡을 수 없다.
+      var minX = dx - (box.right - EDGE);
+      var maxX = dx + (window.innerWidth - box.left - EDGE);
+      var minY = dy - box.top;
+      var maxY = dy + (window.innerHeight - box.top - EDGE);
+
+      dx = clamp(e.clientX - fromX, minX, maxX);
+      dy = clamp(e.clientY - fromY, minY, maxY);
+
+      card.style.transform = 'translate(' + dx + 'px, ' + dy + 'px)';
+    });
+
+    card.addEventListener('pointerup', stop);
+    card.addEventListener('pointercancel', stop);
+
+    function stop() {
+      moving = false;
+      root.classList.remove('jsini-snotice--dragging');
+    }
+  }
+
+  function clamp(v, lo, hi) {
+    return v < lo ? lo : (v > hi ? hi : v);
+  }
+
+  /**
+   * 이 탭에서 **방금** 닫았는가.
+   *
+   * [왜 「닫았다/안 닫았다」가 아니라 시한인가]
+   *
+   * 이 표시가 막으려는 것은 하나뿐이다 — 비밀번호를 틀려 폼이 다시 올라올
+   * 때(정적 SSR 이라 문서가 새로 로드된다) 방금 닫은 공지가 또 뜨는 것.
+   * 그런데 값을 `'1'` 로 두었더니 **탭을 닫을 때까지** 안 떴다. 브라우저를
+   * 새로 열면 뜨고 그 탭에서는 안 뜨니, 증상이 「공지가 안 나온다」로만
+   * 보인다 — 실제로 그렇게 신고를 받았다.
+   *
+   * 그래서 닫은 시각을 적고 <b>몇 분만</b> 인정한다. 폼을 다시 올리는 것은
+   * 초 단위 안에 일어나므로 막으려던 것은 그대로 막고, 로그아웃하고 한참
+   * 뒤에 돌아온 사람은 공지를 다시 본다(로그인 뒤 공지도 그렇게 다시
+   * 뜬다 — `:user` 를 로그인 화면이 지운다).
+   *
+   * 옛 `'1'` 이 남아 있는 탭은 <b>저절로 풀린다</b> — 1 은 1970년이라
+   * 언제 보아도 시한이 지난 값이다.
+   */
+  function closedRecently(key) {
+    var at = Number(readSession(key));
+
+    return at > 0 && Date.now() - at < CLOSED_FOR;
+  }
+
+  /** 닫은 것을 인정하는 시간. 위 주석 참고. */
+  var CLOSED_FOR = 5 * 60 * 1000;
+
+  /**
+   * 「오늘 하루 보지 않기」로 적어 둔 것. 날짜가 지났으면 없던 일로 본다.
+   *
+   * 값이 깨져 있으면 없는 것으로 본다 — 공지를 한 번 더 보는 쪽이 안 보이는
+   * 쪽보다 낫다.
+   */
+  function readDismissed(key, today) {
+    var out = {};
+
+    if (!key) return out;
+
+    try {
+      var raw = readLocal(key);
+
+      if (!raw) return out;
+
+      var rec = JSON.parse(raw);
+
+      // 칸 이름은 서버(`NoticeAutoPopup.DismissRecord`)가 정한다. 옛 값이
+      // 소문자로 남아 있을 수 있어 둘 다 본다.
+      if ((rec.Until || rec.until) !== today) return out;
+
+      var ids = rec.Ids || rec.ids || [];
+
+      for (var i = 0; i < ids.length; i++) out[ids[i]] = true;
+    } catch (e) {
+      /* 위 주석과 같다 */
+    }
+
+    return out;
+  }
+
+  /**
+   * 체크해 둔 것을 적어 둔다. **이미 적혀 있던 것과 합친다** — 덮어쓰면
+   * 이 탭에서 안 본 공지가 오늘 다시 뜬다.
+   *
+   * 칸 이름은 대문자로 적는다. 로그인 뒤 팝업이 그 이름으로 읽기 때문이다.
+   */
+  function saveDismissed(key, today, picked) {
+    if (!key) return;
+
+    var ids = readDismissed(key, today);
+    var any = false;
+
+    for (var id in picked) {
+      if (picked[id]) { ids[id] = true; any = true; }
+    }
+
+    if (!any) return;
+
+    try {
+      window.localStorage.setItem(key, JSON.stringify({
+        Until: today,
+        Ids: Object.keys(ids),
+      }));
+    } catch (e) {
+      // 사생활 보호 모드에서는 setItem 이 던진다. 이번 창에서만 안 보이고
+      // 끝날 뿐이라 사용자에게 말할 일이 아니다.
+    }
+  }
+
+  /**
+   * 문서에 있는 공지 팝업을 모두 살린다.
+   *
+   * [인라인 <script> 가 있는데 왜 또 훑나]
+   *
+   * 그 스크립트는 **문서가 파싱될 때만** 돈다. Blazor 의 향상된 이동
+   * (enhanced navigation)으로 로그인 화면에 들어오면 문서가 새로 파싱되지
+   * 않아 그 길이 없다. 그때는 이 훑기가 받는다. `init` 이 두 번 불려도
+   * 한 번만 듣는다.
+   */
+  function scanNotices() {
+    var nodes = document.querySelectorAll('[data-jsini-notice]');
+
+    for (var i = 0; i < nodes.length; i++) window.jsiniNotice.init(nodes[i]);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', hookNotices);
+  } else {
+    hookNotices();
+  }
+
+  function hookNotices() {
+    scanNotices();
+
+    // `Blazor` 는 blazor.web.js 가 실린 뒤에 생긴다 — 이 파일은 <head> 에서
+    // 그보다 먼저 도므로 여기서 붙인다.
+    if (window.Blazor && window.Blazor.addEventListener) {
+      window.Blazor.addEventListener('enhancedload', scanNotices);
+    }
+  }
+
+  /**
+   * 창 안에서 초점이 갈 수 있는 것들. 감춰 둔 공지의 첨부 링크는 뺀다 —
+   * 넣으면 Tab 이 보이지 않는 링크를 지나간다.
+   */
+  function focusables(card) {
+    var all = card.querySelectorAll(
+      'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])');
+    var out = [];
+
+    for (var i = 0; i < all.length; i++) {
+      if (all[i].hidden || all[i].offsetParent === null) continue;
+
+      out.push(all[i]);
+    }
+
+    return out;
+  }
+
+  /** `NodeList` 를 배열로. `Array.from` 은 옛 브라우저에 없다. */
+  function toArray(nodes) {
+    var out = [];
+
+    for (var i = 0; i < nodes.length; i++) out.push(nodes[i]);
+
+    return out;
+  }
 
   /**
    * 열쇠 목록을 사전으로 읽는다. 없는 열쇠는 `null` 로 담는다 —
@@ -919,7 +1378,10 @@
     try { return window.localStorage.getItem(key); } catch (e) { return null; }
   }
 
-  /** 세션 저장소에서 지운다. 못 지워도 넘어간다 — 위와 같은 이유다. */
+  /**
+   * 세션 저장소에서 지운다. 못 지워도 넘어간다 — 위와 같은 이유다.
+   * 쓰는 곳은 `jsiniNotice.init`(로그인 뒤 공지의 닫힘 표시 지우기) 하나다.
+   */
   function forget(keys) {
     if (!keys) return;
 

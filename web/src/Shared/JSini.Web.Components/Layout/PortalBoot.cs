@@ -69,6 +69,13 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
     /// <summary>
     /// 공개 공지를 이 탭에서 닫았다. <b>로그인용과 따로다</b> — 하나로 두면
     /// 로그인 화면에서 공개 공지를 닫은 사람이 로그인한 뒤 사내 공지를 못 본다.
+    ///
+    /// <para>
+    /// <b>이 왕복으로 읽지 않는다.</b> 이 값을 보는 것은 로그인 화면뿐이고
+    /// 그 화면에는 회로가 없다 — 읽고 쓰는 일은 theme.js 의
+    /// <c>jsiniNotice</c> 가 한다(<see cref="PublicNoticePopup"/>). 열쇠 글자를
+    /// 그쪽에 적지 않으려고 <b>정본만</b> 여기 남긴다.
+    /// </para>
     /// </summary>
     public const string NoticeClosedPublicKey = "jsini-notice-closed:public";
 
@@ -88,7 +95,6 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
     [
         ScreenLockedKey,
         NoticeClosedUserKey,
-        NoticeClosedPublicKey,
     ];
 
     private static readonly string[] LocalKeys =
@@ -108,9 +114,6 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
     /// <summary>워터마크에 쓸 이름. 읽기 전에 정해지면 같은 왕복에 태운다.</summary>
     private string? _watermark;
     private bool _watermarkAsked;
-
-    /// <summary>같은 왕복에 태워 지울 세션 열쇠.</summary>
-    private readonly List<string> _forget = [];
 
     /// <summary>
     /// 워터마크에 쓸 이름을 알려 준다. <b>JS 를 부르지 않는다</b> — 읽기가
@@ -144,25 +147,6 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
     }
 
     /// <summary>
-    /// 로그인 뒤 공지의 닫힘 표시를 지운다. 로그인 화면이 부른다 —
-    /// 곧 로그인할 참이니 그 공지는 다시 떠야 한다.
-    /// </summary>
-    /// <remarks>
-    /// 읽기 전에 부르면 같은 왕복에 실려 나가고, 그때 돌아오는 값은
-    /// <b>지운 뒤의 값</b>이다(theme.js 가 지우기를 먼저 한다).
-    /// </remarks>
-    public void ForgetUserNoticeClosed()
-    {
-        if (_reading is null)
-        {
-            _forget.Add(NoticeClosedUserKey);
-            return;
-        }
-
-        _ = ForgetLateAsync(NoticeClosedUserKey);
-    }
-
-    /// <summary>
     /// 브라우저 상태를 읽는다. <b>회로가 붙은 뒤에</b> 불러야 한다
     /// (<c>OnAfterRenderAsync</c>) — 프리렌더 중에는 JS 를 부를 수 없다.
     ///
@@ -180,12 +164,9 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
         var request = new BootRequest
         {
             Watermark = _watermarkAsked ? _watermark : null,
-            Forget = [.. _forget],
             Session = SessionKeys,
             Local = LocalKeys,
         };
-
-        _forget.Clear();
 
         try
         {
@@ -282,25 +263,12 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
         }
     }
 
-    private async Task ForgetLateAsync(string key)
-    {
-        try
-        {
-            await js.InvokeVoidAsync("sessionStorage.removeItem", key);
-        }
-        catch (Exception ex) when (ex is JSException or InvalidOperationException)
-        {
-            logger.LogDebug(ex, "{Key} 표시를 지우지 못했다.", key);
-        }
-    }
-
     // ── 오가는 모양 ───────────────────────────────────────────
 
     /// <summary>theme.js 의 <c>jsiniBoot.read</c> 에 넘기는 것.</summary>
     private sealed class BootRequest
     {
         public string? Watermark { get; init; }
-        public string[] Forget { get; init; } = [];
         public string[] Session { get; init; } = [];
         public string[] Local { get; init; } = [];
     }
@@ -347,11 +315,15 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
         /// <summary>이 탭이 잠겨 있었는가.</summary>
         public bool ScreenLocked { get; private init; }
 
-        /// <summary>로그인 뒤 공지를 이 탭에서 닫았는가.</summary>
-        public bool NoticeClosedForUser { get; private init; }
-
-        /// <summary>공개 공지를 이 탭에서 닫았는가.</summary>
-        public bool NoticeClosedForPublic { get; private init; }
+        /// <summary>
+        /// 로그인 뒤 공지를 이 탭에서 닫았는가.
+        ///
+        /// <para>
+        /// 공개 공지 쪽에는 짝이 없다 — 그 값을 보는 로그인 화면에 회로가
+        /// 없어서 이 왕복에 실리지 않는다(<see cref="NoticeClosedPublicKey"/>).
+        /// </para>
+        /// </summary>
+        public bool NoticeClosed { get; private init; }
 
         /// <summary>「오늘 하루 보지 않기」로 적어 둔 것. 날것 JSON 이고 없으면 <c>null</c>.</summary>
         public string? NoticeDismissedJson { get; private init; }
@@ -374,18 +346,13 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
         /// <summary>지금 고른 테마. theme.js 가 안 실렸으면 <c>null</c>.</summary>
         public ThemeWire? Theme { get; private init; }
 
-        /// <summary>공지 닫힘 표시. 공개용과 로그인용을 가려 준다.</summary>
-        public bool NoticeClosed(bool isPublic) =>
-            isPublic ? NoticeClosedForPublic : NoticeClosedForUser;
-
         internal static BrowserState From(BootWire wire) => new()
         {
             // 값이 "1" 이든 무엇이든 **있으면 그렇다는 뜻**이다. 옛 코드가
             // 잠금은 "1" 로만 인정하고 공지는 길이만 보았는데, 굽는 곳이
             // 우리뿐이라 둘을 가릴 이유가 없었다.
             ScreenLocked = Has(wire.Session, ScreenLockedKey),
-            NoticeClosedForUser = Has(wire.Session, NoticeClosedUserKey),
-            NoticeClosedForPublic = Has(wire.Session, NoticeClosedPublicKey),
+            NoticeClosed = Has(wire.Session, NoticeClosedUserKey),
             NoticeDismissedJson = Get(wire.Local, NoticeDismissedKey),
             PinnedTabsJson = Get(wire.Local, PinnedTabsKey),
             SidebarWidthPx = Pixels(Get(wire.Local, SidebarWidthKey)),

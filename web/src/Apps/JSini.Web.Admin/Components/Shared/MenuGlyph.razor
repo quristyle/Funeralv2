@@ -1,0 +1,71 @@
+@*
+    메뉴 한 줄을 **사이드바와 같은 모양**으로 그린다 — 아이콘 + 이름.
+
+    [왜 부품으로 빼는가]
+
+    메뉴를 늘어놓는 화면이 포털관리에 둘이다(메뉴롤의 메뉴 나무, 사람롤의
+    「볼 수 있는 메뉴」). 아이콘을 고르는 규칙을 양쪽에 적으면 갈라지는데,
+    **갈라진 것이 눈에 띄는 곳은 사이드바와 나란히 놓고 볼 때**다 —
+    그때는 이미 「이 화면 아이콘이 왜 다르지」로 신고가 들어온 뒤다.
+
+    [아이콘은 DB 값이 먼저다]
+
+    `scom.system_menus.icon` 에 iconify 이름이 들어 있다(179건 중 178건).
+    사이드바가 쓰는 것과 **같은 값, 같은 변환**(`MenuIcons`)을 쓴다 —
+    그래야 이 화면에서 찾은 메뉴를 사이드바에서 눈으로 다시 찾을 수 있다.
+
+    없을 때만 우리가 채운다.
+
+    | 무엇 | 아이콘 |
+    |---|---|
+    | 버튼 권한(`BUTTON`) | 자물쇠 — **메뉴가 아니다** |
+    | 화면이 달린 메뉴 | 문서 |
+    | 묶음(화면 없음) | 폴더 |
+
+    버튼 권한을 갈라 두는 것은 메뉴 관리 화면과 같은 규칙이다. 섞어 두면
+    「이 메뉴가 왜 화면이 없지」로 헤맨다.
+*@
+
+@using JSini.Web.Components.Menu
+
+<span class="jsini-inline">
+    <span class="@MenuIcons.CssClass(Icon())" aria-hidden="true"></span>
+    @Text
+</span>
+
+@code {
+    /// <summary>메뉴 유형 — <c>MENU</c> · <c>CATALOG</c> · <c>BUTTON</c> · <c>EMBEDDED</c> · <c>LINK</c>.</summary>
+    [Parameter] public string? Type { get; set; }
+
+    /// <summary>DB 에 적힌 iconify 이름. 비어 있으면 아래 규칙으로 채운다.</summary>
+    [Parameter] public string? Name { get; set; }
+
+    /// <summary>
+    /// 이 메뉴가 여는 화면이 있는가. 문서와 폴더를 가르는 값이다.
+    ///
+    /// <para>
+    /// 부르는 쪽이 판단해서 넘긴다 — <c>RouteKey</c> 가 정본이지만 아직 안
+    /// 채운 메뉴가 26건 남아 있어 옛 <c>Component</c> 도 함께 봐야 한다.
+    /// 그 판단을 여기 두면 DTO 두 개를 다 알아야 한다.
+    /// </para>
+    /// </summary>
+    [Parameter] public bool OpensScreen { get; set; }
+
+    /// <summary>보여 줄 이름. 이미 번역을 거친 글자를 넘긴다.</summary>
+    [Parameter] public string? Text { get; set; }
+
+    private string Icon()
+    {
+        if (string.Equals(Type, "BUTTON", StringComparison.OrdinalIgnoreCase))
+        {
+            return "carbon:security";
+        }
+
+        if (!string.IsNullOrWhiteSpace(Name))
+        {
+            return Name!;
+        }
+
+        return OpensScreen ? "lucide:file-text" : "lucide:folder";
+    }
+}

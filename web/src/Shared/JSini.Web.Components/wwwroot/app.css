@@ -2881,8 +2881,12 @@ a.jsini-crumbs__item:hover { opacity: 1; }
    처럼 **겹친 구조**를 전제하는데 지금은 두 클래스가 한 요소에 함께 있다.
    어느 쪽도 걸리지 않는 죽은 규칙이다.
 
-   그러니 표시는 **끌기를 켠 쪽이 함께 붙인다** — `CommPopup` 은 스스로,
-   공지 팝업은 `HeaderCssClass` 로 붙인다.
+   그러니 표시는 **끌기를 켠 쪽이 함께 붙인다.** 로그인 뒤 공지 팝업은
+   `CommPopup` 을 거치므로 그 부품이 스스로 붙인다(화면이 `HeaderCssClass` 를
+   주면 덮지 않고 잇는다). 로그인 화면의 정적 공지 팝업
+   (`.jsini-snotice`)도 **같은 클래스**를 쓴다. 그 창은 DevExpress 가 아니라
+   theme.js 가 끄므로 `dxbl-popup-dragging` 이 안 붙어, 끄는 동안의 표시는
+   위 선택자 목록의 `.jsini-snotice--dragging` 이 받는다.
 
    [`!important` 는 남겨 둔다]
 
@@ -2906,7 +2910,8 @@ a.jsini-crumbs__item:hover { opacity: 1; }
    `dxbl-popup-dragging` 도 함께 본다. */
 .jsini-drag-head:active,
 .dxbl-popup-dragging .jsini-drag-head,
-.dxbl-popup-dragging.dxbl-popup .jsini-drag-head {
+.dxbl-popup-dragging.dxbl-popup .jsini-drag-head,
+.jsini-snotice--dragging .jsini-drag-head {
   cursor: grabbing !important;
 }
 
@@ -3100,6 +3105,198 @@ a.jsini-crumbs__item:hover { opacity: 1; }
   flex: 0 0 auto;
   white-space: nowrap;
   color: var(--jsini-text-muted);
+}
+
+/* ── 로그인 화면의 공개 공지 팝업 (`.jsini-snotice`) ──────────
+
+   [왜 DevExpress 팝업이 아닌가]
+
+   이 팝업은 **회로가 붙기 전에** 보여야 한다(`PublicNoticePopup` 머리말).
+   DxPopup 은 정적 렌더에서 껍데기만 내놓고 내용을 브라우저에서 만들기
+   때문에 첫 HTML 에 실을 수 없다. 그래서 골격만 여기 다시 세웠다.
+
+   **안에 들어가는 것은 로그인 뒤 팝업의 클래스를 그대로 쓴다**
+   (`jsini-notice-popup__body` · `__files` · `__dots` · `__meta`).
+   여기 적는 것은 바탕막·카드·머리띠·바닥띠 넷뿐이다.
+
+   [치수는 눈대중이 아니다]
+
+   떠 있는 DevExpress 팝업(Fluent Light)에서 잰 값을 옮겼다.
+
+   | | 값 |
+   |---|---|
+   | 바탕막 | `rgba(0, 0, 0, 0.4)` |
+   | 카드 | 모서리 8px, `0 32px 64px rgba(0,0,0,.24)` + `0 0 8px rgba(0,0,0,.2)` |
+   | 머리띠 | `24px 24px 12px`, 20px/600 |
+   | 본문 | `4px 24px` |
+   | 바닥띠 | `12px 24px 24px`, 사이 8px |
+
+   테마를 바꿔도 이 팝업은 로그인 화면에만 뜨고 그 화면은 Fluent 계열
+   변수(`--jsini-*`)로만 그려지므로, 색은 변수로 두고 치수만 박는다. */
+.jsini-snotice {
+  position: fixed;
+  inset: 0;
+  z-index: 1500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+/* `hidden` 을 flex 가 이긴다 — 속성만으로는 안 감춰진다. */
+.jsini-snotice[hidden] {
+  display: none;
+}
+
+.jsini-snotice__back {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+}
+
+/* 바탕을 눌러도 닫히지 않는다. 로그인 뒤 팝업(`CommPopup`)과 같다 —
+   공지는 읽어야 하는 것이라 스치듯 닫히면 안 된다. */
+.jsini-snotice__card {
+  position: relative;
+  width: min(640px, calc(100vw - 2rem));
+  max-height: 86vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--jsini-surface);
+  color: var(--jsini-text);
+  border-radius: 8px;
+  box-shadow:
+    0 32px 64px rgba(0, 0, 0, 0.24),
+    0 0 8px rgba(0, 0, 0, 0.2);
+}
+
+/* 닫기(×). 머리띠가 공지마다 따로라 카드에 붙인다. 오른쪽 여백은 머리띠와
+   같은 24px 이고, 위쪽은 제목 첫 줄과 눈높이가 맞도록 조금 올렸다. */
+.jsini-snotice__x {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 1;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--jsini-text-muted);
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.jsini-snotice__x:hover {
+  background: color-mix(in srgb, var(--jsini-text) 8%, transparent);
+  color: var(--jsini-text);
+}
+
+/* 공지 한 건. 한 번에 하나만 보인다(`hidden` 을 JS 가 옮긴다). */
+.jsini-snotice__page {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.jsini-snotice__page[hidden] {
+  display: none;
+}
+
+.jsini-snotice__head {
+  flex: 0 0 auto;
+  /* 오른쪽만 넉넉히 — 닫기 단추가 앉을 자리다. */
+  padding: 24px 3.5rem 12px 24px;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+/* 공지가 길면 **본문만** 구른다. 카드째로 구르면 제목이 밀려 올라간다. */
+.jsini-snotice__scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 4px 24px;
+}
+
+/* 본문 안쪽은 로그인 뒤 팝업과 같은 규칙이 그린다. 그쪽이 자기 높이를
+   직접 잡고 있어(min/max-height) 여기서는 풀어 준다 — 카드가 이미
+   86vh 로 묶여 있고 구르는 자리도 위 상자다. */
+.jsini-snotice__scroll .jsini-notice-popup__body {
+  max-height: none;
+  overflow-y: visible;
+}
+
+.jsini-snotice__foot {
+  flex: 0 0 auto;
+  padding: 12px 24px 24px;
+}
+
+/* 끌어 옮기는 동안 글이 선택되지 않게 한다. 머리에는 `user-select: none` 이
+   이미 걸려 있지만(`jsini-drag-head`), 포인터가 머리를 벗어나 본문이나 뒤의
+   로그인 폼 위로 지나가면 **그쪽 글자가 잡힌다** — 창을 놓고 나면 엉뚱한
+   글이 선택된 채로 남는다. */
+.jsini-snotice--dragging,
+.jsini-snotice--dragging * {
+  user-select: none;
+}
+
+/* 「오늘 하루 보지 않기」. DxCheckBox 자리라 글자 크기를 본문에 맞춘다. */
+.jsini-snotice__check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  cursor: pointer;
+  font-size: var(--jsini-fs-md);
+}
+
+.jsini-snotice__check input {
+  margin: 0;
+  cursor: pointer;
+}
+
+/* 「공지 2 / 3」. 제목 아래 곁줄이라 색·크기는 `__meta` 가 정한다. */
+.jsini-snotice__count:empty {
+  display: none;
+}
+
+/* 단추 둘(이전 · 다음/닫기). DevExpress 기본 단추에서 잰 값이다 —
+   여백 5px 12px, 모서리 4px, 14px/600. */
+.jsini-snotice__btn {
+  flex: 0 0 auto;
+  padding: 5px 12px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--jsini-text);
+  font: inherit;
+  font-size: var(--jsini-fs-md);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.jsini-snotice__btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--jsini-text) 8%, transparent);
+}
+
+.jsini-snotice__btn:disabled {
+  color: var(--jsini-text-muted);
+  cursor: default;
+}
+
+.jsini-snotice__btn[hidden] {
+  display: none;
+}
+
+.jsini-snotice__btn--primary {
+  background: var(--jsini-accent);
+  color: #fff;
+}
+
+.jsini-snotice__btn--primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--jsini-accent) 88%, #000);
 }
 
 /* ── 잠금화면 (D7) ────────────────────────────────────────────

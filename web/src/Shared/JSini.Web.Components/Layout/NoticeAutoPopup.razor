@@ -1,17 +1,18 @@
 @*
-    [공지 팝업이 스스로 뜨는 자리]
-    이력: Vue `app.vue` 에 놓여 있던 `<NoticePopup mode="auto">` → 여기.
+    [공지 팝업이 스스로 뜨는 자리 — 로그인한 사용자]
+    이력: Vue `app.vue` 의 `<NoticePopup mode="auto">` → 여기.
 
-    두 자리에 놓인다.
+    레이아웃(`MainLayout`)에 놓인다. 공개 공지까지 함께 뜬다.
 
-      · 레이아웃(`MainLayout`) — 로그인한 사용자. 공개 공지까지 함께 뜬다.
-      · 로그인 화면(`Login`)   — `Public="true"`. 공개 공지만 뜬다.
+    [로그인 화면은 이 부품을 쓰지 않는다]
 
-    [로그인 화면은 정적 SSR 이라 섬으로 넣는다]
+    한동안 여기 `Public` 파라미터가 있어서 로그인 화면이 같은 부품을 대화형
+    섬으로 올려 썼다. **그 길을 걷어냈다** — 회로가 붙기까지 팝업이 로그인
+    폼보다 460ms 늦게 떴다. 로그인 화면 몫은 `PublicNoticePopup` 이고, 왜
+    갈라졌는지는 그 파일 머리말에 적었다.
 
-    로그인 화면은 회로 없이 돈다(`[ExcludeFromInteractiveRouting]` — 쿠키를
-    구워야 해서다). 그래도 **그 안의 부품 하나만 대화형으로** 만들 수 있다.
-    그래서 `Login.razor` 는 이 부품에 `@@rendermode` 를 붙여 쓴다.
+    그래서 이 부품은 이제 **로그인한 사용자 하나만** 본다. 갈래가 없어져
+    닫힘 표시도 하나뿐이다(`PortalBoot.NoticeClosedUserKey`).
 
     [왜 OnAfterRender 인가]
 
@@ -33,8 +34,12 @@
 
     | 저장소 | 열쇠 | 무엇을 기억하나 | 언제까지 |
     |---|---|---|---|
-    | sessionStorage | `jsini-notice-closed` | 이 탭에서 닫았다 | 탭을 닫을 때까지 |
+    | sessionStorage | `jsini-notice-closed:user` | 이 탭에서 닫았다 | 탭을 닫을 때까지 |
     | localStorage | `jsini-notice-dismissed` | 이 공지는 오늘 안 본다 | 날짜가 바뀔 때까지 |
+
+    앞엣것은 **로그인 화면이 지운다**(`jsiniNotice` — 곧 로그인할 참이니 다시
+    떠야 한다). 뒤엣것은 로그인 화면과 **함께 쓰는 값**이라, 담는 모양
+    (<c>DismissRecord</c>)과 「오늘」의 기준을 양쪽이 맞춰야 한다.
 *@
 
 @using Microsoft.Extensions.Logging
@@ -51,11 +56,6 @@
 
 @code {
     /// <summary>
-    /// 로그인 화면인지. 참이면 공개 공지만 읽는다.
-    /// </summary>
-    [Parameter] public bool Public { get; set; }
-
-    /// <summary>
     /// 브라우저에 「오늘 하루 보지 않기」를 적어 두는 열쇠. Vue 때와 같다.
     ///
     /// <para>
@@ -65,17 +65,8 @@
     /// </summary>
     private const string StorageKey = PortalBoot.NoticeDismissedKey;
 
-    /// <summary>
-    /// 이 탭에서 이미 닫았다는 표시. 머리말의 표를 보라.
-    ///
-    /// <para>
-    /// <b>공개 공지와 로그인 뒤 공지를 따로 센다.</b> 하나로 두면 로그인 화면에서
-    /// 공개 공지를 닫은 사람이 로그인한 뒤 사내 공지를 못 본다 — 같은 탭이라
-    /// 표시가 그대로 남기 때문이다.
-    /// </para>
-    /// </summary>
-    private string ClosedKey =>
-        Public ? PortalBoot.NoticeClosedPublicKey : PortalBoot.NoticeClosedUserKey;
+    /// <summary>이 탭에서 이미 닫았다는 표시. 머리말의 표를 보라.</summary>
+    private const string ClosedKey = PortalBoot.NoticeClosedUserKey;
 
     private IReadOnlyList<NoticeDto> _notices = [];
     private bool _open;
@@ -90,23 +81,13 @@
             return;
         }
 
-        // 로그인 화면을 본다는 것은 곧 로그인한다는 뜻이다. 로그인 뒤 공지를
-        // 닫아 둔 표시를 지워야 **다시 로그인할 때 또 뜬다.**
-        //
-        // 여기서 JS 를 부르지 않는다 — `PortalBoot` 가 읽기와 **같은 왕복에**
-        // 태워 보내고, 지우기를 먼저 하므로 아래에서 받는 값은 지운 뒤의 값이다.
-        if (Public)
-        {
-            Boot.ForgetUserNoticeClosed();
-        }
-
         // 저장소를 직접 읽지 않는다. 닫힘 표시와 「오늘 하루 보지 않기」를
         // 따로 읽어 왕복이 둘이던 자리다 — 이제 잠금 표시·고정 탭·테마까지
         // 함께 **한 왕복**이다(`PortalBoot` 머리말).
         var browser = await Boot.ReadAsync();
 
         // 이 탭에서 이미 닫았으면 조회조차 하지 않는다.
-        if (browser.NoticeClosed(Public))
+        if (browser.NoticeClosed)
         {
             return;
         }
@@ -117,15 +98,13 @@
 
         try
         {
-            list = Public
-                ? await Notices.GetPublicPopupAsync()
-                : await Notices.GetPopupAsync();
+            list = await Notices.GetPopupAsync();
         }
         catch (Exception ex)
         {
             // **공지를 못 읽었다고 화면 진입을 막지 않는다.** 옛 화면도 같았다 —
             // 안내를 못 본 것과 로그인이 안 되는 것은 무게가 다르다.
-            Log.LogWarning(ex, "팝업 공지를 읽지 못했습니다 (공개 전용: {Public}).", Public);
+            Log.LogWarning(ex, "팝업 공지를 읽지 못했습니다.");
             return;
         }
 
@@ -191,9 +170,17 @@
     /// 오늘 안 보기로 해 둔 공지를 옮겨 담는다. 날짜가 지났으면 없던 일로 한다.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// 읽어 오는 일은 <see cref="PortalBoot"/> 가 한다 — 여기는 그 날것 JSON 을
     /// 받아 푸는 자리다. 그래서 <c>JSException</c> 을 살피지 않는다(JS 를 부르지
     /// 않으므로 날 수 없다).
+    /// </para>
+    ///
+    /// <para>
+    /// <b>로그인 화면도 같은 값을 읽고 쓴다</b>(theme.js 의 <c>jsiniNotice</c>).
+    /// 칸 이름을 바꾸면 그쪽도 함께 고친다 — 어긋나면 오류가 아니라 「오늘
+    /// 하루 보지 않기가 한쪽에서만 듣는다」로 나온다.
+    /// </para>
     /// </remarks>
     private HashSet<string> ParseDismissed(string? raw)
     {
@@ -227,6 +214,11 @@
     /// 회로 안에서는 서버 시간밖에 없다. 사용자가 다른 시간대에 있으면
     /// 「하루」의 경계가 몇 시간 어긋나는데, 어긋나는 결과는 공지를 한 번 더
     /// 보거나 몇 시간 덜 보는 것뿐이라 시간대를 받아 오지 않는다.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>로그인 화면도 이 기준을 쓴다</b> — 그쪽은 회로가 없지만 서버가
+    /// 날짜를 마크업에 실어 보낸다(<c>PublicNoticePopup.Today</c>).
     /// </para>
     /// </summary>
     private static string Today() => DateTime.Now.ToString("yyyy-MM-dd");

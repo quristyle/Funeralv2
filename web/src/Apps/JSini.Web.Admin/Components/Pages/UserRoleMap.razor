@@ -34,12 +34,55 @@
     고칠 수 없다. 역할을 바꾸면 그에 따라 바뀌는 것을 보여 줄 뿐이다.
     메뉴별 권한을 직접 정하는 곳은 `/admin/auth/menu-role` 이다.
 
-    [조건은 `CommSch` 로 세우고 `CommCont` 는 쓰지 않는다]
+    [그 목록은 **사이드바와 같은 나무**다]
 
-    오른쪽 판에 **키 큰 조각이 셋** 쌓인다 — 역할 칩, 안내, 메뉴 표.
-    자료 판으로 감싸면 남은 높이를 그 판이 다 먹어 아래가 잘린다
-    (web/CLAUDE.md 의 「대시보드처럼 …」). 표가 하나뿐인 화면이 아니라
-    이 화면은 두 판 구성(`ad-two-pane`)을 그대로 둔다.
+    평평한 표였다. 길을 글자로 이어 붙여(`Breadcrumb` — 「장례식장 관리시스템
+    › 고인관리」) 한 줄에 하나씩 늘어놓았는데, 109줄이 그렇게 서면 **어느
+    업무의 메뉴가 몇 개 열렸는지**가 안 읽힌다. 사람이 이 화면에서 확인하려는
+    것이 바로 그것이다 — 「이 사람이 장례식장을 볼 수 있나」.
+
+    그래서 사이드바와 같은 모양으로 세운다. 아이콘도 같은 값을 쓴다
+    (`MenuGlyph` — 메뉴롤과 나눠 쓴다). 그래야 여기서 찾은 메뉴를 사이드바에서
+    눈으로 다시 찾을 수 있다.
+
+    **구조와 아이콘을 응답이 주지 않는다.** `AccountMenuItemDto` 에는 상위
+    메뉴도 아이콘도 없고 길이 글자로만 들어 있다. 그래서 전체 메뉴 나무를
+    한 번 읽어 맞물린다(`_menus`) — 사람이 바뀌어도 그 나무는 그대로라
+    대상마다 다시 읽지 않는다.
+
+    [판 둘을 끌어서 나눈다 — `DxSplitter`]
+
+    한동안 격자로 반씩 나눠 두었다(`ad-two-pane` — 1fr 1fr. 쓰는 화면이 여기
+    하나뿐이어서 그 규칙은 admin.css 에서 지웠다). 그런데 이 화면은
+    **양쪽이 필요로 하는 폭이 사람마다 다르다.** 왼쪽은 이름·부서·회사가 한
+    줄에 들어가야 하고(긴 부서명이 실제로 줄바꿈됐다), 오른쪽은 메뉴 표의
+    경로 칸이 잘리지 않아야 한다. 반반은 둘 다 아슬아슬하다.
+
+    그래서 셸의 사이드바와 **같은 부품**을 쓴다(`DxSplitter`). 끌어서 정한
+    폭이 그 사람의 일에 맞고, 그 값은 화면마다 다를 이유가 없다.
+
+    치수와 규칙은 셸에서 이미 정한 것을 따른다 — 판 안쪽 여백을 걷어내는 법
+    (`--dxbl-splitter-pane-padding-*`), 좁은 화면에서 상자만 지워 위아래로
+    쌓는 법(`display: contents`)이 그것이다. 자세한 이유는 app.css 의
+    `.jsini-shell__split` 머리말과 admin.css 의 `.ad-vsplit` 에 적었다.
+
+    **끌어 둔 폭을 저장하지 않는다.** 셸의 사이드바는 저장하지만(`PortalBoot`)
+    그쪽은 모든 화면에 걸리는 값이고 이것은 한 화면의 것이다 — 저장하려면
+    열쇠가 하나 더 늘고, 그 값이 화면 수만큼 늘어난다. 필요해지면 그때 한다.
+
+    [오른쪽은 가로 두 칸이다 — 권한과 메뉴]
+
+    한 판에 위아래로 쌓아 두었더니 **둘 다 반쪽만 보였다.** 역할이 열둘이고
+    메뉴가 백 줄이 넘는데 한 화면에 들어갈 수가 없다.
+
+    **탭으로 가르지 않는다.** 둘은 보는 목적이 다르지만(「무엇을 걸까」와
+    「그래서 무엇이 열렸나」) **함께 봐야 하는 것**이다 — 역할을 걸고 나서
+    무엇이 열렸는지 확인하는 자리라, 탭으로 가르면 그 확인이 탭 왕복이 된다.
+    가로로 나란히 두고 **칸마다 자기 안에서 구른다.**
+
+    **`CommCont` 로 감싸지 않는다.** 자료 판으로 감싸면 남은 높이를 그 판이
+    다 먹어 아래가 잘린다(web/CLAUDE.md 의 「대시보드처럼 …」). 높이는 판이
+    정하고 안쪽에서 구른다.
 *@
 
 @inherits DataPage
@@ -74,10 +117,17 @@
 
 <PageNotice Text="@Notice" Tone="@Tone" />
 
-<div class="ad-two-pane">
+@* 끌어서 나누는 판 둘. 셸의 사이드바와 같은 부품이다 —
+   치수·여백·좁은 화면 규칙은 admin.css 의 `.ad-vsplit` 가 갖고 있다.
+
+   `SeparatorSize="2"` — 셸은 0 이다(사이드바에 이미 테두리가 있어 선이 두
+   겹으로 보였다). 여기는 판에 테두리가 없어 구분선이 유일한 경계라 남긴다. *@
+<DxSplitter CssClass="ad-vsplit" Orientation="Orientation.Horizontal" SeparatorSize="2">
+    <Panes>
 
     @* ── 왼쪽: 대상 ────────────────────────────────── *@
-    <section>
+    <DxSplitterPane Size="32%" MinSize="240px" MaxSize="60%">
+    <section class="ad-vsplit__pane ad-vsplit__pane--left">
         <h2 class="ad-subhead">
             @(_mode == Mode.Account ? "사람" : "회사·부서") (@Targets.Count)
         </h2>
@@ -96,18 +146,38 @@
                     <span class="jsini-badge">@KindLabel(target.Kind)</span>
                 </button>
             }
+
+            @if (Targets.Count == 0)
+            {
+                <p class="ad-stamp">찾은 대상이 없습니다.</p>
+            }
         </div>
     </section>
+    </DxSplitterPane>
 
     @* ── 오른쪽: 역할과 그 결과 ─────────────────────── *@
-    <section>
+    <DxSplitterPane>
+    <section class="ad-vsplit__pane ad-vsplit__pane--right">
         @if (_selected is null)
         {
             <PageNotice Text="왼쪽에서 대상을 고르십시오." Tone="NoticeTone.Info" />
         }
         else
         {
-            <h2 class="ad-subhead">@_selected.Name 의 역할</h2>
+            <h2 class="ad-subhead">@_selected.Name</h2>
+
+            @* 권한과 메뉴를 **가로로 나란히** 둔다. 보는 목적이 다르지만
+               (「무엇을 걸까」와 「그래서 무엇이 열렸나」) **함께 봐야 하는
+               것**이라서다 — 역할을 걸고 나서 무엇이 열렸는지 확인하는 자리다.
+               탭으로 가르면 그 확인이 탭 왕복이 된다.
+
+               위아래로 쌓지 않는 이유는 둘 다 길어서다. 역할이 열둘이고
+               메뉴가 백 줄이 넘어, 쌓으면 둘 다 반쪽만 보인다.
+               **칸마다 자기 안에서 구른다.** *@
+            <div class="ad-userrole">
+
+                <div class="ad-userrole__col">
+                    <h2 class="ad-subhead">권한 (@DirectCount)</h2>
 
             @if (_mode == Mode.Account && _effective is not null)
             {
@@ -150,34 +220,84 @@
                 }
             </div>
 
-            @if (_mode == Mode.Account)
-            {
-                <h2 class="ad-subhead">볼 수 있는 메뉴 (@_assigned.Count / @(_assigned.Count + _unassigned.Count))</h2>
+                </div>
 
-                @if (_assigned.Count == 0)
-                {
-                    <PageNotice Text="열려 있는 메뉴가 없습니다." Tone="NoticeTone.Warning" />
-                }
-                else
-                {
-                    <CommGrd TItem="AccountMenuItemDto" Data="@_assigned" ShowSearchBox="true">
-                        <Columns>
-                            <DxGridDataColumn FieldName="@nameof(AccountMenuItemDto.Breadcrumb)" Caption="메뉴" MinWidth="240" />
-                            <DxGridDataColumn FieldName="@nameof(AccountMenuItemDto.Path)" Caption="경로" Width="200" />
-                            <DxGridDataColumn Caption="열어 준 역할" MinWidth="180">
-                                <CellDisplayTemplate Context="cell">
-                                    @* 어느 역할이 이 메뉴를 열었는지. 역할을 뺄 때
-                                       무엇이 닫히는지 미리 알 수 있다. *@
-                                    @string.Join(", ", ((AccountMenuItemDto)cell.DataItem).GrantedBy.Select(RoleName))
-                                </CellDisplayTemplate>
-                            </DxGridDataColumn>
-                        </Columns>
-                    </CommGrd>
-                }
+                <div class="ad-userrole__col">
+                    <h2 class="ad-subhead">@MenuTitleText</h2>
+
+            @if (_mode != Mode.Account)
+            {
+                @* 회사·부서에는 「볼 수 있는 메뉴」가 없다. 그 단계의 역할은
+                   거기 속한 사람들에게 **합쳐져서** 닿고, 사람마다 다른 역할이
+                   더 붙으므로 결과도 사람마다 다르다. 빈 표를 보여 주면
+                   「이 부서는 아무것도 못 본다」로 읽힌다. *@
+                <PageNotice Tone="NoticeTone.Info"
+                            Text="회사·부서에는 「볼 수 있는 메뉴」가 없습니다. 그 단계의 역할은 속한 사람에게 합쳐져 닿고, 사람마다 붙은 역할이 달라 결과도 사람마다 다릅니다. [사람] 에서 고르면 그 사람의 결과를 볼 수 있습니다." />
             }
+            else if (_assigned.Count == 0)
+            {
+                <PageNotice Text="열려 있는 메뉴가 없습니다." Tone="NoticeTone.Warning" />
+            }
+            else
+            {
+                @* **사이드바와 같은 모양으로 그린다.** 평평한 표였을 때는
+                   「장례식장 관리시스템 › 고인관리」처럼 길을 글자로 이어
+                   붙여 보여 줬는데, 109줄이 그렇게 늘어서면 **어느 업무의
+                   메뉴가 몇 개 열렸는지**가 안 읽힌다. 사람이 확인하려는
+                   것이 바로 그것이다.
+
+                   묶음 줄(`CATALOG`)은 그 자체로 열린 메뉴가 아니라 **자식이
+                   열려서 남은 것**이다 — 안 남기면 나무가 끊긴다. 그래서
+                   「열어 준 역할」 칸이 비고, 딱지로 구분한다. *@
+                <CommTree TItem="MenuRow" Data="@_tree"
+                          KeyFieldName="@nameof(MenuRow.Id)"
+                          ChildrenFieldName="@nameof(MenuRow.Children)"
+                          ExportName="볼 수 있는 메뉴"
+                          EmptyText="열려 있는 메뉴가 없습니다.">
+                    <Columns>
+                        <DxTreeListDataColumn Caption="메뉴" MinWidth="240">
+                            <CellDisplayTemplate Context="cell">
+                                @{
+                                    var row = (MenuRow)cell.DataItem;
+                                }
+                                <span class="jsini-tags">
+                                    <MenuGlyph Type="@row.Type" Name="@row.Icon"
+                                               OpensScreen="@row.OpensScreen" Text="@row.Title" />
+
+                                    @if (!row.Granted)
+                                    {
+                                        <span class="jsini-badge jsini-badge--off">묶음</span>
+                                    }
+                                </span>
+                            </CellDisplayTemplate>
+                        </DxTreeListDataColumn>
+
+
+                        <DxTreeListDataColumn Caption="열어 준 역할" MinWidth="150">
+                            <CellDisplayTemplate Context="cell">
+                                @* 어느 역할이 이 메뉴를 열었는지. 역할을 뺄 때
+                                   무엇이 닫히는지 미리 알 수 있다.
+
+                                   **괄호를 한 겹 더 씌운다.** `@@((MenuRow)cell.DataItem).GrantedBy`
+                                   로 적으면 명시적 식이 닫는 괄호에서 끝나고
+                                   `.GrantedBy` 가 **글자로** 붙는다 — 칸에
+                                   역할 이름 대신 타입 이름이 찍혔다. 빌드도
+                                   통과하고 오류도 안 난다. *@
+                                @(((MenuRow)cell.DataItem).GrantedBy)
+                            </CellDisplayTemplate>
+                        </DxTreeListDataColumn>
+                    </Columns>
+                </CommTree>
+            }
+
+                </div>
+            </div>
         }
     </section>
-</div>
+    </DxSplitterPane>
+
+    </Panes>
+</DxSplitter>
 
 @code {
     private enum Mode
@@ -210,7 +330,71 @@
     private IReadOnlyList<AccountMenuItemDto> _assigned = [];
     private IReadOnlyList<AccountMenuItemDto> _unassigned = [];
 
+    /// <summary>
+    /// 전체 메뉴 나무. <b>구조와 아이콘이 여기에만 있다.</b>
+    ///
+    /// <para>
+    /// 「볼 수 있는 메뉴」 응답(<see cref="AccountMenuItemDto"/>)에는 상위
+    /// 메뉴도 아이콘도 없다 — 길은 <c>Breadcrumb</c> 에 <b>글자로</b> 이어
+    /// 붙여 온다. 그것만으로는 나무를 세울 수 없어서, 사이드바가 쓰는 것과
+    /// 같은 목록을 한 번 더 읽어 맞물린다.
+    /// </para>
+    ///
+    /// <para>
+    /// 대상마다 다시 읽지 않는다 — 사람이 바뀌어도 메뉴 나무는 그대로다.
+    /// </para>
+    /// </summary>
+    private IReadOnlyList<SystemMenuDto> _menus = [];
+
+    /// <summary>고른 사람이 볼 수 있는 메뉴만 남긴 나무.</summary>
+    private IReadOnlyList<MenuRow> _tree = [];
+
+    /// <summary>
+    /// 나무 한 줄. 메뉴의 생김새(<see cref="SystemMenuDto"/>)와 그 사람의
+    /// 권한(<see cref="AccountMenuItemDto"/>)을 합쳐 놓은 것이다.
+    /// </summary>
+    private sealed class MenuRow
+    {
+        public string Id { get; init; } = string.Empty;
+        public string Title { get; init; } = string.Empty;
+        public string Path { get; init; } = string.Empty;
+        public string? Icon { get; init; }
+        public string Type { get; init; } = string.Empty;
+        public bool OpensScreen { get; init; }
+
+        /// <summary>
+        /// 이 줄 <b>자신</b>이 열린 메뉴인가.
+        ///
+        /// <para>
+        /// 거짓이면 <b>자식이 열려서 남은 묶음</b>이다 — 빼면 나무가 끊겨
+        /// 어느 업무의 메뉴인지 알 수 없게 된다. 화면에서 딱지로 가른다.
+        /// </para>
+        /// </summary>
+        public bool Granted { get; init; }
+
+        /// <summary>이 메뉴를 열어 준 역할 이름들. 묶음 줄은 비어 있다.</summary>
+        public string GrantedBy { get; init; } = string.Empty;
+
+        public List<MenuRow> Children { get; init; } = [];
+    }
+
     private IReadOnlyList<Target> Source => _mode == Mode.Account ? _accounts : _scopes;
+
+    /// <summary>이 대상에 <b>직접</b> 걸린 역할 수. 권한 탭의 이름에 붙는다.</summary>
+    private int DirectCount => _direct.Count;
+
+    /// <summary>
+    /// 메뉴 칸의 제목.
+    ///
+    /// <para>
+    /// 회사·부서에서는 셀 수가 없어 숫자를 붙이지 않는다 — 붙이면 0 이 되고,
+    /// 0 은 <b>「아무것도 못 본다」로 읽힌다.</b> 그 단계의 역할은 속한 사람에게
+    /// 합쳐져 닿으므로 결과가 사람마다 다르다.
+    /// </para>
+    /// </summary>
+    private string MenuTitleText => _mode == Mode.Account
+        ? $"볼 수 있는 메뉴 ({_assigned.Count} / {_assigned.Count + _unassigned.Count})"
+        : "볼 수 있는 메뉴";
 
     private IReadOnlyList<Target> Targets
     {
@@ -235,6 +419,10 @@
         _roles = await Api.GetRolesAsync();
         _accounts = await LoadAccountsAsync();
         _scopes = await LoadScopesAsync();
+
+        // 메뉴 나무는 **사람과 무관**하다. 대상마다 다시 읽지 않으려고
+        // 여기서 한 번 읽는다(`_menus` 머리말).
+        _menus = await Api.GetSystemMenusAsync();
 
         // 고른 대상이 사라졌으면(회사를 바꿨거나) 오른쪽을 비운다.
         if (_selected is not null && Source.All(t => t.Id != _selected.Id))
@@ -287,6 +475,93 @@
         return targets;
     }
 
+    /// <summary>
+    /// 「볼 수 있는 메뉴」를 <b>사이드바와 같은 나무</b>로 세운다.
+    ///
+    /// <para>
+    /// 전체 메뉴 나무를 훑으면서 <b>그 사람에게 열린 것과 그 조상만</b>
+    /// 남긴다. 사이드바가 보이는 메뉴를 고를 때 하는 일과 같다
+    /// (<c>MenuFilter</c>) — 거기서는 <c>MenuNode</c> 를 다루고 여기서는
+    /// 포털관리의 <c>SystemMenuDto</c> 라 타입이 달라 그 코드를 못 쓴다.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>조상을 남기지 않으면 나무가 끊긴다.</b> 열린 것만 남기면 자식이
+    /// 뿌리로 올라와 어느 업무의 메뉴인지 알 수 없게 되는데, 이 화면에서
+    /// 사람이 확인하려는 것이 바로 그 「어느 업무가 몇 개 열렸나」다.
+    /// </para>
+    /// </summary>
+    private IReadOnlyList<MenuRow> BuildTree()
+    {
+        // 열린 메뉴를 아이디로 찾을 수 있게 해 둔다. 109건 × 179줄을
+        // 목록으로 훑으면 그 곱이 그대로 비용이 된다.
+        var granted = _assigned
+            .GroupBy(m => m.Id, StringComparer.Ordinal)
+            .ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
+
+        return Prune(_menus, granted);
+    }
+
+    private List<MenuRow> Prune(
+        IEnumerable<SystemMenuDto> nodes,
+        Dictionary<string, AccountMenuItemDto> granted)
+    {
+        var kept = new List<MenuRow>();
+
+        foreach (var node in nodes)
+        {
+            var children = node.Children is { Count: > 0 }
+                ? Prune(node.Children, granted)
+                : [];
+
+            var hit = granted.TryGetValue(node.Id, out var item);
+
+            // 자기도 안 열렸고 남은 자식도 없으면 뺀다.
+            if (!hit && children.Count == 0)
+            {
+                continue;
+            }
+
+            kept.Add(new MenuRow
+            {
+                Id = node.Id,
+                Title = MenuTitle(node),
+                Path = node.Path,
+                Icon = node.Meta.Icon,
+                Type = node.Type,
+
+                // 열쇠가 정본이지만 아직 안 채운 메뉴가 26건 남아 있어
+                // 옛 `Component` 도 함께 본다(`MenuGlyph` 머리말).
+                OpensScreen = !string.IsNullOrWhiteSpace(node.RouteKey)
+                    || !string.IsNullOrWhiteSpace(node.Component),
+
+                Granted = hit,
+                GrantedBy = hit
+                    ? string.Join(", ", item!.GrantedBy.Select(RoleName))
+                    : string.Empty,
+
+                Children = children,
+            });
+        }
+
+        return kept;
+    }
+
+    /// <summary>
+    /// 메뉴 이름. <b>사이드바와 같은 규칙</b>이다 — 서버가 번역해 준 것이
+    /// 있으면 그것을, 없으면 저장된 글자를 쓴다.
+    ///
+    /// <para>
+    /// 「볼 수 있는 메뉴」 응답의 <c>Title</c> 을 쓰지 않는 이유가 그것이다 —
+    /// 그쪽은 DB 값 그대로라 <c>system.menu.title</c> 같은 <b>번역 키일 수
+    /// 있다.</b> 그러면 한 화면에서 같은 메뉴가 두 이름으로 보인다.
+    /// </para>
+    /// </summary>
+    private static string MenuTitle(SystemMenuDto m) =>
+        !string.IsNullOrWhiteSpace(m.Meta.TitleText) ? m.Meta.TitleText!
+        : !string.IsNullOrWhiteSpace(m.Meta.Title) ? m.Meta.Title!
+        : m.Name;
+
     /// <summary>부서 나무를 평평하게 편다. 이름 앞에 상위 부서를 이어 붙인다.</summary>
     private static void Walk(RoleScopeNodeDto node, string trail, List<Target> into)
     {
@@ -305,6 +580,7 @@
         _effective = null;
         _assigned = [];
         _unassigned = [];
+        _tree = [];
 
         await Task.CompletedTask;
     }
@@ -330,6 +606,7 @@
                 var access = await Api.GetAccountMenuAccessAsync(target.Id);
                 _assigned = access?.Assigned ?? [];
                 _unassigned = access?.Unassigned ?? [];
+                _tree = BuildTree();
 
                 return _effective?.RoleIds.Count ?? 0;
             }
@@ -338,6 +615,7 @@
             _effective = null;
             _assigned = [];
             _unassigned = [];
+            _tree = [];
             _direct = await DirectRolesAsync(target);
 
             return _direct.Count;

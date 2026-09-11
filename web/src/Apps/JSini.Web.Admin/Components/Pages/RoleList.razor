@@ -3,34 +3,65 @@
 
 @*
     [역할 관리] — DB 메뉴 `/auth/role`.
-    이력: Vue `views/portal/auth/role` → 여기.
+    이력: Vue `views/portal/system/role/`(index · modules/RoleUserTab ·
+          modules/RoleMenuTab · modules/form) → 여기.
+    API: `auth/system/roles`(역할 CRUD) ·
+         `auth/system/role-permission/roles/{roleId}/users{,/assign}` ·
+         `…/eligible-users` · `…/menus{,/save}`
 
-    이 화면도 보기 자료를 그리고 있었다 — 「SUPER_ADMIN · FUNERAL_MANAGER ·
-    USER」 세 줄이 코드에 박혀 있었다.
+    [무엇을 하는 화면인가]
 
-    [역할 식별자를 사람이 정한다]
+        왼쪽   역할을 만들고 고친다
+        오른쪽 고른 역할에 **사람을 지정**하고 **메뉴별 권한**을 정한다
 
-    자동 번호가 아니다. 권한 판정과 로그에 그대로 찍히기 때문이다 —
-    숫자면 로그를 봐도 무슨 역할인지 알 수 없다. 그래서 등록할 때만 받고
-    수정에서는 잠근다. 바꾸면 그 역할이 걸린 계정·메뉴 권한이 통째로 끊긴다.
+    [옛 화면의 절반이 빠져 있었다]
 
-    [메뉴별 권한은 여기서 정하지 않는다]
+    Blazor 로 옮기면서 역할 CRUD 와 「이 역할이 걸린 사람」(읽기 전용)만
+    남았다. 옛 화면의 오른쪽 판 — 사용자 매핑과 메뉴 세부 권한 — 이 통째로
+    없었다. 그 자리에 「거는 일은 사람롤에서 합니다」라는 안내만 서 있었다.
 
-    「어느 역할이 어느 메뉴를 볼 수 있는가」는 `/admin/auth/menu-role`,
-    「누가 이 역할을 가지는가」는 `/admin/auth/user-role` 이다. 옛 화면도
-    그렇게 셋으로 나뉘어 있었다 — 한 화면에 다 넣으면 표가 세 겹이 된다.
+    **그런데 서버는 그 길을 다 갖고 있었다.** `role-permission` 의 여섯 경로가
+    `AdminClient` 에 이미 적혀 있고 부르는 곳만 없었다(메뉴 권한 저장은
+    메뉴롤 화면이 한 줄씩 쓰고 있었다). 빠진 것은 화면뿐이라 그것을 채웠다.
 
-    [다만 「이 역할을 지우면 누가 영향받나」는 여기서 보인다]
+    [세 화면이 같은 자료를 다른 방향에서 본다]
 
-    역할을 고르면 그 역할이 걸린 사람을 아래에 편다(읽기 전용).
-    **거는 일은 여기서 하지 않는다** — 사람에게 거는 길이 이미 「사람롤」에
-    있고, 같은 일을 하는 자리를 둘로 만들면 한쪽에만 규칙이 붙는다.
-    삭제를 누르기 전에 무엇이 딸려 있는지 보이는 것이 목적이다.
+    | 화면 | 출발점 | 무엇을 정하나 |
+    |---|---|---|
+    | 여기 | **역할** | 그 역할의 사람과 메뉴 권한을 **한꺼번에** |
+    | `/admin/auth/menu-role` | 메뉴 | 「이 메뉴는 누가 쓰나」 — 역할 한 줄씩 |
+    | `/admin/auth/user-role` | 사람 | 「이 사람은 무엇을 쓰나」 — 합산 결과 |
+
+    **저장 경로는 셋이 같다**(`role-permission`). 화면이 셋이어도 규칙이
+    갈라지지 않는 이유가 그것이고, 그래서 새 저장 경로를 만들지 않았다.
+
+    [오른쪽은 탭이다 — 사람롤과 다른 선택이다]
+
+    사람롤(`/admin/auth/user-role`)은 권한과 메뉴를 가로로 나란히 둔다.
+    여기서는 탭으로 가른다. **칸 수가 다르기 때문이다** — 메뉴 권한 표는
+    메뉴명 + 권한 열다섯 칸이라 반 폭에서는 체크박스가 다 잘린다.
+    옛 화면도 같은 이유로 탭이었다.
+
+    [메뉴가 안 쓰는 권한은 잠근다]
+
+    메뉴가 「쓰지 않는다」고 지정한 항목(`system_menus.use_*`)은 역할에 켜
+    두어도 효과가 없다 — 서버가 AND 로 묶는다. 잠그고, 왜 잠겼는지 셀에
+    적어 둔다. 옛 화면이 같은 규칙이었다.
+
+    사용자 정의 1~8 은 **아무 메뉴도 안 쓰면 칸 자체를 감춘다.** 쓰는 메뉴가
+    있으면 거기 붙인 이름을 칸 제목으로 쓴다 — 이름이 서로 다르면 하나로
+    고를 수 없어 `C1` 로 두고 셀 안내에 각자의 이름을 적는다.
+
+    [체크박스가 많아서 일괄 단추를 둔다]
+
+    메뉴 179개 × 최대 15칸이다. 하나씩 누르는 것이 번거로워 메뉴명 옆에
+    단추 둘을 둔다 — **이 메뉴만**, **이 메뉴와 하위 전체**. 누를 때마다
+    켜기↔끄기가 바뀐다. **잠긴 칸은 건너뛴다** — 켜 두면 저장 결과와
+    화면이 어긋난다(서버가 꺼서 저장한다).
 *@
 
 @inherits DataPage
 @inject AdminClient Api
-@inject NavigationManager Navigation
 
 <PageTitle>역할 관리 · 포털관리</PageTitle>
 
@@ -45,122 +76,391 @@
 
 <PageNotice Text="@Notice" Tone="@Tone" />
 
-<CommCont Title="역할">
-    <CommGrd TItem="RoleDto"
-             Data="@Shown"
-             EditFormTitle="역할"
-             ExportName="역할"
-             PageSize="20"
-             OnNew="@FillNew"
-             OnEditOpen="@OnEditOpen"
-             OnSave="@SaveAsync"
-             OnDelete="@DeleteAsync"
-             DeleteConfirm="@DeleteMessage"
-             Reload="@ReloadAsync"
-             RowActions="@Links">
-        <Columns>
-        <DxGridDataColumn FieldName="@nameof(RoleDto.Id)" Caption="식별자" Width="170" />
-        <DxGridDataColumn FieldName="@nameof(RoleDto.Name)" Caption="역할 이름" MinWidth="160" />
-        <DxGridDataColumn FieldName="@nameof(RoleDto.Remark)" Caption="설명" MinWidth="220" />
+@* 끌어서 나누는 판 둘. 사람롤과 같은 부품이고 규칙도 같다(admin.css 의
+   `.ad-vsplit`). 왼쪽이 좁은 이유는 역할이 열몇 개뿐이라서다 — 오른쪽의
+   권한 표가 폭을 훨씬 많이 쓴다. *@
+<DxSplitter CssClass="ad-vsplit" Orientation="Orientation.Horizontal" SeparatorSize="2">
+    <Panes>
 
-        <DxGridDataColumn Caption="상태" Width="90">
-            <CellDisplayTemplate Context="cell">
-                @{
-                    var r = (RoleDto)cell.DataItem;
-                }
-                <span class="jsini-badge @(r.Status == 1 ? "jsini-badge--on" : "jsini-badge--off")">
-                    @(r.Status == 1 ? "사용" : "중지")
-                </span>
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
-
-    </Columns>
-
-    <EditFormTemplate Context="edit">
-        @{
-            var r = (RoleDto)edit.EditModel;
-        }
-        <DxFormLayout CssClass="ad-editform">
-            <DxFormLayoutItem Caption="식별자" ColSpanMd="6">
-                @* 등록 여부를 식별자로 되짚지 않는다 — 새 역할에 이미 있는
-                   식별자를 치는 순간 칸이 잠겨 지울 수도 없어진다.
-                   창을 열 때 한 번 정해 둔 것(`_isNew`)을 쓴다. *@
-                <DxTextBox @bind-Text="r.Id" ReadOnly="@(!_isNew)"
-                           NullText="@(_isNew ? "ADMIN 처럼 영문 대문자" : "수정할 수 없습니다")" />
-            </DxFormLayoutItem>
-
-            <DxFormLayoutItem Caption="역할 이름" ColSpanMd="6">
-                <DxTextBox @bind-Text="r.Name" NullText="사람이 읽는 이름" />
-            </DxFormLayoutItem>
-
-            <DxFormLayoutItem Caption="설명" ColSpanMd="12">
-                <DxMemo @bind-Text="r.Remark" Rows="3" NullText="이 역할이 무엇을 하는가" />
-            </DxFormLayoutItem>
-
-            <DxFormLayoutItem Caption="사용" ColSpanMd="12">
-                <DxCheckBox @bind-Checked="r.IsActive">사용</DxCheckBox>
-            </DxFormLayoutItem>
-        </DxFormLayout>
-    </EditFormTemplate>
-    </CommGrd>
-</CommCont>
-
-@if (_usersOf is not null)
-{
-    <CommCont Title="@($"{_usersOf.Name} 을 가진 사람")" Hint="@($"{_users.Count}명")">
-    @if (_users.Count == 0)
-    {
-        <p class="ad-stamp">이 역할이 걸린 사람이 없습니다.</p>
-    }
-    else
-    {
-        <CommGrd TItem="RoleUserDto" Data="@_users">
+    <DxSplitterPane Size="30%" MinSize="240px" MaxSize="60%">
+    <section class="ad-vsplit__pane ad-vsplit__pane--left">
+        <CommGrd TItem="RoleDto"
+                 Data="@Shown"
+                 EditFormTitle="역할"
+                 ExportName="역할"
+                 PageSize="20"
+                 OnNew="@FillNew"
+                 OnEditOpen="@OnEditOpen"
+                 OnSave="@SaveAsync"
+                 OnDelete="@DeleteAsync"
+                 DeleteConfirm="@DeleteMessage"
+                 Reload="@ReloadAsync"
+                 SelectedItem="@_role"
+                 SelectedItemChanged="@SelectRoleAsync">
             <Columns>
-                <DxGridDataColumn FieldName="@nameof(RoleUserDto.LoginId)" Caption="아이디" Width="150" />
-                <DxGridDataColumn FieldName="@nameof(RoleUserDto.UserName)" Caption="이름" Width="140" />
-                <DxGridDataColumn FieldName="@nameof(RoleUserDto.CompanyName)" Caption="회사" Width="160" />
-                <DxGridDataColumn FieldName="@nameof(RoleUserDto.DeptName)" Caption="부서" Width="160" />
-                <DxGridDataColumn FieldName="@nameof(RoleUserDto.Email)" Caption="이메일" MinWidth="180" />
+                <DxGridDataColumn FieldName="@nameof(RoleDto.Name)" Caption="역할 이름" MinWidth="140" />
+                <DxGridDataColumn FieldName="@nameof(RoleDto.Id)" Caption="식별자" Width="130" />
 
-                @* 이 사람이 가진 역할 전부. 하나를 풀어도 다른 역할이 같은
-                   메뉴를 주고 있으면 접근이 그대로다. *@
-                <DxGridDataColumn FieldName="@nameof(RoleUserDto.RoleNames)" Caption="가진 역할" MinWidth="200" />
+                <DxGridDataColumn Caption="상태" Width="80">
+                    <CellDisplayTemplate Context="cell">
+                        @{
+                            var r = (RoleDto)cell.DataItem;
+                        }
+                        <span class="jsini-badge @(r.Status == 1 ? "jsini-badge--on" : "jsini-badge--off")">
+                            @(r.Status == 1 ? "사용" : "중지")
+                        </span>
+                    </CellDisplayTemplate>
+                </DxGridDataColumn>
+            </Columns>
+
+            <EditFormTemplate Context="edit">
+                @{
+                    var r = (RoleDto)edit.EditModel;
+                }
+                <DxFormLayout CssClass="ad-editform">
+                    <DxFormLayoutItem Caption="식별자" ColSpanMd="6">
+                        @* 등록 여부를 식별자로 되짚지 않는다 — 새 역할에 이미 있는
+                           식별자를 치는 순간 칸이 잠겨 지울 수도 없어진다.
+                           창을 열 때 한 번 정해 둔 것(`_isNew`)을 쓴다.
+
+                           자동 번호가 아닌 이유는 **권한 판정과 로그에 그대로
+                           찍히기 때문**이다. 숫자면 로그를 봐도 무슨 역할인지
+                           알 수 없다. 바꾸면 그 역할이 걸린 계정·메뉴 권한이
+                           통째로 끊기므로 수정에서는 잠근다. *@
+                        <DxTextBox @bind-Text="r.Id" ReadOnly="@(!_isNew)"
+                                   NullText="@(_isNew ? "ADMIN 처럼 영문 대문자" : "수정할 수 없습니다")" />
+                    </DxFormLayoutItem>
+
+                    <DxFormLayoutItem Caption="역할 이름" ColSpanMd="6">
+                        <DxTextBox @bind-Text="r.Name" NullText="사람이 읽는 이름" />
+                    </DxFormLayoutItem>
+
+                    <DxFormLayoutItem Caption="설명" ColSpanMd="12">
+                        <DxMemo @bind-Text="r.Remark" Rows="3" NullText="이 역할이 무엇을 하는가" />
+                    </DxFormLayoutItem>
+
+                    <DxFormLayoutItem Caption="사용" ColSpanMd="12">
+                        <DxCheckBox @bind-Checked="r.IsActive">사용</DxCheckBox>
+                    </DxFormLayoutItem>
+                </DxFormLayout>
+            </EditFormTemplate>
+        </CommGrd>
+    </section>
+    </DxSplitterPane>
+
+    <DxSplitterPane>
+    <section class="ad-vsplit__pane ad-vsplit__pane--right">
+        @if (_role is null)
+        {
+            <PageNotice Tone="NoticeTone.Info"
+                        Text="왼쪽에서 권한을 설정할 역할을 고르십시오." />
+        }
+        else
+        {
+            <h2 class="ad-subhead">@_role.Name <span class="ad-stamp">@_role.Id</span></h2>
+
+            @* **탭으로 가른다.** 메뉴 권한 표가 열다섯 칸이라 사람 목록과
+               나란히 두면 체크박스가 다 잘린다(머리말). *@
+            <DxTabs RenderMode="TabsRenderMode.OnDemand" CssClass="ad-roletabs">
+
+                <DxTabPage Text="@($"지정 사용자 ({_users.Count})")">
+                    <div class="ad-roletabs__body">
+                        <CommGrd TItem="RoleUserDto" Data="@_users"
+                                 ExportName="지정 사용자"
+                                 EmptyText="지정된 사용자가 없습니다."
+                                 Reload="@(() => LoadUsersAsync())"
+                                 RowActions="@UserActions"
+                                 ActionsWidth="90">
+                            <FooterLeft>
+                                <PermissionView Action="MenuAction.Update">
+                                    <DxButton Text="사용자 추가"
+                                              RenderStyle="ButtonRenderStyle.Primary"
+                                              Click="@OpenPickerAsync" />
+                                </PermissionView>
+                            </FooterLeft>
+
+                            <Columns>
+                                <DxGridDataColumn FieldName="@nameof(RoleUserDto.LoginId)" Caption="사용자 ID" Width="130" />
+                                <DxGridDataColumn FieldName="@nameof(RoleUserDto.UserName)" Caption="사용자명" Width="120" />
+                                <DxGridDataColumn FieldName="@nameof(RoleUserDto.CompanyName)" Caption="소속 회사" MinWidth="130" />
+                                <DxGridDataColumn FieldName="@nameof(RoleUserDto.DeptName)" Caption="소속 부서" MinWidth="130" />
+                                <DxGridDataColumn FieldName="@nameof(RoleUserDto.Email)" Caption="이메일" MinWidth="160" />
+                                <DxGridDataColumn FieldName="@nameof(RoleUserDto.Phone)" Caption="연락처" Width="120" />
+                            </Columns>
+                        </CommGrd>
+                    </div>
+                </DxTabPage>
+
+                <DxTabPage Text="@($"메뉴 세부 권한 ({GrantedMenuCount})")">
+                    <div class="ad-roletabs__body">
+                        @if (NoCustomConfigured)
+                        {
+                            @* 사용자 정의 칸을 아무 메뉴도 안 쓴다. 칸이 안 보이는 것이
+                               고장으로 읽히지 않게 말해 둔다. *@
+                            <PageNotice Tone="NoticeTone.Info"
+                                        Text="사용자 정의 권한(1~8)을 쓰는 메뉴가 없어 그 칸은 감춰 두었습니다. [메뉴 관리]에서 켜면 여기에 나타납니다." />
+                        }
+
+                        <CommTree TItem="RoleMenuRow" Data="@_menuTree"
+                                  KeyFieldName="@nameof(RoleMenuRow.MenuId)"
+                                  ChildrenFieldName="@nameof(RoleMenuRow.Children)"
+                                  ExportName="메뉴 권한"
+                                  EmptyText="메뉴가 없습니다."
+                                  Reload="@(() => LoadMenusAsync())">
+                            <FooterLeft>
+                                <PermissionView Action="MenuAction.Update">
+                                    <DxButton Text="권한 저장"
+                                              RenderStyle="ButtonRenderStyle.Primary"
+                                              Enabled="@(!_savingMenus)"
+                                              Click="@SaveMenusAsync" />
+                                </PermissionView>
+                            </FooterLeft>
+
+                            <Columns>
+                                <DxTreeListDataColumn Caption="메뉴" MinWidth="260">
+                                    <CellDisplayTemplate Context="cell">
+                                        @{
+                                            var row = (RoleMenuRow)cell.DataItem;
+                                        }
+                                        <span class="ad-rolemenu__name">
+                                            <span>@row.MenuName</span>
+
+                                            @* 일괄 켜기·끄기. 잠긴 칸은 건너뛴다(머리말). *@
+                                            <PermissionView Action="MenuAction.Update">
+                                                <span class="jsini-actions">
+                                                    <DxButton Text="행" RenderStyle="ButtonRenderStyle.Link"
+                                                              Title="이 메뉴의 권한을 한 번에 켜고 끕니다"
+                                                              Click="@(() => Toggle([row]))" />
+
+                                                    @if (row.Children.Count > 0)
+                                                    {
+                                                        <DxButton Text="하위" RenderStyle="ButtonRenderStyle.Link"
+                                                                  Title="이 메뉴와 하위 전체의 권한을 한 번에 켜고 끕니다"
+                                                                  Click="@(() => Toggle(Subtree(row)))" />
+                                                    }
+                                                </span>
+                                            </PermissionView>
+                                        </span>
+                                    </CellDisplayTemplate>
+                                </DxTreeListDataColumn>
+
+                                @foreach (var item in ShownItems)
+                                {
+                                    <DxTreeListDataColumn Caption="@item.Caption" Width="@(item.IsCustom ? "80px" : "64px")">
+                                        <CellDisplayTemplate Context="cell">
+                                            @{
+                                                var row = (RoleMenuRow)cell.DataItem;
+                                                var used = item.Used(row.Source);
+                                            }
+                                            @* 메뉴가 안 쓰는 항목은 잠근다. 켜도 아무 일이
+                                               없는 칸을 열어 두면 「켰는데 왜 안 되지」가 된다. *@
+                                            <span title="@item.Hint(row, used)">
+                                                <DxCheckBox Checked="@item.Get(row.Source)"
+                                                            CheckedChanged="@((bool v) => item.Set(row.Source, v))"
+                                                            Enabled="@used" />
+                                            </span>
+                                        </CellDisplayTemplate>
+                                    </DxTreeListDataColumn>
+                                }
+                            </Columns>
+                        </CommTree>
+                    </div>
+                </DxTabPage>
+            </DxTabs>
+        }
+    </section>
+    </DxSplitterPane>
+
+    </Panes>
+</DxSplitter>
+
+@* 사용자 추가. **이미 지정된 사람은 서버가 빼고 준다**(`eligible-users`) —
+   화면에서 거르면 서버 판정과 어긋나는 날이 온다. *@
+<CommPopup @bind-Visible="_pickerOpen"
+           HeaderText="사용자 추가"
+           Width="min(900px, calc(100vw - 2rem))">
+    <BodyContentTemplate Context="popup">
+        <p class="jsini-hint">
+            고른 사람에게 역할 「@(_role?.Name)」 을(를) 겁니다.
+            이미 지정된 사람은 목록에 없습니다.
+        </p>
+
+        <CommGrd TItem="RoleUserDto" Data="@_pickable" PageSize="10"
+                 ShowExcelExport="false"
+                 EmptyText="추가할 수 있는 사용자가 없습니다."
+                 Reload="@LoadPickableAsync">
+            <Columns>
+                @* **DevExpress 의 다중 선택을 쓰지 않는다.** `CommGrd` 가 그
+                   이름을 선언해 두지 않아 splat 으로 흘러가고, 대리자는
+                   `EventCallback` 으로 감싸이지 않아 화면이 그리기도 전에
+                   500 으로 죽는다(web/CLAUDE.md). 칸 하나를 우리가 그린다. *@
+                <DxGridDataColumn Caption="" Width="44">
+                    <CellDisplayTemplate Context="cell">
+                        @{
+                            var u = (RoleUserDto)cell.DataItem;
+                        }
+                        <DxCheckBox Checked="@_picked.Contains(u.Id)"
+                                    CheckedChanged="@((bool v) => Pick(u.Id, v))" />
+                    </CellDisplayTemplate>
+                </DxGridDataColumn>
+
+                <DxGridDataColumn FieldName="@nameof(RoleUserDto.LoginId)" Caption="사용자 ID" Width="130" />
+                <DxGridDataColumn FieldName="@nameof(RoleUserDto.UserName)" Caption="사용자명" Width="120" />
+                <DxGridDataColumn FieldName="@nameof(RoleUserDto.CompanyName)" Caption="소속 회사" MinWidth="130" />
+                <DxGridDataColumn FieldName="@nameof(RoleUserDto.DeptName)" Caption="소속 부서" MinWidth="130" />
+
+                @* 이미 가진 역할. 하나 더 거는 것이라 무엇을 갖고 있는지 보여야 한다. *@
+                <DxGridDataColumn FieldName="@nameof(RoleUserDto.RoleNames)" Caption="할당된 역할" MinWidth="160" />
             </Columns>
         </CommGrd>
-    }
+    </BodyContentTemplate>
 
-    <p class="ad-stamp">
-        거는 일과 푸는 일은 [권한 › 사람롤]에서 합니다 — 같은 일을 하는 자리를
-        둘로 만들지 않습니다.
-    </p>
-    </CommCont>
-}
+    <FooterContentTemplate>
+        <span class="ad-stamp">@_picked.Count 명 선택</span>
+        <span class="jsini-notice-popup__gap"></span>
+        <DxButton Text="취소" RenderStyle="ButtonRenderStyle.Secondary"
+                  Click="@(() => _pickerOpen = false)" />
+        <DxButton Text="추가" RenderStyle="ButtonRenderStyle.Primary"
+                  Enabled="@(_picked.Count > 0)"
+                  Click="@AssignAsync" />
+    </FooterContentTemplate>
+</CommPopup>
 
 @code {
     private IReadOnlyList<RoleDto> _all = [];
     private string? _keyword;
 
-    private RoleDto? _usersOf;
-    private IReadOnlyList<RoleUserDto> _users = [];
+    /// <summary>고른 역할. 오른쪽 판이 전부 이 값에 딸려 있다.</summary>
+    private RoleDto? _role;
 
     /// <summary>편집 창이 등록으로 열렸는가. 식별자를 잠글지 정한다.</summary>
     private bool _isNew;
 
+    // ── 지정 사용자 ────────────────────────────────────────
+    private IReadOnlyList<RoleUserDto> _users = [];
+    private bool _pickerOpen;
+    private IReadOnlyList<RoleUserDto> _pickable = [];
+    private readonly HashSet<string> _picked = new(StringComparer.Ordinal);
+
+    // ── 메뉴 권한 ──────────────────────────────────────────
+    private IReadOnlyList<RoleMenuDto> _menus = [];
+    private IReadOnlyList<RoleMenuRow> _menuTree = [];
+    private bool _savingMenus;
+
     /// <summary>
-    /// 이 화면만의 단추들. 관리 칸의 「수정」 앞에 선다 — 칸을 따로 두면
-    /// 화면마다 조작 자리가 달라져, 오른쪽 끝을 보는 사람이 못 찾는다.
+    /// 나무 한 줄. <b>원본(<see cref="RoleMenuDto"/>)을 그대로 들고 있는다</b> —
+    /// 체크박스가 그 객체를 직접 고치고, 저장할 때는 <see cref="_menus"/> 를
+    /// 평평한 채로 보내면 된다. 값을 복사하면 두 벌이 되어 어긋난다.
     /// </summary>
-    private RenderFragment<RoleDto> Links => role =>@<text>
-        <DxButton Text="메뉴" RenderStyle="ButtonRenderStyle.Link"
-                  Title="이 역할이 볼 수 있는 메뉴"
-                  Click="@(() => Navigation.NavigateTo($"/admin/auth/menu-role?role={Uri.EscapeDataString(role.Id)}"))" />
-        <DxButton Text="사용자" RenderStyle="ButtonRenderStyle.Link"
-                  Title="이 역할을 거는 자리"
-                  Click="@(() => Navigation.NavigateTo($"/admin/auth/user-role?role={Uri.EscapeDataString(role.Id)}"))" />
-        <DxButton Text="누가?" RenderStyle="ButtonRenderStyle.Link"
-                  Title="이 역할이 걸린 사람을 아래에 편다"
-                  Click="@(() => ShowUsersAsync(role))" />
-    </text>;
+    private sealed class RoleMenuRow
+    {
+        public required RoleMenuDto Source { get; init; }
+
+        public string MenuId => Source.MenuId;
+        public string MenuName => Source.MenuName;
+
+        public List<RoleMenuRow> Children { get; } = [];
+    }
+
+    /// <summary>
+    /// 권한 항목 하나. 어느 칸을 읽고 쓰는지, 그 메뉴가 그것을 쓰는지,
+    /// 칸 제목을 무엇으로 할지를 함께 들고 있다.
+    /// </summary>
+    /// <remarks>
+    /// 열다섯 개를 마크업에 늘어놓으면 반드시 하나를 빠뜨리고, 빠뜨린 칸은
+    /// <b>저장할 때 꺼져서 나간다</b> — 화면에 없으니 그것을 알 방법도 없다.
+    /// </remarks>
+    private sealed record PermItem(
+        string Caption,
+        Func<RoleMenuDto, bool> Used,
+        Func<RoleMenuDto, bool> Get,
+        Action<RoleMenuDto, bool> Set,
+        bool IsCustom = false,
+        Func<RoleMenuDto, string?>? Name = null)
+    {
+        /// <summary>셀에 달아 줄 안내. 잠긴 이유나 이 칸의 진짜 이름을 알려 준다.</summary>
+        public string Hint(object row, bool used)
+        {
+            var source = ((RoleMenuRow)row).Source;
+
+            if (!used)
+            {
+                return $"「{source.MenuName}」 메뉴는 이 권한을 쓰지 않습니다. [메뉴 관리]에서 켤 수 있습니다.";
+            }
+
+            var custom = Name?.Invoke(source);
+            return string.IsNullOrWhiteSpace(custom) ? Caption : custom!;
+        }
+    }
+
+    private static readonly PermItem[] BaseItems =
+    [
+        new("열람", m => m.UseView, m => m.CanView, (m, v) => m.CanView = v),
+        new("조회", m => m.UseSearch, m => m.CanSearch, (m, v) => m.CanSearch = v),
+        new("등록", m => m.UseCreate, m => m.CanCreate, (m, v) => m.CanCreate = v),
+        new("수정", m => m.UseUpdate, m => m.CanUpdate, (m, v) => m.CanUpdate = v),
+        new("삭제", m => m.UseDelete, m => m.CanDelete, (m, v) => m.CanDelete = v),
+        new("출력", m => m.UsePrint, m => m.CanPrint, (m, v) => m.CanPrint = v),
+        new("엑셀", m => m.UseExcel, m => m.CanExcel, (m, v) => m.CanExcel = v),
+    ];
+
+    /// <summary>사용자 정의 여덟 개. 쓰는 메뉴가 있을 때만 칸이 선다.</summary>
+    private static readonly PermItem[] CustomItems =
+    [
+        new("C1", m => m.UseCust1, m => m.CanCust1, (m, v) => m.CanCust1 = v, true, m => m.Cust1Name),
+        new("C2", m => m.UseCust2, m => m.CanCust2, (m, v) => m.CanCust2 = v, true, m => m.Cust2Name),
+        new("C3", m => m.UseCust3, m => m.CanCust3, (m, v) => m.CanCust3 = v, true, m => m.Cust3Name),
+        new("C4", m => m.UseCust4, m => m.CanCust4, (m, v) => m.CanCust4 = v, true, m => m.Cust4Name),
+        new("C5", m => m.UseCust5, m => m.CanCust5, (m, v) => m.CanCust5 = v, true, m => m.Cust5Name),
+        new("C6", m => m.UseCust6, m => m.CanCust6, (m, v) => m.CanCust6 = v, true, m => m.Cust6Name),
+        new("C7", m => m.UseCust7, m => m.CanCust7, (m, v) => m.CanCust7 = v, true, m => m.Cust7Name),
+        new("C8", m => m.UseCust8, m => m.CanCust8, (m, v) => m.CanCust8 = v, true, m => m.Cust8Name),
+    ];
+
+    /// <summary>
+    /// 실제로 그릴 칸.
+    ///
+    /// <para>
+    /// 사용자 정의는 <b>쓰는 메뉴가 하나라도 있을 때만</b> 세운다. 칸 제목은
+    /// 그 칸을 쓰는 메뉴들이 붙인 이름이고, 이름이 서로 다르면 하나로 고를 수
+    /// 없으므로 <c>C1</c> 로 두고 각자의 이름은 셀 안내에 적는다.
+    /// </para>
+    /// </summary>
+    private List<PermItem> ShownItems
+    {
+        get
+        {
+            var items = new List<PermItem>(BaseItems);
+
+            foreach (var item in CustomItems)
+            {
+                var users = _menus.Where(m => item.Used(m)).ToList();
+
+                if (users.Count == 0)
+                {
+                    continue;
+                }
+
+                var names = users
+                    .Select(m => item.Name?.Invoke(m)?.Trim())
+                    .Where(n => !string.IsNullOrWhiteSpace(n))
+                    .Distinct(StringComparer.Ordinal)
+                    .ToList();
+
+                items.Add(names.Count == 1 ? item with { Caption = names[0]! } : item);
+            }
+
+            return items;
+        }
+    }
+
+    /// <summary>사용자 정의를 쓰는 메뉴가 하나도 없는가. 칸이 없는 이유를 말해 준다.</summary>
+    private bool NoCustomConfigured =>
+        _menus.Count > 0 && !CustomItems.Any(i => _menus.Any(m => i.Used(m)));
+
+    /// <summary>권한이 한 칸이라도 걸린 메뉴 수. 탭 이름에 붙는다.</summary>
+    private int GrantedMenuCount =>
+        _menus.Count(m => BaseItems.Concat(CustomItems).Any(i => i.Get(m)));
 
     private IReadOnlyList<RoleDto> Shown
     {
@@ -178,38 +478,299 @@
         }
     }
 
+    /// <summary>지정 사용자 표의 관리 칸 — 해제.</summary>
+    private RenderFragment<RoleUserDto> UserActions => user =>@<text>
+        <PermissionView Action="MenuAction.Update">
+            <DxButton Text="해제" RenderStyle="ButtonRenderStyle.Link"
+                      Title="이 사람에게서 이 역할을 뗍니다"
+                      Click="@(() => RemoveUserAsync(user))" />
+        </PermissionView>
+    </text>;
+
     protected override Task OnInitializedAsync() => ReloadAsync();
 
     private Task ReloadAsync() => LoadAsync(async () =>
     {
         _all = await Api.GetRolesAsync();
+
+        // 고른 역할이 사라졌으면(지웠거나) 오른쪽을 비운다.
+        if (_role is not null && _all.All(r => r.Id != _role.Id))
+        {
+            ClearRole();
+        }
+
         return _all.Count;
     }, "등록된 역할이 없습니다.", "역할 목록을 읽지 못했습니다");
 
     /// <summary>
-    /// 이 역할이 걸린 사람. <b>읽기만 한다</b> —
-    /// 삭제·수정을 누르기 전에 무엇이 딸려 있는지 보이는 것이 목적이다.
+    /// 역할을 골랐다. 사람과 메뉴를 <b>함께</b> 읽는다 — 탭을 옮길 때마다
+    /// 읽으면 옮겨 다니는 것이 그대로 왕복이 된다.
     /// </summary>
-    private Task ShowUsersAsync(RoleDto role) => LoadAsync(async () =>
+    private Task SelectRoleAsync(RoleDto? role)
     {
-        _usersOf = role;
-        _users = await Api.GetRoleUsersAsync(role.Id);
+        _role = role;
 
+        if (role is null)
+        {
+            ClearRole();
+            return Task.CompletedTask;
+        }
+
+        return LoadAsync(async () =>
+        {
+            _users = await Api.GetRoleUsersAsync(role.Id);
+            _menus = await Api.GetRoleMenusAsync(role.Id);
+            _menuTree = BuildTree(_menus);
+
+            return _menus.Count;
+        }, "이 역할에 걸 수 있는 메뉴가 없습니다.", "역할 권한을 읽지 못했습니다");
+    }
+
+    private void ClearRole()
+    {
+        _role = null;
+        _users = [];
+        _menus = [];
+        _menuTree = [];
+    }
+
+    private Task LoadUsersAsync() => _role is null ? Task.CompletedTask : LoadAsync(async () =>
+    {
+        _users = await Api.GetRoleUsersAsync(_role.Id);
         return _users.Count;
-    }, "이 역할이 걸린 사람이 없습니다.", "역할이 걸린 사람을 읽지 못했습니다");
+    }, "지정된 사용자가 없습니다.", "지정 사용자를 읽지 못했습니다");
+
+    private Task LoadMenusAsync() => _role is null ? Task.CompletedTask : LoadAsync(async () =>
+    {
+        _menus = await Api.GetRoleMenusAsync(_role.Id);
+        _menuTree = BuildTree(_menus);
+        return _menus.Count;
+    }, "메뉴가 없습니다.", "메뉴 권한을 읽지 못했습니다");
+
+    // ── 지정 사용자 ────────────────────────────────────────
+
+    private async Task OpenPickerAsync()
+    {
+        _picked.Clear();
+        _pickerOpen = true;
+
+        await LoadPickableAsync();
+    }
+
+    private Task LoadPickableAsync() => _role is null ? Task.CompletedTask : LoadAsync(async () =>
+    {
+        _pickable = await Api.GetRoleEligibleUsersAsync(_role.Id);
+        return _pickable.Count;
+    }, "추가할 수 있는 사용자가 없습니다.", "사용자 목록을 읽지 못했습니다");
+
+    private void Pick(string id, bool on)
+    {
+        if (on)
+        {
+            _picked.Add(id);
+            return;
+        }
+
+        _picked.Remove(id);
+    }
+
+    private async Task AssignAsync()
+    {
+        if (_role is null || _picked.Count == 0)
+        {
+            return;
+        }
+
+        var ok = await RunAsync(
+            () => Api.AssignRoleUsersAsync(_role.Id, [.. _picked]),
+            $"{_picked.Count}명에게 「{_role.Name}」 을(를) 걸었습니다.",
+            "사용자를 지정하지 못했습니다");
+
+        if (!ok)
+        {
+            return;
+        }
+
+        _pickerOpen = false;
+        await LoadUsersAsync();
+    }
+
+    /// <summary>
+    /// 이 사람에게서 역할을 뗀다.
+    ///
+    /// <para>
+    /// <b>다른 길로 온 역할은 떼어지지 않는다.</b> 회사·부서에 걸린 역할은
+    /// 그 단계에서 풀어야 한다(사람롤 화면). 여기서 다루는 것은 사람에게
+    /// 직접 건 것뿐이다.
+    /// </para>
+    /// </summary>
+    private async Task RemoveUserAsync(RoleUserDto user)
+    {
+        if (_role is null)
+        {
+            return;
+        }
+
+        var ok = await RunAsync(
+            () => Api.RemoveRoleUserAsync(_role.Id, user.Id),
+            $"{user.UserName} 에게서 「{_role.Name}」 을(를) 뗐습니다.",
+            "역할을 떼지 못했습니다");
+
+        if (ok)
+        {
+            await LoadUsersAsync();
+        }
+    }
+
+    // ── 메뉴 권한 ──────────────────────────────────────────
+
+    /// <summary>
+    /// 평평한 목록을 나무로 세운다. 서버가 <c>ParentId</c> 를 준다.
+    /// </summary>
+    /// <remarks>
+    /// 부모가 목록에 없으면 뿌리로 올린다 — 빠뜨리면 그 메뉴가 <b>화면에서
+    /// 통째로 사라지고</b>, 안 보이는 줄의 권한이 저장 때 함께 나간다.
+    /// </remarks>
+    private static IReadOnlyList<RoleMenuRow> BuildTree(IReadOnlyList<RoleMenuDto> menus)
+    {
+        var rows = menus.ToDictionary(
+            m => m.MenuId,
+            m => new RoleMenuRow { Source = m },
+            StringComparer.Ordinal);
+
+        var roots = new List<RoleMenuRow>();
+
+        foreach (var menu in menus)
+        {
+            var row = rows[menu.MenuId];
+
+            if (!string.IsNullOrWhiteSpace(menu.ParentId)
+                && rows.TryGetValue(menu.ParentId!, out var parent))
+            {
+                parent.Children.Add(row);
+                continue;
+            }
+
+            roots.Add(row);
+        }
+
+        return roots;
+    }
+
+    /// <summary>이 줄과 그 하위 전부. 하위 일괄 단추의 범위다.</summary>
+    private static List<RoleMenuRow> Subtree(RoleMenuRow row)
+    {
+        var all = new List<RoleMenuRow>();
+
+        void Walk(RoleMenuRow node)
+        {
+            all.Add(node);
+
+            foreach (var child in node.Children)
+            {
+                Walk(child);
+            }
+        }
+
+        Walk(row);
+        return all;
+    }
+
+    /// <summary>
+    /// 범위 안의 권한을 한 번에 켜거나 끈다.
+    ///
+    /// <para>
+    /// 모두 켜져 있으면 끄고, 아니면 켠다 — 단추 하나로 둘을 다 하려는 것이다.
+    /// <b>저장하지는 않는다.</b> 다른 체크박스와 똑같이 「권한 저장」을 눌러야
+    /// 반영된다.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>잠긴 칸은 건너뛴다.</b> 켜 두면 서버가 꺼서 저장하므로 화면과 결과가
+    /// 어긋난다.
+    /// </para>
+    /// </summary>
+    private void Toggle(IReadOnlyList<RoleMenuRow> rows)
+    {
+        var items = ShownItems;
+
+        var usable = 0;
+        var on = 0;
+
+        foreach (var row in rows)
+        {
+            foreach (var item in items.Where(i => i.Used(row.Source)))
+            {
+                usable++;
+
+                if (item.Get(row.Source))
+                {
+                    on++;
+                }
+            }
+        }
+
+        var next = usable == 0 || on != usable;
+
+        foreach (var row in rows)
+        {
+            foreach (var item in items.Where(i => i.Used(row.Source)))
+            {
+                item.Set(row.Source, next);
+            }
+        }
+    }
+
+    /// <summary>
+    /// 메뉴 권한을 저장한다.
+    ///
+    /// <para>
+    /// <b>목록을 통째로 덮어쓴다.</b> 그래서 화면에 안 그린 칸이 있으면 그
+    /// 값이 꺼져서 나간다 — 사용자 정의 여덟 개를 <see cref="RoleMenuDto"/> 가
+    /// 들고 있는 이유이고, 칸을 감출 때도 <b>값은 그대로 실어 보내는</b> 이유다.
+    /// </para>
+    /// </summary>
+    private async Task SaveMenusAsync()
+    {
+        if (_role is null)
+        {
+            return;
+        }
+
+        _savingMenus = true;
+
+        try
+        {
+            var saved = await RunAsync(
+                () => Api.SaveRoleMenusAsync(_role.Id, _menus),
+                $"「{_role.Name}」 의 메뉴 권한을 저장했습니다.",
+                "메뉴 권한을 저장하지 못했습니다");
+
+            if (saved)
+            {
+                await LoadMenusAsync();
+            }
+        }
+        finally
+        {
+            _savingMenus = false;
+        }
+    }
+
+    // ── 역할 CRUD ──────────────────────────────────────────
 
     private void FillNew(RoleDto r) => r.Status = 1;
 
     private void OnEditOpen(RoleDto r, bool isNew) => _isNew = isNew;
 
     /// <summary>
-    /// 삭제 확인 문구. 이 역할이 걸린 사람 수는 **「누가?」로 펴 본 역할일
-    /// 때만** 안다. 안 펴 봤으면 건수를 말하지 않는다 — 0명이라고 잘못
-    /// 적으면 안심하고 지운다.
+    /// 삭제 확인 문구. 고른 역할이면 지정 사용자 수를 함께 말한다 —
+    /// 안 고른 역할은 그 수를 모르므로 말하지 않는다(0명이라고 잘못 적으면
+    /// 안심하고 지운다).
     /// </summary>
     private string DeleteMessage(RoleDto r)
     {
-        var scope = _usersOf is not null && _usersOf.Id == r.Id && _users.Count > 0
+        var scope = _role is not null && _role.Id == r.Id && _users.Count > 0
             ? $"\n이 역할이 걸린 사람 {_users.Count}명의 권한이 함께 사라집니다."
             : string.Empty;
 

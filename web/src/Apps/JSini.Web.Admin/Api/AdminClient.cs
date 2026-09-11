@@ -107,9 +107,31 @@ public sealed class AdminClient(GatewayClient gateway)
     public Task<IReadOnlyList<RoleMenuDto>> GetRoleMenusAsync(string roleId, CancellationToken ct = default)
         => gateway.GetListAsync<RoleMenuDto>($"auth/system/role-permission/roles/{roleId}/menus", ct);
 
-    /// <summary>역할-메뉴 권한을 통째로 저장한다. 목록에 없는 메뉴는 권한이 풀린다.</summary>
+    /// <summary>
+    /// 역할-메뉴 권한을 저장한다.
+    ///
+    /// <para>
+    /// <b>본문은 배열 그대로다 — 감싸면 안 된다.</b> 서버가
+    /// <c>[FromBody] List&lt;SaveRoleMenuDto&gt;</c> 로 받는다. 한동안
+    /// <c>new { menus }</c> 로 감싸 보내고 있었고, 그 결과가 <b>저장할 때마다
+    /// 500</b> 이었다 —
+    /// <c>Failed to read parameter "List&lt;SaveRoleMenuDto&gt; request"</c>.
+    /// </para>
+    ///
+    /// <para>
+    /// 화면에는 「서버 내부 오류」로만 보여서 <b>원인이 본문 모양으로 보이지
+    /// 않는다.</b> 역할 관리와 메뉴롤 두 화면이 이 한 줄을 함께 쓰므로 둘 다
+    /// 저장이 안 되고 있었다.
+    /// </para>
+    ///
+    /// <para>
+    /// 보낸 목록에 없는 메뉴는 <b>건드리지 않는다</b>(서버가 메뉴별로
+    /// upsert 한다). 그래서 화면은 읽어 온 전체 목록을 그대로 돌려보낸다 —
+    /// 일부만 보내면 나머지가 옛 값으로 남는다.
+    /// </para>
+    /// </summary>
     public Task SaveRoleMenusAsync(string roleId, IReadOnlyList<RoleMenuDto> menus, CancellationToken ct = default)
-        => gateway.PostAsync($"auth/system/role-permission/roles/{roleId}/menus/save", new { menus }, ct);
+        => gateway.PostAsync($"auth/system/role-permission/roles/{roleId}/menus/save", menus, ct);
 
     /// <summary>
     /// 메뉴 하나를 기준으로 본 권한 현황 — <b>「이 메뉴는 누가 쓸 수 있나」</b>.

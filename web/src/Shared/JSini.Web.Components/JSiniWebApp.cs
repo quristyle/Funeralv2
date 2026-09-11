@@ -250,6 +250,14 @@ public static class JSiniWebApp
         // 두면 레이아웃이 못 쓴다(셸은 모듈을 이름으로 알지 못한다).
         services.AddScoped<NoticeClient>();
 
+        // 그중 **공개 공지만** 회로 바깥에서 잠깐 들고 있는 통.
+        //
+        // **싱글턴이어야 한다.** 로그인 화면 HTML 을 만드는 길 위에 있는
+        // 왕복이라(`PublicNoticePopup`), scoped 로 두면 요청마다 게이트웨이를
+        // 다녀온다. 담기는 것이 로그인 전에도 보이는 값이라 사람을 섞을
+        // 위험도 없다(PublicNoticeStore 머리말).
+        services.AddSingleton<PublicNoticeStore>();
+
         // ── 셸 상태 ──────────────────────────────────────────────
         //
         // 셋 다 scoped 다 — 회로 하나가 곧 사용자 한 명의 창 하나다.

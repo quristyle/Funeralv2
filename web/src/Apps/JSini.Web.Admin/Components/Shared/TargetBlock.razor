@@ -19,7 +19,10 @@
 }
 else
 {
-    <div class="ad-scroll">
+    @* 높이를 묶는다 — 사람이 200명 걸리는 메뉴가 있고, 그러면 아래 표가
+       화면 밖으로 밀려 무엇을 보고 있었는지 잃는다(admin.css `ad-reach`).
+       **`ad-targets` 가 아니다** — 그 이름은 사람롤의 대상 목록이 쓴다. *@
+    <div class="ad-scroll ad-reach">
         <table class="ad-perm">
             <thead>
                 <tr>

@@ -341,15 +341,69 @@ FileServer 의 `PublicFileAccessFilter` 가 판정한다 — 로그인 요청이
 `Components/Layout/NoticePopup` 에 있다 — 셸은 업무 모듈을 이름으로 알지 못하므로
 포털관리 모듈에 두면 레이아웃이 못 쓴다.
 
-| 자리 | 무엇을 띄우나 |
-|---|---|
-| `MainLayout` (`NoticeAutoPopup`) | 로그인한 사용자. 공개 공지까지 함께 |
-| `Login` 화면 (`Public="true"`) | `is_public` 인 것만 |
-| 공지 관리의 「미리보기」 (`Preview="true"`) | 고른 한 건. **같은 화면을 그대로 쓴다** |
+| 자리 | 무엇을 띄우나 | 회로 |
+|---|---|---|
+| `MainLayout` (`NoticeAutoPopup`) | 로그인한 사용자. 공개 공지까지 함께 | 쓴다 |
+| `Login` 화면 (`PublicNoticePopup`) | `is_public` 인 것만 | **안 쓴다** |
+| 공지 관리의 「미리보기」 (`Preview="true"`) | 고른 한 건. **같은 화면을 그대로 쓴다** | 쓴다 |
 
-로그인 화면은 정적 SSR 이라 회로가 없다. 그래도 **부품 하나만 대화형 섬**으로
-만들 수 있다 — `<NoticeAutoPopup Public="true" @rendermode="InteractiveServer" />`.
-`blazor.web.js` 는 App.razor 가 언제나 싣고 있어서 더 얹을 것이 없다.
+### 로그인 화면 팝업은 첫 HTML 에 실려 나간다 — 회로를 기다리지 않는다
+
+한동안 로그인 화면이 **부품 하나만 대화형 섬**으로 올려 같은 부품을 썼다
+(`<NoticeAutoPopup Public="true" @rendermode="InteractiveServer" />`). 그 값이
+컸다 — 팝업이 뜨기까지 브라우저가 이 순서를 모두 지나야 했다.
+
+1. `blazor.web.js` (200KB)
+2. DevExpress 모듈 `dx-blazor-all.js` **1.4MB** 를 받아 해석 —
+   Blazor 는 `DOMContentLoaded` 를 기다리므로 이것이 끝나야 시작한다
+3. `/_blazor/initializers` → `negotiate` → 웹소켓 → 회로 시작
+4. 섬이 그려지고 저장소를 읽는다 (왕복 1)
+5. **그 다음에** 공개 공지를 읽는다 (게이트웨이 → AuthServer → DB)
+
+개발 장비에서 잰 값 — 로그인 폼이 그려진 뒤 팝업이 뜨기까지 **캐시가 다 찬
+상태에서 460ms**, 처음 들어온 사람은 **800ms**. 운영은 왕복마다 실제 지연이
+붙어 3·4번에서 더 벌어진다.
+
+지금은 서버가 공지를 읽어 팝업 마크업을 **첫 HTML 에 함께 실어 보낸다**
+(`PublicNoticePopup`). 재어 보니 로그인 화면에서 **DevExpress 스크립트와
+회로가 통째로 사라졌다** — 그 화면에 대화형 부품이 하나도 없어서 DevExpress
+가 스크립트를 꽂지 않고 Blazor 도 회로를 열지 않는다. `DOMContentLoaded` 가
+265ms → 177ms 이고, 팝업은 로그인 폼과 **같은 그림에** 뜬다.
+
+| | 옛 방식 | 지금 |
+|---|---|---|
+| 팝업이 보이기까지 | HTML 후 460ms (캐시 warm) | 첫 그림 |
+| 로그인 화면이 받는 것 | + `dx-blazor-all.js` 1.4MB · `blazor.web.js` 회로 | theme.js · CSS 뿐 |
+| 공지 조회 | 사람마다 게이트웨이 → DB | `PublicNoticeStore` 통 (30초) |
+
+**`CommPopup`(DxPopup)을 쓸 수 없다.** 정적 렌더에서 껍데기만 내놓고
+(`<dxbl-modal class="dxbl-popup-hidden" inert>`) 내용은 브라우저에서 만든다 —
+첫 HTML 에 실을 수가 없다. 그래서 골격만 순수 HTML·CSS 로 다시 세웠다
+(`.jsini-snotice` — 치수는 떠 있는 DevExpress 팝업에서 잰 값이다).
+
+**갈라지는 것은 골격뿐이다.** 본문 거르개·첨부 주소·본문/첨부/점의 CSS
+클래스·게시일과 파일 크기 서식은 로그인 뒤 팝업의 것 그대로이고, `CommPopup`
+이 정해 둔 규칙도 값까지 같게 옮겼다.
+
+| | `CommPopup` | 로그인 화면 (`.jsini-snotice`) |
+|---|---|---|
+| 끌기 | `AllowDrag` + `AllowDragByHeaderOnly` | 머리에서만 (theme.js `dragByHead`) |
+| 잡는 표시 | `jsini-drag-head` | **같은 클래스** (app.css 한 곳) |
+| 끄는 동안 | `.dxbl-popup-dragging` | `.jsini-snotice--dragging` (같은 규칙 목록) |
+| 바깥 클릭 | 닫지 않는다 | 닫지 않는다 |
+| Esc | 닫는다 | 닫는다 |
+| 최대 높이 | `86vh` · 본문만 구른다 | 같다 |
+
+**머리로만 잡는 이유가 같다** — 본문까지 잡히면 글을 끌어 고르려는 동작이 창
+옮기기로 먹혀 공지를 복사할 수 없다. 끌어 옮긴 창은 `transform` 으로 **옮긴
+거리만** 얹는다(`left`/`top` 을 주면 flex 가운데 정렬을 걷어내야 해서, 공지를
+넘겨 본문 길이가 달라질 때 자리가 튄다). 머리가 화면 위로 나가면 다시 잡을 수
+없으므로 사방 40px 은 남게 묶는다.
+
+넘기기·닫기·「오늘 하루 보지 않기」는 theme.js 의 `jsiniNotice` 가 받는다.
+그 파일은 `<head>` 에서 동기로 돌고, 팝업 바로 뒤의 인라인 `<script>` 가
+파싱되는 동안 `init` 을 부른다 — `DOMContentLoaded` 를 기다리면 회로를
+걷어낸 이유가 없어진다. 향상된 이동으로 들어온 경우만 `scanNotices` 가 받는다.
 
 ### 「한 번만 뜬다」를 부품 수명에 기대면 안 된다 (실제로 밟음)
 
@@ -365,12 +419,27 @@ FileServer 의 `PublicFileAccessFilter` 가 판정한다 — 로그인 요청이
 
 | 저장소 | 열쇠 | 무엇을 기억하나 | 언제까지 |
 |---|---|---|---|
-| sessionStorage | `jsini-notice-closed:user` · `:public` | 이 탭에서 닫았다 | 탭을 닫을 때까지 |
+| sessionStorage | `jsini-notice-closed:user` | 이 탭에서 닫았다 | 탭을 닫을 때까지 |
+| sessionStorage | `jsini-notice-closed:public` | 이 탭에서 **방금** 닫았다 | **5분** |
 | localStorage | `jsini-notice-dismissed` | 이 공지는 오늘 안 본다 | 날짜가 바뀔 때까지 |
+
+**`:public` 만 시한이 있다.** 그 표시가 막으려는 것은 하나뿐이다 — 비밀번호를
+틀려 폼이 다시 올라올 때(정적 SSR 이라 문서가 새로 로드된다) 방금 닫은 공지가
+또 뜨는 것. 그런데 값을 `'1'` 로 두었더니 **탭을 닫을 때까지** 안 떴고, 증상이
+「전체공개 공지가 로그인 전에 안 보인다」로만 보였다(실제로 신고를 받았다) —
+브라우저를 새로 열면 뜨고 그 탭에서만 안 뜨니 원인이 표시로 보이지 않는다.
+닫은 **시각**을 적고 5분만 인정한다. 옛 `'1'` 이 남은 탭은 저절로 풀린다.
 
 **공개용과 로그인용 열쇠가 따로다.** 하나로 두면 로그인 화면에서 공개 공지를
 닫은 사람이 로그인한 뒤 사내 공지를 못 본다. 그리고 로그인 화면이 뜨면
 `:user` 를 지운다 — 곧 로그인할 참이니 다시 띄워야 한다.
+
+**읽는 쪽이 둘이다.** `:user` 와 `jsini-notice-dismissed` 는 `PortalBoot` 의
+공용 왕복이 읽고, `:public` 은 **theme.js 가 읽는다**(그 값을 보는 로그인
+화면에 회로가 없다). 열쇠 글자는 그래도 `PortalBoot` 하나에만 있다 —
+로그인 화면이 `data-` 속성으로 JS 에 넘긴다. 「오늘」의 기준도 서버 날짜
+하나다(마크업의 `data-today`). 양쪽이 어긋나면 오류가 아니라 **「오늘 하루
+보지 않기가 한쪽에서만 듣는다」** 로 나온다.
 
 ## DevExpress
 
@@ -931,6 +1000,34 @@ Components/Shared/Notice.razor        화면 안내줄
   자리에 놓고 같은 아래 띠를 갖는다 — 다른 것 넷은 아래에 적어 두었다.
   **맨 `DxTreeList` 를 쓰지 않는다.** 그러면 관리 칸·아래 띠·줄무늬·가운데
   정렬을 화면마다 손으로 그리게 되고, 실제로 세 화면이 그렇게 갈라져 있었다.
+- 좌우 분할(`ad-split`)의 **판 둘은 `CommCont` 여야 한다** —
+  `<CommCont CssClass="ad-split__side">`. 높이를 채우는 규칙이
+  `.ad-split > .commcont` 를 겨누므로 맨 `<div>` 로 두면 **하나도 안 걸린다.**
+  메뉴롤 화면이 그래서 나무 안쪽 높이가 92px 이 되고 **뿌리 14개 중 한 줄만**
+  그려지고 있었다. 오류는 없고 트리 껍데기는 보이므로 증상이 「메뉴가 안
+  나온다」 하나뿐이라 원인이 판의 태그로 보이지 않는다.
+- **폭을 사용자가 정해야 하면 `ad-vsplit`** 다 — 셸 사이드바와 같은
+  `DxSplitter` 를 쓴다(admin.css). 양쪽이 필요로 하는 폭이 자료에 따라 다른
+  화면(사람롤의 이름·부서·회사)에서 26%·50% 고정은 늘 한쪽이 아쉽다.
+  둘 다 **부모가 높이를 줘야 하고**, 안 주면 오류 없이 판이 무너진다.
+
+  | | 폭 | 쓰는 곳 |
+  |---|---|---|
+  | `ad-split` | 격자 고정(26%) | 메뉴롤 · 공통코드 |
+  | `ad-vsplit` | 끌어서 정한다 | 사람롤 |
+
+- **판 안에서 `CommTree`·`CommGrd` 의 높이를 값으로 주지 않는다.** 아래 띠
+  (펼치기·엑셀)가 판 밖으로 밀려나고, 판이 `overflow: hidden` 이라 **눌러야
+  할 단추가 사라진다.** `max-height: 100%` 도 `height: 100%` 도 「부품 전체
+  높이」를 가리켜서 표가 판을 꽉 채운다 — 사람롤에서 두 번 밟았다.
+  표에 `flex: 1; min-height: 0` 을 주고 높이는 flex 에 맡긴다.
+- **`DxTabs` 안에 표·나무를 넣으면 그 부품의 상자 둘을 함께 묶어야 한다.**
+  `dxbl-tabs-content-panel` 과 `dxbl-tabs-content` 는 `min-height: auto` 인
+  flex 항목이라 **안쪽 내용보다 작아지지 않는다.** 역할 관리에서 나무를
+  펼치자 탭 뿌리는 562px 인데 그 둘이 **8579px** 로 늘어나 「권한 저장」이
+  화면 밖으로 나갔다. 나무에 `flex: 1; min-height: 0` 을 줘도 안 듣는다 —
+  **끊기는 자리가 그보다 위**다. 탭 뿌리를 세로 flex 로 만들고 두 상자에
+  `flex: 1; min-height: 0; overflow: hidden` 을 준다(admin.css `.ad-roletabs`).
 - 표의 **자료 칸은 가운데 정렬이 기본**이다. 오른쪽·왼쪽으로 두고 싶은 칸만
   `TextAlignment` 를 적는다 — 적으면 그 값이 이긴다. CSS 로 하지 않는 이유는
   DevExpress 가 **우리가 정한 것과 자기가 자료형을 보고 정한 것에 같은 클래스**를

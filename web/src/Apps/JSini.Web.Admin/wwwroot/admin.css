@@ -35,17 +35,6 @@
   margin-bottom: 0.6rem;
 }
 
-/* ── 좌우 두 판 (사용자별 권한) ─────────────────────────── */
-
-.ad-two-pane {
-  display: grid;
-  gap: 1rem;
-}
-
-@media (width >= 1024px) {
-  .ad-two-pane { grid-template-columns: 1fr 1fr; }
-}
-
 /* ── 조직도 ─────────────────────────────────────────────── */
 
 /* 캔버스와 미소속 목록이 나란히 선다. 목록을 켜면 오른쪽에 붙고 캔버스가
@@ -541,6 +530,286 @@
 .ad-runlog__line--warn .ad-runlog__msg { color: #b8860b; }
 .ad-runlog__line--error .ad-runlog__msg { color: #c0392b; }
 
+/* ── 끌어서 나누는 좌우 분할 (`ad-vsplit`) ────────────────
+
+   `ad-split`(격자)과 무엇이 다른가 — **폭을 사용자가 정한다.** 격자 쪽은
+   26% 로 못 박혀 있어서, 왼쪽에 들어오는 글자 길이가 사람마다 다른 화면
+   (사람롤의 이름·부서·회사)에서는 모자라거나 남는다.
+
+   셸의 사이드바와 **같은 부품**이다(`DxSplitter`). 그래서 치수와 규칙도
+   그쪽에서 정한 것을 그대로 따른다 — 자세한 이유는 app.css 의
+   `.jsini-shell__split` 머리말에 있고, 여기서는 그중 이 화면에 필요한
+   것만 다시 적는다.
+
+   [높이를 부모가 정해야 한다]
+
+   DxSplitter 는 자기 높이를 부모에게서 받는다. 안 주면 판이 통째로
+   안 보인다 — 메뉴롤의 나무가 한 줄만 그려지던 것과 같은 종류의,
+   **오류가 안 나는 고장**이다.
+   ---------------------------------------------------------- */
+
+@media (width >= 992px) {
+  .jsini-shell__content:has(> .ad-vsplit) {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .jsini-shell__content > .ad-vsplit {
+    flex: 1;
+    min-height: 0;
+  }
+}
+
+/* 판 안쪽 여백을 걷어낸다. 규칙과 다투지 않고 **그 규칙이 읽는 변수**를
+   덮는다 — 셸에서와 같은 방법이고, 크기 모드마다 값이 달라 자릿수를
+   넘겨야 세 모드에서 모두 걸린다. */
+.jsini-shell .ad-vsplit.dxbl-splitter {
+  --dxbl-splitter-pane-padding-x: 0;
+  --dxbl-splitter-pane-padding-y: 0;
+}
+
+.ad-vsplit > .dxbl-splitter-pane > .dxbl-splitter-pane-content {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 판 하나. **자기 안에서 구른다** — 판 밖으로 넘기면 셸 본문이
+   `overflow: hidden` 이라 잘린다. */
+.ad-vsplit__pane {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 구분선에 내용이 닿지 않게 한다. 붙어 있으면 어느 쪽 글자인지 눈이 헷갈린다. */
+.ad-vsplit__pane--left { padding-right: 0.8rem; }
+
+/* 오른쪽은 **스스로 구르지 않는다.** 안의 두 칸이 각자 구른다 —
+   판이 구르면 칸 제목까지 함께 올라가 무엇을 보고 있는지 잃는다. */
+.ad-vsplit__pane--right { padding-left: 0.8rem; overflow: hidden; }
+
+/* 왼쪽은 **제목을 붙잡고 목록만 구른다.** 통째로 구르면 「사람 (43)」이
+   올라가 버려 지금 무엇을 보고 있는지 잃는다. */
+.ad-vsplit__pane--left { overflow: hidden; }
+
+.ad-vsplit__pane--left > .ad-targets {
+  flex: 1;
+  min-height: 0;
+
+  /* 판이 이미 높이를 정해 준다. 60vh 를 그대로 두면 판보다 길어져
+     스크롤이 두 겹이 된다. */
+  max-height: none;
+}
+
+/* ── 사람롤: 오른쪽 판의 가로 두 칸 (권한 · 메뉴) ─────────
+
+   **탭이 아니라 나란히 둔다.** 역할을 걸고 나서 무엇이 열렸는지 확인하는
+   자리라, 탭으로 가르면 그 확인이 탭 왕복이 된다.
+
+   위아래로 쌓지 않는 이유는 둘 다 길어서다 — 역할 열둘과 메뉴 백 줄을
+   쌓으면 둘 다 반쪽만 보인다. **칸마다 자기 안에서 구른다.**
+   ---------------------------------------------------------- */
+
+.ad-userrole {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  gap: 1rem;
+}
+
+.ad-userrole__col {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+
+  /* 제목은 붙박이, 내용만 구른다 — 통째로 구르면 「권한 (1)」이 올라가
+     지금 무엇을 보고 있는지 잃는다. */
+  overflow: hidden;
+}
+
+/* 역할 칩 목록. 칸이 정해 준 높이 안에서 구른다. */
+.ad-userrole__col > .ad-roles {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  margin-bottom: 0;
+}
+
+/* 메뉴 나무. **58vh 어림값을 쓰지 않는다** — 칸이 높이를 정확히 주므로
+   그 값을 그대로 두면 칸 바닥과 어긋난다(길면 넘치고 짧으면 빈다).
+
+   **아래 띠가 칸 밖으로 밀려나는 것을 두 번 밟았다.** `max-height: 100%` 도
+   `height: 100%` 도 「나무 전체 높이」를 가리켜서, 줄이 120개면 표가 칸을
+   꽉 채우고 그 아래 띠(펼치기·엑셀)가 칸 밖으로 나갔다 — 칸이
+   `overflow: hidden` 이라 **눌러야 할 단추가 사라졌다.**
+
+   높이를 값으로 주지 않고 **flex 에 맡긴다.** 표는 남은 높이를 차지하고
+   (`flex: 1`), 아래 띠는 자기 높이를 지킨다(`--commtree-bar-height` 가
+   `min-height` 로 걸려 있다). 그러면 줄 수와 무관하게 늘 칸 안이다. */
+.ad-userrole__col > .commtree {
+  flex: 1;
+  min-height: 0;
+}
+
+.ad-userrole__col > .commtree > .dxbl-grid {
+  flex: 1;
+  min-height: 0;
+  height: auto;
+  max-height: none;
+}
+
+/* 좁은 화면에서는 두 칸을 위아래로 쌓는다. 나란히 두면 한 칸이 200px 이
+   되어 메뉴 이름이 다 잘린다. 그때는 쪽이 구르므로 칸이 높이를 묶지 않는다. */
+@media (width < 1200px) {
+  .ad-userrole {
+    display: block;
+    overflow-y: auto;
+  }
+
+  .ad-userrole__col {
+    display: block;
+    overflow: visible;
+  }
+
+  .ad-userrole__col > .ad-roles { overflow-y: visible; }
+
+  /* 쪽이 구르는 자리라 나무는 다시 어림값(58vh)으로 묶는다. */
+  .ad-userrole__col > .commtree > .dxbl-grid {
+    height: auto;
+    max-height: var(--commtree-max-height);
+  }
+}
+
+/* 구분선. **끌 수 있다는 것은 해 보기 전에는 보이지 않는다** — 마우스를
+   올리면 강조색을 옅게 깔아 알린다(셸 구분선과 같은 뜻이다). */
+.ad-vsplit > .dxbl-splitter-separator {
+  background: var(--jsini-border);
+}
+
+.ad-vsplit > .dxbl-splitter-separator:hover {
+  background: color-mix(in srgb, var(--jsini-accent) 55%, transparent);
+}
+
+/* 좁은 화면에서는 위아래로 쌓는다.
+
+   **판을 지우지 않고 상자만 없앤다**(`display: contents`). 마크업을 화면
+   크기로 갈아 끼우면 경계를 넘을 때마다 고른 대상과 조회 결과가 통째로
+   다시 만들어진다 — 셸이 같은 이유로 같은 방법을 쓴다.
+
+   DevExpress 가 판에 인라인으로 넣는 폭·좌표는 상자가 없어지면 아무 일도
+   하지 않는다. 구분선은 감춘다 — 끌 자리가 없다. */
+@media (width < 992px) {
+  .ad-vsplit,
+  .ad-vsplit > .dxbl-splitter-pane,
+  .ad-vsplit > .dxbl-splitter-pane > .dxbl-splitter-pane-content {
+    display: contents;
+  }
+
+  .ad-vsplit > .dxbl-splitter-separator { display: none; }
+
+  /* 쪽이 구르는 자리라 판이 스스로 높이를 묶으면 안 된다. */
+  .ad-vsplit__pane {
+    display: block;
+    overflow: visible;
+    padding: 0;
+  }
+
+  .ad-vsplit__pane--right { overflow: visible; }
+
+  .ad-vsplit__pane--left > .ad-targets { max-height: 60vh; }
+}
+
+/* ── 역할 관리: 오른쪽 판의 탭 ────────────────────────────
+
+   **사람롤과 달리 여기는 탭이다.** 그쪽은 권한과 메뉴를 가로로 나란히 두는데,
+   여기 메뉴 권한 표는 메뉴명 + 권한 열다섯 칸이라 반 폭에서는 체크박스가
+   다 잘린다. 옛 Vue 화면도 같은 이유로 탭이었다.
+
+   탭 줄은 제자리에 두고 **안쪽만 구른다.**
+   ---------------------------------------------------------- */
+
+.ad-roletabs {
+  flex: 1;
+  min-height: 0;
+
+  /* **세로 flex 로 만든다.** DevExpress 는 이 뿌리를 `display: block` 으로
+     둔다 — 그러면 아래의 내용 상자가 판 높이와 무관하게 흘러 넘친다. */
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ── 탭의 내용 상자 둘이 높이를 **안 물려준다** (실제로 밟음) ─────
+
+   증상은 「나무를 펼치면 권한 저장 단추가 화면 밖으로 사라진다」였다.
+   재어 보니 끊기는 자리가 분명했다.
+
+   | 상자 | 높이 |
+   |---|---|
+   | `.ad-roletabs` (탭 뿌리) | 562px ← 판이 정해 준 값 |
+   | `.dxbl-tabs-content-panel` | **8579px** ← 여기서 터진다 |
+   | `.dxbl-tabs-content` | 8579px |
+   | `.commtree` | 8569px |
+
+   둘 다 `min-height: auto` 인 flex 항목이라 **안쪽 내용보다 작아지지
+   않는다.** 나무가 180줄로 펼쳐지면 그만큼 그대로 늘어나고, 그 아래 띠는
+   판 밖으로 밀려난다. 나무에 `flex: 1; min-height: 0` 을 준 것만으로는
+   안 되는 이유가 이것이다 — **끊기는 자리가 그보다 위**다.
+
+   그래서 두 상자를 여기서 묶는다. 묶고 나면 나무는 자기 몫의 높이를 받아
+   DevExpress 가 안쪽에서 굴린다(칸 머리와 아래 띠는 제자리).
+   ---------------------------------------------------------- */
+
+.ad-roletabs > .dxbl-tabs-content-panel {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.ad-roletabs .dxbl-tabs-content {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.ad-roletabs__body {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding-top: 0.6rem;
+}
+
+/* 표·나무가 남은 높이를 채운다. **높이를 값으로 주지 않는다** — 아래 띠가
+   판 밖으로 밀려난다(사람롤에서 두 번 밟았다). */
+.ad-roletabs__body > .commgrd,
+.ad-roletabs__body > .commtree {
+  flex: 1;
+  min-height: 0;
+}
+
+.ad-roletabs__body > .commtree > .dxbl-grid,
+.ad-roletabs__body > .commgrd > .dxbl-grid {
+  flex: 1;
+  min-height: 0;
+  height: auto;
+  max-height: none;
+}
+
+/* 메뉴명 칸. 일괄 단추가 이름 뒤에 붙는다 — 줄바꿈되면 나무가 들쭉날쭉해진다. */
+.ad-rolemenu__name {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  white-space: nowrap;
+}
+
 /* ── 사람롤: 대상 목록 ───────────────────────────────────
 
    사람 마흔몇 명과 회사·부서를 같은 모양으로 늘어놓는다. 표로 두지 않은
@@ -662,41 +931,34 @@
   white-space: nowrap;
 }
 
-/* ── 메뉴롤 — 메뉴 고르기 ─────────────────────────────────
+/* ── 메뉴롤 — 오른쪽 판 ───────────────────────────────────
 
-   눌러서 오른쪽을 바꾸는 자리라 단추여야 한다. div 로 두면 키보드로
-   고를 수 없고, 트리 안에서는 링크처럼 보이지도 않는다.
+   표 둘과 목록 셋이 쌓인다. 좌우 분할이 판에 남은 높이를 정해 주고 셸 본문이
+   `overflow: hidden` 이라, 안쪽에서 굴리지 않으면 **아래가 통째로 잘린다** —
+   잘린 자리에 해제 단추가 있어 눌러야 할 것을 누를 수 없게 된다.
+
+   좁은 화면(≤991px)에서는 판이 위아래로 쌓이고 높이 상한이 없으므로 쪽이
+   구른다. 그때 이 상자에 높이가 없어 `overflow` 는 아무 일도 하지 않는다.
    ---------------------------------------------------------- */
 
-.ad-menupick {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-
-  /* 검색 결과가 수십 건이 된다. 오른쪽 판이 밀려 내려가지 않게 가둔다. */
-  max-height: 62vh;
+.ad-menurole {
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
 }
 
-.ad-menupick__btn {
-  display: block;
-  width: 100%;
-  padding: 0.15rem 0.3rem;
-  border: 1px solid transparent;
-  border-radius: 0.2rem;
-  background: none;
-  cursor: pointer;
-  font: inherit;
-  text-align: left;
-}
+/* 닿는 대상 표. **높이를 묶는다** — 한 메뉴에 사람 200명이 걸리는 일이 있고,
+   그러면 회사·부서 표가 화면 위로 밀려 올라가 무엇을 보고 있었는지 잃는다.
+   옛 Vue 화면이 탭마다 300px 로 못 박아 둔 것과 같은 뜻이다.
 
-.ad-menupick__btn:hover {
-  background: var(--jsini-surface-muted, rgba(127, 127, 127, 0.08));
-}
-
-.ad-menupick__btn.is-on {
-  border-color: #1976d2;
-  background: color-mix(in srgb, #1976d2 10%, transparent);
+   **이름을 `ad-targets` 로 두었다가 밟았다.** 그 이름은 사람롤의 대상 목록이
+   이미 쓰고 있어서(위 「사람롤: 대상 목록」), 여기 한 줄을 더한 것만으로
+   **다른 화면의 목록 높이가 60vh → 18rem 으로 줄었다.** 오류도 경고도 없고
+   고친 화면과 망가진 화면이 달라 알아채기 어렵다 —
+   web/CLAUDE.md 의 「이름을 새로 쓸 때 정의부터 찾는다」가 이것이다. */
+.ad-reach {
+  max-height: 18rem;
+  overflow: auto;
 }
 
 /* ── 메뉴롤 — 역할 × 권한 표 ──────────────────────────────

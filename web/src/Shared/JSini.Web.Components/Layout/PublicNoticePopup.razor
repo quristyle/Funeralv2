@@ -1,0 +1,277 @@
+@*
+    [로그인 화면의 공개 공지 — 첫 HTML 에 함께 실려 나간다]
+
+    이력: `NoticeAutoPopup Public="true"` + `DxPopup` → 여기.
+
+    [왜 갈라 놓았나 — 회로를 기다리면 늦다]
+
+    로그인 화면은 정적 SSR 이다(쿠키를 구워야 한다). 그 위에 공지 팝업만
+    대화형 섬으로 올려 두었더니, 팝업이 뜨기까지 브라우저가 이 순서를 모두
+    지나야 했다.
+
+      1. blazor.web.js (200KB) 를 받는다
+      2. DevExpress 모듈(dx-blazor-all.js **1.4MB**) 을 받아 해석한다 —
+         Blazor 는 DOMContentLoaded 를 기다리므로 이것이 끝나야 시작한다
+      3. `/_blazor/initializers` → `negotiate` → 웹소켓 → 회로 시작
+      4. 섬이 그려지고 `OnAfterRenderAsync` 에서 저장소를 읽는다 (왕복 1)
+      5. 그 다음에야 공개 공지를 읽는다 (게이트웨이 → AuthServer → DB)
+      6. 그리고 그려진다
+
+    개발 장비(왕복이 0에 가깝다)에서 재 보니 **로그인 폼이 그려진 뒤 공지가
+    뜨기까지 캐시가 다 찬 상태에서도 460ms**, 처음 들어온 사람은 800ms 였다.
+    운영은 왕복마다 실제 지연이 붙으므로 3·4번에서 더 벌어진다.
+
+    그래서 **회로를 아예 쓰지 않는다.** 공지를 서버가 읽어(통에 담아 두므로
+    대개 왕복이 없다) 팝업 마크업을 첫 HTML 에 함께 실어 보낸다. 팝업은
+    로그인 폼과 **같은 그림에** 나타난다.
+
+    [DxPopup 을 쓸 수 없다 — 프리렌더에 내용이 안 실린다]
+
+    섬을 그대로 두고 프리렌더만 켜는 길을 먼저 재 봤다. DxPopup 은 정적
+    렌더에서 껍데기만 내놓는다.
+
+        <dxbl-modal class="dxbl-modal dxbl-popup-hidden" ... inert>
+
+    제목도 본문도 없다 — 그 부품은 내용을 브라우저에서 만든다. 그래서 팝업
+    골격만 순수 HTML·CSS 로 다시 세웠다.
+
+    [그러면 두 팝업이 갈라지지 않나]
+
+    갈라질 수 있는 것은 **골격뿐**이다. 안에 들어가는 것은 로그인 뒤 팝업과
+    같은 것을 쓴다 — 본문 거르기(`NoticeHtml.Sanitize`) · 첨부 주소
+    (`FileDownload.UrlFor`) · 본문·첨부·점 표시의 CSS 클래스
+    (`jsini-notice-popup__*`)가 모두 그대로다. 새로 쓴 것은 바탕막·카드·
+    머리띠·바닥띠 넷이고, 그 넷은 DevExpress 테마에서 잰 값을 그대로 옮겼다
+    (app.css 의 `.jsini-snotice`).
+
+    [머리를 잡고 옮길 수 있다 — `CommPopup` 과 같다]
+
+    공지가 길면 창이 화면 가운데를 덮는다. 점검 안내를 보며 그 화면을 확인하는
+    식의 일이 있어 창을 옆으로 밀 수 있어야 한다.
+
+    **`CommPopup` 을 쓸 수는 없다.** 그것은 `DxPopup` 을 감싼 것이라 정적
+    렌더에서 내용이 하나도 안 나온다(위 절). 그래서 그 부품이 정해 둔 규칙을
+    이쪽에 옮겨 왔다 — 읽는 사람이 두 팝업을 같은 창으로 느끼는 것이 요점이라,
+    **고른 값이 같아야 한다.**
+
+    | | `CommPopup` | 여기 |
+    |---|---|---|
+    | 끌기 | `AllowDrag` + `AllowDragByHeaderOnly` | 머리(`jsini-drag-head`)에서만 |
+    | 잡는 표시 | `jsini-drag-head` (app.css) | **같은 클래스** |
+    | 바깥 클릭 | 닫지 않는다 | 닫지 않는다 |
+    | Esc | 닫는다 | 닫는다 |
+    | 최대 높이 | `86vh`, 본문만 구른다 | 같다 |
+    | 너비 | 화면이 준 값 | `min(640px, 100vw - 2rem)` — `NoticePopup` 과 같다 |
+
+    **머리로만 잡는다.** 본문까지 잡히면 글을 끌어 고르려는 동작이 창 옮기기로
+    먹혀서 공지를 복사할 수 없다 — `CommPopup` 이 같은 이유로 같은 선택을
+    해 두었다.
+
+    [닫아 둔 표시는 5분만 산다]
+
+    로그인 화면에서 닫으면 `jsini-notice-closed:public` 에 **닫은 시각**이
+    남는다. 그 표시가 막으려는 것은 「비밀번호를 틀려 폼이 다시 올라올 때
+    방금 닫은 공지가 또 뜨는 것」 하나뿐이라, 오래 인정하면 얻는 것 없이
+    공지만 사라진다 — 처음에 `'1'` 로 두었더니 **탭을 닫을 때까지** 안 떴고
+    그대로 신고를 받았다. 자세한 이유는 theme.js 의 `closedRecently` 에.
+
+    [단추는 순수 JS 가 받는다]
+
+    넘기기·닫기·「오늘 하루 보지 않기」는 회로 없이 돌아야 한다.
+    theme.js 의 `jsiniNotice` 가 그 일을 한다 — 그 파일은 <head> 에서 동기로
+    도므로 이 마크업이 파싱될 때 이미 있다.
+
+    [열쇠 글자를 JS 에 적지 않는다]
+
+    저장소 열쇠의 정본은 `PortalBoot` 다. 양쪽에 적으면 한쪽만 고치는 날이
+    오고, 그때 증상은 「그 표시가 조용히 안 읽힌다」다. 그래서 열쇠를
+    **마크업의 data- 속성으로 넘긴다.**
+
+    [공지가 없어도 표시 하나는 나간다]
+
+    로그인 화면을 본다는 것은 곧 로그인한다는 뜻이라, **로그인 뒤 공지를
+    닫아 둔 표시를 지워야** 다시 로그인할 때 그 공지가 또 뜬다. 옛 코드는
+    `PortalBoot.ForgetUserNoticeClosed()` 로 회로에서 지웠다. 그 일을 JS 가
+    물려받았으므로, 띄울 공개 공지가 하나도 없어도 이 부품은 **빈 표시**를
+    남긴다 — 그러지 않으면 공개 공지가 없는 날에만 그 지우기가 빠진다.
+*@
+
+@using Microsoft.Extensions.Logging
+
+@inject PublicNoticeStore Store
+@inject ILogger<PublicNoticePopup> Log
+
+<div data-jsini-notice
+     class="jsini-snotice"
+     hidden
+     data-today="@Today"
+     data-closed-key="@PortalBoot.NoticeClosedPublicKey"
+     data-forget-key="@PortalBoot.NoticeClosedUserKey"
+     data-dismissed-key="@PortalBoot.NoticeDismissedKey">
+
+    @if (_notices.Count > 0)
+    {
+        <div class="jsini-snotice__back"></div>
+
+        <div class="jsini-snotice__card" role="dialog" aria-modal="true" aria-label="공지">
+            @* 닫기(×). 머리띠 안이 아니라 카드에 붙인다 — 공지마다 머리띠가
+               따로라, 머리띠에 두면 공지 수만큼 생긴다. *@
+            <button type="button" class="jsini-snotice__x" data-act="close" aria-label="닫기">
+                <span aria-hidden="true">&times;</span>
+            </button>
+
+            @for (var page = 0; page < _notices.Count; page++)
+            {
+                var notice = _notices[page];
+
+                <article class="jsini-snotice__page" data-notice-id="@notice.Id" hidden>
+                    @* `jsini-drag-head` 는 <b>`CommPopup` 이 붙이는 것과 같은 클래스</b>다.
+                       잡는 자리의 마우스 모양·글자 선택 막기가 app.css 한 곳에만
+                       있게 하려는 것이다 — 여기서 다시 그리면 두 팝업의 「잡는
+                       느낌」이 갈라진다. *@
+                    <div class="jsini-snotice__head jsini-drag-head">
+                        <div class="jsini-notice-popup__title">
+                            <div class="jsini-tags">
+                                <span>@notice.Title</span>
+                                <span class="jsini-badge jsini-badge--on">전체공개</span>
+                            </div>
+
+                            <div class="jsini-notice-popup__meta">
+                                <span>@NoticePopup.PostedOn(notice)</span>
+
+                                @* 「공지 2 / 3」은 **JS 가 채운다.** 「오늘 하루
+                                   보지 않기」로 걸러진 것이 있으면 서버가 센
+                                   수가 틀리기 때문이다. *@
+                                <span class="jsini-snotice__count" data-count></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="jsini-snotice__scroll">
+                        @* 본문은 로그인 뒤 팝업과 **같은 거르개**를 거친다.
+                           그대로 넣으면 XSS 경로가 된다. *@
+                        <div class="jsini-notice-popup__body">
+                            @if (NoticeHtml.Sanitize(notice.Content) is { Length: > 0 } markup)
+                            {
+                                @((MarkupString)markup)
+                            }
+                            else
+                            {
+                                <p class="jsini-text-muted">내용이 없습니다.</p>
+                            }
+                        </div>
+
+                        @if (notice.Files.Count > 0)
+                        {
+                            <div class="jsini-notice-popup__files">
+                                <div class="jsini-notice-popup__files-head">첨부파일 @notice.Files.Count</div>
+
+                                <ul class="jsini-notice-popup__file-list">
+                                    @foreach (var file in notice.Files)
+                                    {
+                                        <li>
+                                            <a class="jsini-notice-popup__file"
+                                               href="@FileDownload.UrlFor(file.FileId, file.FileName)">
+                                                <span class="jsini-notice-popup__file-name">@file.FileName</span>
+                                                <span class="jsini-notice-popup__file-size">@NoticePopup.Human(file.FileSize)</span>
+                                            </a>
+                                        </li>
+                                    }
+                                </ul>
+                            </div>
+                        }
+                    </div>
+                </article>
+            }
+
+            <div class="jsini-snotice__foot jsini-notice-popup__foot">
+                <label class="jsini-snotice__check">
+                    <input type="checkbox" data-act="dismiss" />
+                    <span>오늘 하루 보지 않기</span>
+                </label>
+
+                <span class="jsini-notice-popup__gap"></span>
+
+                @* 공지가 여럿이면 어디쯤인지 점으로 보여 주고, 눌러서 바로 넘어간다.
+                   걸러진 뒤에 한 건만 남을 수 있어서 **감추는 일은 JS 가 한다** —
+                   서버는 공지 수만큼 점을 내놓고 산 것만 보인다. *@
+                @if (_notices.Count > 1)
+                {
+                    <div class="jsini-notice-popup__dots" data-dots>
+                        @for (var i = 0; i < _notices.Count; i++)
+                        {
+                            <button type="button"
+                                    class="jsini-notice-popup__dot"
+                                    data-act="goto"
+                                    data-at="@i"
+                                    title="@_notices[i].Title"
+                                    aria-label="@($"{i + 1}번째 공지")"></button>
+                        }
+                    </div>
+
+                    <button type="button" class="jsini-snotice__btn" data-act="prev">이전</button>
+                }
+
+                <button type="button" class="jsini-snotice__btn jsini-snotice__btn--primary" data-act="next">
+                    다음
+                </button>
+            </div>
+        </div>
+    }
+</div>
+
+@*
+    [문서가 파싱되는 동안 곧바로 돈다]
+
+    `DOMContentLoaded` 를 기다리면 안 된다 — 그 시점은 DevExpress 모듈
+    1.4MB 를 해석한 뒤이고, 개발 장비에서도 HTML 이 도착한 뒤 169ms 다.
+    회로를 걷어낸 이유가 바로 그 기다림이라 여기서 다시 기다릴 수 없다.
+
+    theme.js 는 <head> 에서 동기로 도므로 이 줄이 파싱될 때 이미 있다.
+    그래도 `&&` 로 막아 두는 이유는, 없을 때의 증상이 「팝업이 안 뜬다」가
+    아니라 **로그인 화면에 스크립트 오류**여서다.
+
+    향상된 이동으로 들어온 경우에는 이 줄이 돌지 않는다. 그 길은 theme.js
+    쪽의 훑기(`scanNotices`)가 받는다.
+*@
+<script>
+    window.jsiniNotice && window.jsiniNotice.init(document.querySelector('[data-jsini-notice]'));
+</script>
+
+@code {
+    private IReadOnlyList<NoticeDto> _notices = [];
+
+    /// <summary>
+    /// <b>서버 기준</b> 날짜. 「오늘 하루 보지 않기」의 하루를 가르는 값이다.
+    ///
+    /// <para>
+    /// 브라우저 날짜로 가르지 않는 이유는 <b>로그인 뒤 팝업과 같은 열쇠를
+    /// 쓰기 때문</b>이다(<c>jsini-notice-dismissed</c>). 저쪽은 회로 안이라
+    /// 서버 날짜밖에 없어서, 여기서 브라우저 날짜를 쓰면 두 팝업이 같은 값을
+    /// 서로 다른 기준으로 읽는다. 시간대가 다른 사용자는 「하루」의 경계가
+    /// 몇 시간 어긋나는데, 어긋난 결과는 공지를 한 번 더 보는 것뿐이다.
+    /// </para>
+    /// </summary>
+    private static string Today => DateTime.Now.ToString("yyyy-MM-dd");
+
+    protected override async Task OnInitializedAsync()
+    {
+        // 통이 있으면 왕복이 없다. 처음 열리는 순간에만 게이트웨이를 다녀오고,
+        // 그 왕복은 한도(2초)가 걸려 있다 — 못 읽으면 빈 목록이다.
+        // **공지를 못 읽었다고 로그인 화면을 세우지 않는다.**
+        try
+        {
+            _notices = await Store.GetAsync();
+        }
+        catch (Exception ex)
+        {
+            // 통이 이미 삼키므로 여기까지 오지 않는 것이 정상이다. 그래도
+            // 막아 두는 이유는, 새는 날 증상이 「로그인 화면이 500」이라서다.
+            Log.LogWarning(ex, "공개 공지를 읽지 못했습니다.");
+            _notices = [];
+        }
+    }
+
+    // 게시일과 파일 크기 서식은 `NoticePopup` 의 것을 그대로 쓴다. 두 팝업이
+    // 갈라져도 되는 것은 골격뿐이라, 사용자가 읽는 글자를 여기 다시 적지 않는다.
+}

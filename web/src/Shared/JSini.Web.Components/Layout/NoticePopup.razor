@@ -274,12 +274,20 @@
         await VisibleChanged.InvokeAsync(visible);
     }
 
-    /// <summary>게시일. 시작일이 있으면 그것을, 없으면 등록일을 보여 준다.</summary>
-    private static string PostedOn(NoticeDto notice) =>
+    /// <summary>
+    /// 게시일. 시작일이 있으면 그것을, 없으면 등록일을 보여 준다.
+    ///
+    /// <para>
+    /// <c>internal</c> 인 것은 <see cref="PublicNoticePopup"/> 이 같은 서식을
+    /// 쓰기 때문이다. 그쪽은 회로 없이 도는 로그인 화면용 골격이라 부품을
+    /// 나눠 쓸 수 없는데, <b>사용자가 읽는 글자만큼은 갈라지면 안 된다.</b>
+    /// </para>
+    /// </summary>
+    internal static string PostedOn(NoticeDto notice) =>
         (notice.StartAt ?? notice.CreatedAt).ToString("yyyy. MM. dd.");
 
-    /// <summary>사람이 읽는 크기.</summary>
-    private static string Human(long bytes) => bytes switch
+    /// <summary>사람이 읽는 크기. <c>internal</c> 인 이유는 위와 같다.</summary>
+    internal static string Human(long bytes) => bytes switch
     {
         >= 1024L * 1024 * 1024 => $"{bytes / 1024.0 / 1024 / 1024:0.#} GB",
         >= 1024 * 1024 => $"{bytes / 1024.0 / 1024:0.#} MB",
