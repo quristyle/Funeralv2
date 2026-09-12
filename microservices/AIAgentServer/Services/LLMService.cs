@@ -335,8 +335,10 @@ public class LLMService : ILLMService
             // 공급자에게도 "돈 드는 경로는 쓰지 마라" 를 본문으로 못 박는다.
             // 우리 판단이 틀렸거나 목록이 최신이 아니어도 여기서 막힌다.
             //
-            // `allow_fallbacks` 를 반드시 꺼야 한다 — **OpenRouter 기본값이 true** 라서
-            // 고른 경로가 막히면 알아서 다른 제공자로 넘기고, 그쪽이 무료라는 보장이 없다.
+            // 보장하는 것은 `max_price` 다 — 전부 0 이라 고를 수 있는 경로가 무료뿐이다.
+            // `allow_fallbacks` 는 켜 둔다(한때 껐다가 되돌렸다). 그 값이 바꾸는 것은
+            // 같은 모델의 상류 제공자일 뿐이고, OpenRouter 의 가격은 모델 이름에 붙는다.
+            // 자세한 것은 OpenRouterProviderPrefs 주석에.
             //
             // 이 값을 필요 없는 공급자(로컬 · Groq)에게는 보내지 않는다(null → 직렬화 제외).
             provider = provider.RequireFreeModel ? new OpenRouterProviderPrefs() : null,
