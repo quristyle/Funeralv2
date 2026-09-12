@@ -1,12 +1,11 @@
 @page "/projmng/source/glue"
 @attribute [RouteKey("projmng.source.glue")]
-@using System.Data
 
 @*
     [Glue 서비스 추적] — DB 메뉴 `/projmng/source/glue`.
     이력: 옛 Blazor `Pages/Develop/GlueTraceMng.razor` → Vue
           `views/projmng/develop/glue-trace.vue` → 여기.
-    프로시저: `sp_dev_activityinfo_exec`(조회) · `md_glue_service`(재수집)
+    API: `projmng/activity-infos` (조회) · `md_glue_service`(재수집)
 
     Glue 프레임워크의 서비스 정의(`*-service.xml` · `*.glue_sql`)를 서버가
     훑어 DB 에 쌓아 두고, 이 화면이 그것을 읽는다. 액티비티 종류가 `sql` 인
@@ -21,44 +20,71 @@
 
     [거르는 열쇠는 소스다]
 
-    이 프로시저는 `prj_rid` 를 보지 않고 `src_rid` 로만 거른다(직접 불러
-    확인했다). 그래서 조건줄의 프로젝트는 소스 목록을 좁히는 몫이고,
-    조회에 실제로 쓰이는 값은 소스다.
+    표에 프로젝트 칸이 아예 없다 — `src_rid` 로만 거른다. 그래서 조건줄의
+    프로젝트는 소스 목록을 좁히는 몫이고, 조회에 실제로 쓰이는 값은 소스다.
 
     [재수집은 되돌릴 수 없다]
 
-    「재수집」은 서버가 파일을 다시 훑어 **DB 를 덮어쓴다.** 조회가 아니라
-    바꾸는 동작이라 확인을 한 번 받는다. 권한도 조회가 아니라 수정 쪽이다.
+    「재수집」은 서버가 파일을 다시 훑어 **그 소스의 자료를 통째로 갈아
+    끼운다.** 조회가 아니라 바꾸는 동작이라 확인을 한 번 받는다. 권한도 조회가
+    아니라 수정 쪽이다.
+
+    옛 프로시저에는 **지우는 갈래가 없어서** 덮어쓰기만 했다. 그래서 파일에서
+    없어진 서비스가 DB 에 그대로 남았고, 재수집해도 사라지지 않으니 사람이 알
+    방법이 없었다. 이제 갈아 끼운다.
 *@
 
 @inherits DataPage
+@inject ActivityInfoClient Api
 @inject ProjMngClient Client
 
 <PageTitle>Glue 서비스 추적 · 프로젝트관리</PageTitle>
 
-<SearchBar>
-    <ChildContent>
-        <CodeSelect CodeId="projlist" @bind-Value="_projectCode" OnChanged="@(_ => Clear())" />
-        <SourceSelect ProjectCode="@_projectCode" @bind-Value="_sourceCode"
-                      OnChanged="@(item => OnSourceChangedAsync(item))" />
-    </ChildContent>
+<CommSch OnSearch="@SearchAsync" Busy="@Loading">
+    <Fields>
+        <CommSchItem Label="프로젝트">
+            <CodeSelect CodeId="projlist" @bind-Value="_projectCode" OnChanged="@(_ => Clear())" />
+        </CommSchItem>
+
+        <CommSchItem Label="소스">
+            <SourceSelect ProjectCode="@_projectCode" @bind-Value="_sourceCode"
+                          OnChanged="@(item => OnSourceChangedAsync(item))" />
+        </CommSchItem>
+    </Fields>
     <Actions>
-        <PermissionView Action="MenuAction.Search">
-            <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@SearchAsync" />
-        </PermissionView>
         <PermissionView Action="MenuAction.Update">
-            <DxButton Text="재수집" RenderStyle="ButtonRenderStyle.Secondary" Click="@(() => _confirmRecollect = true)" />
+            <DxButton Text="재수집" RenderStyle="ButtonRenderStyle.Secondary"
+                      Click="@(() => _confirmRecollect = true)" />
         </PermissionView>
     </Actions>
-</SearchBar>
+</CommSch>
 
 <PageNotice Text="@Notice" Tone="@Tone" />
 
 <SplitPane Size="55">
     <First>
-        <DynamicGrid Data="@_grid.Data" Loading="@_grid.IsLoading" ExportName="glue추적"
-                     HiddenCols="src_rid" HideAdd="true" OnRefresh="@SearchAsync"
-                     OnRowClick="@OnRowPicked" />
+        <CommCont Title="Glue 서비스" Hint="@($"{_rows.Count}건")">
+            <CommGrd TItem="ActivityInfoDto"
+                     Data="@_rows"
+                     ExportName="glue추적"
+                     PageSize="30"
+                     EmptyText="그 소스에 쌓인 Glue 자료가 없습니다."
+                     Reload="@SearchAsync"
+                     SelectedItem="@_picked"
+                     SelectedItemChanged="@PickAsync">
+                <Columns>
+                    <DxGridDataColumn FieldName="@nameof(ActivityInfoDto.ServiceName)" Caption="서비스" MinWidth="170"
+                                      TextAlignment="GridTextAlignment.Left" />
+                    <DxGridDataColumn FieldName="@nameof(ActivityInfoDto.TransitionName)" Caption="전이" Width="120" />
+                    <DxGridDataColumn FieldName="@nameof(ActivityInfoDto.ActivityType)" Caption="종류" Width="80" />
+                    <DxGridDataColumn FieldName="@nameof(ActivityInfoDto.ProcedureName)" Caption="프로시저" MinWidth="150"
+                                      TextAlignment="GridTextAlignment.Left" />
+                    <DxGridDataColumn FieldName="@nameof(ActivityInfoDto.Dao)" Caption="DAO" MinWidth="130"
+                                      TextAlignment="GridTextAlignment.Left" />
+                    <DxGridDataColumn FieldName="@nameof(ActivityInfoDto.ResultKey)" Caption="결과 키" Width="120" />
+                </Columns>
+            </CommGrd>
+        </CommCont>
     </First>
     <Second>
         @if (_query is null)
@@ -93,7 +119,8 @@
 </CommPopup>
 
 @code {
-    private ProcGrid _grid = default!;
+    private IReadOnlyList<ActivityInfoDto> _rows = [];
+    private ActivityInfoDto? _picked;
 
     private string? _projectCode;
     private string? _sourceCode;
@@ -102,11 +129,6 @@
 
     private string? _query;
     private string? _queryOf;
-
-    protected override void OnInitialized()
-    {
-        _grid = new ProcGrid(Client, "sp_dev_activityinfo_exec");
-    }
 
     private async Task OnSourceChangedAsync(SourceItem? item)
     {
@@ -120,6 +142,7 @@
 
     private void Clear()
     {
+        _picked = null;
         _query = null;
         _queryOf = null;
     }
@@ -133,50 +156,38 @@
 
         Clear();
 
-        await _grid.LoadAsync(new Dictionary<string, object?>
-        {
-            ["req_type"] = "srch",
-            ["prj_rid"] = _projectCode ?? string.Empty,
-            ["src_rid"] = _sourceCode,
-        });
-
-        return _grid.Data.Table.Rows.Count;
+        _rows = await Api.ListAsync(_sourceCode);
+        return _rows.Count;
     }, "그 소스에 쌓인 Glue 자료가 없습니다. 「재수집」으로 모을 수 있습니다.", "Glue 자료를 읽지 못했습니다");
 
     /// <summary>
-    /// 고른 행의 쿼리.
+    /// 고른 줄의 쿼리.
     ///
-    /// 종류가 <c>sql</c> 인 행만 본문이 있다. 나머지(<c>proc</c>)는 프로시저
+    /// 종류가 <c>sql</c> 인 줄만 본문이 있다. 나머지(<c>proc</c>)는 프로시저
     /// 이름만 있고 본문은 DB 쪽에 있다 — 옛 화면도 그래서 비워 두었다.
     /// </summary>
-    private void OnRowPicked(DataRow? row)
+    private Task PickAsync(ActivityInfoDto? row)
     {
-        if (row is null)
+        _picked = row;
+
+        if (row is null || !row.HasQuery)
         {
-            Clear();
-            return;
+            _query = null;
+            _queryOf = null;
+            return Task.CompletedTask;
         }
 
-        var type = Cell(row, "activity_type");
+        _query = row.ActiveContext;
+        _queryOf = $"{row.ServiceName} · {row.TransitionName}";
 
-        if (!string.Equals(type, "sql", StringComparison.OrdinalIgnoreCase))
-        {
-            Clear();
-            return;
-        }
-
-        _query = Cell(row, "active_context");
-        _queryOf = $"{Cell(row, "servicename")} · {Cell(row, "transitionname")}";
+        return Task.CompletedTask;
     }
-
-    private static string Cell(DataRow row, string column) =>
-        row.Table.Columns.Contains(column) ? row[column]?.ToString() ?? string.Empty : string.Empty;
 
     /// <summary>
     /// 서버가 파일을 다시 훑어 DB 를 채운다.
     ///
     /// 결과 자체는 비어서 온다(수집만 하고 돌려주지 않는다). 그래서 끝난 뒤
-    /// 목록을 **다시 읽어** 얼마나 쌓였는지 보여 준다 — 안 그러면 사용자가
+    /// 목록을 <b>다시 읽어</b> 얼마나 쌓였는지 보여 준다 — 안 그러면 사용자가
     /// 무엇이 달라졌는지 알 수 없다.
     /// </summary>
     private async Task RecollectAsync()

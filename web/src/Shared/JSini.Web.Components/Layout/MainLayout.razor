@@ -2,15 +2,17 @@
     포털 레이아웃. DevExpress 데모(demos.devexpress.com/blazor)의 껍데기를 본떴다.
 
         ┌──────────────────────────────────────────────────────┐
-        │ ☰  JSini            [즐겨찾기 새로고침 전체화면 알림] [테마] [사용자] │  헤더
+        │ ☰ JSini │ 프로젝트관리 › WBS   [도구] [테마] [사용자] │  헤더
         ├───────────────┬──────────────────────────────────────┤
         │ 🔍 메뉴 검색  │ [탭] [탭] [탭]                        │  탭 줄
         │ ★ 즐겨찾기    ├──────────────────────────────────────┤
-        │ ▸ 장례식장    │ 홈 › 프로젝트관리 › 프로젝트 › WBS     │  브레드크럼
-        │ ▸ 헬프데스크  ├──────────────────────────────────────┤
+        │ ▸ 장례식장    │                                      │
+        │ ▸ 헬프데스크  │            @Body                      │
         │ ▸ …           │                                      │
-        │               │            @Body                      │
         └───────────────┴──────────────────────────────────────┘
+
+    **브레드크럼은 헤더 안이다.** 제 줄로 두던 것을 로고 옆으로 올렸다 —
+    헤더 오른쪽이 늘 비어 있어서, 거기 얹으면 본문이 3rem 을 되찾는다.
 
     [모듈은 이 파일을 모른다]
 
@@ -55,6 +57,7 @@
 @inject PortalBootstrap Bootstrap
 @inject PortalBoot Boot
 @inject PortalTabs Tabs
+@inject MenuReveal Reveal
 @inject AuthenticationStateProvider AuthState
 @inject NavigationManager Navigation
 @inject IJSRuntime Js
@@ -94,6 +97,14 @@
                 <span class="jsini-header__brand-text" title="@roles">@roles</span>
             }
         </a>
+
+        @* 지금 화면의 위치. **제 줄을 쓰지 않고 로고 옆에 얹는다** — 헤더
+           오른쪽은 도구 단추가 끝에 붙어 가운데가 늘 비어 있고, 본문 위에
+           제 줄로 두면 헤더·탭 줄과 합쳐 9rem 이 본문 앞에서 사라진다.
+           까닭은 `Breadcrumb.razor` 머리말에 있다.
+
+           **spacer 앞이다.** 뒤에 두면 밀려서 도구 단추에 붙는다. *@
+        <Breadcrumb Trail="@_trail" />
 
         <div class="jsini-header__spacer"></div>
 
@@ -140,8 +151,6 @@
             <DxSplitterPane>
                 <div class="jsini-shell__main">
                     <TabBar />
-
-                    <Breadcrumb Trail="@_trail" />
 
                     <main class="jsini-shell__content">
                         @* 옮기는 동안 본문을 덮는다. **본문 안에 둔다** — 머리줄·
@@ -218,6 +227,10 @@
         Navigation.LocationChanged += OnLocationChanged;
         _navigating = Navigation.RegisterLocationChangingHandler(OnNavigating);
 
+        // 브레드크럼을 눌렀다. 사이드바가 접혀 있으면 **여기서 편다** —
+        // 트리 쪽에서는 못 한다. 접힘은 이 레이아웃이 들고 있는 상태다.
+        Reveal.Requested += OnMenuRevealRequested;
+
         // 헤더의 권한 그룹이 이 값으로 그려진다. 내 정보는 부트스트랩이
         // 끝나야 실리므로, 안 듣고 있으면 **그다음 렌더가 올 때까지 비어
         // 있다** — 메뉴를 한 번 누르기 전에는 로고 옆이 빈 채로 남는다.
@@ -225,6 +238,27 @@
     }
 
     private void OnMeChanged() => InvokeAsync(StateHasChanged);
+
+    /// <summary>
+    /// 브레드크럼이 「이 메뉴를 사이드바에서 보여 달라」고 했다.
+    /// <b>이쪽이 할 일은 판을 펴는 것 하나다</b> — 어느 가지를 펼지는
+    /// <c>SidebarMenu</c> 가 같은 부탁을 받아 처리한다.
+    /// </summary>
+    /// <remarks>
+    /// 휴대폰에서도 편다. 그때 사이드바는 본문을 덮지만, 「메뉴를 보여
+    /// 달라」고 누른 참이라 그것이 바라는 것이다 — 화면을 옮기면
+    /// <c>OnLocationChanged</c> 가 다시 접는다.
+    /// </remarks>
+    private void OnMenuRevealRequested(string path) => InvokeAsync(() =>
+    {
+        if (_sidebarOpen)
+        {
+            return;
+        }
+
+        _sidebarOpen = true;
+        StateHasChanged();
+    });
 
     /// <summary>
     /// **토큰이 먼저다.** 게이트웨이를 부르려면 있어야 하고, 이 값은
@@ -632,6 +666,7 @@
     {
         Menus.MenusChanged -= OnMenusChanged;
         Navigation.LocationChanged -= OnLocationChanged;
+        Reveal.Requested -= OnMenuRevealRequested;
         _navigating?.Dispose();
         Me.Changed -= OnMeChanged;
         _watermarkWatch?.Dispose();

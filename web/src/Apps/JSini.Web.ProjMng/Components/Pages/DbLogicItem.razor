@@ -5,50 +5,96 @@
     [DB 로직 항목]
 
     이력: 옛 Blazor `Pages/Sys/DbLogicItem.razor` (`/db-logic-item`)
-          → Vue `views/projmng/sys/db-logic-item.vue` → 여기.
-    프로시저: `sp_devsqlresp_base_exec`
+          → Vue `views/projmng/sys/db-logic-item.vue` → `DynamicGrid` +
+          `sp_devsqlresp_base_exec` → **여기 (`CommGrd` + REST)**
+    API: `projmng/db-logics`
 
-    [DB 로직] 화면이 쓰는 항목의 뼈대를 관리한다 — 어떤 이름의 시스템 쿼리가
-    있는지, 그 기본값은 무엇인지. 여기 항목이 있어야 DB 종류별 쿼리를 등록할 수 있다.
+    시스템 질의의 **이름표만** 본다. 어떤 이름의 질의가 있고 몇 가지 DB 종류에
+    등록돼 있는지가 한눈에 들어온다.
+
+    ────────────────────────────────────────────────────────────
+    [DB 로직 관리와 무엇이 다른가]
+
+    거의 같다. 옛 Vue 가 두 화면을 두었고 **둘 다 같은 프로시저를 아무 조건
+    없이 불렀다** — 화면도 글자 하나까지 같았다.
+
+    지금은 [DB 로직 관리]가 이름표 옆에 **그 이름표의 DB 종류별 SQL** 을 함께
+    보여 준다. 그쪽이 고치는 자리고, 여기는 **훑어보는 자리**다 — 그래서 여기서
+    지울 수 없게 두었다. 지우는 일은 딸린 질의를 함께 봐야 하는 일이다.
 *@
 
 @inherits DataPage
-@inject ProjMngClient Client
+@inject DbLogicClient Api
 
 <PageTitle>DB 로직 항목 · 프로젝트관리</PageTitle>
 
+<PageNotice Tone="NoticeTone.Info"
+            Text="이름표만 봅니다. DB 종류별 질의를 고치려면 [DB 로직 관리]로 갑니다." />
+
 <PageNotice Text="@Notice" Tone="@Tone" />
 
-<DynamicGrid Data="@_grid.Data"
-             Loading="@_grid.IsLoading"
+<CommCont Title="질의 이름표" Hint="@Hint">
+    <CommGrd TItem="DbLogicBaseDto"
+             Data="@_rows"
+             EditFormTitle="이름표"
              ExportName="DB로직항목"
-             OnRefresh="@SearchAsync"
+             PageSize="30"
+             EmptyText="등록된 이름표가 없습니다."
              OnSave="@SaveAsync"
-             OnDelete="@DeleteAsync" />
+             Reload="@SearchAsync">
+        <Columns>
+            <DxGridDataColumn FieldName="@nameof(DbLogicBaseDto.Sort)" Caption="순서" Width="70" />
+            <DxGridDataColumn FieldName="@nameof(DbLogicBaseDto.DslCd)" Caption="이름" Width="200"
+                              TextAlignment="GridTextAlignment.Left" />
+            <DxGridDataColumn FieldName="@nameof(DbLogicBaseDto.Comm)" Caption="설명" MinWidth="200"
+                              TextAlignment="GridTextAlignment.Left" />
+
+            <DxGridDataColumn Caption="등록된 DB 종류" Width="130">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var b = (DbLogicBaseDto)cell.DataItem;
+                    }
+                    @* 0 이면 그 이름으로 물었을 때 어느 DB 에서도 답이 없다는 뜻이다. *@
+                    <span class="jsini-badge @(b.QueryCount > 0 ? "jsini-badge--on" : "jsini-badge--off")">
+                        @b.QueryCount
+                    </span>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+        </Columns>
+
+        <EditFormTemplate Context="edit">
+            @{
+                var b = (DbLogicBaseDto)edit.EditModel;
+            }
+            <DxFormLayout CssClass="pm-editform">
+                <DxFormLayoutItem Caption="이름" ColSpanMd="6">
+                    <DxTextBox @bind-Text="b.DslCd" NullText="필수 — tablelist · proclist …" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="순서" ColSpanMd="6">
+                    <DxSpinEdit @bind-Value="b.Sort" NullText="비우면 999" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="설명" ColSpanMd="12">
+                    <DxTextBox @bind-Text="b.Comm" />
+                </DxFormLayoutItem>
+            </DxFormLayout>
+        </EditFormTemplate>
+    </CommGrd>
+</CommCont>
 
 @code {
-    private ProcGrid _grid = default!;
+    private IReadOnlyList<DbLogicBaseDto> _rows = [];
 
-    protected override void OnInitialized() =>
-        _grid = new ProcGrid(Client, "sp_devsqlresp_base_exec");
+    private string Hint => $"{_rows.Count(r => r.QueryCount == 0)}건은 질의가 없습니다 / 전체 {_rows.Count}건";
 
     protected override Task OnInitializedAsync() => SearchAsync();
 
     private Task SearchAsync() => LoadAsync(async () =>
     {
-        await _grid.LoadAsync(new Dictionary<string, object?>());
-        return _grid.Data.Table.Rows.Count;
-    }, "조회 결과가 없습니다.", "조회하지 못했습니다");
+        _rows = await Api.ListAsync();
+        return _rows.Count;
+    }, "등록된 이름표가 없습니다.", "이름표를 읽지 못했습니다");
 
-    private async Task SaveAsync()
-    {
-        if (await RunAsync(() => _grid.SaveAsync(),
-                "저장했습니다.", "저장하지 못했습니다"))
-        {
-            Say(_grid.LastMessage ?? "저장했습니다.");
-        }
-    }
-
-    private Task DeleteAsync(System.Data.DataRow row) =>
-        RunAsync(() => _grid.DeleteAsync(row), "삭제했습니다.", "삭제하지 못했습니다");
+    private Task SaveAsync((DbLogicBaseDto Item, bool IsNew) e) => Api.SaveAsync(e.Item);
 }

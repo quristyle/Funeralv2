@@ -4,77 +4,333 @@
 @*
     [유즈케이스]
 
-    이력: 옛 Blazor `Pages/Proj/ProjUseCase.razor` → Vue `views/projmng/proj/use-case.vue` → 여기.
-    프로시저: `sp_dev_proj_prop_exec` (`prj_pkey='usecase'`)
+    이력: 옛 Blazor `Pages/Proj/ProjUseCase.razor` → Vue
+          `views/projmng/proj/use-case.vue` → `sp_dev_proj_prop_exec`
+          → **여기 (REST)**
+    API: `projmng/project-props` (`propType = USE_CASE`)
 
-    **프로젝트 속성**에 붙는다 — DB 가 아니라 프로젝트 단위라 조건이 하나뿐이다.
+    **프로젝트 속성**에 붙는다 — DB 가 아니라 프로젝트 단위다.
 
     ERD 와 달리 **원본에서 끌어올 목록이 없다.** 그림 자체가 사람이 그린 것이라
     저장본을 읽어 그대로 그리고, 편집한 결과를 같은 자리에 되돌려 쓴다.
+
+    ────────────────────────────────────────────────────────────
+    [이 화면은 지금까지 아무것도 못 읽고 있었다]
+
+    프로시저에 넘기던 이름이 **그 프로시저에 없는 이름**이었다 —
+    화면은 `prj_pkey` · `prj_pvalue` · `prj_prid` 를 보냈는데 표의 칸은
+    `prop_cd` · `prop_val` 이고 번호 칸은 아예 없다. 그래서
+
+    - 불러오기는 늘 **빈 그림**이었다(값 칸을 못 찾으니 빈 글자를 파싱했다).
+    - 저장은 **값이 빠진 채** 나갔다.
+
+    오류가 안 나는 종류의 어긋남이라, 화면만 보면 「아직 안 그렸구나」로 읽힌다.
+    운영 자료에는 유즈케이스가 **20건 들어 있다.**
+
+    [옛 도구의 그림을 옮겼다 — 2026-09-13]
+
+    그 20건이 전부 옛 도구(draw.io)의 `<mxGraphModel>` XML 이었다. 이쪽
+    파서에 넣으면 **조용히 빈 그림**이 되므로 한동안은 저장만 막아 두었는데
+    (아래 `_legacy`), 막는 것은 잃지 않게 할 뿐 보이게 하지는 않는다.
+
+    `scripts/projmng-drawio-to-diagram.py` 가 도형 281개·관계선 123개를
+    이쪽 형식으로 옮겼다. **원본은 지우지 않았다** —
+    같은 줄이 `prop_type = 'USE_CASE_MXGRAPH'` 로 한 벌 남아 있고, 그 갈래는
+    이 화면이 읽지 않는다.
+
+    `_legacy` 판정은 그대로 둔다. 지금 남은 것은 없지만, 누군가 다시 XML 을
+    붙여 넣으면 같은 일이 반복된다.
+
+    [그림이 프로젝트마다 여럿이다]
+
+    옛 화면은 프로젝트 하나에 그림 하나(`usecase`)라고 보았는데, 실제 자료는
+    **이름이 곧 그림 한 장**이다(`인터페이스` · `새배치` · `부서안전평가` …).
+    그래서 이름을 고르는 칸을 두었다.
+
+    **이름은 열쇠라 고칠 수 없다.** 다른 이름으로 저장하면 새 그림이 하나
+    생기고 옛 그림은 그대로 남는다 — 이름 바꾸기가 아니라 복제다.
 *@
 
 @inherits DataPage
-@inject ProjMngClient Client
+@inject ProjectPropClient Api
 
 <PageTitle>유즈케이스 · 프로젝트관리</PageTitle>
 
-<SearchBar>
-    <ChildContent>
-        <CodeSelect CodeId="projlist" @bind-Value="_projectCode" />
-    </ChildContent>
+<CommSch OnSearch="@LoadDiagramAsync" SearchText="불러오기" Busy="@Loading">
+    <Fields>
+        <CommSchItem Label="프로젝트">
+            <CodeSelect CodeId="projlist" @bind-Value="_projectCode"
+                        OnChanged="@(_ => LoadNamesAsync())" />
+        </CommSchItem>
+
+        <CommSchItem Label="그림">
+            @* 이름 하나가 그림 한 장이다(머리말). 새 이름을 적으면 새 그림이 되고,
+               이름을 바꾸면 옛 판정(덮어쓰기 막음)이 남지 않게 지운다. *@
+            <DxComboBox Data="@_names" Value="@_name"
+                        ValueChanged="@((string? v) => PickNameAsync(v))"
+                        AllowUserInput="true" ValidationEnabled="false"
+                        NullText="그림 이름" CssClass="pm-code-select" />
+        </CommSchItem>
+    </Fields>
+
     <Actions>
         <DxButton Text="축소" RenderStyle="ButtonRenderStyle.Secondary" Click="@ZoomOutAsync" />
         <DxButton Text="확대" RenderStyle="ButtonRenderStyle.Secondary" Click="@ZoomInAsync" />
         <DxButton Text="맞춤" RenderStyle="ButtonRenderStyle.Secondary" Click="@FitAsync" />
 
-        <PermissionView Action="MenuAction.Search">
-            <DxButton Text="불러오기" RenderStyle="ButtonRenderStyle.Primary" Click="@LoadDiagramAsync" />
-        </PermissionView>
         <PermissionView Action="MenuAction.Update">
-            <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Success" Click="@SaveDiagramAsync" />
+            @* 도형을 만드는 것은 도구상자가 맡는다. 여기에는 **고른 것에
+               하는 일**만 둔다. *@
+            @* 캔버스에서 Delete 로도 같은 일을 한다. 단추를 함께 두는 것은
+               그 키가 있다는 것을 알려 주기 위해서다. *@
+            <DxButton Text="선택 지우기" RenderStyle="ButtonRenderStyle.Secondary"
+                      Click="@DeleteSelectionAsync" />
+
+            <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Success"
+                      Enabled="@(!_legacy && !Loading)" Click="@SaveDiagramAsync" />
         </PermissionView>
     </Actions>
-</SearchBar>
+</CommSch>
+
+
+@* 조작법을 화면에 적어 둔다. 그리는 화면인데 단추만 있으면 **끌어 잇는 것과
+   더블클릭으로 이름 붙이는 것**을 알 길이 없다. *@
+<PageNotice Tone="NoticeTone.Info"
+            Text="「도형 추가」로 새 도형을 만들고, 도형을 더블클릭해 이름을 고칩니다(표에서 온 도형의 이름은 DB 가 정본이라 [테이블·컬럼 설명 관리]에서 고칩니다). 도형 가장자리에서 다른 도형으로 끌면 관계선이 생기고, 선도 더블클릭해 이름을 붙입니다. 고른 것은 Delete 로 지웁니다. 도구상자의 도형은 캔버스로 끌어다 놓을 수 있고, 클립보드에 담긴 그림은 캔버스 위에서 Ctrl+V 로 붙여넣습니다(그림 파일을 끌어다 놓아도 됩니다). 바꾼 것은 「저장」을 눌러야 남습니다." />
+
+@if (_dirty)
+{
+    <PageNotice Tone="NoticeTone.Warning"
+                Text="저장하지 않은 변경이 있습니다. 「저장」을 누르지 않고 나가면 사라집니다." />
+}
 
 <PageNotice Text="@Notice" Tone="@Tone" />
 
-<div class="pm-diagram-host">
-    <DiagramViewer @ref="_diagram" Height="100%" />
+<div class="pm-palette">
+    <span class="pm-palette__label">정렬</span>
+
+    <DxButton Text="계층" RenderStyle="ButtonRenderStyle.Secondary" Click="@(() => ArrangeAsync("hierarchy"))" />
+    <DxButton Text="유기" RenderStyle="ButtonRenderStyle.Secondary" Click="@(() => ArrangeAsync("organic"))" />
+    <DxButton Text="원형" RenderStyle="ButtonRenderStyle.Secondary" Click="@(() => ArrangeAsync("circle"))" />
+    <DxButton Text="격자" RenderStyle="ButtonRenderStyle.Secondary" Click="@(() => ArrangeAsync("grid"))" />
+
+    @* 배치를 새로 짜지 않고 **겹친 것만** 밀어낸다. *@
+    <DxButton Text="고루 펼치기" RenderStyle="ButtonRenderStyle.Secondary" Click="@SpreadAsync" />
+</div>
+
+<div class="pm-canvas">
+
+    @* 도구상자. 핀을 꽂으면 그림 옆에 자리를 차지하고, 빼면 위에 뜬다. *@
+    <DiagramTools Viewer="@_diagram" Shapes="@_shapes" EdgeStyles="@_edgeStyles"
+                  @bind-Open="_toolsOpen" @bind-Pinned="_toolsPinned"
+                  OnShape="@AddShapeAsync" OnEdgeStyle="@StyleEdgeAsync" />
+
+    <div class="pm-diagram-host">
+        @if (Loading)
+        {
+            @* 물어보는 동안 그림은 옛 그대로다. 눌린 것인지 알 수 없으면
+               사람은 다시 누른다 — 덮개가 그것을 막는다. *@
+            <div class="pm-diagram-loading">불러오는 중…</div>
+        }
+
+        <DiagramViewer @ref="_diagram" Height="100%" OnChanged="@(() => _dirty = true)"
+                       OnNotice="@(text => Say(text, NoticeTone.Info))" />
+    </div>
 </div>
 
 @code {
-    private const string Proc = "sp_dev_proj_prop_exec";
-    private const string PropKey = "usecase";
+    /// <summary>도구상자에 놓을 도형 목록. **JS 가 정본**이라 거기서 받아 온다.</summary>
+    private IReadOnlyList<DiagramViewer.DiagramShape> _shapes = [];
+
+    /// <summary>도구상자의 「선」 칸.</summary>
+    private IReadOnlyList<DiagramViewer.DiagramShape> _edgeStyles = [];
+
+    /// <summary>도구상자가 보이는가. 숨기면 손잡이만 남는다.</summary>
+    private bool _toolsOpen = true;
+
+    /// <summary>
+    /// 핀이 꽂혀 있는가. <b>꽂히면 그림 옆에 자리를 차지하고</b>, 빼면 그림
+    /// 위에 뜬다. 기본은 꽂힘 — 떠 있으면 그 자리에 도형을 놓을 수 없다.
+    /// </summary>
+    private bool _toolsPinned = true;
+
+
+    /// <summary>
+    /// 겹친 것만 밀어내 고루 펼친다. <b>배치를 새로 짜지 않는다</b> —
+    /// 사람이 놓아 둔 자리는 그대로 둔다.
+    /// </summary>
+    private async Task SpreadAsync()
+    {
+        if (_diagram is null) return;
+
+        var moved = await _diagram.SpreadAsync();
+
+        if (moved > 0)
+        {
+            _dirty = true;
+        }
+    }
+
+
+    /// <summary>
+    /// 보기 좋게 펼친다. <b>관계선이 없으면 격자로 떨어진다</b> — 그 사실을
+    /// 말해 주지 않으면 「눌렀는데 아무 일도 없다」로 보인다.
+    /// </summary>
+    private async Task ArrangeAsync(string kind)
+    {
+        if (_diagram is null) return;
+
+        var used = await _diagram.ArrangeAsync(kind);
+        _dirty = true;
+
+        if (used == "grid" && kind != "grid")
+        {
+            Say("관계선이 없어 격자로 놓았습니다. 계층·유기 배치는 이어진 선이 있어야 합니다.",
+                NoticeTone.Info);
+        }
+    }
+
+    private async Task AddShapeAsync(string kind)
+    {
+        if (_diagram is null) return;
+
+        await _diagram.AddEntityAsync(kind: kind);
+    }
+
+    /// <summary>고른 선의 모양을 바꾼다. 선을 안 골랐으면 그렇게 말해 준다.</summary>
+    private async Task StyleEdgeAsync(string kind)
+    {
+        if (_diagram is null) return;
+
+        var changed = await _diagram.StyleEdgeAsync(kind);
+
+        if (changed == 0)
+        {
+            Say("먼저 캔버스에서 선을 고르십시오.", NoticeTone.Info);
+            return;
+        }
+
+        _dirty = true;
+    }
+
+    /// <summary>
+    /// 도구상자 목록을 받아 둔다. <b>그림 부품이 생긴 뒤에만</b> 물을 수 있다 —
+    /// 그 목록은 JS 모듈 안에 있고, 모듈은 부품이 처음 그려질 때 실린다.
+    /// </summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || _diagram is null || _shapes.Count > 0)
+        {
+            return;
+        }
+
+        _shapes = await _diagram.ShapesAsync();
+        _edgeStyles = await _diagram.EdgeStylesAsync();
+        StateHasChanged();
+    }
+
+    /// <summary>이 화면이 다루는 속성 갈래. 열쇠의 한 칸이다.</summary>
+    private const string PropType = "USE_CASE";
 
     private DiagramViewer? _diagram;
-    private string? _projectCode;
 
-    /// <summary>저장본의 행 키. 저장할 때 같은 행을 갱신하려면 필요하다.</summary>
-    private string _propRowId = string.Empty;
+    /// <summary>
+    /// 캔버스를 고쳤는데 아직 저장 안 했다. 그림은 저장 단추를 눌렀을 때만
+    /// 모델로 되돌아가므로, 그 사실을 화면이 말해 주지 않으면 사람이 배치를
+    /// 잃는다.
+    /// </summary>
+    private bool _dirty;
+
+    /// <summary>
+    /// 저장본이 <b>옛 도구(draw.io)의 XML</b> 인가. 그러면 저장을 막는다 —
+    /// 여기서 만든 JSON 으로 덮어쓰면 그 그림은 되돌릴 수 없다.
+    /// </summary>
+    private bool _legacy;
+
+    private string? _projectCode;
+    private string? _name;
+
+    /// <summary>고른 프로젝트에 저장된 그림 이름들.</summary>
+    private List<string> _names = [];
 
     private Task ZoomInAsync() => _diagram?.ZoomInAsync() ?? Task.CompletedTask;
+    private Task DeleteSelectionAsync() => _diagram?.DeleteSelectionAsync() ?? Task.CompletedTask;
     private Task ZoomOutAsync() => _diagram?.ZoomOutAsync() ?? Task.CompletedTask;
     private Task FitAsync() => _diagram?.FitAsync() ?? Task.CompletedTask;
 
-    private Task LoadDiagramAsync()
+    /// <summary>
+    /// 이름 목록을 채운다. <b>그림은 아직 안 읽는다</b> — 어느 것을 열지는
+    /// 사람이 고른다(첫 것을 열어 두면 큰 그림에서 기다림이 길다).
+    /// </summary>
+    private Task LoadNamesAsync()
     {
+        _name = null;
+        _legacy = false;
+
         if (string.IsNullOrWhiteSpace(_projectCode))
         {
-            Say("프로젝트를 먼저 고르십시오.", NoticeTone.Warning);
+            _names = [];
             return Task.CompletedTask;
         }
 
         return LoadAsync(async () =>
         {
-            var saved = await Client.DbContAsync(Proc, SavedParams());
-            var first = saved.Rows?.FirstOrDefault();
+            var props = await Api.ListAsync(_projectCode, propType: PropType);
 
-            _propRowId = Pick(first, "prj_prid");
-            var model = ErdModel.Parse(Pick(first, "prj_pvalue"));
+            _names = [.. props.Select(p => p.PropCd ?? string.Empty).Where(n => n.Length > 0)];
+            _name = _names.FirstOrDefault();
+
+            return _names.Count;
+        }, "이 프로젝트에 저장된 유즈케이스가 없습니다. 이름을 적고 그려서 저장하십시오.",
+           "유즈케이스 목록을 읽지 못했습니다");
+    }
+
+    /// <summary>이름을 바꾸면 저장 막음을 푼다 — 다른 그림은 다른 형식일 수 있다.</summary>
+    private Task PickNameAsync(string? name)
+    {
+        _name = name;
+        _legacy = false;
+
+        return Task.CompletedTask;
+    }
+
+    private Task LoadDiagramAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_projectCode) || string.IsNullOrWhiteSpace(_name))
+        {
+            Say("프로젝트와 그림 이름을 고르십시오.", NoticeTone.Warning);
+            return Task.CompletedTask;
+        }
+
+        return LoadAsync(async () =>
+        {
+            var saved = await Api.ListAsync(_projectCode, _name, PropType);
+            var raw = saved.FirstOrDefault()?.PropVal;
+
+            // 옛 도구(draw.io)의 XML 이면 파서가 **조용히 빈 그림**을 준다.
+            // 그것을 「아직 안 그렸다」로 읽은 사람이 새로 그려 저장하면 옛
+            // 그림이 사라진다.
+            //
+            // **운영 자료 20건은 2026-09-13 에 옮겼다**(머리말). 지금 이
+            // 갈래로 들어올 것은 누군가 XML 을 다시 붙여 넣은 경우뿐이다.
+            _legacy = ErdModel.IsLegacyDrawing(raw);
+
+            if (_legacy)
+            {
+                Say("옛 도구(draw.io)로 그린 그림입니다. 여기서는 열지 못하고, 덮어쓰지 않도록 저장을 막았습니다. 옮기려면 scripts/projmng-drawio-to-diagram.py 를 돌리고, 새로 그리려면 다른 이름으로 만드십시오.",
+                    NoticeTone.Warning);
+
+                return 1;
+            }
+
+            var model = ErdModel.Parse(raw ?? string.Empty);
 
             if (_diagram is not null)
             {
                 await _diagram.LoadAsync(model);
+
+                // 방금 읽은 그림이 곧 저장본이다.
+                _dirty = false;
             }
 
             return model.Entities.Count;
@@ -83,30 +339,44 @@
 
     private async Task SaveDiagramAsync()
     {
-        if (_diagram is null) return;
+        if (_diagram is null)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_projectCode) || string.IsNullOrWhiteSpace(_name))
+        {
+            Say("프로젝트와 그림 이름을 고르십시오.", NoticeTone.Warning);
+            return;
+        }
+
+        if (_legacy)
+        {
+            Say("옛 도구로 그린 그림이라 덮어쓸 수 없습니다. 다른 이름으로 저장하십시오.", NoticeTone.Warning);
+            return;
+        }
 
         var model = await _diagram.SaveAsync();
 
-        var row = new Dictionary<string, object?>(SavedParams())
-        {
-            ["prj_prid"] = _propRowId,
-            ["prj_pvalue"] = model.ToJson(),
-            ["quri_ischange"] = true,
-        };
-
-        await RunAsync(
-            () => Client.DbSaveAsync(Proc, [row], SavedParams()),
+        var saved = await RunAsync(
+            () => Api.SaveAsync(new ProjectPropDto
+            {
+                PrjRid = _projectCode,
+                PropCd = _name,
+                PropType = PropType,
+                PropVal = model.ToJson(),
+            }),
             "저장했습니다.", "저장하지 못했습니다");
+
+        if (saved)
+        {
+            _dirty = false;
+
+            // 새 이름으로 저장했으면 고르개에도 올라와야 한다.
+            if (!_names.Contains(_name, StringComparer.Ordinal))
+            {
+                _names = [.. _names, _name];
+            }
+        }
     }
-
-    private Dictionary<string, object?> SavedParams() => new()
-    {
-        ["prj_rid"] = _projectCode ?? string.Empty,
-        ["prj_pkey"] = PropKey,
-    };
-
-    private static string Pick(ProjMngRow? row, string name) =>
-        row is not null && row.TryGetValue(name, out var value) && value is not null
-            ? value.ToString() ?? string.Empty
-            : string.Empty;
 }

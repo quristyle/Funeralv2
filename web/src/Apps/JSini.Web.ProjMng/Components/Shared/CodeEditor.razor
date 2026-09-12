@@ -1,5 +1,6 @@
 @using BlazorMonaco
 @using BlazorMonaco.Editor
+@using Microsoft.JSInterop
 
 @*
     코드 편집기 — 옛 Blazor 의 `QuriCodeEditor`, Vue 의 `code-editor.vue` 를 잇는다.
@@ -41,17 +42,43 @@
 }
 
 <div class="pm-editor" style="height: @Height">
-    <StandaloneCodeEditor @ref="_editor"
-                          Id="@_id"
-                          ConstructionOptions="@BuildOptions"
-                          OnDidChangeModelContent="@OnEditorChangedAsync"
-                          CssClass="pm-editor__inner" />
+    @if (_loaded)
+    {
+        @* **다 받은 뒤에야 그린다.** `StandaloneCodeEditor` 는 자기 첫 렌더에서
+           `window.monaco` 를 부르고, 없으면 **회로가 끊긴다** — 그 화면만
+           깨지는 것이 아니라 그때부터 아무 단추도 안 눌린다. *@
+        <StandaloneCodeEditor @ref="_editor"
+                              Id="@_id"
+                              ConstructionOptions="@BuildOptions"
+                              OnDidChangeModelContent="@OnEditorChangedAsync"
+                              CssClass="pm-editor__inner" />
+    }
+    else
+    {
+        <div class="pm-editor__loading">편집기를 불러오는 중…</div>
+    }
 </div>
 
 @code {
     [Inject] private IJSRuntime Js { get; set; } = default!;
 
     private StandaloneCodeEditor? _editor;
+
+    /// <summary>
+    /// Monaco 스크립트를 다 받았나. <b>받기 전에는 편집기를 그리지 않는다.</b>
+    ///
+    /// <para>
+    /// BlazorMonaco 는 스크립트 세 장을 <c>&lt;head&gt;</c> 에 두라고 하는데,
+    /// 그중 <c>editor.main.js</c> 가 3MB 다. 셸의 머리는 한 벌이라 거기 적으면
+    /// <b>편집기가 없는 화면까지 전부</b> 그것을 받는다 — 포털에서 편집기를
+    /// 쓰는 화면은 아홉 개뿐이다. 그래서 이 부품이 필요할 때 받는다
+    /// (<c>js/monaco-loader.js</c>).
+    /// </para>
+    /// </summary>
+    private bool _loaded;
+
+    /// <summary>스크립트를 받아 오는 쪽. 화면을 벗어나면 놓는다.</summary>
+    private IJSObjectReference? _loader;
 
     /// <summary>
     /// 편집기 DOM 요소의 id. 한 화면에 편집기가 둘 이상 있을 수 있어
@@ -114,12 +141,30 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (_editor is null)
+        if (firstRender && !_loaded)
+        {
+            _loader = await Js.InvokeAsync<IJSObjectReference>(
+                "import", "./_content/JSini.Web.ProjMng/js/monaco-loader.js");
+
+            await _loader.InvokeVoidAsync("ensure");
+
+            _loaded = true;
+            StateHasChanged();
+
+            // 이번 렌더에는 편집기가 아직 없다. 다음 렌더에서 이어 간다.
+            return;
+        }
+
+        if (_editor is not { } editor)
         {
             return;
         }
 
-        if (firstRender)
+        // 편집기가 방금 생겼나. 아래 레이아웃 호출의 조건이 된다 —
+        // `firstRender` 는 이제 **스크립트를 받던 렌더**라 쓸 수 없다.
+        var born = !_ready;
+
+        if (born)
         {
             // 테마는 문서의 data-theme 를 따라간다(theme.js 가 정한다).
             // 흰 배경에 밝은 편집기가 얹히면 그 부분만 튀어 보인다.
@@ -134,14 +179,14 @@
         var incoming = Value ?? string.Empty;
         var pushed = false;
 
-        if (_ready && _debounce is null && incoming != (_lastPushed ?? string.Empty))
+        if (_debounce is null && incoming != (_lastPushed ?? string.Empty))
         {
             _lastPushed = incoming;
-            await _editor.SetValue(incoming);
+            await editor.SetValue(incoming);
             pushed = true;
         }
 
-        if (firstRender || pushed)
+        if (born || pushed)
         {
             // **값을 밀 때마다 레이아웃을 직접 불러야 한다.**
             //
@@ -152,7 +197,7 @@
             //   · 값 교체 — 모델은 새 값인데 보이는 줄은 옛 내용 그대로다.
             //     화면들이 항목을 고를 때마다 편집기 내용을 갈아 끼우므로
             //     (DB 로직·프로젝트 DB 속성 …) 이쪽이 특히 자주 걸린다.
-            await _editor.Layout();
+            await editor.Layout();
         }
     }
 
@@ -207,11 +252,24 @@
     /// BlazorMonaco 의 <c>StandaloneCodeEditor</c> 가 자기 Dispose 에서 한다 —
     /// 자식 컴포넌트라 이 컴포넌트가 사라질 때 함께 정리된다.
     /// </summary>
-    public ValueTask DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         _debounce?.Cancel();
         _debounce = null;
-        return ValueTask.CompletedTask;
+
+        if (_loader is not null)
+        {
+            try
+            {
+                await _loader.DisposeAsync();
+            }
+            catch (JSDisconnectedException)
+            {
+                // 회로가 이미 끊긴 뒤다(사용자가 탭을 닫았다). 놓을 것이 없다.
+            }
+
+            _loader = null;
+        }
     }
 
     /// <summary>

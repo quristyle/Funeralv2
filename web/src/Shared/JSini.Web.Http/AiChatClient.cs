@@ -17,7 +17,23 @@ public sealed record AiChatMessage(string Role, string Content);
 /// 저장하고 다음 턴 문맥으로 다시 올려보낸다(Vue 의 <c>streamChatMessage</c>
 /// 주석 참고). 그래서 갈라서 준다.
 /// </summary>
-public sealed record AiChatPart(string? Text, string? Notice, string? Kind);
+public sealed record AiChatPart(string? Text, string? Notice, string? Kind)
+{
+    /// <summary>
+    /// <b>지금 누가 답하고 있는지</b> 알리는 표식인가(<c>kind: "used"</c>).
+    /// </summary>
+    /// <remarks>
+    /// 안내 목록에 쌓지 않고 <b>머리말의 배지 하나를 갈아 끼우는</b> 조각이다.
+    /// 매 턴 맨 앞에 온다 — 자동 전환 때문에 고른 것과 답하는 것이 다를 수 있어서,
+    /// '바뀐 순간' 에만 뜨는 전환 안내만으로는 지금 상태를 알 수 없기 때문이다.
+    /// </remarks>
+    public bool IsUsedMarker => Kind == "used";
+}
+
+/// <summary>지금 쓰이는 AI 한 줄. 물어보기 전에 보여 줄 기본값을 담는다.</summary>
+/// <param name="Label">사람에게 보여 줄 이름(<c>Gemini Free · gemini-3.8-flash</c>).</param>
+/// <param name="Configured">키까지 채워져 실제로 부를 수 있는 상태인지.</param>
+public sealed record AiChatWho(string Label, bool Configured);
 
 /// <summary>
 /// AI 채팅 SSE 스트리밍 (<c>POST /api/ai/chat/stream</c>).
@@ -44,6 +60,76 @@ public sealed record AiChatPart(string? Text, string? Notice, string? Kind);
 /// </summary>
 public sealed class AiChatClient(HttpClient http)
 {
+    /// <summary>
+    /// 기본 공급자가 무엇인지 물어본다. <b>물어보기 전에 보여 줄 값</b>이다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 실제로 답한 AI 는 스트림이 <c>kind: "used"</c> 로 알려 주지만, 그것은
+    /// <b>첫 답이 오고 나서야</b> 안다. 그 전까지 배지가 비어 있으면 "지금 무슨 AI 를
+    /// 쓰고 있나" 라는 물음에 답하지 못하므로, 설정상의 기본값을 먼저 보여 준다.
+    /// </para>
+    /// <para>
+    /// <b>실패하면 null 이다.</b> 이것은 곁들이 정보라 못 받았다고 대화를 막지 않는다 —
+    /// 배지만 뜨지 않는다.
+    /// </para>
+    /// </remarks>
+    public async Task<AiChatWho?> GetDefaultAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            using var document = await http.GetFromJsonAsync<JsonDocument>(
+                "ai/providers", cancellationToken);
+
+            if (document is null) return null;
+
+            // 봉투: { data: { result: [ { defaultProvider, providers: [...] } ] } }
+            if (!document.RootElement.TryGetProperty("data", out var data)
+                || !data.TryGetProperty("result", out var result)
+                || result.ValueKind != JsonValueKind.Array
+                || result.GetArrayLength() == 0)
+            {
+                return null;
+            }
+
+            var state = result[0];
+            var defaultKey = state.TryGetProperty("defaultProvider", out var dk)
+                ? dk.GetString()
+                : null;
+
+            if (defaultKey is null
+                || !state.TryGetProperty("providers", out var providers)
+                || providers.ValueKind != JsonValueKind.Array)
+            {
+                return null;
+            }
+
+            foreach (var p in providers.EnumerateArray())
+            {
+                if (p.TryGetProperty("key", out var key)
+                    && key.GetString() == defaultKey)
+                {
+                    var name = p.TryGetProperty("displayName", out var n)
+                        ? n.GetString() ?? defaultKey
+                        : defaultKey;
+
+                    var configured = p.TryGetProperty("configured", out var c)
+                        && c.ValueKind == JsonValueKind.True;
+
+                    return new AiChatWho(name, configured);
+                }
+            }
+
+            return null;
+        }
+        catch (Exception ex) when (ex is HttpRequestException or JsonException
+            or NotSupportedException or TaskCanceledException)
+        {
+            // 곁들이 정보다. 못 받으면 배지를 접는다.
+            return null;
+        }
+    }
+
     /// <summary>
     /// 대화 내역을 보내고 답 조각을 스트림으로 받는다.
     /// 서버가 스트림을 닫거나 <c>[DONE]</c> 을 보내면 끝난다.

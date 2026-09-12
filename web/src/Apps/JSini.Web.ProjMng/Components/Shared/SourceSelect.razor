@@ -3,16 +3,20 @@
 
     [CodeSelect 를 쓰지 않는 이유]
 
-    다른 드롭다운은 전부 공통코드(`sp_projCommon`)로 채우는데, 소스 목록의
+    다른 드롭다운은 전부 공통코드(`projmng/proj-codes`)로 채우는데, 소스 목록의
     공통코드(`srclist`)는 **등록되어 있지 않다.** 옛 Vue 가 그것을 부르고
     있었고, 늘 빈 목록이었다(게이트웨이로 직접 불러 확인했다).
 
-    소스의 정본은 `sp_dev_srcinfo_exec` — 「소스 정보」 화면이 등록하고 읽는
-    그 표다. 코드 한 겹을 거치지 않고 그것을 읽는다.
+    소스의 정본은 「소스 정보」 화면이 등록하고 읽는 그 표다
+    (`projmng/source-infos`). 코드 한 겹을 거치지 않고 그것을 읽는다.
 *@
 
-@inject ProjMngClient Client
+@inject SourceInfoClient Sources
 
+    @* **검증을 끈다.** 이 부품은 `Value`/`ValueChanged` 로 값을 주고받으므로
+       DevExpress 가 기대하는 `ValueExpression` 이 없다. `EditForm` 안(표의 편집
+       창)에 들어가면 그것을 필수로 보고 던지는데, 그 예외가 **회로를 끊어**
+       그 순간부터 화면 전체가 안 눌린다. 우리는 DevExpress 검증을 쓰지 않는다. *@
 <DxComboBox Data="@_items"
             TextFieldName="@nameof(SourceItem.Nick)"
             ValueFieldName="@nameof(SourceItem.Rid)"
@@ -21,6 +25,7 @@
             NullText="@Placeholder"
             ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Never"
             Enabled="@(_items.Count > 0)"
+            ValidationEnabled="false"
             CssClass="pm-code-select" />
 
 @code {
@@ -66,38 +71,29 @@
             return;
         }
 
-        var result = await Client.DbContAsync("sp_dev_srcinfo_exec", new Dictionary<string, object?>
-        {
-            ["req_type"] = "srch",
-            ["prj_rid"] = key,
-        });
+        var sources = await Sources.ListAsync(int.TryParse(key, out var rid) ? rid : null);
 
-        _items = [.. (result.Rows ?? []).Select(ToItem).Where(i => i.Rid.Length > 0)];
+        _items = [.. sources.Select(ToItem)];
 
         var first = _items.FirstOrDefault();
         await SetAsync(first?.Rid, first);
     }
 
-    private static SourceItem ToItem(ProjMngRow row)
+    private static SourceItem ToItem(SourceInfoDto source)
     {
-        var others = row.ToDictionary(
-            pair => pair.Key,
-            pair => pair.Value?.ToString() ?? string.Empty,
-            StringComparer.Ordinal);
-
-        var rid = others.GetValueOrDefault("src_rid", string.Empty);
+        var rid = source.SrcRid.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        var nick = source.SrcNick;
 
         // 이름을 안 적어 둔 소스가 있다. 그때는 키라도 보여 준다 —
         // 빈 줄이 늘어선 드롭다운은 고를 수가 없다.
-        var nick = others.GetValueOrDefault("src_nick", string.Empty);
-        var lang = others.GetValueOrDefault("src_lang", string.Empty);
-
         if (string.IsNullOrWhiteSpace(nick))
         {
-            nick = string.IsNullOrWhiteSpace(lang) ? $"소스 {rid}" : $"소스 {rid} ({lang})";
+            nick = string.IsNullOrWhiteSpace(source.SrcLang)
+                ? $"소스 {rid}"
+                : $"소스 {rid} ({source.SrcLang})";
         }
 
-        return new SourceItem(rid, nick, others);
+        return new SourceItem(rid, nick, source);
     }
 
     private Task PickAsync(string? rid) =>

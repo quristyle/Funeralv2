@@ -115,17 +115,22 @@ public class BaseService {
   /// 등록된 DB 접속 정보를 가져온다. 없으면 <c>null</c>.
   ///
   /// <para>
-  /// [캐시에 null 을 넣으면 안 된다 — 실제로 밟았다]
+  /// [**캐시하지 않는다** — 실제로 밟았다]
   /// </para>
   /// <para>
-  /// 예전에는 못 찾았을 때도 결과를 캐시에 넣었다. 그 값이 <c>null</c> 이라,
-  /// 다음 호출부터 캐시를 훑는 반복문이 그 자리에서 NullReferenceException
-  /// 으로 터졌다. <b>한 번만 잘못 물으면 프로세스를 다시 띄울 때까지 전부
-  /// 죽는다.</b>
+  /// 예전에는 찾은 것을 프로세스 살아 있는 동안 정적 목록에 담아 두었다
+  /// (<c>AppData.DB_Infos</c>). 그래서 [프로젝트 DB 등록] 화면에서 주소나
+  /// 포트를 고쳐도 <b>서버가 옛 주소로 계속 붙으러 갔다</b> — 다시 띄우기
+  /// 전까지. 「주소를 바꿨는데 여전히 옛 포트로 간다」는 신고가 그것이었다.
   /// </para>
   /// <para>
-  /// DB 를 고르지 않고 「DB 쿼리 테스터」·「DB 개체 탐색」의 실행을 누르면
-  /// 빈 이름으로 물어보게 되고, 그것이 그 상태를 만든다.
+  /// 그 앞에는 <b>못 찾은 것까지 담아</b> 그 <c>null</c> 때문에 다음 호출부터
+  /// 전부 터지던 시절도 있었다(DB 를 안 고르고 실행을 누르면 그 상태가 됐다).
+  /// 캐시가 없으면 두 가지가 같이 없어진다.
+  /// </para>
+  /// <para>
+  /// 값은 <c>projmng.devdbinfo</c> 한 줄이고 그 DB 는 같은 요청이 이미 쓰고
+  /// 있다. 아껴서 얻는 것보다 <b>틀린 주소로 붙는 것</b>이 훨씬 비싸다.
   /// </para>
   /// </summary>
   public DbInfo? GetDbInfo(string db_nick) {
@@ -135,27 +140,13 @@ public class BaseService {
       return null;
     }
 
-    // null 을 건너뛴다. 예전 판이 넣어 둔 것이 남아 있어도 살아남게.
-    foreach (var di in AppData.DB_Infos) {
-      if (di != null && di.Db_nick == db_nick) {
-        return di;
-      }
-    }
-
     var connectionString = _configuration.GetConnectionString("jsini");
     using (IDbConnection db = new NpgsqlConnection(connectionString)) {
 
       var parameters = new DynamicParameters();
       parameters.Add(ConstInfo.db_nick_key, db_nick);
 
-      var found = db.Query<DbInfo>(sql: ConstInfo.dbConQuery, param: parameters).FirstOrDefault();
-
-      // **찾은 것만 넣는다.** 못 찾은 것을 넣으면 위 반복문이 터진다.
-      if (found != null) {
-        AppData.DB_Infos.Add(found);
-      }
-
-      return found;
+      return db.Query<DbInfo>(sql: ConstInfo.dbConQuery, param: parameters).FirstOrDefault();
     }
   }
 

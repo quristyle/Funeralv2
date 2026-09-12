@@ -1,0 +1,891 @@
+@*
+    [참여 배정 보드]
+
+    「이 프로젝트에 누가」와 「이 사람이 어디에」를 **한 화면에서 축만 뒤집어**
+    다룬다. 프로젝트 참여자(`/projmng/proj/user`)와 투입 관리
+    (`/projmng/proj/appointment`) 두 메뉴가 이 부품 하나를 시작 축만 달리해서
+    연다.
+
+    ────────────────────────────────────────────────────────────
+    [왜 합쳤나 — 넣기와 확인이 서로 다른 화면을 요구했다]
+
+    옛 참여자 화면의 「프로젝트」 조건은 왼쪽 사람 목록을 **그 프로젝트의
+    참여자만**으로 좁혔다. 확인에는 맞는 동작인데, 그 순간 <b>아직 안 들어간
+    사람이 목록에서 사라진다</b> — 넣을 사람이 화면에 없다.
+
+    그래서 프로젝트에 열 명을 넣으려면 조건을 「전체」로 되돌리고, 사람을 한
+    명씩 골라, 오른쪽에 뜬 프로젝트 전부(쪽나누기 20줄)에서 그 프로젝트를
+    열 번 찾아야 했다. 한 번도 프로젝트를 기준으로 삼지 못한 채로.
+
+    [고친 규칙 넷]
+
+      1. 왼쪽은 언제나 **기준**, 오른쪽은 언제나 **상대 전부 + 체크**다.
+         기준이 프로젝트든 사람이든 손이 하는 일이 같다.
+      2. 오른쪽을 거르지 않는다. 참여 중인 것이 **위로 올** 뿐이다 —
+         확인과 투입이 같은 목록에서 끝난다.
+      3. 찾기로 좁히고 좁힌 것을 통째로 건다(「보이는 것 모두」).
+      4. 저장 단추는 없다. 체크하면 그 자리에서 반영하고 전송은 뒤에서 한다.
+
+    ────────────────────────────────────────────────────────────
+    [자료를 세 번에 다 받아 온다]
+
+    프로젝트 전부 · 포털 계정 전부 · 걸려 있는 짝 전부. 이 셋이면 어느
+    축으로 보든 필요한 것이 다 나오므로, **축을 뒤집거나 기준을 고를 때
+    왕복이 하나도 없다.** 옛 화면은 사람을 고를 때마다 그 사람의 배정을
+    다시 물었다.
+
+    짝 목록은 배정 수만큼이라 프로젝트×사람 곱이 아니다(운영 11건).
+    그것이 화면에 다 담기 어려울 만큼 늘면 그때는 기준 쪽으로 좁혀
+    받는다 — `ListAsync` 가 이미 `prjRid`·`userId` 를 받는다.
+
+    [사람 이름은 다른 서비스에서 온다]
+
+    포털 계정(`portal_account`)은 AuthServer 것이고 참여 자료는 프로젝트관리
+    DB 다. 합치는 일은 **화면이 한다** — 서버에서 합치려면 프로젝트관리
+    서비스가 포털 계정을 알아야 하고, 그 순간 두 DB 가 한 질의에 묶인다.
+    옛 화면도 같은 이유로 화면에서 합쳤다.
+
+    ────────────────────────────────────────────────────────────
+    [체크하면 목록이 다시 정렬되지 않는다]
+
+    「참여한 것 위로」는 **기준을 고르거나 찾기를 바꿀 때만** 다시 매긴다.
+    체크할 때마다 매기면 방금 켠 줄이 손가락 밑에서 맨 위로 튀어 올라가고,
+    연달아 켜려던 다음 줄이 한 칸씩 밀린다. 켠 뒤에도 줄은 제자리에 있고
+    바탕색만 바뀐다.
+
+    [수는 다시 읽지 않고 ±1 로 고친다]
+
+    옛 화면은 체크 한 번마다 사람 목록을 통째로 다시 읽었다(왕복이 변경
+    수의 두 배였다). 바뀌는 것은 양쪽 줄의 수 하나씩뿐이라 그 자리에서
+    더하고 뺀다.
+*@
+
+@inherits DataPage
+
+@inject ProjectUserClient Api
+@inject BizOptions Accounts
+
+<PageNotice Tone="NoticeTone.Info" Text="@GuideText" />
+
+<CommSch>
+    <Fields>
+        <CommSchItem Label="기준">
+            @* 세그먼트를 직접 그린다. DevExpress 에 두 칸짜리 토글이 따로 없고,
+               테마 서랍의 밝기·크기 칸도 같은 이유로 맨 단추다(app.css 의
+               `jsini-theme__segmented`). 이름 있는 클래스는 `projmng.css` 에
+               둔다 — 지금 쓰는 모듈이 하나뿐이다. *@
+            <div class="pm-axis" role="group" aria-label="배정 기준">
+                <button type="button" class="pm-axis__btn"
+                        aria-pressed="@(ByProject ? "true" : "false")"
+                        @onclick="@(() => SetAxis(BoardAxis.Project))">프로젝트</button>
+                <button type="button" class="pm-axis__btn"
+                        aria-pressed="@(ByProject ? "false" : "true")"
+                        @onclick="@(() => SetAxis(BoardAxis.Person))">사람</button>
+            </div>
+        </CommSchItem>
+    </Fields>
+</CommSch>
+
+<PageNotice Text="@Notice" Tone="@Tone" />
+
+<div class="pm-split">
+    <CommCont Title="@LeftTitle" Hint="@($"{_left.Count}건")" CssClass="pm-split__side">
+        <Actions>
+            @* 글자가 바뀔 때마다 거른다. `@@bind-Text:event="oninput"` 은 DevExpress
+               편집기에 안 듣는다 — 값은 칸에 들어가는데 **바인딩이 안 걸려서**
+               찾기가 조용히 아무 일도 하지 않는다(실제로 밟았다). 사이드바 메뉴
+               검색과 같은 방식(`BindValueMode` + `InputDelay`)을 쓴다.
+
+               거르는 일은 브라우저 쪽 목록에서 끝나지만 **회로를 한 번 탄다** —
+               타자 속도만큼 왕복이 생기므로 200ms 를 묶는다. *@
+            <DxTextBox Text="@_leftQuery"
+                       TextChanged="@((string? text) => LeftQuery = text ?? string.Empty)"
+                       BindValueMode="BindValueMode.OnInput"
+                       InputDelay="200"
+                       NullText="이름으로 찾기"
+                       ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto"
+                       Style="width: 11rem" />
+        </Actions>
+        <ChildContent>
+            <CommGrd TItem="BoardRow"
+                     Data="@_left"
+                     ExportName="@LeftTitle"
+                     PageSize="30"
+                     EmptyText="찾는 것이 없습니다."
+                     Reload="@ReloadAsync"
+                     SelectedItem="@_picked"
+                     SelectedItemChanged="@PickAsync">
+                <Columns>
+                    <DxGridDataColumn FieldName="@nameof(BoardRow.Name)" Caption="@LeftTitle" MinWidth="120"
+                                      TextAlignment="GridTextAlignment.Left" />
+                    <DxGridDataColumn FieldName="@nameof(BoardRow.Sub)" Caption="@LeftSubCaption" Width="150"
+                                      TextAlignment="GridTextAlignment.Left" />
+                    <DxGridDataColumn FieldName="@nameof(BoardRow.Count)" Caption="@LeftCountCaption" Width="70" />
+                </Columns>
+            </CommGrd>
+        </ChildContent>
+    </CommCont>
+
+    <CommCont Title="@RightTitle" Hint="@RightHint" CssClass="pm-split__main">
+        <Actions>
+            <DxTextBox Text="@_rightQuery"
+                       TextChanged="@((string? text) => RightQuery = text ?? string.Empty)"
+                       BindValueMode="BindValueMode.OnInput"
+                       InputDelay="200"
+                       NullText="@RightSearchHint"
+                       ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto"
+                       Style="width: 13rem" />
+        </Actions>
+        <ChildContent>
+            @if (_picked is null)
+            {
+                <PageNotice Tone="NoticeTone.Info" Text="@PickPrompt" />
+            }
+            else
+            {
+                <CommGrd TItem="BoardRow"
+                         Data="@_right"
+                         ExportName="@RightTitle"
+                         PageSize="30"
+                         EmptyText="찾는 것이 없습니다."
+                         Reload="@ReloadAsync"
+                         RowActions="@DrillButton">
+                    <FooterLeft>
+                        <PermissionView Action="MenuAction.Update">
+                            @* 찾기로 좁힌 것을 통째로 건다. **고르는 칸을 따로 두지
+                               않는다** — 고르기용 체크와 참여용 체크가 나란히 있으면
+                               어느 쪽을 누른 것인지 매번 확인하게 된다. *@
+                            <DxButton Text="@($"보이는 것 모두 참여 ({Addable})")"
+                                      RenderStyle="ButtonRenderStyle.Secondary"
+                                      Enabled="@(Addable > 0 && !_sending)"
+                                      Click="@(() => BulkAsync(true))" />
+
+                            <DxButton Text="@($"모두 해지 ({Removable})")"
+                                      RenderStyle="ButtonRenderStyle.Secondary"
+                                      Enabled="@(Removable > 0 && !_sending)"
+                                      Click="@(() => BulkAsync(false))" />
+
+                            <DxButton IconCssClass="jsini-icon-undo"
+                                      Text="되돌리기"
+                                      RenderStyle="ButtonRenderStyle.Link"
+                                      Enabled="@(_undo is not null && !_sending)"
+                                      Click="@UndoAsync" />
+                        </PermissionView>
+                    </FooterLeft>
+                    <Columns>
+                        <DxGridDataColumn Caption="참여" Width="64" AllowSort="false">
+                            <CellDisplayTemplate Context="cell">
+                                @{
+                                    var row = (BoardRow)cell.DataItem;
+                                }
+                                @* 누른 그 자리에서 반영한다. 저장 단추는 없다 —
+                                   달라진 것은 전송이 묶인다는 것뿐이다(머리말).
+
+                                   **Shift 는 `mousedown` 에서 본다.** `CheckedChanged`
+                                   에는 눌린 보조키가 실려 오지 않고, 감싼 상자의
+                                   `click` 은 체크 상태가 바뀐 **뒤**에 올지 앞에 올지가
+                                   브라우저에 달렸다. `mousedown` 은 언제나 먼저다.
+                                   키보드(스페이스)로 켠 경우에는 안 오므로, 쓰고 나서
+                                   바로 끈다(`TakeShift`). *@
+                                <span @onmousedown="@(e => _shift = e.ShiftKey)">
+                                    <PermissionView Action="MenuAction.Update">
+                                        <DxCheckBox Checked="@row.On"
+                                                    Enabled="@(!row.Saving)"
+                                                    CheckedChanged="@((bool on) => ToggleAsync(row, on))" />
+                                    </PermissionView>
+                                </span>
+                            </CellDisplayTemplate>
+                        </DxGridDataColumn>
+
+                        <DxGridDataColumn FieldName="@nameof(BoardRow.Name)" Caption="@RightTitleShort" MinWidth="150"
+                                          TextAlignment="GridTextAlignment.Left" />
+                        <DxGridDataColumn FieldName="@nameof(BoardRow.Sub)" Caption="@RightSubCaption" Width="150"
+                                          TextAlignment="GridTextAlignment.Left" />
+                        <DxGridDataColumn FieldName="@nameof(BoardRow.Count)" Caption="@OtherCountCaption" Width="80" />
+                    </Columns>
+                </CommGrd>
+            }
+        </ChildContent>
+    </CommCont>
+</div>
+
+@code {
+    /// <summary>어느 쪽을 기준으로 볼 것인가.</summary>
+    public enum BoardAxis
+    {
+        /// <summary>왼쪽이 프로젝트, 오른쪽이 사람.</summary>
+        Project,
+
+        /// <summary>왼쪽이 사람, 오른쪽이 프로젝트.</summary>
+        Person,
+    }
+
+    /// <summary>
+    /// 처음 열릴 때의 기준. 메뉴 두 건이 이 값만 달리해서 같은 화면을 연다.
+    /// 사용자는 화면 안에서 언제든 뒤집을 수 있다.
+    /// </summary>
+    [Parameter] public BoardAxis Start { get; set; } = BoardAxis.Project;
+
+    /// <summary>
+    /// 판 한 줄. <b>두 판이 같은 타입을 쓴다</b> — 축을 뒤집으면 왼쪽에 있던
+    /// 것이 오른쪽으로 가므로, 타입을 갈라 두면 같은 자료를 두 번 빚게 된다.
+    /// </summary>
+    public sealed class BoardRow
+    {
+        /// <summary>프로젝트면 <c>prj_rid</c>, 사람이면 <c>user_id</c>.</summary>
+        public required string Key { get; init; }
+
+        public required string Name { get; init; }
+
+        /// <summary>곁들이는 한 줄 — 프로젝트는 기간, 사람은 아이디.</summary>
+        public required string Sub { get; init; }
+
+        /// <summary>이 줄이 걸려 있는 짝의 수. 체크할 때 ±1 로 고친다.</summary>
+        public int Count { get; set; }
+
+        /// <summary>기준과 걸려 있는가. <b>오른쪽 판에서만 뜻이 있다.</b></summary>
+        public bool On { get; set; }
+
+        /// <summary>보내는 중. 그 줄의 체크박스만 잠근다.</summary>
+        public bool Saving { get; set; }
+    }
+
+    private BoardAxis _axis;
+
+    /// <summary>프로젝트 전부. <c>Accepted</c> 는 안 쓴다 — 짝은 <see cref="_map"/> 이 안다.</summary>
+    private IReadOnlyList<ProjectAssignmentDto> _projects = [];
+
+    /// <summary>포털 계정 전부.</summary>
+    private IReadOnlyList<BizOption> _people = [];
+
+    /// <summary>걸려 있는 짝. <c>(프로젝트 번호, 아이디)</c>.</summary>
+    private readonly HashSet<(int Rid, string UserId)> _map = [];
+
+    private List<BoardRow> _left = [];
+    private List<BoardRow> _right = [];
+    private BoardRow? _picked;
+
+    private string _leftQuery = string.Empty;
+    private string _rightQuery = string.Empty;
+
+    /// <summary>아직 안 보낸 변경. <c>상대 열쇠 → 바라는 상태</c>.</summary>
+    private readonly Dictionary<string, bool> _queue = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// 이번 보내기 단위에서 손댄 줄들의 <b>손대기 전</b> 상태. 되돌리기가 이것으로
+    /// 만들어진다(<see cref="Batch"/>).
+    /// </summary>
+    private readonly Dictionary<string, bool> _before = new(StringComparer.Ordinal);
+
+    /// <summary>지금 한 묶음이 나가 있나. 나가 있는 동안 쌓인 것이 다음 묶음이 된다.</summary>
+    private bool _sending;
+
+    /// <summary>방금 보낸 묶음. 되돌리기가 이것을 거꾸로 보낸다.</summary>
+    private Batch? _undo;
+
+    /// <summary>마지막으로 누른 줄의 자리. Shift 범위의 한쪽 끝이다.</summary>
+    private int? _lastToggled;
+
+    /// <summary>직전 <c>mousedown</c> 에서 Shift 가 눌려 있었나.</summary>
+    private bool _shift;
+
+    /// <summary>지금 기준. 일괄 요청이 이 둘 중 하나만 채워 간다.</summary>
+    private AssignmentScope Scope => ByProject
+        ? new AssignmentScope(int.Parse(_picked!.Key, System.Globalization.CultureInfo.InvariantCulture), null)
+        : new AssignmentScope(null, _picked!.Key);
+
+    private string ScopeName => _picked?.Name ?? string.Empty;
+
+    /// <summary>보이는 것 중 아직 안 들어간 수. 일괄 단추가 이 숫자를 단다.</summary>
+    private int Addable => _right.Count(r => !r.On);
+
+    private int Removable => _right.Count(r => r.On);
+
+    /// <summary>
+    /// 일괄 요청의 기준. <b>둘 중 하나만 채운다</b> — 둘 다 채우면 상대 열쇠가
+    /// 아이디인지 프로젝트 번호인지 알 수 없어서 서버가 거절한다.
+    /// </summary>
+    private readonly record struct AssignmentScope(int? PrjRid, string? UserId)
+    {
+        /// <summary>상대 열쇠 하나를 짝으로 편다.</summary>
+        public (int Rid, string UserId) Pair(string otherKey) => PrjRid is int rid
+            ? (rid, otherKey)
+            : (int.Parse(otherKey, System.Globalization.CultureInfo.InvariantCulture), UserId!);
+    }
+
+    /// <summary>
+    /// 되돌리기가 보낼 것. <b>「보낸 것」이 아니라 「보내기 전 상태」다.</b>
+    /// </summary>
+    /// <remarks>
+    /// 보낸 것을 뒤집는 방식으로 두면 <b>한 번에 눌린 것이 여러 묶음으로
+    /// 나뉘었을 때 마지막 묶음만 되돌아온다.</b> 연타 열 번이 1+3+6 으로
+    /// 나가면 되돌리기가 여섯 건만 되돌리고, 사용자에게는 「되돌렸는데 반만
+    /// 돌아왔다」로 보인다 — 실제로 그렇게 만들어 놓고 재현했다.
+    ///
+    /// <para>
+    /// 그래서 <b>한 번 보내기 시작해서 대기줄이 빌 때까지</b>를 한 단위로 보고,
+    /// 그 사이에 손댄 줄들의 <b>손대기 전 상태</b>를 담는다. 같은 줄을 켰다
+    /// 껐다 해도 되돌아가는 자리는 하나다.
+    /// </para>
+    /// </remarks>
+    private sealed record Batch(
+        AssignmentScope Scope,
+        string ScopeName,
+        IReadOnlyList<string> Add,
+        IReadOnlyList<string> Remove)
+    {
+        public int Count => Add.Count + Remove.Count;
+    }
+
+    /// <summary>
+    /// 찾기 칸. 글자가 바뀔 때마다 그 판만 다시 빚는다 — 왕복은 없다.
+    /// </summary>
+    private string LeftQuery
+    {
+        get => _leftQuery;
+        set
+        {
+            _leftQuery = value ?? string.Empty;
+            BuildLeft();
+        }
+    }
+
+    private string RightQuery
+    {
+        get => _rightQuery;
+        set
+        {
+            _rightQuery = value ?? string.Empty;
+            _lastToggled = null;
+            BuildRight();
+        }
+    }
+
+    // ── 축에 따라 달라지는 말 ─────────────────────────────
+
+    private bool ByProject => _axis == BoardAxis.Project;
+
+    private string LeftTitle => ByProject ? "프로젝트" : "사람";
+
+    private string LeftSubCaption => ByProject ? "기간" : "아이디";
+
+    private string RightTitleShort => ByProject ? "사람" : "프로젝트";
+
+    private string RightSubCaption => ByProject ? "아이디" : "기간";
+
+    private string LeftCountCaption => ByProject ? "인원" : "참여";
+
+    private string OtherCountCaption => ByProject ? "참여 수" : "참여 인원";
+
+    private string RightSearchHint => ByProject ? "이름 · 아이디로 찾기" : "이름으로 찾기";
+
+    private string PickPrompt => ByProject
+        ? "왼쪽에서 프로젝트를 고르면 넣고 뺄 사람이 나옵니다."
+        : "왼쪽에서 사람을 고르면 넣고 뺄 프로젝트가 나옵니다.";
+
+    private string RightTitle => _picked is null
+        ? (ByProject ? "참여자" : "참여 프로젝트")
+        : ByProject ? $"{_picked.Name} 의 참여자" : $"{_picked.Name} 의 참여 프로젝트";
+
+    private string RightHint => _picked is null
+        ? string.Empty
+        : $"{_right.Count(r => r.On)} / {_right.Count}건";
+
+    private const string GuideText =
+        "왼쪽이 기준, 오른쪽이 넣고 뺄 상대입니다. 오른쪽은 거르지 않고 전부 보여 주되 "
+        + "참여 중인 것이 위로 옵니다. 계정 등록·수정은 [시스템 관리 › 계정 관리]에서 합니다.";
+
+    // ── 조회 ──────────────────────────────────────────────
+
+    protected override async Task OnInitializedAsync()
+    {
+        _axis = Start;
+        await ReloadAsync();
+    }
+
+    /// <summary>
+    /// 세 가지를 <b>나란히</b> 읽는다 — 프로젝트 전부 · 계정 전부 · 걸려 있는 짝.
+    /// 이 셋이면 두 축이 다 나오므로 그 뒤로는 왕복이 없다(머리말).
+    /// </summary>
+    private Task ReloadAsync() => LoadAsync(async () =>
+    {
+        // 아이디를 비우면 프로젝트 전부가 `Accepted = false` 로 온다. 그 깃발은
+        // 쓰지 않는다 — 짝은 아래 `pairs` 가 알려 준다.
+        var projects = Api.AssignmentsAsync(null);
+        var accounts = Accounts.GetAsync("portal_account");
+        var pairs = Api.ListAsync();
+
+        await Task.WhenAll(projects, accounts, pairs);
+
+        _projects = projects.Result;
+        _people = accounts.Result;
+
+        _map.Clear();
+
+        foreach (var pair in pairs.Result)
+        {
+            _map.Add((pair.PrjRid, pair.UserId));
+        }
+
+        Rebuild();
+
+        return _left.Count;
+    }, "프로젝트도 계정도 읽지 못했습니다.", "참여 자료를 읽지 못했습니다");
+
+    // ── 판 빚기 ───────────────────────────────────────────
+
+    /// <summary>
+    /// 양쪽을 다시 빚는다. 고른 것은 같은 열쇠로 되찾고, 없으면 <b>첫 줄을 고른다.</b>
+    /// </summary>
+    /// <remarks>
+    /// 아무것도 안 고른 상태로 두지 않는다. DxGrid 는 첫 줄에 초점 표시를
+    /// 그리는데 그때 오른쪽은 「고르면 나옵니다」라고 말해서, <b>고른 것처럼
+    /// 보이는데 아무 일도 안 일어난</b> 화면이 된다. 자료가 이미 다 와 있어
+    /// 첫 줄을 고르는 데 왕복이 들지 않는다.
+    /// </remarks>
+    private void Rebuild()
+    {
+        BuildLeft();
+
+        _picked ??= _left.FirstOrDefault();
+
+        BuildRight();
+    }
+
+    private void BuildLeft()
+    {
+        _left = (ByProject ? ProjectRows() : PersonRows())
+            .Where(r => Matches(r, _leftQuery))
+            .OrderBy(r => r.Name, StringComparer.CurrentCulture)
+            .ToList();
+
+        // 고른 줄은 매번 새 객체가 되므로 같은 열쇠로 다시 잡는다 — 안 잡으면
+        // 표의 강조가 풀린다.
+        //
+        // **걸러져 안 보인다고 놓지는 않는다.** 왼쪽에서 찾기만 했는데 오른쪽이
+        // 통째로 닫히면 하던 일이 끊긴다. 안 보이는 동안 강조가 없을 뿐이고,
+        // 찾기를 지우면 그 줄이 그대로 돌아온다.
+        if (_picked is not null && _left.FirstOrDefault(r => r.Key == _picked.Key) is { } again)
+        {
+            _picked = again;
+        }
+    }
+
+    /// <summary>
+    /// 오른쪽을 빚는다. <b>참여한 것이 위로 온다.</b>
+    /// </summary>
+    /// <remarks>
+    /// 부르는 자리가 셋뿐이다 — 축을 바꿀 때, 기준을 고를 때, 찾기를 바꿀 때.
+    /// <b>체크할 때는 부르지 않는다</b>: 그때마다 다시 매기면 방금 켠 줄이
+    /// 손가락 밑에서 맨 위로 튀어 올라간다(머리말).
+    /// </remarks>
+    private void BuildRight()
+    {
+        if (_picked is null)
+        {
+            _right = [];
+            return;
+        }
+
+        _right = (ByProject ? PersonRows() : ProjectRows())
+            .Where(r => Matches(r, _rightQuery))
+            .Select(r =>
+            {
+                r.On = _map.Contains(Scope.Pair(r.Key));
+                return r;
+            })
+            .OrderByDescending(r => r.On)
+            .ThenBy(r => r.Name, StringComparer.CurrentCulture)
+            .ToList();
+    }
+
+    private List<BoardRow> ProjectRows() =>
+    [
+        .. _projects.Select(p => new BoardRow
+        {
+            Key = p.PrjRid.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            Name = p.PrjName ?? $"#{p.PrjRid}",
+            Sub = Period(p),
+            Count = _map.Count(m => m.Rid == p.PrjRid),
+        })
+    ];
+
+    private List<BoardRow> PersonRows() =>
+    [
+        .. _people.Select(a => new BoardRow
+        {
+            Key = a.Value,
+            Name = a.Label,
+            Sub = a.Value,
+            Count = _map.Count(m => string.Equals(m.UserId, a.Value, StringComparison.Ordinal)),
+        })
+    ];
+
+    private static string Period(ProjectAssignmentDto p) =>
+        (p.PrjSdt, p.PrjEdt) switch
+        {
+            (null, null) => string.Empty,
+            (var s, null) => $"{s:yy.MM.dd} ~",
+            (null, var e) => $"~ {e:yy.MM.dd}",
+            var (s, e) => $"{s:yy.MM.dd}~{e:yy.MM.dd}",
+        };
+
+    private static bool Matches(BoardRow row, string query) =>
+        string.IsNullOrWhiteSpace(query)
+        || row.Name.Contains(query, StringComparison.OrdinalIgnoreCase)
+        || row.Sub.Contains(query, StringComparison.OrdinalIgnoreCase);
+
+    // ── 조작 ──────────────────────────────────────────────
+
+    private async Task SetAxis(BoardAxis axis)
+    {
+        if (_axis == axis)
+        {
+            return;
+        }
+
+        // 보내던 묶음은 옛 기준의 것이다. 끝나기를 기다리지 않고 축을 뒤집으면
+        // 그 결과가 새 기준의 줄에 얹힌다.
+        await WaitForSendAsync();
+
+        _axis = axis;
+
+        // 기준이 통째로 바뀌었으므로 고른 것과 찾기를 놓는다. 들고 있어 봐야
+        // 프로젝트 번호를 아이디 자리에 쓰는 꼴이 된다.
+        _picked = null;
+        _leftQuery = string.Empty;
+        _rightQuery = string.Empty;
+        _lastToggled = null;
+        _undo = null;
+
+        Rebuild();
+    }
+
+    private async Task PickAsync(BoardRow? row)
+    {
+        await WaitForSendAsync();
+
+        _picked = row;
+        _rightQuery = string.Empty;
+        _lastToggled = null;
+
+        // 되돌리기는 **방금 보던 기준**의 것이다. 다른 프로젝트로 옮긴 뒤에도
+        // 살려 두면, 눌렀을 때 지금 안 보이는 곳이 바뀐다.
+        _undo = null;
+
+        BuildRight();
+    }
+
+    /// <summary>
+    /// 오른쪽 줄의 「보기」. 그 줄을 <b>기준 자리로 올리며 축을 뒤집는다.</b>
+    /// 「이 프로젝트에 넣은 사람이 또 어디에 들어가 있나」를 한 번에 본다.
+    /// </summary>
+    private RenderFragment<BoardRow> DrillButton => row => __builder =>
+    {
+        <DxButton IconCssClass="jsini-icon-eye"
+                  Title="@($"{row.Name} 을(를) 기준으로 보기")"
+                  RenderStyle="ButtonRenderStyle.Link"
+                  Click="@(() => Drill(row))" />
+    };
+
+    private async Task Drill(BoardRow row)
+    {
+        await WaitForSendAsync();
+
+        var key = row.Key;
+
+        _axis = ByProject ? BoardAxis.Person : BoardAxis.Project;
+        _picked = null;
+        _leftQuery = string.Empty;
+        _rightQuery = string.Empty;
+        _lastToggled = null;
+        _undo = null;
+
+        BuildLeft();
+
+        _picked = _left.FirstOrDefault(r => r.Key == key);
+
+        BuildRight();
+    }
+
+    /// <summary>
+    /// 참여를 켜고 끈다. <b>화면은 그 자리에서 바뀌고</b> 전송은 뒤에서 한다.
+    /// Shift 를 누른 채였으면 <b>지난번 누른 줄부터 여기까지</b> 함께 건다.
+    /// </summary>
+    private Task ToggleAsync(BoardRow row, bool on)
+    {
+        if (_picked is null)
+        {
+            return Task.CompletedTask;
+        }
+
+        var here = _right.IndexOf(row);
+        var rows = TakeShift() && _lastToggled is int from && from >= 0 && here >= 0
+            ? _right.GetRange(Math.Min(from, here), Math.Abs(here - from) + 1)
+            : [row];
+
+        _lastToggled = here;
+
+        return QueueAsync(rows.Where(r => r.On != on || ReferenceEquals(r, row)), on);
+    }
+
+    /// <summary>
+    /// 보이는 것을 통째로 켜거나 끈다. <b>이미 그 상태인 줄은 보내지 않는다.</b>
+    /// </summary>
+    private Task BulkAsync(bool on) => QueueAsync(_right.Where(r => r.On != on), on);
+
+    /// <summary>
+    /// 방금 보낸 묶음을 <b>거꾸로 한 번 더 보낸다.</b>
+    /// </summary>
+    /// <remarks>
+    /// 되돌린 뒤에는 되돌릴 것이 없다 — 되돌리기를 또 눌러 원래대로 돌아가는
+    /// 것은 「되돌리기」가 아니라 「다시 하기」라서, 같은 단추에 두 뜻을 담으면
+    /// 지금 어느 쪽인지 알 수 없게 된다.
+    /// </remarks>
+    private async Task UndoAsync()
+    {
+        if (_undo is not { } batch)
+        {
+            return;
+        }
+
+        _undo = null;
+
+        var ok = await SendAsync(batch.Scope, batch.Add, batch.Remove,
+            $"{batch.ScopeName} 의 변경 {batch.Count}건을 되돌렸습니다.");
+
+        if (!ok)
+        {
+            // 못 되돌렸으면 단추를 살려 둔다 — 다시 누를 수 있어야 한다.
+            _undo = batch;
+            return;
+        }
+
+        foreach (var key in batch.Add)
+        {
+            _map.Add(batch.Scope.Pair(key));
+        }
+
+        foreach (var key in batch.Remove)
+        {
+            _map.Remove(batch.Scope.Pair(key));
+        }
+
+        // 짝 집합에서 통째로 다시 빚는다. 되돌린 줄이 지금 화면에 안 보일 수도
+        // 있어(그새 기준을 옮겼거나 찾기로 좁혔거나) 줄 하나씩 고칠 수 없다.
+        Rebuild();
+    }
+
+    // ── 보내기 ────────────────────────────────────────────
+
+    /// <summary>
+    /// 바꿀 줄들을 대기줄에 넣고, 아무도 안 보내고 있으면 보내기 시작한다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>첫 변경은 곧바로 나간다.</b> 시간을 두고 모았다가 보내면 그 사이에
+    /// 화면을 옮기거나 브라우저를 닫는 순간 「켰는데 안 들어간」 상태가 생긴다 —
+    /// 옛 화면이 「모아 두었다 저장」을 버린 이유가 그것이고, 여기서도 그 함정은
+    /// 그대로다.
+    /// </para>
+    ///
+    /// <para>
+    /// 대신 <b>보내는 동안 쌓인 것</b>만 묶는다. 연달아 열 번 누르면 첫 번째가
+    /// 혼자 나가고 나머지 아홉이 한 번에 나간다 — 왕복 둘이다. 「보이는 것
+    /// 모두」는 처음부터 한 묶음이라 한 번이다.
+    /// </para>
+    /// </remarks>
+    private Task QueueAsync(IEnumerable<BoardRow> rows, bool on)
+    {
+        if (_picked is null)
+        {
+            return Task.CompletedTask;
+        }
+
+        // **여기서 기다리면 안 된다.** 한동안 안전판으로 `WaitForSendAsync` 를
+        // 넣어 두었는데, 그러면 연타한 두 번째 클릭이 첫 번째가 끝날 때까지
+        // 서 있다가 **자기 묶음을 따로 보낸다** — 묶으려고 만든 대기줄을
+        // 그 한 줄이 통째로 무력화했다. 열 번 누르면 열 번 나갔고, 증상이
+        // 「되돌리기를 눌렀는데 한 건만 되돌아온다」로만 보였다.
+        //
+        // 기준이 섞일 걱정은 여기 없다. 기준을 옮기는 길 셋(`PickAsync` ·
+        // `SetAxis` · `Drill`)이 **모두 보내던 것을 기다린 뒤** 옮긴다.
+        var scope = Scope;
+        var queued = false;
+
+        foreach (var row in rows)
+        {
+            if (row.On == on)
+            {
+                continue;
+            }
+
+            // 이번 단위에서 처음 손대는 줄이면 그 전 상태를 적어 둔다.
+            // 켰다 껐다 해도 되돌아갈 자리는 이 한 번 적은 값이다.
+            if (!_before.ContainsKey(row.Key))
+            {
+                _before[row.Key] = row.On;
+            }
+
+            Apply(row, on);
+            row.Saving = true;
+            _queue[row.Key] = on;
+            queued = true;
+        }
+
+        if (!queued || _sending)
+        {
+            return Task.CompletedTask;
+        }
+
+        return PumpAsync(scope);
+    }
+
+    /// <summary>대기줄이 빌 때까지 묶어 보낸다.</summary>
+    private async Task PumpAsync(AssignmentScope scope)
+    {
+        _sending = true;
+
+        try
+        {
+            while (_queue.Count > 0)
+            {
+                var batch = new Dictionary<string, bool>(_queue, StringComparer.Ordinal);
+                _queue.Clear();
+
+                var add = batch.Where(p => p.Value).Select(p => p.Key).ToList();
+                var remove = batch.Where(p => !p.Value).Select(p => p.Key).ToList();
+
+                var ok = await SendAsync(scope, add, remove, Said(scope, add.Count, remove.Count));
+
+                foreach (var key in batch.Keys)
+                {
+                    if (_right.FirstOrDefault(r => r.Key == key) is { } row)
+                    {
+                        row.Saving = false;
+                    }
+                }
+
+                if (!ok)
+                {
+                    Revert(scope, batch);
+
+                    // 못 보낸 것은 되돌릴 것도 아니다 — 화면이 이미 제자리다.
+                    foreach (var key in batch.Keys)
+                    {
+                        _before.Remove(key);
+                    }
+
+                    // 남은 대기줄도 버린다. 같은 기준에 이어 보내 봐야 화면과
+                    // DB 가 더 벌어지기만 한다 — 무엇이 들어갔는지 다시 읽어야
+                    // 하는 상태이므로 여기서 멈춘다.
+                    _queue.Clear();
+                    break;
+                }
+            }
+        }
+        finally
+        {
+            _sending = false;
+
+            // 대기줄이 빈 지금이 한 단위의 끝이다. 되돌리기는 **이 단위 전체**를
+            // 한 번에 되돌린다 — 묶음이 몇 개로 나뉘어 나갔는지는 사용자가 알
+            // 바가 아니다.
+            _undo = _before.Count == 0
+                ? _undo
+                : new Batch(
+                    scope,
+                    ScopeName,
+                    [.. _before.Where(p => p.Value).Select(p => p.Key)],
+                    [.. _before.Where(p => !p.Value).Select(p => p.Key)]);
+
+            _before.Clear();
+        }
+    }
+
+    /// <summary>
+    /// 한 묶음을 보낸다. <b>한 건짜리도 같은 길로 간다</b> — 갈래를 둘로 두면
+    /// 한쪽에만 걸리는 버그가 생기고, 서버가 어차피 한 건을 한 트랜잭션으로 받는다.
+    /// </summary>
+    private Task<bool> SendAsync(
+        AssignmentScope scope, IReadOnlyList<string> add, IReadOnlyList<string> remove, string ok)
+        => RunAsync(
+            () => Api.SetAssignmentsAsync(scope.PrjRid, scope.UserId, add, remove),
+            ok,
+            "저장하지 못했습니다");
+
+    private static string Said(AssignmentScope scope, int added, int removed) =>
+        (added, removed) switch
+        {
+            (0, 0) => "바뀐 것이 없습니다.",
+            (> 0, 0) => $"{added}건 넣었습니다.",
+            (0, > 0) => $"{removed}건 뺐습니다.",
+            _ => $"{added}건 넣고 {removed}건 뺐습니다.",
+        };
+
+    /// <summary>보낸 것이 실패했다. 화면을 보내기 전으로 되돌린다.</summary>
+    private void Revert(AssignmentScope scope, Dictionary<string, bool> batch)
+    {
+        foreach (var (key, on) in batch)
+        {
+            var pair = scope.Pair(key);
+
+            if (on)
+            {
+                _map.Remove(pair);
+            }
+            else
+            {
+                _map.Add(pair);
+            }
+        }
+
+        Rebuild();
+    }
+
+    /// <summary>보내는 중이면 끝날 때까지 기다린다.</summary>
+    private async Task WaitForSendAsync()
+    {
+        while (_sending)
+        {
+            await Task.Delay(30);
+        }
+    }
+
+    /// <summary>Shift 를 쓰고 끈다. 한 번 본 것을 다음 클릭까지 들고 있지 않는다.</summary>
+    private bool TakeShift()
+    {
+        var shift = _shift;
+        _shift = false;
+
+        return shift;
+    }
+
+    /// <summary>
+    /// 짝 하나를 켜고 끈 결과를 <b>화면이 들고 있는 것 전부</b>에 옮긴다 —
+    /// 짝 집합 · 오른쪽 줄 · 양쪽의 수. 다시 읽지 않는 이유는 머리말에 있다.
+    /// </summary>
+    private void Apply(BoardRow row, bool on)
+    {
+        var pair = Scope.Pair(row.Key);
+
+        if (on)
+        {
+            _map.Add(pair);
+        }
+        else
+        {
+            _map.Remove(pair);
+        }
+
+        var delta = on ? 1 : -1;
+
+        row.On = on;
+        row.Count += delta;
+
+        if (_picked is not null)
+        {
+            _picked.Count += delta;
+        }
+    }
+}

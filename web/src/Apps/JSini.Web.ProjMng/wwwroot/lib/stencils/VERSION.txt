@@ -1,0 +1,17 @@
+mxGraph stencil 도형 묶음 (Apache License 2.0 — 같은 폴더의 LICENSE)
+
+출처: github.com/jgraph/mxgraph
+      javascript/examples/grapheditor/www/stencils/{basic,flowchart,arrows,bpmn}.xml
+받은 날: 2026-09-13
+
+  basic.xml      28 모양  (별·화살표머리·원기둥·구름 …)
+  flowchart.xml  34 모양  (순서도 — 저장·문서·데이터·수동입력 …)
+  arrows.xml     34 모양  (화살표 — 굽은·양방향·톱니 …)
+  bpmn.xml       39 모양  (BPMN — 게이트웨이·이벤트·작업 …)
+
+**운영에서 외부 CDN 을 쓰지 않는다.** maxgraph 본체(../maxgraph)와 같은
+판단이라 파일을 그대로 실어 커밋한다. 갱신은 위 경로에서 다시 받는다.
+
+읽는 곳: wwwroot/js/diagram-viewer.js — 다이어그램 화면을 처음 열 때 한 번
+읽어 `StencilShapeRegistry` 에 등록한다. 이름은 draw.io 와 같은 규칙으로
+짓는다 — `mxgraph.basic.4_point_star`(묶음 이름 + 모양 이름, 소문자·밑줄).

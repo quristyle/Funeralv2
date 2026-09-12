@@ -32,7 +32,7 @@
 ## ProjMng (:5566, /projmng) — DB path 그대로
 
 /projmng/proj/{manage,wbs,scheduler,appointment,user,source,monitoring},
-/projmng/design/{erd,flow,use-case}, /projmng/db/{list,code,tools,tester,table},
+/projmng/design/{erd,flow,use-case,mind-map}, /projmng/db/{list,code,tools,tester,table},
 /projmng/source/{trace,glue,scaner}, /projmng/comm/common-code,
 /projmng/sys/{db-logic,db-logic-item}, /projmng/todo/{list,monitor},
 /projmng/tool/{sheet,fast-test,com-test,component},

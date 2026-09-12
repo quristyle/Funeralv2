@@ -3,85 +3,278 @@
 
 @*
     [업무 흐름] — DB 메뉴 `/projmng/design/flow`.
-    이력: 옛 Blazor `Pages/Proj/ProjFlow.razor` → Vue `views/projmng/proj/flow.vue` → 여기.
-    프로시저: `sp_dev_db_prop_exec` (`db_pkey='flow'`) · 개발도구 `tablelist`
 
-    프로젝트 DB 하나에 붙는 업무 흐름도다. ERD 와 같은 속성 표에 열쇠만 달리 넣는다.
+    이력: 옛 Blazor `Pages/Proj/ProjFlow.razor` (`/proj-flow`) → Vue
+          `views/projmng/proj/flow.vue` → `sp_dev_db_prop_exec` → **여기 (REST)**
+    API: `projmng/project-dbs/{dbRid}/props` (`db_pkey='erd'`) · 개발도구 `tablelist`
 
-    [ERD 와 무엇이 다른가]
+    [ERD 와 **같은 그림**을 본다 — 관점이 다르다]
 
-    ERD 는 DB 에서 사라진 테이블을 **말없이 그대로 둔다.** 여기서는 사라졌다는
-    사실이 곧 업무가 바뀌었다는 뜻이라, 설명에 `(삭제됨)` 을 붙여 눈에 띄게 한다.
-    옛 화면이 두 화면을 가른 지점이 바로 그것이고, 그 비교를 하려면 대상 DB 의
-    실제 테이블 목록(`tablelist`)이 필요하다. **그 조회가 통째로 빠져 있었다** —
-    그래서 저장본을 그대로 그리기만 했고, ERD 와 다를 것이 없었다.
+    옛 소스를 다시 읽어 확인했다. Vue 도, 그 앞의 Blazor 도 이 화면이
+    **`db_pkey='erd'`** 를 읽는다. 두 화면이 한 배치를 나눠 쓰고, 다른 점은
+    하나뿐이다 — 여기는 **DB 에서 사라진 표**에 `(삭제됨)` 을 붙이고 흐리게
+    그린다. 사라졌다는 사실이 곧 업무가 바뀌었다는 뜻이기 때문이다.
+
+    한동안 여기만 `db_pkey='flow'` 를 읽고 있었다. 그런 속성은 운영 전체에
+    **딱 한 줄**이고 그마저 옛 draw.io XML 이라(`db_rid=4`, 449자),
+    **어느 DB 를 골라도 빈 그림**이었다. `erd` 로 저장된 JSON 은 12건이다.
+
+    [사라졌다는 표시는 **저장하지 않는다**]
+
+    그것은 「지금 그 DB 에 있는가」라는 조회 결과이지 그림의 성질이 아니다.
+    저장본에 남기면 ERD 화면이 같은 배치를 읽을 때 그 글자를 물려받고, 표를
+    되살려도 꼬리표가 남는다. 저장 직전에 떼어 낸다.
 
     [옛 도구로 그린 그림을 덮어쓰지 않는다]
 
-    `db_pkey='flow'` 로 저장된 것 중에는 우리 JSON 이 아니라 **mxGraph(draw.io)
-    XML** 이 있다. 옛 도구로 그린 것이다. 그것을 우리 파서에 넣으면 조용히 빈
-    그림이 되고, 그 상태로 저장을 누르면 **사람이 그린 그림이 사라진다.**
-    실제로 그런 자료가 남아 있어(`db_rid=4`), 읽는 쪽에서 알아보고 저장을 막는다.
+    `erd` 중에도 우리 JSON 이 아니라 **mxGraph(draw.io) XML** 인 것이 있다
+    (`ER Diagram` 속성이 그렇다). 파서에 넣으면 조용히 빈 그림이 되고, 그
+    상태로 저장을 누르면 **사람이 그린 그림이 사라진다.** 읽는 쪽에서
+    알아보고 저장을 막는다(`ErdModel.IsLegacyDrawing`).
 
     [테이블 목록을 못 읽고 있었다 — 조용히]
 
     `isProjDb: true` 로 부르고 있었다. 그 길은 등록된 질의가 아니라
-    **그 DB 의 속성(`dev_db_prop`)에 저장된 사용자 질의**를 이름으로 찾는다.
-    그런데 `tablelist` 라는 속성은 **어느 DB 에도 없다**(30건을 다 훑었다).
-    그래서 서버가 500 을 냈고, 클라이언트가 그 실패를 삼켜 빈 목록이 됐다.
-
-    증상은 「그림은 뜨는데 새 테이블이 안 붙는다」다. 저장본은 그대로 그려지니
-    화면만 봐서는 알 수 없다.
-
-    등록된 질의를 쓰는 보통 길로 부른다 — `db`(종류) · `dbnick`(별칭)이
-    있어야 서버가 접속을 찾는다.
+    **그 DB 의 속성(`dev_db_prop`)에 저장된 사용자 질의**를 이름으로 찾는데,
+    `tablelist` 라는 속성은 어느 DB 에도 없다(30건을 다 훑었다). 서버가 500 을
+    냈고 클라이언트가 그 실패를 삼켜 빈 목록이 됐다 — 증상은 「그림은 뜨는데
+    새 표가 안 붙는다」였다. 등록된 질의를 쓰는 보통 길로 부른다.
 *@
 
 @inherits DataPage
+@inject ProjectDbClient Dbs
 @inject ProjMngClient Client
 
 <PageTitle>업무 흐름 · 프로젝트관리</PageTitle>
 
-<SearchBar>
-    <ChildContent>
-        <CodeSelect CodeId="projlist" @bind-Value="_projectCode" />
-        <CodeSelect CodeId="projdb" CodeKey="@(_projectCode ?? string.Empty)" @bind-Value="_dbCode"
-                    EtcFix="true" OnChanged="@(item => _dbItem = item)" />
-    </ChildContent>
+<CommSch OnSearch="@LoadDiagramAsync" SearchText="불러오기" Busy="@Loading">
+    <Fields>
+        <CommSchItem Label="프로젝트">
+            <CodeSelect CodeId="projlist" @bind-Value="_projectCode" />
+        </CommSchItem>
+
+        <CommSchItem Label="DB">
+            <CodeSelect CodeId="projdb" CodeKey="@(_projectCode ?? string.Empty)" @bind-Value="_dbCode"
+                        EtcFix="true" OnChanged="@(item => _dbItem = item)" />
+        </CommSchItem>
+
+        @* 한 접속에 그림이 여럿이다. **ERD 화면과 같은 줄들을 본다** —
+           고르개 항목을 만드는 규칙도 한 곳에 있다(`DrawingOption`). *@
+        <CommSchItem Label="그림">
+            <DxComboBox Data="@_drawings" Value="@_prop"
+                        TextFieldName="@nameof(DrawingOption.Label)"
+                        ValueChanged="@((DrawingOption? d) => PickDrawingAsync(d))"
+                        Enabled="@(_drawings.Count > 1)"
+                        NullText="조회하면 목록이 나옵니다"
+                        ValidationEnabled="false" CssClass="pm-code-select" />
+        </CommSchItem>
+    </Fields>
+
     <Actions>
         <DxButton Text="축소" RenderStyle="ButtonRenderStyle.Secondary" Click="@ZoomOutAsync" />
         <DxButton Text="확대" RenderStyle="ButtonRenderStyle.Secondary" Click="@ZoomInAsync" />
         <DxButton Text="맞춤" RenderStyle="ButtonRenderStyle.Secondary" Click="@FitAsync" />
 
-        <PermissionView Action="MenuAction.Search">
-            <DxButton Text="불러오기" RenderStyle="ButtonRenderStyle.Primary" Click="@LoadDiagramAsync" />
-        </PermissionView>
         <PermissionView Action="MenuAction.Update">
+            @* 도형을 만드는 것은 도구상자가 맡는다. 여기에는 **고른 것에
+               하는 일**만 둔다. *@
+            @* 캔버스에서 Delete 로도 같은 일을 한다. 단추를 함께 두는 것은
+               그 키가 있다는 것을 알려 주기 위해서다. *@
+            <DxButton Text="선택 지우기" RenderStyle="ButtonRenderStyle.Secondary"
+                      Click="@DeleteSelectionAsync" />
+
             <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Success"
-                      Enabled="@(!_legacyDrawing)" Click="@SaveDiagramAsync" />
+                      Enabled="@(!_legacyDrawing && !Loading)" Click="@SaveDiagramAsync" />
         </PermissionView>
     </Actions>
-</SearchBar>
+</CommSch>
+
+
+@* 조작법을 화면에 적어 둔다. 그리는 화면인데 단추만 있으면 **끌어 잇는 것과
+   더블클릭으로 이름 붙이는 것**을 알 길이 없다. *@
+<PageNotice Tone="NoticeTone.Info"
+            Text="「도형 추가」로 새 도형을 만들고, 도형을 더블클릭해 이름을 고칩니다(표에서 온 도형의 이름은 DB 가 정본이라 [테이블·컬럼 설명 관리]에서 고칩니다). 도형 가장자리에서 다른 도형으로 끌면 관계선이 생기고, 선도 더블클릭해 이름을 붙입니다. 고른 것은 Delete 로 지웁니다. 도구상자의 도형은 캔버스로 끌어다 놓을 수 있고, 클립보드에 담긴 그림은 캔버스 위에서 Ctrl+V 로 붙여넣습니다(그림 파일을 끌어다 놓아도 됩니다). 바꾼 것은 「저장」을 눌러야 남습니다." />
+
+@if (_dirty)
+{
+    <PageNotice Tone="NoticeTone.Warning"
+                Text="저장하지 않은 변경이 있습니다. 「저장」을 누르지 않고 나가면 사라집니다." />
+}
 
 <PageNotice Text="@Notice" Tone="@Tone" />
 
-<div class="pm-diagram-host">
-    <DiagramViewer @ref="_diagram" Height="100%" />
+<div class="pm-palette">
+    <span class="pm-palette__label">정렬</span>
+
+    <DxButton Text="계층" RenderStyle="ButtonRenderStyle.Secondary" Click="@(() => ArrangeAsync("hierarchy"))" />
+    <DxButton Text="유기" RenderStyle="ButtonRenderStyle.Secondary" Click="@(() => ArrangeAsync("organic"))" />
+    <DxButton Text="원형" RenderStyle="ButtonRenderStyle.Secondary" Click="@(() => ArrangeAsync("circle"))" />
+    <DxButton Text="격자" RenderStyle="ButtonRenderStyle.Secondary" Click="@(() => ArrangeAsync("grid"))" />
+
+    @* 배치를 새로 짜지 않고 **겹친 것만** 밀어낸다. *@
+    <DxButton Text="고루 펼치기" RenderStyle="ButtonRenderStyle.Secondary" Click="@SpreadAsync" />
+</div>
+
+<div class="pm-canvas">
+
+    @* 도구상자. 핀을 꽂으면 그림 옆에 자리를 차지하고, 빼면 위에 뜬다. *@
+    <DiagramTools Viewer="@_diagram" Shapes="@_shapes" EdgeStyles="@_edgeStyles"
+                  @bind-Open="_toolsOpen" @bind-Pinned="_toolsPinned"
+                  OnShape="@AddShapeAsync" OnEdgeStyle="@StyleEdgeAsync" />
+
+    <div class="pm-diagram-host">
+        @if (Loading)
+        {
+            @* 물어보는 동안 그림은 옛 그대로다. 눌린 것인지 알 수 없으면
+               사람은 다시 누른다 — 덮개가 그것을 막는다. *@
+            <div class="pm-diagram-loading">불러오는 중…</div>
+        }
+
+        <DiagramViewer @ref="_diagram" Height="100%" OnChanged="@(() => _dirty = true)"
+                       OnNotice="@(text => Say(text, NoticeTone.Info))" />
+    </div>
 </div>
 
 @code {
-    private const string Proc = "sp_dev_db_prop_exec";
-    private const string PropKey = "flow";
+    /// <summary>도구상자에 놓을 도형 목록. **JS 가 정본**이라 거기서 받아 온다.</summary>
+    private IReadOnlyList<DiagramViewer.DiagramShape> _shapes = [];
+
+    /// <summary>도구상자의 「선」 칸.</summary>
+    private IReadOnlyList<DiagramViewer.DiagramShape> _edgeStyles = [];
+
+    /// <summary>도구상자가 보이는가. 숨기면 손잡이만 남는다.</summary>
+    private bool _toolsOpen = true;
+
+    /// <summary>
+    /// 핀이 꽂혀 있는가. <b>꽂히면 그림 옆에 자리를 차지하고</b>, 빼면 그림
+    /// 위에 뜬다. 기본은 꽂힘 — 떠 있으면 그 자리에 도형을 놓을 수 없다.
+    /// </summary>
+    private bool _toolsPinned = true;
+
+
+    /// <summary>
+    /// 겹친 것만 밀어내 고루 펼친다. <b>배치를 새로 짜지 않는다</b> —
+    /// 사람이 놓아 둔 자리는 그대로 둔다.
+    /// </summary>
+    private async Task SpreadAsync()
+    {
+        if (_diagram is null) return;
+
+        var moved = await _diagram.SpreadAsync();
+
+        if (moved > 0)
+        {
+            _dirty = true;
+        }
+    }
+
+
+    /// <summary>
+    /// 보기 좋게 펼친다. <b>관계선이 없으면 격자로 떨어진다</b> — 그 사실을
+    /// 말해 주지 않으면 「눌렀는데 아무 일도 없다」로 보인다.
+    /// </summary>
+    private async Task ArrangeAsync(string kind)
+    {
+        if (_diagram is null) return;
+
+        var used = await _diagram.ArrangeAsync(kind);
+        _dirty = true;
+
+        if (used == "grid" && kind != "grid")
+        {
+            Say("관계선이 없어 격자로 놓았습니다. 계층·유기 배치는 이어진 선이 있어야 합니다.",
+                NoticeTone.Info);
+        }
+    }
+
+    private async Task AddShapeAsync(string kind)
+    {
+        if (_diagram is null) return;
+
+        await _diagram.AddEntityAsync(kind: kind);
+    }
+
+    /// <summary>고른 선의 모양을 바꾼다. 선을 안 골랐으면 그렇게 말해 준다.</summary>
+    private async Task StyleEdgeAsync(string kind)
+    {
+        if (_diagram is null) return;
+
+        var changed = await _diagram.StyleEdgeAsync(kind);
+
+        if (changed == 0)
+        {
+            Say("먼저 캔버스에서 선을 고르십시오.", NoticeTone.Info);
+            return;
+        }
+
+        _dirty = true;
+    }
+
+    /// <summary>
+    /// 도구상자 목록을 받아 둔다. <b>그림 부품이 생긴 뒤에만</b> 물을 수 있다 —
+    /// 그 목록은 JS 모듈 안에 있고, 모듈은 부품이 처음 그려질 때 실린다.
+    /// </summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || _diagram is null || _shapes.Count > 0)
+        {
+            return;
+        }
+
+        _shapes = await _diagram.ShapesAsync();
+        _edgeStyles = await _diagram.EdgeStylesAsync();
+        StateHasChanged();
+    }
+
+    /// <summary>그림을 담는 DB 속성의 이름. 접속 하나에 흐름도 하나다.</summary>
+    /// <summary>
+    /// 그림을 담는 DB 속성의 이름. <b>ERD 화면과 같다</b>(머리말) —
+    /// 두 화면이 한 배치를 나눠 쓴다.
+    /// </summary>
+    private const string PropKey = "erd";
+
+    /// <summary>
+    /// 지금 열어 둔 것이 <b>그 DB 의 ERD</b> 인가(<c>db_pkey = 'erd'</c>).
+    /// ERD 화면과 같은 판단이다 — 두 화면이 같은 줄들을 나눠 본다.
+    /// </summary>
+    private bool Canonical =>
+        _prop is null
+        || string.Equals(_prop.Prop.DbPkey, PropKey, StringComparison.OrdinalIgnoreCase);
 
     private DiagramViewer? _diagram;
+
+    /// <summary>
+    /// 캔버스를 고쳤는데 아직 저장 안 했다. 그림은 저장 단추를 눌렀을 때만
+    /// 모델로 되돌아가므로, 그 사실을 화면이 말해 주지 않으면 사람이 배치를
+    /// 잃는다.
+    /// </summary>
+    private bool _dirty;
     private string? _projectCode;
     private string? _dbCode;
 
     /// <summary>고른 DB 항목 전체. 접속 별칭·종류가 여기 들어 있다.</summary>
     private CommonCodeItem? _dbItem;
 
-    /// <summary>저장본의 행 키. 저장할 때 같은 행을 갱신하려면 필요하다.</summary>
-    private string _propRowId = string.Empty;
+    /// <summary>
+    /// 저장본 줄. <b>있으면 고치고 없으면 새로 넣는다</b> — 그 갈림을 위해 들고 있다.
+    /// </summary>
+    /// <summary>지금 열어 둔 그림. 고르개의 값이자 저장이 쓸 줄이다.</summary>
+    private DrawingOption? _prop;
+
+    /// <summary>이 접속에 저장된 그림들. 조회할 때 함께 읽는다.</summary>
+    private IReadOnlyList<DrawingOption> _drawings = [];
+
+    /// <summary>
+    /// 그림을 갈아 끼운다. <b>조회를 다시 부른다</b> — 이 화면의 그림은 저장본
+    /// 하나로 만들어지지 않고 대상 DB 의 표 목록을 얹어야 완성된다
+    /// (<see cref="LoadDiagramAsync"/>). 그 규칙을 여기 한 벌 더 두면 갈라진다.
+    /// </summary>
+    private Task PickDrawingAsync(DrawingOption? drawing)
+    {
+        _prop = drawing;
+
+        return drawing is null ? Task.CompletedTask : LoadDiagramAsync();
+    }
 
     /// <summary>
     /// 저장본이 옛 도구(mxGraph)의 것인가.
@@ -92,6 +285,7 @@
     private bool _legacyDrawing;
 
     private Task ZoomInAsync() => _diagram?.ZoomInAsync() ?? Task.CompletedTask;
+    private Task DeleteSelectionAsync() => _diagram?.DeleteSelectionAsync() ?? Task.CompletedTask;
     private Task ZoomOutAsync() => _diagram?.ZoomOutAsync() ?? Task.CompletedTask;
     private Task FitAsync() => _diagram?.FitAsync() ?? Task.CompletedTask;
 
@@ -105,14 +299,13 @@
 
         return LoadAsync(async () =>
         {
-            // ① 저장본
-            var saved = await Client.DbContAsync(Proc, SavedParams());
-            var first = saved.Rows?.FirstOrDefault();
+            // ① 저장본. **프로시저를 부르지 않는다** — 옛 길은
+            //    `sp_dev_db_prop_exec` 였다.
+            _drawings = DrawingOption.From(await Dbs.PropsAsync(DbRid));
+            _prop = DrawingOption.Resume(_drawings, _prop, PropKey);
 
-            _propRowId = Pick(first, "db_prid");
-
-            var raw = Pick(first, "db_pvalue");
-            _legacyDrawing = IsLegacyDrawing(raw);
+            var raw = _prop?.Prop.DbPvalue ?? string.Empty;
+            _legacyDrawing = ErdModel.IsLegacyDrawing(raw);
 
             if (_legacyDrawing)
             {
@@ -126,6 +319,24 @@
 
             var model = ErdModel.Parse(raw);
 
+            // **그 DB 의 ERD 가 아니면 표를 얹지 않는다.**
+            //
+            // 이 접속에는 ERD 말고 다른 그림도 저장돼 있다 — 구성도·인터페이스
+            // 같은 것들이고, 옛 도구에서 옮겨 온 것이 대부분이다. 거기에 표
+            // 상자 서른 개를 얹으면 그림이 파묻히고, 그 상태로 **「저장」을
+            // 누르면 그 표들이 그림에 눌러앉는다.** 「사라진 표」 표시도 표를
+            // 그린 그림에서만 뜻이 있다(ERD 화면과 같은 판단).
+            if (!Canonical)
+            {
+                if (_diagram is not null)
+                {
+                    await _diagram.LoadAsync(model);
+                    _dirty = false;
+                }
+
+                return model.Entities.Count;
+            }
+
             // ② 대상 DB 의 실제 테이블 목록. 이것이 있어야 사라진 것을 알아본다.
             var tables = await Client.JsContAsync(
                 "tablelist",
@@ -138,11 +349,30 @@
                     ["db_rid"] = _dbCode ?? string.Empty,
                 });
 
-            Merge(model, tables);
+            // **목록을 못 읽었으면 그렇게 말한다**(ERD 와 같은 판단).
+            // 실패를 삼키면 「그릴 것이 없다」로 보이는데, 표가 없는 것과
+            // 대상 DB 에 못 붙은 것은 고쳐야 할 곳이 서로 다르다.
+            if (tables.ProcCode < 0)
+            {
+                if (model.Entities.Count == 0)
+                {
+                    throw new ApiException(tables.Message ?? "테이블 목록을 읽지 못했습니다.");
+                }
+
+                Say($"저장된 그림만 그렸습니다. 대상 DB 의 테이블 목록을 읽지 못했습니다 — {tables.Message}",
+                    NoticeTone.Warning);
+            }
+            else
+            {
+                Merge(model, tables);
+            }
 
             if (_diagram is not null)
             {
                 await _diagram.LoadAsync(model);
+
+                // 방금 읽은 그림이 곧 저장본이다.
+                _dirty = false;
             }
 
             return model.Entities.Count;
@@ -193,21 +423,43 @@
             var entity = model.Entities[i];
             var desc = entity.Desc ?? string.Empty;
 
-            if (live.Contains(entity.Id) || desc.Contains("(삭제됨)", StringComparison.Ordinal))
+            // **손으로 만든 도형은 애초에 표가 아니다.** 표 목록에 없다고
+            // 「사라졌다」고 말하면 그 그림은 늘 절반이 흐리게 보인다.
+            if (entity.Manual || live.Contains(entity.Id))
             {
                 continue;
             }
 
-            model.Entities[i] = entity with { Desc = $"{desc}(삭제됨)" };
+            // 이미 붙어 있으면 글자는 그대로 두고 표시만 켠다.
+            if (desc.Contains("(삭제됨)", StringComparison.Ordinal))
+            {
+                model.Entities[i] = entity with { Gone = true };
+                continue;
+            }
+
+            // 글자와 함께 **흐린 도형**으로도 알린다. 도형이 스물몇 개면
+            // 글자만으로는 눈에 안 띈다.
+            model.Entities[i] = entity with { Desc = $"{desc}(삭제됨)", Gone = true };
         }
     }
 
     /// <summary>
-    /// 옛 도구가 저장한 것인가. mxGraph 는 XML 이고 우리 것은 JSON 이라
-    /// 첫 글자로 갈린다.
+    /// 저장본에서 <b>사라졌다는 표시를 떼어 낸다</b>(머리말).
+    ///
+    /// ERD 화면이 같은 배치를 읽으므로, 남겨 두면 그쪽 그림에 `(삭제됨)` 이
+    /// 옮아 간다. 표를 되살렸을 때 꼬리표가 남는 것도 같은 이유로 나쁘다.
     /// </summary>
-    private static bool IsLegacyDrawing(string raw) =>
-        raw.TrimStart().StartsWith('<');
+    private static ErdModel Clean(ErdModel model) => model with
+    {
+        Entities =
+        [
+            .. model.Entities.Select(e => e with
+            {
+                Gone = false,
+                Desc = e.Desc?.Replace("(삭제됨)", string.Empty, StringComparison.Ordinal),
+            })
+        ],
+    };
 
     private async Task SaveDiagramAsync()
     {
@@ -219,25 +471,59 @@
             return;
         }
 
-        var model = await _diagram.SaveAsync();
+        // 사라졌다는 표시는 조회 결과지 그림의 성질이 아니다(머리말).
+        var model = Clean(await _diagram.SaveAsync());
 
-        var row = new Dictionary<string, object?>(SavedParams())
+        var saved = await RunAsync(async () =>
         {
-            ["db_prid"] = _propRowId,
-            ["db_pvalue"] = model.ToJson(),
-            ["quri_ischange"] = true,
-        };
+            // 처음 저장하는 접속이면 줄이 없다. 그때는 새로 넣는다.
+            if (_prop is null)
+            {
+                var made = await Dbs.CreatePropAsync(DbRid, new ProjectDbPropDto
+                {
+                    DbRid = DbRid,
+                    DbPkey = PropKey,
+                    DbPvalue = model.ToJson(),
+                    DbPtype = "diagram",
+                    DbPcomment = "ERD·흐름도 배치",   // 두 화면이 같은 줄을 쓴다
+                });
 
-        await RunAsync(
-            () => Client.DbSaveAsync(Proc, [row], SavedParams()),
-            "저장했습니다.", "저장하지 못했습니다");
+                // 서버가 못 만들었으면 들고 있을 것이 없다.
+                if (made is null)
+                {
+                    return;
+                }
+
+                _prop = new DrawingOption(made, made.DbPkey ?? PropKey);
+                _drawings = [.. _drawings, _prop];
+
+                return;
+            }
+
+            // **고른 그림에 쓴다.** `erd` 로 못박아 두면 다른 이름을 열어 놓고
+            // 저장했을 때 엉뚱한 줄이 덮인다.
+            _prop.Prop.DbPvalue = model.ToJson();
+
+            if (await Dbs.UpdatePropAsync(DbRid, _prop.Prop) is { } updated)
+            {
+                _prop = _prop with { Prop = updated };
+            }
+        }, "저장했습니다.", "저장하지 못했습니다");
+
+        if (saved)
+        {
+            _dirty = false;
+        }
+        else
+        {
+            // 저장이 깨졌으면 들고 있던 줄을 믿지 않는다 — 다음 저장이
+            // 없는 줄을 고치려 들면 조용히 아무 일도 안 일어난다.
+            _prop = null;
+        }
     }
 
-    private Dictionary<string, object?> SavedParams() => new()
-    {
-        ["db_rid"] = _dbCode ?? string.Empty,
-        ["db_pkey"] = PropKey,
-    };
+    /// <summary>고른 DB 접속 번호.</summary>
+    private int DbRid => int.TryParse(_dbCode, out var rid) ? rid : 0;
 
     private static string Pick(ProjMngRow? row, params string[] names)
     {

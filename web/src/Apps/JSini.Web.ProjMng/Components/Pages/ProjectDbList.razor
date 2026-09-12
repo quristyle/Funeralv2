@@ -1,0 +1,456 @@
+@page "/projmng/db/list"
+@attribute [RouteKey("projmng.db.list")]
+
+@*
+    [프로젝트 DB 등록]
+
+    이력: 옛 Blazor `Pages/Proj/ProjDb.razor` (`/projdb`) → Vue
+          `views/projmng/proj/db.vue` → `DynamicGrid` + `sp_projdblist` ·
+          `sp_projdbsave` · `sp_projdbdel` · `sp_dev_db_prop_exec`
+          → **여기 (`CommGrd` + REST)**
+    API: `projmng/project-dbs` · `…/{dbRid}/props`
+
+    판이 셋이다 — 왼쪽이 프로젝트가 바라보는 **DB 접속**, 오른쪽 위가 그
+    접속에 딸린 **속성**, 오른쪽 아래가 고른 속성의 **값**이다. 옛 화면과
+    같은 배치다.
+
+    **이 표가 망가지면 개발 도구 화면 전부가 접속을 못 찾는다** — 테이블 관리 ·
+    쿼리 테스터 · ERD 가 모두 여기를 읽는다. 그래서 삭제에 확인을 붙인다.
+
+    ────────────────────────────────────────────────────────────
+    [값은 편집기에서 고친다]
+
+    속성 값은 대개 **여러 줄짜리 질의나 도형 JSON** 이다. 그것이 다른 화면의
+    재료가 된다 — `db_pkey='erd'` 는 ERD 배치, `sp_fmt` 는 프로시저 생성
+    뼈대다. 표 칸에 그대로 그리면 줄 하나가 표를 세로로 늘리므로, 표에는
+    앞머리만 보이고 전체는 아래 편집기에서 본다.
+
+    그래서 **편집 창에는 값 칸이 없다.** 새 속성은 이름만 지어 만들고 값은
+    편집기에서 채운다 — 옛 화면의 손 순서와 같다(행 추가 → 고르기 → 편집기).
+
+    [주소가 메뉴와 어긋나 있었다]
+
+    DB 메뉴(`PM_DB_LIST`)는 열쇠가 `projmng.db.list`, 경로가
+    `/projmng/db/list` 인데 이 화면은 `/projmng/db/view` · `projmng.db.view`
+    를 달고 있었다. **사이드바의 「프로젝트 DB 등록」을 누르면 「준비 중」이
+    떴다** — 화면은 다 만들어져 있는데 닿을 길이 없었다.
+
+    [비밀번호는 목록에 오지 않는다]
+
+    옛 프로시저는 `select a.*` 라 `db_pwd` 가 화면까지 왔다. 목록에서 그 값을
+    쓰는 자리는 없는데 **사람이 볼 수 있는 곳까지 나가 있었다.**
+
+    이제 서버가 보내지 않는다. 그래서 편집 창의 비밀번호 칸은 **늘 비어 있고,
+    비운 채로 저장하면 기존 값이 그대로 남는다** — 비밀번호를 몰라도 포트나
+    스키마를 고칠 수 있어야 하기 때문이다. 바꾸려면 새 값을 적는다.
+
+    [종류를 손으로 적지 않는다]
+
+    「종류」(`db_type`)는 글자를 그대로 받는 칸이었다. **그런데 이 값은 사람이
+    읽는 이름이 아니라 서버가 갈래를 가르는 열쇠다** —
+    `DevService` 가 `POSTGRESQL` · `EDB` · `MSSQL` 을 **글자 그대로** 비교해
+    접속 문자열을 만든다(`Services/DevService.cs`, `Models/DbInfo.cs`).
+    `Postgresql` 이라고 적거나 앞뒤에 빈칸이 붙으면 어느 갈래에도 안 걸려
+    **테이블 관리 · 쿼리 테스터 · ERD 가 그 접속을 열지 못한다.** 표에는
+    멀쩡한 줄로 보이므로 원인을 찾기도 어렵다.
+
+    그래서 프로젝트관리 공통코드의 `DB` 묶음(`projmng.devcomm`)에서 고른다 —
+    지금 `POSTGRESQL` · `MSSQL` · `MYSQL` · `EDB` 넷이고, 코드값이 서버가
+    비교하는 글자와 같다. 종류를 늘리려면 [프로젝트관리 › 공통코드]의 `DB`
+    묶음에 넣는다. **화면을 고칠 일이 없다.**
+
+    옛 값은 지우지 않는다 — 묶음에 없는 값을 든 줄을 열어도 그 값이 그대로
+    보이고, 종류를 안 건드리면 저장해도 남는다(`KeepUnknownValue`).
+
+    [속성의 「구분」도 같이 고르는 칸으로 바꿨다]
+
+    `db_ptype` 역시 손으로 적는 칸이었고, **서른 건이 전부 비어 있었다** —
+    적으라고 두었는데 아무도 적지 않았다. 그런데 화면 두 곳은 이미 이 칸에
+    값을 적고 있다: ERD 와 흐름도가 배치를 저장할 때 `diagram` 을 넣는다
+    (`ErdView.razor` · `FlowView.razor`). 뜻이 정해진 값이 있는데 사람 쪽에는
+    그것을 알 길이 없었던 셈이다.
+
+    묶음은 `DB_PROP_TYPE` 이고 `query`(질의) · `template`(뼈대) ·
+    `diagram`(도형) 셋이다. `diagram` 은 저 두 화면이 적는 글자 그대로라
+    **바꾸면 안 된다.** 만든 자리는 `deploy/sql/projmng-db-prop-type-code-2026-09-12.sql`.
+
+    **비울 수 있게 두었다.** 서른 건이 빈 채로 있고 그것이 틀린 상태가 아니다 —
+    구분은 분류일 뿐 어느 코드도 그 값을 읽지 않는다. 옛 줄을 채워 넣지도
+    않았다. 뜻을 짐작해 넣으면 틀린 분류가 남는다.
+
+    [옛 저장이 다루지 않던 칸들]
+
+    접속의 설명(`db_comm`), 속성의 설명·구분(`db_pcomment` · `db_ptype`)이
+    그렇다. 목록에는 나가는데 넣거나 고칠 길이 없었다. 이제 편집 창에 있다.
+*@
+
+@inherits DataPage
+@inject ProjectDbClient Api
+
+<PageTitle>프로젝트 DB 등록 · 프로젝트관리</PageTitle>
+
+<CommSch OnSearch="@SearchAsync">
+    <Fields>
+        <CommSchItem Label="프로젝트">
+            <CodeSelect CodeId="projlist" @bind-Value="_projectCode" ShowAll="true"
+                        OnChanged="@(_ => SearchAsync())" />
+        </CommSchItem>
+    </Fields>
+</CommSch>
+
+<PageNotice Text="@Notice" Tone="@Tone" />
+
+<div class="pm-split">
+    <CommCont Title="DB 접속" Hint="@($"{_dbs.Count}건")" CssClass="pm-split__side">
+        <CommGrd TItem="ProjectDbDto"
+                 Data="@_dbs"
+                 EditFormTitle="DB 접속"
+                 ExportName="프로젝트DB"
+                 PageSize="20"
+                 EmptyText="등록된 접속이 없습니다."
+                 OnNew="@FillNewDb"
+                 OnSave="@SaveDbAsync"
+                 OnDelete="@DeleteDbAsync"
+                 DeleteConfirm="@(d => $"접속 「{d.DbNick}」({d.DbDatabase}) 을(를) 지웁니다.\n이 접속을 쓰는 개발 도구 화면이 대상을 잃습니다.\n되돌릴 수 없습니다.")"
+                 Reload="@SearchAsync"
+                 SelectedItem="@_db"
+                 SelectedItemChanged="@PickDbAsync">
+            <Columns>
+                <DxGridDataColumn FieldName="@nameof(ProjectDbDto.DbNick)" Caption="이름" MinWidth="130"
+                                  TextAlignment="GridTextAlignment.Left" />
+                <DxGridDataColumn FieldName="@nameof(ProjectDbDto.DbType)" Caption="종류" Width="110" />
+                <DxGridDataColumn FieldName="@nameof(ProjectDbDto.DbDatabase)" Caption="DB" MinWidth="120"
+                                  TextAlignment="GridTextAlignment.Left" />
+                <DxGridDataColumn FieldName="@nameof(ProjectDbDto.PrjName)" Caption="프로젝트" MinWidth="120"
+                                  TextAlignment="GridTextAlignment.Left" />
+            </Columns>
+
+            <EditFormTemplate Context="edit">
+                @{
+                    var d = (ProjectDbDto)edit.EditModel;
+                }
+                <DxFormLayout CssClass="pm-editform">
+                    <DxFormLayoutItem Caption="이름" ColSpanMd="6">
+                        <DxTextBox @bind-Text="d.DbNick" NullText="필수" />
+                    </DxFormLayoutItem>
+
+                    @* 손으로 적던 칸이다. 고르는 칸으로 바꾼 이유는 머리말에 있다.
+                       `AutoSelectFirst` 를 끈다 — 새 접속의 기본값은 `FillNewDb`
+                       가 정하고, 고친 접속의 값을 목록 첫 줄로 갈아 끼우면 안 된다. *@
+                    <DxFormLayoutItem Caption="종류" ColSpanMd="6">
+                        <CodeSelect CodeId="DB" @bind-Value="d.DbType"
+                                    AutoSelectFirst="false" KeepUnknownValue="true"
+                                    Placeholder="종류를 고르세요" />
+                    </DxFormLayoutItem>
+
+                    <DxFormLayoutItem Caption="주소" ColSpanMd="6">
+                        <DxTextBox @bind-Text="d.DbIp" />
+                    </DxFormLayoutItem>
+
+                    <DxFormLayoutItem Caption="포트" ColSpanMd="6">
+                        <DxTextBox @bind-Text="d.DbPort" />
+                    </DxFormLayoutItem>
+
+                    <DxFormLayoutItem Caption="DB" ColSpanMd="6">
+                        <DxTextBox @bind-Text="d.DbDatabase" />
+                    </DxFormLayoutItem>
+
+                    <DxFormLayoutItem Caption="스키마" ColSpanMd="6">
+                        <DxTextBox @bind-Text="d.DbSchema" />
+                    </DxFormLayoutItem>
+
+                    <DxFormLayoutItem Caption="계정" ColSpanMd="6">
+                        <DxTextBox @bind-Text="d.DbId" />
+                    </DxFormLayoutItem>
+
+                    @* **늘 비어 있다.** 비운 채로 저장하면 기존 값이 남는다(머리말). *@
+                    <DxFormLayoutItem Caption="비밀번호" ColSpanMd="6">
+                        <DxTextBox @bind-Text="d.DbPwd" Password="true"
+                                   NullText="비우면 그대로 둡니다" />
+                    </DxFormLayoutItem>
+
+                    <DxFormLayoutItem Caption="인증서" ColSpanMd="6">
+                        <DxTextBox @bind-Text="d.DbCert" />
+                    </DxFormLayoutItem>
+
+                    @* 옛 저장이 다루지 않던 칸이다. *@
+                    <DxFormLayoutItem Caption="설명" ColSpanMd="12">
+                        <DxTextBox @bind-Text="d.DbComm" />
+                    </DxFormLayoutItem>
+                </DxFormLayout>
+            </EditFormTemplate>
+        </CommGrd>
+    </CommCont>
+
+    <div class="pm-split__main pm-stack">
+        <CommCont Title="@(_db is null ? "속성" : $"{_db.DbNick} 의 속성")"
+                  Hint="@(_db is null ? string.Empty : $"{_props.Count}건")">
+            @if (_db is null)
+            {
+                <PageNotice Text="왼쪽에서 접속을 고르면 그 속성이 나옵니다." Tone="NoticeTone.Info" />
+            }
+            else
+            {
+                <CommGrd TItem="ProjectDbPropDto"
+                         Data="@_props"
+                         EditFormTitle="속성"
+                         ExportName="DB속성"
+                         PageSize="10"
+                         EmptyText="이 접속에 속성이 없습니다."
+                         OnNew="@FillNewProp"
+                         OnSave="@SavePropAsync"
+                         OnDelete="@DeletePropAsync"
+                         DeleteConfirm="@(p => $"속성 「{p.DbPkey}」 을(를) 지웁니다.\n되돌릴 수 없습니다.")"
+                         Reload="@LoadPropsAsync"
+                         SelectedItem="@_prop"
+                         SelectedItemChanged="@PickPropAsync">
+                    <Columns>
+                        <DxGridDataColumn FieldName="@nameof(ProjectDbPropDto.DbPkey)" Caption="이름" Width="140"
+                                          TextAlignment="GridTextAlignment.Left" />
+                        <DxGridDataColumn FieldName="@nameof(ProjectDbPropDto.DbPtype)" Caption="구분" Width="90" />
+                        <DxGridDataColumn Caption="값" MinWidth="220">
+                            <CellDisplayTemplate Context="cell">
+                                @{
+                                    var p = (ProjectDbPropDto)cell.DataItem;
+                                }
+                                @* 앞머리만. 전체는 아래 편집기에서 본다(머리말). *@
+                                <span class="pm-oneline">@Head(p.DbPvalue)</span>
+                            </CellDisplayTemplate>
+                        </DxGridDataColumn>
+                        <DxGridDataColumn FieldName="@nameof(ProjectDbPropDto.ModDt)" Caption="수정" Width="150"
+                                          DisplayFormat="yyyy-MM-dd HH:mm" />
+                    </Columns>
+
+                    <EditFormTemplate Context="edit">
+                        @{
+                            var p = (ProjectDbPropDto)edit.EditModel;
+                        }
+                        @* **값 칸이 없다.** 값은 아래 편집기가 맡는다(머리말). *@
+                        <DxFormLayout CssClass="pm-editform">
+                            <DxFormLayoutItem Caption="이름" ColSpanMd="6">
+                                <DxTextBox @bind-Text="p.DbPkey" NullText="필수 — erd · sp_fmt …" />
+                            </DxFormLayoutItem>
+
+                            @* 종류와 같은 이유로 고르는 칸이다(머리말).
+                               **비울 수 있다** — 지금 있는 속성 서른은 모두
+                               구분이 비어 있고, 그것이 틀린 상태가 아니다. *@
+                            <DxFormLayoutItem Caption="구분" ColSpanMd="6">
+                                <CodeSelect CodeId="DB_PROP_TYPE" @bind-Value="p.DbPtype"
+                                            AutoSelectFirst="false" KeepUnknownValue="true"
+                                            AllowClear="true" Placeholder="구분 없음" />
+                            </DxFormLayoutItem>
+
+                            <DxFormLayoutItem Caption="설명" ColSpanMd="12">
+                                <DxTextBox @bind-Text="p.DbPcomment" />
+                            </DxFormLayoutItem>
+                        </DxFormLayout>
+                    </EditFormTemplate>
+                </CommGrd>
+            }
+        </CommCont>
+
+        <CommCont Title="@(_prop is null ? "값" : $"{_prop.DbPkey} 의 값")" Hint="@ValueHint">
+            <Actions>
+                <PermissionView Action="MenuAction.Update">
+                    @* 옛 화면은 이 단추가 조건줄에 있었다(「편집기 저장」).
+                       고치는 대상 바로 위에 두는 편이 무엇을 저장하는지 분명하다. *@
+                    <DxButton Text="값 저장" RenderStyle="ButtonRenderStyle.Success"
+                              Enabled="@(_prop is not null)" Click="@SaveValueAsync" />
+                </PermissionView>
+            </Actions>
+
+            <ChildContent>
+                @if (_prop is null)
+                {
+                    <PageNotice Text="속성을 고르면 그 값이 편집기에 열립니다." Tone="NoticeTone.Info" />
+                }
+                else
+                {
+                    <CodeEditor @bind-Value="_value" Language="pgsql" Height="320px" />
+                }
+            </ChildContent>
+        </CommCont>
+    </div>
+</div>
+
+@code {
+    private IReadOnlyList<ProjectDbDto> _dbs = [];
+    private IReadOnlyList<ProjectDbPropDto> _props = [];
+
+    private string? _projectCode;
+    private ProjectDbDto? _db;
+    private ProjectDbPropDto? _prop;
+
+    /// <summary>
+    /// 편집기에 열려 있는 값. <b>속성 줄의 값을 그대로 쓰지 않는다</b> —
+    /// 타이핑 중에 줄이 다시 읽히면 방금 친 것이 사라진다. 저장할 때 옮긴다.
+    /// </summary>
+    private string? _value;
+
+    private int? ProjectRid => int.TryParse(_projectCode, out var rid) ? rid : null;
+
+    private string ValueHint =>
+        _prop is null ? string.Empty : $"{(_value ?? string.Empty).Length:#,##0}자";
+
+    /// <summary>표에 보여 줄 값의 앞머리. 여러 줄이면 첫 줄만.</summary>
+    private static string Head(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return string.Empty;
+        }
+
+        var line = value.Split('\n').FirstOrDefault(l => l.Trim().Length > 0)?.Trim() ?? string.Empty;
+        return line.Length <= 80 ? line : line[..80] + "…";
+    }
+
+    protected override Task OnInitializedAsync() => SearchAsync();
+
+    private Task SearchAsync() => LoadAsync(async () =>
+    {
+        _dbs = await Api.ListAsync(ProjectRid);
+
+        if (_db is not null && _dbs.All(d => d.DbRid != _db.DbRid))
+        {
+            ClearDb();
+        }
+
+        return _dbs.Count;
+    }, "등록된 접속이 없습니다.", "DB 목록을 읽지 못했습니다");
+
+    private void ClearDb()
+    {
+        _db = null;
+        _props = [];
+        ClearProp();
+    }
+
+    private void ClearProp()
+    {
+        _prop = null;
+        _value = null;
+    }
+
+    private Task PickDbAsync(ProjectDbDto? db)
+    {
+        _db = db;
+        ClearProp();
+
+        if (db is null)
+        {
+            _props = [];
+            return Task.CompletedTask;
+        }
+
+        return LoadPropsAsync();
+    }
+
+    private Task LoadPropsAsync() => _db is null ? Task.CompletedTask : LoadAsync(async () =>
+    {
+        _props = await Api.PropsAsync(_db.DbRid);
+
+        // 고른 속성이 목록에서 빠졌으면 편집기를 비운다.
+        if (_prop is not null && _props.All(p => p.DbPrid != _prop.DbPrid))
+        {
+            ClearProp();
+        }
+
+        return _props.Count;
+    }, "이 접속에 속성이 없습니다.", "속성을 읽지 못했습니다");
+
+    private Task PickPropAsync(ProjectDbPropDto? prop)
+    {
+        _prop = prop;
+        _value = prop?.DbPvalue ?? string.Empty;
+
+        return Task.CompletedTask;
+    }
+
+    private void FillNewDb(ProjectDbDto d)
+    {
+        d.PrjRid = ProjectRid;
+        d.DbType = "POSTGRESQL";
+    }
+
+    private async Task SaveDbAsync((ProjectDbDto Item, bool IsNew) e)
+    {
+        if (e.IsNew)
+        {
+            await Api.CreateAsync(e.Item);
+        }
+        else
+        {
+            await Api.UpdateAsync(e.Item);
+        }
+    }
+
+    private async Task DeleteDbAsync(ProjectDbDto d)
+    {
+        await Api.DeleteAsync(d.DbRid);
+
+        if (_db?.DbRid == d.DbRid)
+        {
+            ClearDb();
+        }
+    }
+
+    /// <summary>
+    /// 새 속성은 <b>고른 접속에 붙는다.</b> 값은 비워 둔다 — 편집기에서 채운다.
+    /// </summary>
+    private void FillNewProp(ProjectDbPropDto p) => p.DbRid = _db?.DbRid ?? 0;
+
+    private async Task SavePropAsync((ProjectDbPropDto Item, bool IsNew) e)
+    {
+        if (_db is null)
+        {
+            return;
+        }
+
+        if (e.IsNew)
+        {
+            await Api.CreatePropAsync(_db.DbRid, e.Item);
+        }
+        else
+        {
+            // 편집 창은 값을 다루지 않는다. 표의 줄에 남아 있는 값을 그대로
+            // 실어 보낸다 — 안 실으면 이름만 고쳐도 값이 지워진다.
+            await Api.UpdatePropAsync(_db.DbRid, e.Item);
+        }
+    }
+
+    private async Task DeletePropAsync(ProjectDbPropDto p)
+    {
+        if (_db is null)
+        {
+            return;
+        }
+
+        await Api.DeletePropAsync(_db.DbRid, p.DbPrid);
+
+        if (_prop?.DbPrid == p.DbPrid)
+        {
+            ClearProp();
+        }
+    }
+
+    /// <summary>편집기 내용을 그 속성 한 건에 저장한다(옛 <c>OnSaveWrk</c>).</summary>
+    private async Task SaveValueAsync()
+    {
+        if (_db is null || _prop is null)
+        {
+            return;
+        }
+
+        _prop.DbPvalue = _value ?? string.Empty;
+
+        var saved = await RunAsync(
+            () => Api.UpdatePropAsync(_db.DbRid, _prop),
+            "값을 저장했습니다.", "값을 저장하지 못했습니다");
+
+        if (saved)
+        {
+            // 표의 앞머리와 수정 시각이 방금 바뀌었다.
+            await LoadPropsAsync();
+        }
+    }
+}

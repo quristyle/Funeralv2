@@ -1,101 +1,157 @@
 @page "/projmng/proj/scheduler"
 @attribute [RouteKey("projmng.proj.scheduler")]
-@using System.Data
 
 @*
     [프로젝트 일정표]
 
-    이력: 옛 Blazor `Pages/Proj/ProjScheduler.razor` → Vue `views/projmng/proj/scheduler.vue` → 여기.
-    프로시저: `sp_proj_wbs_exec` (`schedule_type = 'SCHEDULE'`)
+    이력: 옛 Blazor `Pages/Proj/ProjScheduler.razor` → Vue
+          `views/projmng/proj/scheduler.vue` → `DynamicGrid` + `sp_proj_wbs_exec`
+          → **여기 (`CommGrd` + REST)**
+    API: `projmng/wbs`
 
-    **WBS 와 같은 프로시저·같은 표를 쓴다.** `schedule_type` 하나로 갈린다 —
-    WBS 는 산출물 단위, 일정표는 날짜 단위로 같은 자료를 달리 본다.
+    **WBS 와 같은 표를 쓴다.** `schedule_type` 하나로 갈린다 — WBS 는 산출물
+    단위, 일정표는 날짜 단위로 같은 자료를 달리 본다. 편집 창도 같은 것을
+    쓴다(`WbsEditForm`).
 
-    기간은 프리셋 탭(주·월·분기)으로 고른다. 옛 화면은 시작·종료를 손으로
-    넣게 했는데, 실제로 쓰는 구간이 몇 가지뿐이라 탭이 빠르다.
+    ────────────────────────────────────────────────────────────
+    [기간 탭이 아무 일도 안 하고 있었다]
+
+    화면은 `start_day` · `end_day` 를 실어 보내는데 `sp_proj_wbs_exec` 의
+    `WHERE` 에 **그 값을 보는 곳이 없었다.** 주·월·분기를 아무리 눌러도 목록이
+    같았고, 오류가 아니라서 아무도 몰랐다.
+
+    이제 **계획 기간이 고른 구간과 겹치는 것**을 낸다. 시작일만 보면 걸쳐 있는
+    긴 일감이 그 주에서 사라지는데, 그것이 일정표에서 제일 보고 싶은 줄이다.
+
+    [이 화면이 비어 보이는 것은 자료 때문이다]
+
+    운영 자료의 `schedule_type` 은 전부 `WBS`(318) 와 `Public`(4) 이고
+    **`SCHEDULE` 인 줄이 하나도 없다.** 그래서 이 화면은 옛날부터 늘 비어
+    있었다. 여기서 「등록」으로 만든 줄은 `SCHEDULE` 로 들어가 여기 남는다.
 *@
 
 @inherits DataPage
-@inject ProjMngClient Client
+@inject WbsClient Api
 
 <PageTitle>프로젝트 일정표 · 프로젝트관리</PageTitle>
 
-<SearchBar>
-    <ChildContent>
-        <CodeSelect CodeId="projlist" @bind-Value="_projectCode" OnChanged="@(_ => SearchAsync())" />
-        <CodeSelect CodeId="compstat" @bind-Value="_completeState" ShowAll="true" />
-    </ChildContent>
-    <Actions>
-        <PermissionView Action="MenuAction.Search">
-            <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@SearchAsync" />
-        </PermissionView>
-        <PermissionView Action="MenuAction.Update">
-            <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Success" Click="@SaveAsync" />
-        </PermissionView>
-    </Actions>
-</SearchBar>
+<CommSch OnSearch="@SearchAsync">
+    <Fields>
+        <CommSchItem Label="프로젝트">
+            <CodeSelect CodeId="projlist" @bind-Value="_projectCode" OnChanged="@(_ => SearchAsync())" />
+        </CommSchItem>
 
+        <CommSchItem Label="진행">
+            <CodeSelect CodeId="compstat" @bind-Value="_completeState" ShowAll="true" />
+        </CommSchItem>
+    </Fields>
+</CommSch>
+
+@* 이제 이 탭이 실제로 목록을 좁힌다(머리말). *@
 <DateRangeTabs @ref="_range" RangeChanged="@(_ => SearchAsync())" />
 
 <PageNotice Text="@Notice" Tone="@Tone" />
 
-<DynamicGrid Data="@_grid.Data"
-             Loading="@_grid.IsLoading"
-             DropdownCols="schedule_type|schedule_type"
-             HiddenCols="prj_rid,proc_lvl,build_user,build_status,build_chk_dt,qc_chk_dt,cre_user,cre_dt,mod_user,mod_dt"
+<CommCont Title="일정표" Hint="@Hint">
+    <CommGrd TItem="WbsItemDto"
+             Data="@_rows"
+             EditFormTitle="일정"
              ExportName="일정표"
-             OnRefresh="@SearchAsync"
+             PageSize="30"
+             EmptyText="그 기간에 일정이 없습니다."
+             OnNew="@FillNew"
              OnSave="@SaveAsync"
-             OnAdd="@FillProject"
-             OnDelete="@(row => _grid.DeleteAsync(row))" />
+             OnDelete="@DeleteAsync"
+             DeleteConfirm="@(w => $"「{w.ProcNm}」 을(를) 지웁니다.\n되돌릴 수 없습니다.")"
+             Reload="@SearchAsync">
+        <Columns>
+            <DxGridDataColumn FieldName="@nameof(WbsItemDto.PlanSdt)" Caption="시작" Width="105"
+                              DisplayFormat="yyyy-MM-dd" />
+            <DxGridDataColumn FieldName="@nameof(WbsItemDto.PlanEdt)" Caption="종료" Width="105"
+                              DisplayFormat="yyyy-MM-dd" />
+            <DxGridDataColumn FieldName="@nameof(WbsItemDto.PlanGap)" Caption="기간" Width="70" />
+            <DxGridDataColumn FieldName="@nameof(WbsItemDto.ProcNm)" Caption="일정" MinWidth="200"
+                              TextAlignment="GridTextAlignment.Left" />
+            <DxGridDataColumn FieldName="@nameof(WbsItemDto.ProcTp)" Caption="종류" Width="110" />
+            <DxGridDataColumn FieldName="@nameof(WbsItemDto.DevUser)" Caption="담당" Width="90" />
+
+            <DxGridDataColumn Caption="진행" Width="70">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var w = (WbsItemDto)cell.DataItem;
+                    }
+                    <span class="jsini-badge @w.StateClass">@w.StateName</span>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn FieldName="@nameof(WbsItemDto.Comm)" Caption="메모" MinWidth="140"
+                              TextAlignment="GridTextAlignment.Left" />
+        </Columns>
+
+        <EditFormTemplate Context="edit">
+            <WbsEditForm Item="@((WbsItemDto)edit.EditModel)" />
+        </EditFormTemplate>
+    </CommGrd>
+</CommCont>
 
 @code {
-    private const string Proc = "sp_proj_wbs_exec";
-
     /// <summary>이 화면이 다루는 일정 종류. WBS 화면과 표를 나누는 유일한 값이다.</summary>
-    private const string ScheduleType = "SCHEDULE";
+    private const string Kind = "SCHEDULE";
 
-    private ProcGrid _grid = default!;
+    private IReadOnlyList<WbsItemDto> _rows = [];
     private DateRangeTabs? _range;
 
     private string? _projectCode;
     private string? _completeState;
 
-    protected override void OnInitialized() => _grid = new ProcGrid(Client, Proc);
+    private int? ProjectRid => int.TryParse(_projectCode, out var rid) ? rid : null;
 
-    protected override Task OnInitializedAsync() => SearchAsync();
+    private string Hint => $"{_rows.Count}건";
 
-    private Dictionary<string, object?> Params() => new()
-    {
-        ["prj_rid"] = _projectCode ?? string.Empty,
-        ["compstat"] = _completeState ?? string.Empty,
-        ["schedule_type"] = ScheduleType,
-        ["start_day"] = _range?.Range.Start.ToString("yyyyMMdd") ?? string.Empty,
-        ["end_day"] = _range?.Range.End.ToString("yyyyMMdd") ?? string.Empty,
-    };
+    // **화면을 열 때 여기서 조회하지 않는다.** 프로젝트 고르개가 첫 항목을
+    // 스스로 고르면서 조회를 건다(`AutoSelectFirst`). 둘 다 하면 **프로젝트를
+    // 안 건 조회와 건 조회가 같이 날아가고**, 늦게 돌아온 쪽이 화면에 남는다 —
+    // 프로젝트를 골랐는데 목록은 전체인 상태가 된다. 실제로 그렇게 보였다.
 
     private Task SearchAsync() => LoadAsync(async () =>
     {
-        await _grid.LoadAsync(Params());
-        return _grid.Data.Table.Rows.Count;
+        _rows = await Api.ListAsync(
+            ProjectRid, _completeState, Kind,
+            _range is null ? null : DateOnly.FromDateTime(_range.Range.Start),
+            _range is null ? null : DateOnly.FromDateTime(_range.Range.End));
+
+        return _rows.Count;
     }, "그 기간에 일정이 없습니다.", "일정표를 읽지 못했습니다");
 
-    private Task SaveAsync() => RunAsync(
-        () => _grid.SaveAsync(Params()), "저장했습니다.", "저장하지 못했습니다");
-
-    private Task FillProject(DataRow row)
+    /// <summary>
+    /// 새 일정은 <b>고른 프로젝트와 이 화면의 종류에 붙는다.</b> 종류를 비워
+    /// 두면 WBS 로 새어 가고, 여기서는 다시 안 보인다.
+    /// </summary>
+    private void FillNew(WbsItemDto w)
     {
-        if (row.Table.Columns.Contains("prj_rid"))
-        {
-            row["prj_rid"] = _projectCode ?? string.Empty;
-        }
+        w.PrjRid = ProjectRid;
+        w.ScheduleType = Kind;
 
-        // 일정표에서 만든 행은 일정표에 남아야 한다. 비워 두면 WBS 로 새어 간다.
-        if (row.Table.Columns.Contains("schedule_type"))
+        // 고른 기간의 첫날을 기본으로 둔다 — 안 그러면 만든 줄이 지금 보고
+        // 있는 구간 밖으로 떨어져 저장 직후 목록에서 사라진다.
+        if (_range is not null)
         {
-            row["schedule_type"] = ScheduleType;
+            w.PlanSdt = DateOnly.FromDateTime(_range.Range.Start);
+            w.PlanEdt = DateOnly.FromDateTime(_range.Range.Start);
         }
-
-        return Task.CompletedTask;
     }
+
+    private async Task SaveAsync((WbsItemDto Item, bool IsNew) e)
+    {
+        if (e.IsNew)
+        {
+            await Api.CreateAsync(e.Item);
+        }
+        else
+        {
+            await Api.UpdateAsync(e.Item);
+        }
+    }
+
+    private Task DeleteAsync(WbsItemDto w) => Api.DeleteAsync(w.WbsId);
 }

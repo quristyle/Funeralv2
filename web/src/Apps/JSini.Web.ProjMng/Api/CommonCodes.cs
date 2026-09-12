@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 using JSini.Web.Components.Data;
 using JSini.Web.Http;
 
@@ -25,10 +27,9 @@ public sealed record CommonCodeItem(
 /// <c>projmng_common</c> 행)를 통해 이걸 읽었다. 메타데이터가 "MSA=projmng ·
 /// POST /Proj · 고정 파라미터 <c>{ProcName:'sp_projCommon'}</c>" 를 정해 준다.
 ///
-/// 여기서는 그 프로시저를 <b>직접</b> 부른다. 프로젝트관리의 드롭다운은 전부
-/// 이 프로시저 하나를 <c>code_id</c> 만 바꿔 부르므로 메타데이터를 한 번 더
-/// 거칠 이유가 없고, 거치면 포털의 그 장치가 살아 있어야만 이 앱이 뜬다 —
-/// 앱을 나눈 뜻에 어긋난다.
+/// 여기서는 프로젝트관리 서비스의 <b>제 통로를 직접</b> 부른다
+/// (<c>projmng/proj-codes/{codeId}</c>). 거치면 포털의 그 장치가 살아 있어야만
+/// 이 앱이 뜬다 — 앱을 나눈 뜻에 어긋난다.
 ///
 /// (포털의 범용 셀렉트가 필요한 화면이 나중에 생기면 그때 Blazor Common 으로
 /// 따로 옮긴다. 그건 이 앱만의 문제가 아니다.)
@@ -43,27 +44,17 @@ public sealed record CommonCodeItem(
 /// 나눠 쓰는데 <b>여기만 <c>PerUserAsync</c> 다.</b> 이유는 하나다.
 ///
 /// <para>
-/// ProjMngServer 의 <c>UserIdentityActionFilter</c> 가 <b>모든 요청의 본문에</b>
-/// 부르는 사람을 실어 넣는다(<c>dto.SSUserId = userId</c>). 그래서
-/// <c>sp_projCommon</c> 은 <b>누가 물었는지를 안다</b> — 그것으로 거르는지는
-/// 프로시저 안을 봐야 알 수 있고, 그 DB(<c>jsini.co.kr:15432</c>)는 개발망에서
-/// 풀리지 않아 확인하지 못했다.
+/// <b>부르는 사람에 따라 목록이 달라진다.</b> 옛 주석은 「<c>sp_projCommon</c>
+/// 이 <c>SSUserId</c> 를 보는지 확인하지 못했다」고 적어 두었는데, 프로시저를
+/// 읽어 확인했다 — <c>projlist</c> 갈래에서 <b>그 사람이 참여한 프로젝트로
+/// 좁힌다.</b> 나눠 담으면 남의 프로젝트 목록이 보인다. 옮겨 온 백엔드
+/// (<c>ProjCodeService</c>)도 같은 규칙을 그대로 지킨다.
 /// </para>
 ///
-/// <para>
-/// 확인하지 못한 것을 나눠 쓰면 틀렸을 때 나는 일이 <b>남의 코드 목록이
-/// 보이는 것</b>이다. 사람마다 담아도 <b>고치려던 문제는 그대로 사라진다</b> —
-/// 업무를 넘나들 때 다시 읽는 일이 없어진다. 잃는 것은 사람 사이의 중복뿐이다.
-/// </para>
-///
-/// <para>
-/// 프로시저가 <c>SSUserId</c> 를 안 본다는 것이 확인되면 <c>SharedAsync</c> 로
-/// 바꾼다. <b>그때 근거를 이 자리에 적는다.</b>
-/// </para>
 /// </summary>
-public sealed class CommonCodes(ProjMngClient client, ReferenceData data)
+public sealed class CommonCodes(GatewayClient gateway, ReferenceData data)
 {
-    private const string Proc = "sp_projCommon";
+    private const string Url = "projmng/proj-codes";
 
     /// <summary>참조자료 통 안에서의 묶음 이름. 코드를 고치는 화면이 이 이름으로 버린다.</summary>
     public const string Group = "projmng.common-code";
@@ -94,14 +85,16 @@ public sealed class CommonCodes(ProjMngClient client, ReferenceData data)
         string key,
         CancellationToken cancellationToken)
     {
-        ProjMngResult result;
+        IReadOnlyList<Dictionary<string, JsonElement>> rows;
 
         try
         {
-            result = await client.DbContAsync(
-                Proc,
-                new Dictionary<string, object?> { ["code_id"] = codeId, ["etc0"] = key },
-                cancellationToken: cancellationToken);
+            var query = string.IsNullOrEmpty(key)
+                ? string.Empty
+                : $"?etc0={Uri.EscapeDataString(key)}";
+
+            rows = await gateway.GetListAsync<Dictionary<string, JsonElement>>(
+                $"{Url}/{Uri.EscapeDataString(codeId)}{query}", cancellationToken);
         }
         catch (ApiException)
         {
@@ -117,15 +110,15 @@ public sealed class CommonCodes(ProjMngClient client, ReferenceData data)
             return null;
         }
 
-        var items = new List<CommonCodeItem>(result.Rows?.Count ?? 0);
+        var items = new List<CommonCodeItem>(rows.Count);
 
-        foreach (var row in result.Rows ?? [])
+        foreach (var row in rows)
         {
-            // 컬럼 이름은 프로시저가 정한다. Vue 도 메타데이터가 없을 때
-            // code·name 으로 떨어지도록 두었으니 같은 이름을 쓴다.
+            // 칸 이름은 서버가 정한다. 화면이 `Others["db_nick"]` 처럼 그대로
+            // 집어 쓰므로 **이름을 여기서 바꾸지 않는다.**
             var others = row.ToDictionary(
                 pair => pair.Key,
-                pair => pair.Value?.ToString() ?? string.Empty,
+                pair => Text(pair.Value),
                 StringComparer.Ordinal);
 
             items.Add(new CommonCodeItem(
@@ -136,6 +129,17 @@ public sealed class CommonCodes(ProjMngClient client, ReferenceData data)
 
         return items;
     }
+
+    /// <summary>
+    /// 값 하나를 글자로. <b>문자열은 따옴표를 벗긴다</b> — 벗기지 않으면
+    /// 화면이 <c>"POSTGRESQL"</c> 을 따옴표째 프로시저에 실어 보낸다.
+    /// </summary>
+    private static string Text(JsonElement value) => value.ValueKind switch
+    {
+        JsonValueKind.String => value.GetString() ?? string.Empty,
+        JsonValueKind.Null or JsonValueKind.Undefined => string.Empty,
+        _ => value.ToString(),
+    };
 
     /// <summary>
     /// 캐시를 비운다. <b>코드를 편집하는 화면이 저장 뒤에 부른다.</b>

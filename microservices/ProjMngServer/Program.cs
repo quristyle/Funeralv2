@@ -29,10 +29,26 @@ builder.Services.AddControllers(options => {
 
 builder.Services.AddScoped<DevService>();
 builder.Services.AddScoped<ProjService>();
-builder.Services.AddScoped<SysService>();
+
+// 프로시저를 걷어내며 생기는 업무 서비스들. 범용 통로(ProjService)와 달리
+// **자기 표 하나만** 안다 — 무엇을 부를 수 있는지가 경로에 드러난다.
+builder.Services.AddScoped<ProjectService>();
+builder.Services.AddScoped<ProjectUserService>();
+builder.Services.AddScoped<DevCommonCodeService>();
+builder.Services.AddScoped<SourceInfoService>();
+builder.Services.AddScoped<ProjectDbService>();
+builder.Services.AddScoped<HomeTodoService>();
+builder.Services.AddScoped<ProjCodeService>();
+builder.Services.AddScoped<WbsService>();
+builder.Services.AddScoped<DbLogicService>();
+builder.Services.AddScoped<ActivityInfoService>();
+builder.Services.AddScoped<ProjectPropService>();
+
+// Dapper 가 DateOnly 를 파라미터로 다루게 한다. **여기 한 곳에서만 등록한다** —
+// 서비스마다 부르면 빠뜨리는 서비스가 생기고, 그 서비스의 저장만 죽는다.
+DapperDateOnlyHandlers.Register();
 
 // 연결 가능한 프로젝트 DB 목록 캐시
-builder.Services.AddSingleton<AppData>();
 
 builder.Services.AddHttpContextAccessor();
 

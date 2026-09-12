@@ -20,49 +20,145 @@
 
 <PageTitle>로그인 · JSini 포털</PageTitle>
 
-<div class="jsini-login">
-    <div class="jsini-login__card">
-        <h1 class="jsini-login__title">JSini 포털</h1>
+@*
+    [무엇을 옛 화면에서 가져왔나]
 
-        @if (_error is not null)
-        {
-            <div class="jsini-login__error" role="alert">@_error</div>
-        }
+    Vue 는 vben 의 `AuthenticationLogin` 을 썼다(`views/_core/authentication/
+    login.vue` → `packages/effects/common-ui/.../login.vue`). 그 부품이 갖고
+    있던 것 중 **이 포털에 뜻이 있는 것만** 옮겼다.
 
-        @* 공개 공지 팝업. **이 화면에 대화형 섬이 없다** — 팝업이 회로를
-           기다리지 않고 첫 HTML 에 함께 실려 나간다. 왜 그렇게 했는지와
-           얼마나 빨라졌는지는 `PublicNoticePopup` 머리말에 적었다.
+    | 옛 화면 | 여기 |
+    |---|---|
+    | 제목 + 부제 | 가져왔다 |
+    | 아이디 · 비밀번호 | 가져왔다 |
+    | **아이디 기억하기** | 가져왔다 — 아래 절 |
+    | 비밀번호 찾기 · 가입 신청 | 가져왔다 |
+    | 휴대폰 로그인 · QR 로그인 · 소셜 로그인 | **뺐다** — 받아 줄 서버가 없다 |
+    | 슬라이드 인증(SliderCaptcha) | 옛 화면이 이미 걷어냈다(그쪽 주석) |
 
-           한동안 `<NoticeAutoPopup Public="true" @@rendermode="InteractiveServer" />`
-           였다. 섬 하나를 띄우는 값이 컸다 — Blazor 가 회로를 열기까지
-           로그인 폼보다 460ms 늦게 떴다(캐시가 다 찬 상태에서도). *@
-        <PublicNoticePopup />
+    없는 길로 가는 단추를 그려 두면 **눌러 본 사람이 고장으로 신고한다.**
+    서버가 생기면 그때 되살린다.
 
-        <EditForm Model="@Input" FormName="login" OnValidSubmit="@SubmitAsync">
-            <DataAnnotationsValidator />
+    [디자인은 소개 사이트(:5556)를 따른다]
 
-            <label class="jsini-login__label" for="username">아이디</label>
-            <InputText id="username" class="jsini-login__input"
-                       @bind-Value="Input!.Username" autocomplete="username" />
-            <ValidationMessage For="@(() => Input!.Username)" />
+    같은 회사의 두 화면이 서로 다른 언어로 말하지 않게 한다. 값은 그쪽
+    `site.css` 에서 그대로 가져왔다 — 지어내지 않는다.
 
-            <label class="jsini-login__label" for="password">비밀번호</label>
-            <InputText id="password" type="password" class="jsini-login__input"
-                       @bind-Value="Input!.Password" autocomplete="current-password" />
-            <ValidationMessage For="@(() => Input!.Password)" />
+      · 색은 무채색뿐이다. **강조색을 쓰지 않는다** — 「강조는 색이 아니라
+        대비로 낸다」가 그 사이트의 규칙이고, 그래서 단추는 눌릴 때
+        안팎이 뒤집힌다(`btn-outline-dark`).
+      · 칸 이름은 작게 · 대문자 · 자간 0.15em (`field__label`).
+      · 입력칸은 1px `--mist` 테두리에 **모서리를 둥글리지 않는다.**
+        초점이 오면 테두리만 `--ink` 로 짙어진다.
+      · 왼쪽 판은 `--ink` 바탕에 녹아웃 로고 — 히어로와 같은 구성이다.
 
-            <button type="submit" class="jsini-login__submit">로그인</button>
-        </EditForm>
+    **글꼴은 가져오지 않았다.** 그 사이트의 본문 글꼴(S-CoreDream)이 한 벌에
+    350KB 다. 이 화면은 **모두가 가장 먼저 받는 화면**이라(회로도 DevExpress
+    도 없앤 자리다) 700KB 를 얹으면 그 일이 헛것이 된다. 자간·굵기·크기만
+    같게 맞췄다.
 
-        @* 두 화면은 이 화면과 달리 대화형이다. 여기가 정적 SSR 인 것은 쿠키를
-           구워야 해서인데, 저쪽은 구울 쿠키가 없다. 그래서 평범한 링크로 둔다 —
-           EditForm 밖에 있어야 로그인 폼과 함께 제출되지 않는다. *@
-        <div class="jsini-login__links">
-            <a href="/password/forgot">비밀번호를 잊으셨나요?</a>
-            <a href="/register">가입 신청</a>
+    [아이디 기억하기 — 회로 없이 한다]
+
+    이 화면에는 회로가 없다(위 절). 그래서 옛 화면처럼 localStorage 에
+    아이디를 남기는 일을 **순수 JS** 가 한다 — theme.js 의 `jsiniLogin`.
+    열쇠도 옛 화면과 같은 모양이다(`REMEMBER_ME_USERNAME_<호스트>`) —
+    호스트마다 따로 두는 이유는 개발·운영을 같은 브라우저로 오가기 때문이다.
+
+    **서버가 채워 둔 값을 덮지 않는다.** 개발 자동 로그인이 아이디를 미리
+    넣어 두는데, 그것을 저장된 값으로 덮으면 개발 장비에서 남의 아이디로
+    로그인을 시도하게 된다.
+*@
+
+<div class="jsini-auth">
+
+    @* 왼쪽 — 소개 사이트 히어로와 같은 구성(어두운 바탕 · 녹아웃 로고).
+       좁은 화면에서는 이 판이 통째로 빠진다. 360px 에서 이것을 위에 얹으면
+       폼이 접히는 자리가 화면 밖으로 나간다. *@
+    <aside class="jsini-auth__brand" aria-hidden="true">
+        <div class="jsini-auth__brand-inner">
+            <img class="jsini-auth__logo"
+                 src="@Assets["_content/JSini.Web.Components/brand/logo-horizontal-knockout.svg"]"
+                 alt="" />
+
+            <p class="jsini-auth__eyebrow">JSINI WORK PORTAL</p>
+            <p class="jsini-auth__lead">
+                장례식장 · 헬프데스크 · 프로젝트관리 · 포털관리를
+                한자리에서 봅니다.
+            </p>
         </div>
-    </div>
+    </aside>
+
+    @* 오른쪽 — 폼. *@
+    <main class="jsini-auth__panel">
+        <div class="jsini-login__card">
+            @* 좁은 화면에서는 왼쪽 판이 빠지므로 여기에만 로고가 선다.
+               넓은 화면에서는 왼쪽에 이미 있어 감춘다. *@
+            <img class="jsini-login__logo"
+                 src="@Assets["_content/JSini.Web.Components/brand/logo-horizontal.svg"]"
+                 alt="JSINI" />
+
+            <h1 class="jsini-login__title">로그인</h1>
+            <p class="jsini-login__sub">업무 포털 계정으로 들어갑니다.</p>
+
+            @if (_error is not null)
+            {
+                <div class="jsini-login__error" role="alert">@_error</div>
+            }
+
+            @* 공개 공지 팝업. **이 화면에 대화형 섬이 없다** — 팝업이 회로를
+               기다리지 않고 첫 HTML 에 함께 실려 나간다. 왜 그렇게 했는지와
+               얼마나 빨라졌는지는 `PublicNoticePopup` 머리말에 적었다.
+
+               한동안 `<NoticeAutoPopup Public="true" @@rendermode="InteractiveServer" />`
+               였다. 섬 하나를 띄우는 값이 컸다 — Blazor 가 회로를 열기까지
+               로그인 폼보다 460ms 늦게 떴다(캐시가 다 찬 상태에서도). *@
+            <PublicNoticePopup />
+
+            <EditForm Model="@Input" FormName="login" OnValidSubmit="@SubmitAsync"
+                      data-jsini-login>
+                <DataAnnotationsValidator />
+
+                <div class="jsini-login__field">
+                    <label class="jsini-login__label" for="username">아이디</label>
+                    <InputText id="username" class="jsini-login__input"
+                               @bind-Value="Input!.Username" autocomplete="username" />
+                    <ValidationMessage For="@(() => Input!.Username)" />
+                </div>
+
+                <div class="jsini-login__field">
+                    <label class="jsini-login__label" for="password">비밀번호</label>
+                    <InputText id="password" type="password" class="jsini-login__input"
+                               @bind-Value="Input!.Password" autocomplete="current-password" />
+                    <ValidationMessage For="@(() => Input!.Password)" />
+                </div>
+
+                @* 아이디 기억하기. **폼과 함께 서버로 가지 않는다** —
+                   `name` 이 없으므로 제출에 실리지 않고, 값을 다루는 것은
+                   브라우저(theme.js)뿐이다. 서버가 알 이유가 없는 값이다. *@
+                <label class="jsini-login__remember">
+                    <input type="checkbox" data-remember />
+                    <span>아이디 기억하기</span>
+                </label>
+
+                <button type="submit" class="jsini-login__submit">로그인</button>
+            </EditForm>
+
+            @* 두 화면은 이 화면과 달리 대화형이다. 여기가 정적 SSR 인 것은 쿠키를
+               구워야 해서인데, 저쪽은 구울 쿠키가 없다. 그래서 평범한 링크로 둔다 —
+               EditForm 밖에 있어야 로그인 폼과 함께 제출되지 않는다. *@
+            <div class="jsini-login__links">
+                <a href="/password/forgot">비밀번호를 잊으셨나요?</a>
+                <a href="/register">가입 신청</a>
+            </div>
+        </div>
+    </main>
 </div>
+
+@* 파싱되는 동안 곧바로 돈다. 이유는 `PublicNoticePopup` 의 같은 줄과 같다 —
+   `DOMContentLoaded` 를 기다리면 DevExpress 모듈을 해석한 뒤가 된다. *@
+<script>
+    window.jsiniLogin && window.jsiniLogin.init(document.querySelector('[data-jsini-login]'));
+</script>
 
 @code {
     [CascadingParameter] private HttpContext HttpContext { get; set; } = default!;

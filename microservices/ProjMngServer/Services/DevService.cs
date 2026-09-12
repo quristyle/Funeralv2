@@ -322,25 +322,15 @@ public class DevService : BaseService {
   }
 
 
-  /// <summary> 디비에 맞는 시스템 쿼리 가져 오기 </summary>
-  private Devsqlresp? GetDsr(DbInfo di, string dsrKey) {
-    Devsqlresp? result = null;
-    foreach (var dsr in AppData.DsrInfos) {
-      if (dsr.Dsl_type == di.Db_type && dsr.Dsl_cd == dsrKey) {
-        result = dsr;
-        break;
-      }
-    }
-    if (result == null) {
-      result = GetDevsqlresp(di.Db_type ?? string.Empty, dsrKey);
-      if (result != null) {
-        // db 정보에서 db_nick 또는 dbseq 와 같은 unique key 값으로 관리 필요.. 당분간 주석
-        // AppData.DsrInfos.Add(result);
-      }
-    }
-
-    return result;
-  }
+  /// <summary>
+  /// 디비 종류에 맞는 시스템 질의를 가져온다.
+  ///
+  /// <b>캐시하지 않는다</b> — [DB 로직 관리] 화면에서 질의를 고치면 그 다음
+  /// 조회부터 바로 들어야 한다. 담아 두면 다시 띄우기 전까지 옛 SQL 로 돈다
+  /// (접속 정보에서 같은 일을 겪었다 — <see cref="BaseService.GetDbInfo"/>).
+  /// </summary>
+  private Devsqlresp? GetDsr(DbInfo di, string dsrKey) =>
+    GetDevsqlresp(di.Db_type ?? string.Empty, dsrKey);
 
 
 
@@ -351,20 +341,7 @@ public class DevService : BaseService {
     DbInfo? di = GetDbInfo(dbNick);
     if (di == null) return null;
 
-    Devsqlresp? result = null;
-    foreach (var dsr in AppData.DsrInfos) {
-      if (dsr.Dsl_type == di.Db_type && dsr.Dsl_cd == dsrKey) {
-        result = dsr;
-        break;
-      }
-    }
-    if (result == null) {
-      result = GetDevsqlresp(di.Db_type ?? string.Empty, dsrKey);
-      // 못 찾은 것을 넣으면 다음 번 반복문이 터진다.
-      if (result != null) AppData.DsrInfos.Add(result);
-    }
-
-    return result;
+    return GetDevsqlresp(di.Db_type ?? string.Empty, dsrKey);
   }
 
 

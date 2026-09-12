@@ -1,59 +1,67 @@
 @page "/projmng/tool/component"
 @attribute [RouteKey("projmng.tool.component")]
-@using System.Data
 
 @*
     [프로젝트 컴포넌트]
 
     이력: Vue `views/projmng/proj/component.vue` → 여기.
-    프로젝트에 등록된 컴포넌트 마스터 정보를 관리한다.
+    API: `projmng/projects`
+
+    ────────────────────────────────────────────────────────────
+    [이 화면은 이름과 다른 것을 보고 있다 — 옮기면서 확인했다]
+
+    「컴포넌트 마스터」를 관리한다고 적혀 있었지만, 실제로 읽는 것은
+    **프로젝트 목록**이다(`sp_dev_proj_exec`). 옛 Vue 도 그 전 Blazor 도
+    같았다 — 컴포넌트를 담는 표가 아직 없어서 화면만 먼저 만들어 두고
+    프로젝트 목록을 꽂아 둔 것으로 보인다.
+
+    **감추지 않는다.** 자료를 지어내면 「있는데 안 보인다」가 되고, 화면을
+    지우면 나중에 만들 자리가 없어진다. 보이는 그대로 두고 여기 적어 둔다.
+    컴포넌트 표가 생기면 이 화면이 그것을 읽게 바꾼다.
+
+    [저장·삭제를 뗐다]
+
+    옛 화면은 이 표에 저장·삭제를 걸어 두었다. 프로젝트를 고치는 자리는
+    `/projmng/proj/manage` 하나여야 한다 — 같은 표를 고치는 자리가 둘이면
+    한쪽에만 규칙이 붙는다.
 *@
 
 @inherits DataPage
-@inject ProjMngClient Client
+@inject ProjectClient Api
 
 <PageTitle>프로젝트 컴포넌트 · 프로젝트관리</PageTitle>
 
+<CommSch OnSearch="@SearchAsync">
+    <Fields>
+        <CommSchItem Label="프로젝트">
+            <CodeSelect CodeId="projlist" @bind-Value="_projectCode" OnChanged="@(_ => SearchAsync())" />
+        </CommSchItem>
+    </Fields>
+</CommSch>
+
 <PageNotice Text="@Notice" Tone="@Tone" />
 
-<SearchBar>
-    <ChildContent>
-        <CodeSelect CodeId="projlist" @bind-Value="_projectCode" OnChanged="@(_ => SearchAsync())" />
-    </ChildContent>
-    <Actions>
-        <PermissionView Action="MenuAction.Search">
-            <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@SearchAsync" />
-        </PermissionView>
-    </Actions>
-</SearchBar>
-
-<DynamicGrid Data="@_grid.Data" Loading="@_grid.IsLoading" ExportName="컴포넌트" OnRefresh="@SearchAsync" OnSave="@SaveAsync" OnDelete="@DeleteAsync" />
+<CommCont Title="프로젝트 컴포넌트" Hint="@($"{_rows.Count}건")">
+    <ProjectGrid Rows="@_rows" ExportName="컴포넌트" Reload="@SearchAsync"
+                 EmptyText="조회된 자료가 없습니다." />
+</CommCont>
 
 @code {
-    private ProcGrid _grid = default!;
+    private IReadOnlyList<ProjectDto> _rows = [];
     private string? _projectCode;
 
-    protected override void OnInitialized()
-    {
-        _grid = new ProcGrid(Client, "sp_dev_proj_exec");
-    }
-
-    private Dictionary<string, object?> Params() => new() { ["prj_rid"] = _projectCode ?? string.Empty };
+    protected override Task OnInitializedAsync() => SearchAsync();
 
     private Task SearchAsync() => LoadAsync(async () =>
     {
-        await _grid.LoadAsync(Params());
-        return _grid.Data.Table.Rows.Count;
+        var all = await Api.ListAsync();
+
+        // 고른 프로젝트가 있으면 그 한 건만. 옛 프로시저가
+        // `nvl(p_prj_rid,'') = ''` 로 가르던 것과 같은 뜻이다.
+        _rows = int.TryParse(_projectCode, out var rid)
+            ? [.. all.Where(p => p.PrjRid == rid)]
+            : all;
+
+        return _rows.Count;
     }, "조회 결과가 없습니다.", "조회하지 못했습니다");
-
-    private Task DeleteAsync(System.Data.DataRow row) =>
-        RunAsync(() => _grid.DeleteAsync(row), "삭제했습니다.", "삭제하지 못했습니다");
-
-    private async Task SaveAsync()
-    {
-        if (await RunAsync(() => _grid.SaveAsync(Params()), "저장했습니다.", "저장하지 못했습니다"))
-        {
-            Say(_grid.LastMessage ?? "저장했습니다.");
-        }
-    }
 }

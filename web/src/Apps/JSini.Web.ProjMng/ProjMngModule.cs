@@ -28,9 +28,23 @@ public sealed class ProjMngModule : IPortalModule
     /// </summary>
     public string? StyleSheet => "_content/JSini.Web.ProjMng/projmng.css";
 
+
     public void ConfigureServices(IServiceCollection services, IConfiguration configuration)
     {
         services.AddScoped<ProjMngClient>();
+
+        // 프로시저를 걷어내며 생기는 업무 클라이언트들. 범용 통로와 달리
+        // **자기 자료만** 안다 — 화면이 타입 있는 목록을 받고 `CommGrd` 를 쓴다.
+        services.AddScoped<ProjectClient>();
+        services.AddScoped<ProjectUserClient>();
+        services.AddScoped<DevCommonCodeClient>();
+        services.AddScoped<SourceInfoClient>();
+        services.AddScoped<ProjectDbClient>();
+        services.AddScoped<HomeTodoClient>();
+        services.AddScoped<WbsClient>();
+        services.AddScoped<DbLogicClient>();
+        services.AddScoped<ActivityInfoClient>();
+        services.AddScoped<ProjectPropClient>();
         services.AddScoped<CommonCodes>();
         services.AddScoped<BizOptions>();
 

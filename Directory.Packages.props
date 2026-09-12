@@ -36,6 +36,16 @@
     <PackageVersion Include="Npgsql" Version="10.0.3" />
     <PackageVersion Include="System.Linq.Dynamic.Core" Version="1.7.4" />
 
+    <!-- ── AI 공급자 SDK ─────────────────────────────────────────
+         Anthropic(Claude) 공식 .NET SDK. AIAgentServer 만 쓴다.
+
+         **다른 공급자와 달리 SDK 를 쓴다.** 로컬 LLM · Groq · OpenRouter 는 셋 다
+         OpenAI 호환이라 HttpClient 하나로 같은 본문을 보내면 되지만, Claude 는
+         Messages API 라 요청·응답·스트리밍 형식이 전부 다르다. 직접 구현하는 대신
+         공식 SDK 를 쓴다 — 모델 추가나 형식 변경을 따라가는 비용이 없다.
+    -->
+    <PackageVersion Include="Anthropic" Version="12.47.0" />
+
     <!-- ── 로깅 · 콘솔 ───────────────────────────────────────────── -->
     <PackageVersion Include="Serilog.AspNetCore" Version="10.0.0" />
     <PackageVersion Include="Serilog.Settings.Configuration" Version="10.0.1" />

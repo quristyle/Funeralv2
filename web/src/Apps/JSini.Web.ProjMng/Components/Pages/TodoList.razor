@@ -1,100 +1,223 @@
 @page "/projmng/todo/list"
 @attribute [RouteKey("projmng.todo.list")]
-@using System.Data
 
 @*
     [할일]
 
-    이력: 옛 Blazor `Pages/Home/HomeTodo.razor` → Vue `views/projmng/home/todo.vue` → 여기.
-    프로시저: `sp_home_todo_exec`(조회·저장·삭제), `sp_home_todo_make`(생성)
+    이력: Vue `views/projmng/home/todo` → `DynamicGrid` +
+          `sp_home_todo_exec` · `sp_home_todo_make` → **여기 (`CommGrd` + REST)**
+    API: `projmng/home-todos` · `…/make`
 
-    날짜별 할일을 다룬다. "생성" 은 그 날짜의 할일을 규칙에 따라 서버가
-    한꺼번에 만들어 주는 동작이다(옛 `OnMakeWrk`).
+    [주소가 메뉴와 어긋나 있었다]
 
-    [담당자는 포털 계정을 읽는다]
+    DB 메뉴(`PM_TODO_LIST`)는 열쇠가 `projmng.todo.list` 이고 경로가
+    `/projmng/todo/list` 인데, 이 화면은 `/projmng/home/todo` ·
+    `projmng.home.todo` 를 달고 있었다. **그래서 사이드바의 「할일 관리」를
+    누르면 「준비 중」이 떴다** — 화면은 만들어져 있는데 닿을 길이 없었다.
+    권한도 그 메뉴에 걸려 있어서, 주소를 직접 쳐서 들어오면 등록·엑셀이
+    권한 없음으로 사라졌다.
 
-    이식 전에는 프로젝트관리가 들고 있던 자체 사용자 표(`projmng.dev_user`)를
-    공통코드로 읽었다. **사용자의 정본은 포털 한 곳**이라 그쪽으로 옮겼다.
-    값은 로그인 아이디다 — `home_todo.target_user` 에 쌓인 값이 아이디이기 때문이다.
+    ────────────────────────────────────────────────────────────
+    [옛 프로시저에서 고친 것 셋]
+
+    1. **완료 여부가 등록과 수정에서 서로 달랐다.** insert 는 `'Y'` 를 보고
+       update 와 조회는 `'True'` 를 봤다. 화면은 불리언을 보내므로 `True` 가
+       가는데, **등록에서는 그 값이 `'Y'` 가 아니라서 늘 「미완료」로
+       들어갔다** — 완료 상태로 등록하는 길이 아예 없었다.
+    2. **등록에서 상태(`todo_state`)를 안 받았다.** 수정에서만 받아서 새 할
+       일은 늘 상태가 비어 있었다.
+    3. **완료 일시(`comp_dt`)를 아무도 안 채웠다.** 이제 완료로 바뀌는 순간
+       찍고, 되돌리면 지운다.
+
+    [「생성」이 만들던 사람 둘이 프로시저에 박혀 있었다]
+
+    `sp_home_todo_make` 가 `jjstyle` · `hsstyle` 을 코드에 적어 두고 두 사람
+    몫을 만들었다. 사람이 바뀌면 **프로시저를 고쳐야** 했다. 이제 화면에서
+    고른 사람의 것을 만든다 — 안 고르면 무엇을 만들지 알 수 없으므로 막는다.
+
+    그리고 **이미 만든 날은 다시 안 만든다.** 옛 것은 검사가 없어 두 번 누르면
+    같은 할 일이 두 벌 생겼다.
 *@
 
 @inherits DataPage
-@inject ProjMngClient Client
+@inject HomeTodoClient Api
 
 <PageTitle>할일 · 프로젝트관리</PageTitle>
 
-<SearchBar>
-    <ChildContent>
-        <DxDateEdit @bind-Date="_targetDate" Style="width: 150px" />
-        <BizSelect Type="portal_account" @bind-Value="_userCode" ShowAll="true" />
-        <CodeSelect CodeId="yn" @bind-Value="_completeYn" ShowAll="true" />
-        <CodeSelect CodeId="todo_state" @bind-Value="_todoState" ShowAll="true" />
-    </ChildContent>
-    <Actions>
-        <PermissionView Action="MenuAction.Search">
-            <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@SearchAsync" />
-        </PermissionView>
-        <PermissionView Action="MenuAction.Create">
-            <DxButton Text="생성" RenderStyle="ButtonRenderStyle.Secondary" Click="@MakeAsync" />
-        </PermissionView>
-        <PermissionView Action="MenuAction.Update">
-            <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Success" Click="@SaveAsync" />
-        </PermissionView>
-    </Actions>
-</SearchBar>
+<CommSch OnSearch="@SearchAsync">
+    <Fields>
+        <CommSchItem Label="날짜">
+            <DxDateEdit @bind-Date="_targetDate" Style="width: 150px" />
+        </CommSchItem>
+
+        <CommSchItem Label="사람">
+            <BizSelect Type="portal_account" @bind-Value="_userCode" ShowAll="true" />
+        </CommSchItem>
+
+        <CommSchItem Label="완료">
+            <CodeSelect CodeId="yn" @bind-Value="_completeYn" ShowAll="true" />
+        </CommSchItem>
+
+        <CommSchItem Label="상태">
+            <CodeSelect CodeId="todo_state" @bind-Value="_todoState" ShowAll="true" />
+        </CommSchItem>
+    </Fields>
+</CommSch>
 
 <PageNotice Text="@Notice" Tone="@Tone" />
 
-<DynamicGrid Data="@_grid.Data"
-             Loading="@_grid.IsLoading"
+<CommCont Title="할일" Hint="@Hint">
+    <CommGrd TItem="HomeTodoDto"
+             Data="@_rows"
+             EditFormTitle="할일"
              ExportName="할일"
-             OnRefresh="@SearchAsync"
+             PageSize="30"
+             EmptyText="할일이 없습니다."
+             OnNew="@FillNew"
              OnSave="@SaveAsync"
-             OnDelete="@(row => _grid.DeleteAsync(row))" />
+             OnDelete="@DeleteAsync"
+             DeleteConfirm="@(t => $"「{t.Title}」 을(를) 지웁니다.\n되돌릴 수 없습니다.")"
+             Reload="@SearchAsync">
+        <FooterLeft>
+            <PermissionView Action="MenuAction.Create">
+                @* 고른 날짜·사람의 되풀이 할 일을 만든다(머리말). *@
+                <DxButton Text="되풀이 만들기"
+                          RenderStyle="ButtonRenderStyle.Secondary"
+                          Enabled="@CanMake"
+                          Click="@MakeAsync" />
+            </PermissionView>
+        </FooterLeft>
+
+        <Columns>
+            <DxGridDataColumn FieldName="@nameof(HomeTodoDto.TargetDay)" Caption="날짜" Width="110"
+                              DisplayFormat="yyyy-MM-dd" />
+            <DxGridDataColumn FieldName="@nameof(HomeTodoDto.TargetUser)" Caption="사람" Width="110" />
+            <DxGridDataColumn FieldName="@nameof(HomeTodoDto.Title)" Caption="제목" MinWidth="180"
+                              TextAlignment="GridTextAlignment.Left" />
+
+            <DxGridDataColumn Caption="완료" Width="70">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var t = (HomeTodoDto)cell.DataItem;
+                    }
+                    <span class="jsini-badge @(t.IsComplete ? "jsini-badge--on" : "jsini-badge--off")">
+                        @(t.IsComplete ? "완료" : "미완")
+                    </span>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn FieldName="@nameof(HomeTodoDto.TodoStateName)" Caption="상태" Width="100" />
+            <DxGridDataColumn FieldName="@nameof(HomeTodoDto.FixPoint)" Caption="금액" Width="90"
+                              DisplayFormat="#,##0" TextAlignment="GridTextAlignment.Right" />
+            <DxGridDataColumn FieldName="@nameof(HomeTodoDto.Comments)" Caption="메모" MinWidth="140"
+                              TextAlignment="GridTextAlignment.Left" />
+        </Columns>
+
+        <EditFormTemplate Context="edit">
+            @{
+                var t = (HomeTodoDto)edit.EditModel;
+            }
+            <DxFormLayout CssClass="pm-editform">
+                <DxFormLayoutItem Caption="제목" ColSpanMd="12">
+                    <DxTextBox @bind-Text="t.Title" NullText="필수" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="날짜" ColSpanMd="6">
+                    <DxDateEdit @bind-Date="t.TargetDay" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="사람" ColSpanMd="6">
+                    <BizSelect Type="portal_account" @bind-Value="t.TargetUser" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="상태" ColSpanMd="6">
+                    <CodeSelect CodeId="todo_state" @bind-Value="t.TodoState" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="금액" ColSpanMd="6">
+                    <DxSpinEdit @bind-Value="t.FixPoint" DisplayFormat="#,##0" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="완료" ColSpanMd="12">
+                    @* 켜는 순간 완료 일시가 찍힌다(서버가 한다). *@
+                    <DxCheckBox @bind-Checked="t.IsComplete">완료</DxCheckBox>
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="메모" ColSpanMd="12">
+                    <DxMemo @bind-Text="t.Comments" Rows="3" />
+                </DxFormLayoutItem>
+            </DxFormLayout>
+        </EditFormTemplate>
+    </CommGrd>
+</CommCont>
 
 @code {
-    private const string Proc = "sp_home_todo_exec";
-
-    private ProcGrid _grid = default!;
+    private IReadOnlyList<HomeTodoDto> _rows = [];
 
     private DateTime? _targetDate = DateTime.Today;
     private string? _userCode;
     private string? _completeYn;
     private string? _todoState;
 
-    protected override void OnInitialized() => _grid = new ProcGrid(Client, Proc);
+    private string Hint => $"{_rows.Count(t => t.IsComplete)} / {_rows.Count}건 완료";
+
+    /// <summary>
+    /// 되풀이를 만들 수 있는가. <b>사람과 날짜가 있어야 한다</b> —
+    /// 누구 것을 만들지 모르면 만들 수 없다(머리말).
+    /// </summary>
+    private bool CanMake => _targetDate is not null && !string.IsNullOrWhiteSpace(_userCode);
+
+    private bool? CompleteFilter => _completeYn switch
+    {
+        "Y" => true,
+        "N" => false,
+        _ => null,
+    };
 
     protected override Task OnInitializedAsync() => SearchAsync();
 
-    private Dictionary<string, object?> Params() => new()
-    {
-        ["target_user"] = _userCode ?? string.Empty,
-
-        // 서버가 문자열 YYYYMMDD 를 기대한다. DateTime 을 그대로 보내면
-        // 시각까지 붙어서 그 날 자정에 만든 것만 걸린다.
-        ["target_day"] = _targetDate?.ToString("yyyyMMdd") ?? string.Empty,
-        ["is_complete"] = _completeYn ?? string.Empty,
-        ["todo_state"] = _todoState ?? string.Empty,
-    };
-
     private Task SearchAsync() => LoadAsync(async () =>
     {
-        await _grid.LoadAsync(Params());
-        return _grid.Data.Table.Rows.Count;
-    }, "그 날짜에 할일이 없습니다. [생성] 을 누르면 규칙대로 만들어 줍니다.", "할일을 읽지 못했습니다");
+        _rows = await Api.ListAsync(
+            _userCode, _todoState, CompleteFilter,
+            _targetDate is null ? null : DateOnly.FromDateTime(_targetDate.Value));
 
-    private Task SaveAsync() => RunAsync(
-        () => _grid.SaveAsync(Params()), "저장했습니다.", "저장하지 못했습니다");
+        return _rows.Count;
+    }, "할일이 없습니다.", "할일을 읽지 못했습니다");
 
-    /// <summary>그 날짜의 할일을 서버가 만들어 준다. 만든 뒤 바로 다시 읽는다.</summary>
+    /// <summary>새 할 일은 고른 날짜·사람에 붙는다.</summary>
+    private void FillNew(HomeTodoDto t)
+    {
+        t.TargetDay = _targetDate is null ? DateOnly.FromDateTime(DateTime.Today)
+                                          : DateOnly.FromDateTime(_targetDate.Value);
+        t.TargetUser = _userCode;
+    }
+
+    private async Task SaveAsync((HomeTodoDto Item, bool IsNew) e)
+    {
+        if (e.IsNew)
+        {
+            await Api.CreateAsync(e.Item);
+        }
+        else
+        {
+            await Api.UpdateAsync(e.Item);
+        }
+    }
+
+    private Task DeleteAsync(HomeTodoDto t) => Api.DeleteAsync(t.TodoKey);
+
+    /// <summary>그 날짜·사람의 되풀이 할 일을 만든다. 만든 뒤 바로 다시 읽는다.</summary>
     private async Task MakeAsync()
     {
+        if (!CanMake)
+        {
+            return;
+        }
+
         var made = await RunAsync(
-            () => Client.DbContAsync("sp_home_todo_make", new Dictionary<string, object?>
-            {
-                ["target_day"] = _targetDate?.ToString("yyyyMMdd") ?? string.Empty,
-            }),
-            "할일을 만들었습니다.", "할일을 만들지 못했습니다");
+            () => Api.MakeAsync(DateOnly.FromDateTime(_targetDate!.Value), [_userCode!]),
+            "되풀이 할일을 만들었습니다.", "할일을 만들지 못했습니다");
 
         if (made)
         {

@@ -5,49 +5,194 @@
     [프로젝트 목록]
 
     이력: 옛 Blazor `Pages/Proj/ProjMng.razor` (`/projmng`)
-          → Vue `views/projmng/proj/manage.vue` → 여기.
-    프로시저: `sp_dev_proj_exec`
+          → Vue `views/projmng/proj/manage.vue`
+          → Blazor `DynamicGrid` + `sp_dev_proj_exec`
+          → **여기 (`CommGrd` + REST)**
+
+    API: `projmng/projects` (GET · POST · PUT)
 
     관리 대상 프로젝트를 등록·수정한다. **여기 등록된 프로젝트가 나머지 화면의
     프로젝트 드롭다운(`projlist` 공통코드)에 나온다** — 그래서 저장 뒤 공통코드
     캐시를 비운다. 안 비우면 방금 만든 프로젝트가 다른 화면에서 안 보인다.
+
+    ────────────────────────────────────────────────────────────
+    [프로시저를 걷어낸 첫 화면이다 — 나머지가 이 본을 따른다]
+
+    옛 길은 `sp_dev_proj_exec` 하나가 조회·등록·수정을 다 했고, 돌아오는 것이
+    칸 메타와 `DataTable` 이라 화면이 `DynamicGrid` 를 쓸 수밖에 없었다.
+    **칸을 미리 알 수 없으니 그릴 방법이 그것뿐이었다.**
+
+    지금은 서버가 타입 있는 목록을 준다(`ProjMngServer.ProjectsController`).
+    그래서 이 화면이 `CommGrd` 를 쓴다 — 나머지 예순 화면과 **같은 부품, 같은
+    아래 띠, 같은 편집 창, 같은 권한 가리개**다.
+
+    바뀐 것을 사용자 쪽에서 보면 이렇다.
+
+    | | 전 (`DynamicGrid`) | 후 (`CommGrd`) |
+    |---|---|---|
+    | 칸 이름 | `prj_rid` · `prj_sdt` (DB 이름) | 번호 · 시작일 |
+    | 편집 | 표 안에서 직접 | 팝업 편집 창 |
+    | 저장 | 여러 행 고쳐 한 번에 | 한 건씩, 누르면 바로 |
+    | 날짜 | 글자 | 달력 |
+    | 실패 | 음수 코드 | 업무 문구 |
+
+    **한 건씩 저장으로 바뀐 것은 의도한 것이다.** 프로젝트는 열 건 남짓이고
+    여러 줄을 한꺼번에 고칠 일이 없다. 일괄 편집이 필요한 화면(WBS · 공통코드)은
+    그 성격을 유지한 채 옮긴다 — `docs/commgrd-dynamicgrid-merge.md`.
 *@
 
 @inherits DataPage
-@inject ProjMngClient Client
+@inject ProjectClient Api
 @inject CommonCodes Codes
 
 <PageTitle>프로젝트 목록 · 프로젝트관리</PageTitle>
 
+<CommSch OnSearch="@ReloadAsync">
+    <Fields>
+        <CommSchItem Label="검색어">
+            <DxTextBox @bind-Text="_keyword" NullText="이름 · 별칭 · 설명" Style="width: 220px"
+                       ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        </CommSchItem>
+    </Fields>
+</CommSch>
+
 <PageNotice Text="@Notice" Tone="@Tone" />
 
-<DynamicGrid Data="@_grid.Data"
-             Loading="@_grid.IsLoading"
+<CommCont Title="프로젝트" Hint="@($"{Shown.Count}건")">
+    <CommGrd TItem="ProjectDto"
+             Data="@Shown"
+             EditFormTitle="프로젝트"
              ExportName="프로젝트목록"
-             OnRefresh="@SearchAsync"
-             OnSave="@SaveAsync" />
+             PageSize="20"
+             OnNew="@FillNew"
+             OnSave="@SaveAsync"
+             Reload="@ReloadAsync">
+        <Columns>
+            <DxGridDataColumn FieldName="@nameof(ProjectDto.PrjRid)" Caption="번호" Width="70" />
+            <DxGridDataColumn FieldName="@nameof(ProjectDto.PrjName)" Caption="프로젝트명" MinWidth="150"
+                              TextAlignment="GridTextAlignment.Left" />
+            <DxGridDataColumn FieldName="@nameof(ProjectDto.PrjNick)" Caption="별칭" MinWidth="120"
+                              TextAlignment="GridTextAlignment.Left" />
+            <DxGridDataColumn FieldName="@nameof(ProjectDto.PrjDesc)" Caption="설명" MinWidth="150"
+                              TextAlignment="GridTextAlignment.Left" />
+            <DxGridDataColumn FieldName="@nameof(ProjectDto.PrjType)" Caption="구분" Width="90" />
+
+            @* 날짜는 `DateOnly` 라 시각이 붙지 않는다 — 옛 화면이 `yyyy-MM-dd` 로
+               잘라 보여 주던 것을 자료형이 대신한다. *@
+            <DxGridDataColumn FieldName="@nameof(ProjectDto.PrjSdt)" Caption="시작일" Width="110"
+                              DisplayFormat="yyyy-MM-dd" />
+            <DxGridDataColumn FieldName="@nameof(ProjectDto.PrjEdt)" Caption="종료일" Width="110"
+                              DisplayFormat="yyyy-MM-dd" />
+
+            <DxGridDataColumn FieldName="@nameof(ProjectDto.ProjPay)" Caption="수주비용" Width="110"
+                              DisplayFormat="#,##0" TextAlignment="GridTextAlignment.Right" />
+            <DxGridDataColumn FieldName="@nameof(ProjectDto.PrjUsePay)" Caption="투입비용" Width="110"
+                              DisplayFormat="#,##0" TextAlignment="GridTextAlignment.Right" />
+
+            <DxGridDataColumn FieldName="@nameof(ProjectDto.PrjSrt)" Caption="순서" Width="70" />
+        </Columns>
+
+        <EditFormTemplate Context="edit">
+            @{
+                var p = (ProjectDto)edit.EditModel;
+            }
+            <DxFormLayout CssClass="pm-editform">
+                <DxFormLayoutItem Caption="프로젝트명" ColSpanMd="6">
+                    <DxTextBox @bind-Text="p.PrjName" NullText="필수" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="별칭" ColSpanMd="6">
+                    @* 다른 화면의 드롭다운에 나오는 이름이다. *@
+                    <DxTextBox @bind-Text="p.PrjNick" NullText="드롭다운에 보일 이름" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="설명" ColSpanMd="12">
+                    <DxTextBox @bind-Text="p.PrjDesc" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="구분" ColSpanMd="6">
+                    <DxTextBox @bind-Text="p.PrjType" NullText="blazor · vue …" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="순서" ColSpanMd="6">
+                    @* 비우면 서버가 기본값(99999)을 넣는다 — 목록 끝으로 간다. *@
+                    <DxSpinEdit @bind-Value="p.PrjSrt" NullText="비우면 맨 뒤" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="시작일" ColSpanMd="6">
+                    <DxDateEdit @bind-Date="p.PrjSdt" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="종료일" ColSpanMd="6">
+                    <DxDateEdit @bind-Date="p.PrjEdt" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="수주비용" ColSpanMd="6">
+                    <DxSpinEdit @bind-Value="p.ProjPay" DisplayFormat="#,##0" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="투입비용" ColSpanMd="6">
+                    <DxSpinEdit @bind-Value="p.PrjUsePay" DisplayFormat="#,##0" />
+                </DxFormLayoutItem>
+            </DxFormLayout>
+        </EditFormTemplate>
+    </CommGrd>
+</CommCont>
 
 @code {
-    private ProcGrid _grid = default!;
+    private IReadOnlyList<ProjectDto> _all = [];
+    private string? _keyword;
 
-    protected override void OnInitialized() => _grid = new ProcGrid(Client, "sp_dev_proj_exec");
-
-    protected override Task OnInitializedAsync() => SearchAsync();
-
-    private Task SearchAsync() => LoadAsync(async () =>
+    /// <summary>
+    /// 검색은 브라우저에서 끝낸다. 프로젝트가 열 건 남짓이라 서버로 보낼 값이 없다.
+    /// </summary>
+    private IReadOnlyList<ProjectDto> Shown
     {
-        await _grid.LoadAsync(new Dictionary<string, object?>());
-        return _grid.Data.Table.Rows.Count;
-    }, "조회 결과가 없습니다.", "조회하지 못했습니다");
-
-    private Task SaveAsync() => RunAsync(async () =>
-    {
-        var saved = await _grid.SaveAsync();
-
-        if (saved.ProcCode >= 0)
+        get
         {
-            // 프로젝트가 바뀌면 다른 화면의 projlist 드롭다운도 새로 읽어야 한다.
-            Codes.Clear();
+            if (string.IsNullOrWhiteSpace(_keyword))
+            {
+                return _all;
+            }
+
+            var k = _keyword.Trim();
+
+            return [.. _all.Where(p =>
+                (p.PrjName?.Contains(k, StringComparison.OrdinalIgnoreCase) ?? false)
+                || (p.PrjNick?.Contains(k, StringComparison.OrdinalIgnoreCase) ?? false)
+                || (p.PrjDesc?.Contains(k, StringComparison.OrdinalIgnoreCase) ?? false))];
         }
-    }, "저장했습니다.", "저장하지 못했습니다");
+    }
+
+    protected override Task OnInitializedAsync() => ReloadAsync();
+
+    private Task ReloadAsync() => LoadAsync(async () =>
+    {
+        _all = await Api.ListAsync();
+        return _all.Count;
+    }, "등록된 프로젝트가 없습니다.", "프로젝트 목록을 읽지 못했습니다");
+
+    /// <summary>
+    /// 새 줄의 기본값. <b>번호는 넣지 않는다</b> — 서버가 정한다.
+    /// </summary>
+    private void FillNew(ProjectDto p)
+    {
+        p.PrjSdt = DateOnly.FromDateTime(DateTime.Today);
+        p.PrjType = "blazor";
+    }
+
+    private async Task SaveAsync((ProjectDto Item, bool IsNew) e)
+    {
+        if (e.IsNew)
+        {
+            await Api.CreateAsync(e.Item);
+        }
+        else
+        {
+            await Api.UpdateAsync(e.Item);
+        }
+
+        // 프로젝트가 바뀌면 다른 화면의 projlist 드롭다운도 새로 읽어야 한다.
+        Codes.Clear();
+    }
 }

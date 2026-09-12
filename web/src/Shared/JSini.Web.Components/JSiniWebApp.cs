@@ -72,7 +72,26 @@ public static class JSiniWebApp
 
         // ── 화면 ─────────────────────────────────────────────────
         services.AddDevExpressBlazor();
-        services.AddRazorComponents().AddInteractiveServerComponents();
+        services
+            .AddRazorComponents()
+            .AddInteractiveServerComponents()
+            .AddHubOptions(options =>
+            {
+                // **회로의 수신 한도를 올린다.** 기본값은 32KB 다.
+                //
+                // 화면이 서버로 돌려보내는 것 중에 그만한 것이 있다 —
+                // 다이어그램 저장이다. 붙여넣은 그림이 저장본 안에 data URL 로
+                // 들어가서(ProjMng 의 ErdEntity.Image) 한 장만 있어도 32KB 를
+                // 훌쩍 넘는다. 넘으면 오류가 아니라 **회로가 그냥 끊긴다** —
+                // 화면이 멈추고, 사용자는 저장을 눌렀는데 아무 일도 안 일어난
+                // 것으로 본다.
+                //
+                // 그림 쪽은 브라우저에서 먼저 줄이고(한 장 420KB) 들어온다.
+                // 여기 4MB 는 그런 그림 여러 장이 든 그림 한 장분의 여유다.
+                // 무한정 올리지 않는 이유는 이 값이 **연결 하나가 한 번에 물
+                // 수 있는 양**이라, 크게 두면 접속 수만큼 메모리가 열린다.
+                options.MaximumReceiveMessageSize = 4 * 1024 * 1024;
+            });
 
         // ── 응답 압축 ────────────────────────────────────────────
         //
@@ -267,6 +286,10 @@ public static class JSiniWebApp
 
         // 화면을 옮기는 동안의 표시. 레이아웃이 켜고 `DataPage` 가 끈다.
         services.AddScoped<PageTransition>();
+
+        // 헤더의 브레드크럼이 「이 메뉴를 사이드바에서 보여 달라」고 하는 통.
+        // 그 둘은 형제도 부모 자식도 아니라 파라미터로 잇지 못한다(MenuReveal 머리말).
+        services.AddScoped<MenuReveal>();
 
         // 헤더의 사용자 단추가 얼굴과 이름을 여기서 얻는다. 쿠키 클레임에는
         // 사진이 없어 게이트웨이에 한 번 물어야 한다(CurrentUser 머리말).

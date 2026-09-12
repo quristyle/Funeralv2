@@ -775,9 +775,27 @@ Bootstrap 계열(Classic)에는 그 개념이 없어서 **같은 CSS 가 Classic
 
 ### 레이아웃 치수는 DevExpress 데모에서 가져왔다
 
-헤더 3.5rem · 사이드바 330px · 검색 3rem · 브레드크럼 3rem ·
-본문 여백 `1.1rem 1.5rem`. 눈대중이 아니라 데모의 `dx-demo.css` 에서 읽은
-값이다. 고칠 일이 있으면 거기를 먼저 본다.
+헤더 3.5rem · 사이드바 330px · 검색 3rem · 본문 여백 `1.1rem 1.5rem`.
+눈대중이 아니라 데모의 `dx-demo.css` 에서 읽은 값이다. 고칠 일이 있으면
+거기를 먼저 본다.
+
+**브레드크럼만 데모를 따르지 않는다.** 데모는 본문 위에 제 줄(3rem)로 두는데
+우리는 그 위에 탭 줄(2.5rem)이 하나 더 있어서, 헤더까지 합치면 본문이
+시작되기 전에 **9rem 이 사라졌다.** 헤더 오른쪽은 도구 단추가 끝에 붙어
+가운데가 늘 비어 있으므로 거기 얹었다 — 제 줄도, 배경도, 아래 선도 없다.
+
+```
+[☰][로고] │ 시스템관리자 │ 시스템 › 메뉴 관리        [도구][테마][사용자]
+```
+
+그래서 헤더가 좁아지면 브레드크럼이 **줄지 않고 자기 안에서 가로로 구른다**
+(`flex: 0 1 auto` + `min-width: 0` + `overflow-x: auto`, 칸마다 `flex: 0 0 auto`).
+칸이 눌리게 두면 글자가 잘리고, 안 줄게 두면 도구 단추가 헤더 밖으로
+밀려난다. 휴대폰(≤767px)에서는 통째로 감춘다 — 지금 어느 화면인지는 바로
+아래 탭 줄이 이미 말해 준다.
+
+**홈 아이콘도 없앴다.** 바로 왼쪽의 로고가 이미 `/` 로 가는 링크라 같은
+자리에 같은 링크가 둘이 된다.
 
 사이드바 검색은 우리가 만든 칸이 아니라 `DxTreeView` 의 `ShowFilterPanel`
 이다(돋보기 아이콘까지 DevExpress 가 그린다). 겉껍데기가 세 겹이라
@@ -910,14 +928,18 @@ dev.bat stop blazor       중지
 
 ## 화면 이관 — DevExpress 그리드에서 먼저 알아야 할 것
 
-### `DataTable` 을 쓰면 `CustomizeEditModel` 이 **필수**다
+### `DataTable` 에는 **편집 창을 열지 않는다**
 
 DevExpress 는 자료 원본에서 편집 모델을 리플렉션으로 만드는데 DataTable 에는
-그럴 타입이 없다. 없으면 편집을 여는 순간 죽는다 —
-`Cannot create an edit model automatically.`
+그럴 타입이 없다. 그대로 편집을 열면 죽는다 —
+`Cannot create an edit model automatically.` (떼어 낸 행을 편집 모델로 주고
+`EditModelSaving` 에서 `ItemArray` 로 옮기는 길이 있고, 지워진 `DynamicGrid`
+가 그렇게 했다.)
 
-떼어 낸 행(`DataTable.NewRow()`)을 편집 모델로 주고, `EditModelSaving` 에서
-`ItemArray` 로 표에 옮긴다. `DynamicGrid.razor` 가 그렇게 한다.
+지금은 그 길을 쓰지 않는다. **칸을 미리 알 수 없는 화면은 읽기 전용이거나,
+고칠 칸 하나를 셀 안에서 바로 고친다**(`RuntimeColumns` 의 `Editable`).
+고친 줄은 `DataRow` 가 스스로 기억하므로(`DataRowState`) 화면은
+`ChangedRows()` 만 보면 된다. 아래 「ProjMng — 부품」 참고.
 
 ### 컬럼이 실행 시점에 정해지면 `DataTable` 을 쓴다
 
@@ -934,28 +956,330 @@ DevExpress 는 자료 원본에서 편집 모델을 리플렉션으로 만드는
 
 ### ProjMng — 부품
 
-프로젝트관리는 보통 CRUD 가 아니다. **저장 프로시저 이름을 실어 보내면 결과와
-함께 컬럼 메타를 돌려주는 범용 통로**이고, 업무 로직은 전부 DB 에 있다.
+프로젝트관리는 한동안 **보통 CRUD 가 아니었다.** 저장 프로시저 이름을 실어
+보내면 결과와 컬럼 메타를 돌려주는 범용 통로가 있었고, 업무 로직이 전부 DB 에
+있었다. **2026-09-12 에 그 프로시저 23개를 백엔드로 옮기고 DB 에서 지웠다**
+(경위와 그때 드러난 결함 스물몇 가지는
+[docs/commgrd-dynamicgrid-merge.md](docs/commgrd-dynamicgrid-merge.md)).
 
 ```
-Api/ProjMngClient.cs   DbCont · DbSave · DbDelete · JsCont · MdCont
-Api/ProjMngTable.cs    프로시저 결과 → DataTable (타입 변환·변경 추적)
-Api/ProcGrid.cs        조회·저장·삭제 묶음 (Vue 의 useProcGrid)
-Api/CommonCodes.cs     공통코드 조회·캐시
+Api/ProjMngClient.cs   Js · Md · RawSql — **DB 가 아니라 「서버가 하는 일」**
+Api/ProjMngTable.cs    그 결과 → DataTable (타입 변환·변경 추적)
+Api/*Client.cs         업무 자료. 자기 이름의 REST 통로로 간다
+                       (ProjectClient · WbsClient · HomeTodoClient · …)
+Api/CommonCodes.cs     드롭다운 목록 조회·캐시 (projmng/proj-codes)
 Api/BizOptions.cs      포털 계정 목록 조회·캐시
-Components/Shared/DynamicGrid.razor   메타 구동 그리드 (드롭다운 컬럼 포함)
-Components/Shared/CodeSelect.razor    공통코드 드롭다운
-Components/Shared/BizSelect.razor     포털 계정 드롭다운
-Components/Shared/CodeEditor.razor    monaco 편집기 (JS interop)
-Components/Shared/DiagramViewer.razor 다이어그램
-Components/Shared/DateRangeTabs.razor 기간 선택 + 탭
-Components/Shared/SearchBar.razor     조건줄
-Components/Shared/SplitPane.razor     마스터-디테일 좌우 분할
-Components/Shared/Notice.razor        화면 안내줄
+Components/Shared/RuntimeColumns.razor 실행 시점에 정해지는 칸 (CommGrd 안에 넣는다)
+Components/Shared/WbsEditForm.razor    WBS·일정표가 같이 쓰는 편집 창
+Components/Shared/ParticipationBoard.razor  참여 배정 — 참여자·투입 관리 두 메뉴가 이것 하나를 연다
+Components/Shared/ProjectGrid.razor    읽기 전용 프로젝트 표
+Components/Shared/CodeSelect.razor     공통코드 드롭다운
+Components/Shared/BizSelect.razor      포털 계정 드롭다운
+Components/Shared/SourceSelect.razor   소스 드롭다운
+Components/Shared/CodeEditor.razor     monaco 편집기 (JS interop · 늦게 불러온다)
+Components/Shared/DiagramViewer.razor  다이어그램
+Components/Shared/DateRangeTabs.razor  기간 선택 + 탭
+Components/Shared/SearchBar.razor      조건줄
+Components/Shared/SplitPane.razor      마스터-디테일 좌우 분할
 ```
 
-이 부품들이 서면 화면은 **"어떤 프로시저를 어떤 파라미터로 부르는가"** 만 적으면
-된다. `Wbs.razor`(약 60줄)와 `CommonCode.razor`(약 90줄)가 그 본보기다.
+**표는 `CommGrd` 하나다.** `DynamicGrid` 라는 두 번째 그리드가 있었는데
+2026-09-12 에 지웠다 — 표 부품이 둘이면 아래 띠·줄무늬·쪽나누기·엑셀이 두 벌이
+되고 한쪽만 고치는 날이 온다(실제로 갈라져 있었다).
+
+#### 옛 도구(draw.io)로 그린 그림은 옮겨야 읽힌다
+
+유즈케이스 화면(`/projmng/design/use-case`)이 읽는 `projmng.dev_proj_prop`
+(`prop_type = 'USE_CASE'`)에 **20건이 전부 `<mxGraphModel>` XML** 로 들어
+있었다. 지금 화면이 쓰는 `ErdModel` JSON 과 다른 형식이라 파서가 **조용히 빈
+그림**을 돌려주고, 화면은 「저장된 그림이 없습니다」로 보였다. 그것을
+「아직 안 그렸구나」로 읽은 사람이 새로 그려 저장하면 **옛 그림이 덮어써진다.**
+
+한동안 `ErdModel.IsLegacyDrawing` 으로 **저장만 막아** 두었는데, 막는 것은
+잃지 않게 할 뿐 보이게 하지는 않는다. 2026-09-13 에
+`scripts/projmng-drawio-to-diagram.py` 로 실제로 옮겼다 — 도형 281 · 관계선 123.
+같은 스크립트가 DB 접속 속성(`dev_db_prop`)도 본다(아래).
+
+**원본은 지우지 않았다.** 같은 줄이 `prop_type = 'USE_CASE_MXGRAPH'` 로 한 벌
+남아 있고 화면은 그 갈래를 읽지 않는다. 되돌리기는 `UPDATE` 한 줄이다
+(스크립트 머리말).
+
+| draw.io | 지금 형식 |
+|---|---|
+| `mxCell[vertex=1]` | `entities[]` (`manual: true`) |
+| `value` (HTML) | `name` — 태그를 털어 낸 글자 |
+| `mxGeometry x/y/width/height` | `x/y/w/h` |
+| `mxCell[edge=1]` (source·target 있음) | `relations[] {from,to,label}` |
+| 끝점이 좌표뿐인 선 · 그림 · 색·모양 | **버린다**(줄마다 몇 개인지 찍는다) |
+
+##### 크기가 적힌 도형은 기본값으로 밀어 올리지 않는다 (실제로 밟음)
+
+`diagram-viewer.js` 가 상자 크기를 `Math.max(entity.w, DEFAULT_W)` 로 잡고
+있었다. 기본값(180×60)은 **크기가 안 적힌 새 도형**을 위한 것인데, 적혀
+있는 것까지 그 바닥으로 올리면 작게 그려 둔 도형이 전부 같은 크기가 된다.
+
+옮겨 온 유즈케이스에서 그대로 드러났다 — 도형 281개 중 **247개**가 그 바닥보다
+작아서, 배치를 정확히 옮겨도 상자들이 겹쳐 덩어리로 보였다. 거실 배치도의
+책장·의자, 화살표, 글자 조각처럼 **작아야 뜻이 통하는** 도형이 많다.
+칸이 있는 표 상자는 예전 그대로다(줄이 늘면 상자가 커져야 해서 바닥이 뜻을 가진다).
+
+##### 손으로 만든 도형의 라벨은 **저절로 접히지 않는다**
+
+`whiteSpace: 'wrap'` 이 있어도 그렇다. maxgraph 는 라벨을 **HTML 로 그릴
+때만** 접고, 그 판정은 값이 DOM 노드이거나 `strictHtml` 일 때만 참이다.
+손으로 만든 도형은 더블클릭해 이름을 고치는 대상이라 글자 그대로 둔다
+(HTML 을 넣으면 편집기에 태그가 보인다).
+
+대신 **줄바꿈은 들어 있으면 그대로 그려진다.** 그래서 옮기는 쪽이 상자 폭에
+맞춰 줄을 끊어 담는다 — draw.io 가 눈으로 보여 주던 접힘이 실제 줄바꿈이 된다.
+**띄어쓰기에서만, 눈에 띄게 넘칠 때만**(1.35배) 끊는다. 글자 사이에서 끊으면
+표 이름이 `t_mg_srt_target_res` / `ult_dtl` 로 갈라지고, 아슬아슬한 줄까지
+손대면 원래 한 줄이던 것이 두 줄이 된다. 20건 중 손댄 것은 **8줄**이다.
+
+##### DB 접속 속성 8건도 옮겼다 — 그리고 열 수 있게 했다
+
+`projmng.dev_db_prop` 에도 draw.io 가 8건 있었다(`ER Diagram` 2 · `flow` 1 ·
+`공통` 2 · `인터페이스` 1 · `DB 이중화` 2). 도형 53 · 관계선 32 를 옮겼고,
+원본은 **같은 이름의 새 줄**로 남겼다(`db_ptype = 'MXGRAPH'`, 설명 칸에
+`원본: db_prid=N`).
+
+**줄마다 `db_prid` 로 집는다.** 이 표에는 제약도 인덱스도 없어서 `(db_rid,
+db_pkey)` 가 겹치는 줄이 실제로 있다 — `(4, 'ER Diagram')` 이 둘이고
+**내용이 서로 다르다**. 그 짝으로 고치면 한 번에 두 줄이 같은 값으로 덮여
+한쪽이 사라진다.
+
+###### 그 8건은 어느 화면도 읽지 않고 있었다
+
+ERD 화면과 업무 흐름 화면은 **`db_pkey='erd'` 한 줄만** 읽는다. 그래서 형식을
+옮겨도 여전히 안 보였다. 두 화면에 **「그림」 고르개**를 붙였다 — 그 접속에
+저장된 그림들을 골라 연다. 항목을 만드는 규칙은 `Api/DrawingOption.cs` 한
+곳에 있다(두 화면이 같은 줄들을 나눠 보므로 갈라 두면 목록이 어긋난다).
+
+| 거르는 것 | 왜 |
+|---|---|
+| 그림이 아닌 속성 | 같은 표에 공통코드 질의·프로시저 서식이 있다. 열면 빈 캔버스만 뜬다 |
+| 보관본(`MXGRAPH`) | 같은 이름이 두 벌 뜨고, 골라 봐야 「옛 도구라 못 연다」만 나온다 |
+| 겹치는 이름 | 지우지 않고 **번호를 붙인다**(`ER Diagram #7`) — 겹칠 때만 |
+
+###### ERD 가 아닌 그림에는 표를 얹지 않는다
+
+이 두 화면은 저장본 위에 **대상 DB 의 표 목록**을 얹어 그린다. 그런데 같은
+접속에 구성도·인터페이스 같은 그림도 저장돼 있다. 거기에 표 상자 일흔 개를
+얹으면 그림이 파묻히고, 그 상태로 **「저장」을 누르면 그 표들이 눌러앉는다** —
+되돌리려면 하나씩 지워야 한다. `db_pkey='erd'` 일 때만 얹는다.
+
+대상 DB 에 묻는 것 자체는 그대로 나간다. 네 조회를 나란히 띄우고 나서야 어느
+그림을 열지 알게 되기 때문이고, 순서를 뒤집으면 **ERD 를 열 때 왕복이 둘로
+늘어난다** — 그쪽이 훨씬 잦다.
+
+#### 참여 배정은 화면 하나다 — 축만 뒤집는다 (`ParticipationBoard`)
+
+프로젝트 참여자(`/projmng/proj/user`)와 투입 관리(`/projmng/proj/appointment`,
+메뉴 제목은 「일정 편집」)는 **각도만 다른 같은 표**였다. 그쪽이
+「이 프로젝트에 누가」, 이쪽이 「이 사람이 어디에」다. 2026-09-12 에 화면
+실체를 하나로 합치고 **메뉴 두 건은 그대로 두었다** — 시작 축만 다르게 연다.
+
+갈라 두었을 때 실제로 어긋나 있었다. 참여자 화면은 체크할 때마다 사람 목록을
+**통째로 다시 읽었고** 투입 관리는 안 읽었다. 같은 저장인데 왕복이 두 배
+다른 것을 **파일만 보면 둘 다 정상으로 보인다.**
+
+| | 합치기 전 | 지금 |
+|---|---|---|
+| 프로젝트 기준으로 사람 넣기 | **못 한다**(아래) | 왼쪽에서 프로젝트를 고른다 |
+| 기준을 고를 때 | 왕복 1~2 | **0** — 세 번에 다 받아 놓는다 |
+| 체크 10개 연타 | 왕복 20 | 첫 건 + 나머지 묶음 |
+| 되돌리기 | 없다 | 방금 한 묶음 전체 |
+
+**「프로젝트 기준으로 넣기」가 왜 막혀 있었나.** 옛 참여자 화면의 「프로젝트」
+조건은 왼쪽 사람 목록을 *그 프로젝트의 참여자만*으로 좁혔다. 확인에는 맞는
+동작인데 그 순간 **아직 안 들어간 사람이 목록에서 사라진다** — 넣을 사람이
+화면에 없다. 그래서 조건을 「전체」로 되돌리고 사람을 한 명씩 골라 오른쪽의
+프로젝트 전부에서 같은 프로젝트를 열 번 찾아야 했다.
+
+지키는 규칙 넷은 부품 머리말에 있다. 여기 적을 것은 **밟은 것 셋**이다.
+
+##### `@@bind-Text:event="oninput"` 은 DevExpress 편집기에 안 듣는다 (실제로 밟음)
+
+값은 칸에 들어가는데 **바인딩이 안 걸려서** 찾기가 조용히 아무 일도 하지
+않는다. 오류가 없고 글자는 보이므로 「검색이 안 된다」로만 보인다.
+사이드바 메뉴 검색과 같은 방식을 쓴다 — `BindValueMode="BindValueMode.OnInput"`
++ `InputDelay`.
+
+##### 대기줄 앞에서 기다리면 묶이지 않는다 (실제로 밟음)
+
+연달아 누른 것을 묶으려고 대기줄을 두었는데, 그 앞에 「보내는 중이면
+기다린다」를 안전판으로 넣었더니 **두 번째 클릭이 첫 번째가 끝날 때까지
+서 있다가 자기 묶음을 따로 보냈다.** 열 번 누르면 열 번 나갔고, 증상이
+「되돌리기를 눌렀는데 한 건만 되돌아온다」로만 보였다.
+
+기준을 옮기는 길 셋(`PickAsync` · `SetAxis` · `Drill`)이 보내던 것을 기다리면
+충분하다 — 기준이 섞일 자리는 거기뿐이다.
+
+##### 되돌리기는 「보낸 것」이 아니라 「보내기 전 상태」를 담는다
+
+연타가 1+3+6 처럼 여러 묶음으로 나뉘어 나가면, 보낸 것을 뒤집는 방식은
+**마지막 묶음만 되돌린다.** 한 번 보내기 시작해서 대기줄이 빌 때까지를 한
+단위로 보고, 그 사이 손댄 줄들의 **손대기 전 상태**를 담는다.
+
+##### 체크할 때 목록을 다시 정렬하지 않는다
+
+「참여한 것 위로」는 기준을 고르거나 찾기를 바꿀 때만 매긴다. 체크할 때마다
+매기면 방금 켠 줄이 손가락 밑에서 맨 위로 튀어 올라가고 다음 줄이 밀린다.
+
+##### 저장은 일괄 통로 하나다
+
+`POST projmng/project-users/assignments/bulk` — `{ prjRid?, userId?, add[], remove[] }`
+를 한 트랜잭션으로. **한 건짜리도 이 길로 간다.** 한 줄짜리 통로가 따로
+있었는데 없앴다 — 갈래를 둘로 두면 한쪽에만 걸리는 버그가 생긴다(넣기가
+한쪽은 `WHERE NOT EXISTS`, 다른 쪽은 `ON CONFLICT` 로 갈릴 뻔했다).
+
+기준은 프로젝트나 사람 **둘 중 하나**여야 한다. 둘 다 주면 `add[]` 에 담긴
+것이 아이디인지 프로젝트 번호인지 알 수 없어 서버가 거절한다 — 조용히 한쪽을
+고르면 **엉뚱한 짝이 들어가고도 200 이 나간다.**
+
+`projmng.dev_proj_user_map` 에 **기본키를 걸었다**(`(prj_rid, user_id)`,
+`deploy/sql/projmng-proj-user-map-pk-2026-09-12.sql`). 제약이 하나도 없던
+표라 같은 짝이 두 줄 들어갈 수 있었고, 한 번에 여러 건 보내게 되면서 그 틈이
+넓어졌다. **운영 DB 에 이미 반영했다.**
+
+#### 칸을 미리 알 수 없는 화면은 `RuntimeColumns`
+
+다섯 화면이 그렇다 — 쿼리 테스터(사람이 친 SQL) · DB 도구 · 테이블 관리 ·
+소스 추적 · 소스 스캐너. 자료를 `DataTable` 로 받고 칸을 **받고 나서** 세운다.
+
+```razor
+<CommGrd TItem="DataRow" Data="@_data.Table" …>
+    <Columns>
+        <RuntimeColumns Table="@_data.Table" Order="@_data.ColumnOrder"
+                        Hidden="@BodyColumns" Editable="@DescColumns" />
+    </Columns>
+</CommGrd>
+```
+
+**`Dictionary<string, object?>` 를 넘기면 안 된다.** DevExpress 그리드는
+`FieldName` 을 리플렉션으로 <ins>속성</ins>에서 찾아서 `A property with the
+name 'cm_cd' is not found` 로 죽는다. `DataTable` 은 정식으로 지원되고 타입별
+정렬·필터와 변경 추적(`DataRowState`)이 따라온다.
+
+**줄은 `DataRow` 가 아니라 `DataRowView` 로 온다** (실제로 밟음). 표를 주면
+DevExpress 가 `DataView` 로 감싸기 때문이다. 그래서 `TItem="DataRowView"` 로
+받고 줄은 `RuntimeCell.Row(...)` 로 꺼낸다 — 바로 캐스팅하면 줄을 그리다
+던지고 **회로가 끊겨** 화면이 통째로 멎는다(증상은 「조회를 눌러도 아무 일이
+없다」).
+
+**칸 안에서 고치는 부품은 `IHandleEvent` 로 자동 렌더를 꺼야 한다**
+(실제로 밟음). 입력칸이 값을 돌려줄 때 Blazor 가 부르는 `StateHasChanged` 가
+DevExpress 의 칸 설정 렌더 중에 걸려 `Async rendering is not allowed here` 로
+던지고, 역시 회로가 끊긴다.
+
+#### 실패를 빈 표로 말하지 않는다 (실제로 밟음)
+
+프로시저가 실패해도 화면에는 **줄이 0개인 표**가 갔다. 그러면 화면은
+「조회 결과가 없습니다」라고 말하는데 **그건 거짓말이다** — 자료가 없는 것과
+못 읽은 것은 고쳐야 할 곳이 서로 다르다(자료 등록 ↔ DB 연결).
+
+프로젝트 목록 화면이 그래서 계속 「조회 결과가 없습니다」였고, 실제 원인은
+**ProjMng DB 에 붙지 못한 것**이었다(포트가 바뀌어 있었다). 지금은 REST 라
+실패가 `ApiException` 으로 올라오고 `DataPage` 가 서버 문구를 그대로 띄운다.
+
+> **ProjMng DB 는 포털·장례식장과 다른 곳에 있다**(`jin114.co.kr:31015/projmng`).
+> 개발 장비에서 그 호스트가 안 풀리면 프로젝트관리 화면 전부가 이 안내를 낸다.
+> 화면 문제가 아니다.
+
+#### 다이어그램(ERD·흐름도·유즈케이스)에서 밟은 것 셋
+
+세 화면이 `DiagramViewer`(maxgraph 0.24, 로컬 정적 자산) 하나를 쓴다.
+**그림을 그리고 관리하는 화면**이다 — 도형을 만들고(「도형 추가」), 끌어
+옮기고, 크기를 바꾸고, 도형끼리 선으로 잇고, 선과 **손으로 만든 도형**의
+이름을 더블클릭해 고치고, 고른 것을 지운다(<kbd>Delete</kbd> 또는
+「선택 지우기」).
+
+**표에서 온 도형의 이름·설명은 캔버스에서 못 고친다.** 그 값의 정본은 대상
+DB 의 테이블 이름과 코멘트라, 고쳐 봐야 다음 불러오기에 되돌아간다 — 고칠 수
+있게 두면 「고쳤는데 사라진다」가 된다. 그쪽은 [테이블·컬럼 설명 관리]에서
+코멘트를 고친다. 손으로 만든 도형(`manual`)은 캔버스가 정본이라 고칠 수 있고,
+옅은 파랑으로 갈라 보인다.
+
+1. **JS 모듈을 상대 경로로 부르면 404 다.** `./js/diagram-viewer.js` 로
+   적혀 있었는데, 모듈이 각자 프로세스이던 시절(:5566)의 잔재다. 지금은 셸
+   하나라 그 경로가 문서 주소 기준으로 풀려 `/projmng/design/erd` 에서는
+   `/js/…` 가 된다. import 가 던지고 **회로가 끊긴다** — 그림이 안 그려지는
+   것이 아니라 그때부터 화면의 아무 단추도 안 눌렸다. RCL 경로로 부른다
+   (`./_content/JSini.Web.ProjMng/js/diagram-viewer.js`).
+2. **`graph.getCellGeometry(cell)` 은 0.24 에 없다.** 저장할 때만 부르는
+   이름이라 **저장이 언제나 터졌고**(회로까지 끊겼다), 화면에는 「저장하지
+   않은 변경」만 남았다. 좌표는 셀이 들고 있다 — `cell.getGeometry()`.
+3. **ERD 와 흐름도는 같은 저장본을 본다**(`db_pkey='erd'`). 옛 소스가 그랬고,
+   다른 점은 흐름도가 **사라진 표**를 `(삭제됨)` 과 흐린 도형으로 표시한다는
+   것뿐이다. 그 표시는 **저장하지 않는다** — 조회 결과지 그림의 성질이 아니고,
+   남기면 ERD 화면이 물려받는다. 한동안 흐름도만 `db_pkey='flow'` 를 읽어
+   **어느 DB 를 골라도 빈 그림**이었다(그 속성은 운영에 한 줄뿐이고 그마저
+   draw.io XML 이다).
+4. **운영 자료에 draw.io XML 이 섞여 있다.** 유즈케이스 8건은 **전부**
+   `<mxGraphModel …>` 이고 DB 속성의 `ER Diagram` 도 그렇다. `ErdModel.Parse`
+   는 그것을 **빈 모델**로 돌려주므로 화면은 「저장된 그림이 없습니다」로
+   보이고, 그것을 「아직 안 그렸다」로 읽은 사람이 새로 그려 저장하면
+   **옛 그림이 덮어써진다.** `ErdModel.IsLegacyDrawing` 으로 가르고 저장을
+   막는다(여는 꺾쇠 하나로 판정한다 — JSON 은 언제나 `{` 로 시작한다).
+
+**저장 안 한 변경을 화면이 말해 준다.** 캔버스가 처음 바뀌는 순간
+`OnChanged` 가 한 번 올라오고(끌 때마다 수십 번 나는 이벤트를 그대로 올리면
+회로 왕복이 그만큼이다) 화면이 경고 줄을 띄운다. 불러오기·저장이 내린다.
+
+**도구상자의 도형은 끌어다 놓고, 클립보드의 그림은 붙여넣는다.**
+도구 칸에서 캔버스로 끌면 그 자리에 생기고(`dragover` 에서 기본 동작을 막지
+않으면 `drop` 이 아예 오지 않는다), 캔버스 위에서 <kbd>Ctrl</kbd>+<kbd>V</kbd>
+하면 클립보드의 그림이 들어간다(그림 파일을 끌어다 놓아도 같다). 여기서 밟은
+것 넷:
+
+5. **그림은 넣기 전에 줄인다.** 저장은 캔버스 → 회로 → 서버로 가는데,
+   화면 캡처 한 장이 base64 로 수 MB 다. 긴 변 1100px · 한 장 420KB 로 맞추고
+   (`diagram-viewer.js` 의 `IMAGE_MAX_*`), PNG 로 안 눌리면 흰 바탕을 깔아
+   JPEG 로 바꾼다(바탕을 안 깔면 투명한 곳이 **검게** 나온다). 저장본에는
+   `ErdEntity.Image` 에 data URL 로 담는다 — 파일 서버에 올려 주소로 두면
+   **그림을 그리는 SVG 가 인증 없이 파일 서버를 부르게 된다.**
+6. **회로의 수신 한도를 올려 두었다**(`JSiniWebApp` 에서 4MB, 기본값 32KB).
+   `SaveAsync` 는 **브라우저 → 서버** 방향이라 이 한도에 걸리고, 넘으면 오류가
+   아니라 **회로가 그냥 끊긴다**. 그림 없이도 이미 넘고 있었다 — 운영 저장본에
+   66KB·46KB·40KB 짜리 ERD 가 있다(그 그림들은 여태 저장이 안 됐다는 뜻이다).
+7. **손으로 만든 도형은 `kind` 를 저장본에 남긴다.** 안 남기던 동안에는
+   불러오기가 전부 `MANUAL_STYLE` 로 그려서, **저장 한 번에 육각형도 구름도
+   네모가 됐다.** 그림은 `image`, 도형은 `kind` — 둘 다 그림의 성질이라 남긴다
+   (칸 목록 `fields` 와 외래키 선 `auto` 는 조회 결과라 안 남긴다).
+8. **화면 좌표는 「그때」 재야 한다.** 놓은 자리를 그래프 좌표로 옮기는 셈이
+   `getBoundingClientRect()` 에 기대는데, 「그림을 넣는 중입니다」 한마디가
+   알림 자리를 늘려 **캔버스를 아래로 민다.** 알림을 띄우고 나서 재면 놓은
+   자리보다 50px 쯤 아래에 생긴다. 붙여넣기는 마우스가 있던 그 순간 재어 둔다.
+
+**부품은 한 번만 만든다.** `DiagramViewer.EnsureAsync` 가 만드는 중인 일감을
+들고 있다(`_creating`). `if (_instance is null)` 이던 동안에는 그 안에 `await`
+가 셋이라 **끝나기 전에 다시 들어왔고** — 화면이 열릴 때 그리기·도구 목록·
+미리보기가 거의 동시에 부른다 — 같은 `<div>` 안에 그래프가 두세 개 생겼다.
+보이는 것은 맨 위 하나뿐이라 한동안 아무도 몰랐는데, 붙여넣기를 붙이자
+**Ctrl+V 한 번에 그림이 세 장** 생기면서 드러났다.
+
+#### 코드 편집기는 **필요할 때** monaco 를 받는다 (실제로 밟음)
+
+BlazorMonaco 는 스크립트 세 장이 전역에 있기를 기대한다. 없으면
+`StandaloneCodeEditor` 가 자기 첫 렌더에서 `window.monaco` 를 찾다 실패하고
+**회로가 끊긴다** — 그 화면만 깨지는 것이 아니라 그때부터 아무 단추도 안
+눌린다. 편집기를 쓰는 화면 넷이 실제로 그렇게 죽어 있었다.
+
+`<head>` 에 적으면 `editor.main.js` 3MB 를 **편집기가 없는 화면까지** 받는다.
+그래서 `CodeEditor` 가 필요할 때 받고(`wwwroot/js/monaco-loader.js`)
+**다 받은 뒤에야** 편집기를 그린다. 감싸개가 나중에 넣어 주는 방식으로는
+언제나 늦다 — Blazor 는 `OnAfterRender` 를 **자식부터** 부른다.
+
+기다리는 것은 `setTimeout` 으로 한다. `requestAnimationFrame` 은 **보이지 않는
+탭에서 콜백이 오지 않아** 「불러오는 중」에 멈춘 채로 남는다.
+
+#### 고르개를 편집 창에 넣으면 던진다 (실제로 밟음)
+
+`CodeSelect` · `BizSelect` · `SourceSelect` 는 `Value`/`ValueChanged` 로 값을
+주고받아 DevExpress 가 기대하는 `ValueExpression` 이 없다. `EditForm`
+(표의 편집 창) 안에 들어가면 그것을 필수로 보고 던지고, **그 예외가 회로를
+끊는다.** 셋 다 `ValidationEnabled="false"` 로 껐다 — 우리는 DevExpress
+검증을 쓰지 않는다.
 
 ## 회사 소개 사이트 (`src/Site/JSini.PublicSite`)
 
@@ -985,6 +1309,9 @@ Components/Shared/Notice.razor        화면 안내줄
   말해 준다 — 세 곳에 같은 글자가 있으면 본문만 좁아진다. `PageHeading` 은
   2026-09-06 에 147개 화면에서 걷어내고 부품도 지웠다.
 - 화면은 **조회 영역(`CommSch`) → 자료 영역(`CommCont` + `CommGrd`)** 으로 쌓는다.
+  조건 칸은 `CommSchItem Label="…"` 로 **라벨을 붙인다**. 조회 단추는 판이
+  그리므로 화면이 따로 두지 않는다(`OnSearch` · 이름은 `SearchText`).
+  오래 걸리는 조회는 `Busy` 로 그 단추를 잠근다.
   조건을 표 안 도구줄에 두지 않는다 — 표가 넓어질수록 조건이 가로 스크롤
   저편으로 밀려나고, 화면마다 조건 자리가 달라진다. `CommCont` 로 감싸야
   표가 본문 높이를 꽉 채우고 쪽 스크롤이 안 생긴다.

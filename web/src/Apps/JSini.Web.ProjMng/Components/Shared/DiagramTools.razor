@@ -1,0 +1,193 @@
+@*
+    다이어그램 도구상자 — ERD · 업무 흐름 · 유즈케이스가 같이 쓴다.
+
+    [핀이 하는 일]
+
+        꽂힘(기본)  그림 **옆**에 자리를 차지한다 — 그림을 덮지 않는다.
+        뺌          그림 **위에** 뜬다 — 좁은 화면에서 그림을 넓게 쓸 때.
+
+    숨기면 손잡이만 남긴다. 완전히 없애면 **다시 여는 길이 안 보인다.**
+
+    [목록은 이 부품이 정하지 않는다]
+
+    도형과 선 모양은 `diagram-viewer.js` 가 들고 있고 여기서 받아 그린다.
+    모양을 하나 더 열 때 고칠 곳이 한 곳이어야 하기 때문이다.
+*@
+
+@if (!Open)
+{
+    @* **자리를 차지하지 않는다.** 숨긴 뒤에도 손잡이가 폭을 먹으면 그림이
+       그만큼 좁아진다 — 그림 위에 떠 있게 두고 캔버스가 폭을 다 쓴다. *@
+    <button type="button" class="pm-tools-handle" title="도구상자 열기"
+            @onclick="@(() => OpenChanged.InvokeAsync(true))">
+        <span class="jsini-icon-palette" aria-hidden="true"></span>
+        <span class="pm-sr-only">도구상자 열기</span>
+    </button>
+}
+else
+{
+    <aside class="pm-tools @(Pinned ? null : "pm-tools--float")">
+        <header class="pm-tools__head">
+            <span class="pm-tools__title">도구상자</span>
+
+            @* 글자 대신 아이콘이다. 머리띠가 좁아 글자 둘이면 제목이 밀린다.
+               무엇인지는 `title` 이 말해 준다. *@
+            <button type="button"
+                    class="pm-tools__icon @(Pinned ? "pm-tools__icon--on" : null)"
+                    title="@(Pinned ? "고정 해제 — 그림 위에 띄웁니다" : "고정 — 그림 옆에 붙입니다")"
+                    @onclick="@(() => PinnedChanged.InvokeAsync(!Pinned))">
+                <span class="jsini-icon-pin" aria-hidden="true"></span>
+                <span class="pm-sr-only">@(Pinned ? "고정 해제" : "고정")</span>
+            </button>
+
+            <button type="button" class="pm-tools__icon" title="숨기기"
+                    @onclick="@(() => OpenChanged.InvokeAsync(false))">
+                <span class="jsini-icon-close" aria-hidden="true"></span>
+                <span class="pm-sr-only">숨기기</span>
+            </button>
+        </header>
+
+        @* 도형이 백여든 개다. **찾는 칸이 없으면 굴리다 지친다.** *@
+        <div class="pm-tools__filter">
+            <input type="search" class="pm-tools__search" placeholder="도형 찾기"
+                   value="@_filter" @oninput="@(e => _filter = e.Value?.ToString() ?? string.Empty)" />
+        </div>
+
+        <div class="pm-tools__body">
+            @if (Matched.Count == 0)
+            {
+                <p class="pm-tools__empty">「@_filter」 에 걸리는 도형이 없습니다.</p>
+            }
+
+            @* **아코디언이다.** 묶음이 열이고 도형이 백여든 개라, 다 펼쳐 두면
+               찾는 것이 늘 화면 밖에 있다. `<details>` 를 쓰는 이유는 여닫는
+               일을 브라우저가 하기 때문이다 — 회로 왕복도, 상태도 필요 없고
+               키보드로도 열린다.
+
+               찾는 글자가 있으면 **전부 펼친다** — 걸린 것이 접힌 묶음 안에
+               있으면 「없다」로 보인다. *@
+            @foreach (var group in Matched.GroupBy(s => s.Group))
+            {
+                <details class="pm-tools__group" open="@(IsOpen(group.Key))">
+                    <summary class="pm-tools__group-title">
+                        @group.Key <span class="pm-tools__count">@group.Count()</span>
+                    </summary>
+
+                    <div class="pm-tools__items">
+                        @foreach (var shape in group)
+                        {
+                            <button type="button" class="pm-tool pm-tool--shape"
+                                    @onclick="@(() => OnShape.InvokeAsync(shape.Kind))">
+                                @Preview(shape, "pm-tool__art")
+
+                                @* 이름과 큰 그림은 **덧붙이는 말**로 띄운다.
+                                   칸에 이름까지 적으면 한 줄에 두 개밖에 못
+                                   들어가 목록이 다섯 배로 길어진다. *@
+                                <span class="pm-tool__tip">
+                                    @Preview(shape, "pm-tool__tip-art")
+                                    <span class="pm-tool__tip-name">@shape.Label</span>
+                                </span>
+                            </button>
+                        }
+                    </div>
+                </details>
+            }
+
+            @* 선은 만드는 것이 아니라 **고른 선을 고치는** 것이라 따로 둔다.
+               찾는 글자가 있을 때는 감춘다 — 도형을 찾는 중이기 때문이다. *@
+            @if (EdgeStyles.Count > 0 && string.IsNullOrWhiteSpace(_filter))
+            {
+                <details class="pm-tools__group" open>
+                    <summary class="pm-tools__group-title">
+                        선 (고른 선에 적용) <span class="pm-tools__count">@EdgeStyles.Count</span>
+                    </summary>
+
+                    <div class="pm-tools__items">
+                        @foreach (var edge in EdgeStyles)
+                        {
+                            <button type="button" class="pm-tool"
+                                    title="@($"고른 선을 {edge.Label} 로 바꿉니다")"
+                                    @onclick="@(() => OnEdgeStyle.InvokeAsync(edge.Kind))">
+                                @edge.Label
+                            </button>
+                        }
+                    </div>
+                </details>
+            }
+        </div>
+    </aside>
+}
+
+@code {
+    /// <summary>
+    /// 그림을 그려 줄 부품. 화면이 넘긴다 — 도구상자는 그 안을 모르고
+    /// 「칸을 채워 달라」고만 한다.
+    /// </summary>
+    [Parameter] public DiagramViewer? Viewer { get; set; }
+
+    /// <summary>
+    /// 그린 뒤에 빈 칸을 채운다. **렌더마다 부른다** — 거르개를 치거나 묶음을
+    /// 펴면 새 칸이 생기기 때문이다. 이미 그려 둔 칸은 그쪽에서 건너뛴다.
+    /// </summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (Open && Viewer is not null)
+        {
+            await Viewer.PaintPreviewsAsync();
+        }
+    }
+
+    /// <summary>찾는 글자. 비어 있으면 전부 보여 준다.</summary>
+    private string _filter = string.Empty;
+
+    /// <summary>
+    /// 찾는 글자에 걸리는 도형. <b>이름과 묶음 이름을 함께 본다</b> —
+    /// 「순서도」로 묶음째 좁히는 일이 흔하다.
+    /// </summary>
+    private IReadOnlyList<DiagramViewer.DiagramShape> Matched =>
+        string.IsNullOrWhiteSpace(_filter)
+            ? Shapes
+            : [.. Shapes.Where(s =>
+                  (s.Label?.Contains(_filter, StringComparison.OrdinalIgnoreCase) ?? false)
+                  || (s.Group?.Contains(_filter, StringComparison.OrdinalIgnoreCase) ?? false))];
+
+    /// <summary>
+    /// 묶음을 펼쳐 둘지. <b>찾는 중이면 전부 펼친다</b> — 걸린 것이 접힌
+    /// 묶음 안에 있으면 「없다」로 보인다. 평소에는 우리가 만든 묶음만
+    /// 펼치고 stencil 묶음(백여든 개)은 접어 둔다.
+    /// </summary>
+    private bool IsOpen(string? group) =>
+        !string.IsNullOrWhiteSpace(_filter)
+        || group is "기본" or "순서도" or "UML" or "ERD" or "구성도";
+
+    /// <summary>
+    /// 도형 그림이 들어갈 <b>빈 칸</b>. 그림은 브라우저가 채운다
+    /// (<see cref="DiagramViewer.PaintPreviewsAsync"/>) — 마크업이 회로를
+    /// 타면 백여든 개에서 수신 한도를 넘겨 연결이 끊긴다.
+    /// </summary>
+    private static RenderFragment Preview(DiagramViewer.DiagramShape shape, string cssClass) =>@<text>
+        <span class="@cssClass" data-shape="@shape.Kind" role="img" aria-label="@shape.Label"></span>
+    </text>;
+
+    /// <summary>도형 목록. 화면이 <c>DiagramViewer.ShapesAsync</c> 로 받아 넘긴다.</summary>
+    [Parameter] public IReadOnlyList<DiagramViewer.DiagramShape> Shapes { get; set; } = [];
+
+    /// <summary>선 모양 목록.</summary>
+    [Parameter] public IReadOnlyList<DiagramViewer.DiagramShape> EdgeStyles { get; set; } = [];
+
+    /// <summary>도구상자가 보이는가.</summary>
+    [Parameter] public bool Open { get; set; } = true;
+
+    [Parameter] public EventCallback<bool> OpenChanged { get; set; }
+
+    /// <summary>핀이 꽂혀 있는가(머리말).</summary>
+    [Parameter] public bool Pinned { get; set; } = true;
+
+    [Parameter] public EventCallback<bool> PinnedChanged { get; set; }
+
+    /// <summary>도형을 골랐다. 값은 <c>kind</c> 다.</summary>
+    [Parameter] public EventCallback<string> OnShape { get; set; }
+
+    /// <summary>선 모양을 골랐다.</summary>
+    [Parameter] public EventCallback<string> OnEdgeStyle { get; set; }
+}

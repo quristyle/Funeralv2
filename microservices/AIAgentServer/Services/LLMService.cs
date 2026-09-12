@@ -74,23 +74,23 @@ public class LLMService : ILLMService
     private const string ChatSystemPrompt =
         "당신은 시스템 관리를 돕는 친절하고 전문적인 AI 어시스턴트입니다. 한국어로 자연스럽게 답변해주세요.";
 
-    private static readonly JsonSerializerOptions JsonOptions =
-        new() { PropertyNameCaseInsensitive = true };
-
     private readonly HttpClient _httpClient;
     private readonly AiProviderRegistry _registry;
     private readonly FreeModelGuard _freeModelGuard;
+    private readonly AnthropicTransport _anthropic;
     private readonly ILogger<LLMService> _logger;
 
     public LLMService(
         HttpClient httpClient,
         AiProviderRegistry registry,
         FreeModelGuard freeModelGuard,
+        AnthropicTransport anthropic,
         ILogger<LLMService> logger)
     {
         _httpClient = httpClient;
         _registry = registry;
         _freeModelGuard = freeModelGuard;
+        _anthropic = anthropic;
         _logger = logger;
     }
 
@@ -147,12 +147,29 @@ public class LLMService : ILLMService
 
         using var response = call.Response;
 
+        // [누가 답하는지 먼저 알린다]
+        //
+        // 자동 전환 · 모델 바꿔치기 때문에 **고른 것과 실제로 답하는 것이 다를 수 있다.**
+        // 전환 안내(아래)는 '바뀐 순간' 에만 뜨므로, 그 줄을 놓치거나 새 대화를 시작하면
+        // 지금 누가 답하고 있는지 알 길이 없다. 그래서 매 턴 맨 앞에 실어 보낸다.
+        //
+        // **안내가 아니라 표식이다.** 화면은 이것을 말풍선 밖 안내 목록에 쌓지 않고
+        // 머리말의 배지 하나를 갈아 끼운다(kind 로 가른다).
+        yield return ChatStreamPart.Info(
+            $"{call.Provider.DisplayName} · {ShortModel(call.Model)}", "used");
+
         // 전환됐으면 **사용자에게 알린다.** 말없이 다른 모델로 답하면 "왜 말투가
         // 달라졌지" 를 설명할 방법이 없다. 답 앞에 한 줄만 붙인다.
         if (call.FailedOverFrom is { } from)
         {
+            // 사유를 사실대로 쓴다. '접속 불가' 와 '한도 소진' 은 사람이 할 일이 다르다 —
+            // 앞은 장비를 켜면 되고, 뒤는 날짜가 바뀌어야 한다.
+            var why = call.FailoverReason == "quota"
+                ? "의 하루 한도를 다 써"
+                : " 에 접속할 수 없어";
+
             yield return ChatStreamPart.Info(
-                $"{from.DisplayName} 에 접속할 수 없어 {call.Provider.DisplayName} 로 답합니다.",
+                $"{from.DisplayName}{why} {call.Provider.DisplayName} 로 답합니다.",
                 "provider");
         }
         else if (call.SwitchedFromModel is { } blockedModel)
@@ -174,37 +191,14 @@ public class LLMService : ILLMService
                 "history");
         }
 
-        using var stream = await response.Content.ReadAsStreamAsync();
-        using var reader = new StreamReader(stream);
-
         // 생각 블록을 걷어낸다. 조각 경계에서 태그가 잘리므로 상태를 들고 가야 한다.
+        //
+        // **공급자 형식과는 무관하다.** 조각을 어떻게 꺼내는지는 응답 객체가 알고
+        // (OpenAI 는 `data:` 줄, Claude 는 SDK 이벤트), 여기서는 나온 글자만 거른다.
         var reasoning = new ReasoningFilter();
 
-        // EndOfStream 은 뒤에서 동기로 읽어 버린다(CA2024). 토큰이 한 조각씩 오는
-        // 이 고리에서는 조각마다 스레드를 붙잡는 셈이라, 끝 판정을 ReadLineAsync 의
-        // null 로 대신한다 — 읽는 횟수도 조각당 두 번에서 한 번으로 준다.
-        while (await reader.ReadLineAsync() is { } line)
+        await foreach (var content in response.ReadDeltasAsync())
         {
-            if (string.IsNullOrWhiteSpace(line)) continue;
-            if (!line.StartsWith("data: ")) continue;
-
-            var json = line[6..].Trim();
-            if (json == "[DONE]") break;
-
-            OpenAIStreamResponse? chunk = null;
-            try
-            {
-                chunk = JsonSerializer.Deserialize<OpenAIStreamResponse>(json, JsonOptions);
-            }
-            catch (JsonException ex)
-            {
-                _logger.LogWarning("스트림 조각을 읽지 못했습니다: {Error}, JSON: {Json}", ex.Message, json);
-                continue;
-            }
-
-            var content = chunk?.choices?.FirstOrDefault()?.delta?.content;
-            if (string.IsNullOrEmpty(content)) continue;
-
             var visible = reasoning.Feed(content);
             if (visible.Length > 0) yield return ChatStreamPart.Content(visible);
         }
@@ -297,9 +291,7 @@ public class LLMService : ILLMService
 
         using var response = call.Response;
 
-        var body = await response.Content.ReadAsStringAsync();
-        var parsed = JsonSerializer.Deserialize<OpenAIResponse>(body, JsonOptions);
-        var reply = parsed?.choices?.FirstOrDefault()?.message?.content?.Trim();
+        var reply = await response.ReadTextAsync();
 
         return new AiAnswer(
             string.IsNullOrEmpty(reply) ? "죄송합니다. 응답을 생성하지 못했습니다." : reply,
@@ -547,9 +539,14 @@ public class LLMService : ILLMService
 
     /// <summary>한 번 보낸 결과. 자동 전환이 있었으면 원래 공급자·모델도 담긴다.</summary>
     private readonly record struct AiCall(
-        HttpResponseMessage Response,
+        AiResponseBody Response,
         AiProvider Provider,
         AiProvider? FailedOverFrom,
+        /// <summary>
+        /// 왜 넘어왔는지. <c>connect</c>(접속 실패) · <c>quota</c>(계정 하루 한도).
+        /// 사람에게 보여 줄 문구가 갈리므로 담아 둔다.
+        /// </summary>
+        string? FailoverReason,
         /// <summary>한도에 걸려 건너뛴 모델. 공급자는 그대로다. 없으면 null.</summary>
         string? SwitchedFromModel,
         /// <summary>실제로 답한 모델.</summary>
@@ -558,17 +555,23 @@ public class LLMService : ILLMService
         int DroppedMessages);
 
     /// <summary>
-    /// 요청한 공급자로 보내고, <b>접속에 실패하면</b> 다른 공급자로 넘긴다 (결정 D-A3).
+    /// 요청한 공급자로 보내고, <b>여기서 더 해 볼 것이 없으면</b> 다른 공급자로 넘긴다
+    /// (결정 D-A3).
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>넘기는 조건은 하나다 — 상대에 아예 닿지 못했을 때.</b> 응답이 오기는 한 경우
-    /// (429 한도 초과 · 401 인증 실패 · 5xx)와 생성 시간 초과는 그대로 올린다.
+    /// <b>넘기는 조건은 둘이다</b>(<see cref="IsFailoverWorthy"/>) — 상대에 아예 닿지
+    /// 못했을 때, 그리고 <b>계정 전체 하루 한도</b>를 다 썼을 때. 둘 다 넘기지 않아도
+    /// 어차피 실패하므로 잃을 것이 없다.
+    /// </para>
+    /// <para>
+    /// 나머지는 그대로 올린다 — 401 인증 실패 · 5xx · 생성 시간 초과, 그리고
+    /// <b>모델 하나가 붐비는 429</b>(그쪽은 아래 층이 모델을 바꿔 처리한다).
     /// 이유는 <c>AiProviderRegistry.FailoverOnConnectFailure</c> 주석에 적어 두었다.
     /// </para>
     /// <para>
-    /// 닿지 못한 경우에는 <b>넘기지 않아도 어차피 실패</b>하므로 잃을 것이 없다.
-    /// 접속 대기가 5초라 전환 비용도 그만큼이다.
+    /// 접속 대기가 5초라 전환 비용도 그만큼이다. 계정 한도 쪽은 이미 응답을 받은
+    /// 뒤라 추가 대기가 없다.
     /// </para>
     /// </remarks>
     private async Task<AiCall> SendWithFailoverAsync(
@@ -609,16 +612,28 @@ public class LLMService : ILLMService
                     allowModelRotation: allowFailover);
 
                 // 첫 후보가 아니면 공급자가 전환된 것이다.
-                return i == 0 ? call : call with { FailedOverFrom = requested };
+                if (i == 0) return call;
+
+                return call with
+                {
+                    FailedOverFrom = requested,
+                    FailoverReason = firstFailure?.IsConnectFailure == true ? "connect" : "quota",
+                };
             }
-            catch (AiProviderException ex) when (ex.IsConnectFailure && i + 1 < candidates.Count)
+            catch (AiProviderException ex)
+                when (IsFailoverWorthy(ex) && i + 1 < candidates.Count)
             {
                 firstFailure ??= ex;
                 var next = candidates[i + 1];
 
+                // 두 사유를 로그에서 구분한다. 사람이 할 일이 다르다 —
+                // 접속 실패는 '장비를 켜라', 계정 한도는 '내일까지 다른 곳을 써라'.
                 _logger.LogWarning(
-                    "{From} 에 접속하지 못해 {To} 로 자동 전환합니다. (사유: {Reason})",
-                    provider.Key, next.Key, ex.Message);
+                    "{From} {Why} {To} 로 자동 전환합니다. (사유: {Reason})",
+                    provider.Key,
+                    ex.IsConnectFailure ? "에 접속하지 못해" : "의 계정 하루 한도를 다 써",
+                    next.Key,
+                    ex.Message);
 
                 AiUsageTracker.RecordFailover(from: provider.Key, to: next.Key);
             }
@@ -629,6 +644,32 @@ public class LLMService : ILLMService
         throw firstFailure ?? new AiProviderException(
             $"{requested.DisplayName} 호출에 실패했습니다.", requested.Key);
     }
+
+    /// <summary>
+    /// 이 실패가 <b>다른 공급자로 넘길 만한</b> 것인지.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 두 가지뿐이다. 공통점은 <b>"여기서는 더 해 볼 것이 없다"</b> 는 것 —
+    /// 넘기지 않아도 어차피 실패하므로 넘겨서 잃을 것이 없다.
+    /// </para>
+    /// <list type="bullet">
+    ///   <item><b>접속 실패</b> — 상대가 아예 없다(장비 꺼짐 · 주소 오류 · DNS).</item>
+    ///   <item>
+    ///     <b>계정 전체 하루 한도(429)</b> — 기다려도 날짜가 바뀌어야 풀리고,
+    ///     모델을 바꿔도 같은 한도를 쓴다. 아래 층의 모델 바꿔치기가 구제하지 못하는
+    ///     유일한 429 라서 여기까지 올라온다.
+    ///   </item>
+    /// </list>
+    /// <para>
+    /// <b>모델 하나가 붐비는 429 는 여기 오지 않는다</b> —
+    /// <see cref="SendToProviderAsync"/> 가 모델을 바꿔 이미 처리한다.
+    /// 생성 시간 초과와 401 을 제외하는 이유는
+    /// <see cref="AiProviderRegistry.FailoverOnConnectFailure"/> 주석에 적어 두었다.
+    /// </para>
+    /// </remarks>
+    private static bool IsFailoverWorthy(AiProviderException ex) =>
+        ex.IsConnectFailure || ex.IsAccountWideLimit;
 
     /// <summary>
     /// 공급자 한 곳에 보낸다. <b>모델이 한도에 걸리면 다음 무료 모델로 바꿔 다시 보낸다.</b>
@@ -711,17 +752,26 @@ public class LLMService : ILLMService
         for (var i = 0; i < attempts.Count; i++)
         {
             var model = attempts[i];
-            var payload = BuildRequest(
-                provider, model, toSend, temperature, maxTokenCap, stream);
 
             try
             {
-                var response = await SendOnceAsync(provider, payload, completionOption, model);
+                // [여기서 형식이 갈린다]
+                //
+                // 위아래로는 아무 차이가 없다 — 모델 바꿔치기 · 기록 자르기 ·
+                // 한도 표시는 두 길이 똑같이 지나간다. 다른 것은 '어떻게 말을 거는가' 뿐이다.
+                var response = provider.IsAnthropic
+                    ? await SendAnthropicOnceAsync(provider, model, toSend, maxTokenCap, stream)
+                    : await SendOnceAsync(
+                        provider,
+                        BuildRequest(provider, model, toSend, temperature, maxTokenCap, stream),
+                        completionOption,
+                        model);
 
                 return new AiCall(
                     response,
                     provider,
                     FailedOverFrom: null,
+                    FailoverReason: null,
                     // [무엇과 비교하는가]
                     //
                     // '시도 목록의 첫 번째' 가 아니라 **원래 쓰려던 모델**과 비교한다.
@@ -772,11 +822,14 @@ public class LLMService : ILLMService
     /// 잔량을 항상 알려 준다. 이것을 안 보면 "갑자기 안 되네" 하는 순간에야 한도를 알게 된다.
     /// </para>
     /// </remarks>
-    private async Task<HttpResponseMessage> SendOnceAsync(
-        AiProvider provider,
-        OpenAIRequest payload,
-        HttpCompletionOption completionOption,
-        string model)
+    /// <summary>
+    /// 부르기 전에 두 가지를 확인한다. <b>두 형식이 똑같이 지나간다.</b>
+    /// </summary>
+    /// <remarks>
+    /// 설정 미완을 먼저 거르는 이유는 자리표시자 키를 그대로 보내면 공급자가 401 을
+    /// 주는데, 그러면 "키를 안 넣었다" 가 "인증 실패" 로 보여 원인을 잘못 짚기 때문이다.
+    /// </remarks>
+    private static void Preflight(AiProvider provider)
     {
         if (!provider.IsConfigured)
         {
@@ -787,11 +840,70 @@ public class LLMService : ILLMService
         }
 
         // 우리 쪽 하루 상한(기본 꺼짐). 공급자를 부르기 전에 막는다.
+        //
+        // **Anthropic 에서는 이것이 돈을 막는 장치가 된다.** 무료 등급이 없어서
+        // 공급자 쪽 429 가 지갑을 지켜 주지 않는다 — 쓴 만큼 청구될 뿐이다.
         var quotaBlock = AiProviderRegistry.TryConsumeDailyQuota(provider);
         if (quotaBlock is not null)
         {
             throw new AiProviderException(quotaBlock, provider.Key, isRateLimited: true);
         }
+    }
+
+    /// <summary>
+    /// Claude 에게 한 번 보낸다. 형식 변환과 오류 분류는 <see cref="AnthropicTransport"/> 몫이다.
+    /// </summary>
+    /// <remarks>
+    /// 여기서 하는 일은 <b>OpenAI 경로와 똑같이 맞춰 주는 것</b>뿐이다 —
+    /// 사전 점검 · 응답 대기 시간 · 사용량 기록.
+    /// </remarks>
+    private async Task<AiResponseBody> SendAnthropicOnceAsync(
+        AiProvider provider,
+        string model,
+        List<Message> messages,
+        int? maxTokenCap,
+        bool stream)
+    {
+        Preflight(provider);
+
+        // 상한은 공급자마다 다시 계산한다(OpenAI 경로의 BuildRequest 와 같은 규칙).
+        var maxTokens = maxTokenCap.HasValue
+            ? Math.Min(maxTokenCap.Value, provider.MaxTokens)
+            : provider.MaxTokens;
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(provider.TimeoutSeconds));
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+
+        try
+        {
+            var body = await _anthropic.SendAsync(
+                provider, model, messages, maxTokens, stream, cts.Token);
+
+            sw.Stop();
+            AiUsageTracker.Record(
+                provider.Key, ok: true, latencyMs: (int)sw.ElapsedMilliseconds,
+                null, null, null, null, null, null);
+
+            return body;
+        }
+        catch
+        {
+            sw.Stop();
+            // 닿지도 못한 것도 기록한다 — 상태 화면에서 "이 공급자를 쓰려다 실패했다" 가 보인다.
+            AiUsageTracker.Record(
+                provider.Key, ok: false, latencyMs: (int)sw.ElapsedMilliseconds,
+                null, null, null, null, null, null);
+            throw;
+        }
+    }
+
+    private async Task<AiResponseBody> SendOnceAsync(
+        AiProvider provider,
+        OpenAIRequest payload,
+        HttpCompletionOption completionOption,
+        string model)
+    {
+        Preflight(provider);
 
         using var request = new HttpRequestMessage(HttpMethod.Post, provider.ApiBase);
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", provider.ApiKey);
@@ -864,7 +976,7 @@ public class LLMService : ILLMService
 
         // 성공하면 **응답을 그대로 넘긴다.** 여기서 using 으로 잡으면 부르는 쪽이
         // 본문을 읽기 전에 닫혀 버린다(스트리밍은 특히 그렇다). 닫는 것은 호출자 몫이다.
-        if (response.IsSuccessStatusCode) return response;
+        if (response.IsSuccessStatusCode) return new OpenAiResponseBody(response, _logger);
 
         // 실패했다. 응답에서 필요한 것을 **먼저 다 꺼낸 뒤** 닫는다.
         var error = await response.Content.ReadAsStringAsync();
@@ -912,7 +1024,14 @@ public class LLMService : ILLMService
         }
 
         // ── 인증 실패 ──────────────────────────────────────
-        if (status is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
+        // [상태 코드만으로는 부족하다]
+        //
+        // 키가 틀렸을 때 401 을 주는 것은 **모든 공급자의 약속이 아니다.**
+        // Gemini 는 400 에 "Please pass a valid API key" 를 담아 준다. 상태 코드만
+        // 보면 그것이 "호출 실패(HTTP 400)" 로 뭉개져, 정작 고쳐야 할 것이
+        // 키라는 사실이 안 드러난다.
+        if (status is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden
+            || LooksLikeBadKey(error))
         {
             _logger.LogError(
                 "{Provider} 인증 실패({Status}). 응답: {Error}",
@@ -928,10 +1047,40 @@ public class LLMService : ILLMService
             "{Provider} 호출 실패({Status}). 모델: {Model}, 응답: {Error}",
             provider.Key, (int)status, model, Truncate(error));
 
+        // [공급자가 한 말을 함께 올린다]
+        //
+        // 예전에는 "(HTTP 400)" 만 보여 줬다. 상태 코드 하나로는 무엇을 고쳐야 하는지
+        // 알 수 없다 — 모델 이름이 틀렸는지, 본문이 잘못됐는지, 지역 제한인지.
+        // 공급자는 대개 이유를 적어 주므로 그것을 버리지 않는다.
+        var reason = ExtractProviderError(error);
+
         throw new AiProviderException(
-            $"{provider.DisplayName} 호출이 실패했습니다. (HTTP {(int)status})",
+            $"{provider.DisplayName} 호출이 실패했습니다. (HTTP {(int)status})"
+            + (reason is null ? "" : $" {reason}"),
             provider.Key,
             statusCode: (int)status);
+    }
+
+    /// <summary>
+    /// 응답 본문이 <b>키가 잘못됐다</b>고 말하고 있는지.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 문구에 기대는 판단이라 정확하지 않다. 그래도 두는 이유는 <b>틀렸을 때 잃는 것이
+    /// 적기 때문</b>이다 — 잘못 걸리면 다른 원인의 오류에 "키를 확인하세요" 가 붙을 뿐이고,
+    /// 안 걸리면 키가 틀린 사람이 "HTTP 400" 만 보고 헤맨다.
+    /// </para>
+    /// <para>
+    /// 자동 전환에는 영향이 없다. 인증 실패도 그 밖의 HTTP 오류도 둘 다 넘기지 않는다.
+    /// 바뀌는 것은 <b>사람이 읽는 문구</b>뿐이다.
+    /// </para>
+    /// </remarks>
+    private static bool LooksLikeBadKey(string error)
+    {
+        return error.Contains("valid API key", StringComparison.OrdinalIgnoreCase)
+            || error.Contains("API key not valid", StringComparison.OrdinalIgnoreCase)
+            || error.Contains("invalid_api_key", StringComparison.OrdinalIgnoreCase)
+            || error.Contains("invalid x-api-key", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>
@@ -1080,10 +1229,23 @@ public class LLMService : ILLMService
     /// 오류 본문에서 <b>사람이 읽을 수 있는 이유</b>만 뽑는다. 없으면 null.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// OpenAI 규격은 <c>{ "error": { "message": "..." } }</c> 다. OpenRouter 는 상류
     /// 제공자가 준 원문을 <c>error.metadata.raw</c> 에 한 겹 더 담아 주는데, 그쪽이
     /// 훨씬 구체적이다("… temporarily rate-limited upstream. Please retry shortly").
     /// 그래서 <c>raw</c> 를 먼저 본다.
+    /// </para>
+    /// <para>
+    /// <b>규격을 지키지 않는 공급자가 있다.</b> Gemini 의 OpenAI 호환 엔드포인트는
+    /// 오류를 <b>배열로</b> 감싸 준다(<c>[{ "error": {...} }]</c>). 예전에는 뿌리가
+    /// 객체라고 믿고 바로 속성을 찾다가 <b>예외가 났다</b> — 오류를 설명하려다
+    /// 오류를 내는 셈이라, 사용자에게는 원래 실패가 '서버 내부 오류' 로 뭉개져 보였다.
+    /// 그래서 뿌리가 배열이면 첫 항목을 본다.
+    /// </para>
+    /// <para>
+    /// <b>여기서는 절대 던지지 않는다.</b> 이 함수는 이미 실패한 요청을 설명하려고
+    /// 부르는 것이라, 실패해도 조용히 null 을 주는 편이 맞다.
+    /// </para>
     /// </remarks>
     private static string? ExtractProviderError(string body)
     {
@@ -1092,7 +1254,17 @@ public class LLMService : ILLMService
         try
         {
             using var doc = JsonDocument.Parse(body);
-            if (!doc.RootElement.TryGetProperty("error", out var err)
+
+            // 배열로 감싸 오는 공급자(Gemini)를 위해 한 겹 벗긴다.
+            var root = doc.RootElement;
+            if (root.ValueKind == JsonValueKind.Array)
+            {
+                if (root.GetArrayLength() == 0) return null;
+                root = root[0];
+            }
+
+            if (root.ValueKind != JsonValueKind.Object
+                || !root.TryGetProperty("error", out var err)
                 || err.ValueKind != JsonValueKind.Object)
             {
                 return null;
@@ -1101,19 +1273,25 @@ public class LLMService : ILLMService
             if (err.TryGetProperty("metadata", out var meta)
                 && meta.ValueKind == JsonValueKind.Object
                 && meta.TryGetProperty("raw", out var raw)
+                && raw.ValueKind == JsonValueKind.String
                 && raw.GetString() is { Length: > 0 } rawText)
             {
                 return Truncate(rawText, 200);
             }
 
             return err.TryGetProperty("message", out var msg)
+                && msg.ValueKind == JsonValueKind.String
                 && msg.GetString() is { Length: > 0 } msgText
                     ? Truncate(msgText, 200)
                     : null;
         }
-        catch (JsonException)
+        catch (Exception ex) when (ex is JsonException or InvalidOperationException)
         {
             // 형식을 모르면 문구를 덧붙이지 않는다. 원문은 이미 로그에 남았다.
+            //
+            // InvalidOperationException 까지 잡는 이유 — JsonElement 는 종류가 맞지
+            // 않으면 이것을 던진다. 위에서 ValueKind 를 확인하지만, **설명하려다
+            // 죽는 일만은 없어야 한다**(그러면 원래 실패가 '서버 내부 오류' 로 뭉개진다).
             return null;
         }
     }

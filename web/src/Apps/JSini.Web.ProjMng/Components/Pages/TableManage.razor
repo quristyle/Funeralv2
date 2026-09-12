@@ -44,20 +44,23 @@
 
 <PageTitle>테이블·컬럼 설명 관리 · 프로젝트관리</PageTitle>
 
-<SearchBar>
-    <ChildContent>
-        <CodeSelect CodeId="projlist" @bind-Value="_projectCode" OnChanged="@(_ => OnProjectChanged())" />
-        <CodeSelect CodeId="projdb" CodeKey="@_projectCode" EtcFix="true" @bind-Value="_dbCode"
-                    OnChanged="@(item => OnDbChangedAsync(item))" />
-        <DxTextBox @bind-Text="_keyword" NullText="테이블 이름으로 거르기"
-                   ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" Style="width: 200px" />
-    </ChildContent>
-    <Actions>
-        <PermissionView Action="MenuAction.Search">
-            <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@SearchAsync" />
-        </PermissionView>
-    </Actions>
-</SearchBar>
+<CommSch OnSearch="@SearchAsync" Busy="@Loading">
+    <Fields>
+        <CommSchItem Label="프로젝트">
+            <CodeSelect CodeId="projlist" @bind-Value="_projectCode" OnChanged="@(_ => OnProjectChanged())" />
+        </CommSchItem>
+
+        <CommSchItem Label="DB">
+            <CodeSelect CodeId="projdb" CodeKey="@_projectCode" EtcFix="true" @bind-Value="_dbCode"
+                        OnChanged="@(item => OnDbChangedAsync(item))" />
+        </CommSchItem>
+
+        <CommSchItem Label="테이블">
+            <DxTextBox @bind-Text="_keyword" NullText="테이블 이름으로 거르기"
+                       ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" Style="width: 200px" />
+        </CommSchItem>
+    </Fields>
+</CommSch>
 
 @* 되돌릴 수 없는 일을 하는 화면이다. 그 사실을 조건줄 바로 아래에 둔다. *@
 <PageNotice Tone="NoticeTone.Warning"
@@ -75,8 +78,16 @@
                 </PermissionView>
             </div>
 
-            <DynamicGrid Data="@_tables" Loading="@Loading" ExportName="테이블설명"
-                         HideAdd="true" PageSize="30" OnRowClick="@OnTableSelectAsync" />
+            @* 칸이 실행 시점에 정해진다 — 등록된 질의가 DB 종류마다 다르다.
+               설명 칸만 그 자리에서 고칠 수 있다. *@
+            <CommGrd TItem="DataRowView" Data="@_tables.Table" ExportName="테이블설명"
+                     PageSize="30" EmptyText="테이블이 없습니다." Reload="@SearchAsync"
+                     SelectedItem="@_pickedTable" SelectedItemChanged="@OnTableSelectAsync">
+                <Columns>
+                    <RuntimeColumns Table="@_tables.Table" Order="@_tables.ColumnOrder"
+                                    Editable="@DescColumns" />
+                </Columns>
+            </CommGrd>
         </div>
     </First>
     <Second>
@@ -96,8 +107,13 @@
                     </PermissionView>
                 </div>
 
-                <DynamicGrid Data="@_columns" Loading="@Loading" ExportName="컬럼설명"
-                             HideAdd="true" PageSize="50" />
+                <CommGrd TItem="DataRowView" Data="@_columns.Table" ExportName="컬럼설명"
+                         PageSize="50" EmptyText="컬럼이 없습니다.">
+                    <Columns>
+                        <RuntimeColumns Table="@_columns.Table" Order="@_columns.ColumnOrder"
+                                        Editable="@DescColumns" />
+                    </Columns>
+                </CommGrd>
             }
         </div>
     </Second>
@@ -110,6 +126,15 @@
     private string? _keyword;
 
     private string? _selectedTable;
+
+    /// <summary>고른 줄. <b>표에 돌려줘야 강조가 유지된다.</b></summary>
+    private DataRowView? _pickedTable;
+
+    /// <summary>
+    /// 칸 안에서 고칠 수 있는 칸. 설명 하나뿐이다 — 나머지는 대상 DB 의
+    /// 사실이라 여기서 바꿀 수 있는 것이 아니다.
+    /// </summary>
+    private static readonly string[] DescColumns = ["description", "Description"];
 
     /// <summary>서버가 준 전량. 이름 거르기는 화면에서 한다.</summary>
     private ProjMngTable _allTables = ProjMngTable.Empty;
@@ -212,8 +237,11 @@
         _tables = ProjMngTable.Wrap(table, _allTables.ColumnOrder);
     }
 
-    private Task OnTableSelectAsync(DataRow? row)
+    private Task OnTableSelectAsync(DataRowView? picked)
     {
+        _pickedTable = picked;
+
+        var row = RuntimeCell.Row(picked);
         _selectedTable = row is null ? null : Cell(row, "tablename");
 
         if (string.IsNullOrEmpty(_selectedTable))
@@ -271,11 +299,14 @@
                     throw new ApiException(result.Message ?? "설명을 반영하지 못했습니다.");
                 }
             }
-        }, $"{changed.Count} 개 테이블 설명을 반영했습니다.", "설명을 반영하지 못했습니다");
+        }, $"{changed.Count}개 테이블 설명을 반영했습니다.", "설명을 반영하지 못했습니다");
 
         if (done)
         {
+            // **다시 읽고 나서 한 번 더 말한다.** 조회가 자기 안내를 쓰기
+            // 때문에, 그냥 두면 「반영했습니다」가 뜨자마자 지워진다.
             await SearchAsync();
+            Say($"{changed.Count}개 테이블 설명을 반영했습니다.", NoticeTone.Info);
         }
     }
 
@@ -324,7 +355,7 @@
                     throw new ApiException(result.Message ?? "설명을 반영하지 못했습니다.");
                 }
             }
-        }, $"{changed.Count} 개 컬럼 설명을 반영했습니다.", "설명을 반영하지 못했습니다");
+        }, $"{changed.Count}개 컬럼 설명을 반영했습니다.", "설명을 반영하지 못했습니다");
 
         if (done && _selectedTable is not null)
         {
@@ -332,6 +363,9 @@
             parameters["table_name"] = _selectedTable;
 
             _columns = ProjMngTable.From(await Client.JsContAsync("columnsOftable", parameters));
+
+            // 다시 읽은 뒤에 한 번 더 말한다(위와 같은 이유).
+            Say($"{changed.Count}개 컬럼 설명을 반영했습니다.", NoticeTone.Info);
         }
     }
 

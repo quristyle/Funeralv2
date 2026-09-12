@@ -21,6 +21,8 @@
     「못 훑었다」가 같아 보였다.
 *@
 
+@using System.Data
+
 @inherits DataPage
 @inject ProjMngClient Client
 
@@ -31,23 +33,40 @@
 
 <PageNotice Text="@Notice" Tone="@Tone" />
 
-<SearchBar>
-    <ChildContent>
-        <CodeSelect CodeId="projlist" @bind-Value="_projectCode" OnChanged="@(_ => ScanAsync())" />
-    </ChildContent>
-    <Actions>
-        <PermissionView Action="MenuAction.Search">
-            <DxButton Text="스캔" RenderStyle="ButtonRenderStyle.Primary" Click="@ScanAsync" />
-        </PermissionView>
-    </Actions>
-</SearchBar>
+<CommSch OnSearch="@ScanAsync" SearchText="스캔" Busy="@Loading">
+    <Fields>
+        <CommSchItem Label="프로젝트">
+            <CodeSelect CodeId="projlist" @bind-Value="_projectCode" OnChanged="@(_ => ScanAsync())" />
+        </CommSchItem>
 
-@* 저장·삭제 콜백을 주지 않으면 DynamicGrid 가 그 버튼들을 아예 그리지 않는다. *@
-<DynamicGrid Data="@_data" Loading="@Loading" ExportName="소스스캔" HideAdd="true" />
+        <CommSchItem Label="소스">
+            @* 소스를 고르면 그것을, 안 고르면 그 프로젝트의 첫 소스를 훑는다. *@
+            <SourceSelect ProjectCode="@_projectCode" @bind-Value="_sourceCode"
+                          OnChanged="@(_ => ScanAsync())" />
+        </CommSchItem>
+    </Fields>
+</CommSch>
+
+@* 칸이 실행 시점에 정해진다 — 훑은 소스의 등록 패턴에 따라 늘고 준다.
+   저장·삭제 콜백을 주지 않으므로 표가 그 단추들을 아예 그리지 않는다. *@
+<CommCont Title="스캔 결과" Hint="@($"{_data.Table.Rows.Count}건")">
+    <CommGrd TItem="DataRowView"
+             Data="@_data.Table"
+             ExportName="소스스캔"
+             PageSize="30"
+             EmptyText="훑어서 찾은 화면이 없습니다."
+             Reload="@ScanAsync">
+        <Columns>
+            <RuntimeColumns Table="@_data.Table" Order="@_data.ColumnOrder" />
+        </Columns>
+    </CommGrd>
+</CommCont>
 
 @code {
     private ProjMngTable _data = ProjMngTable.Empty;
+
     private string? _projectCode;
+    private string? _sourceCode;
 
     /// <summary>
     /// 서버가 등록된 소스 경로를 훑는다.
@@ -62,6 +81,7 @@
         var result = await Client.MdContAsync("md_blazor_scan", new Dictionary<string, object?>
         {
             ["prj_rid"] = _projectCode ?? string.Empty,
+            ["src_rid"] = _sourceCode ?? string.Empty,
         });
 
         if (result.ProcCode < 0)

@@ -1,59 +1,129 @@
 @page "/projmng/db/code"
 @attribute [RouteKey("projmng.db.code")]
-@using System.Data
 
 @*
     [프로젝트 코드 목록]
 
-    이력: Vue `views/projmng/proj/code.vue` → 여기.
-    프로젝트에 등록된 소스 코드 마스터 정보를 관리한다.
+    이력: Vue `views/projmng/proj/code.vue` → `DynamicGrid` +
+          `sp_dev_srcinfo_exec` → **여기 (`CommGrd` + REST)**
+    API: `projmng/source-infos`
+
+    프로젝트에 등록된 **소스 뿌리**를 관리한다. 프로젝트 하나에 뿌리가 여럿
+    붙는다(서버·화면·공용 …) — 소스 추적 화면들이 여기 적힌 경로를 읽는다.
+
+    [URL 패턴 칸은 고칠 수 없다]
+
+    그 값은 이 표가 아니라 **상세**에서 온다(`src_pattern_grp = 'url'` 중
+    하나). 목록에서 「무엇을 다루는 소스인가」를 가늠하는 용도라 보여만 준다.
+    고치는 자리는 [소스 정보] 화면의 오른쪽 판이다.
 *@
 
 @inherits DataPage
-@inject ProjMngClient Client
+@inject SourceInfoClient Api
 
 <PageTitle>프로젝트 코드 · 프로젝트관리</PageTitle>
 
+<CommSch OnSearch="@SearchAsync">
+    <Fields>
+        <CommSchItem Label="프로젝트">
+            <CodeSelect CodeId="projlist" @bind-Value="_projectCode" ShowAll="true"
+                        OnChanged="@(_ => SearchAsync())" />
+        </CommSchItem>
+    </Fields>
+</CommSch>
+
 <PageNotice Text="@Notice" Tone="@Tone" />
 
-<SearchBar>
-    <ChildContent>
-        <CodeSelect CodeId="projlist" @bind-Value="_projectCode" OnChanged="@(_ => SearchAsync())" />
-    </ChildContent>
-    <Actions>
-        <PermissionView Action="MenuAction.Search">
-            <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@SearchAsync" />
-        </PermissionView>
-    </Actions>
-</SearchBar>
+<CommCont Title="소스 뿌리" Hint="@($"{_rows.Count}건")">
+    <CommGrd TItem="SourceInfoDto"
+             Data="@_rows"
+             EditFormTitle="소스"
+             ExportName="프로젝트코드"
+             PageSize="20"
+             EmptyText="등록된 소스가 없습니다."
+             OnNew="@FillNew"
+             OnSave="@SaveAsync"
+             Reload="@SearchAsync">
+        <Columns>
+                <DxGridDataColumn FieldName="@nameof(SourceInfoDto.SrcRid)" Caption="번호" Width="70" />
+                <DxGridDataColumn FieldName="@nameof(SourceInfoDto.PrjName)" Caption="프로젝트" MinWidth="130"
+                                  TextAlignment="GridTextAlignment.Left" />
+                <DxGridDataColumn FieldName="@nameof(SourceInfoDto.SrcNick)" Caption="별칭" MinWidth="130"
+                                  TextAlignment="GridTextAlignment.Left" />
+                <DxGridDataColumn FieldName="@nameof(SourceInfoDto.SrcLang)" Caption="언어" Width="90" />
+                <DxGridDataColumn FieldName="@nameof(SourceInfoDto.SrcPath)" Caption="경로" MinWidth="200"
+                                  TextAlignment="GridTextAlignment.Left" />
+                <DxGridDataColumn FieldName="@nameof(SourceInfoDto.UrlPattern)" Caption="URL 패턴" MinWidth="160"
+                                  TextAlignment="GridTextAlignment.Left" />
+        </Columns>
 
-<DynamicGrid Data="@_grid.Data" Loading="@_grid.IsLoading" ExportName="프로젝트코드" OnRefresh="@SearchAsync" OnSave="@SaveAsync" OnDelete="@DeleteAsync" />
+            <EditFormTemplate Context="edit">
+                @{
+                    var s = (SourceInfoDto)edit.EditModel;
+                }
+                <DxFormLayout CssClass="pm-editform">
+                    <DxFormLayoutItem Caption="별칭" ColSpanMd="6">
+                        <DxTextBox @bind-Text="s.SrcNick" NullText="사람이 부르는 이름" />
+                    </DxFormLayoutItem>
+
+                    <DxFormLayoutItem Caption="경로" ColSpanMd="6">
+                        <DxTextBox @bind-Text="s.SrcPath" NullText="필수 — 서버 장비 기준" />
+                    </DxFormLayoutItem>
+
+                    <DxFormLayoutItem Caption="언어" ColSpanMd="6">
+                        <DxTextBox @bind-Text="s.SrcLang" NullText="blazor · jsp …" />
+                    </DxFormLayoutItem>
+
+                    <DxFormLayoutItem Caption="구분" ColSpanMd="6">
+                        <DxTextBox @bind-Text="s.SrcType" />
+                    </DxFormLayoutItem>
+
+                    <DxFormLayoutItem Caption="OS" ColSpanMd="6">
+                        <DxTextBox @bind-Text="s.SrcOs" />
+                    </DxFormLayoutItem>
+
+                    <DxFormLayoutItem Caption="화면 뿌리" ColSpanMd="6">
+                        <DxTextBox @bind-Text="s.SrcUiRoot" />
+                    </DxFormLayoutItem>
+
+                    <DxFormLayoutItem Caption="네임스페이스" ColSpanMd="12">
+                        <DxTextBox @bind-Text="s.PrjNamespace" />
+                    </DxFormLayoutItem>
+
+                    <DxFormLayoutItem Caption="설명" ColSpanMd="12">
+                        <DxTextBox @bind-Text="s.SrcComm" />
+                    </DxFormLayoutItem>
+                </DxFormLayout>
+            </EditFormTemplate>
+    </CommGrd>
+</CommCont>
 
 @code {
-    private ProcGrid _grid = default!;
+    private IReadOnlyList<SourceInfoDto> _rows = [];
     private string? _projectCode;
 
-    protected override void OnInitialized()
-    {
-        _grid = new ProcGrid(Client, "sp_dev_srcinfo_exec");
-    }
+    private int? ProjectRid => int.TryParse(_projectCode, out var rid) ? rid : null;
 
-    private Dictionary<string, object?> Params() => new() { ["prj_rid"] = _projectCode ?? string.Empty };
+    protected override Task OnInitializedAsync() => SearchAsync();
 
     private Task SearchAsync() => LoadAsync(async () =>
     {
-        await _grid.LoadAsync(Params());
-        return _grid.Data.Table.Rows.Count;
-    }, "조회 결과가 없습니다.", "조회하지 못했습니다");
+        _rows = await Api.ListAsync(ProjectRid);
+        return _rows.Count;
+    }, "등록된 소스가 없습니다.", "소스를 읽지 못했습니다");
 
-    private Task DeleteAsync(System.Data.DataRow row) =>
-        RunAsync(() => _grid.DeleteAsync(row), "삭제했습니다.", "삭제하지 못했습니다");
+    /// <summary>새 소스는 고른 프로젝트에 붙는다.</summary>
+    private void FillNew(SourceInfoDto s) => s.PrjRid = ProjectRid;
 
-    private async Task SaveAsync()
+    private async Task SaveAsync((SourceInfoDto Item, bool IsNew) e)
     {
-        if (await RunAsync(() => _grid.SaveAsync(Params()), "저장했습니다.", "저장하지 못했습니다"))
+        if (e.IsNew)
         {
-            Say(_grid.LastMessage ?? "저장했습니다.");
+            await Api.CreateAsync(e.Item);
+        }
+        else
+        {
+            await Api.UpdateAsync(e.Item);
         }
     }
 }

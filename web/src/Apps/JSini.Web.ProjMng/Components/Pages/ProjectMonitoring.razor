@@ -1,88 +1,104 @@
 @page "/projmng/proj/monitoring"
 @attribute [RouteKey("projmng.proj.monitoring")]
-@using System.Data
 
 @*
     [프로젝트 진행 현황]
 
-    이력: 옛 Blazor `Pages/Proj/ProjMonitoring.razor` → Vue `views/projmng/proj/monitoring.vue` → 여기.
-    프로시저: `sp_proj_wbs_exec`(WBS) · `sp_dev_srcinfo_exec`(소스) ·
-              `sp_proj_user_map_list`(담당자) · `sp_projdblist`(DB) ·
-              `md_blazor_scan`(소스 스캔)
+    이력: 옛 Blazor `Pages/Proj/ProjMonitoring.razor` → Vue
+          `views/projmng/proj/monitoring.vue` → `DynamicGrid` + 프로시저 넷
+          → **여기 (`CommGrd` + REST)**
+    API: `projmng/wbs` · `…/summary` · `projmng/source-infos` ·
+         `projmng/project-users` · `projmng/project-dbs`
+         (소스 스캔만 아직 `md_blazor_scan`)
 
-    한 프로젝트의 상태를 네 각도에서 한 화면에 모은다.
+    한 프로젝트의 상태를 네 각도에서 한 화면에 모은다. **보기만 한다** —
+    고치는 것은 각자의 화면이다.
 
+    ────────────────────────────────────────────────────────────
     [넷을 나란히 부른다]
 
     서로 기다릴 이유가 없다. 차례로 부르면 왕복이 넷 쌓여서, 자료가 많은
     프로젝트에서 화면이 눈에 띄게 늦게 뜬다.
 
-    [DB 목록을 거르는 열쇠만 다르다]
+    [열쇠 이름이 달라 안 걸러지던 것이 없어졌다]
 
-    나머지 셋은 `prj_rid` 인데 `sp_projdblist` 만 `proj_rid` 를 본다.
-    한동안 여기에도 `prj_rid` 를 넘기고 있었고, 그러면 **걸러지지 않아
-    등록된 DB 전부(12건)가 나온다.** 숫자가 그럴듯해서 틀렸다는 것이
-    드러나지 않는 종류의 어긋남이다.
+    옛 프로시저 넷 중 `sp_projdblist` 만 `proj_rid` 를 보고 나머지 셋은
+    `prj_rid` 를 봤다. 한쪽에 잘못된 이름을 넘기면 **걸러지지 않고 전부(12건)가
+    나오는데, 숫자가 그럴듯해서 틀렸다는 것이 드러나지 않았다.** REST 로 오면서
+    열쇠가 하나뿐이라 그 함정 자체가 사라졌다.
+
+    [진척은 서버가 센다]
+
+    옛 화면은 WBS 목록을 받아 브라우저에서 상태별로 세었다. 지금은
+    `wbs/summary` 가 낸 값을 그대로 쓴다 — 계획 안 완료·지연처럼 **목록만으로는
+    셀 수 없는 것**이 거기 있고, 두 곳에서 세면 언젠가 서로 다른 말을 한다.
 
     [소스 스캔은 눌러서 한다]
 
     서버가 등록된 소스 경로를 훑어 화면 수를 센다. 디스크를 훑는 일이라
     오래 걸릴 수 있어 조회에 딸려 돌지 않는다 — 옛 화면도 그랬다.
 
-    [진척 차트 — D3 결정]
-
-    옛 Vue 는 "WBS 진행" 카드에 완료(COMP) 비율 막대(Progress) 하나를 그렸다.
-    차트는 DevExpress 것을 쓰기로 해서 같은 자료(sp_proj_wbs_exec 의
-    wbs_state)를 DxChart 상태별 건수 막대로 그리고, 완료 비율은 차트 제목에
-    적는다 — 막대 하나보다 어느 상태에 몇 건이 몰려 있는지가 보인다.
-    상태 코드는 compstat 공통코드로 이름을 바꾼다. 코드표를 못 읽어도 차트는
-    떠야 하므로, 그때는 코드 그대로 보여 준다.
+    스캔 결과의 칸은 **소스마다 다를 수 있다**(소스 상세에 `desc` 패턴을
+    등록해 두면 그 이름으로 칸이 는다). 여기서는 늘 있는 칸만 보여 준다 —
+    등록한 패턴까지 보려면 「소스 스캐너」 화면을 쓴다.
 *@
 
 @inherits DataPage
+@inject WbsClient Wbs
+@inject SourceInfoClient Sources
+@inject ProjectUserClient Users
+@inject ProjectDbClient Dbs
 @inject ProjMngClient Client
-@inject CommonCodes Codes
 
 <PageTitle>프로젝트 진행 현황 · 프로젝트관리</PageTitle>
 
-<SearchBar>
-    <ChildContent>
-        <CodeSelect CodeId="projlist" @bind-Value="_projectCode" OnChanged="@(_ => SearchAsync())" />
-    </ChildContent>
+<CommSch OnSearch="@SearchAsync">
+    <Fields>
+        <CommSchItem Label="프로젝트">
+            <CodeSelect CodeId="projlist" @bind-Value="_projectCode" OnChanged="@(_ => SearchAsync())" />
+        </CommSchItem>
+    </Fields>
     <Actions>
         <PermissionView Action="MenuAction.Search">
-            <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@SearchAsync" />
             <DxButton Text="소스 스캔" RenderStyle="ButtonRenderStyle.Secondary" Click="@ScanAsync" />
         </PermissionView>
     </Actions>
-</SearchBar>
+</CommSch>
 
 <div class="jsini-stats">
     <div class="jsini-stat">
         <div class="jsini-stat__label">WBS 항목</div>
-        <div class="jsini-stat__value">@_wbs.Data.Table.Rows.Count</div>
+        <div class="jsini-stat__value">@_wbs.Count</div>
+    </div>
+    <div class="jsini-stat">
+        <div class="jsini-stat__label">완료</div>
+        <div class="jsini-stat__value">@(_summary?.CompletedTaskCount ?? 0)</div>
+    </div>
+    <div class="jsini-stat">
+        <div class="jsini-stat__label">지연</div>
+        <div class="jsini-stat__value">@(_summary?.DelayedTaskCount ?? 0)</div>
     </div>
     <div class="jsini-stat">
         <div class="jsini-stat__label">소스</div>
-        <div class="jsini-stat__value">@_source.Data.Table.Rows.Count</div>
+        <div class="jsini-stat__value">@_sources.Count</div>
     </div>
     <div class="jsini-stat">
         <div class="jsini-stat__label">담당자</div>
-        <div class="jsini-stat__value">@_users.Data.Table.Rows.Count</div>
+        <div class="jsini-stat__value">@_users.Count</div>
     </div>
     <div class="jsini-stat">
         <div class="jsini-stat__label">연결 DB</div>
-        <div class="jsini-stat__value">@_dbs.Data.Table.Rows.Count</div>
+        <div class="jsini-stat__value">@_dbs.Count</div>
     </div>
     <div class="jsini-stat">
         <div class="jsini-stat__label">스캔된 화면</div>
-        <div class="jsini-stat__value">@(_scanned is null ? "–" : _scanned.Table.Rows.Count.ToString())</div>
+        <div class="jsini-stat__value">@(_scanned is null ? "–" : _scanned.Count.ToString())</div>
     </div>
 </div>
 
 @if (_stateCounts.Count > 0)
 {
-    <div style="margin: 0.75rem 0;">
+    <div class="pm-chart">
         <DxChart Data="@_stateCounts" Width="100%" Height="240px">
             <DxChartTitle Text="@ProgressTitle" />
             <DxChartLegend Visible="false" />
@@ -97,154 +113,231 @@
 
 <PageNotice Text="@Notice" Tone="@Tone" />
 
-<DxTabs>
-    <DxTabPage Text="WBS">
-        <DynamicGrid Data="@_wbs.Data" Loading="@_wbs.IsLoading" ExportName="WBS현황" OnRefresh="@SearchAsync" />
-    </DxTabPage>
-    <DxTabPage Text="소스">
-        <DynamicGrid Data="@_source.Data" Loading="@_source.IsLoading" ExportName="소스현황" OnRefresh="@SearchAsync" />
-    </DxTabPage>
-    <DxTabPage Text="담당자">
-        <DynamicGrid Data="@_users.Data" Loading="@_users.IsLoading" ExportName="담당자" OnRefresh="@SearchAsync" />
-    </DxTabPage>
-    <DxTabPage Text="DB">
-        <DynamicGrid Data="@_dbs.Data" Loading="@_dbs.IsLoading" ExportName="연결DB" OnRefresh="@SearchAsync" />
-    </DxTabPage>
-    <DxTabPage Text="스캔된 화면">
-        @if (_scanned is null)
+<CommCont Title="@TabTitle" Hint="@TabHint">
+    <Actions>
+        @* 탭 대신 고르개를 쓴다 — `DxTabs` 안에 표를 넣으면 펼칠 때 높이가
+           어긋난다(web/CLAUDE.md 의 `.ad-roletabs`). *@
+        <DxComboBox Data="@Views" @bind-Value="_view" CssClass="pm-code-select" />
+    </Actions>
+
+    <ChildContent>
+        @switch (_view)
         {
-            <PageNotice Text="「소스 스캔」을 누르면 서버가 소스 경로를 훑어 화면 목록을 셉니다."
-                        Tone="NoticeTone.Info" />
+            case "WBS":
+                <CommGrd TItem="WbsItemDto" Data="@_wbs" ExportName="WBS현황" PageSize="20"
+                         EmptyText="등록된 WBS 가 없습니다." Reload="@SearchAsync">
+                    <Columns>
+                        <DxGridDataColumn FieldName="@nameof(WbsItemDto.ProcId)" Caption="공정" Width="90" />
+                        <DxGridDataColumn FieldName="@nameof(WbsItemDto.ProcNm)" Caption="일감" MinWidth="200"
+                                          TextAlignment="GridTextAlignment.Left" />
+                        <DxGridDataColumn FieldName="@nameof(WbsItemDto.DevUser)" Caption="담당" Width="90" />
+                        <DxGridDataColumn Caption="진행" Width="70">
+                            <CellDisplayTemplate Context="cell">
+                                @{
+                                    var w = (WbsItemDto)cell.DataItem;
+                                }
+                                <span class="jsini-badge @w.StateClass">@w.StateName</span>
+                            </CellDisplayTemplate>
+                        </DxGridDataColumn>
+                        <DxGridDataColumn FieldName="@nameof(WbsItemDto.PlanSdt)" Caption="계획 시작" Width="105"
+                                          DisplayFormat="yyyy-MM-dd" />
+                        <DxGridDataColumn FieldName="@nameof(WbsItemDto.PlanEdt)" Caption="계획 종료" Width="105"
+                                          DisplayFormat="yyyy-MM-dd" />
+                        <DxGridDataColumn FieldName="@nameof(WbsItemDto.DevEdt)" Caption="개발 종료" Width="105"
+                                          DisplayFormat="yyyy-MM-dd" />
+                    </Columns>
+                </CommGrd>
+                break;
+
+            case "소스":
+                <CommGrd TItem="SourceInfoDto" Data="@_sources" ExportName="소스현황" PageSize="20"
+                         EmptyText="등록된 소스가 없습니다." Reload="@SearchAsync">
+                    <Columns>
+                        <DxGridDataColumn FieldName="@nameof(SourceInfoDto.SrcNick)" Caption="별칭" Width="140"
+                                          TextAlignment="GridTextAlignment.Left" />
+                        <DxGridDataColumn FieldName="@nameof(SourceInfoDto.SrcLang)" Caption="언어" Width="90" />
+                        <DxGridDataColumn FieldName="@nameof(SourceInfoDto.SrcPath)" Caption="경로" MinWidth="220"
+                                          TextAlignment="GridTextAlignment.Left" />
+                        <DxGridDataColumn FieldName="@nameof(SourceInfoDto.SrcUiRoot)" Caption="화면 뿌리" Width="120" />
+                    </Columns>
+                </CommGrd>
+                break;
+
+            case "담당자":
+                <CommGrd TItem="ProjectUserDto" Data="@_users" ExportName="담당자" PageSize="20"
+                         EmptyText="참여자가 없습니다." Reload="@SearchAsync">
+                    <Columns>
+                        <DxGridDataColumn FieldName="@nameof(ProjectUserDto.UserId)" Caption="아이디" Width="140"
+                                          TextAlignment="GridTextAlignment.Left" />
+                        <DxGridDataColumn FieldName="@nameof(ProjectUserDto.PrjName)" Caption="프로젝트" MinWidth="160"
+                                          TextAlignment="GridTextAlignment.Left" />
+                        <DxGridDataColumn FieldName="@nameof(ProjectUserDto.InvCnt)" Caption="참여" Width="70" />
+                    </Columns>
+                </CommGrd>
+                break;
+
+            case "DB":
+                <CommGrd TItem="ProjectDbDto" Data="@_dbs" ExportName="연결DB" PageSize="20"
+                         EmptyText="연결된 DB 가 없습니다." Reload="@SearchAsync">
+                    <Columns>
+                        <DxGridDataColumn FieldName="@nameof(ProjectDbDto.DbNick)" Caption="이름" Width="140"
+                                          TextAlignment="GridTextAlignment.Left" />
+                        <DxGridDataColumn FieldName="@nameof(ProjectDbDto.DbType)" Caption="종류" Width="110" />
+                        <DxGridDataColumn FieldName="@nameof(ProjectDbDto.DbDatabase)" Caption="DB" MinWidth="140"
+                                          TextAlignment="GridTextAlignment.Left" />
+                        <DxGridDataColumn FieldName="@nameof(ProjectDbDto.DbSchema)" Caption="스키마" Width="110" />
+                    </Columns>
+                </CommGrd>
+                break;
+
+            default:
+                @if (_scanned is null)
+                {
+                    <PageNotice Text="「소스 스캔」을 누르면 서버가 소스 경로를 훑어 화면 목록을 셉니다."
+                                Tone="NoticeTone.Info" />
+                }
+                else
+                {
+                    <CommGrd TItem="ScanRow" Data="@_scanned" ExportName="소스스캔" PageSize="20"
+                             EmptyText="훑어서 찾은 화면이 없습니다." Reload="@ScanAsync">
+                        <Columns>
+                            <DxGridDataColumn FieldName="@nameof(ScanRow.Url)" Caption="주소" MinWidth="180"
+                                              TextAlignment="GridTextAlignment.Left" />
+                            <DxGridDataColumn FieldName="@nameof(ScanRow.Title)" Caption="제목" MinWidth="160"
+                                              TextAlignment="GridTextAlignment.Left" />
+                            <DxGridDataColumn FieldName="@nameof(ScanRow.Dir)" Caption="폴더" Width="160"
+                                              TextAlignment="GridTextAlignment.Left" />
+                            <DxGridDataColumn FieldName="@nameof(ScanRow.Name)" Caption="파일" Width="150"
+                                              TextAlignment="GridTextAlignment.Left" />
+                            <DxGridDataColumn FieldName="@nameof(ScanRow.Author)" Caption="작성자" Width="100" />
+                            <DxGridDataColumn FieldName="@nameof(ScanRow.Credt)" Caption="작성일" Width="110" />
+                        </Columns>
+                    </CommGrd>
+                }
+                break;
         }
-        else
-        {
-            <DynamicGrid Data="@_scanned" Loading="@Loading" ExportName="소스스캔"
-                         HideAdd="true" OnRefresh="@ScanAsync" />
-        }
-    </DxTabPage>
-</DxTabs>
+    </ChildContent>
+</CommCont>
 
 @code {
-    private ProcGrid _wbs = default!;
-    private ProcGrid _source = default!;
-    private ProcGrid _users = default!;
-    private ProcGrid _dbs = default!;
+    /// <summary>볼 수 있는 각도. 순서가 곧 고르개의 순서다.</summary>
+    private static readonly string[] Views = ["WBS", "소스", "담당자", "DB", "스캔된 화면"];
+
+    private string _view = Views[0];
+
+    private IReadOnlyList<WbsItemDto> _wbs = [];
+    private IReadOnlyList<SourceInfoDto> _sources = [];
+    private IReadOnlyList<ProjectUserDto> _users = [];
+    private IReadOnlyList<ProjectDbDto> _dbs = [];
+    private WbsSummaryDto? _summary;
 
     /// <summary>
-    /// 소스 스캔 결과. <c>null</c> 은 "아직 안 눌렀다" 는 뜻이다 —
-    /// 0 건과 구분해야 한다. 스캔은 조회에 딸려 돌지 않는다.
+    /// 소스 스캔 결과. <c>null</c> 은 「아직 안 눌렀다」는 뜻이다 — 0 건과
+    /// 구분해야 한다. 스캔은 조회에 딸려 돌지 않는다.
     /// </summary>
-    private ProjMngTable? _scanned;
+    private IReadOnlyList<ScanRow>? _scanned;
 
     private string? _projectCode;
+
+    private int? ProjectRid => int.TryParse(_projectCode, out var rid) ? rid : null;
 
     /// <summary>진척 차트 한 점 = WBS 상태 하나.</summary>
     private sealed record StateCount(string Name, int Count);
 
     private IReadOnlyList<StateCount> _stateCounts = [];
 
-    /// <summary>완료(COMP) 건수. 판정 기준은 옛 Vue 화면과 같다.</summary>
-    private int _wbsDone;
+    /// <summary>스캔 결과 한 줄. 소스마다 늘 있는 칸만 담는다(머리말).</summary>
+    private sealed class ScanRow
+    {
+        public string Name { get; init; } = string.Empty;
+        public string Dir { get; init; } = string.Empty;
+        public string Url { get; init; } = string.Empty;
+        public string Title { get; init; } = string.Empty;
+        public string Author { get; init; } = string.Empty;
+        public string Credt { get; init; } = string.Empty;
+    }
+
+    private string TabTitle => _view;
+
+    private string TabHint => _view switch
+    {
+        "WBS" => $"{_wbs.Count}건",
+        "소스" => $"{_sources.Count}건",
+        "담당자" => $"{_users.Count}명",
+        "DB" => $"{_dbs.Count}건",
+        _ => _scanned is null ? string.Empty : $"{_scanned.Count}건",
+    };
 
     private string ProgressTitle
     {
         get
         {
-            var total = _wbs.Data.Table.Rows.Count;
-            var percent = total == 0 ? 0 : (int)Math.Round(_wbsDone * 100.0 / total);
-            return $"WBS 진행 — 완료 {_wbsDone} / 전체 {total} ({percent}%)";
+            if (_summary is null || _summary.TotalTaskCount == 0)
+            {
+                return "WBS 진행";
+            }
+
+            return $"WBS 진행 — 완료 {_summary.CompletedTaskCount} / 전체 {_summary.TotalTaskCount}"
+                 + $" ({_summary.CompletedTaskPct}%) · 지연 {_summary.DelayedTaskCount}";
         }
     }
 
-    protected override void OnInitialized()
-    {
-        _wbs = new ProcGrid(Client, "sp_proj_wbs_exec");
-        _source = new ProcGrid(Client, "sp_dev_srcinfo_exec");
-        _users = new ProcGrid(Client, "sp_proj_user_map_list");
-        _dbs = new ProcGrid(Client, "sp_projdblist");
-    }
-
-    protected override Task OnInitializedAsync() => SearchAsync();
+    // **화면을 열 때 여기서 조회하지 않는다.** 프로젝트 고르개가 첫 항목을
+    // 스스로 고르면서 조회를 건다(`AutoSelectFirst`). 둘 다 하면 **프로젝트를
+    // 안 건 조회와 건 조회가 같이 날아가고**, 늦게 돌아온 쪽이 화면에 남는다 —
+    // 프로젝트를 골랐는데 목록은 전체인 상태가 된다. 실제로 그렇게 보였다.
 
     private Task SearchAsync() => LoadAsync(async () =>
     {
-        var p = new Dictionary<string, object?> { ["prj_rid"] = _projectCode ?? string.Empty };
-
-        // DB 목록만 열쇠 이름이 다르다. `prj_rid` 를 넘기면 걸러지지 않고
-        // 등록된 DB 전부가 나온다 — 화면에는 그럴듯한 숫자로 보인다.
-        var dbParam = new Dictionary<string, object?> { ["proj_rid"] = _projectCode ?? string.Empty };
-
         _scanned = null;
         _stateCounts = [];
-        _wbsDone = 0;
+        _summary = null;
 
-        // 넷을 나란히. 서로 기다릴 이유가 없다.
-        await Task.WhenAll(
-            _wbs.LoadAsync(new Dictionary<string, object?>(p) { ["schedule_type"] = "WBS" }),
-            _source.LoadAsync(p),
-            _users.LoadAsync(p),
-            _dbs.LoadAsync(dbParam));
+        if (ProjectRid is null)
+        {
+            _wbs = [];
+            _sources = [];
+            _users = [];
+            _dbs = [];
+            return 0;
+        }
 
-        await BuildProgressAsync();
+        // 다섯을 나란히. 서로 기다릴 이유가 없다.
+        var wbs = Wbs.ListAsync(ProjectRid, scheduleType: "WBS");
+        var summary = Wbs.SummaryAsync(ProjectRid.Value);
+        var sources = Sources.ListAsync(ProjectRid);
+        var users = Users.ListAsync(ProjectRid);
+        var dbs = Dbs.ListAsync(ProjectRid);
 
-        return _wbs.Data.Table.Rows.Count
-             + _source.Data.Table.Rows.Count
-             + _users.Data.Table.Rows.Count
-             + _dbs.Data.Table.Rows.Count;
+        await Task.WhenAll(wbs, summary, sources, users, dbs);
+
+        _wbs = wbs.Result;
+        _summary = summary.Result;
+        _sources = sources.Result;
+        _users = users.Result;
+        _dbs = dbs.Result;
+
+        BuildProgress();
+
+        return _wbs.Count + _sources.Count + _users.Count + _dbs.Count;
     }, "그 프로젝트에 등록된 자료가 없습니다.", "진행 현황을 읽지 못했습니다");
 
-    /// <summary>
-    /// WBS 표에서 상태별 건수를 센다 — 진척 차트의 재료다.
-    ///
-    /// <c>wbs_state</c> 칸이 없으면 차트를 그리지 않는다. 프로시저가 칸을
-    /// 바꿨다는 뜻이라, 틀린 축으로 그려 보여 주는 것보다 안 보이는 편이 낫다.
-    /// </summary>
-    private async Task BuildProgressAsync()
+    /// <summary>진척 차트의 재료. <b>서버가 센 값을 옮겨 담기만 한다</b>(머리말).</summary>
+    private void BuildProgress()
     {
-        var table = _wbs.Data.Table;
-        if (!table.Columns.Contains("wbs_state") || table.Rows.Count == 0)
+        if (_summary is null || _summary.TotalTaskCount == 0)
         {
             _stateCounts = [];
-            _wbsDone = 0;
             return;
         }
 
-        // 처음 나온 순서를 지켜 센다 — 코드표를 못 읽었을 때의 축 순서다.
-        var counts = new Dictionary<string, int>(StringComparer.Ordinal);
-        foreach (DataRow row in table.Rows)
-        {
-            var code = row["wbs_state"] is string s && s.Length > 0 ? s : "(미지정)";
-            counts[code] = counts.GetValueOrDefault(code) + 1;
-        }
-
-        _wbsDone = counts.GetValueOrDefault("COMP");
-
-        // 상태 코드 → 사람이 읽는 이름. 코드표를 못 읽어도 차트는 떠야 한다.
-        IReadOnlyList<CommonCodeItem> codeItems = [];
-        try
-        {
-            codeItems = await Codes.GetAsync("compstat");
-        }
-        catch (ApiException)
-        {
-            // 코드 그대로 보여 준다.
-        }
-
-        // 코드표에 있는 상태를 그 순서대로 앞에, 코드표 밖 상태를 뒤에 둔다.
-        var ordered = new List<StateCount>();
-        foreach (var item in codeItems)
-        {
-            if (counts.Remove(item.Code, out var count))
-            {
-                ordered.Add(new StateCount(item.Name, count));
-            }
-        }
-        foreach (var (code, count) in counts)
-        {
-            ordered.Add(new StateCount(code, count));
-        }
-
-        _stateCounts = ordered;
+        _stateCounts =
+        [
+            new StateCount("완료", _summary.CompletedTaskCount),
+            new StateCount("진행", _summary.InProgressTaskCount),
+            new StateCount("지연", _summary.DelayedTaskCount),
+            new StateCount("미시작", _summary.NotStartedYetTaskCount),
+        ];
     }
 
     /// <summary>
@@ -255,6 +348,8 @@
     /// </summary>
     private Task ScanAsync() => LoadAsync(async () =>
     {
+        _view = Views[^1];
+
         var result = await Client.MdContAsync("md_blazor_scan", new Dictionary<string, object?>
         {
             ["prj_rid"] = _projectCode ?? string.Empty,
@@ -265,7 +360,22 @@
             throw new ApiException(result.Message ?? "소스를 훑지 못했습니다.");
         }
 
-        _scanned = ProjMngTable.From(result);
-        return _scanned.Table.Rows.Count;
+        _scanned =
+        [
+            .. (result.Rows ?? []).Select(row => new ScanRow
+            {
+                Name = Text(row, "name"),
+                Dir = Text(row, "dir"),
+                Url = Text(row, "url"),
+                Title = Text(row, "title"),
+                Author = Text(row, "author"),
+                Credt = Text(row, "credt"),
+            })
+        ];
+
+        return _scanned.Count;
     }, "훑어서 찾은 화면이 없습니다. 「소스 정보」에 경로가 등록돼 있는지 보십시오.", "소스를 훑지 못했습니다");
+
+    private static string Text(ProjMngRow row, string key) =>
+        row.TryGetValue(key, out var value) ? value?.ToString() ?? string.Empty : string.Empty;
 }

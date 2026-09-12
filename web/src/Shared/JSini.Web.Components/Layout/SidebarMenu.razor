@@ -35,6 +35,24 @@
     펼침 표시는 DevExpress 가 제목 **앞**에 그린 단추를 CSS 가 오른쪽으로
     옮긴 것이다. 자리만 옮기므로 눌러서 펴는 것도 그대로 된다.
 
+    [브레드크럼이 「여기를 펴라」고 한다]
+
+    헤더의 브레드크럼을 누르면 그 메뉴까지 가지를 펴고 골라 준다
+    (`MenuReveal`). 179개짜리 트리에서 지금 자리를 손으로 다시 찾지 않게
+    하려는 것이다 — 까닭은 `Breadcrumb.razor` 머리말에 있다.
+
+    받아서 하는 일이 넷이다. **넷이 다 필요하다** — 하나라도 빠지면 「눌렀는데
+    아무 일도 안 일어난다」가 되는 경우가 남는다.
+
+      1. 즐겨찾기 탭을 보고 있었으면 메뉴 탭으로 돌아온다.
+      2. 검색어를 지운다. 걸러진 트리에는 그 가지가 없을 수 있다.
+      3. 조상 가지를 펴고(`ExpandToNode`) 그 자리를 고른다(`SelectNode`).
+         **묶음이면 자기도 편다** — 묶음을 누르는 뜻은 그 안을 보겠다는 것이다.
+      4. 보이는 자리로 굴려 준다. 트리가 길어 펴 놓아도 화면 밖일 수 있다.
+
+    셋째까지는 DevExpress 가 주는 것이고(26.1 에서 확인), 넷째만 JS 다 —
+    Blazor Server 는 브라우저의 스크롤 위치를 모른다(`jsiniSidebar.reveal`).
+
     [즐겨찾기도 트리다]
 
     평평한 목록이었을 때는 담아 둔 「목록」이 어느 업무 것인지 알 수 없었다.
@@ -45,6 +63,9 @@
 @implements IDisposable
 
 @inject MenuFavorites Favorites
+@inject MenuReveal Reveal
+@inject NavigationManager Navigation
+@inject IJSRuntime Js
 
 <div class="jsini-sidebar">
 
@@ -241,6 +262,44 @@
     private bool _expandFavorites;
 
     /// <summary>
+    /// 다음 렌더 뒤에 펴서 골라야 할 메뉴의 경로. 브레드크럼이 넣는다.
+    ///
+    /// <para>
+    /// <b>여기서 곧바로 트리를 만지지 않는다.</b> 탭을 갈아 끼웠으면
+    /// (<c>@key</c> 때문에) 메뉴 트리는 <b>다음 렌더에</b> 새로 지어지고,
+    /// 그 전의 <see cref="_tree"/> 는 즐겨찾기 트리이거나 <c>null</c> 이다.
+    /// </para>
+    /// </summary>
+    private string? _revealPath;
+
+    /// <summary>
+    /// 이동이 끝난 뒤 <b>한 번 더</b> 펴 줘야 하는 자리. 「도착할 주소」와
+    /// 「펼 메뉴의 경로」 한 쌍이다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 브레드크럼의 가운데 칸(자기 화면이 있는 메뉴)은 <b>링크</b>라 누르면
+    /// 펴기와 이동이 함께 일어난다. 그 둘이 겹치면 <b>펴 놓은 것이 남지
+    /// 않는다</b> — 재어 보니 도착한 뒤의 트리는 접힌 채였다. (골라진 것처럼
+    /// 보이기는 하는데, 그건 우리가 고른 것이 아니라 DevExpress 가 주소에
+    /// 맞는 줄을 스스로 짚어 준 것이다.)
+    /// </para>
+    ///
+    /// <para>
+    /// 그래서 <b>이동이 끝난 자리에서 한 번 더</b> 편다. 그 한 번은 남는다 —
+    /// 사이드바에서 메뉴를 눌러 옮겨 다닐 때 펴 둔 가지가 그대로 있는 것과
+    /// 같은 이치다.
+    /// </para>
+    ///
+    /// <para>
+    /// 그래서 도착한 뒤에 한 번 더 편다. <b>아무 이동에나 다시 펴지 않는다</b> —
+    /// 도착 주소가 그 메뉴의 것일 때만이다. 안 그러면 사이드바로 다른 화면에
+    /// 간 다음에도 옛 가지가 저 혼자 펴지고 골라진다.
+    /// </para>
+    /// </remarks>
+    private (string Target, string Path)? _reapply;
+
+    /// <summary>
     /// 좁혀 둔 즐겨찾기 트리. <b>렌더할 때마다 다시 좁히면 안 된다.</b>
     ///
     /// 좁히기는 매번 새 목록을 만드는데, DxTreeView 는 <c>Data</c> 가 다른
@@ -286,16 +345,140 @@
     /// 한 번만 편다(<see cref="_expandFavorites"/> 를 내린다). 렌더마다 펴면
     /// 사용자가 접어 둔 묶음이 다음 렌더에 다시 펴진다.
     /// </summary>
-    protected override void OnAfterRender(bool firstRender)
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (_expandFavorites && _tree is not null)
         {
             _expandFavorites = false;
             _tree.ExpandAll();
         }
+
+        await RevealAsync();
     }
 
-    protected override void OnInitialized() => Favorites.Changed += OnFavoritesChanged;
+    /// <summary>
+    /// 부탁받은 메뉴까지 펴고 고르고 보이는 자리로 굴린다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>트리가 없으면 부탁을 버리지 않고 다음 렌더로 미룬다.</b> 사이드바가
+    /// 접혀 있었으면 그 판이 아직 안 그려져 있을 수 있는데(레이아웃이 같은
+    /// 부탁을 받아 펴 준다), 거기서 버리면 <b>접힌 채로 누른 첫 번째 부탁만
+    /// 조용히 사라진다.</b>
+    /// </para>
+    ///
+    /// <para>
+    /// 못 찾는 경로는 그냥 지나간다. 권한 때문에 사이드바에 없는 화면을
+    /// 주소로 열면 브레드크럼은 보이지만(원본에서 찾는다) 트리에는 그 가지가
+    /// 없다 — 없는 메뉴를 만들어 보여 주지 않는다.
+    /// </para>
+    /// </remarks>
+    private async Task RevealAsync()
+    {
+        if (_revealPath is not { Length: > 0 } path || _tab != Tab.Menu || _tree is null)
+        {
+            return;
+        }
+
+        _revealPath = null;
+
+        bool Match(ITreeViewNodeInfo node) =>
+            (node.DataItem as MenuNode)?.Path == path;
+
+        if (_tree.GetNodeInfo(Match) is null)
+        {
+            return;
+        }
+
+        _tree.ExpandToNode(Match);
+
+        // 묶음을 누른 뜻은 그 안을 보겠다는 것이다. 잎이면 아무 일도 없다.
+        _tree.SetNodeExpanded(Match, true);
+        _tree.SelectNode(Match);
+
+        // 링크를 누른 것이면 이동이 뒤따라 온다. 그 이동이 펼침을 푸므로
+        // 도착한 뒤에 한 번 더 편다(_reapply 머리말).
+        var target = (_tree.GetNodeInfo(Match)?.DataItem as MenuNode)?.NavigateUrl;
+
+        _reapply = target is { Length: > 0 } && !IsCurrent(target)
+            ? (target, path)
+            : null;
+
+        try
+        {
+            await Js.InvokeVoidAsync("jsiniSidebar.reveal");
+        }
+        catch (Exception ex) when (ex is JSException or InvalidOperationException
+                                      or ObjectDisposedException or TaskCanceledException)
+        {
+            // 회로가 이미 끊겼거나 브라우저가 안 받는다. 펴고 고르는 것은
+            // 이미 끝났으므로 **굴려 주지 못했을 뿐이다** — 다시 시도할 일이 아니다.
+        }
+    }
+
+    protected override void OnInitialized()
+    {
+        Favorites.Changed += OnFavoritesChanged;
+        Reveal.Requested += OnRevealRequested;
+        Navigation.LocationChanged += OnLocationChanged;
+    }
+
+    /// <summary>이 주소가 지금 보고 있는 화면인가.</summary>
+    private bool IsCurrent(string href) =>
+        string.Equals(Relative(), Trim(href), StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>브라우저에 떠 있는 경로. 질의 문자열과 조각은 뗀다.</summary>
+    private string Relative() =>
+        Trim("/" + Navigation.ToBaseRelativePath(Navigation.Uri));
+
+    private static string Trim(string href)
+    {
+        var cut = href.IndexOfAny(['?', '#']);
+        var path = cut >= 0 ? href[..cut] : href;
+
+        return "/" + path.Trim('/');
+    }
+
+    /// <summary>
+    /// 링크 칸을 눌러 이동이 끝났다. <b>그 메뉴에 도착했을 때만</b> 한 번 더 편다.
+    /// </summary>
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        if (_reapply is not { } pending)
+        {
+            return;
+        }
+
+        // 한 번만 본다. 다른 데로 갔으면 그대로 잊는다.
+        _reapply = null;
+
+        if (!IsCurrent(pending.Target))
+        {
+            return;
+        }
+
+        _revealPath = pending.Path;
+        InvokeAsync(StateHasChanged);
+    }
+
+    /// <summary>
+    /// 브레드크럼이 「이 메뉴를 보여 달라」고 했다. <b>여기서는 표시만 해 둔다</b> —
+    /// 실제로 펴는 것은 다음 렌더 뒤다(<see cref="_revealPath"/>).
+    /// </summary>
+    private void OnRevealRequested(string path) => InvokeAsync(() =>
+    {
+        // 즐겨찾기를 보고 있었으면 돌아온다. 담아 두지 않은 메뉴는 그쪽
+        // 트리에 아예 없어서, 그대로 두면 아무 일도 안 일어난 것처럼 보인다.
+        _tab = Tab.Menu;
+
+        // 검색어가 걸려 있으면 그 가지가 걸러져 있을 수 있다. 지우고 편다 —
+        // 찾던 것을 마저 보려면 다시 적으면 되지만, 안 지우면 「눌렀는데
+        // 안 열린다」가 된다.
+        _search = string.Empty;
+
+        _revealPath = path;
+        StateHasChanged();
+    });
 
     /// <summary>
     /// 메뉴가 <b>실제로</b> 바뀌었을 때만(권한·화면 크기) 다시 좁힌다.
@@ -321,5 +504,10 @@
         StateHasChanged();
     });
 
-    public void Dispose() => Favorites.Changed -= OnFavoritesChanged;
+    public void Dispose()
+    {
+        Favorites.Changed -= OnFavoritesChanged;
+        Reveal.Requested -= OnRevealRequested;
+        Navigation.LocationChanged -= OnLocationChanged;
+    }
 }

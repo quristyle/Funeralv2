@@ -134,6 +134,12 @@ public abstract class DataPage : ComponentBase
             return;
         }
 
+        // **여기서 한 번 그린다.** 바로 아래가 첫 `await` 다 — 그리지 않으면
+        // Blazor 는 이 처리기가 **끝난 뒤에야** 다시 그리고, 그때는 이미
+        // `Loading` 이 꺼져 있다. 「불러오는 중」 표시가 영영 안 보이는 이유가
+        // 그것이었다(ERD 처럼 몇 초 걸리는 화면에서 사람이 단추를 또 누른다).
+        StateHasChanged();
+
         try
         {
             var count = await load();

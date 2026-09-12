@@ -4,78 +4,130 @@
 @*
     [할일 정산 현황]
 
-    이력: 옛 Blazor `Pages/Home/HomeTodoMonitor.razor` → Vue `views/projmng/home/todo-monitor.vue` → 여기.
-    프로시저: `sp_home_todo_pay`(정산 집계), `sp_home_todo_exec`(할일 목록)
+    이력: 옛 Blazor `Pages/Home/HomeTodoMonitor.razor` → Vue
+          `views/projmng/home/todo-monitor.vue` → `DynamicGrid` +
+          `sp_home_todo_pay` · `sp_home_todo_exec` → **여기 (`CommGrd` + REST)**
+    API: `projmng/home-todos/pay` · `projmng/home-todos`
 
     옛 화면은 차트를 붙이려다 그만두고 정산 집계만 부르는 상태였다
     (`OnLoadWrk` 첫 줄이 `OnLoadPay(); return;` 이었다). Vue 이식본이 그 동작을
-    살리면서 할일 목록도 탭으로 함께 붙였고, 여기서도 그대로 둔다.
+    살리면서 할일 목록도 **탭으로** 함께 붙였다.
 
-    **탭을 바꿀 때만 그쪽을 읽는다.** 둘 다 미리 읽어 두면 안 볼 탭 때문에
-    프로시저를 한 번 더 부르게 된다.
+    ────────────────────────────────────────────────────────────
+    [탭을 걷어내고 나란히 둔다]
+
+    탭이었던 이유는 탭을 바꿀 때만 그쪽 프로시저를 부르려는 것이었다. 지금은
+    둘 다 한 번에 읽어도 **왕복이 둘**이고 서로 기다릴 이유가 없어 나란히
+    읽는다. 그러면 「누가 얼마나 쌓았나」와 「그날 무엇을 했나」가 **한 그림에**
+    보인다 — 탭이면 둘을 견주려고 오갈 때마다 다시 읽었다.
+
+    `DxTabs` 안에 표를 넣으면 높이가 어긋나는 함정도 함께 사라진다
+    (web/CLAUDE.md 의 `.ad-roletabs` 절).
+
+    [정산은 날짜로 좁히지 않는다]
+
+    담당자별 **누계**다. 옛 화면과 같다 — 날짜 조건은 오른쪽 할일 목록에만
+    걸린다. 「오늘」 칸이 그날 몫을 따로 말해 준다.
+
+    이 화면은 **보기만 한다.** 고치는 것은 [할일] 화면이다.
 *@
 
 @inherits DataPage
-@inject ProjMngClient Client
+@inject HomeTodoClient Api
 
 <PageTitle>할일 정산 현황 · 프로젝트관리</PageTitle>
 
-<SearchBar>
-    <ChildContent>
-        <DxDateEdit @bind-Date="_targetDate" Style="width: 150px" />
-        <BizSelect Type="portal_account" @bind-Value="_userCode" ShowAll="true" />
-    </ChildContent>
-    <Actions>
-        <PermissionView Action="MenuAction.Search">
-            <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@SearchAsync" />
-        </PermissionView>
-    </Actions>
-</SearchBar>
+<CommSch OnSearch="@SearchAsync">
+    <Fields>
+        <CommSchItem Label="날짜">
+            @* 오른쪽 목록에만 걸린다(머리말). *@
+            <DxDateEdit @bind-Date="_targetDate" Style="width: 150px" />
+        </CommSchItem>
+
+        <CommSchItem Label="사람">
+            <BizSelect Type="portal_account" @bind-Value="_userCode" ShowAll="true" />
+        </CommSchItem>
+    </Fields>
+</CommSch>
 
 <PageNotice Text="@Notice" Tone="@Tone" />
 
-<DxTabs @bind-ActiveTabIndex="_tabIndex" TabClick="@(_ => SearchAsync())">
-    <DxTabPage Text="정산 집계">
-        <DynamicGrid Data="@_pay.Data" Loading="@_pay.IsLoading" ExportName="할일정산" OnRefresh="@SearchAsync" />
-    </DxTabPage>
-    <DxTabPage Text="할일 목록">
-        <DynamicGrid Data="@_todo.Data" Loading="@_todo.IsLoading" ExportName="할일목록" OnRefresh="@SearchAsync" />
-    </DxTabPage>
-</DxTabs>
+<div class="pm-split">
+    <CommCont Title="정산 집계" Hint="@($"{_pay.Sum(p => p.TotalPay):#,##0}원")" CssClass="pm-split__side">
+        <CommGrd TItem="HomeTodoPayDto"
+                 Data="@_pay"
+                 ExportName="할일정산"
+                 PageSize="20"
+                 EmptyText="정산할 것이 없습니다."
+                 Reload="@SearchAsync">
+            <Columns>
+                <DxGridDataColumn FieldName="@nameof(HomeTodoPayDto.TargetUser)" Caption="사람" MinWidth="110"
+                                  TextAlignment="GridTextAlignment.Left" />
+                <DxGridDataColumn FieldName="@nameof(HomeTodoPayDto.TotalPay)" Caption="누계" Width="110"
+                                  DisplayFormat="#,##0" TextAlignment="GridTextAlignment.Right" />
+                <DxGridDataColumn FieldName="@nameof(HomeTodoPayDto.TodayPay)" Caption="오늘" Width="100"
+                                  DisplayFormat="#,##0" TextAlignment="GridTextAlignment.Right" />
+            </Columns>
+        </CommGrd>
+    </CommCont>
+
+    <CommCont Title="할일 목록" Hint="@TodoHint" CssClass="pm-split__main">
+        <CommGrd TItem="HomeTodoDto"
+                 Data="@_todos"
+                 ExportName="할일목록"
+                 PageSize="30"
+                 EmptyText="그날 할일이 없습니다."
+                 Reload="@SearchAsync">
+            <Columns>
+                <DxGridDataColumn FieldName="@nameof(HomeTodoDto.TargetUser)" Caption="사람" Width="110" />
+                <DxGridDataColumn FieldName="@nameof(HomeTodoDto.Title)" Caption="제목" MinWidth="180"
+                                  TextAlignment="GridTextAlignment.Left" />
+
+                <DxGridDataColumn Caption="완료" Width="70">
+                    <CellDisplayTemplate Context="cell">
+                        @{
+                            var t = (HomeTodoDto)cell.DataItem;
+                        }
+                        <span class="jsini-badge @(t.IsComplete ? "jsini-badge--on" : "jsini-badge--off")">
+                            @(t.IsComplete ? "완료" : "미완")
+                        </span>
+                    </CellDisplayTemplate>
+                </DxGridDataColumn>
+
+                <DxGridDataColumn FieldName="@nameof(HomeTodoDto.TodoStateName)" Caption="상태" Width="100" />
+                <DxGridDataColumn FieldName="@nameof(HomeTodoDto.FixPoint)" Caption="금액" Width="90"
+                                  DisplayFormat="#,##0" TextAlignment="GridTextAlignment.Right" />
+                <DxGridDataColumn FieldName="@nameof(HomeTodoDto.CompDt)" Caption="완료일시" Width="150"
+                                  DisplayFormat="yyyy-MM-dd HH:mm" />
+            </Columns>
+        </CommGrd>
+    </CommCont>
+</div>
 
 @code {
-    private ProcGrid _pay = default!;
-    private ProcGrid _todo = default!;
+    private IReadOnlyList<HomeTodoPayDto> _pay = [];
+    private IReadOnlyList<HomeTodoDto> _todos = [];
 
     private DateTime? _targetDate = DateTime.Today;
     private string? _userCode;
-    private int _tabIndex;
 
-    protected override void OnInitialized()
-    {
-        _pay = new ProcGrid(Client, "sp_home_todo_pay");
-        _todo = new ProcGrid(Client, "sp_home_todo_exec");
-    }
+    private string TodoHint => $"{_todos.Count(t => t.IsComplete)} / {_todos.Count}건 완료";
 
     protected override Task OnInitializedAsync() => SearchAsync();
 
     private Task SearchAsync() => LoadAsync(async () =>
     {
-        if (_tabIndex == 0)
-        {
-            // 정산은 날짜로 좁히지 않는다 — 옛 화면과 같다. 담당자별 누계다.
-            await _pay.LoadAsync(new Dictionary<string, object?>
-            {
-                ["target_user"] = _userCode ?? string.Empty,
-            });
-            return _pay.Data.Table.Rows.Count;
-        }
+        // 나란히 읽는다. 서로 기다릴 이유가 없다(머리말).
+        var pay = Api.PayAsync(_userCode);
+        var todos = Api.ListAsync(
+            _userCode,
+            targetDay: _targetDate is null ? null : DateOnly.FromDateTime(_targetDate.Value));
 
-        await _todo.LoadAsync(new Dictionary<string, object?>
-        {
-            ["target_user"] = _userCode ?? string.Empty,
-            ["target_day"] = _targetDate?.ToString("yyyyMMdd") ?? string.Empty,
-        });
-        return _todo.Data.Table.Rows.Count;
+        await Task.WhenAll(pay, todos);
+
+        _pay = pay.Result;
+        _todos = todos.Result;
+
+        return _pay.Count + _todos.Count;
     }, "조회 결과가 없습니다.", "정산 현황을 읽지 못했습니다");
 }

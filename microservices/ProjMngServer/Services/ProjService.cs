@@ -1,6 +1,7 @@
 ﻿using Dapper;
 using Npgsql;
 using ProjModel;
+using ProjMngServer.Models;
 using System.Collections.Generic;
 using System.ComponentModel.Design;
 using System.Data;
@@ -10,7 +11,50 @@ namespace ProjMngServer.Services;
 
 public class ProjService : BaseService {
 
-  public ProjService(IConfiguration configuration) : base(configuration) { }
+  /// <summary>
+  /// 소스 정보를 읽는 곳. <b>프로시저를 부르지 않는다.</b>
+  ///
+  /// <para>
+  /// 이 클래스는 프로시저를 부르는 범용 통로인데, <c>md_</c> 갈래(파일 훑기)만은
+  /// <b>자기도 자료를 읽어야</b> 해서 안에서 <c>sp_dev_srcinfo_exec</c> ·
+  /// <c>sp_dev_srcinfo_dtl_exec</c> 를 불렀다. 프로시저를 지우면 그 세 자리가
+  /// 조용히 빈 결과를 내므로(오류가 아니다) 함께 옮긴다.
+  /// </para>
+  /// </summary>
+  private readonly SourceInfoService _sources;
+
+  /// <summary>
+  /// Glue 자료를 쌓는 곳. <c>md_glue_service</c> 가 훑은 결과를 여기에 넣는다.
+  /// 옛 길은 <c>sp_dev_activityinfo_exec</c> 를 줄 수만큼 부르는 것이었다.
+  /// </summary>
+  private readonly ActivityInfoService _activities;
+
+  public ProjService(
+      IConfiguration configuration, SourceInfoService sources, ActivityInfoService activities)
+      : base(configuration) {
+    _sources = sources;
+    _activities = activities;
+  }
+
+  /// <summary>
+  /// 소스 상세를 <c>src_rid</c> 로 읽어 옛 프로시저가 주던 사전 모양으로 맞춘다.
+  /// 부르는 쪽이 칸 이름을 글자로 집기 때문에 <b>이름을 바꾸지 않는다.</b>
+  /// </summary>
+  private List<IDictionary<string, object>> SourceDetailRows(IDictionary<string, string> param) {
+
+    if (!int.TryParse(param.GetValue("src_rid"), out var srcRid)) { return []; }
+
+    return [.. _sources.DetailsAsync(srcRid).GetAwaiter().GetResult()
+      .Select(d => (IDictionary<string, object>)new Dictionary<string, object> {
+        ["src_dtl_rid"] = d.SrcDtlRid,
+        ["src_rid"] = d.SrcRid ?? 0,
+        ["src_extend"] = d.SrcExtend ?? string.Empty,
+        ["src_pattern_grp"] = d.SrcPatternGrp ?? string.Empty,
+        ["url_pattern"] = d.UrlPattern ?? string.Empty,
+        ["src_pattern_comment"] = d.SrcPatternComment ?? string.Empty,
+        ["src_pattern_nullvalue"] = d.SrcPatternNullvalue ?? string.Empty,
+      })];
+  }
 
   private LogInfo InParamInit(string tname, RequestDto dto) {
 
@@ -36,466 +80,20 @@ public class ProjService : BaseService {
     return log;
   }
 
-  public ResultInfo<dynamic> GetData(RequestDto dto) {
+  // [프로시저를 부르던 곳이 여기 있었다]
+  //
+  // `GetData(procName, …)` · `ExcuteMultyData(…)` 가 이 자리에 있었다.
+  // 이름을 받아 그대로 부르는 통로였고, 그 이름은 **브라우저가 정했다.**
+  // 2026-09-12 에 업무 프로시저를 전부 백엔드로 옮기면서 부르는 쪽이
+  // 없어졌고, 통로(`/api/Proj` · `/api/Sys`)와 함께 걷어냈다.
+  //
+  // 이 클래스에 남은 것은 **파일을 훑는 일**(`md_*`)뿐이다. 그쪽이 읽어야 하는
+  // 소스 정보는 `SourceInfoService` 가 낸다 — 위 생성자 주석 참고.
+
+  // 주석으로만 남아 있던 옛 `GetMdData` 를 걷어냈다(2026-09-12).
+  // 하던 일은 아래 `GetMdBlazorData` 가 그대로 한다 — 그쪽은 소스 정보를
+  // 프로시저가 아니라 `SourceInfoService` 에서 읽는다.
 
-    var log = InParamInit("ProjService [GetData] ", dto);
-
-    //string procedureName = dto.ProcName;
-    //IDictionary<string, string> param = dto.MainParam;
-    //param["req_type"] = dto.ProcType;
-    //param["req_ss_user_id"] = dto.SSUserId;
-    return GetData(dto.ProcName, dto.MainParam);
-  }
-
-
-  public ResultInfo<dynamic> GetData(string procedureName, IDictionary<string, string> param) {
-
-    ResultInfo<dynamic> ri = new ResultInfo<dynamic>();
-
-    DateTime sdt = DateTime.Now;
-    DateTime spdt = DateTime.Now;
-    DateTime epdt = DateTime.Now;
-
-    IEnumerable<dynamic> aaa = Enumerable.Empty<dynamic>();
-
-    var connectionString = _configuration.GetConnectionString("jsini");
-    if (string.IsNullOrWhiteSpace(procedureName) || string.IsNullOrWhiteSpace(connectionString)) {
-
-      ri.Code = -88;
-      ri.Message = "연결 정보에 문제가 있습니다.";
-    }
-    else {
-
-      try {
-
-        var consDic = connectionString
-       .Split(';', StringSplitOptions.RemoveEmptyEntries)
-       .Select(part => part.Split('=', 2))
-       .Where(part => part.Length == 2)
-       .ToDictionary(sp => sp[0].Trim(), sp => sp[1].Trim());
-
-        string schema_name = consDic.TryGetValue("SearchPath", out var schemaValue) && schemaValue != null ? schemaValue.ToString() : string.Empty;
-
-        IEnumerable<dynamic> procParams;
-        var parameters = new DynamicParameters();
-        using (IDbConnection db = new NpgsqlConnection(connectionString)) {
-
-          //string getProcParamsQuery = $@"
-          //      SELECT
-          //          p.parameter_name,
-          //          p.data_type,
-          //          p.specific_name,
-          //          p.parameter_mode
-          //      FROM
-          //          information_schema.parameters p
-          //      WHERE 1=1
-          //          -- p.specific_schema = '{schema_name}' 
-          //          and p.specific_name ~ ('^{procedureName.ToLower()}(_[0-9]+)?$')
-          //      ORDER BY
-          //          p.ordinal_position;
-          //  ";
-
-          procParams = ProcParams(db, schema_name, procedureName); // db.Query(getProcParamsQuery);
-
-          if (procParams.ToList().Count <= 0) {
-            ri.Code = -1;
-            ri.Message = $"{procedureName} 정보를 가져오지 못했습니다.";
-          }
-          spdt = DateTime.Now;
-
-          if (ri.Code >= 0) {
-
-            //Console.WriteLine($" param list : {DateTime.Now.ToShortTimeString()} ");
-            //Console.WriteLine($" procedureName : {procedureName} ");
-            string? outCursorParamName = null;
-
-            db.Open();
-            using (var tran = db.BeginTransaction()) {
-
-              // 프로시저 파라미터 구성
-              if (procParams.Any()) { // 프로시저의 파라미터가 존재하는 경우만 처리.
-                foreach (var p in procParams) {
-                  string paramName = p.parameter_name;
-
-                  string paramKey = paramName.StartsWith("p_") ? paramName.Substring(2, paramName.Length - 2) : paramName;
-
-                  // check parameter mode
-                  string parameterMode = p.parameter_mode.ToString().ToUpper();
-                  if (parameterMode == "INOUT" && p.data_type.ToString() == "refcursor") {
-                    outCursorParamName = paramName;
-
-                    parameters.Add(paramName, dbType: DbType.Object, direction: ParameterDirection.Output); // Output refcursor
-                  }
-                  else {
-
-                    if (paramName == "ss_user_id") {
-                      parameters.Add(paramName, param.GetValue("req_ss_user_id"), DbType.String);
-                      //Console.WriteLine($" {paramName} : {param.GetValue("req_ss_user_id")} ");
-                    }
-                    else {
-                      object? paramValue = param.TryGetValue(paramKey, out var value) && value != null ? value.ToString() : null;
-                      parameters.Add(paramName, paramValue, DbType.String);
-                      //Console.WriteLine($" {paramName} : {paramValue} ");
-                    }
-
-                  }
-                }
-              }
-
-              db.Execute(sql: schema_name + "." + procedureName, param: parameters, commandType: CommandType.StoredProcedure);
-
-              // out cursor 처리
-              if (!string.IsNullOrEmpty(outCursorParamName)) {
-
-                var cursor = parameters.Get<string>(outCursorParamName);
-
-                if (cursor != null) {
-
-                  using (var cmd = new NpgsqlCommand($"FETCH ALL IN \"{cursor}\"", db as NpgsqlConnection)) // db를 NpgsqlConnection으로 캐스팅
-                  using (var rdr = cmd.ExecuteReader(  )) {
-
-                    // var expandoObject2 = new ExpandoObject() as IDictionary<string, object>;
-                    var resultList = new List<dynamic>();
-                    var resultList2 = new List<dynamic>();
-
-
-                    if (rdr.HasRows) {
-                      while (rdr.Read()) {
-
-                                        var expandoObject = (IDictionary<string, object?>)new ExpandoObject();
-                        string nm = "";
-                        object? oval = null;
-                        string? empty = null;
-                        for (int i = 0; i < rdr.FieldCount; i++) {
-                          nm = rdr.GetName(i);
-                          oval = rdr.GetValue(i);
-
-                          // oval 값이 Dbnull 인 경우 json 으로 {} 넘어 간다... 이를 클라이언트에서 처리시 잘못하면 parse error 가 난다.
-                          if (oval.GetType() == typeof(System.DBNull)) {
-                            expandoObject.Add(nm, empty);
-                          }
-                          else {
-                            expandoObject.Add(nm, oval);
-                          }
-                        }
-                        resultList.Add(expandoObject);
-                      }
-
-                    }
-
-                    //var schemaTable = rdr.GetSchemaTable();
-
-                    ri.Data = resultList;
-                    ri.Cols = GetColumns(rdr);
-
-                  }
-
-                }
-              }
-              else { // out cursor 가 없는 경우, 그냥 쿼리 실행 해서 결과가 있으면 넣어준다.
-                if (!procParams.Any()) { //프로시저의 파라미터가 없는 경우에만
-                  aaa = db.Query<dynamic>(sql: schema_name + "." + procedureName, param: parameters, commandType: CommandType.StoredProcedure);
-                  ri.Data = aaa.ToList();
-
-                }
-              }
-
-              tran.Commit();
-
-              epdt = DateTime.Now;
-
-
-
-            }
-
-
-
-          }
-
-
-
-        }
-
-
-      }
-      catch (Exception ee) {
-        ri.Code = -99;
-        ri.Message = ee.Message;
-      }
-      finally {
-      }
-    }
-
-    GetRes(ref ri, param, sdt, spdt, epdt);
-
-
-    return ri;
-  }
-
-
-
-
-
-  public ResultInfo<dynamic> ExcuteMultyData(RequestDto dto) {
-
-
-   var log = InParamInit("ProjService [ExcuteMultyData] ", dto);
-
-
-    //string procedureName = dto.ProcName;
-    //IDictionary<string, string> param = dto.MainParam;
-    //List<Dictionary<string, object>> rowdata = dto.MultyData;
-
-    //param["req_type"] = dto.ProcType;
-    return ExcuteMultyData(dto.ProcName, dto.MainParam, dto.MultyData);
-  }
-
-
-  public ResultInfo<dynamic> ExcuteMultyData(string procedureName, IDictionary<string, string> param, List<Dictionary<string, object>> rowdata) {
-
-    var rowdata2 = ConvertToListOfStringDictionaries(rowdata);
-
-    return ExcuteMultyData( procedureName,  param,  rowdata2);
-  }
-
-
-  public List<Dictionary<string, string>> ConvertToListOfStringDictionaries(List<Dictionary<string, object>> source) {
-    var result = new List<Dictionary<string, string>>(source.Count);
-    foreach (var dict in source) {
-      var newDict = new Dictionary<string, string>(dict.Count);
-      foreach (var kv in dict) {
-        if (kv.Value == null) {
-          // Dictionary<string,string> 은 null 을 담을 수 없다. 이 표는 그대로 화면에
-          // 내려가므로 빈 값으로 맞춘다 — BaseModelExtensions.ToDictionary 와 같은 규칙이다.
-          newDict[kv.Key] = string.Empty;
-        }
-        else if (kv.Value is DateTime dt) {
-          newDict[kv.Key] = dt.ToString("yyyyMMdd"); // 필요에 따라 포맷 변경
-        }
-        else {
-          newDict[kv.Key] = kv.Value.ToString() ?? string.Empty;
-        }
-      }
-      result.Add(newDict);
-    }
-    return result;
-  }
-
-
-
-  //public ResultInfo<dynamic> ExcuteMultyData(string procedureName, IDictionary<string, string> param, List<Dictionary<string, object>> rowdata) {
-  public ResultInfo<dynamic> ExcuteMultyData(string procedureName, IDictionary<string, string> param, List<Dictionary<string, string>> rowdata) {
-
-    ResultInfo<dynamic> ri = new ResultInfo<dynamic>();
-
-    DateTime sdt = DateTime.Now;
-    DateTime spdt = DateTime.Now;
-    DateTime epdt = DateTime.Now;
-
-    IEnumerable<dynamic> aaa = Enumerable.Empty<dynamic>();
-
-    var connectionString = _configuration.GetConnectionString("jsini");
-    if (string.IsNullOrWhiteSpace(procedureName) || string.IsNullOrWhiteSpace(connectionString)) {
-
-      ri.Code = -88;
-      ri.Message = "연결 정보에 문제가 있습니다.";
-    }
-    else {
-
-      try {
-
-        var consDic = connectionString
-       .Split(';', StringSplitOptions.RemoveEmptyEntries)
-       .Select(part => part.Split('=', 2))
-       .Where(part => part.Length == 2)
-       .ToDictionary(sp => sp[0].Trim(), sp => sp[1].Trim());
-
-        string schema_name = consDic.TryGetValue("SearchPath", out var schemaValue) && schemaValue != null ? schemaValue.ToString() : string.Empty;
-
-        IEnumerable<dynamic> procParams;
-        //var parameters = new DynamicParameters();
-        using (IDbConnection db = new NpgsqlConnection(connectionString)) {
-
-          //string getProcParamsQuery = $@"
-          //      SELECT
-          //          p.parameter_name,
-          //          p.data_type,
-          //          p.specific_name,
-          //          p.parameter_mode
-          //      FROM
-          //          information_schema.parameters p
-          //      WHERE 1=1
-          //          -- p.specific_schema = '{schema_name}' 
-          //          and p.specific_name ~ ('^{procedureName}(_[0-9]+)?$')
-          //      ORDER BY
-          //          p.ordinal_position;
-          //  ";
-
-          //procParams = db.Query(getProcParamsQuery);
-          procParams = ProcParams(db, schema_name, procedureName);
-
-          if (procParams.ToList().Count <= 0) {
-            ri.Code = -1;
-            ri.Message = $"{procedureName} 정보를 가져오지 못했습니다.";
-          }
-          spdt = DateTime.Now;
-
-          if (ri.Code >= 0) {
-
-            //Console.WriteLine($"-------------------------------------------------");
-            //Console.WriteLine($" param list : {DateTime.Now.ToShortTimeString()} -------------------------------------------");
-            //Console.WriteLine($" procedureName : {procedureName} ");
-            string? outCursorParamName = null;
-
-            db.Open();
-            using (var tran = db.BeginTransaction()) {
-
-
-              foreach (Dictionary<string, string> itm in rowdata) {
-                //Dictionary<string, object> itm = null;
-                //if ( obj.GetType() is BaseModel) {
-                //  itm = obj.ToDictionary();
-                //}
-                //else {
-                //  itm = obj as Dictionary<string, object>;
-                //}
-
-                //  Dictionary<string, object> itm = obj as Dictionary<string, object>;
-
-                var parameters = new DynamicParameters();
-                // 프로시저 파라미터 구성
-                if (procParams.Any()) { // 프로시저의 파라미터가 존재하는 경우만 처리.
-                  foreach (var p in procParams) {
-                    string paramName = p.parameter_name;
-
-
-                    string paramKey = paramName.StartsWith("p_") ? paramName.Substring(2, paramName.Length - 2) : paramName;
-
-                    // check parameter mode
-                    string parameterMode = p.parameter_mode.ToString().ToUpper();
-                    if (parameterMode == "INOUT" && p.data_type.ToString() == "refcursor") {
-                      outCursorParamName = paramName;
-
-                      parameters.Add(paramName, dbType: DbType.Object, direction: ParameterDirection.Output); // Output refcursor
-                    }
-                    else {
-                      //object paramValue = param.TryGetValue(paramKey, out var value) && value != null ? value.ToString() : null;
-                      //if (paramValue == null) {
-                      //  paramValue = itm.TryGetValue(paramKey, out var itm_value) && itm_value != null ? itm_value.ToString() : null;
-                      //}
-
-                      //var paramValue = param.GetValue(paramKey);
-                      object? paramValue = param.TryGetValue(paramKey, out var value) && value != null ? value.ToString() : null;
-                      if (paramValue == null) {
-                        paramValue = itm.GetValue(paramKey);// .TryGetValue(paramKey, out var itm_value) && itm_value != null ? itm_value.ToString() : null;
-                      }
-
-                      if (paramName == "ss_user_id") {
-                        parameters.Add(paramName, param.GetValue("req_ss_user_id"), DbType.String);
-                        //Console.WriteLine($" {paramName} : {param.GetValue("req_ss_user_id")} ");
-                      }
-                      else {
-                        parameters.Add(paramName, paramValue, DbType.String);
-                        //Console.WriteLine($" {paramName} : {paramValue} ");
-
-                      }
-
-
-                    }
-                  }
-                }
-                //포로시저 실행
-                db.Execute(sql: schema_name + "." + procedureName, param: parameters, commandType: CommandType.StoredProcedure);
-
-
-              }
-
-
-              tran.Commit();
-              epdt = DateTime.Now;
-
-            }
-
-
-
-          }
-
-
-
-        }
-
-
-      }
-      catch (Exception ee) {
-        ri.Code = -99;
-        ri.Message = ee.Message;
-      }
-      finally {
-      }
-    }
-
-    GetRes(ref ri, param, sdt, spdt, epdt);
-
-
-    return ri;
-  }
-
-  /*
-
-  public ResultInfo<Dictionary<string, string>> GetMdData(string action_name, Dictionary<string, string> param) {
-
-    param["req_type"] = "srch";
-
-    ResultInfo<dynamic> srcInfo = GetData("sp_dev_srcinfo_exec", param);
-
-    List<Dictionary<string,object>> srcInfoData = ConvertToListOfDictionaries(srcInfo.Data.AsEnumerable());
-
-
-      ResultInfo<Dictionary<string, string>> ri = new ResultInfo<Dictionary<string, string>>();
-    if (srcInfoData.Count > 0) {
-      string basePath = srcInfoData[0]["src_path"].ToString();
-      string projNamespace = srcInfoData[0]["prj_namespace"].ToString();  // @"ProjMngWasm";
-      string pageRoot = srcInfoData[0]["src_ui_root"].ToString();         // @"Pages";
-      string pagePattern = srcInfoData[0]["url_pattern"].ToString();      // "@page\\s+\"(?<url>[^\"]+)\"";
-
-      List<Dictionary<string, string>> aaa = null;
-
-      aaa = BlazorUtil.GetBlazorMenuList(basePath, projNamespace, pageRoot, pagePattern);
-
-      if (aaa == null || aaa.Count <= 0) {
-        // subdir 찾아서 가져오기
-        string src_rid = srcInfoData[0]["src_rid"].ToString();
-        param.Add("src_rid", src_rid);
-
-        ResultInfo<dynamic> srcInfo_dtl = GetData("sp_dev_srcinfo_dtl_exec", param);
-
-        List<Dictionary<string, object>> srcInfoDtlData = ConvertToListOfDictionaries(srcInfo_dtl.Data.AsEnumerable());
-
-        List<Dictionary<string, object>> srcPathList = srcInfoDtlData.Where(dict => dict.ContainsKey("src_pattern_grp") && dict["src_pattern_grp"]?.ToString() == "src_path").ToList();
-
-        if (srcPathList.Count > 0) {
-
-          basePath = srcPathList[0]["url_pattern"].ToString();
-
-          aaa = BlazorUtil.GetBlazorMenuList(basePath, projNamespace, pageRoot, pagePattern);
-        }
-      }
-
-      Dictionary<string, string> col = new Dictionary<string, string>();
-      foreach (var ad in aaa) {
-        foreach (var a in ad) {
-          col.Add(a.Key, "System.String");
-        }
-        break;
-      }
-      ri.Cols = col;
-      ri.Data = aaa;
-    }
-
-    GetRes<Dictionary<string, string>>(ref ri, param, DateTime.Now, DateTime.Now, DateTime.Now);
-    return ri;
-  }
-  */
 
   public ResultInfo<Dictionary<string, string>> GetMdBlazorData(RequestDto dto) {
 
@@ -528,10 +126,9 @@ public class ProjService : BaseService {
   /// </summary>
   IDictionary<string,object>? GetUrlPattern(IDictionary<string, string> param, string src_extend) {
 
-    var srcInfo = GetData("sp_dev_srcinfo_dtl_exec", param);
+    var all = SourceDetailRows(param);
 
-    var rows = (srcInfo.Data ?? Enumerable.Empty<dynamic>())
-      .OfType<IDictionary<string, object>>()
+    var rows = all
       .Where(d => d.ContainsKey("src_extend") && d["src_extend"]?.ToString() == src_extend)
       .ToList();
 
@@ -540,9 +137,7 @@ public class ProjService : BaseService {
 
     // 확장자에 딸린 경로가 없다. 소스 하나에 뿌리 경로는 보통 하나이므로
     // **확장자를 안 적어 둔 경로 행**을 쓴다 — 그렇게 등록된 소스가 실제로 있다.
-    var anyPath = (srcInfo.Data ?? Enumerable.Empty<dynamic>())
-      .OfType<IDictionary<string, object>>()
-      .FirstOrDefault(d => d.GetValue("src_pattern_grp") == "src_path");
+    var anyPath = all.FirstOrDefault(d => d.GetValue("src_pattern_grp") == "src_path");
 
     return anyPath ?? rows.FirstOrDefault();
   }
@@ -619,24 +214,28 @@ public class ProjService : BaseService {
     }
 
     {
-      List<Dictionary<string, string>> rowdata = new();
-
       var activeList = ActivityParser.ParseActivityFiles(path);
 
-      foreach (var item in activeList) {
-
-        Dictionary<string, string> sItem = item.ToDictionary();
-        sItem["req_type"] = "save";
-        sItem["src_rid"] = src_rid ?? string.Empty;
-
-        rowdata.Add(item.ToDictionary());
-
-      }
-
-      ExcuteMultyData( "sp_dev_activityinfo_exec"
-        , new Dictionary<string, string> { { "req_type", "save" }, { "src_rid", src_rid ?? string.Empty } }
-        , rowdata
-      );
+      // **훑은 것으로 그 소스의 자료를 통째로 갈아 끼운다.**
+      //
+      // 옛 길은 줄마다 프로시저를 불러 덮어쓰기만 했다. 그래서 파일에서
+      // 없어진 서비스가 DB 에 그대로 남았고, 추적 화면에는 있는데 소스에는
+      // 없는 줄이 되었다 — 재수집해도 사라지지 않으니 사람이 알 방법이 없다.
+      _activities.ReplaceAsync(
+        src_rid ?? string.Empty,
+        [.. activeList.Select(a => new ActivityInfoRow {
+          ServiceName = a.ServiceName,
+          TransitionName = a.TransitionName,
+          TransitionValue = a.TransitionValue,
+          Dao = a.Dao,
+          ProcedureName = a.ProcedureName,
+          ResultKey = a.ResultKey,
+          Activity = a.Activity,
+          ActivityType = a.Activity_Type,
+          ActiveContext = a.Active_context,
+          SrcRid = src_rid ?? string.Empty,
+        })]
+      ).GetAwaiter().GetResult();
 
     }
     ri.Data = aaa;
@@ -754,23 +353,59 @@ public class ProjService : BaseService {
   public void GetBlazorFile(ResultInfo<Dictionary<string, string>> ri, IDictionary<string, string> param) { 
 
 
-    ResultInfo<dynamic> si = GetData("sp_dev_srcinfo_exec" , new Dictionary<string, string>{ { "req_type", "srch" }
-        , { "src_rid", param.GetValue("src_rid")  } 
-      });
+    // 소스를 골라 왔으면 그것을, 안 골랐으면 **그 프로젝트의 첫 소스**를 훑는다.
+    //
+    // 프로젝트만 주는 화면이 있다(소스 스캐너 · 진행 현황). 옛 길은 빈
+    // `src_rid` 를 프로시저에 그대로 넘겨 **등록된 소스 전부 중 첫 줄**을
+    // 집었다 — 다른 프로젝트의 소스를 훑고 있어도 알 수가 없었다.
+    // 적어도 고른 프로젝트 안에서 고른다.
+    SourceInfo? found;
 
-    var srcInfo = si.Data?.ConvertDynamicList<SrcInfo>().FirstOrDefault(); 
+    if (int.TryParse(param.GetValue("src_rid"), out var srcRid)) {
+      found = _sources.ListAsync(srcRid: srcRid).GetAwaiter().GetResult().FirstOrDefault();
+    }
+    else if (int.TryParse(param.GetValue("prj_rid"), out var prjRid)) {
+      found = _sources.ListAsync(prjRid: prjRid).GetAwaiter().GetResult().FirstOrDefault();
+    }
+    else {
+      ri.Code = -88;
+      ri.Message = "프로젝트나 소스를 고르십시오.";
+      return;
+    }
+
     // 등록된 소스가 없으면 훑을 것도 없다. 전에는 바로 아래에서 터졌다.
-    if (srcInfo == null) {
+    if (found == null) {
       ri.Code = -88;
       ri.Message = "소스 정보를 찾지 못했습니다.";
       return;
     }
 
-    ResultInfo<dynamic> si_dtl = GetData("sp_dev_srcinfo_dtl_exec" , new Dictionary<string, string>{ { "req_type", "srch" }
-        , { "src_rid", param.GetValue("src_rid")  } 
-      }); 
+    var srcInfo = new SrcInfo {
+      Src_rid = found.SrcRid.ToString(),
+      Src_os = found.SrcOs ?? string.Empty,
+      Src_path = found.SrcPath ?? string.Empty,
+      Src_nick = found.SrcNick ?? string.Empty,
+      Src_type = found.SrcType ?? string.Empty,
+      Src_lang = found.SrcLang ?? string.Empty,
+      Src_comm = found.SrcComm ?? string.Empty,
+      Prj_rid = found.PrjRid?.ToString() ?? string.Empty,
+      Src_ui_root = found.SrcUiRoot ?? string.Empty,
+      Prj_namespace = found.PrjNamespace ?? string.Empty,
+    };
 
-    srcInfo.SiDtlList = si_dtl.Data?.ConvertDynamicList<SrcInfoDtl>() ?? new List<SrcInfoDtl>(); 
+    // 상세는 **실제로 고른 소스**의 것이어야 한다. 프로젝트만 받았을 때
+    // 요청의 `src_rid` 는 비어 있다.
+    param["src_rid"] = found.SrcRid.ToString();
+
+    srcInfo.SiDtlList = [.. SourceDetailRows(param).Select(d => new SrcInfoDtl {
+      Src_dtl_rid = d.GetValue("src_dtl_rid"),
+      Src_rid = d.GetValue("src_rid"),
+      Src_extend = d.GetValue("src_extend"),
+      Src_pattern_grp = d.GetValue("src_pattern_grp"),
+      Url_pattern = d.GetValue("url_pattern"),
+      Src_pattern_comment = d.GetValue("src_pattern_comment"),
+      Src_pattern_nullvalue = d.GetValue("src_pattern_nullvalue"),
+    })];
 
     Dictionary<string, string> col = new Dictionary<string, string>();
     List<Dictionary<string, string>> aaa = BlazorUtil.GetBlazorMenuList(srcInfo); 

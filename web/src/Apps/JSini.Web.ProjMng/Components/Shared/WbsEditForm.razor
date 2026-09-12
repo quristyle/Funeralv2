@@ -1,0 +1,90 @@
+@*
+    WBS 편집 창 — **WBS 화면과 일정표 화면이 같이 쓴다.**
+
+    둘은 같은 표(`dev_wbs`)를 보고 `schedule_type` 하나로 갈린다. 그래서 고칠
+    칸도 같다 — 화면마다 폼을 따로 두면 한쪽에만 칸을 더하는 날이 온다.
+
+    [옛 저장이 다루지 않던 칸들이 여기 있다]
+
+    `gb1` · `gb2` · `proc_lvl` · `build_user` · `build_status` · `qc_user` 는
+    목록에는 나오는데 **고칠 길이 없었다** — `sp_proj_wbs_exec` 의 update 가
+    그 칸들을 손대지 않았다. 이제 저장된다.
+*@
+
+<DxFormLayout CssClass="pm-editform">
+    <DxFormLayoutItem Caption="일감" ColSpanMd="12">
+        <DxTextBox @bind-Text="Item.ProcNm" NullText="필수" />
+    </DxFormLayoutItem>
+
+    <DxFormLayoutItem Caption="공정" ColSpanMd="4">
+        <DxTextBox @bind-Text="Item.ProcId" />
+    </DxFormLayoutItem>
+
+    <DxFormLayoutItem Caption="구분1" ColSpanMd="4">
+        <DxTextBox @bind-Text="Item.Gb1" />
+    </DxFormLayoutItem>
+
+    <DxFormLayoutItem Caption="구분2" ColSpanMd="4">
+        <DxTextBox @bind-Text="Item.Gb2" />
+    </DxFormLayoutItem>
+
+    <DxFormLayoutItem Caption="종류" ColSpanMd="6">
+        <DxTextBox @bind-Text="Item.ProcTp" />
+    </DxFormLayoutItem>
+
+    <DxFormLayoutItem Caption="단계" ColSpanMd="6">
+        <DxTextBox @bind-Text="Item.ProcLvl" />
+    </DxFormLayoutItem>
+
+    <DxFormLayoutItem Caption="개발 담당" ColSpanMd="6">
+        <BizSelect Type="portal_account" @bind-Value="Item.DevUser" />
+    </DxFormLayoutItem>
+
+    <DxFormLayoutItem Caption="빌드 담당" ColSpanMd="6">
+        <BizSelect Type="portal_account" @bind-Value="Item.BuildUser" />
+    </DxFormLayoutItem>
+
+    <DxFormLayoutItem Caption="검수 담당" ColSpanMd="6">
+        <BizSelect Type="portal_account" @bind-Value="Item.QcUser" />
+    </DxFormLayoutItem>
+
+    <DxFormLayoutItem Caption="빌드 상태" ColSpanMd="6">
+        <DxTextBox @bind-Text="Item.BuildStatus" />
+    </DxFormLayoutItem>
+
+    <DxFormLayoutItem Caption="계획 시작" ColSpanMd="6">
+        <DxDateEdit Date="@Day(Item.PlanSdt)" DateChanged="@((DateTime? d) => Item.PlanSdt = Only(d))" />
+    </DxFormLayoutItem>
+
+    <DxFormLayoutItem Caption="계획 종료" ColSpanMd="6">
+        <DxDateEdit Date="@Day(Item.PlanEdt)" DateChanged="@((DateTime? d) => Item.PlanEdt = Only(d))" />
+    </DxFormLayoutItem>
+
+    @* 이 둘이 진행 상태를 정한다 — 대기·진행·완료는 적는 칸이 아니다. *@
+    <DxFormLayoutItem Caption="개발 시작" ColSpanMd="6">
+        <DxDateEdit Date="@Day(Item.DevSdt)" DateChanged="@((DateTime? d) => Item.DevSdt = Only(d))" />
+    </DxFormLayoutItem>
+
+    <DxFormLayoutItem Caption="개발 종료" ColSpanMd="6">
+        <DxDateEdit Date="@Day(Item.DevEdt)" DateChanged="@((DateTime? d) => Item.DevEdt = Only(d))" />
+    </DxFormLayoutItem>
+
+    <DxFormLayoutItem Caption="메모" ColSpanMd="12">
+        <DxMemo @bind-Text="Item.Comm" Rows="3" />
+    </DxFormLayoutItem>
+</DxFormLayout>
+
+@code {
+    /// <summary>고치고 있는 일감. <b>편집 모델을 그대로 받는다</b> — 복사하지 않는다.</summary>
+    [Parameter, EditorRequired] public WbsItemDto Item { get; set; } = default!;
+
+    /// <summary>
+    /// 날짜 칸은 <c>DateTime?</c> 으로 오간다 — DevExpress 달력이 그 형만 받는다.
+    /// 자료 쪽은 시각이 없는 날짜라 <c>DateOnly</c> 다.
+    /// </summary>
+    private static DateTime? Day(DateOnly? value) => value?.ToDateTime(TimeOnly.MinValue);
+
+    /// <inheritdoc cref="Day" />
+    private static DateOnly? Only(DateTime? value) =>
+        value is null ? null : DateOnly.FromDateTime(value.Value);
+}

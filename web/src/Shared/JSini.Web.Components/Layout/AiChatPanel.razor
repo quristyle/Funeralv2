@@ -25,6 +25,22 @@
 @inject AiChatClient Chat
 
 <div class="jsini-chat">
+    @* [지금 누가 답하는가]
+
+       자동 전환 때문에 **설정한 것과 실제로 답하는 것이 다를 수 있다.**
+       전환 안내는 '바뀐 순간' 에만 뜨므로, 그 줄을 놓치거나 대화를 비우면
+       지금 상태를 알 길이 없다. 그래서 늘 보이는 자리에 한 줄 둔다.
+
+       물어보기 전에는 설정상의 **기본값**을, 답이 오기 시작하면 **실제로 답한**
+       공급자를 보여 준다. 둘을 같은 자리에 쓰면 거짓말이 되므로 말머리로 가른다. *@
+    @if (_who is { Length: > 0 })
+    {
+        <div class="jsini-chat__who" title="@_whoHint">
+            <span class="jsini-chat__who-dot @(_whoLive ? "is-live" : "")"></span>
+            <span class="jsini-chat__who-text">@_who</span>
+        </div>
+    }
+
     <div class="jsini-chat__log" @ref="_logRef">
         @if (_messages.Count == 0)
         {
@@ -90,6 +106,15 @@
     private string? _input;
     private bool _streaming;
 
+    /// <summary>배지에 쓸 글. 비면 배지를 접는다(정보를 못 받았을 때).</summary>
+    private string? _who;
+
+    /// <summary>마우스를 올렸을 때의 설명. 기본값인지 실제 답한 것인지를 가른다.</summary>
+    private string? _whoHint;
+
+    /// <summary><b>실제로 답한</b> 공급자인가. 기본값만 아는 상태와 점 색으로 가른다.</summary>
+    private bool _whoLive;
+
     private ElementReference _logRef;
 
     /// <summary>새 글자가 붙을 때마다 맨 아래로 따라 내려갈지. 렌더 뒤에 본다.</summary>
@@ -99,6 +124,22 @@
     private CancellationTokenSource? _cts;
 
     [Inject] private IJSRuntime Js { get; set; } = default!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // 물어보기 전에 보여 줄 값. 못 받아도 대화는 그대로 된다 — 배지만 안 뜬다.
+        if (await Chat.GetDefaultAsync() is { } who)
+        {
+            _who = who.Configured
+                ? $"기본 AI: {who.Label}"
+                : $"기본 AI: {who.Label} (설정 미완)";
+
+            _whoHint = who.Configured
+                ? "설정된 기본 AI 입니다. 실제로 답한 AI 는 첫 답변 뒤에 표시됩니다."
+                : "키가 채워지지 않아 이 AI 로는 부를 수 없습니다. "
+                    + "물어보면 자동으로 다른 AI 가 답합니다.";
+        }
+    }
 
     private async Task OnKeyDownAsync(KeyboardEventArgs e)
     {
@@ -141,7 +182,14 @@
 
             await foreach (var part in Chat.StreamAsync(context, _cts.Token))
             {
-                if (part.Notice is { Length: > 0 } notice)
+                if (part.IsUsedMarker && part.Notice is { Length: > 0 } used)
+                {
+                    // 안내 목록에 쌓지 않는다. 매 턴 오므로 쌓으면 같은 줄이 도배된다.
+                    _who = used;
+                    _whoHint = "이번 답을 만든 AI 입니다.";
+                    _whoLive = true;
+                }
+                else if (part.Notice is { Length: > 0 } notice)
                 {
                     _notices.Add(notice);
                 }

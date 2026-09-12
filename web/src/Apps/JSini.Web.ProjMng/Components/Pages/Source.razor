@@ -1,145 +1,269 @@
 @page "/projmng/proj/source"
 @attribute [RouteKey("projmng.proj.source")]
-@using System.Data
 
 @*
-    [프로젝트 소스 정보]
+    [소스 정보]
 
-    이력: 옛 Blazor `Pages/Proj/ProjSource.razor` (`/proj-source`)
-          → Vue `views/projmng/proj/source.vue` → 여기.
-    프로시저: `sp_dev_srcinfo_exec`(소스 묶음), `sp_dev_srcinfo_dtl_exec`(상세)
+    이력: Vue `views/projmng/proj/db` 계열 → `DynamicGrid` +
+          `sp_dev_srcinfo_exec` · `sp_dev_srcinfo_dtl_exec`
+          → **여기 (`CommGrd` + REST)**
+    API: `projmng/source-infos` · `…/{srcRid}/details`
 
-    프로젝트별 소스 경로·언어 정보를 등록한다. 이 정보가 있어야 소스 추적·
-    Glue 추적 화면이 서버에서 파일을 훑을 수 있다.
+    [주소가 메뉴와 어긋나 있었다]
+
+    DB 메뉴(`PM_PROJ_SOURCE`)는 열쇠가 `projmng.proj.source`, 경로가
+    `/projmng/proj/source` 인데 이 화면은 `/projmng/db/source` ·
+    `projmng.db.source` 를 달고 있었다. **사이드바의 「프로젝트 소스 정보」를
+    누르면 「준비 중」이 떴다.**
+
+    왼쪽이 소스 뿌리, 오른쪽이 그 뿌리의 상세(패턴)다. 상세는 **소스 추적**
+    화면들이 읽는다 — 어떤 확장자를 훑을지, URL 을 어떤 정규식으로 뽑을지가
+    여기서 정해진다.
+
+    ────────────────────────────────────────────────────────────
+    [옛 화면에서 고칠 수 없던 칸이 하나 있었다]
+
+    상세의 `src_pattern_nullvalue` 는 프로시저의 <b>insert 에만 있고 update 에는
+    없었다.</b> 한 번 넣은 값을 화면에서 바꿀 방법이 없어 DB 를 직접 만져야
+    했다. 이제 편집 창에 있고 저장된다.
+
+    [URL 패턴이 위쪽 목록에 올라간다]
+
+    상세의 묶음(`src_pattern_grp`)이 `url` 인 줄의 패턴 하나가 왼쪽 목록의
+    「URL 패턴」 칸으로 올라간다. 그래서 상세를 고치면 **왼쪽도 다시 읽는다** —
+    안 읽으면 두 판이 서로 다른 말을 한다.
 *@
 
 @inherits DataPage
-@inject ProjMngClient Client
+@inject SourceInfoClient Api
 
 <PageTitle>소스 정보 · 프로젝트관리</PageTitle>
 
+<CommSch OnSearch="@SearchAsync">
+    <Fields>
+        <CommSchItem Label="프로젝트">
+            <CodeSelect CodeId="projlist" @bind-Value="_projectCode" ShowAll="true"
+                        OnChanged="@(_ => SearchAsync())" />
+        </CommSchItem>
+    </Fields>
+</CommSch>
+
 <PageNotice Text="@Notice" Tone="@Tone" />
 
-<SearchBar>
-    <ChildContent>
-        <CodeSelect CodeId="projlist" @bind-Value="_projectCode" OnChanged="@(_ => SearchAsync())" />
-    </ChildContent>
-    <Actions>
-        <PermissionView Action="MenuAction.Search">
-            <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@SearchAsync" />
-        </PermissionView>
-    </Actions>
-</SearchBar>
+<div class="pm-split">
+    <CommCont Title="소스 뿌리" Hint="@($"{_sources.Count}건")" CssClass="pm-split__side">
+        <CommGrd TItem="SourceInfoDto"
+                 Data="@_sources"
+                 EditFormTitle="소스"
+                 ExportName="소스정보"
+                 PageSize="20"
+                 EmptyText="등록된 소스가 없습니다."
+                 OnNew="@FillNewSource"
+                 OnSave="@SaveSourceAsync"
+                 Reload="@SearchAsync"
+                 SelectedItem="@_source"
+                 SelectedItemChanged="@PickSourceAsync">
+            <Columns>
+                <DxGridDataColumn FieldName="@nameof(SourceInfoDto.SrcRid)" Caption="번호" Width="70" />
+                <DxGridDataColumn FieldName="@nameof(SourceInfoDto.SrcNick)" Caption="별칭" MinWidth="130"
+                                  TextAlignment="GridTextAlignment.Left" />
+                <DxGridDataColumn FieldName="@nameof(SourceInfoDto.SrcLang)" Caption="언어" Width="90" />
+                <DxGridDataColumn FieldName="@nameof(SourceInfoDto.PrjName)" Caption="프로젝트" MinWidth="120"
+                                  TextAlignment="GridTextAlignment.Left" />
+            </Columns>
 
-<SplitPane Size="45">
-    <First>
-        <DynamicGrid Data="@_src.Data"
-                     Loading="@_src.IsLoading"
-                     ExportName="소스정보"
-                     OnSave="@SaveSourceAsync"
-                     OnAdd="@FillProject"
-                     OnDelete="@DeleteSourceAsync"
-                     OnRowClick="@OnSourceSelectedAsync" />
-    </First>
-    <Second>
-        <DynamicGrid Data="@_detail.Data"
-                     Loading="@_detail.IsLoading"
-                     ExportName="소스정보-상세"
-                     HideAdd="@(_selectedSource is null)"
+            <EditFormTemplate Context="edit">
+                @{
+                    var s = (SourceInfoDto)edit.EditModel;
+                }
+                <DxFormLayout CssClass="pm-editform">
+                    <DxFormLayoutItem Caption="별칭" ColSpanMd="6">
+                        <DxTextBox @bind-Text="s.SrcNick" NullText="사람이 부르는 이름" />
+                    </DxFormLayoutItem>
+
+                    <DxFormLayoutItem Caption="경로" ColSpanMd="6">
+                        <DxTextBox @bind-Text="s.SrcPath" NullText="필수 — 서버 장비 기준" />
+                    </DxFormLayoutItem>
+
+                    <DxFormLayoutItem Caption="언어" ColSpanMd="6">
+                        <DxTextBox @bind-Text="s.SrcLang" NullText="blazor · jsp …" />
+                    </DxFormLayoutItem>
+
+                    <DxFormLayoutItem Caption="구분" ColSpanMd="6">
+                        <DxTextBox @bind-Text="s.SrcType" />
+                    </DxFormLayoutItem>
+
+                    <DxFormLayoutItem Caption="OS" ColSpanMd="6">
+                        <DxTextBox @bind-Text="s.SrcOs" />
+                    </DxFormLayoutItem>
+
+                    <DxFormLayoutItem Caption="화면 뿌리" ColSpanMd="6">
+                        <DxTextBox @bind-Text="s.SrcUiRoot" />
+                    </DxFormLayoutItem>
+
+                    <DxFormLayoutItem Caption="네임스페이스" ColSpanMd="12">
+                        <DxTextBox @bind-Text="s.PrjNamespace" />
+                    </DxFormLayoutItem>
+
+                    <DxFormLayoutItem Caption="설명" ColSpanMd="12">
+                        <DxTextBox @bind-Text="s.SrcComm" />
+                    </DxFormLayoutItem>
+                </DxFormLayout>
+            </EditFormTemplate>
+        </CommGrd>
+    </CommCont>
+
+    <CommCont Title="@(_source is null ? "상세" : $"{_source.SrcNick} 의 패턴")"
+              Hint="@(_source is null ? string.Empty : $"{_details.Count}건")"
+              CssClass="pm-split__main">
+        @if (_source is null)
+        {
+            <PageNotice Text="왼쪽에서 소스를 고르면 그 패턴이 나옵니다." Tone="NoticeTone.Info" />
+        }
+        else
+        {
+            <CommGrd TItem="SourceInfoDetailDto"
+                     Data="@_details"
+                     EditFormTitle="패턴"
+                     ExportName="소스상세"
+                     PageSize="20"
+                     EmptyText="이 소스에 패턴이 없습니다."
+                     OnNew="@FillNewDetail"
                      OnSave="@SaveDetailAsync"
-                     OnAdd="@FillSourceKey"
-                     OnDelete="@DeleteDetailAsync" />
-    </Second>
-</SplitPane>
+                     OnDelete="@DeleteDetailAsync"
+                     DeleteConfirm="@(d => $"패턴 「{d.SrcPatternGrp} / {d.SrcExtend}」 을(를) 지웁니다.\n되돌릴 수 없습니다.")"
+                     Reload="@LoadDetailsAsync">
+                <Columns>
+                    <DxGridDataColumn FieldName="@nameof(SourceInfoDetailDto.SrcPatternGrp)" Caption="묶음" Width="90" />
+                    <DxGridDataColumn FieldName="@nameof(SourceInfoDetailDto.SrcExtend)" Caption="확장자" Width="100" />
+                    <DxGridDataColumn FieldName="@nameof(SourceInfoDetailDto.UrlPattern)" Caption="패턴" MinWidth="200"
+                                      TextAlignment="GridTextAlignment.Left" />
+                    <DxGridDataColumn FieldName="@nameof(SourceInfoDetailDto.SrcPatternComment)" Caption="설명" MinWidth="140"
+                                      TextAlignment="GridTextAlignment.Left" />
+                </Columns>
+
+                <EditFormTemplate Context="edit">
+                    @{
+                        var d = (SourceInfoDetailDto)edit.EditModel;
+                    }
+                    <DxFormLayout CssClass="pm-editform">
+                        <DxFormLayoutItem Caption="묶음" ColSpanMd="6">
+                            @* `url` 이면 왼쪽 목록의 「URL 패턴」으로 올라간다. *@
+                            <DxTextBox @bind-Text="d.SrcPatternGrp" NullText="url · desc …" />
+                        </DxFormLayoutItem>
+
+                        <DxFormLayoutItem Caption="확장자" ColSpanMd="6">
+                            <DxTextBox @bind-Text="d.SrcExtend" NullText=".razor · .jsp …" />
+                        </DxFormLayoutItem>
+
+                        <DxFormLayoutItem Caption="패턴" ColSpanMd="12">
+                            <DxTextBox @bind-Text="d.UrlPattern" NullText="정규식" />
+                        </DxFormLayoutItem>
+
+                        <DxFormLayoutItem Caption="설명" ColSpanMd="12">
+                            <DxTextBox @bind-Text="d.SrcPatternComment" />
+                        </DxFormLayoutItem>
+
+                        @* 옛 화면에서는 **고칠 수 없던 칸**이다(머리말). *@
+                        <DxFormLayoutItem Caption="빈 값 대체" ColSpanMd="12">
+                            <DxTextBox @bind-Text="d.SrcPatternNullvalue" />
+                        </DxFormLayoutItem>
+                    </DxFormLayout>
+                </EditFormTemplate>
+            </CommGrd>
+        }
+    </CommCont>
+</div>
 
 @code {
-    private ProcGrid _src = default!;
-    private ProcGrid _detail = default!;
+    private IReadOnlyList<SourceInfoDto> _sources = [];
+    private IReadOnlyList<SourceInfoDetailDto> _details = [];
 
     private string? _projectCode;
-    private DataRow? _selectedSource;
+    private SourceInfoDto? _source;
 
-    protected override void OnInitialized()
-    {
-        _src = new ProcGrid(Client, "sp_dev_srcinfo_exec");
-        _detail = new ProcGrid(Client, "sp_dev_srcinfo_dtl_exec");
-    }
+    private int? ProjectRid => int.TryParse(_projectCode, out var rid) ? rid : null;
+
+    protected override Task OnInitializedAsync() => SearchAsync();
 
     private Task SearchAsync() => LoadAsync(async () =>
     {
-        _selectedSource = null;
-        _detail.Clear();
-        await _src.LoadAsync(new Dictionary<string, object?>
+        _sources = await Api.ListAsync(ProjectRid);
+
+        // 고른 소스가 목록에서 빠졌으면(프로젝트를 바꿨거나) 오른쪽을 비운다.
+        if (_source is not null && _sources.All(s => s.SrcRid != _source.SrcRid))
         {
-            ["prj_rid"] = _projectCode ?? string.Empty,
-        });
+            _source = null;
+            _details = [];
+        }
 
-        return _src.Data.Table.Rows.Count;
-    }, "소스 정보가 없습니다.", "소스 목록을 읽지 못했습니다");
+        return _sources.Count;
+    }, "등록된 소스가 없습니다.", "소스를 읽지 못했습니다");
 
-    private Task SaveSourceAsync() =>
-        RunAsync(() => _src.SaveAsync(), "저장했습니다.", "저장하지 못했습니다");
-
-    private Task DeleteSourceAsync(DataRow row) =>
-        RunAsync(() => _src.DeleteAsync(row), "삭제했습니다.", "삭제하지 못했습니다");
-
-    private Task SaveDetailAsync() =>
-        RunAsync(() => _detail.SaveAsync(), "저장했습니다.", "저장하지 못했습니다");
-
-    private Task DeleteDetailAsync(DataRow row) =>
-        RunAsync(() => _detail.DeleteAsync(row), "삭제했습니다.", "삭제하지 못했습니다");
-
-    private Task OnSourceSelectedAsync(DataRow? row)
+    private Task PickSourceAsync(SourceInfoDto? source)
     {
-        _selectedSource = row;
+        _source = source;
 
-        if (row is null)
+        if (source is null)
         {
-            _detail.Clear();
+            _details = [];
             return Task.CompletedTask;
         }
 
-        return LoadAsync(async () =>
-        {
-            await _detail.LoadAsync(new Dictionary<string, object?>
-            {
-                ["src_rid"] = SourceKey(),
-            });
-
-            return _detail.Data.Table.Rows.Count;
-        }, "상세 정보가 없습니다.", "상세를 읽지 못했습니다");
+        return LoadDetailsAsync();
     }
 
-    private Task FillProject(DataRow row)
+    private Task LoadDetailsAsync() => _source is null ? Task.CompletedTask : LoadAsync(async () =>
     {
-        if (row.Table.Columns.Contains("prj_rid"))
+        _details = await Api.DetailsAsync(_source.SrcRid);
+        return _details.Count;
+    }, "이 소스에 패턴이 없습니다.", "패턴을 읽지 못했습니다");
+
+    private void FillNewSource(SourceInfoDto s) => s.PrjRid = ProjectRid;
+
+    private async Task SaveSourceAsync((SourceInfoDto Item, bool IsNew) e)
+    {
+        if (e.IsNew)
         {
-            row["prj_rid"] = _projectCode ?? string.Empty;
+            await Api.CreateAsync(e.Item);
         }
-        return Task.CompletedTask;
+        else
+        {
+            await Api.UpdateAsync(e.Item);
+        }
     }
 
-    /// <summary>
-    /// 상세 행을 새로 만들면 상위 소스 키를 채운다 (옛 <c>OnAddDtlInfo</c>).
-    /// 안 채우면 어느 소스의 상세인지 알 수 없어 저장 뒤 목록에서 사라진다.
-    /// </summary>
-    private Task FillSourceKey(DataRow row)
+    /// <summary>새 패턴은 <b>고른 소스에 붙는다.</b> 서버도 경로로 한 번 더 정한다.</summary>
+    private void FillNewDetail(SourceInfoDetailDto d) => d.SrcRid = _source?.SrcRid;
+
+    private async Task SaveDetailAsync((SourceInfoDetailDto Item, bool IsNew) e)
     {
-        if (row.Table.Columns.Contains("src_rid"))
+        if (_source is null)
         {
-            row["src_rid"] = SourceKey();
+            return;
         }
-        return Task.CompletedTask;
+
+        if (e.IsNew)
+        {
+            await Api.CreateDetailAsync(_source.SrcRid, e.Item);
+        }
+        else
+        {
+            await Api.UpdateDetailAsync(_source.SrcRid, e.Item);
+        }
+
+        // URL 패턴이 왼쪽 목록에 올라가므로 함께 다시 읽는다(머리말).
+        await SearchAsync();
     }
 
-    private string SourceKey()
+    private async Task DeleteDetailAsync(SourceInfoDetailDto d)
     {
-        if (_selectedSource is null || !_selectedSource.Table.Columns.Contains("src_rid"))
+        if (_source is null)
         {
-            return string.Empty;
+            return;
         }
 
-        var value = _selectedSource["src_rid"];
-        return value == DBNull.Value ? string.Empty : value.ToString() ?? string.Empty;
+        await Api.DeleteDetailAsync(_source.SrcRid, d.SrcDtlRid);
+        await SearchAsync();
     }
 }

@@ -1,0 +1,45 @@
+-- projmng.dev_proj_user_map 에 기본키를 건다 (prj_rid, user_id)
+--
+-- 뽑은 곳 · 건 곳: jin114.co.kr:31015/projmng · 스키마 projmng
+-- 건 날: 2026-09-12
+--
+-- ─────────────────────────────────────────────────────────────
+-- [왜 지금인가]
+--
+-- 이 표에는 **기본키도 유일 제약도 없었다.** 옛 프로시저
+-- (sp_dev_proj_user_map_exec) 의 insert 는 이미 있는지 보지 않아서, 같은
+-- 사람을 같은 프로젝트에 두 번 켜면 줄이 둘이 됐다 — 참여 수가 부풀고
+-- 끄기 한 번으로는 다 안 지워진다.
+--
+-- 서버로 옮기면서 WHERE NOT EXISTS 로 좁혀 두었고, ProjectUserService 의
+-- 머리말에 「제약을 대신하는 것이 아니라 좁히는 것이다. 진짜 해법은
+-- (prj_rid, user_id) 유일 제약이고, 표를 고칠 수 있을 때 그렇게 한다」고
+-- 적어 두었다. 이 파일이 그 「그때」다.
+--
+-- 참여 배정을 **한 번에 여러 건** 보내게 되면서(assignments/bulk) 넣는
+-- 자리가 넓어졌다. 좁히는 것만으로는 경쟁 상태를 못 막는다 —
+-- WHERE NOT EXISTS 는 확인과 넣기 사이가 벌어져 있어서, 두 요청이 겹치면
+-- 둘 다 「없다」고 보고 둘 다 넣는다.
+--
+-- ─────────────────────────────────────────────────────────────
+-- [걸기 전에 확인한 것]
+--
+--   · 중복 (prj_rid, user_id)            0건
+--   · prj_rid 가 NULL 인 줄              0건
+--   · 이 표에 걸려 있던 제약·인덱스      없음
+--
+-- 기본키는 prj_rid 에 NOT NULL 을 함께 건다. 그 칸이 NULL 인 줄은 「아무
+-- 프로젝트도 아닌 참여」라 뜻이 없고, 실제로도 하나도 없다.
+--
+-- 유일 제약(UNIQUE)이 아니라 기본키로 둔 이유: 포스트그레스의 UNIQUE 는
+-- NULL 을 서로 다른 값으로 보므로 (NULL, 'x') 짝이 여러 줄 들어갈 수 있다.
+-- 여기서 막으려는 것이 바로 그 「같은 뜻의 줄이 둘」이다.
+--
+-- ─────────────────────────────────────────────────────────────
+-- [되돌리기]
+--
+--   ALTER TABLE projmng.dev_proj_user_map DROP CONSTRAINT dev_proj_user_map_pk;
+--   ALTER TABLE projmng.dev_proj_user_map ALTER COLUMN prj_rid DROP NOT NULL;
+
+ALTER TABLE projmng.dev_proj_user_map
+  ADD CONSTRAINT dev_proj_user_map_pk PRIMARY KEY (prj_rid, user_id);

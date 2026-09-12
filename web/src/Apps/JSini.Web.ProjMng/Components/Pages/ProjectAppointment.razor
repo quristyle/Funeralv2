@@ -1,87 +1,52 @@
 @page "/projmng/proj/appointment"
 @attribute [RouteKey("projmng.proj.appointment")]
-@using System.Data
 
 @*
-    [투입 관리]
+    [투입 관리 — 메뉴에는 「일정 편집」으로 걸려 있다]
 
-    이력: 옛 Blazor `Pages/Proj/ProjAppointment.razor` → Vue `views/projmng/proj/appointment` → 여기.
-    프로시저: `sp_dev_proj_user_map_exec` (담당자 배정과 같은 표)
+    이력: 옛 Blazor `Pages/Proj/ProjAppointment.razor` → Vue
+          `views/projmng/proj/appointment` → `DynamicGrid` +
+          `sp_dev_proj_user_map_exec` → `CommGrd` + REST
+          → **여기 (`ParticipationBoard`)**
 
-    사람을 프로젝트에 **언제부터 언제까지** 투입하는지를 다룬다. 담당자 화면과
-    같은 표를 쓰지만 보는 각도가 다르다 — 그쪽은 "이 프로젝트에 누가", 여기는
-    "이 사람이 언제" 다. 그래서 조건의 주인공이 사람이고 기간 탭이 붙는다.
+    ────────────────────────────────────────────────────────────
+    [참여자 화면과 같은 부품을 연다]
+
+    이 쪽과 프로젝트 참여자(`/projmng/proj/user`)는 **각도만 다른 같은 표**를
+    보고 있었다. 그쪽이 「이 프로젝트에 누가」, 여기가 「이 사람이 어디에」다.
+
+    화면이 둘이면 아래 띠·일괄 처리·되돌리기·수 세기가 두 벌이 되고, 한쪽만
+    고치는 날이 온다 — 실제로 그랬다. 참여자 화면은 체크할 때 사람 목록을
+    통째로 다시 읽었고 이 화면은 안 읽었다. 같은 저장인데 왕복이 두 배 다른
+    것을 **파일만 보면 둘 다 정상으로 보인다.**
+
+    그래서 화면 실체를 하나로 합치고 **메뉴 두 건은 그대로 두었다.**
+    사람을 기준으로 일하는 사람과 프로젝트를 기준으로 일하는 사람이 각자
+    자기 메뉴로 들어오고, 들어온 뒤에는 언제든 축을 뒤집을 수 있다.
+
+    [이 화면이 잃은 것은 없다]
+
+      · 「사람」 조건       → 왼쪽 판이 그 목록이다. 찾기 칸까지 붙었다.
+      · 「프로젝트」 조건   → 오른쪽 판의 찾기 칸.
+      · 설명(`prj_desc`)   → 기간으로 바꿨다. 배정을 정할 때 필요한 것은
+                             설명보다 「지금 도는 프로젝트인가」다.
+      · 사람을 안 고르면 잠그던 것 → 이제 늘 누군가 골라져 있다(첫 줄).
+                             빈 아이디로 줄이 들어갈 자리가 없어졌다.
+
+    합친 경위와 규칙 넷은 `Components/Shared/ParticipationBoard` 머리말에 있다.
+
+    ────────────────────────────────────────────────────────────
+    [이름이 둘이다 — 이번 작업에서 건드리지 않았다]
+
+    DB 메뉴(`PM_PROJ_APPT`)의 제목이 **「일정 편집」**이다. 그런데 이 경로는
+    Vue 시절부터 참여 배정만 했고 파일 이름·주석도 줄곧 「투입 관리」였다.
+    일정을 고치는 화면은 따로 있다(`PM_PROJ_SCHED` 프로젝트 일정표).
+
+    화면 제목은 **메뉴에 적힌 이름을 따른다.** 사용자가 누른 글자와 열린
+    창의 이름이 달라야 할 이유가 없다 — 어느 쪽이 옳은지는 제목을 정하는
+    사람이 정할 일이고, 그때 고칠 곳은 메뉴 관리 화면 한 곳이다.
 *@
 
-@inherits DataPage
-@inject ProjMngClient Client
+<PageTitle>일정 편집 · 프로젝트관리</PageTitle>
 
-<PageTitle>투입 관리 · 프로젝트관리</PageTitle>
-
-<SearchBar>
-    <ChildContent>
-        <BizSelect Type="portal_account" @bind-Value="_userCode" ShowAll="true" />
-        <CodeSelect CodeId="projlist" @bind-Value="_projectCode" ShowAll="true" />
-    </ChildContent>
-    <Actions>
-        <PermissionView Action="MenuAction.Search">
-            <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Primary" Click="@SearchAsync" />
-        </PermissionView>
-        <PermissionView Action="MenuAction.Update">
-            <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Success" Click="@SaveAsync" />
-        </PermissionView>
-    </Actions>
-</SearchBar>
-
-<DateRangeTabs @ref="_range" RangeChanged="@(_ => SearchAsync())" />
-
-<PageNotice Text="@Notice" Tone="@Tone" />
-
-<DynamicGrid Data="@_grid.Data"
-             Loading="@_grid.IsLoading"
-             HiddenCols="cre_user,cre_dt,mod_user,mod_dt"
-             ExportName="투입관리"
-             OnRefresh="@SearchAsync"
-             OnSave="@SaveAsync"
-             OnAdd="@FillUser"
-             OnDelete="@(row => _grid.DeleteAsync(row))" />
-
-@code {
-    private const string Proc = "sp_dev_proj_user_map_exec";
-
-    private ProcGrid _grid = default!;
-    private DateRangeTabs? _range;
-
-    private string? _userCode;
-    private string? _projectCode;
-
-    protected override void OnInitialized() => _grid = new ProcGrid(Client, Proc);
-
-    protected override Task OnInitializedAsync() => SearchAsync();
-
-    private Dictionary<string, object?> Params() => new()
-    {
-        ["user_id"] = _userCode ?? string.Empty,
-        ["prj_rid"] = _projectCode ?? string.Empty,
-        ["start_day"] = _range?.Range.Start.ToString("yyyyMMdd") ?? string.Empty,
-        ["end_day"] = _range?.Range.End.ToString("yyyyMMdd") ?? string.Empty,
-    };
-
-    private Task SearchAsync() => LoadAsync(async () =>
-    {
-        await _grid.LoadAsync(Params());
-        return _grid.Data.Table.Rows.Count;
-    }, "그 기간에 투입 내역이 없습니다.", "투입 내역을 읽지 못했습니다");
-
-    private Task SaveAsync() => RunAsync(
-        () => _grid.SaveAsync(Params()), "저장했습니다.", "저장하지 못했습니다");
-
-    private Task FillUser(DataRow row)
-    {
-        if (row.Table.Columns.Contains("user_id"))
-        {
-            row["user_id"] = _userCode ?? string.Empty;
-        }
-        return Task.CompletedTask;
-    }
-}
+<ParticipationBoard Start="ParticipationBoard.BoardAxis.Person" />

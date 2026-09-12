@@ -35,7 +35,11 @@
 }
 else
 {
-    <DxComboBox Data="@_options"
+        @* **검증을 끈다.** 이 부품은 `Value`/`ValueChanged` 로 값을 주고받으므로
+       DevExpress 가 기대하는 `ValueExpression` 이 없다. `EditForm` 안(표의 편집
+       창)에 들어가면 그것을 필수로 보고 던지는데, 그 예외가 **회로를 끊어**
+       그 순간부터 화면 전체가 안 눌린다. 우리는 DevExpress 검증을 쓰지 않는다. *@
+<DxComboBox Data="@_options"
                 TextFieldName="@nameof(BizOption.Label)"
                 ValueFieldName="@nameof(BizOption.Value)"
                 Value="@Value"
@@ -45,6 +49,7 @@ else
                 SearchFilterCondition="ListSearchFilterCondition.Contains"
                 ClearButtonDisplayMode="@(AllowClear ? DataEditorClearButtonDisplayMode.Auto : DataEditorClearButtonDisplayMode.Never)"
                 Enabled="@(!Disabled)"
+                ValidationEnabled="false"
                 CssClass="pm-biz-select" />
 }
 

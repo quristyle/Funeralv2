@@ -786,6 +786,32 @@
   };
 
   /**
+   * 사이드바에서 **방금 고른 메뉴를 보이는 자리로 굴린다.**
+   *
+   * 헤더의 브레드크럼을 누르면 트리가 그 가지를 펴고 고르는데(C# 쪽
+   * `SidebarMenu.RevealAsync`), 메뉴가 179개라 **펴 놓아도 화면 밖일 때가
+   * 많다.** 그러면 눌러도 아무 일이 없는 것처럼 보인다.
+   *
+   * 스크롤 위치는 브라우저만 아는 값이라 이 한 줄만 JS 로 한다.
+   * 고른 자리는 DevExpress 가 `aria-selected` 로 표시해 준다(26.1 에서 확인) —
+   * 우리 클래스를 붙일 자리가 없어 그 표준 속성을 쓴다.
+   *
+   * `block: 'nearest'` 다. 화면 안에 이미 있으면 굴리지 않고, 밖이면 가장
+   * 가까운 가장자리까지만 온다 — 가운데로 끌어오면 위쪽 가지들이 시야에서
+   * 밀려나 방금 편 자리가 어디에 붙은 것인지 알 수 없다.
+   */
+  window.jsiniSidebar = {
+    reveal: function () {
+      var node = document.querySelector(
+        '.jsini-sidebar__tree [role="treeitem"][aria-selected="true"]');
+
+      if (!node) return;
+
+      node.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    },
+  };
+
+  /**
    * 감춰 둔 폼을 제출한다.
    *
    * [이것이 없어서 로그아웃이 조용히 안 되고 있었다]
@@ -1288,6 +1314,61 @@
     }
   }
 
+  // ── 로그인 화면의 「아이디 기억하기」 ──────────────────────
+  //
+  // [왜 여기 순수 JS 인가]
+  //
+  // 로그인 화면에는 **회로가 없다**(`PublicNoticePopup` 머리말). 옛 Vue
+  // 화면은 vben 의 로그인 부품이 localStorage 에 아이디를 남겼는데, 그 일을
+  // 회로 없이 해야 해서 이리로 왔다.
+  //
+  // 열쇠 모양도 옛 화면과 같다 — `REMEMBER_ME_USERNAME_<호스트>`.
+  // **호스트마다 따로 두는 이유**는 개발·운영을 같은 브라우저로 오가기
+  // 때문이다. 하나로 두면 개발에서 친 아이디가 운영 화면에 채워진다.
+  window.jsiniLogin = {
+    /**
+     * 로그인 폼을 살린다. 두 번 불러도 한 번만 듣는다.
+     *
+     * @param {HTMLFormElement} form `[data-jsini-login]`
+     */
+    init: function (form) {
+      if (!form || form.dataset.jsiniLoginReady) return;
+      form.dataset.jsiniLoginReady = '1';
+
+      var id = form.querySelector('#username');
+      var check = form.querySelector('[data-remember]');
+
+      if (!id || !check) return;
+
+      var key = 'REMEMBER_ME_USERNAME_' + location.hostname;
+      var saved = readLocal(key);
+
+      // **서버가 채워 둔 값을 덮지 않는다.** 개발 자동 로그인이 아이디를
+      // 미리 넣어 두는데, 저장된 값으로 덮으면 그 장비에서 남의 아이디로
+      // 로그인을 시도하게 된다. 비어 있을 때만 채운다.
+      if (saved) {
+        check.checked = true;
+
+        if (!id.value) {
+          id.value = saved;
+        }
+      }
+
+      // 제출을 막지 않는다 — 적어 두기만 하고 폼은 그대로 나간다.
+      form.addEventListener('submit', function () {
+        try {
+          if (check.checked && id.value) {
+            window.localStorage.setItem(key, id.value);
+          } else {
+            window.localStorage.removeItem(key);
+          }
+        } catch (e) {
+          // 사생활 보호 모드다. 기억하지 못할 뿐 로그인은 그대로 된다.
+        }
+      });
+    },
+  };
+
   /**
    * 문서에 있는 공지 팝업을 모두 살린다.
    *
@@ -1302,6 +1383,12 @@
     var nodes = document.querySelectorAll('[data-jsini-notice]');
 
     for (var i = 0; i < nodes.length; i++) window.jsiniNotice.init(nodes[i]);
+
+    // 로그인 폼도 같은 길로 받는다. 인라인 <script> 가 먼저 살리지만,
+    // 향상된 이동으로 들어오면 그 줄이 돌지 않는다.
+    var forms = document.querySelectorAll('[data-jsini-login]');
+
+    for (var f = 0; f < forms.length; f++) window.jsiniLogin.init(forms[f]);
   }
 
   if (document.readyState === 'loading') {

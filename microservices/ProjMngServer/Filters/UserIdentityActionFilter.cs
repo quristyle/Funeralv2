@@ -15,18 +15,23 @@ namespace ProjMngServer.Filters;
 /// <c>X-User-Id</c> 헤더다(ApiGateway/Program.cs 에서 외부에서 들어온 X-User-* 는 먼저 지운다).
 /// 그 값은 JSini 로그인 아이디(<c>scom.accounts.user_id</c>)이고, 프로젝트관리의
 /// <c>projmng.dev_user.user_id</c> 와 같은 체계다.
+///
+/// <para>
+/// [프로시저 이름을 막던 목록이 여기 있었다]
+/// </para>
+/// <para>
+/// <c>sp_proj_login</c> — 아이디·비밀번호를 받아 사용자 행을 돌려주던 이식 전
+/// 자체 로그인이다. 프로시저 이름을 <b>클라이언트가 정하는 통로</b>가 있어서
+/// 라우트를 지우는 것만으로는 막히지 않았고, 그래서 이름으로 막았다.
+/// </para>
+/// <para>
+/// <b>그 통로가 없어졌다</b>(2026-09-12 — <c>/api/Proj</c> · <c>/api/Sys</c>).
+/// 지금 <see cref="RequestDto.ProcName"/> 에 오는 것은 프로시저 이름이 아니라
+/// <c>projmng.devsqlresp</c> 에 <b>등록된 질의 이름</b>(<c>tablelist</c> …)이거나
+/// 파일 훑기 이름(<c>md_*</c>)이다. 막을 이름이 남지 않아 목록을 걷어냈다.
+/// </para>
 /// </summary>
 public class UserIdentityActionFilter : IActionFilter {
-
-  /// <summary>
-  /// 인증 성격의 프로시저는 이 통로로 부르지 못하게 막는다.
-  ///
-  /// <c>sp_proj_login</c> 은 아이디·비밀번호를 받아 사용자 행을 돌려주던 이식 전 자체 로그인이다.
-  /// 인증은 JSini 포털(AuthServer)이 단독으로 맡으므로 여기서 다시 열어 둘 이유가 없다.
-  /// 이 경로는 프로시저 이름을 클라이언트가 정하므로, 라우트를 지우는 것만으로는 막히지 않는다.
-  /// </summary>
-  private static readonly HashSet<string> BlockedProcedures =
-    new(StringComparer.OrdinalIgnoreCase) { "sp_proj_login" };
 
   private readonly IHostEnvironment _env;
   private readonly ILogger<UserIdentityActionFilter> _logger;
@@ -83,16 +88,6 @@ public class UserIdentityActionFilter : IActionFilter {
 
     foreach (var arg in context.ActionArguments.Values) {
       if (arg is not RequestDto dto) continue;
-
-      if (BlockedProcedures.Contains(dto.ProcName ?? string.Empty)) {
-        _logger.LogWarning("[신원] 차단된 프로시저 호출: {ProcName} (user={UserId})", dto.ProcName, userId);
-        // 표준 봉투로 거절한다 (결정 D-A1 — 옛 `{ code: -403, ... }` 봉투는 2026-09-04 에 내렸다).
-        context.Result = new ObjectResult(
-          JSini.Shared.DTOs.ApiResponse<object>.Fail(
-            "인증은 JSini 포털이 담당합니다. 이 프로시저는 사용하지 않습니다.",
-            code: "E403")) { StatusCode = 403 };
-        return;
-      }
 
       if (string.IsNullOrEmpty(userId)) {
         // 게이트웨이를 지나지 않은 직접 호출이다.

@@ -1,135 +1,236 @@
 @page "/projmng/comm/common-code"
 @attribute [RouteKey("projmng.comm.common-code")]
-@using System.Data
 
 @*
-    [프로젝트 공통코드 관리]
+    [공통코드]
 
-    이력: 옛 Blazor `Pages/Comm/CommCodeMng.razor` (`/commcode`)
-          → Vue `views/projmng/comm/common-code.vue`
-          → 여기. Vue 판이 정본이다 (옛 Blazor 뒤로 고쳐진 것이 있다).
+    이력: Vue `views/projmng/comm/common-code` → `DynamicGrid` +
+          `sp_devcomm_exec` → **여기 (`CommGrd` + REST)**
+    API: `projmng/dev-common-codes`
 
-    프로시저: `sp_devcomm_exec`
+    왼쪽이 묶음, 오른쪽이 그 묶음의 코드다. **둘은 같은 표**이고 상위
+    코드(`cm_pcd`)가 비어 있으면 묶음, 채워져 있으면 코드다.
 
-    왼쪽에서 코드 그룹(main)을 고르면 오른쪽에 그 하위 코드가 나온다.
-    하위에 행을 추가하면 상위 코드(`cm_pcd`)를 자동으로 채운다.
+    ────────────────────────────────────────────────────────────
+    [포털 공통코드와 다른 표다]
 
-    [포털의 공통코드 화면과 다른 것이다]
+    이름이 같아 헷갈리기 쉬운데 `scom` 쪽의 공통코드와 **아무 관계가 없다.**
+    여기서 고친 값은 포털 화면의 드롭다운에 나타나지 않는다 — 그쪽은
+    [포털관리 › 공통코드]다. 클라이언트 이름에 `Dev` 를 붙여 둔 이유이기도 하다.
 
-    포털에도 공통코드 화면이 있지만 그건 포털 자신의 코드(`scom`)다.
-    이 화면은 프로젝트관리(`projmng`) 코드를 다룬다. 헷갈려서 잘못 고치면
-    엉뚱한 쪽이 바뀌므로 제목에 그 구분을 적어 둔다.
+    [한 건씩 팝업으로 고친다]
+
+    옛 화면은 표 안에서 여러 줄을 고쳐 두었다가 한 번에 저장했다. 코드는
+    **한 줄이 곧 한 뜻**이라 여러 줄을 동시에 손보는 일이 드물고, 팝업이면
+    칸 이름이 한글로 보인다(표 안 편집은 `cm_val2` 같은 DB 이름 그대로였다).
+
+    [묶음을 지울 때 딸린 코드를 확인한다]
+
+    표에 외래키가 없어 DB 가 막아 주지 않는다. 그냥 지우면 갈 곳 없는 코드가
+    남고, 그 코드는 어느 화면에도 안 나오면서 목록 건수만 늘린다.
+    **서버가 센다** — 화면에서 세면 방금 다른 사람이 넣은 것을 못 본다.
 *@
 
 @inherits DataPage
-@inject ProjMngClient Client
+@inject DevCommonCodeClient Api
 
 <PageTitle>공통코드 · 프로젝트관리</PageTitle>
 
+<PageNotice Tone="NoticeTone.Info"
+            Text="프로젝트관리 전용 코드입니다. 포털 화면의 드롭다운은 [포털관리 › 공통코드]에서 정합니다." />
+
 <PageNotice Text="@Notice" Tone="@Tone" />
 
-<SplitPane Size="35">
-    <First>
-        <DynamicGrid Data="@_main.Data"
-                     Loading="@_main.IsLoading"
-                     HiddenCols="cm_rid,cm_prop,cm_pcd,cm_val,cm_val2,cm_val3,cm_srt"
-                     ExportName="공통코드-그룹"
-                     OnRefresh="@SearchAsync"
-                     OnSave="@SaveMainAsync"
-                     OnRowClick="@OnMainSelectedAsync" />
-    </First>
-    <Second>
-        <DynamicGrid Data="@_detail.Data"
-                     Loading="@_detail.IsLoading"
-                     HiddenCols="cm_rid,cm_prop"
-                     ExportName="공통코드-상세"
-                     HideAdd="@(_selectedMain is null)"
-                     OnSave="@SaveDetailAsync"
-                     OnAdd="@OnDetailAddAsync"
-                     OnDelete="@DeleteDetailAsync" />
-    </Second>
-</SplitPane>
+<div class="pm-split">
+    <CommCont Title="묶음" Hint="@($"{_groups.Count}건")" CssClass="pm-split__side">
+        <CommGrd TItem="DevCommonCodeDto"
+                 Data="@_groups"
+                 EditFormTitle="코드 묶음"
+                 ExportName="공통코드묶음"
+                 PageSize="20"
+                 EmptyText="등록된 묶음이 없습니다."
+                 OnNew="@FillNewGroup"
+                 OnSave="@SaveAsync"
+                 OnDelete="@DeleteGroupAsync"
+                 DeleteConfirm="@(g => $"묶음 「{g.CmNm}」({g.CmCd}) 을(를) 지웁니다.\n딸린 코드가 있으면 지워지지 않습니다.")"
+                 Reload="@LoadGroupsAsync"
+                 SelectedItem="@_group"
+                 SelectedItemChanged="@PickGroupAsync">
+            <Columns>
+                <DxGridDataColumn FieldName="@nameof(DevCommonCodeDto.CmCd)" Caption="코드" Width="130"
+                                  TextAlignment="GridTextAlignment.Left" />
+                <DxGridDataColumn FieldName="@nameof(DevCommonCodeDto.CmNm)" Caption="이름" MinWidth="120"
+                                  TextAlignment="GridTextAlignment.Left" />
+                <DxGridDataColumn FieldName="@nameof(DevCommonCodeDto.CmSrt)" Caption="순서" Width="70" />
+            </Columns>
+
+            <EditFormTemplate Context="edit">
+                @CodeForm((DevCommonCodeDto)edit.EditModel, isGroup: true)
+            </EditFormTemplate>
+        </CommGrd>
+    </CommCont>
+
+    <CommCont Title="@(_group is null ? "코드" : $"{_group.CmNm} 의 코드")"
+              Hint="@(_group is null ? string.Empty : $"{_codes.Count}건")"
+              CssClass="pm-split__main">
+        @if (_group is null)
+        {
+            <PageNotice Text="왼쪽에서 묶음을 고르면 그 코드가 나옵니다." Tone="NoticeTone.Info" />
+        }
+        else
+        {
+            <CommGrd TItem="DevCommonCodeDto"
+                     Data="@_codes"
+                     EditFormTitle="코드"
+                     ExportName="공통코드"
+                     PageSize="20"
+                     EmptyText="이 묶음에 코드가 없습니다."
+                     OnNew="@FillNewCode"
+                     OnSave="@SaveAsync"
+                     OnDelete="@DeleteCodeAsync"
+                     DeleteConfirm="@(c => $"코드 「{c.CmNm}」({c.CmCd}) 을(를) 지웁니다.\n되돌릴 수 없습니다.")"
+                     Reload="@LoadCodesAsync">
+                <Columns>
+                    <DxGridDataColumn FieldName="@nameof(DevCommonCodeDto.CmCd)" Caption="코드" Width="130"
+                                      TextAlignment="GridTextAlignment.Left" />
+                    <DxGridDataColumn FieldName="@nameof(DevCommonCodeDto.CmNm)" Caption="이름" MinWidth="120"
+                                      TextAlignment="GridTextAlignment.Left" />
+                    <DxGridDataColumn FieldName="@nameof(DevCommonCodeDto.CmVal)" Caption="값" MinWidth="100"
+                                      TextAlignment="GridTextAlignment.Left" />
+                    <DxGridDataColumn FieldName="@nameof(DevCommonCodeDto.CmType)" Caption="구분" Width="90" />
+                    <DxGridDataColumn FieldName="@nameof(DevCommonCodeDto.CmSrt)" Caption="순서" Width="70" />
+                </Columns>
+
+                <EditFormTemplate Context="edit">
+                    @CodeForm((DevCommonCodeDto)edit.EditModel, isGroup: false)
+                </EditFormTemplate>
+            </CommGrd>
+        }
+    </CommCont>
+</div>
 
 @code {
-    private const string Proc = "sp_devcomm_exec";
+    private IReadOnlyList<DevCommonCodeDto> _groups = [];
+    private IReadOnlyList<DevCommonCodeDto> _codes = [];
 
-    private ProcGrid _main = default!;
-    private ProcGrid _detail = default!;
+    private DevCommonCodeDto? _group;
 
-    /// <summary>고른 상위 코드. 하위 행을 새로 만들 때 부모 키로 쓴다.</summary>
-    private DataRow? _selectedMain;
+    /// <summary>
+    /// 편집 창. <b>묶음과 코드가 같은 표</b>라 같은 폼을 쓴다 — 다른 것은
+    /// 상위 코드 칸 하나뿐이고, 그것은 묶음일 때 아예 없다.
+    /// </summary>
+    private RenderFragment CodeForm(DevCommonCodeDto c, bool isGroup) =>@<text>
+        <DxFormLayout CssClass="pm-editform">
+            <DxFormLayoutItem Caption="코드" ColSpanMd="6">
+                <DxTextBox @bind-Text="c.CmCd" NullText="필수" />
+            </DxFormLayoutItem>
 
-    protected override void OnInitialized()
+            <DxFormLayoutItem Caption="이름" ColSpanMd="6">
+                <DxTextBox @bind-Text="c.CmNm" />
+            </DxFormLayoutItem>
+
+            @if (!isGroup)
+            {
+                <DxFormLayoutItem Caption="값" ColSpanMd="6">
+                    <DxTextBox @bind-Text="c.CmVal" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="구분" ColSpanMd="6">
+                    <DxTextBox @bind-Text="c.CmType" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="값2" ColSpanMd="6">
+                    <DxTextBox @bind-Text="c.CmVal2" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="값3" ColSpanMd="6">
+                    <DxTextBox @bind-Text="c.CmVal3" />
+                </DxFormLayoutItem>
+            }
+
+            <DxFormLayoutItem Caption="속성" ColSpanMd="6">
+                <DxTextBox @bind-Text="c.CmProp" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="순서" ColSpanMd="6">
+                @* 비우면 서버가 999 를 넣는다 — 옛 수정이 쓰던 기본값과 같다. *@
+                <DxSpinEdit @bind-Value="c.CmSrt" NullText="비우면 999" />
+            </DxFormLayoutItem>
+
+            @* 옛 프로시저가 읽지도 쓰지도 않던 칸이다. 표에 있으므로 다룬다. *@
+            <DxFormLayoutItem Caption="비고" ColSpanMd="12">
+                <DxTextBox @bind-Text="c.CmRmk" />
+            </DxFormLayoutItem>
+        </DxFormLayout>
+    </text>;
+
+    protected override Task OnInitializedAsync() => LoadGroupsAsync();
+
+    private Task LoadGroupsAsync() => LoadAsync(async () =>
     {
-        _main = new ProcGrid(Client, Proc);
-        _detail = new ProcGrid(Client, Proc);
-    }
+        _groups = await Api.GroupsAsync();
 
-    protected override Task OnInitializedAsync() => SearchAsync();
-
-    private Task SearchAsync() => LoadAsync(async () =>
-    {
-        _selectedMain = null;
-        _detail.Clear();
-        await _main.LoadAsync(new Dictionary<string, object?> { ["srch_type"] = "main" });
-
-        return _main.Data.Table.Rows.Count;
-    }, "공통코드가 없습니다.", "공통코드를 읽지 못했습니다");
-
-    private Task OnMainSelectedAsync(DataRow? row)
-    {
-        _selectedMain = row;
-
-        if (row is null)
+        // 고른 묶음이 사라졌으면(지웠거나) 오른쪽을 비운다.
+        if (_group is not null && _groups.All(g => g.CmRid != _group.CmRid))
         {
-            _detail.Clear();
+            _group = null;
+            _codes = [];
+        }
+
+        return _groups.Count;
+    }, "등록된 묶음이 없습니다.", "묶음을 읽지 못했습니다");
+
+    private Task PickGroupAsync(DevCommonCodeDto? group)
+    {
+        _group = group;
+
+        if (group is null)
+        {
+            _codes = [];
             return Task.CompletedTask;
         }
 
-        return LoadAsync(async () =>
-        {
-            await _detail.LoadAsync(new Dictionary<string, object?>
-            {
-                ["cm_pcd"] = ParentCode(),
-            });
-
-            return _detail.Data.Table.Rows.Count;
-        }, "하위 코드가 없습니다.", "하위 코드를 읽지 못했습니다");
+        return LoadCodesAsync();
     }
 
-    private Task SaveMainAsync() =>
-        RunAsync(() => _main.SaveAsync(), "저장했습니다.", "저장하지 못했습니다");
+    private Task LoadCodesAsync() => _group is null ? Task.CompletedTask : LoadAsync(async () =>
+    {
+        _codes = await Api.ChildrenAsync(_group.CmCd ?? string.Empty);
+        return _codes.Count;
+    }, "이 묶음에 코드가 없습니다.", "코드를 읽지 못했습니다");
 
-    private Task SaveDetailAsync() => RunAsync(
-        () => _detail.SaveAsync(new Dictionary<string, object?> { ["cm_pcd"] = ParentCode() }),
-        "저장했습니다.", "저장하지 못했습니다");
+    /// <summary>새 묶음은 상위 코드가 없다 — 그것이 묶음의 정의다.</summary>
+    private void FillNewGroup(DevCommonCodeDto c) => c.CmPcd = null;
 
     /// <summary>
-    /// 하위 행을 새로 만들면 상위 코드를 채워 준다.
-    /// 옛 Blazor 의 `AddBtnEvent2` 가 하던 일이다 — 안 채우면 저장할 때
-    /// 부모 없는 코드가 들어가 목록에서 사라진다.
+    /// 새 코드는 <b>고른 묶음에 붙는다.</b> 사용자가 적게 두면 어느 묶음에도
+    /// 안 붙은 줄이 생기고, 그 줄은 어느 화면에도 안 나온다.
     /// </summary>
-    private Task OnDetailAddAsync(DataRow row)
+    private void FillNewCode(DevCommonCodeDto c) => c.CmPcd = _group?.CmCd;
+
+    private async Task SaveAsync((DevCommonCodeDto Item, bool IsNew) e)
     {
-        if (row.Table.Columns.Contains("cm_pcd"))
+        if (e.IsNew)
         {
-            row["cm_pcd"] = ParentCode();
+            await Api.CreateAsync(e.Item);
         }
-        return Task.CompletedTask;
+        else
+        {
+            await Api.UpdateAsync(e.Item);
+        }
     }
 
-    private Task DeleteDetailAsync(DataRow row) =>
-        RunAsync(() => _detail.DeleteAsync(row), "삭제했습니다.", "삭제하지 못했습니다");
-
-    /// <summary>고른 상위 코드의 코드값. 없으면 빈 문자열.</summary>
-    private string ParentCode()
+    /// <summary>묶음 삭제. 딸린 코드가 있으면 서버가 막는다(머리말).</summary>
+    private async Task DeleteGroupAsync(DevCommonCodeDto g)
     {
-        if (_selectedMain is null || !_selectedMain.Table.Columns.Contains("cm_cd"))
-        {
-            return string.Empty;
-        }
+        await Api.DeleteAsync(g.CmRid, g.CmCd);
 
-        var value = _selectedMain["cm_cd"];
-        return value == DBNull.Value ? string.Empty : value.ToString() ?? string.Empty;
+        if (_group?.CmRid == g.CmRid)
+        {
+            _group = null;
+            _codes = [];
+        }
     }
+
+    private Task DeleteCodeAsync(DevCommonCodeDto c) => Api.DeleteAsync(c.CmRid);
 }

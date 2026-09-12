@@ -9,10 +9,24 @@
     개발 도구 화면들이 `Others["db_nick"]` · `Others["db_schema"]` 같은 부가
     컬럼을 프로시저 파라미터로 다시 실어 보내야 한다. 코드만 올려 주면 화면이
     목록을 다시 뒤져야 하고, 그러면 목록을 화면마다 들고 있어야 한다.
+
+    [목록에 없는 값을 만나면 — 조건줄과 편집 창의 사정이 다르다]
+
+    조건줄에서는 버리는 것이 맞다. 상위를 바꾸면(프로젝트를 갈아 끼우면) 앞서
+    고른 값은 새 목록에 없고, 그것을 남겨 두면 **엉뚱한 조회가 나간다.**
+
+    편집 창은 반대다. 거기 담긴 값은 **이미 DB 에 저장된 한 줄의 칸**이라,
+    목록에 없다고 비워 버리면 종류를 안 건드리고 포트만 고쳐도 그 칸이 지워진
+    채로 저장된다. 코드를 뒤늦게 지웠거나 옛 값이 남아 있을 때 그렇게 된다.
+    그런 자리는 `KeepUnknownValue` 로 켠다 — 값을 그대로 항목으로 세워 둔다.
 *@
 
 @inject CommonCodes Codes
 
+    @* **검증을 끈다.** 이 부품은 `Value`/`ValueChanged` 로 값을 주고받으므로
+       DevExpress 가 기대하는 `ValueExpression` 이 없다. `EditForm` 안(표의 편집
+       창)에 들어가면 그것을 필수로 보고 던지는데, 그 예외가 **회로를 끊어**
+       그 순간부터 화면 전체가 안 눌린다. 우리는 DevExpress 검증을 쓰지 않는다. *@
 <DxComboBox Data="@_items"
             TextFieldName="@nameof(CommonCodeItem.Name)"
             ValueFieldName="@nameof(CommonCodeItem.Code)"
@@ -21,6 +35,7 @@
             NullText="@Placeholder"
             ClearButtonDisplayMode="@(AllowClear ? DataEditorClearButtonDisplayMode.Auto : DataEditorClearButtonDisplayMode.Never)"
             Enabled="@(!Disabled)"
+            ValidationEnabled="false"
             CssClass="pm-code-select" />
 
 @code {
@@ -51,6 +66,12 @@
 
     /// <summary>목록을 읽은 뒤 첫 항목을 자동으로 고른다.</summary>
     [Parameter] public bool AutoSelectFirst { get; set; } = true;
+
+    /// <summary>
+    /// 들고 온 값이 목록에 없어도 <b>버리지 않는다.</b> 그 값을 그대로 항목
+    /// 하나로 세워 보여 준다. 저장된 줄을 고치는 편집 창에서 켠다(머리말).
+    /// </summary>
+    [Parameter] public bool KeepUnknownValue { get; set; }
 
     /// <summary>맨 앞에 "전체"(빈 코드) 항목을 넣는다. 옛 이름은 <c>IsAll</c>.</summary>
     [Parameter] public bool ShowAll { get; set; }
@@ -97,6 +118,14 @@
 
         if (current is not null)
         {
+            return;
+        }
+
+        // 목록에 없는 값이다. 켜 두었으면 그대로 세운다 — 고르개가 비어
+        // 보이지 않고, 다른 칸만 고쳐 저장해도 이 칸이 지워지지 않는다.
+        if (KeepUnknownValue && !string.IsNullOrEmpty(Value))
+        {
+            _items = [.. _items, new CommonCodeItem(Value, Value, new Dictionary<string, string>())];
             return;
         }
 

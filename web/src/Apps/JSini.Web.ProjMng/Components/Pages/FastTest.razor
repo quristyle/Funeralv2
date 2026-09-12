@@ -1,52 +1,79 @@
 @page "/projmng/tool/fast-test"
 @attribute [RouteKey("projmng.tool.fast-test")]
-@using System.Data
 
 @*
     [Fast 호출 테스트]
 
-    이력: Vue `views/projmng/proj/fast-test.vue` → 여기.
-    프로시저: `sp_proj_wbs_exec`
+    이력: Vue `views/projmng/proj/fast-test.vue` → `DynamicGrid` +
+          `sp_proj_wbs_exec` → **여기 (`CommGrd` + REST)**
+    API: `projmng/wbs`
+
+    통로가 살아 있는지 눈으로 보는 화면이다. **보기만 한다** — 고치는 것은
+    WBS 화면이다. 옛 이름의 「Fast」 는 프로시저를 거치지 않고 바로 부른다는
+    뜻이었는데, 이제는 모든 화면이 그렇다.
 *@
 
 @inherits DataPage
-@inject ProjMngClient Client
+@inject WbsClient Api
 
 <PageTitle>Fast 호출 테스트 · 프로젝트관리</PageTitle>
 
+<CommSch OnSearch="@SearchAsync">
+    <Fields>
+        <CommSchItem Label="프로젝트">
+            <CodeSelect CodeId="projlist" @bind-Value="_projectCode" OnChanged="@(_ => SearchAsync())" />
+        </CommSchItem>
+    </Fields>
+</CommSch>
+
 <PageNotice Text="@Notice" Tone="@Tone" />
 
-<SearchBar>
-    <ChildContent>
-        <CodeSelect CodeId="projlist" @bind-Value="_projectCode" OnChanged="@(_ => SearchAsync())" />
-    </ChildContent>
-    <Actions>
-        <PermissionView Action="MenuAction.Search">
-            <DxButton Text="호출" RenderStyle="ButtonRenderStyle.Primary" Click="@SearchAsync" />
-        </PermissionView>
-    </Actions>
-</SearchBar>
-
-<DynamicGrid Data="@_grid.Data"
-             Loading="@_grid.IsLoading"
-             ExportName="fast-test" />
+<CommCont Title="호출 결과" Hint="@($"{_rows.Count}건")">
+    <CommGrd TItem="WbsItemDto"
+             Data="@_rows"
+             ExportName="fast-test"
+             PageSize="30"
+             EmptyText="돌아온 줄이 없습니다."
+             Reload="@SearchAsync">
+        <Columns>
+            <DxGridDataColumn FieldName="@nameof(WbsItemDto.WbsId)" Caption="번호" Width="80" />
+            <DxGridDataColumn FieldName="@nameof(WbsItemDto.ProcId)" Caption="공정" Width="90" />
+            <DxGridDataColumn FieldName="@nameof(WbsItemDto.ProcNm)" Caption="일감" MinWidth="200"
+                              TextAlignment="GridTextAlignment.Left" />
+            <DxGridDataColumn FieldName="@nameof(WbsItemDto.ScheduleType)" Caption="종류" Width="100" />
+            <DxGridDataColumn FieldName="@nameof(WbsItemDto.WbsState)" Caption="상태" Width="90" />
+            <DxGridDataColumn FieldName="@nameof(WbsItemDto.PlanSdt)" Caption="계획 시작" Width="105"
+                              DisplayFormat="yyyy-MM-dd" />
+            <DxGridDataColumn FieldName="@nameof(WbsItemDto.PlanEdt)" Caption="계획 종료" Width="105"
+                              DisplayFormat="yyyy-MM-dd" />
+        </Columns>
+    </CommGrd>
+</CommCont>
 
 @code {
-    private ProcGrid _grid = default!;
-    private string? _projectCode = "7";
+    private IReadOnlyList<WbsItemDto> _rows = [];
 
-    protected override void OnInitialized()
-    {
-        _grid = new ProcGrid(Client, "sp_proj_wbs_exec") { IsServerFix = true };
-    }
+    /// <summary>
+    /// 고른 프로젝트. <b>값을 미리 박아 두지 않는다.</b>
+    ///
+    /// 옛 화면은 <c>"7"</c> 을 적어 두었는데, 고르개는 <b>이미 고른 값이 목록에
+    /// 있으면 다시 고르지 않는다</b>(그래야 다시 그릴 때마다 선택이 튀지 않는다).
+    /// 그 말은 미리 박아 둔 값이 있으면 <c>OnChanged</c> 가 안 불리고
+    /// <b>첫 조회가 영영 안 나간다</b>는 뜻이다 — 프로젝트 이름은 떠 있는데
+    /// 표는 빈 채였다.
+    /// </summary>
+    private string? _projectCode;
+
+    private int? ProjectRid => int.TryParse(_projectCode, out var rid) ? rid : null;
+
+    // **화면을 열 때 여기서 조회하지 않는다.** 프로젝트 고르개가 첫 항목을
+    // 스스로 고르면서 조회를 건다(`AutoSelectFirst`). 둘 다 하면 **프로젝트를
+    // 안 건 조회와 건 조회가 같이 날아가고**, 늦게 돌아온 쪽이 화면에 남는다 —
+    // 프로젝트를 골랐는데 목록은 전체인 상태가 된다. 실제로 그렇게 보였다.
 
     private Task SearchAsync() => LoadAsync(async () =>
     {
-        await _grid.LoadAsync(new Dictionary<string, object?>
-        {
-            ["prj_rid"] = _projectCode ?? "7"
-        });
-
-        return _grid.Data.Table.Rows.Count;
-    }, "조회 결과가 없습니다.", "조회하지 못했습니다");
+        _rows = await Api.ListAsync(ProjectRid);
+        return _rows.Count;
+    }, "돌아온 줄이 없습니다.", "부르지 못했습니다");
 }

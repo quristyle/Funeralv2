@@ -28,6 +28,64 @@ public sealed class AiProvider
     public string Model { get; init; } = string.Empty;
 
     /// <summary>
+    /// 이 공급자에게 <b>어떤 형식으로 말을 거는지</b>. <c>openai</c>(기본) · <c>anthropic</c>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 로컬 LLM · Groq · OpenRouter 는 셋 다 <b>OpenAI 호환</b>이다 — 주소만 다를 뿐
+    /// 같은 본문(<c>messages</c> 배열 · <c>choices</c> 응답 · <c>data:</c> SSE)을 쓴다.
+    /// 그래서 지금까지는 공급자를 늘리는 일이 <b>설정 한 줄</b>이었다.
+    /// </para>
+    /// <para>
+    /// <b>Claude 는 그 계열이 아니다.</b> Anthropic Messages API 는
+    /// 지시(system)를 메시지 배열이 아니라 <b>별도 항목</b>으로 받고, 응답은
+    /// <c>content</c> 블록 배열이며, 스트리밍 이벤트 이름도 다르다. 그래서
+    /// 같은 HttpClient 경로로는 부를 수 없고, 이 값으로 보내는 길을 가른다
+    /// (<see cref="AnthropicTransport"/>).
+    /// </para>
+    /// </remarks>
+    public string Protocol { get; init; } = OpenAiProtocol;
+
+    /// <summary>OpenAI 호환 공급자인지(로컬 LLM · Groq · OpenRouter).</summary>
+    public bool IsAnthropic =>
+        string.Equals(Protocol, AnthropicProtocol, StringComparison.OrdinalIgnoreCase);
+
+    public const string OpenAiProtocol = "openai";
+    public const string AnthropicProtocol = "anthropic";
+
+    /// <summary>
+    /// 생각 깊이(<c>low</c> · <c>medium</c> · <c>high</c> · <c>xhigh</c> · <c>max</c>).
+    /// <b>Anthropic 전용</b>이고, 비우면 공급자 기본값을 따른다.
+    /// </summary>
+    /// <remarks>
+    /// Claude 는 <b>생각이 기본으로 켜져 있고</b>, 생각도 <see cref="MaxTokens"/> 를
+    /// 같이 쓴다. 깊이를 올리면 답이 좋아지지만 토큰과 시간이 함께 늘어난다 —
+    /// 대화 화면은 사람이 기다리는 자리라 <c>medium</c> 에서 시작한다.
+    /// </remarks>
+    public string Effort { get; init; } = string.Empty;
+
+    /// <summary>
+    /// <b>다른 공급자가 실패했을 때 이곳으로 넘겨도 되는지.</b> 기본은 허용.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>돈이 드는 공급자를 위해 있다.</b> 지금까지 자동 전환이 안전했던 이유는
+    /// 후보가 전부 무료였기 때문이다 — 로컬은 사내 장비고, Groq · OpenRouter 는
+    /// 결제 수단을 등록하지 않아 한도를 넘으면 과금이 아니라 차단된다.
+    /// </para>
+    /// <para>
+    /// <b>Anthropic 은 다르다.</b> 무료 등급이 없고 쓴 만큼 청구된다. 이 상태로
+    /// 후보에 두면 <b>로컬 LLM 이 꺼져 있는 동안 모든 대화가 조용히 유료로 나간다</b> —
+    /// 사람이 고른 적이 없는데도. 그래서 "사람이 직접 골랐을 때만 부른다" 로 둔다.
+    /// </para>
+    /// <para>
+    /// 끄면 <b>넘겨받지 않을 뿐</b>이고, 이 공급자가 실패했을 때 다른 곳으로
+    /// 넘어가는 것은 그대로 된다.
+    /// </para>
+    /// </remarks>
+    public bool AllowAutoFailover { get; init; } = true;
+
+    /// <summary>
     /// 한 번의 응답에 허용하는 최대 토큰.
     /// </summary>
     /// <remarks>
@@ -235,9 +293,8 @@ public sealed class AiProviderRegistry
     ///     이미 <c>TimeoutSeconds</c> 만큼 기다린 뒤에 또 기다리게 된다.
     ///   </item>
     ///   <item>
-    ///     <b>무료 한도 초과(429)</b> — 고장이 아니라 "잠시 못 쓴다" 는 안내다.
-    ///     사람에게 알리고 기다리게 하는 것이 맞다. 몰래 다른 곳으로 넘기면
-    ///     한도가 두 곳에서 소진된다.
+    ///     <b>모델 하나가 붐비는 429</b> — 같은 공급자의 다른 무료 모델은 멀쩡하다.
+    ///     공급자를 넘기는 것이 아니라 <b>모델을 바꿔 다시 부르는</b> 것이 맞다.
     ///   </item>
     ///   <item>
     ///     <b>인증 실패(401)</b> — 설정 문제다. 넘겨서 답이 나오면
@@ -248,8 +305,36 @@ public sealed class AiProviderRegistry
     ///   </item>
     /// </list>
     /// <para>
-    /// 즉 <b>"상대가 아예 없다" 는 것이 확실할 때만</b> 넘긴다. 그때는 넘기지 않아도
-    /// 어차피 실패하므로 잃을 것이 없다.
+    /// <b>[넘기는 두 번째 경우 — 계정 전체 하루 한도(429)]</b>
+    /// </para>
+    /// <para>
+    /// 처음에는 429 를 통째로 제외했다. "한도는 고장이 아니라 안내이고, 몰래 넘기면
+    /// 두 곳의 한도가 같이 준다" 는 이유였는데, <b>계정 전체 한도에는 그 논리가
+    /// 성립하지 않는다.</b>
+    /// </para>
+    /// <list type="bullet">
+    ///   <item>
+    ///     <b>기다려도 안 풀린다.</b> 모델 하나가 붐비는 것은 몇 초면 지나가지만,
+    ///     계정의 무료 하루 한도는 날짜가 바뀌어야 돌아온다. 사람에게 "잠시 뒤에
+    ///     다시" 라고 말하는 것이 사실상 거짓말이 된다.
+    ///   </item>
+    ///   <item>
+    ///     <b>모델을 바꿔도 소용없다</b>(같은 한도를 공유한다). 그래서 아래 층의
+    ///     모델 바꿔치기가 구제해 주지 못하는, 유일하게 막다른 429 다.
+    ///   </item>
+    ///   <item>
+    ///     <b>두 곳의 한도가 같이 줄 일이 없다.</b> 이쪽은 이미 0 이다.
+    ///     넘기지 않아도 어차피 실패하므로 잃을 것이 없다.
+    ///   </item>
+    /// </list>
+    /// <para>
+    /// 판단은 공급자가 준 문구로 한다(<see cref="AiProviderException.IsAccountWideLimit"/>).
+    /// <b>확실하지 않으면 '모델 한 개' 로 본다</b> — 그래야 틀렸을 때 잃는 것이 적다.
+    /// </para>
+    /// <para>
+    /// 즉 <b>"여기서는 더 해 볼 것이 없다" 가 확실할 때만</b> 넘긴다. 넘길 수 있는
+    /// 상대는 <see cref="AiProvider.AllowAutoFailover"/> 가 켜진 공급자뿐이다 —
+    /// 돈이 드는 곳으로 조용히 새지 않게 한다.
     /// </para>
     /// </remarks>
     public bool FailoverOnConnectFailure { get; }
@@ -301,12 +386,18 @@ public sealed class AiProviderRegistry
     }
 
     /// <summary>
-    /// 접속 실패 시 대신 시도할 공급자들. 순서대로 한 번씩 시도한다.
+    /// 자동 전환 때 대신 시도할 공급자들. 순서대로 한 번씩 시도한다.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// <b>설정이 끝난 것만 준다.</b> 키를 넣지 않은 공급자로 넘기면 "접속 실패" 가
     /// "설정 미완" 으로 바뀌기만 하고 사용자는 여전히 답을 못 받는다.
     /// 방금 실패한 공급자도 당연히 뺀다.
+    /// </para>
+    /// <para>
+    /// <b><see cref="AiProvider.AllowAutoFailover"/> 가 꺼진 곳도 뺀다.</b>
+    /// 돈이 드는 공급자로 조용히 넘어가지 않게 하는 장치다 — 이유는 그 항목 설명 참고.
+    /// </para>
     /// </remarks>
     public IReadOnlyList<AiProvider> FailoverCandidates(string failedKey)
     {
@@ -314,6 +405,7 @@ public sealed class AiProviderRegistry
 
         return All
             .Where(p => p.IsConfigured
+                && p.AllowAutoFailover
                 && !string.Equals(p.Key, failedKey, StringComparison.OrdinalIgnoreCase))
             .ToList();
     }
@@ -385,6 +477,11 @@ public sealed class AiProviderRegistry
             ApiBase = section["ApiBase"] ?? string.Empty,
             ApiKey = section["ApiKey"] ?? string.Empty,
             Model = section["Model"] ?? string.Empty,
+            Protocol = section["Protocol"] ?? AiProvider.OpenAiProtocol,
+            Effort = section["Effort"] ?? string.Empty,
+            // 안 적으면 허용이다. 기존 공급자 설정을 고치지 않아도 지금과 똑같이 돈다.
+            AllowAutoFailover =
+                !bool.TryParse(section["AllowAutoFailover"], out var autoFailover) || autoFailover,
             MaxTokens = ReadInt(section["MaxTokens"], 2000),
             TimeoutSeconds = ReadPositiveInt(section["TimeoutSeconds"], 120),
             MaxRequestsPerDay = ReadInt(section["MaxRequestsPerDay"], 0),

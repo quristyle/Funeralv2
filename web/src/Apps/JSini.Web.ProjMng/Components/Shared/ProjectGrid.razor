@@ -1,0 +1,65 @@
+@*
+    프로젝트 표 한 벌. **읽기 전용**이다.
+
+    [왜 부품인가]
+
+    프로젝트 표를 그대로 보여 주는 화면이 셋이다(컴포넌트 · 시트 · 그리드
+    부품 시험). 셋 다 `sp_dev_proj_exec` 를 부르고 있었고, 칸 구성이 같다.
+    같은 칸을 세 번 적으면 하나를 고칠 때 둘이 남는다.
+
+    [이 세 화면은 이름과 다른 것을 보고 있었다]
+
+    「프로젝트 컴포넌트」와 「프로젝트 시트」라는 이름인데 실제로 읽는 것은
+    **프로젝트 목록**이다. 옛 Vue 도, 그 전 Blazor 도 그랬다 — 컴포넌트·시트
+    자료를 담는 표가 아직 없어서, 화면만 먼저 만들어 두고 프로젝트 목록을
+    꽂아 둔 것으로 보인다.
+
+    옮기면서 **그 사실을 감추지 않았다.** 자료를 지어내면 「있는데 안 보인다」가
+    되고, 화면을 지우면 나중에 만들 자리가 없어진다. 지금 보이는 그대로를
+    보여 주고, 각 화면 머리말에 무엇이 없는지 적어 두었다.
+
+    [읽기 전용인 이유]
+
+    옛 화면들은 이 표에 저장·삭제를 걸어 두었는데 **보낸 곳이 제각각**이었다
+    (`ComTest` 는 프로젝트 행을 DB 등록 저장으로 보내고 있었다 — 그 화면
+    머리말에 적혀 있다). 고치는 자리는 `/projmng/proj/manage` 하나다.
+*@
+
+@inject ProjectClient Api
+
+<CommGrd TItem="ProjectDto"
+         Data="@Rows"
+         ExportName="@ExportName"
+         PageSize="20"
+         EmptyText="@EmptyText"
+         Reload="@Reload">
+    <Columns>
+        <DxGridDataColumn FieldName="@nameof(ProjectDto.PrjRid)" Caption="번호" Width="70" />
+        <DxGridDataColumn FieldName="@nameof(ProjectDto.PrjName)" Caption="프로젝트명" MinWidth="150"
+                          TextAlignment="GridTextAlignment.Left" />
+        <DxGridDataColumn FieldName="@nameof(ProjectDto.PrjNick)" Caption="별칭" MinWidth="120"
+                          TextAlignment="GridTextAlignment.Left" />
+        <DxGridDataColumn FieldName="@nameof(ProjectDto.PrjDesc)" Caption="설명" MinWidth="150"
+                          TextAlignment="GridTextAlignment.Left" />
+        <DxGridDataColumn FieldName="@nameof(ProjectDto.PrjType)" Caption="구분" Width="90" />
+        <DxGridDataColumn FieldName="@nameof(ProjectDto.PrjSdt)" Caption="시작일" Width="110"
+                          DisplayFormat="yyyy-MM-dd" />
+        <DxGridDataColumn FieldName="@nameof(ProjectDto.PrjEdt)" Caption="종료일" Width="110"
+                          DisplayFormat="yyyy-MM-dd" />
+        <DxGridDataColumn FieldName="@nameof(ProjectDto.PrjSrt)" Caption="순서" Width="70" />
+    </Columns>
+</CommGrd>
+
+@code {
+    /// <summary>보여 줄 줄. 화면이 골라 넘긴다.</summary>
+    [Parameter, EditorRequired] public IReadOnlyList<ProjectDto> Rows { get; set; } = [];
+
+    /// <summary>엑셀 파일 이름.</summary>
+    [Parameter] public string ExportName { get; set; } = "프로젝트";
+
+    /// <summary>자료가 없을 때의 안내. 화면마다 뜻이 달라 받는다.</summary>
+    [Parameter] public string EmptyText { get; set; } = "조회된 자료가 없습니다.";
+
+    /// <summary>아래 띠의 「다시 읽기」.</summary>
+    [Parameter] public EventCallback Reload { get; set; }
+}

@@ -40,6 +40,12 @@ builder.Services.AddSingleton<AiProviderRegistry>();
 // 목록을 캐시하려면 인스턴스가 살아 있어야 해서 싱글턴이다.
 builder.Services.AddSingleton<FreeModelGuard>();
 
+// [Claude 전송기]
+//
+// Anthropic Messages API 는 OpenAI 호환이 아니라 공식 SDK 로 부른다. 그 안에
+// HttpClient 가 들어 있어서 요청마다 새로 만들면 소켓이 쌓인다 — 싱글턴으로 둔다.
+builder.Services.AddSingleton<AnthropicTransport>();
+
 // [AI 호출용 HttpClient]
 //
 // 대기 시간을 두 가지로 나눠 잡는다. 하나로 두면 둘 중 하나가 반드시 망가진다.

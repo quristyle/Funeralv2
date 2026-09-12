@@ -21,8 +21,8 @@
 
     옛 Vue 는 `srclist` · `srclang` 공통코드로 소스와 언어를 골랐다. 그런데
     `sp_projCommon` 에 그 두 코드가 **없다**(직접 불러 확인했다 — 0 건).
-    소스는 `sp_dev_srcinfo_exec`, 확장자는 `sp_dev_srcinfo_dtl_exec` 가
-    정본이라 그것을 읽는다.
+    소스와 확장자는 **소스 정보 표**가 정본이라 그것을 읽는다
+    (`projmng/source-infos` — 프로시저가 아니라 REST 다).
 
     [서버가 훑는 것은 서버 장비의 디스크다]
 
@@ -33,32 +33,49 @@
 
 @inherits DataPage
 @inject ProjMngClient Client
+@inject SourceInfoClient Sources
 
 <PageTitle>소스 추적 · 프로젝트관리</PageTitle>
 
-<SearchBar>
-    <ChildContent>
-        <CodeSelect CodeId="projlist" @bind-Value="_projectCode" OnChanged="@(_ => OnProjectChanged())" />
-        <SourceSelect ProjectCode="@_projectCode" @bind-Value="_sourceCode"
-                      OnChanged="@(item => OnSourceChangedAsync(item))" />
-        <DxComboBox Data="@_extends" Value="@_extend"
-                    ValueChanged="@((string? v) => OnExtendChanged(v))"
-                    NullText="확장자" Enabled="@(_extends.Count > 0)"
-                    CssClass="pm-code-select" />
-    </ChildContent>
-    <Actions>
-        <PermissionView Action="MenuAction.Search">
-            <DxButton Text="추적 실행" RenderStyle="ButtonRenderStyle.Primary" Click="@SearchAsync" />
-        </PermissionView>
-    </Actions>
-</SearchBar>
+<CommSch OnSearch="@SearchAsync" SearchText="추적 실행" Busy="@Loading">
+    <Fields>
+        <CommSchItem Label="프로젝트">
+            <CodeSelect CodeId="projlist" @bind-Value="_projectCode" OnChanged="@(_ => OnProjectChanged())" />
+        </CommSchItem>
+
+        <CommSchItem Label="소스">
+            <SourceSelect ProjectCode="@_projectCode" @bind-Value="_sourceCode"
+                          OnChanged="@(item => OnSourceChangedAsync(item))" />
+        </CommSchItem>
+
+        <CommSchItem Label="확장자">
+            <DxComboBox Data="@_extends" Value="@_extend"
+                        ValueChanged="@((string? v) => OnExtendChanged(v))"
+                        NullText="확장자" Enabled="@(_extends.Count > 0)"
+                        CssClass="pm-code-select" />
+        </CommSchItem>
+    </Fields>
+</CommSch>
 
 <PageNotice Text="@Notice" Tone="@Tone" />
 
 <SplitPane Size="45">
     <First>
-        <DynamicGrid Data="@_files" Loading="@Loading" ExportName="소스추적"
-                     HideAdd="true" PageSize="30" OnRowClick="@ShowFileAsync" />
+        @* 칸이 실행 시점에 정해진다 — 소스에 등록한 패턴에 따라 늘고 준다. *@
+        <CommCont Title="파일" Hint="@($"{_files.Table.Rows.Count}건")">
+            <CommGrd TItem="DataRowView"
+                     Data="@_files.Table"
+                     ExportName="소스추적"
+                     PageSize="30"
+                     EmptyText="찾은 파일이 없습니다."
+                     Reload="@SearchAsync"
+                     SelectedItem="@_pickedFile"
+                     SelectedItemChanged="@ShowFileAsync">
+                <Columns>
+                    <RuntimeColumns Table="@_files.Table" Order="@_files.ColumnOrder" />
+                </Columns>
+            </CommGrd>
+        </CommCont>
     </First>
     <Second>
         @if (_openedPath is null)
@@ -159,25 +176,22 @@
     /// </summary>
     private async Task LoadExtendsAsync(SourceItem item)
     {
-        var result = await Client.DbContAsync("sp_dev_srcinfo_dtl_exec", new Dictionary<string, object?>
-        {
-            ["req_type"] = "srch",
-            ["prj_rid"] = _projectCode ?? string.Empty,
-            ["src_rid"] = item.Rid,
-        });
+        // **프로시저를 부르지 않는다.** 옛 길은 `sp_dev_srcinfo_dtl_exec` 였고
+        // 지금은 그 표를 REST 로 읽는다(`SourceInfoClient`).
+        var details = await Sources.DetailsAsync(int.TryParse(item.Rid, out var rid) ? rid : 0);
 
         var found = new List<string>();
 
-        foreach (var row in result.Rows ?? [])
+        foreach (var row in details)
         {
-            var grp = row.GetValueOrDefault("src_pattern_grp")?.ToString() ?? string.Empty;
-            var extend = row.GetValueOrDefault("src_extend")?.ToString() ?? string.Empty;
+            var grp = row.SrcPatternGrp ?? string.Empty;
+            var extend = row.SrcExtend ?? string.Empty;
 
             // `grp='extend'` 행은 확장자를 값 쪽에 적어 둔다. 그 소스의
             // 기본 확장자라 목록에 함께 넣는다.
             if (string.Equals(grp, "extend", StringComparison.OrdinalIgnoreCase))
             {
-                extend = row.GetValueOrDefault("url_pattern")?.ToString() ?? string.Empty;
+                extend = row.UrlPattern ?? string.Empty;
             }
 
             if (string.IsNullOrWhiteSpace(extend)
@@ -234,8 +248,16 @@
     /// 경로는 <b>서버가 준 값 그대로</b> 돌려보낸다 — 사용자가 친 글자를
     /// 실어 보내면 서버 디스크의 아무 파일이나 읽히는 길이 된다.
     /// </summary>
-    private Task ShowFileAsync(DataRow? row)
+    /// <summary>고른 파일 줄. <b>표에 돌려줘야 강조가 유지된다.</b></summary>
+    private DataRowView? _pickedFile;
+
+    private Task ShowFileAsync(DataRowView? picked)
     {
+        _pickedFile = picked;
+
+        // 표를 자료로 주면 셀·선택에 `DataRowView` 가 온다(RuntimeCell 머리말).
+        var row = RuntimeCell.Row(picked);
+
         var path = row is not null && row.Table.Columns.Contains("fullpath")
             ? row["fullpath"]?.ToString()
             : null;
