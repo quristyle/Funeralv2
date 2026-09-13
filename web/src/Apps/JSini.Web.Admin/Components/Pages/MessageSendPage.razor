@@ -52,6 +52,7 @@
 
 @inherits DataPage
 @inject AdminClient Api
+@inject IJSRuntime JS
 
 <PageTitle>메시지 발송 · 포털관리</PageTitle>
 
@@ -258,14 +259,18 @@
                     </div>
 
                     <div class="ad-field">
-                        <label class="ad-field__label">본문</label>
+                        <label class="ad-field__label">본문 <span class="ad-field__must">*</span></label>
 
-                        @* 공지 화면과 **같은 부품**이다(`DxHtmlEditor`). 값을 흘려보내는
-                           시점을 `OnDelayedInput` 으로 바꾸는 것도 같은 이유다 —
-                           기본값(`OnLostFocus`)이면 마지막으로 친 글이 편집기 안에
-                           남은 채로 「보내기」가 돌 수 있다. 그쪽은 팝업이라 초점이
-                           빠지기라도 하는데, 여기는 단추가 **같은 판 안**이라 더 잘 난다. *@
-                        <DxHtmlEditor @bind-Markup="_mail.Body"
+                        @* 공지 화면과 **같은 부품**이다(`DxHtmlEditor`).
+
+                           값을 흘려보내는 시점을 `OnDelayedInput` 으로 당겨 두지만
+                           **그것만 믿지 않는다** — 이 부품이 값을 알려 주는 것은
+                           친 다음 `InputDelay`(기본 500ms) 뒤라, 마지막 줄을 치고
+                           바로 누르면 그 줄이 빠진 채로 나간다. 「보내기」가
+                           편집기와 **같은 판 안**이라 초점이 빠지지도 않는다.
+                           그래서 보낼 때 편집기에게 직접 묻는다(`FlushBodyAsync`). *@
+                        <DxHtmlEditor Markup="@_mail.Body"
+                                      MarkupChanged="@(v => _mail.Body = v ?? string.Empty)"
                                       BindMarkupMode="HtmlEditorBindMarkupMode.OnDelayedInput"
                                       CssClass="ad-mail-editor"
                                       NullText="메일 본문" />
@@ -453,6 +458,9 @@
     /// 들고 있고 여기는 참조만 둔다</b> — 부품이 사라지면 그 파일도 지워진다.
     /// </summary>
     private IReadOnlyList<PickedFile> _mailFiles = [];
+
+    /// <summary>메일 본문을 읽어 오는 JS 조각. 처음 보낼 때 한 번만 받는다.</summary>
+    private IJSObjectReference? _mailEditorJs;
     private readonly SmsDraft _sms = new();
     private readonly KakaoDraft _kakao = new();
 
@@ -660,8 +668,45 @@
     }
 
     /// <summary>
-    /// 메일을 큐에 넣는다. <b>주소가 없는 사람은 뺀다</b> — 그 수는 위 안내가
-    /// 미리 말해 두었다.
+    /// 메일 본문 편집기에서 <b>지금 화면에 있는 글</b>을 읽어 <c>_mail.Body</c> 에 담는다.
+    ///
+    /// <para>
+    /// <c>DxHtmlEditor</c> 에는 「지금 값을 내놔라」가 없다 — <c>MarkupChanged</c> 로
+    /// 알려 줄 뿐이고 그 알림이 <c>InputDelay</c>(기본 500ms) 만큼 늦는다.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>읽지 못하면 있던 값을 그대로 둔다.</b> 여기서 비우면 잘 들어와 있던
+    /// 본문까지 날아가고, 증상이 「가끔 빈 메일이 간다」로만 보인다.
+    /// </para>
+    /// </summary>
+    private async Task FlushBodyAsync()
+    {
+        try
+        {
+            _mailEditorJs ??= await JS.InvokeAsync<IJSObjectReference>(
+                "import", "./_content/JSini.Web.Admin/js/mail-editor.js");
+
+            var markup = await _mailEditorJs.InvokeAsync<string?>("readMarkup", ".ad-mail-editor");
+
+            if (markup is not null)
+            {
+                _mail.Body = markup;
+            }
+        }
+        catch (JSException)
+        {
+            // 브라우저에서 못 읽었다. 파라미터로 올라온 값으로 보낸다.
+        }
+        catch (InvalidOperationException)
+        {
+            // 회로가 닫히는 중이다(화면을 옮기는 순간 등). 같은 처리.
+        }
+    }
+
+    /// <summary>
+    /// 메일을 <b>SMTP 로 바로</b> 보낸다. 주소가 없는 사람은 뺀다 — 그 수는
+    /// 위 안내가 미리 말해 두었다.
     /// </summary>
     private async Task SendEmailAsync()
     {
@@ -678,6 +723,20 @@
         if (string.IsNullOrWhiteSpace(_mail.Subject))
         {
             Say("메일 제목을 적으십시오.", NoticeTone.Warning);
+            return;
+        }
+
+        // **본문은 여기서 편집기에게 직접 묻는다.** 파라미터로 올라오는 값은
+        // 「친 다음 잠깐 뒤」에 오므로(`InputDelay`), 마지막 줄을 치고 바로 누르면
+        // 그 줄이 빠진 채로 나간다 — 단추가 편집기와 **같은 판 안**이라 초점이
+        // 빠지지도 않는다.
+        await FlushBodyAsync();
+
+        if (string.IsNullOrWhiteSpace(_mail.Body))
+        {
+            // 서버도 막지만 그쪽 문구는 「받는 사람 · 제목 · 본문이 모두
+            // 필요합니다」라 **무엇이 빠졌는지 짚어 주지 못한다.**
+            Say("메일 본문을 적으십시오.", NoticeTone.Warning);
             return;
         }
 
