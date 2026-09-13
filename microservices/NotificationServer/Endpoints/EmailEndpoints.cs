@@ -30,6 +30,43 @@ namespace NotificationServer.Endpoints;
 /// </remarks>
 public static class EmailEndpoints
 {
+    /// <summary>
+    /// 첨부 개수 상한. 메일 서버가 세는 값은 아니고 <b>화면과 맞춘 값</b>이다 —
+    /// 고르는 자리에서 이미 막으므로 여기 걸리면 다른 경로로 들어온 것이다.
+    /// </summary>
+    private const int MaxAttachmentCount = 5;
+
+    /// <summary>
+    /// 첨부 총량 상한. <b>메일 서버가 거절하기 전에 우리가 말한다.</b>
+    /// 대개 20~25MB 에서 거절당하는데, 그때는 어느 파일 탓인지 알 수 없는
+    /// SMTP 오류만 남는다.
+    /// </summary>
+    private const long MaxAttachmentBytes = 15L * 1024 * 1024;
+
+    /// <summary>
+    /// base64 를 <b>길이만 확인하고 버린다.</b> 여기서 바이트를 들고 있어 봐야
+    /// 보내는 쪽이 다시 디코딩하므로, 큰 파일을 두 벌 메모리에 올리게 된다.
+    /// </summary>
+    private static bool TryDecode(string? content, out long bytes)
+    {
+        bytes = 0;
+
+        if (string.IsNullOrEmpty(content))
+        {
+            return false;
+        }
+
+        var buffer = new byte[((content.Length * 3) + 3) / 4];
+
+        if (!Convert.TryFromBase64String(content, buffer, out var written))
+        {
+            return false;
+        }
+
+        bytes = written;
+        return written > 0;
+    }
+
     public static void MapEmailEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/emails").WithTags("Emails");
@@ -56,6 +93,46 @@ public static class EmailEndpoints
             {
                 return Results.BadRequest(ApiResponse<bool>.Fail(
                     message: "받는 사람(to 또는 toRole) · 제목 · 본문이 모두 필요합니다.", code: "INVALID"));
+            }
+
+            // ── 첨부를 먼저 본다 ─────────────────────────────
+            //
+            // **보내기 전에 막는다.** SMTP 에 붙인 뒤 거절당하면 어느 파일이
+            // 문제인지 알 수 없고, 메일 서버마다 문구가 달라 화면이 옮길 말이
+            // 없다. 여기서 걸면 파일 이름을 짚어 말할 수 있다.
+            if (request.Attachments.Count > MaxAttachmentCount)
+            {
+                return Results.BadRequest(ApiResponse<bool>.Fail(
+                    message: $"첨부는 {MaxAttachmentCount}개까지입니다.", code: "TOO_MANY_FILES"));
+            }
+
+            long totalBytes = 0;
+
+            foreach (var file in request.Attachments)
+            {
+                if (string.IsNullOrWhiteSpace(file.FileName))
+                {
+                    return Results.BadRequest(ApiResponse<bool>.Fail(
+                        message: "첨부 파일 이름이 비어 있습니다.", code: "INVALID"));
+                }
+
+                // base64 가 깨져 있으면 여기서 잡는다. 보내다 던지면 502 가 되어
+                // 「메일 서버가 거절했다」로 읽힌다 — 사실은 우리가 보낸 값이 틀렸다.
+                if (!TryDecode(file.Content, out var bytes))
+                {
+                    return Results.BadRequest(ApiResponse<bool>.Fail(
+                        message: $"「{file.FileName}」 을 읽지 못했습니다.", code: "BAD_ATTACHMENT"));
+                }
+
+                totalBytes += bytes;
+            }
+
+            if (totalBytes > MaxAttachmentBytes)
+            {
+                return Results.BadRequest(ApiResponse<bool>.Fail(
+                    message: $"첨부가 모두 합쳐 {MaxAttachmentBytes / 1024 / 1024}MB 를 넘습니다 "
+                             + $"(지금 {totalBytes / 1024 / 1024}MB). 메일 서버가 거절합니다.",
+                    code: "ATTACHMENT_TOO_LARGE"));
             }
 
             var logger = loggerFactory.CreateLogger("EmailEndpoints");
@@ -89,9 +166,12 @@ public static class EmailEndpoints
 
             try
             {
-                await sender.SendAsync(string.Join(",", recipients), request.Subject, request.Body, request.Html);
-                logger.LogInformation("이메일 직발송 완료. to={To} role={Role} by={By}",
-                    string.Join(",", recipients), request.ToRole, user.UserId);
+                await sender.SendAsync(
+                    string.Join(",", recipients), request.Subject, request.Body,
+                    request.Html, request.Attachments);
+
+                logger.LogInformation("이메일 직발송 완료. to={To} role={Role} files={Files} by={By}",
+                    string.Join(",", recipients), request.ToRole, request.Attachments.Count, user.UserId);
                 return Results.Ok(ApiResponse<bool>.Ok(true, "메일을 보냈습니다."));
             }
             catch (Exception ex)

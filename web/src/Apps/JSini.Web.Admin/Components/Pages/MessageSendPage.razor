@@ -240,10 +240,11 @@
             @* ── 이메일 ─────────────────────────────────────────────── *@
             <DxTabPage Text="이메일 발송">
                 <div class="ad-sendform">
-                    @* **「보냈다」가 아니라 「넣었다」다.** SMTP 설정이 이 시스템에 없고
-                       실제 발송은 배포 장비의 스크립트가 큐를 읽어 한다. *@
+                    @* **큐가 아니라 SMTP 직발송이다.** 서식 본문과 첨부를 붙이면서
+                       길을 옮겼다 — 큐의 스풀 JSON 은 제목·본문·받는이 셋만 담는
+                       규약이라 그 둘을 실을 자리가 없다(`AdminClient` 머리말). *@
                     <PageNotice Tone="NoticeTone.Info"
-                                Text="메일은 발송 큐에 넣습니다. 실제 전송은 배포 장비의 스크립트가 이어서 하므로 도착까지 시간이 걸릴 수 있습니다." />
+                                Text="메일 서버로 바로 보냅니다. 보내고 나서 성공·실패를 알려 드립니다." />
 
                     @if (_picked.Count > 0 && NoEmail.Count > 0)
                     {
@@ -258,14 +259,36 @@
 
                     <div class="ad-field">
                         <label class="ad-field__label">본문</label>
-                        <DxMemo @bind-Text="_mail.Body" Rows="10" NullText="메일 본문" ValidationEnabled="false" />
+
+                        @* 공지 화면과 **같은 부품**이다(`DxHtmlEditor`). 값을 흘려보내는
+                           시점을 `OnDelayedInput` 으로 바꾸는 것도 같은 이유다 —
+                           기본값(`OnLostFocus`)이면 마지막으로 친 글이 편집기 안에
+                           남은 채로 「보내기」가 돌 수 있다. 그쪽은 팝업이라 초점이
+                           빠지기라도 하는데, 여기는 단추가 **같은 판 안**이라 더 잘 난다. *@
+                        <DxHtmlEditor @bind-Markup="_mail.Body"
+                                      BindMarkupMode="HtmlEditorBindMarkupMode.OnDelayedInput"
+                                      CssClass="ad-mail-editor"
+                                      NullText="메일 본문" />
+
+                        @* 평문 스위치를 없앴다. 서식 편집기로 쓴 글을 평문으로 보내면
+                           태그가 그대로 보인다 — 고를 수 있게 두면 그 조합이 반드시
+                           나온다. 서식을 안 쓰면 태그도 안 생기므로 잃는 것이 없다. *@
                     </div>
 
                     <div class="ad-field">
-                        <DxCheckBox Checked="@_mail.Html"
-                                    CheckedChanged="@((bool on) => _mail.Html = on)">
-                            본문을 HTML 로 보냅니다
-                        </DxCheckBox>
+                        <label class="ad-field__label">첨부</label>
+
+                        @* 공지와 달리 **파일 서버에 올리지 않는다.** 메일 첨부는 보내고
+                           나면 쓸 일이 없는데 올려 두면 아무도 지우지 않는 파일이
+                           보낼 때마다 쌓인다. 보낼 때 바이트를 실어 보낸다.
+
+                           상한은 서버와 맞춘 값이다(다섯 개 · 모두 합쳐 15MB) —
+                           서버도 같은 값으로 막으므로 여기서 막는 것은 **먼저
+                           말해 주려는 것**이다. *@
+                        <FilePicker MaxFiles="5"
+                                    MaxBytes="15728640"
+                                    Hint="메일에 붙일 파일을 고르세요 (최대 5개 · 모두 합쳐 15MB 까지)"
+                                    FilesChanged="@(files => _mailFiles = files)" />
                     </div>
 
                     <div class="jsini-toolbar">
@@ -418,6 +441,12 @@
 
     private readonly PushMessageDto _push = new();
     private readonly EmailSendRequest _mail = new();
+
+    /// <summary>
+    /// 메일에 붙일 파일. <b><see cref="FilePicker"/> 가 자기 임시 파일과 함께
+    /// 들고 있고 여기는 참조만 둔다</b> — 부품이 사라지면 그 파일도 지워진다.
+    /// </summary>
+    private IReadOnlyList<PickedFile> _mailFiles = [];
     private readonly SmsDraft _sms = new();
     private readonly KakaoDraft _kakao = new();
 
@@ -572,6 +601,43 @@
     }
 
     /// <summary>
+    /// 고른 파일을 base64 로 옮긴다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>파일 서버에 올리지 않는다.</b> 공지 첨부와 다른 점이 이것이다 —
+    /// 공지는 나중에 누가 다시 내려받지만, 메일 첨부는 보내고 나면 쓸 일이
+    /// 없다. 올려 두면 <b>아무도 지우지 않는 파일이 보낼 때마다 쌓인다.</b>
+    /// </para>
+    ///
+    /// <para>
+    /// 그래서 여기서 읽어 요청에 싣는다. base64 라 실제 크기의 1.33배가
+    /// 오가고, 그만큼 상한을 넉넉히 두지 않았다(다섯 개 · 합쳐 15MB).
+    /// </para>
+    /// </remarks>
+    private async Task<List<EmailAttachmentDto>> ReadAttachmentsAsync()
+    {
+        var files = new List<EmailAttachmentDto>(_mailFiles.Count);
+
+        foreach (var pick in _mailFiles)
+        {
+            await using var stream = pick.OpenRead();
+            using var buffer = new MemoryStream();
+
+            await stream.CopyToAsync(buffer);
+
+            files.Add(new EmailAttachmentDto
+            {
+                FileName = pick.Name,
+                ContentType = pick.ContentType,
+                Content = Convert.ToBase64String(buffer.ToArray()),
+            });
+        }
+
+        return files;
+    }
+
+    /// <summary>
     /// 발송 결과를 사람 말로. <b>못 받은 까닭을 함께 적는다</b> — 그것이
     /// 이 화면에서 가장 자주 묻는 질문이다.
     /// </summary>
@@ -612,30 +678,45 @@
         _busy = true;
         try
         {
-            EmailSendResultDto? result = null;
-
             // **받는 사람은 쉼표로 잇는다**(서버 규약). 중복 주소는 한 번만 —
             // 같은 주소를 두 번 적으면 같은 메일이 두 통 간다.
             var to = string.Join(",", targets
                 .Select(a => a.Email!.Trim())
                 .Distinct(StringComparer.OrdinalIgnoreCase));
 
+            List<EmailAttachmentDto> files;
+
+            try
+            {
+                files = await ReadAttachmentsAsync();
+            }
+            catch (Exception ex)
+            {
+                // 파일을 못 읽었으면 **보내지 않는다.** 첨부가 빠진 채로 나가면
+                // 받은 사람은 그 사실을 모르고, 보낸 사람도 성공만 본다.
+                Say($"첨부를 읽지 못했습니다 — {ex.Message}", NoticeTone.Error);
+                return;
+            }
+
             var ok = await RunAsync(
-                async () => result = await Api.SendEmailAsync(new EmailSendRequest
+                () => Api.SendEmailAsync(new EmailSendRequest
                 {
                     To = to,
                     Subject = _mail.Subject,
+
+                    // **본문은 늘 HTML 이다.** 서식 편집기가 만든 글을 평문으로
+                    // 보내면 태그가 그대로 보인다(화면의 그 칸 주석 참고).
                     Body = _mail.Body,
-                    Html = _mail.Html,
+                    Html = true,
+                    Attachments = files,
                 }),
-                okMessage: string.Empty, "메일을 넣지 못했습니다");
+                okMessage: string.Empty, "메일을 보내지 못했습니다");
 
             if (!ok) return;
 
-            Say(result is { Queued: true }
-                    ? $"{targets.Count}명분을 발송 큐에 넣었습니다. 실제 전송은 잠시 뒤에 이루어집니다."
-                    : result?.Message ?? "큐에 넣지 못했습니다.",
-                result is { Queued: true } ? NoticeTone.Info : NoticeTone.Warning);
+            Say(files.Count > 0
+                    ? $"{targets.Count}명에게 보냈습니다. (첨부 {files.Count}개)"
+                    : $"{targets.Count}명에게 보냈습니다.");
         }
         finally
         {

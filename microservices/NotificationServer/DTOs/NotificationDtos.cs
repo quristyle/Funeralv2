@@ -107,6 +107,38 @@ public class SendEmailDto
     /// 큐 방식은 배포 장비 스크립트가 형식을 정한다).
     /// </summary>
     public bool Html { get; set; }
+
+    /// <summary>
+    /// 붙일 파일들. <b>직발송(<c>/emails/send</c>)만 본다</b> — 큐 방식은
+    /// 스풀 JSON 에 제목·본문·받는이 셋만 담는 규약이라 실을 자리가 없다.
+    /// </summary>
+    public List<EmailAttachmentDto> Attachments { get; set; } = [];
+}
+
+/// <summary>메일에 붙일 파일 한 개.</summary>
+/// <remarks>
+/// <para>
+/// <b>바이트를 그대로 싣는다.</b> 파일 서버에 올리고 아이디만 넘기는 길도
+/// 있었지만 쓰지 않았다 — 메일 첨부는 보내고 나면 쓸 일이 없는데, 그 길로 가면
+/// <b>아무도 지우지 않는 파일이 보낼 때마다 쌓인다.</b> 알림 서비스가 파일
+/// 서비스를 알아야 하는 것도 이 서비스가 「보내는 일만 한다」는 규칙에 어긋난다.
+/// </para>
+///
+/// <para>
+/// 값을 base64 로 담으므로 <b>실제 크기의 약 1.33배</b>가 오간다. 그래서 상한을
+/// 넉넉히 두지 않는다(<c>EmailEndpoints</c>) — 메일 서버가 어차피 20~25MB 에서
+/// 거절하고, 그 전에 우리가 이유를 말해 주는 편이 낫다.
+/// </para>
+/// </remarks>
+public class EmailAttachmentDto
+{
+    public string FileName { get; set; } = string.Empty;
+
+    /// <summary>비어 있으면 <c>application/octet-stream</c> 으로 붙인다.</summary>
+    public string? ContentType { get; set; }
+
+    /// <summary>파일 내용(base64).</summary>
+    public string Content { get; set; } = string.Empty;
 }
 
 /// <summary>이메일 발송 결과.</summary>

@@ -1690,6 +1690,25 @@ public sealed class EmailSendRequest
 
     /// <summary>본문을 HTML 로 보낼 것인가.</summary>
     public bool Html { get; set; }
+
+    /// <summary>붙일 파일들. 비면 본문만 나간다.</summary>
+    public List<EmailAttachmentDto> Attachments { get; set; } = [];
+}
+
+/// <summary>메일에 붙일 파일 한 개.</summary>
+/// <remarks>
+/// <b>바이트를 그대로 싣는다</b>(base64). 파일 서버에 올려 두고 아이디만
+/// 넘기지 않는 이유는 서버 쪽 같은 이름의 DTO 머리말에 있다 — 요약하면
+/// 메일 첨부는 보내고 나면 쓸 일이 없는데 그 길로 가면 아무도 지우지 않는
+/// 파일이 보낼 때마다 쌓인다.
+/// </remarks>
+public sealed class EmailAttachmentDto
+{
+    public string FileName { get; set; } = string.Empty;
+    public string? ContentType { get; set; }
+
+    /// <summary>파일 내용(base64).</summary>
+    public string Content { get; set; } = string.Empty;
 }
 
 /// <summary>
@@ -1703,7 +1722,12 @@ public sealed class EmailSendRequest
 /// </summary>
 public sealed class EmailSendResultDto
 {
+    /// <summary>
+    /// 큐에 넣었나. <b>직발송(<c>emails/send</c>)에서는 늘 거짓</b>이다 —
+    /// 그쪽은 보내고 나서 답하므로 「넣었다」라는 중간 상태가 없다.
+    /// </summary>
     public bool Queued { get; set; }
+
     public string? Message { get; set; }
 }
 

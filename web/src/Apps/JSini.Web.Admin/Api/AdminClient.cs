@@ -465,12 +465,26 @@ public sealed class AdminClient(GatewayClient gateway)
         => gateway.PostAsync<PushSendResultDto>("notification/notifications/push", request, ct);
 
     /// <summary>
-    /// 이메일을 <b>큐에 넣는다.</b> 실제 발송은 배포 장비의 스크립트가 한다
-    /// (<see cref="EmailSendResultDto"/> 머리말).
+    /// 이메일을 <b>SMTP 로 바로 보낸다.</b> 성공·실패를 그 자리에서 안다.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 한동안 큐 방식(<c>notifications/email</c>)으로 갔다. 그쪽은 스풀 JSON 에
+    /// <b>제목·본문·받는이 셋만</b> 담는 규약이라 — 배포 장비의 스크립트가 그
+    /// 이름으로 읽는다 — <b>HTML 본문도 첨부도 실을 자리가 없다.</b> 화면에
+    /// 서식 편집기와 첨부를 붙이면서 이 길로 옮겼다.
+    /// </para>
+    ///
+    /// <para>
+    /// 잃은 것은 <b>메일 서버가 죽어 있을 때의 버팀</b>이다. 큐 방식은 파일을
+    /// 떨어뜨려 두고 나중에 다시 밀어 넣을 수 있었지만, 직발송은 그 자리에서
+    /// 실패한다. 대신 <b>실패를 즉시 안다</b> — 큐 방식은 「넣었다」까지만
+    /// 알고 실제로 갔는지는 끝내 모른다.
+    /// </para>
+    /// </remarks>
     public Task<EmailSendResultDto?> SendEmailAsync(
         EmailSendRequest request, CancellationToken ct = default)
-        => gateway.PostAsync<EmailSendResultDto>("notification/notifications/email", request, ct);
+        => gateway.PostAsync<EmailSendResultDto>("notification/emails/send", request, ct);
 
     /// <summary>
     /// <b>여러 사람</b>의 알림 상태를 한 번에 읽는다 — 계정 관리 화면이
