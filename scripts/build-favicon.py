@@ -21,9 +21,14 @@ BrandMark.razor`). 좌표를 손으로 다시 그리면 로고를 고치는 날 
   짙은 타일을 깔고 **어두운 테마에서 쓰는 그 두 색**을 얹는다. 사용자가
   보는 색감 그대로이고, 어느 탭 막대에서도 읽힌다.
 
-· **16px 에서는 S 를 지운다.** 두 획이 겹치는 마크라 16px 로 줄이면 S 의
-  획(12/84 ≒ 2px)이 J 와 뭉개져 얼룩으로 보인다. 그 크기에서 남길 것은
-  **알아보게 하는 획**이고 그것은 J 다.
+· **작은 크기에서는 마크를 키우고 모서리를 덜 둥글린다**(88/12 ↔ 76/18).
+  16px 에서는 여백과 둥근 모서리가 그림 쓸 자리를 잡아먹는다. 크기마다 다른
+  그림을 담을 수 있는 것이 ICO 의 값이고, 그 값을 여기 쓴다.
+
+  한동안 **16px 에는 J 만** 남겼다. 두 획이 뭉개지는 것을 피하려던 것인데,
+  그러자 **옛 아이콘(잉크 블록 J)과 구별이 안 됐다** — 바꿔 놓고도 "안
+  바뀌었다" 는 말을 들었다. 탭에서 알아보는 것은 획의 선명함이 아니라
+  **다른 것과 다르다는 것**이라, 두 획을 다 그린다.
 
 [왜 ICO 하나로 끝내나 — SVG 링크를 걷어낸 이유]
 
@@ -92,18 +97,15 @@ COLOR_S = "#9aa1ab"
 TILE = 100
 RADIUS = 18
 MARK_W = 76
-MARK_H = MARK_W * VIEW_H / VIEW_W
+
+# 작은 크기에서 쓰는 값. 마크를 키우고 모서리를 덜 둥글린다(머리말 참고).
+SMALL_AT_OR_BELOW = 32
+SMALL_MARK_W = 88
+SMALL_RADIUS = 12
 
 # ICO 에 담을 크기들. 16 은 탭 막대, 32 는 고해상도 탭 막대와 바로가기,
 # 그 위는 검색 결과·바탕화면이 쓴다.
 SIZES = [16, 32, 48, 64, 128, 256]
-
-# 이 크기 이하에서는 S 를 지운다(머리말 참고).
-J_ONLY_BELOW = 20
-
-# 그때 쓰는 J 의 상자와 키. J 는 84×60 중 **왼쪽 44** 만 쓴다.
-J_VIEW_W = 44
-J_ONLY_H = 64
 
 # 마스커블은 가운데 80% 원 안에 들어가야 한다. 마크 상자의 대각선이
 # 그 원의 지름을 넘지 않는 폭이 65 언저리라 60 으로 잡았다.
@@ -125,28 +127,26 @@ def svg_for(size: int, style: str = "tile") -> str:
     <c>style</c> 은 셋이다 — <c>tile</c>(둥근 모서리) · <c>square</c>(네모
     가득, 플랫폼이 깎는다) · <c>maskable</c>(네모 가득 + 마크를 작게).
     """
-    radius = RADIUS if style == "tile" else 0
-    mark_w = MASKABLE_MARK_W if style == "maskable" else MARK_W
+    small = style == "tile" and size <= SMALL_AT_OR_BELOW
 
-    if size < J_ONLY_BELOW:
-        # **J 자신을 가운데 세운다.** 두 획짜리 상자(84폭)를 그대로 쓰면
-        # J 는 그 왼쪽 절반이라 타일 안에서 왼쪽으로 치우쳐 앉는다 —
-        # 옆에 있어야 할 S 가 없으니 그 빈자리가 그냥 여백으로 보인다.
-        scale = J_ONLY_H / VIEW_H
-        body = f'<path d="{J_PATH}" fill="{COLOR_J}" />'
-        x = (TILE - J_VIEW_W * scale) / 2
-        y = (TILE - J_ONLY_H) / 2
+    if style == "maskable":
+        mark_w, radius = MASKABLE_MARK_W, 0
+    elif style == "square":
+        mark_w, radius = MARK_W, 0
+    elif small:
+        mark_w, radius = SMALL_MARK_W, SMALL_RADIUS
     else:
-        scale = mark_w / VIEW_W
-        body = (f'<path d="{S_PATH}" fill="{COLOR_S}" />\n      '
-                f'<path d="{J_PATH}" fill="{COLOR_J}" />')
-        x = (TILE - mark_w) / 2
-        y = (TILE - mark_w * VIEW_H / VIEW_W) / 2
+        mark_w, radius = MARK_W, RADIUS
+
+    scale = mark_w / VIEW_W
+    x = (TILE - mark_w) / 2
+    y = (TILE - mark_w * VIEW_H / VIEW_W) / 2
 
     return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {TILE} {TILE}" width="{size}" height="{size}">
   <rect width="{TILE}" height="{TILE}" rx="{radius}" ry="{radius}" fill="{COLOR_BG}" />
   <g transform="translate({x:.3f},{y:.3f}) scale({scale:.6f})">
-      {body}
+      <path d="{S_PATH}" fill="{COLOR_S}" />
+      <path d="{J_PATH}" fill="{COLOR_J}" />
   </g>
 </svg>
 """

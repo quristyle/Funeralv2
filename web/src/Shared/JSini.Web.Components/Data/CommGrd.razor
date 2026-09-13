@@ -44,7 +44,7 @@
             PagerSummaryVisible="true"
             ShowSearchBox="false"
             TextWrapEnabled="false"
-            SelectionMode="GridSelectionMode.Single"
+            SelectionMode="@SelectionMode"
             AllowSelectRowByClick="true"
             FocusedRowEnabled="true"
             ColumnResizeMode="GridColumnResizeMode.NextColumn"
@@ -62,6 +62,8 @@
             ItemsDropped="@ItemsDropped"
             SelectedDataItem="@_selected"
             SelectedDataItemChanged="@OnSelectedDataItemChangedAsync"
+            SelectedDataItems="@_selectedMany"
+            SelectedDataItemsChanged="@OnSelectedDataItemsChangedAsync"
             DetailRowDisplayMode="@(DetailRowTemplate is null ? GridDetailRowDisplayMode.Never : GridDetailRowDisplayMode.Auto)"
             DetailExpandButtonDisplayMode="@(DetailRowTemplate is null ? GridDetailExpandButtonDisplayMode.Never : GridDetailExpandButtonDisplayMode.Auto)"
             @attributes="_forwarded"
@@ -348,6 +350,34 @@
     [Parameter] public EventCallback<TItem?> SelectedItemChanged { get; set; }
 
     /// <summary>
+    /// 한 줄만 고를 수 있는가. 기본은 한 줄이다.
+    ///
+    /// <para>
+    /// <b>여럿으로 바꾸면 체크 칸을 <c>&lt;Columns&gt;</c> 맨 앞에 손으로
+    /// 넣어야 한다</b>(<c>&lt;DxGridSelectionColumn /&gt;</c>). 여기서 자동으로
+    /// 붙이지 않는 이유는 그 칸의 자리·폭·「모두 고르기」 여부가 화면마다
+    /// 다르기 때문이다 — 순번 칸 앞이냐 뒤냐부터 갈린다.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>이름을 선언해 둔 이유는 splat 으로 넘길 수 없기 때문이다.</b>
+    /// 값이 enum 이라 <c>Coerce</c> 가 글자를 그대로 넘겨 형이 안 맞는다
+    /// (<c>CommTree</c> 의 끌어 옮기기 파라미터와 같은 사정).
+    /// </para>
+    /// </summary>
+    [Parameter] public GridSelectionMode SelectionMode { get; set; } = GridSelectionMode.Single;
+
+    /// <summary>
+    /// 체크한 줄들. <see cref="SelectedItemsChanged"/> 와 <b>함께</b> 준다 —
+    /// 한쪽만 주면 화면이 고른 줄을 보관하지 않는다는 뜻이 되어 체크가 곧 풀린다
+    /// (<see cref="SelectedItem"/> 과 같은 사정).
+    /// </summary>
+    [Parameter] public IReadOnlyList<TItem>? SelectedItems { get; set; }
+
+    /// <summary>체크가 바뀌었을 때. 여기서 받은 값이 다음 렌더의 선택이 된다.</summary>
+    [Parameter] public EventCallback<IReadOnlyList<TItem>> SelectedItemsChanged { get; set; }
+
+    /// <summary>
     /// 줄을 끌어 옮길 수 있는가. <b>권한으로 켜고 끄는 자리</b>다 —
     /// <c>AllowDragRows="@(_canMove)"</c>.
     ///
@@ -427,6 +457,15 @@
     /// <summary>표가 지금 들고 있는 선택. 화면이 값을 주면 그것을 따른다.</summary>
     private object? _selected;
 
+    /// <summary>
+    /// 표에 넘길 체크 목록. <b>화면이 준 것을 그대로 쓰지 않는다</b> —
+    /// DevExpress 가 <c>IReadOnlyList&lt;object&gt;</c> 를 받으므로 한 겹 옮긴다.
+    /// </summary>
+    private IReadOnlyList<object>? _selectedMany;
+
+    /// <summary>이번 렌더에 화면이 <see cref="SelectedItems"/> 를 주었는가.</summary>
+    private bool _manyBound;
+
     /// <summary><see cref="DeleteConfirm"/> 을 준 화면에서만 쓰는 확인창.</summary>
     private ConfirmDialog? _confirm;
 
@@ -457,6 +496,7 @@
     {
         // object 로 받는다. TItem 으로 받으면 값 형식일 때 null 을 캐스팅하다 죽는다.
         _selectionBound = parameters.TryGetValue<object>(nameof(SelectedItem), out _);
+        _manyBound = parameters.TryGetValue<object>(nameof(SelectedItems), out _);
 
         return base.SetParametersAsync(parameters);
     }
@@ -471,6 +511,13 @@
         if (_selectionBound)
         {
             _selected = SelectedItem;
+        }
+
+        // 체크도 같은 규칙이다. **빈 목록과 안 준 것은 다르다** — 빈 목록은
+        // 「전부 풀어라」이고, 안 준 것은 「표가 들고 있는 것을 그대로 둬라」다.
+        if (_manyBound)
+        {
+            _selectedMany = SelectedItems is null ? null : [.. SelectedItems.Cast<object>()];
         }
 
         // 시작값이라 한 번만 읽는다. 매번 읽으면 사람이 끈 것을 다시 켜게 된다.
@@ -741,6 +788,17 @@
         _selected = item;
 
         return SelectedItemChanged.InvokeAsync(item is TItem typed ? typed : default);
+    }
+
+    /// <summary>
+    /// 체크가 바뀌었다. 화면이 들고 있는 형(<typeparamref name="TItem"/>)으로
+    /// 되돌려 올린다 — 표는 <c>object</c> 로 다룬다.
+    /// </summary>
+    private Task OnSelectedDataItemsChangedAsync(IReadOnlyList<object> items)
+    {
+        _selectedMany = items;
+
+        return SelectedItemsChanged.InvokeAsync([.. items.OfType<TItem>()]);
     }
 
     private static bool IsEventCallback(Type type) =>

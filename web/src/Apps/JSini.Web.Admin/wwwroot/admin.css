@@ -596,6 +596,15 @@
    올라가 버려 지금 무엇을 보고 있는지 잃는다. */
 .ad-vsplit__pane--left { overflow: hidden; }
 
+/* 메시지 발송의 받는 사람 표. **높이를 값으로 주지 않는다** — 판이 이미
+   정해 주므로 flex 에 맡긴다. 값으로 주면 아래 띠(쪽 넘김·엑셀)가 판 밖으로
+   밀려나고, 판이 `overflow: hidden` 이라 그 단추가 아예 사라진다
+   (사람롤에서 두 번 밟은 것과 같다). */
+.ad-vsplit__pane--left > .commgrd {
+  flex: 1;
+  min-height: 0;
+}
+
 .ad-vsplit__pane--left > .ad-targets {
   flex: 1;
   min-height: 0;
