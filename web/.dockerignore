@@ -1,0 +1,13 @@
+# 프론트 이미지 빌드 컨텍스트에서 뺄 것들 (deploy/docker/Dockerfile.web 의 컨텍스트가 web/ 다).
+**/bin
+**/obj
+**/.keys
+**/.mf-cache
+
+# 개발 장비 전용 설정. 진짜 계정의 비밀번호가 들어 있다 —
+# csproj 가 publish 에서 빼 두었지만 컨텍스트에도 싣지 않는다.
+**/appsettings.Local.json
+
+# 문서·테스트는 배포본에 들어가지 않는다.
+docs
+*.md

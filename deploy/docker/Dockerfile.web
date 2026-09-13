@@ -1,0 +1,47 @@
+# 프론트(web/) 공용 Dockerfile — 빌드 인자로 어느 앱인지 지정한다.
+#
+#   docker build -f deploy/docker/Dockerfile.web \
+#     --build-arg PROJ_DIR=src/Shell/JSini.Web.Shell \
+#     --build-arg PROJ_NAME=JSini.Web.Shell  web
+#
+# **컨텍스트가 저장소 루트가 아니라 `web/` 이다.** 백엔드용 Dockerfile 과 다른
+# 점이 그것이고, 이유가 둘이다.
+#
+#   · web/ 는 자기 Directory.Build.props · Directory.Packages.props · nuget.config
+#     을 갖는 독립 트리다. 루트를 컨텍스트로 잡으면 루트 것이 먼저 걸려
+#     경고 정책(TreatWarningsAsErrors)과 패키지 원본이 통째로 바뀐다.
+#   · web/ 는 microservices/ 를 하나도 참조하지 않는다. 루트를 실어 봐야
+#     컨텍스트만 커진다.
+#
+# 비밀값은 이미지에 넣지 않는다. 프론트에는 넣을 것도 없다 —
+# 게이트웨이 주소와 키 링 경로뿐이고 둘 다 compose 가 환경변수로 준다.
+# (개발 장비용 appsettings.Local.json 은 csproj 가 publish 에서 빼고,
+#  web/.dockerignore 가 컨텍스트에서도 뺀다.)
+
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+ARG PROJ_DIR
+ARG PROJ_NAME
+WORKDIR /src
+
+# 복원과 빌드를 나누지 않는다. 프로젝트가 열셋이라 csproj 만 먼저 복사하는
+# 방식은 파일 목록을 손으로 유지해야 하고, 하나 빠뜨리면 "왜 캐시가 안 먹지"
+# 로 며칠을 쓴다. 레이어 캐시는 워크플로의 GHA 캐시가 대신 잡아 준다.
+COPY . .
+RUN dotnet publish "${PROJ_DIR}/${PROJ_NAME}.csproj" -c Release -o /out /p:UseAppHost=false
+
+# DevExpress 라이선스는 빌드 때 확인되고, 없으면 DX1000/DX1001 경고가 뜬다.
+# web/Directory.Build.props 가 그 둘만 경고로 남겨 두었으므로 빌드는 통과한다
+# (개발 장비마다 라이선스를 따로 넣기 때문에 빌드를 막으면 안 된다).
+# 러너에서 그 경고가 뜨기 시작하면 라이선스 파일을 secrets 로 넣어
+# 이 단계 앞에 풀어 주는 것이 다음 수순이다.
+
+FROM mcr.microsoft.com/dotnet/aspnet:10.0
+ARG PROJ_NAME
+WORKDIR /app
+
+COPY --from=build /out .
+
+ENV APP_DLL=${PROJ_NAME}.dll \
+    ASPNETCORE_ENVIRONMENT=Production \
+    TZ=Asia/Seoul
+ENTRYPOINT ["/bin/sh", "-c", "exec dotnet $APP_DLL"]

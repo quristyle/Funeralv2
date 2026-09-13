@@ -583,6 +583,56 @@ public sealed class NotificationSettingsDto
     public List<PushDeviceDto> Devices { get; set; } = [];
 }
 
+/// <summary>
+/// 브라우저가 만든 구독을 서버에 올릴 때 보내는 것.
+///
+/// 이름은 NotificationServer 의 <c>SubscribeDto</c> 와 맞춘 것이다.
+/// <c>ownerType</c>·<c>ownerKey</c> 는 **일부러 없다** — 서버가 로그인한
+/// 계정으로 정한다(AdminClient.RegisterPushSubscriptionAsync 참조).
+/// </summary>
+public sealed class PushSubscribeRequest
+{
+    /// <summary>푸시 서비스가 준 이 기기의 주소. 구독의 열쇠다.</summary>
+    public string? Endpoint { get; set; }
+
+    /// <summary>본문을 암호화하는 공개 키 (base64url).</summary>
+    public string? P256dh { get; set; }
+
+    /// <summary>인증 비밀 (base64url).</summary>
+    public string? Auth { get; set; }
+
+    /// <summary>어디서 구독했는지. 기기 목록에서 갈래를 구분하는 데 쓴다.</summary>
+    public string? Source { get; set; } = "portal";
+}
+
+/// <summary>
+/// <c>jsiniPwa.subscribe</c> / <c>jsiniPwa.status</c> 가 돌려주는 것.
+///
+/// 브라우저 쪽 사정을 그대로 담는다 — 실패를 <c>false</c> 하나로 뭉개면
+/// 화면이 "안 됐습니다" 말고는 할 말이 없다. iOS 사파리처럼 **홈 화면에
+/// 추가해야 비로소 되는** 경우를 구분해 말해 주려면 이유가 필요하다.
+/// </summary>
+public sealed class PushBrowserResult
+{
+    public bool Ok { get; set; }
+
+    /// <summary>이 브라우저가 웹푸시를 지원하는가.</summary>
+    public bool Supported { get; set; }
+
+    /// <summary><c>granted</c> · <c>denied</c> · <c>default</c> · <c>unsupported</c>.</summary>
+    public string? Permission { get; set; }
+
+    /// <summary>이미 구독 중인가.</summary>
+    public bool Subscribed { get; set; }
+
+    public string? Endpoint { get; set; }
+    public string? P256dh { get; set; }
+    public string? Auth { get; set; }
+
+    /// <summary>실패했을 때 사람이 읽을 이유.</summary>
+    public string? Error { get; set; }
+}
+
 /// <summary>푸시를 받도록 등록된 기기 하나.</summary>
 public sealed class PushDeviceDto
 {

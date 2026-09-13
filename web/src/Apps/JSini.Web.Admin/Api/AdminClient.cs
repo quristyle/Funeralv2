@@ -467,6 +467,34 @@ public sealed class AdminClient(GatewayClient gateway)
     public Task SendTestPushAsync(CancellationToken ct = default)
         => gateway.PostAsync("notification/notifications/push/test", new { }, ct);
 
+    /// <summary>
+    /// 이 브라우저의 푸시 구독을 등록한다.
+    ///
+    /// <para>
+    /// 구독 자체는 브라우저가 만든다(<c>wwwroot/js/pwa.js</c> 의
+    /// <c>jsiniPwa.subscribe</c>). 여기서는 그 결과를 서버에 옮길 뿐이다.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>주인을 보내지 않는다.</b> 서버는 로그인한 계정으로 주인을 정하고,
+    /// 다른 주인을 지정하면 403 으로 막는다 — 남의 이름으로 구독을 만들 수
+    /// 있으면 그 사람 알림을 가로챌 수 있다.
+    /// </para>
+    /// </summary>
+    public Task RegisterPushSubscriptionAsync(
+        PushSubscribeRequest request, CancellationToken ct = default)
+        => gateway.PostAsync("notification/notifications/subscriptions", request, ct);
+
+    /// <summary>
+    /// 구독을 지운다. 열쇠는 <paramref name="endpoint"/> 다.
+    ///
+    /// <b>브라우저에서 끊기 전에 그 값을 꺼내 두어야 한다</b> — 끊고 나면
+    /// 알 수 없다. 못 지우면 서버에 죽은 구독이 남아 발송마다 실패가 쌓인다.
+    /// </summary>
+    public Task RemovePushSubscriptionAsync(string endpoint, CancellationToken ct = default)
+        => gateway.DeleteAsync(
+            "notification/notifications/subscriptions" + Query(("endpoint", endpoint)), ct);
+
     // ── 메뉴 ────────────────────────────────────────────────────
 
     /// <summary>

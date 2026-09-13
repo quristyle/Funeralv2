@@ -1,0 +1,17 @@
+{
+  "id": "/",
+  "lang": "ko",
+  "name": "JSini 포털",
+  "short_name": "JSini 포털",
+  "description": "JSini 관리 포털 — 장례식장 · 헬프데스크 · 프로젝트관리 · 생활과환경",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0a0a0a",
+  "icons": [
+    { "src": "/pwa-icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/pwa-icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/pwa-icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

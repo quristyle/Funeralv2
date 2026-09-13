@@ -57,6 +57,30 @@ dev.bat site web          소개 사이트 백엔드(:5480)와 프론트(:5556)
 
 빌드 확인: 백엔드는 해당 서비스 디렉터리에서 `dotnet build`, 프론트는 `web/` 에서 `dotnet build` 와 `dotnet test`(아키텍처 규칙 검사).
 
+## 배포
+
+`main` 에 올라가면 `.github/workflows/deploy.yml` 이 **이미지 열둘**을 GHCR 에
+올리고(백엔드 10 · 프론트 2) 운영 서버의 self-hosted 러너가 `docker compose pull`
+후 `up -d` 한다. 태그는 커밋 SHA 이고 `/srv/jsini/.env` 의 `TAG` 가 그것을 가리킨다 —
+**롤백은 그 값을 이전 SHA 로 되돌리고 `up` 하는 것**이다.
+
+`ci.yml` 은 PR 과 main 푸시에서 빌드와 **아키텍처 테스트**(web/tests, 208건)를 돌린다.
+배포 워크플로는 컨테이너 안에서 `dotnet publish` 만 하므로 그 테스트가 거기서는
+한 번도 돌지 않는다.
+
+프론트도 2026-09-13 부터 같은 길로 간다. 그 전에는 nginx 가 `/srv/jsini/portal`
+(vben 정적 산출물)을 직접 서빙해서 **프론트만 자동 배포에서 빠져 있었다.**
+
+| | 이미지 | 컨테이너 포트 | 도메인 |
+|---|---|---|---|
+| 업무 포털 셸 | `funeralv2-portal` | `127.0.0.1:5557` | portal.jsini.co.kr |
+| 회사 소개 사이트 | `funeralv2-web` | `127.0.0.1:5556` | jsini.co.kr |
+| 게이트웨이 | `funeralv2-gateway` | `127.0.0.1:5265` | 위 둘의 `/api/` |
+
+nginx 설정 정본은 [deploy/nginx/](deploy/nginx/) 에 있다 — Blazor 회로(SignalR)
+때문에 웹소켓 업그레이드 블록이 필요하고, 그것이 빠지면 **화면은 그려지는데
+단추가 하나도 안 눌린다.**
+
 ## 규칙
 
 - 커밋 메시지·주석·문서는 한국어로 쓴다.
