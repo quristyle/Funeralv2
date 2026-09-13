@@ -273,6 +273,11 @@ public static class JSiniWebApp
         // (포털관리 「알림 설정」 · 장례식장 「환경설정」).
         services.AddScoped<Settings.NotificationClient>();
 
+        // 이 브라우저를 구독에 올리는 **절차 한 벌**. 부르는 자리가 둘이다 —
+        // 알림 판의 단추와 로그인 뒤에 뜨는 권유 창(PushAskPopup). 순서를
+        // 틀리면 조용히 깨지는 대목이 셋이라 한 벌만 둔다(PushEnroll 머리말).
+        services.AddScoped<Settings.PushEnroll>();
+
         // 그중 **공개 공지만** 회로 바깥에서 잠깐 들고 있는 통.
         //
         // **싱글턴이어야 한다.** 로그인 화면 HTML 을 만드는 길 위에 있는

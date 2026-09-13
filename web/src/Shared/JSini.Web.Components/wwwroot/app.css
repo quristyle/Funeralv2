@@ -2750,6 +2750,26 @@ button.jsini-crumbs__item:hover { opacity: 1; }
   font-weight: 700;
 }
 
+/* ── 알림 구독을 권하는 창 (`PushAskPopup`) ────────────────
+
+   로그인한 뒤 한 번 뜬다. 본문은 「무엇이 오는가」 한 줄과 「무엇이
+   일어나는가」 목록이 전부다 — 이 창에서 정할 것은 받느냐 마느냐 하나라,
+   길어지면 사람이 읽지 않고 닫는다.
+   ---------------------------------------------------------- */
+
+.jsini-pushask__lead { margin: 0 0 0.75rem; }
+
+.jsini-pushask__facts {
+  margin: 0;
+  /* 점 자리만큼만 들여쓴다. 기본값(2.5rem)은 좁은 창에서 글이 오른쪽으로
+     밀려 한 줄에 몇 글자 못 들어간다. */
+  padding-left: 1.1rem;
+  font-size: var(--jsini-fs-sm);
+  color: var(--jsini-text-muted);
+}
+
+.jsini-pushask__facts li + li { margin-top: 0.35rem; }
+
 /* ── 알림 판의 덩어리 셋 (`NotificationPanel`) ──────────────
 
    **상자를 만들지 않는다**(`display: contents`). 이 판을 그냥 쓰면 덩어리

@@ -109,9 +109,23 @@
         return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
     }
 
+    /**
+     * 지금 이 브라우저의 구독. 없으면 null.
+     *
+     * **`ready` 를 기다리지 않는다.** 그 약속은 활성 워커가 생겨야 풀리는데,
+     * 등록이 아예 안 된 브라우저에서는 **영영 풀리지 않는다**(거절도 안 한다).
+     * 상태를 읽는 이 길이 거기서 멈추면 그것을 기다리는 화면도 함께 멈춘다 —
+     * 로그인 뒤 권유 창이 그 값을 보고 뜰지 말지 정한다.
+     *
+     * `getRegistration()` 은 등록이 없으면 `undefined` 로 **풀린다.** 구독을
+     * 읽는 데는 활성 워커가 필요 없고 등록 하나면 된다.
+     */
     async function currentSubscription() {
         if (!('serviceWorker' in navigator) || !('PushManager' in window)) return null;
-        const registration = await navigator.serviceWorker.ready;
+
+        const registration = await navigator.serviceWorker.getRegistration();
+        if (!registration) return null;
+
         return registration.pushManager.getSubscription();
     }
 

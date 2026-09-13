@@ -86,6 +86,24 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
     public const string PinnedTabsKey = "jsini-tabs-pinned";
 
     /// <summary>
+    /// 알림 구독 권유 창을 <b>이 탭에서 닫았다</b>(<c>PushAskPopup</c>).
+    /// 탭을 닫으면 사라지므로 다음에 새로 열면 다시 묻는다 — 「나중에」의 뜻이
+    /// 그것이다.
+    /// </summary>
+    public const string PushAskClosedKey = "jsini-push-ask-closed";
+
+    /// <summary>
+    /// 그 창에서 <b>「다시 묻지 않기」</b>를 눌렀다. 영영 안 묻는다.
+    ///
+    /// <para>
+    /// <b>기기에 남는다</b>(localStorage). 계정에 담지 않는 이유는 이 창이
+    /// 묻는 것이 「이 브라우저로 받겠는가」라서다 — 회사 컴퓨터에서 그만
+    /// 묻게 해 놓고 휴대폰에서는 권유를 받고 싶을 수 있다.
+    /// </para>
+    /// </summary>
+    public const string PushAskNeverKey = "jsini-push-ask-never";
+
+    /// <summary>
     /// 끌어 넓혀 둔 사이드바 폭(px). <b>이 브라우저의 것이다</b> —
     /// 화면 크기에 따라 알맞은 폭이 다르므로 사용자가 아니라 기기에 남는다.
     /// </summary>
@@ -95,6 +113,7 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
     [
         ScreenLockedKey,
         NoticeClosedUserKey,
+        PushAskClosedKey,
     ];
 
     private static readonly string[] LocalKeys =
@@ -102,6 +121,7 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
         NoticeDismissedKey,
         PinnedTabsKey,
         SidebarWidthKey,
+        PushAskNeverKey,
     ];
 
     /// <summary>
@@ -328,6 +348,12 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
         /// <summary>「오늘 하루 보지 않기」로 적어 둔 것. 날것 JSON 이고 없으면 <c>null</c>.</summary>
         public string? NoticeDismissedJson { get; private init; }
 
+        /// <summary>구독 권유 창을 이 탭에서 닫았는가(「나중에」).</summary>
+        public bool PushAskClosed { get; private init; }
+
+        /// <summary>그 창을 이 브라우저에서 영영 안 보기로 했는가.</summary>
+        public bool PushAskNever { get; private init; }
+
         /// <summary>고정해 둔 탭. 날것 JSON 이고 없으면 <c>null</c>.</summary>
         public string? PinnedTabsJson { get; private init; }
 
@@ -354,6 +380,8 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
             ScreenLocked = Has(wire.Session, ScreenLockedKey),
             NoticeClosed = Has(wire.Session, NoticeClosedUserKey),
             NoticeDismissedJson = Get(wire.Local, NoticeDismissedKey),
+            PushAskClosed = Has(wire.Session, PushAskClosedKey),
+            PushAskNever = Has(wire.Local, PushAskNeverKey),
             PinnedTabsJson = Get(wire.Local, PinnedTabsKey),
             SidebarWidthPx = Pixels(Get(wire.Local, SidebarWidthKey)),
             Theme = wire.Theme,
