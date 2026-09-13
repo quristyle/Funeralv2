@@ -1754,8 +1754,13 @@
    아래로 보낼 내용이 밀려나 화면을 계속 굴려야 한다.
    ---------------------------------------------------------- */
 
+/* 받는 사람 고르는 상자. **판이 높이를 정해 준다** — 메시지 발송 화면에서
+   이것이 `ad-vsplit` 왼쪽 판에 들어가 있고, 거기서는 남는 높이를 다 쓴다.
+   `max-height` 를 값으로 박으면 판보다 짧아져 아래가 비고, 반대로 판보다
+   길면 스크롤이 두 겹이 된다(사람롤에서 밟은 것과 같다). */
 .ad-picklist {
-  max-height: 18rem;
+  flex: 1;
+  min-height: 0;
   margin-bottom: 1rem;
   border: 1px solid var(--jsini-border);
   border-radius: 0.25rem;
@@ -1785,10 +1790,40 @@
   color: var(--jsini-text-muted);
 }
 
-/* 보낼 내용 칸. 폼이 화면 폭만큼 늘어나면 한 줄이 너무 길어 읽기 나쁘다. */
+/* ── 메시지 발송: 오른쪽 판 (`ad-send`) ───────────────────
+
+   탭이 판 높이를 꽉 채우고 **탭 안쪽만 구른다.** `DxTabs` 의 상자 둘
+   (`dxbl-tabs-content-panel` · `dxbl-tabs-content`)은 `min-height: auto` 인
+   flex 항목이라 **안쪽 내용보다 작아지지 않는다** — 그대로 두면 메일 본문
+   열 줄짜리 폼이 판을 밀어내 「보내기」 단추가 판 밖으로 나간다.
+   역할 관리(`ad-roletabs`)에서 같은 것을 밟았다.
+   ---------------------------------------------------------- */
+
+.ad-send { overflow: hidden; }
+
+.ad-send__tabs {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.ad-send__tabs .dxbl-tabs-content-panel,
+.ad-send__tabs .dxbl-tabs-content {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* 보낼 내용 칸. 폼이 화면 폭만큼 늘어나면 한 줄이 너무 길어 읽기 나쁘다.
+   **자기 안에서 구른다** — 판이 구르면 탭 머리까지 올라가 어느 길로 보내는
+   중인지 잃는다. */
 .ad-sendform {
   max-width: 46rem;
+  height: 100%;
   padding-top: 0.75rem;
+  padding-right: 0.5rem;
+  overflow-y: auto;
 }
 
 .ad-field { margin-bottom: 0.9rem; }
