@@ -267,7 +267,13 @@ else
 
 </section>
 
-@* ── 등록된 기기 ───────────────────────────────────────────── *@
+@* ── 등록된 기기 ─────────────────────────────────────────────
+
+   **여는 화면이 둘지 말지 정한다**(`ShowDevices`). 개인 환경설정에는 두지
+   않는다 — 그 화면에서 다루는 것은 「지금 이 브라우저」 하나이고, 계정에
+   붙은 기기를 통째로 훑어 떼어 내는 일은 알림을 관리하는 자리의 몫이다. *@
+@if (ShowDevices)
+{
 <section class="jsini-npanel__devices">
 
 <h2 class="jsini-subhead">등록된 기기 (@Devices.Count)</h2>
@@ -331,6 +337,7 @@ else
 </CommGrd>
 
 </section>
+}
 
 </div>
 
@@ -347,6 +354,22 @@ else
     /// </para>
     /// </summary>
     [Parameter] public bool ShowTest { get; set; } = true;
+
+    /// <summary>
+    /// 「등록된 기기」 목록을 둘 것인가. <b>기본은 둔다</b> — 알림을 관리하는
+    /// 화면에서는 바꾼 컴퓨터·초기화한 휴대폰의 죽은 구독을 떼어 내야 한다.
+    ///
+    /// <para>
+    /// 개인 환경설정은 <c>false</c> 다. 거기서 다루는 것은 <b>지금 이 브라우저</b>
+    /// 하나이고, 그 등록·해제는 위 칸에 이미 있다.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>자료는 그대로 읽어 온다.</b> 목록과 같은 응답에 「이 브라우저가
+    /// 등록됐나」가 실려 오므로(`subscriptions`), 안 그린다고 왕복이 줄지 않는다.
+    /// </para>
+    /// </summary>
+    [Parameter] public bool ShowDevices { get; set; } = true;
 
     private NotificationSettingsDto? _settings;
     private PushSubscriptionListDto? _subscriptions;

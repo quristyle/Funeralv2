@@ -341,11 +341,108 @@
     }, "계정이 없습니다.", "계정 목록을 읽지 못했습니다");
 
     /// <summary>「조회」와 저장·삭제 뒤가 부른다.</summary>
+    /// <summary>
+    /// 로그인 아이디로 찾는 알림 상태. <b>없을 수 있다</b> — 알림 서버를 못
+    /// 읽었거나(그때는 통이 통째로 비어 있다) 그 사람이 설정을 저장한 적도
+    /// 기기를 붙인 적도 없을 때다.
+    /// </summary>
+    private readonly Dictionary<string, OwnerNotificationStateDto> _notify =
+        new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>알림 쪽을 못 읽었나. 칸마다 「–」를 그리는 근거다.</summary>
+    private bool _notifyFailed;
+
+    private OwnerNotificationStateDto? State(AccountDto a)
+    {
+        if (_notifyFailed)
+        {
+            return null;
+        }
+
+        // **행이 없으면 기본값이다.** 없는 것을 「꺼짐」으로 그리면 반대로
+        // 말하게 된다(머리말).
+        return _notify.TryGetValue(a.LoginId, out var state)
+            ? state
+            : new OwnerNotificationStateDto { OwnerKey = a.LoginId };
+    }
+
     private Task ReloadAsync() => LoadAsync(async () =>
     {
         _all = await Api.GetAccountsAsync();
+
+        await LoadNotifyAsync();
+
         return _all.Count;
     }, "조건에 맞는 계정이 없습니다.", "계정 목록을 읽지 못했습니다");
+
+    /// <summary>
+    /// 알림 상태를 따로 읽는다.
+    ///
+    /// <para>
+    /// <b>여기서 실패해도 계정 목록은 뜬다.</b> 다른 서비스의 표라 같이 묶으면
+    /// 알림 서버가 죽었을 때 계정 관리가 통째로 안 열린다 — 그 화면은 알림과
+    /// 무관한 일(계정 등록·역할 배정)에도 쓰인다.
+    /// </para>
+    ///
+    /// <para>
+    /// 실패를 토스트로 말하지도 않는다. 계정을 고치러 온 사람에게는 상관없는
+    /// 말이고, 못 읽었다는 것은 <b>그 칸의 「–」</b>가 이미 말한다.
+    /// </para>
+    /// </summary>
+    private async Task LoadNotifyAsync()
+    {
+        _notify.Clear();
+        _notifyFailed = false;
+
+        try
+        {
+            foreach (var state in await Api.GetNotificationStatesAsync())
+            {
+                _notify[state.OwnerKey] = state;
+            }
+        }
+        catch (ApiException)
+        {
+            _notifyFailed = true;
+        }
+    }
+
+    /// <summary>
+    /// 스위치 한 칸. <b>저장한 적이 없으면 흐리게</b> 그리고 기본값이라고
+    /// 적는다 — 안 건드린 것과 켜 둔 것은 다른 일이다(머리말).
+    /// </summary>
+    private static RenderFragment Switch(
+        OwnerNotificationStateDto? state, Func<OwnerNotificationStateDto, bool> pick) => builder =>
+    {
+        if (state is null)
+        {
+            builder.OpenElement(0, "span");
+            builder.AddAttribute(1, "class", "jsini-text-muted");
+            builder.AddAttribute(2, "title", "알림 설정을 읽지 못했습니다.");
+            builder.AddContent(3, "–");
+            builder.CloseElement();
+            return;
+        }
+
+        var on = pick(state);
+
+        builder.OpenElement(0, "span");
+        builder.AddAttribute(1, "class",
+            $"jsini-badge {(on ? "jsini-badge--on" : "jsini-badge--off")}{(state.Saved ? null : " ad-notify--default")}");
+        builder.AddAttribute(2, "title", state.Saved
+            ? $"본인이 정한 값입니다.{Stamp(state.UpdatedAt)}"
+            : "아직 알림 설정을 저장한 적이 없어 기본값입니다.");
+        builder.AddContent(3, on ? "받음" : "안 받음");
+        builder.CloseElement();
+    };
+
+    private static string Stamp(DateTime? at) =>
+        at is null ? string.Empty : $" (마지막 저장 {at.Value.ToLocalTime():yyyy-MM-dd HH:mm})";
+
+    private static string LastSent(OwnerNotificationStateDto state) =>
+        state.LastSentAt is null
+            ? " 아직 보낸 적은 없습니다."
+            : $" 마지막 발송 {state.LastSentAt.Value.ToLocalTime():yyyy-MM-dd HH:mm}.";
 
     /// <summary>조건을 비우고 전체를 다시 읽는다.</summary>
     private Task Reset()
