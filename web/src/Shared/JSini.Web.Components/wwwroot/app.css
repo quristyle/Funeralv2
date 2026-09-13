@@ -2750,6 +2750,28 @@ button.jsini-crumbs__item:hover { opacity: 1; }
   font-weight: 700;
 }
 
+/* 상태 넷을 나란히 놓는 자리(「이 브라우저」 — 실행 방식·서비스워커·권한·등록).
+   칸 하나가 「이름 / 딱지」 한 쌍이고, 자리가 좁으면 한 줄씩 쌓인다.
+
+   `<dl>` 을 쓰되 격자는 `<div>` 칸에 건다 — dt·dd 를 직접 격자 항목으로
+   두면 이름과 값이 서로 다른 줄에 흩어져 짝이 안 보인다. */
+.jsini-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.5rem 1rem;
+  margin: 0 0 1rem;
+}
+
+.jsini-fact { min-width: 0; }
+
+.jsini-fact dt {
+  font-size: var(--jsini-fs-xs);
+  color: var(--jsini-text-muted);
+  margin-bottom: 0.2rem;
+}
+
+.jsini-fact dd { margin: 0; }
+
 /* 「마지막 저장 …」처럼 작게 덧붙이는 한 줄. */
 .jsini-stamp {
   font-size: var(--jsini-fs-sm);

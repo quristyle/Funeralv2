@@ -25,6 +25,44 @@
 
     const SW_URL = '/push-sw.js';
 
+    /**
+     * 「설치할 수 있다」는 브라우저의 신호.
+     *
+     * 이 사건은 **한 번 지나가면 다시 오지 않는다.** 나중에 단추로 설치
+     * 창을 띄우려면 그때 받아 들고 있어야 해서, 기본 동작을 막고 보관한다
+     * (막지 않으면 크롬이 자기 막대를 띄워 버리고 그 뒤에는 못 쓴다).
+     *
+     * **없다고 해서 설치가 안 되는 것은 아니다** — 이미 설치했거나, 파이어폭스
+     * 처럼 이 사건을 안 주는 브라우저이거나, 사파리처럼 메뉴로만 설치하는
+     * 경우다. 그래서 화면은 이 값을 「설치할 수 있다」에만 쓰고 없을 때는
+     * 아무 말도 하지 않는다.
+     */
+    let installPrompt = null;
+
+    window.addEventListener('beforeinstallprompt', (event) => {
+        event.preventDefault();
+        installPrompt = event;
+    });
+
+    // 설치가 끝나면 그 신호는 더 이상 뜻이 없다.
+    window.addEventListener('appinstalled', () => {
+        installPrompt = null;
+    });
+
+    /**
+     * 지금 이 화면이 **설치된 앱으로 열려 있는가.**
+     *
+     * 표준은 `display-mode` 미디어 질의이고, iOS 사파리만 자기 방식
+     * (`navigator.standalone`)을 쓴다 — 그쪽이 웹푸시를 홈 화면 앱에서만
+     * 주기 때문에 **이 판정이 iOS 에서 가장 중요하다.**
+     */
+    function isStandalone() {
+        const modes = ['standalone', 'window-controls-overlay', 'minimal-ui', 'fullscreen'];
+
+        return modes.some((mode) => window.matchMedia('(display-mode: ' + mode + ')').matches)
+            || window.navigator.standalone === true;
+    }
+
     /** 서비스워커 등록. 실패해도 앱을 죽이지 않는다. */
     async function register() {
         if (!('serviceWorker' in navigator)) return null;
@@ -85,18 +123,63 @@
      * 추가해야 한다" 고 말할 수 있어야 한다.
      */
     async function status() {
+        const standalone = isStandalone();
         const supported = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+
         if (!supported) {
-            return { supported: false, permission: 'unsupported', subscribed: false, endpoint: null };
+            return {
+                supported: false,
+                permission: 'unsupported',
+                subscribed: false,
+                endpoint: null,
+                standalone: standalone,
+                serviceWorker: false,
+                installable: false,
+            };
         }
 
+        // **등록(`registration.active`)으로 본다.** `controller` 는 처음 연
+        // 문서에서 잠깐 비어 있어서(우리 워커가 `clients.claim()` 을 부르므로
+        // 곧 채워진다) 그것으로 판정하면 「서비스워커 없음」이 한 번 스친다.
+        const registration = 'serviceWorker' in navigator
+            ? await navigator.serviceWorker.getRegistration()
+            : null;
+
         const sub = await currentSubscription();
+
         return {
             supported: true,
             permission: Notification.permission,
             subscribed: !!sub,
             endpoint: sub ? sub.endpoint : null,
+            standalone: standalone,
+            serviceWorker: !!(registration && registration.active),
+            installable: !!installPrompt,
         };
+    }
+
+    /**
+     * 설치 창을 띄운다. **사용자가 단추를 누른 그 사슬에서 불러야** 브라우저가
+     * 받아 준다 — 화면이 저절로 부르면 조용히 거절된다(구독 권한과 같다).
+     */
+    async function install() {
+        if (!installPrompt) {
+            return { ok: false, error: '이 브라우저에서는 설치 창을 띄울 수 없습니다. 브라우저 메뉴의 「앱 설치」·「홈 화면에 추가」를 쓰십시오.' };
+        }
+
+        try {
+            installPrompt.prompt();
+
+            const choice = await installPrompt.userChoice;
+
+            // 한 번 쓴 신호는 다시 못 쓴다. 거절했으면 브라우저가 조건이
+            // 맞을 때 새 신호를 준다.
+            installPrompt = null;
+
+            return { ok: choice && choice.outcome === 'accepted' };
+        } catch (error) {
+            return { ok: false, error: '설치 창을 띄우지 못했습니다: ' + (error && error.message ? error.message : error) };
+        }
     }
 
     /**
@@ -180,7 +263,7 @@
             : { ok: false, endpoint: endpoint, error: '브라우저에서 구독을 끊지 못했습니다.' };
     }
 
-    window.jsiniPwa = { register, status, subscribe, unsubscribe };
+    window.jsiniPwa = { register, status, subscribe, unsubscribe, install };
 
     register();
 })();

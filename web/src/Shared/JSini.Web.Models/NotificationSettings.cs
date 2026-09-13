@@ -106,6 +106,34 @@ public sealed class PushBrowserResult
     /// <summary>이미 구독 중인가.</summary>
     public bool Subscribed { get; set; }
 
+    /// <summary>
+    /// <b>설치된 앱으로 열려 있는가</b>(홈 화면·작업 표시줄의 아이콘으로 연 것).
+    ///
+    /// <para>
+    /// 브라우저 탭으로 열어도 데스크톱에서는 알림이 오지만, <b>iOS 는 홈 화면
+    /// 앱에서만 준다</b> — 거기서는 이 값이 거짓인 동안 구독 자체가 불가능하다.
+    /// 화면이 「왜 안 되는지」를 말하려면 이 구분이 필요하다.
+    /// </para>
+    /// </summary>
+    public bool Standalone { get; set; }
+
+    /// <summary>
+    /// 서비스워커가 이 브라우저에 자리 잡았는가. 없으면 구독을 만들 수 없다 —
+    /// 알림을 실제로 받아 주는 것이 그 워커다.
+    /// </summary>
+    public bool ServiceWorker { get; set; }
+
+    /// <summary>
+    /// 브라우저가 <b>설치할 수 있다고 알려 왔는가.</b>
+    ///
+    /// <para>
+    /// <b>거짓이라고 설치가 안 되는 것은 아니다</b> — 이미 설치했거나, 그
+    /// 신호를 주지 않는 브라우저(파이어폭스·사파리)일 수 있다. 그래서 화면은
+    /// 참일 때만 단추를 두고 거짓일 때는 아무 말도 하지 않는다.
+    /// </para>
+    /// </summary>
+    public bool Installable { get; set; }
+
     public string? Endpoint { get; set; }
     public string? P256dh { get; set; }
     public string? Auth { get; set; }
