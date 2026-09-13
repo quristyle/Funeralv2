@@ -14,6 +14,11 @@ var builder = WebApplication.CreateBuilder(args);
 // 서버 렌더로 그대로 잇는다. 대신 프리렌더와 달리 DB 문구가 늘 최신이다.
 builder.Services.AddRazorComponents();
 
+// 방문자 주소를 게이트웨이로 넘기는 데 쓴다. 왜 필요한지는 ClientIpHandler 참조 —
+// 없으면 문의 폼의 분당 3회 제한이 사이트 전체 공용 통이 된다.
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<ClientIpHandler>();
+
 // SiteServer 공개 API. 인증이 없다 — 공개 사이트라 BFF 토큰 처리가 필요 없다.
 builder.Services.AddHttpClient<SiteApi>(client =>
 {
@@ -23,7 +28,8 @@ builder.Services.AddHttpClient<SiteApi>(client =>
     // 소개 사이트는 백엔드가 느리다고 함께 느려지면 안 된다. SiteApi 는 실패를
     // 빈 값으로 바꾸므로, 짧게 끊고 화면을 그리는 편이 낫다.
     client.Timeout = TimeSpan.FromSeconds(5);
-});
+})
+.AddHttpMessageHandler<ClientIpHandler>();
 
 var app = builder.Build();
 

@@ -1,4 +1,5 @@
 using JSini.Web.Abstractions;
+using JSini.Web.Http;
 using JSini.Web.Components;
 using JSini.Web.Components.Menu;
 using JSini.Web.Shell.Components;
@@ -81,7 +82,21 @@ builder.Services.AddHttpClient(LoginService.HttpClientName, client =>
     // 쿠키를 우리가 직접 다룬다. HttpClient 가 자동으로 모아 두면 그 통이
     // 모든 사용자에게 공유되어(핸들러는 재사용된다) 남의 리프레시 쿠키가 섞인다.
     UseCookies = false,
-});
+})
+// 로그인한 사람의 주소를 게이트웨이로 넘긴다.
+//
+// **이 줄이 빠지면 로그인 속도 제한이 전원 공용 통이 된다** — 게이트웨이는
+// auth-attempts 를 IP 당 분당 10회로 세는데, 그 IP 를 X-Forwarded-For 에서
+// 읽는다. 프론트가 BFF 라 헤더가 없으면 전원이 포털 컨테이너 하나로 보이고,
+// 열한 번째 사람이 비밀번호를 틀리는 순간 나머지가 429 로 막힌다.
+//
+// [익명 클라이언트가 둘인 것에 주의]
+//
+// 로그인만 이 클라이언트를 쓰고(gateway-anonymous), 가입 신청·비밀번호 찾기는
+// JSini.Web.Http 의 AnonymousClientName 을 쓴다. 거의 같은 것이 둘이라
+// **한쪽에만 손대면 그쪽만 조용히 고쳐진다** — 실제로 그렇게 한 번 놓쳤고,
+// 속도 제한 통이 갈리는지 재 보고야 알았다. 둘 다에 이 핸들러가 붙어 있다.
+.AddHttpMessageHandler<ClientIpHandler>();
 
 var app = builder.Build();
 

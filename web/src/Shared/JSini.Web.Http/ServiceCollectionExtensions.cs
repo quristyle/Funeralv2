@@ -57,6 +57,14 @@ public static class ServiceCollectionExtensions
 
         services.AddScoped<AuthTokenHandler>();
 
+        // 원래 클라이언트의 주소를 게이트웨이로 실어 보낸다. 왜 필요한지는
+        // 그 클래스 머리말에 있다 — 없으면 속도 제한이 전원 공용 통이 된다.
+        //
+        // **토큰을 붙이는 쪽과 안 붙이는 쪽 둘 다에 건다.** 게이트웨이가 IP 로
+        // 세는 경로가 양쪽에 갈려 있다 — 로그인은 익명 클라이언트로 나가고,
+        // 비밀번호 바꾸기는 토큰을 붙여 나간다.
+        services.AddScoped<ClientIpHandler>();
+
         services.AddHttpClient<GatewayClient>(client =>
             {
                 client.BaseAddress = new Uri(baseUrl);
@@ -66,6 +74,7 @@ public static class ServiceCollectionExtensions
                 client.Timeout = TimeSpan.FromMinutes(3);
             })
             .ConfigurePrimaryHttpMessageHandler(NoCookieJar)
+            .AddHttpMessageHandler<ClientIpHandler>()
             .AddHttpMessageHandler<AuthTokenHandler>();
 
         // ── 로그인 전에도 부르는 경로 ─────────────────────────
@@ -76,7 +85,8 @@ public static class ServiceCollectionExtensions
                 client.BaseAddress = new Uri(baseUrl);
                 client.Timeout = TimeSpan.FromSeconds(20);
             })
-            .ConfigurePrimaryHttpMessageHandler(NoCookieJar);
+            .ConfigurePrimaryHttpMessageHandler(NoCookieJar)
+            .AddHttpMessageHandler<ClientIpHandler>();
 
         // ── AI 대화 (D11) ────────────────────────────────────
         //
