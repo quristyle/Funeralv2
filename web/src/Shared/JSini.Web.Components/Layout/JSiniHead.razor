@@ -41,11 +41,26 @@
 
 @*
     파비콘. 브랜드 자산은 Blazor Common 의 wwwroot 에 둔다 —
-    옛 Vue 포털(fronts/apps/jsini-portal/public/brand)에서 옮겨 온 것이고,
-    정본은 여전히 `docs/brand/generate.py` 다. **여기서 좌표를 고치지 않는다.**
+    옛 Vue 포털(fronts/apps/jsini-portal/public/brand)에서 옮겨 온 자리다.
+
+    [ICO 한 장이고, SVG 를 함께 걸지 않는다]
+
+    그림은 **헤더에 서 있는 그 「JS」 마크**다(`BrandMark`). 굽는 것은
+    `scripts/build-favicon.py` 이고 **여기서 좌표를 고치지 않는다.**
+
+    한동안 이 자리에 SVG 만 걸려 있었다. SVG 는 한 장으로 모든 크기를 그리는
+    대신 **자기가 몇 px 로 그려지는지 모른다** — 탭 막대의 16px 에서도 두 획을
+    다 그리므로 S 가 J 와 뭉개져 얼룩으로 보인다.
+
+    ICO 는 크기마다 다른 그림을 담는다. 16px 에는 J 만, 그 위로는 두 획을
+    담아 두었다(16·32·48·64·128·256). **둘을 함께 걸지 않는다** — 어느 것을
+    고를지가 브라우저마다 달라 같은 자리에서 다른 그림이 뜬다.
+
+    `sizes` 를 적어 주면 브라우저가 파일을 열어 보기 전에 고를 수 있다.
 *@
-<link rel="icon" type="image/svg+xml"
-      href="@Assets["_content/JSini.Web.Components/brand/favicon.svg"]" />
+<link rel="icon"
+      href="@Assets["_content/JSini.Web.Components/brand/favicon.ico"]"
+      sizes="16x16 32x32 48x48 64x64 128x128 256x256" />
 
 @*
     **테마 스타일시트를 여기 적지 않는다.**
