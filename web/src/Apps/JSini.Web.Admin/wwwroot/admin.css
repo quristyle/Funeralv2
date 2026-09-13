@@ -1429,10 +1429,29 @@
   .ad-msa { grid-template-columns: 1fr 380px; }
 }
 
-/* 카드가 늘어나도 목록만 구른다. 페이지가 함께 자라면 아래 구역들이 밀린다. */
+/* 왼쪽 칸 — 목록 둘(서비스 · 컨테이너)을 쌓는다.
+
+   상세를 오른쪽 한 자리에 모으면서 왼쪽이 두 덩이가 됐다. 제목과 목록이
+   서로 붙지 않게 이 칸이 간격을 갖는다 — 목록에 `margin` 을 주면 칸이
+   하나뿐인 다른 화면에서도 따라 벌어진다. */
+.ad-msa__panes {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 첫 제목은 이미 위 구역과 간격이 있다. 둘째부터만 띄운다. */
+.ad-msa__panes > .ad-subhead:not(:first-child) {
+  margin-top: 1rem;
+}
+
+/* 카드가 늘어나도 목록만 구른다. 페이지가 함께 자라면 아래 구역들이 밀린다.
+
+   **둘이 쌓이므로 각자 낮게 잡는다.** 26rem 씩 두면 왼쪽이 52rem 이 되어
+   오른쪽 상세가 화면 밖으로 밀린다 — 나란히 보려고 합친 것이 무의미해진다. */
 .ad-msa__list {
   min-width: 0;
-  max-height: 26rem;
+  max-height: 17rem;
   overflow-y: auto;
 
   /* **줄이 아니라 칸이 채워진다.** 서비스가 늘 때 아래로 자라지 않는 것이
@@ -1549,6 +1568,18 @@
   min-width: 0;
 }
 
+/* 넓은 화면에서는 상세가 **따라다닌다.** 왼쪽 목록 둘을 굴려 내려가도
+   지금 펴 놓은 값이 눈에 남아야 둘을 견줄 수 있다 — 그것이 상세를 한 자리로
+   모은 이유다. 좁은 화면에서는 위아래로 쌓이므로 붙이지 않는다. */
+@media (min-width: 1200px) {
+  .ad-msa__detail {
+    position: sticky;
+    top: 0.5rem;
+    max-height: calc(100vh - var(--jsini-header-height, 3.5rem) - 6rem);
+    overflow-y: auto;
+  }
+}
+
 .ad-msa__head {
   display: flex;
   flex-wrap: wrap;
@@ -1597,6 +1628,19 @@
   flex-wrap: wrap;
   align-items: baseline;
   gap: 0.4rem;
+}
+
+/* 컨테이너 카드의 셋째 줄 — 「Up 3 days」 같은 가동 문구.
+   서비스 카드의 그 자리에는 연결 점이 있고, 컨테이너에는 딸린 것이 없어
+   비는 자리라 여기 채운다. **한 줄로 자른다** — 「Up 2 hours (healthy)」
+   처럼 길어지면 카드 키가 그 장만 늘어 격자가 들쭉날쭉해진다. */
+.ad-box__uptime {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--jsini-fs-sm);
+  color: var(--jsini-text-muted);
 }
 
 /* 상태를 왼쪽 굵은 선으로 말한다. 카드 열몇 장 중에 빨간 것 하나를 찾는
