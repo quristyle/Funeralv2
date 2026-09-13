@@ -3895,60 +3895,25 @@ button.jsini-crumbs__item:hover { opacity: 1; }
 }
 
 /* ── 첨부 고르기 (D5) ────────────────────────────────────────
-   DevExpress 부품이 아니라 표준 `InputFile` 이다 — 그 이유는 FilePicker
-   머리말에 있다(BFF 라 브라우저에 게이트웨이 토큰이 없다). 그래서 생김새는
-   여기서 직접 맞춘다. */
+   생김새는 DevExpress `DxFileInput` 이 그린다 — 끌어놓기 칸 · 파일 목록 ·
+   파일별 진행 막대 · 빼기 · 취소까지 전부 그쪽 것이다. 여기 남는 것은
+   **부품과 안내 줄을 세로로 쌓는 것**뿐이다.
+
+   2026-09-13 이전에는 표준 `InputFile` 위에 그 전부를 직접 그렸고, 그래서
+   이 자리에 클래스가 일곱 개 있었다(`__drop` · `__progress` · `__list` ·
+   `__item` · `__name` · `__size`). 지금은 쓰는 곳이 없어 지웠다 —
+   남겨 두면 「어디서 쓰이나」를 다음 사람이 다시 찾는다.
+
+   **`DxUpload` 은 여전히 못 쓴다**(브라우저가 직접 POST 하는데 BFF 라
+   토큰이 없다). 갈리는 지점은 FilePicker 머리말에 있다. */
 .jsini-picker {
   display: grid;
   gap: 0.5rem;
 }
 
-.jsini-picker__drop {
-  display: grid;
-  gap: 0.35rem;
-  padding: 0.75rem;
-  border: 1px dashed var(--jsini-border);
-  border-radius: 0.5rem;
-  background: var(--jsini-surface);
-  cursor: pointer;
-}
-
 .jsini-picker__hint {
   color: var(--jsini-text-muted);
   font-size: var(--jsini-fs-sm);
-}
-
-.jsini-picker__progress {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  color: var(--jsini-text-muted);
-  font-size: var(--jsini-fs-sm);
-}
-
-.jsini-picker__list {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.jsini-picker__item {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  padding: 0.3rem 0.1rem;
-  border-bottom: 1px solid var(--jsini-border);
-}
-
-.jsini-picker__name {
-  flex: 1;
-  word-break: break-all;
-}
-
-.jsini-picker__size {
-  color: var(--jsini-text-muted);
-  font-size: var(--jsini-fs-sm);
-  white-space: nowrap;
 }
 
 /* ── 사진 그룹 (ImageGroup) ────────────────────────────────
