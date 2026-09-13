@@ -269,6 +269,10 @@ public static class JSiniWebApp
         // 두면 레이아웃이 못 쓴다(셸은 모듈을 이름으로 알지 못한다).
         services.AddScoped<NoticeClient>();
 
+        // 내 알림 설정·웹푸시 구독. 화면 둘이 같은 판을 쓴다
+        // (포털관리 「알림 설정」 · 장례식장 「환경설정」).
+        services.AddScoped<Settings.NotificationClient>();
+
         // 그중 **공개 공지만** 회로 바깥에서 잠깐 들고 있는 통.
         //
         // **싱글턴이어야 한다.** 로그인 화면 HTML 을 만드는 길 위에 있는

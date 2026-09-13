@@ -2715,6 +2715,47 @@ button.jsini-crumbs__item:hover { opacity: 1; }
 
 /* 상태 표시. 글자만으로도 읽히게 두고 색은 거들기만 한다 —
    색으로만 구분하면 색각 이상이 있는 사용자가 못 읽는다. */
+/* ── 설정 줄 (`.jsini-setting`) ────────────────────────────────
+
+   **왼쪽에 이름과 설명, 오른쪽에 스위치** 한 줄. 개인 설정 화면의 기본
+   모양이고, 지금 알림 설정(`NotificationPanel`)이 쓴다.
+
+   포털관리 CSS 에 `ad-setting` 으로 있던 것을 올렸다 — 그 판을 장례식장
+   환경설정도 함께 쓰게 되면서 모듈 CSS 에 두면 한쪽에서만 모양이 산다.
+   ---------------------------------------------------------- */
+
+.jsini-settings { margin-bottom: 1rem; }
+
+.jsini-setting {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.7rem 0;
+  border-bottom: 1px solid var(--jsini-border);
+}
+
+.jsini-setting__name { font-weight: 600; }
+
+.jsini-setting__desc {
+  margin-top: 0.15rem;
+  font-size: var(--jsini-fs-sm);
+  color: var(--jsini-text-muted);
+}
+
+/* 화면 안의 작은 제목. 한 화면이 여러 묶음으로 나뉠 때 그 사이를 가른다. */
+.jsini-subhead {
+  margin: 1.5rem 0 0.75rem;
+  font-size: var(--jsini-fs-lg);
+  font-weight: 700;
+}
+
+/* 「마지막 저장 …」처럼 작게 덧붙이는 한 줄. */
+.jsini-stamp {
+  font-size: var(--jsini-fs-sm);
+  color: var(--jsini-text-muted);
+}
+
 .jsini-badge {
   display: inline-block;
   padding: 0.1rem 0.5rem;

@@ -444,56 +444,12 @@ public sealed class AdminClient(GatewayClient gateway)
         => gateway.GetOneAsync<string>(
             $"ai/suggest-code{Query(("word", word), ("natural", natural))}", ct);
 
-    // ── 알림 설정 (NotificationServer) ─────────────────────────
-
-    // 알림 서비스의 게이트웨이 접두사는 **`notification`** 이고, 서비스 안의
-    // 묶음은 **`/notifications`** 다. 둘 다 있어야 한다 — `notify/...` 로
-    // 부르던 동안 네 화면이 조용히 404 였다.
-
-    public Task<NotificationSettingsDto?> GetMyPreferencesAsync(CancellationToken ct = default)
-        => gateway.GetOneAsync<NotificationSettingsDto>("notification/notifications/preferences/me", ct);
-
-    /// <summary>
-    /// 설정을 저장한다. <b>감싸지 않고 설정만</b> 보낸다 — 서버가 받는 것은
-    /// 응답의 <c>preference</c> 자리에 해당하는 모양이다.
-    /// </summary>
-    public Task SaveMyPreferencesAsync(NotificationPreferenceDto pref, CancellationToken ct = default)
-        => gateway.PutAsync("notification/notifications/preferences/me", pref, ct);
-
-    public Task<PushSubscriptionListDto?> GetMySubscriptionsAsync(CancellationToken ct = default)
-        => gateway.GetOneAsync<PushSubscriptionListDto>("notification/notifications/subscriptions/me", ct);
-
-    /// <summary>시험 발송. 내 기기로 한 통 보낸다.</summary>
-    public Task SendTestPushAsync(CancellationToken ct = default)
-        => gateway.PostAsync("notification/notifications/push/test", new { }, ct);
-
-    /// <summary>
-    /// 이 브라우저의 푸시 구독을 등록한다.
-    ///
-    /// <para>
-    /// 구독 자체는 브라우저가 만든다(<c>wwwroot/js/pwa.js</c> 의
-    /// <c>jsiniPwa.subscribe</c>). 여기서는 그 결과를 서버에 옮길 뿐이다.
-    /// </para>
-    ///
-    /// <para>
-    /// <b>주인을 보내지 않는다.</b> 서버는 로그인한 계정으로 주인을 정하고,
-    /// 다른 주인을 지정하면 403 으로 막는다 — 남의 이름으로 구독을 만들 수
-    /// 있으면 그 사람 알림을 가로챌 수 있다.
-    /// </para>
-    /// </summary>
-    public Task RegisterPushSubscriptionAsync(
-        PushSubscribeRequest request, CancellationToken ct = default)
-        => gateway.PostAsync("notification/notifications/subscriptions", request, ct);
-
-    /// <summary>
-    /// 구독을 지운다. 열쇠는 <paramref name="endpoint"/> 다.
-    ///
-    /// <b>브라우저에서 끊기 전에 그 값을 꺼내 두어야 한다</b> — 끊고 나면
-    /// 알 수 없다. 못 지우면 서버에 죽은 구독이 남아 발송마다 실패가 쌓인다.
-    /// </summary>
-    public Task RemovePushSubscriptionAsync(string endpoint, CancellationToken ct = default)
-        => gateway.DeleteAsync(
-            "notification/notifications/subscriptions" + Query(("endpoint", endpoint)), ct);
+    // ── 알림 설정은 여기 없다 ──────────────────────────────────
+    //
+    // 내 알림 설정과 웹푸시 구독은 **공용 클라이언트**가 다룬다
+    // (`JSini.Web.Components/Settings/NotificationClient`). 그 설정을 여는
+    // 화면이 포털관리와 장례식장 둘이라, 한쪽 모듈에 두면 다른 쪽이 못 쓴다 —
+    // 공지(`NoticeClient`)를 올린 것과 같은 까닭이다.
 
     // ── 메뉴 ────────────────────────────────────────────────────
 
