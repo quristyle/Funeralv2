@@ -605,6 +605,33 @@
   min-height: 0;
 }
 
+/* ── 그런데 **표 자신도 판을 채워야 한다** ────────────────
+
+   위 규칙은 `.commgrd`(감싸개)만 판 높이로 늘린다. 그 안의 `.dxbl-grid` 는
+   app.css 가 걸어 둔 `max-height: 58vh` 에 묶여 **자기 내용만큼만** 크다.
+
+   그 둘이 어긋나면 **아래 띠의 아이콘이 표 밖으로 떨어진다.** 띠는
+   `position: absolute; bottom: 0` 으로 감싸개 바닥에 붙는데(app.css 의
+   「아이콘을 페이저 줄에 얹는다」), 표가 그보다 위에서 끝나면 얹힐 페이저
+   줄이 거기 없기 때문이다 — 아이콘만 빈 자리에 덩그러니 남고 쪽·건수는
+   저 위 표 안에 있다. 메시지 발송과 역할 관리에서 실제로 그렇게 보였다.
+
+   `CommCont` 안에 든 표는 app.css 가 같은 일을 이미 해 준다
+   (`.commcont__body > .commgrd > .dxbl-grid`). 여기는 판이 자료 영역을
+   대신하는 자리라 그 규칙이 안 걸려서, 같은 것을 이 판에 대해 적는다.
+
+   **넓은 화면에서만 건다.** 좁은 화면에서는 판이 `display: block` 으로
+   풀려 높이를 안 주므로(아래 `width < 992px`), 그때 `height: 100%` 는
+   기댈 바닥이 없다. 거기서는 `max-height: 58vh` 가 표를 붙잡는 유일한
+   것이라 그대로 둔다.
+   ---------------------------------------------------------- */
+@media (width >= 992px) {
+  .ad-vsplit__pane--left > .commgrd > .dxbl-grid {
+    height: 100%;
+    max-height: none;
+  }
+}
+
 .ad-vsplit__pane--left > .ad-targets {
   flex: 1;
   min-height: 0;
