@@ -444,6 +444,34 @@ public sealed class AdminClient(GatewayClient gateway)
         => gateway.GetOneAsync<string>(
             $"ai/suggest-code{Query(("word", word), ("natural", natural))}", ct);
 
+    // ── 메시지 발송 ────────────────────────────────────────────
+    //
+    // **내 설정과 갈래가 다르다.** 위쪽(`NotificationClient`)은 「내가 받을
+    // 것」이고 여기는 「남에게 보내는 것」이다 — 관리 권한이 있는 화면만
+    // 부르므로 공용 자리로 올리지 않는다.
+
+    /// <summary>
+    /// 고른 사람들에게 웹푸시를 보낸다.
+    ///
+    /// <para>
+    /// <b>보낸 것이 0 이어도 실패가 아니다.</b> 구독한 기기가 없거나 본인이
+    /// 푸시를 꺼 두었으면 서버가 그 수(<c>OwnersWithoutSubscription</c> ·
+    /// <c>OptedOut</c>)와 까닭을 담아 돌려준다 — 화면이 그것을 그대로 옮겨야
+    /// 「보냈다는데 안 온다」가 기기 문제로 오해되지 않는다.
+    /// </para>
+    /// </summary>
+    public Task<PushSendResultDto?> SendPushAsync(
+        PushSendRequest request, CancellationToken ct = default)
+        => gateway.PostAsync<PushSendResultDto>("notification/notifications/push", request, ct);
+
+    /// <summary>
+    /// 이메일을 <b>큐에 넣는다.</b> 실제 발송은 배포 장비의 스크립트가 한다
+    /// (<see cref="EmailSendResultDto"/> 머리말).
+    /// </summary>
+    public Task<EmailSendResultDto?> SendEmailAsync(
+        EmailSendRequest request, CancellationToken ct = default)
+        => gateway.PostAsync<EmailSendResultDto>("notification/notifications/email", request, ct);
+
     // ── 알림 설정은 여기 없다 ──────────────────────────────────
     //
     // 내 알림 설정과 웹푸시 구독은 **공용 클라이언트**가 다룬다

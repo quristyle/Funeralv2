@@ -1743,3 +1743,63 @@
   overflow-y: auto;
   overflow-wrap: anywhere;
 }
+
+/* ── 메시지 발송 (`/admin/push/send`) ─────────────────────────
+
+   받는 사람을 **체크 목록**으로 고른다. 표(`CommGrd`)를 쓰지 않는 이유는
+   여기서 하는 일이 자료를 읽는 것이 아니라 고르는 것이라서다 — 정렬·쪽나누기
+   보다 「지금 몇 명인가」와 「한 번에 여럿 켜기」가 중요하다.
+
+   목록이 길어지므로 높이를 묶고 그 안에서만 구른다. 안 묶으면 사람 수백 명
+   아래로 보낼 내용이 밀려나 화면을 계속 굴려야 한다.
+   ---------------------------------------------------------- */
+
+.ad-picklist {
+  max-height: 18rem;
+  margin-bottom: 1rem;
+  border: 1px solid var(--jsini-border);
+  border-radius: 0.25rem;
+  overflow-y: auto;
+}
+
+.ad-pick {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.3rem 0.6rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--jsini-border) 50%, transparent);
+  cursor: pointer;
+}
+
+.ad-pick:hover { background: color-mix(in srgb, currentColor 5%, transparent); }
+
+/* 고른 줄은 **면으로** 칠한다. 테두리를 두르면 그 줄만 키가 커져 목록이 들썩인다
+   (테마 서랍에서 같은 이유로 같은 선택을 했다). */
+.ad-pick--on { background: color-mix(in srgb, var(--jsini-primary, #3f7ad6) 10%, transparent); }
+
+.ad-pick__name { font-weight: 600; }
+
+.ad-pick__id,
+.ad-pick__where {
+  font-size: var(--jsini-fs-sm);
+  color: var(--jsini-text-muted);
+}
+
+/* 보낼 내용 칸. 폼이 화면 폭만큼 늘어나면 한 줄이 너무 길어 읽기 나쁘다. */
+.ad-sendform {
+  max-width: 46rem;
+  padding-top: 0.75rem;
+}
+
+.ad-field { margin-bottom: 0.9rem; }
+
+.ad-field__label {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-weight: 600;
+}
+
+.ad-field__must { color: #d32f2f; }
+
+/* 아이콘 주소 칸은 옆의 빠른 선택 단추를 빼고 남는 폭을 다 쓴다. */
+.ad-field__grow { flex: 1; min-width: 12rem; }

@@ -1,0 +1,549 @@
+@page "/admin/push/send"
+@attribute [RouteKey("admin.push.send")]
+
+@*
+    [메시지 발송] — 알림관리 › 메시지 발송.
+
+    고른 사람들에게 **웹푸시 · 이메일**을 보낸다. 문자·카카오 칸도 함께 두었는데
+    그 둘은 **아직 보낼 곳이 없다**(아래).
+
+    [받는 사람은 한 곳에서 고른다]
+
+    칸마다 사람을 따로 고르게 하면, 같은 사람들에게 푸시와 메일을 함께 보낼 때
+    두 번 고르게 된다. 위에서 한 번 고르고 아래 칸이 그 명단을 나눠 쓴다 —
+    **칸을 옮겨도 고른 사람은 그대로다.**
+
+    [보내는 길마다 필요한 값이 다르다]
+
+    | 길 | 열쇠 | 없는 사람은 |
+    |---|---|---|
+    | 푸시 | 로그인 아이디 | 보낼 수는 있다(구독이 없으면 서버가 센다) |
+    | 이메일 | 이메일 주소 | **뺀다** — 주소가 없으면 보낼 데가 없다 |
+    | 문자 | 휴대폰 번호 | 〃 |
+
+    그래서 고른 사람 중 **그 길로 보낼 수 없는 사람이 몇인지**를 칸마다 적어
+    둔다. 조용히 빼면 「열 명 골랐는데 왜 일곱만 갔나」를 알 수 없다.
+
+    [보낸 것이 0 이어도 실패가 아니다]
+
+    구독한 기기가 없거나 본인이 푸시를 꺼 두었으면 서버는 **성공 계열로 답하고**
+    그 수를 담아 준다(`OwnersWithoutSubscription` · `OptedOut`). 그것을 그대로
+    옮긴다 — 「보냈습니다」로만 말하면 안 받은 사람이 자기 기기를 의심한다.
+
+    [문자·카카오는 화면만 있다]
+
+    보낼 통로가 아직 정해지지 않았다(어느 대행사를 쓸지 · 발신번호 사전등록 ·
+    알림톡 템플릿 심사). **단추를 눌러도 아무 데도 가지 않는다** — 그 사실을
+    화면이 먼저 말한다. 통로가 정해지면 고칠 곳은 `AdminClient` 의 호출 하나와
+    이 화면의 그 칸뿐이다.
+*@
+
+@inherits DataPage
+@inject AdminClient Api
+
+<PageTitle>메시지 발송 · 포털관리</PageTitle>
+
+@* ── 받는 사람 ──────────────────────────────────────────────── *@
+
+<CommSch OnSearch="@LoadAsync" SearchText="사람 다시 읽기" Busy="@Loading">
+    <Fields>
+        <CommSchItem Label="찾기">
+            @* 이름·아이디·부서·회사 어느 것으로 쳐도 걸린다. 글자마다 거른다 —
+               목록이 이미 브라우저에 있어 회로를 타지 않는다. *@
+            <DxTextBox @bind-Text="_filter" NullText="이름 · 아이디 · 부서 · 회사"
+                       BindValueMode="BindValueMode.OnInput"
+                       ValidationEnabled="false" />
+        </CommSchItem>
+
+        <CommSchItem Label="상태">
+            @* 그만둔 사람에게 보낼 일은 없다. 기본은 재직자만. *@
+            <DxCheckBox Checked="@_activeOnly"
+                        CheckedChanged="@((bool on) => _activeOnly = on)">
+                재직자만
+            </DxCheckBox>
+        </CommSchItem>
+    </Fields>
+
+    <Actions>
+        <DxButton Text="@($"보이는 {Matched.Count}명 모두 고르기")"
+                  RenderStyle="ButtonRenderStyle.Secondary" Click="@PickAllAsync" />
+        <DxButton Text="고른 사람 비우기" RenderStyle="ButtonRenderStyle.Secondary"
+                  Enabled="@(_picked.Count > 0)" Click="@ClearPickedAsync" />
+    </Actions>
+</CommSch>
+
+<h2 class="jsini-subhead">받는 사람 (@_picked.Count 명 고름 / 전체 @_accounts.Count 명)</h2>
+
+@if (_picked.Count == 0)
+{
+    <PageNotice Tone="NoticeTone.Info"
+                Text="아래 목록에서 받을 사람을 고르십시오. 고른 사람은 모든 칸(푸시·이메일·문자·카카오)이 함께 씁니다." />
+}
+
+@* **표가 아니라 체크 목록이다.** 여기서 하는 일은 자료를 읽는 것이 아니라
+   고르는 것이고, 그 일에는 정렬·쪽나누기보다 「지금 몇 명인가」가 중요하다. *@
+<div class="ad-picklist">
+    @foreach (var account in Matched)
+    {
+        <label class="ad-pick @(_picked.Contains(account.LoginId) ? "ad-pick--on" : null)">
+            <DxCheckBox Checked="@_picked.Contains(account.LoginId)"
+                        CheckedChanged="@((bool on) => Toggle(account, on))" />
+
+            <span class="ad-pick__name">@account.UserName</span>
+            <span class="ad-pick__id">@account.LoginId</span>
+            <span class="ad-pick__where">@account.CompanyName @account.DeptName</span>
+
+            @* 어느 길로 못 받는지 그 자리에서 보인다 — 고르고 나서 「왜
+               빠졌지」를 아래 칸에서 찾게 하지 않는다. *@
+            @if (string.IsNullOrWhiteSpace(account.Email))
+            {
+                <span class="jsini-badge jsini-badge--off" title="이메일 주소가 없어 메일을 보낼 수 없습니다.">메일 없음</span>
+            }
+            @if (string.IsNullOrWhiteSpace(account.Phone))
+            {
+                <span class="jsini-badge jsini-badge--off" title="휴대폰 번호가 없어 문자를 보낼 수 없습니다.">번호 없음</span>
+            }
+        </label>
+    }
+</div>
+
+@if (Matched.Count == 0 && !Loading)
+{
+    <PageNotice Tone="NoticeTone.Info" Text="조건에 맞는 사람이 없습니다." />
+}
+
+@* ── 보내는 길 ──────────────────────────────────────────────── *@
+
+<h2 class="jsini-subhead">보낼 내용</h2>
+
+<DxTabs RenderMode="TabsRenderMode.OnDemand">
+
+    @* ── 웹푸시 ─────────────────────────────────────────────── *@
+    <DxTabPage Text="PWA 발송">
+        <div class="ad-sendform">
+            <PageNotice Tone="NoticeTone.Info"
+                        Text="브라우저·휴대폰 알림으로 갑니다. 받는 사람이 이 포털을 알림 설정에서 등록해 두어야 도착합니다." />
+
+            <div class="ad-field">
+                <label class="ad-field__label">제목 <span class="ad-field__must">*</span></label>
+                <DxTextBox @bind-Text="_push.Title" NullText="알림 제목" ValidationEnabled="false" />
+            </div>
+
+            <div class="ad-field">
+                <label class="ad-field__label">내용</label>
+                <DxMemo @bind-Text="_push.Body" Rows="4" NullText="알림 본문" ValidationEnabled="false" />
+            </div>
+
+            <div class="ad-field">
+                <label class="ad-field__label">아이콘</label>
+                @* 고르기 쉽게 몇 개를 단추로 두고, 손으로 적을 수도 있게 둔다.
+                   **주소는 이 포털 안의 것이어야 한다** — 바깥 주소를 적으면
+                   알림이 뜰 때 그쪽으로 요청이 나간다. *@
+                <div class="jsini-inline">
+                    <DxTextBox @bind-Text="_push.Icon" NullText="/icons/icon-192.png"
+                               BindValueMode="BindValueMode.OnInput"
+                               ValidationEnabled="false" CssClass="ad-field__grow" />
+
+                    @foreach (var icon in Icons)
+                    {
+                        <DxButton Text="@icon.Label" RenderStyle="ButtonRenderStyle.Secondary"
+                                  Click="@(() => _push.Icon = icon.Url)" />
+                    }
+                </div>
+                <div class="jsini-hint">비우면 브라우저 기본 아이콘으로 뜹니다.</div>
+            </div>
+
+            <div class="ad-field">
+                <label class="ad-field__label">눌렀을 때 열 주소</label>
+                <DxTextBox @bind-Text="_push.Url" NullText="/admin/push/history"
+                           ValidationEnabled="false" />
+                <div class="jsini-hint">포털 안의 경로를 적습니다. 비우면 첫 화면이 열립니다.</div>
+            </div>
+
+            <div class="ad-field">
+                <label class="ad-field__label">묶음 이름(태그)</label>
+                <DxTextBox @bind-Text="_push.Tag" NullText="notice-2026-09"
+                           ValidationEnabled="false" />
+                <div class="jsini-hint">
+                    같은 태그의 알림은 브라우저가 <b>하나로 합칩니다</b>. 같은 건을 여러 번 갱신해
+                    보낼 때만 적습니다 — 비우면 올 때마다 따로 쌓입니다.
+                </div>
+            </div>
+
+            <div class="jsini-toolbar">
+                <PermissionView Action="MenuAction.Create">
+                    <DxButton Text="@($"{_picked.Count}명에게 푸시 보내기")"
+                              RenderStyle="ButtonRenderStyle.Primary"
+                              Enabled="@(_picked.Count > 0 && !_busy)"
+                              Click="@SendPushAsync" />
+                </PermissionView>
+            </div>
+        </div>
+    </DxTabPage>
+
+    @* ── 이메일 ─────────────────────────────────────────────── *@
+    <DxTabPage Text="이메일 발송">
+        <div class="ad-sendform">
+            @* **「보냈다」가 아니라 「넣었다」다.** SMTP 설정이 이 시스템에 없고
+               실제 발송은 배포 장비의 스크립트가 큐를 읽어 한다. *@
+            <PageNotice Tone="NoticeTone.Info"
+                        Text="메일은 발송 큐에 넣습니다. 실제 전송은 배포 장비의 스크립트가 이어서 하므로 도착까지 시간이 걸릴 수 있습니다." />
+
+            @if (_picked.Count > 0 && NoEmail.Count > 0)
+            {
+                <PageNotice Tone="NoticeTone.Warning"
+                            Text="@($"고른 {_picked.Count}명 중 {NoEmail.Count}명은 이메일 주소가 없어 제외됩니다 — {string.Join(" · ", NoEmail.Take(5))}{(NoEmail.Count > 5 ? " 외" : "")}")" />
+            }
+
+            <div class="ad-field">
+                <label class="ad-field__label">제목 <span class="ad-field__must">*</span></label>
+                <DxTextBox @bind-Text="_mail.Subject" NullText="메일 제목" ValidationEnabled="false" />
+            </div>
+
+            <div class="ad-field">
+                <label class="ad-field__label">본문</label>
+                <DxMemo @bind-Text="_mail.Body" Rows="10" NullText="메일 본문" ValidationEnabled="false" />
+            </div>
+
+            <div class="ad-field">
+                <DxCheckBox Checked="@_mail.Html"
+                            CheckedChanged="@((bool on) => _mail.Html = on)">
+                    본문을 HTML 로 보냅니다
+                </DxCheckBox>
+            </div>
+
+            <div class="jsini-toolbar">
+                <PermissionView Action="MenuAction.Create">
+                    <DxButton Text="@($"{MailTargets.Count}명에게 메일 보내기")"
+                              RenderStyle="ButtonRenderStyle.Primary"
+                              Enabled="@(MailTargets.Count > 0 && !_busy)"
+                              Click="@SendEmailAsync" />
+                </PermissionView>
+            </div>
+        </div>
+    </DxTabPage>
+
+    @* ── 문자 (아직 보낼 곳이 없다) ─────────────────────────── *@
+    <DxTabPage Text="문자 발송">
+        <div class="ad-sendform">
+            <PageNotice Tone="NoticeTone.Warning"
+                        Text="문자 발송은 아직 연결되지 않았습니다. 보내는 통로(대행사·발신번호 사전등록)가 정해지면 이 화면 그대로 동작합니다. 지금은 눌러도 아무 데도 가지 않습니다." />
+
+            @if (_picked.Count > 0 && NoPhone.Count > 0)
+            {
+                <PageNotice Tone="NoticeTone.Info"
+                            Text="@($"고른 {_picked.Count}명 중 {NoPhone.Count}명은 휴대폰 번호가 없습니다.")" />
+            }
+
+            <div class="ad-field">
+                <label class="ad-field__label">발신번호</label>
+                <DxTextBox @bind-Text="_sms.From" NullText="사전등록된 번호" ValidationEnabled="false" />
+                <div class="jsini-hint">문자는 <b>사전등록한 번호로만</b> 보낼 수 있습니다(전기통신사업법).</div>
+            </div>
+
+            <div class="ad-field">
+                <label class="ad-field__label">내용</label>
+                <DxMemo @bind-Text="_sms.Body" Rows="5" NullText="문자 내용" ValidationEnabled="false" />
+                @* 90바이트가 SMS 와 LMS 를 가르는 선이다. 글자 수가 아니라
+                   바이트라 한글은 두 배로 센다 — 미리 말해 주지 않으면
+                   "짧게 썼는데 왜 장문 요금인가" 가 된다. *@
+                <div class="jsini-hint">
+                    @SmsBytes 바이트 / 90 — @(SmsBytes > 90 ? "장문(LMS)으로 나갑니다." : "단문(SMS)입니다.")
+                </div>
+            </div>
+
+            <div class="jsini-toolbar">
+                <DxButton Text="문자 보내기" RenderStyle="ButtonRenderStyle.Primary"
+                          Enabled="false" />
+                <span class="jsini-text-muted">통로가 연결되면 켜집니다.</span>
+            </div>
+        </div>
+    </DxTabPage>
+
+    @* ── 카카오 (아직 보낼 곳이 없다) ───────────────────────── *@
+    <DxTabPage Text="카카오 발송">
+        <div class="ad-sendform">
+            <PageNotice Tone="NoticeTone.Warning"
+                        Text="카카오 알림톡은 아직 연결되지 않았습니다. 채널 등록과 템플릿 심사가 끝나면 이 화면 그대로 동작합니다. 지금은 눌러도 아무 데도 가지 않습니다." />
+
+            <div class="ad-field">
+                <label class="ad-field__label">발신 채널</label>
+                <DxTextBox @bind-Text="_kakao.Channel" NullText="등록한 채널 이름" ValidationEnabled="false" />
+            </div>
+
+            <div class="ad-field">
+                <label class="ad-field__label">템플릿 코드</label>
+                <DxTextBox @bind-Text="_kakao.TemplateCode" NullText="심사받은 템플릿 코드"
+                           ValidationEnabled="false" />
+                @* 알림톡은 아무 글이나 못 보낸다 — 심사받은 템플릿의 빈칸만
+                   채운다. 그 성질을 화면이 말해 주지 않으면 자유 문구를 적고
+                   실패하는 일이 반복된다. *@
+                <div class="jsini-hint">
+                    알림톡은 <b>심사받은 템플릿</b>으로만 나갑니다. 아래는 그 템플릿의 빈칸을 채우는 값입니다.
+                </div>
+            </div>
+
+            <div class="ad-field">
+                <label class="ad-field__label">치환 값</label>
+                <DxMemo @bind-Text="_kakao.Body" Rows="5"
+                        NullText="#{이름} 홍길동&#10;#{일시} 2026-09-20 14:00"
+                        ValidationEnabled="false" />
+            </div>
+
+            <div class="ad-field">
+                <DxCheckBox Checked="@_kakao.SmsFallback"
+                            CheckedChanged="@((bool on) => _kakao.SmsFallback = on)">
+                    실패하면 문자로 대체 발송
+                </DxCheckBox>
+            </div>
+
+            <div class="jsini-toolbar">
+                <DxButton Text="알림톡 보내기" RenderStyle="ButtonRenderStyle.Primary"
+                          Enabled="false" />
+                <span class="jsini-text-muted">통로가 연결되면 켜집니다.</span>
+            </div>
+        </div>
+    </DxTabPage>
+</DxTabs>
+
+@code {
+    /// <summary>보낼 수 있는 사람들. 한 번 읽어 두고 거르기는 브라우저에서 한다.</summary>
+    private IReadOnlyList<AccountDto> _accounts = [];
+
+    /// <summary>
+    /// 고른 사람들의 <b>로그인 아이디</b>. 사람의 내부 번호가 아니다 —
+    /// 푸시 구독이 그 값으로 붙어 있다(<see cref="PushOwnerDto"/>).
+    /// </summary>
+    private readonly HashSet<string> _picked = new(StringComparer.OrdinalIgnoreCase);
+
+    private string _filter = string.Empty;
+    private bool _activeOnly = true;
+    private bool _busy;
+
+    /// <summary>거르개에 걸린 사람들. 고르기와 「모두 고르기」가 이것을 본다.</summary>
+    private IReadOnlyList<AccountDto> Matched =>
+        [.. _accounts.Where(a =>
+              (!_activeOnly || string.Equals(a.Status, "ACTIVE", StringComparison.OrdinalIgnoreCase))
+              && (string.IsNullOrWhiteSpace(_filter)
+                  || $"{a.UserName} {a.LoginId} {a.DeptName} {a.CompanyName}"
+                       .Contains(_filter, StringComparison.OrdinalIgnoreCase)))];
+
+    /// <summary>고른 사람들의 실제 계정. 아이디만 들고 있으면 주소를 알 수 없다.</summary>
+    private IReadOnlyList<AccountDto> Picked =>
+        [.. _accounts.Where(a => _picked.Contains(a.LoginId))];
+
+    /// <summary>메일을 보낼 수 있는 사람. 주소가 없으면 보낼 데가 없다.</summary>
+    private IReadOnlyList<AccountDto> MailTargets =>
+        [.. Picked.Where(a => !string.IsNullOrWhiteSpace(a.Email))];
+
+    /// <summary>고른 사람 중 메일 주소가 없는 사람의 이름. 몇 명인지 화면이 말한다.</summary>
+    private IReadOnlyList<string> NoEmail =>
+        [.. Picked.Where(a => string.IsNullOrWhiteSpace(a.Email)).Select(a => a.UserName)];
+
+    private IReadOnlyList<string> NoPhone =>
+        [.. Picked.Where(a => string.IsNullOrWhiteSpace(a.Phone)).Select(a => a.UserName)];
+
+    /// <summary>문자 내용의 바이트 수. 한글은 두 바이트라 글자 수로는 못 센다.</summary>
+    private int SmsBytes => System.Text.Encoding.UTF8.GetByteCount(_sms.Body ?? string.Empty);
+
+    private readonly PushMessageDto _push = new();
+    private readonly EmailSendRequest _mail = new();
+    private readonly SmsDraft _sms = new();
+    private readonly KakaoDraft _kakao = new();
+
+    /// <summary>
+    /// 문자 칸이 들고 있는 값. <b>서버로 가지 않는다</b> — 통로가 정해지면
+    /// 이 자리가 요청 DTO 로 바뀐다.
+    /// </summary>
+    private sealed class SmsDraft
+    {
+        public string? From { get; set; }
+        public string? Body { get; set; }
+    }
+
+    /// <summary>카카오 칸이 들고 있는 값. 위와 같은 이유로 아직 화면 안에만 있다.</summary>
+    private sealed class KakaoDraft
+    {
+        public string? Channel { get; set; }
+        public string? TemplateCode { get; set; }
+        public string? Body { get; set; }
+        public bool SmsFallback { get; set; } = true;
+    }
+
+    /// <summary>
+    /// 아이콘 빠른 선택. <b>포털 안의 주소만</b> 둔다 — 바깥 주소를 넣으면
+    /// 알림이 뜰 때마다 그쪽으로 요청이 나간다(셸의 매니페스트가 쓰는 것과 같은 파일).
+    /// </summary>
+    private static readonly (string Label, string Url)[] Icons =
+    [
+        ("기본", "/icons/icon-192.png"),
+        ("큰 아이콘", "/icons/icon-512.png"),
+    ];
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private Task LoadAsync() => LoadAsync(async () =>
+    {
+        _accounts = await Api.GetAccountsAsync();
+
+        // 목록에서 사라진 사람이 고른 채로 남지 않게 한다 — 남으면 보낼 때
+        // 서버가 모르는 주인 키가 섞인다.
+        _picked.RemoveWhere(id => !_accounts.Any(a =>
+            string.Equals(a.LoginId, id, StringComparison.OrdinalIgnoreCase)));
+
+        return _accounts.Count;
+    }, "보낼 수 있는 사람이 없습니다.", "사람 목록을 읽지 못했습니다");
+
+    private void Toggle(AccountDto account, bool on)
+    {
+        if (on) _picked.Add(account.LoginId);
+        else _picked.Remove(account.LoginId);
+    }
+
+    /// <summary>
+    /// <b>보이는 사람만</b> 고른다. 거르개를 무시하고 전부 고르면, 부서 하나를
+    /// 찾아 놓고 누른 사람이 회사 전체에 보내게 된다.
+    /// </summary>
+    private Task PickAllAsync()
+    {
+        foreach (var account in Matched)
+        {
+            _picked.Add(account.LoginId);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private Task ClearPickedAsync()
+    {
+        _picked.Clear();
+        return Task.CompletedTask;
+    }
+
+    // ── 보내기 ──────────────────────────────────────────────────
+
+    /// <summary>
+    /// 웹푸시를 보낸다.
+    ///
+    /// <para>
+    /// <b>보낸 것이 0 이어도 실패로 말하지 않는다</b> — 구독이 없거나 본인이
+    /// 꺼 둔 것이고, 그 수를 서버가 세어 준다. 「보냈습니다」로만 말하면
+    /// 안 받은 사람이 자기 기기를 의심한다.
+    /// </para>
+    /// </summary>
+    private async Task SendPushAsync()
+    {
+        if (_busy || _picked.Count == 0) return;
+
+        if (string.IsNullOrWhiteSpace(_push.Title))
+        {
+            Say("알림 제목을 적으십시오.", NoticeTone.Warning);
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            PushSendResultDto? result = null;
+
+            var ok = await RunAsync(
+                async () => result = await Api.SendPushAsync(new PushSendRequest
+                {
+                    Owners = [.. _picked.Select(id => new PushOwnerDto { OwnerKey = id })],
+                    Message = _push,
+                }),
+                // 결과를 보고 아래에서 가려 말한다. 빈 문구는 토스트가 넘긴다.
+                okMessage: string.Empty, "푸시를 보내지 못했습니다");
+
+            if (!ok) return;
+
+            if (result is { Sent: > 0 })
+            {
+                Say(Summary(result), NoticeTone.Info);
+            }
+            else
+            {
+                Say(result is null
+                        ? "보낸 알림이 없습니다."
+                        : $"보낸 알림이 없습니다. {Summary(result)}",
+                    NoticeTone.Warning);
+            }
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    /// <summary>
+    /// 발송 결과를 사람 말로. <b>못 받은 까닭을 함께 적는다</b> — 그것이
+    /// 이 화면에서 가장 자주 묻는 질문이다.
+    /// </summary>
+    private static string Summary(PushSendResultDto r)
+    {
+        var parts = new List<string> { $"기기 {r.Sent}대로 보냈습니다" };
+
+        if (r.OwnersWithoutSubscription > 0) parts.Add($"등록된 기기가 없는 사람 {r.OwnersWithoutSubscription}명");
+        if (r.OptedOut > 0) parts.Add($"푸시를 꺼 둔 사람 {r.OptedOut}명");
+        if (r.Failed > 0) parts.Add($"실패 {r.Failed}대");
+        if (r.Removed > 0) parts.Add($"죽은 구독 {r.Removed}대를 정리했습니다");
+
+        return string.Join(" · ", parts) + ".";
+    }
+
+    /// <summary>
+    /// 메일을 큐에 넣는다. <b>주소가 없는 사람은 뺀다</b> — 그 수는 위 안내가
+    /// 미리 말해 두었다.
+    /// </summary>
+    private async Task SendEmailAsync()
+    {
+        if (_busy) return;
+
+        var targets = MailTargets;
+
+        if (targets.Count == 0)
+        {
+            Say("메일 주소가 있는 사람을 고르십시오.", NoticeTone.Warning);
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_mail.Subject))
+        {
+            Say("메일 제목을 적으십시오.", NoticeTone.Warning);
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            EmailSendResultDto? result = null;
+
+            // **받는 사람은 쉼표로 잇는다**(서버 규약). 중복 주소는 한 번만 —
+            // 같은 주소를 두 번 적으면 같은 메일이 두 통 간다.
+            var to = string.Join(",", targets
+                .Select(a => a.Email!.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase));
+
+            var ok = await RunAsync(
+                async () => result = await Api.SendEmailAsync(new EmailSendRequest
+                {
+                    To = to,
+                    Subject = _mail.Subject,
+                    Body = _mail.Body,
+                    Html = _mail.Html,
+                }),
+                okMessage: string.Empty, "메일을 넣지 못했습니다");
+
+            if (!ok) return;
+
+            Say(result is { Queued: true }
+                    ? $"{targets.Count}명분을 발송 큐에 넣었습니다. 실제 전송은 잠시 뒤에 이루어집니다."
+                    : result?.Message ?? "큐에 넣지 못했습니다.",
+                result is { Queued: true } ? NoticeTone.Info : NoticeTone.Warning);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

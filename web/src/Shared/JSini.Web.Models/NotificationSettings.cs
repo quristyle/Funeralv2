@@ -157,11 +157,22 @@ public sealed class PushSubscriptionListDto
 /// </summary>
 public sealed class PushSendResultDto
 {
-    /// <summary>실제로 보낸 기기 수.</summary>
+    /// <summary>실제로 보낸 기기 수. <b>사람 수가 아니다</b> — 한 사람이 여럿일 수 있다.</summary>
     public int Sent { get; set; }
 
     /// <summary>보내려다 실패한 기기 수.</summary>
     public int Failed { get; set; }
+
+    /// <summary>죽어서 지운 구독 수(푸시 서비스가 404·410 을 준 것).</summary>
+    public int Removed { get; set; }
+
+    /// <summary>
+    /// 대상 중 <b>구독한 기기가 하나도 없던</b> 사람 수. 「왜 안 왔나」의 답이다.
+    /// </summary>
+    public int OwnersWithoutSubscription { get; set; }
+
+    /// <summary>본인이 푸시를 꺼 두어 제외한 사람 수. 이것도 「왜 안 왔나」의 답이다.</summary>
+    public int OptedOut { get; set; }
 
     /// <summary>보낸 것이 없을 때 그 까닭. 화면이 그대로 옮긴다.</summary>
     public string? Message { get; set; }

@@ -133,10 +133,16 @@ else
                   Enabled="@(!_busy)" Click="@UnsubscribeAsync" />
     }
 
-    <PermissionView Action="MenuAction.Update">
-        <DxButton Text="시험 발송" RenderStyle="ButtonRenderStyle.Secondary"
-                  Enabled="@(!_busy)" Click="@TestAsync" />
-    </PermissionView>
+    @* 시험 발송은 **여는 화면이 정한다**(`ShowTest`). 개인 환경설정에는 두지
+       않는다 — 거기서 확인할 것은 「이 브라우저가 등록됐나」까지고, 실제로
+       보내 보는 일은 알림을 관리하는 자리(포털관리)의 몫이다. *@
+    @if (ShowTest)
+    {
+        <PermissionView Action="MenuAction.Update">
+            <DxButton Text="시험 발송" RenderStyle="ButtonRenderStyle.Secondary"
+                      Enabled="@(!_busy)" Click="@TestAsync" />
+        </PermissionView>
+    }
 
     <DxButton Text="조회" RenderStyle="ButtonRenderStyle.Secondary"
               IconCssClass="jsini-icon-refresh" Click="@ReloadAsync" />
@@ -205,6 +211,17 @@ else
 <ConfirmDialog @ref="_confirm" />
 
 @code {
+    /// <summary>
+    /// 「시험 발송」 단추를 둘 것인가. <b>기본은 둔다</b> — 알림을 관리하는
+    /// 화면에서는 실제로 보내 봐야 설정이 맞는지 알 수 있다.
+    ///
+    /// <para>
+    /// 개인 환경설정은 <c>false</c> 다. 거기서 확인할 것은 「이 브라우저가
+    /// 등록됐나」까지고, 보내 보는 일까지 두면 같은 단추가 두 화면에 생긴다.
+    /// </para>
+    /// </summary>
+    [Parameter] public bool ShowTest { get; set; } = true;
+
     private NotificationSettingsDto? _settings;
     private PushSubscriptionListDto? _subscriptions;
     private ConfirmDialog? _confirm;

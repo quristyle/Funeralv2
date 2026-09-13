@@ -1597,6 +1597,87 @@ public sealed class AiProviderDto
     public List<string> FallbackModels { get; set; } = [];
 }
 
+// ── 메시지 발송 ─────────────────────────────────────────────
+//
+// 이름과 칸은 NotificationServer 의 `SendPushDto`·`SendEmailDto` 와 맞춘 것이다.
+// **어긋나도 예외가 안 난다** — 서버가 못 읽은 칸을 기본값으로 두고 지나가므로,
+// 증상이 「보냈다는데 제목이 비어 있다」로만 보인다.
+
+/// <summary>
+/// 알림을 받을 주인 하나.
+///
+/// <para>
+/// <c>OwnerType</c> 은 <b>어느 시스템의 사람인가</b>다 — 포털 계정은
+/// <c>jsini</c>, 헬프데스크는 <c>helpdesk</c>. 이 화면이 보내는 것은 포털
+/// 계정이므로 늘 <c>jsini</c> 이고, <c>OwnerKey</c> 는 <b>로그인 아이디</b>다
+/// (사람의 내부 번호가 아니다 — 구독이 그 값으로 붙어 있다).
+/// </para>
+/// </summary>
+public sealed class PushOwnerDto
+{
+    public string OwnerType { get; set; } = "jsini";
+    public string OwnerKey { get; set; } = string.Empty;
+}
+
+/// <summary>보낼 알림 내용. 브라우저 알림에 그대로 실린다.</summary>
+public sealed class PushMessageDto
+{
+    public string Title { get; set; } = string.Empty;
+    public string? Body { get; set; }
+
+    /// <summary>알림을 눌렀을 때 열 주소. 비우면 서비스워커가 첫 화면을 연다.</summary>
+    public string? Url { get; set; }
+
+    /// <summary>아이콘 주소. 비우면 브라우저가 기본 아이콘을 쓴다.</summary>
+    public string? Icon { get; set; }
+
+    /// <summary>
+    /// 같은 태그의 알림은 브라우저가 <b>하나로 합친다</b>. 같은 건의 갱신을
+    /// 연달아 보낼 때 쓰고, 비워 두면 올 때마다 새 알림으로 쌓인다.
+    /// </summary>
+    public string? Tag { get; set; }
+}
+
+/// <summary>푸시 발송 요청. 대상은 <b>부르는 쪽이 정한다.</b></summary>
+public sealed class PushSendRequest
+{
+    public List<PushOwnerDto> Owners { get; set; } = [];
+    public PushMessageDto Message { get; set; } = new();
+}
+
+/// <summary>
+/// 이메일 발송 요청.
+///
+/// <para>
+/// <b>받는 사람은 쉼표로 잇는다</b> — 옛 스크립트 규약이 그래서 서버가 그
+/// 모양을 기대한다.
+/// </para>
+/// </summary>
+public sealed class EmailSendRequest
+{
+    public string To { get; set; } = string.Empty;
+    public string Subject { get; set; } = string.Empty;
+    public string Body { get; set; } = string.Empty;
+
+    /// <summary>본문을 HTML 로 보낼 것인가.</summary>
+    public bool Html { get; set; }
+}
+
+/// <summary>
+/// 이메일 발송 결과.
+///
+/// <para>
+/// <b>「보냈다」가 아니라 「넣었다」다.</b> 이 시스템에는 SMTP 설정이 없고
+/// 실제 발송은 배포 장비의 스크립트가 큐를 읽어 한다 — 화면도 그렇게 말해야
+/// 「보냈다는데 안 왔다」는 신고가 발송 실패로 오해되지 않는다.
+/// </para>
+/// </summary>
+public sealed class EmailSendResultDto
+{
+    public bool Queued { get; set; }
+    public string? Message { get; set; }
+}
+
 /// <summary>푸시 도달·열람 요약. 발송 성공과 열람은 다른 이야기다.</summary>
 public sealed class PushEngagementDto
 {
