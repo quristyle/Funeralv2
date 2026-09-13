@@ -53,10 +53,27 @@ jobs:
         working-directory: web
         run: dotnet restore JSini.Web.slnx
 
+      # DevExpress 라이선스. 없으면 DX1000/DX1001 경고가 뜨지만
+      # Directory.Build.props 가 그 둘을 경고로 남겨 두어 빌드는 통과한다.
+      #
+      # **여기서는 없어도 세우지 않는다.** fork PR 에는 secrets 가 내려오지
+      # 않는데, 그때 CI 가 실패하면 바깥 기여를 검사할 방법이 사라진다.
+      # 평가판이 운영에 나가는 것을 막는 자리는 배포 이미지 빌드
+      # (deploy/docker/Dockerfile.web)이고, 그쪽은 없으면 실패한다.
+      - name: DevExpress 라이선스 (있으면)
+        env:
+          DX: ${{ secrets.DEVEXPRESS_LICENSE }}
+        run: |
+          if [ -z "$DX" ]; then
+            echo "라이선스 없음 — 평가판 경고가 뜨지만 빌드는 계속한다."
+            exit 0
+          fi
+          mkdir -p "$HOME/.config/DevExpress"
+          printf '%s' "$DX" > "$HOME/.config/DevExpress/DevExpress_License.txt"
+          echo "라이선스 배치 완료 ($(wc -c < "$HOME/.config/DevExpress/DevExpress_License.txt") bytes)"
+
       - name: 빌드
         working-directory: web
-        # DevExpress 라이선스가 러너에 없다. DX1000/DX1001 은
-        # Directory.Build.props 가 경고로 남겨 두었으므로 빌드는 통과한다.
         run: dotnet build JSini.Web.slnx -c Release --no-restore
 
       - name: 아키텍처 테스트

@@ -119,6 +119,17 @@ jobs:
           build-args: |
             PROJ_DIR=${{ matrix.dir }}
             PROJ_NAME=${{ matrix.proj }}
+          # DevExpress 라이선스. **build-args 가 아니라 secrets 다** —
+          # build-args 는 `docker history` 에 그대로 남는다.
+          #
+          # 없어도 빌드는 계속한다. 대신 Dockerfile 이 평가판 여부를 확인해
+          # 로그에 크게 남긴다 — 여태 그 사실이 드러나는 곳이 파이프라인이
+          # 아니라 **사용자 화면**뿐이었다. 왜 막지 않는지는 Dockerfile.web 참조.
+          #
+          # 값은 개발 장비의 $HOME/.config/DevExpress/DevExpress_License.txt
+          # 내용 그대로다. 저장소 Settings → Secrets and variables → Actions.
+          secrets: |
+            dxlicense=${{ secrets.DEVEXPRESS_LICENSE }}
           push: true
           tags: |
             ghcr.io/${{ github.repository_owner }}/funeralv2-${{ matrix.name }}:${{ github.sha }}

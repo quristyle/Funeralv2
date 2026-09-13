@@ -2,7 +2,8 @@
 #
 #   docker build -f deploy/docker/Dockerfile.web \
 #     --build-arg PROJ_DIR=src/Shell/JSini.Web.Shell \
-#     --build-arg PROJ_NAME=JSini.Web.Shell  web
+#     --build-arg PROJ_NAME=JSini.Web.Shell \
+#     --secret id=dxlicense,src=$HOME/.config/DevExpress/DevExpress_License.txt  web
 #
 # **컨텍스트가 저장소 루트가 아니라 `web/` 이다.** 백엔드용 Dockerfile 과 다른
 # 점이 그것이고, 이유가 둘이다.
@@ -13,10 +14,9 @@
 #   · web/ 는 microservices/ 를 하나도 참조하지 않는다. 루트를 실어 봐야
 #     컨텍스트만 커진다.
 #
-# 비밀값은 이미지에 넣지 않는다. 프론트에는 넣을 것도 없다 —
-# 게이트웨이 주소와 키 링 경로뿐이고 둘 다 compose 가 환경변수로 준다.
-# (개발 장비용 appsettings.Local.json 은 csproj 가 publish 에서 빼고,
-#  web/.dockerignore 가 컨텍스트에서도 뺀다.)
+# 비밀값은 이미지에 넣지 않는다. 프론트가 실행할 때 필요한 것은 게이트웨이
+# 주소와 키 링 경로뿐이고 둘 다 compose 가 환경변수로 준다. 빌드 때만 필요한
+# DevExpress 라이선스는 아래 BuildKit secret 으로 들어왔다 나간다.
 
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 ARG PROJ_DIR
@@ -27,13 +27,74 @@ WORKDIR /src
 # 방식은 파일 목록을 손으로 유지해야 하고, 하나 빠뜨리면 "왜 캐시가 안 먹지"
 # 로 며칠을 쓴다. 레이어 캐시는 워크플로의 GHA 캐시가 대신 잡아 준다.
 COPY . .
-RUN dotnet publish "${PROJ_DIR}/${PROJ_NAME}.csproj" -c Release -o /out /p:UseAppHost=false
 
-# DevExpress 라이선스는 빌드 때 확인되고, 없으면 DX1000/DX1001 경고가 뜬다.
-# web/Directory.Build.props 가 그 둘만 경고로 남겨 두었으므로 빌드는 통과한다
-# (개발 장비마다 라이선스를 따로 넣기 때문에 빌드를 막으면 안 된다).
-# 러너에서 그 경고가 뜨기 시작하면 라이선스 파일을 secrets 로 넣어
-# 이 단계 앞에 풀어 주는 것이 다음 수순이다.
+# ── DevExpress 라이선스 ──────────────────────────────────────────
+#
+# DevExpress 는 **빌드 때** 라이선스를 확인한다(런타임에는 그 파일을 열지도
+# 않는다 — strace 로 확인). 없으면 DX1000/DX1001 경고가 뜨고, 그 경고가 붙은
+# 산출물은 평가판이라 화면에 라이선스 안내가 뜬다.
+#
+# 읽는 위치는 DevExpress 가 정한 것이다(DX1001 경고 문구 그대로):
+#   Windows  %AppData%\DevExpress\DevExpress_License.txt
+#   Linux    $HOME/.config/DevExpress/DevExpress_License.txt
+#
+# [왜 ARG 가 아니라 BuildKit secret 인가]
+#
+# ARG 로 넘기면 `docker history` 에 그대로 남는다. secret 은 이 RUN 동안만
+# /run/secrets 에 붙었다 사라진다. 복사해 쓴 사본도 **같은 RUN 안에서 지운다** —
+# 레이어 차이는 RUN 이 끝난 뒤에 계산되므로 만들었다 지운 파일은 남지 않는다.
+#
+# [왜 평가판이면 빌드를 세우나]
+#
+# web/Directory.Build.props 는 DX1000/DX1001 을 경고로 남겨 둔다. 개발 장비마다
+# 라이선스를 각자 넣는 것이라 빌드를 막으면 안 되기 때문이다. **배포 이미지는
+# 사정이 다르다.** 2026-09-13 에 평가판 이미지가 운영까지 갔는데, 빌드도 배포도
+# 스모크 검사도 전부 통과했다 — 드러나는 곳이 **사용자 화면뿐**이었다.
+# 실패는 즉시 보이고 평가판은 안 보인다. 그래서 세운다.
+#
+# 확인한 것(개발 장비): 라이선스 없음 → DX1000·DX1001 2건 / 있음 → 0건.
+#
+# [고칠 때 주의]
+#
+# `dotnet build` 는 Roslyn 컴파일러 서버를 재사용한다. HOME 을 바꿔 가며
+# 확인할 때는 사이에 `dotnet build-server shutdown` 을 해야 한다. 안 하면
+# 먼저 뜬 서버의 환경이 계속 쓰여 **정반대 결론**이 난다(그렇게 한 번 헤맸다).
+#
+# 아래 RUN 안에 주석을 넣지 않는다. Dockerfile 파서가 이어붙인 줄 안의 `#`
+# 줄을 어떻게 다루는지가 판마다 미묘해서, 설명은 전부 여기 바깥에 둔다.
+#
+#   1) secret 이 비어 있으면 그 자리에서 실패
+#   2) 라이선스를 제자리에 두고 publish (파이프를 쓰지 않는다 — 이 RUN 의
+#      셸은 dash 라 pipefail 이 없어서, `| tee` 로 넘기면 publish 가 실패해도
+#      tee 의 성공이 결과가 되어 깨진 빌드가 이미지로 나간다)
+#   3) 라이선스 사본 삭제
+#   4) 출력에 DX1000/DX1001 이 있으면 실패
+RUN --mount=type=secret,id=dxlicense \
+    set -e; \
+    if [ ! -s /run/secrets/dxlicense ]; then \
+        echo "DevExpress 라이선스가 없다. 저장소 secrets 의 DEVEXPRESS_LICENSE 를 확인하라." >&2; \
+        echo "없이 빌드하면 평가판이 되고, 그것은 운영 화면에서만 드러난다." >&2; \
+        exit 1; \
+    fi; \
+    mkdir -p /root/.config/DevExpress; \
+    cp /run/secrets/dxlicense /root/.config/DevExpress/DevExpress_License.txt; \
+    echo ">> DevExpress 라이선스 배치됨 ($(wc -c < /run/secrets/dxlicense) bytes)"; \
+    if ! dotnet publish "${PROJ_DIR}/${PROJ_NAME}.csproj" \
+            -c Release -o /out /p:UseAppHost=false > /tmp/publish.log 2>&1; then \
+        cat /tmp/publish.log; \
+        exit 1; \
+    fi; \
+    cat /tmp/publish.log; \
+    rm -rf /root/.config/DevExpress; \
+    if grep -q "DX1000\|DX1001" /tmp/publish.log; then \
+        echo "================================================================" >&2; \
+        echo " DevExpress 평가판으로 빌드되었다 — 키가 없거나 이 버전을 덮지 않는다." >&2; \
+        echo " 이 이미지는 내보내지 않는다. 운영 화면에 라이선스 안내가 뜬다." >&2; \
+        echo "================================================================" >&2; \
+        exit 1; \
+    fi; \
+    echo ">> DevExpress 라이선스 적용 확인 (평가판 경고 없음)"; \
+    rm -f /tmp/publish.log
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0
 ARG PROJ_NAME
