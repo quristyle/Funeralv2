@@ -113,4 +113,35 @@ public class PushSendLog
     /// <summary>보낸 사람(포털 로그인 아이디). 시스템이 보낸 것은 비어 있다.</summary>
     [Column("sent_by")]
     public string? SentBy { get; set; }
+
+    /// <summary>
+    /// <b>한 번 보낸 것</b>을 묶는 열쇠. 발송 한 번에 하나 만들어 그때 생긴
+    /// 모든 줄에 같은 값을 넣는다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 이 표의 줄은 <b>기기 단위</b>다. 그런데 「내 알림함」은 사람이 보는
+    /// 화면이라 <b>메시지 단위</b>여야 한다 — 없으면 기기 둘을 쓰는 사람에게
+    /// 같은 알림이 두 줄로 보이고, 하나만 읽음 처리하면 나머지가 남는다.
+    /// </para>
+    ///
+    /// <para>
+    /// 옛 줄에는 없다(<c>null</c>). 그때는 줄 자체를 열쇠로 삼는다 —
+    /// 알림함이 그 갈래를 살핀다.
+    /// </para>
+    /// </remarks>
+    [Column("batch_id")]
+    public string? BatchId { get; set; }
+
+    /// <summary>
+    /// 받은 사람이 읽은 때(UTC). 안 읽었으면 <c>null</c>.
+    ///
+    /// <para>
+    /// <b>기기가 아니라 사람의 상태다.</b> 그래서 읽음 처리는 그 묶음
+    /// (<see cref="BatchId"/>)에 딸린 그 사람의 줄을 <b>전부</b> 찍는다 —
+    /// 한 줄만 찍으면 다른 기기 줄이 안 읽은 채로 남는다.
+    /// </para>
+    /// </summary>
+    [Column("read_at")]
+    public DateTime? ReadAt { get; set; }
 }

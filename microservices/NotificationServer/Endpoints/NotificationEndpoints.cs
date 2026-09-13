@@ -546,6 +546,126 @@ public static class NotificationEndpoints
         })
         .WithName("GetPushFailureReasons");
 
+        // ── 내 알림함 ───────────────────────────────────────
+        //
+        // 「발송 이력」과 **같은 표를 다른 각도로** 본다. 그쪽은 보낸 사람이
+        // 「무엇이 어디로 갔나」를 보는 자리이고, 여기는 받은 사람이 「내게
+        // 무엇이 왔나」를 보는 자리다.
+        //
+        // [줄을 묶어서 낸다]
+        //
+        // 표의 줄은 **기기 단위**다. 기기 둘을 쓰는 사람에게 같은 알림이 두 줄로
+        // 보이면 안 되므로 `batch_id`(발송 한 번) 로 묶는다. 옛 줄에는 그 값이
+        // 없어서 **줄 아이디를 열쇠로 삼는다** — 묶을 것이 없으면 그것이 곧 한 건이다.
+        //
+        // [못 간 것도 보여 준다]
+        //
+        // 푸시가 실패했거나 본인이 푸시를 꺼 두었어도 **내게 온 소식인 것은
+        // 같다.** 알림함이 있는 값어치의 절반이 그것이다 — 알림을 못 받은
+        // 사람이 나중에라도 여기서 본다.
+
+        group.MapGet("/inbox", async (
+            UserContext? user,
+            [FromServices] AppDbContext db,
+            [FromQuery] DateTime? startDate = null,
+            [FromQuery] DateTime? endDate = null,
+            [FromQuery] int take = 500,
+            CancellationToken ct = default) =>
+        {
+            if (user is null) return Results.Unauthorized();
+
+            var mine = LogQuery(db, startDate, endDate)
+                .Where(l => l.OwnerType == "jsini" && l.OwnerKey == user.UserId);
+
+            // **줄을 받아 와서 묶는다.**
+            //
+            // DB 에서 묶으려 했는데(`GroupBy` + `Any`/`Max` 투영) EF 가 그
+            // 조합을 번역하지 못해 요청이 통째로 죽었다(게이트웨이에는 502 로
+            // 보인다). 여기서 받아 오는 것은 **한 사람의 한 달치**이고 기기
+            // 수만큼만 늘어나는 양이라, 메모리에서 묶는 편이 안전하다.
+            //
+            // 상한은 그래도 건다 — 기간을 아주 넓게 잡는 사람이 있다.
+            var rows = (await mine
+                    .OrderByDescending(l => l.SentAt)
+                    .Take(Math.Clamp(take, 1, 2000) * 4)
+                    .Select(l => new
+                    {
+                        Key = l.BatchId ?? l.Id,
+                        l.Title,
+                        l.Body,
+                        l.Url,
+                        l.SentAt,
+                        l.ReadAt,
+                        l.IsSuccess,
+                        l.FailureReason,
+                    })
+                    .ToListAsync(ct))
+                .GroupBy(l => l.Key)
+                .Select(g =>
+                {
+                    // 한 대라도 갔으면 「도착」이다. 다 못 갔으면 그 까닭을
+                    // 보여 준다 — 「안 왔는데 목록에는 있다」를 설명하는 자리다.
+                    var delivered = g.Any(x => x.IsSuccess);
+
+                    return new NotificationRowDto
+                    {
+                        Id = g.Key,
+                        Title = g.First().Title,
+                        Body = g.First().Body,
+                        Url = g.First().Url,
+                        CreatedAt = g.Max(x => x.SentAt),
+
+                        // **한 기기라도 읽었으면 읽은 것이다.** 읽음은 사람의
+                        // 상태이고, 읽음 처리가 그 묶음을 통째로 찍는다.
+                        IsRead = g.Any(x => x.ReadAt != null),
+
+                        Delivered = delivered,
+                        FailureReason = delivered
+                            ? null
+                            : g.Select(x => x.FailureReason).FirstOrDefault(r => r != null),
+                    };
+                })
+                .OrderByDescending(r => r.CreatedAt)
+                .Take(Math.Clamp(take, 1, 2000))
+                .ToList();
+
+            return Results.Ok(ApiResponse<List<NotificationRowDto>>.Ok(rows));
+        })
+        .WithName("GetMyInbox");
+
+        // 읽음 처리. 열쇠는 묶음이고, **그 묶음의 내 줄을 전부** 찍는다.
+        group.MapPost("/inbox/{id}/read", async (
+            string id,
+            UserContext? user,
+            [FromServices] AppDbContext db,
+            CancellationToken ct) =>
+        {
+            if (user is null) return Results.Unauthorized();
+
+            // **남의 알림을 찍지 못한다.** 열쇠만 보고 갱신하면 아이디를 아는
+            // 사람이 남의 알림함을 건드릴 수 있다.
+            var mine = await db.PushSendLogs
+                .Where(l => l.OwnerType == "jsini" && l.OwnerKey == user.UserId
+                            && (l.BatchId == id || l.Id == id))
+                .ToListAsync(ct);
+
+            if (mine.Count == 0)
+            {
+                return Results.NotFound(ApiResponse<bool>.Fail(
+                    message: "그런 알림이 없습니다.", code: "NOT_FOUND"));
+            }
+
+            var now = DateTime.UtcNow;
+            foreach (var row in mine.Where(r => r.ReadAt is null))
+            {
+                row.ReadAt = now;
+            }
+
+            await db.SaveChangesAsync(ct);
+            return Results.Ok(ApiResponse<bool>.Ok(true));
+        })
+        .WithName("MarkInboxRead");
+
         // ── 이메일 발송 ─────────────────────────────────────
         //
         // 큐에 넣는 것까지가 이 서비스의 일이다. 실제 발송은 배포 장비의 스크립트가 한다.

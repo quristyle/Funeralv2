@@ -299,3 +299,24 @@ public class PushLogRowDto
     /// <summary>보낸 사람. 시스템이 보낸 것은 비어 있다.</summary>
     public string? SentBy { get; set; }
 }
+
+/// <summary>
+/// 알림함 한 줄. <b>발송 한 번이 한 줄</b>이다(기기 수와 무관).
+/// </summary>
+public class NotificationRowDto
+{
+    /// <summary>묶음 열쇠. 옛 줄에는 묶음이 없어 줄 아이디가 그대로 온다.</summary>
+    public string Id { get; set; } = string.Empty;
+
+    public string? Title { get; set; }
+    public string? Body { get; set; }
+    public string? Url { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public bool IsRead { get; set; }
+
+    /// <summary>기기 한 대에라도 갔는가.</summary>
+    public bool Delivered { get; set; }
+
+    /// <summary>한 대도 못 갔을 때의 까닭. 갔으면 <c>null</c>.</summary>
+    public string? FailureReason { get; set; }
+}

@@ -7,6 +7,24 @@
 
     내가 받은 알림을 본다. 읽음 처리는 서버에 남는다 —
     화면에서만 지우면 다른 기기에서 다시 안 읽은 것으로 보인다.
+
+    [출처가 바뀌었다 — 포털에서 보낸 알림이 여기 안 들어왔다]
+
+    헬프데스크의 알림 표를 읽고 있었다. 거기에 쓰는 것은 헬프데스크 자신뿐이라
+    포털관리의 「메시지 발송」으로 온 알림은 **받은 사람 화면에도 안 보였다.**
+    지금은 알림 서비스의 발송 기록을 받는 쪽에서 읽는다 — 「발송 이력」과 같은
+    표를 각도만 바꿔 본다.
+
+    [한 줄이 발송 한 번이다]
+
+    그 표의 줄은 기기 단위다. 기기 둘을 쓰는 사람에게 같은 알림이 두 줄로
+    보이지 않도록 서버가 `batch_id` 로 묶어 준다. 읽음도 그 단위다.
+
+    [못 받은 것도 보인다]
+
+    푸시가 실패했거나 본인이 푸시를 꺼 두었어도 **내게 온 소식인 것은 같다.**
+    이 화면이 있는 값어치의 절반이 그것이다 — 못 받은 사람이 나중에라도
+    여기서 보고, 왜 못 받았는지(구독한 기기 없음 · 푸시 꺼 둠)까지 안다.
 *@
 
 @inherits DataPage
@@ -37,9 +55,28 @@
              ExportName="알림함"
              Reload="@ReloadAsync">
         <Columns>
-            <DxGridDataColumn FieldName="@nameof(NotificationDto.CreatedAt)" Caption="받은 때" Width="150" DisplayFormat="yyyy-MM-dd HH:mm" />
+            @* 서버가 주는 것은 UTC 라 그대로 그리면 아홉 시간 전으로 보인다. *@
+            <DxGridDataColumn FieldName="@nameof(NotificationDto.CreatedAt)" Caption="받은 때" Width="150">
+                <CellDisplayTemplate Context="cell">
+                    @(((NotificationDto)cell.DataItem).CreatedAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm"))
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
             <DxGridDataColumn FieldName="@nameof(NotificationDto.Title)" Caption="제목" MinWidth="200" />
             <DxGridDataColumn FieldName="@nameof(NotificationDto.Body)" Caption="내용" MinWidth="280" />
+            @* 「왔지만 기기에는 안 떴다」를 말해 주는 칸. 도착했으면 아무것도
+               적지 않는다 — 정상에 딱지를 붙이면 눈이 거기로 간다. *@
+            <DxGridDataColumn Caption="도착" Width="150">
+                <CellDisplayTemplate Context="cell">
+                    @{ var row = (NotificationDto)cell.DataItem; }
+                    @if (!row.Delivered)
+                    {
+                        <span class="jsini-badge jsini-badge--warn" title="@row.FailureReason">
+                            @(row.FailureReason ?? "기기에 못 감")
+                        </span>
+                    }
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
             <DxGridDataColumn Caption="상태" Width="120">
                 <CellDisplayTemplate Context="cell">
                     @{ var n = (NotificationDto)cell.DataItem; }

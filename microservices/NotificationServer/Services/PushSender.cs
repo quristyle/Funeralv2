@@ -73,12 +73,16 @@ public class PushSender : IPushSender
     public async Task<SendPushResultDto> SendAsync(
         SendPushDto request, string? sentBy = null, CancellationToken ct = default)
     {
+        // **이번 발송을 묶는 열쇠.** 이 호출로 생기는 모든 줄이 같은 값을 든다 —
+        // 「내 알림함」이 그것으로 묶어 한 줄로 보여 주고, 읽음도 그 단위다.
+        var batchId = Guid.NewGuid().ToString();
+
         if (!_vapid.IsConfigured)
         {
             // **이것도 기록에 남긴다.** 화면에서는 「보냈는데 아무 일도 없었다」로
             // 보이는 갈래라, 남기지 않으면 나중에 그 시각에 무슨 일이 있었는지
             // 되짚을 방법이 없다.
-            await LogAsync(request, sentBy, (request.Owners ?? new List<OwnerRefDto>())
+            await LogAsync(request, sentBy, batchId, (request.Owners ?? new List<OwnerRefDto>())
                 .Where(o => !string.IsNullOrWhiteSpace(o.OwnerType) && !string.IsNullOrWhiteSpace(o.OwnerKey))
                 .Select(o => (o.OwnerType, o.OwnerKey))
                 .ToList(), ReasonNoVapid, ct);
@@ -117,7 +121,7 @@ public class PushSender : IPushSender
 
             if (owners.Count == 0)
             {
-                await LogAsync(request, sentBy, pushDisabled.ToList(), ReasonOptedOut, ct);
+                await LogAsync(request, sentBy, batchId, pushDisabled.ToList(), ReasonOptedOut, ct);
 
                 return new SendPushResultDto
                 {
@@ -128,7 +132,7 @@ public class PushSender : IPushSender
 
             // 남은 사람에게는 보내되, **빠진 사람도 기록한다** — 「저 사람만
             // 왜 안 왔나」의 답이 여기 있다.
-            await LogAsync(request, sentBy, pushDisabled.ToList(), ReasonOptedOut, ct);
+            await LogAsync(request, sentBy, batchId, pushDisabled.ToList(), ReasonOptedOut, ct);
         }
 
         // 주인 목록으로 구독을 모은다.
@@ -153,7 +157,7 @@ public class PushSender : IPushSender
 
         if (subscriptions.Count == 0)
         {
-            await LogAsync(request, sentBy, owners
+            await LogAsync(request, sentBy, batchId, owners
                 .Select(o => (o.OwnerType, o.OwnerKey))
                 .ToList(), ReasonNoSubscription, ct);
 
@@ -167,7 +171,7 @@ public class PushSender : IPushSender
 
         // 구독이 하나도 없는 사람들. 위의 「하나도 없다」 갈래에 안 걸리는
         // 부분 집합이라 여기서 따로 남긴다.
-        await LogAsync(request, sentBy, owners
+        await LogAsync(request, sentBy, batchId, owners
             .Where(o => !withSubs.Contains((o.OwnerType, o.OwnerKey)))
             .Select(o => (o.OwnerType, o.OwnerKey))
             .ToList(), ReasonNoSubscription, ct);
@@ -193,7 +197,7 @@ public class PushSender : IPushSender
                 sub.FailureCount = 0;
                 sent++;
 
-                _db.PushSendLogs.Add(Row(request, sentBy, sub.OwnerType, sub.OwnerKey,
+                _db.PushSendLogs.Add(Row(request, sentBy, batchId, sub.OwnerType, sub.OwnerKey,
                     sub.Endpoint, success: true, reason: null));
             }
             catch (WebPushException ex) when (
@@ -202,7 +206,7 @@ public class PushSender : IPushSender
             {
                 // 확정적으로 없는 구독이다. 세지 않고 바로 지운다.
                 dead.Add(sub);
-                _db.PushSendLogs.Add(Row(request, sentBy, sub.OwnerType, sub.OwnerKey,
+                _db.PushSendLogs.Add(Row(request, sentBy, batchId, sub.OwnerType, sub.OwnerKey,
                     sub.Endpoint, success: false, reason: ReasonExpired));
                 _logger.LogInformation(
                     "죽은 구독을 지웁니다. owner={Type}:{Key} status={Status}",
@@ -213,7 +217,7 @@ public class PushSender : IPushSender
                 // 일시적인 문제일 수 있다(네트워크·푸시 서비스 장애). 세어 두고 넘어간다.
                 sub.FailureCount += 1;
                 failed++;
-                _db.PushSendLogs.Add(Row(request, sentBy, sub.OwnerType, sub.OwnerKey,
+                _db.PushSendLogs.Add(Row(request, sentBy, batchId, sub.OwnerType, sub.OwnerKey,
                     sub.Endpoint, success: false, reason: ReasonDeliveryFailed));
                 _logger.LogWarning(ex,
                     "푸시 발송 실패. owner={Type}:{Key} 연속실패={Count}",
@@ -248,11 +252,12 @@ public class PushSender : IPushSender
     /// <c>SaveChangesAsync</c> 한 번에 함께 담는다.
     /// </summary>
     private static Entities.PushSendLog Row(
-        SendPushDto request, string? sentBy,
+        SendPushDto request, string? sentBy, string batchId,
         string ownerType, string ownerKey,
         string? endpoint, bool success, string? reason) => new()
         {
             SentAt = DateTime.UtcNow,
+            BatchId = batchId,
             OwnerType = ownerType,
             OwnerKey = ownerKey,
             Endpoint = endpoint,
@@ -278,7 +283,7 @@ public class PushSender : IPushSender
     /// </para>
     /// </summary>
     private async Task LogAsync(
-        SendPushDto request, string? sentBy,
+        SendPushDto request, string? sentBy, string batchId,
         IReadOnlyList<(string OwnerType, string OwnerKey)> owners,
         string reason, CancellationToken ct)
     {
@@ -286,7 +291,7 @@ public class PushSender : IPushSender
 
         foreach (var (type, key) in owners)
         {
-            _db.PushSendLogs.Add(Row(request, sentBy, type, key, null, success: false, reason));
+            _db.PushSendLogs.Add(Row(request, sentBy, batchId, type, key, null, success: false, reason));
         }
 
         try

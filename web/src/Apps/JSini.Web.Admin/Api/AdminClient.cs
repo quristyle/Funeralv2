@@ -380,36 +380,43 @@ public sealed class AdminClient(GatewayClient gateway)
                 ("endDate", to?.ToString("yyyy-MM-dd"))), ct);
 
     /// <summary>
-    /// 내 알림 이력 (알림함).
+    /// 내 알림 이력 (알림함). <b>「내게 온 것」이라 발송 기록을 받는 쪽에서 본
+    /// 것이다</b> — 같은 표를 발송 이력과 다른 각도로 읽는다.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// [<c>page</c> · <c>pageSize</c> 를 보내고 있었는데 <b>서버가 그 이름을
-    /// 받지 않는다</b>]
+    /// [출처가 바뀌었다 — 포털에서 보낸 알림이 여기 안 들어왔다]
     /// </para>
     ///
     /// <para>
-    /// <c>GET /push/notifications</c> 가 받는 것은 <c>startDate</c> ·
-    /// <c>endDate</c> · <c>isRead</c> · <c>userId</c> 넷이고 <c>Skip</c>/<c>Take</c>
-    /// 가 없다. 그래서 페이징을 보내던 것은 <b>아무 일도 하지 않았고</b>,
-    /// 실제로는 그 사람의 알림을 <b>전부</b> 받아 오고 있었다. 알림은 지우지
-    /// 않으므로 자라기만 한다.
+    /// 헬프데스크의 알림 표를 읽고 있었다. 거기에 쓰는 것은 헬프데스크 자신뿐이라
+    /// 포털관리의 「메시지 발송」으로 받은 알림은 <b>받은 사람 화면에도 안 보였다.</b>
     /// </para>
     ///
     /// <para>
-    /// 안 먹는 파라미터를 빼고 <b>서버가 실제로 받는 기간</b>을 싣는다. 아무도
-    /// 안 쓰는 값을 남겨 두면 다음 사람이 「페이징이 되고 있다」고 읽는다.
+    /// 한 줄이 <b>발송 한 번</b>이다. 기기 둘을 쓰는 사람에게 같은 알림이 두 줄로
+    /// 보이지 않도록 서버가 묶어 준다(<c>batch_id</c>).
+    /// </para>
+    ///
+    /// <para>
+    /// 페이징은 여전히 없다 — 기간으로 자른다(화면 기본이 최근 한 달). 서버가
+    /// 상한(2,000줄)을 들고 있다.
     /// </para>
     /// </remarks>
     public Task<IReadOnlyList<NotificationDto>> GetMyNotificationsAsync(
         DateTime? from = null, DateTime? to = null, CancellationToken ct = default)
         => gateway.GetFlexibleListAsync<NotificationDto>(
-            "helpdesk/push/notifications" + Query(
+            "notification/notifications/inbox" + Query(
                 ("startDate", from?.ToString("yyyy-MM-dd")),
                 ("endDate", to?.ToString("yyyy-MM-dd"))), ct);
 
-    public Task MarkNotificationReadAsync(int id, CancellationToken ct = default)
-        => gateway.PostAsync($"helpdesk/push/notifications/{id}/read", new { }, ct);
+    /// <summary>
+    /// 읽음으로 표시한다. <b>열쇠는 「발송 한 번」</b>이라 기기가 여럿이어도
+    /// 한 번에 찍힌다 — 줄 단위로 찍으면 다른 기기 줄이 안 읽은 채로 남는다.
+    /// </summary>
+    public Task MarkNotificationReadAsync(string id, CancellationToken ct = default)
+        => gateway.PostAsync(
+            $"notification/notifications/inbox/{Uri.EscapeDataString(id)}/read", new { }, ct);
 
     /// <summary>게이트웨이가 서비스를 하나씩 눌러 본 결과. 자기 상태도 함께 온다.</summary>
     public Task<GatewayStatusDto?> GetGatewayStatusAsync(CancellationToken ct = default)

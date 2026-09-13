@@ -567,14 +567,28 @@ public sealed class PushLogDto
     public string? SentBy { get; set; }
 }
 
-/// <summary>알림함의 알림 한 건.</summary>
+/// <summary>
+/// 알림함의 알림 한 건. <b>발송 한 번이 한 건</b>이다(기기 수와 무관).
+/// </summary>
 public sealed class NotificationDto
 {
-    public int Id { get; set; }
+    /// <summary>묶음 열쇠. 읽음 처리가 이 값으로 그 묶음을 통째로 찍는다.</summary>
+    public string Id { get; set; } = string.Empty;
+
     public string? Title { get; set; }
     public string? Body { get; set; }
     public bool IsRead { get; set; }
     public DateTime? CreatedAt { get; set; }
+
+    /// <summary>기기 한 대에라도 도착했는가.</summary>
+    public bool Delivered { get; set; }
+
+    /// <summary>
+    /// 한 대도 못 갔을 때의 까닭(구독한 기기 없음 · 본인이 푸시를 끔 …).
+    /// <b>이 화면에 남는 값어치가 여기 있다</b> — 알림을 못 받은 사람이
+    /// 나중에라도 무엇이 왔는지, 왜 못 받았는지 본다.
+    /// </summary>
+    public string? FailureReason { get; set; }
 }
 
 /// <summary>
