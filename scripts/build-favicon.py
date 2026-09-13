@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-헤더의 JS 마크로 파비콘을 굽는다.
+헤더의 JS 마크로 **파비콘과 앱 아이콘**을 굽는다.
 
 [왜 생성기를 두나]
 
@@ -37,6 +37,23 @@ ICO 는 그 반대다. 크기마다 다른 그림을 담을 수 있어 16px 에�
 
 SVG 는 그대로 굽는다(`brand/favicon.svg`). 브랜드 자산 폴더의 파비콘이 옛
 모양으로 남으면 다음 사람이 그것을 정본으로 알고 가져다 쓴다.
+
+[굽는 것]
+
+| 파일 | 무엇 | 생김새 |
+|---|---|---|
+| `brand/favicon.ico` | 탭 아이콘 (크기 여섯) | 둥근 타일 |
+| `brand/favicon.svg` | 그 벡터본 | 〃 |
+| `pwa-icon-192.png` · `pwa-icon-512.png` | 설치한 앱 아이콘 | 〃 |
+| `pwa-icon-maskable-512.png` | 안드로이드가 **제 모양으로 깎는** 것 | 네모 가득 + 마크를 작게 |
+| `apple-touch-icon.png` | iOS 홈 화면 (180) | 네모 가득 |
+
+**마스커블과 iOS 는 모서리를 둥글리지 않는다.** 그쪽은 플랫폼이 자기 모양으로
+(원·둥근네모·물방울) 깎으므로, 우리가 미리 둥글리면 **두 번 깎여** 테두리에
+검은 이 빠진 자국이 남는다.
+
+마스커블만 마크를 작게 눕힌다(60/100). 안드로이드는 **가운데 80% 원 밖을
+잘라내도 된다**고 보므로, 타일 크기 그대로 두면 S 의 오른쪽이 잘린다.
 
 [돌리는 법]
 
@@ -88,9 +105,29 @@ J_ONLY_BELOW = 20
 J_VIEW_W = 44
 J_ONLY_H = 64
 
+# 마스커블은 가운데 80% 원 안에 들어가야 한다. 마크 상자의 대각선이
+# 그 원의 지름을 넘지 않는 폭이 65 언저리라 60 으로 잡았다.
+MASKABLE_MARK_W = 60
 
-def svg_for(size: int) -> str:
-    """그 크기에 맞는 SVG 한 장."""
+# 굽는 PNG 들. (경로, 크기, 생김새)
+PNG_TARGETS = [
+    ("web/src/Shell/JSini.Web.Shell/wwwroot/pwa-icon-192.png", 192, "tile"),
+    ("web/src/Shell/JSini.Web.Shell/wwwroot/pwa-icon-512.png", 512, "tile"),
+    ("web/src/Shell/JSini.Web.Shell/wwwroot/pwa-icon-maskable-512.png", 512, "maskable"),
+    ("web/src/Shell/JSini.Web.Shell/wwwroot/apple-touch-icon.png", 180, "square"),
+]
+
+
+def svg_for(size: int, style: str = "tile") -> str:
+    """
+    그 크기·생김새의 SVG 한 장.
+
+    <c>style</c> 은 셋이다 — <c>tile</c>(둥근 모서리) · <c>square</c>(네모
+    가득, 플랫폼이 깎는다) · <c>maskable</c>(네모 가득 + 마크를 작게).
+    """
+    radius = RADIUS if style == "tile" else 0
+    mark_w = MASKABLE_MARK_W if style == "maskable" else MARK_W
+
     if size < J_ONLY_BELOW:
         # **J 자신을 가운데 세운다.** 두 획짜리 상자(84폭)를 그대로 쓰면
         # J 는 그 왼쪽 절반이라 타일 안에서 왼쪽으로 치우쳐 앉는다 —
@@ -100,14 +137,14 @@ def svg_for(size: int) -> str:
         x = (TILE - J_VIEW_W * scale) / 2
         y = (TILE - J_ONLY_H) / 2
     else:
-        scale = MARK_W / VIEW_W
+        scale = mark_w / VIEW_W
         body = (f'<path d="{S_PATH}" fill="{COLOR_S}" />\n      '
                 f'<path d="{J_PATH}" fill="{COLOR_J}" />')
-        x = (TILE - MARK_W) / 2
-        y = (TILE - MARK_H) / 2
+        x = (TILE - mark_w) / 2
+        y = (TILE - mark_w * VIEW_H / VIEW_W) / 2
 
     return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {TILE} {TILE}" width="{size}" height="{size}">
-  <rect width="{TILE}" height="{TILE}" rx="{RADIUS}" ry="{RADIUS}" fill="{COLOR_BG}" />
+  <rect width="{TILE}" height="{TILE}" rx="{radius}" ry="{radius}" fill="{COLOR_BG}" />
   <g transform="translate({x:.3f},{y:.3f}) scale({scale:.6f})">
       {body}
   </g>
@@ -115,12 +152,12 @@ def svg_for(size: int) -> str:
 """
 
 
-def render(size: int) -> bytes:
+def render(size: int, style: str = "tile") -> bytes:
     """SVG 를 그 크기의 PNG 로. **크기마다 벡터에서 새로 그린다** — 큰 것
     하나를 줄이면 16px 에서 획이 반 픽셀에 걸쳐 흐려진다."""
     out = subprocess.run(
         ["rsvg-convert", "-w", str(size), "-h", str(size), "-f", "png"],
-        input=svg_for(size).encode("utf-8"),
+        input=svg_for(size, style).encode("utf-8"),
         capture_output=True,
         check=True,
     )
@@ -183,6 +220,15 @@ def main() -> int:
 
     print(f"구웠다: {target.relative_to(root)} ({target.stat().st_size:,} 바이트, {len(SIZES)}장)")
     print(f"구웠다: {vector.relative_to(root)}")
+
+    # 앱 아이콘. **자리를 옮기지 않는다** — 매니페스트(`manifest.webmanifest`)와
+    # `<link rel="apple-touch-icon">` 이 이 이름을 가리킨다. 이름을 바꾸면
+    # 설치된 앱의 아이콘이 조용히 빈칸이 된다.
+    for rel, size, style in PNG_TARGETS:
+        path = root / rel
+        path.write_bytes(render(size, style))
+        print(f"구웠다: {rel.split('/')[-1]} ({size}px, {style})")
+
     return 0
 
 
