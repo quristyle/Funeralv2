@@ -26,11 +26,32 @@
     화면이 뜨자마자 부르면 브라우저가 조용히 거절한다. 그래서 상태 읽기
     (`jsiniPwa.status`)와 구독 만들기(`jsiniPwa.subscribe`)를 갈라 두었다 —
     앞엣것만 저절로 돌고 뒤엣것은 사람이 누를 때만 돈다.
+
+    [판은 덩어리 셋이다 — 배치는 여는 화면이 정한다]
+
+    「알림」·「이 브라우저」·「등록된 기기」가 각각 한 덩어리이고, 겉을 싼
+    `.jsini-npanel` 은 **`display: contents`** 다. 상자가 없다는 뜻이라 이 판만
+    쓰면 예전처럼 위에서 아래로 쌓인다(포털관리의 「알림 설정」).
+
+    그런데 장례식장의 「환경설정」은 이 셋을 **가로로 벌려 놓는다**. 상자가
+    없으므로 덩어리 셋이 그 화면의 격자 칸으로 바로 들어간다 — 판을 갈라
+    두 벌 만들 것도, 배치 매개변수를 받을 것도 없다.
+
+    **그래서 덩어리마다 제목을 판이 단다.** 「알림」 제목이 한동안 여는 화면에
+    있었는데, 가로로 벌려 놓으면 그 제목만 첫 칸 밖에 남아 칸 셋의 제목 줄이
+    어긋난다.
 *@
 
 @inherits DataPage
 @inject NotificationClient Api
 @inject IJSRuntime JS
+
+<div class="jsini-npanel">
+
+@* ── 알림 ─────────────────────────────────────────────────── *@
+<section class="jsini-npanel__prefs">
+
+<h2 class="jsini-subhead">알림</h2>
 
 @if (_settings is { PushAvailable: false })
 {
@@ -82,6 +103,8 @@
     }
 }
 
+</section>
+
 @*
     ── 이 브라우저 ────────────────────────────────────────────────
 
@@ -89,6 +112,8 @@
     여기는 **지금 보고 있는 이 브라우저 하나**라서다. 둘을 한 칸에 섞으면
     「해제」가 무엇을 해제하는지 모호해진다.
 *@
+<section class="jsini-npanel__browser">
+
 <h2 class="jsini-subhead">이 브라우저</h2>
 
 @if (_browser is not null)
@@ -240,6 +265,11 @@ else
               IconCssClass="jsini-icon-refresh" Click="@ReloadAsync" />
 </div>
 
+</section>
+
+@* ── 등록된 기기 ───────────────────────────────────────────── *@
+<section class="jsini-npanel__devices">
+
 <h2 class="jsini-subhead">등록된 기기 (@Devices.Count)</h2>
 
 <CommGrd TItem="PushDeviceDto" Data="@Devices"
@@ -299,6 +329,10 @@ else
         </DxGridDataColumn>
     </Columns>
 </CommGrd>
+
+</section>
+
+</div>
 
 <ConfirmDialog @ref="_confirm" />
 

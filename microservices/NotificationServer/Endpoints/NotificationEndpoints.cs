@@ -158,6 +158,92 @@ public static class NotificationEndpoints
         })
         .WithName("GetMySubscriptions");
 
+        // ── 여러 사람의 알림 상태 (관리 화면) ───────────────
+        //
+        // 계정 관리 화면이 사람마다 「PWA 구독 · 푸시 · 이메일 · 기상특보」를
+        // 함께 보여 준다. 사람마다 따로 물으면 계정 예순에 왕복이 예순이다.
+        //
+        // **누구를 볼지 인자로 받지 않는다.** 주인 종류 하나로 그 종류 전부를
+        // 낸다 — 목록 화면은 조건을 바꿀 때마다 보는 사람이 달라지는데, 그때마다
+        // 키 예순 개를 실어 보내면 조건 한 번에 URL 이 2KB 가 된다.
+        //
+        // **자기 것만 보는 길(`/preferences/me`)을 대신하지 않는다.** 그쪽은
+        // 공개 키와 기기 목록까지 주고, 이쪽은 남의 것을 훑는 자리라 기기를
+        // 수로 줄인다.
+        group.MapGet("/preferences", async (
+            UserContext? user,
+            [FromQuery] string? ownerType,
+            [FromServices] AppDbContext db,
+            CancellationToken ct) =>
+        {
+            if (user is null) return Results.Unauthorized();
+
+            var type = string.IsNullOrWhiteSpace(ownerType) ? "jsini" : ownerType;
+
+            // 저장된 뜻. **행이 없는 사람은 여기 안 나온다** — 그 사람은
+            // 기본값이고, 그 사실을 화면이 알아야 해서 `saved` 로 가른다.
+            var prefs = await db.NotificationPreferences
+                .AsNoTracking()
+                .Where(p => p.OwnerType == type)
+                .Select(p => new
+                {
+                    p.OwnerKey,
+                    p.PushEnabled,
+                    p.EmailEnabled,
+                    p.WeatherEnabled,
+                    p.UpdatedAt,
+                })
+                .ToListAsync(ct);
+
+            // 기기 수는 **따로 센다.** 구독과 설정은 서로 없어도 되는 표라
+            // (기기만 있고 설정이 없거나 그 반대) 조인으로 묶으면 한쪽이 빠진다.
+            var devices = await db.PushSubscriptions
+                .AsNoTracking()
+                .Where(s => s.OwnerType == type)
+                .GroupBy(s => s.OwnerKey)
+                .Select(g => new
+                {
+                    OwnerKey = g.Key,
+                    Count = g.Count(),
+                    LastSentAt = g.Max(x => x.LastSentAt),
+                })
+                .ToListAsync(ct);
+
+            var byOwner = new Dictionary<string, OwnerNotificationStateDto>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var p in prefs)
+            {
+                byOwner[p.OwnerKey] = new OwnerNotificationStateDto
+                {
+                    OwnerKey = p.OwnerKey,
+                    PushEnabled = p.PushEnabled,
+                    EmailEnabled = p.EmailEnabled,
+                    WeatherEnabled = p.WeatherEnabled,
+                    Saved = true,
+                    UpdatedAt = p.UpdatedAt,
+                };
+            }
+
+            foreach (var d in devices)
+            {
+                // 기기는 있는데 설정을 한 번도 저장하지 않은 사람이 있다.
+                // 그 줄을 여기서 만든다 — 기본값 + 기기 수다.
+                if (!byOwner.TryGetValue(d.OwnerKey, out var state))
+                {
+                    state = new OwnerNotificationStateDto { OwnerKey = d.OwnerKey };
+                    byOwner[d.OwnerKey] = state;
+                }
+
+                state.DeviceCount = d.Count;
+                state.LastSentAt = d.LastSentAt;
+            }
+
+            var items = byOwner.Values.OrderBy(s => s.OwnerKey, StringComparer.OrdinalIgnoreCase).ToList();
+
+            return Results.Ok(ApiResponse<List<OwnerNotificationStateDto>>.Ok(items));
+        })
+        .WithName("GetNotificationPreferences");
+
         // ── 내 알림 설정 화면이 한 번에 받는 상태 ───────────
         //
         // 공개 키 · 스위치 셋 · 기기 목록을 따로 부르면 순서에 따라 화면이 깜빡인다.

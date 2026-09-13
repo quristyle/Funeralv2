@@ -177,6 +177,47 @@ public class PushDeviceDto
 }
 
 /// <summary>
+/// 사람 <b>한 명</b>의 알림 상태 — 관리 화면이 여러 명을 한 번에 볼 때 쓴다.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <see cref="MyNotificationStateDto"/> 와 무엇이 다른가 — 그쪽은 <b>자기</b> 것
+/// 하나를 자세히(공개 키 · 기기 목록까지) 받는다. 이쪽은 <b>남의</b> 것을 여럿
+/// 훑는 자리라 기기는 <see cref="DeviceCount"/> 하나로 줄인다. 계정이 예순이
+/// 넘는데 기기 목록을 다 실으면 표 한 줄에 쓰지도 않을 자료가 붙는다.
+/// </para>
+///
+/// <para>
+/// <b><see cref="Saved"/> 를 함께 본다.</b> 거짓이면 아래 스위치 셋은 그 사람이
+/// 고른 값이 아니라 <b>기본값</b>이다(표에 행이 없다). 둘을 구분하지 않으면
+/// 「전부 켜 두었다」와 「한 번도 안 건드렸다」가 같은 그림이 된다.
+/// </para>
+/// </remarks>
+public class OwnerNotificationStateDto
+{
+    /// <summary>주인 식별자. 포털 계정이면 로그인 아이디다.</summary>
+    public string OwnerKey { get; set; } = string.Empty;
+
+    public bool PushEnabled { get; set; } = true;
+    public bool EmailEnabled { get; set; } = true;
+    public bool WeatherEnabled { get; set; }
+
+    /// <summary>저장한 적이 있나. 거짓이면 위 셋은 기본값이다.</summary>
+    public bool Saved { get; set; }
+
+    /// <summary>
+    /// 구독한 기기 수. <b>0 이면 푸시를 켜 두어도 도착할 곳이 없다</b> —
+    /// 스위치만 보면 그것을 알 수 없어 따로 싣는다.
+    /// </summary>
+    public int DeviceCount { get; set; }
+
+    /// <summary>그 사람의 기기 중 가장 최근에 발송이 성공한 시각.</summary>
+    public DateTime? LastSentAt { get; set; }
+
+    public DateTime? UpdatedAt { get; set; }
+}
+
+/// <summary>
 /// 알림 설정 화면이 한 번에 받는 상태.
 /// </summary>
 /// <remarks>

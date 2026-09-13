@@ -13,6 +13,35 @@ namespace JSini.Web.Admin.Api;
 // ============================================================
 
 /// <summary>포털 계정 한 명. AuthServer 의 <c>AccountDto</c> 와 짝이다.</summary>
+/// <summary>
+/// 사람 한 명의 알림 상태. 계정 관리 화면이 표에 함께 그린다.
+/// </summary>
+/// <remarks>
+/// <b><see cref="Saved"/> 를 함께 본다.</b> 거짓이면 스위치 셋은 그 사람이 고른
+/// 값이 아니라 <b>기본값</b>이다(서버 표에 행이 없다). 둘을 구분하지 않으면
+/// 「전부 켜 두었다」와 「한 번도 안 건드렸다」가 같은 그림이 된다.
+/// </remarks>
+public sealed class OwnerNotificationStateDto
+{
+    /// <summary>주인 식별자 — 포털 계정이면 <b>로그인 아이디</b>다.</summary>
+    public string OwnerKey { get; set; } = string.Empty;
+
+    public bool PushEnabled { get; set; } = true;
+    public bool EmailEnabled { get; set; } = true;
+    public bool WeatherEnabled { get; set; }
+
+    /// <summary>저장한 적이 있나. 거짓이면 위 셋은 기본값이다.</summary>
+    public bool Saved { get; set; }
+
+    /// <summary>
+    /// 구독한 기기 수. <b>0 이면 푸시를 켜 두어도 도착할 곳이 없다.</b>
+    /// </summary>
+    public int DeviceCount { get; set; }
+
+    public DateTime? LastSentAt { get; set; }
+    public DateTime? UpdatedAt { get; set; }
+}
+
 public sealed class AccountDto
 {
     public string Id { get; set; } = string.Empty;

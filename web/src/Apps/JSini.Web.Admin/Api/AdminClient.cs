@@ -472,7 +472,29 @@ public sealed class AdminClient(GatewayClient gateway)
         EmailSendRequest request, CancellationToken ct = default)
         => gateway.PostAsync<EmailSendResultDto>("notification/notifications/email", request, ct);
 
-    // ── 알림 설정은 여기 없다 ──────────────────────────────────
+    /// <summary>
+    /// <b>여러 사람</b>의 알림 상태를 한 번에 읽는다 — 계정 관리 화면이
+    /// 사람마다 「PWA 구독 · 푸시 · 이메일 · 기상특보」를 함께 보여 준다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>누구를 볼지 넘기지 않는다.</b> 주인 종류(<c>jsini</c>) 전부를 받아
+    /// 화면이 로그인 아이디로 맞춘다 — 목록은 조건을 바꿀 때마다 보는 사람이
+    /// 달라지는데, 그때마다 키 예순 개를 실으면 조건 한 번에 URL 이 2KB 다.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>설정을 한 번도 저장하지 않은 사람은 목록에 없다.</b> 그 사람은
+    /// 기본값이고, 화면이 그 사실을 기본값으로 그려야 한다 — 없는 것을
+    /// 「꺼짐」으로 읽으면 반대로 말하게 된다.
+    /// </para>
+    /// </remarks>
+    public Task<IReadOnlyList<OwnerNotificationStateDto>> GetNotificationStatesAsync(
+        CancellationToken ct = default)
+        => gateway.GetListAsync<OwnerNotificationStateDto>(
+            "notification/notifications/preferences?ownerType=jsini", ct);
+
+    // ── 내 알림 설정은 여기 없다 ───────────────────────────────
     //
     // 내 알림 설정과 웹푸시 구독은 **공용 클라이언트**가 다룬다
     // (`JSini.Web.Components/Settings/NotificationClient`). 그 설정을 여는
