@@ -15,7 +15,7 @@ namespace HelpDeskServer.Data;
 /// </summary>
 public class AppDbContext : DbContext {
   /// <summary>
-  /// 이 서비스가 쓰는 스키마 이름. 기본은 <c>jsini</c> 다.
+  /// 이 서비스가 쓰는 스키마 이름. 기본은 <c>helpdesk</c> 다.
   ///
   /// [왜 정적인가]
   ///
@@ -38,10 +38,22 @@ public class AppDbContext : DbContext {
   /// 설정 없이 <c>dotnet ef migrations add</c> 를 하면 모델(<c>jsini</c>)과
   /// 스냅샷(<c>helpdesk</c>)이 달라 테이블을 통째로 옮기는 마이그레이션이 나온다.
   ///
-  /// <b>운영은 아직 옛 DB(<c>jinrecept</c> / 스키마 <c>jsini</c>)를 쓴다.</b>
-  /// 그래서 운영 설정 파일(<c>/srv/jsini/config/HelpDeskServer/appsettings.Local.json</c>)에
-  /// <c>Database:Schema=jsini</c> 를 넣어야 한다 — 안 넣고 배포하면 이번엔 반대로
-  /// <c>relation "helpdesk.…" does not exist</c> 로 모든 요청이 500 이 난다.
+  /// [운영도 새 DB 로 옮겼다 — 2026-09-13]
+  ///
+  /// 그 전까지 운영은 옛 DB(<c>jinrecept</c> / 스키마 <c>jsini</c>)를 봤고,
+  /// 설정에 <c>Database:Schema=jsini</c> 를 넣어야 했다. <b>그 줄이 없는 채로
+  /// 돌고 있었다</b> — 기본값이 <c>helpdesk</c> 로 올라간 뒤로 운영의 모든 요청이
+  /// <c>relation "helpdesk.improvementrequest" does not exist</c> 로 500 이었다.
+  /// 컨테이너 로그에만 남고 화면은 그냥 비어 보여서 오래 지나도 드러나지 않았다.
+  ///
+  /// 이제 운영 접속 문자열이 <c>helpdesk</c> DB(스키마 <c>helpdesk</c>)를 가리키므로
+  /// <b>설정으로 스키마를 지정하지 않는다.</b> 지정하면 기본값과 어긋날 때
+  /// 같은 500 이 되돌아온다.
+  ///
+  /// <b>옛 DB 의 자료는 옮기지 않았다.</b> <c>jinrecept</c> 는 그대로 남아 있고
+  /// (개선요청 702 · 댓글 826 · 푸시로그 31,814), 새 DB 는 비어 있다. 옮길지는
+  /// 따로 정할 일이고, 되돌리려면 운영 설정의 접속 문자열만 원복하면 된다
+  /// (<c>appsettings.Local.json.bak-jinrecept-20260913</c>).
   /// </summary>
   public static string Schema { get; set; } = "helpdesk";
 
