@@ -542,16 +542,29 @@ public sealed class PushFailureReasonDto
     public int Count { get; set; }
 }
 
-/// <summary>푸시 발송 이력 한 줄.</summary>
+/// <summary>
+/// 푸시 발송 이력 한 줄. 출처는 알림 서비스의 <c>scom.push_send_logs</c> 다.
+/// </summary>
+/// <remarks>
+/// <b>아이디가 문자열이다.</b> 그 표의 열쇠가 GUID 라서다 — 전에는 <c>int</c>
+/// 였고, 그때 읽던 헬프데스크 표에는 제목도 대상도 아예 없어서
+/// <c>Title</c>·<c>Body</c>·<c>TargetUser</c> 칸이 **언제나 비어 있었다.**
+/// </remarks>
 public sealed class PushLogDto
 {
-    public int Id { get; set; }
+    public string? Id { get; set; }
     public string? Title { get; set; }
     public string? Body { get; set; }
+
+    /// <summary>받는 이. 포털 계정이면 로그인 아이디다.</summary>
     public string? TargetUser { get; set; }
+
     public bool Success { get; set; }
     public string? FailureReason { get; set; }
     public DateTime? SentAt { get; set; }
+
+    /// <summary>보낸 사람. 시스템이 저절로 보낸 것은 비어 있다.</summary>
+    public string? SentBy { get; set; }
 }
 
 /// <summary>알림함의 알림 한 건.</summary>

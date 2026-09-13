@@ -14,8 +14,16 @@ namespace NotificationServer.Services;
 /// </summary>
 public interface IPushSender
 {
-    /// <summary>주인 목록에게 보낸다. 주인 한 명이 기기 여러 대를 가질 수 있다.</summary>
-    Task<SendPushResultDto> SendAsync(SendPushDto request, CancellationToken ct = default);
+    /// <summary>
+    /// 주인 목록에게 보낸다. 주인 한 명이 기기 여러 대를 가질 수 있다.
+    /// </summary>
+    /// <param name="sentBy">
+    /// 보낸 사람(포털 로그인 아이디). <b>기록에만 쓴다</b> — 누가 보냈는지는
+    /// 발송 뒤에 가장 먼저 묻는 것이고, 그때 로그에 없으면 답할 길이 없다.
+    /// 시스템이 저절로 보내는 것은 <c>null</c> 이다.
+    /// </param>
+    Task<SendPushResultDto> SendAsync(
+        SendPushDto request, string? sentBy = null, CancellationToken ct = default);
 }
 
 /// <summary>
@@ -50,11 +58,31 @@ public class PushSender : IPushSender
         _logger = logger;
     }
 
+    // ── 못 보낸 까닭 ──────────────────────────────────────────
+    //
+    // **글자를 상수로 둔다.** 화면이 이 값으로 거르고 묶어 세므로(실패 사유별
+    // 건수) 자리마다 다르게 적으면 같은 원인이 여러 갈래로 흩어진다.
+
+    private const string ReasonNoSubscription = "구독한 기기 없음";
+    private const string ReasonOptedOut = "본인이 푸시를 끔";
+    private const string ReasonExpired = "구독 만료(정리함)";
+    private const string ReasonDeliveryFailed = "전달 실패";
+    private const string ReasonNoVapid = "서버에 VAPID 설정 없음";
+
     /// <inheritdoc />
-    public async Task<SendPushResultDto> SendAsync(SendPushDto request, CancellationToken ct = default)
+    public async Task<SendPushResultDto> SendAsync(
+        SendPushDto request, string? sentBy = null, CancellationToken ct = default)
     {
         if (!_vapid.IsConfigured)
         {
+            // **이것도 기록에 남긴다.** 화면에서는 「보냈는데 아무 일도 없었다」로
+            // 보이는 갈래라, 남기지 않으면 나중에 그 시각에 무슨 일이 있었는지
+            // 되짚을 방법이 없다.
+            await LogAsync(request, sentBy, (request.Owners ?? new List<OwnerRefDto>())
+                .Where(o => !string.IsNullOrWhiteSpace(o.OwnerType) && !string.IsNullOrWhiteSpace(o.OwnerKey))
+                .Select(o => (o.OwnerType, o.OwnerKey))
+                .ToList(), ReasonNoVapid, ct);
+
             // 조용히 성공한 척하지 않는다. 설정이 반쪽이면 그렇게 말한다.
             return new SendPushResultDto
             {
@@ -89,12 +117,18 @@ public class PushSender : IPushSender
 
             if (owners.Count == 0)
             {
+                await LogAsync(request, sentBy, pushDisabled.ToList(), ReasonOptedOut, ct);
+
                 return new SendPushResultDto
                 {
                     OptedOut = optedOut,
                     Message = "대상이 모두 푸시 알림을 끄고 있습니다."
                 };
             }
+
+            // 남은 사람에게는 보내되, **빠진 사람도 기록한다** — 「저 사람만
+            // 왜 안 왔나」의 답이 여기 있다.
+            await LogAsync(request, sentBy, pushDisabled.ToList(), ReasonOptedOut, ct);
         }
 
         // 주인 목록으로 구독을 모은다.
@@ -119,6 +153,10 @@ public class PushSender : IPushSender
 
         if (subscriptions.Count == 0)
         {
+            await LogAsync(request, sentBy, owners
+                .Select(o => (o.OwnerType, o.OwnerKey))
+                .ToList(), ReasonNoSubscription, ct);
+
             return new SendPushResultDto
             {
                 OwnersWithoutSubscription = ownersWithout,
@@ -126,6 +164,13 @@ public class PushSender : IPushSender
                 Message = "대상의 구독이 없습니다. 브라우저에서 알림을 허용했는지 확인하세요."
             };
         }
+
+        // 구독이 하나도 없는 사람들. 위의 「하나도 없다」 갈래에 안 걸리는
+        // 부분 집합이라 여기서 따로 남긴다.
+        await LogAsync(request, sentBy, owners
+            .Where(o => !withSubs.Contains((o.OwnerType, o.OwnerKey)))
+            .Select(o => (o.OwnerType, o.OwnerKey))
+            .ToList(), ReasonNoSubscription, ct);
 
         var payload = BuildPayload(request.Message);
         var client = new WebPushClient();
@@ -147,6 +192,9 @@ public class PushSender : IPushSender
                 sub.LastSentAt = DateTime.UtcNow;
                 sub.FailureCount = 0;
                 sent++;
+
+                _db.PushSendLogs.Add(Row(request, sentBy, sub.OwnerType, sub.OwnerKey,
+                    sub.Endpoint, success: true, reason: null));
             }
             catch (WebPushException ex) when (
                 ex.StatusCode == System.Net.HttpStatusCode.NotFound ||
@@ -154,6 +202,8 @@ public class PushSender : IPushSender
             {
                 // 확정적으로 없는 구독이다. 세지 않고 바로 지운다.
                 dead.Add(sub);
+                _db.PushSendLogs.Add(Row(request, sentBy, sub.OwnerType, sub.OwnerKey,
+                    sub.Endpoint, success: false, reason: ReasonExpired));
                 _logger.LogInformation(
                     "죽은 구독을 지웁니다. owner={Type}:{Key} status={Status}",
                     sub.OwnerType, sub.OwnerKey, (int)ex.StatusCode);
@@ -163,6 +213,8 @@ public class PushSender : IPushSender
                 // 일시적인 문제일 수 있다(네트워크·푸시 서비스 장애). 세어 두고 넘어간다.
                 sub.FailureCount += 1;
                 failed++;
+                _db.PushSendLogs.Add(Row(request, sentBy, sub.OwnerType, sub.OwnerKey,
+                    sub.Endpoint, success: false, reason: ReasonDeliveryFailed));
                 _logger.LogWarning(ex,
                     "푸시 발송 실패. owner={Type}:{Key} 연속실패={Count}",
                     sub.OwnerType, sub.OwnerKey, sub.FailureCount);
@@ -189,6 +241,62 @@ public class PushSender : IPushSender
                         ? "구독한 기기에 알림을 전달하지 못했습니다. 구독을 해제한 뒤 다시 등록해 보세요."
                         : null
         };
+    }
+
+    /// <summary>
+    /// 기록 한 줄을 만든다. <b>저장하지는 않는다</b> — 부르는 쪽이 발송 흐름의
+    /// <c>SaveChangesAsync</c> 한 번에 함께 담는다.
+    /// </summary>
+    private static Entities.PushSendLog Row(
+        SendPushDto request, string? sentBy,
+        string ownerType, string ownerKey,
+        string? endpoint, bool success, string? reason) => new()
+        {
+            SentAt = DateTime.UtcNow,
+            OwnerType = ownerType,
+            OwnerKey = ownerKey,
+            Endpoint = endpoint,
+            Title = request.Message?.Title,
+            Body = request.Message?.Body,
+            Url = request.Message?.Url,
+            IsSuccess = success,
+            FailureReason = reason,
+            SentBy = sentBy,
+        };
+
+    /// <summary>
+    /// 보내지 <b>못한</b> 사람들을 기록하고 바로 저장한다.
+    ///
+    /// <para>
+    /// 바로 저장하는 이유는 이 갈래들이 대부분 <c>return</c> 으로 끝나기
+    /// 때문이다 — 뒤에 오는 저장에 기대면 그 줄들이 통째로 사라진다.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>기록에 실패해도 발송은 계속한다.</b> 여기서 던지면 「기록을 못 남겨서
+    /// 알림도 못 보낸」 것이 되고, 그 맞바꿈은 뒤집혀 있다.
+    /// </para>
+    /// </summary>
+    private async Task LogAsync(
+        SendPushDto request, string? sentBy,
+        IReadOnlyList<(string OwnerType, string OwnerKey)> owners,
+        string reason, CancellationToken ct)
+    {
+        if (owners.Count == 0) return;
+
+        foreach (var (type, key) in owners)
+        {
+            _db.PushSendLogs.Add(Row(request, sentBy, type, key, null, success: false, reason));
+        }
+
+        try
+        {
+            await _db.SaveChangesAsync(ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "푸시 발송 기록을 남기지 못했습니다.");
+        }
     }
 
     /// <summary>

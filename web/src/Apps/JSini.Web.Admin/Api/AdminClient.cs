@@ -295,23 +295,38 @@ public sealed class AdminClient(GatewayClient gateway)
     public Task<PlayerReleaseDto?> GetPlayerReleaseStatusAsync(CancellationToken ct = default)
         => gateway.GetOneAsync<PlayerReleaseDto>("auth/system/player-release/status", ct);
 
-    // ── 푸시 (HelpDeskServer 의 대시보드 그룹) ──────────────────
-
-    // 아래 넷은 **헬프데스크 서비스**의 통계다. 그쪽 봉투는 `data` 안에
-    // `result` 한 겹이 없어서, 그 겹을 전제하는 GetOneAsync/GetListAsync 로는
-    // 「응답을 해석하지 못했습니다」로 끝난다. 모양을 가리지 않는 쪽을 쓴다.
+    // ── 푸시 발송 기록 (NotificationServer) ─────────────────────
+    //
+    // **출처가 바뀌었다.** 아래 셋과 발송 이력은 한동안 헬프데스크 DB 를
+    // 읽었는데(`helpdesk/dashboard/…`), 거기에 쓰는 것은 헬프데스크 자신의
+    // 발송 코드뿐이다. 포털관리의 「메시지 발송」은 알림 서비스로 보내므로
+    // **보낸 것이 화면에 한 줄도 안 나왔다.**
+    //
+    // 이제 보낸 쪽(NotificationServer)이 자기 기록을 갖고 그것을 낸다
+    // (`scom.push_send_logs`). 봉투 모양은 헬프데스크 것과 같게 맞춰 두어서
+    // 화면은 그대로 두고 주소만 옮겼다.
+    //
+    // 도달·열람(아래 셋)은 **아직 헬프데스크 쪽에 남는다** — 그것을 세려면
+    // 서비스워커가 「받았다/눌렀다」를 되돌려 줘야 하는데 그 길이 아직 없다.
     public Task<PushStatsDto?> GetPushStatsAsync(int days = 7, CancellationToken ct = default)
-        => gateway.GetFlexibleAsync<PushStatsDto>($"helpdesk/dashboard/push-stats?days={days}", ct);
+        => gateway.GetFlexibleAsync<PushStatsDto>(
+            $"notification/notifications/push/stats?days={days}", ct);
 
     public Task<IReadOnlyList<PushTrendPointDto>> GetPushTrendAsync(
         string interval = "daily", int days = 30, CancellationToken ct = default)
         => gateway.GetFlexibleListAsync<PushTrendPointDto>(
-            $"helpdesk/dashboard/push-success-trend?interval={interval}&days={days}", ct);
+            $"notification/notifications/push/trend?days={days}", ct);
 
     public Task<IReadOnlyList<PushFailureReasonDto>> GetPushFailureReasonsAsync(
         int days = 7, int topN = 5, CancellationToken ct = default)
         => gateway.GetFlexibleListAsync<PushFailureReasonDto>(
-            $"helpdesk/dashboard/push-failure-reasons?days={days}&topN={topN}", ct);
+            $"notification/notifications/push/failure-reasons?days={days}", ct);
+
+    // ── 도달·열람 (HelpDeskServer 의 대시보드 그룹) ─────────────
+    //
+    // 아래 셋은 **헬프데스크 서비스**의 통계다. 그쪽 봉투는 `data` 안에
+    // `result` 한 겹이 없어서, 그 겹을 전제하는 GetOneAsync/GetListAsync 로는
+    // 「응답을 해석하지 못했습니다」로 끝난다. 모양을 가리지 않는 쪽을 쓴다.
 
     /// <summary>
     /// 도달·열람 요약. <b>발송 성공과 열람은 다른 이야기다</b> — 성공률만 보면
@@ -357,7 +372,7 @@ public sealed class AdminClient(GatewayClient gateway)
         DateTime? to = null,
         CancellationToken ct = default)
         => gateway.GetFlexibleCountedListAsync<PushLogDto>(
-            "helpdesk/dashboard/push-logs" + Query(
+            "notification/notifications/push/logs" + Query(
                 ("page", 1),
                 ("pageSize", pageSize),
                 ("failureReason", reason),

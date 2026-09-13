@@ -6,6 +6,17 @@
     이력: Vue `views/portal/system/push/logs` → 여기.
 
     한 건씩 들여다본다. 실패한 것만 보는 일이 많아 사유로 거를 수 있게 둔다.
+
+    [출처가 바뀌었다 — 한동안 제목도 대상도 비어 있었다]
+
+    헬프데스크 DB 의 `push_notification_logs` 를 읽고 있었다. 그 표에 있는 것은
+    **endpoint · 성공 여부 · 실패 사유 셋뿐**이라 「대상」·「제목」·「내용」 칸이
+    언제나 비었고, 거기다 그 표에 쓰는 것은 헬프데스크 자신의 발송 코드뿐이라
+    **포털에서 보낸 알림은 한 줄도 안 나왔다.**
+
+    지금은 보낸 쪽(알림 서비스)이 자기 기록을 갖는다 — `scom.push_send_logs`.
+    못 보낸 것도 줄로 남는다(구독한 기기 없음 · 본인이 푸시를 끔 · 구독 만료).
+    「왜 안 갔나」의 답이 대개 그 셋이라, 사유 칸으로 거르면 바로 보인다.
 *@
 
 @inherits DataPage
@@ -33,7 +44,13 @@
              ExportName="발송이력"
              Reload="@ReloadAsync">
         <Columns>
-            <DxGridDataColumn FieldName="@nameof(PushLogDto.SentAt)" Caption="보낸 때" Width="150" DisplayFormat="yyyy-MM-dd HH:mm" />
+            @* **우리 시간으로 적는다.** 서버가 주는 것은 UTC 라 그대로 그리면
+               아홉 시간 전으로 보인다 — 「방금 보냈는데 목록에는 오전」이 된다. *@
+            <DxGridDataColumn FieldName="@nameof(PushLogDto.SentAt)" Caption="보낸 때" Width="150">
+                <CellDisplayTemplate Context="cell">
+                    @(((PushLogDto)cell.DataItem).SentAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm"))
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
             <DxGridDataColumn FieldName="@nameof(PushLogDto.TargetUser)" Caption="대상" Width="140" />
             <DxGridDataColumn FieldName="@nameof(PushLogDto.Title)" Caption="제목" MinWidth="180" />
             <DxGridDataColumn FieldName="@nameof(PushLogDto.Body)" Caption="내용" MinWidth="240" />
@@ -46,6 +63,10 @@
                 </CellDisplayTemplate>
             </DxGridDataColumn>
             <DxGridDataColumn FieldName="@nameof(PushLogDto.FailureReason)" Caption="실패 사유" MinWidth="200" />
+
+            @* 「누가 보냈나」는 발송 뒤에 가장 먼저 묻는 것이다. 시스템이 저절로
+               보낸 것(기상 특보 따위)은 비어 있다. *@
+            <DxGridDataColumn FieldName="@nameof(PushLogDto.SentBy)" Caption="보낸 사람" Width="130" />
         </Columns>
     </CommGrd>
 </CommCont>

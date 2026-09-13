@@ -70,7 +70,7 @@ public static class WeatherEventEndpoints
             };
 
             var pushResult = owners.Count > 0
-                ? await push.SendAsync(new SendPushDto { Owners = owners, Message = message }, ct)
+                ? await push.SendAsync(new SendPushDto { Owners = owners, Message = message }, sentBy: null, ct)
                 : new SendPushResultDto { Sent = 0, Message = "날씨 알림을 켠 사람이 없습니다." };
 
             // 카카오 알림톡 (D-G1b) — 기본 꺼짐. 켜져 있어도 수신 번호가 없으면 0건이다.

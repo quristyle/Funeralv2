@@ -272,3 +272,30 @@ public class MyNotificationStateDto
 
     public List<PushDeviceDto> Devices { get; set; } = new();
 }
+
+/// <summary>
+/// 발송 이력 한 줄(화면이 받는 모양).
+/// </summary>
+/// <remarks>
+/// <b>엔티티를 그대로 내보내지 않는다.</b> 그 표에는 endpoint 가 들어 있고
+/// 그것은 기기를 특정하는 값이라 화면에 보낼 것이 아니다. 그리고 화면이
+/// 쓰는 이름(<c>targetUser</c>)과 표의 이름(<c>owner_key</c>)이 다르다 —
+/// 표 이름을 화면에 맞추면 이번에는 서버 코드가 어색해진다.
+/// </remarks>
+public class PushLogRowDto
+{
+    public string Id { get; set; } = string.Empty;
+    public DateTime SentAt { get; set; }
+
+    /// <summary>받는 이(포털이면 로그인 아이디).</summary>
+    public string? TargetUser { get; set; }
+
+    public string? OwnerType { get; set; }
+    public string? Title { get; set; }
+    public string? Body { get; set; }
+    public bool Success { get; set; }
+    public string? FailureReason { get; set; }
+
+    /// <summary>보낸 사람. 시스템이 보낸 것은 비어 있다.</summary>
+    public string? SentBy { get; set; }
+}

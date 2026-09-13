@@ -7,6 +7,19 @@
 
     발송 건수 · 성공률 · 실패 사유를 한 화면에 모은다.
 
+    [숫자의 출처가 둘이다 — 섞지 않고 갈라 놓는다]
+
+    위쪽(발송·성공·실패·성공률·추이·실패 사유)은 **알림 서비스가 남긴 기록**이다
+    (`scom.push_send_logs`). 한동안 이 화면 전체가 헬프데스크 DB 를 읽었는데,
+    거기에 쓰는 것은 헬프데스크 자신의 발송 코드뿐이라 **포털관리의 「메시지
+    발송」으로 보낸 알림이 하나도 안 잡혔다.**
+
+    아래쪽(도달·열람·많이 읽힌 알림·사람별)은 **아직 헬프데스크 것**이다. 그것을
+    세려면 서비스워커가 「받았다 / 눌렀다」를 되돌려 줘야 하는데 포털 알림에는
+    그 길이 아직 없다. 없는 것을 0 으로 그리면 「아무도 안 읽는다」로 읽히므로,
+    **한 줄 적어 두고 갈라 놓는다** — 같은 타일 줄에 섞으면 어느 숫자가 무엇을
+    세는지 알 수 없다.
+
     [차트 — 처음에는 안 넣었다가 D3 결정으로 넣었다]
 
     Vue 는 echarts 로 추이를 그렸다. 이식 때는 표로만 두었다 — 차트
@@ -61,23 +74,6 @@
             <div class="jsini-stat__value">@_stats.SuccessRate.ToString("0.0")%</div>
         </div>
 
-        @* **보낸 것과 읽힌 것은 다르다.** 성공률만 보면 「보냈으니 됐다」로
-           끝나고, 아무도 안 읽는 알림을 계속 보내게 된다. *@
-        @if (_engagement is not null)
-        {
-            <div class="jsini-stat">
-                <div class="jsini-stat__label">도달</div>
-                <div class="jsini-stat__value">@_engagement.TotalDelivered</div>
-            </div>
-            <div class="jsini-stat">
-                <div class="jsini-stat__label">열람</div>
-                <div class="jsini-stat__value">@_engagement.TotalRead</div>
-            </div>
-            <div class="jsini-stat">
-                <div class="jsini-stat__label">열람률</div>
-                <div class="jsini-stat__value">@_engagement.ReadRate.ToString("0.0")%</div>
-            </div>
-        }
     </div>
 }
 
@@ -142,6 +138,37 @@
         <DxGridDataColumn FieldName="@nameof(PushFailureReasonDto.Count)" Caption="건수" Width="110" />
     </Columns>
 </CommGrd>
+
+@* ── 도달·열람 ───────────────────────────────────────────────
+
+   **보낸 것과 읽힌 것은 다르다.** 성공률만 보면 「보냈으니 됐다」로 끝나고,
+   아무도 안 읽는 알림을 계속 보내게 된다.
+
+   다만 이 아래는 **헬프데스크가 보낸 것만** 센다(머리말). 위쪽 숫자와 자리를
+   갈라 두고 그 사실을 적는다 — 섞어 두면 「보낸 건 100인데 도달이 0」으로
+   읽혀서, 있지도 않은 장애를 쫓게 된다. *@
+<h2 class="ad-subhead">도달 · 열람</h2>
+
+<PageNotice Tone="NoticeTone.Info"
+            Text="아래 숫자는 헬프데스크가 보낸 알림만 셉니다. 포털에서 보낸 알림은 「받았다·눌렀다」를 되돌려 주는 길이 아직 없어 도달·열람이 잡히지 않습니다." />
+
+@if (_engagement is not null)
+{
+    <div class="jsini-stats">
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">도달</div>
+            <div class="jsini-stat__value">@_engagement.TotalDelivered</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">열람</div>
+            <div class="jsini-stat__value">@_engagement.TotalRead</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">열람률</div>
+            <div class="jsini-stat__value">@_engagement.ReadRate.ToString("0.0")%</div>
+        </div>
+    </div>
+}
 
 @* 무엇이 읽히는가. 제목을 바꿔 볼 근거가 여기 있다. *@
 <h2 class="ad-subhead">많이 읽힌 알림</h2>

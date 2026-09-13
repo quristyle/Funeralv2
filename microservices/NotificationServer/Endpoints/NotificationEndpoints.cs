@@ -311,7 +311,9 @@ public static class NotificationEndpoints
                     message: "알림 제목이 필요합니다.", code: "INVALID"));
             }
 
-            var result = await sender.SendAsync(request, ct);
+            // **누가 보냈는지 함께 넘긴다.** 발송 뒤에 가장 먼저 묻는 것이고
+            // 기록에 없으면 답할 길이 없다(PushSendLog 머리말).
+            var result = await sender.SendAsync(request, user.UserId, ct);
 
             // 보낸 것이 하나도 없으면 성공으로 말하지 않는다. 이유는 result.Message 에 있다.
             return result.Sent > 0
@@ -350,7 +352,7 @@ public static class NotificationEndpoints
                     new() { OwnerType = "jsini", OwnerKey = user.UserId }
                 },
                 Message = message
-            }, ct);
+            }, user.UserId, ct);
 
             return result.Sent > 0
                 ? Results.Ok(ApiResponse<SendPushResultDto>.Ok(result))
@@ -359,6 +361,190 @@ public static class NotificationEndpoints
                     statusCode: StatusCodes.Status202Accepted);
         })
         .WithName("SendTestPushToMe");
+
+        // ── 보낸 기록 ───────────────────────────────────────
+        //
+        // [왜 이 서비스에 있나]
+        //
+        // 포털관리의 「푸시 현황」·「발송 이력」은 한동안 **헬프데스크 DB** 를
+        // 읽었다(`helpdesk/dashboard/push-logs`). 그런데 거기에 쓰는 것은
+        // 헬프데스크 자신의 발송 코드뿐이라, 포털에서 보낸 알림은 화면에
+        // 한 줄도 안 나왔다 — 실제로 「메시지 발송」으로 보내고 나서
+        // 「기록이 왜 없나」 하는 물음을 받았다.
+        //
+        // **보낸 쪽이 자기 기록을 갖고 그 기록을 낸다.**
+        //
+        // [봉투 모양을 헬프데스크에 맞춘다]
+        //
+        // 목록은 `{ data, totalcount, totalpagecount }` 다. 프론트의
+        // `GetFlexibleCountedListAsync` 가 그 이름들을 찾아보게 되어 있어서,
+        // 맞춰 두면 화면은 주소만 바꾸면 된다.
+
+        group.MapGet("/push/logs", async (
+            UserContext? user,
+            [FromServices] AppDbContext db,
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 30,
+            [FromQuery] bool? isSuccess = null,
+            [FromQuery] string? failureReason = null,
+            [FromQuery] string? ownerKey = null,
+            [FromQuery] DateTime? startDate = null,
+            [FromQuery] DateTime? endDate = null,
+            CancellationToken ct = default) =>
+        {
+            if (user is null) return Results.Unauthorized();
+
+            var query = LogQuery(db, startDate, endDate);
+
+            if (isSuccess.HasValue) query = query.Where(l => l.IsSuccess == isSuccess.Value);
+
+            // 사유는 **부분 일치**다. 화면의 칸이 자유 입력이라 「구독」처럼
+            // 한 토막만 치는 일이 많다.
+            if (!string.IsNullOrWhiteSpace(failureReason))
+            {
+                query = query.Where(l => l.FailureReason != null && l.FailureReason.Contains(failureReason));
+            }
+
+            if (!string.IsNullOrWhiteSpace(ownerKey))
+            {
+                query = query.Where(l => l.OwnerKey == ownerKey);
+            }
+
+            var total = await query.CountAsync(ct);
+
+            // 쪽 크기를 묶어 둔다. 화면이 실수로 0 이나 십만을 보내면 서버가
+            // 통째로 들고 오게 된다.
+            var size = Math.Clamp(pageSize, 1, 500);
+            var skip = Math.Max(0, page - 1) * size;
+
+            var rows = await query
+                .OrderByDescending(l => l.SentAt)
+                .Skip(skip)
+                .Take(size)
+                .Select(l => new PushLogRowDto
+                {
+                    Id = l.Id,
+                    SentAt = l.SentAt,
+                    TargetUser = l.OwnerKey,
+                    OwnerType = l.OwnerType,
+                    Title = l.Title,
+                    Body = l.Body,
+                    Success = l.IsSuccess,
+                    FailureReason = l.FailureReason,
+                    SentBy = l.SentBy,
+                })
+                .ToListAsync(ct);
+
+            return Results.Ok(new
+            {
+                success = true,
+                data = rows,
+                totalcount = total,
+                totalpagecount = (int)Math.Ceiling(total / (double)size),
+            });
+        })
+        .WithName("GetPushLogs");
+
+        // 현황 화면의 타일 넷.
+        group.MapGet("/push/stats", async (
+            UserContext? user,
+            [FromServices] AppDbContext db,
+            [FromQuery] int days = 7,
+            CancellationToken ct = default) =>
+        {
+            if (user is null) return Results.Unauthorized();
+
+            var from = Since(days);
+            var rows = await db.PushSendLogs
+                .Where(l => l.SentAt >= from)
+                .GroupBy(l => l.IsSuccess)
+                .Select(g => new { Success = g.Key, Count = g.Count() })
+                .ToListAsync(ct);
+
+            var ok = rows.FirstOrDefault(r => r.Success)?.Count ?? 0;
+            var ng = rows.FirstOrDefault(r => !r.Success)?.Count ?? 0;
+            var total = ok + ng;
+
+            // **여기만 `ApiResponse` 를 쓰지 않는다.**
+            //
+            // 그 봉투는 무엇을 담든 `data.result` **배열**로 만든다 — 객체 하나를
+            // 줘도 원소 하나짜리 배열이 된다(ApiResponse.BuildSerializedData).
+            // 목록에는 맞는 규칙인데, 값 한 벌을 받는 화면은 그 배열을 객체로
+            // 읽지 못해 **타일이 통째로 안 그려진다**(실제로 그랬다).
+            //
+            // 아래 목록 엔드포인트와 같은 맨 봉투로 돌려준다.
+            return Results.Ok(new
+            {
+                success = true,
+                data = new
+                {
+                    totalSent = total,
+                    successCount = ok,
+                    failureCount = ng,
+                    // **서버가 계산한다.** 화면 둘이 각자 나누면 0건일 때의 답이 갈린다.
+                    successRate = total == 0 ? 0d : Math.Round(ok * 100d / total, 1),
+                },
+            });
+        })
+        .WithName("GetPushStats");
+
+        // 성공률 추이. 하루 한 점이다.
+        group.MapGet("/push/trend", async (
+            UserContext? user,
+            [FromServices] AppDbContext db,
+            [FromQuery] int days = 30,
+            CancellationToken ct = default) =>
+        {
+            if (user is null) return Results.Unauthorized();
+
+            var from = Since(days);
+
+            // **날짜로 묶는 일을 DB 에 시킨다.** 줄을 다 받아 와서 세면 기간이
+            // 길어질수록 그대로 무거워진다.
+            var grouped = await db.PushSendLogs
+                .Where(l => l.SentAt >= from)
+                .GroupBy(l => l.SentAt.Date)
+                .Select(g => new
+                {
+                    Day = g.Key,
+                    Sent = g.Count(),
+                    Success = g.Count(x => x.IsSuccess),
+                })
+                .OrderBy(g => g.Day)
+                .ToListAsync(ct);
+
+            var points = grouped.Select(g => new
+            {
+                period = g.Day.ToString("yyyy-MM-dd"),
+                sent = g.Sent,
+                success = g.Success,
+                successRate = g.Sent == 0 ? 0d : Math.Round(g.Success * 100d / g.Sent, 1),
+            });
+
+            return Results.Ok(ApiResponse<object>.Ok(points));
+        })
+        .WithName("GetPushTrend");
+
+        // 실패 사유별 건수. 사유 글자는 PushSender 의 상수라 갈래가 몇 개뿐이다.
+        group.MapGet("/push/failure-reasons", async (
+            UserContext? user,
+            [FromServices] AppDbContext db,
+            [FromQuery] int days = 7,
+            CancellationToken ct = default) =>
+        {
+            if (user is null) return Results.Unauthorized();
+
+            var from = Since(days);
+            var rows = await db.PushSendLogs
+                .Where(l => l.SentAt >= from && !l.IsSuccess)
+                .GroupBy(l => l.FailureReason)
+                .Select(g => new { reason = g.Key ?? "(사유 없음)", count = g.Count() })
+                .OrderByDescending(g => g.count)
+                .ToListAsync(ct);
+
+            return Results.Ok(ApiResponse<object>.Ok(rows));
+        })
+        .WithName("GetPushFailureReasons");
 
         // ── 이메일 발송 ─────────────────────────────────────
         //
@@ -381,6 +567,36 @@ public static class NotificationEndpoints
         })
         .WithName("SendEmail");
     }
+
+    /// <summary>
+    /// 기간을 건 기록 질의. 세 통계와 목록이 같은 기준을 써야 해서 한 곳에 둔다 —
+    /// 갈라 두면 「현황의 건수와 이력의 줄 수가 다르다」가 난다.
+    /// </summary>
+    /// <remarks>
+    /// <paramref name="endDate"/> 는 <b>그 날의 끝까지</b> 넣는다. 날짜만 받는
+    /// 칸이라 그대로 비교하면 마지막 날이 통째로 빠진다.
+    /// </remarks>
+    private static IQueryable<Entities.PushSendLog> LogQuery(
+        AppDbContext db, DateTime? startDate, DateTime? endDate)
+    {
+        var query = db.PushSendLogs.AsQueryable();
+
+        if (startDate.HasValue)
+        {
+            query = query.Where(l => l.SentAt >= startDate.Value.ToUniversalTime());
+        }
+
+        if (endDate.HasValue)
+        {
+            query = query.Where(l => l.SentAt < endDate.Value.ToUniversalTime().AddDays(1));
+        }
+
+        return query;
+    }
+
+    /// <summary>「최근 N 일」의 시작. 0 이나 음수가 와도 하루는 본다.</summary>
+    private static DateTime Since(int days) =>
+        DateTime.UtcNow.Date.AddDays(-Math.Max(1, days) + 1);
 
     /// <summary>
     /// 내 기기(구독) 목록. 최근 등록한 것이 위다.

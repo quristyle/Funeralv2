@@ -29,6 +29,12 @@ public class AppDbContext : DbContext
     /// <summary>사람별 알림 수신 설정. 구독(기기)과 달리 사람 하나에 한 행이다.</summary>
     public DbSet<NotificationPreference> NotificationPreferences { get; set; } = null!;
 
+    /// <summary>
+    /// 보낸 기록. <b>보낸 쪽이 자기 기록을 갖는다</b> — 그 전에는 아무 데도
+    /// 안 남아서 포털관리의 현황·이력 화면이 늘 비어 있었다(PushSendLog 머리말).
+    /// </summary>
+    public DbSet<PushSendLog> PushSendLogs { get; set; } = null!;
+
     // ── scom 계정·역할 (읽기 전용) ──────────────────────────
     // "이 역할 사용자들의 이메일" 을 풀기 위한 조회 전용 매핑이다.
     // 정본은 AuthServer 이고 여기서는 절대 쓰지 않는다 (ScomIdentityRows.cs 머리말).
@@ -54,6 +60,14 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<NotificationPreference>()
             .HasIndex(p => new { p.OwnerType, p.OwnerKey })
             .IsUnique();
+
+        // 기록은 **언제나 시간으로 훑는다** — 목록도 통계도 기간이 첫 조건이다.
+        modelBuilder.Entity<PushSendLog>()
+            .HasIndex(l => l.SentAt);
+
+        // 「이 사람에게 무엇이 갔나」도 자주 묻는다.
+        modelBuilder.Entity<PushSendLog>()
+            .HasIndex(l => new { l.OwnerType, l.OwnerKey });
 
         // ── 컬럼명을 snake_case 로 맞춘다 ──────────────────────
         //
