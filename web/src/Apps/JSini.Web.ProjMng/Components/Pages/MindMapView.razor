@@ -117,15 +117,13 @@
    실제로 처음 만들었을 때 그 신고를 받았다. 테두리가 생기는 것이 자판이
    살아 있다는 표시다(`projmng.css` 의 `.pm-mind:focus`). *@
 <PageNotice Tone="NoticeTone.Info"
-            Text="그림을 한 번 누르면 파란 테두리가 생기고, 그때부터 자판이 듣습니다. Tab 으로 고른 마디 아래에, Enter 로 옆에 붙입니다(아무것도 안 골랐으면 중심 아래에 붙습니다). F2 나 더블클릭으로 이름을 고칩니다 — 적은 뒤 Enter 로 확정하고, 한 상자 안에서 줄을 바꾸려면 Shift+Enter 입니다. Delete 로 지우고, 자식이 있는 마디는 Space 로 접었다 폅니다. 빈 자리를 끌면 그림이 움직입니다. 바꾼 것은 「저장」을 눌러야 남습니다." />
+            Text="그림을 한 번 누르면 파란 테두리가 생기고, 그때부터 자판이 듣습니다. Tab 으로 고른 마디 아래에, Enter 로 옆에 붙입니다(아무것도 안 골랐으면 중심 아래에 붙습니다). F2 나 더블클릭으로 이름을 고칩니다 — 적은 뒤 Enter 로 확정하고, 적다가 Tab 을 누르면 확정하면서 그 아래에 하나 더 붙습니다(한 상자 안에서 줄을 바꾸려면 Shift+Enter). Delete 로 지우고, 자식이 있는 마디는 Space 로 접었다 폅니다. 빈 자리를 끌면 그림이 움직입니다. 바꾼 것은 「저장」을 눌러야 남습니다." />
 
 @if (_dirty)
 {
     <PageNotice Tone="NoticeTone.Warning"
                 Text="저장하지 않은 변경이 있습니다. 「저장」을 누르지 않고 나가면 사라집니다." />
 }
-
-<PageNotice Text="@Notice" Tone="@Tone" />
 
 <div class="pm-palette">
     <span class="pm-palette__label">마디</span>

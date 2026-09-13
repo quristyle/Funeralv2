@@ -96,15 +96,13 @@
 @* 조작법을 화면에 적어 둔다. 그리는 화면인데 단추만 있으면 **끌어 잇는 것과
    더블클릭으로 이름 붙이는 것**을 알 길이 없다. *@
 <PageNotice Tone="NoticeTone.Info"
-            Text="「도형 추가」로 새 도형을 만들고, 도형을 더블클릭해 이름을 고칩니다(표에서 온 도형의 이름은 DB 가 정본이라 [테이블·컬럼 설명 관리]에서 고칩니다). 도형 가장자리에서 다른 도형으로 끌면 관계선이 생기고, 선도 더블클릭해 이름을 붙입니다. 고른 것은 Delete 로 지웁니다. 도구상자의 도형은 캔버스로 끌어다 놓을 수 있고, 클립보드에 담긴 그림은 캔버스 위에서 Ctrl+V 로 붙여넣습니다(그림 파일을 끌어다 놓아도 됩니다). 바꾼 것은 「저장」을 눌러야 남습니다." />
+            Text="「도형 추가」로 새 도형을 만들고, 도형을 더블클릭해 이름을 고칩니다(표에서 온 도형의 이름은 DB 가 정본이라 [테이블·컬럼 설명 관리]에서 고칩니다). 도형 가장자리에서 다른 도형으로 끌면 관계선이 생기고, 선도 더블클릭해 이름을 붙입니다. 고른 것은 Delete 로 지웁니다. 빈 자리를 왼쪽 단추로 끌면 그림이 움직이고, 여러 개를 둘러싸 고르려면 Alt 를 누른 채 끕니다. Shift+휠로 확대·축소합니다. Ctrl+S 로 저장합니다. 도구상자의 도형은 캔버스로 끌어다 놓을 수 있고, 클립보드에 담긴 그림은 캔버스 위에서 Ctrl+V 로 붙여넣습니다(그림 파일을 끌어다 놓아도 됩니다). 바꾼 것은 「저장」을 눌러야 남습니다." />
 
 @if (_dirty)
 {
     <PageNotice Tone="NoticeTone.Warning"
                 Text="저장하지 않은 변경이 있습니다. 「저장」을 누르지 않고 나가면 사라집니다." />
 }
-
-<PageNotice Text="@Notice" Tone="@Tone" />
 
 <div class="pm-palette">
     <span class="pm-palette__label">정렬</span>
@@ -134,7 +132,8 @@
         }
 
         <DiagramViewer @ref="_diagram" Height="100%" OnChanged="@(() => _dirty = true)"
-                       OnNotice="@(text => Say(text, NoticeTone.Info))" />
+                       OnNotice="@(text => Say(text, NoticeTone.Info))"
+                       OnSave="@SaveDiagramAsync" />
     </div>
 </div>
 

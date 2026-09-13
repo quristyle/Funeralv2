@@ -260,6 +260,22 @@
   text-align: left;
 }
 
+/* 칸을 안 펼친 상자 — **이름만 가운데.**
+
+   띠와 아래 선은 「여기서부터 칸 목록」이라는 표시다. 목록이 없는데 그대로
+   두면 선 아래가 빈자리로 보여서, 「컬럼 보기」를 껐을 때 상자마다 공백이
+   생겼다. 높이는 JS 가 `PLAIN_H` 로 줄인다 — **두 값을 함께 고친다.** */
+.pm-erd--plain {
+  justify-content: center;
+}
+
+.pm-erd--plain .pm-erd__head {
+  padding: 2px 8px;
+  background: none;
+  border-bottom: 0;
+  text-align: center;
+}
+
 /* 머리띠 — 이름과 설명. 표 하나를 멀리서도 알아보게 하는 자리다. */
 .pm-erd__head {
   padding: 4px 8px;
@@ -544,6 +560,103 @@
 }
 
 /* 눈에는 안 보이고 화면 낭독기에는 읽히는 글자. 아이콘만 있는 단추에 붙인다. */
+/* ── 그림 바탕 (격자·점) ──────────────────────────────────────
+
+   무늬만 여기서 정하고 **칸 크기와 시작점은 JS 가 정한다**
+   (`diagram-viewer.js` 의 `paintBackground` — 배율과 이동을 따라가야 한다).
+   색을 CSS 가 쥐고 있어야 테마 스물둘을 그대로 따라온다.
+
+   `background-size` 가 한 칸이므로 여기서는 **한 칸에 그릴 것**만 적는다 —
+   격자는 왼쪽·위 변, 점은 왼쪽 위 모서리에서 `1.5px` 안쪽(그 값이 JS 의
+   `DOT_INSET` 이다. **두 곳이 같아야 점이 붙는 자리에 찍힌다**).
+   ---------------------------------------------------------- */
+
+.pm-diagram--grid,
+.pm-diagram--dots {
+  /* 바탕이 진하면 그림이 묻힌다. 테두리 색을 옅게 섞어 쓴다. */
+  --pm-grid-ink: color-mix(in srgb, var(--jsini-border) 80%, transparent);
+}
+
+.pm-diagram--grid {
+  background-image:
+    linear-gradient(to right, var(--pm-grid-ink) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--pm-grid-ink) 1px, transparent 1px);
+}
+
+.pm-diagram--dots {
+  /* 점은 격자보다 눈에 덜 띄어서 옅게 섞지 않고 테두리 색을 그대로 쓴다.
+     **100% 를 넘겨 진하게 만들 수는 없다** — `color-mix` 의 비율이 0~100%
+     밖이면 그 색이 통째로 무효가 되고, 그러면 `background-image` 선언 하나가
+     조용히 버려져 **점이 아예 안 찍힌다**(브라우저에서 실제로 그랬다). */
+  --pm-grid-ink: var(--jsini-border);
+
+  background-image:
+    radial-gradient(circle at 1.5px 1.5px, var(--pm-grid-ink) 1.4px, transparent 1.5px);
+}
+
+/* ── 미니맵 (`.pm-minimap`) ───────────────────────────────────
+
+   그림이 화면보다 커지면 **지금 어디를 보고 있는지** 알 길이 그림 자체밖에
+   없다. 켜면 오른쪽 아래에 전체가 뜨고, 그 안의 네모를 끌어 옮겨 다닌다.
+   그리는 것은 maxgraph 의 `Outline` 이다(`diagram-viewer.js`).
+
+   **자리는 부모(`.pm-diagram-host`)가 잡는다** — 그 칸이 `position: relative`
+   라 여기서 `absolute` 한 줄이면 된다. 도구상자(핀 뺀 상태)는 왼쪽 위라
+   서로 겹치지 않는다.
+
+   층은 **1** 이다. 「불러오는 중」 덮개가 2 라, 물어보는 동안에는 미니맵도
+   함께 덮여야 한다 — 그 사이 그림은 옛 그대로이고 미니맵도 마찬가지다.
+   ---------------------------------------------------------- */
+
+/* 켜기 전에는 자리를 차지하지 않는다. 빈 칸이라 값도 치르지 않는다. */
+.pm-minimap {
+  display: none;
+}
+
+.pm-minimap--on {
+  position: absolute;
+  right: 0.5rem;
+  bottom: 0.5rem;
+  z-index: 1;
+  display: block;
+  width: 220px;
+  height: 160px;
+  border: 1px solid var(--jsini-border);
+  border-radius: 0.25rem;
+  background: var(--jsini-surface);
+  box-shadow: 0 2px 10px rgb(0 0 0 / 18%);
+  overflow: hidden;
+}
+
+/* 좁은 화면에서는 그림을 가린다. 그림이 안 보이면 미니맵도 쓸 데가 없다. */
+@media (max-width: 767px) {
+  .pm-minimap--on {
+    width: 150px;
+    height: 110px;
+  }
+}
+
+/* 도구상자 머리의 미니맵 단추 그림 — 테두리 안에 「보는 자리」 네모.
+
+   `app.css` 의 `jsini-icon-*` 묶음에 없는 그림이라 여기 둔다(모듈 하나만
+   쓰는 동안은 그 모듈 CSS 에 두는 규칙). 재는 법과 색은 그쪽과 같게 맞춘다 —
+   `currentColor` 로 칠하므로 테마 스물둘을 그대로 따라온다. */
+.pm-icon-minimap {
+  display: inline-block;
+  width: var(--jsini-icon-size);
+  height: var(--jsini-icon-size);
+  vertical-align: middle;
+  background-color: currentColor;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill-rule='evenodd' d='M1 2.5h14v11H1zm1.6 1.6v7.8h10.8V4.1z'/%3E%3Cpath d='M8.2 7.4h4.6v3.4H8.2z'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill-rule='evenodd' d='M1 2.5h14v11H1zm1.6 1.6v7.8h10.8V4.1z'/%3E%3Cpath d='M8.2 7.4h4.6v3.4H8.2z'/%3E%3C/svg%3E");
+}
+
 .pm-sr-only {
   position: absolute;
   width: 1px;
@@ -558,6 +671,44 @@
 
 
 /* 도구상자의 찾는 칸. 목록이 백여든 개라 없으면 굴리다 지친다. */
+/* 바탕 고르개(없음·격자·점). 테마 서랍의 칸 묶음과 같은 모양이다 —
+   셋 중 하나라 고른 것을 **면으로** 칠한다(테두리를 두르면 그 칸만 키가
+   커져 줄이 들썩인다). */
+.pm-tools__seg {
+  display: flex;
+  gap: 0.2rem;
+  align-items: center;
+  padding: 0.35rem 0.5rem;
+  border-bottom: 1px solid var(--jsini-border);
+}
+
+.pm-tools__seg-label {
+  margin-right: 0.1rem;
+  color: var(--jsini-text-muted, #6b7280);
+  font-size: var(--jsini-fs-2xs);
+}
+
+.pm-tools__seg-btn {
+  flex: 1;
+  padding: 0.15rem 0.2rem;
+  border: 1px solid var(--jsini-border);
+  border-radius: 0.25rem;
+  background: var(--jsini-surface);
+  color: inherit;
+  font-size: var(--jsini-fs-2xs);
+  cursor: pointer;
+}
+
+.pm-tools__seg-btn:hover {
+  background: color-mix(in srgb, currentColor 8%, var(--jsini-surface));
+}
+
+.pm-tools__seg-btn--on {
+  border-color: var(--jsini-primary, #3f7ad6);
+  background: color-mix(in srgb, var(--jsini-primary, #3f7ad6) 14%, var(--jsini-surface));
+  font-weight: 600;
+}
+
 .pm-tools__filter {
   padding: 0.35rem 0.5rem;
   border-bottom: 1px solid var(--jsini-border);
@@ -720,4 +871,49 @@
   font-family: var(--jsini-font-mono, ui-monospace, "Cascadia Mono", "D2Coding", monospace);
   font-size: var(--jsini-fs-sm);
   white-space: pre;
+}
+
+/* ── 일정표의 달력 ───────────────────────────────────────────
+
+   `DxScheduler` 는 자기 키를 부모에서 받는다. 탭(`DxTabs`) 안에 넣으면
+   부모가 키를 주지 않아 **달력이 한 주 높이로 납작해진다.** 최소 키를 준다.
+
+   화면 옆 CSS(`ProjectScheduler.razor.css`)로 두지 않은 이유는, 이 화면의
+   마크업이 부품 태그뿐이라 **범위 표시를 달 요소가 없기 때문이다** —
+   `::deep` 이 걸 조상이 없어 규칙이 조용히 안 먹는다.
+   ---------------------------------------------------------- */
+
+.pm-sched {
+  min-height: 620px;
+}
+
+/* ── 다중선택 고르개(CodeSelect Multiple) ────────────────────
+
+   다중 고르개는 **자기 너비를 스스로 정하지 않는다.** 아무것도 안 고른
+   상태에서는 내용이 없어 12px 로 쪼그라들고, 조건줄에서는 그것이 **누를
+   수도 없는 실선 한 줄**로 보인다(실제로 그랬다). 단일 고르개(`DxComboBox`)
+   는 자기 기본 너비가 있어서 이 문제가 없다.
+
+   화면 옆 CSS 로 두지 않는다 — `CodeSelect` 의 마크업이 부품 태그뿐이라
+   `::deep` 이 걸 조상이 없다(`.pm-sched` 와 같은 사정).
+   ---------------------------------------------------------- */
+
+.pm-code-select--multi {
+  min-width: 220px;
+  max-width: 100%;
+}
+
+/* 좁은 화면에서는 최소 너비를 푼다. 안 그러면 조건줄이 화면 밖으로 나간다. */
+@media (max-width: 767px) {
+  .pm-code-select--multi {
+    min-width: 0;
+  }
+}
+
+/* 펼친 체크 목록. 코드가 스물 넘는 묶음(예: HOMEWORK)에서도 판이 화면을
+   넘지 않게 키를 묶고 안쪽만 구르게 한다 — 넘치면 아래쪽 항목을 **체크할
+   방법이 없다.** */
+.pm-code-checks {
+  max-height: 280px;
+  min-width: 200px;
 }

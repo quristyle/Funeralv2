@@ -20,6 +20,19 @@ public sealed record ErdModel
     [JsonPropertyName("relations")]
     public List<ErdRelation> Relations { get; init; } = [];
 
+    /// <summary>
+    /// <b>보던 자리와 화면 설정.</b> 배율·이동·미니맵·도구상자를 그림에 딸려
+    /// 저장했다가 다시 열 때 되돌린다.
+    ///
+    /// <para>
+    /// <b>옛 저장본에는 없다</b>(<c>null</c>). 그때는 <b>아무것도 건드리지
+    /// 않는다</b> — 없는 값을 기본값으로 읽어 배율을 1 로 되돌리면, 열 때마다
+    /// 방금 맞춰 둔 화면이 흐트러진다.
+    /// </para>
+    /// </summary>
+    [JsonPropertyName("view")]
+    public ErdViewport? View { get; init; }
+
     /// <summary>비어 있는 모델. 저장본이 없는 새 다이어그램이 여기서 시작한다.</summary>
     public static ErdModel Empty => new();
 
@@ -112,6 +125,59 @@ public sealed record ErdModel
 }
 
 /// <summary>다이어그램의 도형 하나. ERD 에서는 테이블, 플로우에서는 단계다.</summary>
+/// <summary>
+/// 그림을 열었을 때 되돌릴 <b>화면 상태</b>.
+///
+/// <para>
+/// 그림의 내용이 아니라 <b>보는 방식</b>이다. 그래서 이 값이 바뀌는 것만으로는
+/// 「저장하지 않은 변경」이 되지 않는다 — 휠을 한 번 굴릴 때마다 경고 줄이
+/// 뜨면 그 줄이 무슨 뜻인지 알 수 없게 된다. 도형을 고쳐 저장할 때 함께 실린다.
+/// </para>
+///
+/// <para>
+/// 이름이 <c>ErdView</c> 가 아닌 까닭은 <b>화면(ErdView.razor)이 그 이름을 이미
+/// 쓰기 때문</b>이다. 같으면 화면 안에서 화면 자신이 이겨서, 「자료 타입을
+/// 잘못 만든 것처럼 읽히는」 오류가 난다(web/CLAUDE.md).
+/// </para>
+/// </summary>
+public sealed record ErdViewport
+{
+    /// <summary>배율. <c>1</c> 이 100%.</summary>
+    [JsonPropertyName("scale")]
+    public double Scale { get; init; } = 1;
+
+    /// <summary>가로 이동값(그래프 좌표).</summary>
+    [JsonPropertyName("dx")]
+    public double Dx { get; init; }
+
+    /// <summary>세로 이동값(그래프 좌표).</summary>
+    [JsonPropertyName("dy")]
+    public double Dy { get; init; }
+
+    /// <summary>미니맵을 켜 두었나. <b>기본은 켬</b>이다.</summary>
+    [JsonPropertyName("minimap")]
+    public bool Minimap { get; init; } = true;
+
+    /// <summary>
+    /// 바탕. <c>none</c> · <c>grid</c> · <c>dots</c>. <b>기본은 없음</b>이다.
+    ///
+    /// <para>
+    /// 무늬만이 아니라 <b>자석까지 함께 되돌린다</b> — 격자를 깔아 두고 저장한
+    /// 그림은 다음에도 그 칸에 맞춰 고칠 수 있어야 한다.
+    /// </para>
+    /// </summary>
+    [JsonPropertyName("background")]
+    public string Background { get; init; } = "none";
+
+    /// <summary>도구상자를 펴 두었나. <b>기본은 폄</b>이다.</summary>
+    [JsonPropertyName("tools")]
+    public bool Tools { get; init; } = true;
+
+    /// <summary>도구상자에 핀이 꽂혀 있나(그림 옆에 자리를 차지한다).</summary>
+    [JsonPropertyName("pinned")]
+    public bool Pinned { get; init; } = true;
+}
+
 public sealed record ErdEntity
 {
     [JsonPropertyName("id")]

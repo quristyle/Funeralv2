@@ -774,9 +774,38 @@ export function create(container, dotnet) {
   }
 
   const onKeyDown = (event) => {
-    // 글자를 고치는 중에는 편집기의 키다. 편집기가 확정·취소한 키는 거기서
-    // 전파를 끊으므로(`InternalEvent.consume`) 여기까지 오지도 않는다.
-    if (graph.isEditing()) return;
+    // 글자를 고치는 중에는 편집기의 키다. 편집기가 확정·취소한 키(Enter·F2·
+    // Escape)는 거기서 전파를 끊으므로(`InternalEvent.consume`) 여기까지 오지도
+    // 않는다.
+    //
+    // **Tab 만은 다르다.** maxgraph 의 편집기는 Tab 을 모른다 — 그대로 두면
+    // 브라우저가 제 일을 해서 **초점이 캔버스 밖 다음 칸으로 나가 버린다.**
+    // 그러면 편집기는 값을 넘기지도 닫히지도 않은 채(`blurEnabled` 가 꺼져
+    // 있다) 남고, `graph.isEditing()` 이 참인 채로 굳는다. 그 뒤로는
+    // 이 처리기가 늘 여기서 돌아가고 `focusCanvas` 도 매번 물러나서,
+    // **단축키가 통째로 죽는다.** 캔버스를 다시 눌러야 풀린다.
+    //
+    // 마인드맵 도구들이 다 그렇듯 「적다가 Tab」은 **확정하고 자식 하나 더」**로
+    // 받는다. 손이 자판에서 안 떨어지는 것이 이 화면의 본업이다.
+    if (graph.isEditing()) {
+      if (event.key !== 'Tab') return;
+
+      event.preventDefault();
+
+      // 확정이 먼저다. `stopEditing` 이 LABEL_CHANGED 를 내면 그쪽이 다시
+      // 그리기를 마이크로태스크로 잡아 두는데, 여기서 곧바로 마디를 더하면
+      // **그 다시 그리기가 새 마디의 편집기를 걷어 간다**(셀이 갈려 나가면
+      // maxgraph 가 편집을 취소한다). 그래서 한 칸 뒤로 미뤄 그 뒤에 붙인다.
+      graph.stopEditing(false);
+
+      // Shift+Tab 은 「그만 적는다」로만 받는다 — 확정만 하고 마디는 안
+      // 더한다. 초점은 위 확정이 EDITING_STOPPED 로 캔버스에 돌려준다.
+      if (!event.shiftKey) {
+        queueMicrotask(() => addChild());
+      }
+
+      return;
+    }
 
     const node = selected();
     const parent = node ? findParent(state.root, node.id) : null;
@@ -823,10 +852,26 @@ export function create(container, dotnet) {
   container.setAttribute('tabindex', '0');
   container.addEventListener('keydown', onKeyDown);
 
-  // 캔버스를 누르면 초점이 여기로 온다(위 `focusCanvas` 머리말).
-  // `mousedown` 이다 — maxgraph 가 그 단계에서 기본 동작을 막으므로 `click`
-  // 을 기다리면 이미 늦다.
-  container.addEventListener('mousedown', focusCanvas);
+  /*
+    캔버스를 누르면 초점이 여기로 온다(위 `focusCanvas` 머리말).
+
+    [**`pointerdown` 이다. `mousedown` 은 아예 오지 않는다.**]
+
+    maxgraph 는 포인터 사건을 자기가 처리하고 `preventDefault()` 를 부른다.
+    브라우저는 그때 **뒤따르는 흉내 사건을 만들지 않는다** — `mousedown` 도
+    `mouseup` 도 나지 않는다(브라우저에서 확인했다. `pointerdown`·`click` 은
+    나고 `mousedown` 만 없다). 그래서 `mousedown` 으로 걸어 둔 초점 되돌리기는
+    **한 번도 불린 적이 없었다.**
+
+    증상이 고약하다 — 마디를 더하거나 고친 직후에는 우리가 코드로 초점을
+    돌려주므로 단축키가 듣고, **그림을 한 번 누르고 나면 죽는다.** 그런데
+    「다음에 어디에 붙일지 골라 놓고 Tab」이 이 화면에서 가장 잦은 동작이라,
+    쓰는 사람에게는 「Tab·Enter 가 될 때도 있고 안 될 때도 있다」로 보인다.
+
+    캡처 단계로 건다. maxgraph 는 기본 동작을 막으면서 전파도 끊으므로
+    (`InternalEvent.consume`) 거품 단계로 걸면 같은 칸에서도 못 받는다.
+  */
+  container.addEventListener('pointerdown', focusCanvas, true);
 
   /**
    * 글자 고치기가 끝나면 초점을 캔버스로 돌린다.
@@ -1058,7 +1103,7 @@ export function create(container, dotnet) {
     /** 회로가 끊기거나 화면을 떠날 때 부른다. 안 부르면 DOM 과 리스너가 샌다. */
     destroy() {
       container.removeEventListener('keydown', onKeyDown);
-      container.removeEventListener('mousedown', focusCanvas);
+      container.removeEventListener('pointerdown', focusCanvas, true);
       nodeOfCell.clear();
       cellOfId.clear();
       graph.destroy?.();

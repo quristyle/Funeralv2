@@ -93,15 +93,13 @@
 @* 조작법을 화면에 적어 둔다. 그리는 화면인데 단추만 있으면 **끌어 잇는 것과
    더블클릭으로 이름 붙이는 것**을 알 길이 없다. *@
 <PageNotice Tone="NoticeTone.Info"
-            Text="「도형 추가」로 새 도형을 만들고, 도형을 더블클릭해 이름을 고칩니다(표에서 온 도형의 이름은 DB 가 정본이라 [테이블·컬럼 설명 관리]에서 고칩니다). 도형 가장자리에서 다른 도형으로 끌면 관계선이 생기고, 선도 더블클릭해 이름을 붙입니다. 고른 것은 Delete 로 지웁니다. 도구상자의 도형은 캔버스로 끌어다 놓을 수 있고, 클립보드에 담긴 그림은 캔버스 위에서 Ctrl+V 로 붙여넣습니다(그림 파일을 끌어다 놓아도 됩니다). 바꾼 것은 「저장」을 눌러야 남습니다." />
+            Text="「도형 추가」로 새 도형을 만들고, 도형을 더블클릭해 이름을 고칩니다(표에서 온 도형의 이름은 DB 가 정본이라 [테이블·컬럼 설명 관리]에서 고칩니다). 도형 가장자리에서 다른 도형으로 끌면 관계선이 생기고, 선도 더블클릭해 이름을 붙입니다. 고른 것은 Delete 로 지웁니다. 빈 자리를 왼쪽 단추로 끌면 그림이 움직이고, 여러 개를 둘러싸 고르려면 Alt 를 누른 채 끕니다. Shift+휠로 확대·축소합니다. Ctrl+S 로 저장합니다. 도구상자의 도형은 캔버스로 끌어다 놓을 수 있고, 클립보드에 담긴 그림은 캔버스 위에서 Ctrl+V 로 붙여넣습니다(그림 파일을 끌어다 놓아도 됩니다). 바꾼 것은 「저장」을 눌러야 남습니다." />
 
 @if (_dirty)
 {
     <PageNotice Tone="NoticeTone.Warning"
                 Text="저장하지 않은 변경이 있습니다. 「저장」을 누르지 않고 나가면 사라집니다." />
 }
-
-<PageNotice Text="@Notice" Tone="@Tone" />
 
 <div class="pm-palette">
     <span class="pm-palette__label">정렬</span>
@@ -131,7 +129,8 @@
         }
 
         <DiagramViewer @ref="_diagram" Height="100%" OnChanged="@(() => _dirty = true)"
-                       OnNotice="@(text => Say(text, NoticeTone.Info))" />
+                       OnNotice="@(text => Say(text, NoticeTone.Info))"
+                       OnSave="@SaveDiagramAsync" />
     </div>
 </div>
 
@@ -464,6 +463,19 @@
     private async Task SaveDiagramAsync()
     {
         if (_diagram is null) return;
+
+        // **DB 를 안 골랐으면 저장할 곳이 없다.**
+        //
+        // 이 화면의 저장은 접속 번호(`DbRid`)를 임자로 삼는데, 안 고른 상태의
+        // 그것은 **0** 이다. 그대로 내보내면 서버가 막지 않고 **임자 없는 줄이
+        // 하나 생긴다**(그 표에는 제약이 없다). 단추만 있을 때는 조회를 해야
+        // 단추가 눈에 들어와서 좀처럼 안 밟았는데, Ctrl+S 가 생기면서
+        // **아무 때나 눌릴 수 있는 길**이 되었다. 불러오기와 같은 말로 막는다.
+        if (string.IsNullOrWhiteSpace(_dbCode))
+        {
+            Say("DB 를 먼저 고르십시오.", NoticeTone.Warning);
+            return;
+        }
 
         if (_legacyDrawing)
         {

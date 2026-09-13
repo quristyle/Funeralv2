@@ -28,6 +28,11 @@
     `FileDownload` 가 셸의 중계 경로로 옮긴다 — 까닭은 그 클래스 머리말에 있다.
 *@
 
+@* 올리다 생긴 일은 **담아 두지 않고 바로 띄운다.** 「N장까지만」은 그 순간에만
+   뜻이 있는 말이라, 남겨 두면 다음에 고른 사진이 멀쩡한데도 경고가 붙어
+   있는다(`FilePicker` 와 같다). *@
+@inject Toasts Toasts
+
 @implements IAsyncDisposable
 @inject FileGroupClient Files
 
@@ -76,7 +81,6 @@
         <div class="jsini-imggroup__empty">등록된 사진이 없습니다.</div>
     }
 
-    <PageNotice Text="@_error" Tone="NoticeTone.Warning" />
 </div>
 
 @code {
@@ -109,7 +113,6 @@
     private string? _loadedGroupId;
 
     private bool _busy;
-    private string? _error;
 
     private CancellationTokenSource? _cts;
 
@@ -135,19 +138,17 @@
         {
             // 사진을 못 읽는다고 편집 창을 죽이지 않는다.
             _files = [];
-            _error = $"사진을 읽지 못했습니다 — {ex.Message}";
+            Toasts.Show($"사진을 읽지 못했습니다 — {ex.Message}", NoticeTone.Warning);
         }
     }
 
     private async Task UploadAsync(InputFileChangeEventArgs e)
     {
-        _error = null;
-
         var room = Limit - _files.Count;
 
         if (room <= 0)
         {
-            _error = $"{Limit}장까지만 올릴 수 있습니다.";
+            Toasts.Show($"{Limit}장까지만 올릴 수 있습니다.", NoticeTone.Warning);
             return;
         }
 
@@ -157,7 +158,7 @@
 
         if (picked.Count > room)
         {
-            _error = $"{Limit}장까지라 {picked.Count - room}장은 빼고 올립니다.";
+            Toasts.Show($"{Limit}장까지라 {picked.Count - room}장은 빼고 올립니다.", NoticeTone.Warning);
         }
 
         _cts?.Dispose();
@@ -175,7 +176,7 @@
             {
                 if (file.Size > MaxBytes)
                 {
-                    _error = $"{file.Name} 은(는) {Human(MaxBytes)} 를 넘어 뺐습니다.";
+                    Toasts.Show($"{file.Name} 은(는) {Human(MaxBytes)} 를 넘어 뺐습니다.", NoticeTone.Warning);
                     continue;
                 }
 
@@ -212,11 +213,11 @@
         }
         catch (OperationCanceledException)
         {
-            _error = "올리기를 멈췄습니다.";
+            Toasts.Show("올리기를 멈췄습니다.", NoticeTone.Warning);
         }
         catch (Exception ex)
         {
-            _error = $"사진을 올리지 못했습니다 — {ex.Message}";
+            Toasts.Show($"사진을 올리지 못했습니다 — {ex.Message}", NoticeTone.Warning);
         }
         finally
         {
@@ -230,9 +231,7 @@
     }
 
     private async Task DeleteAsync(GroupFile file)
-    {
-        _error = null;
-        _busy = true;
+    {        _busy = true;
 
         try
         {
@@ -241,7 +240,7 @@
         }
         catch (ApiException ex)
         {
-            _error = $"사진을 지우지 못했습니다 — {ex.Message}";
+            Toasts.Show($"사진을 지우지 못했습니다 — {ex.Message}", NoticeTone.Warning);
         }
         finally
         {
@@ -254,10 +253,7 @@
         if (string.IsNullOrWhiteSpace(GroupId))
         {
             return;
-        }
-
-        _error = null;
-        _busy = true;
+        }        _busy = true;
 
         try
         {
@@ -266,7 +262,7 @@
         }
         catch (ApiException ex)
         {
-            _error = $"대표 사진을 바꾸지 못했습니다 — {ex.Message}";
+            Toasts.Show($"대표 사진을 바꾸지 못했습니다 — {ex.Message}", NoticeTone.Warning);
         }
         finally
         {

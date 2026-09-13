@@ -23,6 +23,7 @@ import {
   Graph,
   HierarchicalLayout,
   InternalEvent,
+  Outline,
   RubberBandHandler,
   Shape,
   ShapeRegistry,
@@ -41,6 +42,54 @@ const DEFAULT_H = 60;
 const MIN_W = 24;
 const MIN_H = 20;
 
+/**
+ * 배율의 아래·위 한계. 너무 줄이면 아무것도 못 알아보고, 너무 키우면 상자
+ * 하나가 화면을 채운다. 단추·휠·저장본에서 온 값이 **모두 이 안으로** 들어온다.
+ */
+const MIN_SCALE = 0.2;
+const MAX_SCALE = 4;
+
+/** 휠 한 칸이 바꾸는 배율. 단추(1.2)보다 작다 — 휠은 여러 칸이 연달아 온다. */
+const WHEEL_FACTOR = 1.12;
+
+/**
+ * 휠이 멎고 나서 배율을 **진짜로 확정**하기까지 기다리는 시간(ms).
+ *
+ * 그 사이에는 그림을 **가상으로만** 키워 보여 준다(`transform`). 짧으면
+ * 굴리는 중에 확정이 끼어들어 버벅이고, 길면 다 굴린 뒤에도 흐릿한 미리보기가
+ * 남아 있는 것처럼 보인다.
+ */
+const ZOOM_COMMIT_MS = 120;
+
+/**
+ * 화면을 끄는 동안 미니맵을 다시 그리는 **최소 간격**(ms).
+ *
+ * 한 번이 표 70개에서 9.5ms 라 프레임마다 그리면 끌기가 두 배로 무거워진다.
+ * 초당 여덟 번이면 「큰 그림에서 어디쯤인가」를 말해 주기에 충분하다.
+ */
+const OUTLINE_PAN_MS = 120;
+
+/**
+ * 바탕 격자 한 칸(그래프 좌표).
+ *
+ * **`graph.gridSize` 에 그대로 넣는다** — 보이는 칸과 붙는 칸이 다르면
+ * 「줄이 없는 자리에 붙는다」가 되어, 자석이 고장 난 것처럼 보인다.
+ */
+const GRID_STEP = 20;
+
+/**
+ * 그린 격자의 최소 간격(화면 픽셀). 작게 줄이면 줄이 서로 붙어 회색 판이
+ * 되므로, 이보다 촘촘해지면 **배수로 성기게** 그린다. 배수라서 그려진 줄은
+ * 언제나 붙는 자리다 — 줄이 안 그려진 자리에도 붙을 뿐이다.
+ */
+const GRID_MIN_PX = 8;
+
+/**
+ * 점을 타일 왼쪽 위에서 이만큼 안쪽에 찍는다(CSS 와 맞춘다). 타일 모서리에
+ * 찍으면 원의 4분의 1만 남아서, 그만큼 자리를 물려 준 뒤 되돌린다.
+ */
+const DOT_INSET = 1.5;
+
 /** 칸 한 줄의 높이. 상자를 얼마나 키울지 재는 데만 쓴다(CSS 와 맞춘다). */
 const FIELD_LINE_H = 18;
 
@@ -49,6 +98,15 @@ const HEAD_H = 42;
 
 /** 표 상자의 기본 너비. 칸 이름과 자료형이 한 줄에 들어갈 만큼. */
 const TABLE_W = 230;
+
+/**
+ * **칸을 안 펼친 표 상자의 높이.** 이름 한 줄이 들어갈 만큼만이다.
+ *
+ * 예전에는 이때도 기본 크기(180×60)를 썼는데, 속이 이름 한 줄뿐이라
+ * **아래가 휑하게 비었다** — 「컬럼 보기」를 끄는 것은 배치만 보려는 것이니
+ * 상자도 그만큼 단순해야 한다. 글자는 가운데로 온다(`.pm-erd--plain`).
+ */
+const PLAIN_H = 34;
 
 /**
  * 표 상자의 속. **모양은 CSS 가 맡는다**(`.pm-erd-*`).
@@ -72,7 +130,12 @@ function erdLabel(entity, fields) {
 
   const desc = entity.desc ? `<div class="pm-erd__desc">${esc(entity.desc)}</div>` : '';
 
-  return '<div class="pm-erd">'
+  // **칸이 없으면 머리띠도 없다.** 띠와 아래 선은 「여기서부터 칸 목록」이라는
+  // 표시인데, 목록이 없으면 그 선 아래가 그냥 빈자리로 보인다. 이름만 가운데
+  // 놓인 단순한 판으로 그린다.
+  const plain = rows.length === 0;
+
+  return `<div class="pm-erd${plain ? ' pm-erd--plain' : ''}">`
     + `<div class="pm-erd__head"><div class="pm-erd__title">${esc(entity.name || entity.id)}</div>${desc}</div>`
     + (rows ? `<div class="pm-erd__body">${rows}</div>` : '')
     + '</div>';
@@ -701,8 +764,10 @@ const EDGE_STYLES = {
  * @param {HTMLElement} container 그림이 들어갈 자리
  * @param {object} [dotnet] 바뀔 때 알려 줄 .NET 객체 참조(`NotifyChanged`).
  *   **안 주면 알리지 않는다** — 보기만 하는 자리도 있기 때문이다.
+ * @param {HTMLElement} [minimapHost] 미니맵이 들어갈 자리(아래 `setMinimap`).
+ *   **안 주면 미니맵을 켤 수 없다** — 켜 달라고 해도 꺼진 채로 돌려준다.
  */
-export async function create(container, dotnet) {
+export async function create(container, dotnet, minimapHost) {
   // **도형 묶음을 먼저 등록한다.** 그림을 그리고 나서 등록하면 그 사이에
   // 그려진 도형이 빈 네모로 남는다.
   await ensureStencils();
@@ -728,6 +793,45 @@ export async function create(container, dotnet) {
 
     return Boolean(cellToEntity.get(cell)?.manual);
   };
+
+  /*
+    **빈 자리를 왼쪽 단추로 끌면 그림이 움직인다.**
+
+    maxgraph 의 기본은 오른쪽 단추(팝업 트리거)인데, 그림판에서 그것을 아는
+    사람이 드물다 — 「그림이 화면보다 큰데 옮길 방법이 없다」로 읽힌다.
+    도형 위에서 끄는 것은 그대로 **도형 옮기기**다(`!me.getState()` 조건).
+
+    오른쪽 단추도 그대로 둔다. 쓰던 사람의 손을 뺏을 이유가 없다.
+
+    [고무줄 고르기가 Alt 로 옮겨 간다]
+
+    빈 자리 왼쪽 끌기를 화면 이동이 가져가므로, 여러 개를 둘러싸 고르는
+    것은 **Alt 를 누른 채** 끄는 것이 된다(maxgraph 의
+    `RubberBandHandler.isForceRubberbandEvent`). 화면 안내에 적어 두었다.
+  */
+  const panningHandler = graph.getPlugin('PanningHandler');
+
+  if (panningHandler) {
+    panningHandler.useLeftButtonForPanning = true;
+
+    /*
+      끌기의 **시작과 끝**을 알아 둔다. 그동안 미니맵은 네모만 옮기고
+      (`paintOutline`), 놓을 때 한 번 제대로 그린다.
+
+      시작 자리를 여기서 적어 두는 이유는, 끄는 중에는 미니맵이 스스로 자리를
+      다시 재지 않기 때문이다 — 기준이 될 값을 우리가 쥐고 있어야 한다.
+    */
+    panningHandler.addListener(InternalEvent.PAN_START, () => {
+      panFrom = outline?.selectionBorder?.bounds
+        ? { x: outline.selectionBorder.bounds.x, y: outline.selectionBorder.bounds.y }
+        : null;
+    });
+
+    panningHandler.addListener(InternalEvent.PAN_END, () => {
+      panFrom = null;
+      queueFrame();
+    });
+  }
 
   graph.getStylesheet().putDefaultEdgeStyle({
     ...graph.getStylesheet().getDefaultEdgeStyle(),
@@ -801,8 +905,417 @@ export async function create(container, dotnet) {
   }
 
   function fitAll() {
+    // 「맞춤」·정렬이 배율을 바꾸므로 미리보기를 먼저 접는다.
+    commitZoom();
     fitPlugin?.fitCenter?.();
   }
+
+  /* ── 한 프레임에 한 번만 그린다 ───────────────────────────────
+
+     [왜 이 장치가 있나 — 재어 본 값]
+
+     화면을 끌면 `PAN` 이, 휠을 굴리면 배율 갱신이 **손짓 하나에 수십 번**
+     온다. 그런데 그때마다 하는 일이 싸지 않다. 표 70개·칸 8줄짜리 ERD 를
+     지어 놓고 잰 값이다(브라우저에서 실측).
+
+       · 미니맵 한 번 다시 그리기   약 9.5ms
+       · 배율 한 칸 바꾸기          약 39ms — maxgraph 가 셀을 전부 다시 잰다
+
+     그래서 **끌기 30번이 293ms, 휠 20번이 786ms** 였다. 일감이 밀리니 그림이
+     손보다 한참 늦게 따라오고, 사람에게는 「무거워서 버벅인다」로 보인다.
+
+     값을 깎을 방법은 없다 — 그리는 것은 maxgraph 다. 대신 **횟수를 줄인다.**
+     화면은 어차피 한 프레임에 한 번 바뀌므로, 그 사이에 쌓인 것을 **합쳐서
+     한 번만** 처리하면 눈에 보이는 결과가 같다.
+
+     [무엇을 여기로 미루나]
+
+       휠 배율   쌓아 곱해 두었다가 프레임에서 한 번 적용한다
+       바탕      싸지만 같은 자리에서 같이 처리한다
+       미니맵    프레임마다 한 번 (`updateOnPan` 을 쓰지 않는 이유)
+
+     **그리는 일만 미룬다.** 모델을 고치는 일은 미루면 저장과 어긋난다.
+     ---------------------------------------------------------- */
+
+  /** 프레임을 잡아 두었나. 잡아 둔 것이 있으면 더 잡지 않는다. */
+  let frameHandle = 0;
+
+
+  /** 미니맵을 마지막으로 그린 때. */
+  let outlinePaintedAt = 0;
+
+  /** 끌기를 시작할 때의 미니맵 네모 자리. 끄는 중이 아니면 `null`. */
+  let panFrom = null;
+
+  function runFrame() {
+    frameHandle = 0;
+
+    paintZoomPreview();
+    paintBackground();
+    paintOutline();
+  }
+
+  /**
+   * 미니맵을 다시 그린다. **끄는 중에는 뜸하게 그린다.**
+   *
+   * [왜 프레임마다가 아닌가]
+   *
+   * `Outline.update()` 는 배율이나 이동값이 달라졌으면 **미니맵 그래프를
+   * 통째로 다시 잰다**(`view.revalidate()`). 그런데 화면을 끄는 동안에는
+   * maxgraph 가 `translate` 대신 `panDx`·`panDy` 를 움직이고, 미니맵은 그
+   * 값을 자기 이동값에 얹으므로 **움직일 때마다 조건이 참이 된다.**
+   * 표 70개짜리 ERD 에서 한 번이 9.5ms 라, 프레임마다 부르면 끌기가 두 배로
+   * 무거워졌다(재어 보니 317ms → 609ms).
+   *
+   * 끄는 동안 미니맵의 네모는 **큰 그림에서 어디쯤인지**를 알려 주는 것이라
+   * 초당 여덟 번이면 충분하다. 손을 떼면 `translate` 가 확정되면서 곧바로
+   * 한 번 더 그려져 제자리에 맞는다.
+   */
+  function paintOutline() {
+    // **끄는 중(`active`)에는 손대지 않는다** — 그때 네모를 쥐고 있는 것은
+    // 미니맵 자신이다(사람이 미니맵을 끌고 있다).
+    if (!outline || outline.active || outline.suspended) return;
+
+    /*
+      **화면을 끄는 동안에는 네모만 옮긴다.**
+
+      `Outline.update()` 는 미니맵 그래프를 통째로 다시 잰다(9.5ms). 그런데
+      끄는 동안 실제로 달라지는 것은 「지금 보는 자리」 하나뿐이다 — 그림도,
+      배율도 그대로다. 그래서 파란 네모와 손잡이 **도형 둘만** 옮긴다.
+      재어 보니 9.5ms → 0.1ms 다.
+
+      네모가 얼마나 움직여야 하나. 화면을 `panDx` 픽셀 밀면 보는 자리는
+      그래프 좌표로 `panDx / 본배율` 만큼 **반대로** 간 것이고, 미니맵에서는
+      거기에 미니맵 배율을 곱한 만큼이다.
+    */
+    if (panFrom && (graph.panDx || graph.panDy)) {
+      const border = outline.selectionBorder;
+      const sizer = outline.sizer;
+
+      if (!border?.bounds) return;
+
+      const k = outline.outline.getView().scale / graph.getView().scale;
+
+      border.bounds.x = panFrom.x - graph.panDx * k;
+      border.bounds.y = panFrom.y - graph.panDy * k;
+      border.redraw();
+
+      if (sizer?.bounds) {
+        sizer.bounds.x = border.bounds.x + border.bounds.width - sizer.bounds.width / 2;
+        sizer.bounds.y = border.bounds.y + border.bounds.height - sizer.bounds.height / 2;
+
+        if (sizer.node?.style.visibility !== 'hidden') sizer.redraw();
+      }
+
+      return;
+    }
+
+    outlinePaintedAt = performance.now();
+    outline.update();
+  }
+
+  function queueFrame() {
+    if (frameHandle) return;
+
+    frameHandle = requestAnimationFrame(runFrame);
+  }
+
+  /* ── 배율 ─────────────────────────────────────────────────────
+
+     단추(확대·축소)와 Shift+휠이 **같은 길로 간다.** 갈라 두면 한쪽만
+     한계가 걸리거나 한쪽만 가리킨 자리를 지키는 식으로 어긋난다.
+     ---------------------------------------------------------- */
+
+  function clampScale(value) {
+    return Math.min(MAX_SCALE, Math.max(MIN_SCALE, value));
+  }
+
+  /* [배율은 **가상으로 먼저** 보여 주고 손이 멎으면 확정한다]
+
+     maxgraph 는 **끌기**에 이 방식을 이미 쓴다 — 끄는 동안에는 캔버스에
+     `transform` 한 줄만 얹어 밀어 보여 주고(`panGraph`), 놓을 때 좌표를 한 번
+     확정한다. 그래서 끌기는 한 번에 0.23ms 다.
+
+     **배율에는 그것이 없다.** `scaleAndTranslate` 는 셀을 전부 다시 재는
+     길 하나뿐이고, 표 70개짜리 ERD 에서 한 번이 39ms 다. 휠은 한 손짓에
+     사건이 열댓 개 오므로 그대로 두면 굴리는 내내 버벅인다.
+
+     그래서 같은 수를 쓴다 — 굴리는 동안에는 **캔버스를 통째로 키워 보여
+     주기만** 하고(`translate(...) scale(...)`), 손이 멎으면 그때 한 번
+     진짜 배율로 확정한다. 미리보기는 SVG 변환이라 값이 사실상 0 이다.
+
+     [확정을 미룰 수 없는 자리]
+
+     미리보기가 떠 있는 동안 **maxgraph 가 아는 배율은 아직 옛 값**이다.
+     그 상태로 캔버스를 누르면 엉뚱한 자리를 짚고, 저장하면 옛 배율이 담긴다.
+     그래서 `pointerdown` 을 **캡처 단계에서** 받아 먼저 확정하고(아래),
+     그림을 읽고 쓰는 길목마다 `commitZoom()` 을 부른다. */
+
+  /** 아직 확정 안 한 미리보기 변환. 화면 좌표 `p` → `p * k + t`. 없으면 `null`. */
+  let zoomPreview = null;
+
+  /** 손이 멎기를 기다리는 시계. */
+  let zoomTimer = 0;
+
+  /** 그림이 실린 SVG 묶음. maxgraph 의 `panGraph` 도 이 자리를 쓴다. */
+  function canvasNode() {
+    return graph.getView().getCanvas?.() ?? null;
+  }
+
+  function paintZoomPreview() {
+    const node = canvasNode();
+
+    if (!node) return;
+
+    if (!zoomPreview) {
+      // 끄는 중이면 그 변환은 maxgraph 의 것이다. 건드리지 않는다.
+      if (!graph.panDx && !graph.panDy) node.removeAttribute('transform');
+      return;
+    }
+
+    const { k, tx, ty } = zoomPreview;
+
+    node.setAttribute('transform', `translate(${tx},${ty}) scale(${k})`);
+  }
+
+  /**
+   * **가리킨 자리를 붙박아 두고** 배율을 바꾼다 — 아직 가상이다.
+   *
+   * `graph.zoomIn()` 은 화면 가운데를 기준으로 삼는데, 휠은 「이 도형을 크게
+   * 보자」는 동작이라 가운데가 기준이면 키울수록 보려던 것이 화면 밖으로
+   * 밀려난다.
+   */
+  function queueZoom(factor, clientX, clientY) {
+    const view = graph.getView();
+    const box = container.getBoundingClientRect();
+    const ax = clientX - box.left;
+    const ay = clientY - box.top;
+    const base = zoomPreview ?? { k: 1, tx: 0, ty: 0 };
+
+    // 한계는 **미리보기까지 합친 값**으로 잰다. 그래야 더 못 키우는 자리에서
+    // 미리보기만 계속 커지는 일이 없다.
+    const now = view.scale * base.k;
+    const to = clampScale(now * factor);
+    const f = to / now;
+
+    if (f === 1) return;
+
+    // 가리킨 자리를 축으로 한 번 더 키운다 — 앞의 변환에 이어 붙인다.
+    zoomPreview = {
+      k: base.k * f,
+      tx: (base.tx - ax) * f + ax,
+      ty: (base.ty - ay) * f + ay,
+    };
+
+    queueFrame();
+
+    window.clearTimeout(zoomTimer);
+    zoomTimer = window.setTimeout(commitZoom, ZOOM_COMMIT_MS);
+  }
+
+  /**
+   * 미리보기를 **진짜 배율로** 확정한다. 없으면 아무 일도 하지 않는다.
+   *
+   * 확정 뒤의 그림이 미리보기와 **한 픽셀도 다르지 않아야** 한다 — 다르면
+   * 손을 멈출 때마다 그림이 톡 튄다. 그래서 이동값을 되푼다:
+   * 미리보기가 `(g + t₀)·s₀·k + t` 이고 새 배율이 `s₁ = s₀·k` 이므로
+   * `t₁ = t₀ + t / s₁` 이면 둘이 같아진다.
+   */
+  function commitZoom() {
+    window.clearTimeout(zoomTimer);
+    zoomTimer = 0;
+
+    if (!zoomPreview) return;
+
+    const { k, tx, ty } = zoomPreview;
+
+    zoomPreview = null;
+
+    const view = graph.getView();
+    const to = clampScale(view.scale * k);
+    const t = view.translate;
+
+    canvasNode()?.removeAttribute('transform');
+    view.scaleAndTranslate(to, t.x + tx / to, t.y + ty / to);
+  }
+
+  /** 화면 가운데를 기준으로 확대·축소한다. 단추가 쓴다 — **곧바로 확정한다.** */
+  function zoomCenter(factor) {
+    const box = container.getBoundingClientRect();
+
+    queueZoom(factor, box.left + box.width / 2, box.top + box.height / 2);
+    commitZoom();
+  }
+
+  /**
+   * **Shift+휠로 확대·축소한다.**
+   *
+   * 그냥 휠은 손대지 않는다 — 이 그림은 쪽(page) 한가운데 놓인 칸이라,
+   * 휠을 가로채면 **그림 위에서는 쪽이 안 굴러간다.** 그림이 화면을 꽉
+   * 채우는 도구라면 반대로 하는 것이 맞지만 여기는 그렇지 않다.
+   */
+  const onWheel = (event) => {
+    if (!event.shiftKey) return;
+
+    event.preventDefault();
+
+    // **`deltaX` 도 본다.** Shift+휠을 브라우저가 「가로 스크롤」로 옮겨
+    // 담아서, 창에 따라 세로 값이 0 으로 온다(리눅스·윈도 크롬이 그렇다).
+    const delta = event.deltaY || event.deltaX;
+
+    if (delta === 0) return;
+
+    // **여기서 진짜로 확대하지 않는다**(위 머리말). 가상으로 키워 두고
+    // 손이 멎으면 확정한다. 끄는 중이면 그 변환은 maxgraph 의 것이라 비켜 준다.
+    if (graph.panDx || graph.panDy) return;
+
+    queueZoom(delta < 0 ? WHEEL_FACTOR : 1 / WHEEL_FACTOR, event.clientX, event.clientY);
+  };
+
+  // `passive: false` — 안 주면 브라우저가 `preventDefault()` 를 무시하고
+  // 경고만 남긴다. 그러면 확대되면서 쪽도 함께 굴러간다.
+  container.addEventListener('wheel', onWheel, { passive: false });
+
+  /*
+    **누르기 전에 배율을 확정한다.**
+
+    미리보기가 떠 있는 동안 maxgraph 가 아는 배율은 아직 옛 값이라, 그대로
+    누르면 **짚는 자리가 어긋난다** — 도형을 눌렀는데 빈 자리로 읽히는 식이다.
+    끌기도 같은 `transform` 자리를 쓰므로(`panGraph`) 먼저 비워 주어야 한다.
+
+    **캡처 단계**다. maxgraph 가 그 사건을 처리하기 전에 끝나야 한다.
+  */
+  container.addEventListener('pointerdown', commitZoom, true);
+
+  /* ── Ctrl+S ───────────────────────────────────────────────────
+
+     **문서에 건다.** 캔버스에 초점이 있을 때만 듣게 하면 「단추를 누르고
+     이어서 Ctrl+S」가 안 먹는데, 그것이 가장 잦은 순서다.
+
+     화면이 저장을 받을 준비가 됐을 때만 가로챈다(`saveShortcut`). 안 그러면
+     저장이 없는 자리에서도 브라우저의 「페이지 저장」만 막고 아무 일도 안 한다.
+     ---------------------------------------------------------- */
+
+  let saveShortcut = false;
+
+  const onDocumentKeyDown = (event) => {
+    if (!saveShortcut) return;
+
+    // **`code` 로 본다.** 한글 자판에서 `key` 는 `ㄴ` 으로 올 수 있다.
+    const isS = event.code === 'KeyS' || String(event.key).toLowerCase() === 's';
+
+    if (!isS || event.altKey || !(event.ctrlKey || event.metaKey)) return;
+
+    event.preventDefault();
+
+    // 이름을 고치던 중이면 **먼저 확정한다.** 안 그러면 방금 친 글자를 뺀
+    // 채로 저장되고, 화면에는 그 글자가 보인다.
+    if (graph.isEditing()) {
+      graph.stopEditing(false);
+    }
+
+    dotnet?.invokeMethodAsync('NotifySave').catch(() => {
+      // 회로가 끊겼다. 저장할 곳이 없을 뿐 그림은 그대로다.
+    });
+  };
+
+  document.addEventListener('keydown', onDocumentKeyDown);
+
+  /* ── 바탕 (격자·점) ───────────────────────────────────────────
+
+     [CSS 로 깐다, SVG 에 그리지 않는다]
+
+     maxgraph 0.24 는 그림 전체를 감싸는 변환(`transform`)을 두지 않는다 —
+     셀마다 화면 좌표를 직접 찍는다. 그래서 SVG 안에 격자를 그려도 **끌거나
+     확대할 때 저절로 따라오지 않고**, 어차피 우리가 매번 자리를 다시 재야
+     한다. 그럴 바에는 칸의 배경으로 까는 쪽이 짧고, 테마 색도 CSS 가 쥔다.
+
+     무늬는 `projmng.css` 가 정하고(`.pm-diagram--grid` · `--dots`) 여기서는
+     **크기와 시작점만** 정한다.
+
+     [자석이 여기 딸려 있다]
+
+     격자·점을 켜면 `gridEnabled` 를 켠다. 보이는 것과 붙는 것을 갈라 두면
+     둘 다 나쁘다 — 그려 놓고 안 붙으면 「이 줄은 뭐냐」가 되고, 안 그리고
+     붙으면 「왜 자꾸 튀느냐」가 된다. 잠시 안 붙이려면 Alt 를 누른 채 끈다
+     (maxgraph 의 `isGridEnabledEvent`).
+     ---------------------------------------------------------- */
+
+  /** 지금 바탕. `none` · `grid` · `dots`. */
+  let background = 'none';
+
+  function mod(value, m) {
+    return ((value % m) + m) % m;
+  }
+
+  function paintBackground() {
+    container.classList.toggle('pm-diagram--grid', background === 'grid');
+    container.classList.toggle('pm-diagram--dots', background === 'dots');
+
+    if (background === 'none') {
+      container.style.backgroundSize = '';
+      container.style.backgroundPosition = '';
+      return;
+    }
+
+    const view = graph.getView();
+
+    // 미리보기가 떠 있으면 **바탕도 같이 가상으로** 커져야 한다. 안 그러면
+    // 굴리는 동안 격자만 제자리에 남아 도형이 격자 위를 미끄러져 보인다.
+    const k = zoomPreview?.k ?? 1;
+    const ptx = zoomPreview?.tx ?? 0;
+    const pty = zoomPreview?.ty ?? 0;
+    const scale = view.scale * k;
+
+    let step = GRID_STEP * scale;
+
+    while (step < GRID_MIN_PX) {
+      step *= 2;
+    }
+
+    // 그래프 좌표 0 이 화면의 어디인가.
+    //
+    // **끄는 중에는 `panDx`·`panDy` 를 함께 얹는다.** 화면을 끌 때 maxgraph 는
+    // 이동이 끝날 때까지 `translate` 를 안 고치고 캔버스만 밀어 두는데
+    // (`panGraph`), 그 값을 안 보면 **끄는 동안 도형만 움직이고 바탕은 서
+    // 있다** — 놓는 순간 격자가 툭 따라붙는다.
+    const inset = background === 'dots' ? DOT_INSET : 0;
+    const ox = view.translate.x * view.scale * k + ptx + (graph.panDx ?? 0) - inset;
+    const oy = view.translate.y * view.scale * k + pty + (graph.panDy ?? 0) - inset;
+
+    container.style.backgroundSize = `${step}px ${step}px`;
+    container.style.backgroundPosition = `${mod(ox, step)}px ${mod(oy, step)}px`;
+  }
+
+  /**
+   * 바탕을 고른다. 모르는 이름은 `none` 으로 받는다.
+   *
+   * @param {'none'|'grid'|'dots'} kind
+   * @returns {string} 실제로 적용된 이름.
+   */
+  function setBackground(kind) {
+    background = kind === 'grid' || kind === 'dots' ? kind : 'none';
+
+    graph.setGridSize(GRID_STEP);
+    graph.setGridEnabled(background !== 'none');
+
+    paintBackground();
+    return background;
+  }
+
+  // 배율·이동이 바뀌면 바탕도 따라간다. 앞의 셋은 다 그린 뒤에 오고,
+  // `PAN` 은 끄는 **중에** 온다(위 `panDx` 주석).
+  const backgroundView = graph.getView();
+
+  backgroundView.addListener(InternalEvent.SCALE, queueFrame);
+  backgroundView.addListener(InternalEvent.TRANSLATE, queueFrame);
+  backgroundView.addListener(InternalEvent.SCALE_AND_TRANSLATE, queueFrame);
+  graph.addListener(InternalEvent.PAN, queueFrame);
+
+  // 기본은 바탕 없음이다. **그래서 격자를 켜기 전에는 자석도 없다** —
+  // maxgraph 기본값(`gridEnabled: true`, 10px)이 보이지 않는 자석이라
+  // 「조금씩 어긋나게 놓인다」로만 나타났다.
+  setBackground('none');
 
   /**
    * 도형 하나를 **화면의 그 자리에** 넣는다.
@@ -1097,9 +1610,88 @@ export async function create(container, dotnet) {
   container.setAttribute('tabindex', '0');
   container.addEventListener('keydown', onKeyDown);
 
+  /* ── 미니맵 ───────────────────────────────────────────────────
+
+     maxgraph 의 `Outline` 이다. **같은 모델을 보는 그래프를 한 벌 더** 만들어
+     통째로 그리고, 지금 보고 있는 자리를 파란 네모로 얹는다. 그 네모를 끌면
+     본 그림이 따라 움직이고, 오른쪽 아래 손잡이를 끌면 배율이 바뀐다.
+
+     [그릴 자리를 캔버스 **밖**에 둔다]
+
+     캔버스 안에 넣으면 미니맵에서 누른 손짓이 본 그래프의 칸까지 거슬러
+     올라가 **빈 자리를 누른 것**으로 읽힌다 — 미니맵을 끌 때마다 본 그림이
+     함께 밀리고 고른 것이 풀린다. `DiagramViewer` 가 형제로 칸을 하나 더
+     그려 넘겨 주고, 자리잡기는 `.pm-diagram-host` 가 한다.
+
+     [꺼 두는 것이 기본이다]
+
+     켜면 그래프를 한 벌 더 그린다. 표가 일흔 개인 ERD 도 있어서 늘 켜 두면
+     그 값을 모두가 낸다. 쓰는 사람이 도구상자에서 켠다.
+  */
+  let outline = null;
+
+  function setMinimap(on) {
+    if (!minimapHost) { return false; }
+
+    if (!on) {
+      outline?.destroy();
+      outline = null;
+
+      // `Outline.destroy()` 는 **자기가 만든 그래프만** 거둔다. 껍데기가
+      // 남으면 다음에 켤 때 그 위에 한 벌 더 그려진다.
+      minimapHost.replaceChildren();
+      minimapHost.classList.remove('pm-minimap--on');
+      return false;
+    }
+
+    if (!outline) {
+      // **자리를 먼저 보인다.** `Outline` 은 만들어질 때 칸의 크기를 재는데,
+      // `display: none` 인 칸은 0×0 이라 아무것도 안 그려진다.
+      minimapHost.classList.add('pm-minimap--on');
+
+      outline = new Outline(graph, minimapHost);
+
+      /*
+        **`updateOnPan` 을 켜지 않는다.** 그러면 끄는 동안 마우스가 움직일
+        때마다 미니맵을 통째로 다시 그리는데, 표 70개짜리 ERD 에서 그 한 번이
+        **9.5ms** 다 — 끌기 30번에 293ms 로 밀려 그림이 손을 못 따라왔다.
+
+        대신 끌 때도 네모가 따라오게는 한다. 우리 프레임 정리기가 `PAN` 을
+        받아 **프레임마다 한 번** 갱신한다(위 `runFrame`). 눈에 보이는 결과는
+        같고 값은 프레임당 한 번으로 묶인다.
+      */
+      outline.updateOnPan = false;
+    }
+
+    outline.suspended = false;
+    outline.update(true);
+    queueFrame();
+    return true;
+  }
+
+  /**
+   * **지금 보고 있는 자리.** 그림과 함께 저장했다가 다시 열 때 되돌린다.
+   *
+   * 배율만 담으면 되돌렸을 때 엉뚱한 데를 보게 되므로 이동값도 같이 담는다 —
+   * 사람이 기억하는 것은 「얼마나 확대했나」가 아니라 「어디를 보고 있었나」다.
+   */
+  function viewState() {
+    const view = graph.getView();
+
+    return {
+      scale: Number(view.scale.toFixed(4)),
+      dx: Math.round(view.translate.x),
+      dy: Math.round(view.translate.y),
+      minimap: Boolean(outline),
+      background,
+    };
+  }
+
   return {
     /** 모델을 캔버스에 그린다. 기존 도형은 모두 지운다. */
     load(model) {
+      // 미리보기가 떠 있으면 옛 배율이 담긴다(위 `commitZoom` 머리말).
+      commitZoom();
       loading = true;
       notified = false;
       cellToEntity.clear();
@@ -1156,10 +1748,15 @@ export async function create(container, dotnet) {
           const sized = entity.w > 0 && entity.h > 0;
           const size = fields.length > 0
             ? [Math.max(entity.w || 0, TABLE_W), Math.max(entity.h || 0, needed)]
-            : sized
-              // 너무 작으면 집을 수가 없다. 끌거나 지우려면 과녁이 있어야 한다.
-              ? [Math.max(entity.w, MIN_W), Math.max(entity.h, MIN_H)]
-              : [DEFAULT_W, DEFAULT_H];
+            : entity.manual
+              ? (sized
+                // 너무 작으면 집을 수가 없다. 끌거나 지우려면 과녁이 있어야 한다.
+                ? [Math.max(entity.w, MIN_W), Math.max(entity.h, MIN_H)]
+                : [DEFAULT_W, DEFAULT_H])
+              // **표인데 칸을 안 펼쳤다.** 폭은 펼쳤을 때와 같게 두고(켰다 껐다
+              // 할 때 가로로 들썩이지 않는다) 높이만 이름 한 줄로 줄인다.
+              // 적혀 있던 높이는 `autoSize` 가 들고 있다가 저장 때 되돌린다.
+              : [Math.max(entity.w || 0, TABLE_W), PLAIN_H];
 
           const cell = graph.insertVertex({
             parent: graph.getDefaultParent(),
@@ -1172,7 +1769,14 @@ export async function create(container, dotnet) {
           byId.set(entity.id, cell);
           cellToEntity.set(cell, entity);
 
-          if (fields.length > 0) {
+          // **표 상자는 칸을 펼쳤든 안 펼쳤든 원래 크기를 기억해 둔다.**
+          //
+          // 지금 크기는 우리가 정한 것이다 — 펼치면 칸 수만큼 늘리고, 안
+          // 펼치면 이름 한 줄로 줄인다. 그대로 저장하면 **「컬럼 보기」를 끈
+          // 채로 한 번 저장하는 것만으로 사람이 맞춰 둔 크기가 사라진다.**
+          // 사람이 직접 끌어 바꾸면 지금 크기가 우리 값과 달라지므로,
+          // 그때는 저장이 새 값을 담는다(`save`).
+          if (!entity.manual) {
             const geo = cell.getGeometry?.();
 
             autoSize.set(cell, {
@@ -1204,6 +1808,35 @@ export async function create(container, dotnet) {
         graph.getDataModel().endUpdate();
         loading = false;
       }
+
+      /*
+        **보던 자리를 되돌린다.** 갱신 묶음이 닫힌 **뒤**다 — 미니맵은 모델의
+        변경을 듣고 다시 그리는데, 아직 안 닫힌 묶음 안에서 만들면 반쯤 지어진
+        그림을 본다.
+
+        저장본에 이 값이 없으면(옛 그림) **아무것도 건드리지 않는다.** 그때
+        배율을 1 로 되돌리거나 미니맵을 끄면, 열 때마다 방금 맞춰 둔 화면이
+        흐트러진다.
+      */
+      const saved = model?.view;
+
+      if (saved) {
+        if (saved.scale > 0) {
+          graph.getView().scaleAndTranslate(
+            clampScale(saved.scale), saved.dx ?? 0, saved.dy ?? 0);
+        }
+
+        setMinimap(Boolean(saved.minimap));
+
+        // **바탕에는 자석이 딸려 있다**(`setBackground`). 그래서 되돌리는 것이
+        // 무늬만이 아니라 「도형이 칸에 붙는가」이기도 하다 — 격자를 깔아 두고
+        // 저장한 그림은 다음에도 격자에 맞춰 고칠 수 있어야 한다.
+        setBackground(saved.background);
+      }
+
+      // **지금 상태를 돌려준다**(저장본에 없었으면 원래 상태 그대로다).
+      // 화면이 이것으로 미니맵 단추의 불을 맞춘다.
+      return viewState();
     },
 
     /**
@@ -1211,6 +1844,9 @@ export async function create(container, dotnet) {
      * 엔터티의 좌표·크기만 갱신한다 — 이름·설명은 DB 메타에서 오는 값이다.
      */
     save() {
+      // 미리보기가 떠 있으면 **옛 배율이 저장된다.**
+      commitZoom();
+
       const entities = [];
       const relations = [];
       const idOfCell = new Map();
@@ -1260,7 +1896,12 @@ export async function create(container, dotnet) {
       // 저장했으면 다음 변경부터 다시 알린다.
       notified = false;
 
-      return { entities, relations };
+      // 보던 자리와 미니맵도 그림에 딸려 간다(위 `viewState`).
+      //
+      // **이것이 바뀌어도 「저장 안 한 변경」으로 치지 않는다.** 휠을 한 번
+      // 굴릴 때마다 경고 줄이 뜨면 그 줄이 무슨 뜻인지 알 수 없게 된다 —
+      // 도형을 고쳐 저장할 때 함께 실려 간다.
+      return { entities, relations, view: viewState() };
     },
 
     /** 고른 도형·선을 지운다. 지운 개수를 돌려준다. */
@@ -1497,15 +2138,39 @@ export async function create(container, dotnet) {
     },
 
     zoomIn() {
-      graph.zoomIn();
+      zoomCenter(1.2);
     },
 
     zoomOut() {
-      graph.zoomOut();
+      zoomCenter(1 / 1.2);
     },
 
     fit() {
       fitAll();
+    },
+
+    /**
+     * Ctrl+S 를 가로챌지 정한다. 화면이 저장을 받을 준비가 됐을 때만 켠다
+     * (위 `onDocumentKeyDown`).
+     */
+    saveShortcut(on) {
+      saveShortcut = Boolean(on);
+    },
+
+    /**
+     * 바탕을 고른다(`none` · `grid` · `dots`). **돌려주는 것이 실제 상태다.**
+     * 격자·점을 고르면 도형이 그 칸에 붙는다(위 `setBackground`).
+     */
+    setBackground(kind) {
+      return setBackground(kind);
+    },
+
+    /**
+     * 미니맵을 켜고 끈다. **돌려주는 것이 실제 상태다** — 그릴 자리를 못
+     * 받았으면 켜 달라고 해도 꺼진 채로 돌아간다(위 `setMinimap`).
+     */
+    minimap(on) {
+      return setMinimap(Boolean(on));
     },
 
     /** 회로가 끊기거나 화면을 떠날 때 부른다. 안 부르면 DOM 과 리스너가 샌다. */
@@ -1519,7 +2184,25 @@ export async function create(container, dotnet) {
 
       // **문서에 건 것이라 반드시 뗀다.** 캔버스와 함께 사라지지 않는다 —
       // 화면을 몇 번 드나들면 붙여넣기 한 번에 그림이 여러 장 생긴다.
+      container.removeEventListener('wheel', onWheel);
+      container.removeEventListener('pointerdown', commitZoom, true);
+      window.clearTimeout(zoomTimer);
+
+      // 잡아 둔 프레임을 놓는다. 남으면 이미 걷힌 그래프를 그리려 든다.
+      if (frameHandle) {
+        cancelAnimationFrame(frameHandle);
+        frameHandle = 0;
+      }
+
       document.removeEventListener('paste', onPaste);
+
+      // 문서에 건 것이라 반드시 뗀다(위 붙여넣기와 같은 이유). 남으면 화면을
+      // 떠난 뒤 누른 Ctrl+S 가 **없어진 회로**를 부른다.
+      document.removeEventListener('keydown', onDocumentKeyDown);
+
+      // **본 그래프보다 먼저 거둔다.** 미니맵은 그 그래프의 모델과 뷰에
+      // 리스너를 걸어 두고 있다.
+      setMinimap(false);
       cellToEntity.clear();
       graph.destroy?.();
     },

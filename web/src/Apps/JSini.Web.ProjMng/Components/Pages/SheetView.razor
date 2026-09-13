@@ -32,8 +32,6 @@
     </Fields>
 </CommSch>
 
-<PageNotice Text="@Notice" Tone="@Tone" />
-
 <CommCont Title="프로젝트 시트" Hint="@($"{_rows.Count}건")">
     <ProjectGrid Rows="@_rows" ExportName="프로젝트시트" Reload="@SearchAsync"
                  EmptyText="조회된 자료가 없습니다." />

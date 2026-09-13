@@ -30,8 +30,6 @@
     <DxButton Text="새로 고침" RenderStyle="ButtonRenderStyle.Primary" Click="@ReloadAsync" />
 </div>
 
-<PageNotice Text="@Notice" Tone="@Tone" />
-
 <AutoGrid Data="@_rows" Loading="@Loading" PageSize="30" />
 
 @code {

@@ -27,6 +27,17 @@ public sealed class ProjectDbClient(GatewayClient gateway)
     public Task DeleteAsync(int dbRid, CancellationToken ct = default)
         => gateway.DeleteAsync($"{Url}/{dbRid}", ct);
 
+    /// <summary>
+    /// 끌어 옮긴 차례를 저장한다. <paramref name="dbRids"/> 에는
+    /// <b>화면에 보이는 줄 전부를, 보이는 차례대로</b> 담는다.
+    /// </summary>
+    /// <remarks>
+    /// 옮긴 줄 하나만 보내지 않는다 — 서버가 「그 줄들이 지금 차지한 자리」를
+    /// 모아 다시 나눠 주는 방식이라, 전부를 알아야 자리 수가 맞는다.
+    /// </remarks>
+    public Task ReorderAsync(IReadOnlyList<int> dbRids, CancellationToken ct = default)
+        => gateway.PostAsync($"{Url}/order", dbRids, ct);
+
     // ── 접속에 딸린 속성 ──────────────────────────────────
 
     public Task<IReadOnlyList<ProjectDbPropDto>> PropsAsync(int dbRid, CancellationToken ct = default)
@@ -93,4 +104,15 @@ public sealed class ProjectDbDto
 
     /// <summary><b>옛 저장이 다루지 않던 칸</b>이다.</summary>
     public string? DbComm { get; set; }
+
+    /// <summary>
+    /// 보여 줄 차례. <b>작을수록 먼저</b>이고, 비면 맨 뒤로 간다.
+    /// 이 표를 읽는 자리 셋(목록 화면 · 고르개 둘)이 모두 이 값을 먼저 본다.
+    ///
+    /// <para>
+    /// 대개 표에서 끌어 옮겨 정하고, 편집 창에서 숫자로 고칠 수도 있다.
+    /// <b>비워 저장하면 기존 값이 남는다</b> — 비밀번호와 같은 규칙이다.
+    /// </para>
+    /// </summary>
+    public int? DbSrt { get; set; }
 }

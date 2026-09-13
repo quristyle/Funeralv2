@@ -51,6 +51,29 @@ public sealed class ProjectDbsController(ProjectDbService service) : ControllerB
             : Ok(ApiResponse<ProjectDb>.Ok(updated));
     }
 
+    /// <summary>
+    /// 끌어 옮긴 차례를 저장한다. 몸통은 <b>화면에 보이는 줄 전부를, 보이는
+    /// 차례대로</b> 담은 접속 번호 목록이다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>줄 하나씩 보내는 길을 두지 않는다.</b> 자리를 서로 바꾸는 일이라
+    /// 한 줄만 고치면 언제나 다른 줄과 어긋나고, 그 어긋남이 화면에는
+    /// 안 보인다(차례가 같은 두 줄은 그냥 이름순으로 늘어선다).
+    /// </para>
+    /// </remarks>
+    [HttpPost("order")]
+    public async Task<IActionResult> ReorderAsync([FromBody] int[] dbRids)
+    {
+        if (dbRids is null || dbRids.Length == 0)
+        {
+            return BadRequest(ApiResponse<object>.Fail("INVALID", "옮길 접속이 없습니다."));
+        }
+
+        var changed = await service.ReorderAsync(dbRids);
+        return Ok(ApiResponse<int>.Ok(changed));
+    }
+
     [HttpDelete("{dbRid:int}")]
     public async Task<IActionResult> DeleteAsync(int dbRid)
     {

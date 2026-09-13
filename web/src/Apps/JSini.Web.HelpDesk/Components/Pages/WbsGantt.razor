@@ -44,8 +44,6 @@
 
 <PageTitle>WBS 간트 · 헬프데스크</PageTitle>
 
-<PageNotice Text="@Notice" Tone="@Tone" />
-
 <DxTabs>
     <DxTabPage Text="타임라인">
         @if (_storage is null)
@@ -55,12 +53,6 @@
         }
         else
         {
-            if (_undated > 0)
-            {
-                <PageNotice Text="@($"기간이 없는 작업 {_undated}건은 타임라인에 나오지 않습니다. 「표」 탭에는 있습니다.")"
-                            Tone="NoticeTone.Info" />
-            }
-
             <div class="jsini-toolbar">
                 <DxButton Text="일" RenderStyle="@StyleFor(GanttScale.Day)" Click="@(() => _scale = GanttScale.Day)" />
                 <DxButton Text="주" RenderStyle="@StyleFor(GanttScale.Week)" Click="@(() => _scale = GanttScale.Week)" />
@@ -176,6 +168,17 @@
 
         _rows = ToTable(flat, projectNames);
         BuildTimeline(flat, projectNames);
+
+        // 그려진 그림이 **전부가 아니라는 사실**은 조회의 결과다.
+        // 안내 줄이 아니라 토스트로 나간다.
+        //
+        // **그림이 그려졌을 때만 말한다.** 하나도 안 그려졌으면 타임라인 자리에
+        // 이미 「그릴 수 없습니다」가 떠 있고, 그 위에 「N건이 빠졌습니다」를
+        // 겹치면 같은 일을 두 번 말하는 셈이다.
+        if (_storage is not null && _undated > 0)
+        {
+            Say($"기간이 없는 작업 {_undated}건은 타임라인에 나오지 않습니다. 「표」 탭에는 있습니다.");
+        }
 
         return _rows.Rows.Count;
     }, "등록된 작업이 없습니다.", "WBS 를 읽지 못했습니다");

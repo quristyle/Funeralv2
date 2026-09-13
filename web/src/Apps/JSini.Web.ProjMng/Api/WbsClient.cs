@@ -16,21 +16,32 @@ public sealed class WbsClient(GatewayClient gateway)
     /// <summary>목록.</summary>
     /// <param name="prjRid">프로젝트</param>
     /// <param name="compStat"><c>READY</c> · <c>RUNNING</c> · <c>COMP</c> · <c>DISCOMP</c></param>
-    /// <param name="scheduleType"><c>WBS</c> 또는 <c>SCHEDULE</c></param>
+    /// <param name="scheduleTypes">
+    /// 구분 — <c>WBS</c> · <c>Public</c> · <c>Private</c>. <b>여럿을 준다.</b>
+    /// 비어 있으면 전체다. 값 하나마다 <c>scheduleType=</c> 을 따로 싣는다 —
+    /// 쉼표로 이어 붙이지 않는다(구분값에 쉼표가 들어가는 날 조용히 갈라진다).
+    /// </param>
     /// <param name="from">계획 기간이 이 날 뒤에 걸치는 것만</param>
     /// <param name="to">계획 기간이 이 날 앞에 걸치는 것만</param>
     /// <param name="ct">취소 토큰</param>
     public Task<IReadOnlyList<WbsItemDto>> ListAsync(
-        int? prjRid = null, string? compStat = null, string? scheduleType = null,
+        int? prjRid = null, string? compStat = null, IEnumerable<string>? scheduleTypes = null,
         DateOnly? from = null, DateOnly? to = null, CancellationToken ct = default)
     {
         var query = new List<string>();
 
         if (prjRid is not null) query.Add($"prjRid={prjRid}");
         if (!string.IsNullOrWhiteSpace(compStat)) query.Add($"compStat={Uri.EscapeDataString(compStat)}");
-        if (!string.IsNullOrWhiteSpace(scheduleType)) query.Add($"scheduleType={Uri.EscapeDataString(scheduleType)}");
         if (from is not null) query.Add($"from={from:yyyy-MM-dd}");
         if (to is not null) query.Add($"to={to:yyyy-MM-dd}");
+
+        foreach (var type in scheduleTypes ?? [])
+        {
+            if (!string.IsNullOrWhiteSpace(type))
+            {
+                query.Add($"scheduleType={Uri.EscapeDataString(type)}");
+            }
+        }
 
         return gateway.GetListAsync<WbsItemDto>(
             query.Count == 0 ? Url : $"{Url}?{string.Join('&', query)}", ct);

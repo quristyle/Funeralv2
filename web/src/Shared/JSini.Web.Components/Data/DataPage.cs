@@ -92,11 +92,36 @@ public abstract class DataPage : ComponentBase
     /// </summary>
     [Inject] private PageTransition Transition { get; set; } = default!;
 
-    /// <summary>안내 줄에 띄울 문구. 없으면 <c>null</c>.</summary>
-    protected string? Notice { get; private set; }
-
-    /// <summary>안내의 성격.</summary>
-    protected NoticeTone Tone { get; private set; } = NoticeTone.Info;
+    /// <summary>
+    /// 동작의 결과를 알리는 곳. <b>화면이 직접 부르지 않는다</b> —
+    /// <see cref="LoadAsync"/> · <see cref="RunAsync"/> · <see cref="Say"/> 가
+    /// 대신 부른다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// [화면 위쪽 안내 줄에서 옮겨 왔다]
+    /// </para>
+    ///
+    /// <para>
+    /// 예전에는 여기 <c>Notice</c> · <c>Tone</c> 두 값이 있었고 화면 132개가
+    /// <c>&lt;PageNotice Text="@Notice" Tone="@Tone" /&gt;</c> 한 줄을 똑같이
+    /// 들고 그것을 그렸다. 옮긴 이유 셋은 <c>Toasts</c> 머리말에 있다.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>그 두 값을 남겨 두지 않았다.</b> 남기면 어떤 화면은 토스트로,
+    /// 어떤 화면은 안내 줄로 같은 말을 하게 되고 — 화면이 백 개가 넘으면
+    /// 그 갈라짐이 되돌릴 수 없다. 지워 두면 옛 줄을 든 화면은
+    /// <b>빌드가 그 자리에서 막는다.</b>
+    /// </para>
+    ///
+    /// <para>
+    /// 사라지면 안 되는 안내(「왼쪽에서 메뉴를 고르십시오」 따위)는 여전히
+    /// <c>PageNotice</c> 다. 그쪽은 동작의 결과가 아니라
+    /// <b>화면의 상태</b>라 화면이 자기 값으로 직접 그린다.
+    /// </para>
+    /// </remarks>
+    [Inject] protected Toasts Toasts { get; set; } = default!;
 
     /// <summary>조회 중인가. 표의 <c>Loading</c> 에 그대로 넘긴다.</summary>
     protected bool Loading { get; private set; }
@@ -118,8 +143,6 @@ public abstract class DataPage : ComponentBase
         string failMessage = "조회하지 못했습니다")
     {
         Loading = true;
-        Notice = null;
-        Tone = NoticeTone.Info;
 
         // **첫 `await` 앞이어야 한다.** 뒤로 밀면 그 사이에 레이아웃의 첫 그림이
         // 끝나 버려, 조회가 시작되기도 전에 표시가 걷힌다.
@@ -146,14 +169,13 @@ public abstract class DataPage : ComponentBase
 
             if (count == 0)
             {
-                Notice = emptyMessage;
+                Toasts.Show(emptyMessage);
             }
         }
         catch (ApiException ex)
         {
             // 화면을 통째로 죽이지 않는다. 조건을 바꿔 다시 시도할 수 있어야 한다.
-            Notice = $"{failMessage} — {ex.Message}";
-            Tone = NoticeTone.Error;
+            Toasts.Show($"{failMessage} — {ex.Message}", NoticeTone.Error);
         }
         finally
         {
@@ -195,19 +217,16 @@ public abstract class DataPage : ComponentBase
         string failMessage = "처리하지 못했습니다")
     {
         Loading = true;
-        Notice = null;
-        Tone = NoticeTone.Info;
 
         try
         {
             await action();
-            Notice = okMessage;
+            Toasts.Show(okMessage);
             return true;
         }
         catch (ApiException ex)
         {
-            Notice = $"{failMessage} — {ex.Message}";
-            Tone = NoticeTone.Error;
+            Toasts.Show($"{failMessage} — {ex.Message}", NoticeTone.Error);
             return false;
         }
         finally
@@ -216,10 +235,15 @@ public abstract class DataPage : ComponentBase
         }
     }
 
-    /// <summary>화면이 직접 안내를 띄울 때.</summary>
-    protected void Say(string? text, NoticeTone tone = NoticeTone.Info)
-    {
-        Notice = text;
-        Tone = tone;
-    }
+    /// <summary>
+    /// 화면이 직접 한마디 할 때. 「일정 이름을 넣으십시오」처럼 <b>서버까지
+    /// 가지 않고 막은 것</b>이 대부분이다.
+    ///
+    /// <para>
+    /// 사라지면 안 되는 안내는 이것으로 띄우지 않는다 —
+    /// <c>PageNotice</c> 를 화면에 직접 둔다.
+    /// </para>
+    /// </summary>
+    protected void Say(string? text, NoticeTone tone = NoticeTone.Info) =>
+        Toasts.Show(text, tone);
 }

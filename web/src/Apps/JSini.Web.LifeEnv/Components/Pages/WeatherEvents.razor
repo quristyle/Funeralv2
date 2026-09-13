@@ -55,8 +55,6 @@
     </Fields>
 </CommSch>
 
-<PageNotice Text="@Notice" Tone="@Tone" />
-
 <CommCont>
     <CommGrd TItem="WeatherEventRecord" Data="@Shown" PageSize="25"
              ExportName="기상특보"
@@ -134,12 +132,6 @@
     </CommGrd>
 </CommCont>
 
-@if (_total > _events.Count)
-{
-    <PageNotice Tone="NoticeTone.Info"
-                Text="@($"전체 {_total}건 중 {_events.Count}건입니다. 기간이나 지역으로 좁히십시오.")" />
-}
-
 @code {
     private IReadOnlyList<WeatherEventRecord> _events = [];
     private IReadOnlyList<WeatherLocation> _locations = [];
@@ -181,6 +173,13 @@
         var page = events.Result;
         _events = page?.Items ?? [];
         _total = page?.TotalCount ?? _events.Count;
+
+        // **잘렸으면 반드시 말한다.** 「전부다」로 읽고 넘어가면 없는 것을
+        // 찾게 된다. 조회의 **결과**라 안내 줄이 아니라 토스트로 나간다.
+        if (_total > _events.Count)
+        {
+            Say($"전체 {_total}건 중 {_events.Count}건입니다. 기간이나 지역으로 좁히십시오.");
+        }
 
         return _events.Count;
     }, "조건에 맞는 이벤트가 없습니다.", "이벤트 기록을 읽지 못했습니다");

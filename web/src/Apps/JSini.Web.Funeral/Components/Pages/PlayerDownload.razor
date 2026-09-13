@@ -69,13 +69,6 @@
     </Actions>
 </CommSch>
 
-@if (!string.IsNullOrWhiteSpace(_latest.Warning))
-{
-    <PageNotice Text="@_latest.Warning" Tone="NoticeTone.Warning" />
-}
-
-<PageNotice Text="@Notice" Tone="@Tone" />
-
 <CommCont>
     <div class="fn-pd">
         @foreach (var platform in Platforms)
@@ -222,6 +215,10 @@
     private Task ReloadAsync() => LoadAsync(async () =>
     {
         _latest = await Api.GetPlayerLatestAsync();
+
+        // 서버가 릴리스를 읽으며 알아낸 것이다 — 조회의 **결과**라 토스트다.
+        Say(_latest.Warning, NoticeTone.Warning);
+
         return 1;
     }, failMessage: "릴리스 정보를 읽지 못했습니다");
 

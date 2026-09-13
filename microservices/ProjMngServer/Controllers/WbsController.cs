@@ -20,10 +20,19 @@ public sealed class WbsController(WbsService service) : ControllerBase {
     }
   }
 
-  /// <summary>목록.</summary>
+  /// <summary>
+  /// 목록.
+  ///
+  /// <para>
+  /// <c>scheduleType</c> 은 <b>여러 번 실어도 된다</b> —
+  /// <c>?scheduleType=WBS&amp;scheduleType=Public</c> 이면 둘 다 낸다.
+  /// 일정표 화면이 구분을 체크로 여럿 고른다. 한 번만 실은 옛 호출은
+  /// 그대로 한 칸짜리 배열로 들어오므로 <b>바뀌는 것이 없다.</b>
+  /// </para>
+  /// </summary>
   [HttpGet]
   public async Task<ActionResult<ApiResponse<IReadOnlyList<WbsItem>>>> List(
-      [FromQuery] int? prjRid, [FromQuery] string? compStat, [FromQuery] string? scheduleType,
+      [FromQuery] int? prjRid, [FromQuery] string? compStat, [FromQuery] string[]? scheduleType,
       [FromQuery] DateOnly? from, [FromQuery] DateOnly? to, CancellationToken ct)
     => Ok(ApiResponse<IReadOnlyList<WbsItem>>.Ok(
         await service.ListAsync(prjRid, compStat, scheduleType, from, to, ct)));

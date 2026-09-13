@@ -39,8 +39,6 @@
 <PageNotice Tone="NoticeTone.Info"
             Text="공통 그리드(CommGrd)가 도는지 보는 개발용 화면입니다. 여기서는 고칠 수 없습니다 — 프로젝트를 고치는 자리는 [프로젝트 목록]입니다." />
 
-<PageNotice Text="@Notice" Tone="@Tone" />
-
 <CommCont Title="부품 테스트" Hint="@($"{_rows.Count}건")">
     <ProjectGrid Rows="@_rows" ExportName="부품테스트" Reload="@SearchAsync"
                  EmptyText="조회된 자료가 없습니다." />

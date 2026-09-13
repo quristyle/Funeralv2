@@ -100,7 +100,9 @@ public sealed class ProjCodeService(IConfiguration configuration) {
           SELECT a.db_rid AS code, a.db_nick AS name, a.db_comm AS "desc", {DbColumns}
             FROM projmng.devdbinfo a
            WHERE (@project::int IS NULL OR a.prj_rid = @project)
-           ORDER BY a.db_nick
+           -- 사람이 정한 차례가 먼저다. 빈 줄은 맨 뒤로 보내고 이름으로
+           -- 줄 세운다 — 옛 차례(가나다)가 그때 그대로 남는다.
+           ORDER BY a.db_srt NULLS LAST, a.db_nick
           """, new { project }, ct),
 
       // 고르는 값이 별칭이다. 프로시저를 부르던 화면들이 별칭을 넘겼다.
@@ -108,7 +110,9 @@ public sealed class ProjCodeService(IConfiguration configuration) {
           SELECT a.db_nick AS code, a.db_nick AS name, a.db_comm AS "desc", {DbColumns}
             FROM projmng.devdbinfo a
            WHERE (@project::int IS NULL OR a.prj_rid = @project)
-           ORDER BY a.db_nick
+           -- 사람이 정한 차례가 먼저다. 빈 줄은 맨 뒤로 보내고 이름으로
+           -- 줄 세운다 — 옛 차례(가나다)가 그때 그대로 남는다.
+           ORDER BY a.db_srt NULLS LAST, a.db_nick
           """, new { project }, ct),
 
       "wbsflowlist" => await QueryAsync(db, """

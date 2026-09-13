@@ -46,8 +46,6 @@
     </Fields>
 </CommSch>
 
-<PageNotice Text="@Notice" Tone="@Tone" />
-
 <CommCont Title="WBS" Hint="@Hint">
     <CommGrd TItem="WbsItemDto"
              Data="@_rows"
@@ -117,7 +115,7 @@
 
     private Task SearchAsync() => LoadAsync(async () =>
     {
-        _rows = await Api.ListAsync(ProjectRid, _completeState, Kind);
+        _rows = await Api.ListAsync(ProjectRid, _completeState, [Kind]);
         return _rows.Count;
     }, "일감이 없습니다.", "WBS 를 읽지 못했습니다");
 

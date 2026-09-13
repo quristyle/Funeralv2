@@ -38,6 +38,25 @@ public sealed class ProjectDb
     /// <inheritdoc cref="PrjName"/>
     public string? PrjNick { get; set; }
 
+    /// <summary>
+    /// 보여 줄 차례. <b>작을수록 먼저</b>이고, 비면 맨 뒤로 간다.
+    ///
+    /// <para>
+    /// 이 표를 읽는 자리가 셋인데 차례가 서로 달랐다 — 목록 화면은
+    /// <c>db_rid</c>(만든 순서), 고르개 둘은 <c>db_nick</c>(가나다). 그래서
+    /// 같은 자료를 보는 자리마다 순서가 어긋났고 <b>자주 쓰는 접속을 위로
+    /// 올릴 방법이 없었다.</b> 이제 셋 다 이 값을 먼저 본다.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>값은 서로 달라야 뜻이 산다.</b> 끌어 옮기기가 화면에 보이는 줄들이
+    /// 지금 차지한 값을 모아 다시 나눠 주는 방식이라
+    /// (<c>ProjectDbService.ReorderAsync</c>), 겹치면 프로젝트로 좁혀 본
+    /// 화면에서 옮긴 것이 다른 프로젝트의 차례까지 흔든다.
+    /// </para>
+    /// </summary>
+    public int? DbSrt { get; set; }
+
     public string? DbNick { get; set; }
     public string? DbType { get; set; }
     public string? DbIp { get; set; }

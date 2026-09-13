@@ -60,8 +60,6 @@
     </Actions>
 </CommSch>
 
-<PageNotice Text="@Notice" Tone="@Tone" />
-
 <div class="fn-qna">
     @foreach (var post in _items)
     {
@@ -71,12 +69,6 @@
                    Delete="@DeleteAsync" ToggleVisibility="@ToggleVisibilityAsync" />
     }
 </div>
-
-@if (_total > _items.Count)
-{
-    <PageNotice Tone="NoticeTone.Info"
-                Text="@($"전체 {_total}건 중 {_items.Count}건입니다. 검색으로 좁히십시오.")" />
-}
 
 @* ── 글쓰기 · 수정 ─────────────────────────────────── *@
 <CommPopup @bind-Visible="_editing" HeaderText="@EditTitle"
@@ -165,6 +157,13 @@
         _total = list.Total;
         _canWrite = list.CanWrite;
         _canManage = list.CanManage;
+
+        // **잘렸으면 반드시 말한다.** 「전부다」로 읽고 넘어가면 없는 것을
+        // 찾게 된다. 조회의 **결과**라 안내 줄이 아니라 토스트로 나간다.
+        if (_total > _items.Count)
+        {
+            Say($"전체 {_total}건 중 {_items.Count}건입니다. 검색으로 좁히십시오.");
+        }
 
         return _items.Count;
     }, "등록된 글이 없습니다.", "Q&A 를 읽지 못했습니다");

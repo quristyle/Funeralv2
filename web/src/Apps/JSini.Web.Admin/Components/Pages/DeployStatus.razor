@@ -40,11 +40,6 @@
     }
 </div>
 
-@if (_status?.Github.Error is { Length: > 0 } error)
-{
-    <PageNotice Text="@($"GitHub 을 읽지 못했습니다 — {error}")" Tone="NoticeTone.Warning" />
-}
-
 <CommCont Title="워크플로 실행">
     <CommGrd TItem="GithubRunDto" Data="@Runs"
              ExportName="워크플로실행"
@@ -129,8 +124,6 @@
     </CommGrd>
 </CommCont>
 
-<PageNotice Text="@Notice" Tone="@Tone" />
-
 @code {
     private DeployStatusDto? _status;
 
@@ -149,6 +142,15 @@
     private Task ReloadAsync() => LoadAsync(async () =>
     {
         _status = await Api.GetDeployStatusAsync();
+
+        // 조회의 **결과**다 — 안내 줄이 아니라 토스트로 나간다.
+        // **자동 조회(`RefreshAsync`)에서는 띄우지 않는다.** 몇 초마다
+        // 같은 말이 다시 떠서 화면을 덮는다.
+        if (_status?.Github.Error is { Length: > 0 } error)
+        {
+            Say($"GitHub 을 읽지 못했습니다 — {error}", NoticeTone.Warning);
+        }
+
         return Runs.Count + Runners.Count;
     }, "배포 이력을 받지 못했습니다.", "배포 현황을 읽지 못했습니다");
 

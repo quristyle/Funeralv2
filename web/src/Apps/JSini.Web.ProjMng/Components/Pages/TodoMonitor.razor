@@ -50,8 +50,6 @@
     </Fields>
 </CommSch>
 
-<PageNotice Text="@Notice" Tone="@Tone" />
-
 <div class="pm-split">
     <CommCont Title="정산 집계" Hint="@($"{_pay.Sum(p => p.TotalPay):#,##0}원")" CssClass="pm-split__side">
         <CommGrd TItem="HomeTodoPayDto"

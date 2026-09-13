@@ -27,7 +27,6 @@
 <CommPopup Visible="@Visible" VisibleChanged="@OnVisibleChanged"
          HeaderText="@(IsNew ? "기기 등록" : "기기 수정")" Width="720px" ShowFooter="false">
     <BodyContentTemplate Context="popup">
-        <PageNotice Text="@Notice" Tone="@Tone" />
 
         @if (_form is null)
         {

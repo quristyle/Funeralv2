@@ -19,6 +19,36 @@
     목록에 없다고 비워 버리면 종류를 안 건드리고 포트만 고쳐도 그 칸이 지워진
     채로 저장된다. 코드를 뒤늦게 지웠거나 옛 값이 남아 있을 때 그렇게 된다.
     그런 자리는 `KeepUnknownValue` 로 켠다 — 값을 그대로 항목으로 세워 둔다.
+
+    [읽기는 조합으로 아끼되, 맞추기는 값이 바뀔 때마다 한다]
+
+    목록 조회는 `(CodeId, CodeKey)` 가 그대로면 건너뛴다. **그런데 「들고 온
+    값을 목록에 맞추는 일」까지 함께 건너뛰면 안 된다** — `CommPopup` 의
+    고르개는 창을 닫아도 살아 있어서 다음 줄을 고칠 때 같은 부품이 다시
+    쓰이는데, 그때 조합은 그대로이고 값만 바뀌기 때문이다.
+
+    함께 건너뛰던 동안 `KeepUnknownValue` 가 편집 창에서 듣지 않았다.
+    소스 정보 화면에서 **등록 창을 먼저 열었다가 수정 창을 열면 언어·OS 가
+    빈 칸**이었고, 다른 칸만 고쳐 저장하면 그 칸이 지워졌다 — 이 파라미터가
+    막으려던 바로 그 일이다.
+
+    [다중선택은 드롭다운 + 체크 목록이다 — **`DxTagBox` 가 아니다**]
+
+    처음에는 `BizSelect` 를 따라 `DxTagBox` 로 짰다. 펼치면 목록은 나오는데
+    **항목에 체크칸이 없다.** 고르고 나서야 칸 안에 딱지로 남을 뿐이라,
+    「무엇을 켤 수 있나」를 펼친 상태에서 못 읽는다. 부품에 켜는 파라미터가
+    있는 것도 아니다 — `DxTagBox` 의 체크칸 능력은 내부에서 꺼져 있다
+    (`CanShowCheckBoxes`, 공개 파라미터가 없다).
+
+    체크칸을 그리는 목록 부품은 `DxListBox`(`ShowCheckboxes`) 하나다. 그래서
+    `DxDropDownBox` 에 그 목록을 담는다 — 칸은 드롭다운처럼 보이고, 펼치면
+    항목마다 체크칸이 있고, 닫으면 고른 것의 **이름이 이어져** 적힌다
+    (`QueryDisplayText`).
+
+    **다중에서는 「전체」 항목도, 첫 항목 자동 선택도 없다.** 아무것도 안 고른
+    상태가 이미 「가리지 않음」이라, 거기에 빈 코드짜리 「전체」를 하나 더 두면
+    「전체 + 공유일정」 같은 **말이 안 되는 조합**이 만들어진다. 자동 선택은 더
+    나쁘다 — 화면을 열자마자 하나만 골라 놓고 그것이 전체인 척한다.
 *@
 
 @inject CommonCodes Codes
@@ -27,6 +57,35 @@
        DevExpress 가 기대하는 `ValueExpression` 이 없다. `EditForm` 안(표의 편집
        창)에 들어가면 그것을 필수로 보고 던지는데, 그 예외가 **회로를 끊어**
        그 순간부터 화면 전체가 안 눌린다. 우리는 DevExpress 검증을 쓰지 않는다. *@
+@if (Multiple)
+{
+    @* 칸에 적히는 글자는 `QueryDisplayText` 가 만든다 — 코드가 아니라 **이름**을
+       이어 붙인다. 아무것도 안 고르면 `Value` 가 null 이라 `NullText`(전체)가 뜬다. *@
+    <DxDropDownBox Value="@MultiValue"
+                   ValueChanged="@((object? value) => OnDropDownValueChangedAsync(value))"
+                   QueryDisplayText="@(_ => MultiText)"
+                   NullText="@Placeholder"
+                   DropDownWidthMode="DropDownWidthMode.ContentOrEditorWidth"
+                   ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto"
+                   Enabled="@(!Disabled)"
+                   ValidationEnabled="false"
+                   CssClass="pm-code-select pm-code-select--multi">
+        <DropDownBodyTemplate>
+            <DxListBox TData="CommonCodeItem" TValue="string"
+                       Data="@_items"
+                       TextFieldName="@nameof(CommonCodeItem.Name)"
+                       ValueFieldName="@nameof(CommonCodeItem.Code)"
+                       Values="@SelectedCodes"
+                       ValuesChanged="@((IEnumerable<string> values) => OnPickedManyAsync(values))"
+                       SelectionMode="ListBoxSelectionMode.Multiple"
+                       ShowCheckboxes="true"
+                       ValidationEnabled="false"
+                       CssClass="pm-code-checks" />
+        </DropDownBodyTemplate>
+    </DxDropDownBox>
+}
+else
+{
 <DxComboBox Data="@_items"
             TextFieldName="@nameof(CommonCodeItem.Name)"
             ValueFieldName="@nameof(CommonCodeItem.Code)"
@@ -37,12 +96,23 @@
             Enabled="@(!Disabled)"
             ValidationEnabled="false"
             CssClass="pm-code-select" />
+}
 
 @code {
+    /// <summary>읽어 온 목록 <b>그대로</b>. 모르는 값 한 줄을 여기에 섞지 않는다.</summary>
+    private List<CommonCodeItem> _loaded = [];
+
+    /// <summary>화면에 내보내는 목록. <see cref="_loaded"/> + 모르는 값 한 줄.</summary>
     private List<CommonCodeItem> _items = [];
 
     /// <summary>마지막으로 읽은 조합. 같은 조합이면 다시 읽지 않는다.</summary>
     private (string CodeId, string CodeKey)? _loadedFor;
+
+    /// <summary>마지막으로 <b>맞춰 본</b> 값. 같은 값이면 다시 맞추지 않는다.</summary>
+    private string? _settledValue;
+
+    /// <summary>한 번이라도 맞춰 보았는가. 목록을 새로 읽으면 거짓으로 되돌린다.</summary>
+    private bool _settled;
 
     /// <summary>공통코드 ID — 예: <c>db</c> · <c>CODE_TYPE</c> · <c>projlist</c></summary>
     [Parameter, EditorRequired] public string CodeId { get; set; } = string.Empty;
@@ -50,10 +120,21 @@
     /// <summary>코드 조회 시 함께 넘기는 보조 키 (<c>etc0</c>).</summary>
     [Parameter] public string CodeKey { get; set; } = string.Empty;
 
-    /// <summary>고른 코드값.</summary>
+    /// <summary>고른 코드값. 단일 선택일 때만 쓴다.</summary>
     [Parameter] public string? Value { get; set; }
 
     [Parameter] public EventCallback<string?> ValueChanged { get; set; }
+
+    /// <summary>
+    /// 체크로 고른 코드값들. <see cref="Multiple"/> 일 때만 쓴다.
+    /// <b>비어 있으면 전체</b>다 — 부르는 쪽이 조건을 안 싣는다.
+    /// </summary>
+    [Parameter] public IEnumerable<string>? Values { get; set; }
+
+    [Parameter] public EventCallback<IEnumerable<string>?> ValuesChanged { get; set; }
+
+    /// <summary>펼친 목록에서 체크로 여럿 고른다(머리말).</summary>
+    [Parameter] public bool Multiple { get; set; }
 
     /// <summary>
     /// 고른 항목 전체. 부가 컬럼이 필요한 화면이 받는다.
@@ -90,48 +171,119 @@
     protected override async Task OnParametersSetAsync()
     {
         var key = (CodeId, CodeKey);
-        if (_loadedFor == key)
+
+        if (_loadedFor != key)
+        {
+            _loadedFor = key;
+
+            // 목록이 갈렸다. 값이 글자로는 그대로여도 다시 맞춰 봐야 한다.
+            _settled = false;
+
+            if (EtcFix && string.IsNullOrEmpty(CodeKey))
+            {
+                // 상위를 아직 안 골랐다. 목록을 비우고 고른 값도 되돌린다 —
+                // 안 그러면 옛 상위에 딸린 값이 남아 엉뚱한 조회가 나간다.
+                _loaded = [];
+                _items = [];
+                await SetValueAsync(null, null);
+                return;
+            }
+
+            var loaded = await Codes.GetAsync(CodeId, CodeKey);
+
+            // 다중에서는 「전체」를 넣지 않는다 — 아무것도 안 고른 것이 이미
+            // 전체이고, 넣으면 「전체 + 공유일정」이 표현 가능해진다(머리말).
+            _loaded = ShowAll && !Multiple
+                ? [new CommonCodeItem(string.Empty, "전체", new Dictionary<string, string>()), .. loaded]
+                : [.. loaded];
+
+            _items = _loaded;
+        }
+
+        // 다중은 여기까지다. 아래는 「고른 값 하나를 목록에 맞추는」 일이고,
+        // 그 규칙(모르는 값 세우기 · 첫 항목 자동 선택)은 전부 단일 전용이다.
+        if (Multiple)
         {
             return;
         }
 
-        _loadedFor = key;
-
-        if (EtcFix && string.IsNullOrEmpty(CodeKey))
+        // **목록이 그대로여도 들고 온 값이 바뀌면 다시 맞춘다.**
+        //
+        // 이 줄이 없으면 `KeepUnknownValue` 가 편집 창에서 안 듣는다. 팝업의
+        // 고르개는 창을 닫아도 살아 있어서 **다음 줄을 고칠 때 같은 부품이
+        // 다시 쓰인다.** 그때 아래 「모르는 값」 자리가 다시 돌지 않으면
+        // 코드표에 없는 값을 든 줄이 **빈 칸으로 열리고**, 다른 칸만 고쳐
+        // 저장해도 그 칸이 지워진다 — 막으려던 바로 그 일이다.
+        // (등록 창을 먼저 열었다가 수정 창을 열면 실제로 그랬다.)
+        if (_settled && string.Equals(_settledValue, Value, StringComparison.Ordinal))
         {
-            // 상위를 아직 안 골랐다. 목록을 비우고 고른 값도 되돌린다 —
-            // 안 그러면 옛 상위에 딸린 값이 남아 엉뚱한 조회가 나간다.
-            _items = [];
-            await SetValueAsync(null, null);
             return;
         }
 
-        var loaded = await Codes.GetAsync(CodeId, CodeKey);
+        _settled = true;
+        _settledValue = Value;
 
-        _items = ShowAll
-            ? [new CommonCodeItem(string.Empty, "전체", new Dictionary<string, string>()), .. loaded]
-            : [.. loaded];
-
-        // 이미 고른 값이 새 목록에 있으면 그대로 둔다. 없으면 다시 고른다.
-        var current = _items.FirstOrDefault(i =>
+        // 이미 고른 값이 목록에 있으면 그대로 둔다. 없으면 다시 고른다.
+        var current = _loaded.FirstOrDefault(i =>
             string.Equals(i.Code, Value, StringComparison.Ordinal));
 
         if (current is not null)
         {
+            // 앞서 세워 둔 「모르는 값」이 남아 있으면 걷어낸다.
+            _items = _loaded;
             return;
         }
 
         // 목록에 없는 값이다. 켜 두었으면 그대로 세운다 — 고르개가 비어
         // 보이지 않고, 다른 칸만 고쳐 저장해도 이 칸이 지워지지 않는다.
+        //
+        // **읽어 온 목록에 덧붙이지 않고 새로 만든다.** 덧붙이면 줄을 바꿔
+        // 열 때마다 옛 값이 항목으로 쌓인다.
         if (KeepUnknownValue && !string.IsNullOrEmpty(Value))
         {
-            _items = [.. _items, new CommonCodeItem(Value, Value, new Dictionary<string, string>())];
+            _items = [.. _loaded, new CommonCodeItem(Value, Value, new Dictionary<string, string>())];
             return;
         }
 
-        var first = AutoSelectFirst ? _items.FirstOrDefault() : null;
+        _items = _loaded;
+
+        var first = AutoSelectFirst ? _loaded.FirstOrDefault() : null;
         await SetValueAsync(first?.Code, first);
     }
+
+    /// <summary>체크된 코드들. 화면이 준 것을 그대로 본다.</summary>
+    private IReadOnlyList<string> SelectedCodes => Values is null ? [] : [.. Values];
+
+    /// <summary>
+    /// 칸이 들고 있는 값. <b>고른 것이 없으면 <c>null</c></b> 이라야 한다 —
+    /// 그래야 「전체」(<see cref="Placeholder"/>)가 뜨고 지우기 단추가 숨는다.
+    /// 글자 자체는 <see cref="MultiText"/> 가 만들므로 여기 담기는 값은
+    /// 「비었나 아닌가」만 뜻한다.
+    /// </summary>
+    private object? MultiValue =>
+        SelectedCodes.Count == 0 ? null : string.Join('\u001f', SelectedCodes);
+
+    /// <summary>칸에 적히는 글자. <b>코드가 아니라 이름</b>을 잇는다.</summary>
+    private string MultiText =>
+        string.Join(", ", SelectedCodes.Select(code =>
+            _items.FirstOrDefault(i => string.Equals(i.Code, code, StringComparison.Ordinal))?.Name
+            ?? code));
+
+    /// <summary>
+    /// 칸 값이 바뀌는 길은 <b>지우기 단추 하나뿐</b>이다(고르기는 목록이 맡는다).
+    /// 그래서 <c>null</c> 이 올 때만 체크를 전부 푼다 — 다른 값이 오면 우리가
+    /// 만든 값이 되돌아온 것이라 할 일이 없다.
+    /// </summary>
+    private Task OnDropDownValueChangedAsync(object? value) =>
+        value is null ? OnPickedManyAsync([]) : Task.CompletedTask;
+
+    /// <summary>
+    /// 체크가 바뀌었다. <b>값을 우리가 들고 있지 않는다</b> — 화면이 들고 있고
+    /// 우리는 올리기만 한다. 여기서 <c>Values</c> 에 적어 두면 화면이 되돌린
+    /// 값(조건 초기화 따위)이 다음 렌더에 묻힌다.
+    /// </summary>
+    private Task OnPickedManyAsync(IEnumerable<string>? values) =>
+        ValuesChanged.InvokeAsync(values is null ? [] : [.. values]);
 
     private Task OnPickedAsync(string? code) =>
         SetValueAsync(code, _items.FirstOrDefault(i =>
@@ -140,6 +292,12 @@
     private async Task SetValueAsync(string? code, CommonCodeItem? item)
     {
         Value = code;
+
+        // 우리가 정한 값이다. 이것으로 이미 맞춘 셈이라 적어 둔다 —
+        // 안 적으면 바로 다음 파라미터에서 위 판정이 다시 걸린다.
+        _settled = true;
+        _settledValue = code;
+
         await ValueChanged.InvokeAsync(code);
         await OnChanged.InvokeAsync(item);
     }

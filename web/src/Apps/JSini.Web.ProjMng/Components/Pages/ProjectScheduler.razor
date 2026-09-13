@@ -4,144 +4,676 @@
 @*
     [프로젝트 일정표]
 
-    이력: 옛 Blazor `Pages/Proj/ProjScheduler.razor` → Vue
-          `views/projmng/proj/scheduler.vue` → `DynamicGrid` + `sp_proj_wbs_exec`
-          → **여기 (`CommGrd` + REST)**
+    이력: 옛 Blazor `Pages/Proj/ProjScheduler.razor`(Radzen Scheduler) → Vue
+          `views/projmng/proj/scheduler.vue`(손으로 그린 월 달력) →
+          `CommGrd` + REST 표 한 장 → **여기 (달력 + 표)**
     API: `projmng/wbs`
 
     **WBS 와 같은 표를 쓴다.** `schedule_type` 하나로 갈린다 — WBS 는 산출물
-    단위, 일정표는 날짜 단위로 같은 자료를 달리 본다. 편집 창도 같은 것을
+    단위, 일정표는 날짜 단위로 같은 자료를 달리 본다. 편집 칸도 같은 것을
     쓴다(`WbsEditForm`).
 
     ────────────────────────────────────────────────────────────
-    [기간 탭이 아무 일도 안 하고 있었다]
+    [달력이 사라져 있었다 — 이 화면의 본체가 그것이다]
 
-    화면은 `start_day` · `end_day` 를 실어 보내는데 `sp_proj_wbs_exec` 의
-    `WHERE` 에 **그 값을 보는 곳이 없었다.** 주·월·분기를 아무리 눌러도 목록이
-    같았고, 오류가 아니라서 아무도 몰랐다.
+    원본은 **달 달력**이다. 빈 칸을 눌러 등록하고, 일정을 눌러 고치고,
+    끌어다 다른 날로 옮기고, 상태를 색으로 봤다. 옮겨 오면서 표 한 장만
+    남아 「언제 비어 있나」가 안 보였다 — 일정 자료를 표로만 보면 그것이
+    안 보인다.
 
-    이제 **계획 기간이 고른 구간과 겹치는 것**을 낸다. 시작일만 보면 걸쳐 있는
-    긴 일감이 그 주에서 사라지는데, 그것이 일정표에서 제일 보고 싶은 줄이다.
+    달력은 `DxScheduler` 다. **새 라이브러리를 얹지 않는다** — 헬프데스크
+    전체 일정(`ScheduleAll`)과 프로젝트 간트가 이미 같은 부품을 쓴다.
+    끌어 옮기기와 크기 조절이 그 부품에 있다.
 
-    [이 화면이 비어 보이는 것은 자료 때문이다]
+    표도 남긴다 — 「이번 달」이 아니라 「전부」를 훑거나 내려받을 때는
+    그쪽이 빠르다.
 
-    운영 자료의 `schedule_type` 은 전부 `WBS`(318) 와 `Public`(4) 이고
-    **`SCHEDULE` 인 줄이 하나도 없다.** 그래서 이 화면은 옛날부터 늘 비어
-    있었다. 여기서 「등록」으로 만든 줄은 `SCHEDULE` 로 들어가 여기 남는다.
+    ────────────────────────────────────────────────────────────
+    [이 화면이 늘 비어 있던 진짜 이유]
+
+    앞선 판은 `schedule_type = 'SCHEDULE'` 로 고정해 물었다. 그런데
+    **`SCHEDULE` 이라는 값은 코드표에도 자료에도 없다** — 코드표(`SCHEDULE_TYPE`)
+    는 `Public`(공유일정) · `Private`(개인일정) · `WBS` 셋이고, 자료도
+    `WBS` 와 `Public` 뿐이다. 그래서 조회가 언제나 0건이었고, 오류가 아니라서
+    「자료가 없다」로 읽혔다.
+
+    원본은 구분을 **고르개**로 두고 기본을 「전체」로 뒀다. 그것이 이 화면의
+    쓰임이다 — WBS 일감도 날짜를 가진 일이라 달력에 같이 떠야 한다. 그래서
+    조건줄에 「구분」을 되살렸다.
+
+    ────────────────────────────────────────────────────────────
+    [구분은 **체크로 여럿** 고른다]
+
+    원본(과 되살린 첫 판)은 하나만 골랐다. 그런데 이 고르개로 실제로 하고 싶은
+    일은 「WBS 는 빼고 공유·개인 일정만」처럼 **몇 개를 묶어 보는 것**이다.
+    하나짜리 고르개로는 그 물음을 아예 물을 수 없다 — 「전체」와 「하나」
+    사이에 아무것도 없다.
+
+    그래서 펼친 목록에서 체크로 고른다(`CodeSelect Multiple`). 고른 것은
+    칸 안에 딱지로 남아 **지금 무엇을 보고 있는지가 화면에 적혀 있다.**
+
+    **아무것도 안 고른 것이 전체다.** 「전체」 항목을 따로 두지 않는다 —
+    두면 「전체 + 공유일정」이 표현 가능해지고, 그 조합에 뜻이 없다.
+
+    여기서 새로 만든 줄의 기본 구분은 **하나만 골라 두었으면 그것, 아니면
+    `Public`** 이다. 여럿을 고른 채로 등록하면 어느 것에 넣어야 할지 화면이
+    알 수 없으므로 고르지 않는다 — 창 안의 구분 칸에서 바꾼다.
+
+    ────────────────────────────────────────────────────────────
+    [기간 탭이 달력의 보기를 함께 정한다]
+
+    도구줄(`ShowToolbarArea="false"`)을 끄고 **날짜 이동을 `DateRangeTabs`
+    한 곳으로 모았다.** 달력에 자기 이동 단추가 따로 있으면 그것으로 옮긴
+    달은 조회 구간과 어긋난다 — 화면에는 다음 달이 그려지는데 자료는 이번
+    달 것이다. 탭이 조회 구간을 정하므로 **보이는 구간과 읽어 온 구간이 늘
+    같다.** 오늘·주·월은 그대로 일·주·월 보기로 간다.
+
+    ────────────────────────────────────────────────────────────
+    [상태는 색이다]
+
+    원본의 네 색을 그대로 옮겼다 — 대기(호박) · 진행(하늘) · 지연(빨강) ·
+    완료(회색). 「지연」은 서버가 내지 않는다(서버는 대기·진행·완료 셋만
+    센다). **계획 종료일이 지났는데 아직 안 끝난 것**을 여기서 지연으로
+    친다 — 달력에서 제일 먼저 눈에 띄어야 하는 줄이 그것이다.
+
+    ────────────────────────────────────────────────────────────
+    [편집 창은 부품 것을 쓰지 않는다]
+
+    `DxScheduler` 가 주는 창은 제목·기간·설명뿐이라 이 자료를 못 담는다 —
+    담당·개발 시작/종료·구분·완료가 빠진다. 그래서 그 창을 취소하고
+    (`AppointmentFormShowing`) `WbsEditForm` 을 띄운다. 표 쪽 편집 창과
+    **같은 칸**이 열린다.
 *@
 
 @inherits DataPage
 @inject WbsClient Api
+@inject IPermissionContext Permissions
+@inject NavigationManager Navigation
 
 <PageTitle>프로젝트 일정표 · 프로젝트관리</PageTitle>
 
-<CommSch OnSearch="@SearchAsync">
+<CommSch OnSearch="@SearchAsync" Busy="@Loading">
     <Fields>
         <CommSchItem Label="프로젝트">
             <CodeSelect CodeId="projlist" @bind-Value="_projectCode" OnChanged="@(_ => SearchAsync())" />
+        </CommSchItem>
+
+        @* 체크로 여럿 고른다. 아무것도 안 고르면 전체다 — 머리말 참고. *@
+        <CommSchItem Label="구분">
+            <CodeSelect CodeId="schedule_type" Multiple="true"
+                        Values="@_scheduleTypes"
+                        ValuesChanged="@OnKindsChangedAsync"
+                        Placeholder="전체" />
         </CommSchItem>
 
         <CommSchItem Label="진행">
             <CodeSelect CodeId="compstat" @bind-Value="_completeState" ShowAll="true" />
         </CommSchItem>
     </Fields>
+
+    <Actions>
+        @* 손가락으로 쓰는 자리의 등록 길. 달력 칸 더블클릭은 모바일에서 안 된다. *@
+        <PermissionView Action="MenuAction.Create">
+            <DxButton Text="일정 등록" RenderStyle="ButtonRenderStyle.Secondary"
+                      IconCssClass="jsini-icon-plus" Click="@(() => StartNew(DefaultDay, DefaultDay))" />
+        </PermissionView>
+    </Actions>
 </CommSch>
 
-@* 이제 이 탭이 실제로 목록을 좁힌다(머리말). *@
-<DateRangeTabs @ref="_range" RangeChanged="@(_ => SearchAsync())" />
+@* 이 탭이 조회 구간과 달력 보기를 함께 정한다(머리말). *@
+<DateRangeTabs @bind-Anchor="_anchor" @bind-Preset="_preset" RangeChanged="@(_ => SearchAsync())" />
 
-<PageNotice Text="@Notice" Tone="@Tone" />
+<DxTabs>
+    <DxTabPage Text="달력">
+        @if (_storage is not null)
+        {
+            <DxScheduler DataStorage="@_storage"
+                         StartDate="@_anchor"
+                         ActiveViewType="@ViewType"
+                         ShowToolbarArea="false"
+                         AllowCreateAppointment="@_canCreate"
+                         AllowEditAppointment="@_canUpdate"
+                         AllowDeleteAppointment="@_canDelete"
+                         AllowDragAppointment="@_canUpdate"
+                         AllowResizeAppointment="@_canUpdate"
+                         AppointmentFormShowing="@OnFormShowing"
+                         AppointmentUpdating="@OnUpdatingAsync"
+                         AppointmentRemoving="@OnRemovingAsync"
+                         CssClass="pm-sched">
+                <DxSchedulerMonthView />
+                <DxSchedulerWeekView />
+                <DxSchedulerDayView />
+            </DxScheduler>
+        }
+    </DxTabPage>
 
-<CommCont Title="일정표" Hint="@Hint">
-    <CommGrd TItem="WbsItemDto"
-             Data="@_rows"
-             EditFormTitle="일정"
-             ExportName="일정표"
-             PageSize="30"
-             EmptyText="그 기간에 일정이 없습니다."
-             OnNew="@FillNew"
-             OnSave="@SaveAsync"
-             OnDelete="@DeleteAsync"
-             DeleteConfirm="@(w => $"「{w.ProcNm}」 을(를) 지웁니다.\n되돌릴 수 없습니다.")"
-             Reload="@SearchAsync">
-        <Columns>
-            <DxGridDataColumn FieldName="@nameof(WbsItemDto.PlanSdt)" Caption="시작" Width="105"
-                              DisplayFormat="yyyy-MM-dd" />
-            <DxGridDataColumn FieldName="@nameof(WbsItemDto.PlanEdt)" Caption="종료" Width="105"
-                              DisplayFormat="yyyy-MM-dd" />
-            <DxGridDataColumn FieldName="@nameof(WbsItemDto.PlanGap)" Caption="기간" Width="70" />
-            <DxGridDataColumn FieldName="@nameof(WbsItemDto.ProcNm)" Caption="일정" MinWidth="200"
-                              TextAlignment="GridTextAlignment.Left" />
-            <DxGridDataColumn FieldName="@nameof(WbsItemDto.ProcTp)" Caption="종류" Width="110" />
-            <DxGridDataColumn FieldName="@nameof(WbsItemDto.DevUser)" Caption="담당" Width="90" />
+    <DxTabPage Text="표">
+        <CommCont Title="일정표" Hint="@Hint">
+            <CommGrd TItem="WbsItemDto"
+                     Data="@_rows"
+                     EditFormTitle="일정"
+                     ExportName="일정표"
+                     PageSize="30"
+                     EmptyText="그 기간에 일정이 없습니다."
+                     OnNew="@FillNew"
+                     OnSave="@SaveRowAsync"
+                     OnDelete="@DeleteAsync"
+                     DeleteConfirm="@(w => $"「{w.ProcNm}」 을(를) 지웁니다.\n되돌릴 수 없습니다.")"
+                     Reload="@SearchAsync">
+                <Columns>
+                    <DxGridDataColumn FieldName="@nameof(WbsItemDto.PlanSdt)" Caption="시작" Width="105"
+                                      DisplayFormat="yyyy-MM-dd" />
+                    <DxGridDataColumn FieldName="@nameof(WbsItemDto.PlanEdt)" Caption="종료" Width="105"
+                                      DisplayFormat="yyyy-MM-dd" />
+                    <DxGridDataColumn FieldName="@nameof(WbsItemDto.PlanGap)" Caption="기간" Width="70" />
+                    <DxGridDataColumn FieldName="@nameof(WbsItemDto.ProcNm)" Caption="일정" MinWidth="200"
+                                      TextAlignment="GridTextAlignment.Left" />
+                    <DxGridDataColumn FieldName="@nameof(WbsItemDto.ScheduleType)" Caption="구분" Width="90" />
+                    <DxGridDataColumn FieldName="@nameof(WbsItemDto.ProcTp)" Caption="종류" Width="110" />
+                    <DxGridDataColumn FieldName="@nameof(WbsItemDto.DevUser)" Caption="담당" Width="90" />
 
-            <DxGridDataColumn Caption="진행" Width="70">
-                <CellDisplayTemplate Context="cell">
-                    @{
-                        var w = (WbsItemDto)cell.DataItem;
-                    }
-                    <span class="jsini-badge @w.StateClass">@w.StateName</span>
-                </CellDisplayTemplate>
-            </DxGridDataColumn>
+                    <DxGridDataColumn Caption="진행" Width="70">
+                        <CellDisplayTemplate Context="cell">
+                            @{
+                                var w = (WbsItemDto)cell.DataItem;
+                            }
+                            <span class="jsini-badge @StateClass(w)">@StateName(w)</span>
+                        </CellDisplayTemplate>
+                    </DxGridDataColumn>
 
-            <DxGridDataColumn FieldName="@nameof(WbsItemDto.Comm)" Caption="메모" MinWidth="140"
-                              TextAlignment="GridTextAlignment.Left" />
-        </Columns>
+                    <DxGridDataColumn FieldName="@nameof(WbsItemDto.Comm)" Caption="메모" MinWidth="140"
+                                      TextAlignment="GridTextAlignment.Left" />
+                </Columns>
 
-        <EditFormTemplate Context="edit">
-            <WbsEditForm Item="@((WbsItemDto)edit.EditModel)" />
-        </EditFormTemplate>
-    </CommGrd>
-</CommCont>
+                <EditFormTemplate Context="edit">
+                    <WbsEditForm Item="@((WbsItemDto)edit.EditModel)" />
+                </EditFormTemplate>
+            </CommGrd>
+        </CommCont>
+    </DxTabPage>
+</DxTabs>
+
+@* 달력에서 여는 편집 창. 표의 편집 창과 같은 칸(`WbsEditForm`)에
+   이 화면에만 필요한 셋(프로젝트 · 구분 · 완료)을 앞에 얹었다. *@
+<CommPopup @bind-Visible="_editing" HeaderText="@(_isNew ? "일정 등록" : "일정 수정")"
+           Width="680px" MaxHeight="80vh" Scrollable="true">
+    <BodyContentTemplate Context="popup">
+        <DxFormLayout CssClass="pm-editform">
+            <DxFormLayoutItem Caption="프로젝트" ColSpanMd="6">
+                <CodeSelect CodeId="projlist" AutoSelectFirst="false" KeepUnknownValue="true"
+                            Value="@(_form.PrjRid?.ToString())"
+                            ValueChanged="@((string? code) => _form.PrjRid = int.TryParse(code, out var rid) ? rid : null)" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="구분" ColSpanMd="6">
+                @* 저장된 값이 코드표에 없어도 지우지 않는다 — 옛 값이 그대로 남은 줄이 있다. *@
+                <CodeSelect CodeId="schedule_type" AutoSelectFirst="false" KeepUnknownValue="true"
+                            @bind-Value="_form.ScheduleType" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="완료" ColSpanMd="12">
+                <DxCheckBox Checked="@_complete" CheckedChanged="@((bool on) => _complete = on)">
+                    끝났다 — 개발 시작·종료일이 비어 있으면 오늘로 채운다
+                </DxCheckBox>
+            </DxFormLayoutItem>
+        </DxFormLayout>
+
+        <WbsEditForm Item="@_form" />
+    </BodyContentTemplate>
+
+    <FooterContentTemplate>
+        <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Primary" Click="@(() => SaveFormAsync(false))" />
+
+        @* 원본의 `OnTodayAndSave`. 미뤄 둔 일을 오늘로 끌어오는 한 번 누르기다. *@
+        <DxButton Text="오늘로 옮겨 저장" RenderStyle="ButtonRenderStyle.Secondary"
+                  Click="@(() => SaveFormAsync(true))" />
+
+        @if (!_isNew)
+        {
+            <PermissionView Action="MenuAction.Delete">
+                <DxButton Text="삭제" RenderStyle="ButtonRenderStyle.Danger" Click="@DeleteFormAsync" />
+            </PermissionView>
+        }
+
+        <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary" Click="@(() => _editing = false)" />
+    </FooterContentTemplate>
+</CommPopup>
+
+<ConfirmDialog @ref="_confirm" />
 
 @code {
-    /// <summary>이 화면이 다루는 일정 종류. WBS 화면과 표를 나누는 유일한 값이다.</summary>
-    private const string Kind = "SCHEDULE";
+    /// <summary>
+    /// 새 줄의 기본 구분. 고른 구분이 「전체」일 때 쓴다 — 비워 두면 어느
+    /// 화면에서도 안 보이는 줄이 된다(머리말).
+    /// </summary>
+    private const string DefaultKind = "Public";
 
     private IReadOnlyList<WbsItemDto> _rows = [];
-    private DateRangeTabs? _range;
+
+    private DateTime _anchor = DateTime.Today;
+    private DateRangePreset _preset = DateRangePreset.Month;
 
     private string? _projectCode;
     private string? _completeState;
 
+    /// <summary>체크로 고른 구분. <b>비어 있으면 전체</b>다(머리말).</summary>
+    private IReadOnlyList<string> _scheduleTypes = [];
+
+    private DxSchedulerDataStorage? _storage;
+    private CalendarItem[] _items = [];
+
+    private ConfirmDialog? _confirm;
+
+    private bool _editing;
+    private bool _isNew;
+    private bool _complete;
+    private WbsItemDto _form = new();
+
+    private bool _canCreate;
+    private bool _canUpdate;
+    private bool _canDelete;
+
+    private DateRange Range => DateRange.Of(_preset, _anchor);
+
     private int? ProjectRid => int.TryParse(_projectCode, out var rid) ? rid : null;
 
     private string Hint => $"{_rows.Count}건";
+
+    /// <summary>기간 탭이 고른 것이 곧 달력의 보기다(머리말).</summary>
+    private SchedulerViewType ViewType => _preset switch
+    {
+        DateRangePreset.Day => SchedulerViewType.Day,
+        DateRangePreset.Week => SchedulerViewType.Week,
+        _ => SchedulerViewType.Month,
+    };
+
+    /// <summary>
+    /// 「일정 등록」 단추가 쓰는 날. 보고 있는 구간 안이면 오늘, 아니면 그
+    /// 구간의 첫날이다 — 지난달을 보다가 눌렀을 때 만든 줄이 화면 밖으로
+    /// 떨어지면 저장하자마자 사라진 것처럼 보인다.
+    /// </summary>
+    private DateOnly DefaultDay =>
+        DateTime.Today >= Range.Start && DateTime.Today <= Range.End
+            ? DateOnly.FromDateTime(DateTime.Today)
+            : DateOnly.FromDateTime(Range.Start);
+
+    protected override void OnInitialized()
+    {
+        // `PermissionView` 와 **똑같이** 묻는다. 끌어 옮기기·크기 조절은 그릴지
+        // 말지가 아니라 부품의 파라미터로 켜고 끄는 것이라 직접 판정한다.
+        var path = PermissionPath.Current(Navigation);
+
+        _canCreate = Permissions.Can(path, MenuAction.Create);
+        _canUpdate = Permissions.Can(path, MenuAction.Update);
+        _canDelete = Permissions.Can(path, MenuAction.Delete);
+    }
 
     // **화면을 열 때 여기서 조회하지 않는다.** 프로젝트 고르개가 첫 항목을
     // 스스로 고르면서 조회를 건다(`AutoSelectFirst`). 둘 다 하면 **프로젝트를
     // 안 건 조회와 건 조회가 같이 날아가고**, 늦게 돌아온 쪽이 화면에 남는다 —
     // 프로젝트를 골랐는데 목록은 전체인 상태가 된다. 실제로 그렇게 보였다.
 
+    /// <summary>
+    /// 구분 체크가 바뀌었다. <b>바로 조회한다</b> — 프로젝트 고르개와 같다.
+    /// 체크를 만지고 「조회」를 또 눌러야 하면, 누르기 전까지 화면의 딱지와
+    /// 달력이 서로 다른 이야기를 한다.
+    /// </summary>
+    private Task OnKindsChangedAsync(IEnumerable<string>? kinds)
+    {
+        _scheduleTypes = kinds is null ? [] : [.. kinds];
+        return SearchAsync();
+    }
+
     private Task SearchAsync() => LoadAsync(async () =>
     {
         _rows = await Api.ListAsync(
-            ProjectRid, _completeState, Kind,
-            _range is null ? null : DateOnly.FromDateTime(_range.Range.Start),
-            _range is null ? null : DateOnly.FromDateTime(_range.Range.End));
+            ProjectRid, _completeState, _scheduleTypes,
+            DateOnly.FromDateTime(Range.Start), DateOnly.FromDateTime(Range.End));
 
+        BuildCalendar();
         return _rows.Count;
     }, "그 기간에 일정이 없습니다.", "일정표를 읽지 못했습니다");
 
+    // ── 달력 재료 ────────────────────────────────────────────────
+
     /// <summary>
-    /// 새 일정은 <b>고른 프로젝트와 이 화면의 종류에 붙는다.</b> 종류를 비워
-    /// 두면 WBS 로 새어 가고, 여기서는 다시 안 보인다.
+    /// 읽어 온 줄을 달력 약속으로 옮긴다.
+    ///
+    /// <para>
+    /// **날짜만 있고 시각이 없는 자료다.** 종일 일정으로 그린다 — 시간표처럼
+    /// 그리면 모든 일정이 자정에 붙어 한 줄로 겹친다.
+    /// </para>
+    ///
+    /// <para>
+    /// 끝을 그날 <c>23:59:59</c> 로 둔다. 자정으로 두면 부품이 끝을 여는
+    /// 구간으로 볼 때 **마지막 날이 통째로 빠진다** — 하루짜리 일정이 아예
+    /// 안 그려진다.
+    /// </para>
+    /// </summary>
+    private void BuildCalendar()
+    {
+        var today = DateOnly.FromDateTime(DateTime.Today);
+
+        _items = [.. _rows
+            .Where(w => w.PlanSdt is not null || w.PlanEdt is not null)
+            .Select(w =>
+            {
+                var start = w.PlanSdt ?? w.PlanEdt!.Value;
+                var end = w.PlanEdt ?? start;
+
+                // 거꾸로 들어간 줄이 있다. 그대로 두면 부품이 음수 길이를 만난다.
+                if (end < start)
+                {
+                    end = start;
+                }
+
+                return new CalendarItem
+                {
+                    Id = w.WbsId,
+                    Subject = string.IsNullOrWhiteSpace(w.ProcNm) ? "(제목 없음)" : w.ProcNm,
+                    Description = Describe(w),
+                    Start = start.ToDateTime(TimeOnly.MinValue),
+                    End = end.ToDateTime(new TimeOnly(23, 59, 59)),
+                    AllDay = true,
+                    LabelId = LabelOf(w, today),
+                };
+            })];
+
+        _storage = new DxSchedulerDataStorage
+        {
+            AppointmentsSource = _items,
+            AppointmentMappings = new DxSchedulerAppointmentMappings
+            {
+                Id = nameof(CalendarItem.Id),
+                Start = nameof(CalendarItem.Start),
+                End = nameof(CalendarItem.End),
+                Subject = nameof(CalendarItem.Subject),
+                Description = nameof(CalendarItem.Description),
+                AllDay = nameof(CalendarItem.AllDay),
+                LabelId = nameof(CalendarItem.LabelId),
+            },
+            AppointmentLabelsSource = StateLabels,
+            AppointmentLabelMappings = new DxSchedulerAppointmentLabelMappings
+            {
+                Id = nameof(StateLabel.Id),
+                Caption = nameof(StateLabel.Caption),
+                Color = nameof(StateLabel.Color),
+            },
+        };
+    }
+
+    /// <summary>말풍선에 띄울 한 줄. 담당과 종류가 없으면 제목만으로는 누구 일인지 모른다.</summary>
+    private static string Describe(WbsItemDto w)
+    {
+        var parts = new List<string>();
+
+        if (!string.IsNullOrWhiteSpace(w.DevUser)) parts.Add($"담당 {w.DevUser}");
+        if (!string.IsNullOrWhiteSpace(w.ProcTp)) parts.Add(w.ProcTp);
+        if (!string.IsNullOrWhiteSpace(w.Comm)) parts.Add(w.Comm);
+
+        return string.Join(" · ", parts);
+    }
+
+    /// <summary>
+    /// 색을 고른다. 서버가 내는 상태는 대기·진행·완료 셋이고, **지연**은
+    /// 여기서 센다 — 계획 종료일이 지났는데 아직 안 끝난 것(머리말).
+    /// </summary>
+    private static string LabelOf(WbsItemDto w, DateOnly today) => w.WbsState switch
+    {
+        "COMP" => "COMP",
+        _ when w.PlanEdt is not null && w.PlanEdt < today => "OVER",
+        "RUNNING" => "RUNNING",
+        _ => "READY",
+    };
+
+    private string StateName(WbsItemDto w) =>
+        LabelOf(w, DateOnly.FromDateTime(DateTime.Today)) switch
+        {
+            "COMP" => "완료",
+            "OVER" => "지연",
+            "RUNNING" => "진행",
+            _ => "대기",
+        };
+
+    private string StateClass(WbsItemDto w) =>
+        LabelOf(w, DateOnly.FromDateTime(DateTime.Today)) switch
+        {
+            "COMP" => "jsini-badge--on",
+            "OVER" => "jsini-badge--err",
+            "RUNNING" => "jsini-badge--warn",
+            _ => "jsini-badge--off",
+        };
+
+    // ── 달력에서 여는 편집 창 ─────────────────────────────────────
+
+    /// <summary>
+    /// 부품이 주는 편집 창을 취소하고 우리 창을 연다(머리말).
+    /// 빈 칸을 더블클릭했으면 새로, 일정을 눌렀으면 그 줄을 고치러 연다.
+    /// </summary>
+    private void OnFormShowing(SchedulerAppointmentFormEventArgs e)
+    {
+        e.Cancel = true;
+
+        var appointment = e.Appointment;
+
+        if (appointment.IsNew || appointment.Id is null)
+        {
+            StartNew(Day(appointment.Start), LastDay(appointment));
+            return;
+        }
+
+        var row = Find(appointment.Id);
+
+        if (row is not null)
+        {
+            StartEdit(row);
+        }
+    }
+
+    private void StartNew(DateOnly from, DateOnly to)
+    {
+        _form = new WbsItemDto
+        {
+            PrjRid = ProjectRid,
+            ScheduleType = NewKind,
+            PlanSdt = from,
+            PlanEdt = to < from ? from : to,
+        };
+
+        _complete = false;
+        _isNew = true;
+        _editing = true;
+    }
+
+    /// <summary>
+    /// 편집 창에 <b>복사본</b>을 띄운다. 목록의 줄을 그대로 묶으면 취소해도
+    /// 화면에는 이미 바뀐 값이 남는다.
+    /// </summary>
+    private void StartEdit(WbsItemDto w)
+    {
+        _form = Copy(w);
+        _complete = w.DevEdt is not null;
+        _isNew = false;
+        _editing = true;
+    }
+
+    /// <summary>
+    /// 새 줄에 붙일 구분. <b>딱 하나만 고른 상태일 때만</b> 그것을 따른다 —
+    /// 여럿을 고른 채로 등록하면 어느 것에 넣어야 할지 알 수 없고, 임의로
+    /// 첫 번째를 집으면 <b>고른 적 없는 구분으로 조용히 들어간다</b>(머리말).
+    /// </summary>
+    private string NewKind =>
+        _scheduleTypes.Count == 1 ? _scheduleTypes[0] : DefaultKind;
+
+    /// <summary>
+    /// 완료 표시를 값으로 옮긴다 — 원본 `OnSubmit` 의 규칙 그대로다.
+    ///
+    /// <para>
+    /// 상태(<c>WbsState</c>)는 적는 칸이 아니다. 서버가 개발 시작·종료일로
+    /// 정하므로 여기서 바꾸는 것도 그 두 날이다.
+    /// </para>
+    ///
+    /// <para>
+    /// **표시를 끄면 개발 종료일을 지운다.** 원본은 끄기만 하고 날짜를 그대로
+    /// 둬서 상태가 완료에 눌어붙었다 — 체크를 풀어도 아무 일이 없었다.
+    /// </para>
+    /// </summary>
+    private void ApplyComplete()
+    {
+        var today = DateOnly.FromDateTime(DateTime.Today);
+
+        if (!_complete)
+        {
+            _form.DevEdt = null;
+            return;
+        }
+
+        _form.DevSdt ??= today;
+        _form.DevEdt ??= today;
+
+        // 계획이 끝난 날보다 뒤에 남아 있으면 「완료인데 아직 계획 중」이 된다.
+        if (_form.PlanSdt > _form.DevEdt) _form.PlanSdt = _form.DevEdt;
+        if (_form.PlanEdt > _form.DevEdt) _form.PlanEdt = _form.DevEdt;
+    }
+
+    /// <param name="moveToToday">원본의 「오늘로 옮겨 저장」. 계획을 오늘 하루로 옮긴다.</param>
+    private async Task SaveFormAsync(bool moveToToday)
+    {
+        if (string.IsNullOrWhiteSpace(_form.ProcNm))
+        {
+            Say("일정 이름을 넣으십시오.", NoticeTone.Warning);
+            return;
+        }
+
+        if (_form.PrjRid is null)
+        {
+            Say("프로젝트를 고르십시오.", NoticeTone.Warning);
+            return;
+        }
+
+        if (moveToToday)
+        {
+            _form.PlanSdt = DateOnly.FromDateTime(DateTime.Today);
+            _form.PlanEdt = _form.PlanSdt;
+        }
+
+        if (_form.PlanEdt < _form.PlanSdt)
+        {
+            Say("종료일이 시작일보다 앞섭니다.", NoticeTone.Warning);
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_form.ScheduleType))
+        {
+            _form.ScheduleType = NewKind;
+        }
+
+        ApplyComplete();
+
+        var isNew = _isNew;
+
+        if (await RunAsync(
+                () => isNew ? Api.CreateAsync(_form) : Api.UpdateAsync(_form),
+                isNew ? "등록했습니다." : "저장했습니다.",
+                isNew ? "등록하지 못했습니다" : "저장하지 못했습니다"))
+        {
+            _editing = false;
+            await SearchAsync();
+        }
+    }
+
+    private async Task DeleteFormAsync()
+    {
+        if (_isNew || _confirm is null)
+        {
+            return;
+        }
+
+        if (!await _confirm.AskAsync($"「{_form.ProcNm}」 을(를) 지웁니다.\n되돌릴 수 없습니다."))
+        {
+            return;
+        }
+
+        if (await RunAsync(() => Api.DeleteAsync(_form.WbsId), "지웠습니다.", "지우지 못했습니다"))
+        {
+            _editing = false;
+            await SearchAsync();
+        }
+    }
+
+    // ── 달력에서 바로 옮기기·지우기 ───────────────────────────────
+
+    /// <summary>
+    /// 끌어 옮기거나 크기를 바꾼 것. **계획 날짜만 바뀐다** — 나머지 칸은
+    /// 읽어 둔 줄에서 그대로 가져간다(달력이 모르는 칸이 지워지지 않게).
+    /// </summary>
+    private async Task OnUpdatingAsync(SchedulerAppointmentOperationEventArgs e)
+    {
+        var row = Find(e.Appointment.Id);
+
+        if (row is null)
+        {
+            return;
+        }
+
+        var next = Copy(row);
+        next.PlanSdt = Day(e.Appointment.Start);
+        next.PlanEdt = LastDay(e.Appointment);
+
+        if (next.PlanSdt == row.PlanSdt && next.PlanEdt == row.PlanEdt)
+        {
+            return;
+        }
+
+        // 부품이 자기 저장소를 먼저 고쳤다. 실패했으면 다시 읽어 되돌린다.
+        await RunAsync(() => Api.UpdateAsync(next), "옮겼습니다.", "옮기지 못했습니다");
+        await SearchAsync();
+    }
+
+    /// <summary>
+    /// 달력에서 지운 것. **부품이 지우기 전에 막고**(<c>Cancel</c>) 먼저 묻는다 —
+    /// 「아니오」를 눌렀는데 화면에서만 사라져 있으면 지운 줄 안다.
+    /// </summary>
+    private async Task OnRemovingAsync(SchedulerAppointmentOperationEventArgs e)
+    {
+        e.Cancel = true;
+
+        var row = Find(e.Appointment.Id);
+
+        if (row is null || _confirm is null)
+        {
+            return;
+        }
+
+        if (!await _confirm.AskAsync($"「{row.ProcNm}」 을(를) 지웁니다.\n되돌릴 수 없습니다."))
+        {
+            return;
+        }
+
+        if (await RunAsync(() => Api.DeleteAsync(row.WbsId), "지웠습니다.", "지우지 못했습니다"))
+        {
+            await SearchAsync();
+        }
+    }
+
+    // ── 표 쪽 ────────────────────────────────────────────────────
+
+    /// <summary>
+    /// 새 일정은 <b>고른 프로젝트와 구분에 붙는다.</b> 구분을 비워 두면 어느
+    /// 화면에서도 안 보이는 줄이 된다.
     /// </summary>
     private void FillNew(WbsItemDto w)
     {
         w.PrjRid = ProjectRid;
-        w.ScheduleType = Kind;
+        w.ScheduleType = NewKind;
 
         // 고른 기간의 첫날을 기본으로 둔다 — 안 그러면 만든 줄이 지금 보고
         // 있는 구간 밖으로 떨어져 저장 직후 목록에서 사라진다.
-        if (_range is not null)
-        {
-            w.PlanSdt = DateOnly.FromDateTime(_range.Range.Start);
-            w.PlanEdt = DateOnly.FromDateTime(_range.Range.Start);
-        }
+        w.PlanSdt = DateOnly.FromDateTime(Range.Start);
+        w.PlanEdt = w.PlanSdt;
     }
 
-    private async Task SaveAsync((WbsItemDto Item, bool IsNew) e)
+    private async Task SaveRowAsync((WbsItemDto Item, bool IsNew) e)
     {
         if (e.IsNew)
         {
@@ -154,4 +686,80 @@
     }
 
     private Task DeleteAsync(WbsItemDto w) => Api.DeleteAsync(w.WbsId);
+
+    // ── 도우미 ───────────────────────────────────────────────────
+
+    private WbsItemDto? Find(object? id) =>
+        int.TryParse(id?.ToString(), out var wbsId)
+            ? _rows.FirstOrDefault(w => w.WbsId == wbsId)
+            : null;
+
+    private static DateOnly Day(DateTime value) => DateOnly.FromDateTime(value);
+
+    /// <summary>
+    /// 약속의 <b>마지막 날</b>. 끝이 자정이면 그 앞날이다 — 종일 일정의 끝을
+    /// 여는 구간(다음 날 0시)으로 주는 자리가 있어서, 그대로 받으면 하루가
+    /// 늘어난다.
+    /// </summary>
+    private static DateOnly LastDay(DxSchedulerAppointmentItem appointment)
+    {
+        var end = appointment.End;
+
+        if (end.TimeOfDay == TimeSpan.Zero && end.Date > appointment.Start.Date)
+        {
+            end = end.AddDays(-1);
+        }
+
+        return DateOnly.FromDateTime(end);
+    }
+
+    private static WbsItemDto Copy(WbsItemDto w) => new()
+    {
+        WbsId = w.WbsId,
+        PrjRid = w.PrjRid,
+        ProcId = w.ProcId,
+        Gb1 = w.Gb1,
+        Gb2 = w.Gb2,
+        ProcNm = w.ProcNm,
+        ProcTp = w.ProcTp,
+        ProcLvl = w.ProcLvl,
+        BuildUser = w.BuildUser,
+        BuildStatus = w.BuildStatus,
+        DevUser = w.DevUser,
+        PlanSdt = w.PlanSdt,
+        PlanEdt = w.PlanEdt,
+        DevSdt = w.DevSdt,
+        DevEdt = w.DevEdt,
+        DevChk = w.DevChk,
+        BuildChk = w.BuildChk,
+        BuildChkDt = w.BuildChkDt,
+        QcUser = w.QcUser,
+        QcChk = w.QcChk,
+        QcChkDt = w.QcChkDt,
+        Comm = w.Comm,
+        ScheduleType = w.ScheduleType,
+    };
+
+    /// <summary>달력 한 칸. 부품이 끌어 옮길 때 여기 값을 고치므로 <b>쓸 수 있어야 한다</b>.</summary>
+    private sealed class CalendarItem
+    {
+        public int Id { get; set; }
+        public DateTime Start { get; set; }
+        public DateTime End { get; set; }
+        public bool AllDay { get; set; }
+        public string Subject { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public string LabelId { get; set; } = "READY";
+    }
+
+    /// <summary>상태 색. 원본(Vue `STATE_STYLE`)이 쓰던 네 색 그대로다.</summary>
+    private sealed record StateLabel(string Id, string Caption, System.Drawing.Color Color);
+
+    private static readonly StateLabel[] StateLabels =
+    [
+        new("READY", "대기", System.Drawing.Color.FromArgb(0xF5, 0x9E, 0x0B)),
+        new("RUNNING", "진행", System.Drawing.Color.FromArgb(0x0E, 0xA5, 0xE9)),
+        new("OVER", "지연", System.Drawing.Color.FromArgb(0xEF, 0x44, 0x44)),
+        new("COMP", "완료", System.Drawing.Color.FromArgb(0x94, 0xA3, 0xB8)),
+    ];
 }

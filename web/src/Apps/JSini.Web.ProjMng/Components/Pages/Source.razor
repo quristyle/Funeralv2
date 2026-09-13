@@ -32,6 +32,33 @@
     상세의 묶음(`src_pattern_grp`)이 `url` 인 줄의 패턴 하나가 왼쪽 목록의
     「URL 패턴」 칸으로 올라간다. 그래서 상세를 고치면 **왼쪽도 다시 읽는다** —
     안 읽으면 두 판이 서로 다른 말을 한다.
+
+    ────────────────────────────────────────────────────────────
+    [언어와 OS 를 손으로 적지 않는다]
+
+    둘 다 빈 칸이었다. 그래서 같은 것이 사람마다 다르게 들어갔다 —
+    실제로 담긴 값이 `blazor` · `c#` · `java` · `jsp` 에 OS 는
+    `ubuntu 24.04` · `win2022` · `win11` 이다. 대문자·공백·버전 표기가
+    제각각이면 **소스 추적 화면이 언어로 거를 수가 없다.**
+
+    공통코드 묶음 `SOURCE_LANG` · `SOURCE_OS`(`projmng.devcomm`)에서 고른다.
+    둘 다 `KeepUnknownValue` 를 켠다 — 이미 저장된 값이 코드표에 없어도
+    지우지 않는다. 안 켜면 언어를 안 건드리고 경로만 고쳐도 그 칸이 빈 채로
+    저장된다(`CodeSelect` 머리말의 「편집 창은 반대다」).
+
+    [소스 편집 창은 `CommPopup` 이다]
+
+    표가 스스로 띄우는 DevExpress 편집 창(`EditMode.PopupEditForm`)을 쓰지
+    않는다. 그 창은 <b>머리를 잡아 옮길 수 없어서</b>, 왼쪽 목록을 덮고
+    나면 「지금 고치는 소스가 목록의 어느 줄이었는지」를 볼 수가 없다.
+    `CommPopup` 은 옮길 수 있고 바깥을 눌러도 안 닫힌다.
+
+    그래서 `OnSave` 를 주지 않는다 — 주면 표가 자기 창을 다시 띄운다.
+    대신 등록 단추는 조건줄의 동작 자리(`Actions`)에, 수정 단추는 관리 칸
+    (`RowActions`)에 이 화면이 직접 놓는다.
+
+    <b>편집 모델은 사본이다.</b> 표의 줄을 그대로 물려 주면 창에서 글자를
+    고치는 즉시 뒤의 목록이 따라 바뀌고, 닫기를 눌러도 되돌아오지 않는다.
 *@
 
 @inherits DataPage
@@ -46,21 +73,30 @@
                         OnChanged="@(_ => SearchAsync())" />
         </CommSchItem>
     </Fields>
-</CommSch>
 
-<PageNotice Text="@Notice" Tone="@Tone" />
+    @* 「소스 등록」이 여기 있는 이유는 **표가 그리지 않기 때문**이다 —
+       이 화면은 저장을 표에 맡기지 않아 `OnSave` 를 주지 않고, 그러면
+       아래 띠에 등록 단추가 없다. 띠에 직접 끼워 보면 다시 읽기·엑셀
+       **뒤**에 붙어(`FooterLeft` 가 마지막이다) 다른 화면과 자리가 어긋난다.
+       아래 상세 표의 「등록」은 그쪽이 여전히 표에 맡기므로 제자리에 있다 —
+       그래서 이 단추에는 「소스」를 붙여 둘을 가른다. *@
+    <Actions>
+        <PermissionView Action="MenuAction.Create">
+            <DxButton Text="소스 등록" RenderStyle="ButtonRenderStyle.Secondary"
+                      IconCssClass="jsini-icon-plus" Click="@StartNewSource" />
+        </PermissionView>
+    </Actions>
+</CommSch>
 
 <div class="pm-split">
     <CommCont Title="소스 뿌리" Hint="@($"{_sources.Count}건")" CssClass="pm-split__side">
         <CommGrd TItem="SourceInfoDto"
                  Data="@_sources"
-                 EditFormTitle="소스"
                  ExportName="소스정보"
                  PageSize="20"
                  EmptyText="등록된 소스가 없습니다."
-                 OnNew="@FillNewSource"
-                 OnSave="@SaveSourceAsync"
                  Reload="@SearchAsync"
+                 RowActions="@SourceActions"
                  SelectedItem="@_source"
                  SelectedItemChanged="@PickSourceAsync">
             <Columns>
@@ -71,45 +107,6 @@
                 <DxGridDataColumn FieldName="@nameof(SourceInfoDto.PrjName)" Caption="프로젝트" MinWidth="120"
                                   TextAlignment="GridTextAlignment.Left" />
             </Columns>
-
-            <EditFormTemplate Context="edit">
-                @{
-                    var s = (SourceInfoDto)edit.EditModel;
-                }
-                <DxFormLayout CssClass="pm-editform">
-                    <DxFormLayoutItem Caption="별칭" ColSpanMd="6">
-                        <DxTextBox @bind-Text="s.SrcNick" NullText="사람이 부르는 이름" />
-                    </DxFormLayoutItem>
-
-                    <DxFormLayoutItem Caption="경로" ColSpanMd="6">
-                        <DxTextBox @bind-Text="s.SrcPath" NullText="필수 — 서버 장비 기준" />
-                    </DxFormLayoutItem>
-
-                    <DxFormLayoutItem Caption="언어" ColSpanMd="6">
-                        <DxTextBox @bind-Text="s.SrcLang" NullText="blazor · jsp …" />
-                    </DxFormLayoutItem>
-
-                    <DxFormLayoutItem Caption="구분" ColSpanMd="6">
-                        <DxTextBox @bind-Text="s.SrcType" />
-                    </DxFormLayoutItem>
-
-                    <DxFormLayoutItem Caption="OS" ColSpanMd="6">
-                        <DxTextBox @bind-Text="s.SrcOs" />
-                    </DxFormLayoutItem>
-
-                    <DxFormLayoutItem Caption="화면 뿌리" ColSpanMd="6">
-                        <DxTextBox @bind-Text="s.SrcUiRoot" />
-                    </DxFormLayoutItem>
-
-                    <DxFormLayoutItem Caption="네임스페이스" ColSpanMd="12">
-                        <DxTextBox @bind-Text="s.PrjNamespace" />
-                    </DxFormLayoutItem>
-
-                    <DxFormLayoutItem Caption="설명" ColSpanMd="12">
-                        <DxTextBox @bind-Text="s.SrcComm" />
-                    </DxFormLayoutItem>
-                </DxFormLayout>
-            </EditFormTemplate>
         </CommGrd>
     </CommCont>
 
@@ -175,12 +172,72 @@
     </CommCont>
 </div>
 
+@* 소스 등록·수정 창. 표가 띄우던 창을 대신한다(머리말). *@
+<CommPopup @bind-Visible="_editing"
+           HeaderText="@(_isNew ? "소스 등록" : "소스 수정")"
+           Width="720px">
+    <BodyContentTemplate Context="popup">
+        <DxFormLayout CssClass="pm-editform">
+            <DxFormLayoutItem Caption="별칭" ColSpanMd="6">
+                <DxTextBox @bind-Text="_form.SrcNick" NullText="사람이 부르는 이름" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="경로" ColSpanMd="6">
+                <DxTextBox @bind-Text="_form.SrcPath" NullText="필수 — 서버 장비 기준" />
+            </DxFormLayoutItem>
+
+            @* 손으로 적던 칸이다. 고르는 칸으로 바꾼 이유는 머리말에 있다.
+               `AutoSelectFirst` 를 끈다 — 안 끄면 창을 열기만 해도 언어가
+               목록 첫 줄로 갈아 끼워지고, 다른 칸만 고쳐 저장해도 따라 바뀐다. *@
+            <DxFormLayoutItem Caption="언어" ColSpanMd="6">
+                <CodeSelect CodeId="SOURCE_LANG" @bind-Value="_form.SrcLang"
+                            AutoSelectFirst="false" KeepUnknownValue="true" AllowClear="true"
+                            Placeholder="언어를 고르세요" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="OS" ColSpanMd="6">
+                <CodeSelect CodeId="SOURCE_OS" @bind-Value="_form.SrcOs"
+                            AutoSelectFirst="false" KeepUnknownValue="true" AllowClear="true"
+                            Placeholder="OS 를 고르세요" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="구분" ColSpanMd="6">
+                <DxTextBox @bind-Text="_form.SrcType" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="화면 뿌리" ColSpanMd="6">
+                <DxTextBox @bind-Text="_form.SrcUiRoot" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="네임스페이스" ColSpanMd="12">
+                <DxTextBox @bind-Text="_form.PrjNamespace" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="설명" ColSpanMd="12">
+                <DxTextBox @bind-Text="_form.SrcComm" />
+            </DxFormLayoutItem>
+        </DxFormLayout>
+    </BodyContentTemplate>
+
+    <FooterContentTemplate>
+        <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Primary" Click="@SaveSourceAsync" />
+        <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary"
+                  Click="@(() => _editing = false)" />
+    </FooterContentTemplate>
+</CommPopup>
+
 @code {
     private IReadOnlyList<SourceInfoDto> _sources = [];
     private IReadOnlyList<SourceInfoDetailDto> _details = [];
 
     private string? _projectCode;
     private SourceInfoDto? _source;
+
+    /// <summary>편집 창이 붙잡고 있는 <b>사본</b>. 표의 줄이 아니다(머리말).</summary>
+    private SourceInfoDto _form = new();
+
+    private bool _editing;
+    private bool _isNew;
 
     private int? ProjectRid => int.TryParse(_projectCode, out var rid) ? rid : null;
 
@@ -190,11 +247,17 @@
     {
         _sources = await Api.ListAsync(ProjectRid);
 
-        // 고른 소스가 목록에서 빠졌으면(프로젝트를 바꿨거나) 오른쪽을 비운다.
-        if (_source is not null && _sources.All(s => s.SrcRid != _source.SrcRid))
+        if (_source is not null)
         {
-            _source = null;
-            _details = [];
+            // 다시 읽은 줄로 갈아 끼운다. 안 바꾸면 오른쪽 제목이 **고치기
+            // 전의 별칭**을 계속 들고 있다. 목록에서 빠졌으면(프로젝트를
+            // 바꿨거나) 오른쪽을 비운다.
+            _source = _sources.FirstOrDefault(s => s.SrcRid == _source.SrcRid);
+
+            if (_source is null)
+            {
+                _details = [];
+            }
         }
 
         return _sources.Count;
@@ -219,18 +282,72 @@
         return _details.Count;
     }, "이 소스에 패턴이 없습니다.", "패턴을 읽지 못했습니다");
 
-    private void FillNewSource(SourceInfoDto s) => s.PrjRid = ProjectRid;
+    /// <summary>
+    /// 관리 칸의 단추. 표가 <c>OnSave</c> 없이도 이 칸을 그리게 하는 것이
+    /// 이 조각이다(머리말).
+    /// </summary>
+    private RenderFragment SourceActions(SourceInfoDto s) =>@<PermissionView Action="MenuAction.Update">
+        <DxButton IconCssClass="jsini-icon-edit"
+                  Title="수정"
+                  RenderStyle="ButtonRenderStyle.Link"
+                  Click="@(() => StartEditSource(s))" />
+    </PermissionView>;
 
-    private async Task SaveSourceAsync((SourceInfoDto Item, bool IsNew) e)
+    /// <summary>새 소스는 <b>고른 프로젝트에 붙는다.</b> 「전체」면 비어 간다.</summary>
+    private void StartNewSource()
     {
-        if (e.IsNew)
+        _form = new SourceInfoDto { PrjRid = ProjectRid };
+        _isNew = true;
+        _editing = true;
+    }
+
+    private void StartEditSource(SourceInfoDto s)
+    {
+        _form = Copy(s);
+        _isNew = false;
+        _editing = true;
+    }
+
+    /// <summary>표의 줄을 그대로 고치지 않으려고 뜬다(머리말).</summary>
+    private static SourceInfoDto Copy(SourceInfoDto s) => new()
+    {
+        SrcRid = s.SrcRid,
+        PrjRid = s.PrjRid,
+        PrjName = s.PrjName,
+        PrjNick = s.PrjNick,
+        SrcOs = s.SrcOs,
+        SrcPath = s.SrcPath,
+        SrcNick = s.SrcNick,
+        SrcType = s.SrcType,
+        SrcLang = s.SrcLang,
+        SrcComm = s.SrcComm,
+        SrcUiRoot = s.SrcUiRoot,
+        PrjNamespace = s.PrjNamespace,
+        UrlPattern = s.UrlPattern,
+    };
+
+    private async Task SaveSourceAsync()
+    {
+        var ok = await RunAsync(async () =>
         {
-            await Api.CreateAsync(e.Item);
-        }
-        else
+            if (_isNew)
+            {
+                await Api.CreateAsync(_form);
+            }
+            else
+            {
+                await Api.UpdateAsync(_form);
+            }
+        }, "저장했습니다.", "저장하지 못했습니다");
+
+        if (!ok)
         {
-            await Api.UpdateAsync(e.Item);
+            // 창을 열어 둔다 — 닫으면 적던 것이 사라지고 다시 적어야 한다.
+            return;
         }
+
+        _editing = false;
+        await SearchAsync();
     }
 
     /// <summary>새 패턴은 <b>고른 소스에 붙는다.</b> 서버도 경로로 한 번 더 정한다.</summary>

@@ -42,6 +42,14 @@ namespace ProjMngServer.Services;
 ///     번호를 <c>max(wbs_id)+1</c> 로 만든다. 다른 표와 같다 — 한 문장으로
 ///     좁혔고 진짜 해법은 시퀀스다.
 ///   </item>
+///   <item>
+///     <b>담당을 비워 두면 등록이 500 이었다.</b> <c>dev_user</c> 와
+///     <c>schedule_type</c> 이 <c>NOT NULL</c> 인데 화면은 둘 다 선택 칸으로
+///     두고 있어서, 담당을 안 고르고 저장하면 제약 위반이 그대로 올라왔다.
+///     화면에는 「서버 내부 오류」로만 보여 <b>어느 칸 때문인지 알 수 없다.</b>
+///     이제 빈 값으로 메운다(<c>''</c> · <c>'WBS'</c>) — 그 칸들은 「아직
+///     안 정했다」가 정상인 값이라 등록을 막을 이유가 없다.
+///   </item>
 /// </list>
 /// </summary>
 public sealed class WbsService(IConfiguration configuration) {
@@ -101,21 +109,56 @@ public sealed class WbsService(IConfiguration configuration) {
   /// 진행 상태로 좁힌다 — <c>READY</c> · <c>RUNNING</c> · <c>COMP</c> ·
   /// <c>DISCOMP</c>(아직 안 끝난 것 전부).
   /// </param>
-  /// <param name="scheduleType"><c>WBS</c> 또는 <c>SCHEDULE</c>.</param>
+  /// <param name="scheduleTypes">
+  /// 구분으로 좁힌다 — <c>WBS</c> · <c>Public</c> · <c>Private</c>.
+  /// <b>여러 개를 받는다</b>(일정표가 구분을 체크로 여럿 고른다).
+  /// 비어 있으면 <b>전체</b>다 — 「아무것도 안 고름」은 「아무것도 안 보임」이
+  /// 아니라 「가리지 않음」이다.
+  /// </param>
   /// <param name="from">계획 기간이 이 날 뒤에 걸치는 것만(머리말 2).</param>
   /// <param name="to">계획 기간이 이 날 앞에 걸치는 것만.</param>
   /// <param name="ct">취소 토큰</param>
   public async Task<IReadOnlyList<WbsItem>> ListAsync(
-      int? prjRid = null, string? compStat = null, string? scheduleType = null,
+      int? prjRid = null, string? compStat = null,
+      IReadOnlyCollection<string>? scheduleTypes = null,
       DateOnly? from = null, DateOnly? to = null, CancellationToken ct = default) {
 
     await using var db = new NpgsqlConnection(_connectionString);
+
+    // 빈 글자는 걸러 낸다. 하나라도 섞이면 없는 구분을 찾느라 목록이 통째로 빈다.
+    var types = scheduleTypes
+        ?.Where(t => !string.IsNullOrWhiteSpace(t))
+        .Distinct(StringComparer.Ordinal)
+        .ToArray() ?? [];
+
+    var parameters = new DynamicParameters(new {
+      prjRid,
+      compStat = compStat ?? string.Empty,
+      from,
+      to,
+    });
+
+    // **고른 것이 없으면 조건줄을 아예 안 붙인다.** 빈 목록을 넘기면 Dapper 가
+    // 형을 알 수 없는 파라미터를 만들고 Npgsql 이 그 자리에서 던진다.
+    var typeFilter = string.Empty;
+
+    if (types.Length > 0) {
+      // **`IN @scheduleTypes` 로 적으면 안 된다.** 그것은 Dapper 가 목록을 값
+      // 수만큼 펼쳐 주는 문법인데, `DynamicParameters.Add` 로 넣은 값에는 그
+      // 펼치기가 걸리지 않는다 — 배열이 그대로 파라미터 하나로 나가고
+      // PostgreSQL 이 `IN $2` 에서 문법 오류를 낸다(실제로 밟았다).
+      //
+      // 배열 하나를 그대로 받는 쪽이 `= ANY(…)` 다. Npgsql 이 `string[]` 을
+      // `text[]` 로 보낸다.
+      typeFilter = "AND a.schedule_type = ANY(@scheduleTypes)";
+      parameters.Add("scheduleTypes", types);
+    }
 
     var rows = await db.QueryAsync<WbsItem>(new CommandDefinition($"""
         SELECT {Columns}
           FROM projmng.dev_wbs a
          WHERE (@prjRid::int IS NULL OR a.prj_rid = @prjRid)
-           AND (@scheduleType = '' OR a.schedule_type = @scheduleType)
+           {typeFilter}
            AND (@compStat = ''
                 OR (@compStat = 'READY'
                     AND COALESCE(a.plan_sdt, a.dev_edt) IS NOT NULL
@@ -142,13 +185,7 @@ public sealed class WbsService(IConfiguration configuration) {
                 OR COALESCE(a.plan_sdt, a.dev_edt) <= @to)
          ORDER BY a.proc_id, a.gb1, a.gb2, a.proc_tp, a.proc_nm, a.wbs_id
         """,
-        new {
-          prjRid,
-          compStat = compStat ?? string.Empty,
-          scheduleType = scheduleType ?? string.Empty,
-          from,
-          to,
-        },
+        parameters,
         cancellationToken: ct));
 
     return [.. rows];
@@ -183,11 +220,12 @@ public sealed class WbsService(IConfiguration configuration) {
                qc_user, cre_user, cre_dt, mod_user, mod_dt, schedule_type, comm )
         SELECT @PrjRid, COALESCE(MAX(wbs_id), 0) + 1,
                @ProcId, @Gb1, @Gb2, @ProcNm, @ProcTp, @ProcLvl,
-               @BuildUser, @BuildStatus, @DevUser,
+               @BuildUser, @BuildStatus, COALESCE(@DevUser, ''),
                COALESCE(@PlanSdt, @DevSdt, CURRENT_DATE),
                COALESCE(@PlanEdt, @DevEdt, CURRENT_DATE),
                @DevSdt, @DevEdt,
-               @QcUser, @userId, now(), @userId, now(), @ScheduleType, @Comm
+               @QcUser, @userId, now(), @userId, now(),
+               COALESCE(@ScheduleType, 'WBS'), @Comm
           FROM projmng.dev_wbs
         RETURNING wbs_id
         """,
@@ -220,13 +258,13 @@ public sealed class WbsService(IConfiguration configuration) {
                proc_lvl      = @ProcLvl,
                build_user    = @BuildUser,
                build_status  = @BuildStatus,
-               dev_user      = @DevUser,
+               dev_user      = COALESCE(@DevUser, ''),
                dev_sdt       = @DevSdt,
                dev_edt       = @DevEdt,
                plan_sdt      = COALESCE(@PlanSdt, @DevSdt, @DevEdt, CURRENT_DATE),
                plan_edt      = COALESCE(@PlanEdt, @DevEdt, CURRENT_DATE),
                qc_user       = @QcUser,
-               schedule_type = @ScheduleType,
+               schedule_type = COALESCE(@ScheduleType, 'WBS'),
                comm          = @Comm,
                mod_user      = @userId,
                mod_dt        = now()

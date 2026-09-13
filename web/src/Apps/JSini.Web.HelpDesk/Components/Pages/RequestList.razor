@@ -61,8 +61,6 @@
     </Actions>
 </CommSch>
 
-<PageNotice Text="@Notice" Tone="@Tone" />
-
 @if (Context.IdentityChecked && !Context.IsLinked)
 {
     <PageNotice Tone="NoticeTone.Warning"
@@ -137,12 +135,6 @@
     </CommGrd>
 </CommCont>
 
-@if (_total > _rows.Count)
-{
-    <PageNotice Tone="NoticeTone.Info"
-                Text="@($"전체 {_total}건 중 최근 {_rows.Count}건입니다. 더 좁히려면 제목이나 상태로 거르십시오.")" />
-}
-
 @code {
     private IReadOnlyList<ImprovementRequest> _rows = [];
     private int _total;
@@ -209,6 +201,14 @@
 
         _rows = page.Items;
         _total = page.TotalCount;
+
+        // **잘렸으면 반드시 말한다.** 「전부다」로 읽고 넘어가면 없는 것을
+        // 찾게 된다. 조회의 **결과**라 안내 줄이 아니라 토스트로 나간다.
+        if (_total > _rows.Count)
+        {
+            Say($"전체 {_total}건 중 최근 {_rows.Count}건입니다. "
+                + "더 좁히려면 제목이나 상태로 거르십시오.");
+        }
 
         return _rows.Count;
     }, "올린 요청이 없습니다.", "요청 목록을 읽지 못했습니다");

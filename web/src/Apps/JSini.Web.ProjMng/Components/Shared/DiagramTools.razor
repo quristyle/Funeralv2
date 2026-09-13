@@ -40,12 +40,49 @@ else
                 <span class="pm-sr-only">@(Pinned ? "고정 해제" : "고정")</span>
             </button>
 
+            @* 미니맵. 그림이 화면보다 커지면 **지금 어디를 보고 있는지** 알
+               길이 그림 자체밖에 없다 — 켜면 오른쪽 아래에 전체가 뜨고,
+               그 안의 네모를 끌어 옮겨 다닌다.
+
+               **켜는 것이 기본이다.** 끈 채로 저장하면 그 그림은 다음에도
+               꺼진 채로 열린다(`ErdModel.View`). *@
+            <button type="button"
+                    class="pm-tools__icon @(MinimapOn ? "pm-tools__icon--on" : null)"
+                    title="@(MinimapOn ? "미니맵 끄기" : "미니맵 — 그림 전체와 지금 보는 자리를 오른쪽 아래에 띄웁니다")"
+                    @onclick="@ToggleMinimapAsync">
+                <span class="pm-icon-minimap" aria-hidden="true"></span>
+                <span class="pm-sr-only">@(MinimapOn ? "미니맵 끄기" : "미니맵 켜기")</span>
+            </button>
+
             <button type="button" class="pm-tools__icon" title="숨기기"
                     @onclick="@(() => OpenChanged.InvokeAsync(false))">
                 <span class="jsini-icon-close" aria-hidden="true"></span>
                 <span class="pm-sr-only">숨기기</span>
             </button>
         </header>
+
+        @* 바탕 — 없음·격자·점.
+
+           **자석이 여기 딸려 있다.** 격자나 점을 고르면 도형이 그 칸에 붙고
+           「없음」이면 아무 자리에나 놓인다. 보이는 것과 붙는 것을 갈라 두면
+           둘 다 나쁘다 — 그려 놓고 안 붙으면 「이 줄은 뭐냐」가 되고,
+           안 그리고 붙으면 「왜 자꾸 튀느냐」가 된다.
+
+           **머리띠의 아이콘으로 두지 않았다.** 셋 중 하나를 고르는 것이라
+           한 단추로 돌려 쓰면 다음에 무엇이 올지 눌러 봐야 안다. *@
+        <div class="pm-tools__seg" role="group" aria-label="바탕">
+            <span class="pm-tools__seg-label">바탕</span>
+
+            @foreach (var option in Backgrounds)
+            {
+                <button type="button"
+                        class="pm-tools__seg-btn @(Background == option.Kind ? "pm-tools__seg-btn--on" : null)"
+                        title="@option.Tip"
+                        @onclick="@(() => SetBackgroundAsync(option.Kind))">
+                    @option.Label
+                </button>
+            }
+        </div>
 
         @* 도형이 백여든 개다. **찾는 칸이 없으면 굴리다 지친다.** *@
         <div class="pm-tools__filter">
@@ -135,6 +172,55 @@ else
         {
             await Viewer.PaintPreviewsAsync();
         }
+    }
+
+    /// <summary>
+    /// 미니맵이 켜져 있는가. <b>그림 부품이 정본이다</b> — 여기에 따로
+    /// 들고 있으면 다시 그릴 때 둘이 어긋나고, 어긋나면 단추는 켜져 보이는데
+    /// 미니맵은 없는 쪽으로 틀린다.
+    /// </summary>
+    private bool MinimapOn => Viewer?.MinimapOn ?? false;
+
+    /// <summary>
+    /// 미니맵을 켜고 끈다. <b>누르면 이 부품이 다시 그려지므로</b> 단추의
+    /// 불빛과 설명이 함께 따라온다.
+    /// </summary>
+    private async Task ToggleMinimapAsync()
+    {
+        if (Viewer is null)
+        {
+            return;
+        }
+
+        await Viewer.ToggleMinimapAsync();
+    }
+
+    /// <summary>
+    /// 고를 수 있는 바탕. <b>이름(<c>Kind</c>)은 JS 가 아는 값</b>이라
+    /// 바꾸면 그쪽(`diagram-viewer.js` 의 `setBackground`)도 함께 고친다.
+    /// </summary>
+    private static readonly (string Kind, string Label, string Tip)[] Backgrounds =
+    [
+        ("none", "없음", "바탕을 비웁니다 — 도형을 아무 자리에나 놓습니다"),
+        ("grid", "격자", "격자를 깔고, 도형이 그 칸에 자석처럼 붙습니다 (Alt 를 누른 채 끌면 잠시 안 붙습니다)"),
+        ("dots", "점", "점을 찍고, 도형이 그 점에 자석처럼 붙습니다 (Alt 를 누른 채 끌면 잠시 안 붙습니다)"),
+    ];
+
+    /// <summary>
+    /// 지금 바탕. 미니맵과 같은 이유로 <b>그림 부품이 정본이다</b> —
+    /// 여기에 따로 들고 있으면 둘이 어긋난다.
+    /// </summary>
+    private string Background => Viewer?.Background ?? "none";
+
+    /// <summary>바탕을 고른다.</summary>
+    private async Task SetBackgroundAsync(string kind)
+    {
+        if (Viewer is null)
+        {
+            return;
+        }
+
+        await Viewer.SetBackgroundAsync(kind);
     }
 
     /// <summary>찾는 글자. 비어 있으면 전부 보여 준다.</summary>

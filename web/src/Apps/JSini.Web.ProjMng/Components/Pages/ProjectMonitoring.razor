@@ -111,8 +111,6 @@
     </div>
 }
 
-<PageNotice Text="@Notice" Tone="@Tone" />
-
 <CommCont Title="@TabTitle" Hint="@TabHint">
     <Actions>
         @* 탭 대신 고르개를 쓴다 — `DxTabs` 안에 표를 넣으면 펼칠 때 높이가
@@ -303,7 +301,7 @@
         }
 
         // 다섯을 나란히. 서로 기다릴 이유가 없다.
-        var wbs = Wbs.ListAsync(ProjectRid, scheduleType: "WBS");
+        var wbs = Wbs.ListAsync(ProjectRid, scheduleTypes: ["WBS"]);
         var summary = Wbs.SummaryAsync(ProjectRid.Value);
         var sources = Sources.ListAsync(ProjectRid);
         var users = Users.ListAsync(ProjectRid);

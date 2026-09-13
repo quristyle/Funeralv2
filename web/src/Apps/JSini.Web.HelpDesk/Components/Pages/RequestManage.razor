@@ -64,8 +64,6 @@
     </Fields>
 </CommSch>
 
-<PageNotice Text="@Notice" Tone="@Tone" />
-
 <CommCont>
     <CommGrd TItem="ImprovementRequest" Data="@_rows" PageSize="25"
              ExportName="요청관리"
@@ -151,12 +149,6 @@
         </Columns>
     </CommGrd>
 </CommCont>
-
-@if (_total > _rows.Count)
-{
-    <PageNotice Tone="NoticeTone.Info"
-                Text="@($"전체 {_total}건 중 {_rows.Count}건을 읽었습니다. 조건을 좁히면 나머지가 보입니다.")" />
-}
 
 @code {
     private IReadOnlyList<ImprovementRequest> _rows = [];
@@ -247,6 +239,13 @@
         ];
 
         _total = page.TotalCount;
+
+        // **잘렸으면 반드시 말한다.** 「전부다」로 읽고 넘어가면 없는 것을
+        // 찾게 된다. 조회의 **결과**라 안내 줄이 아니라 토스트로 나간다.
+        if (_total > _rows.Count)
+        {
+            Say($"전체 {_total}건 중 {_rows.Count}건을 읽었습니다. 조건을 좁히면 나머지가 보입니다.");
+        }
 
         return _rows.Count;
     }, "조건에 맞는 요청이 없습니다.", "요청 목록을 읽지 못했습니다");

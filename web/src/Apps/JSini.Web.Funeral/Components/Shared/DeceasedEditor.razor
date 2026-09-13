@@ -32,7 +32,6 @@
 <CommPopup Visible="@Visible" VisibleChanged="@OnVisibleChanged"
          HeaderText="@(IsNew ? "고인 등록" : "고인 수정")" Width="880px" ShowFooter="false">
     <BodyContentTemplate Context="popup">
-        <PageNotice Text="@Notice" Tone="@Tone" />
 
         @if (_form is null)
         {

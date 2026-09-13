@@ -35,6 +35,17 @@
 
 <div class="pm-diagram" style="height: @Height" @ref="_container"></div>
 
+@* 미니맵이 들어갈 자리.
+
+   **캔버스 안이 아니라 형제다.** 안에 넣으면 미니맵을 끄는 손짓이 본
+   그래프의 칸까지 거슬러 올라가 「빈 자리를 눌렀다」로 읽힌다 —
+   미니맵을 끌 때마다 본 그림이 함께 밀린다(`diagram-viewer.js` 의 머리말).
+
+   켜기 전에는 `display: none` 인 빈 칸이라 아무 값도 치르지 않는다.
+   자리잡기는 부모(`.pm-diagram-host`)가 한다 — 그 칸이 `position: relative`
+   이므로 오른쪽 아래에 앉는다. *@
+<div class="pm-minimap" @ref="_minimap"></div>
+
 @code {
     /// <summary>도구상자 한 칸.</summary>
     /// <param name="Kind">JS 에 돌려줄 값.</param>
@@ -43,6 +54,10 @@
     public sealed record DiagramShape(string Kind, string Label, string? Group = null);
 
     private ElementReference _container;
+
+    /// <summary>미니맵이 들어갈 빈 칸. 채우는 것은 JS 다.</summary>
+    private ElementReference _minimap;
+
     private IJSObjectReference? _module;
     private IJSObjectReference? _instance;
 
@@ -72,6 +87,22 @@
     [JSInvokable]
     public Task NotifyNotice(string? text) => OnNotice.InvokeAsync(text ?? string.Empty);
 
+    /// <summary>
+    /// <kbd>Ctrl</kbd>+<kbd>S</kbd> 를 눌렀다. <b>이것을 받는 화면만 그 키를
+    /// 가로챈다</b> — 안 받는 화면에서까지 브라우저의 「페이지 저장」을 막고
+    /// 아무 일도 안 하면 그쪽이 더 나쁘다.
+    ///
+    /// <para>
+    /// 이름을 고치던 중이었으면 <b>확정한 뒤</b> 올라온다. 안 그러면 방금 친
+    /// 글자를 뺀 채로 저장된다.
+    /// </para>
+    /// </summary>
+    [Parameter] public EventCallback OnSave { get; set; }
+
+    /// <summary>JS 에서 부른다. <b>이름을 바꾸면 그쪽도 함께 고친다.</b></summary>
+    [JSInvokable]
+    public Task NotifySave() => OnSave.InvokeAsync();
+
     /// <summary>JS 가 <see cref="NotifyChanged"/> 를 부를 수 있게 잡아 둔 참조.</summary>
     private DotNetObjectReference<DiagramViewer>? _self;
 
@@ -79,11 +110,24 @@
     [JSInvokable]
     public Task NotifyChanged() => OnChanged.InvokeAsync();
 
-    /// <summary>모델을 캔버스에 그린다. 기존 도형은 모두 지운다.</summary>
+    /// <summary>
+    /// 모델을 캔버스에 그린다. 기존 도형은 모두 지운다.
+    ///
+    /// <para>
+    /// 저장본에 <see cref="ErdModel.View"/> 가 있으면 <b>보던 자리(배율·이동)와
+    /// 미니맵까지 되돌린다.</b> 없으면(옛 그림) 화면 상태는 건드리지 않는다.
+    /// </para>
+    /// </summary>
     public async Task LoadAsync(ErdModel model)
     {
         var instance = await EnsureAsync();
-        await instance.InvokeVoidAsync("load", model);
+
+        // **돌려받은 값으로 맞춘다.** 우리가 넘긴 값이 아니라 실제로 적용된
+        // 상태다 — 저장본에 없었으면 원래 상태가 그대로 돌아온다.
+        var view = await instance.InvokeAsync<ErdViewport>("load", model);
+
+        MinimapOn = view?.Minimap ?? MinimapOn;
+        Background = view?.Background ?? Background;
     }
 
     /// <summary>
@@ -188,6 +232,57 @@
     /// </summary>
     public Task DeleteSelectionAsync() => InvokeIfReadyAsync("deleteSelection");
 
+    /// <summary>
+    /// 지금 바탕. <c>none</c> · <c>grid</c> · <c>dots</c>.
+    /// <b>도구상자가 어느 칸에 불을 켤지 읽는다.</b>
+    /// </summary>
+    public string Background { get; private set; } = "none";
+
+    /// <summary>
+    /// 바탕을 고른다.
+    ///
+    /// <para>
+    /// <b>자석이 여기 딸려 있다</b> — 격자·점을 고르면 도형이 그 칸에 붙고,
+    /// 「없음」이면 아무 자리에나 놓인다. 보이는 것과 붙는 것을 갈라 두면
+    /// 둘 다 나쁘기 때문이다(JS 쪽 머리말). 잠시 안 붙이려면 <kbd>Alt</kbd>
+    /// 를 누른 채 끈다.
+    /// </para>
+    /// </summary>
+    /// <param name="kind"><c>none</c> · <c>grid</c> · <c>dots</c>.</param>
+    /// <returns>실제로 적용된 이름. <b>JS 가 돌려준 값을 그대로 쓴다.</b></returns>
+    public async Task<string> SetBackgroundAsync(string kind)
+    {
+        var instance = await EnsureAsync();
+
+        Background = await instance.InvokeAsync<string>("setBackground", kind);
+        return Background;
+    }
+
+    /// <summary>
+    /// 미니맵이 켜져 있는가. <b>도구상자가 단추를 켜고 끄는 데 읽는다.</b>
+    /// </summary>
+    public bool MinimapOn { get; private set; }
+
+    /// <summary>
+    /// 미니맵을 켜거나 끈다.
+    ///
+    /// <para>
+    /// <b>기본은 켬이다.</b> 끈 채로 저장하면 그 그림은 다음에도 꺼진 채로
+    /// 열린다(<see cref="ErdModel.View"/>).
+    /// </para>
+    /// </summary>
+    /// <returns>
+    /// 바뀐 뒤 상태. <b>JS 가 돌려준 값을 그대로 쓴다</b> — 켜지 못한 경우
+    /// (그릴 자리가 없다)에도 화면이 켜진 것으로 보이면 안 된다.
+    /// </returns>
+    public async Task<bool> ToggleMinimapAsync()
+    {
+        var instance = await EnsureAsync();
+
+        MinimapOn = await instance.InvokeAsync<bool>("minimap", !MinimapOn);
+        return MinimapOn;
+    }
+
     public Task ZoomInAsync() => InvokeIfReadyAsync("zoomIn");
 
     public Task ZoomOutAsync() => InvokeIfReadyAsync("zoomOut");
@@ -228,7 +323,15 @@
 
         try
         {
-            _instance = await _module.InvokeAsync<IJSObjectReference>("create", _container, _self);
+            _instance = await _module.InvokeAsync<IJSObjectReference>(
+                "create", _container, _self, _minimap);
+
+            // **미니맵은 켜고 시작한다**(기본 설정). 저장본에 끈 채로 남아
+            // 있으면 `LoadAsync` 가 그때 끈다.
+            MinimapOn = await _instance.InvokeAsync<bool>("minimap", true);
+
+            // Ctrl+S 는 **받을 화면에서만** 가로챈다.
+            await _instance.InvokeVoidAsync("saveShortcut", OnSave.HasDelegate);
         }
         catch
         {
@@ -281,5 +384,8 @@
         _self?.Dispose();
         _self = null;
         _creating = null;
+        MinimapOn = true;
+        Background = "none";
+
     }
 }

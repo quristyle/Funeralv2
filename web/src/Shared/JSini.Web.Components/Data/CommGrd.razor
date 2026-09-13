@@ -37,8 +37,6 @@
         <div class="commgrd__toolbar">@Toolbar</div>
     }
 
-    <PageNotice Text="@Notice" Tone="@Tone" />
-
     <DxGrid @ref="_grid"
             Data="@Data"
             PageSize="15"
@@ -58,6 +56,10 @@
             FilterCriteriaChanged="@OnFilterCriteriaChanged"
             CustomizeElement="@OnCustomizeElement"
             LayoutAutoSaving="@OnLayoutChanged"
+            AllowDragRows="@AllowDragRows"
+            AllowedDropTarget="@AllowedDropTarget"
+            DropTargetMode="@DropTargetMode"
+            ItemsDropped="@ItemsDropped"
             SelectedDataItem="@_selected"
             SelectedDataItemChanged="@OnSelectedDataItemChangedAsync"
             DetailRowDisplayMode="@(DetailRowTemplate is null ? GridDetailRowDisplayMode.Never : GridDetailRowDisplayMode.Auto)"
@@ -344,6 +346,66 @@
 
     /// <summary>고른 줄이 바뀌었을 때. 여기서 받은 값이 다음 렌더의 선택이 된다.</summary>
     [Parameter] public EventCallback<TItem?> SelectedItemChanged { get; set; }
+
+    /// <summary>
+    /// 줄을 끌어 옮길 수 있는가. <b>권한으로 켜고 끄는 자리</b>다 —
+    /// <c>AllowDragRows="@(_canMove)"</c>.
+    ///
+    /// <para>
+    /// 「수정」 단추를 감추는 것과 <b>같은 판정</b>을 써야 한다
+    /// (<c>PermissionPath</c>). 두 판정이 갈리면 「단추는 없는데 끌어
+    /// 옮기기는 된다」가 된다. <c>PermissionView</c> 로는 할 수 없다 —
+    /// 그릴지 말지가 아니라 파라미터로 켜고 끄는 것이라서.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>차례가 뜻을 갖는 표에서만 켠다.</b> 정렬·필터로 보는 표에서 켜면
+    /// 끌어 놓은 자리가 다음 조회에 그대로 없어져, 옮긴 것이 저장이 안 된
+    /// 것처럼 보인다.
+    /// </para>
+    /// </summary>
+    [Parameter] public bool AllowDragRows { get; set; }
+
+    /// <summary>
+    /// 어디에 놓을 수 있는가. 기본은 <b>이 표 안</b>이다.
+    ///
+    /// <para>
+    /// 다른 부품으로 끌고 나가는 길(<c>External</c>)을 열어 두면 받을 곳이
+    /// 없는 화면에서 <b>끌다가 사라지는 것처럼</b> 보인다. 받을 부품을 실제로
+    /// 둔 화면만 이 값을 바꾼다.
+    /// </para>
+    /// </summary>
+    [Parameter] public GridAllowedDropTarget AllowedDropTarget { get; set; } = GridAllowedDropTarget.Internal;
+
+    /// <summary>
+    /// 놓을 자리를 줄 <b>사이</b>까지 잡는다. 기본이 그렇다.
+    ///
+    /// <para>
+    /// <c>Component</c> 로 두면 놓을 자리가 「이 표 안」 하나뿐이라 <b>차례를
+    /// 바꿀 수가 없다</b> — 표에서 끌어 옮기는 이유가 대개 그것이다.
+    /// </para>
+    /// </summary>
+    [Parameter] public GridDropTargetMode DropTargetMode { get; set; } = GridDropTargetMode.BetweenRows;
+
+    /// <summary>
+    /// 줄을 끌어다 놓았을 때. 어디서 어디로 갔는지는 이 알림이 준다 —
+    /// 놓은 줄(<c>DroppedItems</c>) · 놓인 자리(<c>TargetItem</c> ·
+    /// <c>DropPosition</c>).
+    ///
+    /// <para>
+    /// <b>이 이름을 선언해 둔 이유는 splat 으로 넘길 수 없기 때문이다.</b>
+    /// <c>EventCallback</c> 은 Razor 가 화면 쪽에서 감싸 줘야 하고, 그러려면
+    /// 이 부품이 그 이름을 파라미터로 알고 있어야 한다. 나머지 셋도 같이
+    /// 선언한 이유는 <c>CommTree</c> 와 같다 — enum 두 개는 splat 으로 주면
+    /// Coerce 가 글자를 그대로 넘겨 형이 안 맞는다.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>표는 스스로 줄을 옮기지 않는다.</b> 옮긴 결과를 자료에 반영하고
+    /// 다시 읽는 것은 화면 몫이다 — 저장에 실패했을 때 되돌릴 수 있어야 한다.
+    /// </para>
+    /// </summary>
+    [Parameter] public EventCallback<GridItemsDroppedEventArgs> ItemsDropped { get; set; }
 
     /// <summary>선언하지 않은 모든 DxGrid 파라미터.</summary>
     [Parameter(CaptureUnmatchedValues = true)]

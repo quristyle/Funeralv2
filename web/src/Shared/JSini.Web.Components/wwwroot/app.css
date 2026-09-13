@@ -2725,6 +2725,7 @@ button.jsini-crumbs__item:hover { opacity: 1; }
 .jsini-badge--on { border-color: #2e7d32; color: #2e7d32; }
 .jsini-badge--off { border-color: var(--jsini-text-muted); color: var(--jsini-text-muted); }
 .jsini-badge--warn { border-color: #b26a00; color: #b26a00; }
+.jsini-badge--err { border-color: #d32f2f; color: #d32f2f; }
 
 /* 통계 타일 묶음. 화면 위쪽에 숫자 넷 안팎을 늘어놓는 자리다. */
 .jsini-stats {

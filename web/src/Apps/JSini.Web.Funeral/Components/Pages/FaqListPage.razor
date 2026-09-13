@@ -65,8 +65,6 @@
     </Actions>
 </CommSch>
 
-<PageNotice Text="@Notice" Tone="@Tone" />
-
 @foreach (var group in _items.GroupBy(f => string.IsNullOrWhiteSpace(f.Category) ? "기타" : f.Category))
 {
     <section class="fn-faq">

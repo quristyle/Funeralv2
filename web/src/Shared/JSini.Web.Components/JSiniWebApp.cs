@@ -287,6 +287,10 @@ public static class JSiniWebApp
         // 화면을 옮기는 동안의 표시. 레이아웃이 켜고 `DataPage` 가 끈다.
         services.AddScoped<PageTransition>();
 
+        // 동작의 결과를 알리는 토스트. **회로마다 하나** — 싱글턴으로 두면
+        // 남이 저장한 것이 내 화면에 뜬다(Toasts 머리말).
+        services.AddScoped<Toasts>();
+
         // 헤더의 브레드크럼이 「이 메뉴를 사이드바에서 보여 달라」고 하는 통.
         // 그 둘은 형제도 부모 자식도 아니라 파라미터로 잇지 못한다(MenuReveal 머리말).
         services.AddScoped<MenuReveal>();
