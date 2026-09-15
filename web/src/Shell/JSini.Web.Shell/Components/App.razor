@@ -76,6 +76,44 @@
         <a href="" class="dismiss" style="float: right;">닫기</a>
     </div>
 
+    @*
+        회로가 끊겼을 때 뜨는 대화상자.
+
+        [우리가 선언하지 않으면 Blazor 가 자기 것을 만든다]
+
+        그 기본 상자는 **바탕색을 정하지 않아** 본문에서 물려받는다. 어두운
+        테마에서 흰 바탕에 밝은 글씨가 되어 읽을 수가 없었다. 밝은 테마에서는
+        우연히 읽혀서 한동안 드러나지 않았다.
+
+        여기 적어 두면 Blazor 는 만들지 않고 **이것을 쓴다.** 모양은 app.css
+        의 `#components-reconnect-modal` 이 쥐고, 상태에 따라 안의 문단만
+        보였다 숨는다 — 클래스를 갈아 끼우는 것은 프레임워크가 한다.
+
+        아래 띠(`blazor-error-ui`)와 역할이 다르다. 저쪽은 **회로가 죽어
+        되돌릴 수 없는** 경우고, 이쪽은 **다시 붙는 중**이라 기다리면 된다.
+    *@
+    <div id="components-reconnect-modal">
+        <div class="jsini-reconnect">
+            @* 도는 고리. **다시 붙는 중일 때만** 돈다 — 실패한 뒤에도 돌면
+               아직 뭔가 하고 있다는 거짓말이 된다. *@
+            <div class="jsini-reconnect__spinner" aria-hidden="true"></div>
+
+            <p class="jsini-reconnect__trying">
+                <strong>연결이 끊겼습니다.</strong>
+                다시 잇고 있습니다… 잠시 기다려 주십시오.
+            </p>
+            <p class="jsini-reconnect__failed">
+                <strong>다시 잇지 못했습니다.</strong>
+                <a href="" onclick="window.Blazor.reconnect(); return false;">다시 시도</a>
+            </p>
+            <p class="jsini-reconnect__rejected">
+                <strong>서버가 이 연결을 더 받지 않습니다.</strong>
+                화면을 새로 열어야 합니다.
+                <a href="" onclick="location.reload(); return false;">새로고침</a>
+            </p>
+        </div>
+    </div>
+
     <script src="_framework/blazor.web.js"></script>
 
     @*
