@@ -62,7 +62,19 @@ else
         </div>
     </PageNotice>
 
-    <iframe class="jsini-embed" src="@Source" title="@(Menu?.Title ?? "바깥 화면")"></iframe>
+    @*
+        감싸개가 하나 더 있는 이유는 **iframe 의 세로 막대를 감추기 위해서**다.
+
+        그 막대는 끼워 넣은 문서가 그리는 것이라 우리 CSS 가 닿지 않는다
+        (출처가 다르면 브라우저가 막는다 — `contentDocument` 가 null 이다).
+        그래서 얇게 만들 수는 없고, iframe 을 막대 폭만큼 넓혀 **막대를 감싸개
+        밖으로 밀어낸 뒤 잘라 낸다.** 휠과 손가락 스크롤은 그대로 된다.
+
+        치수와 까닭은 app.css 의 `.jsini-embed-clip` 에 적었다.
+    *@
+    <div class="jsini-embed-clip">
+        <iframe class="jsini-embed" src="@Source" title="@(Menu?.Title ?? "바깥 화면")"></iframe>
+    </div>
 }
 
 @code {

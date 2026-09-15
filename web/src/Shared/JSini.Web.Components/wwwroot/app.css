@@ -4277,14 +4277,44 @@ button.jsini-crumbs__item:hover { opacity: 1; }
    수(위 「본문 높이를 꽉 채운다」)이고, `:has()` 로 이 화면에만 건다.
    ---------------------------------------------------------- */
 
-.jsini-embed {
-  width: 100%;
+/* ── 끼워 넣은 화면의 세로 막대를 감춘다 ─────────────────────
+
+   그 막대는 **끼워 넣은 문서가 그리는 것**이다. 출처가 다르면 브라우저가
+   우리 CSS 를 그 안으로 들여보내지 않아(`contentDocument` 가 null) 얇게
+   만들 방법이 없다. 지금 띄우는 것이 그렇다 — 포털은 jsini.co.kr 이고
+   띄우는 것은 61208 포트의 다른 서버다.
+
+   그래서 **감춘다.** iframe 을 막대 폭만큼 넓혀 막대를 감싸개 밖으로 밀어낸
+   뒤, 감싸개가 잘라 낸다. 휠과 손가락 스크롤은 그대로 된다 — 없어지는 것은
+   막대 그림뿐이다.
+
+   [잃는 것도 적어 둔다]
+
+   지금 어디를 보고 있는지·얼마나 남았는지를 알려 주던 표시가 사라진다.
+   끼워 넣는 것이 대시보드라 「위에서 아래로 한 번 훑는」 화면이어서 골랐다.
+   되돌리려면 이 규칙 묶음만 지우면 된다.
+
+   [`--jsini-embed-bar` 는 막대 폭이다]
+
+   17px 은 Windows·Linux 의 흔한 값이다. macOS 처럼 막대가 내용 위에 겹쳐
+   뜨는(overlay) 환경에서는 막대가 자리를 안 차지하므로 **그만큼 내용이
+   잘린다.** 운영에서 보는 자리가 사무실 데스크톱이라 이 값으로 두었고,
+   어긋나면 이 한 줄만 고치면 된다.
+   ---------------------------------------------------------- */
+
+:root {
+  --jsini-embed-bar: 17px;
+}
+
+.jsini-embed-clip {
+  /* 밖으로 민 막대를 여기서 잘라 낸다. 테두리와 모서리도 이쪽이 쥔다 —
+     iframe 에 두면 넓힌 만큼 오른쪽 테두리가 잘려 나간다. */
+  overflow: hidden;
 
   /* :has() 를 모르는 브라우저를 위한 바닥. 아래 규칙이 이기면 안 쓰인다. */
   height: calc(100vh - 56px - 10rem);
 
-  /* 창이 아주 낮을 때의 바닥. 이때는 막대가 생기는 것이 맞다 —
-     그보다 줄이면 끼워 넣은 화면을 읽을 수 없다. */
+  /* 창이 아주 낮을 때의 바닥. 그보다 줄이면 끼워 넣은 화면을 읽을 수 없다. */
   min-height: 360px;
 
   border: 1px solid var(--jsini-border, #e0e0e0);
@@ -4292,17 +4322,24 @@ button.jsini-crumbs__item:hover { opacity: 1; }
   background: #fff;
 }
 
-.jsini-shell__content:has(> .jsini-embed) {
+.jsini-embed {
+  display: block;
+  width: calc(100% + var(--jsini-embed-bar));
+  height: 100%;
+  border: 0;
+}
+
+.jsini-shell__content:has(> .jsini-embed-clip) {
   display: flex;
   flex-direction: column;
 }
 
 /* 안내 줄은 제 높이만큼만. 없으면 iframe 에 자리를 뺏겨 글이 눌린다. */
-.jsini-shell__content:has(> .jsini-embed) > *:not(.jsini-embed) {
+.jsini-shell__content:has(> .jsini-embed-clip) > *:not(.jsini-embed-clip) {
   flex: none;
 }
 
-.jsini-shell__content:has(> .jsini-embed) > .jsini-embed {
+.jsini-shell__content:has(> .jsini-embed-clip) > .jsini-embed-clip {
   flex: 1;
   height: auto;
 }
