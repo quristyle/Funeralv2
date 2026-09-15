@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Reflection;
 using JSini.Web.Abstractions;
 using JSini.Web.Components.Data;
@@ -69,6 +70,8 @@ public static class JSiniWebApp
     {
         var services = builder.Services;
         var configuration = builder.Configuration;
+
+        UseDashedDates();
 
         // ── 화면 ─────────────────────────────────────────────────
         services.AddDevExpressBlazor();
@@ -356,6 +359,45 @@ public static class JSiniWebApp
             routeAssemblies.Length > 0 ? routeAssemblies : [Assembly.GetEntryAssembly()!]));
 
         return builder;
+    }
+
+    /// <summary>
+    /// 날짜의 <b>기본</b> 표기를 <c>yyyy-MM-dd</c> 로 못 박는다.
+    ///
+    /// [왜 필요한가]
+    ///
+    /// 화면 백여 개가 이미 <c>DisplayFormat="yyyy-MM-dd"</c> 를 손으로 적고 있다.
+    /// 그런데 그것을 적지 않은 칸은 <b>CurrentCulture 의 짧은 날짜</b>로 떨어지고,
+    /// ko-KR 의 그것은 <c>yyyy. M. d.</c> 다 — 회사 관리의 「승인일」이
+    /// <c>2026. 9. 15.</c> 로 보이던 것이 그 경우다.
+    ///
+    /// 그래서 <b>한 화면씩 고치지 않는다.</b> 적지 않은 자리의 기본값을 화면들이
+    /// 이미 합의한 그 서식으로 맞추면, 지금 어긋나 있는 칸과 앞으로 새로 생길
+    /// 칸이 한꺼번에 맞는다. 적어 둔 화면들은 값이 같아서 달라지는 것이 없다.
+    ///
+    /// [문화권 자체는 바꾸지 않는다]
+    ///
+    /// ko-KR 을 복제해 <b>날짜 서식만</b> 갈아 끼운다. 숫자·통화·요일 이름·
+    /// 오전/오후는 그대로다. 서식만 바꾸므로 시각(<c>HH:mm</c>)도 건드리지 않는다 —
+    /// 화면들이 적고 있는 것이 <c>yyyy-MM-dd HH:mm</c> 이고 그 뒤쪽은 이미 맞다.
+    ///
+    /// 프로세스 전역이라 Blazor 회로에도 그대로 걸린다. 지역화 미들웨어를
+    /// 쓰지 않으므로 요청마다 문화권을 다시 정하는 곳이 없다.
+    /// </summary>
+    private static void UseDashedDates()
+    {
+        var culture = (CultureInfo)CultureInfo.GetCultureInfo("ko-KR").Clone();
+
+        culture.DateTimeFormat.ShortDatePattern = "yyyy-MM-dd";
+        culture.DateTimeFormat.DateSeparator = "-";
+
+        CultureInfo.DefaultThreadCurrentCulture = culture;
+        CultureInfo.DefaultThreadCurrentUICulture = culture;
+
+        // 이 메서드는 DI 를 세우는 중에 불린다. 그 일을 하는 스레드에도
+        // 걸어 두지 않으면 기동 중에 찍는 날짜만 옛 서식으로 남는다.
+        CultureInfo.CurrentCulture = culture;
+        CultureInfo.CurrentUICulture = culture;
     }
 
     /// <summary>

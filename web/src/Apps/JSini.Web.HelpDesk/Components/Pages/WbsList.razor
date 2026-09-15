@@ -83,7 +83,7 @@
             <PermissionView Action="MenuAction.Create">
                 @* 이 작업 아래에 하위 작업. 등록 폼에서 상위를 찾아
                    고르게 하면 작업이 수십 개일 때 자리를 잃는다. *@
-                <DxButton Text="하위 추가" RenderStyle="ButtonRenderStyle.Link"
+                <DxButton IconCssClass="jsini-icon-child-plus" RenderStyle="ButtonRenderStyle.Link"
                           Title="이 작업 아래에 하위 작업을 만든다"
                           Click="@(() => StartNew(item))" />
             </PermissionView>

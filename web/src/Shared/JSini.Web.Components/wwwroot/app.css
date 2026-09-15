@@ -172,6 +172,89 @@
 :root[data-dx-size='medium'] { --jsini-fs-base: 0.875rem; --jsini-chrome-scale: 0.929; }
 :root[data-dx-size='large'] { --jsini-fs-base: 1rem; --jsini-chrome-scale: 0.929; }
 
+/* ── 간격·모서리·그림자 사다리 (base-design) ────────────────
+
+   [글자 사다리와 같은 이유로 필요하다]
+
+   위에서 글자 크기를 사다리로 묶은 것과 **똑같은 문제가 여백에 있었다.**
+   `0.85rem` · `0.9rem` · `0.7rem` · `0.4rem` 처럼 자리마다 다른 값이 박혀
+   있어서, 나란히 놓인 두 판의 안쪽 여백이 1~2px 씩 어긋난다. 한 화면만
+   보면 안 보이고 화면을 옮겨 다닐 때 「뭔가 들쭉날쭉하다」로만 느껴진다.
+
+   [뿌리 값은 DevExpress 가 정한 것이다]
+
+   DevExpress Design System 의 기본 토큰(`--dxds-*`)을 그대로 딛는다
+   (docs.devexpress.com/DesignSystem/405636/foundation). 우리가 고른 숫자가
+   아니다 — 그리드·팝업·달력의 안쪽 여백이 이미 그 사다리로 잡혀 있어서,
+   다른 사다리를 쓰면 우리 판과 DevExpress 부품의 여백이 영영 안 맞는다.
+
+   그쪽 이름은 `160 = 1rem` 인 **1px 격자의 숫자**다(`--dxds-spacing-40`
+   = 0.25rem). 숫자를 그대로 쓰면 읽는 쪽이 매번 나눗셈을 해야 해서,
+   글자 사다리와 같은 이름(2xs…3xl)으로 다시 붙였다.
+
+   두 번째 값은 그 테마가 토큰을 안 내보낼 때를 위한 것이다 — Classic·
+   Bootstrap 테마에는 `--dxds-*` 가 없다.
+
+   [답답하던 것을 여기서 푼다]
+
+   판의 안쪽 여백이 **한 단계씩 좁게** 잡혀 있었다(조회 영역 13.6px,
+   본문 위 17.6px). 사다리로 옮기면서 그 자리들을 한 단 올렸다 —
+   늘어나는 것은 여백뿐이고 글자와 줄 높이는 그대로다.
+   ------------------------------------------------------------ */
+
+:root {
+  --jsini-sp-3xs: var(--dxds-spacing-20, 0.125rem);   /*  2px */
+  --jsini-sp-2xs: var(--dxds-spacing-40, 0.25rem);    /*  4px */
+  --jsini-sp-xs: var(--dxds-spacing-60, 0.375rem);    /*  6px */
+  --jsini-sp-sm: var(--dxds-spacing-80, 0.5rem);      /*  8px */
+  --jsini-sp-md: var(--dxds-spacing-120, 0.75rem);    /* 12px */
+  --jsini-sp-lg: var(--dxds-spacing-160, 1rem);       /* 16px */
+  --jsini-sp-xl: var(--dxds-spacing-200, 1.25rem);    /* 20px */
+  --jsini-sp-2xl: var(--dxds-spacing-240, 1.5rem);    /* 24px */
+  --jsini-sp-3xl: var(--dxds-spacing-320, 2rem);      /* 32px */
+
+  --jsini-radius-sm: var(--dxds-border-radius-40, 0.25rem);
+  --jsini-radius-md: var(--dxds-border-radius-60, 0.375rem);
+  --jsini-radius-lg: var(--dxds-border-radius-80, 0.5rem);
+  --jsini-radius-xl: var(--dxds-border-radius-120, 0.75rem);
+  --jsini-radius-full: var(--dxds-border-radius-full, 62rem);
+
+  --jsini-shadow-xs: var(--dxds-box-shadow-xs, 0 1px 2px rgb(0 0 0 / 14%));
+  --jsini-shadow-sm: var(--dxds-box-shadow-sm, 0 2px 4px rgb(0 0 0 / 14%));
+  --jsini-shadow-md: var(--dxds-box-shadow-md, 0 4px 8px rgb(0 0 0 / 14%));
+  --jsini-shadow-lg: var(--dxds-box-shadow-lg, 0 8px 16px rgb(0 0 0 / 14%));
+
+  /*
+    라벨이 **안에 떠 있는** 입력 칸의 높이.
+
+    DevExpress 기본 편집기는 32px 이다. 그 안에 라벨을 얹을 자리가 없어서
+    (글자 14px + 위아래 5px) 라벨이 들어가는 칸만 이만큼 키운다.
+
+    **모든 편집기를 키우지 않는다.** 표 안의 거르개 줄·셀 편집기까지 커지면
+    줄 높이가 통째로 늘어 한 화면에 보이는 줄이 줄어든다 — 그쪽은 라벨이
+    없으므로 키울 까닭도 없다.
+  */
+  /*
+    라벨이 **들어가 앉을 수 있는** 칸 높이. DevExpress 기본 편집기는 32px 인데
+    그 안에 라벨이 내려앉을 자리가 없다(글자 14px + 위아래 5px).
+
+    **32px 이다 — DevExpress 기본 편집기와 같은 값.** 라벨이 테두리로 나가
+    있으므로 칸 안에는 글자 한 줄만 있으면 되고, 그러면 기본값보다 키울
+    까닭이 없다. 글자(20px)에 위아래 4.8px 씩과 테두리 2px 을 더한 값이다.
+
+    42 → 38 → 32 로 내려왔다. 앞의 둘은 라벨이 칸 **안**에 있던 시절의
+    값이거나(42) 그 자국이 남은 값이다(38).
+  */
+  --jsini-field-h: 2rem;
+
+  /* 떠오른 라벨의 한가운데가 테두리에 오도록 **위로 반 줄** 올린다. 칸 위끝이
+     0 이라 자기 높이의 절반만큼 음수다. 0.6 은 글자 크기에 줄 간격(1.2)을
+     반으로 접은 값이다. */
+  --jsini-field-label-top: calc(var(--jsini-fs-2xs) * -0.6);
+
+
+}
+
 /*
   글꼴은 **여기서 정하지 않는다.** 테마가 거는 것을 쓴다.
 
@@ -193,7 +276,10 @@ body {
 
 body {
   font-size: var(--jsini-fs-md);
-  line-height: 1.45;
+
+  /* 데모(demos.devexpress.com/blazor)에서 잰 값이다 — 14px 글자에 21px 줄,
+     곧 1.5. 우리는 1.45 였고 그 0.05 가 글이 많은 화면에서 답답함으로 쌓인다. */
+  line-height: 1.5;
 }
 
 .jsini-hidden { display: none !important; }
@@ -1293,10 +1379,15 @@ body {
   overflow: hidden;
 }
 
-/* 데모: padding 1.1rem 1.5rem 0 */
+/*
+   본문 여백. 데모(demos.devexpress.com/blazor)를 다시 재어 맞췄다 —
+   그쪽 본문은 위아래로 **24px** 을 두고 시작한다. 우리는 위가 17.6px 이라
+   브레드크럼 줄에 본문이 바싹 붙어 있었고, 그 한 자리가 「답답하다」의
+   가장 큰 몫이었다. 아래는 굴러 내려갔을 때 마지막 줄이 붙지 않게 더 준다.
+*/
 .jsini-shell__content {
   flex: 1;
-  padding: 1.1rem 1.5rem 2rem;
+  padding: var(--jsini-sp-2xl) var(--jsini-sp-2xl) var(--jsini-sp-3xl);
   overflow: auto;
 
   /* 옮기는 동안의 덮개(`.jsini-pageload`)가 여기에 자리를 잡는다.
@@ -1506,111 +1597,204 @@ button.jsini-crumbs__item:hover { opacity: 1; }
 .jsini-icon-blank { background-color: transparent; }
 
 .jsini-icon-menu {
-  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M1 3h14v1.6H1zM1 7.2h14v1.6H1zM1 11.4h14V13H1z'/%3E%3C/svg%3E");
-  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M1 3h14v1.6H1zM1 7.2h14v1.6H1zM1 11.4h14V13H1z'/%3E%3C/svg%3E");
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M2 3.5a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5m0 4a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5m0 4a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M2 3.5a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5m0 4a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5m0 4a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5'/%3E%3C/svg%3E");
 }
 
 .jsini-icon-home {
-  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 1 0 8h2.4v7h4V10h3.2v5h4V8H16z'/%3E%3C/svg%3E");
-  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 1 0 8h2.4v7h4V10h3.2v5h4V8H16z'/%3E%3C/svg%3E");
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M7.313 1.262a1 1 0 0 1 1.374 0l4.844 4.579c.3.283.469.678.469 1.09v5.57a1.5 1.5 0 0 1-1.5 1.5h-2A1.5 1.5 0 0 1 9 12.5V10a.5.5 0 0 0-.5-.5h-1a.5.5 0 0 0-.5.5v2.5A1.5 1.5 0 0 1 5.5 14h-2A1.5 1.5 0 0 1 2 12.5V6.93c0-.412.17-.807.47-1.09zM8 1.988l-4.844 4.58A.5.5 0 0 0 3 6.93v5.57a.5.5 0 0 0 .5.5h2a.5.5 0 0 0 .5-.5V10a1.5 1.5 0 0 1 1.5-1.5h1A1.5 1.5 0 0 1 10 10v2.5a.5.5 0 0 0 .5.5h2a.5.5 0 0 0 .5-.5V6.93a.5.5 0 0 0-.156-.363z'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M7.313 1.262a1 1 0 0 1 1.374 0l4.844 4.579c.3.283.469.678.469 1.09v5.57a1.5 1.5 0 0 1-1.5 1.5h-2A1.5 1.5 0 0 1 9 12.5V10a.5.5 0 0 0-.5-.5h-1a.5.5 0 0 0-.5.5v2.5A1.5 1.5 0 0 1 5.5 14h-2A1.5 1.5 0 0 1 2 12.5V6.93c0-.412.17-.807.47-1.09zM8 1.988l-4.844 4.58A.5.5 0 0 0 3 6.93v5.57a.5.5 0 0 0 .5.5h2a.5.5 0 0 0 .5-.5V10a1.5 1.5 0 0 1 1.5-1.5h1A1.5 1.5 0 0 1 10 10v2.5a.5.5 0 0 0 .5.5h2a.5.5 0 0 0 .5-.5V6.93a.5.5 0 0 0-.156-.363z'/%3E%3C/svg%3E");
 }
 
-.jsini-icon-star,
+/* ── 표의 「관리」 칸이 쓰는 아이콘 ────────────────────────────
+
+   관리 칸의 단추는 **글자 없이 아이콘만** 쓴다. 까닭은 `.commgrd__actions`
+   머리말에 적어 두었다. 여기 일곱은 그래서 새로 필요해진 것들이고, 출처는
+   위 아이콘들과 같은 DevExpress Icon Library 다.
+   ------------------------------------------------------------ */
+
+/* 소속·역할을 뗀다 (subtract) */
+.jsini-icon-subtract {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3 8a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9A.5.5 0 0 1 3 8'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3 8a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9A.5.5 0 0 1 3 8'/%3E%3C/svg%3E");
+}
+
+/* 승인 · 완료 (checkmark_circle) */
+.jsini-icon-check-circle {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 2a6 6 0 1 1 0 12A6 6 0 0 1 8 2m0 1a5 5 0 1 0 0 10A5 5 0 0 0 8 3m-.75 6.042 2.87-2.878a.5.5 0 0 1 .766.637l-.058.07-3.224 3.232a.5.5 0 0 1-.638.059l-.07-.058-1.75-1.75a.5.5 0 0 1 .638-.765l.07.057zl2.87-2.878z'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 2a6 6 0 1 1 0 12A6 6 0 0 1 8 2m0 1a5 5 0 1 0 0 10A5 5 0 0 0 8 3m-.75 6.042 2.87-2.878a.5.5 0 0 1 .766.637l-.058.07-3.224 3.232a.5.5 0 0 1-.638.059l-.07-.058-1.75-1.75a.5.5 0 0 1 .638-.765l.07.057zl2.87-2.878z'/%3E%3C/svg%3E");
+}
+
+/* 거절 (close_circle) */
+.jsini-icon-close-circle {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 2a6 6 0 1 1 0 12A6 6 0 0 1 8 2m0 1a5 5 0 1 0 0 10A5 5 0 0 0 8 3M5.839 5.966l.057-.07a.5.5 0 0 1 .638-.057l.07.057L8 7.293l1.396-1.397a.5.5 0 0 1 .638-.057l.07.057a.5.5 0 0 1 .057.638l-.057.07L8.707 8l1.397 1.396a.5.5 0 0 1 .057.638l-.057.07a.5.5 0 0 1-.638.057l-.07-.057L8 8.707l-1.396 1.397a.5.5 0 0 1-.638.057l-.07-.057a.5.5 0 0 1-.057-.638l.057-.07L7.293 8 5.896 6.604a.5.5 0 0 1-.057-.638l.057-.07z'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 2a6 6 0 1 1 0 12A6 6 0 0 1 8 2m0 1a5 5 0 1 0 0 10A5 5 0 0 0 8 3M5.839 5.966l.057-.07a.5.5 0 0 1 .638-.057l.07.057L8 7.293l1.396-1.397a.5.5 0 0 1 .638-.057l.07.057a.5.5 0 0 1 .057.638l-.057.07L8.707 8l1.397 1.396a.5.5 0 0 1 .057.638l-.057.07a.5.5 0 0 1-.638.057l-.07-.057L8 8.707l-1.396 1.397a.5.5 0 0 1-.638.057l-.07-.057a.5.5 0 0 1-.057-.638l.057-.07L7.293 8 5.896 6.604a.5.5 0 0 1-.057-.638l.057-.07z'/%3E%3C/svg%3E");
+}
+
+/* 발인 · 출상 처리 (arrow_export_right) */
+.jsini-icon-export {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M1.5 3a.5.5 0 0 1 .5.5V12a.5.5 0 1 1-1 0V3.5a.5.5 0 0 1 .5-.5m9.146.646a.5.5 0 0 1 .708 0l3.5 3.5a.5.5 0 0 1 0 .707l-3.5 3.5a.5.5 0 0 1-.708-.707L13.293 8H4.5a.5.5 0 0 1 0-1h8.793l-2.647-2.647a.5.5 0 0 1 0-.707'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M1.5 3a.5.5 0 0 1 .5.5V12a.5.5 0 1 1-1 0V3.5a.5.5 0 0 1 .5-.5m9.146.646a.5.5 0 0 1 .708 0l3.5 3.5a.5.5 0 0 1 0 .707l-3.5 3.5a.5.5 0 0 1-.708-.707L13.293 8H4.5a.5.5 0 0 1 0-1h8.793l-2.647-2.647a.5.5 0 0 1 0-.707'/%3E%3C/svg%3E");
+}
+
+/* 영정 사진 (image) */
+.jsini-icon-image {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M11.5 5.502a1.002 1.002 0 1 1-2.004 0 1.002 1.002 0 0 1 2.004 0M2 4.5A2.5 2.5 0 0 1 4.5 2h7A2.5 2.5 0 0 1 14 4.5v7a2.5 2.5 0 0 1-2.5 2.5h-7A2.5 2.5 0 0 1 2 11.5zM4.5 3A1.5 1.5 0 0 0 3 4.5v7c0 .232.052.45.146.647l3.652-3.652a1.7 1.7 0 0 1 2.404 0l3.652 3.652c.094-.196.146-.415.146-.647v-7A1.5 1.5 0 0 0 11.5 3zm7.647 9.854L8.495 9.202a.7.7 0 0 0-.99 0l-3.652 3.652c.196.094.415.146.647.146h7c.232 0 .45-.053.647-.146'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M11.5 5.502a1.002 1.002 0 1 1-2.004 0 1.002 1.002 0 0 1 2.004 0M2 4.5A2.5 2.5 0 0 1 4.5 2h7A2.5 2.5 0 0 1 14 4.5v7a2.5 2.5 0 0 1-2.5 2.5h-7A2.5 2.5 0 0 1 2 11.5zM4.5 3A1.5 1.5 0 0 0 3 4.5v7c0 .232.052.45.146.647l3.652-3.652a1.7 1.7 0 0 1 2.404 0l3.652 3.652c.094-.196.146-.415.146-.647v-7A1.5 1.5 0 0 0 11.5 3zm7.647 9.854L8.495 9.202a.7.7 0 0 0-.99 0l-3.652 3.652c.196.094.415.146.647.146h7c.232 0 .45-.053.647-.146'/%3E%3C/svg%3E");
+}
+
+/* 화면을 끈다 (visibility_eye_off) */
+.jsini-icon-eye-off {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='m10.12 10.827 4.026 4.027a.5.5 0 0 0 .708-.708l-13-13a.5.5 0 1 0-.708.708l3.23 3.23A6 6 0 0 0 3.2 6.182a6.7 6.7 0 0 0-1.117 1.982c-.021.061-.047.145-.047.145l-.018.062s-.076.497.355.611a.5.5 0 0 0 .611-.355l.001-.003.008-.025.035-.109a5.7 5.7 0 0 1 .945-1.674 5 5 0 0 1 1.124-1.014l1.578 1.578a2.5 2.5 0 1 0 3.446 3.446m-.74-.74A1.5 1.5 0 1 1 7.413 8.12zM6.32 4.2l.854.854Q7.564 5 8 5c2.044 0 3.286.912 4.028 1.817a5.7 5.7 0 0 1 .945 1.674q.025.073.035.109l.008.025v.003l.001.001a.5.5 0 0 0 .966-.257v-.003l-.001-.004-.004-.013a2 2 0 0 0-.06-.187 6.7 6.7 0 0 0-1.117-1.982C11.905 5.089 10.396 4 8.002 4c-.618 0-1.177.072-1.681.199'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='m10.12 10.827 4.026 4.027a.5.5 0 0 0 .708-.708l-13-13a.5.5 0 1 0-.708.708l3.23 3.23A6 6 0 0 0 3.2 6.182a6.7 6.7 0 0 0-1.117 1.982c-.021.061-.047.145-.047.145l-.018.062s-.076.497.355.611a.5.5 0 0 0 .611-.355l.001-.003.008-.025.035-.109a5.7 5.7 0 0 1 .945-1.674 5 5 0 0 1 1.124-1.014l1.578 1.578a2.5 2.5 0 1 0 3.446 3.446m-.74-.74A1.5 1.5 0 1 1 7.413 8.12zM6.32 4.2l.854.854Q7.564 5 8 5c2.044 0 3.286.912 4.028 1.817a5.7 5.7 0 0 1 .945 1.674q.025.073.035.109l.008.025v.003l.001.001a.5.5 0 0 0 .966-.257v-.003l-.001-.004-.004-.013a2 2 0 0 0-.06-.187 6.7 6.7 0 0 0-1.117-1.982C11.905 5.089 10.396 4 8.002 4c-.618 0-1.177.072-1.681.199'/%3E%3C/svg%3E");
+}
+
+/* 새 판을 받아 간다 (arrow_download) */
+.jsini-icon-download {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 13h9a.5.5 0 0 1 .09.992L12.5 14h-9a.5.5 0 0 1-.09-.992zh9zM7.91 1.008 8 1a.5.5 0 0 1 .492.41l.008.09v8.792l2.682-2.681a.5.5 0 0 1 .638-.058l.07.058a.5.5 0 0 1 .057.638l-.058.069-3.535 3.536a.5.5 0 0 1-.638.057l-.07-.057-3.535-3.536a.5.5 0 0 1 .638-.765l.069.058L7.5 10.292V1.5a.5.5 0 0 1 .41-.492L8 1z'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 13h9a.5.5 0 0 1 .09.992L12.5 14h-9a.5.5 0 0 1-.09-.992zh9zM7.91 1.008 8 1a.5.5 0 0 1 .492.41l.008.09v8.792l2.682-2.681a.5.5 0 0 1 .638-.058l.07.058a.5.5 0 0 1 .057.638l-.058.069-3.535 3.536a.5.5 0 0 1-.638.057l-.07-.057-3.535-3.536a.5.5 0 0 1 .638-.765l.069.058L7.5 10.292V1.5a.5.5 0 0 1 .41-.492L8 1z'/%3E%3C/svg%3E");
+}
+
+/* 즐겨찾기. **모양까지 다르다** — 빈 별과 채운 별은 색을 못 보는 사람에게도
+   갈린다. 아래 금색은 채운 쪽을 한 번 더 구분해 주는 덤이다. */
+.jsini-icon-star {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M7.194 2.102a.9.9 0 0 1 1.614 0l1.521 3.082 3.401.494a.9.9 0 0 1 .5 1.535l-2.462 2.4.581 3.387a.9.9 0 0 1-1.306.948L8.001 12.35l-3.042 1.6a.9.9 0 0 1-1.306-.95l.58-3.387-2.46-2.399a.9.9 0 0 1 .499-1.535l3.4-.494zM8 2.726 6.546 5.673a.9.9 0 0 1-.677.493l-3.253.472L4.97 8.933a.9.9 0 0 1 .258.796l-.555 3.24 2.91-1.53a.9.9 0 0 1 .837 0l2.91 1.53-.556-3.24a.9.9 0 0 1 .258-.796l2.354-2.295-3.253-.472a.9.9 0 0 1-.677-.493z'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M7.194 2.102a.9.9 0 0 1 1.614 0l1.521 3.082 3.401.494a.9.9 0 0 1 .5 1.535l-2.462 2.4.581 3.387a.9.9 0 0 1-1.306.948L8.001 12.35l-3.042 1.6a.9.9 0 0 1-1.306-.95l.58-3.387-2.46-2.399a.9.9 0 0 1 .499-1.535l3.4-.494zM8 2.726 6.546 5.673a.9.9 0 0 1-.677.493l-3.253.472L4.97 8.933a.9.9 0 0 1 .258.796l-.555 3.24 2.91-1.53a.9.9 0 0 1 .837 0l2.91 1.53-.556-3.24a.9.9 0 0 1 .258-.796l2.354-2.295-3.253-.472a.9.9 0 0 1-.677-.493z'/%3E%3C/svg%3E");
+}
+
 .jsini-icon-star-on {
-  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='m8 1 2.1 4.3 4.7.7-3.4 3.3.8 4.7L8 11.8 3.8 14l.8-4.7L1.2 6l4.7-.7z'/%3E%3C/svg%3E");
-  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='m8 1 2.1 4.3 4.7.7-3.4 3.3.8 4.7L8 11.8 3.8 14l.8-4.7L1.2 6l4.7-.7z'/%3E%3C/svg%3E");
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M7.194 2.102a.9.9 0 0 1 1.614 0l1.521 3.082 3.401.494a.9.9 0 0 1 .5 1.535l-2.462 2.4.581 3.387a.9.9 0 0 1-1.306.948L8.001 12.35l-3.042 1.6a.9.9 0 0 1-1.306-.95l.58-3.387-2.46-2.399a.9.9 0 0 1 .499-1.535l3.4-.494zM8 2.726 6.546 5.673a.9.9 0 0 1-.677.493l-3.253.472L4.97 8.933a.9.9 0 0 1 .258.796l-.555 3.24 2.91-1.53a.9.9 0 0 1 .837 0l2.91 1.53-.556-3.24a.9.9 0 0 1 .258-.796l2.354-2.295-3.253-.472a.9.9 0 0 1-.677-.493z'/%3E%3Cpath d='M8.002 2.726 6.548 5.673a.9.9 0 0 1-.678.493l-3.253.472 2.354 2.295a.9.9 0 0 1 .259.796l-.556 3.24 2.91-1.53a.9.9 0 0 1 .837 0l2.91 1.53-.556-3.24a.9.9 0 0 1 .259-.796l2.353-2.295-3.252-.472a.9.9 0 0 1-.678-.493z' opacity='.4'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M7.194 2.102a.9.9 0 0 1 1.614 0l1.521 3.082 3.401.494a.9.9 0 0 1 .5 1.535l-2.462 2.4.581 3.387a.9.9 0 0 1-1.306.948L8.001 12.35l-3.042 1.6a.9.9 0 0 1-1.306-.95l.58-3.387-2.46-2.399a.9.9 0 0 1 .499-1.535l3.4-.494zM8 2.726 6.546 5.673a.9.9 0 0 1-.677.493l-3.253.472L4.97 8.933a.9.9 0 0 1 .258.796l-.555 3.24 2.91-1.53a.9.9 0 0 1 .837 0l2.91 1.53-.556-3.24a.9.9 0 0 1 .258-.796l2.354-2.295-3.253-.472a.9.9 0 0 1-.677-.493z'/%3E%3Cpath d='M8.002 2.726 6.548 5.673a.9.9 0 0 1-.678.493l-3.253.472 2.354 2.295a.9.9 0 0 1 .259.796l-.556 3.24 2.91-1.53a.9.9 0 0 1 .837 0l2.91 1.53-.556-3.24a.9.9 0 0 1 .259-.796l2.353-2.295-3.252-.472a.9.9 0 0 1-.678-.493z' opacity='.4'/%3E%3C/svg%3E");
 }
 
 /* 담긴 상태만 색으로 구분한다. 모양까지 바꾸면 두 아이콘을 관리하게 된다. */
 .jsini-icon-star-on { background-color: #e2a400; }
 
 /* 표 아래 띠의 칸별 검색 단추 둘. 깔때기와, 조건이 걸린 깔때기. */
+/* ── 아이콘은 **DevExpress Icon Library** 의 것이다 ──────────
+
+   위아래 `.jsini-icon-*` 서른 남짓은 손으로 그린 것이 아니라 DevExpress 의
+   아이콘 라이브러리(Fluent · Regular · Monochrome · 16px)에서 **모양을 그대로
+   옮겨 온 것**이다. 고르는 자리는 demos.devexpress.com/blazor/IconExplorer 다.
+
+   덕분에 우리 화면의 아이콘과 DevExpress 부품이 스스로 그리는 아이콘
+   (달력 · 드롭다운 화살표 · 닫기)이 같은 손에서 나온 그림이 된다. 섞여 있으면
+   획 두께와 모서리가 미묘하게 달라 「뭔가 짝이 안 맞는다」로 느껴진다.
+
+   [왜 파일을 참조하지 않고 옮겨 적었나]
+
+   `DxButton` 은 아이콘을 **CSS 클래스**로 받는다(`IconCssClass`). 그 자리에
+   SVG 조각을 넣을 수 없고, `mask-image: url(스프라이트.svg#이름)` 도 안 된다 —
+   `<symbol>` 은 조각으로 지목해도 그려지지 않는다.
+
+   게다가 그 라이브러리는 아직 **CTP** 라 `DevExpress.Images.Blazor` 패키지가
+   우리 nuget 피드에 올라와 있지 않다(찾아봤다). 정식 배포되면 그때
+   `_content/DevExpress.Images.Blazor/...` 를 직접 물리면 되고, **그때 고칠 곳은
+   이 파일 하나**다.
+
+   색과 크기는 지금까지처럼 `currentColor` 와 `--jsini-icon-size` 가 쥔다 —
+   마스크라 모양만 쓰기 때문이다.
+
+   이름 대조표는 아래 각 규칙 옆에 적지 않았다. 그 대신 여기 —
+   plus=add · refresh=arrow_sync · filter=filter_funnel ·
+   filter-off=filter_funnel_clear · excel=arrow_download · edit=edit_pen ·
+   trash=delete · search=search · star=star_outline · star-on=star ·
+   bell=alert · user=user_male · logout=sign_out · menu=menu_hamburger ·
+   palette=color_palette · moon=time_night · sun=weather_sunny ·
+   eye=visibility_eye · lock=lock · pin=pin · home=home · check=checkmark ·
+   close=cancel · undo=arrow_undo · more=dots_horizontal · fold=text_collapse_all ·
+   unfold=text_expand_all · expand=full_screen_maximize ·
+   child-plus=add_expand_square
+
+   **`jsini-icon-blank` 과 `jsini-icon-robot` 만 우리 것이다** — 앞엣것은 자리만
+   차지하는 빈칸이고, 뒤엣것에 맞는 그림이 그 라이브러리에 없다.
+   ------------------------------------------------------------ */
 .jsini-icon-filter {
-  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M1 2h14l-5.4 6.4V14L6.4 12.4V8.4z'/%3E%3C/svg%3E");
-  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M1 2h14l-5.4 6.4V14L6.4 12.4V8.4z'/%3E%3C/svg%3E");
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill-rule='evenodd' clip-rule='evenodd' d='m5.707 8.016.707-.745c.375.395.586.932.586 1.49v3.13l2 1.053V8.763c0-.56.21-1.096.586-1.491L12 4.726V3.054H4v1.672L6.414 7.27zM3.293 5.471l2.414 2.545c.188.198.293.466.293.746v3.128c0 .4.214.765.553.943l2 1.054c.665.35 1.447-.159 1.447-.943V8.763c0-.28.105-.548.293-.746l2.414-2.545c.188-.197.293-.466.293-.745V3.054C13 2.472 12.552 2 12 2H4c-.552 0-1 .472-1 1.054v1.672c0 .28.105.548.293.745'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill-rule='evenodd' clip-rule='evenodd' d='m5.707 8.016.707-.745c.375.395.586.932.586 1.49v3.13l2 1.053V8.763c0-.56.21-1.096.586-1.491L12 4.726V3.054H4v1.672L6.414 7.27zM3.293 5.471l2.414 2.545c.188.198.293.466.293.746v3.128c0 .4.214.765.553.943l2 1.054c.665.35 1.447-.159 1.447-.943V8.763c0-.28.105-.548.293-.746l2.414-2.545c.188-.197.293-.466.293-.745V3.054C13 2.472 12.552 2 12 2H4c-.552 0-1 .472-1 1.054v1.672c0 .28.105.548.293.745'/%3E%3C/svg%3E");
 }
 
 .jsini-icon-filter-off {
-  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M1 2h14l-5.4 6.4V14L6.4 12.4V8.4zM11.9 10.6l1.1-1.1 2.6 2.6-1.1 1.1z'/%3E%3Cpath d='M15.6 12.1l-1.1-1.1-2.6 2.6 1.1 1.1z'/%3E%3C/svg%3E");
-  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M1 2h14l-5.4 6.4V14L6.4 12.4V8.4zM11.9 10.6l1.1-1.1 2.6 2.6-1.1 1.1z'/%3E%3Cpath d='M15.6 12.1l-1.1-1.1-2.6 2.6 1.1 1.1z'/%3E%3C/svg%3E");
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M9.996 2a1 1 0 0 1 1 1v2.022a5.6 5.6 0 0 0-1 .001V3h-8v3.293L4.703 9l.067.073a1 1 0 0 1 .226.634v2.44l.29.105c.155.46.368.895.633 1.292l-1.427-.514a.75.75 0 0 1-.496-.706V9.707l-2.78-2.78a.75.75 0 0 1-.22-.53V3a1 1 0 0 1 1-1z'/%3E%3Cpath fill-rule='evenodd' clip-rule='evenodd' d='M10.5 15a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9m1.854-6.354a.5.5 0 0 1 0 .708L11.207 10.5l1.147 1.146a.5.5 0 0 1-.708.708L10.5 11.207l-1.146 1.147a.5.5 0 0 1-.708-.708L9.793 10.5 8.646 9.354a.5.5 0 1 1 .708-.708L10.5 9.793l1.146-1.147a.5.5 0 0 1 .708 0'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M9.996 2a1 1 0 0 1 1 1v2.022a5.6 5.6 0 0 0-1 .001V3h-8v3.293L4.703 9l.067.073a1 1 0 0 1 .226.634v2.44l.29.105c.155.46.368.895.633 1.292l-1.427-.514a.75.75 0 0 1-.496-.706V9.707l-2.78-2.78a.75.75 0 0 1-.22-.53V3a1 1 0 0 1 1-1z'/%3E%3Cpath fill-rule='evenodd' clip-rule='evenodd' d='M10.5 15a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9m1.854-6.354a.5.5 0 0 1 0 .708L11.207 10.5l1.147 1.146a.5.5 0 0 1-.708.708L10.5 11.207l-1.146 1.147a.5.5 0 0 1-.708-.708L9.793 10.5 8.646 9.354a.5.5 0 1 1 .708-.708L10.5 9.793l1.146-1.147a.5.5 0 0 1 .708 0'/%3E%3C/svg%3E");
 }
 
 /* 조회 영역의 단추 둘. 돋보기와 되돌리기. */
 .jsini-icon-search {
-  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M6.8 1a5.8 5.8 0 1 0 3.5 10.4l3.2 3.2 1.3-1.3-3.2-3.2A5.8 5.8 0 0 0 6.8 1zm0 1.8a4 4 0 1 1 0 8 4 4 0 0 1 0-8z'/%3E%3C/svg%3E");
-  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M6.8 1a5.8 5.8 0 1 0 3.5 10.4l3.2 3.2 1.3-1.3-3.2-3.2A5.8 5.8 0 0 0 6.8 1zm0 1.8a4 4 0 1 1 0 8 4 4 0 0 1 0-8z'/%3E%3C/svg%3E");
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M9.309 10.016a4.5 4.5 0 1 1 .707-.707l3.838 3.837a.5.5 0 0 1-.708.708zM10 6.5a3.5 3.5 0 1 0-7 0 3.5 3.5 0 0 0 7 0'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M9.309 10.016a4.5 4.5 0 1 1 .707-.707l3.838 3.837a.5.5 0 0 1-.708.708zM10 6.5a3.5 3.5 0 1 0-7 0 3.5 3.5 0 0 0 7 0'/%3E%3C/svg%3E");
 }
 
 .jsini-icon-undo {
-  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M7.5 3V1L3 4.5 7.5 8V5.6c2.4 0 4.4 1.9 4.4 4.2S9.9 14 7.5 14v1.6c3.3 0 6-2.6 6-5.8S10.8 3 7.5 3z'/%3E%3C/svg%3E");
-  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M7.5 3V1L3 4.5 7.5 8V5.6c2.4 0 4.4 1.9 4.4 4.2S9.9 14 7.5 14v1.6c3.3 0 6-2.6 6-5.8S10.8 3 7.5 3z'/%3E%3C/svg%3E");
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3 2.5a.5.5 0 0 1 1 0v3.843l3.171-3.171a4 4 0 0 1 5.657 5.656l-5.025 5.026a.5.5 0 0 1-.707-.708l5.025-5.025A3 3 0 1 0 7.878 3.88L4.757 7H8.5a.5.5 0 0 1 0 1H3.6a.6.6 0 0 1-.6-.6z'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3 2.5a.5.5 0 0 1 1 0v3.843l3.171-3.171a4 4 0 0 1 5.657 5.656l-5.025 5.026a.5.5 0 0 1-.707-.708l5.025-5.025A3 3 0 1 0 7.878 3.88L4.757 7H8.5a.5.5 0 0 1 0 1H3.6a.6.6 0 0 1-.6-.6z'/%3E%3C/svg%3E");
 }
 
 .jsini-icon-refresh {
-  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 2a6 6 0 1 0 5.7 4.1h-1.7A4.4 4.4 0 1 1 8 3.6c1.2 0 2.3.5 3.1 1.3L8.8 7.2H14V2l-1.8 1.8A5.9 5.9 0 0 0 8 2z'/%3E%3C/svg%3E");
-  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 2a6 6 0 1 0 5.7 4.1h-1.7A4.4 4.4 0 1 1 8 3.6c1.2 0 2.3.5 3.1 1.3L8.8 7.2H14V2l-1.8 1.8A5.9 5.9 0 0 0 8 2z'/%3E%3C/svg%3E");
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M7.146.646a.5.5 0 0 1 .708 0l1.5 1.5a.5.5 0 0 1 0 .708l-1.5 1.5a.5.5 0 1 1-.708-.708l.643-.642a5 5 0 0 0-2.937 8.88.5.5 0 1 1-.63.777A6 6 0 0 1 7.797 2.003l-.65-.65a.5.5 0 0 1 0-.707m3.929 2.766a.5.5 0 0 1 .703-.073 6 6 0 0 1-3.575 10.658l.65.65a.5.5 0 0 1-.707.707l-1.5-1.5a.5.5 0 0 1 0-.708l1.5-1.5a.5.5 0 0 1 .708.708l-.643.642a5 5 0 0 0 2.937-8.88.5.5 0 0 1-.073-.704'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M7.146.646a.5.5 0 0 1 .708 0l1.5 1.5a.5.5 0 0 1 0 .708l-1.5 1.5a.5.5 0 1 1-.708-.708l.643-.642a5 5 0 0 0-2.937 8.88.5.5 0 1 1-.63.777A6 6 0 0 1 7.797 2.003l-.65-.65a.5.5 0 0 1 0-.707m3.929 2.766a.5.5 0 0 1 .703-.073 6 6 0 0 1-3.575 10.658l.65.65a.5.5 0 0 1-.707.707l-1.5-1.5a.5.5 0 0 1 0-.708l1.5-1.5a.5.5 0 0 1 .708.708l-.643.642a5 5 0 0 0 2.937-8.88.5.5 0 0 1-.073-.704'/%3E%3C/svg%3E");
 }
 
 .jsini-icon-expand {
-  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M1 1h6v2H3v4H1zM9 1h6v6h-2V3H9zM1 9h2v4h4v2H1zM13 9h2v6H9v-2h4z'/%3E%3C/svg%3E");
-  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M1 1h6v2H3v4H1zM9 1h6v6h-2V3H9zM1 9h2v4h4v2H1zM13 9h2v6H9v-2h4z'/%3E%3C/svg%3E");
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.75 3a.75.75 0 0 0-.75.75V5.5a.5.5 0 0 1-1 0V3.75C2 2.784 2.784 2 3.75 2H5.5a.5.5 0 0 1 0 1zM10 2.5a.5.5 0 0 1 .5-.5h1.75c.966 0 1.75.784 1.75 1.75V5.5a.5.5 0 0 1-1 0V3.75a.75.75 0 0 0-.75-.75H10.5a.5.5 0 0 1-.5-.5M2.5 10a.5.5 0 0 1 .5.5v1.75c0 .414.336.75.75.75H5.5a.5.5 0 0 1 0 1H3.75A1.75 1.75 0 0 1 2 12.25V10.5a.5.5 0 0 1 .5-.5m11 0a.5.5 0 0 1 .5.5v1.75A1.75 1.75 0 0 1 12.25 14H10.5a.5.5 0 0 1 0-1h1.75a.75.75 0 0 0 .75-.75V10.5a.5.5 0 0 1 .5-.5'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.75 3a.75.75 0 0 0-.75.75V5.5a.5.5 0 0 1-1 0V3.75C2 2.784 2.784 2 3.75 2H5.5a.5.5 0 0 1 0 1zM10 2.5a.5.5 0 0 1 .5-.5h1.75c.966 0 1.75.784 1.75 1.75V5.5a.5.5 0 0 1-1 0V3.75a.75.75 0 0 0-.75-.75H10.5a.5.5 0 0 1-.5-.5M2.5 10a.5.5 0 0 1 .5.5v1.75c0 .414.336.75.75.75H5.5a.5.5 0 0 1 0 1H3.75A1.75 1.75 0 0 1 2 12.25V10.5a.5.5 0 0 1 .5-.5m11 0a.5.5 0 0 1 .5.5v1.75A1.75 1.75 0 0 1 12.25 14H10.5a.5.5 0 0 1 0-1h1.75a.75.75 0 0 0 .75-.75V10.5a.5.5 0 0 1 .5-.5'/%3E%3C/svg%3E");
 }
 
 .jsini-icon-bell {
-  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 1a1.2 1.2 0 0 1 1.2 1.2v.5A4.5 4.5 0 0 1 12.5 7v3l1.5 2H2l1.5-2V7a4.5 4.5 0 0 1 3.3-4.3v-.5A1.2 1.2 0 0 1 8 1zM6.2 13h3.6a1.8 1.8 0 0 1-3.6 0z'/%3E%3C/svg%3E");
-  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 1a1.2 1.2 0 0 1 1.2 1.2v.5A4.5 4.5 0 0 1 12.5 7v3l1.5 2H2l1.5-2V7a4.5 4.5 0 0 1 3.3-4.3v-.5A1.2 1.2 0 0 1 8 1zM6.2 13h3.6a1.8 1.8 0 0 1-3.6 0z'/%3E%3C/svg%3E");
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 2a4.5 4.5 0 0 0-4.5 4.5v2.401l-.964 2.414A.5.5 0 0 0 3 12h3c0 1.108.892 2 2 2s2-.892 2-2h3a.5.5 0 0 0 .464-.685L12.5 8.9V6.5A4.5 4.5 0 0 0 8 2m1 10c0 .556-.444 1-1 1s-1-.444-1-1zM4.5 6.5a3.5 3.5 0 1 1 7 0v2.498a.5.5 0 0 0 .036.185L12.262 11H3.738l.726-1.817a.5.5 0 0 0 .036-.185z'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 2a4.5 4.5 0 0 0-4.5 4.5v2.401l-.964 2.414A.5.5 0 0 0 3 12h3c0 1.108.892 2 2 2s2-.892 2-2h3a.5.5 0 0 0 .464-.685L12.5 8.9V6.5A4.5 4.5 0 0 0 8 2m1 10c0 .556-.444 1-1 1s-1-.444-1-1zM4.5 6.5a3.5 3.5 0 1 1 7 0v2.498a.5.5 0 0 0 .036.185L12.262 11H3.738l.726-1.817a.5.5 0 0 0 .036-.185z'/%3E%3C/svg%3E");
 }
 
 .jsini-icon-user {
-  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 8a3.4 3.4 0 1 0 0-6.8A3.4 3.4 0 0 0 8 8zm0 1.5c-3 0-6 1.5-6 3.4V15h12v-2.1c0-1.9-3-3.4-6-3.4z'/%3E%3C/svg%3E");
-  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 8a3.4 3.4 0 1 0 0-6.8A3.4 3.4 0 0 0 8 8zm0 1.5c-3 0-6 1.5-6 3.4V15h12v-2.1c0-1.9-3-3.4-6-3.4z'/%3E%3C/svg%3E");
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill-rule='evenodd' clip-rule='evenodd' d='M11.524 8c.9 0 1.689.774 1.424 1.712-.216.769-.628 1.827-1.393 2.702C10.775 13.304 9.629 14 8 14s-2.774-.696-3.554-1.586c-.765-.875-1.177-1.933-1.394-2.702C2.788 8.774 3.576 8 4.477 8zM4.477 9a.47.47 0 0 0-.357.148.31.31 0 0 0-.065.302c.197.702.557 1.603 1.184 2.32C5.853 12.47 6.723 13 8 13s2.147-.53 2.76-1.23c.628-.717.988-1.618 1.185-2.32a.31.31 0 0 0-.065-.302.47.47 0 0 0-.357-.148zM8 1.5A2.75 2.75 0 1 1 8 7a2.75 2.75 0 0 1 0-5.5m0 1A1.75 1.75 0 1 0 8 6a1.75 1.75 0 0 0 0-3.5'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill-rule='evenodd' clip-rule='evenodd' d='M11.524 8c.9 0 1.689.774 1.424 1.712-.216.769-.628 1.827-1.393 2.702C10.775 13.304 9.629 14 8 14s-2.774-.696-3.554-1.586c-.765-.875-1.177-1.933-1.394-2.702C2.788 8.774 3.576 8 4.477 8zM4.477 9a.47.47 0 0 0-.357.148.31.31 0 0 0-.065.302c.197.702.557 1.603 1.184 2.32C5.853 12.47 6.723 13 8 13s2.147-.53 2.76-1.23c.628-.717.988-1.618 1.185-2.32a.31.31 0 0 0-.065-.302.47.47 0 0 0-.357-.148zM8 1.5A2.75 2.75 0 1 1 8 7a2.75 2.75 0 0 1 0-5.5m0 1A1.75 1.75 0 1 0 8 6a1.75 1.75 0 0 0 0-3.5'/%3E%3C/svg%3E");
 }
 
 .jsini-icon-lock {
-  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 1a3.4 3.4 0 0 0-3.4 3.4V6H3.4v9h9.2V6h-1.2V4.4A3.4 3.4 0 0 0 8 1zm0 1.6a1.8 1.8 0 0 1 1.8 1.8V6H6.2V4.4A1.8 1.8 0 0 1 8 2.6zm0 6a1.4 1.4 0 0 1 .7 2.6V13H7.3v-1.8A1.4 1.4 0 0 1 8 8.6z'/%3E%3C/svg%3E");
-  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 1a3.4 3.4 0 0 0-3.4 3.4V6H3.4v9h9.2V6h-1.2V4.4A3.4 3.4 0 0 0 8 1zm0 1.6a1.8 1.8 0 0 1 1.8 1.8V6H6.2V4.4A1.8 1.8 0 0 1 8 2.6zm0 6a1.4 1.4 0 0 1 .7 2.6V13H7.3v-1.8A1.4 1.4 0 0 1 8 8.6z'/%3E%3C/svg%3E");
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M9 9a1 1 0 1 1-2 0 1 1 0 0 1 2 0M5 4h-.5A2.5 2.5 0 0 0 2 6.5v5A2.5 2.5 0 0 0 4.5 14h7a2.5 2.5 0 0 0 2.5-2.5v-5A2.5 2.5 0 0 0 11.5 4H11v-.5a3 3 0 0 0-6 0zm1-.5a2 2 0 1 1 4 0V4H6zM11.5 5A1.5 1.5 0 0 1 13 6.5v5a1.5 1.5 0 0 1-1.5 1.5h-7A1.5 1.5 0 0 1 3 11.5v-5A1.5 1.5 0 0 1 4.5 5z'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M9 9a1 1 0 1 1-2 0 1 1 0 0 1 2 0M5 4h-.5A2.5 2.5 0 0 0 2 6.5v5A2.5 2.5 0 0 0 4.5 14h7a2.5 2.5 0 0 0 2.5-2.5v-5A2.5 2.5 0 0 0 11.5 4H11v-.5a3 3 0 0 0-6 0zm1-.5a2 2 0 1 1 4 0V4H6zM11.5 5A1.5 1.5 0 0 1 13 6.5v5a1.5 1.5 0 0 1-1.5 1.5h-7A1.5 1.5 0 0 1 3 11.5v-5A1.5 1.5 0 0 1 4.5 5z'/%3E%3C/svg%3E");
 }
 
 .jsini-icon-logout {
-  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M6 1h8v14H6v-2h6V3H6zM7.2 8 4 4.8v2.4H0v1.6h4v2.4z'/%3E%3C/svg%3E");
-  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M6 1h8v14H6v-2h6V3H6zM7.2 8 4 4.8v2.4H0v1.6h4v2.4z'/%3E%3C/svg%3E");
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8.37 2.018a.6.6 0 0 1 .63.6V7h4.293l-.646-.647-.065-.078a.5.5 0 0 1 .693-.693l.079.064 1.5 1.5.064.078q.013.022.023.043l.014.027a.5.5 0 0 1 .032.098l.003.022q.005.023.008.044v.028L15 7.5l-.002.01v.032q-.001.011-.004.022l-.003.02q0 .012-.003.021a.5.5 0 0 1-.033.1l-.01.02q-.013.026-.027.05l-.064.078-1.5 1.5-.079.065a.5.5 0 0 1-.693-.694l.064-.078.647-.646H9v5.382a.6.6 0 0 1-.63.6l-.068-.008-5.801-.967A.6.6 0 0 1 2 12.415v-8.83a.6.6 0 0 1 .501-.592l5.8-.967zM11 12.5a.5.5 0 0 1-.5.5H10V9h1zM3 3.923v8.153l5 .833V3.09zM6.25 8a.75.75 0 1 1 0 1.5.75.75 0 0 1 0-1.5m4.25-5a.5.5 0 0 1 .5.5V6h-1V3z'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8.37 2.018a.6.6 0 0 1 .63.6V7h4.293l-.646-.647-.065-.078a.5.5 0 0 1 .693-.693l.079.064 1.5 1.5.064.078q.013.022.023.043l.014.027a.5.5 0 0 1 .032.098l.003.022q.005.023.008.044v.028L15 7.5l-.002.01v.032q-.001.011-.004.022l-.003.02q0 .012-.003.021a.5.5 0 0 1-.033.1l-.01.02q-.013.026-.027.05l-.064.078-1.5 1.5-.079.065a.5.5 0 0 1-.693-.694l.064-.078.647-.646H9v5.382a.6.6 0 0 1-.63.6l-.068-.008-5.801-.967A.6.6 0 0 1 2 12.415v-8.83a.6.6 0 0 1 .501-.592l5.8-.967zM11 12.5a.5.5 0 0 1-.5.5H10V9h1zM3 3.923v8.153l5 .833V3.09zM6.25 8a.75.75 0 1 1 0 1.5.75.75 0 0 1 0-1.5m4.25-5a.5.5 0 0 1 .5.5V6h-1V3z'/%3E%3C/svg%3E");
 }
 
 .jsini-icon-palette {
-  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 1a7 7 0 0 0 0 14c.8 0 1.4-.6 1.4-1.4 0-.4-.1-.7-.4-1-.2-.2-.4-.6-.4-1 0-.7.6-1.3 1.4-1.3H11a4 4 0 0 0 4-4C15 3.4 11.9 1 8 1zM4.2 8a1.2 1.2 0 1 1 0-2.4 1.2 1.2 0 0 1 0 2.4zm2.4-3.2a1.2 1.2 0 1 1 0-2.4 1.2 1.2 0 0 1 0 2.4zm2.8 0a1.2 1.2 0 1 1 0-2.4 1.2 1.2 0 0 1 0 2.4zM12 8a1.2 1.2 0 1 1 0-2.4A1.2 1.2 0 0 1 12 8z'/%3E%3C/svg%3E");
-  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 1a7 7 0 0 0 0 14c.8 0 1.4-.6 1.4-1.4 0-.4-.1-.7-.4-1-.2-.2-.4-.6-.4-1 0-.7.6-1.3 1.4-1.3H11a4 4 0 0 0 4-4C15 3.4 11.9 1 8 1zM4.2 8a1.2 1.2 0 1 1 0-2.4 1.2 1.2 0 0 1 0 2.4zm2.4-3.2a1.2 1.2 0 1 1 0-2.4 1.2 1.2 0 0 1 0 2.4zm2.8 0a1.2 1.2 0 1 1 0-2.4 1.2 1.2 0 0 1 0 2.4zM12 8a1.2 1.2 0 1 1 0-2.4A1.2 1.2 0 0 1 12 8z'/%3E%3C/svg%3E");
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M7.5 5.5a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1m2.5 0a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0M11.5 7a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0M11 9.5a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1m-.5 1.5a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0M8 2a6 6 0 0 0-6 6 2 2 0 0 0 2 2c.708 0 1.085-.378 1.34-.633l.014-.013C5.598 9.109 5.72 9 6 9a1 1 0 0 1 1 1v1a3 3 0 0 0 3 3c1.334 0 2.354-.746 3.017-1.854C13.672 11.05 14 9.579 14 8a6 6 0 0 0-6-6M3 8a5 5 0 0 1 10 0c0 1.458-.305 2.737-.841 3.632C11.63 12.515 10.9 13 10 13a2 2 0 0 1-2-2v-1a2 2 0 0 0-2-2c-.708 0-1.085.378-1.34.633l-.014.013C4.402 8.891 4.28 9 4 9a1 1 0 0 1-1-1'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M7.5 5.5a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1m2.5 0a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0M11.5 7a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0M11 9.5a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1m-.5 1.5a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0M8 2a6 6 0 0 0-6 6 2 2 0 0 0 2 2c.708 0 1.085-.378 1.34-.633l.014-.013C5.598 9.109 5.72 9 6 9a1 1 0 0 1 1 1v1a3 3 0 0 0 3 3c1.334 0 2.354-.746 3.017-1.854C13.672 11.05 14 9.579 14 8a6 6 0 0 0-6-6M3 8a5 5 0 0 1 10 0c0 1.458-.305 2.737-.841 3.632C11.63 12.515 10.9 13 10 13a2 2 0 0 1-2-2v-1a2 2 0 0 0-2-2c-.708 0-1.085.378-1.34.633l-.014.013C4.402 8.891 4.28 9 4 9a1 1 0 0 1-1-1'/%3E%3C/svg%3E");
 }
 
 /* 밝기 두 칸의 그림. 데모에도 해와 달이 붙어 있다 —
    Light/Dark 는 글자만으로도 알지만, 그림이 있으면 굴리는 중에 눈이 먼저 잡는다. */
 .jsini-icon-sun {
-  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 5.2A2.8 2.8 0 1 0 8 10.8 2.8 2.8 0 0 0 8 5.2zM7.2 0h1.6v2.4H7.2zm0 13.6h1.6V16H7.2zM0 7.2h2.4v1.6H0zm13.6 0H16v1.6h-2.4zM2.3 3.4l1.1-1.1 1.7 1.7-1.1 1.1zm8.9 8.9 1.1-1.1 1.7 1.7-1.1 1.1zM12.3 4l-1.1-1.1 1.7-1.7L14 2.3zM3.4 12.9l-1.1-1.1 1.7-1.7 1.1 1.1z'/%3E%3C/svg%3E");
-  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 5.2A2.8 2.8 0 1 0 8 10.8 2.8 2.8 0 0 0 8 5.2zM7.2 0h1.6v2.4H7.2zm0 13.6h1.6V16H7.2zM0 7.2h2.4v1.6H0zm13.6 0H16v1.6h-2.4zM2.3 3.4l1.1-1.1 1.7 1.7-1.1 1.1zm8.9 8.9 1.1-1.1 1.7 1.7-1.1 1.1zM12.3 4l-1.1-1.1 1.7-1.7L14 2.3zM3.4 12.9l-1.1-1.1 1.7-1.7 1.1 1.1z'/%3E%3C/svg%3E");
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-1 0v-1A.5.5 0 0 1 8 1m0 10a3 3 0 1 0 0-6 3 3 0 0 0 0 6m0-1a2 2 0 1 1 0-4 2 2 0 0 1 0 4m6.5-1.5a.5.5 0 0 0 0-1h-1a.5.5 0 0 0 0 1zM8 13a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-1 0v-1A.5.5 0 0 1 8 13M2.5 8.5a.5.5 0 0 0 0-1h-1a.5.5 0 0 0 0 1zm.646-5.354a.5.5 0 0 1 .708 0l1 1a.5.5 0 1 1-.708.708l-1-1a.5.5 0 0 1 0-.708m.708 9.708a.5.5 0 1 1-.708-.707l1-1a.5.5 0 0 1 .708.707zm9-9.708a.5.5 0 0 0-.708 0l-1 1a.5.5 0 0 0 .708.708l1-1a.5.5 0 0 0 0-.708m-.708 9.708a.5.5 0 0 0 .708-.707l-1-1a.5.5 0 0 0-.708.707z'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-1 0v-1A.5.5 0 0 1 8 1m0 10a3 3 0 1 0 0-6 3 3 0 0 0 0 6m0-1a2 2 0 1 1 0-4 2 2 0 0 1 0 4m6.5-1.5a.5.5 0 0 0 0-1h-1a.5.5 0 0 0 0 1zM8 13a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-1 0v-1A.5.5 0 0 1 8 13M2.5 8.5a.5.5 0 0 0 0-1h-1a.5.5 0 0 0 0 1zm.646-5.354a.5.5 0 0 1 .708 0l1 1a.5.5 0 1 1-.708.708l-1-1a.5.5 0 0 1 0-.708m.708 9.708a.5.5 0 1 1-.708-.707l1-1a.5.5 0 0 1 .708.707zm9-9.708a.5.5 0 0 0-.708 0l-1 1a.5.5 0 0 0 .708.708l1-1a.5.5 0 0 0 0-.708m-.708 9.708a.5.5 0 0 0 .708-.707l-1-1a.5.5 0 0 0-.708.707z'/%3E%3C/svg%3E");
 }
 
 .jsini-icon-moon {
-  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M6.2 1.4A6.8 6.8 0 0 0 8.4 14.8c2.6 0 4.9-1.5 6-3.7a5.6 5.6 0 0 1-7.3-7.4c0-.8.1-1.6.4-2.3a6.9 6.9 0 0 0-1.3 0z'/%3E%3C/svg%3E");
-  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M6.2 1.4A6.8 6.8 0 0 0 8.4 14.8c2.6 0 4.9-1.5 6-3.7a5.6 5.6 0 0 1-7.3-7.4c0-.8.1-1.6.4-2.3a6.9 6.9 0 0 0-1.3 0z'/%3E%3C/svg%3E");
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M7.85 3.015a5 5 0 1 1-4.585 7.712c1.403-.38 3.316-1.302 4.16-3.551.552-1.474.584-2.938.425-4.16M13.456 8a6 6 0 0 0-6.21-5.996.5.5 0 0 0-.475.592c.23 1.214.28 2.728-.283 4.228-.8 2.134-2.802 2.84-4.077 3.071a.5.5 0 0 0-.361.71A6 6 0 0 0 13.456 8'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M7.85 3.015a5 5 0 1 1-4.585 7.712c1.403-.38 3.316-1.302 4.16-3.551.552-1.474.584-2.938.425-4.16M13.456 8a6 6 0 0 0-6.21-5.996.5.5 0 0 0-.475.592c.23 1.214.28 2.728-.283 4.228-.8 2.134-2.802 2.84-4.077 3.071a.5.5 0 0 0-.361.71A6 6 0 0 0 13.456 8'/%3E%3C/svg%3E");
 }
 
 .jsini-icon-check {
-  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M6.2 12.4 1.6 7.8l1.6-1.6 3 3 6-6L13.8 5z'/%3E%3C/svg%3E");
-  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M6.2 12.4 1.6 7.8l1.6-1.6 3 3 6-6L13.8 5z'/%3E%3C/svg%3E");
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M13.864 3.656a.5.5 0 0 1-.021.707l-7.93 7.474a.6.6 0 0 1-.839-.016l-2.68-2.72a.5.5 0 0 1 .712-.702l2.406 2.442 7.645-7.206a.5.5 0 0 1 .707.021'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M13.864 3.656a.5.5 0 0 1-.021.707l-7.93 7.474a.6.6 0 0 1-.839-.016l-2.68-2.72a.5.5 0 0 1 .712-.702l2.406 2.442 7.645-7.206a.5.5 0 0 1 .707.021'/%3E%3C/svg%3E");
 }
 
 .jsini-icon-pin {
-  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M9.6 1 8.4 2.2l.6.6-2.7 2.7-2.4-.4-1.2 1.2 3.2 3.2L2 13.4V15h1.6l3.9-3.9 3.2 3.2 1.2-1.2-.4-2.4 2.7-2.7.6.6L15.8 7.2z'/%3E%3C/svg%3E");
-  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M9.6 1 8.4 2.2l.6.6-2.7 2.7-2.4-.4-1.2 1.2 3.2 3.2L2 13.4V15h1.6l3.9-3.9 3.2 3.2 1.2-1.2-.4-2.4 2.7-2.7.6.6L15.8 7.2z'/%3E%3C/svg%3E");
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M10.071 2.442a1.503 1.503 0 0 0-2.39.353L5.658 6.587l-2.815.937a.5.5 0 0 0-.196.828l2.15 2.147-2.65 2.647L2 14l.855-.146 2.65-2.648 2.15 2.147a.5.5 0 0 0 .83-.195l.938-2.812 3.784-2.024a1.5 1.5 0 0 0 .355-2.381zm-1.506.823a.5.5 0 0 1 .797-.117l3.49 3.499a.5.5 0 0 1-.118.794l-3.96 2.117a.5.5 0 0 0-.239.283l-.745 2.233L3.93 8.217l2.235-.745a.5.5 0 0 0 .284-.239z'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M10.071 2.442a1.503 1.503 0 0 0-2.39.353L5.658 6.587l-2.815.937a.5.5 0 0 0-.196.828l2.15 2.147-2.65 2.647L2 14l.855-.146 2.65-2.648 2.15 2.147a.5.5 0 0 0 .83-.195l.938-2.812 3.784-2.024a1.5 1.5 0 0 0 .355-2.381zm-1.506.823a.5.5 0 0 1 .797-.117l3.49 3.499a.5.5 0 0 1-.118.794l-3.96 2.117a.5.5 0 0 0-.239.283l-.745 2.233L3.93 8.217l2.235-.745a.5.5 0 0 0 .284-.239z'/%3E%3C/svg%3E");
 }
 
 .jsini-icon-close {
-  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M12.7 4.7 11.3 3.3 8 6.6 4.7 3.3 3.3 4.7 6.6 8l-3.3 3.3 1.4 1.4L8 9.4l3.3 3.3 1.4-1.4L9.4 8z'/%3E%3C/svg%3E");
-  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M12.7 4.7 11.3 3.3 8 6.6 4.7 3.3 3.3 4.7 6.6 8l-3.3 3.3 1.4 1.4L8 9.4l3.3 3.3 1.4-1.4L9.4 8z'/%3E%3C/svg%3E");
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='m2.589 2.716.057-.07a.5.5 0 0 1 .638-.057l.07.057L8 7.293l4.646-4.647a.5.5 0 0 1 .708.708L8.707 8l4.647 4.646a.5.5 0 0 1 .057.638l-.057.07a.5.5 0 0 1-.638.057l-.07-.057L8 8.707l-4.646 4.647a.5.5 0 0 1-.708-.708L7.293 8 2.646 3.354a.5.5 0 0 1-.057-.638'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='m2.589 2.716.057-.07a.5.5 0 0 1 .638-.057l.07.057L8 7.293l4.646-4.647a.5.5 0 0 1 .708.708L8.707 8l4.647 4.646a.5.5 0 0 1 .057.638l-.057.07a.5.5 0 0 1-.638.057l-.07-.057L8 8.707l-4.646 4.647a.5.5 0 0 1-.708-.708L7.293 8 2.646 3.354a.5.5 0 0 1-.057-.638'/%3E%3C/svg%3E");
 }
 
 .jsini-icon-more {
-  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='3' cy='8' r='1.5'/%3E%3Ccircle cx='8' cy='8' r='1.5'/%3E%3Ccircle cx='13' cy='8' r='1.5'/%3E%3C/svg%3E");
-  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='3' cy='8' r='1.5'/%3E%3Ccircle cx='8' cy='8' r='1.5'/%3E%3Ccircle cx='13' cy='8' r='1.5'/%3E%3C/svg%3E");
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M5 8a1 1 0 1 1-2 0 1 1 0 0 1 2 0m4 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0m3 1a1 1 0 1 0 0-2 1 1 0 0 0 0 2'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M5 8a1 1 0 1 1-2 0 1 1 0 0 1 2 0m4 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0m3 1a1 1 0 1 0 0-2 1 1 0 0 0 0 2'/%3E%3C/svg%3E");
 }
 
 /* ── 좁은 화면 ───────────────────────────────────────────
@@ -1704,12 +1888,23 @@ button.jsini-crumbs__item:hover { opacity: 1; }
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.75rem 1rem;
-  padding: 0.85rem 1rem;
-  margin-bottom: 0.9rem;
-  background: var(--jsini-surface);
+  gap: var(--jsini-sp-md) var(--jsini-sp-lg);
+  padding: var(--jsini-sp-lg);
+  margin-bottom: var(--jsini-sp-lg);
+
+  /*
+    **회색 판이 아니라 흰 카드다.**
+
+    한동안 바탕을 한 톤 짙게(`--jsini-surface`) 깔았다. 조건과 자료를 가르려던
+    것인데, 데모(demos.devexpress.com/blazor)는 같은 일을 **흰 바탕 + 옅은
+    테두리**로 한다 — 판이 여럿 쌓이는 화면에서 회색이 겹치면 그 회색이
+    화면을 눌러 앉힌다. 가르는 일은 테두리 한 줄로 충분하다.
+
+    치수도 데모에서 잰 값이다(테두리 1px · 모서리 4px).
+  */
+  background: var(--jsini-bg);
   border: 1px solid var(--jsini-border);
-  border-radius: 6px;
+  border-radius: var(--jsini-radius-sm);
 }
 
 /* 조건은 왼쪽에 흘러 담긴다. 개수가 화면마다 둘에서 예닐곱까지라
@@ -1900,7 +2095,22 @@ button.jsini-crumbs__item:hover { opacity: 1; }
 /* 왼쪽 묶음과 오른쪽 묶음을 갈라 놓는 빈 칸. */
 .commgrd__spacer { flex: 1; }
 
-/* 표 안 관리 칸의 단추 묶음 (수정 · 삭제). */
+/* ── 표 안 관리 칸의 단추 묶음 ────────────────────────────
+
+   **이 칸의 단추는 글자를 달지 않는다. 아이콘만 쓴다.**
+
+   칸 하나에 단추가 둘에서 넷까지 들어가는데(수정·삭제에 화면마다 하나둘이
+   더 붙는다) 글자를 달면 그만큼 칸이 넓어진다. 표는 이미 가로로 모자란
+   자리이고, 「관리」를 오른쪽에 붙박아 둔 뒤로는 그 폭이 **자료 칸에서
+   그대로 빠진다.**
+
+   글자를 뗀 자리는 `Title` 이 받는다 — **모든 단추에 반드시 적는다.**
+   아이콘만으로 뜻이 갈리는 짝은 연필·휴지통 정도뿐이고, 「발인」·「승인」
+   같은 업무 동작은 마우스를 올려 봐야 알 수 있다.
+
+   색으로 한 겹 더 가른다 — 되돌릴 수 없는 것은 `commgrd__icon--warn`,
+   켜져 있는 것은 `commgrd__icon--on`.
+   ------------------------------------------------------------ */
 .commgrd__actions {
   display: flex;
   align-items: center;
@@ -1972,9 +2182,16 @@ button.jsini-crumbs__item:hover { opacity: 1; }
 
    **선택 줄을 이기지 않아야 한다.** DevExpress 의 선택 규칙이 클래스 여섯 개
    짜리(0,6,0)라, 이 규칙을 그보다 낮게(0,3,2) 두어 고른 줄에서는 선택색이
-   그대로 이긴다. 여기에 클래스를 더 붙이면 고른 줄이 줄무늬에 묻힌다. */
+   그대로 이긴다. 여기에 클래스를 더 붙이면 고른 줄이 줄무늬에 묻힌다.
+
+   **투명에 섞지 않는다 — 바탕색에 섞는다(실제로 밟음).** 뜻은 같아 보이지만
+   앞엣것은 반투명한 색이라 **뒤가 비친다.** 「관리」 칸을 오른쪽에 붙박은
+   뒤로 그것이 드러났다 — 붙박인 칸은 `position: sticky` 로 굴러가는 칸
+   **위에** 떠 있어서, 줄무늬 줄에서만 아래를 지나가는 글자와 아이콘이
+   그대로 겹쳐 보였다(줄무늬가 아닌 줄은 불투명이라 멀쩡했다).
+   바탕색에 섞으면 보이는 색은 그대로이고 비치지만 않는다. */
 .commgrd .dxbl-grid-table > tbody > tr.commgrd__row--alt {
-  background-color: color-mix(in srgb, var(--dxbl-grid-color, currentColor) 4%, transparent);
+  background-color: color-mix(in srgb, var(--dxbl-grid-color, currentColor) 4%, var(--jsini-bg));
 }
 
 /* ── 칸 머리는 가운데 정렬 ────────────────────────────────
@@ -2163,7 +2380,7 @@ button.jsini-crumbs__item:hover { opacity: 1; }
 /* 줄무늬. 고정색을 쓰지 않는 이유와, 선택 줄을 이기지 않게 규칙을 낮게 두는
    이유는 표의 `commgrd__row--alt` 머리말에 적어 두었다. */
 .commtree .dxbl-grid-table > tbody > tr.commtree__row--alt {
-  background-color: color-mix(in srgb, var(--dxbl-grid-color, currentColor) 4%, transparent);
+  background-color: color-mix(in srgb, var(--dxbl-grid-color, currentColor) 4%, var(--jsini-bg));
 }
 
 /* 칸 머리는 가운데 정렬. 계층 칸의 머리도 함께 맞춘다 — 머리에는 들여쓰기가
@@ -3156,51 +3373,51 @@ button.jsini-crumbs__item:hover { opacity: 1; }
 /* 도구줄 아이콘 두 개 더. 나머지는 위 아이콘 묶음에 있다. */
 
 .jsini-icon-plus {
-  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M7 1h2v6h6v2H9v6H7V9H1V7h6z'/%3E%3C/svg%3E");
-  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M7 1h2v6h6v2H9v6H7V9H1V7h6z'/%3E%3C/svg%3E");
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8.545 2.545a.545.545 0 1 0-1.09 0v4.91h-4.91a.545.545 0 1 0 0 1.09h4.91v4.91a.545.545 0 1 0 1.09 0v-4.91h4.91a.545.545 0 1 0 0-1.09h-4.91z'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8.545 2.545a.545.545 0 1 0-1.09 0v4.91h-4.91a.545.545 0 1 0 0 1.09h4.91v4.91a.545.545 0 1 0 1.09 0v-4.91h4.91a.545.545 0 1 0 0-1.09h-4.91z'/%3E%3C/svg%3E");
 }
 
 .jsini-icon-excel {
-  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M2 1h8l4 4v10H2zm7 1v3h3zM4.6 7l1.6 2.2L4.6 11.4h1.5l.9-1.3.9 1.3h1.5L8.2 9.2 9.8 7H8.3l-.9 1.3L6.5 7z'/%3E%3C/svg%3E");
-  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M2 1h8l4 4v10H2zm7 1v3h3zM4.6 7l1.6 2.2L4.6 11.4h1.5l.9-1.3.9 1.3h1.5L8.2 9.2 9.8 7H8.3l-.9 1.3L6.5 7z'/%3E%3C/svg%3E");
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 13h9a.5.5 0 0 1 .09.992L12.5 14h-9a.5.5 0 0 1-.09-.992zh9zM7.91 1.008 8 1a.5.5 0 0 1 .492.41l.008.09v8.792l2.682-2.681a.5.5 0 0 1 .638-.058l.07.058a.5.5 0 0 1 .057.638l-.058.069-3.535 3.536a.5.5 0 0 1-.638.057l-.07-.057-3.535-3.536a.5.5 0 0 1 .638-.765l.069.058L7.5 10.292V1.5a.5.5 0 0 1 .41-.492L8 1z'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 13h9a.5.5 0 0 1 .09.992L12.5 14h-9a.5.5 0 0 1-.09-.992zh9zM7.91 1.008 8 1a.5.5 0 0 1 .492.41l.008.09v8.792l2.682-2.681a.5.5 0 0 1 .638-.058l.07.058a.5.5 0 0 1 .057.638l-.058.069-3.535 3.536a.5.5 0 0 1-.638.057l-.07-.057-3.535-3.536a.5.5 0 0 1 .638-.765l.069.058L7.5 10.292V1.5a.5.5 0 0 1 .41-.492L8 1z'/%3E%3C/svg%3E");
 }
 
 /* 표 안 관리 칸. 연필과 휴지통은 아이콘만으로도 뜻이 갈리는 몇 안 되는 짝이다. */
 
 .jsini-icon-edit {
-  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M12.1 1.2l2.7 2.7-1.6 1.6-2.7-2.7zM9.4 3.9l2.7 2.7-6.6 6.6-3.4.7.7-3.4z'/%3E%3C/svg%3E");
-  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M12.1 1.2l2.7 2.7-1.6 1.6-2.7-2.7zM9.4 3.9l2.7 2.7-6.6 6.6-3.4.7.7-3.4z'/%3E%3C/svg%3E");
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M14.236 1.764a2.62 2.62 0 0 0-3.707 0L2.657 9.635a2.96 2.96 0 0 0-.772 1.355l-.87 3.386a.5.5 0 0 0 .61.608l3.385-.869c.512-.131.98-.398 1.354-.772l7.872-7.872a2.62 2.62 0 0 0 0-3.707m-3 .707a1.621 1.621 0 1 1 2.293 2.293l-.779.779-2.293-2.293zM9.75 3.957l2.293 2.293-6.386 6.386a1.95 1.95 0 0 1-.896.51l-2.567.66.66-2.567c.086-.34.263-.649.51-.896z'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M14.236 1.764a2.62 2.62 0 0 0-3.707 0L2.657 9.635a2.96 2.96 0 0 0-.772 1.355l-.87 3.386a.5.5 0 0 0 .61.608l3.385-.869c.512-.131.98-.398 1.354-.772l7.872-7.872a2.62 2.62 0 0 0 0-3.707m-3 .707a1.621 1.621 0 1 1 2.293 2.293l-.779.779-2.293-2.293zM9.75 3.957l2.293 2.293-6.386 6.386a1.95 1.95 0 0 1-.896.51l-2.567.66.66-2.567c.086-.34.263-.649.51-.896z'/%3E%3C/svg%3E");
 }
 
 .jsini-icon-trash {
-  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M6 1h4l.7 1.4H14v1.7H2V2.4h3.3zM3.4 5.4h9.2l-.7 9.1a.9.9 0 01-.9.8H5a.9.9 0 01-.9-.8zM6.3 7v6h1.1V7zm2.3 0v6h1.1V7z'/%3E%3C/svg%3E");
-  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M6 1h4l.7 1.4H14v1.7H2V2.4h3.3zM3.4 5.4h9.2l-.7 9.1a.9.9 0 01-.9.8H5a.9.9 0 01-.9-.8zM6.3 7v6h1.1V7zm2.3 0v6h1.1V7z'/%3E%3C/svg%3E");
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M7 3h2a1 1 0 0 0-2 0M6 3a2 2 0 1 1 4 0h4a.5.5 0 0 1 0 1h-.564l-1.205 8.838A2.5 2.5 0 0 1 9.754 15H6.246a2.5 2.5 0 0 1-2.477-2.162L2.564 4H2a.5.5 0 0 1 0-1zm1 3.5a.5.5 0 0 0-1 0v5a.5.5 0 0 0 1 0zM9.5 6a.5.5 0 0 1 .5.5v5a.5.5 0 0 1-1 0v-5a.5.5 0 0 1 .5-.5m-4.74 6.703A1.5 1.5 0 0 0 6.246 14h3.508a1.5 1.5 0 0 0 1.487-1.297L12.427 4H3.573z'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M7 3h2a1 1 0 0 0-2 0M6 3a2 2 0 1 1 4 0h4a.5.5 0 0 1 0 1h-.564l-1.205 8.838A2.5 2.5 0 0 1 9.754 15H6.246a2.5 2.5 0 0 1-2.477-2.162L2.564 4H2a.5.5 0 0 1 0-1zm1 3.5a.5.5 0 0 0-1 0v5a.5.5 0 0 0 1 0zM9.5 6a.5.5 0 0 1 .5.5v5a.5.5 0 0 1-1 0v-5a.5.5 0 0 1 .5-.5m-4.74 6.703A1.5 1.5 0 0 0 6.246 14h3.508a1.5 1.5 0 0 0 1.487-1.297L12.427 4H3.573z'/%3E%3C/svg%3E");
 }
 
 /* 미리보기. 눈은 「고치지 않고 보기만 한다」를 연필·휴지통과 한눈에 가른다. */
 .jsini-icon-eye {
-  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 3C4.4 3 1.4 5.1 0 8c1.4 2.9 4.4 5 8 5s6.6-2.1 8-5c-1.4-2.9-4.4-5-8-5zm0 8.3A3.3 3.3 0 1 1 8 4.7a3.3 3.3 0 0 1 0 6.6zm0-1.6a1.7 1.7 0 1 0 0-3.4 1.7 1.7 0 0 0 0 3.4z'/%3E%3C/svg%3E");
-  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 3C4.4 3 1.4 5.1 0 8c1.4 2.9 4.4 5 8 5s6.6-2.1 8-5c-1.4-2.9-4.4-5-8-5zm0 8.3A3.3 3.3 0 1 1 8 4.7a3.3 3.3 0 0 1 0 6.6zm0-1.6a1.7 1.7 0 1 0 0-3.4 1.7 1.7 0 0 0 0 3.4z'/%3E%3C/svg%3E");
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M2.984 8.625v.003a.5.5 0 0 1-.612.355c-.431-.114-.355-.611-.355-.611l.018-.062s.026-.084.047-.145a6.7 6.7 0 0 1 1.117-1.982C4.096 5.089 5.605 4 8 4s3.904 1.089 4.802 2.183a6.7 6.7 0 0 1 1.117 1.982 4 4 0 0 1 .06.187l.003.013v.004l.001.002a.5.5 0 0 1-.966.258l-.001-.004-.008-.025-.035-.109a5.696 5.696 0 0 0-.945-1.674C11.286 5.912 10.045 5 8 5s-3.285.912-4.028 1.817a5.7 5.7 0 0 0-.945 1.674l-.035.109zM8 7a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5M6.5 9.5a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M2.984 8.625v.003a.5.5 0 0 1-.612.355c-.431-.114-.355-.611-.355-.611l.018-.062s.026-.084.047-.145a6.7 6.7 0 0 1 1.117-1.982C4.096 5.089 5.605 4 8 4s3.904 1.089 4.802 2.183a6.7 6.7 0 0 1 1.117 1.982 4 4 0 0 1 .06.187l.003.013v.004l.001.002a.5.5 0 0 1-.966.258l-.001-.004-.008-.025-.035-.109a5.696 5.696 0 0 0-.945-1.674C11.286 5.912 10.045 5 8 5s-3.285.912-4.028 1.817a5.7 5.7 0 0 0-.945 1.674l-.035.109zM8 7a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5M6.5 9.5a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0'/%3E%3C/svg%3E");
 }
 
 /* 나무 관리 칸의 「하위 추가」. 아래 띠의 「등록」과 **다른 그림이어야 한다** —
    같은 더하기를 쓰면 한 줄 안에서 「여기 아래」와 「최상위」가 구분되지 않는다.
    꺾인 선이 「한 단 아래」를 말한다. */
 .jsini-icon-child-plus {
-  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M2 1h1.6v8.2H7v1.6H2z'/%3E%3Cpath d='M10.6 6.6h1.6v2.8h2.8v1.6h-2.8v2.8h-1.6v-2.8H7.8V9.4h2.8z'/%3E%3C/svg%3E");
-  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M2 1h1.6v8.2H7v1.6H2z'/%3E%3Cpath d='M10.6 6.6h1.6v2.8h2.8v1.6h-2.8v2.8h-1.6v-2.8H7.8V9.4h2.8z'/%3E%3C/svg%3E");
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M2 4.5A2.5 2.5 0 0 1 4.5 2h7A2.5 2.5 0 0 1 14 4.5v7a2.5 2.5 0 0 1-2.5 2.5h-7A2.5 2.5 0 0 1 2 11.5zM4.5 3A1.5 1.5 0 0 0 3 4.5v7A1.5 1.5 0 0 0 4.5 13h7a1.5 1.5 0 0 0 1.5-1.5v-7A1.5 1.5 0 0 0 11.5 3zM8 4.5a.5.5 0 0 1 .5.5v2.5H11a.5.5 0 0 1 0 1H8.5V11a.5.5 0 0 1-1 0V8.5H5a.5.5 0 0 1 0-1h2.5V5a.5.5 0 0 1 .5-.5'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M2 4.5A2.5 2.5 0 0 1 4.5 2h7A2.5 2.5 0 0 1 14 4.5v7a2.5 2.5 0 0 1-2.5 2.5h-7A2.5 2.5 0 0 1 2 11.5zM4.5 3A1.5 1.5 0 0 0 3 4.5v7A1.5 1.5 0 0 0 4.5 13h7a1.5 1.5 0 0 0 1.5-1.5v-7A1.5 1.5 0 0 0 11.5 3zM8 4.5a.5.5 0 0 1 .5.5v2.5H11a.5.5 0 0 1 0 1H8.5V11a.5.5 0 0 1-1 0V8.5H5a.5.5 0 0 1 0-1h2.5V5a.5.5 0 0 1 .5-.5'/%3E%3C/svg%3E");
 }
 
 /* 나무 아래 띠의 펼치기·접기 한 짝. 삼각형이 벌어지면 펼치기,
    모이면 접기다 — 아이콘 하나로 상태까지 말한다. */
 .jsini-icon-unfold {
-  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 1 3.4 5.6h9.2z'/%3E%3Cpath d='M8 15 3.4 10.4h9.2z'/%3E%3C/svg%3E");
-  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 1 3.4 5.6h9.2z'/%3E%3Cpath d='M8 15 3.4 10.4h9.2z'/%3E%3C/svg%3E");
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M2 2.5a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5m0 12a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5m7-4a.5.5 0 0 1 .5-.5h4a.5.5 0 0 1 0 1h-4a.5.5 0 0 1-.5-.5m0-4a.5.5 0 0 1 .5-.5h4a.5.5 0 0 1 0 1h-4a.5.5 0 0 1-.5-.5M4.5 12a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7M5 6.5a.5.5 0 0 0-1 0V8H2.5a.5.5 0 0 0 0 1H4v1.5a.5.5 0 0 0 1 0V9h1.5a.5.5 0 0 0 0-1H5z'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M2 2.5a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5m0 12a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5m7-4a.5.5 0 0 1 .5-.5h4a.5.5 0 0 1 0 1h-4a.5.5 0 0 1-.5-.5m0-4a.5.5 0 0 1 .5-.5h4a.5.5 0 0 1 0 1h-4a.5.5 0 0 1-.5-.5M4.5 12a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7M5 6.5a.5.5 0 0 0-1 0V8H2.5a.5.5 0 0 0 0 1H4v1.5a.5.5 0 0 0 1 0V9h1.5a.5.5 0 0 0 0-1H5z'/%3E%3C/svg%3E");
 }
 
 .jsini-icon-fold {
-  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.4 1.4h9.2L8 6z'/%3E%3Cpath d='M3.4 14.6h9.2L8 10z'/%3E%3C/svg%3E");
-  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.4 1.4h9.2L8 6z'/%3E%3Cpath d='M3.4 14.6h9.2L8 10z'/%3E%3C/svg%3E");
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M2 2.5a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5m0 12a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5m7-4a.5.5 0 0 1 .5-.5h4a.5.5 0 0 1 0 1h-4a.5.5 0 0 1-.5-.5m0-4a.5.5 0 0 1 .5-.5h4a.5.5 0 0 1 0 1h-4a.5.5 0 0 1-.5-.5M8 8.5a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0m-6 0a.5.5 0 0 0 .5.5h4a.5.5 0 0 0 0-1h-4a.5.5 0 0 0-.5.5'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M2 2.5a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5m0 12a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5m7-4a.5.5 0 0 1 .5-.5h4a.5.5 0 0 1 0 1h-4a.5.5 0 0 1-.5-.5m0-4a.5.5 0 0 1 .5-.5h4a.5.5 0 0 1 0 1h-4a.5.5 0 0 1-.5-.5M8 8.5a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0m-6 0a.5.5 0 0 0 .5.5h4a.5.5 0 0 0 0-1h-4a.5.5 0 0 0-.5.5'/%3E%3C/svg%3E");
 }
 
 /* ── 공지 팝업 (NoticePopup) ───────────────────────────────
@@ -4153,4 +4370,207 @@ button.jsini-crumbs__item:hover { opacity: 1; }
 /* 움직임을 원하지 않는 사람에게는 멈춘 그림을 준다. */
 @media (prefers-reduced-motion: reduce) {
   .jsini-loader__bar { animation: none; }
+}
+
+/* ── 얹힌 라벨 (floating label) ──────────────────────────────
+
+   라벨이 칸 **테두리 위에 걸터앉는다.**
+
+   ┌─ 검색어 ─────────┐
+   │ InCom            │  ← 값은 칸 한가운데
+   └──────────────────┘
+
+   [빈 칸에서는 안에 내려앉아 있다]
+
+   ┌──────────────────┐        ┌─ 검색어 ─────────┐
+   │ 검색어           │   →    │ InCom            │
+   └──────────────────┘        └──────────────────┘
+       비어 있을 때                누르거나 값이 찰 때
+
+   [테두리를 지우는 것이 아니라 덮는다]
+
+   칸은 DevExpress 가 그린 편집기다. 그 테두리를 우리가 끊어 낼 방법이 없다
+   (`border-image` 로 홈을 내려면 편집기 마크업을 우리가 쥐고 있어야 한다).
+   대신 라벨 **뒤에 바탕색 띠**를 깔아 그만큼 가린다 — 결과가 같고,
+   DevExpress 가 테두리를 어떻게 그리든(테마 스물둘, 포커스·오류의 색과
+   두께가 다 다르다) 그대로 따라간다.
+
+   띠 색은 `--jsini-bg` 다. 조회 영역도 흰 카드라(`.commsch`) 같은 색이면
+   되고, 바탕이 다른 판 위에 칸을 놓는 화면이 생기면 그 판에서 이 값만 덮는다.
+
+   ────────────────────────────────────────────────────────────
+   [화면을 하나도 고치지 않는다]
+
+   조건 칸이 266곳, 편집 칸이 611곳(38파일)이다. 화면마다 고치면 반드시 몇
+   곳이 빠지고, 빠진 곳은 라벨이 왼쪽에 남아 **한 화면에 두 가지 모양**이
+   된다. 그래서 전부 여기 CSS 로만 한다 —
+
+   · 조건 줄은 `CommSchItem` 이 이미 라벨을 `.commsch__label` 로 그린다
+   · 그 밖은 DevExpress 가 `DxFormLayoutItem` 캡션을 `.dxbl-fl-cpt` 로 그린다
+
+   두 자리의 골격이 같아서(라벨 + 편집기) 규칙 한 벌로 덮인다. 팝업만이
+   아니라 **화면 안에 박힌 폼도 함께** 걸린다 — 한쪽만 바뀌면 같은 화면에서
+   팝업을 열 때마다 칸 모양이 달라진다.
+
+   ────────────────────────────────────────────────────────────
+   [「값이 있느냐」를 `:placeholder-shown` 으로 묻는다]
+
+   CSS 에는 값을 묻는 선택자가 없다. 자리표시 글이 보이는지를 대신 묻는다 —
+   값이 없을 때만 보이므로 뜻이 같다. 자리표시 글이 아예 없는 칸에는
+   `float-label.js` 가 **공백 한 칸**을 넣어 준다(그 파일 머리말 참고).
+
+   그 스크립트가 안 실려도 깨지지 않는다. 라벨이 **늘 테두리에 걸친 채**로
+   남고, 읽을 수 있고 자리도 그대로다.
+
+   ────────────────────────────────────────────────────────────
+   [`NullText` 는 라벨이 떠오른 **뒤에** 보인다]
+
+   자리표시 글과 라벨이 같은 자리에 있어서, 빈 칸에서 둘 다 보이면 겹친다.
+   그래서 자리표시 글은 누르기 전까지 투명이다. 누르면 라벨이 테두리로 비키고
+   그 자리에 자리표시 글이 나타난다 — 「회사명」 같은 예시가 그때 쓸모 있다.
+
+   ────────────────────────────────────────────────────────────
+   [붙이지 않는 것]
+
+   · 라벨이 없는 칸 — 얹을 것이 없다. `:has(> 라벨)` 로 가른다
+   · 글자 편집기가 아닌 칸 — 체크박스·파일 고르개·서식 편집기는 자기 글자를
+     이미 들고 있다. `:has(.dxbl-text-edit)` 로 가른다
+   · 표 안의 거르개 줄과 셀 편집기 — 라벨이 없고, 키우면 줄 높이만 는다
+   ------------------------------------------------------------ */
+
+/* 라벨을 얹을 바탕. 편집기는 그대로 두고 라벨만 그 위로 띄운다. */
+.commsch__item:has(> .commsch__label),
+.dxbl-fl-item:has(> .dxbl-fl-cpt):has(.dxbl-text-edit) {
+  position: relative;
+
+  /* 라벨이 칸 **위로 반 줄 넘어간다.** 판이 잘라 내면 윗동이 사라진다. */
+  overflow: visible;
+}
+
+/* 캡션이 차지하던 왼쪽 칸을 걷어내면 편집기가 남는 폭을 다 쓴다 —
+   좁은 팝업에서 눈에 띄게 넓어진다. */
+.dxbl-fl-item:has(> .dxbl-fl-cpt):has(.dxbl-text-edit) > .dxbl-fl-ctrl {
+  flex: 1 1 100%;
+  min-width: 0;
+}
+
+.commsch__item:has(> .commsch__label) > .commsch__label,
+.dxbl-fl-item:has(.dxbl-text-edit) > .dxbl-fl-cpt {
+  position: absolute;
+  z-index: 1;
+
+  /*
+    **칸의 한가운데이지, 줄의 한가운데가 아니다(실제로 밟음).**
+
+    `top: 50%` 로 두면 옆 칸이 더 높은 줄에서 라벨이 칸 **아래로** 떨어진다 —
+    회사 편집 창의 「우편번호 · 주소」 줄이 그랬다. 왼쪽 칸이 단추를 품어
+    높아지자 오른쪽 「주소」 라벨만 입력칸 밑에 가서 붙었다.
+
+    그래서 칸 높이(`--jsini-field-h`)만 놓고 계산한다. 편집기는 언제나 줄의
+    맨 위에서 시작하므로 이 값이 곧 칸의 한가운데다.
+  */
+  top: calc((var(--jsini-field-h) - 1.2em) / 2);
+  left: var(--jsini-sp-sm);
+  padding: 0;
+
+  /*
+    **폭을 글자에 맞춘다.**
+
+    DxFormLayout 은 가로 배치에서 캡션 칸의 폭을 한 값으로 못 박는다 —
+    `.dxbl-fl .dxbl-fl-item.dxbl-fl-item-horizontal > .dxbl-fl-cpt` 가
+    `width: var(--dxbl-fl-caption-width-large-screen)` 를 건다(여기서 52px).
+    라벨을 칸 위로 얹은 뒤에도 그 폭이 남아서 **자리가 남는데도**
+    「사업자번호」가 「사업...」으로 잘려 있었다.
+
+    `!important` 를 쓰는 자리다. 우리 규칙이 더 구체적인데도 지지 않으려면
+    이것이 확실하고, DevExpress 자신도 같은 속성을 `.dxbl-fl-calc` 에서
+    그렇게 덮는다.
+
+    `display` 도 바꾼다. 플렉스인 채로는 넘칠 때 말줄임표가 안 붙고 그냥
+    잘린다(글자가 익명 플렉스 항목이라 `text-overflow` 가 닿지 않는다).
+  */
+  display: block;
+  width: max-content !important;
+  max-width: calc(100% - var(--jsini-sp-2xl));
+  overflow: hidden;
+
+  font-size: var(--jsini-fs-md);
+  font-weight: 400;
+  line-height: 1.2;
+  color: var(--jsini-text-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  /* 라벨이 칸 위를 덮고 있다. 눌러서 칸으로 못 들어가면 고장 난 것으로
+     보인다 — 클릭을 그대로 통과시킨다. */
+  pointer-events: none;
+
+  transition: top 120ms ease, font-size 120ms ease, color 120ms ease;
+}
+
+/* 떠오른 자리 — **테두리 위**. 눌렀을 때 · 값이 있을 때 · 꼬리표가 붙어
+   있을 때(DxTagBox). */
+.commsch__item:has(> .commsch__label):focus-within > .commsch__label,
+.commsch__item:has(> .commsch__label):has(:is(input, textarea):not(:placeholder-shown)) > .commsch__label,
+.commsch__item:has(> .commsch__label):has(.dxbl-tag) > .commsch__label,
+.dxbl-fl-item:has(.dxbl-text-edit):focus-within > .dxbl-fl-cpt,
+.dxbl-fl-item:has(:is(input, textarea):not(:placeholder-shown)) > .dxbl-fl-cpt,
+.dxbl-fl-item:has(.dxbl-tag) > .dxbl-fl-cpt {
+  top: var(--jsini-field-label-top);
+
+  /* 띠의 좌우 여백만큼 당겨 둔다. 그래야 **라벨 글자가 내려앉았을 때와 같은
+     세로줄**(8px)에 서서, 떠오르는 동안 좌우로 흔들리지 않는다. */
+  left: calc(var(--jsini-sp-sm) - var(--jsini-sp-2xs));
+
+  /* 글자 좌우로 띠를 조금 더 내어 테두리를 확실히 끊는다. */
+  padding: 0 var(--jsini-sp-2xs);
+
+  font-size: var(--jsini-fs-2xs);
+  font-weight: 600;
+
+  /* 테두리를 가리는 띠. 칸 바탕과 같은 색이라 「끊긴 것」으로 보인다. */
+  background: var(--jsini-bg);
+}
+
+/* 누르고 있는 칸의 라벨만 강조색이다. 여러 칸 중 어디에 글을 치고 있는지가
+   테두리 색 하나보다 확실하다. */
+.commsch__item:has(> .commsch__label):focus-within > .commsch__label,
+.dxbl-fl-item:has(.dxbl-text-edit):focus-within > .dxbl-fl-cpt {
+  color: var(--jsini-accent);
+}
+
+/* 라벨이 들어갈 만큼 칸을 키운다. */
+.commsch__item:has(> .commsch__label) .dxbl-text-edit,
+.dxbl-fl-item:has(> .dxbl-fl-cpt) > .dxbl-fl-ctrl .dxbl-text-edit {
+  min-height: var(--jsini-field-h);
+}
+
+/* 글자는 칸 **한가운데**다. 라벨이 테두리로 나가 있으므로 위쪽에 자리를
+   비워 둘 까닭이 없다 — 위아래를 같게, 그리고 좁게 준다.
+
+   왼쪽은 `--jsini-sp-sm`(8px)이고 **라벨도 같은 값에 선다** — 내려앉은
+   라벨과 값이 같은 세로줄에서 시작해야 글자가 계단처럼 안 보인다. */
+.commsch__item:has(> .commsch__label) :is(.dxbl-text-edit-input, .dxbl-memo-input),
+.dxbl-fl-item:has(> .dxbl-fl-cpt) > .dxbl-fl-ctrl :is(.dxbl-text-edit-input, .dxbl-memo-input) {
+  padding-top: 0.3rem;
+  padding-bottom: 0.3rem;
+  padding-left: var(--jsini-sp-sm);
+}
+
+/* 자리표시 글은 라벨이 비킨 뒤에만 보인다(머리말). */
+.commsch__item:has(> .commsch__label) :is(.dxbl-text-edit-input, .dxbl-memo-input)::placeholder,
+.dxbl-fl-item:has(> .dxbl-fl-cpt) :is(.dxbl-text-edit-input, .dxbl-memo-input)::placeholder {
+  color: transparent;
+}
+
+.commsch__item:has(> .commsch__label):focus-within :is(.dxbl-text-edit-input, .dxbl-memo-input)::placeholder,
+.dxbl-fl-item:has(> .dxbl-fl-cpt):focus-within :is(.dxbl-text-edit-input, .dxbl-memo-input)::placeholder {
+  color: var(--jsini-text-muted);
+}
+
+/* 움직임을 원하지 않는 사람에게는 떠오르는 동작 없이 자리만 바뀐다. */
+@media (prefers-reduced-motion: reduce) {
+  .commsch__label,
+  .dxbl-fl-cpt { transition: none; }
+}
 }

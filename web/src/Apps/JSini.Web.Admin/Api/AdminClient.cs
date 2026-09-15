@@ -157,6 +157,16 @@ public sealed class AdminClient(GatewayClient gateway)
     public Task DeleteCompanyAsync(string id, CancellationToken ct = default)
         => gateway.DeleteAsync($"auth/system/companies/{id}", ct);
 
+    /// <summary>
+    /// 회사 차례를 다시 매긴다. 실은 순서가 그대로 <c>sort_order</c> 가 된다.
+    ///
+    /// <b>옮긴 줄 하나가 아니라 목록 전체를 보낸다</b> — 서버가 자리를 보고
+    /// 번호를 다시 매기기 때문이다(AuthServer <c>ReorderCompaniesAsync</c>).
+    /// </summary>
+    public Task ReorderCompaniesAsync(
+        IReadOnlyList<string> orderedIds, CancellationToken ct = default)
+        => gateway.PostAsync("auth/system/companies/reorder", orderedIds, ct);
+
     public Task<IReadOnlyList<AccountDto>> GetCompanyUsersAsync(string companyId, CancellationToken ct = default)
         => gateway.GetListAsync<AccountDto>($"auth/system/companies/{companyId}/users", ct);
 
@@ -230,6 +240,18 @@ public sealed class AdminClient(GatewayClient gateway)
     public Task MoveDeptAsync(string id, string? parentId, CancellationToken ct = default)
         => gateway.PostAsync(
             $"auth/system/dept/{id}/move" + Query(("parentId", parentId)), null, ct);
+
+    /// <summary>
+    /// 끌어 옮긴 부서 배치를 저장한다. <b>상위와 순번이 함께</b> 바뀐다.
+    ///
+    /// <para>
+    /// <see cref="MoveDeptAsync"/> 와 갈리는 자리다 — 그쪽은 상위만 바꾸고
+    /// 순번을 건드리지 않아, 끌어 놓은 자리가 다시 읽으면 제자리로 돌아간다.
+    /// 떠난 묶음과 도착한 묶음을 통째로 보낸다.
+    /// </para>
+    /// </summary>
+    public Task ReorderDeptsAsync(IReadOnlyList<DeptOrderDto> items, CancellationToken ct = default)
+        => gateway.PostAsync("auth/system/dept/reorder", items, ct);
 
     /// <summary>사람의 부서 소속을 바꾼다. 부서를 비우면 소속이 풀린다.</summary>
     public Task MoveUserDeptAsync(string accountId, string? departmentId, CancellationToken ct = default)

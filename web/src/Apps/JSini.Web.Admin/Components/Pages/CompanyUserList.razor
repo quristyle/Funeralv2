@@ -126,7 +126,7 @@
     /// 「이 줄이 사라진다」는 뜻인데 여기서는 사람이 그대로 남는다.
     /// </summary>
     private RenderFragment<AccountDto> Unlink => user =>@<PermissionView Action="MenuAction.Delete">
-        <DxButton Text="빼기" RenderStyle="ButtonRenderStyle.Link"
+        <DxButton IconCssClass="jsini-icon-subtract" RenderStyle="ButtonRenderStyle.Link"
                   Title="회사 소속을 푼다. 계정은 남는다"
                   Click="@(() => RemoveAsync(user))" />
     </PermissionView>;

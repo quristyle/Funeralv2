@@ -57,7 +57,7 @@
             @* 관리 칸은 CommGrd 가 붙인다. 「규칙 보기」는 오른쪽 판을 바꾸는
                이 화면만의 동작이라 「수정」 앞에 선다. *@
             <RowActions Context="model">
-                <DxButton Text="@(model.Id == _modelId ? "보는 중" : "규칙 보기")"
+                <DxButton IconCssClass="jsini-icon-eye"
                           RenderStyle="ButtonRenderStyle.Link"
                           Title="이 모델의 해석 규칙을 오른쪽에 편다"
                           Enabled="@(model.Id != _modelId)"

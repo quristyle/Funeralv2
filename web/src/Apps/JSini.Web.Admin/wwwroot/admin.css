@@ -331,6 +331,35 @@
   --dxbl-form-layout-item-spacing-y: 0.4rem;
 }
 
+/* 그리드가 띄우는 편집 창. `CommPopup` 은 `Width` 로 받지만 그리드 쪽 창은
+   DevExpress 가 직접 띄우므로 클래스로 준다(`PopupEditFormCssClass`).
+
+   **`width` 를 주지 않고 상한 변수를 덮는다.** DevExpress 규칙이
+   `width: var(--dxbl-popup-width)`(=100%)에 `max-width: var(--dxbl-popup-max-width)`
+   (=500px)로 묶는 모양이라, 폭을 값으로 주면 좁은 화면에서 창이 화면 밖으로
+   나간다. 상한만 올리면 넓은 화면에서는 720px, 좁은 화면에서는 그 100% 가
+   이겨 저절로 접힌다.
+
+   선택자를 DevExpress 것과 같은 모양으로 적는 이유는 **자릿수** 다 —
+   저쪽이 `.dxbl-modal > .dxbl-modal-root > .dxbl-popup`(0,3,0)이라
+   `.ad-editpopup` 한 마디로는 진다. */
+.dxbl-modal > .dxbl-modal-root > .dxbl-popup.ad-editpopup {
+  --dxbl-popup-max-width: 720px;
+}
+
+/* 날짜 칸이 `ad-checks` 안에 네모들과 나란히 설 때. flex 줄에서는 편집기가
+   제 폭을 잃고 「비…」 처럼 찌그러지므로 여기서 못을 박는다. */
+.ad-editform__date {
+  flex: 0 0 auto;
+  width: 11rem;
+}
+
+/* 칸 아래 붙는 한 줄 설명. 네모 옆에 길게 달면 두 줄로 접혀 다음 칸의
+   표제와 나란해진다 — 아래로 내리고 살짝 띄운다. */
+.ad-editform .jsini-hint {
+  margin: 0.25rem 0 0;
+}
+
 /* ── AI 코드 추천 (AiCodeSuggest) ─────────────────────────
 
    등록 창의 이름 칸 아래에 한 줄로 붙는다. 폼 칸이 아니라 **거들어 주는
@@ -1941,4 +1970,98 @@
 .ad-notify--default {
   border-style: dashed;
   opacity: 0.65;
+}
+
+/* ── 주소 찾기 덮개 (`AddrFind` · js/addr-find.js) ──────────────
+
+   카카오(다음) 우편번호 위젯을 앉히는 자리다. 위젯 자신은 자기 안쪽만
+   그리므로 **바깥 껍데기는 우리가 준다** — 덮개·창·머리·닫개.
+
+   [z-index 가 여기서 중요하다]
+
+   주소 칸은 DevExpress 팝업 편집 폼 안에 있고 그 팝업이 1000 대를 쓴다.
+   덮개가 그보다 낮으면 **열리긴 하는데 편집 창 뒤에 가려** 아무 일도
+   안 일어난 것으로 보인다. 잠금화면(20000)보다는 낮게 둔다 — 자리를
+   비운 사이 주소 창이 그 위에 떠 있으면 안 된다.
+
+   [높이를 고정한다]
+
+   위젯이 안에서 화면을 갈아 끼운다(검색 → 결과 → 상세). 높이를 내용에
+   맡기면 그때마다 창이 늘었다 줄고, 그 사이 마우스 밑에 있던 단추가
+   옮겨 간다. 480px 는 결과 목록이 한 화면에 들어가는 높이다.
+   ---------------------------------------------------------- */
+
+.ad-addr {
+  position: fixed;
+  inset: 0;
+  z-index: 19000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgb(0 0 0 / 45%);
+}
+
+.ad-addr__box {
+  display: flex;
+  flex-direction: column;
+  width: min(30rem, 100%);
+  height: min(480px, 100%);
+  overflow: hidden;
+  border: 1px solid var(--jsini-border);
+  border-radius: 0.5rem;
+  background: var(--jsini-bg);
+  box-shadow: 0 1.25rem 2.5rem rgb(0 0 0 / 28%);
+}
+
+.ad-addr__head {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  padding: 0.6rem 0.75rem;
+  border-bottom: 1px solid var(--jsini-border);
+  background: var(--jsini-surface);
+  color: var(--jsini-text);
+  font-weight: 600;
+}
+
+.ad-addr__close {
+  margin-left: auto;
+  padding: 0 0.35rem;
+  border: 0;
+  background: none;
+  color: var(--jsini-text-muted);
+  font-size: var(--jsini-fs-xl);
+  line-height: 1;
+  cursor: pointer;
+}
+
+.ad-addr__close:hover { color: var(--jsini-text); }
+
+/* 위젯이 여기에 자기 iframe 을 꽂는다. 남는 높이를 다 준다. */
+.ad-addr__frame {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.ad-addr__frame > * {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* 우편번호 칸과 「주소 찾기」 단추를 한 줄에 앉힌다. 칸이 남는 폭을 쓰고
+   단추는 글자만큼만 차지한다 — 반대로 두면 좁은 화면에서 단추 글자가 접힌다. */
+.ad-addr-row {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.ad-addr-row__grow { flex: 1 1 auto; min-width: 0; }
+
+/* 단추는 글자만큼만 차지하고 **접히지 않는다.** 좁은 칸에 넣으면 flex 가
+   단추를 줄이려 들어 「주소찾기」가 한 자씩 세로로 쌓인다. */
+.ad-addr-row > .dxbl-btn {
+  flex: 0 0 auto;
+  white-space: nowrap;
 }

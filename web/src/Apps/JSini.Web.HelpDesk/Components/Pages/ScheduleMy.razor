@@ -120,7 +120,7 @@
                     <DxButton IconCssClass="jsini-icon-edit" Title="수정"
                               RenderStyle="ButtonRenderStyle.Link"
                               Click="@(() => StartEdit(s))" />
-                    <DxButton Text="@(s.IsCompleted ? "되돌리기" : "완료")"
+                    <DxButton IconCssClass="@(s.IsCompleted ? "jsini-icon-undo" : "jsini-icon-check-circle")"
                               RenderStyle="ButtonRenderStyle.Link"
                               Title="@(s.IsCompleted ? "진행으로 되돌린다" : "완료로 표시한다")"
                               Click="@(() => ToggleDoneAsync(s))" />

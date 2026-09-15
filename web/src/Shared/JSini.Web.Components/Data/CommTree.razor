@@ -116,6 +116,19 @@
 
             @if (OnSave.HasDelegate || OnDelete.HasDelegate || RowActions is not null)
             {
+                @*
+                    **나무에서는 붙박지 않는다(실제로 밟음).**
+
+                    표(CommGrd)의 「관리」 칸은 오른쪽에 붙박아 두었는데, 나무에서
+                    같은 것을 걸었더니 **계층 칸이 한 글자로 찌그러지고** 「관리」
+                    오른쪽에 빈 칸이 하나 생겼다(메뉴 관리 화면에서 확인했다).
+                    DxTreeList 는 붙박이 칸이 생기면 남는 폭을 다시 나누는데,
+                    계층 칸은 들여쓰기 때문에 최소 폭이 커서 그 계산에서 가장
+                    먼저 밀린다.
+
+                    나무는 가로로 굴릴 일도 드물다 — 칸이 서넛이고 깊이는
+                    세로로 자란다. 붙박아서 얻을 것이 없다.
+                *@
                 <DxTreeListDataColumn Caption="관리" Width="@ActionsColumnWidth" MinWidth="@ActionsPixels"
                                       AllowSort="false">
                     <CellDisplayTemplate Context="cell">

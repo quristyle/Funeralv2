@@ -87,7 +87,12 @@
 
             @if (OnSave.HasDelegate || OnDelete.HasDelegate || RowActions is not null)
             {
+                @* **오른쪽에 붙박는다.** 칸이 열몇 개인 관리 화면은 가로로
+                   굴러야 하는데, 그때 「수정 · 삭제」가 스크롤 저편으로 사라진다 —
+                   줄 하나를 고치려고 끝까지 굴렸다가 다시 돌아오는 일이 화면
+                   백 개에서 똑같이 난다. 붙박아 두면 굴려도 늘 같은 자리다. *@
                 <DxGridDataColumn Caption="관리" Width="@ActionsColumnWidth" MinWidth="@ActionsPixels"
+                                  FixedPosition="GridColumnFixedPosition.Right"
                                   AllowSort="false" AllowGroup="false">
                     <CellDisplayTemplate Context="cell">
                         <div class="commgrd__actions">

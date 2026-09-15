@@ -68,9 +68,9 @@
         </Columns>
 
         <RowActions Context="row">
-            <DxButton Text="승인" RenderStyle="ButtonRenderStyle.Primary"
+            <DxButton IconCssClass="jsini-icon-check-circle" Title="가입을 승인한다" RenderStyle="ButtonRenderStyle.Link"
                       Click="@(() => ApproveAsync(row))" />
-            <DxButton Text="거절" RenderStyle="ButtonRenderStyle.Secondary"
+            <DxButton IconCssClass="jsini-icon-close-circle" Title="가입을 거절한다" CssClass="commgrd__icon--warn" RenderStyle="ButtonRenderStyle.Link"
                       Click="@(() => AskRejectAsync(row))" />
         </RowActions>
     </CommGrd>

@@ -98,6 +98,17 @@
 *@
 <link rel="stylesheet" href="@Assets["_content/JSini.Web.Components/menu-icons.css"]" />
 
+@*
+    떠오르는 라벨이 「이 칸이 비었는지」를 알 수 있게 해 주는 스크립트.
+    하는 일은 자리표시 글이 없는 입력 칸에 공백 한 칸을 넣는 것뿐이고,
+    떠오르고 내려앉는 것은 전부 app.css 가 한다.
+
+    **`defer` 다.** 첫 그림과 아무 상관이 없다 — 이 스크립트가 늦게 돌면
+    그동안 라벨이 테두리에 걸쳐 있을 뿐이고, 그것이 이 기능의 실패 모드이기도
+    하다. body 를 지켜봐야 해서 문서가 다 그려진 뒤에 도는 편이 낫기도 하다.
+*@
+<script defer src="@Assets["_content/JSini.Web.Components/float-label.js"]"></script>
+
 @* 모듈 전용 스타일. 셸은 모듈 이름을 알지 못하고 모듈이 스스로 알려 준다
    (IPortalModule.StyleSheet). 그래야 모듈을 넣고 빼는 데 셸을 고칠 일이 없다.
 

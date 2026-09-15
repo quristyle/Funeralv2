@@ -157,13 +157,13 @@
                 {
                     @* 발인은 되돌릴 수 있다 — 서버가 그 길을 열어 두었다.
                        실수로 눌렀을 때 손쓸 방법이 있는 것과 없는 것은 다르다. *@
-                    <DxButton Text="발인 취소" RenderStyle="ButtonRenderStyle.Link"
+                    <DxButton IconCssClass="jsini-icon-undo" RenderStyle="ButtonRenderStyle.Link"
                               Title="발인을 되돌린다"
                               Click="@(() => CancelDepartureAsync(d))" />
                 }
                 else
                 {
-                    <DxButton Text="발인" RenderStyle="ButtonRenderStyle.Link"
+                    <DxButton IconCssClass="jsini-icon-export" RenderStyle="ButtonRenderStyle.Link"
                               Title="발인 처리한다"
                               Click="@(() => DepartAsync(d))" />
                 }

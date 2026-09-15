@@ -479,7 +479,7 @@
     /// <summary>지정 사용자 표의 관리 칸 — 해제.</summary>
     private RenderFragment<RoleUserDto> UserActions => user =>@<text>
         <PermissionView Action="MenuAction.Update">
-            <DxButton Text="해제" RenderStyle="ButtonRenderStyle.Link"
+            <DxButton IconCssClass="jsini-icon-subtract" RenderStyle="ButtonRenderStyle.Link"
                       Title="이 사람에게서 이 역할을 뗍니다"
                       Click="@(() => RemoveUserAsync(user))" />
         </PermissionView>

@@ -184,6 +184,37 @@ public class CompanyService : ICompanyService
         return true;
     }
 
+    /// <inheritdoc />
+    public async Task<bool> ReorderCompaniesAsync(List<string> orderedIds)
+    {
+        if (orderedIds is null || orderedIds.Count == 0) return false;
+
+        // 보내 준 자리를 먼저 표로 만든다. 같은 아이디가 두 번 실려 와도
+        // 처음 자리만 남는다 — 화면이 목록에서 뽑아 만든 값이라 그럴 일이
+        // 없지만, 있으면 아래 Dictionary 가 던진다.
+        var seats = new Dictionary<string, int>(orderedIds.Count, StringComparer.Ordinal);
+        for (var i = 0; i < orderedIds.Count; i++)
+        {
+            seats.TryAdd(orderedIds[i], i + 1);
+        }
+
+        var companies = await _context.Companies
+            .Where(c => seats.Keys.Contains(c.Id))
+            .ToListAsync();
+
+        if (companies.Count == 0) return false;
+
+        // 0 이 아니라 1 부터 매긴다. 0 은 「한 번도 안 정한 값」의 기본값이라,
+        // 새로 만든 회사(sort_order 기본 0)가 맨 앞으로 끼어드는 자리를 남겨 둔다.
+        foreach (var company in companies)
+        {
+            company.SortOrder = seats[company.Id];
+        }
+
+        await _context.SaveChangesAsync();
+        return true;
+    }
+
     public async Task<bool> DeleteCompanyAsync(string id)
     {
         var company = await _context.Companies.FindAsync(id);

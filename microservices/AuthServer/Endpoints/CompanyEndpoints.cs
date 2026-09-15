@@ -59,6 +59,22 @@ public static class CompanyEndpoints
         })
         .WithName("AssignUsersToCompany");
 
+        // 회사 차례 다시 매기기
+        //
+        // **`/{id}` 보다 먼저 적는다.** 라우팅은 리터럴이 매개변수를 이기므로
+        // 순서와 무관하게 여기로 오지만, 읽는 사람에게는 위에 있는 편이 낫다.
+        //
+        // 화면이 **보이는 줄 전부**를 순서대로 싣는다. 까닭은
+        // `ICompanyService.ReorderCompaniesAsync` 머리말에 있다.
+        group.MapPost("/reorder", async ([FromBody] List<string> orderedIds, ICompanyService companyService) =>
+        {
+            var success = await companyService.ReorderCompaniesAsync(orderedIds);
+            return success
+                ? Results.Ok(true)
+                : Results.NotFound(ApiResponse<object>.Fail("차례를 바꿀 회사를 찾을 수 없습니다.", "404"));
+        })
+        .WithName("ReorderCompanies");
+
         // 특정 회사 상세 조회
         group.MapGet("/{id}", async (string id, ICompanyService companyService) =>
         {
