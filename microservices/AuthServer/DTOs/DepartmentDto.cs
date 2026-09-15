@@ -105,3 +105,26 @@ public class CreateDepartmentDto
     /// </summary>
     public int SortOrder { get; set; }
 }
+
+/// <summary>
+/// 끌어 옮긴 뒤의 부서 자리 한 줄.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>화면이 확정한 배치를 그대로 받는다.</b> 형제 하나가 움직이면 그 묶음
+/// 전체의 순번이 바뀌므로, 옮긴 한 건만 받으면 서버가 나머지를 어떻게 밀지
+/// 짐작해야 하고 그 짐작이 화면과 어긋난다. 떠난 묶음과 도착한 묶음 둘을
+/// 통째로 받는다 — 메뉴 쪽 <see cref="MenuOrderDto"/> 와 같은 모양이다.
+/// </para>
+/// </remarks>
+public class DeptOrderDto
+{
+    /// <summary>부서 아이디</summary>
+    public string Id { get; set; } = string.Empty;
+
+    /// <summary>새 상위 부서 아이디 (회사 직속은 null)</summary>
+    public string? Pid { get; set; }
+
+    /// <summary>형제 안에서의 순번 (1부터)</summary>
+    public int SortOrder { get; set; }
+}

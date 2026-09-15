@@ -1091,6 +1091,30 @@ public sealed class SaveDeptDto
     public int SortOrder { get; set; }
 }
 
+/// <summary>
+/// 끌어 옮긴 뒤의 부서 자리 한 줄.
+///
+/// <para>
+/// 화면이 <b>확정한 배치</b>를 그대로 보낸다 — 메뉴의 <see cref="MenuOrderDto"/>
+/// 와 같은 모양이다. 한 건만 보내면 서버가 나머지 형제를 어떻게 밀지 짐작해야
+/// 하고, 그 짐작이 방금 눈으로 본 자리와 어긋난다.
+/// </para>
+/// </summary>
+public sealed class DeptOrderDto
+{
+    public string Id { get; set; } = string.Empty;
+
+    /// <summary>새 상위 부서. 회사 직속은 <c>null</c>.</summary>
+    public string? Pid { get; set; }
+
+    /// <summary>
+    /// 형제 안에서의 순번. <b>1 부터</b> — 0 은 「한 번도 정하지 않은 값」의
+    /// 기본값이라(<c>departments.sort_order</c>) 새로 만든 부서가 맨 앞에
+    /// 끼어들 자리로 비워 둔다. 회사 목록도 같은 규칙이다.
+    /// </summary>
+    public int SortOrder { get; set; }
+}
+
 
 // ── 메뉴 ────────────────────────────────────────────────────
 //

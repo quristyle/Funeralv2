@@ -156,6 +156,24 @@ public static class SystemEndpoints
         })
         .WithName("MoveDept");
 
+        // 부서 관리 화면(트리)에서 줄을 끌어 놓으면 상위와 순번이 함께 바뀌고,
+        // 형제 여러 개의 순번이 한꺼번에 밀린다. 화면이 확정한 배치를 그대로 받아
+        // 한 번의 왕복으로 저장한다 — `/dept/{id}/move` 는 상위만 바꾸므로
+        // 끌어 옮긴 「자리」가 저장되지 않는다.
+        group.MapPost("/dept/reorder", async (UserContext? userContext, [FromBody] List<DeptOrderDto> items, [FromServices] IDepartmentService deptService) =>
+        {
+            try
+            {
+                await deptService.ReorderDeptsAsync(items, userContext);
+                return Results.Ok(ApiResponse<bool>.Ok(true));
+            }
+            catch (Exception ex)
+            {
+                return Results.BadRequest(ApiResponse<bool>.Fail("부서 순서 저장 실패", "B400", realMessage: ex.Message));
+            }
+        })
+        .WithName("ReorderDepts");
+
         group.MapPost("/dept/user/move", async ([FromQuery] string accountId, [FromQuery] string? departmentId, UserContext? userContext, [FromServices] IDepartmentService deptService) =>
         {
             var success = await deptService.MoveUserDeptAsync(accountId, departmentId, userContext);

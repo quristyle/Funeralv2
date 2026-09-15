@@ -345,6 +345,102 @@ public class DepartmentService : IDepartmentService
         return true;
     }
 
+    /// <inheritdoc />
+    public async Task<bool> ReorderDeptsAsync(List<DeptOrderDto> items, UserContext? userContext)
+    {
+        if (items == null || items.Count == 0) return true;
+
+        var ids = items.Select(i => i.Id).Distinct().ToList();
+
+        var moving = await _db.Departments
+            .Where(d => ids.Contains(d.Id))
+            .ToDictionaryAsync(d => d.Id);
+
+        var missing = ids.Where(id => !moving.ContainsKey(id)).ToList();
+        if (missing.Count > 0)
+        {
+            throw new KeyNotFoundException($"부서를 찾을 수 없습니다: {string.Join(", ", missing)}");
+        }
+
+        // 자기 회사 밖은 손대지 못한다. 회사가 없는 신원(전체 관리자)만 전부 만진다 —
+        // MoveDeptAsync 의 판정과 같은 모양이다.
+        var companyId = userContext?.CompanyId;
+        if (!string.IsNullOrEmpty(companyId) && moving.Values.Any(d => d.CompanyId != companyId))
+        {
+            throw new InvalidOperationException("다른 회사의 부서는 옮길 수 없습니다.");
+        }
+
+        // 새 상위가 같은 회사인지 본다. 상위는 이번에 함께 옮기는 줄일 수도 있고
+        // (형제 묶음을 통째로 보내므로) 가만히 있는 줄일 수도 있어 둘 다 찾는다.
+        var parentIds = items
+            .Where(i => !string.IsNullOrEmpty(i.Pid))
+            .Select(i => i.Pid!)
+            .Distinct()
+            .Where(pid => !moving.ContainsKey(pid))
+            .ToList();
+
+        var parentCompanies = await _db.Departments
+            .Where(d => parentIds.Contains(d.Id))
+            .ToDictionaryAsync(d => d.Id, d => d.CompanyId);
+
+        foreach (var item in items)
+        {
+            if (string.IsNullOrEmpty(item.Pid)) continue;
+
+            var parentCompany = moving.TryGetValue(item.Pid, out var alsoMoving)
+                ? alsoMoving.CompanyId
+                : parentCompanies.TryGetValue(item.Pid, out var known)
+                    ? known
+                    : throw new KeyNotFoundException($"상위 부서를 찾을 수 없습니다: {item.Pid}");
+
+            if (parentCompany != moving[item.Id].CompanyId)
+            {
+                throw new InvalidOperationException("다른 회사의 부서 아래로는 옮길 수 없습니다.");
+            }
+        }
+
+        // 자기 자신이나 자기 하위를 상위로 지정하면 나무가 고리가 되어 목록이
+        // 통째로 사라진다. 옮긴 뒤의 부모 관계로 걸어 본다.
+        var all = await _db.Departments.Select(d => new { d.Id, d.ParentId }).ToListAsync();
+        var parentMap = all.ToDictionary(d => d.Id, d => d.ParentId);
+
+        foreach (var item in items)
+        {
+            parentMap[item.Id] = string.IsNullOrEmpty(item.Pid) ? null : item.Pid;
+        }
+
+        foreach (var item in items)
+        {
+            var cursor = parentMap[item.Id];
+            var hops = 0;
+
+            while (cursor != null)
+            {
+                if (cursor == item.Id)
+                {
+                    throw new InvalidOperationException($"부서 '{moving[item.Id].Name}' 를 자기 자신의 하위로 옮길 수 없습니다.");
+                }
+
+                if (++hops > parentMap.Count)
+                {
+                    throw new InvalidOperationException("부서 계층에 순환이 있습니다.");
+                }
+
+                parentMap.TryGetValue(cursor, out cursor);
+            }
+        }
+
+        foreach (var item in items)
+        {
+            var dept = moving[item.Id];
+            dept.ParentId = string.IsNullOrEmpty(item.Pid) ? null : item.Pid;
+            dept.SortOrder = item.SortOrder;
+        }
+
+        await _db.SaveChangesAsync();
+        return true;
+    }
+
     /// <summary>사용자 부서 이동</summary>
     public async Task<bool> MoveUserDeptAsync(string accountId, string? departmentId, UserContext? userContext)
     {

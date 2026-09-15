@@ -86,10 +86,20 @@
     </Actions>
 </CommSch>
 
+@* `PopupEditFormCssClass` 는 편집 창을 넓히려고 준다. DevExpress 기본 폭이
+   500px 남짓인데 이 폼은 두 줄기라, 표제 칸을 빼면 편집기 하나가 145px 밖에
+   안 남아 「미르작은사장님」 같은 이름이 칸을 꽉 채운다. 생일 줄의 네모 둘도
+   그 폭에서는 두 줄로 접힌다.
+
+   **여는 태그 안에서는 Razor 주석을 쓰지 않는다** — 속성을 적는 자리에 주석을
+   끼우면 Razor 가 그 글자를 **속성 이름으로** 넘기고, 브라우저가
+   `setAttribute` 에서 던지면서 **회로가 끊겨** 표가 통째로 안 그려진다
+   (실제로 밟았다). 할 말은 태그 밖에 적는다. *@
 <CommCont>
     <CommGrd TItem="AccountDto"
              Data="@Shown"
              EditFormTitle="계정"
+             PopupEditFormCssClass="ad-editpopup"
              ExportName="계정"
              EmptyText="조건에 맞는 계정이 없습니다."
              OnNew="@FillNew"
@@ -172,6 +182,19 @@
                 var a = (AccountDto)edit.EditModel;
                 var isNew = string.IsNullOrEmpty(a.Id);
             }
+            @* 칸을 **두 줄기**로 세운다 — 왼쪽은 사람을 가리키는 값(아이디·이메일·
+               부서), 오른쪽은 그 사람을 설명하는 값(이름·연락처·상태). 넓게
+               걸리는 것(역할·생일·워터마크)만 12칸으로 한 줄을 통째로 쓴다.
+
+               [체크박스에는 제 이름을 두 번 적지 않는다]
+
+               `음력` 은 왼쪽 표제도 「음력」이고 네모 옆 글자도 「음력」이었다.
+               게다가 표제 칸을 3·4칸으로 쪼개 놓아서, 「생일 목록에 넣는다」가
+               한 글자씩 세로로 흘러내렸다 — 창이 500px 남짓이라 3칸이 60px 밖에
+               안 된다.
+
+               그래서 **관련된 네모는 한 표제 아래 가로로 늘어놓는다**(`ad-checks`).
+               메뉴 관리의 「보이기」·「허용 동작」이 쓰는 것과 같은 자리다. *@
             <DxFormLayout CssClass="ad-editform">
                 <DxFormLayoutItem Caption="로그인 아이디" ColSpanMd="6">
                     <DxTextBox @bind-Text="a.LoginId" ReadOnly="@(!isNew)"
@@ -213,16 +236,16 @@
                               NullText="역할 없음" />
                 </DxFormLayoutItem>
 
-                <DxFormLayoutItem Caption="생일" ColSpanMd="5">
-                    <DxDateEdit @bind-Date="a.BirthDateTime" NullText="비워 둘 수 있다" />
-                </DxFormLayoutItem>
-
-                <DxFormLayoutItem Caption="음력" ColSpanMd="3">
-                    <DxCheckBox @bind-Checked="a.BirthDateIsLunar">음력</DxCheckBox>
-                </DxFormLayoutItem>
-
-                <DxFormLayoutItem Caption="축하 대상" ColSpanMd="4">
-                    <DxCheckBox @bind-Checked="a.BirthdayCelebrated">생일 목록에 넣는다</DxCheckBox>
+                @* 날짜와 네모 둘은 **한 가지 일**이다 — 언제 태어났나, 그 날짜를
+                   어느 달력으로 읽나, 그것을 생일 목록에 띄우나. 표제를 셋으로
+                   가르면 읽는 사람이 셋을 따로 판단해야 한다. *@
+                <DxFormLayoutItem Caption="생일" ColSpanMd="12">
+                    <div class="ad-checks">
+                        <DxDateEdit @bind-Date="a.BirthDateTime" CssClass="ad-editform__date"
+                                    NullText="비워 둘 수 있다" />
+                        <DxCheckBox @bind-Checked="a.BirthDateIsLunar">음력</DxCheckBox>
+                        <DxCheckBox @bind-Checked="a.BirthdayCelebrated">생일 목록에 넣는다</DxCheckBox>
+                    </div>
                 </DxFormLayoutItem>
 
                 <DxFormLayoutItem Caption="워터마크" ColSpanMd="12">
@@ -232,10 +255,13 @@
                        있어 옛 포털도 같은 이유로 켜 두었다.
 
                        **관리자만 끈다.** 당사자가 자기 것을 끌 수 있으면
-                       그 목적이 사라지므로 환경설정에 두지 않았다. *@
-                    <DxCheckBox @bind-Checked="a.Watermark">
-                        화면에 아이디를 옅게 깐다 (사진에 누구 화면인지 남는다)
-                    </DxCheckBox>
+                       그 목적이 사라지므로 환경설정에 두지 않았다.
+
+                       까닭은 네모 옆이 아니라 **아래 한 줄**에 적는다. 옆에
+                       달아 두면 글자가 길어 네모가 두 줄로 접히고, 접힌 둘째
+                       줄이 다음 칸의 표제와 나란해져 어느 칸의 말인지 흐려진다. *@
+                    <DxCheckBox @bind-Checked="a.Watermark">화면에 아이디를 옅게 깐다</DxCheckBox>
+                    <div class="jsini-hint">사진으로 찍혀도 누구 화면인지 남습니다.</div>
                 </DxFormLayoutItem>
             </DxFormLayout>
         </EditFormTemplate>
