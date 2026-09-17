@@ -28,6 +28,7 @@ namespace ProjMngServer.Services;
 /// 그쪽이 먼저 자리를 잡았고, 여기서 새로 발명할 것이 없다.
 /// </para>
 /// </remarks>
+// 게이트 시험 A
 public sealed class AiTaskQueue(IConfiguration configuration, ILogger<AiTaskQueue> logger)
 {
     private readonly string _host =
