@@ -68,6 +68,10 @@ InaccessiblePaths=/var/run/docker.sock
 #
 # **/srv/jsini/.env 는 막지 않는다** — 안에 TAG 한 줄뿐이고, 되돌리기에
 # 그 값이 필요하다(설계 9.3).
+#
+# **여기에는 `-` 를 붙이지 않는다.** 막을 대상이 없어서 넘어가는 것과
+# 막는 데 실패해서 넘어가는 것을 구분할 수 없게 되고, 그러면 담장이
+# 조용히 사라진 채로 AI 가 돈다. 이 둘은 지금 확실히 있는 경로다.
 InaccessiblePaths=/srv/jsini/config
 InaccessiblePaths=/home/lee/.ssh
 
@@ -79,14 +83,25 @@ InaccessiblePaths=/home/lee/.ssh
 #
 # 여기 없는 경로는 대상으로 등록돼 있어도 **실행기가 쓰지 못한다.**
 # 대상 뿌리를 늘리면 이 줄도 같이 늘려야 한다(설계 9.5).
+#
+# ── 앞의 `-` 는 「없으면 넘어간다」다 ────────────────────────
+#
+# **없는 경로를 적으면 유닛이 뜨지 않는다.** 그냥 경고가 아니라
+# `226/NAMESPACE` 로 죽고, 메시지가 「Failed to set up mount namespacing」이라
+# 무엇이 없다는 것인지 한 번에 안 읽힌다 — 실제로 `/srv/ai-targets` 가 없어서
+# 여기서 막혔다.
+#
+# 대상 뿌리는 **나중에 만들 수도 있는 자리**라 `-` 를 붙인다. 정본 clone 과
+# 작업공간처럼 반드시 있어야 하는 것에는 붙이지 않는다 — 그것이 없으면
+# 실행기가 할 일이 없으므로 뜨지 않는 편이 맞다.
 ProtectSystem=strict
 ReadWritePaths=/home/lee/Funeralv2
 ReadWritePaths=/home/lee/ai-workspaces
-ReadWritePaths=/home/lee/nums
-ReadWritePaths=/srv/ai-targets
-ReadWritePaths=/home/lee/.claude
-ReadWritePaths=/home/lee/.config
 ReadWritePaths=/home/lee/ai-task-runner
+ReadWritePaths=/home/lee/.claude
+ReadWritePaths=-/home/lee/.config
+ReadWritePaths=-/home/lee/nums
+ReadWritePaths=-/srv/ai-targets
 PrivateTmp=yes
 
 # ── ⑤ 자원 ─────────────────────────────────────────────────

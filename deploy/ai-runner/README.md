@@ -97,7 +97,10 @@ ssh jsini-prod "chmod +x /home/lee/ai-task-runner/AiTaskRunner"
 ```bash
 # 운영 장비에서
 mkdir -p /home/lee/ai-workspaces
-sudo mkdir -p /srv/ai-targets && sudo chown lee:lee /srv/ai-targets   # 폴더 대상을 쓸 때만
+# /srv/ai-targets 는 폴더 대상을 모아 둘 자리다. **지금 안 만들어도 된다** —
+# 유닛이 그 줄에 `-` 를 붙여 두어 없으면 넘어간다. 쓰기 시작할 때 만들고
+# 유닛을 다시 읽히면 된다.
+# sudo mkdir -p /srv/ai-targets && sudo chown lee:lee /srv/ai-targets
 
 tee /home/lee/ai-task-runner/appsettings.Local.json >/dev/null <<'JSON'
 {
@@ -110,6 +113,11 @@ chmod 600 /home/lee/ai-task-runner/appsettings.Local.json
 ```
 
 ### ④ 유닛
+
+> **없는 경로를 `ReadWritePaths` 에 적으면 유닛이 뜨지 않는다.** 경고가 아니라
+> `226/NAMESPACE` 로 죽고 메시지가 「Failed to set up mount namespacing」이라
+> 무엇이 없다는 것인지 한 번에 안 읽힌다. 그래서 있어도 되고 없어도 되는
+> 경로에는 앞에 `-` 를 붙여 두었다.
 
 ```bash
 sudo cp /home/lee/Funeralv2/deploy/ai-runner/ai-task-runner.service /etc/systemd/system/
