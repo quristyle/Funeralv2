@@ -95,7 +95,7 @@
                         @{
                             var t = (AiTaskDto)cell.DataItem;
                         }
-                        <span class="jsini-badge pm-ai-state--@t.StatusTone">@t.StatusText</span>
+                        <span class="jsini-badge jsini-badge--@t.StatusTone">@t.StatusText</span>
                     </CellDisplayTemplate>
                 </DxGridDataColumn>
 
@@ -274,7 +274,7 @@
                         <button type="button"
                                 class="pm-ai-run @(run.RunKey == _openRun?.RunKey ? "pm-ai-run--on" : null)"
                                 @onclick="@(() => OpenRunAsync(run))">
-                            <span class="jsini-badge pm-ai-state--@run.StatusTone">@run.StatusText</span>
+                            <span class="jsini-badge jsini-badge--@run.StatusTone">@run.StatusText</span>
                             <span>@run.Seq 차</span>
                             <span class="pm-ai-dim">@run.StartedAt?.ToString("MM-dd HH:mm")</span>
                         </button>

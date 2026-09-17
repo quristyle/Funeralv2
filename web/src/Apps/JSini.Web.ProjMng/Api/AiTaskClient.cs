@@ -106,11 +106,12 @@ public sealed class AiTaskRunDto
         _ => RunStatus ?? string.Empty,
     };
 
+    /// <summary>배지 수식어. 공통 배지(<c>jsini-badge--*</c>)를 그대로 쓴다.</summary>
     public string StatusTone => RunStatus switch
     {
         "succeeded" => "on",
-        "failed" or "timeout" or "interrupted" => "bad",
-        "preparing" or "running" => "busy",
+        "failed" or "timeout" or "interrupted" => "err",
+        "preparing" or "running" => "warn",
         _ => "off",
     };
 }
@@ -207,12 +208,19 @@ public sealed class AiTaskDto
         _ => TaskStatus ?? string.Empty,
     };
 
-    /// <summary>배지 색을 고르는 값.</summary>
+    /// <summary>
+    /// 배지 수식어. <b>이 저장소에 이미 있는 것(<c>jsini-badge--*</c>)을 쓴다.</b>
+    /// </summary>
+    /// <remarks>
+    /// 색을 새로 만들지 않는다. 공통 배지는 테두리와 글자색만 쓰는 윤곽선
+    /// 모양이라 어두운 테마에서도 그대로 읽히는데, 바탕색을 따로 주면
+    /// <b>밝은 쪽 값이 굳어 어두운 테마에서 흰 칩이 된다.</b>
+    /// </remarks>
     public string StatusTone => TaskStatus switch
     {
         "succeeded" => "on",
-        "failed" or "timeout" or "interrupted" => "bad",
-        "queued" or "preparing" or "running" => "busy",
+        "failed" or "timeout" or "interrupted" => "err",
+        "queued" or "preparing" or "running" => "warn",
         _ => "off",
     };
 

@@ -77,7 +77,7 @@
                     @{
                         var t = (AiTargetDto)cell.DataItem;
                     }
-                    <span class="jsini-badge @(t.AllowPush ? "pm-ai-state--bad" : "jsini-badge--off")">
+                    <span class="jsini-badge @(t.AllowPush ? "jsini-badge--err" : "jsini-badge--off")">
                         @(t.AllowPush ? "허용" : "안 함")
                     </span>
                 </CellDisplayTemplate>

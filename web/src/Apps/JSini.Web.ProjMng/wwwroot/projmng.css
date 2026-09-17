@@ -934,18 +934,16 @@
 
 /* ── AI 작업 (`pm-ai-*`) ──────────────────────────────────────
 
-   상태 배지의 색이 넷이다. 공통 배지(`jsini-badge`)는 켬/끔 둘뿐이라
-   여기서 나머지를 더한다 — **「돌고 있다」와 「실패했다」가 같은 회색이면
-   화면을 봐도 지금 무슨 일인지 알 수 없다.**
+   **상태 배지에 색을 새로 만들지 않는다.** 공통 배지(`jsini-badge--on` ·
+   `--off` · `--warn` · `--err`)를 그대로 쓴다.
+
+   처음에는 `--bs-*` 변수로 바탕색을 주는 배지를 따로 만들었는데, 이 포털에는
+   **부트스트랩 변수가 아예 없다.** 그래서 대체값(밝은 파스텔)이 늘 쓰였고
+   어두운 테마에서 흰 칩이 떠 있었다 — 오류는 안 나고 보기만 나쁘다.
    ---------------------------------------------------------- */
 
-.pm-ai-state--on   { background: var(--bs-success-bg-subtle, #d1e7dd); color: var(--bs-success-text-emphasis, #0a3622); }
-.pm-ai-state--busy { background: var(--bs-info-bg-subtle, #cff4fc);    color: var(--bs-info-text-emphasis, #055160); }
-.pm-ai-state--bad  { background: var(--bs-danger-bg-subtle, #f8d7da);  color: var(--bs-danger-text-emphasis, #58151c); }
-.pm-ai-state--off  { background: var(--bs-secondary-bg, #e9ecef);      color: var(--bs-secondary-color, #6c757d); }
-
 /* 표에서 「없음」을 뜻하는 자리. 배지를 쓰면 없는 것이 있는 것처럼 보인다. */
-.pm-ai-dim { color: var(--bs-secondary-color, #6c757d); }
+.pm-ai-dim { color: var(--jsini-text-muted); }
 
 /* 편집기와 아래 단추 줄 사이. 붙어 있으면 편집기 테두리와 단추가 한 줄로
    보여 어디까지가 입력칸인지 흐려진다(`pm-query` 와 같은 이유다). */
@@ -1010,13 +1008,18 @@
   cursor: pointer;
 }
 
+/* 고른 실행. 테마의 강조색을 쓴다 — 여기도 부트스트랩 변수는 없다. */
 .pm-ai-run--on {
-  border-color: var(--bs-primary, #0d6efd);
-  box-shadow: inset 0 0 0 1px var(--bs-primary, #0d6efd);
+  border-color: var(--jsini-accent);
+  box-shadow: inset 0 0 0 1px var(--jsini-accent);
 }
 
 /* 로그와 결과는 **글자 그대로** 보여 준다. 줄바꿈을 접으면 표·트리 모양의
-   출력이 뭉개져서 무슨 일이 있었는지 읽을 수 없다. */
+   출력이 뭉개져서 무슨 일이 있었는지 읽을 수 없다.
+
+   **바탕과 글자를 둘 다 못 박는다.** 한쪽만 정하면 나머지가 어디서 오는지에
+   따라 어두운 테마에서 흰 바탕에 밝은 글씨가 된다 — 재연결 덮개에서 한 번
+   났던 사고와 같은 종류다(app.css). 테마를 따라가는 토큰(`--jsini-*`)을 쓴다. */
 .pm-ai-log,
 .pm-ai-result {
   margin: 0;
@@ -1028,12 +1031,16 @@
   font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
   font-size: var(--jsini-fs-xs);
   line-height: 1.5;
+  color: var(--jsini-text);
+  border: 1px solid var(--jsini-border);
+  border-radius: var(--jsini-radius-md);
 }
 
-.pm-ai-log { background: var(--bs-secondary-bg, #f1f3f5); }
+/* 로그는 한 단 눌러 둔다 — 결과문과 갈라 보이게. */
+.pm-ai-log { background: var(--jsini-surface); }
 
-/* 결과는 AI 의 답이라 본문처럼 읽힌다 — 로그와 다른 바탕을 준다. */
-.pm-ai-result { background: var(--bs-body-bg, #fff); }
+/* 결과는 AI 의 답이라 본문처럼 읽힌다. 바탕도 본문과 같게. */
+.pm-ai-result { background: var(--jsini-bg); }
 
 /* 이어서 시킬 내용을 받는 칸. 한 줄짜리가 아니라 문단을 쓰는 자리다. */
 .pm-ai-addition { width: 100%; }
