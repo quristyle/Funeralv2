@@ -55,6 +55,16 @@ public sealed class AiTarget
     /// <summary>push 전에 돌릴 검사 — <c>build</c> · <c>test</c> · <c>none</c>.</summary>
     public string? GateMode { get; set; } = "build";
 
+    /// <summary>
+    /// 이 대상을 집을 수 있는 실행기 이름. <b>비면 아무 장비나.</b>
+    /// </summary>
+    /// <remarks>
+    /// DB 는 한 벌인데 대상 경로는 장비마다 다르다. 개발 장비의
+    /// <c>/home/quri/…</c> 를 운영 실행기가 집어 가서 「대상 폴더가 없습니다」로
+    /// 실패한 적이 있다 — 그 뒤로 이 칸이 생겼다.
+    /// </remarks>
+    public string? RunnerNm { get; set; }
+
     public bool IsEnabled { get; set; } = true;
 
     /// <summary>

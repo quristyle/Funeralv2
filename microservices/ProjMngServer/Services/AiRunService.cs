@@ -85,10 +85,15 @@ public sealed class AiRunService(
                AND b.is_enabled   = true
                AND b.is_deleted   = false
                AND b.running_run_key IS NULL
+               -- **장비가 맞아야 한다.** DB 는 한 벌인데 대상 경로는 장비마다
+               -- 다르다 — 개발 장비의 /home/quri/… 를 운영 실행기가 집어 가서
+               -- 「대상 폴더가 없습니다」로 실패한 적이 있다(실제로 밟음).
+               -- 비어 있으면 아무 장비나 집는다(모든 장비에 같은 경로가 있는 대상).
+               AND (b.runner_nm IS NULL OR b.runner_nm = @runnerName)
              ORDER BY a.priority DESC, a.requested_at
              FOR UPDATE OF a SKIP LOCKED
              LIMIT @capacity
-            """, new { kinds = kinds.ToArray(), capacity }, tx)).ToList();
+            """, new { kinds = kinds.ToArray(), capacity, runnerName }, tx)).ToList();
 
         var claims = new List<AiClaim>();
 
@@ -111,14 +116,15 @@ public sealed class AiRunService(
             var runKey = await db.ExecuteScalarAsync<long>("""
                 INSERT INTO projmng.ai_task_run
                      ( task_key, seq, run_status, lease_expires_at, token_hash,
-                       started_at, instruction )
+                       started_at, instruction, runner_nm )
                 SELECT @TaskKey,
                        COALESCE(MAX(seq), 0) + 1,
                        'preparing',
                        now() + make_interval(secs => @lease),
                        @hash,
                        now(),
-                       @Contents
+                       @Contents,
+                       @runnerName
                   FROM projmng.ai_task_run WHERE task_key = @TaskKey
                 RETURNING run_key
                 """, new
@@ -127,6 +133,7 @@ public sealed class AiRunService(
                 lease = _leaseSeconds,
                 hash = Hash(token),
                 task.Contents,
+                runnerName,
             }, tx);
 
             // ④ 대상을 잠근다. 이 값이 있으면 다른 작업이 그 대상을 못 집는다.

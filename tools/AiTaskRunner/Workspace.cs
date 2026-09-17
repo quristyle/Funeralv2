@@ -30,7 +30,12 @@ public sealed class Workspace(RunnerOptions options, ILogger<Workspace> logger)
 
         if (!Directory.Exists(path))
         {
-            throw new DirectoryNotFoundException($"대상 폴더가 없습니다: {path}");
+            // **장비를 짚어 준다.** 그냥 「폴더가 없습니다」로 두면 「내 PC 에는
+            // 분명히 있는데」가 되고, 다른 장비의 실행기가 집어 간 것이라는
+            // 진짜 원인이 안 읽힌다 — 실제로 그렇게 한 번 헤맸다.
+            throw new DirectoryNotFoundException(
+                $"이 장비({options.Name})에는 대상 폴더가 없습니다: {path} "
+                + "— 대상의 「장비」가 맞게 지정돼 있는지 확인하십시오.");
         }
 
         var isRepo = Directory.Exists(Path.Combine(path, ".git"));

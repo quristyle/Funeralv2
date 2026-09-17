@@ -68,8 +68,26 @@
 
             <DxGridDataColumn FieldName="@nameof(AiTargetDto.IsolationText)" Caption="격리" Width="90" />
 
-            <DxGridDataColumn FieldName="@nameof(AiTargetDto.RunnerKinds)" Caption="AI" Width="140"
+            <DxGridDataColumn FieldName="@nameof(AiTargetDto.RunnerKinds)" Caption="AI" Width="130"
                               TextAlignment="GridTextAlignment.Left" />
+
+            @* 어느 장비가 집을 수 있나. **비면 아무 장비나 집는다** —
+               경로가 그 장비에 없으면 그대로 실패한다. *@
+            <DxGridDataColumn Caption="장비" Width="110">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var t = (AiTargetDto)cell.DataItem;
+                    }
+                    @if (string.IsNullOrWhiteSpace(t.RunnerNm))
+                    {
+                        <span class="pm-ai-dim">아무 장비나</span>
+                    }
+                    else
+                    {
+                        @t.RunnerNm
+                    }
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
 
             @* 이 칸이 켜져 있으면 그 대상의 작업이 운영 배포를 일으킬 수 있다. *@
             <DxGridDataColumn Caption="올리기" Width="80">
@@ -167,6 +185,17 @@
                     </div>
                 </DxFormLayoutItem>
 
+                @* **경로는 장비마다 다르다.** 비워 두면 아무 실행기나 집어
+                   가는데, 그 장비에 그 경로가 없으면 「대상 폴더가 없습니다」로
+                   실패한다 — 개발 장비의 폴더를 운영 실행기가 집어 가서 실제로
+                   그렇게 됐다. 장비 이름은 그 실행기 설정의 `Runner:Name` 이다. *@
+                <DxFormLayoutItem Caption="장비" ColSpanMd="6">
+                    <DxComboBox Data="@Runners" @bind-Value="t.RunnerNm"
+                                AllowUserInput="true" ValidationEnabled="false"
+                                NullText="비우면 아무 장비나"
+                                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+                </DxFormLayoutItem>
+
                 <DxFormLayoutItem Caption="복사 상한(MB)" ColSpanMd="3">
                     <DxSpinEdit @bind-Value="t.MaxSizeMb" MinValue="0" MaxValue="102400"
                                 NullText="제한 없음" />
@@ -229,6 +258,12 @@
     [
         new("claude", "claude"), new("antigravity", "안티그래비티 (agy)"),
     ];
+
+    /// <summary>
+    /// 고를 수 있는 장비 이름. <b>목록에 없는 이름도 적을 수 있다</b>
+    /// (<c>AllowUserInput</c>) — 장비가 늘 때마다 화면을 고치지 않으려는 것이다.
+    /// </summary>
+    private static readonly string[] Runners = ["jsini-prod", "quri-dev"];
 
     private static readonly PickOption[] Gates =
     [

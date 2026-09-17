@@ -248,3 +248,22 @@ ALTER TABLE projmng.ai_task_run
     -- **작업 폴더에 묶이므로** 같은 worktree 를 다시 쓸 때만 쓸모가 있다.
     ADD COLUMN IF NOT EXISTS session_id   varchar(100),
     ADD COLUMN IF NOT EXISTS session_kind varchar(20);
+
+-- ── 대상을 장비에 묶는다 (2026-09-18) ───────────────────────
+--
+-- **DB 는 한 벌인데 대상 경로는 장비마다 다르다.** 개발 장비의
+-- `/home/quri/Funeralv2` 를 가리키는 대상을 운영 실행기가 집어 가서
+-- 「대상 폴더가 없습니다」로 실패했다 — 실제로 밟았다.
+--
+-- 실행기는 집어갈 때 자기 이름을 보낸다(`Runner:Name`). 그 이름과 맞는
+-- 대상만 주게 한다. **비어 있으면 아무 장비나** 집을 수 있다 — 같은 경로가
+-- 모든 장비에 있는 대상(예: /srv/ai-targets)을 위한 것이다.
+ALTER TABLE projmng.ai_target
+    ADD COLUMN IF NOT EXISTS runner_nm varchar(100);
+
+COMMENT ON COLUMN projmng.ai_target.runner_nm IS
+    '이 대상을 집을 수 있는 실행기 이름. 비면 아무 장비나.';
+
+-- 실행이 어느 장비에서 돌았는지. **없으면 「왜 거기서 돌았지」를 알 수 없다.**
+ALTER TABLE projmng.ai_task_run
+    ADD COLUMN IF NOT EXISTS runner_nm varchar(100);

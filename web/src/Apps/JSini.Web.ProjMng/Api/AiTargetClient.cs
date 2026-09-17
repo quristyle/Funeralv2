@@ -63,6 +63,16 @@ public sealed class AiTargetDto
 
     public string? PushRef { get; set; } = "main";
     public string? GateMode { get; set; } = "build";
+
+    /// <summary>
+    /// 이 대상을 집을 수 있는 실행기 이름. <b>비면 아무 장비나.</b>
+    /// </summary>
+    /// <remarks>
+    /// DB 는 한 벌인데 경로는 장비마다 다르다 — 개발 장비의 폴더를 운영
+    /// 실행기가 집어 가 「대상 폴더가 없습니다」로 실패한 적이 있다.
+    /// </remarks>
+    public string? RunnerNm { get; set; }
+
     public bool IsEnabled { get; set; } = true;
 
     /// <summary>지금 이 대상에서 도는 실행. 있으면 다른 작업이 못 들어간다.</summary>

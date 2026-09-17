@@ -87,6 +87,7 @@ public sealed class AiTargetService(IConfiguration configuration)
         a.allow_push       AS AllowPush,
         a.push_ref         AS PushRef,
         a.gate_mode        AS GateMode,
+        a.runner_nm        AS RunnerNm,
         a.is_enabled       AS IsEnabled,
         a.running_run_key  AS RunningRunKey,
         a.comments         AS Comments,
@@ -128,19 +129,19 @@ public sealed class AiTargetService(IConfiguration configuration)
             INSERT INTO projmng.ai_target
                  ( target_nm, target_kind, target_path, repo_url, default_ref,
                    credential_ref, isolation_mode, max_size_mb, runner_kinds,
-                   allow_push, push_ref, gate_mode, is_enabled, comments,
+                   allow_push, push_ref, gate_mode, runner_nm, is_enabled, comments,
                    cre_id, cre_dt )
             VALUES ( @TargetNm, @TargetKind, @TargetPath, @RepoUrl, @DefaultRef,
                      @CredentialRef, @IsolationMode, @MaxSizeMb, @RunnerKinds,
-                     @AllowPush, @PushRef, @GateMode, @IsEnabled, @Comments,
+                     @AllowPush, @PushRef, @GateMode, @RunnerNm, @IsEnabled, @Comments,
                      @userId, now() )
             RETURNING target_key
             """, new
         {
             item.TargetNm, item.TargetKind, item.TargetPath, item.RepoUrl, item.DefaultRef,
             item.CredentialRef, item.IsolationMode, item.MaxSizeMb, item.RunnerKinds,
-            item.AllowPush, item.PushRef, item.GateMode, item.IsEnabled, item.Comments,
-            userId,
+            item.AllowPush, item.PushRef, item.GateMode, item.RunnerNm, item.IsEnabled,
+            item.Comments, userId,
         });
 
         return await GetAsync(key);
@@ -166,6 +167,7 @@ public sealed class AiTargetService(IConfiguration configuration)
                    allow_push     = @AllowPush,
                    push_ref       = @PushRef,
                    gate_mode      = @GateMode,
+                   runner_nm      = @RunnerNm,
                    is_enabled     = @IsEnabled,
                    comments       = @Comments,
                    mod_id         = @userId,
@@ -177,7 +179,7 @@ public sealed class AiTargetService(IConfiguration configuration)
             targetKey, item.TargetNm, item.TargetKind, item.TargetPath, item.RepoUrl,
             item.DefaultRef, item.CredentialRef, item.IsolationMode, item.MaxSizeMb,
             item.RunnerKinds, item.AllowPush, item.PushRef, item.GateMode,
-            item.IsEnabled, item.Comments, userId,
+            item.RunnerNm, item.IsEnabled, item.Comments, userId,
         });
 
         return affected == 0 ? null : await GetAsync(targetKey);
@@ -315,6 +317,7 @@ public sealed class AiTargetService(IConfiguration configuration)
     private static void Normalize(AiTarget item)
     {
         item.TargetNm = item.TargetNm?.Trim();
+        item.RunnerNm = string.IsNullOrWhiteSpace(item.RunnerNm) ? null : item.RunnerNm.Trim();
         item.TargetPath = item.TargetPath?.Trim();
         item.RepoUrl = string.IsNullOrWhiteSpace(item.RepoUrl) ? null : item.RepoUrl.Trim();
 
