@@ -213,9 +213,22 @@ public sealed class PushGate(RunnerOptions options, ILogger<PushGate> logger)
 
         if (touchedBackend)
         {
+            // **솔루션 파일이 있는지 먼저 본다.** 없으면 빌드가
+            // 「MSB1009: Project file does not exist」로 실패하는데, 그 문구는
+            // 코드가 깨진 것처럼 읽힌다 — 실제로는 파일이 없는 것이다.
+            // (이 파일은 한동안 .gitignore 의 `*.sln` 에 걸려 저장소에 없었고,
+            //  그 때문에 CI 의 백엔드 잡도 계속 빨간불이었다.)
+            var sln = Path.Combine(path, "jsini.sln");
+
+            if (!File.Exists(sln))
+            {
+                return "백엔드 솔루션(jsini.sln)이 작업공간에 없어 빌드를 확인할 수 없습니다.";
+            }
+
             await say("[게이트] 백엔드 빌드");
 
-            var r = await RunAsync("dotnet", ct, path, "build", "jsini.sln", "-v", "q", "--nologo", "-m:2");
+            var r = await RunAsync(options.DotnetPath, ct, path,
+                "build", "jsini.sln", "-v", "q", "--nologo", "-m:2");
 
             if (r.ExitCode != 0)
             {
@@ -229,7 +242,7 @@ public sealed class PushGate(RunnerOptions options, ILogger<PushGate> logger)
 
             await say("[게이트] 프론트 빌드");
 
-            var b = await RunAsync("dotnet", ct, web, "build", "-v", "q", "--nologo", "-m:2");
+            var b = await RunAsync(options.DotnetPath, ct, web, "build", "-v", "q", "--nologo", "-m:2");
 
             if (b.ExitCode != 0)
             {
@@ -242,7 +255,7 @@ public sealed class PushGate(RunnerOptions options, ILogger<PushGate> logger)
                 // 조용히 틀리는 종류다.** 그래서 push 전에 돌린다.
                 await say("[게이트] 아키텍처 테스트");
 
-                var t = await RunAsync("dotnet", ct, web, "test", "-v", "q", "--nologo");
+                var t = await RunAsync(options.DotnetPath, ct, web, "test", "-v", "q", "--nologo");
 
                 if (t.ExitCode != 0)
                 {

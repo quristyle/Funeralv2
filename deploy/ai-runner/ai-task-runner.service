@@ -50,6 +50,18 @@ RestartSec=10
 # 설정은 이 폴더의 appsettings.Local.json 이 덮는다. 토큰을 여기 적지 않는다.
 Environment=DOTNET_ENVIRONMENT=Production
 
+# ── push 게이트가 쓰는 .NET ─────────────────────────────────
+#
+# 이 장비의 시스템 dotnet 은 8.0 이고 저장소는 net10.0 이라, PATH 로 찾으면
+# **복원부터 실패한다.** 10.0 은 sudo 없이 `~/.dotnet` 에 깔아 두었다.
+#
+# 실행기가 부를 때는 설정(`Runner:DotnetPath`)의 절대 경로를 쓰지만,
+# 빌드가 띄우는 자식들(MSBuild·테스트 호스트)은 이 환경을 본다.
+Environment=DOTNET_ROOT=/home/lee/.dotnet
+Environment=PATH=/home/lee/.dotnet:/home/lee/.local/bin:/usr/local/bin:/usr/bin:/bin
+Environment=DOTNET_CLI_TELEMETRY_OPTOUT=1
+Environment=DOTNET_NOLOGO=1
+
 # ── ① 권한 상승을 막는다 ────────────────────────────────────
 #
 # setuid 실행 파일이 권한을 못 얻는다 = **sudo 가 무력해진다.**
@@ -99,6 +111,12 @@ ReadWritePaths=/home/lee/Funeralv2
 ReadWritePaths=/home/lee/ai-workspaces
 ReadWritePaths=/home/lee/ai-task-runner
 ReadWritePaths=/home/lee/.claude
+#
+# 빌드가 쓰는 자리. **없으면 복원이 그 자리에서 죽는다** —
+# NuGet 은 `~/.nuget/packages` 에 받아 두고, dotnet 은 첫 실행에
+# `~/.dotnet` 에 표식을 남긴다.
+ReadWritePaths=-/home/lee/.nuget
+ReadWritePaths=-/home/lee/.dotnet
 ReadWritePaths=-/home/lee/.config
 ReadWritePaths=-/home/lee/nums
 ReadWritePaths=-/srv/ai-targets

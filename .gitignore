@@ -12,6 +12,17 @@ obj/
 *.log
 *.sln
 
+# **다만 백엔드 솔루션은 저장소에 둔다.**
+#
+# `*.sln` 을 통째로 무시해 두었더니 `jsini.sln` 이 한 번도 커밋되지 않았고,
+# 그래서 **CI 의 백엔드 잡이 계속 빨간불이었다**(`dotnet restore jsini.sln`
+# → MSB1009: Project file does not exist). 적어도 2026-09-13 부터 그랬고,
+# 배포는 ci 를 기다리지 않으므로 아무도 막히지 않아 드러나지 않았다.
+#
+# AI 작업의 push 게이트도 이 파일로 빌드한다 — 운영 장비에 없으면 그 검사가
+# 통째로 헛돈다.
+!jsini.sln
+
 **/.vs/
 **/.antigravitycli/
 **/appsettings.Local.json

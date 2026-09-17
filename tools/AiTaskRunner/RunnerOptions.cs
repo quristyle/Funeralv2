@@ -61,6 +61,17 @@ public sealed class RunnerOptions
     public string EnvFile { get; set; } = "/srv/jsini/.env";
 
     /// <summary>
+    /// push 게이트가 빌드에 쓸 <c>dotnet</c>.
+    /// </summary>
+    /// <remarks>
+    /// <b>이름만 적으면 안 되는 장비가 있다.</b> 운영 서버에는 시스템 dotnet 이
+    /// 8.0 으로 깔려 있고 이 저장소는 net10.0 이라, <c>PATH</c> 로 찾으면
+    /// 8.0 이 잡혀 복원부터 실패한다. CLI 실행 파일을 절대 경로로 적는 것과
+    /// 같은 이유다.
+    /// </remarks>
+    public string DotnetPath { get; set; } = "dotnet";
+
+    /// <summary>
     /// 작업공간을 며칠 두나.
     /// </summary>
     /// <remarks>
