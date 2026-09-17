@@ -1044,3 +1044,18 @@
 
 /* 이어서 시킬 내용을 받는 칸. 한 줄짜리가 아니라 문단을 쓰는 자리다. */
 .pm-ai-addition { width: 100%; }
+
+/* 목록의 제목 칸. 제목 뒤에 「임시」 표가 붙을 수 있어 한 줄로 세운다.
+   제목이 길면 표가 밀려 보이지 않으므로 **제목 쪽만** 줄인다. */
+.pm-ai-title {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.pm-ai-title__text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

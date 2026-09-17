@@ -52,6 +52,11 @@ public sealed class ProjMngModule : IPortalModule
         // 다른 열한 개와 접두사가 같다.
         services.AddScoped<AiTaskClient>();
         services.AddScoped<AiTargetClient>();
+
+        // 작성 중인 지시문을 브라우저에 적어 두는 곳. 화면이 아니라 서비스인
+        // 이유는 화면이 다시 만들어질 때마다(탭을 옮길 때마다) 새로 태어나는
+        // 것이 화면이기 때문이다 — 적어 둔 곳은 그것보다 오래 남아야 한다.
+        services.AddScoped<Components.Shared.AiTaskDraftStore>();
         services.AddScoped<BizOptions>();
 
         // 이 앱 전용 서비스만 여기 등록한다.
