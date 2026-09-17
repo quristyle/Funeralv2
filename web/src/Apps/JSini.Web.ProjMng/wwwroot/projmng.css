@@ -1167,6 +1167,16 @@
   line-height: 1.5;
 }
 
+/* 올리기 칸. 글자는 DevExpress 가 부품 안에 그리므로(누르는 자리도 그쪽이
+   만든다) 여기서는 자리와 글자 크기만 잡는다.
+
+   글이 두 줄로 접힐 때가 있어(대상 이름이 붙은 안내) 줄 간격을 넉넉히 둔다. */
+.pm-ask__push {
+  margin: 0.75rem 0 0;
+  font-size: 0.9em;
+  line-height: 1.5;
+}
+
 .pm-ask__send {
   display: flex;
   flex-wrap: wrap;

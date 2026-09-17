@@ -29,13 +29,27 @@
     그것을 받게 하면 **「빠르게 접근한다」는 말이 무색해진다.** 여기는 그냥
     글상자다 — 줄바꿈과 붙여넣기면 충분하다.
 
-    [올리기를 이 화면에서는 켤 수 없다]
+    [올리기 — 한동안 못 켜게 두었다가, 켤 수 있게 돌렸다 (2026-09-18)]
 
-    `main` push 는 곧 운영 배포다(이미지 열둘). 흔들리는 지하철에서 손가락
-    하나로 그것이 나가면 안 된다. **여기서 만든 건은 언제나 올리기 꺼짐**이고,
-    올릴 일이면 「AI 작업」 화면에서 사람이 앉아서 켠다.
+    처음에는 **언제나 꺼짐**이었다. `main` push 는 곧 운영 배포고(이미지 열둘)
+    흔들리는 지하철에서 손가락 하나로 그것이 나가면 안 된다고 보았다.
 
-    끈다고 결과가 사라지지는 않는다 — 고친 것은 커밋과 브랜치로 남고,
+    그런데 실제로 써 보니 **그 판단이 일을 반으로 잘랐다.** 여기서 시킨 건은
+    거의 다 「고쳐서 올려 달라」인데, 올리기가 없으면 AI 가 다 고쳐 놓은 뒤에
+    사람이 자리에 돌아와 「AI 작업」 화면을 열고 같은 건을 다시 올려야 한다.
+    그때까지 고친 것은 브랜치에 앉아 있고, **그 사이를 기억하는 것은 사람뿐이다.**
+
+    그래서 켤 수 있게 하되 **한 번에 못 켜지게** 했다. 막는 것이 셋이다.
+
+      1. 기본이 꺼짐이다. 그냥 보내면 예전과 똑같이 커밋까지만 한다.
+      2. 대상이 허용한 것(`ai_target.allow_push`)만 켜진다. 허용 안 한
+         대상에서는 칸이 회색이고, 왜 회색인지 그 자리에 적는다.
+      3. 켠 채로 보내면 **묻는 창이 뜬다.** 「보내기」 한 번으로는 안 나간다.
+
+    서버도 저장할 때 2번을 한 번 더 본다(`AiTaskService.Normalize`) — 이 값
+    하나가 운영 배포를 일으키므로 화면만 믿지 않는다.
+
+    끄고 보내도 결과가 사라지지는 않는다 — 고친 것은 커밋과 브랜치로 남고,
     그 사실이 메일에 적혀 온다(설계 8-2).
 
     [메일은 항상 켠다]
@@ -119,9 +133,22 @@
                 NullText="무엇을 시킬지, 또는 무엇이 궁금한지 적으십시오. 첫 줄이 제목이 됩니다."
                 Enabled="@(!Busy)" />
 
+        @* 올리기. **글상자와 단추 사이다** — 단추 옆에 두면 보내려고 손가락을
+           내리는 길목에 체크칸이 놓인다. 위 머리말 참고. *@
+        <div class="pm-ask__push">
+            @* 글자를 `<span>` 으로 옆에 두지 않는다. **부품 안에 넣으면
+               DevExpress 가 그것까지 누르는 자리로 만든다** — 모바일에서
+               14px 짜리 네모만 겨누게 하지 않으려는 것이고, 「AI 작업」
+               화면의 같은 칸도 이 모양이다. *@
+            <DxCheckBox @bind-Checked="@PushOn"
+                        Enabled="@(!Busy && SelectedTargetAllowsPush)">
+                @PushLabel
+            </DxCheckBox>
+        </div>
+
         <div class="pm-ask__send">
             <PermissionView Action="MenuAction.Create">
-                <DxButton Text="@(Busy ? "보내는 중" : "보내고 메일로 받기")"
+                <DxButton Text="@SendText"
                           RenderStyle="ButtonRenderStyle.Primary"
                           CssClass="pm-ask__go"
                           Enabled="@CanSend"
@@ -197,6 +224,10 @@
             </ul>
         }
     </CommCont>
+
+    @* 올리기를 켠 채로 보낼 때만 뜬다. **「보내기」 한 번으로 운영 배포가
+       나가지 않게 하는 마지막 겹이다.** *@
+    <ConfirmDialog @ref="_confirm" />
 </div>
 
 @code {
@@ -217,6 +248,14 @@
     private long? _targetKey;
     private string _kind = "claude";
     private string? _text;
+
+    /// <summary>
+    /// 올리기를 켰나. <b>보낼 때마다 꺼진 채로 시작한다</b> — 기억해 두면
+    /// 「지난번에 켰다」는 사실을 모르는 채로 다음 건이 배포까지 나간다.
+    /// </summary>
+    private bool _push;
+
+    private ConfirmDialog? _confirm;
 
     /// <summary>방금 보낸 건의 제목. 한 번 말하고 지운다.</summary>
     private string? _sent;
@@ -259,13 +298,46 @@
     private bool CanSend =>
         !Busy && _targetKey is not null && !string.IsNullOrWhiteSpace(_text);
 
+    private AiTargetDto? SelectedTarget => _targets.FirstOrDefault(t => t.TargetKey == _targetKey);
+
+    /// <summary>고른 대상이 올리기를 허용하나 (<c>ai_target.allow_push</c>).</summary>
+    private bool SelectedTargetAllowsPush => SelectedTarget?.AllowPush == true;
+
     /// <summary>
-    /// 단추 옆 한 줄. <b>올리기가 꺼져 있다는 것을 말해 둔다</b> — 고쳐 달라고
-    /// 시킨 사람이 「올라간 줄」 알면 안 된다.
+    /// 화면이 내보이는 올리기 상태. <b>허용하지 않는 대상으로 바꾸면 저절로
+    /// 꺼진 것으로 보인다</b> — 켜 둔 채로 회색이 되면 「올라가는 건가 마는
+    /// 건가」를 알 수 없고, 이 화면에서 그 물음은 배포가 걸린 물음이다.
     /// </summary>
+    private bool PushOn
+    {
+        get => _push && SelectedTargetAllowsPush;
+        set => _push = value;
+    }
+
+    private string PushLabel => SelectedTarget is null
+        ? "끝나면 저장소에 올린다 (대상을 먼저 고르십시오)"
+        : SelectedTargetAllowsPush
+            ? "끝나면 저장소에 올린다 — 운영 배포가 일어납니다"
+            : $"끝나면 저장소에 올린다 (「{SelectedTarget.TargetNm}」 은 올리기를 허용하지 않습니다)";
+
+    /// <summary>
+    /// 단추 옆 한 줄. <b>올리기가 어느 쪽인지 말해 둔다</b> — 고쳐 달라고 시킨
+    /// 사람이 「올라간 줄」 알아도, 「안 올라간 줄」 알아도 안 된다.
+    /// </summary>
+    /// <summary>
+    /// 단추 글자. <b>올리기를 켜면 바뀐다</b> — 누르기 직전에 눈이 닿는
+    /// 마지막 글자가 여기라, 여기서까지 「메일로 받기」라고만 적혀 있으면
+    /// 배포가 나가는 줄 모르고 누른다.
+    /// </summary>
+    private string SendText => Busy ? "보내는 중"
+        : PushOn ? "보내고 올리기까지"
+        : "보내고 메일로 받기";
+
     private string SendNote => _targetKey is null
         ? "대상을 고르십시오."
-        : "고친 것은 커밋까지만 합니다. 올리려면 「AI 작업」 화면에서 하십시오.";
+        : PushOn
+            ? "끝나면 저장소에 올립니다 — 운영 배포가 일어납니다. 보낼 때 한 번 더 묻습니다."
+            : "고친 것은 커밋까지만 합니다. 올리려면 위 칸을 켜십시오.";
 
     protected override async Task OnInitializedAsync()
     {
@@ -345,6 +417,23 @@
             return;
         }
 
+        // **올리기를 켰을 때만 묻는다.** 끈 건까지 물으면 이 화면에서 단추를
+        // 두 번 누르게 되고, 그건 「길에서 한 줄 던진다」는 전제를 무너뜨린다.
+        if (PushOn && _confirm is not null)
+        {
+            var ok = await _confirm.AskAsync(
+                $"「{SelectedTarget?.TargetNm ?? "고른 대상"}」 에서 {_kind} 로 실행하고,"
+                + " 끝나면 저장소에 올립니다.\n\n※ 올리면 운영 배포가 일어납니다.",
+                title: "올리기까지 함께",
+                confirmText: "보내고 올리기",
+                confirmStyle: ButtonRenderStyle.Danger);
+
+            if (!ok)
+            {
+                return;
+            }
+        }
+
         Busy = true;
         _sent = null;
 
@@ -365,9 +454,10 @@
                     TimeoutMinutes = 30,
                     AttemptMax = 1,
 
-                    // **이 화면에서는 켜지 않는다.** 위 머리말 참고 —
-                    // 흔들리는 자리에서 손가락 하나로 운영 배포가 나가면 안 된다.
-                    AutoPush = false,
+                    // 화면이 아니라 `PushOn` 을 싣는다 — 대상을 바꾸는 사이에
+                    // `_push` 만 참으로 남아 있을 수 있다. 서버도
+                    // `AiTaskService.Normalize` 에서 같은 것을 한 번 더 본다.
+                    AutoPush = PushOn,
 
                     // 이 화면의 존재 이유다. 끌 수 있게 두지 않는다.
                     NotifyEmail = true,
@@ -397,6 +487,10 @@
 
             _sent = created.Title;
             _text = null;
+
+            // **다음 건은 다시 꺼진 채로 시작한다.** 글상자를 비우는 것과 같은
+            // 이유다 — 남겨 두면 이어서 적은 한 줄이 묻지도 않고 올라간다.
+            _push = false;
 
             await LoadRecentAsync();
         }
