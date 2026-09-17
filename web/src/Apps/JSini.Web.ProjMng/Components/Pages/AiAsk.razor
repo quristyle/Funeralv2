@@ -90,9 +90,31 @@
 
         @* 글상자 하나. `autofocus` 를 걸지 않는다 — 모바일에서 그것은
            **들어오자마자 자판이 올라와 화면 절반을 먹는다**는 뜻이고,
-           최근 보낸 것을 확인하러 들어온 사람에게는 방해다. *@
+           최근 보낸 것을 확인하러 들어온 사람에게는 방해다.
+
+           [치는 대로 넘기되 `@@bind-Text:event="oninput"` 은 안 된다]
+
+           그렇게 걸면 **회로가 그 자리에서 끊긴다** — 화면이 통째로 죽고
+           「unhandled exception on the current circuit」만 남는다.
+           DevExpress 편집기는 평범한 `input` 이 아니라 자기 사용자 정의
+           요소라서, Blazor 가 그 이름의 이벤트를 걸 자리를 못 찾는다.
+           **빌드는 통과하므로 쳐 봐야 안다.**
+
+           이 저장소가 이미 두 곳에 적어 둔 함정이다(`LockScreen` ·
+           `ParticipationBoard`). 부품이 주는 `BindValueMode` 를 쓴다.
+
+           [왜 `OnLostFocus`(기본값)로 두지 않나]
+
+           단추가 「적은 것이 있나」로 켜지는데, 기본값이면 **칸을 떠나기
+           전까지 값이 안 넘어와** 다 적고도 단추가 회색이다. 모바일에서는
+           칸 밖을 탭할 일이 없어 그대로 막힌다.
+
+           `InputDelay` 는 타자 왕복을 묶는 값이다. 찾기 칸은 200ms 지만
+           여기는 서버에 아무것도 묻지 않고 단추 하나만 켜므로 넉넉히 둔다. *@
         <DxMemo @bind-Text="_text"
-                @bind-Text:event="oninput"
+                BindValueMode="BindValueMode.OnInput"
+                InputDelay="300"
+                Rows="8"
                 CssClass="pm-ask__text"
                 NullText="무엇을 시킬지, 또는 무엇이 궁금한지 적으십시오. 첫 줄이 제목이 됩니다."
                 Enabled="@(!Busy)" />
