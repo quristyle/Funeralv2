@@ -102,9 +102,22 @@ services:
     volumes:
       - /srv/jsini/config/HelpDeskServer/appsettings.Local.json:/app/appsettings.Local.json:ro
 
+  # 백엔드 중에서 **유일하게 호스트에 포트를 연다.**
+  #
+  # AI 작업 실행기(deploy/ai-runner)가 호스트에서 systemd 로 돌면서 이 서비스를
+  # 부른다 — CLI 와 로그인 자격이 호스트에 있어서 컨테이너로 만들 수 없는
+  # 물건이다. 게이트웨이를 거치지 않는 이유는 그 경로가 사람의 로그인을
+  # 요구하는데 실행기에게는 계정이 없기 때문이다(실행기는 run 별 1회용
+  # 토큰으로 인증한다 — docs/ai-task-runner.md 9.8).
+  #
+  # **127.0.0.1 로 묶는다.** 0.0.0.0 으로 열면 게이트웨이를 건너뛴 직접 호출이
+  # 바깥에서 가능해지는데, 이 서비스는 게이트웨이가 붙여 주는 X-User-* 헤더를
+  # 신원으로 믿기 때문에 헤더만 위조하면 아무나 남의 권한으로 호출할 수 있다.
   projmng:
     <<: *common
     image: ghcr.io/quristyle/funeralv2-projmng:${TAG:-latest}
+    ports:
+      - "127.0.0.1:5450:8080"
     environment:
       <<: *common-env
       Kestrel__Endpoints__Http__Url: http://0.0.0.0:8080
