@@ -787,6 +787,12 @@
     /// 새 작업. 대상은 <b>하나뿐이면 미리 고른다</b> — 고를 것이 없는 목록을
     /// 열게 하지 않는다.
     /// </summary>
+    /// <remarks>
+    /// <b>메일 받기는 켠 채로 연다.</b> 이 화면의 일은 몇 분에서 몇십 분씩
+    /// 걸리므로 사람이 그동안 화면을 붙들고 있지 않는다 — 꺼진 채로 두면
+    /// 끝난 것을 아무도 모르고, 그 사실은 한참 뒤에야 드러난다.
+    /// 받는 사람은 비워 둔다(요청한 사람에게 간다).
+    /// </remarks>
     private void NewTask()
     {
         _picked = null;
@@ -796,6 +802,7 @@
             RunnerKind = "claude",
             TimeoutMinutes = 30,
             AttemptMax = 1,
+            NotifyEmail = true,
             NotifyWhen = "always",
             TargetKey = _targetKey ?? (_enabledTargets.Count == 1 ? _enabledTargets[0].TargetKey : null),
         };
