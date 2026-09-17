@@ -62,6 +62,7 @@ public sealed class AiTaskQueue(IConfiguration configuration, ILogger<AiTaskQueu
     /// 적혀 있고, 실행기의 안전망 폴링이 그것을 집는다. 여기서 던지면
     /// 「요청은 저장됐는데 화면은 실패라고 말하는」 어긋남이 생긴다.
     /// </remarks>
+    // 던지지 않는 이유: 요청은 이미 DB 에 있고 폴링이 집으므로, 종 실패는 지연일 뿐 실패가 아니다.
     public async Task<bool> RingAsync(long taskKey, CancellationToken ct = default)
     {
         if (!_enabled)
