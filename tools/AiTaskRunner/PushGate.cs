@@ -56,17 +56,27 @@ public sealed class PushGate(RunnerOptions options, ILogger<PushGate> logger)
 
         // ① 바뀐 것이 있나. **없으면 커밋도 push 도 하지 않는다** —
         //    빈 배포를 일으키지 않는다.
-        var status = await GitAsync(prepared.Path, ct, "status", "--porcelain");
+        //
+        // **`git status --porcelain` 을 파싱하지 않는다.** 그 출력은 줄마다
+        // 앞에 두 글자 상태와 공백이 붙는데(` M path`), 출력 전체를 다듬는
+        // 순간 첫 줄의 앞 공백이 사라져 자리 수가 어긋난다. 그러면 경로의
+        // **첫 글자가 잘린다** — `microservices/…` 가 `icroservices/…` 가 되어
+        // 빌드 검사가 조용히 건너뛰어졌고, 더 나쁘게는 `.github/…` 가
+        // `github/…` 가 되어 **금지 경로 검사가 뚫렸다.** 실제로 밟았다.
+        //
+        // 경로만 그대로 주는 명령 둘로 나눠 묻는다.
+        var tracked = await GitAsync(prepared.Path, ct, "diff", "--name-only", "HEAD");
+        var untracked = await GitAsync(prepared.Path, ct, "ls-files", "--others", "--exclude-standard");
 
-        if (string.IsNullOrWhiteSpace(status.Output))
+        var changed = (tracked.Output + "\n" + untracked.Output)
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        if (changed.Count == 0)
         {
             return new PushResult { Skipped = "바뀐 파일이 없습니다." };
         }
-
-        var changed = status.Output
-            .Split('\n', StringSplitOptions.RemoveEmptyEntries)
-            .Select(l => l.Length > 3 ? l[3..].Trim() : l.Trim())
-            .ToList();
 
         // ② 금지 경로.
         var hit = changed.FirstOrDefault(
