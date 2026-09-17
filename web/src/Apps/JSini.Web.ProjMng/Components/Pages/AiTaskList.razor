@@ -305,19 +305,27 @@
 
 @* 이어서 시킬 내용을 받는 창. **빈 채로 연다** — 지난 지시를 채워 두면
    사람이 그것을 고쳐 쓰게 되고, 그러면 무엇이 새 지시인지 흐려진다. *@
+@* **내용을 `BodyContentTemplate` 안에 넣는다.** `CommPopup` 은 splat 을 열어
+   두지 않고 `ChildContent` 도 없다 — 그냥 넣으면 화면이 열리는 순간
+   `'CommPopup' does not have a property matching the name 'ChildContent'` 로
+   **500 이 난다.** 빌드는 통과하므로 열어 봐야 안다(실제로 밟음).
+   단추는 `FooterContentTemplate` 이 판을 그려 준다. *@
 <CommPopup @bind-Visible="_continueOpen" HeaderText="이어서 지시" Width="640px">
-    <PageNotice Tone="NoticeTone.Info"
-                Text="지난 진행(요약과 바뀐 파일)은 서버가 앞에 붙입니다. 여기에는 이번에 더 시킬 일만 적으십시오." />
+    <BodyContentTemplate>
+        <PageNotice Tone="NoticeTone.Info"
+                    Text="지난 진행(요약과 바뀐 파일)은 서버가 앞에 붙입니다. 여기에는 이번에 더 시킬 일만 적으십시오." />
 
-    <DxMemo @bind-Text="_addition" Rows="8" NullText="이번에 더 시킬 일" CssClass="pm-ai-addition" />
+        <DxMemo @bind-Text="_addition" Rows="8" NullText="이번에 더 시킬 일"
+                CssClass="pm-ai-addition" />
+    </BodyContentTemplate>
 
-    <div class="pm-ai-actions">
+    <FooterContentTemplate>
         <DxButton Text="이어서 지시" RenderStyle="ButtonRenderStyle.Primary"
                   Enabled="@(!string.IsNullOrWhiteSpace(_addition) && !Busy)"
                   Click="@ContinueAsync" />
         <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary"
                   Click="@(() => _continueOpen = false)" />
-    </div>
+    </FooterContentTemplate>
 </CommPopup>
 
 @code {
