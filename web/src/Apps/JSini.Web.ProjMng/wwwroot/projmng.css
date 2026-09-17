@@ -931,3 +931,109 @@
   max-height: 280px;
   min-width: 200px;
 }
+
+/* ── AI 작업 (`pm-ai-*`) ──────────────────────────────────────
+
+   상태 배지의 색이 넷이다. 공통 배지(`jsini-badge`)는 켬/끔 둘뿐이라
+   여기서 나머지를 더한다 — **「돌고 있다」와 「실패했다」가 같은 회색이면
+   화면을 봐도 지금 무슨 일인지 알 수 없다.**
+   ---------------------------------------------------------- */
+
+.pm-ai-state--on   { background: var(--bs-success-bg-subtle, #d1e7dd); color: var(--bs-success-text-emphasis, #0a3622); }
+.pm-ai-state--busy { background: var(--bs-info-bg-subtle, #cff4fc);    color: var(--bs-info-text-emphasis, #055160); }
+.pm-ai-state--bad  { background: var(--bs-danger-bg-subtle, #f8d7da);  color: var(--bs-danger-text-emphasis, #58151c); }
+.pm-ai-state--off  { background: var(--bs-secondary-bg, #e9ecef);      color: var(--bs-secondary-color, #6c757d); }
+
+/* 표에서 「없음」을 뜻하는 자리. 배지를 쓰면 없는 것이 있는 것처럼 보인다. */
+.pm-ai-dim { color: var(--bs-secondary-color, #6c757d); }
+
+/* 편집기와 아래 단추 줄 사이. 붙어 있으면 편집기 테두리와 단추가 한 줄로
+   보여 어디까지가 입력칸인지 흐려진다(`pm-query` 와 같은 이유다). */
+.pm-ai-editor { margin: 0.75rem 0 1rem; }
+
+.pm-ai-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+/* ── 편집기 높이 (`pm-editor__inner`) ─────────────────────────
+
+   **여기 있으면 안 되는 규칙이다.** 정본은 `CodeEditor.razor.css` 의
+   `::deep .pm-editor__inner { height: 100% }` 인데, 셸의 `<head>` 에
+   범위 CSS 묶음(`JSini.Web.Shell.styles.css`)을 싣는 줄이 없어서
+   **`*.razor.css` 여섯 장이 통째로 안 실린다.**
+
+   그 결과 Monaco 가 자기 상자의 높이를 못 받아 **5px 로 접힌다** —
+   테두리만 남고 글이 한 줄도 안 보이는 그 증상이다. 오류는 나지 않는다.
+
+   묶음을 싣는 것이 진짜 고침이고 그것은 셸 한 줄인데, 함께 살아나는
+   부품이 여섯이라(SplitPane · DiagramViewer · BizSelect …) 화면
+   백몇 개의 모양이 같이 바뀐다. 그 확인을 따로 하기로 하고, 여기서는
+   실려 있는 모듈 CSS 로 편집기만 세워 둔다.
+   ---------------------------------------------------------- */
+
+.pm-editor__inner,
+.monaco-editor-container {
+  height: 100%;
+}
+
+/* 「쓸 수 있는 AI」 체크칸 줄. 값이 둘뿐이라 가로로 세운다 —
+   세로로 쌓으면 그 한 칸 때문에 편집 창이 두 줄 더 길어진다. */
+.pm-ai-kinds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1.25rem;
+  align-items: center;
+  min-height: 2rem;
+}
+
+/* ── 실행 이력과 로그 ─────────────────────────────────────── */
+
+.pm-ai-runs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 0.75rem;
+}
+
+.pm-ai-run {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.25rem 0.6rem;
+  border: 1px solid var(--jsini-border, #e3e5e8);
+  border-radius: 999px;
+  background: transparent;
+  font-size: var(--jsini-fs-xs);
+  cursor: pointer;
+}
+
+.pm-ai-run--on {
+  border-color: var(--bs-primary, #0d6efd);
+  box-shadow: inset 0 0 0 1px var(--bs-primary, #0d6efd);
+}
+
+/* 로그와 결과는 **글자 그대로** 보여 준다. 줄바꿈을 접으면 표·트리 모양의
+   출력이 뭉개져서 무슨 일이 있었는지 읽을 수 없다. */
+.pm-ai-log,
+.pm-ai-result {
+  margin: 0;
+  padding: 0.6rem 0.75rem;
+  max-height: 320px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  font-size: var(--jsini-fs-xs);
+  line-height: 1.5;
+}
+
+.pm-ai-log { background: var(--bs-secondary-bg, #f1f3f5); }
+
+/* 결과는 AI 의 답이라 본문처럼 읽힌다 — 로그와 다른 바탕을 준다. */
+.pm-ai-result { background: var(--bs-body-bg, #fff); }
+
+/* 이어서 시킬 내용을 받는 칸. 한 줄짜리가 아니라 문단을 쓰는 자리다. */
+.pm-ai-addition { width: 100%; }

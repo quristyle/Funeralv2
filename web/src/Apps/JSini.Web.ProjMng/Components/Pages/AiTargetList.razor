@@ -1,0 +1,360 @@
+@page "/projmng/ai/targets"
+@attribute [RouteKey("projmng.ai.targets")]
+
+@*
+    [AI 작업 대상]
+
+    설계: docs/ai-task-runner.md 9.5
+    API: `projmng/ai-targets`
+
+    AI 가 어디에서 일할지를 등록해 둔다. **작업 화면은 여기 등록된 것에서
+    고르기만 하고 경로를 적지 못한다.**
+
+    ────────────────────────────────────────────────────────────
+    [왜 고르게만 하나]
+
+    화면에서 경로를 자유롭게 적게 두면 `../../srv/jsini/config` 가 들어온다.
+    그 아래에 운영 서비스 열 곳의 접속 정보가 평문으로 있다.
+
+    그래서 가르는 선이 하나다 — **등록은 관리자가, 선택은 작성자가.**
+    작업 저장 API 는 대상 번호만 받고 경로 문자열을 받는 자리가 아예 없다.
+
+    [경로 검사는 서버가 한다]
+
+    여기서 한 번 더 그리지 않는 이유는 규칙이 설정값(`AiTasks:AllowedRoots`)
+    이기 때문이다. 화면에 박아 두면 설정을 바꿨을 때 **안내만 옛말이 된다.**
+    허용 뿌리도 서버에 물어서 보여 준다.
+
+    [「올리기 허용」이 제일 위험한 칸이다]
+
+    켜면 그 대상의 작업이 `main` 에 push 할 수 있고, 이 저장소는 그것이
+    **곧 운영 배포**다. 그래서 목록에서 눈에 띄게 그린다.
+*@
+
+@inherits DataPage
+@inject AiTargetClient Api
+
+<PageTitle>AI 작업 대상 · 프로젝트관리</PageTitle>
+
+<PageNotice Tone="NoticeTone.Warning" Text="@RootsNotice" />
+
+<CommCont Title="대상" Hint="@Hint">
+    <CommGrd TItem="AiTargetDto"
+             Data="@_rows"
+             EditFormTitle="작업 대상"
+             ExportName="AI작업대상"
+             PageSize="20"
+             EmptyText="등록된 대상이 없습니다."
+             OnNew="@FillNew"
+             OnSave="@SaveAsync"
+             OnDelete="@DeleteAsync"
+             DeleteConfirm="@(t => $"「{t.TargetNm}」 을(를) 목록에서 내립니다.\n이 대상으로 돌린 작업 이력은 남습니다.")"
+             Reload="@SearchAsync">
+        <Columns>
+            <DxGridDataColumn FieldName="@nameof(AiTargetDto.TargetNm)" Caption="이름" MinWidth="140"
+                              TextAlignment="GridTextAlignment.Left" />
+
+            <DxGridDataColumn Caption="종류" Width="80">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var t = (AiTargetDto)cell.DataItem;
+                    }
+                    <span class="jsini-badge jsini-badge--off">@t.KindText</span>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn FieldName="@nameof(AiTargetDto.TargetPath)" Caption="경로" MinWidth="200"
+                              TextAlignment="GridTextAlignment.Left" />
+
+            <DxGridDataColumn FieldName="@nameof(AiTargetDto.IsolationText)" Caption="격리" Width="90" />
+
+            <DxGridDataColumn FieldName="@nameof(AiTargetDto.RunnerKinds)" Caption="AI" Width="140"
+                              TextAlignment="GridTextAlignment.Left" />
+
+            @* 이 칸이 켜져 있으면 그 대상의 작업이 운영 배포를 일으킬 수 있다. *@
+            <DxGridDataColumn Caption="올리기" Width="80">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var t = (AiTargetDto)cell.DataItem;
+                    }
+                    <span class="jsini-badge @(t.AllowPush ? "pm-ai-state--bad" : "jsini-badge--off")">
+                        @(t.AllowPush ? "허용" : "안 함")
+                    </span>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn Caption="쓰임" Width="70">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var t = (AiTargetDto)cell.DataItem;
+                    }
+                    <span class="jsini-badge @(t.IsEnabled ? "jsini-badge--on" : "jsini-badge--off")">
+                        @(t.IsEnabled ? "사용" : "중지")
+                    </span>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+        </Columns>
+
+        <EditFormTemplate Context="edit">
+            @{
+                var t = (AiTargetDto)edit.EditModel;
+            }
+            <DxFormLayout CssClass="pm-editform">
+                <DxFormLayoutItem Caption="이름" ColSpanMd="6">
+                    <DxTextBox @bind-Text="t.TargetNm" NullText="필수" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="종류" ColSpanMd="3">
+                    <DxComboBox Data="@Kinds" @bind-Value="t.TargetKind"
+                                TextFieldName="@nameof(PickOption.Text)"
+                                ValueFieldName="@nameof(PickOption.Value)" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="격리" ColSpanMd="3">
+                    <DxComboBox Data="@Isolations" @bind-Value="t.IsolationMode"
+                                TextFieldName="@nameof(PickOption.Text)"
+                                ValueFieldName="@nameof(PickOption.Value)" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="경로" ColSpanMd="12">
+                    <DxTextBox @bind-Text="t.TargetPath" NullText="@PathPlaceholder" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="저장소 주소" ColSpanMd="8">
+                    <DxTextBox @bind-Text="t.RepoUrl" NullText="폴더 대상이면 비웁니다" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="기준 브랜치" ColSpanMd="4">
+                    <DxTextBox @bind-Text="t.DefaultRef" NullText="main" />
+                </DxFormLayoutItem>
+
+                @* 손으로 적던 칸이었다. 「claude,antigravity」 를 외워서 쳐야 했고
+                   오타가 나도 저장까지는 되므로, 작업 화면에서 그 AI 가 목록에
+                   안 나올 때에야 알게 된다. 고를 수 있게 바꾼다.
+
+                   [왜 드롭다운이 아니라 체크칸인가 — **둘 다 해 보고 정했다**]
+
+                   다중선택이라 `CodeSelect` 의 방식(`DxDropDownBox` +
+                   `DxListBox ShowCheckboxes`)을 그대로 가져왔는데, **표의 편집
+                   창(모달) 안에서는 목록이 펼쳐지지 않는다.** 칸도 그려지고
+                   화살표도 눌리는데 그것으로 끝이다 — 오류도 콘솔 경고도 없다.
+                   그 부품이 잘 도는 자리는 조건줄(`CommSch`)이고, 모달 안에서는
+                   다르게 움직인다.
+
+                   값이 둘뿐이라 체크칸이 더 낫기도 하다 — **펼치지 않아도
+                   「무엇을 켤 수 있나」가 보인다.** 그것이 원래 `DxTagBox` 를
+                   버리고 체크 목록으로 간 이유이기도 하다.
+
+                   셋째 CLI 가 생겨 칸이 길어지면 그때 다시 본다. *@
+                <DxFormLayoutItem Caption="쓸 수 있는 AI" ColSpanMd="6">
+                    <div class="pm-ai-kinds">
+                        @foreach (var opt in RunnerOptions)
+                        {
+                            @* **`ValidationEnabled="false"` 를 반드시 준다.**
+                               `@bind-Checked` 가 아니라 `Checked`/`CheckedChanged` 로
+                               주고받으므로 DevExpress 가 기대하는 `CheckedExpression`
+                               이 없고, 표의 편집 창은 `EditForm` 안이라 그것을 필수로
+                               보고 **던진다.** 그 예외가 회로를 끊어서 그 순간부터
+                               화면 전체가 안 눌린다 — 편집 창이 안 열리는 것으로
+                               보일 뿐 오류 문구는 브라우저 콘솔에만 남는다.
+                               (`CodeSelect` 머리말에 같은 이야기가 있다. 실제로 밟음) *@
+                            <DxCheckBox Checked="@HasRunner(t, opt.Value)"
+                                        CheckedChanged="@((bool on) => ToggleRunner(t, opt.Value, on))"
+                                        ValidationEnabled="false">
+                                @opt.Text
+                            </DxCheckBox>
+                        }
+                    </div>
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="복사 상한(MB)" ColSpanMd="3">
+                    <DxSpinEdit @bind-Value="t.MaxSizeMb" MinValue="0" MaxValue="102400"
+                                NullText="제한 없음" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="검사" ColSpanMd="3">
+                    <DxComboBox Data="@Gates" @bind-Value="t.GateMode"
+                                TextFieldName="@nameof(PickOption.Text)"
+                                ValueFieldName="@nameof(PickOption.Value)" />
+                </DxFormLayoutItem>
+
+                @* 여기가 이 화면에서 제일 조심할 칸이다. 켜는 순간 그 대상의
+                   작업이 `main` 에 push 할 수 있게 되고, 이 저장소는 그것이
+                   곧 운영 배포다. *@
+                <DxFormLayoutItem Caption="올리기" ColSpanMd="6">
+                    <DxCheckBox @bind-Checked="t.AllowPush">
+                        push 를 허용한다 — 이 대상의 작업이 운영 배포를 일으킬 수 있습니다
+                    </DxCheckBox>
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="push 대상" ColSpanMd="3">
+                    <DxTextBox @bind-Text="t.PushRef" NullText="main" Enabled="@t.AllowPush" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="쓰임" ColSpanMd="3">
+                    <DxCheckBox @bind-Checked="t.IsEnabled">목록에 보인다</DxCheckBox>
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="키 이름" ColSpanMd="6">
+                    <DxTextBox @bind-Text="t.CredentialRef"
+                               NullText="비공개 저장소일 때만. 키 파일 이름입니다" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="메모" ColSpanMd="12">
+                    <DxTextBox @bind-Text="t.Comments" />
+                </DxFormLayoutItem>
+            </DxFormLayout>
+        </EditFormTemplate>
+    </CommGrd>
+</CommCont>
+
+@code {
+    public sealed record PickOption(string Value, string Text);
+
+    private static readonly PickOption[] Kinds =
+    [
+        new("repo", "저장소"), new("folder", "폴더"),
+    ];
+
+    private static readonly PickOption[] Isolations =
+    [
+        new("worktree", "worktree"), new("copy", "복사본"), new("inplace", "원본 직접"),
+    ];
+
+    /// <summary>
+    /// 쓸 수 있는 AI. <b>값은 실행기가 아는 이름이어야 한다</b> —
+    /// 화면에 보이는 글자(안티그래비티)와 저장되는 값(antigravity)이 다르다.
+    /// </summary>
+    private static readonly PickOption[] RunnerOptions =
+    [
+        new("claude", "claude"), new("antigravity", "안티그래비티 (agy)"),
+    ];
+
+    private static readonly PickOption[] Gates =
+    [
+        new("build", "빌드"), new("test", "빌드+테스트"), new("none", "안 함"),
+    ];
+
+    private IReadOnlyList<AiTargetDto> _rows = [];
+    private IReadOnlyList<string> _roots = [];
+
+    private string Hint => $"{_rows.Count(t => t.IsEnabled)} / {_rows.Count}건 사용";
+
+    /// <summary>
+    /// 허용 뿌리는 <b>서버가 알려 준 값</b>이다. 화면에 박으면 설정을 바꿨을 때
+    /// 안내만 옛말이 된다.
+    /// </summary>
+    private string RootsNotice => _roots.Count == 0
+        ? "경로는 서버가 허용한 뿌리 아래여야 합니다. 등록은 관리자만 하고, 작업 화면은 여기 등록된 것에서 고르기만 합니다."
+        : $"경로는 다음 아래여야 합니다 — {string.Join(" · ", _roots)}. 작업 화면은 여기 등록된 것에서 고르기만 합니다.";
+
+    private string PathPlaceholder => _roots.Count == 0
+        ? "/srv/ai-targets/내폴더"
+        : $"{_roots[^1]}/내폴더";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadRootsAsync();
+        await SearchAsync();
+    }
+
+    /// <summary>
+    /// 안내에 쓸 값이라 <b>못 받아도 화면을 막지 않는다</b> — 뿌리를 모르면
+    /// 문구만 일반적인 말로 바뀐다.
+    /// </summary>
+    private async Task LoadRootsAsync()
+    {
+        try
+        {
+            _roots = await Api.AllowedRootsAsync();
+        }
+        catch (ApiException)
+        {
+            _roots = [];
+        }
+    }
+
+    private Task SearchAsync() => LoadAsync(async () =>
+    {
+        _rows = await Api.ListAsync();
+        return _rows.Count;
+    }, "등록된 대상이 없습니다.", "대상을 읽지 못했습니다");
+
+    /// <summary>
+    /// 새 대상의 기본값. <b>「올리기」는 꺼 둔 채로 시작한다</b> —
+    /// 켜는 것은 사람이 한 번 더 생각하고 할 일이다.
+    /// </summary>
+    private void FillNew(AiTargetDto t)
+    {
+        t.TargetKind = "repo";
+        t.IsolationMode = "worktree";
+        t.DefaultRef = "main";
+        t.PushRef = "main";
+        t.RunnerKinds = "claude";
+        t.GateMode = "build";
+        t.AllowPush = false;
+        t.IsEnabled = true;
+    }
+
+    private async Task SaveAsync((AiTargetDto Item, bool IsNew) e)
+    {
+        // 폴더에 worktree 는 있을 수 없다. 서버도 바로잡지만 여기서 먼저
+        // 맞춰 두면 저장 뒤 값이 바뀌어 돌아오는 것을 안 본다.
+        if (e.Item.TargetKind == "folder" && e.Item.IsolationMode == "worktree")
+        {
+            e.Item.IsolationMode = "copy";
+        }
+
+        if (e.IsNew)
+        {
+            await Api.CreateAsync(e.Item);
+        }
+        else
+        {
+            await Api.UpdateAsync(e.Item);
+        }
+    }
+
+    private Task DeleteAsync(AiTargetDto t) => Api.DeleteAsync(t.TargetKey);
+
+    // ── 「쓸 수 있는 AI」 칸 ────────────────────────────────
+    //
+    // DB 에는 쉼표로 이어 둔다(`claude,antigravity`). 표 하나를 더 두지 않는
+    // 이유는 값이 둘뿐이고 실행기가 그 문자열을 그대로 읽기 때문이다.
+    // 화면에서만 목록과 문자열을 오간다.
+
+    /// <summary>고른 값들. 모르는 값이 섞여 있어도 버리지 않는다 —
+    /// 설정으로 CLI 가 늘어난 뒤에 이 화면을 안 고쳤을 수 있다.</summary>
+    private static IEnumerable<string> RunnerValues(string? kinds) =>
+        (kinds ?? string.Empty)
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+    private static string JoinRunners(IEnumerable<string> values) => string.Join(',', values);
+
+    /// <summary>이 CLI 가 켜져 있나.</summary>
+    private static bool HasRunner(AiTargetDto t, string kind) =>
+        RunnerValues(t.RunnerKinds).Contains(kind);
+
+    /// <summary>
+    /// 켜고 끈다. <b>모르는 값은 건드리지 않는다</b> — 설정으로 CLI 가 늘어난
+    /// 뒤 이 화면을 안 고쳤다면, 여기서 목록을 다시 쓰는 순간 그 값이 사라진다.
+    /// </summary>
+    private static void ToggleRunner(AiTargetDto t, string kind, bool on)
+    {
+        var picked = RunnerValues(t.RunnerKinds).ToList();
+
+        if (on)
+        {
+            if (!picked.Contains(kind))
+            {
+                picked.Add(kind);
+            }
+        }
+        else
+        {
+            picked.Remove(kind);
+        }
+
+        t.RunnerKinds = string.Join(',', picked);
+    }
+}

@@ -44,6 +44,26 @@ builder.Services.AddScoped<DbLogicService>();
 builder.Services.AddScoped<ActivityInfoService>();
 builder.Services.AddScoped<ProjectPropService>();
 
+// AI 작업 지시 — docs/ai-task-runner.md.
+// 작업 서비스가 대상 서비스를 받는다 — push 를 켤 수 있는 대상인지 되묻기 때문이다.
+// 그 값 하나가 운영 배포를 일으키므로 화면 말고 여기서도 본다.
+builder.Services.AddScoped<AiTargetService>();
+builder.Services.AddScoped<AiTaskService>();
+builder.Services.AddScoped<AiRunService>();
+
+// 끝난 작업을 메일로 알린다. **못 보내도 작업 상태를 바꾸지 않는다**(설계 8-2).
+// 알림 서비스를 부르므로 HttpClient 공장이 필요하다.
+builder.Services.AddHttpClient();
+builder.Services.AddScoped<AiTaskNotifier>();
+
+// 큐는 **종(bell)** 이다. 메시지에 taskKey 하나만 싣고 실제 상태 변경은
+// DB 의 원자적 UPDATE 가 한다 — 그래서 메시지를 잃어도 손실이 아니라 지연이다.
+builder.Services.AddSingleton<AiTaskQueue>();
+
+// 멈춘 것을 찾아내는 감시자. **이 기능에서 가장 나쁜 실패는 조용히 멈춰
+// 있는 것**이라 프로세스가 사는 동안 계속 돈다.
+builder.Services.AddHostedService<AiStaleSweeper>();
+
 // Dapper 가 DateOnly 를 파라미터로 다루게 한다. **여기 한 곳에서만 등록한다** —
 // 서비스마다 부르면 빠뜨리는 서비스가 생기고, 그 서비스의 저장만 죽는다.
 DapperDateOnlyHandlers.Register();

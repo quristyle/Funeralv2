@@ -46,6 +46,12 @@ public sealed class ProjMngModule : IPortalModule
         services.AddScoped<ActivityInfoClient>();
         services.AddScoped<ProjectPropClient>();
         services.AddScoped<CommonCodes>();
+
+        // AI 작업 지시 — docs/ai-task-runner.md.
+        // 게이트웨이 경로는 `projmng/ai-tasks` 다. 백엔드가 ProjMngServer 라
+        // 다른 열한 개와 접두사가 같다.
+        services.AddScoped<AiTaskClient>();
+        services.AddScoped<AiTargetClient>();
         services.AddScoped<BizOptions>();
 
         // 이 앱 전용 서비스만 여기 등록한다.

@@ -1,0 +1,1135 @@
+@page "/projmng/ai/tasks"
+@attribute [RouteKey("projmng.ai.tasks")]
+
+@*
+    [AI 작업 지시]
+
+    설계: docs/ai-task-runner.md
+    API: `projmng/ai-tasks` · `projmng/ai-targets`
+
+    편집기에 AI 에게 시킬 일을 적어 두었다가 「요청」을 누르면, 운영 서버의
+    실행기가 그것을 집어 `claude` · `agy` 로 실제로 돌린다.
+
+    ────────────────────────────────────────────────────────────
+    [지금은 1단계다 — **요청까지만 간다**]
+
+    「요청」을 누르면 상태가 「대기」가 되고 거기서 멈춘다. 집어 가는 쪽
+    (큐 소비자 · 실행기)이 아직 없기 때문이고, 그것이 2단계다.
+    **그래서 화면이 「기다리는 중」이라고 분명히 말해야 한다** — 아무 설명이
+    없으면 「눌렀는데 아무 일도 안 난다」로 읽힌다.
+
+    [왜 팝업이 아니라 좌우 분할인가]
+
+    본문이 길다. `CommGrd` 의 편집 창은 한두 칸짜리 폼을 위한 자리라,
+    3MB 짜리 편집기를 그 안에 넣으면 창이 화면을 덮고 목록이 안 보인다.
+    왼쪽에서 고르고 오른쪽에서 고치는 편이 「어느 건을 고치는 중인지」가
+    늘 보인다.
+
+    [요청여부와 상태를 둘 다 보여 준다]
+
+    하나로 합치면 **「취소를 눌렀는데 아직 돌고 있다」**를 말할 수 없다.
+    왼쪽 표에 둘을 나란히 둔 이유다.
+*@
+
+@inherits DataPage
+@implements IDisposable
+@inject AiTaskClient Api
+@inject AiTargetClient TargetApi
+
+<PageTitle>AI 작업 · 프로젝트관리</PageTitle>
+
+<CommSch OnSearch="@SearchAsync">
+    <Fields>
+        <CommSchItem Label="상태">
+            <DxComboBox Data="@StatusFilters" @bind-Value="_status"
+                        TextFieldName="@nameof(PickOption.Text)"
+                        ValueFieldName="@nameof(PickOption.Value)"
+                        NullText="전체" CssClass="pm-code-select" />
+        </CommSchItem>
+
+        <CommSchItem Label="요청">
+            <DxComboBox Data="@FlagFilters" @bind-Value="_flag"
+                        TextFieldName="@nameof(PickOption.Text)"
+                        ValueFieldName="@nameof(PickOption.Value)"
+                        NullText="전체" CssClass="pm-code-select" />
+        </CommSchItem>
+
+        <CommSchItem Label="대상">
+            <DxComboBox Data="@_targets" @bind-Value="_targetKey"
+                        TextFieldName="@nameof(AiTargetDto.TargetNm)"
+                        ValueFieldName="@nameof(AiTargetDto.TargetKey)"
+                        NullText="전체" ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto"
+                        Style="width: 200px" />
+        </CommSchItem>
+
+        <CommSchItem Label="검색어">
+            <DxTextBox @bind-Text="_keyword" NullText="제목 · 내용" Style="width: 200px" />
+        </CommSchItem>
+    </Fields>
+</CommSch>
+
+<div class="pm-split">
+    <CommCont Title="작업" Hint="@ListHint" CssClass="pm-split__side">
+        <CommGrd TItem="AiTaskDto"
+                 Data="@_rows"
+                 ExportName="AI작업"
+                 PageSize="20"
+                 EmptyText="등록된 작업이 없습니다."
+                 Reload="@SearchAsync"
+                 SelectedItem="@_picked"
+                 SelectedItemChanged="@PickAsync">
+            <FooterLeft>
+                <PermissionView Action="MenuAction.Create">
+                    <DxButton Text="새 작업"
+                              RenderStyle="ButtonRenderStyle.Primary"
+                              Click="@NewTask" />
+                </PermissionView>
+            </FooterLeft>
+
+            <Columns>
+                <DxGridDataColumn FieldName="@nameof(AiTaskDto.Title)" Caption="제목" MinWidth="160"
+                                  TextAlignment="GridTextAlignment.Left" />
+
+                <DxGridDataColumn Caption="상태" Width="80">
+                    <CellDisplayTemplate Context="cell">
+                        @{
+                            var t = (AiTaskDto)cell.DataItem;
+                        }
+                        <span class="jsini-badge pm-ai-state--@t.StatusTone">@t.StatusText</span>
+                    </CellDisplayTemplate>
+                </DxGridDataColumn>
+
+                <DxGridDataColumn Caption="요청" Width="70">
+                    <CellDisplayTemplate Context="cell">
+                        @{
+                            var t = (AiTaskDto)cell.DataItem;
+                        }
+                        @if (t.RequestFlag == "none")
+                        {
+                            <span class="pm-ai-dim">-</span>
+                        }
+                        else
+                        {
+                            <span class="jsini-badge jsini-badge--on">@t.FlagText</span>
+                        }
+                    </CellDisplayTemplate>
+                </DxGridDataColumn>
+
+                <DxGridDataColumn FieldName="@nameof(AiTaskDto.TargetNm)" Caption="대상" Width="130"
+                                  TextAlignment="GridTextAlignment.Left" />
+
+                <DxGridDataColumn FieldName="@nameof(AiTaskDto.RequestedAt)" Caption="요청시각" Width="130"
+                                  DisplayFormat="yyyy-MM-dd HH:mm" />
+            </Columns>
+        </CommGrd>
+    </CommCont>
+
+    <CommCont Title="@EditTitle" Hint="@EditHint" CssClass="pm-split__main">
+        @if (_edit is null)
+        {
+            <PageNotice Tone="NoticeTone.Info"
+                        Text="왼쪽에서 작업을 고르거나 「새 작업」을 누르십시오." />
+        }
+        else
+        {
+            @* 도는 중에는 못 고친다. 고쳐도 이미 실행기가 옛 본문을 들고
+               떠났기 때문에, 고칠 수 있게 두면 **화면의 글과 실제로 도는 것이
+               다른 상태**가 된다. *@
+            @if (_edit.IsBusy)
+            {
+                <PageNotice Tone="NoticeTone.Warning"
+                            Text="@BusyNotice" />
+            }
+
+            <DxFormLayout CssClass="pm-editform">
+                <DxFormLayoutItem Caption="제목" ColSpanMd="8">
+                    <DxTextBox @bind-Text="_edit.Title"
+                               NullText="비워 두면 내용에서 만들어 붙입니다"
+                               Enabled="@CanEdit" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="대상" ColSpanMd="4">
+                    <DxComboBox Data="@_enabledTargets" Value="@_edit.TargetKey"
+                                ValueChanged="@((long? key) => PickTarget(key))"
+                                ValueExpression="@(() => _edit.TargetKey)"
+                                TextFieldName="@nameof(AiTargetDto.TargetNm)"
+                                ValueFieldName="@nameof(AiTargetDto.TargetKey)"
+                                NullText="어디에서 일할지" Enabled="@CanEdit" />
+                </DxFormLayoutItem>
+
+                @* **고른 대상이 허용한 것만 나온다.** 전부 보여 주면 대상이 못
+                   쓰는 AI 를 고를 수 있고, 그 어긋남은 실행기가 집어 간 뒤에야
+                   드러난다 — 화면에서는 아무 표시 없이 그냥 실패한다. *@
+                <DxFormLayoutItem Caption="AI" ColSpanMd="3">
+                    <DxComboBox Data="@AllowedRunners" @bind-Value="_edit.RunnerKind"
+                                TextFieldName="@nameof(PickOption.Text)"
+                                ValueFieldName="@nameof(PickOption.Value)"
+                                NullText="@(_edit.TargetKey is null ? "대상을 먼저" : "고르십시오")"
+                                Enabled="@(CanEdit && _edit.TargetKey is not null)" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="제한(분)" ColSpanMd="3">
+                    <DxSpinEdit @bind-Value="_edit.TimeoutMinutes" MinValue="1" MaxValue="1440"
+                                Enabled="@CanEdit" />
+                </DxFormLayoutItem>
+
+                @* 대상이 허용하지 않으면 켤 수 없다. 이 한 칸이 운영 배포를
+                   일으키므로 서버도 저장할 때 같은 것을 한 번 더 본다. *@
+                <DxFormLayoutItem Caption="끝나면" ColSpanMd="6">
+                    <DxCheckBox @bind-Checked="_edit.AutoPush"
+                                Enabled="@(CanEdit && SelectedTargetAllowsPush)">
+                        @PushLabel
+                    </DxCheckBox>
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="알림" ColSpanMd="3">
+                    <DxCheckBox @bind-Checked="_edit.NotifyEmail" Enabled="@CanEdit">
+                        메일로 받기
+                    </DxCheckBox>
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="받는 사람" ColSpanMd="5">
+                    <DxTextBox @bind-Text="_edit.NotifyTo"
+                               NullText="비우면 요청한 사람에게"
+                               Enabled="@(CanEdit && _edit.NotifyEmail)" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="보낼 때" ColSpanMd="4">
+                    <DxComboBox Data="@NotifyWhens" @bind-Value="_edit.NotifyWhen"
+                                TextFieldName="@nameof(PickOption.Text)"
+                                ValueFieldName="@nameof(PickOption.Value)"
+                                Enabled="@(CanEdit && _edit.NotifyEmail)" />
+                </DxFormLayoutItem>
+            </DxFormLayout>
+
+            @* 편집기는 이 화면에서만 받는다(3MB). `CodeEditor` 가 다 받은
+               뒤에야 그리므로 그 전에는 「불러오는 중」이 보인다. *@
+            <div class="pm-ai-editor">
+                <CodeEditor @bind-Value="_edit.Contents"
+                            Language="markdown"
+                            Height="420px"
+                            ReadOnly="@(!CanEdit)"
+                            Placeholder="AI 에게 시킬 일을 적습니다. 첫 줄이 제목이 됩니다." />
+            </div>
+
+            <div class="pm-ai-actions">
+                <PermissionView Action="MenuAction.Update">
+                    <DxButton Text="저장"
+                              RenderStyle="ButtonRenderStyle.Primary"
+                              Enabled="@(CanEdit && !Busy)"
+                              Click="@SaveAsync" />
+                </PermissionView>
+
+                <PermissionView Action="MenuAction.Update">
+                    @* 요청은 저장과 다른 단추다 — 쓰다 만 글이 저장만으로
+                       AI 에게 가 버리면 안 된다. *@
+                    <DxButton Text="요청"
+                              RenderStyle="ButtonRenderStyle.Secondary"
+                              Enabled="@(CanRequest && !Busy)"
+                              Click="@RequestAsync" />
+                </PermissionView>
+
+                <PermissionView Action="MenuAction.Update">
+                    <DxButton Text="취소"
+                              RenderStyle="ButtonRenderStyle.Secondary"
+                              Enabled="@(CanCancel && !Busy)"
+                              Click="@CancelAsync" />
+                </PermissionView>
+
+                @* 끝난 건에만 뜬다. 누르면 **편집기가 비워지고** 지난 진행은
+                   서버가 본문 앞에 붙인다 — 지난 지시를 그대로 두면 AI 가
+                   같은 일을 또 한다(설계 8-3.8). *@
+                <PermissionView Action="MenuAction.Update">
+                    <DxButton Text="이어서 지시"
+                              RenderStyle="ButtonRenderStyle.Secondary"
+                              Enabled="@(CanContinue && !Busy)"
+                              Click="@AskContinueAsync" />
+                </PermissionView>
+
+                <PermissionView Action="MenuAction.Delete">
+                    <DxButton Text="삭제"
+                              RenderStyle="ButtonRenderStyle.Danger"
+                              Enabled="@(_edit.TaskKey > 0 && !_edit.IsBusy && !Busy)"
+                              Click="@AskDeleteAsync" />
+                </PermissionView>
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(_edit.LastError))
+            {
+                <PageNotice Tone="NoticeTone.Error" Text="@($"지난 실행: {_edit.LastError}")" />
+            }
+
+            @* ── 실행 이력과 로그 ──────────────────────────────
+
+               돌고 있는 동안에는 2초마다 **새 줄만** 가져와 이어 붙인다.
+               SSE 로 흘리지 않는 이유는 `GatewayClient` 가 봉투를 벗기는
+               클라이언트라 `text/event-stream` 을 못 읽기 때문이다 —
+               그 길로 가면 공유 자리에 스트리밍 클라이언트가 하나 더
+               생기는데 얻는 것은 지연 2초뿐이다. *@
+            @if (_runs.Count > 0)
+            {
+                <div class="pm-ai-runs">
+                    @foreach (var run in _runs)
+                    {
+                        <button type="button"
+                                class="pm-ai-run @(run.RunKey == _openRun?.RunKey ? "pm-ai-run--on" : null)"
+                                @onclick="@(() => OpenRunAsync(run))">
+                            <span class="jsini-badge pm-ai-state--@run.StatusTone">@run.StatusText</span>
+                            <span>@run.Seq 차</span>
+                            <span class="pm-ai-dim">@run.StartedAt?.ToString("MM-dd HH:mm")</span>
+                        </button>
+                    }
+                </div>
+            }
+
+            @if (_openRun is { } open)
+            {
+                @if (!string.IsNullOrWhiteSpace(open.ResultText))
+                {
+                    @* AI 의 마지막 답. **로그에서 가려낸 값**이라 여기 따로 둔다 —
+                       수백 줄에서 사람이 그것을 찾게 두지 않는다. *@
+                    <CommCont Title="@($"{open.Seq}차 결과")" Hint="@RunHint(open)">
+                        <pre class="pm-ai-result">@open.ResultText</pre>
+                    </CommCont>
+                }
+
+                <CommCont Title="로그" Hint="@LogHint">
+                    <pre class="pm-ai-log">@_logText</pre>
+                </CommCont>
+            }
+        }
+    </CommCont>
+</div>
+
+<ConfirmDialog @ref="_confirm" />
+
+@* 이어서 시킬 내용을 받는 창. **빈 채로 연다** — 지난 지시를 채워 두면
+   사람이 그것을 고쳐 쓰게 되고, 그러면 무엇이 새 지시인지 흐려진다. *@
+<CommPopup @bind-Visible="_continueOpen" HeaderText="이어서 지시" Width="640px">
+    <PageNotice Tone="NoticeTone.Info"
+                Text="지난 진행(요약과 바뀐 파일)은 서버가 앞에 붙입니다. 여기에는 이번에 더 시킬 일만 적으십시오." />
+
+    <DxMemo @bind-Text="_addition" Rows="8" NullText="이번에 더 시킬 일" CssClass="pm-ai-addition" />
+
+    <div class="pm-ai-actions">
+        <DxButton Text="이어서 지시" RenderStyle="ButtonRenderStyle.Primary"
+                  Enabled="@(!string.IsNullOrWhiteSpace(_addition) && !Busy)"
+                  Click="@ContinueAsync" />
+        <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary"
+                  Click="@(() => _continueOpen = false)" />
+    </div>
+</CommPopup>
+
+@code {
+    /// <summary>고르는 칸 한 줄. 공통코드에 없는 값들이라 화면이 들고 있다.</summary>
+    public sealed record PickOption(string Value, string Text);
+
+    private static readonly PickOption[] StatusFilters =
+    [
+        new("idle", "작성중"), new("queued", "대기"), new("preparing", "준비중"),
+        new("running", "실행중"), new("succeeded", "완료"), new("failed", "실패"),
+        new("timeout", "시간초과"), new("canceled", "취소"), new("interrupted", "중단"),
+    ];
+
+    private static readonly PickOption[] FlagFilters =
+    [
+        new("none", "안 함"), new("requested", "요청"), new("cancel_requested", "취소요청"),
+    ];
+
+    private static readonly PickOption[] RunnerKinds =
+    [
+        new("claude", "claude"), new("antigravity", "안티그래비티 (agy)"),
+    ];
+
+    private static readonly PickOption[] NotifyWhens =
+    [
+        new("always", "끝나면 언제나"), new("on_success", "성공했을 때만"),
+        new("on_failure", "실패했을 때만"),
+    ];
+
+    private IReadOnlyList<AiTaskDto> _rows = [];
+    private IReadOnlyList<AiTargetDto> _targets = [];
+    private IReadOnlyList<AiTargetDto> _enabledTargets = [];
+
+    private AiTaskDto? _picked;
+
+    /// <summary>
+    /// 오른쪽에서 고치는 것. <b>표의 행을 직접 고치지 않는다</b> —
+    /// 저장하지 않고 다른 행으로 옮기면 표에 반쯤 고친 값이 남는다.
+    /// </summary>
+    private AiTaskDto? _edit;
+
+    private ConfirmDialog? _confirm;
+
+    /// <summary>고른 작업의 실행 이력. 최근 것이 앞이다.</summary>
+    private IReadOnlyList<AiTaskRunDto> _runs = [];
+
+    /// <summary>지금 로그를 펼쳐 둔 실행.</summary>
+    private AiTaskRunDto? _openRun;
+
+    /// <summary>받아 둔 로그 줄. <b>그릴 때는 꼬리 500줄만</b> 쓴다.</summary>
+    private readonly List<AiLogLineDto> _lines = [];
+
+    /// <summary>마지막으로 받은 줄 번호. 다음에는 이것보다 큰 것만 달라고 한다.</summary>
+    private int _lastSeq;
+
+    /// <summary>
+    /// 돌고 있는 동안만 도는 타이머.
+    /// </summary>
+    /// <remarks>
+    /// <b>화면을 떠날 때 반드시 끈다.</b> 안 끄면 회로마다 타이머가 쌓이고,
+    /// 사람이 화면을 열었다 닫을수록 서버가 느려진다.
+    /// </remarks>
+    private CancellationTokenSource? _tail;
+
+    /// <summary>저장·요청이 오가는 중. 단추를 두 번 누르지 못하게 한다.</summary>
+    private bool Busy;
+
+    private string ListHint => $"{_rows.Count}건";
+
+    private string EditTitle => _edit is null ? "내용"
+        : _edit.TaskKey > 0 ? $"내용 · #{_edit.TaskKey}" : "내용 · 새 작업";
+
+    private string EditHint => _edit is null ? string.Empty
+        : _edit.TaskKey > 0 ? $"{_edit.StatusText}{(_edit.DurationText.Length > 0 ? $" · {_edit.DurationText}" : string.Empty)}"
+        : "아직 저장하지 않았습니다";
+
+    /// <summary>
+    /// 1단계에서는 집어 가는 쪽이 없다. <b>그 사실을 화면이 말한다</b> —
+    /// 「눌렀는데 아무 일도 안 난다」로 읽히지 않게.
+    /// </summary>
+    private string BusyNotice => _edit?.TaskStatus switch
+    {
+        "queued" => "요청했습니다. 실행기가 집어 가기를 기다립니다. 한참 이대로면 실행기가 떠 있는지 확인하십시오.",
+        "preparing" => "실행기가 집어 가 준비하고 있습니다.",
+        _ => "지금 돌고 있습니다. 끝나거나 취소해야 고칠 수 있습니다.",
+    };
+
+    private bool CanEdit => _edit is not null && !_edit.IsBusy;
+
+    private bool CanRequest => _edit is { TaskKey: > 0, IsBusy: false, TargetKey: not null };
+
+    private bool CanCancel => _edit is { TaskKey: > 0 } e
+        && (e.IsBusy || e.RequestFlag == "requested");
+
+    /// <summary>
+    /// 고를 수 있는 AI. <b>대상이 허용한 것만</b> 남긴다(대상의 <c>RunnerKinds</c>).
+    /// </summary>
+    /// <remarks>
+    /// 대상을 안 골랐으면 빈 목록이다 — 고를 수 없는 칸이 비어 있는 편이
+    /// 「고를 수는 있는데 저장하면 틀리는」 것보다 낫다.
+    /// <para>
+    /// 대상이 <b>이 화면이 모르는 이름</b>을 들고 있으면 그 이름 그대로 한 줄을
+    /// 세운다. 설정으로 CLI 가 늘어난 뒤 이 화면을 안 고쳤을 수 있고, 그때
+    /// 목록에서 조용히 사라지면 왜 못 고르는지 알 길이 없다.
+    /// </para>
+    /// </remarks>
+    private IReadOnlyList<PickOption> AllowedRunners
+    {
+        get
+        {
+            if (_edit?.TargetKey is not { } key)
+            {
+                return [];
+            }
+
+            var target = _enabledTargets.FirstOrDefault(t => t.TargetKey == key);
+
+            var allowed = (target?.RunnerKinds ?? string.Empty)
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+            if (allowed.Length == 0)
+            {
+                return RunnerKinds;
+            }
+
+            return [.. allowed.Select(v =>
+                RunnerKinds.FirstOrDefault(o => o.Value == v) ?? new PickOption(v, v))];
+        }
+    }
+
+    /// <summary>고른 대상이 push 를 허용하는가. 새 작업이면 목록에서 찾는다.</summary>
+    private bool SelectedTargetAllowsPush =>
+        _edit?.TargetKey is { } key
+        && _enabledTargets.FirstOrDefault(t => t.TargetKey == key)?.AllowPush == true;
+
+    private string PushLabel => SelectedTargetAllowsPush
+        ? "결과를 저장소에 올린다 (운영 배포가 일어납니다)"
+        : "결과를 저장소에 올린다 (이 대상은 허용하지 않습니다)";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadTargetsAsync();
+        await SearchAsync();
+    }
+
+    /// <summary>
+    /// 대상 목록. <b>조회 실패로 화면을 막지 않는다</b> — 대상이 없어도
+    /// 작업 목록은 보여야 「왜 아무것도 안 보이나」를 알 수 있다.
+    /// </summary>
+    private async Task LoadTargetsAsync()
+    {
+        try
+        {
+            _targets = await TargetApi.ListAsync();
+            _enabledTargets = [.. _targets.Where(t => t.IsEnabled)];
+        }
+        catch (ApiException)
+        {
+            _targets = [];
+            _enabledTargets = [];
+        }
+    }
+
+    private Task SearchAsync() => LoadAsync(async () =>
+    {
+        _rows = await Api.ListAsync(_status, _flag, _targetKey, _keyword);
+
+        // 고른 것이 목록에서 빠졌으면 오른쪽을 비운다 — 없는 건을 고치고
+        // 있다고 믿게 두지 않는다.
+        if (_picked is not null && _rows.All(r => r.TaskKey != _picked.TaskKey))
+        {
+            _picked = null;
+            _edit = null;
+        }
+
+        return _rows.Count;
+    }, "등록된 작업이 없습니다.", "작업을 읽지 못했습니다");
+
+    private string? _status;
+    private string? _flag;
+    private long? _targetKey;
+    private string? _keyword;
+
+    private async Task PickAsync(AiTaskDto? item)
+    {
+        StopTail();
+
+        _picked = item;
+        _edit = item is null ? null : Copy(item);
+        _runs = [];
+        _openRun = null;
+        _lines.Clear();
+        _lastSeq = 0;
+
+        if (item is null)
+        {
+            return;
+        }
+
+        await LoadRunsAsync();
+
+        // 돌고 있거나 방금 끝난 건은 **바로 펼친다.** 한 번 더 누르게 하면
+        // 「눌렀는데 아무 일도 안 난다」로 읽힌다.
+        if (_runs.FirstOrDefault() is { } latest)
+        {
+            await OpenRunAsync(latest);
+        }
+        else if (item.IsBusy)
+        {
+            // 아직 집혀 가지 않았다. 실행이 생기는 것을 기다린다.
+            StartTail();
+        }
+    }
+
+    /// <summary>실행 이력을 읽는다. 없어도 화면을 막지 않는다.</summary>
+    private async Task LoadRunsAsync()
+    {
+        if (_edit is not { TaskKey: > 0 } e)
+        {
+            return;
+        }
+
+        try
+        {
+            _runs = await Api.RunsAsync(e.TaskKey);
+        }
+        catch (ApiException)
+        {
+            _runs = [];
+        }
+    }
+
+    /// <summary>
+    /// 그 실행의 로그를 펼친다. 돌고 있으면 <b>따라가기</b>를 시작한다.
+    /// </summary>
+    private async Task OpenRunAsync(AiTaskRunDto run)
+    {
+        StopTail();
+
+        _openRun = run;
+        _lines.Clear();
+        _lastSeq = 0;
+
+        await FetchLogsAsync();
+
+        if (run.IsRunning)
+        {
+            StartTail();
+        }
+    }
+
+    /// <summary>새 줄만 받아 이어 붙인다.</summary>
+    private async Task<bool> FetchLogsAsync()
+    {
+        if (_openRun is not { } run)
+        {
+            return false;
+        }
+
+        try
+        {
+            var more = await Api.LogsAsync(run.RunKey, _lastSeq);
+
+            if (more.Count == 0)
+            {
+                return false;
+            }
+
+            _lines.AddRange(more);
+            _lastSeq = more[^1].Seq;
+
+            // 들고 있는 줄도 상한을 둔다. 수만 줄을 들고 있으면 회로가
+            // 그것을 전부 실어 나른다.
+            if (_lines.Count > 2000)
+            {
+                _lines.RemoveRange(0, _lines.Count - 2000);
+            }
+
+            return true;
+        }
+        catch (ApiException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// 작업이 도는 동안 따라간다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>실행이 아직 없을 때도 돈다.</b> 「요청」을 누른 직후에는 실행기가
+    /// 집어 가기 전이라 실행 줄이 없는데, 그때 따라가기를 시작하지 않으면
+    /// 화면이 「대기」에서 영영 안 움직인다 — 실제로는 30초 뒤에 돌고 있었다.
+    /// </para>
+    /// <para>
+    /// 그래서 매 초 보는 것이 둘이다 — <b>작업 상태</b>(실행이 생겼나 · 끝났나)와
+    /// <b>로그 꼬리</b>(펼쳐 둔 실행이 있으면).
+    /// </para>
+    /// </remarks>
+    private void StartTail()
+    {
+        StopTail();
+
+        _tail = new CancellationTokenSource();
+        var ct = _tail.Token;
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                while (!ct.IsCancellationRequested)
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(2), ct);
+
+                    var changed = await FetchLogsAsync();
+
+                    var latest = _edit is { TaskKey: > 0 } e ? await SafeGetAsync(e.TaskKey) : null;
+
+                    if (latest is not null && _edit is not null)
+                    {
+                        if (_edit.TaskStatus != latest.TaskStatus)
+                        {
+                            changed = true;
+                        }
+
+                        _edit.TaskStatus = latest.TaskStatus;
+                        _edit.RequestFlag = latest.RequestFlag;
+                        _edit.DurationMs = latest.DurationMs;
+                        _edit.LastError = latest.LastError;
+
+                        // 실행이 새로 생겼거나 끝났으면 이력을 다시 읽는다.
+                        var wantRuns = _openRun is null
+                            || !latest.IsBusy
+                            || _runs.Count == 0
+                            || (latest.LastRunKey is { } k && k != _openRun.RunKey);
+
+                        if (wantRuns)
+                        {
+                            await LoadRunsAsync();
+
+                            if (_runs.FirstOrDefault() is { } newest
+                                && newest.RunKey != _openRun?.RunKey)
+                            {
+                                _openRun = newest;
+                                _lines.Clear();
+                                _lastSeq = 0;
+                                await FetchLogsAsync();
+                            }
+                            else if (_openRun is not null)
+                            {
+                                _openRun = _runs.FirstOrDefault(r => r.RunKey == _openRun.RunKey) ?? _openRun;
+                            }
+
+                            changed = true;
+                        }
+
+                        // 다 끝났으면 따라가기를 멈춘다. 안 멈추면 회로가
+                        // 영원히 2초마다 서버를 두들긴다.
+                        if (!latest.IsBusy && _openRun?.IsRunning != true)
+                        {
+                            await InvokeAsync(StateHasChanged);
+                            StopTail();
+                            return;
+                        }
+                    }
+
+                    if (changed)
+                    {
+                        await InvokeAsync(StateHasChanged);
+                    }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // 화면을 떠났다. 조용히 끝낸다.
+            }
+        }, ct);
+    }
+
+    private void StopTail()
+    {
+        _tail?.Cancel();
+        _tail?.Dispose();
+        _tail = null;
+    }
+
+    private async Task<AiTaskDto?> SafeGetAsync(long key)
+    {
+        try
+        {
+            return await Api.GetAsync(key);
+        }
+        catch (ApiException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// 화면에 그릴 로그. <b>꼬리 500줄만</b> 그린다 — 수만 줄을 DOM 에 그리면
+    /// 회로가 그것을 전부 실어 나른다.
+    /// </summary>
+    private string _logText = string.Empty;
+
+    private string LogHint => _lines.Count == 0
+        ? "아직 없습니다"
+        : _lines.Count > 500 ? $"{_lines.Count}줄 중 마지막 500줄" : $"{_lines.Count}줄";
+
+    private static string RunHint(AiTaskRunDto run) =>
+        run.DiffStat is { Length: > 0 } d ? d.Split('\n')[^1].Trim() : $"exit {run.ExitCode}";
+
+    /// <summary>
+    /// 대상이 바뀌면 <b>못 쓰는 AI 가 남아 있을 수 있다.</b> 그대로 두면
+    /// 콤보는 빈칸으로 보이는데 값은 옛것이 실려 저장된다 — 화면과 자료가
+    /// 어긋나는 쪽이라 여기서 바로잡는다.
+    /// </summary>
+    /// <summary>대상을 바꿨다. AI 와 「올리기」를 그 대상에 맞춘다.</summary>
+    private void PickTarget(long? key)
+    {
+        if (_edit is null)
+        {
+            return;
+        }
+
+        _edit.TargetKey = key;
+        FixRunnerForTarget();
+
+        // 허용하지 않는 대상으로 옮기면 「올리기」가 켜진 채 남을 수 있다.
+        // 서버도 저장할 때 끄지만, 화면에 켜진 것이 보이면 사람이 그렇게
+        // 나갈 것이라고 믿는다.
+        if (!SelectedTargetAllowsPush)
+        {
+            _edit.AutoPush = false;
+        }
+    }
+
+    private void FixRunnerForTarget()
+    {
+        if (_edit is null)
+        {
+            return;
+        }
+
+        var allowed = AllowedRunners;
+
+        if (allowed.Count == 0)
+        {
+            return;
+        }
+
+        if (!allowed.Any(o => o.Value == _edit.RunnerKind))
+        {
+            _edit.RunnerKind = allowed[0].Value;
+        }
+    }
+
+    /// <summary>
+    /// 새 작업. 대상은 <b>하나뿐이면 미리 고른다</b> — 고를 것이 없는 목록을
+    /// 열게 하지 않는다.
+    /// </summary>
+    private void NewTask()
+    {
+        _picked = null;
+
+        _edit = new AiTaskDto
+        {
+            RunnerKind = "claude",
+            TimeoutMinutes = 30,
+            AttemptMax = 1,
+            NotifyWhen = "always",
+            TargetKey = _targetKey ?? (_enabledTargets.Count == 1 ? _enabledTargets[0].TargetKey : null),
+        };
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_edit is null)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_edit.Contents))
+        {
+            Say("내용을 적어 주십시오.", NoticeTone.Warning);
+            return;
+        }
+
+        Busy = true;
+
+        try
+        {
+            var isNew = _edit.TaskKey == 0;
+
+            var saved = await RunAsync(
+                async () =>
+                {
+                    var result = isNew
+                        ? await Api.CreateAsync(_edit)
+                        : await Api.UpdateAsync(_edit);
+
+                    if (result is not null)
+                    {
+                        _edit = result;
+                    }
+                },
+                isNew ? "등록했습니다." : "저장했습니다.",
+                "저장하지 못했습니다");
+
+            if (saved)
+            {
+                await SearchAsync();
+                SyncPicked();
+            }
+        }
+        finally
+        {
+            Busy = false;
+        }
+    }
+
+    /// <summary>
+    /// AI 에게 시킨다. <b>먼저 저장한다</b> — 화면에 있는 글과 실행기가 집어
+    /// 갈 글이 달라지는 것이 이 화면에서 제일 나쁜 어긋남이다.
+    /// </summary>
+    private async Task RequestAsync()
+    {
+        if (_edit is null || _confirm is null)
+        {
+            return;
+        }
+
+        var target = _enabledTargets.FirstOrDefault(t => t.TargetKey == _edit.TargetKey);
+
+        var warning = _edit.AutoPush
+            ? "\n\n※ 끝나면 저장소에 올립니다 — 운영 배포가 일어납니다."
+            : string.Empty;
+
+        var ok = await _confirm.AskAsync(
+            $"「{_edit.Title}」 을(를) {target?.TargetNm ?? "고른 대상"} 에서 {_edit.RunnerKind} 로 실행합니다.{warning}",
+            title: "AI 에게 요청",
+            confirmText: "요청",
+            confirmStyle: ButtonRenderStyle.Primary);
+
+        if (!ok)
+        {
+            return;
+        }
+
+        Busy = true;
+
+        try
+        {
+            // 요청 전에 저장한다. 저장이 실패하면 요청하지 않는다.
+            if (_edit.TaskKey == 0 || HasChanges())
+            {
+                var saved = await RunAsync(
+                    async () =>
+                    {
+                        var result = _edit.TaskKey == 0
+                            ? await Api.CreateAsync(_edit)
+                            : await Api.UpdateAsync(_edit);
+
+                        if (result is not null)
+                        {
+                            _edit = result;
+                        }
+                    },
+                    "저장했습니다.", "저장하지 못해 요청하지 않았습니다");
+
+                if (!saved)
+                {
+                    return;
+                }
+            }
+
+            var requested = await RunAsync(
+                async () =>
+                {
+                    var result = await Api.RequestAsync(_edit!.TaskKey);
+
+                    if (result is not null)
+                    {
+                        _edit = result;
+                    }
+                },
+                "요청했습니다. 실행기가 집어 가기를 기다립니다.",
+                "요청하지 못했습니다");
+
+            if (requested)
+            {
+                await SearchAsync();
+                SyncPicked();
+
+                // **여기서 따라가기를 건다.** 안 걸면 화면이 「대기」에서
+                // 안 움직이고, 사람은 눌린 것인지조차 알 수 없다.
+                StartTail();
+            }
+        }
+        finally
+        {
+            Busy = false;
+        }
+    }
+
+    private async Task CancelAsync()
+    {
+        if (_edit is null)
+        {
+            return;
+        }
+
+        Busy = true;
+
+        try
+        {
+            var done = await RunAsync(
+                async () =>
+                {
+                    var result = await Api.CancelAsync(_edit!.TaskKey);
+
+                    if (result is not null)
+                    {
+                        _edit = result;
+                    }
+                },
+                "취소했습니다.", "취소하지 못했습니다");
+
+            if (done)
+            {
+                await SearchAsync();
+                SyncPicked();
+            }
+        }
+        finally
+        {
+            Busy = false;
+        }
+    }
+
+    private async Task AskDeleteAsync()
+    {
+        if (_edit is null || _confirm is null)
+        {
+            return;
+        }
+
+        var ok = await _confirm.AskAsync(
+            $"「{_edit.Title}」 을(를) 지웁니다.\n실행 이력은 남습니다.",
+            title: "작업 삭제");
+
+        if (!ok)
+        {
+            return;
+        }
+
+        var done = await RunAsync(
+            () => Api.DeleteAsync(_edit.TaskKey),
+            "지웠습니다.", "지우지 못했습니다");
+
+        if (done)
+        {
+            _picked = null;
+            _edit = null;
+            await SearchAsync();
+        }
+    }
+
+    private bool _continueOpen;
+    private string? _addition;
+
+    /// <summary>
+    /// 이어서 시킬 수 있나. <b>끝난 건에만</b> — 돌고 있는 것에 얹으면
+    /// 지금 도는 것과 다음에 돌 것이 뒤섞인다.
+    /// </summary>
+    private bool CanContinue => _edit is { TaskKey: > 0, IsBusy: false }
+        && _runs.Count > 0;
+
+    private Task AskContinueAsync()
+    {
+        _addition = null;
+        _continueOpen = true;
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// 서버가 본문을 새로 짠다. <b>화면이 조립하지 않는다</b> —
+    /// 지난 요약과 「기계가 잰 값」을 붙이는 규칙이 두 곳에 갈리면 안 된다.
+    /// </summary>
+    private async Task ContinueAsync()
+    {
+        if (_edit is null || string.IsNullOrWhiteSpace(_addition))
+        {
+            return;
+        }
+
+        Busy = true;
+
+        try
+        {
+            var done = await RunAsync(
+                async () =>
+                {
+                    var result = await Api.ContinueAsync(_edit!.TaskKey, _addition!);
+
+                    if (result is not null)
+                    {
+                        _edit = result;
+                    }
+                },
+                "이어서 지시할 내용을 본문에 담았습니다. 확인하고 「요청」을 누르십시오.",
+                "이어서 지시하지 못했습니다");
+
+            if (done)
+            {
+                _continueOpen = false;
+                _addition = null;
+                await SearchAsync();
+                SyncPicked();
+            }
+        }
+        finally
+        {
+            Busy = false;
+        }
+    }
+
+    /// <summary>저장한 뒤 왼쪽 표의 고른 행을 새 값으로 맞춘다.</summary>
+    private void SyncPicked()
+    {
+        if (_edit is { TaskKey: > 0 })
+        {
+            _picked = _rows.FirstOrDefault(r => r.TaskKey == _edit.TaskKey);
+        }
+    }
+
+    /// <summary>고친 것이 있나. 요청할 때 헛저장을 한 번 줄인다.</summary>
+    private bool HasChanges()
+    {
+        if (_picked is null || _edit is null)
+        {
+            return true;
+        }
+
+        return _picked.Title != _edit.Title
+            || _picked.Contents != _edit.Contents
+            || _picked.TargetKey != _edit.TargetKey
+            || _picked.RunnerKind != _edit.RunnerKind
+            || _picked.TimeoutMinutes != _edit.TimeoutMinutes
+            || _picked.AutoPush != _edit.AutoPush
+            || _picked.NotifyEmail != _edit.NotifyEmail
+            || _picked.NotifyTo != _edit.NotifyTo
+            || _picked.NotifyWhen != _edit.NotifyWhen;
+    }
+
+    /// <summary>
+    /// 그릴 로그를 한 번만 만든다. 렌더마다 문자열을 새로 잇지 않는다.
+    /// </summary>
+    protected override void OnAfterRender(bool firstRender)
+    {
+        var tail = _lines.Count <= 500 ? _lines : _lines.GetRange(_lines.Count - 500, 500);
+        var text = string.Join('\n', tail.Select(l => l.Text));
+
+        if (text != _logText)
+        {
+            _logText = text;
+            StateHasChanged();
+        }
+    }
+
+    /// <summary>
+    /// 화면을 떠난다. <b>타이머를 끈다</b> — 안 끄면 회로마다 쌓인다.
+    /// </summary>
+    public void Dispose() => StopTail();
+
+    /// <summary>표의 행과 편집 중인 것을 갈라 두기 위한 복사.</summary>
+    private static AiTaskDto Copy(AiTaskDto s) => new()
+    {
+        TaskKey = s.TaskKey,
+        Title = s.Title,
+        Contents = s.Contents,
+        ContentFormat = s.ContentFormat,
+        TargetKey = s.TargetKey,
+        TargetNm = s.TargetNm,
+        TargetPath = s.TargetPath,
+        TargetAllowPush = s.TargetAllowPush,
+        TargetRef = s.TargetRef,
+        RunnerKind = s.RunnerKind,
+        RequestFlag = s.RequestFlag,
+        TaskStatus = s.TaskStatus,
+        Priority = s.Priority,
+        TimeoutMinutes = s.TimeoutMinutes,
+        AttemptCount = s.AttemptCount,
+        AttemptMax = s.AttemptMax,
+        AutoPush = s.AutoPush,
+        NotifyEmail = s.NotifyEmail,
+        NotifyTo = s.NotifyTo,
+        NotifyWhen = s.NotifyWhen,
+        NotifyError = s.NotifyError,
+        RequestedAt = s.RequestedAt,
+        StartedAt = s.StartedAt,
+        FinishedAt = s.FinishedAt,
+        DurationMs = s.DurationMs,
+        LastRunKey = s.LastRunKey,
+        LastExitCode = s.LastExitCode,
+        LastError = s.LastError,
+        PushedCommit = s.PushedCommit,
+        PreviousTag = s.PreviousTag,
+        RowVersion = s.RowVersion,
+        CreId = s.CreId,
+        CreDt = s.CreDt,
+        ModId = s.ModId,
+        ModDt = s.ModDt,
+    };
+}
