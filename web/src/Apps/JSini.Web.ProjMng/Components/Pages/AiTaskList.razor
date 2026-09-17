@@ -65,6 +65,7 @@
 @inject AiTaskClient Api
 @inject AiTargetClient TargetApi
 @inject AiTaskDraftStore Drafts
+@inject IJSRuntime Js
 
 <PageTitle>AI 작업 · 프로젝트관리</PageTitle>
 
@@ -390,8 +391,12 @@
                     </CommCont>
                 }
 
+                @* 새 줄은 아래에 붙는데 보이는 자리는 처음 그대로라, 지켜보는
+                   동안 방금 찍힌 줄이 늘 화면 밖이었다. `js/log-tail.js` 가
+                   **바닥에 붙어 있을 때만** 밀어 준다 — 위를 읽는 중에는
+                   놓아 둔다. *@
                 <CommCont Title="로그" Hint="@LogHint">
-                    <pre class="pm-ai-log">@_logText</pre>
+                    <pre class="pm-ai-log" @ref="_logEl">@_logText</pre>
                 </CommCont>
             }
             else if (_runs.Count == 0)
@@ -913,6 +918,48 @@
     /// </summary>
     private string _logText = string.Empty;
 
+    /// <summary>로그 상자. JS 가 이것을 바닥으로 민다.</summary>
+    private ElementReference _logEl;
+
+    /// <summary>로그 따라가기(<c>js/log-tail.js</c>). 처음 쓸 때 싣는다.</summary>
+    private IJSObjectReference? _logJs;
+
+    /// <summary>
+    /// 로그를 <b>바닥에 붙여 둔다.</b> 사람이 위를 읽는 중이면 JS 쪽이
+    /// 알아서 놓아 둔다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>로그 탭을 보고 있을 때만 부른다.</b> 숨어 있는 동안에는 상자 높이가
+    /// 0 이라 밀어도 먹지 않고, 지시 탭에서 글을 치는 동안 글자마다 JS 를
+    /// 왕복할 이유도 없다. 탭을 여는 것도 렌더라, 그때 이것이 불려 바닥으로 간다.
+    /// </para>
+    /// <para>
+    /// 따라가기는 <b>편의다</b> — 못 해도 로그는 그대로 보인다. 그래서 여기서
+    /// 나는 것으로 화면을 세우지 않는다(회로가 끊기는 중이면 JS 는 못 부른다).
+    /// </para>
+    /// </remarks>
+    private async Task FollowLogAsync()
+    {
+        if (_openRun is null || _tab != 1)
+        {
+            return;
+        }
+
+        try
+        {
+            _logJs ??= await Js.InvokeAsync<IJSObjectReference>(
+                "import", "./_content/JSini.Web.ProjMng/js/log-tail.js");
+
+            await _logJs.InvokeVoidAsync("follow", _logEl);
+        }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException
+            or InvalidOperationException or TaskCanceledException or ObjectDisposedException)
+        {
+            // 화면을 떠났거나 회로가 끊겼다. 조용히 넘어간다.
+        }
+    }
+
     private string LogHint => _lines.Count == 0
         ? "아직 없습니다"
         : _lines.Count > 500 ? $"{_lines.Count}줄 중 마지막 500줄" : $"{_lines.Count}줄";
@@ -1321,6 +1368,9 @@
             return;
         }
 
+        // 새 줄이 붙었든 탭을 방금 열었든, 지금 그려진 것의 바닥을 보여 준다.
+        await FollowLogAsync();
+
         await TrackDraftAsync();
     }
 
@@ -1339,6 +1389,24 @@
 
         CancelDraftDelay();
         _ = WriteDraftAsync();
+
+        // 실어 둔 JS 를 놓아 준다. 회로가 이미 끊긴 뒤면 놓을 것도 없다.
+        if (_logJs is { } js)
+        {
+            _logJs = null;
+            _ = ReleaseAsync(js);
+        }
+    }
+
+    private static async Task ReleaseAsync(IJSObjectReference js)
+    {
+        try
+        {
+            await js.DisposeAsync();
+        }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException)
+        {
+        }
     }
 
     // ── 임시저장 ──────────────────────────────────────────────
