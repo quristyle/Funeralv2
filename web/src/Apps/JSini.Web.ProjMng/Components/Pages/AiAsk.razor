@@ -1,0 +1,515 @@
+@page "/projmng/ai/ask"
+@attribute [RouteKey("projmng.ai.ask")]
+
+@*
+    [빠른 지시 — 적고, 보내고, 메일로 받는다]
+
+    설계: docs/ai-task-runner.md
+    API: `projmng/ai-tasks` (「AI 작업」 화면과 같은 자료다)
+
+    ────────────────────────────────────────────────────────────
+    [왜 화면을 또 만드나 — 「AI 작업」이 이미 있는데]
+
+    그 화면은 **책상에서 짓는 자리**다. 좌우 분할에 편집기와 실행 로그가 있고,
+    한 건을 오래 붙들고 고쳐 가며 쓴다. 그게 맞는 화면이다.
+
+    이 화면은 다른 일을 한다 — **길에서 한 줄 던지는 자리**다.
+    엘리베이터에서, 지하철에서, 회의 들어가기 전에 떠오른 것을 적어 보내고
+    답은 나중에 메일로 받는다. 그 상황에서는
+
+    - 좌우 분할이 설 자리가 없다(세로 화면이다)
+    - 로그를 실시간으로 볼 이유가 없다(어차피 그 자리를 뜬다)
+    - 고를 것이 많으면 안 된다(한 손이고, 흔들린다)
+
+    그래서 **세로 한 줄 · 큰 글상자 · 단추 하나**다.
+
+    [Monaco 를 쓰지 않는다]
+
+    「AI 작업」 화면의 편집기는 3MB 를 받고 터치 편집이 형편없다. 모바일 회선에서
+    그것을 받게 하면 **「빠르게 접근한다」는 말이 무색해진다.** 여기는 그냥
+    글상자다 — 줄바꿈과 붙여넣기면 충분하다.
+
+    [올리기를 이 화면에서는 켤 수 없다]
+
+    `main` push 는 곧 운영 배포다(이미지 열둘). 흔들리는 지하철에서 손가락
+    하나로 그것이 나가면 안 된다. **여기서 만든 건은 언제나 올리기 꺼짐**이고,
+    올릴 일이면 「AI 작업」 화면에서 사람이 앉아서 켠다.
+
+    끈다고 결과가 사라지지는 않는다 — 고친 것은 커밋과 브랜치로 남고,
+    그 사실이 메일에 적혀 온다(설계 8-2).
+
+    [메일은 항상 켠다]
+
+    이 화면의 존재 이유가 「답을 메일로 받는 것」이다. 끌 수 있게 두면
+    **답이 아무 데도 안 가는 건**이 생기고, 그 사람은 화면을 다시 열어 보기
+    전까지 모른다. 받는 사람은 비워 둔다 — 요청한 본인에게 간다.
+
+    [보낸 뒤에 무엇을 보여 주나]
+
+    로그는 안 보여 준다. 대신 **최근 보낸 몇 건의 상태**만 둔다.
+    「갔나?」와 「끝났나?」에 답하면 이 화면의 일은 끝이다 — 그 다음은 메일이다.
+    끝난 건을 누르면 결과문이 펼쳐진다. 메일을 못 본 채로 다시 들어온
+    경우를 위한 자리다.
+*@
+
+@inherits DataPage
+@implements IDisposable
+@inject AiTaskClient Api
+@inject AiTargetClient TargetApi
+@inject NavigationManager Nav
+
+<PageTitle>빠른 지시 · 프로젝트관리</PageTitle>
+
+<div class="pm-ask">
+
+    @* ── 적는 자리 ──────────────────────────────────────── *@
+    <CommCont Title="빠른 지시" Hint="@AskHint">
+
+        @if (_targets.Count == 0)
+        {
+            @* 대상이 없으면 보낼 수가 없다. **단추를 회색으로 두고 말없이
+               두지 않는다** — 어디로 가야 하는지 적는다. *@
+            <PageNotice Tone="NoticeTone.Warning"
+                        Text="쓸 수 있는 작업 대상이 없습니다. 「AI 작업 대상」 화면에서 먼저 등록하십시오." />
+        }
+
+        <div class="pm-ask__where">
+            <DxComboBox Data="@_targets" @bind-Value="_targetKey"
+                        TextFieldName="@nameof(AiTargetDto.TargetNm)"
+                        ValueFieldName="@nameof(AiTargetDto.TargetKey)"
+                        NullText="어디에서 일할지"
+                        CssClass="pm-ask__target"
+                        Enabled="@(!Busy && _targets.Count > 0)" />
+
+            <DxComboBox Data="@RunnerKinds" @bind-Value="_kind"
+                        TextFieldName="@nameof(PickOption.Text)"
+                        ValueFieldName="@nameof(PickOption.Value)"
+                        CssClass="pm-ask__kind"
+                        Enabled="@(!Busy && AllowedKinds.Count > 1)" />
+        </div>
+
+        @* 글상자 하나. `autofocus` 를 걸지 않는다 — 모바일에서 그것은
+           **들어오자마자 자판이 올라와 화면 절반을 먹는다**는 뜻이고,
+           최근 보낸 것을 확인하러 들어온 사람에게는 방해다. *@
+        <DxMemo @bind-Text="_text"
+                @bind-Text:event="oninput"
+                CssClass="pm-ask__text"
+                NullText="무엇을 시킬지, 또는 무엇이 궁금한지 적으십시오. 첫 줄이 제목이 됩니다."
+                Enabled="@(!Busy)" />
+
+        <div class="pm-ask__send">
+            <PermissionView Action="MenuAction.Create">
+                <DxButton Text="@(Busy ? "보내는 중" : "보내고 메일로 받기")"
+                          RenderStyle="ButtonRenderStyle.Primary"
+                          CssClass="pm-ask__go"
+                          Enabled="@CanSend"
+                          Click="@SendAsync" />
+            </PermissionView>
+
+            <span class="pm-ask__note">@SendNote</span>
+        </div>
+
+        @if (_sent is { } sent)
+        {
+            <PageNotice Tone="NoticeTone.Info"
+                        Text="@($"보냈습니다 — 「{sent}」. 끝나면 메일로 갑니다. 이 화면을 닫아도 됩니다.")" />
+        }
+    </CommCont>
+
+    @* ── 보낸 것 ────────────────────────────────────────── *@
+    <CommCont Title="최근 보낸 것" Hint="@RecentHint">
+        @if (_recent.Count == 0)
+        {
+            <PageNotice Tone="NoticeTone.Info" Text="아직 보낸 것이 없습니다." />
+        }
+        else
+        {
+            <ul class="pm-ask__list">
+                @foreach (var t in _recent)
+                {
+                    <li class="pm-ask__item">
+                        <button type="button" class="pm-ask__head"
+                                @onclick="@(() => Toggle(t.TaskKey))">
+                            <span class="jsini-badge jsini-badge--@t.StatusTone">@t.StatusText</span>
+                            <span class="pm-ask__title">@t.Title</span>
+                            <span class="pm-ask__when">@When(t)</span>
+                        </button>
+
+                        @if (_open == t.TaskKey)
+                        {
+                            <div class="pm-ask__body">
+                                @if (_result is { Length: > 0 })
+                                {
+                                    <pre class="pm-ask__result">@_result</pre>
+                                }
+                                else if (t.IsBusy)
+                                {
+                                    <p class="pm-ask__dim">아직 돌고 있습니다. 끝나면 메일로 갑니다.</p>
+                                }
+                                else
+                                {
+                                    <p class="pm-ask__dim">남긴 말이 없습니다.</p>
+                                }
+
+                                @if (!string.IsNullOrWhiteSpace(t.LastError))
+                                {
+                                    <PageNotice Tone="NoticeTone.Error" Text="@t.LastError" />
+                                }
+
+                                @if (!string.IsNullOrWhiteSpace(t.NotifyError))
+                                {
+                                    <PageNotice Tone="NoticeTone.Warning"
+                                                Text="@($"결과 메일: {t.NotifyError}")" />
+                                }
+
+                                @* 자세히 보려면 큰 화면으로 보낸다. 로그 수천 줄을
+                                   여기에 그리지 않는다 — 모바일에서 읽을 수 없고,
+                                   회로가 그것을 전부 실어 나른다. *@
+                                <DxButton Text="자세히 보기"
+                                          RenderStyle="ButtonRenderStyle.Link"
+                                          Click="@(() => Nav.NavigateTo("/projmng/ai/tasks"))" />
+                            </div>
+                        }
+                    </li>
+                }
+            </ul>
+        }
+    </CommCont>
+</div>
+
+@code {
+    /// <summary>고르는 칸 한 줄.</summary>
+    public sealed record PickOption(string Value, string Text);
+
+    private static readonly PickOption[] AllKinds =
+    [
+        new("claude", "claude"), new("antigravity", "안티그래비티 (agy)"),
+    ];
+
+    /// <summary>여기 보이는 건수. 목록 화면이 아니므로 짧게 둔다.</summary>
+    private const int RecentMax = 8;
+
+    private IReadOnlyList<AiTargetDto> _targets = [];
+    private IReadOnlyList<AiTaskDto> _recent = [];
+
+    private long? _targetKey;
+    private string _kind = "claude";
+    private string? _text;
+
+    /// <summary>방금 보낸 건의 제목. 한 번 말하고 지운다.</summary>
+    private string? _sent;
+
+    private long? _open;
+    private string? _result;
+
+    private bool Busy;
+
+    /// <summary>돌고 있는 건이 있는 동안만 도는 타이머.</summary>
+    private CancellationTokenSource? _poll;
+
+    private string AskHint => _targets.Count == 0
+        ? string.Empty
+        : "결과는 메일로 옵니다";
+
+    private string RecentHint => _recent.Count == 0 ? string.Empty : $"{_recent.Count}건";
+
+    /// <summary>고른 대상이 허용한 AI 만 고르게 한다(「AI 작업」 화면과 같은 규칙).</summary>
+    private IReadOnlyList<PickOption> AllowedKinds
+    {
+        get
+        {
+            var target = _targets.FirstOrDefault(t => t.TargetKey == _targetKey);
+
+            if (target?.RunnerKinds is not { Length: > 0 } kinds)
+            {
+                return AllKinds;
+            }
+
+            var allowed = kinds.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            var picked = AllKinds.Where(k => allowed.Contains(k.Value, StringComparer.OrdinalIgnoreCase)).ToList();
+
+            return picked.Count > 0 ? picked : AllKinds;
+        }
+    }
+
+    private IReadOnlyList<PickOption> RunnerKinds => AllowedKinds;
+
+    private bool CanSend =>
+        !Busy && _targetKey is not null && !string.IsNullOrWhiteSpace(_text);
+
+    /// <summary>
+    /// 단추 옆 한 줄. <b>올리기가 꺼져 있다는 것을 말해 둔다</b> — 고쳐 달라고
+    /// 시킨 사람이 「올라간 줄」 알면 안 된다.
+    /// </summary>
+    private string SendNote => _targetKey is null
+        ? "대상을 고르십시오."
+        : "고친 것은 커밋까지만 합니다. 올리려면 「AI 작업」 화면에서 하십시오.";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadTargetsAsync();
+        await LoadRecentAsync();
+    }
+
+    /// <summary>
+    /// 대상 목록. <b>실패해도 화면을 막지 않는다</b> — 최근 보낸 것은 보여야
+    /// 「왜 아무것도 없나」를 알 수 있다.
+    /// </summary>
+    private async Task LoadTargetsAsync()
+    {
+        await LoadAsync(async () =>
+        {
+            _targets = await TargetApi.ListAsync(onlyEnabled: true);
+            return _targets.Count;
+        }, emptyMessage: "쓸 수 있는 대상이 없습니다.", failMessage: "대상을 읽지 못했습니다");
+
+        // **하나뿐이면 골라 둔다.** 고를 것이 없는 목록을 열게 하지 않는다.
+        if (_targetKey is null && _targets.Count == 1)
+        {
+            _targetKey = _targets[0].TargetKey;
+        }
+
+        FixKind();
+    }
+
+    /// <summary>
+    /// 최근 보낸 것. <b>내가 보낸 것만</b>은 서버가 가리지 않으므로 여기서는
+    /// 전부 온다 — 이 기능을 쓰는 사람이 여럿이 되면 그때 서버에 조건을 더한다.
+    /// </summary>
+    private async Task LoadRecentAsync()
+    {
+        await LoadAsync(async () =>
+        {
+            var rows = await Api.ListAsync();
+
+            _recent = rows
+                .OrderByDescending(t => t.RequestedAt ?? t.CreDt ?? DateTime.MinValue)
+                .Take(RecentMax)
+                .ToList();
+
+            return _recent.Count;
+        }, emptyMessage: string.Empty, failMessage: "보낸 것을 읽지 못했습니다");
+
+        Follow();
+    }
+
+    /// <summary>
+    /// 고른 대상이 못 쓰는 AI 가 남아 있을 수 있다. 그대로 두면 **집어 간 뒤에야**
+    /// 어긋남이 드러난다 — 화면에서는 아무 표시 없이 실패한다.
+    /// </summary>
+    private void FixKind()
+    {
+        var allowed = AllowedKinds;
+
+        if (allowed.Count > 0 && !allowed.Any(k => k.Value == _kind))
+        {
+            _kind = allowed[0].Value;
+        }
+    }
+
+    /// <summary>
+    /// 적은 것을 작업으로 만들고 바로 요청까지 한다.
+    /// </summary>
+    /// <remarks>
+    /// 「AI 작업」 화면은 저장과 요청을 일부러 나눠 두었다 — 쓰다 만 글이
+    /// 저장만으로 AI 에게 가면 안 되기 때문이다. <b>여기서는 합친다.</b>
+    /// 이 화면에 글을 적는 일 자체가 「보내겠다」는 뜻이고, 단추를 두 번
+    /// 누르게 하면 길에서 쓰는 화면이라는 전제가 무너진다.
+    /// </remarks>
+    private async Task SendAsync()
+    {
+        if (!CanSend)
+        {
+            return;
+        }
+
+        Busy = true;
+        _sent = null;
+
+        try
+        {
+            FixKind();
+
+            AiTaskDto? created = null;
+
+            var madeOk = await RunAsync(async () =>
+            {
+                created = await Api.CreateAsync(new AiTaskDto
+                {
+                    Contents = _text,
+                    ContentFormat = "markdown",
+                    TargetKey = _targetKey,
+                    RunnerKind = _kind,
+                    TimeoutMinutes = 30,
+                    AttemptMax = 1,
+
+                    // **이 화면에서는 켜지 않는다.** 위 머리말 참고 —
+                    // 흔들리는 자리에서 손가락 하나로 운영 배포가 나가면 안 된다.
+                    AutoPush = false,
+
+                    // 이 화면의 존재 이유다. 끌 수 있게 두지 않는다.
+                    NotifyEmail = true,
+                    NotifyWhen = "always",
+                });
+            }, okMessage: "적어 두었습니다.", failMessage: "보내지 못했습니다");
+
+            if (!madeOk || created is null)
+            {
+                return;
+            }
+
+            // 만들기와 요청이 **따로다.** 만들기만 되고 요청이 실패하면
+            // 「대기」도 아닌 채로 남으므로, 그 사실을 화면이 말해야 한다.
+            var key = created.TaskKey;
+
+            var sentOk = await RunAsync(
+                () => Api.RequestAsync(key),
+                okMessage: "보냈습니다. 끝나면 메일로 갑니다.",
+                failMessage: "적어 두기는 했는데 요청이 안 됐습니다");
+
+            if (!sentOk)
+            {
+                await LoadRecentAsync();
+                return;
+            }
+
+            _sent = created.Title;
+            _text = null;
+
+            await LoadRecentAsync();
+        }
+        finally
+        {
+            Busy = false;
+        }
+    }
+
+    private async Task Toggle(long taskKey)
+    {
+        if (_open == taskKey)
+        {
+            _open = null;
+            _result = null;
+            return;
+        }
+
+        _open = taskKey;
+        _result = null;
+
+        // 결과문은 **실행 줄에 있다.** 목록에는 없어서 그때 한 번만 읽는다 —
+        // 펼치지도 않은 여덟 건의 결과를 미리 받아 둘 이유가 없다.
+        await LoadAsync(async () =>
+        {
+            var runs = await Api.RunsAsync(taskKey);
+
+            _result = runs.FirstOrDefault(r => !string.IsNullOrWhiteSpace(r.ResultText))?.ResultText;
+
+            return runs.Count;
+        }, emptyMessage: string.Empty, failMessage: "결과를 읽지 못했습니다");
+    }
+
+    private static string When(AiTaskDto t)
+    {
+        var at = t.RequestedAt ?? t.CreDt;
+
+        if (at is null)
+        {
+            return string.Empty;
+        }
+
+        var ago = DateTime.Now - at.Value.ToLocalTime();
+
+        return ago.TotalMinutes < 1 ? "방금"
+            : ago.TotalHours < 1 ? $"{(int)ago.TotalMinutes}분 전"
+            : ago.TotalDays < 1 ? $"{(int)ago.TotalHours}시간 전"
+            : at.Value.ToLocalTime().ToString("MM-dd HH:mm");
+    }
+
+    /// <summary>
+    /// 도는 것이 있으면 따라간다. <b>없으면 타이머를 끈다</b> —
+    /// 이 화면은 열어 두고 잊기 쉬운 자리라, 끄지 않으면 회로가 계속 일한다.
+    /// </summary>
+    private void Follow()
+    {
+        var busy = _recent.Any(t => t.IsBusy);
+
+        if (!busy)
+        {
+            StopPoll();
+            return;
+        }
+
+        if (_poll is not null)
+        {
+            return;
+        }
+
+        var cts = new CancellationTokenSource();
+        _poll = cts;
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                while (!cts.IsCancellationRequested)
+                {
+                    // 로그를 따라가는 화면이 아니다. 5초면 넉넉하다 —
+                    // 2초로 두면 열어 둔 창마다 서버를 그만큼 더 부른다.
+                    await Task.Delay(TimeSpan.FromSeconds(5), cts.Token);
+
+                    var rows = await Api.ListAsync(ct: cts.Token);
+
+                    if (cts.IsCancellationRequested)
+                    {
+                        return;
+                    }
+
+                    _recent = rows
+                        .OrderByDescending(t => t.RequestedAt ?? t.CreDt ?? DateTime.MinValue)
+                        .Take(RecentMax)
+                        .ToList();
+
+                    await InvokeAsync(StateHasChanged);
+
+                    if (!_recent.Any(t => t.IsBusy))
+                    {
+                        StopPoll();
+                        return;
+                    }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // 화면을 떠났다. 정상이다.
+            }
+            catch
+            {
+                // 한 번 실패했다고 화면을 깨지 않는다. 다음 바퀴에 다시 본다.
+            }
+        }, cts.Token);
+    }
+
+    private void StopPoll()
+    {
+        var cts = _poll;
+        _poll = null;
+
+        if (cts is null)
+        {
+            return;
+        }
+
+        try
+        {
+            cts.Cancel();
+            cts.Dispose();
+        }
+        catch (ObjectDisposedException)
+        {
+            // 이미 치웠다.
+        }
+    }
+
+    /// <summary><b>화면을 떠날 때 반드시 끈다.</b> 안 끄면 회로마다 타이머가 쌓인다.</summary>
+    public void Dispose() => StopPoll();
+}
