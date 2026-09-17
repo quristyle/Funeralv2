@@ -259,6 +259,14 @@
                 <PageNotice Tone="NoticeTone.Error" Text="@($"지난 실행: {_edit.LastError}")" />
             }
 
+            @* 메일이 안 나간 것은 **작업 실패와 다른 일**이라 따로, 그리고
+               경고로 말한다. 이 줄이 없던 동안 결과 메일은 한 통도 나가지
+               않았는데 화면은 완전히 조용했다 — 사유는 DB 에만 있었다. *@
+            @if (!string.IsNullOrWhiteSpace(_edit.NotifyError))
+            {
+                <PageNotice Tone="NoticeTone.Warning" Text="@($"결과 메일: {_edit.NotifyError}")" />
+            }
+
             @* ── 실행 이력과 로그 ──────────────────────────────
 
                돌고 있는 동안에는 2초마다 **새 줄만** 가져와 이어 붙인다.
@@ -656,6 +664,7 @@
                         _edit.RequestFlag = latest.RequestFlag;
                         _edit.DurationMs = latest.DurationMs;
                         _edit.LastError = latest.LastError;
+                        _edit.NotifyError = latest.NotifyError;
 
                         // 실행이 새로 생겼거나 끝났으면 이력을 다시 읽는다.
                         var wantRuns = _openRun is null

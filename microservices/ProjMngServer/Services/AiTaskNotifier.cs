@@ -92,11 +92,32 @@ public sealed class AiTaskNotifier(
                 return;
             }
 
-            var to = string.IsNullOrWhiteSpace(row.NotifyTo) ? row.CreId : row.NotifyTo;
+            // **주소와 아이디를 구분해서 보낸다.**
+            //
+            // 이 DB(projmng)에는 사람의 메일 주소가 없다 — 계정은 scom 에 있고
+            // 그쪽은 알림 서비스의 DB 다. 그래서 「요청한 사람에게」는 아이디를
+            // toUser 로 넘겨 저쪽에서 풀게 한다.
+            //
+            // 예전에는 아이디(cre_id)를 그대로 to 에 실었다. 주소 꼴이 아니라서
+            // 알림 서비스가 걸러 버렸고 **「받는 사람」을 비워 둔 건은 한 통도
+            // 나가지 않았다** — notify_error 에 HTTP 400 만 쌓였다.
+            var to = row.NotifyTo?.Trim();
+            var toUser = string.IsNullOrWhiteSpace(to) ? row.CreId?.Trim() : null;
 
-            if (string.IsNullOrWhiteSpace(to))
+            if (string.IsNullOrWhiteSpace(to) && string.IsNullOrWhiteSpace(toUser))
             {
                 await MarkAsync(db, runKey, "받는 사람을 알 수 없습니다.");
+                return;
+            }
+
+            // 사람이 적은 값이 주소가 아니면 **여기서 말한다.** 저쪽까지 갔다
+            // 오면 「받는 사람이 없습니다」가 되어 어느 칸이 틀렸는지가 흐려진다.
+            if (!string.IsNullOrWhiteSpace(to)
+                && to.Split([',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                     .Any(one => !System.Net.Mail.MailAddress.TryCreate(one, out _)))
+            {
+                await MarkAsync(db, runKey,
+                    $"「받는 사람」이 메일 주소가 아닙니다: {to} — 비워 두면 요청한 사람에게 갑니다.");
                 return;
             }
 
@@ -109,9 +130,12 @@ public sealed class AiTaskNotifier(
                 Content = JsonContent.Create(new
                 {
                     to,
+                    toUser,
                     subject = $"[AI 작업] {row.Title} — {StatusText(row.TaskStatus)}",
                     body = Body(row),
-                    isHtml = false,
+                    // 저쪽 DTO 의 속성 이름은 `Html` 이다. `isHtml` 로 적으면
+                    // 붙지 않고 조용히 기본값이 쓰인다.
+                    html = false,
                 }),
             };
 
@@ -123,12 +147,18 @@ public sealed class AiTaskNotifier(
 
             if (res.IsSuccessStatusCode)
             {
-                logger.LogInformation("작업 {TaskKey} 결과를 {To} 에게 보냈습니다.", row.TaskKey, to);
+                logger.LogInformation("작업 {TaskKey} 결과를 {To} 에게 보냈습니다.", row.TaskKey, to ?? toUser);
                 await MarkAsync(db, runKey, null);
             }
             else
             {
-                await MarkAsync(db, runKey, $"메일 서비스가 HTTP {(int)res.StatusCode} 로 답했습니다.");
+                // **본문까지 읽어 남긴다.** 상태 번호만 적어 두면 화면이
+                // 「HTTP 400」만 말하게 되고, 정작 무엇이 틀렸는지는 알림
+                // 서비스 로그를 봐야 알 수 있다 — 실제로 그렇게 헤맸다.
+                var why = await res.Content.ReadAsStringAsync(ct);
+
+                await MarkAsync(db, runKey,
+                    $"메일 서비스가 HTTP {(int)res.StatusCode} 로 답했습니다. {Reason(why)}".Trim());
             }
         }
         catch (Exception ex)
@@ -147,6 +177,35 @@ public sealed class AiTaskNotifier(
                 // 여기서 또 실패하면 남길 곳이 없다. 로그로 끝낸다.
             }
         }
+    }
+
+    /// <summary>
+    /// 실패 응답에서 사람이 읽을 한 줄만 꺼낸다. 못 꺼내면 빈 문자열이다 —
+    /// <b>JSON 덩어리를 그대로 화면에 올리지 않는다.</b>
+    /// </summary>
+    private static string Reason(string? body)
+    {
+        if (string.IsNullOrWhiteSpace(body))
+        {
+            return string.Empty;
+        }
+
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(body);
+
+            if (doc.RootElement.TryGetProperty("message", out var m)
+                && m.GetString() is { Length: > 0 } text)
+            {
+                return text;
+            }
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            // JSON 이 아니면 아래에서 앞부분만 자른다.
+        }
+
+        return body.Trim()[..Math.Min(body.Trim().Length, 200)];
     }
 
     private static async Task MarkAsync(NpgsqlConnection db, long runKey, string? error)

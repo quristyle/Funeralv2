@@ -23,9 +23,10 @@ namespace NotificationServer.Endpoints;
 /// </para>
 ///
 /// <para>
-/// 받는 사람은 부르는 쪽이 정한다 (결정 D8-A). 다만 <b>역할로 받는 것</b>(<c>toRole</c>)은
-/// 예외로 여기서 푼다 — 역할 → 이메일 명단은 scom(이 서비스의 DB)에 있고,
-/// 다른 서비스(SiteServer 등)는 그 DB 를 볼 수 없기 때문이다.
+/// 받는 사람은 부르는 쪽이 정한다 (결정 D8-A). 다만 <b>아이디·역할로 받는 것</b>
+/// (<c>toUser</c> · <c>toRole</c>)은 예외로 여기서 푼다 — 아이디·역할 → 이메일
+/// 명단은 scom(이 서비스의 DB)에 있고, 다른 서비스(SiteServer·ProjMngServer 등)는
+/// 그 DB 를 볼 수 없기 때문이다.
 /// </para>
 /// </remarks>
 public static class EmailEndpoints
@@ -87,12 +88,15 @@ public static class EmailEndpoints
         {
             if (user is null) return Results.Unauthorized();
 
-            if ((string.IsNullOrWhiteSpace(request.To) && string.IsNullOrWhiteSpace(request.ToRole)) ||
+            if ((string.IsNullOrWhiteSpace(request.To)
+                 && string.IsNullOrWhiteSpace(request.ToRole)
+                 && string.IsNullOrWhiteSpace(request.ToUser)) ||
                 string.IsNullOrWhiteSpace(request.Subject) ||
                 string.IsNullOrWhiteSpace(request.Body))
             {
                 return Results.BadRequest(ApiResponse<bool>.Fail(
-                    message: "받는 사람(to 또는 toRole) · 제목 · 본문이 모두 필요합니다.", code: "INVALID"));
+                    message: "받는 사람(to · toUser · toRole 중 하나) · 제목 · 본문이 모두 필요합니다.",
+                    code: "INVALID"));
             }
 
             // ── 첨부를 먼저 본다 ─────────────────────────────
@@ -145,10 +149,32 @@ public static class EmailEndpoints
                     .Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
             }
 
+            var unknownUsers = new List<string>();
+
+            if (!string.IsNullOrWhiteSpace(request.ToUser))
+            {
+                var ids = request.ToUser
+                    .Split([',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                    .ToList();
+
+                var found = await ResolveUserEmailsAsync(db, ids, ct);
+
+                recipients.AddRange(found.Values);
+                unknownUsers.AddRange(ids.Where(i => !found.ContainsKey(i)));
+            }
+
             if (!string.IsNullOrWhiteSpace(request.ToRole))
             {
                 recipients.AddRange(await ResolveRoleEmailsAsync(db, prefs, request.ToRole.Trim(), ct));
             }
+
+            // 주소 꼴이 아닌 것은 여기서 빠진다. **무엇이 빠졌는지 들고 간다** —
+            // 그냥 「받는 사람이 없습니다」로만 답하면 부르는 쪽이 자기가 보낸
+            // 값의 어디가 틀렸는지 알 수 없다.
+            var malformed = recipients
+                .Where(r => !System.Net.Mail.MailAddress.TryCreate(r, out _))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
 
             recipients = recipients
                 .Where(r => System.Net.Mail.MailAddress.TryCreate(r, out _))
@@ -157,11 +183,19 @@ public static class EmailEndpoints
 
             if (recipients.Count == 0)
             {
-                // 역할에 이메일 가진 사용자가 없을 수도 있다 — 조용히 성공으로 말하지 않는다.
-                logger.LogWarning("이메일 받는 사람이 없습니다. toRole={Role} by={By}", request.ToRole, user.UserId);
+                // 역할·아이디에 이메일 가진 사용자가 없을 수도 있다 — 조용히 성공으로 말하지 않는다.
+                logger.LogWarning(
+                    "이메일 받는 사람이 없습니다. to={To} toUser={User} toRole={Role} by={By}",
+                    request.To, request.ToUser, request.ToRole, user.UserId);
+
+                var why = unknownUsers.Count > 0
+                    ? $"이메일이 등록되지 않은 아이디입니다: {string.Join(", ", unknownUsers)}"
+                    : malformed.Count > 0
+                        ? $"주소 꼴이 아닙니다: {string.Join(", ", malformed)}"
+                        : "역할에 이메일이 등록된 사용자가 없습니다.";
+
                 return Results.BadRequest(ApiResponse<bool>.Fail(
-                    message: "받는 사람이 없습니다 (역할에 이메일이 등록된 사용자가 없습니다).",
-                    code: "NO_RECIPIENT"));
+                    message: $"받는 사람이 없습니다 ({why}).", code: "NO_RECIPIENT"));
             }
 
             try
@@ -185,6 +219,51 @@ public static class EmailEndpoints
             }
         })
         .WithName("SendEmailDirect");
+    }
+
+    /// <summary>
+    /// 로그인 아이디들의 이메일을 푼다 — 아이디마다 하나(대표 이메일 우선).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>본인이 이메일 알림을 껐는지는 보지 않는다.</b> 역할로 가는 메일은
+    /// 「그 역할인 사람 아무나」에게 가는 알림이라 본인의 뜻을 지킬 수 있지만,
+    /// 이쪽은 <b>부르는 쪽이 사람을 하나 짚어</b> 보내는 것이다 — AI 작업의
+    /// 「끝나면 메일로 받기」처럼 그 건마다 본인이 켠 업무 메일이 여기로 온다.
+    /// 알림 설정으로 그것을 막으면 켠 사람이 왜 안 오는지 알 길이 없다.
+    /// </para>
+    /// <para>
+    /// 찾지 못한 아이디는 <b>돌려주지 않는다</b> — 부르는 쪽이 키를 보고
+    /// 무엇이 빠졌는지 말할 수 있게 사전으로 준다.
+    /// </para>
+    /// </remarks>
+    private static async Task<Dictionary<string, string>> ResolveUserEmailsAsync(
+        AppDbContext db, IReadOnlyList<string> loginIds, CancellationToken ct)
+    {
+        var keys = loginIds
+            .Where(i => !string.IsNullOrWhiteSpace(i))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (keys.Count == 0)
+        {
+            return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        }
+
+        var rows = await (
+            from a in db.Accounts
+            where keys.Contains(a.UserId) && !a.IsDeleted
+            join d in db.AccountProfileDetails on a.Id equals d.AccountId
+            where d.DetailType == "Email" && !d.IsDeleted && d.Content != ""
+            select new { a.UserId, d.Content, d.IsPrimary })
+            .ToListAsync(ct);
+
+        return rows
+            .GroupBy(r => r.UserId, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                g => g.Key,
+                g => g.OrderByDescending(r => r.IsPrimary).First().Content.Trim(),
+                StringComparer.OrdinalIgnoreCase);
     }
 
     /// <summary>

@@ -97,6 +97,19 @@ public class SendEmailDto
     /// </summary>
     public string? ToRole { get; set; }
 
+    /// <summary>
+    /// 받는 <b>사람</b>의 포털 로그인 아이디 (<c>scom.accounts.user_id</c>).
+    /// 여럿이면 쉼표로 잇는다. 직발송 <c>/emails/send</c> 만 본다.
+    /// </summary>
+    /// <remarks>
+    /// <b>주소를 모르는 부르는 쪽을 위해 있다.</b> 다른 서비스는 자기 DB 만
+    /// 보므로 「이 작업을 요청한 사람」까지는 알아도 그 사람의 메일 주소는
+    /// 모른다. 아이디를 그대로 <see cref="To"/> 에 실으면 주소가 아니라서
+    /// 걸러지고 <c>NO_RECIPIENT</c> 로 돌아온다 — 실제로 AI 작업 결과 메일이
+    /// 그렇게 한 통도 못 나갔다.
+    /// </remarks>
+    public string? ToUser { get; set; }
+
     public string Subject { get; set; } = string.Empty;
 
     /// <summary>본문 (HTML 허용).</summary>

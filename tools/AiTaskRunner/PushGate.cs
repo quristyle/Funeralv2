@@ -48,10 +48,38 @@ public sealed class PushGate(RunnerOptions options, ILogger<PushGate> logger)
         Func<string, Task> say,
         CancellationToken ct)
     {
-        // worktree 가 아니면 push 할 것이 없다(폴더 대상).
-        if (prepared.Branch is null || prepared.RepoPath is null)
+        // **「올리기」가 켜져 있으면 조용히 넘기지 않는다.**
+        //
+        // 예전에는 여기서 `prepared.Branch is null` 이면 그냥 돌아섰다. 그래서
+        // 격리가 `inplace` 인 대상은 — 그 자리가 멀쩡한 git 저장소인데도 —
+        // 「올리기 허용」을 켜 두든 말든 **한 번도 push 되지 않았다.** 화면에는
+        // 성공으로만 보이고 바뀐 것은 그 장비에만 남았다.
+        var branch = prepared.Branch;
+
+        if (branch is null)
         {
-            return new PushResult { Skipped = "git 저장소 대상이 아닙니다." };
+            // worktree 가 아니면 지금 체크아웃된 가지가 곧 올릴 가지다.
+            var head = await GitAsync(prepared.Path, ct, "rev-parse", "--abbrev-ref", "HEAD");
+
+            branch = head.ExitCode == 0 && head.Output.Trim() is { Length: > 0 } name and not "HEAD"
+                ? name
+                : null;
+        }
+
+        var wantsPush = claim.AutoPush && claim.Target?.AllowPush == true;
+
+        if (branch is null)
+        {
+            // 여기까지 오면 git 이 아니다 — 복사본 격리(.git 을 뺀 사본)이거나
+            // 애초에 저장소가 아닌 폴더다.
+            var why = claim.Target?.IsolationMode == "copy"
+                ? "복사본 격리는 .git 을 뺀 사본에서 돌기 때문에 올릴 수 없습니다. "
+                  + "격리를 worktree 나 원본 직접으로 바꾸십시오."
+                : "git 저장소가 아닙니다.";
+
+            return wantsPush
+                ? new PushResult { Blocked = $"올리기가 켜져 있지만 올릴 수 없는 대상입니다 — {why}" }
+                : new PushResult { Skipped = "git 저장소 대상이 아닙니다." };
         }
 
         // ① 바뀐 것이 있나. **없으면 커밋도 push 도 하지 않는다** —
@@ -107,13 +135,21 @@ public sealed class PushGate(RunnerOptions options, ILogger<PushGate> logger)
         var diff = await GitAsync(prepared.Path, ct, "diff", "--stat", "HEAD~1", "HEAD");
 
         // 올리지 않기로 한 건은 여기까지. **커밋은 남는다** — 사람이 이어받는다.
+        //
+        // 어디에 남았는지를 갈라 말한다. worktree 면 따로 난 가지지만,
+        // 원본 직접이면 **정본의 그 가지에 커밋이 얹힌 것**이라 사람이 알고
+        // 있어야 다음 작업이 「정본이 깨끗하지 않습니다」로 막히지 않는다.
+        var where = prepared.Branch is not null
+            ? $"브랜치 {branch} 에 커밋만 남겼습니다."
+            : $"정본({prepared.Path})의 {branch} 에 커밋만 남겼습니다. 아직 올라가지 않았습니다.";
+
         if (!claim.AutoPush)
         {
             return new PushResult
             {
                 Committed = sha,
                 DiffStat = Trim(diff.Output),
-                Skipped = "올리기가 꺼져 있습니다. 커밋과 브랜치만 남겼습니다.",
+                Skipped = $"올리기가 꺼져 있습니다. {where}",
             };
         }
 
@@ -123,7 +159,26 @@ public sealed class PushGate(RunnerOptions options, ILogger<PushGate> logger)
             {
                 Committed = sha,
                 DiffStat = Trim(diff.Output),
-                Blocked = "이 대상은 올리기를 허용하지 않습니다.",
+                Blocked = $"이 대상은 올리기를 허용하지 않습니다. {where}",
+            };
+        }
+
+        var pushRef = claim.Target.PushRef ?? "main";
+
+        // ③-2 원본 직접일 때만 — **지금 가지가 올릴 가지와 같아야 한다.**
+        //
+        // worktree 는 이 실행만의 가지를 새로 내므로 상관없지만, 원본 직접은
+        // 정본이 체크아웃해 둔 가지에 그대로 얹는다. 그 가지가 `main` 이
+        // 아닌데 `HEAD:main` 으로 밀면 **엉뚱한 가지의 이력이 통째로 main 에
+        // 올라간다** — 이 저장소에서 그것은 곧 운영 배포다.
+        if (prepared.Branch is null && !string.Equals(branch, pushRef, StringComparison.Ordinal))
+        {
+            return new PushResult
+            {
+                Committed = sha,
+                DiffStat = Trim(diff.Output),
+                Blocked = $"정본이 {branch} 를 보고 있는데 올릴 곳은 {pushRef} 입니다. "
+                          + "원본 직접 격리에서는 두 가지가 같아야 올립니다.",
             };
         }
 
@@ -149,8 +204,7 @@ public sealed class PushGate(RunnerOptions options, ILogger<PushGate> logger)
         // ⑤ 그 사이 누가 밀었을 수 있다. 당겨서 얹는다.
         await say("[게이트] git pull --rebase");
 
-        var rebase = await GitAsync(prepared.Path, ct, "pull", "--rebase", "origin",
-            claim.Target.PushRef ?? "main");
+        var rebase = await GitAsync(prepared.Path, ct, "pull", "--rebase", "origin", pushRef);
 
         if (rebase.ExitCode != 0)
         {
@@ -169,10 +223,9 @@ public sealed class PushGate(RunnerOptions options, ILogger<PushGate> logger)
         //    push 한 뒤에 읽으면 이미 새 배포가 그 값을 덮었을 수 있다.
         var previousTag = ReadTag();
 
-        await say($"[게이트] 통과. {claim.Target.PushRef ?? "main"} 으로 올립니다 — 배포가 일어납니다.");
+        await say($"[게이트] 통과. {pushRef} 으로 올립니다 — 배포가 일어납니다.");
 
-        var push = await GitAsync(prepared.Path, ct, "push", "origin",
-            $"HEAD:{claim.Target.PushRef ?? "main"}");
+        var push = await GitAsync(prepared.Path, ct, "push", "origin", $"HEAD:{pushRef}");
 
         if (push.ExitCode != 0)
         {
@@ -187,7 +240,7 @@ public sealed class PushGate(RunnerOptions options, ILogger<PushGate> logger)
         var pushed = (await GitAsync(prepared.Path, ct, "rev-parse", "HEAD")).Output.Trim();
 
         logger.LogWarning("작업 {TaskKey} 가 {Ref} 에 올라갔습니다 — 운영 배포가 시작됩니다: {Sha}",
-            claim.TaskKey, claim.Target.PushRef ?? "main", pushed);
+            claim.TaskKey, pushRef, pushed);
 
         return new PushResult
         {

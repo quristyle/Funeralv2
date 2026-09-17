@@ -290,6 +290,13 @@ public sealed class RunnerWorker(
 
                 await FlushAsync(true);
             }
+            else if (claim.AutoPush)
+            {
+                // **켜 둔 것이 왜 안 됐는지는 말해야 한다.** 그냥 넘기면
+                // 「올리기를 켰는데 아무 일도 없었다」로만 보인다.
+                await SayAsync("[게이트] 실행이 성공으로 끝나지 않아 올리지 않았습니다.");
+                await FlushAsync(true);
+            }
 
             var diff = push?.DiffStat ?? await workspace.DiffStatAsync(prepared, ct);
 
@@ -310,7 +317,9 @@ public sealed class RunnerWorker(
                 keepWorkspace = false;
             }
 
-            if (keepWorkspace)
+            // 원본 직접은 애초에 치우는 자리가 아니다(Disposable=false).
+            // 거기에 「남겼습니다」를 적으면 임시 자리가 생긴 것처럼 읽힌다.
+            if (keepWorkspace && prepared.Disposable)
             {
                 await SayAsync($"[남김] 결과가 {prepared.Path} 에 있습니다.");
             }

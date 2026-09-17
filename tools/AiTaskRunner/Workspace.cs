@@ -38,7 +38,22 @@ public sealed class Workspace(RunnerOptions options, ILogger<Workspace> logger)
                 + "— 대상의 「장비」가 맞게 지정돼 있는지 확인하십시오.");
         }
 
-        var isRepo = Directory.Exists(Path.Combine(path, ".git"));
+        // worktree 의 `.git` 은 폴더가 아니라 **파일**이다. 폴더만 보면
+        // worktree 안에서 돌 때 저장소가 아닌 것으로 읽힌다.
+        var dotGit = Path.Combine(path, ".git");
+        var isRepo = Directory.Exists(dotGit) || File.Exists(dotGit);
+
+        var isolation = target.IsolationMode ?? (isRepo ? "worktree" : "copy");
+
+        // 저장소로 등록해 놓고 실제로는 아니면 **여기서 말한다.** 그냥 넘기면
+        // 당기지도 올리지도 않은 채 성공으로 끝나고, 사람은 최신에서 돌았다고
+        // 믿는다.
+        if (!isRepo && target.TargetKind == "repo")
+        {
+            throw new InvalidOperationException(
+                $"저장소로 등록된 대상인데 {path} 에 .git 이 없습니다. "
+                + "대상의 종류나 경로를 확인하십시오.");
+        }
 
         // ── git 저장소면 먼저 당긴다 ────────────────────────
         //
@@ -57,24 +72,59 @@ public sealed class Workspace(RunnerOptions options, ILogger<Workspace> logger)
                     $"정본이 깨끗하지 않습니다. 사람이 먼저 정리해야 합니다:\n{dirty.Output}");
             }
 
-            await say("[준비] git fetch");
-            await GitAsync(path, ct, "fetch", "origin");
+            await say("[준비] git fetch origin");
 
-            await say("[준비] git pull --ff-only");
-            var pull = await GitAsync(path, ct, "pull", "--ff-only");
+            var fetch = await GitAsync(path, ct, "fetch", "origin");
 
-            if (pull.ExitCode != 0)
+            if (fetch.ExitCode != 0)
             {
                 throw new InvalidOperationException(
-                    $"정본을 최신으로 맞추지 못했습니다:\n{pull.Output}");
+                    $"origin 에서 가져오지 못했습니다. 최신에서 시작할 수 없습니다:\n{fetch.Output}");
+            }
+
+            // **가지를 짚어서 당긴다.** 인자 없는 `git pull` 은 그 가지에
+            // upstream 설정이 있어야 돌고, 없으면 「no tracking information」
+            // 으로 죽는다 — 최신이 아니라 설정이 없다는 뜻인데 그 문구로는
+            // 읽히지 않는다.
+            var head = await GitAsync(path, ct, "rev-parse", "--abbrev-ref", "HEAD");
+            var current = head.Output.Trim();
+
+            if (current is { Length: > 0 } && current != "HEAD")
+            {
+                await say($"[준비] git pull --ff-only origin {current}");
+
+                var pull = await GitAsync(path, ct, "pull", "--ff-only", "origin", current);
+
+                if (pull.ExitCode != 0)
+                {
+                    // **원본 직접은 여기서 일한다.** 뒤처진 자리에서 고치고
+                    // 올리면 그 사이 남이 올린 것을 되돌린다 — 막는다.
+                    if (isolation == "inplace")
+                    {
+                        throw new InvalidOperationException(
+                            $"정본({current})을 최신으로 맞추지 못했습니다:\n{pull.Output}");
+                    }
+
+                    // worktree · 복사본은 방금 받은 origin/<ref> 에서 갈라지므로
+                    // 정본의 가지가 뒤처져 있어도 작업 자체는 최신에서 시작한다.
+                    // 멈출 일은 아니지만 **조용히 넘기지도 않는다.**
+                    await say($"[준비] 정본 {current} 를 당기지 못했습니다 "
+                              + "(작업은 origin 에서 갈라집니다): " + Head(pull.Output));
+                }
+            }
+            else
+            {
+                await say("[준비] 정본이 어느 가지도 보고 있지 않아 당기지 않았습니다.");
             }
 
             baseSha = (await GitAsync(path, ct, "rev-parse", "HEAD")).Output.Trim();
+
+            // **당긴 결과를 적어 둔다.** 「pull 했다」만 남으면 어디에서
+            // 시작했는지가 기록에 없다.
+            await say($"[준비] 시작 기준 {current} {Short(baseSha)}");
         }
 
         Directory.CreateDirectory(options.WorkspaceRoot);
-
-        var isolation = target.IsolationMode ?? (isRepo ? "worktree" : "copy");
 
         // ── 원본 직접 ───────────────────────────────────────
         if (isolation == "inplace")
@@ -152,10 +202,15 @@ public sealed class Workspace(RunnerOptions options, ILogger<Workspace> logger)
         return new Prepared { Path = dir, BaseSha = baseSha, Disposable = true };
     }
 
-    /// <summary>바뀐 것 요약. worktree 일 때만 뜻이 있다.</summary>
+    /// <summary>
+    /// 바뀐 것 요약. <b>git 인 자리면 격리 방식과 무관하게 낸다</b> —
+    /// 원본 직접도 저장소이므로 무엇이 바뀌었는지 말할 수 있다.
+    /// </summary>
     public async Task<string?> DiffStatAsync(Prepared prepared, CancellationToken ct)
     {
-        if (prepared.Branch is null)
+        var dotGit = Path.Combine(prepared.Path, ".git");
+
+        if (!Directory.Exists(dotGit) && !File.Exists(dotGit))
         {
             return null;
         }
@@ -193,6 +248,13 @@ public sealed class Workspace(RunnerOptions options, ILogger<Workspace> logger)
             logger.LogWarning("작업공간을 치우지 못했습니다: {Message}", ex.Message);
         }
     }
+
+    private static string Short(string? sha) =>
+        sha is { Length: > 7 } ? sha[..7] : sha ?? "?";
+
+    /// <summary>긴 git 출력에서 앞 몇 줄만. 로그 한 줄이 화면을 덮지 않게 한다.</summary>
+    private static string Head(string text) =>
+        string.Join(' ', text.Split('\n', StringSplitOptions.RemoveEmptyEntries).Take(3));
 
     private static Task<(int ExitCode, string Output)> GitAsync(
         string workDir, CancellationToken ct, params string[] args)
