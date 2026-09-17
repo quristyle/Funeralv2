@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk.Worker">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>AiTaskRunner</RootNamespace>
+    <!-- 공유 프로젝트를 하나도 참조하지 않는다. **이 프로그램은 장비에서 돌고
+         서버와는 HTTP 로만 말한다** — 참조를 붙이면 서버를 고칠 때마다 장비의
+         것도 함께 배포해야 한다. 오가는 약속은 JSON 한 벌뿐이다. -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="RabbitMQ.Client" />
+    <PackageReference Include="Serilog.AspNetCore" />
+    <PackageReference Include="Serilog.Settings.Configuration" />
+    <PackageReference Include="Serilog.Sinks.Console" />
+  </ItemGroup>
+
+</Project>

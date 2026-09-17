@@ -1,0 +1,106 @@
+# ============================================================
+# AI 작업 실행기 — systemd 유닛 (운영 서버)
+# ============================================================
+#
+# 설계: docs/ai-task-runner.md 9.2
+#
+# ── 이 파일이 담장이다 ───────────────────────────────────────
+#
+# 실행 계정을 나누지 않기로 했고(2026-09-17), CLI 는 권한을 다 열어
+# (`--dangerously-skip-permissions`) 돌린다. 그래서 **남은 경계가 이 유닛
+# 하나뿐**이다. 「있으면 좋은 것」이 아니라 「이것 하나가 전부인 것」이다.
+#
+# lee 계정은 sudo · docker 그룹에 들어 있다. docker 그룹이면
+# `docker run -v /:/host` 한 줄로 호스트 전체를 root 로 읽고 쓸 수 있다 —
+# sudo 비밀번호를 몰라도 그렇다. 아래 ①②가 그 둘을 끊는다.
+#
+# **자식 프로세스가 이 담장을 물려받는다.** 실행기가 띄운 claude·agy 도,
+# 그것들이 띄운 git 도 같은 우리 안에 있다.
+#
+# 넣는 절차와 확인 방법은 옆의 README.md 에 있다.
+# **유닛만 넣는다고 되지 않는다** — 코드가 먼저 운영에 배포돼 있어야 하고,
+# 실행기는 개발 장비에서 말아 올려야 한다(이 장비의 .NET SDK 는 8.0 이다).
+
+[Unit]
+Description=JSini AI 작업 실행기
+Documentation=file:///home/lee/Funeralv2/docs/ai-task-runner.md
+After=network-online.target rabbitmq-server.service
+Wants=network-online.target
+
+[Service]
+# **`notify` 가 아니다.** 이 프로그램은 sd_notify 로 「준비됐다」를 보내지
+# 않는다 — `notify` 로 두면 systemd 가 그 신호를 기다리다 제한 시간이 지나
+# **실패로 판정하고 죽인다.** 돌고는 있는데 상태가 failed 로 보이는, 원인을
+# 찾기 나쁜 모양이 된다.
+Type=exec
+User=lee
+Group=lee
+WorkingDirectory=/home/lee/ai-task-runner
+
+# **자체 포함(self-contained) 실행 파일이다.** 운영 장비의 .NET SDK 는 8.0 인데
+# 이 프로그램은 net10.0 이라 그 장비에서는 빌드도 실행도 못 한다. 개발 장비에서
+# 말아서 통째로 올린다 — 장비의 dotnet 설치와 무관해진다.
+#
+# `/opt` 가 아니라 `lee` 의 집에 두는 이유: 그 폴더를 만들고 채우는 데 sudo 가
+# 필요 없어진다. **sudo 가 필요한 것은 이 파일을 넣는 한 걸음뿐**이 된다.
+ExecStart=/home/lee/ai-task-runner/AiTaskRunner
+Restart=always
+RestartSec=10
+
+# 설정은 이 폴더의 appsettings.Local.json 이 덮는다. 토큰을 여기 적지 않는다.
+Environment=DOTNET_ENVIRONMENT=Production
+
+# ── ① 권한 상승을 막는다 ────────────────────────────────────
+#
+# setuid 실행 파일이 권한을 못 얻는다 = **sudo 가 무력해진다.**
+NoNewPrivileges=yes
+
+# ── ② docker 소켓을 끊는다 ─────────────────────────────────
+#
+# docker 그룹 자체는 그대로지만 소켓이 안 보이면 쓸 수 없다.
+InaccessiblePaths=/var/run/docker.sock
+
+# ── ③ 운영 비밀값을 끊는다 ─────────────────────────────────
+#
+# /srv/jsini/config 밑에 서비스 열 곳의 appsettings.Local.json 이 있고
+# DB 비밀번호와 JWT 키가 평문으로 들어 있다(권한이 drwx------ lee:lee 라
+# lee 로 도는 AI 에게는 그냥 읽힌다).
+#
+# **/srv/jsini/.env 는 막지 않는다** — 안에 TAG 한 줄뿐이고, 되돌리기에
+# 그 값이 필요하다(설계 9.3).
+InaccessiblePaths=/srv/jsini/config
+InaccessiblePaths=/home/lee/.ssh
+
+# ── ④ 쓸 수 있는 곳을 정한다 ───────────────────────────────
+#
+# **정본 clone 을 읽기 전용으로 둘 수 없다** — git fetch 도 worktree add 도
+# .git 에 쓴다. 대신 실행기가 매번 `git status --porcelain` 으로 깨끗한지
+# 보고 더러우면 거절한다.
+#
+# 여기 없는 경로는 대상으로 등록돼 있어도 **실행기가 쓰지 못한다.**
+# 대상 뿌리를 늘리면 이 줄도 같이 늘려야 한다(설계 9.5).
+ProtectSystem=strict
+ReadWritePaths=/home/lee/Funeralv2
+ReadWritePaths=/home/lee/ai-workspaces
+ReadWritePaths=/home/lee/nums
+ReadWritePaths=/srv/ai-targets
+ReadWritePaths=/home/lee/.claude
+ReadWritePaths=/home/lee/.config
+ReadWritePaths=/home/lee/ai-task-runner
+PrivateTmp=yes
+
+# ── ⑤ 자원 ─────────────────────────────────────────────────
+#
+# 8코어 · 31GB 를 운영 컨테이너 열둘과 나눠 쓴다. 유닛 하나에 거는 값이라
+# **다섯 건이 이 안에서 나눠 쓴다** — 한 건이 폭주해도 전체가 이 선을 못 넘는다.
+CPUQuota=300%
+MemoryMax=12G
+IOWeight=50
+
+# 로그는 journald 로.
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ai-task-runner
+
+[Install]
+WantedBy=multi-user.target
