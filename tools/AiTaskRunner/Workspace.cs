@@ -137,6 +137,8 @@ public sealed class Workspace(RunnerOptions options, ILogger<Workspace> logger)
                 BaseSha = baseSha,
                 Branch = null,
                 Disposable = false,
+                SourcePath = path,
+                SourceIsRepo = isRepo,
             };
         }
 
@@ -171,6 +173,8 @@ public sealed class Workspace(RunnerOptions options, ILogger<Workspace> logger)
                 Branch = branch,
                 RepoPath = path,
                 Disposable = true,
+                SourcePath = path,
+                SourceIsRepo = true,
             };
         }
 
@@ -199,7 +203,14 @@ public sealed class Workspace(RunnerOptions options, ILogger<Workspace> logger)
             throw new InvalidOperationException($"복사하지 못했습니다:\n{copy.Output}");
         }
 
-        return new Prepared { Path = dir, BaseSha = baseSha, Disposable = true };
+        return new Prepared
+        {
+            Path = dir,
+            BaseSha = baseSha,
+            Disposable = true,
+            SourcePath = path,
+            SourceIsRepo = isRepo,
+        };
     }
 
     /// <summary>
@@ -219,6 +230,39 @@ public sealed class Workspace(RunnerOptions options, ILogger<Workspace> logger)
         var text = r.Output.Trim();
 
         return text.Length == 0 ? null : text[..Math.Min(text.Length, 480)];
+    }
+
+    /// <summary>
+    /// 복사본에서 돈 결과를 <b>정본으로 되돌린다.</b>
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 사본에는 <c>.git</c> 이 없어 그 자리에서는 커밋할 수 없다. 그렇다고
+    /// 「올릴 수 없는 대상」으로 끝내면 <b>올리기를 켜 둔 사람의 결과가
+    /// 아무 데도 안 간다</b> — 그래서 되돌린 뒤 정본에서 커밋·push 한다.
+    /// </para>
+    /// <para>
+    /// <b>복사할 때 쓴 규칙을 그대로 뒤집는다</b>(<c>.git</c> 제외 · <c>--delete</c>).
+    /// 사본은 정본을 그대로 뜬 것에 AI 의 손이 얹힌 것이라, AI 가 지운 파일은
+    /// 정본에서도 지워지는 것이 맞다. <c>.git</c> 만은 건드리지 않는다 —
+    /// 그것까지 덮으면 이력이 통째로 날아간다.
+    /// </para>
+    /// </remarks>
+    public async Task<string?> SyncBackAsync(
+        Prepared prepared, Func<string, Task> say, CancellationToken ct)
+    {
+        if (!prepared.Disposable || prepared.Branch is not null)
+        {
+            return null;   // 원본 직접·worktree 는 되돌릴 것이 없다.
+        }
+
+        await say($"[게이트] 복사본의 결과를 정본({prepared.SourcePath})으로 되돌립니다.");
+
+        var r = await RunAsync("rsync", ct, workDir: null,
+            "-a", "--delete", "--exclude", ".git",
+            prepared.Path.TrimEnd('/') + "/", prepared.SourcePath.TrimEnd('/') + "/");
+
+        return r.ExitCode == 0 ? null : $"정본으로 되돌리지 못했습니다:\n{r.Output}";
     }
 
     /// <summary>
@@ -316,6 +360,19 @@ public sealed class Workspace(RunnerOptions options, ILogger<Workspace> logger)
 
         /// <summary>worktree 를 매단 정본 경로.</summary>
         public string? RepoPath { get; set; }
+
+        /// <summary>
+        /// 대상으로 등록된 원래 경로. <b>격리 방식과 무관하게 늘 채운다.</b>
+        /// </summary>
+        /// <remarks>
+        /// 복사본에서 돈 결과를 올리려면 <b>정본으로 되돌린 뒤 거기서
+        /// 커밋해야 한다</b> — 사본에는 <c>.git</c> 이 없다. 그때 「어디로
+        /// 되돌리나」가 이 값이다.
+        /// </remarks>
+        public string SourcePath { get; set; } = string.Empty;
+
+        /// <summary>정본이 git 저장소인가. 사본이 아니라 <b>원래 경로</b> 기준이다.</summary>
+        public bool SourceIsRepo { get; set; }
 
         /// <summary>끝나고 치워도 되는 자리인가. 원본 직접이면 거짓이다.</summary>
         public bool Disposable { get; set; }

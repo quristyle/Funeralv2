@@ -23,7 +23,7 @@ namespace AiTaskRunner;
 /// 건너뛴 것이 된다 — 거부 목록에 <c>git push</c> 를 넣는 이유다.
 /// </para>
 /// </remarks>
-public sealed class PushGate(RunnerOptions options, ILogger<PushGate> logger)
+public sealed class PushGate(RunnerOptions options, Workspace workspace, ILogger<PushGate> logger)
 {
     /// <summary>
     /// AI 가 고쳐서는 안 되는 곳.
@@ -54,31 +54,60 @@ public sealed class PushGate(RunnerOptions options, ILogger<PushGate> logger)
         // 격리가 `inplace` 인 대상은 — 그 자리가 멀쩡한 git 저장소인데도 —
         // 「올리기 허용」을 켜 두든 말든 **한 번도 push 되지 않았다.** 화면에는
         // 성공으로만 보이고 바뀐 것은 그 장비에만 남았다.
+        var wantsPush = claim.AutoPush && claim.Target?.AllowPush == true;
+
+        // **커밋은 어디에서 하나.** 대개는 AI 가 돈 자리 그대로지만, 복사본은
+        // 아니다 — `.git` 을 뺀 사본이라 그 자리에서는 커밋할 곳이 없다.
+        // 그럴 때는 **결과를 정본으로 되돌리고 정본에서 커밋한다.**
+        var gitPath = prepared.Path;
+
+        if (prepared.Branch is null && !IsRepo(gitPath))
+        {
+            if (!prepared.SourceIsRepo || string.IsNullOrWhiteSpace(prepared.SourcePath))
+            {
+                // 정본도 저장소가 아니면 올릴 곳 자체가 없다. 원격이 없는데
+                // push 할 수는 없다 — 여기서만은 정직하게 막는다.
+                return wantsPush
+                    ? new PushResult
+                    {
+                        Blocked = "올리기가 켜져 있지만 대상이 git 저장소가 아닙니다. "
+                                  + "올릴 원격이 없으니 대상 경로를 저장소로 바꾸거나 올리기를 끄십시오.",
+                    }
+                    : new PushResult { Skipped = "git 저장소 대상이 아닙니다." };
+            }
+
+            // 올릴 생각이 없으면 되돌리지 않는다 — 사본을 그대로 두는 것이
+            // `copy` 격리의 요점이다(사람이 보고 옮긴다).
+            if (!wantsPush)
+            {
+                return new PushResult { Skipped = "올리기가 꺼져 있습니다. 복사본에 그대로 두었습니다." };
+            }
+
+            if (await workspace.SyncBackAsync(prepared, say, ct) is { } fail)
+            {
+                return new PushResult { Blocked = fail };
+            }
+
+            gitPath = prepared.SourcePath;
+        }
+
+        // **올릴 가지.** worktree 는 이 실행만의 가지이고, 그 밖에는 그 자리가
+        // 지금 체크아웃하고 있는 가지다.
         var branch = prepared.Branch;
 
         if (branch is null)
         {
-            // worktree 가 아니면 지금 체크아웃된 가지가 곧 올릴 가지다.
-            var head = await GitAsync(prepared.Path, ct, "rev-parse", "--abbrev-ref", "HEAD");
+            var head = await GitAsync(gitPath, ct, "rev-parse", "--abbrev-ref", "HEAD");
 
             branch = head.ExitCode == 0 && head.Output.Trim() is { Length: > 0 } name and not "HEAD"
                 ? name
                 : null;
         }
 
-        var wantsPush = claim.AutoPush && claim.Target?.AllowPush == true;
-
         if (branch is null)
         {
-            // 여기까지 오면 git 이 아니다 — 복사본 격리(.git 을 뺀 사본)이거나
-            // 애초에 저장소가 아닌 폴더다.
-            var why = claim.Target?.IsolationMode == "copy"
-                ? "복사본 격리는 .git 을 뺀 사본에서 돌기 때문에 올릴 수 없습니다. "
-                  + "격리를 worktree 나 원본 직접으로 바꾸십시오."
-                : "git 저장소가 아닙니다.";
-
             return wantsPush
-                ? new PushResult { Blocked = $"올리기가 켜져 있지만 올릴 수 없는 대상입니다 — {why}" }
+                ? new PushResult { Blocked = "올리기가 켜져 있지만 어느 가지도 보고 있지 않아 올릴 곳을 정할 수 없습니다." }
                 : new PushResult { Skipped = "git 저장소 대상이 아닙니다." };
         }
 
@@ -93,8 +122,8 @@ public sealed class PushGate(RunnerOptions options, ILogger<PushGate> logger)
         // `github/…` 가 되어 **금지 경로 검사가 뚫렸다.** 실제로 밟았다.
         //
         // 경로만 그대로 주는 명령 둘로 나눠 묻는다.
-        var tracked = await GitAsync(prepared.Path, ct, "diff", "--name-only", "HEAD");
-        var untracked = await GitAsync(prepared.Path, ct, "ls-files", "--others", "--exclude-standard");
+        var tracked = await GitAsync(gitPath, ct, "diff", "--name-only", "HEAD");
+        var untracked = await GitAsync(gitPath, ct, "ls-files", "--others", "--exclude-standard");
 
         var changed = (tracked.Output + "\n" + untracked.Output)
             .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
@@ -118,11 +147,11 @@ public sealed class PushGate(RunnerOptions options, ILogger<PushGate> logger)
         // ③ 커밋. **AI 가 커밋을 안 했을 수도 있어** 여기서 한 번 더 한다.
         await say($"[게이트] 바뀐 파일 {changed.Count}개를 커밋합니다.");
 
-        await GitAsync(prepared.Path, ct, "add", "-A");
+        await GitAsync(gitPath, ct, "add", "-A");
 
         var title = (claim.Title ?? "AI 작업").Replace('\n', ' ');
 
-        var commit = await GitAsync(prepared.Path, ct, "-c", "user.name=AI Task Runner",
+        var commit = await GitAsync(gitPath, ct, "-c", "user.name=AI Task Runner",
             "-c", "user.email=ai-task@jsini.local",
             "commit", "-m", $"{title}\n\nAI 작업 #{claim.TaskKey} (run {claim.RunKey})");
 
@@ -131,8 +160,8 @@ public sealed class PushGate(RunnerOptions options, ILogger<PushGate> logger)
             return new PushResult { Blocked = $"커밋하지 못했습니다:\n{Head(commit.Output)}" };
         }
 
-        var sha = (await GitAsync(prepared.Path, ct, "rev-parse", "HEAD")).Output.Trim();
-        var diff = await GitAsync(prepared.Path, ct, "diff", "--stat", "HEAD~1", "HEAD");
+        var sha = (await GitAsync(gitPath, ct, "rev-parse", "HEAD")).Output.Trim();
+        var diff = await GitAsync(gitPath, ct, "diff", "--stat", "HEAD~1", "HEAD");
 
         // 올리지 않기로 한 건은 여기까지. **커밋은 남는다** — 사람이 이어받는다.
         //
@@ -141,7 +170,7 @@ public sealed class PushGate(RunnerOptions options, ILogger<PushGate> logger)
         // 있어야 다음 작업이 「정본이 깨끗하지 않습니다」로 막히지 않는다.
         var where = prepared.Branch is not null
             ? $"브랜치 {branch} 에 커밋만 남겼습니다."
-            : $"정본({prepared.Path})의 {branch} 에 커밋만 남겼습니다. 아직 올라가지 않았습니다.";
+            : $"정본({gitPath})의 {branch} 에 커밋만 남겼습니다. 아직 올라가지 않았습니다.";
 
         if (!claim.AutoPush)
         {
@@ -188,7 +217,7 @@ public sealed class PushGate(RunnerOptions options, ILogger<PushGate> logger)
 
         if (gate != "none")
         {
-            var check = await VerifyAsync(prepared.Path, changed, gate, say, ct);
+            var check = await VerifyAsync(gitPath, changed, gate, say, ct);
 
             if (check is not null)
             {
@@ -204,12 +233,12 @@ public sealed class PushGate(RunnerOptions options, ILogger<PushGate> logger)
         // ⑤ 그 사이 누가 밀었을 수 있다. 당겨서 얹는다.
         await say("[게이트] git pull --rebase");
 
-        var rebase = await GitAsync(prepared.Path, ct, "pull", "--rebase", "origin", pushRef);
+        var rebase = await GitAsync(gitPath, ct, "pull", "--rebase", "origin", pushRef);
 
         if (rebase.ExitCode != 0)
         {
             // 충돌이다. **자동으로 풀지 않는다** — 사람이 봐야 한다.
-            await GitAsync(prepared.Path, ct, "rebase", "--abort");
+            await GitAsync(gitPath, ct, "rebase", "--abort");
 
             return new PushResult
             {
@@ -225,7 +254,7 @@ public sealed class PushGate(RunnerOptions options, ILogger<PushGate> logger)
 
         await say($"[게이트] 통과. {pushRef} 으로 올립니다 — 배포가 일어납니다.");
 
-        var push = await GitAsync(prepared.Path, ct, "push", "origin", $"HEAD:{pushRef}");
+        var push = await GitAsync(gitPath, ct, "push", "origin", $"HEAD:{pushRef}");
 
         if (push.ExitCode != 0)
         {
@@ -237,7 +266,7 @@ public sealed class PushGate(RunnerOptions options, ILogger<PushGate> logger)
             };
         }
 
-        var pushed = (await GitAsync(prepared.Path, ct, "rev-parse", "HEAD")).Output.Trim();
+        var pushed = (await GitAsync(gitPath, ct, "rev-parse", "HEAD")).Output.Trim();
 
         logger.LogWarning("작업 {TaskKey} 가 {Ref} 에 올라갔습니다 — 운영 배포가 시작됩니다: {Sha}",
             claim.TaskKey, pushRef, pushed);
@@ -363,6 +392,13 @@ public sealed class PushGate(RunnerOptions options, ILogger<PushGate> logger)
         }
 
         return null;
+    }
+
+    /// <summary>worktree 의 <c>.git</c> 은 폴더가 아니라 <b>파일</b>이다.</summary>
+    private static bool IsRepo(string path)
+    {
+        var dotGit = Path.Combine(path, ".git");
+        return Directory.Exists(dotGit) || File.Exists(dotGit);
     }
 
     private static string? Trim(string? text) =>
