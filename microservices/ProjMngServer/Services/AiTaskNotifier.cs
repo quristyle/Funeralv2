@@ -135,8 +135,9 @@ public sealed class AiTaskNotifier(
                     subject = $"[AI 작업] {row.Title} — {StatusText(row.TaskStatus)}",
                     body = Body(row),
                     // 저쪽 DTO 의 속성 이름은 `Html` 이다. `isHtml` 로 적으면
-                    // 붙지 않고 조용히 기본값이 쓰인다.
-                    html = false,
+                    // 붙지 않고 조용히 기본값이 쓰인다 — 그러면 본문이 태그
+                    // 그대로 보인다.
+                    html = true,
                 }),
             };
 
@@ -243,91 +244,246 @@ public sealed class AiTaskNotifier(
     /// <b>로그 전문은 붙이지 않는다.</b> 수천 줄이 메일함에 쌓이고, 마스킹을
     /// 거친 것이라도 메일은 한 번 나가면 회수할 수 없다. 링크로 보낸다.
     /// </para>
+    /// <para>
+    /// <b>평문이 아니라 HTML 로 보낸다 — 보고서 꼴이다.</b> 평문일 때는
+    /// <c>■</c> 와 <c>═══</c> 로 칸을 흉내 냈는데, 메일 앱마다 글꼴 폭이 달라
+    /// 그 줄맞춤이 다 어긋났다. 특히 휴대폰에서는 한 줄이 접히면서 라벨과 값이
+    /// 섞여 <b>무엇이 답이고 무엇이 다음 항목인지</b>가 사라졌다.
+    /// 표와 색이 그 일을 대신하면 접혀도 칸이 남는다.
+    /// </para>
+    /// <para>
+    /// <b>스타일은 전부 인라인이고 바깥틀은 표다.</b> 메일 앱은 <c>&lt;style&gt;</c>
+    /// 블록과 <c>flex</c>·<c>grid</c> 를 지우거나 무시한다 — 웹에서 쓰던 방식으로
+    /// 짜면 열자마자 칸이 다 풀린다. 폭은 640px 로 묶고 그 안에서만 접히게 한다.
+    /// </para>
+    /// <para>
+    /// <b>결과문·지시문은 반드시 HTML 이스케이프한다.</b> AI 의 답에는 코드가
+    /// 섞여 들어오고, 거기 <c>&lt;div&gt;</c> 하나만 있어도 그 아래 보고서가
+    /// 통째로 무너진다. 마스킹 → 이스케이프 → 붙이기 순서를 지킨다.
+    /// </para>
     /// </remarks>
     private string Body(MailRow r)
     {
+        var accent = Accent(r.TaskStatus);
+        var tint = Tint(r.TaskStatus);
         var sb = new StringBuilder();
 
+        // ── 바깥틀 · 머리 ───────────────────────────────────
+        sb.Append($"""
+            <!DOCTYPE html>
+            <html lang="ko">
+            <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <title>{Esc(Headline(r))}</title>
+            </head>
+            <body style="margin:0;padding:0;background:#f1f3f5;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f1f3f5;">
+            <tr><td align="center" style="padding:16px 10px;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:640px;background:#ffffff;border:1px solid #e3e6ea;border-radius:10px;font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;color:#212529;">
+            <tr><td style="background:{accent};padding:18px 20px;border-radius:9px 9px 0 0;">
+              <div style="font-size:11px;letter-spacing:.06em;color:#ffffff;opacity:.85;">AI 작업 결과 보고</div>
+              <div style="font-size:19px;line-height:1.35;font-weight:700;color:#ffffff;padding-top:5px;">{Esc(Headline(r))}</div>
+              <div style="font-size:12.5px;color:#ffffff;opacity:.9;padding-top:7px;">{Esc(SubHead(r))}</div>
+            </td></tr>
+            """);
+
         // ── 요약 ────────────────────────────────────────────
-        var bar = new string('═', 46);
+        sb.Append("""
+            <tr><td style="padding:20px 20px 0 20px;">
+              <div style="font-size:11.5px;font-weight:700;color:#868e96;letter-spacing:.06em;padding-bottom:10px;">요약</div>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="font-size:13.5px;line-height:1.6;">
+            """);
 
-        sb.AppendLine(bar);
-        sb.AppendLine($"  {Headline(r)}");
-        sb.AppendLine(bar);
-        sb.AppendLine();
-
-        sb.AppendLine($"■ 결과    {StatusText(r.TaskStatus)} · {r.Seq}차{Took(r)}");
-        sb.AppendLine($"■ 대상    {r.TargetNm}");
+        sb.Append(SummaryRow("결과", $"""<span style="font-weight:600;">{Esc(StatusText(r.TaskStatus))}</span> · {r.Seq}차{Esc(Took(r))}"""));
+        sb.Append(SummaryRow("대상", Esc(r.TargetNm)));
 
         // **무엇을 시켰나.** 답만 있고 물음이 없으면 며칠 뒤의 나는
         // 이 메일이 무엇에 대한 것인지 알 수 없다.
-        sb.AppendLine($"■ 시킨 것 {Gist(r.Instruction, lines: 3) ?? "(적힌 것이 없습니다)"}");
+        sb.Append(SummaryRow("시킨 것", Lines(Gist(r.Instruction, lines: 3)) ?? Muted("적힌 것이 없습니다")));
+        sb.Append(SummaryRow("AI 의 답", Lines(Gist(r.ResultText, lines: 5)) ?? Muted("아무 말 없이 끝났습니다")));
+        sb.Append(SummaryRow("바뀐 것", Esc(ChangeGist(r))));
 
-        sb.AppendLine($"■ AI 의 답 {Gist(r.ResultText, lines: 5) ?? "(아무 말 없이 끝났습니다)"}");
-        sb.AppendLine($"■ 바뀐 것 {ChangeGist(r)}");
-        sb.AppendLine($"■ 할 일   {NextStep(r)}");
+        sb.Append("</table>");
 
-        sb.AppendLine();
-        sb.AppendLine(new string('-', 50));
-        sb.AppendLine("아래는 전문입니다.");
-        sb.AppendLine();
+        // **「할 일」만 칸 밖으로 낸다.** 요약에서 사람이 제일 알고 싶은 것이고,
+        // 다른 줄과 같은 크기로 있으면 스쳐 지나간다.
+        sb.Append($"""
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:14px;background:{tint};border-left:3px solid {accent};border-radius:0 6px 6px 0;">
+                <tr><td style="padding:11px 13px;font-size:13.5px;line-height:1.55;">
+                  <div style="font-size:11.5px;font-weight:700;color:#868e96;letter-spacing:.06em;">할 일</div>
+                  <div style="padding-top:3px;font-weight:600;">{Esc(NextStep(r))}</div>
+                </td></tr>
+              </table>
+            </td></tr>
+            """);
+
+        // ── 전문 ────────────────────────────────────────────
+        sb.Append(Divider("전문"));
 
         if (!string.IsNullOrWhiteSpace(r.Instruction))
         {
-            sb.AppendLine("[시킨 것]");
-            sb.AppendLine();
-            sb.AppendLine(SecretMask.Apply(r.Instruction));
-            sb.AppendLine();
-            sb.AppendLine(new string('-', 50));
-            sb.AppendLine();
+            sb.Append(Block("시킨 것", SecretMask.Apply(r.Instruction)));
         }
-
-        sb.AppendLine("[AI 의 답]");
-        sb.AppendLine();
 
         // 결과문이 비어 있으면 **그 사실을 적는다.** 빈 메일을 보내면
         // 받는 사람이 메일 사고로 읽는다.
-        sb.AppendLine(string.IsNullOrWhiteSpace(r.ResultText)
-            ? "(AI 가 아무 말 없이 끝났습니다. 화면에서 로그를 보십시오.)"
-            : SecretMask.Apply(r.ResultText));
-
-        sb.AppendLine();
-        sb.AppendLine(new string('-', 50));
+        sb.Append(string.IsNullOrWhiteSpace(r.ResultText)
+            ? Block("AI 의 답", "(AI 가 아무 말 없이 끝났습니다. 화면에서 로그를 보십시오.)")
+            : Block("AI 의 답", SecretMask.Apply(r.ResultText)));
 
         // push 한 건은 **따로 적는다.** 같은 「완료」로 뭉개면 코드만 고친 건과
         // 운영이 바뀐 건을 구분할 수 없다(설계 9.3).
         if (!string.IsNullOrWhiteSpace(r.PushedCommit))
         {
-            sb.AppendLine();
-            sb.AppendLine($"배포 : 운영에 올라갔습니다 — {r.PushedCommit}");
+            sb.Append(Note("배포", $"""운영에 올라갔습니다 — <span style="font-family:ui-monospace,SFMono-Regular,Consolas,monospace;">{Esc(r.PushedCommit)}</span>"""));
         }
         else if (!string.IsNullOrWhiteSpace(r.GitBranch))
         {
-            sb.AppendLine();
-            sb.AppendLine($"브랜치 : {r.GitBranch} (아직 올리지 않았습니다)");
+            sb.Append(Note("브랜치", $"""<span style="font-family:ui-monospace,SFMono-Regular,Consolas,monospace;">{Esc(r.GitBranch)}</span> (아직 올리지 않았습니다)"""));
         }
 
         if (!string.IsNullOrWhiteSpace(r.DiffStat))
         {
-            sb.AppendLine();
-            sb.AppendLine("바뀐 파일");
-            sb.AppendLine(r.DiffStat);
+            sb.Append(Block("바뀐 파일", r.DiffStat));
         }
 
         if (!string.IsNullOrWhiteSpace(r.ErrorSummary))
         {
-            sb.AppendLine();
-            sb.AppendLine($"오류 : {r.ErrorSummary}");
+            // 오류는 **붉은 칸**으로 낸다. 전문 속에 같은 회색으로 섞여 있으면
+            // 실패 메일에서 정작 사유를 못 찾는다.
+            sb.Append($"""
+                <tr><td style="padding:16px 20px 0 20px;">
+                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#fff5f5;border:1px solid #ffc9c9;border-radius:6px;">
+                    <tr><td style="padding:11px 13px;font-size:13px;line-height:1.6;color:#c92a2a;">
+                      <div style="font-size:11.5px;font-weight:700;letter-spacing:.06em;">오류</div>
+                      <div style="padding-top:3px;word-break:break-word;">{Esc(r.ErrorSummary)}</div>
+                    </td></tr>
+                  </table>
+                </td></tr>
+                """);
         }
 
+        // ── 화면으로 가는 단추 ──────────────────────────────
         if (!string.IsNullOrWhiteSpace(_portalUrl))
         {
-            sb.AppendLine();
-            sb.AppendLine($"화면에서 보기: {_portalUrl.TrimEnd('/')}/projmng/ai/tasks");
+            var link = $"{_portalUrl.TrimEnd('/')}/projmng/ai/tasks";
+
+            sb.Append($"""
+                <tr><td align="center" style="padding:20px 20px 4px 20px;">
+                  <a href="{Esc(link)}" style="display:inline-block;padding:11px 22px;background:{accent};color:#ffffff;font-size:13.5px;font-weight:600;text-decoration:none;border-radius:6px;">화면에서 보기</a>
+                </td></tr>
+                """);
         }
+
+        // ── 꼬리 ────────────────────────────────────────────
+        sb.Append("""
+            <tr><td style="padding:16px 20px 20px 20px;">
+              <div style="border-top:1px solid #e9ecef;padding-top:12px;font-size:11.5px;line-height:1.6;color:#adb5bd;">
+                작업에서 「끝나면 메일로 받기」를 켜 두어 보내진 메일입니다.
+                로그 전문은 길어서 붙이지 않습니다 — 화면에서 보십시오.
+              </div>
+            </td></tr>
+            </table>
+            </td></tr>
+            </table>
+            </body>
+            </html>
+            """);
 
         return sb.ToString();
     }
+
+    /// <summary>머리의 둘째 줄 — 대상과 몇 차, 얼마나 걸렸나.</summary>
+    private static string SubHead(MailRow r)
+    {
+        var parts = new List<string>();
+
+        if (!string.IsNullOrWhiteSpace(r.TargetNm))
+        {
+            parts.Add(r.TargetNm!);
+        }
+
+        parts.Add($"{r.Seq}차");
+
+        if (Took(r) is { Length: > 0 } took)
+        {
+            parts.Add(took.TrimStart(' ', '·').Trim());
+        }
+
+        return string.Join(" · ", parts);
+    }
+
+    /// <summary>요약 한 줄. 라벨 칸은 고정 폭이라 <b>값이 접혀도 칸이 남는다.</b></summary>
+    private static string SummaryRow(string label, string valueHtml) => $"""
+        <tr>
+          <td valign="top" style="width:72px;padding:4px 12px 4px 0;color:#868e96;white-space:nowrap;">{label}</td>
+          <td valign="top" style="padding:4px 0;word-break:break-word;">{valueHtml}</td>
+        </tr>
+        """;
+
+    /// <summary>「전문」처럼 아래가 다른 것임을 알리는 가로선.</summary>
+    private static string Divider(string label) => $"""
+        <tr><td style="padding:20px 20px 0 20px;">
+          <div style="border-top:1px solid #e9ecef;padding-top:14px;font-size:11.5px;font-weight:700;color:#868e96;letter-spacing:.06em;">{label}</div>
+        </td></tr>
+        """;
+
+    /// <summary>
+    /// 긴 글 한 덩이. <b>줄바꿈과 사이 띄움을 그대로 둔다</b> — AI 의 답에는
+    /// 표와 목록이 섞여 있어 그것이 무너지면 읽을 수 없다.
+    /// </summary>
+    private static string Block(string title, string? text) => $"""
+        <tr><td style="padding:12px 20px 0 20px;">
+          <div style="font-size:12px;font-weight:600;color:#495057;padding-bottom:6px;">{title}</div>
+          <div style="white-space:pre-wrap;word-break:break-word;font-family:ui-monospace,SFMono-Regular,Consolas,'D2Coding',monospace;font-size:12.5px;line-height:1.65;color:#343a40;background:#f8f9fa;border:1px solid #e9ecef;border-radius:6px;padding:12px 13px;">{Esc(text?.Trim())}</div>
+        </td></tr>
+        """;
+
+    /// <summary>한 줄짜리 알림 칸 — 배포·브랜치처럼 짧은 사실.</summary>
+    private static string Note(string label, string valueHtml) => $"""
+        <tr><td style="padding:14px 20px 0 20px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f8f9fa;border:1px solid #e9ecef;border-radius:6px;">
+            <tr>
+              <td valign="top" style="width:60px;padding:10px 0 10px 13px;font-size:12px;font-weight:600;color:#868e96;white-space:nowrap;">{label}</td>
+              <td valign="top" style="padding:10px 13px 10px 8px;font-size:13px;line-height:1.55;word-break:break-word;">{valueHtml}</td>
+            </tr>
+          </table>
+        </td></tr>
+        """;
+
+    /// <summary>요약 칸에 들어갈 여러 줄. 없으면 <c>null</c> 이다.</summary>
+    private static string? Lines(IReadOnlyList<string>? lines) =>
+        lines is { Count: > 0 }
+            ? string.Join("<br>", lines.Select(Esc))
+            : null;
+
+    /// <summary>「없다」를 적는 말. <b>빈 칸으로 두지 않는다</b> — 빠진 것처럼 보인다.</summary>
+    private static string Muted(string text) =>
+        $"""<span style="color:#adb5bd;">({Esc(text)})</span>""";
+
+    /// <summary>
+    /// HTML 로 나갈 글자를 가린다. <b>이것을 빠뜨리면 보고서가 통째로 무너진다</b> —
+    /// AI 의 답에는 코드가 섞여 들어온다.
+    /// </summary>
+    private static string Esc(string? text) =>
+        System.Net.WebUtility.HtmlEncode(text ?? string.Empty);
+
+    /// <summary>상태 색. 머리띠·단추·「할 일」 선이 같은 색을 쓴다.</summary>
+    private static string Accent(string? status) => status switch
+    {
+        "succeeded" => "#2b8a3e",
+        "failed" or "timeout" => "#c92a2a",
+        _ => "#495057",
+    };
+
+    /// <summary>상태 색의 옅은 것 — 「할 일」 칸 바탕이다.</summary>
+    private static string Tint(string? status) => status switch
+    {
+        "succeeded" => "#f4fbf6",
+        "failed" or "timeout" => "#fff5f5",
+        _ => "#f8f9fa",
+    };
 
     /// <summary>
     /// 요약의 첫 줄. <b>이 한 줄만 읽어도 「무엇이 어떻게 됐는지」가 나와야 한다.</b>
@@ -370,7 +526,7 @@ public sealed class AiTaskNotifier(
     /// 건너뛴다.</b> 그것부터 세면 요약 다섯 줄이 장식으로 다 찬다.
     /// </para>
     /// </remarks>
-    private static string? Gist(string? text, int lines)
+    private static IReadOnlyList<string>? Gist(string? text, int lines)
     {
         if (string.IsNullOrWhiteSpace(text))
         {
@@ -393,9 +549,10 @@ public sealed class AiTaskNotifier(
             return null;
         }
 
-        // 둘째 줄부터는 라벨 폭만큼 들여 쓴다. 안 그러면 다음 항목과 섞여
-        // **무엇이 답이고 무엇이 다음 라벨인지** 구분이 안 된다.
-        return string.Join("\n            ", picked);
+        // **줄을 그대로 돌려준다.** 예전에는 여기서 공백으로 들여쓰기를 붙여
+        // 라벨과 값을 맞췄는데, 그 줄맞춤은 글꼴 폭에 기대는 것이라 메일 앱이
+        // 바뀌면 다 어긋났다. 이제 표가 칸을 잡으므로 줄만 주면 된다.
+        return picked;
     }
 
     /// <summary>
