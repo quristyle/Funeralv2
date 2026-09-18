@@ -1906,7 +1906,13 @@ button.jsini-crumbs__item:hover { opacity: 1; }
 .commsch {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
+
+  /*
+    **위를 맞춘다.** 가운데로 맞춰 두면 조건이 많아 왼쪽이 두세 줄이 될 때
+    단추가 그 한가운데로 내려간다 — 조건이 늘 때마다 단추가 움직이는 셈이라
+    화면을 옮겨 다니며 누르는 사람에게는 자리가 없는 것과 같다.
+  */
+  align-items: flex-start;
   gap: var(--jsini-sp-md) var(--jsini-sp-lg);
   padding: var(--jsini-sp-lg);
   margin-bottom: var(--jsini-sp-lg);
@@ -1933,7 +1939,14 @@ button.jsini-crumbs__item:hover { opacity: 1; }
   flex-wrap: wrap;
   align-items: center;
   gap: 0.7rem 1rem;
-  flex: 1 1 auto;
+
+  /*
+    **`0` 에서 자란다(`auto` 가 아니다).** `auto` 로 두면 이 묶음이 제
+    내용만큼의 폭을 먼저 요구하고, 조건이 많으면 그 요구가 판보다 커져
+    **단추 묶음이 통째로 다음 줄로 밀려난다.** 0 에서 자라면 남는 폭만
+    가져가므로 조건은 제자리에서 여러 줄로 접히고 단추는 오른쪽 위에 남는다.
+  */
+  flex: 1 1 0;
   min-width: 0;
 }
 
@@ -1949,7 +1962,11 @@ button.jsini-crumbs__item:hover { opacity: 1; }
 
 /* `CommSch Stacked="true"` 일 때만 세로로 돌린다. 판이 붙인 클래스를 받으므로
    **한 판의 칸 전부**가 함께 돌아간다. 칸마다 다르면 그것이 제일 지저분하다. */
-.commsch--stacked,
+/* 세로 배치에서는 **칸끼리** 아래를 맞춘다 — 라벨이 위에 얹혀 칸 높이가
+   제각각이라, 위를 맞추면 입력칸 바닥이 들쭉날쭉해진다.
+
+   **판(`.commsch`)까지 덮지 않는다.** 덮으면 단추가 다시 아래로 내려간다 —
+   위에서 `flex-start` 로 올려 둔 것이 여기서 풀린다(실제로 밟을 뻔했다). */
 .commsch--stacked .commsch__fields {
   align-items: flex-end;
 }
@@ -1967,12 +1984,21 @@ button.jsini-crumbs__item:hover { opacity: 1; }
   white-space: nowrap;
 }
 
-/* 단추는 오른쪽 끝에 붙는다. 조건이 몇 개든 자리가 안 움직인다. */
+/* 단추는 **오른쪽 위**에 붙박는다. 조건이 몇 줄이 되든 자리가 안 움직인다.
+
+   `flex: 0 0 auto` 로 제 폭을 지킨다 — 줄어들 수 있게 두면 조건이 많을 때
+   단추 글자가 접힌다(「조회」가 두 줄이 된다). 이 폭이 곧 왼쪽에 내주지 않는
+   자리이고, 조건은 그것을 뺀 나머지 안에서 접힌다. */
 .commsch__actions {
   display: flex;
   align-items: center;
   gap: 0.4rem;
+  flex: 0 0 auto;
   margin-left: auto;
+
+  /* 판이 `flex-start` 라 이미 위에 붙지만, 판의 정렬을 바꾸는 화면이
+     생겨도 단추만은 위에 남게 여기서 한 번 더 박아 둔다. */
+  align-self: flex-start;
 }
 
 /* 좁은 화면에서는 단추 줄이 통째로 아래로 내려간다. 오른쪽에 매달아 두면
