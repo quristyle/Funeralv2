@@ -42,6 +42,18 @@
     탭 열기 · 브레드크럼 다시 만들기 · 휴대폰에서 사이드바 접기.
     `NavigationManager.LocationChanged` 한 곳에서 처리한다 — 화면마다 알리면
     반드시 몇 개를 빠뜨리고, 그 화면만 탭이 안 열린다.
+
+    [휴대폰에서 뒤로 가기는 메뉴부터 닫는다]
+
+    덮개가 떠 있는데 뒤로 가기가 화면을 옮겨 버리면, 메뉴를 열었다가 그만두는
+    길이 ☰ 를 정확히 다시 누르는 것 하나뿐이다. 그래서 사이드바가 펴져 있는
+    동안의 뒤로 가기 **한 번은 삼키고 메뉴만 닫는다.** 한 번 더 누르면 옮겨
+    간다 — 안드로이드의 서랍이 그렇게 움직인다.
+
+    `RegisterLocationChangingHandler` 로 그 이동을 막는데, **그 자리에서는
+    뒤로 가기인지 메뉴를 누른 것인지 가릴 수 없다.** 가리는 일은 theme.js 의
+    `jsiniHistory` 가 맡는다(뒤로 가기 횟수를 세어 둔다) — 히스토리에 되돌림
+    자리를 밀어 넣지 않은 까닭이 그 머리말에 있다.
 *@
 
 @inherits LayoutComponentBase
@@ -75,7 +87,7 @@
             <DxButton RenderStyle="ButtonRenderStyle.Link"
                       IconCssClass="jsini-icon-menu"
                       Title="메뉴 접기/펴기"
-                      Click="@ToggleSidebar" />
+                      Click="@ToggleSidebarAsync" />
         </span>
 
         <a class="jsini-header__brand" href="/">
@@ -228,6 +240,23 @@
     /// </summary>
     private bool _widthRestored;
 
+    /// <summary>
+    /// 휴대폰에서 메뉴를 편 그 순간의 <b>뒤로 가기 횟수</b>(theme.js
+    /// <c>jsiniHistory</c>). 이동할 때 다시 물어 늘었으면 뒤로 가기다.
+    ///
+    /// <para>
+    /// 메뉴를 펼 때마다 다시 적는다. 그래야 <b>지난번에 삼킨 뒤로 가기가
+    /// 이번 이동을 막지 않는다</b> — 한 번 적고 말면 그 뒤의 첫 메뉴 선택이
+    /// 뒤로 가기로 읽혀 화면이 안 열린다.
+    /// </para>
+    ///
+    /// <para>
+    /// <c>null</c> 이면 가로채지 않는다 — 메뉴가 접혀 있거나, 횟수를 못 읽었을
+    /// 때다. 못 읽었으면 뒤로 가기가 예전처럼 화면을 옮긴다(조용히 진다).
+    /// </para>
+    /// </summary>
+    private long? _popsAtOpen;
+
     /// <summary>지금 화면의 메뉴 줄기. 브레드크럼이 쓴다.</summary>
     private IReadOnlyList<MenuNode> _trail = [];
 
@@ -274,14 +303,14 @@
     /// 달라」고 누른 참이라 그것이 바라는 것이다 — 화면을 옮기면
     /// <c>OnLocationChanged</c> 가 다시 접는다.
     /// </remarks>
-    private void OnMenuRevealRequested(string path) => InvokeAsync(() =>
+    private void OnMenuRevealRequested(string path) => InvokeAsync(async () =>
     {
         if (_sidebarOpen)
         {
             return;
         }
 
-        _sidebarOpen = true;
+        await OpenSidebarAsync();
         StateHasChanged();
     });
 
@@ -484,11 +513,63 @@
         // 휴대폰에서는 사이드바가 본문을 덮으므로 접힌 채로 시작한다.
         if (_isPhone && _sidebarOpen)
         {
-            _sidebarOpen = false;
+            CloseSidebar();
         }
     }
 
-    private void ToggleSidebar() => _sidebarOpen = !_sidebarOpen;
+    private Task ToggleSidebarAsync()
+    {
+        if (!_sidebarOpen)
+        {
+            return OpenSidebarAsync();
+        }
+
+        CloseSidebar();
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// 사이드바를 편다. <b>휴대폰이면 지금까지의 뒤로 가기 횟수를 적어 둔다</b> —
+    /// 이다음 이동이 뒤로 가기인지는 그 수가 늘었는지로 가린다
+    /// (<see cref="WentBackAsync"/>).
+    /// </summary>
+    /// <remarks>
+    /// 펴는 길이 둘(☰ · 브레드크럼)이라 여기 한 곳으로 모은다. 한쪽에서
+    /// 적기를 빠뜨리면 <b>그쪽으로 연 메뉴만</b> 뒤로 가기로 안 닫히고,
+    /// 그런 어긋남은 화면만 봐서는 까닭을 알 수 없다.
+    /// </remarks>
+    private async Task OpenSidebarAsync()
+    {
+        _sidebarOpen = true;
+
+        if (!_isPhone)
+        {
+            return;
+        }
+
+        try
+        {
+            _popsAtOpen = await Js.InvokeAsync<long>("jsiniHistory.pops");
+        }
+        catch (Exception ex) when (ex is JSException or InvalidOperationException
+                                       or TaskCanceledException)
+        {
+            // theme.js 가 안 실렸거나 회로가 끊겼다. 이번 폄에서는 뒤로 가기를
+            // 가로채지 않는다 — 뒤로 가기가 예전처럼 화면을 옮긴다.
+            _popsAtOpen = null;
+            Log.LogDebug(ex, "뒤로 가기 횟수를 읽지 못했다.");
+        }
+    }
+
+    /// <summary>
+    /// 사이드바를 접는다. <b>적어 둔 뒤로 가기 횟수도 함께 버린다</b> —
+    /// 남겨 두면 다음에 편 메뉴에서 첫 이동이 뒤로 가기로 읽힌다.
+    /// </summary>
+    private void CloseSidebar()
+    {
+        _sidebarOpen = false;
+        _popsAtOpen = null;
+    }
 
     /// <summary>
     /// 스플리터의 접기 화살표(구분선 가운데)로 접었다 폈다.
@@ -499,7 +580,21 @@
     /// 알고 우리는 펴져 있다고 알기 때문이다.
     /// </para>
     /// </summary>
-    private void OnSidebarCollapsedChanged(bool collapsed) => _sidebarOpen = !collapsed;
+    /// <remarks>
+    /// 휴대폰에서는 이 이벤트가 오지 않는다 — 구분선을 감춰 두어(app.css)
+    /// 끌 자리도 화살표도 없다. 그래서 여기서는 뒤로 가기 횟수를 적지 않고,
+    /// 접을 때 버리기만 한다.
+    /// </remarks>
+    private void OnSidebarCollapsedChanged(bool collapsed)
+    {
+        if (collapsed)
+        {
+            CloseSidebar();
+            return;
+        }
+
+        _sidebarOpen = true;
+    }
 
     /// <summary>
     /// 끌어서 폭을 바꿨다. 브라우저에 적어 둔다.
@@ -586,14 +681,67 @@
     /// </para>
     ///
     /// <para>
-    /// 이 갈고리는 라우터가 움직이기 전에 불린다. 취소하지 않으므로
-    /// (<c>PreventNavigation</c> 을 부르지 않는다) 이동을 막지도 않는다.
+    /// 이 갈고리는 라우터가 움직이기 전에 불린다. <b>딱 한 가지 이동만
+    /// 막는다</b> — 휴대폰에서 메뉴가 펴져 있을 때의 뒤로 가기다(아래).
     /// </para>
     /// </summary>
-    private ValueTask OnNavigating(LocationChangingContext context)
+    /// <remarks>
+    /// <para>
+    /// <b>휴대폰에서 메뉴가 펴져 있으면 뒤로 가기를 한 번 삼킨다.</b>
+    /// 덮개를 걷는 것이 먼저고, 한 번 더 누르면 그때 옮겨 간다.
+    /// </para>
+    ///
+    /// <para>
+    /// 뒤로 가기인지는 <see cref="WentBackAsync"/> 가 가린다. <b>이 자리의
+    /// 값만으로는 못 가린다</b> — 뒤로 가기와 코드가 낸 이동이 여기서는
+    /// 똑같이 생겼다(<c>IsNavigationIntercepted</c> 가 둘 다 거짓이다).
+    /// 링크 클릭과만 갈리므로, 그것으로 가르면 <b>헤더의 알림·사용자 메뉴가
+    /// 메뉴 펴진 동안 안 먹는다</b> — 그 둘이 코드로 옮기는 자리다.
+    /// </para>
+    ///
+    /// <para>
+    /// 묻는 것은 <b>휴대폰에서 메뉴가 펴져 있을 때뿐</b>이다. 나머지 이동은
+    /// 예전처럼 아무것도 기다리지 않는다.
+    /// </para>
+    /// </remarks>
+    private async ValueTask OnNavigating(LocationChangingContext context)
     {
+        if (_isPhone && _sidebarOpen && await WentBackAsync())
+        {
+            context.PreventNavigation();
+            CloseSidebar();
+            await InvokeAsync(StateHasChanged);
+            return;
+        }
+
         Transition.Begin();
-        return ValueTask.CompletedTask;
+    }
+
+    /// <summary>
+    /// 지금 일어난 이동이 <b>뒤로 가기인가.</b> 메뉴를 편 뒤로 뒤로 가기
+    /// 횟수가 늘었으면 그렇다.
+    /// </summary>
+    /// <remarks>
+    /// 못 물었으면 <c>false</c> 다 — 막지 않는 쪽으로 진다. 메뉴가 안 닫히는
+    /// 것과 눌러도 화면이 안 열리는 것은 무게가 다르다.
+    /// </remarks>
+    private async Task<bool> WentBackAsync()
+    {
+        if (_popsAtOpen is not { } marked)
+        {
+            return false;
+        }
+
+        try
+        {
+            return await Js.InvokeAsync<long>("jsiniHistory.pops") > marked;
+        }
+        catch (Exception ex) when (ex is JSException or InvalidOperationException
+                                       or TaskCanceledException)
+        {
+            Log.LogDebug(ex, "뒤로 가기 횟수를 읽지 못했다.");
+            return false;
+        }
     }
 
     private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
@@ -603,7 +751,7 @@
         // 휴대폰에서는 메뉴를 누르면 사이드바가 본문을 덮은 채로 남는다.
         if (_isPhone)
         {
-            _sidebarOpen = false;
+            CloseSidebar();
         }
 
         InvokeAsync(StateHasChanged);
