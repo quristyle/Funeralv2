@@ -63,10 +63,22 @@ public sealed class AiTask
     public int AttemptCount { get; set; }
 
     /// <summary>
-    /// 재실행 상한. <b>기본 1 이다</b> — 파일을 고치는 작업이라 자동 재시도가
-    /// 안전하지 않다. 끊긴 것은 사람이 보고 다시 누른다.
+    /// 재실행 상한. <b>기본 3 이다</b>(1~5).
+    ///
+    /// <para>
+    /// 한동안 1 이었다 — 파일을 고치는 작업이라 자동 재시도가 안전하지 않아서다.
+    /// 설계 6.11 이 그 조건을 적어 두었는데, <b>작업공간이 실행마다 완전히
+    /// 갈리는 것</b>이 전제였다. worktree · 복사본 대상은 지금 그 조건을
+    /// 만족한다(7.3).
+    /// </para>
+    ///
+    /// <para>
+    /// 그래서 자동 재시도는 <b>그 대상에서만</b> 돈다. 원본 직접(inplace)과
+    /// 연락 끊김(interrupted)은 여전히 사람이 보고 다시 누른다 —
+    /// 판정은 <c>AiRunService.CompleteAsync</c> 에 있다.
+    /// </para>
     /// </summary>
-    public int AttemptMax { get; set; } = 1;
+    public int AttemptMax { get; set; } = 3;
 
     // ── 끝난 뒤 ─────────────────────────────────────────────
 

@@ -19,7 +19,8 @@ namespace ProjMngServer.Services;
 /// </para>
 /// </remarks>
 public sealed class AiRunService(
-    IConfiguration configuration, AiTaskNotifier notifier, ILogger<AiRunService> logger)
+    IConfiguration configuration, AiTaskNotifier notifier, AiTaskQueue queue,
+    ILogger<AiRunService> logger)
 {
     private readonly string _connectionString =
         configuration.GetConnectionString("jsini")
@@ -75,7 +76,8 @@ public sealed class AiRunService(
                    a.runner_kind     AS RunnerKind,
                    a.timeout_minutes AS TimeoutMinutes,
                    a.auto_push       AS AutoPush,
-                   a.attempt_count   AS AttemptCount
+                   a.attempt_count   AS AttemptCount,
+                   a.attempt_max     AS AttemptMax
               FROM projmng.ai_task a
               JOIN projmng.ai_target b ON b.target_key = a.target_key
              WHERE a.is_deleted   = false
@@ -113,6 +115,20 @@ public sealed class AiRunService(
             //    본문을 고쳐도 지난 실행이 무엇이었는지 남아야 한다.
             var token = NewToken();
 
+            // 다시 시도하는 것이면 **지난번에 왜 실패했는지**를 지시문 앞에
+            // 얹는다. 안 얹으면 같은 글을 같은 자리에서 다시 읽는 것뿐이라
+            // 대개 같은 이유로 또 실패한다(`RetryPrompt` 머리말).
+            //
+            // `attempt_count` 는 위 ②에서 이미 1 올렸으므로, 여기서 읽은
+            // 값에 1을 더한 것이 이번 시도 번호다.
+            var attempt = task.AttemptCount + 1;
+
+            var previous = attempt <= 1 ? null : await db.QuerySingleOrDefaultAsync<RetryPrompt.Previous>(
+                PreviousRunSql, new { task.TaskKey }, tx);
+
+            var instruction = RetryPrompt.Compose(
+                task.Contents, attempt, Math.Max(task.AttemptMax, 1), previous);
+
             var runKey = await db.ExecuteScalarAsync<long>("""
                 INSERT INTO projmng.ai_task_run
                      ( task_key, seq, run_status, lease_expires_at, token_hash,
@@ -123,7 +139,7 @@ public sealed class AiRunService(
                        now() + make_interval(secs => @lease),
                        @hash,
                        now(),
-                       @Contents,
+                       @instruction,
                        @runnerName
                   FROM projmng.ai_task_run WHERE task_key = @TaskKey
                 RETURNING run_key
@@ -132,7 +148,7 @@ public sealed class AiRunService(
                 task.TaskKey,
                 lease = _leaseSeconds,
                 hash = Hash(token),
-                task.Contents,
+                instruction,
                 runnerName,
             }, tx);
 
@@ -162,7 +178,7 @@ public sealed class AiRunService(
                 Token = token,
                 TaskKey = task.TaskKey,
                 Title = task.Title,
-                Instruction = task.Contents,
+                Instruction = instruction,
                 RunnerKind = task.RunnerKind,
                 TimeoutMinutes = task.TimeoutMinutes,
                 AutoPush = task.AutoPush,
@@ -181,6 +197,25 @@ public sealed class AiRunService(
 
         return claims;
     }
+
+    /// <summary>
+    /// 이 작업의 <b>가장 최근에 끝난 실행</b> 한 줄. 다시 시도할 때 지시문에
+    /// 얹을 실패 이야기를 여기서 꺼낸다.
+    /// </summary>
+    /// <remarks>
+    /// <c>finished_at IS NOT NULL</c> 로 거른다 — 지금 막 만든 이번 실행 줄은
+    /// 아직 안 끝났으므로 걸리지 않는다. 그 조건이 없으면 <b>자기 자신</b>을
+    /// 지난 실행으로 읽어 빈 실패 이야기를 얹는다.
+    /// </remarks>
+    private const string PreviousRunSql = """
+        SELECT seq AS Seq, run_status AS Status, exit_code AS ExitCode,
+               error_summary AS Error, result_text AS Result
+          FROM projmng.ai_task_run
+         WHERE task_key = @TaskKey
+           AND finished_at IS NOT NULL
+         ORDER BY seq DESC
+         LIMIT 1
+        """;
 
     // ── 보고 ────────────────────────────────────────────────
 
@@ -343,12 +378,47 @@ public sealed class AiRunService(
             done.DiffStat, done.ResultText, done.SessionId, done.SessionKind, done.WorkspacePath,
         }, tx);
 
+        // ── 다시 시도할 것인가 ──────────────────────────────
+        //
+        // 조건이 셋이고, **셋 다 설계 6.11 에서 나온다.**
+        //
+        // ① 실패로 끝났고 상한이 남았다(`attempt_max`, 1~5).
+        //
+        // ② **연락 끊김(interrupted)은 제외한다.** 서버가 보기엔 죽었지만
+        //    CLI 는 아직 돌고 있을 수 있다. 거기서 같은 일을 또 주면 둘이
+        //    같은 저장소를 고친다. 취소도 제외다 — 사람이 그만두라고 한 것이다.
+        //
+        // ③ **작업공간이 실행마다 갈리는 대상만.** 6.11 이 자동 재시도의
+        //    전제로 못 박아 둔 조건이다. 원본 직접(inplace)은 지난 시도가
+        //    고쳐 놓은 파일 위에서 다시 도는 셈이라, 두 번째 시도가 무엇을
+        //    보고 있는지 아무도 모른다.
+        //
+        // 다시 넣을 때 **지시문에 지난 실패를 얹는 일은 집어 갈 때** 한다
+        // (`ClaimAsync`). 여기서 얹으면 본문(`contents`)을 고치는 셈이 되어
+        // 사람이 화면에서 읽는 글이 바뀐다.
+        var counters = await db.QuerySingleAsync<Counters>("""
+            SELECT t.task_key AS TaskKey, t.attempt_count AS Count, t.attempt_max AS Max,
+                   COALESCE(g.isolation_mode,
+                            CASE WHEN g.target_kind = 'repo' THEN 'worktree' ELSE 'copy' END)
+                     AS Isolation
+              FROM projmng.ai_task t
+              JOIN projmng.ai_target g ON g.target_key = t.target_key
+             WHERE t.task_key = ( SELECT task_key FROM projmng.ai_task_run WHERE run_key = @runKey )
+            """, new { runKey }, tx);
+
+        var retry = status is AiTaskStatus.Failed or AiTaskStatus.Timeout
+                    && counters.Count < Math.Max(counters.Max, 1)
+                    && !string.Equals(counters.Isolation, "inplace", StringComparison.OrdinalIgnoreCase);
+
         // 작업 쪽 요약. **요청여부를 되돌린다** — 한 번 시킨 것이 끝났으므로
         // 그대로 두면 감시자가 같은 건을 또 집는다.
+        //
+        // 다시 시도할 때만 예외다. 그때는 요청을 **다시 세워** 두어야 실행기가
+        // 집어 간다 — 상태도 대기로 되돌린다.
         await db.ExecuteAsync("""
             UPDATE projmng.ai_task t
-               SET task_status    = @status,
-                   request_flag   = 'none',
+               SET task_status    = CASE WHEN @retry THEN 'queued' ELSE @status END,
+                   request_flag   = CASE WHEN @retry THEN 'requested' ELSE 'none' END,
                    finished_at    = now(),
                    duration_ms    = EXTRACT(EPOCH FROM (now() - t.started_at)) * 1000,
                    last_exit_code = @ExitCode,
@@ -362,7 +432,7 @@ public sealed class AiRunService(
              WHERE t.task_key = ( SELECT task_key FROM projmng.ai_task_run WHERE run_key = @runKey )
             """, new
         {
-            runKey, status, done.ExitCode, done.Error,
+            runKey, status, retry, done.ExitCode, done.Error,
             done.PushedCommit, done.PreviousTag, done.WorkspacePath, done.Branch,
         }, tx);
 
@@ -376,11 +446,52 @@ public sealed class AiRunService(
         logger.LogInformation("실행 {RunKey} 가 {Status} 로 끝났습니다 (exit {Exit}).",
             runKey, status, done.ExitCode);
 
+        if (retry)
+        {
+            logger.LogInformation(
+                "실행 {RunKey} 가 {Status} 라 다시 시도합니다 ({Count}/{Max}번째까지).",
+                runKey, status, counters.Count, Math.Max(counters.Max, 1));
+
+            // **종을 울린다.** 안 울리면 다시 넣은 건이 폴링(기본 60초)까지
+            // 가만히 있는다. 울려도 못 닿으면 폴링이 받아 준다 — 큐는 거들 뿐이다.
+            _ = queue.RingAsync(counters.TaskKey);
+
+            // **중간 실패는 알리지 않는다.** 세 번 시도하는 작업이 두 번
+            // 실패하면 「실패」 메일이 두 통 먼저 가고 마지막에 「성공」이
+            // 온다 — 받는 사람은 그 순서를 못 읽는다. 마지막 판정만 알린다.
+            return true;
+        }
+
         // 메일은 **기다리지 않는다.** 실행기의 완료 보고가 메일 전송 시간만큼
         // 늦어질 이유가 없다 — 그 사이 실행 슬롯이 묶인다.
         _ = notifier.SendAsync(runKey);
 
         return true;
+    }
+
+    /// <summary>재시도 판정에 필요한 값. 한 번에 읽으려고 묶었다.</summary>
+    private sealed class Counters
+    {
+        public long TaskKey { get; set; }
+
+        /// <summary>지금까지 몇 번 집어 갔나. 집어 갈 때 1씩 오른다.</summary>
+        public int Count { get; set; }
+
+        /// <summary>최대 몇 번까지.</summary>
+        public int Max { get; set; }
+
+        /// <summary>
+        /// 대상의 격리 방식. <b>원본 직접이면 자동 재시도를 하지 않는다</b>(6.11).
+        ///
+        /// <para>
+        /// 우리가 묻는 것은 <b>「원본 직접인가」 하나뿐</b>이고, 그 값은 언제나
+        /// <c>isolation_mode</c> 에 적혀 있다 — 비어 있을 때의 기본값은 worktree
+        /// 아니면 copy 이고 둘 다 격리된 자리다. 그래서 실행기의
+        /// <c>Workspace.IsolationOf</c> 가 <c>.git</c> 유무로 더 따지는 것과
+        /// 갈려도 이 판정의 답은 같다.
+        /// </para>
+        /// </summary>
+        public string? Isolation { get; set; }
     }
 
     // ── 조회 (화면이 쓴다) ──────────────────────────────────
