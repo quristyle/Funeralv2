@@ -615,11 +615,11 @@ AI 의 손이 얹힌 것이라 AI 가 지운 파일은 정본에서도 지워지
 
 ```
 ① 정본 clone 이 깨끗한지 본다      git status --porcelain  → 더러우면 원본 직접만 거절(21)
-② **반드시 최신으로 당긴다**        git fetch origin && git pull --ff-only origin <가지>
+② **반드시 최신으로 당긴다**        git fetch origin && git merge --ff-only origin/<가지>
 ③ worktree 를 판다                  git worktree add …/<run_id> -b ai/<task>-<run> origin/main
 ④ CLI 가 거기서 돈다                (커밋까지. push 는 안 한다 — 9.3)
 ⑤ push 게이트 여섯               빌드·테스트·바뀐 것·금지 경로·잠금 (9.3)
-⑥ 통과하면 실행기가 민다            git pull --rebase origin main && git push origin HEAD:main
+⑥ 통과하면 실행기가 민다            git fetch origin main && git rebase origin/main && git push origin HEAD:main
 ⑦ 정리                              브랜치·worktree 를 남길지 치울지
 ```
 
@@ -1420,7 +1420,7 @@ push 하려면 자격이 있어야 한다. ① ② ④ ⑤ ⑥ 은 그대로 둔
 것처럼 끝난다.** 그래서:
 
 - 대상 잠금으로 동시 1건(4.4·9.5)
-- push 직전 `git pull --rebase` (7.3)
+- push 직전 `git fetch origin main` + `git rebase origin/main` (7.3·22)
 - push 가 거절되면 1회만 다시 시도하고, 또 막히면 **사람에게 넘긴다**
 
 #### 화면은 「완료」로 끝나면 안 된다
@@ -1996,6 +1996,29 @@ AI 작업 한 건으로 확인했다** — 흉내가 아니라 그 우리 안에
       올라가지 않은 커밋이 `main` 에 얹혀 있다. 그것은 지우지 않는다 —
       사람이 이어받을 결과물이라 판단이 필요하다.
 
+22. **지시 둘을 잇달아 넣으면 뒤엣것이 `fatal: Cannot rebase onto multiple
+    branches.` 로 죽었다.** 게이트의 `git pull --rebase origin main` 이 낸
+    말인데, 가지가 여럿인 적은 한 번도 없었다 — **`FETCH_HEAD` 가 섞인 것**이다.
+    - `git pull` 은 「방금 받은 것」을 자기 자신에게 `FETCH_HEAD` **파일**로
+      넘긴다. 그 파일은 저장소마다(작업분기마다) 하나뿐이고 **자물쇠 없이
+      덮어쓴다.** 그래서 한 실행이 그것을 쓰는 동안 다른 실행의
+      `git fetch origin`(준비 구간)이 같은 파일을 쓰면 두 글이 섞여
+      「merge 대상」 줄이 둘이 된다. pull 은 그것을 「가지 둘에 얹으라는 뜻」
+      으로 읽고 죽는다.
+    - 재현했다. 같은 저장소에서 `git fetch origin` 과
+      `git pull --rebase origin main` 을 겹쳐 돌리니 **60번 중 60번** 났다.
+    - 고침: **pull 을 쓰지 않는다.** 받는 것과 얹는 것을 갈라
+      `git fetch origin +refs/heads/<가지>:refs/remotes/origin/<가지>` 로 받고
+      `git rebase origin/<가지>` 로 얹는다. 원격 추적 가지는 git 이 잠금 파일로
+      갱신하므로 겹쳐도 섞이지 않는다. 같은 시험에서 **60번 중 0번**.
+    - 준비 구간의 `git pull --ff-only origin <가지>` 도 같은 이유로
+      `git merge --ff-only origin/<가지>` 로 바꿨다(바로 앞에서 fetch 를 하므로
+      받을 것은 이미 다 받아 둔 상태다).
+    - **남은 것:** 복사본(`copy`) 격리는 준비가 끝나면 대상 잠금을 놓는데,
+      게이트에서 다시 정본으로 돌아와 커밋·push 한다. 그 사이 다른 실행이
+      정본에서 준비를 돌면 `index.lock` 을 두고 다툴 수 있다. `FETCH_HEAD`
+      쪽은 이 고침으로 사라졌지만 잠금 범위 자체는 그대로다.
+
 #### 고친 뒤 게이트를 다시 시험했다 — 이번에는 둘 다 맞다
 
 배포가 돌지 않게 `main` 이 아닌 `ai-gate-test` 브랜치로 미는 대상을 하나
@@ -2024,7 +2047,7 @@ B 는 **커밋도 하기 전에** 막힌다(금지 경로 검사가 커밋보다
 | `…/AiTaskNotifier.cs` | 결과 메일. **직발송**(`/emails/send`) — 큐 쪽은 보내졌는지 알 수 없다 |
 | `…/AiTaskService.ContinueAsync` | 이어가기 프롬프트 조립 |
 | `…/AiStaleSweeper` | 오래된 로그 줄 지우기(기본 90일) |
-| **`tools/AiTaskRunner/PushGate.cs`** | 커밋 → 게이트 여섯 → `pull --rebase` → push. `previous_tag` 기록 |
+| **`tools/AiTaskRunner/PushGate.cs`** | 커밋 → 게이트 여섯 → `fetch`+`rebase origin/main` → push. `previous_tag` 기록 |
 | `…/WorkspaceSweeper.cs` | 오래된 작업공간 청소(기본 14일) |
 | `AiTaskList.razor` | **「이어서 지시」** 단추와 창 |
 

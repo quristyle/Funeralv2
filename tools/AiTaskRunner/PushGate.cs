@@ -231,9 +231,36 @@ public sealed class PushGate(RunnerOptions options, Workspace workspace, ILogger
         }
 
         // ⑤ 그 사이 누가 밀었을 수 있다. 당겨서 얹는다.
-        await say("[게이트] git pull --rebase");
+        //
+        // **`git pull --rebase` 를 쓰지 않는다.** pull 은 방금 받은 것을
+        // `FETCH_HEAD` **파일**로 자기 자신에게 넘기는데, 그 파일은 저장소마다
+        // (정확히는 작업분기마다) 하나뿐이고 **자물쇠 없이 덮어쓴다.** 그래서
+        // 같은 저장소에서 다른 실행의 `git fetch` 가 겹치면 두 글이 한 파일에
+        // 섞이고 「merge 대상」줄이 둘이 되어
+        // `fatal: Cannot rebase onto multiple branches.` 로 죽는다 —
+        // 지시를 잇달아 넣어 둘이 겹쳐 돌 때 실제로 그렇게 실패했다.
+        //
+        // fetch 로 받고 **원격 추적 가지를 짚어** 얹으면 그 파일을 아예 읽지
+        // 않는다. 받는 자리(`refs/remotes/origin/<가지>`)는 git 이 잠금 파일로
+        // 갱신하므로 겹쳐도 섞이지 않는다. 가져올 곳을 refspec 으로 못 박는
+        // 것은, 짚을 이름(`origin/<가지>`)이 **반드시 갱신돼 있어야** 하기
+        // 때문이다 — 원격 설정에 기대지 않는다.
+        await say($"[게이트] git fetch origin {pushRef} · git rebase origin/{pushRef}");
 
-        var rebase = await GitAsync(gitPath, ct, "pull", "--rebase", "origin", pushRef);
+        var fetch = await GitAsync(
+            gitPath, ct, "fetch", "origin", $"+refs/heads/{pushRef}:refs/remotes/origin/{pushRef}");
+
+        if (fetch.ExitCode != 0)
+        {
+            return new PushResult
+            {
+                Committed = sha,
+                DiffStat = Trim(diff.Output),
+                Blocked = $"올릴 곳({pushRef})의 최신을 받지 못했습니다:\n{Head(fetch.Output)}",
+            };
+        }
+
+        var rebase = await GitAsync(gitPath, ct, "rebase", $"origin/{pushRef}");
 
         if (rebase.ExitCode != 0)
         {

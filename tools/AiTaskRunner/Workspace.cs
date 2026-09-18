@@ -128,18 +128,25 @@ public sealed class Workspace(RunnerOptions options, ILogger<Workspace> logger)
                     $"origin 에서 가져오지 못했습니다. 최신에서 시작할 수 없습니다:\n{fetch.Output}");
             }
 
-            // **가지를 짚어서 당긴다.** 인자 없는 `git pull` 은 그 가지에
+            // **가지를 짚어서 맞춘다.** 인자 없는 `git pull` 은 그 가지에
             // upstream 설정이 있어야 돌고, 없으면 「no tracking information」
             // 으로 죽는다 — 최신이 아니라 설정이 없다는 뜻인데 그 문구로는
             // 읽히지 않는다.
+            //
+            // 그렇다고 `git pull --ff-only origin <가지>` 로 짚지도 않는다.
+            // pull 은 받은 것을 `FETCH_HEAD` **파일**로 넘기는데 그 파일은
+            // 자물쇠 없이 덮어써서, **같은 정본에서 다른 실행의 git 이 겹치면
+            // 두 글이 한 파일에 섞인다**(PushGate ⑤ 에 같은 설명이 있다).
+            // 바로 위에서 이미 다 받았으니 **원격 추적 가지를 짚어 얹기만**
+            // 하면 된다 — 그 길은 `FETCH_HEAD` 를 읽지 않는다.
             var head = await GitAsync(path, ct, "rev-parse", "--abbrev-ref", "HEAD");
             var current = head.Output.Trim();
 
             if (current is { Length: > 0 } && current != "HEAD")
             {
-                await say($"[준비] git pull --ff-only origin {current}");
+                await say($"[준비] git merge --ff-only origin/{current}");
 
-                var pull = await GitAsync(path, ct, "pull", "--ff-only", "origin", current);
+                var pull = await GitAsync(path, ct, "merge", "--ff-only", $"origin/{current}");
 
                 if (pull.ExitCode != 0)
                 {
