@@ -77,42 +77,23 @@
     </div>
 
     @*
-        회로가 끊겼을 때 뜨는 대화상자.
+        회로가 끊겼을 때 뜨는 대화상자는 **Blazor 가 만든다. 우리가 두지 않는다.**
 
-        [우리가 선언하지 않으면 Blazor 가 자기 것을 만든다]
+        한때 여기에 직접 선언했다. 어두운 테마에서 글씨가 안 읽혀서였는데,
+        그러면 프레임워크가 `UserSpecifiedDisplay` 로 갈아타면서 **상태를
+        우리가 다 그려야 한다** — show · retrying · paused · failed ·
+        resume-failed · rejected · hide 일곱 가지다. 우리는 그중 넷만 알았고,
+        그래서 「거절됨」에서 멈춘 상자가 다시 붙은 뒤에도 남아 있었다.
 
-        그 기본 상자는 **바탕색을 정하지 않아** 본문에서 물려받는다. 어두운
-        테마에서 흰 바탕에 밝은 글씨가 되어 읽을 수가 없었다. 밝은 테마에서는
-        우연히 읽혀서 한동안 드러나지 않았다.
+        게다가 일시중지에서 되살리는 단추(resume)는 프레임워크 내부 메서드에
+        묶여 있어 **바깥 마크업에서는 부를 방법이 없다.** 직접 그리는 한
+        그 기능은 영영 못 쓴다.
 
-        여기 적어 두면 Blazor 는 만들지 않고 **이것을 쓴다.** 모양은 app.css
-        의 `#components-reconnect-modal` 이 쥐고, 상태에 따라 안의 문단만
-        보였다 숨는다 — 클래스를 갈아 끼우는 것은 프레임워크가 한다.
-
-        아래 띠(`blazor-error-ui`)와 역할이 다르다. 저쪽은 **회로가 죽어
-        되돌릴 수 없는** 경우고, 이쪽은 **다시 붙는 중**이라 기다리면 된다.
+        기본 상자는 그 일곱 상태와 재시도 초읽기·물결 애니메이션·되살리기
+        단추를 이미 갖고 있다. 우리가 고칠 것은 색 하나뿐이었고, 그것은
+        app.css 의 `#components-reconnect-modal` 에서 한다 — 자세한 사정은
+        그 머리말에 적었다.
     *@
-    <div id="components-reconnect-modal">
-        <div class="jsini-reconnect">
-            @* 도는 고리. **다시 붙는 중일 때만** 돈다 — 실패한 뒤에도 돌면
-               아직 뭔가 하고 있다는 거짓말이 된다. *@
-            <div class="jsini-reconnect__spinner" aria-hidden="true"></div>
-
-            <p class="jsini-reconnect__trying">
-                <strong>연결이 끊겼습니다.</strong>
-                다시 잇고 있습니다… 잠시 기다려 주십시오.
-            </p>
-            <p class="jsini-reconnect__failed">
-                <strong>다시 잇지 못했습니다.</strong>
-                <a href="" onclick="window.Blazor.reconnect(); return false;">다시 시도</a>
-            </p>
-            <p class="jsini-reconnect__rejected">
-                <strong>서버가 이 연결을 더 받지 않습니다.</strong>
-                화면을 새로 열어야 합니다.
-                <a href="" onclick="location.reload(); return false;">새로고침</a>
-            </p>
-        </div>
-    </div>
 
     <script src="_framework/blazor.web.js"></script>
 
