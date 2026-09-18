@@ -102,6 +102,7 @@
 <div class="pm-split">
     <CommCont Title="작업" Hint="@ListHint" CssClass="pm-split__side">
         <CommGrd TItem="AiTaskDto"
+                 @ref="_grid"
         ShowRowNumber="false"
                  Data="@_rows"
                  ExportName="AI작업"
@@ -641,6 +642,112 @@
 
         await LoadTargetsAsync();
         await SearchAsync();
+    }
+
+    /// <summary>
+    /// 주소로 받은 작업 번호 (<c>?task=</c>).
+    /// </summary>
+    /// <remarks>
+    /// 「빠른 지시」 화면에서 「자세히 보기」로 건너올 때 그 건의 번호를 실어
+    /// 보낸다. 안 받으면 <b>맨 앞 건이 열린다</b>(표가 첫 줄을 골라 준다) —
+    /// 방금 펼쳐 보던 것을 목록에서 다시 찾아야 하고, 그러면 링크를 걸어 둔
+    /// 뜻이 없다.
+    /// </remarks>
+    [Parameter, SupplyParameterFromQuery(Name = "task")]
+    public long? TaskKey { get; set; }
+
+    /// <summary>
+    /// 주소로 받아 이미 골라 준 번호. <b>같은 번호로 두 번 고르지 않는다</b> —
+    /// 화면이 다시 그려질 때마다 고르면 사람이 옮겨 간 줄이 그 건으로 되돌아간다.
+    /// </summary>
+    private long? _linked;
+
+    /// <summary>
+    /// 주소가 지목한 건을 골라 준다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <c>OnInitializedAsync</c> 가 아니라 여기다 — 이 화면이 탭에 이미 떠 있으면
+    /// 두 번째로 건너올 때 <b>부품을 다시 만들지 않고 파라미터만 바꾼다.</b>
+    /// 초기화에만 걸면 그때는 아무 일도 안 일어나고, 「자세히 보기」가 한 번만
+    /// 듣는 링크가 된다.
+    /// </para>
+    /// <para>
+    /// 초기화가 끝난 뒤에 불리므로 목록은 이미 읽혀 있다.
+    /// </para>
+    /// </remarks>
+    protected override async Task OnParametersSetAsync()
+    {
+        if (TaskKey is not { } key || _linked == key)
+        {
+            return;
+        }
+
+        _linked = key;
+
+        var row = _rows.FirstOrDefault(r => r.TaskKey == key);
+
+        if (row is null)
+        {
+            // 조회 조건이 걸려 있어 목록에 없을 수 있다(탭을 열어 둔 채로 다시
+            // 건너온 경우다). **조건을 지우고 한 번 더 본다** — 건너온 사람에게
+            // 「없습니다」를 보이면 링크가 헛것이 된다.
+            _status = null;
+            _flag = null;
+            _targetKey = null;
+            _keyword = null;
+
+            await SearchAsync();
+
+            row = _rows.FirstOrDefault(r => r.TaskKey == key);
+        }
+
+        if (row is null)
+        {
+            // 그 사이 지워졌다. 목록은 그대로 두고 왜 안 열렸는지만 말해 준다.
+            Say($"#{key} 작업을 찾지 못했습니다. 지워졌을 수 있습니다.", NoticeTone.Warning);
+            return;
+        }
+
+        await PickAsync(row);
+
+        // 그 줄이 둘째 쪽에 있을 수 있다. 고르기만 하면 오른쪽에는 떴는데
+        // 왼쪽 표에는 켜진 줄이 안 보인다.
+        _reveal = row;
+    }
+
+    /// <summary>다음 렌더에 표에서 보여 줄 줄. 쪽이 다르면 그 쪽으로 넘긴다.</summary>
+    private AiTaskDto? _reveal;
+
+    /// <summary>감싼 표. 쪽을 넘기려고 DevExpress API 를 직접 부른다.</summary>
+    private CommGrd<AiTaskDto>? _grid;
+
+    /// <summary>
+    /// 고른 줄이 지금 쪽에 없으면 <b>그 줄이 있는 쪽으로 넘긴다.</b>
+    /// </summary>
+    /// <remarks>
+    /// 자리 번호(<c>VisibleIndex</c>)는 <b>쪽 안의 자리가 아니라 전체에서의
+    /// 자리</b>이고, 사람이 정렬을 바꿔 두었으면 목록 순서와도 다르다 —
+    /// 그래서 <c>_rows</c> 에서 세지 않고 표에게 물어 찾는다.
+    /// </remarks>
+    private void RevealPicked()
+    {
+        var row = _reveal;
+        _reveal = null;
+
+        if (row is null || _grid?.Grid is not { } grid)
+        {
+            return;
+        }
+
+        for (var i = 0; i < grid.GetVisibleRowCount(); i++)
+        {
+            if (ReferenceEquals(grid.GetDataItem(i), row))
+            {
+                grid.MakeRowVisible(i);
+                return;
+            }
+        }
     }
 
     /// <summary>
@@ -1446,10 +1553,21 @@
         if (firstRender)
         {
             // **적어 둔 것은 회로가 붙은 뒤에야 읽을 수 있다**(JS 왕복).
-            await ResumeDraftAsync();
+            if (_linked is not null && _picked is not null)
+            {
+                await ResumeLinkedDraftAsync();
+            }
+            else
+            {
+                await ResumeDraftAsync();
+            }
+
+            RevealPicked();
             StateHasChanged();
             return;
         }
+
+        RevealPicked();
 
         // 새 줄이 붙었든 탭을 방금 열었든, 지금 그려진 것의 바닥을 보여 준다.
         await FollowLogAsync();
@@ -1785,6 +1903,34 @@
         {
             var name = string.IsNullOrWhiteSpace(_edit?.Title) ? $"#{latest.TaskKey}" : _edit!.Title;
             Say($"「{name}」 에 적어 두었던 내용을 이어서 씁니다 ({latest.SavedAt:MM-dd HH:mm}).");
+        }
+    }
+
+    /// <summary>
+    /// 주소로 건너와 고른 건이 있을 때의 임시본 처리.
+    /// <b>읽기는 하되 저 혼자 다른 건을 열지는 않는다.</b>
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 「자세히 보기」로 건너온 사람이 보려는 것은 <b>그 건</b>이지, 지난번에
+    /// 쓰다 만 다른 건이 아니다. <see cref="ResumeDraftAsync"/> 를 그대로 부르면
+    /// 가장 최근 임시본 쪽으로 화면이 옮겨 가 버려, 링크를 눌러 온 사람이
+    /// 엉뚱한 건을 보게 된다.
+    /// </para>
+    /// <para>
+    /// 그렇다고 읽기까지 건너뛰면 안 된다 — 들고 있는 것이 빈 채로 다음
+    /// 임시저장이 나가면 <b>남아 있던 임시본이 통째로 덮인다</b>
+    /// (<see cref="AiTaskDraftStore"/> 는 한 열쇠에 전부 담는다).
+    /// </para>
+    /// </remarks>
+    private async Task ResumeLinkedDraftAsync()
+    {
+        await Drafts.ReadAsync();
+
+        // 고를 때는 아직 못 읽은 상태였다. 그 건에 적어 둔 것이 있으면 이제 얹는다.
+        if (_picked is { } row)
+        {
+            ApplyDraft(row);
         }
     }
 

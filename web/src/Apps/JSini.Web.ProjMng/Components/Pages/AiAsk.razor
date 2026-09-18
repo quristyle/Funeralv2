@@ -213,10 +213,14 @@
 
                                 @* 자세히 보려면 큰 화면으로 보낸다. 로그 수천 줄을
                                    여기에 그리지 않는다 — 모바일에서 읽을 수 없고,
-                                   회로가 그것을 전부 실어 나른다. *@
+                                   회로가 그것을 전부 실어 나른다.
+
+                                   **번호를 실어 보낸다**(`?task=`). 안 실으면 저쪽은
+                                   맨 앞 건을 열고, 그러면 방금 펼쳐 보던 건을 목록에서
+                                   다시 찾아야 한다 — 그럴 바에는 링크가 없는 것과 같다. *@
                                 <DxButton Text="자세히 보기"
                                           RenderStyle="ButtonRenderStyle.Link"
-                                          Click="@(() => Nav.NavigateTo("/projmng/ai/tasks"))" />
+                                          Click="@(() => Nav.NavigateTo($"/projmng/ai/tasks?task={t.TaskKey}"))" />
                             </div>
                         }
                     </li>
