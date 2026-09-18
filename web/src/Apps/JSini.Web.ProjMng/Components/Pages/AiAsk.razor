@@ -41,22 +41,35 @@
 
     그래서 켤 수 있게 하되 **한 번에 못 켜지게** 했다. 막는 것이 셋이다.
 
-      1. 기본이 꺼짐이다. 그냥 보내면 예전과 똑같이 커밋까지만 한다.
-      2. 대상이 허용한 것(`ai_target.allow_push`)만 켜진다. 허용 안 한
-         대상에서는 칸이 회색이고, 왜 회색인지 그 자리에 적는다.
+      1. 대상이 허용한 것(`ai_target.allow_push`)만 켜진다. 허용 안 한
+         대상에서는 칸이 회색이고, 왜 회색인지 단추 아래 줄에 적는다.
+      2. 켜져 있으면 **단추 글자가 바뀐다**(「보내고 올리기까지」). 누르기
+         직전에 눈이 닿는 마지막 글자가 거기다.
       3. 켠 채로 보내면 **묻는 창이 뜬다.** 「보내기」 한 번으로는 안 나간다.
 
-    서버도 저장할 때 2번을 한 번 더 본다(`AiTaskService.Normalize`) — 이 값
+    서버도 저장할 때 1번을 한 번 더 본다(`AiTaskService.Normalize`) — 이 값
     하나가 운영 배포를 일으키므로 화면만 믿지 않는다.
 
     끄고 보내도 결과가 사라지지는 않는다 — 고친 것은 커밋과 브랜치로 남고,
     그 사실이 메일에 적혀 온다(설계 8-2).
 
-    [메일은 항상 켠다]
+    [메일 — 기본이 켜짐이고, 끌 수 있다 (2026-09-19)]
 
-    이 화면의 존재 이유가 「답을 메일로 받는 것」이다. 끌 수 있게 두면
-    **답이 아무 데도 안 가는 건**이 생기고, 그 사람은 화면을 다시 열어 보기
-    전까지 모른다. 받는 사람은 비워 둔다 — 요청한 본인에게 간다.
+    이 화면의 존재 이유가 「답을 메일로 받는 것」이라, 한동안 **끌 수 없게**
+    두었다. 끌 수 있으면 답이 아무 데도 안 가는 건이 생기고 그 사람은 화면을
+    다시 열어 보기 전까지 모른다고 보았다.
+
+    그런데 한자리에서 짧은 것을 연달아 던질 때는 그 메일이 전부 잡음이다 —
+    어차피 아래 카드에서 색으로 끝난 것을 본다. 그래서 칸을 냈다.
+    **기본은 켜짐이고 기억한다** — 끈 사람은 끈 줄 알고 끈 것이고, 켜 둔
+    사람에게는 아무것도 달라지지 않는다. 끈 채로 보내면 그 사실을 단추 아래
+    줄이 말한다. 받는 사람은 여전히 비워 둔다 — 요청한 본인에게 간다.
+
+    [고른 것을 기억한다 (2026-09-19)]
+
+    대상 · AI · 올리기 · 메일 넷은 **마지막에 고른 대로 다음에 열린다**
+    (`AiAskPrefs`, 브라우저 `localStorage`). 왜 기억하는지와 왜 서버가
+    아닌지는 그 파일의 머리말에 적었다.
 
     [보낸 뒤에 무엇을 보여 주나]
 
@@ -106,6 +119,7 @@
 @implements IDisposable
 @inject AiTaskClient Api
 @inject AiTargetClient TargetApi
+@inject AiAskPrefs Prefs
 
 <PageTitle>빠른 지시 · 프로젝트관리</PageTitle>
 
@@ -123,14 +137,17 @@
         }
 
         <div class="pm-ask__where">
-            <DxComboBox Data="@_targets" @bind-Value="_targetKey"
+            @* 고른 값은 **칸을 바꾸는 그 자리에서** 기억된다(`Pick*` 속성).
+               보낼 때 기억하지 않는 이유는, 고르기만 하고 안 보낸 채 나가는
+               일이 흔한데 그때 다음번에 또 같은 것을 고르게 되기 때문이다. *@
+            <DxComboBox Data="@_targets" @bind-Value="PickTarget"
                         TextFieldName="@nameof(AiTargetDto.TargetNm)"
                         ValueFieldName="@nameof(AiTargetDto.TargetKey)"
                         NullText="어디에서 일할지"
                         CssClass="pm-ask__target"
                         Enabled="@(!Busy && _targets.Count > 0)" />
 
-            <DxComboBox Data="@RunnerKinds" @bind-Value="_kind"
+            <DxComboBox Data="@RunnerKinds" @bind-Value="PickKind"
                         TextFieldName="@nameof(PickOption.Text)"
                         ValueFieldName="@nameof(PickOption.Value)"
                         CssClass="pm-ask__kind"
@@ -168,20 +185,37 @@
                 NullText="무엇을 시킬지, 또는 무엇이 궁금한지 적으십시오. 첫 줄이 제목이 됩니다."
                 Enabled="@(!Busy)" />
 
-        @* 올리기. **글상자와 단추 사이다** — 단추 옆에 두면 보내려고 손가락을
-           내리는 길목에 체크칸이 놓인다. 위 머리말 참고. *@
-        <div class="pm-ask__push">
+        @* 글상자 바로 아래 **한 줄**이다 — 올리기 · 메일 · 보내기.
+
+           예전에는 올리기가 제 줄을 갖고 그 아래에 단추 줄이 따로 있었다.
+           칸이 둘로 늘면서 그 모양은 **글상자와 단추 사이에 두 줄**이 되는데,
+           자판이 올라온 화면에서 그 두 줄은 곧 단추가 자판 밑으로 내려간다는
+           뜻이다. 한 줄로 묶으면 **적던 손이 그대로 단추에 닿는다.**
+
+           체크칸 둘이 왼쪽, 단추가 오른쪽 끝이다(`margin-left:auto`) —
+           누르려고 내리는 손가락이 체크칸을 스치지 않게 떼어 둔다.
+           좁아지면 단추가 아래로 내려가 한 줄을 다 쓴다(CSS 참고). *@
+        <div class="pm-ask__bar">
             @* 글자를 `<span>` 으로 옆에 두지 않는다. **부품 안에 넣으면
                DevExpress 가 그것까지 누르는 자리로 만든다** — 모바일에서
                14px 짜리 네모만 겨누게 하지 않으려는 것이고, 「AI 작업」
-               화면의 같은 칸도 이 모양이다. *@
-            <DxCheckBox @bind-Checked="@PushOn"
-                        Enabled="@(!Busy && SelectedTargetAllowsPush)">
-                @PushLabel
-            </DxCheckBox>
-        </div>
+               화면의 같은 칸도 이 모양이다.
 
-        <div class="pm-ask__send">
+               글자는 짧게 둔다. 왜 회색인지 · 무엇이 일어나는지는 아래 한 줄
+               (`SendNote`)이 말한다 — 한 줄에 셋이 서는 자리라 칸마다 설명을
+               달면 줄이 도로 풀린다. *@
+            <DxCheckBox @bind-Checked="@PushOn"
+                        CssClass="pm-ask__opt"
+                        Enabled="@(!Busy && SelectedTargetAllowsPush)">
+                저장소 올리기
+            </DxCheckBox>
+
+            <DxCheckBox @bind-Checked="@MailOn"
+                        CssClass="pm-ask__opt"
+                        Enabled="@(!Busy)">
+                메일로 결과 받기
+            </DxCheckBox>
+
             <PermissionView Action="MenuAction.Create">
                 <DxButton Text="@SendText"
                           RenderStyle="ButtonRenderStyle.Primary"
@@ -189,9 +223,11 @@
                           Enabled="@CanSend"
                           Click="@SendAsync" />
             </PermissionView>
-
-            <span class="pm-ask__note">@SendNote</span>
         </div>
+
+        @* 위 줄이 짧게 말한 것을 여기서 풀어 준다. **줄을 차지하되 누르는
+           자리가 아니라** 자판 아래로 밀려도 잃는 것이 없다. *@
+        <p class="pm-ask__note">@SendNote</p>
 
         @if (_sent is { } sent)
         {
@@ -322,10 +358,17 @@
     private string? _text;
 
     /// <summary>
-    /// 올리기를 켰나. <b>보낼 때마다 꺼진 채로 시작한다</b> — 기억해 두면
-    /// 「지난번에 켰다」는 사실을 모르는 채로 다음 건이 배포까지 나간다.
+    /// 올리기를 켰나. <b>보낸 뒤에도 그대로 남는다</b> — 기억하는 값이다
+    /// (<see cref="AiAskPrefs"/>). 켜져 있다는 사실은 단추 글자와 묻는 창이
+    /// 말한다.
     /// </summary>
     private bool _push;
+
+    /// <summary>
+    /// 메일로 받나. <b>기본이 켜짐이다</b> — 이 화면의 존재 이유다.
+    /// 끈 것도 기억한다(위 머리말).
+    /// </summary>
+    private bool _mail = true;
 
     private ConfirmDialog? _confirm;
 
@@ -387,14 +430,64 @@
     private bool PushOn
     {
         get => _push && SelectedTargetAllowsPush;
-        set => _push = value;
+        set
+        {
+            _push = value;
+            Remember();
+        }
     }
 
-    private string PushLabel => SelectedTarget is null
-        ? "끝나면 저장소에 올린다 (대상을 먼저 고르십시오)"
-        : SelectedTargetAllowsPush
-            ? "끝나면 저장소에 올린다 — 운영 배포가 일어납니다"
-            : $"끝나면 저장소에 올린다 (「{SelectedTarget.TargetNm}」 은 올리기를 허용하지 않습니다)";
+    /// <summary>메일로 받나. 켠 것도 끈 것도 기억한다.</summary>
+    private bool MailOn
+    {
+        get => _mail;
+        set
+        {
+            _mail = value;
+            Remember();
+        }
+    }
+
+    /// <summary>
+    /// 대상 칸이 매인 자리. 바꾸면 <b>AI 를 맞추고 그 자리에서 기억한다.</b>
+    /// 칸이 <c>_targetKey</c> 에 곧장 매이면 이 둘을 할 자리가 없다.
+    /// </summary>
+    private long? PickTarget
+    {
+        get => _targetKey;
+        set
+        {
+            if (_targetKey == value)
+            {
+                return;
+            }
+
+            _targetKey = value;
+
+            // 새 대상이 못 쓰는 AI 가 골라져 있을 수 있다. 기억하기 **전에**
+            // 맞춘다 — 안 맞춘 채로 적어 두면 다음에 열 때 그 어긋남이 되살아난다.
+            FixKind();
+            Remember();
+        }
+    }
+
+    private string PickKind
+    {
+        get => _kind;
+        set
+        {
+            // 비우는 길이 없는 칸이다(`NullText` 를 안 걸었다). 그래도 빈 값이
+            // 들어오면 **고른 것을 지우지 않는다** — 실행기 이름이 빈 채로
+            // 저장되면 그 건은 아무 데서도 안 돈다.
+            if (string.IsNullOrWhiteSpace(value) || _kind == value)
+            {
+                return;
+            }
+
+            _kind = value;
+            Remember();
+        }
+    }
 
     /// <summary>
     /// 단추 옆 한 줄. <b>올리기가 어느 쪽인지 말해 둔다</b> — 고쳐 달라고 시킨
@@ -409,17 +502,108 @@
         : PushOn ? "보내고 올리기까지"
         : "보내고 메일로 받기";
 
-    private string SendNote => _targetKey is null
-        ? "대상을 고르십시오."
-        : PushOn
-            ? "끝나면 저장소에 올립니다 — 운영 배포가 일어납니다. 보낼 때 한 번 더 묻습니다."
-            : "고친 것은 커밋까지만 합니다. 올리려면 위 칸을 켜십시오.";
+    /// <summary>
+    /// 단추 아래 한 줄. <b>위 줄의 짧은 글자가 못 하는 말을 여기서 한다</b> —
+    /// 올리기가 어느 쪽인지, 왜 그 칸이 회색인지, 메일이 안 간다는 것.
+    /// </summary>
+    /// <remarks>
+    /// 고쳐 달라고 시킨 사람이 「올라간 줄」 알아도, 「안 올라간 줄」 알아도
+    /// 안 된다. 그래서 켜졌을 때만 적지 않고 <b>양쪽 다 적는다.</b>
+    /// </remarks>
+    private string SendNote
+    {
+        get
+        {
+            if (_targetKey is null)
+            {
+                return "대상을 고르십시오.";
+            }
+
+            var push = PushOn
+                ? "끝나면 저장소에 올립니다 — 운영 배포가 일어납니다. 보낼 때 한 번 더 묻습니다."
+                : SelectedTargetAllowsPush
+                    ? "고친 것은 커밋까지만 합니다. 올리려면 위 칸을 켜십시오."
+                    : $"「{SelectedTarget?.TargetNm}」 은 올리기를 허용하지 않아 커밋까지만 합니다.";
+
+            // 메일은 켜진 것이 예사다. **끈 것만 말한다** — 예사인 것을 매번
+            // 적으면 정작 꺼 놓은 줄을 그 틈에서 못 읽는다.
+            return MailOn ? push : push + " 결과 메일은 가지 않습니다 — 아래 카드에서 확인하십시오.";
+        }
+    }
+
+    /// <summary>기억을 사람마다 갈라 두려고 본다. 로그인 아이디만 쓴다.</summary>
+    [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
 
     protected override async Task OnInitializedAsync()
     {
+        // **기억은 사람마다 갈라 둔다.** 공용 PC 에서 남이 고른 대상이 내
+        // 화면에 뜨면 안 된다(「AI 작업」 화면의 임시본과 같은 규칙이다).
+        if (AuthState is not null)
+        {
+            var state = await AuthState;
+            Prefs.Use(state.User.Identity?.Name);
+        }
+
         await LoadTargetsAsync();
         await LoadRecentAsync();
     }
+
+    /// <summary>
+    /// 기억한 것을 얹는다. <b>회로가 붙은 뒤에야 읽을 수 있다</b>(JS 왕복)라
+    /// 첫 렌더 뒤다 — 대상 목록은 그때 이미 와 있다.
+    /// </summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        var pref = await Prefs.ReadAsync();
+
+        if (pref is null)
+        {
+            // 처음 쓰는 사람이다. 화면의 초기값 그대로 둔다. 단, 이제부터
+            // 고르는 것은 적히도록 <c>ReadAsync</c> 를 거친 것으로 표시된다.
+            return;
+        }
+
+        // **없어졌거나 꺼진 대상은 얹지 않는다.** 목록에 없는 번호를 넣으면
+        // 칸이 빈 채로 보이고, 사람은 「골랐는데 왜 안 보내지나」를 겪는다.
+        if (pref.TargetKey is { } key && _targets.Any(t => t.TargetKey == key))
+        {
+            _targetKey = key;
+        }
+
+        if (!string.IsNullOrWhiteSpace(pref.RunnerKind))
+        {
+            _kind = pref.RunnerKind;
+        }
+
+        // 지금 고른 대상이 못 쓰는 AI 였으면 여기서 맞는 것으로 바뀐다.
+        FixKind();
+
+        _push = pref.AutoPush;
+        _mail = pref.NotifyEmail;
+
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// 고른 것을 적어 둔다. <b>기다리지 않는다</b> — 칸 하나 만질 때마다
+    /// JS 왕복을 기다리면 그만큼 칸이 굼떠 보이고, 적히지 않아도 잃는 것은
+    /// 「다음에 다시 고르는 일」뿐이다.
+    /// </summary>
+    private void Remember() => _ = Prefs.SaveAsync(new AiAskPref
+    {
+        TargetKey = _targetKey,
+        RunnerKind = _kind,
+
+        // 화면이 내보이는 값(`PushOn`)이 아니라 사람이 켠 값이다. 허용 안 하는
+        // 대상에 잠깐 들렀다고 켜 둔 것을 지우면, 돌아왔을 때 꺼져 있다.
+        AutoPush = _push,
+        NotifyEmail = _mail,
+    });
 
     /// <summary>
     /// 대상 목록. <b>실패해도 화면을 막지 않는다</b> — 최근 보낸 것은 보여야
@@ -575,8 +759,9 @@
                     // `AiTaskService.Normalize` 에서 같은 것을 한 번 더 본다.
                     AutoPush = PushOn,
 
-                    // 이 화면의 존재 이유다. 끌 수 있게 두지 않는다.
-                    NotifyEmail = true,
+                    // 기본은 켜짐이다. 끈 사람은 끈 줄 알고 끈 것이고, 그 사실을
+                    // 단추 아래 줄이 한 번 더 말해 준다(`SendNote`).
+                    NotifyEmail = MailOn,
                     NotifyWhen = "always",
                 });
             }, okMessage: "적어 두었습니다. 보내는 중입니다.", failMessage: "보내지 못했습니다");
@@ -596,9 +781,10 @@
         _sent = created.Title;
         _text = null;
 
-        // **다음 건은 다시 꺼진 채로 시작한다.** 글상자를 비우는 것과 같은
-        // 이유다 — 남겨 두면 이어서 적은 한 줄이 묻지도 않고 올라간다.
-        _push = false;
+        // **고른 것은 그대로 둔다.** 글상자만 비운다 — 여기서 잇따라 던지는
+        // 건은 대개 같은 자리에 같은 모양이고, 한때는 올리기만 꺼 두었지만
+        // 그것도 이제 기억한다(위 머리말). 켜져 있다는 사실은 단추 글자와
+        // 묻는 창이 매번 말한다.
 
         // 기다리지 않는다. 회로의 실행 맥락에서 이어지므로 `Task.Run` 도
         // `InvokeAsync` 도 필요 없다 — 이 처리기가 끝난 자리에서 그대로 이어진다.

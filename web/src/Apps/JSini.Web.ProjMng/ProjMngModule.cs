@@ -57,6 +57,10 @@ public sealed class ProjMngModule : IPortalModule
         // 이유는 화면이 다시 만들어질 때마다(탭을 옮길 때마다) 새로 태어나는
         // 것이 화면이기 때문이다 — 적어 둔 곳은 그것보다 오래 남아야 한다.
         services.AddScoped<Components.Shared.AiTaskDraftStore>();
+
+        // 「빠른 지시」에서 마지막에 고른 것(대상 · AI · 올리기 · 메일).
+        // 같은 이유로 화면 밖에 둔다 — 탭을 옮겨도 기억이 남아야 한다.
+        services.AddScoped<Components.Shared.AiAskPrefs>();
         services.AddScoped<BizOptions>();
 
         // 이 앱 전용 서비스만 여기 등록한다.
