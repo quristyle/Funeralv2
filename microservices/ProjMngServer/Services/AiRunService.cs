@@ -454,7 +454,7 @@ public sealed class AiRunService(
 
             // **종을 울린다.** 안 울리면 다시 넣은 건이 폴링(기본 60초)까지
             // 가만히 있는다. 울려도 못 닿으면 폴링이 받아 준다 — 큐는 거들 뿐이다.
-            _ = queue.RingAsync(counters.TaskKey);
+            queue.Ring(counters.TaskKey);
 
             // **중간 실패는 알리지 않는다.** 세 번 시도하는 작업이 두 번
             // 실패하면 「실패」 메일이 두 통 먼저 가고 마지막에 「성공」이

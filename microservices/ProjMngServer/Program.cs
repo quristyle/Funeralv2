@@ -64,6 +64,11 @@ builder.Services.AddScoped<AiResultSummarizer>();
 // DB 의 원자적 UPDATE 가 한다 — 그래서 메시지를 잃어도 손실이 아니라 지연이다.
 builder.Services.AddSingleton<AiTaskQueue>();
 
+// 그 종을 **뒤에서** 울린다. 요청 처리 안에서 울리면 AMQP 연결 한 번이
+// 화면의 「보내는 중」에 그대로 붙는다 — 큐에 넣는 일이 사람을 기다리게 할
+// 이유가 없다.
+builder.Services.AddHostedService<AiTaskBell>();
+
 // 멈춘 것을 찾아내는 감시자. **이 기능에서 가장 나쁜 실패는 조용히 멈춰
 // 있는 것**이라 프로세스가 사는 동안 계속 돈다.
 builder.Services.AddHostedService<AiStaleSweeper>();

@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using System.Threading.Channels;
 
 using RabbitMQ.Client;
 
@@ -55,6 +56,61 @@ public sealed class AiTaskQueue(IConfiguration configuration, ILogger<AiTaskQueu
         && configuration.GetValue("AiTasks:QueueEnabled", true);
 
     /// <summary>
+    /// 브로커를 기다리는 한도. <b>사람이 단추를 누른 길에서 떼어 놓았어도
+    /// 무한정 매달리게 두지 않는다</b> — 못 닿으면 빨리 포기하고 로그를 남기는
+    /// 편이 낫다. 요청은 이미 DB 에 있고 실행기의 폴링이 집는다.
+    /// </summary>
+    private readonly TimeSpan _ringTimeout =
+        TimeSpan.FromSeconds(Math.Max(1, configuration.GetValue("AiTasks:RingTimeoutSeconds", 5)));
+
+    /// <summary>
+    /// 아직 못 울린 종. <b>이것이 「요청」을 화면에서 떼어 놓는 자리다.</b>
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 예전에는 <see cref="RingAsync"/> 를 요청 처리 안에서 그대로 기다렸다.
+    /// 그 한 줄이 <b>AMQP 연결을 새로 여는 일</b>이라 — TCP · 핸드셰이크 ·
+    /// 큐 선언 · 발행 · 닫기 — 브로커가 멀거나 안 떠 있으면 그만큼
+    /// 「보내는 중」이 길어졌다. <b>큐에 넣는 일이 사람을 기다리게 하는 것은
+    /// 앞뒤가 바뀐 것</b>이다.
+    /// </para>
+    /// <para>
+    /// 그래서 요청은 DB 에 적는 데까지만 하고 종은 여기에 던진다.
+    /// 무제한(<c>Unbounded</c>)이라 던지는 쪽은 절대 막히지 않는다 —
+    /// 실제로 쌓일 수 있는 것은 「요청한 작업 수」뿐이다.
+    /// </para>
+    /// </remarks>
+    private readonly Channel<long> _bells =
+        Channel.CreateUnbounded<long>(new UnboundedChannelOptions { SingleReader = true });
+
+    /// <summary>울릴 차례를 기다리는 종. <see cref="AiTaskBell"/> 만 읽는다.</summary>
+    public ChannelReader<long> Bells => _bells.Reader;
+
+    /// <summary>
+    /// <b>종을 울려 달라고 맡긴다 — 기다리지 않는다.</b>
+    /// </summary>
+    /// <remarks>
+    /// 부르는 쪽은 사람이 단추를 누른 길 위에 있다. 여기서 돌아가는 데 드는
+    /// 시간은 값 하나를 넣는 것뿐이고, 브로커와 이야기하는 일은
+    /// <see cref="AiTaskBell"/> 이 뒤에서 한다.
+    /// </remarks>
+    public void Ring(long taskKey)
+    {
+        if (!_enabled)
+        {
+            logger.LogDebug("큐를 쓰지 않습니다. 실행기의 주기 조회가 집습니다. (task {TaskKey})", taskKey);
+            return;
+        }
+
+        // 무제한 채널이라 닫히지 않는 한 실패하지 않는다. 그래도 값을 본다 —
+        // 못 넣었다면 그 사실이 로그에 남아야 「왜 1분 뒤에 도나」를 설명한다.
+        if (!_bells.Writer.TryWrite(taskKey))
+        {
+            logger.LogWarning("종을 맡기지 못했습니다. 실행기의 주기 조회가 집을 것입니다. (task {TaskKey})", taskKey);
+        }
+    }
+
+    /// <summary>
     /// 「이 번호를 봐라」를 큐에 넣는다.
     /// </summary>
     /// <remarks>
@@ -72,7 +128,19 @@ public sealed class AiTaskQueue(IConfiguration configuration, ILogger<AiTaskQueu
 
         try
         {
-            var factory = new ConnectionFactory { HostName = _host };
+            // **기다리는 데 한도를 둔다.** 기본값(30초)으로 두면 브로커에 못 닿는
+            // 동안 이 한 번이 종 줄 전체를 붙잡는다.
+            var factory = new ConnectionFactory
+            {
+                HostName = _host,
+                RequestedConnectionTimeout = _ringTimeout,
+                SocketReadTimeout = _ringTimeout,
+                SocketWriteTimeout = _ringTimeout,
+            };
+
+            using var limit = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            limit.CancelAfter(_ringTimeout);
+            ct = limit.Token;
 
             await using var connection = await factory.CreateConnectionAsync(ct);
             await using var channel = await connection.CreateChannelAsync(cancellationToken: ct);

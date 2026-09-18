@@ -269,9 +269,10 @@ public sealed class AiTaskService(
             return AiTaskEditResult.Conflict("그 사이에 상태가 바뀌었습니다. 다시 읽으십시오.");
         }
 
-        // **종을 울린다.** 실패해도 막지 않는다 — 요청은 이미 DB 에 있고
-        // 실행기의 안전망 조회가 늦게라도 집는다(설계 6.6).
-        await queue.RingAsync(taskKey);
+        // **종은 맡기고 간다.** 여기서 기다리면 AMQP 연결 한 번이 사람이 누른
+        // 단추에 그대로 붙는다 — 요청은 이미 DB 에 있고, 종이 늦거나 못 가도
+        // 실행기의 안전망 조회가 집는다(설계 6.6).
+        queue.Ring(taskKey);
 
         return AiTaskEditResult.Ok(await GetAsync(taskKey));
     }
