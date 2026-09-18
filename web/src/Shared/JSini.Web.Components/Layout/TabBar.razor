@@ -40,6 +40,7 @@
 @inject NavigationManager Navigation
 @inject IJSRuntime Js
 @inject PortalBoot Boot
+@inject Toasts Toasts
 
 @if (Tabs.Items.Count > 0)
 {
@@ -106,6 +107,10 @@
                 <DxContextMenuItem Text="새 창으로 열기"
                                    IconCssClass="jsini-icon-expand"
                                    Click="@(() => OpenInNewWindowAsync(t))" />
+
+                <DxContextMenuItem Text="URL 복사"
+                                   IconCssClass="jsini-icon-copy"
+                                   Click="@(() => CopyUrlAsync(t))" />
 
                 @* 여기부터 닫는 것들. 구분선을 두는 이유는 위쪽이 되돌릴 수 있는
                    일이고 아래쪽은 그렇지 않기 때문이다. *@
@@ -229,6 +234,38 @@
 
     private Task OpenInNewWindowAsync(PortalTab tab) =>
         Js.InvokeVoidAsync("open", tab.Href, "_blank", "noopener").AsTask();
+
+    /// <summary>
+    /// 이 탭의 주소를 클립보드에 담는다. 남에게 보내거나 다른 기기에서 열려고
+    /// 쓰는 기능이라 <b>전체 주소</b>(<c>https://portal.jsini.co.kr/...</c>)로
+    /// 담는다 — <c>/funeral/room-status</c> 만 붙여 넣으면 받은 쪽이 못 연다.
+    ///
+    /// <para>
+    /// 담았는지 <b>말해 준다.</b> 복사는 눈에 보이는 결과가 없어서, 조용히
+    /// 실패하면 붙여넣을 때에야 안 된 것을 안다. 실패하면 주소를 토스트에
+    /// 같이 적어 손으로 집어 갈 수 있게 한다.
+    /// </para>
+    /// </summary>
+    private async Task CopyUrlAsync(PortalTab tab)
+    {
+        var url = Navigation.ToAbsoluteUri(tab.Href).ToString();
+
+        bool copied;
+
+        try
+        {
+            copied = await Js.InvokeAsync<bool>("jsiniClipboard.copy", url);
+        }
+        catch (JSException)
+        {
+            // theme.js 가 안 실렸거나 브라우저가 거절했다.
+            copied = false;
+        }
+
+        Toasts.Show(
+            copied ? "주소를 복사했습니다." : $"주소를 복사하지 못했습니다 — {url}",
+            copied ? NoticeTone.Info : NoticeTone.Error);
+    }
 
     /// <summary>그쪽에 닫을 것이 하나라도 있는가. 없으면 항목을 꺼 둔다.</summary>
     private bool HasClosableSide(PortalTab tab, bool left)

@@ -726,6 +726,64 @@
   };
 
   /**
+   * 클립보드에 글을 적는다. 탭 줄의 「⋯ → URL 복사」가 쓴다.
+   *
+   * [길이 둘인 이유]
+   *
+   * `navigator.clipboard` 는 **안전한 문맥**(https 또는 localhost)에만 있다.
+   * 사내에서 http 로 여는 자리가 있고, 그때는 그 객체가 아예 없어서
+   * 「눌러도 아무 일도 안 일어난다」가 된다. 그래서 없으면 화면 밖에 둔 칸에
+   * 글을 넣고 `execCommand('copy')` 로 옮긴다 — 낡았지만 아직 듣는다.
+   *
+   * [된 것을 돌려준다]
+   *
+   * 부르는 쪽이 그 값으로 「복사했습니다」와 「복사하지 못했습니다 — <주소>」를
+   * 가른다. 실패를 조용히 삼키면 **붙여넣을 때에야** 안 된 것을 안다.
+   */
+  function copyByTextarea(text) {
+    var box = document.createElement('textarea');
+    box.value = text;
+
+    // 화면 밖에 둔다. `display:none` 은 안 된다 — 안 그려진 칸은 고를 수 없고,
+    // 고르지 못하면 복사할 것도 없다.
+    box.setAttribute('readonly', '');
+    box.style.position = 'fixed';
+    box.style.top = '-1000px';
+    box.style.opacity = '0';
+
+    document.body.appendChild(box);
+
+    try {
+      box.select();
+      return document.execCommand('copy');
+    } catch (e) {
+      return false;
+    } finally {
+      box.remove();
+    }
+  }
+
+  window.jsiniClipboard = {
+    copy: function (text) {
+      if (!text) return Promise.resolve(false);
+
+      if (window.isSecureContext && navigator.clipboard) {
+        return navigator.clipboard.writeText(text).then(
+          function () {
+            return true;
+          },
+          function () {
+            // 권한을 거절했거나 창이 포커스를 잃었다. 낡은 길로 한 번 더 해 본다.
+            return copyByTextarea(text);
+          }
+        );
+      }
+
+      return Promise.resolve(copyByTextarea(text));
+    },
+  };
+
+  /**
    * 워터마크. 화면 위에 로그인 아이디를 옅게 반복해 깐다.
    *
    * [왜 있나 — 화면 촬영을 막으려는 것이 아니다]
