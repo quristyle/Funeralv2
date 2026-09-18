@@ -68,8 +68,21 @@ public sealed class Workspace(RunnerOptions options, ILogger<Workspace> logger)
 
             if (!string.IsNullOrWhiteSpace(dirty.Output))
             {
-                throw new InvalidOperationException(
-                    $"정본이 깨끗하지 않습니다. 사람이 먼저 정리해야 합니다:\n{dirty.Output}");
+                // **더러운 정본이 실제로 문제가 되는 것은 거기서 직접 돌 때뿐이다.**
+                // worktree · 복사본은 방금 받은 origin/<ref> 에서 갈라지므로 정본에
+                // 남은 것이 결과에 섞이지 않는다. 그런데도 예전에는 여기서 전부
+                // 막았고, 원본 직접으로 돈 실행 하나가 남긴 찌꺼기가 **그 뒤의
+                // 모든 실행을 죽였다** — 실제로 그렇게 멈췄다.
+                if (isolation == "inplace")
+                {
+                    throw new InvalidOperationException(
+                        "정본이 깨끗하지 않습니다. 사람이 먼저 정리해야 합니다 "
+                        + "(살릴 것이면 커밋, 버릴 것이면 git checkout -- . 와 git clean -fd):\n"
+                        + dirty.Output);
+                }
+
+                await say("[준비] 정본에 정리되지 않은 변경이 있습니다 "
+                          + "(이 작업은 origin 에서 갈라지므로 섞이지 않습니다): " + Head(dirty.Output));
             }
 
             await say("[준비] git fetch origin");
@@ -263,6 +276,71 @@ public sealed class Workspace(RunnerOptions options, ILogger<Workspace> logger)
             prepared.Path.TrimEnd('/') + "/", prepared.SourcePath.TrimEnd('/') + "/");
 
         return r.ExitCode == 0 ? null : $"정본으로 되돌리지 못했습니다:\n{r.Output}";
+    }
+
+    /// <summary>
+    /// 원본 직접으로 돈 실행이 정본에 남긴 것을 <b>stash 로 치워 둔다.</b>
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 「다음 실행은 깨끗한 정본에서 시작한다」(설계 7.3)는 <b>앞의 실행이 자기
+    /// 뒤를 치워야</b> 성립한다. worktree · 복사본은 치울 자리가 따로 있지만
+    /// 원본 직접은 그 자리가 정본이라, CLI 가 실패하거나 게이트가 커밋 전에
+    /// 막으면(금지 경로) 고쳐 놓은 파일이 정본에 그대로 남는다. 그러면
+    /// <b>그 뒤의 모든 실행이 「정본이 깨끗하지 않습니다」로 죽는다</b> —
+    /// 사람이 손으로 치울 때까지. 실제로 그렇게 멈췄다.
+    /// </para>
+    /// <para>
+    /// <b>버리지 않고 stash 에 넣는다.</b> 시작할 때 깨끗한 것을 확인했으니
+    /// 지금 더러운 것은 전부 이번 실행이 만든 것이다. 그래도 사람이 볼 값어치가
+    /// 있는 결과물이라 지우지 않고, 어디 들어갔는지 로그에 남긴다 —
+    /// 조용히 치우면 「분명 고쳤는데 없어졌다」가 된다.
+    /// </para>
+    /// </remarks>
+    public async Task<string?> ParkAsync(
+        Prepared prepared, string label, Func<string, Task> say, CancellationToken ct)
+    {
+        // worktree · 복사본은 자기 자리에 그대로 두고 치우면 그만이다.
+        if (prepared.Disposable || !prepared.SourceIsRepo)
+        {
+            return null;
+        }
+
+        var path = prepared.SourcePath;
+
+        // **`git status --porcelain` 을 파싱하지 않는다**(PushGate 와 같은 이유 —
+        // 앞 두 글자 상태 때문에 경로 첫 글자가 잘린다). 있나 없나만 본다.
+        var tracked = await GitAsync(path, ct, "diff", "--name-only", "HEAD");
+        var untracked = await GitAsync(path, ct, "ls-files", "--others", "--exclude-standard");
+
+        if (string.IsNullOrWhiteSpace(tracked.Output) && string.IsNullOrWhiteSpace(untracked.Output))
+        {
+            return null;   // 게이트가 커밋했거나 애초에 바뀐 것이 없다.
+        }
+
+        // **stash 도 커밋 객체를 만든다** — 이름·메일이 없으면 「unable to
+        // auto-detect email address」로 죽는다. systemd 로 도는 프로세스에는
+        // 그 설정이 없을 수 있어 여기서 준다(PushGate 의 커밋과 같은 값).
+        var stash = await GitAsync(path, ct,
+            "-c", "user.name=AI Task Runner", "-c", "user.email=ai-task@jsini.local",
+            "stash", "push", "--include-untracked", "-m", label);
+
+        if (stash.ExitCode != 0)
+        {
+            // 치우지 못한 것을 성공으로 끝내지 않는다. 다음 실행이 여기에서
+            // 막힐 것이므로 **왜 막히는지를 지금 적어 둔다.**
+            await say($"[정리] 정본을 치우지 못했습니다. 사람이 정리해야 다음 작업이 돕니다:\n{Head(stash.Output)}");
+            logger.LogWarning("정본({Path})을 치우지 못했습니다: {Message}", path, Head(stash.Output));
+
+            return null;
+        }
+
+        await say($"[정리] 이번 실행이 정본에 남긴 변경을 stash 에 넣었습니다 — 「{label}」. "
+                  + "되살리려면 git stash pop, 버리려면 git stash drop.");
+
+        logger.LogInformation("정본({Path})의 잔여 변경을 stash 에 넣었습니다: {Label}", path, label);
+
+        return label;
     }
 
     /// <summary>

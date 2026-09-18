@@ -221,6 +221,11 @@ public sealed class RunnerWorker(
         Workspace.Prepared? prepared = null;
         var keepWorkspace = false;
 
+        // 정본에 남은 것을 치울 때 붙일 이름. **어느 실행이 남긴 것인지**가
+        // 붙어 있어야 사람이 stash 목록에서 알아본다.
+        var parkLabel = $"ai-run-{claim.RunKey} (작업 {claim.TaskKey}) "
+                        + (claim.Title ?? "AI 작업").Replace('\n', ' ');
+
         try
         {
             prepared = await workspace.PrepareAsync(claim, SayAsync, ct);
@@ -300,6 +305,13 @@ public sealed class RunnerWorker(
 
             var diff = push?.DiffStat ?? await workspace.DiffStatAsync(prepared, ct);
 
+            // **정본을 다음 실행에 넘기기 전에 치운다.** 원본 직접으로 돌았고
+            // 게이트가 커밋까지 가지 못했으면(CLI 실패 · 금지 경로) 고친 파일이
+            // 정본에 그대로 남고, 그 뒤의 모든 실행이 「정본이 깨끗하지 않습니다」
+            // 로 죽는다. 치우는 것은 **버리는 것이 아니라 stash 로 옮기는 것**이다.
+            // 치우기는 취소되지 않는다 — 여기서 멈추면 다음 실행이 막힌다.
+            await workspace.ParkAsync(prepared, parkLabel, SayAsync, CancellationToken.None);
+
             // 작업공간을 남길지.
             //
             // **복사본(폴더 대상)은 언제나 남긴다.** git 이 아니라 diff 를 낼 수
@@ -354,6 +366,13 @@ public sealed class RunnerWorker(
         catch (Exception ex)
         {
             await SayAsync($"[오류] {ex.Message}");
+
+            // 예외로 끝난 실행도 정본에 손을 댔을 수 있다. 같은 이유로 치운다.
+            if (prepared is not null)
+            {
+                await workspace.ParkAsync(prepared, parkLabel, SayAsync, CancellationToken.None);
+            }
+
             await FlushAsync(true);
 
             beatCts.Cancel();
