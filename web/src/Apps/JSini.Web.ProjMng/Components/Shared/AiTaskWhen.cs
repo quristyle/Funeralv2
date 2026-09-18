@@ -16,6 +16,27 @@ namespace JSini.Web.ProjMng.Components.Shared;
 /// <c>StatusText</c> 는 모든 화면이 같게 읽어야 하는 이름이지만, 여기 둘은
 /// <b>좁은 화면에서 자리를 아끼려고</b> 고른 모양이다.
 /// </para>
+/// <para>
+/// [<c>ToLocalTime()</c> 을 부르지 않는다 — 부르면 아홉 시간이 더해진다]
+/// </para>
+/// <para>
+/// <c>projmng.ai_task</c> 의 시각 칸은 <b>시간대 없는</b> <c>timestamp</c> 이고
+/// 서버가 <c>now()</c> 로 찍는다. 컨테이너는 전부 <c>Asia/Seoul</c> 이라
+/// (<c>deploy/docker</c>) 거기 앉는 값은 <b>이미 우리 시계의 벽시계 시각</b>이다.
+/// 그 값은 전선을 타고 <c>Kind=Unspecified</c> 로 오는데,
+/// <see cref="DateTime.ToLocalTime"/> 은 <b><c>Unspecified</c> 를 UTC 로 치고</b>
+/// 옮긴다 — 08:00 이 17:00 이 된다.
+/// </para>
+/// <para>
+/// 그래서 실제로 <b>도는 건의 시간이 「-」로 보였다.</b> 지금까지가 음수(미래에
+/// 시작한 것으로 보이니)라 아래 <see cref="Elapsed"/> 가 포기하고 「-」를 적었다.
+/// 「AI 작업」 화면의 같은 계산(<c>RunElapsedText</c>)은 처음부터 그냥 뺐다 —
+/// 이 파일만 어긋나 있었다.
+/// </para>
+/// <para>
+/// 진짜 UTC 로 오는 자료(<c>AuthServer</c> 의 접속 기록 같은 것)와 규칙이 다르니
+/// <b>여기 값을 다른 화면으로 옮길 때 그대로 베끼지 않는다.</b>
+/// </para>
 /// </remarks>
 internal static class AiTaskWhen
 {
@@ -38,7 +59,8 @@ internal static class AiTaskWhen
             return "-";
         }
 
-        var local = at.Value.ToLocalTime();
+        // 옮기지 않는다. 위 머리말 참고 — 이 값은 이미 우리 시계다.
+        var local = at.Value;
 
         if (!compact)
         {
@@ -51,32 +73,56 @@ internal static class AiTaskWhen
     }
 
     /// <summary>
-    /// 총작업시간. <b>끝난 건은 서버가 잰 값</b>(<c>DurationMs</c>)을 그대로
-    /// 쓰고, 도는 중이면 시작한 때부터 지금까지를 센다 — 화면이 몇 초마다
-    /// 다시 읽으므로 그 자리에서 늘어난다.
+    /// 총작업시간. <b>도는 중이면 지금까지를 센다</b> — 화면이 5초마다 목록을
+    /// 다시 읽으므로 그 자리에서 늘어난다. 끝난 건은 서버가 잰 값
+    /// (<c>DurationMs</c>)을 그대로 쓴다.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>도는 중인지를 먼저 본다.</b> 지난번에 돌아서 <c>DurationMs</c> 가 남은
+    /// 건을 다시 보내면(서버가 요청 때 지우지만 순서가 어긋날 수 있다) 그 옛
+    /// 값이 <b>멈춘 채로</b> 보인다 — 도는 건의 시간은 늘어나야 한다.
+    /// </para>
+    /// <para>
+    /// 음수는 「-」로 흘리지 않고 0 으로 눌러 적는다. 두 시계가 몇 초 어긋나면
+    /// 방금 시작한 건이 통째로 사라지는데, <b>그 자리에 아무것도 없는 것이
+    /// 「0초」보다 나쁘다.</b>
+    /// </para>
+    /// </remarks>
     public static string Elapsed(AiTaskDto t)
     {
+        if (t.IsBusy)
+        {
+            // 아직 집어 가지 않았다. 「0초」라고 적으면 **돌다가 즉시 끝난 것**과
+            // 구별이 안 된다.
+            return t.StartedAt is { } running ? Span(DateTime.Now - running) : "대기 중";
+        }
+
         if (t.DurationMs is > 0)
         {
             return Span(TimeSpan.FromMilliseconds(t.DurationMs.Value));
         }
 
-        if (t.StartedAt is { } started)
+        // 끝났는데 잰 값이 없다(취소·중단으로 서버가 못 적은 경우). 남은 두
+        // 시각으로 대신 센다.
+        if (t.StartedAt is { } started && t.FinishedAt is { } finished)
         {
-            var running = DateTime.Now - started.ToLocalTime();
-
-            return running < TimeSpan.Zero ? "-" : Span(running);
+            return Span(finished - started);
         }
 
-        // 아직 시작도 안 했다. 「0초」라고 적으면 **돌다가 즉시 끝난 것**과
-        // 구별이 안 된다.
-        return t.IsBusy ? "대기 중" : "-";
+        return "-";
     }
 
     /// <summary>걸린 시간 한 토막. 큰 자리 둘까지만 적는다.</summary>
-    private static string Span(TimeSpan d) =>
-        d.TotalMinutes < 1 ? $"{(int)d.TotalSeconds}초"
-        : d.TotalHours < 1 ? $"{(int)d.TotalMinutes}분 {d.Seconds}초"
-        : $"{(int)d.TotalHours}시간 {d.Minutes}분";
+    private static string Span(TimeSpan d)
+    {
+        if (d < TimeSpan.Zero)
+        {
+            d = TimeSpan.Zero;
+        }
+
+        return d.TotalMinutes < 1 ? $"{(int)d.TotalSeconds}초"
+            : d.TotalHours < 1 ? $"{(int)d.TotalMinutes}분 {d.Seconds}초"
+            : $"{(int)d.TotalHours}시간 {d.Minutes}분";
+    }
 }
