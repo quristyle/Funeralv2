@@ -1250,26 +1250,32 @@
 
 /* ── 보낸 것 목록 ──────────────────────────────────────────── */
 
+/* 넷뿐이라 목록이 아니라 **카드 넉 장**이다. 줄로 늘어놓으면 제목 · 상태 ·
+   시각 · 걸린 시간이 한 줄을 다투다가 좁은 화면에서 제목부터 잘린다. */
 .pm-ask__list {
   list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
   margin: 0;
   padding: 0;
 }
 
-.pm-ask__item + .pm-ask__item {
-  border-top: 1px solid var(--jsini-border);
+.pm-ask__item {
+  border: 1px solid var(--jsini-border);
+  border-radius: 0.5rem;
+  overflow: hidden;
 }
 
-/* 줄 전체가 누르는 자리다. 표가 아니라 단추 목록인 이유는 **모바일에서
+/* 카드 전체가 누르는 자리다. 표가 아니라 단추 목록인 이유는 **모바일에서
    표의 가로 스크롤이 최악**이기 때문이다. */
 .pm-ask__head {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 0.4rem;
-  align-items: center;
   width: 100%;
   min-height: 2.75rem;
-  padding: 0.5rem 0.25rem;
+  padding: 0.6rem 0.75rem;
   border: 0;
   background: none;
   color: inherit;
@@ -1282,12 +1288,21 @@
   background: color-mix(in srgb, var(--jsini-text) 6%, transparent);
 }
 
+/* 윗층 — 상태 · 제목 · 언제. */
+.pm-ask__line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+}
+
 .pm-ask__title {
   flex: 1 1 10rem;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-weight: 600;
 }
 
 .pm-ask__when {
@@ -1296,8 +1311,34 @@
   white-space: nowrap;
 }
 
+/* 아랫층 — 시행시간과 총시행시간. 둘을 반반으로 나눈다. 한 줄로 이어
+   붙이면 값 둘이 붙어 **어느 쪽이 어느 것인지 읽어야 알게 된다.** */
+.pm-ask__meta {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.pm-ask__cell {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.pm-ask__label {
+  font-size: 0.75em;
+  opacity: 0.6;
+}
+
+.pm-ask__value {
+  font-size: 0.9em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 .pm-ask__body {
-  padding: 0.25rem 0.25rem 0.75rem;
+  padding: 0 0.75rem 0.75rem;
 }
 
 .pm-ask__dim {

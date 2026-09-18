@@ -177,11 +177,31 @@
                 @foreach (var t in _recent)
                 {
                     <li class="pm-ask__item">
+                        @* 카드 한 장이 건 하나다. 줄로 늘어놓으면 제목 · 상태 ·
+                           시각 · 걸린 시간 넷이 한 줄에 끼어 **좁은 화면에서
+                           제목이 먼저 잘린다** — 정작 무엇을 시켰는지가 사라진다.
+                           카드는 그 넷을 두 층으로 나눠 담는다. *@
                         <button type="button" class="pm-ask__head"
                                 @onclick="@(() => Toggle(t.TaskKey))">
-                            <span class="jsini-badge jsini-badge--@t.StatusTone">@t.StatusText</span>
-                            <span class="pm-ask__title">@t.Title</span>
-                            <span class="pm-ask__when">@When(t)</span>
+                            <span class="pm-ask__line">
+                                <span class="jsini-badge jsini-badge--@t.StatusTone">@t.StatusText</span>
+                                <span class="pm-ask__title">@t.Title</span>
+                                <span class="pm-ask__when">@When(t)</span>
+                            </span>
+
+                            @* 시행시간과 총시행시간. **끝난 뒤에 남는 것이 이 둘이다** —
+                               「언제 돌았나」와 「얼마나 걸렸나」. 돌고 있는 건은
+                               총시행시간이 지금까지 흐른 시간으로, 5초마다 다시 센다. *@
+                            <span class="pm-ask__meta">
+                                <span class="pm-ask__cell">
+                                    <span class="pm-ask__label">시행시간</span>
+                                    <span class="pm-ask__value">@RunAt(t)</span>
+                                </span>
+                                <span class="pm-ask__cell">
+                                    <span class="pm-ask__label">총시행시간</span>
+                                    <span class="pm-ask__value">@Elapsed(t)</span>
+                                </span>
+                            </span>
                         </button>
 
                         @if (_open == t.TaskKey)
@@ -243,8 +263,12 @@
         new("claude", "claude"), new("antigravity", "안티그래비티 (agy)"),
     ];
 
-    /// <summary>여기 보이는 건수. 목록 화면이 아니므로 짧게 둔다.</summary>
-    private const int RecentMax = 8;
+    /// <summary>
+    /// 여기 보이는 건수. 목록 화면이 아니므로 짧게 둔다 — <b>한 화면에
+    /// 들어가는 만큼</b>이다. 카드 한 장이 두 층이라 넷이면 자판이 올라와도
+    /// 끝 장이 화면 밖으로 밀리지 않는다. 더 봐야 하면 「AI 작업」 화면이다.
+    /// </summary>
+    private const int RecentMax = 4;
 
     private IReadOnlyList<AiTargetDto> _targets = [];
     private IReadOnlyList<AiTaskDto> _recent = [];
@@ -569,6 +593,60 @@
             return runs.Count;
         }, emptyMessage: string.Empty, failMessage: "결과를 읽지 못했습니다");
     }
+
+    /// <summary>
+    /// 시행시간 — <b>실제로 돌기 시작한 시각</b>이다. 아직 대기 중이면
+    /// 그런 시각이 없으므로 보낸 시각으로 대신하고, 그마저 없으면 비운다.
+    /// </summary>
+    /// <remarks>
+    /// 오늘 것은 <c>HH:mm</c> 만 적는다 — 이 화면에 남는 넷은 거의 오늘
+    /// 것이고, 날짜를 붙이면 좁은 칸에서 <b>시각이 먼저 잘린다.</b>
+    /// </remarks>
+    private static string RunAt(AiTaskDto t)
+    {
+        var at = t.StartedAt ?? t.RequestedAt ?? t.CreDt;
+
+        if (at is null)
+        {
+            return "-";
+        }
+
+        var local = at.Value.ToLocalTime();
+
+        return local.Date == DateTime.Today
+            ? local.ToString("HH:mm")
+            : local.ToString("MM-dd HH:mm");
+    }
+
+    /// <summary>
+    /// 총시행시간. <b>끝난 건은 서버가 잰 값</b>(<c>DurationMs</c>)을 그대로
+    /// 쓰고, 도는 중이면 시작한 때부터 지금까지를 센다 — 5초마다 목록을
+    /// 다시 읽으므로 그 자리에서 늘어난다.
+    /// </summary>
+    private static string Elapsed(AiTaskDto t)
+    {
+        if (t.DurationMs is > 0)
+        {
+            return Span(TimeSpan.FromMilliseconds(t.DurationMs.Value));
+        }
+
+        if (t.StartedAt is { } started)
+        {
+            var running = DateTime.Now - started.ToLocalTime();
+
+            return running < TimeSpan.Zero ? "-" : Span(running);
+        }
+
+        // 아직 시작도 안 했다. 「0초」라고 적으면 **돌다가 즉시 끝난 것**과
+        // 구별이 안 된다.
+        return t.IsBusy ? "대기 중" : "-";
+    }
+
+    /// <summary>걸린 시간 한 토막. 큰 자리 둘까지만 적는다.</summary>
+    private static string Span(TimeSpan d) =>
+        d.TotalMinutes < 1 ? $"{(int)d.TotalSeconds}초"
+        : d.TotalHours < 1 ? $"{(int)d.TotalMinutes}분 {d.Seconds}초"
+        : $"{(int)d.TotalHours}시간 {d.Minutes}분";
 
     private static string When(AiTaskDto t)
     {
