@@ -118,7 +118,10 @@
 .pm-split {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 1rem;
+
+  /* 두 판이 붙어 있으면 어디까지가 왼쪽인지 눈이 먼저 안 가른다.
+     본문 여백(24px)과 같은 값을 주어 판 사이도 같은 리듬으로 읽히게 한다. */
+  gap: var(--jsini-sp-2xl);
   align-items: start;
 }
 
@@ -958,21 +961,50 @@
    ---------------------------------------------------------- */
 
 .pm-ai-write,
-.pm-ai-watch { padding-top: 0.6rem; }
+.pm-ai-watch { padding-top: var(--jsini-sp-lg); }
+
+/* ── 설정 줄을 벌린다 (`pm-editform`) ─────────────────────────
+
+   칸 여덟이 세 줄에 들어가는데 줄 사이가 **12px** 뿐이라 한 덩어리 벽으로
+   읽혔다. 라벨이 테두리에 얹히면서 줄마다 글자가 하나 더 붙은 것도 겹쳤다.
+
+   줄 높이(32px)는 건드리지 않는다 — 칸을 키우면 설정이 화면을 더 먹고,
+   이 화면에서 가운데를 가져야 하는 것은 **지시문**이다. 벌리는 것은
+   줄 사이뿐이다.
+   ---------------------------------------------------------- */
+
+.pm-editform .dxbl-fl-item {
+  margin-bottom: var(--jsini-sp-md);
+}
+
+/* 마지막 줄 밑은 편집기 여백이 맡는다. 겹치면 그 사이만 휑하다. */
+.pm-editform .dxbl-fl-item:nth-last-child(-n + 3) {
+  margin-bottom: 0;
+}
 
 /* 편집기 자리. `CodeEditor` 는 `Height` 를 제 상자의 style 에 그대로 넣으므로
    이 판에 실제 높이가 있어야 100% 가 뜻을 갖는다 — Monaco 는 높이를 못 받으면
-   5px 로 접힌다(아래 `pm-editor__inner` 머리말). */
+   5px 로 접힌다(아래 `pm-editor__inner` 머리말).
+
+   **위쪽에 선을 하나 긋는다.** 설정과 지시문은 성격이 다른데(하나는 골라
+   두는 값, 하나는 사람이 쓰는 글) 여백만으로는 그 경계가 안 읽혔다.
+   선 하나면 눈이 둘을 따로 본다. */
 .pm-ai-editor {
-  margin: 0.75rem 0 1rem;
-  height: clamp(18rem, calc(100vh - 30rem), 60rem);
+  margin: var(--jsini-sp-xl) 0 var(--jsini-sp-lg);
+  padding-top: var(--jsini-sp-xl);
+  border-top: 1px solid var(--jsini-border);
+  /* 빼는 값(33rem)은 **편집기 위아래에 쌓인 것의 합**이다 — 머리줄·탭 줄·
+     조회판·설정 폼·단추 줄·본문 여백. 위쪽 간격을 늘리면 이 값도 같이
+     올려야 한다. 안 올리면 늘린 만큼 **단추 줄이 화면 밖으로 밀린다**
+     (실제로 밟았다 — 30rem 인 채로 간격만 늘렸더니 22px 잘렸다). */
+  height: clamp(18rem, calc(100vh - 33rem), 60rem);
 }
 
 .pm-ai-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-bottom: 0.75rem;
+  gap: var(--jsini-sp-sm);
+  margin-bottom: var(--jsini-sp-lg);
 }
 
 /* ── 편집기 높이 (`pm-editor__inner`) ─────────────────────────
@@ -1109,7 +1141,11 @@
 .pm-ai-row {
   display: flex;
   flex-direction: column;
-  gap: 0.1rem;
+
+  /* 제목과 잔글씨가 붙어 있으면 두 줄이 한 덩어리로 뭉쳐 보인다.
+     0.1rem 은 붙은 것과 다름없었다. */
+  gap: var(--jsini-sp-2xs);
+  padding: var(--jsini-sp-2xs) 0;
   min-width: 0;
 }
 

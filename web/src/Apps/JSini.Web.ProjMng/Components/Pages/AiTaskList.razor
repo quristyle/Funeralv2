@@ -102,6 +102,7 @@
 <div class="pm-split">
     <CommCont Title="작업" Hint="@ListHint" CssClass="pm-split__side">
         <CommGrd TItem="AiTaskDto"
+        ShowRowNumber="false"
                  Data="@_rows"
                  ExportName="AI작업"
                  PageSize="20"
@@ -154,7 +155,7 @@
                     </CellDisplayTemplate>
                 </DxGridDataColumn>
 
-                <DxGridDataColumn Caption="상태" Width="104">
+                <DxGridDataColumn Caption="상태" Width="54">
                     <CellDisplayTemplate Context="cell">
                         @{
                             var t = (AiTaskDto)cell.DataItem;
