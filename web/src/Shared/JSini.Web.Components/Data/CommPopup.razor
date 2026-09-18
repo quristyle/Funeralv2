@@ -57,7 +57,7 @@
 <DxPopup Visible="@Visible"
          VisibleChanged="@OnVisibleChangedAsync"
          HeaderText="@HeaderText"
-         CssClass="@CssClass"
+         CssClass="@PopupClass"
          HeaderCssClass="@HeaderClass"
          FooterCssClass="@FooterCssClass"
          Width="@Width"
@@ -111,6 +111,35 @@
 
     /// <inheritdoc cref="CssClass"/>
     [Parameter] public string? HeaderCssClass { get; set; }
+
+    /// <summary>
+    /// 창에 실제로 붙는 클래스. <c>jsini-popup</c> 을 <b>항상</b> 붙이고
+    /// 화면이 준 것을 뒤에 잇는다.
+    ///
+    /// <para>
+    /// <b>휴대폰에서 창이 화면보다 넓다.</b> 창 너비는 화면마다 픽셀로 박혀
+    /// 있고(420 · 560 · 880 …) 그 값은 데스크톱을 보고 고른 것이다. 폭이
+    /// 360px 인 기기에서 420px 짜리 창이 뜨면 DevExpress 가 그것을 가운데
+    /// 두므로 <b>양옆이 똑같이 잘린다</b> — 글도 단추도 화면 밖이다.
+    /// </para>
+    ///
+    /// <para>
+    /// 화면마다 <c>min(420px, calc(100vw - 2rem))</c> 으로 고쳐 적는 길도
+    /// 있었지만(그렇게 해 둔 화면이 넷 있다) 창이 서른 개가 넘어 반드시
+    /// 몇 개를 빠뜨리고, 빠뜨린 창은 <b>휴대폰으로 그 창을 여는 사람이
+    /// 나올 때까지 아무도 모른다.</b> 그래서 표시만 붙이고 폭은 app.css 가
+    /// 한 규칙으로 가둔다.
+    /// </para>
+    ///
+    /// <para>
+    /// DevExpress 자신의 창(달력·목록 드롭다운, 바닥에서 올라오는 판)까지
+    /// 한꺼번에 겨누지 않는 이유는 그쪽이 이미 좁은 화면을 따로 다루기
+    /// 때문이다 — 같이 가두면 바닥 판이 화면을 다 못 채운다.
+    /// </para>
+    /// </summary>
+    private string PopupClass => string.IsNullOrWhiteSpace(CssClass)
+        ? "jsini-popup"
+        : $"jsini-popup {CssClass}";
 
     /// <summary>
     /// 머리에 실제로 붙는 클래스. <c>jsini-drag-head</c> 를 <b>항상</b> 붙이고

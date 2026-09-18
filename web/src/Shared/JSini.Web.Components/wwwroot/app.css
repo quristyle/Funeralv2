@@ -3088,6 +3088,13 @@ button.jsini-crumbs__item:hover { opacity: 1; }
   padding: 0.5rem 0.25rem;
   white-space: pre-line;
   line-height: 1.5;
+
+  /* 묻는 글에는 사람이 지은 이름이 그대로 들어간다(「{대상}」 에서 …).
+     그 이름이 띄어쓰기 없이 길면 — 저장소 경로·URL·`ai-task-runner-01`
+     같은 것들 — 한 줄이 창보다 길어져 오른쪽이 잘린다. 창을 화면 안에
+     가두는 것만으로는 이 줄이 안 접힌다. `anywhere` 는 넘칠 때만 끊어서
+     평범한 문장의 줄바꿈 자리는 건드리지 않는다. */
+  overflow-wrap: anywhere;
 }
 
 .jsini-notice {
@@ -4832,6 +4839,44 @@ button.jsini-crumbs__item:hover { opacity: 1; }
 #components-reconnect-modal {
   /* 안쪽 상자가 흰 바탕이라 글자는 늘 어두운 쪽이다(머리말). */
   color: #1f2328;
+}
+
+/* ── 좁은 화면에서는 창을 화면 안에 가둔다 ────────────────────
+
+   창 너비는 화면이 픽셀로 준다(`Width="420px"` · `"880px"` …). 전부
+   데스크톱을 보고 고른 값이라 **폭이 360px 인 기기에서는 창이 화면보다
+   넓다.** DevExpress 는 창을 가운데 두므로(`justify-self: center`) 넘친
+   만큼이 양옆으로 똑같이 잘린다 — 묻는 글의 첫 글자와 끝 글자가 함께
+   사라지고, 바닥의 「취소」도 화면 밖으로 나간다.
+
+   `max-width` 로 가두면 화면이 준 `width` 는 그대로 두고 좁은 기기에서만
+   접힌다. 창은 `box-sizing: border-box` 라 테두리까지 이 안이다.
+
+   **우리 창에만 건다**(`jsini-popup` · `jsini-gridpopup`). `.dxbl-popup` 을
+   통째로 겨누면 DevExpress 가 좁은 화면에서 바닥부터 올리는 판
+   (`dxbl-btn-dropdown-modal`)과 달력·목록 드롭다운까지 같이 걸려, 화면을
+   꽉 채워야 할 판이 양옆에 틈을 두고 뜬다.
+
+   `1.5rem` 은 좌우 0.75rem 씩이다. 창이 화면에 딱 붙으면 뒤가 덮인 것인지
+   페이지가 그렇게 생긴 것인지 구별이 안 된다.
+
+   **`!important` 가 필요하다.** 폭을 직접 준 창에는 DevExpress 가
+   `dxbl-popup-fixed-width` 를 붙이고, 테마에
+
+       .dxbl-modal > .dxbl-modal-root > .dxbl-popup.dxbl-popup-fixed-width
+       { max-width: unset }
+
+   가 있다 — 「폭을 박았으니 아무것도 줄이지 마라」는 뜻이고, 그 규칙은
+   미디어 쿼리 밖이라 휴대폰에서도 산다. 겨누는 자리를 늘려 이기는 방법도
+   있지만 그러면 DevExpress 가 다음 판에서 마크업을 한 겹 바꾸는 순간
+   말없이 풀린다.
+   ------------------------------------------------------------ */
+
+@media (max-width: 767px) {
+  .jsini-popup,
+  .jsini-gridpopup {
+    max-width: calc(100vw - 1.5rem) !important;
+  }
 }
 
 /* ── 표의 편집 창을 CommPopup 과 같게 보이게 한다 ──────────────
