@@ -52,6 +52,12 @@ public sealed class RunnerWorker(
     /// <summary>종이 울렸다는 표시. 폴링이 기다리다 이것을 보면 바로 깬다.</summary>
     private readonly SemaphoreSlim _bell = new(0);
 
+    /// <summary>
+    /// 같은 대상을 두 실행이 동시에 건드리지 않게 막는다. 까닭과 범위는
+    /// <see cref="TargetGate"/> 머리말에 있다.
+    /// </summary>
+    private readonly TargetGate _targets = new();
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         if (string.IsNullOrWhiteSpace(_options.RunnerToken))
@@ -226,9 +232,48 @@ public sealed class RunnerWorker(
         var parkLabel = $"ai-run-{claim.RunKey} (작업 {claim.TaskKey}) "
                         + (claim.Title ?? "AI 작업").Replace('\n', ' ');
 
+        // ── 같은 대상의 차례를 받는다 ───────────────────────
+        //
+        // **원본 직접은 실행이 끝날 때까지, 나머지는 준비가 끝날 때까지**
+        // 잡는다(`TargetGate` 머리말). 앞엣것은 두 실행이 같은 파일을 고치는
+        // 것을 막고, 뒤엣것은 정본에서 도는 fetch·pull·worktree add 가 겹쳐
+        // git 이 `index.lock` 을 못 잡는 것을 막는다.
+        var targetPath = claim.Target?.TargetPath;
+        var inplace = claim.Target is { } t && Workspace.IsolationOf(t) == "inplace";
+
+        var hold = await _targets.HoldAsync(
+            targetPath,
+            () => SayAsync(inplace
+                ? "[대기] 같은 대상에서 다른 작업이 돌고 있습니다. 끝나면 이어서 시작합니다."
+                : "[대기] 같은 정본을 다른 작업이 준비 중입니다. 잠시 기다립니다."),
+            ct);
+
+        // 원본 직접이 아니면 준비가 끝나는 대로 놓는다. try 안에서 놓으므로
+        // 여기서는 들고만 있는다.
+        var held = true;
+
+        async Task ReleaseAsync()
+        {
+            if (!held)
+            {
+                return;
+            }
+
+            held = false;
+            await hold.DisposeAsync();
+        }
+
         try
         {
             prepared = await workspace.PrepareAsync(claim, SayAsync, ct);
+
+            if (!inplace)
+            {
+                // worktree · 복사본은 여기서부터 자기 자리에서만 논다.
+                // 계속 잡고 있으면 같은 정본을 쓰는 다른 작업이 **CLI 가 도는
+                // 30분 내내** 줄을 선다.
+                await ReleaseAsync();
+            }
 
             // 지시문을 파일로도 남긴다. **전달 방식과 무관하게 늘 한다** —
             // 그 파일 하나면 사람이 같은 명령을 그대로 다시 칠 수 있다.
@@ -386,6 +431,13 @@ public sealed class RunnerWorker(
             {
                 await workspace.CleanupAsync(prepared, keepWorkspace, CancellationToken.None);
             }
+
+            // **치운 뒤에 놓는다.** 원본 직접은 `ParkAsync` 로 정본을 stash 에
+            // 옮기고 `CleanupAsync` 까지 끝나야 다음 실행이 깨끗한 자리를
+            // 본다. 먼저 놓으면 다음 실행이 **치우는 중인 정본**을 집는다.
+            //
+            // 준비만 잡았던 경우에는 이미 놓았고, 두 번 놓지 않는다.
+            await ReleaseAsync();
 
             if (gone)
             {

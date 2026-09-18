@@ -19,6 +19,39 @@ namespace AiTaskRunner;
 /// </remarks>
 public sealed class Workspace(RunnerOptions options, ILogger<Workspace> logger)
 {
+    /// <summary>
+    /// 이 대상이 <b>어떤 격리로 돌 것인가.</b>
+    ///
+    /// <para>
+    /// <see cref="PrepareAsync"/> 안에서만 정하던 값을 밖으로 냈다.
+    /// 실행기가 <b>어디까지 잠글지</b>를 이 값으로 정하기 때문이다
+    /// (<c>RunnerWorker</c> 의 대상 잠금). 두 곳이 서로 다른 답을 내면
+    /// 원본 직접인데 잠그지 않는 경우가 생기고, 그것이 곧 두 실행이 같은
+    /// 파일을 동시에 고치는 상황이다.
+    /// </para>
+    ///
+    /// <para>
+    /// worktree 의 <c>.git</c> 은 폴더가 아니라 <b>파일</b>이다. 폴더만 보면
+    /// worktree 안에서 돌 때 저장소가 아닌 것으로 읽힌다.
+    /// </para>
+    /// </summary>
+    public static string IsolationOf(ServerClient.Target target)
+    {
+        if (target.IsolationMode is { Length: > 0 } chosen)
+        {
+            return chosen;
+        }
+
+        if (target.TargetPath is not { Length: > 0 } path)
+        {
+            return "copy";
+        }
+
+        var dotGit = Path.Combine(path, ".git");
+
+        return Directory.Exists(dotGit) || File.Exists(dotGit) ? "worktree" : "copy";
+    }
+
     public async Task<Prepared> PrepareAsync(
         ServerClient.Claim claim, Func<string, Task> say, CancellationToken ct)
     {
@@ -43,7 +76,7 @@ public sealed class Workspace(RunnerOptions options, ILogger<Workspace> logger)
         var dotGit = Path.Combine(path, ".git");
         var isRepo = Directory.Exists(dotGit) || File.Exists(dotGit);
 
-        var isolation = target.IsolationMode ?? (isRepo ? "worktree" : "copy");
+        var isolation = IsolationOf(target);
 
         // 저장소로 등록해 놓고 실제로는 아니면 **여기서 말한다.** 그냥 넘기면
         // 당기지도 올리지도 않은 채 성공으로 끝나고, 사람은 최신에서 돌았다고
