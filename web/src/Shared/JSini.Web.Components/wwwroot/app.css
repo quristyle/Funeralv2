@@ -321,6 +321,73 @@ body {
   grid-template-columns: 0 1fr;
 }
 
+/* ── 좁은 화면에서 메뉴를 여닫는 둘 ───────────────────────
+
+   덮개(`__scrim`)와 떠다니는 단추(`__fab`)다. 생김새는 여기 한곳에 적고
+   **보이고 안 보이고는 아래 미디어 쿼리(≤767px)가 정한다** — 둘 다 기본은
+   안 보임이다. 넓은 화면에는 늘 자리를 차지하는 사이드바와 구분선의 접기
+   화살표가 있어서, 덮을 것도 띄울 것도 없다.
+
+   `MainLayout` 이 **마크업은 늘 그린다.** 화면 크기로 갈아 끼우지 않는
+   그 파일의 규칙대로고, 그래야 프리렌더(화면 크기를 모른다)에서 나간
+   그림과 회로가 붙은 뒤의 그림이 같다.
+   ---------------------------------------------------------- */
+
+.jsini-shell__scrim {
+  display: none;
+  position: fixed;
+
+  /* 헤더는 덮지 않는다 — 방금 누른 ☰ 로 다시 닫을 수 있어야 한다.
+     사용자 메뉴(`.jsini-user__scrim`)의 덮개와 같은 자리다. */
+  inset: var(--jsini-header-height) 0 0 0;
+
+  /* 사이드바(1030)보다 **아래**, 본문보다 위. 판은 덮개 위에 떠 있어야 하고
+     본문은 그 아래로 잠겨야 한다. */
+  z-index: 1029;
+
+  /* 옅게 어둡힌다. 아예 투명하면 「눌러서 닫는 자리」인 줄 모르고, 짙으면
+     본문이 없어진 것처럼 보여 메뉴를 열어 보기가 망설여진다. */
+  background: rgb(0 0 0 / 35%);
+}
+
+/* 떠다니는 메뉴 단추. **왼쪽 아래**다 — 사이드바가 나오는 쪽이고, 한 손으로
+   쥔 휴대폰에서 엄지가 닿는 쪽이다.
+
+   `env(safe-area-inset-*)` 을 더한다. 아이폰의 홈 막대와 노치 있는 기기의
+   왼쪽 여백 안에 들어가면 **단추의 아래 절반이 안 눌린다.** 지원하지 않는
+   브라우저에서는 0 이라 0.75rem 그대로다. */
+.jsini-shell__fab {
+  display: none;
+  position: fixed;
+  left: calc(0.75rem + env(safe-area-inset-left));
+  bottom: calc(0.75rem + env(safe-area-inset-bottom));
+  z-index: 1031;
+
+  /* 손가락으로 누르는 단추다. 접근성 안내가 말하는 최소 44px 를 넘긴다. */
+  width: 3rem;
+  height: 3rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--jsini-accent);
+  color: #fff;
+  box-shadow: 0 3px 10px rgb(0 0 0 / 30%);
+  cursor: pointer;
+}
+
+.jsini-shell__fab:active {
+  background: color-mix(in srgb, var(--jsini-accent) 88%, #000);
+}
+
+/* 그림은 단추보다 한 뼘 크게. 기본값(1.35rem)으로 두면 동그라미 가운데가
+   비어 보인다. */
+.jsini-shell__fab [class^='jsini-icon-'] {
+  width: 1.6rem;
+  height: 1.6rem;
+}
+
 /* ── 사이드바 ↔ 본문 사이의 구분선 (DxSplitter) ───────────
 
    [격자 칸 둘을 부품 하나가 대신한다]
@@ -1889,7 +1956,21 @@ button.jsini-crumbs__item:hover { opacity: 1; }
     box-shadow: 0 0 24px rgb(0 0 0 / 25%);
   }
 
-  .jsini-shell--collapsed .jsini-shell__sidebar { display: none; }
+  /* **펴진 표시가 붙었을 때만 그린다.** 접힘(`--collapsed`)을 보고 감추던
+     자리인데, 그러면 **프리렌더가 나갈 때 사이드바가 펴진 채**라(화면 크기를
+     모르니 휴대폰인 줄도 모른다) 첫 그림에서 판이 본문을 덮었다가 회로가
+     붙은 뒤에 걷혔다.
+
+     표시를 붙이는 쪽은 `MainLayout.ShellCss` 다 — 휴대폰이면서 펴져 있을
+     때만 붙는다. */
+  .jsini-shell__sidebar { display: none; }
+
+  .jsini-shell--nav-open .jsini-shell__sidebar { display: block; }
+
+  /* 덮개와 떠다니는 단추는 이 폭에서만 켠다(생김새는 위에 있다). */
+  .jsini-shell__scrim { display: block; }
+
+  .jsini-shell__fab { display: inline-flex; }
 
   .jsini-shell__main { grid-column: 1; }
 

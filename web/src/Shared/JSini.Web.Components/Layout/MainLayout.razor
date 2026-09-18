@@ -43,6 +43,12 @@
     `NavigationManager.LocationChanged` 한 곳에서 처리한다 — 화면마다 알리면
     반드시 몇 개를 빠뜨리고, 그 화면만 탭이 안 열린다.
 
+    [휴대폰에서 메뉴를 여닫는 길이 셋이다]
+
+    헤더의 ☰ · **왼쪽 아래에 떠 있는 단추** · 뒤로 가기. 그리고 펴져 있을 때
+    **본문을 누르면 닫힌다**(덮개가 그 누름을 받는다). 셋 다 `_sidebarOpen`
+    하나를 여닫으므로, 어디로 열었든 어느 길로든 닫힌다.
+
     [휴대폰에서 뒤로 가기는 메뉴부터 닫는다]
 
     덮개가 떠 있는데 뒤로 가기가 화면을 옮겨 버리면, 메뉴를 열었다가 그만두는
@@ -75,10 +81,18 @@
 @inject IJSRuntime Js
 @inject ILogger<MainLayout> Log
 
-<DxLayoutBreakpoint DeviceSize="DeviceSize.XSmall" @bind-IsActive="_isPhone" />
-<DxLayoutBreakpoint DeviceSize="DeviceSize.Small" @bind-IsActive="_isTablet" />
+@* **`@bind-IsActive` 가 아니다.** 묶어만 두면 화면 크기가 바뀔 때 필드가
+   갈리고 다시 그려질 뿐, `OnParametersSet` 은 불리지 않는다(매개변수를
+   넣어 주는 쪽은 라우터다). 그래서 「휴대폰이면 접는다」가 **휴대폰으로
+   처음 들어온 순간에는 한 번도 돌지 않아서**, 첫 그림에서 펴져 있던
+   사이드바가 본문을 덮은 채 남았다 — 메뉴를 눌러 화면을 한 번 옮겨야
+   걷혔다. 받아서 `ApplyViewport()` 를 직접 부른다. *@
+<DxLayoutBreakpoint DeviceSize="DeviceSize.XSmall"
+                    IsActive="_isPhone" IsActiveChanged="@OnPhoneChanged" />
+<DxLayoutBreakpoint DeviceSize="DeviceSize.Small"
+                    IsActive="_isTablet" IsActiveChanged="@OnTabletChanged" />
 
-<div class="jsini-shell @(_sidebarOpen ? "" : "jsini-shell--collapsed")">
+<div class="@ShellCss">
 
     <header class="jsini-header">
         @* 데모의 헤더 왼쪽은 [동그란 접기 단추][로고][세로 선][이름] 이다.
@@ -176,6 +190,49 @@
         </Panes>
     </DxSplitter>
 
+    @* ── 덮개 ────────────────────────────────────────────
+
+       휴대폰에서 메뉴가 펴져 있는 동안 본문 위에 깔린다. **아무 데나 누르면
+       메뉴가 닫힌다** — 덮인 화면을 누르려던 손가락이 그대로 닫는 손짓이 된다.
+
+       그 한 번은 본문에 닿지 않는다(안드로이드·iOS 의 서랍이 다 그렇다).
+       덮개 없이 본문에 갈고리를 걸면 눌린 단추가 함께 눌리고, 그러면
+       **메뉴를 걷으려던 손짓이 저장이나 삭제가 되는 자리**가 생긴다.
+
+       **넓은 화면에서는 CSS 가 감춘다**(≤767px 에서만 보인다). `_isPhone`
+       으로 가르지 않는 이유는 그 값이 회로가 붙은 뒤에야 참이 되기 때문이다 —
+       첫 그림에서 덮개가 한 번 깜빡인다.
+
+       헤더는 덮지 않는다(`top: 헤더 높이`). 방금 누른 ☰ 로 다시 닫을 수
+       있어야 한다 — 사용자 메뉴·테마 서랍의 덮개와 같은 자리다. *@
+    @if (_sidebarOpen)
+    {
+        <div class="jsini-shell__scrim" @onclick="@CloseSidebar"></div>
+    }
+
+    @* ── 떠다니는 메뉴 단추 ───────────────────────────────
+
+       휴대폰 왼쪽 아래에 떠 있다. 헤더의 ☰ 와 **같은 상태를 나눠 쓴다** —
+       누르는 자리만 둘이고 하는 일은 하나다.
+
+       왼쪽 **아래**인 이유는 손가락이다. 한 손으로 쥔 휴대폰에서 화면 맨
+       위 모서리는 쥔 손을 고쳐 잡아야 닿고, 메뉴는 그 화면에서 가장 자주
+       누르는 것이다. 사이드바가 왼쪽에서 나오므로 같은 쪽에 둔다.
+
+       **DxButton 이 아니다.** 여닫힘에 따라 그림이 바뀌고(☰ ↔ ✕) 덮개보다
+       위에 떠야 하는데, 그 두 가지를 부품 바깥에서 CSS 로 덮어쓰는 것보다
+       단추 하나를 그리는 편이 짧다.
+
+       **늘 그린다.** 보이고 안 보이고는 CSS 가 정한다 — 화면 크기로 마크업을
+       갈아 끼우지 않는 이 파일의 규칙 그대로다. *@
+    <button type="button" class="jsini-shell__fab"
+            title="메뉴 접기/펴기" aria-label="메뉴 접기/펴기"
+            aria-expanded="@(_sidebarOpen ? "true" : "false")"
+            @onclick="@ToggleSidebarAsync">
+        <span class="@(_sidebarOpen ? "jsini-icon-close" : "jsini-icon-menu")"
+              aria-hidden="true"></span>
+    </button>
+
 </div>
 
 @* 잠금 덮개 (D7). 격자 **바깥**에 둔다 — 안에 두면 격자 칸 하나를 차지해
@@ -216,6 +273,22 @@
                  FreezeOnClick="true" />
 
 @code {
+    /// <summary>
+    /// 셸의 클래스. 접힘은 <c>--collapsed</c>, <b>휴대폰에서 펴진 것은
+    /// <c>--nav-open</c></b> 이다.
+    ///
+    /// <para>
+    /// <b>펴짐을 따로 표시하는 이유</b>는 첫 그림 때문이다. 프리렌더는
+    /// 화면 크기를 모르므로 <c>_isPhone</c> 이 거짓이고 사이드바는 펴진
+    /// 채로 나간다 — 휴대폰이면 그 판이 본문을 덮은 그림이 회로가 붙을
+    /// 때까지 떠 있다. 좁은 화면에서는 이 표시가 붙었을 때만 사이드바를
+    /// 그리게 해 두면(app.css) 그 깜빡임이 없어진다.
+    /// </para>
+    /// </summary>
+    private string ShellCss => _sidebarOpen
+        ? (_isPhone ? "jsini-shell jsini-shell--nav-open" : "jsini-shell")
+        : "jsini-shell jsini-shell--collapsed";
+
     private bool _sidebarOpen = true;
     private bool _isPhone;
     private bool _isTablet;
@@ -487,7 +560,8 @@
     }
 
     /// <summary>
-    /// 화면 크기가 바뀌면 메뉴를 다시 거른다 (`use_mobile` · `use_tablet`).
+    /// 새 화면이 끼워졌다. 본문이 갈렸는지 보고, 화면 크기에 맞춘 일
+    /// (<see cref="ApplyViewport"/>)을 한 번 더 한다.
     ///
     /// Vue 에서는 `matchMedia` 를 직접 구독했다. Blazor Server 는 브라우저 상태를
     /// 모르므로 DevExpress 의 DxLayoutBreakpoint 가 알려 주는 것을 받아 옮긴다.
@@ -504,6 +578,36 @@
             _bodyChanged = true;
         }
 
+        ApplyViewport();
+    }
+
+    /// <summary>
+    /// 휴대폰 경계(≤767px)를 넘었다. 값만 받아 <see cref="ApplyViewport"/> 에 넘긴다.
+    /// </summary>
+    private void OnPhoneChanged(bool active)
+    {
+        _isPhone = active;
+        ApplyViewport();
+    }
+
+    /// <summary>태블릿 경계(≤1023px)를 넘었다.</summary>
+    private void OnTabletChanged(bool active)
+    {
+        _isTablet = active;
+        ApplyViewport();
+    }
+
+    /// <summary>
+    /// 지금 화면 크기에 맞춰 <b>메뉴를 거르고, 휴대폰이면 사이드바를 접는다.</b>
+    ///
+    /// <para>
+    /// 부르는 자리가 둘이다 — 화면이 갈릴 때(<c>OnParametersSet</c>)와
+    /// <b>화면 크기가 갈릴 때</b>(위 두 갈고리). 뒤쪽이 없으면 휴대폰으로
+    /// 처음 들어온 사람이 메뉴를 한 번 누르기 전까지 덮개를 걷지 못한다.
+    /// </para>
+    /// </summary>
+    private void ApplyViewport()
+    {
         var viewport = _isPhone ? Viewport.Phone
             : _isTablet ? Viewport.Tablet
             : Viewport.Desktop;
