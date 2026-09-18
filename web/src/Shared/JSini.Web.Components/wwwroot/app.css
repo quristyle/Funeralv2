@@ -1883,6 +1883,19 @@ button.jsini-crumbs__item:hover { opacity: 1; }
      감추는 것과 같은 이유다). */
   .jsini-header__brand-text,
   .jsini-header__brand .jsini-header__sep { display: none; }
+
+  /* 헤더 오른쪽에 남는 단추는 **넷뿐이다** — 빠른 지시 · 알림 · AI · 프로필.
+
+     360px 짜리 띠에는 로고와 ☰ 가 이미 앉아 있어서, 단추 일곱이 그 뒤에
+     늘어서면 하나하나가 손가락보다 좁아진다. 눌리지 않는 단추 일곱보다
+     눌리는 단추 넷이 낫다.
+
+     빠지는 것은 즐겨찾기 · 새로 고침 · 전체화면(`--wide` 표를 붙여 둔 셋,
+     `HeaderTools.razor` 머리말)과 테마다. 테마는 **없어지는 것이 아니라**
+     프로필 메뉴의 「환경설정 (테마 · 크기)」로 들어간다 — 판(`.jsini-theme-panel`)
+     은 그대로 두고 **여는 단추만** 감추는 이유가 그것이다. */
+  .jsini-header__tool--wide,
+  .jsini-theme-anchor { display: none; }
 }
 
 /* ── 공통 조회 영역 (CommSch) ─────────────────────────────────
