@@ -1027,6 +1027,20 @@
   cursor: pointer;
 }
 
+/* 가동 시간. **숫자가 1초마다 바뀌는 자리**라 고정폭으로 둔다 —
+   아니면 글자 너비가 들쭉날쭉해 옆의 단추들이 초마다 흔들린다. */
+.pm-ai-elapsed {
+  font-variant-numeric: tabular-nums;
+  color: var(--jsini-text-muted);
+}
+
+/* 도는 중인 것만 진하게. 끝난 것들과 섞여 있을 때 **지금 도는 것**을
+   색으로 먼저 찾게 한다. */
+.pm-ai-elapsed--on {
+  color: var(--jsini-accent);
+  font-weight: 600;
+}
+
 /* 고른 실행. 테마의 강조색을 쓴다 — 여기도 부트스트랩 변수는 없다. */
 .pm-ai-run--on {
   border-color: var(--jsini-accent);
