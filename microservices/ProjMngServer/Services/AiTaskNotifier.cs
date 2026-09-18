@@ -27,7 +27,8 @@ namespace ProjMngServer.Services;
 /// </para>
 /// </remarks>
 public sealed class AiTaskNotifier(
-    IConfiguration configuration, IHttpClientFactory http, ILogger<AiTaskNotifier> logger)
+    IConfiguration configuration, IHttpClientFactory http,
+    AiResultSummarizer summarizer, ILogger<AiTaskNotifier> logger)
 {
     private readonly string? _connectionString = configuration.GetConnectionString("jsini");
 
@@ -71,7 +72,8 @@ public sealed class AiTaskNotifier(
                        r.diff_stat     AS DiffStat,
                        r.error_summary AS ErrorSummary,
                        r.git_branch    AS GitBranch,
-                       r.instruction   AS Instruction
+                       r.instruction   AS Instruction,
+                       r.summary_text  AS SummaryText
                   FROM projmng.ai_task_run r
                   JOIN projmng.ai_task t   ON t.task_key = r.task_key
                   LEFT JOIN projmng.ai_target b ON b.target_key = t.target_key
@@ -122,6 +124,16 @@ public sealed class AiTaskNotifier(
                 return;
             }
 
+            // **여기서 AI 의 답을 AI 에게 한 번 더 정리시킨다.**
+            //
+            // 「보낼 건」이 확정된 뒤에 부른다. 앞의 관문들(받기 꺼짐 · 받는 사람
+            // 없음 · 주소 틀림)을 통과하지 못한 건까지 정리하면 **나가지도 않을
+            // 메일 때문에 모델을 부르는 일**이 된다.
+            //
+            // 못 정리해도 그냥 간다 — 아래 `Body` 가 null 을 받으면 옛 방식
+            // (결과문 앞 몇 줄 뜨기)으로 그린다.
+            var summary = await SummarizeAsync(db, row, runKey, ct);
+
             var client = http.CreateClient();
             client.Timeout = TimeSpan.FromSeconds(20);
 
@@ -133,7 +145,7 @@ public sealed class AiTaskNotifier(
                     to,
                     toUser,
                     subject = $"[AI 작업] {row.Title} — {StatusText(row.TaskStatus)}",
-                    body = Body(row),
+                    body = Body(row, summary),
                     // 저쪽 DTO 의 속성 이름은 `Html` 이다. `isHtml` 로 적으면
                     // 붙지 않고 조용히 기본값이 쓰인다 — 그러면 본문이 태그
                     // 그대로 보인다.
@@ -179,6 +191,54 @@ public sealed class AiTaskNotifier(
                 // 여기서 또 실패하면 남길 곳이 없다. 로그로 끝낸다.
             }
         }
+    }
+
+    /// <summary>
+    /// 이 실행의 결과문을 정리한 것을 구한다. <b>못 구하면 null 이고, 메일은 그대로 나간다.</b>
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>이미 있으면 다시 부르지 않는다.</b> <c>summary_text</c> 는 원래 이 자리
+    /// (「요약. 비면 result_text 를 쓴다」)를 위해 만들어 둔 칸인데 여태 아무도
+    /// 채우지 않았다. 여기서 채우고, 있으면 그것을 읽는다.
+    /// </para>
+    /// <para>
+    /// <b>채워 두는 값이 메일에서만 쓰이는 것이 아니다.</b> 이어가기 지시문이
+    /// 이 칸을 다음 실행의 문맥으로 올려보낸다 — 지금까지는 결과문 전문을
+    /// 1500자에서 자른 것이 올라갔다. 정리된 요약이 그 자리에 훨씬 맞다.
+    /// </para>
+    /// <para>
+    /// <b>저장에 실패해도 메일은 보낸다.</b> 요약은 이미 손에 있고, 못 적어 둔 것은
+    /// 다음에 한 번 더 부르면 되는 일이다 — 그것 때문에 메일을 빠뜨릴 이유가 없다.
+    /// </para>
+    /// </remarks>
+    private async Task<AiResultSummary?> SummarizeAsync(
+        NpgsqlConnection db, MailRow row, long runKey, CancellationToken ct)
+    {
+        if (AiResultSummary.Parse(row.SummaryText) is { } kept)
+        {
+            return kept;
+        }
+
+        var summary = await summarizer.SummarizeAsync(row.Instruction, row.ResultText, ct);
+
+        if (summary is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            await db.ExecuteAsync("""
+                UPDATE projmng.ai_task_run SET summary_text = @text WHERE run_key = @runKey
+                """, new { runKey, text = summary.ToText() });
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "정리된 요약을 저장하지 못했습니다 (run {RunKey}).", runKey);
+        }
+
+        return summary;
     }
 
     /// <summary>
@@ -235,7 +295,11 @@ public sealed class AiTaskNotifier(
     ///   <item><description><b>무엇을 시켰나</b> — 지시문 앞부분.
     ///   <b>이것이 한동안 빠져 있었다</b>: 답만 있고 물음이 없으면, 며칠 뒤에
     ///   열어 본 사람은 이 메일이 무엇에 대한 것인지 알 수 없다</description></item>
-    ///   <item><description><b>무엇을 했다나</b> — AI 의 답 앞부분</description></item>
+    ///   <item><description><b>무엇을 했다나</b> — <b>AI 가 다시 써 준 답.</b>
+    ///   예전에는 결과문의 앞 몇 줄을 그대로 떴는데, 실행기의 답은 「먼저 …를
+    ///   찾아보겠습니다」로 시작하고 결론은 끝에 있는 일이 잦았다 —
+    ///   <b>가장 잘 보여야 할 자리에 서론이 앉았다.</b>
+    ///   (<see cref="AiResultSummarizer"/>. 정리에 실패하면 옛 방식으로 돌아간다)</description></item>
     ///   <item><description><b>무엇이 바뀌었나</b> — 파일 수와 증감</description></item>
     ///   <item><description><b>내가 할 일이 있나</b> — 배포됐다 · 커밋만 있다 ·
     ///   사람이 봐야 한다</description></item>
@@ -262,7 +326,7 @@ public sealed class AiTaskNotifier(
     /// 통째로 무너진다. 마스킹 → 이스케이프 → 붙이기 순서를 지킨다.
     /// </para>
     /// </remarks>
-    private string Body(MailRow r)
+    private string Body(MailRow r, AiResultSummary? summary)
     {
         var accent = Accent(r.TaskStatus);
         var tint = Tint(r.TaskStatus);
@@ -301,8 +365,20 @@ public sealed class AiTaskNotifier(
         // **무엇을 시켰나.** 답만 있고 물음이 없으면 며칠 뒤의 나는
         // 이 메일이 무엇에 대한 것인지 알 수 없다.
         sb.Append(SummaryRow("시킨 것", Lines(Gist(r.Instruction, lines: 3)) ?? Muted("적힌 것이 없습니다")));
-        sb.Append(SummaryRow("AI 의 답", Lines(Gist(r.ResultText, lines: 5)) ?? Muted("아무 말 없이 끝났습니다")));
+        // **정리된 것이 있으면 그것을 쓴다.** 한 문장 + 점 몇 개로 나뉘어 있어
+        // 라벨 하나에 여러 줄이 뭉쳐 있던 예전 꼴보다 훨씬 빨리 읽힌다.
+        sb.Append(summary is not null
+            ? SummaryRow("AI 의 답", Said(summary))
+            : SummaryRow("AI 의 답", Lines(Gist(r.ResultText, lines: 5)) ?? Muted("아무 말 없이 끝났습니다")));
+
         sb.Append(SummaryRow("바뀐 것", Esc(ChangeGist(r))));
+
+        // 「확인할 것」은 AI 가 짚은 것이고, 아래의 「할 일」은 **기계가 아는 사실**
+        // (배포됐나 · 커밋만 있나)이다. 둘은 근거가 달라서 한 칸에 뭉치지 않는다.
+        if (summary is { Checks.Count: > 0 })
+        {
+            sb.Append(SummaryRow("확인할 것", Bullets(summary.Checks)));
+        }
 
         sb.Append("</table>");
 
@@ -328,9 +404,14 @@ public sealed class AiTaskNotifier(
 
         // 결과문이 비어 있으면 **그 사실을 적는다.** 빈 메일을 보내면
         // 받는 사람이 메일 사고로 읽는다.
+        //
+        // 위에 정리본을 올렸을 때는 **여기가 「원문」임을 밝힌다.** 같은 라벨이
+        // 두 번 나오면 둘이 어긋나 보일 때 어느 쪽이 손댄 것인지 알 수 없다.
+        var said = summary is null ? "AI 의 답" : "AI 의 답 (원문)";
+
         sb.Append(string.IsNullOrWhiteSpace(r.ResultText)
-            ? Block("AI 의 답", "(AI 가 아무 말 없이 끝났습니다. 화면에서 로그를 보십시오.)")
-            : Block("AI 의 답", SecretMask.Apply(r.ResultText)));
+            ? Block(said, "(AI 가 아무 말 없이 끝났습니다. 화면에서 로그를 보십시오.)")
+            : Block(said, SecretMask.Apply(r.ResultText)));
 
         // push 한 건은 **따로 적는다.** 같은 「완료」로 뭉개면 코드만 고친 건과
         // 운영이 바뀐 건을 구분할 수 없다(설계 9.3).
@@ -452,6 +533,49 @@ public sealed class AiTaskNotifier(
         </td></tr>
         """;
 
+    /// <summary>
+    /// 정리된 답 한 칸 — <b>한 문장 먼저, 그 아래 점 몇 개.</b>
+    /// </summary>
+    /// <remarks>
+    /// 첫 줄만 굵게 둔다. 전부 굵게 하면 강조가 사라지고, 전부 보통이면
+    /// <b>결론과 항목이 같은 무게로 보여</b> 다시 읽어야 알 수 있다.
+    /// </remarks>
+    private static string Said(AiResultSummary summary)
+    {
+        var sb = new StringBuilder();
+
+        if (summary.Headline.Length > 0)
+        {
+            sb.Append($"""<span style="font-weight:600;">{Esc(summary.Headline)}</span>""");
+        }
+
+        if (summary.Points.Count > 0)
+        {
+            sb.Append(summary.Headline.Length > 0 ? """<div style="height:4px;"></div>""" : string.Empty);
+            sb.Append(Bullets(summary.Points));
+        }
+
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// 점 찍힌 여러 줄. <b>&lt;ul&gt; 을 쓰지 않는다</b> — 메일 앱마다 들여쓰기와
+    /// 점 모양이 제각각이라 다른 칸과 왼쪽이 맞지 않는다. div 로 직접 그린다.
+    /// </summary>
+    private static string Bullets(IReadOnlyList<string> items)
+    {
+        var sb = new StringBuilder();
+
+        foreach (var item in items)
+        {
+            sb.Append($"""
+                <div style="padding-top:2px;padding-left:11px;text-indent:-11px;">· {Esc(item)}</div>
+                """);
+        }
+
+        return sb.ToString();
+    }
+
     /// <summary>요약 칸에 들어갈 여러 줄. 없으면 <c>null</c> 이다.</summary>
     private static string? Lines(IReadOnlyList<string>? lines) =>
         lines is { Count: > 0 }
@@ -517,9 +641,14 @@ public sealed class AiTaskNotifier(
     /// </summary>
     /// <remarks>
     /// <para>
-    /// AI 가 요약을 다시 써 주게 하지 않는다 — 그러면 <b>메일 한 통마다 모델을
-    /// 한 번 더 부르는 일</b>이 되고, 그 호출이 실패하면 메일이 안 나간다.
-    /// 결과문의 앞부분은 대개 이미 결론이라 그것으로 충분하다.
+    /// <b>이제는 되돌아가는 자리다.</b> 요약은 AI 가 다시 써 주고
+    /// (<see cref="AiResultSummarizer"/>), 이 함수는 <b>그것을 못 받았을 때</b>만
+    /// 쓰인다 — AI 가 안 떠 있거나, 느리거나, JSON 을 안 준 경우다.
+    /// </para>
+    /// <para>
+    /// 오래 이것이 유일한 방법이었던 이유는 「메일 한 통마다 모델을 한 번 더
+    /// 부르고, 그 호출이 실패하면 메일이 안 나간다」였다. 그 걱정을 없앤 것이
+    /// 바로 이 함수가 남아 있다는 사실이다 — <b>요약이 실패해도 메일은 나간다.</b>
     /// </para>
     /// <para>
     /// 표 구분선(<c>|---|</c>)이나 밑줄(<c>====</c>) 같은 <b>내용 없는 줄은
@@ -657,5 +786,10 @@ public sealed class AiTaskNotifier(
 
         /// <summary>그때 실제로 준 지시문. <b>요약에 「무엇을 시켰나」를 적으려면 필요하다.</b></summary>
         public string? Instruction { get; set; }
+
+        /// <summary>
+        /// AI 가 다시 써 준 요약. <b>이미 있으면 모델을 또 부르지 않는다.</b>
+        /// </summary>
+        public string? SummaryText { get; set; }
     }
 }

@@ -121,6 +121,12 @@ services:
     environment:
       <<: *common-env
       Kestrel__Endpoints__Http__Url: http://0.0.0.0:8080
+
+      # 결과 메일에 실을 요약을 AI 에게 다시 쓰게 한다. **컨테이너망 이름으로
+      # 부른다** — 기본값(127.0.0.1:5029)은 개발 장비 기준이라 컨테이너 안에서는
+      # 자기 자신을 가리킨다. 못 부르면 메일은 옛 방식(결과문 앞 몇 줄)으로
+      # 그대로 나가므로 **틀려도 조용하다** — 그래서 여기 적어 둔다.
+      AiTasks__AiUrl: http://ai:8080
     volumes:
       - /srv/jsini/config/ProjMngServer/appsettings.Local.json:/app/appsettings.Local.json:ro
 

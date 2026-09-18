@@ -56,6 +56,10 @@ builder.Services.AddScoped<AiRunService>();
 builder.Services.AddHttpClient();
 builder.Services.AddScoped<AiTaskNotifier>();
 
+// 메일에 실을 결과 요약을 AI 에게 다시 쓰게 한다(AIAgentServer 를 부른다).
+// **실패하면 null 을 주고 끝난다** — 메일은 옛 방식으로 그대로 나간다.
+builder.Services.AddScoped<AiResultSummarizer>();
+
 // 큐는 **종(bell)** 이다. 메시지에 taskKey 하나만 싣고 실제 상태 변경은
 // DB 의 원자적 UPDATE 가 한다 — 그래서 메시지를 잃어도 손실이 아니라 지연이다.
 builder.Services.AddSingleton<AiTaskQueue>();

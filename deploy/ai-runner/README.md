@@ -65,6 +65,12 @@ openssl rand -hex 24
 }
 ```
 
+> **결과 메일의 요약은 AI 가 다시 쓴다.** 그 호출 주소(`AiTasks__AiUrl`)는
+> compose 가 `http://ai:8080` 으로 넣어 주므로 여기 적을 것이 없다.
+> 끄려면 위 파일에 `"SummarizeResult": false` 를 더한다 — 그러면 예전처럼
+> **결과문의 앞 몇 줄**이 요약 칸에 들어간다. 못 불러도 같은 자리로 되돌아가니
+> **AI 가 꺼져 있어도 메일은 나간다.**
+
 > **`QueueHost` 를 `localhost` 로 두면 안 된다.** RabbitMQ 는 호스트에서 돌고
 > `ProjMngServer` 는 컨테이너 안이라, 거기서 `localhost` 는 자기 자신이다.
 > 넣기에 실패해도 실행기의 주기 조회가 집으므로 기능은 돌지만, **종이 안 울려
