@@ -1251,21 +1251,48 @@
 /* ── 보낸 것 목록 ──────────────────────────────────────────── */
 
 /* 넷뿐이라 목록이 아니라 **카드 넉 장**이다. 줄로 늘어놓으면 제목 · 상태 ·
-   시각 · 걸린 시간이 한 줄을 다투다가 좁은 화면에서 제목부터 잘린다. */
+   시각 · 걸린 시간이 한 줄을 다투다가 좁은 화면에서 제목부터 잘린다.
+
+   **가로 두 장씩 두 줄**로 놓는다. 한 줄에 한 장씩 쌓으면 넉 장이 세로로
+   길어져 마지막 장이 자판 아래로 밀리는데, 둘씩 놓으면 높이가 반이라
+   **넷이 한눈에 들어온다** — 「갔나 · 끝났나」를 보러 온 사람에게 필요한 것이
+   그것뿐이다.
+
+   좁아져도 한 줄로 풀지 않는다(`1fr 1fr` 고정). 「둘씩」이 이 목록의 모양이고,
+   반 폭에서 잘리는 것은 제목 한 줄뿐인데 그 자리는 눌러서 펼치면 나온다.
+
+   `align-items: start` 가 필요하다 — 없으면 격자가 같은 줄의 카드를
+   **펼친 쪽 높이에 맞춰 늘려** 옆 카드에 빈 바닥이 생긴다. */
 .pm-ask__list {
   list-style: none;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: start;
   gap: 0.5rem;
   margin: 0;
   padding: 0;
 }
 
+/* 상태를 카드의 색으로 말한다. 왼쪽 띠가 그 색이고 상태 글자도 같은 색이다.
+
+   **색은 공통 배지(`jsini-badge--*`)가 쓰는 값 그대로다.** 이 화면만의 색을
+   새로 만들면 같은 「완료」가 화면마다 다른 초록이 된다. 바탕은 칠하지
+   않는다 — 밝은 쪽 값이 굳어 어두운 테마에서 흰 칩이 되는 것과 같은 함정이다.
+
+   기본값은 흐림(`--off`)이라 수식어가 안 붙어도 띠가 사라지지는 않는다. */
 .pm-ask__item {
+  --pm-ask-tone: var(--jsini-text-muted);
+
   border: 1px solid var(--jsini-border);
+  border-left: 0.35rem solid var(--pm-ask-tone);
   border-radius: 0.5rem;
   overflow: hidden;
 }
+
+.pm-ask__item--on { --pm-ask-tone: #2e7d32; }
+.pm-ask__item--warn { --pm-ask-tone: #b26a00; }
+.pm-ask__item--err { --pm-ask-tone: #d32f2f; }
+.pm-ask__item--off { --pm-ask-tone: var(--jsini-text-muted); }
 
 /* 카드 전체가 누르는 자리다. 표가 아니라 단추 목록인 이유는 **모바일에서
    표의 가로 스크롤이 최악**이기 때문이다. */
@@ -1288,16 +1315,25 @@
   background: color-mix(in srgb, var(--jsini-text) 6%, transparent);
 }
 
-/* 윗층 — 상태 · 제목 · 언제. */
+/* 첫 층 — 상태와 언제. 반 폭 카드라 제목까지 여기에 얹지 않는다.
+   셋을 한 줄에 두면 **제목이 두 낱말 만에 잘린다.** */
 .pm-ask__line {
   display: flex;
-  flex-wrap: wrap;
   gap: 0.4rem;
-  align-items: center;
+  align-items: baseline;
+  justify-content: space-between;
 }
 
+/* 상태 글자. 띠와 같은 색을 쓴다(`--pm-ask-tone`). */
+.pm-ask__state {
+  font-size: 0.8em;
+  font-weight: 700;
+  color: var(--pm-ask-tone);
+  white-space: nowrap;
+}
+
+/* 둘째 층 — 제목. 한 줄을 통째로 쓰고 넘치면 … 로 자른다. */
 .pm-ask__title {
-  flex: 1 1 10rem;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1316,6 +1352,15 @@
 .pm-ask__meta {
   display: flex;
   gap: 0.75rem;
+}
+
+/* 휴대폰에서는 카드 폭이 화면의 반이라 두 칸이 나란히 서면 값이 붙는다.
+   그때는 위아래로 접는다 — **줄이는 것은 폭이지 값이 아니다.** */
+@media (max-width: 30rem) {
+  .pm-ask__meta {
+    flex-direction: column;
+    gap: 0.25rem;
+  }
 }
 
 .pm-ask__cell {

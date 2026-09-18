@@ -64,6 +64,11 @@
     「갔나?」와 「끝났나?」에 답하면 이 화면의 일은 끝이다 — 그 다음은 메일이다.
     끝난 건을 누르면 결과문이 펼쳐진다. 메일을 못 본 채로 다시 들어온
     경우를 위한 자리다.
+
+    그 자리는 **가로 두 장씩 넉 장**이고 제목을 달지 않는다. 세로로 쌓으면
+    넉 장이 화면 하나를 넘어 마지막 장이 자판 아래로 들어간다. 상태는
+    **카드의 색**으로 말한다 — 반 폭짜리 카드에 배지까지 얹으면 제목이 잘리고,
+    무엇을 시켰는지가 사라지면 상태만 남아도 소용이 없다.
 *@
 
 @inherits DataPage
@@ -165,8 +170,12 @@
         }
     </CommCont>
 
-    @* ── 보낸 것 ────────────────────────────────────────── *@
-    <CommCont Title="최근 보낸 것" Hint="@RecentHint">
+    @* ── 보낸 것 ──────────────────────────────────────────
+
+       제목을 달지 않는다. 이 판 위가 보내는 자리고 그 바로 아래에 카드가
+       깔리면 **그것이 방금 보낸 것들이라는 사실은 자리로 이미 말한다.**
+       모바일에서 제목 한 줄은 카드 한 층만큼의 높이다. *@
+    <CommCont>
         @if (_recent.Count == 0)
         {
             <PageNotice Tone="NoticeTone.Info" Text="아직 보낸 것이 없습니다." />
@@ -176,18 +185,25 @@
             <ul class="pm-ask__list">
                 @foreach (var t in _recent)
                 {
-                    <li class="pm-ask__item">
-                        @* 카드 한 장이 건 하나다. 줄로 늘어놓으면 제목 · 상태 ·
-                           시각 · 걸린 시간 넷이 한 줄에 끼어 **좁은 화면에서
-                           제목이 먼저 잘린다** — 정작 무엇을 시켰는지가 사라진다.
-                           카드는 그 넷을 두 층으로 나눠 담는다. *@
+                    @* 카드 한 장이 건 하나다. 줄로 늘어놓으면 제목 · 상태 ·
+                       시각 · 걸린 시간 넷이 한 줄에 끼어 **좁은 화면에서
+                       제목이 먼저 잘린다** — 정작 무엇을 시켰는지가 사라진다.
+                       카드는 그 넷을 두 층으로 나눠 담는다.
+
+                       상태는 **카드의 색**이다(`pm-ask__item--@t.StatusTone`).
+                       가로로 두 장씩 놓으면 카드 폭이 반이 되는데, 거기에
+                       윤곽선 배지까지 얹으면 제목이 다시 잘린다. 왼쪽 띠와
+                       상태 글자가 같은 색을 쓰므로 **훑을 때는 색으로, 확인할
+                       때는 글자로** 읽는다. *@
+                    <li class="pm-ask__item pm-ask__item--@t.StatusTone">
                         <button type="button" class="pm-ask__head"
                                 @onclick="@(() => Toggle(t.TaskKey))">
                             <span class="pm-ask__line">
-                                <span class="jsini-badge jsini-badge--@t.StatusTone">@t.StatusText</span>
-                                <span class="pm-ask__title">@t.Title</span>
+                                <span class="pm-ask__state">@t.StatusText</span>
                                 <span class="pm-ask__when">@When(t)</span>
                             </span>
+
+                            <span class="pm-ask__title">@t.Title</span>
 
                             @* 시행시간과 총시행시간. **끝난 뒤에 남는 것이 이 둘이다** —
                                「언제 돌았나」와 「얼마나 걸렸나」. 돌고 있는 건은
@@ -265,8 +281,12 @@
 
     /// <summary>
     /// 여기 보이는 건수. 목록 화면이 아니므로 짧게 둔다 — <b>한 화면에
-    /// 들어가는 만큼</b>이다. 카드 한 장이 두 층이라 넷이면 자판이 올라와도
+    /// 들어가는 만큼</b>이다. <b>가로 두 장씩 두 줄</b>이라 자판이 올라와도
     /// 끝 장이 화면 밖으로 밀리지 않는다. 더 봐야 하면 「AI 작업」 화면이다.
+    /// <para>
+    /// 넷이 <b>둘로 나누어떨어진다</b>는 것도 이 값의 일부다. 홀수로 두면
+    /// 마지막 줄에 빈 칸이 하나 남는다.
+    /// </para>
     /// </summary>
     private const int RecentMax = 4;
 
@@ -299,8 +319,6 @@
     private string AskHint => _targets.Count == 0
         ? string.Empty
         : "결과는 메일로 옵니다";
-
-    private string RecentHint => _recent.Count == 0 ? string.Empty : $"{_recent.Count}건";
 
     /// <summary>고른 대상이 허용한 AI 만 고르게 한다(「AI 작업」 화면과 같은 규칙).</summary>
     private IReadOnlyList<PickOption> AllowedKinds
