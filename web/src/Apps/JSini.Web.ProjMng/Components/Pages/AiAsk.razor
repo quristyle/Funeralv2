@@ -68,6 +68,21 @@
     **카드의 색**으로 말한다 — 반 폭짜리 카드에 배지까지 얹으면 제목이 잘리고,
     무엇을 시켰는지가 사라지면 상태만 남아도 소용이 없다.
 
+    [넉 장이 모자랄 때 — 「더보기」 (2026-09-19)]
+
+    넉 장은 「방금 보낸 것이 갔나」에 답하는 수다. 그런데 하루에 여남은 건을
+    던지고 나면 **아침에 보낸 것이 넉 장 밖으로 밀려난다.** 그것을 보자고
+    「AI 작업」 화면을 여는 것은 편집기 3MB 를 받는 일이고, 이 화면이 피하려던
+    바로 그 일이다.
+
+    그래서 목록 아래에 **넉 장씩 늘리는 단추 하나**를 둔다. 남은 건수를 단추에
+    적어(「더보기 7건」) 몇 장이 더 있는지를 누르기 전에 알게 한다. 한 번이라도
+    늘렸으면 **「접기」가 옆에 선다** — 늘린 것을 되돌리는 길이 새로 고침뿐이면
+    그 자리는 한 번 길어지고 끝까지 길다.
+
+    서버에 다시 묻지 않는다. 목록은 어차피 전부 받아 놓고 화면에서 넷만
+    자르고 있었다 — **더보기는 그 자르는 수를 늘리는 일뿐이다.**
+
     [카드에 남긴 것은 셋뿐이다 (2026-09-19)]
 
     한동안 카드 한 장에 상태 · 「몇 분 전」 · 제목 · 시행시간(표제+값) ·
@@ -226,6 +241,30 @@
                     </li>
                 }
             </ul>
+
+            @* 넉 장 밖으로 밀린 것을 여기서 꺼낸다. 격자 밖에 두는 이유는
+               안에 넣으면 반 폭 칸 하나를 차지해 옆에 빈자리가 생기기 때문이다.
+               서버를 다시 부르지 않는다 — 위 머리말 참고. *@
+            @if (Rest > 0 || _shown > RecentMax)
+            {
+                <div class="pm-ask__more">
+                    @if (Rest > 0)
+                    {
+                        <DxButton Text="@($"더보기 {Rest}건")"
+                                  RenderStyle="ButtonRenderStyle.Secondary"
+                                  CssClass="pm-ask__morego"
+                                  Click="@ShowMore" />
+                    }
+
+                    @if (_shown > RecentMax)
+                    {
+                        <DxButton Text="접기"
+                                  RenderStyle="ButtonRenderStyle.Secondary"
+                                  CssClass="pm-ask__fold"
+                                  Click="@Fold" />
+                    }
+                </div>
+            }
         }
     </CommCont>
 
@@ -250,9 +289,10 @@
     ];
 
     /// <summary>
-    /// 여기 보이는 건수. 목록 화면이 아니므로 짧게 둔다 — <b>한 화면에
-    /// 들어가는 만큼</b>이다. <b>가로 두 장씩 두 줄</b>이라 자판이 올라와도
-    /// 끝 장이 화면 밖으로 밀리지 않는다. 더 봐야 하면 「AI 작업」 화면이다.
+    /// 처음 보이는 건수이자 <b>「더보기」가 한 번에 늘리는 수</b>다. 목록
+    /// 화면이 아니므로 짧게 둔다 — <b>한 화면에 들어가는 만큼</b>이다.
+    /// <b>가로 두 장씩 두 줄</b>이라 자판이 올라와도 끝 장이 화면 밖으로
+    /// 밀리지 않는다.
     /// <para>
     /// 넷이 <b>둘로 나누어떨어진다</b>는 것도 이 값의 일부다. 홀수로 두면
     /// 마지막 줄에 빈 칸이 하나 남는다.
@@ -261,7 +301,21 @@
     private const int RecentMax = 4;
 
     private IReadOnlyList<AiTargetDto> _targets = [];
+
+    /// <summary>
+    /// 받아 둔 것 <b>전부</b>. 서버가 잘라 주지 않으므로 한 번에 다 온다 —
+    /// 「더보기」는 여기서 몇 장을 꺼내 보이느냐의 문제다.
+    /// </summary>
+    private IReadOnlyList<AiTaskDto> _all = [];
+
+    /// <summary>지금 화면에 깔린 것. <c>_all</c> 의 앞쪽 <c>_shown</c> 장이다.</summary>
     private IReadOnlyList<AiTaskDto> _recent = [];
+
+    /// <summary>
+    /// 몇 장까지 내보이나. <b>다시 읽어도 유지된다</b> — 5초마다 도는 타이머가
+    /// 이 값을 되돌리면 펼쳐 놓고 보던 것이 눈앞에서 접힌다.
+    /// </summary>
+    private int _shown = RecentMax;
 
     private long? _targetKey;
     private string _kind = "claude";
@@ -313,6 +367,9 @@
     }
 
     private IReadOnlyList<PickOption> RunnerKinds => AllowedKinds;
+
+    /// <summary>아직 안 보인 건수. <b>단추에 그대로 적는다.</b></summary>
+    private int Rest => Math.Max(0, _all.Count - _recent.Count);
 
     private bool CanSend =>
         !Busy && _targetKey is not null && !string.IsNullOrWhiteSpace(_text);
@@ -393,17 +450,39 @@
     {
         await LoadAsync(async () =>
         {
-            var rows = await Api.ListAsync();
-
-            _recent = rows
-                .OrderByDescending(t => t.RequestedAt ?? t.CreDt ?? DateTime.MinValue)
-                .Take(RecentMax)
-                .ToList();
+            Show(await Api.ListAsync());
 
             return _recent.Count;
         }, emptyMessage: string.Empty, failMessage: "보낸 것을 읽지 못했습니다");
 
         Follow();
+    }
+
+    /// <summary>
+    /// 받은 것을 최근 순으로 세우고 <c>_shown</c> 장만 꺼내 놓는다.
+    /// <b>읽어 오는 자리는 둘(첫 조회 · 타이머)인데 자르는 규칙은 하나다.</b>
+    /// </summary>
+    private void Show(IReadOnlyList<AiTaskDto> rows)
+    {
+        _all = rows
+            .OrderByDescending(t => t.RequestedAt ?? t.CreDt ?? DateTime.MinValue)
+            .ToList();
+
+        _recent = _all.Take(_shown).ToList();
+    }
+
+    /// <summary>넉 장 더. 서버를 다시 부르지 않는다 — 이미 다 받아 두었다.</summary>
+    private void ShowMore()
+    {
+        _shown += RecentMax;
+        _recent = _all.Take(_shown).ToList();
+    }
+
+    /// <summary>처음 넉 장으로 되돌린다.</summary>
+    private void Fold()
+    {
+        _shown = RecentMax;
+        _recent = _all.Take(_shown).ToList();
     }
 
     /// <summary>
@@ -564,9 +643,13 @@
     /// <summary>카드를 눌렀다. 들여다보는 창을 연다.</summary>
     private void Peek(long taskKey) => _peek = taskKey;
 
-    /// <summary>창이 볼 건. 목록에서 밀려났으면 <c>null</c> 이고 창이 그렇게 말한다.</summary>
+    /// <summary>
+    /// 창이 볼 건. <b>받아 둔 것 전부에서 찾는다</b> — 깔린 넉 장에서만 찾으면
+    /// 창을 열어 둔 사이에 새 건이 들어와 그 건이 밀려날 때 창이 빈다.
+    /// 목록에서 아주 사라졌으면 <c>null</c> 이고 창이 그렇게 말한다.
+    /// </summary>
     private AiTaskDto? PeekItem =>
-        _peek is { } key ? _recent.FirstOrDefault(t => t.TaskKey == key) : null;
+        _peek is { } key ? _all.FirstOrDefault(t => t.TaskKey == key) : null;
 
     private void OnPeekVisible(bool visible)
     {
@@ -615,10 +698,7 @@
                         return;
                     }
 
-                    _recent = rows
-                        .OrderByDescending(t => t.RequestedAt ?? t.CreDt ?? DateTime.MinValue)
-                        .Take(RecentMax)
-                        .ToList();
+                    Show(rows);
 
                     await InvokeAsync(StateHasChanged);
 
