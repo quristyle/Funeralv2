@@ -1295,14 +1295,17 @@
 .pm-ask__item--off { --pm-ask-tone: var(--jsini-text-muted); }
 
 /* 카드 전체가 누르는 자리다. 표가 아니라 단추 목록인 이유는 **모바일에서
-   표의 가로 스크롤이 최악**이기 때문이다. */
+   표의 가로 스크롤이 최악**이기 때문이다.
+
+   두 층뿐이라 여백을 줄였다. 다만 `min-height` 는 그대로 둔다 —
+   **손가락으로 겨누는 자리의 바닥**이지 카드의 장식이 아니다. */
 .pm-ask__head {
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: 0.2rem;
   width: 100%;
   min-height: 2.75rem;
-  padding: 0.6rem 0.75rem;
+  padding: 0.5rem 0.6rem;
   border: 0;
   background: none;
   color: inherit;
@@ -1315,13 +1318,24 @@
   background: color-mix(in srgb, var(--jsini-text) 6%, transparent);
 }
 
-/* 첫 층 — 상태와 언제. 반 폭 카드라 제목까지 여기에 얹지 않는다.
-   셋을 한 줄에 두면 **제목이 두 낱말 만에 잘린다.** */
+/* 첫 층 — **상태와 총작업시간.** 「끝났나 · 얼마나 걸렸나」가 한 줄이다.
+   양 끝으로 밀어 두면 반 폭 카드에서도 둘이 안 붙는다. */
 .pm-ask__line {
   display: flex;
   gap: 0.4rem;
   align-items: baseline;
   justify-content: space-between;
+}
+
+/* 둘째 층 — **실행일시와 제목.** 시각이 앞에 서고 제목이 남은 폭을 쓴다.
+
+   시각을 앞에 두는 이유는 그것이 **자리가 고정된 값**이기 때문이다. 뒤에
+   두면 제목 길이에 따라 시각의 x 좌표가 카드마다 달라져, 넉 장을 세로로
+   훑을 때 눈이 그 값을 따라다녀야 한다. */
+.pm-ask__line--sub {
+  gap: 0.35rem;
+  justify-content: flex-start;
+  min-width: 0;
 }
 
 /* 상태 글자. 띠와 같은 색을 쓴다(`--pm-ask-tone`). */
@@ -1332,76 +1346,137 @@
   white-space: nowrap;
 }
 
-/* 둘째 층 — 제목. 한 줄을 통째로 쓰고 넘치면 … 로 자른다. */
+/* 총작업시간. 표제를 달지 않는다 — 「3분 12초」는 그 자리에 무엇이 적혀
+   있는지 이미 말한다. 자릿수가 흔들리지 않게 고정폭 숫자를 쓴다. */
+.pm-ask__span {
+  font-size: 0.85em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  opacity: 0.85;
+}
+
+/* 실행일시. 제목보다 한 단 흐리다 — 자리가 고정된 값이라 눈에 띌 필요가
+   없고, 같은 굵기로 두면 제목과 다툰다. */
+.pm-ask__when {
+  font-size: 0.8em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  opacity: 0.65;
+}
+
+/* 제목. 남은 폭을 다 쓰고 넘치면 … 로 자른다. **여기만 잘린다** —
+   잘려도 무엇을 시켰는지의 앞머리는 남고, 전문은 눌러서 본다. */
 .pm-ask__title {
+  flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-size: 0.9em;
   font-weight: 600;
 }
 
-.pm-ask__when {
-  font-size: 0.85em;
-  opacity: 0.7;
-  white-space: nowrap;
-}
+/* ── 들여다보는 창 (`pm-peek`) ───────────────────────────────
 
-/* 아랫층 — 시행시간과 총시행시간. 둘을 반반으로 나눈다. 한 줄로 이어
-   붙이면 값 둘이 붙어 **어느 쪽이 어느 것인지 읽어야 알게 된다.** */
-.pm-ask__meta {
+   카드를 누르면 뜨는 창이다(`AiTaskPeek`). 지시 · 결과 · 로그를 탭으로
+   나눠 담고, **휴대폰에서는 화면을 꽉 채운다.**
+   ---------------------------------------------------------- */
+
+/* 머리띠 — 상태 · 실행일시 · 총작업시간. 탭을 옮겨도 제자리에 남는다. */
+.pm-peek__top {
   display: flex;
-  gap: 0.75rem;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.4rem 0.9rem;
+  margin-bottom: 0.6rem;
 }
 
-/* 휴대폰에서는 카드 폭이 화면의 반이라 두 칸이 나란히 서면 값이 붙는다.
-   그때는 위아래로 접는다 — **줄이는 것은 폭이지 값이 아니다.** */
-@media (max-width: 30rem) {
-  .pm-ask__meta {
-    flex-direction: column;
-    gap: 0.25rem;
-  }
+/* 창에서는 표제를 단다. 카드와 달리 자리가 넉넉하고, 값 둘이 나란히 서면
+   어느 쪽이 어느 것인지 한 번은 읽어야 하기 때문이다. */
+.pm-peek__cell {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.3rem;
 }
 
-.pm-ask__cell {
-  flex: 1 1 0;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
-}
-
-.pm-ask__label {
-  font-size: 0.75em;
+.pm-peek__label {
+  font-size: var(--jsini-fs-2xs);
   opacity: 0.6;
 }
 
-.pm-ask__value {
-  font-size: 0.9em;
+.pm-peek__value {
+  font-size: var(--jsini-fs-sm);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 
-.pm-ask__body {
-  padding: 0 0.75rem 0.75rem;
+.pm-peek__pane {
+  padding-top: 0.6rem;
 }
 
-.pm-ask__dim {
+.pm-peek__dim {
   margin: 0 0 0.5rem;
   opacity: 0.7;
 }
 
-.pm-ask__result {
+/* 글 상자 셋(지시 · 결과 · 로그)이 같은 몸가짐을 쓴다. 높이 상한을 두어
+   **창의 바닥 단추가 화면 밖으로 나가지 않게** 한다 — 상자 안이 구른다. */
+.pm-peek__pre {
   margin: 0 0 0.5rem;
   padding: 0.6rem 0.75rem;
-  max-height: 24rem;
+  max-height: 22rem;
   overflow: auto;
   white-space: pre-wrap;
   word-break: break-word;
-  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
-  font-size: 0.9em;
-  background: var(--jsini-bg);
+  line-height: 1.5;
   color: var(--jsini-text);
   border: 1px solid var(--jsini-border);
-  border-radius: 0.25rem;
+  border-radius: var(--jsini-radius-md);
+}
+
+/* 지시와 결과는 사람이 읽는 글이다. 바탕도 본문과 같게. */
+.pm-peek__pre--ask,
+.pm-peek__pre--result {
+  font-size: var(--jsini-fs-sm);
+  background: var(--jsini-bg);
+}
+
+/* 로그는 기계가 찍은 것이라 고정폭으로, 한 단 눌러 둔다. */
+.pm-peek__pre--log {
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  font-size: var(--jsini-fs-xs);
+  background: var(--jsini-surface);
+}
+
+/* ── 휴대폰에서는 창이 화면을 꽉 채운다 ──────────────────────
+
+   이 화면을 쓰는 자리가 길이고, 거기서 결과문을 읽으려면 폭이 전부다.
+   가운데 뜬 창은 사방에 여백을 두느라 읽는 폭을 또 깎는다.
+
+   **`!important` 가 필요하다.** `DxPopup` 은 `Width`·`MaxHeight` 를
+   **인라인 스타일**로 박으므로 규칙만으로는 이기지 못한다
+   (`jsini-gridpopup` 이 같은 이유로 같은 표시를 달고 있다).
+
+   선택자를 DevExpress 것과 같은 모양으로 적는 것은 자릿수 때문이다 —
+   저쪽이 `.dxbl-modal > .dxbl-modal-root > .dxbl-popup`(0,3,0)이다. */
+@media (max-width: 767px) {
+  .dxbl-modal > .dxbl-modal-root > .dxbl-popup.pm-peek {
+    width: 100vw !important;
+    max-width: 100vw !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+  }
+
+  .pm-peek .dxbl-modal-content {
+    height: 100%;
+    max-height: 100dvh !important;
+  }
+
+  /* 화면이 넓어진 만큼 글 상자도 늘린다. 22rem 그대로 두면 꽉 채운
+     창 아래가 텅 빈 채로 상자만 구른다. */
+  .pm-peek__pre {
+    max-height: 62dvh;
+  }
 }
