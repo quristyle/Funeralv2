@@ -84,6 +84,8 @@ public sealed class PushSubscribeRequest
 
     /// <summary>어디서 구독했는지. 기기 목록에서 갈래를 구분하는 데 쓴다.</summary>
     public string? Source { get; set; } = "portal";
+
+    public PushDeviceMetadataDto Metadata { get; set; } = new();
 }
 
 /// <summary>
@@ -137,6 +139,7 @@ public sealed class PushBrowserResult
     public string? Endpoint { get; set; }
     public string? P256dh { get; set; }
     public string? Auth { get; set; }
+    public PushDeviceMetadataDto? Metadata { get; set; }
 
     /// <summary>실패했을 때 사람이 읽을 이유.</summary>
     public string? Error { get; set; }
@@ -168,6 +171,39 @@ public sealed class PushDeviceDto
     /// 화면이 그것을 말해 주지 않으면 「왜 저 기기만 안 오지」가 된다.
     /// </summary>
     public int FailureCount { get; set; }
+
+    public PushDeviceMetadataDto Metadata { get; set; } = new();
+}
+
+/// <summary>구독을 만든 브라우저가 제공하는 기기 식별 정보.</summary>
+public sealed class PushDeviceMetadataDto
+{
+    public string? DeviceType { get; set; }
+    public string? Platform { get; set; }
+    public string? PlatformVersion { get; set; }
+    public string? DeviceVendor { get; set; }
+    public string? DeviceModel { get; set; }
+    public string? Browser { get; set; }
+    public string? BrowserVersion { get; set; }
+    public string? BrowserEngine { get; set; }
+    public bool? IsMobile { get; set; }
+    public bool? IsStandalone { get; set; }
+    public string? DisplayMode { get; set; }
+    public int? ScreenWidth { get; set; }
+    public int? ScreenHeight { get; set; }
+    public int? ViewportWidth { get; set; }
+    public int? ViewportHeight { get; set; }
+    public double? DevicePixelRatio { get; set; }
+    public int? ColorDepth { get; set; }
+    public int? HardwareConcurrency { get; set; }
+    public double? DeviceMemoryGb { get; set; }
+    public int? MaxTouchPoints { get; set; }
+    public string? Language { get; set; }
+    public string? Languages { get; set; }
+    public string? TimeZone { get; set; }
+    public string? ConnectionType { get; set; }
+    public string? EffectiveConnectionType { get; set; }
+    public string? UserAgentDataJson { get; set; }
 }
 
 /// <summary>

@@ -285,15 +285,17 @@ else
         @* **원문 UA 를 그대로 두지 않는다.** 「Mozilla/5.0 (Windows NT 10.0…」
            는 자기 기기를 고르는 데 아무 도움이 안 된다. 알아볼 만한 이름으로
            바꿔 적고, 원문은 덧붙이는 말(`title`)로 남긴다. *@
-        <DxGridDataColumn FieldName="@nameof(PushDeviceDto.UserAgent)" Caption="기기" MinWidth="240">
+        <DxGridDataColumn FieldName="@nameof(PushDeviceDto.UserAgent)" Caption="기기" MinWidth="360">
             <CellDisplayTemplate>
                 @{ var device = (PushDeviceDto)context.DataItem; }
                 <span title="@device.UserAgent">
-                    @DeviceName(device.UserAgent)
+                    <strong>@DeviceName(device)</strong>
                     @if (IsThisBrowser(device))
                     {
                         <span class="jsini-badge">이 브라우저</span>
                     }
+                    <br />
+                    <span class="jsini-text-muted">@DeviceDetails(device)</span>
                 </span>
             </CellDisplayTemplate>
         </DxGridDataColumn>
@@ -643,7 +645,7 @@ else
     {
         if (_busy || string.IsNullOrWhiteSpace(device.Endpoint)) return;
 
-        var name = DeviceName(device.UserAgent);
+        var name = DeviceName(device);
 
         if (_confirm is not null
             && !await _confirm.AskAsync($"「{name}」 을(를) 목록에서 뺍니다.\n그 기기로는 알림이 오지 않습니다.",
@@ -689,7 +691,51 @@ else
     /// 도 함께 적어서, 순서를 바꾸면 전부 Chrome 으로 보인다.
     /// </para>
     /// </summary>
-    private static string DeviceName(string? userAgent)
+    private static string DeviceName(PushDeviceDto device)
+    {
+        var metadata = device.Metadata;
+        var type = metadata.DeviceType switch
+        {
+            "mobile" => "휴대폰",
+            "tablet" => "태블릿",
+            "desktop" => "PC",
+            _ => null
+        };
+        var makerModel = string.Join(" ", new[] { metadata.DeviceVendor, metadata.DeviceModel }
+            .Where(value => !string.IsNullOrWhiteSpace(value)));
+        var platform = string.Join(" ", new[] { metadata.Platform, metadata.PlatformVersion }
+            .Where(value => !string.IsNullOrWhiteSpace(value)));
+        var browser = string.Join(" ", new[] { metadata.Browser, metadata.BrowserVersion }
+            .Where(value => !string.IsNullOrWhiteSpace(value)));
+
+        if (!string.IsNullOrWhiteSpace(type) &&
+            (!string.IsNullOrWhiteSpace(makerModel) || !string.IsNullOrWhiteSpace(platform)))
+        {
+            return string.Join(" · ", new[] { type, makerModel, platform }
+                .Where(value => !string.IsNullOrWhiteSpace(value)));
+        }
+
+        return DeviceNameFromUserAgent(device.UserAgent);
+    }
+
+    private static string DeviceDetails(PushDeviceDto device)
+    {
+        var metadata = device.Metadata;
+        var parts = new List<string>();
+        var browser = string.Join(" ", new[] { metadata.Browser, metadata.BrowserVersion }
+            .Where(value => !string.IsNullOrWhiteSpace(value)));
+        if (!string.IsNullOrWhiteSpace(browser)) parts.Add(browser);
+        if (!string.IsNullOrWhiteSpace(metadata.DisplayMode) && metadata.DisplayMode != "browser")
+            parts.Add($"앱 {metadata.DisplayMode}");
+        if (metadata.ScreenWidth is > 0 && metadata.ScreenHeight is > 0)
+            parts.Add($"{metadata.ScreenWidth}×{metadata.ScreenHeight}px");
+        if (metadata.MaxTouchPoints is > 0) parts.Add($"터치 {metadata.MaxTouchPoints}");
+        if (!string.IsNullOrWhiteSpace(metadata.TimeZone)) parts.Add(metadata.TimeZone);
+        if (!string.IsNullOrWhiteSpace(metadata.Language)) parts.Add(metadata.Language);
+        return parts.Count > 0 ? string.Join(" · ", parts) : "추가 장비 정보 없음";
+    }
+
+    private static string DeviceNameFromUserAgent(string? userAgent)
     {
         if (string.IsNullOrWhiteSpace(userAgent))
         {

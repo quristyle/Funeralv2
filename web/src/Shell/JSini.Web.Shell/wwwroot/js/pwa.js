@@ -109,6 +109,118 @@
         return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
     }
 
+    async function collectDeviceMetadata() {
+        const ua = navigator.userAgent || '';
+        const uaData = navigator.userAgentData;
+        let highEntropy = null;
+
+        if (uaData && typeof uaData.getHighEntropyValues === 'function') {
+            try {
+                highEntropy = await uaData.getHighEntropyValues([
+                    'architecture', 'bitness', 'model', 'platform', 'platformVersion', 'fullVersionList'
+                ]);
+            } catch (_) {
+                highEntropy = null;
+            }
+        }
+
+        const displayModes = ['standalone', 'window-controls-overlay', 'minimal-ui', 'fullscreen'];
+        const displayMode = displayModes.find((mode) =>
+            window.matchMedia('(display-mode: ' + mode + ')').matches) || 'browser';
+        const standalone = displayMode !== 'browser' || navigator.standalone === true;
+        const isMobile = highEntropy && typeof highEntropy.mobile === 'boolean'
+            ? highEntropy.mobile
+            : /Android|iPhone|iPad|iPod|Mobile/i.test(ua);
+        const screen = window.screen || {};
+        const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+
+        let deviceType = isMobile ? 'mobile' : 'desktop';
+        if (/iPad/i.test(ua) || (isMobile && Math.min(screen.width || 0, screen.height || 0) >= 600)) {
+            deviceType = 'tablet';
+        }
+
+        const browserBrand = highEntropy && highEntropy.fullVersionList && highEntropy.fullVersionList.length
+            ? highEntropy.fullVersionList[highEntropy.fullVersionList.length - 1]
+            : null;
+        const browser = uaData && uaData.brands && uaData.brands.length
+            ? (uaData.brands.find((brand) => !/Not.?A.?Brand/i.test(brand.brand)) || uaData.brands[0])
+            : browserBrand;
+        const browserMatch = [
+            ['Edge', /Edg\/([\d.]+)/],
+            ['Samsung Internet', /SamsungBrowser\/([\d.]+)/],
+            ['Opera', /OPR\/([\d.]+)/],
+            ['Whale', /Whale\/([\d.]+)/],
+            ['Firefox', /Firefox\/([\d.]+)/],
+            ['Chrome', /Chrome\/([\d.]+)/],
+            ['Safari', /Version\/([\d.]+).*Safari\//],
+        ].map(([name, pattern]) => [name, pattern.exec(ua)])
+            .find(([, match]) => match);
+        const uaBrowser = browserMatch ? [browserMatch[0], browserMatch[1][1]] : [null, null];
+        const browserName = browser ? browser.brand : uaBrowser[0];
+        const browserVersion = browser ? browser.version : uaBrowser[1];
+        const platform = highEntropy && highEntropy.platform
+            ? highEntropy.platform
+            : (/Windows/i.test(ua) ? 'Windows'
+                : /Android/i.test(ua) ? 'Android'
+                    : /iPhone|iPad|iPod/i.test(ua) ? 'iOS'
+                        : /Mac OS X/i.test(ua) ? 'macOS'
+                            : /Linux/i.test(ua) ? 'Linux' : null);
+
+        const androidModel = /Android[^;)]*;\s*(?:[a-z]{2}-[A-Z]{2};\s*)?([^;)]+?)\s+Build\//.exec(ua);
+        const deviceModel = highEntropy && highEntropy.model
+            ? highEntropy.model
+            : (/iPhone/i.test(ua) ? 'iPhone'
+                : /iPad/i.test(ua) ? 'iPad'
+                    : androidModel ? androidModel[1].trim() : null);
+        const deviceVendor = /Samsung|SM-/i.test(ua) ? 'Samsung'
+            : /Pixel/i.test(ua) ? 'Google'
+                : /Xiaomi|Redmi|Mi \d/i.test(ua) ? 'Xiaomi'
+                    : /HUAWEI|HONOR/i.test(ua) ? 'Huawei'
+                        : /LG[- ]/i.test(ua) ? 'LG'
+                            : /Motorola|Moto /i.test(ua) ? 'Motorola'
+                                : /iPhone|iPad|iPod/i.test(ua) ? 'Apple' : null;
+
+        return {
+            deviceType: deviceType,
+            platform: platform,
+            platformVersion: highEntropy && highEntropy.platformVersion ? highEntropy.platformVersion : null,
+            deviceVendor: deviceVendor,
+            deviceModel: deviceModel,
+            browser: browserName,
+            browserVersion: browserVersion,
+            browserEngine: /AppleWebKit/i.test(ua) ? 'WebKit'
+                : /Gecko/i.test(ua) ? 'Gecko'
+                    : /Trident/i.test(ua) ? 'Trident' : null,
+            isMobile: isMobile,
+            isStandalone: standalone,
+            displayMode: displayMode,
+            screenWidth: Number.isFinite(screen.width) ? screen.width : null,
+            screenHeight: Number.isFinite(screen.height) ? screen.height : null,
+            viewportWidth: document.documentElement ? document.documentElement.clientWidth : null,
+            viewportHeight: document.documentElement ? document.documentElement.clientHeight : null,
+            devicePixelRatio: Number.isFinite(window.devicePixelRatio) ? window.devicePixelRatio : null,
+            colorDepth: Number.isFinite(screen.colorDepth) ? screen.colorDepth : null,
+            hardwareConcurrency: Number.isFinite(navigator.hardwareConcurrency) ? navigator.hardwareConcurrency : null,
+            deviceMemoryGb: Number.isFinite(navigator.deviceMemory) ? navigator.deviceMemory : null,
+            maxTouchPoints: Number.isFinite(navigator.maxTouchPoints) ? navigator.maxTouchPoints : null,
+            language: navigator.language || null,
+            languages: Array.isArray(navigator.languages) ? navigator.languages.join(', ') : null,
+            timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || null,
+            connectionType: connection && connection.type ? connection.type : null,
+            effectiveConnectionType: connection && connection.effectiveType ? connection.effectiveType : null,
+            userAgentDataJson: uaData ? JSON.stringify({
+                brands: uaData.brands || null,
+                mobile: uaData.mobile,
+                platform: uaData.platform || null,
+                architecture: highEntropy && highEntropy.architecture || null,
+                bitness: highEntropy && highEntropy.bitness || null,
+                model: highEntropy && highEntropy.model || null,
+                platformVersion: highEntropy && highEntropy.platformVersion || null,
+                fullVersionList: highEntropy && highEntropy.fullVersionList || null
+            }) : null
+        };
+    }
+
     /**
      * 지금 이 브라우저의 구독. 없으면 null.
      *
@@ -255,6 +367,7 @@
             endpoint: sub.endpoint,
             p256dh: json.keys ? json.keys.p256dh : null,
             auth: json.keys ? json.keys.auth : null,
+            metadata: await collectDeviceMetadata(),
         };
     }
 

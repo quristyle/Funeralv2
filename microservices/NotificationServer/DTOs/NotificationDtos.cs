@@ -20,6 +20,38 @@ public class SubscribeDto
 
     /// <summary>어느 시스템에서 구독했나 (참고용).</summary>
     public string? Source { get; set; }
+
+    public DeviceMetadataDto Metadata { get; set; } = new();
+}
+
+public class DeviceMetadataDto
+{
+    public string? DeviceType { get; set; }
+    public string? Platform { get; set; }
+    public string? PlatformVersion { get; set; }
+    public string? DeviceVendor { get; set; }
+    public string? DeviceModel { get; set; }
+    public string? Browser { get; set; }
+    public string? BrowserVersion { get; set; }
+    public string? BrowserEngine { get; set; }
+    public bool? IsMobile { get; set; }
+    public bool? IsStandalone { get; set; }
+    public string? DisplayMode { get; set; }
+    public int? ScreenWidth { get; set; }
+    public int? ScreenHeight { get; set; }
+    public int? ViewportWidth { get; set; }
+    public int? ViewportHeight { get; set; }
+    public double? DevicePixelRatio { get; set; }
+    public int? ColorDepth { get; set; }
+    public int? HardwareConcurrency { get; set; }
+    public double? DeviceMemoryGb { get; set; }
+    public int? MaxTouchPoints { get; set; }
+    public string? Language { get; set; }
+    public string? Languages { get; set; }
+    public string? TimeZone { get; set; }
+    public string? ConnectionType { get; set; }
+    public string? EffectiveConnectionType { get; set; }
+    public string? UserAgentDataJson { get; set; }
 }
 
 /// <summary>주인 한 명을 가리키는 값.</summary>
@@ -219,6 +251,7 @@ public class PushDeviceDto
 
     /// <summary>연달아 실패한 횟수. 0 이 아니면 그 기기는 못 받고 있을 수 있다.</summary>
     public int FailureCount { get; set; }
+    public DeviceMetadataDto Metadata { get; set; } = new();
 }
 
 /// <summary>

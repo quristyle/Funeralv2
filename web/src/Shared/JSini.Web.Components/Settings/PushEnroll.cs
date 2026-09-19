@@ -135,6 +135,7 @@ public sealed class PushEnroll(
                 Endpoint = made.Endpoint,
                 P256dh = made.P256dh,
                 Auth = made.Auth,
+                Metadata = made.Metadata ?? new(),
             });
         }
         catch (ApiException ex)

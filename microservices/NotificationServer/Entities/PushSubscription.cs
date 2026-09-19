@@ -75,6 +75,59 @@ public class PushSubscription : BaseEntity<string>
     [Column("user_agent")]
     public string? UserAgent { get; set; }
 
+    [Column("device_type")]
+    public string? DeviceType { get; set; }
+    [Column("platform")]
+    public string? Platform { get; set; }
+    [Column("platform_version")]
+    public string? PlatformVersion { get; set; }
+    [Column("device_vendor")]
+    public string? DeviceVendor { get; set; }
+    [Column("device_model")]
+    public string? DeviceModel { get; set; }
+    [Column("browser")]
+    public string? Browser { get; set; }
+    [Column("browser_version")]
+    public string? BrowserVersion { get; set; }
+    [Column("browser_engine")]
+    public string? BrowserEngine { get; set; }
+    [Column("is_mobile")]
+    public bool? IsMobile { get; set; }
+    [Column("is_standalone")]
+    public bool? IsStandalone { get; set; }
+    [Column("display_mode")]
+    public string? DisplayMode { get; set; }
+    [Column("screen_width")]
+    public int? ScreenWidth { get; set; }
+    [Column("screen_height")]
+    public int? ScreenHeight { get; set; }
+    [Column("viewport_width")]
+    public int? ViewportWidth { get; set; }
+    [Column("viewport_height")]
+    public int? ViewportHeight { get; set; }
+    [Column("device_pixel_ratio")]
+    public double? DevicePixelRatio { get; set; }
+    [Column("color_depth")]
+    public int? ColorDepth { get; set; }
+    [Column("hardware_concurrency")]
+    public int? HardwareConcurrency { get; set; }
+    [Column("device_memory_gb")]
+    public double? DeviceMemoryGb { get; set; }
+    [Column("max_touch_points")]
+    public int? MaxTouchPoints { get; set; }
+    [Column("language")]
+    public string? Language { get; set; }
+    [Column("languages")]
+    public string? Languages { get; set; }
+    [Column("time_zone")]
+    public string? TimeZone { get; set; }
+    [Column("connection_type")]
+    public string? ConnectionType { get; set; }
+    [Column("effective_connection_type")]
+    public string? EffectiveConnectionType { get; set; }
+    [Column("user_agent_data_json")]
+    public string? UserAgentDataJson { get; set; }
+
     /// <summary>마지막으로 발송에 성공한 시각.</summary>
     [Column("last_sent_at")]
     public DateTime? LastSentAt { get; set; }

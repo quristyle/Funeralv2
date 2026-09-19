@@ -88,7 +88,7 @@ public static class NotificationEndpoints
 
             if (existing is null)
             {
-                db.PushSubscriptions.Add(new Entities.PushSubscription
+                var created = new Entities.PushSubscription
                 {
                     Endpoint = request.Endpoint,
                     P256dh = request.P256dh,
@@ -97,7 +97,9 @@ public static class NotificationEndpoints
                     OwnerKey = ownerKey,
                     Source = request.Source,
                     UserAgent = http.Request.Headers.UserAgent.ToString()
-                });
+                };
+                ApplyMetadata(created, request.Metadata);
+                db.PushSubscriptions.Add(created);
             }
             else
             {
@@ -109,6 +111,7 @@ public static class NotificationEndpoints
                 existing.Source = request.Source ?? existing.Source;
                 existing.UserAgent = http.Request.Headers.UserAgent.ToString();
                 existing.FailureCount = 0;
+                ApplyMetadata(existing, request.Metadata);
             }
 
             await db.SaveChangesAsync();
@@ -737,8 +740,67 @@ public static class NotificationEndpoints
                 UserAgent = s.UserAgent,
                 LastSentAt = s.LastSentAt,
                 CreatedAt = s.CreatedAt,
-                FailureCount = s.FailureCount
+                FailureCount = s.FailureCount,
+                Metadata = new DeviceMetadataDto
+                {
+                    DeviceType = s.DeviceType,
+                    Platform = s.Platform,
+                    PlatformVersion = s.PlatformVersion,
+                    DeviceVendor = s.DeviceVendor,
+                    DeviceModel = s.DeviceModel,
+                    Browser = s.Browser,
+                    BrowserVersion = s.BrowserVersion,
+                    BrowserEngine = s.BrowserEngine,
+                    IsMobile = s.IsMobile,
+                    IsStandalone = s.IsStandalone,
+                    DisplayMode = s.DisplayMode,
+                    ScreenWidth = s.ScreenWidth,
+                    ScreenHeight = s.ScreenHeight,
+                    ViewportWidth = s.ViewportWidth,
+                    ViewportHeight = s.ViewportHeight,
+                    DevicePixelRatio = s.DevicePixelRatio,
+                    ColorDepth = s.ColorDepth,
+                    HardwareConcurrency = s.HardwareConcurrency,
+                    DeviceMemoryGb = s.DeviceMemoryGb,
+                    MaxTouchPoints = s.MaxTouchPoints,
+                    Language = s.Language,
+                    Languages = s.Languages,
+                    TimeZone = s.TimeZone,
+                    ConnectionType = s.ConnectionType,
+                    EffectiveConnectionType = s.EffectiveConnectionType,
+                    UserAgentDataJson = s.UserAgentDataJson
+                }
             })
             .ToListAsync();
+    }
+
+    private static void ApplyMetadata(Entities.PushSubscription target, DeviceMetadataDto metadata)
+    {
+        target.DeviceType = metadata.DeviceType;
+        target.Platform = metadata.Platform;
+        target.PlatformVersion = metadata.PlatformVersion;
+        target.DeviceVendor = metadata.DeviceVendor;
+        target.DeviceModel = metadata.DeviceModel;
+        target.Browser = metadata.Browser;
+        target.BrowserVersion = metadata.BrowserVersion;
+        target.BrowserEngine = metadata.BrowserEngine;
+        target.IsMobile = metadata.IsMobile;
+        target.IsStandalone = metadata.IsStandalone;
+        target.DisplayMode = metadata.DisplayMode;
+        target.ScreenWidth = metadata.ScreenWidth;
+        target.ScreenHeight = metadata.ScreenHeight;
+        target.ViewportWidth = metadata.ViewportWidth;
+        target.ViewportHeight = metadata.ViewportHeight;
+        target.DevicePixelRatio = metadata.DevicePixelRatio;
+        target.ColorDepth = metadata.ColorDepth;
+        target.HardwareConcurrency = metadata.HardwareConcurrency;
+        target.DeviceMemoryGb = metadata.DeviceMemoryGb;
+        target.MaxTouchPoints = metadata.MaxTouchPoints;
+        target.Language = metadata.Language;
+        target.Languages = metadata.Languages;
+        target.TimeZone = metadata.TimeZone;
+        target.ConnectionType = metadata.ConnectionType;
+        target.EffectiveConnectionType = metadata.EffectiveConnectionType;
+        target.UserAgentDataJson = metadata.UserAgentDataJson;
     }
 }
