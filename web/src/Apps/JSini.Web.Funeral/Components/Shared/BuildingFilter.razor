@@ -23,7 +23,9 @@
 <CommSch OnSearch="@Search" Actions="@Actions">
     <Fields>
         <CommSchItem Label="건물">
-            <DxComboBox Data="@_buildings" @bind-Value="@BuildingId"
+            <DxComboBox Data="@_buildings"
+                        Value="@BuildingId"
+                        ValueChanged="@((string? v) => OnBuildingChangedAsync(v))"
                         TextFieldName="@nameof(Building.Name)" ValueFieldName="@nameof(Building.Id)"
                         NullText="전체" ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto"
                         Style="width: 180px" />
@@ -32,7 +34,9 @@
         @if (ShowFloor)
         {
             <CommSchItem Label="층">
-                <DxComboBox Data="@_floors" @bind-Value="@FloorId"
+                <DxComboBox Data="@_floors"
+                            Value="@FloorId"
+                            ValueChanged="@((string? v) => OnFloorChangedAsync(v))"
                             TextFieldName="@nameof(Floor.Name)" ValueFieldName="@nameof(Floor.Id)"
                             NullText="전체" ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto"
                             Style="width: 140px" />
@@ -42,7 +46,9 @@
         @if (ShowRoom)
         {
             <CommSchItem Label="호실">
-                <DxComboBox Data="@_rooms" @bind-Value="@RoomId"
+                <DxComboBox Data="@_rooms"
+                            Value="@RoomId"
+                            ValueChanged="@((string? v) => OnRoomChangedAsync(v))"
                             TextFieldName="@nameof(Room.Name)" ValueFieldName="@nameof(Room.Id)"
                             NullText="전체" ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto"
                             Style="width: 160px" />
@@ -87,7 +93,9 @@
     private IReadOnlyList<Floor> _floors = [];
     private IReadOnlyList<Room> _rooms = [];
 
-    private string? _loadedFor;
+    private bool _hasLoaded;
+    private string? _loadedBuildingId;
+    private string? _loadedFloorId;
 
     protected override async Task OnInitializedAsync()
         => _buildings = await Api.GetBuildingsAsync();
@@ -95,26 +103,98 @@
     /// <summary>
     /// 건물이 바뀌면 층·호실을 다시 읽는다.
     ///
-    /// **`_loadedFor` 로 한 번만 읽는다.** OnParametersSetAsync 는 부모가 다시
+    /// **`_loadedBuildingId` 로 한 번만 읽는다.** OnParametersSetAsync 는 부모가 다시
     /// 그릴 때마다 불리므로, 그냥 두면 화면을 건드릴 때마다 게이트웨이로 나간다.
     /// </summary>
     protected override async Task OnParametersSetAsync()
     {
         if (!ShowFloor && !ShowRoom) return;
-        if (_loadedFor == BuildingId) return;
 
-        _loadedFor = BuildingId;
+        var buildingChanged = !_hasLoaded || _loadedBuildingId != BuildingId;
+        var floorChanged = !_hasLoaded || _loadedFloorId != FloorId;
 
-        // 둘을 나란히. 켜 둔 것만 부르므로 보통은 하나뿐이고, 둘 다 켜 두는
-        // 화면(미리보기 · 기기 목록)에서 왕복이 하나로 줄어든다.
-        var floors = ShowFloor ? Api.GetFloorsAsync(BuildingId) : null;
-        var rooms = ShowRoom
+        if (!buildingChanged && !floorChanged) return;
+
+        _hasLoaded = true;
+
+        if (buildingChanged)
+        {
+            await LoadFloorsAndRoomsAsync();
+        }
+        else if (floorChanged && ShowRoom)
+        {
+            await LoadRoomsAsync();
+        }
+    }
+
+    private async Task OnBuildingChangedAsync(string? value)
+    {
+        if (BuildingId == value) return;
+
+        BuildingId = value;
+        await BuildingIdChanged.InvokeAsync(value);
+
+        if (FloorId is not null)
+        {
+            FloorId = null;
+            await FloorIdChanged.InvokeAsync(null);
+        }
+
+        if (RoomId is not null)
+        {
+            RoomId = null;
+            await RoomIdChanged.InvokeAsync(null);
+        }
+
+        await LoadFloorsAndRoomsAsync();
+    }
+
+    private async Task OnFloorChangedAsync(string? value)
+    {
+        if (FloorId == value) return;
+
+        FloorId = value;
+        await FloorIdChanged.InvokeAsync(value);
+
+        if (ShowRoom)
+        {
+            if (RoomId is not null)
+            {
+                RoomId = null;
+                await RoomIdChanged.InvokeAsync(null);
+            }
+
+            await LoadRoomsAsync();
+        }
+    }
+
+    private async Task OnRoomChangedAsync(string? value)
+    {
+        if (RoomId == value) return;
+
+        RoomId = value;
+        await RoomIdChanged.InvokeAsync(value);
+    }
+
+    private async Task LoadFloorsAndRoomsAsync()
+    {
+        _loadedBuildingId = BuildingId;
+        _loadedFloorId = FloorId;
+
+        var floorsTask = ShowFloor ? Api.GetFloorsAsync(BuildingId) : null;
+        var roomsTask = ShowRoom
             ? Api.GetRoomsAsync(buildingId: BuildingId, floorId: FloorId)
             : null;
 
-        await Task.WhenAll(new Task?[] { floors, rooms }.OfType<Task>());
+        await Task.WhenAll(new Task?[] { floorsTask, roomsTask }.OfType<Task>());
 
-        if (floors is not null) _floors = floors.Result;
-        if (rooms is not null) _rooms = rooms.Result;
+        if (floorsTask is not null) _floors = floorsTask.Result;
+        if (roomsTask is not null) _rooms = roomsTask.Result;
+    }
+
+    private async Task LoadRoomsAsync()
+    {
+        _loadedFloorId = FloorId;
+        _rooms = await Api.GetRoomsAsync(buildingId: BuildingId, floorId: FloorId);
     }
 }
