@@ -178,7 +178,7 @@ public sealed class AiTaskNotifier(
             if (row.NotifyPwa && !string.IsNullOrWhiteSpace(toUser))
             {
                 using var req = new HttpRequestMessage(
-                    HttpMethod.Post, $"{_notifyUrl.TrimEnd('/')}/push")
+                    HttpMethod.Post, $"{_notifyUrl.TrimEnd('/')}/notifications/push")
                 {
                     Content = JsonContent.Create(new
                     {
