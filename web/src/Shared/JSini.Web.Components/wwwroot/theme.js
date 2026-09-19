@@ -179,6 +179,9 @@
 
     // 우분투의 그 주황. 공식 브랜드 색이 #E95420 이다.
     { id: 'ubuntu', name: 'Ubuntu', swatch: '#e95420', base: 'rust', custom: '#e95420' },
+
+    // 사내 서비스 브랜드 네이비. 가장 가까운 파일이 steel 이라 밑에 깐다.
+    { id: 'tables', name: 'tables', swatch: '#1a3145', base: 'steel', custom: '#1a3145' },
   ];
 
   /** 프리셋 하나. 없는 이름이면 `null`. */
