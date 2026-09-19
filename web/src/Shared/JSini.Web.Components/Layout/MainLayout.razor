@@ -251,7 +251,7 @@
 
        **늘 그린다.** 보이고 안 보이고는 CSS 가 정한다 — 화면 크기로 마크업을
        갈아 끼우지 않는 이 파일의 규칙 그대로다. *@
-    <button type="button" class="jsini-shell__fab"
+    <button type="button" class="jsini-shell__fab jsini-shell__fab--@_fabPosition"
             title="메뉴 접기/펴기" aria-label="메뉴 접기/펴기"
             aria-expanded="@(_sidebarOpen ? "true" : "false")"
             @onclick="@ToggleSidebarAsync">
@@ -374,6 +374,9 @@
     /// <summary>잠금 덮개에 띄우는 이름. 누구 화면인지 알려 준다.</summary>
     private string? _userName;
 
+    /// <summary>모바일 화면의 떠다니는 메뉴 단추(FAB) 위치.</summary>
+    private string _fabPosition = "bottom-left";
+
     protected override void OnInitialized()
     {
         Menus.MenusChanged += OnMenusChanged;
@@ -388,6 +391,15 @@
         // 끝나야 실리므로, 안 듣고 있으면 **그다음 렌더가 올 때까지 비어
         // 있다** — 메뉴를 한 번 누르기 전에는 로고 옆이 빈 채로 남는다.
         Me.Changed += OnMeChanged;
+
+        // 환경설정 등에서 모바일 메뉴 단추 위치가 바뀌면 즉시 화면에 반영한다.
+        Boot.FabPositionChanged += OnFabPositionChanged;
+    }
+
+    private void OnFabPositionChanged(string position)
+    {
+        _fabPosition = position;
+        InvokeAsync(StateHasChanged);
     }
 
     private void OnMeChanged() => InvokeAsync(StateHasChanged);
@@ -548,6 +560,7 @@
         }
 
         await RestoreSidebarWidthAsync();
+        await RestoreFabPositionAsync();
         await Lock.RestoreAsync();
     }
 
@@ -583,6 +596,20 @@
 
         _sidebarWidth = px;
         StateHasChanged();
+    }
+
+    /// <summary>
+    /// 저장해 둔 모바일 메뉴 단추 위치를 되살린다.
+    /// <see cref="PortalBoot"/> 의 단일 왕복으로 읽어 오며, 변경 사항이 있으면 화면을 갱신한다.
+    /// </summary>
+    private async Task RestoreFabPositionAsync()
+    {
+        var pos = (await Boot.ReadAsync()).FabPosition;
+        if (pos != _fabPosition)
+        {
+            _fabPosition = pos;
+            StateHasChanged();
+        }
     }
 
     /// <summary>
@@ -991,6 +1018,7 @@
         Reveal.Requested -= OnMenuRevealRequested;
         _navigating?.Dispose();
         Me.Changed -= OnMeChanged;
+        Boot.FabPositionChanged -= OnFabPositionChanged;
         _watermarkWatch?.Dispose();
     }
 }

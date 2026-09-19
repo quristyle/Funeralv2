@@ -109,6 +109,12 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
     /// </summary>
     public const string SidebarWidthKey = "jsini-sidebar-width";
 
+    /// <summary>
+    /// 모바일 화면의 떠다니는 메뉴 단추(FAB) 위치.
+    /// <c>bottom-left</c>(기본), <c>top-left</c>, <c>bottom-right</c>, <c>top-right</c>.
+    /// </summary>
+    public const string FabPositionKey = "jsini-fab-position";
+
     private static readonly string[] SessionKeys =
     [
         ScreenLockedKey,
@@ -122,6 +128,7 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
         PinnedTabsKey,
         SidebarWidthKey,
         PushAskNeverKey,
+        FabPositionKey,
     ];
 
     /// <summary>
@@ -283,6 +290,40 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
         }
     }
 
+    /// <summary>모바일 메뉴 단추(FAB) 위치가 바뀌었을 때 알린다.</summary>
+    public event Action<string>? FabPositionChanged;
+
+    /// <summary>
+    /// 모바일 메뉴 단추(FAB) 위치를 저장하고 화면에 알린다.
+    /// </summary>
+    public async Task SetFabPositionAsync(string position)
+    {
+        var normalized = NormalizeFabPosition(position);
+
+        try
+        {
+            await js.InvokeVoidAsync("localStorage.setItem", FabPositionKey, normalized);
+        }
+        catch (Exception ex) when (ex is JSException or InvalidOperationException)
+        {
+            logger.LogDebug(ex, "모바일 메뉴 단추 위치를 브라우저에 저장하지 못했다.");
+        }
+
+        FabPositionChanged?.Invoke(normalized);
+    }
+
+    /// <summary>
+    /// 모바일 메뉴 단추 위치 식별자를 검증하고 표준화한다.
+    /// 알 수 없는 값이면 기본값인 <c>bottom-left</c> 다.
+    /// </summary>
+    public static string NormalizeFabPosition(string? position) => position switch
+    {
+        "top-left" => "top-left",
+        "top-right" => "top-right",
+        "bottom-right" => "bottom-right",
+        _ => "bottom-left",
+    };
+
     // ── 오가는 모양 ───────────────────────────────────────────
 
     /// <summary>theme.js 의 <c>jsiniBoot.read</c> 에 넘기는 것.</summary>
@@ -372,6 +413,11 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
         /// <summary>지금 고른 테마. theme.js 가 안 실렸으면 <c>null</c>.</summary>
         public ThemeWire? Theme { get; private init; }
 
+        /// <summary>
+        /// 모바일 메뉴 단추(FAB) 위치. 없거나 잘못된 값이면 <c>bottom-left</c> 다.
+        /// </summary>
+        public string FabPosition { get; private init; } = "bottom-left";
+
         internal static BrowserState From(BootWire wire) => new()
         {
             // 값이 "1" 이든 무엇이든 **있으면 그렇다는 뜻**이다. 옛 코드가
@@ -385,6 +431,7 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
             PinnedTabsJson = Get(wire.Local, PinnedTabsKey),
             SidebarWidthPx = Pixels(Get(wire.Local, SidebarWidthKey)),
             Theme = wire.Theme,
+            FabPosition = NormalizeFabPosition(Get(wire.Local, FabPositionKey)),
         };
 
         /// <summary>저장해 둔 폭을 숫자로. 이상한 값이면 <c>null</c>.</summary>

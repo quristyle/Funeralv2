@@ -413,6 +413,37 @@ body {
   height: 1.6rem;
 }
 
+/* ── 모바일 메뉴 단추 위치 ─────────────────────────────────────
+   환경설정에서 4가지 위치(왼쪽 위/아래, 오른쪽 위/아래)를 고를 수 있다.
+   위쪽 위치는 상단 헤더 띠(var(--jsini-header-height)) 아래에 안전 여백을 더해 배치한다. */
+.jsini-shell__fab--bottom-left {
+  left: calc(0.75rem + env(safe-area-inset-left));
+  bottom: calc(0.75rem + env(safe-area-inset-bottom));
+  top: auto;
+  right: auto;
+}
+
+.jsini-shell__fab--top-left {
+  left: calc(0.75rem + env(safe-area-inset-left));
+  top: calc(var(--jsini-header-height) + 0.75rem + env(safe-area-inset-top));
+  bottom: auto;
+  right: auto;
+}
+
+.jsini-shell__fab--bottom-right {
+  right: calc(0.75rem + env(safe-area-inset-right));
+  bottom: calc(0.75rem + env(safe-area-inset-bottom));
+  top: auto;
+  left: auto;
+}
+
+.jsini-shell__fab--top-right {
+  right: calc(0.75rem + env(safe-area-inset-right));
+  top: calc(var(--jsini-header-height) + 0.75rem + env(safe-area-inset-top));
+  bottom: auto;
+  left: auto;
+}
+
 /* ── 사이드바 ↔ 본문 사이의 구분선 (DxSplitter) ───────────
 
    [격자 칸 둘을 부품 하나가 대신한다]

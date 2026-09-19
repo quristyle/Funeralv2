@@ -638,7 +638,7 @@
   .fn-env .jsini-npanel__browser { grid-column: 2; grid-row: 1; }
   .fn-env .fn-env__more          { grid-column: 3; grid-row: 1; }
 
-  /* 셋째 칸의 「…으로 가기」 단추는 **줄을 내려 아래에 둔다.**
+  /* 셋째 칸의 컨트롤(단추, 콤보박스 등)은 **줄을 내려 아래에 둔다.**
 
      `.jsini-setting` 은 왼쪽 설명 · 오른쪽 단추로 나란히 서는데, 칸이
      320px 로 좁아지면 단추가 눌려 글자가 「업무 / 설정 / 으로」 세 줄로
@@ -649,7 +649,8 @@
     display: block;
   }
 
-  .fn-env .fn-env__more .jsini-setting .dxbl-btn {
+  .fn-env .fn-env__more .jsini-setting .dxbl-btn,
+  .fn-env .fn-env__more .jsini-setting .dxbl-editor {
     margin-top: 0.5rem;
   }
 }
