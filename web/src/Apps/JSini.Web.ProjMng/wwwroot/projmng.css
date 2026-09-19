@@ -1293,16 +1293,24 @@
 .pm-ask__target { flex: 3 1 14rem; }
 .pm-ask__kind { flex: 1 1 9rem; }
 
-/* 글상자. 화면 높이를 따라가되 **자판이 올라올 자리를 남긴다** —
-   모바일 자판은 화면의 40% 안팎을 먹는다. */
+/* 글상자. 화면 세로 길이의 30%를 넘지 않게 한다 —
+   모바일 자판이 올라와도 화면을 가리지 않게 한다. */
+.pm-ask__text,
+.pm-ask__text .dxbl-memo-scroll-container,
+.pm-ask__text textarea {
+  max-height: 30vh;
+  max-height: 30dvh;
+}
+
 .pm-ask__text {
   width: 100%;
 }
 
 .pm-ask__text textarea {
-  min-height: clamp(9rem, 32vh, 24rem);
+  min-height: min(6rem, 30vh);
   font-size: 1rem;      /* 16px 미만이면 iOS 가 칸을 확대한다 */
   line-height: 1.5;
+  overflow-y: auto;
 }
 
 /* 글상자 아래 한 줄 — 올리기 · 메일 · 보내기.
