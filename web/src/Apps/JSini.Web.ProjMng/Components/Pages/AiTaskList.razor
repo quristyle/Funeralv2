@@ -156,7 +156,9 @@
                     </CellDisplayTemplate>
                 </DxGridDataColumn>
 
-                <DxGridDataColumn Caption="상태" Width="54">
+                @* FieldName 을 주어야 필터 행이 이 칸과 연결된다.
+                   너비는 배지 두 개가 나란히 들어갈 수 있도록 늘렸다. *@
+                <DxGridDataColumn FieldName="@nameof(AiTaskDto.TaskStatus)" Caption="상태" Width="90">
                     <CellDisplayTemplate Context="cell">
                         @{
                             var t = (AiTaskDto)cell.DataItem;
@@ -169,6 +171,21 @@
                             }
                         </div>
                     </CellDisplayTemplate>
+
+                    @* 입력 텍스트 필터 대신 다중 선택 TagBox 로 교체.
+                       ValuesChanged 에서 context.FilterCriteria 를 직접 설정한다.
+                       InOperator 로 묶고, 선택이 없으면(전체) null 로 기준을 지운다. *@
+                    <FilterRowCellTemplate Context="filterCtx">
+                        <DxTagBox TData="PickOption"
+                                  TValue="string"
+                                  Data="@StatusFilterOptions"
+                                  TextFieldName="@nameof(PickOption.Text)"
+                                  ValueFieldName="@nameof(PickOption.Value)"
+                                  Values="@_statusFilterValues"
+                                  ValuesChanged="@((IEnumerable<string> vals) => OnStatusFilterChanged(vals, filterCtx))"
+                                  NullText="전체"
+                                  CssClass="pm-ai-status-filter" />
+                    </FilterRowCellTemplate>
                 </DxGridDataColumn>
             </Columns>
         </CommGrd>
@@ -461,6 +478,13 @@
         new("timeout", "시간초과"), new("canceled", "취소"), new("interrupted", "중단"),
     ];
 
+    /// <summary>
+    /// 그리드 칸별 필터 행에 표시할 목록.
+    /// <see cref="StatusFilters"/> 와 같은 값이지만,
+    /// 칸별 필터는 DxListBox 에 바인딩하므로 별도로 노출한다.
+    /// </summary>
+    private static readonly IReadOnlyList<PickOption> StatusFilterOptions = StatusFilters;
+
     private static readonly PickOption[] FlagFilters =
     [
         new("none", "안 함"), new("requested", "요청"), new("cancel_requested", "취소요청"),
@@ -707,6 +731,10 @@
             _targetKey = null;
             _keyword = null;
 
+            // 그리드 칸별 필터도 함께 지운다.
+            _statusFilterValues = [];
+            _grid?.Grid?.ClearFilter();
+
             await SearchAsync();
 
             row = _rows.FirstOrDefault(r => r.TaskKey == key);
@@ -804,6 +832,40 @@
     private string? _flag;
     private long? _targetKey;
     private string? _keyword;
+
+    /// <summary>
+    /// 그리드 칸별 필터 행 — 상태 다중 선택.
+    /// 빈 목록은 「전체」(필터 없음)다.
+    /// </summary>
+    private IEnumerable<string> _statusFilterValues = [];
+
+    /// <summary>
+    /// 상태 다중 선택 필터가 바뀌었을 때.
+    /// 선택된 값들을 <c>InOperator</c> 로 묶어 <c>context.FilterCriteria</c> 에 반영한다.
+    /// 선택이 없으면(전체) <c>null</c> 로 기준을 지운다.
+    /// </summary>
+    private void OnStatusFilterChanged(
+        IEnumerable<string> vals,
+        GridDataColumnFilterRowCellTemplateContext filterCtx)
+    {
+        _statusFilterValues = vals;
+
+        var list = vals.ToList();
+
+        filterCtx.FilterCriteria = list.Count switch
+        {
+            0 => null,
+            // 하나 — BinaryOperator 로 같음 비교. InOperator(1개) 보다 더 자연스럽다.
+            1 => new DevExpress.Data.Filtering.BinaryOperator(
+                nameof(AiTaskDto.TaskStatus),
+                list[0],
+                DevExpress.Data.Filtering.BinaryOperatorType.Equal),
+            // 둘 이상 — InOperator 로 묶는다.
+            _ => new DevExpress.Data.Filtering.InOperator(
+                nameof(AiTaskDto.TaskStatus),
+                list.Cast<object>().ToArray()),
+        };
+    }
 
     private async Task PickAsync(AiTaskDto? item)
     {

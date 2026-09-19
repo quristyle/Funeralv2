@@ -42,6 +42,31 @@
 }
 
 <div class="pm-editor" style="height: @Height">
+    @if (EffectiveShowActions)
+    {
+        @* 편집기 내부 우측 상단 액션 오버레이 (문자 없이 순수 아이콘으로만 구성하여 본문 가림 최소화).
+           - 자동 줄바꿈 토글 아이콘: 켜짐/꺼짐 상태가 아이콘 활성화 스타일로 직관적 구분
+           - 복사 아이콘: 에디터 본문 클립보드 복사 (복사 시 체크 아이콘 피드백) *@
+        <div class="pm-editor__actions">
+            <button type="button"
+                    class="pm-editor__btn @(_wordWrap ? "is-active" : null)"
+                    title="@(_wordWrap ? "자동 줄바꿈 켜짐 (클릭하여 끄기)" : "자동 줄바꿈 꺼짐 (클릭하여 켜기)")"
+                    aria-label="자동 줄바꿈 토글"
+                    aria-pressed="@_wordWrap"
+                    @onclick="@ToggleWordWrapAsync">
+                <span class="jsini-icon-wrap"></span>
+            </button>
+
+            <button type="button"
+                    class="pm-editor__btn @(_copied ? "is-copied" : null)"
+                    title="@(_copied ? "클립보드에 복사되었습니다" : "내용 복사")"
+                    aria-label="내용 복사"
+                    @onclick="@CopyToClipboardAsync">
+                <span class="@(_copied ? "jsini-icon-check" : "jsini-icon-copy")"></span>
+            </button>
+        </div>
+    }
+
     @if (_loaded)
     {
         @* **다 받은 뒤에야 그린다.** `StandaloneCodeEditor` 는 자기 첫 렌더에서
@@ -95,6 +120,21 @@
     /// </summary>
     [Parameter] public string? Placeholder { get; set; }
 
+    /// <summary>
+    /// 편집기 내부 우측 상단 액션 바(복사 + 자동줄바꿈)를 보일지.
+    ///
+    /// <para>
+    /// <b>기본값은 켜져 있다(true).</b> 다른 화면에서도 일관되게
+    /// 복사 및 자동줄바꿈 기능을 사용할 수 있도록 기본 제공한다.
+    /// </para>
+    /// </summary>
+    [Parameter] public bool ShowActions { get; set; } = true;
+
+    /// <summary>하위 호환성을 위한 별칭. 값이 주어지면 ShowActions 에 우선한다.</summary>
+    [Parameter] public bool? ShowToolbar { get; set; }
+
+    private bool EffectiveShowActions => ShowToolbar ?? ShowActions;
+
     /// <summary>편집기가 스스로 낸 마지막 값. 되먹임을 가르는 기준이다.</summary>
     private string? _lastPushed;
 
@@ -102,6 +142,9 @@
     private CancellationTokenSource? _debounce;
 
     private bool _ready;
+
+    /// <summary>자동 줄바꿈 상태. 툴바 체크박스와 Monaco 옵션을 함께 조종한다.</summary>
+    private bool _wordWrap;
 
     [Parameter] public string? Value { get; set; }
 
@@ -134,10 +177,81 @@
         Minimap = new EditorMinimapOptions { Enabled = false },
         ScrollBeyondLastLine = false,
         TabSize = 2,
-        WordWrap = "off",
+        WordWrap = _wordWrap ? "on" : "off",
         RenderLineHighlight = "line",
         SmoothScrolling = true,
     };
+
+    /// <summary>
+    /// 자동 줄바꿈을 켜거나 끈다. Monaco 의 <c>updateOptions</c> 로 실시간 반영한다.
+    /// </summary>
+    private async Task ToggleWordWrapAsync()
+    {
+        _wordWrap = !_wordWrap;
+
+        if (_editor is { } editor)
+        {
+            await editor.UpdateOptions(new EditorUpdateOptions
+            {
+                WordWrap = _wordWrap ? "on" : "off",
+            });
+        }
+    }
+
+    private bool _copied;
+    private CancellationTokenSource? _copiedCts;
+
+    /// <summary>
+    /// 편집기의 현재 내용을 클립보드에 복사한다.
+    /// </summary>
+    /// <remarks>
+    /// <b>편집기에서 직접 읽는다.</b> <see cref="Value"/> 파라미터는 debounce 대기
+    /// 중에 구형 값일 수 있어, 아직 올라오지 않은 글자가 빠질 수 있다.
+    /// </remarks>
+    private async Task CopyToClipboardAsync()
+    {
+        var text = _editor is not null
+            ? await _editor.GetValue()
+            : Value ?? string.Empty;
+
+        bool ok = false;
+        try
+        {
+            ok = await Js.InvokeAsync<bool>("jsiniClipboard.copy", text);
+        }
+        catch (JSException)
+        {
+            try
+            {
+                await Js.InvokeVoidAsync("navigator.clipboard.writeText", text);
+                ok = true;
+            }
+            catch (JSException)
+            {
+                ok = false;
+            }
+        }
+
+        if (ok)
+        {
+            _copiedCts?.Cancel();
+            _copiedCts?.Dispose();
+            var cts = _copiedCts = new CancellationTokenSource();
+            _copied = true;
+            StateHasChanged();
+
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await Task.Delay(1500, cts.Token);
+                    _copied = false;
+                    await InvokeAsync(StateHasChanged);
+                }
+                catch (OperationCanceledException) { }
+            });
+        }
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -256,6 +370,9 @@
     {
         _debounce?.Cancel();
         _debounce = null;
+
+        _copiedCts?.Cancel();
+        _copiedCts = null;
 
         if (_loader is not null)
         {

@@ -1,4 +1,5 @@
 .pm-editor {
+  position: relative;
   width: 100%;
   border: 1px solid var(--jsini-border, #e3e5e8);
   border-radius: 6px;
@@ -19,3 +20,80 @@
   opacity: 0.65;
   font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
 }
+
+/* ── 에디터 우측 상단 액션 바 (줄바꿈 토글 + 복사) ────────────────
+   에디터 내 우측 상단에 플로팅 오버레이로 얹는다.
+   문자를 완전히 배제하고 콤팩트한 아이콘 버튼만 두어 본문 가림을 최소화한다. */
+.pm-editor__actions {
+  position: absolute;
+  top: 0.35rem;
+  right: 0.5rem;
+  z-index: 10;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.15rem 0.25rem;
+  border-radius: 6px;
+  background: var(--jsini-surface, rgba(255, 255, 255, 0.92));
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border: 1px solid var(--jsini-border, #e3e5e8);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  user-select: none;
+  opacity: 0.85;
+  transition: opacity 0.15s ease, box-shadow 0.15s ease;
+}
+
+.pm-editor:hover .pm-editor__actions,
+.pm-editor__actions:hover,
+.pm-editor__actions:focus-within {
+  opacity: 1;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+
+/* 액션 단추 (줄바꿈, 복사 공통) */
+.pm-editor__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.55rem;
+  height: 1.55rem;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+  color: var(--jsini-text-muted, #6b7280);
+  transition: color 0.15s, background 0.15s, border-color 0.15s;
+}
+
+.pm-editor__btn:hover {
+  color: var(--jsini-text-main, #111827);
+  background: var(--jsini-hover-bg, rgba(0, 0, 0, 0.06));
+}
+
+/* 줄바꿈 켜짐 상태 (ON): 테마 강조색 + 배경 하이라이트로 상태 즉시 인지 */
+.pm-editor__btn.is-active {
+  color: var(--jsini-primary, #0070cc);
+  background: rgba(0, 112, 204, 0.12);
+  border-color: rgba(0, 112, 204, 0.28);
+}
+
+.pm-editor__btn.is-active:hover {
+  background: rgba(0, 112, 204, 0.18);
+}
+
+/* 복사 완료 상태 피드백 */
+.pm-editor__btn.is-copied {
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.28);
+}
+
+/* 자동 줄바꿈 아이콘 (text-wrap) */
+.jsini-icon-wrap {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill-rule='evenodd' d='M2 3.5a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5zm0 4a.5.5 0 0 1 .5-.5h7a2.5 2.5 0 0 1 0 5H6.707l1.147-1.146a.5.5 0 1 0-.708-.708l-2 2a.5.5 0 0 0 0 .708l2 2a.5.5 0 0 0 .708-.708L6.707 13H9.5a3.5 3.5 0 1 0 0-7H2.5a.5.5 0 0 1-.5-.5zm0 5a.5.5 0 0 1 .5-.5h4a.5.5 0 0 1 0 1h-4a.5.5 0 0 1-.5-.5z'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill-rule='evenodd' d='M2 3.5a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5zm0 4a.5.5 0 0 1 .5-.5h7a2.5 2.5 0 0 1 0 5H6.707l1.147-1.146a.5.5 0 1 0-.708-.708l-2 2a.5.5 0 0 0 0 .708l2 2a.5.5 0 0 0 .708-.708L6.707 13H9.5a3.5 3.5 0 1 0 0-7H2.5a.5.5 0 0 1-.5-.5zm0 5a.5.5 0 0 1 .5-.5h4a.5.5 0 0 1 0 1h-4a.5.5 0 0 1-.5-.5z'/%3E%3C/svg%3E");
+}
+
+
