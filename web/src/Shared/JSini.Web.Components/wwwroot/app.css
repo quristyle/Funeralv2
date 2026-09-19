@@ -5090,6 +5090,7 @@ button.jsini-crumbs__item:hover { opacity: 1; }
   .jsini-popup,
   .jsini-gridpopup {
     max-width: calc(100vw - 1.5rem) !important;
+    margin: 0 auto !important;
   }
 }
 
