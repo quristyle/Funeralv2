@@ -80,7 +80,18 @@ public sealed class AiTaskNotifier(
                  WHERE r.run_key = @runKey
                 """, new { runKey });
 
-            if (row is null || !row.NotifyEmail)
+            if (row is null)
+            {
+                return;
+            }
+
+            // **여기서 AI 의 답을 AI 에게 한 번 더 정리시킨다.**
+            // 예전에는 나가지도 않을 메일 때문에 모델을 부르지 않으려고 메일 발송 조건이 
+            // 맞을 때만 불렀으나, 이제는 요약의 결과(Headline)를 작업 제목으로 재생성하는 데 
+            // 쓰므로 메일 발송 여부와 무관하게 항상 부른다.
+            var summary = await SummarizeAsync(db, row, runKey, ct);
+
+            if (!row.NotifyEmail)
             {
                 return;
             }
@@ -123,16 +134,6 @@ public sealed class AiTaskNotifier(
                     $"「받는 사람」이 메일 주소가 아닙니다: {to} — 비워 두면 요청한 사람에게 갑니다.");
                 return;
             }
-
-            // **여기서 AI 의 답을 AI 에게 한 번 더 정리시킨다.**
-            //
-            // 「보낼 건」이 확정된 뒤에 부른다. 앞의 관문들(받기 꺼짐 · 받는 사람
-            // 없음 · 주소 틀림)을 통과하지 못한 건까지 정리하면 **나가지도 않을
-            // 메일 때문에 모델을 부르는 일**이 된다.
-            //
-            // 못 정리해도 그냥 간다 — 아래 `Body` 가 null 을 받으면 옛 방식
-            // (결과문 앞 몇 줄 뜨기)으로 그린다.
-            var summary = await SummarizeAsync(db, row, runKey, ct);
 
             var client = http.CreateClient();
             client.Timeout = TimeSpan.FromSeconds(20);
@@ -232,6 +233,14 @@ public sealed class AiTaskNotifier(
             await db.ExecuteAsync("""
                 UPDATE projmng.ai_task_run SET summary_text = @text WHERE run_key = @runKey
                 """, new { runKey, text = summary.ToText() });
+
+            // 지시문과 결과를 조합하여 뽑아낸 짧은 제목(Headline)으로 작업의 제목도 재생성한다.
+            if (!string.IsNullOrWhiteSpace(summary.Headline))
+            {
+                await db.ExecuteAsync("""
+                    UPDATE projmng.ai_task SET title = @title WHERE task_key = @taskKey
+                    """, new { taskKey = row.TaskKey, title = summary.Headline });
+            }
         }
         catch (Exception ex)
         {
