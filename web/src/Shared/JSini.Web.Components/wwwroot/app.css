@@ -389,6 +389,17 @@ body {
   color: #fff;
   box-shadow: 0 3px 10px rgb(0 0 0 / 30%);
   cursor: pointer;
+
+  /* 뒤에 글자가 가려져도 존재를 인지할 수 있도록 평상시 살짝 반투명하게 둔다. */
+  opacity: 0.8;
+  transition: opacity 0.2s ease, background 0.15s ease;
+}
+
+.jsini-shell__fab:hover,
+.jsini-shell__fab:focus-visible,
+.jsini-shell__fab:active,
+.jsini-shell--nav-open .jsini-shell__fab {
+  opacity: 1;
 }
 
 .jsini-shell__fab:active {
@@ -2007,7 +2018,11 @@ button.jsini-crumbs__item:hover { opacity: 1; }
 
   .jsini-shell__main { grid-column: 1; }
 
-  .jsini-shell__content { padding: 0.75rem 0.75rem 1.5rem; }
+  /* 모바일 화면에서는 왼쪽 아래 떠 있는 메뉴 단추(FAB, 높이 3rem + 여백 0.75rem)가
+     하단 컨텐츠나 버튼을 가리지 않도록 padding-bottom 을 늘려 컨텐츠가 단추 위로 올라오게 한다. */
+  .jsini-shell__content {
+    padding: 0.75rem 0.75rem calc(4.75rem + env(safe-area-inset-bottom));
+  }
 
   /* 모바일 화면에서는 탭 줄을 숨긴다. 본문 공간을 확보하고,
      열린 화면 이름은 헤더의 로고 옆에 표시한다. */
