@@ -6102,3 +6102,58 @@ body {
 .commgrd .dxbl-grid .dxbl-grid-table > tbody > tr.dxbl-grid-selected-row > td.dxbl-grid-fixed-cell {
   background-color: color-mix(in srgb, var(--jsini-accent) 18%, var(--jsini-surface-raised));
 }
+
+/* 모바일 하단 네비게이션바 */
+.jsini-bottom-nav {
+    display: none;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 60px;
+    background-color: var(--jsini-bg, #ffffff);
+    border-top: 1px solid var(--jsini-border, #e0e0e0);
+    z-index: 1030;
+    box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+}
+
+.jsini-bottom-nav__item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: var(--jsini-text-muted, #6c757d);
+    text-decoration: none;
+    flex: 1;
+    height: 100%;
+    font-size: 11px;
+    border: none;
+    background: none;
+    padding: 0;
+    cursor: pointer;
+}
+
+.jsini-bottom-nav__item:hover,
+.jsini-bottom-nav__item:active {
+    color: var(--jsini-accent, #007bff);
+}
+
+.jsini-bottom-nav__icon {
+    font-size: 20px;
+    margin-bottom: 4px;
+}
+
+@media (max-width: 767px) {
+    .jsini-bottom-nav {
+        display: flex;
+    }
+    
+    .jsini-shell__content {
+        padding-bottom: 60px !important;
+    }
+    
+    .jsini-shell__fab--bottom-left, 
+    .jsini-shell__fab--bottom-right {
+        bottom: 76px !important;
+    }
+}

@@ -1,0 +1,63 @@
+@inject NavigationManager Navigation
+@inject ThemeDrawer Theme
+@inject IMenuProvider Menus
+
+<div class="jsini-bottom-nav">
+    <button class="jsini-bottom-nav__item" @onclick="@(() => Navigation.NavigateTo("/"))">
+        <span class="jsini-icon-home jsini-bottom-nav__icon"></span>
+        <span>홈</span>
+    </button>
+    <button class="jsini-bottom-nav__item" @onclick="@GoToAsk">
+        <span class="jsini-icon-bolt jsini-bottom-nav__icon"></span>
+        <span>빠른지시</span>
+    </button>
+    <button class="jsini-bottom-nav__item" @onclick="@(() => Navigation.NavigateTo("/admin/push/history"))">
+        <span class="jsini-icon-bell jsini-bottom-nav__icon"></span>
+        <span>알림</span>
+    </button>
+    <button class="jsini-bottom-nav__item" @onclick="@Theme.Open">
+        <span class="jsini-icon-palette jsini-bottom-nav__icon"></span>
+        <span>설정</span>
+    </button>
+    <button class="jsini-bottom-nav__item" @onclick="@(() => Navigation.NavigateTo("/admin/profile?tab=basic"))">
+        <span class="jsini-icon-user jsini-bottom-nav__icon"></span>
+        <span>아바타</span>
+    </button>
+</div>
+
+@code {
+    private const string AskRouteKey = "projmng.ai.ask";
+    private const string AskPath = "/projmng/ai/ask";
+
+    private void GoToAsk()
+    {
+        var askMenu = FindAsk(Menus.VisibleMenus);
+        if (askMenu is not null)
+        {
+            Navigation.NavigateTo(askMenu.LinkTarget);
+        }
+        else
+        {
+            Navigation.NavigateTo(AskPath);
+        }
+    }
+
+    private static MenuNode? FindAsk(IReadOnlyList<MenuNode> nodes)
+    {
+        foreach (var node in nodes)
+        {
+            if (string.Equals(node.RouteKey, AskRouteKey, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(node.Path, AskPath, StringComparison.OrdinalIgnoreCase))
+            {
+                return node;
+            }
+
+            if (FindAsk(node.Children) is { } hit)
+            {
+                return hit;
+            }
+        }
+
+        return null;
+    }
+}
