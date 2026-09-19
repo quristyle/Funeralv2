@@ -83,6 +83,12 @@
 }
 else
 {
+    @if (_detailError)
+    {
+        <PageNotice Tone="NoticeTone.Warning"
+                    Text="선택한 지역의 상세 예보를 읽지 못했습니다. 지역을 다시 선택하거나 새로고침하십시오." />
+    }
+
     <div class="le-obs">
         @foreach (var w in _weatherList)
         {
@@ -108,67 +114,71 @@ else
 
     @if (_current is not null)
     {
-        <h2 class="le-today__head">@_current.Location 실황</h2>
+        <DashboardSection Title="@($"{_current.Location} 실황")">
+            <ChildContent>
+                <div class="le-cur">
+                    <div class="le-cur__now">
+                        <span class="le-cur__temp">@_current.TemperatureC.ToString("F1")°C</span>
+                        <span class="le-cur__cond">@_current.Condition</span>
+                    </div>
 
-        <div class="le-cur">
-            <div class="le-cur__now">
-                <span class="le-cur__temp">@_current.TemperatureC.ToString("F1")°C</span>
-                <span class="le-cur__cond">@_current.Condition</span>
-            </div>
+                    @if (_current.YesterdayTemperature is { } yesterday)
+                    {
+                        var gap = _current.TemperatureC - yesterday;
 
-            @if (_current.YesterdayTemperature is { } yesterday)
-            {
-                var gap = _current.TemperatureC - yesterday;
+                        @* 색만으로 가르지 않는다 — 화살표를 함께 쓴다. *@
+                        <span class="@(gap >= 0 ? "lf-up" : "lf-down")">
+                            어제보다 @(gap >= 0 ? "▲" : "▼") @Math.Abs(gap).ToString("F1")°C
+                        </span>
+                    }
+                    else
+                    {
+                        <span class="le-dept">어제 기온이 아직 없습니다.</span>
+                    }
 
-                @* 색만으로 가르지 않는다 — 화살표를 함께 쓴다. *@
-                <span class="@(gap >= 0 ? "lf-up" : "lf-down")">
-                    어제보다 @(gap >= 0 ? "▲" : "▼") @Math.Abs(gap).ToString("F1")°C
-                </span>
-            }
-            else
-            {
-                <span class="le-dept">어제 기온이 아직 없습니다.</span>
-            }
+                    @if (_current.SensibleTemp is { } feels)
+                    {
+                        <span class="le-dept">체감 @feels.ToString("F1")°C</span>
+                    }
+                </div>
+            </ChildContent>
+        </DashboardSection>
 
-            @if (_current.SensibleTemp is { } feels)
-            {
-                <span class="le-dept">체감 @feels.ToString("F1")°C</span>
-            }
-        </div>
-
-        <h2 class="le-today__head">주간 예보</h2>
-
-        @if (_midTerm.Count == 0)
-        {
-            <p class="le-today__empty">이 지역의 주간 예보가 아직 없습니다.</p>
-        }
-        else
-        {
-            <div class="le-week">
-                @foreach (var day in _midTerm)
+        <DashboardSection Title="주간 예보">
+            <ChildContent>
+                @if (_midTerm.Count == 0)
                 {
-                    <div class="le-week__day">
-                        <span class="le-week__when">@day.DayDisplay</span>
-                        <span class="le-week__date">@day.Date</span>
+                    <p class="le-today__empty">이 지역의 주간 예보가 아직 없습니다.</p>
+                }
+                else
+                {
+                    <div class="le-week">
+                        @foreach (var day in _midTerm)
+                        {
+                            <div class="le-week__day">
+                                <span class="le-week__when">@day.DayDisplay</span>
+                                <span class="le-week__date">@day.Date</span>
 
-                        <span class="le-week__sky">
-                            @* 하루 단위 예보는 오전·오후가 갈리지 않는다.
-                               그때 빈칸 둘을 보여 주면 자료가 없는 것처럼 읽힌다. *@
-                            @(string.IsNullOrWhiteSpace(day.AmSky) && string.IsNullOrWhiteSpace(day.PmSky)
-                                ? "-"
-                                : $"{day.AmSky} / {day.PmSky}")
-                        </span>
+                                <span class="le-week__sky">
+                                    @* 하루 단위 예보는 오전·오후가 갈리지 않는다.
+                                       그때 빈칸 둘을 보여 주면 자료가 없는 것처럼 읽힌다. *@
+                                    @(string.IsNullOrWhiteSpace(day.AmSky) && string.IsNullOrWhiteSpace(day.PmSky)
+                                        ? "-"
+                                        : $"{day.AmSky} / {day.PmSky}")
+                                </span>
 
-                        <span class="le-week__temp">
-                            <span class="lf-down">@day.MinTemp°</span>
-                            <span class="lf-up">@day.MaxTemp°</span>
-                        </span>
+                                <span class="le-week__temp">
+                                    <span class="lf-down">@day.MinTemp°</span>
+                                    <span class="lf-up">@day.MaxTemp°</span>
+                                </span>
 
-                        <span class="le-week__pop">강수 @day.AmPop% / @day.PmPop%</span>
+                                <span class="le-week__pop">강수 @day.AmPop% / @day.PmPop%</span>
+                            </div>
+                        }
                     </div>
                 }
-            </div>
-        }
+            </ChildContent>
+        </DashboardSection>
 
         <h2 class="le-today__head">예보 추이</h2>
 
@@ -261,6 +271,7 @@ else
     private List<MidTermForecast> _midTerm = [];
     private List<TrendPoint> _trend = [];
     private TrendMetric _metric = TrendMetric.Temp;
+    private bool _detailError;
 
     protected override Task OnInitializedAsync() => LoadDataAsync();
 
@@ -314,6 +325,7 @@ else
         _current = null;
         _midTerm = [];
         _trend = [];
+        _detailError = false;
 
         if (_selectedLocationId == 0)
         {
@@ -334,7 +346,9 @@ else
         }
         catch (ApiException)
         {
-            // 위 카드는 이미 그려져 있다. 여기서 화면을 세우지 않는다.
+            // 전 지역 카드까지 지우면 정상 자료와 장애를 구분할 수 없으므로
+            // 카드와 마지막 성공 자료는 남기고, 상세 영역만 상태를 알린다.
+            _detailError = true;
             _current = null;
             _midTerm = [];
             _trend = [];

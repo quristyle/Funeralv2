@@ -1,0 +1,39 @@
+@*
+    대시보드의 카드·차트·표를 한 구역으로 묶는다.
+
+    대시보드는 `CommCont`를 억지로 감싸면 높이와 스크롤이 망가질 수 있어
+    화면마다 제목·간격을 따로 적어 왔다. 이 부품은 자료 높이는 건드리지 않고
+    제목과 액션의 자리만 통일해, 긴 대시보드에서도 사용자가 지금 보는 자료의
+    범위를 잃지 않게 한다.
+*@
+<section class="jsini-dashboard-section @CssClass">
+    @if (!string.IsNullOrWhiteSpace(Title) || Actions is not null || !string.IsNullOrWhiteSpace(Hint))
+    {
+        <header class="jsini-dashboard-section__head">
+            @if (!string.IsNullOrWhiteSpace(Title))
+            {
+                <h2 class="jsini-dashboard-section__title">@Title</h2>
+            }
+
+            @if (!string.IsNullOrWhiteSpace(Hint))
+            {
+                <span class="jsini-dashboard-section__hint">@Hint</span>
+            }
+
+            <span class="jsini-dashboard-section__spacer"></span>
+            @Actions
+        </header>
+    }
+
+    <div class="jsini-dashboard-section__body">
+        @ChildContent
+    </div>
+</section>
+
+@code {
+    [Parameter] public string? Title { get; set; }
+    [Parameter] public string? Hint { get; set; }
+    [Parameter] public string? CssClass { get; set; }
+    [Parameter] public RenderFragment? Actions { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

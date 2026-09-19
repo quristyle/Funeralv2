@@ -2171,6 +2171,14 @@ button.jsini-crumbs__item:hover { opacity: 1; }
   min-width: 0;
 }
 
+/* 화면이 입력 부품에 고정 폭을 준 경우에도 조건 판이 가로로 넘치지 않게
+   한다. 데스크톱에서는 선언한 폭을 존중하고, 좁은 화면에서는 판의 남은
+   폭을 쓰게 해 조회 단추와 조건이 서로 밀어내지 않도록 한다. */
+.commsch__item > :last-child {
+  min-width: 0;
+  max-width: 100%;
+}
+
 /* `CommSch Stacked="true"` 일 때만 세로로 돌린다. 판이 붙인 클래스를 받으므로
    **한 판의 칸 전부**가 함께 돌아간다. 칸마다 다르면 그것이 제일 지저분하다. */
 /* 세로 배치에서는 **칸끼리** 아래를 맞춘다 — 라벨이 위에 얹혀 칸 높이가
@@ -2219,6 +2227,43 @@ button.jsini-crumbs__item:hover { opacity: 1; }
     margin-left: 0;
     width: 100%;
     justify-content: flex-end;
+  }
+
+  .commsch__fields {
+    width: 100%;
+  }
+
+  .commsch__item {
+    flex: 1 1 100%;
+    width: 100%;
+  }
+
+  .commsch__item > :last-child {
+    flex: 1 1 auto;
+    width: min(100%, 18rem) !important;
+  }
+
+  .commgrd:has(.dxbl-grid-bottom-panel) .dxbl-grid-bottom-panel {
+    flex-wrap: wrap;
+    min-height: 3.5rem;
+    padding-left: 0.65rem;
+  }
+
+  .commgrd:has(.dxbl-grid-bottom-panel) .commgrd__footer {
+    position: static;
+    order: 2;
+    width: 100%;
+    height: auto;
+    min-height: 2.5rem;
+    justify-content: flex-start;
+  }
+
+  .jsini-dashboard-section__head {
+    align-items: flex-start;
+  }
+
+  .jsini-dashboard-section__spacer {
+    display: none;
   }
 }
 
@@ -2397,6 +2442,52 @@ button.jsini-crumbs__item:hover { opacity: 1; }
   padding: 2rem;
   text-align: center;
   color: var(--jsini-text-muted);
+}
+
+/* 빈 표는 오류가 아니라 현재 조건의 결과라는 것을 표면으로 드러낸다.
+   고정 높이를 주지 않고 최소 높이만 두어 긴 화면의 스크롤 계산을 깨지
+   않으면서도, 표가 접혀 보이는 문제를 막는다. */
+.commgrd__empty::before {
+  content: "⌕";
+  display: block;
+  margin-bottom: 0.35rem;
+  font-size: 1.5rem;
+  opacity: 0.55;
+}
+
+/* 카드·차트·표가 섞인 대시보드는 구역 사이의 간격과 제목 계층을 공통으로
+   가져야 긴 화면에서 현재 위치를 잃지 않는다. */
+.jsini-dashboard-section {
+  min-width: 0;
+  margin-block: 0 1.25rem;
+}
+
+.jsini-dashboard-section__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem 0.75rem;
+  min-height: 2.5rem;
+  margin-bottom: 0.65rem;
+}
+
+.jsini-dashboard-section__title {
+  margin: 0;
+  font-size: var(--jsini-fs-lg);
+  line-height: 1.35;
+}
+
+.jsini-dashboard-section__hint {
+  color: var(--jsini-text-muted);
+  font-size: var(--jsini-fs-sm);
+}
+
+.jsini-dashboard-section__spacer {
+  flex: 1 1 auto;
+}
+
+.jsini-dashboard-section__body {
+  min-width: 0;
 }
 
 /* 표 아래 띠. 왼쪽 끝이 엑셀 자리다.
