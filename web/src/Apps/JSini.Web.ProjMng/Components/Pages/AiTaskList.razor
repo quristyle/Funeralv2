@@ -75,14 +75,16 @@
             <DxComboBox Data="@StatusFilters" @bind-Value="_status"
                         TextFieldName="@nameof(PickOption.Text)"
                         ValueFieldName="@nameof(PickOption.Value)"
-                        NullText="전체" CssClass="pm-code-select" />
+                        NullText="전체" ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto"
+                        CssClass="pm-code-select" />
         </CommSchItem>
 
         <CommSchItem Label="요청">
             <DxComboBox Data="@FlagFilters" @bind-Value="_flag"
                         TextFieldName="@nameof(PickOption.Text)"
                         ValueFieldName="@nameof(PickOption.Value)"
-                        NullText="전체" CssClass="pm-code-select" />
+                        NullText="전체" ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto"
+                        CssClass="pm-code-select" />
         </CommSchItem>
 
         <CommSchItem Label="대상">
@@ -481,6 +483,7 @@
 
     private static readonly PickOption[] StatusFilters =
     [
+        new("", "전체"),
         new("idle", "작성중"), new("queued", "대기"), new("preparing", "준비중"),
         new("running", "실행중"), new("succeeded", "완료"), new("failed", "실패"),
         new("timeout", "시간초과"), new("canceled", "취소"), new("interrupted", "중단"),
@@ -488,13 +491,14 @@
 
     /// <summary>
     /// 그리드 칸별 필터 행에 표시할 목록.
-    /// <see cref="StatusFilters"/> 와 같은 값이지만,
-    /// 칸별 필터는 DxListBox 에 바인딩하므로 별도로 노출한다.
+    /// 칸별 필터(DxTagBox)에는 '전체'를 제외한 실제 상태 목록만 바인딩한다.
     /// </summary>
-    private static readonly IReadOnlyList<PickOption> StatusFilterOptions = StatusFilters;
+    private static readonly IReadOnlyList<PickOption> StatusFilterOptions =
+        [.. StatusFilters.Where(x => !string.IsNullOrEmpty(x.Value))];
 
     private static readonly PickOption[] FlagFilters =
     [
+        new("", "전체"),
         new("none", "안 함"), new("requested", "요청"), new("cancel_requested", "취소요청"),
     ];
 
