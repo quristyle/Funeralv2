@@ -108,14 +108,45 @@ public sealed class Workspace(RunnerOptions options, ILogger<Workspace> logger)
                 // 모든 실행을 죽였다** — 실제로 그렇게 멈췄다.
                 if (isolation == "inplace")
                 {
-                    throw new InvalidOperationException(
-                        "정본이 깨끗하지 않습니다. 사람이 먼저 정리해야 합니다 "
-                        + "(살릴 것이면 커밋, 버릴 것이면 git checkout -- . 와 git clean -fd):\n"
-                        + dirty.Output);
-                }
+                    // **막지 않고 치운다 (2026-09-19).**
+                    //
+                    // 예전에는 여기서 던졌다. 그런데 이 자리에서 더러운 정본을
+                    // 만드는 것은 대개 사람이 아니라 **앞 실행**이다 — 게이트가
+                    // 금지 경로에 걸려 커밋을 못 했거나, 실행기가 CLI 가 도는
+                    // 중에 죽어 뒷정리(<see cref="ParkAsync"/>)가 안 돌았거나.
+                    // 그러면 그 뒤로 집혀 가는 건이 **하나도 빠짐없이** 같은
+                    // 말로 죽고, 사람이 그 장비에 들어가 손으로 치울 때까지
+                    // 큐가 통째로 막힌다. 실제로 그렇게 여덟 건이 연달아
+                    // 실패했다(대상 5번, 2026-09-19).
+                    //
+                    // 치우는 방법은 끝날 때 하는 것과 **똑같다** — 버리지 않고
+                    // stash 로 옮긴다. 살릴 것이면 `git stash pop` 이다.
+                    var label = $"ai-run-{claim.RunKey} (작업 {claim.TaskKey}) 시작 전 정본에 남아 있던 것";
 
-                await say("[준비] 정본에 정리되지 않은 변경이 있습니다 "
-                          + "(이 작업은 origin 에서 갈라지므로 섞이지 않습니다): " + Head(dirty.Output));
+                    await say("[준비] 정본에 정리되지 않은 변경이 있습니다. "
+                              + "stash 로 옮기고 시작합니다: " + Head(dirty.Output));
+
+                    var moved = await StashAsync(path, label, ct);
+
+                    if (moved is { } fail)
+                    {
+                        // 치우지도 못하면 그때는 정직하게 막는다. 더러운 자리에서
+                        // 고치면 게이트의 `git add -A` 가 **남의 변경까지** 집어
+                        // 커밋하고, 이 대상은 그것이 곧 운영 배포다.
+                        throw new InvalidOperationException(
+                            "정본이 깨끗하지 않은데 치우지도 못했습니다. 사람이 정리해야 합니다 "
+                            + "(살릴 것이면 커밋, 버릴 것이면 git checkout -- . 와 git clean -fd):\n"
+                            + fail);
+                    }
+
+                    await say($"[준비] 「{label}」 로 넣어 두었습니다 — 되살리려면 git stash pop.");
+                }
+                else
+                {
+
+                    await say("[준비] 정본에 정리되지 않은 변경이 있습니다 "
+                              + "(이 작업은 origin 에서 갈라지므로 섞이지 않습니다): " + Head(dirty.Output));
+                }
             }
 
             await say("[준비] git fetch origin");
@@ -154,8 +185,15 @@ public sealed class Workspace(RunnerOptions options, ILogger<Workspace> logger)
                     // 올리면 그 사이 남이 올린 것을 되돌린다 — 막는다.
                     if (isolation == "inplace")
                     {
+                        // **여기까지 왔으면 정본은 이미 깨끗하다**(위에서 치웠다).
+                        // 그런데도 ff 가 안 된다는 것은 정본의 가지가 origin 과
+                        // **갈라져 있다**는 뜻이고, 그것은 사람이 봐야 한다 —
+                        // 자동으로 reset 해 버리면 그 장비에만 있던 커밋이
+                        // 말없이 사라진다.
                         throw new InvalidOperationException(
-                            $"정본({current})을 최신으로 맞추지 못했습니다:\n{pull.Output}");
+                            $"정본({current})이 origin 과 갈라져 있어 최신으로 맞추지 못했습니다. "
+                            + "사람이 풀어야 합니다 (git log --oneline origin/{current}..HEAD 로 "
+                            + $"그 장비에만 있는 커밋을 먼저 확인하십시오):\n{pull.Output}");
                     }
 
                     // worktree · 복사본은 방금 받은 origin/<ref> 에서 갈라지므로
@@ -183,6 +221,25 @@ public sealed class Workspace(RunnerOptions options, ILogger<Workspace> logger)
         if (isolation == "inplace")
         {
             await say("[준비] 원본에서 직접 돕니다. 되돌리려면 사람이 해야 합니다.");
+
+            // **저장소인데 원본 직접이면 그 사실을 적어 둔다.**
+            //
+            // 대상 5번(`portal-jsini`)이 그랬다 — `/home/lee/Funeralv2` 를
+            // 「그냥 폴더」로 등록하는 바람에 격리가 inplace 로 잡혔고, 빠른지시가
+            // 전부 운영 정본을 직접 고쳤다. 같은 경로가 1번에는 저장소로 제대로
+            // 등록돼 있었는데 **push 를 켜려고 5번을 따로 만든 것**이 원인이었다.
+            //
+            // worktree 로 두면 실행마다 제 가지에서 돌아 정본이 더러워질 일이
+            // 없고 push 도 그대로 된다. 그래서 굳이 이 길을 갈 이유가 거의 없다.
+            if (isRepo)
+            {
+                await say("[준비] 이 대상은 git 저장소인데 격리가 「원본 직접」입니다. "
+                          + "worktree 로 바꾸면 실행마다 제 가지에서 돌아 정본이 더러워지지 않습니다 "
+                          + "— push 는 그대로 됩니다.");
+
+                logger.LogWarning(
+                    "대상 {Path} 는 git 저장소인데 격리가 inplace 입니다. worktree 를 권합니다.", path);
+            }
 
             return new Prepared
             {
@@ -337,6 +394,32 @@ public sealed class Workspace(RunnerOptions options, ILogger<Workspace> logger)
     /// 조용히 치우면 「분명 고쳤는데 없어졌다」가 된다.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// 정본에 남은 것을 <b>버리지 않고 stash 로 옮긴다.</b>
+    /// 옮겼으면 <c>null</c>, 못 옮겼으면 그 이유를 돌려준다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 부르는 자리가 둘이다 — 실행이 <b>끝날 때</b>(<see cref="ParkAsync"/>)와
+    /// <b>시작할 때</b>(<see cref="PrepareAsync"/>). 끝에서 치우는 것이
+    /// 정상이고, 시작에서 치우는 것은 <b>그 정상이 한 번 걸렀을 때를 받는
+    /// 그물</b>이다(실행기가 중간에 죽으면 끝나는 자리가 아예 안 돈다).
+    /// </para>
+    /// <para>
+    /// <b>stash 도 커밋 객체를 만든다</b> — 이름·메일이 없으면 「unable to
+    /// auto-detect email address」로 죽는다. systemd 로 도는 프로세스에는 그
+    /// 설정이 없을 수 있어 여기서 준다(<c>PushGate</c> 의 커밋과 같은 값).
+    /// </para>
+    /// </remarks>
+    private async Task<string?> StashAsync(string path, string label, CancellationToken ct)
+    {
+        var stash = await GitAsync(path, ct,
+            "-c", "user.name=AI Task Runner", "-c", "user.email=ai-task@jsini.local",
+            "stash", "push", "--include-untracked", "-m", label);
+
+        return stash.ExitCode == 0 ? null : Head(stash.Output);
+    }
+
     public async Task<string?> ParkAsync(
         Prepared prepared, string label, Func<string, Task> say, CancellationToken ct)
     {
@@ -358,19 +441,16 @@ public sealed class Workspace(RunnerOptions options, ILogger<Workspace> logger)
             return null;   // 게이트가 커밋했거나 애초에 바뀐 것이 없다.
         }
 
-        // **stash 도 커밋 객체를 만든다** — 이름·메일이 없으면 「unable to
-        // auto-detect email address」로 죽는다. systemd 로 도는 프로세스에는
-        // 그 설정이 없을 수 있어 여기서 준다(PushGate 의 커밋과 같은 값).
-        var stash = await GitAsync(path, ct,
-            "-c", "user.name=AI Task Runner", "-c", "user.email=ai-task@jsini.local",
-            "stash", "push", "--include-untracked", "-m", label);
-
-        if (stash.ExitCode != 0)
+        if (await StashAsync(path, label, ct) is { } fail)
         {
             // 치우지 못한 것을 성공으로 끝내지 않는다. 다음 실행이 여기에서
             // 막힐 것이므로 **왜 막히는지를 지금 적어 둔다.**
-            await say($"[정리] 정본을 치우지 못했습니다. 사람이 정리해야 다음 작업이 돕니다:\n{Head(stash.Output)}");
-            logger.LogWarning("정본({Path})을 치우지 못했습니다: {Message}", path, Head(stash.Output));
+            //
+            // 다만 이제는 다음 실행이 그 자리에서 죽지 않고 **스스로 치우고
+            // 지나간다**(`PrepareAsync`). 여기 적는 것은 그래도 사람이 알고
+            // 있어야 하기 때문이다 — 치우지 못하는 이유는 대개 반복된다.
+            await say($"[정리] 정본을 치우지 못했습니다:\n{fail}");
+            logger.LogWarning("정본({Path})을 치우지 못했습니다: {Message}", path, fail);
 
             return null;
         }
