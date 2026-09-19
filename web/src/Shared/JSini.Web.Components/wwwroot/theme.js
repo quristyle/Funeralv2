@@ -196,7 +196,7 @@
    * Classic 을 기본으로 두지 않는 이유는 파일이 2.8MB 라 첫 방문이 느려서다
    * (Fluent 은 core 1.6MB 에 밝기·강조색이 100KB 남짓이다).
    */
-  var DEFAULT = { family: 'fluent', mode: 'light', accent: 'blue', custom: null, size: 'medium' };
+  var DEFAULT = { family: 'fluent', mode: 'dark', accent: 'blue', custom: null, size: 'medium' };
 
   // ── 스타일시트 관리 ───────────────────────────────────────
 

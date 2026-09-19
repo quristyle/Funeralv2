@@ -5120,3 +5120,470 @@ html {
 *::-webkit-scrollbar-corner {
   background: transparent;
 }
+
+/* ── 포털 셸 리프레시 ─────────────────────────────────────
+
+   Tabler Admin의 업무용 다크 톤을 기준으로 셸의 기본 인상을 정리한다.
+   메뉴·헤더·업무 카드는 같은 표면 계층을 공유하고, 선택 상태는 블루
+   액센트와 얕은 배경을 함께 사용해 색만으로 구분하지 않는다.
+   ---------------------------------------------------------- */
+
+:root {
+  --jsini-bg: #f4f7fb;
+  --jsini-surface: #ffffff;
+  --jsini-border: #e4eaf2;
+  --jsini-text: #182433;
+  --jsini-text-muted: #708096;
+  --jsini-accent: #206bc4;
+  --jsini-surface-raised: #ffffff;
+  --jsini-surface-muted: #eef3f8;
+  --jsini-focus: rgb(32 107 196 / 24%);
+  --jsini-shadow-card: 0 1px 2px rgb(24 36 51 / 5%), 0 8px 24px rgb(24 36 51 / 4%);
+}
+
+:root[data-theme='dark'] {
+  --jsini-bg: #0f172a;
+  --jsini-surface: #172033;
+  --jsini-border: #26334a;
+  --jsini-text: #e7edf7;
+  --jsini-text-muted: #91a0b5;
+  --jsini-accent: #4299ff;
+  --jsini-surface-raised: #1b2940;
+  --jsini-surface-muted: #121c2e;
+  --jsini-focus: rgb(66 153 255 / 28%);
+  --jsini-shadow-card: 0 1px 2px rgb(0 0 0 / 22%), 0 12px 28px rgb(0 0 0 / 18%);
+}
+
+body {
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+  background: var(--jsini-bg);
+}
+
+.jsini-header {
+  padding: 0 0.75rem;
+  background: var(--jsini-surface);
+  border-bottom: 1px solid var(--jsini-border);
+  box-shadow: none;
+}
+
+.jsini-header__brand {
+  gap: 0.65rem;
+  margin-left: 0.35rem;
+}
+
+.jsini-header .dxbl-btn,
+.jsini-header__toggle .dxbl-btn {
+  border-radius: var(--jsini-radius-md);
+}
+
+.jsini-header .dxbl-btn:hover,
+.jsini-header .dxbl-btn:focus-visible {
+  background: color-mix(in srgb, var(--jsini-accent) 10%, transparent);
+}
+
+.jsini-shell__sidebar {
+  background: var(--jsini-surface-muted);
+  border-right-color: var(--jsini-border);
+  box-shadow: inset -1px 0 0 rgb(255 255 255 / 2%);
+}
+
+.jsini-sidebar__search {
+  height: 3.25rem;
+  padding: 0 0.875rem;
+  background: var(--jsini-surface-muted);
+  border-bottom-color: var(--jsini-border);
+}
+
+.jsini-sidebar__search-box {
+  padding: 0.1rem 0.35rem;
+  border: 1px solid var(--jsini-border);
+  border-radius: var(--jsini-radius-md);
+  background: var(--jsini-surface);
+}
+
+.jsini-sidebar__tabs {
+  gap: 0.25rem;
+  padding: 0.5rem 0.65rem 0;
+  background: var(--jsini-surface-muted);
+  border-bottom: 1px solid var(--jsini-border);
+}
+
+.jsini-sidebar__tab {
+  border-radius: var(--jsini-radius-md) var(--jsini-radius-md) 0 0;
+  border-bottom-width: 3px;
+  color: var(--jsini-text-muted);
+}
+
+.jsini-sidebar__tab:hover {
+  background: color-mix(in srgb, var(--jsini-accent) 8%, transparent);
+  color: var(--jsini-text);
+}
+
+.jsini-sidebar__tab.is-on {
+  background: var(--jsini-surface);
+  color: var(--jsini-accent);
+}
+
+.jsini-sidebar__tree .dxbl-treeview-item-container {
+  border-radius: var(--jsini-radius-md);
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.jsini-sidebar__tree .dxbl-treeview-item-container:hover {
+  background: color-mix(in srgb, var(--jsini-accent) 8%, transparent);
+}
+
+.jsini-sidebar__tree .dxbl-treeview-item-container.dxbl-active {
+  background: color-mix(in srgb, var(--jsini-accent) 16%, transparent);
+  color: var(--jsini-accent);
+  font-weight: 600;
+}
+
+.jsini-shell__main {
+  background: var(--jsini-bg);
+}
+
+.jsini-tabs {
+  height: 2.75rem;
+  padding: 0 0.75rem;
+  background: var(--jsini-surface);
+  border-bottom-color: var(--jsini-border);
+}
+
+.jsini-tab {
+  border-radius: var(--jsini-radius-md) var(--jsini-radius-md) 0 0;
+}
+
+.jsini-tab:hover {
+  background: color-mix(in srgb, var(--jsini-accent) 8%, transparent);
+}
+
+.jsini-tab--active {
+  background: color-mix(in srgb, var(--jsini-accent) 9%, transparent);
+  border-bottom-color: var(--jsini-accent);
+}
+
+.jsini-shell__content {
+  padding: var(--jsini-sp-2xl);
+}
+
+.jsini-page-head {
+  margin-bottom: 1.25rem;
+}
+
+.jsini-page-head__title {
+  letter-spacing: -0.02em;
+}
+
+.commsch {
+  background: var(--jsini-surface-raised);
+  border-color: var(--jsini-border);
+  border-radius: var(--jsini-radius-lg);
+  box-shadow: var(--jsini-shadow-card);
+}
+
+.commcont {
+  padding: var(--jsini-sp-lg);
+  border: 1px solid var(--jsini-border);
+  border-radius: var(--jsini-radius-lg);
+  background: var(--jsini-surface-raised);
+  box-shadow: var(--jsini-shadow-card);
+}
+
+.commcont__head {
+  margin-bottom: var(--jsini-sp-md);
+}
+
+.commcont__title {
+  font-size: var(--jsini-fs-lg);
+  letter-spacing: -0.01em;
+}
+
+.commgrd > .dxbl-grid,
+.commtree > .dxbl-grid {
+  border-color: var(--jsini-border);
+  border-radius: var(--jsini-radius-md);
+  overflow: hidden;
+}
+
+.jsini-shell__content :is(button, a, input, textarea, select):focus-visible {
+  outline: 2px solid var(--jsini-focus);
+  outline-offset: 2px;
+}
+
+/* ── 공통 업무 부품 마감 ─────────────────────────────────
+
+   Tabler의 핵심은 화면마다 다른 장식이 아니라 표·페이저·입력·팝업이
+   같은 표면과 상태색을 공유하는 데 있다. DevExpress의 구조와 기능은
+   그대로 두고, 공용 컴포넌트가 그리는 영역만 이 토큰으로 마감한다.
+   ---------------------------------------------------------- */
+
+:root {
+  --jsini-success: #2fb344;
+  --jsini-warning: #f59f00;
+  --jsini-danger: #d63939;
+  --jsini-info: #4299ff;
+  --jsini-grid-header: #f6f8fb;
+  --jsini-grid-hover: #f0f6ff;
+}
+
+:root[data-theme='dark'] {
+  --jsini-grid-header: #1d2a40;
+  --jsini-grid-hover: #203657;
+}
+
+/* 버튼·입력·선택 상자 */
+.jsini-shell__content .dxbl-btn:not(.dxbl-btn-link),
+.jsini-shell__content .dxbl-btn-group,
+.jsini-shell__content .dxbl-text-edit,
+.jsini-shell__content .dxbl-combobox,
+.jsini-shell__content .dxbl-spin-edit,
+.jsini-shell__content .dxbl-date-edit {
+  border-radius: var(--jsini-radius-md);
+}
+
+.jsini-shell__content .dxbl-btn:not(.dxbl-btn-link) {
+  font-weight: 600;
+}
+
+.jsini-shell__content .dxbl-btn:not(.dxbl-btn-link):hover {
+  filter: brightness(1.04);
+}
+
+.jsini-shell__content .dxbl-text-edit:focus-within,
+.jsini-shell__content .dxbl-combobox:focus-within,
+.jsini-shell__content .dxbl-spin-edit:focus-within,
+.jsini-shell__content .dxbl-date-edit:focus-within {
+  box-shadow: 0 0 0 0.2rem var(--jsini-focus);
+}
+
+/* 조회 조건은 카드 안의 조용한 작업 영역으로 보이게 한다. */
+.commsch {
+  gap: var(--jsini-sp-md) var(--jsini-sp-xl);
+  box-shadow: var(--jsini-shadow-card);
+}
+
+.commsch__actions .dxbl-btn {
+  min-width: 4.5rem;
+}
+
+/* 표의 표면·머리·행 상태 */
+.commgrd > .dxbl-grid,
+.commtree > .dxbl-grid {
+  background: var(--jsini-surface-raised);
+  box-shadow: var(--jsini-shadow-card);
+}
+
+.commgrd .dxbl-grid-table,
+.commtree .dxbl-grid-table {
+  color: var(--jsini-text);
+}
+
+.commgrd .dxbl-grid-header,
+.commtree .dxbl-grid-header {
+  background: var(--jsini-grid-header);
+  border-bottom: 1px solid var(--jsini-border);
+}
+
+.commgrd .dxbl-grid-header-content,
+.commtree .dxbl-grid-header-content {
+  min-height: 2.75rem;
+  padding: 0.65rem 0.75rem;
+  color: var(--jsini-text-muted);
+  font-size: var(--jsini-fs-xs);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.commgrd .dxbl-grid-table > tbody > tr,
+.commtree .dxbl-grid-table > tbody > tr {
+  border-bottom: 1px solid var(--jsini-border);
+  transition: background-color 0.12s ease;
+}
+
+.commgrd .dxbl-grid-table > tbody > tr:last-child,
+.commtree .dxbl-grid-table > tbody > tr:last-child {
+  border-bottom: 0;
+}
+
+.commgrd .dxbl-grid-table > tbody > tr:hover,
+.commtree .dxbl-grid-table > tbody > tr:hover {
+  background-color: var(--jsini-grid-hover);
+}
+
+.commgrd .dxbl-grid-table > tbody > tr > td,
+.commtree .dxbl-grid-table > tbody > tr > td {
+  padding: 0.7rem 0.75rem;
+  border-color: var(--jsini-border);
+}
+
+.commgrd .dxbl-grid .dxbl-grid-table > tbody > tr > td.dxbl-grid-fixed-cell,
+.commtree .dxbl-grid .dxbl-grid-table > tbody > tr > td.dxbl-grid-fixed-cell {
+  background-color: var(--jsini-surface-raised);
+}
+
+.commgrd .dxbl-grid .dxbl-grid-table > tbody > tr.commgrd__row--alt > td.dxbl-grid-fixed-cell,
+.commtree .dxbl-grid .dxbl-grid-table > tbody > tr.commtree__row--alt > td.dxbl-grid-fixed-cell {
+  background-color: color-mix(in srgb, var(--jsini-grid-header) 72%, var(--jsini-surface-raised));
+}
+
+.commgrd .dxbl-grid-table > tbody > tr.dxbl-grid-focused-row,
+.commgrd .dxbl-grid-table > tbody > tr.dxbl-grid-selected-row,
+.commtree .dxbl-grid-table > tbody > tr.dxbl-grid-focused-row,
+.commtree .dxbl-grid-table > tbody > tr.dxbl-grid-selected-row {
+  background-color: color-mix(in srgb, var(--jsini-accent) 14%, var(--jsini-surface-raised));
+  box-shadow: inset 3px 0 0 var(--jsini-accent);
+}
+
+.commgrd .dxbl-grid-table > tbody > tr.dxbl-grid-focused-row > td.dxbl-grid-fixed-cell,
+.commgrd .dxbl-grid-table > tbody > tr.dxbl-grid-selected-row > td.dxbl-grid-fixed-cell,
+.commtree .dxbl-grid-table > tbody > tr.dxbl-grid-focused-row > td.dxbl-grid-fixed-cell,
+.commtree .dxbl-grid-table > tbody > tr.dxbl-grid-selected-row > td.dxbl-grid-fixed-cell {
+  background-color: inherit;
+}
+
+.commgrd__actions .dxbl-btn,
+.commgrd__footer .dxbl-btn,
+.commtree__actions .dxbl-btn,
+.commtree__footer .dxbl-btn {
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--jsini-radius-md);
+}
+
+.commgrd__actions .dxbl-btn:hover,
+.commgrd__footer .dxbl-btn:hover,
+.commtree__actions .dxbl-btn:hover,
+.commtree__footer .dxbl-btn:hover {
+  background: color-mix(in srgb, var(--jsini-accent) 12%, transparent);
+}
+
+.commgrd__icon--warn,
+.commtree__icon--warn {
+  color: var(--jsini-danger);
+}
+
+.commgrd__empty,
+.commtree__empty {
+  min-height: 9rem;
+  display: grid;
+  place-items: center;
+  padding: var(--jsini-sp-2xl);
+  background: var(--jsini-surface-raised);
+}
+
+/* DevExpress 페이저를 Tabler의 작은 알약형 페이지 네비게이션처럼 보이게 한다.
+   실제 페이저의 세부 클래스가 테마별로 달라도 bottom-panel 아래의 버튼과
+   링크에는 공통으로 적용된다. */
+.commgrd:has(.dxbl-grid-bottom-panel) .dxbl-grid-bottom-panel {
+  min-height: var(--commgrd-bar-height);
+  gap: 0.35rem;
+  padding: 0.4rem 0.65rem 0.4rem 10rem;
+  border-top: 1px solid var(--jsini-border);
+  background: var(--jsini-surface-raised);
+  color: var(--jsini-text-muted);
+}
+
+.commgrd .dxbl-grid-bottom-panel :is(.dxbl-pager, .dxbl-pager-container) {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.commgrd .dxbl-grid-bottom-panel :is(button, a, .dxbl-btn) {
+  min-width: 2rem;
+  height: 2rem;
+  padding: 0 0.55rem;
+  border: 1px solid transparent;
+  border-radius: var(--jsini-radius-md);
+  background: transparent;
+  color: var(--jsini-text-muted);
+  font-size: var(--jsini-fs-sm);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.commgrd .dxbl-grid-bottom-panel :is(button, a, .dxbl-btn):hover {
+  background: color-mix(in srgb, var(--jsini-accent) 10%, transparent);
+  color: var(--jsini-accent);
+}
+
+.commgrd .dxbl-grid-bottom-panel :is(.dxbl-pager-page-item-active, .dxbl-pager-active, [aria-current='page']) {
+  border-color: var(--jsini-accent);
+  background: var(--jsini-accent);
+  color: #fff;
+}
+
+.commgrd .dxbl-grid-bottom-panel :is(.dxbl-pager-page-item-disabled, :disabled, [aria-disabled='true']) {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.commgrd .dxbl-grid-bottom-panel :is(.dxbl-pager-summary, .dxbl-pager-page-size) {
+  color: var(--jsini-text-muted);
+  font-size: var(--jsini-fs-xs);
+}
+
+/* 상태 배지 */
+.jsini-badge {
+  border: 0;
+  border-radius: var(--jsini-radius-full);
+  padding: 0.25rem 0.6rem;
+  background: var(--jsini-surface-muted);
+  font-size: var(--jsini-fs-xs);
+  font-weight: 700;
+}
+
+.jsini-badge--on {
+  background: color-mix(in srgb, var(--jsini-success) 15%, transparent);
+  border-color: transparent;
+  color: var(--jsini-success);
+}
+
+.jsini-badge--off {
+  background: color-mix(in srgb, var(--jsini-text-muted) 13%, transparent);
+  border-color: transparent;
+}
+
+.jsini-badge--warn {
+  background: color-mix(in srgb, var(--jsini-warning) 16%, transparent);
+  border-color: transparent;
+  color: var(--jsini-warning);
+}
+
+.jsini-badge--err {
+  background: color-mix(in srgb, var(--jsini-danger) 15%, transparent);
+  border-color: transparent;
+  color: var(--jsini-danger);
+}
+
+/* 공통 팝업·드롭다운 */
+.jsini-popup .dxbl-modal-content,
+.jsini-gridpopup .dxbl-modal-content,
+.dxbl-popup:not(.dxbl-dropdown-popup) {
+  border: 1px solid var(--jsini-border);
+  border-radius: var(--jsini-radius-lg);
+  background: var(--jsini-surface-raised);
+  box-shadow: 0 18px 48px rgb(0 0 0 / 24%);
+}
+
+.jsini-popup .dxbl-modal-header,
+.jsini-gridpopup .dxbl-modal-header {
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--jsini-border);
+  background: var(--jsini-surface-raised);
+}
+
+.jsini-popup .dxbl-modal-body,
+.jsini-gridpopup .dxbl-modal-body {
+  padding: 1.25rem;
+}
+
+.jsini-popup .dxbl-modal-footer,
+.jsini-gridpopup .dxbl-modal-footer {
+  padding: 0.85rem 1.25rem;
+  border-top: 1px solid var(--jsini-border);
+  background: var(--jsini-surface-muted);
+}

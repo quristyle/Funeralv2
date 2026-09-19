@@ -258,7 +258,7 @@
 
     private bool _open;
     private string _family = "fluent";
-    private string _mode = "light";
+    private string _mode = "dark";
     private string _accent = "blue";
     private string? _custom;
     private string? _classic;
@@ -422,7 +422,7 @@
         if (c is null) return;
 
         _family = c.Family;
-        _mode = c.Mode ?? "light";
+        _mode = c.Mode ?? "dark";
         _accent = c.Accent ?? "blue";
         _custom = c.Custom;
         _classic = c.Classic;
