@@ -193,11 +193,44 @@ public sealed class AiTaskDto
 
     // ── 화면이 쓰는 파생값 ──────────────────────────────────
 
+    /// <summary>
+    /// <b>실패해 놓고 「대기」로 앉아 있는 것.</b> 지난 실행이 실패해서 서버가
+    /// 다시 넣어 둔 상태다(<c>AiRunService.CompleteAsync</c> 의 재시도).
+    /// </summary>
+    /// <remarks>
+    /// 상태값만 보면 <c>queued</c> 라 방금 보낸 건과 구별되지 않는데,
+    /// <b>끝난 시각이 찍혀 있으면 한 번은 돌았다는 뜻</b>이다. 보낼 때
+    /// (<c>RequestAsync</c>) 서버가 <c>finished_at</c> 을 지우므로, 이 값이
+    /// 남아 있는 대기는 재시도뿐이다.
+    /// </remarks>
+    public bool IsRetrying => TaskStatus == "queued" && FinishedAt is not null;
+
+    /// <summary>
+    /// <b>아무도 집어 가지 않았다.</b> 실행기가 안 떠 있다는 뜻이고,
+    /// 이 기능에서 가장 흔한 고장이다(설계 6.8).
+    /// </summary>
+    /// <remarks>
+    /// 판정은 서버의 감시자가 한다 — 제한 시간(<c>AiTasks:PickupTimeoutSeconds</c>,
+    /// 기본 60초)이 지나도록 안 집혀 가면 <c>last_error</c> 에 사유를 적는다
+    /// (<c>AiStaleSweeper</c>). <b>상태는 <c>queued</c> 인 채로 둔다</b> —
+    /// 늦게 뜬 실행기가 집어 갈 수 있어 여기서 「실패」로 못 박으면 그 뒤의
+    /// 보고가 갈 곳을 잃기 때문이다. 그래서 <b>화면이 대신 말한다.</b>
+    /// </remarks>
+    public bool IsUnclaimed => TaskStatus == "queued"
+        && FinishedAt is null
+        && !string.IsNullOrWhiteSpace(LastError);
+
     /// <summary>사람이 읽는 상태 이름.</summary>
+    /// <remarks>
+    /// <b>「대기」 셋을 갈라 적는다.</b> 상태값은 셋 다 <c>queued</c> 지만
+    /// 사람이 할 일이 다르다 — 방금 보낸 것은 기다리면 되고, 재시도는 이미
+    /// 한 번 실패한 것이며, 안 집혀 간 것은 <b>실행기를 봐야 한다.</b>
+    /// 셋을 같은 「대기」로 적으면 <b>실패한 건이 실패로 안 보인다.</b>
+    /// </remarks>
     public string StatusText => TaskStatus switch
     {
         "idle" => "작성중",
-        "queued" => "대기",
+        "queued" => IsRetrying ? "실패·재시도" : IsUnclaimed ? "응답없음" : "대기",
         "preparing" => "준비중",
         "running" => "실행중",
         "succeeded" => "완료",
@@ -220,7 +253,11 @@ public sealed class AiTaskDto
     {
         "succeeded" => "on",
         "failed" or "timeout" or "interrupted" => "err",
-        "queued" or "preparing" or "running" => "warn",
+
+        // 실패해서 다시 넣은 것과 안 집혀 간 것은 **빨강**이다. 기다리라는
+        // 뜻의 주황으로 칠하면 훑을 때 그냥 지나간다 — 둘 다 사람이 봐야 한다.
+        "queued" => IsRetrying || IsUnclaimed ? "err" : "warn",
+        "preparing" or "running" => "warn",
         _ => "off",
     };
 

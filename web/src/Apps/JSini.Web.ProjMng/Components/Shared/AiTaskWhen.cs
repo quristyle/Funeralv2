@@ -91,6 +91,15 @@ internal static class AiTaskWhen
     /// </remarks>
     public static string Elapsed(AiTaskDto t)
     {
+        // 실패해서 다시 넣어 둔 것. 상태값은 대기지만 **지난 실행의 시작
+        // 시각이 그대로 남아 있어**, 아래 「도는 중」 계산에 걸리면 이미 끝난
+        // 실행의 시각부터 지금까지를 센다 — 돌지도 않는 건의 시간이 늘어난다.
+        // 여기서는 **지난 실행에 걸린 시간**을 적는다.
+        if (t.IsRetrying)
+        {
+            return t.DurationMs is > 0 ? Span(TimeSpan.FromMilliseconds(t.DurationMs.Value)) : "-";
+        }
+
         if (t.IsBusy)
         {
             // 아직 집어 가지 않았다. 「0초」라고 적으면 **돌다가 즉시 끝난 것**과

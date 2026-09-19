@@ -419,6 +419,13 @@ public sealed class AiRunService(
             UPDATE projmng.ai_task t
                SET task_status    = CASE WHEN @retry THEN 'queued' ELSE @status END,
                    request_flag   = CASE WHEN @retry THEN 'requested' ELSE 'none' END,
+
+                   -- **다시 넣은 것은 요청 시각도 다시 찍는다.** 안 찍으면
+                   -- 처음 보낸 시각이 그대로 남아, 감시자가 보기에 이미
+                   -- 집어가기 제한 시간(6.8)을 넘긴 건이 된다 — 실행기가
+                   -- 곧바로 집어 가는데도 `last_error` 가 「집어 가지
+                   -- 않았습니다」로 덮여 **왜 실패했는지가 지워진다.**
+                   requested_at   = CASE WHEN @retry THEN now() ELSE t.requested_at END,
                    finished_at    = now(),
                    duration_ms    = EXTRACT(EPOCH FROM (now() - t.started_at)) * 1000,
                    last_exit_code = @ExitCode,

@@ -568,10 +568,20 @@
     /// 1단계에서는 집어 가는 쪽이 없다. <b>그 사실을 화면이 말한다</b> —
     /// 「눌렀는데 아무 일도 안 난다」로 읽히지 않게.
     /// </summary>
-    private string BusyNotice => _edit?.TaskStatus switch
+    /// <remarks>
+    /// <b>「대기」를 한 가지로 적지 않는다.</b> 안 집혀 간 것과 실패해서 다시
+    /// 넣은 것은 상태값이 같아도(<c>queued</c>) 사람이 할 일이 다르다 —
+    /// 앞엣것은 실행기를 봐야 하고, 뒤엣것은 지난 실패를 봐야 한다.
+    /// </remarks>
+    private string BusyNotice => _edit switch
     {
-        "queued" => "요청했습니다. 실행기가 집어 가기를 기다립니다. 한참 이대로면 실행기가 떠 있는지 확인하십시오.",
-        "preparing" => "실행기가 집어 가 준비하고 있습니다.",
+        { TaskStatus: "queued", IsUnclaimed: true } =>
+            "제한 시간이 지나도록 실행기가 집어 가지 않았습니다. 실행기가 떠 있는지 확인하십시오.",
+        { TaskStatus: "queued", IsRetrying: true } =>
+            "지난 실행이 실패해 다시 넣었습니다. 실행기가 집어 가기를 기다립니다.",
+        { TaskStatus: "queued" } =>
+            "요청했습니다. 실행기가 집어 가기를 기다립니다. 한참 이대로면 실행기가 떠 있는지 확인하십시오.",
+        { TaskStatus: "preparing" } => "실행기가 집어 가 준비하고 있습니다.",
         _ => "지금 돌고 있습니다. 끝나거나 취소해야 고칠 수 있습니다.",
     };
 
@@ -958,6 +968,12 @@
                         _edit.TaskStatus = latest.TaskStatus;
                         _edit.RequestFlag = latest.RequestFlag;
                         _edit.DurationMs = latest.DurationMs;
+
+                        // **끝난 시각도 가져온다.** 「대기」가 방금 보낸 것인지
+                        // 실패해서 다시 넣은 것인지를 이 값으로 가른다
+                        // (<c>AiTaskDto.IsRetrying</c>) — 안 가져오면 재시도가
+                        // 그냥 「대기」로 보인다.
+                        _edit.FinishedAt = latest.FinishedAt;
                         _edit.LastError = latest.LastError;
                         _edit.NotifyError = latest.NotifyError;
 
