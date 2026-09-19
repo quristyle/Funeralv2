@@ -71,6 +71,11 @@
                 <span class="jsini-badge jsini-badge--@t.StatusTone">@t.StatusText</span>
 
                 <span class="pm-peek__cell">
+                    <span class="pm-peek__label">작성시간</span>
+                    <span class="pm-peek__value">@(t.CreDt?.ToString("yyyy-MM-dd HH:mm") ?? "-")</span>
+                </span>
+
+                <span class="pm-peek__cell">
                     <span class="pm-peek__label">실행일시</span>
                     <span class="pm-peek__value">@AiTaskWhen.RunAt(t)</span>
                 </span>
@@ -78,6 +83,11 @@
                 <span class="pm-peek__cell">
                     <span class="pm-peek__label">총작업시간</span>
                     <span class="pm-peek__value">@AiTaskWhen.Elapsed(t)</span>
+                </span>
+
+                <span class="pm-peek__cell">
+                    <span class="pm-peek__label">모델</span>
+                    <span class="pm-peek__value">@t.RunnerKind</span>
                 </span>
             </div>
 
