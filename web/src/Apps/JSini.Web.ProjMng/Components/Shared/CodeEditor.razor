@@ -143,8 +143,19 @@
 
     private bool _ready;
 
-    /// <summary>자동 줄바꿈 상태. 툴바 체크박스와 Monaco 옵션을 함께 조종한다.</summary>
-    private bool _wordWrap;
+    /// <summary>
+    /// 자동 줄바꿈 기본값. 기본값은 <b>켜짐(true)</b>이다.
+    /// 에디터가 열릴 때부터 줄바꿈 아이콘이 선택된 상태로 시작한다.
+    /// </summary>
+    [Parameter] public bool WordWrap { get; set; } = true;
+
+    /// <summary>자동 줄바꿈 상태. 아이콘 버튼과 Monaco 옵션을 함께 조종한다.</summary>
+    private bool _wordWrap = true;
+
+    protected override void OnInitialized()
+    {
+        _wordWrap = WordWrap;
+    }
 
     [Parameter] public string? Value { get; set; }
 

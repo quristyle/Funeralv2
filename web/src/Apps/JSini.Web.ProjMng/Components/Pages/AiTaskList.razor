@@ -225,214 +225,222 @@
                             Text="이 브라우저에는 임시저장을 적어 둘 수 없습니다(저장소가 막혀 있거나 가득 찼습니다). 자주 「저장」을 누르십시오." />
             }
 
-            @* 여기부터 탭 둘이다. 위의 알림 줄들은 **탭 밖에** 둔다 —
-               「도는 중이라 못 고친다」·「되살렸다」·「메일이 안 나갔다」는
-               어느 탭을 보고 있든 알아야 하는 말이다. *@
-            <DxTabs @bind-ActiveTabIndex="_tab" TabClick="@OnTabClick">
-                <DxTabPage Text="지시">
-                    <div class="pm-tab-body pm-ai-write">
-            <DxFormLayout CssClass="pm-editform">
-                <DxFormLayoutItem Caption="제목" ColSpanMd="8">
-                    <DxTextBox @bind-Text="_edit.Title"
-                               NullText="비워 두면 내용에서 만들어 붙입니다"
-                               Enabled="@CanEdit" />
-                </DxFormLayoutItem>
-
-                <DxFormLayoutItem Caption="대상" ColSpanMd="4">
-                    <DxComboBox Data="@_enabledTargets" Value="@_edit.TargetKey"
-                                ValueChanged="@((long? key) => PickTarget(key))"
-                                ValueExpression="@(() => _edit.TargetKey)"
-                                TextFieldName="@nameof(AiTargetDto.TargetNm)"
-                                ValueFieldName="@nameof(AiTargetDto.TargetKey)"
-                                NullText="어디에서 일할지" Enabled="@CanEdit" />
-                </DxFormLayoutItem>
-
-                @* **고른 대상이 허용한 것만 나온다.** 전부 보여 주면 대상이 못
-                   쓰는 AI 를 고를 수 있고, 그 어긋남은 실행기가 집어 간 뒤에야
-                   드러난다 — 화면에서는 아무 표시 없이 그냥 실패한다. *@
-                <DxFormLayoutItem Caption="AI" ColSpanMd="3">
-                    <DxComboBox Data="@AllowedRunners" @bind-Value="_edit.RunnerKind"
-                                TextFieldName="@nameof(PickOption.Text)"
-                                ValueFieldName="@nameof(PickOption.Value)"
-                                NullText="@(_edit.TargetKey is null ? "대상을 먼저" : "고르십시오")"
-                                Enabled="@(CanEdit && _edit.TargetKey is not null)" />
-                </DxFormLayoutItem>
-
-                <DxFormLayoutItem Caption="제한(분)" ColSpanMd="3">
-                    <DxSpinEdit @bind-Value="_edit.TimeoutMinutes" MinValue="1" MaxValue="1440"
-                                Enabled="@CanEdit" />
-                </DxFormLayoutItem>
-
-                @* 대상이 허용하지 않으면 켤 수 없다. 이 한 칸이 운영 배포를
-                   일으키므로 서버도 저장할 때 같은 것을 한 번 더 본다. *@
-                <DxFormLayoutItem Caption="끝나면" ColSpanMd="6">
-                    <DxCheckBox @bind-Checked="_edit.AutoPush"
-                                Enabled="@(CanEdit && SelectedTargetAllowsPush)">
-                        @PushLabel
-                    </DxCheckBox>
-                </DxFormLayoutItem>
-
-                <DxFormLayoutItem Caption="알림" ColSpanMd="3">
-                    <DxCheckBox @bind-Checked="_edit.NotifyEmail" Enabled="@CanEdit">
-                        메일로 받기
-                    </DxCheckBox>
-                </DxFormLayoutItem>
-
-                <DxFormLayoutItem Caption="받는 사람" ColSpanMd="5">
-                    <DxTextBox @bind-Text="_edit.NotifyTo"
-                               NullText="비우면 요청한 사람에게"
-                               Enabled="@(CanEdit && _edit.NotifyEmail)" />
-                </DxFormLayoutItem>
-
-                <DxFormLayoutItem Caption="보낼 때" ColSpanMd="4">
-                    <DxComboBox Data="@NotifyWhens" @bind-Value="_edit.NotifyWhen"
-                                TextFieldName="@nameof(PickOption.Text)"
-                                ValueFieldName="@nameof(PickOption.Value)"
-                                Enabled="@(CanEdit && _edit.NotifyEmail)" />
-                </DxFormLayoutItem>
-            </DxFormLayout>
-
-            @* 편집기는 이 화면에서만 받는다(3MB). `CodeEditor` 가 다 받은
-               뒤에야 그리므로 그 전에는 「불러오는 중」이 보인다. *@
-            @* **높이를 픽셀로 박지 않는다.** 420px 은 창이 아무리 커도 그대로라,
-               긴 지시문을 쓸 때 여덟 줄짜리 구멍으로 들여다보는 꼴이 된다.
-               판이 화면 높이를 따라가고 편집기는 그것을 꽉 쓴다. *@
-            <div class="pm-ai-editor">
-                <CodeEditor @bind-Value="_edit.Contents"
-                            Language="markdown"
-                            Height="100%"
-                            ReadOnly="@(!CanEdit)"
-                            Placeholder="AI 에게 시킬 일을 적습니다. 첫 줄이 제목이 됩니다." />
-            </div>
-
-            <div class="pm-ai-actions">
-                <PermissionView Action="MenuAction.Update">
-                    <DxButton Text="저장"
-                              RenderStyle="ButtonRenderStyle.Primary"
-                              Enabled="@(CanEdit && !Busy)"
-                              Click="@SaveAsync" />
-                </PermissionView>
-
-                <PermissionView Action="MenuAction.Update">
-                    @* 요청은 저장과 다른 단추다 — 쓰다 만 글이 저장만으로
-                       AI 에게 가 버리면 안 된다. *@
-                    <DxButton Text="요청"
-                              RenderStyle="ButtonRenderStyle.Secondary"
-                              Enabled="@(CanRequest && !Busy)"
-                              Click="@RequestAsync" />
-                </PermissionView>
-
-                <PermissionView Action="MenuAction.Update">
-                    <DxButton Text="취소"
-                              RenderStyle="ButtonRenderStyle.Secondary"
-                              Enabled="@(CanCancel && !Busy)"
-                              Click="@CancelAsync" />
-                </PermissionView>
-
-                @* 끝난 건에만 뜬다. 누르면 **편집기가 비워지고** 지난 진행은
-                   서버가 본문 앞에 붙인다 — 지난 지시를 그대로 두면 AI 가
-                   같은 일을 또 한다(설계 8-3.8). *@
-                <PermissionView Action="MenuAction.Update">
-                    <DxButton Text="이어서 지시"
-                              RenderStyle="ButtonRenderStyle.Secondary"
-                              Enabled="@(CanContinue && !Busy)"
-                              Click="@AskContinueAsync" />
-                </PermissionView>
-
-                @* 임시본만 버린다. 서버에 저장된 내용으로 되돌아간다 —
-                   작업 자체를 지우는 「삭제」와 다르다. *@
-                @if (_draftAt is not null)
-                {
-                    <PermissionView Action="MenuAction.Update">
-                        <DxButton Text="임시본 버리기"
-                                  RenderStyle="ButtonRenderStyle.Secondary"
-                                  Enabled="@(!Busy)"
-                                  Click="@DiscardDraftAsync" />
-                    </PermissionView>
-                }
-
-                <PermissionView Action="MenuAction.Delete">
-                    <DxButton Text="삭제"
-                              RenderStyle="ButtonRenderStyle.Danger"
-                              Enabled="@(_edit.TaskKey > 0 && !_edit.IsBusy && !Busy)"
-                              Click="@AskDeleteAsync" />
-                </PermissionView>
-            </div>
-                    </div>
-                </DxTabPage>
-
-                <DxTabPage Text="@RunTabText">
-                    <div class="pm-tab-body pm-ai-watch">
+            @* 지난 실행 실패 알림과 메일 알림 오류 *@
             @if (!string.IsNullOrWhiteSpace(_edit.LastError))
             {
                 <PageNotice Tone="NoticeTone.Error" Text="@($"지난 실행: {_edit.LastError}")" />
             }
 
-            @* 메일이 안 나간 것은 **작업 실패와 다른 일**이라 따로, 그리고
-               경고로 말한다. 이 줄이 없던 동안 결과 메일은 한 통도 나가지
-               않았는데 화면은 완전히 조용했다 — 사유는 DB 에만 있었다. *@
             @if (!string.IsNullOrWhiteSpace(_edit.NotifyError))
             {
                 <PageNotice Tone="NoticeTone.Warning" Text="@($"결과 메일: {_edit.NotifyError}")" />
             }
 
-            @* ── 실행 이력과 로그 ──────────────────────────────
-
-               돌고 있는 동안에는 2초마다 **새 줄만** 가져와 이어 붙인다.
-               SSE 로 흘리지 않는 이유는 `GatewayClient` 가 봉투를 벗기는
-               클라이언트라 `text/event-stream` 을 못 읽기 때문이다 —
-               그 길로 가면 공유 자리에 스트리밍 클라이언트가 하나 더
-               생기는데 얻는 것은 지연 2초뿐이다. *@
+            @* ── 실행 처리별 상태 정보와 시간, 경과 시간 (탭 밖 상단) ──
+               실행 차수 목록을 탭 밖으로 빼내어 어느 탭을 보든
+               현재 실행 상태와 경과 시간을 한눈에 확인하고 차수를 전환할 수 있다. *@
             @if (_runs.Count > 0)
             {
-                <div class="pm-ai-runs">
-                    @foreach (var run in _runs)
-                    {
-                        <button type="button"
-                                class="pm-ai-run @(run.RunKey == _openRun?.RunKey ? "pm-ai-run--on" : null)"
-                                @onclick="@(() => OpenRunAsync(run))">
-                            <span class="jsini-badge jsini-badge--@run.StatusTone">@run.StatusText</span>
-                            <span>@run.Seq 차</span>
-                            <span class="pm-ai-dim">@run.StartedAt?.ToString("MM-dd HH:mm")</span>
-                            @* 시작한 **시각** 옆에 얼마나 **돌았는지**를 같이 둔다.
-                               시각만으로는 「지금 몇 분째인가」를 사람이 뺄셈해서
-                               알아내야 한다 — 돌고 있는 동안에는 그 뺄셈의 답이
-                               1초마다 바뀐다. *@
-                            @if (RunElapsedText(run) is { Length: > 0 } elapsed)
-                            {
-                                <span class="pm-ai-elapsed @(run.IsRunning ? "pm-ai-elapsed--on" : null)">@elapsed</span>
-                            }
-                        </button>
-                    }
+                <div class="pm-ai-runs-bar">
+                    <div class="pm-ai-runs-bar__header">
+                        <span class="pm-ai-runs-bar__title">실행 이력 (@_runs.Count)</span>
+                        @if (_openRun is { } cur)
+                        {
+                            <span class="pm-ai-runs-bar__cur">선택: @cur.Seq 차 (@cur.StatusText)</span>
+                        }
+                    </div>
+                    <div class="pm-ai-runs">
+                        @foreach (var run in _runs)
+                        {
+                            <button type="button"
+                                    class="pm-ai-run @(run.RunKey == _openRun?.RunKey ? "pm-ai-run--on" : null)"
+                                    title="@($"{run.Seq}차 실행 (상태: {run.StatusText})")"
+                                    @onclick="@(() => OpenRunAsync(run))">
+                                <span class="jsini-badge jsini-badge--@run.StatusTone">@run.StatusText</span>
+                                <span class="pm-ai-run__seq">@run.Seq 차</span>
+                                <span class="pm-ai-dim">@run.StartedAt?.ToString("MM-dd HH:mm")</span>
+                                @* 시작한 시각 옆에 얼마나 돌았는지를 같이 둔다. *@
+                                @if (RunElapsedText(run) is { Length: > 0 } elapsed)
+                                {
+                                    <span class="pm-ai-elapsed @(run.IsRunning ? "pm-ai-elapsed--on" : null)">@elapsed</span>
+                                }
+                            </button>
+                        }
+                    </div>
                 </div>
             }
 
-            @if (_openRun is { } open)
-            {
-                @if (!string.IsNullOrWhiteSpace(open.ResultText))
-                {
-                    @* AI 의 마지막 답. **로그에서 가려낸 값**이라 여기 따로 둔다 —
-                       수백 줄에서 사람이 그것을 찾게 두지 않는다. *@
-                    <CommCont Title="@($"{open.Seq}차 결과")" Hint="@RunHint(open)">
-                        <pre class="pm-ai-result">@open.ResultText</pre>
-                    </CommCont>
-                }
+            @* 여기부터 탭 셋이다. 지시 / 결과 / 로그 *@
+            <DxTabs @bind-ActiveTabIndex="_tab" TabClick="@OnTabClick">
+                <DxTabPage Text="지시">
+                    <div class="pm-tab-body pm-ai-write">
+                        <DxFormLayout CssClass="pm-editform">
+                            <DxFormLayoutItem Caption="제목" ColSpanMd="8">
+                                <DxTextBox @bind-Text="_edit.Title"
+                                           NullText="비워 두면 내용에서 만들어 붙입니다"
+                                           Enabled="@CanEdit" />
+                            </DxFormLayoutItem>
 
-                @* 새 줄은 아래에 붙는데 보이는 자리는 처음 그대로라, 지켜보는
-                   동안 방금 찍힌 줄이 늘 화면 밖이었다. `js/log-tail.js` 가
-                   **바닥에 붙어 있을 때만** 밀어 준다 — 위를 읽는 중에는
-                   놓아 둔다. *@
-                <CommCont Title="로그" Hint="@LogHint">
-                    <pre class="pm-ai-log" @ref="_logEl">@_logText</pre>
-                </CommCont>
-            }
-            else if (_runs.Count == 0)
-            {
-                @* 실행 탭을 열었는데 아무것도 없을 수 있다. **빈 판을 그냥
-                   두지 않는다** — 「고장인가」로 읽힌다. *@
-                <PageNotice Tone="NoticeTone.Info"
-                            Text="아직 돌린 적이 없습니다. 「지시」 탭에서 저장하고 「요청」을 누르십시오." />
-            }
+                            <DxFormLayoutItem Caption="대상" ColSpanMd="4">
+                                <DxComboBox Data="@_enabledTargets" Value="@_edit.TargetKey"
+                                            ValueChanged="@((long? key) => PickTarget(key))"
+                                            ValueExpression="@(() => _edit.TargetKey)"
+                                            TextFieldName="@nameof(AiTargetDto.TargetNm)"
+                                            ValueFieldName="@nameof(AiTargetDto.TargetKey)"
+                                            NullText="어디에서 일할지" Enabled="@CanEdit" />
+                            </DxFormLayoutItem>
+
+                            @* 고른 대상이 허용한 것만 나온다. *@
+                            <DxFormLayoutItem Caption="AI" ColSpanMd="3">
+                                <DxComboBox Data="@AllowedRunners" @bind-Value="_edit.RunnerKind"
+                                            TextFieldName="@nameof(PickOption.Text)"
+                                            ValueFieldName="@nameof(PickOption.Value)"
+                                            NullText="@(_edit.TargetKey is null ? "대상을 먼저" : "고르십시오")"
+                                            Enabled="@(CanEdit && _edit.TargetKey is not null)" />
+                            </DxFormLayoutItem>
+
+                            <DxFormLayoutItem Caption="제한(분)" ColSpanMd="3">
+                                <DxSpinEdit @bind-Value="_edit.TimeoutMinutes" MinValue="1" MaxValue="1440"
+                                            Enabled="@CanEdit" />
+                            </DxFormLayoutItem>
+
+                            <DxFormLayoutItem Caption="끝나면" ColSpanMd="6">
+                                <DxCheckBox @bind-Checked="_edit.AutoPush"
+                                            Enabled="@(CanEdit && SelectedTargetAllowsPush)">
+                                    @PushLabel
+                                </DxCheckBox>
+                            </DxFormLayoutItem>
+
+                            <DxFormLayoutItem Caption="알림" ColSpanMd="3">
+                                <DxCheckBox @bind-Checked="_edit.NotifyEmail" Enabled="@CanEdit">
+                                    메일로 받기
+                                </DxCheckBox>
+                            </DxFormLayoutItem>
+
+                            <DxFormLayoutItem Caption="받는 사람" ColSpanMd="5">
+                                <DxTextBox @bind-Text="_edit.NotifyTo"
+                                           NullText="비우면 요청한 사람에게"
+                                           Enabled="@(CanEdit && _edit.NotifyEmail)" />
+                            </DxFormLayoutItem>
+
+                            <DxFormLayoutItem Caption="보낼 때" ColSpanMd="4">
+                                <DxComboBox Data="@NotifyWhens" @bind-Value="_edit.NotifyWhen"
+                                            TextFieldName="@nameof(PickOption.Text)"
+                                            ValueFieldName="@nameof(PickOption.Value)"
+                                            Enabled="@(CanEdit && _edit.NotifyEmail)" />
+                            </DxFormLayoutItem>
+                        </DxFormLayout>
+
+                        @* 편집기 *@
+                        <div class="pm-ai-editor">
+                            <CodeEditor @bind-Value="_edit.Contents"
+                                        Language="markdown"
+                                        Height="100%"
+                                        ReadOnly="@(!CanEdit)"
+                                        Placeholder="AI 에게 시킬 일을 적습니다. 첫 줄이 제목이 됩니다." />
+                        </div>
+
+                        <div class="pm-ai-actions">
+                            <PermissionView Action="MenuAction.Update">
+                                <DxButton Text="저장"
+                                          RenderStyle="ButtonRenderStyle.Primary"
+                                          Enabled="@(CanEdit && !Busy)"
+                                          Click="@SaveAsync" />
+                            </PermissionView>
+
+                            <PermissionView Action="MenuAction.Update">
+                                <DxButton Text="요청"
+                                          RenderStyle="ButtonRenderStyle.Secondary"
+                                          Enabled="@(CanRequest && !Busy)"
+                                          Click="@RequestAsync" />
+                            </PermissionView>
+
+                            <PermissionView Action="MenuAction.Update">
+                                <DxButton Text="취소"
+                                          RenderStyle="ButtonRenderStyle.Secondary"
+                                          Enabled="@(CanCancel && !Busy)"
+                                          Click="@CancelAsync" />
+                            </PermissionView>
+
+                            <PermissionView Action="MenuAction.Update">
+                                <DxButton Text="이어서 지시"
+                                          RenderStyle="ButtonRenderStyle.Secondary"
+                                          Enabled="@(CanContinue && !Busy)"
+                                          Click="@AskContinueAsync" />
+                            </PermissionView>
+
+                            @if (_draftAt is not null)
+                            {
+                                <PermissionView Action="MenuAction.Update">
+                                    <DxButton Text="임시본 버리기"
+                                              RenderStyle="ButtonRenderStyle.Secondary"
+                                              Enabled="@(!Busy)"
+                                              Click="@DiscardDraftAsync" />
+                                </PermissionView>
+                            }
+
+                            <PermissionView Action="MenuAction.Delete">
+                                <DxButton Text="삭제"
+                                          RenderStyle="ButtonRenderStyle.Danger"
+                                          Enabled="@(_edit.TaskKey > 0 && !_edit.IsBusy && !Busy)"
+                                          Click="@AskDeleteAsync" />
+                            </PermissionView>
+                        </div>
+                    </div>
+                </DxTabPage>
+
+                <DxTabPage Text="결과">
+                    <div class="pm-tab-body pm-ai-result-tab">
+                        @if (_openRun is { } openResult)
+                        {
+                            @if (!string.IsNullOrWhiteSpace(openResult.ResultText))
+                            {
+                                <CommCont Title="@($"{openResult.Seq}차 결과")" Hint="@RunHint(openResult)">
+                                    <pre class="pm-ai-result">@openResult.ResultText</pre>
+                                </CommCont>
+                            }
+                            else if (openResult.IsRunning)
+                            {
+                                <PageNotice Tone="NoticeTone.Info"
+                                            Text="@($"{openResult.Seq}차 작업이 실행 중입니다. 실행이 완료되면 결과가 여기에 표시됩니다. 진행 로그는 「로그」 탭에서 확인할 수 있습니다.")" />
+                            }
+                            else
+                            {
+                                <PageNotice Tone="NoticeTone.Info"
+                                            Text="@($"{openResult.Seq}차 실행 결과 텍스트가 없습니다. 상세 내용은 「로그」 탭을 확인하십시오.")" />
+                            }
+                        }
+                        else if (_runs.Count == 0)
+                        {
+                            <PageNotice Tone="NoticeTone.Info"
+                                        Text="아직 돌린 적이 없습니다. 「지시」 탭에서 저장하고 「요청」을 누르십시오." />
+                        }
+                        else
+                        {
+                            <PageNotice Tone="NoticeTone.Info"
+                                        Text="상단에서 확인할 실행 차수를 선택하십시오." />
+                        }
+                    </div>
+                </DxTabPage>
+
+                <DxTabPage Text="로그">
+                    <div class="pm-tab-body pm-ai-log-tab">
+                        @if (_openRun is { } openLog)
+                        {
+                            <CommCont Title="@($"{openLog.Seq}차 로그")" Hint="@LogHint">
+                                <pre class="pm-ai-log" @ref="_logEl">@_logText</pre>
+                            </CommCont>
+                        }
+                        else if (_runs.Count == 0)
+                        {
+                            <PageNotice Tone="NoticeTone.Info"
+                                        Text="아직 돌린 적이 없습니다. 「지시」 탭에서 저장하고 「요청」을 누르십시오." />
+                        }
+                        else
+                        {
+                            <PageNotice Tone="NoticeTone.Info"
+                                        Text="상단에서 확인할 실행 차수를 선택하십시오." />
+                        }
                     </div>
                 </DxTabPage>
             </DxTabs>
@@ -549,33 +557,30 @@
     /// <summary>저장·요청이 오가는 중. 단추를 두 번 누르지 못하게 한다.</summary>
     private bool Busy;
 
-    /// <summary>오른쪽 탭. 0 = 지시, 1 = 실행.</summary>
+    /// <summary>오른쪽 탭. 0 = 지시, 1 = 결과, 2 = 로그.</summary>
     private int _tab;
 
     /// <summary>
     /// 사람이 탭을 직접 만졌다. <b>그 뒤로는 화면이 저 혼자 안 넘긴다.</b>
     /// </summary>
     /// <remarks>
-    /// 자동 전환은 「돌기 시작하면 실행을 보여 준다」는 친절인데, 지시문을
+    /// 자동 전환은 「돌기 시작하면 실행 로그를 보여 준다」는 친절인데, 지시문을
     /// 고치려고 지시 탭을 열어 둔 사람에게 그것이 발동하면 <b>쓰던 글이
     /// 눈앞에서 사라진다.</b> 친절이 방해가 되는 자리다.
     /// 다른 건을 고르면 다시 켠다 — 그때는 새 맥락이다.
     /// </remarks>
     private bool _tabPinned;
 
-    /// <summary>실행 탭 이름. 몇 번 돌았는지를 이름에 담아 열지 않고도 안다.</summary>
-    private string RunTabText => _runs.Count > 0 ? $"실행 {_runs.Count}" : "실행";
-
     private void OnTabClick(TabClickEventArgs _) => _tabPinned = true;
 
     /// <summary>
-    /// 돌기 시작했으면 실행 탭으로 넘긴다. <b>사람이 만진 뒤에는 안 넘긴다.</b>
+    /// 돌기 시작했으면 로그 탭으로 넘긴다. <b>사람이 만진 뒤에는 안 넘긴다.</b>
     /// </summary>
     private void FollowRun()
     {
         if (!_tabPinned && _edit?.IsBusy == true)
         {
-            _tab = 1;
+            _tab = 2;
         }
     }
 
@@ -946,6 +951,13 @@
         {
             StartTail();
         }
+
+        // 지시 탭(0)을 보고 있는 상태에서 실행 차수를 클릭했다면
+        // 결과가 있으면 결과 탭(1), 없으면 로그 탭(2)으로 전환한다.
+        if (_tab == 0)
+        {
+            _tab = !string.IsNullOrWhiteSpace(run.ResultText) ? 1 : 2;
+        }
     }
 
     /// <summary>새 줄만 받아 이어 붙인다.</summary>
@@ -1170,7 +1182,7 @@
     /// </remarks>
     private async Task FollowLogAsync()
     {
-        if (_openRun is null || _tab != 1)
+        if (_openRun is null || _tab != 2)
         {
             return;
         }
@@ -1440,7 +1452,7 @@
                 // **고정을 무시하고 넘긴다** — 자기가 누른 결과라 화면이
                 // 바뀌는 것이 놀랍지 않다.
                 _tabPinned = false;
-                _tab = 1;
+                _tab = 2;
             }
         }
         finally

@@ -1118,13 +1118,52 @@
   min-height: 2rem;
 }
 
-/* ── 실행 이력과 로그 ─────────────────────────────────────── */
+/* ── 실행 이력 바 (탭 밖 상단) ─────────────────────────────────
+   지시 / 결과 / 로그 탭의 상단에 항상 노출되어 어느 탭에서든
+   현재 작업의 실행 차수별 상태와 경과 시간을 확인하고 차수를 고를 수 있다. */
+.pm-ai-runs-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--jsini-border, #e3e5e8);
+  border-radius: var(--jsini-radius-md, 6px);
+  background: var(--jsini-surface, #f7f8fa);
+}
+
+.pm-ai-runs-bar__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.pm-ai-runs-bar__title {
+  font-size: var(--jsini-fs-xs, 0.75rem);
+  font-weight: 600;
+  color: var(--jsini-text-muted, #6b7280);
+}
+
+.pm-ai-runs-bar__cur {
+  font-size: var(--jsini-fs-xs, 0.75rem);
+  color: var(--jsini-accent, #0070cc);
+  font-weight: 500;
+}
+
+.pm-ai-run__seq {
+  font-weight: 600;
+}
+
+.pm-ai-result-tab,
+.pm-ai-log-tab {
+  padding-top: var(--jsini-sp-md, 0.75rem);
+}
 
 .pm-ai-runs {
   display: flex;
   flex-wrap: wrap;
   gap: 0.4rem;
-  margin-bottom: 0.75rem;
 }
 
 .pm-ai-run {
