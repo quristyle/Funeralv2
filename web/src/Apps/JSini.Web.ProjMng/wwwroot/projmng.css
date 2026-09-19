@@ -1949,3 +1949,89 @@
     max-height: 62dvh;
   }
 }
+
+/* ── 모바일 일정표 상단 여백 및 조회 ──────────────────────── */
+@media (min-width: 768px) {
+  .pm-sch-details > .pm-sch-body {
+    display: block !important;
+  }
+  .pm-sch-summary {
+    display: none;
+  }
+}
+
+@media (max-width: 767px) {
+  /* 모바일 구글 캘린더처럼 조회/등록부를 숨기고 접기 형태로 둔다. */
+  .pm-sch-details {
+    background: var(--jsini-surface-raised);
+    border: 1px solid var(--jsini-border);
+    border-radius: var(--jsini-radius-lg);
+    margin-bottom: var(--jsini-sp-lg);
+    box-shadow: var(--jsini-shadow-card);
+  }
+  
+  .pm-sch-summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.85rem;
+    cursor: pointer;
+    font-weight: 600;
+    list-style: none; /* remove default arrow */
+  }
+  
+  .pm-sch-summary::-webkit-details-marker {
+    display: none;
+  }
+  
+  .pm-sch-chevron {
+    transition: transform 0.2s;
+  }
+  
+  .pm-sch-details[open] .pm-sch-chevron {
+    transform: rotate(180deg);
+  }
+  
+  .pm-sch-details .commsch {
+    border: none;
+    box-shadow: none;
+    margin-bottom: 0;
+    padding-top: 0;
+  }
+  
+  /* 모바일 달력 표현 개선:
+     MonthView 에서는 공간이 매우 부족하여 구글 캘린더처럼 단순한 점 모양으로
+     일정을 간략히 표시하거나, 최소 높이를 조절한다. */
+  .pm-sched .dxbl-scheduler-appointment {
+    /* 모바일에서 일정 블록을 작게 만들기 */
+    padding: 2px !important;
+  }
+  
+  /* 달력 셀 안의 글자들이 너무 길어 깨지지 않도록 방지 */
+  .pm-sched .dxbl-scheduler-appointment-title {
+    font-size: 0.75rem !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  
+  /* Month 뷰에서 일정이 너무 많을 때 스크롤이 터지는 것을 막기 */
+  /* Month 뷰에서 일정이 너무 많을 때 구글 캘린더처럼 단순한 점으로 표시 */
+  .pm-sched .dxbl-scheduler-appointment {
+    border-radius: 4px !important;
+    padding: 0.15rem !important;
+    margin-bottom: 2px !important;
+  }
+  
+  .pm-sched .dxbl-scheduler-appointment-title {
+    font-size: 0.7rem !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  
+  /* 구글 캘린더의 모바일 월간 뷰는 가로로 스크롤되지 않고 꽉 차게 나옵니다. */
+  .pm-sched .dxbl-scheduler {
+    min-width: 0 !important;
+  }
+}

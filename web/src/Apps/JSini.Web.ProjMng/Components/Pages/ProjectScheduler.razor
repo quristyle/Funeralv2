@@ -92,33 +92,42 @@
 
 <PageTitle>프로젝트 일정표 · 프로젝트관리</PageTitle>
 
-<CommSch OnSearch="@SearchAsync" Busy="@Loading">
-    <Fields>
-        <CommSchItem Label="프로젝트">
-            <CodeSelect CodeId="projlist" @bind-Value="_projectCode" OnChanged="@(_ => SearchAsync())" />
-        </CommSchItem>
+@* 모바일에서 공간을 많이 차지하는 조회 영역을 접어 둔다(구글 캘린더 검색창처럼). *@
+<details class="pm-sch-details">
+    <summary class="pm-sch-summary">
+        <span><i class="jsini-icon-search"></i> 조회 및 등록</span>
+        <i class="jsini-icon-chevron-down pm-sch-chevron"></i>
+    </summary>
+    <div class="pm-sch-body">
+        <CommSch OnSearch="@SearchAsync" Busy="@Loading">
+            <Fields>
+                <CommSchItem Label="프로젝트">
+                    <CodeSelect CodeId="projlist" @bind-Value="_projectCode" OnChanged="@(_ => SearchAsync())" />
+                </CommSchItem>
 
-        @* 체크로 여럿 고른다. 아무것도 안 고르면 전체다 — 머리말 참고. *@
-        <CommSchItem Label="구분">
-            <CodeSelect CodeId="schedule_type" Multiple="true"
-                        Values="@_scheduleTypes"
-                        ValuesChanged="@OnKindsChangedAsync"
-                        Placeholder="전체" />
-        </CommSchItem>
+                @* 체크로 여럿 고른다. 아무것도 안 고르면 전체다 — 머리말 참고. *@
+                <CommSchItem Label="구분">
+                    <CodeSelect CodeId="schedule_type" Multiple="true"
+                                Values="@_scheduleTypes"
+                                ValuesChanged="@OnKindsChangedAsync"
+                                Placeholder="전체" />
+                </CommSchItem>
 
-        <CommSchItem Label="진행">
-            <CodeSelect CodeId="compstat" @bind-Value="_completeState" ShowAll="true" />
-        </CommSchItem>
-    </Fields>
+                <CommSchItem Label="진행">
+                    <CodeSelect CodeId="compstat" @bind-Value="_completeState" ShowAll="true" />
+                </CommSchItem>
+            </Fields>
 
-    <Actions>
-        @* 손가락으로 쓰는 자리의 등록 길. 달력 칸 더블클릭은 모바일에서 안 된다. *@
-        <PermissionView Action="MenuAction.Create">
-            <DxButton Text="일정 등록" RenderStyle="ButtonRenderStyle.Secondary"
-                      IconCssClass="jsini-icon-plus" Click="@(() => StartNew(DefaultDay, DefaultDay))" />
-        </PermissionView>
-    </Actions>
-</CommSch>
+            <Actions>
+                @* 손가락으로 쓰는 자리의 등록 길. 달력 칸 더블클릭은 모바일에서 안 된다. *@
+                <PermissionView Action="MenuAction.Create">
+                    <DxButton Text="일정 등록" RenderStyle="ButtonRenderStyle.Secondary"
+                              IconCssClass="jsini-icon-plus" Click="@(() => StartNew(DefaultDay, DefaultDay))" />
+                </PermissionView>
+            </Actions>
+        </CommSch>
+    </div>
+</details>
 
 @* 이 탭이 조회 구간과 달력 보기를 함께 정한다(머리말). *@
 <DateRangeTabs @bind-Anchor="_anchor" @bind-Preset="_preset" RangeChanged="@(_ => SearchAsync())" />
