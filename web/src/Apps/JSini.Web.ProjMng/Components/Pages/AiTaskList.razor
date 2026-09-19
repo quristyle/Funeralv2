@@ -364,23 +364,28 @@
                                 </DxCheckBox>
                             </DxFormLayoutItem>
 
-                            <DxFormLayoutItem Caption="알림" ColSpanMd="3">
-                                <DxCheckBox @bind-Checked="_edit.NotifyEmail" Enabled="@CanEdit">
-                                    메일로 받기
-                                </DxCheckBox>
+                            <DxFormLayoutItem Caption="알림" ColSpanMd="4">
+                                <div class="d-flex gap-3">
+                                    <DxCheckBox @bind-Checked="_edit.NotifyEmail" Enabled="@CanEdit">
+                                        메일
+                                    </DxCheckBox>
+                                    <DxCheckBox @bind-Checked="_edit.NotifyPwa" Enabled="@CanEdit">
+                                        앱
+                                    </DxCheckBox>
+                                </div>
                             </DxFormLayoutItem>
 
-                            <DxFormLayoutItem Caption="받는 사람" ColSpanMd="5">
+                            <DxFormLayoutItem Caption="받는 사람" ColSpanMd="4">
                                 <DxTextBox @bind-Text="_edit.NotifyTo"
-                                           NullText="비우면 요청한 사람에게"
-                                           Enabled="@(CanEdit && _edit.NotifyEmail)" />
+                                           NullText="비우면 요청자"
+                                           Enabled="@(CanEdit && (_edit.NotifyEmail || _edit.NotifyPwa))" />
                             </DxFormLayoutItem>
 
                             <DxFormLayoutItem Caption="보낼 때" ColSpanMd="4">
                                 <DxComboBox Data="@NotifyWhens" @bind-Value="_edit.NotifyWhen"
                                             TextFieldName="@nameof(PickOption.Text)"
                                             ValueFieldName="@nameof(PickOption.Value)"
-                                            Enabled="@(CanEdit && _edit.NotifyEmail)" />
+                                            Enabled="@(CanEdit && (_edit.NotifyEmail || _edit.NotifyPwa))" />
                             </DxFormLayoutItem>
                         </DxFormLayout>
 
@@ -721,8 +726,8 @@
         && _enabledTargets.FirstOrDefault(t => t.TargetKey == key)?.AllowPush == true;
 
     private string PushLabel => SelectedTargetAllowsPush
-        ? "결과를 저장소에 올린다 (운영 배포가 일어납니다)"
-        : "결과를 저장소에 올린다 (이 대상은 허용하지 않습니다)";
+        ? "저장소에 올리기 (운영 배포)"
+        : "저장소에 올리기 (대상 미지원)";
 
     /// <summary>임시본을 사람마다 갈라 두려고 본다. 로그인 아이디만 쓴다.</summary>
     [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
