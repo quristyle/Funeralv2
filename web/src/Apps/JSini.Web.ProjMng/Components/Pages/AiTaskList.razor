@@ -64,6 +64,7 @@
 @implements IDisposable
 @inject AiTaskClient Api
 @inject AiTargetClient TargetApi
+@inject AiModelCodes ModelCodes
 @inject AiTaskDraftStore Drafts
 @inject IJSRuntime Js
 
@@ -502,11 +503,7 @@
         new("none", "안 함"), new("requested", "요청"), new("cancel_requested", "취소요청"),
     ];
 
-    private static readonly PickOption[] RunnerKinds =
-    [
-        new("claude", "claude"), new("antigravity", "안티그래비티 (agy)"),
-        new("copilot", "Copilot CLI"),
-    ];
+    private IReadOnlyList<PickOption> RunnerKinds = [];
 
     private static readonly PickOption[] NotifyWhens =
     [
@@ -684,8 +681,15 @@
             Drafts.Use(state.User.Identity?.Name);
         }
 
+        await LoadModelsAsync();
         await LoadTargetsAsync();
         await SearchAsync();
+    }
+
+    private async Task LoadModelsAsync()
+    {
+        var models = await ModelCodes.GetAsync();
+        RunnerKinds = [.. models.Select(x => new PickOption(x.Value, x.Text))];
     }
 
     /// <summary>
@@ -1319,7 +1323,7 @@
 
         _edit = new AiTaskDto
         {
-            RunnerKind = "claude",
+            RunnerKind = RunnerKinds.FirstOrDefault()?.Value ?? "claude",
             TimeoutMinutes = 30,
             AttemptMax = 3,
             NotifyEmail = true,

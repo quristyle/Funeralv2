@@ -160,6 +160,7 @@
 @implements IAsyncDisposable
 @inject AiTaskClient Api
 @inject AiTargetClient TargetApi
+@inject AiModelCodes ModelCodes
 @inject AiAskPrefs Prefs
 @inject IJSRuntime JS
 
@@ -374,11 +375,7 @@
     /// <summary>고르는 칸 한 줄.</summary>
     public sealed record PickOption(string Value, string Text);
 
-    private static readonly PickOption[] AllKinds =
-    [
-        new("claude", "claude"), new("antigravity", "안티그래비티 (agy)"),
-        new("copilot", "Copilot CLI"),
-    ];
+    private IReadOnlyList<PickOption> AllKinds = [];
 
     /// <summary>
     /// 처음 보이는 건수이자 <b>「더보기」가 한 번에 늘리는 수</b>다. 목록
@@ -647,8 +644,15 @@
             Prefs.Use(state.User.Identity?.Name);
         }
 
+        await LoadModelsAsync();
         await LoadTargetsAsync();
         await LoadRecentAsync();
+    }
+
+    private async Task LoadModelsAsync()
+    {
+        var models = await ModelCodes.GetAsync();
+        AllKinds = [.. models.Select(x => new PickOption(x.Value, x.Text))];
     }
 
     /// <summary>

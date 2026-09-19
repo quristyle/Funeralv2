@@ -38,6 +38,7 @@ public sealed class ProjMngModule : IPortalModule
         services.AddScoped<ProjectClient>();
         services.AddScoped<ProjectUserClient>();
         services.AddScoped<DevCommonCodeClient>();
+        services.AddScoped<AiModelCodes>();
         services.AddScoped<SourceInfoClient>();
         services.AddScoped<ProjectDbClient>();
         services.AddScoped<HomeTodoClient>();
