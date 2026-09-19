@@ -89,6 +89,7 @@ public sealed class AiRunService(
                AND a.task_status IN ('idle', 'queued')
                AND (a.requested_at IS NULL OR a.requested_at <= now())
                AND a.runner_kind  = ANY(@kinds)
+               AND a.runner_kind = ANY(string_to_array(replace(b.runner_kinds, ' ', ''), ','))
                AND b.is_enabled   = true
                AND b.is_deleted   = false
                AND b.running_run_key IS NULL

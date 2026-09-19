@@ -41,7 +41,7 @@ public sealed class AiTarget
     /// <summary><c>copy</c> 일 때 복사 상한(MB). 넘으면 실행을 거절한다.</summary>
     public int? MaxSizeMb { get; set; }
 
-    /// <summary>이 대상에 쓸 수 있는 CLI. 쉼표로 잇는다.</summary>
+    /// <summary>이 대상에 쓸 수 있는 CLI. 쉼표로 잇는다(<c>claude,antigravity,copilot</c>).</summary>
     public string? RunnerKinds { get; set; } = "claude";
 
     /// <summary>

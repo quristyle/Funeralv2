@@ -33,7 +33,7 @@ public sealed class RunnerWorker(
     /// </summary>
     /// <remarks>
     /// .NET 설정은 배열을 <b>칸 번호로 겹친다</b> — 기본 파일에
-    /// <c>["claude","antigravity"]</c> 가 있고 Local 에 <c>["antigravity"]</c> 를
+    /// <c>["claude","antigravity","copilot"]</c> 가 있고 Local 에 <c>["antigravity"]</c> 를
     /// 적으면 0번만 덮이고 1번이 남아 <c>["antigravity","antigravity"]</c> 가 된다.
     /// 실제로 시작 로그에 그렇게 찍혔다. 여기서 한 번 정리한다.
     /// </remarks>

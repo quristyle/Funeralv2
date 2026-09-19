@@ -20,7 +20,7 @@ public sealed class RunnerOptions
     public string RunnerToken { get; set; } = string.Empty;
 
     /// <summary>이 장비가 돌릴 수 있는 CLI.</summary>
-    public string[] Kinds { get; set; } = ["claude"];
+    public string[] Kinds { get; set; } = ["claude", "antigravity", "copilot"];
 
     /// <summary>
     /// 동시에 몇 건까지. <b>게이트(빌드·테스트)는 이와 별개로 1건이다</b> —

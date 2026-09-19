@@ -45,7 +45,7 @@ public sealed class AiTask
     /// <summary>기준 브랜치. 비우면 대상의 기본값을 쓴다.</summary>
     public string? TargetRef { get; set; }
 
-    /// <summary>어느 CLI 로 돌릴 것인가 — <c>claude</c> · <c>antigravity</c>.</summary>
+    /// <summary>어느 CLI 로 돌릴 것인가 — <c>claude</c> · <c>antigravity</c> · <c>copilot</c>.</summary>
     public string? RunnerKind { get; set; } = "claude";
 
     // ── 상태 ────────────────────────────────────────────────

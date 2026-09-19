@@ -25,7 +25,7 @@
 
 편집기(Monaco)에 **AI 에게 시킬 일**을 글로 적어 저장한다. 저장된 글은 제목이 붙어
 목록에 쌓이고, 「작업요청」을 켜면 서버가 그것을 알아채서 상태를 **준비중**으로
-바꾼 뒤, `claude` · `antigravity` CLI 가 깔린 장비에서 실제로 실행시킨다.
+바꾼 뒤, `claude` · `antigravity` · `copilot` CLI 가 깔린 장비에서 실제로 실행시킨다.
 진행 중 출력과 끝난 결과를 같은 화면에서 본다.
 
 한 문장으로: **웹 화면이 곧 AI 작업 대기열의 입구**다.
@@ -153,7 +153,7 @@ CLI 로그인 자격도 없고 재배포하면 사라진다. **서버 프로세�
                                                           ┌────────▼─────────────┐
                                                           │ AI 작업 실행기        │
                                                           │  (호스트에 상주)      │
-                                                          │  claude · antigravity │
+                                                          │  claude · antigravity · copilot │
                                                           │  git worktree 격리    │
                                                           └────────┬─────────────┘
                                                                    │
@@ -179,7 +179,7 @@ DB 는 **프로젝트관리 DB**(`jsini`), 스키마 **`projmng`** — `ProjMngS
 | `content_format` | `markdown` 기본 |
 | `request_flag` | **작업요청여부** — `none` · `requested` · `cancel_requested` |
 | `status` | **작업상태** — `idle` · `queued` · `preparing` · `running` · `succeeded` · `failed` · `timeout` · `canceled` · `interrupted` |
-| `runner_kind` | `claude` · `antigravity` (어느 CLI 로 돌릴지) |
+| `runner_kind` | `claude` · `antigravity` · `copilot` (어느 CLI 로 돌릴지) |
 | `target_id` | **작업 대상**(`ai_target` 의 열쇠). 화면에서 고른다 — 4.5 |
 | `target_ref` | 저장소 대상일 때 기준 브랜치. 비우면 대상의 기본값 |
 | `priority` | 같은 시각에 여럿이면 순서 |
@@ -245,7 +245,7 @@ DB 는 **프로젝트관리 DB**(`jsini`), 스키마 **`projmng`** — `ProjMngS
 
 ### 4.5 `ai_runner` — 등록된 실행 장비
 
-`id` · `name` · `host` · `kinds`(`claude,antigravity`) · `token_hash` · `enabled` ·
+`id` · `name` · `host` · `kinds`(`claude,antigravity,copilot`) · `token_hash` · `enabled` ·
 `max_parallel` · `last_seen_at` · `version`
 
 토큰은 **해시로만** 둔다. 장비를 빼앗겼을 때 `enabled=false` 한 줄로 끊는다.
@@ -769,13 +769,13 @@ git 이 아닌 폴더는 worktree 가 없다. 기본은 **`copy`** 다 — `rsyn
 이 기능의 한가운데다. 화면에서 쓴 글은 DB 에 있고, CLI 는 명령줄 프로그램이다.
 그 사이를 잇는 방법이 **CLI 마다 다르다** — 운영 서버에서 직접 확인했다.
 
-| | `claude` | `agy` (안티그래비티) |
-|---|---|---|
-| 비대화형 | `-p` | `-p=<프롬프트>` · `--print` |
-| **stdin 으로 본문** | **된다** — `claude -p < task.md` ✅ | **안 된다.** `-p` 가 값을 요구한다 |
-| 인자로 본문 | 된다 | **된다** — `agy -p="…"` ✅ |
-| stream-json 입력 | Claude 형식 | **자체 형식** — `event` 필드를 요구한다 |
-| 기본 제한 시간 | 없음 | **5분** (`--print-timeout`) ⚠️ |
+| | `claude` | `agy` (안티그래비티) | `copilot` |
+|---|---|---|---|
+| 비대화형 | `-p` | `-p=<프롬프트>` · `--print` | `-p/--prompt=<프롬프트>` |
+| **stdin 으로 본문** | **된다** — `claude -p < task.md` ✅ | **안 된다.** `-p` 가 값을 요구한다 | **쓰지 않는다.** 인자로 전달한다 |
+| 인자로 본문 | 된다 | **된다** — `agy -p="…"` ✅ | **된다** — `copilot --prompt="…"` ✅ |
+| stream-json 입력 | Claude 형식 | **자체 형식** — `event` 필드를 요구한다 | 지원하지 않음 — 일반 출력의 마지막 40줄을 결과로 사용 |
+| 기본 제한 시간 | 없음 | **5분** (`--print-timeout`) ⚠️ | 없음 |
 
 확인한 것 그대로:
 
@@ -863,6 +863,16 @@ await File.WriteAllTextAsync(promptPath, task.Contents, new UTF8Encoding(false))
     "PromptMaxBytes": 61440,
     "PromptFileFallback": "{path} 를 읽고 그대로 수행하라.",
     "TimeoutMinutes": 30
+  },
+  "copilot": {
+    "Executable": "/home/lee/.local/bin/copilot",
+    "Args": ["--allow-all-tools", "--allow-all-paths", "--silent"],
+    "PromptVia": "arg",
+    "PromptArgPrefix": "--prompt=",
+    "PromptMaxBytes": 61440,
+    "PromptFileFallback": "{path} 를 읽고 그대로 수행하라.",
+    "TimeoutMinutes": 30,
+    "ResultFrom": "tail"
   }
 }
 ```

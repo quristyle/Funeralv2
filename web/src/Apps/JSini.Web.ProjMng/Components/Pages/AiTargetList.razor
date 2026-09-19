@@ -146,7 +146,7 @@
                     <DxTextBox @bind-Text="t.DefaultRef" NullText="main" />
                 </DxFormLayoutItem>
 
-                @* 손으로 적던 칸이었다. 「claude,antigravity」 를 외워서 쳐야 했고
+                @* 손으로 적던 칸이었다. 실행기 이름을 외워서 쳐야 했고
                    오타가 나도 저장까지는 되므로, 작업 화면에서 그 AI 가 목록에
                    안 나올 때에야 알게 된다. 고를 수 있게 바꾼다.
 
@@ -252,11 +252,12 @@
 
     /// <summary>
     /// 쓸 수 있는 AI. <b>값은 실행기가 아는 이름이어야 한다</b> —
-    /// 화면에 보이는 글자(안티그래비티)와 저장되는 값(antigravity)이 다르다.
+    /// 화면에 보이는 글자와 저장되는 실행기 값이 다르다.
     /// </summary>
     private static readonly PickOption[] RunnerOptions =
     [
         new("claude", "claude"), new("antigravity", "안티그래비티 (agy)"),
+        new("copilot", "Copilot CLI"),
     ];
 
     /// <summary>
@@ -354,7 +355,7 @@
 
     // ── 「쓸 수 있는 AI」 칸 ────────────────────────────────
     //
-    // DB 에는 쉼표로 이어 둔다(`claude,antigravity`). 표 하나를 더 두지 않는
+    // DB 에는 쉼표로 이어 둔다. 표 하나를 더 두지 않는
     // 이유는 값이 둘뿐이고 실행기가 그 문자열을 그대로 읽기 때문이다.
     // 화면에서만 목록과 문자열을 오간다.
 

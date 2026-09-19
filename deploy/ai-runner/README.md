@@ -135,7 +135,7 @@ journalctl -u ai-task-runner -f
 기동 로그에 이렇게 떠야 한다:
 
 ```
-실행기 jsini-prod 시작 · 서버 http://127.0.0.1:5450 · CLI [claude,antigravity] · 동시 5 · 조회 60초
+실행기 jsini-prod 시작 · 서버 http://127.0.0.1:5450 · CLI [claude,antigravity,copilot] · 동시 5 · 조회 60초
 큐 ai_task@localhost 를 듣습니다.
 ```
 

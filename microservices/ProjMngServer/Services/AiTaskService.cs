@@ -239,6 +239,19 @@ public sealed class AiTaskService(
             return AiTaskEditResult.Conflict("내용이 비어 있습니다.");
         }
 
+        var target = await targets.GetAsync(current.TargetKey.Value);
+
+        if (target is null)
+        {
+            return AiTaskEditResult.Conflict("고른 작업 대상을 찾을 수 없습니다.");
+        }
+
+        if (!RunnerAllowed(target.RunnerKinds, current.RunnerKind))
+        {
+            return AiTaskEditResult.Conflict(
+                $"고른 대상은 '{current.RunnerKind}' 실행기를 허용하지 않습니다.");
+        }
+
         if (AiTaskStatus.IsBusy(current.TaskStatus))
         {
             return AiTaskEditResult.Conflict("이미 대기 중이거나 돌고 있습니다.");
@@ -677,6 +690,18 @@ public sealed class AiTaskService(
         }
 
         return $"제목 없는 작업 {DateTime.Now:yyyy-MM-dd HH:mm}";
+    }
+
+    private static bool RunnerAllowed(string? kinds, string? runnerKind)
+    {
+        if (string.IsNullOrWhiteSpace(runnerKind))
+        {
+            return false;
+        }
+
+        return (kinds ?? string.Empty)
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Contains(runnerKind, StringComparer.OrdinalIgnoreCase);
     }
 }
 

@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS projmng.ai_target (
     isolation_mode  varchar(10)   NOT NULL DEFAULT 'worktree',
     -- copy 일 때 복사 상한. 넘으면 실행을 거절한다
     max_size_mb     int,
-    -- 이 대상에 쓸 수 있는 CLI. 쉼표로 잇는다 (claude,antigravity)
+    -- 이 대상에 쓸 수 있는 CLI. 쉼표로 잇는다 (claude,antigravity,copilot)
     runner_kinds    varchar(100)  NOT NULL DEFAULT 'claude',
     -- push 를 허용하는 대상인가. 켜면 그 작업이 곧 운영 배포가 된다(문서 9.3)
     allow_push      boolean       NOT NULL DEFAULT false,
@@ -213,7 +213,7 @@ INSERT INTO projmng.ai_target
      isolation_mode, runner_kinds, allow_push, gate_mode, comments, cre_id)
 SELECT 'Funeralv2 저장소', 'repo', '/home/lee/Funeralv2',
        'https://github.com/quristyle/Funeralv2.git', 'main',
-       'worktree', 'claude,antigravity', false, 'build',
+       'worktree', 'claude,antigravity,copilot', false, 'build',
        '운영 서버의 정본 clone. worktree 로 격리해서 돈다.', 'system'
 WHERE NOT EXISTS (
     SELECT 1 FROM projmng.ai_target WHERE target_path = '/home/lee/Funeralv2'
