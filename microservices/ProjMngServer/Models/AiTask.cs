@@ -91,6 +91,9 @@ public sealed class AiTask
     /// <summary>끝나면 메일로 받을 것인가.</summary>
     public bool NotifyEmail { get; set; }
 
+    /// <summary>끝나면 PWA 알림을 받을 것인가.</summary>
+    public bool NotifyPwa { get; set; }
+
     /// <summary>받는 사람. 비우면 요청한 사람에게 간다.</summary>
     public string? NotifyTo { get; set; }
 

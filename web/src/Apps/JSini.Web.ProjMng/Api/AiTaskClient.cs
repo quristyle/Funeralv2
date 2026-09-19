@@ -172,6 +172,7 @@ public sealed class AiTaskDto
     public bool AutoPush { get; set; }
 
     public bool NotifyEmail { get; set; }
+    public bool NotifyPwa { get; set; }
     public string? NotifyTo { get; set; }
     public string? NotifyWhen { get; set; } = "always";
     public string? NotifyError { get; set; }

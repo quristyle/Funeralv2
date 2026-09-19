@@ -59,6 +59,7 @@ public sealed class AiTaskNotifier(
                 SELECT t.task_key      AS TaskKey,
                        t.title         AS Title,
                        t.notify_email  AS NotifyEmail,
+                       t.notify_pwa    AS NotifyPwa,
                        t.notify_to     AS NotifyTo,
                        t.notify_when   AS NotifyWhen,
                        t.task_status   AS TaskStatus,
@@ -91,7 +92,7 @@ public sealed class AiTaskNotifier(
             // 쓰므로 메일 발송 여부와 무관하게 항상 부른다.
             var summary = await SummarizeAsync(db, row, runKey, ct);
 
-            if (!row.NotifyEmail)
+            if (!row.NotifyEmail && !row.NotifyPwa)
             {
                 return;
             }
@@ -138,42 +139,81 @@ public sealed class AiTaskNotifier(
             var client = http.CreateClient();
             client.Timeout = TimeSpan.FromSeconds(20);
 
-            using var req = new HttpRequestMessage(
-                HttpMethod.Post, $"{_notifyUrl.TrimEnd('/')}/emails/send")
+            var errorMessages = new List<string>();
+
+            if (row.NotifyEmail)
             {
-                Content = JsonContent.Create(new
+                using var req = new HttpRequestMessage(
+                    HttpMethod.Post, $"{_notifyUrl.TrimEnd('/')}/emails/send")
                 {
-                    to,
-                    toUser,
-                    subject = $"[AI 작업] {row.Title} — {StatusText(row.TaskStatus)}",
-                    body = Body(row, summary),
-                    // 저쪽 DTO 의 속성 이름은 `Html` 이다. `isHtml` 로 적으면
-                    // 붙지 않고 조용히 기본값이 쓰인다 — 그러면 본문이 태그
-                    // 그대로 보인다.
-                    html = true,
-                }),
-            };
+                    Content = JsonContent.Create(new
+                    {
+                        to,
+                        toUser,
+                        subject = $"[AI 작업] {row.Title} — {StatusText(row.TaskStatus)}",
+                        body = Body(row, summary),
+                        // 저쪽 DTO 의 속성 이름은 `Html` 이다. `isHtml` 로 적으면
+                        // 붙지 않고 조용히 기본값이 쓰인다 — 그러면 본문이 태그
+                        // 그대로 보인다.
+                        html = true,
+                    }),
+                };
 
-            // 서비스 간 직접 호출이라 자기 이름을 적어 보낸다
-            // (SiteServer 가 SITE_INQUIRY 로 하는 것과 같다).
-            req.Headers.Add("X-User-Id", "AI_TASK");
+                // 서비스 간 직접 호출이라 자기 이름을 적어 보낸다
+                req.Headers.Add("X-User-Id", "AI_TASK");
 
-            using var res = await client.SendAsync(req, ct);
+                using var res = await client.SendAsync(req, ct);
 
-            if (res.IsSuccessStatusCode)
+                if (res.IsSuccessStatusCode)
+                {
+                    logger.LogInformation("작업 {TaskKey} 결과를 {To} 에게 메일로 보냈습니다.", row.TaskKey, to ?? toUser);
+                }
+                else
+                {
+                    var why = await res.Content.ReadAsStringAsync(ct);
+                    errorMessages.Add($"메일 실패 (HTTP {(int)res.StatusCode}): {Reason(why)}".Trim());
+                }
+            }
+
+            if (row.NotifyPwa && !string.IsNullOrWhiteSpace(toUser))
             {
-                logger.LogInformation("작업 {TaskKey} 결과를 {To} 에게 보냈습니다.", row.TaskKey, to ?? toUser);
+                using var req = new HttpRequestMessage(
+                    HttpMethod.Post, $"{_notifyUrl.TrimEnd('/')}/push")
+                {
+                    Content = JsonContent.Create(new
+                    {
+                        owners = new[] { new { ownerType = "jsini", ownerKey = toUser } },
+                        message = new
+                        {
+                            title = "AI 작업 끝남",
+                            body = $"[{StatusText(row.TaskStatus)}] {row.Title}",
+                            url = $"/projmng/ai/tasks?key={row.TaskKey}" // or whatever URL is correct
+                        }
+                    }),
+                };
+
+                req.Headers.Add("X-User-Id", "AI_TASK");
+
+                using var res = await client.SendAsync(req, ct);
+
+                if (res.IsSuccessStatusCode)
+                {
+                    logger.LogInformation("작업 {TaskKey} 결과를 {To} 에게 PWA로 보냈습니다.", row.TaskKey, toUser);
+                }
+                else
+                {
+                    var why = await res.Content.ReadAsStringAsync(ct);
+                    errorMessages.Add($"PWA 실패 (HTTP {(int)res.StatusCode}): {Reason(why)}".Trim());
+                }
+            }
+
+            if (errorMessages.Count == 0)
+            {
                 await MarkAsync(db, runKey, null);
             }
             else
             {
-                // **본문까지 읽어 남긴다.** 상태 번호만 적어 두면 화면이
-                // 「HTTP 400」만 말하게 되고, 정작 무엇이 틀렸는지는 알림
-                // 서비스 로그를 봐야 알 수 있다 — 실제로 그렇게 헤맸다.
-                var why = await res.Content.ReadAsStringAsync(ct);
-
-                await MarkAsync(db, runKey,
-                    $"메일 서비스가 HTTP {(int)res.StatusCode} 로 답했습니다. {Reason(why)}".Trim());
+                await MarkAsync(db, runKey, string.Join(" / ", errorMessages));
             }
         }
         catch (Exception ex)
@@ -779,6 +819,7 @@ public sealed class AiTaskNotifier(
         public long TaskKey { get; set; }
         public string? Title { get; set; }
         public bool NotifyEmail { get; set; }
+        public bool NotifyPwa { get; set; }
         public string? NotifyTo { get; set; }
         public string? NotifyWhen { get; set; }
         public string? TaskStatus { get; set; }

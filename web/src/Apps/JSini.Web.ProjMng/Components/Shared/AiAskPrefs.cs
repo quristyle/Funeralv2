@@ -206,6 +206,11 @@ public sealed class AiAskPref
     public bool NotifyEmail { get; set; } = true;
 
     /// <summary>
+    /// PWA 알림을 받나.
+    /// </summary>
+    public bool NotifyPwa { get; set; } = true;
+
+    /// <summary>
     /// 작성 중이던 본문(임시저장). 서버 통신 두절이나 새로고침 시 복원에 쓴다.
     /// </summary>
     public string? DraftText { get; set; }

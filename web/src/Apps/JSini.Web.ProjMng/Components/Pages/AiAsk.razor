@@ -271,6 +271,12 @@
                 메일로 결과 받기
             </DxCheckBox>
 
+            <DxCheckBox @bind-Checked="@PwaOn"
+                        CssClass="pm-ask__opt"
+                        Enabled="@(!Busy)">
+                PWA 알림 받기
+            </DxCheckBox>
+
             <PermissionView Action="MenuAction.Create">
                 <DxButton Text="@SendText"
                           RenderStyle="ButtonRenderStyle.Primary"
@@ -471,6 +477,11 @@
     /// </summary>
     private bool _mail = true;
 
+    /// <summary>
+    /// PWA 알림을 받나.
+    /// </summary>
+    private bool _pwa = true;
+
     private ConfirmDialog? _confirm;
 
     /// <summary>방금 보낸 건의 제목. 한 번 말하고 지운다.</summary>
@@ -544,6 +555,17 @@
         set
         {
             _mail = value;
+            Remember();
+        }
+    }
+
+    /// <summary>PWA 알림을 받나. 켠 것도 끈 것도 기억한다.</summary>
+    private bool PwaOn
+    {
+        get => _pwa;
+        set
+        {
+            _pwa = value;
             Remember();
         }
     }
@@ -687,6 +709,7 @@
 
             _push = pref.AutoPush;
             _mail = pref.NotifyEmail;
+            _pwa = pref.NotifyPwa;
 
             // 작성 중이던 임시본이 있으면 복원한다
             if (!string.IsNullOrWhiteSpace(pref.DraftText))
@@ -729,6 +752,7 @@
         // 대상에 잠깐 들렀다고 켜 둔 것을 지우면, 돌아왔을 때 꺼져 있다.
         AutoPush = _push,
         NotifyEmail = _mail,
+        NotifyPwa = _pwa,
         DraftText = _text,
         DraftSavedAt = _draftSavedAt ?? (_text is not null ? DateTime.Now : null),
     });
@@ -951,9 +975,15 @@
 
             var madeOk = await RunAsync(async () =>
             {
+                var finalInstruction = _text;
+                if (!string.IsNullOrWhiteSpace(finalInstruction))
+                {
+                    finalInstruction += "\n\n작업에 생성되는 파일이나 변경된 내용이 실제 작성되었는지 다시 확인하고, 모든 작업이 끝나면 반드시 commit과 push를 수행해라.";
+                }
+
                 created = await Api.CreateAsync(new AiTaskDto
                 {
-                    Contents = _text,
+                    Contents = finalInstruction,
                     ContentFormat = "markdown",
                     TargetKey = _targetKey,
                     RunnerKind = _kind,
@@ -968,6 +998,7 @@
                     // 기본은 켜짐이다. 끈 사람은 끈 줄 알고 끈 것이고, 그 사실을
                     // 단추 아래 줄이 한 번 더 말해 준다(`SendNote`).
                     NotifyEmail = MailOn,
+                    NotifyPwa = PwaOn,
                     NotifyWhen = "always",
                 });
             }, okMessage: "적어 두었습니다. 보내는 중입니다.", failMessage: "보내지 못했습니다");

@@ -46,6 +46,7 @@ public sealed class AiTaskService(
         a.attempt_max     AS AttemptMax,
         a.auto_push       AS AutoPush,
         a.notify_email    AS NotifyEmail,
+        a.notify_pwa      AS NotifyPwa,
         a.notify_to       AS NotifyTo,
         a.notify_when     AS NotifyWhen,
         a.notify_error    AS NotifyError,
@@ -120,19 +121,19 @@ public sealed class AiTaskService(
                  ( title, contents, content_format, target_key, target_ref,
                    runner_kind, request_flag, task_status, priority,
                    timeout_minutes, attempt_max, auto_push,
-                   notify_email, notify_to, notify_when,
+                   notify_email, notify_pwa, notify_to, notify_when,
                    row_version, cre_id, cre_dt )
             VALUES ( @Title, @Contents, @ContentFormat, @TargetKey, @TargetRef,
                      @RunnerKind, 'none', 'idle', @Priority,
                      @TimeoutMinutes, @AttemptMax, @AutoPush,
-                     @NotifyEmail, @NotifyTo, @NotifyWhen,
+                     @NotifyEmail, @NotifyPwa, @NotifyTo, @NotifyWhen,
                      1, @userId, now() )
             RETURNING task_key
             """, new
         {
             item.Title, item.Contents, item.ContentFormat, item.TargetKey, item.TargetRef,
             item.RunnerKind, item.Priority, item.TimeoutMinutes, item.AttemptMax,
-            item.AutoPush, item.NotifyEmail, item.NotifyTo, item.NotifyWhen, userId,
+            item.AutoPush, item.NotifyEmail, item.NotifyPwa, item.NotifyTo, item.NotifyWhen, userId,
         });
 
         return await GetAsync(key);
@@ -181,6 +182,7 @@ public sealed class AiTaskService(
                    attempt_max     = @AttemptMax,
                    auto_push       = @AutoPush,
                    notify_email    = @NotifyEmail,
+                   notify_pwa      = @NotifyPwa,
                    notify_to       = @NotifyTo,
                    notify_when     = @NotifyWhen,
                    row_version     = row_version + 1,
@@ -193,7 +195,7 @@ public sealed class AiTaskService(
         {
             taskKey, item.Title, item.Contents, item.ContentFormat, item.TargetKey,
             item.TargetRef, item.RunnerKind, item.Priority, item.TimeoutMinutes,
-            item.AttemptMax, item.AutoPush, item.NotifyEmail, item.NotifyTo,
+            item.AttemptMax, item.AutoPush, item.NotifyEmail, item.NotifyPwa, item.NotifyTo,
             item.NotifyWhen, item.RowVersion, userId,
         });
 
