@@ -259,12 +259,6 @@
                글자는 짧게 둔다. 왜 회색인지 · 무엇이 일어나는지는 아래 한 줄
                (`SendNote`)이 말한다 — 한 줄에 셋이 서는 자리라 칸마다 설명을
                달면 줄이 도로 풀린다. *@
-            <DxCheckBox @bind-Checked="@PushOn"
-                        CssClass="pm-ask__opt"
-                        Enabled="@(!Busy && SelectedTargetAllowsPush)">
-                저장소
-            </DxCheckBox>
-
             <DxCheckBox @bind-Checked="@MailOn"
                         CssClass="pm-ask__opt"
                         Enabled="@(!Busy)">
@@ -464,12 +458,7 @@
         }
     }
 
-    /// <summary>
-    /// 올리기를 켰나. <b>보낸 뒤에도 그대로 남는다</b> — 기억하는 값이다
-    /// (<see cref="AiAskPrefs"/>). 켜져 있다는 사실은 단추 글자와 묻는 창이
-    /// 말한다.
-    /// </summary>
-    private bool _push;
+    // _push Removed as we always follow SelectedTargetAllowsPush
 
     /// <summary>
     /// 메일로 받나. <b>기본이 켜짐이다</b> — 이 화면의 존재 이유다.
@@ -538,15 +527,7 @@
     /// 꺼진 것으로 보인다</b> — 켜 둔 채로 회색이 되면 「올라가는 건가 마는
     /// 건가」를 알 수 없고, 이 화면에서 그 물음은 배포가 걸린 물음이다.
     /// </summary>
-    private bool PushOn
-    {
-        get => _push && SelectedTargetAllowsPush;
-        set
-        {
-            _push = value;
-            Remember();
-        }
-    }
+    private bool PushOn => SelectedTargetAllowsPush;
 
     /// <summary>메일로 받나. 켠 것도 끈 것도 기억한다.</summary>
     private bool MailOn
@@ -642,10 +623,8 @@
             }
 
             var push = PushOn
-                ? "끝나면 저장소에 올립니다 — 운영 배포가 일어납니다. 보낼 때 한 번 더 묻습니다."
-                : SelectedTargetAllowsPush
-                    ? "고친 것은 커밋까지만 합니다. 올리려면 위 칸을 켜십시오."
-                    : $"「{SelectedTarget?.TargetNm}」 은 올리기를 허용하지 않아 커밋까지만 합니다.";
+                ? "끝나면 main 브랜치에 올립니다 — 운영 배포가 일어납니다. 보낼 때 한 번 더 묻습니다."
+                : $"「{SelectedTarget?.TargetNm}」 은 올리기를 허용하지 않아 커밋까지만 합니다.";
 
             // 메일은 켜진 것이 예사다. **끈 것만 말한다** — 예사인 것을 매번
             // 적으면 정작 꺼 놓은 줄을 그 틈에서 못 읽는다.
@@ -707,7 +686,7 @@
             // 지금 고른 대상이 못 쓰는 AI 였으면 여기서 맞는 것으로 바뀐다.
             FixKind();
 
-            _push = pref.AutoPush;
+            // _push = pref.AutoPush; (removed)
             _mail = pref.NotifyEmail;
             _pwa = pref.NotifyPwa;
 
@@ -748,9 +727,9 @@
         TargetKey = _targetKey,
         RunnerKind = _kind,
 
-        // 화면이 내보이는 값(`PushOn`)이 아니라 사람이 켠 값이다. 허용 안 하는
-        // 대상에 잠깐 들렀다고 켜 둔 것을 지우면, 돌아왔을 때 꺼져 있다.
-        AutoPush = _push,
+        // 올리기는 이제 항상 대상의 허용 여부를 따르므로
+        // 기억할 때도 켜진 상태로 저장한다.
+        AutoPush = true,
         NotifyEmail = _mail,
         NotifyPwa = _pwa,
         DraftText = _text,
@@ -978,7 +957,7 @@
                 var finalInstruction = _text;
                 if (!string.IsNullOrWhiteSpace(finalInstruction))
                 {
-                    finalInstruction += "\n\n작업에 생성되는 파일이나 변경된 내용이 실제 작성되었는지 다시 확인하고, 모든 작업이 끝나면 반드시 commit과 push를 수행해라.";
+                    finalInstruction += "\n\n작업에 생성되는 파일이나 변경된 내용이 실제 작성되었는지 다시 확인하고, 모든 작업이 끝나면 반드시 main 브랜치에 commit과 push를 수행해라.";
                 }
 
                 created = await Api.CreateAsync(new AiTaskDto
