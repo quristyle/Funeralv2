@@ -26,6 +26,7 @@ on:
     paths:
       - "ApiGateway/**"
       - "microservices/**"
+      - "src/**"
       - "web/**"
       - "deploy/docker/**"
       - "Directory.Build.props"
