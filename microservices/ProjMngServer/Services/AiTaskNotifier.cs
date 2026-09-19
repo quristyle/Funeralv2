@@ -187,7 +187,7 @@ public sealed class AiTaskNotifier(
                         {
                             title = "AI 작업 끝남",
                             body = $"[{StatusText(row.TaskStatus)}] {row.Title}",
-                            url = $"/projmng/ai/tasks?key={row.TaskKey}" // or whatever URL is correct
+                            url = $"/projmng/ai/tasks?task={row.TaskKey}"
                         }
                     }),
                 };
