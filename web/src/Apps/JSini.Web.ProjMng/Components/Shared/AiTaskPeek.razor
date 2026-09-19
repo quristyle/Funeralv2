@@ -174,11 +174,46 @@
            그러면 방금 보던 건을 목록에서 다시 찾아야 한다. *@
         @if (Item is { } t)
         {
+            @if (t.CanManualRetry)
+            {
+                <DxButton Text="재시도" RenderStyle="ButtonRenderStyle.Primary"
+                          Enabled="@(!_retrying)"
+                          Click="@OpenRetryModal" />
+            }
+
             <DxButton Text="자세히 보기" RenderStyle="ButtonRenderStyle.Secondary"
                       Click="@(() => GoDetail(t.TaskKey))" />
         }
 
         <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary" Click="@CloseAsync" />
+    </FooterContentTemplate>
+</CommPopup>
+
+@* 실패한 작업의 수동 재시도 시 추가 지시사항을 받는 창 *@
+<CommPopup @bind-Visible="_retryOpen" HeaderText="수동 재시도"
+           Width="min(36rem, calc(100vw - 2rem))"
+           CloseOnOutsideClick="false">
+    <BodyContentTemplate>
+        <PageNotice Tone="NoticeTone.Info"
+                    Text="실패한 작업을 다시 요청합니다. 추가 지시사항이 있으면 적으십시오. (비워두면 기존 지시 그대로 다시 시도합니다)" />
+
+        <DxMemo @bind-Text="_retryAddition" Rows="5"
+                NullText="추가 지시사항 (선택사항)"
+                CssClass="pm-peek__memo" />
+
+        @if (!string.IsNullOrWhiteSpace(_retryError))
+        {
+            <PageNotice Tone="NoticeTone.Error" Text="@_retryError" />
+        }
+    </BodyContentTemplate>
+
+    <FooterContentTemplate>
+        <DxButton Text="재시도 요청" RenderStyle="ButtonRenderStyle.Primary"
+                  Enabled="@(!_retrying)"
+                  Click="@DoRetryAsync" />
+        <DxButton Text="취소" RenderStyle="ButtonRenderStyle.Secondary"
+                  Enabled="@(!_retrying)"
+                  Click="@CloseRetryModal" />
     </FooterContentTemplate>
 </CommPopup>
 
@@ -212,6 +247,14 @@
 
     /// <inheritdoc cref="Visible"/>
     [Parameter] public EventCallback<bool> VisibleChanged { get; set; }
+
+    /// <summary>수동 재시도가 일어났을 때 부모에게 알린다.</summary>
+    [Parameter] public EventCallback<AiTaskDto> OnRetried { get; set; }
+
+    private bool _retryOpen;
+    private bool _retrying;
+    private string? _retryAddition;
+    private string? _retryError;
 
     /// <summary>지금 보고 있는 건. 이것이 바뀔 때만 받아 온 것을 버린다.</summary>
     private long? _key;
@@ -584,6 +627,61 @@
         _logRead = false;
         _pinned = false;
         _tab = TabAsk;
+        _retryOpen = false;
+        _retrying = false;
+        _retryAddition = null;
+        _retryError = null;
+    }
+
+    private void OpenRetryModal()
+    {
+        _retryAddition = null;
+        _retryError = null;
+        _retryOpen = true;
+    }
+
+    private void CloseRetryModal()
+    {
+        if (_retrying) return;
+        _retryOpen = false;
+        _retryAddition = null;
+        _retryError = null;
+    }
+
+    private async Task DoRetryAsync()
+    {
+        if (Item is not { } t || _retrying)
+        {
+            return;
+        }
+
+        _retrying = true;
+        _retryError = null;
+
+        try
+        {
+            var updated = await Api.RetryAsync(t.TaskKey, _retryAddition);
+            _retryOpen = false;
+
+            if (updated is not null)
+            {
+                Item = updated;
+                _status = updated.TaskStatus;
+                await OnRetried.InvokeAsync(updated);
+            }
+        }
+        catch (ApiException ex)
+        {
+            _retryError = $"재시도 요청에 실패했습니다: {ex.Message}";
+        }
+        catch (Exception ex)
+        {
+            _retryError = $"재시도 요청 중 오류가 발생했습니다: {ex.Message}";
+        }
+        finally
+        {
+            _retrying = false;
+        }
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)

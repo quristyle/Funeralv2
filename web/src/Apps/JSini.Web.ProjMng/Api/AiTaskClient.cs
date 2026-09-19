@@ -52,6 +52,13 @@ public sealed class AiTaskClient(GatewayClient gateway)
         long taskKey, string addition, CancellationToken ct = default)
         => gateway.PostAsync<AiTaskDto>($"{Url}/{taskKey}/continue", new { addition }, ct);
 
+    /// <summary>
+    /// <b>실패한 작업을 수동으로 다시 요청한다.</b> 추가 지시사항이 있으면 본문 뒤에 덧붙인다.
+    /// </summary>
+    public Task<AiTaskDto?> RetryAsync(
+        long taskKey, string? addition = null, CancellationToken ct = default)
+        => gateway.PostAsync<AiTaskDto>($"{Url}/{taskKey}/retry", new { addition }, ct);
+
     public Task<AiTaskDto?> CancelAsync(long taskKey, CancellationToken ct = default)
         => gateway.PostAsync<AiTaskDto>($"{Url}/{taskKey}/cancel", new { }, ct);
 
@@ -270,6 +277,13 @@ public sealed class AiTaskDto
 
     /// <summary>지금 도는 중인가. 편집과 삭제를 막는 기준이다.</summary>
     public bool IsBusy => TaskStatus is "queued" or "preparing" or "running";
+
+    /// <summary>
+    /// <b>수동 재시도가 가능한가.</b> 실패로 끝났고(failed/timeout), 자동 재시도 횟수를 모두 소진한 상태다.
+    /// </summary>
+    public bool CanManualRetry => (TaskStatus is "failed" or "timeout")
+        && AttemptCount >= Math.Max(AttemptMax, 1)
+        && !IsBusy;
 
     /// <summary>걸린 시간. 아직 안 끝났으면 비어 있다.</summary>
     public string DurationText => DurationMs is null or 0

@@ -348,7 +348,8 @@
        **휴대폰에서는 화면을 꽉 채운다.** 무엇을 펴서 열지는 그 창이 상태로
        고른다 — 위 머리말 참고. *@
     <AiTaskPeek Item="@PeekItem" Visible="@(_peek is not null)"
-                VisibleChanged="@OnPeekVisible" />
+                VisibleChanged="@OnPeekVisible"
+                OnRetried="@OnPeekRetriedAsync" />
 
     @* 올리기를 켠 채로 보낼 때만 뜬다. **「보내기」 한 번으로 운영 배포가
        나가지 않게 하는 마지막 겹이다.** *@
@@ -913,6 +914,16 @@
         {
             _peek = null;
         }
+    }
+
+    /// <summary>
+    /// 창에서 수동 재시도를 요청했다. 목록을 다시 읽고 화면을 갱신한다.
+    /// </summary>
+    private async Task OnPeekRetriedAsync(AiTaskDto task)
+    {
+        _sent = task.Title;
+        await LoadRecentAsync();
+        StateHasChanged();
     }
 
     /// <summary>

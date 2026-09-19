@@ -92,6 +92,13 @@ public sealed class AiTasksController(AiTaskService service, AiRunService runs) 
     public async Task<IActionResult> ContinueAsync(long taskKey, [FromBody] ContinueRequest req)
         => Respond(await service.ContinueAsync(taskKey, req.Addition, UserId));
 
+    /// <summary>
+    /// <b>실패한 작업을 수동으로 다시 요청한다.</b> 추가 지시사항을 얹을 수 있다.
+    /// </summary>
+    [HttpPost("{taskKey:long}/retry")]
+    public async Task<IActionResult> RetryAsync(long taskKey, [FromBody] RetryRequest req)
+        => Respond(await service.RetryAsync(taskKey, req?.Addition, UserId));
+
     /// <summary>취소를 요청한다. 도는 중이면 표시만 남고 실행기가 멈춘다.</summary>
     [HttpPost("{taskKey:long}/cancel")]
     public async Task<IActionResult> CancelAsync(long taskKey)
@@ -111,6 +118,12 @@ public sealed class AiTasksController(AiTaskService service, AiRunService runs) 
     public sealed class ContinueRequest
     {
         /// <summary>이번에 더 시킬 일.</summary>
+        public string? Addition { get; set; }
+    }
+
+    public sealed class RetryRequest
+    {
+        /// <summary>재시도 시 더 시킬 일.</summary>
         public string? Addition { get; set; }
     }
 

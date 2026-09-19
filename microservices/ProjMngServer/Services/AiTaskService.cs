@@ -396,6 +396,65 @@ public sealed class AiTaskService(
     }
 
     /// <summary>
+    /// <b>실패한 작업을 수동으로 다시 요청한다.</b>
+    /// 추가 지시사항이 있으면 본문 뒤에 덧붙이고, attempt_count 를 0으로 되돌려 다시 queued 로 넣는다.
+    /// </summary>
+    public async Task<AiTaskEditResult> RetryAsync(long taskKey, string? addition, string? userId)
+    {
+        var current = await GetAsync(taskKey);
+
+        if (current is null)
+        {
+            return AiTaskEditResult.NotFound();
+        }
+
+        if (AiTaskStatus.IsBusy(current.TaskStatus))
+        {
+            return AiTaskEditResult.Conflict("이미 대기 중이거나 돌고 있습니다.");
+        }
+
+        var newContents = current.Contents;
+
+        if (!string.IsNullOrWhiteSpace(addition))
+        {
+            newContents = string.IsNullOrWhiteSpace(current.Contents)
+                ? addition.Trim()
+                : $"{current.Contents.TrimEnd()}\n\n---\n## 재시도 추가 지시\n\n{addition.Trim()}";
+        }
+
+        using var db = Open();
+
+        var affected = await db.ExecuteAsync("""
+            UPDATE projmng.ai_task
+               SET contents      = @newContents,
+                   request_flag  = 'requested',
+                   task_status   = 'queued',
+                   requested_at  = now(),
+                   started_at    = NULL,
+                   finished_at   = NULL,
+                   duration_ms   = NULL,
+                   last_error    = NULL,
+                   notify_error  = NULL,
+                   attempt_count = 0,
+                   row_version   = row_version + 1,
+                   mod_id        = @userId,
+                   mod_dt        = now()
+             WHERE task_key   = @taskKey
+               AND is_deleted = false
+               AND task_status NOT IN ('queued', 'preparing', 'running')
+            """, new { taskKey, newContents, userId });
+
+        if (affected == 0)
+        {
+            return AiTaskEditResult.Conflict("그 사이에 상태가 바뀌었습니다. 다시 읽으십시오.");
+        }
+
+        queue.Ring(taskKey);
+
+        return AiTaskEditResult.Ok(await GetAsync(taskKey));
+    }
+
+    /// <summary>
     /// 이어가기 지시문을 조립한다.
     /// </summary>
     /// <remarks>
