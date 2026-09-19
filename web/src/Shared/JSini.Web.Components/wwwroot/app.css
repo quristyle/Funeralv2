@@ -1062,6 +1062,18 @@ body {
 .jsini-sidebar__tab-count {
   font-size: var(--jsini-fs-2xs);
   opacity: 0.7;
+  flex-shrink: 0;   /* 개수가 글자에 밀려 사라지지 않는다 */
+}
+
+/* ── 탭 텍스트가 세로로 나열되지 않게 한다 ────────────────
+   좁은 사이드바에서 flex 칸 안의 글자가 한 글자씩 내려가는
+   현상을 막는다. 공간이 부족하면 글자가 잘려 보이는 것이
+   세로로 나열되는 것보다 낫다. */
+.jsini-sidebar__tab-text {
+  white-space: nowrap;     /* 줄바꿈 금지 */
+  overflow: hidden;        /* 넘치는 글자 숨김 */
+  text-overflow: ellipsis; /* 잘릴 때 … 표시 */
+  min-width: 0;            /* flex shrink 허용 */
 }
 
 /* 즐겨찾기가 비었을 때, 그리고 메뉴에 없는 즐겨찾기를 알릴 때. */
