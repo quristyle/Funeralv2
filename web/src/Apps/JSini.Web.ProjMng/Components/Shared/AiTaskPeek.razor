@@ -184,17 +184,24 @@
            그러면 방금 보던 건을 목록에서 다시 찾아야 한다. *@
         @if (Item is { } t)
         {
+            @if (t.TaskStatus == "succeeded")
+            {
+                <DxButton Text="이어서 지시" RenderStyle="ButtonRenderStyle.Primary"
+                          Enabled="@(!_retrying && !_confirming && !_continuing)"
+                          Click="@OpenContinueModal" />
+            }
+
             @if (t.CanManualRetry)
             {
-                <DxButton Text="재시도" RenderStyle="ButtonRenderStyle.Primary"
-                          Enabled="@(!_retrying && !_confirming)"
+                <DxButton Text="재시도" RenderStyle="ButtonRenderStyle.Secondary"
+                          Enabled="@(!_retrying && !_confirming && !_continuing)"
                           Click="@OpenRetryModal" />
             }
 
             @if (t.IsFinal && !t.UserConfirmed)
             {
                 <DxButton Text="사용자확인완료" RenderStyle="ButtonRenderStyle.Success"
-                          Enabled="@(!_retrying && !_confirming)"
+                          Enabled="@(!_retrying && !_confirming && !_continuing)"
                           Click="@DoConfirmAsync" />
             }
 
@@ -231,6 +238,34 @@
         <DxButton Text="취소" RenderStyle="ButtonRenderStyle.Secondary"
                   Enabled="@(!_retrying)"
                   Click="@CloseRetryModal" />
+    </FooterContentTemplate>
+</CommPopup>
+
+@* 완료된 작업에 이어서 지시하기 *@
+<CommPopup @bind-Visible="_continueOpen" HeaderText="이어서 지시"
+           Width="min(36rem, calc(100vw - 2rem))"
+           CloseOnOutsideClick="false">
+    <BodyContentTemplate>
+        <PageNotice Tone="NoticeTone.Info"
+                    Text="지난 진행(요약과 바뀐 파일)은 서버가 앞에 붙입니다. 여기에는 이번에 더 시킬 일만 적으십시오." />
+
+        <DxMemo @bind-Text="_continueAddition" Rows="5"
+                NullText="이번에 더 시킬 일"
+                CssClass="pm-peek__memo" />
+
+        @if (!string.IsNullOrWhiteSpace(_continueError))
+        {
+            <PageNotice Tone="NoticeTone.Error" Text="@_continueError" />
+        }
+    </BodyContentTemplate>
+
+    <FooterContentTemplate>
+        <DxButton Text="이어서 지시 요청" RenderStyle="ButtonRenderStyle.Primary"
+                  Enabled="@(!string.IsNullOrWhiteSpace(_continueAddition) && !_continuing)"
+                  Click="@DoContinueAsync" />
+        <DxButton Text="취소" RenderStyle="ButtonRenderStyle.Secondary"
+                  Enabled="@(!_continuing)"
+                  Click="@CloseContinueModal" />
     </FooterContentTemplate>
 </CommPopup>
 
@@ -272,6 +307,11 @@
     private bool _retrying;
     private string? _retryAddition;
     private string? _retryError;
+
+    private bool _continueOpen;
+    private bool _continuing;
+    private string? _continueAddition;
+    private string? _continueError;
 
     /// <summary>지금 보고 있는 건. 이것이 바뀔 때만 받아 온 것을 버린다.</summary>
     private long? _key;
@@ -648,6 +688,10 @@
         _retrying = false;
         _retryAddition = null;
         _retryError = null;
+        _continueOpen = false;
+        _continuing = false;
+        _continueAddition = null;
+        _continueError = null;
     }
 
     private void OpenRetryModal()
@@ -698,6 +742,61 @@
         finally
         {
             _retrying = false;
+        }
+    }
+
+    private void OpenContinueModal()
+    {
+        _continueAddition = null;
+        _continueError = null;
+        _continueOpen = true;
+    }
+
+    private void CloseContinueModal()
+    {
+        if (_continuing) return;
+        _continueOpen = false;
+        _continueAddition = null;
+        _continueError = null;
+    }
+
+    private async Task DoContinueAsync()
+    {
+        if (Item is not { } t || _continuing)
+        {
+            return;
+        }
+
+        _continuing = true;
+        _continueError = null;
+
+        try
+        {
+            var updated = await Api.ContinueAsync(t.TaskKey, _continueAddition!);
+            if (updated is not null)
+            {
+                updated = await Api.RequestAsync(t.TaskKey);
+                _continueOpen = false;
+
+                if (updated is not null)
+                {
+                    Item = updated;
+                    _status = updated.TaskStatus;
+                    await OnRetried.InvokeAsync(updated);
+                }
+            }
+        }
+        catch (ApiException ex)
+        {
+            _continueError = $"이어서 지시 요청에 실패했습니다: {ex.Message}";
+        }
+        catch (Exception ex)
+        {
+            _continueError = $"이어서 지시 요청 중 오류가 발생했습니다: {ex.Message}";
+        }
+        finally
+        {
+            _continuing = false;
         }
     }
 
