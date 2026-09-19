@@ -99,6 +99,9 @@
     </ChildContent>
 
     <Actions>
+        <DxButton Text="새로 고침" RenderStyle="ButtonRenderStyle.Primary"
+                  IconCssClass="jsini-icon-refresh" Click="@ReloadAsync" />
+
         <DxButton Text="@(_showDates ? "기간 접기" : "기간 조건")"
                   RenderStyle="ButtonRenderStyle.Link" Click="@(() => _showDates = !_showDates)" />
 
@@ -112,24 +115,26 @@
 
 @if (_board is not null)
 {
-    <div class="jsini-stats">
-        <div class="jsini-stat">
-            <div class="jsini-stat__label">전체 호실</div>
-            <div class="jsini-stat__value">@_board.Summary.TotalRooms</div>
+    <section class="fn-status-summary" aria-label="빈소 현황 요약">
+        <div class="jsini-stats">
+            <div class="jsini-stat">
+                <div class="jsini-stat__label"><span class="jsini-icon-home" aria-hidden="true"></span>전체 호실</div>
+                <div class="jsini-stat__value">@_board.Summary.TotalRooms</div>
+            </div>
+            <div class="jsini-stat fn-stat--active">
+                <div class="jsini-stat__label"><span class="jsini-icon-user" aria-hidden="true"></span>사용 중</div>
+                <div class="jsini-stat__value">@_board.Summary.UsingRooms</div>
+            </div>
+            <div class="jsini-stat fn-stat--empty">
+                <div class="jsini-stat__label"><span class="jsini-icon-subtract" aria-hidden="true"></span>빈 호실</div>
+                <div class="jsini-stat__value">@_board.Summary.EmptyRooms</div>
+            </div>
+            <div class="jsini-stat @(OfflineRooms > 0 ? "fn-stat--alert" : "fn-stat--online")">
+                <div class="jsini-stat__label"><span class="jsini-icon-image" aria-hidden="true"></span>장비 온라인</div>
+                <div class="jsini-stat__value">@_board.Summary.OnlineDevices / @_board.Summary.TotalDevices</div>
+            </div>
         </div>
-        <div class="jsini-stat">
-            <div class="jsini-stat__label">사용 중</div>
-            <div class="jsini-stat__value">@_board.Summary.UsingRooms</div>
-        </div>
-        <div class="jsini-stat">
-            <div class="jsini-stat__label">빈 호실</div>
-            <div class="jsini-stat__value">@_board.Summary.EmptyRooms</div>
-        </div>
-        <div class="jsini-stat">
-            <div class="jsini-stat__label">장비 온라인</div>
-            <div class="jsini-stat__value">@_board.Summary.OnlineDevices / @_board.Summary.TotalDevices</div>
-        </div>
-    </div>
+    </section>
 
     @if (OfflineRooms > 0)
     {
@@ -139,32 +144,59 @@
                     Text="@($"장비가 다 안 붙은 호실이 {OfflineRooms}곳 있습니다.")" />
     }
 
-    <div class="jsini-refresh-status" role="status" aria-live="polite">
-        <span>마지막 갱신: @(_lastRefreshAt?.ToString("yyyy-MM-dd HH:mm:ss") ?? "아직 없음")</span>
-        @if (_backgroundRefreshError)
-        {
-            <span class="jsini-refresh-status__error">자동 갱신에 실패했습니다. 마지막 자료를 표시 중입니다.</span>
-        }
+    <div class="fn-board-toolbar">
+        <div class="fn-board-toolbar__result" role="status" aria-live="polite">
+            <strong>@Shown.Count</strong>개 호실 표시
+            <span class="fn-board-toolbar__hint">전체 @(_board.Summary.TotalRooms)개 중 조건에 맞는 호실</span>
+        </div>
+        <div class="jsini-refresh-status" aria-label="자료 갱신 상태">
+            <span class="jsini-icon-refresh" aria-hidden="true"></span>
+            <span>마지막 갱신: @(_lastRefreshAt?.ToString("yyyy-MM-dd HH:mm:ss") ?? "아직 없음")</span>
+            @if (_backgroundRefreshError)
+            {
+                <span class="jsini-refresh-status__error">
+                    <span class="jsini-icon-close-circle" aria-hidden="true"></span>
+                    자동 갱신 실패 · 마지막 자료 표시 중
+                </span>
+            }
+        </div>
     </div>
 
-    <div class="fn-board">
+    @if (Shown.Count == 0)
+    {
+        <div class="fn-board-empty" role="status">
+            <span class="jsini-icon-search" aria-hidden="true"></span>
+            <strong>조건에 맞는 호실이 없습니다.</strong>
+            <span>건물·층, 고인명, 기간 또는 장비 이상 조건을 바꿔 보세요.</span>
+        </div>
+    }
+    else
+    {
+        <div class="fn-board" aria-label="빈소 카드 목록">
         @foreach (var room in Shown)
         {
-            <article class="fn-card @(room.Occupied ? "fn-card--in-use" : "")">
+            var hasDeviceAlert = room.DeviceCount > 0 && room.OnlineDeviceCount < room.DeviceCount;
+
+            <article class="fn-card @(room.Occupied ? "fn-card--in-use" : "fn-card--empty") @(hasDeviceAlert ? "fn-card--device-alert" : "")"
+                     aria-label="@($"{room.RoomName} · {(room.Occupied ? $"故 {room.DeceasedName}" : "비어 있음")}")">
                 <header class="fn-card__head">
-                    <span class="fn-card__room">@room.RoomName</span>
-
-                    @if (room.DeviceCount > 0)
-                    {
-                        @* 장비가 하나라도 안 붙었으면 눈에 띄어야 한다. *@
-                        <span class="jsini-badge @(room.OnlineDeviceCount < room.DeviceCount ? "jsini-badge--off" : "jsini-badge--on")">
-                            장비 @room.OnlineDeviceCount/@room.DeviceCount
+                    <div class="fn-card__room-wrap">
+                        <span class="fn-card__room">@room.RoomName</span>
+                        <span class="fn-card__occupancy">
+                            <span class="@(room.Occupied ? "jsini-icon-user" : "jsini-icon-subtract")" aria-hidden="true"></span>
+                            @(room.Occupied ? "사용 중" : "빈 호실")
                         </span>
-                    }
-
-                    <span class="jsini-badge @(room.Occupied ? "jsini-badge--on" : "jsini-badge--off")">
-                        @(room.Occupied ? "사용 중" : "비어 있음")
-                    </span>
+                    </div>
+                    <div class="fn-card__badges" aria-label="호실 상태">
+                        @if (room.DeviceCount > 0)
+                        {
+                            <span class="fn-equipment-status @(hasDeviceAlert ? "fn-equipment-status--fault" : "fn-equipment-status--ok")">
+                                <span class="@(hasDeviceAlert ? "jsini-icon-close-circle" : "jsini-icon-check-circle")" aria-hidden="true"></span>
+                                <span>@(hasDeviceAlert ? "장비 이상" : "장비 정상")</span>
+                                <span class="fn-equipment-status__count">@room.OnlineDeviceCount/@room.DeviceCount</span>
+                            </span>
+                        }
+                    </div>
                 </header>
 
                 @if (room.Occupied)
@@ -177,7 +209,7 @@
                                 <img class="fn-card__photo" src="@FileDownload.RelayUrl(photo)" alt="" loading="lazy" />
                             }
 
-                            <div>
+                            <div class="fn-card__person-info">
                                 <div class="fn-card__name">故 @room.DeceasedName</div>
                                 <div class="fn-card__sub">
                                     @Gender(room.DeceasedGender)
@@ -211,10 +243,14 @@
                            (호실 이동에 「빈 방인지」 검사가 달려 있는 식이다).
                            그 화면으로 보낸다 — 가운데 클릭으로 새 탭에 열린다. *@
                         <div class="fn-card__links">
-                            <a href="/funeral/deceased?keyword=@Uri.EscapeDataString(room.DeceasedName ?? string.Empty)">고인 자료</a>
+                            <a href="/funeral/deceased?keyword=@Uri.EscapeDataString(room.DeceasedName ?? string.Empty)">
+                                <span class="jsini-icon-user" aria-hidden="true"></span>고인 자료
+                            </a>
                             @if (room.DeviceCount > 0)
                             {
-                                <a href="/funeral/building/device">기기 @room.DeviceCount 대</a>
+                                <a href="/funeral/building/device">
+                                    <span class="jsini-icon-image" aria-hidden="true"></span>기기 @room.DeviceCount 대
+                                </a>
                             }
                         </div>
                     </div>
@@ -222,7 +258,10 @@
                 else
                 {
                     <div class="fn-card__body fn-card__body--empty">
-                        <div>비어 있습니다</div>
+                        <div class="fn-empty-state">
+                            <span class="jsini-icon-check-circle" aria-hidden="true"></span>
+                            <strong>현재 비어 있습니다</strong>
+                        </div>
 
                         @if (room.LastVacatedAt is not null)
                         {
@@ -231,20 +270,23 @@
 
                         @if (room.LastDepartedDeceasedId is { Length: > 0 })
                         {
-                            @* 잘못 출상 처리했다는 것을 알아채는 자리가 보통
-                               여기다("저 방이 왜 비었지"). 그 자리에서 바로
-                               되돌릴 수 있게 둔다. *@
+                            <div class="fn-card__cancel-note">
+                                <span class="jsini-icon-undo" aria-hidden="true"></span>
+                                출상 취소 가능
+                            </div>
                             <PermissionView Action="MenuAction.Update">
                                 <DxButton Text="@($"故 {room.LastDepartedDeceasedName} 출상 취소")"
                                           RenderStyle="ButtonRenderStyle.Secondary"
+                                          IconCssClass="jsini-icon-undo"
                                           Click="@(() => CancelDepartureAsync(room))" />
                             </PermissionView>
                         }
-                    </div>
+                        </div>
                 }
             </article>
         }
     </div>
+}
 }
 
 @code {

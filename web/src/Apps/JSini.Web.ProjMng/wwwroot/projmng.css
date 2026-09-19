@@ -1303,6 +1303,263 @@
   width: 100%;
 }
 
+/* ── AI 작업 화면 머리·반응형 강화 ─────────────────────────────
+
+   기존 기능과 데이터 흐름은 그대로 두고, 첫 화면에서 「무엇을 할 수 있는지」와
+   「지금 무슨 상태인지」가 먼저 읽히도록 화면의 정보 순서를 정리한다.
+   통계는 현재 조회 결과를 기준으로 하므로 필터를 바꿔도 숫자가 거짓말하지 않는다.
+   ---------------------------------------------------------- */
+
+.pm-ai-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--jsini-sp-xl);
+  align-items: end;
+  margin-bottom: var(--jsini-sp-lg);
+  padding: var(--jsini-sp-xl);
+  border: 1px solid var(--jsini-border);
+  border-radius: var(--jsini-radius-lg, 0.75rem);
+  background:
+    radial-gradient(circle at 100% 0, color-mix(in srgb, var(--jsini-accent) 12%, transparent), transparent 38%),
+    var(--jsini-surface);
+}
+
+.pm-ai-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--jsini-accent);
+  font-size: var(--jsini-fs-xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.pm-ai-eyebrow__dot,
+.pm-ai-live__indicator {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--jsini-success, #1f9d65);
+}
+
+.pm-ai-hero__heading {
+  display: flex;
+  gap: var(--jsini-sp-lg);
+  align-items: end;
+  justify-content: space-between;
+  margin-top: var(--jsini-sp-sm);
+}
+
+.pm-ai-hero h1 {
+  margin: 0;
+  color: var(--jsini-text);
+  font-size: clamp(1.35rem, 2vw, 1.9rem);
+  line-height: 1.2;
+}
+
+.pm-ai-hero p {
+  margin: 0.45rem 0 0;
+  color: var(--jsini-text-muted);
+  font-size: var(--jsini-fs-sm);
+}
+
+.pm-ai-live {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--jsini-text-muted);
+  font-size: var(--jsini-fs-xs);
+  white-space: nowrap;
+}
+
+.pm-ai-live__indicator--busy {
+  background: var(--jsini-accent);
+  animation: pm-ai-pulse 1.2s ease-in-out infinite;
+}
+
+.pm-ai-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(5.5rem, 1fr));
+  gap: var(--jsini-sp-sm);
+}
+
+.pm-ai-stat {
+  min-width: 0;
+  padding: 0.7rem 0.8rem;
+  border-left: 3px solid var(--jsini-border);
+  border-radius: var(--jsini-radius-md, 0.4rem);
+  background: color-mix(in srgb, var(--jsini-bg) 72%, transparent);
+}
+
+.pm-ai-stat--accent { border-left-color: var(--jsini-accent); }
+.pm-ai-stat--success { border-left-color: var(--jsini-success, #1f9d65); }
+.pm-ai-stat--danger { border-left-color: var(--jsini-danger, #d94b55); }
+
+.pm-ai-stat__label {
+  display: block;
+  overflow: hidden;
+  color: var(--jsini-text-muted);
+  font-size: var(--jsini-fs-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pm-ai-stat__value {
+  display: block;
+  margin-top: 0.15rem;
+  color: var(--jsini-text);
+  font-size: 1.35rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.pm-ai-loading {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin: 0 0 var(--jsini-sp-md);
+  padding: 0.6rem 0.8rem;
+  border: 1px solid color-mix(in srgb, var(--jsini-accent) 28%, var(--jsini-border));
+  border-radius: var(--jsini-radius-md, 0.4rem);
+  background: color-mix(in srgb, var(--jsini-accent) 7%, var(--jsini-surface));
+  color: var(--jsini-text-muted);
+  font-size: var(--jsini-fs-sm);
+}
+
+.pm-ai-loading__spinner {
+  width: 0.9rem;
+  height: 0.9rem;
+  border: 2px solid color-mix(in srgb, var(--jsini-accent) 25%, transparent);
+  border-top-color: var(--jsini-accent);
+  border-radius: 50%;
+  animation: pm-spin 0.8s linear infinite;
+}
+
+.pm-ai-context {
+  display: flex;
+  gap: var(--jsini-sp-md);
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--jsini-sp-md);
+  padding: 0.65rem 0.8rem;
+  border: 1px solid var(--jsini-border);
+  border-radius: var(--jsini-radius-md, 0.4rem);
+  background: color-mix(in srgb, var(--jsini-accent) 5%, var(--jsini-surface));
+}
+
+.pm-ai-context__main {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.pm-ai-context__main strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pm-ai-context__kicker {
+  color: var(--jsini-text-muted);
+  font-size: var(--jsini-fs-xs);
+}
+
+.pm-ai-context__meta {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  justify-content: end;
+}
+
+.pm-ai-empty {
+  display: grid;
+  min-height: 22rem;
+  place-content: center;
+  justify-items: center;
+  gap: 0.45rem;
+  padding: var(--jsini-sp-xl);
+  border: 1px dashed var(--jsini-border);
+  border-radius: var(--jsini-radius-md, 0.4rem);
+  text-align: center;
+}
+
+.pm-ai-empty__icon {
+  display: grid;
+  width: 2.5rem;
+  height: 2.5rem;
+  place-items: center;
+  margin-bottom: 0.35rem;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--jsini-accent) 12%, transparent);
+  color: var(--jsini-accent);
+  font-size: 1.35rem;
+}
+
+.pm-ai-empty p {
+  max-width: 28rem;
+  margin: 0;
+  color: var(--jsini-text-muted);
+  font-size: var(--jsini-fs-sm);
+}
+
+.pm-ai-empty__hint {
+  margin-top: 0.4rem;
+  color: var(--jsini-text-muted);
+  font-size: var(--jsini-fs-xs);
+}
+
+.pm-ai-new-task { min-width: 7rem; }
+
+@keyframes pm-ai-pulse {
+  50% { opacity: 0.35; transform: scale(0.75); }
+}
+
+@media (max-width: 74rem) {
+  .pm-ai-hero {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .pm-ai-stats { grid-template-columns: repeat(4, 1fr); }
+}
+
+@media (max-width: 62rem) {
+  .pm-split { gap: var(--jsini-sp-lg); }
+  .pm-ai-detail-panel { order: -1; }
+  .pm-ai-list-panel { order: 1; }
+}
+
+@media (max-width: 42rem) {
+  .pm-ai-hero {
+    padding: var(--jsini-sp-lg);
+  }
+
+  .pm-ai-hero__heading {
+    align-items: start;
+    flex-direction: column;
+    gap: var(--jsini-sp-md);
+  }
+
+  .pm-ai-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .pm-ai-context {
+    align-items: start;
+    flex-direction: column;
+  }
+
+  .pm-ai-context__meta { justify-content: start; }
+  .pm-ai-empty { min-height: 16rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pm-ai-live__indicator--busy,
+  .pm-ai-loading__spinner { animation: none; }
+}
+
 /* ── 빠른 지시 (`pm-ask`) ─────────────────────────────────────
 
    모바일에서 주로 쓰는 화면이다. 그래서 규칙이 「AI 작업」 화면과 반대다 —

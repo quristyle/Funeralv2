@@ -5225,7 +5225,7 @@ html {
   --jsini-border: #e4eaf2;
   --jsini-text: #182433;
   --jsini-text-muted: #708096;
-  --jsini-accent: #206bc4;
+  --jsini-accent: var(--jsini-theme-primary, #206bc4);
   --jsini-surface-raised: #ffffff;
   --jsini-surface-muted: #eef3f8;
   --jsini-focus: rgb(32 107 196 / 24%);
@@ -5238,7 +5238,7 @@ html {
   --jsini-border: #26334a;
   --jsini-text: #e7edf7;
   --jsini-text-muted: #91a0b5;
-  --jsini-accent: #4299ff;
+  --jsini-accent: var(--jsini-theme-primary, #4299ff);
   --jsini-surface-raised: #1b2940;
   --jsini-surface-muted: #121c2e;
   --jsini-focus: rgb(66 153 255 / 28%);
@@ -5998,4 +5998,82 @@ body {
   .jsini-tab__close {
     transition: none;
   }
+}
+
+/* ── CommGrd 행 색상 ───────────────────────────────────────
+
+   Tabler의 striped table처럼 기본 행은 카드 표면을 유지하고, 번갈아 오는
+   행에는 아주 얕은 표면 차이만 준다. 강한 회색 줄무늬는 업무 표를 얼룩처럼
+   보이게 하므로 사용하지 않는다. 호버와 선택은 줄무늬보다 항상 우선한다.
+   ---------------------------------------------------------- */
+
+:root {
+  --jsini-grid-row: var(--jsini-surface-raised);
+  --jsini-grid-row-alt: #f8fafc;
+  --jsini-grid-row-hover: #edf5ff;
+  --jsini-grid-row-selected: #e4f0ff;
+}
+
+:root[data-theme='dark'] {
+  --jsini-grid-row: #172033;
+  --jsini-grid-row-alt: #1a2639;
+  --jsini-grid-row-hover: #203554;
+  --jsini-grid-row-selected: #24466f;
+}
+
+.commgrd .dxbl-grid-table > tbody > tr {
+  background-color: var(--jsini-grid-row);
+}
+
+.commgrd .dxbl-grid-table > tbody > tr.commgrd__row--alt {
+  background-color: var(--jsini-grid-row-alt);
+}
+
+.commgrd .dxbl-grid-table > tbody > tr:hover {
+  background-color: var(--jsini-grid-row-hover);
+}
+
+.commgrd .dxbl-grid-table > tbody > tr.dxbl-grid-focused-row,
+.commgrd .dxbl-grid-table > tbody > tr.dxbl-grid-selected-row {
+  background-color: var(--jsini-grid-row-selected);
+  box-shadow: inset 3px 0 0 var(--jsini-accent);
+}
+
+.commgrd .dxbl-grid .dxbl-grid-table > tbody > tr > td.dxbl-grid-fixed-cell {
+  background-color: var(--jsini-grid-row);
+}
+
+.commgrd .dxbl-grid .dxbl-grid-table > tbody > tr.commgrd__row--alt > td.dxbl-grid-fixed-cell {
+  background-color: var(--jsini-grid-row-alt);
+}
+
+.commgrd .dxbl-grid .dxbl-grid-table > tbody > tr:hover > td.dxbl-grid-fixed-cell {
+  background-color: var(--jsini-grid-row-hover);
+}
+
+.commgrd .dxbl-grid .dxbl-grid-table > tbody > tr.dxbl-grid-focused-row > td.dxbl-grid-fixed-cell,
+.commgrd .dxbl-grid .dxbl-grid-table > tbody > tr.dxbl-grid-selected-row > td.dxbl-grid-fixed-cell {
+  background-color: var(--jsini-grid-row-selected);
+}
+
+/* 테마 서랍에서 고른 DevExpress 주색을 표 헤더와 선택 상태에도 사용한다.
+   헤더는 주색을 아주 옅게 섞어 읽기성을 유지하고, 선택 행은 Tabler의
+   primary 행 강조처럼 같은 색을 더 선명하게 사용한다. */
+.commgrd .dxbl-grid-header {
+  background: color-mix(in srgb, var(--jsini-accent) 8%, var(--jsini-surface-raised));
+  border-bottom-color: color-mix(in srgb, var(--jsini-accent) 22%, var(--jsini-border));
+}
+
+.commgrd .dxbl-grid-header-content {
+  color: color-mix(in srgb, var(--jsini-accent) 58%, var(--jsini-text));
+}
+
+.commgrd .dxbl-grid-table > tbody > tr.dxbl-grid-focused-row,
+.commgrd .dxbl-grid-table > tbody > tr.dxbl-grid-selected-row {
+  background-color: color-mix(in srgb, var(--jsini-accent) 18%, var(--jsini-surface-raised));
+}
+
+.commgrd .dxbl-grid .dxbl-grid-table > tbody > tr.dxbl-grid-focused-row > td.dxbl-grid-fixed-cell,
+.commgrd .dxbl-grid .dxbl-grid-table > tbody > tr.dxbl-grid-selected-row > td.dxbl-grid-fixed-cell {
+  background-color: color-mix(in srgb, var(--jsini-accent) 18%, var(--jsini-surface-raised));
 }

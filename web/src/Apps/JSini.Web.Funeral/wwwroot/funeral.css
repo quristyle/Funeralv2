@@ -21,36 +21,70 @@
 
 .fn-board {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
-  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 290px), 1fr));
+  gap: 1rem;
+  align-items: stretch;
 }
 
 .fn-card {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
   border: 1px solid var(--jsini-border);
-  padding: 0.85rem 1rem;
+  border-radius: 0.55rem;
+  padding: 1rem;
+  background: var(--jsini-surface-raised, var(--jsini-surface));
+  box-shadow: 0 1px 2px rgb(20 35 55 / 7%);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-/* 사용 중인 호실을 왼쪽 띠로 구분한다. 배경색으로 칠하면 카드가 스무 개일 때
-   화면이 얼룩덜룩해져서 오히려 안 읽힌다. */
-.fn-card--in-use { border-left: 3px solid #2e7d32; }
+.fn-card:hover { border-color: var(--jsini-accent); box-shadow: 0 4px 14px rgb(20 35 55 / 11%); }
+
+/* 색은 빠른 훑기를 돕고, 아이콘·문구가 상태를 함께 전달한다. */
+.fn-card--in-use { border-top: 3px solid var(--jsini-accent); }
+.fn-card--empty { border-top: 3px solid var(--jsini-border); }
+.fn-card--device-alert { border-color: color-mix(in srgb, #d32f2f 45%, var(--jsini-border)); }
 
 .fn-card__head {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  gap: 0.5rem;
+  gap: 0.75rem;
+  min-height: 2.5rem;
 }
 
-.fn-card__room { font-weight: 700; }
+.fn-card__room-wrap { display: grid; gap: 0.2rem; min-width: 0; }
+.fn-card__room { font-size: var(--jsini-fs-lg); font-weight: 750; }
+.fn-card__occupancy,
+.fn-equipment-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: var(--jsini-fs-xs);
+  font-weight: 600;
+}
+.fn-card__occupancy { color: var(--jsini-text-muted); }
+.fn-card__badges { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.25rem; }
+.fn-equipment-status {
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  padding: 0.2rem 0.45rem;
+  white-space: nowrap;
+}
+.fn-equipment-status--ok { color: #2e7d32; }
+.fn-equipment-status--fault { color: #c62828; }
+.fn-equipment-status__count { font-variant-numeric: tabular-nums; opacity: 0.8; }
 
-.fn-card__body { margin-top: 0.6rem; }
+.fn-card__body { display: flex; flex: 1; flex-direction: column; margin-top: 0.75rem; }
 
 .fn-card__body--empty {
   color: var(--jsini-text-muted);
   font-size: var(--jsini-fs-md);
+  gap: 0.55rem;
 }
 
 .fn-card__name { font-size: var(--jsini-fs-xl); font-weight: 700; }
+.fn-card__person-info { min-width: 0; }
 
 .fn-card__facts {
   display: grid;
@@ -62,6 +96,43 @@
 
 .fn-card__facts dt { color: var(--jsini-text-muted); }
 .fn-card__facts dd { margin: 0; }
+
+.fn-status-summary { margin-bottom: 1rem; }
+.fn-status-summary .jsini-stat__label { display: flex; align-items: center; gap: 0.35rem; }
+.fn-stat--active { border-top: 3px solid #2e7d32; }
+.fn-stat--empty { border-top: 3px solid var(--jsini-border); }
+.fn-stat--online { border-top: 3px solid #2e7d32; }
+.fn-stat--alert { border-top: 3px solid #c62828; }
+
+.fn-board-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 1rem 0 0.75rem;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid var(--jsini-border);
+  border-radius: 0.45rem;
+  background: var(--jsini-surface);
+}
+.fn-board-toolbar__result { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.35rem; }
+.fn-board-toolbar__result strong { font-size: var(--jsini-fs-lg); }
+.fn-board-toolbar__hint { color: var(--jsini-text-muted); font-size: var(--jsini-fs-xs); }
+.fn-board-toolbar .jsini-refresh-status { margin: 0; }
+.fn-board-toolbar .jsini-refresh-status__error { display: inline-flex; align-items: center; gap: 0.25rem; }
+
+.fn-board-empty {
+  display: grid;
+  justify-items: center;
+  gap: 0.45rem;
+  padding: 3rem 1rem;
+  border: 1px dashed var(--jsini-border);
+  border-radius: 0.55rem;
+  color: var(--jsini-text-muted);
+  text-align: center;
+}
+.fn-board-empty [class*='jsini-icon-'] { width: 1.75rem; height: 1.75rem; opacity: 0.65; }
+.fn-board-empty strong { color: var(--jsini-text); }
 
 /* ── 모바일 현황 ────────────────────────────────────────── */
 
@@ -387,11 +458,38 @@
 /* 카드에서 고치러 가는 길. 배지처럼 보이면 상태로 읽히므로 링크로 둔다. */
 .fn-card__links {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.6rem;
-  margin-top: 0.5rem;
-  padding-top: 0.4rem;
+  margin-top: auto;
+  padding-top: 0.75rem;
   border-top: 1px solid var(--jsini-border);
   font-size: var(--jsini-fs-xs);
+}
+.fn-card__links a { display: inline-flex; align-items: center; gap: 0.25rem; }
+.fn-card__links a:focus-visible,
+.fn-card button:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--jsini-accent) 55%, transparent);
+  outline-offset: 2px;
+}
+.fn-empty-state { display: flex; align-items: center; gap: 0.4rem; color: var(--jsini-text); }
+.fn-card__cancel-note { display: flex; align-items: center; gap: 0.3rem; color: #b26a00; font-size: var(--jsini-fs-xs); font-weight: 600; }
+
+@media (max-width: 900px) {
+  .fn-board { grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); gap: 0.75rem; }
+  .fn-board-toolbar { align-items: flex-start; flex-direction: column; }
+}
+
+@media (max-width: 575px) {
+  .fn-board { grid-template-columns: 1fr; }
+  .fn-card { padding: 0.85rem; }
+  .fn-card__head { gap: 0.5rem; }
+  .fn-card__badges { max-width: 52%; }
+  .fn-equipment-status { white-space: normal; text-align: right; }
+  .fn-board-toolbar { padding: 0.6rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fn-card { transition: none; }
 }
 
 /* 영정 사진 미리보기 (D5). 세로로 긴 사진이 많아 폭이 아니라 높이를 잡는다. */

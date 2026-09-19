@@ -116,6 +116,23 @@
     return null;
   }
 
+  /** 현재 선택한 DevExpress/Bootstrap 테마의 대표 강조색. */
+  function primaryColor(spec) {
+    if (spec.family === 'fluent') {
+      var fluent = fluentAccent(spec.accent);
+      return (spec.custom || (fluent && (fluent.custom || fluent.swatch)) || '#0f6cbd');
+    }
+
+    if (spec.family === 'classic') {
+      for (var i = 0; i < CLASSIC_THEMES.length; i++) {
+        if (CLASSIC_THEMES[i].id === spec.classic) return CLASSIC_THEMES[i].swatch;
+      }
+    }
+
+    var bootstrap = bootstrapTheme(spec.bootstrap);
+    return bootstrap ? bootstrap.swatch : '#206bc4';
+  }
+
   /**
    * 고를 수 있는 것들. DevExpress 데모의 테마 창과 같은 구성이다.
    *
@@ -510,6 +527,7 @@
       var root = document.documentElement;
       root.setAttribute('data-theme', isDark(spec) ? 'dark' : 'light');
       root.setAttribute('data-dx-family', spec.family);
+      root.style.setProperty('--jsini-theme-primary', primaryColor(spec));
 
       // Bootstrap 5.3 의 어두운 쪽 스위치. 다른 테마에서는 붙어 있으면 안 된다 —
       // Bootstrap 이 안 실린 채로 이 표시만 남으면 아무 일도 안 하지만,
