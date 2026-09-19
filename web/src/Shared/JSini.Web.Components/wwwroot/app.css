@@ -2009,10 +2009,25 @@ button.jsini-crumbs__item:hover { opacity: 1; }
 
   .jsini-shell__content { padding: 0.75rem 0.75rem 1.5rem; }
 
-  /* 헤더에 얹힌 브레드크럼은 휴대폰에서 뺀다. 로고와 도구 단추만으로도
-     띠가 꽉 차서, 남겨 두면 한두 글자만 보이고 나머지는 옆으로 굴려야 한다.
-     지금 어느 화면인지는 바로 아래 탭 줄이 이미 말해 준다. */
-  .jsini-crumbs { display: none; }
+  /* 모바일 화면에서는 탭 줄을 숨긴다. 본문 공간을 확보하고,
+     열린 화면 이름은 헤더의 로고 옆에 표시한다. */
+  .jsini-tabs { display: none; }
+
+  /* 헤더의 브레드크럼은 모바일에서 앞쪽 경로와 구분자를 숨기고,
+     열린 화면의 이름(마지막 항목)만 로고 옆에 남긴다. */
+  .jsini-crumbs { min-width: 0; }
+
+  .jsini-crumbs__item:not(.jsini-crumbs__item--current),
+  .jsini-crumbs__item:not(:last-child),
+  .jsini-crumbs__sep { display: none; }
+
+  .jsini-crumbs__item--current {
+    max-width: min(16rem, calc(100vw - 230px));
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin-right: 0;
+  }
 
   /* 좁은 화면에서 브랜드 글자는 뺀다. 도구 단추가 밀려 나간다.
      **선까지 함께 뺀다** — 글자만 감추면 로고 옆에 세로 선 하나가 남아

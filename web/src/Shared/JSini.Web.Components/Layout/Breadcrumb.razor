@@ -77,11 +77,18 @@
 
             @* 마지막 칸은 지금 화면이라 링크로 걸지 않는다 — 눌러 봐야 제자리다.
                묶음도 링크가 없다(화면이 없다). **그래도 눌린다** — 사이드바를
-               그 자리로 펴는 일은 갈 곳이 없는 칸에도 있다(머리말). *@
-            @if (node == Trail[^1] || node.IsCatalog)
+               그 자리로 편다(`Breadcrumb.razor` 머리말). *@
+            @if (node == Trail[^1])
             {
                 <button type="button"
                         class="jsini-crumbs__item jsini-crumbs__item--current"
+                        title="@($"사이드바에서 「{node.Title}」 보기")"
+                        @onclick="@(() => Reveal(node))">@node.Title</button>
+            }
+            else if (node.IsCatalog)
+            {
+                <button type="button"
+                        class="jsini-crumbs__item"
                         title="@($"사이드바에서 「{node.Title}」 보기")"
                         @onclick="@(() => Reveal(node))">@node.Title</button>
             }
