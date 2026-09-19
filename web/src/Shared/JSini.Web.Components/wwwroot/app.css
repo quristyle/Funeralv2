@@ -2052,7 +2052,7 @@ button.jsini-crumbs__item:hover { opacity: 1; }
   /* 모바일 화면에서는 왼쪽 아래 떠 있는 메뉴 단추(FAB, 높이 3rem + 여백 0.75rem)가
      하단 컨텐츠나 버튼을 가리지 않도록 padding-bottom 을 늘려 컨텐츠가 단추 위로 올라오게 한다. */
   .jsini-shell__content {
-    padding: 0.75rem 0.75rem calc(4.75rem + env(safe-area-inset-bottom));
+    padding: 0.25rem 0.25rem calc(4.75rem + env(safe-area-inset-bottom));
   }
 
   /* 모바일 화면에서는 탭 줄을 숨긴다. 본문 공간을 확보하고,
@@ -5943,9 +5943,13 @@ body {
   }
 
   .jsini-stat,
-  .jsini-card,
+  .jsini-card {
+    border-radius: var(--jsini-radius-md);
+  }
+
   .commcont {
     border-radius: var(--jsini-radius-md);
+    padding: 0.5rem;
   }
 
   .jsini-stat {
@@ -5958,7 +5962,7 @@ body {
 
   .commsch {
     gap: 0.75rem;
-    padding: 0.85rem;
+    padding: 0.5rem;
   }
 
   .commsch__fields,
