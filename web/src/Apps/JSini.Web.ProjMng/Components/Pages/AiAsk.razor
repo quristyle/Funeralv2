@@ -96,6 +96,30 @@
     서버에 다시 묻지 않는다. 목록은 어차피 전부 받아 놓고 화면에서 넷만
     자르고 있었다 — **더보기는 그 자르는 수를 늘리는 일뿐이다.**
 
+    [자르는 기준이 「최근 넷」에서 「안 끝난 것 전부」로 바뀌었다 (2026-09-19)]
+
+    앞의 넉 장은 **최근 순으로 앞에서 넷**이었다. 그래서 아침에 보내 놓고
+    아직 도는 건이 그 뒤로 보낸 넉 장에 밀려 **화면에서 사라졌다.** 이 화면이
+    답하려는 물음이 「갔나 · 끝났나」인데, 정작 안 끝난 것이 안 보이는 자리였다.
+
+    이제 자르는 기준이 상태다.
+
+      - **완료가 아닌 것은 전부 깔린다.** 아홉이면 아홉 장이다.
+      - 그것이 넷에 못 미치면 **완료된 것으로 넷까지 채운다.** 셋이면 완료
+        한 장을 붙여 넉 장이다.
+      - 「더보기」는 그 뒤로 **완료된 것만** 넉 장씩 꺼낸다.
+
+    모자랄 때 완료된 것으로 채우는 이유는, 안 끝난 것이 하나도 없을 때 이 판이
+    통째로 비면 **「아직 보낸 것이 없습니다」와 구분되지 않기** 때문이다.
+
+    **완료는 `succeeded` 하나뿐이다.** 실패 · 시간초과 · 취소 · 중단은 끝나기는
+    했어도 사람이 다시 볼 것이 남아 있어 완료로 치지 않는다 — 카드에 적히는
+    글자가 그렇게 갈라져 있고, 그 글자를 그대로 따른다.
+
+    그래서 목록이 **엄밀한 최근 순이 아니다.** 안 끝난 것이 위에 모이고 완료된
+    것이 그 아래에 붙는다. 어제 실패한 건이 방금 끝난 건보다 위에 설 수 있는데,
+    그것이 이 화면의 물음에 맞는 순서다.
+
     [카드에 남긴 것은 셋뿐이다 (2026-09-19)]
 
     한동안 카드 한 장에 상태 · 「몇 분 전」 · 제목 · 시행시간(표제+값) ·
@@ -281,7 +305,7 @@
             @* 넉 장 밖으로 밀린 것을 여기서 꺼낸다. 격자 밖에 두는 이유는
                안에 넣으면 반 폭 칸 하나를 차지해 옆에 빈자리가 생기기 때문이다.
                서버를 다시 부르지 않는다 — 위 머리말 참고. *@
-            @if (Rest > 0 || _shown > RecentMax)
+            @if (Rest > 0 || _more > 0)
             {
                 <div class="pm-ask__more">
                     @if (Rest > 0)
@@ -292,7 +316,7 @@
                                   Click="@ShowMore" />
                     }
 
-                    @if (_shown > RecentMax)
+                    @if (_more > 0)
                     {
                         <DxButton Text="접기"
                                   RenderStyle="ButtonRenderStyle.Secondary"
@@ -344,14 +368,29 @@
     /// </summary>
     private IReadOnlyList<AiTaskDto> _all = [];
 
-    /// <summary>지금 화면에 깔린 것. <c>_all</c> 의 앞쪽 <c>_shown</c> 장이다.</summary>
+    /// <summary>
+    /// <b>완료가 아닌</b> 것. 몇 건이든 전부 깔린다(<see cref="Show"/>).
+    /// </summary>
+    private IReadOnlyList<AiTaskDto> _open = [];
+
+    /// <summary>완료된 것. 자리가 남을 때 <b>채우는 데</b> 쓴다.</summary>
+    private IReadOnlyList<AiTaskDto> _done = [];
+
+    /// <summary>지금 화면에 깔린 것. <c>_open</c> 전부 + <c>_done</c> 앞쪽 몇 장.</summary>
     private IReadOnlyList<AiTaskDto> _recent = [];
 
     /// <summary>
-    /// 몇 장까지 내보이나. <b>다시 읽어도 유지된다</b> — 5초마다 도는 타이머가
-    /// 이 값을 되돌리면 펼쳐 놓고 보던 것이 눈앞에서 접힌다.
+    /// 「더보기」를 몇 번 눌렀나. 한 번에 완료된 것 <see cref="RecentMax"/> 장씩
+    /// 더 꺼낸다. <b>다시 읽어도 유지된다</b> — 5초마다 도는 타이머가 이 값을
+    /// 되돌리면 펼쳐 놓고 보던 것이 눈앞에서 접힌다.
     /// </summary>
-    private int _shown = RecentMax;
+    /// <remarks>
+    /// <b>장수가 아니라 누른 횟수를 들고 있다.</b> 장수로 들고 있으면 돌던 건이
+    /// 완료로 넘어갈 때마다 채움분이 따로 늘어 <b>펼쳐 둔 자리가 저 혼자
+    /// 길어진다.</b> 횟수로 두면 채움분은 채움분대로 다시 계산되고 사람이 늘린
+    /// 몫만 그 위에 얹힌다.
+    /// </remarks>
+    private int _more;
 
     private long? _targetKey;
     private string _kind = "claude";
@@ -411,7 +450,10 @@
 
     private IReadOnlyList<PickOption> RunnerKinds => AllowedKinds;
 
-    /// <summary>아직 안 보인 건수. <b>단추에 그대로 적는다.</b></summary>
+    /// <summary>
+    /// 아직 안 보인 건수. <b>단추에 그대로 적는다.</b> 안 끝난 것은 언제나 다
+    /// 깔리므로 <b>여기 남는 것은 완료된 것뿐이다.</b>
+    /// </summary>
     private int Rest => Math.Max(0, _all.Count - _recent.Count);
 
     private bool CanSend =>
@@ -643,7 +685,14 @@
     }
 
     /// <summary>
-    /// 받은 것을 최근 순으로 세우고 <c>_shown</c> 장만 꺼내 놓는다.
+    /// 「완료」인가. <b>카드에 적히는 글자 그대로다</b> — 실패 · 시간초과 ·
+    /// 취소 · 중단은 끝나기는 했어도 완료가 아니다(<c>AiTaskDto.StatusText</c>).
+    /// </summary>
+    private static bool IsDone(AiTaskDto t) => t.TaskStatus == "succeeded";
+
+    /// <summary>
+    /// 받은 것을 최근 순으로 세우고 <b>완료가 아닌 것 전부 + 모자란 만큼의
+    /// 완료된 것</b>을 꺼내 놓는다.
     /// <b>읽어 오는 자리는 둘(첫 조회 · 타이머)인데 자르는 규칙은 하나다.</b>
     /// </summary>
     private void Show(IReadOnlyList<AiTaskDto> rows)
@@ -652,21 +701,30 @@
             .OrderByDescending(t => t.RequestedAt ?? t.CreDt ?? DateTime.MinValue)
             .ToList();
 
-        _recent = _all.Take(_shown).ToList();
+        _open = _all.Where(t => !IsDone(t)).ToList();
+        _done = _all.Where(IsDone).ToList();
+
+        // 안 끝난 것이 넷을 넘으면 채움은 0이다 — **깎지는 않는다.**
+        // 아홉이면 아홉 장이 다 깔린다.
+        var fill = Math.Max(0, RecentMax - _open.Count) + (_more * RecentMax);
+
+        _recent = _open.Concat(_done.Take(fill)).ToList();
     }
 
-    /// <summary>넉 장 더. 서버를 다시 부르지 않는다 — 이미 다 받아 두었다.</summary>
+    /// <summary>
+    /// 완료된 것 넉 장 더. 서버를 다시 부르지 않는다 — 이미 다 받아 두었다.
+    /// </summary>
     private void ShowMore()
     {
-        _shown += RecentMax;
-        _recent = _all.Take(_shown).ToList();
+        _more++;
+        Show(_all);
     }
 
-    /// <summary>처음 넉 장으로 되돌린다.</summary>
+    /// <summary>채움분만 남기고 되돌린다.</summary>
     private void Fold()
     {
-        _shown = RecentMax;
-        _recent = _all.Take(_shown).ToList();
+        _more = 0;
+        Show(_all);
     }
 
     /// <summary>

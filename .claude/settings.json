@@ -1,0 +1,7 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "//attribution": "커밋 메시지에 Co-Authored-By: Claude 트레일러를 붙이지 않는다. GitHub 이 그 트레일러를 읽어 커밋 화면에 Claude 를 공동 작성자로 표시하는 것을 원하지 않는다.",
+  "attribution": {
+    "commit": ""
+  }
+}
