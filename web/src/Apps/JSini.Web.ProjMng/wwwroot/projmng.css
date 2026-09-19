@@ -1455,9 +1455,8 @@
 }
 
 .pm-ai-context__main strong {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  word-break: keep-all;
+  overflow-wrap: break-word;
 }
 
 .pm-ai-context__kicker {
