@@ -543,6 +543,20 @@ AI 작업은 **파일을 고친다.** 되돌린 메시지가 다시 배달되면
 중간 실패는 **메일로 알리지 않는다.** 세 번 시도해 두 번 실패하면 「실패」가
 두 통 먼저 가고 마지막에 「성공」이 온다 — 받는 사람은 그 순서를 못 읽는다.
 
+#### 실패 시 지연 재시도와 상한 기본값 (2026-09-19)
+
+1. **`attempt_max` 기본값 일원화**:
+   - `AiAsk.razor`(빠른지시), `AiTaskList.razor`, `AiTaskClient.cs`(DTO)에서 1로 고정되던 값을 모두 **3**으로 맞추고, DB 기본값도 3으로 유지한다.
+   - `AiTaskService.NormalizeAsync`에서도 `AttemptMax <= 0`이면 기본 3으로 보정한다.
+
+2. **수동 재요청 시 시도 횟수 초기화**:
+   - `AiTaskService.RequestAsync`에서 `attempt_count = 0`으로 초기화하여, 사람이 다시 요청한 작업이 이전 실패 횟수에 가로막히지 않고 온전한 재시도 기회를 갖도록 한다.
+
+3. **재시도 지연 대기 시간 (`AiTasks:RetryDelaySeconds`, 기본 15초)**:
+   - 실패 즉시 다시 돌면 일시적 자원 경합이나 네트워크 오류 시 같은 오류를 반복하기 쉽다.
+   - 실패 후 재시도 시 `requested_at = now() + make_interval(secs => @retryDelay)`로 지연 시각을 찍고, 지연 시간 경과 후 큐 알림(`queue.Ring`)을 전달한다.
+   - `ClaimAsync`의 집어가기 조건에 `AND (a.requested_at IS NULL OR a.requested_at <= now())`를 추가하여 지연 시간이 지나기 전에는 실행기가 집어가지 않도록 제어한다.
+
 ### 6.12 그래서 4.5 의 `ai_runner` 표는 어떻게 되나
 
 큐가 배달을 맡으므로 「어느 장비에 줄까」를 서버가 고를 일이 없다.
@@ -2063,6 +2077,14 @@ AI 작업 한 건으로 확인했다** — 흉내가 아니라 그 우리 안에
       게이트에서 다시 정본으로 돌아와 커밋·push 한다. 그 사이 다른 실행이
       정본에서 준비를 돌면 `index.lock` 을 두고 다툴 수 있다. `FETCH_HEAD`
       쪽은 이 고침으로 사라졌지만 잠금 범위 자체는 그대로다.
+23. **빠른지시에서 실패 시 자동 재시도가 돌지 않았다.**
+    - 원인 ①: `AiAsk.razor` 및 화면 DTO(`AiTaskClient.cs`, `AiTaskList.razor`)에서 `AttemptMax`가 `1`로 고정되어 생성되어 재시도 조건(`counters.Count < counters.Max`)을 만족하지 못했다.
+    - 원인 ②: `AiTaskService.RequestAsync`(수동 재요청)에서 `attempt_count`를 초기화하지 않아 재요청 후 실패 시 즉시 상한에 걸렸다.
+    - 원인 ③: 재시도 지연 대기 시간이 없어 실패 시 0초 만에 즉시 재실행되었다.
+    - 고침:
+      - `AiAsk.razor`, `AiTaskList.razor`, `AiTaskClient.cs`의 `AttemptMax` 기본값을 3으로 수정하고 `NormalizeAsync`에서 `<= 0`일 때 3으로 보정.
+      - `RequestAsync`에서 `attempt_count = 0`으로 초기화.
+      - `AiTasks:RetryDelaySeconds`(기본 15초)를 도입하여 `requested_at`을 지연 시간 뒤로 설정하고, `ClaimAsync`에 `requested_at <= now()` 조건을 추가하여 지연 시간 경과 후 큐 알림과 함께 재실행되도록 개선.
 
 #### 고친 뒤 게이트를 다시 시험했다 — 이번에는 둘 다 맞다
 

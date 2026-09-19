@@ -254,9 +254,10 @@ public sealed class AiTaskService(
                    started_at   = NULL,
                    finished_at  = NULL,
                    duration_ms  = NULL,
-                   last_error   = NULL,
-                   notify_error = NULL,
-                   row_version  = row_version + 1,
+                   last_error    = NULL,
+                   notify_error  = NULL,
+                   attempt_count = 0,
+                   row_version   = row_version + 1,
                    mod_id       = @userId,
                    mod_dt       = now()
              WHERE task_key   = @taskKey
@@ -573,7 +574,7 @@ public sealed class AiTaskService(
         }
 
         item.TimeoutMinutes = Math.Clamp(item.TimeoutMinutes, 1, 24 * 60);
-        item.AttemptMax = Math.Clamp(item.AttemptMax, 1, 5);
+        item.AttemptMax = item.AttemptMax <= 0 ? 3 : Math.Clamp(item.AttemptMax, 1, 5);
 
         // **대상이 허용하지 않으면 push 를 켤 수 없다.** 화면에서도 막지만
         // 여기서 한 번 더 본다 — 이 값 하나가 운영 배포를 일으킨다.

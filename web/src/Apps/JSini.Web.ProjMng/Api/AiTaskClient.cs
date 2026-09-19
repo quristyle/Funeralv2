@@ -160,7 +160,7 @@ public sealed class AiTaskDto
     public int Priority { get; set; }
     public int TimeoutMinutes { get; set; } = 30;
     public int AttemptCount { get; set; }
-    public int AttemptMax { get; set; } = 1;
+    public int AttemptMax { get; set; } = 3;
 
     public bool AutoPush { get; set; }
 

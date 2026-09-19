@@ -35,6 +35,10 @@ public sealed class AiRunService(
     /// <summary>한 줄의 길이 상한(글자).</summary>
     private readonly int _maxEventLength = configuration.GetValue("AiTasks:MaxEventLength", 4000);
 
+    /// <summary>재시도 대기 지연(초). 실패 후 바로 재시도하지 않고 일정 시간 대기한다.</summary>
+    private readonly int _retryDelaySeconds =
+        Math.Max(0, configuration.GetValue("AiTasks:RetryDelaySeconds", 15));
+
     private IDbConnection Open() => new NpgsqlConnection(_connectionString);
 
     // ── 집어가기 ────────────────────────────────────────────
@@ -83,6 +87,7 @@ public sealed class AiRunService(
              WHERE a.is_deleted   = false
                AND a.request_flag = 'requested'
                AND a.task_status IN ('idle', 'queued')
+               AND (a.requested_at IS NULL OR a.requested_at <= now())
                AND a.runner_kind  = ANY(@kinds)
                AND b.is_enabled   = true
                AND b.is_deleted   = false
@@ -420,12 +425,14 @@ public sealed class AiRunService(
                SET task_status    = CASE WHEN @retry THEN 'queued' ELSE @status END,
                    request_flag   = CASE WHEN @retry THEN 'requested' ELSE 'none' END,
 
-                   -- **다시 넣은 것은 요청 시각도 다시 찍는다.** 안 찍으면
+                   -- **다시 넣은 것은 지연 시간 뒤로 요청 시각을 찍는다.** 안 찍으면
                    -- 처음 보낸 시각이 그대로 남아, 감시자가 보기에 이미
                    -- 집어가기 제한 시간(6.8)을 넘긴 건이 된다 — 실행기가
                    -- 곧바로 집어 가는데도 `last_error` 가 「집어 가지
                    -- 않았습니다」로 덮여 **왜 실패했는지가 지워진다.**
-                   requested_at   = CASE WHEN @retry THEN now() ELSE t.requested_at END,
+                   -- 지연 시간 동안에는 ClaimAsync 가 집어 가지 않는다.
+                   requested_at   = CASE WHEN @retry THEN now() + make_interval(secs => @retryDelay)
+                                         ELSE t.requested_at END,
                    finished_at    = now(),
                    duration_ms    = EXTRACT(EPOCH FROM (now() - t.started_at)) * 1000,
                    last_exit_code = @ExitCode,
@@ -439,7 +446,7 @@ public sealed class AiRunService(
              WHERE t.task_key = ( SELECT task_key FROM projmng.ai_task_run WHERE run_key = @runKey )
             """, new
         {
-            runKey, status, retry, done.ExitCode, done.Error,
+            runKey, status, retry, retryDelay = _retryDelaySeconds, done.ExitCode, done.Error,
             done.PushedCommit, done.PreviousTag, done.WorkspacePath, done.Branch,
         }, tx);
 
@@ -456,12 +463,23 @@ public sealed class AiRunService(
         if (retry)
         {
             logger.LogInformation(
-                "실행 {RunKey} 가 {Status} 라 다시 시도합니다 ({Count}/{Max}번째까지).",
-                runKey, status, counters.Count, Math.Max(counters.Max, 1));
+                "실행 {RunKey} 가 {Status} 라 다시 시도합니다 ({Count}/{Max}번째까지, {Delay}초 뒤).",
+                runKey, status, counters.Count, Math.Max(counters.Max, 1), _retryDelaySeconds);
 
-            // **종을 울린다.** 안 울리면 다시 넣은 건이 폴링(기본 60초)까지
-            // 가만히 있는다. 울려도 못 닿으면 폴링이 받아 준다 — 큐는 거들 뿐이다.
-            queue.Ring(counters.TaskKey);
+            // **종을 울린다.** 지연 시간이 있으면 대기 후 울리고, 없으면 바로 울린다.
+            // 안 울려도 폴링이 받아 준다 — 큐는 거들 뿐이다.
+            if (_retryDelaySeconds > 0)
+            {
+                _ = Task.Run(async () =>
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(_retryDelaySeconds));
+                    queue.Ring(counters.TaskKey);
+                });
+            }
+            else
+            {
+                queue.Ring(counters.TaskKey);
+            }
 
             // **중간 실패는 알리지 않는다.** 세 번 시도하는 작업이 두 번
             // 실패하면 「실패」 메일이 두 통 먼저 가고 마지막에 「성공」이
