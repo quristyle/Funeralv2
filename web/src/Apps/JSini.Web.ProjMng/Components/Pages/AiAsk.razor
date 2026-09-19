@@ -166,7 +166,7 @@
 <div class="pm-ask">
 
     @* ── 적는 자리 ──────────────────────────────────────── *@
-    <CommCont Title="빠른 지시" Hint="@AskHint">
+    <CommCont>
 
         @if (_targets.Count == 0)
         {
@@ -220,7 +220,7 @@
         <DxMemo @bind-Text="_text"
                 BindValueMode="BindValueMode.OnInput"
                 InputDelay="300"
-                Rows="8"
+                Rows="6"
                 CssClass="pm-ask__text"
                 NullText="무엇을 시킬지, 또는 무엇이 궁금한지 적으십시오. 첫 줄이 제목이 됩니다."
                 Enabled="@(!Busy)" />
@@ -440,10 +440,6 @@
 
     /// <summary>돌고 있는 건이 있는 동안만 도는 타이머.</summary>
     private CancellationTokenSource? _poll;
-
-    private string AskHint => _targets.Count == 0
-        ? string.Empty
-        : "결과는 메일로 옵니다";
 
     /// <summary>고른 대상이 허용한 AI 만 고르게 한다(「AI 작업」 화면과 같은 규칙).</summary>
     private IReadOnlyList<PickOption> AllowedKinds
