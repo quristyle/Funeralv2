@@ -77,7 +77,17 @@ public static class JSiniWebApp
         services.AddDevExpressBlazor();
         services
             .AddRazorComponents()
-            .AddInteractiveServerComponents()
+            .AddInteractiveServerComponents(options =>
+            {
+                // **회로 유지 기간을 늘린다.** 기본값은 3분이다.
+                // 모바일에서 화면이 꺼지거나, 엘리베이터/지하철/와이파이 전환 등
+                // 일시적으로 연결이 끊겼을 때 3분이 지나면 회로가 폐기되어
+                // 재연결 시 화면 전체 새로고침(reload)이 발생하고 작업 중이던
+                // 상태가 날아간다. 15분으로 늘려 일시적 통신 단절 시에도
+                // 기존 회로에 원활히 재연결되도록 한다.
+                options.DisconnectedCircuitRetentionPeriod = TimeSpan.FromMinutes(15);
+                options.DisconnectedCircuitMaxRetained = 200;
+            })
             .AddHubOptions(options =>
             {
                 // **회로의 수신 한도를 올린다.** 기본값은 32KB 다.
@@ -94,6 +104,10 @@ public static class JSiniWebApp
                 // 무한정 올리지 않는 이유는 이 값이 **연결 하나가 한 번에 물
                 // 수 있는 양**이라, 크게 두면 접속 수만큼 메모리가 열린다.
                 options.MaximumReceiveMessageSize = 4 * 1024 * 1024;
+
+                // 일시적인 패킷 지연이나 모바일 망 전환 시 섣부른 연결 끊김을 방지한다.
+                options.ClientTimeoutInterval = TimeSpan.FromSeconds(60);
+                options.HandshakeTimeout = TimeSpan.FromSeconds(30);
             });
 
         // ── 응답 압축 ────────────────────────────────────────────

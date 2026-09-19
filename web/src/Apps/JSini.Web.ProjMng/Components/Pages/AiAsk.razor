@@ -157,9 +157,11 @@
 
 @inherits DataPage
 @implements IDisposable
+@implements IAsyncDisposable
 @inject AiTaskClient Api
 @inject AiTargetClient TargetApi
 @inject AiAskPrefs Prefs
+@inject IJSRuntime JS
 
 <PageTitle>빠른 지시 · 프로젝트관리</PageTitle>
 
@@ -217,13 +219,25 @@
 
            `InputDelay` 는 타자 왕복을 묶는 값이다. 찾기 칸은 200ms 지만
            여기는 서버에 아무것도 묻지 않고 단추 하나만 켜므로 넉넉히 둔다. *@
-        <DxMemo @bind-Text="_text"
+        <DxMemo @bind-Text="Text"
                 BindValueMode="BindValueMode.OnInput"
                 InputDelay="300"
                 Rows="6"
                 CssClass="pm-ask__text"
                 NullText="무엇을 시킬지, 또는 무엇이 궁금한지 적으십시오. 첫 줄이 제목이 됩니다."
                 Enabled="@(!Busy)" />
+
+        @if (_draftRestored)
+        {
+            <div class="pm-ask__draft">
+                <span class="pm-ask__draft-text">
+                    작성 중이던 내용을 복원했습니다@(_draftSavedAt.HasValue ? $" ({_draftSavedAt.Value:MM-dd HH:mm})" : "").
+                </span>
+                <button type="button" class="pm-ask__draft-clear" @onclick="ClearDraftAsync">
+                    내용 비우기
+                </button>
+            </div>
+        }
 
         @* 글상자 바로 아래 **한 줄**이다 — 올리기 · 메일 · 보내기.
 
@@ -412,6 +426,39 @@
     private long? _targetKey;
     private string _kind = "claude";
     private string? _text;
+
+    /// <summary>복원된 임시본이 화면에 채워졌는지 여부.</summary>
+    private bool _draftRestored;
+
+    /// <summary>임시본이 저장되었던 시각.</summary>
+    private DateTime? _draftSavedAt;
+
+    /// <summary>본문 입력 후 임시저장 지연 타이머.</summary>
+    private CancellationTokenSource? _draftDelay;
+
+    /// <summary>DOM 레벨 실시간 임시저장 JS 모듈.</summary>
+    private IJSObjectReference? _draftModule;
+
+    private string? Text
+    {
+        get => _text;
+        set
+        {
+            if (_text == value)
+            {
+                return;
+            }
+
+            _text = value;
+
+            if (_draftRestored && string.IsNullOrWhiteSpace(_text))
+            {
+                _draftRestored = false;
+            }
+
+            TrackDraft();
+        }
+    }
 
     /// <summary>
     /// 올리기를 켰나. <b>보낸 뒤에도 그대로 남는다</b> — 기억하는 값이다
@@ -616,32 +663,51 @@
 
         var pref = await Prefs.ReadAsync();
 
-        if (pref is null)
+        if (pref is not null)
         {
-            // 처음 쓰는 사람이다. 화면의 초기값 그대로 둔다. 단, 이제부터
-            // 고르는 것은 적히도록 <c>ReadAsync</c> 를 거친 것으로 표시된다.
-            return;
+            // **없어졌거나 꺼진 대상은 얹지 않는다.** 목록에 없는 번호를 넣으면
+            // 칸이 빈 채로 보이고, 사람은 「골랐는데 왜 안 보내지나」를 겪는다.
+            if (pref.TargetKey is { } key && _targets.Any(t => t.TargetKey == key))
+            {
+                _targetKey = key;
+            }
+
+            if (!string.IsNullOrWhiteSpace(pref.RunnerKind))
+            {
+                _kind = pref.RunnerKind;
+            }
+
+            // 지금 고른 대상이 못 쓰는 AI 였으면 여기서 맞는 것으로 바뀐다.
+            FixKind();
+
+            _push = pref.AutoPush;
+            _mail = pref.NotifyEmail;
+
+            // 작성 중이던 임시본이 있으면 복원한다
+            if (!string.IsNullOrWhiteSpace(pref.DraftText))
+            {
+                _text = pref.DraftText;
+                _draftRestored = true;
+                _draftSavedAt = pref.DraftSavedAt;
+            }
+
+            StateHasChanged();
         }
 
-        // **없어졌거나 꺼진 대상은 얹지 않는다.** 목록에 없는 번호를 넣으면
-        // 칸이 빈 채로 보이고, 사람은 「골랐는데 왜 안 보내지나」를 겪는다.
-        if (pref.TargetKey is { } key && _targets.Any(t => t.TargetKey == key))
+        // 브라우저 측 실시간 입력 감지기 부착 (네트워크 단절 중 타자도 localStorage 에 즉시 보존)
+        await AttachDraftListenerAsync();
+    }
+
+    private async Task AttachDraftListenerAsync()
+    {
+        try
         {
-            _targetKey = key;
+            _draftModule ??= await JS.InvokeAsync<IJSObjectReference>("import", "./_content/JSini.Web.ProjMng/js/ask-draft.js");
+            await _draftModule.InvokeVoidAsync("attachDraft", ".pm-ask__text", Prefs.CurrentKey);
         }
-
-        if (!string.IsNullOrWhiteSpace(pref.RunnerKind))
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException)
         {
-            _kind = pref.RunnerKind;
         }
-
-        // 지금 고른 대상이 못 쓰는 AI 였으면 여기서 맞는 것으로 바뀐다.
-        FixKind();
-
-        _push = pref.AutoPush;
-        _mail = pref.NotifyEmail;
-
-        StateHasChanged();
     }
 
     /// <summary>
@@ -658,7 +724,71 @@
         // 대상에 잠깐 들렀다고 켜 둔 것을 지우면, 돌아왔을 때 꺼져 있다.
         AutoPush = _push,
         NotifyEmail = _mail,
+        DraftText = _text,
+        DraftSavedAt = _draftSavedAt ?? (_text is not null ? DateTime.Now : null),
     });
+
+    /// <summary>
+    /// 본문 입력을 잠시 뒤에 브라우저 저장소에 적어 둔다.
+    /// </summary>
+    private void TrackDraft()
+    {
+        CancelDraftDelay();
+
+        _draftDelay = new CancellationTokenSource();
+        var ct = _draftDelay.Token;
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(500, ct);
+
+                if (ct.IsCancellationRequested)
+                {
+                    return;
+                }
+
+                await Prefs.SaveDraftAsync(_text);
+            }
+            catch (OperationCanceledException)
+            {
+            }
+        }, ct);
+    }
+
+    private void CancelDraftDelay()
+    {
+        _draftDelay?.Cancel();
+        _draftDelay?.Dispose();
+        _draftDelay = null;
+    }
+
+    /// <summary>
+    /// 복원되었거나 작성 중이던 임시본을 비운다.
+    /// </summary>
+    private async Task ClearDraftAsync()
+    {
+        CancelDraftDelay();
+        _text = null;
+        _draftRestored = false;
+        _draftSavedAt = null;
+
+        await Prefs.ClearDraftAsync();
+
+        if (_draftModule is not null)
+        {
+            try
+            {
+                await _draftModule.InvokeVoidAsync("clearDraft", ".pm-ask__text", Prefs.CurrentKey);
+            }
+            catch (Exception ex) when (ex is JSException or JSDisconnectedException)
+            {
+            }
+        }
+
+        StateHasChanged();
+    }
 
     /// <summary>
     /// 대상 목록. <b>실패해도 화면을 막지 않는다</b> — 최근 보낸 것은 보여야
@@ -851,6 +981,16 @@
         // 다음 한 줄을 적기 시작하는 데 서버를 기다릴 이유가 없다.
         _sent = created.Title;
         _text = null;
+        _draftRestored = false;
+        _draftSavedAt = null;
+
+        CancelDraftDelay();
+        _ = Prefs.ClearDraftAsync();
+
+        if (_draftModule is not null)
+        {
+            _ = _draftModule.InvokeVoidAsync("clearDraft", ".pm-ask__text", Prefs.CurrentKey);
+        }
 
         // **고른 것은 그대로 둔다.** 글상자만 비운다 — 여기서 잇따라 던지는
         // 건은 대개 같은 자리에 같은 모양이고, 한때는 올리기만 꺼 두었지만
@@ -1009,5 +1149,26 @@
     }
 
     /// <summary><b>화면을 떠날 때 반드시 끈다.</b> 안 끄면 회로마다 타이머가 쌓인다.</summary>
-    public void Dispose() => StopPoll();
+    public void Dispose()
+    {
+        StopPoll();
+        CancelDraftDelay();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        StopPoll();
+        CancelDraftDelay();
+
+        if (_draftModule is not null)
+        {
+            try
+            {
+                await _draftModule.DisposeAsync();
+            }
+            catch (Exception ex) when (ex is JSException or JSDisconnectedException)
+            {
+            }
+        }
+    }
 }

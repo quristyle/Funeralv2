@@ -1352,6 +1352,38 @@
   overflow-y: auto;
 }
 
+/* 임시저장 복원 안내 한 줄 */
+.pm-ask__draft {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin: 0.4rem 0 0;
+  padding: 0.35rem 0.65rem;
+  font-size: 0.85em;
+  background: var(--jsini-bg-subtle, rgba(0, 0, 0, 0.04));
+  border-radius: 4px;
+}
+
+.pm-ask__draft-text {
+  color: var(--jsini-text-muted);
+}
+
+.pm-ask__draft-clear {
+  padding: 0;
+  background: none;
+  border: none;
+  color: var(--jsini-primary, #1976d2);
+  cursor: pointer;
+  text-decoration: underline;
+  font-size: 0.9em;
+}
+
+.pm-ask__draft-clear:hover {
+  opacity: 0.8;
+}
+
+
 /* 글상자 아래 한 줄 — 올리기 · 메일 · 보내기.
 
    예전에는 올리기가 제 줄을, 단추가 또 제 줄을 가졌다. 칸이 둘로 늘면서

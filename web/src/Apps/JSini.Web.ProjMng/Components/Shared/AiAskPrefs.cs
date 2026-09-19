@@ -63,6 +63,10 @@ public sealed class AiAskPrefs(IJSRuntime js, ILogger<AiAskPrefs> logger)
 
     private string _key = KeyPrefix + "?";
     private bool _read;
+    private AiAskPref? _current;
+
+    /// <summary>현재 사용자에게 할당된 localStorage 열쇠.</summary>
+    public string CurrentKey => _key;
 
     /// <summary>
     /// 누구의 것인지 정한다. 화면이 뜰 때 한 번 부른다.
@@ -79,6 +83,7 @@ public sealed class AiAskPrefs(IJSRuntime js, ILogger<AiAskPrefs> logger)
 
         _key = key;
         _read = false;
+        _current = null;
     }
 
     /// <summary>
@@ -115,7 +120,8 @@ public sealed class AiAskPrefs(IJSRuntime js, ILogger<AiAskPrefs> logger)
 
         try
         {
-            return JsonSerializer.Deserialize<AiAskPref>(raw);
+            _current = JsonSerializer.Deserialize<AiAskPref>(raw);
+            return _current;
         }
         catch (JsonException ex)
         {
@@ -135,6 +141,8 @@ public sealed class AiAskPrefs(IJSRuntime js, ILogger<AiAskPrefs> logger)
             return;
         }
 
+        _current = pref;
+
         try
         {
             await js.InvokeVoidAsync("localStorage.setItem", _key, JsonSerializer.Serialize(pref));
@@ -149,11 +157,41 @@ public sealed class AiAskPrefs(IJSRuntime js, ILogger<AiAskPrefs> logger)
             logger.LogDebug(ex, "빠른 지시 설정을 적지 못했다.");
         }
     }
+
+    /// <summary>
+    /// 작성 중인 본문(임시저장)만 따로 갱신한다.
+    /// </summary>
+    public async Task SaveDraftAsync(string? text)
+    {
+        if (!_read)
+        {
+            return;
+        }
+
+        _current ??= await ReadAsync() ?? new AiAskPref();
+
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            _current.DraftText = null;
+            _current.DraftSavedAt = null;
+        }
+        else
+        {
+            _current.DraftText = text;
+            _current.DraftSavedAt = DateTime.Now;
+        }
+
+        await SaveAsync(_current);
+    }
+
+    /// <summary>
+    /// 임시저장된 본문을 비운다. 보냈거나 사용자가 비웠을 때 부른다.
+    /// </summary>
+    public async Task ClearDraftAsync() => await SaveDraftAsync(null);
 }
 
 /// <summary>
-/// 기억해 두는 한 벌. <b>고르는 칸만</b> 담는다 — 적은 글은 여기 담지 않는다
-/// (보낸 뒤에는 비워야 하는 것이고, 임시본은 「AI 작업」 화면의 몫이다).
+/// 기억해 두는 한 벌. 고르는 칸과 작성 중이던 임시본을 담는다.
 /// </summary>
 public sealed class AiAskPref
 {
@@ -166,4 +204,12 @@ public sealed class AiAskPref
     /// 이 화면의 존재 이유가 「답을 메일로 받는 것」이다.
     /// </summary>
     public bool NotifyEmail { get; set; } = true;
+
+    /// <summary>
+    /// 작성 중이던 본문(임시저장). 서버 통신 두절이나 새로고침 시 복원에 쓴다.
+    /// </summary>
+    public string? DraftText { get; set; }
+
+    /// <summary>임시저장된 일시.</summary>
+    public DateTime? DraftSavedAt { get; set; }
 }
