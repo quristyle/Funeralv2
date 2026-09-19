@@ -5587,3 +5587,324 @@ body {
   border-top: 1px solid var(--jsini-border);
   background: var(--jsini-surface-muted);
 }
+
+/* ── Tabler 마감 레이어 ─────────────────────────────────────
+
+   앞의 규칙들은 DevExpress 테마별 보정을 담당하고, 이 레이어는 업무 화면에서
+   반복되는 상태·표면·반응형 규칙만 한 번 더 정리한다. 같은 선택자를 여러 곳에서
+   조금씩 덮지 않고 마지막 공용 레이어에 모아 두어, 테마를 바꿔도 우선순위가
+   화면별로 갈라지지 않게 한다.
+   ---------------------------------------------------------- */
+
+:root {
+  color-scheme: light;
+  --jsini-surface-hover: #f5f8fc;
+  --jsini-accent-soft: rgb(32 107 196 / 10%);
+  --jsini-success-soft: rgb(47 179 68 / 13%);
+  --jsini-warning-soft: rgb(245 159 0 / 14%);
+  --jsini-danger-soft: rgb(214 57 57 / 13%);
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --jsini-surface-hover: #202f46;
+  --jsini-accent-soft: rgb(66 153 255 / 14%);
+  --jsini-success-soft: rgb(47 179 68 / 16%);
+  --jsini-warning-soft: rgb(245 159 0 / 16%);
+  --jsini-danger-soft: rgb(214 57 57 / 16%);
+}
+
+body {
+  min-width: 320px;
+  color: var(--jsini-text);
+  background: var(--jsini-bg);
+  text-rendering: optimizeLegibility;
+}
+
+/* 제목 줄은 화면마다 직접 만든 제목과 공용 제목이 같은 리듬을 갖는다. */
+.jsini-page-head__title,
+.commcont__title,
+.jsini-subhead {
+  color: var(--jsini-text);
+}
+
+.jsini-page-head__actions,
+.commcont__head > :last-child {
+  flex-shrink: 0;
+}
+
+/* 통계 타일은 Tabler의 카드처럼 숫자·라벨·상태를 한 덩어리로 읽게 한다. */
+.jsini-stat,
+.jsini-card {
+  position: relative;
+  overflow: hidden;
+  border-color: var(--jsini-border);
+  border-radius: var(--jsini-radius-lg);
+  background: var(--jsini-surface-raised);
+  box-shadow: var(--jsini-shadow-card);
+  transition: border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
+}
+
+.jsini-stat::after {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: var(--jsini-accent);
+  opacity: 0.7;
+}
+
+.jsini-stat:hover,
+.jsini-card:hover {
+  border-color: color-mix(in srgb, var(--jsini-accent) 38%, var(--jsini-border));
+  box-shadow: 0 8px 24px rgb(24 36 51 / 12%);
+}
+
+.jsini-stat__value {
+  margin-top: 0.35rem;
+  color: var(--jsini-text);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.035em;
+}
+
+.jsini-stat__label {
+  text-transform: uppercase;
+  letter-spacing: 0.045em;
+  font-weight: 700;
+}
+
+/* 안내 줄은 색보다 왼쪽의 아이콘 자리와 표면 대비로 먼저 구분한다. */
+.jsini-notice {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  border: 1px solid var(--jsini-border);
+  border-left: 3px solid var(--jsini-text-muted);
+  border-radius: var(--jsini-radius-md);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 5%);
+}
+
+.jsini-notice::before {
+  flex: 0 0 auto;
+  width: 1.1rem;
+  font-weight: 800;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.jsini-notice--info {
+  border-left-color: var(--jsini-info);
+  background: var(--jsini-accent-soft);
+  color: var(--jsini-text);
+}
+
+.jsini-notice--info::before { content: "i"; color: var(--jsini-info); }
+
+.jsini-notice--warning {
+  border-left-color: var(--jsini-warning);
+  background: var(--jsini-warning-soft);
+  color: var(--jsini-text);
+}
+
+.jsini-notice--warning::before { content: "!"; color: var(--jsini-warning); }
+
+.jsini-notice--error {
+  border-left-color: var(--jsini-danger);
+  background: var(--jsini-danger-soft);
+  color: var(--jsini-text);
+}
+
+.jsini-notice--error::before { content: "×"; color: var(--jsini-danger); }
+
+/* 태그·배지는 작은 화면에서도 줄바꿈되어 정보가 잘리지 않는다. */
+.jsini-badge {
+  min-height: 1.45rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  border-color: transparent;
+  border-radius: var(--jsini-radius-full);
+  padding: 0.18rem 0.55rem;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.jsini-badge:not([class*='--']) {
+  background: var(--jsini-surface-muted);
+  color: var(--jsini-text-muted);
+}
+
+/* 셸의 링크와 탭은 파란색만으로 선택을 표현하지 않고 표면도 함께 바꾼다. */
+.jsini-sidebar__tree .dxbl-treeview-item-container.dxbl-active,
+.jsini-sidebar__tree .dxbl-treeview-item-container[aria-current='page'] {
+  box-shadow: inset 3px 0 0 var(--jsini-accent);
+}
+
+.jsini-tab__link {
+  max-width: 100%;
+}
+
+.jsini-tab--active .jsini-tab__link {
+  color: var(--jsini-accent);
+}
+
+.jsini-tab__close {
+  min-width: 2rem;
+  min-height: 2rem;
+  border-radius: var(--jsini-radius-sm);
+}
+
+.jsini-tab__close:hover,
+.jsini-tab__close:focus-visible {
+  background: var(--jsini-danger-soft);
+  color: var(--jsini-danger);
+}
+
+/* 공용 폼은 DevExpress 편집기와 네이티브 입력이 섞여도 같은 높이·초점 표현을 쓴다. */
+.jsini-shell__content :is(input:not([type='checkbox']):not([type='radio']), textarea, select) {
+  max-width: 100%;
+  border-radius: var(--jsini-radius-md);
+  border-color: var(--jsini-border);
+  background: var(--jsini-surface-raised);
+  color: var(--jsini-text);
+}
+
+.jsini-shell__content :is(input:not([type='checkbox']):not([type='radio']), textarea, select)::placeholder {
+  color: var(--jsini-text-muted);
+  opacity: 0.8;
+}
+
+.jsini-shell__content :is(input:not([type='checkbox']):not([type='radio']), textarea, select):focus {
+  border-color: var(--jsini-accent);
+  box-shadow: 0 0 0 0.2rem var(--jsini-focus);
+  outline: 0;
+}
+
+.commsch__actions {
+  flex-wrap: wrap;
+}
+
+.commsch__actions .dxbl-btn {
+  min-height: 2.25rem;
+  border-radius: var(--jsini-radius-md);
+}
+
+/* 표 머리는 고정된 회색 띠 대신 정보 계층이 있는 슬레이트 표면으로 보인다. */
+.commgrd .dxbl-grid-header-content,
+.commtree .dxbl-grid-header-content {
+  text-transform: none;
+}
+
+.commgrd .dxbl-grid-table > tbody > tr:focus-within,
+.commtree .dxbl-grid-table > tbody > tr:focus-within {
+  outline: 2px solid var(--jsini-focus);
+  outline-offset: -2px;
+}
+
+.commgrd__empty,
+.commtree__empty {
+  border-radius: var(--jsini-radius-md);
+  color: var(--jsini-text-muted);
+}
+
+/* 팝업·토스트·드롭다운도 본문 카드와 같은 표면 계층을 사용한다. */
+.jsini-popup .dxbl-modal-content,
+.jsini-gridpopup .dxbl-modal-content,
+.dxbl-toast-container .dxbl-toast,
+.dxbl-dropdown-popup {
+  border-color: var(--jsini-border);
+  border-radius: var(--jsini-radius-lg);
+  background: var(--jsini-surface-raised);
+  color: var(--jsini-text);
+  box-shadow: 0 18px 48px rgb(0 0 0 / 28%);
+}
+
+.jsini-popup .dxbl-modal-footer,
+.jsini-gridpopup .dxbl-modal-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* 데스크톱의 정보 밀도는 유지하되, 모바일에서는 타일·조건·버튼을 세로로 흐르게 한다. */
+@media (max-width: 767px) {
+  .jsini-page-head {
+    align-items: flex-start;
+    margin-bottom: 0.85rem;
+  }
+
+  .jsini-page-head__title {
+    width: 100%;
+    font-size: var(--jsini-fs-xl);
+  }
+
+  .jsini-page-head__actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .jsini-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.6rem;
+  }
+
+  .jsini-stat,
+  .jsini-card,
+  .commcont {
+    border-radius: var(--jsini-radius-md);
+  }
+
+  .jsini-stat {
+    padding: 0.75rem;
+  }
+
+  .jsini-stat__value {
+    font-size: var(--jsini-fs-2xl);
+  }
+
+  .commsch {
+    gap: 0.75rem;
+    padding: 0.85rem;
+  }
+
+  .commsch__fields,
+  .commsch__item {
+    width: 100%;
+  }
+
+  .commsch__item {
+    justify-content: space-between;
+  }
+
+  .commsch__item > :last-child {
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  .commsch__actions {
+    justify-content: stretch;
+  }
+
+  .commsch__actions .dxbl-btn {
+    flex: 1 1 auto;
+  }
+
+  .commgrd .dxbl-grid-table > tbody > tr > td,
+  .commtree .dxbl-grid-table > tbody > tr > td {
+    padding: 0.6rem;
+  }
+
+  .jsini-notice {
+    margin-block: 0.6rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .jsini-stat,
+  .jsini-card,
+  .jsini-tab__close {
+    transition: none;
+  }
+}

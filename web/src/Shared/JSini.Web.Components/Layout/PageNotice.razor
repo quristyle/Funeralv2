@@ -37,7 +37,9 @@
 
 @if (!string.IsNullOrWhiteSpace(Text) || ChildContent is not null)
 {
-    <div class="jsini-notice jsini-notice--@Tone.ToString().ToLowerInvariant()">
+    <div class="jsini-notice jsini-notice--@Tone.ToString().ToLowerInvariant()"
+         role="@(Tone == NoticeTone.Error ? "alert" : "status")"
+         aria-live="@(Tone == NoticeTone.Error ? "assertive" : "polite")">
         @if (ChildContent is not null)
         {
             @ChildContent
