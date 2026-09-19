@@ -187,8 +187,15 @@
             @if (t.CanManualRetry)
             {
                 <DxButton Text="재시도" RenderStyle="ButtonRenderStyle.Primary"
-                          Enabled="@(!_retrying)"
+                          Enabled="@(!_retrying && !_confirming)"
                           Click="@OpenRetryModal" />
+            }
+
+            @if (t.IsFinal && !t.UserConfirmed)
+            {
+                <DxButton Text="사용자확인완료" RenderStyle="ButtonRenderStyle.Success"
+                          Enabled="@(!_retrying && !_confirming)"
+                          Click="@DoConfirmAsync" />
             }
 
             <DxButton Text="자세히 보기" RenderStyle="ButtonRenderStyle.Secondary"
@@ -691,6 +698,39 @@
         finally
         {
             _retrying = false;
+        }
+    }
+
+    private bool _confirming;
+
+    private async Task DoConfirmAsync()
+    {
+        if (Item is not { } t || _confirming)
+        {
+            return;
+        }
+
+        _confirming = true;
+        try
+        {
+            var updated = await Api.ConfirmAsync(t.TaskKey);
+            if (updated is not null)
+            {
+                Item = updated;
+                // Since user confirmed, it should be removed from recent list.
+                // Call OnRetried or create a new EventCallback if needed, 
+                // but OnRetried refreshes the list in AiAsk so we can just reuse it or close.
+                await CloseAsync();
+                await OnRetried.InvokeAsync(updated);
+            }
+        }
+        catch (Exception)
+        {
+            // Just ignore or log, user confirmation failed.
+        }
+        finally
+        {
+            _confirming = false;
         }
     }
 

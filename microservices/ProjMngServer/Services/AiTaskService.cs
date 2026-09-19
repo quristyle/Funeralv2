@@ -45,6 +45,7 @@ public sealed class AiTaskService(
         a.attempt_count   AS AttemptCount,
         a.attempt_max     AS AttemptMax,
         a.auto_push       AS AutoPush,
+        a.user_confirmed  AS UserConfirmed,
         a.notify_email    AS NotifyEmail,
         a.notify_pwa      AS NotifyPwa,
         a.notify_to       AS NotifyTo,
@@ -76,7 +77,7 @@ public sealed class AiTaskService(
     /// </remarks>
     public async Task<List<AiTask>> ListAsync(
         string? taskStatus = null, string? requestFlag = null, long? targetKey = null,
-        string? keyword = null, long? taskKey = null)
+        string? keyword = null, long? taskKey = null, bool? userConfirmed = null)
     {
         using var db = Open();
 
@@ -92,6 +93,7 @@ public sealed class AiTaskService(
                AND (@taskStatus = '' OR a.task_status = @taskStatus)
                AND (@requestFlag = '' OR a.request_flag = @requestFlag)
                AND (@targetKey::bigint IS NULL OR a.target_key = @targetKey)
+               AND (@userConfirmed::boolean IS NULL OR a.user_confirmed = @userConfirmed)
                AND (@keyword = '' OR a.title ILIKE '%' || @keyword || '%'
                                   OR a.contents ILIKE '%' || @keyword || '%')
              ORDER BY a.task_key DESC
@@ -102,6 +104,7 @@ public sealed class AiTaskService(
             requestFlag = requestFlag ?? string.Empty,
             targetKey,
             keyword = keyword ?? string.Empty,
+            userConfirmed,
         });
 
         return [.. rows];
@@ -404,6 +407,34 @@ public sealed class AiTaskService(
                    mod_dt       = now()
              WHERE task_key = @taskKey AND is_deleted = false
             """, new { taskKey, body, userId });
+
+        return affected == 0
+            ? AiTaskEditResult.Conflict("그 사이에 상태가 바뀌었습니다.")
+            : AiTaskEditResult.Ok(await GetAsync(taskKey));
+    }
+
+    /// <summary>
+    /// <b>작업을 사용자 확인 완료 처리한다.</b>
+    /// </summary>
+    public async Task<AiTaskEditResult> ConfirmAsync(long taskKey, string? userId)
+    {
+        var current = await GetAsync(taskKey);
+
+        if (current is null)
+        {
+            return AiTaskEditResult.NotFound();
+        }
+
+        using var db = Open();
+
+        var affected = await db.ExecuteAsync("""
+            UPDATE projmng.ai_task
+               SET user_confirmed = true,
+                   row_version    = row_version + 1,
+                   mod_id         = @userId,
+                   mod_dt         = now()
+             WHERE task_key = @taskKey AND is_deleted = false
+            """, new { taskKey, userId });
 
         return affected == 0
             ? AiTaskEditResult.Conflict("그 사이에 상태가 바뀌었습니다.")

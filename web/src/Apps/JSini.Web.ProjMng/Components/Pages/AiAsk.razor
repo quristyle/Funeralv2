@@ -262,19 +262,19 @@
             <DxCheckBox @bind-Checked="@PushOn"
                         CssClass="pm-ask__opt"
                         Enabled="@(!Busy && SelectedTargetAllowsPush)">
-                저장소 올리기
+                저장소
             </DxCheckBox>
 
             <DxCheckBox @bind-Checked="@MailOn"
                         CssClass="pm-ask__opt"
                         Enabled="@(!Busy)">
-                메일로 결과 받기
+                이메일
             </DxCheckBox>
 
             <DxCheckBox @bind-Checked="@PwaOn"
                         CssClass="pm-ask__opt"
                         Enabled="@(!Busy)">
-                PWA 알림 받기
+                앱알림
             </DxCheckBox>
 
             <PermissionView Action="MenuAction.Create">
@@ -848,7 +848,7 @@
     {
         await LoadAsync(async () =>
         {
-            Show(await Api.ListAsync());
+            Show(await Api.ListAsync(userConfirmed: false));
 
             return _recent.Count;
         }, emptyMessage: string.Empty, failMessage: "보낸 것을 읽지 못했습니다");
@@ -1134,7 +1134,7 @@
                     // 2초로 두면 열어 둔 창마다 서버를 그만큼 더 부른다.
                     await Task.Delay(TimeSpan.FromSeconds(5), cts.Token);
 
-                    var rows = await Api.ListAsync(ct: cts.Token);
+                    var rows = await Api.ListAsync(userConfirmed: false, ct: cts.Token);
 
                     if (cts.IsCancellationRequested)
                     {

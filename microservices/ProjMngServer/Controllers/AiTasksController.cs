@@ -34,9 +34,10 @@ public sealed class AiTasksController(AiTaskService service, AiRunService runs) 
     [HttpGet]
     public async Task<IActionResult> ListAsync(
         [FromQuery] string? status, [FromQuery] string? flag,
-        [FromQuery] long? targetKey, [FromQuery] string? keyword)
+        [FromQuery] long? targetKey, [FromQuery] string? keyword,
+        [FromQuery] bool? userConfirmed)
     {
-        var rows = await service.ListAsync(status, flag, targetKey, keyword);
+        var rows = await service.ListAsync(status, flag, targetKey, keyword, userConfirmed: userConfirmed);
         return Ok(ApiResponse<List<AiTask>>.Ok(rows));
     }
 
@@ -98,6 +99,13 @@ public sealed class AiTasksController(AiTaskService service, AiRunService runs) 
     [HttpPost("{taskKey:long}/retry")]
     public async Task<IActionResult> RetryAsync(long taskKey, [FromBody] RetryRequest req)
         => Respond(await service.RetryAsync(taskKey, req?.Addition, UserId));
+
+    /// <summary>
+    /// <b>사용자 확인 완료</b> 처리한다.
+    /// </summary>
+    [HttpPost("{taskKey:long}/confirm")]
+    public async Task<IActionResult> ConfirmAsync(long taskKey)
+        => Respond(await service.ConfirmAsync(taskKey, UserId));
 
     /// <summary>취소를 요청한다. 도는 중이면 표시만 남고 실행기가 멈춘다.</summary>
     [HttpPost("{taskKey:long}/cancel")]

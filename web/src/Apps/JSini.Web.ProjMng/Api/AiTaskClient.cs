@@ -18,7 +18,7 @@ public sealed class AiTaskClient(GatewayClient gateway)
 
     public Task<IReadOnlyList<AiTaskDto>> ListAsync(
         string? status = null, string? flag = null, long? targetKey = null,
-        string? keyword = null, CancellationToken ct = default)
+        string? keyword = null, bool? userConfirmed = null, CancellationToken ct = default)
     {
         var query = new List<string>();
 
@@ -26,6 +26,7 @@ public sealed class AiTaskClient(GatewayClient gateway)
         if (!string.IsNullOrWhiteSpace(flag)) query.Add($"flag={Uri.EscapeDataString(flag)}");
         if (targetKey is not null) query.Add($"targetKey={targetKey}");
         if (!string.IsNullOrWhiteSpace(keyword)) query.Add($"keyword={Uri.EscapeDataString(keyword)}");
+        if (userConfirmed is not null) query.Add($"userConfirmed={userConfirmed}");
 
         return gateway.GetListAsync<AiTaskDto>(
             query.Count == 0 ? Url : $"{Url}?{string.Join('&', query)}", ct);
@@ -58,6 +59,12 @@ public sealed class AiTaskClient(GatewayClient gateway)
     public Task<AiTaskDto?> RetryAsync(
         long taskKey, string? addition = null, CancellationToken ct = default)
         => gateway.PostAsync<AiTaskDto>($"{Url}/{taskKey}/retry", new { addition }, ct);
+
+    /// <summary>
+    /// <b>사용자 확인 완료</b> 처리한다.
+    /// </summary>
+    public Task<AiTaskDto?> ConfirmAsync(long taskKey, CancellationToken ct = default)
+        => gateway.PostAsync<AiTaskDto>($"{Url}/{taskKey}/confirm", new { }, ct);
 
     public Task<AiTaskDto?> CancelAsync(long taskKey, CancellationToken ct = default)
         => gateway.PostAsync<AiTaskDto>($"{Url}/{taskKey}/cancel", new { }, ct);
@@ -176,6 +183,7 @@ public sealed class AiTaskDto
     public string? NotifyTo { get; set; }
     public string? NotifyWhen { get; set; } = "always";
     public string? NotifyError { get; set; }
+    public bool UserConfirmed { get; set; }
 
     public DateTime? RequestedAt { get; set; }
     public DateTime? StartedAt { get; set; }
@@ -278,6 +286,9 @@ public sealed class AiTaskDto
 
     /// <summary>지금 도는 중인가. 편집과 삭제를 막는 기준이다.</summary>
     public bool IsBusy => TaskStatus is "queued" or "preparing" or "running";
+
+    /// <summary>더 움직이지 않는 상태인가.</summary>
+    public bool IsFinal => TaskStatus is "succeeded" or "failed" or "timeout" or "canceled" or "interrupted";
 
     /// <summary>
     /// <b>수동 재시도가 가능한가.</b> 실패로 끝났고(failed/timeout), 자동 재시도 횟수를 모두 소진한 상태다.

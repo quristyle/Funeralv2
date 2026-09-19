@@ -135,6 +135,9 @@ public sealed class AiTask
     public DateTime? CreDt { get; set; }
     public string? ModId { get; set; }
     public DateTime? ModDt { get; set; }
+
+    /// <summary>사용자가 확인 완료했는지 여부</summary>
+    public bool UserConfirmed { get; set; }
 }
 
 /// <summary>작업요청여부.</summary>
