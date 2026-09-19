@@ -79,6 +79,13 @@ public static class FileDownload
     }
 
     /// <summary>
+    /// 첨부 하나의 썸네일(150x150 WebP) 주소.
+    /// 레이아웃 아바타나 목록의 작은 미리보기처럼 작은 그림을 그릴 때 쓴다.
+    /// </summary>
+    public static string ThumbnailUrlFor(string fileId) =>
+        $"{Path}/thumbnail/{Uri.EscapeDataString(fileId)}";
+
+    /// <summary>
     /// DB 에 저장된 <c>/api/file/…</c> 주소를 중계 경로로 옮긴다.
     /// 파일 주소가 아니면 <b>그대로 돌려준다.</b>
     /// </summary>
@@ -168,6 +175,12 @@ public static class FileDownload
             .AllowAnonymous()
             .WithName("JSiniFileDownload");
 
+        // 썸네일 (150x150 WebP). 헤더 아바타 등 작은 그림에 쓴다.
+        // 리터럴 `thumbnail` 이 있어 `{fileId}` 와 겹치지 않는다.
+        endpoints.MapGet($"{Path}/thumbnail/{{fileId}}", HandleThumbnailAsync)
+            .AllowAnonymous()
+            .WithName("JSiniFileThumbnail");
+
         // 자료실·플레이어. 횟수를 세는 경로를 거친다.
         //
         // **리터럴 `archive` 가 있어 위의 `{fileId}` 와 겹치지 않는다** —
@@ -212,6 +225,26 @@ public static class FileDownload
             cacheable: false);
     }
 
+    private static Task HandleThumbnailAsync(
+        string fileId,
+        HttpContext http,
+        GatewayClient gateway,
+        ILoggerFactory loggers,
+        CancellationToken cancellationToken)
+    {
+        if (!Guid.TryParse(fileId, out var id))
+        {
+            http.Response.StatusCode = StatusCodes.Status404NotFound;
+            return Task.CompletedTask;
+        }
+
+        // 썸네일(150x150 WebP)을 우선 요청하되, 미변환/오류 시 원본 파일로 1회 안전 폴백
+        return RelayAsync(
+            $"file/thumbnail/{id}", id, null, http, gateway, loggers, cancellationToken,
+            cacheable: true,
+            fallbackPath: $"file/download/id/{id}");
+    }
+
     private static Task HandleAsync(
         string fileId,
         string? name,
@@ -236,8 +269,8 @@ public static class FileDownload
     }
 
     /// <summary>
-    /// 게이트웨이의 한 경로를 그대로 흘려보낸다. 두 갈래가 이것을 함께 쓴다 —
-    /// FileServer 로 바로 가는 길과, 횟수를 세고 302 로 넘어가는 길.
+    /// 게이트웨이의 한 경로를 그대로 흘려보낸다. 세 갈래가 이것을 함께 쓴다 —
+    /// FileServer 로 바로 가는 길(원본·썸네일)과, 횟수를 세고 302 로 넘어가는 길.
     ///
     /// <para>
     /// <c>cacheable</c> 은 <b>이 갈래가</b> 캐시를 허용하는지다. 실제로 열리는지는
@@ -253,7 +286,8 @@ public static class FileDownload
         GatewayClient gateway,
         ILoggerFactory loggers,
         CancellationToken cancellationToken,
-        bool cacheable)
+        bool cacheable,
+        string? fallbackPath = null)
     {
         var logger = loggers.CreateLogger(typeof(FileDownload));
 
@@ -263,6 +297,14 @@ public static class FileDownload
         {
             upstream = await gateway.SendRawAsync(
                 HttpMethod.Get, upstreamPath, cancellationToken: cancellationToken);
+
+            // 썸네일 등이 실패(404 등)했을 때 원본으로 안전하게 1회 폴백한다.
+            if (!upstream.IsSuccessStatusCode && !string.IsNullOrEmpty(fallbackPath))
+            {
+                upstream.Dispose();
+                upstream = await gateway.SendRawAsync(
+                    HttpMethod.Get, fallbackPath, cancellationToken: cancellationToken);
+            }
         }
         catch (ApiException ex)
         {

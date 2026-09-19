@@ -58,7 +58,7 @@
                     aria-haspopup="menu"
                     aria-expanded="@(_open ? "true" : "false")"
                     @onclick="@(() => _open = !_open)">
-                @if (Me.AvatarUrl is { Length: > 0 } avatar)
+                @if ((Me.AvatarThumbnailUrl ?? Me.AvatarUrl) is { Length: > 0 } avatar)
                 {
                     @* 못 받아 오면 깨진 그림 대신 첫 글자로 돌아간다
                        (CurrentUser.MarkAvatarUnavailable 참고). *@
@@ -91,7 +91,7 @@
                 <div class="jsini-user__menu" role="menu">
 
                 <div class="jsini-user__head">
-                    @if (Me.AvatarUrl is { Length: > 0 } headAvatar)
+                    @if ((Me.AvatarThumbnailUrl ?? Me.AvatarUrl) is { Length: > 0 } headAvatar)
                     {
                         <img class="jsini-user__head-img" src="@headAvatar" alt=""
                              @onerror="@(() => Me.MarkAvatarUnavailable())" />

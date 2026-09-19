@@ -178,4 +178,12 @@ public class FileDownloadCacheTests
     {
         Assert.False(FileDownload.NoneMatch(RequestWith(""), Id));
     }
+
+    [Fact]
+    public void 썸네일_경로를_올바르게_생성한다()
+    {
+        var id = "3225f1b1-95c9-43bb-b07d-fae00371b162";
+        Assert.Equal($"/files/thumbnail/{id}", FileDownload.ThumbnailUrlFor(id));
+        Assert.Equal($"/files/{id}", FileDownload.UrlFor(id));
+    }
 }

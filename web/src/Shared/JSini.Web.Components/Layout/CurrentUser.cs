@@ -84,6 +84,12 @@ public sealed partial class CurrentUser(GatewayClient gateway, ILogger<CurrentUs
     /// </summary>
     public string? AvatarUrl { get; private set; }
 
+    /// <summary>
+    /// 썸네일 사진 주소 (150x150 WebP).
+    /// 헤더 아바타처럼 작은 원형 그림에서 큰 원본 대신 쓴다.
+    /// </summary>
+    public string? AvatarThumbnailUrl { get; private set; }
+
     /// <summary>한 번이라도 읽었는가.</summary>
     public bool IsLoaded { get; private set; }
 
@@ -150,6 +156,7 @@ public sealed partial class CurrentUser(GatewayClient gateway, ILogger<CurrentUs
                 ? string.Join(" · ", names.Where(n => !string.IsNullOrWhiteSpace(n)))
                 : null;
             AvatarUrl = OwnFileUrl(info.Avatar);
+            AvatarThumbnailUrl = OwnThumbnailUrl(info.Avatar);
             Watermark = info.Watermark;
             IsLoaded = true;
         }
@@ -164,6 +171,7 @@ public sealed partial class CurrentUser(GatewayClient gateway, ILogger<CurrentUs
     public void SetAvatar(string? avatar)
     {
         AvatarUrl = OwnFileUrl(avatar);
+        AvatarThumbnailUrl = OwnThumbnailUrl(avatar);
         Changed?.Invoke();
     }
 
@@ -185,36 +193,63 @@ public sealed partial class CurrentUser(GatewayClient gateway, ILogger<CurrentUs
     /// </remarks>
     public void MarkAvatarUnavailable()
     {
-        if (AvatarUrl is null)
+        if (AvatarUrl is null && AvatarThumbnailUrl is null)
         {
             return;
         }
 
-        logger.LogInformation("프로필 사진을 표시하지 못했다: {Url}", AvatarUrl);
+        logger.LogInformation(
+            "프로필 사진을 표시하지 못했다: {Url}", AvatarThumbnailUrl ?? AvatarUrl);
 
         AvatarUrl = null;
+        AvatarThumbnailUrl = null;
         Changed?.Invoke();
     }
 
     /// <summary>
-    /// 우리 파일 주소면 셸 중계 경로로 옮겨 돌려주고, 아니면 <c>null</c>.
-    /// 왜 바깥 주소를 버리는지는 이 클래스 머리말에 있다.
+    /// 사진 주소에서 파일 식별자(GUID)를 추출한다.
+    /// 셸 중계 경로(/files/...)와 백엔드 상대경로(/api/file/...) 둘 다 해석한다.
     /// </summary>
-    private static string? OwnFileUrl(string? avatar)
+    private static string? ExtractFileId(string? avatar)
     {
         if (string.IsNullOrWhiteSpace(avatar))
         {
             return null;
         }
 
-        // 이미 셸 중계 경로면 그대로 쓴다.
+        // 1. 이미 셸 중계 경로인 경우 (/files/thumbnail/{guid} 또는 /files/{guid})
         if (avatar.StartsWith(FileDownload.Path + "/", StringComparison.OrdinalIgnoreCase))
         {
-            return avatar;
+            var segments = avatar.Split('?')[0].Split('/', StringSplitOptions.RemoveEmptyEntries);
+            if (segments.Length > 0 && Guid.TryParse(segments[^1], out var guid))
+            {
+                return guid.ToString();
+            }
         }
 
+        // 2. 백엔드 주소인 경우 (/api/file/download/id/{guid} 등)
         var match = LegacyFileUrl().Match(avatar);
-        return match.Success ? FileDownload.UrlFor(match.Groups["id"].Value) : null;
+        return match.Success ? match.Groups["id"].Value : null;
+    }
+
+    /// <summary>
+    /// 우리 파일 주소면 셸 원본 중계 경로로 옮겨 돌려주고, 아니면 <c>null</c>.
+    /// 왜 바깥 주소를 버리는지는 이 클래스 머리말에 있다.
+    /// </summary>
+    private static string? OwnFileUrl(string? avatar)
+    {
+        var id = ExtractFileId(avatar);
+        return id is not null ? FileDownload.UrlFor(id) : null;
+    }
+
+    /// <summary>
+    /// 우리 파일 주소면 셸 썸네일 중계 경로(/files/thumbnail/{id})로 옮겨 돌려주고, 아니면 <c>null</c>.
+    /// 헤더 아바타 등 작은 원형 사진을 그릴 때 용량을 아낀다.
+    /// </summary>
+    private static string? OwnThumbnailUrl(string? avatar)
+    {
+        var id = ExtractFileId(avatar);
+        return id is not null ? FileDownload.ThumbnailUrlFor(id) : null;
     }
 
     private static string? Join(string? company, string? dept)
@@ -224,11 +259,10 @@ public sealed partial class CurrentUser(GatewayClient gateway, ILogger<CurrentUs
     }
 
     /// <summary>
-    /// Vue 시절 첨부 주소. <c>/api/file/download/{guid}</c> 와
-    /// <c>/api/file/download/id/{guid}</c> 둘 다 남아 있어 <c>id/</c> 를 선택으로 둔다.
+    /// 백엔드 파일 주소. <c>download</c> · <c>thumbnail</c> 등 형태와 <c>id/</c> 유무를 둘 다 맞춘다.
     /// </summary>
     [GeneratedRegex(
-        @"/api/file/download/(?:id/)?(?<id>[0-9a-fA-F-]{36})",
+        @"/api/file/(?:download|thumbnail|medium|large)/(?:id/)?(?<id>[0-9a-fA-F-]{36})",
         RegexOptions.IgnoreCase)]
     private static partial Regex LegacyFileUrl();
 
