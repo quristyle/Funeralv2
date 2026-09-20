@@ -161,8 +161,18 @@ public sealed class AiResultSummarizer(
 
     private readonly string? _model = configuration["AiTasks:SummaryModel"];
 
+    /// <summary>
+    /// 한 번에 이만큼까지 기다린다.
+    /// </summary>
+    /// <remarks>
+    /// <b>30초였다(2026-09-21 에 올렸다).</b> AI 서비스는 한 번의 <c>/chat</c> 안에서
+    /// 예비 모델을 돌려 가며 부르고, 그래도 안 되면 다른 공급자로 넘긴다 —
+    /// 붐비는 모델 하나가 8초쯤 쓰므로 그 줄이 30초를 넘기는 일이 생긴다.
+    /// <b>여기서 먼저 끊으면 곧 답할 모델을 코앞에서 버리는 셈</b>이고, 그러면
+    /// 모델을 돌려 보는 장치가 있으나 마나다.
+    /// </remarks>
     private readonly int _timeoutSeconds =
-        configuration.GetValue("AiTasks:SummaryTimeoutSeconds", defaultValue: 30);
+        configuration.GetValue("AiTasks:SummaryTimeoutSeconds", defaultValue: 45);
 
     /// <summary>
     /// 정리시킬 글의 길이 상한. <b>넉넉히 잡으면 안 된다</b> — 무료 공급자는

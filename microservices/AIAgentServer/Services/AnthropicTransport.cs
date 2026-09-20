@@ -284,6 +284,23 @@ public sealed class AnthropicTransport
                     provider.Key);
 
             case AnthropicApiException api:
+                // **529 Overloaded 는 고장이 아니라 「지금 붐빈다」다.** 한도(429)와
+                // 달리 내 몫을 다 쓴 것이 아니라 상대 사정이고, 우리가 할 일은
+                // 예비 모델·다른 공급자로 넘기는 것이다(`AiProviderException`).
+                if (LooksOverloaded(api.Message))
+                {
+                    _logger.LogWarning(
+                        "{Provider}({Model}) 이 지금 붐빕니다. 응답: {Error}",
+                        provider.Key, model, api.Message);
+
+                    return new AiProviderException(
+                        $"{provider.DisplayName} 이 지금 붐벼 답하지 못했습니다. "
+                        + "잠시 뒤에 다시 시도하거나 환경설정에서 다른 AI 를 선택하세요.",
+                        provider.Key,
+                        isTransientOverload: true,
+                        model: model);
+                }
+
                 _logger.LogError(
                     "{Provider} 호출 실패. 모델: {Model}, 응답: {Error}",
                     provider.Key, model, api.Message);
@@ -299,6 +316,19 @@ public sealed class AnthropicTransport
                     $"{provider.DisplayName} 호출이 실패했습니다. ({ex.GetBaseException().Message})",
                     provider.Key);
         }
+    }
+
+    /// <summary>
+    /// 오류 문구가 <b>지금 붐빈다</b>고 말하고 있는지. Claude 는 529 에
+    /// "Overloaded" 를 담아 준다. <c>LLMService.LooksOverloaded</c> 와 같은 판단이다.
+    /// </summary>
+    private static bool LooksOverloaded(string message)
+    {
+        if (string.IsNullOrWhiteSpace(message)) return false;
+
+        string[] markers = { "overload", "high demand", "capacity", "529" };
+
+        return markers.Any(m => message.Contains(m, StringComparison.OrdinalIgnoreCase));
     }
 
     /// <summary>이미 다 받아 둔 답. 스트리밍이 아닌 호출에서 쓴다.</summary>

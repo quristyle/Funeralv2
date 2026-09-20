@@ -84,6 +84,11 @@ builder.Services.AddHostedService<AiTaskBell>();
 // 있는 것**이라 프로세스가 사는 동안 계속 돈다.
 builder.Services.AddHostedService<AiStaleSweeper>();
 
+// 비어 있는 「처리 요약」을 뒤늦게 채운다. 끝나는 순간의 한 번은 결과 메일이
+// 기다리는 자리라 오래 못 붙잡는데, 하필 그때 AI 가 붐비면 그 건의 요약은
+// **영영** 없었다. 그 한 번을 빠른 길로 두고, 놓친 것은 여기가 줍는다.
+builder.Services.AddHostedService<AiSummaryCatchUp>();
+
 // Dapper 가 DateOnly 를 파라미터로 다루게 한다. **여기 한 곳에서만 등록한다** —
 // 서비스마다 부르면 빠뜨리는 서비스가 생기고, 그 서비스의 저장만 죽는다.
 DapperDateOnlyHandlers.Register();

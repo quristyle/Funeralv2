@@ -54,8 +54,22 @@
     요약과 화면의 요약이 다른 말을 하게 되고, 그때 어느 쪽이 그 실행의
     요약인지 가릴 방법이 없다. 읽는 법은 `AiRunSummary.Parse`.
 
-    요약이 없는 건(그 칸이 생기기 전의 것, AI 가 안 떠 있던 때)은 요약 칸
-    **없이** 지시와 결과만 보인다 — 빈 상자는 「고장」으로 읽힌다.
+    [답은 있는데 요약이 없을 때 (2026-09-21)]
+
+    한동안 그런 건은 요약 칸을 **통째로 빼고** 그렸다. 「빈 상자는 고장으로
+    읽힌다」가 이유였는데, 그 판단이 한 가지를 놓쳤다 — **빠진 칸도 고장으로
+    읽힌다.** 게다가 무엇을 기다리는 중인지, 기다리면 오기는 하는지를
+    화면이 한마디도 하지 않아서, 보는 사람은 「원래 없는 기능인가」와
+    「나만 안 보이나」를 구분할 수 없었다. 실제로 그렇게 비어 있던 건이
+    사흘치의 절반이었다(AI 가 붐벼 서버가 못 만든 것이다).
+
+    그래서 **답이 있는데 요약이 없는 건에는 그 자리에 사정을 적는다.**
+    기다리는 동안은 「만드는 중」이고, 그래도 안 오면 「아직 못 만들었다」와
+    **다시 시킬 단추** 하나다. 단추가 부르는 것도 서버의 같은 자리라
+    (`POST ai-runs/{runKey}/summary`) 메일과 화면이 갈릴 일은 그대로 없다.
+
+    **답도 없는 건에는 아무것도 적지 않는다** — 정리할 원문이 없으니
+    서버도 만들지 않고, 그것은 기다림이 아니라 그냥 없는 것이다.
 
     [처음 열리는 탭은 상태가 고른다]
 
@@ -181,7 +195,8 @@
                        지시와 답은 그 아래에 원문 그대로 둔다. 요약을 믿을지
                        가리려면 물음과 답을 봐야 하는데, 그 둘은 길다.
 
-                       **없으면 통째로 빠진다** — 위 머리말 참고. *@
+                       **답이 있는데 요약이 없으면 사정을 적는다** — 위 머리말 참고.
+                       답조차 없는 건에는 이 칸이 통째로 빠진다. *@
                     @if (_summary is { } s)
                     {
                         <h3 class="pm-peek__head">처리 요약</h3>
@@ -214,6 +229,20 @@
                                 </ul>
                             }
                         </div>
+                    }
+                    else if (AwaitingSummary)
+                    {
+                        @* 답은 왔는데 요약이 없다. **말없이 비워 두지 않는다** —
+                           기다리면 오는 것인지, 내가 뭘 해야 하는지를 적는다. *@
+                        <h3 class="pm-peek__head">처리 요약</h3>
+
+                        <p class="pm-peek__dim">@SummaryWaitText</p>
+
+                        @if (_summaryGaveUp && !_summaryBusy)
+                        {
+                            <DxButton Text="지금 만들기" RenderStyle="ButtonRenderStyle.Link"
+                                      Click="@RemakeSummaryAsync" />
+                        }
                     }
 
                     @* ── 물음 ────────────────────────────────────
@@ -308,11 +337,24 @@ else
 
     /// <summary>
     /// 실행이 끝난 뒤 <b>요약만 기다리며</b> 더 돌 바퀴 수. 한 바퀴가 3초이니
-    /// 75초쯤이다 — 서버가 요약에 거는 시간(한 번에 30초, 빈손이면 3초 쉬고 한 번 더:
-    /// <c>AiTasks:SummaryAttempts</c>)보다 넉넉하다. <b>서버의 상한보다 짧으면 안 된다</b> —
-    /// 그러면 끝나는 것을 지켜보던 사람만 요약을 못 본다.
+    /// 105초쯤이다 — 서버가 요약에 거는 시간(한 번에 45초, 빈손이면 3초 쉬고 한 번 더:
+    /// <c>AiTasks:SummaryAttempts</c> = 93초)보다 넉넉하다.
+    /// <b>서버의 상한보다 짧으면 안 된다</b> — 그러면 서버가 아직 만들고 있는데
+    /// 화면이 먼저 「못 만들었다」를 내건다.
     /// </summary>
-    private const int SummaryWaitRounds = 25;
+    private const int SummaryWaitRounds = 35;
+
+    /// <summary>
+    /// 끝난 지 이만큼 지난 건은 <b>기다리지 않는다.</b>
+    /// </summary>
+    /// <remarks>
+    /// 서버가 요약을 시도하는 것은 실행이 끝나는 그 자리뿐이고(길어야 93초),
+    /// 그 뒤로는 몇 분 주기의 감시자가 줍는다(<c>AiSummaryCatchUp</c>). 그러니
+    /// <b>어제 끝난 건을 열어 놓고 「만드는 중입니다」를 105초 동안 보여 주는
+    /// 것은 거짓말이다</b> — 아무도 지금 만들고 있지 않다. 그런 건에는 곧바로
+    /// 사정과 단추를 내건다.
+    /// </remarks>
+    private static readonly TimeSpan SummaryFresh = TimeSpan.FromMinutes(3);
 
     /// <summary>
     /// 볼 작업. <b>부모가 목록에서 다시 집어 넘긴다</b> — 그래서 돌고 있는
@@ -367,6 +409,26 @@ else
     /// <summary>끝난 뒤 요약을 기다리며 돈 바퀴 수. <see cref="SummaryWaitRounds"/> 까지.</summary>
     private int _summaryWaits;
 
+    /// <summary>
+    /// 기다릴 만큼 기다렸나. <b>이때부터 「지금 만들기」를 보여 준다.</b>
+    /// </summary>
+    /// <remarks>
+    /// 그 전에는 안 보여 준다 — 서버가 만드는 중일 수 있고, 그때 누르면
+    /// 같은 일을 둘이 하게 된다(서버가 이미 적힌 것을 되읽어 주므로 값이
+    /// 갈리지는 않지만, 모델 호출 한 번이 헛되이 는다).
+    /// </remarks>
+    private bool _summaryGaveUp;
+
+    /// <summary>사람이 누른 「지금 만들기」가 도는 중인가.</summary>
+    private bool _summaryBusy;
+
+    /// <summary>
+    /// <b>답을 준 실행</b>의 번호. 요약은 그 실행에 딸린 것이라 다시 만들 때도
+    /// 이것을 준다 — 가장 최근 실행(<see cref="_run"/>)이 아니다. 둘이 갈리는
+    /// 경우가 실제로 있다(다시 돌렸는데 이번에는 아무 말도 안 남긴 때).
+    /// </summary>
+    private long? _answeredKey;
+
     private string LogTabText => _lines.Count == 0 ? "로그" : $"로그 ({_lines.Count})";
 
     /// <summary>
@@ -395,6 +457,24 @@ else
     /// </para>
     /// </remarks>
     private bool AwaitingSummary => _summary is null && _result is { Length: > 0 };
+
+    /// <summary>
+    /// <b>지금 서버가 만들고 있다고 볼 만한가.</b> 여기가 참인 동안만 따라간다 —
+    /// 포기했거나 애초에 오래된 건이면 더 봐야 나올 것이 없다.
+    /// </summary>
+    private bool WaitingForSummary => AwaitingSummary && !_summaryGaveUp;
+
+    /// <summary>
+    /// 요약 자리에 적을 한 줄. <b>세 가지 사정이 다 다르다</b> — 기다리는 중 ·
+    /// 지금 만드는 중 · 못 만들었음.
+    /// </summary>
+    private string SummaryWaitText => (_summaryBusy, _summaryGaveUp) switch
+    {
+        (true, _) => "처리 요약을 만드는 중입니다…",
+        (_, true) => "처리 요약을 아직 만들지 못했습니다. "
+            + "AI 가 붐비면 서버가 몇 분 뒤 다시 만들어 채웁니다.",
+        _ => "처리 요약을 만드는 중입니다. 잠시 뒤에 이 자리에 나타납니다.",
+    };
 
     /// <summary>
     /// 그릴 로그. <b>꼬리만</b> 쓴다 — 위는 잘렸다는 사실을 첫 줄에 적는다.
@@ -589,7 +669,18 @@ else
 
             _run = newest;
             _result = answered?.ResultText;
+            _answeredKey = answered?.RunKey;
             _summary = AiRunSummary.Parse(answered?.SummaryText);
+
+            // **끝난 지 오래된 건은 기다리는 시늉을 하지 않는다** — 위
+            // <see cref="SummaryFresh"/> 참고. 시각은 이미 우리 시계다
+            // (<c>AiTaskWhen</c> 머리말: `ToLocalTime()` 을 부르면 아홉 시간이 더해진다).
+            if (_summary is null
+                && answered?.FinishedAt is { } done
+                && DateTime.Now - done > SummaryFresh)
+            {
+                _summaryGaveUp = true;
+            }
 
             if (changed)
             {
@@ -604,6 +695,50 @@ else
         {
             // 한 번 못 읽었다고 화면을 깨지 않는다. 다음 바퀴에 다시 본다.
             return false;
+        }
+    }
+
+    /// <summary>
+    /// <b>「지금 만들기」.</b> 서버에 요약을 한 번 더 시키고, 나온 것을 그 자리에 건다.
+    /// </summary>
+    /// <remarks>
+    /// <b>만드는 것은 서버다.</b> 여기서 모델을 부르면 메일에 적힌 요약과 화면의
+    /// 요약이 갈린다 — 서버가 만들어 <c>summary_text</c> 에 적고, 우리는 적힌 것을
+    /// 받아 읽기만 한다. 그래서 여러 번 눌러도 요약은 하나다.
+    ///
+    /// <para>
+    /// <b>못 만들어도 오류로 보여 주지 않는다.</b> AI 가 붐벼서 못 만든 것이고
+    /// 잠시 뒤면 되는 일이라, 원래 적혀 있던 「아직 못 만들었다」로 되돌린다 —
+    /// 서버의 감시자가 그사이에도 계속 다시 본다.
+    /// </para>
+    /// </remarks>
+    private async Task RemakeSummaryAsync()
+    {
+        if (_summaryBusy || _answeredKey is not { } runKey)
+        {
+            return;
+        }
+
+        _summaryBusy = true;
+        StateHasChanged();
+
+        try
+        {
+            var text = await Api.SummarizeAsync(runKey);
+
+            if (AiRunSummary.Parse(text) is { } made)
+            {
+                _summary = made;
+                _summaryGaveUp = false;
+            }
+        }
+        catch (ApiException)
+        {
+            // 한 번 못 만들었다고 화면을 깨지 않는다. 안내는 그대로 남는다.
+        }
+        finally
+        {
+            _summaryBusy = false;
         }
     }
 
@@ -652,7 +787,7 @@ else
     /// </remarks>
     private void Follow(AiTaskDto t)
     {
-        if (!t.IsBusy && !AwaitingSummary)
+        if (!t.IsBusy && !WaitingForSummary)
         {
             StopPoll();
             return;
@@ -685,7 +820,7 @@ else
                     // 대기 중에는 실행 줄이 아직 없다. 생기는 순간을 놓치면
                     // **로그가 영영 빈 채로 남는다.** 끝났는데 요약이 아직
                     // 안 적혔을 때도 같은 자리를 다시 읽는다.
-                    if (_run is null || _run.IsRunning || AwaitingSummary)
+                    if (_run is null || _run.IsRunning || WaitingForSummary)
                     {
                         changed = await LoadRunsAsync(cts.Token);
                     }
@@ -710,9 +845,20 @@ else
                     {
                         // 실행은 끝났다. **요약만 기다린다** — 서버가 그것을
                         // 뒤늦게 적으므로(위 `AwaitingSummary`) 몇 바퀴 더 본
-                        // 뒤 포기한다. 영영 안 오는 건도 있다.
-                        if (!AwaitingSummary || ++_summaryWaits > SummaryWaitRounds)
+                        // 뒤 포기한다.
+                        if (!WaitingForSummary)
                         {
+                            return;
+                        }
+
+                        if (++_summaryWaits > SummaryWaitRounds)
+                        {
+                            // **포기했다는 것을 화면에 남긴다.** 예전에는 말없이
+                            // 멈춰서, 보는 사람에게는 「만드는 중」이 영영 이어지는
+                            // 것과 구분이 안 됐다. 여기서부터 「지금 만들기」가 뜬다.
+                            _summaryGaveUp = true;
+                            await InvokeAsync(StateHasChanged);
+
                             return;
                         }
                     }
@@ -759,6 +905,10 @@ else
         _run = null;
         _result = null;
         _summary = null;
+        _answeredKey = null;
+        _summaryWaits = 0;
+        _summaryGaveUp = false;
+        _summaryBusy = false;
         _lines.Clear();
         _lastSeq = 0;
         _logRead = false;

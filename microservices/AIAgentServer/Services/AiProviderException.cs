@@ -18,6 +18,7 @@ public sealed class AiProviderException : Exception
         bool isRateLimited = false,
         bool isConnectFailure = false,
         bool isAccountWideLimit = false,
+        bool isTransientOverload = false,
         string? model = null)
         : base(message)
     {
@@ -27,6 +28,7 @@ public sealed class AiProviderException : Exception
         IsRateLimited = isRateLimited;
         IsConnectFailure = isConnectFailure;
         IsAccountWideLimit = isAccountWideLimit;
+        IsTransientOverload = isTransientOverload;
         Model = model;
     }
 
@@ -85,6 +87,31 @@ public sealed class AiProviderException : Exception
     /// </para>
     /// </remarks>
     public bool IsAccountWideLimit { get; }
+
+    /// <summary>
+    /// <b>지금 붐빌 뿐</b>인지 (상류가 5xx 로 "high demand" 를 돌려준 경우).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>왜 429 와 따로 두나.</b> 「이 모델이 지금 못 받는다」는 뜻은 모델 혼잡
+    /// 429 와 같지만, <b>공급자가 그것을 429 로 주지 않는다.</b> Gemini 는 503 에
+    /// "This model is currently experiencing high demand" 를 담아 준다. 상태 코드만
+    /// 보면 그것이 「그 밖의 HTTP 오류」로 떨어져서 <b>모델도 공급자도 바꾸지 않고
+    /// 그대로 실패</b>했다 — 설정해 둔 예비 모델이 멀쩡한데도.
+    /// </para>
+    /// <para>
+    /// <b>한도(<see cref="IsRateLimited"/>)로 뭉개지 않는 이유</b>는 사람에게 할 말이
+    /// 다르기 때문이다. 한도는 "내 몫을 다 썼다"(기다리거나 내일), 혼잡은 "남의
+    /// 사정이다"(몇 초 뒤면 대개 풀린다). 화면 문구와 로그가 그 둘을 갈라야 한다.
+    /// </para>
+    /// <para>
+    /// <b>우리가 하는 일은 429 와 같다</b> — 그 모델을 쉬게 하고 다음 예비 모델로
+    /// 바꿔 부른다. 공급자의 모델을 전부 써 봤는데도 그대로면 다른 공급자로 넘긴다
+    /// (<c>LLMService.IsFailoverWorthy</c>) — 그 자리에서는 「여기서 더 해 볼 것이
+    /// 없다」가 접속 실패와 똑같이 참이다.
+    /// </para>
+    /// </remarks>
+    public bool IsTransientOverload { get; }
 
     /// <summary>실패한 요청이 쓰던 모델. 어느 모델을 쉬게 할지 정하는 데 쓴다.</summary>
     public string? Model { get; }

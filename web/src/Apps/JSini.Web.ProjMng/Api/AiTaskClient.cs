@@ -77,6 +77,18 @@ public sealed class AiTaskClient(GatewayClient gateway)
         => gateway.GetListAsync<AiTaskRunDto>($"{Url}/{taskKey}/runs", ct);
 
     /// <summary>
+    /// <b>「처리 요약」을 지금 만들어 달라고 한다.</b> 적힌 것이 없을 때만 뜻이 있다.
+    /// </summary>
+    /// <remarks>
+    /// <b>만드는 것은 서버다.</b> 화면이 모델을 직접 부르면 메일에 적힌 요약과
+    /// 화면의 요약이 다른 말을 하게 된다. 이미 적혀 있으면 서버가 그것을
+    /// 되읽어 주므로 여러 번 눌러도 한 번만 만든다. 만들지 못하면 <b>빈 글자</b>로
+    /// 온다 — 오류가 아니다.
+    /// </remarks>
+    public Task<string?> SummarizeAsync(long runKey, CancellationToken ct = default)
+        => gateway.PostAsync<string>($"projmng/ai-runs/{runKey}/summary", new { }, ct);
+
+    /// <summary>
     /// 로그 꼬리. <b>증분으로 읽는다</b> — <paramref name="fromSeq"/> 보다 큰 줄만 온다.
     /// </summary>
     public Task<IReadOnlyList<AiLogLineDto>> LogsAsync(

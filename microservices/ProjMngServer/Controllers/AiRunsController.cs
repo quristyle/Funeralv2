@@ -7,7 +7,8 @@ namespace ProjMngServer.Controllers;
 /// <summary>실행 이력과 로그 — <c>/api/ai-runs</c>. 화면이 읽는다.</summary>
 [ApiController]
 [Route("api/ai-runs")]
-public sealed class AiRunsController(AiRunService runs) : ControllerBase
+public sealed class AiRunsController(
+    AiRunService runs, AiRunSummaryWriter summaries) : ControllerBase
 {
     /// <summary>
     /// 로그 꼬리. <b>증분으로 읽는다</b> — 화면이 2~3초마다 이것을 부른다.
@@ -23,6 +24,35 @@ public sealed class AiRunsController(AiRunService runs) : ControllerBase
     {
         var lines = await runs.LogsAsync(runKey, fromSeq);
         return Ok(ApiResponse<List<AiLogLine>>.Ok(lines));
+    }
+
+    /// <summary>
+    /// <b>「처리 요약」을 지금 만든다.</b> 화면의 「요약 다시 만들기」가 부른다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 요약은 실행이 끝날 때 서버가 적어 둔다. 그 한 번에 AI 가 붐비면 비는데,
+    /// 감시자가 몇 분 뒤 주워 가기는 해도(<c>AiSummaryCatchUp</c>) <b>지금 그 판을
+    /// 보고 있는 사람</b>은 그때까지 빈 자리를 볼 뿐이고 무엇을 기다리는지도 모른다.
+    /// 그래서 사람이 직접 한 번 더 시킬 수 있게 둔다.
+    /// </para>
+    /// <para>
+    /// <b>만드는 일은 서버 한 곳(<see cref="AiRunSummaryWriter"/>)이 그대로 한다.</b>
+    /// 화면이 모델을 직접 부르면 메일에 적힌 요약과 화면의 요약이 다른 말을 하게
+    /// 되고, 그때 어느 쪽이 그 실행의 요약인지 가릴 방법이 없다. 이미 적혀 있으면
+    /// 되읽어 돌려주므로 여러 번 눌러도 한 번만 만든다.
+    /// </para>
+    /// <para>
+    /// <b>못 만들어도 오류가 아니다</b> — 빈 값으로 답한다. 화면은 「아직 못
+    /// 만들었다」를 그대로 보여 주면 되고, 그 사이 감시자가 계속 다시 본다.
+    /// </para>
+    /// </remarks>
+    [HttpPost("{runKey:long}/summary")]
+    public async Task<IActionResult> SummaryAsync(long runKey, CancellationToken ct)
+    {
+        var summary = await summaries.EnsureAsync(runKey, ct: ct);
+
+        return Ok(ApiResponse<string>.Ok(summary?.ToText() ?? string.Empty));
     }
 }
 

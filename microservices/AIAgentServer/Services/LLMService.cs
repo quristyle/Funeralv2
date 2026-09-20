@@ -164,9 +164,12 @@ public class LLMService : ILLMService
         {
             // 사유를 사실대로 쓴다. '접속 불가' 와 '한도 소진' 은 사람이 할 일이 다르다 —
             // 앞은 장비를 켜면 되고, 뒤는 날짜가 바뀌어야 한다.
-            var why = call.FailoverReason == "quota"
-                ? "의 하루 한도를 다 써"
-                : " 에 접속할 수 없어";
+            var why = call.FailoverReason switch
+            {
+                "quota" => "의 하루 한도를 다 써",
+                "busy" => "의 모델이 전부 붐벼",
+                _ => " 에 접속할 수 없어",
+            };
 
             yield return ChatStreamPart.Info(
                 $"{from.DisplayName}{why} {call.Provider.DisplayName} 로 답합니다.",
@@ -619,7 +622,12 @@ public class LLMService : ILLMService
                 return call with
                 {
                     FailedOverFrom = requested,
-                    FailoverReason = firstFailure?.IsConnectFailure == true ? "connect" : "quota",
+                    FailoverReason = firstFailure switch
+                    {
+                        { IsConnectFailure: true } => "connect",
+                        { IsTransientOverload: true } => "busy",
+                        _ => "quota",
+                    },
                 };
             }
             catch (AiProviderException ex)
@@ -633,7 +641,12 @@ public class LLMService : ILLMService
                 _logger.LogWarning(
                     "{From} {Why} {To} 로 자동 전환합니다. (사유: {Reason})",
                     provider.Key,
-                    ex.IsConnectFailure ? "에 접속하지 못해" : "의 계정 하루 한도를 다 써",
+                    ex switch
+                    {
+                        { IsConnectFailure: true } => "에 접속하지 못해",
+                        { IsTransientOverload: true } => "의 모델이 전부 붐벼",
+                        _ => "의 계정 하루 한도를 다 써",
+                    },
                     next.Key,
                     ex.Message);
 
@@ -671,7 +684,7 @@ public class LLMService : ILLMService
     /// </para>
     /// </remarks>
     private static bool IsFailoverWorthy(AiProviderException ex) =>
-        ex.IsConnectFailure || ex.IsAccountWideLimit;
+        ex.IsConnectFailure || ex.IsAccountWideLimit || ex.IsTransientOverload;
 
     /// <summary>
     /// 공급자 한 곳에 보낸다. <b>모델이 한도에 걸리면 다음 무료 모델로 바꿔 다시 보낸다.</b>
@@ -786,7 +799,11 @@ public class LLMService : ILLMService
                     Model: model,
                     DroppedMessages: dropped);
             }
-            catch (AiProviderException ex) when (ex.IsRateLimited && !ex.IsAccountWideLimit)
+            // **한도든 혼잡이든 우리가 할 일은 같다** — 그 모델을 쉬게 하고
+            // 다음 예비 모델로 바꿔 부른다. 다른 것은 사람에게 할 말뿐이라
+            // 로그 문구만 가른다.
+            catch (AiProviderException ex)
+                when ((ex.IsRateLimited && !ex.IsAccountWideLimit) || ex.IsTransientOverload)
             {
                 // 이 모델은 지금 못 쓴다. 다음 요청이 헛되게 다시 부르지 않도록 표시한다.
                 AiModelCooldown.Rest(
@@ -797,8 +814,9 @@ public class LLMService : ILLMService
                 var next = attempts[i + 1];
 
                 _logger.LogWarning(
-                    "{Provider}: 모델 '{From}' 이 한도에 걸려 '{To}' 로 바꿔 시도합니다. (사유: {Reason})",
-                    provider.Key, model, next, ex.Message);
+                    "{Provider}: 모델 '{From}' 이 {Why} '{To}' 로 바꿔 시도합니다. (사유: {Reason})",
+                    provider.Key, model, ex.IsTransientOverload ? "붐벼" : "한도에 걸려",
+                    next, ex.Message);
 
                 AiUsageTracker.RecordModelRotation(
                     provider.Key, from: model, to: next, reason: ex.Message);
@@ -1043,6 +1061,41 @@ public class LLMService : ILLMService
                 $"{provider.DisplayName} 인증에 실패했습니다. API 키를 확인하세요.",
                 provider.Key,
                 statusCode: (int)status);
+        }
+
+        // ── 지금 붐빈다 ────────────────────────────────────
+        // [왜 여기가 따로 있나 — 2026-09-21]
+        //
+        // **「모델이 붐빈다」를 429 로 주는 것은 모든 공급자의 약속이 아니다.**
+        // Gemini 는 503 에 "This model is currently experiencing high demand" 를
+        // 담아 준다. 이 갈래가 없던 동안 그것은 아래 「그 밖의 HTTP 오류」로
+        // 떨어졌고, 그 자리는 **모델도 공급자도 바꾸지 않는다** — 설정해 둔
+        // 예비 모델(gemini-3.6-flash 등)이 멀쩡히 답하는데도 한 번 붐빈 것으로
+        // 그대로 실패했다. 실제로 그 때문에 AI 작업의 「처리 요약」이 사흘 동안
+        // 절반쯤 비어 있었다(`AiResultSummarizer` → `AiRunSummaryWriter`).
+        //
+        // 5xx 를 넓게 잡는다. 상류가 붐빌 때 502·504 로 돌려주는 곳도 있고,
+        // **틀렸을 때 잃는 것이 적다** — 예비 모델로 한 번 더 부를 뿐이고,
+        // 그것마저 실패하면 어차피 같은 자리로 온다. 401 은 위에서 이미 걸렀다.
+        if (status is HttpStatusCode.ServiceUnavailable or HttpStatusCode.BadGateway
+                or HttpStatusCode.GatewayTimeout
+            || LooksOverloaded(error))
+        {
+            _logger.LogWarning(
+                "{Provider}({Model}) 이 지금 붐빕니다({Status}). 응답: {Error}",
+                provider.Key, model, (int)status, Truncate(error));
+
+            var busyReason = ExtractProviderError(error);
+
+            throw new AiProviderException(
+                $"{provider.DisplayName} 이 지금 붐벼 답하지 못했습니다. "
+                + "잠시 뒤에 다시 시도하거나 환경설정에서 다른 AI 모델을 선택하세요."
+                + (busyReason is null ? "" : $" (공급자 설명: {busyReason})"),
+                provider.Key,
+                statusCode: (int)status,
+                retryAfterSeconds: retryAfter,
+                isTransientOverload: true,
+                model: model);
         }
 
         _logger.LogError(
@@ -1342,6 +1395,39 @@ public class LLMService : ILLMService
             "daily limit",
             "per day",
             "add 10 credits",
+        };
+
+        return markers.Any(m => errorBody.Contains(m, StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
+    /// 응답 본문이 <b>지금 붐빈다</b>고 말하고 있는지.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 상태 코드만으로는 모자라다. 공급자가 붐빔을 5xx 가 아닌 코드에 담는 경우가
+    /// 있고(200 봉투 안의 오류, 400), 반대로 5xx 가 늘 붐빔인 것도 아니다.
+    /// <b>모르면 아니라고 본다</b> — 붐빔으로 잘못 보면 멀쩡한 오류를 숨긴 채
+    /// 예비 모델을 돌려 가며 태운다.
+    /// </para>
+    /// <para>
+    /// Gemini: "This model is currently experiencing high demand." ·
+    /// OpenAI 계열: "The engine is currently overloaded" ·
+    /// Anthropic: "Overloaded".
+    /// </para>
+    /// </remarks>
+    private static bool LooksOverloaded(string errorBody)
+    {
+        if (string.IsNullOrWhiteSpace(errorBody)) return false;
+
+        string[] markers =
+        {
+            "high demand",
+            "overload",
+            "capacity",
+            "try again later",
+            "temporarily unavailable",
+            "service unavailable",
         };
 
         return markers.Any(m => errorBody.Contains(m, StringComparison.OrdinalIgnoreCase));
