@@ -1,4 +1,3 @@
-using System.Text.RegularExpressions;
 using JSini.Web.Components.Data;
 using JSini.Web.Http;
 
@@ -51,7 +50,7 @@ namespace JSini.Web.Components.Layout;
 /// scoped 다 — 회로 하나가 사용자 한 명이다.
 /// </para>
 /// </remarks>
-public sealed partial class CurrentUser(GatewayClient gateway, ILogger<CurrentUser> logger)
+public sealed class CurrentUser(GatewayClient gateway, ILogger<CurrentUser> logger)
 {
     /// <summary>실명. 없으면 로그인 아이디.</summary>
     public string? DisplayName { get; private set; }
@@ -210,27 +209,12 @@ public sealed partial class CurrentUser(GatewayClient gateway, ILogger<CurrentUs
     /// 사진 주소에서 파일 식별자(GUID)를 추출한다.
     /// 셸 중계 경로(/files/...)와 백엔드 상대경로(/api/file/...) 둘 다 해석한다.
     /// </summary>
-    private static string? ExtractFileId(string? avatar)
-    {
-        if (string.IsNullOrWhiteSpace(avatar))
-        {
-            return null;
-        }
-
-        // 1. 이미 셸 중계 경로인 경우 (/files/thumbnail/{guid} 또는 /files/{guid})
-        if (avatar.StartsWith(FileDownload.Path + "/", StringComparison.OrdinalIgnoreCase))
-        {
-            var segments = avatar.Split('?')[0].Split('/', StringSplitOptions.RemoveEmptyEntries);
-            if (segments.Length > 0 && Guid.TryParse(segments[^1], out var guid))
-            {
-                return guid.ToString();
-            }
-        }
-
-        // 2. 백엔드 주소인 경우 (/api/file/download/id/{guid} 등)
-        var match = LegacyFileUrl().Match(avatar);
-        return match.Success ? match.Groups["id"].Value : null;
-    }
+    /// <remarks>
+    /// 규칙이 <see cref="FileDownload.FileIdOf"/> 로 올라갔다 — 남의 얼굴을
+    /// 그리는 업무 화면도 같은 판정을 해야 하는데, 여기 사본으로 두면
+    /// <b>어긋나는 쪽이 「사진이 있는데 안 나온다」</b>가 된다.
+    /// </remarks>
+    private static string? ExtractFileId(string? avatar) => FileDownload.FileIdOf(avatar);
 
     /// <summary>
     /// 우리 파일 주소면 셸 원본 중계 경로로 옮겨 돌려주고, 아니면 <c>null</c>.
@@ -257,14 +241,6 @@ public sealed partial class CurrentUser(GatewayClient gateway, ILogger<CurrentUs
         var parts = new[] { company, dept }.Where(p => !string.IsNullOrWhiteSpace(p)).ToArray();
         return parts.Length == 0 ? null : string.Join(" · ", parts);
     }
-
-    /// <summary>
-    /// 백엔드 파일 주소. <c>download</c> · <c>thumbnail</c> 등 형태와 <c>id/</c> 유무를 둘 다 맞춘다.
-    /// </summary>
-    [GeneratedRegex(
-        @"/api/file/(?:download|thumbnail|medium|large)/(?:id/)?(?<id>[0-9a-fA-F-]{36})",
-        RegexOptions.IgnoreCase)]
-    private static partial Regex LegacyFileUrl();
 
     /// <summary><c>auth/user/info</c> 에서 헤더가 쓰는 칸만.</summary>
     /// <summary><c>/auth/user/info</c> 응답 한 벌. 부트스트랩도 같은 모양을 싣는다.</summary>

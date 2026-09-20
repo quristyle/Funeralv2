@@ -1828,12 +1828,17 @@
 /* 카드 전체가 누르는 자리다. 표가 아니라 단추 목록인 이유는 **모바일에서
    표의 가로 스크롤이 최악**이기 때문이다.
 
-   두 층뿐이라 여백을 줄였다. 다만 `min-height` 는 그대로 둔다 —
+   **가로 둘이다** — 왼쪽이 지시자의 얼굴, 오른쪽이 두 층(`pm-ask__rows`)이다.
+   얼굴을 윗층 안에 끼우지 않는 이유는 그 줄이 이미 셋을 쓰고 있어서
+   (배지 · 상태 · 총작업시간) 반 폭 카드에서 폭을 다투기 때문이고, 무엇보다
+   「누구 것인가」는 **두 층 모두에 걸리는 값**이라 한 줄에 속하지 않는다.
+
+   여백을 줄였다. 다만 `min-height` 는 그대로 둔다 —
    **손가락으로 겨누는 자리의 바닥**이지 카드의 장식이 아니다. */
 .pm-ask__head {
   display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
+  align-items: center;
+  gap: 0.5rem;
   width: 100%;
   min-height: 2.75rem;
   padding: 0.5rem 0.6rem;
@@ -1847,6 +1852,57 @@
 
 .pm-ask__head:hover {
   background: color-mix(in srgb, var(--jsini-text) 6%, transparent);
+}
+
+/* 두 층이 들어가는 칸. **`min-width: 0` 이 있어야 한다** — 없으면 안쪽
+   제목이 자기 글자 길이만큼 칸을 밀어내 얼굴이 카드 밖으로 밀린다
+   (flex 항목의 기본 최소 너비가 `auto` 다). */
+.pm-ask__rows {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+/* ── 지시자의 얼굴 (`pm-ask__face`) ──────────────────────────
+
+   누가 시킨 건인지를 **글자가 아니라 얼굴로** 말한다. 이 화면은 여럿이
+   같은 목록을 보므로(서버가 「내 것만」으로 가리지 않는다 — `LoadRecentAsync`)
+   카드마다 지시자가 다르다.
+
+   **줄어들지 않는다**(`flex: 0 0 auto`). 반 폭 카드에서 제목이 길 때
+   이것이 먼저 눌리면 동그라미가 타원이 된다. 카드에서 잘려도 되는 것은
+   제목 꼬리 하나뿐이다(목록 머리말).
+
+   사진이 없으면 이름 첫 글자다. 바탕을 옅게 깔아 **빈자리가 아니라는
+   것**을 보인다 — 상태 띠 색(`--pm-ask-tone`)을 쓰지 않는다. 그 색은
+   「어떻게 됐나」를 말하는 자리라, 얼굴까지 같은 색으로 칠하면 사람이
+   상태의 일부로 읽힌다. */
+.pm-ask__face {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 50%;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--jsini-text) 10%, transparent);
+  color: var(--jsini-text);
+}
+
+.pm-ask__face-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.pm-ask__face-initial {
+  font-size: 0.75em;
+  font-weight: 700;
+  line-height: 1;
+  opacity: 0.8;
 }
 
 /* 첫 층 — **상태와 총작업시간.** 「끝났나 · 얼마나 걸렸나」가 한 줄이다.

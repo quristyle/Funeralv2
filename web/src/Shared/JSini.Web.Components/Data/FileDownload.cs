@@ -194,6 +194,57 @@ public static class FileDownload
         RegexOptions.Compiled);
 
     /// <summary>
+    /// 사진·첨부 주소에서 <b>파일 아이디(GUID)</b>를 꺼낸다. 우리 파일이 아니면 <c>null</c>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 받는 모양이 둘이다 — 백엔드에 적혀 있는 Vue 시절 주소
+    /// (<c>/api/file/download/id/{guid}</c>)와 이미 옮겨 놓은 셸 중계 경로
+    /// (<c>/files/{guid}</c> · <c>/files/thumbnail/{guid}</c>)다. 저장된 값이
+    /// 어느 쪽인지 시절마다 다르므로 <b>둘 다 받는다.</b>
+    /// </para>
+    /// <para>
+    /// <b>우리 파일이 아닌 주소를 걸러 내는 자리이기도 하다.</b> 사진을 한 번도
+    /// 올리지 않은 계정에는 서버가 바깥 기본 이미지 주소를 채워 준다
+    /// (alipayobjects.com). 그것을 그대로 <c>&lt;img&gt;</c> 에 걸면 화면을 열
+    /// 때마다 바깥으로 요청이 나가므로 <b>「사진 없음」으로 본다</b> — 화면은
+    /// 그때 이름 첫 글자를 대신 그린다.
+    /// </para>
+    /// </remarks>
+    public static string? FileIdOf(string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+        {
+            return null;
+        }
+
+        // ① 이미 셸 중계 경로인 경우 — 마지막 조각이 GUID 다.
+        if (url.StartsWith(Path + "/", StringComparison.OrdinalIgnoreCase))
+        {
+            var segments = url.Split('?')[0].Split('/', StringSplitOptions.RemoveEmptyEntries);
+
+            if (segments.Length > 0 && Guid.TryParse(segments[^1], out var guid))
+            {
+                return guid.ToString();
+            }
+        }
+
+        // ② 백엔드 주소인 경우.
+        //
+        // **<see cref="FileApiUrl"/> 를 쓰지 않는다.** 그쪽은 앞머리를 박아 둔
+        // (`^`) 정규식이라 `http://…/api/file/…` 처럼 오리진이 붙은 값을 놓친다.
+        // 첨부를 옮기는 자리(`RelayUrl`)는 상대경로만 오는 것이 확인돼 있지만
+        // (머리말의 66건), 프로필 사진은 계정 확장 속성이라 그 확인 밖이다.
+        var match = AnyFileUrl.Match(url);
+        return match.Success ? match.Groups["id"].Value : null;
+    }
+
+    /// <summary>어디에 박혀 있어도 찾아내는 파일 읽기 주소. <see cref="FileIdOf"/> 가 쓴다.</summary>
+    private static readonly Regex AnyFileUrl = new(
+        @"/api/file/(?:download|thumbnail|medium|large)/(?:id/)?(?<id>[0-9a-fA-F-]{36})",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    /// <summary>
     /// 자료실 첨부 하나의 내려받기 주소. <b>내려받은 횟수를 센다.</b>
     /// </summary>
     /// <remarks>

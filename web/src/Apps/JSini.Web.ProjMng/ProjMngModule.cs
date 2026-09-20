@@ -54,6 +54,11 @@ public sealed class ProjMngModule : IPortalModule
         services.AddScoped<AiTaskClient>();
         services.AddScoped<AiTargetClient>();
 
+        // 지시자의 이름과 얼굴. 업무 자료에는 로그인 아이디만 있어서
+        // 계정 쪽(`auth/user/faces`)에 한 번 더 묻는다 — 한 번 물어본 것은
+        // 들고 있으므로 목록을 다시 읽어도 왕복이 늘지 않는다.
+        services.AddScoped<UserFaceClient>();
+
         // 작성 중인 지시문을 브라우저에 적어 두는 곳. 화면이 아니라 서비스인
         // 이유는 화면이 다시 만들어질 때마다(탭을 옮길 때마다) 새로 태어나는
         // 것이 화면이기 때문이다 — 적어 둔 곳은 그것보다 오래 남아야 한다.

@@ -1,4 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using AuthServer.Data;
 using AuthServer.Entities;
 using AuthServer.Services;
 using AuthServer.DTOs;
@@ -28,6 +30,81 @@ public static class UserEndpoints
             return Results.Ok(ApiResponse<UserInfoDto>.Ok(userInfo));
         })
         .WithName("GetUserInfo");
+
+        // ── 여러 사람의 이름과 얼굴 ──────────────────────────────
+        //
+        // 업무 화면이 「누가 한 일인가」를 얼굴로 말할 때 쓴다. 첫 손님은
+        // 프로젝트관리의 「빠른 지시」 — 최근 지시 카드에 지시자의 아바타가 선다.
+        //
+        // **왜 업무 서비스가 직접 못 푸는가.** 업무 DB 에 적혀 있는 것은
+        // 지시한 사람의 로그인 아이디뿐이고(`ai_task.cre_id`), 그 사람의 사진이
+        // 어디 있는지는 `scom` 만 안다. 알림 서비스가 푸시 아이콘을 푸는 것과
+        // 같은 까닭이다(NotificationServer/Services/AvatarIconResolver.cs).
+        //
+        // **`/system/account/list` 로 대신하지 않는다.** 그쪽은 계정 관리
+        // 화면의 자료라 메일·전화·역할까지 실려 있고, 업무 화면 하나가 열릴
+        // 때마다 전 직원의 연락처가 브라우저까지 간다. 여기는 세 칸만 준다.
+        //
+        // **로그인한 사람만 부를 수 있다.** 게이트웨이의 `/api/auth/**` 는
+        // 익명 통과라, 신원을 여기서 한 번 본다 — 안 보면 얼굴 목록이
+        // 아무나 긁어 갈 수 있는 자리가 된다.
+        group.MapGet("/faces", async (
+            UserContext? user, [FromQuery] string? ids,
+            [FromServices] AppDbContext db, CancellationToken ct) =>
+        {
+            if (user is null)
+            {
+                return Results.Json(ApiResponse<object>.Fail("인증 정보가 없습니다.", "401"), statusCode: 401);
+            }
+
+            var wanted = (ids ?? string.Empty)
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Take(MaxFaces)
+                .ToList();
+
+            if (wanted.Count == 0)
+            {
+                return Results.Ok(ApiResponse<List<UserFaceDto>>.Ok([]));
+            }
+
+            var accounts = await db.Accounts
+                .Where(a => !a.IsDeleted && wanted.Contains(a.UserId))
+                .Select(a => new { a.Id, a.UserId, a.UserName, a.RealName })
+                .ToListAsync(ct);
+
+            var accountIds = accounts.Select(a => a.Id).ToList();
+
+            // 대표 사진이 여럿일 수 있다(`is_primary` 가 유일하지 않다).
+            // 알림 아이콘을 고를 때와 같은 규칙으로 대표를 먼저 세운다.
+            var avatars = await db.AccountProfileDetails
+                .Where(d => accountIds.Contains(d.AccountId)
+                    && d.DetailType == "Avatar"
+                    && !d.IsDeleted
+                    && d.Content != "")
+                .Select(d => new { d.AccountId, d.Content, d.IsPrimary })
+                .ToListAsync(ct);
+
+            var avatarOf = avatars
+                .GroupBy(d => d.AccountId)
+                .ToDictionary(
+                    g => g.Key,
+                    g => g.OrderByDescending(d => d.IsPrimary).First().Content);
+
+            // 못 찾은 아이디는 **빠진 채로 돌려준다.** 화면은 그 자리에
+            // 아이디 첫 글자를 그리면 되고, 없는 사람을 지어내는 것보다 낫다.
+            var faces = accounts
+                .Select(a => new UserFaceDto
+                {
+                    UserId = a.UserId,
+                    Name = FirstFilled(a.UserName, a.RealName, a.UserId),
+                    Avatar = avatarOf.TryGetValue(a.Id, out var url) ? url : null,
+                })
+                .ToList();
+
+            return Results.Ok(ApiResponse<List<UserFaceDto>>.Ok(faces));
+        })
+        .WithName("GetUserFaces");
 
         // 계정 활동 정보. 계정 정보 화면이 쓴다.
         //
@@ -195,4 +272,18 @@ public static class UserEndpoints
         })
         .WithName("UpdateSetting");
     }
+
+    /// <summary>
+    /// 한 번에 풀어 주는 얼굴 수의 상한.
+    /// </summary>
+    /// <remarks>
+    /// 카드 목록 한 화면이 쓰는 수보다 넉넉하다. 상한을 두는 이유는 건수가
+    /// 아니라 <b>주소 길이와 질의 크기</b>다 — 아이디를 쉼표로 이어 보내므로
+    /// 막아 두지 않으면 요청 한 줄로 전 직원을 긁을 수 있다.
+    /// </remarks>
+    private const int MaxFaces = 100;
+
+    /// <summary>비어 있지 않은 첫 값. 셋 다 비면 빈 글자다.</summary>
+    private static string FirstFilled(params string?[] candidates)
+        => candidates.FirstOrDefault(c => !string.IsNullOrWhiteSpace(c)) ?? string.Empty;
 }

@@ -176,6 +176,7 @@
 @inject AiTargetClient TargetApi
 @inject AiModelCodes ModelCodes
 @inject AiAskPrefs Prefs
+@inject UserFaceClient Faces
 @inject IJSRuntime JS
 @inject NavigationManager Nav
 
@@ -327,11 +328,12 @@
             <ul class="pm-ask__list">
                 @foreach (var t in _recent)
                 {
-                    @* 카드 한 장이 건 하나고 **두 층**이다.
+                    @* 카드 한 장이 건 하나고 **얼굴 하나 + 두 층**이다.
 
-                       윗층이 「끝났나 · 얼마나 걸렸나」(상태 · 총작업시간),
-                       아랫층이 「언제 · 무엇을」(실행일시 · 제목)이다. 중요한
-                       셋을 위와 왼쪽에 몰아 둔다 — 반 폭 카드에서 잘리는 것은
+                       왼쪽이 지시자의 얼굴이고(바로 아래 주석), 오른쪽 윗층이
+                       「끝났나 · 얼마나 걸렸나」(상태 · 총작업시간), 아랫층이
+                       「언제 · 무엇을」(실행일시 · 제목)이다. 중요한 것을 위와
+                       왼쪽에 몰아 둔다 — 반 폭 카드에서 잘리는 것은
                        **제목 꼬리뿐**이고, 그 자리는 눌러서 본다.
 
                        상태는 **카드의 색**이기도 하다(`pm-ask__item--@t.StatusTone`).
@@ -344,19 +346,47 @@
                        같은 「C」다. 여기에 이름을 그대로 적으면 **제목이 쓰던
                        폭을 먹는다.** 색을 못 보는 사람을 위해 `title` 로
                        전체 이름을 단다(공통코드에서 읽은 그 이름이다). *@
+                    @* 왼쪽에 **지시자의 얼굴**이 선다. 두 층 옆에 세로로
+                       가운데를 맞춰 두는 이유는 좁은 카드에서 윗줄에 끼워
+                       넣으면 상태·시간과 폭을 다투기 때문이다 — 얼굴은
+                       두 층 모두에 걸리는 값(「이 건은 누구 것인가」)이라
+                       어느 한 줄에 속하지도 않는다.
+
+                       사진이 없는 사람은 이름 첫 글자다. 헤더의 사용자
+                       단추와 같은 규칙이고(`CurrentUser.Initial`), 얼굴을
+                       아직 못 읽었을 때도 그 자리는 비지 않는다 —
+                       아이디 첫 글자가 대신 선다. *@
+                    var face = Faces.Get(t.CreId);
+                    var who = face?.Name ?? t.CreId;
+
                     <li class="pm-ask__item pm-ask__item--@t.StatusTone">
                         <button type="button" class="pm-ask__head"
                                 @onclick="@(() => Peek(t.TaskKey))">
-                            <span class="pm-ask__line">
-                                <span class="pm-ask__ai pm-ask__ai--@AiRunnerMark.Tone(t.RunnerKind)"
-                                      title="@KindName(t.RunnerKind)">@AiRunnerMark.Letter(t.RunnerKind)</span>
-                                <span class="pm-ask__state">@t.StatusText</span>
-                                <span class="pm-ask__span">@AiTaskWhen.Elapsed(t)</span>
+                            <span class="pm-ask__face" title="@who">
+                                @if (face?.Photo is { Length: > 0 } photo)
+                                {
+                                    @* 못 받아 오면 깨진 그림 대신 첫 글자로 돌아간다. *@
+                                    <img class="pm-ask__face-img" src="@photo" alt=""
+                                         @onerror="@(() => Faces.MarkPhotoUnavailable(t.CreId))" />
+                                }
+                                else
+                                {
+                                    <span class="pm-ask__face-initial">@Initial(face, t.CreId)</span>
+                                }
                             </span>
 
-                            <span class="pm-ask__line pm-ask__line--sub">
-                                <span class="pm-ask__when">@AiTaskWhen.RunAt(t, compact: true)</span>
-                                <span class="pm-ask__title">@t.Title</span>
+                            <span class="pm-ask__rows">
+                                <span class="pm-ask__line">
+                                    <span class="pm-ask__ai pm-ask__ai--@AiRunnerMark.Tone(t.RunnerKind)"
+                                          title="@KindName(t.RunnerKind)">@AiRunnerMark.Letter(t.RunnerKind)</span>
+                                    <span class="pm-ask__state">@t.StatusText</span>
+                                    <span class="pm-ask__span">@AiTaskWhen.Elapsed(t)</span>
+                                </span>
+
+                                <span class="pm-ask__line pm-ask__line--sub">
+                                    <span class="pm-ask__when">@AiTaskWhen.RunAt(t, compact: true)</span>
+                                    <span class="pm-ask__title">@t.Title</span>
+                                </span>
                             </span>
                         </button>
                     </li>
@@ -561,6 +591,24 @@
 
         return AllKinds.FirstOrDefault(
             k => string.Equals(k.Value, kind, StringComparison.OrdinalIgnoreCase))?.Text ?? kind;
+    }
+
+    /// <summary>
+    /// 사진이 없는 지시자의 동그라미에 넣을 <b>글자 한 자</b>.
+    /// </summary>
+    /// <remarks>
+    /// 얼굴을 아직 못 읽었거나(첫 그림 · 조회 실패) 지워진 계정이면
+    /// <b>로그인 아이디</b>의 첫 글자로 대신한다. 그 자리를 비우면 얼굴이
+    /// 있는 카드와 없는 카드의 <b>왼쪽 여백이 달라져</b> 목록이 들쭉날쭉해진다.
+    /// </remarks>
+    private static string Initial(UserFace? face, string? creId)
+    {
+        if (face is not null)
+        {
+            return face.Initial;
+        }
+
+        return string.IsNullOrWhiteSpace(creId) ? "?" : creId.Trim()[..1].ToUpperInvariant();
     }
 
     /// <summary>
@@ -887,6 +935,14 @@
             return _recent.Count;
         }, emptyMessage: string.Empty, failMessage: "보낸 것을 읽지 못했습니다");
 
+        // 지시자의 얼굴. **깔린 카드만이 아니라 받아 둔 것 전부**를 채운다 —
+        // 「더보기」는 서버를 다시 부르지 않으므로(`ShowMore`) 여기서 안
+        // 채우면 펼친 순간 얼굴 없는 카드가 깔린다.
+        //
+        // 화면을 막지 않는다. 얼굴은 목록이 다 그려진 뒤에 채워져도 되고,
+        // 못 읽어도 첫 글자가 선다.
+        await Faces.EnsureAsync(_all.Select(t => t.CreId));
+
         Follow();
     }
 
@@ -1193,6 +1249,11 @@
                     }
 
                     Show(rows);
+
+                    // 따라가는 동안 **남이 보낸 건이 끼어든다.** 첫 조회 때와
+                    // 같이 모르는 아이디만 묻는다 — 아는 것은 들고 있으므로
+                    // 5초마다 도는 이 고리가 왕복을 늘리지 않는다.
+                    await Faces.EnsureAsync(_all.Select(t => t.CreId), cts.Token);
 
                     await InvokeAsync(StateHasChanged);
 
