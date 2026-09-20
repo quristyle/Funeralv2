@@ -89,7 +89,7 @@
                 NullText="거절 사유 (신청자에게 메일로 그대로 갑니다)" />
     </BodyContentTemplate>
 
-    <FooterContentTemplate>
+    <FooterContentTemplate Context="popupContext">
         <DxButton Text="거절" RenderStyle="ButtonRenderStyle.Danger" Click="@RejectAsync" />
         <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary"
                   Click="@(() => _rejecting = false)" />

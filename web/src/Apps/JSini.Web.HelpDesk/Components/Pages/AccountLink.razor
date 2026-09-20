@@ -140,7 +140,7 @@
 
     </BodyContentTemplate>
 
-    <FooterContentTemplate>
+    <FooterContentTemplate Context="popupContext">
         <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Primary" Click="@SaveAsync" />
         <DxButton Text="취소" RenderStyle="ButtonRenderStyle.Secondary"
                   Click="@(() => _editing = false)" />

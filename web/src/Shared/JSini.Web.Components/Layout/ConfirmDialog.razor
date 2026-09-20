@@ -42,7 +42,7 @@
         <div class="jsini-confirm__body">@_message</div>
     </BodyContentTemplate>
 
-    <FooterContentTemplate>
+    <FooterContentTemplate Context="popupContext">
         @* 확인이 왼쪽이다. DevExpress 데모·Windows 관례가 그렇고,
            무엇보다 「닫기」가 오른쪽 끝에 있어야 습관대로 눌러도 안 지워진다. *@
         <DxButton Text="@_confirmText" RenderStyle="@_confirmStyle" Click="@(() => Answer(true))" />

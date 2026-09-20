@@ -95,7 +95,7 @@
 
     </BodyContentTemplate>
 
-    <FooterContentTemplate>
+    <FooterContentTemplate Context="popupContext">
         <DxButton Text="보관" RenderStyle="ButtonRenderStyle.Primary" Click="@SaveSampleAsync" />
         <DxButton Text="취소" RenderStyle="ButtonRenderStyle.Secondary"
                   Click="@(() => _savingSample = false)" />

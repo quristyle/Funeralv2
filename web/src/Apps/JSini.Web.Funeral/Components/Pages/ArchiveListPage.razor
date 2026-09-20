@@ -193,7 +193,7 @@
         </DxFormLayout>
     </BodyContentTemplate>
 
-    <FooterContentTemplate>
+    <FooterContentTemplate Context="popupContext">
         <DxButton Text="@(_saving ? "저장 중…" : "저장")" RenderStyle="ButtonRenderStyle.Primary"
                   Enabled="@(!_saving)" Click="@SaveAsync" />
         <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary"

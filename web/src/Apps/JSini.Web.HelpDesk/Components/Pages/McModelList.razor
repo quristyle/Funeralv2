@@ -144,7 +144,7 @@
 
     </BodyContentTemplate>
 
-    <FooterContentTemplate>
+    <FooterContentTemplate Context="popupContext">
         <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Primary" Click="@SaveModelAsync" />
         <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary"
                   Click="@(() => _editingModel = false)" />
@@ -184,7 +184,7 @@
 
     </BodyContentTemplate>
 
-    <FooterContentTemplate>
+    <FooterContentTemplate Context="popupContext">
         <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Primary" Click="@SaveItemAsync" />
         <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary"
                   Click="@(() => _editingItem = false)" />

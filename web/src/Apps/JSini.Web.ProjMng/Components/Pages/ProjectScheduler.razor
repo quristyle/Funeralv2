@@ -230,7 +230,7 @@
         <WbsEditForm Item="@_form" />
     </BodyContentTemplate>
 
-    <FooterContentTemplate>
+    <FooterContentTemplate Context="popupContext">
         <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Primary" Click="@(() => SaveFormAsync(false))" />
 
         @* 원본의 `OnTodayAndSave`. 미뤄 둔 일을 오늘로 끌어오는 한 번 누르기다. *@

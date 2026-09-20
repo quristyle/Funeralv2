@@ -176,7 +176,7 @@
         }
     </BodyContentTemplate>
 
-    <FooterContentTemplate>
+    <FooterContentTemplate Context="popupContext">
         @* 자세히 보려면 큰 화면으로 보낸다. 로그 수천 줄과 편집기는 이 창에
            들어올 것이 아니다.
 
@@ -245,7 +245,7 @@
         }
     </BodyContentTemplate>
 
-    <FooterContentTemplate>
+    <FooterContentTemplate Context="popupContext">
         <DxButton Text="재시도 요청" RenderStyle="ButtonRenderStyle.Primary"
                   Enabled="@(!_retrying)"
                   Click="@DoRetryAsync" />
@@ -273,7 +273,7 @@
         }
     </BodyContentTemplate>
 
-    <FooterContentTemplate>
+    <FooterContentTemplate Context="popupContext">
         <DxButton Text="이어서 지시 요청" RenderStyle="ButtonRenderStyle.Primary"
                   Enabled="@(!string.IsNullOrWhiteSpace(_continueAddition) && !_continuing)"
                   Click="@DoContinueAsync" />

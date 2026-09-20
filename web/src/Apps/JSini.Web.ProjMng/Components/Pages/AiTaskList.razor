@@ -524,7 +524,7 @@
                 CssClass="pm-ai-addition" />
     </BodyContentTemplate>
 
-    <FooterContentTemplate>
+    <FooterContentTemplate Context="popupContext">
         <DxButton Text="이어서 지시" RenderStyle="ButtonRenderStyle.Primary"
                   Enabled="@(!string.IsNullOrWhiteSpace(_addition) && !Busy)"
                   Click="@ContinueAsync" />

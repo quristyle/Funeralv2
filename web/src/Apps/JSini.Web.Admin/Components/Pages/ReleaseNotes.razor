@@ -194,7 +194,7 @@
         }
     </BodyContentTemplate>
 
-    <FooterContentTemplate>
+    <FooterContentTemplate Context="popupContext">
         <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary" Click="@(() => _showingRun = false)" />
     </FooterContentTemplate>
 </CommPopup>

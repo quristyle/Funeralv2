@@ -277,7 +277,7 @@
         @CodeFields(_codeEdit)
     </BodyContentTemplate>
 
-    <FooterContentTemplate>
+    <FooterContentTemplate Context="popupContext">
         <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Primary" Click="@SaveEditingCodeAsync" />
         <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary" Click="@(() => _editingCode = false)" />
     </FooterContentTemplate>

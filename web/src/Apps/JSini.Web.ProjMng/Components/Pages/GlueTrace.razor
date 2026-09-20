@@ -109,7 +109,7 @@
 
     </BodyContentTemplate>
 
-    <FooterContentTemplate>
+    <FooterContentTemplate Context="popupContext">
         <DxButton Text="재수집" RenderStyle="ButtonRenderStyle.Danger" Click="@RecollectAsync" />
         <DxButton Text="취소" RenderStyle="ButtonRenderStyle.Secondary"
                   Click="@(() => _confirmRecollect = false)" />

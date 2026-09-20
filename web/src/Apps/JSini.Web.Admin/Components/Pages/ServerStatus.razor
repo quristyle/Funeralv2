@@ -617,7 +617,7 @@
                         Text="되돌릴 수 없습니다. 지운 이미지가 다시 필요하면 그 태그를 다시 빌드해야 합니다." />
         }
     </BodyContentTemplate>
-    <FooterContentTemplate>
+    <FooterContentTemplate Context="popupContext">
         <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary"
                   Click="@(() => _confirmVisible = false)" />
         @if (_preview is { Removed.Count: > 0 })

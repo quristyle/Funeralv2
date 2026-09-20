@@ -95,7 +95,7 @@
 
     </BodyContentTemplate>
 
-    <FooterContentTemplate>
+    <FooterContentTemplate Context="popupContext">
         <DxButton Text="넣기" RenderStyle="ButtonRenderStyle.Primary"
                   Enabled="@(_picked.Any())" Click="@AddAsync" />
         <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary"

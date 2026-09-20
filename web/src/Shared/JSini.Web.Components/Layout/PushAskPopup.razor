@@ -94,7 +94,7 @@
             </ul>
         </BodyContentTemplate>
 
-        <FooterContentTemplate>
+        <FooterContentTemplate Context="popupContext">
             <DxButton Text="@(_busy ? "등록하는 중…" : "알림 받기")"
                       RenderStyle="ButtonRenderStyle.Primary"
                       Enabled="@(!_busy)" Click="@SubscribeAsync" />
