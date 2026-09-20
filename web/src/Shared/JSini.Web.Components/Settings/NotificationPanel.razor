@@ -178,7 +178,7 @@
         <div class="jsini-fact">
             <dt>이 브라우저 등록</dt>
             <dd>
-                @if (_browser.Subscribed)
+                @if (IsThisBrowserSubscribed)
                 {
                     <span class="jsini-badge jsini-badge--on">받는 중</span>
                 }
@@ -209,7 +209,7 @@ else if (_browser.Permission == "denied")
     <PageNotice Tone="NoticeTone.Warning"
                 Text="브라우저에서 이 사이트의 알림을 차단해 두었습니다. 주소창 왼쪽 자물쇠 → 알림에서 허용으로 바꾼 뒤 다시 시도하세요." />
 }
-else if (_browser.Subscribed)
+else if (IsThisBrowserSubscribed)
 {
     @* NoticeTone 에 Success 가 없다 — 「됐다」와 「아직이다」 둘 다 알림이다.
        둘을 색으로 가르지 않고 **말투로** 가른다(아래는 주의). *@
@@ -229,14 +229,14 @@ else
 }
 
 <div class="jsini-toolbar">
-    @if (_browser is { Supported: true, Subscribed: false } && _browser.Permission != "denied")
+    @if (_browser is { Supported: true } && !IsThisBrowserSubscribed && _browser.Permission != "denied")
     {
         <DxButton Text="이 브라우저에서 알림 받기" RenderStyle="ButtonRenderStyle.Primary"
                   Enabled="@(_settings?.PushAvailable == true && !_busy)"
                   Click="@SubscribeAsync" />
     }
 
-    @if (_browser is { Subscribed: true })
+    @if (IsThisBrowserSubscribed)
     {
         <DxButton Text="이 브라우저 등록 해제" RenderStyle="ButtonRenderStyle.Secondary"
                   Enabled="@(!_busy)" Click="@UnsubscribeAsync" />
@@ -682,6 +682,9 @@ else
     private bool IsThisBrowser(PushDeviceDto device)
         => !string.IsNullOrWhiteSpace(device.Endpoint)
            && string.Equals(device.Endpoint, _browser?.Endpoint, StringComparison.Ordinal);
+
+    /// <summary>브라우저에 구독이 있고 서버 목록에도 이 브라우저가 있는지 확인한다.</summary>
+    private bool IsThisBrowserSubscribed => _browser?.Subscribed == true && Devices.Any(IsThisBrowser);
 
     /// <summary>
     /// 사람이 읽는 기기 이름.

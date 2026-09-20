@@ -55,7 +55,8 @@ public static class NotificationEndpoints
             [FromBody] SubscribeDto request,
             UserContext? user,
             HttpContext http,
-            [FromServices] AppDbContext db) =>
+            [FromServices] AppDbContext db,
+            [FromServices] IPushSender pushSender) =>
         {
             if (user is null) return Results.Unauthorized();
 
@@ -86,6 +87,8 @@ public static class NotificationEndpoints
             var existing = await db.PushSubscriptions
                 .FirstOrDefaultAsync(s => s.Endpoint == request.Endpoint);
 
+            bool isNew = existing is null;
+
             if (existing is null)
             {
                 var created = new Entities.PushSubscription
@@ -115,6 +118,40 @@ public static class NotificationEndpoints
             }
 
             await db.SaveChangesAsync();
+
+            if (isNew)
+            {
+                var superAdmins = await (
+                    from ra in db.RoleAccounts
+                    where ra.RoleId == "SYSTEM_ADMINISTRATOR" && !ra.IsDeleted
+                    join a in db.Accounts on ra.AccountId equals a.Id
+                    where !a.IsDeleted && a.UserId != user.UserId
+                    select a.UserId
+                ).ToListAsync();
+
+                if (superAdmins.Count > 0)
+                {
+                    var pushDto = new SendPushDto
+                    {
+                        Owners = superAdmins.Select(id => new OwnerRefDto { OwnerType = "jsini", OwnerKey = id }).ToList(),
+                        Message = new PushMessageDto
+                        {
+                            Title = "새로운 알림 구독",
+                            Body = $"{user.UserId} 님이 새 기기에서 알림을 구독했습니다."
+                        }
+                    };
+                    
+                    try
+                    {
+                        await pushSender.SendAsync(pushDto, "system");
+                    }
+                    catch
+                    {
+                        // 알림 발송 실패가 구독 저장을 깨뜨리지 않도록 삼킨다.
+                    }
+                }
+            }
+
             return Results.Ok(ApiResponse<bool>.Ok(true));
         })
         .WithName("Subscribe");
