@@ -1010,10 +1010,6 @@
             var madeOk = await RunAsync(async () =>
             {
                 var finalInstruction = _text;
-                if (!string.IsNullOrWhiteSpace(finalInstruction))
-                {
-                    finalInstruction += "\n\n작업에 생성되는 파일이나 변경된 내용이 실제 작성되었는지 다시 확인하고, 모든 작업이 끝나면 반드시 main 브랜치에 commit과 push를 수행해라.";
-                }
 
                 created = await Api.CreateAsync(new AiTaskDto
                 {
