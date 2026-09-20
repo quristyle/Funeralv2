@@ -114,9 +114,10 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: DevExpress 라이선스 파일 준비
-        env:
-          DEVEXPRESS_LICENSE: ${{ secrets.DEVEXPRESS_LICENSE }}
-        run: echo "$DEVEXPRESS_LICENSE" > /tmp/dxlicense.txt
+        run: |
+          cat << 'EOF' > /tmp/dxlicense.txt
+          LCXv1SUZ5RXpzbTBZWEZjSmZzemdZejJ6MTZzYm5XYWQ0dzVXMDdkcTU4Z0lTVVptMExCQmI1dFhCdHNLcjBrMktzN0VhQ1FKYU5oU3J3MW9Gd0NnOUFUKzZTRWlta0lXTVhtV0xTSXdFN0lkSHN6bEh6STBkSXhOMjZ2aGZCWFBSMW5haHgzaHc9PSg8UVp0cis6WS1GQGZMZCt5KDpiUmckMWdZJDEoNkpWLWUsMUNJaWctP2UjJSlfKEcyekRrTHlrUTl0OnRGNkdnYkpnJG9hKVMoNikkamJpLVEja29lcFNkaTg+KjNSYzFuLChnUjIxO24yTiEjKmN6IVMzYlYzakRkQytMZTNacFMrakg5bGwkQApgYW9vX2JfYk9NW2RyIyt5IUo+QlB1ciFaY2lQT2FUdVRHMW9HOG8wXUg4b0hfMDh1X0dUOGFjMF0wYkVVdTFKSHl5SgpHVTFdPzlOTkgsSDlIYGJIYGExTk5Ib0g/XW9hP2BhRzphXTFPVF9vVEdvX19dYVVhMVVIYUdhTzFIRzFvYl9IVEdfXTFiR1RdT11iX2FdVUhhVFVvR1ViR0dHR09iMVRUYlVIX1VUX19fX19fX19f
+          EOF
 
       - uses: docker/build-push-action@v6
         with:
