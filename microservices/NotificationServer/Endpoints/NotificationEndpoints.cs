@@ -383,7 +383,7 @@ public static class NotificationEndpoints
             var message = request ?? new PushMessageDto();
             if (string.IsNullOrWhiteSpace(message.Title)) message.Title = "JSini 포털 시험 알림";
             if (string.IsNullOrWhiteSpace(message.Body)) message.Body = "이 알림이 보이면 설정이 정상입니다.";
-            if (string.IsNullOrWhiteSpace(message.Url)) message.Url = "/system/push/setting";
+            if (string.IsNullOrWhiteSpace(message.Url)) message.Url = "/admin/push/setting";
 
             var result = await sender.SendAsync(new SendPushDto
             {
