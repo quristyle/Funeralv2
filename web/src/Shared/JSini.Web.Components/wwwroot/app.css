@@ -2083,10 +2083,16 @@ button.jsini-crumbs__item:hover { opacity: 1; }
 
   .jsini-shell__main { grid-column: 1; }
 
-  /* 모바일 화면에서는 왼쪽 아래 떠 있는 메뉴 단추(FAB, 높이 3rem + 여백 0.75rem)가
-     하단 컨텐츠나 버튼을 가리지 않도록 padding-bottom 을 늘려 컨텐츠가 단추 위로 올라오게 한다. */
+  /* 본문 여백은 **거의 주지 않는다.** 360px 짜리 화면에서 좌우 24px 씩은
+     쓸 수 있는 폭의 13% 라, 표 한 칸이 줄바꿈되고 조건 입력칸이 좁아진다.
+     읽는 데 필요한 틈은 안쪽 판(`commsch`·`commcont`)이 이미 준다.
+
+     아래만 예외다 — 하단 띠(60px + 안전영역)가 고정으로 떠 있어서 그만큼
+     비워 두지 않으면 **마지막 줄에 영영 닿지 못한다.** 여백이 아니라 자리
+     비킴이라 여기서 줄이지 않는다. 떠다니는 단추(FAB)는 모서리에 겹쳐
+     지나가게 둔다. */
   .jsini-shell__content {
-    padding: 0.25rem 0.25rem calc(4.75rem + env(safe-area-inset-bottom));
+    padding: 0.2rem 0.2rem calc(60px + env(safe-area-inset-bottom) + 0.2rem);
   }
 
   /* 모바일 화면에서는 탭 줄을 숨긴다. 본문 공간을 확보하고,
@@ -5504,8 +5510,14 @@ body {
   border-bottom-color: var(--jsini-accent);
 }
 
-.jsini-shell__content {
-  padding: var(--jsini-sp-2xl);
+/* **좁은 화면은 건드리지 않는다.** 이 규칙은 파일 위쪽의
+   `@media (max-width: 767px)` 본문 여백(0.2rem)보다 **뒤에 있어서**,
+   폭 조건 없이 적으면 같은 힘으로 나중에 이겨 휴대폰 여백을 24px 로
+   되돌려 놓는다. 한동안 그렇게 죽어 있었다 — 그래서 여기에 하한을 박는다. */
+@media (min-width: 768px) {
+  .jsini-shell__content {
+    padding: var(--jsini-sp-2xl);
+  }
 }
 
 .jsini-page-head {
@@ -6283,8 +6295,10 @@ body {
         display: flex;
     }
     
+    /* 위 본문 여백 규칙과 같은 값이다. 여기 것이 뒤에 있어 실제로 쓰이는 쪽이라
+       둘을 어긋나게 두면 한쪽만 고쳤을 때 조용히 옛 값으로 돌아간다. */
     .jsini-shell__content {
-        padding-bottom: 120px !important;
+        padding-bottom: calc(60px + env(safe-area-inset-bottom) + 0.2rem) !important;
     }
     
     .jsini-shell__fab--bottom-left, 
