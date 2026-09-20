@@ -53,6 +53,16 @@
     셋째까지는 DevExpress 가 주는 것이고(26.1 에서 확인), 넷째만 JS 다 —
     Blazor Server 는 브라우저의 스크롤 위치를 모른다(`jsiniSidebar.reveal`).
 
+    [사이드바를 열면 지금 화면의 메뉴가 펴져 있다]
+
+    휴대폰에서는 메뉴를 누르면 사이드바가 저절로 접히고(`MainLayout`), 다시
+    열면 트리가 **접힌 채**로 나왔다 — 펼침은 `DxTreeView` 안에만 있고 그
+    트리는 이동할 때 다시 지어지기 때문이다. 그러면 179개짜리 접힌 트리만
+    남아서 **고른 줄이 접힌 묶음 안에 들어 있어 보이지 않는다.**
+
+    그래서 펴질 때마다 지금 화면의 메뉴를 한 번 짚어 준다(`ShowActive`).
+    브레드크럼이 쓰던 길을 그대로 쓰므로 펴기·고르기·굴리기가 함께 일어난다.
+
     [즐겨찾기도 트리다]
 
     평평한 목록이었을 때는 담아 둔 「목록」이 어느 업무 것인지 알 수 없었다.
@@ -249,6 +259,23 @@
     /// <summary>그릴 메뉴들. **이미 걸러진 것**이어야 한다.</summary>
     [Parameter, EditorRequired] public IReadOnlyList<MenuNode> Nodes { get; set; } = [];
 
+    /// <summary>
+    /// 지금 보고 있는 화면의 메뉴 경로(<see cref="MenuNode.Path"/>).
+    /// 사이드바가 펴질 때마다 이 가지를 펴고 골라 준다(<see cref="ShowActive"/>).
+    /// </summary>
+    /// <remarks>
+    /// 레이아웃이 주소로 찾아 둔 줄기의 끝이다(<c>MainLayout.Track</c>). 여기서
+    /// 다시 찾지 않는 이유는 브레드크럼과 <b>같은 줄기를 봐야</b> 하기 때문이다 —
+    /// 따로 찾으면 둘이 다른 메뉴를 가리키는 자리가 생긴다.
+    /// </remarks>
+    [Parameter] public string? ActivePath { get; set; }
+
+    /// <summary>
+    /// 사이드바가 펴져 있나. <b>접힘은 레이아웃이 들고 있는 상태다</b> —
+    /// 여기서는 「방금 펴졌다」를 알아채는 데만 쓴다.
+    /// </summary>
+    [Parameter] public bool IsOpen { get; set; } = true;
+
     private enum Tab { Menu, Favorites }
 
     private Tab _tab = Tab.Menu;
@@ -271,6 +298,12 @@
     /// </para>
     /// </summary>
     private string? _revealPath;
+
+    /// <summary>
+    /// 이번 폄에서 이미 짚어 준 활성 메뉴의 경로. <see cref="ShowActive"/> 가
+    /// 쓰고, 사이드바가 접히면 지운다.
+    /// </summary>
+    private string? _activeShown;
 
     /// <summary>
     /// 이동이 끝난 뒤 <b>한 번 더</b> 펴 줘야 하는 자리. 「도착할 주소」와
@@ -333,6 +366,62 @@
     {
         _tab = tab;
         _expandFavorites = tab == Tab.Favorites;
+
+        // 즐겨찾기를 보는 동안에는 활성 메뉴를 짚지 않는다(ShowActive).
+        // 메뉴 탭으로 돌아왔으면 그 트리는 방금 새로 지어진 것이라 접혀 있다 —
+        // 여기서 한 번 다시 짚어 준다.
+        if (tab == Tab.Menu)
+        {
+            _activeShown = null;
+            ShowActive();
+        }
+    }
+
+    /// <summary>
+    /// <b>사이드바가 펴질 때마다 지금 화면의 메뉴를 펴고 골라 준다.</b>
+    ///
+    /// <para>
+    /// 휴대폰에서는 메뉴를 누르면 사이드바가 저절로 접히고(<c>MainLayout</c>의
+    /// <c>OnLocationChanged</c>), 다시 열면 트리가 <b>접힌 채</b>로 나온다 —
+    /// 펼침은 <c>DxTreeView</c> 안에만 있고 그 트리는 이동할 때 다시 지어지기
+    /// 때문이다(재어 본 것은 <see cref="_reapply"/> 머리말에 있다). 그러면
+    /// 179개짜리 접힌 트리만 남아서 <b>지금 어느 화면에 있는지 사이드바로는
+    /// 알 수 없다.</b> 고른 줄이 접힌 묶음 안에 들어 있으니 보이지 않는다.
+    /// </para>
+    ///
+    /// <para>
+    /// 그래서 펴질 때 한 번 짚어 준다. 브레드크럼이 하던 일(<see cref="RevealAsync"/>)을
+    /// 그대로 쓰므로 <b>펴기·고르기·보이는 자리로 굴리기</b>가 한꺼번에 된다.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>한 번만 한다</b>(<see cref="_activeShown"/>). 렌더마다 하면 사용자가
+    /// 접어 둔 가지가 다음 렌더에 도로 펴진다 — 즐겨찾기 펼침을 한 번만 하는
+    /// 것과 같은 이유다. 접히면 그 표시를 지워, <b>다음에 열 때 다시</b> 짚는다.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>브레드크럼의 부탁이 먼저다</b>(<c>??=</c>). 둘은 겹친다 — 브레드크럼을
+    /// 누르면 접혀 있던 사이드바를 레이아웃이 펴 주는데, 거기서 이쪽이 덮어쓰면
+    /// 「눌렀는데 엉뚱한 가지가 펴진다」가 된다.
+    /// </para>
+    /// </summary>
+    private void ShowActive()
+    {
+        if (!IsOpen)
+        {
+            // 접혔다. 표시만 지운다 — 다음에 펼 때 다시 짚는다.
+            _activeShown = null;
+            return;
+        }
+
+        if (_tab != Tab.Menu || ActivePath is not { Length: > 0 } path || _activeShown == path)
+        {
+            return;
+        }
+
+        _activeShown = path;
+        _revealPath ??= path;
     }
 
     /// <summary>
@@ -490,6 +579,9 @@
         {
             RebuildFavorites();
         }
+
+        // 사이드바가 방금 펴졌거나 화면이 바뀌었으면 지금 메뉴를 짚어 준다.
+        ShowActive();
     }
 
     /// <summary>

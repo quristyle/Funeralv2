@@ -187,8 +187,20 @@
                             Collapsed="@(!_sidebarOpen)"
                             CollapsedChanged="@OnSidebarCollapsedChanged"
                             SizeChanged="@OnSidebarResizedAsync">
+                @* 지금 화면(`_menuPath`)과 **펴졌나 접혔나**를 함께 내려 준다.
+
+                   사이드바는 그 둘로 「펴질 때마다 지금 메뉴를 펴고 골라
+                   주기」를 한다(`SidebarMenu.ShowActive`). 휴대폰에서는 메뉴를
+                   누르면 이 판이 저절로 접히는데, 다시 열면 트리가 접힌 채라
+                   **지금 어디에 있는지 사이드바로 알 수 없었다.**
+
+                   접힘을 트리 쪽에서 알아낼 방법이 없어 내려 준다 — 그 상태는
+                   여기가 들고 있고, 브레드크럼이 판을 펴는 길도 여기다
+                   (`OnMenuRevealRequested`). *@
                 <aside class="jsini-shell__sidebar">
-                    <SidebarMenu Nodes="@Menus.VisibleMenus" />
+                    <SidebarMenu Nodes="@Menus.VisibleMenus"
+                                 ActivePath="@_menuPath"
+                                 IsOpen="@_sidebarOpen" />
                 </aside>
             </DxSplitterPane>
 
