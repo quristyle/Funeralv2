@@ -111,7 +111,7 @@ public class PasswordResetService(
 
         var account = await db.Accounts
             .Include(a => a.ProfileDetails)
-            .FirstOrDefaultAsync(a => a.UserId == loginId, ct);
+            .FirstOrDefaultAsync(a => a.UserId == loginId && !a.IsDeleted, ct);
 
         if (account is null)
         {
@@ -119,10 +119,23 @@ public class PasswordResetService(
             return;
         }
 
+        // ── 계정에 살아 있는 이메일들 ────────────────────────
+        //
+        // **지운 것과 여러 개를 함께 다뤄야 한다.** 프로필 상세(scom)는 값을
+        // 고칠 때 옛 줄을 지움 표시만 하고 새 줄을 더하는 자리라, 한 계정에
+        // Email 이 여럿 남는 것이 예사다. 예전에는 `FirstOrDefault` 하나로
+        // 집어서 **지워진 옛 주소나 두 번째 주소를 골라 놓고** 사용자가 적은
+        // 지금 주소와 다르다며 조용히 끝났다 — 화면에는 「보냈습니다」가 뜨므로
+        // 아무도 모른다. NotificationServer 의 수신자 해석(EmailEndpoints)은
+        // 처음부터 IsDeleted 를 걸러내고 대표(IsPrimary)를 앞세웠는데,
+        // 이쪽만 그러지 않고 있었다.
         var stored = account.ProfileDetails?
-            .FirstOrDefault(p => p.DetailType == "Email")?.Content;
+            .Where(p => p.DetailType == "Email" && !p.IsDeleted && !string.IsNullOrWhiteSpace(p.Content))
+            .OrderByDescending(p => p.IsPrimary)
+            .Select(p => p.Content.Trim())
+            .ToList() ?? [];
 
-        if (string.IsNullOrWhiteSpace(stored))
+        if (stored.Count == 0)
         {
             logger.LogWarning(
                 "비밀번호 재설정: 계정에 이메일이 없다 ({LoginId}). 관리자가 계정 관리에서 넣어 줘야 한다.",
@@ -130,9 +143,17 @@ public class PasswordResetService(
             return;
         }
 
-        if (!string.Equals(stored.Trim(), email.Trim(), StringComparison.OrdinalIgnoreCase))
+        // 적어 낸 주소가 **등록된 것 중 하나와** 맞으면 된다. 대표 주소만
+        // 인정하면 회사 메일로 가입해 개인 메일을 덧붙인 사람이 자기 주소를
+        // 적고도 막힌다 — 어느 쪽이든 본인만 열 수 있는 메일함이다.
+        var target = stored.FirstOrDefault(
+            s => string.Equals(s, email.Trim(), StringComparison.OrdinalIgnoreCase));
+
+        if (target is null)
         {
-            logger.LogInformation("비밀번호 재설정: 이메일이 계정과 다르다 ({LoginId}, {Ip})", loginId, requestIp);
+            logger.LogInformation(
+                "비밀번호 재설정: 이메일이 계정과 다르다 ({LoginId}, 등록 {Count}건, {Ip})",
+                loginId, stored.Count, requestIp);
             return;
         }
 
@@ -167,7 +188,7 @@ public class PasswordResetService(
         var body = AccountEmailTemplates.PasswordReset(who, link, LifetimeMinutes);
 
         var sent = await mail.SendAsync(
-            stored.Trim(), AccountEmailTemplates.PasswordResetSubject, body, Sender, ct);
+            target, AccountEmailTemplates.PasswordResetSubject, body, Sender, ct);
 
         if (sent)
         {

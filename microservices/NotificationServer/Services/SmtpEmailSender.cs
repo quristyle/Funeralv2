@@ -22,6 +22,26 @@ public class SmtpEmailSender : IEmailSender
         string to, string subject, string body, bool html = false,
         IReadOnlyList<EmailAttachmentDto>? attachments = null)
     {
+        // **설정이 없으면 붙어 보지도 않는다.**
+        //
+        // 빈 호스트로 ConnectAsync 를 부르면 MailKit 이 던지는 것은 「인수가
+        // 잘못됐다」 뿐이라, 로그만 보고서는 메일 서버가 죽은 것인지 우리가
+        // 설정을 안 넣은 것인지 가릴 수 없다. 여기서 먼저 멈추고 **비어 있는
+        // 키 이름을 적어** 던진다 — 이 서비스의 메일이 전부 이 한 곳을 거치므로
+        // (비밀번호 찾기·문의 접수·AI 작업 알림) 이 한 줄이 유일한 단서가 된다.
+        if (!_settings.IsConfigured)
+        {
+            var missing = _settings.MissingKeys();
+
+            _logger.LogError(
+                "SMTP 설정이 없어 메일을 보내지 못했습니다 ({Missing}). "
+                + "to={To} — appsettings.Local.json 에 넣어야 합니다 (docs/email-smtp.md).",
+                missing, to);
+
+            throw new InvalidOperationException(
+                $"SMTP 설정이 없습니다 ({missing}). appsettings.Local.json 을 확인하십시오.");
+        }
+
         var message = new MimeMessage();
         message.From.Add(new MailboxAddress(_settings.FromDisplay, _settings.User));
         // 받는 사람이 여럿이면 쉼표로 온다 (역할 수신 등)
@@ -73,6 +93,13 @@ public class SmtpEmailSender : IEmailSender
         }
 
         using var client = new SmtpClient();
+
+        // 부르는 쪽(AuthServer 는 20초)보다 먼저 포기해야 실패한 까닭이 우리
+        // 로그에 남는다. MailKit 의 기본값은 2분이라 그냥 두면 저쪽이 먼저 끊는다.
+        if (_settings.TimeoutMs > 0)
+        {
+            client.Timeout = _settings.TimeoutMs;
+        }
 
         if (_settings.IgnoreCertificateErrors)
         {

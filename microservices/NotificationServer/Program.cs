@@ -159,8 +159,15 @@ app.Lifetime.ApplicationStarted.Register(() =>
     var deploy = app.Services.GetRequiredService<
         Microsoft.Extensions.Options.IOptions<DeployNotifyOptions>>().Value;
 
-    Log.Information("NotificationServer 시작. 푸시={Push} 이메일={Email} 배포알림={Deploy}",
+    // SMTP 직발송(/emails/send). **지금 메일이 나가는 길은 이쪽이다** —
+    // 위의 EmailQueue 는 옛길이라 「사용 가능」이어도 메일이 나가는 것은 아니다.
+    var smtp = app.Services.GetRequiredService<
+        Microsoft.Extensions.Options.IOptions<EmailSettings>>().Value;
+
+    Log.Information(
+        "NotificationServer 시작. 푸시={Push} 메일(SMTP)={Smtp} 메일(큐)={Email} 배포알림={Deploy}",
         vapid.IsConfigured ? "사용 가능" : "설정 없음 (Vapid:*)",
+        smtp.IsConfigured ? $"사용 가능 ({smtp.Host}:{smtp.Port})" : "설정 없음 (EmailSettings:*)",
         email.IsConfigured ? "사용 가능" : "설정 없음 (EmailQueue:*)",
         deploy.IsConfigured ? "사용 가능" : "설정 없음 (DeployNotify:Token)");
 
@@ -168,6 +175,19 @@ app.Lifetime.ApplicationStarted.Register(() =>
     {
         Log.Warning("VAPID 설정이 없어 푸시를 보낼 수 없습니다. " +
                     "Vapid:Subject·PublicKey·PrivateKey 를 appsettings.Local.json 에 넣으세요.");
+    }
+
+    // **가장 조용히 망가지는 자리다.** 비밀번호 찾기는 아이디가 있는지 알려 주지
+    // 않으려고 화면에 언제나 「보냈습니다」를 띄우므로, 이 설정이 비어 있으면
+    // 사용자는 오지 않는 메일을 기다리고 우리는 그런 일이 있었는지도 모른다.
+    // 기동 로그의 이 한 줄이 유일한 예고다.
+    if (!smtp.IsConfigured)
+    {
+        Log.Warning(
+            "SMTP 설정이 없어 메일이 한 통도 나가지 못합니다 ({Missing}). " +
+            "비밀번호 찾기 · 소개 사이트 문의 접수 · AI 작업 알림 · 관리자 메일 보내기가 모두 멈춥니다. " +
+            "appsettings.Local.json 에 넣으세요 (docs/email-smtp.md).",
+            smtp.MissingKeys());
     }
 });
 
