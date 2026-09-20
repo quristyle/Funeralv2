@@ -2040,7 +2040,7 @@ button.jsini-crumbs__item:hover { opacity: 1; }
   .jsini-shell__sidebar {
     position: fixed;
     top: var(--jsini-header-height);
-    bottom: 0;
+    bottom: 60px;
     left: 0;
     z-index: 1030;
     box-shadow: 0 0 24px rgb(0 0 0 / 25%);
