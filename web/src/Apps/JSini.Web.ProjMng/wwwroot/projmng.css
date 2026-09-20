@@ -945,6 +945,24 @@
    어두운 테마에서 흰 칩이 떠 있었다 — 오류는 안 나고 보기만 나쁘다.
    ---------------------------------------------------------- */
 
+/* 요약과 조회 조건은 휴대폰에서만 접는다. 넓은 화면에서는 `display: contents`
+   로 기존의 세로 flex 구조를 그대로 유지해, 접이식 껍데기가 데스크톱 높이
+   계산에 끼어들지 않게 한다. */
+.pm-ai-overview__body {
+  display: contents;
+}
+
+.pm-ai-overview__summary {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  /* 데스크톱은 접는 동작 없이 기존처럼 항상 내용을 보인다. */
+  .pm-ai-overview > .pm-ai-overview__body {
+    display: contents !important;
+  }
+}
+
 /* 표에서 「없음」을 뜻하는 자리. 배지를 쓰면 없는 것이 있는 것처럼 보인다. */
 .pm-ai-dim { color: var(--jsini-text-muted); }
 
@@ -2393,8 +2411,7 @@
   }
 
   /* 머리줄·조건줄·불러오는 중 안내는 제 높이만큼. */
-  .pm-ai-page > .pm-ai-hero,
-  .pm-ai-page > .commsch,
+  .pm-ai-page > .pm-ai-overview,
   .pm-ai-page > .pm-ai-loading {
     flex: 0 0 auto;
   }
@@ -2561,4 +2578,56 @@
   margin-top: 0.75rem;
   padding-top: 0.75rem;
   border-top: 1px solid var(--jsini-border);
+}
+
+@media (max-width: 767px) {
+  .pm-ai-overview {
+    display: block;
+    margin-bottom: var(--jsini-sp-lg);
+    background: var(--jsini-surface-raised, var(--jsini-surface));
+    border: 1px solid var(--jsini-border);
+    border-radius: var(--jsini-radius-lg);
+    box-shadow: var(--jsini-shadow-card, var(--jsini-shadow-sm));
+  }
+
+  .pm-ai-overview__body {
+    display: block;
+  }
+
+  .pm-ai-overview__summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.85rem;
+    font-weight: 600;
+    list-style: none;
+    cursor: pointer;
+  }
+
+  .pm-ai-overview__summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .pm-ai-overview__chevron {
+    transition: transform 0.2s;
+  }
+
+  .pm-ai-overview[open] .pm-ai-overview__chevron {
+    transform: rotate(180deg);
+  }
+
+  /* 아코디언 안에서는 두 판의 테두리가 겹치지 않게 한다. */
+  .pm-ai-overview .pm-ai-hero {
+    margin-bottom: 0;
+    border-radius: 0;
+    border-inline: 0;
+  }
+
+  .pm-ai-overview .commsch {
+    margin-bottom: 0;
+    border: 0;
+    border-top: 1px solid var(--jsini-border);
+    border-radius: 0;
+    box-shadow: none;
+  }
 }
