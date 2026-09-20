@@ -104,8 +104,33 @@ public static class FileDownload
     /// 이 갈래는 「사진은 있는데 못 받은」 경우를 맡는다.
     /// </para>
     /// </remarks>
-    public static string AvatarUrlFor(string fileId) =>
-        $"{Path}/avatar/{Uri.EscapeDataString(fileId)}";
+    public static string AvatarUrlFor(string fileId, string? token = null) =>
+        string.IsNullOrWhiteSpace(token)
+            ? $"{Path}/avatar/{Uri.EscapeDataString(fileId)}"
+            : $"{Path}/avatar/{Uri.EscapeDataString(fileId)}?{AvatarTokenKey}={Uri.EscapeDataString(token)}";
+
+    /// <summary>
+    /// 알림 아이콘 주소에 실려 오는 <b>열쇠</b>의 칸 이름.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 이 주소를 부르는 것은 화면이 아니라 <b>브라우저 자신</b>이다 — 알림을
+    /// 띄우는 그 순간 서비스워커가 적어 준 주소를 직접 받아 가고, 그 요청은
+    /// 서비스워커의 <c>fetch</c> 처리기도 거치지 않는다. 그래서 실을 수 있는
+    /// 신원이 쿠키뿐인데, <b>알림은 포털에 로그인해 있지 않은 기기에도
+    /// 도착한다</b> (구독은 오래 살아남고 인증 쿠키는 브라우저를 닫으면
+    /// 사라진다). 그런 기기에서는 이 중계가 익명으로 올라가 프로필 사진을
+    /// 받지 못하고 언제나 그림자가 됐다.
+    /// </para>
+    /// <para>
+    /// 그래서 알림 서비스가 <b>그 사진 한 장만 여는 열쇠</b>를 주소에 실어
+    /// 보내고(<c>NotificationServer/Services/AvatarIconToken.cs</c>), 이 중계는
+    /// 그것을 게이트웨이로 그대로 넘긴다. <b>우리는 열쇠를 풀어 보지 않는다</b> —
+    /// 서명을 아는 것은 게이트웨이이고, 여기에는 키가 없다. 가짜면 게이트웨이가
+    /// 신원을 붙이지 않고, 그러면 사진이 안 나와 그림자로 갈린다.
+    /// </para>
+    /// </remarks>
+    public const string AvatarTokenKey = "t";
 
     /// <summary>
     /// 사람 형상 그림자. 셸이 정적 파일로 들고 있다
@@ -310,19 +335,25 @@ public static class FileDownload
         ILoggerFactory loggers,
         CancellationToken cancellationToken)
     {
+        // 알림 서비스가 실어 보낸 열쇠. 없으면(=화면이 부른 것이면) 지금 요청의
+        // 신원이 그대로 올라간다 — 이 중계의 원래 규칙이다.
+        var token = http.Request.Query[AvatarTokenKey].ToString();
+
         if (Guid.TryParse(fileId, out var id))
         {
             try
             {
                 // 썸네일(150x150 WebP)을 먼저 받고, 아직 안 만들어졌으면 원본으로 한 번 물러선다.
                 var upstream = await gateway.SendRawAsync(
-                    HttpMethod.Get, $"file/thumbnail/{id}", cancellationToken: cancellationToken);
+                    HttpMethod.Get, $"file/thumbnail/{id}",
+                    bearer: token, cancellationToken: cancellationToken);
 
                 if (!upstream.IsSuccessStatusCode)
                 {
                     upstream.Dispose();
                     upstream = await gateway.SendRawAsync(
-                        HttpMethod.Get, $"file/download/id/{id}", cancellationToken: cancellationToken);
+                        HttpMethod.Get, $"file/download/id/{id}",
+                        bearer: token, cancellationToken: cancellationToken);
                 }
 
                 using (upstream)

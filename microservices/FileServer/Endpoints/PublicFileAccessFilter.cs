@@ -78,6 +78,31 @@ public sealed class PublicFileAccessFilter : IEndpointFilter
     /// </summary>
     public const string AnonymousPathsKey = "Files:AnonymousReadablePaths";
 
+    /// <summary>
+    /// <b>사진 한 장짜리 열쇠</b>의 주인 이름 앞머리.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 앱알림 아이콘은 화면이 아니라 <b>브라우저 자신</b>이 받아 가고, 알림은
+    /// 포털에 로그인해 있지 않은 기기에도 도착한다. 그 요청에는 쿠키가 실리지
+    /// 않으므로 여기서는 익명이 되고, <c>profile/</c> 는 익명 열람 목록에 없어
+    /// 아이콘이 늘 그림자로 떨어졌다. 그래서 알림 서비스가 그 알림에만 쓰는
+    /// 열쇠를 주소에 실어 보낸다
+    /// (<c>NotificationServer/Services/AvatarIconToken.cs</c>).
+    /// </para>
+    /// <para>
+    /// <b>그 열쇠는 이름에 적힌 파일 하나만 연다.</b> 게이트웨이가 쓸 자리를
+    /// 파일 읽기 경로로 묶고, 어느 파일이냐는 여기서 본다 — 둘 중 하나만
+    /// 있으면 「한 시간 동안 아무 파일이나」가 된다.
+    /// </para>
+    /// <para>
+    /// <b>글자를 바꾸려면 세 곳을 함께 바꿔야 한다</b> (알림 서비스 ·
+    /// <c>ApiGateway/Program.cs</c> · 여기). <c>web/tests</c> 의
+    /// <c>AvatarIconTests</c> 가 맞춰 본다.
+    /// </para>
+    /// </remarks>
+    public const string IconTokenSubjectPrefix = "push-icon:";
+
     public async ValueTask<object?> InvokeAsync(
         EndpointFilterInvocationContext context,
         EndpointFilterDelegate next)
@@ -91,7 +116,22 @@ public sealed class PublicFileAccessFilter : IEndpointFilter
         }
 
         // 게이트웨이가 검증해 붙인 헤더. 있으면 로그인 사용자다.
-        if (!string.IsNullOrEmpty(http.Request.Headers["X-User-Id"].ToString()))
+        var userId = http.Request.Headers["X-User-Id"].ToString();
+
+        // **사진 한 장짜리 열쇠**는 이름에 적힌 그 파일만 연다 (위 상수 주석).
+        if (userId.StartsWith(IconTokenSubjectPrefix, StringComparison.Ordinal))
+        {
+            var allowed = userId[IconTokenSubjectPrefix.Length..];
+            var asked = ResolveFileId(http);
+
+            return asked is not null
+                && Guid.TryParse(allowed, out var allowedId)
+                && allowedId == asked.Value
+                ? await next(context)
+                : NotFound();
+        }
+
+        if (!string.IsNullOrEmpty(userId))
         {
             return await next(context);
         }

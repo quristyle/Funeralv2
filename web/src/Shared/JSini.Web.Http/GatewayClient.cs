@@ -261,11 +261,23 @@ public sealed class GatewayClient(HttpClient http)
     /// 실어 보낼 것. <b>멀티파트를 보낼 때 쓴다</b> — 첨부 올리기가 그렇다.
     /// 부르는 쪽이 만들고 부르는 쪽이 <c>Dispose</c> 한다.
     /// </param>
+    /// <param name="bearer">
+    /// 이 요청에만 쓸 토큰. <b>주면 지금 사용자의 토큰 대신 이것이 나간다</b>
+    /// (<c>AuthTokenHandler</c> 는 이미 붙은 <c>Authorization</c> 을 덮지 않는다).
+    ///
+    /// <para>
+    /// 쓰는 곳은 앱알림 아이콘 중계 하나다 — 그 요청은 <b>브라우저가 알림을
+    /// 띄우며 스스로 부르는 것</b>이라 로그인 신원이 없을 수 있고, 대신 알림
+    /// 서비스가 사진 한 장만 여는 열쇠를 주소에 실어 보낸다
+    /// (<c>JSini.Web.Components/Data/FileDownload.cs</c> 의 <c>AvatarTokenKey</c>).
+    /// </para>
+    /// </param>
     /// <param name="cancellationToken">취소 토큰</param>
     public async Task<HttpResponseMessage> SendRawAsync(
         HttpMethod method,
         string path,
         HttpContent? content = null,
+        string? bearer = null,
         CancellationToken cancellationToken = default)
     {
         using var request = new HttpRequestMessage(method, path);
@@ -273,6 +285,12 @@ public sealed class GatewayClient(HttpClient http)
         if (content is not null)
         {
             request.Content = content;
+        }
+
+        if (!string.IsNullOrWhiteSpace(bearer))
+        {
+            request.Headers.Authorization =
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", bearer);
         }
 
         try

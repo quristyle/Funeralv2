@@ -42,7 +42,13 @@ public class AvatarIconTests
         var source = File.ReadAllText(Path.Combine(
             RepoRoot(), "microservices", "NotificationServer", "Services", "AvatarIconResolver.cs"));
 
-        // 사진이 있는 사람 — /files/avatar/{파일아이디}
+        // 사진이 있는 사람 — /files/avatar/{파일아이디}?t={열쇠}
+        Assert.Contains($"\"/files/avatar/{{0}}?{FileDownload.AvatarTokenKey}={{1}}\"", source);
+        Assert.Equal(
+            "/files/avatar/11111111-1111-1111-1111-111111111111?t=abc",
+            FileDownload.AvatarUrlFor("11111111-1111-1111-1111-111111111111", "abc"));
+
+        // 열쇠를 못 만들었을 때의 주소도 셸이 그대로 받는다.
         Assert.Contains("\"/files/avatar/{0}\"", source);
         Assert.Equal(
             "/files/avatar/11111111-1111-1111-1111-111111111111",
@@ -50,6 +56,51 @@ public class AvatarIconTests
 
         // 사진이 없는 사람 — 셸이 들고 있는 그림자
         Assert.Contains($"\"{FileDownload.FallbackAvatarPath}\"", source);
+    }
+
+    /// <summary>
+    /// <b>열쇠의 주인 이름 앞머리를 세 서비스가 같은 글자로 안다.</b>
+    /// </summary>
+    /// <remarks>
+    /// 만드는 쪽(알림 서비스) · 쓸 자리를 묶는 쪽(게이트웨이) · 어느 파일이냐를
+    /// 보는 쪽(FileServer)이다. 셋은 서로를 참조하지 않으므로 한쪽만 고쳐도
+    /// <b>빌드가 통과하고</b>, 어긋나면 아이콘이 조용히 그림자로 돌아간다 —
+    /// 게이트웨이 쪽이 어긋나면 그 열쇠가 <b>파일 읽기 밖에서도 통하는</b>
+    /// 방향으로 틀린다.
+    /// </remarks>
+    [Fact]
+    public void 열쇠_이름을_세_서비스가_같이_안다()
+    {
+        const string prefix = "\"push-icon:\"";
+
+        foreach (var (service, file) in new[]
+        {
+            ("NotificationServer", Path.Combine("microservices", "NotificationServer", "Services", "AvatarIconToken.cs")),
+            ("ApiGateway", Path.Combine("ApiGateway", "Program.cs")),
+            ("FileServer", Path.Combine("microservices", "FileServer", "Endpoints", "PublicFileAccessFilter.cs")),
+        })
+        {
+            var source = File.ReadAllText(Path.Combine(RepoRoot(), file));
+            Assert.True(source.Contains(prefix), $"{service} 가 {prefix} 를 모른다 ({file}).");
+        }
+    }
+
+    /// <summary>
+    /// 게이트웨이가 그 열쇠를 <b>파일 읽기 경로에서만</b> 신원으로 받는다.
+    /// </summary>
+    /// <remarks>
+    /// 이 검사가 없으면 「열쇠를 만들었다」까지만 지켜진다. 쓸 자리를 묶는 줄이
+    /// 사라져도 아이콘은 잘 뜨므로 <b>아무도 알아채지 못한다</b> — 그때 그 열쇠는
+    /// 한 시간짜리 로그인이 된다.
+    /// </remarks>
+    [Fact]
+    public void 열쇠는_파일_읽기_경로에서만_통한다()
+    {
+        var source = File.ReadAllText(Path.Combine(RepoRoot(), "ApiGateway", "Program.cs"));
+
+        Assert.Contains("OnTokenValidated", source);
+        Assert.Contains("iconTokenSubjectPrefix", source);
+        Assert.Contains("ctx.Fail(", source);
     }
 
     /// <summary><c>web/</c> 폴더.</summary>

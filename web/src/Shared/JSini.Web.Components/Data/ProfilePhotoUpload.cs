@@ -184,7 +184,8 @@ public static class ProfilePhotoUpload
             multipart.Add(new StringContent(BizType), "bizType");
 
             using var upstream = await gateway.SendRawAsync(
-                HttpMethod.Post, "file/group/upload", multipart, cancellationToken);
+                HttpMethod.Post, "file/group/upload", multipart,
+                cancellationToken: cancellationToken);
 
             if (!upstream.IsSuccessStatusCode)
             {

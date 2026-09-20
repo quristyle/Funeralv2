@@ -73,6 +73,21 @@ string[] fileCookiePaths =
     "/api/file/resize"
 ];
 
+// ── 앱알림 아이콘 열쇠 ──────────────────────────────────────────
+//
+// 알림 아이콘은 화면이 아니라 **브라우저 자신**이 받아 간다. 알림이 로그인해
+// 있지 않은 기기에도 도착하므로 그 요청에는 쿠키도 토큰도 실리지 않고, 프로필
+// 사진은 익명에게 열리지 않아 아이콘이 늘 그림자로 떨어졌다. 그래서 알림
+// 서비스가 **사진 한 장짜리 열쇠**를 주소에 실어 보낸다
+// (NotificationServer/Services/AvatarIconToken.cs).
+//
+// 열쇠도 우리 키로 서명한 토큰이라 그대로 두면 **한 시간짜리 로그인**이 된다.
+// 여기서 쓸 자리를 파일 읽기 경로로 묶는다 — 위의 쿠키에 건 것과 같은 제한이고,
+// 어느 파일이냐까지는 FileServer 가 본다(PublicFileAccessFilter).
+//
+// **글자를 바꾸려면 세 곳을 함께 바꿔야 한다** (알림 서비스 · 여기 · FileServer).
+const string iconTokenSubjectPrefix = "push-icon:";
+
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -89,6 +104,28 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
         options.Events = new JwtBearerEvents
         {
+            // 아이콘 열쇠는 파일 읽기 경로에서만 신원이 된다. 다른 자리에서는
+            // 아예 신원이 아닌 것으로 본다 (위 iconTokenSubjectPrefix 주석).
+            OnTokenValidated = ctx =>
+            {
+                var subject = ctx.Principal?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+                if (subject is not null
+                    && subject.StartsWith(iconTokenSubjectPrefix, StringComparison.Ordinal))
+                {
+                    var path = ctx.Request.Path.Value ?? string.Empty;
+                    var readable = fileCookiePaths.Any(p =>
+                        path.StartsWith(p, StringComparison.OrdinalIgnoreCase));
+
+                    if (!readable)
+                    {
+                        ctx.Fail("알림 아이콘 열쇠는 파일 읽기 경로에서만 쓸 수 있습니다.");
+                    }
+                }
+
+                return Task.CompletedTask;
+            },
+
             OnMessageReceived = ctx =>
             {
                 // 헤더로 온 토큰이 우선이다. 없을 때만 쿠키를 본다.
@@ -447,7 +484,17 @@ app.Use(async (context, next) =>
 app.Use(async (context, next) =>
 {
     var authHeader = context.Request.Headers.Authorization.ToString();
+
+    // **알림 아이콘 열쇠는 심지 않는다.** 그 토큰은 사진 한 장을 여는 것이고
+    // 수명이 한 시간이라, 쿠키로 심으면 「로그인 신원」 자리에 그것이 앉는다.
+    // (지금은 이 요청이 셸의 HttpClient 에서 오고 그쪽은 쿠키 통을 꺼 두어
+    // 브라우저까지 가지 않는다 — 여기서 막는 것은 그 전제가 바뀌는 날을 위한 것이다.)
+    var subject = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+    var isIconToken = subject is not null
+        && subject.StartsWith(iconTokenSubjectPrefix, StringComparison.Ordinal);
+
     if (context.User.Identity?.IsAuthenticated == true
+        && !isIconToken
         && authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
     {
         var token = authHeader["Bearer ".Length..].Trim();

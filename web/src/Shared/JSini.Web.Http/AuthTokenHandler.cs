@@ -96,9 +96,16 @@ public sealed class AuthTokenHandler(
     }
 
     /// <summary>토큰과 언어를 붙인다.</summary>
+    /// <remarks>
+    /// <b>이미 붙어 있는 <c>Authorization</c> 은 덮지 않는다.</b> 부르는 쪽이
+    /// 직접 실어 준 토큰이 있다는 뜻이고(<c>GatewayClient.SendRawAsync</c> 의
+    /// <c>bearer</c>), 그 자리는 지금 사용자의 신원으로는 통하지 않는 자리다 —
+    /// 덮으면 알림 아이콘이 다시 그림자가 된다.
+    /// </remarks>
     private async Task AttachAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
-        if (await tokens.GetAccessTokenAsync(cancellationToken) is { Length: > 0 } token)
+        if (request.Headers.Authorization is null
+            && await tokens.GetAccessTokenAsync(cancellationToken) is { Length: > 0 } token)
         {
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         }

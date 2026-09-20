@@ -37,7 +37,10 @@ public interface IAvatarIconResolver
 /// (<c>web/src/Shared/JSini.Web.Components/Data/FileDownload.cs</c> 머리말).
 /// </para>
 /// </remarks>
-public sealed partial class AvatarIconResolver(AppDbContext db, ILogger<AvatarIconResolver> logger)
+public sealed partial class AvatarIconResolver(
+    AppDbContext db,
+    IAvatarIconTokenFactory tokens,
+    ILogger<AvatarIconResolver> logger)
     : IAvatarIconResolver
 {
     /// <summary>
@@ -56,7 +59,24 @@ public sealed partial class AvatarIconResolver(AppDbContext db, ILogger<AvatarIc
     /// 갈아 준다 — 서비스워커에는 「그림을 못 받았다」를 알 방법이 없어서,
     /// 여기서 막지 않으면 아이콘 없는 알림이 된다.
     /// </summary>
-    private const string AvatarPathFormat = "/files/avatar/{0}";
+    /// <remarks>
+    /// <para>
+    /// <b><c>t</c> 에 그 사진 한 장을 여는 열쇠를 싣는다</b>
+    /// (<see cref="IAvatarIconTokenFactory"/>). 이 주소를 부르는 것은 화면이
+    /// 아니라 <b>브라우저 자신</b>이고, 알림은 포털에 로그인해 있지 않은
+    /// 기기에도 도착한다 — 열쇠가 없으면 그런 기기에서는 신원 없는 요청이 되어
+    /// 언제나 그림자로 떨어졌다. 셸은 이 값을 게이트웨이로 그대로 넘긴다
+    /// (<c>web/.../Data/FileDownload.cs</c> 의 <c>HandleAvatarAsync</c>).
+    /// </para>
+    /// <para>
+    /// 열쇠를 못 만들면 <c>?t=</c> 없이 보낸다. 그때는 로그인해 있는 기기에서만
+    /// 사진이 뜬다 — 열쇠가 생기기 전과 같다.
+    /// </para>
+    /// </remarks>
+    private const string AvatarPathFormat = "/files/avatar/{0}?t={1}";
+
+    /// <summary>열쇠를 싣지 못했을 때의 주소.</summary>
+    private const string AvatarPathWithoutTokenFormat = "/files/avatar/{0}";
 
     /// <inheritdoc />
     public async Task<string> ResolveAsync(string loginId, CancellationToken ct = default)
@@ -91,9 +111,20 @@ public sealed partial class AvatarIconResolver(AppDbContext db, ILogger<AvatarIc
             // 바깥으로 요청이 나간다.
             var fileId = ExtractFileId(avatar);
 
-            return fileId is null
-                ? FallbackIcon
-                : string.Format(AvatarPathFormat, fileId);
+            if (fileId is null)
+            {
+                // **한 줄 남긴다.** 그림자로 뜬 아이콘의 까닭이 둘이다 —
+                // 사진이 아예 없거나(여기), 있는데 그 기기가 못 받았거나
+                // (셸의 `/files/avatar` 가 302 한다). 밖에서 보면 같은 그림이라
+                // 이 줄이 없으면 어느 쪽인지 알 길이 없다.
+                logger.LogInformation(
+                    "{LoginId} 에게 쓸 프로필 사진이 없습니다(적힌 값: {Avatar}). 그림자로 보냅니다.",
+                    id, avatar ?? "(없음)");
+
+                return FallbackIcon;
+            }
+
+            return IconUrl(fileId);
         }
         catch (Exception ex)
         {
@@ -102,6 +133,12 @@ public sealed partial class AvatarIconResolver(AppDbContext db, ILogger<AvatarIc
             return FallbackIcon;
         }
     }
+
+    /// <summary>사진 한 장의 알림 아이콘 주소. 열쇠가 있으면 함께 싣는다.</summary>
+    private string IconUrl(string fileId) =>
+        tokens.Create(fileId) is { Length: > 0 } token
+            ? string.Format(AvatarPathFormat, fileId, Uri.EscapeDataString(token))
+            : string.Format(AvatarPathWithoutTokenFormat, fileId);
 
     /// <summary>
     /// 계정에 적힌 사진 주소에서 파일 아이디(GUID)를 꺼낸다. 우리 파일이 아니면 <c>null</c>.

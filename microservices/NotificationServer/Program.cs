@@ -87,6 +87,9 @@ builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("Emai
 builder.Services.AddTransient<IEmailSender, SmtpEmailSender>();
 
 builder.Services.AddScoped<INotificationPreferenceService, NotificationPreferenceService>();
+// 알림 아이콘 한 장을 여는 열쇠. 로그인해 있지 않은 기기에서도 얼굴이 뜨게 한다
+// (AvatarIconTokenFactory 머리말).
+builder.Services.AddSingleton<IAvatarIconTokenFactory, AvatarIconTokenFactory>();
 builder.Services.AddScoped<IAvatarIconResolver, AvatarIconResolver>();
 builder.Services.AddScoped<IPushSender, PushSender>();
 builder.Services.AddScoped<IEmailQueueSender, EmailQueueSender>();
