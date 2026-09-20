@@ -2034,3 +2034,28 @@
     min-width: 0 !important;
   }
 }
+
+/* 빠른지시 창 하단 단추 글 줄이기 */
+.pm-peek__btn-text--full { display: inline; }
+.pm-peek__btn-text--short { display: none; }
+
+@media (max-width: 767px) {
+  .pm-peek__btn-text--full { display: none; }
+  .pm-peek__btn-text--short { display: inline; }
+  
+  /* 버튼이 한 줄로 나오도록 footer 영역 조정 */
+  .pm-peek .dxbl-modal-footer {
+    display: flex;
+    flex-wrap: nowrap !important;
+    gap: 0.25rem;
+    overflow-x: auto;
+    padding: 0.5rem;
+  }
+  
+  /* 버튼 내부 여백을 줄여서 한 줄에 다 들어가게 함 */
+  .pm-peek .dxbl-modal-footer .dxbl-btn {
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+    white-space: nowrap;
+  }
+}

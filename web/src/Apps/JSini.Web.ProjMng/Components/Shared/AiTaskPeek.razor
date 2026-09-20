@@ -186,30 +186,44 @@
         {
             @if (t.TaskStatus == "succeeded")
             {
-                <DxButton Text="이어서 지시" RenderStyle="ButtonRenderStyle.Primary"
+                <DxButton RenderStyle="ButtonRenderStyle.Primary"
                           Enabled="@(!_retrying && !_confirming && !_continuing)"
-                          Click="@OpenContinueModal" />
+                          Click="@OpenContinueModal">
+                    <span class="pm-peek__btn-text--full">이어서 지시</span>
+                    <span class="pm-peek__btn-text--short">이어서</span>
+                </DxButton>
             }
 
             @if (t.CanManualRetry)
             {
-                <DxButton Text="재시도" RenderStyle="ButtonRenderStyle.Secondary"
+                <DxButton RenderStyle="ButtonRenderStyle.Secondary"
                           Enabled="@(!_retrying && !_confirming && !_continuing)"
-                          Click="@OpenRetryModal" />
+                          Click="@OpenRetryModal">
+                    <span class="pm-peek__btn-text--full">재시도</span>
+                    <span class="pm-peek__btn-text--short">재시도</span>
+                </DxButton>
             }
 
             @if (t.IsFinal && !t.UserConfirmed)
             {
-                <DxButton Text="사용자확인완료" RenderStyle="ButtonRenderStyle.Success"
+                <DxButton RenderStyle="ButtonRenderStyle.Success"
                           Enabled="@(!_retrying && !_confirming && !_continuing)"
-                          Click="@DoConfirmAsync" />
+                          Click="@DoConfirmAsync">
+                    <span class="pm-peek__btn-text--full">사용자확인완료</span>
+                    <span class="pm-peek__btn-text--short">확인</span>
+                </DxButton>
             }
 
-            <DxButton Text="자세히 보기" RenderStyle="ButtonRenderStyle.Secondary"
-                      Click="@(() => GoDetail(t.TaskKey))" />
+            <DxButton RenderStyle="ButtonRenderStyle.Secondary"
+                      Click="@(() => GoDetail(t.TaskKey))">
+                <span class="pm-peek__btn-text--full">자세히 보기</span>
+                <span class="pm-peek__btn-text--short">자세히</span>
+            </DxButton>
         }
 
-        <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary" Click="@CloseAsync" />
+        <DxButton RenderStyle="ButtonRenderStyle.Secondary" Click="@CloseAsync">
+            닫기
+        </DxButton>
     </FooterContentTemplate>
 </CommPopup>
 
