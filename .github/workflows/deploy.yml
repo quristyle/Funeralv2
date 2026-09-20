@@ -114,6 +114,8 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: docker/build-push-action@v6
+        env:
+          DEVEXPRESS_LICENSE: ${{ secrets.DEVEXPRESS_LICENSE }}
         with:
           context: web
           file: deploy/docker/Dockerfile.web
@@ -130,7 +132,7 @@ jobs:
           # 값은 개발 장비의 $HOME/.config/DevExpress/DevExpress_License.txt
           # 내용 그대로다. 저장소 Settings → Secrets and variables → Actions.
           secrets: |
-            dxlicense=${{ secrets.DEVEXPRESS_LICENSE }}
+            "dxlicense=env=DEVEXPRESS_LICENSE"
           push: true
           tags: |
             ghcr.io/${{ github.repository_owner }}/funeralv2-${{ matrix.name }}:${{ github.sha }}
