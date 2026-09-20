@@ -51,6 +51,12 @@ builder.Services.AddScoped<AiTargetService>();
 builder.Services.AddScoped<AiTaskService>();
 builder.Services.AddScoped<AiRunService>();
 
+// AI 작업 현황. **읽기뿐이다** — 집계만 한다.
+builder.Services.AddScoped<AiDashboardService>();
+
+// 실행기가 올려 주는 AI CLI 한도(`/usage`). 서버는 CLI 를 부르지 않는다.
+builder.Services.AddScoped<AiUsageService>();
+
 // 끝난 작업을 메일로 알린다. **못 보내도 작업 상태를 바꾸지 않는다**(설계 8-2).
 // 알림 서비스를 부르므로 HttpClient 공장이 필요하다.
 builder.Services.AddHttpClient();

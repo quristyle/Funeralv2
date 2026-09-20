@@ -168,6 +168,43 @@ public sealed class ServerClient(HttpClient http, RunnerOptions options, ILogger
         logger.LogError("완료 보고를 끝내 보내지 못했습니다. 서버는 이 건을 중단으로 볼 것입니다: {RunKey}", runKey);
     }
 
+    /// <summary>
+    /// AI CLI 의 한도를 올린다.
+    /// </summary>
+    /// <remarks>
+    /// <b>장비 토큰을 쓴다</b> — run 토큰이 아니다. 이 보고는 실행과 무관하게
+    /// 주기적으로 올라오므로 묶일 run 이 없다(집어가기와 같은 토큰이다).
+    ///
+    /// <para>
+    /// <b>실패해도 다시 보내지 않는다.</b> 15분 뒤에 어차피 같은 것을 올린다 —
+    /// 여기서 재시도를 쌓으면 서버가 내려가 있는 동안 곁들이는 일이 본업의
+    /// 시간을 먹는다.
+    /// </para>
+    /// </remarks>
+    public async Task UsageAsync(AiUsageReport report, CancellationToken ct)
+    {
+        try
+        {
+            using var req = new HttpRequestMessage(HttpMethod.Post, "/api/ai-runner/usage")
+            {
+                Content = JsonContent.Create(report, options: Json),
+            };
+
+            req.Headers.Add("X-AiTask-Token", options.RunnerToken);
+
+            using var res = await http.SendAsync(req, ct);
+
+            if (!res.IsSuccessStatusCode)
+            {
+                logger.LogWarning("사용량 보고가 거절됐습니다: HTTP {Code}", (int)res.StatusCode);
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogDebug("사용량 보고 실패: {Message}", ex.Message);
+        }
+    }
+
     // ── 오가는 모양 ─────────────────────────────────────────
 
     public sealed class Envelope<T>

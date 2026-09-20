@@ -2832,3 +2832,215 @@
     box-shadow: none;
   }
 }
+
+/* ============================================================
+   AI 작업 현황 (AiDashboard.razor)
+   ============================================================
+
+   [판을 나누는 것이 이 화면의 전부다]
+
+   대시보드에서 가장 흔한 실패는 **모든 것이 같은 크기로 늘어서는 것**이다.
+   그러면 사람이 어디부터 읽어야 하는지 알 수 없다. 그래서 위에서 아래로
+   읽는 차례를 자리로 고정한다 —
+
+     지금 띠 → 머리 숫자 → 전망 → 한도 → 추세 → 빈도 → 순위 → 최근 실행
+
+   각 띠는 `pm-aidash__row` 로 나란히 서고, 좁아지면 한 칸으로 접힌다.
+   ------------------------------------------------------------ */
+
+.pm-aidash {
+  display: flex;
+  flex-direction: column;
+  gap: var(--jsini-sp-lg);
+}
+
+/* 「지금」 띠. **기간을 타지 않는 값만 여기 둔다** — 화면이 그 사실을
+   글자로 말해야 지난달로 조회한 사람이 「실행 중 0건」을 오해하지 않는다. */
+.pm-aidash__now {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--jsini-sp-xs) var(--jsini-sp-sm);
+}
+
+.pm-aidash__now-label {
+  font-size: var(--jsini-fs-sm);
+  font-weight: 600;
+  color: var(--jsini-text-muted);
+}
+
+/* 「언제 기준인가」. 숫자 옆에 늘 붙는 작은 글자라 색을 죽인다 —
+   이 글자가 숫자만큼 진하면 숫자가 안 보인다. */
+.pm-aidash__stamp {
+  font-size: var(--jsini-fs-2xs);
+  color: var(--jsini-text-muted);
+}
+
+/* 타일 아래 한 줄. 큰 숫자 하나로는 못 하는 말을 여기서 한다
+   (중앙값 · 근거 · 내역). */
+.pm-aidash__sub {
+  display: block;
+  margin-top: var(--jsini-sp-2xs);
+  font-size: var(--jsini-fs-2xs);
+  color: var(--jsini-text-muted);
+}
+
+.pm-aidash__tiles .jsini-stat {
+  align-items: flex-start;
+}
+
+/* 나란한 판. `minmax(0, …)` 가 요점이다 — 안 주면 차트가 자기 내용만큼
+   넓어지려 해서 칸이 화면 밖으로 밀린다. */
+.pm-aidash__row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(22rem, 100%), 1fr));
+  gap: var(--jsini-sp-lg);
+  align-items: start;
+}
+
+.pm-aidash__panel {
+  min-width: 0;
+}
+
+.pm-aidash__chart {
+  min-width: 0;
+}
+
+/* ── 한도 계량기 ──────────────────────────────────────────
+   차트가 아니라 계량기다. 값이 하나뿐인 비율은 막대 하나가 가장 정확하고,
+   원형 게이지로 그리면 같은 자리를 세 배 먹으면서 읽기는 더 어렵다.
+   ---------------------------------------------------------- */
+
+.pm-aidash__meters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(16rem, 100%), 1fr));
+  gap: var(--jsini-sp-md);
+}
+
+.pm-aidash__meter-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--jsini-sp-xs);
+  padding: var(--jsini-sp-md);
+  background: var(--jsini-surface);
+  border: 1px solid var(--jsini-border);
+  border-radius: var(--jsini-radius-md);
+}
+
+.pm-aidash__meter-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--jsini-sp-2xs) var(--jsini-sp-xs);
+}
+
+.pm-aidash__meter-label {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--jsini-sp-xs);
+  font-size: var(--jsini-fs-xs);
+  color: var(--jsini-text-muted);
+}
+
+.pm-aidash__meter-track {
+  height: 0.5rem;
+  overflow: hidden;
+  background: var(--jsini-bg);
+  border-radius: var(--jsini-radius-full);
+}
+
+/* 끝을 둥글게 둔다. 막대의 시작은 축에 붙어 있어야 하므로
+   **끝쪽만** 둥글다 — 양끝을 다 둥글리면 0 에 가까운 값이 실제보다 커 보인다. */
+.pm-aidash__meter-fill {
+  display: block;
+  height: 100%;
+  border-radius: 0 var(--jsini-radius-full) var(--jsini-radius-full) 0;
+}
+
+.pm-aidash__meter-error {
+  font-size: var(--jsini-fs-xs);
+  color: var(--jsini-text-muted);
+}
+
+.pm-aidash__tokens {
+  font-size: var(--jsini-fs-sm);
+}
+
+/* CLI 출력 원문. **접어 둔다** — 평소에는 방해가 되고, 형식이 바뀐
+   날에는 이것만이 단서다. */
+.pm-aidash__raw > summary {
+  font-size: var(--jsini-fs-2xs);
+  color: var(--jsini-text-muted);
+  cursor: pointer;
+}
+
+.pm-aidash__raw pre {
+  max-height: 12rem;
+  margin: var(--jsini-sp-2xs) 0 0;
+  padding: var(--jsini-sp-xs);
+  overflow: auto;
+  font-size: var(--jsini-fs-2xs);
+  white-space: pre-wrap;
+  word-break: break-all;
+  background: var(--jsini-bg);
+  border-radius: var(--jsini-radius-md);
+}
+
+/* ── 순위 표 ──────────────────────────────────────────────
+   막대가 아니라 표인 이유는 이름이 길기 때문이다(화면 주석 참고).
+   대신 이름 아래에 얇은 막대를 깔아 순위를 눈으로 먼저 읽게 한다.
+   ---------------------------------------------------------- */
+
+.pm-aidash__rank {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--jsini-fs-sm);
+}
+
+.pm-aidash__rank th,
+.pm-aidash__rank td {
+  padding: var(--jsini-sp-xs) var(--jsini-sp-2xs);
+  text-align: left;
+  border-bottom: 1px solid var(--jsini-border);
+}
+
+.pm-aidash__rank th {
+  font-size: var(--jsini-fs-2xs);
+  font-weight: 600;
+  color: var(--jsini-text-muted);
+}
+
+/* 숫자 칸은 오른쪽으로 모으고 자릿수를 고정한다. 안 그러면 세로로
+   자릿수가 어긋나 큰 수와 작은 수를 눈으로 비교할 수 없다. */
+.pm-aidash__num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.pm-aidash__rank td:first-child {
+  position: relative;
+  min-width: 8rem;
+  padding-bottom: calc(var(--jsini-sp-xs) + 0.25rem);
+}
+
+/* 이름 아래 얇은 띠. **숫자를 대신하지 않는다** — 숫자는 그대로 옆에 있고
+   이것은 순위를 훑기 위한 것이라 색을 죽여 둔다. */
+.pm-aidash__bar {
+  position: absolute;
+  left: var(--jsini-sp-2xs);
+  bottom: 0.35rem;
+  height: 0.2rem;
+  max-width: calc(100% - var(--jsini-sp-sm));
+  background: var(--jsini-accent);
+  opacity: 0.35;
+  border-radius: var(--jsini-radius-full);
+}
+
+@media (max-width: 767px) {
+  /* 좁은 화면에서는 한 칸씩 쌓는다. 차트를 둘씩 넣으면 가로축 글자가
+     겹쳐서 무엇을 그린 것인지 알 수 없어진다. */
+  .pm-aidash__row {
+    grid-template-columns: 1fr;
+  }
+}

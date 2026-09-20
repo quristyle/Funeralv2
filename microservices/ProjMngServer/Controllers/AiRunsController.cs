@@ -117,6 +117,37 @@ public sealed class AiRunnerController(
             : StatusCode(403, ApiResponse<object>.Fail(message: "끝났거나 토큰이 다릅니다.", code: "GONE"));
     }
 
+    /// <summary>
+    /// <b>AI CLI 의 <c>/usage</c> 보고.</b> 장비 토큰으로 인증한다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 집어가기와 같은 토큰이다 — run 토큰이 아니다. 이 보고는 <b>실행과
+    /// 무관하게</b> 주기적으로 올라오므로 묶일 run 이 없다.
+    /// </para>
+    /// <para>
+    /// <b>한도를 하나도 못 읽었어도 200 이다.</b> 이 요청에는 「장비가 살아
+    /// 있다」는 뜻이 함께 실려 있고, 그쪽이 더 자주 쓸모가 있다.
+    /// </para>
+    /// </remarks>
+    [HttpPost("usage")]
+    public async Task<IActionResult> UsageAsync(
+        [FromBody] AiUsageReport req, [FromServices] AiUsageService usage)
+    {
+        if (string.IsNullOrWhiteSpace(RunnerToken))
+        {
+            return Unauthorized(ApiResponse<object>.Fail(
+                message: "실행기 토큰이 설정돼 있지 않습니다.", code: "NO_RUNNER_TOKEN"));
+        }
+
+        if (RunToken != RunnerToken)
+        {
+            return Unauthorized(ApiResponse<object>.Fail(message: "토큰이 맞지 않습니다.", code: "BAD_TOKEN"));
+        }
+
+        return Ok(ApiResponse<int>.Ok(await usage.SaveAsync(req)));
+    }
+
     public sealed class ClaimRequest
     {
         public string? RunnerName { get; set; }

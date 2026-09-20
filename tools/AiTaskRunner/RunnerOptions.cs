@@ -127,6 +127,29 @@ public sealed class RunnerOptions
     /// </remarks>
     public int KeepWorkspaceDays { get; set; } = 14;
 
+    // ── 사용량 보고 ─────────────────────────────────────────
+
+    /// <summary>
+    /// AI CLI 의 <c>/usage</c> 를 읽어 올릴 것인가.
+    /// </summary>
+    /// <remarks>
+    /// 끄면 <b>대시보드의 한도 칸이 통째로 빈다</b> — 서버는 이 값을 다른
+    /// 데서 구할 방법이 없다. 개발 장비에서 운영 계정의 한도를 덮어쓰고
+    /// 싶지 않을 때 끈다.
+    /// </remarks>
+    public bool UsageEnabled { get; set; } = true;
+
+    /// <summary>
+    /// 사용량을 얼마나 자주 물어보나(분).
+    /// </summary>
+    /// <remarks>
+    /// <b>짧게 두지 않는다.</b> 물어보는 것 자체가 CLI 호출이고, 한도를
+    /// 깎는 형태의 호출이라면 <i>사용량을 보려고 사용량을 쓰는</i> 꼴이 된다
+    /// (AIAgentServer 가 공급자에게 따로 묻지 않는 것과 같은 이유 —
+    /// <c>AiUsageTracker</c> 머리말).
+    /// </remarks>
+    public int UsageIntervalMinutes { get; set; } = 15;
+
     public QueueOptions Queue { get; set; } = new();
 
     /// <summary>CLI 어댑터. <b>플래그는 코드가 아니라 여기에 적는다.</b></summary>
@@ -211,4 +234,22 @@ public sealed class AdapterOptions
     /// 결과문(<c>result_text</c>)을 어디서 가려내나 — <c>stream-json</c> · <c>tail</c>.
     /// </summary>
     public string ResultFrom { get; set; } = "tail";
+
+    /// <summary>
+    /// 이 CLI 에게 사용량을 물어보는 인자.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>비어 있으면 안 물어본다.</b> 사용량을 말해 주지 않는 CLI 가 있고,
+    /// 그때 없는 명령을 부르면 15분마다 실패 한 줄이 쌓인다.
+    /// </para>
+    /// <para>
+    /// 코드에 박지 않는 이유는 실행 인자를 설정으로 뺀 것과 같다 — 이 출력은
+    /// 사람이 보라고 만든 화면이라 문구도 플래그도 예고 없이 바뀐다.
+    /// </para>
+    /// </remarks>
+    public string[] UsageArgs { get; set; } = [];
+
+    /// <summary>사용량 조회의 제한 시간(초). 곁들이는 일이라 오래 기다리지 않는다.</summary>
+    public int UsageTimeoutSeconds { get; set; } = 60;
 }

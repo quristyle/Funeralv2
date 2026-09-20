@@ -1,0 +1,780 @@
+@page "/projmng/ai/dashboard"
+@attribute [RouteKey("projmng.ai.dashboard")]
+
+@*
+    [AI 작업 현황 — 「빠른 지시」와 「AI 작업」이 처리한 것을 세어 보는 자리]
+
+    설계: docs/ai-task-runner.md
+    API: `projmng/ai-dashboard` (집계) · `ai/providers` (공급자 한도)
+
+    ────────────────────────────────────────────────────────────
+    [세는 단위는 「실행」이다 — 「지시」가 아니다]
+
+    한 지시를 세 번 돌리면 **처리한 일은 셋**이고, 그 셋의 처리시간과 성패가
+    서로 다르다. 지시로 세면 재시도가 통째로 안 보이는데, 이 기능에서 사람이
+    가장 알고 싶어 하는 것 중 하나가 「얼마나 다시 돌리고 있나」다.
+
+    그래서 타일도 차트도 실행을 센다. 「지시 건수」는 따로 한 칸을 준다.
+
+    [기간을 타는 것과 「지금」을 갈라 둔다]
+
+    대기·실행 중·미확인은 **언제로 조회하든 지금 값**이다. 기간에 섞으면
+    지난달로 조회한 화면이 「실행 중 0건」이라고 말하면서 실제로는 지금
+    돌고 있는 일이 생긴다. 화면에서도 띠를 갈라 놓고 「지금」이라고 적는다.
+
+    [차트를 두 축으로 겹치지 않는다]
+
+    일별 건수와 일별 평균 처리시간은 **단위가 다르다.** 한 차트에 축 둘을
+    세우면 두 선이 만나는 자리가 아무 뜻도 없는데 사람은 거기서 뜻을 읽는다.
+    차트를 둘로 나눈다.
+
+    [한도는 두 군데에서 온다 — 한 칸에 뭉개지 않는다]
+
+      작업지시 CLI   claude · agy · copilot 의 `/usage`.
+                     **실행기가 읽어 올린 것**이다(서버는 CLI 를 못 부른다).
+      AI 공급자      포털의 AI 도우미가 쓰는 모델. AIAgentServer 가
+                     응답 헤더에서 주워 둔 값이다 — 따로 물어보면 그 호출이
+                     한도를 깎으므로 지나가는 것을 줍는다.
+
+    둘은 **다른 계정의 다른 한도**다. 그리고 둘 다 「언제 기준의 값인가」를
+    반드시 함께 보여 준다 — 그것을 모르면 숫자를 믿을 수 없다.
+
+    [퍼센트는 「쓴 비율」이다]
+
+    남은 비율이 아니다. CLI 가 그렇게 말하기 때문이고, 뒤집어 적으면 원문과
+    화면이 어긋나는 순간을 아무도 못 잡는다.
+
+    [예상 사용 건수는 예언이 아니다]
+
+    최근 28일의 일평균을 그대로 늘려 잡은 것뿐이다. **근거를 같이 적는다** —
+    안 적으면 화면의 숫자가 예언처럼 읽힌다.
+
+    [색]
+
+    상태색은 예약이다(성공·실패·시간초과·중단). 그 색을 「계열 4」로 다시
+    쓰지 않고, 색만으로 뜻을 지지 않게 글자를 늘 같이 둔다.
+*@
+
+@inherits DataPage
+@inject AiDashboardClient Api
+@inject NavigationManager Navigation
+
+<PageTitle>AI 작업 현황 · 프로젝트관리</PageTitle>
+
+<div class="pm-aidash">
+
+<CommSch OnSearch="@SearchAsync" Busy="@Loading">
+    <Fields>
+        <CommSchItem Label="기간">
+            <DxDateEdit @bind-Date="_from" Style="width: 150px" />
+        </CommSchItem>
+        <CommSchItem Label="~">
+            <DxDateEdit @bind-Date="_to" Style="width: 150px" />
+        </CommSchItem>
+    </Fields>
+    <Actions>
+        @foreach (var preset in Presets)
+        {
+            <DxButton Text="@preset.Text" RenderStyle="ButtonRenderStyle.Secondary"
+                      Click="@(() => ApplyPresetAsync(preset.Days))" />
+        }
+    </Actions>
+</CommSch>
+
+@* 「지금」 띠. **기간과 갈라 놓는다** — 머리말 참고. *@
+<div class="pm-aidash__now">
+    <span class="pm-aidash__now-label">지금</span>
+
+    <span class="jsini-badge @(Summary.RunningNow > 0 ? "jsini-badge--on" : "jsini-badge--off")">
+        실행 중 @Summary.RunningNow
+    </span>
+    <span class="jsini-badge @(Summary.QueuedNow > 0 ? "jsini-badge--warn" : "jsini-badge--off")">
+        대기 @Summary.QueuedNow
+    </span>
+    <span class="jsini-badge @(Summary.UnconfirmedNow > 0 ? "jsini-badge--warn" : "jsini-badge--off")">
+        미확인 @Summary.UnconfirmedNow
+    </span>
+
+    @* 실행기가 붙어 있는지. **대기가 쌓였는데 실행기가 죽어 있는 것**이
+       이 기능에서 가장 흔한 고장이고, 화면 어디에도 그 말이 없었다. *@
+    <span class="jsini-badge @(Summary.RunnersAlive > 0 ? "jsini-badge--on" : "jsini-badge--err")">
+        실행기 @(Summary.RunnersAlive > 0 ? $"{Summary.RunnersAlive}대 연결됨" : "소식 없음")
+    </span>
+
+    @if (Summary.RunnerSeenAt is { } seen)
+    {
+        <span class="pm-aidash__stamp">마지막 소식 @Ago(seen)</span>
+    }
+</div>
+
+@* ── 머리 숫자 ──────────────────────────────────────────────
+   숫자 하나로 끝나는 것은 차트로 그리지 않는다. *@
+<div class="jsini-stats pm-aidash__tiles">
+    <div class="jsini-stat">
+        <span class="jsini-stat__label">처리 실행</span>
+        <span class="jsini-stat__value">@Summary.Runs</span>
+        <span class="pm-aidash__sub">지시 @(Summary.Tasks)건 · 새 지시 @(Summary.CreatedTasks)건</span>
+    </div>
+    <div class="jsini-stat">
+        <span class="jsini-stat__label">성공률</span>
+        <span class="jsini-stat__value">@Summary.SuccessRate.ToString("0.#")%</span>
+        <span class="pm-aidash__sub">성공 @Summary.Succeeded · 실패 @(Summary.Failed + Summary.Timeout + Summary.Interrupted)</span>
+    </div>
+    <div class="jsini-stat">
+        <span class="jsini-stat__label">평균 처리시간</span>
+        <span class="jsini-stat__value">@Span(Summary.AvgSeconds)</span>
+        <span class="pm-aidash__sub">중앙값 @Span(Summary.MedianSeconds) · 90% @Span(Summary.P90Seconds)</span>
+    </div>
+    <div class="jsini-stat">
+        <span class="jsini-stat__label">최장 처리시간</span>
+        <span class="jsini-stat__value">@Span(Summary.MaxSeconds)</span>
+        <span class="pm-aidash__sub">기간 합계 @Span(Summary.TotalSeconds)</span>
+    </div>
+    <div class="jsini-stat">
+        <span class="jsini-stat__label">재시도 비율</span>
+        <span class="jsini-stat__value">@Summary.RetryRate.ToString("0.#")%</span>
+        <span class="pm-aidash__sub">두 번째 이후 실행의 몫</span>
+    </div>
+    <div class="jsini-stat">
+        <span class="jsini-stat__label">운영 반영</span>
+        <span class="jsini-stat__value">@Summary.Pushed</span>
+        <span class="pm-aidash__sub">push 까지 간 건수</span>
+    </div>
+</div>
+
+@* ── 예상 사용 건수 ─────────────────────────────────────────
+   근거를 같이 적는다 — 안 적으면 예언처럼 읽힌다. *@
+<CommCont Title="사용량 전망"
+          Hint="@($"최근 {Forecast.BasisDays}일 {Forecast.BasisRuns}건을 일평균 {Forecast.PerDay:0.##}건으로 늘려 잡은 값입니다. 예측 모형이 아닙니다.")"
+          CssClass="pm-aidash__panel">
+    <div class="jsini-stats">
+        <div class="jsini-stat">
+            <span class="jsini-stat__label">오늘</span>
+            <span class="jsini-stat__value">@Forecast.Today</span>
+            <span class="pm-aidash__sub">하루 끝 예상 @Forecast.TodayExpected.ToString("0.#")건</span>
+        </div>
+        <div class="jsini-stat">
+            <span class="jsini-stat__label">이번 주</span>
+            <span class="jsini-stat__value">@Forecast.ThisWeek</span>
+            <span class="pm-aidash__sub">일평균 @Forecast.PerDay.ToString("0.##")건</span>
+        </div>
+        <div class="jsini-stat">
+            <span class="jsini-stat__label">이번 달</span>
+            <span class="jsini-stat__value">@Forecast.ThisMonth</span>
+            <span class="pm-aidash__sub">월말 예상 @Forecast.MonthExpected.ToString("0.#")건</span>
+        </div>
+        <div class="jsini-stat">
+            <span class="jsini-stat__label">지난달 같은 기간 대비</span>
+            <span class="jsini-stat__value">@MomText</span>
+            <span class="pm-aidash__sub">달을 통째로 비교하지 않습니다</span>
+        </div>
+    </div>
+</CommCont>
+
+@* ── AI 모델 한도 ───────────────────────────────────────────
+   차트가 아니라 계량기다. 값이 하나뿐인 비율은 막대 하나가 가장 정확하다. *@
+<div class="pm-aidash__row">
+    <CommCont Title="작업지시 CLI 한도"
+              Hint="실행기가 각 CLI 의 /usage 를 읽어 올린 마지막 값입니다. 퍼센트는 「쓴 비율」입니다."
+              CssClass="pm-aidash__panel">
+        @if (Data.Usage.Count == 0)
+        {
+            <PageNotice Tone="NoticeTone.Info"
+                        Text="올라온 한도가 없습니다. 실행기의 Runner:UsageEnabled 와 각 어댑터의 UsageArgs 를 확인하십시오 — 비어 있으면 그 CLI 에는 묻지 않습니다." />
+        }
+        else
+        {
+            <div class="pm-aidash__meters">
+                @foreach (var usage in Data.Usage)
+                {
+                    <div class="pm-aidash__meter-card">
+                        <div class="pm-aidash__meter-head">
+                            <strong>@KindText(usage.RunnerKind)</strong>
+                            <span class="pm-aidash__stamp">@usage.RunnerNm</span>
+
+                            @if (usage.PlanNm is { Length: > 0 })
+                            {
+                                <span class="jsini-badge">@usage.PlanNm</span>
+                            }
+
+                            @if (!usage.Ok)
+                            {
+                                <span class="jsini-badge jsini-badge--err">읽지 못함</span>
+                            }
+                            else if (Stale(usage.ObservedAt))
+                            {
+                                @* 오래된 값을 최신인 척 보여 주지 않는다. *@
+                                <span class="jsini-badge jsini-badge--warn">오래된 값</span>
+                            }
+                        </div>
+
+                        @if (usage.Ok)
+                        {
+                            @Meter("세션", usage.SessionPct, usage.SessionResetAt)
+                            @Meter("주간", usage.WeekPct, usage.WeekResetAt)
+                            @Meter("주간 Opus", usage.WeekOpusPct, usage.WeekOpusResetAt)
+
+                            @if (usage.RemainingTokens is { } left)
+                            {
+                                <div class="pm-aidash__tokens">
+                                    남은 토큰 <strong>@left.ToString("N0")</strong>
+                                    @if (usage.LimitTokens is { } limit)
+                                    {
+                                        <span> / @limit.ToString("N0")</span>
+                                    }
+                                </div>
+                            }
+                        }
+                        else
+                        {
+                            <div class="pm-aidash__meter-error">@(usage.ErrorText ?? "이유가 적혀 있지 않습니다.")</div>
+                        }
+
+                        <div class="pm-aidash__stamp">@Ago(usage.ObservedAt) 기준</div>
+
+                        @if (usage.RawText is { Length: > 0 })
+                        {
+                            @* 가려낸 숫자가 전부가 아니다. 출력 형식이 바뀌면
+                               여기를 봐야 무엇이 바뀌었는지 안다. *@
+                            <details class="pm-aidash__raw">
+                                <summary>원문</summary>
+                                <pre>@usage.RawText</pre>
+                            </details>
+                        }
+                    </div>
+                }
+            </div>
+        }
+    </CommCont>
+
+    <CommCont Title="AI 공급자 한도"
+              Hint="포털 AI 도우미가 쓰는 모델입니다. 공급자가 응답 헤더로 알려 준 마지막 값이라, 한 번도 부르지 않았으면 비어 있습니다."
+              CssClass="pm-aidash__panel">
+        @if (_providers is null || _providers.Providers.Count == 0)
+        {
+            <PageNotice Tone="NoticeTone.Info" Text="공급자 정보를 읽지 못했습니다." />
+        }
+        else
+        {
+            <CommGrd TItem="AiProviderItem" Data="@_providers.Providers" PageSize="10"
+                     ShowRowNumber="false" ExportName="AI공급자한도"
+                     EmptyText="설정된 공급자가 없습니다.">
+                <Columns>
+                    <DxGridDataColumn Caption="공급자" MinWidth="140">
+                        <CellDisplayTemplate Context="cell">
+                            @{
+                                var p = (AiProviderItem)cell.DataItem;
+                            }
+                            <span>@(p.DisplayName ?? p.Key)</span>
+                            @if (p.IsDefault)
+                            {
+                                <span class="jsini-badge jsini-badge--on">기본</span>
+                            }
+                            @if (!p.Configured)
+                            {
+                                <span class="jsini-badge jsini-badge--err">키 없음</span>
+                            }
+                        </CellDisplayTemplate>
+                    </DxGridDataColumn>
+                    <DxGridDataColumn FieldName="@nameof(AiProviderItem.Model)" Caption="모델" MinWidth="150" />
+                    <DxGridDataColumn Caption="오늘" Width="110">
+                        <CellDisplayTemplate Context="cell">
+                            @{
+                                var p = (AiProviderItem)cell.DataItem;
+                            }
+                            @p.UsedToday@(p.MaxRequestsPerDay > 0 ? $" / {p.MaxRequestsPerDay}" : null)
+                        </CellDisplayTemplate>
+                    </DxGridDataColumn>
+                    <DxGridDataColumn Caption="남은 토큰" Width="130">
+                        <CellDisplayTemplate Context="cell">
+                            @{
+                                var p = (AiProviderItem)cell.DataItem;
+                            }
+                            @(p.Usage?.RemainingTokens ?? "—")
+                        </CellDisplayTemplate>
+                    </DxGridDataColumn>
+                    <DxGridDataColumn Caption="갱신" Width="120">
+                        <CellDisplayTemplate Context="cell">
+                            @{
+                                var p = (AiProviderItem)cell.DataItem;
+                            }
+                            @(p.Usage?.ResetTokens ?? p.Usage?.ResetRequests ?? "—")
+                        </CellDisplayTemplate>
+                    </DxGridDataColumn>
+                    <DxGridDataColumn Caption="기준" Width="130">
+                        <CellDisplayTemplate Context="cell">
+                            @{
+                                var p = (AiProviderItem)cell.DataItem;
+                            }
+                            @* **언제 기준인지를 반드시 같이 준다.** 없으면 한 번도
+                               부르지 않은 공급자다 — 0 이 아니라 「모름」이다. *@
+                            @(p.Usage?.ObservedAt is { } at ? Ago(at) : "호출 없음")
+                        </CellDisplayTemplate>
+                    </DxGridDataColumn>
+                </Columns>
+            </CommGrd>
+        }
+    </CommCont>
+</div>
+
+@* ── 추세 ───────────────────────────────────────────────────
+   건수와 처리시간은 단위가 달라 **차트를 나눈다**(머리말). *@
+<div class="pm-aidash__row">
+    <CommCont Title="@($"일별 처리 ({Data.From:yyyy-MM-dd} ~ {Data.To:yyyy-MM-dd})")"
+              Hint="성공과 실패를 쌓아 그립니다. 자료가 없는 날도 0 으로 그려 추세가 끊기지 않게 합니다."
+              CssClass="pm-aidash__panel">
+        <DxChart Data="@Data.Daily" Palette="@OutcomePalette" Width="100%" Height="260px" CssClass="pm-aidash__chart">
+            <DxChartStackedBarSeries T="AiDashboardPoint" TArgument="string" TValue="int"
+                                     ArgumentField="p => p.Label" ValueField="p => p.Succeeded"
+                                     Name="성공" />
+            <DxChartStackedBarSeries T="AiDashboardPoint" TArgument="string" TValue="int"
+                                     ArgumentField="p => p.Label" ValueField="p => p.Failed"
+                                     Name="실패·시간초과·중단" />
+            <DxChartLegend Position="RelativePosition.Outside"
+                           VerticalAlignment="VerticalEdge.Bottom"
+                           HorizontalAlignment="HorizontalAlignment.Center" />
+            <DxChartTooltip Enabled="true">
+                <div class="jsini-tip">@context.Point.Argument · @context.Point.SeriesName @(context.Point.Value)건</div>
+            </DxChartTooltip>
+        </DxChart>
+    </CommCont>
+
+    <CommCont Title="일별 평균 처리시간"
+              Hint="분 단위입니다. 건수와 축이 달라 차트를 나눠 그립니다."
+              CssClass="pm-aidash__panel">
+        <DxChart Data="@Data.Daily" Palette="@SinglePalette" Width="100%" Height="260px" CssClass="pm-aidash__chart">
+            <DxChartLineSeries T="AiDashboardPoint" TArgument="string" TValue="decimal"
+                               ArgumentField="p => p.Label" ValueField="p => p.AvgMinutes"
+                               Name="평균 처리시간(분)" />
+            <DxChartLegend Visible="false" />
+            <DxChartTooltip Enabled="true">
+                <div class="jsini-tip">@context.Point.Argument · 평균 @(context.Point.Value)분</div>
+            </DxChartTooltip>
+        </DxChart>
+    </CommCont>
+</div>
+
+<div class="pm-aidash__row">
+    <CommCont Title="월별 처리 (최근 12개월)"
+              Hint="고른 기간과 무관합니다. 「요즘 늘고 있나」는 기간과 다른 질문입니다."
+              CssClass="pm-aidash__panel">
+        <DxChart Data="@Data.Monthly" Palette="@MonthlyPalette" Width="100%" Height="260px" CssClass="pm-aidash__chart">
+            <DxChartBarSeries T="AiDashboardPoint" TArgument="string" TValue="int"
+                              ArgumentField="p => p.Label" ValueField="p => p.Runs"
+                              Name="전체 실행" />
+            <DxChartBarSeries T="AiDashboardPoint" TArgument="string" TValue="int"
+                              ArgumentField="p => p.Label" ValueField="p => p.Succeeded"
+                              Name="성공" />
+            <DxChartLegend Position="RelativePosition.Outside"
+                           VerticalAlignment="VerticalEdge.Bottom"
+                           HorizontalAlignment="HorizontalAlignment.Center" />
+            <DxChartTooltip Enabled="true">
+                <div class="jsini-tip">@context.Point.Argument · @context.Point.SeriesName @(context.Point.Value)건</div>
+            </DxChartTooltip>
+        </DxChart>
+    </CommCont>
+
+    <CommCont Title="실행 상태 분포"
+              Hint="@($"끝난 것과 도는 것을 모두 셉니다 · 총 {Data.ByStatus.Sum(s => s.Runs)}건")"
+              CssClass="pm-aidash__panel">
+        @if (StatusSlices.Count == 0)
+        {
+            <PageNotice Tone="NoticeTone.Info" Text="이 기간에 실행된 것이 없습니다." />
+        }
+        else
+        {
+            <DxPieChart Data="@StatusSlices" InnerDiameter="0.6" Palette="@StatusPalette"
+                        Width="100%" Height="260px" CssClass="pm-aidash__chart">
+                <DxPieChartSeries T="AiDashboardSlice" TArgument="string" TValue="int"
+                                  ArgumentField="s => s.Label" ValueField="s => s.Runs"
+                                  Name="상태별 실행" />
+                <DxChartLegend Position="RelativePosition.Outside"
+                               VerticalAlignment="VerticalEdge.Bottom"
+                               HorizontalAlignment="HorizontalAlignment.Center" />
+                <DxChartTooltip Enabled="true">
+                    <div class="jsini-tip">@context.Point.Argument · @(context.Point.Value)건</div>
+                </DxChartTooltip>
+            </DxPieChart>
+        }
+    </CommCont>
+</div>
+
+@* ── 사용 빈도 ──────────────────────────────────────────────
+   「언제 시키나」. 한 계열뿐이라 범례를 두지 않는다 — 제목이 이름을 말한다. *@
+<div class="pm-aidash__row">
+    <CommCont Title="시간대별 사용 빈도" Hint="실행이 시작된 시각 기준입니다." CssClass="pm-aidash__panel">
+        <DxChart Data="@Data.Hourly" Palette="@SinglePalette" Width="100%" Height="220px" CssClass="pm-aidash__chart">
+            <DxChartBarSeries T="AiDashboardBucket" TArgument="string" TValue="int"
+                              ArgumentField="b => b.Label" ValueField="b => b.Runs"
+                              Name="실행" />
+            <DxChartLegend Visible="false" />
+            <DxChartTooltip Enabled="true">
+                <div class="jsini-tip">@context.Point.Argument · @(context.Point.Value)건</div>
+            </DxChartTooltip>
+        </DxChart>
+    </CommCont>
+
+    <CommCont Title="요일별 사용 빈도" CssClass="pm-aidash__panel">
+        <DxChart Data="@Data.Weekday" Palette="@SinglePalette" Width="100%" Height="220px" CssClass="pm-aidash__chart">
+            <DxChartBarSeries T="AiDashboardBucket" TArgument="string" TValue="int"
+                              ArgumentField="b => b.Label" ValueField="b => b.Runs"
+                              Name="실행" />
+            <DxChartLegend Visible="false" />
+            <DxChartTooltip Enabled="true">
+                <div class="jsini-tip">@(context.Point.Argument)요일 · @(context.Point.Value)건</div>
+            </DxChartTooltip>
+        </DxChart>
+    </CommCont>
+
+    <CommCont Title="처리시간 분포"
+              Hint="평균 하나로는 「대부분 1분인데 한 건이 세 시간」을 볼 수 없습니다."
+              CssClass="pm-aidash__panel">
+        <DxChart Data="@Data.ByDuration" Palette="@SinglePalette" Width="100%" Height="220px" CssClass="pm-aidash__chart">
+            <DxChartBarSeries T="AiDashboardSlice" TArgument="string" TValue="int"
+                              ArgumentField="s => s.Label" ValueField="s => s.Runs"
+                              Name="실행" />
+            <DxChartLegend Visible="false" />
+            <DxChartTooltip Enabled="true">
+                <div class="jsini-tip">@context.Point.Argument · @(context.Point.Value)건</div>
+            </DxChartTooltip>
+        </DxChart>
+    </CommCont>
+</div>
+
+@* ── 무엇별 ─────────────────────────────────────────────────
+   순위를 읽는 자리다. 이름이 길어 표가 막대보다 정확하다. *@
+<div class="pm-aidash__row">
+    <CommCont Title="실행기(CLI)별" CssClass="pm-aidash__panel">
+        @RankTable(Data.ByRunner, "CLI", KindText)
+    </CommCont>
+
+    <CommCont Title="작업 대상별" CssClass="pm-aidash__panel">
+        @RankTable(Data.ByTarget, "대상", null)
+    </CommCont>
+
+    <CommCont Title="지시한 사람별" CssClass="pm-aidash__panel">
+        @RankTable(Data.ByRequester, "지시자", null)
+    </CommCont>
+</div>
+
+@* ── 최근 실행 ──────────────────────────────────────────────
+   숫자만 있는 대시보드는 「그래서 무슨 일이 있었나」에 답하지 못한다. *@
+<CommCont Title="최근 실행" Hint="줄을 누르면 그 작업으로 갑니다." CssClass="pm-aidash__panel">
+    <CommGrd TItem="AiDashboardRecent" Data="@Data.Recent" PageSize="10"
+             ShowRowNumber="false" ExportName="AI최근실행"
+             EmptyText="이 기간에 실행된 것이 없습니다."
+             Reload="@SearchAsync">
+        <Columns>
+            <DxGridDataColumn Caption="제목" MinWidth="240">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var r = (AiDashboardRecent)cell.DataItem;
+                    }
+                    <DxButton Text="@(string.IsNullOrWhiteSpace(r.Title) ? $"작업 {r.TaskKey}" : r.Title)"
+                              RenderStyle="ButtonRenderStyle.Link"
+                              Click="@(() => Navigation.NavigateTo($"/projmng/ai/task/{r.TaskKey}"))" />
+                    @if (r.Seq > 1)
+                    {
+                        <span class="jsini-badge jsini-badge--warn">@(r.Seq)차</span>
+                    }
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn Caption="상태" Width="110">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var r = (AiDashboardRecent)cell.DataItem;
+                    }
+                    <span class="jsini-badge @StatusClass(r.RunStatus)">@StatusText(r.RunStatus)</span>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn Caption="CLI" Width="110">
+                <CellDisplayTemplate Context="cell">
+                    @KindText(((AiDashboardRecent)cell.DataItem).RunnerKind)
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn FieldName="@nameof(AiDashboardRecent.TargetNm)" Caption="대상" Width="160" />
+            <DxGridDataColumn FieldName="@nameof(AiDashboardRecent.CreId)" Caption="지시자" Width="120" />
+            <DxGridDataColumn FieldName="@nameof(AiDashboardRecent.StartedAt)" Caption="시작"
+                              Width="150" DisplayFormat="yyyy-MM-dd HH:mm" />
+
+            <DxGridDataColumn Caption="처리시간" Width="110">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var r = (AiDashboardRecent)cell.DataItem;
+                    }
+                    @* 아직 안 끝난 것은 0 이 아니라 「도는 중」이다. *@
+                    @(r.Seconds is { } s ? Span(s) : "도는 중")
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+        </Columns>
+    </CommGrd>
+</CommCont>
+
+</div>
+
+@code {
+    // ── 색 ──────────────────────────────────────────────────
+    //
+    // 상태색은 **예약이다.** 「계열 4」로 다시 쓰지 않는다 — 다시 쓰면
+    // 빨강이 어떤 차트에서는 실패이고 어떤 차트에서는 그냥 넷째가 된다.
+    // 그리고 색만으로 뜻을 지지 않게 글자를 늘 옆에 둔다.
+
+    /// <summary>계열 1. 크기를 읽는 막대·선이 쓴다.</summary>
+    private const string Series1 = "#2a78d6";
+
+    private const string Good = "#0ca30c";
+    private const string Warning = "#fab219";
+    private const string Serious = "#ec835a";
+    private const string Critical = "#d03b3b";
+
+    /// <summary>회색. 「취소」처럼 좋지도 나쁘지도 않은 것.</summary>
+    private const string Muted = "#898781";
+
+    // DevExpress 차트는 계열 색을 **팔레트 순서**로 받는다.
+    // 계열마다 `Color` 를 적는 길도 있지만 그쪽은 `System.Drawing.Color` 라
+    // 화면에서 hex 를 그대로 쓸 수 없다 — 저장소의 다른 차트도 팔레트를 쓴다.
+
+    /// <summary>계열 하나짜리 차트. 크기를 읽는 자리다.</summary>
+    private static readonly string[] SinglePalette = [Series1];
+
+    /// <summary>성공 · 실패. <b>상태색이라 순서를 바꾸면 안 된다.</b></summary>
+    private static readonly string[] OutcomePalette = [Good, Critical];
+
+    /// <summary>전체 실행 · 성공. 앞엣것은 크기, 뒤엣것은 상태다.</summary>
+    private static readonly string[] MonthlyPalette = [Series1, Good];
+
+    /// <summary>상태 이름 → 색. 도넛의 조각 순서를 여기에 맞춘다.</summary>
+    private static readonly Dictionary<string, string> StatusColors = new(StringComparer.Ordinal)
+    {
+        ["성공"] = Good,
+        ["실패"] = Critical,
+        ["시간초과"] = Serious,
+        ["중단"] = Warning,
+        ["취소"] = Muted,
+        ["준비 중"] = Series1,
+        ["실행 중"] = Series1,
+        ["대기"] = Muted,
+    };
+
+    // ── 상태 ────────────────────────────────────────────────
+
+    private DateTime? _from = DateTime.Today.AddDays(-29);
+    private DateTime? _to = DateTime.Today;
+
+    private AiDashboardData _data = new();
+    private AiProviderStatus? _providers;
+
+    private AiDashboardData Data => _data;
+    private AiDashboardSummary Summary => _data.Summary;
+    private AiDashboardForecast Forecast => _data.Forecast;
+
+    private sealed record Preset(string Text, int Days);
+
+    private static readonly Preset[] Presets =
+    [
+        new("최근 7일", 7),
+        new("최근 30일", 30),
+        new("최근 90일", 90),
+    ];
+
+    protected override Task OnInitializedAsync() => SearchAsync();
+
+    private Task SearchAsync() => LoadAsync(async () =>
+    {
+        _data = await Api.LoadAsync(_from, _to) ?? new AiDashboardData();
+
+        // **곁들이는 값이다.** 못 읽어도 대시보드는 그린다 — 클라이언트가
+        // 이미 삼키고 null 을 준다.
+        _providers = await Api.ProvidersAsync();
+
+        // 0 건이어도 화면은 타일과 빈 차트를 그린다. 그것이 사실이다.
+        // 「없습니다」는 이 기간에 아무 실행도 없을 때만 띄운다.
+        return _data.Summary.Runs;
+    }, "이 기간에 처리한 작업이 없습니다.", "현황을 읽지 못했습니다");
+
+    private Task ApplyPresetAsync(int days)
+    {
+        _to = DateTime.Today;
+        _from = DateTime.Today.AddDays(-(days - 1));
+        return SearchAsync();
+    }
+
+    // ── 도넛 ────────────────────────────────────────────────
+
+    /// <summary>
+    /// 상태 조각. <b>0 건인 상태는 뺀다</b> — 조각은 안 그려지는데 범례만
+    /// 남아 도넛과 범례가 어긋나 보인다.
+    /// </summary>
+    private List<AiDashboardSlice> StatusSlices =>
+    [
+        .. Data.ByStatus
+            .Where(s => s.Runs > 0)
+            .Select(s => new AiDashboardSlice
+            {
+                Label = StatusText(s.Label),
+                Runs = s.Runs,
+                Succeeded = s.Succeeded,
+                Failed = s.Failed,
+                AvgMinutes = s.AvgMinutes,
+            })
+    ];
+
+    /// <summary>조각 색. <see cref="StatusSlices"/> 와 같은 순서여야 어긋나지 않는다.</summary>
+    private string[] StatusPalette =>
+        [.. StatusSlices.Select(s => StatusColors.GetValueOrDefault(s.Label, Muted))];
+
+    // ── 조각 ────────────────────────────────────────────────
+
+    /// <summary>
+    /// 「무엇별」 표. 셋이 같은 모양이라 한 번만 적는다.
+    /// </summary>
+    /// <remarks>
+    /// 막대가 아니라 표인 이유는 <b>이름이 길기 때문</b>이다 — 대상 이름과
+    /// 로그인 아이디를 가로축에 눕히면 글자가 겹치거나 잘린다. 그리고 이
+    /// 자리에서 사람이 읽는 것은 모양이 아니라 순위와 숫자다.
+    /// </remarks>
+    private RenderFragment RankTable(
+        List<AiDashboardSlice> rows, string caption, Func<string?, string>? format) => @<text>
+        @if (rows.Count == 0)
+        {
+            <PageNotice Tone="NoticeTone.Info" Text="이 기간에 실행된 것이 없습니다." />
+        }
+        else
+        {
+            <table class="pm-aidash__rank">
+                <thead>
+                    <tr>
+                        <th>@caption</th>
+                        <th class="pm-aidash__num">실행</th>
+                        <th class="pm-aidash__num">성공</th>
+                        <th class="pm-aidash__num">실패</th>
+                        <th class="pm-aidash__num">평균</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in rows)
+                    {
+                        <tr>
+                            <td>
+                                @(format is null ? row.Label : format(row.Label))
+                                @* 막대를 글자 아래 얇게 깐다. 순위를 눈으로
+                                   먼저 읽게 하는 것이고, 숫자는 그대로 옆에 있다. *@
+                                <span class="pm-aidash__bar"
+                                      style="width: @(Share(row.Runs, rows))%"></span>
+                            </td>
+                            <td class="pm-aidash__num">@row.Runs</td>
+                            <td class="pm-aidash__num">@row.Succeeded</td>
+                            <td class="pm-aidash__num">@row.Failed</td>
+                            <td class="pm-aidash__num">@row.AvgMinutes.ToString("0.#")분</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </text>;
+
+    /// <summary>계량기 한 줄. 값이 없으면 <b>아무것도 그리지 않는다</b> — 0% 와 「모름」은 다르다.</summary>
+    private RenderFragment Meter(string label, decimal? pct, DateTime? resetAt) => @<text>
+        @if (pct is { } value)
+        {
+            <div class="pm-aidash__meter">
+                <div class="pm-aidash__meter-label">
+                    <span>@label</span>
+                    <span class="pm-aidash__num">@value.ToString("0.#")% 사용</span>
+                </div>
+                <div class="pm-aidash__meter-track">
+                    <span class="pm-aidash__meter-fill"
+                          style="width: @value.ToString("0.#")%; background: @MeterColor(value);"></span>
+                </div>
+                <div class="pm-aidash__stamp">
+                    @(resetAt is { } at ? $"{at:MM-dd HH:mm} 갱신" : "갱신 시각 모름")
+                </div>
+            </div>
+        }
+    </text>;
+
+    /// <summary>
+    /// 계량기 색. <b>색만으로 뜻을 지지 않는다</b> — 퍼센트 글자가 늘 옆에 있다.
+    /// </summary>
+    private static string MeterColor(decimal pct)
+        => pct >= 90 ? Critical : pct >= 75 ? Serious : pct >= 50 ? Warning : Good;
+
+    // ── 글자 ────────────────────────────────────────────────
+
+    private static string Span(decimal seconds)
+    {
+        if (seconds <= 0)
+        {
+            return "—";
+        }
+
+        var span = TimeSpan.FromSeconds((double)seconds);
+
+        return span.TotalHours >= 1 ? $"{span.TotalHours:0.#}시간"
+            : span.TotalMinutes >= 1 ? $"{span.TotalMinutes:0.#}분"
+            : $"{span.TotalSeconds:0}초";
+    }
+
+    private static string Ago(DateTime at)
+    {
+        var gap = DateTime.Now - at;
+
+        return gap < TimeSpan.Zero ? at.ToString("MM-dd HH:mm")
+            : gap.TotalMinutes < 1 ? "방금"
+            : gap.TotalHours < 1 ? $"{gap.TotalMinutes:0}분 전"
+            : gap.TotalDays < 1 ? $"{gap.TotalHours:0}시간 전"
+            : at.ToString("MM-dd HH:mm");
+    }
+
+    /// <summary>
+    /// 한도 값이 오래됐나. <b>보고 주기(15분)의 네 배</b>를 기준으로 한다 —
+    /// 한두 번 걸러도 소란을 떨지 않되, 반나절 묵은 값을 최신인 척하지 않게.
+    /// </summary>
+    private static bool Stale(DateTime observedAt)
+        => DateTime.Now - observedAt > TimeSpan.FromMinutes(60);
+
+    private string MomText => Forecast.MonthOverMonth is { } mom
+        ? $"{(mom >= 0 ? "+" : string.Empty)}{mom:0.#}%"
+        : "비교할 자료 없음";
+
+    /// <summary>한 줄이 전체에서 차지하는 몫(%). 표 안의 얇은 막대가 쓴다.</summary>
+    private static string Share(int runs, List<AiDashboardSlice> rows)
+    {
+        var top = rows.Count == 0 ? 0 : rows.Max(r => r.Runs);
+        return top <= 0 ? "0" : (runs * 100.0 / top).ToString("0.#");
+    }
+
+    private static string KindText(string? kind) => kind switch
+    {
+        "claude" => "Claude",
+        "antigravity" => "안티그래비티",
+        "copilot" => "Copilot",
+        null or "" => "(없음)",
+        _ => kind,
+    };
+
+    private static string StatusText(string? status) => status switch
+    {
+        "succeeded" => "성공",
+        "failed" => "실패",
+        "timeout" => "시간초과",
+        "canceled" => "취소",
+        "interrupted" => "중단",
+        "preparing" => "준비 중",
+        "running" => "실행 중",
+        "queued" => "대기",
+        null or "" => "(없음)",
+        _ => status,
+    };
+
+    private static string StatusClass(string? status) => status switch
+    {
+        "succeeded" => "jsini-badge--on",
+        "failed" or "timeout" => "jsini-badge--err",
+        "interrupted" => "jsini-badge--warn",
+        _ => "jsini-badge--off",
+    };
+}

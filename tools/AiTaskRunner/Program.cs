@@ -47,6 +47,10 @@ builder.Services.AddSingleton<PushGate>();
 builder.Services.AddSingleton<QueueListener>();
 builder.Services.AddHostedService<RunnerWorker>();
 
+// AI CLI 의 한도(`/usage`)를 주기적으로 읽어 서버로 올린다. **본업과 갈라
+// 둔다** — 사용량 조회가 매달려도 집어가기와 하트비트는 그대로 돌아야 한다.
+builder.Services.AddHostedService<UsageReporter>();
+
 // 복사본 작업공간은 끝나도 안 지운다(결과가 거기 있다). 그래서 쌓이고,
 // 이것이 오래된 것만 치운다.
 builder.Services.AddHostedService<WorkspaceSweeper>();

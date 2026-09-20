@@ -54,6 +54,10 @@ public sealed class ProjMngModule : IPortalModule
         services.AddScoped<AiTaskClient>();
         services.AddScoped<AiTargetClient>();
 
+        // AI 작업 현황(대시보드). **읽기뿐이다** — 「AI 작업」·「빠른 지시」가
+        // 만든 자료를 세기만 한다. 모델 한도는 두 군데를 본다(그 클래스 머리말).
+        services.AddScoped<AiDashboardClient>();
+
         // 지시자의 이름과 얼굴. 업무 자료에는 로그인 아이디만 있어서
         // 계정 쪽(`auth/user/faces`)에 한 번 더 묻는다 — 한 번 물어본 것은
         // 들고 있으므로 목록을 다시 읽어도 왕복이 늘지 않는다.
