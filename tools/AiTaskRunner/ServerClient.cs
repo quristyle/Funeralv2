@@ -17,6 +17,15 @@ namespace AiTaskRunner;
 /// 연달아 실패하면 <b>보고를 포기한다.</b> 포기하지 않으면 서버가 내려가 있는
 /// 동안 보고마다 타임아웃을 기다려 <b>작업 자체가 느려진다.</b>
 /// </para>
+/// <para>
+/// <b>아래 <c>catch</c> 들이 취소를 두 가지로 가른다.</b> 멈추라는 신호로 온
+/// 것만 밖으로 내보내고(<c>ct</c> 가 취소됐을 때), <c>HttpClient.Timeout</c>
+/// 30초가 지나 온 것은 여느 실패처럼 적고 넘어간다 — 둘 다
+/// <see cref="OperationCanceledException"/> 이라 <i>종류만</i> 보고 흘려보내면
+/// 제한 시간까지 함께 빠져나간다. 그러면 부르는 쪽이
+/// <b>「멈추라는 신호가 왔다」로 읽고 조용히 고리를 빠져나가</b>
+/// 실행기가 살아 있는 채로 아무 일도 집지 않게 된다.
+/// </para>
 /// </remarks>
 public sealed class ServerClient(HttpClient http, RunnerOptions options, ILogger<ServerClient> logger)
 {
@@ -56,7 +65,7 @@ public sealed class ServerClient(HttpClient http, RunnerOptions options, ILogger
             var body = await res.Content.ReadFromJsonAsync<Envelope<Claim>>(Json, ct);
             return body?.Data?.Result ?? [];
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
         {
             logger.LogWarning("서버에 물어보지 못했습니다: {Message}", ex.Message);
             return [];
@@ -88,7 +97,7 @@ public sealed class ServerClient(HttpClient http, RunnerOptions options, ILogger
             var body = await res.Content.ReadFromJsonAsync<Envelope<Heartbeat>>(Json, ct);
             return body?.Data?.Result?.FirstOrDefault()?.CancelRequested ?? false;
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
         {
             logger.LogDebug("하트비트 실패: {Message}", ex.Message);
             return false;
@@ -116,7 +125,7 @@ public sealed class ServerClient(HttpClient http, RunnerOptions options, ILogger
             using var res = await http.SendAsync(req, ct);
             return res.IsSuccessStatusCode;
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
         {
             logger.LogDebug("로그 전송 실패: {Message}", ex.Message);
             return false;
@@ -157,7 +166,7 @@ public sealed class ServerClient(HttpClient http, RunnerOptions options, ILogger
                     return;
                 }
             }
-            catch (Exception ex) when (ex is not OperationCanceledException)
+            catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
             {
                 logger.LogWarning("완료 보고 {Attempt}/3 실패: {Message}", attempt, ex.Message);
             }
@@ -199,9 +208,11 @@ public sealed class ServerClient(HttpClient http, RunnerOptions options, ILogger
                 logger.LogWarning("사용량 보고가 거절됐습니다: HTTP {Code}", (int)res.StatusCode);
             }
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
         {
-            logger.LogDebug("사용량 보고 실패: {Message}", ex.Message);
+            // **묻어 두지 않는다.** 15분에 한 번이라 시끄러울 일이 없고,
+            // 이것이 계속 실패하면 화면의 한도 칸이 옛 숫자로 굳는다.
+            logger.LogWarning("사용량 보고 실패: {Message}", ex.Message);
         }
     }
 

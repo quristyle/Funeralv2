@@ -57,9 +57,17 @@ public sealed class UsageReporter(
             {
                 await ReportAsync(stoppingToken);
             }
-            catch (Exception ex) when (ex is not OperationCanceledException)
+            catch (Exception ex) when (ex is not OperationCanceledException
+                                       || !stoppingToken.IsCancellationRequested)
             {
                 // 곁들이는 일이다. 여기서 터져 실행기가 죽으면 본업이 멈춘다.
+                //
+                // **취소는 두 가지다.** 멈추라는 신호로 온 것과, HttpClient 의
+                // 제한 시간(30초)이 지나 온 것 — 둘 다 OperationCanceledException
+                // 이라 종류만 보고 흘려보내면 뒤엣것까지 여기를 빠져나간다.
+                // 그러면 BackgroundService 가 고장으로 끝나고 기본값이
+                // StopHost 라 **돌던 작업까지 통째로 죽는다.** 신호로 온 것만
+                // 내보내고 제한 시간은 여느 실패처럼 적고 넘어간다.
                 logger.LogWarning("사용량 보고가 실패했습니다: {Message}", ex.Message);
             }
 

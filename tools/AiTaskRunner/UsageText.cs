@@ -53,6 +53,14 @@ public static partial class UsageText
     [GeneratedRegex(@"\x1B\[[0-9;?]*[A-Za-z]")]
     private static partial Regex Ansi();
 
+    /// <summary>괄호로 묶인 덧말. <c>(Asia/Seoul)</c> 같은 시간대 표기다.</summary>
+    [GeneratedRegex(@"\([^)]*\)?")]
+    private static partial Regex Parens();
+
+    /// <summary>이어진 공백. 걷어낸 자리에 남은 것을 하나로 줄인다.</summary>
+    [GeneratedRegex(@"\s+")]
+    private static partial Regex Squeeze();
+
     /// <summary>어느 한도를 말하는 줄인가.</summary>
     private enum Section
     {
@@ -191,8 +199,16 @@ public static partial class UsageText
     /// </remarks>
     private static DateTime? ParseWhen(string text, DateTime now)
     {
-        var cleaned = text.Trim()
+        // **괄호와 쉼표를 먼저 걷어낸다.** 실제 출력이
+        // `Sep 21, 12:10pm (Asia/Seoul)` 모양이다 — 꼬리의 시간대 표기와
+        // 날짜 뒤 쉼표 때문에 어느 형식에도 걸리지 않아, 갱신 시각만
+        // 조용히 비어 있었다(퍼센트는 멀쩡해서 더 눈에 안 띈다).
+        // 시간대 이름은 버린다. CLI 가 장비의 시간대로 찍어 주고,
+        // 이 값을 쓰는 쪽도 장비 시각으로 읽는다.
+        var cleaned = Squeeze().Replace(
+                Parens().Replace(text, " ").Replace(',', ' '), " ")
             .Replace(" at ", " ", StringComparison.OrdinalIgnoreCase)
+            .Trim()
             .Trim('.', ',', ')', '(', ' ');
 
         if (cleaned.Length == 0)
@@ -235,8 +251,8 @@ public static partial class UsageText
         "yyyy-MM-dd HH:mm", "yyyy-MM-dd HH:mm:ss", "yyyy-MM-dd",
         "yyyy/MM/dd HH:mm", "yyyy/MM/dd",
         "MMM d yyyy h:mmtt", "MMM d yyyy H:mm", "MMM d yyyy",
-        "MMM d h:mmtt", "MMM d h:mm tt", "MMM d H:mm", "MMM d",
-        "MMMM d h:mmtt", "MMMM d H:mm", "MMMM d",
+        "MMM d h:mmtt", "MMM d h:mm tt", "MMM d H:mm", "MMM d htt", "MMM d h tt", "MMM d",
+        "MMMM d h:mmtt", "MMMM d H:mm", "MMMM d htt", "MMMM d h tt", "MMMM d",
         "h:mmtt", "h:mm tt", "htt", "h tt", "HH:mm", "H:mm",
     ];
 

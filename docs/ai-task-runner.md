@@ -2274,6 +2274,46 @@ DTO 는 `JSini.Web.ProjMng.Api` 에 있다. 이름이 같으면 화면 안에서
 오류가 아니라 그럴듯한 값이 나오는 실패라, 화면에는 「갱신 시각이 이미
 지났다」로만 보인다(실제로 밟아서 형식 목록이 생겼다).
 
+### 운영 장비에서 실제로 본 출력 (2026-09-21)
+
+```
+Current session: 1% used · resets Sep 21, 12:10pm (Asia/Seoul)
+Current week (all models): 36% used · resets Sep 24, 11pm (Asia/Seoul)
+Current week (Fable): 0% used · resets Sep 24, 11pm (Asia/Seoul)
+```
+
+**퍼센트는 처음부터 맞았는데 갱신 시각만 셋 다 비어 있었다.** 꼬리의
+`(Asia/Seoul)` 과 날짜 뒤 쉼표 때문에 어느 형식에도 걸리지 않았다. 괄호와
+쉼표를 먼저 걷어내고 `MMM d htt`(분 없는 시각)를 형식에 넣어 고쳤다.
+**퍼센트가 멀쩡해서 더 안 보이는 고장**이었다 — 화면은 채워지는데 「언제
+기준의 값인가」만 비어 있었고, 그 칸이야말로 숫자를 믿게 하는 칸이다.
+
+`Current week (…)` 둘째 줄은 **이제 Opus 가 아니다.** `week_opus_pct` 는
+낱말 `opus` 로 찾으므로 이 장비에서는 비어 있다 — 비어 있는 것이 맞다.
+낱말만 넓혀 주워 담으면 화면의 「Opus 주간」 칸에 **다른 모델 숫자**가
+앉는데, 빈 칸보다 그쪽이 나쁘다.
+
+### 사용량 보고 하나가 실행기를 통째로 죽일 뻔했다
+
+`catch (Exception ex) when (ex is not OperationCanceledException)` 이
+저장소 곳곳의 모양인데, **`HttpClient.Timeout`(30초)도
+`TaskCanceledException` 으로 온다.** 종류만 보고 흘려보내면 제한 시간까지
+함께 빠져나가고, `UsageReporter` 는 `BackgroundService` 라
+기본값 `BackgroundServiceExceptionBehavior.StopHost` 가 **돌던 작업까지
+통째로 내린다.** 곁들이는 칸 하나 때문에 본업이 죽는 자리다.
+
+그래서 취소를 둘로 가른다 — **멈추라는 신호로 온 것만** 밖으로 내보내고
+(`ct` 가 취소됐을 때), 제한 시간은 여느 실패처럼 적고 넘어간다.
+`ServerClient` 의 다섯 자리가 같은 모양이었고 같이 고쳤다. 집어가기·
+하트비트 쪽은 죽지는 않았지만 **`RunnerWorker` 가 「멈추라는 신호가 왔다」로
+읽고 조용히 고리를 빠져나가** 실행기가 살아 있는 채로 아무 일도 안 집는,
+더 찾기 나쁜 모양이었다.
+
+확인은 **일부러 매다는 프록시**로 했다. `/api/ai-runner/usage` 만
+통과시키고 나머지는 503 으로 막아(확인용 실행기가 실제 작업을 집어가지
+못하게) 한 번만 40초를 매단다. 고치기 전에는 그 자리에서 `FTL ... StopHost`
+로 내려갔고, 고친 뒤에는 경고 한 줄만 남기고 다음 주기에 정상 보고했다.
+
 ### 퍼센트는 「쓴 비율」이다
 
 남은 비율이 아니다. CLI 가 그렇게 말하기 때문이고, 뒤집어 적으면 원문과
@@ -2407,6 +2447,19 @@ DTO 는 `JSini.Web.ProjMng.Api` 에 있다. 이름이 같으면 화면 안에서
 > `--delete` 가 지운다. 재기동은 `sudo systemctl restart` 가 안 된다
 > (유닛의 `NoNewPrivileges=yes`). 주 프로세스에 `kill -TERM` 을 보내
 > `Restart=always` 로 되살린다. **재기동은 그때 돌던 작업도 같이 죽인다.**
+>
+> **언제 내리나 — 「실행 중」이 0 일 때다.** 대개 이 배포를 하는 것이
+> 실행기 안에서 도는 AI 자신이라, 그냥 내리면 *자기 작업을 자기가 죽인다.*
+> cgroup 에 CLI 가 보이나로 세면 안 된다 — CLI 가 끝난 뒤에도 실행기는
+> 게이트(빌드·테스트)를 돌리고 `push` 하고 완료를 보고한다. 그 사이에
+> 내리면 **다 해 놓고 보고만 못 한 채 죽는다.** 서버에
+> `GET /api/ai-dashboard` 의 `summary.runningNow` 를 물어 0 이 될 때까지
+> 기다렸다가 내리는 감시 하나를 떼어 두면 된다.
+>
+> 그 감시를 유닛 안에서 돌리면 **재기동과 함께 같이 죽어** 뒤처리를 못 한다.
+> `systemd-run --user` 로 띄우면 `user@1000.service` 밑으로 빠져 살아남지만,
+> 세션이 닫히면 사용자 관리자도 같이 내려간다(`Linger=no`). 둘 다 띄워 두고
+> `mkdir` 로 자리를 하나만 잡게 하는 것이 지금의 답이다.
 
 ---
 
