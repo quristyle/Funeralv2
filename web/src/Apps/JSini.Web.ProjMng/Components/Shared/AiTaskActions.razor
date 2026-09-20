@@ -106,7 +106,11 @@
         <PageNotice Tone="NoticeTone.Info"
                     Text="지난 진행(요약과 바뀐 파일)은 서버가 앞에 붙입니다. 여기에는 이번에 더 시킬 일만 적으십시오." />
 
+        @* **한 글자 칠 때마다 값이 올라와야** 아래 「이어서 지시 요청」이 깨어난다.
+           `DxMemo` 의 기본값은 `OnLostFocus` 라 글상자를 빠져나가기 전에는
+           값이 비어 있는 것으로 보여 단추가 죽은 채로 있었다. *@
         <DxMemo @bind-Text="_continueAddition" Rows="5"
+                BindValueMode="BindValueMode.OnInput"
                 NullText="이번에 더 시킬 일"
                 CssClass="pm-peek__memo" />
 
