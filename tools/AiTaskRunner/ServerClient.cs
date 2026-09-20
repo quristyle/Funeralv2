@@ -35,8 +35,10 @@ public sealed class ServerClient(HttpClient http, RunnerOptions options, ILogger
                 Content = JsonContent.Create(new
                 {
                     runnerName = options.Name,
-                    // 중복을 턴다 — 설정 배열은 칸 번호로 겹친다(RunnerWorker.Kinds 주석).
-                    kinds = options.Kinds.Distinct(StringComparer.OrdinalIgnoreCase).ToArray(),
+                    // **어댑터에 적힌 것이 곧 돌릴 수 있는 것이다**
+                    // (RunnerOptions.RunnableKinds 주석). 여기 빠진 종류는
+                    // 서버가 아예 안 건네주므로 그 건은 조용히 「대기」에 남는다.
+                    kinds = options.RunnableKinds.ToArray(),
                     capacity,
                 }, options: Json),
             };

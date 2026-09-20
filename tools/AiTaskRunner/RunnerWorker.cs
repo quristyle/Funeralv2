@@ -29,15 +29,10 @@ public sealed class RunnerWorker(
     private readonly RunnerOptions _options = optionsAccessor.Value;
 
     /// <summary>
-    /// 이 장비가 돌릴 CLI. <b>중복을 턴다.</b>
+    /// 이 장비가 돌릴 CLI. <b>어댑터에 적힌 것이 그대로다</b>
+    /// (<see cref="RunnerOptions.RunnableKinds"/>).
     /// </summary>
-    /// <remarks>
-    /// .NET 설정은 배열을 <b>칸 번호로 겹친다</b> — 기본 파일에
-    /// <c>["claude","antigravity","copilot"]</c> 가 있고 Local 에 <c>["antigravity"]</c> 를
-    /// 적으면 0번만 덮이고 1번이 남아 <c>["antigravity","antigravity"]</c> 가 된다.
-    /// 실제로 시작 로그에 그렇게 찍혔다. 여기서 한 번 정리한다.
-    /// </remarks>
-    private string[] Kinds => [.. _options.Kinds.Distinct(StringComparer.OrdinalIgnoreCase)];
+    private IReadOnlyList<string> Kinds => _options.RunnableKinds;
 
     /// <summary>지금 도는 것. 동시 상한을 이것으로 센다.</summary>
     private readonly SemaphoreSlim _slots =
@@ -70,6 +65,8 @@ public sealed class RunnerWorker(
             "실행기 {Name} 시작 · 서버 {Url} · CLI [{Kinds}] · 동시 {Max} · 조회 {Poll}초",
             _options.Name, _options.ServerUrl, string.Join(",", Kinds),
             _options.MaxParallel, _options.PollSeconds);
+
+        WarnAboutAdapters();
 
         // 종을 듣는다. 못 붙어도 계속 간다 — 폴링이 있다.
         _ = queue.ListenAsync(() => _bell.Release(), stoppingToken);
@@ -443,6 +440,62 @@ public sealed class RunnerWorker(
             {
                 logger.LogWarning("서버가 실행 {RunKey} 를 모릅니다. 보고 없이 끝냈습니다.", claim.RunKey);
             }
+        }
+    }
+
+    /// <summary>
+    /// 어댑터를 한 번 훑어보고 이상한 것을 <b>시작하자마자</b> 말한다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 이 둘은 시켜 보기 전에는 드러나지 않는다. <b>드러날 때는 이미 사람이
+    /// 「보냈는데 왜 아무 일도 없나」를 한참 들여다본 뒤</b>다 — 실행기는
+    /// 못 돌리는 종류를 <b>집지도 않으므로</b> 로그조차 한 줄 안 남는다.
+    /// </para>
+    /// <list type="number">
+    ///   <item><description>
+    ///     <b>어댑터가 하나도 없다</b> — 설정이 통째로 안 읽혔다는 뜻이다
+    ///     (<c>appsettings.json</c> 이 출력 폴더에 없거나 <c>Runner</c> 절의
+    ///     이름이 틀렸다). 이 장비는 아무것도 못 집는다.
+    ///   </description></item>
+    ///   <item><description>
+    ///     <b>적힌 실행 파일이 없다</b> — 그 종류로 시킨 건은 집어 가서
+    ///     전부 실패한다. 깔기 전에 어댑터만 먼저 넣었을 때 그렇다.
+    ///   </description></item>
+    /// </list>
+    /// </remarks>
+    private void WarnAboutAdapters()
+    {
+        if (Kinds.Count == 0)
+        {
+            logger.LogCritical(
+                "Runner:Adapters 가 비어 있습니다. 이 장비는 어떤 작업도 집지 않습니다.");
+            return;
+        }
+
+        foreach (var kind in Kinds)
+        {
+            var path = _options.Adapters[kind].Executable;
+
+            if (!File.Exists(path))
+            {
+                logger.LogWarning(
+                    "'{Kind}' 어댑터의 실행 파일이 없습니다: {Path}. 그 종류로 시킨 건은 전부 실패합니다.",
+                    kind, path);
+            }
+        }
+
+        // 끈 것도 적어 둔다. **「왜 코파일럿이 안 돌지」의 답이 여기 있을 수 있다.**
+        var off = _options.Adapters
+            .Where(a => string.IsNullOrWhiteSpace(a.Value.Executable))
+            .Select(a => a.Key)
+            .ToList();
+
+        if (off.Count > 0)
+        {
+            logger.LogInformation(
+                "실행 파일이 비어 있어 끈 어댑터: [{Off}]. 그 종류로 시킨 건은 이 장비가 집지 않습니다.",
+                string.Join(",", off));
         }
     }
 

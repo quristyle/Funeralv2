@@ -121,12 +121,28 @@ public sealed class AiStaleSweeper(
         //    **실행기가 안 떠 있다는 뜻**이고, 그것이 이 기능의 가장 흔한 고장이다.
         //    상태를 바꾸지 않고 사유만 적는다 — 실행기가 늦게 떠서 집어 갈 수도
         //    있으므로, 여기서 '실패' 로 못 박으면 그 뒤 보고가 갈 곳을 잃는다.
+        //
+        //    **고른 AI 이름을 사유에 박아 넣는다.** 실행기가 멀쩡히 떠 있는데도
+        //    이 자리에 오는 길이 하나 더 있기 때문이다 — 집어가기 질의는
+        //    `runner_kind = ANY(실행기가 말한 종류)` 로 거르므로, **그 장비가
+        //    그 CLI 를 안 가졌으면 아무 일도 안 일어난다.** 오류도 로그도 없다.
+        //    실제로 copilot 을 넣고 장비 설정을 옛것으로 둔 동안 코파일럿으로
+        //    시킨 건이 전부 여기 앉아 있었고, 그때 화면이 한 말이
+        //    「실행기가 떠 있는지 확인하십시오」였다 — **떠 있었다.** 그래서
+        //    엉뚱한 곳을 한참 봤다. 이름 한 낱말이 그 시간을 없앤다.
         var stalled = await db.ExecuteAsync("""
             UPDATE projmng.ai_task
-               SET last_error = '실행기가 집어 가지 않았습니다. 실행기가 떠 있는지 확인하십시오.'
+               SET last_error = '「' || runner_kind || '」 를 돌릴 실행기가 집어 가지 않았습니다.'
+                                || ' 실행기가 떠 있는지, 그 실행기가 「' || runner_kind
+                                || '」 를 가졌는지 확인하십시오.'
              WHERE task_status = 'queued'
                AND requested_at < now() - make_interval(secs => @pickup)
-               AND (last_error IS NULL OR last_error NOT LIKE '실행기가 집어%')
+               -- **옛 사유가 적힌 건은 한 번 덮어쓴다.** 걸러 내는 무늬를
+               -- 새 사유에만 맞춰 두면, 이미 「실행기가 떠 있는지 확인하십시오」
+               -- 로만 앉아 있던 건도 다음 바퀴에 AI 이름이 박힌 사유로 바뀐다.
+               -- 그 뒤로는 이 무늬에 걸려 더 안 건드린다.
+               AND (last_error IS NULL
+                    OR last_error NOT LIKE '%를 돌릴 실행기가 집어 가지 않았습니다%')
             """, new { pickup = _pickupTimeout });
 
         if (stalled > 0)

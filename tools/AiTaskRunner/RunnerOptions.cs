@@ -19,8 +19,55 @@ public sealed class RunnerOptions
     /// </summary>
     public string RunnerToken { get; set; } = string.Empty;
 
-    /// <summary>이 장비가 돌릴 수 있는 CLI.</summary>
-    public string[] Kinds { get; set; } = ["claude", "antigravity", "copilot"];
+    /// <summary>
+    /// 이 장비가 돌릴 수 있는 CLI. <b>어댑터가 정본이다</b> — 따로 적지 않는다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 한동안 <c>Runner:Kinds</c> 라는 배열이 따로 있었다. <b>그 둘이 어긋나는
+    /// 방향에 따라 증상이 갈렸다</b>는 것이 이 속성이 생긴 까닭이다.
+    /// </para>
+    ///
+    /// <list type="bullet">
+    ///   <item><description>
+    ///     <c>Kinds</c> 에 있는데 어댑터가 없으면 — 집어 가서 <b>「이 장비에는
+    ///     'x' 어댑터가 없습니다」로 시끄럽게 실패한다.</b> 사람이 바로 안다.
+    ///   </description></item>
+    ///   <item><description>
+    ///     어댑터가 있는데 <c>Kinds</c> 에 없으면 — 집어가기 질의가
+    ///     <c>runner_kind = ANY(kinds)</c> 로 거르므로 <b>그 건을 아무도 집지
+    ///     않는다.</b> 오류도 로그도 없이 화면에 「대기」로만 앉아 있다.
+    ///   </description></item>
+    /// </list>
+    ///
+    /// <para>
+    /// 실제로 뒤엣것을 밟았다 — <c>copilot</c> 어댑터를 넣고 운영 장비에
+    /// 올리면서 <c>appsettings.json</c> 을 옛것으로 두어, 코파일럿으로 시킨
+    /// 건이 <b>영영 「대기」에 남았다.</b> 화면·서버·DB 는 전부 멀쩡했고
+    /// 고장은 장비 설정 파일 한 줄에 있었다.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>그래서 적는 자리를 하나로 줄였다.</b> 어댑터가 있으면 돌릴 수 있는
+    /// 것이고, 없으면 못 돌리는 것이다. 어긋날 두 곳이 없으면 어긋나지 않는다.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>이 장비에서만 하나를 끄려면 그 어댑터의 <c>Executable</c> 을 비운다.</b>
+    /// <c>appsettings.Local.json</c> 에 <c>"Adapters": { "copilot": { "Executable": "" } }</c>
+    /// 한 줄이면 된다 — <b>사전은 열쇠로 겹치므로</b> 배열처럼 칸 번호로
+    /// 뒤섞이지 않는다. 옛 <c>Kinds</c> 배열이 바로 그 함정이었다
+    /// (Local 에 두 개를 적으면 기본 파일의 셋째가 남아 중복으로 찍혔다).
+    /// </para>
+    /// </remarks>
+    public IReadOnlyList<string> RunnableKinds =>
+    [
+        .. Adapters
+            .Where(a => !string.IsNullOrWhiteSpace(a.Value.Executable))
+            .Select(a => a.Key)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(k => k, StringComparer.OrdinalIgnoreCase),
+    ];
 
     /// <summary>
     /// 동시에 몇 건까지. <b>게이트(빌드·테스트)는 이와 별개로 1건이다</b> —
