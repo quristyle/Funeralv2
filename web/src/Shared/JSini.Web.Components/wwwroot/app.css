@@ -5215,9 +5215,23 @@ html {
   --jsini-scroll-thumb-hover: color-mix(in srgb, var(--jsini-text) 45%, transparent);
 }
 
+@media (max-width: 767px) {
+  :root {
+    --jsini-scroll-thumb: color-mix(in srgb, var(--jsini-text) 5%, transparent);
+    --jsini-scroll-thumb-hover: color-mix(in srgb, var(--jsini-text) 10%, transparent);
+  }
+}
+
 *::-webkit-scrollbar {
   width: 8px;
   height: 8px;
+}
+
+@media (max-width: 767px) {
+  *::-webkit-scrollbar {
+    width: 2px;
+    height: 2px;
+  }
 }
 
 /* 홈은 비운다. 칠해 두면 내용이 짧아 막대가 필요 없는 칸에도 회색 띠가 남는다. */
