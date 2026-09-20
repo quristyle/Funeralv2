@@ -103,6 +103,17 @@ public sealed class AiTaskRunDto
     /// <summary>AI 의 마지막 답. 고친 내역일 수도, 물은 것의 답일 수도 있다.</summary>
     public string? ResultText { get; set; }
 
+    /// <summary>
+    /// <b>「처리 요약」 — AI 가 결과문을 한 번 더 정리한 평문.</b>
+    /// </summary>
+    /// <remarks>
+    /// 서버가 실행이 끝날 때마다 채운다(<c>AiResultSummarizer</c>) — 결과 메일의
+    /// 「무엇을 했다나」 칸이 쓰던 그 값이고, 화면도 같은 것을 읽어 지시와 결과
+    /// 사이에 놓는다. 읽는 법은 <c>AiRunSummary.Parse</c>. <b>없을 수 있다</b> —
+    /// 이 칸이 생기기 전의 건과 정리에 실패한 건이 비어 있다.
+    /// </remarks>
+    public string? SummaryText { get; set; }
+
     /// <summary>그때 실제로 준 지시문.</summary>
     public string? Instruction { get; set; }
 

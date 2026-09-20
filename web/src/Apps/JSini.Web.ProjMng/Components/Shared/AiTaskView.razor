@@ -1,5 +1,5 @@
 @*
-    [보낸 한 건의 속 — 지시 · 결과 · 로그]
+    [보낸 한 건의 속 — 지시와 결과 · 로그]
 
     설계: docs/ai-task-runner.md
     API: `projmng/ai-tasks` · `projmng/ai-runs/{run}/logs`
@@ -18,21 +18,40 @@
     창은 이것을 `CommPopup` 에 담을 뿐이고, 화면은 본문에 그대로 깐다.
 
     ────────────────────────────────────────────────────────────
-    [탭 셋 — 지시 · 결과 · 로그]
+    [탭 둘 — 지시와 결과 · 로그 (2026-09-20)]
 
-    한 건에 붙은 글이 셋인데 성격이 다르다. 지시는 사람이 쓴 것, 결과는
-    AI 의 답, 로그는 기계가 찍은 것이다. 이어 붙여 한 장으로 그리면
-    **로그 수백 줄 밑에 결과가 깔려** 아무도 거기까지 내려가지 않는다.
+    한동안 셋이었다(지시 · 결과 · 로그). 로그를 떼 둔 것은 지금도 옳다 —
+    기계가 찍은 수백 줄 밑에 결과를 깔면 아무도 거기까지 내려가지 않고,
+    탭이면 보는 것만 회로를 타고 건너온다(모바일 회선이다).
 
-    탭이면 셋 중 하나만 회로를 타고 건너온다는 점도 크다 — 모바일 회선이다.
+    그런데 **지시와 결과를 가른 것은 틀렸다.** 그 둘은 성격이 다른 글이
+    아니라 **물음과 답 한 쌍**이다. 앱알림을 눌러 들어온 사람이 「결과」를
+    펴면 답만 있고 물음이 없다 — 며칠 전에 보낸 건이면 무엇에 대한
+    답인지부터 모른다. 그래서 탭을 오가며 둘을 맞춰 봐야 했다.
+    (결과 메일이 같은 이유로 이미 지시문을 답 위에 싣고 있다.)
+
+    그래서 한 판에 **지시 → 처리 요약 → 결과** 순으로 깐다.
+
+    [가운데의 「처리 요약」]
+
+    실행기의 답은 「먼저 …를 찾아보겠습니다」로 시작해 결론이 끝에 있는
+    일이 잦다. 그래서 서버가 끝난 실행마다 AI 에게 한 번 더 정리시켜
+    `ai_task_run.summary_text` 에 적어 둔다 — 결과 메일의 「무엇을 했다나」
+    칸이 예전부터 쓰던 값이다.
+
+    **화면은 그것을 읽기만 한다.** 여기서 모델을 다시 부르면 메일에 적힌
+    요약과 화면의 요약이 다른 말을 하게 되고, 그때 어느 쪽이 그 실행의
+    요약인지 가릴 방법이 없다. 읽는 법은 `AiRunSummary.Parse`.
+
+    요약이 없는 건(그 칸이 생기기 전의 것, AI 가 안 떠 있던 때)은 요약 칸
+    **없이** 지시와 결과만 보인다 — 빈 상자는 「고장」으로 읽힌다.
 
     [처음 열리는 탭은 상태가 고른다]
 
     누른 사람이 보려는 것이 그때그때 다르다.
 
       - 돌고 있으면 **로그** — 「어디까지 갔나」
-      - 끝났으면 **결과** — 「무엇을 해 놓았나」
-      - 아직 대기·작성중이면 **지시** — 「내가 무엇을 시켰더라」
+      - 그 밖에는 **지시와 결과** — 물음과 답이 한 판에 있다
 
     사람이 탭을 한 번이라도 누르면 그 뒤로는 우리가 옮기지 않는다
     (`_pinned`). 돌던 건이 끝나는 순간 보고 있던 로그가 결과로 바뀌어 버리면,
@@ -103,11 +122,18 @@
 
     <div class="pm-peek__tabs">
         <DxTabs @bind-ActiveTabIndex="_tab" TabClick="@OnTabClick">
-            <DxTabPage Text="지시">
-                @* 사람이 적어 보낸 그대로다. 실행 줄에도 그때 준 지시문이
-                   남지만(`Instruction`), 그것은 서버가 앞뒤를 덧대 만든
-                   글이라 **내가 무엇을 적었나**에는 답하지 않는다. *@
+            <DxTabPage Text="지시와 결과">
                 <div class="pm-peek__pane">
+                    @* ── 물음 ────────────────────────────────────
+                       사람이 적어 보낸 그대로다. 실행 줄에도 그때 준 지시문이
+                       남지만(`Instruction`), 그것은 서버가 앞뒤를 덧대 만든
+                       글이라 **내가 무엇을 적었나**에는 답하지 않는다.
+
+                       상자를 낮게 둔다(`--ask`). 긴 지시문이 한 판을 다 먹으면
+                       아래의 요약과 답이 화면 밖으로 밀린다 — 넘치는 만큼은
+                       상자 안에서 구른다. *@
+                    <h3 class="pm-peek__head">지시</h3>
+
                     @if (string.IsNullOrWhiteSpace(t.Contents))
                     {
                         <p class="pm-peek__dim">적어 둔 내용이 없습니다.</p>
@@ -116,11 +142,47 @@
                     {
                         <pre class="pm-peek__pre pm-peek__pre--ask">@t.Contents</pre>
                     }
-                </div>
-            </DxTabPage>
 
-            <DxTabPage Text="결과">
-                <div class="pm-peek__pane">
+                    @* ── 처리 요약 ───────────────────────────────
+                       AI 가 결과문을 한 번 더 정리한 것이다(서버가 적어 둔다).
+                       **없으면 통째로 빠진다** — 위 머리말 참고. *@
+                    @if (_summary is { } s)
+                    {
+                        <h3 class="pm-peek__head">처리 요약</h3>
+
+                        <div class="pm-peek__sum">
+                            @if (s.Headline is { Length: > 0 } headline)
+                            {
+                                <p class="pm-peek__sum-line">@headline</p>
+                            }
+
+                            @if (s.Points.Count > 0)
+                            {
+                                <ul class="pm-peek__sum-list">
+                                    @foreach (var point in s.Points)
+                                    {
+                                        <li>@point</li>
+                                    }
+                                </ul>
+                            }
+
+                            @if (s.Checks.Count > 0)
+                            {
+                                <p class="pm-peek__sum-label">확인할 것</p>
+
+                                <ul class="pm-peek__sum-list pm-peek__sum-list--check">
+                                    @foreach (var check in s.Checks)
+                                    {
+                                        <li>@check</li>
+                                    }
+                                </ul>
+                            }
+                        </div>
+                    }
+
+                    @* ── 답 ─────────────────────────────────────── *@
+                    <h3 class="pm-peek__head">결과</h3>
+
                     @if (_result is { Length: > 0 })
                     {
                         <pre class="pm-peek__pre pm-peek__pre--result">@_result</pre>
@@ -133,8 +195,7 @@
                     else if (t.IsBusy)
                     {
                         @* 아직 답이 없다. **여기서 로그로 가는 길을 둔다** —
-                           「결과」를 눌러 빈 판을 본 사람이 다음에 할 일이
-                           그것이다. *@
+                           빈 결과 칸을 본 사람이 다음에 할 일이 그것이다. *@
                         <p class="pm-peek__dim">아직 돌고 있습니다. 끝나면 메일로 갑니다.</p>
 
                         <DxButton Text="로그 보기" RenderStyle="ButtonRenderStyle.Link"
@@ -176,14 +237,11 @@ else
 }
 
 @code {
-    /// <summary>지시 탭.</summary>
+    /// <summary>「지시와 결과」 탭. 물음 · 처리 요약 · 답이 이 한 판에 있다.</summary>
     private const int TabAsk = 0;
 
-    /// <summary>결과 탭.</summary>
-    private const int TabResult = 1;
-
     /// <summary>로그 탭.</summary>
-    private const int TabLog = 2;
+    private const int TabLog = 1;
 
     /// <summary>
     /// 그릴 로그 줄 수의 상한. <b>꼬리 300줄만</b> 그린다 — 모바일 회로가
@@ -193,6 +251,12 @@ else
 
     /// <summary>들고 있을 줄 수의 상한.</summary>
     private const int HoldMax = 1000;
+
+    /// <summary>
+    /// 실행이 끝난 뒤 <b>요약만 기다리며</b> 더 돌 바퀴 수. 한 바퀴가 3초이니
+    /// 45초쯤이다 — 서버가 요약에 거는 시간(기본 30초)보다 넉넉하다.
+    /// </summary>
+    private const int SummaryWaitRounds = 15;
 
     /// <summary>
     /// 볼 작업. <b>부모가 목록에서 다시 집어 넘긴다</b> — 그래서 돌고 있는
@@ -226,6 +290,12 @@ else
     /// <summary>AI 의 마지막 답. 목록에는 없고 실행 줄에 있다.</summary>
     private string? _result;
 
+    /// <summary>
+    /// 그 답을 AI 가 다시 정리한 「처리 요약」. <b>서버가 적어 둔 것을 읽기만
+    /// 한다</b> — 없을 수 있고, 없으면 요약 칸을 그리지 않는다.
+    /// </summary>
+    private AiRunSummary? _summary;
+
     private readonly List<AiLogLineDto> _lines = [];
     private int _lastSeq;
 
@@ -238,7 +308,32 @@ else
     /// <summary>돌고 있는 동안만 도는 타이머.</summary>
     private CancellationTokenSource? _poll;
 
+    /// <summary>끝난 뒤 요약을 기다리며 돈 바퀴 수. <see cref="SummaryWaitRounds"/> 까지.</summary>
+    private int _summaryWaits;
+
     private string LogTabText => _lines.Count == 0 ? "로그" : $"로그 ({_lines.Count})";
+
+    /// <summary>
+    /// <b>답은 왔는데 요약이 아직 없나.</b> 그러면 실행이 끝났어도 조금 더 본다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 요약은 <b>실행이 끝난 뒤에</b> 적힌다. 서버는 완료 보고를 기다리게 하지
+    /// 않으려고 알림·요약을 떼어 뒤에서 돌리고(<c>AiRunService</c> 의
+    /// <c>_ = notifier.SendAsync(runKey)</c>), 그 안에서 AI 를 한 번 더 부른다 —
+    /// 길면 30초다.
+    /// </para>
+    /// <para>
+    /// 그사이 이 화면은 「끝났다」를 보고 따라가기를 멈춘다. 그러면 <b>끝나는
+    /// 것을 지켜보고 있던 사람에게만 요약이 영영 안 보인다</b> — 나중에 다시
+    /// 연 사람에게는 보이는데. 그래서 여기서 몇 바퀴를 더 돈다.
+    /// </para>
+    /// <para>
+    /// <b>답이 없는 건은 기다리지 않는다.</b> 요약할 원문이 없으면 서버도
+    /// 만들지 않으므로, 기다려 봐야 45초를 헛도는 일이다.
+    /// </para>
+    /// </remarks>
+    private bool AwaitingSummary => _summary is null && _result is { Length: > 0 };
 
     /// <summary>
     /// 그릴 로그. <b>꼬리만</b> 쓴다 — 위는 잘렸다는 사실을 첫 줄에 적는다.
@@ -295,9 +390,10 @@ else
     /// </summary>
     private static int DefaultTab(AiTaskDto t) => t.TaskStatus switch
     {
+        // 돌고 있는 동안만 로그다. 끝났으면 「지시와 결과」 — 물음과 답이
+        // 같은 판에 있으므로 대기 중인 건과 끝난 건을 가를 이유가 없다.
         "preparing" or "running" => TabLog,
-        "idle" or "queued" => TabAsk,
-        _ => TabResult,
+        _ => TabAsk,
     };
 
     protected override async Task OnParametersSetAsync()
@@ -413,8 +509,14 @@ else
             var newest = runs.FirstOrDefault();
             var changed = newest?.RunKey != _run?.RunKey;
 
+            // **요약은 답을 준 그 실행에서 집는다.** 따로 고르면 이번 실행의
+            // 답 위에 **지난 실행의 요약**이 앉는 날이 온다 — 그 둘이 다른
+            // 말을 하면 어느 쪽이 맞는지 화면만 보고는 알 수 없다.
+            var answered = runs.FirstOrDefault(r => !string.IsNullOrWhiteSpace(r.ResultText));
+
             _run = newest;
-            _result = runs.FirstOrDefault(r => !string.IsNullOrWhiteSpace(r.ResultText))?.ResultText;
+            _result = answered?.ResultText;
+            _summary = AiRunSummary.Parse(answered?.SummaryText);
 
             if (changed)
             {
@@ -471,9 +573,13 @@ else
     /// 돌고 있으면 따라간다. <b>상태는 부모가 주므로 여기서는 실행 이력과
     /// 로그만 본다.</b>
     /// </summary>
+    /// <remarks>
+    /// <b>끝난 뒤에도 요약이 안 왔으면 조금 더 본다</b> — 아래
+    /// <see cref="AwaitingSummary"/> 참고.
+    /// </remarks>
     private void Follow(AiTaskDto t)
     {
-        if (!t.IsBusy)
+        if (!t.IsBusy && !AwaitingSummary)
         {
             StopPoll();
             return;
@@ -486,6 +592,7 @@ else
 
         var cts = new CancellationTokenSource();
         _poll = cts;
+        _summaryWaits = 0;
 
         _ = Task.Run(async () =>
         {
@@ -503,8 +610,9 @@ else
                     var changed = false;
 
                     // 대기 중에는 실행 줄이 아직 없다. 생기는 순간을 놓치면
-                    // **로그가 영영 빈 채로 남는다.**
-                    if (_run is null || _run.IsRunning)
+                    // **로그가 영영 빈 채로 남는다.** 끝났는데 요약이 아직
+                    // 안 적혔을 때도 같은 자리를 다시 읽는다.
+                    if (_run is null || _run.IsRunning || AwaitingSummary)
                     {
                         changed = await LoadRunsAsync(cts.Token);
                     }
@@ -527,7 +635,13 @@ else
 
                     if (!now.IsBusy && _run?.IsRunning != true)
                     {
-                        return;
+                        // 실행은 끝났다. **요약만 기다린다** — 서버가 그것을
+                        // 뒤늦게 적으므로(위 `AwaitingSummary`) 몇 바퀴 더 본
+                        // 뒤 포기한다. 영영 안 오는 건도 있다.
+                        if (!AwaitingSummary || ++_summaryWaits > SummaryWaitRounds)
+                        {
+                            return;
+                        }
                     }
                 }
             }
@@ -571,6 +685,7 @@ else
         _status = null;
         _run = null;
         _result = null;
+        _summary = null;
         _lines.Clear();
         _lastSeq = 0;
         _logRead = false;

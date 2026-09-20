@@ -1996,8 +1996,11 @@
 
 /* ── 들여다보는 창 (`pm-peek`) ───────────────────────────────
 
-   카드를 누르면 뜨는 창이다(`AiTaskPeek`). 지시 · 결과 · 로그를 탭으로
-   나눠 담고, **휴대폰에서는 화면을 꽉 채운다.**
+   카드를 누르면 뜨는 창이다(`AiTaskPeek`). 탭이 둘이다 —
+   「지시와 결과」(지시 → 처리 요약 → 결과)와 「로그」. 왜 지시와 결과를
+   한 판에 두는지는 `AiTaskView.razor` 의 머리말에 적어 두었다.
+
+   **휴대폰에서는 창이 화면을 꽉 채운다.**
    ---------------------------------------------------------- */
 
 /* 머리띠 — 상태 · 실행일시 · 총작업시간. 탭을 옮겨도 제자리에 남는다. */
@@ -2059,11 +2062,83 @@
   background: var(--jsini-bg);
 }
 
+/* **지시 상자만 낮다.** 한 판에 지시 · 요약 · 결과가 차례로 서므로, 긴
+   지시문이 22rem 을 다 쓰면 그 아래 요약과 답이 첫 화면 밖으로 밀린다 —
+   넘치는 만큼은 이 상자 안에서 구르게 둔다. */
+.pm-peek__pre--ask {
+  max-height: 11rem;
+}
+
 /* 로그는 기계가 찍은 것이라 고정폭으로, 한 단 눌러 둔다. */
 .pm-peek__pre--log {
   font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
   font-size: var(--jsini-fs-xs);
   background: var(--jsini-surface);
+}
+
+/* 한 판 안의 칸 이름 — 「지시」 · 「처리 요약」 · 「결과」.
+
+   셋이 한 판에 이어 서므로 **어디서 어디까지가 무엇인지**를 이 줄이
+   혼자 말한다. 크게 키우지 않는다 — 제목이 글보다 눈에 띄면 훑는 눈이
+   제목만 타고 내려간다. */
+.pm-peek__head {
+  margin: 0.9rem 0 0.35rem;
+  font-size: var(--jsini-fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--jsini-text-muted);
+}
+
+/* 판의 첫 칸(「지시」)은 위 여백이 필요 없다. 탭 몸통이 이미 띄워 준다. */
+.pm-peek__pane > .pm-peek__head:first-child {
+  margin-top: 0;
+}
+
+/* 처리 요약 — 지시와 결과 사이.
+
+   **이 칸만 상자가 아니라 띠다.** 위아래가 글 상자(테두리+바탕)라
+   요약까지 같은 몸가짐이면 셋이 구별되지 않는다. 왼쪽에 선을 세워
+   「이건 원문이 아니라 정리한 말」임을 한눈에 가른다. */
+.pm-peek__sum {
+  margin: 0 0 0.5rem;
+  padding: 0.6rem 0.75rem;
+  background: var(--jsini-accent-soft, var(--jsini-surface));
+  border-left: 3px solid var(--jsini-accent);
+  border-radius: 0 var(--jsini-radius-md) var(--jsini-radius-md) 0;
+}
+
+/* 결론 한 문장. 요약 안에서 이것만 굵다. */
+.pm-peek__sum-line {
+  margin: 0;
+  font-size: var(--jsini-fs-sm);
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--jsini-text);
+}
+
+.pm-peek__sum-list {
+  margin: 0.4rem 0 0;
+  padding-left: 1.1rem;
+  font-size: var(--jsini-fs-sm);
+  line-height: 1.55;
+  color: var(--jsini-text);
+}
+
+.pm-peek__sum-list li + li {
+  margin-top: 0.15rem;
+}
+
+/* 「확인할 것」 머리말. 사람이 이어서 해야 할 일이라 색을 달리 준다 —
+   한 일 목록과 섞여 읽히면 그 칸이 있으나 마나다. */
+.pm-peek__sum-label {
+  margin: 0.6rem 0 0;
+  font-size: var(--jsini-fs-2xs);
+  font-weight: 600;
+  color: var(--jsini-warning);
+}
+
+.pm-peek__sum-list--check {
+  color: var(--jsini-text);
 }
 
 /* ── 휴대폰에서는 창이 화면을 꽉 채운다 ──────────────────────
@@ -2096,6 +2171,13 @@
      창 아래가 텅 빈 채로 상자만 구른다. */
   .pm-peek__pre {
     max-height: 62dvh;
+  }
+
+  /* **지시 상자는 도로 낮춘다.** 위 규칙이 한 판의 맨 위 상자까지
+     62dvh 로 키우면, 긴 지시문 하나가 첫 화면을 통째로 먹어 요약과
+     답을 밀어낸다 — 좁은 화면일수록 그 값이 크다. */
+  .pm-peek__pre--ask {
+    max-height: 30dvh;
   }
 }
 
