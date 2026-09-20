@@ -78,7 +78,13 @@ public class AccountMailClient
                 toRole,
                 subject,
                 body,
-                isHtml = true,
+
+                // **`isHtml` 이 아니다.** 저쪽 DTO(`SendEmailDto`)의 속성 이름은
+                // `Html` 이고, 이름이 안 맞으면 붙지 않고 조용히 기본값(false)이
+                // 쓰인다 — 그러면 본문이 태그 그대로 보인다. 실제로 비밀번호
+                // 재설정 메일이 그렇게 나가고 있었다.
+                // ProjMngServer 의 AiTaskNotifier 가 같은 덫에 걸린 적이 있다.
+                html = true,
             });
 
             using var request = new HttpRequestMessage(HttpMethod.Post, "/emails/send")

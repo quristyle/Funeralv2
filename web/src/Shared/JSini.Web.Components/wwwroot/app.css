@@ -3131,13 +3131,108 @@ button.jsini-crumbs__item:hover { opacity: 1; }
 
 .jsini-login__links a:hover { color: #0a0a0a; }
 
+/* 부제가 없는 카드에서 제목과 첫 칸 사이를 벌린다. 제목에는 아래 여백이
+   없어서(`.jsini-login__title`) 이것이 없으면 이름표가 제목에 붙는다.
+   `.jsini-login__sub` 의 아래 여백과 같은 값이다. */
+.jsini-login__gap { height: 2.25rem; }
+
+/* 비밀번호 찾기에서 「메일을 보냈다」 뒤에 무엇을 해야 하는지 적는 차례 목록.
+
+   **번호를 브라우저에 그리게 두지 않는다** — 기본 `list-style` 번호는
+   글머리 위치가 글꼴마다 달라 들여쓰기가 제각각이 된다. 칸을 고정으로
+   잡고 번호를 직접 찍으면 줄이 길어져 접혀도 둘째 줄이 글에 맞춰 선다. */
+.jsini-steps {
+  margin: 1.25rem 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: jsini-step;
+  font-size: 0.875rem;
+  line-height: 1.7;
+  color: #1c1c1e;
+}
+
+.jsini-steps li {
+  position: relative;
+  padding: 0 0 0 1.75rem;
+  margin-bottom: 0.6rem;
+}
+
+.jsini-steps li::before {
+  counter-increment: jsini-step;
+  content: counter(jsini-step);
+  position: absolute;
+  left: 0;
+  top: 0.15rem;
+  width: 1.15rem;
+  height: 1.15rem;
+  line-height: 1.15rem;
+  text-align: center;
+  font-size: 0.6875rem;
+  background: #0a0a0a;
+  color: #fff;
+}
+
+/* ── 로그인 흐름의 카드 안에 놓인 안내 줄 ──────────────────
+
+   [테마를 따라가게 두면 어두운 테마에서 글자가 사라진다] (실제로 밟음)
+
+   `.jsini-notice` 는 업무 화면용이라 색을 테마 변수에서 얻는다
+   (`--jsini-text` · `--jsini-border` · `--jsini-warning-soft`). 그런데
+   **이 카드는 테마를 따라가지 않는다** — 소개 사이트를 따라 흰 바탕에
+   먹 글씨로 박아 두었다(`.jsini-login__card`). 그래서 어두운 테마를 고른
+   사람에게는 흰 바탕 위에 **거의 흰 글자**가 얹혀 한 글자도 안 읽혔다.
+
+   카드가 색을 고정했으니 그 안의 안내 줄도 고정한다. 값은 옆에 있는
+   `.jsini-login__error` 에서 그대로 가져왔다 — 지어내지 않는다.
+
+   [세 말투를 색으로 가르지 않는다]
+
+   이 화면에는 색이 하나도 없다. 붉은 줄 하나를 들이면 그것만 보인다
+   (`.jsini-login__error` 의 같은 줄). 대신 왼쪽 글자(`i` · `!` · `×`)로
+   가른다 — 색각과 무관하게 읽히기도 한다.
+   ---------------------------------------------------------- */
+
+.jsini-login__card .jsini-notice {
+  margin: 0 0 1.5rem;
+  line-height: 1.6;
+
+  /* 모서리도 그림자도 없다. 이 화면의 다른 상자들이 각져 있다. */
+  border: 0;
+  border-left: 2px solid #0a0a0a;
+  border-radius: 0;
+  box-shadow: none;
+  background: #f5f5f7;
+  color: #1c1c1e;
+  font-size: 0.875rem;
+}
+
+.jsini-login__card .jsini-notice::before {
+  color: #0a0a0a;
+}
+
 /* 비밀번호 변경 화면에서 「나중에 하기」. 만료로 끌려온 사람에게는 안 보인다. */
+/* 「나중에 하기」 · 「로그인 화면으로」 같은 조용한 링크.
+
+   **색과 크기를 테마 변수에서 얻지 않는다.** 이 카드는 테마를 따라가지
+   않아서(`.jsini-login__card .jsini-notice` 의 머리말) 어두운 테마에서는
+   `--jsini-text-muted` 가 밝은 회색이 되어 흰 바탕에서 사라진다.
+   값은 카드 아래 링크(`.jsini-login__links a`)와 같게 맞췄다. */
 .jsini-password__back {
   display: block;
   margin-top: 0.9rem;
   text-align: center;
-  font-size: var(--jsini-fs-md);
-  color: var(--jsini-text-muted);
+  font-size: 0.875rem;
+  color: #6e6e73;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.jsini-password__back:hover { color: #0a0a0a; }
+
+/* 카드 안의 곁들이는 한 줄도 같은 이유로 고정한다. */
+.jsini-login__card .jsini-hint {
+  font-size: 0.8125rem;
+  color: #6e6e73;
 }
 
 /* 단추처럼 생긴 링크(재설정을 마친 뒤 「로그인 화면으로」).

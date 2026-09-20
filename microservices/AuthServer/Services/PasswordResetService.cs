@@ -163,16 +163,11 @@ public class PasswordResetService(
         var link = $"{PortalBaseUrl}/password/reset?token={Uri.EscapeDataString(raw)}";
         var who = string.IsNullOrWhiteSpace(account.RealName) ? account.UserId : account.RealName;
 
-        var body = $"""
-            <p>{System.Net.WebUtility.HtmlEncode(who)} 님,</p>
-            <p>JSini 포털 비밀번호를 다시 정하시려면 아래 링크를 눌러 주십시오.</p>
-            <p><a href="{link}">비밀번호 다시 정하기</a></p>
-            <p>이 링크는 {LifetimeMinutes}분 동안만 쓸 수 있고, 한 번 쓰면 사라집니다.</p>
-            <p>요청하신 적이 없다면 이 메일을 버리시면 됩니다. 링크를 누르지 않는 한
-            비밀번호는 그대로입니다.</p>
-            """;
+        // 본문 HTML 은 여기서 조립하지 않는다 — 틀은 AccountEmailTemplates 가 갖는다.
+        var body = AccountEmailTemplates.PasswordReset(who, link, LifetimeMinutes);
 
-        var sent = await mail.SendAsync(stored.Trim(), "[JSini 포털] 비밀번호 다시 정하기", body, Sender, ct);
+        var sent = await mail.SendAsync(
+            stored.Trim(), AccountEmailTemplates.PasswordResetSubject, body, Sender, ct);
 
         if (sent)
         {

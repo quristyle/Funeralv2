@@ -1,0 +1,91 @@
+@*
+    [로그인 흐름 화면의 공통 틀] — 왼쪽 어두운 브랜드 판 + 오른쪽 흰 카드.
+
+    로그인 · 비밀번호 찾기 · 비밀번호 다시 정하기 · 비밀번호 변경이 이것을 쓴다.
+    넷 다 `BareLayout` 위에 서고(사이드바도 헤더도 없다) 모양은 소개 사이트
+    (:5556)의 것을 따른다 — 값은 `Login.razor` 머리말에 적은 그대로다.
+
+    [왜 부품으로 뺐나]
+
+    한동안 이 판을 가진 것은 로그인뿐이었다. 비밀번호 화면 셋은 `.jsini-auth`
+    없이 `.jsini-login__card` 만 덩그러니 놓여 있어서, **브랜드 판도 로고도
+    부제도 없고** 칸과 이름표가 서로 붙어 있었다 — 같은 흐름의 네 화면 중
+    하나만 디자인이 되어 있는 꼴이었다.
+
+    그렇다고 아래 판 마크업을 화면마다 복사하면 다음에 로고나 문구를 고칠 때
+    **한 화면만 옛 모양으로 남는다.** 이 저장소에서 갈라짐이 시작되는 자리가
+    늘 그런 곳이었다. 그래서 한 곳에 둔다.
+
+    [DevExpress 를 부르지 않는다]
+
+    이 판에 서는 화면은 **로그인하기 전**에 뜬다. 로그인 화면이 회로도
+    DevExpress 도 없앤 자리라(그쪽 머리말) 여기서 부품 하나를 들이면 그 일이
+    헛것이 된다. 그래서 이 부품은 순수 HTML 뿐이고, 안내도 `PageNotice`(역시
+    순수 HTML)를 쓴다 — 토스트는 판(`DxToastProvider`)이 `MainLayout` 에만
+    있어서 **이 화면들에서는 아무 데도 안 뜬다.**
+*@
+
+<div class="jsini-auth">
+
+    @* 왼쪽 — 소개 사이트 히어로와 같은 구성(어두운 바탕 · 녹아웃 로고).
+       좁은 화면에서는 이 판이 통째로 빠진다(CSS). 360px 에서 이것을 위에
+       얹으면 폼이 접히는 자리가 화면 밖으로 나간다. *@
+    <aside class="jsini-auth__brand" aria-hidden="true">
+        <div class="jsini-auth__brand-inner">
+            <img class="jsini-auth__logo"
+                 src="@Assets["_content/JSini.Web.Components/brand/logo-horizontal-knockout.svg"]"
+                 alt="" />
+
+            <p class="jsini-auth__eyebrow">JSINI WORK PORTAL</p>
+            <p class="jsini-auth__lead">@Lead</p>
+        </div>
+    </aside>
+
+    @* 오른쪽 — 카드. *@
+    <main class="jsini-auth__panel">
+        <div class="jsini-login__card @(Wide ? "jsini-login__card--wide" : null)">
+            @* 좁은 화면에서는 왼쪽 판이 빠지므로 여기에만 로고가 선다.
+               넓은 화면에서는 왼쪽에 이미 있어 감춘다(CSS). *@
+            <img class="jsini-login__logo"
+                 src="@Assets["_content/JSini.Web.Components/brand/logo-horizontal.svg"]"
+                 alt="JSINI" />
+
+            <h1 class="jsini-login__title">@Title</h1>
+
+            @* 부제가 없으면 제목이 곧바로 첫 칸에 붙는다(제목에 아래 여백이
+               없다). 그때는 빈 줄 대신 제목 쪽에 여백을 준다. *@
+            @if (!string.IsNullOrWhiteSpace(Sub))
+            {
+                <p class="jsini-login__sub">@Sub</p>
+            }
+            else
+            {
+                <div class="jsini-login__gap"></div>
+            }
+
+            @ChildContent
+        </div>
+    </main>
+</div>
+
+@code {
+    /// <summary>카드 제목. 화면 이름이 그대로 온다 (「로그인」 · 「비밀번호 찾기」).</summary>
+    [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
+
+    /// <summary>제목 밑 한 줄. 이 화면에서 무엇을 하는지 적는다. 비우면 여백만 남는다.</summary>
+    [Parameter] public string? Sub { get; set; }
+
+    /// <summary>
+    /// 왼쪽 브랜드 판의 소개 글. 기본값은 포털을 소개하는 문장이고,
+    /// 화면이 할 말이 따로 있으면 덮는다.
+    /// </summary>
+    [Parameter]
+    public string Lead { get; set; } =
+        "장례식장 · 헬프데스크 · 프로젝트관리 · 포털관리를 한자리에서 봅니다.";
+
+    /// <summary>칸이 많아 카드가 넓어야 하는 화면(가입 신청 등).</summary>
+    [Parameter] public bool Wide { get; set; }
+
+    /// <summary>카드 안에 들어갈 폼.</summary>
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}
