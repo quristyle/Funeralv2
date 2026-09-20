@@ -56,9 +56,14 @@ builder.Services.AddScoped<AiRunService>();
 builder.Services.AddHttpClient();
 builder.Services.AddScoped<AiTaskNotifier>();
 
-// 메일에 실을 결과 요약을 AI 에게 다시 쓰게 한다(AIAgentServer 를 부른다).
+// 결과 요약을 AI 에게 다시 쓰게 한다(AIAgentServer 를 부른다).
 // **실패하면 null 을 주고 끝난다** — 메일은 옛 방식으로 그대로 나간다.
 builder.Services.AddScoped<AiResultSummarizer>();
+
+// 그 요약을 `ai_task_run.summary_text` 에 적는 일의 주인. **알림에서 떼어 냈다** —
+// 메일도 앱푸시도 끈 건에도 요약은 있어야 하고, 알림 안에 두면 그 수명이
+// 알림 관문에 매달린다. 완료 처리가 부르고, 알림은 적힌 것을 읽는다.
+builder.Services.AddScoped<AiRunSummaryWriter>();
 
 // 큐는 **종(bell)** 이다. 메시지에 taskKey 하나만 싣고 실제 상태 변경은
 // DB 의 원자적 UPDATE 가 한다 — 그래서 메시지를 잃어도 손실이 아니라 지연이다.

@@ -19,8 +19,8 @@ namespace ProjMngServer.Services;
 /// </para>
 /// </remarks>
 public sealed class AiRunService(
-    IConfiguration configuration, AiTaskNotifier notifier, AiTaskQueue queue,
-    ILogger<AiRunService> logger)
+    IConfiguration configuration, AiTaskNotifier notifier, AiRunSummaryWriter summaries,
+    AiTaskQueue queue, ILogger<AiRunService> logger)
 {
     private readonly string _connectionString =
         configuration.GetConnectionString("jsini")
@@ -488,11 +488,46 @@ public sealed class AiRunService(
             return true;
         }
 
-        // 메일은 **기다리지 않는다.** 실행기의 완료 보고가 메일 전송 시간만큼
+        // 요약과 메일은 **기다리지 않는다.** 실행기의 완료 보고가 그 시간만큼
         // 늦어질 이유가 없다 — 그 사이 실행 슬롯이 묶인다.
-        _ = notifier.SendAsync(runKey);
+        _ = SummarizeThenNotifyAsync(runKey);
 
         return true;
+    }
+
+    /// <summary>
+    /// 끝난 실행의 <b>처리 요약을 먼저 적고</b>, 그다음에 알린다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>요약은 알림 설정과 무관하다.</b> 메일도 앱푸시도 끄고 시킨 건은 화면의
+    /// 「처리 요약」 칸이 결과를 읽는 유일한 자리다 — 그런데 요약을 만드는 일이
+    /// 알림 보내기 안에 들어 있으면 <b>알림을 끈 사람에게만 요약이 없다.</b>
+    /// 그래서 여기서 두 걸음으로 나눠 부른다.
+    /// </para>
+    /// <para>
+    /// <b>순서가 있다.</b> 결과 메일의 「무엇을 했다나」 칸이 그 요약을 싣는다.
+    /// 나란히 돌리면 메일이 요약을 못 받고 나가는 일이 생긴다.
+    /// </para>
+    /// <para>
+    /// <b>중간 실패는 여기까지 오지 않는다.</b> 다시 시도할 건은 위에서 돌아간다 —
+    /// 세 번 시도하는 작업이 시도마다 요약을 만들면 모델을 세 번 부르고, 그 요약이
+    /// 작업 제목을 두 번 갈아 치운다. 마지막 판정만 남긴다(알림과 같은 규칙).
+    /// </para>
+    /// </remarks>
+    private async Task SummarizeThenNotifyAsync(long runKey)
+    {
+        try
+        {
+            await summaries.EnsureAsync(runKey);
+            await notifier.SendAsync(runKey);
+        }
+        catch (Exception ex)
+        {
+            // 둘 다 스스로 삼키도록 돼 있지만, **여기는 아무도 지켜보지 않는
+            // 갈래**라 새어 나온 것이 있으면 로그로 끝내야 한다.
+            logger.LogWarning(ex, "끝난 실행의 뒤처리에 실패했습니다 (run {RunKey}).", runKey);
+        }
     }
 
     /// <summary>재시도 판정에 필요한 값. 한 번에 읽으려고 묶었다.</summary>

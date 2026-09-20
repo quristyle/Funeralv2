@@ -28,7 +28,7 @@ namespace ProjMngServer.Services;
 /// </remarks>
 public sealed class AiTaskNotifier(
     IConfiguration configuration, IHttpClientFactory http,
-    AiResultSummarizer summarizer, ILogger<AiTaskNotifier> logger)
+    AiRunSummaryWriter summaries, ILogger<AiTaskNotifier> logger)
 {
     private readonly string? _connectionString = configuration.GetConnectionString("jsini");
 
@@ -103,11 +103,16 @@ public sealed class AiTaskNotifier(
                 return;
             }
 
-            // **여기서 AI 의 답을 AI 에게 한 번 더 정리시킨다.**
-            // 예전에는 나가지도 않을 메일 때문에 모델을 부르지 않으려고 메일 발송 조건이 
-            // 맞을 때만 불렀으나, 이제는 요약의 결과(Headline)를 작업 제목으로 재생성하는 데 
-            // 쓰므로 메일 발송 여부와 무관하게 항상 부른다.
-            var summary = await SummarizeAsync(db, row, runKey, ct);
+            // **처리 요약은 여기서 만들지 않는다.** 완료 처리가 알림과 무관하게
+            // 먼저 만들어 적어 두고(<see cref="AiRunSummaryWriter"/>), 우리는 그것을
+            // 읽기만 한다. 요약을 만드는 일이 이 함수 안에 있으면 그 수명이 아래
+            // 관문들(받기 꺼짐·받는 사람 없음·주소 틀림)에 매달려서, **알림을 끈
+            // 사람에게만 요약이 없는** 상태로 언제든 되돌아간다.
+            //
+            // 그래도 없으면 여기서 한 번 더 청한다 — 그 사이에 실패했더라도
+            // 메일 본문의 「무엇을 했다나」 칸은 채워 보내는 편이 낫다.
+            var summary = AiResultSummary.Parse(row.SummaryText)
+                ?? await summaries.EnsureAsync(runKey, ct: ct);
 
             if (!row.NotifyEmail && !row.NotifyPwa)
             {
@@ -265,62 +270,6 @@ public sealed class AiTaskNotifier(
                 // 여기서 또 실패하면 남길 곳이 없다. 로그로 끝낸다.
             }
         }
-    }
-
-    /// <summary>
-    /// 이 실행의 결과문을 정리한 것을 구한다. <b>못 구하면 null 이고, 메일은 그대로 나간다.</b>
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>이미 있으면 다시 부르지 않는다.</b> <c>summary_text</c> 는 원래 이 자리
-    /// (「요약. 비면 result_text 를 쓴다」)를 위해 만들어 둔 칸인데 여태 아무도
-    /// 채우지 않았다. 여기서 채우고, 있으면 그것을 읽는다.
-    /// </para>
-    /// <para>
-    /// <b>채워 두는 값이 메일에서만 쓰이는 것이 아니다.</b> 이어가기 지시문이
-    /// 이 칸을 다음 실행의 문맥으로 올려보낸다 — 지금까지는 결과문 전문을
-    /// 1500자에서 자른 것이 올라갔다. 정리된 요약이 그 자리에 훨씬 맞다.
-    /// </para>
-    /// <para>
-    /// <b>저장에 실패해도 메일은 보낸다.</b> 요약은 이미 손에 있고, 못 적어 둔 것은
-    /// 다음에 한 번 더 부르면 되는 일이다 — 그것 때문에 메일을 빠뜨릴 이유가 없다.
-    /// </para>
-    /// </remarks>
-    private async Task<AiResultSummary?> SummarizeAsync(
-        NpgsqlConnection db, MailRow row, long runKey, CancellationToken ct)
-    {
-        if (AiResultSummary.Parse(row.SummaryText) is { } kept)
-        {
-            return kept;
-        }
-
-        var summary = await summarizer.SummarizeAsync(row.Instruction, row.ResultText, ct);
-
-        if (summary is null)
-        {
-            return null;
-        }
-
-        try
-        {
-            await db.ExecuteAsync("""
-                UPDATE projmng.ai_task_run SET summary_text = @text WHERE run_key = @runKey
-                """, new { runKey, text = summary.ToText() });
-
-            // 지시문과 결과를 조합하여 뽑아낸 짧은 제목(Headline)으로 작업의 제목도 재생성한다.
-            if (!string.IsNullOrWhiteSpace(summary.Headline))
-            {
-                await db.ExecuteAsync("""
-                    UPDATE projmng.ai_task SET title = @title WHERE task_key = @taskKey
-                    """, new { taskKey = row.TaskKey, title = summary.Headline });
-            }
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "정리된 요약을 저장하지 못했습니다 (run {RunKey}).", runKey);
-        }
-
-        return summary;
     }
 
     /// <summary>

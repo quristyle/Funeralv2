@@ -293,9 +293,11 @@ else
 
     /// <summary>
     /// 실행이 끝난 뒤 <b>요약만 기다리며</b> 더 돌 바퀴 수. 한 바퀴가 3초이니
-    /// 45초쯤이다 — 서버가 요약에 거는 시간(기본 30초)보다 넉넉하다.
+    /// 75초쯤이다 — 서버가 요약에 거는 시간(한 번에 30초, 빈손이면 3초 쉬고 한 번 더:
+    /// <c>AiTasks:SummaryAttempts</c>)보다 넉넉하다. <b>서버의 상한보다 짧으면 안 된다</b> —
+    /// 그러면 끝나는 것을 지켜보던 사람만 요약을 못 본다.
     /// </summary>
-    private const int SummaryWaitRounds = 15;
+    private const int SummaryWaitRounds = 25;
 
     /// <summary>
     /// 볼 작업. <b>부모가 목록에서 다시 집어 넘긴다</b> — 그래서 돌고 있는
@@ -358,9 +360,14 @@ else
     /// <remarks>
     /// <para>
     /// 요약은 <b>실행이 끝난 뒤에</b> 적힌다. 서버는 완료 보고를 기다리게 하지
-    /// 않으려고 알림·요약을 떼어 뒤에서 돌리고(<c>AiRunService</c> 의
-    /// <c>_ = notifier.SendAsync(runKey)</c>), 그 안에서 AI 를 한 번 더 부른다 —
-    /// 길면 30초다.
+    /// 않으려고 요약·알림을 떼어 뒤에서 돌리고(<c>AiRunService</c> 의
+    /// <c>_ = SummarizeThenNotifyAsync(runKey)</c>), 그 안에서 AI 를 한 번 더
+    /// 부른다 — 한 번에 길면 30초고, 빈손으로 오면 한 번 더 부른다.
+    /// </para>
+    /// <para>
+    /// <b>알림을 껐어도 적힌다.</b> 요약을 만드는 일은 메일·앱푸시에서 떼어
+    /// 놓았다(<c>AiRunSummaryWriter</c>) — 「메일로 받기」를 끄면 요약도 없던
+    /// 때가 있었고, 그때 이 칸은 알림을 끈 사람에게만 영영 비어 있었다.
     /// </para>
     /// <para>
     /// 그사이 이 화면은 「끝났다」를 보고 따라가기를 멈춘다. 그러면 <b>끝나는
@@ -369,7 +376,7 @@ else
     /// </para>
     /// <para>
     /// <b>답이 없는 건은 기다리지 않는다.</b> 요약할 원문이 없으면 서버도
-    /// 만들지 않으므로, 기다려 봐야 45초를 헛도는 일이다.
+    /// 만들지 않으므로, 기다려 봐야 75초를 헛도는 일이다.
     /// </para>
     /// </remarks>
     private bool AwaitingSummary => _summary is null && _result is { Length: > 0 };
