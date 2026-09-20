@@ -113,14 +113,29 @@
 
 @implements IDisposable
 @inject AiTaskClient Api
+@inject UserFaceClient Faces
 @inject IJSRuntime Js
 
 @if (Item is { } t)
 {
-    @* 머리띠. **탭을 옮겨도 이 셋은 제자리에 있다** — 카드에서 보고
+    @* 머리띠. **탭을 옮겨도 여기 있는 것은 제자리에 남는다** — 카드에서 보고
        들어온 값이 사라지면 같은 건인지 확인할 길이 없다. *@
     <div class="pm-peek__top">
         <span class="jsini-badge jsini-badge--@t.StatusTone">@t.StatusText</span>
+
+        @* 지시자. **얼굴이 먼저고 이름이 뒤다** — 카드에서 얼굴로 알아본 건을
+           눌러 들어왔을 때 같은 것이 같은 자리에 있어야 「그 건이 맞다」가
+           눈으로 확인된다(`UserFaceMark` 는 카드와 한 벌이다).
+
+           이름을 얼굴 옆에 적는 것은 여기가 **상세**이기 때문이다. 카드는
+           반 폭이라 이름 자리가 없어 마우스를 올려야 알 수 있는데, 앱알림을
+           누르고 바로 들어온 사람에게는 그 카드를 본 기억조차 없다.
+           휴대폰에는 올릴 마우스도 없다. *@
+        <span class="pm-peek__cell pm-peek__cell--who">
+            <span class="pm-peek__label">지시자</span>
+            <UserFaceMark LoginId="@t.CreId" CssClass="pm-face--lg" />
+            <span class="pm-peek__value">@Who(t)</span>
+        </span>
 
         <span class="pm-peek__cell">
             <span class="pm-peek__label">작성시간</span>
@@ -432,6 +447,12 @@ else
     }
 
     /// <summary>
+    /// 얼굴 옆에 적을 지시자 이름. <b>아직 못 읽었으면 로그인 아이디</b>다 —
+    /// 이름이 올 때까지 그 자리를 비우면 머리띠의 칸 너비가 한 번 덜컥인다.
+    /// </summary>
+    private string Who(AiTaskDto t) => Faces.Get(t.CreId)?.Name ?? t.CreId ?? "-";
+
+    /// <summary>
     /// 처음 열리는 탭. <b>상태가 고른다</b> — 위 머리말 참고.
     /// </summary>
     private static int DefaultTab(AiTaskDto t) => t.TaskStatus switch
@@ -466,6 +487,12 @@ else
             _key = t.TaskKey;
             _status = t.TaskStatus;
             _tab = DefaultTab(t);
+
+            // 지시자의 얼굴. **여기서도 물어야 한다** — 창으로 열렸을 때는
+            // 「빠른 지시」 화면이 목록을 받으며 이미 채워 두었지만, 알림이나
+            // 메일을 눌러 `AiTaskViewPage` 로 바로 들어오면 그 화면은 없다.
+            // 이미 아는 아이디면 `EnsureAsync` 가 그 자리에서 돌아온다.
+            await Faces.EnsureAsync([t.CreId]);
 
             await LoadRunsAsync();
 

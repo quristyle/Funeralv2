@@ -1865,11 +1865,15 @@
   min-width: 0;
 }
 
-/* ── 지시자의 얼굴 (`pm-ask__face`) ──────────────────────────
+/* ── 사람의 얼굴 (`pm-face`) ─────────────────────────────────
 
    누가 시킨 건인지를 **글자가 아니라 얼굴로** 말한다. 이 화면은 여럿이
    같은 목록을 보므로(서버가 「내 것만」으로 가리지 않는다 — `LoadRecentAsync`)
    카드마다 지시자가 다르다.
+
+   **카드와 상세가 같은 동그라미를 쓴다**(`UserFaceMark`). 그래서 이름이
+   `pm-ask__…` 가 아니다 — 「빠른 지시」 화면의 조각이 아니라 그 화면과
+   상세가 나눠 쓰는 부품이다.
 
    **줄어들지 않는다**(`flex: 0 0 auto`). 반 폭 카드에서 제목이 길 때
    이것이 먼저 눌리면 동그라미가 타원이 된다. 카드에서 잘려도 되는 것은
@@ -1879,7 +1883,7 @@
    것**을 보인다 — 상태 띠 색(`--pm-ask-tone`)을 쓰지 않는다. 그 색은
    「어떻게 됐나」를 말하는 자리라, 얼굴까지 같은 색으로 칠하면 사람이
    상태의 일부로 읽힌다. */
-.pm-ask__face {
+.pm-face {
   flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
@@ -1892,13 +1896,21 @@
   color: var(--jsini-text);
 }
 
-.pm-ask__face-img {
+/* 상세의 머리띠에 서는 것. **카드보다 작다** — 옆에 이름이 함께 서고
+   그 줄은 글 한 줄 높이라, 카드만 한 동그라미를 넣으면 그것 하나 때문에
+   머리띠가 한 단 두꺼워진다. */
+.pm-face--lg {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+.pm-face__img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
-.pm-ask__face-initial {
+.pm-face__initial {
   font-size: 0.75em;
   font-weight: 700;
   line-height: 1;
@@ -2079,6 +2091,14 @@
 .pm-peek__label {
   font-size: var(--jsini-fs-2xs);
   opacity: 0.6;
+}
+
+/* 지시자 칸만 **가운데 맞춤**이다. 머리띠는 글자 줄끼리 밑줄을 맞추는데
+   (`align-items: baseline`) 동그라미에는 밑줄이 없어서, 그대로 두면 얼굴이
+   제 아래끝을 글자 밑줄에 대고 서며 위로 솟는다. */
+.pm-peek__cell--who {
+  align-items: center;
+  gap: 0.35rem;
 }
 
 .pm-peek__value {

@@ -1,0 +1,77 @@
+@*
+    [사람 하나를 가리키는 동그라미 — 사진, 없으면 이름 첫 글자]
+
+    ────────────────────────────────────────────────────────────
+    [왜 부품으로 떼었나 (2026-09-21)]
+
+    한동안 「빠른 지시」 화면의 카드 안에만 있었다. 그런데 카드를 눌러 여는
+    상세(`AiTaskView` — 창이든 탭이든)에도 **같은 얼굴**이 서야 했다.
+    카드에서 얼굴로 알아본 건을 열었는데 거기서는 누구 것인지 알 수 없으면,
+    알림을 누르고 바로 들어온 사람은 **지시자를 볼 길이 아예 없다.**
+
+    두 벌로 그리면 어긋나는 것이 하나 있다 — **사진을 못 받았을 때의 되돌림**
+    이다(`MarkPhotoUnavailable`). 한쪽만 그것을 걸어 두면 같은 사람이 한
+    화면에서는 첫 글자로, 다른 화면에서는 깨진 그림으로 뜬다.
+
+    ────────────────────────────────────────────────────────────
+    [이 부품은 스스로 묻지 않는다]
+
+    얼굴을 받아 오는 일은 **부르는 쪽**이 한다(`UserFaceClient.EnsureAsync`).
+    카드가 넉 장이면 이 부품도 넉이라, 저마다 묻게 두면 화면 하나가 게이트웨이를
+    네 번 두드린다 — 아이디를 모아 한 번에 묻는 그 부품의 뜻이 없어진다.
+
+    그래서 여기는 **아는 것을 그릴 뿐**이고, 아직 못 읽었으면 아이디 첫 글자가
+    그 자리를 지킨다. 나중에 얼굴이 들어오면 다음 그림에서 바뀐다.
+*@
+
+@inject UserFaceClient Faces
+
+<span class="pm-face @CssClass" title="@Who">
+    @if (Face?.Photo is { Length: > 0 } photo)
+    {
+        @* 못 받아 오면 깨진 그림 대신 첫 글자로 돌아간다. *@
+        <img class="pm-face__img" src="@photo" alt=""
+             @onerror="@(() => Faces.MarkPhotoUnavailable(LoginId))" />
+    }
+    else
+    {
+        <span class="pm-face__initial">@Initial</span>
+    }
+</span>
+
+@code {
+    /// <summary>그릴 사람의 포털 로그인 아이디.</summary>
+    [Parameter] public string? LoginId { get; set; }
+
+    /// <summary>덧붙일 모양 이름. 크기를 바꾸는 자리가 쓴다(<c>pm-face--lg</c>).</summary>
+    [Parameter] public string? CssClass { get; set; }
+
+    private UserFace? Face => Faces.Get(LoginId);
+
+    /// <summary>
+    /// 마우스를 올렸을 때 뜨는 이름. <b>아직 못 읽었으면 아이디</b>다 —
+    /// 비워 두면 동그라미가 무엇을 가리키는지 알 길이 없다.
+    /// </summary>
+    public string? Who => Face?.Name ?? LoginId;
+
+    /// <summary>
+    /// 사진이 없을 때 동그라미에 넣을 <b>글자 한 자</b>.
+    /// </summary>
+    /// <remarks>
+    /// 얼굴을 아직 못 읽었거나(첫 그림 · 조회 실패) 지워진 계정이면
+    /// <b>로그인 아이디</b>의 첫 글자로 대신한다. 그 자리를 비우면 얼굴이
+    /// 있는 카드와 없는 카드의 <b>왼쪽 여백이 달라져</b> 목록이 들쭉날쭉해진다.
+    /// </remarks>
+    private string Initial
+    {
+        get
+        {
+            if (Face is not null)
+            {
+                return Face.Initial;
+            }
+
+            return string.IsNullOrWhiteSpace(LoginId) ? "?" : LoginId.Trim()[..1].ToUpperInvariant();
+        }
+    }
+}

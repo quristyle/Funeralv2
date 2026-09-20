@@ -355,25 +355,17 @@
                        사진이 없는 사람은 이름 첫 글자다. 헤더의 사용자
                        단추와 같은 규칙이고(`CurrentUser.Initial`), 얼굴을
                        아직 못 읽었을 때도 그 자리는 비지 않는다 —
-                       아이디 첫 글자가 대신 선다. *@
-                    var face = Faces.Get(t.CreId);
-                    var who = face?.Name ?? t.CreId;
+                       아이디 첫 글자가 대신 선다.
 
+                       그리는 일은 `UserFaceMark` 가 한다 — **카드를 눌러 여는
+                       상세도 같은 얼굴을 세우기 때문이다**(`AiTaskView`).
+                       받아 오는 일은 여전히 이 화면 몫이다(`LoadRecentAsync`) —
+                       카드마다 묻게 두면 화면 하나가 게이트웨이를 넉 장만큼
+                       두드린다. *@
                     <li class="pm-ask__item pm-ask__item--@t.StatusTone">
                         <button type="button" class="pm-ask__head"
                                 @onclick="@(() => Peek(t.TaskKey))">
-                            <span class="pm-ask__face" title="@who">
-                                @if (face?.Photo is { Length: > 0 } photo)
-                                {
-                                    @* 못 받아 오면 깨진 그림 대신 첫 글자로 돌아간다. *@
-                                    <img class="pm-ask__face-img" src="@photo" alt=""
-                                         @onerror="@(() => Faces.MarkPhotoUnavailable(t.CreId))" />
-                                }
-                                else
-                                {
-                                    <span class="pm-ask__face-initial">@Initial(face, t.CreId)</span>
-                                }
-                            </span>
+                            <UserFaceMark LoginId="@t.CreId" />
 
                             <span class="pm-ask__rows">
                                 <span class="pm-ask__line">
@@ -591,24 +583,6 @@
 
         return AllKinds.FirstOrDefault(
             k => string.Equals(k.Value, kind, StringComparison.OrdinalIgnoreCase))?.Text ?? kind;
-    }
-
-    /// <summary>
-    /// 사진이 없는 지시자의 동그라미에 넣을 <b>글자 한 자</b>.
-    /// </summary>
-    /// <remarks>
-    /// 얼굴을 아직 못 읽었거나(첫 그림 · 조회 실패) 지워진 계정이면
-    /// <b>로그인 아이디</b>의 첫 글자로 대신한다. 그 자리를 비우면 얼굴이
-    /// 있는 카드와 없는 카드의 <b>왼쪽 여백이 달라져</b> 목록이 들쭉날쭉해진다.
-    /// </remarks>
-    private static string Initial(UserFace? face, string? creId)
-    {
-        if (face is not null)
-        {
-            return face.Initial;
-        }
-
-        return string.IsNullOrWhiteSpace(creId) ? "?" : creId.Trim()[..1].ToUpperInvariant();
     }
 
     /// <summary>
