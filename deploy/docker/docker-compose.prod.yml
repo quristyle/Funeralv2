@@ -42,6 +42,18 @@ services:
     environment:
       <<: *common-env
       ASPNETCORE_URLS: http://0.0.0.0:8080
+
+      # 계정 안내 메일(비밀번호 찾기·가입 신청)과 생일 푸시가 쓴다.
+      # **컨테이너망 이름으로 부른다** — 기본값(127.0.0.1:5460)은 개발 장비
+      # 기준이라 컨테이너 안에서는 자기 자신을 가리키고, 그쪽에는 아무도 없다.
+      # 못 부르면 메일이 안 나가는데 화면은 언제나 「보냈습니다」를 띄우므로
+      # (아이디가 있는지 알려 주지 않으려고 늘 성공으로 답한다) **조용히 망가진다.**
+      Notify__BaseUrl: http://notify:8080
+
+      # 비밀번호 재설정 메일에 적을 포털 주소. 기본값(localhost:5557)이 그대로
+      # 나가면 메일은 도착하는데 링크를 아무도 못 연다 — 메일함에서 여는
+      # 주소라 컨테이너망 이름이 아니라 **바깥에서 보이는 도메인**이어야 한다.
+      Portal__BaseUrl: https://portal.jsini.co.kr
     volumes:
       - /srv/jsini/config/AuthServer/appsettings.Local.json:/app/appsettings.Local.json:ro
       # 배포 현황 화면이 컨테이너 상태를 읽는다 (읽기 전용)
@@ -63,6 +75,9 @@ services:
     environment:
       <<: *common-env
       Kestrel__Endpoints__Http__Url: http://0.0.0.0:8080
+
+      # 소개 사이트 문의 접수 메일. auth 의 Notify__BaseUrl 과 같은 이유다.
+      InquiryMail__NotificationBaseUrl: http://notify:8080
     volumes:
       - /srv/jsini/config/SiteServer/appsettings.Local.json:/app/appsettings.Local.json:ro
 
@@ -81,6 +96,9 @@ services:
     environment:
       <<: *common-env
       Kestrel__Endpoints__Http__Url: http://0.0.0.0:8080
+
+      # 기상 특보 알림. auth 의 Notify__BaseUrl 과 같은 이유다.
+      Notify__BaseUrl: http://notify:8080
     volumes:
       - /srv/jsini/config/LifeEnvServer/appsettings.Local.json:/app/appsettings.Local.json:ro
 
@@ -127,6 +145,10 @@ services:
       # 자기 자신을 가리킨다. 못 부르면 메일은 옛 방식(결과문 앞 몇 줄)으로
       # 그대로 나가므로 **틀려도 조용하다** — 그래서 여기 적어 둔다.
       AiTasks__AiUrl: http://ai:8080
+
+      # AI 작업 끝남 알림도 같다. 기본값(127.0.0.1:5460)은 컨테이너 안에서
+      # 자기 자신이라 알림이 통째로 안 나간다.
+      AiTasks__NotifyUrl: http://notify:8080
     volumes:
       - /srv/jsini/config/ProjMngServer/appsettings.Local.json:/app/appsettings.Local.json:ro
 

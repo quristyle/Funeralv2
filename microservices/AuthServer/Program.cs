@@ -166,6 +166,43 @@ builder.Services.AddHealthChecks()
 
 var app = builder.Build();
 
+// ── 계정 안내 메일이 나갈 수 있는 설정인지 기동 때 한 번 본다 ──────────
+//
+// 비밀번호 찾기와 가입 신청은 **틀려도 조용하다.** 아이디가 있는지 알려 주지
+// 않으려고 화면에는 언제나 「보냈습니다」가 뜨고, 메일이 못 나간 것은 로그에만
+// 남는다. 그래서 「메일이 안 온다」가 문의로 올 때까지 아무도 모른다.
+//
+// 실제로 두 값 다 개발 기본값인 채로 컨테이너에 올라가 기능이 죽어 있었다 —
+// 컨테이너 안에서 127.0.0.1:5460 은 자기 자신이고, 메일에 적히는
+// localhost:5557 은 받는 사람이 열 수 없는 주소다. 값은 compose 의
+// Notify__BaseUrl · Portal__BaseUrl 로 넣는다.
+//
+// 기동을 막지는 않는다. 이 둘이 틀렸다고 로그인까지 못 하게 할 이유는 없다.
+if (!app.Environment.IsDevelopment())
+{
+    var startupLog = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("AccountMail");
+
+    var notifyUrl = app.Configuration["Notify:BaseUrl"] ?? "http://127.0.0.1:5460";
+    var portalUrl = app.Configuration["Portal:BaseUrl"] ?? "http://localhost:5557";
+
+    if (notifyUrl.Contains("127.0.0.1", StringComparison.Ordinal)
+        || notifyUrl.Contains("localhost", StringComparison.OrdinalIgnoreCase))
+    {
+        startupLog.LogWarning(
+            "Notify:BaseUrl 이 아직 개발 기본값입니다 ({Url}). 컨테이너 안에서는 자기 자신을 가리켜 "
+            + "계정 안내 메일(비밀번호 찾기·가입 신청)과 생일 푸시가 나가지 못합니다. "
+            + "compose 에 Notify__BaseUrl=http://notify:8080 을 넣으세요.", notifyUrl);
+    }
+
+    if (portalUrl.Contains("localhost", StringComparison.OrdinalIgnoreCase))
+    {
+        startupLog.LogWarning(
+            "Portal:BaseUrl 이 아직 개발 기본값입니다 ({Url}). 비밀번호 재설정 메일에 이 주소가 실려 나가면 "
+            + "받는 사람이 링크를 열 수 없습니다. compose 에 Portal__BaseUrl 로 바깥 도메인을 넣으세요.",
+            portalUrl);
+    }
+}
+
 // 요청 한 줄 로그. 다른 서비스와 같은 형식으로 남긴다.
 app.UseSerilogRequestLogging();
 
