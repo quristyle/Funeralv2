@@ -257,7 +257,7 @@ public sealed class AiTaskDto
     public string StatusText => TaskStatus switch
     {
         "idle" => "작성중",
-        "queued" => IsRetrying ? "실패·재시도" : IsUnclaimed ? "응답없음" : "대기",
+        "queued" => IsRetrying ? "실패·재시도" : IsUnclaimed ? "계속대기중" : "대기",
         "preparing" => "준비중",
         "running" => "실행중",
         "succeeded" => "완료",
