@@ -5235,9 +5235,12 @@ html {
 }
 
 @media (max-width: 767px) {
+  * {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
   *::-webkit-scrollbar {
-    width: 2px;
-    height: 2px;
+    display: none;
   }
 }
 
