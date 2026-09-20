@@ -122,7 +122,7 @@ public sealed class PushGate(RunnerOptions options, Workspace workspace, ILogger
         // `github/…` 가 되어 **금지 경로 검사가 뚫렸다.** 실제로 밟았다.
         //
         // 경로만 그대로 주는 명령 둘로 나눠 묻는다.
-        var tracked = await GitAsync(gitPath, ct, "diff", "--name-only", "HEAD");
+        var tracked = await GitAsync(gitPath, ct, "diff", "--name-only", prepared.BaseSha);
         var untracked = await GitAsync(gitPath, ct, "ls-files", "--others", "--exclude-standard");
 
         var changed = (tracked.Output + "\n" + untracked.Output)
@@ -161,7 +161,7 @@ public sealed class PushGate(RunnerOptions options, Workspace workspace, ILogger
         }
 
         var sha = (await GitAsync(gitPath, ct, "rev-parse", "HEAD")).Output.Trim();
-        var diff = await GitAsync(gitPath, ct, "diff", "--stat", "HEAD~1", "HEAD");
+        var diff = await GitAsync(gitPath, ct, "diff", "--stat", prepared.BaseSha, "HEAD");
 
         // 올리지 않기로 한 건은 여기까지. **커밋은 남는다** — 사람이 이어받는다.
         //
