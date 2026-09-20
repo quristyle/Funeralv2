@@ -75,3 +75,46 @@ public sealed class EmailQueueOptions
         !string.IsNullOrWhiteSpace(ScriptPath) &&
         !string.IsNullOrWhiteSpace(QueueName);
 }
+
+/// <summary>
+/// 배포 알림 설정 — 배포 파이프라인이 「반영 끝」을 알려 올 때 쓴다.
+/// </summary>
+/// <remarks>
+/// <para>
+/// 부르는 쪽은 GitHub Actions 의 <c>deploy</c> 잡이다. 그 러너에게는 <b>계정이 없다</b> —
+/// 사람이 로그인해 받는 토큰을 워크플로에 넣어 둘 수는 없으므로, 배포 보고
+/// (<c>X-Release-Token</c>, AuthServer 의 ReleaseEndpoints)와 같은 방식으로
+/// <b>공유 비밀 하나</b>로 인증한다.
+/// </para>
+/// <para>
+/// <b>값이 없으면 엔드포인트가 통째로 닫힌다.</b> 비어 있을 때 "인증을 건너뛴다" 로
+/// 동작하면 설정을 잊은 장비에서 누구나 슈퍼관리자에게 알림을 보낼 수 있게 된다 —
+/// 그 실수는 조용하고, 그래서 위험하다.
+/// </para>
+/// </remarks>
+public sealed class DeployNotifyOptions
+{
+    public const string SectionName = "DeployNotify";
+
+    /// <summary>
+    /// 배포 파이프라인이 <c>X-Deploy-Token</c> 헤더에 담아 보내는 공유 비밀.
+    /// <c>appsettings.Local.json</c> 이나 환경변수(<c>DeployNotify__Token</c>)에만 둔다.
+    /// </summary>
+    public string? Token { get; set; }
+
+    /// <summary>알림을 눌렀을 때 열 화면. 배포 현황(포털관리 &gt; 상태관리)이다.</summary>
+    public string ClickUrl { get; set; } = "/admin/status/deploy";
+
+    /// <summary>
+    /// 알림을 받을 역할. 기본은 슈퍼관리자다.
+    /// </summary>
+    /// <remarks>
+    /// 역할 이름을 코드에 박지 않는 이유: 운영이 「배포 알림은 일반 관리자도 받게 하자」로
+    /// 바뀌는 날 재배포가 필요해진다. 그런데 그 재배포야말로 이 알림의 대상이다.
+    /// </remarks>
+    public string RoleId { get; set; } = "SYSTEM_ADMINISTRATOR";
+
+    /// <summary>토큰이 실제 값으로 채워져 있나. 자리표시자(<c>__SET_IN_…</c>)는 없는 것으로 본다.</summary>
+    public bool IsConfigured =>
+        !string.IsNullOrWhiteSpace(Token) && !Token.StartsWith("__", StringComparison.Ordinal);
+}

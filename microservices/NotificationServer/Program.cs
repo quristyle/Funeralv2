@@ -90,6 +90,11 @@ builder.Services.AddScoped<INotificationPreferenceService, NotificationPreferenc
 builder.Services.AddScoped<IPushSender, PushSender>();
 builder.Services.AddScoped<IEmailQueueSender, EmailQueueSender>();
 
+// 배포 알림 — 배포 파이프라인이 「반영 끝」을 알려 오면 슈퍼관리자에게 푸시한다.
+// 토큰이 없으면 엔드포인트가 스스로 닫힌다 (DeployEventEndpoints 머리말).
+builder.Services.Configure<DeployNotifyOptions>(
+    builder.Configuration.GetSection(DeployNotifyOptions.SectionName));
+
 // 카카오 알림톡 (D-G1b · 기본 꺼짐). 자격증명·수신 번호가 정해지기 전에는 0건만 돌려준다.
 builder.Services.Configure<KakaoOptions>(builder.Configuration.GetSection(KakaoOptions.SectionName));
 builder.Services.AddHttpClient<IKakaoAlimtalkSender, BizppurioAlimtalkSender>();
@@ -137,6 +142,7 @@ app.UseAuthorization();
 app.MapNotificationEndpoints();
 app.MapEmailEndpoints();
 app.MapWeatherEventEndpoints(); // 기상 이벤트 발송 (D-G1a) — LifeEnvServer 가 부른다
+app.MapDeployEventEndpoints();  // 배포 반영 알림 — GitHub Actions 의 deploy 잡이 부른다
 
 // 설정이 반쪽이면 기동할 때 한 번 말해 준다. 조용히 못 보내는 것이 가장 나쁘다.
 app.Lifetime.ApplicationStarted.Register(() =>
@@ -146,9 +152,13 @@ app.Lifetime.ApplicationStarted.Register(() =>
     var email = app.Services.GetRequiredService<
         Microsoft.Extensions.Options.IOptions<EmailQueueOptions>>().Value;
 
-    Log.Information("NotificationServer 시작. 푸시={Push} 이메일={Email}",
+    var deploy = app.Services.GetRequiredService<
+        Microsoft.Extensions.Options.IOptions<DeployNotifyOptions>>().Value;
+
+    Log.Information("NotificationServer 시작. 푸시={Push} 이메일={Email} 배포알림={Deploy}",
         vapid.IsConfigured ? "사용 가능" : "설정 없음 (Vapid:*)",
-        email.IsConfigured ? "사용 가능" : "설정 없음 (EmailQueue:*)");
+        email.IsConfigured ? "사용 가능" : "설정 없음 (EmailQueue:*)",
+        deploy.IsConfigured ? "사용 가능" : "설정 없음 (DeployNotify:Token)");
 
     if (!vapid.IsConfigured)
     {

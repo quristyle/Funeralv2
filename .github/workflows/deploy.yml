@@ -222,3 +222,64 @@ jobs:
           echo "소개 사이트가 200 을 내놓지 않았다 (마지막 $code)." >&2
           docker compose -f /srv/jsini/docker-compose.yml logs --tail 80 web >&2 || true
           exit 1
+
+      - name: 슈퍼관리자에게 PWA 알림
+        # **배포 결과를 사람에게 알리는 유일한 자리다.**
+        #
+        # 지금까지 「새 버전이 올라갔다」를 아는 길은 이 화면(Actions)뿐이었다.
+        # 운영 중에 무엇이 언제 바뀌었는지 모르면, 장애가 났을 때 가장 먼저 봐야 할
+        # 것(방금 배포가 있었나)을 가장 늦게 보게 된다.
+        #
+        # `if: always()` 다 — **실패한 배포야말로 알아야 한다.** 위 관통 검증이
+        # 하나라도 깨지면 status=failure 로 간다.
+        #
+        # 게이트웨이 루프백으로 부른다. notify 컨테이너는 호스트에 포트를 열지 않고
+        # (docker-compose.prod.yml 머리말), 러너는 이 주소를 이미 쓰고 있다.
+        #
+        # **이 단계는 배포를 깨뜨리지 않는다.** 알림이 못 갔다고 해서 이미 반영된
+        # 배포를 실패로 표시하면, 고치러 들어간 사람이 "배포가 안 됐다" 로 읽는다.
+        # 그래서 `|| true` 로 넘기고 응답만 로그에 남긴다.
+        #
+        # 토큰이 없으면(저장소 시크릿 미설정) 부르지 않고 넘어간다 — 서비스 쪽도
+        # 토큰이 없으면 503 으로 닫혀 있으므로 두드려 봐야 소용이 없다.
+        if: always()
+        env:
+          DEPLOY_NOTIFY_TOKEN: ${{ secrets.DEPLOY_NOTIFY_TOKEN }}
+          STATUS: ${{ job.status }}
+          SHA: ${{ github.sha }}
+          ACTOR: ${{ github.actor }}
+          TITLE: ${{ github.event.head_commit.message }}
+        run: |
+          if [ -z "$DEPLOY_NOTIFY_TOKEN" ]; then
+            echo "DEPLOY_NOTIFY_TOKEN 이 없어 배포 알림을 건너뜁니다."
+            exit 0
+          fi
+
+          # 커밋 메시지는 여러 줄일 수 있다. 알림은 두 줄이 전부라 첫 줄만 싣는다.
+          title=$(printf '%s' "$TITLE" | head -n 1)
+
+          body=$(STATUS="$STATUS" SHA="$SHA" ACTOR="$ACTOR" TITLE="$title" \
+            python3 -c 'import json,os; print(json.dumps({
+              "status": os.environ["STATUS"],
+              "sha": os.environ["SHA"],
+              "actor": os.environ["ACTOR"],
+              "title": os.environ["TITLE"],
+            }))')
+
+          # 방금 notify 컨테이너가 새로 떴다. 게이트웨이의 능동 헬스체크(15초 간격)가
+          # 다시 살아났다고 판단할 때까지 몇십 초가 걸릴 수 있어 다시 시도한다.
+          #
+          # **세 번뿐인 것은 이유가 있다.** 이 경로에는 public-write(분당 3회) 제한이
+          # 걸려 있다 — 더 자주 두드리면 우리 재시도가 스스로 429 를 맞는다.
+          for i in 1 2 3; do
+            code=$(curl -s -o /tmp/deploy-notify.out -w "%{http_code}" --max-time 20 \
+              -X POST http://127.0.0.1:5265/api/notification/deploy-event \
+              -H "Content-Type: application/json" \
+              -H "X-Deploy-Token: $DEPLOY_NOTIFY_TOKEN" \
+              -d "$body" || true)
+            echo "deploy notify: HTTP $code ($i)"
+            [ "$code" = "200" ] && break
+            [ "$i" = "3" ] || sleep 20
+          done
+          cat /tmp/deploy-notify.out || true
+          echo

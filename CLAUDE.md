@@ -77,6 +77,12 @@ dev.bat site web          소개 사이트 백엔드(:5480)와 프론트(:5556)
 | 회사 소개 사이트 | `funeralv2-web` | `127.0.0.1:5556` | jsini.co.kr |
 | 게이트웨이 | `funeralv2-gateway` | `127.0.0.1:5265` | 위 둘의 `/api/` |
 
+배포가 끝나면 마지막 단계가 게이트웨이로 `POST /api/notification/deploy-event` 를
+불러 **슈퍼관리자 전원에게 PWA 푸시**를 보낸다(실패한 배포도 보낸다).
+공유 비밀 하나로 인증하며 — 저장소 시크릿 `DEPLOY_NOTIFY_TOKEN` 과 서버의
+`DeployNotify:Token` 이 같아야 한다 — 값이 없으면 알림만 조용히 건너뛴다.
+자세한 것은 [docs/deploy-notify.md](docs/deploy-notify.md).
+
 nginx 설정 정본은 [deploy/nginx/](deploy/nginx/) 에 있다 — Blazor 회로(SignalR)
 때문에 웹소켓 업그레이드 블록이 필요하고, 그것이 빠지면 **화면은 그려지는데
 단추가 하나도 안 눌린다.**
