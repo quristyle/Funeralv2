@@ -44,17 +44,20 @@ public class PushSender : IPushSender
     private readonly AppDbContext _db;
     private readonly VapidOptions _vapid;
     private readonly INotificationPreferenceService _preferences;
+    private readonly IAvatarIconResolver _avatars;
     private readonly ILogger<PushSender> _logger;
 
     public PushSender(
         AppDbContext db,
         IOptions<VapidOptions> vapid,
         INotificationPreferenceService preferences,
+        IAvatarIconResolver avatars,
         ILogger<PushSender> logger)
     {
         _db = db;
         _vapid = vapid.Value;
         _preferences = preferences;
+        _avatars = avatars;
         _logger = logger;
     }
 
@@ -175,6 +178,13 @@ public class PushSender : IPushSender
             .Where(o => !withSubs.Contains((o.OwnerType, o.OwnerKey)))
             .Select(o => (o.OwnerType, o.OwnerKey))
             .ToList(), ReasonNoSubscription, ct);
+
+        // **얼굴을 여기서 채운다.** 부르는 쪽은 사람의 아이디까지만 알고
+        // 사진이 어디 있는지는 모른다 (IAvatarIconResolver 머리말).
+        //
+        // 발송 직전 한 번뿐이다 — 아래 반복은 기기마다 도는 자리라 그 안에서
+        // 풀면 같은 사람의 사진을 기기 수만큼 조회하게 된다.
+        await FillIconAsync(request.Message, ct);
 
         var payload = BuildPayload(request.Message);
         var client = new WebPushClient();
@@ -302,6 +312,25 @@ public class PushSender : IPushSender
         {
             _logger.LogWarning(ex, "푸시 발송 기록을 남기지 못했습니다.");
         }
+    }
+
+    /// <summary>
+    /// <c>IconOwnerKey</c> 가 있으면 그 사람의 얼굴을 아이콘으로 채운다.
+    /// </summary>
+    /// <remarks>
+    /// <b>이미 <c>Icon</c> 이 있으면 건드리지 않는다.</b> 주소를 손에 들고 부른
+    /// 쪽의 뜻이 먼저다 — 덮어쓰면 「아이콘을 지정했는데 얼굴이 떴다」가 된다.
+    /// </remarks>
+    private async Task FillIconAsync(PushMessageDto message, CancellationToken ct)
+    {
+        if (message is null
+            || !string.IsNullOrWhiteSpace(message.Icon)
+            || string.IsNullOrWhiteSpace(message.IconOwnerKey))
+        {
+            return;
+        }
+
+        message.Icon = await _avatars.ResolveAsync(message.IconOwnerKey, ct);
     }
 
     /// <summary>

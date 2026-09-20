@@ -86,6 +86,40 @@ public static class FileDownload
         $"{Path}/thumbnail/{Uri.EscapeDataString(fileId)}";
 
     /// <summary>
+    /// 앱알림 아이콘용 프로필 사진 주소.
+    /// <b>언제나 그림이 나온다</b> — 못 받으면 사람 형상 그림자로 갈린다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <see cref="ThumbnailUrlFor"/> 와 무엇이 다른가 — 그쪽은 못 받으면 404 를 주고,
+    /// 화면은 그것을 보고 이름 첫 글자를 대신 그린다(<c>CurrentUser.MarkAvatarUnavailable</c>).
+    /// <b>서비스워커에는 그렇게 되받을 자리가 없다.</b> 알림 아이콘은 브라우저가
+    /// 혼자 받아 가고, 실패하면 알림이 아이콘 없이 뜰 뿐 아무도 알지 못한다.
+    /// 그래서 이 갈래는 실패를 <b>여기서</b> 그림자로 바꾼다.
+    /// </para>
+    /// <para>
+    /// 주소를 만드는 쪽은 알림 서비스다
+    /// (<c>microservices/NotificationServer/Services/AvatarIconResolver.cs</c>) —
+    /// 사진이 아예 없는 계정은 거기서 바로 <see cref="FallbackAvatarPath"/> 를 고르고,
+    /// 이 갈래는 「사진은 있는데 못 받은」 경우를 맡는다.
+    /// </para>
+    /// </remarks>
+    public static string AvatarUrlFor(string fileId) =>
+        $"{Path}/avatar/{Uri.EscapeDataString(fileId)}";
+
+    /// <summary>
+    /// 사람 형상 그림자. 셸이 정적 파일로 들고 있다
+    /// (<c>JSini.Web.Shell/wwwroot/avatar-fallback.png</c>).
+    /// </summary>
+    /// <remarks>
+    /// 이 프로젝트가 아니라 셸의 <c>wwwroot</c> 에 두는 이유는 <b>서비스워커가
+    /// 셸 오리진의 절대 경로로 이 그림을 받아 가기 때문</b>이다. RCL 에 두면
+    /// 주소가 <c>/_content/…</c> 가 되어 알림 페이로드에 적히는 글자가 길어지고,
+    /// 무엇보다 그 경로는 사람이 보고 무엇인지 알기 어렵다.
+    /// </remarks>
+    public const string FallbackAvatarPath = "/avatar-fallback.png";
+
+    /// <summary>
     /// DB 에 저장된 <c>/api/file/…</c> 주소를 중계 경로로 옮긴다.
     /// 파일 주소가 아니면 <b>그대로 돌려준다.</b>
     /// </summary>
@@ -181,6 +215,15 @@ public static class FileDownload
             .AllowAnonymous()
             .WithName("JSiniFileThumbnail");
 
+        // 앱알림 아이콘. 썸네일과 달리 **실패해도 404 를 주지 않는다**
+        // (AvatarUrlFor 머리말). 리터럴 `avatar` 라 `{fileId}` 와 겹치지 않는다.
+        endpoints.MapGet($"{Path}/avatar/{{fileId}}", HandleAvatarAsync)
+            // 서비스워커가 받아 가는 자리다. 로그인 쿠키가 실려 오면 그 사람의
+            // 신원으로 실제 사진이 나가고, 안 실려 오면 그림자가 나간다 —
+            // 어느 쪽이든 그림 하나는 돌려준다는 것이 이 경로의 약속이다.
+            .AllowAnonymous()
+            .WithName("JSiniAvatarIcon");
+
         // 자료실·플레이어. 횟수를 세는 경로를 거친다.
         //
         // **리터럴 `archive` 가 있어 위의 `{fileId}` 와 겹치지 않는다** —
@@ -243,6 +286,81 @@ public static class FileDownload
             $"file/thumbnail/{id}", id, null, http, gateway, loggers, cancellationToken,
             cacheable: true,
             fallbackPath: $"file/download/id/{id}");
+    }
+
+    /// <summary>
+    /// 알림 아이콘용 프로필 사진. <b>못 받으면 사람 형상 그림자로 넘긴다.</b>
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 그림자를 직접 흘려보내지 않고 <b>302 로 넘긴다.</b> 그 파일은 셸의
+    /// <c>wwwroot</c> 에 있고 이 코드는 공용 컴포넌트 쪽이라, 여기서 바이트를
+    /// 읽으려면 정적 파일의 실제 경로를 알아야 한다 — 그러면 컴포넌트가 셸의
+    /// 파일 배치에 매인다. 그림 요청은 리다이렉트를 따라간다.
+    /// </para>
+    /// <para>
+    /// 검증표(<c>ETag</c>)를 붙이지 않는다. 이 주소의 답은 <b>같은 아이디라도
+    /// 바뀔 수 있다</b> — 신원이 실려 오느냐에 따라 사진과 그림자로 갈린다.
+    /// </para>
+    /// </remarks>
+    private static async Task HandleAvatarAsync(
+        string fileId,
+        HttpContext http,
+        GatewayClient gateway,
+        ILoggerFactory loggers,
+        CancellationToken cancellationToken)
+    {
+        if (Guid.TryParse(fileId, out var id))
+        {
+            try
+            {
+                // 썸네일(150x150 WebP)을 먼저 받고, 아직 안 만들어졌으면 원본으로 한 번 물러선다.
+                var upstream = await gateway.SendRawAsync(
+                    HttpMethod.Get, $"file/thumbnail/{id}", cancellationToken: cancellationToken);
+
+                if (!upstream.IsSuccessStatusCode)
+                {
+                    upstream.Dispose();
+                    upstream = await gateway.SendRawAsync(
+                        HttpMethod.Get, $"file/download/id/{id}", cancellationToken: cancellationToken);
+                }
+
+                using (upstream)
+                {
+                    var contentType = upstream.Content.Headers.ContentType?.ToString();
+
+                    // **그림인 것까지 확인하고 흘려보낸다.** 위쪽이 200 과 함께
+                    // 오류 봉투(JSON)를 주는 갈래가 있어서, 형식을 안 보면
+                    // 알림에 글자 뭉치를 아이콘으로 물리게 된다.
+                    if (upstream.IsSuccessStatusCode
+                        && contentType is not null
+                        && contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+                    {
+                        http.Response.ContentType = contentType;
+
+                        if (upstream.Content.Headers.ContentLength is { } length)
+                        {
+                            http.Response.ContentLength = length;
+                        }
+
+                        http.Response.Headers.CacheControl =
+                            $"private, max-age={ImageMaxAgeSeconds}";
+
+                        await upstream.Content.CopyToAsync(http.Response.Body, cancellationToken);
+                        return;
+                    }
+                }
+            }
+            catch (ApiException ex)
+            {
+                loggers.CreateLogger(typeof(FileDownload)).LogInformation(
+                    ex, "알림 아이콘 {FileId} 를 가져오지 못했습니다. 그림자로 보냅니다.", id);
+            }
+        }
+
+        // 캐시에 남기지 않는다. 다음 알림에서는 사진이 나올 수 있다.
+        http.Response.Headers.CacheControl = "private, no-store";
+        http.Response.Redirect(FallbackAvatarPath);
     }
 
     private static Task HandleAsync(

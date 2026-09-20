@@ -87,6 +87,7 @@ builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("Emai
 builder.Services.AddTransient<IEmailSender, SmtpEmailSender>();
 
 builder.Services.AddScoped<INotificationPreferenceService, NotificationPreferenceService>();
+builder.Services.AddScoped<IAvatarIconResolver, AvatarIconResolver>();
 builder.Services.AddScoped<IPushSender, PushSender>();
 builder.Services.AddScoped<IEmailQueueSender, EmailQueueSender>();
 

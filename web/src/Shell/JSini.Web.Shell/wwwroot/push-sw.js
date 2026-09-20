@@ -47,6 +47,15 @@ self.addEventListener('push', (event) => {
 
     const title = data.title || 'JSini 포털';
     const options = {
+        // icon 은 **누가 시킨 일인가**를 그린다. 보내는 쪽이 사람을 지목하면
+        // (NotificationServer 의 PushMessageDto.iconOwnerKey) 서버가 그 사람의
+        // 프로필 사진 주소(/files/avatar/{파일아이디})를 채워 보내고, 사진이
+        // 없는 계정이면 사람 형상 그림자(/avatar-fallback.png)를 채워 보낸다.
+        // 지목하지 않은 알림(배포 알림 등)은 여기 기본값인 앱 아이콘으로 뜬다.
+        //
+        // badge 는 아이콘이 무엇으로 바뀌든 **앱 아이콘 그대로** 둔다 —
+        // 안드로이드의 상태 표시줄에 서는 작은 표시라, 여기까지 얼굴로 바꾸면
+        // 어느 앱이 보낸 알림인지 알 수 없게 된다.
         body: data.body || '',
         icon: data.icon || '/pwa-icon-192.png',
         badge: '/pwa-icon-192.png',

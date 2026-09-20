@@ -74,6 +74,24 @@ public class PushMessageDto
     public string? Icon { get; set; }
 
     /// <summary>
+    /// 아이콘에 <b>얼굴을 쓸 사람</b>의 포털 로그인 아이디
+    /// (<c>scom.accounts.user_id</c>). 주면 그 사람의 프로필 사진이 아이콘이 되고,
+    /// 사진이 없으면 사람 형상 그림자가 된다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>받는 사람이 아니라 「시킨 사람」이다.</b> AI 작업 결과 알림은 지시한
+    /// 본인에게 가므로 지금은 둘이 같지만, 남에게 보내는 알림에서도 아이콘이
+    /// 답해야 하는 물음은 <b>「누가 시킨 일인가」</b> 하나다.
+    /// </para>
+    /// <para>
+    /// <see cref="Icon"/> 을 직접 채웠으면 이 값은 보지 않는다 — 주소를 손에 든
+    /// 부르는 쪽의 뜻이 먼저다.
+    /// </para>
+    /// </remarks>
+    public string? IconOwnerKey { get; set; }
+
+    /// <summary>
     /// 같은 태그의 알림은 브라우저가 하나로 합친다. 같은 건에 대한 갱신을 보낼 때 쓴다.
     /// </summary>
     public string? Tag { get; set; }
