@@ -83,6 +83,40 @@
     담당·개발 시작/종료·구분·완료가 빠진다. 그래서 그 창을 취소하고
     (`AppointmentFormShowing`) `WbsEditForm` 을 띄운다. 표 쪽 편집 창과
     **같은 칸**이 열린다.
+
+    ────────────────────────────────────────────────────────────
+    [휴대폰에서는 달력을 우리가 그린다]
+
+    이 화면은 **주로 휴대폰에서 본다.** 그런데 `DxScheduler` 의 달 보기는
+    칸이 좁아지면 일정을 접어 「+3」 으로만 남기고, 안 접히는 자리는 가로로
+    밀려 나가 한 달이 한눈에 들어오지 않았다 — 여기 들어오는 사람이 제일
+    보고 싶은 것이 「이번 달이 어떻게 생겼나」인데 그것이 안 보였다.
+
+    그래서 폭이 767px 이하면(`DxLayoutBreakpoint` — 셸이 쓰는 것과 **같은
+    경계**다) 구글 캘린더의 월 보기와 같은 모양을 직접 그린다.
+
+      · 7칸 격자 한 장. 스크롤 없이 한 달이 다 보인다.
+      · 칸마다 딱지 셋까지, 넘으면 「+N」. 색은 아래 상태 색 그대로다.
+      · 날을 누르면 **그 날의 일정이 바로 아래 목록**으로 펼쳐지고,
+        그 줄을 누르면 편집 창이 열린다. 등록도 그 자리에서 한다.
+      · 좌우로 쓸면 앞뒤 달로 간다. Blazor 의 터치 이벤트로 받으므로
+        **JS 를 새로 싣지 않는다.** 쓸기가 안 먹어도 ‹ › 단추가 그대로 있다.
+
+    **부품을 갈아 끼우는 것이 아니다.** 데스크톱은 `DxScheduler` 그대로다 —
+    끌어 옮기기와 크기 조절이 거기 있고, 그 둘은 손가락으로 할 일이 아니다.
+
+    ────────────────────────────────────────────────────────────
+    [읽어 오는 구간은 달이 아니라 **격자**다]
+
+    달 보기의 격자는 앞뒤 달의 자투리 날을 함께 그린다(9월 격자의 8/31 과
+    10/1). 조회를 1일~말일로 두면 그 칸들이 늘 비어서, **달을 넘나드는 일이
+    화면에서 사라진다** — 8/31 에 시작해 9/3 에 끝나는 일이 9월 격자에서
+    9/1 부터 그려지는 것이 아니라 아예 안 그려진다.
+
+    그래서 조회 구간을 격자의 **첫 일요일부터 마지막 토요일까지**로 넓혔다
+    (`GridSpan`). 데스크톱의 `DxScheduler` 도 같은 자투리를 그리므로 그쪽
+    빈칸도 같이 채워진다. 표 탭의 건수도 그 구간을 센다 — **달력에 보이는
+    것과 표에 있는 것이 어긋나면 안 된다.**
 *@
 
 @inherits DataPage
@@ -91,6 +125,11 @@
 @inject NavigationManager Navigation
 
 <PageTitle>프로젝트 일정표 · 프로젝트관리</PageTitle>
+
+@* 휴대폰인가. 셸(`MainLayout`)이 사이드바를 접을 때 쓰는 것과 같은 경계다 —
+   같은 기기에서 메뉴는 접혔는데 달력은 데스크톱 모양인 일이 없어야 한다. *@
+<DxLayoutBreakpoint DeviceSize="DeviceSize.XSmall"
+                    IsActive="_isPhone" IsActiveChanged="@OnPhoneChanged" />
 
 @* 모바일에서 공간을 많이 차지하는 조회 영역을 접어 둔다(구글 캘린더 검색창처럼). *@
 <details class="pm-sch-details">
@@ -129,12 +168,101 @@
     </div>
 </details>
 
-@* 이 탭이 조회 구간과 달력 보기를 함께 정한다(머리말). *@
-<DateRangeTabs @bind-Anchor="_anchor" @bind-Preset="_preset" RangeChanged="@(_ => SearchAsync())" />
+@* 이 탭이 조회 구간과 달력 보기를 함께 정한다(머리말).
+
+   휴대폰에서는 날짜 고르개를 접는다 — 조건줄이 두 줄로 접히면 달력이 그만큼
+   아래로 밀리고, 날짜를 옮기는 일은 쓸기와 ‹ › 단추가 이미 맡고 있다. *@
+<DateRangeTabs @bind-Anchor="_anchor" @bind-Preset="_preset"
+               ShowDateEdit="@(!_isPhone)"
+               RangeChanged="@(_ => SearchAsync())" />
 
 <DxTabs>
     <DxTabPage Text="달력">
-        @if (_storage is not null)
+        @if (_isPhone)
+        {
+            @* 손으로 그린 월 달력 — 까닭은 머리말 [휴대폰에서는 달력을
+               우리가 그린다]. 격자·목록 둘 다 같은 `_days` 를 본다. *@
+            <div class="pm-cal">
+                @if (_days.Count > 1)
+                {
+                    <div class="pm-cal__dow">
+                        @foreach (var dow in Weekdays)
+                        {
+                            <span class="pm-cal__dow-cell @DowCss(dow)">@DowName(dow)</span>
+                        }
+                    </div>
+
+                    @* 세로 쓸기는 브라우저에 맡긴다(`touch-action: pan-y`) —
+                       가로만 우리가 본다. *@
+                    <div class="pm-cal__grid"
+                         @ontouchstart="@OnTouchStart"
+                         @ontouchend="@OnTouchEndAsync">
+                        @foreach (var day in _days)
+                        {
+                            <button type="button" class="@DayCss(day)"
+                                    aria-label="@DayLabel(day)"
+                                    @onclick="@(() => Select(day.Date))">
+                                <span class="pm-cal__num">@day.Date.Day</span>
+
+                                <span class="pm-cal__chips">
+                                    @foreach (var w in day.Items.Take(ChipsPerDay))
+                                    {
+                                        <span class="pm-cal__chip pm-cal__chip--@Label(w)">@Title(w)</span>
+                                    }
+
+                                    @if (day.Items.Count > ChipsPerDay)
+                                    {
+                                        <span class="pm-cal__more">+@(day.Items.Count - ChipsPerDay)</span>
+                                    }
+                                </span>
+                            </button>
+                        }
+                    </div>
+                }
+
+                <div class="pm-cal__agenda">
+                    <div class="pm-cal__agenda-head">
+                        <span class="pm-cal__agenda-day">@AgendaTitle</span>
+
+                        @* 고른 날에 바로 넣는다. 조건줄의 「일정 등록」과 같은
+                           길이지만, 여기 있으면 날을 고른 손이 그대로 잇는다. *@
+                        <PermissionView Action="MenuAction.Create">
+                            <DxButton Text="등록" RenderStyle="ButtonRenderStyle.Primary"
+                                      IconCssClass="jsini-icon-plus"
+                                      Click="@(() => StartNew(_selected, _selected))" />
+                        </PermissionView>
+                    </div>
+
+                    @if (SelectedItems.Count == 0)
+                    {
+                        <p class="pm-cal__empty">이 날은 일정이 없습니다.</p>
+                    }
+                    else
+                    {
+                        <ul class="pm-cal__list">
+                            @foreach (var w in SelectedItems)
+                            {
+                                @* 고칠 수 없는 사람에게도 줄은 보인다 —
+                                   누르는 것만 막는다(`disabled`). 창을 못 열어도
+                                   제목·기간·담당·상태·메모가 여기 다 적혀 있다. *@
+                                <li class="pm-cal__item pm-cal__item--@Label(w)">
+                                    <button type="button" class="pm-cal__item-btn"
+                                            disabled="@(!_canUpdate)"
+                                            @onclick="@(() => StartEdit(w))">
+                                        <span class="pm-cal__item-top">
+                                            <span class="pm-cal__item-title">@Title(w)</span>
+                                            <span class="jsini-badge @StateClass(w)">@StateName(w)</span>
+                                        </span>
+                                        <span class="pm-cal__item-sub">@Detail(w)</span>
+                                    </button>
+                                </li>
+                            }
+                        </ul>
+                    }
+                </div>
+            </div>
+        }
+        else if (_storage is not null)
         {
             <DxScheduler DataStorage="@_storage"
                          StartDate="@_anchor"
@@ -174,11 +302,14 @@
                                       DisplayFormat="yyyy-MM-dd" />
                     <DxGridDataColumn FieldName="@nameof(WbsItemDto.PlanEdt)" Caption="종료" Width="105"
                                       DisplayFormat="yyyy-MM-dd" />
-                    <DxGridDataColumn FieldName="@nameof(WbsItemDto.PlanGap)" Caption="기간" Width="70" />
+                    <DxGridDataColumn FieldName="@nameof(WbsItemDto.PlanGap)" Caption="기간" Width="70"
+                                      Visible="@(!_isPhone)" />
                     <DxGridDataColumn FieldName="@nameof(WbsItemDto.ProcNm)" Caption="일정" MinWidth="200"
                                       TextAlignment="GridTextAlignment.Left" />
-                    <DxGridDataColumn FieldName="@nameof(WbsItemDto.ScheduleType)" Caption="구분" Width="90" />
-                    <DxGridDataColumn FieldName="@nameof(WbsItemDto.ProcTp)" Caption="종류" Width="110" />
+                    <DxGridDataColumn FieldName="@nameof(WbsItemDto.ScheduleType)" Caption="구분" Width="90"
+                                      Visible="@(!_isPhone)" />
+                    <DxGridDataColumn FieldName="@nameof(WbsItemDto.ProcTp)" Caption="종류" Width="110"
+                                      Visible="@(!_isPhone)" />
                     <DxGridDataColumn FieldName="@nameof(WbsItemDto.DevUser)" Caption="담당" Width="90" />
 
                     <DxGridDataColumn Caption="진행" Width="70">
@@ -190,8 +321,12 @@
                         </CellDisplayTemplate>
                     </DxGridDataColumn>
 
+                    @* 좁은 화면에서는 이 넷을 접는다. 아홉 칸을 그대로 두면
+                       표가 가로로 두 배가 되어 제목조차 안 보인다 — 자세한
+                       것은 달력 쪽 목록이 이미 보여 준다. *@
                     <DxGridDataColumn FieldName="@nameof(WbsItemDto.Comm)" Caption="메모" MinWidth="140"
-                                      TextAlignment="GridTextAlignment.Left" />
+                                      TextAlignment="GridTextAlignment.Left"
+                                      Visible="@(!_isPhone)" />
                 </Columns>
 
                 <EditFormTemplate Context="edit">
@@ -271,6 +406,19 @@
     private DxSchedulerDataStorage? _storage;
     private CalendarItem[] _items = [];
 
+    /// <summary>휴대폰인가. 참이면 달력을 `DxScheduler` 대신 손으로 그린다(머리말).</summary>
+    private bool _isPhone;
+
+    /// <summary>손으로 그리는 격자의 칸들. 앞뒤 달의 자투리까지 들어 있다.</summary>
+    private IReadOnlyList<CalDay> _days = [];
+
+    /// <summary>고른 날. 아래 목록이 이 날의 일정을 편다.</summary>
+    private DateOnly _selected = DateOnly.FromDateTime(DateTime.Today);
+
+    /// <summary>쓸기 판정에 쓰는 손가락 시작점. 화면에 그려지는 값이 아니다.</summary>
+    private double _touchX;
+    private double _touchY;
+
     private ConfirmDialog? _confirm;
 
     private bool _editing;
@@ -297,14 +445,54 @@
     };
 
     /// <summary>
-    /// 「일정 등록」 단추가 쓰는 날. 보고 있는 구간 안이면 오늘, 아니면 그
-    /// 구간의 첫날이다 — 지난달을 보다가 눌렀을 때 만든 줄이 화면 밖으로
-    /// 떨어지면 저장하자마자 사라진 것처럼 보인다.
+    /// 「일정 등록」 단추가 쓰는 날 — <b>고른 날</b>이다.
+    ///
+    /// <para>
+    /// 고른 날은 <see cref="SyncSelected"/> 가 늘 보고 있는 구간 안으로
+    /// 붙들어 둔다(구간 안이면 오늘, 아니면 그 구간의 첫날). 지난달을 보다가
+    /// 눌렀을 때 만든 줄이 화면 밖으로 떨어지면 저장하자마자 사라진 것처럼
+    /// 보이기 때문이다.
+    /// </para>
+    ///
+    /// <para>
+    /// 휴대폰에서는 사람이 격자에서 날을 고르므로 그 날이 그대로 따라온다 —
+    /// 조건줄의 단추와 목록 위의 단추가 <b>같은 날</b>에 넣는다.
+    /// </para>
     /// </summary>
-    private DateOnly DefaultDay =>
-        DateTime.Today >= Range.Start && DateTime.Today <= Range.End
-            ? DateOnly.FromDateTime(DateTime.Today)
-            : DateOnly.FromDateTime(Range.Start);
+    private DateOnly DefaultDay => _selected;
+
+    /// <summary>
+    /// 격자·조회가 함께 쓰는 구간. 달 보기는 <b>앞뒤 달의 자투리 날까지</b>
+    /// 넓힌다 — 까닭은 머리말 [읽어 오는 구간은 달이 아니라 격자다].
+    ///
+    /// <para>
+    /// 주·일 보기는 손댈 것이 없다. 주는 이미 일요일에서 토요일까지고,
+    /// 하루는 넓힐 앞뒤가 없다.
+    /// </para>
+    /// </summary>
+    private DateRange GridSpan
+    {
+        get
+        {
+            var range = Range;
+
+            if (_preset != DateRangePreset.Month)
+            {
+                return range;
+            }
+
+            return new DateRange(
+                range.Start.AddDays(-(int)range.Start.DayOfWeek),
+                range.End.AddDays(6 - (int)range.End.DayOfWeek));
+        }
+    }
+
+    /// <summary>고른 날의 일정. 격자에서 이미 날짜별로 갈라 둔 것을 집어 온다.</summary>
+    private IReadOnlyList<WbsItemDto> SelectedItems =>
+        _days.FirstOrDefault(d => d.Date == _selected)?.Items ?? [];
+
+    private string AgendaTitle =>
+        $"{_selected.Month}월 {_selected.Day}일 ({DowName(_selected.DayOfWeek)})";
 
     protected override void OnInitialized()
     {
@@ -335,13 +523,25 @@
 
     private Task SearchAsync() => LoadAsync(async () =>
     {
+        // **격자 구간으로 묻는다** — 달 1일~말일이 아니다(머리말).
+        var span = GridSpan;
+
         _rows = await Api.ListAsync(
             ProjectRid, _completeState, _scheduleTypes,
-            DateOnly.FromDateTime(Range.Start), DateOnly.FromDateTime(Range.End));
+            DateOnly.FromDateTime(span.Start), DateOnly.FromDateTime(span.End));
 
+        SyncSelected();
         BuildCalendar();
+        BuildDays();
+
         return _rows.Count;
     }, "그 기간에 일정이 없습니다.", "일정표를 읽지 못했습니다");
+
+    /// <summary>
+    /// 화면 크기가 경계를 넘었다. 값만 받는다 — 달력이 갈리는 것은 그리기
+    /// 시점의 <c>_isPhone</c> 이고, 읽어 온 자료는 양쪽이 그대로 같이 쓴다.
+    /// </summary>
+    private void OnPhoneChanged(bool active) => _isPhone = active;
 
     // ── 달력 재료 ────────────────────────────────────────────────
 
@@ -364,28 +564,17 @@
         var today = DateOnly.FromDateTime(DateTime.Today);
 
         _items = [.. _rows
-            .Where(w => w.PlanSdt is not null || w.PlanEdt is not null)
-            .Select(w =>
+            .Select(w => (Row: w, Span: Span(w)))
+            .Where(x => x.Span is not null)
+            .Select(x => new CalendarItem
             {
-                var start = w.PlanSdt ?? w.PlanEdt!.Value;
-                var end = w.PlanEdt ?? start;
-
-                // 거꾸로 들어간 줄이 있다. 그대로 두면 부품이 음수 길이를 만난다.
-                if (end < start)
-                {
-                    end = start;
-                }
-
-                return new CalendarItem
-                {
-                    Id = w.WbsId,
-                    Subject = string.IsNullOrWhiteSpace(w.ProcNm) ? "(제목 없음)" : w.ProcNm,
-                    Description = Describe(w),
-                    Start = start.ToDateTime(TimeOnly.MinValue),
-                    End = end.ToDateTime(new TimeOnly(23, 59, 59)),
-                    AllDay = true,
-                    LabelId = LabelOf(w, today),
-                };
+                Id = x.Row.WbsId,
+                Subject = Title(x.Row),
+                Description = Describe(x.Row),
+                Start = x.Span!.Value.Start.ToDateTime(TimeOnly.MinValue),
+                End = x.Span!.Value.End.ToDateTime(new TimeOnly(23, 59, 59)),
+                AllDay = true,
+                LabelId = LabelOf(x.Row, today),
             })];
 
         _storage = new DxSchedulerDataStorage
@@ -452,6 +641,284 @@
             "RUNNING" => "jsini-badge--warn",
             _ => "jsini-badge--off",
         };
+
+
+    // ── 손으로 그리는 달력 (휴대폰) ───────────────────────────────
+
+    /// <summary>한 칸에 글자로 적는 딱지 수. 넘는 것은 「+N」 이 된다.</summary>
+    private const int ChipsPerDay = 3;
+
+    /// <summary>
+    /// 쓸기로 칠 최소 거리(px). 작게 두면 <b>칸을 누르는 손짓이 쓸기로 새서</b>
+    /// 날을 고르려다 달이 넘어간다.
+    /// </summary>
+    private const double SwipeMin = 48;
+
+    private static readonly DayOfWeek[] Weekdays =
+    [
+        DayOfWeek.Sunday, DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday,
+        DayOfWeek.Thursday, DayOfWeek.Friday, DayOfWeek.Saturday,
+    ];
+
+    /// <summary>
+    /// 요일 이름. <b>문화권을 타지 않게</b> 직접 적는다 — 서버의
+    /// <c>CurrentCulture</c> 가 무엇이냐에 따라 달력 머리가 <c>Sun</c> 으로
+    /// 바뀌면 안 된다.
+    /// </summary>
+    private static string DowName(DayOfWeek day) => day switch
+    {
+        DayOfWeek.Sunday => "일",
+        DayOfWeek.Monday => "월",
+        DayOfWeek.Tuesday => "화",
+        DayOfWeek.Wednesday => "수",
+        DayOfWeek.Thursday => "목",
+        DayOfWeek.Friday => "금",
+        _ => "토",
+    };
+
+    private static string DowCss(DayOfWeek day) => day switch
+    {
+        DayOfWeek.Sunday => "pm-cal__dow-cell--sun",
+        DayOfWeek.Saturday => "pm-cal__dow-cell--sat",
+        _ => string.Empty,
+    };
+
+    /// <summary>
+    /// 격자를 다시 짠다. <b>읽어 온 줄을 날짜별로 갈라 두는 것</b>이 전부다 —
+    /// 그려질 때마다 세면 한 달에 마흔두 번 훑게 된다.
+    /// </summary>
+    /// <remarks>
+    /// 걸치는 날을 <b>구간 안에서만</b> 돈다. 계획이 몇 해에 걸친 줄이 실제로
+    /// 있어서, 자르지 않고 돌면 한 줄 때문에 천 번을 돈다.
+    /// </remarks>
+    private void BuildDays()
+    {
+        var span = GridSpan;
+        var first = DateOnly.FromDateTime(span.Start);
+        var last = DateOnly.FromDateTime(span.End);
+
+        var byDay = new Dictionary<DateOnly, List<WbsItemDto>>();
+
+        foreach (var w in _rows.OrderBy(w => w.PlanSdt).ThenBy(w => w.ProcNm, StringComparer.Ordinal))
+        {
+            if (Span(w) is not { } range)
+            {
+                continue;
+            }
+
+            var from = range.Start < first ? first : range.Start;
+            var to = range.End > last ? last : range.End;
+
+            for (var day = from; day <= to; day = day.AddDays(1))
+            {
+                if (!byDay.TryGetValue(day, out var bucket))
+                {
+                    byDay[day] = bucket = [];
+                }
+
+                bucket.Add(w);
+            }
+        }
+
+        var days = new List<CalDay>();
+
+        for (var day = first; day <= last; day = day.AddDays(1))
+        {
+            days.Add(new CalDay(
+                day,
+                InAnchorMonth(day),
+                byDay.TryGetValue(day, out var items) ? items : []));
+        }
+
+        _days = days;
+    }
+
+    /// <summary>
+    /// 이 날이 <b>보고 있는 달</b>의 날인가. 아니면 흐리게 그린다.
+    /// 주·일 보기에는 흐릴 자투리가 없으므로 전부 참이다.
+    /// </summary>
+    private bool InAnchorMonth(DateOnly day) =>
+        _preset != DateRangePreset.Month
+        || (day.Year == _anchor.Year && day.Month == _anchor.Month);
+
+    /// <summary>
+    /// 고른 날을 <b>보고 있는 구간 안으로</b> 붙든다.
+    ///
+    /// <para>
+    /// 달을 넘기면 고른 날이 화면 밖으로 나간다. 그대로 두면 아래 목록이
+    /// <b>안 보이는 날</b>의 일정을 편 채로 남고, 거기서 「등록」을 누르면
+    /// 만든 줄이 지난달로 들어가 저장하자마자 사라진 것처럼 보인다.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>재는 자가 둘이다.</b> 「그냥 둘까」는 격자(<see cref="GridSpan"/>)로,
+    /// 「어디로 데려갈까」는 달(<see cref="Range"/>)로 잰다. 앞의 것을 달로
+    /// 재면 자투리 칸(9월 격자의 10/1)을 누른 순간 조건 하나만 건드려도
+    /// 고른 날이 1일로 튀고, 뒤의 것을 격자로 재면 「등록」의 기본 날이
+    /// <b>지난달</b>이 된다(2025-01 을 여는데 2024-12-29 가 잡힌다).
+    /// </para>
+    /// </summary>
+    private void SyncSelected()
+    {
+        var span = GridSpan;
+
+        // 격자에 그려지는 날이면 그대로 둔다 — 눈에 보이는 것을 빼앗지 않는다.
+        if (_selected >= DateOnly.FromDateTime(span.Start)
+            && _selected <= DateOnly.FromDateTime(span.End))
+        {
+            return;
+        }
+
+        var start = DateOnly.FromDateTime(Range.Start);
+        var end = DateOnly.FromDateTime(Range.End);
+        var today = DateOnly.FromDateTime(DateTime.Today);
+
+        // 「이번 달」을 열었을 때 오늘이 펴져 있는 것이 가장 자주 맞는 답이다.
+        _selected = today >= start && today <= end ? today : start;
+    }
+
+    /// <summary>날을 골랐다. <b>다시 묻지 않는다</b> — 그 달 자료는 이미 손에 있다.</summary>
+    private void Select(DateOnly day) => _selected = day;
+
+    private void OnTouchStart(TouchEventArgs e)
+    {
+        if (e.Touches.Length == 0)
+        {
+            return;
+        }
+
+        _touchX = e.Touches[0].ClientX;
+        _touchY = e.Touches[0].ClientY;
+    }
+
+    /// <summary>
+    /// 좌우로 쓸면 앞뒤 구간으로 간다.
+    ///
+    /// <para>
+    /// <b>세로로 더 많이 움직였으면 아무 일도 하지 않는다.</b> 이 격자는
+    /// 화면 위쪽에 있어서 쪽을 굴리는 손짓이 여기서 시작한다 — 가로만 보고
+    /// 넘기면 <b>목록을 보려고 내릴 때마다 달이 바뀐다.</b>
+    /// </para>
+    ///
+    /// <para>
+    /// 쓸기는 <b>덤</b>이다. 안 먹어도 기간 탭의 ‹ › 가 같은 일을 한다.
+    /// </para>
+    /// </summary>
+    private Task OnTouchEndAsync(TouchEventArgs e)
+    {
+        if (e.ChangedTouches.Length == 0)
+        {
+            return Task.CompletedTask;
+        }
+
+        var dx = e.ChangedTouches[0].ClientX - _touchX;
+        var dy = e.ChangedTouches[0].ClientY - _touchY;
+
+        if (Math.Abs(dx) < SwipeMin || Math.Abs(dy) >= Math.Abs(dx))
+        {
+            return Task.CompletedTask;
+        }
+
+        // 왼쪽으로 쓸면 다음 달이다 — 종이를 넘기는 쪽과 같다.
+        return ShiftAsync(dx < 0 ? 1 : -1);
+    }
+
+    /// <summary>
+    /// 앞뒤 구간으로 옮기고 다시 읽는다. <c>DateRangeTabs</c> 의 ‹ › 와
+    /// <b>같은 셈</b>이다 — 기준일이 이 화면 것이라 옮기는 것도 여기서 한다.
+    /// </summary>
+    private Task ShiftAsync(int direction)
+    {
+        _anchor = _preset switch
+        {
+            DateRangePreset.Day => _anchor.AddDays(direction),
+            DateRangePreset.Week => _anchor.AddDays(direction * 7),
+            _ => _anchor.AddMonths(direction),
+        };
+
+        return SearchAsync();
+    }
+
+    private string DayCss(CalDay day)
+    {
+        var css = new List<string>(5) { "pm-cal__day" };
+
+        if (!day.InMonth)
+        {
+            css.Add("pm-cal__day--out");
+        }
+
+        if (day.Date == DateOnly.FromDateTime(DateTime.Today))
+        {
+            css.Add("pm-cal__day--today");
+        }
+
+        if (day.Date == _selected)
+        {
+            css.Add("pm-cal__day--on");
+        }
+
+        css.Add(day.Date.DayOfWeek switch
+        {
+            DayOfWeek.Sunday => "pm-cal__day--sun",
+            DayOfWeek.Saturday => "pm-cal__day--sat",
+            _ => "pm-cal__day--wd",
+        });
+
+        return string.Join(' ', css);
+    }
+
+    /// <summary>
+    /// 칸을 읽어 주는 말. 딱지는 글자가 잘려 있고 「+2」 는 소리로 아무
+    /// 뜻이 없어서, 화면 낭독기에는 <b>날짜와 건수</b>를 준다.
+    /// </summary>
+    private static string DayLabel(CalDay day) =>
+        day.Items.Count == 0
+            ? $"{day.Date.Month}월 {day.Date.Day}일"
+            : $"{day.Date.Month}월 {day.Date.Day}일, 일정 {day.Items.Count}건";
+
+    /// <summary>제목. 비어 있는 줄이 실제로 있어서 빈칸으로 두지 않는다.</summary>
+    private static string Title(WbsItemDto w) =>
+        string.IsNullOrWhiteSpace(w.ProcNm) ? "(제목 없음)" : w.ProcNm;
+
+    /// <summary>목록 한 줄의 아랫줄 — 기간에 담당·종류·메모를 잇는다.</summary>
+    private static string Detail(WbsItemDto w)
+    {
+        var rest = Describe(w);
+
+        return rest.Length == 0 ? Period(w) : $"{Period(w)} · {rest}";
+    }
+
+    private static string Period(WbsItemDto w) => Span(w) is not { } range
+        ? "기간 없음"
+        : range.Start == range.End
+            ? $"{range.Start:MM.dd}"
+            : $"{range.Start:MM.dd} ~ {range.End:MM.dd}";
+
+    private static string Label(WbsItemDto w) =>
+        LabelOf(w, DateOnly.FromDateTime(DateTime.Today));
+
+    /// <summary>
+    /// 한 줄이 걸치는 날. 한쪽만 적힌 줄은 그 날 하루로 본다.
+    ///
+    /// <para>
+    /// <b>거꾸로 들어간 줄이 있다.</b> 그대로 두면 달력 부품이 음수 길이를
+    /// 만나고, 격자 쪽은 하루도 안 그린다. 여기 한 곳에서 바로잡는다 —
+    /// 달력과 격자가 <b>같은 자를 써야</b> 같은 일정이 같은 날에 뜬다.
+    /// </para>
+    /// </summary>
+    private static (DateOnly Start, DateOnly End)? Span(WbsItemDto w)
+    {
+        if (w.PlanSdt is null && w.PlanEdt is null)
+        {
+            return null;
+        }
+
+        var start = w.PlanSdt ?? w.PlanEdt!.Value;
+        var end = w.PlanEdt ?? start;
+
+        return (start, end < start ? start : end);
+    }
 
     // ── 달력에서 여는 편집 창 ─────────────────────────────────────
 
@@ -760,6 +1227,14 @@
         public string Description { get; set; } = string.Empty;
         public string LabelId { get; set; } = "READY";
     }
+
+    /// <summary>
+    /// 손으로 그리는 격자의 한 칸.
+    /// </summary>
+    /// <param name="Date">그 날</param>
+    /// <param name="InMonth">보고 있는 달의 날인가 — 아니면 흐리게 그린다</param>
+    /// <param name="Items">그 날에 걸치는 일정. <b>걸치기만 해도 들어간다</b></param>
+    private sealed record CalDay(DateOnly Date, bool InMonth, IReadOnlyList<WbsItemDto> Items);
 
     /// <summary>상태 색. 원본(Vue `STATE_STYLE`)이 쓰던 네 색 그대로다.</summary>
     private sealed record StateLabel(string Id, string Caption, System.Drawing.Color Color);
