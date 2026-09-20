@@ -87,3 +87,18 @@ export function ensure() {
 
   return loading;
 }
+
+/**
+ * 본문 글자 크기(px). **Monaco 는 CSS 변수를 못 읽는다** — `fontSize` 는
+ * 숫자로만 받고, 내부 레이아웃(줄 높이·커서·여백)을 그 숫자로 직접 잰다.
+ * `--jsini-fs-*` 사다리를 걸어도 편집기만 12px 로 남는 이유가 그것이다.
+ *
+ * `body` 를 재는 것은 사다리의 본문 단(`--jsini-fs-md`)이 거기 걸려 있어서다
+ * (app.css). 테마 크기를 바꾸면 이 값이 따라 바뀌므로, 바뀔 때마다 다시 재서
+ * `updateOptions` 로 밀어 넣는다.
+ */
+export function baseFontPx() {
+  const px = parseFloat(getComputedStyle(document.body).fontSize);
+
+  return Number.isFinite(px) && px > 0 ? px : 14;
+}

@@ -963,24 +963,79 @@
 .pm-ai-write,
 .pm-ai-watch { padding-top: var(--jsini-sp-lg); }
 
-/* ── 설정 줄을 벌린다 (`pm-editform`) ─────────────────────────
+/* ── 설정 줄 (`pm-editform` · `pm-ai-opts`) ───────────────────
 
-   칸 여덟이 세 줄에 들어가는데 줄 사이가 **12px** 뿐이라 한 덩어리 벽으로
-   읽혔다. 라벨이 테두리에 얹히면서 줄마다 글자가 하나 더 붙은 것도 겹쳤다.
+   한동안 칸 여덟이 8·4 / 3·3·6 / 4·4·4 로 **세 줄에 제각각 걸쳐** 있었다.
+   줄마다 칸 폭이 달라 왼쪽 끝만 겨우 맞았고, 체크칸 둘은 「끝나면」·「알림」
+   이라는 라벨을 이고 서 있어서 무엇이 이름이고 무엇이 값인지 눈이 매번
+   다시 골라야 했다.
+
+   이제 성격으로 가른다 — **무엇을 시키나**(폼)와 **끝난 뒤에 무엇을
+   하나**(`pm-ai-opts`). 뒤엣것은 폼 밖의 한 줄이라 라벨이 아예 없다.
 
    줄 높이(32px)는 건드리지 않는다 — 칸을 키우면 설정이 화면을 더 먹고,
-   이 화면에서 가운데를 가져야 하는 것은 **지시문**이다. 벌리는 것은
-   줄 사이뿐이다.
+   이 화면에서 가운데를 가져야 하는 것은 **지시문**이다.
    ---------------------------------------------------------- */
 
 .pm-editform .dxbl-fl-item {
   margin-bottom: var(--jsini-sp-md);
 }
 
-/* 마지막 줄 밑은 편집기 여백이 맡는다. 겹치면 그 사이만 휑하다. */
-.pm-editform .dxbl-fl-item:nth-last-child(-n + 3) {
+/* 마지막 줄 밑은 아래 옵션 줄의 여백이 맡는다. 겹치면 그 사이만 휑하다. */
+.pm-editform .dxbl-fl-item:nth-last-child(-n + 4) {
   margin-bottom: 0;
 }
+
+/* 끝난 뒤의 일. 체크 셋과 알림 칸 둘이 **한 줄**이다 —
+   좁아지면 접히되 순서(켠다 → 누구에게 → 언제)는 지킨다. */
+.pm-ai-opts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--jsini-sp-sm) var(--jsini-sp-lg);
+  align-items: center;
+  margin-top: var(--jsini-sp-md);
+}
+
+/* 「저장소에 올리기」와 알림 셋 사이의 선. 성격이 다른 두 묶음이
+   같은 간격으로 서 있으면 다섯이 한 줄로 읽힌다. */
+.pm-ai-opts__sep {
+  width: 1px;
+  align-self: stretch;
+  min-height: 1.4rem;
+  background: var(--jsini-border);
+}
+
+/* 칸에 붙는 이름. 폼 라벨(테두리에 얹히는 것)과 달리 **칸 왼쪽에 나란히**
+   선다 — 줄 하나에 칸 둘이 들어가야 해서 위에 얹을 자리가 없다. */
+.pm-ai-opts__field {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--jsini-sp-sm);
+}
+
+.pm-ai-opts__label {
+  color: var(--jsini-text-muted);
+  font-size: var(--jsini-fs-sm);
+  white-space: nowrap;
+}
+
+/* 칸 높이를 위 폼과 맞춘다. 폼 안의 칸은 라벨을 얹느라 키를 받아 두는데
+   (`app.css` 의 `--jsini-field-h`) 이 줄은 폼 밖이라 그 규칙이 안 걸린다 —
+   그대로 두면 **바로 윗줄보다 눈에 띄게 낮은 칸**이 둘 선다. */
+.pm-ai-opts__field .dxbl-text-edit {
+  width: 100%;
+  min-height: var(--jsini-field-h);
+}
+
+/* 「받는 사람」은 메일 주소가 들어가고 「보낼 때」는 고르는 칸이다.
+   내용에 맞는 폭을 각자 준다 — 둘이 같은 폭이면 주소가 늘 잘린다.
+
+   **차례(`nth-of-type`)로 가르지 않는다.** 이 줄의 형제에는 `DxCheckBox` 도
+   있고 그것이 뿌리에 무슨 태그를 쓰는지는 DevExpress 가 정한다 — `<label>` 을
+   쓰는 판이면 번호가 통째로 밀린다. 이름으로 가른다. */
+.pm-ai-opts__field--to { flex: 1 1 16rem; }
+.pm-ai-opts__field--when { flex: 0 1 12rem; }
 
 /* 편집기 자리. `CodeEditor` 는 `Height` 를 제 상자의 style 에 그대로 넣으므로
    이 판에 실제 높이가 있어야 100% 가 뜻을 갖는다 — Monaco 는 높이를 못 받으면
@@ -988,23 +1043,35 @@
 
    **위쪽에 선을 하나 긋는다.** 설정과 지시문은 성격이 다른데(하나는 골라
    두는 값, 하나는 사람이 쓰는 글) 여백만으로는 그 경계가 안 읽혔다.
-   선 하나면 눈이 둘을 따로 본다. */
+   선 하나면 눈이 둘을 따로 본다.
+
+   [높이를 재지 않는다 — 남은 자리를 받는다]
+
+   한동안 `clamp(18rem, calc(100vh - 33rem), 60rem)` 이었다. 빼는 33rem 이
+   **편집기 위아래에 쌓인 것의 합**(머리줄·탭 줄·조회판·설정 폼·단추 줄·
+   본문 여백)이라, 위에 줄 하나만 늘어도 그만큼 단추 줄이 화면 밖으로
+   밀렸다. 그런데 이 화면의 안내줄은 상태에 따라 넷까지 나타났다 사라지므로
+   **그 값이 맞는 순간이 아예 없었다.**
+
+   이제 지시 탭이 세로 flex 고 편집기가 그 남은 높이를 받는다
+   (`pm-ai-page` 머리말). 쌓인 것을 셀 필요가 없다.
+
+   **여기 적는 24rem 은 휴대폰·좁은 창의 값이다.** 거기서는 쪽이 통째로
+   구르므로 남은 높이라는 것이 없다 — 데스크탑 값은 아래 `pm-ai-page` 절이
+   덮는다. */
 .pm-ai-editor {
-  margin: var(--jsini-sp-xl) 0 var(--jsini-sp-lg);
-  padding-top: var(--jsini-sp-xl);
+  height: 24rem;
+  margin: var(--jsini-sp-lg) 0;
+  padding-top: var(--jsini-sp-lg);
   border-top: 1px solid var(--jsini-border);
-  /* 빼는 값(33rem)은 **편집기 위아래에 쌓인 것의 합**이다 — 머리줄·탭 줄·
-     조회판·설정 폼·단추 줄·본문 여백. 위쪽 간격을 늘리면 이 값도 같이
-     올려야 한다. 안 올리면 늘린 만큼 **단추 줄이 화면 밖으로 밀린다**
-     (실제로 밟았다 — 30rem 인 채로 간격만 늘렸더니 22px 잘렸다). */
-  height: clamp(18rem, calc(100vh - 33rem), 60rem);
 }
 
 .pm-ai-actions {
   display: flex;
+  flex: 0 0 auto;
   flex-wrap: wrap;
   gap: var(--jsini-sp-sm);
-  margin-bottom: var(--jsini-sp-lg);
+  padding-bottom: var(--jsini-sp-sm);
 }
 
 /* ── 편집기 높이 (`pm-editor__inner`) ─────────────────────────
@@ -1206,10 +1273,12 @@
    났던 사고와 같은 종류다(app.css). 테마를 따라가는 토큰(`--jsini-*`)을 쓴다. */
 /* 로그는 **판을 채우고 자기 안에서만 구른다.** 320px 로 묶어 두면 긴 로그가
    그 구멍 안에서만 움직여, 지켜보는 동안 내내 여남은 줄씩만 보인다.
-   결과문은 대개 짧으니 그쪽만 상한을 둔다. */
-.pm-ai-log { height: clamp(16rem, calc(100vh - 32rem), 64rem); }
 
-.pm-ai-result { max-height: 20rem; }
+   여기 적는 값은 편집기와 같은 이유로 **좁은 창의 것**이다 — 데스크탑에서는
+   탭이 준 남은 높이를 그대로 받는다(`pm-ai-page` 절). */
+.pm-ai-log { height: 24rem; }
+
+.pm-ai-result { max-height: 28rem; }
 
 .pm-ai-log,
 .pm-ai-result {
@@ -1310,13 +1379,16 @@
    통계는 현재 조회 결과를 기준으로 하므로 필터를 바꿔도 숫자가 거짓말하지 않는다.
    ---------------------------------------------------------- */
 
+/* **머리줄이 세로를 덜 먹게 줄였다.** 여기서 아낀 높이가 그대로 편집기와
+   로그로 간다 — 이 화면에서 오래 들여다보는 것은 그 둘이다. 안쪽 여백을
+   한 단(24 → 16px) 줄이고, 제목·숫자도 한 단씩 내렸다. */
 .pm-ai-hero {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: var(--jsini-sp-xl);
-  align-items: end;
-  margin-bottom: var(--jsini-sp-lg);
-  padding: var(--jsini-sp-xl);
+  gap: var(--jsini-sp-lg);
+  align-items: center;
+  margin-bottom: var(--jsini-sp-md);
+  padding: var(--jsini-sp-lg) var(--jsini-sp-xl);
   border: 1px solid var(--jsini-border);
   border-radius: var(--jsini-radius-lg, 0.75rem);
   background:
@@ -1347,18 +1419,18 @@
   gap: var(--jsini-sp-lg);
   align-items: end;
   justify-content: space-between;
-  margin-top: var(--jsini-sp-sm);
+  margin-top: var(--jsini-sp-2xs);
 }
 
 .pm-ai-hero h1 {
   margin: 0;
   color: var(--jsini-text);
-  font-size: clamp(1.35rem, 2vw, 1.9rem);
+  font-size: var(--jsini-fs-2xl);
   line-height: 1.2;
 }
 
 .pm-ai-hero p {
-  margin: 0.45rem 0 0;
+  margin: 0.2rem 0 0;
   color: var(--jsini-text-muted);
   font-size: var(--jsini-fs-sm);
 }
@@ -1386,7 +1458,7 @@
 
 .pm-ai-stat {
   min-width: 0;
-  padding: 0.7rem 0.8rem;
+  padding: 0.45rem 0.7rem;
   border-left: 3px solid var(--jsini-border);
   border-radius: var(--jsini-radius-md, 0.4rem);
   background: color-mix(in srgb, var(--jsini-bg) 72%, transparent);
@@ -1407,9 +1479,9 @@
 
 .pm-ai-stat__value {
   display: block;
-  margin-top: 0.15rem;
+  margin-top: 0.1rem;
   color: var(--jsini-text);
-  font-size: 1.35rem;
+  font-size: var(--jsini-fs-xl);
   font-variant-numeric: tabular-nums;
 }
 
@@ -1508,8 +1580,6 @@
   color: var(--jsini-text-muted);
   font-size: var(--jsini-fs-xs);
 }
-
-.pm-ai-new-task { min-width: 7rem; }
 
 @keyframes pm-ai-pulse {
   50% { opacity: 0.35; transform: scale(0.75); }
@@ -2275,5 +2345,168 @@
     padding-left: 0.5rem;
     padding-right: 0.5rem;
     white-space: nowrap;
+  }
+}
+
+/* ── AI 작업: 쪽이 통째로 구르지 않는다 (`pm-ai-page`) ────────
+
+   데스크탑에서 이 화면은 **본문 높이 안에서 끝난다.** 머리줄과 조건줄은 늘
+   위에 붙어 있고, 구르는 것은 왼쪽 목록과 오른쪽 탭 **안쪽**뿐이다.
+
+   [왜 필요했나 — 빼기로 흉내 낸 높이는 맞는 순간이 없었다]
+
+   한동안 편집기와 로그가 `calc(100vh - 33rem)` · `calc(100vh - 32rem)` 로
+   서 있었다. 빼는 값이 「위아래에 쌓인 것의 합」이라 위에 줄 하나만 늘어도
+   그만큼 아래가 잘린다. 그런데 이 화면은 안내줄이 **상태에 따라 넷까지**
+   나타났다 사라지고(대기 안내·임시저장·저장소 막힘·지난 실패), 실행 이력
+   띠도 있을 때와 없을 때가 다르다 — 그 두 값이 맞는 조합이 사실상 없었다.
+   증상은 「단추 줄이 화면 밖으로 밀린다」와 「아래가 휑하다」로 번갈아 났다.
+
+   저장소의 다른 화면들은 이 일을 이미 `CommCont` 로 한다
+   (`app.css` 의 `.jsini-shell__content:has(> .commcont)`). 이 화면은 맨 위가
+   머리줄(`pm-ai-hero`)이라 그 규칙에 안 걸린다 — 같은 일을 여기서 해 준다.
+
+   [좁은 창은 건드리지 않는다]
+
+   휴대폰·좁은 창에서는 두 판이 위아래로 쌓이므로(62rem 아래) 한 화면에
+   욱여넣을 수가 없다. 거기서는 지금처럼 쪽이 구르고, 편집기·로그는 각자
+   적어 둔 높이(24rem)를 쓴다.
+   ---------------------------------------------------------- */
+
+@media (width >= 62rem) {
+  /* 본문을 세로 flex 로 바꾼다. `:has()` 로 **이 화면일 때만** 건다 —
+     본문은 모든 화면이 함께 쓰는 자리다. */
+  .jsini-shell__content:has(> .pm-ai-page) {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .pm-ai-page {
+    display: flex;
+    flex: 1;
+
+    /* 이것이 없으면 flex 자식이 내용만큼 부풀어 본문을 넘는다.
+       높이 계산이 통째로 어긋나는 자리다. */
+    min-height: 0;
+    flex-direction: column;
+  }
+
+  /* 머리줄·조건줄·불러오는 중 안내는 제 높이만큼. */
+  .pm-ai-page > .pm-ai-hero,
+  .pm-ai-page > .commsch,
+  .pm-ai-page > .pm-ai-loading {
+    flex: 0 0 auto;
+  }
+
+  /* 두 판이 남은 높이를 다 먹고 **끝까지 같은 키로** 선다.
+     `align-items: start` 였던 것을 푼다 — 그러면 짧은 쪽이 내용만큼만
+     서서 왼쪽 표와 오른쪽 탭의 아래 끝이 어긋난다. */
+  .pm-ai-page > .pm-split {
+    flex: 1;
+    min-height: 0;
+    align-items: stretch;
+  }
+
+  .pm-split > .commcont {
+    min-height: 0;
+  }
+
+  .pm-split > .commcont > .commcont__body {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    flex-direction: column;
+  }
+
+  /* 왼쪽 표. 판이 준 높이를 그대로 쓰고 **줄만 안에서 구른다** —
+     칸 머리와 아래 띠(＋ · 다시 읽기 · 엑셀)는 제자리에 남는다.
+     `commcont__body > .commgrd` 규칙은 app.css 에 이미 있다. */
+
+  /* 탭 위에 쌓이는 것들(고른 작업 · 안내줄 넷 · 실행 이력 띠)은 **줄어들지
+     않는다.** flex 의 기본이 `0 1 auto` 라 자리가 모자라면 이것들부터 눌리는데,
+     그러면 안내문이 반 줄만 보이거나 실행 이력 단추가 잘린다. 줄어드는 것은
+     탭 안쪽이어야 한다. */
+  .pm-ai-detail-panel > .commcont__body > * {
+    flex: 0 0 auto;
+  }
+
+  /* 오른쪽 탭이 남은 높이를 다 먹는다. */
+  .pm-ai-detail-panel > .commcont__body > .pm-ai-tabs,
+  .pm-ai-tabs {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    flex-direction: column;
+  }
+
+  /* **DevExpress 의 상자 둘이 높이를 안 물려준다** —
+     `dxbl-tabs-content-panel` · `dxbl-tabs-content` 가 `min-height: auto` 인
+     flex 항목이라 안쪽 내용보다 작아지지 않는다. 그대로 두면 로그가 길어질수록
+     판이 늘어나 단추 줄이 판 밖으로 나간다(포털관리에서 두 번 밟은 자리다 —
+     `ad-roletabs` · `ad-send__tabs`). */
+  .pm-ai-tabs > .dxbl-tabs-content-panel,
+  .pm-ai-tabs .dxbl-tabs-content {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  /* 탭 안쪽. `min-height: 60vh` 로 바닥을 깔아 둔 공용 규칙을 여기서 끈다 —
+     남은 높이를 정확히 받는 자리에서는 그 바닥이 판을 밀어낸다. */
+  .pm-ai-tabs .pm-tab-body {
+    display: flex;
+    height: 100%;
+    min-height: 0;
+    flex-direction: column;
+  }
+
+  /* 지시 탭 — 설정과 단추 줄은 제 높이만큼, 편집기가 남은 자리를 다 먹는다. */
+  .pm-ai-write > .pm-editform,
+  .pm-ai-write > .pm-ai-opts {
+    flex: 0 0 auto;
+  }
+
+  .pm-ai-write > .pm-ai-editor {
+    flex: 1;
+    height: auto;
+    min-height: 10rem;
+  }
+
+  /* 결과·로그 탭 — 안의 자료 판이 높이를 받아 **글만 자기 안에서 구른다.** */
+  .pm-ai-result-tab > .commcont,
+  .pm-ai-log-tab > .commcont {
+    flex: 1;
+    min-height: 0;
+  }
+
+  .pm-ai-result-tab > .commcont > .commcont__body,
+  .pm-ai-log-tab > .commcont > .commcont__body {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    flex-direction: column;
+  }
+
+  .pm-ai-log-tab .pm-ai-log {
+    flex: 1;
+    height: auto;
+    min-height: 0;
+  }
+
+  /* 결과문은 **자기 키만큼만** 서고 길어지면 줄어들며 안에서 구른다.
+     로그처럼 `flex: 1` 로 두면 세 줄짜리 답도 판 끝까지 늘어난 테두리
+     안에 덩그러니 놓인다. `min-height: 0` 이 없으면 줄어들지를 못해
+     (flex 항목의 기본이 `min-height: auto`) 긴 답이 판을 넘는다. */
+  .pm-ai-result-tab .pm-ai-result {
+    flex: 0 1 auto;
+    max-height: none;
+    min-height: 0;
+  }
+
+  /* 아무것도 안 고른 자리. 22rem 을 깔아 두면 판보다 커질 수 있다. */
+  .pm-ai-detail-panel .pm-ai-empty {
+    flex: 1;
+    min-height: 0;
   }
 }

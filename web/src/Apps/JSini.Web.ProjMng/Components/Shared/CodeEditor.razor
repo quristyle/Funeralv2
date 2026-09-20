@@ -33,6 +33,7 @@
 *@
 
 @implements IAsyncDisposable
+@inject ThemeSize Size
 
 @if (!string.IsNullOrWhiteSpace(Placeholder))
 {
@@ -152,9 +153,80 @@
     /// <summary>자동 줄바꿈 상태. 아이콘 버튼과 Monaco 옵션을 함께 조종한다.</summary>
     private bool _wordWrap = true;
 
+    /// <summary>
+    /// 편집기 글자 크기(px). <b>본문과 같은 크기를 따라간다.</b>
+    /// </summary>
+    /// <remarks>
+    /// 한동안 12 로 박혀 있었다. 그 값은 테마 크기를 「크게」로 올려도 꿈쩍하지
+    /// 않아서, <b>화면의 다른 글씨는 16px 인데 지시문만 12px</b> 인 채로 남았다 —
+    /// 이 화면에서 사람이 가장 오래 들여다보는 글이 가장 작은 글씨였다.
+    ///
+    /// <para>
+    /// 사다리(<c>--jsini-fs-*</c>)를 CSS 로 걸 수는 없다. Monaco 는
+    /// <c>fontSize</c> 를 <b>숫자로만</b> 받고 줄 높이·커서·여백을 그 숫자로
+    /// 직접 재기 때문에, 바깥에서 <c>font-size</c> 를 덮으면 글자만 커지고
+    /// 커서와 줄 간격이 어긋난다. 그래서 재서 넣는다
+    /// (<c>monaco-loader.js</c> 의 <c>baseFontPx</c>).
+    /// </para>
+    /// </remarks>
+    private double _fontPx = 14;
+
     protected override void OnInitialized()
     {
         _wordWrap = WordWrap;
+
+        // 서랍에서 크기를 바꾸면 다시 재서 밀어 넣는다. 옵션은 편집기를 만들 때
+        // 한 번만 평가되므로(BuildOptions 머리말) 여기서 듣지 않으면 **이미 떠
+        // 있는 편집기만** 옛 크기로 남는다.
+        Size.Changed += OnThemeSizeChanged;
+    }
+
+    /// <summary>
+    /// <b><c>InvokeAsync</c> 로 넘긴다.</b> 이 알림은 테마 서랍 쪽에서 오고,
+    /// 아래에서 한 번 <c>await</c> 하는 순간 스레드풀로 옮겨 간다 — 회로의
+    /// 동기화 문맥 밖에서 JS 를 부르는 자리가 된다.
+    /// </summary>
+    private void OnThemeSizeChanged() => _ = InvokeAsync(ApplyFontSizeAsync);
+
+    /// <summary>
+    /// 본문 글자 크기를 다시 재서 편집기에 민다.
+    /// </summary>
+    /// <remarks>
+    /// <b>재는 것을 한 박자 미룬다.</b> <c>ThemeSize.Changed</c> 는 화면이 새
+    /// <c>data-dx-size</c> 로 다시 그려지기 <b>전에</b> 오므로, 그 자리에서 바로
+    /// 재면 옛 크기를 읽는다.
+    /// </remarks>
+    private async Task ApplyFontSizeAsync()
+    {
+        if (_loader is not { } loader || _editor is not { } editor)
+        {
+            return;
+        }
+
+        try
+        {
+            // 브라우저가 새 글자 크기로 한 번 그린 뒤에 잰다.
+            await Task.Delay(50);
+
+            var px = await loader.InvokeAsync<double>("baseFontPx");
+
+            if (Math.Abs(px - _fontPx) < 0.5)
+            {
+                return;
+            }
+
+            _fontPx = px;
+
+            await editor.UpdateOptions(new EditorUpdateOptions { FontSize = (int)Math.Round(px) });
+        }
+        catch (JSDisconnectedException)
+        {
+            // 회로가 끊겼다. 밀어 넣을 곳이 없다.
+        }
+        catch (ObjectDisposedException)
+        {
+            // 화면을 떠났다(_loader 가 이미 놓였다).
+        }
     }
 
     [Parameter] public string? Value { get; set; }
@@ -183,7 +255,7 @@
         Language = ToMonacoLanguage(Language),
         ReadOnly = ReadOnly,
         AutomaticLayout = true,
-        FontSize = 12,
+        FontSize = (int)Math.Round(_fontPx),
         LineNumbers = "on",
         Minimap = new EditorMinimapOptions { Enabled = false },
         ScrollBeyondLastLine = false,
@@ -272,6 +344,10 @@
                 "import", "./_content/JSini.Web.ProjMng/js/monaco-loader.js");
 
             await _loader.InvokeVoidAsync("ensure");
+
+            // **편집기를 그리기 전에 잰다.** 옵션은 만들 때 한 번만 평가되므로
+            // (BuildOptions 머리말) 여기서 놓치면 첫 그림이 기본값으로 뜬다.
+            _fontPx = await _loader.InvokeAsync<double>("baseFontPx");
 
             _loaded = true;
             StateHasChanged();
@@ -379,6 +455,8 @@
     /// </summary>
     public async ValueTask DisposeAsync()
     {
+        Size.Changed -= OnThemeSizeChanged;
+
         _debounce?.Cancel();
         _debounce = null;
 

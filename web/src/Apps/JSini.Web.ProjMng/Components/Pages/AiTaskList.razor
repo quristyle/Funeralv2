@@ -70,6 +70,24 @@
 
 <PageTitle>AI 작업 · 프로젝트관리</PageTitle>
 
+@* ── 쪽이 통째로 구르지 않는다 ────────────────────────────────
+
+   데스크탑에서 이 화면은 **본문 높이 안에서 끝난다.** 머리줄과 조건줄은
+   늘 위에 붙어 있고, 구르는 것은 왼쪽 목록과 오른쪽 탭 **안쪽**뿐이다.
+
+   한동안은 그것을 높이에 박은 숫자로 흉내 냈다 —
+   `height: clamp(18rem, calc(100vh - 33rem), 60rem)`. 빼는 33rem 이
+   「편집기 위아래에 쌓인 것의 합」이라, 위쪽에 줄이 하나만 늘어도(실행 이력
+   띠·안내줄 넷) **그만큼 단추 줄이 화면 밖으로 밀렸다.** 안내줄은 상태에
+   따라 나타났다 사라지므로 그 값이 맞는 순간이 아예 없었다.
+
+   그래서 재지 않고 **남은 높이를 받아 쓴다.** 저장소의 다른 화면들이
+   `CommCont` 로 이미 그렇게 하고 있다(app.css 의
+   `.jsini-shell__content:has(> .commcont)`). 이 화면은 맨 위가 머리줄이라
+   그 규칙에 안 걸려서 같은 일을 여기서 해 준다.
+*@
+<div class="pm-ai-page">
+
 <section class="pm-ai-hero" aria-labelledby="pm-ai-page-title">
     <div class="pm-ai-hero__copy">
         <div class="pm-ai-eyebrow"><span class="pm-ai-eyebrow__dot" aria-hidden="true"></span>프로젝트 자동화</div>
@@ -142,15 +160,15 @@
                  PageSize="10"
                  EmptyText="등록된 작업이 없습니다."
                  Reload="@SearchAsync"
+                 OnCreate="@NewTask"
+                 CreateTitle="새 작업"
                  SelectedItem="@_picked"
                  SelectedItemChanged="@PickAsync">
-            <FooterLeft>
-                <PermissionView Action="MenuAction.Create">
-                    <DxButton Text="새 작업" CssClass="pm-ai-new-task"
-                              RenderStyle="ButtonRenderStyle.Primary"
-                              Click="@NewTask" />
-                </PermissionView>
-            </FooterLeft>
+            @* 새로 만드는 자리는 **아래 띠의 ＋** 다. 이 화면은 본문이 길어
+               팝업 편집 창을 쓰지 않으므로(`OnSave` 를 안 준다) ＋ 가 저절로는
+               생기지 않는다 — `OnCreate` 가 그 자리를 이 화면으로 돌려 준다.
+               띠 왼쪽에 「새 작업」 단추를 따로 세우면 이 화면만 새로 만드는
+               자리가 다른 곳이 된다. *@
 
             <Columns>
                 @* 적어 둔 임시본이 있는 줄에 표를 단다. **이것이 없으면
@@ -246,7 +264,7 @@
             <div class="pm-ai-empty" role="status">
                 <div class="pm-ai-empty__icon" aria-hidden="true">✦</div>
                 <strong>작업을 선택해 주세요</strong>
-                <p>왼쪽 목록에서 작업을 고르거나 새 작업을 만들어 AI 지시를 작성합니다.</p>
+                <p>왼쪽 목록에서 작업을 고르거나, 목록 아래 띠의 ＋ 를 눌러 새 작업을 만듭니다.</p>
                 <span class="pm-ai-empty__hint">작성 중인 내용은 이 브라우저에 임시 저장됩니다.</span>
             </div>
         }
@@ -324,70 +342,106 @@
             }
 
             @* 여기부터 탭 셋이다. 지시 / 결과 / 로그 *@
-            <DxTabs @bind-ActiveTabIndex="_tab" TabClick="@OnTabClick">
+            <DxTabs @bind-ActiveTabIndex="_tab" TabClick="@OnTabClick" CssClass="pm-ai-tabs">
                 <DxTabPage Text="지시">
                     <div class="pm-tab-body pm-ai-write">
+                        @* ── 설정 줄 둘 ─────────────────────────────────
+
+                           한동안 칸 여덟이 8·4 / 3·3·6 / 4·4·4 로 **세 줄에
+                           제각각 걸쳐** 있었다. 폭이 줄마다 달라 왼쪽 끝만
+                           겨우 맞고, 체크칸 둘은 「끝나면」·「알림」이라는
+                           라벨을 이고 서 있어서 **무엇이 값이고 무엇이 이름인지**
+                           눈이 매번 다시 골라야 했다.
+
+                           이제 성격으로 가른다.
+
+                             · 위  — 무엇을 어디에서 시키나 (제목 · 대상 · AI · 제한)
+                                     한 줄에 네 칸, 폭이 6·3·2·1 로 내려간다.
+                             · 아래 — 끝난 뒤에 무엇을 하나 (올리기 · 알림)
+                                     폼 밖의 한 줄이다. 체크칸에는 **라벨을 달지
+                                     않는다** — 체크칸은 자기 글이 곧 이름이라
+                                     라벨을 얹으면 같은 말이 두 번이다.
+
+                           자리표시 글자(`NullText`)도 뺐다. 칸 여덟에 안내문이
+                           여덟이면 **비어 있는 칸이 채워져 있는 것처럼** 보여
+                           무엇을 아직 안 골랐는지가 안 읽힌다.
+
+                           **빼면 라벨이 늘 테두리에 올라가 있게 된다.** 포털의
+                           라벨은 값이 없을 때 칸 안으로 내려앉는데, 그 판정이
+                           `:not(:placeholder-shown)` 이라(app.css) 자리표시 글자
+                           자체가 없으면 늘 참이다. 이 폼은 네 칸이 다 그러므로
+                           오히려 줄이 고르게 선다 — 「제한(분)」(`DxSpinEdit`)은
+                           원래부터 그랬다.
+                        *@
                         <DxFormLayout CssClass="pm-editform">
-                            <DxFormLayoutItem Caption="제목" ColSpanMd="8">
-                                <DxTextBox @bind-Text="_edit.Title"
-                                           NullText="비워 두면 내용에서 만들어 붙입니다"
-                                           Enabled="@CanEdit" />
+                            @* 「비워 두면 첫 줄로 붙는다」는 자리표시 글자로 적어
+                               두었던 말이다. 칸 안에 있으면 그것이 값처럼 보여서
+                               말풍선으로 옮겼다. *@
+                            <DxFormLayoutItem Caption="제목" ColSpanMd="12" ColSpanLg="6">
+                                <DxTextBox @bind-Text="_edit.Title" Enabled="@CanEdit"
+                                           title="비워 두면 지시 내용의 첫 줄을 제목으로 붙입니다" />
                             </DxFormLayoutItem>
 
-                            <DxFormLayoutItem Caption="대상" ColSpanMd="4">
+                            <DxFormLayoutItem Caption="대상" ColSpanMd="5" ColSpanLg="3">
                                 <DxComboBox Data="@_enabledTargets" Value="@_edit.TargetKey"
                                             ValueChanged="@((long? key) => PickTarget(key))"
                                             ValueExpression="@(() => _edit.TargetKey)"
                                             TextFieldName="@nameof(AiTargetDto.TargetNm)"
                                             ValueFieldName="@nameof(AiTargetDto.TargetKey)"
-                                            NullText="어디에서 일할지" Enabled="@CanEdit" />
-                            </DxFormLayoutItem>
-
-                            @* 고른 대상이 허용한 것만 나온다. *@
-                            <DxFormLayoutItem Caption="AI" ColSpanMd="3">
-                                <DxComboBox Data="@AllowedRunners" @bind-Value="_edit.RunnerKind"
-                                            TextFieldName="@nameof(PickOption.Text)"
-                                            ValueFieldName="@nameof(PickOption.Value)"
-                                            NullText="@(_edit.TargetKey is null ? "대상을 먼저" : "고르십시오")"
-                                            Enabled="@(CanEdit && _edit.TargetKey is not null)" />
-                            </DxFormLayoutItem>
-
-                            <DxFormLayoutItem Caption="제한(분)" ColSpanMd="3">
-                                <DxSpinEdit @bind-Value="_edit.TimeoutMinutes" MinValue="1" MaxValue="1440"
                                             Enabled="@CanEdit" />
                             </DxFormLayoutItem>
 
-                            <DxFormLayoutItem Caption="끝나면" ColSpanMd="6">
-                                <DxCheckBox @bind-Checked="_edit.AutoPush"
-                                            Enabled="@(CanEdit && SelectedTargetAllowsPush)">
-                                    @PushLabel
-                                </DxCheckBox>
+                            @* 고른 대상이 허용한 것만 나온다. *@
+                            <DxFormLayoutItem Caption="AI" ColSpanMd="4" ColSpanLg="2">
+                                <DxComboBox Data="@AllowedRunners" @bind-Value="_edit.RunnerKind"
+                                            Enabled="@(CanEdit && _edit.TargetKey is not null)"
+                                            TextFieldName="@nameof(PickOption.Text)"
+                                            ValueFieldName="@nameof(PickOption.Value)" />
                             </DxFormLayoutItem>
 
-                            <DxFormLayoutItem Caption="알림" ColSpanMd="4">
-                                <div class="d-flex gap-3">
-                                    <DxCheckBox @bind-Checked="_edit.NotifyEmail" Enabled="@CanEdit">
-                                        메일
-                                    </DxCheckBox>
-                                    <DxCheckBox @bind-Checked="_edit.NotifyPwa" Enabled="@CanEdit">
-                                        앱
-                                    </DxCheckBox>
-                                </div>
+                            <DxFormLayoutItem Caption="제한(분)" ColSpanMd="3" ColSpanLg="1">
+                                <DxSpinEdit @bind-Value="_edit.TimeoutMinutes" MinValue="1" MaxValue="1440"
+                                            Enabled="@CanEdit" />
                             </DxFormLayoutItem>
+                        </DxFormLayout>
 
-                            <DxFormLayoutItem Caption="받는 사람" ColSpanMd="4">
+                        @* 끝난 뒤의 일. 체크 셋이 앞에 서고 그 뒤를 알림 칸 둘이
+                           따른다 — **알림을 켜야 뒤의 둘이 살아난다**는 순서가
+                           그대로 읽히도록 왼쪽에서 오른쪽으로 놓았다. *@
+                        <div class="pm-ai-opts">
+                            <DxCheckBox @bind-Checked="_edit.AutoPush"
+                                        Enabled="@(CanEdit && SelectedTargetAllowsPush)">
+                                @PushLabel
+                            </DxCheckBox>
+
+                            <span class="pm-ai-opts__sep" aria-hidden="true"></span>
+
+                            <DxCheckBox @bind-Checked="_edit.NotifyEmail" Enabled="@CanEdit">
+                                메일
+                            </DxCheckBox>
+
+                            <DxCheckBox @bind-Checked="_edit.NotifyPwa" Enabled="@CanEdit">
+                                앱
+                            </DxCheckBox>
+
+                            @* 자리표시 글자를 뺀 자리의 안내는 **말풍선**으로 옮겼다.
+                               「비우면 요청자에게 간다」는 칸이 비어 있을 때만
+                               뜻이 있는 말이라, 칸 안에 적어 두면 그것이 값처럼
+                               보인다. *@
+                            <label class="pm-ai-opts__field pm-ai-opts__field--to" title="비워 두면 요청한 사람에게 갑니다">
+                                <span class="pm-ai-opts__label">받는 사람</span>
                                 <DxTextBox @bind-Text="_edit.NotifyTo"
-                                           NullText="비우면 요청자"
                                            Enabled="@(CanEdit && (_edit.NotifyEmail || _edit.NotifyPwa))" />
-                            </DxFormLayoutItem>
+                            </label>
 
-                            <DxFormLayoutItem Caption="보낼 때" ColSpanMd="4">
+                            <label class="pm-ai-opts__field pm-ai-opts__field--when">
+                                <span class="pm-ai-opts__label">보낼 때</span>
                                 <DxComboBox Data="@NotifyWhens" @bind-Value="_edit.NotifyWhen"
                                             TextFieldName="@nameof(PickOption.Text)"
                                             ValueFieldName="@nameof(PickOption.Value)"
                                             Enabled="@(CanEdit && (_edit.NotifyEmail || _edit.NotifyPwa))" />
-                            </DxFormLayoutItem>
-                        </DxFormLayout>
+                            </label>
+                        </div>
 
                         @* 편집기 *@
                         <div class="pm-ai-editor">
@@ -505,6 +559,8 @@
         }
     </CommCont>
 </div>
+
+</div>@* /pm-ai-page *@
 
 <ConfirmDialog @ref="_confirm" />
 

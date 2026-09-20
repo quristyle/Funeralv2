@@ -163,13 +163,13 @@
     {
         <CascadingValue Name="@ThemeSize.CascadeName" TValue="SizeMode?" Value="@Size.Chrome">
         <div class="commgrd__footer">
-            @if (OnSave.HasDelegate)
+            @if (OnSave.HasDelegate || OnCreate.HasDelegate)
             {
                 <PermissionView Action="MenuAction.Create">
                     <DxButton IconCssClass="jsini-icon-plus"
-                              Title="등록"
+                              Title="@CreateTitle"
                               RenderStyle="ButtonRenderStyle.Link"
-                              Click="@StartNewAsync" />
+                              Click="@CreateAsync" />
                 </PermissionView>
             }
 
@@ -318,6 +318,28 @@
 
     /// <summary>저장. 주면 「등록」·「수정」이 생긴다.</summary>
     [Parameter] public EventCallback<(TItem Item, bool IsNew)> OnSave { get; set; }
+
+    /// <summary>
+    /// 「등록」을 <b>화면이 직접 받는다.</b> 주면 아래 띠의 ＋ 가
+    /// 팝업 편집 창을 열지 않고 이것을 부른다.
+    ///
+    /// <para>
+    /// <b>새로 만드는 자리가 표 밖에 있는 화면을 위한 것이다.</b> 좌우로 갈라
+    /// 왼쪽에서 고르고 오른쪽에서 고치는 화면(AI 작업 지시 …)은 <see cref="OnSave"/>
+    /// 를 주지 않는다 — 본문이 길어 팝업 편집 창에 들어가지 않기 때문이다.
+    /// 그러면 ＋ 가 아예 안 생겨서 화면마다 「새 작업」 단추를 따로 세우게 되고,
+    /// <b>화면에 따라 새로 만드는 자리가 달라진다.</b> 아래 띠 맨 왼쪽이
+    /// 그 자리라는 것이 화면 백 개에서 같아야 한다.
+    /// </para>
+    ///
+    /// <para>
+    /// 둘 다 주면 이쪽이 이긴다 — 화면이 제 길을 따로 마련해 두었다는 뜻이다.
+    /// </para>
+    /// </summary>
+    [Parameter] public EventCallback OnCreate { get; set; }
+
+    /// <summary>＋ 에 붙는 말풍선. 화면이 따로 받는 자리는 그 이름을 적어 둔다.</summary>
+    [Parameter] public string CreateTitle { get; set; } = "등록";
 
     /// <summary>삭제. 주면 「삭제」가 생긴다.</summary>
     [Parameter] public EventCallback<TItem> OnDelete { get; set; }
@@ -916,6 +938,13 @@
 
     /// <summary>등록 팝업을 연다. 바깥에서도 부를 수 있다.</summary>
     public Task StartNewAsync() => _grid?.StartEditNewRowAsync() ?? Task.CompletedTask;
+
+    /// <summary>
+    /// 아래 띠의 ＋. <see cref="OnCreate"/> 를 준 화면은 그쪽으로 보내고,
+    /// 안 준 화면은 지금까지처럼 팝업 편집 창을 연다.
+    /// </summary>
+    private Task CreateAsync() =>
+        OnCreate.HasDelegate ? OnCreate.InvokeAsync() : StartNewAsync();
 
     private Task EditAsync(int visibleIndex) => _grid?.StartEditRowAsync(visibleIndex) ?? Task.CompletedTask;
 
