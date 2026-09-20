@@ -99,10 +99,18 @@
                                    IconCssClass="jsini-icon-pin"
                                    Click="@(() => Tabs.TogglePin(t.Href))" />
 
-                <DxContextMenuItem Text="@(IsFavorite(t) ? "즐겨찾기에서 빼기" : "즐겨찾기에 담기")"
-                                   IconCssClass="@(IsFavorite(t) ? "jsini-icon-star-on" : "jsini-icon-star")"
-                                   Enabled="@(MenuPathOf(t).Length > 0)"
-                                   Click="@(() => ToggleFavoriteAsync(t))" />
+                @* 메뉴에 없는 화면(`/projmng/ai/task/1234` 처럼 주소에 자료
+                   번호가 들어가는 것)에서는 **아예 그리지 않는다.** 즐겨찾기는
+                   DB 메뉴 경로를 열쇠로 쌓이는데 그런 주소는 그 표에 없어서,
+                   담아 두면 사이드바에서 영영 못 푸는 줄이 하나 남는다.
+                   꺼 놓기만 하면 「왜 회색이지」가 되므로 자리를 비운다. *@
+                @if (!t.Standalone)
+                {
+                    <DxContextMenuItem Text="@(IsFavorite(t) ? "즐겨찾기에서 빼기" : "즐겨찾기에 담기")"
+                                       IconCssClass="@(IsFavorite(t) ? "jsini-icon-star-on" : "jsini-icon-star")"
+                                       Enabled="@(MenuPathOf(t).Length > 0)"
+                                       Click="@(() => ToggleFavoriteAsync(t))" />
+                }
 
                 <DxContextMenuItem Text="새 창으로 열기"
                                    IconCssClass="jsini-icon-expand"

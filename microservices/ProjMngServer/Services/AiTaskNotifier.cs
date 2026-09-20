@@ -42,6 +42,23 @@ public sealed class AiTaskNotifier(
     private readonly string? _portalUrl = configuration["AiTasks:PortalUrl"];
 
     /// <summary>
+    /// 그 건 하나를 펴 놓는 화면의 <b>상대 주소</b>
+    /// (<c>web/.../Pages/AiTaskViewPage.razor</c> 의 <c>@@page</c>).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>앱알림과 메일이 같은 한 줄을 쓴다.</b> 두 벌로 두면 한쪽만 고쳐져
+    /// 어긋나고, 어긋나는 쪽은 언제나 「알림을 눌렀더니 엉뚱한 화면」이다.
+    /// </para>
+    /// <para>
+    /// 질의 문자열(<c>?task=</c>)이 아니라 경로에 번호를 싣는다. 포털의 탭
+    /// 줄이 <b>질의 문자열을 뗀 경로로</b> 탭을 가르므로, 질의로 실으면 여러
+    /// 건을 열어도 탭이 하나만 선다.
+    /// </para>
+    /// </remarks>
+    private static string TaskUrl(long taskKey) => $"/projmng/ai/task/{taskKey}";
+
+    /// <summary>
     /// 이 실행의 결과를 메일로 보낸다. <b>보낼 이유가 없으면 조용히 끝낸다.</b>
     /// </summary>
     public async Task SendAsync(long runKey, CancellationToken ct = default)
@@ -187,7 +204,11 @@ public sealed class AiTaskNotifier(
                         {
                             title = "AI 작업 끝남",
                             body = $"[{StatusText(row.TaskStatus)}] {row.Title}",
-                            url = $"/projmng/ai/tasks?task={row.TaskKey}"
+                            // **그 건 하나를 펴 놓는 주소다.** 예전에는 목록
+                            // (`/projmng/ai/tasks`)으로 보냈고, 누른 사람이
+                            // 편집기를 받은 뒤 목록에서 그 건을 눈으로 다시
+                            // 찾아야 했다. 메일의 단추도 같은 주소를 쓴다.
+                            url = TaskUrl(row.TaskKey)
                         }
                     }),
                 };
@@ -497,7 +518,7 @@ public sealed class AiTaskNotifier(
         // ── 화면으로 가는 단추 ──────────────────────────────
         if (!string.IsNullOrWhiteSpace(_portalUrl))
         {
-            var link = $"{_portalUrl.TrimEnd('/')}/projmng/ai/tasks";
+            var link = $"{_portalUrl.TrimEnd('/')}{TaskUrl(r.TaskKey)}";
 
             sb.Append($"""
                 <tr><td align="center" style="padding:20px 20px 4px 20px;">

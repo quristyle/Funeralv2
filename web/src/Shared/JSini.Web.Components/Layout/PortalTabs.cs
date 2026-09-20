@@ -54,7 +54,11 @@ public sealed class PortalTabs
     /// </summary>
     /// <param name="href">전체 경로 (<c>/projmng/proj/wbs</c>). 질의 문자열은 뗀 것.</param>
     /// <param name="title">탭에 보일 이름. 메뉴 제목이다.</param>
-    public void Open(string href, string title)
+    /// <param name="standalone">
+    /// <b>메뉴에 없는 화면인가.</b> 참이면 탭 줄이 메뉴에 딸린 항목
+    /// (즐겨찾기)을 내놓지 않는다 — 자세한 것은 <see cref="PortalTab.Standalone"/>.
+    /// </param>
+    public void Open(string href, string title, bool standalone = false)
     {
         if (string.IsNullOrWhiteSpace(href))
         {
@@ -83,6 +87,7 @@ public sealed class PortalTabs
         {
             Href = href,
             Title = string.IsNullOrWhiteSpace(title) ? href : title,
+            Standalone = standalone,
             LastSeen = DateTime.UtcNow,
         });
 
@@ -152,7 +157,7 @@ public sealed class PortalTabs
 
     /// <summary>고정해 둔 탭들. 브라우저에 적어 둘 값이다.</summary>
     public IReadOnlyList<PinnedTab> PinnedTabs =>
-        [.. _tabs.Where(t => t.Pinned).Select(t => new PinnedTab(t.Href, t.Title))];
+        [.. _tabs.Where(t => t.Pinned).Select(t => new PinnedTab(t.Href, t.Title, t.Standalone))];
 
     /// <summary>
     /// 적어 둔 고정 탭을 되살린다. <b>회로가 새로 열릴 때 한 번</b> 부른다.
@@ -199,6 +204,10 @@ public sealed class PortalTabs
                 Href = item.Href,
                 Title = string.IsNullOrWhiteSpace(item.Title) ? item.Href : item.Title,
                 Pinned = true,
+
+                // 메뉴에 없는 화면이었다는 사실도 함께 적어 두었다. 안 그러면
+                // 되살린 탭에서만 즐겨찾기 항목이 되살아난다.
+                Standalone = item.Standalone,
                 LastSeen = DateTime.UtcNow,
             });
         }
@@ -329,7 +338,14 @@ public sealed class PortalTabs
 /// 제목으로 바뀐다.
 /// </para>
 /// </summary>
-public sealed record PinnedTab(string Href, string Title);
+/// <param name="Href">탭의 신원인 전체 경로.</param>
+/// <param name="Title">탭에 보일 이름.</param>
+/// <param name="Standalone">
+/// 메뉴에 없는 화면인가(<see cref="PortalTab.Standalone"/>). 예전에 적어 둔
+/// 값에는 이 칸이 없다 — 그때는 거짓이고, 그 시절 고정할 수 있던 탭은 전부
+/// 메뉴 화면이었으므로 맞는 값이다.
+/// </param>
+public sealed record PinnedTab(string Href, string Title, bool Standalone = false);
 
 /// <summary>열어 둔 화면 하나.</summary>
 public sealed class PortalTab
@@ -342,6 +358,25 @@ public sealed class PortalTab
 
     /// <summary>고정했는가. 고정한 탭은 닫기에서 살아남는다.</summary>
     public bool Pinned { get; set; }
+
+    /// <summary>
+    /// <b>메뉴에 없는 화면인가.</b> 자료 번호가 주소에 들어가는 화면
+    /// (<c>/projmng/ai/task/1234</c>)이 그렇다 — 메뉴는 그런 주소를 가리킬 수
+    /// 없어서 DB 메뉴 표에 자리가 없다.
+    ///
+    /// <para>
+    /// 탭 줄이 이 값을 보고 <b>메뉴에 딸린 항목을 감춘다</b>(즐겨찾기).
+    /// 즐겨찾기는 DB 메뉴 경로를 열쇠로 쌓이는데(<c>MenuFavorites</c>),
+    /// 그 표에 없는 주소를 담으면 <b>사이드바에서 영영 못 푸는 줄</b>이
+    /// 하나 남는다.
+    /// </para>
+    ///
+    /// <para>
+    /// 고정은 그대로 둔다 — 그건 메뉴가 아니라 <b>탭</b>의 성질이고, 보던
+    /// 지시를 새로고침 뒤에도 열어 두는 것은 말이 된다.
+    /// </para>
+    /// </summary>
+    public bool Standalone { get; init; }
 
     /// <summary>마지막으로 본 때. 상한을 넘었을 때 무엇을 닫을지 고르는 데 쓴다.</summary>
     public DateTime LastSeen { get; set; }

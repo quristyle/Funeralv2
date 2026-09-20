@@ -1,0 +1,231 @@
+@page "/projmng/ai/task/{TaskKey:long}"
+@attribute [RouteKey("projmng.ai.task-view")]
+
+@*
+    [보낸 한 건을 탭으로 펼쳐 보는 화면]
+
+    설계: docs/ai-task-runner.md
+    API: `projmng/ai-tasks/{id}`
+
+    ────────────────────────────────────────────────────────────
+    [왜 주소가 있어야 했나 — 알림이 갈 곳이 없었다 (2026-09-20)]
+
+    결과가 끝나면 앱알림과 메일이 나간다. 그런데 거기 실려 있던 주소가
+    「AI 작업」 목록(`/projmng/ai/tasks`)이었다. 알림을 누른 사람은 편집기
+    3MB 를 받은 뒤 **목록에서 그 건을 눈으로 다시 찾아야** 했다.
+
+    지시 한 건마다 주소가 있으면 그 일이 없어진다. 알림도 메일도 **같은 한
+    주소**를 싣는다 — 두 벌로 두면 한쪽만 고쳐져 어긋난다.
+
+    [카드를 책상에서 누르면 여기로 온다]
+
+    휴대폰에서는 창이 뜨고(`AiTaskPeek`), 넓은 화면에서는 이 주소로 온다.
+    주소가 건마다 다르므로 **여러 건을 열면 탭이 여러 개** 선다
+    (`PortalTabs` 는 주소로 탭을 가른다).
+
+    ────────────────────────────────────────────────────────────
+    [메뉴가 없는 화면이다]
+
+    이 화면은 `scom.system_menus` 에 없다. 주소에 자료 번호가 들어가므로
+    메뉴가 가리킬 수 있는 값이 아니다. 그래서
+
+      - 사이드바가 이 화면을 고르지 않고 브레드크럼도 비어 있다
+        (`MainLayout.Track` 이 메뉴 줄기를 못 찾는다)
+      - 탭 줄의 **즐겨찾기 항목이 안 나온다**(`PortalTab.Standalone`) —
+        즐겨찾기는 DB 메뉴 경로를 열쇠로 쓰는데 이 주소는 그 표에 없다.
+        담기게 두면 사이드바에서 영영 못 푸는 줄이 하나 쌓인다
+
+    탭 자체는 **우리가 직접 연다.** 레이아웃은 메뉴에 있는 화면만 탭으로
+    만들기 때문이다 — 그렇지 않으면 이 화면을 여는 동안 탭 줄은 직전에 보던
+    화면을 켜 놓은 채로 남는다.
+
+    [제목은 두 번 정해진다]
+
+    받아 오기 전에는 번호(`지시 #1234`)로 열고, 제목이 오면 그것으로 바꾼다.
+    `PortalTabs.Open` 이 같은 주소면 이름만 갈아 준다.
+
+    ────────────────────────────────────────────────────────────
+    [보여 주는 코드는 창과 한 벌이다]
+
+    `AiTaskView`(지시·결과·로그)와 `AiTaskActions`(단추)를 창과 똑같이 쓴다.
+    이 화면이 따로 하는 일은 **한 건을 스스로 받아 오고 따라가는 것**뿐이다 —
+    창은 부모(「빠른 지시」 화면)가 넘겨 주지만 여기는 부모가 없다.
+*@
+
+@inherits DataPage
+@implements IDisposable
+@inject AiTaskClient Api
+@inject PortalTabs Tabs
+
+<PageTitle>@(TabTitle) · 프로젝트관리</PageTitle>
+
+<div class="pm-taskview">
+    <CommCont>
+        <div class="pm-taskview__head">
+            @* 돌아갈 자리를 둔다. 알림을 누르고 들어온 사람에게는 **이 화면이
+               첫 화면**이라, 없으면 사이드바에서 「빠른 지시」를 다시 찾아야 한다. *@
+            <a class="pm-taskview__back" href="/projmng/ai/ask">← 빠른 지시</a>
+
+            <h2 class="pm-taskview__title">@TabTitle</h2>
+        </div>
+
+        <AiTaskView Item="@_item" Live="true"
+                    MissingText="그런 지시를 찾지 못했습니다. 지워졌거나 주소가 잘못되었습니다." />
+
+        @if (_item is not null)
+        {
+            <div class="pm-taskview__acts">
+                <AiTaskActions Item="@_item"
+                               OnChanged="@OnChangedAsync"
+                               OnConfirmed="@OnChangedAsync" />
+            </div>
+        }
+    </CommCont>
+</div>
+
+@code {
+    /// <summary>주소에 실려 온 지시 번호.</summary>
+    [Parameter] public long TaskKey { get; set; }
+
+    private AiTaskDto? _item;
+
+    /// <summary>지금 그리고 있는 건. 주소가 바뀌었는지 보는 값이다.</summary>
+    private long _shown;
+
+    /// <summary>돌고 있는 동안만 도는 타이머.</summary>
+    private CancellationTokenSource? _poll;
+
+    private string Href => $"/projmng/ai/task/{TaskKey}";
+
+    /// <summary>탭과 머리에 적을 이름. 제목이 오기 전에는 번호다.</summary>
+    private string TabTitle =>
+        _item?.Title is { Length: > 0 } title ? title : $"지시 #{TaskKey}";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_shown == TaskKey)
+        {
+            return;
+        }
+
+        _shown = TaskKey;
+        _item = null;
+
+        StopPoll();
+
+        // 받아 오기 전에 먼저 연다. 탭이 늦게 서면 **화면은 바뀌었는데 탭 줄은
+        // 직전 화면을 켜 놓은** 상태가 눈에 띈다.
+        Tabs.Open(Href, TabTitle, standalone: true);
+
+        await LoadAsync();
+    }
+
+    /// <summary>
+    /// 한 건을 받아 온다. <b>못 찾으면 그대로 둔다</b> — 화면이
+    /// 「찾지 못했습니다」로 말한다.
+    /// </summary>
+    private async Task LoadAsync()
+    {
+        await LoadOneAsync(
+            async () => await Api.GetAsync(TaskKey),
+            item => _item = item,
+            failMessage: "지시를 읽지 못했습니다");
+
+        Tabs.Open(Href, TabTitle, standalone: true);
+
+        Follow();
+    }
+
+    /// <summary>단추가 무엇인가 했다. 상태가 바뀌었을 테니 다시 읽는다.</summary>
+    private async Task OnChangedAsync(AiTaskDto task)
+    {
+        _item = task;
+
+        await LoadAsync();
+
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// 돌고 있으면 따라간다. <b>상태를 넘겨 줄 부모가 없으므로 이 화면이
+    /// 직접 본다</b> — 안쪽(<c>AiTaskView</c>)은 실행 이력과 로그만 본다.
+    /// </summary>
+    private void Follow()
+    {
+        if (_item?.IsBusy != true)
+        {
+            StopPoll();
+            return;
+        }
+
+        if (_poll is not null)
+        {
+            return;
+        }
+
+        var cts = new CancellationTokenSource();
+        _poll = cts;
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                while (!cts.IsCancellationRequested)
+                {
+                    // 「빠른 지시」 화면과 같은 5초다. 로그는 안쪽이 3초마다
+                    // 따로 따라가므로 여기서 더 자주 물을 이유가 없다.
+                    await Task.Delay(TimeSpan.FromSeconds(5), cts.Token);
+
+                    var fresh = await Api.GetAsync(TaskKey, cts.Token);
+
+                    if (cts.IsCancellationRequested || fresh is null)
+                    {
+                        return;
+                    }
+
+                    _item = fresh;
+
+                    await InvokeAsync(StateHasChanged);
+
+                    if (!fresh.IsBusy)
+                    {
+                        StopPoll();
+                        return;
+                    }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // 화면을 떠났다. 정상이다.
+            }
+            catch
+            {
+                // 한 바퀴 실패했다고 화면을 깨지 않는다. 다음 바퀴에 다시 본다.
+            }
+        }, cts.Token);
+    }
+
+    private void StopPoll()
+    {
+        var cts = _poll;
+        _poll = null;
+
+        if (cts is null)
+        {
+            return;
+        }
+
+        try
+        {
+            cts.Cancel();
+            cts.Dispose();
+        }
+        catch (ObjectDisposedException)
+        {
+            // 이미 치웠다.
+        }
+    }
+
+    /// <summary><b>화면을 떠날 때 반드시 끈다.</b> 안 끄면 회로마다 타이머가 쌓인다.</summary>
+    public void Dispose() => StopPoll();
+}

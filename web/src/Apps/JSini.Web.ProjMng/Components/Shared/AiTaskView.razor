@@ -1,0 +1,617 @@
+@*
+    [보낸 한 건의 속 — 지시 · 결과 · 로그]
+
+    설계: docs/ai-task-runner.md
+    API: `projmng/ai-tasks` · `projmng/ai-runs/{run}/logs`
+
+    ────────────────────────────────────────────────────────────
+    [왜 창에서 떼어 냈나 (2026-09-20)]
+
+    이 내용은 한동안 `AiTaskPeek`(창) 안에만 있었다. 그런데 같은 것을 봐야 하는
+    자리가 셋으로 늘었다.
+
+      - 「빠른 지시」의 카드를 휴대폰에서 눌렀을 때 — 창
+      - 책상에서 눌렀을 때 — **탭으로 열리는 화면**(`AiTaskViewPage`)
+      - 앱알림·메일의 「화면에서 보기」를 눌러 들어왔을 때 — 같은 화면
+
+    셋이 같은 것을 보여 주어야 하므로 **보여 주는 코드는 한 벌**이다.
+    창은 이것을 `CommPopup` 에 담을 뿐이고, 화면은 본문에 그대로 깐다.
+
+    ────────────────────────────────────────────────────────────
+    [탭 셋 — 지시 · 결과 · 로그]
+
+    한 건에 붙은 글이 셋인데 성격이 다르다. 지시는 사람이 쓴 것, 결과는
+    AI 의 답, 로그는 기계가 찍은 것이다. 이어 붙여 한 장으로 그리면
+    **로그 수백 줄 밑에 결과가 깔려** 아무도 거기까지 내려가지 않는다.
+
+    탭이면 셋 중 하나만 회로를 타고 건너온다는 점도 크다 — 모바일 회선이다.
+
+    [처음 열리는 탭은 상태가 고른다]
+
+    누른 사람이 보려는 것이 그때그때 다르다.
+
+      - 돌고 있으면 **로그** — 「어디까지 갔나」
+      - 끝났으면 **결과** — 「무엇을 해 놓았나」
+      - 아직 대기·작성중이면 **지시** — 「내가 무엇을 시켰더라」
+
+    사람이 탭을 한 번이라도 누르면 그 뒤로는 우리가 옮기지 않는다
+    (`_pinned`). 돌던 건이 끝나는 순간 보고 있던 로그가 결과로 바뀌어 버리면,
+    **읽던 자리를 잃는다.**
+
+    ────────────────────────────────────────────────────────────
+    [상태는 부모가 준다 — 여기서 또 묻지 않는다]
+
+    부모(창을 띄운 「빠른 지시」 화면이거나 탭으로 열린 화면)가 이미 5초마다
+    같은 건을 다시 읽어 `Item` 으로 넘긴다. 여기서 상태를 또 물으면 **같은 값을
+    두 번 받아 오면서 둘이 어긋날 자리만 만든다.**
+
+    스스로 받아 오는 것은 부모가 모르는 것뿐이다 — 실행 이력(결과문이 거기
+    있다)과 로그 줄.
+
+    [로그는 새 줄만 받는다]
+
+    `fromSeq` 보다 큰 줄만 온다. 3초마다 통째로 다시 받으면 수천 줄이
+    매번 회선을 탄다.
+
+    [`Live` 는 「지금 보이고 있나」다]
+
+    창이 닫히거나 탭을 떠나면 거짓이 된다. 그때 들고 있던 것을 놓는다 —
+    다음에 다른 건을 열었을 때 **앞 건의 로그가 잠깐 보이는 일**이 없게.
+*@
+
+@implements IDisposable
+@inject AiTaskClient Api
+@inject IJSRuntime Js
+
+@if (Item is { } t)
+{
+    @* 머리띠. **탭을 옮겨도 이 셋은 제자리에 있다** — 카드에서 보고
+       들어온 값이 사라지면 같은 건인지 확인할 길이 없다. *@
+    <div class="pm-peek__top">
+        <span class="jsini-badge jsini-badge--@t.StatusTone">@t.StatusText</span>
+
+        <span class="pm-peek__cell">
+            <span class="pm-peek__label">작성시간</span>
+            <span class="pm-peek__value">@(t.CreDt?.ToString("yyyy-MM-dd HH:mm") ?? "-")</span>
+        </span>
+
+        <span class="pm-peek__cell">
+            <span class="pm-peek__label">실행일시</span>
+            <span class="pm-peek__value">@AiTaskWhen.RunAt(t)</span>
+        </span>
+
+        <span class="pm-peek__cell">
+            <span class="pm-peek__label">총작업시간</span>
+            <span class="pm-peek__value">@AiTaskWhen.Elapsed(t)</span>
+        </span>
+
+        <span class="pm-peek__cell">
+            <span class="pm-peek__label">모델</span>
+            <span class="pm-peek__value">@t.RunnerKind</span>
+        </span>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(t.LastError))
+    {
+        <PageNotice Tone="NoticeTone.Error" Text="@t.LastError" />
+    }
+
+    @if (!string.IsNullOrWhiteSpace(t.NotifyError))
+    {
+        <PageNotice Tone="NoticeTone.Warning" Text="@($"결과 메일: {t.NotifyError}")" />
+    }
+
+    <div class="pm-peek__tabs">
+        <DxTabs @bind-ActiveTabIndex="_tab" TabClick="@OnTabClick">
+            <DxTabPage Text="지시">
+                @* 사람이 적어 보낸 그대로다. 실행 줄에도 그때 준 지시문이
+                   남지만(`Instruction`), 그것은 서버가 앞뒤를 덧대 만든
+                   글이라 **내가 무엇을 적었나**에는 답하지 않는다. *@
+                <div class="pm-peek__pane">
+                    @if (string.IsNullOrWhiteSpace(t.Contents))
+                    {
+                        <p class="pm-peek__dim">적어 둔 내용이 없습니다.</p>
+                    }
+                    else
+                    {
+                        <pre class="pm-peek__pre pm-peek__pre--ask">@t.Contents</pre>
+                    }
+                </div>
+            </DxTabPage>
+
+            <DxTabPage Text="결과">
+                <div class="pm-peek__pane">
+                    @if (_result is { Length: > 0 })
+                    {
+                        <pre class="pm-peek__pre pm-peek__pre--result">@_result</pre>
+
+                        @if (RunHint is { Length: > 0 } hint)
+                        {
+                            <p class="jsini-hint">@hint</p>
+                        }
+                    }
+                    else if (t.IsBusy)
+                    {
+                        @* 아직 답이 없다. **여기서 로그로 가는 길을 둔다** —
+                           「결과」를 눌러 빈 판을 본 사람이 다음에 할 일이
+                           그것이다. *@
+                        <p class="pm-peek__dim">아직 돌고 있습니다. 끝나면 메일로 갑니다.</p>
+
+                        <DxButton Text="로그 보기" RenderStyle="ButtonRenderStyle.Link"
+                                  Click="@(() => OpenLogTabAsync())" />
+                    }
+                    else
+                    {
+                        <p class="pm-peek__dim">남긴 말이 없습니다.</p>
+                    }
+                </div>
+            </DxTabPage>
+
+            <DxTabPage Text="@LogTabText">
+                @* 새 줄은 아래에 붙는데 보이는 자리는 처음 그대로라, 지켜보는
+                   동안 방금 찍힌 줄이 늘 화면 밖이었다. `js/log-tail.js` 가
+                   **바닥에 붙어 있을 때만** 밀어 준다 — 위를 읽는 중에는
+                   놓아 둔다. 「AI 작업」 화면과 같은 부품이다. *@
+                <div class="pm-peek__pane">
+                    @if (_lines.Count == 0)
+                    {
+                        <p class="pm-peek__dim">
+                            @(t.IsBusy ? "아직 찍힌 줄이 없습니다." : "남은 로그가 없습니다.")
+                        </p>
+                    }
+                    else
+                    {
+                        <pre class="pm-peek__pre pm-peek__pre--log" @ref="_logEl">@LogText</pre>
+                    }
+                </div>
+            </DxTabPage>
+        </DxTabs>
+    </div>
+}
+else
+{
+    @* 목록이 다시 읽히면서 이 건이 넷 밖으로 밀려났거나, 주소로 들어왔는데
+       그런 건이 없다. **말없이 비워 두지 않는다** — 「고장인가」로 읽힌다. *@
+    <PageNotice Tone="NoticeTone.Info" Text="@MissingText" />
+}
+
+@code {
+    /// <summary>지시 탭.</summary>
+    private const int TabAsk = 0;
+
+    /// <summary>결과 탭.</summary>
+    private const int TabResult = 1;
+
+    /// <summary>로그 탭.</summary>
+    private const int TabLog = 2;
+
+    /// <summary>
+    /// 그릴 로그 줄 수의 상한. <b>꼬리 300줄만</b> 그린다 — 모바일 회로가
+    /// 수천 줄을 실어 나르면 여는 것부터 느려진다.
+    /// </summary>
+    private const int DrawMax = 300;
+
+    /// <summary>들고 있을 줄 수의 상한.</summary>
+    private const int HoldMax = 1000;
+
+    /// <summary>
+    /// 볼 작업. <b>부모가 목록에서 다시 집어 넘긴다</b> — 그래서 돌고 있는
+    /// 동안 상태와 총작업시간이 저절로 새것이 된다.
+    /// </summary>
+    [Parameter] public AiTaskDto? Item { get; set; }
+
+    /// <summary>
+    /// 지금 보이고 있나. 창이면 열려 있는 동안, 화면이면 늘 참이다.
+    /// 거짓이 되면 들고 있던 것을 놓고 타이머를 끈다.
+    /// </summary>
+    [Parameter] public bool Live { get; set; } = true;
+
+    /// <summary>볼 건이 없을 때 적을 말. 창과 화면이 다음에 할 일이 다르다.</summary>
+    [Parameter] public string MissingText { get; set; } = "그 건을 찾지 못했습니다.";
+
+    /// <summary>지금 보고 있는 건. 이것이 바뀔 때만 받아 온 것을 버린다.</summary>
+    private long? _key;
+
+    /// <summary>마지막으로 본 상태. 바뀌면 실행 이력을 다시 읽는다.</summary>
+    private string? _status;
+
+    private int _tab;
+
+    /// <summary>사람이 탭을 만졌나. <b>만진 뒤에는 우리가 옮기지 않는다.</b></summary>
+    private bool _pinned;
+
+    /// <summary>로그를 보고 있는 실행. 가장 최근 것이다.</summary>
+    private AiTaskRunDto? _run;
+
+    /// <summary>AI 의 마지막 답. 목록에는 없고 실행 줄에 있다.</summary>
+    private string? _result;
+
+    private readonly List<AiLogLineDto> _lines = [];
+    private int _lastSeq;
+
+    /// <summary>로그를 한 번이라도 받았나. 로그 탭을 열 때 한 번만 받는다.</summary>
+    private bool _logRead;
+
+    private ElementReference _logEl;
+    private IJSObjectReference? _logJs;
+
+    /// <summary>돌고 있는 동안만 도는 타이머.</summary>
+    private CancellationTokenSource? _poll;
+
+    private string LogTabText => _lines.Count == 0 ? "로그" : $"로그 ({_lines.Count})";
+
+    /// <summary>
+    /// 그릴 로그. <b>꼬리만</b> 쓴다 — 위는 잘렸다는 사실을 첫 줄에 적는다.
+    /// </summary>
+    private string LogText
+    {
+        get
+        {
+            if (_lines.Count <= DrawMax)
+            {
+                return string.Join('\n', _lines.Select(l => l.Text));
+            }
+
+            var tail = _lines.Skip(_lines.Count - DrawMax).Select(l => l.Text);
+
+            return $"… 앞 {_lines.Count - DrawMax}줄은 「자세히 보기」에서\n"
+                + string.Join('\n', tail);
+        }
+    }
+
+    /// <summary>결과문 아래 한 줄. 무엇이 바뀌었는지와 어디에 남았는지.</summary>
+    private string? RunHint
+    {
+        get
+        {
+            if (_run is null)
+            {
+                return null;
+            }
+
+            var parts = new List<string>();
+
+            if (_run.GitBranch is { Length: > 0 } branch)
+            {
+                parts.Add(branch);
+            }
+
+            if (_run.DiffStat is { Length: > 0 } diff)
+            {
+                parts.Add(diff.Split('\n')[^1].Trim());
+            }
+
+            if (Item?.PushedCommit is { Length: > 0 } commit)
+            {
+                parts.Add($"올림 {commit[..Math.Min(7, commit.Length)]}");
+            }
+
+            return parts.Count == 0 ? null : string.Join(" · ", parts);
+        }
+    }
+
+    /// <summary>
+    /// 처음 열리는 탭. <b>상태가 고른다</b> — 위 머리말 참고.
+    /// </summary>
+    private static int DefaultTab(AiTaskDto t) => t.TaskStatus switch
+    {
+        "preparing" or "running" => TabLog,
+        "idle" or "queued" => TabAsk,
+        _ => TabResult,
+    };
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!Live)
+        {
+            if (_key is not null)
+            {
+                Clear();
+            }
+
+            return;
+        }
+
+        if (Item is not { } t)
+        {
+            return;
+        }
+
+        if (_key != t.TaskKey)
+        {
+            Clear();
+
+            _key = t.TaskKey;
+            _status = t.TaskStatus;
+            _tab = DefaultTab(t);
+
+            await LoadRunsAsync();
+
+            if (_tab == TabLog)
+            {
+                await FetchLogsAsync();
+                _logRead = true;
+            }
+
+            Follow(t);
+
+            return;
+        }
+
+        // 같은 건이다. **상태가 바뀔 때만** 실행 이력을 다시 읽는다 —
+        // 결과문은 그때 생긴다.
+        if (_status != t.TaskStatus)
+        {
+            _status = t.TaskStatus;
+
+            await LoadRunsAsync();
+
+            if (!_pinned)
+            {
+                var want = DefaultTab(t);
+
+                if (want != _tab)
+                {
+                    _tab = want;
+
+                    if (want == TabLog && !_logRead)
+                    {
+                        await FetchLogsAsync();
+                        _logRead = true;
+                    }
+                }
+            }
+
+            Follow(t);
+        }
+    }
+
+    /// <summary>사람이 탭을 만졌다. 이 뒤로는 상태가 탭을 옮기지 않는다.</summary>
+    private async Task OnTabClick(TabClickEventArgs e)
+    {
+        _pinned = true;
+
+        // 로그는 **열 때 받는다.** 결과만 보고 닫는 사람에게 수백 줄을
+        // 미리 실어 보낼 이유가 없다.
+        if (e.TabIndex == TabLog && !_logRead)
+        {
+            _logRead = true;
+            await FetchLogsAsync();
+        }
+    }
+
+    /// <summary>「로그 보기」 한 줄이 부른다. 사람이 탭을 누른 것과 같이 친다.</summary>
+    private async Task OpenLogTabAsync()
+    {
+        _pinned = true;
+        _tab = TabLog;
+
+        if (!_logRead)
+        {
+            _logRead = true;
+            await FetchLogsAsync();
+        }
+    }
+
+    /// <summary>
+    /// 실행 이력을 읽는다. <b>결과문이 여기 있다</b> — 목록에는 없다.
+    /// </summary>
+    /// <remarks>
+    /// 실행이 새로 생겼으면(다시 돌렸다) 들고 있던 로그를 버린다. 안 버리면
+    /// <b>지난 실행의 줄 위에 이번 줄이 이어 붙어</b> 한 실행처럼 읽힌다.
+    /// </remarks>
+    private async Task<bool> LoadRunsAsync(CancellationToken ct = default)
+    {
+        if (_key is not { } key)
+        {
+            return false;
+        }
+
+        try
+        {
+            var runs = await Api.RunsAsync(key, ct);
+            var newest = runs.FirstOrDefault();
+            var changed = newest?.RunKey != _run?.RunKey;
+
+            _run = newest;
+            _result = runs.FirstOrDefault(r => !string.IsNullOrWhiteSpace(r.ResultText))?.ResultText;
+
+            if (changed)
+            {
+                _lines.Clear();
+                _lastSeq = 0;
+                _logRead = false;
+            }
+
+            return true;
+        }
+        catch (ApiException)
+        {
+            // 한 번 못 읽었다고 화면을 깨지 않는다. 다음 바퀴에 다시 본다.
+            return false;
+        }
+    }
+
+    /// <summary>새 줄만 받아 이어 붙인다.</summary>
+    private async Task<bool> FetchLogsAsync(CancellationToken ct = default)
+    {
+        if (_run is not { } run)
+        {
+            return false;
+        }
+
+        try
+        {
+            var more = await Api.LogsAsync(run.RunKey, _lastSeq, ct);
+
+            if (more.Count == 0)
+            {
+                return false;
+            }
+
+            _lines.AddRange(more);
+            _lastSeq = more[^1].Seq;
+
+            // 들고 있는 줄에도 상한을 둔다. 수만 줄을 쥐고 있으면 회로가
+            // 그것을 전부 실어 나른다.
+            if (_lines.Count > HoldMax)
+            {
+                _lines.RemoveRange(0, _lines.Count - HoldMax);
+            }
+
+            return true;
+        }
+        catch (ApiException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// 돌고 있으면 따라간다. <b>상태는 부모가 주므로 여기서는 실행 이력과
+    /// 로그만 본다.</b>
+    /// </summary>
+    private void Follow(AiTaskDto t)
+    {
+        if (!t.IsBusy)
+        {
+            StopPoll();
+            return;
+        }
+
+        if (_poll is not null)
+        {
+            return;
+        }
+
+        var cts = new CancellationTokenSource();
+        _poll = cts;
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                while (!cts.IsCancellationRequested)
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(3), cts.Token);
+
+                    if (Item is not { } now || !Live)
+                    {
+                        return;
+                    }
+
+                    var changed = false;
+
+                    // 대기 중에는 실행 줄이 아직 없다. 생기는 순간을 놓치면
+                    // **로그가 영영 빈 채로 남는다.**
+                    if (_run is null || _run.IsRunning)
+                    {
+                        changed = await LoadRunsAsync(cts.Token);
+                    }
+
+                    if (_tab == TabLog)
+                    {
+                        _logRead = true;
+                        changed |= await FetchLogsAsync(cts.Token);
+                    }
+
+                    if (cts.IsCancellationRequested)
+                    {
+                        return;
+                    }
+
+                    if (changed)
+                    {
+                        await InvokeAsync(StateHasChanged);
+                    }
+
+                    if (!now.IsBusy && _run?.IsRunning != true)
+                    {
+                        return;
+                    }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // 떠났다. 정상이다.
+            }
+            catch
+            {
+                // 한 바퀴 실패했다고 화면을 깨지 않는다.
+            }
+        }, cts.Token);
+    }
+
+    private void StopPoll()
+    {
+        var cts = _poll;
+        _poll = null;
+
+        if (cts is null)
+        {
+            return;
+        }
+
+        try
+        {
+            cts.Cancel();
+            cts.Dispose();
+        }
+        catch (ObjectDisposedException)
+        {
+            // 이미 치웠다.
+        }
+    }
+
+    private void Clear()
+    {
+        StopPoll();
+
+        _key = null;
+        _status = null;
+        _run = null;
+        _result = null;
+        _lines.Clear();
+        _lastSeq = 0;
+        _logRead = false;
+        _pinned = false;
+        _tab = TabAsk;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await FollowLogAsync();
+    }
+
+    /// <summary>
+    /// 로그를 <b>바닥에 붙여 둔다.</b> 사람이 위를 읽는 중이면 JS 쪽이
+    /// 알아서 놓아 준다(<c>js/log-tail.js</c>).
+    /// </summary>
+    /// <remarks>
+    /// <b>로그 탭을 보고 있을 때만 부른다.</b> 숨어 있는 동안에는 상자 높이가
+    /// 0 이라 밀어도 먹지 않는다. 따라가기는 <b>편의다</b> — 못 해도 로그는
+    /// 그대로 보이므로 여기서 나는 것으로 화면을 세우지 않는다.
+    /// </remarks>
+    private async Task FollowLogAsync()
+    {
+        if (!Live || _tab != TabLog || _lines.Count == 0)
+        {
+            return;
+        }
+
+        try
+        {
+            _logJs ??= await Js.InvokeAsync<IJSObjectReference>(
+                "import", "./_content/JSini.Web.ProjMng/js/log-tail.js");
+
+            await _logJs.InvokeVoidAsync("follow", _logEl);
+        }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException
+            or InvalidOperationException or TaskCanceledException or ObjectDisposedException)
+        {
+            // 떠났거나 회로가 끊겼다. 조용히 넘어간다.
+        }
+    }
+
+    public void Dispose() => StopPoll();
+}

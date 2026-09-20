@@ -153,6 +153,20 @@
     글을 그리면 한 줄에 대여섯 낱말이고, 그 아래 카드 두 장이 화면 밖으로
     밀린다. 이제는 `AiTaskPeek` 이 창으로 띄우고 **휴대폰에서는 화면을
     꽉 채운다.** 그 창이 상태에 따라 결과 · 로그 · 지시 중 하나를 펴서 연다.
+
+    [책상에서는 창이 아니라 **탭**이다 (2026-09-20)]
+
+    창은 좁은 화면의 길이다. 넓은 화면에서 같은 창이 뜨면 **한 번에 한 건만**
+    볼 수 있고, 다른 건을 보려면 닫고 다시 열어야 한다. 실제로 하는 일은
+    「아침에 보낸 것과 방금 끝난 것을 나란히 놓고 견주는 것」인데 창으로는
+    그것이 안 된다.
+
+    그래서 휴대폰(≤767px)에서만 창을 띄우고, 그보다 넓으면 지시마다 있는
+    주소(`/projmng/ai/task/{번호}`)로 옮겨 간다 — 포털의 탭 줄이 주소로 탭을
+    가르므로 **여러 건을 누르면 탭이 여러 개** 선다(`AiTaskViewPage`).
+
+    같은 주소를 앱알림과 메일도 싣는다. 보여 주는 코드는 창과 한 벌이다
+    (`AiTaskView` · `AiTaskActions`).
 *@
 
 @inherits DataPage
@@ -163,8 +177,15 @@
 @inject AiModelCodes ModelCodes
 @inject AiAskPrefs Prefs
 @inject IJSRuntime JS
+@inject NavigationManager Nav
 
 <PageTitle>빠른 지시 · 프로젝트관리</PageTitle>
+
+@* 카드를 누르면 창이냐 탭이냐를 가르는 값. **`@bind-IsActive` 가 아니다** —
+   묶어만 두면 값이 갈려도 처리기가 돌지 않는다(`MainLayout` 이 같은 함정을
+   적어 두었다). 경계 767px 는 창이 화면을 꽉 채우는 경계와 같다. *@
+<DxLayoutBreakpoint DeviceSize="DeviceSize.XSmall"
+                    IsActive="_isPhone" IsActiveChanged="@(v => _isPhone = v)" />
 
 <div class="pm-ask">
 
@@ -1052,8 +1073,29 @@
         StateHasChanged();
     }
 
-    /// <summary>카드를 눌렀다. 들여다보는 창을 연다.</summary>
-    private void Peek(long taskKey) => _peek = taskKey;
+    /// <summary>
+    /// 휴대폰인가. 카드를 눌렀을 때 <b>창을 띄울지 탭으로 옮길지</b>를
+    /// 이 값이 가른다(위 머리말).
+    /// </summary>
+    private bool _isPhone;
+
+    /// <summary>
+    /// 카드를 눌렀다. <b>휴대폰이면 창, 넓은 화면이면 탭</b>이다.
+    /// </summary>
+    /// <remarks>
+    /// 넓은 화면에서 옮겨 가는 주소는 앱알림·메일이 싣는 것과 같다 —
+    /// 두 벌로 두면 한쪽만 고쳐져 어긋난다.
+    /// </remarks>
+    private void Peek(long taskKey)
+    {
+        if (!_isPhone)
+        {
+            Nav.NavigateTo($"/projmng/ai/task/{taskKey}");
+            return;
+        }
+
+        _peek = taskKey;
+    }
 
     /// <summary>
     /// 창이 볼 건. <b>받아 둔 것 전부에서 찾는다</b> — 깔린 넉 장에서만 찾으면
