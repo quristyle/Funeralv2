@@ -100,9 +100,17 @@ public class AccountMailClient
                 return true;
             }
 
+            // **까닭까지 적는다.** 상태 코드만 남기면 「받는 사람이 없다(400)」와
+            // 「SMTP 가 거절했다(502)」가 로그에서 같은 줄로 보인다 — 앞엣것은
+            // 계정에 적힌 주소를 고칠 일이고 뒤엣것은 메일 서버를 볼 일이라,
+            // 가리지 못하면 「안 온다」를 쫓는 자리에서 다시 처음으로 돌아간다.
+            // 같은 길로 메일을 보내는 ProjMngServer 의 AI 작업 알림은 처음부터
+            // 본문을 읽어 사유로 적어 두고 있었다 — 이쪽만 그러지 않았다.
+            var why = await ReasonAsync(response, ct);
+
             _logger.LogError(
-                "메일 발송 실패: HTTP {Status} ({Sender}). 사용자는 「보냈습니다」를 보고 기다리고 있다.",
-                (int)response.StatusCode, sender);
+                "메일 발송 실패: HTTP {Status} ({Sender}) — {Why}. 사용자는 「보냈습니다」를 보고 기다리고 있다.",
+                (int)response.StatusCode, sender, why);
             return false;
         }
         catch (Exception ex)
@@ -112,5 +120,50 @@ public class AccountMailClient
                 sender);
             return false;
         }
+    }
+
+    /// <summary>
+    /// 실패한 응답에서 사람이 읽을 사유를 뽑는다.
+    /// </summary>
+    /// <remarks>
+    /// 저쪽은 <c>ApiResponse</c> 꼴(<c>{ "message": "…" }</c>)로 답하므로 그
+    /// 한 줄이면 충분하다. JSON 이 아니거나 읽다 실패하면 <b>앞부분만 잘라</b>
+    /// 남긴다 — 사유를 뽑다가 던져서 정작 발송 실패 기록이 사라지면 안 된다.
+    /// </remarks>
+    private static async Task<string> ReasonAsync(HttpResponseMessage response, CancellationToken ct)
+    {
+        string body;
+
+        try
+        {
+            body = await response.Content.ReadAsStringAsync(ct);
+        }
+        catch (Exception)
+        {
+            return "(응답 본문을 읽지 못했다)";
+        }
+
+        if (string.IsNullOrWhiteSpace(body))
+        {
+            return "(응답 본문이 비어 있다)";
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(body);
+
+            if (doc.RootElement.TryGetProperty("message", out var message)
+                && message.GetString() is { Length: > 0 } text)
+            {
+                return text;
+            }
+        }
+        catch (JsonException)
+        {
+            // JSON 이 아니면 아래에서 앞부분만 자른다.
+        }
+
+        body = body.Trim();
+        return body[..Math.Min(body.Length, 200)];
     }
 }

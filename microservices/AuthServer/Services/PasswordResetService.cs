@@ -151,9 +151,15 @@ public class PasswordResetService(
 
         if (target is null)
         {
+            // **등록된 주소를 가려서 함께 남긴다.** 이 자리가 「메일이 안 온다」의
+            // 가장 흔한 끝이고, 화면은 아이디 노출을 막으려고 여기서도
+            // 「보냈습니다」를 띄우므로 물어본 사람에게 답할 수 있는 것은 이
+            // 로그 한 줄뿐이다. 가린 꼴이면 관리자가 「등록된 주소는 q***e@gmail.com
+            // 입니다」라고 짚어 줄 수 있으면서 로그를 본 사람이 주소를 통째로
+            // 집어 가지는 못한다.
             logger.LogInformation(
-                "비밀번호 재설정: 이메일이 계정과 다르다 ({LoginId}, 등록 {Count}건, {Ip})",
-                loginId, stored.Count, requestIp);
+                "비밀번호 재설정: 이메일이 계정과 다르다 ({LoginId}, 등록 {Count}건 {Stored}, {Ip})",
+                loginId, stored.Count, string.Join(" · ", stored.Select(Mask)), requestIp);
             return;
         }
 
@@ -192,7 +198,11 @@ public class PasswordResetService(
 
         if (sent)
         {
-            logger.LogInformation("비밀번호 재설정 링크를 보냈다 ({LoginId}, {Ip})", loginId, requestIp);
+            // 어느 주소로 갔는지까지 남긴다 — 「보냈다」만으로는 다른 주소로
+            // 나간 것을 못 가린다(한 계정에 주소가 여럿일 수 있다).
+            logger.LogInformation(
+                "비밀번호 재설정 링크를 보냈다 ({LoginId} → {To}, {Ip})",
+                loginId, Mask(target), requestIp);
         }
         // 실패는 AccountMailClient 가 이미 오류로 남겼다. 화면에는 어차피
         // 같은 문구가 나가므로 여기서 더 할 수 있는 일이 없다.
@@ -257,6 +267,38 @@ public class PasswordResetService(
     /// <summary>토큰 원문 → 저장용 해시. 왜 PBKDF2 가 아닌지는 엔티티 주석에 있다.</summary>
     private static string HashToken(string raw) =>
         Convert.ToBase64String(SHA256.HashData(Encoding.UTF8.GetBytes(raw)));
+
+    /// <summary>
+    /// 메일 주소를 로그에 남길 수 있게 가린다 (<c>quristyle@gmail.com</c> →
+    /// <c>q***e@gmail.com</c>).
+    /// </summary>
+    /// <remarks>
+    /// <b>도메인은 남긴다.</b> 「회사 메일인지 개인 메일인지」가 문의에 답할 때
+    /// 가장 쓸모 있는 조각이고, 도메인만으로는 사람을 짚을 수 없다.
+    /// 아이디 쪽은 양 끝 한 글자만 남긴다 — 두 글자 이하면 통째로 가린다.
+    /// </remarks>
+    private static string Mask(string? address)
+    {
+        if (string.IsNullOrWhiteSpace(address))
+        {
+            return "(없음)";
+        }
+
+        var at = address.IndexOf('@');
+
+        // 주소 꼴이 아니면 가릴 자리를 정할 수 없다. 길이만 남긴다.
+        if (at <= 0)
+        {
+            return $"(주소 꼴이 아님, {address.Trim().Length}자)";
+        }
+
+        var local = address[..at];
+        var domain = address[at..];
+
+        return local.Length <= 2
+            ? $"{new string('*', local.Length)}{domain}"
+            : $"{local[0]}***{local[^1]}{domain}";
+    }
 
     /// <summary>주소에 그대로 실을 수 있는 base64.</summary>
     private static string Base64Url(byte[] bytes) =>
