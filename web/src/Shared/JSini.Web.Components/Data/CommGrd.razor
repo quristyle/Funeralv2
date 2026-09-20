@@ -86,7 +86,7 @@
 
             @Columns
 
-            @if (OnSave.HasDelegate || OnDelete.HasDelegate || RowActions is not null)
+            @if (EditsInPopup || OnDelete.HasDelegate || RowActions is not null)
             {
                 @* **오른쪽에 붙박는다.** 칸이 열몇 개인 관리 화면은 가로로
                    굴러야 하는데, 그때 「수정 · 삭제」가 스크롤 저편으로 사라진다 —
@@ -102,7 +102,9 @@
                                 @RowActions(row)
                             }
 
-                            @if (OnSave.HasDelegate)
+                            @* 편집 자리가 표 밖인 화면에는 달지 않는다 — 줄을 누르는
+                               것이 곧 편집이라, 같은 일을 하는 단추가 하나 더 생긴다. *@
+                            @if (EditsInPopup)
                             {
                                 <PermissionView Action="MenuAction.Update">
                                     <DxButton IconCssClass="jsini-icon-edit"
@@ -163,7 +165,7 @@
     {
         <CascadingValue Name="@ThemeSize.CascadeName" TValue="SizeMode?" Value="@Size.Chrome">
         <div class="commgrd__footer">
-            @if (OnSave.HasDelegate || OnCreate.HasDelegate)
+            @if (OnSave.HasDelegate)
             {
                 <PermissionView Action="MenuAction.Create">
                     <DxButton IconCssClass="jsini-icon-plus"
@@ -313,32 +315,34 @@
     /// 넘어오는 것은 DevExpress 가 만든 <b>편집 모델</b>(원본의 사본)이다.
     /// 여기서 고쳐도 저장을 취소하면 표에는 남지 않는다.
     /// </para>
+    ///
+    /// <para>
+    /// <b>편집 자리가 표 밖인 화면</b>(폼을 주지 않은 화면)에서는 아래 띠의
+    /// ＋ 가 이것을 부른다 — 그때 넘어오는 것은 이 부품이 방금 만든 빈 줄이고
+    /// <c>bool</c> 은 늘 참이다. 받은 줄을 화면이 자기 편집 자리에 앉힌다.
+    /// </para>
     /// </summary>
     [Parameter] public Action<TItem, bool>? OnEditOpen { get; set; }
 
-    /// <summary>저장. 주면 「등록」·「수정」이 생긴다.</summary>
-    [Parameter] public EventCallback<(TItem Item, bool IsNew)> OnSave { get; set; }
-
     /// <summary>
-    /// 「등록」을 <b>화면이 직접 받는다.</b> 주면 아래 띠의 ＋ 가
-    /// 팝업 편집 창을 열지 않고 이것을 부른다.
+    /// 저장. <b>주면 아래 띠에 ＋ 가 생긴다</b> — 이 표가 고칠 수 있는
+    /// 목록이라는 말이 이 하나다.
     ///
     /// <para>
-    /// <b>새로 만드는 자리가 표 밖에 있는 화면을 위한 것이다.</b> 좌우로 갈라
-    /// 왼쪽에서 고르고 오른쪽에서 고치는 화면(AI 작업 지시 …)은 <see cref="OnSave"/>
-    /// 를 주지 않는다 — 본문이 길어 팝업 편집 창에 들어가지 않기 때문이다.
-    /// 그러면 ＋ 가 아예 안 생겨서 화면마다 「새 작업」 단추를 따로 세우게 되고,
-    /// <b>화면에 따라 새로 만드는 자리가 달라진다.</b> 아래 띠 맨 왼쪽이
-    /// 그 자리라는 것이 화면 백 개에서 같아야 한다.
+    /// 팝업 편집 창을 쓰는 화면(<see cref="EditFormTemplate"/> 를 준 화면)에서는
+    /// 창의 「저장」이 이것을 부르고, 관리 칸에 「수정」도 함께 생긴다.
     /// </para>
     ///
     /// <para>
-    /// 둘 다 주면 이쪽이 이긴다 — 화면이 제 길을 따로 마련해 두었다는 뜻이다.
+    /// <b>편집 자리가 표 밖인 화면</b>(좌우로 갈라 왼쪽에서 고르고 오른쪽에서
+    /// 고치는 AI 작업 지시 …)은 화면이 <see cref="SaveAsync"/> 로 직접 부른다.
+    /// 어느 쪽이든 <b>쓰고 저장하는 일은 이 한 길로 간다</b> — 성공·실패 문구도,
+    /// 저장 뒤 목록을 다시 읽는 것도 갈리지 않는다.
     /// </para>
     /// </summary>
-    [Parameter] public EventCallback OnCreate { get; set; }
+    [Parameter] public EventCallback<(TItem Item, bool IsNew)> OnSave { get; set; }
 
-    /// <summary>＋ 에 붙는 말풍선. 화면이 따로 받는 자리는 그 이름을 적어 둔다.</summary>
+    /// <summary>＋ 에 붙는 말풍선. 「새 작업」처럼 화면의 말이 따로 있으면 적는다.</summary>
     [Parameter] public string CreateTitle { get; set; } = "등록";
 
     /// <summary>삭제. 주면 「삭제」가 생긴다.</summary>
@@ -940,11 +944,57 @@
     public Task StartNewAsync() => _grid?.StartEditNewRowAsync() ?? Task.CompletedTask;
 
     /// <summary>
-    /// 아래 띠의 ＋. <see cref="OnCreate"/> 를 준 화면은 그쪽으로 보내고,
-    /// 안 준 화면은 지금까지처럼 팝업 편집 창을 연다.
+    /// 고치는 자리가 <b>팝업 편집 창</b>인가.
+    ///
+    /// <para>
+    /// 폼을 주지 않은 화면은 고치는 자리를 표 밖에 따로 두었다는 뜻이다 —
+    /// 그런 화면에서 창을 열면 <b>빈 창</b>이 뜬다. 따로 켜는 값을 두지 않는
+    /// 이유는 그것이 두 벌의 진실이 되기 때문이다. 폼이 어디 있는지는
+    /// <see cref="EditFormTemplate"/> 하나가 이미 말하고 있다.
+    /// </para>
     /// </summary>
-    private Task CreateAsync() =>
-        OnCreate.HasDelegate ? OnCreate.InvokeAsync() : StartNewAsync();
+    private bool EditsInPopup => OnSave.HasDelegate && EditFormTemplate is not null;
+
+    /// <summary>
+    /// 아래 띠의 ＋. 팝업으로 고치는 화면은 편집 창을 열고, <b>편집 자리가
+    /// 표 밖인 화면은 새 줄을 화면에 넘긴다</b> — <see cref="OnNew"/> 로
+    /// 기본값을 채워 <see cref="OnEditOpen"/> 으로 준다. 팝업이 열릴 때와
+    /// 같은 순서라, 화면은 자리가 어디든 같은 두 자리만 채우면 된다.
+    /// </summary>
+    private Task CreateAsync()
+    {
+        if (EditsInPopup)
+        {
+            return StartNewAsync();
+        }
+
+        var fresh = Activator.CreateInstance<TItem>();
+
+        OnNew?.Invoke(fresh);
+        OnEditOpen?.Invoke(fresh, true);
+
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// <b>표 밖에서 고친 것을 저장한다.</b> 팝업의 「저장」과 같은 길이다 —
+    /// <see cref="OnSave"/> 를 부르고, 성공하면 문구를 띄우고 목록을 다시 읽는다.
+    /// </summary>
+    /// <returns>저장했으면 <c>true</c>. 뒤처리는 부르는 화면이 정한다.</returns>
+    public async Task<bool> SaveAsync(TItem item, bool isNew)
+    {
+        var saved = await RunAsync(
+            () => OnSave.InvokeAsync((item, isNew)),
+            isNew ? "등록했습니다." : "저장했습니다.",
+            isNew ? "등록하지 못했습니다" : "저장하지 못했습니다");
+
+        if (saved)
+        {
+            await Reload.InvokeAsync();
+        }
+
+        return saved;
+    }
 
     private Task EditAsync(int visibleIndex) => _grid?.StartEditRowAsync(visibleIndex) ?? Task.CompletedTask;
 
@@ -1000,19 +1050,11 @@
             return;
         }
 
-        var saved = await RunAsync(
-            () => OnSave.InvokeAsync((model, e.IsNew)),
-            e.IsNew ? "등록했습니다." : "저장했습니다.",
-            e.IsNew ? "등록하지 못했습니다" : "저장하지 못했습니다");
-
-        if (!saved)
+        if (!await SaveAsync(model, e.IsNew))
         {
             // 실패하면 팝업을 닫지 않는다. 닫으면 쓴 내용이 사라진다.
             e.Cancel = true;
-            return;
         }
-
-        await Reload.InvokeAsync();
     }
 
     private async Task OnDataItemDeletingAsync(GridDataItemDeletingEventArgs e)

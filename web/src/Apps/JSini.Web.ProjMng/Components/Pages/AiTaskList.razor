@@ -168,15 +168,21 @@
                  PageSize="10"
                  EmptyText="등록된 작업이 없습니다."
                  Reload="@SearchAsync"
-                 OnCreate="@NewTask"
+                 OnNew="@FillNewTask"
+                 OnEditOpen="@OpenTask"
+                 OnSave="@PersistAsync"
                  CreateTitle="새 작업"
                  SelectedItem="@_picked"
                  SelectedItemChanged="@PickAsync">
-            @* 새로 만드는 자리는 **아래 띠의 ＋** 다. 이 화면은 본문이 길어
-               팝업 편집 창을 쓰지 않으므로(`OnSave` 를 안 준다) ＋ 가 저절로는
-               생기지 않는다 — `OnCreate` 가 그 자리를 이 화면으로 돌려 준다.
-               띠 왼쪽에 「새 작업」 단추를 따로 세우면 이 화면만 새로 만드는
-               자리가 다른 곳이 된다. *@
+            @* **쓰고 저장하는 일이 `OnSave` 다.** 그래서 새로 만드는 자리도
+               아래 띠의 ＋ 로 저절로 생긴다 — 띠 왼쪽에 「새 작업」 단추를 따로
+               세우면 이 화면만 새로 만드는 자리가 다른 곳이 된다.
+
+               팝업 편집 창은 쓰지 않는다(본문이 길다). 편집 폼을 주지 않았으므로
+               ＋ 는 창을 열지 않고 새 줄을 이 화면으로 넘기고(`OnNew` ·
+               `OnEditOpen`), 오른쪽에서 고친 것은 화면이 `SaveAsync` 로 되돌려
+               보낸다. 관리 칸의 「수정」도 그래서 안 생긴다 — 줄을 누르는 것이
+               곧 편집이다. *@
 
             <Columns>
                 @* 적어 둔 임시본이 있는 줄에 표를 단다. **이것이 없으면
@@ -1448,6 +1454,39 @@
     /// </remarks>
     private void NewTask()
     {
+        var fresh = new AiTaskDto();
+
+        FillNewTask(fresh);
+        OpenTask(fresh, isNew: true);
+    }
+
+    /// <summary>새 작업의 기본값. 표의 ＋ 도 이것을 거쳐 온다(<c>OnNew</c>).</summary>
+    private void FillNewTask(AiTaskDto task)
+    {
+        task.RunnerKind = RunnerKinds.FirstOrDefault()?.Value ?? "claude";
+        task.TimeoutMinutes = 30;
+        task.AttemptMax = 3;
+        task.NotifyEmail = true;
+        task.NotifyWhen = "always";
+        task.TargetKey = _targetKey ?? (_enabledTargets.Count == 1 ? _enabledTargets[0].TargetKey : null);
+    }
+
+    /// <summary>
+    /// 표가 넘겨 준 줄을 오른쪽 편집 자리에 앉힌다(<c>OnEditOpen</c>).
+    ///
+    /// <para>
+    /// <b>새로 만드는 것만 이리로 온다.</b> 편집 자리가 표 밖이라 관리 칸에
+    /// 「수정」이 없고, 있는 건은 줄을 누르는 것이 곧 편집이다
+    /// (<see cref="PickAsync"/>).
+    /// </para>
+    /// </summary>
+    private void OpenTask(AiTaskDto task, bool isNew)
+    {
+        if (!isNew)
+        {
+            return;
+        }
+
         _picked = null;
         _base = null;
         _draftAt = null;
@@ -1456,15 +1495,7 @@
         _tabPinned = false;
         _tab = 0;
 
-        _edit = new AiTaskDto
-        {
-            RunnerKind = RunnerKinds.FirstOrDefault()?.Value ?? "claude",
-            TimeoutMinutes = 30,
-            AttemptMax = 3,
-            NotifyEmail = true,
-            NotifyWhen = "always",
-            TargetKey = _targetKey ?? (_enabledTargets.Count == 1 ? _enabledTargets[0].TargetKey : null),
-        };
+        _edit = task;
     }
 
     private async Task SaveAsync()
@@ -1480,34 +1511,29 @@
             return;
         }
 
+        if (_grid is null)
+        {
+            return;
+        }
+
         Busy = true;
 
         try
         {
-            var isNew = _edit.TaskKey == 0;
-
             // 임시본의 열쇠다. 새 작업은 저장하면 번호가 붙으므로 **저장 전의
             // 번호**를 들고 있어야 그것을 버릴 수 있다.
             var draftKey = _edit.TaskKey;
 
-            var saved = await RunAsync(
-                async () =>
-                {
-                    var result = isNew
-                        ? await Api.CreateAsync(_edit)
-                        : await Api.UpdateAsync(_edit);
-
-                    Take(result);
-                },
-                isNew ? "등록했습니다." : "저장했습니다.",
-                "저장하지 못했습니다");
+            // **표의 저장 길로 되돌려 보낸다**(`OnSave` → `PersistAsync`).
+            // 성공 문구도 목록을 다시 읽는 것도 표가 맡는다 — 화면마다
+            // 「저장했습니다」가 조금씩 다른 말이 되지 않게.
+            var saved = await _grid.SaveAsync(_edit, _edit.TaskKey == 0);
 
             if (saved)
             {
                 // 서버에 들어갔다. 임시본은 할 일을 다 했다.
                 await DropDraftAsync(draftKey);
 
-                await SearchAsync();
                 SyncPicked();
             }
         }
@@ -1515,6 +1541,20 @@
         {
             Busy = false;
         }
+    }
+
+    /// <summary>
+    /// 실제로 서버에 넣는 일. 표의 <c>OnSave</c> 가 이것을 부르고,
+    /// 「요청」처럼 <b>저장부터 하고 가는 자리</b>도 같은 것을 부른다 —
+    /// 등록이냐 수정이냐를 가르는 줄이 두 곳에 있으면 갈린다.
+    /// </summary>
+    private async Task PersistAsync((AiTaskDto Item, bool IsNew) e)
+    {
+        var result = e.IsNew
+            ? await Api.CreateAsync(e.Item)
+            : await Api.UpdateAsync(e.Item);
+
+        Take(result);
     }
 
     /// <summary>
@@ -1555,14 +1595,7 @@
             if (_edit.TaskKey == 0 || HasChanges())
             {
                 var saved = await RunAsync(
-                    async () =>
-                    {
-                        var result = _edit.TaskKey == 0
-                            ? await Api.CreateAsync(_edit)
-                            : await Api.UpdateAsync(_edit);
-
-                        Take(result);
-                    },
+                    () => PersistAsync((_edit, _edit.TaskKey == 0)),
                     "저장했습니다.", "저장하지 못해 요청하지 않았습니다");
 
                 if (!saved)
