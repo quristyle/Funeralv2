@@ -186,7 +186,7 @@ public class PushSender : IPushSender
         // 풀면 같은 사람의 사진을 기기 수만큼 조회하게 된다.
         await FillIconAsync(request.Message, ct);
 
-        var payload = BuildPayload(request.Message);
+        var payload = BuildPayload(request.Message, batchId);
         var client = new WebPushClient();
         var vapid = new VapidDetails(_vapid.Subject, _vapid.PublicKey, _vapid.PrivateKey);
 
@@ -337,10 +337,30 @@ public class PushSender : IPushSender
     /// 브라우저의 서비스워커가 읽는 모양으로 만든다.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// 헬프데스크가 쓰던 키 이름(<c>title</c>·<c>body</c>·<c>url</c>·<c>icon</c>·<c>tag</c>)을
     /// 그대로 쓴다. 이미 배포된 서비스워커가 그 이름을 읽고 있어서, 바꾸면 알림이 빈 채로 뜬다.
+    /// </para>
+    ///
+    /// <para>
+    /// [<c>nid</c> — 누른 알림이 어느 것인지 알려 주는 값]
+    /// </para>
+    ///
+    /// <para>
+    /// 「내 알림함」의 열쇠(<see cref="Entities.PushSendLog.BatchId"/>)를 그대로
+    /// 싣는다. 이것이 없으면 <b>알림을 눌러 화면까지 열어 본 사람도 알림함에서는
+    /// 안 읽은 채로 남는다</b> — 브라우저가 알려 주는 것은 제목·본문·주소뿐이라
+    /// 서버가 남긴 어느 줄을 눌렀는지 맞출 방법이 없다.
+    /// </para>
+    ///
+    /// <para>
+    /// 주소(<c>url</c>)에 붙여 보내지 않는 이유는 <b>그 주소가 기록에도 남기</b>
+    /// 때문이다(<c>push_send_logs.url</c>). 표시를 섞어 두면 알림함에서 그 주소를
+    /// 다시 열 때도 읽음 표시가 따라다닌다. 표시를 붙이는 일은 <b>누른 그 순간에</b>
+    /// 서비스워커가 한다(<c>push-sw.js</c>).
+    /// </para>
     /// </remarks>
-    private static string BuildPayload(PushMessageDto message)
+    private static string BuildPayload(PushMessageDto message, string batchId)
     {
         var payload = new Dictionary<string, object?>
         {
@@ -348,7 +368,8 @@ public class PushSender : IPushSender
             ["body"] = message.Body,
             ["url"] = message.Url,
             ["icon"] = message.Icon,
-            ["tag"] = message.Tag
+            ["tag"] = message.Tag,
+            ["nid"] = batchId
         };
 
         if (message.Data is { Count: > 0 })

@@ -1,0 +1,141 @@
+@*
+    [앱 알림을 눌러 들어오면 그 알림을 읽음으로 찍는다]
+
+    레이아웃(`MainLayout`)에 놓인다. 아무것도 그리지 않는다 — 주소에 실려 온
+    표시 하나를 보고 서버를 한 번 부르는 것이 전부다.
+
+    [왜 필요한가 — 보고 왔는데 알림함에는 안 읽은 채로 남았다]
+
+    빠른 지시 같은 작업이 끝나면 앱 푸시가 간다. 누르면 그 건의 화면이 열리니
+    **사람은 그것을 이미 본 것**인데, 「내 알림함」(`/admin/push/history`)에서는
+    여전히 안 읽은 줄로 남아 있었다. 읽음을 찍는 길이 그 화면의 「읽음 처리」
+    단추 하나뿐이었기 때문이다 — 본 사람에게 다시 「봤다」를 누르게 하는 꼴이다.
+
+    [표시는 서비스워커가 붙인다]
+
+    ```
+    푸시 페이로드 nid ──▶ push-sw.js (notificationclick)
+                          └─ 열 주소에 ?pushId=<nid> 를 얹는다
+                                └─▶ 여기: 표시를 떼고 읽음 처리를 부른다
+    ```
+
+    `nid` 는 「발송 한 번」의 열쇠(NotificationServer 의 `batch_id`)다. 알림함이
+    묶는 단위가 그것이라 기기를 둘 쓰는 사람도 한 번에 찍힌다.
+
+    [왜 서비스워커가 직접 안 부르나]
+
+    알림 API 는 로그인한 사람의 것인데, 이 포털의 토큰은 **서버가 들고 있어
+    브라우저로 내려오지 않는다**(BFF). 서비스워커가 가진 것으로는 그 호출에
+    자기를 밝힐 수 없다. 화면 쪽에서 부르면 늘 하던 게이트웨이 길 그대로다.
+
+    덤이 하나 있다 — 이 길은 **화면이 실제로 열렸을 때만** 찍힌다. 서비스워커가
+    직접 찍으면 창이 안 뜨거나 도중에 닫혀도 읽은 것이 된다.
+
+    [표시는 곧바로 뗀다]
+
+    처리하자마자 주소에서 `pushId` 를 지운다(`replace` 라 뒤로 가기에 남지
+    않는다). 남겨 두면 그 주소가 즐겨찾기·공유로 퍼지고, 그때마다 남의 알림
+    열쇠가 따라다닌다. 뗀 값으로 다시 부르지 않도록 처리한 열쇠도 기억해 둔다.
+
+    [못 찍어도 조용하다]
+
+    실패해도 토스트를 띄우지 않는다. 사람이 시킨 일이 아니라 곁다리로 도는
+    일이고, 알림함의 「읽음 처리」 단추가 그대로 남아 있다.
+*@
+
+@implements IDisposable
+
+@using Microsoft.AspNetCore.WebUtilities
+@using Microsoft.Extensions.Logging
+@using JSini.Web.Components.Settings
+
+@inject NavigationManager Navigation
+@inject NotificationClient Api
+@inject ILogger<PushClickRead> Log
+
+@code {
+    /// <summary>
+    /// 주소에 실려 오는 표시 이름. <b>서비스워커와의 약속</b>이라
+    /// (<c>push-sw.js</c> 의 <c>withReadMark</c>) 한쪽만 고치면 조용히 끊긴다.
+    /// </summary>
+    private const string Marker = "pushId";
+
+    /// <summary>
+    /// 이미 처리한 열쇠. 같은 값으로 두 번 부르지 않는다 — 표시를 뗀 이동이
+    /// 다시 <see cref="OnLocationChanged"/> 를 타므로 방패가 하나 있어야 한다.
+    /// </summary>
+    private string? _done;
+
+    protected override void OnInitialized()
+    {
+        Navigation.LocationChanged += OnLocationChanged;
+    }
+
+    /// <summary>
+    /// <b>첫 렌더 뒤에</b> 본다. 알림을 누르면 브라우저가 그 주소를 통째로
+    /// 여는 길이라(회로가 새로 붙는다) 대개 여기서 걸린다.
+    ///
+    /// <para>
+    /// 프리렌더 중에 하지 않는 이유는 주소를 바꾸기 때문이다 — 그때의
+    /// <c>NavigateTo</c> 는 예외로 흐름을 끊는다.
+    /// </para>
+    /// </summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await MarkAsync();
+        }
+    }
+
+    /// <summary>
+    /// 회로 안에서 옮겨 다니는 길도 본다. 지금은 첫 렌더 쪽만 타지만,
+    /// 이미 열린 창을 옮기는 방식이 바뀌어도 여기서 받는다.
+    /// </summary>
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+        => _ = InvokeAsync(MarkAsync);
+
+    private async Task MarkAsync()
+    {
+        if (TakeMarker() is not { Length: > 0 } id || id == _done)
+        {
+            return;
+        }
+
+        _done = id;
+
+        try
+        {
+            await Api.MarkInboxReadAsync(id);
+        }
+        catch (Exception ex)
+        {
+            Log.LogDebug(ex, "알림 {Id} 를 읽음으로 찍지 못했다.", id);
+        }
+    }
+
+    /// <summary>
+    /// 주소에서 표시를 <b>꺼내면서 뗀다.</b> 떼는 일을 처리 뒤로 미루지
+    /// 않는 이유는 실패해도 표시가 남으면 안 되기 때문이다.
+    /// </summary>
+    private string? TakeMarker()
+    {
+        var query = new Uri(Navigation.Uri).Query;
+
+        if (string.IsNullOrEmpty(query)
+            || !QueryHelpers.ParseQuery(query).TryGetValue(Marker, out var values))
+        {
+            return null;
+        }
+
+        Navigation.NavigateTo(
+            Navigation.GetUriWithQueryParameter(Marker, (string?)null), replace: true);
+
+        return values.ToString() is { Length: > 0 } id ? id : null;
+    }
+
+    public void Dispose()
+    {
+        Navigation.LocationChanged -= OnLocationChanged;
+    }
+}

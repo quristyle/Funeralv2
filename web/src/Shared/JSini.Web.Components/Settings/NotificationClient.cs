@@ -79,6 +79,28 @@ public sealed class NotificationClient(GatewayClient gateway)
         => gateway.PostAsync("notification/notifications/subscriptions", request, ct);
 
     /// <summary>
+    /// 알림 한 건을 <b>읽음</b>으로 찍는다. 열쇠는 「발송 한 번」
+    /// (<c>batch_id</c>)이라 기기가 여럿이어도 한 번에 찍힌다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>알림을 눌러 들어온 사람을 위해 여기 있다.</b> 서비스워커가 열 주소에
+    /// 표시를 얹어 주고(<c>push-sw.js</c> 의 <c>withReadMark</c>), 레이아웃에
+    /// 늘 실려 있는 <c>PushClickRead</c> 가 그것을 보고 이 호출을 한다 —
+    /// 그래서 <b>업무 모듈이 아니라 공용 자리</b>다. 알림이 데려가는 화면은
+    /// 모듈을 가리지 않는다.
+    /// </para>
+    /// <para>
+    /// 포털관리의 「내 알림함」에도 같은 호출이 있다(<c>AdminClient</c> 의
+    /// <c>MarkNotificationReadAsync</c>). 그쪽은 목록·통계와 한 벌로 묶인
+    /// 화면용 클라이언트라 그대로 두었다 — 주소가 같은 한 줄이다.
+    /// </para>
+    /// </remarks>
+    public Task MarkInboxReadAsync(string id, CancellationToken ct = default)
+        => gateway.PostAsync(
+            $"notification/notifications/inbox/{Uri.EscapeDataString(id)}/read", new { }, ct);
+
+    /// <summary>
     /// 구독을 지운다. 열쇠는 <paramref name="endpoint"/> 다.
     ///
     /// <b>브라우저에서 끊기 전에 그 값을 꺼내 두어야 한다</b> — 끊고 나면
