@@ -374,10 +374,14 @@
 
                                     @if (hidden > 0)
                                     {
+                                        @* 휴대폰에서는 한 칸이 손가락 하나 폭이다 — 「2개 더보기」가
+                                           칸을 넘어 잘린다. 눈에는 `+2` 만 주고 읽어 주는 쪽에는
+                                           온전한 말을 남긴다. *@
                                         <button type="button" class="pm-gc-week__more"
                                                 style="@MoreStyle(here)"
+                                                aria-label="@($"{hidden}개 더보기")"
                                                 @onclick="@(() => Peek(week.Days[here].Date))">
-                                            @(hidden)개 더보기
+                                            @(_isPhone ? $"+{hidden}" : $"{hidden}개 더보기")
                                         </button>
                                     }
                                 }

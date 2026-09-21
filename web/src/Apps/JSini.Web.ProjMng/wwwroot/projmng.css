@@ -2447,8 +2447,15 @@
 }
 
 @media (max-width: 767px) {
+  /* **`align-items` 를 같이 되돌린다.** 위의 `flex-start` 는 가로로 놓였을 때
+     「위에 붙인다」는 뜻이지만, 여기서 줄이 세로로 서는 순간 같은 값이
+     「내용만큼만 넓힌다」로 바뀐다. 그러면 달력 판(`pm-gc__main`)이 제 폭을
+     못 받고, 월 격자는 `repeat(7, 1fr)` 이라 줄 폭이 없으면 글자 하나 너비로
+     오그라든다 — 화면이 남아도는데 달력만 좁게 서 있던 까닭이다.
+     왼쪽 기둥이 `width: 100%` 를 달고 있는 것도 같은 일을 겪은 자국이다. */
   .pm-gc__body {
     flex-direction: column;
+    align-items: stretch;
   }
 
   .pm-gc__rail {
@@ -2869,6 +2876,18 @@
 
 .pm-gc-week__more:hover {
   text-decoration: underline;
+}
+
+/* 휴대폰의 한 칸은 50px 언저리다. 좌우 여백이 그 중 3분의 1을 먹으면 막대에
+   남는 글자가 한두 자뿐이라, 무슨 일인지 알아볼 수 없는 색띠가 된다.
+   글은 `+N` 으로 줄여 두었으므로(화면) 가운데에 놓는다. */
+.pm-gc-month--phone .pm-gc-bar {
+  padding: 0 3px;
+}
+
+.pm-gc-month--phone .pm-gc-week__more {
+  padding: 0 2px;
+  text-align: center;
 }
 
 /* ── 일정 목록 ───────────────────────────────────────────────
