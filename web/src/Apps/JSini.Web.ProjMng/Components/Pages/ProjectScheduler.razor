@@ -155,6 +155,17 @@
                 <CommSchItem Label="진행">
                     <CodeSelect CodeId="compstat" @bind-Value="_completeState" ShowAll="true" />
                 </CommSchItem>
+
+                @* 달력의 표현이나 날짜를 변경시키는 컨트롤들을 조회영역 안으로 올림 (컴팩트 디자인) *@
+                <CommSchItem Label="기간">
+                    <DateRangeTabs @bind-Anchor="_anchor" @bind-Preset="_preset"
+                                   ShowDateEdit="@(!_isPhone)"
+                                   RangeChanged="@(_ => SearchAsync())" />
+                </CommSchItem>
+
+                <CommSchItem Label="보기">
+                    <DxComboBox Data="@(new[] { "달력", "표" })" @bind-Value="_viewMode" Width="100px" />
+                </CommSchItem>
             </Fields>
 
             <Actions>
@@ -168,16 +179,8 @@
     </div>
 </details>
 
-@* 이 탭이 조회 구간과 달력 보기를 함께 정한다(머리말).
-
-   휴대폰에서는 날짜 고르개를 접는다 — 조건줄이 두 줄로 접히면 달력이 그만큼
-   아래로 밀리고, 날짜를 옮기는 일은 쓸기와 ‹ › 단추가 이미 맡고 있다. *@
-<DateRangeTabs @bind-Anchor="_anchor" @bind-Preset="_preset"
-               ShowDateEdit="@(!_isPhone)"
-               RangeChanged="@(_ => SearchAsync())" />
-
-<DxTabs>
-    <DxTabPage Text="달력">
+@if (_viewMode == "달력")
+{
         @if (_isPhone)
         {
             @* 손으로 그린 월 달력 — 까닭은 머리말 [휴대폰에서는 달력을
@@ -282,9 +285,9 @@
                 <DxSchedulerDayView />
             </DxScheduler>
         }
-    </DxTabPage>
-
-    <DxTabPage Text="표">
+}
+else if (_viewMode == "표")
+{
         <CommCont Title="일정표" Hint="@Hint">
             <CommGrd TItem="WbsItemDto"
                      Data="@_rows"
@@ -334,8 +337,7 @@
                 </EditFormTemplate>
             </CommGrd>
         </CommCont>
-    </DxTabPage>
-</DxTabs>
+}
 
 @* 달력에서 여는 편집 창. 표의 편집 창과 같은 칸(`WbsEditForm`)에
    이 화면에만 필요한 셋(프로젝트 · 구분 · 완료)을 앞에 얹었다. *@
@@ -396,6 +398,7 @@
 
     private DateTime _anchor = DateTime.Today;
     private DateRangePreset _preset = DateRangePreset.Month;
+    private string _viewMode = "달력";
 
     private string? _projectCode;
     private string? _completeState;
