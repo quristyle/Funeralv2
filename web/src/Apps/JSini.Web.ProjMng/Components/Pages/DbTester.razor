@@ -50,7 +50,8 @@
 
 <div class="pm-query">
     <CodeEditor @bind-Value="_query" Height="200px" Language="sql"
-                Placeholder="SELECT * FROM table_name WHERE ..." />
+                Placeholder="SELECT * FROM table_name WHERE ..."
+                OnCtrlEnter="@ExecuteAsync" />
 </div>
 
 @* 칸이 실행 시점에 정해진다 — 사람이 친 문장의 결과이기 때문이다. *@
