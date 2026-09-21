@@ -65,7 +65,6 @@
                         TextFieldName="@nameof(DrawingOption.Label)"
                         ValueChanged="@((DrawingOption? d) => PickDrawingAsync(d))"
                         Enabled="@(_drawings.Count > 1)"
-                        NullText="조회하면 목록이 나옵니다"
                         ValidationEnabled="false" CssClass="pm-code-select" />
         </CommSchItem>
     </Fields>

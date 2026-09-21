@@ -63,7 +63,7 @@
 <BuildingFilter @bind-BuildingId="_buildingId" @bind-FloorId="_floorId" ShowFloor="true" Search="@ReloadAsync">
     <ChildContent>
         <CommSchItem Label="고인명">
-            <DxTextBox @bind-Text="_name" NullText="이름" Style="width: 140px"
+            <DxTextBox @bind-Text="_name" Style="width: 140px"
                        BindValueMode="BindValueMode.OnInput"
                        ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
         </CommSchItem>
@@ -83,16 +83,16 @@
         @if (_showDates)
         {
             <CommSchItem Label="입관">
-                <DxDateEdit @bind-Date="_coffinFrom" NullText="시작"
+                <DxDateEdit @bind-Date="_coffinFrom"
                             ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
-                <DxDateEdit @bind-Date="_coffinTo" NullText="끝"
+                <DxDateEdit @bind-Date="_coffinTo"
                             ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
             </CommSchItem>
 
             <CommSchItem Label="발인">
-                <DxDateEdit @bind-Date="_burialFrom" NullText="시작"
+                <DxDateEdit @bind-Date="_burialFrom"
                             ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
-                <DxDateEdit @bind-Date="_burialTo" NullText="끝"
+                <DxDateEdit @bind-Date="_burialTo"
                             ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
             </CommSchItem>
         }

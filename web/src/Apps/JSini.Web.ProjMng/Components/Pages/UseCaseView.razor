@@ -68,8 +68,7 @@
                이름을 바꾸면 옛 판정(덮어쓰기 막음)이 남지 않게 지운다. *@
             <DxComboBox Data="@_names" Value="@_name"
                         ValueChanged="@((string? v) => PickNameAsync(v))"
-                        AllowUserInput="true" ValidationEnabled="false"
-                        NullText="그림 이름" CssClass="pm-code-select" />
+                        AllowUserInput="true" ValidationEnabled="false" CssClass="pm-code-select" />
         </CommSchItem>
     </Fields>
 

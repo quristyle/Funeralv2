@@ -27,7 +27,7 @@
                         Value="@BuildingId"
                         ValueChanged="@((string? v) => OnBuildingChangedAsync(v))"
                         TextFieldName="@nameof(Building.Name)" ValueFieldName="@nameof(Building.Id)"
-                        NullText="전체" ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto"
+                        ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto"
                         Style="width: 180px" />
         </CommSchItem>
 
@@ -38,7 +38,7 @@
                             Value="@FloorId"
                             ValueChanged="@((string? v) => OnFloorChangedAsync(v))"
                             TextFieldName="@nameof(Floor.Name)" ValueFieldName="@nameof(Floor.Id)"
-                            NullText="전체" ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto"
+                            ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto"
                             Style="width: 140px" />
             </CommSchItem>
         }
@@ -50,7 +50,7 @@
                             Value="@RoomId"
                             ValueChanged="@((string? v) => OnRoomChangedAsync(v))"
                             TextFieldName="@nameof(Room.Name)" ValueFieldName="@nameof(Room.Id)"
-                            NullText="전체" ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto"
+                            ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto"
                             Style="width: 160px" />
             </CommSchItem>
         }

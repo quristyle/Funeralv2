@@ -50,8 +50,7 @@
 
         <CommSchItem Label="확장자">
             <DxComboBox Data="@_extends" Value="@_extend"
-                        ValueChanged="@((string? v) => OnExtendChanged(v))"
-                        NullText="확장자" Enabled="@(_extends.Count > 0)"
+                        ValueChanged="@((string? v) => OnExtendChanged(v))" Enabled="@(_extends.Count > 0)"
                         CssClass="pm-code-select" />
         </CommSchItem>
     </Fields>

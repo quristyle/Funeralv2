@@ -60,13 +60,12 @@
 <CommSch OnSearch="@ReloadAsync" OnReset="@ResetAsync">
     <Fields>
         <CommSchItem Label="분류">
-            <DxComboBox Data="@_categories" @bind-Value="_category"
-                        NullText="전체" Style="width: 170px"
+            <DxComboBox Data="@_categories" @bind-Value="_category" Style="width: 170px"
                         ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
         </CommSchItem>
 
         <CommSchItem Label="검색어">
-            <DxTextBox @bind-Text="_keyword" NullText="키 · 값" Style="width: 240px"
+            <DxTextBox @bind-Text="_keyword" Style="width: 240px"
                        ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
         </CommSchItem>
 

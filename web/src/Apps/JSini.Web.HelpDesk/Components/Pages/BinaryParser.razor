@@ -46,14 +46,13 @@
         <CommSchItem Label="설비 모델">
             <DxComboBox Data="@_models" TextFieldName="@nameof(McModel.McName)" ValueFieldName="@nameof(McModel.Id)"
                         Value="@_modelId" ValueChanged="@((int? v) => PickModelAsync(v))"
-                        ValueExpression="@(() => _modelId)"
-                        NullText="모델을 고르십시오" Style="width: 200px"
+                        ValueExpression="@(() => _modelId)" Style="width: 200px"
                         ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
         </CommSchItem>
 
         <CommSchItem Label="보관한 전문">
             <DxComboBox Data="@_samples" TextFieldName="@nameof(BinarySample.Title)" ValueFieldName="@nameof(BinarySample.Id)"
-                        @bind-Value="_sampleId" NullText="고르면 불러올 수 있다" Style="width: 220px"
+                        @bind-Value="_sampleId" Style="width: 220px"
                         ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
         </CommSchItem>
     </Fields>

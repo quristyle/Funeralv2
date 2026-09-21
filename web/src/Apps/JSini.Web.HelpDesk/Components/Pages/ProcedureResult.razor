@@ -41,8 +41,7 @@
             <DxComboBox Data="@_procedures" TextFieldName="@nameof(ProcedureInfo.Name)"
                         ValueFieldName="@nameof(ProcedureInfo.Name)"
                         Value="@_selected" ValueChanged="@((string? v) => Pick(v))"
-                        ValueExpression="@(() => _selected)"
-                        NullText="프로시저를 고르십시오" Style="width: 300px"
+                        ValueExpression="@(() => _selected)" Style="width: 300px"
                         ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
         </CommSchItem>
     </Fields>

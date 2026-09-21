@@ -45,18 +45,18 @@
         <CommSchItem Label="회사">
             <DxComboBox Data="@_companies" TextFieldName="@nameof(OrgCompany.Name)" ValueFieldName="@nameof(OrgCompany.Id)"
                         Value="@_companyId" ValueChanged="@((string? v) => OnCompanyChangedAsync(v))"
-                        NullText="전체" Style="width: 170px"
+                        Style="width: 170px"
                         ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
         </CommSchItem>
 
         <CommSchItem Label="부서">
             <DxComboBox Data="@Departments" TextFieldName="@nameof(OrgDepartment.Name)" ValueFieldName="@nameof(OrgDepartment.Id)"
-                        @bind-Value="_departmentId" NullText="전체" Style="width: 170px"
+                        @bind-Value="_departmentId" Style="width: 170px"
                         ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
         </CommSchItem>
 
         <CommSchItem Label="달">
-            <DxComboBox Data="@Months" @bind-Value="_month" NullText="이번 달" Style="width: 130px"
+            <DxComboBox Data="@Months" @bind-Value="_month" Style="width: 130px"
                         ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto">
                 <ItemTemplate>@context 월</ItemTemplate>
             </DxComboBox>

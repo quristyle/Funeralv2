@@ -38,8 +38,7 @@
             <DxComboBox Data="@_projects" TextFieldName="@nameof(Project.Name)"
                         ValueFieldName="@nameof(Project.Id)"
                         Value="@_projectId" ValueChanged="@((int? v) => PickProjectAsync(v))"
-                        ValueExpression="@(() => _projectId)"
-                        NullText="프로젝트를 고르십시오" Style="width: 280px"
+                        ValueExpression="@(() => _projectId)" Style="width: 280px"
                         ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
         </CommSchItem>
     </Fields>

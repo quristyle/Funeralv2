@@ -39,12 +39,12 @@
 <CommSch OnSearch="@ReloadAsync">
     <Fields>
         <CommSchItem Label="고인명">
-            <DxTextBox @bind-Text="_keyword" NullText="이름" Style="width: 200px"
+            <DxTextBox @bind-Text="_keyword" Style="width: 200px"
                        ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
         </CommSchItem>
 
         <CommSchItem Label="상태">
-            <DxComboBox Data="@Statuses" @bind-Value="_status" NullText="전체"
+            <DxComboBox Data="@Statuses" @bind-Value="_status"
                         ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" Style="width: 170px">
                 <ItemTemplate>@StatusText(context)</ItemTemplate>
             </DxComboBox>

@@ -59,8 +59,7 @@
                         ValueFieldName="@nameof(CompanyDto.Id)"
                         Value="@_companyId"
                         ValueChanged="@((string? v) => PickCompanyAsync(v))"
-                        ValueExpression="@(() => _companyId)"
-                        NullText="회사를 고르십시오" Style="width: 220px" />
+                        ValueExpression="@(() => _companyId)" Style="width: 220px" />
         </CommSchItem>
 
         <CommSchItem Label="방향">

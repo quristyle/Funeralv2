@@ -52,8 +52,7 @@
                아래 「제목」 칸이 그 일을 한다(그 칸의 주석 참고). *@
             <DxComboBox Data="@_titles" Value="@_picked"
                         ValueChanged="@((string? v) => PickTitle(v))"
-                        ValidationEnabled="false"
-                        NullText="저장된 마인드맵" CssClass="pm-code-select" />
+                        ValidationEnabled="false" CssClass="pm-code-select" />
         </CommSchItem>
 
         <CommSchItem Label="제목">
@@ -79,7 +78,7 @@
                「제목을 적으십시오」만 띄우고 사람은 방금 적은 글자를 보고 있다.
                제목은 짧아서 회로 왕복이 문제되지 않는다(사이드바 메뉴 검색과
                같은 판단). *@
-            <DxTextBox @bind-Text="_title" NullText="새 제목을 적습니다"
+            <DxTextBox @bind-Text="_title"
                        BindValueMode="BindValueMode.OnInput"
                        ValidationEnabled="false" CssClass="pm-code-select" />
         </CommSchItem>

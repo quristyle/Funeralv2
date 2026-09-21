@@ -122,7 +122,7 @@
                     <DxComboBox Data="@StatusFilters" @bind-Value="_status"
                                 TextFieldName="@nameof(PickOption.Text)"
                                 ValueFieldName="@nameof(PickOption.Value)"
-                                NullText="전체" ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto"
+                                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto"
                                 CssClass="pm-code-select" />
                 </CommSchItem>
 
@@ -130,7 +130,7 @@
                     <DxComboBox Data="@FlagFilters" @bind-Value="_flag"
                                 TextFieldName="@nameof(PickOption.Text)"
                                 ValueFieldName="@nameof(PickOption.Value)"
-                                NullText="전체" ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto"
+                                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto"
                                 CssClass="pm-code-select" />
                 </CommSchItem>
 
@@ -138,12 +138,12 @@
                     <DxComboBox Data="@_targets" @bind-Value="_targetKey"
                                 TextFieldName="@nameof(AiTargetDto.TargetNm)"
                                 ValueFieldName="@nameof(AiTargetDto.TargetKey)"
-                                NullText="전체" ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto"
+                                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto"
                                 Style="width: 200px" />
                 </CommSchItem>
 
                 <CommSchItem Label="검색어">
-                    <DxTextBox @bind-Text="_keyword" NullText="제목 · 내용" Style="width: 200px" />
+                    <DxTextBox @bind-Text="_keyword" Style="width: 200px" />
                 </CommSchItem>
             </Fields>
         </CommSch>

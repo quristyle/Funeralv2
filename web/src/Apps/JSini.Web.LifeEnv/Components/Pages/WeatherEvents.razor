@@ -37,15 +37,14 @@
         <CommSchItem Label="지역">
             <DxComboBox Data="@_locations" @bind-Value="_locationId"
                         TextFieldName="@nameof(WeatherLocation.Name)"
-                        ValueFieldName="@nameof(WeatherLocation.Id)"
-                        NullText="전체" Style="width: 170px"
+                        ValueFieldName="@nameof(WeatherLocation.Id)" Style="width: 170px"
                         ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
         </CommSchItem>
 
         <CommSchItem Label="기간">
-            <DxDateEdit @bind-Date="_from" NullText="시작일" Style="width: 140px"
+            <DxDateEdit @bind-Date="_from" Style="width: 140px"
                         ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
-            <DxDateEdit @bind-Date="_to" NullText="종료일" Style="width: 140px"
+            <DxDateEdit @bind-Date="_to" Style="width: 140px"
                         ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
         </CommSchItem>
 

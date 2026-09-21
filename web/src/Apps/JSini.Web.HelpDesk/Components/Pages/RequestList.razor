@@ -40,14 +40,13 @@
 <CommSch OnSearch="@ReloadAsync">
     <Fields>
         <CommSchItem Label="제목">
-            <DxTextBox @bind-Text="_keyword" NullText="제목으로 찾기" Style="width: 220px"
+            <DxTextBox @bind-Text="_keyword" Style="width: 220px"
                        ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
         </CommSchItem>
 
         <CommSchItem Label="상태">
             <DxComboBox Data="@StatusOptions" @bind-Value="_status"
-                        TextFieldName="Text" ValueFieldName="Value"
-                        NullText="전체" Style="width: 130px"
+                        TextFieldName="Text" ValueFieldName="Value" Style="width: 130px"
                         ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
         </CommSchItem>
     </Fields>

@@ -23,7 +23,7 @@
 <CommSch OnSearch="@ReloadAsync">
     <Fields>
         <CommSchItem Label="상태">
-            <DxComboBox Data="@Statuses" @bind-Value="_status" NullText="전체" Style="width: 160px"
+            <DxComboBox Data="@Statuses" @bind-Value="_status" Style="width: 160px"
                         ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto">
                 <ItemTemplate>@StatusText(context)</ItemTemplate>
             </DxComboBox>

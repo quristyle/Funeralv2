@@ -45,13 +45,13 @@
                 ShowFloor="true" ShowRoom="true" Search="@ReloadAsync">
     <ChildContent>
         <CommSchItem Label="고인명">
-            <DxTextBox @bind-Text="_keyword" NullText="이름" Style="width: 150px"
+            <DxTextBox @bind-Text="_keyword" Style="width: 150px"
                        ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
         </CommSchItem>
 
         <CommSchItem Label="상태">
             <DxComboBox Data="@Statuses" TextFieldName="Name" ValueFieldName="Code"
-                        @bind-Value="_status" NullText="전체" Style="width: 140px"
+                        @bind-Value="_status" Style="width: 140px"
                         ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
         </CommSchItem>
 
@@ -62,16 +62,16 @@
         @if (_showDates)
         {
             <CommSchItem Label="입실">
-                <DxDateEdit @bind-Date="_enterFrom" NullText="시작"
+                <DxDateEdit @bind-Date="_enterFrom"
                             ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
-                <DxDateEdit @bind-Date="_enterTo" NullText="끝"
+                <DxDateEdit @bind-Date="_enterTo"
                             ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
             </CommSchItem>
 
             <CommSchItem Label="발인">
-                <DxDateEdit @bind-Date="_funeralFrom" NullText="시작"
+                <DxDateEdit @bind-Date="_funeralFrom"
                             ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
-                <DxDateEdit @bind-Date="_funeralTo" NullText="끝"
+                <DxDateEdit @bind-Date="_funeralTo"
                             ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
             </CommSchItem>
         }
