@@ -2302,6 +2302,89 @@ button.jsini-crumbs__item:hover { opacity: 1; }
   align-self: flex-start;
 }
 
+/* ── 조회 판의 접기 줄 (`CommSch MobileSummary`) ──────────────
+
+   **데스크톱에는 없다.** 여기서 숨겨 두고 좁은 화면에서만 켠다 — 반대로
+   두면(좁을 때 숨기고 넓을 때 보이기) 이 줄을 안 쓰는 화면 백 개에
+   빈 줄이 하나씩 생긴다.
+
+   접힘은 클래스(`.commsch--folded`)로 표시하지만 **그 클래스가 무엇을
+   숨기는지는 좁은 화면 안에서만 정의한다.** 그래서 창을 넓히면 접은 채로
+   두었던 판이 저절로 펴진 모습이 된다 — 회로를 건드리지 않는다.
+   ---------------------------------------------------------- */
+
+.commsch__toggle {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .commsch__toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    padding: 0.15rem 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .commsch__toggle-label {
+    flex: 0 0 auto;
+    font-size: var(--jsini-fs-xs);
+    font-weight: 600;
+    color: var(--jsini-text-muted);
+  }
+
+  /* 고른 조건. **한 줄로 자른다** — 조건이 많은 화면에서 이 줄이 두세 줄이
+     되면 접어서 아낀 자리를 도로 내주게 된다. */
+  .commsch__toggle-sum {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    font-size: var(--jsini-fs-sm);
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .commsch__toggle-caret {
+    flex: 0 0 auto;
+    background-color: var(--jsini-text-muted);
+    transition: transform 0.15s ease;
+  }
+
+  /* 펴져 있으면 꺾쇠가 위를 본다. 위를 보는 그림을 따로 두지 않는 이유는
+     둘이 갈리면 각도가 어긋나기 때문이다(아이콘 묶음과 같은 규칙). */
+  .commsch:not(.commsch--folded) .commsch__toggle-caret {
+    transform: rotate(180deg);
+  }
+
+  /* 접히면 조건과 단추가 통째로 사라지고 머리줄만 남는다. 판의 여백도
+     같이 줄인다 — 한 줄짜리 판에 사방 여백이 그대로면 두 줄처럼 보인다.
+
+     **클래스를 둘 겹쳐 적는다**(`.commsch.commsch--folded`). 아래쪽 좁은
+     화면 묶음에 `.commsch { padding: 0.5rem }` 이 있고 그것이 이 줄보다
+     뒤에 있어서, 하나만 적으면 같은 값싸움에서 뒤엣것이 이긴다. */
+  .commsch.commsch--folded {
+    padding-block: 0.35rem;
+  }
+
+  .commsch--folded .commsch__fields,
+  .commsch--folded .commsch__actions {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .commsch__toggle-caret {
+    transition: none;
+  }
+}
+
 /* 좁은 화면에서는 단추 줄이 통째로 아래로 내려간다. 오른쪽에 매달아 두면
    조건 한 칸과 단추 셋이 한 줄에 끼어 둘 다 못 읽는다. */
 @media (max-width: 767px) {
@@ -6551,4 +6634,91 @@ body {
     .jsini-sidebar__tree .dxbl-scroll-viewer {
         padding-bottom: calc(120px + env(safe-area-inset-bottom)) !important;
     }
+}
+
+/* ── 알림 보내기 창 (`NotifySendPopup`) ───────────────────────
+
+   업무 화면 어디서나 뜨는 창이라 **모듈 CSS 가 아니라 여기** 있다. 모듈에
+   두면 같은 창이 모듈마다 조금씩 다르게 생긴다.
+
+   칸 이름은 `jsini-notify__*` 다 — 창 안에서만 쓰는 이름이라 바깥과 겹칠
+   일이 없고, 겹치면 그것이 곧 다른 화면이 이 창의 모양을 빌려 쓴 것이다.
+   ---------------------------------------------------------- */
+
+.jsini-notify__who {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  margin-bottom: 0.8rem;
+}
+
+.jsini-notify__who-label {
+  font-size: var(--jsini-fs-xs);
+  font-weight: 600;
+  color: var(--jsini-text-muted);
+}
+
+/* 받는 사람 한 명. 얼굴과 이름을 한 알로 묶는다 — 이름만 쉼표로 이어 두면
+   여럿일 때 어디까지가 한 사람인지 눈으로 안 갈린다. */
+.jsini-notify__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.15rem 0.5rem 0.15rem 0.15rem;
+  border: 1px solid var(--jsini-border);
+  border-radius: 999px;
+  background: var(--jsini-bg);
+  font-size: var(--jsini-fs-sm);
+}
+
+.jsini-notify__face {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.4rem;
+  height: 1.4rem;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--jsini-surface-muted, rgba(127, 127, 127, 0.18));
+  font-size: var(--jsini-fs-2xs);
+  font-weight: 700;
+}
+
+.jsini-notify__face--text {
+  color: var(--jsini-text-muted);
+}
+
+.jsini-notify__empty {
+  font-size: var(--jsini-fs-sm);
+  color: var(--jsini-text-muted);
+}
+
+/* 보낼 길. 체크 둘이라 한 줄이면 충분하다. */
+.jsini-notify__ways {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding-bottom: 0.6rem;
+  margin-bottom: 0.6rem;
+  border-bottom: 1px solid var(--jsini-border);
+}
+
+.jsini-notify__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-bottom: 0.7rem;
+}
+
+.jsini-notify__label {
+  font-size: var(--jsini-fs-xs);
+  font-weight: 600;
+  color: var(--jsini-text-muted);
+}
+
+/* 입력 칸은 창 폭을 그대로 쓴다. DevExpress 가 제 내용만큼만 넓히므로
+   적어 두지 않으면 짧은 칸 두 개가 왼쪽에 붙어 버린다. */
+.jsini-notify__input {
+  width: 100%;
 }

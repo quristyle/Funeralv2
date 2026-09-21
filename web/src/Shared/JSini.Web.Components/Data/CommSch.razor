@@ -67,9 +67,44 @@
     조건 칸에 드롭다운이 섞여 있어서(상태 · 기간 · 담당자) Enter 가 목록을
     고르는 뜻인지 조회하라는 뜻인지 갈린다. 둘을 겹치면 고르려다 조회되는
     일이 생긴다. 필요한 화면이 나오면 그 화면에서 칸에 직접 건다.
+
+    ────────────────────────────────────────────────────────────
+    [휴대폰에서는 접을 수 있다 — `MobileSummary` 를 준 화면만]
+
+    좁은 화면에서는 조건 칸이 한 줄에 하나씩 쌓인다. 조건이 셋이면 판이
+    화면의 절반을 먹고, **정작 보러 온 목록은 스크롤 저편**이다.
+
+        ┌──────────────────────────────────┐
+        │ 조회 조건   전체 · 전체 · 9 월  ⌄ │  ← 접힌 모습
+        ├──────────────────────────────────┤
+        │  목록 …                          │
+        └──────────────────────────────────┘
+
+    접었을 때 **고른 조건을 그 줄에 적는 것**이 요점이다. 「조회 조건 ⌄」
+    로만 두면 지금 무엇으로 걸러 본 목록인지 알 수가 없어서, 확인하려고
+    매번 펴게 된다 — 그러면 접은 뜻이 없다.
+
+    화면이 `MobileSummary` 를 주지 않으면 **아무것도 달라지지 않는다.**
+    화면이 백 개가 넘으므로 한꺼번에 접어 두지 않는다 — 조건이 하나뿐인
+    화면에서는 접는 단추가 오히려 한 줄 더 먹는다.
+
+    데스크톱에서는 그 줄이 `display: none` 이라 접기 자체가 없다. 상태는
+    들고 있지만 CSS 가 좁은 화면에서만 본다 — 창 폭을 바꿔도 회로를
+    건드리지 않는다.
 *@
 
-<div class="commsch @(Stacked ? "commsch--stacked" : null)">
+<div class="commsch @(Stacked ? "commsch--stacked" : null) @(Folded ? "commsch--folded" : null)">
+
+    @if (MobileSummary is not null)
+    {
+        <button type="button" class="commsch__toggle"
+                aria-expanded="@((!Folded).ToString().ToLowerInvariant())"
+                @onclick="@ToggleFold">
+            <span class="commsch__toggle-label">조회 조건</span>
+            <span class="commsch__toggle-sum">@MobileSummary</span>
+            <span class="commsch__toggle-caret jsini-icon-chevron-down"></span>
+        </button>
+    }
 
     <div class="commsch__fields">
         @Fields
@@ -92,7 +127,7 @@
                       RenderStyle="ButtonRenderStyle.Primary"
                       IconCssClass="jsini-icon-search"
                       Enabled="@(!Busy)"
-                      Click="@(() => OnSearch.InvokeAsync())" />
+                      Click="@SearchAsync" />
         }
     </div>
 
@@ -136,4 +171,68 @@
     /// </para>
     /// </summary>
     [Parameter] public bool Stacked { get; set; }
+
+    /// <summary>
+    /// 접었을 때 머리줄에 적을 <b>지금 고른 조건</b>(「전체 · 개발팀 · 9 월」).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>주면 좁은 화면에서 접힌다.</b> 안 주면 아무것도 달라지지 않는다 —
+    /// 화면이 백 개가 넘어 한꺼번에 접어 두지 않는 이유는 머리말에 적었다.
+    /// </para>
+    /// <para>
+    /// 값을 <b>화면이 만든다.</b> 여기서 <c>Fields</c> 를 훑어 만들 수는
+    /// 없다 — 자식은 <c>RenderFragment</c> 라 그 안의 값을 읽을 길이 없고,
+    /// 읽을 수 있다 해도 「전체」처럼 <b>고르지 않은 것을 무엇이라 부를지</b>
+    /// 는 화면마다 다르다.
+    /// </para>
+    /// </remarks>
+    [Parameter] public string? MobileSummary { get; set; }
+
+    /// <summary>
+    /// 처음에 접어 둘 것인가. 기본은 접는 것이다.
+    ///
+    /// <para>
+    /// 화면을 열자마자 보고 싶은 것은 <b>목록</b>이지 조건이 아니다. 조건을
+    /// 손대야 하는 사람은 한 번 누르면 된다.
+    /// </para>
+    /// </summary>
+    [Parameter] public bool FoldedByDefault { get; set; } = true;
+
+    /// <summary>
+    /// 지금 접혀 있는가. <see cref="MobileSummary"/> 가 없으면 늘 거짓이다 —
+    /// 접는 단추가 없는 판을 접어 두면 조건을 펼 방법이 사라진다.
+    /// </summary>
+    private bool Folded => MobileSummary is not null && _folded;
+
+    private bool _folded;
+
+    /// <summary>
+    /// 첫 그림에서 한 번만 접는다.
+    /// </summary>
+    /// <remarks>
+    /// <c>OnParametersSet</c> 에서 <see cref="FoldedByDefault"/> 를 그대로
+    /// 넣으면, 화면이 조건을 바꿀 때마다 <b>사람이 펴 둔 판이 다시 접힌다.</b>
+    /// </remarks>
+    protected override void OnInitialized() => _folded = FoldedByDefault;
+
+    private void ToggleFold() => _folded = !_folded;
+
+    /// <summary>
+    /// 조회하고 <b>판을 접는다</b>.
+    /// </summary>
+    /// <remarks>
+    /// 좁은 화면에서 조건을 고치고 조회를 누른 사람이 다음에 볼 것은 결과다.
+    /// 판이 펴진 채로 남으면 그 결과가 화면 밖에 있다. 데스크톱에서는 접힘이
+    /// CSS 에 걸리지 않으므로 아무 일도 일어나지 않는다.
+    /// </remarks>
+    private Task SearchAsync()
+    {
+        if (MobileSummary is not null)
+        {
+            _folded = true;
+        }
+
+        return OnSearch.InvokeAsync();
+    }
 }

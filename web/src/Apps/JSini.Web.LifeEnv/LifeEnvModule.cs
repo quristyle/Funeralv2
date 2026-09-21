@@ -30,5 +30,9 @@ public sealed class LifeEnvModule : IPortalModule
         // 소속(회사·부서) 목록. 생일을 소속으로 거르는 데 쓴다 —
         // 포털관리 모듈을 참조하지 않고 게이트웨이로 직접 읽는다.
         services.AddScoped<OrgOptions>();
+
+        // 생일자 얼굴. 생일 응답에 사진이 안 실려 와서 아이디로 따로 푼다.
+        // 프로젝트관리에도 같은 부품이 있다 — 베낀 이유는 그 파일 머리말에 있다.
+        services.AddScoped<UserFaceClient>();
     }
 }

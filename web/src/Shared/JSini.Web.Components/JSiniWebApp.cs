@@ -295,6 +295,11 @@ public static class JSiniWebApp
         // 틀리면 조용히 깨지는 대목이 셋이라 한 벌만 둔다(PushEnroll 머리말).
         services.AddScoped<Settings.PushEnroll>();
 
+        // **남에게** 알림 한 통 보내기(앱 푸시 · 메일). 위 둘이 「내가 받을 것」
+        // 이라면 이쪽은 「내가 보내는 것」이다. 업무 화면 어디서나 생기는 일이라
+        // 여기 둔다 — 창은 `Settings/NotifySendPopup` 이 그린다.
+        services.AddScoped<Settings.NotifySender>();
+
         // 그중 **공개 공지만** 회로 바깥에서 잠깐 들고 있는 통.
         //
         // **싱글턴이어야 한다.** 로그인 화면 HTML 을 만드는 길 위에 있는

@@ -30,17 +30,41 @@
 
     음력은 해마다 양력 날짜가 달라진다. 화면이 환산하면 브라우저마다 다른 달력
     구현을 쓰게 되므로, 서버가 그 해 기준 날짜(`OccurrenceDate`)를 함께 준다.
+
+    [얼굴은 따로 묻는다]
+
+    생일 응답에는 사진이 없다 — 사진은 계정의 확장 속성이라 그 엔드포인트가
+    보지 않는다. 목록을 읽고 나서 **아이디를 모아 한 번에** 묻는다
+    (`UserFaceClient`). 이름만 늘어선 표에서는 아는 사람을 찾는 데도 한 줄씩
+    읽어야 하는데, 얼굴이 있으면 훑어보다 걸린다.
+
+    [축하 메시지와 알림은 다른 일이다]
+
+    표 안의 「보내기」는 **이 화면 안에 쌓이는 축하 글**이다
+    (`auth/birthday/message`). 받는 사람은 이 화면에 들어와야 그것을 본다.
+
+    「알림」은 **그 사람의 기기와 메일함으로 나가는 것**이다
+    (`NotifySendPopup` — 공용 부품). 생일 당일에 "축하한다" 를 손에 닿게
+    보내려면 이쪽이라야 한다. 둘을 한 단추로 묶지 않는 이유는, 축하 글을
+    적을 때마다 남의 기기가 울리면 아무도 글을 안 남기게 되기 때문이다.
+
+    [휴대폰에서는 조회부를 접는다]
+
+    조건이 셋이라 좁은 화면에서 세 줄이 되고, 그 아래로 열두 달 타일과
+    오늘 두 칸이 이어져 **정작 목록은 화면 두 판 아래**였다. 접어 두고
+    고른 조건만 머리줄에 적는다(`CommSch MobileSummary`).
 *@
 
 @inherits DataPage
 @inject BirthdayClient Api
 @inject OrgOptions Org
+@inject UserFaceClient Faces
 
 <PageTitle>생일 축하 목록 · 생활과환경</PageTitle>
 
 @* 자료 판(`CommCont`)은 쓰지 않는다 — 오늘 생일·축하 카드와 달 띠가 위에
    쌓인 화면이라 감싸면 남은 높이를 그 판이 다 먹어 아래가 잘린다. *@
-<CommSch OnSearch="@ReloadAsync">
+<CommSch OnSearch="@ReloadAsync" MobileSummary="@ConditionSummary">
     <Fields>
         <CommSchItem Label="회사">
             <DxComboBox Data="@_companies" TextFieldName="@nameof(OrgCompany.Name)" ValueFieldName="@nameof(OrgCompany.Id)"
@@ -81,7 +105,19 @@
 
 <div class="le-today">
     <section class="le-today__box">
-        <h2 class="le-today__head">오늘 생일</h2>
+        @* 오늘 생일인 사람이 여럿이면 한 사람씩 누르는 것보다 한 번에 보내는
+           편이 빠르다. **오늘만 그 단추가 있다** — 다른 달의 목록에 붙이면
+           아직 오지도 않은 생일에 알림을 뿌리게 된다. *@
+        <div class="le-today__bar">
+            <h2 class="le-today__head">오늘 생일</h2>
+
+            @if (_today.Count > 0)
+            {
+                <DxButton Text="모두에게 알림" RenderStyle="ButtonRenderStyle.Link"
+                          IconCssClass="jsini-icon-bell"
+                          Click="@(() => OpenNotify(_today))" />
+            }
+        </div>
 
         @if (_today.Count == 0)
         {
@@ -92,9 +128,15 @@
             @foreach (var person in _today)
             {
                 <div class="le-today__row">
+                    <UserFaceMark LoginId="@person.SubjectId" Name="@person.Name" />
                     <span class="le-today__name">@person.Name</span>
                     <span class="le-dept">@person.DepartmentName</span>
                     <span class="jsini-badge">축하 @person.MessageCount</span>
+
+                    <DxButton Title="알림 보내기" IconCssClass="jsini-icon-bell"
+                              RenderStyle="ButtonRenderStyle.Link"
+                              CssClass="le-today__bell"
+                              Click="@(() => OpenNotify([person]))" />
                 </div>
             }
         }
@@ -127,7 +169,19 @@
          Reload="@ReloadAsync">
     <Columns>
         <DxGridDataColumn FieldName="@nameof(BirthdayPerson.OccurrenceDate)" Caption="생일" Width="120" DisplayFormat="yyyy-MM-dd" />
-        <DxGridDataColumn FieldName="@nameof(BirthdayPerson.Name)" Caption="이름" MinWidth="120" />
+        @* 얼굴은 이름 칸 안에 넣는다. 칸을 따로 두면 좁은 화면에서 그 칸이
+           제일 먼저 밀려 나가는데, 그때 사라지는 것이 하필 훑어보는 단서다. *@
+        <DxGridDataColumn FieldName="@nameof(BirthdayPerson.Name)" Caption="이름" MinWidth="140">
+            <CellDisplayTemplate Context="cell">
+                @{
+                    var who = (BirthdayPerson)cell.DataItem;
+                }
+                <span class="le-who">
+                    <UserFaceMark LoginId="@who.SubjectId" Name="@who.Name" />
+                    <span>@who.Name</span>
+                </span>
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
         <DxGridDataColumn FieldName="@nameof(BirthdayPerson.CompanyName)" Caption="회사" Width="160" />
         <DxGridDataColumn FieldName="@nameof(BirthdayPerson.DepartmentName)" Caption="부서" Width="160" />
         <DxGridDataColumn Caption="구분" Width="90">
@@ -157,7 +211,25 @@
             </CellDisplayTemplate>
         </DxGridDataColumn>
     </Columns>
+
+    @* 「관리」 칸에 둔다 — 화면마다 조작 자리가 달라지면, 오른쪽 끝을 보는
+       버릇이 든 사람이 못 찾는다(`CommGrd.RowActions` 머리말). *@
+    <RowActions Context="person">
+        <DxButton Title="알림 보내기" IconCssClass="jsini-icon-bell"
+                  RenderStyle="ButtonRenderStyle.Link"
+                  Click="@(() => OpenNotify([person]))" />
+    </RowActions>
 </CommGrd>
+
+@* 알림 창은 **공용 부품**이다. 보낼 길(푸시·메일)·결과 읽어 주기를 여기서
+   다시 짜지 않는다 — 특히 「푸시가 0 대 갔다」를 실패로 말하지 않는 것이
+   그 부품 안에 있다. *@
+<NotifySendPopup @bind-Visible="_notifying"
+                 Recipients="@_notifyTargets"
+                 HeaderText="생일 알림 보내기"
+                 DefaultSubject="@NotifySubject"
+                 DefaultBody="@NotifyBody"
+                 LinkUrl="/life/birthday/list" />
 
 @code {
     private static readonly int[] Months = [.. Enumerable.Range(1, 12)];
@@ -174,8 +246,51 @@
     private IReadOnlyList<BirthdayMessage> _messages = [];
     private IReadOnlyList<BirthdayPerson> _people = [];
 
+    /// <summary>알림 창이 열려 있는가.</summary>
+    private bool _notifying;
+
+    /// <summary>알림 창이 보낼 사람들. 창을 열 때 채운다.</summary>
+    private IReadOnlyList<NotifyRecipient> _notifyTargets = [];
+
     /// <summary>지금 보고 있는 달. 안 고르면 오늘이 속한 달이다.</summary>
     private int CurrentMonth => _month ?? DateTime.Today.Month;
+
+    /// <summary>
+    /// 접힌 조회부의 머리줄에 적을 글 — <b>지금 무엇으로 걸러 본 목록인가</b>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 고르지 않은 칸을 빼 버리지 않고 「전체」로 적는다. 빼면 「개발팀 · 9 월」
+    /// 이 되는데, 그것만 보고는 <b>회사를 안 고른 것인지 그 칸이 없는 것인지</b>
+    /// 알 수가 없다.
+    /// </para>
+    /// <para>
+    /// 아이디가 아니라 이름으로 적는다. 목록을 아직 못 읽었으면(소속 조회가
+    /// 실패했을 때) 「전체」로 떨어진다 — 아이디를 그대로 적어 두면 사람이
+    /// 읽을 수 없는 글자가 머리줄에 남는다.
+    /// </para>
+    /// </remarks>
+    private string ConditionSummary
+    {
+        get
+        {
+            var company = _companies.FirstOrDefault(c =>
+                string.Equals(c.Id, _companyId, StringComparison.Ordinal))?.Name ?? "전체";
+
+            var department = _allDepartments.FirstOrDefault(d =>
+                string.Equals(d.Id, _departmentId, StringComparison.Ordinal))?.Name ?? "전체";
+
+            return $"{company} · {department} · {CurrentMonth} 월";
+        }
+    }
+
+    /// <summary>알림 창의 첫 제목. 사람이 고쳐 쓸 수 있다.</summary>
+    private string NotifySubject => _notifyTargets.Count == 1
+        ? $"{_notifyTargets[0].Name} 님, 생일 축하합니다"
+        : "생일 축하합니다";
+
+    /// <summary>알림 창의 첫 본문.</summary>
+    private static string NotifyBody => "오늘 생일을 맞으신 것을 축하드립니다. 좋은 하루 보내세요!";
 
     /// <summary>고른 회사의 부서만. 회사를 안 골랐으면 전부.</summary>
     private IReadOnlyList<OrgDepartment> Departments =>
@@ -238,8 +353,47 @@
         _messages = messages.Result;
         _people = people.Result;
 
+        // 얼굴은 목록을 받은 **뒤**에 묻는다. 위 넷과 나란히 걸 수 없다 —
+        // 누구의 얼굴이 필요한지가 그 응답 안에 있다.
+        //
+        // 이것 때문에 조회가 실패하지는 않는다(`EnsureAsync` 가 삼킨다).
+        // 두 목록의 아이디가 겹치지만 그쪽이 걸러 준다.
+        await Faces.EnsureAsync(
+            _people.Select(p => p.SubjectId).Concat(_today.Select(t => t.SubjectId)));
+
         return _people.Count;
     }, "그 달에 생일자가 없습니다.", "생일 목록을 읽지 못했습니다");
+
+    /// <summary>
+    /// 알림 창을 연다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>축하 대상이 아닌 사람은 뺀다.</b> 퇴사자·비대상이 그것인데, 표에서
+    /// 「보내기」가 잠겨 있는 사람에게 알림만 나가면 말이 어긋난다.
+    /// </para>
+    /// <para>
+    /// 얼굴도 함께 실어 보낸다. 창이 스스로 물으면 방금 물어본 아이디를
+    /// 한 번 더 묻게 된다.
+    /// </para>
+    /// </remarks>
+    private void OpenNotify(IEnumerable<BirthdayPerson> people)
+    {
+        _notifyTargets =
+        [
+            .. people
+                .Where(p => p.IsCelebrated && !string.IsNullOrWhiteSpace(p.SubjectId))
+                .Select(p => new NotifyRecipient(p.SubjectId, p.Name, Faces.PhotoOf(p.SubjectId)))
+        ];
+
+        if (_notifyTargets.Count == 0)
+        {
+            Say("알림을 보낼 대상이 없습니다.", NoticeTone.Warning);
+            return;
+        }
+
+        _notifying = true;
+    }
 
     private Task OnCompanyChangedAsync(string? companyId)
     {

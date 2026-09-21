@@ -1,0 +1,364 @@
+@*
+    [사람을 짚어 알림 한 통 보내기 — 앱 푸시 · 메일]
+
+    ────────────────────────────────────────────────────────────
+    [무엇을 대신하는가]
+
+    「이 사람에게 알려 준다」는 업무 화면 어디서나 생긴다 — 생일 축하,
+    결재 요청, 처리 요청. 그때마다 화면이 제목 칸 · 본문 칸 · 길 고르개 ·
+    보내기 단추 · **결과 읽어 주기**를 새로 짜면 반드시 갈라진다.
+
+    갈라지는 곳은 늘 **결과**다. 푸시는 보낸 것이 0 이어도 성공 계열로
+    돌아오고(구독한 기기가 없거나 본인이 꺼 두었다) 그 까닭이 응답 안에
+    들어 있는데, 그것을 안 읽고 「보냈습니다」라고만 말하면 알림이 안 온
+    사람이 **자기 기기를 의심한다.** 한 곳에서 말하게 둔다.
+
+    ────────────────────────────────────────────────────────────
+    [부르는 쪽은 사람 목록과 첫 문구만 준다]
+
+        <NotifySendPopup @@bind-Visible="_notifying"
+                         Recipients="@@_targets"
+                         DefaultSubject="생일 축하합니다"
+                         LinkUrl="/life/birthday/list" />
+
+    `Recipients` 는 **로그인 아이디 · 이름 · 얼굴** 셋이다. 이메일 주소를
+    받지 않는다 — 서버가 아이디로 주소를 푼다(`NotifySender` 머리말).
+    얼굴도 스스로 묻지 않는다. 목록 화면이 이미 한 번에 묻고 있어서,
+    여기서 또 물으면 같은 아이디가 두 번 나간다.
+
+    ────────────────────────────────────────────────────────────
+    [길을 둘 다 켜 두지 않는다]
+
+    푸시가 기본이고 메일은 꺼져 있다. 짧은 알림은 푸시로 충분하고,
+    **메일은 지워야 하는 것이 하나 늘어나는 일**이다. 둘 다 켜 두면
+    사람은 그대로 보내고, 받는 쪽은 같은 말을 두 번 받는다.
+
+    다만 **둘 다 끌 수는 없다.** 보낼 길이 없으면 보내기가 잠긴다 —
+    눌러 놓고 아무 일도 안 일어나는 것보다 낫다.
+
+    ────────────────────────────────────────────────────────────
+    [보낸 결과를 길마다 따로 말한다]
+
+    푸시는 갔는데 메일이 막히는 일이 흔하다(이메일이 등록되지 않은 계정).
+    하나로 뭉쳐 말하면 어느 쪽이 갔는지 알 수 없어서, `NotifySendOutcome`
+    이 둘을 따로 담고 여기서 한 문장씩 잇는다.
+
+    **한쪽이라도 막히면 경고 색이다.** 초록으로 띄우고 문장 끝에만 실패를
+    적으면 아무도 안 읽는다.
+*@
+
+@inject NotifySender Sender
+@inject Toasts Toasts
+@inject CurrentUser Me
+
+<CommPopup Visible="@Visible"
+           VisibleChanged="@OnVisibleChangedAsync"
+           HeaderText="@HeaderText"
+           Width="min(30rem, calc(100vw - 2rem))"
+           CssClass="jsini-notify">
+
+    <BodyContentTemplate>
+
+        <div class="jsini-notify__who">
+            <span class="jsini-notify__who-label">받는 사람</span>
+
+            @if (Targets.Count == 0)
+            {
+                <span class="jsini-notify__empty">고른 사람이 없습니다.</span>
+            }
+            else
+            {
+                @foreach (var person in Targets)
+                {
+                    <span class="jsini-notify__chip" title="@person.LoginId">
+                        @if (person.Photo is { Length: > 0 } photo)
+                        {
+                            <img class="jsini-notify__face" src="@photo" alt="" />
+                        }
+                        else
+                        {
+                            <span class="jsini-notify__face jsini-notify__face--text">@InitialOf(person)</span>
+                        }
+                        <span>@person.Name</span>
+                    </span>
+                }
+
+                @if (Cut > 0)
+                {
+                    <span class="jsini-notify__empty">외 @Cut 명은 한 번에 보낼 수 없어 제외했습니다.</span>
+                }
+            }
+        </div>
+
+        <div class="jsini-notify__ways">
+            <DxCheckBox @bind-Checked="_push">앱 푸시</DxCheckBox>
+            <DxCheckBox @bind-Checked="_email">메일</DxCheckBox>
+        </div>
+
+        <div class="jsini-notify__field">
+            <span class="jsini-notify__label">제목</span>
+            <DxTextBox @bind-Text="_subject" NullText="알림 제목" CssClass="jsini-notify__input" />
+        </div>
+
+        <div class="jsini-notify__field">
+            <span class="jsini-notify__label">내용</span>
+            <DxMemo @bind-Text="_body" Rows="5"
+                    NullText="보낼 말을 적으십시오." CssClass="jsini-notify__input" />
+        </div>
+
+    </BodyContentTemplate>
+
+    <FooterContentTemplate>
+        <DxButton Text="보내기" RenderStyle="ButtonRenderStyle.Primary"
+                  IconCssClass="jsini-icon-bell"
+                  Enabled="@CanSend" Click="@SendAsync" />
+        <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary"
+                  Click="@(() => OnVisibleChangedAsync(false))" />
+    </FooterContentTemplate>
+
+</CommPopup>
+
+@code {
+    /// <summary>창이 열려 있는가. <c>@@bind-Visible</c> 로 묶는다.</summary>
+    [Parameter] public bool Visible { get; set; }
+
+    /// <inheritdoc cref="Visible"/>
+    [Parameter] public EventCallback<bool> VisibleChanged { get; set; }
+
+    /// <summary>받는 사람들. 비어 있으면 보내기가 잠긴다.</summary>
+    [Parameter] public IReadOnlyList<NotifyRecipient> Recipients { get; set; } = [];
+
+    /// <summary>창 머리에 쓸 글자.</summary>
+    [Parameter] public string HeaderText { get; set; } = "알림 보내기";
+
+    /// <summary>창을 열 때 제목 칸에 채워 둘 글. 사람이 고쳐 쓸 수 있다.</summary>
+    [Parameter] public string? DefaultSubject { get; set; }
+
+    /// <summary>창을 열 때 내용 칸에 채워 둘 글.</summary>
+    [Parameter] public string? DefaultBody { get; set; }
+
+    /// <summary>
+    /// 푸시를 눌렀을 때 열 화면. 비우면 서비스워커가 첫 화면을 연다.
+    ///
+    /// <para>
+    /// <b>메일에는 실리지 않는다.</b> 메일 본문에 내부 주소를 넣으면 회사
+    /// 밖에서 열었을 때 닿지 않는 링크가 된다.
+    /// </para>
+    /// </summary>
+    [Parameter] public string? LinkUrl { get; set; }
+
+    /// <summary>
+    /// 보내고 난 뒤. 목록을 다시 읽거나 고른 것을 푸는 화면이 받는다.
+    /// <b>막힌 경우에도 온다</b> — 무엇이 막혔는지는 인자 안에 있다.
+    /// </summary>
+    [Parameter] public EventCallback<NotifySendOutcome> OnSent { get; set; }
+
+    private bool _push = true;
+    private bool _email;
+
+    private string? _subject;
+    private string? _body;
+
+    private bool _sending;
+
+    /// <summary>창이 열린 것을 알아채려고 들고 있는 값.</summary>
+    private bool _wasVisible;
+
+    /// <summary>실제로 보낼 사람들. 상한을 넘으면 앞에서 자른다.</summary>
+    private IReadOnlyList<NotifyRecipient> Targets =>
+        Recipients.Count <= NotifySender.MaxRecipients
+            ? Recipients
+            : [.. Recipients.Take(NotifySender.MaxRecipients)];
+
+    /// <summary>상한에 걸려 잘린 사람 수. <b>조용히 빼지 않는다.</b></summary>
+    private int Cut => Math.Max(0, Recipients.Count - NotifySender.MaxRecipients);
+
+    /// <summary>
+    /// 보낼 수 있는가 — 사람 · 길 · 제목 셋이 있어야 한다.
+    ///
+    /// <para>
+    /// 제목을 요구하는 것은 <b>서버가 그것 없이는 푸시를 막기 때문</b>이다.
+    /// 여기서 잠가 두면 왕복 없이 그 자리에서 알 수 있다.
+    /// </para>
+    /// </summary>
+    private bool CanSend =>
+        !_sending
+        && Targets.Count > 0
+        && (_push || _email)
+        && !string.IsNullOrWhiteSpace(_subject);
+
+    /// <summary>
+    /// 창이 <b>열릴 때</b> 칸을 첫 문구로 되돌린다.
+    /// </summary>
+    /// <remarks>
+    /// 닫을 때 비우지 않는 이유는, 보내기가 막혀 닫았다가 다시 여는 사람이
+    /// 적어 둔 글을 잃지 않게 하기 위해서다. 열 때 채우면 <b>새로 여는
+    /// 것</b>은 늘 깨끗하고, 다시 여는 것도 같은 첫 문구에서 시작한다.
+    /// </remarks>
+    protected override void OnParametersSet()
+    {
+        if (Visible && !_wasVisible)
+        {
+            _subject = DefaultSubject;
+            _body = DefaultBody;
+        }
+
+        _wasVisible = Visible;
+    }
+
+    private Task OnVisibleChangedAsync(bool visible)
+    {
+        Visible = visible;
+        return VisibleChanged.InvokeAsync(visible);
+    }
+
+    /// <summary>사진이 없을 때 동그라미에 넣을 글자 한 자.</summary>
+    private static string InitialOf(NotifyRecipient person)
+    {
+        var text = string.IsNullOrWhiteSpace(person.Name) ? person.LoginId : person.Name;
+        return string.IsNullOrWhiteSpace(text) ? "?" : text.Trim()[..1].ToUpperInvariant();
+    }
+
+    /// <summary>
+    /// 고른 길로 보낸다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>한 길이 막혀도 다른 길은 간다.</b> 둘을 한 <c>try</c> 로 묶으면
+    /// 푸시가 던졌을 때 메일이 아예 시도되지 않는데, 그 둘은 서로 다른
+    /// 서비스 경로라 함께 죽을 이유가 없다.
+    /// </para>
+    /// </remarks>
+    private async Task SendAsync()
+    {
+        if (!CanSend)
+        {
+            return;
+        }
+
+        _sending = true;
+
+        // **첫 `await` 앞에서 한 번 그린다.** 안 그리면 보내는 동안 단추가
+        // 눌린 채로 남아, 몇 초 걸리는 발송에서 사람이 한 번 더 누른다 —
+        // 그러면 같은 알림이 두 통 간다(`DataPage.LoadAsync` 와 같은 자리).
+        StateHasChanged();
+
+        var ids = Targets.Select(r => r.LoginId).ToArray();
+        var subject = _subject!.Trim();
+        var body = (_body ?? string.Empty).Trim();
+
+        PushSendResultDto? push = null;
+        string? pushError = null;
+        var emailSent = false;
+        string? emailError = null;
+
+        try
+        {
+            if (_push)
+            {
+                try
+                {
+                    // 아이콘은 **보낸 사람**의 얼굴이다. 받은 쪽이 먼저 묻는 것이
+                    // 「누가 보냈나」라서다.
+                    push = await Sender.SendPushAsync(
+                        ids, subject, body, LinkUrl, Me.Username);
+                }
+                catch (ApiException ex)
+                {
+                    pushError = ex.Message;
+                }
+            }
+
+            if (_email)
+            {
+                try
+                {
+                    // 메일은 제목만으로는 읽을 것이 없다. 내용이 비었으면
+                    // 제목을 본문으로 삼는다 — 빈 메일을 보내는 것보다 낫다.
+                    await Sender.SendEmailAsync(
+                        ids, subject, body.Length > 0 ? body : subject);
+
+                    emailSent = true;
+                }
+                catch (ApiException ex)
+                {
+                    emailError = ex.Message;
+                }
+            }
+        }
+        finally
+        {
+            _sending = false;
+        }
+
+        var outcome = new NotifySendOutcome
+        {
+            PushTried = _push,
+            Push = push,
+            PushError = pushError,
+            EmailTried = _email,
+            EmailSent = emailSent,
+            EmailError = emailError,
+        };
+
+        Toasts.Show(Describe(outcome), outcome.HasError ? NoticeTone.Warning : NoticeTone.Info);
+
+        // **막혀도 닫는다.** 까닭은 토스트에 있고, 창을 열어 둔 채로 두면
+        // 사람은 같은 글을 한 번 더 보낸다.
+        await OnVisibleChangedAsync(false);
+        await OnSent.InvokeAsync(outcome);
+    }
+
+    /// <summary>
+    /// 결과를 사람이 읽는 한 줄로 만든다.
+    /// </summary>
+    /// <remarks>
+    /// 푸시가 <b>0 대 0</b>일 때 「보냈습니다」라고 말하지 않는 것이 요점이다 —
+    /// 서버가 센 까닭(구독 없음 · 본인이 껐음)을 그대로 옮긴다.
+    /// </remarks>
+    private static string Describe(NotifySendOutcome outcome)
+    {
+        var parts = new List<string>();
+
+        if (outcome.PushTried)
+        {
+            if (outcome.PushError is { } error)
+            {
+                parts.Add($"푸시를 보내지 못했습니다 — {error}");
+            }
+            else if (outcome.Push is { Sent: > 0 } sent)
+            {
+                parts.Add($"푸시 {sent.Sent}대 기기로 보냈습니다.");
+            }
+            else
+            {
+                var why = new List<string>();
+                var none = outcome.Push?.OwnersWithoutSubscription ?? 0;
+                var off = outcome.Push?.OptedOut ?? 0;
+
+                if (none > 0)
+                {
+                    why.Add($"알림을 등록한 기기가 없는 사람 {none}명");
+                }
+
+                if (off > 0)
+                {
+                    why.Add($"푸시를 꺼 둔 사람 {off}명");
+                }
+
+                parts.Add(why.Count > 0
+                    ? $"푸시는 가지 않았습니다 ({string.Join(" · ", why)})."
+                    : $"푸시는 가지 않았습니다 ({outcome.Push?.Message ?? "받을 기기가 없습니다"}).");
+            }
+        }
+
+        if (outcome.EmailTried)
+        {
+            parts.Add(outcome.EmailSent
+                ? "메일을 보냈습니다."
+                : $"메일을 보내지 못했습니다 — {outcome.EmailError ?? "알 수 없는 까닭"}");
+        }
+
+        return parts.Count == 0 ? "보낸 것이 없습니다." : string.Join(" ", parts);
+    }
+}
