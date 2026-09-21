@@ -48,25 +48,30 @@
 <PageNotice Tone="NoticeTone.Warning"
             Text="여기서 실행한 문장은 대상 DB 에 그대로 나갑니다. UPDATE·DELETE 는 되돌릴 수 없습니다." />
 
-<div class="pm-query">
-    <CodeEditor @bind-Value="_query" Height="200px" Language="sql"
-                Placeholder="SELECT * FROM table_name WHERE ..."
-                OnCtrlEnter="@ExecuteAsync" />
-</div>
-
-@* 칸이 실행 시점에 정해진다 — 사람이 친 문장의 결과이기 때문이다. *@
-<CommCont Title="결과" Hint="@($"{_result.Table.Rows.Count}건")">
-    <CommGrd TItem="DataRowView"
-             Data="@_result.Table"
-             ExportName="쿼리결과"
-             PageSize="30"
-             EmptyText="돌아온 줄이 없습니다."
-             Reload="@ExecuteAsync">
-        <Columns>
-            <RuntimeColumns Table="@_result.Table" Order="@_result.ColumnOrder" />
-        </Columns>
-    </CommGrd>
-</CommCont>
+<DxSplitter Orientation="Orientation.Vertical" CssClass="flex-grow-1 pm-query-splitter">
+    <DxSplitterPane Size="250px" MinSize="100px">
+        <div class="pm-query h-100" style="margin-bottom: 0;">
+            <CodeEditor @bind-Value="_query" Height="100%" Language="sql"
+                        Placeholder="SELECT * FROM table_name WHERE ..."
+                        OnCtrlEnter="@ExecuteAsync" />
+        </div>
+    </DxSplitterPane>
+    <DxSplitterPane>
+        @* 칸이 실행 시점에 정해진다 — 사람이 친 문장의 결과이기 때문이다. *@
+        <CommCont Title="결과" Hint="@($"{_result.Table.Rows.Count}건")" CssClass="h-100 border-top-0">
+            <CommGrd TItem="DataRowView"
+                     Data="@_result.Table"
+                     ExportName="쿼리결과"
+                     PageSize="30"
+                     EmptyText="돌아온 줄이 없습니다."
+                     Reload="@ExecuteAsync">
+                <Columns>
+                    <RuntimeColumns Table="@_result.Table" Order="@_result.ColumnOrder" />
+                </Columns>
+            </CommGrd>
+        </CommCont>
+    </DxSplitterPane>
+</DxSplitter>
 
 @code {
     private string? _projectCode;
