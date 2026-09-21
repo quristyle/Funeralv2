@@ -49,9 +49,15 @@ public sealed class AiTaskClient(GatewayClient gateway)
     /// <b>끝난 작업에 이어서 지시한다.</b> 서버가 「지난 진행 + 이번에 할 일」로
     /// 본문을 새로 짠다 — 화면이 그 조립을 하지 않는다.
     /// </summary>
+    /// <remarks>
+    /// <c>runnerKind</c> 는 <b>이 회차를 맡을 AI</b> 다. <b>비워 보내면 지난
+    /// 회차의 실행기가 그대로 간다</b> — 화면이 고른 값을 늘 싣지만, 그 값으로
+    /// 덮어써도 되는지는 서버가 대상의 허용 목록을 보고 다시 판단한다.
+    /// </remarks>
     public Task<AiTaskDto?> ContinueAsync(
-        long taskKey, string addition, CancellationToken ct = default)
-        => gateway.PostAsync<AiTaskDto>($"{Url}/{taskKey}/continue", new { addition }, ct);
+        long taskKey, string addition, string? runnerKind = null, CancellationToken ct = default)
+        => gateway.PostAsync<AiTaskDto>(
+            $"{Url}/{taskKey}/continue", new { addition, runnerKind }, ct);
 
     /// <summary>
     /// <b>실패한 작업을 수동으로 다시 요청한다.</b> 추가 지시사항이 있으면 본문 뒤에 덧붙인다.
@@ -187,6 +193,17 @@ public sealed class AiTaskDto
 
     /// <summary>읽기 전용. 이 값이 거짓이면 「올리기」를 켤 수 없다.</summary>
     public bool TargetAllowPush { get; set; }
+
+    /// <summary>
+    /// 읽기 전용 — 대상이 허용한 AI 목록(쉼표로 이은 코드값).
+    /// </summary>
+    /// <remarks>
+    /// 「이어서 지시」 창이 <b>고를 수 있는 AI 를 이 값으로 좁힌다</b>
+    /// (<c>AiTaskActions</c>). 그 창은 건 하나만 들고 있어 대상 목록을 따로
+    /// 읽지 않으므로, 이 값이 없으면 허용하지 않는 AI 가 칸에 뜨고
+    /// <b>요청 단계에서야 거절된다.</b>
+    /// </remarks>
+    public string? TargetRunnerKinds { get; set; }
 
     public string? TargetRef { get; set; }
     public string? RunnerKind { get; set; } = "claude";

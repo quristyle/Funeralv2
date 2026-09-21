@@ -3009,6 +3009,32 @@
   color: var(--jsini-text-muted);
 }
 
+/* 「이어서 지시」 창의 AI 고르는 칸.
+
+   라벨을 **위가 아니라 옆**에 둔다 — 이 창은 휴대폰에서 화면을 꽉 채우고
+   그 아래에 글상자(다섯 줄)와 단추 줄이 서므로, 층을 하나 늘리면 자판이
+   올라온 화면에서 단추가 자판 밑으로 내려간다.
+
+   칸이 남은 폭을 다 쓴다(`flex: 1`). AI 이름이 「안티그래비티 (agy)」처럼
+   길어서 `max-content` 로 두면 칸마다 폭이 달라 보인다. */
+.pm-peek__field {
+  display: flex;
+  gap: var(--jsini-sp-sm);
+  align-items: center;
+  margin-top: var(--jsini-sp-sm);
+}
+
+.pm-peek__label {
+  flex: 0 0 auto;
+  font-size: var(--jsini-fs-sm);
+  color: var(--jsini-text-muted);
+}
+
+.pm-peek__kind {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 /* 빠른지시 창 하단 단추 글 줄이기 */
 .pm-peek__btn-text--full { display: inline; }
 .pm-peek__btn-text--short { display: none; }

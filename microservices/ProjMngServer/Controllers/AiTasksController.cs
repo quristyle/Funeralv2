@@ -88,10 +88,11 @@ public sealed class AiTasksController(AiTaskService service, AiRunService runs) 
 
     /// <summary>
     /// <b>끝난 작업에 이어서 지시한다.</b> 본문이 「지난 진행 + 이번에 할 일」로 바뀐다.
+    /// <b>이 회차를 맡을 AI 도 갈아탈 수 있다</b>(<c>runnerKind</c>).
     /// </summary>
     [HttpPost("{taskKey:long}/continue")]
     public async Task<IActionResult> ContinueAsync(long taskKey, [FromBody] ContinueRequest req)
-        => Respond(await service.ContinueAsync(taskKey, req.Addition, UserId));
+        => Respond(await service.ContinueAsync(taskKey, req.Addition, req.RunnerKind, UserId));
 
     /// <summary>
     /// <b>실패한 작업을 수동으로 다시 요청한다.</b> 추가 지시사항을 얹을 수 있다.
@@ -127,6 +128,11 @@ public sealed class AiTasksController(AiTaskService service, AiRunService runs) 
     {
         /// <summary>이번에 더 시킬 일.</summary>
         public string? Addition { get; set; }
+
+        /// <summary>
+        /// 이 회차를 맡을 AI. <b>비우면 지난 회차의 실행기를 그대로 쓴다.</b>
+        /// </summary>
+        public string? RunnerKind { get; set; }
     }
 
     public sealed class RetryRequest

@@ -36,6 +36,7 @@ public sealed class AiTaskService(
         b.target_nm       AS TargetNm,
         b.target_path     AS TargetPath,
         COALESCE(b.allow_push, false) AS TargetAllowPush,
+        b.runner_kinds    AS TargetRunnerKinds,
         a.target_ref      AS TargetRef,
         a.runner_kind     AS RunnerKind,
         a.request_flag    AS RequestFlag,
@@ -359,8 +360,16 @@ public sealed class AiTaskService(
     /// (종료 코드 · 바뀐 파일 · 브랜치)을 나란히 싣는다 — 어긋나면 그 어긋남이
     /// 프롬프트 안에서 바로 보인다.
     /// </para>
+    /// <para>
+    /// <b>이 회차부터 다른 AI 에게 맡길 수 있다</b>(<paramref name="runnerKind"/>).
+    /// 한 AI 가 두 번 실패한 것을 세 번째도 같은 AI 에게 시키는 것이 흔한
+    /// 헛걸음이라서다 — 이어서 지시는 지난 진행을 프롬프트에 싣고 가므로
+    /// <b>갈아탄 쪽이 처음부터 다시 읽지 않는다.</b> 안 보내면 지난 회차의
+    /// 실행기가 그대로 간다.
+    /// </para>
     /// </remarks>
-    public async Task<AiTaskEditResult> ContinueAsync(long taskKey, string? addition, string? userId)
+    public async Task<AiTaskEditResult> ContinueAsync(
+        long taskKey, string? addition, string? runnerKind, string? userId)
     {
         if (string.IsNullOrWhiteSpace(addition))
         {
@@ -377,6 +386,30 @@ public sealed class AiTaskService(
         if (AiTaskStatus.IsBusy(current.TaskStatus))
         {
             return AiTaskEditResult.Conflict("아직 돌고 있습니다. 끝난 뒤에 이어서 시키십시오.");
+        }
+
+        // **이 회차만 다른 AI 에게 맡길 수 있다.** 안 보내면 지난 회차의
+        // 실행기를 그대로 쓴다 — 화면이 늘 값을 싣는다는 보장이 없고,
+        // 빈 값으로 덮으면 그 건은 아무 실행기도 집어 가지 못한다.
+        var kind = string.IsNullOrWhiteSpace(runnerKind)
+            ? current.RunnerKind
+            : runnerKind.Trim();
+
+        // 둘 다 비어 있을 리는 없지만(등록·수정이 <see cref="NormalizeAsync"/> 에서
+        // 채운다) 비었다면 그쪽과 <b>같은 기본값</b>으로 떨어진다.
+        if (string.IsNullOrWhiteSpace(kind))
+        {
+            kind = "claude";
+        }
+
+        // 대상이 허용하지 않는 AI 는 여기서 막는다. 뒤이어 도는
+        // <see cref="RequestAsync"/> 도 같은 것을 보지만, 거기서 걸리면
+        // **본문은 이미 이어붙은 채로 남고 요청만 안 나간 상태**가 된다.
+        if (!string.Equals(kind, current.RunnerKind, StringComparison.OrdinalIgnoreCase)
+            && !RunnerAllowed(current.TargetRunnerKinds, kind))
+        {
+            return AiTaskEditResult.Conflict(
+                $"고른 대상은 '{kind}' 실행기를 허용하지 않습니다.");
         }
 
         using var db = Open();
@@ -398,6 +431,7 @@ public sealed class AiTaskService(
         var affected = await db.ExecuteAsync("""
             UPDATE projmng.ai_task
                SET contents     = @body,
+                   runner_kind  = @kind,
                    task_status  = 'idle',
                    request_flag = 'none',
                    last_error   = NULL,
@@ -406,7 +440,7 @@ public sealed class AiTaskService(
                    mod_id       = @userId,
                    mod_dt       = now()
              WHERE task_key = @taskKey AND is_deleted = false
-            """, new { taskKey, body, userId });
+            """, new { taskKey, body, kind, userId });
 
         return affected == 0
             ? AiTaskEditResult.Conflict("그 사이에 상태가 바뀌었습니다.")

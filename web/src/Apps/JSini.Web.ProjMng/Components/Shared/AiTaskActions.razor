@@ -18,9 +18,28 @@
 
     재시도와 이어서 지시는 **추가로 적을 것을 받고** 나간다. 그 글상자를
     부모마다 다시 만들면 두 벌이 갈리므로 단추와 함께 둔다.
+
+    [이어서 지시할 때 AI 를 갈아탈 수 있다 (2026-09-21)]
+
+    한동안 이어서 지시는 **지난 회차와 같은 AI** 로만 갔다. 그런데 이어서
+    시키는 까닭의 절반이 「저 AI 가 못 한 것」이라, 같은 AI 에게 세 번째로
+    같은 말을 하게 되는 자리였다.
+
+    그래서 글상자 위에 **AI 고르는 칸 하나**를 둔다. 기본값은 지난 회차가
+    쓴 AI 다 — 갈아타는 것이 예사가 아니고, 열자마자 다른 AI 가 골라져 있으면
+    **바꾼 줄 모르고 보내는 쪽**이 생긴다.
+
+    고를 수 있는 것은 **대상이 허용한 AI 뿐이다**(`AiTaskDto.TargetRunnerKinds`).
+    허용 목록을 서버가 건에 실어 보내 주므로 이 창이 대상 목록을 따로 읽지
+    않는다. 서버도 저장할 때 같은 것을 한 번 더 본다
+    (`AiTaskService.ContinueAsync`) — 화면만 믿지 않는다.
+
+    이어서 지시는 지난 진행을 프롬프트에 싣고 가므로(설계 8-3) **갈아탄 쪽이
+    처음부터 다시 읽지 않는다.** 그것이 「새 건으로 다시 시키기」와 다른 점이다.
 *@
 
 @inject AiTaskClient Api
+@inject AiModelCodes ModelCodes
 @inject NavigationManager Nav
 
 @if (Item is { } t)
@@ -29,7 +48,7 @@
     {
         <DxButton RenderStyle="ButtonRenderStyle.Primary"
                   Enabled="@(!_retrying && !_confirming && !_continuing)"
-                  Click="@OpenContinueModal">
+                  Click="@OpenContinueModalAsync">
             <span class="pm-peek__btn-text--full">이어서 지시</span>
             <span class="pm-peek__btn-text--short">이어서</span>
         </DxButton>
@@ -106,6 +125,27 @@
         <PageNotice Tone="NoticeTone.Info"
                     Text="지난 진행(요약과 바뀐 파일)은 서버가 앞에 붙입니다. 여기에는 이번에 더 시킬 일만 적으십시오." />
 
+        @* 이 회차를 맡을 AI. **표제를 단다** — 글상자 위에 이름만 적힌 칸이
+           덩그러니 있으면 그것이 무엇을 고르는 칸인지 알 수 없다. 라벨은
+           `<span>` 이다(조회 조건 칸 `CommSchItem` 과 같은 모양) — `<label for>`
+           로 묶으려면 DevExpress 가 안쪽 `<input>` 에 붙이는 아이디를 알아야
+           하는데 그것은 부품이 정하는 값이라 우리가 못 짚는다.
+
+           고를 것이 하나뿐이면 회색으로 둔다. 그래도 **칸을 감추지 않는다** —
+           갈아탈 수 없다는 것도 알아야 하는 값이고, 감추면 「어느 AI 에게
+           가는지」조차 이 창에서 사라진다. 왜 회색인지는 아래 한 줄이 말한다. *@
+        <div class="pm-peek__field">
+            <span class="pm-peek__label">맡을 AI</span>
+
+            <DxComboBox Data="@ContinueKinds" @bind-Value="_continueKind"
+                        TextFieldName="@nameof(AiModelOption.Text)"
+                        ValueFieldName="@nameof(AiModelOption.Value)"
+                        CssClass="pm-peek__kind"
+                        Enabled="@(!_continuing && ContinueKinds.Count > 1)" />
+        </div>
+
+        <p class="jsini-hint">@ContinueKindNote</p>
+
         @* **한 글자 칠 때마다 값이 올라와야** 아래 「이어서 지시 요청」이 깨어난다.
            `DxMemo` 의 기본값은 `OnLostFocus` 라 글상자를 빠져나가기 전에는
            값이 비어 있는 것으로 보여 단추가 죽은 채로 있었다. *@
@@ -158,6 +198,21 @@
     private bool _continuing;
     private string? _continueAddition;
     private string? _continueError;
+
+    /// <summary>
+    /// 공통코드(<c>AI_MODEL</c>)에서 읽은 AI 목록. <b>창을 처음 열 때 한 번 읽는다</b> —
+    /// 단추만 서 있는 동안에도 읽으면 이 부품이 놓인 자리마다(창 · 탭 화면)
+    /// 게이트웨이를 한 번씩 두드린다.
+    /// </summary>
+    private IReadOnlyList<AiModelOption> _kinds = [];
+
+    /// <summary>목록을 이미 읽었나. 못 읽었을 때 다시 읽게 하려고 따로 둔다.</summary>
+    private bool _kindsRead;
+
+    /// <summary>
+    /// 이 회차를 맡을 AI. <b>창을 열 때 지난 회차의 것으로 채운다.</b>
+    /// </summary>
+    private string? _continueKind;
 
     private bool _confirming;
 
@@ -234,10 +289,108 @@
         }
     }
 
-    private void OpenContinueModal()
+    /// <summary>
+    /// 고를 수 있는 AI. <b>대상이 허용한 것만</b> 남긴다 — 「빠른 지시」 화면의
+    /// 같은 규칙이고(<c>AiAsk.AllowedKinds</c>) 서버도 저장할 때 같은 것을 본다.
+    /// </summary>
+    /// <remarks>
+    /// <b>못 걸러졌으면 전부 내놓는다.</b> 허용 목록이 비어 있거나(옛 대상)
+    /// 공통코드와 하나도 안 맞으면 걸러 낸 결과가 빈 목록이 되는데, 그러면
+    /// 칸이 비어 <b>지금 어느 AI 로 가는지조차 안 보인다.</b>
+    /// <para>
+    /// 지난 회차가 쓴 AI 가 그 목록에 없을 수도 있다 — 그 뒤로 대상의 허용
+    /// 목록이 줄었거나 공통코드에서 빠진 경우다. 그때는 <b>그 값을 한 줄로
+    /// 끼워 넣는다</b>(이름은 코드값 그대로). 안 끼우면 칸이 빈 채로 열려
+    /// 「바꾸지 않고 보내기」를 할 수 없다.
+    /// </para>
+    /// </remarks>
+    private IReadOnlyList<AiModelOption> ContinueKinds
+    {
+        get
+        {
+            var allowed = (Item?.TargetRunnerKinds ?? string.Empty)
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+            List<AiModelOption> picked = allowed.Length == 0
+                ? [.. _kinds]
+                : [.. _kinds.Where(k => allowed.Contains(k.Value, StringComparer.OrdinalIgnoreCase))];
+
+            if (picked.Count == 0)
+            {
+                picked = [.. _kinds];
+            }
+
+            if (_continueKind is { Length: > 0 } now
+                && !picked.Any(k => string.Equals(k.Value, now, StringComparison.OrdinalIgnoreCase)))
+            {
+                picked.Insert(0, new AiModelOption(
+                    now,
+                    _kinds.FirstOrDefault(
+                        k => string.Equals(k.Value, now, StringComparison.OrdinalIgnoreCase))?.Text ?? now));
+            }
+
+            return picked;
+        }
+    }
+
+    /// <summary>
+    /// 칸 아래 한 줄. <b>갈아탔는지를 말한다</b> — 목록에서 고르는 동작은
+    /// 되돌리기 쉽지만, 고른 것을 잊은 채로 보내는 것은 되돌릴 수 없다.
+    /// </summary>
+    private string ContinueKindNote
+    {
+        get
+        {
+            // **못 읽은 것과 하나뿐인 것을 가른다.** 목록을 못 받았을 때도
+            // 칸에는 지난 회차의 AI 한 줄이 서므로 「하나만 허용한다」로
+            // 적으면 대상 설정을 들여다보게 만든다.
+            if (_kinds.Count == 0)
+            {
+                return "AI 목록을 읽지 못해 지난 회차와 같은 AI 로 갑니다.";
+            }
+
+            if (ContinueKinds.Count <= 1)
+            {
+                return "이 대상은 AI 를 하나만 허용해 바꿀 수 없습니다.";
+            }
+
+            var same = string.Equals(_continueKind, Item?.RunnerKind, StringComparison.OrdinalIgnoreCase);
+
+            return same
+                ? "지난 회차와 같은 AI 가 이어서 처리합니다."
+                : $"지난 회차({KindName(Item?.RunnerKind)})와 다른 AI 에게 맡깁니다 — 지난 진행은 그대로 전달됩니다.";
+        }
+    }
+
+    /// <summary>사람이 읽는 AI 이름. 못 찾으면 코드값을 그대로 적는다.</summary>
+    private string KindName(string? kind)
+    {
+        if (string.IsNullOrWhiteSpace(kind))
+        {
+            return "알 수 없음";
+        }
+
+        return _kinds.FirstOrDefault(
+            k => string.Equals(k.Value, kind, StringComparison.OrdinalIgnoreCase))?.Text ?? kind;
+    }
+
+    private async Task OpenContinueModalAsync()
     {
         _continueAddition = null;
         _continueError = null;
+
+        // **지난 회차의 AI 로 채운다.** 열자마자 다른 것이 골라져 있으면
+        // 바꾼 줄 모르고 보내는 쪽이 생긴다(머리말).
+        _continueKind = Item?.RunnerKind;
+
+        if (!_kindsRead)
+        {
+            // 목록을 못 읽어도 창은 연다 — `AiModelCodes` 는 실패를 빈 목록으로
+            // 돌려주고, 그때는 지난 회차의 AI 한 줄만 선다(`ContinueKinds`).
+            _kinds = await ModelCodes.GetAsync();
+            _kindsRead = _kinds.Count > 0;
+        }
+
         _continueOpen = true;
     }
 
@@ -247,6 +400,7 @@
         _continueOpen = false;
         _continueAddition = null;
         _continueError = null;
+        _continueKind = null;
     }
 
     private async Task DoContinueAsync()
@@ -267,7 +421,7 @@
                 addition += "\n\n" + AlwaysAdded;
             }
 
-            var updated = await Api.ContinueAsync(t.TaskKey, addition!);
+            var updated = await Api.ContinueAsync(t.TaskKey, addition!, _continueKind);
             if (updated is not null)
             {
                 updated = await Api.RequestAsync(t.TaskKey);

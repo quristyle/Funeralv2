@@ -42,6 +42,17 @@ public sealed class AiTask
     /// <summary>대상이 push 를 허용하는가. 조인해 온다 — <b>읽기 전용</b>.</summary>
     public bool TargetAllowPush { get; set; }
 
+    /// <summary>
+    /// 대상이 허용한 실행기 목록(쉼표로 이은 값). 조인해 온다 — <b>읽기 전용</b>.
+    /// </summary>
+    /// <remarks>
+    /// 화면이 <b>고를 수 있는 AI 를 이 값으로 좁힌다.</b> 「이어서 지시」 창에서
+    /// AI 를 바꿀 수 있게 되면서 필요해졌다 — 그 창은 작업 한 건만 들고 있고
+    /// 대상 목록을 따로 읽지 않으므로, 여기 실어 보내지 않으면 허용하지 않는
+    /// AI 가 칸에 뜨고 <b>요청 단계에서야 거절된다.</b>
+    /// </remarks>
+    public string? TargetRunnerKinds { get; set; }
+
     /// <summary>기준 브랜치. 비우면 대상의 기본값을 쓴다.</summary>
     public string? TargetRef { get; set; }
 
