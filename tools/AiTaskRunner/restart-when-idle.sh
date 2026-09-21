@@ -89,7 +89,9 @@ say "저널: $(journalctl -u ai-task-runner.service -n 40 --no-pager 2>/dev/null
 sleep 120
 row=$(curl -s -X POST http://127.0.0.1:5450/api/dev/sql \
   -H 'Content-Type: application/json' \
-  -d '{"db_nick":"jsini","query":"select runner_nm, runner_kind, ok, session_pct, week_pct, to_char(observed_at,'"'"'MM-DD HH24:MI:SS'"'"') as observed from ai_usage_snapshot"}' \
-  | head -c 600)
-say "사용량 한 줄: $row"
+  -d '{"db_nick":"jsini","query":"select runner_nm, runner_kind, bucket_nm, ok, session_pct, week_pct, month_pct, to_char(observed_at,'"'"'MM-DD HH24:MI:SS'"'"') as observed from ai_usage_snapshot order by runner_kind, bucket_nm"}' \
+  | head -c 1200)
+# **칸 이름을 함께 읽는다.** 세 CLI 를 붙인 뒤로는 줄이 하나가 아니라
+# 여럿이고, 「몇 줄이 들어왔나」가 곧 어느 CLI 를 못 읽었나다.
+say "사용량: $row"
 say "끝."
