@@ -132,7 +132,7 @@
                     IsActive="_isPhone" IsActiveChanged="@OnPhoneChanged" />
 
 @* 모바일에서 공간을 많이 차지하는 조회 영역을 접어 둔다(구글 캘린더 검색창처럼). *@
-<details class="pm-sch-details">
+<details class="pm-sch-details" open="@(!_isPhone)">
     <summary class="pm-sch-summary">
         <span><i class="jsini-icon-search"></i> 조회 및 등록</span>
         <i class="jsini-icon-chevron-down pm-sch-chevron"></i>
