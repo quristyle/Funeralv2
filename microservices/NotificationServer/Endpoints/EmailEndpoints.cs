@@ -198,11 +198,32 @@ public static class EmailEndpoints
                     message: $"받는 사람이 없습니다 ({why}).", code: "NO_RECIPIENT"));
             }
 
+            // ── 평문이면 회사 메일 꼴을 입힌다 ─────────────────
+            //
+            // **글자만 덩그러니 나가는 길을 남겨 두지 않는다.** 업무 화면의
+            // 「알림 보내기」(생일 축하 등)는 사람이 친 글을 그대로 넘기는데,
+            // 그때까지 그 글은 아무 틀 없이 도착했다 — 같은 포털이 보낸
+            // 비밀번호 찾기·문의 접수 메일과 나란히 놓으면 회사 메일로 보이지
+            // 않는다. 틀은 여기 한 곳에만 둔다(`NoticeEmailTemplate` 머리말).
+            //
+            // HTML 로 온 것은 부르는 쪽이 이미 완성된 문서를 보낸 것이라
+            // 손대지 않는다 — 틀을 두 겹으로 씌우면 클라이언트마다 다르게 무너진다.
+            var body = request.Html
+                ? request.Body
+                : NoticeEmailTemplate.Render(request.Subject, request.Body, request.SenderName);
+
+            // 평문 갈래도 같이 싣는다 — 원본이 이미 평문이라 만드는 값이 거의
+            // 들지 않는다(`IEmailSender.SendAsync` 의 `textBody`). HTML 로 온
+            // 것은 원본이 평문이 아니므로 만들 것이 없다.
+            var textBody = request.Html
+                ? null
+                : NoticeEmailTemplate.PlainAlternative(request.Subject, request.Body, request.SenderName);
+
             try
             {
                 await sender.SendAsync(
-                    string.Join(",", recipients), request.Subject, request.Body,
-                    request.Html, request.Attachments);
+                    string.Join(",", recipients), request.Subject, body,
+                    html: true, request.Attachments, textBody);
 
                 logger.LogInformation("이메일 직발송 완료. to={To} role={Role} files={Files} by={By}",
                     string.Join(",", recipients), request.ToRole, request.Attachments.Count, user.UserId);

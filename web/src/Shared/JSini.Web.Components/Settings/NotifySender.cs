@@ -109,11 +109,28 @@ public sealed class NotifySender(GatewayClient gateway)
     /// 수 있는 문장이다.
     /// </para>
     /// </remarks>
+    /// <param name="loginIds">받는 사람들의 포털 로그인 아이디.</param>
+    /// <param name="subject">메일 제목. <b>본문 카드의 큰 글씨가 된다.</b></param>
+    /// <param name="body">보낼 글. 평문이다 — 아래 <paramref name="html"/> 참고.</param>
+    /// <param name="html">
+    /// 참이면 본문을 완성된 HTML 문서로 보낸다. <b>여기서는 거의 쓸 일이 없다</b> —
+    /// 거짓으로 두면 <b>서버가 회사 메일 틀을 입혀 준다</b>(알림 서비스의
+    /// <c>NoticeEmailTemplate</c>). 화면마다 HTML 을 짜 보내면 틀이 그 수만큼
+    /// 복제되고, 어긋난 것은 메일함에서만 보인다.
+    /// </param>
+    /// <param name="senderName">
+    /// 보낸 사람으로 적을 이름. 틀의 서명 줄이 된다 — <b>보내는 계정은 하나라
+    /// 메일함에는 언제나 「JSini 포털」로 뜨므로</b>, 이것이 없으면 받은 쪽은
+    /// 누가 보냈는지 알 수 없다. 푸시가 보낸 이의 얼굴을 아이콘에 쓰는 것과
+    /// 같은 자리다.
+    /// </param>
+    /// <param name="ct">그만두기.</param>
     public Task SendEmailAsync(
         IEnumerable<string> loginIds,
         string subject,
         string body,
         bool html = false,
+        string? senderName = null,
         CancellationToken ct = default)
         => gateway.PostAsync(
             "notification/emails/send",
@@ -125,6 +142,7 @@ public sealed class NotifySender(GatewayClient gateway)
                 subject,
                 body,
                 html,
+                senderName,
             },
             ct);
 

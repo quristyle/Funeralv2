@@ -275,8 +275,20 @@
                 {
                     // 메일은 제목만으로는 읽을 것이 없다. 내용이 비었으면
                     // 제목을 본문으로 삼는다 — 빈 메일을 보내는 것보다 낫다.
+                    // (그때 같은 문장이 두 번 적히지 않게 하는 일은 메일 틀이
+                    //  맡는다 — 알림 서비스의 `NoticeEmailTemplate`.)
+                    //
+                    // **틀은 여기서 짜지 않는다.** 평문으로 넘기면 서버가 회사
+                    // 메일 꼴을 입힌다 — 보내는 화면마다 HTML 을 짜면 틀이 그
+                    // 수만큼 복제되고, 어긋난 것은 메일함에서만 보인다.
+                    //
+                    // 이름을 실어 보내는 것은 **푸시 아이콘과 같은 자리**다.
+                    // 보내는 계정이 하나뿐이라 받는 쪽 메일함에는 언제나
+                    // 「JSini 포털」로 뜨는데, 사람이 짚어 보낸 알림에서 먼저
+                    // 묻는 것은 「누가 보냈나」다.
                     await Sender.SendEmailAsync(
-                        ids, subject, body.Length > 0 ? body : subject);
+                        ids, subject, body.Length > 0 ? body : subject,
+                        senderName: Me.DisplayName);
 
                     emailSent = true;
                 }

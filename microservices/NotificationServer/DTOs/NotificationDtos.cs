@@ -169,7 +169,31 @@ public class SendEmailDto
     /// 참이면 본문을 HTML 로 보낸다 (직발송 <c>/emails/send</c> 만 본다 —
     /// 큐 방식은 배포 장비 스크립트가 형식을 정한다).
     /// </summary>
+    /// <remarks>
+    /// <b>거짓이라고 글자만 나가지는 않는다.</b> 평문으로 온 본문은 서버가
+    /// 회사 메일 틀에 입혀 보낸다(<c>NoticeEmailTemplate</c>) — 평문 갈래도
+    /// 함께 실으므로 글자로만 읽는 클라이언트에서도 그대로 보인다.
+    /// 부르는 쪽이 완성된 문서를 들고 있을 때만 참으로 준다.
+    /// </remarks>
     public bool Html { get; set; }
+
+    /// <summary>
+    /// 보낸 사람으로 적을 이름. <b>평문 알림에만 쓴다</b> — 서버가 입히는 틀의
+    /// 서명 줄이 된다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>주소가 아니라 이름이다.</b> 보내는 계정(<c>EmailSettings:User</c>)은
+    /// 하나뿐이라 받는 쪽 메일함에는 언제나 「JSini 포털」로 뜬다. 그런데
+    /// 사람이 짚어 보낸 알림에서 먼저 묻는 것은 <b>「누가 보냈나」</b>다.
+    /// </para>
+    /// <para>
+    /// 서버가 <c>X-User-Id</c> 로 풀지 않고 부르는 쪽이 적어 보낸다 — 그 헤더에는
+    /// 서비스 이름(<c>AI_TASK</c> · <c>SITE_INQUIRY</c>)이 오는 길도 있어서,
+    /// 사람 이름이 아닌 것이 서명 줄에 그대로 실릴 수 있다.
+    /// </para>
+    /// </remarks>
+    public string? SenderName { get; set; }
 
     /// <summary>
     /// 붙일 파일들. <b>직발송(<c>/emails/send</c>)만 본다</b> — 큐 방식은

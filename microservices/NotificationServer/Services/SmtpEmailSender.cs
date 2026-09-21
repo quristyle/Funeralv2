@@ -20,7 +20,8 @@ public class SmtpEmailSender : IEmailSender
 
     public async Task SendAsync(
         string to, string subject, string body, bool html = false,
-        IReadOnlyList<EmailAttachmentDto>? attachments = null)
+        IReadOnlyList<EmailAttachmentDto>? attachments = null,
+        string? textBody = null)
     {
         // **설정이 없으면 붙어 보지도 않는다.**
         //
@@ -58,8 +59,18 @@ public class SmtpEmailSender : IEmailSender
         {
             var builder = new BodyBuilder();
 
-            if (html) builder.HtmlBody = body;
-            else builder.TextBody = body;
+            if (html)
+            {
+                builder.HtmlBody = body;
+
+                // **평문 갈래도 같이 싣는다.** 주는 쪽이 있을 때만이다 —
+                // 자세한 까닭은 `IEmailSender.SendAsync` 의 `textBody` 주석에 있다.
+                if (!string.IsNullOrWhiteSpace(textBody)) builder.TextBody = textBody;
+            }
+            else
+            {
+                builder.TextBody = body;
+            }
 
             foreach (var file in attachments)
             {
@@ -88,7 +99,14 @@ public class SmtpEmailSender : IEmailSender
         else
         {
             message.Body = html
-                ? new BodyBuilder { HtmlBody = body }.ToMessageBody()
+                ? new BodyBuilder
+                {
+                    HtmlBody = body,
+
+                    // 비워 두면 MailKit 이 평문 갈래를 만들지 않는다 — 그래도
+                    // 되는 것이지, 있는데 안 싣는 것이 아니다(위 주석).
+                    TextBody = string.IsNullOrWhiteSpace(textBody) ? null : textBody,
+                }.ToMessageBody()
                 : new TextPart("plain") { Text = body };
         }
 
