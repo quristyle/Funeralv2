@@ -6,9 +6,10 @@
 }
 
 /* DxSplitter 의 각 창 내용이 전체 높이를 쓰도록 */
-::deep .dxbs-splitter-pane-content {
+::deep .dxbl-splitter-pane-content {
   display: flex;
   flex-direction: column;
+  height: 100%;
 }
 
 .pm-split__first,
@@ -21,3 +22,24 @@
   overflow: hidden;
 }
 
+/* SplitPane 직계 자식(pm-tab-body 등)이 높이를 채우도록 */
+.pm-split__first > ::deep *,
+.pm-split__second > ::deep * {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* SplitPane 안의 CommGrd 가 남은 공간을 모두 차지하도록 */
+.pm-split__first ::deep .commgrd,
+.pm-split__second ::deep .commgrd {
+  flex: 1;
+  min-height: 0;
+}
+
+.pm-split__first ::deep .commgrd > .dxbl-grid,
+.pm-split__second ::deep .commgrd > .dxbl-grid {
+  height: 100%;
+  max-height: none;
+}
