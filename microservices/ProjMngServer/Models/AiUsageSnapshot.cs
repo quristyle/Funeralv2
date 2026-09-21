@@ -25,6 +25,18 @@ public sealed class AiUsageSnapshot
     public string? RunnerKind { get; set; }
 
     /// <summary>
+    /// 같은 CLI 안에서 무엇의 한도인가. 하나뿐인 CLI 는 빈 글자다.
+    /// </summary>
+    /// <remarks>
+    /// <b>CLI 하나가 한 줄이 아니다.</b> <c>antigravity</c> 는 모델군마다
+    /// (Gemini · Claude and GPT), <c>copilot</c> 은 한도 종류마다
+    /// (chat · completions) 따로 센다. 한 줄에 뭉개면 15분마다 서로를 덮으면서
+    /// 화면의 숫자가 주기마다 바뀌는데, <b>둘 다 그럴듯해서 아무도 고장으로
+    /// 읽지 못한다.</b>
+    /// </remarks>
+    public string? BucketNm { get; set; }
+
+    /// <summary>
     /// 읽기에 성공했는가. <b>거짓이면 숫자가 비어 있고 <see cref="ErrorText"/> 에 이유가 있다.</b>
     /// </summary>
     public bool Ok { get; set; } = true;
@@ -45,7 +57,19 @@ public sealed class AiUsageSnapshot
 
     public DateTime? WeekOpusResetAt { get; set; }
 
-    /// <summary>토큰으로 한도를 주는 CLI 를 위한 칸.</summary>
+    /// <summary>
+    /// 월간 한도 사용률(%). <c>copilot</c> 처럼 달로 끊는 CLI 가 쓴다.
+    /// </summary>
+    /// <remarks>
+    /// <b>주간 칸에 밀어 넣지 않는다.</b> 담으면 화면의 「주간」이 CLI 마다
+    /// 다른 기간을 뜻하게 되고, 그 화면으로 「이번 주에 얼마나 남았나」를
+    /// 판단하는 사람이 틀린다.
+    /// </remarks>
+    public decimal? MonthPct { get; set; }
+
+    public DateTime? MonthResetAt { get; set; }
+
+    /// <summary>토큰(또는 크레딧)으로 한도를 주는 CLI 를 위한 칸.</summary>
     public long? LimitTokens { get; set; }
 
     public long? RemainingTokens { get; set; }

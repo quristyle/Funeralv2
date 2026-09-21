@@ -1,10 +1,11 @@
 using System.Diagnostics;
+using System.Net.Http.Headers;
 using System.Text;
 
 namespace AiTaskRunner;
 
 /// <summary>
-/// AI CLI 의 <c>/usage</c> 를 주기적으로 읽어 서버로 올린다.
+/// AI CLI 의 한도를 주기적으로 읽어 서버로 올린다.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -24,14 +25,18 @@ namespace AiTaskRunner;
 /// 사람이 할 일이 다르다.
 /// </para>
 /// <para>
-/// <b>명령을 코드에 박지 않는다.</b> 어댑터마다 <c>UsageArgs</c> 로 적는다.
-/// CLI 의 플래그는 자주 바뀌고, 박아 두면 플래그 한 글자 때문에 배포한다 —
-/// 실행 인자를 설정으로 뺀 것과 같은 이유다. <b>비워 두면 그 CLI 는
-/// 건너뛴다</b>(사용량을 말해 주지 않는 CLI 가 있다).
+/// <b>묻는 길이 CLI 마다 다르다.</b> 명령이 있는 것은 명령으로
+/// (<c>UsageArgs</c>), 없는 것은 주소로 묻는다(<c>UsageUrl</c>). 어느 쪽이든
+/// 코드가 아니라 어댑터 설정에 적는다 — CLI 의 플래그도 주소도 자주 바뀌고,
+/// 박아 두면 한 글자 때문에 배포한다. <b>둘 다 비어 있으면 그 CLI 는
+/// 건너뛴다.</b>
 /// </para>
 /// </remarks>
 public sealed class UsageReporter(
-    RunnerOptions options, ServerClient server, ILogger<UsageReporter> logger) : BackgroundService
+    RunnerOptions options,
+    ServerClient server,
+    IHttpClientFactory httpFactory,
+    ILogger<UsageReporter> logger) : BackgroundService
 {
     /// <summary>출력에서 들고 갈 길이 상한. 서버 쪽 칸도 4000 이다.</summary>
     private const int MaxRawLength = 4000;
@@ -94,26 +99,39 @@ public sealed class UsageReporter(
 
         foreach (var (kind, adapter) in options.Adapters)
         {
-            if (string.IsNullOrWhiteSpace(adapter.Executable) || adapter.UsageArgs.Length == 0)
+            // 이 장비에서 끈 CLI 는 묻지 않는다 — 끄는 법은 Executable 을
+            // 비우는 것 하나다(RunnerOptions.RunnableKinds).
+            if (string.IsNullOrWhiteSpace(adapter.Executable))
             {
                 continue;
             }
 
-            report.Items.Add(await ReadAsync(kind, adapter, ct));
+            var hasUrl = !string.IsNullOrWhiteSpace(adapter.UsageUrl);
+
+            if (!hasUrl && adapter.UsageArgs.Length == 0)
+            {
+                continue;
+            }
+
+            report.Items.AddRange(hasUrl
+                ? await ReadHttpAsync(kind, adapter, ct)
+                : await ReadCliAsync(kind, adapter, ct));
         }
 
         await server.UsageAsync(report, ct);
     }
 
+    // ── CLI 에게 묻는 길 ────────────────────────────────────
+
     /// <summary>
-    /// CLI 하나에게 물어본다.
+    /// CLI 하나를 띄워 물어본다.
     /// </summary>
     /// <remarks>
     /// <b>셸을 거치지 않는다.</b> <c>UseShellExecute = false</c> 에 인자는
     /// <c>ArgumentList</c> 로 하나씩 넣는다 — <see cref="CliRunner"/> 와 같은 규칙이다.
     /// 여기 들어가는 글자는 설정 파일에서 오지만, 통로를 둘로 만들지 않는다.
     /// </remarks>
-    private async Task<AiUsageItem> ReadAsync(
+    private async Task<List<AiUsageItem>> ReadCliAsync(
         string kind, AdapterOptions adapter, CancellationToken ct)
     {
         var psi = new ProcessStartInfo(adapter.Executable)
@@ -158,35 +176,138 @@ public sealed class UsageReporter(
 
             if (proc.ExitCode != 0 && raw.Length == 0)
             {
-                return Failed(kind, $"종료 코드 {proc.ExitCode}");
+                return [Failed(kind, $"종료 코드 {proc.ExitCode}")];
             }
 
-            var item = UsageText.Parse(kind, raw);
+            return Interpret(kind, adapter, raw);
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        {
+            return [Failed(kind, $"{timeout.TotalSeconds:0}초 안에 답하지 않았습니다.")];
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return [Failed(kind, ex.Message)];
+        }
+    }
 
-            // **아무 숫자도 못 읽었으면 성공이 아니다.** 명령은 돌았는데
-            // 출력 형식이 바뀐 경우가 여기다 — 화면이 빈 칸을 「0% 썼다」로
-            // 읽지 않게 실패로 남기고, 원문은 그대로 올린다.
-            if (item is { SessionPct: null, WeekPct: null, WeekOpusPct: null,
-                          RemainingTokens: null, LimitTokens: null })
+    // ── 주소로 묻는 길 ──────────────────────────────────────
+
+    /// <summary>
+    /// 한도 주소를 한 번 두드린다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>이것은 CLI 로 못 묻는 것만의 길이다</b>(지금은 <c>copilot</c>).
+    /// 명령이 있는 CLI 를 이쪽으로 옮기지 않는다 — 명령은 그 CLI 가 책임지는
+    /// 계약이고, 주소는 언제 사라져도 이상하지 않은 내부 통로다.
+    /// </para>
+    /// <para>
+    /// <b>토큰은 CLI 가 둔 자리에서 그때그때 읽는다</b>(<see cref="UsageToken"/>).
+    /// 없으면 조용히 실패로 남긴다 — 그 CLI 로 한 번도 로그인하지 않은
+    /// 장비가 정상적으로 있을 수 있다.
+    /// </para>
+    /// </remarks>
+    private async Task<List<AiUsageItem>> ReadHttpAsync(
+        string kind, AdapterOptions adapter, CancellationToken ct)
+    {
+        var timeout = TimeSpan.FromSeconds(Math.Clamp(adapter.UsageTimeoutSeconds, 5, 600));
+
+        try
+        {
+            var token = UsageToken.Read(adapter.UsageTokenFile, adapter.UsageTokenPath);
+
+            if (!string.IsNullOrWhiteSpace(adapter.UsageTokenFile) && token is null)
+            {
+                return [Failed(kind,
+                    $"{adapter.UsageTokenFile} 의 {adapter.UsageTokenPath} 에서 토큰을 찾지 못했습니다. "
+                    + "그 CLI 로 로그인돼 있는지 확인하십시오.")];
+            }
+
+            using var req = new HttpRequestMessage(HttpMethod.Get, adapter.UsageUrl);
+
+            if (token is not null)
+            {
+                req.Headers.Authorization = new AuthenticationHeaderValue("token", token);
+            }
+
+            using var timer = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            timer.CancelAfter(timeout);
+
+            var http = httpFactory.CreateClient("usage");
+
+            using var res = await http.SendAsync(req, timer.Token);
+
+            var raw = Cut((await res.Content.ReadAsStringAsync(timer.Token)).Trim());
+
+            if (!res.IsSuccessStatusCode)
+            {
+                // 본문을 원문으로 함께 올린다 — 401 인지 통로가 사라진 404 인지가
+                // 사람이 할 일을 가른다.
+                return [Failed(kind, $"HTTP {(int)res.StatusCode}", raw)];
+            }
+
+            return Interpret(kind, adapter, raw);
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        {
+            return [Failed(kind, $"{timeout.TotalSeconds:0}초 안에 답하지 않았습니다.")];
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return [Failed(kind, ex.Message)];
+        }
+    }
+
+    // ── 받은 것을 읽는다 ────────────────────────────────────
+
+    /// <summary>
+    /// 받은 덩어리를 한도 칸들로 옮기고, <b>읽어 낸 것이 없으면 실패로 남긴다</b>.
+    /// </summary>
+    /// <remarks>
+    /// 명령은 돌았는데 출력 형식이 바뀐 경우가 여기다. 화면이 빈 칸을
+    /// 「0% 썼다」로 읽지 않게 <c>ok = false</c> 로 적고, 원문은 그대로 올린다.
+    /// </remarks>
+    private List<AiUsageItem> Interpret(string kind, AdapterOptions adapter, string raw)
+    {
+        List<AiUsageItem> items;
+
+        try
+        {
+            items = adapter.UsageFormat?.ToLowerInvariant() switch
+            {
+                "agy" or "antigravity" => UsageAgy.Parse(kind, raw),
+                "copilot" => UsageCopilot.Parse(kind, raw),
+                _ => [UsageText.Parse(kind, raw)],
+            };
+        }
+        catch (Exception ex)
+        {
+            return [Failed(kind, $"출력을 읽지 못했습니다: {ex.Message}", raw)];
+        }
+
+        if (items.Count == 0)
+        {
+            return [Failed(kind, "출력에서 한도를 찾지 못했습니다. 원문을 확인하십시오.", raw)];
+        }
+
+        foreach (var item in items)
+        {
+            // 「무제한」처럼 까닭을 이미 적어 둔 칸은 건드리지 않는다 —
+            // 숫자가 없는 것이 맞는 상태다.
+            if (item is { SessionPct: null, WeekPct: null, WeekOpusPct: null, MonthPct: null,
+                          RemainingTokens: null, LimitTokens: null, ErrorText: null })
             {
                 item.Ok = false;
                 item.ErrorText = "출력에서 한도를 찾지 못했습니다. 원문을 확인하십시오.";
             }
+        }
 
-            return item;
-        }
-        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
-        {
-            return Failed(kind, $"{timeout.TotalSeconds:0}초 안에 답하지 않았습니다.");
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            return Failed(kind, ex.Message);
-        }
+        return items;
     }
 
-    private static AiUsageItem Failed(string kind, string why)
-        => new() { RunnerKind = kind, Ok = false, ErrorText = why };
+    private static AiUsageItem Failed(string kind, string why, string? raw = null)
+        => new() { RunnerKind = kind, Ok = false, ErrorText = why, RawText = raw };
 
     private static string Cut(string text)
         => text.Length <= MaxRawLength ? text : text[..MaxRawLength];

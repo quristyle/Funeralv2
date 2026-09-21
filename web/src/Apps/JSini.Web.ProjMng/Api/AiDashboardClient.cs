@@ -155,17 +155,28 @@ public sealed class AiDashboardForecast
 }
 
 /// <summary>
-/// AI CLI 한도의 마지막 스냅샷.
+/// AI CLI 한도의 마지막 스냅샷 한 칸.
 /// </summary>
 /// <remarks>
-/// <b>퍼센트는 「쓴 비율」이다.</b> 남은 비율이 아니다 — CLI 가 그렇게
-/// 말하기 때문이고, 화면도 그대로 「사용 n%」로 보여 준다.
+/// <para>
+/// <b>퍼센트는 「쓴 비율」이다.</b> 남은 비율이 아니다 — 화면도 그대로
+/// 「사용 n%」로 보여 준다. <c>agy</c>·<c>copilot</c> 은 남은 비율로 말하지만
+/// <b>뒤집는 자리는 실행기 한 곳뿐이다</b>(<c>UsageAgy</c>·<c>UsageCopilot</c>) —
+/// 화면에서 또 뒤집으면 원문과 숫자가 어긋나는 순간을 아무도 못 잡는다.
+/// </para>
+/// <para>
+/// <b>CLI 하나가 한 줄이 아니다.</b> <see cref="BucketNm"/> 로 갈린다.
+/// </para>
 /// </remarks>
 public sealed class AiUsageSnapshot
 {
     public long UsageKey { get; set; }
     public string? RunnerNm { get; set; }
     public string? RunnerKind { get; set; }
+
+    /// <summary>같은 CLI 안에서 무엇의 한도인가. 하나뿐인 CLI 는 빈 글자다.</summary>
+    public string? BucketNm { get; set; }
+
     public bool Ok { get; set; }
     public decimal? SessionPct { get; set; }
     public DateTime? SessionResetAt { get; set; }
@@ -173,6 +184,11 @@ public sealed class AiUsageSnapshot
     public DateTime? WeekResetAt { get; set; }
     public decimal? WeekOpusPct { get; set; }
     public DateTime? WeekOpusResetAt { get; set; }
+
+    /// <summary>월간 한도 사용률(%). 달로 끊는 CLI(<c>copilot</c>)가 쓴다.</summary>
+    public decimal? MonthPct { get; set; }
+
+    public DateTime? MonthResetAt { get; set; }
     public long? LimitTokens { get; set; }
     public long? RemainingTokens { get; set; }
     public string? PlanNm { get; set; }

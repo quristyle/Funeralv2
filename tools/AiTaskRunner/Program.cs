@@ -41,6 +41,19 @@ builder.Services.AddHttpClient<ServerClient>((sp, client) =>
     client.Timeout = TimeSpan.FromSeconds(30);
 });
 
+// 한도 주소를 두드릴 통로. **CLI 로 못 묻는 것만 여기를 탄다**(지금은
+// copilot — 그 CLI 의 `/usage` 는 대화 화면 안에서만 도는 명령이라 `-p` 로
+// 주면 슬래시 명령이 아니라 지시문으로 먹는다). 곁들이는 일이라 짧게 끊는다.
+builder.Services.AddHttpClient("usage", client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(60);
+
+    // 깃허브의 한도 통로는 편집기 클라이언트만 부르던 자리라, 제 이름을
+    // 대 주지 않으면 거절당할 수 있다.
+    client.DefaultRequestHeaders.UserAgent.ParseAdd("JSini-AiTaskRunner/1.0");
+    client.DefaultRequestHeaders.Accept.ParseAdd("application/json");
+});
+
 builder.Services.AddSingleton<Workspace>();
 builder.Services.AddSingleton<CliRunner>();
 builder.Services.AddSingleton<PushGate>();

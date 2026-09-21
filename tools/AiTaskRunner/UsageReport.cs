@@ -25,10 +25,19 @@ public sealed class AiUsageReport
     public List<AiUsageItem> Items { get; set; } = [];
 }
 
-/// <summary>CLI 하나의 한도.</summary>
+/// <summary>한도 한 칸.</summary>
+/// <remarks>
+/// <b>CLI 하나가 한 줄이 아니다.</b> <c>claude</c> 는 계정 하나에 한 줄이지만
+/// <c>agy</c> 는 모델군마다(Gemini · Claude/GPT) 따로 세고, <c>copilot</c> 은
+/// 한도 종류마다(chat · completions · premium) 따로 센다. 그것을 한 줄에
+/// 뭉개면 어느 쪽 숫자인지 알 수 없어지므로 <see cref="BucketNm"/> 로 가른다.
+/// </remarks>
 public sealed class AiUsageItem
 {
     public string? RunnerKind { get; set; }
+
+    /// <summary>같은 CLI 안에서 무엇의 한도인가. 하나뿐인 CLI 는 비운다.</summary>
+    public string? BucketNm { get; set; }
 
     /// <summary>읽기에 성공했는가. 거짓이면 <see cref="ErrorText"/> 에 이유가 있다.</summary>
     public bool Ok { get; set; } = true;
@@ -45,6 +54,11 @@ public sealed class AiUsageItem
     public decimal? WeekOpusPct { get; set; }
 
     public DateTime? WeekOpusResetAt { get; set; }
+
+    /// <summary>월간 한도 사용률(%). <c>copilot</c> 처럼 달로 끊는 CLI 가 쓴다.</summary>
+    public decimal? MonthPct { get; set; }
+
+    public DateTime? MonthResetAt { get; set; }
 
     public long? LimitTokens { get; set; }
 

@@ -2346,7 +2346,9 @@ DTO 는 `JSini.Web.ProjMng.Api` 에 있다. 이름이 같으면 화면 안에서
 ## 11.6 AI 모델 한도 — **실행기가 `/usage` 를 읽어 올린다** (2026-09-21)
 
 표: `projmng.ai_usage_snapshot` — `deploy/sql/projmng-ai-usage-2026-09-20.sql`
-올리는 쪽: `tools/AiTaskRunner/UsageReporter.cs` · `UsageText.cs`
+       + `deploy/sql/projmng-ai-usage-bucket-2026-09-21.sql` (칸 나누기 · 월간)
+올리는 쪽: `tools/AiTaskRunner/UsageReporter.cs` ·
+       `UsageText.cs`(claude) · `UsageAgy.cs`(agy) · `UsageCopilot.cs`(copilot)
 받는 쪽: `AiRunnerController.UsageAsync` → `AiUsageService`
 
 ### 왜 서버가 직접 묻지 않나
@@ -2359,8 +2361,103 @@ DTO 는 `JSini.Web.ProjMng.Api` 에 있다. 이름이 같으면 화면 안에서
 
 어댑터마다 `UsageArgs` 로 적는다(7.4 의 실행 인자와 같은 자리다). 이 출력은
 사람이 보라고 만든 화면이지 API 가 아니라 문구도 플래그도 예고 없이 바뀐다.
-**비워 두면 그 CLI 에는 아예 안 묻는다** — 지금 `antigravity` · `copilot` 이
-비어 있다(묻는 길을 아직 확인하지 못했다).
+**`UsageArgs` 와 `UsageUrl` 이 둘 다 비어 있으면 그 CLI 에는 아예 안 묻는다.**
+
+### 묻는 길이 CLI 마다 다르다 (2026-09-21)
+
+| CLI | 어떻게 | 형식 | 칸이 몇 개 |
+|---|---|---|---|
+| `claude` | `-p /usage` | 사람이 읽는 문장 | 하나 (세션 · 주간 · 주간 Opus) |
+| `antigravity` | `-p=/usage` | 탭으로 끊은 네 칸 표 | **모델군마다** (Gemini · Claude and GPT) |
+| `copilot` | **명령이 없다** → 한도 주소 | JSON | **한도 종류마다** (chat · completions …) |
+
+#### `agy` — print 모드가 슬래시 명령을 펴 준다
+
+`--disable-slash-commands` 라는 플래그가 있다는 것이 곧 *기본은 펴 준다*는
+뜻이었다. 실제 출력(탭 구분):
+
+```
+Gemini Models            Weekly Limit Remaining      56%   2026-09-24T13:30:29Z
+Gemini Models            Five Hour Limit Remaining   99%   2026-09-21T04:50:51Z
+Claude and GPT models    Weekly Limit Remaining      28%   2026-09-24T14:39:29Z
+Claude and GPT models    Five Hour Limit Remaining  100%   2026-09-21T07:27:31Z
+```
+
+**`UsageText` 로 읽으면 안 된다.** 이 CLI 는 「**Remaining**」 으로 말하는데
+그 정규식은 퍼센트를 *쓴 비율*로 담는다 — 44% 쓴 계정이 화면에 **56% 썼다**고
+앉고, 숫자가 그럴듯해서 아무도 못 잡는다. `UsageAgy` 가 한 번 뒤집어 맞춘다.
+**뒤집는 자리를 한 곳으로 둔다** — 화면에서 뒤집으면 원문과 숫자가 어긋나는
+순간을 눈으로 확인할 길이 없어진다.
+
+시각은 `Z`(UTC)로 온다. DB 칸이 시간대 없는 `timestamp` 라 여기서 지역
+시각으로 바꿔 넣는다 — 안 바꾸면 「9시간 뒤 갱신」이 「지금 갱신」으로 보인다.
+
+#### `copilot` — 물어볼 명령이 없다
+
+`copilot -p "/usage"` 는 **슬래시 명령이 아니라 지시문으로 먹는다.** 실제로
+돌려 보면 이런 답이 온다:
+
+```
+**Session usage metrics are displayed by `/usage`.** It shows statistics such as
+AI credit usage, model usage, token counts, and session activity.
+```
+
+그대로 파싱하면 화면에 **모델이 지어낸 글에서 주운 숫자**가 앉는다. *물어볼
+길이 없는 것*과 *물어봤는데 엉뚱한 것이 오는 것*은 다르고, 뒤엣것이 훨씬
+나쁘다 — 앞엣것은 빈 칸으로 보이지만 뒤엣것은 틀린 값으로 보인다.
+
+그래서 편집기들이 쓰는 한도 통로를 대신 두드린다(`UsageUrl`):
+
+```
+GET https://api.github.com/copilot_internal/user
+Authorization: token <copilot CLI 가 넣어 둔 토큰>
+```
+
+```json
+{ "copilot_plan": "individual", "quota_reset_date_utc": "2026-10-01T00:00:00.000Z",
+  "quota_snapshots": {
+    "chat":        { "percent_remaining": 41.6, "entitlement": 200,  "remaining": 83,   "has_quota": true },
+    "completions": { "percent_remaining": 96.5, "entitlement": 2000, "remaining": 1931, "has_quota": true },
+    "premium_interactions": { "has_quota": false, "entitlement": 0 } } }
+```
+
+- **`has_quota: false` 는 그린다고 될 일이 아니라 없는 한도다.** 그대로
+  담으면 「0% 남음」이 되어 늘 빨간 막대가 하나 서 있고, 그 빨강이 진짜
+  위험한 날의 빨강을 무의미하게 만든다 — 건너뛴다.
+- **토큰을 실행기 설정에 베껴 적지 않는다.** CLI 가 제 자리
+  (`~/.copilot/config.json`)에 갱신해 두는 값이라, 베껴 두면 그 CLI 가 다시
+  로그인한 날부터 실행기만 조용히 401 을 받는다. `UsageTokenFile` ·
+  `UsageTokenPath` 로 **자리만** 적고 값은 그때그때 읽는다(`UsageToken`).
+  읽은 값은 로그에도 보고에도 싣지 않는다.
+- **내부 통로다.** 사라지면 화면의 copilot 칸이 「HTTP 404」로 시끄럽게
+  실패한다 — 조용히 비는 것보다 낫다.
+
+### CLI 하나가 한 줄이 아니다 — `bucket_nm`
+
+표를 만들 때는 `claude` 하나뿐이었고 그것은 계정 하나에 줄 하나면 맞았다.
+**나머지 둘을 붙이면서 그 전제가 깨졌다.** 장비 × 종류로 한 줄만 두면
+agy 의 두 모델군이, copilot 의 두 한도가 **15분마다 서로를 덮는다.** 둘 다
+그럴듯한 값이라 화면의 숫자가 주기마다 바뀌어도 아무도 고장으로 읽지
+못한다 — 표가 비는 것보다 나쁜 모양이다.
+
+그래서 열쇠가 `(runner_nm, runner_kind, bucket_nm)` 이다. 하나뿐인 CLI 는
+빈 글자라 지금 있는 줄이 그대로 산다.
+
+**이번에 안 온 칸은 지운다.** CLI 가 모델군 이름을 바꾸거나 한도 종류를
+접으면 옛 줄이 아무도 갱신하지 않는 채 남고, 「오래된 값」 딱지가 붙어
+사람이 **실행기가 멎었다**로 읽는다. 다만 *같은 종류를 이번에 하나라도
+받았을 때만* 지운다 — 통째로 못 읽은 주기에 지우면 마지막으로 알던 값까지
+잃는다.
+
+`month_pct` 도 같은 이유로 제 칸이다. copilot 은 달로 끊고 claude 는 주로
+끊는데 한 칸에 담으면 화면의 「주간」이 CLI 마다 다른 기간을 뜻하게 된다.
+
+### 화면은 **쓰는 CLI 셋을 늘 늘어놓는다**
+
+올라온 것만 그리면 「이 CLI 는 안 쓴다」와 「이 CLI 의 보고가 끊겼다」가
+똑같이 *없음*으로 보인다. 실제로 antigravity·copilot 이 묻는 길을 못 찾은
+채 그렇게 비어 있었고, 아무도 고장으로 읽지 않았다. 값이 없는 종류에는
+「보고 없음」 칸을 그리고 어디를 봐야 하는지 적어 둔다.
 
 ### 가려낸 숫자가 전부가 아니다 — **원문을 늘 함께 올린다**
 
@@ -2440,7 +2537,7 @@ Current week (Fable): 0% used · resets Sep 24, 11pm (Asia/Seoul)
 
 | | 무엇의 한도 | 어디서 | 화면 |
 |---|---|---|---|
-| 작업지시 CLI | `claude` · `agy` · `copilot` | 실행기가 `/usage` 로 읽음 | 계량기 |
+| 작업지시 CLI | `claude` · `agy` · `copilot` | 실행기가 읽어 올림 (`/usage` 또는 한도 주소) | 계량기 |
 | AI 공급자 | 포털 AI 도우미가 쓰는 모델 | `ai/providers` (응답 헤더에서 주움) | 표 |
 
 **다른 계정의 다른 한도**다. 둘 다 「언제 기준의 값인가」를 반드시 함께
@@ -2467,7 +2564,9 @@ Current week (Fable): 0% used · resets Sep 24, 11pm (Asia/Seoul)
 | 두 사람이 같은 글을 동시 편집 | 뒤에 저장한 쪽이 앞을 덮는다 | `row_version` → 「다른 사람이 먼저 고쳤습니다」 |
 | worktree 가 쌓인다 | 디스크가 준다(지금은 817G 여유) | 성공 후 N일 뒤 정리 (7.3) |
 | **한도 SQL 을 안 돌렸다** | 현황 화면의 한도 칸만 빈다 | 표가 없으면 그 조회만 건너뛴다 — 곁들이는 칸 하나 때문에 대시보드 전체가 안 열리면 고장이 실제보다 커 보인다. 로그에 SQL 파일 이름이 남는다 (11.6) |
-| **CLI 의 `/usage` 출력 형식이 바뀌었다** | 한도 칸이 「읽지 못함」 | 원문을 늘 함께 올린다. 화면에서 접힌 「원문」을 펴 보고 `UsageArgs` 나 `UsageText` 를 고친다 (11.6) |
+| **CLI 의 `/usage` 출력 형식이 바뀌었다** | 한도 칸이 「읽지 못함」 | 원문을 늘 함께 올린다. 화면에서 접힌 「원문」을 펴 보고 `UsageArgs` 나 해당 파서(`UsageText`·`UsageAgy`·`UsageCopilot`)를 고친다 (11.6) |
+| **copilot 의 한도 주소가 사라졌다** | copilot 칸만 「HTTP 404」 | 내부 통로라 예고 없이 사라질 수 있다. `UsageUrl` 을 고친다 — **조용히 비지 않고 시끄럽게 실패하는 것**이 여기서 노린 것이다 (11.6) |
+| **copilot 이 다시 로그인했다** | copilot 칸만 「HTTP 401」 | 토큰을 베껴 두지 않고 `~/.copilot/config.json` 에서 그때그때 읽으므로 대개 저절로 낫는다. 안 나으면 그 장비에서 `copilot login` (11.6) |
 
 ## 13. 운영에서 보이게 하기
 
@@ -2494,6 +2593,9 @@ Current week (Fable): 0% used · resets Sep 24, 11pm (Asia/Seoul)
 - 현황 화면(11.5 · 11.6)은 SQL 둘을 더 돌려야 한다 —
   `projmng-ai-usage-2026-09-20.sql`(한도 표 · 집계 인덱스)와
   `portal-menu-ai-dashboard-2026-09-21.sql`(메뉴 · 권한).
+  뒤이어 `projmng-ai-usage-bucket-2026-09-21.sql`(칸 나누기 · 월간)도 돌린다 —
+  **안 돌리면 한도 칸만 빈다.** 없는 칸을 고르는 조회라 서버가 그것만
+  건너뛰고 로그에 파일 이름을 남긴다(11.6).
   **메뉴 SQL 만 돌리면** 화면은 열리는데 한도 칸이 비고 로그에 경고가 남는다.
   **한도 SQL 만 돌리면** 화면은 있는데 메뉴에서 닿을 길이 없다.
 - 설정은 `/srv/jsini/config/ProjMngServer/appsettings.Local.json` — 이미 마운트돼 있다.
@@ -2540,8 +2642,10 @@ Current week (Fable): 0% used · resets Sep 24, 11pm (Asia/Seoul)
 > (2026-09-20 에 `Runner:Kinds` 로 실제로 그 자리에 섰다).
 >
 > 11.6 의 사용량 보고도 **바이너리 기능**이다. `UsageArgs` 만 올리고 옛
-> 바이너리를 그대로 두면 아무 일도 일어나지 않고, 화면은 「올라온 한도가
-> 없습니다」만 보여 준다.
+> 바이너리를 그대로 두면 아무 일도 일어나지 않고, 화면은 그 CLI 칸에
+> 「보고 없음」만 보여 준다. `UsageUrl`·`UsageFormat`·`UsageTokenFile` 은
+> **옛 바이너리가 모르는 칸**이라 특히 그렇다 — 설정에는 적혀 있는데
+> 아무도 읽지 않는다.
 >
 > ```
 > DOTNET_ROOT=/home/lee/.dotnet /home/lee/.dotnet/dotnet publish -c Release \

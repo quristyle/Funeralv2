@@ -250,6 +250,55 @@ public sealed class AdapterOptions
     /// </remarks>
     public string[] UsageArgs { get; set; } = [];
 
+    /// <summary>
+    /// CLI 로 물을 수 없을 때 대신 두드릴 주소(HTTP GET).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b><c>copilot</c> 때문에 생겼다.</b> 그 CLI 의 <c>/usage</c> 는 대화 중에만
+    /// 도는 화면 명령이라 <c>-p</c> 로 주면 <i>슬래시 명령이 아니라 지시문</i>으로
+    /// 먹는다 — 실제로 「<c>/usage</c> 가 무엇인지」를 설명하는 답이 돌아오고,
+    /// 그 답을 파싱하면 한도가 아니라 <b>모델이 지어낸 글</b>이 화면에 앉는다.
+    /// 물어볼 길이 없는 것과 물어봤는데 엉뚱한 것이 오는 것은 다르고, 뒤엣것이
+    /// 훨씬 나쁘다.
+    /// </para>
+    /// <para>
+    /// <b>비어 있으면 안 쓴다.</b> <see cref="UsageArgs"/> 와 이것 중 하나만
+    /// 있으면 되고, 둘 다 있으면 이쪽이 이긴다.
+    /// </para>
+    /// </remarks>
+    public string UsageUrl { get; set; } = string.Empty;
+
+    /// <summary>
+    /// <see cref="UsageUrl"/> 을 부를 때 쓸 토큰이 든 JSON 파일.
+    /// </summary>
+    /// <remarks>
+    /// <b>토큰을 설정 파일에 베껴 적지 않는다.</b> CLI 가 자기 자리에
+    /// 갱신해 두는 값이라, 베껴 두면 그 CLI 가 다시 로그인한 날부터 조용히
+    /// 401 만 받는다. 맨 앞의 <c>~</c> 는 집 폴더로 편다.
+    /// </remarks>
+    public string UsageTokenFile { get; set; } = string.Empty;
+
+    /// <summary>
+    /// 그 JSON 안에서 토큰이 있는 자리 — <c>authTokens.*.token</c> 처럼 점으로 잇는다.
+    /// </summary>
+    /// <remarks>
+    /// <c>*</c> 는 「이름은 모르겠고 첫 칸」이라는 뜻이다. <c>copilot</c> 의
+    /// 설정은 열쇠가 <c>https://github.com:계정</c> 이라 이름을 적을 수 없다.
+    /// </remarks>
+    public string UsageTokenPath { get; set; } = string.Empty;
+
+    /// <summary>
+    /// 받은 것을 무엇으로 읽나 — <c>text</c>(기본) · <c>agy</c> · <c>copilot</c>.
+    /// </summary>
+    /// <remarks>
+    /// <b>형식마다 읽는 법이 아주 다르다.</b> <c>claude</c> 는 사람이 읽는
+    /// 문장이고, <c>agy</c> 는 탭으로 끊은 표이며, <c>copilot</c> 은 JSON 이다.
+    /// 하나의 정규식으로 셋을 다 받으려 들면 <i>어느 것도 제대로 못 읽는데
+    /// 숫자는 나오는</i> 상태가 된다.
+    /// </remarks>
+    public string UsageFormat { get; set; } = "text";
+
     /// <summary>사용량 조회의 제한 시간(초). 곁들이는 일이라 오래 기다리지 않는다.</summary>
     public int UsageTimeoutSeconds { get; set; } = 60;
 }

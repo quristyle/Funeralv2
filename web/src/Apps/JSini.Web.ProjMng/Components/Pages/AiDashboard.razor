@@ -175,21 +175,49 @@
    차트가 아니라 계량기다. 값이 하나뿐인 비율은 막대 하나가 가장 정확하다. *@
 <div class="pm-aidash__row">
     <CommCont Title="작업지시 CLI 한도"
-              Hint="실행기가 각 CLI 의 /usage 를 읽어 올린 마지막 값입니다. 퍼센트는 「쓴 비율」입니다."
+              Hint="실행기가 CLI 마다 읽어 올린 마지막 값입니다. 퍼센트는 「쓴 비율」이고, CLI 하나가 한도를 여럿 가질 수 있습니다."
               CssClass="pm-aidash__panel">
-        @if (Data.Usage.Count == 0)
-        {
-            <PageNotice Tone="NoticeTone.Info"
-                        Text="올라온 한도가 없습니다. 실행기의 Runner:UsageEnabled 와 각 어댑터의 UsageArgs 를 확인하십시오 — 비어 있으면 그 CLI 에는 묻지 않습니다." />
-        }
-        else
-        {
-            <div class="pm-aidash__meters">
-                @foreach (var usage in Data.Usage)
+        @* **쓰는 CLI 셋을 늘 늘어놓는다.** 올라온 것만 그리면 한 CLI 가
+           조용히 빠진 것과 그 CLI 를 안 쓰는 것이 화면에서 같아 보인다 —
+           실제로 antigravity·copilot 이 그렇게 몇 주를 비어 있었다. *@
+        <div class="pm-aidash__meters">
+            @foreach (var kind in UsageKinds)
+            {
+                var rows = Data.Usage
+                    .Where(u => string.Equals(u.RunnerKind, kind, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+
+                if (rows.Count == 0)
+                {
+                    <div class="pm-aidash__meter-card">
+                        <div class="pm-aidash__meter-head">
+                            <strong>@KindText(kind)</strong>
+                            <span class="jsini-badge jsini-badge--off">보고 없음</span>
+                        </div>
+                        <div class="pm-aidash__meter-error">
+                            아직 올라온 값이 없습니다. 실행기의 Runner:UsageEnabled 와
+                            이 CLI 어댑터의 UsageArgs · UsageUrl 을 확인하십시오 —
+                            둘 다 비어 있으면 아예 묻지 않습니다.
+                        </div>
+                    </div>
+
+                    continue;
+                }
+
+                foreach (var usage in rows)
                 {
                     <div class="pm-aidash__meter-card">
                         <div class="pm-aidash__meter-head">
                             <strong>@KindText(usage.RunnerKind)</strong>
+
+                            @if (BucketText(usage) is { Length: > 0 } bucket)
+                            {
+                                @* 「무엇의 한도인가」를 CLI 이름 옆에 붙인다.
+                                   없으면 Gemini 가 바닥난 것과 Claude 가 바닥난 것이
+                                   같은 칸으로 보인다. *@
+                                <span class="jsini-badge">@bucket</span>
+                            }
+
                             <span class="pm-aidash__stamp">@usage.RunnerNm</span>
 
                             @if (usage.PlanNm is { Length: > 0 })
@@ -213,16 +241,25 @@
                             @Meter("세션", usage.SessionPct, usage.SessionResetAt)
                             @Meter("주간", usage.WeekPct, usage.WeekResetAt)
                             @Meter("주간 Opus", usage.WeekOpusPct, usage.WeekOpusResetAt)
+                            @Meter("월간", usage.MonthPct, usage.MonthResetAt)
 
                             @if (usage.RemainingTokens is { } left)
                             {
                                 <div class="pm-aidash__tokens">
-                                    남은 토큰 <strong>@left.ToString("N0")</strong>
+                                    @UnitText(usage.RunnerKind) <strong>@left.ToString("N0")</strong>
                                     @if (usage.LimitTokens is { } limit)
                                     {
                                         <span> / @limit.ToString("N0")</span>
                                     }
                                 </div>
+                            }
+
+                            @if (usage.ErrorText is { Length: > 0 } note)
+                            {
+                                @* 읽기에 성공했는데 까닭이 적혀 있는 경우 —
+                                   「무제한」처럼 **숫자가 없는 것이 맞는** 상태다.
+                                   실패와 같은 빨강으로 보이면 안 된다. *@
+                                <div class="pm-aidash__stamp">@note</div>
                             }
                         }
                         else
@@ -243,8 +280,8 @@
                         }
                     </div>
                 }
-            </div>
-        }
+            }
+        </div>
     </CommCont>
 
     <CommCont Title="AI 공급자 한도"
@@ -747,6 +784,27 @@
         return top <= 0 ? "0" : (runs * 100.0 / top).ToString("0.#");
     }
 
+    /// <summary>
+    /// 한도 칸에 늘 자리를 내 주는 CLI.
+    /// </summary>
+    /// <remarks>
+    /// <b>올라온 것만 그리지 않는다.</b> 그러면 「이 CLI 는 안 쓴다」와
+    /// 「이 CLI 의 보고가 끊겼다」가 화면에서 똑같이 <i>없음</i>으로 보인다 —
+    /// 실제로 antigravity·copilot 이 묻는 길을 못 찾은 채 몇 주를 그렇게
+    /// 비어 있었고, 아무도 고장으로 읽지 않았다.
+    /// <para>여기 없는 종류가 올라오면 그것도 그대로 그린다(아래 UsageKinds).</para>
+    /// </remarks>
+    private static readonly string[] KnownKinds = ["claude", "antigravity", "copilot"];
+
+    /// <summary>그릴 차례. 아는 셋을 먼저 두고, 처음 보는 종류를 뒤에 붙인다.</summary>
+    private IEnumerable<string> UsageKinds =>
+        KnownKinds.Concat(
+            Data.Usage
+                .Select(u => u.RunnerKind ?? string.Empty)
+                .Where(k => k.Length > 0
+                    && !KnownKinds.Contains(k, StringComparer.OrdinalIgnoreCase))
+                .Distinct(StringComparer.OrdinalIgnoreCase));
+
     private static string KindText(string? kind) => kind switch
     {
         "claude" => "Claude",
@@ -755,6 +813,26 @@
         null or "" => "(없음)",
         _ => kind,
     };
+
+    /// <summary>
+    /// 같은 CLI 안에서 무엇의 한도인가. <b>CLI 가 쓰는 이름을 크게 바꾸지 않는다</b> —
+    /// 원문을 펴 봤을 때 화면의 어느 칸인지 바로 짚을 수 있어야 한다.
+    /// </summary>
+    private static string BucketText(AiUsageSnapshot usage) => usage.BucketNm switch
+    {
+        null or "" => string.Empty,
+        "chat" => "대화",
+        "completions" => "자동완성",
+        "premium_interactions" => "프리미엄 요청",
+        var other => other,
+    };
+
+    /// <summary>
+    /// 토큰이냐 크레딧이냐. 세는 단위가 다른데 같은 말로 적으면 숫자의 크기가
+    /// 엉뚱하게 읽힌다 — 200 크레딧과 200 토큰은 전혀 다른 이야기다.
+    /// </summary>
+    private static string UnitText(string? kind)
+        => kind == "copilot" ? "남은 크레딧" : "남은 토큰";
 
     private static string StatusText(string? status) => status switch
     {

@@ -73,6 +73,9 @@ public sealed class AiUsageService(IConfiguration configuration, ILogger<AiUsage
 
         var saved = 0;
 
+        // 이번 보고에 실제로 실려 온 칸. **지워진 칸을 치우는 데 쓴다**(아래).
+        var seen = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+
         foreach (var item in report.Items ?? [])
         {
             var kind = item.RunnerKind?.Trim();
@@ -82,21 +85,27 @@ public sealed class AiUsageService(IConfiguration configuration, ILogger<AiUsage
                 continue;
             }
 
+            // 하나뿐인 CLI 는 빈 글자다. **NULL 로 두지 않는다** — 열쇠에
+            // 들어가는 칸이라 NULL 이면 덮어쓰기가 안 걸려 줄이 계속 쌓인다.
+            var bucket = Trim(item.BucketNm, 60) ?? string.Empty;
+
             await db.ExecuteAsync("""
                 INSERT INTO projmng.ai_usage_snapshot
-                     ( runner_nm, runner_kind, ok,
+                     ( runner_nm, runner_kind, bucket_nm, ok,
                        session_pct, session_reset_at,
                        week_pct, week_reset_at,
                        week_opus_pct, week_opus_reset_at,
+                       month_pct, month_reset_at,
                        limit_tokens, remaining_tokens, plan_nm,
                        raw_text, error_text, observed_at )
-                VALUES ( @runner, @kind, @ok,
+                VALUES ( @runner, @kind, @bucket, @ok,
                          @sessionPct, @sessionResetAt,
                          @weekPct, @weekResetAt,
                          @weekOpusPct, @weekOpusResetAt,
+                         @monthPct, @monthResetAt,
                          @limitTokens, @remainingTokens, @plan,
                          @raw, @error, now() )
-                ON CONFLICT (runner_nm, runner_kind) DO UPDATE
+                ON CONFLICT (runner_nm, runner_kind, bucket_nm) DO UPDATE
                    SET ok                 = EXCLUDED.ok,
                        session_pct        = EXCLUDED.session_pct,
                        session_reset_at   = EXCLUDED.session_reset_at,
@@ -104,6 +113,8 @@ public sealed class AiUsageService(IConfiguration configuration, ILogger<AiUsage
                        week_reset_at      = EXCLUDED.week_reset_at,
                        week_opus_pct      = EXCLUDED.week_opus_pct,
                        week_opus_reset_at = EXCLUDED.week_opus_reset_at,
+                       month_pct          = EXCLUDED.month_pct,
+                       month_reset_at     = EXCLUDED.month_reset_at,
                        limit_tokens       = EXCLUDED.limit_tokens,
                        remaining_tokens   = EXCLUDED.remaining_tokens,
                        plan_nm            = EXCLUDED.plan_nm,
@@ -115,6 +126,7 @@ public sealed class AiUsageService(IConfiguration configuration, ILogger<AiUsage
             {
                 runner,
                 kind,
+                bucket,
                 ok = item.Ok,
                 sessionPct = Pct(item.SessionPct),
                 sessionResetAt = item.SessionResetAt,
@@ -122,6 +134,8 @@ public sealed class AiUsageService(IConfiguration configuration, ILogger<AiUsage
                 weekResetAt = item.WeekResetAt,
                 weekOpusPct = Pct(item.WeekOpusPct),
                 weekOpusResetAt = item.WeekOpusResetAt,
+                monthPct = Pct(item.MonthPct),
+                monthResetAt = item.MonthResetAt,
                 limitTokens = item.LimitTokens,
                 remainingTokens = item.RemainingTokens,
                 plan = Trim(item.PlanNm, 50),
@@ -129,7 +143,31 @@ public sealed class AiUsageService(IConfiguration configuration, ILogger<AiUsage
                 error = Trim(item.ErrorText, 1000),
             }, tx);
 
+            if (!seen.TryGetValue(kind, out var buckets))
+            {
+                seen[kind] = buckets = [];
+            }
+
+            buckets.Add(bucket);
             saved++;
+        }
+
+        // ③ **이번에 안 온 칸은 치운다.** CLI 가 모델군 이름을 바꾸거나
+        //    한도 종류를 하나 접으면, 옛 줄이 아무도 갱신하지 않는 채
+        //    화면에 남는다. 그 줄에는 「언제 기준」이 옛 시각으로 찍혀 있어
+        //    「오래된 값」 딱지가 붙는데, 사람은 그것을 **실행기가 멎었다**로
+        //    읽는다 — 멀쩡한 장비를 들여다보게 만드는 거짓말이다.
+        //
+        //    같은 종류를 이번에 하나라도 받았을 때만 치운다. 통째로 못 읽은
+        //    주기에 지워 버리면 마지막으로 알던 값까지 잃는다.
+        foreach (var (kind, buckets) in seen)
+        {
+            await db.ExecuteAsync("""
+                DELETE FROM projmng.ai_usage_snapshot
+                 WHERE runner_nm = @runner
+                   AND runner_kind = @kind
+                   AND bucket_nm <> ALL(@buckets)
+                """, new { runner, kind, buckets = buckets.ToArray() }, tx);
         }
 
         tx.Commit();
@@ -172,10 +210,18 @@ public sealed class AiUsageReport
     public List<AiUsageItem>? Items { get; set; }
 }
 
-/// <summary>CLI 하나의 한도.</summary>
+/// <summary>
+/// 한도 한 칸. <b>CLI 하나가 한 줄이 아니다</b> — <see cref="BucketNm"/> 참고.
+/// </summary>
 public sealed class AiUsageItem
 {
     public string? RunnerKind { get; set; }
+
+    /// <summary>
+    /// 같은 CLI 안에서 무엇의 한도인가 — <c>agy</c> 는 모델군, <c>copilot</c> 은
+    /// 한도 종류. 하나뿐인 CLI 는 비운다.
+    /// </summary>
+    public string? BucketNm { get; set; }
 
     public bool Ok { get; set; } = true;
 
@@ -185,6 +231,11 @@ public sealed class AiUsageItem
     public DateTime? WeekResetAt { get; set; }
     public decimal? WeekOpusPct { get; set; }
     public DateTime? WeekOpusResetAt { get; set; }
+
+    /// <summary>월간 한도 사용률(%). 달로 끊는 CLI(<c>copilot</c>)가 쓴다.</summary>
+    public decimal? MonthPct { get; set; }
+
+    public DateTime? MonthResetAt { get; set; }
     public long? LimitTokens { get; set; }
     public long? RemainingTokens { get; set; }
     public string? PlanNm { get; set; }

@@ -436,6 +436,7 @@ public sealed class AiDashboardService(
             SELECT usage_key          AS UsageKey,
                    runner_nm          AS RunnerNm,
                    runner_kind        AS RunnerKind,
+                   bucket_nm          AS BucketNm,
                    ok                 AS Ok,
                    session_pct        AS SessionPct,
                    session_reset_at   AS SessionResetAt,
@@ -443,6 +444,8 @@ public sealed class AiDashboardService(
                    week_reset_at      AS WeekResetAt,
                    week_opus_pct      AS WeekOpusPct,
                    week_opus_reset_at AS WeekOpusResetAt,
+                   month_pct          AS MonthPct,
+                   month_reset_at     AS MonthResetAt,
                    limit_tokens       AS LimitTokens,
                    remaining_tokens   AS RemainingTokens,
                    plan_nm            AS PlanNm,
@@ -450,7 +453,7 @@ public sealed class AiDashboardService(
                    error_text         AS ErrorText,
                    observed_at        AS ObservedAt
               FROM projmng.ai_usage_snapshot
-             ORDER BY runner_kind, runner_nm
+             ORDER BY runner_kind, bucket_nm, runner_nm
             """)];
         }
         catch (PostgresException ex) when (ex.SqlState == "42P01")
@@ -458,6 +461,18 @@ public sealed class AiDashboardService(
             logger.LogWarning(
                 "projmng.ai_usage_snapshot 이 없습니다. "
                 + "deploy/sql/projmng-ai-usage-2026-09-20.sql 를 돌리십시오.");
+
+            return [];
+        }
+        catch (PostgresException ex) when (ex.SqlState == "42703")
+        {
+            // **칸이 모자란 것도 같은 종류의 고장이다.** 표는 만들었는데
+            // 뒤에 낸 SQL 을 안 돌린 경우 — 곁들이는 칸 하나 때문에
+            // 대시보드 전체가 안 열리면 고장이 실제보다 훨씬 커 보인다.
+            logger.LogWarning(
+                "projmng.ai_usage_snapshot 에 칸이 모자랍니다({Message}). "
+                + "deploy/sql/projmng-ai-usage-bucket-2026-09-21.sql 를 돌리십시오.",
+                ex.MessageText);
 
             return [];
         }
