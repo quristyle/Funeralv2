@@ -81,6 +81,35 @@
     끌어놓기가 꼭 필요하면 되살릴 자리는 이 파일 하나다.
     ────────────────────────────────────────────────────────────
 
+    ────────────────────────────────────────────────────────────
+    [휴대폰에서 이 화면은 쓸 수가 없었다]
+
+    ≤767px 에서 배치가 셋 다 어긋나 있었다.
+
+    · **탭 머리가 본문을 굶겼다.** 왼쪽 탭 머리 폭이 9.5rem 고정이라
+      360px 짜리 화면에서 본문에 190px 밖에 남지 않았다 — 「이메일」 칸이
+      열 글자도 못 받는 폭이다. 휴대폰에서는 머리를 **위로 올린다**
+      (`TabsPosition.Top`). 이름도 짧은 쪽으로 바꾼다(`TabText`).
+    · **얼굴 판이 화면 한 폭을 세로로 먹었다.** 가운데 정렬한 96px 동그라미
+      아래에 이름·아이디·소속을 쌓아서, 탭에 닿기 전에 180px 를 굴려야 했다.
+      가로로 눕힌다(admin.css).
+    · **접속 기록 표가 옆으로 굴렀다.** 칸 넷이 620px 를 요구한다. 기기
+      칸을 접고 나머지 셋의 폭 못을 뽑는다.
+
+    거기에 손가락 과녁이 작았다 — 탭 한 줄 28px, 사진 카드의 단추 24px.
+    권장값은 44px 다. 크기는 CSS 가 키운다.
+
+    [경계 767px 를 두 곳에 적는다]
+
+    화면은 `DxLayoutBreakpoint MaxWidth="767"` 로 알고, CSS 는 같은 값의
+    좁은 화면 규칙으로 안다. **둘이 어긋나면 그 사이 폭에서 어느 쪽도 아닌
+    화면이 나온다** — 고칠 때 함께 고친다.
+
+    `DeviceSize.XSmall` 로 적지 않은 이유는 그것이 **576px 미만**이기
+    때문이다. 셸은 767px 에서 사이드바를 덮개로 바꾸므로(app.css), XSmall 로
+    두면 576~767px 짜리 기기에서 메뉴는 휴대폰인데 이 화면만 데스크톱이다.
+    ────────────────────────────────────────────────────────────
+
     [`?tab=` 로 바로 열 수 있다]
 
     Vue 가 `?tab=password` 를 받았다. 그 규약을 지킨다 — 헤더의 사용자 메뉴가
@@ -125,6 +154,28 @@
 @inject NavigationManager Navigation
 
 <PageTitle>내 정보 · 포털관리</PageTitle>
+
+@* 휴대폰인가. 경계 767px 는 **admin.css 의 좁은 화면 규칙과 같은 값**이라야
+   한다 — 어긋나면 그 사이 폭에서 탭 머리는 위로 갔는데 CSS 는 아직 옆 판
+   모양을 그리는, 어느 쪽도 아닌 화면이 나온다.
+
+   `DeviceSize` 대신 `MaxWidth` 로 적는 이유가 그것이다. DevExpress 의
+   `XSmall` 은 **576px 미만**이라 576~767px 짜리 기기가 데스크톱 배치로
+   남는다 — 셸의 사이드바는 이미 덮개로 바뀐 폭인데 이 화면만 안 따라간다.
+
+   **`@bind-IsActive` 가 아니다** — 묶어만 두면 값이 갈려도 처리기가 돌지
+   않는다(`MainLayout` 이 같은 함정을 적어 두었다). *@
+<DxLayoutBreakpoint MaxWidth="767" IsActive="_isPhone"
+                    IsActiveChanged="@(v => _isPhone = v)" />
+
+@* 고정탭의 두 판이 **위아래로 쌓였는가.** 그 경계만 991px 로 따로다
+   (admin.css 의 `.ad-pin`) — 768~991px 에서는 탭 머리가 아직 왼쪽에 서 있어
+   두 판에 남는 폭이 판당 180px 뿐이라, 휴대폰보다 먼저 쌓인다.
+
+   자리를 가리키는 낱말(「왼쪽」·「→」)이 이 값을 본다. 휴대폰 경계를 보게
+   두면 그 사이 폭에서 **판은 쌓였는데 글은 옆을 가리킨다.** *@
+<DxLayoutBreakpoint MaxWidth="991" IsActive="_isPinsStacked"
+                    IsActiveChanged="@(v => _isPinsStacked = v)" />
 
 <div class="ad-profile">
 
@@ -173,15 +224,33 @@
 
             @if (_info is not null)
             {
-                @* `DxTabs` 에는 `CssClass` 가 없다(26.1 에서 확인). 남는 속성은
-                   `Attributes` 로 흘러가므로 `class` 를 그대로 적는다. *@
-                <DxTabs TabsPosition="TabsPosition.Left"
+                @*
+                    `DxTabs` 에는 `CssClass` 가 없다(26.1 에서 확인). 남는 속성은
+                    `Attributes` 로 흘러가므로 `class` 를 그대로 적는다.
+
+                    [휴대폰에서는 탭 머리가 위로 간다]
+
+                    왼쪽 탭 머리는 폭을 9.5rem 고정으로 잡아 둔다(admin.css).
+                    360px 짜리 화면에서 그것은 **본문에 190px 밖에 남기지
+                    않는다** — 「이메일」 입력칸이 열 글자도 못 받는 폭이다.
+                    위로 올리면 그 폭이 전부 본문으로 간다.
+
+                    이름도 함께 줄인다(`TabText`). 위로 올린 탭 머리는 폭을
+                    일곱이 나눠 쓰므로 「프로필 사진 관리」 같은 이름은 어차피
+                    다 못 보여 준다.
+
+                    `ScrollMode` 는 적어 둔다. `Auto` 가 기기를 보고 갈라 주는
+                    값이라(휴대폰·태블릿은 쓸어 넘기기, 데스크톱은 화살표 단추)
+                    일곱이 한 줄에 안 들어가는 폭에서도 손가락으로 넘길 수 있다.
+                *@
+                <DxTabs TabsPosition="@(_isPhone ? TabsPosition.Top : TabsPosition.Left)"
+                        ScrollMode="TabsScrollMode.Auto"
                         ActiveTabIndex="@TabIndex"
                         ActiveTabIndexChanged="@OnTabIndexChanged"
                         class="ad-profile__tabs">
 
                     @* ── 기본 설정 ─────────────────────────── *@
-                    <DxTabPage Text="기본 설정">
+                    <DxTabPage Text="@TabText(Tab.Basic)">
                         <DxFormLayout CssClass="ad-editform">
                             <DxFormLayoutItem Caption="이름" ColSpanMd="6">
                                 <DxTextBox @bind-Text="_edit.RealName" />
@@ -251,7 +320,7 @@
                     </DxTabPage>
 
                     @* ── 계정 정보 ─────────────────────────── *@
-                    <DxTabPage Text="계정 정보">
+                    <DxTabPage Text="@TabText(Tab.Account)">
                         @if (_info.PasswordExpired)
                         {
                             <PageNotice Tone="NoticeTone.Error"
@@ -374,6 +443,24 @@
                            표가 잘린다(web/CLAUDE.md 의 그 단서). *@
                         <h2 class="ad-section">최근 접속 기록</h2>
 
+                        @*
+                            휴대폰에서는 **기기 칸을 접는다.**
+
+                            네 칸이 요구하는 폭이 160+120+140+200 = 620px 다.
+                            360px 짜리 화면에서 그것은 표가 옆으로 구른다는 뜻이고,
+                            세로로 구르는 쪽(쪽 전체)과 가로로 구르는 쪽(표)이
+                            겹치면 손가락이 어느 쪽을 미는지 알 수 없다.
+
+                            접는 것은 **기기 하나**다. 「낯선 접속인가」를 판단하는
+                            데 시각·결과·주소 셋은 모두 있어야 하고 — 결과를 빼면
+                            실패한 줄과 성공한 줄이 똑같아 보인다 — 기기 이름만
+                            그 판단을 거들 뿐인데 가장 넓은 칸이다.
+
+                            남는 셋은 폭을 떼어 낸다. 값으로 못을 박아 두면 셋이
+                            화면을 나눠 갖지 못하고 오른쪽이 빈다. 날짜도 연도를
+                            떼어 「MM-dd HH:mm」으로 줄인다 — 최근 기록만 쌓이는
+                            표라 연도가 갈리는 일이 드물다.
+                        *@
                         <CommGrd TItem="LoginLogDto" Data="@Recent" PageSize="10"
                                  ShowExcelExport="false" ExportName="접속기록"
                                  EmptyText="접속 기록이 없습니다.">
@@ -381,14 +468,18 @@
                                     @* 그리드는 시간대를 옮겨 주지 않는다. `At` 을 그대로 걸면
                                        표만 아홉 시간 뒤처져 보인다(LoginLogDto.AtLocal 주석). *@
                                     <DxGridDataColumn FieldName="@nameof(LoginLogDto.AtLocal)" Caption="시각"
-                                                      Width="160" DisplayFormat="yyyy-MM-dd HH:mm" />
-                                    <DxGridDataColumn FieldName="@nameof(LoginLogDto.ResultLabel)" Caption="결과" Width="120" />
-                                    <DxGridDataColumn FieldName="@nameof(LoginLogDto.Ip)" Caption="접속 IP" Width="140" />
+                                                      Width="@(_isPhone ? null : "160")"
+                                                      DisplayFormat="@(_isPhone ? "MM-dd HH:mm" : "yyyy-MM-dd HH:mm")" />
+                                    <DxGridDataColumn FieldName="@nameof(LoginLogDto.ResultLabel)" Caption="결과"
+                                                      Width="@(_isPhone ? null : "120")" />
+                                    <DxGridDataColumn FieldName="@nameof(LoginLogDto.Ip)" Caption="접속 IP"
+                                                      Width="@(_isPhone ? null : "140")" />
 
                                     @* 줄인 이름을 보여 주고 원문은 얹어 본다 — 원문(UserAgent)은
                                        길어서 그대로 두면 표가 무너진다. *@
                                     <DxGridDataColumn FieldName="@nameof(LoginLogDto.DeviceLabel)" Caption="기기"
-                                                      MinWidth="200" TextAlignment="GridTextAlignment.Left">
+                                                      MinWidth="200" Visible="@(!_isPhone)"
+                                                      TextAlignment="GridTextAlignment.Left">
                                         <CellDisplayTemplate>
                                             @{
                                                 var row = (LoginLogDto)context.DataItem;
@@ -407,11 +498,16 @@
                     </DxTabPage>
 
                     @* ── 고정탭 관리 ───────────────────────── *@
-                    <DxTabPage Text="고정탭 관리">
+                    <DxTabPage Text="@TabText(Tab.FixedTabs)">
+                        @* 두 판은 좁은 화면에서 **위아래로 쌓인다**(admin.css). 그런데
+                           안내와 단추는 「왼쪽」·「오른쪽」·「→」로 적혀 있었다 — 판이
+                           쌓인 화면에서 그것은 **없는 곳을 가리키는 말**이다.
+                           자리를 가리키는 낱말은 모두 지금 배치를 따라간다. *@
                         <p class="jsini-hint">
-                            왼쪽이 사이드바 즐겨찾기에 나타나는 메뉴이고, 그 순서대로
-                            보입니다. 오른쪽에서 골라 「고정」을 누르고, 순서는 ↑·↓ 로
-                            바꿉니다. 여러 건을 함께 고를 수 있습니다.
+                            @(_isPinsStacked ? "위쪽이" : "왼쪽이") 사이드바 즐겨찾기에 나타나는 메뉴이고,
+                            그 순서대로 보입니다. @(_isPinsStacked ? "아래쪽에서" : "오른쪽에서") 골라
+                            「고정」을 누르고, 순서는 ↑·↓ 로 바꿉니다. 여러 건을 함께 고를
+                            수 있습니다.
                         </p>
 
                         <div class="ad-pin">
@@ -434,7 +530,7 @@
                                            ShowCheckboxes="true"
                                            CssClass="ad-pin__list">
                                     <EmptyDataAreaTemplate>
-                                        오른쪽에서 골라 「고정」을 누르십시오.
+                                        @(_isPinsStacked ? "아래쪽에서" : "오른쪽에서") 골라 「고정」을 누르십시오.
                                     </EmptyDataAreaTemplate>
                                 </DxListBox>
 
@@ -443,7 +539,8 @@
                                               Enabled="@CanMoveUp" Click="@(() => MoveAsync(-1))" />
                                     <DxButton Text="↓ 아래로" RenderStyle="ButtonRenderStyle.Secondary"
                                               Enabled="@CanMoveDown" Click="@(() => MoveAsync(1))" />
-                                    <DxButton Text="해제 →" RenderStyle="ButtonRenderStyle.Secondary"
+                                    <DxButton Text="@(_isPinsStacked ? "해제 ↓" : "해제 →")"
+                                              RenderStyle="ButtonRenderStyle.Secondary"
                                               Enabled="@(_pickedPins.Count > 0)" Click="@UnpinAsync" />
                                 </div>
                             </div>
@@ -471,7 +568,8 @@
                                 </DxListBox>
 
                                 <div class="jsini-actions">
-                                    <DxButton Text="← 고정" RenderStyle="ButtonRenderStyle.Primary"
+                                    <DxButton Text="@(_isPinsStacked ? "↑ 고정" : "← 고정")"
+                                              RenderStyle="ButtonRenderStyle.Primary"
                                               Enabled="@(_pickedMenus.Count > 0)" Click="@PinAsync" />
                                 </div>
                             </div>
@@ -490,7 +588,7 @@
                     </DxTabPage>
 
                     @* ── 보안 설정 ─────────────────────────── *@
-                    <DxTabPage Text="보안 설정">
+                    <DxTabPage Text="@TabText(Tab.Security)">
                         <section class="ad-settings">
                             @* 첫 줄은 켬·끔이 아니다. Vue 는 여기에 「현재 비밀번호 강도:
                                강함」이라는 **고정된 글자**를 박아 두었는데, 서버는 강도를
@@ -526,7 +624,7 @@
                     </DxTabPage>
 
                     @* ── 비밀번호 변경 ─────────────────────── *@
-                    <DxTabPage Text="비밀번호 변경">
+                    <DxTabPage Text="@TabText(Tab.Password)">
                         <PageNotice Text="@ExpiryText" Tone="@ExpiryTone" />
 
                         <DxFormLayout CssClass="ad-editform">
@@ -562,7 +660,7 @@
                     </DxTabPage>
 
                     @* ── 새 메시지 알림 ─────────────────────── *@
-                    <DxTabPage Text="새 메시지 알림">
+                    <DxTabPage Text="@TabText(Tab.Notice)">
                         <section class="ad-settings">
                             @foreach (var row in NoticeRows)
                             {
@@ -585,7 +683,7 @@
                     </DxTabPage>
 
                     @* ── 프로필 사진 관리 ───────────────────── *@
-                    <DxTabPage Text="프로필 사진 관리">
+                    <DxTabPage Text="@TabText(Tab.Avatar)">
                         <p class="jsini-hint">
                             사진을 여러 장 올려 두고 그중 하나를 <b>대표</b>로 고릅니다.
                             헤더와 이 화면에 보이는 것은 대표 사진입니다. 최대 @PhotoLimit 장.
@@ -738,6 +836,51 @@
 
     /// <summary><c>DxTabs</c> 가 쓰는 번호. 열거형 값이 곧 자리다.</summary>
     private int TabIndex => (int)_tab;
+
+    /// <summary>
+    /// 휴대폰 폭인가(≤767px). <c>DxLayoutBreakpoint</c> 가 알려 준다.
+    ///
+    /// <para>
+    /// <b>첫 그림에서는 언제나 <c>false</c> 다.</b> 서버가 그릴 때는 화면
+    /// 크기를 모르므로 데스크톱 배치가 한 번 나가고, 회로가 붙은 뒤 이 값이
+    /// 갈리며 다시 그려진다. 배치만 갈리는 일이라 그대로 둔다.
+    /// </para>
+    /// </summary>
+    private bool _isPhone;
+
+    /// <summary>
+    /// 고정탭의 두 판이 위아래로 쌓였는가(≤991px). 휴대폰 경계와 <b>다른
+    /// 값</b>인 이유는 위 <c>DxLayoutBreakpoint</c> 옆에 적어 두었다.
+    /// </summary>
+    private bool _isPinsStacked;
+
+    /// <summary>
+    /// 탭 이름. 휴대폰에서는 짧은 쪽을 쓴다.
+    ///
+    /// <para>
+    /// 위로 올라간 탭 머리는 폭을 일곱이 나눠 쓴다. 「프로필 사진 관리」를
+    /// 그대로 두면 한 탭이 화면 절반을 차지하고 나머지 여섯은 쓸어 넘겨야만
+    /// 닿는다 — <b>지금 어느 탭에 있는지조차 안 보인다.</b>
+    /// </para>
+    /// </summary>
+    private string TabText(Tab tab) => (_isPhone, tab) switch
+    {
+        (false, Tab.Basic) => "기본 설정",
+        (false, Tab.Account) => "계정 정보",
+        (false, Tab.FixedTabs) => "고정탭 관리",
+        (false, Tab.Security) => "보안 설정",
+        (false, Tab.Password) => "비밀번호 변경",
+        (false, Tab.Notice) => "새 메시지 알림",
+        (false, Tab.Avatar) => "프로필 사진 관리",
+
+        (true, Tab.Basic) => "기본",
+        (true, Tab.Account) => "계정",
+        (true, Tab.FixedTabs) => "고정탭",
+        (true, Tab.Security) => "보안",
+        (true, Tab.Password) => "비밀번호",
+        (true, Tab.Notice) => "알림",
+        _ => "사진",
+    };
 
     private UserInfoDto? _info;
     private AccountActivityDto? _activity;
