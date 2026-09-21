@@ -38,14 +38,14 @@
 <CommSch OnSearch="@ReloadAsync">
     <Fields>
         <CommSchItem Label="검색어">
-            <DxTextBox @bind-Text="_keyword" NullText="회사명" Style="width: 220px"
+            <DxTextBox @bind-Text="_keyword" Style="width: 220px"
                        ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
         </CommSchItem>
 
         <CommSchItem Label="사용처">
             <DxComboBox Data="@_usages" TextFieldName="@nameof(CommonCodeDto.CodeName)"
                         ValueFieldName="@nameof(CommonCodeDto.CodeValue)"
-                        @bind-Value="_usageFilter" NullText="전체" Style="width: 200px"
+                        @bind-Value="_usageFilter" Style="width: 200px"
                         ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
         </CommSchItem>
     </Fields>
