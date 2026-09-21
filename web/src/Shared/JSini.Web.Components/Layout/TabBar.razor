@@ -120,6 +120,10 @@
                                    IconCssClass="jsini-icon-copy"
                                    Click="@(() => CopyUrlAsync(t))" />
 
+                <DxContextMenuItem Text="경로 복사 (도메인 제외)"
+                                   IconCssClass="jsini-icon-copy"
+                                   Click="@(() => CopyPathAsync(t))" />
+
                 @* 여기부터 닫는 것들. 구분선을 두는 이유는 위쪽이 되돌릴 수 있는
                    일이고 아래쪽은 그렇지 않기 때문이다. *@
                 <DxContextMenuItem Text="닫기"
@@ -272,6 +276,30 @@
 
         Toasts.Show(
             copied ? "주소를 복사했습니다." : $"주소를 복사하지 못했습니다 — {url}",
+            copied ? NoticeTone.Info : NoticeTone.Error);
+    }
+
+    /// <summary>
+    /// 도메인을 제외한 경로(PathAndQuery)를 클립보드에 담는다.
+    /// </summary>
+    private async Task CopyPathAsync(PortalTab tab)
+    {
+        var uri = Navigation.ToAbsoluteUri(tab.Href);
+        var path = uri.PathAndQuery;
+
+        bool copied;
+
+        try
+        {
+            copied = await Js.InvokeAsync<bool>("jsiniClipboard.copy", path);
+        }
+        catch (JSException)
+        {
+            copied = false;
+        }
+
+        Toasts.Show(
+            copied ? "경로를 복사했습니다." : $"경로를 복사하지 못했습니다 — {path}",
             copied ? NoticeTone.Info : NoticeTone.Error);
     }
 
