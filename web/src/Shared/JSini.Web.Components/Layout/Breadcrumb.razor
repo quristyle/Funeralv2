@@ -46,12 +46,29 @@
     | 가운데의 화면 있는 메뉴 | 펴서 고르고 **그 화면으로도 간다**(링크 그대로) |
     | 맨 끝(지금 화면) | 펴서 고르기만. 이동은 없다 — 제자리다 |
 
+    [휴대폰에서 맨 끝 칸은 탭 메뉴를 연다]
+
+    좁은 화면에서는 앞쪽 줄기와 구분자를 CSS 가 감춰 **맨 끝 칸 하나만**
+    로고 옆에 남는다(`app.css` 의 ≤767px). 같은 화면에서 탭 줄도 통째로
+    감추므로, 그대로 두면 새로 고침·고정·즐겨찾기·URL 복사·닫기가
+    **휴대폰에서만 없는 기능**이 된다 — 남아 있는 그 이름이 「지금 열려 있는
+    화면」을 가리키는 유일한 자리라 거기에 탭 메뉴를 붙인다(`TabMenuRequest`).
+
+    창은 탭 줄이 들고 있는 그것 하나다. 항목을 여기 따로 적지 않는 이유는
+    `TabBar.razor` 머리말에 있다 — 같은 자리에서 할 수 있는 일이 어느 쪽으로
+    열었느냐에 따라 달라지면 안 된다.
+
+    **사이드바를 펴는 길을 잃지 않는다.** 휴대폰에서 왼쪽 아래 떠 있는 단추로
+    판을 열면 사이드바가 지금 메뉴를 펴고 골라 준다(`SidebarMenu.ShowActive`) —
+    이 칸이 하던 일과 결과가 같다.
+
     묶음과 지금 화면은 `<a>` 가 아니라 `<button>` 이다. 갈 곳이 없는 것을
     링크로 그리면 마우스를 올렸을 때 주소가 뜨고 가운데 클릭으로 새 탭이
     열린다 — 아무것도 없는 탭이 열린다. 생김새는 CSS 가 링크와 같게 맞춘다.
 *@
 
 @inject MenuReveal Menus
+@inject TabMenuRequest TabMenu
 
 @if (Trail.Count > 0)
 {
@@ -80,10 +97,24 @@
                그 자리로 편다(`Breadcrumb.razor` 머리말). *@
             @if (node == Trail[^1])
             {
+                @* 휴대폰에서는 탭 메뉴를 연다(이 파일 머리말). 그때 이 칸은
+                   헤더에 남는 유일한 「지금 화면」 표시다. *@
                 <button type="button"
                         class="jsini-crumbs__item jsini-crumbs__item--current"
-                        title="@($"사이드바에서 「{node.Title}」 보기")"
-                        @onclick="@(() => Reveal(node))">@node.Title</button>
+                        title="@(IsPhone ? $"「{node.Title}」 화면 메뉴" : $"사이드바에서 「{node.Title}」 보기")"
+                        @onclick="@(args => OnCurrentClick(args, node))">
+                    @* 글자를 span 으로 싸는 이유는 휴대폰에서 이 칸이 줄임표와
+                       화살표를 나란히 두는 상자가 되기 때문이다(app.css).
+                       넓은 화면에서는 그냥 글자 한 덩이다. *@
+                    <span class="jsini-crumbs__label">@node.Title</span>
+
+                    @* 아래를 가리키는 작은 삼각형. **휴대폰에서만** 그린다 —
+                       넓은 화면에서는 탭 줄의 「⋯」 이 이 노릇을 이미 한다. *@
+                    @if (IsPhone)
+                    {
+                        <span class="jsini-crumbs__caret" aria-hidden="true"></span>
+                    }
+                </button>
             }
             else if (node.IsCatalog)
             {
@@ -108,8 +139,34 @@
     [Parameter, EditorRequired] public IReadOnlyList<MenuNode> Trail { get; set; } = [];
 
     /// <summary>
+    /// 휴대폰인가(≤767px). 레이아웃이 내려 준다 — 그쪽이 이미
+    /// <c>DxLayoutBreakpoint</c> 로 재고 있다.
+    /// </summary>
+    /// <remarks>
+    /// 맨 끝 칸이 하는 일이 이 값으로 갈린다. CSS 로는 못 가르는 대목이라
+    /// (누르면 무엇이 일어나는가) 값으로 받는다. 프리렌더 중에는 화면 크기를
+    /// 모르므로 거짓이고, 재고 나면 다시 그려진다 — 그전에 누를 수는 없다.
+    /// </remarks>
+    [Parameter] public bool IsPhone { get; set; }
+
+    /// <summary>
     /// 사이드바에 「이 메뉴를 펴서 보여 달라」고 한다. 받는 쪽은
     /// <c>SidebarMenu</c>(펴고 고르기)와 <c>MainLayout</c>(접혀 있으면 펴기)이다.
     /// </summary>
     private void Reveal(MenuNode node) => Menus.Request(node.Path);
+
+    /// <summary>
+    /// 맨 끝 칸(지금 화면)을 눌렀다. <b>휴대폰에서는 탭 메뉴</b>를 누른 자리에
+    /// 열고, 넓은 화면에서는 하던 대로 사이드바를 그 자리로 편다.
+    /// </summary>
+    private void OnCurrentClick(MouseEventArgs args, MenuNode node)
+    {
+        if (IsPhone)
+        {
+            TabMenu.Request(args);
+            return;
+        }
+
+        Reveal(node);
+    }
 }

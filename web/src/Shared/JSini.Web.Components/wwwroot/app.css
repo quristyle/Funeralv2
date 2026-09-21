@@ -2096,7 +2096,12 @@ button.jsini-crumbs__item:hover { opacity: 1; }
   }
 
   /* 모바일 화면에서는 탭 줄을 숨긴다. 본문 공간을 확보하고,
-     열린 화면 이름은 헤더의 로고 옆에 표시한다. */
+     열린 화면 이름은 헤더의 로고 옆에 표시한다.
+
+     **탭 메뉴까지 함께 사라지지는 않는다** — 그 이름을 누르면 탭 줄이
+     들고 있는 창이 손가락 닿은 자리에 열린다(`TabMenuRequest` 머리말).
+     창을 그리는 마크업은 이 상자 **밖**이라(`TabBar.razor` 의 형제 노드)
+     여기서 감춰도 멀쩡하다. */
   .jsini-tabs { display: none; }
 
   /* 헤더의 브레드크럼은 모바일에서 앞쪽 경로와 구분자를 숨기고,
@@ -2107,12 +2112,49 @@ button.jsini-crumbs__item:hover { opacity: 1; }
   .jsini-crumbs__item:not(:last-child),
   .jsini-crumbs__sep { display: none; }
 
+  /* 이 칸은 휴대폰에서 **탭 메뉴를 여는 단추**다(`Breadcrumb.razor` 머리말).
+     그래서 글자 묶음이 아니라 줄임표와 화살표를 나란히 두는 상자로 만든다 —
+     `inline-block` 에 `text-overflow` 만 걸면 화살표까지 줄임표 안쪽으로
+     들어가 잘린다. */
   .jsini-crumbs__item--current {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
     max-width: min(16rem, calc(100vw - 230px));
+    margin-right: 0;
+
+    /* 손가락이 닿는 자리를 넓힌다. 헤더 높이 안에서 위아래로만 준다 —
+       좌우로 주면 로고에 붙거나 도구 단추를 민다. */
+    padding: 0.35rem 0;
+  }
+
+  /* 줄임표는 글자 쪽에만 건다. 화살표는 그 밖이라 늘 보인다.
+
+     `min-width: 0` 이 있어야 실제로 줄어든다 — flex 항목의 기본 최소 폭이
+     내용 크기라, 이 줄이 없으면 긴 이름이 줄임표로 접히는 대신 **화살표를
+     상자 밖으로 밀어낸다**(`.jsini-crumbs` 가 같은 이유로 들고 있는 줄이다). */
+  .jsini-crumbs__item--current > .jsini-crumbs__label {
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    margin-right: 0;
+  }
+
+  /* **눌린다는 유일한 표시.** 넓은 화면에서는 탭 줄의 「⋯」 이 그 노릇을
+     하는데 여기서는 그 줄이 통째로 감춰져, 표시가 없으면 열린 화면 이름이
+     그냥 글자로 보인다.
+
+     생김새는 브레드크럼 구분자와 같은 **테두리로 그린 삼각형**이다(위쪽
+     `.jsini-crumbs__sep` 과 같은 이유 — 글꼴에 없는 글자를 쓰지 않는다).
+     아래를 가리키게 돌려 「여기서 뭔가 펼쳐진다」를 말한다. */
+  .jsini-crumbs__caret {
+    flex: 0 0 auto;
+    width: 0;
+    height: 0;
+    margin-top: 2px;
+    border: 4px solid transparent;
+    border-top-color: currentcolor;
+    opacity: 0.55;
   }
 
   /* 좁은 화면에서 브랜드 글자는 뺀다. 도구 단추가 밀려 나간다.

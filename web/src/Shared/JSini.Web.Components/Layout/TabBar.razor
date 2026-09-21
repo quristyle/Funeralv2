@@ -13,10 +13,15 @@
     누르면 `NavigationManager` 로 이동하고, **이동한 결과를 보고** 탭이 켜진다.
     반대로 만들면 주소와 화면이 어긋나서 새로 고침·뒤로 가기·즐겨찾기가 깨진다.
 
-    [메뉴는 하나다. 여는 길이 둘일 뿐이다]
+    [메뉴는 하나다. 여는 길이 셋일 뿐이다]
 
-    오른쪽 클릭은 **누른 탭**을, 오른쪽 끝의 「⋯」 은 **보고 있는 탭**을 다룬다.
-    다른 것은 대상뿐이고 **항목은 같다.**
+    오른쪽 클릭은 **누른 탭**을, 오른쪽 끝의 「⋯」 과 **휴대폰에서 헤더에 남는
+    화면 이름**은 **보고 있는 탭**을 다룬다. 다른 것은 대상과 창이 뜨는 자리뿐이고
+    **항목은 같다.**
+
+    세 번째 길이 있는 까닭은 휴대폰에서 이 줄을 통째로 감추기 때문이다
+    (`app.css` 의 ≤767px). 그대로 두면 새로 고침·고정·즐겨찾기·URL 복사·닫기가
+    **휴대폰에서만 없는 기능**이 된다. 부탁은 `TabMenuRequest` 가 나른다.
 
     한동안 「⋯」 이 자기 항목을 따로 들고 있었고 셋뿐이었다. 그래서 같은
     자리에서 할 수 있는 일이 어느 쪽으로 열었느냐에 따라 달랐다 — 「아까는
@@ -36,6 +41,7 @@
 @using System.Text.Json
 
 @inject PortalTabs Tabs
+@inject TabMenuRequest TabMenu
 @inject MenuFavorites Favorites
 @inject NavigationManager Navigation
 @inject IJSRuntime Js
@@ -174,6 +180,10 @@
         Tabs.Changed += OnTabsChanged;
         Tabs.PinsChanged += OnPinsChanged;
         Favorites.Changed += OnTabsChanged;
+
+        // 휴대폰에서 헤더의 화면 이름을 누른 것. 이 줄은 그때 감춰져 있지만
+        // 창은 이 부품이 들고 있다(TabMenuRequest 머리말).
+        TabMenu.Requested += OnTabMenuRequested;
     }
 
     private void OnTabsChanged() => InvokeAsync(StateHasChanged);
@@ -204,7 +214,7 @@
     /// </summary>
     private async Task OpenMenuForActiveAsync()
     {
-        _target = Tabs.Items.FirstOrDefault(IsActive) ?? Tabs.Items.FirstOrDefault();
+        _target = ActiveTab;
         StateHasChanged();
 
         if (_menu is not null && _target is not null)
@@ -212,6 +222,28 @@
             await _menu.ShowAsync(ContextMenuPosition.Bottom);
         }
     }
+
+    /// <summary>
+    /// 휴대폰에서 헤더에 남는 <b>화면 이름</b>을 눌렀다(<c>Breadcrumb</c>).
+    /// 대상은 「⋯」 과 같은 **보고 있는 탭**이고, 창만 <b>누른 자리</b>에 뜬다.
+    ///
+    /// <para>
+    /// 「⋯」 처럼 <c>ContextMenuPosition.Bottom</c> 으로 열지 않는다 — 그 자리는
+    /// 이 줄 오른쪽 끝의 단추(<c>#jsini-tabs-more</c>)인데 휴대폰에서는 줄째
+    /// 감춰져 있어서(<c>display: none</c>) 창이 엉뚱한 구석에 뜬다.
+    /// </para>
+    /// </summary>
+    private void OnTabMenuRequested(MouseEventArgs args) => InvokeAsync(async () =>
+    {
+        if (ActiveTab is { } tab)
+        {
+            await OpenMenuAsync(args, tab);
+        }
+    });
+
+    /// <summary>보고 있는 탭. 못 찾으면 첫 탭이고, 탭이 없으면 <c>null</c> 이다.</summary>
+    private PortalTab? ActiveTab =>
+        Tabs.Items.FirstOrDefault(IsActive) ?? Tabs.Items.FirstOrDefault();
 
     private bool IsActive(PortalTab tab) =>
         string.Equals(tab.Href, Tabs.ActiveHref, StringComparison.OrdinalIgnoreCase);
@@ -412,5 +444,6 @@
         Tabs.Changed -= OnTabsChanged;
         Tabs.PinsChanged -= OnPinsChanged;
         Favorites.Changed -= OnTabsChanged;
+        TabMenu.Requested -= OnTabMenuRequested;
     }
 }

@@ -321,6 +321,11 @@ public static class JSiniWebApp
         // 그 둘은 형제도 부모 자식도 아니라 파라미터로 잇지 못한다(MenuReveal 머리말).
         services.AddScoped<MenuReveal>();
 
+        // 휴대폰에서 브레드크럼이 「탭 메뉴를 여기서 열어 달라」고 하는 통.
+        // 탭 줄을 감추는 화면에서 탭 메뉴까지 함께 사라지지 않게 한다
+        // (TabMenuRequest 머리말).
+        services.AddScoped<TabMenuRequest>();
+
         // 헤더의 사용자 단추가 얼굴과 이름을 여기서 얻는다. 쿠키 클레임에는
         // 사진이 없어 게이트웨이에 한 번 물어야 한다(CurrentUser 머리말).
         services.AddScoped<CurrentUser>();

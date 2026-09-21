@@ -151,7 +151,10 @@
            까닭은 `Breadcrumb.razor` 머리말에 있다.
 
            **spacer 앞이다.** 뒤에 두면 밀려서 도구 단추에 붙는다. *@
-        <Breadcrumb Trail="@_trail" />
+        @* `_isPhone` 을 함께 내려 주는 이유는 **맨 끝 칸이 하는 일이 갈리기
+           때문이다.** 휴대폰에서는 탭 줄을 감추므로 그 칸이 탭 메뉴를 열고,
+           넓은 화면에서는 하던 대로 사이드바를 편다(`Breadcrumb` 머리말). *@
+        <Breadcrumb Trail="@_trail" IsPhone="@_isPhone" />
 
         <div class="jsini-header__spacer"></div>
 
