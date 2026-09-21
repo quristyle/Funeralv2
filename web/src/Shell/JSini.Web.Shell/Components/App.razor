@@ -77,25 +77,91 @@
     </div>
 
     @*
-        회로가 끊겼을 때 뜨는 대화상자는 **Blazor 가 만든다. 우리가 두지 않는다.**
+        ── 회로가 끊겼을 때 뜨는 대화상자 ─────────────────────────
 
-        한때 여기에 직접 선언했다. 어두운 테마에서 글씨가 안 읽혀서였는데,
-        그러면 프레임워크가 `UserSpecifiedDisplay` 로 갈아타면서 **상태를
-        우리가 다 그려야 한다** — show · retrying · paused · failed ·
-        resume-failed · rejected · hide 일곱 가지다. 우리는 그중 넷만 알았고,
-        그래서 「거절됨」에서 멈춘 상자가 다시 붙은 뒤에도 남아 있었다.
+        **우리가 그린다.** 여기 `#components-reconnect-modal` 이 있으면
+        프레임워크는 자기 상자를 만들지 않고 이것에 클래스만 갈아 끼운다
+        (`UserSpecifiedDisplay`). 모양은 app.css 가 쥔다.
 
-        게다가 일시중지에서 되살리는 단추(resume)는 프레임워크 내부 메서드에
-        묶여 있어 **바깥 마크업에서는 부를 방법이 없다.** 직접 그리는 한
-        그 기능은 영영 못 쓴다.
+        [한 번 돌려줬다가 다시 가져온 자리다 — 그때 놓친 것 둘]
 
-        기본 상자는 그 일곱 상태와 재시도 초읽기·물결 애니메이션·되살리기
-        단추를 이미 갖고 있다. 우리가 고칠 것은 색 하나뿐이었고, 그것은
-        app.css 의 `#components-reconnect-modal` 에서 한다 — 자세한 사정은
-        그 머리말에 적었다.
+        1. **상태가 일곱이다** — show · retrying · paused · failed ·
+           resume-failed · rejected · hide. 예전에는 넷만 알아서 「거절됨」에
+           멈춘 상자가 다시 붙은 뒤에도 남아 있었다. 일곱을 다 그린다.
+        2. **되살리기(resume)는 부를 수 있다.** `window.Blazor.resumeCircuit()`
+           은 .NET 10 에서 공개된 전역이다(Boot.Server.Common). 못 부른다고
+           적어 둔 것은 사실이 아니었다.
+
+        [그런데도 돌아온 이유는 **새로고침** 때문이다]
+
+        기본 상자는 `rejected()` 에서 곧바로 `location.reload()` 를 한다.
+        사용자에게는 **다시 붙자마자 화면이 통째로 새로 뜨는 것**으로 보이고,
+        서버에 닿지 못한 입력은 그 순간 사라진다. 우리 상자는 그 자리에서
+        무슨 일인지 말하고 새로고침을 **사람이 고르게** 둔다.
+
+        반대로 **정말 다시 이어졌을 때는 아무 말도 하지 않는다.** 프레임워크가
+        `components-reconnect-hide` 를 붙이고, 그 규칙이 상자를 끈다. 화면은
+        끊기기 전 그대로이고 하던 일이 이어진다.
+
+        단추와 자동 재시도는 `js/reconnect.js` 가 맡는다 — 회로가 없는
+        상황이라 C# 처리기는 쓸 수 없다.
     *@
+    <div id="components-reconnect-modal">
+        <div class="jsini-reconnect" role="alertdialog" aria-live="polite">
+            @* 도는 고리는 **다시 붙는 중일 때만** 돈다(app.css). *@
+            <div class="jsini-reconnect__spinner" aria-hidden="true"></div>
+
+            <p class="jsini-reconnect__trying">
+                <strong>연결이 끊겼습니다</strong>
+                다시 잇고 있습니다 — 하던 일은 그대로 있습니다.
+            </p>
+
+            @* 초읽기. 숫자는 프레임워크가 이 id 를 찾아 채운다. *@
+            <p class="jsini-reconnect__countdown">
+                <span id="components-seconds-to-next-attempt">0</span>초 뒤에 다시 시도합니다
+                (<span id="components-reconnect-current-attempt">1</span>번째)
+            </p>
+
+            <p class="jsini-reconnect__paused">
+                <strong>서버가 잠시 멈춰 두었습니다</strong>
+                「이어서 하기」를 누르면 하던 자리로 돌아갑니다.
+            </p>
+
+            <p class="jsini-reconnect__failed">
+                <strong>아직 잇지 못했습니다</strong>
+                연결이 돌아오면 저절로 다시 잇습니다. 지금 해 보려면 아래를 누르십시오.
+            </p>
+
+            <p class="jsini-reconnect__resume-failed">
+                <strong>이어받지 못했습니다</strong>
+                한 번 더 해 보거나 화면을 새로 열어 주십시오.
+            </p>
+
+            <p class="jsini-reconnect__rejected">
+                <strong>하던 작업이 서버에 남아 있지 않습니다</strong>
+                너무 오래 끊겨 있었거나 서버가 다시 시작됐습니다.
+                화면을 새로 열어야 이어서 쓸 수 있습니다.
+            </p>
+
+            <div class="jsini-reconnect__acts">
+                <button type="button" class="jsini-reconnect__btn jsini-reconnect__act--retry"
+                        data-reconnect-action="retry">다시 시도</button>
+                <button type="button" class="jsini-reconnect__btn jsini-reconnect__act--resume"
+                        data-reconnect-action="resume">이어서 하기</button>
+                <button type="button" class="jsini-reconnect__btn jsini-reconnect__btn--quiet jsini-reconnect__act--reload"
+                        data-reconnect-action="reload">새로고침</button>
+            </div>
+        </div>
+    </div>
 
     <script src="_framework/blazor.web.js"></script>
+
+    @*
+        위 대화상자의 단추와 **자동 재시도**를 맡는다. 회로가 끊긴 뒤에
+        도는 코드라 C# 이 아니라 JS 여야 한다. blazor.web.js 뒤에 둔다 —
+        `Blazor.reconnect` · `Blazor.resumeCircuit` 을 쓴다.
+    *@
+    <script defer src="@Assets["js/reconnect.js"]"></script>
 
     @*
         서비스워커 등록과 푸시 구독 배관. 자기 자신을 즉시 실행하므로

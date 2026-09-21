@@ -1128,6 +1128,33 @@ NotificationServer 에 이미 다 있다 — `GET /notifications/vapid-public-ke
 `FilesChanged` 를 부르지 않는다 — 사라지는 중에는 둘 다 이미 없을 수 있고,
 그 자리에서 던지면 역시 회로가 끊긴다.
 
+## 연결이 끊겼을 때 — 상자는 **우리 것**이다
+
+회로를 잃으면 뜨는 대화상자는 셸이 직접 그린다
+(`App.razor` 의 `#components-reconnect-modal` · 모양은 `app.css` ·
+단추와 자동 재시도는 `wwwroot/js/reconnect.js`).
+
+**프레임워크 기본 상자로 되돌리면 새로고침이 함께 돌아온다.** 그쪽은 회로가
+사라진 것을 확인한 자리에서 곧바로 `location.reload()` 를 하고, 섀도 DOM
+안이라 그 한 줄을 막을 방법이 없다. 사용자에게는 「다시 붙자마자 화면이
+통째로 새로 뜨는 것」으로 보이고 서버에 닿지 못한 입력이 그때 사라진다.
+
+그 대신 우리가 지는 짐이 둘이다.
+
+- **상태 일곱을 다 그려야 한다** — show · retrying · paused · failed ·
+  resume-failed · rejected · hide. 하나라도 빠지면 빈 상자가 뜨거나 상자가
+  꺼지지 않는다. `ReconnectDialogTests` 가 빌드 때 센다.
+- **멈춰 선 뒤를 우리가 이어야 한다** — 프레임워크의 재시도는 서른 번(6분
+  남짓)에서 끝나는데 서버는 회로를 **15분** 붙들고 있다
+  (`DisconnectedCircuitRetentionPeriod`). 그 사이가 「서버에는 하던 일이
+  그대로인데 브라우저가 먼저 포기한」 구간이다. `reconnect.js` 가 30초마다,
+  그리고 **화면이 다시 보이는 순간** 조용히 한 번 더 이어 본다.
+
+**다시 이어졌을 때 하는 일은 없다.** 프레임워크가 `components-reconnect-hide`
+를 붙이고 상자가 꺼진다 — 새로고침하지 않으므로 화면은 끊기기 전 그대로고
+하던 일이 이어진다. 잠깐 끊긴 것(1초 안)은 `--quiet` 가 0.9초를 투명하게
+기다려 **상자를 보여 주지도 않는다.**
+
 ## 개발 명령
 
 ```
