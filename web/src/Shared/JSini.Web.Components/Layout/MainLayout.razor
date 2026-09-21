@@ -122,7 +122,10 @@
                       Click="@ToggleSidebarAsync" />
         </span>
 
-        <a class="jsini-header__brand" href="/">
+        <a class="jsini-header__brand" href="/"
+           @onclick="OnBrandClick"
+           @onclick:preventDefault="_isPhone"
+           @onclick:stopPropagation="_isPhone">
             @* 심볼을 인라인으로 그린다(`BrandMark`). 파일로 두면 밝은 테마와
                어두운 테마에 두 장이 필요하고 화면이 골라 써야 한다 — 옛 Vue
                부품이 같은 이유로 인라인이었다. *@
@@ -712,6 +715,15 @@
         {
             CloseSidebar();
         }
+    }
+
+    private Task OnBrandClick(Microsoft.AspNetCore.Components.Web.MouseEventArgs e)
+    {
+        if (_isPhone)
+        {
+            return ToggleSidebarAsync();
+        }
+        return Task.CompletedTask;
     }
 
     private Task ToggleSidebarAsync()
