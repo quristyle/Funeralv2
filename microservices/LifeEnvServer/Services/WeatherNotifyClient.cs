@@ -80,4 +80,58 @@ public class WeatherNotifyClient
             _logger.LogWarning(ex, "기상 알림 발송 요청 예외 — NotificationServer 가 꺼져 있을 수 있다");
         }
     }
+
+    /// <summary>
+    /// <b>기상청이 발표한 특보</b> 한 건을 알린다. 위 <see cref="NotifyAsync"/> 와 다른 사건이다 —
+    /// 저쪽은 우리가 정한 임계치(WeatherStandard)를 실황이 넘은 것이고, 이쪽은 특보 자체다.
+    /// </summary>
+    /// <remarks>
+    /// 환경설정 화면의 「기상 특보」 칸이 가리키는 것이 바로 이쪽인데도
+    /// 오랫동안 발송하는 쪽이 없었다 — 수집기가 <c>weather_location_warnings</c> 에
+    /// 매칭만 남기고(<c>is_notified = false</c>) 거기서 끊겨 있었다.
+    ///
+    /// <para>실패는 로그만 남긴다. 수집·매칭은 이미 끝났고 다음 사이클도 막지 않는다.</para>
+    /// </remarks>
+    /// <param name="title">기상청 특보 제목(t1)</param>
+    /// <param name="command">발표 · 변경 · 해제</param>
+    /// <param name="warningNum">특보 번호(제01-198호). 같은 건의 갱신을 묶는 열쇠다.</param>
+    /// <param name="locations">매칭된 우리 관리 지역 이름들</param>
+    /// <param name="summary">통보문에서 뽑은 특보 종류 요약</param>
+    /// <param name="announcedAt">발표 시각</param>
+    public async Task NotifyWarningAsync(
+        string title, string? command, string? warningNum,
+        IReadOnlyCollection<string> locations, string? summary, DateTimeOffset? announcedAt)
+    {
+        if (!_enabled) return;
+
+        try
+        {
+            var payload = JsonSerializer.Serialize(new
+            {
+                title,
+                command,
+                warningNum,
+                locations,
+                summary,
+                announcedAt,
+            });
+            using var content = new StringContent(payload, Encoding.UTF8, "application/json");
+            using var response = await _http.PostAsync("/weather-warning", content);
+
+            if (response.IsSuccessStatusCode)
+            {
+                _logger.LogInformation("기상 특보 알림 발송 요청 완료: {Summary} ({Locations})",
+                    summary ?? title, string.Join(", ", locations));
+            }
+            else
+            {
+                _logger.LogWarning("기상 특보 알림 발송 요청 실패: HTTP {Status} — NotificationServer 상태를 확인할 것",
+                    (int)response.StatusCode);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "기상 특보 알림 발송 요청 예외 — NotificationServer 가 꺼져 있을 수 있다");
+        }
+    }
 }

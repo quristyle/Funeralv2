@@ -90,7 +90,143 @@ public static class WeatherEventEndpoints
         })
         .WithName("SendWeatherEvent")
         .WithTags("Weather");
+
+        // ── 기상 특보 ──────────────────────────────────────────────────
+        //
+        // 위 /weather-event 와 **다른 것**이다. 저쪽은 우리가 정한 기준
+        // (WeatherStandard, 예: 풍속 14m/s 이상)을 실황이 넘었다는 뜻이고,
+        // 이쪽은 **기상청이 실제로 발표한 특보**가 우리 관리 지역에 걸렸다는 뜻이다.
+        // 측정값·단위가 없고 대신 특보 종류와 발표/해제 구분이 있어 본문이 다르다.
+        //
+        // 받는 사람은 둘 다 같다 — 날씨 스위치(weather_enabled)를 켠 사람.
+        // 환경설정 화면의 칸 이름이 「기상 특보」인 것도 이쪽을 가리킨다.
+        app.MapPost("/weather-warning", async (
+            [FromBody] WeatherWarningEventDto request,
+            UserContext? user,
+            [FromServices] AppDbContext db,
+            [FromServices] IPushSender push,
+            [FromServices] ILoggerFactory loggerFactory,
+            CancellationToken ct) =>
+        {
+            var logger = loggerFactory.CreateLogger("WeatherWarning");
+            if (user is null) return Results.Unauthorized();
+
+            if (string.IsNullOrWhiteSpace(request.Title) && string.IsNullOrWhiteSpace(request.Summary))
+            {
+                return Results.BadRequest(ApiResponse<object>.Fail("특보 제목이나 요약이 필요합니다.", "INVALID"));
+            }
+
+            var owners = await db.NotificationPreferences
+                .Where(p => p.WeatherEnabled && !p.IsDeleted)
+                .Select(p => new OwnerRefDto { OwnerType = p.OwnerType, OwnerKey = p.OwnerKey })
+                .ToListAsync(ct);
+
+            var message = new PushMessageDto
+            {
+                Title = BuildWarningTitle(request),
+                Body = BuildWarningBody(request),
+                Url = "/life/weather/warning",
+                // 같은 특보 번호의 발표 → 변경 → 해제는 한 줄로 겹쳐 보이는 편이 낫다.
+                // 번호가 없으면 태그를 주지 않는다 — 빈 태그로 묶으면 서로 다른 특보가 합쳐진다.
+                Tag = string.IsNullOrWhiteSpace(request.WarningNum) ? null : $"weather-warning:{request.WarningNum}",
+            };
+
+            var pushResult = owners.Count > 0
+                ? await push.SendAsync(new SendPushDto { Owners = owners, Message = message }, sentBy: null, ct)
+                : new SendPushResultDto { Sent = 0, Message = "날씨 알림을 켠 사람이 없습니다." };
+
+            logger.LogInformation(
+                "기상 특보 알림 발송: {Title} ({Locations}) 대상 {Owners}명 · 푸시 {Sent}건",
+                message.Title, string.Join(", ", request.Locations), owners.Count, pushResult.Sent);
+
+            return Results.Ok(ApiResponse<object>.Ok(new
+            {
+                targets = owners.Count,
+                pushSent = pushResult.Sent,
+                detail = pushResult.Message,
+            }));
+        })
+        .WithName("SendWeatherWarning")
+        .WithTags("Weather");
     }
+
+    /// <summary>
+    /// 알림 제목. <c>[기상특보] 강풍주의보 해제</c> 꼴이다.
+    /// </summary>
+    /// <remarks>
+    /// 특보 종류(<c>Summary</c>)가 제목보다 훨씬 쓸모 있다 — 기상청이 주는
+    /// 제목(t1)은 「기상특보 발표」처럼 뭉뚱그린 말이라 그것만으로는
+    /// 무슨 특보인지 알 수 없다. 그래서 종류를 알면 그것을 앞세운다.
+    /// </remarks>
+    private static string BuildWarningTitle(WeatherWarningEventDto request)
+    {
+        var kind = !string.IsNullOrWhiteSpace(request.Summary) ? request.Summary!.Trim() : request.Title.Trim();
+        var command = request.Command?.Trim();
+
+        // 종류에 이미 「해제」 같은 말이 들어 있으면 덧붙이지 않는다.
+        if (!string.IsNullOrEmpty(command) && !kind.Contains(command))
+        {
+            kind = $"{kind} {command}";
+        }
+
+        return string.IsNullOrWhiteSpace(kind) ? "[기상특보]" : $"[기상특보] {kind}";
+    }
+
+    /// <summary>
+    /// 알림 본문. <b>지역이 먼저다</b> — 「내 지역이 걸렸나」가 첫 물음이라서다.
+    /// </summary>
+    private static string BuildWarningBody(WeatherWarningEventDto request)
+    {
+        var parts = new List<string>();
+
+        if (request.Locations.Count > 0)
+        {
+            // 지역이 많으면 알림이 잘린다. 셋까지만 적고 나머지는 수로 말한다.
+            var shown = request.Locations.Take(3);
+            var rest = request.Locations.Count - 3;
+            parts.Add(rest > 0
+                ? $"{string.Join(", ", shown)} 외 {rest}곳"
+                : string.Join(", ", shown));
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.WarningNum)) parts.Add(request.WarningNum!.Trim());
+        if (request.AnnouncedAt is { } at) parts.Add(at.ToOffset(TimeSpan.FromHours(9)).ToString("MM-dd HH:mm"));
+
+        return parts.Count > 0 ? string.Join(" · ", parts) : "관리 지역에 기상 특보가 발표되었습니다.";
+    }
+}
+
+/// <summary>LifeEnvServer 가 보내는 기상 특보 한 건</summary>
+/// <remarks>
+/// <see cref="WeatherEventDto"/> 와 따로 두는 까닭은 <b>둘이 다른 사건</b>이기 때문이다.
+/// 저쪽은 우리가 정한 임계치를 실황이 넘은 것이고, 이쪽은 기상청이 발표한 특보다.
+/// 한 DTO 에 억지로 합치면 측정값 칸이 늘 비어 있거나 특보 종류 칸이 늘 비게 된다.
+/// </remarks>
+public class WeatherWarningEventDto
+{
+    /// <summary>기상청이 준 특보 제목(t1). 예: <c>기상특보 발표</c></summary>
+    public string Title { get; set; } = string.Empty;
+
+    /// <summary>발표 · 변경 · 해제 · 대체</summary>
+    public string? Command { get; set; }
+
+    /// <summary>특보 번호. 예: <c>제01-198호</c>. 같은 건의 갱신을 묶는 열쇠다.</summary>
+    public string? WarningNum { get; set; }
+
+    /// <summary>
+    /// 매칭된 <b>우리 관리 지역</b> 이름들. 특보 구역명이 아니다 —
+    /// 사람이 알아보는 것은 등록해 둔 지역 이름이다.
+    /// </summary>
+    public List<string> Locations { get; set; } = new();
+
+    /// <summary>
+    /// 특보 종류 요약. 통보문에서 뽑은 <c>강풍주의보 · 풍랑주의보</c> 꼴이다.
+    /// 비어 있을 수 있다(통보문 형식이 어긋난 경우).
+    /// </summary>
+    public string? Summary { get; set; }
+
+    /// <summary>발표 시각</summary>
+    public DateTimeOffset? AnnouncedAt { get; set; }
 }
 
 /// <summary>LifeEnvServer 가 보내는 기상 이벤트 한 건</summary>

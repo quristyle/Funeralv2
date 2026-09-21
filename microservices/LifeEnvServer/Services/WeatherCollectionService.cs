@@ -398,6 +398,12 @@ public class WeatherCollectionService : BackgroundService
       if (warnings == null || warnings.Count == 0) return;
 
       int count = 0;
+
+      // 이번 사이클에 **새로 관리 지역과 맞은** 특보들. 매칭하는 자리에서 바로
+      // 알리지 않는 까닭은 그때 특보 행의 Id 가 아직 0 이라 발송 표시를 붙일
+      // 곳이 없어서다 — 저장이 끝난 뒤 한꺼번에 내보낸다.
+      var pending = new List<PendingWarningNotice>();
+
       foreach (var w in warnings) {
         // 해제 명령 중복 방지 로직
         if (!string.IsNullOrEmpty(w.Command) && w.Command.Contains("해제") && !string.IsNullOrEmpty(w.WarningNum)) {
@@ -420,7 +426,8 @@ public class WeatherCollectionService : BackgroundService
             .AnyAsync(existing => existing.StnId == w.StnId && existing.TmFc == w.TmFc && existing.TmSeq == w.TmSeq, stoppingToken);
 
         if (!exists) {
-          await ProcessWarningAsync(db, weatherApi, w, stoppingToken);
+          var notice = await ProcessWarningAsync(db, weatherApi, w, stoppingToken);
+          if (notice.Matches.Count > 0) pending.Add(notice);
           count++;
         }
       }
@@ -428,6 +435,11 @@ public class WeatherCollectionService : BackgroundService
       if (count > 0) {
         await db.SaveChangesAsync(stoppingToken);
         _logger.LogInformation("Collected {Count} new weather warnings with messages and details.", count);
+
+        // 환경설정에서 「기상 특보」를 켠 사람에게 알린다.
+        // **관리 지역에 걸린 특보만** 보낸다 — 전국 특보를 전부 내보내면
+        // 알림이 하루에도 수십 건이 되어 아무도 보지 않게 된다.
+        await NotifyMatchedWarningsAsync(scope, db, pending, stoppingToken);
       }
     }
     catch (Exception ex) {
@@ -438,7 +450,11 @@ public class WeatherCollectionService : BackgroundService
   /// <summary>
   /// 단일 기상 특보를 처리하고 DB에 저장 및 지역 매칭을 수행합니다.
   /// </summary>
-  public async Task ProcessWarningAsync(LifeEnvDbContext db, WeatherApiService weatherApi, WeatherWarning w, CancellationToken stoppingToken)
+  /// <returns>
+  /// 새로 만들어진 지역 매칭과 통보문에서 뽑은 특보 종류. 알림을 보낼지는
+  /// 부르는 쪽이 저장을 마친 뒤에 정한다.
+  /// </returns>
+  public async Task<PendingWarningNotice> ProcessWarningAsync(LifeEnvDbContext db, WeatherApiService weatherApi, WeatherWarning w, CancellationToken stoppingToken)
   {
       if (w.Id == 0) {
           // New entity
@@ -486,19 +502,98 @@ public class WeatherCollectionService : BackgroundService
       }
 
       // --- 관리 지역 매칭 로직 (개선됨: 텍스트 파싱 + Zone Hierarchy) ---
+      var matches = new List<WeatherLocationWarning>();
+      string? summary = null;
       try {
-          await MatchLocationsByContent(db, w, msg, stoppingToken);
+          (matches, summary) = await MatchLocationsByContent(db, w, msg, stoppingToken);
       } catch (Exception ex) {
           _logger.LogError(ex, "Failed to match locations for {TmFc}", w.TmFc);
       }
+
+      return new PendingWarningNotice(w, matches, summary);
+  }
+
+  /// <summary>알림을 기다리는 특보 한 건 — 특보 · 새로 맞은 지역들 · 특보 종류 요약.</summary>
+  /// <param name="Warning">기상청 특보</param>
+  /// <param name="Matches">이번에 새로 만들어진 지역 매칭 (이미 있던 것은 빠진다)</param>
+  /// <param name="Summary">통보문에서 뽑은 특보 종류. 예: <c>강풍주의보 · 풍랑주의보</c></param>
+  public sealed record PendingWarningNotice(
+      WeatherWarning Warning, List<WeatherLocationWarning> Matches, string? Summary);
+
+  /// <summary>
+  /// 새로 매칭된 특보를 알림으로 내보내고 발송 표시를 남긴다.
+  /// </summary>
+  /// <remarks>
+  /// <b>저장이 끝난 뒤에 부른다.</b> 매칭하는 자리에서는 특보 행의 Id 가 아직 0 이다.
+  ///
+  /// <para>
+  /// <c>IsNotified</c> 는 <b>보내려고 했다</b>는 뜻으로 세운다(발송 성공이 아니다).
+  /// <see cref="WeatherMonitoringService"/> 가 같은 규칙을 쓰는 이유와 같다 — 성공일 때만
+  /// 세우면 NotificationServer 가 내려가 있는 동안 표시가 서지 않고, 복구되는 순간
+  /// 밀린 특보가 한꺼번에 쏟아진다. 특보는 이미 지나간 일이라 더더욱 그렇다.
+  /// </para>
+  ///
+  /// <para>
+  /// <b>특보 하나에 알림 하나다.</b> 지역마다 보내면 광역 특보 한 건에 알림이 여럿 뜬다 —
+  /// 지역 이름은 본문에 묶어 넣는다.
+  /// </para>
+  /// </remarks>
+  private async Task NotifyMatchedWarningsAsync(
+      IServiceScope scope, LifeEnvDbContext db, List<PendingWarningNotice> pending, CancellationToken stoppingToken)
+  {
+      if (pending.Count == 0) return;
+
+      var notify = scope.ServiceProvider.GetRequiredService<WeatherNotifyClient>();
+      var now = DateTimeOffset.UtcNow;
+
+      foreach (var notice in pending)
+      {
+          var names = notice.Matches
+              .Select(m => m.WeatherLocation?.Name)
+              .Where(n => !string.IsNullOrWhiteSpace(n))
+              .Select(n => n!)
+              .Distinct()
+              .ToList();
+
+          try
+          {
+              await notify.NotifyWarningAsync(
+                  notice.Warning.Title,
+                  notice.Warning.Command,
+                  notice.Warning.WarningNum,
+                  names,
+                  notice.Summary,
+                  notice.Warning.AnnouncementTime);
+          }
+          catch (Exception ex)
+          {
+              // NotifyWarningAsync 가 이미 예외를 삼키지만, 한 건이 터져도 남은 특보는
+              // 계속 나가야 하므로 여기서 한 번 더 막는다.
+              _logger.LogError(ex, "Failed to notify weather warning {TmFc}", notice.Warning.TmFc);
+          }
+
+          foreach (var m in notice.Matches)
+          {
+              m.IsNotified = true;
+              m.NotifiedAt = now;
+          }
+      }
+
+      await db.SaveChangesAsync(stoppingToken);
   }
 
   /// <summary>
   /// 특보 텍스트 내용을 분석하여 관리 지역과 매칭합니다.
   /// </summary>
-  private async Task MatchLocationsByContent(LifeEnvDbContext db, WeatherWarning warning, WeatherWarningMsg? msg, CancellationToken stoppingToken)
+  /// <returns>새로 만들어진 지역 매칭들과, 그 매칭을 만든 줄에서 읽은 특보 종류 요약.</returns>
+  private async Task<(List<WeatherLocationWarning> Matches, string? Summary)> MatchLocationsByContent(LifeEnvDbContext db, WeatherWarning warning, WeatherWarningMsg? msg, CancellationToken stoppingToken)
   {
       var matchedLocationIds = new HashSet<int>();
+
+      // 알림 제목에 쓸 특보 종류. 통보문 한 장에 여러 특보가 섞여 있어
+      // **우리 지역과 실제로 맞은 줄**에서만 거둔다 — 안 맞은 줄까지 넣으면
+      // 알림이 남의 지역 특보까지 읊는다.
+      var matchedKinds = new List<string>();
 
       // 2. 텍스트 파싱을 통한 매칭 (getWthrWrnMsg 통보문 활용)
       // 예: "o 강풍주의보 : 경상북도(영덕, 울진평지, 포항, 경주), 제주도(제주도산지), 부산, 울산, 울릉도.독도"
@@ -583,11 +678,19 @@ public class WeatherCollectionService : BackgroundService
                       .ToListAsync(stoppingToken);
 
                   foreach (var id in textMatched) matchedLocationIds.Add(id);
+
+                  if (textMatched.Count > 0)
+                  {
+                      // 'o 강풍주의보 : 경상북도(영덕…)' 에서 앞머리 글머리표를 떼고 종류만 남긴다.
+                      var kind = parts[0].Trim().TrimStart('o', 'O', '\u3147', '\u25cb', '\u00b7', '-', '*').Trim();
+                      if (!string.IsNullOrEmpty(kind) && !matchedKinds.Contains(kind)) matchedKinds.Add(kind);
+                  }
               }
           }
       }
 
       // 최종 저장
+      var created = new List<WeatherLocationWarning>();
       foreach (var locId in matchedLocationIds)
       {
           // 이미 추가된지 확인 (중복 방지)
@@ -599,19 +702,24 @@ public class WeatherCollectionService : BackgroundService
 
           var loc = await db.WeatherLocations.FindAsync(new object[] { locId }, stoppingToken);
           if (loc != null) {
-              db.WeatherLocationWarnings.Add(new WeatherLocationWarning
+              var link = new WeatherLocationWarning
               {
                   // WeatherWarningId = warning.Id, // Do not set ID if 0
                   WeatherWarning = warning,      // Link to parent entity explicitly
                   WeatherLocationId = locId,
                   WeatherLocation = loc,
+                  // 발송 표시는 NotifyMatchedWarningsAsync 가 저장 뒤에 세운다.
                   IsNotified = false,
                   CreatedAt = DateTimeOffset.UtcNow,
                   CreatedBy = "System_Background"
-              });
+              };
+              db.WeatherLocationWarnings.Add(link);
+              created.Add(link);
               _logger.LogInformation("Weather warning matched for location: {Name} (by Content Analysis)", loc.Name);
           }
       }
+
+      return (created, matchedKinds.Count > 0 ? string.Join(" \u00b7 ", matchedKinds) : null);
   }
 
   private void AddChildrenRecursive(string currentId, ILookup<string, string> parentToChildren, HashSet<string> result)
