@@ -138,8 +138,7 @@
                 <DxFormLayout CssClass="ad-editform">
                     <DxFormLayoutItem Caption="묶음 코드" ColSpanMd="12">
                         @* 코드는 화면과 프로시저가 이름으로 부르는 값이라 등록할 때만 정한다. *@
-                        <DxTextBox @bind-Text="grp.GroupCode" ReadOnly="@(!_newGroup)"
-                                   NullText="@(_newGroup ? "SYS_STATUS 처럼 영문 대문자" : "수정할 수 없습니다")" />
+                        <DxTextBox @bind-Text="grp.GroupCode" ReadOnly="@(!_newGroup)" />
                     </DxFormLayoutItem>
 
                     <DxFormLayoutItem Caption="묶음 이름" ColSpanMd="12">
@@ -644,12 +643,11 @@
         <DxFormLayoutItem Caption="값" ColSpanMd="6">
             @* 묶음 코드와 같은 이유로 등록할 때만 정한다 — 화면과 프로시저가
                이 값을 이름으로 부른다. 바꾸면 참조가 조용히 끊긴다. *@
-            <DxTextBox @bind-Text="c.CodeValue" ReadOnly="@(!_newCode)"
-                       NullText="@(_newCode ? "ACTIVE" : "수정할 수 없습니다")" />
+            <DxTextBox @bind-Text="c.CodeValue" ReadOnly="@(!_newCode)" />
         </DxFormLayoutItem>
 
         <DxFormLayoutItem Caption="이름" ColSpanMd="6">
-            <DxTextBox @bind-Text="c.CodeName" NullText="정상"
+            <DxTextBox @bind-Text="c.CodeName"
                        BindValueMode="BindValueMode.OnDelayedInput"
                        InputDelay="500" />
         </DxFormLayoutItem>
@@ -665,14 +663,13 @@
             <DxFormLayoutItem Caption="상위 코드" ColSpanMd="12">
                 <DxComboBox Data="@ParentCodeChoices" @bind-Value="c.ParentId"
                             TextFieldName="Text" ValueFieldName="Value"
-                            NullText="최상위"
                             ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
             </DxFormLayoutItem>
         }
 
         <DxFormLayoutItem Caption="다국어 키" ColSpanMd="8">
             @* 넣으면 화면이 그 키로 옮겨 보여 준다. 값은 `/admin/system/i18n`. *@
-            <DxTextBox @bind-Text="c.I18nKey" NullText="비워 둘 수 있다" />
+            <DxTextBox @bind-Text="c.I18nKey" />
         </DxFormLayoutItem>
 
         <DxFormLayoutItem Caption="순서" ColSpanMd="4">

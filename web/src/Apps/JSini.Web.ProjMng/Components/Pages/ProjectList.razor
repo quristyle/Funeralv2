@@ -96,12 +96,12 @@
             }
             <DxFormLayout CssClass="pm-editform">
                 <DxFormLayoutItem Caption="프로젝트명" ColSpanMd="6">
-                    <DxTextBox @bind-Text="p.PrjName" NullText="필수" />
+                    <DxTextBox @bind-Text="p.PrjName" />
                 </DxFormLayoutItem>
 
                 <DxFormLayoutItem Caption="별칭" ColSpanMd="6">
                     @* 다른 화면의 드롭다운에 나오는 이름이다. *@
-                    <DxTextBox @bind-Text="p.PrjNick" NullText="드롭다운에 보일 이름" />
+                    <DxTextBox @bind-Text="p.PrjNick" />
                 </DxFormLayoutItem>
 
                 <DxFormLayoutItem Caption="설명" ColSpanMd="12">
@@ -109,12 +109,12 @@
                 </DxFormLayoutItem>
 
                 <DxFormLayoutItem Caption="구분" ColSpanMd="6">
-                    <DxTextBox @bind-Text="p.PrjType" NullText="blazor · vue …" />
+                    <DxTextBox @bind-Text="p.PrjType" />
                 </DxFormLayoutItem>
 
                 <DxFormLayoutItem Caption="순서" ColSpanMd="6">
                     @* 비우면 서버가 기본값(99999)을 넣는다 — 목록 끝으로 간다. *@
-                    <DxSpinEdit @bind-Value="p.PrjSrt" NullText="비우면 맨 뒤" />
+                    <DxSpinEdit @bind-Value="p.PrjSrt" />
                 </DxFormLayoutItem>
 
                 <DxFormLayoutItem Caption="시작일" ColSpanMd="6">

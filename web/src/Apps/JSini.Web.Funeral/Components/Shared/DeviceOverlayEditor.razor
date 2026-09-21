@@ -38,8 +38,7 @@ else
             <div class="fn-devsec__body">
                 <DeviceField Label="문구" Wide="true">
                     <DxTextBox Text="@overlay.TextContent"
-                               TextChanged="@((string v) => overlay.TextContent = v)"
-                               NullText="예: 삼가 고인의 명복을 빕니다" />
+                               TextChanged="@((string v) => overlay.TextContent = v)" />
                 </DeviceField>
 
                 <DeviceField Label="글자 크기">
@@ -52,14 +51,12 @@ else
                        플레이어도 그대로 쓰기 때문에, 고르개를 얹으면 표현할 수
                        있는 값이 오히려 좁아진다(`transparent` 를 못 넣는다). *@
                     <DxTextBox Text="@overlay.FontColor"
-                               TextChanged="@((string v) => overlay.FontColor = v)"
-                               NullText="#ffffff" />
+                               TextChanged="@((string v) => overlay.FontColor = v)" />
                 </DeviceField>
 
                 <DeviceField Label="배경 색">
                     <DxTextBox Text="@overlay.BackgroundColor"
-                               TextChanged="@((string v) => overlay.BackgroundColor = v)"
-                               NullText="transparent" />
+                               TextChanged="@((string v) => overlay.BackgroundColor = v)" />
                 </DeviceField>
 
                 <DeviceField Label="정렬">

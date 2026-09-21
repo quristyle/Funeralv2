@@ -141,7 +141,7 @@
 
             <DxFormLayoutItem Caption="분류" ColSpanMd="6">
                 <DxComboBox Data="@_categories" @bind-Value="_edit.Category"
-                            AllowUserInput="true" NullText="분류 (직접 입력 가능)"
+                            AllowUserInput="true"
                             ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
             </DxFormLayoutItem>
 
@@ -161,7 +161,7 @@
                    태그가 글자로 보이고, 새로 쓴 것은 줄바꿈이 사라진다. *@
                 <DxHtmlEditor @bind-Markup="_edit.Description"
                               BindMarkupMode="HtmlEditorBindMarkupMode.OnDelayedInput"
-                              CssClass="fn-editor" NullText="자료 설명" />
+                              CssClass="fn-editor" />
             </DxFormLayoutItem>
 
             <DxFormLayoutItem Caption="첨부" ColSpanMd="12">

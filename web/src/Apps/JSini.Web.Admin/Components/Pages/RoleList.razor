@@ -125,16 +125,15 @@
                            찍히기 때문**이다. 숫자면 로그를 봐도 무슨 역할인지
                            알 수 없다. 바꾸면 그 역할이 걸린 계정·메뉴 권한이
                            통째로 끊기므로 수정에서는 잠근다. *@
-                        <DxTextBox @bind-Text="r.Id" ReadOnly="@(!_isNew)"
-                                   NullText="@(_isNew ? "ADMIN 처럼 영문 대문자" : "수정할 수 없습니다")" />
+                        <DxTextBox @bind-Text="r.Id" ReadOnly="@(!_isNew)" />
                     </DxFormLayoutItem>
 
                     <DxFormLayoutItem Caption="역할 이름" ColSpanMd="6">
-                        <DxTextBox @bind-Text="r.Name" NullText="사람이 읽는 이름" />
+                        <DxTextBox @bind-Text="r.Name" />
                     </DxFormLayoutItem>
 
                     <DxFormLayoutItem Caption="설명" ColSpanMd="12">
-                        <DxMemo @bind-Text="r.Remark" Rows="3" NullText="이 역할이 무엇을 하는가" />
+                        <DxMemo @bind-Text="r.Remark" Rows="3" />
                     </DxFormLayoutItem>
 
                     <DxFormLayoutItem Caption="사용" ColSpanMd="12">

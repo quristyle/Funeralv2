@@ -145,7 +145,7 @@
                     <div class="le-send">
                         <DxTextBox Text="@GetDraft(person.SubjectId)"
                                    TextChanged="@((string v) => SetDraft(person.SubjectId, v))"
-                                   NullText="축하 한마디" Style="width: 200px" />
+                                   Style="width: 200px" />
                         <DxButton Text="보내기" RenderStyle="ButtonRenderStyle.Secondary"
                                   Click="@(() => SendAsync(person))" />
                     </div>

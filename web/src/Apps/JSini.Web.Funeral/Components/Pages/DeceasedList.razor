@@ -133,7 +133,7 @@
                                         ValueChanged="@((string? v) => SetTarget(d.Id, v))"
                                         ValueExpression="@(() => GetTarget(d.Id))"
                                         TextFieldName="@nameof(Room.Name)" ValueFieldName="@nameof(Room.Id)"
-                                        NullText="옮길 호실" Style="width: 140px" />
+                                        Style="width: 140px" />
                             <DxButton Text="이동" RenderStyle="ButtonRenderStyle.Secondary"
                                       Click="@(() => MoveAsync(d))" />
                         </div>

@@ -92,7 +92,7 @@
             <DxFormLayout CssClass="lf-editform">
                 <DxFormLayoutItem Caption="좌표 검색" ColSpanMd="12">
                     <div class="jsini-inline">
-                        <DxTextBox @bind-Text="_search" NullText="서울 강남구 · 부산 해운대구"
+                        <DxTextBox @bind-Text="_search"
                                    Style="flex: 1" />
                         <DxButton Text="찾기" RenderStyle="ButtonRenderStyle.Secondary"
                                   Click="@SearchGridAsync" />
@@ -140,16 +140,15 @@
                     <DxComboBox Data="@_zones" @bind-Value="loc.WarningAreaCode"
                                 TextFieldName="@nameof(WeatherWarningZone.RegKo)"
                                 ValueFieldName="@nameof(WeatherWarningZone.RegId)"
-                                NullText="특보를 받지 않는다"
                                 ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
                 </DxFormLayoutItem>
 
                 <DxFormLayoutItem Caption="중기 육상" ColSpanMd="6">
-                    <DxTextBox @bind-Text="loc.MidTermLandCode" NullText="11B00000" />
+                    <DxTextBox @bind-Text="loc.MidTermLandCode" />
                 </DxFormLayoutItem>
 
                 <DxFormLayoutItem Caption="중기 기온" ColSpanMd="6">
-                    <DxTextBox @bind-Text="loc.MidTermTempCode" NullText="11B10101" />
+                    <DxTextBox @bind-Text="loc.MidTermTempCode" />
                 </DxFormLayoutItem>
 
                 <DxFormLayoutItem Caption="설명" ColSpanMd="12">

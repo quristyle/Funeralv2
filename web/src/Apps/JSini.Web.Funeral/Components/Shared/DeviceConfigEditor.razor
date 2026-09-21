@@ -49,7 +49,7 @@
             <DeviceField Label="자동 재부팅">
                 @* 비워 두면 안 한다. 「0시」와 「안 함」이 다른 값이라
                    숫자로 두면 그 둘을 구분할 수 없다. *@
-                <DxTextBox @bind-Text="_form.RebootTime" NullText="예: 03:00 (비우면 안 함)" />
+                <DxTextBox @bind-Text="_form.RebootTime" />
             </DeviceField>
 
             <DeviceField Label="자동 전원">
@@ -57,11 +57,11 @@
             </DeviceField>
 
             <DeviceField Label="켜는 시각">
-                <DxTextBox @bind-Text="_form.PowerOnTime" NullText="예: 08:00" />
+                <DxTextBox @bind-Text="_form.PowerOnTime" />
             </DeviceField>
 
             <DeviceField Label="끄는 시각">
-                <DxTextBox @bind-Text="_form.PowerOffTime" NullText="예: 22:00" />
+                <DxTextBox @bind-Text="_form.PowerOffTime" />
             </DeviceField>
         </div>
     </div>

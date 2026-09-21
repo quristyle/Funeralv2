@@ -214,12 +214,12 @@ else
     <BodyContentTemplate Context="popup">
         <DxFormLayout CssClass="ad-editform">
             <DxFormLayoutItem Caption="메뉴 이름" ColSpanMd="6">
-                <DxTextBox @bind-Text="_edit.Name" NullText="영문 식별용 이름" />
+                <DxTextBox @bind-Text="_edit.Name" />
             </DxFormLayoutItem>
 
             <DxFormLayoutItem Caption="제목" ColSpanMd="6">
                 @* 다국어 키를 넣을 수도 있다. 그때는 서버가 표를 찾아 옮겨 준다. *@
-                <DxTextBox @bind-Text="_edit.Meta.Title" NullText="사람이 읽는 제목 또는 다국어 키" />
+                <DxTextBox @bind-Text="_edit.Meta.Title" />
             </DxFormLayoutItem>
 
             @* 실려 있는 화면에서 고른다. 타이핑이 아니라 고르기라서
@@ -236,7 +236,6 @@ else
                                 TextFieldName="Text" ValueFieldName="Value"
                                 SearchMode="ListSearchMode.AutoSearch"
                                 SearchFilterCondition="ListSearchFilterCondition.Contains"
-                                NullText="화면이 없는 묶음이거나 바깥 링크면 비워 둔다"
                                 ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
                 </DxFormLayoutItem>
             }
@@ -244,7 +243,7 @@ else
             @* 권한표와 즐겨찾기의 열쇠다. 옛 Vue 경로 그대로여도 되고,
                바꾸면 그 메뉴의 권한과 즐겨찾기가 끊긴다. *@
             <DxFormLayoutItem Caption="경로 (권한 열쇠)" ColSpanMd="6">
-                <DxTextBox @bind-Text="_edit.Path" NullText="/admin/system/menu" />
+                <DxTextBox @bind-Text="_edit.Path" />
             </DxFormLayoutItem>
 
             <DxFormLayoutItem Caption="유형" ColSpanMd="6">
@@ -255,7 +254,6 @@ else
             <DxFormLayoutItem Caption="상위 메뉴" ColSpanMd="6">
                 <DxComboBox Data="@ParentChoices" @bind-Value="_edit.Pid"
                             TextFieldName="Text" ValueFieldName="Value"
-                            NullText="최상위"
                             ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
             </DxFormLayoutItem>
 
@@ -276,12 +274,11 @@ else
 
             <DxFormLayoutItem Caption="화면 파일" ColSpanMd="12">
                 @* 옛 Vue 경로. 이제 라우팅에 쓰이지 않는다 — 위 주석 참고. *@
-                <DxTextBox @bind-Text="_edit.Component" ReadOnly="true"
-                           NullText="라우팅에 쓰이지 않는다 (옛 Vue 경로)" />
+                <DxTextBox @bind-Text="_edit.Component" ReadOnly="true" />
             </DxFormLayoutItem>
 
             <DxFormLayoutItem Caption="바깥 링크" ColSpanMd="12">
-                <DxTextBox @bind-Text="_edit.Meta.Link" NullText="https://… (넣으면 새 창으로 연다)" />
+                <DxTextBox @bind-Text="_edit.Meta.Link" />
             </DxFormLayoutItem>
 
             @* iframe 주소. **바깥 링크와 다른 칸이다** — 저것은 새 창으로 나가고
@@ -297,8 +294,7 @@ else
             @if (IsEmbedded)
             {
                 <DxFormLayoutItem Caption="iframe 주소" ColSpanMd="12">
-                    <DxTextBox @bind-Text="_edit.Meta.IframeSrc"
-                               NullText="https://… (이 주소를 화면 안에 끼워 넣는다)" />
+                    <DxTextBox @bind-Text="_edit.Meta.IframeSrc" />
                 </DxFormLayoutItem>
             }
 

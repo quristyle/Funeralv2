@@ -99,8 +99,7 @@
                                 ValueChanged="@((string? v) => { r.BuildingId = v; r.FloorId = null; })"
                                 ValueExpression="@(() => r.BuildingId)"
                                 TextFieldName="@nameof(Building.Name)"
-                                ValueFieldName="@nameof(Building.Id)"
-                                NullText="건물을 고르십시오" />
+                                ValueFieldName="@nameof(Building.Id)" />
                 </DxFormLayoutItem>
 
                 <DxFormLayoutItem Caption="층" ColSpanMd="6">
@@ -108,8 +107,7 @@
                        이유가 그것이다 — 안 비우면 다른 건물의 층이 붙는다. *@
                     <DxComboBox Data="@FloorsOf(r.BuildingId)" @bind-Value="r.FloorId"
                                 TextFieldName="@nameof(Floor.Name)"
-                                ValueFieldName="@nameof(Floor.Id)"
-                                NullText="층을 고르십시오" />
+                                ValueFieldName="@nameof(Floor.Id)" />
                 </DxFormLayoutItem>
 
                 <DxFormLayoutItem Caption="호실 이름" ColSpanMd="8">
@@ -117,14 +115,13 @@
                 </DxFormLayoutItem>
 
                 <DxFormLayoutItem Caption="약칭" ColSpanMd="4">
-                    <DxTextBox @bind-Text="r.ShortName" NullText="현황판에 쓰는 짧은 이름" />
+                    <DxTextBox @bind-Text="r.ShortName" />
                 </DxFormLayoutItem>
 
                 <DxFormLayoutItem Caption="구분" ColSpanMd="6">
                     <DxComboBox Data="@_roomTypes" @bind-Value="r.RoomType"
                                 TextFieldName="@nameof(CommonCode.CodeName)"
-                                ValueFieldName="@nameof(CommonCode.CodeValue)"
-                                NullText="구분을 고르십시오" />
+                                ValueFieldName="@nameof(CommonCode.CodeValue)" />
                 </DxFormLayoutItem>
 
                 <DxFormLayoutItem Caption="정렬" ColSpanMd="3">

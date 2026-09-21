@@ -100,12 +100,12 @@
 
                 <DxFormLayoutItem Caption="약칭" ColSpanMd="4">
                     @* 빈소 현황판처럼 자리가 좁은 화면이 이 값을 쓴다. *@
-                    <DxTextBox @bind-Text="b.ShortName" NullText="현황판에 쓰는 짧은 이름" />
+                    <DxTextBox @bind-Text="b.ShortName" />
                 </DxFormLayoutItem>
 
                 <DxFormLayoutItem Caption="약어" ColSpanMd="4">
                     @* 서버가 필수로 받는다(BuildingCreateDto). 영문 세 자리다. *@
-                    <DxTextBox @bind-Text="b.Abbreviation" MaxLength="3" NullText="예: MAN" />
+                    <DxTextBox @bind-Text="b.Abbreviation" MaxLength="3" />
                 </DxFormLayoutItem>
 
                 <DxFormLayoutItem Caption="우편번호" ColSpanMd="4">

@@ -111,7 +111,7 @@
                 <label class="hd-field__label">JSini 포털 계정</label>
                 <DxComboBox Data="@_accounts" TextFieldName="@nameof(BizOption.Label)"
                             ValueFieldName="@nameof(BizOption.Value)"
-                            @bind-Value="_authUserId" NullText="계정을 고르십시오"
+                            @bind-Value="_authUserId"
                             SearchMode="ListSearchMode.AutoSearch" SearchFilterCondition="ListSearchFilterCondition.Contains" />
             </div>
 
@@ -125,7 +125,7 @@
                 <label class="hd-field__label">헬프데스크 사용자</label>
                 <DxComboBox Data="@HelpdeskUsers" TextFieldName="@nameof(BizOption.Label)"
                             ValueFieldName="@nameof(BizOption.Value)"
-                            @bind-Value="_helpdeskUserId" NullText="사용자를 고르십시오"
+                            @bind-Value="_helpdeskUserId"
                             SearchMode="ListSearchMode.AutoSearch" SearchFilterCondition="ListSearchFilterCondition.Contains" />
             </div>
 

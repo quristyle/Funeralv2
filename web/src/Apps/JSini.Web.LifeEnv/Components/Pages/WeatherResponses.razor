@@ -71,8 +71,7 @@
                 <DxFormLayoutItem Caption="판정 기준" ColSpanMd="8">
                     <DxComboBox Data="@_standards" @bind-Value="item.WeatherStandardId"
                                 TextFieldName="@nameof(WeatherStandard.Name)"
-                                ValueFieldName="@nameof(WeatherStandard.Id)"
-                                NullText="기준을 고르십시오" />
+                                ValueFieldName="@nameof(WeatherStandard.Id)" />
                 </DxFormLayoutItem>
 
                 <DxFormLayoutItem Caption="순서" ColSpanMd="4">
@@ -80,13 +79,11 @@
                 </DxFormLayoutItem>
 
                 <DxFormLayoutItem Caption="조치 내용" ColSpanMd="12">
-                    <DxMemo @bind-Text="item.ActionContent" Rows="4"
-                            NullText="알림에 실릴 문장" />
+                    <DxMemo @bind-Text="item.ActionContent" Rows="4" />
                 </DxFormLayoutItem>
 
                 <DxFormLayoutItem Caption="비고" ColSpanMd="12">
-                    <DxMemo @bind-Text="item.Description" Rows="3"
-                            NullText="알림에 실리지 않는 메모" />
+                    <DxMemo @bind-Text="item.Description" Rows="3" />
                 </DxFormLayoutItem>
             </DxFormLayout>
         </EditFormTemplate>

@@ -272,7 +272,6 @@ else if (_attribute is not null)
                                         ValueFieldName="@nameof(MediaSource.Id)"
                                         Value="@_attribute.VideoId"
                                         ValueChanged="@((string? v) => PickVideo(v))"
-                                        NullText="쓰지 않음"
                                         ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
                         </DeviceField>
                         <DeviceField Label="영상 방향">
@@ -284,7 +283,6 @@ else if (_attribute is not null)
                                         ValueFieldName="@nameof(MediaSource.Id)"
                                         Value="@_attribute.MusicId"
                                         ValueChanged="@((string? v) => PickMusic(v))"
-                                        NullText="쓰지 않음"
                                         ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
                         </DeviceField>
                         <DeviceField Label="음량">
@@ -297,7 +295,6 @@ else if (_attribute is not null)
                                         ValueFieldName="@nameof(MediaSource.Id)"
                                         Value="@_attribute.BackgroundImageId"
                                         ValueChanged="@((string? v) => PickBackground(v))"
-                                        NullText="쓰지 않음"
                                         ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
                         </DeviceField>
                         <DeviceField Label="배경 방향">
@@ -344,7 +341,7 @@ else if (_attribute is not null)
                             <DxSpinEdit @bind-Value="_attribute.NoticeScrollSpeed" MinValue="0" MaxValue="100" />
                         </DeviceField>
                         <DeviceField Label="입구 인사말" Wide="true">
-                            <DxTextBox @bind-Text="_attribute.EntranceGreeting" NullText="예: 조문객 여러분을 맞이합니다" />
+                            <DxTextBox @bind-Text="_attribute.EntranceGreeting" />
                         </DeviceField>
                         break;
 

@@ -134,13 +134,12 @@
                 <DxFormLayoutItem Caption="키" ColSpanMd="8">
                     @* 화면 코드가 이 글자를 들고 있다. 바꾸면 그 자리에 키가 그대로
                        보이게 된다 — 등록할 때만 정하는 이유다. *@
-                    <DxTextBox @bind-Text="row.Key" ReadOnly="@(!_isNew)"
-                               NullText="@(_isNew ? "system.menu.title" : "수정할 수 없습니다")" />
+                    <DxTextBox @bind-Text="row.Key" ReadOnly="@(!_isNew)" />
                 </DxFormLayoutItem>
 
                 <DxFormLayoutItem Caption="분류" ColSpanMd="4">
                     <DxComboBox Data="@_categories" @bind-Value="row.Category"
-                                AllowUserInput="true" NullText="직접 입력 가능"
+                                AllowUserInput="true"
                                 ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
                 </DxFormLayoutItem>
 
@@ -151,8 +150,7 @@
                 <DxFormLayoutItem Caption="영어" ColSpanMd="12">
                     @* 비워 두면 그 언어에서는 키가 그대로 보인다. 지우려면
                        비우고 저장한다. *@
-                    <DxTextBox @bind-Text="row.EnValue"
-                               NullText="비우면 그 언어에서 키가 그대로 보인다" />
+                    <DxTextBox @bind-Text="row.EnValue" />
                 </DxFormLayoutItem>
             </DxFormLayout>
         </EditFormTemplate>

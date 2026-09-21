@@ -69,11 +69,11 @@
                     @* 이름이 곧 열쇠다. 고치면 **새 이름표가 하나 생기고** 옛
                        이름에 딸린 질의는 그대로 남는다 — 고칠 일이 드물다. *@
                     <DxFormLayoutItem Caption="이름" ColSpanMd="6">
-                        <DxTextBox @bind-Text="b.DslCd" NullText="필수 — tablelist · proclist …" />
+                        <DxTextBox @bind-Text="b.DslCd" />
                     </DxFormLayoutItem>
 
                     <DxFormLayoutItem Caption="순서" ColSpanMd="6">
-                        <DxSpinEdit @bind-Value="b.Sort" NullText="비우면 999" />
+                        <DxSpinEdit @bind-Value="b.Sort" />
                     </DxFormLayoutItem>
 
                     <DxFormLayoutItem Caption="설명" ColSpanMd="12">
@@ -126,7 +126,7 @@
                     }
                     <DxFormLayout CssClass="pm-editform">
                         <DxFormLayoutItem Caption="DB 종류" ColSpanMd="6">
-                            <DxComboBox Data="@DbTypes" @bind-Value="q.DslType" NullText="필수" />
+                            <DxComboBox Data="@DbTypes" @bind-Value="q.DslType" />
                         </DxFormLayoutItem>
 
                         <DxFormLayoutItem Caption="설명" ColSpanMd="6">

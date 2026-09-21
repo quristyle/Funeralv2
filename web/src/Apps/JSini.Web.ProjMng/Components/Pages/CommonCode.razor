@@ -120,7 +120,7 @@
     private RenderFragment CodeForm(DevCommonCodeDto c, bool isGroup) =>@<text>
         <DxFormLayout CssClass="pm-editform">
             <DxFormLayoutItem Caption="코드" ColSpanMd="6">
-                <DxTextBox @bind-Text="c.CmCd" NullText="필수" />
+                <DxTextBox @bind-Text="c.CmCd" />
             </DxFormLayoutItem>
 
             <DxFormLayoutItem Caption="이름" ColSpanMd="6">
@@ -152,7 +152,7 @@
 
             <DxFormLayoutItem Caption="순서" ColSpanMd="6">
                 @* 비우면 서버가 999 를 넣는다 — 옛 수정이 쓰던 기본값과 같다. *@
-                <DxSpinEdit @bind-Value="c.CmSrt" NullText="비우면 999" />
+                <DxSpinEdit @bind-Value="c.CmSrt" />
             </DxFormLayoutItem>
 
             @* 옛 프로시저가 읽지도 쓰지도 않던 칸이다. 표에 있으므로 다룬다. *@

@@ -146,15 +146,15 @@
                     <DxFormLayout CssClass="pm-editform">
                         <DxFormLayoutItem Caption="묶음" ColSpanMd="6">
                             @* `url` 이면 왼쪽 목록의 「URL 패턴」으로 올라간다. *@
-                            <DxTextBox @bind-Text="d.SrcPatternGrp" NullText="url · desc …" />
+                            <DxTextBox @bind-Text="d.SrcPatternGrp" />
                         </DxFormLayoutItem>
 
                         <DxFormLayoutItem Caption="확장자" ColSpanMd="6">
-                            <DxTextBox @bind-Text="d.SrcExtend" NullText=".razor · .jsp …" />
+                            <DxTextBox @bind-Text="d.SrcExtend" />
                         </DxFormLayoutItem>
 
                         <DxFormLayoutItem Caption="패턴" ColSpanMd="12">
-                            <DxTextBox @bind-Text="d.UrlPattern" NullText="정규식" />
+                            <DxTextBox @bind-Text="d.UrlPattern" />
                         </DxFormLayoutItem>
 
                         <DxFormLayoutItem Caption="설명" ColSpanMd="12">
@@ -179,11 +179,11 @@
     <BodyContentTemplate Context="popup">
         <DxFormLayout CssClass="pm-editform">
             <DxFormLayoutItem Caption="별칭" ColSpanMd="6">
-                <DxTextBox @bind-Text="_form.SrcNick" NullText="사람이 부르는 이름" />
+                <DxTextBox @bind-Text="_form.SrcNick" />
             </DxFormLayoutItem>
 
             <DxFormLayoutItem Caption="경로" ColSpanMd="6">
-                <DxTextBox @bind-Text="_form.SrcPath" NullText="필수 — 서버 장비 기준" />
+                <DxTextBox @bind-Text="_form.SrcPath" />
             </DxFormLayoutItem>
 
             @* 손으로 적던 칸이다. 고르는 칸으로 바꾼 이유는 머리말에 있다.
@@ -191,14 +191,12 @@
                목록 첫 줄로 갈아 끼워지고, 다른 칸만 고쳐 저장해도 따라 바뀐다. *@
             <DxFormLayoutItem Caption="언어" ColSpanMd="6">
                 <CodeSelect CodeId="SOURCE_LANG" @bind-Value="_form.SrcLang"
-                            AutoSelectFirst="false" KeepUnknownValue="true" AllowClear="true"
-                            Placeholder="언어를 고르세요" />
+                            AutoSelectFirst="false" KeepUnknownValue="true" AllowClear="true" />
             </DxFormLayoutItem>
 
             <DxFormLayoutItem Caption="OS" ColSpanMd="6">
                 <CodeSelect CodeId="SOURCE_OS" @bind-Value="_form.SrcOs"
-                            AutoSelectFirst="false" KeepUnknownValue="true" AllowClear="true"
-                            Placeholder="OS 를 고르세요" />
+                            AutoSelectFirst="false" KeepUnknownValue="true" AllowClear="true" />
             </DxFormLayoutItem>
 
             <DxFormLayoutItem Caption="구분" ColSpanMd="6">

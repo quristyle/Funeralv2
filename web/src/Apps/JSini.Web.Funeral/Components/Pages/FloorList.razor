@@ -59,12 +59,11 @@
                 <DxFormLayoutItem Caption="건물" ColSpanMd="12">
                     <DxComboBox Data="@_buildings" @bind-Value="f.BuildingId"
                                 TextFieldName="@nameof(Building.Name)"
-                                ValueFieldName="@nameof(Building.Id)"
-                                NullText="건물을 고르십시오" />
+                                ValueFieldName="@nameof(Building.Id)" />
                 </DxFormLayoutItem>
 
                 <DxFormLayoutItem Caption="층 이름" ColSpanMd="8">
-                    <DxTextBox @bind-Text="f.Name" NullText="1층 · 지하1층" />
+                    <DxTextBox @bind-Text="f.Name" />
                 </DxFormLayoutItem>
 
                 <DxFormLayoutItem Caption="정렬" ColSpanMd="4">

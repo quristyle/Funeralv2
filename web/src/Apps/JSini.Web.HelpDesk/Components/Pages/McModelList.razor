@@ -138,7 +138,7 @@
 
             <DxFormLayoutItem Caption="시작 키" ColSpanMd="12">
                 @* 전문 시작을 알아보는 바이트. 서버가 이 글자를 바이트로 바꾼다. *@
-                <DxTextBox @bind-Text="_model.StartKey" NullText="예: 2 또는 2,48" />
+                <DxTextBox @bind-Text="_model.StartKey" />
             </DxFormLayoutItem>
         </DxFormLayout>
 
@@ -160,7 +160,7 @@
             </DxFormLayoutItem>
 
             <DxFormLayoutItem Caption="구분" ColSpanMd="6">
-                <DxComboBox Data="@PTypes" @bind-Value="_item.PTYPE" NullText="수신/송신" />
+                <DxComboBox Data="@PTypes" @bind-Value="_item.PTYPE" />
             </DxFormLayoutItem>
 
             <DxFormLayoutItem Caption="키 위치" ColSpanMd="6">
@@ -170,15 +170,15 @@
 
             <DxFormLayoutItem Caption="키" ColSpanMd="12">
                 @* 콤마로 적는다. 서버가 바이트 목록으로 바꾼다. *@
-                <DxTextBox @bind-Text="_keys" NullText="예: 2,48,49" />
+                <DxTextBox @bind-Text="_keys" />
             </DxFormLayoutItem>
 
             <DxFormLayoutItem Caption="블록 길이" ColSpanMd="6">
-                <DxTextBox @bind-Text="_item.BlocParseLength" NullText="예: 8 또는 4,2,1,1" />
+                <DxTextBox @bind-Text="_item.BlocParseLength" />
             </DxFormLayoutItem>
 
             <DxFormLayoutItem Caption="해석 방식" ColSpanMd="6">
-                <DxComboBox Data="@ParseTypes" @bind-Value="_item.BlocParseType" NullText="number/date" />
+                <DxComboBox Data="@ParseTypes" @bind-Value="_item.BlocParseType" />
             </DxFormLayoutItem>
         </DxFormLayout>
 

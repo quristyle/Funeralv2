@@ -45,7 +45,7 @@
                 <DeviceField Label="코드">
                     @if (IsNew)
                     {
-                        <DxTextBox @bind-Text="_form.Code" NullText="예: JSI-06-0005" />
+                        <DxTextBox @bind-Text="_form.Code" />
                     }
                     else
                     {
@@ -65,7 +65,6 @@
                                 ValueFieldName="@nameof(Building.Id)"
                                 Value="@_form.BuildingId"
                                 ValueChanged="@((string? v) => PickBuildingAsync(v))"
-                                NullText="고르십시오"
                                 ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
                 </DeviceField>
 
@@ -74,14 +73,13 @@
                                 ValueFieldName="@nameof(Floor.Id)"
                                 Value="@_form.FloorId"
                                 ValueChanged="@((string? v) => PickFloorAsync(v))"
-                                NullText="고르십시오"
                                 ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
                 </DeviceField>
 
                 <DeviceField Label="호실">
                     <DxComboBox Data="@_rooms" TextFieldName="@nameof(Room.Name)"
                                 ValueFieldName="@nameof(Room.Id)"
-                                @bind-Value="_form.RoomId" NullText="호실에 안 붙는 기기"
+                                @bind-Value="_form.RoomId"
                                 ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
                 </DeviceField>
 

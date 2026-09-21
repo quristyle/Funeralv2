@@ -106,7 +106,13 @@ else
     /// <summary>목록 안에서 타자로 거른다. Vue 의 <c>show-search</c> 대응. 기본 켜짐.</summary>
     [Parameter] public bool ShowSearch { get; set; } = true;
 
-    [Parameter] public string Placeholder { get; set; } = "선택";
+    /// <summary>
+    /// 칸 안에 뜨는 자리표시 글. <b>기본은 빈 글자다</b> — 이 부품이 놓이는
+    /// 자리는 거의 다 라벨(<c>CommSchItem</c> · <c>DxFormLayoutItem</c>)이 붙어
+    /// 있고, 라벨이 이미 하는 말을 칸 안에서 또 하면 회색 글자만 늘어난다.
+    /// 라벨 없이 쓰는 드문 자리에서만 준다.
+    /// </summary>
+    [Parameter] public string Placeholder { get; set; } = string.Empty;
 
     [Parameter] public bool AllowClear { get; set; }
 

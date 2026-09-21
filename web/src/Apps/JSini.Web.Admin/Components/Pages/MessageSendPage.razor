@@ -183,12 +183,12 @@
 
                     <div class="ad-field">
                         <label class="ad-field__label">제목 <span class="ad-field__must">*</span></label>
-                        <DxTextBox @bind-Text="_push.Title" NullText="알림 제목" ValidationEnabled="false" />
+                        <DxTextBox @bind-Text="_push.Title" ValidationEnabled="false" />
                     </div>
 
                     <div class="ad-field">
                         <label class="ad-field__label">내용</label>
-                        <DxMemo @bind-Text="_push.Body" Rows="4" NullText="알림 본문" ValidationEnabled="false" />
+                        <DxMemo @bind-Text="_push.Body" Rows="4" ValidationEnabled="false" />
                     </div>
 
                     <div class="ad-field">
@@ -197,7 +197,7 @@
                            **주소는 이 포털 안의 것이어야 한다** — 바깥 주소를 적으면
                            알림이 뜰 때 그쪽으로 요청이 나간다. *@
                         <div class="jsini-inline">
-                            <DxTextBox @bind-Text="_push.Icon" NullText="/icons/icon-192.png"
+                            <DxTextBox @bind-Text="_push.Icon"
                                        BindValueMode="BindValueMode.OnInput"
                                        ValidationEnabled="false" CssClass="ad-field__grow" />
 
@@ -212,14 +212,14 @@
 
                     <div class="ad-field">
                         <label class="ad-field__label">눌렀을 때 열 주소</label>
-                        <DxTextBox @bind-Text="_push.Url" NullText="/admin/push/history"
+                        <DxTextBox @bind-Text="_push.Url"
                                    ValidationEnabled="false" />
                         <div class="jsini-hint">포털 안의 경로를 적습니다. 비우면 첫 화면이 열립니다.</div>
                     </div>
 
                     <div class="ad-field">
                         <label class="ad-field__label">묶음 이름(태그)</label>
-                        <DxTextBox @bind-Text="_push.Tag" NullText="notice-2026-09"
+                        <DxTextBox @bind-Text="_push.Tag"
                                    ValidationEnabled="false" />
                         <div class="jsini-hint">
                             같은 태그의 알림은 브라우저가 <b>하나로 합칩니다</b>. 같은 건을 여러 번 갱신해
@@ -255,7 +255,7 @@
 
                     <div class="ad-field">
                         <label class="ad-field__label">제목 <span class="ad-field__must">*</span></label>
-                        <DxTextBox @bind-Text="_mail.Subject" NullText="메일 제목" ValidationEnabled="false" />
+                        <DxTextBox @bind-Text="_mail.Subject" ValidationEnabled="false" />
                     </div>
 
                     <div class="ad-field">
@@ -272,8 +272,7 @@
                         <DxHtmlEditor Markup="@_mail.Body"
                                       MarkupChanged="@(v => _mail.Body = v ?? string.Empty)"
                                       BindMarkupMode="HtmlEditorBindMarkupMode.OnDelayedInput"
-                                      CssClass="ad-mail-editor"
-                                      NullText="메일 본문" />
+                                      CssClass="ad-mail-editor" />
 
                         @* 평문 스위치를 없앴다. 서식 편집기로 쓴 글을 평문으로 보내면
                            태그가 그대로 보인다 — 고를 수 있게 두면 그 조합이 반드시
@@ -327,13 +326,13 @@
 
                     <div class="ad-field">
                         <label class="ad-field__label">발신번호</label>
-                        <DxTextBox @bind-Text="_sms.From" NullText="사전등록된 번호" ValidationEnabled="false" />
+                        <DxTextBox @bind-Text="_sms.From" ValidationEnabled="false" />
                         <div class="jsini-hint">문자는 <b>사전등록한 번호로만</b> 보낼 수 있습니다(전기통신사업법).</div>
                     </div>
 
                     <div class="ad-field">
                         <label class="ad-field__label">내용</label>
-                        <DxMemo @bind-Text="_sms.Body" Rows="5" NullText="문자 내용" ValidationEnabled="false" />
+                        <DxMemo @bind-Text="_sms.Body" Rows="5" ValidationEnabled="false" />
                         @* 90바이트가 SMS 와 LMS 를 가르는 선이다. 글자 수가 아니라
                            바이트라 한글은 두 배로 센다 — 미리 말해 주지 않으면
                            "짧게 썼는데 왜 장문 요금인가" 가 된다. *@
@@ -358,12 +357,12 @@
 
                     <div class="ad-field">
                         <label class="ad-field__label">발신 채널</label>
-                        <DxTextBox @bind-Text="_kakao.Channel" NullText="등록한 채널 이름" ValidationEnabled="false" />
+                        <DxTextBox @bind-Text="_kakao.Channel" ValidationEnabled="false" />
                     </div>
 
                     <div class="ad-field">
                         <label class="ad-field__label">템플릿 코드</label>
-                        <DxTextBox @bind-Text="_kakao.TemplateCode" NullText="심사받은 템플릿 코드"
+                        <DxTextBox @bind-Text="_kakao.TemplateCode"
                                    ValidationEnabled="false" />
                         @* 알림톡은 아무 글이나 못 보낸다 — 심사받은 템플릿의 빈칸만
                            채운다. 그 성질을 화면이 말해 주지 않으면 자유 문구를 적고
@@ -376,7 +375,6 @@
                     <div class="ad-field">
                         <label class="ad-field__label">치환 값</label>
                         <DxMemo @bind-Text="_kakao.Body" Rows="5"
-                                NullText="#{이름} 홍길동&#10;#{일시} 2026-09-20 14:00"
                                 ValidationEnabled="false" />
                     </div>
 

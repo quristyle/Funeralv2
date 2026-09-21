@@ -47,12 +47,12 @@ else
     <div class="hd-form">
         <label class="hd-field">
             <span class="hd-field__label">제목</span>
-            <DxTextBox @bind-Text="_title" NullText="무엇이 필요하신지 한 줄로" />
+            <DxTextBox @bind-Text="_title" />
         </label>
 
         <label class="hd-field">
             <span class="hd-field__label">내용</span>
-            <DxMemo @bind-Text="_content" Rows="10" NullText="증상 · 재현 방법 · 언제부터인지" />
+            <DxMemo @bind-Text="_content" Rows="10" />
         </label>
 
         <div class="hd-field">

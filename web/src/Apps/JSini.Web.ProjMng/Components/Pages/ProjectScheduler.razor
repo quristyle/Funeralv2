@@ -231,12 +231,9 @@
 
                         @* 체크로 여럿 고른다. 아무것도 안 고르면 전체다 — 머리말 참고. *@
                         <CommSchItem Label="구분">
-                            @* 라벨이 있는 칸이라 자리표시 글을 비운다 — 부품 기본값
-                               (「선택」)이 뜨지 않게 빈 글자를 명시한다. *@
                             <CodeSelect CodeId="schedule_type" Multiple="true"
                                         Values="@_scheduleTypes"
-                                        ValuesChanged="@OnKindsChangedAsync"
-                                        Placeholder="" />
+                                        ValuesChanged="@OnKindsChangedAsync" />
                         </CommSchItem>
 
                         <CommSchItem Label="진행">

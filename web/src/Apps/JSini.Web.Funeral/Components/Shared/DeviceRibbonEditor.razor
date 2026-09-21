@@ -57,8 +57,7 @@ else
                     <DxComboBox Data="@_images" TextFieldName="@nameof(MediaSource.Name)"
                                 ValueFieldName="@nameof(MediaSource.Id)"
                                 Value="@r.MediaSourceId"
-                                ValueChanged="@((string? v) => r.MediaSourceId = v ?? string.Empty)"
-                                NullText="이미지를 고르십시오" />
+                                ValueChanged="@((string? v) => r.MediaSourceId = v ?? string.Empty)" />
                 </CellDisplayTemplate>
             </DxGridDataColumn>
 

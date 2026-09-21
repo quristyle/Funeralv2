@@ -196,8 +196,7 @@
                메뉴 관리의 「보이기」·「허용 동작」이 쓰는 것과 같은 자리다. *@
             <DxFormLayout CssClass="ad-editform">
                 <DxFormLayoutItem Caption="로그인 아이디" ColSpanMd="6">
-                    <DxTextBox @bind-Text="a.LoginId" ReadOnly="@(!isNew)"
-                               NullText="영문·숫자" />
+                    <DxTextBox @bind-Text="a.LoginId" ReadOnly="@(!isNew)" />
                 </DxFormLayoutItem>
 
                 <DxFormLayoutItem Caption="이름" ColSpanMd="6">
@@ -205,18 +204,17 @@
                 </DxFormLayoutItem>
 
                 <DxFormLayoutItem Caption="이메일" ColSpanMd="6">
-                    <DxTextBox @bind-Text="a.Email" NullText="user@example.com" />
+                    <DxTextBox @bind-Text="a.Email" />
                 </DxFormLayoutItem>
 
                 <DxFormLayoutItem Caption="연락처" ColSpanMd="6">
-                    <DxTextBox @bind-Text="a.Phone" NullText="010-0000-0000" />
+                    <DxTextBox @bind-Text="a.Phone" />
                 </DxFormLayoutItem>
 
                 <DxFormLayoutItem Caption="부서" ColSpanMd="6">
                     <DxComboBox Data="@_depts" @bind-Value="a.DeptId"
                                 TextFieldName="@nameof(DeptDto.Name)"
                                 ValueFieldName="@nameof(DeptDto.Id)"
-                                NullText="소속 없음"
                                 ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
                 </DxFormLayoutItem>
 
@@ -231,8 +229,7 @@
                     <DxTagBox Data="@_roles"
                               @bind-Values="a.Roles"
                               TextFieldName="@nameof(RoleDto.Name)"
-                              ValueFieldName="@nameof(RoleDto.Id)"
-                              NullText="역할 없음" />
+                              ValueFieldName="@nameof(RoleDto.Id)" />
                 </DxFormLayoutItem>
 
                 @* 날짜와 네모 둘은 **한 가지 일**이다 — 언제 태어났나, 그 날짜를
@@ -240,8 +237,7 @@
                    가르면 읽는 사람이 셋을 따로 판단해야 한다. *@
                 <DxFormLayoutItem Caption="생일" ColSpanMd="12">
                     <div class="ad-checks">
-                        <DxDateEdit @bind-Date="a.BirthDateTime" CssClass="ad-editform__date"
-                                    NullText="비워 둘 수 있다" />
+                        <DxDateEdit @bind-Date="a.BirthDateTime" CssClass="ad-editform__date" />
                         <DxCheckBox @bind-Checked="a.BirthDateIsLunar">음력</DxCheckBox>
                         <DxCheckBox @bind-Checked="a.BirthdayCelebrated">생일 목록에 넣는다</DxCheckBox>
                     </div>

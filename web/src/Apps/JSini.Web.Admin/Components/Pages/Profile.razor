@@ -264,17 +264,16 @@
 
                             <DxFormLayoutItem Caption="이메일" ColSpanMd="6">
                                 @* 남과 겹치면 서버가 409 로 거절한다. 그 문구를 그대로 보여 준다. *@
-                                <DxTextBox @bind-Text="_edit.Email" NullText="user@example.com" />
+                                <DxTextBox @bind-Text="_edit.Email" />
                             </DxFormLayoutItem>
 
                             <DxFormLayoutItem Caption="전화번호" ColSpanMd="6">
-                                <DxTextBox @bind-Text="_edit.Phone" NullText="010-0000-0000" />
+                                <DxTextBox @bind-Text="_edit.Phone" />
                             </DxFormLayoutItem>
 
                             <DxFormLayoutItem Caption="생년월일" ColSpanMd="4">
                                 <DxDateEdit Date="@_birthDate"
                                             DateChanged="@((DateTime? d) => { _birthDate = d; })"
-                                            NullText="비워 둘 수 있다"
                                             ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
                             </DxFormLayoutItem>
 
@@ -301,7 +300,7 @@
                             </DxFormLayoutItem>
 
                             <DxFormLayoutItem Caption="자기소개" ColSpanMd="12">
-                                <DxMemo @bind-Text="_edit.Introduction" Rows="3" NullText="한 줄 소개" />
+                                <DxMemo @bind-Text="_edit.Introduction" Rows="3" />
                             </DxFormLayoutItem>
                         </DxFormLayout>
 

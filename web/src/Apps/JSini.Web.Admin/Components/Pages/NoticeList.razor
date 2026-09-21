@@ -152,7 +152,7 @@
             }
             <DxFormLayout CssClass="ad-editform">
                 <DxFormLayoutItem Caption="제목" ColSpanMd="12">
-                    <DxTextBox @bind-Text="n.Title" NullText="공지 제목" />
+                    <DxTextBox @bind-Text="n.Title" />
                 </DxFormLayoutItem>
 
                 @* 값을 흘려보내는 시점을 OnDelayedInput 으로 바꾼다. 기본값
@@ -162,8 +162,7 @@
                 <DxFormLayoutItem Caption="내용" ColSpanMd="12">
                     <DxHtmlEditor @bind-Markup="n.Content"
                                   BindMarkupMode="HtmlEditorBindMarkupMode.OnDelayedInput"
-                                  CssClass="ad-notice-editor"
-                                  NullText="공지 내용" />
+                                  CssClass="ad-notice-editor" />
                 </DxFormLayoutItem>
 
                 @* 이미 매달려 있는 첨부. **여기서 뺀 것은 저장할 때 서버가 뗀다** —
@@ -199,11 +198,11 @@
                 </DxFormLayoutItem>
 
                 <DxFormLayoutItem Caption="게시 시작" ColSpanMd="6">
-                    <DxDateEdit @bind-Date="n.StartAt" TimeSectionVisible="true" NullText="비우면 즉시" />
+                    <DxDateEdit @bind-Date="n.StartAt" TimeSectionVisible="true" />
                 </DxFormLayoutItem>
 
                 <DxFormLayoutItem Caption="게시 종료" ColSpanMd="6">
-                    <DxDateEdit @bind-Date="n.EndAt" TimeSectionVisible="true" NullText="비우면 무기한" />
+                    <DxDateEdit @bind-Date="n.EndAt" TimeSectionVisible="true" />
                 </DxFormLayoutItem>
 
                 <DxFormLayoutItem Caption="정렬 순서" ColSpanMd="4">

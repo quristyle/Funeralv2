@@ -152,7 +152,7 @@
                 }
                 <DxFormLayout CssClass="pm-editform">
                     <DxFormLayoutItem Caption="이름" ColSpanMd="6">
-                        <DxTextBox @bind-Text="d.DbNick" NullText="필수" />
+                        <DxTextBox @bind-Text="d.DbNick" />
                     </DxFormLayoutItem>
 
                     @* 손으로 적던 칸이다. 고르는 칸으로 바꾼 이유는 머리말에 있다.
@@ -160,8 +160,7 @@
                        가 정하고, 고친 접속의 값을 목록 첫 줄로 갈아 끼우면 안 된다. *@
                     <DxFormLayoutItem Caption="종류" ColSpanMd="6">
                         <CodeSelect CodeId="DB" @bind-Value="d.DbType"
-                                    AutoSelectFirst="false" KeepUnknownValue="true"
-                                    Placeholder="종류를 고르세요" />
+                                    AutoSelectFirst="false" KeepUnknownValue="true" />
                     </DxFormLayoutItem>
 
                     <DxFormLayoutItem Caption="주소" ColSpanMd="6">
@@ -186,8 +185,7 @@
 
                     @* **늘 비어 있다.** 비운 채로 저장하면 기존 값이 남는다(머리말). *@
                     <DxFormLayoutItem Caption="비밀번호" ColSpanMd="6">
-                        <DxTextBox @bind-Text="d.DbPwd" Password="true"
-                                   NullText="비우면 그대로 둡니다" />
+                        <DxTextBox @bind-Text="d.DbPwd" Password="true" />
                     </DxFormLayoutItem>
 
                     <DxFormLayoutItem Caption="인증서" ColSpanMd="6">
@@ -198,8 +196,7 @@
                        위해 여기도 둔다 — **비우면 기존 값이 그대로 남는다**
                        (새 줄이면 맨 뒤로 간다). 비밀번호와 같은 규칙이다. *@
                     <DxFormLayoutItem Caption="순서" ColSpanMd="6">
-                        <DxSpinEdit @bind-Value="d.DbSrt" MinValue="1"
-                                    NullText="비우면 그대로 둡니다" />
+                        <DxSpinEdit @bind-Value="d.DbSrt" MinValue="1" />
                     </DxFormLayoutItem>
 
                     @* 옛 저장이 다루지 않던 칸이다. *@
@@ -257,7 +254,7 @@
                         @* **값 칸이 없다.** 값은 아래 편집기가 맡는다(머리말). *@
                         <DxFormLayout CssClass="pm-editform">
                             <DxFormLayoutItem Caption="이름" ColSpanMd="6">
-                                <DxTextBox @bind-Text="p.DbPkey" NullText="필수 — erd · sp_fmt …" />
+                                <DxTextBox @bind-Text="p.DbPkey" />
                             </DxFormLayoutItem>
 
                             @* 종류와 같은 이유로 고르는 칸이다(머리말).
@@ -266,7 +263,7 @@
                             <DxFormLayoutItem Caption="구분" ColSpanMd="6">
                                 <CodeSelect CodeId="DB_PROP_TYPE" @bind-Value="p.DbPtype"
                                             AutoSelectFirst="false" KeepUnknownValue="true"
-                                            AllowClear="true" Placeholder="구분 없음" />
+                                            AllowClear="true" />
                             </DxFormLayoutItem>
 
                             <DxFormLayoutItem Caption="설명" ColSpanMd="12">

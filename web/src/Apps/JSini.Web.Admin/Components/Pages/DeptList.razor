@@ -138,7 +138,7 @@
             <DxFormLayoutItem Caption="회사" ColSpanMd="12">
                 <DxComboBox Data="@_companies" TextFieldName="@nameof(CompanyDto.Name)"
                             ValueFieldName="@nameof(CompanyDto.Id)"
-                            @bind-Value="_form.CompanyId" NullText="고르십시오" />
+                            @bind-Value="_form.CompanyId" />
             </DxFormLayoutItem>
 
             <DxFormLayoutItem Caption="상위 부서" ColSpanMd="12">
@@ -146,7 +146,7 @@
                    목록이 통째로 사라진다. *@
                 <DxComboBox Data="@ParentChoices" TextFieldName="@nameof(DeptDto.Name)"
                             ValueFieldName="@nameof(DeptDto.Id)"
-                            @bind-Value="_form.Pid" NullText="최상위"
+                            @bind-Value="_form.Pid"
                             ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
             </DxFormLayoutItem>
 
