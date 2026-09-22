@@ -1,24 +1,54 @@
 @*
-    좌우 분할. 마스터-디테일 화면이 쓴다.
+    좌우 분할. 마스터-디테일 화면이 쓴다. 가운데 손잡이를 끌어 너비를 바꾼다.
+
+    [클래스 이름을 `pm-split` 로 쓰면 안 된다]
+
+    `pm-split` 는 projmng.css 에 **이미 있는 격자 규칙**이다(`display: grid`).
+    할일 모니터·공통코드 등 여덟 화면이 그것을 쓴다. 분할판을 만들면서 그
+    이름을 `DxSplitter` 에 붙였더니 격자 규칙이 `.dxbl-splitter` 의
+    `display: flex` 를 덮어써서 **판 둘이 통째로 사라졌다.** 그래서 여기는
+    `pm-splitpane` 이라는 제 이름을 쓴다.
+
+    [스타일을 격리 CSS 에 두지 않는다]
+
+    Blazor 의 CSS 격리는 범위 표시(`b-xxxxx`)를 **이 파일이 적은 HTML 요소에만**
+    붙인다. `<DxSplitter>` 는 부품이라 안 붙으므로
+
+      · `CssClass` 로 넘긴 이름은 `.이름[b-xxxxx]` 가 되어 아무것도 못 겨눈다.
+      · `::deep .dxbl-splitter-…` 는 `[b-xxxxx] .dxbl-…` 이라 판 안쪽에 못 닿는다.
+
+    빌드도 통과하고 생성된 CSS 에 규칙이 멀쩡히 들어 있어서 파일만 보면
+    정상으로 보인다. 규칙은 모듈 CSS(projmng.css, 격리 없음)에 둔다 —
+    `pm-query-splitter` 가 같은 이유로 그렇게 되어 있다.
+
+    [높이는 바깥이 준다]
+
+    `.dxbl-splitter` 는 `height: 100%` 다. 높이가 안 정해진 블록 안에서는
+    그 100% 가 내용만큼으로 접혀 판이 사라진다. 그래서 겉에 `pm-splitpane`
+    <div> 를 하나 두고 **그것에** 높이를 준다. 본문 바로 아래에 놓이면
+    남은 높이를 다 먹고, 탭 안처럼 그럴 수 없는 자리에서는 어림값을 쓴다.
 *@
 
 <DxLayoutBreakpoint MaxWidth="900" @bind-IsActive="_isNarrow" />
 
-<DxSplitter CssClass="pm-split" Orientation="@(_isNarrow ? Orientation.Vertical : Orientation.Horizontal)">
-    <DxSplitterPane Size="@(_isNarrow ? "50%" : $"{Size}%")">
-        <div class="pm-split__first">
-            @First
-        </div>
-    </DxSplitterPane>
-    <DxSplitterPane>
-        <div class="pm-split__second">
-            @Second
-        </div>
-    </DxSplitterPane>
-</DxSplitter>
+<div class="pm-splitpane">
+    <DxSplitter CssClass="pm-splitpane__ui"
+                Orientation="@(_isNarrow ? Orientation.Vertical : Orientation.Horizontal)">
+        <DxSplitterPane Size="@(_isNarrow ? "50%" : $"{Size}%")">
+            <div class="pm-splitpane__first">
+                @First
+            </div>
+        </DxSplitterPane>
+        <DxSplitterPane>
+            <div class="pm-splitpane__second">
+                @Second
+            </div>
+        </DxSplitterPane>
+    </DxSplitter>
+</div>
 
 @code {
-    /// <summary>왼쪽 창의 너비 비율(%).</summary>
+    /// <summary>왼쪽 창의 너비 비율(%). 좁은 화면에서는 위아래로 반씩 나눈다.</summary>
     [Parameter] public int Size { get; set; } = 35;
 
     [Parameter] public RenderFragment? First { get; set; }
