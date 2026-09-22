@@ -238,8 +238,6 @@ UPDATE scom.system_menus SET route_key = 'helpdesk.schedule.my'
  WHERE path IN ('/helpdesk/schedule/my') AND route_key IS DISTINCT FROM 'helpdesk.schedule.my';
 UPDATE scom.system_menus SET route_key = 'helpdesk.system.account-link'
  WHERE path IN ('/helpdesk/system/account-link') AND route_key IS DISTINCT FROM 'helpdesk.system.account-link';
-UPDATE scom.system_menus SET route_key = 'helpdesk.system.checklist'
- WHERE path IN ('/helpdesk/system/checklist') AND route_key IS DISTINCT FROM 'helpdesk.system.checklist';
 UPDATE scom.system_menus SET route_key = 'helpdesk.system.user-properties'
  WHERE path IN ('/helpdesk/system/user-properties') AND route_key IS DISTINCT FROM 'helpdesk.system.user-properties';
 UPDATE scom.system_menus SET route_key = 'helpdesk.util.ascii-parser'

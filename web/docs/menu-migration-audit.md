@@ -653,6 +653,11 @@ SM 은 「밀린 것이 몇 건인가」보다 **「누가 몰려 있고 무엇�
 ### 104. `/helpdesk/system/checklist` — 체크리스트 · **다시 씀** → **2026-09-23 제거**
 
 > 안 쓰는 화면이라 화면·엔드포인트·모델·표를 전부 걷어냈다. 아래는 걷어내기 전 기록이다.
+>
+> 운영 반영도 끝났다(2026-09-23) — 헬프데스크 DB 의 `helpdesk.checklist`(빈 표)를
+> 마이그레이션 `20260922222726_RemoveChecklist` 로 지웠고, 포털 DB 의 메뉴
+> `HD_SYS_CHECKLIST` 와 그 권한 다섯 줄을
+> `deploy/sql/portal-menu-helpdesk-checklist-remove-2026-09-23.sql` 로 지웠다.
 
 원본: `helpdesk/system/checklist.vue` (367줄)
 
