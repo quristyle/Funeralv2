@@ -1,4 +1,4 @@
-using HelpDeskServer.Data;
+﻿using HelpDeskServer.Data;
 using HelpDeskServer.Models;
 // AuditUser() 확장 메서드가 여기 있다 (Services/JsiniUser.cs).
 // 작성자를 요청 본문이 아니라 로그인한 계정에서 정하는 데 쓴다.
@@ -37,8 +37,8 @@ namespace HelpDeskServer.Endpoints;
 /// </para>
 ///
 /// <para>
-/// 모양은 <c>ChecklistEndpoints</c> 와 똑같이 맞췄다. 없는 것을 찾으면 <c>null</c> 을
-/// 돌려주면 되고, <see cref="ApiResponseBuilder"/> 가 404 봉투로 바꿔 준다.
+/// 없는 것을 찾으면 <c>null</c> 을 돌려주면 되고,
+/// <see cref="ApiResponseBuilder"/> 가 404 봉투로 바꿔 준다.
 /// </para>
 /// </remarks>
 public static class ScheduleEndpoints
@@ -129,7 +129,7 @@ public static class ScheduleEndpoints
                 await db.SaveChangesAsync();
 
                 // 지운 것을 그대로 돌려주지 않는다. 이미 없는 데이터를 응답에 실으면
-                // 화면이 그것을 살아 있는 것으로 오해할 수 있다 (ChecklistEndpoints 와 같은 방식).
+                // 화면이 그것을 살아 있는 것으로 오해할 수 있다.
                 return new { DeletedId = id };
             }))
         .WithName("DeleteSchedule");

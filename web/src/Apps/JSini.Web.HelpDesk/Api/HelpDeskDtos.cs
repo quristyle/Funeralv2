@@ -1,4 +1,4 @@
-namespace JSini.Web.HelpDesk.Api;
+﻿namespace JSini.Web.HelpDesk.Api;
 
 // 헬프데스크 도메인 DTO. HelpDeskServer 의 Models/* 및
 // Vue 의 fronts/apps/jsini-portal/src/api/helpdesk/types.ts 와 대응한다.
@@ -196,17 +196,6 @@ public sealed class Schedule
     public DateTime? CompletedDate { get; set; }
     public DateTime? CreatedAt { get; set; }
     public string? CreatedBy { get; set; }
-}
-
-/// <summary>체크리스트 항목.</summary>
-public sealed class Checklist : HdEntity
-{
-    public string ItemName { get; set; } = string.Empty;
-    public string? Category { get; set; }
-    public bool? IsChecked { get; set; }
-    public DateTime? CompletedAt { get; set; }
-    public string? Note { get; set; }
-    public int? SortOrder { get; set; }
 }
 
 /// <summary>funeralv2 계정 ↔ 헬프데스크 계정 매핑.</summary>

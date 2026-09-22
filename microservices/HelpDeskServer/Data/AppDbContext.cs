@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using HelpDeskServer.Models;
 using HelpDeskServer.Services;
 using HelpDeskServer.Utilities;
@@ -142,9 +142,6 @@ public class AppDbContext : DbContext {
 
   /// <summary>사용자 속성 테이블</summary>
   public DbSet<UserProperty> UserProperties { get; set; }
-
-  /// <summary>시스템 운영전환 체크리스트 테이블</summary>
-  public DbSet<Checklist> Checklists { get; set; }
 
   /// <summary>메뉴 관리 테이블</summary>
   public DbSet<Menu> Menus { get; set; }

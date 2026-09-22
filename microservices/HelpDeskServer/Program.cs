@@ -266,7 +266,6 @@ app.MapAuthLinkEndpoints();
 app.MapPushEndpoints();
 app.MapUserPropertyEndpoints();
 app.MapUserEndpoints();
-app.MapChecklistEndpoints();
 app.MapScheduleEndpoints();
 app.MapUtilEndpoints();
 

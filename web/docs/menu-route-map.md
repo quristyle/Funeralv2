@@ -26,7 +26,7 @@
 /helpdesk/monitor/{sm,maintenance}, /helpdesk/util/{ascii-parser,binary-parser,mc-model,diagram},
 /helpdesk/hanju/{health-check,collection-status,equipment-log,fms-log,procedure-result},
 /helpdesk/report/{monitoring,weekly,monthly,prediction,io-deep-dive,availability,capacity-planning,root-cause},
-/helpdesk/system/{checklist,account-link,user-properties}, /helpdesk/contact-us
+/helpdesk/system/{account-link,user-properties}, /helpdesk/contact-us
 (그룹 노드: /helpdesk, /helpdesk/{request,org,project,schedule,monitor,util,hanju,report,system})
 
 ## ProjMng (:5566, /projmng) — DB path 그대로
