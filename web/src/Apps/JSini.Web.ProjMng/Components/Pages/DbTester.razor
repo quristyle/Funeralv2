@@ -50,30 +50,44 @@
 
 @* 높이 규칙은 **모듈 CSS(`projmng.css`)에 있다.** 이 화면의 `.razor.css`
    에 두었더니 한 줄도 안 걸려서 편집기와 표가 둘 다 안 보였다 —
-   격리 범위 표시가 `<DxSplitter>` 에는 안 붙는다(그쪽 머리말 참고). *@
+   격리 범위 표시가 `<DxSplitter>` 에는 안 붙는다(그쪽 머리말 참고).
+
+   [판은 반드시 `<Panes>` 안에 적는다]
+
+   `DxSplitter` 에는 `ChildContent` 파라미터가 **없다.** 판을 담는 자리는
+   `Panes` 하나뿐이다. 그런데 이 부품은 `Attributes` 를
+   `CaptureUnmatchedValues` 로 받으므로, `<Panes>` 없이 적은 판들은
+   `ChildContent` 라는 이름의 짝 없는 값이 되어 **그 사전으로 조용히
+   빨려 들어간다.** 빌드도 통과하고 오류도 없다.
+
+   결과는 `<dxbl-splitter class="… pm-query-splitter …"></dxbl-splitter>` —
+   **속이 완전히 빈 상자 하나**다. 화면에는 회색 칸만 남고 편집기도 표도
+   없다. CSS 를 아무리 고쳐도 그릴 것이 없으니 달라지지 않는다. *@
 <DxSplitter Orientation="Orientation.Vertical" CssClass="pm-query-splitter">
-    <DxSplitterPane Size="250px" MinSize="100px">
-        <div class="pm-query">
-            <CodeEditor @bind-Value="_query" Height="100%" Language="sql"
-                        Placeholder="SELECT * FROM table_name WHERE ..."
-                        OnCtrlEnter="@ExecuteAsync" />
-        </div>
-    </DxSplitterPane>
-    <DxSplitterPane>
-        @* 칸이 실행 시점에 정해진다 — 사람이 친 문장의 결과이기 때문이다. *@
-        <CommCont Title="결과" Hint="@($"{_result.Table.Rows.Count}건")">
-            <CommGrd TItem="DataRowView"
-                     Data="@_result.Table"
-                     ExportName="쿼리결과"
-                     PageSize="30"
-                     EmptyText="돌아온 줄이 없습니다."
-                     Reload="@ExecuteAsync">
-                <Columns>
-                    <RuntimeColumns Table="@_result.Table" Order="@_result.ColumnOrder" />
-                </Columns>
-            </CommGrd>
-        </CommCont>
-    </DxSplitterPane>
+    <Panes>
+        <DxSplitterPane Size="250px" MinSize="100px">
+            <div class="pm-query">
+                <CodeEditor @bind-Value="_query" Height="100%" Language="sql"
+                            Placeholder="SELECT * FROM table_name WHERE ..."
+                            OnCtrlEnter="@ExecuteAsync" />
+            </div>
+        </DxSplitterPane>
+        <DxSplitterPane>
+            @* 칸이 실행 시점에 정해진다 — 사람이 친 문장의 결과이기 때문이다. *@
+            <CommCont Title="결과" Hint="@($"{_result.Table.Rows.Count}건")">
+                <CommGrd TItem="DataRowView"
+                         Data="@_result.Table"
+                         ExportName="쿼리결과"
+                         PageSize="30"
+                         EmptyText="돌아온 줄이 없습니다."
+                         Reload="@ExecuteAsync">
+                    <Columns>
+                        <RuntimeColumns Table="@_result.Table" Order="@_result.ColumnOrder" />
+                    </Columns>
+                </CommGrd>
+            </CommCont>
+        </DxSplitterPane>
+    </Panes>
 </DxSplitter>
 
 @code {
