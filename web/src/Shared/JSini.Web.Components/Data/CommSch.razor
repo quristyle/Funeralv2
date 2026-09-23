@@ -69,7 +69,7 @@
     일이 생긴다. 필요한 화면이 나오면 그 화면에서 칸에 직접 건다.
 
     ────────────────────────────────────────────────────────────
-    [휴대폰에서는 접을 수 있다 — `MobileSummary` 를 준 화면만]
+    [휴대폰에서는 접힌다 — **조건이 있는 판은 모두**]
 
     좁은 화면에서는 조건 칸이 한 줄에 하나씩 쌓인다. 조건이 셋이면 판이
     화면의 절반을 먹고, **정작 보러 온 목록은 스크롤 저편**이다.
@@ -80,13 +80,24 @@
         │  목록 …                          │
         └──────────────────────────────────┘
 
-    접었을 때 **고른 조건을 그 줄에 적는 것**이 요점이다. 「조회 조건 ⌄」
-    로만 두면 지금 무엇으로 걸러 본 목록인지 알 수가 없어서, 확인하려고
-    매번 펴게 된다 — 그러면 접은 뜻이 없다.
+    한동안 `MobileSummary` 를 준 화면만 접혔다. 그런데 **어느 화면이 접히고
+    어느 화면이 안 접히는지를 사람이 알 수가 없다** — 화면이 백 개가 넘어
+    같은 자리에서 같은 몸짓이 되는 것이 이 판을 세운 이유인데, 접기만
+    화면마다 갈려 있었다. 이제 `Fields` 가 있는 판은 전부 접힌다.
 
-    화면이 `MobileSummary` 를 주지 않으면 **아무것도 달라지지 않는다.**
-    화면이 백 개가 넘으므로 한꺼번에 접어 두지 않는다 — 조건이 하나뿐인
-    화면에서는 접는 단추가 오히려 한 줄 더 먹는다.
+    접었을 때 **고른 조건을 그 줄에 적는 것**이 여전히 요점이다.
+    「조회 조건 ⌄」로만 두면 지금 무엇으로 걸러 본 목록인지 알 수가 없어서,
+    확인하려고 매번 펴게 된다 — 그러면 접은 뜻이 절반은 사라진다.
+    **새 화면에는 `MobileSummary` 를 함께 준다.** 값을 화면이 만드는 이유는
+    그 파라미터 설명에 적었다.
+
+    `Fields` 가 없는 판(단추만 있는 조작줄)은 접지 않는다 — 접으면 「등록」이
+    「조회 조건」 뒤로 숨는다. 조건이 하나뿐이어서 접는 단추가 오히려 한 줄
+    더 먹는 화면은 `Foldable="false"` 로 끈다.
+
+    접혀 있어도 **화면 단추(`Actions`)는 머리줄 오른쪽에 남는다.** 「등록」이
+    조건 뒤에 숨으면 휴대폰에서 등록할 길이 없어진다. 같이 사라지는 것은
+    조회·초기화뿐이다 — 조건이 안 보이는 동안 누를 일이 없다.
 
     데스크톱에서는 그 줄이 `display: none` 이라 접기 자체가 없다. 상태는
     들고 있지만 CSS 가 좁은 화면에서만 본다 — 창 폭을 바꿔도 회로를
@@ -95,7 +106,7 @@
 
 <div class="commsch @(Stacked ? "commsch--stacked" : null) @(Folded ? "commsch--folded" : null)">
 
-    @if (MobileSummary is not null)
+    @if (CanFold)
     {
         <button type="button" class="commsch__toggle"
                 aria-expanded="@((!Folded).ToString().ToLowerInvariant())"
@@ -113,21 +124,28 @@
     <div class="commsch__actions">
         @Actions
 
-        @if (OnReset.HasDelegate)
+        @* 조회·초기화는 따로 묶는다 — 접힌 휴대폰 화면에서 이 묶음만 사라지고
+           화면 단추는 머리줄에 남는다(머리말). *@
+        @if (OnReset.HasDelegate || OnSearch.HasDelegate)
         {
-            <DxButton Text="초기화"
-                      RenderStyle="ButtonRenderStyle.Secondary"
-                      IconCssClass="jsini-icon-undo"
-                      Click="@(() => OnReset.InvokeAsync())" />
-        }
+            <div class="commsch__run">
+                @if (OnReset.HasDelegate)
+                {
+                    <DxButton Text="초기화"
+                              RenderStyle="ButtonRenderStyle.Secondary"
+                              IconCssClass="jsini-icon-undo"
+                              Click="@(() => OnReset.InvokeAsync())" />
+                }
 
-        @if (OnSearch.HasDelegate)
-        {
-            <DxButton Text="@SearchText"
-                      RenderStyle="ButtonRenderStyle.Primary"
-                      IconCssClass="jsini-icon-search"
-                      Enabled="@(!Busy)"
-                      Click="@SearchAsync" />
+                @if (OnSearch.HasDelegate)
+                {
+                    <DxButton Text="@SearchText"
+                              RenderStyle="ButtonRenderStyle.Primary"
+                              IconCssClass="jsini-icon-search"
+                              Enabled="@(!Busy)"
+                              Click="@SearchAsync" />
+                }
+            </div>
         }
     </div>
 
@@ -177,8 +195,9 @@
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>주면 좁은 화면에서 접힌다.</b> 안 주면 아무것도 달라지지 않는다 —
-    /// 화면이 백 개가 넘어 한꺼번에 접어 두지 않는 이유는 머리말에 적었다.
+    /// <b>접기 자체는 이 값과 무관하다</b> — 조건이 있는 판은 좁은 화면에서
+    /// 모두 접힌다. 안 주면 머리줄에 「조회 조건」만 남아, 지금 무엇으로
+    /// 걸러 본 목록인지 펴 보아야 알 수 있다. <b>새 화면에는 준다.</b>
     /// </para>
     /// <para>
     /// 값을 <b>화면이 만든다.</b> 여기서 <c>Fields</c> 를 훑어 만들 수는
@@ -200,10 +219,27 @@
     [Parameter] public bool FoldedByDefault { get; set; } = true;
 
     /// <summary>
-    /// 지금 접혀 있는가. <see cref="MobileSummary"/> 가 없으면 늘 거짓이다 —
-    /// 접는 단추가 없는 판을 접어 두면 조건을 펼 방법이 사라진다.
+    /// 좁은 화면에서 접을 것인가. 기본은 접는 것이다.
+    ///
+    /// <para>
+    /// 조건이 하나뿐이어서 접는 줄이 오히려 자리를 먹는 화면에서 끈다.
+    /// <b>조건이 즉시 반영되는 화면</b>(고르는 순간 목록이 바뀌는)도 여기에
+    /// 든다 — 접혀 있으면 그 고르개를 쓰려고 매번 펴야 한다.
+    /// </para>
     /// </summary>
-    private bool Folded => MobileSummary is not null && _folded;
+    [Parameter] public bool Foldable { get; set; } = true;
+
+    /// <summary>
+    /// 접는 줄을 그리는가. <see cref="Fields"/> 가 없으면 거짓이다 —
+    /// 단추만 있는 조작줄을 접으면 「등록」이 「조회 조건」 뒤로 숨는다.
+    /// </summary>
+    private bool CanFold => Foldable && Fields is not null;
+
+    /// <summary>
+    /// 지금 접혀 있는가. 접는 줄이 없으면 늘 거짓이다 — 그 판을 접어 두면
+    /// 조건을 펼 방법이 사라진다.
+    /// </summary>
+    private bool Folded => CanFold && _folded;
 
     private bool _folded;
 
@@ -228,7 +264,7 @@
     /// </remarks>
     private Task SearchAsync()
     {
-        if (MobileSummary is not null)
+        if (CanFold)
         {
             _folded = true;
         }

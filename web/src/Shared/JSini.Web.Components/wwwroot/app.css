@@ -2315,11 +2315,20 @@ button.jsini-crumbs__item:hover { opacity: 1; }
   align-self: flex-start;
 }
 
-/* ── 조회 판의 접기 줄 (`CommSch MobileSummary`) ──────────────
+/* 조회·초기화 묶음. 화면 단추와 **따로 묶여 있는 이유는 하나뿐**이다 —
+   접힌 휴대폰 화면에서 이 둘만 사라져야 하기 때문이다(아래 접기 묶음).
+   간격이 바깥과 같아서 한 줄로 이어져 보인다. */
+.commsch__run {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+/* ── 조회 판의 접기 줄 (`CommSch`) ──────────────────────────
 
    **데스크톱에는 없다.** 여기서 숨겨 두고 좁은 화면에서만 켠다 — 반대로
-   두면(좁을 때 숨기고 넓을 때 보이기) 이 줄을 안 쓰는 화면 백 개에
-   빈 줄이 하나씩 생긴다.
+   두면(좁을 때 숨기고 넓을 때 보이기) 화면 백 개의 판이 넓은 창에서
+   한 줄씩 더 먹는다.
 
    접힘은 클래스(`.commsch--folded`)로 표시하지만 **그 클래스가 무엇을
    숨기는지는 좁은 화면 안에서만 정의한다.** 그래서 창을 넓히면 접은 채로
@@ -2376,7 +2385,7 @@ button.jsini-crumbs__item:hover { opacity: 1; }
     transform: rotate(180deg);
   }
 
-  /* 접히면 조건과 단추가 통째로 사라지고 머리줄만 남는다. 판의 여백도
+  /* 접히면 조건이 사라지고 머리줄과 화면 단추만 남는다. 판의 여백도
      같이 줄인다 — 한 줄짜리 판에 사방 여백이 그대로면 두 줄처럼 보인다.
 
      **클래스를 둘 겹쳐 적는다**(`.commsch.commsch--folded`). 아래쪽 좁은
@@ -2384,10 +2393,42 @@ button.jsini-crumbs__item:hover { opacity: 1; }
      뒤에 있어서, 하나만 적으면 같은 값싸움에서 뒤엣것이 이긴다. */
   .commsch.commsch--folded {
     padding-block: 0.35rem;
+
+    /* 접힌 줄에는 머리줄과 화면 단추가 나란히 선다. 판의 기본값
+       (`flex-start`)대로 두면 단추가 더 높아서 **머리줄 글자만 위로
+       붙는다** — 펴져 있을 때 위를 맞추는 까닭(조건이 여러 줄일 때 단추가
+       안 움직이게)이 여기서는 없다. */
+    align-items: center;
   }
 
-  .commsch--folded .commsch__fields,
+  .commsch--folded .commsch__fields {
+    display: none;
+  }
+
+  /* 접히면 머리줄이 **제 폭만** 차지한다. 펴져 있을 때처럼 100% 로 두면
+     화면 단추가 통째로 다음 줄로 밀려 접은 값이 반으로 준다. */
+  .commsch--folded .commsch__toggle {
+    width: auto;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  /* 화면 단추(등록 따위)는 접혀도 남는다 — 「조회 조건」 뒤에 숨으면
+     휴대폰에서 등록할 길이 없다. 아래 좁은 화면 묶음이 이 묶음을 통째로
+     다음 줄로 내리므로(`width: 100%`) 여기서 되돌린다 —
+     **자릿수가 하나 높아 순서와 무관하게 이긴다.** */
   .commsch--folded .commsch__actions {
+    width: auto;
+    margin-left: auto;
+
+    /* 판이 접힌 줄에서만 가운데로 맞추므로(위) 그 묶음에 박아 둔
+       `flex-start` 도 여기서 풀어 준다. */
+    align-self: center;
+  }
+
+  /* 조회·초기화만 사라진다. 조건이 안 보이는 동안 누를 일이 없고,
+     조회는 접는 순간 이미 한 번 나갔다(`CommSch.SearchAsync`). */
+  .commsch--folded .commsch__run {
     display: none;
   }
 }
