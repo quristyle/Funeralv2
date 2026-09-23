@@ -35,7 +35,7 @@
 
 <PageTitle>회사 목록 · 포털관리</PageTitle>
 
-<CommSch OnSearch="@ReloadAsync">
+<CommSch OnSearch="@ReloadAsync" MobileSummary="@ConditionSummary">
     <Fields>
         <CommSchItem Label="검색어">
             <DxTextBox @bind-Text="_keyword" Style="width: 220px"
@@ -183,6 +183,11 @@
 </CommCont>
 
 @code {
+    /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
+    private string ConditionSummary => SchSummary.Of(
+        SchSummary.Or(_keyword),
+        SchSummary.NameOf(_usages, c => c.CodeValue, c => c.CodeName, _usageFilter));
+
     private sealed record StatusOption(int Code, string Name);
 
     private static readonly StatusOption[] Statuses =

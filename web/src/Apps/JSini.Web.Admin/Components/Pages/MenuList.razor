@@ -53,7 +53,7 @@
    표·나무의 아래 띠에 두지 않는 이유는 **이 화면이 저장을 그 부품에 맡기지
    않는다**는 것이다 — 편집 창을 직접 띄우므로(`OnSave` 를 주지 않는다)
    `CommGrd`·`CommTree` 는 어느 쪽도 등록 단추를 그리지 않는다. *@
-<CommSch OnSearch="@ReloadAsync">
+<CommSch OnSearch="@ReloadAsync" MobileSummary="@ConditionSummary">
     <Fields>
         <CommSchItem Label="검색어">
             <DxTextBox @bind-Text="_keyword" Style="width: 230px"
@@ -339,6 +339,11 @@ else
 </CommPopup>
 
 @code {
+    /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
+    private string ConditionSummary => SchSummary.Of(
+        SchSummary.Or(_keyword),
+        SchSummary.On(_onlyHidden, "숨긴 메뉴만"));
+
     private IReadOnlyList<SystemMenuDto> _menus = [];
 
     /// <summary>펴 놓은 전체. 검색·상위 고르개·줄기 만들기가 쓴다.</summary>

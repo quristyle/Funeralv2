@@ -44,22 +44,23 @@
 
 <PageTitle>할일 · 프로젝트관리</PageTitle>
 
-<CommSch OnSearch="@SearchAsync">
+<CommSch OnSearch="@SearchAsync" MobileSummary="@ConditionSummary">
     <Fields>
         <CommSchItem Label="날짜">
             <DxDateEdit @bind-Date="_targetDate" Style="width: 150px" />
         </CommSchItem>
 
         <CommSchItem Label="사람">
-            <BizSelect Type="portal_account" @bind-Value="_userCode" ShowAll="true" />
+            <BizSelect Type="portal_account" @bind-Value="_userCode" ShowAll="true"
+                       OnChanged="@(o => _userName = o?.Label)" />
         </CommSchItem>
 
         <CommSchItem Label="완료">
-            <CodeSelect CodeId="yn" @bind-Value="_completeYn" ShowAll="true" />
+            <CodeSelect CodeId="yn" @bind-Value="_completeYn" ShowAll="true" @bind-Text="_completeName" />
         </CommSchItem>
 
         <CommSchItem Label="상태">
-            <CodeSelect CodeId="todo_state" @bind-Value="_todoState" ShowAll="true" />
+            <CodeSelect CodeId="todo_state" @bind-Value="_todoState" ShowAll="true" @bind-Text="_todoStateName" />
         </CommSchItem>
     </Fields>
 </CommSch>
@@ -150,6 +151,20 @@
 </CommCont>
 
 @code {
+    /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
+    private string ConditionSummary => SchSummary.Of(
+        SchSummary.Day(_targetDate),
+        _userName,
+        _completeName,
+        _todoStateName);
+
+    /// <summary>고른 값의 이름들. 고르개가 코드만 올려 주어 따로 받아 둔다.</summary>
+    private string? _userName;
+
+    private string? _completeName;
+
+    private string? _todoStateName;
+
     private IReadOnlyList<HomeTodoDto> _rows = [];
 
     private DateTime? _targetDate = DateTime.Today;

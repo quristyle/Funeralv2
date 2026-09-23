@@ -37,7 +37,7 @@
 
 <PageTitle>할일 정산 현황 · 프로젝트관리</PageTitle>
 
-<CommSch OnSearch="@SearchAsync">
+<CommSch OnSearch="@SearchAsync" MobileSummary="@ConditionSummary">
     <Fields>
         <CommSchItem Label="날짜">
             @* 오른쪽 목록에만 걸린다(머리말). *@
@@ -45,7 +45,8 @@
         </CommSchItem>
 
         <CommSchItem Label="사람">
-            <BizSelect Type="portal_account" @bind-Value="_userCode" ShowAll="true" />
+            <BizSelect Type="portal_account" @bind-Value="_userCode" ShowAll="true"
+                       OnChanged="@(o => _userName = o?.Label)" />
         </CommSchItem>
     </Fields>
 </CommSch>
@@ -103,6 +104,12 @@
 </div>
 
 @code {
+    /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
+    private string ConditionSummary => SchSummary.Of(SchSummary.Day(_targetDate), _userName);
+
+    /// <summary>고른 사람의 이름. 고르개가 코드만 올려 주어 따로 받아 둔다.</summary>
+    private string? _userName;
+
     private IReadOnlyList<HomeTodoPayDto> _pay = [];
     private IReadOnlyList<HomeTodoDto> _todos = [];
 

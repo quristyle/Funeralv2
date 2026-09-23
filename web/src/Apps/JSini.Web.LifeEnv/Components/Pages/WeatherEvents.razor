@@ -32,7 +32,7 @@
 
 <PageTitle>기준 초과 이벤트 · 생활과환경</PageTitle>
 
-<CommSch OnSearch="@ReloadAsync">
+<CommSch OnSearch="@ReloadAsync" MobileSummary="@ConditionSummary">
     <Fields>
         <CommSchItem Label="지역">
             <DxComboBox Data="@_locations" @bind-Value="_locationId"
@@ -132,6 +132,12 @@
 </CommCont>
 
 @code {
+    /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
+    private string ConditionSummary => SchSummary.Of(
+        _locations.FirstOrDefault(l => l.Id == _locationId)?.Name ?? SchSummary.Any,
+        SchSummary.Period(_from, _to),
+        SchSummary.On(_onlyUnsent, "미발송만"));
+
     private IReadOnlyList<WeatherEventRecord> _events = [];
     private IReadOnlyList<WeatherLocation> _locations = [];
     private int _total;

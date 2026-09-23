@@ -67,7 +67,7 @@
 
 <PageTitle>공지사항 관리 · 포털관리</PageTitle>
 
-<CommSch OnSearch="@ReloadAsync" OnReset="@ResetAsync">
+<CommSch OnSearch="@ReloadAsync" OnReset="@ResetAsync" MobileSummary="@ConditionSummary">
     <Fields>
         <CommSchItem Label="검색어">
             <DxTextBox @bind-Text="_keyword" Style="width: 240px"
@@ -231,6 +231,9 @@
 <NoticePopup Notices="@_preview" @bind-Visible="_previewing" Preview="true" />
 
 @code {
+    /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
+    private string ConditionSummary => SchSummary.Or(_keyword);
+
     private string? _keyword;
     private IReadOnlyList<NoticeDto> _notices = [];
 

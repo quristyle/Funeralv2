@@ -44,7 +44,7 @@
 
    자료 판(`CommCont`)은 쓰지 않는다 — 이 화면은 통계 타일과 표 넷이 쌓인
    대시보드다. 감싸면 남은 높이를 그 판이 다 먹어 아래가 잘린다. *@
-<CommSch OnSearch="@ReloadAsync">
+<CommSch OnSearch="@ReloadAsync" MobileSummary="@ConditionSummary">
     <Fields>
         <CommSchItem Label="기간">
             <DxComboBox Data="@DayOptions" @bind-Value="_days" Style="width: 130px">
@@ -207,6 +207,9 @@
 </CommGrd>
 
 @code {
+    /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
+    private string ConditionSummary => $"최근 {_days} 일";
+
     private static readonly int[] DayOptions = [7, 14, 30, 90];
 
     private int _days = 7;

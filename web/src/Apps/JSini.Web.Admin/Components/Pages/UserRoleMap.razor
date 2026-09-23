@@ -93,7 +93,7 @@
 @* ── 조회 영역 ─────────────────────────────────────────
    무엇을 고를 것인가(사람 ↔ 회사·부서)도 조건이라 여기 둔다. 대상 목록이
    통째로 바뀌는 스위치라, 왼쪽 판 머리에 두면 조건이 두 자리로 갈린다. *@
-<CommSch OnSearch="@ReloadAsync">
+<CommSch OnSearch="@ReloadAsync" MobileSummary="@ConditionSummary">
     <Fields>
         <CommSchItem Label="대상">
             @* 단추 두 개로 모드를 바꾼다. DxButtonGroup 은 자식을 `Items` 로 받아
@@ -298,6 +298,11 @@
 </DxSplitter>
 
 @code {
+    /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
+    private string ConditionSummary => SchSummary.Of(
+        _mode == Mode.Account ? "사람" : "회사·부서",
+        _keyword);
+
     private enum Mode
     {
         /// <summary>사람을 고른다. 합쳐진 결과와 메뉴까지 본다.</summary>

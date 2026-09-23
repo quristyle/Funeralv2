@@ -35,7 +35,7 @@
 @* 「사람 넣기」는 표의 등록이 아니라 **이 화면만의 동작**이라 조회 판의
    Actions 에 둔다. 표 아래 띠의 등록은 「새 줄을 만든다」는 뜻인데, 여기서
    만드는 것은 계정이 아니라 회사와의 연결이다. *@
-<CommSch OnSearch="@ReloadAsync">
+<CommSch OnSearch="@ReloadAsync" MobileSummary="@ConditionSummary">
     <Fields>
         <CommSchItem Label="회사">
             <DxComboBox Data="@_companies" @bind-Value="_companyId"
@@ -108,6 +108,10 @@
 <ConfirmDialog @ref="_confirm" />
 
 @code {
+    /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
+    private string ConditionSummary =>
+        SchSummary.NameOf(_companies, c => c.Id, c => c.Name, _companyId, "회사를 고르세요");
+
     private IReadOnlyList<CompanyDto> _companies = [];
     private string? _companyId;
     private IReadOnlyList<AccountDto> _users = [];

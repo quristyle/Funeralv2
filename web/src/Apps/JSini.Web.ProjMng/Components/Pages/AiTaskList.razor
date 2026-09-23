@@ -116,7 +116,7 @@
             </div>
         </section>
 
-        <CommSch OnSearch="@SearchAsync">
+        <CommSch OnSearch="@SearchAsync" MobileSummary="@ConditionSummary">
             <Fields>
                 <CommSchItem Label="상태">
                     <DxComboBox Data="@StatusFilters" @bind-Value="_status"
@@ -607,6 +607,13 @@
 </CommPopup>
 
 @code {
+    /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
+    private string ConditionSummary => SchSummary.Of(
+        SchSummary.NameOf(StatusFilters, o => o.Value, o => o.Text, _status),
+        SchSummary.NameOf(FlagFilters, o => o.Value, o => o.Text, _flag),
+        _targets.FirstOrDefault(t => t.TargetKey == _targetKey)?.TargetNm,
+        _keyword);
+
     /// <summary>고르는 칸 한 줄. 공통코드에 없는 값들이라 화면이 들고 있다.</summary>
     public sealed record PickOption(string Value, string Text);
 

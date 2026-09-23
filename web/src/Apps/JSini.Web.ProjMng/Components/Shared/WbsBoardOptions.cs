@@ -1,3 +1,5 @@
+using JSini.Web.Components.Data;
+
 namespace JSini.Web.ProjMng.Components.Shared;
 
 /// <summary>
@@ -21,10 +23,10 @@ public static class WbsBoardOptions
     /// 집계 기준 날짜. 기본이 계획종료일인 것은 대시보드가 <b>「언제까지」</b>를
     /// 묻는 물건이어서다.
     /// </summary>
-    public static readonly WbsBoardOption[] Basis =
+    public static readonly SchOption[] Basis =
     [
-        new("계획종료일", "edt"),
-        new("계획시작일", "sdt"),
+        new("edt", "계획종료일"),
+        new("sdt", "계획시작일"),
     ];
 
     /// <summary>
@@ -35,19 +37,19 @@ public static class WbsBoardOptions
     /// 고르개를 화면에서 걷어냈다(서버 조건은 남겨 두었다). 여기서는 다시
     /// 보인다 — 프로젝트가 여럿이 되면 대상 아닌 줄이 생긴다.
     /// </remarks>
-    public static readonly WbsBoardOption[] Scope =
+    public static readonly SchOption[] Scope =
     [
-        new("개발 대상", "dev"),
-        new("전체", "all"),
+        new("dev", "개발 대상"),
+        new("all", "전체"),
     ];
 
     /// <summary>
     /// 사람을 가르는 잣대. 담당자(계획)와 개발자(실제)가 다른 줄이 있다.
     /// </summary>
-    public static readonly WbsBoardOption[] Who =
+    public static readonly SchOption[] Who =
     [
-        new("담당자", "plan"),
-        new("개발자", "real"),
+        new("plan", "담당자"),
+        new("real", "개발자"),
     ];
 
     /// <summary>
@@ -58,7 +60,7 @@ public static class WbsBoardOptions
     /// 모르는 아이디를 다루는 것과 같은 까닭이다. 「전체」 같은 말로 덮으면
     /// 값이 틀린 것인지 안 고른 것인지 가려낼 수 없다.
     /// </remarks>
-    public static string TextOf(WbsBoardOption[] options, string? value) =>
+    public static string TextOf(SchOption[] options, string? value) =>
         options.FirstOrDefault(o => o.Value == value)?.Text ?? value ?? string.Empty;
 
     /// <summary>비율 글자. 분모가 0 이면 <c>0%</c> 가 아니라 <b>줄표</b>다.</summary>
@@ -69,14 +71,3 @@ public static class WbsBoardOptions
     public static string Percent(decimal? rate) =>
         rate is null ? "—" : $"{rate.Value:0.#}%";
 }
-
-/// <summary>
-/// 고르개 한 항목. <c>DxComboBox</c> 가 <c>TextFieldName</c>·<c>ValueFieldName</c>
-/// 으로 이 두 이름을 읽는다 — <b>이름을 바꾸면 화면 일곱의 고르개가 빈다.</b>
-/// </summary>
-/// <remarks>
-/// 익명 형식(<c>new { Text, Value }</c>)이었다. 화면에 넘기는 데는 충분했지만
-/// <see cref="WbsBoardOptions.TextOf"/> 처럼 <b>값으로 이름을 되찾는</b> 자리를
-/// 쓸 수 없어 이름을 붙였다.
-/// </remarks>
-public sealed record WbsBoardOption(string Text, string Value);

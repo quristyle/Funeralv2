@@ -43,6 +43,15 @@
     [Parameter] public EventCallback<string?> ValueChanged { get; set; }
 
     /// <summary>
+    /// 고른 소스의 <b>이름</b>. 화면이 <c>@bind-Text</c> 로 받아 둔다.
+    /// 쓰는 자리는 접힌 조회줄이다 — <c>CodeSelect.Text</c> 와 같은 까닭이고
+    /// 같은 이름을 쓴다.
+    /// </summary>
+    [Parameter] public string? Text { get; set; }
+
+    [Parameter] public EventCallback<string?> TextChanged { get; set; }
+
+    /// <summary>
     /// 고른 항목 전체. 언어·경로 같은 부가 컬럼이 필요한 화면이 받는다.
     /// 목록을 읽고 첫 항목을 자동으로 골랐을 때도 올라온다 — 화면이 그
     /// 신호로 최초 조회를 건다.
@@ -109,6 +118,15 @@
     {
         Value = rid;
         await ValueChanged.InvokeAsync(rid);
+
+        // 이름이 달라졌을 때만 올린다. 그냥 올리면 부모가 다시 그리고,
+        // 다시 그리면 여기로 돌아온다(`CodeSelect` 와 같다).
+        if (TextChanged.HasDelegate && !string.Equals(Text, item?.Nick, StringComparison.Ordinal))
+        {
+            Text = item?.Nick;
+            await TextChanged.InvokeAsync(Text);
+        }
+
         await OnChanged.InvokeAsync(item);
     }
 }

@@ -32,16 +32,17 @@
 
 <PageTitle>WBS · 프로젝트관리</PageTitle>
 
-<CommSch OnSearch="@SearchAsync">
+<CommSch OnSearch="@SearchAsync" MobileSummary="@ConditionSummary">
     <Fields>
         <CommSchItem Label="프로젝트">
             @* 프로젝트가 정해지는 순간 조회한다. 첫 항목이 자동으로 골라지므로
                화면을 열자마자 목록이 찬다 — 옛 화면과 같은 동작이다. *@
-            <CodeSelect CodeId="projlist" @bind-Value="_projectCode" OnChanged="@(_ => SearchAsync())" />
+            <CodeSelect CodeId="projlist" @bind-Value="_projectCode" @bind-Text="_projectName" OnChanged="@(_ => SearchAsync())" />
         </CommSchItem>
 
         <CommSchItem Label="진행">
-            <CodeSelect CodeId="compstat" @bind-Value="_completeState" ShowAll="true" />
+            <CodeSelect CodeId="compstat" @bind-Value="_completeState" ShowAll="true"
+                        @bind-Text="_completeStateName" />
         </CommSchItem>
     </Fields>
 </CommSch>
@@ -96,6 +97,18 @@
 </CommCont>
 
 @code {
+    /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
+    private string ConditionSummary => SchSummary.Of(_projectName, _completeStateName);
+
+    /// <summary>
+    /// 고른 프로젝트의 <b>이름</b>. 화면이 든 것은 코드뿐이고 목록은
+    /// <c>CodeSelect</c> 안에 있어, 그 부품이 <c>@bind-Text</c> 로 올려 준다.
+    /// </summary>
+    private string? _projectName;
+
+    /// <summary>고른 진행 상태의 이름.</summary>
+    private string? _completeStateName;
+
     /// <summary>이 화면이 다루는 일정 종류. 일정표와 표를 나누는 유일한 값이다.</summary>
     private const string Kind = "WBS";
 

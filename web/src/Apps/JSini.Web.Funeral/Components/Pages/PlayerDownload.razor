@@ -43,7 +43,10 @@
 
 <PageTitle>플레이어 다운로드 · 장례식장</PageTitle>
 
-<CommSch OnSearch="@ReloadAsync">
+@* 접지 않는다 — 이 줄은 거르개가 아니라 **최신 버전 안내**다.
+   접으면 「조회 조건」 뒤로 그 안내가 숨는다. *@
+
+<CommSch OnSearch="@ReloadAsync" Foldable="false">
     <Fields>
         <CommSchItem Label="최신 버전">
             <span class="fn-pd__tag">

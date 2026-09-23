@@ -42,7 +42,7 @@
 <PageTitle>고인 관리 · 장례식장</PageTitle>
 
 <BuildingFilter @bind-BuildingId="_buildingId" @bind-FloorId="_floorId" @bind-RoomId="_roomId"
-                ShowFloor="true" ShowRoom="true" Search="@ReloadAsync">
+                ShowFloor="true" ShowRoom="true" Search="@ReloadAsync" SummaryExtra="@ConditionSummary">
     <ChildContent>
         <CommSchItem Label="고인명">
             <DxTextBox @bind-Text="_keyword" Style="width: 150px"
@@ -188,6 +188,13 @@
                 OnSaved="@ReloadAsync" />
 
 @code {
+    /// <summary>건물·층·호실 뒤에 이 화면만의 조건을 더 적는다(<c>BuildingFilter.SummaryExtra</c>).</summary>
+    private string ConditionSummary => SchSummary.Of(
+        _keyword,
+        SchSummary.NameOf(Statuses, s => s.Code, s => s.Name, _status, string.Empty),
+        _showDates ? SchSummary.Period(_enterFrom, _enterTo) : null,
+        _showDates ? SchSummary.Period(_funeralFrom, _funeralTo) : null);
+
     /// <summary>
     /// 주소로 받은 검색어 (<c>?keyword=</c>).
     ///

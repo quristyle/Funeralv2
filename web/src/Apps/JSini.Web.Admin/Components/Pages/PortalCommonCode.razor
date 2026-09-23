@@ -80,7 +80,7 @@
 
    「조회」는 게이트웨이에서 묶음을 다시 읽는다. 「등록」을 여기 두지 않는다 —
    표 아래 띠에 이미 있다. *@
-<CommSch OnSearch="@ReloadGroupsAsync">
+<CommSch OnSearch="@ReloadGroupsAsync" MobileSummary="@ConditionSummary">
     <Fields>
         <CommSchItem Label="묶음">
             <DxTextBox @bind-Text="_groupKeyword" Style="width: 220px"
@@ -287,6 +287,9 @@
 <ConfirmDialog @ref="_confirm" />
 
 @code {
+    /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
+    private string ConditionSummary => SchSummary.Or(_groupKeyword);
+
     private IReadOnlyList<CommonCodeGroupDto> _groups = [];
     private IReadOnlyList<CommonCodeDto> _codes = [];
 

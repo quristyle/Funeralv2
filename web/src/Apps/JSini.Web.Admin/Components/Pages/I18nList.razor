@@ -57,7 +57,7 @@
    키로 묶기 때문이다. 그래도 판을 세우는 이유는 **자리**다.
 
    「등록」을 여기 두지 않는다 — 표 아래 띠에 이미 있다. *@
-<CommSch OnSearch="@ReloadAsync" OnReset="@ResetAsync">
+<CommSch OnSearch="@ReloadAsync" OnReset="@ResetAsync" MobileSummary="@ConditionSummary">
     <Fields>
         <CommSchItem Label="분류">
             <DxComboBox Data="@_categories" @bind-Value="_category" Style="width: 170px"
@@ -158,6 +158,12 @@
 </CommCont>
 
 @code {
+    /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
+    private string ConditionSummary => SchSummary.Of(
+        SchSummary.Or(_category),
+        _keyword,
+        SchSummary.On(_onlyMissing, "한쪽만 있는 것"));
+
     /// <summary>
     /// 한 키의 두 언어. 서버는 언어별로 한 줄씩 주지만 <b>고칠 때는 짝</b>이다.
     ///

@@ -35,7 +35,7 @@
 @* 「조회」 자리에 「실행」이 온다(`SearchText`). 이 화면에서 오른쪽 끝
    단추가 하는 일이 조회가 아니라 프로시저 실행이라, 글자만 갈아 끼우고
    자리는 다른 화면과 같게 둔다. *@
-<CommSch OnSearch="@RunAsync" SearchText="실행">
+<CommSch OnSearch="@RunAsync" SearchText="실행" MobileSummary="@ConditionSummary">
     <Fields>
         <CommSchItem Label="프로시저">
             <DxComboBox Data="@_procedures" TextFieldName="@nameof(ProcedureInfo.Name)"
@@ -81,6 +81,9 @@
 <AutoGrid Data="@_rows" Loading="@Loading" PageSize="30" />
 
 @code {
+    /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
+    private string ConditionSummary => SchSummary.Or(_selected, "프로시저를 고르세요");
+
     /// <summary>돌릴 수 있는 프로시저 하나와 그 인자들.</summary>
     private sealed class ProcedureInfo
     {

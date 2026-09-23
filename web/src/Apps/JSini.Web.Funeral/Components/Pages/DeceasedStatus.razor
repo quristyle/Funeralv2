@@ -36,7 +36,7 @@
 
 <PageTitle>고인 현황 · 장례식장</PageTitle>
 
-<CommSch OnSearch="@ReloadAsync">
+<CommSch OnSearch="@ReloadAsync" MobileSummary="@ConditionSummary">
     <Fields>
         <CommSchItem Label="고인명">
             <DxTextBox @bind-Text="_keyword" Style="width: 200px"
@@ -154,6 +154,11 @@
 </CommPopup>
 
 @code {
+    /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
+    private string ConditionSummary => SchSummary.Of(
+        SchSummary.Or(_keyword),
+        _status is null ? SchSummary.Any : StatusText(_status));
+
     /// <summary>출상 완료 상태. 서버가 쓰는 값이다.</summary>
     private const string Departed = "DEPARTED";
 

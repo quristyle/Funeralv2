@@ -41,7 +41,9 @@
 @* 조회 단추를 주지 않는다 — 이 화면은 조회하는 것이 아니라 아래 칸에 붙인
    전문을 그 자리에서 해석한다. 고르개 둘은 「무엇으로 해석할까」와 「무엇을
    붙일까」라 조건이고, 나머지 둘은 동작이다. *@
-<CommSch>
+@* 접지 않는다 — 이 둘은 거르개가 아니라 **화면의 주 입력**이다(설비 모델을
+   고르면 아래 판이 통째로 바뀐다). 접어 두면 일할 때마다 펴야 한다. *@
+<CommSch Foldable="false">
     <Fields>
         <CommSchItem Label="설비 모델">
             <DxComboBox Data="@_models" TextFieldName="@nameof(McModel.McName)" ValueFieldName="@nameof(McModel.Id)"

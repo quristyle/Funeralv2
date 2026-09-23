@@ -37,10 +37,10 @@
 
 <PageTitle>WBS 상세 목록 · 프로젝트관리</PageTitle>
 
-<CommSch OnSearch="@SearchAsync">
+<CommSch OnSearch="@SearchAsync" MobileSummary="@ConditionSummary">
     <Fields>
         <CommSchItem Label="프로젝트">
-            <CodeSelect CodeId="projlist" @bind-Value="_projectCode" OnChanged="@(_ => SearchAsync())" />
+            <CodeSelect CodeId="projlist" @bind-Value="_projectCode" @bind-Text="_projectName" OnChanged="@(_ => SearchAsync())" />
         </CommSchItem>
 
         <CommSchItem Label="기준일">
@@ -323,12 +323,30 @@
 </CommPopup>
 
 @code {
+    /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
+    private string ConditionSummary => SchSummary.Of(
+        _projectName,
+        WbsBoardOptions.TextOf(WbsBoardOptions.Basis, _filter.Basis),
+        WbsBoardOptions.TextOf(WbsBoardOptions.Scope, _filter.Scope),
+        SchSummary.NameOf(_userOptions, o => o.Value, o => o.Text, _filter.User, string.Empty),
+        SchSummary.NameOf(_moduleOptions, o => o.Value, o => o.Text, _filter.Module, string.Empty),
+        SchSummary.NameOf(DoneOptions, o => o.Value, o => o.Text, _filter.Done, string.Empty),
+        SchSummary.NameOf(LateOptions, o => o.Value, o => o.Text, _filter.Late, string.Empty),
+        SchSummary.NameOf(StatusOptions, o => o.Value, o => o.Text, _filter.Status, string.Empty),
+        _filter.Q);
+
+    /// <summary>
+    /// 고른 프로젝트의 <b>이름</b>. 화면이 든 것은 코드뿐이고 목록은
+    /// <c>CodeSelect</c> 안에 있어, 그 부품이 <c>@bind-Text</c> 로 올려 준다.
+    /// </summary>
+    private string? _projectName;
+
     private string? _projectCode;
     private readonly WbsBoardFilter _filter = new() { Basis = "edt", Scope = "dev" };
 
     private IReadOnlyList<WbsBoardRowDto> _rows = [];
-    private object[] _userOptions = [];
-    private object[] _moduleOptions = [];
+    private SchOption[] _userOptions = [];
+    private SchOption[] _moduleOptions = [];
 
     private bool _taskOpen;
     private WbsBoardRowDto? _taskRow;
@@ -342,29 +360,29 @@
 
     private string TaskTitle => _taskRow is null ? "일감" : $"일감 · {_taskRow.MenuNm}";
 
-    private static readonly object[] DoneOptions =
+    private static readonly SchOption[] DoneOptions =
     [
-        new { Text = "전체", Value = (string?)null },
-        new { Text = "완료", Value = "y" },
-        new { Text = "미완료", Value = "n" },
+        new(null, "전체"),
+        new("y", "완료"),
+        new("n", "미완료"),
     ];
 
-    private static readonly object[] StatusOptions =
+    private static readonly SchOption[] StatusOptions =
     [
-        new { Text = "전체", Value = (string?)null },
-        new { Text = "착수도래 미완료", Value = "open" },
-        new { Text = "미도래", Value = "notyet" },
-        new { Text = "완료", Value = "done" },
+        new(null, "전체"),
+        new("open", "착수도래 미완료"),
+        new("notyet", "미도래"),
+        new("done", "완료"),
     ];
 
-    private static readonly object[] LateOptions =
+    private static readonly SchOption[] LateOptions =
     [
-        new { Text = "전체", Value = (string?)null },
-        new { Text = "하나라도", Value = "any" },
-        new { Text = "착수지연", Value = "start" },
-        new { Text = "종료지연", Value = "finish" },
-        new { Text = "둘 다", Value = "both" },
-        new { Text = "지연 없음", Value = "none" },
+        new(null, "전체"),
+        new("any", "하나라도"),
+        new("start", "착수지연"),
+        new("finish", "종료지연"),
+        new("both", "둘 다"),
+        new("none", "지연 없음"),
     ];
 
     private RenderFragment<WbsBoardRowDto> RowActions => row => __builder =>
@@ -435,14 +453,14 @@
 
         _userOptions =
         [
-            new { Text = "전체", Value = (string?)null },
-            .. users.Result.Select(u => new { Text = $"{u.UserNm} ({u.Cnt})", Value = u.UserBpId })
+            new(null, "전체"),
+            .. users.Result.Select(u => new SchOption(u.UserBpId, $"{u.UserNm} ({u.Cnt})"))
         ];
 
         _moduleOptions =
         [
-            new { Text = "전체", Value = (string?)null },
-            .. modules.Result.Select(m => new { Text = $"{m.Systemcode} {m.SystemNm}", Value = m.Systemcode })
+            new(null, "전체"),
+            .. modules.Result.Select(m => new SchOption(m.Systemcode, $"{m.Systemcode} {m.SystemNm}"))
         ];
 
         return _rows.Count;

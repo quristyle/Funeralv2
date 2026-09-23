@@ -38,7 +38,7 @@
 @* 「등록」이 조건 옆에 있었다. 조건과 동작이 한 줄에 섞이면 어느 것이
    조건인지가 흐려진다. 이 화면의 편집은 자기 팝업이 맡고 있어 표 아래 띠의
    등록을 쓸 수 없으므로, 그 판의 Actions 로 옮겼다. *@
-<CommSch OnSearch="@ReloadAsync">
+<CommSch OnSearch="@ReloadAsync" MobileSummary="@ConditionSummary">
     <Fields>
         <CommSchItem Label="자료명">
             <DxTextBox @bind-Text="_keyword" Style="width: 220px"
@@ -201,6 +201,11 @@
 </CommPopup>
 
 @code {
+    /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
+    private string ConditionSummary => SchSummary.Of(
+        SchSummary.Or(_keyword),
+        SchSummary.Or(_category));
+
     /// <summary>
     /// 관리 칸. <b>권한이 없으면 아예 주지 않는다</b> — 빈 조각을 주면
     /// CommGrd 가 「단추가 있다」고 보고 칸을 그려서, 자료만 보는 사람에게

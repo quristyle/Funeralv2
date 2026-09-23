@@ -59,7 +59,7 @@
    Actions 로 옮겼다 — 한 줄에 섞이면 어느 것이 조건인지 흐려진다.
    나무의 아래 띠에도 등록을 걸 수 있지만(`OnSave`) 이 화면은 편집 창을
    직접 띄우므로 그쪽을 쓰지 않는다. *@
-<CommSch OnSearch="@ReloadAsync">
+<CommSch OnSearch="@ReloadAsync" MobileSummary="@ConditionSummary">
     <Fields>
         <CommSchItem Label="회사">
             <DxComboBox Data="@_companies" TextFieldName="@nameof(CompanyDto.Name)"
@@ -173,6 +173,10 @@
 </CommPopup>
 
 @code {
+    /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
+    private string ConditionSummary =>
+        SchSummary.NameOf(_companies, c => c.Id, c => c.Name, _companyFilter);
+
     private sealed record StatusOption(int Code, string Name);
 
     private static readonly StatusOption[] Statuses =

@@ -37,7 +37,7 @@
 @* 「요청 등록」은 표에 줄을 만드는 것이 아니라 **다른 화면으로 건너가는
    길**이다(`/helpdesk/request/new`). 표 아래 띠의 등록을 쓸 수 없으므로
    조회 판의 Actions 에 둔다. *@
-<CommSch OnSearch="@ReloadAsync">
+<CommSch OnSearch="@ReloadAsync" MobileSummary="@ConditionSummary">
     <Fields>
         <CommSchItem Label="제목">
             <DxTextBox @bind-Text="_keyword" Style="width: 220px"
@@ -135,6 +135,11 @@
 </CommCont>
 
 @code {
+    /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
+    private string ConditionSummary => SchSummary.Of(
+        SchSummary.Or(_keyword),
+        SchSummary.NameOf(StatusOptions, o => o.Value, o => o.Text, _status));
+
     private IReadOnlyList<ImprovementRequest> _rows = [];
     private int _total;
 
@@ -147,15 +152,15 @@
     /// 값이 <b>enum 이름</b>이다(숫자가 아니다). 서버의 DynamicFilterHelper 가
     /// 이름으로 견주고, 숫자를 보내면 조건이 통째로 무시되어 전체가 나온다.
     /// </summary>
-    private static readonly object[] StatusOptions =
+    private static readonly SchOption[] StatusOptions =
     [
-        new { Value = "Pending", Text = "대기" },
-        new { Value = "InProgress", Text = "진행" },
-        new { Value = "Completed", Text = "완료" },
-        new { Value = "UserCompleted", Text = "종료" },
-        new { Value = "Consultation", Text = "협의" },
-        new { Value = "Negotiation", Text = "논의" },
-        new { Value = "Rejected", Text = "반려" },
+        new("Pending", "대기"),
+        new("InProgress", "진행"),
+        new("Completed", "완료"),
+        new("UserCompleted", "종료"),
+        new("Consultation", "협의"),
+        new("Negotiation", "논의"),
+        new("Rejected", "반려"),
     ];
 
     protected override async Task OnInitializedAsync()

@@ -20,7 +20,7 @@
 
 <PageTitle>빈소 현황 · 장례식장</PageTitle>
 
-<BuildingFilter @bind-BuildingId="_buildingId" @bind-FloorId="_floorId" ShowFloor="true" Search="@ReloadAsync">
+<BuildingFilter @bind-BuildingId="_buildingId" @bind-FloorId="_floorId" ShowFloor="true" Search="@ReloadAsync" SummaryExtra="@ConditionSummary">
     <DxCheckBox @bind-Checked="_onlyInUse">사용 중만</DxCheckBox>
 </BuildingFilter>
 
@@ -79,6 +79,9 @@
 </CommCont>
 
 @code {
+    /// <summary>건물·층·호실 뒤에 이 화면만의 조건을 더 적는다(<c>BuildingFilter.SummaryExtra</c>).</summary>
+    private string? ConditionSummary => SchSummary.On(_onlyInUse, "사용 중만");
+
     private string? _buildingId;
     private string? _floorId;
     private bool _onlyInUse;

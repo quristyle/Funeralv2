@@ -20,7 +20,7 @@
 
 <PageTitle>사이트 문의내역 · 소개사이트·AI</PageTitle>
 
-<CommSch OnSearch="@ReloadAsync">
+<CommSch OnSearch="@ReloadAsync" MobileSummary="@ConditionSummary">
     <Fields>
         <CommSchItem Label="상태">
             <DxComboBox Data="@Statuses" @bind-Value="_status" Style="width: 160px"
@@ -87,6 +87,10 @@
 </CommCont>
 
 @code {
+    /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
+    private string ConditionSummary =>
+        _status is null ? SchSummary.Any : StatusText(_status);
+
     /// <summary>서버가 쓰는 상태 값. 화면 문구는 <see cref="StatusText" /> 가 만든다.</summary>
     private static readonly string[] Statuses = ["new", "reading", "replied", "closed"];
 

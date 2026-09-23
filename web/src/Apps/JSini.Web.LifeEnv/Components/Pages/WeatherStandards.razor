@@ -31,7 +31,9 @@
 
 <PageTitle>기상 판정 기준 · 생활과환경</PageTitle>
 
-<CommSch>
+@* 접지 않는다 — 조건이 검색어 한 칸이고 조회 단추가 없어 고치는 즉시 걸러진다. *@
+
+<CommSch Foldable="false">
     <Fields>
         <CommSchItem Label="검색어">
             <DxTextBox @bind-Text="_keyword" Style="width: 220px"

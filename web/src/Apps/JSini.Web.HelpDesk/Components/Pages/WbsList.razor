@@ -32,7 +32,7 @@
 
 @* 조건은 프로젝트 하나. 「작업 등록」은 이 화면의 편집이 자기 팝업에
    있어서 표 아래 띠를 못 쓰므로 그 판의 Actions 로 옮겼다. *@
-<CommSch OnSearch="@ReloadAsync">
+<CommSch OnSearch="@ReloadAsync" MobileSummary="@ConditionSummary">
     <Fields>
         <CommSchItem Label="프로젝트">
             <DxComboBox Data="@_projects" TextFieldName="@nameof(Project.Name)"
@@ -154,6 +154,10 @@
 </CommPopup>
 
 @code {
+    /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
+    private string ConditionSummary =>
+        _projects.FirstOrDefault(p => p.Id == _projectId)?.Name ?? "프로젝트를 고르세요";
+
     private static readonly string[] Statuses = ["Pending", "InProgress", "Completed", "Hold"];
     private static readonly string[] Priorities = ["High", "Medium", "Low"];
 

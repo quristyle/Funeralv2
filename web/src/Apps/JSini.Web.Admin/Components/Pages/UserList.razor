@@ -59,7 +59,7 @@
 
 @* 조회 안내. 저장·삭제 안내는 CommGrd 가 자기 자리에 띄운다. *@
 
-<CommSch OnSearch="@ReloadAsync" OnReset="@Reset">
+<CommSch OnSearch="@ReloadAsync" OnReset="@Reset" MobileSummary="@ConditionSummary">
     <Fields>
         <CommSchItem Label="검색어">
             <DxTextBox @bind-Text="_keyword" Style="width: 240px"
@@ -415,6 +415,11 @@
 </CommPopup>
 
 @code {
+    /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
+    private string ConditionSummary => SchSummary.Of(
+        SchSummary.Or(_keyword),
+        SchSummary.Or(_status));
+
     private IReadOnlyList<AccountDto> _all = [];
     private IReadOnlyList<RoleDto> _roles = [];
     private IReadOnlyList<DeptDto> _depts = [];

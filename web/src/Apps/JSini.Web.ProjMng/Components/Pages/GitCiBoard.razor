@@ -24,10 +24,10 @@
 
 <PageTitle>빌드 상태 · 프로젝트관리</PageTitle>
 
-<CommSch OnSearch="@SearchAsync" Busy="@Loading">
+<CommSch OnSearch="@SearchAsync" Busy="@Loading" MobileSummary="@ConditionSummary">
     <Fields>
         <CommSchItem Label="프로젝트">
-            <CodeSelect CodeId="projlist" @bind-Value="_projectCode" OnChanged="@(_ => SearchAsync())" />
+            <CodeSelect CodeId="projlist" @bind-Value="_projectCode" @bind-Text="_projectName" OnChanged="@(_ => SearchAsync())" />
         </CommSchItem>
 
         <CommSchItem Label="상태">
@@ -161,6 +161,17 @@
 </CommGrd>
 
 @code {
+    /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
+    private string ConditionSummary => SchSummary.Of(
+        _projectName,
+        SchSummary.NameOf(StateOptions, o => o.Value, o => o.Text, _state));
+
+    /// <summary>
+    /// 고른 프로젝트의 <b>이름</b>. 화면이 든 것은 코드뿐이고 목록은
+    /// <c>CodeSelect</c> 안에 있어, 그 부품이 <c>@bind-Text</c> 로 올려 준다.
+    /// </summary>
+    private string? _projectName;
+
     private string? _projectCode;
     private string? _state;
 
@@ -169,12 +180,12 @@
 
     private int? ProjectRid => int.TryParse(_projectCode, out var rid) ? rid : null;
 
-    private static readonly object[] StateOptions =
+    private static readonly SchOption[] StateOptions =
     [
-        new { Text = "전체", Value = (string?)null },
-        new { Text = "실패만", Value = "failure" },
-        new { Text = "성공만", Value = "success" },
-        new { Text = "못 읽음", Value = "error" },
+        new(null, "전체"),
+        new("failure", "실패만"),
+        new("success", "성공만"),
+        new("error", "못 읽음"),
     ];
 
     private IReadOnlyList<GitRunDto> Filtered => _state switch

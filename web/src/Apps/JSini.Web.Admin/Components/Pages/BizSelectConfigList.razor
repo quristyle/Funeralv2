@@ -32,7 +32,10 @@
 
 <PageTitle>메타데이터 관리 · 포털관리</PageTitle>
 
-<CommSch>
+@* 접지 않는다 — 조건이 검색어 한 칸이라 접는 줄이 아낀 줄만큼 도로 먹고,
+   조회 단추가 없어 고치는 즉시 걸러지므로 접어 두면 매번 펴야 한다. *@
+
+<CommSch Foldable="false">
     <Fields>
         <CommSchItem Label="검색어">
             <DxTextBox @bind-Text="_keyword" Style="width: 220px"

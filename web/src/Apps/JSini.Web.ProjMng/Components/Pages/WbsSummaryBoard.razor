@@ -31,7 +31,8 @@
 <CommSch OnSearch="@SearchAsync" MobileSummary="@ConditionSummary">
     <Fields>
         <CommSchItem Label="프로젝트">
-            <CodeSelect CodeId="projlist" @bind-Value="_projectCode" OnChanged="@OnProjectChangedAsync" />
+            <CodeSelect CodeId="projlist" @bind-Value="_projectCode" @bind-Text="_projectName"
+                        OnChanged="@(_ => SearchAsync())" />
         </CommSchItem>
 
         <CommSchItem Label="기준일">
@@ -126,8 +127,9 @@
     private string? _projectCode;
 
     /// <summary>
-    /// 고른 프로젝트의 <b>이름</b>. 접힌 조회줄에 적는다 — 코드(`_projectCode`)
+    /// 고른 프로젝트의 <b>이름</b>. 접힌 조회줄에 적는다 — 코드(<c>_projectCode</c>)
     /// 는 번호라 그 자리에 적어 봐야 무엇을 보고 있는지 알 수 없다.
+    /// 목록은 <c>CodeSelect</c> 안에 있어 그 부품이 <c>@bind-Text</c> 로 올려 준다.
     /// </summary>
     private string? _projectName;
     private string _basis = "edt";
@@ -144,26 +146,11 @@
     /// 화면의 절반이 돌아오는데, 대신 <b>무엇으로 걸러 본 값인지</b>를
     /// 여기서 말해 줘야 한다(`CommSch` 머리말).
     /// </summary>
-    private string ConditionSummary =>
-        string.Join(" · ",
-            new[]
-            {
-                _projectName,
-                WbsBoardOptions.TextOf(WbsBoardOptions.Basis, _basis),
-                WbsBoardOptions.TextOf(WbsBoardOptions.Scope, _scope),
-                WbsBoardOptions.TextOf(WbsBoardOptions.Who, _who),
-            }
-            .Where(s => !string.IsNullOrWhiteSpace(s)));
-
-    /// <summary>
-    /// 프로젝트를 고쳤다. <b>이름을 함께 받아 두는 것</b>이 요점이다 —
-    /// 목록은 `CodeSelect` 안에 있어서 화면이 코드로 되짚을 수 없다.
-    /// </summary>
-    private Task OnProjectChangedAsync(CommonCodeItem? item)
-    {
-        _projectName = item?.Name;
-        return SearchAsync();
-    }
+    private string ConditionSummary => SchSummary.Of(
+        _projectName,
+        WbsBoardOptions.TextOf(WbsBoardOptions.Basis, _basis),
+        WbsBoardOptions.TextOf(WbsBoardOptions.Scope, _scope),
+        WbsBoardOptions.TextOf(WbsBoardOptions.Who, _who));
 
     private string Period =>
         _summary?.MinDt is null || _summary.MaxDt is null ? "—" : $"{_summary.MinDt} ~ {_summary.MaxDt}";

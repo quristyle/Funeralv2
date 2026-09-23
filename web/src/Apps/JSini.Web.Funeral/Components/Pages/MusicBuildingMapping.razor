@@ -20,7 +20,7 @@
 @* 조건은 음원 하나다. 「전체 선택·해제」와 「배정 저장」은 조건이 아니라
    이 화면만의 동작이라 그 판의 Actions 로 간다 — 한 줄에 섞여 있으면
    어느 것이 조건인지 흐려진다. *@
-<CommSch OnSearch="@LoadMappingAsync">
+<CommSch OnSearch="@LoadMappingAsync" MobileSummary="@ConditionSummary">
     <Fields>
         <CommSchItem Label="음원">
             <DxComboBox Data="@_musics" @bind-Value="_musicId"
@@ -78,6 +78,10 @@ else
 }
 
 @code {
+    /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
+    private string ConditionSummary =>
+        SchSummary.NameOf(_musics, m => m.Id, m => m.Name, _musicId, "음원을 고르세요");
+
     private IReadOnlyList<MediaSource> _musics = [];
     private string? _musicId;
     private IReadOnlyList<BuildingMusicMapping> _mappings = [];

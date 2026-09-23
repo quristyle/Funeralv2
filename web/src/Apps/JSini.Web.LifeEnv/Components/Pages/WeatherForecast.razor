@@ -41,7 +41,7 @@
 
    자료 판(`CommCont`)은 쓰지 않는다 — 그림·주간 예보·표가 쌓인 화면이라
    감싸면 남은 높이를 그 판이 다 먹어 아래가 잘린다. *@
-<CommSch OnSearch="@LoadForecastAsync">
+<CommSch OnSearch="@LoadForecastAsync" MobileSummary="@ConditionSummary">
     <Fields>
         <CommSchItem Label="지역">
             <DxComboBox Data="@_locations"
@@ -130,6 +130,10 @@
 </CommGrd>
 
 @code {
+    /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
+    private string ConditionSummary =>
+        _locations.FirstOrDefault(l => l.Id == _selectedLocationId)?.Name ?? "지역을 고르세요";
+
     private List<WeatherLocation> _locations = [];
     private List<WeatherTimelinePoint> _timeline = [];
 

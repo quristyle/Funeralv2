@@ -44,7 +44,7 @@
 
    자료 판(`CommCont`)은 쓰지 않는다 — 아래가 달력·표 탭 구성이고, 달력은
    자기 높이를 스스로 정한다. *@
-<CommSch OnSearch="@ReloadAsync">
+<CommSch OnSearch="@ReloadAsync" MobileSummary="@ConditionSummary">
     <Fields>
         <CommSchItem Label="완료">
             <DxComboBox Data="@DoneOptions" TextFieldName="Name" ValueFieldName="Code"
@@ -170,6 +170,10 @@
 </CommPopup>
 
 @code {
+    /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
+    private string ConditionSummary =>
+        SchSummary.NameOf(DoneOptions, o => o.Code, o => o.Name, _done);
+
     private sealed record Option(string Code, string Name);
 
     private static readonly Option[] DoneOptions =

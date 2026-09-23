@@ -22,10 +22,10 @@
 
 <PageTitle>WBS 지연 현황 · 프로젝트관리</PageTitle>
 
-<CommSch OnSearch="@SearchAsync">
+<CommSch OnSearch="@SearchAsync" MobileSummary="@ConditionSummary">
     <Fields>
         <CommSchItem Label="프로젝트">
-            <CodeSelect CodeId="projlist" @bind-Value="_projectCode" OnChanged="@(_ => SearchAsync())" />
+            <CodeSelect CodeId="projlist" @bind-Value="_projectCode" @bind-Text="_projectName" OnChanged="@(_ => SearchAsync())" />
         </CommSchItem>
 
         <CommSchItem Label="범위">
@@ -143,6 +143,19 @@
 </CommGrd>
 
 @code {
+    /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
+    private string ConditionSummary => SchSummary.Of(
+        _projectName,
+        WbsBoardOptions.TextOf(WbsBoardOptions.Scope, _scope),
+        WbsBoardOptions.TextOf(WbsBoardOptions.Who, _who),
+        SchSummary.NameOf(KindOptions, o => o.Value, o => o.Text, _kind));
+
+    /// <summary>
+    /// 고른 프로젝트의 <b>이름</b>. 화면이 든 것은 코드뿐이고 목록은
+    /// <c>CodeSelect</c> 안에 있어, 그 부품이 <c>@bind-Text</c> 로 올려 준다.
+    /// </summary>
+    private string? _projectName;
+
     private string? _projectCode;
     private string _scope = "dev";
     private string _who = "plan";
@@ -154,11 +167,11 @@
 
     private int? ProjectRid => int.TryParse(_projectCode, out var rid) ? rid : null;
 
-    private static readonly object[] KindOptions =
+    private static readonly SchOption[] KindOptions =
     [
-        new { Text = "하나라도", Value = "all" },
-        new { Text = "착수지연", Value = "start" },
-        new { Text = "종료지연", Value = "finish" },
+        new("all", "하나라도"),
+        new("start", "착수지연"),
+        new("finish", "종료지연"),
     ];
 
     private static string Days(int? days) => days is null ? "—" : $"{days}일";

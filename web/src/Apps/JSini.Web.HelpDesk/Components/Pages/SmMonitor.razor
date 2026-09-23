@@ -32,7 +32,7 @@
 
 @* 조건은 연·월 둘이다. 자료 판(`CommCont`)은 쓰지 않는다 — 통계 타일과
    표가 쌓인 화면이라 감싸면 남은 높이를 그 판이 다 먹어 아래가 잘린다. *@
-<CommSch OnSearch="@ReloadAsync">
+<CommSch OnSearch="@ReloadAsync" MobileSummary="@ConditionSummary">
     <Fields>
         <CommSchItem Label="연">
             <DxSpinEdit @bind-Value="_year" MinValue="2000" MaxValue="2100" Style="width: 110px" />
@@ -129,6 +129,9 @@
 }
 
 @code {
+    /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
+    private string ConditionSummary => $"{_year} 년 {_month} 월";
+
     /// <summary>이름과 숫자 한 쌍. 상태·유형 분포가 이 모양이다.</summary>
     public sealed record Pair(string Label, int Value);
 

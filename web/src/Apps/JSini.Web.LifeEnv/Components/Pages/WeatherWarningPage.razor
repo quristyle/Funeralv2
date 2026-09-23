@@ -51,7 +51,7 @@
 
 <PageTitle>기상 특보 현황 · 생활과환경</PageTitle>
 
-<CommSch OnSearch="@ReloadAsync">
+<CommSch OnSearch="@ReloadAsync" MobileSummary="@ConditionSummary">
     <Fields>
         <CommSchItem Label="명령">
             <DxComboBox Data="@_commands" Value="@_command"
@@ -181,6 +181,9 @@
 </div>
 
 @code {
+    /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
+    private string ConditionSummary => SchSummary.Or(_command);
+
     /// <summary>
     /// 한 특보번호의 발표들. 안에서도, 그룹끼리도 최신이 앞이다.
     /// </summary>

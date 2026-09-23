@@ -28,7 +28,7 @@
 @* 「같은 시각 비교」도 조건이다 — 어느 표를 그릴지 정하므로 오른쪽 끝에
    따로 두면 조건이 두 자리로 갈린다. 그 스위치를 켜면 시각 고르개가
    같은 판 안에 붙는다. *@
-<CommSch OnSearch="@ReloadAsync">
+<CommSch OnSearch="@ReloadAsync" MobileSummary="@ConditionSummary">
     <Fields>
         <CommSchItem Label="지역">
             <DxComboBox Data="@_locations" @bind-Value="_locationId"
@@ -135,6 +135,12 @@ else
 </CommCont>
 
 @code {
+    /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
+    private string ConditionSummary => SchSummary.Of(
+        _locations.FirstOrDefault(l => l.Id == _locationId)?.Name ?? SchSummary.Any,
+        $"최근 {_days}일",
+        _byHour ? $"{_hour} 시 비교" : null);
+
     private IReadOnlyList<WeatherLocation> _locations = [];
     private IReadOnlyList<WeatherInfo> _history = [];
     private IReadOnlyList<HourlyTemp> _hourly = [];

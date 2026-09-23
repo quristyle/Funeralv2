@@ -20,7 +20,7 @@
 
 @inject FuneralApi Api
 
-<CommSch OnSearch="@Search" Actions="@Actions">
+<CommSch OnSearch="@Search" Actions="@Actions" MobileSummary="@ConditionSummary">
     <Fields>
         <CommSchItem Label="건물">
             <DxComboBox Data="@_buildings"
@@ -88,6 +88,27 @@
 
     /// <summary>조회 단추를 눌렀을 때.</summary>
     [Parameter] public EventCallback Search { get; set; }
+
+    /// <summary>
+    /// 휴대폰에서 접혔을 때 머리줄에 <b>더 적을</b> 글(「홍길동 · 빈소 사용중」).
+    ///
+    /// <para>
+    /// 건물·층·호실은 이 판이 알아서 적는다. 여기 받는 것은 화면이
+    /// <see cref="ChildContent"/> 로 더한 조건이다 — 그 칸들은 이 판이
+    /// <c>RenderFragment</c> 로만 들고 있어 값을 읽을 길이 없다.
+    /// </para>
+    /// </summary>
+    [Parameter] public string? SummaryExtra { get; set; }
+
+    /// <summary>
+    /// 접힌 조회줄에 적을 지금 조건. 안 고른 칸은 「전체」다 —
+    /// 그것이 실제로 보이는 목록이기도 하다.
+    /// </summary>
+    private string ConditionSummary => SchSummary.Of(
+        SchSummary.NameOf(_buildings, b => b.Id, b => b.Name, BuildingId),
+        ShowFloor ? SchSummary.NameOf(_floors, f => f.Id, f => f.Name, FloorId) : null,
+        ShowRoom ? SchSummary.NameOf(_rooms, r => r.Id, r => r.Name, RoomId) : null,
+        SummaryExtra);
 
     private IReadOnlyList<Building> _buildings = [];
     private IReadOnlyList<Floor> _floors = [];

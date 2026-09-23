@@ -15,7 +15,7 @@
 
 <PageTitle>요금 내역 · 장례식장</PageTitle>
 
-<BuildingFilter @bind-BuildingId="_buildingId" Search="@ReloadAsync">
+<BuildingFilter @bind-BuildingId="_buildingId" Search="@ReloadAsync" SummaryExtra="@ConditionSummary">
     <DxDateEdit @bind-Date="_from" NullText="시작일" Style="width: 150px" />
     <DxDateEdit @bind-Date="_to" NullText="종료일" Style="width: 150px" />
 </BuildingFilter>
@@ -92,6 +92,9 @@
 </CommCont>
 
 @code {
+    /// <summary>건물·층·호실 뒤에 이 화면만의 조건을 더 적는다(<c>BuildingFilter.SummaryExtra</c>).</summary>
+    private string ConditionSummary => SchSummary.Of(SchSummary.Period(_from, _to));
+
     private string? _buildingId;
     private DateTime? _from;
     private DateTime? _to;

@@ -25,10 +25,10 @@
 
 <PageTitle>WBS 개발자별 현황 · 프로젝트관리</PageTitle>
 
-<CommSch OnSearch="@SearchAsync">
+<CommSch OnSearch="@SearchAsync" MobileSummary="@ConditionSummary">
     <Fields>
         <CommSchItem Label="프로젝트">
-            <CodeSelect CodeId="projlist" @bind-Value="_projectCode" OnChanged="@(_ => SearchAsync())" />
+            <CodeSelect CodeId="projlist" @bind-Value="_projectCode" @bind-Text="_projectName" OnChanged="@(_ => SearchAsync())" />
         </CommSchItem>
 
         <CommSchItem Label="단위">
@@ -105,6 +105,20 @@ else
 }
 
 @code {
+    /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
+    private string ConditionSummary => SchSummary.Of(
+        _projectName,
+        SchSummary.NameOf(UnitOptions, o => o.Value, o => o.Text, _unit),
+        WbsBoardOptions.TextOf(WbsBoardOptions.Basis, _basis),
+        WbsBoardOptions.TextOf(WbsBoardOptions.Scope, _scope),
+        WbsBoardOptions.TextOf(WbsBoardOptions.Who, _who));
+
+    /// <summary>
+    /// 고른 프로젝트의 <b>이름</b>. 화면이 든 것은 코드뿐이고 목록은
+    /// <c>CodeSelect</c> 안에 있어, 그 부품이 <c>@bind-Text</c> 로 올려 준다.
+    /// </summary>
+    private string? _projectName;
+
     private string? _projectCode;
     private string _unit = "month";
     private string _basis = "edt";
@@ -121,10 +135,10 @@ else
 
     private bool Weekly => _unit == "week";
 
-    private static readonly object[] UnitOptions =
+    private static readonly SchOption[] UnitOptions =
     [
-        new { Text = "월", Value = "month" },
-        new { Text = "주", Value = "week" },
+        new("month", "월"),
+        new("week", "주"),
     ];
 
     /// <summary>

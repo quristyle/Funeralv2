@@ -60,7 +60,7 @@
 
 <PageTitle>빈소현황 · 장례식장</PageTitle>
 
-<BuildingFilter @bind-BuildingId="_buildingId" @bind-FloorId="_floorId" ShowFloor="true" Search="@ReloadAsync">
+<BuildingFilter @bind-BuildingId="_buildingId" @bind-FloorId="_floorId" ShowFloor="true" Search="@ReloadAsync" SummaryExtra="@ConditionSummary">
     <ChildContent>
         <CommSchItem Label="고인명">
             <DxTextBox @bind-Text="_name" Style="width: 140px"
@@ -290,6 +290,14 @@
 }
 
 @code {
+    /// <summary>건물·층·호실 뒤에 이 화면만의 조건을 더 적는다(<c>BuildingFilter.SummaryExtra</c>).</summary>
+    private string ConditionSummary => SchSummary.Of(
+        _name,
+        SchSummary.On(_onlyInUse, "사용 중만"),
+        SchSummary.On(_onlyAlert, "장비 이상만"),
+        _showDates ? SchSummary.Period(_coffinFrom, _coffinTo) : null,
+        _showDates ? SchSummary.Period(_burialFrom, _burialTo) : null);
+
     private string? _buildingId;
     private string? _floorId;
     private bool _onlyInUse;

@@ -43,10 +43,10 @@
 
 @if (_mode == "list")
 {
-    <CommSch OnSearch="@SearchAsync">
+    <CommSch OnSearch="@SearchAsync" MobileSummary="@ConditionSummary">
         <Fields>
             <CommSchItem Label="프로젝트">
-                <CodeSelect CodeId="projlist" @bind-Value="_projectCode" OnChanged="@(_ => SearchAsync())" />
+                <CodeSelect CodeId="projlist" @bind-Value="_projectCode" @bind-Text="_projectName" OnChanged="@(_ => SearchAsync())" />
             </CommSchItem>
 
             <CommSchItem Label="상태">
@@ -531,6 +531,20 @@ else if (_master is not null)
 <ConfirmDialog @ref="_confirm" />
 
 @code {
+    /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
+    private string ConditionSummary => SchSummary.Of(
+        _projectName,
+        SchSummary.NameOf(_statusOptions, o => o.Value, o => o.Text, _status),
+        _domain,
+        SchSummary.NameOf(UseOptions, o => o.Value, o => o.Text, _useYn),
+        _q);
+
+    /// <summary>
+    /// 고른 프로젝트의 <b>이름</b>. 화면이 든 것은 코드뿐이고 목록은
+    /// <c>CodeSelect</c> 안에 있어, 그 부품이 <c>@bind-Text</c> 로 올려 준다.
+    /// </summary>
+    private string? _projectName;
+
     private string _mode = "list";
 
     private string? _projectCode;
@@ -566,28 +580,28 @@ else if (_master is not null)
     private IfNoteDto _note = new();
     private int? _noteStepId;
 
-    private object[] _statusOptions = [];
-    private object[] _directionOptions = [];
-    private object[] _cycleOptions = [];
-    private object[] _triggerOptions = [];
-    private object[] _stepTypeOptions = [];
-    private object[] _objectTypeOptions = [];
-    private object[] _noteTypeOptions = [];
+    private SchOption[] _statusOptions = [];
+    private SchOption[] _directionOptions = [];
+    private SchOption[] _cycleOptions = [];
+    private SchOption[] _triggerOptions = [];
+    private SchOption[] _stepTypeOptions = [];
+    private SchOption[] _objectTypeOptions = [];
+    private SchOption[] _noteTypeOptions = [];
     private object[] _systemOptions = [];
     private object[] _domainOptions = [];
 
     /// <summary>코드 갈래별 목록. <c>CODE</c> 형 관리항목이 이것으로 고르개를 만든다.</summary>
-    private readonly Dictionary<string, object[]> _codesByGroup = [];
+    private readonly Dictionary<string, SchOption[]> _codesByGroup = [];
 
     private int? ProjectRid => int.TryParse(_projectCode, out var rid) ? rid : null;
 
     private string Hint => $"{_rows.Count}건 · 이슈 {_rows.Sum(r => r.OpenIssueCnt)}건";
 
-    private static readonly object[] UseOptions =
+    private static readonly SchOption[] UseOptions =
     [
-        new { Text = "사용", Value = "Y" },
-        new { Text = "미사용", Value = "N" },
-        new { Text = "전체", Value = (string?)null },
+        new("Y", "사용"),
+        new("N", "미사용"),
+        new(null, "전체"),
     ];
 
     private static readonly object[] UseYnOptions =
@@ -602,7 +616,7 @@ else if (_master is not null)
         .. _steps.Select(s => new { Text = $"{s.StepNo}. {s.StepNm}", Value = (int?)s.StepId })
     ];
 
-    private object[] CodeOptions(string? group) =>
+    private SchOption[] CodeOptions(string? group) =>
         group is not null && _codesByGroup.TryGetValue(group, out var list) ? list : [];
 
     // `switch` 의 관계 패턴(`< 1024`)을 `@code` 에 쓰지 않는다 — Razor 가 그
@@ -701,8 +715,10 @@ else if (_master is not null)
         {
             if (group.Key is null) continue;
 
+            // 이름이 비어 있는 코드가 있다. 그때는 코드라도 보여 준다 —
+            // 빈 줄이 늘어선 고르개는 고를 수가 없다.
             _codesByGroup[group.Key] =
-                [.. group.Select(c => new { Text = c.CodeNm, Value = c.Code })];
+                [.. group.Select(c => new SchOption(c.Code, c.CodeNm ?? c.Code ?? string.Empty))];
         }
 
         _statusOptions = CodeOptions("IF_STATUS");

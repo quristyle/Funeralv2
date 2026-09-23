@@ -32,7 +32,7 @@
 
 <PageTitle>내 알림함 · 포털관리</PageTitle>
 
-<CommSch OnSearch="@ReloadAsync">
+<CommSch OnSearch="@ReloadAsync" MobileSummary="@ConditionSummary">
     <Fields>
         <CommSchItem Label="기간">
             <DxDateEdit @bind-Date="_from" Style="width: 140px" />
@@ -96,6 +96,11 @@
 </CommCont>
 
 @code {
+    /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
+    private string ConditionSummary => SchSummary.Of(
+        SchSummary.Period(_from, _to),
+        SchSummary.On(_unreadOnly, "안 읽은 것만"));
+
     /// <summary>
     /// 조회 기간. <b>기본이 최근 한 달이다.</b>
     /// </summary>

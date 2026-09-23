@@ -52,7 +52,7 @@
 
 <PageTitle>조직도 · 포털관리</PageTitle>
 
-<CommSch OnSearch="@ReloadAsync">
+<CommSch OnSearch="@ReloadAsync" MobileSummary="@ConditionSummary">
     <Fields>
         <CommSchItem Label="회사">
             <DxComboBox Data="@_companies" TextFieldName="@nameof(CompanyDto.Name)"
@@ -313,6 +313,11 @@
 </CommPopup>
 
 @code {
+    /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
+    private string ConditionSummary => SchSummary.Of(
+        SchSummary.NameOf(_companies, c => c.Id, c => c.Name, _companyId, "회사를 고르세요"),
+        _vertical ? "세로" : "가로");
+
     /// <summary>이동 팝업에서 「회사 직속」을 뜻하는 값. 부서를 옮길 때만 나온다.</summary>
     private const string ToCompany = "__COMPANY__";
 

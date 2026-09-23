@@ -15,7 +15,7 @@
 
 <PageTitle>고인 정보 조회 · 장례식장</PageTitle>
 
-<BuildingFilter @bind-BuildingId="_buildingId" @bind-RoomId="_roomId" ShowRoom="true" Search="@ReloadAsync">
+<BuildingFilter @bind-BuildingId="_buildingId" @bind-RoomId="_roomId" ShowRoom="true" Search="@ReloadAsync" SummaryExtra="@ConditionSummary">
     <DxTextBox @bind-Text="_keyword" NullText="고인·상주명" Style="width: 180px"
                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
     <DxDateEdit @bind-Date="_from" NullText="시작일" Style="width: 150px" />
@@ -82,6 +82,11 @@
 </CommCont>
 
 @code {
+    /// <summary>건물·층·호실 뒤에 이 화면만의 조건을 더 적는다(<c>BuildingFilter.SummaryExtra</c>).</summary>
+    private string ConditionSummary => SchSummary.Of(
+        _keyword,
+        SchSummary.Period(_from, _to));
+
     private string? _buildingId;
     private string? _roomId;
     private string? _keyword;

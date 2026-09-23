@@ -37,14 +37,14 @@
 
 <PageTitle>소스 추적 · 프로젝트관리</PageTitle>
 
-<CommSch OnSearch="@SearchAsync" SearchText="추적 실행" Busy="@Loading">
+<CommSch OnSearch="@SearchAsync" SearchText="추적 실행" Busy="@Loading" MobileSummary="@ConditionSummary">
     <Fields>
         <CommSchItem Label="프로젝트">
-            <CodeSelect CodeId="projlist" @bind-Value="_projectCode" OnChanged="@(_ => OnProjectChanged())" />
+            <CodeSelect CodeId="projlist" @bind-Value="_projectCode" @bind-Text="_projectName" OnChanged="@(_ => OnProjectChanged())" />
         </CommSchItem>
 
         <CommSchItem Label="소스">
-            <SourceSelect ProjectCode="@_projectCode" @bind-Value="_sourceCode"
+            <SourceSelect ProjectCode="@_projectCode" @bind-Value="_sourceCode" @bind-Text="_sourceName"
                           OnChanged="@(item => OnSourceChangedAsync(item))" />
         </CommSchItem>
 
@@ -91,6 +91,18 @@
 </SplitPane>
 
 @code {
+    /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
+    private string ConditionSummary => SchSummary.Of(_projectName, _sourceName, _extend);
+
+    /// <summary>
+    /// 고른 프로젝트의 <b>이름</b>. 화면이 든 것은 코드뿐이고 목록은
+    /// <c>CodeSelect</c> 안에 있어, 그 부품이 <c>@bind-Text</c> 로 올려 준다.
+    /// </summary>
+    private string? _projectName;
+
+    /// <summary>고른 소스의 이름. 프로젝트와 같은 까닭으로 부품이 올려 준다.</summary>
+    private string? _sourceName;
+
     private string? _projectCode;
     private string? _sourceCode;
     private string? _extend;

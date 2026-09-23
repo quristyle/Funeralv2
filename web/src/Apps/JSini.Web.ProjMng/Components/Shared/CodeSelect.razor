@@ -138,6 +138,25 @@ else
     [Parameter] public bool Multiple { get; set; }
 
     /// <summary>
+    /// 고른 항목의 <b>이름</b>. 화면이 <c>@bind-Text</c> 로 받아 둔다.
+    ///
+    /// <para>
+    /// 쓰는 자리는 하나다 — 휴대폰에서 접힌 조회줄에 적을 글자
+    /// (<c>CommSch.MobileSummary</c>). 화면이 들고 있는 것은 코드(<c>17</c>)뿐이고
+    /// <b>목록은 이 부품 안에 있어서</b> 화면이 코드로 이름을 되짚을 수 없다.
+    /// </para>
+    ///
+    /// <para>
+    /// <see cref="OnChanged"/> 로도 같은 것을 받을 수 있지만, 그 자리는 이미
+    /// 조회를 거는 화면이 많아 <b>한 자리에 두 가지 일</b>이 된다.
+    /// 여럿 고르는 칸(<see cref="Multiple"/>)에서는 고른 이름을 이어 붙인다.
+    /// </para>
+    /// </summary>
+    [Parameter] public string? Text { get; set; }
+
+    [Parameter] public EventCallback<string?> TextChanged { get; set; }
+
+    /// <summary>
     /// 고른 항목 전체. 부가 컬럼이 필요한 화면이 받는다.
     /// 목록을 읽고 첫 항목을 자동으로 골랐을 때도 올라온다 — 그래야 화면이
     /// 그 신호로 최초 조회를 걸 수 있다.
@@ -211,6 +230,7 @@ else
         // 그 규칙(모르는 값 세우기 · 첫 항목 자동 선택)은 전부 단일 전용이다.
         if (Multiple)
         {
+            await ReportTextAsync(SelectedCodes.Count == 0 ? null : MultiText);
             return;
         }
 
@@ -238,6 +258,7 @@ else
         {
             // 앞서 세워 둔 「모르는 값」이 남아 있으면 걷어낸다.
             _items = _loaded;
+            await ReportTextAsync(current.Name);
             return;
         }
 
@@ -249,6 +270,7 @@ else
         if (KeepUnknownValue && !string.IsNullOrEmpty(Value))
         {
             _items = [.. _loaded, new CommonCodeItem(Value, Value, new Dictionary<string, string>())];
+            await ReportTextAsync(Value);
             return;
         }
 
@@ -306,6 +328,22 @@ else
         _settledValue = code;
 
         await ValueChanged.InvokeAsync(code);
+        await ReportTextAsync(item?.Name);
         await OnChanged.InvokeAsync(item);
+    }
+
+    /// <summary>
+    /// 고른 이름을 화면에 올린다. <b>달라졌을 때만</b> 올린다 — 그냥 올리면
+    /// 부모가 다시 그리고, 다시 그리면 여기로 돌아와 끝이 없다.
+    /// </summary>
+    private async Task ReportTextAsync(string? text)
+    {
+        if (!TextChanged.HasDelegate || string.Equals(Text, text, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        Text = text;
+        await TextChanged.InvokeAsync(text);
     }
 }

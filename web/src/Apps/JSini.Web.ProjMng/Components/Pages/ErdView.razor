@@ -50,10 +50,10 @@
 
 <PageTitle>ERD · 프로젝트관리</PageTitle>
 
-<CommSch OnSearch="@LoadDiagramAsync" SearchText="불러오기" Busy="@Loading">
+<CommSch OnSearch="@LoadDiagramAsync" SearchText="불러오기" Busy="@Loading" MobileSummary="@ConditionSummary">
     <Fields>
         <CommSchItem Label="프로젝트">
-            <CodeSelect CodeId="projlist" @bind-Value="_projectCode" />
+            <CodeSelect CodeId="projlist" @bind-Value="_projectCode" @bind-Text="_projectName" />
         </CommSchItem>
 
         <CommSchItem Label="DB">
@@ -150,6 +150,15 @@
 </div>
 
 @code {
+    /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
+    private string ConditionSummary => SchSummary.Of(_projectName, _dbItem?.Name, _prop?.Label);
+
+    /// <summary>
+    /// 고른 프로젝트의 <b>이름</b>. 화면이 든 것은 코드뿐이고 목록은
+    /// <c>CodeSelect</c> 안에 있어, 그 부품이 <c>@bind-Text</c> 로 올려 준다.
+    /// </summary>
+    private string? _projectName;
+
     /// <summary>
     /// 그림을 담는 DB 속성의 이름. 접속 하나에 ERD 하나다.
     /// </summary>
@@ -265,6 +274,7 @@
     }
 
     private Task ZoomInAsync() => _diagram?.ZoomInAsync() ?? Task.CompletedTask;
+
     /// <summary>도구상자에 놓을 도형 목록. **JS 가 정본**이라 거기서 받아 온다.</summary>
     private IReadOnlyList<DiagramViewer.DiagramShape> _shapes = [];
 

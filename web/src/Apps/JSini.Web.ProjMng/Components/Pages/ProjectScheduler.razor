@@ -223,21 +223,23 @@
                     </div>
                 }
 
-                <CommSch Stacked="true" OnSearch="@SearchAsync" Busy="@Loading">
+                <CommSch Stacked="true" OnSearch="@SearchAsync" Busy="@Loading" MobileSummary="@ConditionSummary">
                     <Fields>
                         <CommSchItem Label="프로젝트">
-                            <CodeSelect CodeId="projlist" @bind-Value="_projectCode" OnChanged="@(_ => SearchAsync())" />
+                            <CodeSelect CodeId="projlist" @bind-Value="_projectCode" @bind-Text="_projectName"
+                                        OnChanged="@(_ => SearchAsync())" />
                         </CommSchItem>
 
                         @* 체크로 여럿 고른다. 아무것도 안 고르면 전체다 — 머리말 참고. *@
                         <CommSchItem Label="구분">
                             <CodeSelect CodeId="schedule_type" Multiple="true"
-                                        Values="@_scheduleTypes"
+                                        Values="@_scheduleTypes" @bind-Text="_kindNames"
                                         ValuesChanged="@OnKindsChangedAsync" />
                         </CommSchItem>
 
                         <CommSchItem Label="진행">
-                            <CodeSelect CodeId="compstat" @bind-Value="_completeState" ShowAll="true" />
+                            <CodeSelect CodeId="compstat" @bind-Value="_completeState" ShowAll="true"
+                                        @bind-Text="_completeStateName" />
                         </CommSchItem>
                     </Fields>
                 </CommSch>
@@ -568,6 +570,22 @@
 }
 
 @code {
+    /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
+    private string ConditionSummary => SchSummary.Of(
+        _projectName,
+        SchSummary.Or(_kindNames),
+        _completeStateName);
+
+    /// <summary>
+    /// 고른 값의 <b>이름</b>들. 화면이 든 것은 코드뿐이고 목록은
+    /// <c>CodeSelect</c> 안에 있어, 그 부품이 <c>@bind-Text</c> 로 올려 준다.
+    /// </summary>
+    private string? _projectName;
+
+    private string? _kindNames;
+
+    private string? _completeStateName;
+
     /// <summary>
     /// 새 줄의 기본 구분. 고른 구분이 「전체」일 때 쓴다 — 비워 두면 어느
     /// 화면에서도 안 보이는 줄이 된다(머리말).

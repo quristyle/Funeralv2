@@ -59,7 +59,7 @@
 @* 조건줄은 **판 밖**에 둔다. 찾기·재직자 조건은 왼쪽 목록에만 걸리지만,
    판 안에 넣으면 그 판이 좁아질 때 조건 칸이 함께 눌려 글자가 잘린다.
    화면 백 개가 조건을 같은 자리에 두고 있는 것도 이유다(web/CLAUDE.md). *@
-<CommSch OnSearch="@LoadAsync" SearchText="사람 다시 읽기" Busy="@Loading">
+<CommSch OnSearch="@LoadAsync" SearchText="사람 다시 읽기" Busy="@Loading" MobileSummary="@ConditionSummary">
     <Fields>
         <CommSchItem Label="찾기">
             @* 이름·아이디·부서·회사 어느 것으로 쳐도 걸린다. 글자마다 거른다 —
@@ -400,6 +400,11 @@
 </DxSplitter>
 
 @code {
+    /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
+    private string ConditionSummary => SchSummary.Of(
+        SchSummary.Or(_filter),
+        _activeOnly ? "재직자만" : "그만둔 사람까지");
+
     /// <summary>보낼 수 있는 사람들. 한 번 읽어 두고 거르기는 브라우저에서 한다.</summary>
     private IReadOnlyList<AccountDto> _accounts = [];
 
