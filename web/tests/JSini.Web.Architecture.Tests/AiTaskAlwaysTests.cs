@@ -32,6 +32,12 @@ public sealed class AiTaskAlwaysTests
     private static readonly string[] Must =
     [
         "commit과 push를 수행해라",
+
+        // **가지에 커밋만 하고 끝나는 것**을 막는 마디. 올리기를 켠 채
+        // `succeeded` 로 끝난 지시 넷에 하나가 `pushed_commit` 이 비어
+        // 있었다 — 제 작업 가지를 밀고 「push 했다」로 끝낸 것들이다.
+        "origin/main 에 들어갔는지",
+
         "DB 연결정보를 소스에서 확인",
     ];
 
