@@ -1,0 +1,160 @@
+@page "/projmng/wbs/docs"
+@attribute [RouteKey("projmng.wbs.docs")]
+
+@*
+    [WBS 개발자 정보]
+
+    이력: 사내망 WBS 대시보드(Vue) `views/Docs.vue` + `components/RichEditor.vue`
+          → **여기**
+    API: `projmng/wbs-board/docs`
+
+    팀이 나눠 보는 문서다 — 계정 정보, 환경 설정 요령 같은 것이 쪽마다 하나씩
+    들어 있다. 본문은 **HTML** 이라 서식 편집기로 쓰고 그대로 그린다.
+
+    [손으로 만든 편집기를 옮기지 않았다]
+
+    원본은 `contenteditable` 로 만든 경량 편집기였다. 포털에는 이미
+    `DxHtmlEditor` 를 쓰는 화면이 둘 있어서(FAQ · 문의) 그쪽에 맞췄다 —
+    편집기가 둘이면 붙여넣은 그림·표가 화면마다 다르게 저장된다.
+
+    [그리기 전에 정화한다]
+
+    담긴 것이 HTML 이라 `MarkupString` 으로 그려야 서식이 산다. 그 말은
+    **담긴 글자가 그대로 실행될 수 있다**는 뜻이라, 공지와 같은 정화기를
+    거친다(`NoticeHtml.Sanitize`).
+*@
+
+@inherits DataPage
+@inject WbsDocsClient Api
+
+<PageTitle>WBS 개발자 정보 · 프로젝트관리</PageTitle>
+
+<CommSch OnSearch="@SearchAsync">
+    <Fields>
+        <CommSchItem Label="프로젝트">
+            <CodeSelect CodeId="projlist" @bind-Value="_projectCode" OnChanged="@(_ => SearchAsync())" />
+        </CommSchItem>
+    </Fields>
+</CommSch>
+
+<CommCont Hint="@Hint">
+    <CommGrd TItem="WbsDocDto"
+             Data="@_rows"
+             EditFormTitle="문서"
+             ExportName="개발자 정보"
+             EmptyText="문서가 없습니다."
+             PageSize="20"
+             SelectedItem="@_selected"
+             SelectedItemChanged="@OnSelectedAsync"
+             OnNew="@FillNew"
+             OnSave="@SaveAsync"
+             OnDelete="@DeleteAsync"
+             DeleteConfirm="@(d => $"「{d.Title}」 을(를) 지웁니다.\n되돌릴 수 없습니다.")"
+             Reload="@SearchAsync">
+        <Columns>
+            <DxGridDataColumn FieldName="@nameof(WbsDocDto.SortOrder)" Caption="차례" Width="80" />
+            <DxGridDataColumn FieldName="@nameof(WbsDocDto.Title)" Caption="제목" MinWidth="220"
+                              TextAlignment="GridTextAlignment.Left" />
+            <DxGridDataColumn FieldName="@nameof(WbsDocDto.UpdatedBy)" Caption="고친이" Width="120" />
+            <DxGridDataColumn FieldName="@nameof(WbsDocDto.UpdatedAt)" Caption="고친 때" Width="140" />
+        </Columns>
+
+        <EditFormTemplate Context="edit">
+            @{
+                var d = (WbsDocDto)edit.EditModel;
+            }
+            <DxFormLayout CssClass="pm-editform">
+                <DxFormLayoutItem Caption="제목" ColSpanMd="9">
+                    <DxTextBox @bind-Text="d.Title" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="차례" ColSpanMd="3">
+                    <DxSpinEdit @bind-Value="d.SortOrder" />
+                    <div class="jsini-hint">비우면(0) 맨 뒤로 갑니다.</div>
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="본문" ColSpanMd="12">
+                    <DxHtmlEditor @bind-Markup="d.Content"
+                                  BindMarkupMode="HtmlEditorBindMarkupMode.OnDelayedInput"
+                                  CssClass="pm-doc-editor" />
+                </DxFormLayoutItem>
+            </DxFormLayout>
+        </EditFormTemplate>
+    </CommGrd>
+</CommCont>
+
+@if (_selected is not null)
+{
+    <CommCont Title="@_selected.Title" Hint="@($"{_selected.UpdatedBy} · {_selected.UpdatedAt}")">
+        <div class="pm-doc">
+            @((MarkupString)NoticeHtml.Sanitize(_selected.Content))
+        </div>
+    </CommCont>
+}
+else
+{
+    <PageNotice Tone="NoticeTone.Info" Text="위에서 문서를 고르면 본문이 여기에 보입니다." />
+}
+
+@code {
+    private string? _projectCode;
+    private IReadOnlyList<WbsDocDto> _rows = [];
+    private WbsDocDto? _selected;
+
+    private int? ProjectRid => int.TryParse(_projectCode, out var rid) ? rid : null;
+
+    private string Hint => $"{_rows.Count}쪽";
+
+    private Task SearchAsync() => LoadAsync(async () =>
+    {
+        if (ProjectRid is not int rid)
+        {
+            _rows = [];
+            _selected = null;
+            return 0;
+        }
+
+        _rows = await Api.ListAsync(rid);
+
+        // 고르고 있던 쪽을 다시 잡아 준다. 저장하고 목록을 다시 읽을 때마다
+        // 아래 본문이 사라지면, 고친 결과를 눈으로 확인할 수 없다.
+        _selected = _selected is null
+            ? _rows.FirstOrDefault()
+            : _rows.FirstOrDefault(d => d.Id == _selected.Id) ?? _rows.FirstOrDefault();
+
+        return _rows.Count;
+    }, "문서가 없습니다.", "문서를 읽지 못했습니다");
+
+    private Task OnSelectedAsync(WbsDocDto? doc)
+    {
+        _selected = doc;
+        return Task.CompletedTask;
+    }
+
+    /// <summary>새 쪽은 맨 뒤에 붙는다.</summary>
+    private void FillNew(WbsDocDto doc) =>
+        doc.SortOrder = _rows.Count == 0 ? 100 : _rows.Max(d => d.SortOrder) + 10;
+
+    private async Task SaveAsync((WbsDocDto Item, bool IsNew) e)
+    {
+        if (ProjectRid is not int rid) return;
+
+        if (e.IsNew)
+        {
+            await Api.CreateAsync(rid, e.Item);
+        }
+        else
+        {
+            await Api.UpdateAsync(rid, e.Item);
+        }
+    }
+
+    private async Task DeleteAsync(WbsDocDto doc)
+    {
+        if (ProjectRid is not int rid) return;
+
+        await Api.DeleteAsync(rid, doc.Id);
+
+        if (_selected?.Id == doc.Id) _selected = null;
+    }
+}

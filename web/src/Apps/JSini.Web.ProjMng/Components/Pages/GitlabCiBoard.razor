@@ -1,0 +1,220 @@
+@page "/projmng/wbs/ci"
+@attribute [RouteKey("projmng.wbs.ci")]
+
+@*
+    [빌드 상태]
+
+    이력: 사내망 WBS 대시보드(Vue) `views/Ci.vue` → **여기**
+    API: `projmng/gitlab/ci`
+
+    저장소마다 **가장 최근 Job 하나**를 본다. `{그룹}/pmm{NNN}/pmm{NNN}-{be|fe}`
+    규칙으로 서른여섯 곳을 훑는다.
+
+    [설정이 없으면 빈 채로 뜬다]
+
+    GitLab 을 안 쓰는 프로젝트가 정상이라 500 이 아니다. 주소나 토큰이 비면
+    서버가 아무것도 부르지 않고 줄마다 까닭을 적어 준다.
+    설정 자리는 `ProjMngServer/appsettings.json` 의 `Gitlab` 이고, 토큰은
+    비밀값이라 `appsettings.Local.json` 이나 `GITLAB_TOKEN` 으로 넣는다.
+
+    [새로고침만 캐시를 건너뛴다]
+
+    서버가 결과를 60초 들고 있다. 화면에 들어올 때마다 건너뛰면 왕복이
+    일흔둘이라 GitLab 이 먼저 지친다.
+*@
+
+@inherits DataPage
+@inject GitlabStatusClient Api
+
+<PageTitle>빌드 상태 · 프로젝트관리</PageTitle>
+
+<CommSch OnSearch="@SearchAsync" Busy="@Loading">
+    <Fields>
+        <CommSchItem Label="프로젝트">
+            <CodeSelect CodeId="projlist" @bind-Value="_projectCode" OnChanged="@(_ => SearchAsync())" />
+        </CommSchItem>
+
+        <CommSchItem Label="상태">
+            <DxComboBox Data="@StateOptions" @bind-Value="_state"
+                        TextFieldName="Text" ValueFieldName="Value" Style="width: 140px" />
+        </CommSchItem>
+    </Fields>
+
+    <Actions>
+        <DxButton Text="새로고침"
+                  RenderStyle="ButtonRenderStyle.Secondary"
+                  Enabled="@(!Loading)"
+                  Click="@RefreshAsync" />
+    </Actions>
+</CommSch>
+
+@if (_result is not null && !_result.Configured)
+{
+    <PageNotice Tone="NoticeTone.Warning"
+                Text="GitLab 주소나 토큰이 설정되어 있지 않습니다. 서버 설정(Gitlab)을 채우면 이 화면이 찹니다." />
+}
+
+@if (_result is { Configured: true })
+{
+    <div class="jsini-stats">
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">성공</div>
+            <div class="jsini-stat__value">@Count("success")</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">실패</div>
+            <div class="jsini-stat__value">@Count("failed")</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">진행 중</div>
+            <div class="jsini-stat__value">@Count("running")</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">Job 없음</div>
+            <div class="jsini-stat__value">@Count("none")</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">못 읽음</div>
+            <div class="jsini-stat__value">@_rows.Count(r => r.Error is not null)</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">읽어 온 때</div>
+            <div class="jsini-stat__value pm-stat--dates">@_result.LoadedAt</div>
+        </div>
+    </div>
+}
+
+<CommGrd TItem="GitlabJobDto"
+         Data="@Filtered"
+         ExportName="빌드 상태"
+         EmptyText="저장소가 없습니다."
+         PageSize="40"
+         Reload="@SearchAsync">
+    <Columns>
+        <DxGridDataColumn FieldName="@nameof(GitlabJobDto.Module)" Caption="모듈" Width="100" />
+        <DxGridDataColumn FieldName="@nameof(GitlabJobDto.Kind)" Caption="갈래" Width="70" />
+
+        <DxGridDataColumn Caption="상태" Width="110">
+            <CellDisplayTemplate Context="cell">
+                @{
+                    var r = (GitlabJobDto)cell.DataItem;
+                }
+                @if (r.Error is not null)
+                {
+                    <span class="jsini-badge jsini-badge--warn" title="@r.Error">못 읽음</span>
+                }
+                else
+                {
+                    <span class="jsini-badge @BadgeOf(r.Status)">@StatusText(r.Status)</span>
+                }
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+
+        <DxGridDataColumn FieldName="@nameof(GitlabJobDto.JobName)" Caption="Job" Width="140" />
+        <DxGridDataColumn FieldName="@nameof(GitlabJobDto.Ref)" Caption="가지" Width="120" />
+        <DxGridDataColumn FieldName="@nameof(GitlabJobDto.CommitTitle)" Caption="커밋" MinWidth="220"
+                          TextAlignment="GridTextAlignment.Left" />
+        <DxGridDataColumn FieldName="@nameof(GitlabJobDto.CommitAuthor)" Caption="올린이" Width="110" />
+        <DxGridDataColumn FieldName="@nameof(GitlabJobDto.FinishedAt)" Caption="끝난 때" Width="180" />
+
+        <DxGridDataColumn Caption="걸린 시간" Width="100">
+            <CellDisplayTemplate Context="cell">
+                @{
+                    var r = (GitlabJobDto)cell.DataItem;
+                }
+                @(r.Duration is null ? "—" : $"{r.Duration:0}초")
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+
+        <DxGridDataColumn Caption="마지막 성공" Width="180">
+            <CellDisplayTemplate Context="cell">
+                @{
+                    var r = (GitlabJobDto)cell.DataItem;
+                }
+                @(r.LastSuccess?.At ?? "—")
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+
+        <DxGridDataColumn Caption="열기" Width="80">
+            <CellDisplayTemplate Context="cell">
+                @{
+                    var r = (GitlabJobDto)cell.DataItem;
+                }
+                @if (!string.IsNullOrWhiteSpace(r.JobsUrl))
+                {
+                    <a href="@r.JobsUrl" target="_blank" rel="noopener">GitLab</a>
+                }
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+    </Columns>
+</CommGrd>
+
+@code {
+    private string? _projectCode;
+    private string? _state;
+
+    private GitlabResultDto<GitlabJobDto>? _result;
+    private IReadOnlyList<GitlabJobDto> _rows = [];
+
+    private int? ProjectRid => int.TryParse(_projectCode, out var rid) ? rid : null;
+
+    private static readonly object[] StateOptions =
+    [
+        new { Text = "전체", Value = (string?)null },
+        new { Text = "실패만", Value = "failed" },
+        new { Text = "성공만", Value = "success" },
+        new { Text = "못 읽음", Value = "error" },
+    ];
+
+    private IReadOnlyList<GitlabJobDto> Filtered => _state switch
+    {
+        null => _rows,
+        "error" => [.. _rows.Where(r => r.Error is not null)],
+        var s => [.. _rows.Where(r => r.Error is null && r.Status == s)],
+    };
+
+    private int Count(string status) => _rows.Count(r => r.Error is null && r.Status == status);
+
+    private static string StatusText(string? status) => status switch
+    {
+        "success" => "성공",
+        "failed" => "실패",
+        "running" => "진행",
+        "canceled" => "취소",
+        "skipped" => "건너뜀",
+        "pending" => "대기",
+
+        // Job 이 **한 번도 없었다**는 뜻이다. 못 읽은 것과 다르다.
+        "none" => "Job 없음",
+
+        null => "—",
+        _ => status,
+    };
+
+    private static string BadgeOf(string? status) => status switch
+    {
+        "success" => "jsini-badge--on",
+        "failed" => "jsini-badge--off",
+        "running" or "pending" => "jsini-badge--warn",
+        _ => "",
+    };
+
+    private Task SearchAsync() => LoadInternalAsync(false);
+
+    private Task RefreshAsync() => LoadInternalAsync(true);
+
+    private Task LoadInternalAsync(bool refresh) => LoadAsync(async () =>
+    {
+        if (ProjectRid is not int rid)
+        {
+            _result = null;
+            _rows = [];
+            return 0;
+        }
+
+        _result = await Api.CiAsync(rid, refresh);
+        _rows = _result?.Rows ?? [];
+
+        return _rows.Count;
+    }, "저장소가 없습니다.", "빌드 상태를 읽지 못했습니다");
+}

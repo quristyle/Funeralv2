@@ -1,0 +1,275 @@
+@page "/projmng/wbs/progress"
+@attribute [RouteKey("projmng.wbs.progress")]
+
+@*
+    [WBS 진척률 현황]
+
+    이력: 사내망 WBS 대시보드(Vue) `views/Progress.vue` → **여기**
+    API: `projmng/wbs-board/progress/summary` · `…/by-user` · `…/by-module` · `…/rows`
+
+    [계획 진척률은 실적이 아니다]
+
+    계획시작일과 계획종료일만 보고 **날짜가 얼마나 흘렀는지**를 센다.
+    그 옆에 실제 완료율을 나란히 두는 것이 이 화면의 전부다 — 둘이 벌어진
+    만큼이 늦은 것이다.
+
+    기준일은 **DB 의 오늘**이다. 브라우저 시각을 쓰면 시차가 다른 자리에서
+    같은 화면이 다른 숫자를 낸다.
+*@
+
+@inherits DataPage
+@inject WbsBoardClient Api
+
+<PageTitle>WBS 진척률 · 프로젝트관리</PageTitle>
+
+<CommSch OnSearch="@SearchAsync">
+    <Fields>
+        <CommSchItem Label="프로젝트">
+            <CodeSelect CodeId="projlist" @bind-Value="_projectCode" OnChanged="@(_ => SearchAsync())" />
+        </CommSchItem>
+
+        <CommSchItem Label="범위">
+            <DxComboBox Data="@WbsBoardOptions.Scope" @bind-Value="_scope"
+                        TextFieldName="Text" ValueFieldName="Value" Style="width: 130px" />
+        </CommSchItem>
+
+        <CommSchItem Label="잣대">
+            <DxComboBox Data="@WbsBoardOptions.Who" @bind-Value="_who"
+                        TextFieldName="Text" ValueFieldName="Value" Style="width: 130px" />
+        </CommSchItem>
+
+        <CommSchItem Label="보기">
+            <DxComboBox Data="@ViewOptions" @bind-Value="_view"
+                        TextFieldName="Text" ValueFieldName="Value" Style="width: 130px" />
+        </CommSchItem>
+    </Fields>
+</CommSch>
+
+@if (_summary is not null)
+{
+    <div class="jsini-stats">
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">기준일</div>
+            <div class="jsini-stat__value pm-stat--dates">@_summary.Asof</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">계획 진척률</div>
+            <div class="jsini-stat__value">@WbsBoardOptions.Percent(_summary.PlanRate)</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">실적 완료율</div>
+            <div class="jsini-stat__value">@WbsBoardOptions.Percent(_summary.DoneRate)</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">미착수</div>
+            <div class="jsini-stat__value">@_summary.NotStarted</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">진행 중</div>
+            <div class="jsini-stat__value">@_summary.InProgress</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">기한 경과</div>
+            <div class="jsini-stat__value">@_summary.Elapsed</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">완료</div>
+            <div class="jsini-stat__value">@_summary.DoneCnt</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">전체</div>
+            <div class="jsini-stat__value">@_summary.Total</div>
+        </div>
+    </div>
+
+    @if (_summary.Total > _summary.Dated)
+    {
+        <PageNotice Tone="NoticeTone.Info"
+                    Text="@($"{_summary.Total - _summary.Dated}건은 계획 일정이 비어 있어 진척률을 낼 수 없습니다.")" />
+    }
+}
+
+@if (_view == "user")
+{
+    <CommGrd TItem="WbsBoardProgressUserDto"
+             Data="@_users"
+             ExportName="사람별 진척률"
+             EmptyText="사람별 자료가 없습니다."
+             PageSize="25"
+             Reload="@SearchAsync">
+        <Columns>
+            <DxGridDataColumn FieldName="@nameof(WbsBoardProgressUserDto.UserNm)" Caption="사람" MinWidth="140"
+                              TextAlignment="GridTextAlignment.Left" />
+            <DxGridDataColumn FieldName="@nameof(WbsBoardProgressUserDto.Cnt)" Caption="배정" Width="80" />
+
+            <DxGridDataColumn Caption="계획 진척률" MinWidth="170">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var u = (WbsBoardProgressUserDto)cell.DataItem;
+                    }
+                    <div class="pm-bar" title="@WbsBoardOptions.Percent(u.PlanRate)">
+                        <div class="pm-bar__fill" style="width: @((double)(u.PlanRate ?? 0))%"></div>
+                        <span class="pm-bar__text">@WbsBoardOptions.Percent(u.PlanRate)</span>
+                    </div>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn Caption="실적 완료율" MinWidth="170">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var u = (WbsBoardProgressUserDto)cell.DataItem;
+                    }
+                    <div class="pm-bar pm-bar--done" title="@($"{u.DoneCnt} / {u.Cnt}")">
+                        <div class="pm-bar__fill" style="width: @((double)(u.DoneRate ?? 0))%"></div>
+                        <span class="pm-bar__text">@WbsBoardOptions.Percent(u.DoneRate)</span>
+                    </div>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn FieldName="@nameof(WbsBoardProgressUserDto.NotStarted)" Caption="미착수" Width="85" />
+            <DxGridDataColumn FieldName="@nameof(WbsBoardProgressUserDto.InProgress)" Caption="진행" Width="80" />
+            <DxGridDataColumn FieldName="@nameof(WbsBoardProgressUserDto.Elapsed)" Caption="경과" Width="80" />
+            <DxGridDataColumn FieldName="@nameof(WbsBoardProgressUserDto.UserBpId)" Caption="사번" Width="110" />
+        </Columns>
+    </CommGrd>
+}
+else if (_view == "module")
+{
+    <CommGrd TItem="WbsBoardProgressModuleDto"
+             Data="@_modules"
+             ExportName="모듈별 진척률"
+             EmptyText="모듈별 자료가 없습니다."
+             PageSize="25"
+             Reload="@SearchAsync">
+        <Columns>
+            <DxGridDataColumn FieldName="@nameof(WbsBoardProgressModuleDto.Systemcode)" Caption="모듈" Width="110" />
+            <DxGridDataColumn FieldName="@nameof(WbsBoardProgressModuleDto.SystemNm)" Caption="이름" MinWidth="160"
+                              TextAlignment="GridTextAlignment.Left" />
+            <DxGridDataColumn FieldName="@nameof(WbsBoardProgressModuleDto.Cnt)" Caption="건수" Width="80" />
+
+            <DxGridDataColumn Caption="계획 진척률" MinWidth="170">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var m = (WbsBoardProgressModuleDto)cell.DataItem;
+                    }
+                    <div class="pm-bar" title="@WbsBoardOptions.Percent(m.PlanRate)">
+                        <div class="pm-bar__fill" style="width: @((double)(m.PlanRate ?? 0))%"></div>
+                        <span class="pm-bar__text">@WbsBoardOptions.Percent(m.PlanRate)</span>
+                    </div>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn Caption="실적 완료율" MinWidth="170">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var m = (WbsBoardProgressModuleDto)cell.DataItem;
+                    }
+                    <div class="pm-bar pm-bar--done" title="@($"{m.DoneCnt} / {m.Cnt}")">
+                        <div class="pm-bar__fill" style="width: @((double)(m.DoneRate ?? 0))%"></div>
+                        <span class="pm-bar__text">@WbsBoardOptions.Percent(m.DoneRate)</span>
+                    </div>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn Caption="계획 기간" MinWidth="180">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var m = (WbsBoardProgressModuleDto)cell.DataItem;
+                    }
+                    @(m.MinDt is null ? "—" : $"{m.MinDt} ~ {m.MaxDt}")
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+        </Columns>
+    </CommGrd>
+}
+else
+{
+    <CommGrd TItem="WbsBoardProgressRowDto"
+             Data="@_rows"
+             ExportName="항목별 진척률"
+             EmptyText="항목이 없습니다."
+             PageSize="30"
+             Reload="@SearchAsync">
+        <Columns>
+            <DxGridDataColumn FieldName="@nameof(WbsBoardProgressRowDto.ActivityId)" Caption="액티비티" Width="120" />
+            <DxGridDataColumn FieldName="@nameof(WbsBoardProgressRowDto.Systemcode)" Caption="모듈" Width="100" />
+            <DxGridDataColumn FieldName="@nameof(WbsBoardProgressRowDto.MenuNm)" Caption="화면" MinWidth="200"
+                              TextAlignment="GridTextAlignment.Left" />
+
+            <DxGridDataColumn Caption="계획 진척률" MinWidth="170">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var r = (WbsBoardProgressRowDto)cell.DataItem;
+                    }
+                    <div class="pm-bar" title="@($"{r.PassedDays} / {r.SpanDays}일")">
+                        <div class="pm-bar__fill" style="width: @((double)(r.PlanRate ?? 0))%"></div>
+                        <span class="pm-bar__text">@WbsBoardOptions.Percent(r.PlanRate)</span>
+                    </div>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn FieldName="@nameof(WbsBoardProgressRowDto.PlanSdt)" Caption="계획시작" Width="110" />
+            <DxGridDataColumn FieldName="@nameof(WbsBoardProgressRowDto.PlanEdt)" Caption="계획종료" Width="110" />
+            <DxGridDataColumn FieldName="@nameof(WbsBoardProgressRowDto.PlanSdtC)" Caption="실적시작" Width="110" />
+            <DxGridDataColumn FieldName="@nameof(WbsBoardProgressRowDto.PlanEdtC)" Caption="실적종료" Width="110" />
+
+            <DxGridDataColumn Caption="완료" Width="80">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var r = (WbsBoardProgressRowDto)cell.DataItem;
+                    }
+                    <span class="jsini-badge @(r.ComplateYn == "o" ? "jsini-badge--on" : "jsini-badge--off")">
+                        @(r.ComplateYn == "o" ? "완료" : "미완")
+                    </span>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn FieldName="@nameof(WbsBoardProgressRowDto.UserNm)" Caption="담당자" Width="110" />
+            <DxGridDataColumn FieldName="@nameof(WbsBoardProgressRowDto.UserRealNm)" Caption="개발자" Width="110" />
+        </Columns>
+    </CommGrd>
+}
+
+@code {
+    private string? _projectCode;
+    private string _scope = "dev";
+    private string _who = "plan";
+    private string _view = "user";
+
+    private WbsBoardProgressDto? _summary;
+    private IReadOnlyList<WbsBoardProgressUserDto> _users = [];
+    private IReadOnlyList<WbsBoardProgressModuleDto> _modules = [];
+    private IReadOnlyList<WbsBoardProgressRowDto> _rows = [];
+
+    private int? ProjectRid => int.TryParse(_projectCode, out var rid) ? rid : null;
+
+    private static readonly object[] ViewOptions =
+    [
+        new { Text = "사람별", Value = "user" },
+        new { Text = "모듈별", Value = "module" },
+        new { Text = "항목별", Value = "row" },
+    ];
+
+    private Task SearchAsync() => LoadAsync(async () =>
+    {
+        if (ProjectRid is not int rid)
+        {
+            _summary = null;
+            _users = [];
+            _modules = [];
+            _rows = [];
+            return 0;
+        }
+
+        _summary = await Api.ProgressAsync(rid, _scope);
+
+        // 고른 보기만 읽는다. 셋을 다 읽으면 왕복이 넷이 되고, 항목별은
+        // 건수가 가장 많은 조회다.
+        return _view switch
+        {
+            "module" => (_modules = await Api.ProgressByModuleAsync(rid, _scope)).Count,
+            "row" => (_rows = await Api.ProgressRowsAsync(rid, _scope)).Count,
+            _ => (_users = await Api.ProgressByUserAsync(rid, _scope, _who)).Count,
+        };
+    }, "진척률 자료가 없습니다.", "진척률을 읽지 못했습니다");
+}

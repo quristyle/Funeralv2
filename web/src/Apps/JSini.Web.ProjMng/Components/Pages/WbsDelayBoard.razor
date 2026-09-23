@@ -1,0 +1,209 @@
+@page "/projmng/wbs/delay"
+@attribute [RouteKey("projmng.wbs.delay")]
+
+@*
+    [WBS 지연 현황]
+
+    이력: 사내망 WBS 대시보드(Vue) `views/Delay.vue` → **여기**
+    API: `projmng/wbs-board/delay/summary` · `…/by-user` · `…/rows`
+
+    [착수지연과 종료지연은 서로 독립이다]
+
+    한 줄이 둘 다일 수 있어서 **더하면 겹쳐 센다.** 그래서 「둘 다」와
+    「하나라도」를 서버가 따로 준다 — 화면에서 빼고 더하지 않는다.
+
+    판정식은 [상세 목록]의 지연 필터와 **같은 한 벌**이다. 갈라 두면 여기서
+    눌러 넘어간 목록의 건수가 여기 숫자와 달라진다.
+*@
+
+@inherits DataPage
+@inject WbsBoardClient Api
+@inject NavigationManager Nav
+
+<PageTitle>WBS 지연 현황 · 프로젝트관리</PageTitle>
+
+<CommSch OnSearch="@SearchAsync">
+    <Fields>
+        <CommSchItem Label="프로젝트">
+            <CodeSelect CodeId="projlist" @bind-Value="_projectCode" OnChanged="@(_ => SearchAsync())" />
+        </CommSchItem>
+
+        <CommSchItem Label="범위">
+            <DxComboBox Data="@WbsBoardOptions.Scope" @bind-Value="_scope"
+                        TextFieldName="Text" ValueFieldName="Value" Style="width: 130px" />
+        </CommSchItem>
+
+        <CommSchItem Label="잣대">
+            <DxComboBox Data="@WbsBoardOptions.Who" @bind-Value="_who"
+                        TextFieldName="Text" ValueFieldName="Value" Style="width: 130px" />
+        </CommSchItem>
+
+        <CommSchItem Label="갈래">
+            <DxComboBox Data="@KindOptions" @bind-Value="_kind"
+                        TextFieldName="Text" ValueFieldName="Value" Style="width: 140px" />
+        </CommSchItem>
+    </Fields>
+</CommSch>
+
+@if (_summary is not null)
+{
+    <div class="jsini-stats">
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">기준일</div>
+            <div class="jsini-stat__value pm-stat--dates">@_summary.Asof</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">착수지연</div>
+            <div class="jsini-stat__value">@_summary.StartLate</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">종료지연</div>
+            <div class="jsini-stat__value">@_summary.FinishLate</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">둘 다</div>
+            <div class="jsini-stat__value">@_summary.BothLate</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">하나라도</div>
+            <div class="jsini-stat__value">@_summary.AnyLate</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">최장 착수지연</div>
+            <div class="jsini-stat__value">@Days(_summary.MaxStartDays)</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">최장 종료지연</div>
+            <div class="jsini-stat__value">@Days(_summary.MaxFinishDays)</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">전체</div>
+            <div class="jsini-stat__value">@_summary.Total</div>
+        </div>
+    </div>
+}
+
+<CommGrd TItem="WbsBoardDelayUserDto"
+         Data="@_users"
+         ExportName="사람별 지연"
+         EmptyText="사람별 자료가 없습니다."
+         RowActions="@UserActions"
+         ActionsWidth="90"
+         Reload="@SearchAsync">
+    <Columns>
+        <DxGridDataColumn FieldName="@nameof(WbsBoardDelayUserDto.UserNm)" Caption="사람" MinWidth="140"
+                          TextAlignment="GridTextAlignment.Left" />
+        <DxGridDataColumn FieldName="@nameof(WbsBoardDelayUserDto.Assigned)" Caption="배정" Width="80" />
+        <DxGridDataColumn FieldName="@nameof(WbsBoardDelayUserDto.StartLate)" Caption="착수지연" Width="100" />
+        <DxGridDataColumn FieldName="@nameof(WbsBoardDelayUserDto.FinishLate)" Caption="종료지연" Width="100" />
+        <DxGridDataColumn FieldName="@nameof(WbsBoardDelayUserDto.AnyLate)" Caption="하나라도" Width="100" />
+        <DxGridDataColumn FieldName="@nameof(WbsBoardDelayUserDto.UserBpId)" Caption="사번" Width="110" />
+    </Columns>
+</CommGrd>
+
+<CommGrd TItem="WbsBoardDelayRowDto"
+         Data="@_rows"
+         ExportName="지연 상세"
+         EmptyText="지연된 항목이 없습니다."
+         PageSize="30"
+         Reload="@SearchAsync">
+    <Columns>
+        <DxGridDataColumn FieldName="@nameof(WbsBoardDelayRowDto.ActivityId)" Caption="액티비티" Width="120" />
+        <DxGridDataColumn FieldName="@nameof(WbsBoardDelayRowDto.Systemcode)" Caption="모듈" Width="100" />
+        <DxGridDataColumn FieldName="@nameof(WbsBoardDelayRowDto.MenuNm)" Caption="화면" MinWidth="200"
+                          TextAlignment="GridTextAlignment.Left" />
+
+        <DxGridDataColumn Caption="지연" Width="150">
+            <CellDisplayTemplate Context="cell">
+                @{
+                    var r = (WbsBoardDelayRowDto)cell.DataItem;
+                }
+                @if (r.StartLate)
+                {
+                    <span class="jsini-badge jsini-badge--warn" title="계획시작일이 지났는데 실적시작일이 없습니다.">
+                        착수 @r.StartDays 일
+                    </span>
+                }
+                @if (r.FinishLate)
+                {
+                    <span class="jsini-badge jsini-badge--off" title="계획종료일이 지났는데 실적종료일이 없습니다.">
+                        종료 @r.FinishDays 일
+                    </span>
+                }
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+
+        <DxGridDataColumn FieldName="@nameof(WbsBoardDelayRowDto.PlanSdt)" Caption="계획시작" Width="110" />
+        <DxGridDataColumn FieldName="@nameof(WbsBoardDelayRowDto.PlanEdt)" Caption="계획종료" Width="110" />
+        <DxGridDataColumn FieldName="@nameof(WbsBoardDelayRowDto.UserNm)" Caption="담당자" Width="110" />
+        <DxGridDataColumn FieldName="@nameof(WbsBoardDelayRowDto.UserRealNm)" Caption="개발자" Width="110" />
+        <DxGridDataColumn FieldName="@nameof(WbsBoardDelayRowDto.ProgType)" Caption="유형" MinWidth="140"
+                          TextAlignment="GridTextAlignment.Left" />
+    </Columns>
+</CommGrd>
+
+@code {
+    private string? _projectCode;
+    private string _scope = "dev";
+    private string _who = "plan";
+    private string _kind = "all";
+
+    private WbsBoardDelayDto? _summary;
+    private IReadOnlyList<WbsBoardDelayUserDto> _users = [];
+    private IReadOnlyList<WbsBoardDelayRowDto> _rows = [];
+
+    private int? ProjectRid => int.TryParse(_projectCode, out var rid) ? rid : null;
+
+    private static readonly object[] KindOptions =
+    [
+        new { Text = "하나라도", Value = "all" },
+        new { Text = "착수지연", Value = "start" },
+        new { Text = "종료지연", Value = "finish" },
+    ];
+
+    private static string Days(int? days) => days is null ? "—" : $"{days}일";
+
+    private RenderFragment<WbsBoardDelayUserDto> UserActions => user => __builder =>
+    {
+        <DxButton Text="목록"
+                  RenderStyle="ButtonRenderStyle.Link"
+                  Click="@(() => Drill(user.UserBpId))" />
+    };
+
+    private Task SearchAsync() => LoadAsync(async () =>
+    {
+        if (ProjectRid is not int rid)
+        {
+            _summary = null;
+            _users = [];
+            _rows = [];
+            return 0;
+        }
+
+        var summary = Api.DelayAsync(rid, _scope);
+        var users = Api.DelayByUserAsync(rid, _scope, _who);
+        var rows = Api.DelayRowsAsync(rid, _scope, _kind);
+
+        await Task.WhenAll(summary, users, rows);
+
+        _summary = summary.Result;
+        _users = users.Result;
+        _rows = rows.Result;
+
+        return _rows.Count;
+    }, "지연된 항목이 없습니다.", "지연 현황을 읽지 못했습니다");
+
+    /// <summary>그 사람의 지연 건으로 좁힌 [상세 목록]을 연다.</summary>
+    private void Drill(string? user)
+    {
+        if (string.IsNullOrWhiteSpace(user)) return;
+
+        // 갈래 이름이 목록 쪽과 다르다 — 여기서는 `all` 이 「하나라도」인데
+        // 목록의 필터는 `any` 다. 그대로 넘기면 조건이 안 걸린다.
+        var late = _kind == "all" ? "any" : _kind;
+        var userKey = _who == "real" ? "realUser" : "user";
+
+        Nav.NavigateTo(
+            $"/projmng/wbs/rows?{userKey}={Uri.EscapeDataString(user)}&late={late}&scope={_scope}");
+    }
+}

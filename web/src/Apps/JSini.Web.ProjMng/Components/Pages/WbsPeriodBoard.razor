@@ -1,0 +1,125 @@
+@page "/projmng/wbs/period"
+@attribute [RouteKey("projmng.wbs.period")]
+
+@*
+    [WBS 기간별 현황]
+
+    이력: 사내망 WBS 대시보드(Vue) `views/Period.vue` → **여기**
+    API: `projmng/wbs-board/stats/monthly` · `…/weekly`
+
+    [주는 금요일까지만 그린다]
+
+    서버가 주의 끝을 월요일 + 4일로 준다. 주말에 잡힌 일정이 거의 없어서
+    일요일까지 그리면 막대 오른쪽이 늘 비어 보인다.
+*@
+
+@inherits DataPage
+@inject WbsBoardClient Api
+
+<PageTitle>WBS 기간별 현황 · 프로젝트관리</PageTitle>
+
+<CommSch OnSearch="@SearchAsync">
+    <Fields>
+        <CommSchItem Label="프로젝트">
+            <CodeSelect CodeId="projlist" @bind-Value="_projectCode" OnChanged="@(_ => SearchAsync())" />
+        </CommSchItem>
+
+        <CommSchItem Label="단위">
+            <DxComboBox Data="@UnitOptions" @bind-Value="_unit"
+                        TextFieldName="Text" ValueFieldName="Value" Style="width: 110px" />
+        </CommSchItem>
+
+        <CommSchItem Label="기준일">
+            <DxComboBox Data="@WbsBoardOptions.Basis" @bind-Value="_basis"
+                        TextFieldName="Text" ValueFieldName="Value" Style="width: 130px" />
+        </CommSchItem>
+
+        <CommSchItem Label="범위">
+            <DxComboBox Data="@WbsBoardOptions.Scope" @bind-Value="_scope"
+                        TextFieldName="Text" ValueFieldName="Value" Style="width: 130px" />
+        </CommSchItem>
+    </Fields>
+</CommSch>
+
+@if (_rows.Count > 0)
+{
+    <DxChart Data="@_rows" Width="100%" Height="300px">
+        <DxChartBarSeries T="WbsBoardBucketDto" TArgument="string" TValue="int"
+                          ArgumentField="b => b.Bucket" ValueField="b => b.Cnt" Name="전체" />
+        <DxChartBarSeries T="WbsBoardBucketDto" TArgument="string" TValue="int"
+                          ArgumentField="b => b.Bucket" ValueField="b => b.Done" Name="완료" />
+        <DxChartTooltip Enabled="true">
+            <div class="jsini-tip">@context.Point.Argument · @context.Point.SeriesName @(context.Point.Value)건</div>
+        </DxChartTooltip>
+    </DxChart>
+}
+
+<CommGrd TItem="WbsBoardBucketDto"
+         Data="@_rows"
+         ExportName="기간별 현황"
+         EmptyText="기간별 자료가 없습니다."
+         PageSize="24"
+         Reload="@SearchAsync">
+    <Columns>
+        <DxGridDataColumn FieldName="@nameof(WbsBoardBucketDto.Bucket)" Caption="기간" Width="120" />
+
+        <DxGridDataColumn Caption="구간" MinWidth="180" Visible="@Weekly">
+            <CellDisplayTemplate Context="cell">
+                @{
+                    var b = (WbsBoardBucketDto)cell.DataItem;
+                }
+                @(b.WeekStart is null ? "—" : $"{b.WeekStart} ~ {b.WeekEnd}")
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+
+        <DxGridDataColumn FieldName="@nameof(WbsBoardBucketDto.Cnt)" Caption="건수" Width="90" />
+        <DxGridDataColumn FieldName="@nameof(WbsBoardBucketDto.Done)" Caption="완료" Width="90" />
+
+        <DxGridDataColumn Caption="완료율" Width="110">
+            <CellDisplayTemplate Context="cell">
+                @{
+                    var b = (WbsBoardBucketDto)cell.DataItem;
+                }
+                @(b.Cnt == 0 ? "—" : $"{b.Done * 100.0 / b.Cnt:0.#}%")
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+
+        <DxGridDataColumn FieldName="@nameof(WbsBoardBucketDto.Modules)" Caption="모듈" Width="90"
+                          Visible="@(!Weekly)" />
+        <DxGridDataColumn FieldName="@nameof(WbsBoardBucketDto.Users)" Caption="담당자" Width="90" />
+    </Columns>
+</CommGrd>
+
+@code {
+    private string? _projectCode;
+    private string _unit = "month";
+    private string _basis = "edt";
+    private string _scope = "dev";
+
+    private IReadOnlyList<WbsBoardBucketDto> _rows = [];
+
+    private int? ProjectRid => int.TryParse(_projectCode, out var rid) ? rid : null;
+
+    private bool Weekly => _unit == "week";
+
+    private static readonly object[] UnitOptions =
+    [
+        new { Text = "월", Value = "month" },
+        new { Text = "주", Value = "week" },
+    ];
+
+    private Task SearchAsync() => LoadAsync(async () =>
+    {
+        if (ProjectRid is not int rid)
+        {
+            _rows = [];
+            return 0;
+        }
+
+        _rows = Weekly
+            ? await Api.WeeklyAsync(rid, _basis, _scope)
+            : await Api.MonthlyAsync(rid, _basis, _scope);
+
+        return _rows.Count;
+    }, "기간별 자료가 없습니다.", "기간별 현황을 읽지 못했습니다");
+}

@@ -1316,6 +1316,64 @@ ERD 화면과 업무 흐름 화면은 **`db_pkey='erd'` 한 줄만** 읽는다. 
 그림을 열지 알게 되기 때문이고, 순서를 뒤집으면 **ERD 를 열 때 왕복이 둘로
 늘어난다** — 그쪽이 훨씬 잦다.
 
+#### WBS 대시보드 — 사내망에서 통째로 들여온 화면 열넷 (2026-09-23)
+
+사내망에서 **따로 돌던 물건**이다(`move_re` 꾸러미 — .NET 9 Minimal API +
+Vue3, 약 16,700줄). 프로젝트관리 안으로 들여왔다.
+
+```
+DB      deploy/sql/projmng-wbs-2026-09-23.sql      표 15 · 뷰 4 (projmng 스키마)
+메뉴    deploy/sql/portal-menu-wbs-board-2026-09-23.sql   PM_WBS 묶음 + 화면 14
+백엔드  ProjMngServer/Controllers/WbsBoard*·Interfaces*·Gitlab*·Pv*
+프론트  Components/Pages/Wbs*Board·WbsRowList·InterfaceList·Gitlab*·Pv*
+```
+
+**`/projmng/wbs` 와 `/projmng/proj/wbs` 는 다른 물건이다.** 앞엣것이 들여온
+대시보드(1줄 = 1화면, `wbs_work`)고 뒤엣것이 원래 있던 공정표(1줄 = 1공정,
+`dev_wbs`)다. 타입 이름도 `WbsBoard*` / `Wbs*` 로 갈라 두었다 — 짧게 지으면
+같은 파일 안에서 부딪힌다.
+
+##### 원본과 달라진 것 넷
+
+| | 원본 | 여기 |
+|---|---|---|
+| 프로젝트 | 하나 전용 | 뿌리 표마다 `prj_rid`. **조회에 기본값이 없다** |
+| 인증 | 접속 IP 를 `dev_user.use_ip` 와 대조 | 포털 JWT·역할. IP 는 장비 대장으로만 남았다 |
+| 메뉴 권한 | 자기 표 둘(`dev_menu`·`dev_user_menu`) | `scom.role_menus`. 표도 화면도 안 옮겼다 |
+| 표 이름 | `hhip_wbs_*` | `wbs_*` (고객사 이름을 뗐다) |
+
+##### 옮길 수 없었던 것 — ProjectView 의 엑셀 경로
+
+원본은 ProjectView 값을 받는 길이 둘이었다. ① Excel Export 파일 ② 콘솔에서
+걷어 붙여넣은 JSON. **①은 성립하지 않는다** — 그 엑셀이 HHI DRM 으로 잠겨
+있어 프로그램이 직접 못 열고, 원본은 Windows 의 Excel COM
+(`tools/export2csv.ps1`)으로 CSV 를 만든 뒤 `%USERPROFILE%\Downloads` 를
+뒤졌다. 포털은 리눅스 컨테이너에서 돌고 브라우저 내려받기 폴더가 없다.
+
+②만 남겼고 그것이 [수집]·[워크플로 채우기]가 이미 쓰던 길이라, 화면에서
+달라지는 것은 「파일로 읽기」 단추가 없다는 것뿐이다.
+
+##### 콘솔 스크립트 2,595줄은 **고치지 않고** 들여왔다
+
+`wwwroot/js/pv-script-core.js`(1,592) · `pv-flow-core.js`(1,003)는 원본 파일
+그대로다. 고친 것은 모듈 경로 한 줄뿐이고, 화면은 `pv-console.js` 한 곳을
+거쳐 부른다. 그 안의 fetch 가 전부 **상대 주소**라 ProjectView 탭 안에서
+돌기만 하면 우리 주소를 알 필요가 없다 — 그래서 손댈 것이 없었다.
+
+##### 옮기면서 밟은 것 셋
+
+- **`Dictionary<string, object?>` 로 본문을 받으면 값이 `JsonElement` 다.**
+  Dapper 가 매개변수로 못 받아 **수정이 통째로 500** 이 난다. 변환기를 한 곳에
+  두었다(`WbsBoardSql.JsonValue`). 그리고 그 변환기를 인터페이스에 그대로 쓰면
+  `ext`·`params`(jsonb)가 조용히 `null` 이 되어 `NOT NULL` 에 걸린다 — 그쪽은
+  객체를 **글자로 굳혀** 넘긴다.
+- **`switch` 의 관계 패턴(`< 1024`)을 `@code` 에 쓰면 안 된다.** 갈래 자리는
+  Razor 가 markup 이 시작될 수 있는 곳으로 보고 그 `<` 를 여는 태그로 읽는다.
+  파일 하나에서 오류가 173개로 쏟아지고 **엉뚱한 줄을 가리킨다.**
+- **`CommPopup` 은 `ChildContent` 를 안 받는다.** 본문을 그냥 넣으면 빌드는
+  통과하고 **화면을 열 때 500 으로 죽는다**. `BodyContentTemplate` 으로 감싸되
+  `Context` 를 따로 준다 — 안 그러면 안쪽 `DxFormLayoutItem` 과 이름이 부딪힌다.
+
 #### 참여 배정은 화면 하나다 — 축만 뒤집는다 (`ParticipationBoard`)
 
 프로젝트 참여자(`/projmng/proj/user`)와 투입 관리(`/projmng/proj/appointment`,

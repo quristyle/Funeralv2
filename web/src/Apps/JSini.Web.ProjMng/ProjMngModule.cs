@@ -48,6 +48,22 @@ public sealed class ProjMngModule : IPortalModule
         services.AddScoped<ProjectPropClient>();
         services.AddScoped<CommonCodes>();
 
+        // WBS 대시보드 — 사내망에서 따로 돌던 물건을 옮겨 온 것이다.
+        // `WbsClient` 와 이름이 비슷하지만 **다른 표**다 — 그쪽은 프로젝트별
+        // 공정표, 이쪽은 화면 단위 원장이다.
+        services.AddScoped<WbsBoardClient>();
+        services.AddScoped<WbsBoardTaskClient>();
+        services.AddScoped<WbsDevUserClient>();
+        services.AddScoped<WbsDocsClient>();
+
+        // EAI 인터페이스 카탈로그.
+        services.AddScoped<InterfaceClient>();
+
+        // GitLab · ProjectView. **둘 다 설정이 없으면 빈 채로 뜬다** —
+        // 안 쓰는 프로젝트가 정상이다.
+        services.AddScoped<GitlabStatusClient>();
+        services.AddScoped<PvClient>();
+
         // AI 작업 지시 — docs/ai-task-runner.md.
         // 게이트웨이 경로는 `projmng/ai-tasks` 다. 백엔드가 ProjMngServer 라
         // 다른 열한 개와 접두사가 같다.

@@ -44,6 +44,31 @@ builder.Services.AddScoped<DbLogicService>();
 builder.Services.AddScoped<ActivityInfoService>();
 builder.Services.AddScoped<ProjectPropService>();
 
+// WBS 대시보드 — 사내망에서 따로 돌던 물건을 옮겨 온 것이다
+// (deploy/sql/projmng-wbs-2026-09-23.sql 이 표를 만든다).
+// `WbsService` 와 이름이 비슷하지만 **다른 표**다 — 그쪽은 프로젝트별 공정표
+// (`dev_wbs`), 이쪽은 화면 단위 원장(`wbs_work`)이다.
+builder.Services.AddScoped<WbsBoardService>();
+builder.Services.AddScoped<WbsProgressService>();
+builder.Services.AddScoped<WbsDelayService>();
+builder.Services.AddScoped<WbsBoardTaskService>();
+builder.Services.AddScoped<WbsBoardUserService>();
+builder.Services.AddScoped<WbsDocsService>();
+
+// EAI 인터페이스 카탈로그. 첨부는 표가 아니라 파일 이름에 메타를 담는다.
+builder.Services.AddScoped<InterfaceService>();
+builder.Services.AddScoped<InterfaceFileService>();
+
+// ProjectView 캐시와 원장 반영. **엑셀 경로는 옮기지 않았다** —
+// 그 파일이 DRM 으로 잠겨 있어 Windows 의 Excel COM 없이는 못 연다
+// (PvSyncService 머리말).
+builder.Services.AddScoped<PvCacheService>();
+builder.Services.AddScoped<PvSyncService>();
+
+// GitLab. 설정이 없으면 아무것도 부르지 않고 빈 결과를 준다.
+builder.Services.AddScoped<GitlabService>();
+builder.Services.AddScoped<GitlabMonitorService>();
+
 // AI 작업 지시 — docs/ai-task-runner.md.
 // 작업 서비스가 대상 서비스를 받는다 — push 를 켤 수 있는 대상인지 되묻기 때문이다.
 // 그 값 하나가 운영 배포를 일으키므로 화면 말고 여기서도 본다.

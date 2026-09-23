@@ -1,0 +1,538 @@
+@page "/projmng/wbs/rows"
+@attribute [RouteKey("projmng.wbs.rows")]
+
+@*
+    [WBS 상세 목록]
+
+    이력: 사내망 WBS 대시보드(Vue) `views/Rows.vue`(928줄) → **여기**
+    API: `projmng/wbs-board/rows` · `…/rows/{activityId}`(PATCH) ·
+         `projmng/wbs-board/tasks`
+
+    다른 화면의 막대·칸을 누르면 조건이 주소에 실려 이리로 온다. 그래서
+    **조건을 주소에서 먼저 읽는다** — 화면이 스스로 정한 기본값보다 주소가 이긴다.
+
+    [줄을 새로 만들지 않는다]
+
+    원장은 엑셀 WBS 가 원본이고 `activity_id` 로 맞춘다. 여기서 줄을 만들면
+    다음 동기화에서 짝을 못 찾아 떠돈다 — 그래서 등록 단추가 없다.
+
+    같은 이유로 **일정과 실적 날짜는 고칠 수 없다.** 서버의 화이트리스트에
+    아예 없어서, 보내도 조용히 버려진다.
+
+    [일감 건수는 줄마다 묻지 않는다]
+
+    200건이 넘는 목록이라 줄마다 물으면 왕복이 그만큼이다. 건수는 한 번에
+    받아(`tasks/counts`) 목록에 얹는다.
+*@
+
+@inherits DataPage
+@inject WbsBoardClient Api
+@inject WbsBoardTaskClient TaskApi
+@inject NavigationManager Nav
+
+<PageTitle>WBS 상세 목록 · 프로젝트관리</PageTitle>
+
+<CommSch OnSearch="@SearchAsync">
+    <Fields>
+        <CommSchItem Label="프로젝트">
+            <CodeSelect CodeId="projlist" @bind-Value="_projectCode" OnChanged="@(_ => SearchAsync())" />
+        </CommSchItem>
+
+        <CommSchItem Label="기준일">
+            <DxComboBox Data="@WbsBoardOptions.Basis" @bind-Value="_filter.Basis"
+                        TextFieldName="Text" ValueFieldName="Value" Style="width: 130px" />
+        </CommSchItem>
+
+        <CommSchItem Label="범위">
+            <DxComboBox Data="@WbsBoardOptions.Scope" @bind-Value="_filter.Scope"
+                        TextFieldName="Text" ValueFieldName="Value" Style="width: 130px" />
+        </CommSchItem>
+
+        <CommSchItem Label="담당자">
+            <DxComboBox Data="@_userOptions" @bind-Value="_filter.User"
+                        TextFieldName="Text" ValueFieldName="Value"
+                        ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto"
+                        Style="width: 170px" />
+        </CommSchItem>
+
+        <CommSchItem Label="모듈">
+            <DxComboBox Data="@_moduleOptions" @bind-Value="_filter.Module"
+                        TextFieldName="Text" ValueFieldName="Value"
+                        ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto"
+                        Style="width: 170px" />
+        </CommSchItem>
+
+        <CommSchItem Label="완료">
+            <DxComboBox Data="@DoneOptions" @bind-Value="_filter.Done"
+                        TextFieldName="Text" ValueFieldName="Value" Style="width: 120px" />
+        </CommSchItem>
+
+        <CommSchItem Label="지연">
+            <DxComboBox Data="@LateOptions" @bind-Value="_filter.Late"
+                        TextFieldName="Text" ValueFieldName="Value" Style="width: 140px" />
+        </CommSchItem>
+
+        <CommSchItem Label="진행">
+            <DxComboBox Data="@StatusOptions" @bind-Value="_filter.Status"
+                        TextFieldName="Text" ValueFieldName="Value" Style="width: 140px" />
+        </CommSchItem>
+
+        <CommSchItem Label="검색어">
+            <DxTextBox @bind-Text="_filter.Q" Style="width: 200px" />
+        </CommSchItem>
+    </Fields>
+</CommSch>
+
+<CommCont Hint="@Hint">
+    <CommGrd TItem="WbsBoardRowDto"
+             Data="@_rows"
+             EditFormTitle="화면"
+             ExportName="WBS 상세 목록"
+             EmptyText="조건에 맞는 화면이 없습니다."
+             PageSize="30"
+             OnSave="@SaveAsync"
+             RowActions="@RowActions"
+             ActionsWidth="80"
+             Reload="@SearchAsync">
+        <Columns>
+            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.ActivityId)" Caption="액티비티" Width="120" />
+            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.Systemcode)" Caption="모듈" Width="100" />
+            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.MenuNm)" Caption="화면" MinWidth="220"
+                              TextAlignment="GridTextAlignment.Left" />
+
+            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.PlanSdt)" Caption="계획시작" Width="105" />
+            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.PlanEdt)" Caption="계획종료" Width="105" />
+            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.PlanSdtC)" Caption="실적시작" Width="105" />
+            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.PlanEdtC)" Caption="실적종료" Width="105" />
+
+            <DxGridDataColumn Caption="진척률" Width="90">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var r = (WbsBoardRowDto)cell.DataItem;
+                    }
+                    @WbsBoardOptions.Percent(r.PlanRate)
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn Caption="지연" Width="130">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var r = (WbsBoardRowDto)cell.DataItem;
+                    }
+                    @if (r.StartLate)
+                    {
+                        <span class="jsini-badge jsini-badge--warn">착수 @r.StartDays</span>
+                    }
+                    @if (r.FinishLate)
+                    {
+                        <span class="jsini-badge jsini-badge--off">종료 @r.FinishDays</span>
+                    }
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn Caption="담당자" Width="110">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var r = (WbsBoardRowDto)cell.DataItem;
+                    }
+                    @(r.UserNm ?? (string.IsNullOrWhiteSpace(r.UserBpId) ? "미지정" : "미할당"))
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn Caption="완료" Width="75">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var r = (WbsBoardRowDto)cell.DataItem;
+                    }
+                    <span class="jsini-badge @(r.ComplateYn == "o" ? "jsini-badge--on" : "jsini-badge--off")">
+                        @(r.ComplateYn == "o" ? "완료" : "미완")
+                    </span>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn Caption="개발자" Width="110">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var r = (WbsBoardRowDto)cell.DataItem;
+                    }
+                    @(r.UserRealNm ?? (string.IsNullOrWhiteSpace(r.UserRealId) ? "미지정" : "미할당"))
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn Caption="개발완료" Width="85">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var r = (WbsBoardRowDto)cell.DataItem;
+                    }
+                    <span class="jsini-badge @(r.ComplateRealYn == "o" ? "jsini-badge--on" : "jsini-badge--off")">
+                        @(r.ComplateRealYn == "o" ? "완료" : "미완")
+                    </span>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn Caption="일감" Width="90">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var r = (WbsBoardRowDto)cell.DataItem;
+                    }
+                    @if (r.TaskCnt > 0)
+                    {
+                        <span class="jsini-badge" title="완료 / 전체">@r.TaskDone / @r.TaskCnt</span>
+                    }
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn Caption="PV 진척" Width="90">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var r = (WbsBoardRowDto)cell.DataItem;
+                    }
+                    @(r.PvFinishRate is null ? "—" : $"{r.PvFinishRate:0.#}%")
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.PvStatus)" Caption="PV 단계" Width="110" />
+            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.ProgType)" Caption="유형" MinWidth="140"
+                              TextAlignment="GridTextAlignment.Left" />
+            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.PriorityOrder)" Caption="우선" Width="70" />
+        </Columns>
+
+        <EditFormTemplate Context="edit">
+            @{
+                var r = (WbsBoardRowDto)edit.EditModel;
+            }
+            <DxFormLayout CssClass="pm-editform">
+                <DxFormLayoutItem Caption="액티비티" ColSpanMd="6">
+                    <DxTextBox Text="@r.ActivityId" ReadOnly="true" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="화면" ColSpanMd="6">
+                    <DxTextBox @bind-Text="r.MenuNm" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="모듈" ColSpanMd="6">
+                    <DxTextBox @bind-Text="r.Systemcode" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="모듈명" ColSpanMd="6">
+                    <DxTextBox @bind-Text="r.SystemNm" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="담당자 사번" ColSpanMd="6">
+                    <DxTextBox @bind-Text="r.UserBpId" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="개발자 사번" ColSpanMd="6">
+                    <DxTextBox @bind-Text="r.UserRealId" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="완료" ColSpanMd="4">
+                    <DxCheckBox @bind-Checked="r.Complate">담당자 완료</DxCheckBox>
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="개발완료" ColSpanMd="4">
+                    <DxCheckBox @bind-Checked="r.ComplateReal">개발자 완료</DxCheckBox>
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="재확인" ColSpanMd="4">
+                    <DxCheckBox @bind-Checked="r.Recheck">재확인 요청</DxCheckBox>
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="대형완료" ColSpanMd="4">
+                    <DxCheckBox @bind-Checked="r.ComplateBig">대형 완료</DxCheckBox>
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="대형개발완료" ColSpanMd="4">
+                    <DxCheckBox @bind-Checked="r.ComplateRealBig">대형 개발 완료</DxCheckBox>
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="대형DB준비" ColSpanMd="4">
+                    <DxCheckBox @bind-Checked="r.DbReadyBig">준비됨</DxCheckBox>
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="우선순위" ColSpanMd="6">
+                    <DxTextBox @bind-Text="r.PriorityOrder" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="화면 유형" ColSpanMd="6">
+                    <DxTextBox @bind-Text="r.ProgType" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="기능 요약" ColSpanMd="12">
+                    <DxMemo @bind-Text="r.ProgTypeDesc" Rows="2" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem ColSpanMd="12">
+                    <PageNotice Tone="NoticeTone.Info"
+                                Text="계획·실적 날짜는 엑셀 WBS 가 원본이라 여기서 고칠 수 없습니다." />
+                </DxFormLayoutItem>
+            </DxFormLayout>
+        </EditFormTemplate>
+    </CommGrd>
+</CommCont>
+
+<CommPopup @bind-Visible="_taskOpen" HeaderText="@TaskTitle" Width="760px">
+    @* **`CommPopup` 은 `ChildContent` 를 안 받는다.** 본문을 그냥 넣으면
+       빌드는 통과하고 **화면을 열 때 500 으로 죽는다** — 실제로 밟았다. *@
+    <BodyContentTemplate Context="popup">
+        <CommGrd TItem="WbsBoardTaskDto"
+                 Data="@_tasks"
+                 EditFormTitle="일감"
+                 ExportName="일감"
+                 EmptyText="일감이 없습니다."
+                 PageSize="10"
+                 OnNew="@FillNewTask"
+                 OnSave="@SaveTaskAsync"
+                 OnDelete="@DeleteTaskAsync"
+                 DeleteConfirm="@(t => $"「{t.TaskDiv} · {t.Memo}」 을(를) 지웁니다.\n되돌릴 수 없습니다.")"
+                 Reload="@LoadTasksAsync">
+            <Columns>
+                <DxGridDataColumn FieldName="@nameof(WbsBoardTaskDto.TaskDiv)" Caption="구분" Width="120" />
+                <DxGridDataColumn FieldName="@nameof(WbsBoardTaskDto.Memo)" Caption="메모" MinWidth="240"
+                                  TextAlignment="GridTextAlignment.Left" />
+
+                <DxGridDataColumn Caption="완료" Width="80">
+                    <CellDisplayTemplate Context="cell">
+                        @{
+                            var t = (WbsBoardTaskDto)cell.DataItem;
+                        }
+                        <span class="jsini-badge @(t.Done ? "jsini-badge--on" : "jsini-badge--off")">
+                            @(t.Done ? "완료" : "미완")
+                        </span>
+                    </CellDisplayTemplate>
+                </DxGridDataColumn>
+
+                <DxGridDataColumn FieldName="@nameof(WbsBoardTaskDto.UpdatedAt)" Caption="고친 때" Width="130" />
+            </Columns>
+
+            <EditFormTemplate Context="edit">
+                @{
+                    var t = (WbsBoardTaskDto)edit.EditModel;
+                }
+                <DxFormLayout CssClass="pm-editform">
+                    <DxFormLayoutItem Caption="구분" ColSpanMd="12">
+                        <DxTextBox @bind-Text="t.TaskDiv" />
+                    </DxFormLayoutItem>
+
+                    <DxFormLayoutItem Caption="메모" ColSpanMd="12">
+                        <DxMemo @bind-Text="t.Memo" Rows="4" />
+                    </DxFormLayoutItem>
+
+                    <DxFormLayoutItem Caption="완료" ColSpanMd="12">
+                        <DxCheckBox @bind-Checked="t.Done">완료</DxCheckBox>
+                    </DxFormLayoutItem>
+                </DxFormLayout>
+            </EditFormTemplate>
+        </CommGrd>
+    </BodyContentTemplate>
+</CommPopup>
+
+@code {
+    private string? _projectCode;
+    private readonly WbsBoardFilter _filter = new() { Basis = "edt", Scope = "dev" };
+
+    private IReadOnlyList<WbsBoardRowDto> _rows = [];
+    private object[] _userOptions = [];
+    private object[] _moduleOptions = [];
+
+    private bool _taskOpen;
+    private WbsBoardRowDto? _taskRow;
+    private IReadOnlyList<WbsBoardTaskDto> _tasks = [];
+
+    private int? ProjectRid => int.TryParse(_projectCode, out var rid) ? rid : null;
+
+    private string Hint =>
+        $"{_rows.Count(r => r.ComplateYn == "o")} / {_rows.Count}건 완료"
+        + (_rows.Count(r => r.StartLate || r.FinishLate) is var late && late > 0 ? $" · 지연 {late}건" : "");
+
+    private string TaskTitle => _taskRow is null ? "일감" : $"일감 · {_taskRow.MenuNm}";
+
+    private static readonly object[] DoneOptions =
+    [
+        new { Text = "전체", Value = (string?)null },
+        new { Text = "완료", Value = "y" },
+        new { Text = "미완료", Value = "n" },
+    ];
+
+    private static readonly object[] StatusOptions =
+    [
+        new { Text = "전체", Value = (string?)null },
+        new { Text = "착수도래 미완료", Value = "open" },
+        new { Text = "미도래", Value = "notyet" },
+        new { Text = "완료", Value = "done" },
+    ];
+
+    private static readonly object[] LateOptions =
+    [
+        new { Text = "전체", Value = (string?)null },
+        new { Text = "하나라도", Value = "any" },
+        new { Text = "착수지연", Value = "start" },
+        new { Text = "종료지연", Value = "finish" },
+        new { Text = "둘 다", Value = "both" },
+        new { Text = "지연 없음", Value = "none" },
+    ];
+
+    private RenderFragment<WbsBoardRowDto> RowActions => row => __builder =>
+    {
+        <DxButton Text="일감"
+                  RenderStyle="ButtonRenderStyle.Link"
+                  Click="@(() => OpenTasksAsync(row))" />
+    };
+
+    /// <summary>
+    /// 다른 화면에서 실려 온 조건을 먼저 읽는다.
+    /// </summary>
+    /// <remarks>
+    /// <b>화면이 스스로 정한 기본값보다 주소가 이긴다.</b> 안 그러면 차트에서
+    /// 눌러 넘어왔는데 조건이 안 걸린 전체 목록이 뜬다.
+    /// </remarks>
+    protected override void OnInitialized()
+    {
+        var query = System.Web.HttpUtility.ParseQueryString(new Uri(Nav.Uri).Query);
+
+        string? Get(string key) =>
+            string.IsNullOrWhiteSpace(query[key]) ? null : query[key];
+
+        _filter.Basis = Get("basis") ?? _filter.Basis;
+        _filter.Scope = Get("scope") ?? _filter.Scope;
+        _filter.Month = Get("month");
+        _filter.Week = Get("week");
+        _filter.User = Get("user");
+        _filter.RealUser = Get("realUser");
+        _filter.Module = Get("module");
+        _filter.Q = Get("q");
+        _filter.Done = Get("done");
+        _filter.Late = Get("late");
+        _filter.Status = Get("status");
+    }
+
+    private Task SearchAsync() => LoadAsync(async () =>
+    {
+        if (ProjectRid is not int rid)
+        {
+            _rows = [];
+            return 0;
+        }
+
+        // 목록·일감 건수·고르개 셋을 나란히 읽는다. 일감 건수는 줄마다 묻지
+        // 않으려고 한 번에 받는 값이다(머리말).
+        var rows = Api.RowsAsync(rid, _filter);
+        var counts = TaskApi.CountsAsync(rid);
+        var users = Api.UsersAsync(rid, _filter.Scope, _filter.Basis, _filter.Month, _filter.Week);
+        var modules = Api.ByModuleAsync(rid, _filter.Basis, _filter.Scope);
+
+        await Task.WhenAll(rows, counts, users, modules);
+
+        _rows = rows.Result;
+
+        var byActivity = counts.Result
+            .Where(c => c.ActivityId is not null)
+            .ToDictionary(c => c.ActivityId!, c => c);
+
+        foreach (var row in _rows)
+        {
+            if (row.ActivityId is not null && byActivity.TryGetValue(row.ActivityId, out var c))
+            {
+                row.TaskCnt = c.Cnt;
+                row.TaskDone = c.Done;
+            }
+        }
+
+        _userOptions =
+        [
+            new { Text = "전체", Value = (string?)null },
+            .. users.Result.Select(u => new { Text = $"{u.UserNm} ({u.Cnt})", Value = u.UserBpId })
+        ];
+
+        _moduleOptions =
+        [
+            new { Text = "전체", Value = (string?)null },
+            .. modules.Result.Select(m => new { Text = $"{m.Systemcode} {m.SystemNm}", Value = m.Systemcode })
+        ];
+
+        return _rows.Count;
+    }, "조건에 맞는 화면이 없습니다.", "목록을 읽지 못했습니다");
+
+    /// <summary>
+    /// 고친 칸만 보낸다. <b>편집 창에 없는 칸은 담지 않는다</b> — 서버가
+    /// 화이트리스트로 한 번 더 거르지만, 보내지 않는 편이 뜻이 분명하다.
+    /// </summary>
+    private async Task SaveAsync((WbsBoardRowDto Item, bool IsNew) e)
+    {
+        if (ProjectRid is not int rid || e.Item.ActivityId is null) return;
+
+        var patch = new Dictionary<string, object?>
+        {
+            ["menu_nm"] = e.Item.MenuNm,
+            ["systemcode"] = e.Item.Systemcode,
+            ["system_nm"] = e.Item.SystemNm,
+            ["user_bp_id"] = e.Item.UserBpId,
+            ["user_real_id"] = e.Item.UserRealId,
+            ["complate_yn"] = e.Item.ComplateYn,
+            ["complate_real_yn"] = e.Item.ComplateRealYn,
+            ["recheck_yn"] = e.Item.RecheckYn,
+            ["complate_big_yn"] = e.Item.ComplateBigYn,
+            ["complate_real_big_yn"] = e.Item.ComplateRealBigYn,
+            ["db_ready_big_yn"] = e.Item.DbReadyBigYn,
+            ["priority_order"] = e.Item.PriorityOrder,
+            ["prog_type"] = e.Item.ProgType,
+            ["prog_type_desc"] = e.Item.ProgTypeDesc,
+        };
+
+        await Api.PatchRowAsync(rid, e.Item.ActivityId, patch);
+    }
+
+    // ──────────────────────────────────────────── 일감
+
+    private async Task OpenTasksAsync(WbsBoardRowDto row)
+    {
+        _taskRow = row;
+        _taskOpen = true;
+
+        await LoadTasksAsync();
+    }
+
+    private Task LoadTasksAsync() => LoadAsync(async () =>
+    {
+        if (ProjectRid is not int rid || _taskRow?.ActivityId is null)
+        {
+            _tasks = [];
+            return 0;
+        }
+
+        _tasks = await TaskApi.ListAsync(rid, _taskRow.ActivityId);
+        return _tasks.Count;
+    }, "일감이 없습니다.", "일감을 읽지 못했습니다");
+
+    private void FillNewTask(WbsBoardTaskDto task) => task.ActivityId = _taskRow?.ActivityId;
+
+    private async Task SaveTaskAsync((WbsBoardTaskDto Item, bool IsNew) e)
+    {
+        if (ProjectRid is not int rid) return;
+
+        if (e.IsNew)
+        {
+            await TaskApi.CreateAsync(rid, e.Item);
+        }
+        else
+        {
+            await TaskApi.UpdateAsync(rid, e.Item.TaskId, new Dictionary<string, object?>
+            {
+                ["taskDiv"] = e.Item.TaskDiv,
+                ["memo"] = e.Item.Memo,
+                ["doneYn"] = e.Item.DoneYn,
+            });
+        }
+
+        // 건수가 목록의 칸에 걸려 있어 함께 다시 읽는다.
+        await SearchAsync();
+    }
+
+    private async Task DeleteTaskAsync(WbsBoardTaskDto task)
+    {
+        if (ProjectRid is not int rid) return;
+
+        await TaskApi.DeleteAsync(rid, task.TaskId);
+        await SearchAsync();
+    }
+}

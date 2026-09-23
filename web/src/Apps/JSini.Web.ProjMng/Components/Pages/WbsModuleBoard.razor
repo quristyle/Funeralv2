@@ -1,0 +1,146 @@
+@page "/projmng/wbs/modules"
+@attribute [RouteKey("projmng.wbs.modules")]
+
+@*
+    [WBS 모듈별 현황]
+
+    이력: 사내망 WBS 대시보드(Vue) `views/Modules.vue` → **여기**
+    API: `projmng/wbs-board/stats/by-module`
+
+    모듈은 서브시스템 코드(`systemcode`)다 — 소스 저장소 이름과 같다.
+
+    [계획 기간과 실적 기간을 나란히 둔다]
+
+    계획은 엑셀 WBS 가 원본이고 실적은 사람이 채우는 값이라, 실적이 적힌
+    건수(`ActSdt`·`ActEdt`)가 전체보다 한참 적은 것이 정상이다. 두 기간을
+    같은 줄에 두면 **어느 모듈이 아직 손도 안 댔는지**가 바로 보인다.
+*@
+
+@inherits DataPage
+@inject WbsBoardClient Api
+@inject NavigationManager Nav
+
+<PageTitle>WBS 모듈별 현황 · 프로젝트관리</PageTitle>
+
+<CommSch OnSearch="@SearchAsync">
+    <Fields>
+        <CommSchItem Label="프로젝트">
+            <CodeSelect CodeId="projlist" @bind-Value="_projectCode" OnChanged="@(_ => SearchAsync())" />
+        </CommSchItem>
+
+        <CommSchItem Label="기준일">
+            <DxComboBox Data="@WbsBoardOptions.Basis" @bind-Value="_basis"
+                        TextFieldName="Text" ValueFieldName="Value" Style="width: 130px" />
+        </CommSchItem>
+
+        <CommSchItem Label="범위">
+            <DxComboBox Data="@WbsBoardOptions.Scope" @bind-Value="_scope"
+                        TextFieldName="Text" ValueFieldName="Value" Style="width: 130px" />
+        </CommSchItem>
+    </Fields>
+</CommSch>
+
+@if (_rows.Count > 0)
+{
+    <DxChart Data="@_rows" Width="100%" Height="300px">
+        <DxChartBarSeries T="WbsBoardModuleDto" TArgument="string" TValue="int"
+                          ArgumentField="m => m.Systemcode" ValueField="m => m.Cnt" Name="전체" />
+        <DxChartBarSeries T="WbsBoardModuleDto" TArgument="string" TValue="int"
+                          ArgumentField="m => m.Systemcode" ValueField="m => m.Done" Name="완료" />
+        <DxChartTooltip Enabled="true">
+            <div class="jsini-tip">@context.Point.Argument · @context.Point.SeriesName @(context.Point.Value)건</div>
+        </DxChartTooltip>
+    </DxChart>
+}
+
+<CommGrd TItem="WbsBoardModuleDto"
+         Data="@_rows"
+         ExportName="모듈별 현황"
+         EmptyText="모듈별 자료가 없습니다."
+         PageSize="25"
+         RowActions="@ModuleActions"
+         ActionsWidth="90"
+         Reload="@SearchAsync">
+    <Columns>
+        <DxGridDataColumn FieldName="@nameof(WbsBoardModuleDto.Systemcode)" Caption="모듈" Width="110" />
+        <DxGridDataColumn FieldName="@nameof(WbsBoardModuleDto.SystemNm)" Caption="이름" MinWidth="160"
+                          TextAlignment="GridTextAlignment.Left" />
+        <DxGridDataColumn FieldName="@nameof(WbsBoardModuleDto.Cnt)" Caption="건수" Width="80" />
+        <DxGridDataColumn FieldName="@nameof(WbsBoardModuleDto.Done)" Caption="완료" Width="80" />
+
+        <DxGridDataColumn Caption="완료율" Width="90">
+            <CellDisplayTemplate Context="cell">
+                @{
+                    var m = (WbsBoardModuleDto)cell.DataItem;
+                }
+                @WbsBoardOptions.Percent(m.Done, m.Cnt)
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+
+        <DxGridDataColumn FieldName="@nameof(WbsBoardModuleDto.DoneBig)" Caption="대형완료" Width="95" />
+
+        <DxGridDataColumn Caption="계획 기간" MinWidth="180">
+            <CellDisplayTemplate Context="cell">
+                @{
+                    var m = (WbsBoardModuleDto)cell.DataItem;
+                }
+                @(m.MinDt is null ? "—" : $"{m.MinDt} ~ {m.MaxDt}")
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+
+        <DxGridDataColumn Caption="실적 기간" MinWidth="180">
+            <CellDisplayTemplate Context="cell">
+                @{
+                    var m = (WbsBoardModuleDto)cell.DataItem;
+                }
+                @(m.MinAct is null ? "—" : $"{m.MinAct} ~ {m.MaxAct}")
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+
+        <DxGridDataColumn Caption="실적 입력" Width="110">
+            <CellDisplayTemplate Context="cell">
+                @{
+                    var m = (WbsBoardModuleDto)cell.DataItem;
+                }
+                <span title="시작 / 종료">@m.ActSdt / @m.ActEdt</span>
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+    </Columns>
+</CommGrd>
+
+@code {
+    private string? _projectCode;
+    private string _basis = "edt";
+    private string _scope = "dev";
+
+    private IReadOnlyList<WbsBoardModuleDto> _rows = [];
+
+    private int? ProjectRid => int.TryParse(_projectCode, out var rid) ? rid : null;
+
+    private RenderFragment<WbsBoardModuleDto> ModuleActions => module => __builder =>
+    {
+        <DxButton Text="목록"
+                  RenderStyle="ButtonRenderStyle.Link"
+                  Click="@(() => Drill(module.Systemcode))" />
+    };
+
+    private Task SearchAsync() => LoadAsync(async () =>
+    {
+        if (ProjectRid is not int rid)
+        {
+            _rows = [];
+            return 0;
+        }
+
+        _rows = await Api.ByModuleAsync(rid, _basis, _scope);
+        return _rows.Count;
+    }, "모듈별 자료가 없습니다.", "모듈별 현황을 읽지 못했습니다");
+
+    private void Drill(string? module)
+    {
+        if (string.IsNullOrWhiteSpace(module)) return;
+
+        Nav.NavigateTo(
+            $"/projmng/wbs/rows?module={Uri.EscapeDataString(module)}&basis={_basis}&scope={_scope}");
+    }
+}

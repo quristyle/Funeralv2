@@ -1,0 +1,243 @@
+@page "/projmng/wbs/gitlab"
+@attribute [RouteKey("projmng.wbs.gitlab")]
+
+@*
+    [GitLab 모니터링]
+
+    이력: 사내망 WBS 대시보드(Vue) `views/GlMonitor.vue`(483줄) → **여기**
+    API: `projmng/gitlab/monitor`
+
+    저장소마다 여덟 가지를 모은다 — 통계 · 가지 · 태그 · 병합요청 · Job ·
+    커밋 · 기여자 · 레지스트리.
+
+    [한 번 훑으면 288 번 부른다]
+
+    저장소 서른여섯 × 여덟이다. 그래서 서버가 결과를 2분 들고 있고
+    [새로고침]만 그것을 건너뛴다.
+
+    [못 읽은 항목은 빈 칸이지 오류가 아니다]
+
+    여덟 중 몇은 **안 쓰는 기능**이라 404 가 정상이다(레지스트리를 안 켠
+    저장소, 기여자 조회 권한이 없는 토큰). 줄 전체가 실패한 것만 「못 읽음」이다.
+*@
+
+@inherits DataPage
+@inject GitlabStatusClient Api
+
+<PageTitle>GitLab 모니터링 · 프로젝트관리</PageTitle>
+
+<CommSch OnSearch="@SearchAsync" Busy="@Loading">
+    <Fields>
+        <CommSchItem Label="프로젝트">
+            <CodeSelect CodeId="projlist" @bind-Value="_projectCode" OnChanged="@(_ => SearchAsync())" />
+        </CommSchItem>
+    </Fields>
+
+    <Actions>
+        <DxButton Text="새로고침"
+                  RenderStyle="ButtonRenderStyle.Secondary"
+                  Enabled="@(!Loading)"
+                  Click="@RefreshAsync" />
+    </Actions>
+</CommSch>
+
+@if (_result is not null && !_result.Configured)
+{
+    <PageNotice Tone="NoticeTone.Warning"
+                Text="GitLab 주소나 토큰이 설정되어 있지 않습니다. 서버 설정(Gitlab)을 채우면 이 화면이 찹니다." />
+}
+
+@if (_result is { Configured: true })
+{
+    <div class="jsini-stats">
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">저장소</div>
+            <div class="jsini-stat__value">@_rows.Count</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">7일 커밋</div>
+            <div class="jsini-stat__value">@_rows.Sum(r => r.Commits7d)</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">열린 MR</div>
+            <div class="jsini-stat__value">@_rows.Sum(r => r.OpenMrs)</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">묵은 가지</div>
+            <div class="jsini-stat__value">@_rows.Sum(r => r.StaleBranches)</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">저장 용량</div>
+            <div class="jsini-stat__value">@Size(_rows.Sum(r => r.StorageSize ?? 0))</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">읽어 온 때</div>
+            <div class="jsini-stat__value pm-stat--dates">@_result.LoadedAt</div>
+        </div>
+    </div>
+}
+
+<CommGrd TItem="GitlabMonitorDto"
+         Data="@_rows"
+         ExportName="GitLab 모니터링"
+         EmptyText="저장소가 없습니다."
+         PageSize="40"
+         Reload="@SearchAsync">
+    <Columns>
+        <DxGridDataColumn FieldName="@nameof(GitlabMonitorDto.Module)" Caption="모듈" Width="100" />
+        <DxGridDataColumn FieldName="@nameof(GitlabMonitorDto.Kind)" Caption="갈래" Width="70" />
+
+        <DxGridDataColumn Caption="빌드 성공률" Width="130">
+            <CellDisplayTemplate Context="cell">
+                @{
+                    var r = (GitlabMonitorDto)cell.DataItem;
+                }
+                @if (r.Jobs is { Sampled: > 0 } jobs)
+                {
+                    <div class="pm-bar" title="@($"최근 {jobs.Sampled}건 중 성공 {jobs.Success} · 실패 {jobs.Failed}")">
+                        <div class="pm-bar__fill" style="width: @(jobs.Rate ?? 0)%"></div>
+                        <span class="pm-bar__text">@(jobs.Rate is null ? "—" : $"{jobs.Rate:0.#}%")</span>
+                    </div>
+                }
+                else
+                {
+                    <span>—</span>
+                }
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+
+        <DxGridDataColumn Caption="최근 빌드" Width="110">
+            <CellDisplayTemplate Context="cell">
+                @{
+                    var r = (GitlabMonitorDto)cell.DataItem;
+                    var last = r.Jobs?.Last;
+                }
+                @if (last is not null)
+                {
+                    <span class="jsini-badge @BadgeOf(last.Status)">@StatusText(last.Status)</span>
+                }
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+
+        <DxGridDataColumn FieldName="@nameof(GitlabMonitorDto.Commits7d)" Caption="7일 커밋" Width="100" />
+
+        <DxGridDataColumn Caption="가지" Width="110">
+            <CellDisplayTemplate Context="cell">
+                @{
+                    var r = (GitlabMonitorDto)cell.DataItem;
+                }
+                <span title="묵은 가지 / 전체">@r.StaleBranches / @r.Branches</span>
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+
+        <DxGridDataColumn FieldName="@nameof(GitlabMonitorDto.OpenMrs)" Caption="열린 MR" Width="95" />
+        <DxGridDataColumn FieldName="@nameof(GitlabMonitorDto.Contributors)" Caption="기여자" Width="90" />
+
+        <DxGridDataColumn Caption="레지스트리" Width="120">
+            <CellDisplayTemplate Context="cell">
+                @{
+                    var r = (GitlabMonitorDto)cell.DataItem;
+                }
+                @(r.Registry is null || r.Registry.Repos == 0
+                    ? "—"
+                    : $"{r.Registry.Repos}개 · {Size(r.Registry.Size)}")
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+
+        <DxGridDataColumn Caption="용량" Width="100">
+            <CellDisplayTemplate Context="cell">
+                @{
+                    var r = (GitlabMonitorDto)cell.DataItem;
+                }
+                @Size(r.StorageSize ?? 0)
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+
+        <DxGridDataColumn Caption="마지막 커밋" MinWidth="220">
+            <CellDisplayTemplate Context="cell">
+                @{
+                    var r = (GitlabMonitorDto)cell.DataItem;
+                }
+                @if (r.LastCommit is not null)
+                {
+                    <span title="@($"{r.LastCommit.Author} · {r.LastCommit.At}")">@r.LastCommit.Title</span>
+                }
+                else if (r.Error is not null)
+                {
+                    <span class="jsini-badge jsini-badge--warn" title="@r.Error">못 읽음</span>
+                }
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+
+        <DxGridDataColumn Caption="열기" Width="80">
+            <CellDisplayTemplate Context="cell">
+                @{
+                    var r = (GitlabMonitorDto)cell.DataItem;
+                }
+                @if (!string.IsNullOrWhiteSpace(r.WebUrl))
+                {
+                    <a href="@r.WebUrl" target="_blank" rel="noopener">GitLab</a>
+                }
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+    </Columns>
+</CommGrd>
+
+@code {
+    private string? _projectCode;
+
+    private GitlabResultDto<GitlabMonitorDto>? _result;
+    private IReadOnlyList<GitlabMonitorDto> _rows = [];
+
+    private int? ProjectRid => int.TryParse(_projectCode, out var rid) ? rid : null;
+
+    private static string StatusText(string? status) => status switch
+    {
+        "success" => "성공",
+        "failed" => "실패",
+        "running" => "진행",
+        "canceled" => "취소",
+        "skipped" => "건너뜀",
+        "pending" => "대기",
+        null => "—",
+        _ => status,
+    };
+
+    private static string BadgeOf(string? status) => status switch
+    {
+        "success" => "jsini-badge--on",
+        "failed" => "jsini-badge--off",
+        "running" or "pending" => "jsini-badge--warn",
+        _ => "",
+    };
+
+    // `switch` 의 관계 패턴(`< 1024`)을 쓰지 않는다 — Razor 가 그 `<` 를 여는
+    // 태그로 읽고 뒤의 `@code` 를 통째로 잘못 자른다(InterfaceList 에서 밟음).
+    private static string Size(long bytes)
+    {
+        if (bytes < 1024) return $"{bytes} B";
+        if (bytes < 1024 * 1024) return $"{bytes / 1024.0:0.#} KB";
+        if (bytes < 1024L * 1024 * 1024) return $"{bytes / 1024.0 / 1024.0:0.#} MB";
+
+        return $"{bytes / 1024.0 / 1024.0 / 1024.0:0.#} GB";
+    }
+
+    private Task SearchAsync() => LoadInternalAsync(false);
+
+    private Task RefreshAsync() => LoadInternalAsync(true);
+
+    private Task LoadInternalAsync(bool refresh) => LoadAsync(async () =>
+    {
+        if (ProjectRid is not int rid)
+        {
+            _result = null;
+            _rows = [];
+            return 0;
+        }
+
+        _result = await Api.MonitorAsync(rid, refresh);
+        _rows = _result?.Rows ?? [];
+
+        return _rows.Count;
+    }, "저장소가 없습니다.", "모니터링을 읽지 못했습니다");
+}
