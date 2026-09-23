@@ -1074,7 +1074,11 @@
 
             var madeOk = await RunAsync(async () =>
             {
-                var finalInstruction = _text;
+                // 커밋·push 와 DB 처리를 말해 주는 문구를 **무조건** 뒤에 붙인다
+                // (`AiTaskAlways`). 「이어서 지시」가 쓰는 것과 같은 글이다 —
+                // 처음 보낸 건만 그 말을 못 들어 고친 것이 워크트리에 남는 일이
+                // 있었다.
+                var finalInstruction = AiTaskAlways.Append(_text);
 
                 created = await Api.CreateAsync(new AiTaskDto
                 {
