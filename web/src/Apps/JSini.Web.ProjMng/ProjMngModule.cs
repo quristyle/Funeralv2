@@ -59,9 +59,9 @@ public sealed class ProjMngModule : IPortalModule
         // EAI 인터페이스 카탈로그.
         services.AddScoped<InterfaceClient>();
 
-        // GitLab · ProjectView. **둘 다 설정이 없으면 빈 채로 뜬다** —
+        // Git(GitHub) · ProjectView. **둘 다 설정이 없으면 빈 채로 뜬다** —
         // 안 쓰는 프로젝트가 정상이다.
-        services.AddScoped<GitlabStatusClient>();
+        services.AddScoped<GitStatusClient>();
         services.AddScoped<PvClient>();
 
         // AI 작업 지시 — docs/ai-task-runner.md.

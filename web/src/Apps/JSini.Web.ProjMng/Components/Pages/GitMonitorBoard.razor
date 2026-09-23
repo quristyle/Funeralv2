@@ -1,0 +1,359 @@
+@page "/projmng/wbs/git"
+@attribute [RouteKey("projmng.wbs.git")]
+
+@*
+    [Git 모니터링]
+
+    이력: 사내망 WBS 대시보드(Vue) `views/GlMonitor.vue`(483줄) → **여기**
+          2026-09-23 에 사내 GitLab 에서 **GitHub** 로 갈아탔다
+          (주소도 `/projmng/wbs/gitlab` → `/projmng/wbs/git`).
+    API: `projmng/git/monitor`
+
+    저장소마다 통계 · 가지 · 태그 · 풀 리퀘스트 · Actions 실행 · 커밋 ·
+    기여자를 모은다.
+
+    [잘린 값을 그냥 보여 주지 않는다]
+
+    두 자리가 **전부가 아니다.**
+      · 7일 커밋은 한 쪽에 100건까지라 꽉 차면 `100+` 로 적는다.
+      · 묵은 가지는 **날짜를 물어본 가지 안에서만** 센다 — GitHub 가 가지
+        목록에 날짜를 안 줘서 가지마다 한 번씩 더 불러야 하고, 그래서 화면에
+        보이는 만큼만 묻는다. 「8개 중」이라고 함께 적는 까닭이다.
+
+    잘린 값을 말없이 보여 주면 「7일에 딱 100건」·「묵은 가지 0」처럼
+    **있을 법한 숫자**로 읽혀 아무도 의심하지 않는다.
+*@
+
+@inherits DataPage
+@inject GitStatusClient Api
+
+<PageTitle>Git 모니터링 · 프로젝트관리</PageTitle>
+
+<CommSch OnSearch="@SearchAsync" Busy="@Loading">
+    <Fields>
+        <CommSchItem Label="프로젝트">
+            <CodeSelect CodeId="projlist" @bind-Value="_projectCode" OnChanged="@(_ => SearchAsync())" />
+        </CommSchItem>
+    </Fields>
+
+    <Actions>
+        <DxButton Text="새로고침"
+                  RenderStyle="ButtonRenderStyle.Secondary"
+                  Enabled="@(!Loading)"
+                  Click="@RefreshAsync" />
+    </Actions>
+</CommSch>
+
+@if (_result is not null && !_result.Configured)
+{
+    <PageNotice Tone="NoticeTone.Info"
+                Text="이 프로젝트에 걸어 둔 저장소가 없습니다. 서버 설정(Git:Projects)에 owner/name 을 적으면 이 화면이 찹니다." />
+}
+
+@if (_result is { Configured: true })
+{
+    <div class="jsini-stats">
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">저장소</div>
+            <div class="jsini-stat__value">@_rows.Count</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">7일 커밋</div>
+            <div class="jsini-stat__value">@Commits7dText</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">열린 PR</div>
+            <div class="jsini-stat__value">@_rows.Sum(r => r.OpenPrs)</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">묵은 가지</div>
+            <div class="jsini-stat__value">@_rows.Sum(r => r.StaleBranches)</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">읽어 온 때</div>
+            <div class="jsini-stat__value pm-stat--dates">@_result.LoadedAt</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">남은 한도</div>
+            <div class="jsini-stat__value pm-stat--dates">@RateText</div>
+        </div>
+    </div>
+
+    @if (!_result.Authenticated)
+    {
+        <PageNotice Tone="NoticeTone.Info"
+                    Text="토큰 없이 읽고 있습니다. 공개 저장소는 그대로 보이지만 시간당 60회까지이고, 이 화면은 저장소 하나에 열다섯 번쯤 씁니다 — 토큰을 넣으면 5,000회가 됩니다." />
+    }
+}
+
+<CommGrd TItem="GitMonitorDto"
+         Data="@_rows"
+         ExportName="Git 모니터링"
+         EmptyText="저장소가 없습니다."
+         PageSize="40"
+         SelectedItem="@_selected"
+         SelectedItemChanged="@OnSelectedAsync"
+         Reload="@SearchAsync">
+    <Columns>
+        <DxGridDataColumn FieldName="@nameof(GitMonitorDto.Repo)" Caption="저장소" MinWidth="200"
+                          TextAlignment="GridTextAlignment.Left" />
+        <DxGridDataColumn FieldName="@nameof(GitMonitorDto.Language)" Caption="언어" Width="90" />
+
+        <DxGridDataColumn Caption="빌드 성공률" Width="140">
+            <CellDisplayTemplate Context="cell">
+                @{
+                    var r = (GitMonitorDto)cell.DataItem;
+                }
+                @if (r.Runs is { Sampled: > 0 } runs)
+                {
+                    <div class="pm-bar" title="@($"최근 {runs.Sampled}건 중 성공 {runs.Success} · 실패 {runs.Failure} (전체 {runs.Total}건)")">
+                        <div class="pm-bar__fill" style="width: @(runs.Rate ?? 0)%"></div>
+                        <span class="pm-bar__text">@(runs.Rate is null ? "—" : $"{runs.Rate:0.#}%")</span>
+                    </div>
+                }
+                else
+                {
+                    <span>—</span>
+                }
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+
+        <DxGridDataColumn Caption="최근 실행" Width="110">
+            <CellDisplayTemplate Context="cell">
+                @{
+                    var r = (GitMonitorDto)cell.DataItem;
+                    var last = r.Runs?.Last;
+                }
+                @if (last is not null)
+                {
+                    <span class="jsini-badge @GitRunText.Badge(last.Status)">@GitRunText.Of(last.Status)</span>
+                }
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+
+        <DxGridDataColumn Caption="7일 커밋" Width="100">
+            <CellDisplayTemplate Context="cell">
+                @{
+                    var r = (GitMonitorDto)cell.DataItem;
+                }
+                @(r.Commits7dCapped ? $"{r.Commits7d}+" : r.Commits7d.ToString())
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+
+        <DxGridDataColumn Caption="가지" Width="120">
+            <CellDisplayTemplate Context="cell">
+                @{
+                    var r = (GitMonitorDto)cell.DataItem;
+                }
+                <span title="@($"{r.BranchesChecked}개만 날짜를 확인했습니다")">
+                    @r.StaleBranches / @r.Branches
+                </span>
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+
+        <DxGridDataColumn FieldName="@nameof(GitMonitorDto.OpenPrs)" Caption="열린 PR" Width="90" />
+        <DxGridDataColumn FieldName="@nameof(GitMonitorDto.Tags)" Caption="태그" Width="80" />
+        <DxGridDataColumn FieldName="@nameof(GitMonitorDto.Contributors)" Caption="기여자" Width="90" />
+
+        <DxGridDataColumn Caption="크기" Width="100">
+            <CellDisplayTemplate Context="cell">
+                @{
+                    var r = (GitMonitorDto)cell.DataItem;
+                }
+                @Size(r.SizeKb)
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+
+        <DxGridDataColumn Caption="마지막 커밋" MinWidth="240">
+            <CellDisplayTemplate Context="cell">
+                @{
+                    var r = (GitMonitorDto)cell.DataItem;
+                }
+                @if (r.LastCommit is not null)
+                {
+                    <span title="@($"{r.LastCommit.Author} · {r.LastCommit.At}")">@r.LastCommit.Title</span>
+                }
+                else if (r.Error is not null)
+                {
+                    <span class="jsini-badge jsini-badge--warn" title="@r.Error">못 읽음</span>
+                }
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+
+        <DxGridDataColumn Caption="열기" Width="90">
+            <CellDisplayTemplate Context="cell">
+                @{
+                    var r = (GitMonitorDto)cell.DataItem;
+                }
+                @if (!string.IsNullOrWhiteSpace(r.WebUrl))
+                {
+                    <a href="@r.WebUrl" target="_blank" rel="noopener">GitHub</a>
+                }
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+    </Columns>
+</CommGrd>
+
+@if (_selected is not null)
+{
+    <CommCont Title="@($"가지 · {_selected.Repo}")" Hint="@BranchHint">
+        <CommGrd TItem="GitBranchDto"
+                 Data="@_selected.BranchList"
+                 ExportName="가지"
+                 EmptyText="가지를 읽지 못했습니다."
+                 PageSize="10"
+                 Reload="@SearchAsync">
+            <Columns>
+                <DxGridDataColumn FieldName="@nameof(GitBranchDto.Name)" Caption="가지" MinWidth="200"
+                                  TextAlignment="GridTextAlignment.Left" />
+
+                <DxGridDataColumn Caption="표시" Width="140">
+                    <CellDisplayTemplate Context="cell">
+                        @{
+                            var b = (GitBranchDto)cell.DataItem;
+                        }
+                        @if (b.Default)
+                        {
+                            <span class="jsini-badge jsini-badge--on">기본</span>
+                        }
+                        @if (b.Protected)
+                        {
+                            <span class="jsini-badge">보호됨</span>
+                        }
+                        @if (b.Stale)
+                        {
+                            <span class="jsini-badge jsini-badge--warn">묵음</span>
+                        }
+                    </CellDisplayTemplate>
+                </DxGridDataColumn>
+
+                <DxGridDataColumn Caption="마지막 커밋" Width="200">
+                    <CellDisplayTemplate Context="cell">
+                        @{
+                            var b = (GitBranchDto)cell.DataItem;
+                        }
+                        @(b.At ?? "(안 물어봄)")
+                    </CellDisplayTemplate>
+                </DxGridDataColumn>
+            </Columns>
+        </CommGrd>
+    </CommCont>
+
+    @if (_selected.PrList.Count > 0)
+    {
+        <CommCont Title="열린 풀 리퀘스트">
+            <CommGrd TItem="GitPrDto"
+                     Data="@_selected.PrList"
+                     ExportName="풀 리퀘스트"
+                     EmptyText="열린 풀 리퀘스트가 없습니다."
+                     PageSize="10"
+                     Reload="@SearchAsync">
+                <Columns>
+                    <DxGridDataColumn FieldName="@nameof(GitPrDto.Number)" Caption="번호" Width="80" />
+                    <DxGridDataColumn FieldName="@nameof(GitPrDto.Title)" Caption="제목" MinWidth="240"
+                                      TextAlignment="GridTextAlignment.Left" />
+                    <DxGridDataColumn FieldName="@nameof(GitPrDto.Author)" Caption="올린이" Width="120" />
+                    <DxGridDataColumn FieldName="@nameof(GitPrDto.Source)" Caption="보내는 가지" Width="150" />
+                    <DxGridDataColumn FieldName="@nameof(GitPrDto.Target)" Caption="받는 가지" Width="130" />
+                    <DxGridDataColumn FieldName="@nameof(GitPrDto.UpdatedAt)" Caption="고친 때" Width="180" />
+                </Columns>
+            </CommGrd>
+        </CommCont>
+    }
+
+    <CommCont Title="7일 커밋 · 기여자">
+        <div class="jsini-stats">
+            @foreach (var a in _selected.CommitAuthors7d)
+            {
+                <div class="jsini-stat">
+                    <div class="jsini-stat__label">@a.Name</div>
+                    <div class="jsini-stat__value">@a.Count</div>
+                </div>
+            }
+        </div>
+
+        <div class="jsini-stats">
+            @foreach (var c in _selected.ContributorList)
+            {
+                <div class="jsini-stat">
+                    <div class="jsini-stat__label">@c.Name</div>
+                    <div class="jsini-stat__value">@c.Count</div>
+                </div>
+            }
+        </div>
+    </CommCont>
+}
+else
+{
+    <PageNotice Tone="NoticeTone.Info" Text="위에서 저장소를 고르면 가지와 풀 리퀘스트가 여기에 보입니다." />
+}
+
+@code {
+    private string? _projectCode;
+
+    private GitResultDto<GitMonitorDto>? _result;
+    private IReadOnlyList<GitMonitorDto> _rows = [];
+    private GitMonitorDto? _selected;
+
+    private int? ProjectRid => int.TryParse(_projectCode, out var rid) ? rid : null;
+
+    private string RateText =>
+        _result?.RateRemaining is null ? "—" : $"{_result.RateRemaining} / {_result.RateLimit}";
+
+    /// <summary>합계에 잘린 값이 섞였으면 <c>+</c> 를 붙인다(화면 머리말).</summary>
+    private string Commits7dText
+    {
+        get
+        {
+            var sum = _rows.Sum(r => r.Commits7d);
+            return _rows.Any(r => r.Commits7dCapped) ? $"{sum}+" : sum.ToString();
+        }
+    }
+
+    private string BranchHint =>
+        _selected is null ? ""
+        : $"전체 {_selected.Branches}개 중 {_selected.BranchesChecked}개만 날짜를 확인했습니다";
+
+    // `switch` 의 관계 패턴(`< 1024`)을 `@code` 에 쓰지 않는다 — Razor 가 그
+    // `<` 를 여는 태그로 읽고 뒤를 통째로 잘못 자른다(InterfaceList 에서 밟음).
+    private static string Size(long? kb)
+    {
+        if (kb is null) return "—";
+        if (kb < 1024) return $"{kb} KB";
+        if (kb < 1024 * 1024) return $"{kb / 1024.0:0.#} MB";
+
+        return $"{kb / 1024.0 / 1024.0:0.#} GB";
+    }
+
+    private Task SearchAsync() => LoadInternalAsync(false);
+
+    private Task RefreshAsync() => LoadInternalAsync(true);
+
+    private Task LoadInternalAsync(bool refresh) => LoadAsync(async () =>
+    {
+        if (ProjectRid is not int rid)
+        {
+            _result = null;
+            _rows = [];
+            _selected = null;
+            return 0;
+        }
+
+        _result = await Api.MonitorAsync(rid, refresh);
+        _rows = _result?.Rows ?? [];
+
+        // 고르고 있던 저장소를 다시 잡아 준다. 새로 고칠 때마다 아래가
+        // 사라지면 무엇이 바뀌었는지 볼 수 없다.
+        _selected = _selected is null
+            ? _rows.FirstOrDefault()
+            : _rows.FirstOrDefault(r => r.Repo == _selected.Repo) ?? _rows.FirstOrDefault();
+
+        return _rows.Count;
+    }, "저장소가 없습니다.", "모니터링을 읽지 못했습니다");
+
+    private Task OnSelectedAsync(GitMonitorDto? repo)
+    {
+        _selected = repo;
+        return Task.CompletedTask;
+    }
+}

@@ -1324,8 +1324,8 @@ Vue3, 약 16,700줄). 프로젝트관리 안으로 들여왔다.
 ```
 DB      deploy/sql/projmng-wbs-2026-09-23.sql      표 15 · 뷰 4 (projmng 스키마)
 메뉴    deploy/sql/portal-menu-wbs-board-2026-09-23.sql   PM_WBS 묶음 + 화면 14
-백엔드  ProjMngServer/Controllers/WbsBoard*·Interfaces*·Gitlab*·Pv*
-프론트  Components/Pages/Wbs*Board·WbsRowList·InterfaceList·Gitlab*·Pv*
+백엔드  ProjMngServer/Controllers/WbsBoard*·Interfaces*·Git*·Pv*
+프론트  Components/Pages/Wbs*Board·WbsRowList·InterfaceList·Git*·Pv*
 ```
 
 **`/projmng/wbs` 와 `/projmng/proj/wbs` 는 다른 물건이다.** 앞엣것이 들여온
@@ -1359,6 +1359,44 @@ DB      deploy/sql/projmng-wbs-2026-09-23.sql      표 15 · 뷰 4 (projmng 스�
 그대로다. 고친 것은 모듈 경로 한 줄뿐이고, 화면은 `pv-console.js` 한 곳을
 거쳐 부른다. 그 안의 fetch 가 전부 **상대 주소**라 ProjectView 탭 안에서
 돌기만 하면 우리 주소를 알 필요가 없다 — 그래서 손댈 것이 없었다.
+
+##### GitLab 을 GitHub 로 갈아탔다 (2026-09-23)
+
+사내에서는 GitLab 이었고 볼 저장소를 `pmm001`…`pmm018` × `be`/`fe` 규칙으로
+**계산해서** 서른여섯 곳을 훑었다. GitHub 로 오면서 그 규칙이 뜻을 잃어
+(저장소가 하나다) **설정이 목록을 준다** — `Git:Projects:{프로젝트번호}:Repos`.
+
+```
+/projmng/wbs/gitlab  →  /projmng/wbs/git      (메뉴 제목도 「Git 모니터링」)
+/api/gitlab/*        →  /api/git/*
+Gitlab*(서비스·모델·DTO)  →  Git*
+```
+
+`route_key` 는 「한 번 정하면 안 바꾼다」가 규칙인데 여기서는 바꿨다 —
+그 열쇠가 **하루짜리**였고(같은 날 만들었다) 화면과 DB 를 한 변경에 함께
+옮겼기 때문이다(`deploy/sql/portal-menu-wbs-git-2026-09-23.sql`). 굳어진
+뒤였다면 이름이 어긋난 채로 두는 편이 맞다.
+
+**토큰은 없어도 된다.** 공개 저장소는 그대로 읽히고 시간당 60회라는 한도가
+붙을 뿐이다(토큰을 넣으면 5,000회). 그래서 「설정됐나」의 기준이 토큰이 아니라
+**저장소 목록**이다.
+
+###### GitHub 이 안 주는 것 둘 — 화면이 밝힌다
+
+| | 사정 | 화면 |
+|---|---|---|
+| 가지의 마지막 커밋 날짜 | 가지 목록에 없다. 가지마다 한 번씩 더 불러야 한다 | 보이는 만큼만 묻고 「8개 중」을 함께 적는다 |
+| 7일 커밋의 총 건수 | 한 쪽에 100건까지다 | 꽉 차면 `100+` 로 적는다 |
+
+**잘린 값을 말없이 보여 주면 「7일에 딱 100건」·「묵은 가지 0」처럼 있을 법한
+숫자로 읽혀 아무도 의심하지 않는다.**
+
+###### 남은 한도는 **캐시에 같이 담는다** (실제로 밟음)
+
+`GitHubClient` 가 요청마다 새로 생기므로(scoped) 캐시로 답하는 요청은 호출을
+한 번도 안 해 한도를 모른다. 그대로 두면 화면의 「남은 한도」가 **캐시가 듣는
+동안 내내 비어 있고**, 하필 그 칸은 「왜 갑자기 안 보이나」를 보려고 만든
+자리다. 캐시 줄에 함께 담는다.
 
 ##### 옮기면서 밟은 것 셋
 

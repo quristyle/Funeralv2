@@ -65,9 +65,11 @@ builder.Services.AddScoped<InterfaceFileService>();
 builder.Services.AddScoped<PvCacheService>();
 builder.Services.AddScoped<PvSyncService>();
 
-// GitLab. 설정이 없으면 아무것도 부르지 않고 빈 결과를 준다.
-builder.Services.AddScoped<GitlabService>();
-builder.Services.AddScoped<GitlabMonitorService>();
+// Git(GitHub). 저장소 목록이 비면 아무것도 부르지 않고 빈 결과를 준다.
+// **토큰은 없어도 된다** — 공개 저장소는 그대로 읽히고 한도만 낮다.
+builder.Services.AddScoped<GitHubClient>();
+builder.Services.AddScoped<GitService>();
+builder.Services.AddScoped<GitMonitorService>();
 
 // AI 작업 지시 — docs/ai-task-runner.md.
 // 작업 서비스가 대상 서비스를 받는다 — push 를 켤 수 있는 대상인지 되묻기 때문이다.
