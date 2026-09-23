@@ -2299,3 +2299,15 @@
 
   .ad-passkey__acts { justify-content: flex-end; }
 }
+
+/* 로그인 방식 우선순위 고르개. 설정 줄의 켬·끔 자리에 서는 유일한 목록이라
+   폭을 정해 준다 — 안 정하면 고른 글자 길이에 따라 줄마다 오른쪽 끝이
+   들쑥날쑥해진다(바로 위아래가 체크박스라 더 눈에 띈다).
+
+   좁은 화면에서는 `.ad-setting > :last-child` 가 과녁을 44px 로 키우므로
+   높이는 그쪽에 맡기고 여기서는 폭만 말한다. */
+.ad-setting__pick {
+  flex: 0 0 auto;
+  width: 11rem;
+  max-width: 45vw;
+}

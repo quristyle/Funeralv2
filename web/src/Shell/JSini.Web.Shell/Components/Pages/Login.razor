@@ -106,6 +106,22 @@
     **단추는 기본이 감춤이다.** `passkey.js` 가 이 브라우저에 WebAuthn 이
     있을 때만 꺼낸다 — 없는 길로 가는 단추를 그려 두면 눌러 본 사람이
     고장으로 신고한다(위 표의 「휴대폰 로그인」을 뺀 것과 같은 규칙이다).
+
+    [지문을 먼저 묻는 기기 — 화면이 스스로 연다]
+
+    「내 정보 → 보안 설정」의 [로그인 방식 우선순위] 를 **지문·얼굴 우선**으로
+    둔 기기에서는 이 화면이 뜨는 순간 기기 확인이 열린다. 그 값은 계정이
+    아니라 **이 브라우저**에 적혀 있다 — 로그인 전이라 서버는 아직 누구인지
+    모르고, 패스키 자체가 기기마다 따로이기 때문이다(`passkey.js` 머리말).
+
+    이 화면이 하는 일은 **담는 통 하나**(`.jsini-login__methods`)를 두는 것뿐
+    이다. 차례를 바꾸는 것은 CSS 고, 딱지를 붙이고 기기를 부르는 것은
+    `passkey.js` 다. 여기에 조건을 적을 수 없다 — 서버가 그 값을 볼 길이 없다.
+
+    **안 여는 자리가 넷 있다**(`shouldAutoStart`). 그중 하나가 이 화면과
+    맞물린다 — 위의 실패 안내(`.jsini-login__error`)가 떠 있으면 열지 않는다.
+    비밀번호를 틀려 폼이 되돌아온 참인데 그 위에 기기 창을 덮으면 **무엇이
+    틀렸는지 읽지도 못한다.**
 *@
 
 @*
@@ -129,67 +145,79 @@
        로그인 폼보다 460ms 늦게 떴다(캐시가 다 찬 상태에서도). *@
     <PublicNoticePopup />
 
-    <EditForm Model="@Input" FormName="login" OnValidSubmit="@SubmitAsync"
-              data-jsini-login>
-        <DataAnnotationsValidator />
-
-        <div class="jsini-login__field">
-            <label class="jsini-login__label" for="username">아이디</label>
-            <InputText id="username" class="jsini-login__input"
-                       @bind-Value="Input!.Username" autocomplete="username" />
-            <ValidationMessage For="@(() => Input!.Username)" />
-        </div>
-
-        <div class="jsini-login__field">
-            <label class="jsini-login__label" for="password">비밀번호</label>
-            <InputText id="password" type="password" class="jsini-login__input"
-                       @bind-Value="Input!.Password" autocomplete="current-password" />
-            <ValidationMessage For="@(() => Input!.Password)" />
-        </div>
-
-        @* 아이디 기억하기. **폼과 함께 서버로 가지 않는다** —
-           `name` 이 없으므로 제출에 실리지 않고, 값을 다루는 것은
-           브라우저(theme.js)뿐이다. 서버가 알 이유가 없는 값이다. *@
-        <label class="jsini-login__remember">
-            <input type="checkbox" data-remember />
-            <span>아이디 기억하기</span>
-        </label>
-
-        @* 로그인 유지. **이쪽은 서버로 간다** — 인증 쿠키의 수명을 정하는
-           값이라 서버가 알아야 한다(위 머리말의 표). *@
-        <label class="jsini-login__remember">
-            <InputCheckbox @bind-Value="Input!.KeepSignedIn" data-keep-signed-in />
-            <span>로그인 유지 (@(KeepSignedInDays)일)</span>
-        </label>
-
-        <button type="submit" class="jsini-login__submit">로그인</button>
-    </EditForm>
-
     @*
-        ── 지문·얼굴로 로그인 ──────────────────────────────────
+        비밀번호 폼과 지문 판을 **한 통에 담는다.** 담아 두면 둘의 차례를 CSS 가
+        바꿀 수 있다 — 「보안 설정」에서 지문을 먼저 묻기로 한 기기에서는
+        `passkey.js` 가 이 통에 딱지를 붙이고 지문 판이 위로 올라간다.
 
-        감춘 폼 하나와 단추 하나다. 단추는 `type="button"` 이라 **스스로
-        제출하지 않는다** — 기기 서명을 받아 감춘 칸을 채운 뒤에야
-        `passkey.js` 가 폼을 제출한다. 먼저 제출되면 빈 값이 서버로 가고,
-        서버는 그것을 「해석하지 못했습니다」로만 답할 수 있다.
-
-        기본이 `hidden` 이고 `passkey.js` 가 지원하는 브라우저에서만 꺼낸다.
+        마디를 DOM 에서 들어 옮기지 않는 이유가 그것이다. 향상된 이동으로 이
+        화면에 다시 들어오면 Blazor 가 제 것이 아닌 자리에 마크업을 맞추게 된다.
     *@
-    <div class="jsini-login__passkey" data-jsini-passkey hidden>
-        <div class="jsini-login__or"><span>또는</span></div>
+    <div class="jsini-login__methods" data-jsini-methods>
 
-        <EditForm Model="@Passkey" FormName="passkey-login" OnValidSubmit="@SubmitPasskeyAsync">
-            <InputText type="hidden" @bind-Value="Passkey!.Assertion" data-passkey-assertion />
-            <InputCheckbox @bind-Value="Passkey!.KeepSignedIn" hidden data-passkey-keep />
+        <EditForm Model="@Input" FormName="login" OnValidSubmit="@SubmitAsync"
+                  data-jsini-login>
+            <DataAnnotationsValidator />
 
-            <button type="button" class="jsini-login__passkey-btn" data-passkey-start>
-                지문 · 얼굴로 로그인
-            </button>
+            <div class="jsini-login__field">
+                <label class="jsini-login__label" for="username">아이디</label>
+                <InputText id="username" class="jsini-login__input"
+                           @bind-Value="Input!.Username" autocomplete="username" />
+                <ValidationMessage For="@(() => Input!.Username)" />
+            </div>
+
+            <div class="jsini-login__field">
+                <label class="jsini-login__label" for="password">비밀번호</label>
+                <InputText id="password" type="password" class="jsini-login__input"
+                           @bind-Value="Input!.Password" autocomplete="current-password" />
+                <ValidationMessage For="@(() => Input!.Password)" />
+            </div>
+
+            @* 아이디 기억하기. **폼과 함께 서버로 가지 않는다** —
+               `name` 이 없으므로 제출에 실리지 않고, 값을 다루는 것은
+               브라우저(theme.js)뿐이다. 서버가 알 이유가 없는 값이다. *@
+            <label class="jsini-login__remember">
+                <input type="checkbox" data-remember />
+                <span>아이디 기억하기</span>
+            </label>
+
+            @* 로그인 유지. **이쪽은 서버로 간다** — 인증 쿠키의 수명을 정하는
+               값이라 서버가 알아야 한다(위 머리말의 표). *@
+            <label class="jsini-login__remember">
+                <InputCheckbox @bind-Value="Input!.KeepSignedIn" data-keep-signed-in />
+                <span>로그인 유지 (@(KeepSignedInDays)일)</span>
+            </label>
+
+            <button type="submit" class="jsini-login__submit">로그인</button>
         </EditForm>
 
-        @* 기기가 거절했거나 등록된 패스키가 없을 때 `passkey.js` 가 채운다.
-           회로가 없는 화면이라 글자를 넣는 일도 JS 가 한다. *@
-        <p class="jsini-login__passkey-note" data-passkey-note hidden role="alert"></p>
+        @*
+            ── 지문·얼굴로 로그인 ──────────────────────────────────
+
+            감춘 폼 하나와 단추 하나다. 단추는 `type="button"` 이라 **스스로
+            제출하지 않는다** — 기기 서명을 받아 감춘 칸을 채운 뒤에야
+            `passkey.js` 가 폼을 제출한다. 먼저 제출되면 빈 값이 서버로 가고,
+            서버는 그것을 「해석하지 못했습니다」로만 답할 수 있다.
+
+            기본이 `hidden` 이고 `passkey.js` 가 지원하는 브라우저에서만 꺼낸다.
+        *@
+        <div class="jsini-login__passkey" data-jsini-passkey hidden>
+            <div class="jsini-login__or"><span>또는</span></div>
+
+            <EditForm Model="@Passkey" FormName="passkey-login" OnValidSubmit="@SubmitPasskeyAsync">
+                <InputText type="hidden" @bind-Value="Passkey!.Assertion" data-passkey-assertion />
+                <InputCheckbox @bind-Value="Passkey!.KeepSignedIn" hidden data-passkey-keep />
+
+                <button type="button" class="jsini-login__passkey-btn" data-passkey-start>
+                    지문 · 얼굴로 로그인
+                </button>
+            </EditForm>
+
+            @* 기기가 거절했거나 등록된 패스키가 없을 때 `passkey.js` 가 채운다.
+               회로가 없는 화면이라 글자를 넣는 일도 JS 가 한다. *@
+            <p class="jsini-login__passkey-note" data-passkey-note hidden role="alert"></p>
+        </div>
+
     </div>
 
     @* 두 화면은 이 화면과 달리 대화형이다. 여기가 정적 SSR 인 것은 쿠키를

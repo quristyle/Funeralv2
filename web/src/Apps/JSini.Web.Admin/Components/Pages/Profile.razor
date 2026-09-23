@@ -670,6 +670,42 @@
                                 </p>
                             }
 
+                            @*
+                                ── 로그인 방식 우선순위 ───────────────────
+
+                                로그인 화면이 **무엇을 먼저 묻는지**를 정한다.
+                                지문·얼굴로 두면 화면이 뜨는 순간 기기 확인이
+                                열리고, 단추도 비밀번호 폼 위로 올라간다.
+
+                                **이 기기에만 적는다.** 값을 읽어야 하는 곳이
+                                로그인 화면인데 거기는 아직 로그인 전이라
+                                서버가 누구인지 모른다. 게다가 패스키 자체가
+                                기기마다 따로라, 계정에 적어 두면 지문을
+                                등록한 적 없는 다른 기기에서도 로그인 화면이
+                                기기 확인을 열려 들고 **반드시 실패한다.**
+
+                                그래서 위의 켬·끔들과 달리 서버로 가지 않는다
+                                (`passkey.js` 의 `setPreference`).
+                            *@
+                            <div class="ad-setting">
+                                <div>
+                                    <div class="ad-setting__name">로그인 방식 우선순위</div>
+                                    <div class="ad-setting__desc">@AuthPrioritySummary</div>
+                                </div>
+                                <DxComboBox Data="@AuthPriorityOptions"
+                                            TextFieldName="@nameof(AuthPriorityOption.Text)"
+                                            ValueFieldName="@nameof(AuthPriorityOption.Value)"
+                                            Value="@_browser.Priority"
+                                            ValueChanged="@((string? v) => SetAuthPriorityAsync(v))"
+                                            Enabled="@CanPickAuthPriority"
+                                            CssClass="ad-setting__pick" />
+                            </div>
+
+                            <p class="jsini-hint">
+                                우선순위는 <b>이 기기에서만</b> 적용됩니다 — 지문·얼굴은 기기마다
+                                따로 등록하기 때문입니다. 다른 기기에서는 그 기기에서 다시 고릅니다.
+                            </p>
+
                             @foreach (var row in SecurityRows)
                             {
                                 <div class="ad-setting">
@@ -1553,13 +1589,110 @@
 
     private async Task DeletePasskeyAsync(PasskeyDto key)
     {
-        if (await RunAsync(
+        if (!await RunAsync(
             () => Api.DeletePasskeyAsync(key.Id),
             "기기를 지웠습니다. 그 기기로는 더 들어올 수 없습니다.",
             "기기를 지우지 못했습니다"))
         {
-            await LoadPasskeysAsync();
+            return;
         }
+
+        await LoadPasskeysAsync();
+
+        // 마지막 기기를 지웠는데 우선순위가 지문으로 남아 있으면, 로그인
+        // 화면이 열릴 때마다 **반드시 실패하는 기기 확인**을 연다. 그 증상은
+        // 「지우고 나니 로그인 화면이 이상해졌다」로 보여 원인과 멀다.
+        if (_passkeys.Count == 0 && _browser.Priority == PasskeyPriority.Passkey)
+        {
+            await SetAuthPriorityAsync(PasskeyPriority.Password, quiet: true);
+        }
+    }
+
+    // ── 로그인 방식 우선순위 ────────────────────────────────
+
+    /// <summary>
+    /// 고를 수 있는 두 가지. <b>이름을 글자로 두 번 적지 않는다</b> —
+    /// 딱지와 저장값이 갈리면 「고른 것과 다른 것이 저장된다」가 된다.
+    /// </summary>
+    private sealed record AuthPriorityOption(string Value, string Text);
+
+    private static readonly AuthPriorityOption[] AuthPriorityOptions =
+    [
+        new(PasskeyPriority.Password, "비밀번호 먼저"),
+        new(PasskeyPriority.Passkey, "지문 · 얼굴 먼저"),
+    ];
+
+    /// <summary>
+    /// 고를 수 있는가. <b>등록한 기기가 없으면 잠근다</b> — 고르게 두면
+    /// 로그인 화면이 아무것도 없는 기기에게 지문을 묻고 반드시 실패한다.
+    /// </summary>
+    private bool CanPickAuthPriority => _browser.Supported && _passkeys.Count > 0;
+
+    /// <summary>「로그인 방식 우선순위」 줄의 설명. 잠긴 까닭까지 말한다.</summary>
+    private string AuthPrioritySummary => (_browser.Supported, _passkeys.Count) switch
+    {
+        (false, _) => "이 브라우저에서는 지문·얼굴을 쓸 수 없어 비밀번호로 들어갑니다.",
+        (true, 0) => "이 기기를 먼저 등록하면 지문·얼굴을 먼저 묻게 할 수 있습니다.",
+        _ when _browser.Priority == PasskeyPriority.Passkey =>
+            "로그인 화면이 열리는 순간 지문·얼굴을 묻습니다. 취소하면 비밀번호로 들어갑니다.",
+        _ => "비밀번호를 먼저 묻습니다. 지문·얼굴은 로그인 화면의 단추로 씁니다.",
+    };
+
+    /// <summary>
+    /// 우선순위를 이 기기에 적는다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>서버로 가지 않는다.</b> 읽어야 하는 곳이 로그인 화면이고 거기는
+    /// 로그인 전이다 — 화면 머리말과 <c>passkey.js</c> 의 같은 절 참고.
+    /// </para>
+    /// <para>
+    /// <b>적고 나서 다시 읽은 값</b>을 화면에 넣는다. 사생활 보호 모드에서는
+    /// localStorage 가 던지므로, 고른 값을 그대로 믿으면 화면만 바뀌고
+    /// 로그인 화면은 옛 방식대로 도는 <b>거짓말</b>이 된다.
+    /// </para>
+    /// </remarks>
+    /// <param name="value">고른 값. <c>null</c> 이면 비밀번호로 본다.</param>
+    /// <param name="quiet">사람이 고른 것이 아니라 화면이 되돌린 것인가.</param>
+    private async Task SetAuthPriorityAsync(string? value, bool quiet = false)
+    {
+        var wanted = value == PasskeyPriority.Passkey
+            ? PasskeyPriority.Passkey
+            : PasskeyPriority.Password;
+
+        string saved;
+
+        try
+        {
+            saved = await JS.InvokeAsync<string>("jsiniPasskey.setPreference", wanted)
+                ?? PasskeyPriority.Password;
+        }
+        catch (Exception ex) when (ex is JSException or InvalidOperationException or TaskCanceledException)
+        {
+            Say("이 브라우저에 설정을 기억시키지 못했습니다.", NoticeTone.Error);
+            return;
+        }
+
+        _browser.Priority = saved;
+
+        if (saved != wanted)
+        {
+            // 던지지는 않았는데 값이 안 남았다 — 사생활 보호 모드다.
+            Say("이 브라우저는 설정을 기억하지 못합니다 (사생활 보호 모드).", NoticeTone.Warning);
+            return;
+        }
+
+        if (quiet)
+        {
+            // 마지막 기기를 지워 되돌린 자리다. 「지웠습니다」 바로 뒤라
+            // 토스트를 하나 더 쌓지 않고 까닭만 한 줄로 알린다.
+            Say("등록된 기기가 없어져 비밀번호 먼저로 되돌렸습니다.", NoticeTone.Warning);
+            return;
+        }
+
+        Say(saved == PasskeyPriority.Passkey
+            ? "이 기기에서는 지문·얼굴을 먼저 묻습니다."
+            : "이 기기에서는 비밀번호를 먼저 묻습니다.");
     }
 
     /// <summary>

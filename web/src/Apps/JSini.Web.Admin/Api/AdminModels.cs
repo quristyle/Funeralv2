@@ -2039,4 +2039,29 @@ public sealed class PasskeyBrowserDto
     /// 없어도 보안 열쇠로는 등록할 수 있어 <b>막는 근거로 쓰지 않는다.</b>
     /// </summary>
     public bool PlatformAuthenticator { get; set; }
+
+    /// <summary>
+    /// 이 기기가 로그인할 때 <b>무엇을 먼저 묻는가</b> (<see cref="PasskeyPriority"/>).
+    ///
+    /// <para>
+    /// 다른 설정들과 달리 <b>서버에 없는 값</b>이다. 읽어야 하는 곳이 로그인
+    /// 화면인데 거기는 로그인 전이라 서버가 누구인지 모르고, 패스키 자체가
+    /// 기기마다 따로라 계정에 적으면 등록하지 않은 기기까지 따라 한다.
+    /// 그래서 브라우저(localStorage)가 들고 <c>passkey.js</c> 가 읽고 쓴다.
+    /// </para>
+    /// </summary>
+    public string Priority { get; set; } = PasskeyPriority.Password;
+}
+
+/// <summary>
+/// 로그인 방식 우선순위 값. <b>글자가 <c>passkey.js</c> 와의 약속</b>이라
+/// 한쪽만 고치면 설정은 저장되는데 로그인 화면이 못 알아본다.
+/// </summary>
+public static class PasskeyPriority
+{
+    /// <summary>비밀번호를 먼저 묻는다. 저장된 값이 없으면 이것이다.</summary>
+    public const string Password = "password";
+
+    /// <summary>로그인 화면이 열리는 순간 지문·얼굴을 묻는다.</summary>
+    public const string Passkey = "passkey";
 }
