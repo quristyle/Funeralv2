@@ -745,6 +745,42 @@ public sealed class AdminClient(GatewayClient gateway)
         => gateway.PostAsync("auth/user/settings",
             new UpdateSettingDto { FieldName = fieldName, Value = value }, ct);
 
+    // ── 패스키 (지문 · 얼굴) ────────────────────────────────────
+    //
+    // 기기와 이야기하는 쪽은 브라우저(`passkey.js`)고, 여기는 **서버와의
+    // 왕복 셋**뿐이다 — 도전값 받기 · 등록하기 · 목록·삭제.
+    //
+    // 순서가 정해져 있다. 웹푸시 구독과 같은 까닭이다(`PushEnroll`).
+    //   ① 서버에서 도전값을 받는다
+    //   ② 브라우저가 기기에서 서명을 받는다
+    //   ③ 그 결과를 서버가 검증하고 저장한다
+    // ②에서 사용자가 취소하면 ③이 아예 없다 — 그래서 **서버에는 반쪽짜리
+    // 줄이 남지 않는다.** 도전값은 5분 뒤 스스로 사라진다.
+
+    /// <summary>등록에 쓸 도전값을 받는다. 곧바로 브라우저에 넘긴다.</summary>
+    public Task<PasskeyOptionsDto?> CreatePasskeyOptionsAsync(CancellationToken ct = default)
+        => gateway.PostAsync<PasskeyOptionsDto>("auth/webauthn/register/options", null, ct);
+
+    /// <summary>브라우저가 받아 온 등록 결과를 서버가 검증하고 저장한다.</summary>
+    public Task<PasskeyDto?> RegisterPasskeyAsync(
+        PasskeyRegistrationDto registration, CancellationToken ct = default)
+        => gateway.PostAsync<PasskeyDto>("auth/webauthn/register", registration, ct);
+
+    /// <summary>내 계정에 등록된 기기 목록.</summary>
+    public Task<IReadOnlyList<PasskeyDto>> GetPasskeysAsync(CancellationToken ct = default)
+        => gateway.GetListAsync<PasskeyDto>("auth/webauthn/credentials", ct);
+
+    /// <summary>기기 이름을 고친다. 기기가 여럿일 때 어느 줄인지 아는 유일한 단서다.</summary>
+    public Task RenamePasskeyAsync(string id, string label, CancellationToken ct = default)
+        => gateway.PutAsync($"auth/webauthn/credentials/{id}", new { label }, ct);
+
+    /// <summary>
+    /// 기기를 지운다. <b>잃어버린 기기를 끊는 유일한 수단이다</b> —
+    /// 공개 키를 지우면 그 기기의 서명이 더는 통하지 않는다.
+    /// </summary>
+    public Task DeletePasskeyAsync(string id, CancellationToken ct = default)
+        => gateway.DeleteAsync($"auth/webauthn/credentials/{id}", ct);
+
     // ── 프로필 사진 (FileServer 파일 그룹) ──────────────────────
     //
     // 올리는 것은 여기 없다 — 브라우저가 `DxUpload` 으로 셸의

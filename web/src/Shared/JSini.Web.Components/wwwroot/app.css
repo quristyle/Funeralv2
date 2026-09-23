@@ -3266,6 +3266,76 @@ button.jsini-crumbs__item:hover { opacity: 1; }
   color: #fff;
 }
 
+/* ── 지문·얼굴로 로그인 ───────────────────────────────────────────────
+
+   이 화면의 규칙을 그대로 지킨다 — 색을 쓰지 않고 대비로만 말한다.
+   단추는 로그인 단추와 **같은 모양의 반대말**이다: 저쪽이 먹 테두리에 흰
+   바탕이라면 이쪽은 회색 테두리라, 무엇이 기본 동작인지가 한눈에 보인다.
+
+   판 전체는 기본이 감춤(`hidden`)이고 `passkey.js` 가 지원하는 브라우저에서만
+   꺼낸다. 여기서 `display` 를 정하지 않는 이유가 그것이다 — 정해 두면
+   `hidden` 을 이겨서 못 쓰는 브라우저에도 단추가 보인다. */
+.jsini-login__passkey {
+  margin-top: 1.75rem;
+}
+
+/* 「또는」. 가운뎃줄은 양옆으로 늘어나고 글자 자리만 비운다. */
+.jsini-login__or {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+  font-size: 0.75rem;
+  letter-spacing: 0.15em;
+  color: #6e6e73;
+}
+
+.jsini-login__or::before,
+.jsini-login__or::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: #d2d2d7;
+}
+
+.jsini-login__passkey-btn {
+  width: 100%;
+  /* 손가락 과녁 44px 를 넘긴다. 휴대폰에서 누르는 단추다. */
+  padding: 0.75rem 2rem;
+  border: 1px solid #d2d2d7;
+  border-radius: 0;
+  background: transparent;
+  color: #1c1c1e;
+  font: inherit;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+}
+
+.jsini-login__passkey-btn:hover,
+.jsini-login__passkey-btn:focus-visible {
+  border-color: #0a0a0a;
+  color: #0a0a0a;
+}
+
+/* 누르는 동안은 기기가 답하기를 기다리는 중이다. 「눌렸다」가 보여야
+   사용자가 한 번 더 누르지 않는다. */
+.jsini-login__passkey-btn:disabled {
+  color: #6e6e73;
+  border-color: #e8e8ed;
+  cursor: progress;
+}
+
+/* 기기가 거절했을 때의 한 줄. 실패 안내와 같은 규칙을 쓰되 판이 아니라
+   글줄이라 테두리를 세우지 않는다 — 폼 위의 `__error` 와 무게가 같아지면
+   어느 쪽을 봐야 할지 알 수 없다. */
+.jsini-login__passkey-note {
+  margin: 0.75rem 0 0;
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  color: #6e6e73;
+}
+
 /* 실패 안내. **빨강을 쓰지 않는다** — 이 화면에 색이 하나도 없어서 붉은 줄
    하나가 유일한 색이 되면 그것만 보인다. 대신 먹 테두리를 왼쪽에 세워
    대비로 알린다(그 사이트가 강조를 내는 방식이다). */

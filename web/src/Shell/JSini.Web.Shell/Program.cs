@@ -157,6 +157,32 @@ app.MapMicrofrontends<App>()
     .AddInteractiveServerRenderMode()
     .AddAdditionalAssemblies([.. moduleRegistry.Assemblies]);
 
+// ── 패스키 도전값 중계 ────────────────────────────────────────────
+//
+// 로그인 화면의 「지문·얼굴로 로그인」 단추가 부른다. 브라우저가
+// `navigator.credentials.get()` 에 넘길 설정(도전값 · 후보 열쇠)을 받아 온다.
+//
+// **익명이다.** 로그인하려는 사람에게 토큰이 있을 리 없다. 나가는 값에 비밀은
+// 없고(32바이트 난수와 자격 증명 아이디 목록), 그 목록은 아이디를 적어 넣었을
+// 때만 채워진다 — 아무 아이디나 넣어 보고 「그 계정이 있는지」를 캐낼 수
+// 없도록 AuthServer 는 없는 아이디에도 빈 목록을 그대로 돌려준다.
+//
+// **브라우저가 게이트웨이를 직접 부르게 두지 않는다.** 포털은 BFF 라 바깥으로
+// 나가는 문이 셸 하나여야 한다(web/CLAUDE.md 「인증 — BFF」).
+// 시도 제한은 게이트웨이의 `auth-attempts` 가 건다.
+app.MapPost("/passkey/options", async (
+    LoginService auth, PasskeyOptionsRequest? request,
+    CancellationToken cancellationToken) =>
+{
+    var options = await auth.GetPasskeyLoginOptionsAsync(request?.Username, cancellationToken);
+
+    return options is { } value
+        ? Results.Json(value)
+        // 까닭을 나누지 않는다 — 브라우저가 할 수 있는 일은 어느 쪽이든
+        // 「지금은 안 된다」를 말하는 것뿐이다.
+        : Results.Json(new { error = "지금은 기기 인증을 쓸 수 없습니다." }, statusCode: 503);
+}).AllowAnonymous();
+
 // 로그아웃은 POST 다. GET 으로 두면 이미지 태그 하나로 남을 로그아웃시킬 수 있고
 // (CSRF), 브라우저가 미리 읽어 보는 것만으로도 로그아웃된다.
 app.MapPost("/logout", async (HttpContext context) =>
@@ -166,3 +192,10 @@ app.MapPost("/logout", async (HttpContext context) =>
 }).RequireAuthorization();
 
 app.Run();
+
+/// <summary>
+/// 패스키 도전값을 받을 때 브라우저가 보내는 것. 아이디는 <b>있어도 되고
+/// 없어도 된다</b> — 없으면 기기가 스스로 열쇠를 고른다(아이디를 치지 않는 길).
+/// </summary>
+/// <param name="Username">로그인 아이디. 비워도 된다.</param>
+internal sealed record PasskeyOptionsRequest(string? Username);

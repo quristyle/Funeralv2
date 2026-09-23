@@ -1479,6 +1479,22 @@
         }
       }
 
+      // ── 로그인 유지 ──────────────────────────────────────────
+      //
+      // 위 칸과 **하는 일이 다르다.** 아이디 기억하기는 여기서 끝나지만
+      // 이 값은 폼에 실려 서버로 가서 **인증 쿠키의 수명**을 정한다
+      // (Login.razor 머리말의 표). 브라우저가 하는 일은 「지난번에 켜
+      // 두었다」를 기억해 다시 켜 주는 것뿐이다.
+      //
+      // 한 번 켠 사람에게 매번 다시 켜게 하면 켜 둔 뜻이 없다 — 홈 화면
+      // 앱으로 쓰는 사람이 이 칸의 진짜 손님이라 더욱 그렇다.
+      var keep = form.querySelector('[data-keep-signed-in]');
+      var keepKey = 'KEEP_SIGNED_IN_' + location.hostname;
+
+      if (keep && readLocal(keepKey) === '1') {
+        keep.checked = true;
+      }
+
       // 제출을 막지 않는다 — 적어 두기만 하고 폼은 그대로 나간다.
       form.addEventListener('submit', function () {
         try {
@@ -1486,6 +1502,12 @@
             window.localStorage.setItem(key, id.value);
           } else {
             window.localStorage.removeItem(key);
+          }
+
+          if (keep && keep.checked) {
+            window.localStorage.setItem(keepKey, '1');
+          } else {
+            window.localStorage.removeItem(keepKey);
           }
         } catch (e) {
           // 사생활 보호 모드다. 기억하지 못할 뿐 로그인은 그대로 된다.

@@ -49,6 +49,9 @@ public class AppDbContext : DbContext
     /// <summary>비밀번호 재설정 링크. 해시만 들어 있다 — 엔티티 주석 참고.</summary>
     public DbSet<PasswordResetToken> PasswordResetTokens { get; set; }
 
+    /// <summary>패스키(지문·얼굴). 공개 키만 들어 있다 — 엔티티 주석 참고.</summary>
+    public DbSet<AccountWebAuthnCredential> AccountWebAuthnCredentials { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -58,6 +61,28 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<PasswordResetToken>()
             .HasIndex(t => t.TokenHash)
             .IsUnique();
+
+        // ── 패스키 ────────────────────────────────────────────
+        //
+        // 로그인은 **자격 증명 아이디 하나로만** 주인을 찾는다(아이디를 치지
+        // 않고 들어오는 길이 있으므로 계정으로 좁힐 수가 없다). 색인이 없으면
+        // 로그인마다 표를 통째로 훑고, 고유하지 않으면 같은 열쇠가 두 계정에
+        // 걸려 **누구로 들어올지가 순서에 달리게** 된다.
+        modelBuilder.Entity<AccountWebAuthnCredential>()
+            .HasIndex(c => c.CredentialId)
+            .IsUnique();
+
+        // 「내 기기 목록」이 계정으로 훑는다.
+        modelBuilder.Entity<AccountWebAuthnCredential>()
+            .HasIndex(c => c.AccountId);
+
+        // 계정이 사라지면 패스키도 함께 지운다. 남겨 두면 아무 곳도 가리키지
+        // 않는 공개 키가 쌓이고, 로그인 조회가 매번 그것을 지나간다.
+        modelBuilder.Entity<AccountWebAuthnCredential>()
+            .HasOne(c => c.Account)
+            .WithMany()
+            .HasForeignKey(c => c.AccountId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.Entity<RoleAccount>()
             .HasIndex(ra => new { ra.RoleId, ra.AccountId })

@@ -1954,3 +1954,89 @@ public sealed class PushUserStatDto
     public int TotalRead { get; set; }
     public double ReadRate { get; set; }
 }
+
+// ── 패스키 (지문 · 얼굴) ─────────────────────────────────────
+//
+// AuthServer 의 `WebAuthnDto.cs` 와 짝이다. 화면이 읽는 칸만 옮겨 왔다 —
+// 공개 키·서명 횟수는 서버 안에서만 뜻이 있어서 여기 없다.
+
+/// <summary>「내 정보 → 보안 설정」의 등록된 기기 한 줄.</summary>
+public sealed class PasskeyDto
+{
+    /// <summary>줄 식별자. 이름을 고치거나 지울 때 쓴다.</summary>
+    public string Id { get; set; } = string.Empty;
+
+    /// <summary>사람이 붙인 이름 (「아이폰 지문」).</summary>
+    public string? Label { get; set; }
+
+    /// <summary>
+    /// <c>platform</c>(기기에 붙박이: 지문·얼굴) ·
+    /// <c>cross-platform</c>(따로 꽂는 보안 열쇠).
+    /// </summary>
+    public string? Attachment { get; set; }
+
+    /// <summary>등록 시각 (UTC).</summary>
+    public DateTime CreatedAt { get; set; }
+
+    /// <summary>마지막으로 이 기기로 들어온 시각 (UTC). 한 번도 안 썼으면 <c>null</c>.</summary>
+    public DateTime? LastUsedAt { get; set; }
+}
+
+/// <summary>
+/// 서버가 낸 도전값 한 벌. <b>브라우저에 그대로 넘긴다</b> — 그 안을
+/// C# 이 들여다볼 이유가 없고, 들여다보기 시작하면 규격이 바뀔 때마다
+/// 이 파일도 함께 고쳐야 한다.
+/// </summary>
+public sealed class PasskeyOptionsDto
+{
+    /// <summary>이 도전값을 다시 찾을 번호. 다음 요청에 그대로 실어 보낸다.</summary>
+    public string SessionId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// 브라우저의 <c>navigator.credentials.create()</c> 에 넘길 설정.
+    /// 이진값은 base64url 문자열이고 <c>passkey.js</c> 가 바이트로 되돌린다.
+    /// </summary>
+    public System.Text.Json.JsonElement PublicKey { get; set; }
+}
+
+/// <summary>
+/// 브라우저가 기기에서 받아 온 등록 결과. <c>passkey.js</c> 의
+/// <c>register</c> 가 돌려주는 모양 그대로다.
+/// </summary>
+/// <remarks>
+/// <see cref="Ok"/> 가 거짓이면 나머지는 비어 있고 <see cref="Error"/> 에
+/// <b>사용자에게 그대로 보여 줄 문구</b>가 들어 있다 — 브라우저가 던진
+/// 원문(`NotAllowedError: The operation either timed out…`)이 아니라
+/// 그쪽에서 이미 사람 말로 옮긴 것이다.
+/// </remarks>
+public sealed class PasskeyRegistrationDto
+{
+    public bool Ok { get; set; }
+
+    public string? Error { get; set; }
+
+    public string SessionId { get; set; } = string.Empty;
+    public string CredentialId { get; set; } = string.Empty;
+    public string PublicKey { get; set; } = string.Empty;
+    public int Algorithm { get; set; }
+    public string AuthenticatorData { get; set; } = string.Empty;
+    public string ClientDataJson { get; set; } = string.Empty;
+    public string? Label { get; set; }
+    public string? Attachment { get; set; }
+}
+
+/// <summary>이 브라우저가 패스키를 다룰 수 있는가. <c>passkey.js</c> 의 <c>status</c>.</summary>
+public sealed class PasskeyBrowserDto
+{
+    /// <summary>
+    /// WebAuthn 을 쓸 수 있는가. <b>http 로 열면 거짓이다</b> —
+    /// 보안 문맥이 아니면 API 자체가 없기 때문이다.
+    /// </summary>
+    public bool Supported { get; set; }
+
+    /// <summary>
+    /// 이 기기에 붙박이 인증기(지문·얼굴·Hello)가 있는가.
+    /// 없어도 보안 열쇠로는 등록할 수 있어 <b>막는 근거로 쓰지 않는다.</b>
+    /// </summary>
+    public bool PlatformAuthenticator { get; set; }
+}

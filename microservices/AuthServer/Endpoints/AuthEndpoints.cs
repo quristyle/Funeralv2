@@ -16,7 +16,7 @@ public static class AuthEndpoints
 
         group.MapPost("/login", async (LoginRequestDto request, AppDbContext db, IConfiguration config,
             IHostEnvironment env, ILogger<Account> logger,
-            AccessTokenFactory tokenFactory, ILoginLogService loginLog,
+            ILoginLogService loginLog, LoginCompletion completion,
             HttpContext http) =>
         {
             logger.LogInformation("로그인 시도: {Username}", request.Username);
@@ -72,28 +72,11 @@ public static class AuthEndpoints
             // "승인 대기 중" 이라는 답을 받을 수 있어, 그 아이디가 있다는 것이
             // 새어 나간다. 로그인 실패 문구를 뭉뚱그려 둔 뜻이 사라진다.
             //
-            // 상태는 계정 표의 칸이 아니라 account_profile_details 의 Status 다
-            // (계정 관리가 예전부터 그 자리에 넣어 왔다). 값이 아예 없는 옛
-            // 계정은 ACTIVE 로 본다 — 없다는 이유로 전원을 막을 수는 없다.
-            var status = await db.AccountProfileDetails
-                .Where(d => d.AccountId == account.Id && d.DetailType == SignupService.StatusDetail)
-                .Select(d => d.Content)
-                .FirstOrDefaultAsync();
-
-            if (!string.IsNullOrWhiteSpace(status) &&
-                !string.Equals(status, SignupService.StatusActive, StringComparison.OrdinalIgnoreCase))
+            // 판정은 패스키 로그인과 한 벌을 쓴다(LoginCompletion) — 갈라 두면
+            // 한쪽으로만 정지 계정이 들어오는 날이 온다.
+            if (await completion.RejectIfNotActiveAsync(http, account) is { } rejected)
             {
-                logger.LogWarning("로그인 거절 — 계정 상태 {Status}: {Username}", status, request.Username);
-
-                await loginLog.WriteAsync(
-                    account.Id, request.Username, success: false, LoginFailReason.NotActive,
-                    ResolveClientIp(http), http.Request.Headers.UserAgent.ToString());
-
-                var message = string.Equals(status, SignupService.StatusPending, StringComparison.OrdinalIgnoreCase)
-                    ? "가입 승인을 기다리는 계정입니다. 승인되면 알려 드립니다."
-                    : "지금은 사용할 수 없는 계정입니다. 관리자에게 문의해 주십시오.";
-
-                return Results.Json(ApiResponse<object>.Fail(message, "403"), statusCode: 403);
+                return rejected;
             }
 
             // 2-1. 평문이거나 옛 기준으로 해시된 값이면 이 기회에 다시 해시해 저장한다.
@@ -114,103 +97,12 @@ public static class AuthEndpoints
                 }
             }
 
-            // 2-2. 접속 기록을 남긴다.
-            //      /profile 화면의 '최근 로그인 시간 · 접속 아이피' 가 이 값을 읽는다.
-            //      기록에 실패해도 로그인은 막지 않는다 — 기록은 로그인의 부수 효과일 뿐이다.
-            var loginAt = DateTime.UtcNow;
-            var clientIp = ResolveClientIp(http);
-            try
-            {
-                account.LastLoginAt = loginAt;
-                account.LastLoginIp = clientIp;
-                await db.SaveChangesAsync();
-            }
-            catch (Exception ex)
-            {
-                logger.LogWarning(ex, "접속 기록 저장 실패: {Username}", request.Username);
-            }
-
-            // 마지막 값과 별도로 한 줄씩 쌓는다. 계정 정보 화면이 '지난번 접속' ·
-            // '접속 기록' 을 보여 주려면 이력이 있어야 한다(마지막 값만으로는 안 된다).
-            await loginLog.WriteAsync(
-                account.Id, request.Username, success: true,
-                failReason: null, clientIp, http.Request.Headers.UserAgent.ToString());
-
-            // 2-3. 비밀번호 사용 기간.
-            //      만료되어도 토큰은 정상 발급한다. 비밀번호를 바꾸려면 로그인이 되어야 하기 때문이다.
-            //      대신 토큰에 기준 시각을 실어, 게이트웨이가 비밀번호 변경 외의 요청을 막는다.
-            var expiryDays = PasswordPolicy.ExpiryDays(config);
-            var passwordExpired = PasswordPolicy.IsExpired(account.PasswordChangedAt, expiryDays, loginAt);
-            var daysRemaining = PasswordPolicy.DaysRemaining(account.PasswordChangedAt, expiryDays, loginAt);
-
-            if (passwordExpired)
-            {
-                logger.LogInformation(
-                    "비밀번호 사용 기간이 지났습니다({Days}일). 변경 전까지 다른 요청은 게이트웨이가 막습니다: {Username}",
-                    expiryDays, request.Username);
-            }
-
-            // 3. 토큰 발급
-            //    무엇을 담는지·왜 담는지는 AccessTokenFactory 에 있다.
-            //    **갱신(`/refresh`)과 한 벌의 코드를 쓴다** — 복사해 두면 한쪽에만
-            //    클레임을 더하는 날이 오고, 그때 증상이 「일주일 뒤부터 권한이 없다」다.
-            var issued = await tokenFactory.IssueAsync(account, loginAt);
-            var accessToken = issued.AccessToken;
-
-            // ── 갱신 쿠키 ────────────────────────────────────────
+            // ── 로그인 성공 뒤처리 ────────────────────────────────
             //
-            // access token 이 만료되면 프런트가 `auth/refresh` 로 이 쿠키를 들고 온다.
-            // 브라우저에는 이 쿠키가 저장되지만 **셸 서버가 대신 들고 다닌다** —
-            // 포털은 BFF 라 토큰이 브라우저로 내려가지 않는다(web/CLAUDE.md).
-            if (tokenFactory.RefreshEnabled)
-            {
-                AccessTokenFactory.AppendRefreshCookie(
-                    http.Response, issued.RefreshToken, issued.RefreshExpiresAt, !env.IsDevelopment());
-            }
-
-            // ── 파일 읽기용 쿠키 ──────────────────────────────────
-            //
-            // 왜 토큰을 쿠키로 한 번 더 내려보내는가.
-            //
-            // 화면은 사진을 `<img src="/api/file/thumbnail/{id}">` 로 그린다. 브라우저는 그런
-            // 태그에 `Authorization` 헤더를 붙여 주지 않는다. 그래서 **로그인한 사람이 포털에서
-            // 사진을 보는 요청조차 FileServer 쪽에서는 익명과 구별되지 않았다.**
-            // 그 때문에 파일 읽기 라우트를 익명으로 열어 둘 수밖에 없었고,
-            // 결국 파일 아이디만 알면 누구나 남의 첨부를 내려받을 수 있었다.
-            //
-            // 브라우저가 스스로 보내는 인증 수단이 있으면 그 전제가 사라진다. 그래서 쿠키다.
-            //
-            // 안전장치 셋을 함께 건다.
-            //   Path=/api/file  파일 경로에만 실려 나간다. 다른 API 로는 아예 가지 않는다.
-            //   SameSite=Lax    남의 사이트가 우리 주소로 `<img>` 를 걸어도 쿠키가 실리지 않는다.
-            //                   (같은 출처에서 오는 `<img>` 에는 실린다 — 우리에게 필요한 그 경우다)
-            //   HttpOnly        스크립트가 읽을 수 없다.
-            //
-            // 게이트웨이는 이 쿠키를 **파일 읽기 경로에서만** 신원의 근거로 받는다.
-            // 업로드·삭제에는 쓰지 않는다 — 쓰면 CSRF 로 남이 파일을 지울 수 있다.
-            // 짝이 되는 코드는 ApiGateway/Program.cs 의 `OnMessageReceived` 다.
-            // **쿠키 이름을 바꾸려면 두 곳을 함께 바꿔야 한다.**
-            http.Response.Cookies.Append("jsini_file_at", accessToken, new CookieOptions
-            {
-                HttpOnly = true,
-                Secure = !env.IsDevelopment(),
-                SameSite = SameSiteMode.Lax,
-                Path = "/api/file",
-                Expires = new DateTimeOffset(
-                    DateTime.SpecifyKind(issued.AccessExpiresAt, DateTimeKind.Utc))
-            });
-
-            // 결과 데이터를 DTO에 담기
-            var loginResult = new LoginResponseDto
-            {
-                AccessToken = accessToken,
-                PasswordExpired = passwordExpired,
-                PasswordExpiryDays = PasswordPolicy.IsEnabled(expiryDays) ? expiryDays : null,
-                PasswordDaysRemaining = daysRemaining
-            };
-
-            // [중요] ApiResponse.Ok로 감싸서 반환
-            return Results.Ok(ApiResponse<LoginResponseDto>.Ok(loginResult));
+            // 접속 기록 · 토큰 발급 · 갱신 쿠키 · 파일 쿠키 · 비밀번호 만료 판정이
+            // 전부 저 안에 있다. **패스키 로그인과 같은 코드다**(LoginCompletion) —
+            // 한쪽에만 손대면 증상이 원인과 멀어진다(그 클래스 머리말 참고).
+            return await completion.CompleteAsync(http, account);
         });
 
         // ── 토큰 갱신 ────────────────────────────────────────────
@@ -266,15 +158,10 @@ public static class AuthEndpoints
 
             // 파일 읽기용 쿠키도 함께 갱신한다. 안 하면 갱신 뒤에도 사진만
             // 옛 토큰으로 나가다가 만료되어 **글은 보이는데 사진만 안 나온다.**
-            http.Response.Cookies.Append("jsini_file_at", issued.AccessToken, new CookieOptions
-            {
-                HttpOnly = true,
-                Secure = !env.IsDevelopment(),
-                SameSite = SameSiteMode.Lax,
-                Path = "/api/file",
-                Expires = new DateTimeOffset(
-                    DateTime.SpecifyKind(issued.AccessExpiresAt, DateTimeKind.Utc))
-            });
+            // 심는 코드는 로그인과 한 벌이다 — 옵션이 한 글자라도 달라지면
+            // 브라우저가 다른 쿠키로 알아보고, 옛것이 남아 계속 실려 나간다.
+            LoginCompletion.AppendFileCookie(
+                http.Response, issued.AccessToken, issued.AccessExpiresAt, !env.IsDevelopment());
 
             // 봉투의 `data` 에 토큰 문자열을 그대로 싣는다 —
             // 프런트(`AuthTokenHandler.ReadTokenAsync`)가 `data` 와
@@ -293,7 +180,7 @@ public static class AuthEndpoints
             // 파일 읽기용 쿠키를 지운다. 지우지 않으면 로그아웃한 뒤에도
             // 브라우저에 남은 쿠키로 사진을 계속 볼 수 있다.
             // 심을 때와 옵션이 같아야 브라우저가 같은 쿠키로 알아본다(특히 Path).
-            http.Response.Cookies.Delete("jsini_file_at", new CookieOptions
+            http.Response.Cookies.Delete(LoginCompletion.FileCookieName, new CookieOptions
             {
                 HttpOnly = true,
                 Secure = !env.IsDevelopment(),
@@ -329,32 +216,9 @@ public static class AuthEndpoints
 
     /// <summary>
     /// 요청을 보낸 실제 클라이언트 IP.
+    /// <b>본체는 <see cref="LoginCompletion.ResolveClientIp"/> 하나다</b> —
+    /// 여기 한 벌을 더 두면 프록시 헤더를 읽는 규칙이 두 곳으로 갈린다.
     /// </summary>
-    /// <remarks>
-    /// AuthServer 는 게이트웨이 뒤에 있다. 그래서 <c>RemoteIpAddress</c> 를 그대로 쓰면
-    /// 모든 계정의 접속 IP 가 게이트웨이 주소로 똑같이 남는다.
-    /// YARP 가 붙여 주는 <c>X-Forwarded-For</c> 의 <b>첫 값</b>이 원래 클라이언트다
-    /// (뒤로 갈수록 중간 프록시다).
-    ///
-    /// <para>
-    /// 이 값은 <b>클라이언트가 보낸 헤더라 위조할 수 있다.</b> 게이트웨이가 덧붙이는 방식이라
-    /// 앞에 임의의 값을 심어 둘 수 있다. 그래서 이 값은 <b>참고용 기록으로만</b> 쓰고
-    /// 권한 판단에는 절대 쓰지 않는다.
-    /// </para>
-    /// </remarks>
-    private static string? ResolveClientIp(HttpContext http)
-    {
-        var forwarded = http.Request.Headers["X-Forwarded-For"].FirstOrDefault();
-        if (!string.IsNullOrWhiteSpace(forwarded))
-        {
-            var first = forwarded.Split(',')[0].Trim();
-            if (first.Length > 0) return Truncate(first);
-        }
-
-        return Truncate(http.Connection.RemoteIpAddress?.ToString());
-    }
-
-    /// <summary>기록용 칸이므로 비정상적으로 긴 값은 잘라 둔다.</summary>
-    private static string? Truncate(string? value) =>
-        value is null || value.Length <= 100 ? value : value[..100];
+    private static string? ResolveClientIp(HttpContext http) =>
+        LoginCompletion.ResolveClientIp(http);
 }

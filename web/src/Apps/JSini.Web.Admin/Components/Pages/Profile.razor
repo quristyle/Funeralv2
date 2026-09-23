@@ -148,6 +148,7 @@
 @implements IDisposable
 
 @inject AdminClient Api
+@inject IJSRuntime JS
 @inject MenuFavorites Favorites
 @inject IMenuProvider Menus
 @inject CurrentUser Me
@@ -602,6 +603,73 @@
                                           Click="@(() => Navigation.NavigateTo("/password/change"))" />
                             </div>
 
+                            @*
+                                ── 지문 · 얼굴로 로그인 (패스키) ──────────
+
+                                아래 스위치들과 달리 **이것은 진짜로 동작한다.**
+                                등록해 두면 로그인 화면에 「지문 · 얼굴로 로그인」
+                                단추가 서고, 아이디를 치지 않고 들어올 수 있다.
+
+                                단추의 상태가 셋이라 말이 셋이다.
+                                  · 이 브라우저가 못 한다 → 단추를 잠그고 까닭을 적는다
+                                  · 할 수 있다 → 「이 기기 등록」
+                                  · 이미 등록했다 → 그래도 열어 둔다(기기를 더 붙일 수 있다)
+
+                                **못 하는 브라우저에서 단추를 감추지 않고 잠근다.**
+                                로그인 화면과 규칙이 다른데, 거기는 처음 보는 사람이
+                                지나가는 자리라 없는 길을 보여 주지 않는 편이 맞고,
+                                여기는 **찾아 들어온 사람**이라 「왜 안 되는지」를
+                                들어야 하는 자리다.
+                            *@
+                            <div class="ad-setting">
+                                <div>
+                                    <div class="ad-setting__name">지문 · 얼굴로 로그인</div>
+                                    <div class="ad-setting__desc">@PasskeySummary</div>
+                                </div>
+                                <DxButton Text="이 기기 등록"
+                                          RenderStyle="ButtonRenderStyle.Secondary"
+                                          Enabled="@(_browser.Supported && !_passkeyBusy)"
+                                          Click="@RegisterPasskeyAsync" />
+                            </div>
+
+                            @if (_passkeys.Count > 0)
+                            {
+                                @* 기기 목록. **표가 아니라 줄로 그린다** — 칸이
+                                   넷뿐이고 정렬·검색할 것이 없는데 그리드를 세우면
+                                   휴대폰에서 옆으로 구른다(이 화면의 접속 기록 표가
+                                   이미 그 문제를 겪었다). *@
+                                <ul class="ad-passkeys">
+                                    @foreach (var key in _passkeys)
+                                    {
+                                        <li class="ad-passkey">
+                                            <div class="ad-passkey__who">
+                                                <div class="ad-passkey__name">
+                                                    @(string.IsNullOrWhiteSpace(key.Label) ? "이름 없는 기기" : key.Label)
+                                                </div>
+                                                <div class="ad-passkey__meta">
+                                                    @AttachmentText(key.Attachment)
+                                                    · 등록 @Dt(key.CreatedAt)
+                                                    · @LastUsedText(key.LastUsedAt)
+                                                </div>
+                                            </div>
+                                            <div class="ad-passkey__acts">
+                                                <DxButton Text="이름"
+                                                          RenderStyle="ButtonRenderStyle.Secondary"
+                                                          Click="@(() => OpenRename(key))" />
+                                                <DxButton Text="지우기"
+                                                          RenderStyle="ButtonRenderStyle.Danger"
+                                                          Click="@(() => DeletePasskeyAsync(key))" />
+                                            </div>
+                                        </li>
+                                    }
+                                </ul>
+
+                                <p class="jsini-hint">
+                                    기기를 잃어버렸다면 <b>여기서 지우는 것이 그 기기를 끊는
+                                    유일한 방법</b>입니다. 지워도 비밀번호 로그인은 그대로입니다.
+                                </p>
+                            }
+
                             @foreach (var row in SecurityRows)
                             {
                                 <div class="ad-setting">
@@ -617,8 +685,9 @@
                         </section>
 
                         <p class="jsini-hint">
-                            켜 둔 값은 계정에 기록됩니다. <b>실제 2차 인증 흐름은 아직 붙지
-                            않았습니다</b> — 지금은 의사를 남겨 두는 자리입니다.
+                            지문 · 얼굴 로그인을 뺀 나머지 켬·끔은 계정에 기록만 됩니다.
+                            <b>실제 2차 인증 흐름은 아직 붙지 않았습니다</b> — 지금은
+                            의사를 남겨 두는 자리입니다.
                         </p>
                     </DxTabPage>
 
@@ -806,6 +875,33 @@
                  src="@FileDownload.UrlFor(previewId, _preview.OriginalName)"
                  alt="@_preview.OriginalName" />
         }
+    </BodyContentTemplate>
+</CommPopup>
+
+@* 기기 이름 바꾸기. 목록에서 바로 고치게 두면 줄마다 입력칸과 저장 단추가
+   서서 목록이 폼이 된다 — 흔한 일이 아니라 창으로 뺀다. *@
+<CommPopup Visible="@(_renaming is not null)"
+           VisibleChanged="@((bool v) => { if (!v) _renaming = null; })"
+           HeaderText="기기 이름"
+           Width="min(420px, 92vw)"
+           CloseOnOutsideClick="true"
+           ShowFooter="false">
+    @* `Context` 를 지어 준다. 창의 본문 조각과 `DxFormLayoutItem` 이
+       둘 다 기본 이름(`context`)을 쓰면 컴파일이 막힌다(RZ9999). *@
+    <BodyContentTemplate Context="popup">
+        <DxFormLayout CssClass="ad-editform">
+            <DxFormLayoutItem Caption="이름" ColSpanMd="12">
+                <DxTextBox @bind-Text="_renameLabel" NullText="아이폰 지문" />
+            </DxFormLayoutItem>
+        </DxFormLayout>
+
+        <div class="jsini-toolbar">
+            <div class="jsini-toolbar__spacer"></div>
+            <DxButton Text="취소" RenderStyle="ButtonRenderStyle.Secondary"
+                      Click="@(() => _renaming = null)" />
+            <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Primary"
+                      Click="@RenamePasskeyAsync" />
+        </div>
     </BodyContentTemplate>
 </CommPopup>
 
@@ -1110,6 +1206,39 @@
     /// </summary>
     protected override void OnParametersSet() => ReadTabFromUrl();
 
+    /// <summary>
+    /// 브라우저에게 패스키를 쓸 수 있는지 묻는다.
+    ///
+    /// <para>
+    /// <b><c>OnInitializedAsync</c> 에서 부르지 않는다.</b> 그때는 서버가
+    /// 화면을 그리는 중(프리렌더)이라 JS 가 없고, 부르면 예외가 난다.
+    /// 첫 렌더 뒤가 브라우저에게 말을 걸 수 있는 가장 이른 때다.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>예외를 삼킨다.</b> 못 물어봤다는 것은 「이 브라우저는 못 쓴다」와
+    /// 같은 결론이고, 화면이 그렇게 말한다(<see cref="PasskeySummary"/>).
+    /// </para>
+    /// </summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        try
+        {
+            _browser = await JS.InvokeAsync<PasskeyBrowserDto>("jsiniPasskey.status") ?? new();
+        }
+        catch (Exception ex) when (ex is JSException or InvalidOperationException or TaskCanceledException)
+        {
+            _browser = new();
+        }
+
+        StateHasChanged();
+    }
+
     public void Dispose()
     {
         Favorites.Changed -= OnFavoritesChanged;
@@ -1184,7 +1313,10 @@
         // 자리라 들어올 때 최신으로 맞춘다.
         var favorites = Favorites.ReloadAsync();
 
-        await Task.WhenAll(info, activity, favorites);
+        // 등록된 기기. 못 읽어도 나머지를 막지 않는다 — 접속 기록과 같은 규칙이다.
+        var passkeys = LoadPasskeysAsync();
+
+        await Task.WhenAll(info, activity, favorites, passkeys);
 
         _info = info.Result;
         _activity = activity.Result;
@@ -1251,6 +1383,201 @@
             // 이름이 바뀌면 헤더의 사용자 단추도 따라가야 한다.
             await Me.ReloadAsync();
             await ReloadAsync();
+        }
+    }
+
+    // ── 패스키 (지문 · 얼굴) ────────────────────────────────
+
+    /// <summary>내 계정에 등록된 기기들.</summary>
+    private IReadOnlyList<PasskeyDto> _passkeys = [];
+
+    /// <summary>
+    /// 이 브라우저가 패스키를 다룰 수 있는가.
+    ///
+    /// <para>
+    /// <b>기본이 「못 한다」다.</b> 서버가 그릴 때(프리렌더)는 브라우저에게
+    /// 물어볼 수 없어 값이 없는데, 그때 「할 수 있다」로 두면 못 하는
+    /// 브라우저에서도 단추가 잠깐 열렸다가 잠긴다.
+    /// </para>
+    /// </summary>
+    private PasskeyBrowserDto _browser = new();
+
+    /// <summary>기기가 대답하기를 기다리는 중인가. 단추를 두 번 누르지 못하게 막는다.</summary>
+    private bool _passkeyBusy;
+
+    /// <summary>이름을 고치는 중인 기기. 창이 이 값으로 열린다.</summary>
+    private PasskeyDto? _renaming;
+
+    private string? _renameLabel;
+
+    /// <summary>「지문 · 얼굴로 로그인」 줄의 설명. 상태 넷을 갈라 말한다.</summary>
+    private string PasskeySummary => (_browser.Supported, _passkeys.Count) switch
+    {
+        // http 로 열었거나 옛 브라우저다. WebAuthn 은 보안 문맥에서만 있다.
+        (false, _) => "이 브라우저에서는 쓸 수 없습니다 (https 로 접속했는지 확인하십시오).",
+        (true, 0) when !_browser.PlatformAuthenticator =>
+            "이 기기에는 지문·얼굴 인식이 없습니다. 보안 열쇠는 등록할 수 있습니다.",
+        (true, 0) => "등록된 기기가 없습니다. 등록하면 아이디를 치지 않고 들어올 수 있습니다.",
+        (true, var n) => $"기기 {n}대가 등록되어 있습니다.",
+    };
+
+    /// <summary>인증기 종류를 사람 말로.</summary>
+    private static string AttachmentText(string? attachment) =>
+        attachment == "cross-platform" ? "보안 열쇠" : "이 기기의 지문·얼굴";
+
+    private string LastUsedText(DateTime? lastUsedAt) =>
+        lastUsedAt is null ? "아직 쓴 적 없음" : $"마지막 사용 {Dt(lastUsedAt)}";
+
+    /// <summary>
+    /// 이 기기에 패스키를 만든다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 순서가 셋이고 <b>가운데는 브라우저가 한다.</b>
+    /// </para>
+    /// <list type="number">
+    ///   <item>서버에서 도전값을 받는다.</item>
+    ///   <item>브라우저가 기기에게 지문을 받고 열쇠를 만든다(<c>passkey.js</c>).</item>
+    ///   <item>그 결과를 서버가 검증하고 저장한다.</item>
+    /// </list>
+    ///
+    /// <para>
+    /// ②에서 취소하면 ③이 아예 없으므로 <b>서버에 반쪽짜리 줄이 남지 않는다.</b>
+    /// 받아 둔 도전값은 5분 뒤 스스로 사라진다.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>단추의 <c>Click</c> 에서 부른다.</b> 기기 확인 창은 웹푸시 권한 요청과
+    /// 마찬가지로 <b>사람이 누른 그 사슬에서만</b> 열린다 — 화면이 뜨자마자
+    /// 부르면 브라우저가 조용히 거절한다.
+    /// </para>
+    /// </remarks>
+    private async Task RegisterPasskeyAsync()
+    {
+        if (_passkeyBusy)
+        {
+            return;
+        }
+
+        _passkeyBusy = true;
+
+        try
+        {
+            var options = await Api.CreatePasskeyOptionsAsync();
+
+            if (options is null)
+            {
+                Say("서버가 등록 정보를 주지 않았습니다.", NoticeTone.Error);
+                return;
+            }
+
+            PasskeyRegistrationDto? made;
+
+            try
+            {
+                made = await JS.InvokeAsync<PasskeyRegistrationDto>(
+                    "jsiniPasskey.register", options, DefaultPasskeyLabel());
+            }
+            catch (JSException ex)
+            {
+                // 여기 오는 것은 스크립트가 아예 없을 때다 — 기기가 거절한
+                // 경우는 passkey.js 가 잡아서 `Ok: false` 로 돌려준다.
+                Say($"기기와 이야기하지 못했습니다 — {ex.Message}", NoticeTone.Error);
+                return;
+            }
+
+            if (made is not { Ok: true })
+            {
+                // 까닭은 이미 사람 말로 옮겨져 있다(passkey.js 의 `explain`).
+                Say(made?.Error ?? "기기 등록에 실패했습니다.", NoticeTone.Warning);
+                return;
+            }
+
+            if (await RunAsync(
+                () => Api.RegisterPasskeyAsync(made),
+                "이 기기를 등록했습니다. 다음부터 로그인 화면에서 지문·얼굴로 들어올 수 있습니다.",
+                "기기를 등록하지 못했습니다"))
+            {
+                await LoadPasskeysAsync();
+            }
+        }
+        catch (ApiException ex)
+        {
+            Say($"기기를 등록하지 못했습니다 — {ex.Message}", NoticeTone.Error);
+        }
+        finally
+        {
+            _passkeyBusy = false;
+        }
+    }
+
+    /// <summary>
+    /// 이름을 안 지어 주면 <b>목록에서 어느 줄인지 알 수 없다.</b> 기기가
+    /// 이름을 알려 주지는 않으므로 순번으로라도 갈라 둔다.
+    /// </summary>
+    private string DefaultPasskeyLabel() =>
+        _passkeys.Count == 0 ? "내 기기" : $"내 기기 {_passkeys.Count + 1}";
+
+    private void OpenRename(PasskeyDto key)
+    {
+        _renaming = key;
+        _renameLabel = key.Label;
+    }
+
+    private async Task RenamePasskeyAsync()
+    {
+        if (_renaming is null)
+        {
+            return;
+        }
+
+        var label = _renameLabel?.Trim();
+
+        if (string.IsNullOrWhiteSpace(label))
+        {
+            Say("이름을 입력하십시오.", NoticeTone.Warning);
+            return;
+        }
+
+        var id = _renaming.Id;
+        _renaming = null;
+
+        if (await RunAsync(
+            () => Api.RenamePasskeyAsync(id, label),
+            "이름을 바꿨습니다.",
+            "이름을 바꾸지 못했습니다"))
+        {
+            await LoadPasskeysAsync();
+        }
+    }
+
+    private async Task DeletePasskeyAsync(PasskeyDto key)
+    {
+        if (await RunAsync(
+            () => Api.DeletePasskeyAsync(key.Id),
+            "기기를 지웠습니다. 그 기기로는 더 들어올 수 없습니다.",
+            "기기를 지우지 못했습니다"))
+        {
+            await LoadPasskeysAsync();
+        }
+    }
+
+    /// <summary>
+    /// 기기 목록을 다시 읽는다.
+    ///
+    /// <b>못 읽어도 화면을 세우지 않는다</b> — 이 화면의 본업은 내 정보이고,
+    /// 패스키는 그중 한 줄이다. 조회 한 번이 실패했다고 나머지 여섯 탭이
+    /// 함께 비면 잃는 것이 더 크다(접속 기록을 같은 이유로 그렇게 두었다).
+    /// </summary>
+    private async Task LoadPasskeysAsync()
+    {
+        try
+        {
+            _passkeys = await Api.GetPasskeysAsync();
+        }
+        catch (ApiException)
+        {
+            _passkeys = [];
         }
     }
 

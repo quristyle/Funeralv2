@@ -109,6 +109,24 @@
 *@
 <script defer src="@Assets["_content/JSini.Web.Components/float-label.js"]"></script>
 
+@*
+    패스키(지문·얼굴) 배관. 로그인 화면의 단추와 「내 정보 → 보안 설정」의
+    기기 등록이 함께 쓴다.
+
+    **여기(공통 <head>)에 두는 이유가 손님이 둘이라서다.** 로그인 화면은
+    회로가 없는 정적 SSR 이라 JS interop 을 쓸 수 없고 스스로 붙어야 하며,
+    포털관리 화면은 회로에서 `IJSRuntime` 으로 부른다. 한쪽에만 두면 다른
+    쪽이 조용히 못 쓴다.
+
+    **`defer` 다.** 첫 그림과 상관이 없다. 그래서 로그인 화면은 이 파일이
+    실린 뒤 스스로 폼을 찾아 붙는다 — 화면 쪽 인라인 <script> 로 부르면
+    아직 없는 것을 부르게 된다(defer 는 파싱이 끝난 뒤에 돈다).
+
+    **서비스워커와 다르다.** 그쪽(push-sw.js)은 놓인 경로가 곧 관장 범위라
+    셸의 wwwroot 여야 하지만, 이것은 평범한 스크립트라 _content 로 실려도 된다.
+*@
+<script defer src="@Assets["_content/JSini.Web.Components/passkey.js"]"></script>
+
 @* 모듈 전용 스타일. 셸은 모듈 이름을 알지 못하고 모듈이 스스로 알려 준다
    (IPortalModule.StyleSheet). 그래야 모듈을 넣고 빼는 데 셸을 고칠 일이 없다.
 
