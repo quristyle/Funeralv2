@@ -84,6 +84,14 @@
         <PageNotice Tone="NoticeTone.Info"
                     Text="토큰 없이 읽고 있습니다. 공개 저장소는 그대로 보이지만 시간당 60회까지이고, 이 화면은 저장소 하나에 열다섯 번쯤 씁니다 — 토큰을 넣으면 5,000회가 됩니다." />
     }
+
+    @* **못 본 것과 없는 것은 다르다.** 말없이 비워 두면 「이 저장소는 원래
+       방문자가 0 인가 보다」로 읽힌다. *@
+    @foreach (var b in _result.Blocked)
+    {
+        <PageNotice Tone="NoticeTone.Info"
+                    Text="@($"{b.What} 를 보지 못했습니다 — {b.Why} 필요: {b.Needs}")" />
+    }
 }
 
 <CommGrd TItem="GitMonitorDto"
@@ -256,6 +264,144 @@
                     <DxGridDataColumn FieldName="@nameof(GitPrDto.Source)" Caption="보내는 가지" Width="150" />
                     <DxGridDataColumn FieldName="@nameof(GitPrDto.Target)" Caption="받는 가지" Width="130" />
                     <DxGridDataColumn FieldName="@nameof(GitPrDto.UpdatedAt)" Caption="고친 때" Width="180" />
+                </Columns>
+            </CommGrd>
+        </CommCont>
+    }
+
+    @if (_selected.Traffic is { } traffic)
+    {
+        <CommCont Title="방문 · 클론 (최근 14일)">
+            <div class="jsini-stats">
+                <div class="jsini-stat">
+                    <div class="jsini-stat__label">방문</div>
+                    <div class="jsini-stat__value">@traffic.Views</div>
+                </div>
+                <div class="jsini-stat">
+                    <div class="jsini-stat__label">방문자</div>
+                    <div class="jsini-stat__value">@traffic.UniqueViews</div>
+                </div>
+                <div class="jsini-stat">
+                    <div class="jsini-stat__label">클론</div>
+                    <div class="jsini-stat__value">@traffic.Clones</div>
+                </div>
+                <div class="jsini-stat">
+                    <div class="jsini-stat__label">클론한 곳</div>
+                    <div class="jsini-stat__value">@traffic.UniqueClones</div>
+                </div>
+            </div>
+
+            @if (traffic.TopPaths.Count > 0)
+            {
+                <div class="jsini-stats">
+                    @foreach (var path in traffic.TopPaths)
+                    {
+                        <div class="jsini-stat">
+                            <div class="jsini-stat__label">@path.Name</div>
+                            <div class="jsini-stat__value">@path.Count</div>
+                        </div>
+                    }
+                </div>
+            }
+        </CommCont>
+    }
+
+    @if (_selected.LastFailure is { } failure)
+    {
+        <CommCont Title="가장 최근에 깨진 자리"
+                  Hint="@($"{failure.WorkflowName} · {failure.Branch} · {failure.At}")">
+            @* 로그를 통째로 받지 않는다 — 실행 로그는 zip 이고 크다. 잡과
+               단계 이름만 봐도 「어디서 깨졌나」는 답이 나온다. *@
+            @if (failure.Steps.Count == 0)
+            {
+                <PageNotice Tone="NoticeTone.Info" Text="깨진 단계를 찾지 못했습니다." />
+            }
+            else
+            {
+                <ul class="pm-failsteps">
+                    @foreach (var step in failure.Steps)
+                    {
+                        <li>@step</li>
+                    }
+                </ul>
+            }
+
+            @if (!string.IsNullOrWhiteSpace(failure.Url))
+            {
+                <div class="jsini-toolbar">
+                    <a href="@failure.Url" target="_blank" rel="noopener">GitHub 에서 로그 보기</a>
+                </div>
+            }
+        </CommCont>
+    }
+
+    @if (_selected.Packages.Count > 0)
+    {
+        <CommCont Title="GHCR 이미지" Hint="배포가 올리는 산출물입니다.">
+            <CommGrd TItem="GitPackageDto"
+                     Data="@_selected.Packages"
+                     ExportName="GHCR 이미지"
+                     EmptyText="이미지가 없습니다."
+                     PageSize="20"
+                     Reload="@SearchAsync">
+                <Columns>
+                    <DxGridDataColumn FieldName="@nameof(GitPackageDto.Name)" Caption="이미지" MinWidth="220"
+                                      TextAlignment="GridTextAlignment.Left" />
+                    <DxGridDataColumn FieldName="@nameof(GitPackageDto.Versions)" Caption="판" Width="90" />
+                    <DxGridDataColumn FieldName="@nameof(GitPackageDto.UpdatedAt)" Caption="올라간 때" Width="190" />
+
+                    <DxGridDataColumn Caption="열기" Width="90">
+                        <CellDisplayTemplate Context="cell">
+                            @{
+                                var pkg = (GitPackageDto)cell.DataItem;
+                            }
+                            @if (!string.IsNullOrWhiteSpace(pkg.Url))
+                            {
+                                <a href="@pkg.Url" target="_blank" rel="noopener">GHCR</a>
+                            }
+                        </CellDisplayTemplate>
+                    </DxGridDataColumn>
+                </Columns>
+            </CommGrd>
+        </CommCont>
+    }
+
+    @if (_selected.Releases.Count > 0)
+    {
+        <CommCont Title="릴리스">
+            <CommGrd TItem="GitReleaseDto"
+                     Data="@_selected.Releases"
+                     ExportName="릴리스"
+                     EmptyText="릴리스가 없습니다."
+                     PageSize="10"
+                     Reload="@SearchAsync">
+                <Columns>
+                    <DxGridDataColumn FieldName="@nameof(GitReleaseDto.TagName)" Caption="태그" Width="140" />
+                    <DxGridDataColumn FieldName="@nameof(GitReleaseDto.Name)" Caption="이름" MinWidth="220"
+                                      TextAlignment="GridTextAlignment.Left" />
+
+                    <DxGridDataColumn Caption="상태" Width="110">
+                        <CellDisplayTemplate Context="cell">
+                            @{
+                                var rel = (GitReleaseDto)cell.DataItem;
+                            }
+                            @if (rel.Draft)
+                            {
+                                <span class="jsini-badge jsini-badge--off">초안</span>
+                            }
+                            else if (rel.Prerelease)
+                            {
+                                <span class="jsini-badge jsini-badge--warn">시험판</span>
+                            }
+                            else
+                            {
+                                <span class="jsini-badge jsini-badge--on">정식</span>
+                            }
+                        </CellDisplayTemplate>
+                    </DxGridDataColumn>
+
+                    <DxGridDataColumn FieldName="@nameof(GitReleaseDto.Author)" Caption="올린이" Width="120" />
+                    <DxGridDataColumn FieldName="@nameof(GitReleaseDto.PublishedAt)" Caption="올린 때" Width="190" />
                 </Columns>
             </CommGrd>
         </CommCont>

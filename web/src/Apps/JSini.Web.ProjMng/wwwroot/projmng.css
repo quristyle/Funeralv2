@@ -3938,3 +3938,13 @@
   grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
   gap: var(--jsini-sp-2xs);
 }
+
+/* 깨진 단계 목록. 잡과 단계를 `잡 / 단계` 로 적어 두므로 한 줄이 길어진다 —
+   고정폭으로 두어야 같은 잡의 여러 단계가 눈에 묶인다. */
+.pm-failsteps {
+  margin: 0;
+  padding-left: var(--jsini-sp-md);
+  font-family: var(--jsini-font-mono);
+  font-size: var(--jsini-fs-sm);
+  line-height: 1.8;
+}

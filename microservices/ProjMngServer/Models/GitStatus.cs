@@ -37,6 +37,28 @@ public sealed class GitResult<T>
     public int? RateLimit { get; set; }
 
     public List<T> Rows { get; set; } = [];
+
+    /// <summary>
+    /// 토큰이 없거나 권한이 모자라 <b>못 본 항목</b>. 화면이 그대로 보여 준다.
+    /// </summary>
+    /// <remarks>
+    /// 말없이 비워 두면 「그 저장소는 원래 방문자가 0 인가 보다」로 읽힌다.
+    /// <b>못 본 것과 없는 것은 다르다.</b>
+    /// </remarks>
+    public List<GitBlocked> Blocked { get; set; } = [];
+}
+
+/// <summary>못 본 항목 하나.</summary>
+public sealed class GitBlocked
+{
+    /// <summary>사람이 읽는 이름 — 「방문·클론 통계」.</summary>
+    public string? What { get; set; }
+
+    /// <summary>왜 못 봤나.</summary>
+    public string? Why { get; set; }
+
+    /// <summary>무엇을 주면 보이나 — 「Administration: Read」.</summary>
+    public string? Needs { get; set; }
 }
 
 /// <summary>빌드 상태 한 줄 — 저장소 하나의 가장 최근 Actions 실행.</summary>
@@ -165,6 +187,80 @@ public sealed class GitMonitorRow
 
     public int Contributors { get; set; }
     public List<GitNameCount> ContributorList { get; set; } = [];
+
+    /// <summary>방문·클론 통계(최근 14일). <b>토큰에 쓰기 권한이 있어야 보인다.</b></summary>
+    public GitTraffic? Traffic { get; set; }
+
+    /// <summary>릴리스. 토큰 없이도 보인다.</summary>
+    public List<GitRelease> Releases { get; set; } = [];
+
+    /// <summary>이 저장소에서 온 GHCR 이미지. <b>토큰이 있어야 보인다.</b></summary>
+    public List<GitPackage> Packages { get; set; } = [];
+
+    /// <summary>
+    /// 가장 최근에 깨진 실행의 <b>어느 단계에서</b> 깨졌나.
+    /// GitHub 까지 가지 않고 원인 자리를 본다.
+    /// </summary>
+    public GitFailure? LastFailure { get; set; }
+}
+
+/// <summary>방문·클론 통계(최근 14일).</summary>
+public sealed class GitTraffic
+{
+    public int Views { get; set; }
+
+    /// <summary>같은 사람을 한 번으로 센 값. 이쪽이 실제 사람 수에 가깝다.</summary>
+    public int UniqueViews { get; set; }
+
+    public int Clones { get; set; }
+
+    /// <inheritdoc cref="UniqueViews"/>
+    public int UniqueClones { get; set; }
+
+    /// <summary>많이 본 경로.</summary>
+    public List<GitNameCount> TopPaths { get; set; } = [];
+}
+
+/// <summary>릴리스 하나.</summary>
+public sealed class GitRelease
+{
+    public string? TagName { get; set; }
+    public string? Name { get; set; }
+    public string? PublishedAt { get; set; }
+    public bool Draft { get; set; }
+    public bool Prerelease { get; set; }
+    public string? Author { get; set; }
+    public string? Url { get; set; }
+}
+
+/// <summary>깨진 실행 하나의 원인 자리.</summary>
+public sealed class GitFailure
+{
+    public long? RunId { get; set; }
+    public string? WorkflowName { get; set; }
+    public string? Branch { get; set; }
+    public string? At { get; set; }
+    public string? Url { get; set; }
+
+    /// <summary>깨진 잡과 단계 — <c>build / dotnet test</c>.</summary>
+    public List<string> Steps { get; set; } = [];
+}
+
+/// <summary>GHCR 컨테이너 이미지 하나.</summary>
+/// <remarks>
+/// 저장소가 아니라 <b>소유자</b>에 매달린다. 배포가 올리는 이미지 열둘이
+/// 여기 보인다 — 운영에 떠 있는 태그와 대조하는 자리다.
+/// </remarks>
+public sealed class GitPackage
+{
+    public string? Name { get; set; }
+    public long Versions { get; set; }
+
+    /// <summary>가장 최근 판의 태그들.</summary>
+    public string? LatestTags { get; set; }
+
+    public string? UpdatedAt { get; set; }
+    public string? Url { get; set; }
 }
 
 /// <summary>가지 하나.</summary>

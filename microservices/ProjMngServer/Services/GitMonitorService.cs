@@ -33,7 +33,8 @@ public sealed class GitMonitorService(IConfiguration configuration, GitHubClient
     /// 비어 있고</b>, 하필 그 칸은 「왜 갑자기 안 보이나」를 보려고 만든 자리다.
     /// </remarks>
     private sealed record Entry(
-        List<GitMonitorRow> Rows, DateTimeOffset At, int? RateRemaining, int? RateLimit);
+        List<GitMonitorRow> Rows, DateTimeOffset At, int? RateRemaining, int? RateLimit,
+        List<GitBlocked> Blocked);
 
     private static readonly ConcurrentDictionary<int, Entry> Cache = new();
     private static readonly ConcurrentDictionary<int, SemaphoreSlim> Locks = new();
@@ -69,18 +70,25 @@ public sealed class GitMonitorService(IConfiguration configuration, GitHubClient
             }
 
             var rows = new GitMonitorRow[opt.Repos.Length];
+            var blocked = new System.Collections.Concurrent.ConcurrentBag<GitBlocked>();
 
             using var slots = new SemaphoreSlim(4, 4);
 
             await Task.WhenAll(opt.Repos.Select(async (repo, i) =>
             {
                 await slots.WaitAsync();
-                try { rows[i] = await OneAsync(opt, repo); }
+                try { rows[i] = await OneAsync(opt, repo, blocked); }
                 finally { slots.Release(); }
             }));
 
+            // 이미지는 저장소가 아니라 **소유자**에 매달린다. 소유자마다 한 번만
+            // 묻고 각 줄에 나눠 준다 — 저장소마다 물으면 같은 목록을 여러 번 받는다.
+            await FillPackagesAsync(opt, rows, blocked);
+
             var entry = new Entry(
-                [.. rows], DateTimeOffset.UtcNow, github.RateRemaining, github.RateLimit);
+                [.. rows], DateTimeOffset.UtcNow, github.RateRemaining, github.RateLimit,
+                [.. blocked.DistinctBy(b => b.What)]);
+
             Cache[prjRid] = entry;
 
             return Fill(result, entry);
@@ -97,11 +105,13 @@ public sealed class GitMonitorService(IConfiguration configuration, GitHubClient
         result.LoadedAt = entry.At.ToLocalTime().ToString("HH:mm:ss");
         result.RateRemaining = entry.RateRemaining;
         result.RateLimit = entry.RateLimit;
+        result.Blocked = entry.Blocked;
 
         return result;
     }
 
-    private async Task<GitMonitorRow> OneAsync(GitOptions opt, string repo)
+    private async Task<GitMonitorRow> OneAsync(
+        GitOptions opt, string repo, System.Collections.Concurrent.ConcurrentBag<GitBlocked> blocked)
     {
         var row = new GitMonitorRow
         {
@@ -122,8 +132,9 @@ public sealed class GitMonitorService(IConfiguration configuration, GitHubClient
         var runs = github.GetAsync(opt, $"/repos/{repo}/actions/runs?per_page={opt.RunSample}");
         var commits = github.GetAsync(opt, $"/repos/{repo}/commits?since={since}&per_page=100");
         var contribs = github.GetAsync(opt, $"/repos/{repo}/contributors?per_page=100");
+        var releases = github.GetAsync(opt, $"/repos/{repo}/releases?per_page=10");
 
-        await Task.WhenAll(info, branches, tags, prs, runs, commits, contribs);
+        await Task.WhenAll(info, branches, tags, prs, runs, commits, contribs, releases);
 
         using var infoDoc = info.Result;
         using var branchDoc = branches.Result;
@@ -131,6 +142,7 @@ public sealed class GitMonitorService(IConfiguration configuration, GitHubClient
         using var runDoc = runs.Result;
         using var commitDoc = commits.Result;
         using var contribDoc = contribs.Result;
+        using var releaseDoc = releases.Result;
 
         if (infoDoc is null)
         {
@@ -145,9 +157,17 @@ public sealed class GitMonitorService(IConfiguration configuration, GitHubClient
         FillRuns(row, runDoc);
         FillCommits(row, commitDoc);
         FillContribs(row, contribDoc);
+        FillReleases(row, releaseDoc);
 
         // 날짜가 필요한 가지만 하나씩 더 묻는다(머리말).
         await FillBranchDatesAsync(opt, repo, row);
+
+        // 통계는 **쓰기 권한이 있는 토큰**에만 열린다. 토큰이 없으면 아예
+        // 부르지 않는다 — 401 을 받아 봐야 한도만 축낸다.
+        await FillTrafficAsync(opt, repo, row, blocked);
+
+        // 깨진 자리는 최근 표본에 실패가 있을 때만 더 묻는다.
+        await FillFailureAsync(opt, repo, row);
 
         return row;
     }
@@ -401,4 +421,238 @@ public sealed class GitMonitorService(IConfiguration configuration, GitHubClient
         row.Contributors = list.Count;
         row.ContributorList = [.. list.Take(5)];
     }
+
+    // ──────────────────────────────────────────── 토큰이 있어야 보이는 것
+
+    /// <summary>
+    /// 방문·클론 통계(최근 14일).
+    /// </summary>
+    /// <remarks>
+    /// <b>쓰기 권한이 있는 토큰</b>에만 열린다(fine-grained 는
+    /// <c>Administration: Read</c>). 토큰이 없으면 <b>부르지도 않는다</b> —
+    /// 401 을 받아 봐야 남은 한도만 축낸다. 대신 「못 봤다」를 남긴다.
+    /// </remarks>
+    private async Task FillTrafficAsync(
+        GitOptions opt, string repo, GitMonitorRow row,
+        System.Collections.Concurrent.ConcurrentBag<GitBlocked> blocked)
+    {
+        if (!opt.Authenticated)
+        {
+            blocked.Add(new GitBlocked
+            {
+                What = "방문·클론 통계",
+                Why = "토큰이 없습니다.",
+                Needs = "Administration: Read (또는 저장소 쓰기 권한)",
+            });
+
+            return;
+        }
+
+        string? why = null;
+
+        var views = github.GetAsync(opt, $"/repos/{repo}/traffic/views", e => why = e);
+        var clones = github.GetAsync(opt, $"/repos/{repo}/traffic/clones");
+        var paths = github.GetAsync(opt, $"/repos/{repo}/traffic/popular/paths");
+
+        await Task.WhenAll(views, clones, paths);
+
+        using var viewDoc = views.Result;
+        using var cloneDoc = clones.Result;
+        using var pathDoc = paths.Result;
+
+        if (viewDoc is null)
+        {
+            blocked.Add(new GitBlocked
+            {
+                What = "방문·클론 통계",
+                Why = why ?? "읽지 못했습니다.",
+                Needs = "Administration: Read (또는 저장소 쓰기 권한)",
+            });
+
+            return;
+        }
+
+        var traffic = new GitTraffic
+        {
+            Views = (int)(GitJson.Long(viewDoc.RootElement, "count") ?? 0),
+            UniqueViews = (int)(GitJson.Long(viewDoc.RootElement, "uniques") ?? 0),
+        };
+
+        if (cloneDoc is not null)
+        {
+            traffic.Clones = (int)(GitJson.Long(cloneDoc.RootElement, "count") ?? 0);
+            traffic.UniqueClones = (int)(GitJson.Long(cloneDoc.RootElement, "uniques") ?? 0);
+        }
+
+        if (pathDoc is not null && pathDoc.RootElement.ValueKind == JsonValueKind.Array)
+        {
+            traffic.TopPaths =
+            [
+                .. pathDoc.RootElement.EnumerateArray()
+                    .Take(5)
+                    .Select(x => new GitNameCount
+                    {
+                        Name = GitJson.Str(x, "path"),
+                        Count = GitJson.Long(x, "count") ?? 0,
+                    })
+            ];
+        }
+
+        row.Traffic = traffic;
+    }
+
+    /// <summary>
+    /// 소유자의 GHCR 이미지. 저장소가 아니라 <b>소유자</b>에 매달려 있어
+    /// 소유자마다 한 번만 묻고 줄에 나눠 준다.
+    /// </summary>
+    /// <remarks>
+    /// 이미지에 <c>repository</c> 가 딸려 오므로 어느 저장소 것인지 알 수 있다.
+    /// 배포가 올리는 이미지 열둘이 여기 보이고, <b>운영에 떠 있는 태그와
+    /// 대조하는 자리</b>다. <c>read:packages</c> 가 있는 classic 토큰이 필요하다.
+    /// </remarks>
+    private async Task FillPackagesAsync(
+        GitOptions opt, GitMonitorRow[] rows,
+        System.Collections.Concurrent.ConcurrentBag<GitBlocked> blocked)
+    {
+        if (!opt.Authenticated)
+        {
+            blocked.Add(new GitBlocked
+            {
+                What = "GHCR 이미지",
+                Why = "토큰이 없습니다.",
+                Needs = "classic 토큰 + read:packages",
+            });
+
+            return;
+        }
+
+        var owners = opt.Repos
+            .Select(r => r.Split('/')[0])
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        foreach (var owner in owners)
+        {
+            string? why = null;
+
+            // 개인 계정과 조직은 경로가 다르다. 개인 쪽을 먼저 보고 안 되면 조직으로.
+            using var doc =
+                await github.GetAsync(opt, $"/users/{owner}/packages?package_type=container&per_page=100", e => why = e)
+                ?? await github.GetAsync(opt, $"/orgs/{owner}/packages?package_type=container&per_page=100");
+
+            if (doc is null || doc.RootElement.ValueKind != JsonValueKind.Array)
+            {
+                blocked.Add(new GitBlocked
+                {
+                    What = "GHCR 이미지",
+                    Why = why ?? "읽지 못했습니다.",
+                    Needs = "classic 토큰 + read:packages",
+                });
+
+                continue;
+            }
+
+            foreach (var p in doc.RootElement.EnumerateArray())
+            {
+                var package = new GitPackage
+                {
+                    Name = GitJson.Str(p, "name"),
+                    Versions = GitJson.Long(p, "version_count") ?? 0,
+                    UpdatedAt = GitJson.Str(p, "updated_at"),
+                    Url = GitJson.Str(p, "html_url"),
+                };
+
+                // 이미지가 어느 저장소에서 왔는지 알려 준다. 못 알려 주면
+                // (연결이 끊긴 이미지) 소유자의 모든 줄에 붙이지 않고 버린다 —
+                // 엉뚱한 저장소 것으로 보이는 편이 안 보이는 것보다 나쁘다.
+                var full = GitJson.Obj(p, "repository") is { } r ? GitJson.Str(r, "full_name") : null;
+                if (full is null) continue;
+
+                foreach (var row in rows.Where(x =>
+                             string.Equals(x.Repo, full, StringComparison.OrdinalIgnoreCase)))
+                {
+                    row.Packages.Add(package);
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// 가장 최근에 깨진 실행의 <b>어느 단계에서</b> 깨졌나.
+    /// </summary>
+    /// <remarks>
+    /// 로그를 통째로 받지 않는다 — 실행 로그는 zip 이고 크다. 잡과 단계 이름만
+    /// 봐도 「어디서 깨졌나」는 답이 나오고, 그 이상은 GitHub 에서 보는 편이 낫다.
+    /// <b>표본에 실패가 있을 때만</b> 한 번 더 부른다.
+    /// </remarks>
+    private async Task FillFailureAsync(GitOptions opt, string repo, GitMonitorRow row)
+    {
+        var failed = row.Runs?.LastFailure;
+        if (failed?.Url is null) return;
+
+        // 실행 번호는 주소 끝에 있다. 따로 담아 두지 않은 값이라 여기서 꺼낸다.
+        var id = failed.Url.Split('/').LastOrDefault();
+        if (!long.TryParse(id, out var runId)) return;
+
+        using var doc = await github.GetAsync(opt, $"/repos/{repo}/actions/runs/{runId}/jobs");
+        if (doc is null) return;
+
+        if (!doc.RootElement.TryGetProperty("jobs", out var jobs)
+            || jobs.ValueKind != JsonValueKind.Array)
+        {
+            return;
+        }
+
+        var failure = new GitFailure
+        {
+            RunId = runId,
+            WorkflowName = failed.WorkflowName,
+            Branch = failed.Branch,
+            At = failed.At,
+            Url = failed.Url,
+        };
+
+        foreach (var job in jobs.EnumerateArray())
+        {
+            if (GitJson.Str(job, "conclusion") != "failure") continue;
+
+            var jobName = GitJson.Str(job, "name") ?? "(이름 없음)";
+
+            if (!job.TryGetProperty("steps", out var steps)
+                || steps.ValueKind != JsonValueKind.Array)
+            {
+                failure.Steps.Add(jobName);
+                continue;
+            }
+
+            foreach (var step in steps.EnumerateArray())
+            {
+                if (GitJson.Str(step, "conclusion") != "failure") continue;
+
+                failure.Steps.Add($"{jobName} / {GitJson.Str(step, "name")}");
+            }
+        }
+
+        row.LastFailure = failure;
+    }
+
+    private static void FillReleases(GitMonitorRow row, JsonDocument? doc)
+    {
+        if (doc is null || doc.RootElement.ValueKind != JsonValueKind.Array) return;
+
+        foreach (var r in doc.RootElement.EnumerateArray())
+        {
+            row.Releases.Add(new GitRelease
+            {
+                TagName = GitJson.Str(r, "tag_name"),
+                Name = GitJson.Str(r, "name"),
+                PublishedAt = GitJson.Str(r, "published_at"),
+                Draft = GitJson.Flag(r, "draft"),
+                Prerelease = GitJson.Flag(r, "prerelease"),
+                Author = GitJson.Obj(r, "author") is { } a ? GitJson.Str(a, "login") : null,
+                Url = GitJson.Str(r, "html_url"),
+            });
+        }
+    }
+
 }

@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Net.Http.Headers;
 using System.Text.Json;
 
@@ -134,15 +135,49 @@ public sealed class GitOptions
 /// </remarks>
 public sealed class GitHubClient(IHttpClientFactory factory)
 {
+    /// <summary>
+    /// 주소마다 마지막으로 받은 표식과 본문.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// [304 는 한도를 깎지 않는다 — 이것이 요점이다]
+    /// </para>
+    ///
+    /// <para>
+    /// 받은 <c>ETag</c> 를 다음 요청에 <c>If-None-Match</c> 로 붙이면 안 바뀐
+    /// 것은 <c>304</c> 로 돌아오고 <b>그 응답은 남은 한도에서 빠지지 않는다.</b>
+    /// 이 화면은 같은 저장소를 되풀이해 읽으므로 대부분의 호출이 그렇게 된다
+    /// — 토큰이 없어 시간당 60회일 때 특히 크다.
+    /// </para>
+    ///
+    /// <para>
+    /// 본문을 <see cref="JsonDocument"/> 가 아니라 <b>글자로</b> 담는 까닭은
+    /// 그 타입이 쓰고 버리는 물건이어서다. 담아 두면 누가 언제 버릴지 알 수
+    /// 없고, 버려진 것을 읽으면 그 자리에서 던진다.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>프로세스 전체가 나눠 쓴다</b>(<c>static</c>). 이 클래스는 요청마다
+    /// 새로 생기므로 인스턴스에 담으면 한 번도 안 맞는다.
+    /// </para>
+    /// </remarks>
+    private static readonly ConcurrentDictionary<string, (string Tag, string Body)> Tags = new();
+
     /// <summary>마지막 응답이 알려 준 남은 한도. 화면이 보여 준다.</summary>
     public int? RateRemaining { get; private set; }
 
     /// <inheritdoc cref="RateRemaining"/>
     public int? RateLimit { get; private set; }
 
-    private HttpRequestMessage Request(GitOptions opt, string url)
+    private HttpRequestMessage Request(GitOptions opt, string url, bool conditional = true)
     {
         var request = new HttpRequestMessage(HttpMethod.Get, url);
+
+        // 지난번 표식을 붙인다. 안 바뀌었으면 304 가 오고 한도가 안 깎인다.
+        if (conditional && Tags.TryGetValue(url, out var seen))
+        {
+            request.Headers.TryAddWithoutValidation("If-None-Match", seen.Tag);
+        }
 
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
         request.Headers.Add("X-GitHub-Api-Version", "2022-11-28");
@@ -176,9 +211,11 @@ public sealed class GitHubClient(IHttpClientFactory factory)
     /// <summary>한 번 부른다. 실패하면 <c>null</c> — 까닭은 <paramref name="error"/> 로 나간다.</summary>
     public async Task<JsonDocument?> GetAsync(GitOptions opt, string path, Action<string>? error = null)
     {
+        var url = $"{opt.ApiBaseUrl}{path}";
+
         try
         {
-            using var request = Request(opt, $"{opt.ApiBaseUrl}{path}");
+            using var request = Request(opt, url);
 
             using var http = factory.CreateClient();
             http.Timeout = TimeSpan.FromSeconds(20);
@@ -186,6 +223,13 @@ public sealed class GitHubClient(IHttpClientFactory factory)
             using var response = await http.SendAsync(request);
 
             RememberRate(response);
+
+            // 안 바뀌었다. 지난번 본문을 그대로 쓴다 — 이 응답은 한도를 안 깎는다.
+            if (response.StatusCode == System.Net.HttpStatusCode.NotModified
+                && Tags.TryGetValue(url, out var cached))
+            {
+                return JsonDocument.Parse(cached.Body);
+            }
 
             if (!response.IsSuccessStatusCode)
             {
@@ -204,7 +248,14 @@ public sealed class GitHubClient(IHttpClientFactory factory)
 
             var body = await response.Content.ReadAsStringAsync();
 
-            return string.IsNullOrWhiteSpace(body) ? null : JsonDocument.Parse(body);
+            if (string.IsNullOrWhiteSpace(body)) return null;
+
+            if (response.Headers.ETag?.Tag is { } tag)
+            {
+                Tags[url] = (tag, body);
+            }
+
+            return JsonDocument.Parse(body);
         }
         catch (Exception e)
         {
@@ -225,7 +276,9 @@ public sealed class GitHubClient(IHttpClientFactory factory)
     {
         try
         {
-            using var request = Request(opt, $"{opt.ApiBaseUrl}{path}");
+            // **여기서는 조건부 요청을 쓰지 않는다.** 이 조회는 본문이 아니라
+            // `Link` 머리글을 읽는데, 304 에는 그 머리글이 없다.
+            using var request = Request(opt, $"{opt.ApiBaseUrl}{path}", conditional: false);
 
             using var http = factory.CreateClient();
             http.Timeout = TimeSpan.FromSeconds(20);
