@@ -125,6 +125,43 @@
             }
         </div>
 
+        
+        <div class="jsini-theme__group">알림 위치</div>
+        <div class="jsini-theme__segmented jsini-theme__segmented--fill" style="margin-bottom: 0.5rem;">
+            <button type="button"
+                    class="jsini-theme__seg @(IsToastPosition("top-left") ? "jsini-theme__seg--on" : "")"
+                    @onclick="@(() => SetToastPositionAsync("top-left"))">
+                ↖
+            </button>
+            <button type="button"
+                    class="jsini-theme__seg @(IsToastPosition("top-center") ? "jsini-theme__seg--on" : "")"
+                    @onclick="@(() => SetToastPositionAsync("top-center"))">
+                ↑
+            </button>
+            <button type="button"
+                    class="jsini-theme__seg @(IsToastPosition("top-right") ? "jsini-theme__seg--on" : "")"
+                    @onclick="@(() => SetToastPositionAsync("top-right"))">
+                ↗
+            </button>
+        </div>
+        <div class="jsini-theme__segmented jsini-theme__segmented--fill" style="margin-bottom: 2rem;">
+            <button type="button"
+                    class="jsini-theme__seg @(IsToastPosition("bottom-left") ? "jsini-theme__seg--on" : "")"
+                    @onclick="@(() => SetToastPositionAsync("bottom-left"))">
+                ↙
+            </button>
+            <button type="button"
+                    class="jsini-theme__seg @(IsToastPosition("bottom-center") ? "jsini-theme__seg--on" : "")"
+                    @onclick="@(() => SetToastPositionAsync("bottom-center"))">
+                ↓
+            </button>
+            <button type="button"
+                    class="jsini-theme__seg @(IsToastPosition("bottom-right") ? "jsini-theme__seg--on" : "")"
+                    @onclick="@(() => SetToastPositionAsync("bottom-right"))">
+                ↘
+            </button>
+        </div>
+
         <div class="jsini-theme__group">Fluent</div>
 
         <div class="jsini-theme__segmented">
@@ -264,6 +301,17 @@
     private string? _classic;
     private string? _bootstrap;
 
+    
+    private string _toastPosition = "bottom-right";
+
+    private bool IsToastPosition(string pos) => _toastPosition == pos;
+
+    private async Task SetToastPositionAsync(string pos)
+    {
+        _toastPosition = pos;
+        await Boot.SetToastPositionAsync(pos);
+    }
+
     private bool IsFluentMode(string id) => _family == "fluent" && _mode == id;
     private bool IsFluentAccent(string id) => _family == "fluent" && _custom is null && _accent == id;
     private bool IsClassic(string id) => _family == "classic" && _classic == id;
@@ -330,6 +378,9 @@
             Read(new Current(
                 theme.Family, theme.Mode, theme.Accent, theme.Custom,
                 theme.Classic, theme.Bootstrap, theme.Size));
+
+            _toastPosition = (await Boot.ReadAsync()).ToastPosition;
+
 
             StateHasChanged();
         }

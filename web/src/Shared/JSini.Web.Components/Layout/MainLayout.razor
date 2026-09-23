@@ -336,7 +336,9 @@
        (theme.js) — 안 멈추면 0 초가 된 뒤에도 남아 있어 그림이 거짓말을 한다. *@
 <DxToastProvider StickToViewport="true"
                  MaxToastCount="4"
-                 FreezeOnClick="true" />
+                 FreezeOnClick="true"
+                 HorizontalAlignment="@_toastHorizontal"
+                 VerticalAlignment="@_toastVertical" />
 
 @code {
     /// <summary>
@@ -416,6 +418,9 @@
 
     /// <summary>모바일 화면의 떠다니는 메뉴 단추(FAB) 위치.</summary>
     private string _fabPosition = "bottom-left";
+    private string _toastPosition = "bottom-right";
+    private HorizontalAlignment _toastHorizontal = HorizontalAlignment.Right;
+    private VerticalEdge _toastVertical = VerticalEdge.Bottom;
 
     protected override void OnInitialized()
     {
@@ -434,6 +439,25 @@
 
         // 환경설정 등에서 모바일 메뉴 단추 위치가 바뀌면 즉시 화면에 반영한다.
         Boot.FabPositionChanged += OnFabPositionChanged;
+        Boot.ToastPositionChanged += OnToastPositionChanged;
+    }
+
+    
+    private void OnToastPositionChanged(string position)
+    {
+        _toastPosition = position;
+        UpdateToastAlignment();
+        InvokeAsync(StateHasChanged);
+    }
+    
+    private void UpdateToastAlignment()
+    {
+        _toastHorizontal = _toastPosition switch {
+            "top-left" or "bottom-left" => HorizontalAlignment.Left,
+            "top-center" or "bottom-center" => HorizontalAlignment.Center,
+            _ => HorizontalAlignment.Right,
+        };
+        _toastVertical = _toastPosition.StartsWith("top") ? VerticalEdge.Top : VerticalEdge.Bottom;
     }
 
     private void OnFabPositionChanged(string position)
@@ -644,10 +668,26 @@
     /// </summary>
     private async Task RestoreFabPositionAsync()
     {
-        var pos = (await Boot.ReadAsync()).FabPosition;
+        var state = await Boot.ReadAsync();
+        var pos = state.FabPosition;
+        var changed = false;
+        
+        var tpos = state.ToastPosition;
+        if (tpos != _toastPosition)
+        {
+            _toastPosition = tpos;
+            UpdateToastAlignment();
+            changed = true;
+        }
+
         if (pos != _fabPosition)
         {
             _fabPosition = pos;
+            changed = true;
+        }
+        
+        if (changed)
+        {
             StateHasChanged();
         }
     }
@@ -1068,6 +1108,7 @@
         _navigating?.Dispose();
         Me.Changed -= OnMeChanged;
         Boot.FabPositionChanged -= OnFabPositionChanged;
+        Boot.ToastPositionChanged -= OnToastPositionChanged;
         _watermarkWatch?.Dispose();
     }
 }

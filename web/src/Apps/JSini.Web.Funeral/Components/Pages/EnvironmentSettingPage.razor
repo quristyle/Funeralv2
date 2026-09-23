@@ -148,6 +148,20 @@
                     ValueChanged="@((string val) => OnFabPositionChangedAsync(val))"
                     Style="width: 160px;" />
     </div>
+
+    <div class="jsini-panel__row">
+        <div class="jsini-panel__label">
+            알림(토스트) 위치
+            <span class="jsini-panel__desc">화면에 뜨는 알림 메시지의 위치를 바꿉니다.</span>
+        </div>
+
+        <DxComboBox Data="@_toastPositions"
+                    TextFieldName="@nameof(FabPosOption.Name)"
+                    ValueFieldName="@nameof(FabPosOption.Value)"
+                    Value="@_selectedToastPosition"
+                    ValueChanged="@((string val) => OnToastPositionChangedAsync(val))"
+                    Style="width: 160px;" />
+    </div>
 </section>
 
 <h2 class="jsini-subhead">찾으시는 것이 여기 없다면</h2>
@@ -204,6 +218,25 @@
         new("top-right", "오른쪽 위"),
     ];
 
+    
+    private IReadOnlyList<FabPosOption> _toastPositions =
+    [
+        new("top-left", "왼쪽 위"),
+        new("top-center", "가운데 위"),
+        new("top-right", "오른쪽 위"),
+        new("bottom-left", "왼쪽 아래"),
+        new("bottom-center", "가운데 아래"),
+        new("bottom-right", "오른쪽 아래"),
+    ];
+
+    private string _selectedToastPosition = "bottom-right";
+
+    private async Task OnToastPositionChangedAsync(string value)
+    {
+        _selectedToastPosition = PortalBoot.NormalizeToastPosition(value);
+        await Boot.SetToastPositionAsync(_selectedToastPosition);
+    }
+
     private string _selectedFabPosition = "bottom-left";
     private bool _fabLoaded;
 
@@ -219,6 +252,7 @@
         _fabLoaded = true;
         var state = await Boot.ReadAsync();
         _selectedFabPosition = state.FabPosition;
+        _selectedToastPosition = state.ToastPosition;
         StateHasChanged();
     }
 

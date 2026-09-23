@@ -114,6 +114,7 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
     /// <c>bottom-left</c>(기본), <c>top-left</c>, <c>bottom-right</c>, <c>top-right</c>.
     /// </summary>
     public const string FabPositionKey = "jsini-fab-position";
+    public const string ToastPositionKey = "jsini-toast-position";
 
     private static readonly string[] SessionKeys =
     [
@@ -129,6 +130,7 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
         SidebarWidthKey,
         PushAskNeverKey,
         FabPositionKey,
+        ToastPositionKey,
     ];
 
     /// <summary>
@@ -302,7 +304,8 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
 
         try
         {
-            await js.InvokeVoidAsync("localStorage.setItem", FabPositionKey, normalized);
+            await js.InvokeVoidAsync("localStorage.setItem", FabPositionKey,
+        ToastPositionKey, normalized);
         }
         catch (Exception ex) when (ex is JSException or InvalidOperationException)
         {
@@ -316,6 +319,44 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
     /// 모바일 메뉴 단추 위치 식별자를 검증하고 표준화한다.
     /// 알 수 없는 값이면 기본값인 <c>bottom-left</c> 다.
     /// </summary>
+    
+    /// <summary>토스트 알림 위치가 바뀌었을 때 알린다.</summary>
+    public event Action<string>? ToastPositionChanged;
+
+    /// <summary>
+    /// 토스트 알림 위치를 저장하고 화면에 알린다.
+    /// </summary>
+    public async Task SetToastPositionAsync(string position)
+    {
+        var normalized = NormalizeToastPosition(position);
+
+        try
+        {
+            await js.InvokeVoidAsync("localStorage.setItem", ToastPositionKey, normalized);
+        }
+        catch (Exception ex) when (ex is JSException or InvalidOperationException)
+        {
+            logger.LogDebug(ex, "토스트 알림 위치를 브라우저에 저장하지 못했다.");
+        }
+
+        ToastPositionChanged?.Invoke(normalized);
+    }
+
+    /// <summary>
+    /// 토스트 알림 위치 식별자를 검증하고 표준화한다.
+    /// 알 수 없는 값이면 기본값인 <c>bottom-right</c> 다.
+    /// </summary>
+    public static string NormalizeToastPosition(string? position) => position switch
+    {
+        "top-left" => "top-left",
+        "top-center" => "top-center",
+        "top-right" => "top-right",
+        "bottom-left" => "bottom-left",
+        "bottom-center" => "bottom-center",
+        "bottom-right" => "bottom-right",
+        _ => "bottom-right",
+    };
+
     public static string NormalizeFabPosition(string? position) => position switch
     {
         "top-left" => "top-left",
@@ -418,6 +459,11 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
         /// </summary>
         public string FabPosition { get; private init; } = "bottom-left";
 
+        /// <summary>
+        /// 토스트 알림 위치.
+        /// </summary>
+        public string ToastPosition { get; private init; } = "bottom-right";
+
         internal static BrowserState From(BootWire wire) => new()
         {
             // 값이 "1" 이든 무엇이든 **있으면 그렇다는 뜻**이다. 옛 코드가
@@ -432,6 +478,7 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
             SidebarWidthPx = Pixels(Get(wire.Local, SidebarWidthKey)),
             Theme = wire.Theme,
             FabPosition = NormalizeFabPosition(Get(wire.Local, FabPositionKey)),
+            ToastPosition = NormalizeToastPosition(Get(wire.Local, ToastPositionKey)),
         };
 
         /// <summary>저장해 둔 폭을 숫자로. 이상한 값이면 <c>null</c>.</summary>
