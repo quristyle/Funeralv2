@@ -12,7 +12,7 @@ namespace ProjMngServer.Controllers;
 /// <remarks>
 /// 상세 목록의 「보이는 칸 · 차례」처럼 <b>사람마다 다른 것</b>을 담는다.
 /// 주인은 게이트웨이가 붙여 주는 로그인 계정으로 가린다
-/// (<see cref="WbsBoardUserService.ResolveOwnerAsync"/>).
+/// (<see cref="WbsBoardUserService.ResolveOwner"/>).
 /// </remarks>
 [ApiController]
 [Route("api/wbs-board/prefs")]
@@ -31,7 +31,7 @@ public sealed class WbsBoardPrefsController(WbsBoardUserService service) : Contr
             return BadRequest(ApiResponse<object>.Fail("INVALID", "설정 이름이 올바르지 않습니다."));
         }
 
-        var owner = await service.ResolveOwnerAsync(prjRid, LoginId);
+        var owner = WbsBoardUserService.ResolveOwner(LoginId);
         return Ok(ApiResponse<WbsBoardPref>.Ok(await service.GetPrefAsync(prjRid, owner, key)));
     }
 
@@ -59,7 +59,7 @@ public sealed class WbsBoardPrefsController(WbsBoardUserService service) : Contr
             return BadRequest(ApiResponse<object>.Fail("TOO_LARGE", "설정 값이 너무 큽니다."));
         }
 
-        var owner = await service.ResolveOwnerAsync(prjRid, LoginId);
+        var owner = WbsBoardUserService.ResolveOwner(LoginId);
         await service.SetPrefAsync(prjRid, owner, key, value);
 
         return Ok(ApiResponse<string>.Ok(owner));

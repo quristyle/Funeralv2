@@ -28,6 +28,104 @@ public class UserService : IUserService
     private const string WatermarkDetail = "Watermark";
 
     /// <summary>
+    /// 개발 업무용 확장 속성의 접두사 — <c>Dev.BpId</c> · <c>Dev.NotebookNo</c> ….
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// [칸을 스물다섯 개 만들지 않는다]
+    /// </para>
+    ///
+    /// <para>
+    /// 프로젝트관리의 [개발자 관리] 화면이 쓰던 속성을 계정으로 옮기면서
+    /// (<c>docs/projmng-account-merge.md</c>) 표를 손대지 않았다.
+    /// <c>account_profile_details</c> 가 이미 <b>열쇠-값</b>이라 넣을 자리가
+    /// 있었다 — 속성을 더할 때 마이그레이션이 없다.
+    /// </para>
+    ///
+    /// <para>
+    /// [접두사로 가두는 까닭]
+    /// </para>
+    ///
+    /// <para>
+    /// 같은 표에 <c>MsaCompany</c>·<c>SecurityEmail</c>·<c>HomePath</c> 처럼
+    /// <b>관리 화면이 건드리면 안 되는 것</b>이 섞여 있다. 접두사로 가두면
+    /// 화면이 통째로 덮어써도 그것들은 손대지 않는다.
+    /// </para>
+    /// </remarks>
+    private const string DevPrefix = "Dev.";
+
+    /// <summary>그 계정의 <c>Dev.*</c> 속성. 접두사를 뗀 이름으로 돌려준다.</summary>
+    private static Dictionary<string, string?> DevAttributesOf(Entities.Account account) =>
+        account.ProfileDetails?
+            .Where(p => !p.IsDeleted && p.DetailType.StartsWith(DevPrefix, StringComparison.Ordinal))
+            .ToDictionary(p => p.DetailType[DevPrefix.Length..], p => (string?)p.Content)
+        ?? [];
+
+    /// <summary>
+    /// <c>Dev.*</c> 속성을 통째로 맞춘다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 보내온 사전이 <b>그 계정의 <c>Dev.*</c> 전부</b>다 — 빠진 열쇠는 지운다.
+    /// 화면이 칸을 비워 저장하는 것이 「지운다」는 뜻이어야 하기 때문이다.
+    /// </para>
+    ///
+    /// <para>
+    /// <c>null</c> 을 보내면(사전 자체가 없으면) <b>건드리지 않는다</b> —
+    /// 이 속성을 모르는 다른 화면·옛 클라이언트가 저장해도 값이 사라지지 않게.
+    /// 사진·생년월일·워터마크와 같은 규칙이다.
+    /// </para>
+    /// </remarks>
+    private void SyncDevAttributes(Entities.Account account, Dictionary<string, string?>? values)
+    {
+        if (values is null) return;
+
+        var wanted = values
+            .Where(v => !string.IsNullOrWhiteSpace(v.Key))
+            .ToDictionary(v => DevPrefix + v.Key.Trim(), v => v.Value?.Trim());
+
+        var existing = account.ProfileDetails?
+            .Where(p => p.DetailType.StartsWith(DevPrefix, StringComparison.Ordinal))
+            .ToList() ?? [];
+
+        foreach (var detail in existing)
+        {
+            // 값이 비었으면 줄을 남기지 않는다. 빈 글자를 담아 두면
+            // 「안 적었다」와 「비워 두기로 했다」가 같은 그림이 된다.
+            if (!wanted.TryGetValue(detail.DetailType, out var content)
+                || string.IsNullOrWhiteSpace(content))
+            {
+                _db.AccountProfileDetails.Remove(detail);
+                continue;
+            }
+
+            // 지운 표시가 붙어 있으면 되살린다. 읽는 쪽이 그 표시를 보므로
+            // (`DevAttributesOf`) 안 풀면 **저장은 됐는데 안 보인다**가 된다.
+            if (detail.Content != content || detail.IsDeleted)
+            {
+                detail.Content = content;
+                detail.IsDeleted = false;
+                _db.Entry(detail).State = EntityState.Modified;
+            }
+
+            wanted.Remove(detail.DetailType);
+        }
+
+        foreach (var (type, content) in wanted)
+        {
+            if (string.IsNullOrWhiteSpace(content)) continue;
+
+            _db.AccountProfileDetails.Add(new AccountProfileDetail
+            {
+                AccountId = account.Id,
+                DetailType = type,
+                Content = content,
+                IsPrimary = true,
+            });
+        }
+    }
+
+    /// <summary>
     /// 워터마크 설정을 쓴다.
     ///
     /// <para>
@@ -225,6 +323,10 @@ public class UserService : IUserService
                 BirthDate = a.BirthDate,
                 BirthDateIsLunar = a.BirthDateIsLunar,
                 BirthdayCelebrated = a.BirthdayCelebrated,
+
+                // 개발 업무용 확장 속성(사번 · 장비 · 계정 발급 현황 …).
+                // `ProfileDetails` 는 이미 Include 로 읽고 있어 추가 조회가 없다.
+                DevAttributes = DevAttributesOf(a),
             };
         }).ToList();
     }
@@ -296,6 +398,10 @@ public class UserService : IUserService
         {
             UpsertWatermark(account, false);
         }
+
+        // 개발 업무용 확장 속성. 등록할 때 함께 적을 수 있다 — 안 적으면
+        // (`null`) 아무 줄도 만들지 않는다.
+        SyncDevAttributes(account, dto.DevAttributes);
 
         if (!string.IsNullOrEmpty(dto.Email))
         {
@@ -384,6 +490,11 @@ public class UserService : IUserService
             BirthDateIsLunar = account.BirthDateIsLunar,
             BirthdayCelebrated = account.BirthdayCelebrated,
 
+            // 방금 넣은 것을 그대로 돌려준다 — `SyncDevAttributes` 가 빈 값을
+            // 걸러 내므로 DB 에 들어간 것과 한 칸씩 다를 수 있다. 등록 응답은
+            // 발급 비밀번호를 보여 주는 자리라 목록을 다시 읽는다.
+            DevAttributes = dto.DevAttributes ?? [],
+
             // 발급한 평문을 돌려주는 유일한 자리. 다음 조회부터는 null 이다.
             InitialPassword = initialPassword
         };
@@ -414,6 +525,9 @@ public class UserService : IUserService
         {
             UpsertWatermark(account, watermark);
         }
+
+        // 개발 업무용 확장 속성. `null` 이면 건드리지 않는다(머리말).
+        SyncDevAttributes(account, dto.DevAttributes);
 
         // 부서 ID 검증 및 소속 회사 자동 할당
         if (!string.IsNullOrEmpty(dto.DeptId))

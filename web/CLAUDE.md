@@ -1342,6 +1342,25 @@ DB      deploy/sql/projmng-wbs-2026-09-23.sql      표 15 · 뷰 4 (projmng 스�
 | 메뉴 권한 | 자기 표 둘(`dev_menu`·`dev_user_menu`) | `scom.role_menus`. 표도 화면도 안 옮겼다 |
 | 표 이름 | `hhip_wbs_*` | `wbs_*` (고객사 이름을 뗐다) |
 
+##### 개발자 관리는 포털 계정으로 합쳤다 (2026-09-23)
+
+[개발자 관리] 화면(`/projmng/wbs/dev-users`)이 사번 · 직급 · 장비 대장 ·
+계정 발급 현황 · 옷 치수를 들고 있었다. **같은 사람이 포털 계정에도 있어**
+어긋나면 어느 쪽이 맞는지 알 방법이 없었다. 속성을 계정으로 옮기고
+(`scom.account_profile_details` 의 `Dev.*` — 계정관리 편집 창의 접는 구역 넷)
+화면·API·명부 표를 걷어냈다. 경위는
+[docs/projmng-account-merge.md](../docs/projmng-account-merge.md).
+
+**이름을 붙이는 자리가 서버에서 화면으로 옮겨 왔다.** 서버가
+`projmng.wbs_user` 를 조인해 실어 보내던 것(11곳)이 없어졌다 — 원장은
+`projmng` DB, 계정은 `jsiniportal` DB 라 **SQL 조인이 아예 불가능하다**.
+`WbsBoardClient` 가 응답을 돌려주기 전에 `WbsBoardNames` 로 한 번 채운다.
+이름을 쓰는 화면이 일곱이라 각자 붙이면 **어떤 화면은 이름, 어떤 화면은
+아이디**로 갈린다.
+
+계정과 안 이어진 사람(퇴사자 · 외부 인력 · 오타)은 **적힌 값 그대로** 보인다.
+「미할당」으로 덮으면 셋을 가려낼 수 없다.
+
 ##### ProjectView 는 통째로 걷어냈다 (2026-09-23)
 
 들여올 때는 화면 둘([ProjectView 동기화]·[워크플로 채우기])과 콘솔 스크립트

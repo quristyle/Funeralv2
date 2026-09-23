@@ -258,6 +258,122 @@
                     <DxCheckBox @bind-Checked="a.Watermark">화면에 아이디를 옅게 깐다</DxCheckBox>
                     <div class="jsini-hint">사진으로 찍혀도 누구 화면인지 남습니다.</div>
                 </DxFormLayoutItem>
+
+                @* ────────────────────────────────────────────────────────────
+                   개발 업무용 속성 — 프로젝트관리의 [개발자 관리] 화면이 들고
+                   있던 것들이다. 그 화면을 걷어내면서 여기로 옮겼다
+                   (docs/projmng-account-merge.md).
+
+                   [묶음 넷을 접어 둔다]
+
+                   칸이 스물여섯이라 한 줄로 쏟으면 위의 기본 칸 여덟이 파묻힌다.
+                   계정을 만드는 사람 대부분은 이 값들을 안 적는다 — 적는 사람은
+                   개발 인원을 관리하는 한 사람뿐이다. 그래서 **닫힌 채로** 두고
+                   필요한 묶음만 편다.
+
+                   [값을 사전에 담는다]
+
+                   서버에 칸이 없다. `account_profile_details` 라는 열쇠-값 표에
+                   `Dev.` 접두사로 들어간다 — 속성을 더할 때 마이그레이션이
+                   없다. 열쇠 글자는 `DevAttributeView` 한 곳에만 있다.
+                   ──────────────────────────────────────────────────────────── *@
+                <DxFormLayoutGroup Caption="업무" ColSpanMd="12" Expanded="false">
+                    <DxFormLayoutItem Caption="사번" ColSpanMd="4">
+                        @* 사내 자료를 들여올 때 **사번 → 계정 대조 열쇠**로 쓰인다.
+                           그 뒤로도 사람을 찾는 단서로 남긴다. *@
+                        <DxTextBox @bind-Text="a.Dev.BpId" />
+                    </DxFormLayoutItem>
+
+                    <DxFormLayoutItem Caption="직급" ColSpanMd="4">
+                        <DxTextBox @bind-Text="a.Dev.Position" />
+                    </DxFormLayoutItem>
+
+                    <DxFormLayoutItem Caption="비상연락처" ColSpanMd="4">
+                        <DxTextBox @bind-Text="a.Dev.EmergTel" />
+                    </DxFormLayoutItem>
+                </DxFormLayoutGroup>
+
+                <DxFormLayoutGroup Caption="장비 대장" ColSpanMd="12" Expanded="false">
+                    <DxFormLayoutItem Caption="노트북 장비번호" ColSpanMd="6">
+                        <DxTextBox @bind-Text="a.Dev.NotebookNo" />
+                    </DxFormLayoutItem>
+
+                    <DxFormLayoutItem Caption="노트북 확인번호" ColSpanMd="6">
+                        <DxTextBox @bind-Text="a.Dev.NotebookChkNo" />
+                    </DxFormLayoutItem>
+
+                    <DxFormLayoutItem Caption="모니터1 장비번호" ColSpanMd="6">
+                        <DxTextBox @bind-Text="a.Dev.Monitor1No" />
+                    </DxFormLayoutItem>
+
+                    <DxFormLayoutItem Caption="모니터1 확인번호" ColSpanMd="6">
+                        <DxTextBox @bind-Text="a.Dev.Monitor1ChkNo" />
+                    </DxFormLayoutItem>
+
+                    <DxFormLayoutItem Caption="모니터2 장비번호" ColSpanMd="6">
+                        <DxTextBox @bind-Text="a.Dev.Monitor2No" />
+                    </DxFormLayoutItem>
+
+                    <DxFormLayoutItem Caption="모니터2 확인번호" ColSpanMd="6">
+                        <DxTextBox @bind-Text="a.Dev.Monitor2ChkNo" />
+                    </DxFormLayoutItem>
+
+                    <DxFormLayoutItem Caption="모니터3 장비번호" ColSpanMd="6">
+                        <DxTextBox @bind-Text="a.Dev.Monitor3No" />
+                    </DxFormLayoutItem>
+
+                    <DxFormLayoutItem Caption="모니터3 확인번호" ColSpanMd="6">
+                        <DxTextBox @bind-Text="a.Dev.Monitor3ChkNo" />
+                    </DxFormLayoutItem>
+
+                    <DxFormLayoutItem Caption="MAC 주소" ColSpanMd="6">
+                        <DxTextBox @bind-Text="a.Dev.MacAddr" />
+                    </DxFormLayoutItem>
+
+                    <DxFormLayoutItem Caption="사용 IP" ColSpanMd="6">
+                        <DxTextBox @bind-Text="a.Dev.UseIp" />
+                        @* 사내에서는 이 값이 인증 전부였다(접속 IP 대조).
+                           포털에서는 장비 대장으로만 남는다. *@
+                        <div class="jsini-hint">장비 대장입니다. 권한 판정에 쓰지 않습니다.</div>
+                    </DxFormLayoutItem>
+
+                    <DxFormLayoutItem Caption="받은 것" ColSpanMd="12">
+                        <div class="ad-checks">
+                            <DxCheckBox @bind-Checked="a.Dev.Notebook">노트북</DxCheckBox>
+                            <DxCheckBox @bind-Checked="a.Dev.HubHdmi">허브/HDMI</DxCheckBox>
+                        </div>
+                    </DxFormLayoutItem>
+                </DxFormLayoutGroup>
+
+                @* 네모 열을 표제 열 개로 가르지 않는다 — 창이 500px 남짓이라
+                   표제 칸이 60px 밖에 안 되고, 「Claude Code」가 한 글자씩
+                   세로로 흘러내린다(위 생일 칸에서 실제로 밟았다). *@
+                <DxFormLayoutGroup Caption="계정 발급 현황" ColSpanMd="12" Expanded="false">
+                    <DxFormLayoutItem ColSpanMd="12">
+                        <div class="ad-checks">
+                            <DxCheckBox @bind-Checked="a.Dev.Git">Git</DxCheckBox>
+                            <DxCheckBox @bind-Checked="a.Dev.Startkit">StartKit</DxCheckBox>
+                            <DxCheckBox @bind-Checked="a.Dev.Dxb">DXB</DxCheckBox>
+                            <DxCheckBox @bind-Checked="a.Dev.VmConn">VM 접속</DxCheckBox>
+                            <DxCheckBox @bind-Checked="a.Dev.Aipro">AI Pro</DxCheckBox>
+                            <DxCheckBox @bind-Checked="a.Dev.ClaudeCode">Claude Code</DxCheckBox>
+                            <DxCheckBox @bind-Checked="a.Dev.DevDb">개발 DB</DxCheckBox>
+                            <DxCheckBox @bind-Checked="a.Dev.Wiki">Wiki</DxCheckBox>
+                            <DxCheckBox @bind-Checked="a.Dev.ProjectView">ProjectView</DxCheckBox>
+                            <DxCheckBox @bind-Checked="a.Dev.Svn">SVN</DxCheckBox>
+                        </div>
+                    </DxFormLayoutItem>
+                </DxFormLayoutGroup>
+
+                <DxFormLayoutGroup Caption="옷 치수" ColSpanMd="12" Expanded="false">
+                    <DxFormLayoutItem Caption="하계" ColSpanMd="6">
+                        <DxTextBox @bind-Text="a.Dev.SummerSize" />
+                    </DxFormLayoutItem>
+
+                    <DxFormLayoutItem Caption="동계" ColSpanMd="6">
+                        <DxTextBox @bind-Text="a.Dev.WinterSize" />
+                    </DxFormLayoutItem>
+                </DxFormLayoutGroup>
             </DxFormLayout>
         </EditFormTemplate>
     </CommGrd>
@@ -502,6 +618,10 @@
             BirthDateIsLunar = e.Item.BirthDateIsLunar,
             BirthdayCelebrated = e.Item.BirthdayCelebrated,
             Watermark = e.Item.Watermark,
+
+            // 편집 창이 사전을 제자리에서 고친다(`AccountDto.Dev`) — 여기서
+            // 모으는 단계가 없다.
+            DevAttributes = e.Item.DevAttributes,
         };
 
         if (!e.IsNew)

@@ -67,7 +67,6 @@ public sealed class WbsProgressService(IConfiguration configuration)
 
         var rows = await db.QueryAsync<WbsBoardProgressUser>($"""
             select coalesce(w.{uc}, '(미지정)')                                    as UserBpId
-                 , coalesce(u.name, w.{uc}, '(미지정)')                            as UserNm
                  , count(*)::int                                                   as Cnt
                  , round(avg({PlanRate}), 1)                                       as PlanRate
                  , count(*) filter (where ({PlanRate}) = 0)::int                    as NotStarted
@@ -81,12 +80,10 @@ public sealed class WbsProgressService(IConfiguration configuration)
                  , round(count(*) filter (where w.{bc} = 'o')::numeric
                          / nullif(count(*), 0) * 100, 1)                           as DoneBigRate
               from projmng.wbs_work w
-              left join projmng.wbs_user u
-                     on u.prj_rid = w.prj_rid and upper(u.bp_id) = upper(w.{uc})
              where w.prj_rid = @prjRid
                and {DevWhere(scope, "w")}
-             group by 1, 2
-             order by 4 desc nulls last, 2
+             group by 1
+             order by 3 desc nulls last, 1
             """, new { prjRid });
 
         return [.. rows];
@@ -143,16 +140,10 @@ public sealed class WbsProgressService(IConfiguration configuration)
                  , {PlanRate}         as PlanRate
                  , w.complate_yn      as ComplateYn
                  , w.user_bp_id       as UserBpId
-                 , u.name             as UserNm
                  , w.user_real_id     as UserRealId
-                 , ru.name            as UserRealNm
                  , w.complate_real_yn as ComplateRealYn
                  , w.priority_order   as PriorityOrder
               from projmng.wbs_work w
-              left join projmng.wbs_user u
-                     on u.prj_rid = w.prj_rid and upper(u.bp_id) = upper(w.user_bp_id)
-              left join projmng.wbs_user ru
-                     on ru.prj_rid = w.prj_rid and upper(ru.bp_id) = upper(w.user_real_id)
              where w.prj_rid = @prjRid
                and {DevWhere(scope, "w")}
                and (@user::text is null or coalesce(w.user_bp_id, '(미지정)') = @user)

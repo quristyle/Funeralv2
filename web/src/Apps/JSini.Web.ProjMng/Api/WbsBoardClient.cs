@@ -17,8 +17,18 @@ namespace JSini.Web.ProjMng.Api;
 /// <b>모든 조회가 프로젝트 번호를 받는다.</b> 원본은 프로젝트 하나 전용이라
 /// 그 조건이 없었다.
 /// </para>
+///
+/// <para>
+/// [사람 이름은 여기서 붙인다]
+/// </para>
+///
+/// <para>
+/// 서버는 아이디로만 집계한다 — 원장과 포털 계정이 <b>다른 데이터베이스</b>에
+/// 있어 조인할 수가 없다. 이름을 쓰는 화면이 일곱이라 각자 붙이면 갈리므로,
+/// 응답을 돌려주기 전에 <see cref="WbsBoardNames"/> 가 한 번 채운다.
+/// </para>
 /// </remarks>
-public sealed class WbsBoardClient(GatewayClient gateway)
+public sealed class WbsBoardClient(GatewayClient gateway, WbsBoardNames names)
 {
     private const string Url = "projmng/wbs-board";
 
@@ -58,17 +68,21 @@ public sealed class WbsBoardClient(GatewayClient gateway)
         => gateway.GetListAsync<WbsBoardBucketDto>(
             $"{Url}/stats/weekly?{Query(prjRid, ("basis", basis), ("scope", scope))}", ct);
 
-    public Task<IReadOnlyList<WbsBoardUserBucketDto>> MonthlyByUserAsync(
+    public async Task<IReadOnlyList<WbsBoardUserBucketDto>> MonthlyByUserAsync(
         int prjRid, string? basis = null, string? scope = null, string? who = null,
         CancellationToken ct = default)
-        => gateway.GetListAsync<WbsBoardUserBucketDto>(
-            $"{Url}/stats/monthly-by-user?{Query(prjRid, ("basis", basis), ("scope", scope), ("who", who))}", ct);
+        => await names.FillAsync(
+            await gateway.GetListAsync<WbsBoardUserBucketDto>(
+                $"{Url}/stats/monthly-by-user?{Query(prjRid, ("basis", basis), ("scope", scope), ("who", who))}", ct),
+            (r, name) => r.UserNm = name(r.UserBpId), ct);
 
-    public Task<IReadOnlyList<WbsBoardUserBucketDto>> WeeklyByUserAsync(
+    public async Task<IReadOnlyList<WbsBoardUserBucketDto>> WeeklyByUserAsync(
         int prjRid, string? basis = null, string? scope = null, string? who = null,
         CancellationToken ct = default)
-        => gateway.GetListAsync<WbsBoardUserBucketDto>(
-            $"{Url}/stats/weekly-by-user?{Query(prjRid, ("basis", basis), ("scope", scope), ("who", who))}", ct);
+        => await names.FillAsync(
+            await gateway.GetListAsync<WbsBoardUserBucketDto>(
+                $"{Url}/stats/weekly-by-user?{Query(prjRid, ("basis", basis), ("scope", scope), ("who", who))}", ct),
+            (r, name) => r.UserNm = name(r.UserBpId), ct);
 
     public Task<IReadOnlyList<WbsBoardModuleDto>> ByModuleAsync(
         int prjRid, string? basis = null, string? scope = null, CancellationToken ct = default)
@@ -76,17 +90,25 @@ public sealed class WbsBoardClient(GatewayClient gateway)
             $"{Url}/stats/by-module?{Query(prjRid, ("basis", basis), ("scope", scope))}", ct);
 
     /// <summary>담당자 고르개. 기간을 주면 <b>그 기간에 배정된 사람만</b> 온다.</summary>
-    public Task<IReadOnlyList<WbsBoardUserOptionDto>> UsersAsync(
+    public async Task<IReadOnlyList<WbsBoardUserOptionDto>> UsersAsync(
         int prjRid, string? scope = null, string? basis = null,
         string? month = null, string? week = null, CancellationToken ct = default)
-        => gateway.GetListAsync<WbsBoardUserOptionDto>(
-            $"{Url}/users?{Query(prjRid, ("scope", scope), ("basis", basis), ("month", month), ("week", week))}", ct);
+        => await names.FillAsync(
+            await gateway.GetListAsync<WbsBoardUserOptionDto>(
+                $"{Url}/users?{Query(prjRid, ("scope", scope), ("basis", basis), ("month", month), ("week", week))}", ct),
+            (r, name) => r.UserNm = name(r.UserBpId), ct);
 
     // ──────────────────────────────────────────── 상세 목록
 
-    public Task<IReadOnlyList<WbsBoardRowDto>> RowsAsync(
+    public async Task<IReadOnlyList<WbsBoardRowDto>> RowsAsync(
         int prjRid, WbsBoardFilter filter, CancellationToken ct = default)
-        => gateway.GetListAsync<WbsBoardRowDto>($"{Url}/rows?{filter.ToQuery(prjRid)}", ct);
+        => await names.FillAsync(
+            await gateway.GetListAsync<WbsBoardRowDto>($"{Url}/rows?{filter.ToQuery(prjRid)}", ct),
+            (r, name) =>
+            {
+                r.UserNm = name(r.UserBpId);
+                r.UserRealNm = name(r.UserRealId);
+            }, ct);
 
     /// <summary>
     /// 한 줄의 칸 몇 개를 고친다. <b>보낸 칸만</b> 바뀐다 — 일정·실적은
@@ -116,21 +138,29 @@ public sealed class WbsBoardClient(GatewayClient gateway)
         => gateway.GetOneAsync<WbsBoardProgressDto>(
             $"{Url}/progress/summary?{Query(prjRid, ("scope", scope))}", ct);
 
-    public Task<IReadOnlyList<WbsBoardProgressUserDto>> ProgressByUserAsync(
+    public async Task<IReadOnlyList<WbsBoardProgressUserDto>> ProgressByUserAsync(
         int prjRid, string? scope = null, string? who = null, CancellationToken ct = default)
-        => gateway.GetListAsync<WbsBoardProgressUserDto>(
-            $"{Url}/progress/by-user?{Query(prjRid, ("scope", scope), ("who", who))}", ct);
+        => await names.FillAsync(
+            await gateway.GetListAsync<WbsBoardProgressUserDto>(
+                $"{Url}/progress/by-user?{Query(prjRid, ("scope", scope), ("who", who))}", ct),
+            (r, name) => r.UserNm = name(r.UserBpId), ct);
 
     public Task<IReadOnlyList<WbsBoardProgressModuleDto>> ProgressByModuleAsync(
         int prjRid, string? scope = null, CancellationToken ct = default)
         => gateway.GetListAsync<WbsBoardProgressModuleDto>(
             $"{Url}/progress/by-module?{Query(prjRid, ("scope", scope))}", ct);
 
-    public Task<IReadOnlyList<WbsBoardProgressRowDto>> ProgressRowsAsync(
+    public async Task<IReadOnlyList<WbsBoardProgressRowDto>> ProgressRowsAsync(
         int prjRid, string? scope = null, string? user = null,
         string? realUser = null, string? module = null, CancellationToken ct = default)
-        => gateway.GetListAsync<WbsBoardProgressRowDto>(
-            $"{Url}/progress/rows?{Query(prjRid, ("scope", scope), ("user", user), ("realUser", realUser), ("module", module))}", ct);
+        => await names.FillAsync(
+            await gateway.GetListAsync<WbsBoardProgressRowDto>(
+                $"{Url}/progress/rows?{Query(prjRid, ("scope", scope), ("user", user), ("realUser", realUser), ("module", module))}", ct),
+            (r, name) =>
+            {
+                r.UserNm = name(r.UserBpId);
+                r.UserRealNm = name(r.UserRealId);
+            }, ct);
 
     // ──────────────────────────────────────────── 지연
 
@@ -139,16 +169,24 @@ public sealed class WbsBoardClient(GatewayClient gateway)
         => gateway.GetOneAsync<WbsBoardDelayDto>(
             $"{Url}/delay/summary?{Query(prjRid, ("scope", scope))}", ct);
 
-    public Task<IReadOnlyList<WbsBoardDelayUserDto>> DelayByUserAsync(
+    public async Task<IReadOnlyList<WbsBoardDelayUserDto>> DelayByUserAsync(
         int prjRid, string? scope = null, string? who = null, CancellationToken ct = default)
-        => gateway.GetListAsync<WbsBoardDelayUserDto>(
-            $"{Url}/delay/by-user?{Query(prjRid, ("scope", scope), ("who", who))}", ct);
+        => await names.FillAsync(
+            await gateway.GetListAsync<WbsBoardDelayUserDto>(
+                $"{Url}/delay/by-user?{Query(prjRid, ("scope", scope), ("who", who))}", ct),
+            (r, name) => r.UserNm = name(r.UserBpId), ct);
 
-    public Task<IReadOnlyList<WbsBoardDelayRowDto>> DelayRowsAsync(
+    public async Task<IReadOnlyList<WbsBoardDelayRowDto>> DelayRowsAsync(
         int prjRid, string? scope = null, string? kind = null,
         string? user = null, string? realUser = null, CancellationToken ct = default)
-        => gateway.GetListAsync<WbsBoardDelayRowDto>(
-            $"{Url}/delay/rows?{Query(prjRid, ("scope", scope), ("kind", kind), ("user", user), ("realUser", realUser))}", ct);
+        => await names.FillAsync(
+            await gateway.GetListAsync<WbsBoardDelayRowDto>(
+                $"{Url}/delay/rows?{Query(prjRid, ("scope", scope), ("kind", kind), ("user", user), ("realUser", realUser))}", ct),
+            (r, name) =>
+            {
+                r.UserNm = name(r.UserBpId);
+                r.UserRealNm = name(r.UserRealId);
+            }, ct);
 }
 
 /// <summary>상세 목록의 조회 조건. 칸이 열둘이라 인자로 늘어놓지 않는다.</summary>
@@ -426,7 +464,11 @@ public sealed class WbsBoardRowDto
 
     public string? UserBpId { get; set; }
 
-    /// <summary>성명. <b>명부에 있을 때만</b> 찬다 — 비어 있으면 화면이 「미할당」으로 보인다.</summary>
+    /// <summary>
+    /// 성명. <b>서버가 아니라 <see cref="WbsBoardNames"/> 가 채운다.</b>
+    /// 계정과 안 이어진 사람은 적힌 값 그대로 남는다 — 오타인지 퇴사자인지
+    /// 가려낼 수 있어야 한다.
+    /// </summary>
     public string? UserNm { get; set; }
 
     public string? ComplateYn { get; set; }

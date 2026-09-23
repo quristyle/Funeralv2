@@ -98,34 +98,6 @@ internal static class WbsBoardSql
         "db_ready_big_yn",
     };
 
-    /// <summary>개발자 명부에서 고칠 수 있는 칸. 열쇠(<c>prj_rid</c>·<c>bp_id</c>)는 뺀다.</summary>
-    public static readonly string[] UserCols =
-    [
-        "login_id",
-        "name", "position_nm", "birth_dt", "email", "tel_no", "emerg_tel_no", "use_ip",
-        "mac_addr", "notebook_no", "notebook_chk_no",
-        "super_yn", "block_yn",
-        "monitor1_no", "monitor1_chk_no",
-        "monitor2_no", "monitor2_chk_no",
-        "monitor3_no", "monitor3_chk_no",
-        "summer_size", "winter_size",
-        "git", "startkit", "dxb", "vm_conn", "aipro", "claudecode",
-        "dev_db", "wiki", "projectview", "svn", "notebook", "hub_hdmi",
-        "pv_user_id",
-    ];
-
-    /// <inheritdoc cref="UserCols"/>
-    public static readonly HashSet<string> UserColSet = new(UserCols, StringComparer.OrdinalIgnoreCase);
-
-    /// <summary>날짜로 넣어야 하는 칸. 나머지는 글자로 넣는다.</summary>
-    public static readonly HashSet<string> DateCols = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "birth_dt",
-    };
-
-    /// <summary>그 칸에 맞는 형변환 꼬리표.</summary>
-    public static string Cast(string col) => DateCols.Contains(col) ? "::date" : "::text";
-
     /// <summary>빈 글자는 <c>null</c> 로 본다. 조건이 「안 걸린다」는 뜻이 되어야 한다.</summary>
     public static string? Nz(string? s) => string.IsNullOrWhiteSpace(s) ? null : s;
 

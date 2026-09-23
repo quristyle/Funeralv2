@@ -3,7 +3,7 @@
 WBS 대시보드의 [개발자 관리](`/projmng/wbs/dev-users`)를 걷어내고, 그 화면이
 쓰던 속성을 **포털 계정관리**(`/admin/system/account`)에서 다루도록 옮긴다.
 
-상태: **설계 확정 · 구현 전** (2026-09-23)
+상태: **구현 완료** (2026-09-23)
 
 ---
 
@@ -76,55 +76,71 @@ Dev.BpId · Dev.Position · Dev.EmergTel · Dev.NotebookNo · Dev.Git · …
 
 ---
 
-## 남은 일 넷
+## 한 일 넷
 
 ### 1. AuthServer — `Dev.*` 읽기·쓰기
 
-`Services/UserService.cs` 가 `Watermark` 를 다루는 방식(`UpsertWatermark`)을
-접두사 한 벌로 넓힌다. `AccountDto` 에 `DevAttributes`(사전) 한 칸을 낸다.
+`Services/UserService.cs` 의 `SyncDevAttributes` 가 접두사 한 벌을 다룬다.
+`AccountDto`·`UpdateAccountDto` 에 `DevAttributes`(사전) 한 칸이 났다.
 
-### 2. 계정관리 화면 — 네 묶음 붙이기
+- **사전을 주면 그것이 그 계정의 전부다** — 빠진 열쇠는 지운다. 칸을 비워
+  저장하는 것이 「지운다」는 뜻이어야 하기 때문이다.
+- **`null` 은 「건드리지 않음」이다** — 이 속성을 모르는 화면이 저장해도 값이
+  사라지지 않는다. 사진·생일·워터마크와 같은 규칙이다.
+- 빈 글자는 담지 않는다. 담아 두면 「안 적었다」와 「비워 두기로 했다」가 같은
+  그림이 된다.
+
+### 2. 계정관리 화면 — 네 묶음
 
 `web/src/Apps/JSini.Web.Admin/Components/Pages/UserList.razor` 의 편집 창에
-접는 구역 넷을 더한다. 칸이 스물다섯이라 **한 줄로 쏟지 않는다** — 묶음마다
-접어 두고 필요한 것만 편다.
+접는 구역 넷이 붙었다(업무 · 장비 대장 · 계정 발급 현황 · 옷 치수).
+**닫힌 채로 시작한다** — 계정을 만드는 사람 대부분은 이 값을 안 적는다.
 
-### 3. ProjMngServer — `wbs_user` 조인을 걷어낸다
+열쇠 글자는 `Api/AdminModels.cs` 의 `DevAttributeView` 한 곳에만 있다.
+화면이 사전을 열쇠로 직접 바인딩하면 그 글자가 스물몇 곳에 흩어지고,
+오타가 오류가 아니라 **조용히 빈 칸**으로 나온다.
 
-조인이 **11곳**이다.
+### 3. ProjMngServer — `wbs_user` 조인을 걷어냈다
 
-```
-Services/WbsBoardService.cs     stats/monthly-by-user · weekly-by-user · users · rows
-Services/WbsProgressService.cs  progress/by-user · progress/rows
-Services/WbsDelayService.cs     delay/by-user · delay/rows
-Services/WbsBoardUserService.cs 명부 CRUD (통째로 없앤다)
-```
+열한 곳이었다. 집계는 이제 아이디로만 묶고 이름 칸은 **안 채운다.**
 
-집계는 `user_bp_id` 로 묶고 이름 칸은 **안 채운다**. 화면이 채운다.
+화면 설정(`wbs_user_pref`)의 주인 찾기도 함께 바뀌었다 — `login_id → bp_id`
+단계가 사라지고 **로그인 아이디가 곧 열쇠**다. 이미 사번으로 담긴 설정은 그
+사람에게 안 보인다(화면 설정이라 다시 고르면 그만이다).
 
-화면 설정(`wbs_user_pref`)의 주인 찾기도 함께 바뀐다 — 지금은
-`login_id → bp_id` 로 푸는데, 원장이 계정을 가리키게 되면 **로그인 아이디가
-곧 열쇠**라 그 단계가 사라진다.
+### 4. 이름은 화면이 붙인다 — `WbsBoardNames`
 
-### 4. 개발자 관리 화면·메뉴 제거
+이름을 쓰는 자리가 **일곱 화면**이라 각자 붙이면 「어떤 화면은 이름, 어떤
+화면은 아이디」로 갈린다. `WbsBoardClient` 가 응답을 돌려주기 전에 한 번
+채운다 — 포털 계정 목록(`portal_account`)을 참조자료 통에 담아 쓴다.
+
+**못 찾으면 적힌 값 그대로 둔다.** 계정과 안 이어진 사람(퇴사자 · 외부 인력 ·
+오타)을 「미할당」으로 덮으면 셋을 가려낼 수 없다.
+
+### 그리고 걷어낸 것
 
 - `Components/Pages/WbsDevUserList.razor`
-- `Api/WbsDevUserClient.cs` 의 명부 부분(화면 설정은 남긴다)
-- `Controllers/WbsBoardDevUsersController.cs` · `Services/WbsBoardUserService.cs` 의 명부 부분
-- 메뉴 `PM_WBS_DEVUSER` 와 권한 5건
-- 적재 스크립트(`deploy/sql/projmng-wbs-data-load.sql`)의 `wbs_user` 적재를
-  **사번 → 계정 대조**로 바꾼다
+- `Api/WbsDevUserClient.cs` 의 명부 부분 (화면 설정은 남았다)
+- `Controllers/WbsBoardDevUsersController.cs` · `WbsBoardUserService` 의 명부 부분
+- `Models/WbsBoardUser`(모델) · `WbsBoardSql.UserCols`
+- 메뉴 `PM_WBS_DEVUSER` 와 권한 —
+  `deploy/sql/portal-menu-wbs-devuser-remove-2026-09-23.sql`
 
-`projmng.wbs_user` 표는 **지우지 않는다** — 읽는 코드가 없어져도 지우는 것은
-운영 DDL 이라 사람이 정할 일이다(`wbs_pv*` 셋과 같은 이유).
+`projmng.wbs_user` 표는 **지우지 않았다.** 읽는 코드가 없어져도 지우는 것은
+운영 DDL 이라 사람이 정할 일이고(`wbs_pv*` 셋과 같은 이유), **사번 → 계정
+대조 열쇠**가 아직 그 안에 있다.
+
+### 적재 스크립트
+
+`deploy/sql/projmng-wbs-data-load.sql` 에 절이 하나 늘었다 —
+**「사번을 계정으로 바꾼다」.** `wbs_user.login_id` 를 손으로 채운 뒤 파일을
+다시 돌리면 원장의 담당자 칸이 계정으로 바뀐다(앞의 적재는 전부 멱등이다).
 
 ---
 
-## 주의 — 이름이 안 보이는 구간이 생긴다
+## 주의 — 계정과 안 이어진 사람
 
-3 을 하고 4 를 하기 전까지는 화면이 사번만 보여 준다. **둘을 한 변경에서
-함께** 해야 한다.
-
-그리고 계정과 안 이어진 사람(퇴사자 · 외부 인력)은 옮긴 뒤에도 이름이 없다.
+3 과 4 는 **한 변경에서 함께** 했다. 갈라 두면 그 사이에 화면이 사번만
+보여 준다. 계정과 안 이어진 사람(퇴사자 · 외부 인력)은 옮긴 뒤에도 이름이 없다.
 화면은 그때 「미할당」이 아니라 **저장된 값 그대로** 보여 준다 — 오타인지
 퇴사자인지 가려낼 수 있어야 한다.

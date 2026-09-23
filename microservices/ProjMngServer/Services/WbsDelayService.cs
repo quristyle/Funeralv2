@@ -55,18 +55,15 @@ public sealed class WbsDelayService(IConfiguration configuration)
 
         var rows = await db.QueryAsync<WbsBoardDelayUser>($"""
             select coalesce(w.{uc}, '(미지정)')                                as UserBpId
-                 , coalesce(u.name, w.{uc}, '(미지정)')                        as UserNm
                  , count(*)::int                                               as Assigned
                  , count(*) filter (where {StartLate})::int                     as StartLate
                  , count(*) filter (where {FinishLate})::int                    as FinishLate
                  , count(*) filter (where {StartLate} or {FinishLate})::int      as AnyLate
               from projmng.wbs_work w
-              left join projmng.wbs_user u
-                     on u.prj_rid = w.prj_rid and upper(u.bp_id) = upper(w.{uc})
              where w.prj_rid = @prjRid
                and {DevWhere(scope, "w")}
-             group by 1, 2
-             order by 6 desc, 2
+             group by 1
+             order by 5 desc, 1
             """, new { prjRid });
 
         return [.. rows];
@@ -95,9 +92,7 @@ public sealed class WbsDelayService(IConfiguration configuration)
                  , w.plan_sdt_c::text as PlanSdtC
                  , w.plan_edt_c::text as PlanEdtC
                  , w.user_bp_id       as UserBpId
-                 , u.name             as UserNm
                  , w.user_real_id     as UserRealId
-                 , ru.name            as UserRealNm
                  , w.complate_yn      as ComplateYn
                  , w.complate_real_yn as ComplateRealYn
                  , {StartLate}        as StartLate
@@ -107,10 +102,6 @@ public sealed class WbsDelayService(IConfiguration configuration)
                  , w.priority_order   as PriorityOrder
                  , w.prog_type        as ProgType
               from projmng.wbs_work w
-              left join projmng.wbs_user u
-                     on u.prj_rid = w.prj_rid and upper(u.bp_id) = upper(w.user_bp_id)
-              left join projmng.wbs_user ru
-                     on ru.prj_rid = w.prj_rid and upper(ru.bp_id) = upper(w.user_real_id)
              where w.prj_rid = @prjRid
                and {DevWhere(scope, "w")}
                and {where}

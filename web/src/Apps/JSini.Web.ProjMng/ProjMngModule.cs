@@ -51,6 +51,7 @@ public sealed class ProjMngModule : IPortalModule
         // WBS 대시보드 — 사내망에서 따로 돌던 물건을 옮겨 온 것이다.
         // `WbsClient` 와 이름이 비슷하지만 **다른 표**다 — 그쪽은 프로젝트별
         // 공정표, 이쪽은 화면 단위 원장이다.
+        services.AddScoped<WbsBoardNames>();
         services.AddScoped<WbsBoardClient>();
         services.AddScoped<WbsBoardTaskClient>();
         services.AddScoped<WbsDevUserClient>();

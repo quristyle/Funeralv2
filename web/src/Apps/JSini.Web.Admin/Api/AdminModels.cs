@@ -68,6 +68,41 @@ public sealed class AccountDto
     /// </summary>
     public string? Avatar { get; set; }
 
+    /// <summary>
+    /// 개발 업무용 확장 속성 — 사번 · 장비 · 계정 발급 현황 · 옷 치수.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 프로젝트관리의 [개발자 관리] 화면이 들고 있던 것들이다. 그 화면을
+    /// 걷어내면서 이리로 옮겼다(<c>docs/projmng-account-merge.md</c>).
+    /// </para>
+    ///
+    /// <para>
+    /// 사전으로 오가는 까닭은 <b>서버가 칸을 갖고 있지 않기 때문</b>이다 —
+    /// <c>account_profile_details</c> 라는 열쇠-값 표에 <c>Dev.</c> 접두사로
+    /// 들어간다. 속성을 더할 때 마이그레이션이 없다.
+    /// </para>
+    ///
+    /// <para>
+    /// 화면은 이 사전을 직접 만지지 않고 <see cref="Dev"/> 를 쓴다.
+    /// </para>
+    /// </remarks>
+    public Dictionary<string, string?> DevAttributes { get; set; } = [];
+
+    /// <summary>
+    /// <see cref="DevAttributes"/> 를 이름 있는 칸으로 보는 창.
+    /// </summary>
+    /// <remarks>
+    /// <b>편집 창이 사전을 열쇠로 직접 바인딩하지 못한다.</b> 열쇠 글자가
+    /// 화면 스물몇 곳에 흩어지면 오타가 오류가 아니라 <b>조용히 빈 칸</b>으로
+    /// 나온다. 열쇠는 여기 한 벌만 둔다.
+    /// </remarks>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public DevAttributeView Dev => _dev ??= new DevAttributeView(DevAttributes);
+
+    private DevAttributeView? _dev;
+
+
     /// <summary>가진 역할의 식별자. 편집 폼이 이 값으로 역할을 고른다.</summary>
     public List<string> RoleIds { get; set; } = [];
 
@@ -1032,6 +1067,99 @@ public sealed class SaveAccountDto
     /// </summary>
     public bool? Watermark { get; set; }
 
+    /// <summary>
+    /// 개발 업무용 확장 속성. 사전을 실으면 <b>그것이 그 계정의 전부</b>이고
+    /// (빠진 열쇠는 지운다) <c>null</c> 이면 건드리지 않는다.
+    /// </summary>
+    public Dictionary<string, string?>? DevAttributes { get; set; }
+}
+
+/// <summary>
+/// <c>Dev.*</c> 확장 속성을 이름 있는 칸으로 보는 창.
+/// </summary>
+/// <remarks>
+/// <para>
+/// 값을 들고 있지 않는다 — 넘겨받은 사전을 그대로 읽고 쓴다. 그래서 창을
+/// 통해 고친 것이 곧 <see cref="AccountDto.DevAttributes"/> 의 값이고,
+/// 저장할 때 따로 모으는 단계가 없다.
+/// </para>
+///
+/// <para>
+/// [빈 글자는 담지 않는다]
+/// </para>
+///
+/// <para>
+/// 칸을 비우면 열쇠를 <b>지운다.</b> 빈 글자를 담아 두면 「안 적었다」와
+/// 「비워 두기로 했다」가 같은 그림이 되고, 칸이 스물여섯이라 대부분 비어
+/// 있는 계정마다 빈 줄이 그만큼 쌓인다. 서버도 같은 규칙이다
+/// (<c>UserService.SyncDevAttributes</c>).
+/// </para>
+///
+/// <para>
+/// [발급 현황은 네모다]
+/// </para>
+///
+/// <para>
+/// 원본 화면이 <c>flag</c> 로 그리던 칸들이고 담기는 값은 <c>Y</c> 한 글자다.
+/// 켠 것만 <c>Y</c> 로 담고 끄면 지운다.
+/// </para>
+/// </remarks>
+public sealed class DevAttributeView(Dictionary<string, string?> values)
+{
+    private string? Text(string key) =>
+        values.TryGetValue(key, out var v) ? v : null;
+
+    private void Text(string key, string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) values.Remove(key);
+        else values[key] = value.Trim();
+    }
+
+    private bool Flag(string key) =>
+        string.Equals(Text(key), "Y", StringComparison.OrdinalIgnoreCase);
+
+    private void Flag(string key, bool on) => Text(key, on ? "Y" : null);
+
+    // 업무 — 이메일·연락처·생일은 계정에 이미 있어 옮기지 않았다.
+    public string? BpId { get => Text("BpId"); set => Text("BpId", value); }
+    public string? Position { get => Text("Position"); set => Text("Position", value); }
+    public string? EmergTel { get => Text("EmergTel"); set => Text("EmergTel", value); }
+
+    // 장비 대장
+    public string? NotebookNo { get => Text("NotebookNo"); set => Text("NotebookNo", value); }
+    public string? NotebookChkNo { get => Text("NotebookChkNo"); set => Text("NotebookChkNo", value); }
+    public string? Monitor1No { get => Text("Monitor1No"); set => Text("Monitor1No", value); }
+    public string? Monitor1ChkNo { get => Text("Monitor1ChkNo"); set => Text("Monitor1ChkNo", value); }
+    public string? Monitor2No { get => Text("Monitor2No"); set => Text("Monitor2No", value); }
+    public string? Monitor2ChkNo { get => Text("Monitor2ChkNo"); set => Text("Monitor2ChkNo", value); }
+    public string? Monitor3No { get => Text("Monitor3No"); set => Text("Monitor3No", value); }
+    public string? Monitor3ChkNo { get => Text("Monitor3ChkNo"); set => Text("Monitor3ChkNo", value); }
+    public string? MacAddr { get => Text("MacAddr"); set => Text("MacAddr", value); }
+
+    /// <summary>
+    /// 사용 IP. 사내에서는 <b>이것이 인증 전부</b>였다(접속 IP 를 이 값과 대조).
+    /// 포털에서는 <b>장비 대장으로만</b> 쓴다 — 권한 판정에 쓰지 않는다.
+    /// </summary>
+    public string? UseIp { get => Text("UseIp"); set => Text("UseIp", value); }
+
+    public bool HubHdmi { get => Flag("HubHdmi"); set => Flag("HubHdmi", value); }
+
+    // 계정 발급 현황 — 「이 사람이 무엇을 받았나」
+    public bool Git { get => Flag("Git"); set => Flag("Git", value); }
+    public bool Startkit { get => Flag("Startkit"); set => Flag("Startkit", value); }
+    public bool Dxb { get => Flag("Dxb"); set => Flag("Dxb", value); }
+    public bool VmConn { get => Flag("VmConn"); set => Flag("VmConn", value); }
+    public bool Aipro { get => Flag("Aipro"); set => Flag("Aipro", value); }
+    public bool ClaudeCode { get => Flag("ClaudeCode"); set => Flag("ClaudeCode", value); }
+    public bool DevDb { get => Flag("DevDb"); set => Flag("DevDb", value); }
+    public bool Wiki { get => Flag("Wiki"); set => Flag("Wiki", value); }
+    public bool ProjectView { get => Flag("ProjectView"); set => Flag("ProjectView", value); }
+    public bool Svn { get => Flag("Svn"); set => Flag("Svn", value); }
+    public bool Notebook { get => Flag("Notebook"); set => Flag("Notebook", value); }
+
+    // 옷 치수
+    public string? SummerSize { get => Text("SummerSize"); set => Text("SummerSize", value); }
+    public string? WinterSize { get => Text("WinterSize"); set => Text("WinterSize", value); }
 }
 
 /// <summary>역할 등록·수정.</summary>

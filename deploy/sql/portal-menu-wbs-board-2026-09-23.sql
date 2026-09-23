@@ -103,6 +103,9 @@ SELECT m.id, m.name, m.path, 'PM_WBS', 'MENU', m.title, m.icon, m.order_no,
     -- 명부와 문서.
     ('PM_WBS_DOCS',     'PmWbsDocs',      '/projmng/wbs/docs',
      '개발자 정보',          'lucide:book-open',         13, true, true, true, 'projmng.wbs.docs'),
+    -- 이 줄은 **이미 지웠다** — `portal-menu-wbs-devuser-remove-2026-09-23.sql`.
+    -- 그 화면의 속성은 포털 계정으로 옮겼다(`docs/projmng-account-merge.md`).
+    -- 이 파일을 다시 돌리면 **되살아난다.**
     ('PM_WBS_DEVUSER',  'PmWbsDevUser',   '/projmng/wbs/dev-users',
      '개발자 관리',          'lucide:users',             14, true, true, true, 'projmng.wbs.dev-users')
   ) AS m(id, name, path, title, icon, order_no, use_create, use_update, use_delete, route_key)

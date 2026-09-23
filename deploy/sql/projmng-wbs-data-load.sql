@@ -64,11 +64,22 @@ ORDER BY 1;
 
 
 -- ════════════════════════════════════════════════════════════
---  개발자 명부
+--  개발자 명부 → **사번 대조표**
 -- ════════════════════════════════════════════════════════════
+--
+-- 2026-09-23 에 [개발자 관리] 화면이 없어졌다. 그 속성(직급 · 장비 대장 ·
+-- 계정 발급 현황 · 옷 치수)은 이제 **포털 계정**이 들고 있다 —
+-- `scom.account_profile_details` 의 `Dev.*`, 화면은 `/admin/system/account`.
+-- 경위는 `docs/projmng-account-merge.md`.
+--
+-- 그래도 이 표를 채운다. **사번 → 계정 대조 열쇠**가 여기 말고는 없기
+-- 때문이다 — 사내 원장의 담당자 칸이 사번이고, 그것을 계정으로 바꾸는 일이
+-- 아래 「사번을 계정으로 바꾼다」 절이다. 대조가 끝나면 표째 지워도 된다
+-- (`portal-menu-wbs-devuser-remove-2026-09-23.sql` 머리말).
 --
 -- **개인정보가 들어 있다** — 성명 · 전화 · 비상연락처 · 생년월일 · MAC ·
 -- 장비번호. 옮기기 전에 한 번 보라고 원본 꾸러미가 경고해 두었다.
+-- 옮겨 온 뒤 계정 쪽에 손으로 옮겨 적을 값들이라 **그때까지만** 있으면 된다.
 --
 -- 사번이 비었거나 겹치는 줄은 뺀다. 사내 표에는 기본키가 없어서 그런 줄이
 -- 실제로 있을 수 있고, 여기서는 그것이 열쇠다.
@@ -92,10 +103,19 @@ SELECT DISTINCT ON (btrim(u.bp_id))
  ORDER BY btrim(u.bp_id), u.name NULLS LAST
 ON CONFLICT (prj_rid, bp_id) DO NOTHING;
 
+-- ── 사람이 할 일 하나 ───────────────────────────────────────
+--
 -- **포털 계정은 손으로 잇는다.** 사번과 계정을 맞출 근거가 자료에 없다 —
 -- 짐작으로 이으면 남의 얼굴이 남의 일감에 붙는다.
+--
 --   UPDATE projmng.wbs_user SET login_id = '<포털계정>'
 --    WHERE prj_rid = :prj AND bp_id = '<사번>';
+--
+-- 누구를 이어야 하는지는 이 조회가 준다(이름·이메일이 단서다).
+--
+--   SELECT bp_id, name, email, position_nm, login_id
+--     FROM projmng.wbs_user WHERE prj_rid = :prj AND login_id IS NULL
+--    ORDER BY name;
 
 
 -- ════════════════════════════════════════════════════════════
@@ -157,18 +177,70 @@ SELECT :prj, d.title, d.content, d.sort_order, d.updated_by, d.updated_at
  WHERE NOT EXISTS (SELECT 1 FROM projmng.wbs_docs x
                     WHERE x.prj_rid = :prj AND x.title = d.title);
 
+-- 화면 설정의 주인이 **로그인 아이디**로 바뀌었다(전에는 사번이었다).
+-- 그래서 이어 둔 계정이 있으면 그것으로 넣는다 — 안 그러면 옮겨 와도
+-- **그 사람에게 안 보인다**(서버가 로그인 아이디로 찾는다).
+--
+-- 아직 안 이은 사람은 사번 그대로 들어간다. 나중에 이어도 이 표는 따라
+-- 바뀌지 않는다 — 화면 설정이라 다시 고르면 그만이고, 되살리려고 대조표를
+-- 두면 명부를 없앤 뜻이 없어진다.
 INSERT INTO projmng.wbs_user_pref (prj_rid, bp_id, pref_key, pref_val, updated_at)
-SELECT :prj, p.bp_id, p.pref_key, p.pref_val, p.updated_at
+SELECT :prj, COALESCE(u.login_id, p.bp_id), p.pref_key, p.pref_val, p.updated_at
   FROM wbs_import.dev_user_pref p
+  LEFT JOIN projmng.wbs_user u
+         ON u.prj_rid = :prj AND upper(u.bp_id) = upper(p.bp_id)
 ON CONFLICT (prj_rid, bp_id, pref_key) DO NOTHING;
+
+
+-- ════════════════════════════════════════════════════════════
+--  사번을 계정으로 바꾼다
+-- ════════════════════════════════════════════════════════════
+--
+-- 원장의 담당자 칸(`user_bp_id` · `user_real_id`)이 **사번 대신 로그인
+-- 아이디**를 담는다. 화면이 사람 이름을 포털 계정에서 붙이기 때문이다 —
+-- 원장은 `projmng` DB, 계정은 `jsiniportal` DB 라 **SQL 조인이 아예
+-- 불가능하다**(같은 인스턴스지만 데이터베이스가 다르다).
+--
+-- **이 절은 위 「사람이 할 일 하나」가 끝난 뒤에 듣는다.** `login_id` 를
+-- 안 채운 사람은 사번 그대로 남고, 화면은 그 값을 **그대로 보여 준다** —
+-- 「미할당」으로 덮으면 오타인지 퇴사자인지 가려낼 수 없다.
+--
+-- 두 번 돌려도 안전하다. 이미 바뀐 줄은 사번과 안 맞아 걸리지 않는다.
+-- 대조를 나중에 채웠으면 **이 파일을 다시 돌리면 된다**(앞의 적재는 전부
+-- 멱등이다).
+
+UPDATE projmng.wbs_work w
+   SET user_bp_id = u.login_id
+  FROM projmng.wbs_user u
+ WHERE u.prj_rid = :prj
+   AND w.prj_rid = :prj
+   AND u.login_id IS NOT NULL AND btrim(u.login_id) <> ''
+   AND upper(w.user_bp_id) = upper(u.bp_id);
+
+UPDATE projmng.wbs_work w
+   SET user_real_id = u.login_id
+  FROM projmng.wbs_user u
+ WHERE u.prj_rid = :prj
+   AND w.prj_rid = :prj
+   AND u.login_id IS NOT NULL AND btrim(u.login_id) <> ''
+   AND upper(w.user_real_id) = upper(u.bp_id);
+
+-- 아직 안 바뀐 사람 보기:
+--   SELECT DISTINCT w.user_bp_id
+--     FROM projmng.wbs_work w
+--    WHERE w.prj_rid = :prj AND w.user_bp_id IS NOT NULL
+--      AND NOT EXISTS (SELECT 1 FROM projmng.wbs_user u
+--                       WHERE u.prj_rid = :prj AND u.login_id = w.user_bp_id);
 
 
 -- ════════════════════════════════════════════════════════════
 --  ProjectView 캐시
 -- ════════════════════════════════════════════════════════════
 --
--- **안 옮겨도 된다.** 캐시라 비워 두면 [ProjectView 동기화] 화면에서 다시
--- 걷으면 그만이다. 옮기면 그 한 번을 아낀다.
+-- **안 옮긴다.** ProjectView 는 2026-09-23 에 통째로 걷어냈다 — 걷는 화면도
+-- 읽는 화면도 없다(`portal-menu-wbs-pv-remove-2026-09-23.sql`). 표 셋만 아직
+-- 남아 있어서 이 절이 그대로 도는데, **넣어 봐야 아무도 안 본다.**
+-- 표를 지우면 이 절도 함께 지운다.
 
 INSERT INTO projmng.wbs_pv (
     prj_rid, activity_id, pv_project_id, pv_work_id, pv_work_title, pv_seen_at,

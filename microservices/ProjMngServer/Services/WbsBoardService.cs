@@ -120,7 +120,6 @@ public sealed class WbsBoardService(IConfiguration configuration)
 
         var rows = await db.QueryAsync<WbsBoardUserBucket>($"""
             select coalesce(w.{uc}, '(미지정)')                                as UserBpId
-                 , coalesce(u.name, w.{uc}, '(미지정)')                        as UserNm
                  , to_char(date_trunc('month', w.{c}), 'YYYY-MM')              as Bucket
                  , count(*)::int                                               as Cnt
                  , count(*) filter (where w.{dc} = 'o')::int                   as Done
@@ -131,13 +130,11 @@ public sealed class WbsBoardService(IConfiguration configuration)
                  , count(*) filter (where w.complate_big_yn = 'o')::int         as DoneBig
                  , count(*) filter (where w.complate_real_big_yn = 'o')::int    as DoneRealBig
               from projmng.wbs_work w
-              left join projmng.wbs_user u
-                     on u.prj_rid = w.prj_rid and upper(u.bp_id) = upper(w.{uc})
              where w.prj_rid = @prjRid
                and {DevWhere(scope, "w")}
                and w.{c} is not null
-             group by 1, 2, 3
-             order by 2, 1, 3
+             group by 1, 2
+             order by 1, 2
             """, new { prjRid });
 
         return [.. rows];
@@ -152,20 +149,17 @@ public sealed class WbsBoardService(IConfiguration configuration)
 
         var rows = await db.QueryAsync<WbsBoardUserBucket>($"""
             select coalesce(w.{uc}, '(미지정)')                                  as UserBpId
-                 , coalesce(u.name, w.{uc}, '(미지정)')                          as UserNm
                  , to_char(date_trunc('week', w.{c}), 'IYYY-"W"IW')              as Bucket
                  , date_trunc('week', w.{c})::date::text                         as WeekStart
                  , (date_trunc('week', w.{c}) + interval '4 day')::date::text    as WeekEnd
                  , count(*)::int                                                 as Cnt
                  , count(*) filter (where w.{dc} = 'o')::int                     as Done
               from projmng.wbs_work w
-              left join projmng.wbs_user u
-                     on u.prj_rid = w.prj_rid and upper(u.bp_id) = upper(w.{uc})
              where w.prj_rid = @prjRid
                and {DevWhere(scope, "w")}
                and w.{c} is not null
-             group by 1, 2, 3, 4, 5
-             order by 4, 2, 1
+             group by 1, 2, 3, 4
+             order by 3, 1
             """, new { prjRid });
 
         return [.. rows];
@@ -217,21 +211,16 @@ public sealed class WbsBoardService(IConfiguration configuration)
 
         var rows = await db.QueryAsync<WbsBoardUserOption>($"""
             select coalesce(w.user_bp_id, '(미지정)')             as UserBpId
-                 , coalesce(u.name
-                          , case when w.user_bp_id is null then '미지정'
-                                 else '(미등록)' end)             as UserNm
                  , count(*)::int                                  as Cnt
               from projmng.wbs_work w
-              left join projmng.wbs_user u
-                     on u.prj_rid = w.prj_rid and upper(u.bp_id) = upper(w.user_bp_id)
              where w.prj_rid = @prjRid
                and {DevWhere(scope, "w")}
                and (@month::text is null
                     or to_char(date_trunc('month', w.{c}), 'YYYY-MM') = @month)
                and (@week::text is null
                     or to_char(date_trunc('week', w.{c}), 'IYYY-"W"IW') = @week)
-             group by 1, 2
-             order by 2, 1
+             group by 1
+             order by 1
             """, new { prjRid, month = Nz(month), week = Nz(week) });
 
         return [.. rows];
@@ -292,10 +281,8 @@ public sealed class WbsBoardService(IConfiguration configuration)
                  , w.plan_sdt_c::text      as PlanSdtC
                  , w.plan_edt_c::text      as PlanEdtC
                  , w.user_bp_id            as UserBpId
-                 , u.name                  as UserNm
                  , w.complate_yn           as ComplateYn
                  , w.user_real_id          as UserRealId
-                 , ru.name                 as UserRealNm
                  , w.complate_real_yn      as ComplateRealYn
                  , w.recheck_yn            as RecheckYn
                  , w.complate_big_yn       as ComplateBigYn
@@ -312,10 +299,6 @@ public sealed class WbsBoardService(IConfiguration configuration)
                  , case when {StartLate}  then current_date - w.plan_sdt end as StartDays
                  , case when {FinishLate} then current_date - w.plan_edt end as FinishDays
               from projmng.wbs_work w
-              left join projmng.wbs_user u
-                     on u.prj_rid = w.prj_rid and upper(u.bp_id) = upper(w.user_bp_id)
-              left join projmng.wbs_user ru
-                     on ru.prj_rid = w.prj_rid and upper(ru.bp_id) = upper(w.user_real_id)
              where w.prj_rid = @prjRid
                and {DevWhere(query.Scope, "w")}
                and (@month::text is null
@@ -365,9 +348,11 @@ public sealed class WbsBoardService(IConfiguration configuration)
             // 두 가지가 된다.
             var val = raw is string s && string.IsNullOrWhiteSpace(s) ? null : raw;
 
+            // `::text` 를 붙이는 까닭 — 고칠 수 있는 칸(`Editable`)이 전부
+            // 글자이고, 값이 `null` 이면 Npgsql 이 형을 못 골라 던진다.
             var name = $"p{i++}";
             args.Add(name, val);
-            sets.Add($"{key.ToLowerInvariant()} = @{name}{Cast(key)}");
+            sets.Add($"{key.ToLowerInvariant()} = @{name}::text");
         }
 
         if (sets.Count == 0) return -1;

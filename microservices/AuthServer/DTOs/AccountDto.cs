@@ -47,6 +47,15 @@ public class AccountDto
     public bool BirthdayCelebrated { get; set; } = true;
 
     /// <summary>
+    /// 개발 업무용 확장 속성 — 사번 · 장비 · 계정 발급 현황 ….
+    /// </summary>
+    /// <remarks>
+    /// <c>account_profile_details</c> 의 <c>Dev.*</c> 를 접두사 없이 담는다.
+    /// 자세한 것은 <c>docs/projmng-account-merge.md</c>.
+    /// </remarks>
+    public Dictionary<string, string?> DevAttributes { get; set; } = [];
+
+    /// <summary>
     /// 화면에 로그인 아이디 워터마크를 깔지.
     ///
     /// <para>
@@ -102,6 +111,13 @@ public class CreateAccountDto
 
     /// <summary>생일 축하 대상인지</summary>
     public bool BirthdayCelebrated { get; set; } = true;
+
+    /// <summary>
+    /// 개발 업무용 확장 속성 — 사번 · 장비 · 계정 발급 현황 ….
+    /// <see cref="UpdateAccountDto.DevAttributes"/> 와 같은 규칙이다.
+    /// </summary>
+    public Dictionary<string, string?>? DevAttributes { get; set; }
+
 }
 
 /// <summary>
@@ -130,4 +146,14 @@ public class UpdateAccountDto
 
     /// <summary>생일 축하 대상인지</summary>
     public bool BirthdayCelebrated { get; set; } = true;
+
+    /// <summary>
+    /// 개발 업무용 확장 속성.
+    /// </summary>
+    /// <remarks>
+    /// <b><c>null</c> 은 「건드리지 않음」</b>이고, 사전을 주면 그것이 그
+    /// 계정의 전부다(빠진 열쇠는 지운다). 이 속성을 모르는 화면이 저장해도
+    /// 값이 사라지지 않게 하려는 것이다.
+    /// </remarks>
+    public Dictionary<string, string?>? DevAttributes { get; set; }
 }
