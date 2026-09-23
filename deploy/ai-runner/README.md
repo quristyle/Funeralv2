@@ -33,7 +33,7 @@
 | 순서 | 무엇 | 왜 |
 |---|---|---|
 | 1 | 코드를 `main` 에 올린다 | 배포가 돌아 `ProjMngServer` 가 새 코드로 뜬다 |
-| 2 | 표를 확인한다 | `deploy/sql/projmng-ai-tasks-*.sql` — **이미 반영돼 있다**(2026-09-17) |
+| 2 | 표를 확인한다 | `deploy/sql/projmng-ai-tasks-*.sql` — **이미 반영돼 있다**(2026-09-17). 대상 git 상태 표는 따로다 — 아래 |
 | 3 | 서버에 토큰을 넣는다 | 없으면 집어가기를 **거절한다** |
 | 4 | 실행기를 올리고 유닛을 넣는다 | 아래 |
 | 5 | 담장이 막는지 확인한다 | 아래 |
@@ -136,8 +136,17 @@ journalctl -u ai-task-runner -f
 
 ```
 실행기 jsini-prod 시작 · 서버 http://127.0.0.1:5450 · CLI [claude,antigravity,copilot] · 동시 5 · 조회 60초
+대상 상태 감시: 180초마다 봅니다 (확인 요청은 15초 안에 받습니다).
 큐 ai_task@localhost 를 듣습니다.
 ```
+
+> 둘째 줄이 「대상 git 상태」 화면(`/projmng/ai/target-status`)을 먹여 살리는
+> 쪽이다(설계 11.7). **그 표가 아직 없으면 보고가 조용히 버려진다** —
+> `deploy/sql/projmng-ai-target-status-2026-09-19.sql` 을 프로젝트관리 DB 에
+> 한 번 돌린다(메뉴는 포털 DB 쪽 `portal-menu-ai-target-status-…` 다).
+>
+> 이 감시를 끄려면 `Runner:StatusSeconds` 를 `0` 으로 둔다. 그러면 그 화면이
+> 「아직 확인된 적이 없습니다」로만 남는다.
 
 > **`ServerUrl` 이 `127.0.0.1:5450` 인 것이 맞다.** 그 포트는 컨테이너가
 > 호스트 루프백에 열어 둔 자리다(`docker-compose.prod.yml`). 게이트웨이를

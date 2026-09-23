@@ -92,6 +92,26 @@ public sealed class RunnerOptions
     /// <summary>하트비트 주기(초). 서버의 임대 기간보다 넉넉히 짧아야 한다.</summary>
     public int HeartbeatSeconds { get; set; } = 15;
 
+    /// <summary>
+    /// 대상의 git 상태를 얼마나 자주 들여다보나(초). <b>0 이면 안 본다.</b>
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 「대상 git 상태」 화면이 읽는 값을 만드는 주기다(설계 11.7). 서버가 그
+    /// 경로를 볼 수 없어서 이 장비가 대신 본다.
+    /// </para>
+    /// <para>
+    /// 짧게 둘 이유가 별로 없다 — 대상이 저 혼자 바뀌는 일은 드물고, 방금
+    /// 무언가를 한 사람은 화면에서 <b>「지금 확인」</b>을 누른다(그쪽은 15초
+    /// 안에 받는다). 반대로 길게 두면 그 단추를 안 누른 사람이 옛 값을 본다.
+    /// </para>
+    /// <para>
+    /// 저장소가 아주 크거나 대상이 많아 디스크가 아플 때 올린다. 끄면
+    /// 화면이 <b>「아직 확인된 적이 없습니다」</b>로만 남는다.
+    /// </para>
+    /// </remarks>
+    public int StatusSeconds { get; set; } = 180;
+
     /// <summary>로그를 모아 보내는 기준 — 줄 수와 시간 중 먼저 오는 쪽.</summary>
     public int FlushLines { get; set; } = 40;
 

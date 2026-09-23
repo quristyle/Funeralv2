@@ -80,6 +80,10 @@ public sealed class ProjMngModule : IPortalModule
         // 들고 있으므로 목록을 다시 읽어도 왕복이 늘지 않는다.
         services.AddScoped<UserFaceClient>();
 
+        // 대상의 git 상태(「대상 git 상태」 화면). **서버가 세는 값이 아니다** —
+        // 실행기가 호스트에서 들여다보고 적어 둔 스냅샷을 읽는다(설계 11.7).
+        services.AddScoped<AiTargetStatusClient>();
+
         // 작성 중인 지시문을 브라우저에 적어 두는 곳. 화면이 아니라 서비스인
         // 이유는 화면이 다시 만들어질 때마다(탭을 옮길 때마다) 새로 태어나는
         // 것이 화면이기 때문이다 — 적어 둔 곳은 그것보다 오래 남아야 한다.

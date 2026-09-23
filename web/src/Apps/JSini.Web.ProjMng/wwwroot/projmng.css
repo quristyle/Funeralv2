@@ -4016,3 +4016,89 @@
   color: var(--jsini-text-2);
   white-space: nowrap;
 }
+
+/* ── 대상 git 상태 ────────────────────────────────────────────
+
+   기계가 만든 글자(가지 이름 · sha · 경로 · 원격 주소)와 사람이 쓴 글자를
+   **눈으로 가른다.** 같은 글꼴로 두면 커밋 제목과 가지 이름이 한 덩어리로
+   읽혀서, 표에서 가지를 찾으려면 매번 읽어야 한다. */
+.pm-gitmono {
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  font-size: var(--jsini-fs-xs);
+}
+
+/* 배지가 값 옆에 붙을 때의 사이. 붙여 두면 가지 이름의 일부로 읽힌다. */
+.pm-git__tag {
+  margin-left: 0.375rem;
+}
+
+/* 커밋 제목은 sha 뒤에 따라붙는 곁글이다. 한 줄로 붙잡지 않으면 제목 하나가
+   표를 세로로 늘린다(`pm-oneline` 과 함께 쓴다). */
+.pm-git__subject {
+  margin-left: 0.375rem;
+  color: var(--jsini-text-muted);
+}
+
+/* 확인된 지 오래된 시각. **지운 것이 아니라 흐린 것**이다 — 값이 틀린 것보다
+   값이 멈춘 것이 알아채기 어려워서 색으로 말한다. */
+.pm-git__stale {
+  color: var(--jsini-text-muted);
+  font-style: italic;
+}
+
+/* ── 「자세히」 판 ───────────────────────────────────────────
+
+   이름과 값을 두 단으로 세운다. 좁아지면 위아래로 접힌다 — 경로와 원격
+   주소가 긴 값이라, 좁은 화면에서 두 단을 고집하면 값 쪽이 글자 서넛 폭이
+   된다. */
+.pm-git {
+  display: grid;
+  grid-template-columns: 7rem 1fr;
+  gap: 0.5rem 1rem;
+  margin: 0;
+  align-items: baseline;
+}
+
+.pm-git > dt {
+  color: var(--jsini-text-muted);
+  font-size: var(--jsini-fs-sm);
+}
+
+.pm-git > dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* 사람이 봐야 하는 줄. 배지로 두지 않는 이유는 여기 오는 것이 한 줄짜리
+   설명이라 배지에 담기지 않기 때문이다. */
+.pm-git__bad {
+  color: #d32f2f;
+}
+
+/* 정리 안 된 파일 목록. git 이 찍은 것이라 고정폭이고, 스무 줄까지만 온다. */
+.pm-git__files {
+  margin: 0.5rem 0 0;
+  padding: 0.5rem 0.75rem;
+  max-height: 14rem;
+  overflow: auto;
+  background: var(--jsini-surface);
+  border: 1px solid var(--jsini-border);
+  border-radius: 4px;
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  font-size: var(--jsini-fs-xs);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 767px) {
+  .pm-git {
+    grid-template-columns: 1fr;
+    gap: 0.125rem;
+  }
+
+  /* 한 단이 되면 이름과 값이 붙어야 한 짝으로 읽힌다 — 짝 사이만 벌린다. */
+  .pm-git > dd + dt {
+    margin-top: 0.625rem;
+  }
+}

@@ -167,7 +167,8 @@ CLI 로그인 자격도 없고 재배포하면 사라진다. **서버 프로세�
 
 DB 는 **프로젝트관리 DB**(`jsini`), 스키마 **`projmng`** — `ProjMngServer` 가 쓰는 곳
 그대로다. 표 넷을 더한다(`ai_task` · `ai_task_run` · `ai_task_log` · `ai_target` ·
-`ai_runner`).
+`ai_runner`). 나중에 `ai_target_status` 하나를 더 더했다 — 대상의 git 상태
+스냅샷이고, **실행기가 적고 화면이 읽는다**(11.7).
 
 ### 4.1 `ai_task` — 사람이 쓰는 글 한 건
 
@@ -2273,6 +2274,9 @@ GET    /api/projmng/ai-targets               대상 목록 (고르기용)
 POST   /api/projmng/ai-targets               대상 등록 (관리자. 경로 검사 — 9.5)
 PUT    /api/projmng/ai-targets/{id}
 
+GET    /api/projmng/ai-targets/status        대상마다의 git 상태 (11.7)
+POST   /api/projmng/ai-targets/{id}/probe    「지금 확인」 — 표시만 남긴다
+
 GET    /api/projmng/ai-dashboard?from=&to=   현황 한 판 (11.5)
 ```
 
@@ -2292,7 +2296,13 @@ POST   /runner/runs/{id}/heartbeat
 POST   /runner/runs/{id}/logs      {events[], final:false}
 POST   /runner/runs/{id}/complete  {events[], final:true, exitCode, branch, diffStat}
 POST   /runner/usage        {runnerName, kinds[], items[]}  ← 장비 토큰 (11.6)
+
+GET    /runner/targets             이 장비가 들여다볼 대상 (11.7)  ← 장비 토큰
+POST   /runner/target-status       들여다본 결과                   ← 장비 토큰
 ```
+
+뒤엣것 둘은 **실행 한 번에 묶이지 않는 일**이라 run 토큰이 아니라
+`claim` 과 같은 **장비 토큰**을 쓴다.
 
 `logs` · `complete` 의 몸통은 **배포 콜백 규약과 같은 모양**이다(6.9) —
 `{ "events": [{"level":"stdout","message":"…"}], "final": false }`.
@@ -2328,6 +2338,7 @@ run 토큰으로 인증한다. **장비에 계정 정보를 두지 않는다.**
 |---|---|
 | `Components/Pages/AiTaskList.razor` | 목록 + 편집 화면. `@page "/projmng/ai/tasks"` |
 | `Components/Pages/AiTargetList.razor` | **대상 관리** — `@page "/projmng/ai/targets"` |
+| `Components/Pages/AiTargetStatusList.razor` | **대상 git 상태** — `@page "/projmng/ai/target-status"` (11.7) |
 | `Components/Pages/AiTaskRunView.razor` | 실행 이력·로그 (4단계에서) |
 | `Api/AiTaskClient.cs` | `GatewayClient` 를 받는 업무 클라이언트. DTO 도 같은 파일 |
 | `ProjMngModule.ConfigureServices` | `services.AddScoped<AiTaskClient>();` 한 줄 |
@@ -2417,8 +2428,6 @@ DTO 는 `JSini.Web.ProjMng.Api` 에 있다. 이름이 같으면 화면 안에서
    쌓이고, 사람이 화면을 열었다 닫을수록 서버가 느려진다.
 2. **꼬리 500줄만 그린다.** 수만 줄을 DOM 에 그리면 회로가 그것을 전부 실어 나른다.
    전체는 내려받기로.
-
----
 
 ## 11.5 「AI 작업 현황」 — **처리한 것을 세어 보는 자리** (2026-09-21)
 
@@ -2673,11 +2682,100 @@ Current week (Fable): 0% used · resets Sep 24, 11pm (Asia/Seoul)
 
 ---
 
+## 11.7 대상 git 상태 — **시키기 전에 들여다보는 자리** (2026-09-19)
+
+화면: `Components/Pages/AiTargetStatusList.razor` · `@page "/projmng/ai/target-status"`
+열쇠: `projmng.ai.target-status` · 메뉴 SQL: `deploy/sql/portal-menu-ai-target-status-2026-09-19.sql`
+
+처리 대상은 **폴더 아니면 git 저장소**다(4.4). 저장소라면 그것이 지금 어느
+가지에 어떤 상태로 앉아 있는지가 작업의 결과를 가르는데, 그 값을 볼 자리가
+지금까지 없었다. 대상 관리 화면은 **등록한 값**을 보여 줄 뿐이고,
+**실제로 그 경로가 어떤지**는 작업을 돌려 봐야 알았다.
+
+이 화면이 답하는 물음 넷.
+
+| 물음 | 안 보면 어떻게 되나 |
+|---|---|
+| 정본이 깨끗한가 | 원본 직접(inplace) 대상의 작업이 **준비 단계에서 죽는다**(7.3) |
+| 뒤처져 있지 않나 | 뒤처진 기준에서 만든 커밋이 남의 것을 되돌리고, 그것이 곧 배포다(9.3) |
+| 등록한 대로인가 | `repo` 인데 `.git` 이 없는 대상은 **돌려 봐야** 알게 된다 |
+| 치울 것이 남았나 | `ParkAsync` 가 정본에서 걷어낸 변경이 stash 에 쌓인 채 잊힌다 |
+
+#### 서버가 할 수 없는 일이다 — **실행기가 본다**
+
+여기가 이 기능의 전부다. `ProjMngServer` 는 **컨테이너 안에서 돌고 대상
+경로는 호스트의 것**이라, 화면이 눌렀을 때 서버가 `git status` 를 불러 줄
+방법이 없다. `AiTargetService.ValidatePath` 가 `realpath` 를 쓰지 않는 것과
+정확히 같은 이유고(9.5), 그 제약을 잊고 서버에 `Process.Start("git")` 을
+적으면 **개발 장비에서는 되고 운영에서만 빈 값이 온다.**
+
+그래서 길이 하나뿐이다.
+
+```
+   화면 ──── GET  /api/projmng/ai-targets/status ────▶ ProjMngServer
+                                                        │ 읽기
+                                                  projmng.ai_target_status
+                                                        ▲ 쓰기
+   실행기 ── POST /api/ai-runner/target-status ─────────┘
+        │
+        └─ git status --porcelain=v2 --branch   (호스트의 그 경로에서)
+```
+
+- 표 하나를 더한다 — `projmng.ai_target_status`, **대상당 한 줄**.
+  이력을 쌓지 않는다. 「지금 어떤가」에만 답하는 자리고, 이력이 필요하면
+  그것은 git 자신이 갖고 있다.
+- 실행기에 `TargetStatusWorker`(감시) 와 `GitProbe`(읽기) 둘을 더한다.
+- **본체(`RunnerWorker`)의 바퀴에 얹지 않는다.** 그쪽 주기는 「집을 일이
+  있나」를 묻는 주기고 큐가 울리면 건너뛴다 — 감시를 거기 얹으면
+  **일이 몰릴 때 가장 자주 돌고 한가할 때 안 돈다.**
+
+#### 화면은 **본 시각을 반드시 같이 그린다**
+
+여기 보이는 값은 언제나 스냅샷이다. 시각을 빼면 사람이 옛 값을 지금 값으로
+읽고, 「깨끗하다」를 믿고 시킨 작업이 더러운 정본에서 죽는다. 그래서 표에
+「확인」 칸이 있고, 오래된 것은 **흐린 기울임꼴**로 적는다 — 값이 틀린 것보다
+**값이 멈춘 것**이 알아채기 어렵다.
+
+한 번도 확인된 적이 없는 대상만 있으면 머리말이 다른 말을 한다:
+**「실행기가 떠 있지 않으면 이 화면은 비어 있습니다」**. 빈 칸을
+「문제 없음」으로 읽는 것이 이 화면의 가장 나쁜 실패다.
+
+#### 「지금 확인」은 부탁이지 명령이 아니다
+
+즉시 답을 줄 수 없다. 서버는 `probe_req_dt` 에 표시만 남기고, 실행기가
+**15초짜리 짧은 바퀴**에서 그것을 보고 온다(주기 확인은 기본 3분 —
+`Runner:StatusSeconds`). 그래서 누른 직후의 화면은 「확인 중」이고,
+기다리는 동안만 화면이 5초마다 다시 읽는다. **기다릴 것이 없어지면
+타이머를 끈다** — 11.4 와 같은 규칙이다.
+
+#### `fetch` 하지 않는다
+
+앞섬·뒤처짐은 **이미 받아 둔 원격 추적 참조**로만 센다. 대상 수만큼의 fetch 가
+몇 분마다 도는 것도 문제지만, 그보다 **읽으려고 연 화면이 저장소를 바꾸는
+것**이 문제다. `--no-optional-locks` 를 붙이는 것도 같은 이유다 — 평범한
+`git status` 는 인덱스를 새로 쓰려 들어서, 사람이 쓰는 저장소의
+`index.lock` 을 감시가 집어 갈 수 있다.
+
+그래서 이 화면의 「뒤처짐」은 **「마지막으로 당겨 온 것 기준」**이고 화면이
+그 사실을 적는다. 정확한 값은 작업이 시작할 때 실행기가 `fetch` 하고 만든다(7.3).
+
+#### 고치는 단추를 두지 않는다
+
+당기기 · 되돌리기 · stash 꺼내기를 붙이고 싶어지는 자리다. 두지 않았다 —
+이 화면이 가리키는 것은 **운영 서버의 정본**이고, 거기서 한 번의 오조작이
+되돌리기 어렵다. **보는 것과 고치는 것을 가른다.** 고칠 일은 지시로 보낸다.
+
+---
+
+---
+
 ## 12. 어긋나는 자리와 그때 보이는 증상
 
 | 무슨 일 | 사람 눈에 보이는 것 | 대비 |
 |---|---|---|
 | 실행기가 안 떠 있다 | 「준비중」에서 **영원히 안 움직인다** | 집어가기 제한 시간(6.8) → 「실행기가 응답하지 않습니다」. 헬스에 살아 있는 실행기 수(13장) |
+| 실행기가 안 떠 있다 (대상 상태 화면) | 「확인된 적 없음」만 깔린다 | 그 경우 머리말이 **실행기 이야기를 한다**(11.7). 빈 칸을 「문제 없음」으로 읽는 것이 여기서 제일 나쁜 실패다 |
+| 대상 상태가 멈춰 있다 | 값은 있는데 「확인」 시각만 옛날 | 10분 넘으면 **흐린 기울임꼴**로 그린다(11.7) |
 | 큐 메시지를 잃었다 | 조금 늦게 돈다 | 안전망 폴링 60초(6.6). **ack 를 받자마자 하므로**(6.7) 소비자가 그 직후 죽으면 종소리는 사라진다 — 설계상 그렇게 두는 것이다 |
 | 같은 메시지가 두 번 왔다 | 아무 일도 안 난다 | `claim` 이 빈손을 준다(6.4) |
 | 임대 만료(네트워크 끊김) | 상태가 오래 `running` | `StaleSweeper` → `interrupted`. **자동 재실행 안 함**(6.11) |
@@ -2762,6 +2860,9 @@ Current week (Fable): 0% used · resets Sep 24, 11pm (Asia/Seoul)
 - 실행기 소스는 저장소 안에 둔다(`tools/AiTaskRunner`) — 장비와 서버 사이의
   약속이 저장소 밖에 있으면 반쪽만 버전 관리된다. `deploy/release-consumer` 가
   같은 이유로 저장소 안에 있다.
+- `Runner:StatusSeconds`(기본 180) 가 대상 git 상태를 보는 주기다(11.7).
+  **0 으로 두면 안 본다** — 그러면 그 화면이 「아직 확인된 적이 없습니다」로만
+  남는다. 실행기를 안 올린 장비의 대상도 마찬가지다.
 
 > **실행기 바이너리는 `main` 푸시로 안 바뀐다.** GHCR 이미지 열둘과 **전혀
 > 다른 길**이다 — 사람이 publish 해서 `/home/lee/ai-task-runner` 에 올려야

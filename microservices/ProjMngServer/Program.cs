@@ -70,6 +70,11 @@ builder.Services.AddScoped<GitMonitorService>();
 // 작업 서비스가 대상 서비스를 받는다 — push 를 켤 수 있는 대상인지 되묻기 때문이다.
 // 그 값 하나가 운영 배포를 일으키므로 화면 말고 여기서도 본다.
 builder.Services.AddScoped<AiTargetService>();
+
+// 대상의 git 상태. **서버가 git 을 부르는 서비스가 아니다** — 컨테이너 안에서
+// 호스트 경로를 볼 수 없어서, 실행기가 들여다보고 적어 둔 것을 받아 두었다가
+// 화면에 내주는 자리다(설계 11.7).
+builder.Services.AddScoped<AiTargetStatusService>();
 builder.Services.AddScoped<AiTaskService>();
 builder.Services.AddScoped<AiRunService>();
 

@@ -72,6 +72,77 @@ public sealed class ServerClient(HttpClient http, RunnerOptions options, ILogger
         }
     }
 
+    /// <summary>
+    /// 이 장비가 들여다볼 대상 목록. 「대상 git 상태」 화면이 쓰는 값이다.
+    /// </summary>
+    /// <remarks>
+    /// <b>집어가기와 같은 장비 토큰을 쓴다.</b> run 토큰은 실행 한 번에 묶인
+    /// 것이라 실행이 없는 이 일에는 쓸 수 없다.
+    /// </remarks>
+    public async Task<List<ProbeTarget>> ProbeTargetsAsync(CancellationToken ct)
+    {
+        try
+        {
+            using var req = new HttpRequestMessage(
+                HttpMethod.Get, $"/api/ai-runner/targets?runnerName={Uri.EscapeDataString(options.Name)}");
+
+            req.Headers.Add("X-AiTask-Token", options.RunnerToken);
+
+            using var res = await http.SendAsync(req, ct);
+
+            if (!res.IsSuccessStatusCode)
+            {
+                logger.LogDebug("대상 목록을 받지 못했습니다: HTTP {Code}", (int)res.StatusCode);
+                return [];
+            }
+
+            var body = await res.Content.ReadFromJsonAsync<Envelope<ProbeTarget>>(Json, ct);
+            return body?.Data?.Result ?? [];
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // **로그 수위를 낮게 둔다.** 15초마다 도는 감시라, 서버가 잠깐
+            // 내려가 있으면 경고가 분당 넷씩 쌓인다.
+            logger.LogDebug("대상 목록을 묻지 못했습니다: {Message}", ex.Message);
+            return [];
+        }
+    }
+
+    /// <summary>
+    /// 들여다본 결과를 올린다. <b>못 올려도 다음 바퀴에 다시 본다</b> —
+    /// 스냅샷이라 밀린 것을 모아 둘 이유가 없다.
+    /// </summary>
+    public async Task ReportTargetStatusAsync(
+        IReadOnlyList<GitProbe.Snapshot> items, CancellationToken ct)
+    {
+        if (items.Count == 0)
+        {
+            return;
+        }
+
+        try
+        {
+            using var req = new HttpRequestMessage(HttpMethod.Post, "/api/ai-runner/target-status")
+            {
+                Content = JsonContent.Create(
+                    new { runnerName = options.Name, items }, options: Json),
+            };
+
+            req.Headers.Add("X-AiTask-Token", options.RunnerToken);
+
+            using var res = await http.SendAsync(req, ct);
+
+            if (!res.IsSuccessStatusCode)
+            {
+                logger.LogDebug("대상 상태 보고를 거절당했습니다: HTTP {Code}", (int)res.StatusCode);
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogDebug("대상 상태를 보고하지 못했습니다: {Message}", ex.Message);
+        }
+    }
+
     /// <summary>살아 있다고 알린다. 취소 요청이 왔으면 참을 돌려준다.</summary>
     /// <returns>
     /// <c>null</c> 이면 <b>서버가 이 실행을 모른다</b>(끝났거나 토큰이 다르다).
@@ -246,6 +317,21 @@ public sealed class ServerClient(HttpClient http, RunnerOptions options, ILogger
         public bool AutoPush { get; set; }
         public string? TargetRef { get; set; }
         public Target? Target { get; set; }
+    }
+
+    /// <summary>들여다볼 대상 한 줄. <b>경로 말고는 거의 안 온다.</b></summary>
+    public sealed class ProbeTarget
+    {
+        public long TargetKey { get; set; }
+        public string? TargetNm { get; set; }
+        public string? TargetPath { get; set; }
+        public string? TargetKind { get; set; }
+
+        /// <summary>화면이 「지금 확인」을 눌렀다. 주기를 기다리지 않는다.</summary>
+        public bool ProbeRequested { get; set; }
+
+        /// <summary>마지막으로 본 시각. <b>서버가 찍은 값</b>이다.</summary>
+        public DateTime? ProbedAt { get; set; }
     }
 
     public sealed class Target

@@ -1,5 +1,6 @@
 using JSini.Shared.DTOs;
 using Microsoft.AspNetCore.Mvc;
+using ProjMngServer.Models;
 using ProjMngServer.Services;
 
 namespace ProjMngServer.Controllers;
@@ -77,7 +78,10 @@ public sealed class AiRunsController(
 [ApiController]
 [Route("api/ai-runner")]
 public sealed class AiRunnerController(
-    AiRunService runs, IConfiguration configuration, ILogger<AiRunnerController> logger)
+    AiRunService runs,
+    AiTargetStatusService targetStatus,
+    IConfiguration configuration,
+    ILogger<AiRunnerController> logger)
     : ControllerBase
 {
     /// <summary>실행기가 헤더로 보내는 run 토큰.</summary>
@@ -95,16 +99,9 @@ public sealed class AiRunnerController(
     [HttpPost("claim")]
     public async Task<IActionResult> ClaimAsync([FromBody] ClaimRequest req)
     {
-        if (string.IsNullOrWhiteSpace(RunnerToken))
+        if (RunnerTokenBad() is { } bad)
         {
-            logger.LogWarning("AiTasks:RunnerToken 이 없어 집어가기를 거절했습니다.");
-            return Unauthorized(ApiResponse<object>.Fail(
-                message: "실행기 토큰이 설정돼 있지 않습니다.", code: "NO_RUNNER_TOKEN"));
-        }
-
-        if (RunToken != RunnerToken)
-        {
-            return Unauthorized(ApiResponse<object>.Fail(message: "토큰이 맞지 않습니다.", code: "BAD_TOKEN"));
+            return bad;
         }
 
         var kinds = req.Kinds is { Length: > 0 } ? req.Kinds : ["claude"];
@@ -164,18 +161,69 @@ public sealed class AiRunnerController(
     public async Task<IActionResult> UsageAsync(
         [FromBody] AiUsageReport req, [FromServices] AiUsageService usage)
     {
+        if (RunnerTokenBad() is { } bad)
+        {
+            return bad;
+        }
+
+        return Ok(ApiResponse<int>.Ok(await usage.SaveAsync(req)));
+    }
+
+    // ── 대상의 git 상태 ─────────────────────────────────────
+    //
+    // **서버는 대상 경로를 볼 수 없다.** 컨테이너 안이고 그 경로는 호스트의
+    // 것이다. 그래서 「지금 저 저장소가 어떤 상태인가」에 답할 수 있는 것은
+    // 호스트에 상주하는 실행기뿐이고, 아래 둘이 그 통로다.
+    //
+    // 집어가기와 같은 **장비 토큰**을 쓴다. run 토큰은 실행 한 번에 묶인
+    // 것이라 실행이 없는 이 일에는 쓸 수 없다.
+
+    /// <summary>이 장비가 들여다볼 대상 목록.</summary>
+    [HttpGet("targets")]
+    public async Task<IActionResult> ProbeTargetsAsync([FromQuery] string? runnerName)
+    {
+        if (RunnerTokenBad() is { } bad)
+        {
+            return bad;
+        }
+
+        var rows = await targetStatus.ProbeListAsync(runnerName ?? "runner");
+        return Ok(ApiResponse<List<AiTargetProbe>>.Ok(rows));
+    }
+
+    /// <summary>들여다본 결과를 받아 둔다.</summary>
+    [HttpPost("target-status")]
+    public async Task<IActionResult> TargetStatusAsync([FromBody] TargetStatusRequest req)
+    {
+        if (RunnerTokenBad() is { } bad)
+        {
+            return bad;
+        }
+
+        var saved = await targetStatus.ReportAsync(req.RunnerName ?? "runner", req.Items ?? []);
+        return Ok(ApiResponse<int>.Ok(saved));
+    }
+
+    /// <summary>
+    /// 장비 토큰을 본다. 틀리면 그 응답을, 맞으면 <c>null</c> 을 돌려준다.
+    /// </summary>
+    /// <remarks>
+    /// 설정에 토큰이 없으면 <b>막는다</b>. 빈 값을 통과시키면 누구나 대상
+    /// 경로 목록을 받아 갈 수 있다 — 집어가기가 같은 이유로 그렇게 한다.
+    /// </remarks>
+    private IActionResult? RunnerTokenBad()
+    {
         if (string.IsNullOrWhiteSpace(RunnerToken))
         {
+            logger.LogWarning("AiTasks:RunnerToken 이 없어 실행기 요청을 거절했습니다.");
+
             return Unauthorized(ApiResponse<object>.Fail(
                 message: "실행기 토큰이 설정돼 있지 않습니다.", code: "NO_RUNNER_TOKEN"));
         }
 
-        if (RunToken != RunnerToken)
-        {
-            return Unauthorized(ApiResponse<object>.Fail(message: "토큰이 맞지 않습니다.", code: "BAD_TOKEN"));
-        }
-
-        return Ok(ApiResponse<int>.Ok(await usage.SaveAsync(req)));
+        return RunToken == RunnerToken
+            ? null
+            : Unauthorized(ApiResponse<object>.Fail(message: "토큰이 맞지 않습니다.", code: "BAD_TOKEN"));
     }
 
     public sealed class ClaimRequest
@@ -188,5 +236,12 @@ public sealed class AiRunnerController(
     public sealed class LogsRequest
     {
         public List<AiLogLine>? Lines { get; set; }
+    }
+
+    public sealed class TargetStatusRequest
+    {
+        public string? RunnerName { get; set; }
+
+        public List<AiTargetStatus>? Items { get; set; }
     }
 }
