@@ -62,6 +62,8 @@ public sealed class AiTaskService(
         a.pushed_commit   AS PushedCommit,
         a.previous_tag    AS PreviousTag,
         a.row_version     AS RowVersion,
+        a.title_auto      AS TitleAuto,
+        a.title_run_key   AS TitleRunKey,
         a.cre_id          AS CreId,
         a.cre_dt          AS CreDt,
         a.mod_id          AS ModId,
@@ -116,18 +118,21 @@ public sealed class AiTaskService(
 
     public async Task<AiTask?> CreateAsync(AiTask item, string? userId)
     {
+        var titleAuto = string.IsNullOrWhiteSpace(item.Title);
+        item.TitleAuto = titleAuto;
+
         await NormalizeAsync(item);
 
         using var db = Open();
 
         var key = await db.ExecuteScalarAsync<long>("""
             INSERT INTO projmng.ai_task
-                 ( title, contents, content_format, target_key, target_ref,
+                 ( title, title_auto, title_run_key, contents, content_format, target_key, target_ref,
                    runner_kind, request_flag, task_status, priority,
                    timeout_minutes, attempt_max, auto_push,
                    notify_email, notify_pwa, notify_to, notify_when,
                    row_version, cre_id, cre_dt )
-            VALUES ( @Title, @Contents, @ContentFormat, @TargetKey, @TargetRef,
+            VALUES ( @Title, @TitleAuto, NULL, @Contents, @ContentFormat, @TargetKey, @TargetRef,
                      @RunnerKind, 'none', 'idle', @Priority,
                      @TimeoutMinutes, @AttemptMax, @AutoPush,
                      @NotifyEmail, @NotifyPwa, @NotifyTo, @NotifyWhen,
@@ -135,7 +140,7 @@ public sealed class AiTaskService(
             RETURNING task_key
             """, new
         {
-            item.Title, item.Contents, item.ContentFormat, item.TargetKey, item.TargetRef,
+            item.Title, item.TitleAuto, item.Contents, item.ContentFormat, item.TargetKey, item.TargetRef,
             item.RunnerKind, item.Priority, item.TimeoutMinutes, item.AttemptMax,
             item.AutoPush, item.NotifyEmail, item.NotifyPwa, item.NotifyTo, item.NotifyWhen, userId,
         });
@@ -156,6 +161,9 @@ public sealed class AiTaskService(
     /// </remarks>
     public async Task<AiTaskEditResult> UpdateAsync(long taskKey, AiTask item, string? userId)
     {
+        var titleAuto = string.IsNullOrWhiteSpace(item.Title);
+        item.TitleAuto = titleAuto;
+
         await NormalizeAsync(item);
 
         var current = await GetAsync(taskKey);
@@ -176,6 +184,8 @@ public sealed class AiTaskService(
         var affected = await db.ExecuteAsync("""
             UPDATE projmng.ai_task
                SET title           = @Title,
+                   title_auto      = @TitleAuto,
+                   title_run_key   = CASE WHEN @TitleAuto THEN NULL ELSE title_run_key END,
                    contents        = @Contents,
                    content_format  = @ContentFormat,
                    target_key      = @TargetKey,
@@ -197,7 +207,7 @@ public sealed class AiTaskService(
                AND row_version = @RowVersion
             """, new
         {
-            taskKey, item.Title, item.Contents, item.ContentFormat, item.TargetKey,
+            taskKey, item.Title, item.TitleAuto, item.Contents, item.ContentFormat, item.TargetKey,
             item.TargetRef, item.RunnerKind, item.Priority, item.TimeoutMinutes,
             item.AttemptMax, item.AutoPush, item.NotifyEmail, item.NotifyPwa, item.NotifyTo,
             item.NotifyWhen, item.RowVersion, userId,

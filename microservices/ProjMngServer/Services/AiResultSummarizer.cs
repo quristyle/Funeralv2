@@ -152,6 +152,12 @@ public sealed class AiResultSummarizer(
     private readonly bool _enabled =
         configuration.GetValue("AiTasks:SummarizeResult", defaultValue: true);
 
+    /// <summary>
+    /// AI 로 제목을 다시 지을 것인가. 끄는 손잡이만 따로 둔다(AiTasks:MakeTitle).
+    /// </summary>
+    private readonly bool _makeTitleEnabled =
+        configuration.GetValue("AiTasks:MakeTitle", defaultValue: true);
+
     /// <summary>AI 서비스 주소. 알림 서비스와 마찬가지로 같은 장비 안이라 루프백이다.</summary>
     private readonly string _aiUrl =
         configuration["AiTasks:AiUrl"] is { Length: > 0 } u ? u : "http://127.0.0.1:5029";
@@ -191,23 +197,19 @@ public sealed class AiResultSummarizer(
         + "메일에 들어갈 요약을 씁니다. 주어진 글에 있는 사실만 쓰고, 없는 것은 "
         + "절대 지어내지 마십시오. 한국어로 쓰고, 설명 없이 JSON 하나만 답합니다.";
 
-    /// <summary>
-    /// 결과문을 정리해 돌려준다. <b>어떤 이유로든 못 하면 null 이다 — 던지지 않는다.</b>
-    /// </summary>
-    public async Task<AiResultSummary?> SummarizeAsync(
-        string? instruction, string? resultText, CancellationToken ct = default)
-    {
-        if (!_enabled || string.IsNullOrWhiteSpace(resultText))
-        {
-            return null;
-        }
+    private const string TitleSystemPrompt =
+        "당신은 작업 목록의 제목을 짓는 편집자입니다. 지시문과 작업 결과를 보고 "
+        + "작업 내용을 가장 잘 나타내는 아주 짧은 제목(20자 내외)을 한국어로 작성합니다. "
+        + "설명이나 따옴표, 머리말 없이 제목 한 줄만 답하십시오.";
 
+    /// <summary>
+    /// AI 서비스 호출 공통부. <b>가리기·실패 시 처신이 요약과 제목 생성에 한 벌로 적용된다.</b>
+    /// </summary>
+    private async Task<string?> ChatAsync(
+        string systemPrompt, string userPrompt, CancellationToken ct = default)
+    {
         try
         {
-            // **가리는 것이 먼저다.** 이 아래로는 우리 장비 밖으로 나갈 수 있다.
-            var body = Clip(SecretMask.Apply(resultText), _maxChars);
-            var asked = Clip(SecretMask.Apply(instruction), 1500);
-
             var client = http.CreateClient();
             client.Timeout = TimeSpan.FromSeconds(_timeoutSeconds);
 
@@ -219,8 +221,8 @@ public sealed class AiResultSummarizer(
                     model = _model,
                     messages = new[]
                     {
-                        new { role = "system", content = SystemPrompt },
-                        new { role = "user", content = Ask(asked, body) },
+                        new { role = "system", content = systemPrompt },
+                        new { role = "user", content = userPrompt },
                     },
                 }),
             };
@@ -233,21 +235,84 @@ public sealed class AiResultSummarizer(
             if (!res.IsSuccessStatusCode)
             {
                 logger.LogInformation(
-                    "결과 요약을 건너뜁니다 — AI 서비스가 HTTP {Status} 로 답했습니다.",
+                    "AI 호출을 건너뜁니다 — AI 서비스가 HTTP {Status} 로 답했습니다.",
                     (int)res.StatusCode);
                 return null;
             }
 
-            var reply = Unwrap(await res.Content.ReadAsStringAsync(ct));
-
-            return reply is null ? null : FromJson(reply);
+            return Unwrap(await res.Content.ReadAsStringAsync(ct));
         }
         catch (Exception ex)
         {
-            // **여기서 실패해도 메일은 나가야 한다.** 부르는 쪽이 옛 방식으로 보낸다.
-            logger.LogInformation(ex, "결과 요약을 건너뜁니다 — AI 를 부르지 못했습니다.");
+            logger.LogInformation(ex, "AI 호출을 건너뜁니다 — AI 를 부르지 못했습니다.");
             return null;
         }
+    }
+
+    /// <summary>
+    /// 결과문을 정리해 돌려준다. <b>어떤 이유로든 못 하면 null 이다 — 던지지 않는다.</b>
+    /// </summary>
+    public async Task<AiResultSummary?> SummarizeAsync(
+        string? instruction, string? resultText, CancellationToken ct = default)
+    {
+        if (!_enabled || string.IsNullOrWhiteSpace(resultText))
+        {
+            return null;
+        }
+
+        // **가리는 것이 먼저다.** 이 아래로는 우리 장비 밖으로 나갈 수 있다.
+        var body = Clip(SecretMask.Apply(resultText), _maxChars);
+        var asked = Clip(SecretMask.Apply(instruction), 1500);
+
+        var reply = await ChatAsync(SystemPrompt, Ask(asked, body), ct);
+        return reply is null ? null : FromJson(reply);
+    }
+
+    /// <summary>
+    /// 끝난 작업의 지시문과 결과를 보고 20자 내외의 짧은 제목을 짓는다.
+    /// </summary>
+    public async Task<string?> MakeTitleAsync(
+        string? instruction, string? resultText, string? summaryHeadline = null, CancellationToken ct = default)
+    {
+        if (!_makeTitleEnabled)
+        {
+            return null;
+        }
+
+        if (string.IsNullOrWhiteSpace(instruction) && string.IsNullOrWhiteSpace(resultText) && string.IsNullOrWhiteSpace(summaryHeadline))
+        {
+            return null;
+        }
+
+        var asked = Clip(SecretMask.Apply(instruction), 1000);
+        var resultOrSummary = !string.IsNullOrWhiteSpace(summaryHeadline)
+            ? summaryHeadline
+            : Clip(SecretMask.Apply(resultText), 2000);
+
+        var prompt = $$"""
+            아래 지시문과 실행 결과를 보고, 이 작업의 핵심을 나타내는 20자 내외의 아주 짧은 제목을 하나 지어 주십시오.
+            따옴표, 마침표, 부가 설명 없이 제목 텍스트만 한 줄로 출력하십시오.
+
+            ## 지시문
+            {{asked ?? "(없음)"}}
+
+            ## 결과
+            {{resultOrSummary ?? "(없음)"}}
+            """;
+
+        var reply = await ChatAsync(TitleSystemPrompt, prompt, ct);
+        if (string.IsNullOrWhiteSpace(reply))
+        {
+            return null;
+        }
+
+        var title = reply.Trim().Trim('"', '\'', '`', ' ');
+        if (title.Contains('\n'))
+        {
+            title = title.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).FirstOrDefault() ?? title;
+        }
+
+        return title.Length > 100 ? title[..100] : title;
     }
 
     /// <summary>

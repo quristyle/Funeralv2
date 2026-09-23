@@ -103,6 +103,7 @@ public sealed class AiStaleSweeper(
                        request_flag = 'none',
                        finished_at  = now(),
                        last_error   = '실행기와 연락이 끊겼습니다. 다시 요청하려면 사람이 눌러야 합니다.',
+                       title_run_key = COALESCE(title_run_key, last_run_key),
                        row_version  = row_version + 1
                  WHERE last_run_key = ANY(@lost)
                 """, new { lost = lost.ToArray() });

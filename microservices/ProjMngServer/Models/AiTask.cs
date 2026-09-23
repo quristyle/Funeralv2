@@ -22,6 +22,16 @@ public sealed class AiTask
     /// <summary>제목. 비우고 저장하면 서버가 본문에서 만들어 준다.</summary>
     public string? Title { get; set; }
 
+    /// <summary>
+    /// 저장할 때 제목 칸이 비어 있었나. <b>이 값이 거짓이면 기계가 손대지 않는다.</b>
+    /// </summary>
+    public bool TitleAuto { get; set; }
+
+    /// <summary>
+    /// 어느 실행을 보고 지은 제목인가. 화면이 「아직 안 왔다」를 아는 근거.
+    /// </summary>
+    public long? TitleRunKey { get; set; }
+
     /// <summary>AI 에게 줄 지시문. 편집기에 쓰는 그 글이다.</summary>
     public string? Contents { get; set; }
 

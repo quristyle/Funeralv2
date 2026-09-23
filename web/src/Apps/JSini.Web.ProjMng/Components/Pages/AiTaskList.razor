@@ -1062,9 +1062,9 @@
         {
             await OpenRunAsync(latest);
         }
-        else if (item.IsBusy)
+        else if (item.IsBusy || item.TitlePending)
         {
-            // 아직 집혀 가지 않았다. 실행이 생기는 것을 기다린다.
+            // 아직 집혀 가지 않았거나 제목 대기 중이다. 실행이 생기는 것을 기다린다.
             StartTail();
         }
     }
@@ -1100,7 +1100,7 @@
 
         await FetchLogsAsync();
 
-        if (run.IsRunning)
+        if (run.IsRunning || _edit?.TitlePending == true)
         {
             StartTail();
         }
@@ -1192,6 +1192,19 @@
                             changed = true;
                         }
 
+                        // 사람이 치고 있는 제목은 덮지 않는다 (_edit 가 _base 와 다르면 손대지 않음)
+                        if (_edit.Title == _base?.Title && _edit.Title != latest.Title)
+                        {
+                            _edit.Title = latest.Title;
+                            if (_base is not null)
+                            {
+                                _base.Title = latest.Title;
+                            }
+                            changed = true;
+                        }
+                        _edit.TitleAuto = latest.TitleAuto;
+                        _edit.TitleRunKey = latest.TitleRunKey;
+
                         _edit.TaskStatus = latest.TaskStatus;
                         _edit.RequestFlag = latest.RequestFlag;
                         _edit.DurationMs = latest.DurationMs;
@@ -1242,7 +1255,7 @@
 
                         // 다 끝났으면 따라가기를 멈춘다. 안 멈추면 회로가
                         // 영원히 2초마다 서버를 두들긴다.
-                        if (!latest.IsBusy && _openRun?.IsRunning != true)
+                        if (!latest.IsBusy && !latest.TitlePending && _openRun?.IsRunning != true)
                         {
                             await InvokeAsync(StateHasChanged);
                             StopTail();
@@ -2272,6 +2285,9 @@
             return;
         }
 
+        row.Title = latest.Title;
+        row.TitleAuto = latest.TitleAuto;
+        row.TitleRunKey = latest.TitleRunKey;
         row.TaskStatus = latest.TaskStatus;
         row.RequestFlag = latest.RequestFlag;
         row.RequestedAt = latest.RequestedAt;
@@ -2289,6 +2305,8 @@
     {
         TaskKey = s.TaskKey,
         Title = s.Title,
+        TitleAuto = s.TitleAuto,
+        TitleRunKey = s.TitleRunKey,
         Contents = s.Contents,
         ContentFormat = s.ContentFormat,
         TargetKey = s.TargetKey,

@@ -1228,7 +1228,7 @@
     /// </summary>
     private void Follow()
     {
-        var busy = _recent.Any(t => t.IsBusy);
+        var busy = _recent.Any(t => t.IsBusy || t.TitlePending);
 
         if (!busy)
         {
@@ -1270,7 +1270,7 @@
 
                     await InvokeAsync(StateHasChanged);
 
-                    if (!_recent.Any(t => t.IsBusy))
+                    if (!_recent.Any(t => t.IsBusy || t.TitlePending))
                     {
                         StopPoll();
                         return;

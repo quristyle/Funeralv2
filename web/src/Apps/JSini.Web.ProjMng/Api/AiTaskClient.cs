@@ -180,6 +180,12 @@ public sealed class AiTaskDto
     /// <summary>비우고 저장하면 서버가 본문에서 만들어 준다.</summary>
     public string? Title { get; set; }
 
+    /// <summary>저장할 때 제목 칸이 비어 있었나. 이 값이 거짓이면 기계가 손대지 않는다.</summary>
+    public bool TitleAuto { get; set; }
+
+    /// <summary>어느 실행을 보고 지은 제목인가. 화면이 「아직 안 왔다」를 아는 근거.</summary>
+    public long? TitleRunKey { get; set; }
+
     public string? Contents { get; set; }
     public string? ContentFormat { get; set; } = "markdown";
 
@@ -336,6 +342,26 @@ public sealed class AiTaskDto
     public bool CanManualRetry => (TaskStatus is "failed" or "timeout")
         && AttemptCount >= Math.Max(AttemptMax, 1)
         && !IsBusy;
+
+    /// <summary>
+    /// 「끝났는데 제목이 아직」. 서버가 실행을 보고 제목을 다시 짓는 동안
+    /// 화면이 몇 초 더 따라가게 하는 값이다(<c>AiTaskTitler</c>).
+    /// </summary>
+    /// <remarks>
+    /// <b>스스로 끝난다.</b> 도장(<c>title_run_key</c>)이 찍히거나 끝난 지 3분이
+    /// 지나면 거짓이 된다 — 서버가 중간에 내려가도 조회가 영원히 돌지 않는다.
+    /// 그 3분을 <see cref="DateTime.Now"/> 로 재는 것은 <b>서버가 적는 시각이
+    /// 현지시각(<c>now()</c> · <c>Asia/Seoul</c>)이기 때문</b>이다. UTC 로 재면
+    /// 아홉 시간 어긋나 이 값이 온종일 참으로 남고, 화면은 2초마다 서버를
+    /// 두들기며 멈추지 않는다.
+    /// </remarks>
+    public bool TitlePending =>
+        TitleAuto
+        && LastRunKey is not null
+        && TitleRunKey != LastRunKey
+        && !IsBusy
+        && FinishedAt is not null
+        && FinishedAt.Value.AddMinutes(3) > DateTime.Now;
 
     /// <summary>걸린 시간. 아직 안 끝났으면 비어 있다.</summary>
     public string DurationText => DurationMs is null or 0

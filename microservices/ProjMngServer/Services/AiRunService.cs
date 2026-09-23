@@ -20,7 +20,7 @@ namespace ProjMngServer.Services;
 /// </remarks>
 public sealed class AiRunService(
     IConfiguration configuration, AiTaskNotifier notifier, AiRunSummaryWriter summaries,
-    AiTaskQueue queue, ILogger<AiRunService> logger)
+    AiTaskTitler titler, AiTaskQueue queue, ILogger<AiRunService> logger)
 {
     private readonly string _connectionString =
         configuration.GetConnectionString("jsini")
@@ -488,7 +488,7 @@ public sealed class AiRunService(
             return true;
         }
 
-        // 요약과 메일은 **기다리지 않는다.** 실행기의 완료 보고가 그 시간만큼
+        // 요약·제목·메일은 **기다리지 않는다.** 실행기의 완료 보고가 그 시간만큼
         // 늦어질 이유가 없다 — 그 사이 실행 슬롯이 묶인다.
         _ = SummarizeThenNotifyAsync(runKey);
 
@@ -496,18 +496,21 @@ public sealed class AiRunService(
     }
 
     /// <summary>
-    /// 끝난 실행의 <b>처리 요약을 먼저 적고</b>, 그다음에 알린다.
+    /// 끝난 실행의 뒤처리 — <b>요약을 적고, 제목을 짓고, 그다음에 알린다.</b>
     /// </summary>
     /// <remarks>
     /// <para>
     /// <b>요약은 알림 설정과 무관하다.</b> 메일도 앱푸시도 끄고 시킨 건은 화면의
     /// 「처리 요약」 칸이 결과를 읽는 유일한 자리다 — 그런데 요약을 만드는 일이
     /// 알림 보내기 안에 들어 있으면 <b>알림을 끈 사람에게만 요약이 없다.</b>
-    /// 그래서 여기서 두 걸음으로 나눠 부른다.
+    /// 그래서 여기서 걸음을 나눠 부른다.
     /// </para>
     /// <para>
-    /// <b>순서가 있다.</b> 결과 메일의 「무엇을 했다나」 칸이 그 요약을 싣는다.
-    /// 나란히 돌리면 메일이 요약을 못 받고 나가는 일이 생긴다.
+    /// <b>순서가 전부다.</b> 셋이 앞의 것을 읽는다 —
+    /// 제목 짓기(<see cref="AiTaskTitler"/>)는 요약의 첫 줄을 읽어 모델 호출을
+    /// 아끼고, 결과 메일은 그 요약과 <b>새로 지어진 제목</b>을 싣는다.
+    /// 나란히 돌리면 메일이 요약 없이 나가거나, 메일과 화면에 같은 건이
+    /// 서로 다른 제목으로 남는다.
     /// </para>
     /// <para>
     /// <b>중간 실패는 여기까지 오지 않는다.</b> 다시 시도할 건은 위에서 돌아간다 —
@@ -520,11 +523,12 @@ public sealed class AiRunService(
         try
         {
             await summaries.EnsureAsync(runKey);
+            await titler.TitleAsync(runKey);
             await notifier.SendAsync(runKey);
         }
         catch (Exception ex)
         {
-            // 둘 다 스스로 삼키도록 돼 있지만, **여기는 아무도 지켜보지 않는
+            // 셋 다 스스로 삼키도록 돼 있지만, **여기는 아무도 지켜보지 않는
             // 갈래**라 새어 나온 것이 있으면 로그로 끝내야 한다.
             logger.LogWarning(ex, "끝난 실행의 뒤처리에 실패했습니다 (run {RunKey}).", runKey);
         }

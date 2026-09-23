@@ -93,6 +93,10 @@ builder.Services.AddScoped<AiResultSummarizer>();
 // 알림 관문에 매달린다. 완료 처리가 부르고, 알림은 적힌 것을 읽는다.
 builder.Services.AddScoped<AiRunSummaryWriter>();
 
+// 끝난 실행을 보고 제목을 다시 짓는다. **제목 칸을 비우고 저장한 건만** 손댄다
+// (`ai_task.title_auto`) — 사람이 적은 제목은 읽지도 않는다.
+builder.Services.AddScoped<AiTaskTitler>();
+
 // 큐는 **종(bell)** 이다. 메시지에 taskKey 하나만 싣고 실제 상태 변경은
 // DB 의 원자적 UPDATE 가 한다 — 그래서 메시지를 잃어도 손실이 아니라 지연이다.
 builder.Services.AddSingleton<AiTaskQueue>();
