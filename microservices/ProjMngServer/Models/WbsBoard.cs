@@ -61,8 +61,10 @@ public sealed class WbsBoardUserBucket
     public string? UserBpId { get; set; }
 
     /// <summary>
-    /// 성명. <c>wbs_user</c> 에 없는 사번은 <b>저장된 값 그대로</b> 내려간다 —
-    /// 오타인지 퇴사자인지 화면에서 가려낼 수 있어야 한다.
+    /// 성명. <b>서버는 채우지 않는다</b> — 원장은 <c>projmng</c> DB, 계정은
+    /// <c>jsiniportal</c> 에 있어 조인이 아예 불가능하다. 화면이 포털 계정
+    /// 목록에서 붙이고(<c>WbsBoardNames</c>), 못 찾으면 <b>적힌 값 그대로</b>
+    /// 둔다 — 오타인지 퇴사자인지 가려낼 수 있어야 한다.
     /// </summary>
     public string? UserNm { get; set; }
 

@@ -64,58 +64,36 @@ ORDER BY 1;
 
 
 -- ════════════════════════════════════════════════════════════
---  개발자 명부 → **사번 대조표**
+--  개발자 명부는 옮기지 않는다
 -- ════════════════════════════════════════════════════════════
 --
--- 2026-09-23 에 [개발자 관리] 화면이 없어졌다. 그 속성(직급 · 장비 대장 ·
--- 계정 발급 현황 · 옷 치수)은 이제 **포털 계정**이 들고 있다 —
--- `scom.account_profile_details` 의 `Dev.*`, 화면은 `/admin/system/account`.
--- 경위는 `docs/projmng-account-merge.md`.
+-- 2026-09-23 에 [개발자 관리] 화면과 `projmng.wbs_user` 표를 걷어냈다.
+-- 사람은 **포털 계정 하나**로 다룬다 — 사번 · 직급 · 장비 대장 · 계정 발급
+-- 현황 · 옷 치수는 `scom.account_profile_details` 의 `Dev.*` 로 들어가고
+-- 화면은 `/admin/system/account` 다. 경위는 `docs/projmng-account-merge.md`.
 --
--- 그래도 이 표를 채운다. **사번 → 계정 대조 열쇠**가 여기 말고는 없기
--- 때문이다 — 사내 원장의 담당자 칸이 사번이고, 그것을 계정으로 바꾸는 일이
--- 아래 「사번을 계정으로 바꾼다」 절이다. 대조가 끝나면 표째 지워도 된다
--- (`portal-menu-wbs-devuser-remove-2026-09-23.sql` 머리말).
+-- 그래서 `wbs_import.dev_user` 는 **적재하지 않고 대조에만 쓴다.** 그 안에
+-- 성명 · 전화 · 비상연락처 · 생년월일 · MAC · 장비번호가 들어 있으니
+-- (**개인정보다** — 원본 꾸러미도 경고해 두었다) 계정 쪽에 옮겨 적고 나면
+-- 받침 스키마째 지운다.
 --
--- **개인정보가 들어 있다** — 성명 · 전화 · 비상연락처 · 생년월일 · MAC ·
--- 장비번호. 옮기기 전에 한 번 보라고 원본 꾸러미가 경고해 두었다.
--- 옮겨 온 뒤 계정 쪽에 손으로 옮겨 적을 값들이라 **그때까지만** 있으면 된다.
+-- ── 사람이 할 일 ────────────────────────────────────────────
 --
--- 사번이 비었거나 겹치는 줄은 뺀다. 사내 표에는 기본키가 없어서 그런 줄이
--- 실제로 있을 수 있고, 여기서는 그것이 열쇠다.
-INSERT INTO projmng.wbs_user (
-    prj_rid, bp_id, name, email, position_nm, tel_no, emerg_tel_no, birth_dt,
-    git, startkit, dxb, vm_conn, aipro, claudecode, dev_db, wiki, projectview, svn,
-    pv_user_id, notebook, hub_hdmi, summer_size, winter_size,
-    use_ip, mac_addr, notebook_no, notebook_chk_no,
-    monitor1_no, monitor1_chk_no, monitor2_no, monitor2_chk_no,
-    monitor3_no, monitor3_chk_no, block_yn, super_yn)
-SELECT DISTINCT ON (btrim(u.bp_id))
-       :prj, btrim(u.bp_id), u.name, u.email, u.position_nm, u.tel_no, u.emerg_tel_no, u.birth_dt,
-       u.git, u.startkit, u.dxb, u.vm_conn, u.aipro, u.claudecode, u.dev_db, u.wiki,
-       u.projectview, u.svn,
-       u.pv_user_id, u.notebook, u.hub_hdmi, u.summer_size, u.winter_size,
-       u.use_ip, u.mac_addr, u.notebook_no, u.notebook_chk_no,
-       u.monitor1_no, u.monitor1_chk_no, u.monitor2_no, u.monitor2_chk_no,
-       u.monitor3_no, u.monitor3_chk_no, u.block_yn, u.super_yn
-  FROM wbs_import.dev_user u
- WHERE u.bp_id IS NOT NULL AND btrim(u.bp_id) <> ''
- ORDER BY btrim(u.bp_id), u.name NULLS LAST
-ON CONFLICT (prj_rid, bp_id) DO NOTHING;
-
--- ── 사람이 할 일 하나 ───────────────────────────────────────
+-- **① 계정관리에서 사번을 적는다.** `/admin/system/account` 의 [업무] 구역에
+-- 사번 칸이 있다. 누구를 적어야 하는지는 이 조회가 준다(이름·이메일이 단서다).
 --
--- **포털 계정은 손으로 잇는다.** 사번과 계정을 맞출 근거가 자료에 없다 —
--- 짐작으로 이으면 남의 얼굴이 남의 일감에 붙는다.
---
---   UPDATE projmng.wbs_user SET login_id = '<포털계정>'
---    WHERE prj_rid = :prj AND bp_id = '<사번>';
---
--- 누구를 이어야 하는지는 이 조회가 준다(이름·이메일이 단서다).
---
---   SELECT bp_id, name, email, position_nm, login_id
---     FROM projmng.wbs_user WHERE prj_rid = :prj AND login_id IS NULL
+--   SELECT bp_id, name, email, position_nm, tel_no
+--     FROM wbs_import.dev_user
+--    WHERE bp_id IS NOT NULL AND btrim(bp_id) <> ''
 --    ORDER BY name;
+--
+-- 장비 대장과 계정 발급 현황도 같은 편집 창의 다른 구역에 있다. 옮겨 적을
+-- 값은 `wbs_import.dev_user` 의 나머지 칸 그대로다.
+--
+-- **짐작으로 잇지 않는다.** 사번과 계정을 맞출 근거가 자료에 없고, 틀리면
+-- 남의 얼굴이 남의 일감에 붙는다.
+--
+-- **② 아래 「사번을 계정으로 바꾼다」 절의 대조표를 채운다.**
 
 
 -- ════════════════════════════════════════════════════════════
@@ -178,17 +156,11 @@ SELECT :prj, d.title, d.content, d.sort_order, d.updated_by, d.updated_at
                     WHERE x.prj_rid = :prj AND x.title = d.title);
 
 -- 화면 설정의 주인이 **로그인 아이디**로 바뀌었다(전에는 사번이었다).
--- 그래서 이어 둔 계정이 있으면 그것으로 넣는다 — 안 그러면 옮겨 와도
--- **그 사람에게 안 보인다**(서버가 로그인 아이디로 찾는다).
---
--- 아직 안 이은 사람은 사번 그대로 들어간다. 나중에 이어도 이 표는 따라
--- 바뀌지 않는다 — 화면 설정이라 다시 고르면 그만이고, 되살리려고 대조표를
--- 두면 명부를 없앤 뜻이 없어진다.
+-- 여기서는 사번 그대로 넣고, 아래 「사번을 계정으로 바꾼다」가 함께 옮긴다 —
+-- 대조표가 그쪽에 있고 두 곳에 두면 한쪽만 고치는 날이 온다.
 INSERT INTO projmng.wbs_user_pref (prj_rid, bp_id, pref_key, pref_val, updated_at)
-SELECT :prj, COALESCE(u.login_id, p.bp_id), p.pref_key, p.pref_val, p.updated_at
+SELECT :prj, p.bp_id, p.pref_key, p.pref_val, p.updated_at
   FROM wbs_import.dev_user_pref p
-  LEFT JOIN projmng.wbs_user u
-         ON u.prj_rid = :prj AND upper(u.bp_id) = upper(p.bp_id)
 ON CONFLICT (prj_rid, bp_id, pref_key) DO NOTHING;
 
 
@@ -197,40 +169,72 @@ ON CONFLICT (prj_rid, bp_id, pref_key) DO NOTHING;
 -- ════════════════════════════════════════════════════════════
 --
 -- 원장의 담당자 칸(`user_bp_id` · `user_real_id`)이 **사번 대신 로그인
--- 아이디**를 담는다. 화면이 사람 이름을 포털 계정에서 붙이기 때문이다 —
--- 원장은 `projmng` DB, 계정은 `jsiniportal` DB 라 **SQL 조인이 아예
--- 불가능하다**(같은 인스턴스지만 데이터베이스가 다르다).
+-- 아이디**를 담는다. 화면이 사람 이름을 포털 계정에서 붙이기 때문이다.
 --
--- **이 절은 위 「사람이 할 일 하나」가 끝난 뒤에 듣는다.** `login_id` 를
--- 안 채운 사람은 사번 그대로 남고, 화면은 그 값을 **그대로 보여 준다** —
--- 「미할당」으로 덮으면 오타인지 퇴사자인지 가려낼 수 없다.
+-- ── 대조표를 손으로 옮겨야 하는 까닭 ────────────────────────
+--
+-- 원장은 이 DB(`projmng`), 계정은 `jsiniportal` 에 있다. 같은 PostgreSQL
+-- 인스턴스지만 **데이터베이스가 달라 조인이 아예 불가능하다.** 그래서
+-- 대조표를 저쪽에서 뽑아 이쪽에 글자로 옮긴다.
+--
+-- **저쪽(jsiniportal)에서** — 계정관리에 적어 둔 사번을 그대로 읽는다:
+--
+--   SELECT format('(%L, %L),', d.content, a.user_id) AS 옮길줄
+--     FROM scom.account_profile_details d
+--     JOIN scom.accounts a ON a.id = d.account_id
+--    WHERE d.detail_type = 'Dev.BpId' AND NOT d.is_deleted
+--      AND btrim(d.content) <> ''
+--    ORDER BY a.user_id;
+--
+-- 나온 줄을 아래 `VALUES` 안에 붙여 넣고 이 파일을 다시 돌린다
+-- (앞의 적재는 전부 멱등이다).
+--
+-- 비워 두면 **아무 일도 일어나지 않는다** — 사번 그대로 남고, 화면은 그 값을
+-- 그대로 보여 준다. 「미할당」으로 덮으면 오타인지 퇴사자인지 가려낼 수 없다.
 --
 -- 두 번 돌려도 안전하다. 이미 바뀐 줄은 사번과 안 맞아 걸리지 않는다.
--- 대조를 나중에 채웠으면 **이 파일을 다시 돌리면 된다**(앞의 적재는 전부
--- 멱등이다).
+
+CREATE TEMP TABLE bp_login (bp_id text, login_id text) ON COMMIT DROP;
+
+INSERT INTO bp_login (bp_id, login_id) VALUES
+    -- ('12345678', 'hong'),      ← 위 조회 결과를 여기 붙인다
+    (NULL, NULL);                 -- 자리지킴. 붙여 넣은 뒤 지워도 되고 둬도 된다
 
 UPDATE projmng.wbs_work w
-   SET user_bp_id = u.login_id
-  FROM projmng.wbs_user u
- WHERE u.prj_rid = :prj
-   AND w.prj_rid = :prj
-   AND u.login_id IS NOT NULL AND btrim(u.login_id) <> ''
-   AND upper(w.user_bp_id) = upper(u.bp_id);
+   SET user_bp_id = m.login_id
+  FROM bp_login m
+ WHERE w.prj_rid = :prj
+   AND m.bp_id IS NOT NULL AND m.login_id IS NOT NULL
+   AND upper(w.user_bp_id) = upper(btrim(m.bp_id));
 
 UPDATE projmng.wbs_work w
-   SET user_real_id = u.login_id
-  FROM projmng.wbs_user u
- WHERE u.prj_rid = :prj
-   AND w.prj_rid = :prj
-   AND u.login_id IS NOT NULL AND btrim(u.login_id) <> ''
-   AND upper(w.user_real_id) = upper(u.bp_id);
+   SET user_real_id = m.login_id
+  FROM bp_login m
+ WHERE w.prj_rid = :prj
+   AND m.bp_id IS NOT NULL AND m.login_id IS NOT NULL
+   AND upper(w.user_real_id) = upper(btrim(m.bp_id));
 
--- 아직 안 바뀐 사람 보기:
---   SELECT DISTINCT w.user_bp_id
---     FROM projmng.wbs_work w
---    WHERE w.prj_rid = :prj AND w.user_bp_id IS NOT NULL
---      AND NOT EXISTS (SELECT 1 FROM projmng.wbs_user u
---                       WHERE u.prj_rid = :prj AND u.login_id = w.user_bp_id);
+-- 화면 설정도 주인이 **로그인 아이디**다(전에는 사번이었다). 사번으로 담긴
+-- 줄이 있으면 그 사람에게 안 보이므로 함께 옮긴다. 이미 그 아이디로 담긴
+-- 줄이 있으면 새 것은 버린다 — 나중 것이 이긴다고 볼 근거가 없다.
+UPDATE projmng.wbs_user_pref p
+   SET bp_id = m.login_id
+  FROM bp_login m
+ WHERE p.prj_rid = :prj
+   AND m.bp_id IS NOT NULL AND m.login_id IS NOT NULL
+   AND upper(p.bp_id) = upper(btrim(m.bp_id))
+   AND NOT EXISTS (SELECT 1 FROM projmng.wbs_user_pref x
+                    WHERE x.prj_rid = p.prj_rid
+                      AND x.bp_id = m.login_id
+                      AND x.pref_key = p.pref_key);
+
+\echo '── 아직 안 바뀐 담당자 ──'
+SELECT DISTINCT w.user_bp_id AS 원장에적힌값
+  FROM projmng.wbs_work w
+ WHERE w.prj_rid = :prj AND w.user_bp_id IS NOT NULL
+   AND NOT EXISTS (SELECT 1 FROM bp_login m
+                    WHERE m.login_id IS NOT NULL AND m.login_id = w.user_bp_id)
+ ORDER BY 1;
 
 
 -- ════════════════════════════════════════════════════════════
@@ -400,9 +404,11 @@ SELECT '일감',
          WHERE NOT EXISTS (SELECT 1 FROM projmng.wbs_work w
                             WHERE w.prj_rid = :prj AND w.activity_id = btrim(t.activity_id)))
 UNION ALL
-SELECT '개발자',
+-- 개발자는 **옮기는 것이 아니라 계정관리에 손으로 적는다.** 그래서 「옮김」이
+-- 늘 0 이고, 여기 있는 것은 「적어야 할 사람이 몇인가」다.
+SELECT '개발자(적을 사람)',
        (SELECT count(*) FROM wbs_import.dev_user),
-       (SELECT count(*) FROM projmng.wbs_user WHERE prj_rid = :prj),
+       0,
        (SELECT count(*) FROM wbs_import.dev_user
          WHERE bp_id IS NULL OR btrim(bp_id) = '')
 UNION ALL

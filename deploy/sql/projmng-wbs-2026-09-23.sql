@@ -21,7 +21,7 @@
 --   public.hhip_wbs_pv       →  projmng.wbs_pv         (ProjectView 캐시)
 --   public.hhip_wbs_pv_task  →  projmng.wbs_pv_task
 --   public.hhip_wbs_pv_node  →  projmng.wbs_pv_node
---   public.dev_user          →  projmng.wbs_user       (개발자 마스터)
+--   public.dev_user          →  (안 옮긴다 — 포털 계정으로 간다)
 --   public.dev_docs          →  projmng.wbs_docs       (팀 공유 문서)
 --   public.dev_user_pref     →  projmng.wbs_user_pref  (화면 설정)
 --   public.if_*              →  projmng.if_*           (7표 · 뷰 4, 이름 그대로)
@@ -49,13 +49,15 @@
 -- `if_code` 만 프로젝트를 안 가린다. 방향·상태·주기 같은 **말 자체**라
 -- 프로젝트마다 다르게 둘 이유가 없다.
 --
--- ── 개발자와 포털 계정(`wbs_user.login_id`) ──────────────────
+-- ── 사람은 포털 계정이다 ────────────────────────────────────
 --
--- 원장의 담당자 칸(`user_bp_id`)은 사번을 가리키고, 사번-성명은 `wbs_user` 가
--- 들고 있다. 포털 계정은 그것과 별개라 **잇는 칸을 하나 둔다.**
--- 값이 있으면 화면이 포털에서 이름과 얼굴을 가져오고, 없으면 `wbs_user.name`
--- 을 그대로 쓴다. 표를 통째로 계정 쪽에 넘기지 않은 까닭은 이 표가 장비번호 ·
--- MAC · 비상연락처처럼 **포털 계정에 없는 칸을 서른 개** 들고 있어서다.
+-- 원장의 담당자 칸(`user_bp_id`)은 **로그인 아이디**를 담는다. 사번-성명을
+-- 들고 있던 개발자 명부는 없앴다 — 같은 사람이 포털 계정에도 있어서 어긋나면
+-- 어느 쪽이 맞는지 알 방법이 없었다(`docs/projmng-account-merge.md`).
+--
+-- **이름은 서버가 못 붙인다.** 원장은 이 DB, 계정은 `jsiniportal` 에 있어
+-- 조인이 아예 불가능하다 — 화면이 포털 계정 목록에서 붙인다
+-- (`WbsBoardNames`). 계정과 안 이어진 값은 **적힌 그대로** 보인다.
 --
 -- ── 걷어낸 칸 ───────────────────────────────────────────────
 --
@@ -231,55 +233,15 @@ CREATE TABLE IF NOT EXISTS projmng.wbs_pv_node (
 );
 
 
--- ── 개발자 마스터 ───────────────────────────────────────────
+-- ── 개발자 명부는 없다 ─────────────────────────────────────
 --
--- 원본은 `bp_id` 를 `varchar(2000)` 으로 두고 기본키가 없었다. 사번이라
--- 40 자면 넉넉하고, 원장의 담당자 칸(`varchar(100)`)이 이 값을 가리키므로
--- 열쇠가 있어야 한다.
-CREATE TABLE IF NOT EXISTS projmng.wbs_user (
-    prj_rid         integer NOT NULL,
-    bp_id           character varying(40) NOT NULL,
-    login_id        character varying(100),
-    name            character varying(200),
-    email           character varying(200),
-    position_nm     character varying(50),
-    tel_no          character varying(40),
-    emerg_tel_no    character varying(40),
-    birth_dt        date,
-    git             character varying(2000),
-    startkit        character varying(2000),
-    dxb             character varying(2000),
-    vm_conn         character varying(2000),
-    aipro           character varying(2000),
-    claudecode      character varying(2000),
-    dev_db          character varying(2000),
-    wiki            character varying(2000),
-    projectview     character varying(2000),
-    svn             character varying(10),
-    pv_user_id      character varying(40),
-    notebook        character varying(100),
-    hub_hdmi        character varying(100),
-    summer_size     character varying(20),
-    winter_size     character varying(20),
-    use_ip          character varying(60),
-    mac_addr        character varying(60),
-    notebook_no     character varying(60),
-    notebook_chk_no character varying(60),
-    monitor1_no     character varying(60),
-    monitor1_chk_no character varying(60),
-    monitor2_no     character varying(60),
-    monitor2_chk_no character varying(60),
-    monitor3_no     character varying(60),
-    monitor3_chk_no character varying(60),
-    block_yn        character varying(1),
-    super_yn        character varying(1),
-    CONSTRAINT wbs_user_pkey PRIMARY KEY (prj_rid, bp_id)
-);
-
--- 한 사람이 한 프로젝트에 두 사번으로 앉을 수는 없다. 비어 있는 줄은 여럿이어도
--- 된다(아직 계정을 안 이은 사람) — 부분 인덱스라 NULL 은 걸리지 않는다.
-CREATE UNIQUE INDEX IF NOT EXISTS uk_wbs_user_login
-    ON projmng.wbs_user (prj_rid, login_id) WHERE login_id IS NOT NULL;
+-- 여기 `projmng.wbs_user` 를 만들고 있었다. 2026-09-23 에 **사람을 포털 계정
+-- 하나로 다루기로** 하고 표째 걷어냈다(`docs/projmng-account-merge.md`) —
+-- 사번 · 직급 · 장비 대장 · 계정 발급 현황 · 옷 치수는
+-- `scom.account_profile_details` 의 `Dev.*` 로 들어가고 화면은
+-- `/admin/system/account` 다.
+--
+-- 이미 만든 곳에서 지우는 것은 `projmng-wbs-user-drop-2026-09-23.sql`.
 
 
 -- ── 팀 공유 문서 ────────────────────────────────────────────
@@ -704,41 +666,6 @@ COMMENT ON COLUMN projmng.wbs_docs.content IS '섹션 본문 HTML. 화면의 리
 COMMENT ON COLUMN projmng.wbs_docs.sort_order IS '섹션 표시 순서 (작은 값 우선, 10 단위 증가)';
 COMMENT ON COLUMN projmng.wbs_docs.updated_by IS '최종 수정자 (미사용 — 화면에 인증이 없어 기록하지 않음)';
 COMMENT ON COLUMN projmng.wbs_docs.updated_at IS '최종 수정 시각. 섹션 머리글에 표시';
-COMMENT ON TABLE projmng.wbs_user IS '개발자 마스터. 성명·직급·계정 발급 현황과 접근 허용 IP 를 관리 (WBS 대시보드 #/devusers)';
-COMMENT ON COLUMN projmng.wbs_user.bp_id IS '사번(BP ID). 키. hhip_wbs_wrk2.user_bp_id / user_real_id 와 매칭';
-COMMENT ON COLUMN projmng.wbs_user.name IS '성명. 대시보드의 담당자·개발자 표기에 사용';
-COMMENT ON COLUMN projmng.wbs_user.email IS '사내 메일 주소';
-COMMENT ON COLUMN projmng.wbs_user.git IS 'GitLab(code.hd.com) 계정 발급 여부 (O/X)';
-COMMENT ON COLUMN projmng.wbs_user.startkit IS 'StartKit 제공 여부 (O/X)';
-COMMENT ON COLUMN projmng.wbs_user.dxb IS 'DX Builder 사용 환경 준비 여부 (O/X)';
-COMMENT ON COLUMN projmng.wbs_user.vm_conn IS '개발 VM 접속 가능 여부 (O/X)';
-COMMENT ON COLUMN projmng.wbs_user.aipro IS 'AI Pro 계정 발급 여부 (O/X)';
-COMMENT ON COLUMN projmng.wbs_user.claudecode IS 'Claude Code 사용 가능 여부 (O/X)';
-COMMENT ON COLUMN projmng.wbs_user.dev_db IS '개발 DB 접속 계정 발급 여부 (O/X)';
-COMMENT ON COLUMN projmng.wbs_user.wiki IS '차세대 Wiki 계정 발급 여부 (O/X)';
-COMMENT ON COLUMN projmng.wbs_user.projectview IS 'ProjectView(dev-wbs.hd.com) 계정 발급 여부 (O/X)';
-COMMENT ON COLUMN projmng.wbs_user.svn IS 'SVN 계정 발급 여부 (O/X)';
-COMMENT ON COLUMN projmng.wbs_user.notebook IS '개발용 노트북 지급 여부 (O/X)';
-COMMENT ON COLUMN projmng.wbs_user.hub_hdmi IS 'USB 허브 / HDMI 케이블 지급 여부 (O/X)';
-COMMENT ON COLUMN projmng.wbs_user.summer_size IS '하복 사이즈';
-COMMENT ON COLUMN projmng.wbs_user.winter_size IS '동복 사이즈';
-COMMENT ON COLUMN projmng.wbs_user.position_nm IS '직급';
-COMMENT ON COLUMN projmng.wbs_user.use_ip IS '사용 IP';
-COMMENT ON COLUMN projmng.wbs_user.mac_addr IS 'MAC 주소 (노트북 유선/무선)';
-COMMENT ON COLUMN projmng.wbs_user.notebook_no IS '노트북 장비번호';
-COMMENT ON COLUMN projmng.wbs_user.notebook_chk_no IS '노트북 확인번호';
-COMMENT ON COLUMN projmng.wbs_user.tel_no IS '전화번호 (휴대폰/내선)';
-COMMENT ON COLUMN projmng.wbs_user.birth_dt IS '생년월일';
-COMMENT ON COLUMN projmng.wbs_user.pv_user_id IS 'ProjectView user id (USR-...), used as the workflow charger.';
-COMMENT ON COLUMN projmng.wbs_user.block_yn IS '차단여부 — o 면 등록 IP 라도 접근 차단 (루프백 제외). 빈 값/x = 허용';
-COMMENT ON COLUMN projmng.wbs_user.monitor1_no IS '모니터1 장비번호';
-COMMENT ON COLUMN projmng.wbs_user.monitor1_chk_no IS '모니터1 확인번호';
-COMMENT ON COLUMN projmng.wbs_user.monitor2_no IS '모니터2 장비번호';
-COMMENT ON COLUMN projmng.wbs_user.monitor2_chk_no IS '모니터2 확인번호';
-COMMENT ON COLUMN projmng.wbs_user.monitor3_no IS '모니터3 장비번호';
-COMMENT ON COLUMN projmng.wbs_user.monitor3_chk_no IS '모니터3 확인번호';
-COMMENT ON COLUMN projmng.wbs_user.super_yn IS 'Super 권한 — o 면 최고 관리자 (appsettings 의 Admin:BpIds 와 합집합)';
-COMMENT ON COLUMN projmng.wbs_user.emerg_tel_no IS '비상연락처 (가족·동거인 등 본인 외 연락처)';
 COMMENT ON TABLE projmng.wbs_user_pref IS 'Per-user UI preferences, keyed by dev_user.bp_id. JSON text in pref_val.';
 COMMENT ON TABLE projmng.wbs_pv IS 'ProjectView work cache - identity, snapshot, send history. Cache only, never authoritative.';
 COMMENT ON TABLE projmng.wbs_pv_node IS 'ProjectView workflow nodes (stage / date / charger) per task. Cache only.';
@@ -783,7 +710,7 @@ COMMENT ON COLUMN projmng.wbs_work.dwg_view_use IS '도면 조회 사용 여부'
 COMMENT ON COLUMN projmng.wbs_work.por_view_use IS 'POR 조회 사용 여부';
 COMMENT ON COLUMN projmng.wbs_work.menu_desc IS '화면 설명';
 COMMENT ON COLUMN projmng.wbs_work.mon_req_comp IS '9월까지 완료 요청본';
-COMMENT ON COLUMN projmng.wbs_work.user_bp_id IS '담당자 사번(BP ID). projmng.wbs_user.bp_id 와 매칭해 성명을 표시하며, dev_user 에 없는 값은 화면에서 미할당으로 처리. 대시보드에서 수정 가능';
+COMMENT ON COLUMN projmng.wbs_work.user_bp_id IS '담당자 — 포털 계정의 로그인 아이디. 이름은 화면이 포털 계정 목록에서 붙이고, 못 찾으면 적힌 값을 그대로 보여 준다. 대시보드에서 수정 가능';
 COMMENT ON COLUMN projmng.wbs_work.complate_yn IS '완료여부';
 COMMENT ON COLUMN projmng.wbs_work.comp_desc IS '완료에따른코멘트';
 COMMENT ON COLUMN projmng.wbs_work.user_real_id IS '실제우리들의계획사용자';
@@ -804,12 +731,7 @@ COMMENT ON TABLE projmng.if_system IS '연계 대상 시스템/DB. 비밀번호�
 
 -- 새로 생긴 칸 셋.
 COMMENT ON COLUMN projmng.wbs_work.prj_rid  IS '프로젝트 번호 (projmng.dev_proj.prj_rid). 원본에는 없던 칸 — 프로젝트 하나 전용이었다';
-COMMENT ON COLUMN projmng.wbs_user.prj_rid  IS '프로젝트 번호 (projmng.dev_proj.prj_rid)';
-COMMENT ON COLUMN projmng.wbs_user.login_id IS '포털 계정(로그인 아이디). 채우면 화면이 포털에서 이름과 얼굴을 가져온다. 비면 name 칸을 쓴다';
 
-COMMENT ON COLUMN projmng.wbs_user.use_ip   IS '사용 IP. 원본에서는 접근 허가 목록이었으나 포털 안에서는 장비 대장으로만 쓴다 — 권한 판정에 쓰지 않는다';
-COMMENT ON COLUMN projmng.wbs_user.super_yn IS '원본의 최고 관리자 표시. 포털 역할이 그 일을 하므로 권한 판정에 쓰지 않는다';
-COMMENT ON COLUMN projmng.wbs_user.block_yn IS '원본의 차단 표시. 위와 같은 이유로 권한 판정에 쓰지 않는다';
 
 
 COMMIT;

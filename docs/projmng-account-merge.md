@@ -14,7 +14,7 @@ WBS 대시보드의 [개발자 관리](`/projmng/wbs/dev-users`)를 걷어내고
 | | 어디 | 무엇 |
 |---|---|---|
 | 포털 계정 | `jsiniportal` DB · `scom.accounts` | 로그인 · 이름 · 부서 · 역할 · 얼굴 |
-| 개발자 명부 | `projmng` DB · `projmng.wbs_user` | 사번 · 직급 · 장비 · 계정 발급 현황 |
+| 개발자 명부 | `projmng` DB · `projmng.wbs_user` (**지금은 없다**) | 사번 · 직급 · 장비 · 계정 발급 현황 |
 
 같은 사람이 두 줄이고 잇는 것은 손으로 채우는 칸(`wbs_user.login_id`) 하나다.
 **둘이 어긋나면 어느 쪽이 맞는지 알 방법이 없다.**
@@ -126,15 +126,20 @@ Dev.BpId · Dev.Position · Dev.EmergTel · Dev.NotebookNo · Dev.Git · …
 - 메뉴 `PM_WBS_DEVUSER` 와 권한 —
   `deploy/sql/portal-menu-wbs-devuser-remove-2026-09-23.sql`
 
-`projmng.wbs_user` 표는 **지우지 않았다.** 읽는 코드가 없어져도 지우는 것은
-운영 DDL 이라 사람이 정할 일이고(`wbs_pv*` 셋과 같은 이유), **사번 → 계정
-대조 열쇠**가 아직 그 안에 있다.
+`projmng.wbs_user` 표도 **지웠다**(사용자 결정 — `projmng-wbs-user-drop-2026-09-23.sql`).
+0건이었고 물고 있는 외래키도, 보는 뷰도 없었다. 대조 열쇠는 이제 계정관리에
+적는 사번(`Dev.BpId`)이다.
 
 ### 적재 스크립트
 
 `deploy/sql/projmng-wbs-data-load.sql` 에 절이 하나 늘었다 —
-**「사번을 계정으로 바꾼다」.** `wbs_user.login_id` 를 손으로 채운 뒤 파일을
-다시 돌리면 원장의 담당자 칸이 계정으로 바뀐다(앞의 적재는 전부 멱등이다).
+**「사번을 계정으로 바꾼다」.** 대조표는 **포털 DB 에서 뽑아 손으로 옮긴다** —
+데이터베이스가 달라 조인할 수가 없다. 계정관리에 사번을 적고, 그 조회 결과를
+스크립트의 `VALUES` 에 붙여 넣고 파일을 다시 돌리면 원장의 담당자 칸과 화면
+설정의 주인이 함께 바뀐다(앞의 적재는 전부 멱등이다).
+
+개발자 명부는 **옮기지 않는다.** `wbs_import.dev_user` 는 계정관리에 옮겨 적을
+값을 보는 데만 쓰고, 다 적으면 받침 스키마째 지운다 — 개인정보다.
 
 ---
 
