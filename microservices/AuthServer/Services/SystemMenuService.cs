@@ -211,7 +211,12 @@ public class SystemMenuService : ISystemMenuService
             AuthCode = request.AuthCode,
             // 안 보내면 엔티티 기본값(활성)을 쓴다.
             Status = request.Status ?? 1,
-            Title = request.Meta.Title,
+            // 제목을 따로 입력하지 않은 메뉴는 메뉴 이름을 화면 제목으로 쓴다.
+            // 그래야 관리 화면에서 이름을 바꾼 뒤 다시 읽어도 빈 제목이나
+            // 이전 값이 남아 보이지 않는다.
+            Title = string.IsNullOrWhiteSpace(request.Meta.Title)
+                ? request.Name
+                : request.Meta.Title,
             Icon = request.Meta.Icon,
             OrderNo = request.Meta.Order,
             HideInMenu = request.Meta.HideInMenu,
@@ -248,6 +253,7 @@ public class SystemMenuService : ISystemMenuService
         var menu = await _db.SystemMenus.FindAsync(id);
         if (menu == null) return false;
 
+        var previousName = menu.Name;
         menu.Name = request.Name;
         menu.Path = request.Path;
         menu.RouteKey = Normalize(request.RouteKey);
@@ -258,7 +264,13 @@ public class SystemMenuService : ISystemMenuService
         menu.AuthCode = request.AuthCode;
         // 값을 실어 보낸 요청만 상태를 바꾼다. 안 보낸 요청은 지금 상태를 그대로 둔다.
         if (request.Status.HasValue) menu.Status = request.Status.Value;
-        menu.Title = request.Meta.Title;
+        // `name`과 `title`은 원래 별도 값이다. 다만 제목을 입력하지 않았거나
+        // 예전 이름을 그대로 복사해 둔 일반 제목이면 이름 변경을 제목에도
+        // 반영한다. 번역 키나 사용자가 따로 정한 제목은 덮어쓰지 않는다.
+        menu.Title = string.IsNullOrWhiteSpace(request.Meta.Title)
+            || string.Equals(request.Meta.Title, previousName, StringComparison.Ordinal)
+                ? request.Name
+                : request.Meta.Title;
         menu.Icon = request.Meta.Icon;
         menu.OrderNo = request.Meta.Order;
         menu.HideInMenu = request.Meta.HideInMenu;
