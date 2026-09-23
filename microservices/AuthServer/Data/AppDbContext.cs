@@ -52,6 +52,9 @@ public class AppDbContext : DbContext
     /// <summary>패스키(지문·얼굴). 공개 키만 들어 있다 — 엔티티 주석 참고.</summary>
     public DbSet<AccountWebAuthnCredential> AccountWebAuthnCredentials { get; set; }
 
+    /// <summary>소셜 로그인 연결(구글·네이버·카카오). 공급자 쪽 토큰은 담지 않는다.</summary>
+    public DbSet<AccountSocialLogin> AccountSocialLogins { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -82,6 +85,27 @@ public class AppDbContext : DbContext
             .HasOne(c => c.Account)
             .WithMany()
             .HasForeignKey(c => c.AccountId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // ── 소셜 로그인 ───────────────────────────────────────
+        //
+        // 로그인은 **(공급자, 사용자 번호) 짝으로만** 주인을 찾는다. 고유하지
+        // 않으면 같은 구글 계정이 두 포털 계정에 걸려 **누구로 들어올지가
+        // 순서에 달리게** 된다 — 패스키의 자격 증명 아이디와 같은 이유다.
+        modelBuilder.Entity<AccountSocialLogin>()
+            .HasIndex(l => new { l.Provider, l.ProviderUserId })
+            .IsUnique();
+
+        // 「연결된 소셜 계정」 목록이 계정으로 훑는다.
+        modelBuilder.Entity<AccountSocialLogin>()
+            .HasIndex(l => l.AccountId);
+
+        // 계정이 사라지면 연결도 함께 지운다. 남겨 두면 아무 곳도 가리키지 않는
+        // 줄이 쌓이고, 로그인 조회가 매번 그것을 지나간다.
+        modelBuilder.Entity<AccountSocialLogin>()
+            .HasOne(l => l.Account)
+            .WithMany()
+            .HasForeignKey(l => l.AccountId)
             .OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.Entity<RoleAccount>()

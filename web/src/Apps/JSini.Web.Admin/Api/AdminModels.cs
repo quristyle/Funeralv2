@@ -1983,6 +1983,50 @@ public sealed class PasskeyDto
 }
 
 /// <summary>
+/// 붙일 수 있는 소셜 공급자 하나. <b>설정된 것만</b> 서버가 알려 준다.
+/// </summary>
+public sealed class SocialProviderDto
+{
+    /// <summary>공급자 열쇠 (<c>google</c> · <c>naver</c> · <c>kakao</c>). 시작 주소에 들어간다.</summary>
+    public string Provider { get; set; } = string.Empty;
+
+    /// <summary>단추에 적을 이름.</summary>
+    public string DisplayName { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// 「내 정보 → 보안 설정」의 [연결된 소셜 계정] 한 줄.
+/// </summary>
+/// <remarks>
+/// 패스키 목록(<see cref="PasskeyDto"/>)과 나란히 서는 자리다. 다른 점은
+/// <b>이름을 고칠 수 없다</b>는 것 하나다 — 이름은 공급자가 알려 준 값이라
+/// 우리가 지어 주면 다음에 들어올 때 덮인다.
+/// </remarks>
+public sealed class SocialLinkDto
+{
+    /// <summary>줄 식별자. 끊을 때 쓴다.</summary>
+    public string Id { get; set; } = string.Empty;
+
+    /// <summary>공급자 열쇠 (<c>google</c> · <c>naver</c> · <c>kakao</c>).</summary>
+    public string Provider { get; set; } = string.Empty;
+
+    /// <summary>화면에 띄울 공급자 이름 (「구글」).</summary>
+    public string DisplayName { get; set; } = string.Empty;
+
+    /// <summary>공급자가 알려 준 이름·별명. 계정이 둘일 때 어느 줄인지 아는 단서다.</summary>
+    public string? AccountName { get; set; }
+
+    /// <summary>공급자가 알려 준 이메일. 안 주는 공급자도 있다.</summary>
+    public string? Email { get; set; }
+
+    /// <summary>연결한 시각 (UTC).</summary>
+    public DateTime LinkedAt { get; set; }
+
+    /// <summary>마지막으로 이것으로 들어온 시각 (UTC). 한 번도 안 썼으면 <c>null</c>.</summary>
+    public DateTime? LastLoginAt { get; set; }
+}
+
+/// <summary>
 /// 서버가 낸 도전값 한 벌. <b>브라우저에 그대로 넘긴다</b> — 그 안을
 /// C# 이 들여다볼 이유가 없고, 들여다보기 시작하면 규격이 바뀔 때마다
 /// 이 파일도 함께 고쳐야 한다.

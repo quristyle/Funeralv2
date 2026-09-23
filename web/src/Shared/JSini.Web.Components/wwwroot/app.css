@@ -3428,6 +3428,74 @@ button.jsini-crumbs__item:hover { opacity: 1; }
   color: #1c1c1e;
 }
 
+/* 실패가 아닌 안내 — 소셜에서 되돌아온 「가입 신청을 받았다」 같은 것.
+
+   **실패 판과 갈라 둔 이유.** 이 화면은 색을 쓰지 않으므로 무게는 왼쪽 줄의
+   짙기로만 말할 수 있다. 실패가 먹(`#0a0a0a`)이고 이쪽은 회색(`#86868b`)이라,
+   「무엇이 잘못됐다」와 「이렇게 됐다」가 한눈에 갈린다. 같은 판으로 그리면
+   신청이 접수된 사람이 자기가 실패한 줄 안다. */
+.jsini-login__notice {
+  margin-bottom: 1.5rem;
+  border-left: 2px solid #86868b;
+  padding: 0.75rem 1rem;
+  background: #f5f5f7;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: #1c1c1e;
+}
+
+/* ── 소셜로 로그인 · 가입 ─────────────────────────────────────────────
+
+   구글 · 네이버 · 카카오. **공급자의 브랜드 색을 쓰지 않는다** — 이 화면의
+   규칙이 「강조는 색이 아니라 대비로 낸다」이고, 색 단추 셋을 들이면 카드에서
+   그것만 보인다(로고도 같은 이유로 넣지 않았다: 셋을 받아 오면 첫 화면이
+   그만큼 무거워진다).
+
+   지문 판과 달리 기본이 감춤이 아니다. 여기는 브라우저가 할 수 있는지를
+   따질 것이 없고, 그릴지 말지는 **서버가 준 목록**이 이미 정했다. */
+.jsini-login__social {
+  margin-top: 1.75rem;
+}
+
+/* 단추가 하나일 수도 셋일 수도 있다. 나눠 가지게 두면 하나일 때 폭이
+   가득 차고, 셋일 때 나란히 선다 — 개수별로 규칙을 두지 않아도 된다. */
+.jsini-login__social-btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+/* 지문 단추와 같은 무게다(회색 테두리) — 둘 다 「비밀번호 말고 다른 길」이라
+   같은 말투여야 한다. 링크지만 단추처럼 보여야 하므로 밑줄을 지운다. */
+.jsini-login__social-btn {
+  flex: 1 1 8rem;
+  /* 손가락 과녁 44px 를 넘긴다. 휴대폰에서 누르는 단추다. */
+  padding: 0.75rem 1rem;
+  border: 1px solid #d2d2d7;
+  background: transparent;
+  color: #1c1c1e;
+  font-size: 0.875rem;
+  line-height: 1.4;
+  text-align: center;
+  text-decoration: none;
+  transition: border-color 0.2s, color 0.2s;
+}
+
+.jsini-login__social-btn:hover,
+.jsini-login__social-btn:focus-visible {
+  border-color: #0a0a0a;
+  color: #0a0a0a;
+}
+
+/* 처음 누르는 사람이 「로그인」을 기대했다가 승인 대기를 만나면 고장으로
+   읽는다. 누르기 **전에** 말해 두는 한 줄이다. */
+.jsini-login__social-note {
+  margin: 0.75rem 0 0;
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  color: #6e6e73;
+}
+
 /* 칸 검증 메시지도 같은 규칙으로 조용히 둔다. */
 .jsini-bare .validation-message {
   font-size: 0.75rem;

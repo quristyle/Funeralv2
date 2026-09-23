@@ -781,6 +781,33 @@ public sealed class AdminClient(GatewayClient gateway)
     public Task DeletePasskeyAsync(string id, CancellationToken ct = default)
         => gateway.DeleteAsync($"auth/webauthn/credentials/{id}", ct);
 
+    // ── 연결된 소셜 계정 (구글 · 네이버 · 카카오) ───────────────
+    //
+    // **붙이는 길이 여기 없다.** 붙이려면 공급자에 다녀와야 하는데, 그 왕복은
+    // 브라우저가 실제로 이동해야 하는 일이라 API 호출로는 할 수 없다.
+    // 화면은 `/social/{공급자}/start?mode=link` 로 **이동**하고, 돌아온 셸이
+    // 게이트웨이를 대신 부른다(`SocialLoginFlow`). 그래서 여기는 읽기와
+    // 끊기 둘뿐이다.
+
+    /// <summary>
+    /// 붙일 수 있는 공급자 목록. <b>익명 경로라 로그인 전에도 같은 값이 나온다</b> —
+    /// 로그인 화면이 단추를 그릴 때 쓰는 그 목록이다.
+    /// </summary>
+    public Task<IReadOnlyList<SocialProviderDto>> GetSocialProvidersAsync(
+        CancellationToken ct = default)
+        => gateway.GetListAsync<SocialProviderDto>("auth/social/providers", ct);
+
+    /// <summary>내 계정에 연결된 소셜 계정 목록.</summary>
+    public Task<IReadOnlyList<SocialLinkDto>> GetSocialLinksAsync(CancellationToken ct = default)
+        => gateway.GetListAsync<SocialLinkDto>("auth/social/links", ct);
+
+    /// <summary>
+    /// 연결을 끊는다. <b>끊으면 그 소셜 계정으로는 더 못 들어온다</b> —
+    /// 아이디·비밀번호와 패스키는 그대로다.
+    /// </summary>
+    public Task UnlinkSocialAsync(string id, CancellationToken ct = default)
+        => gateway.DeleteAsync($"auth/social/links/{id}", ct);
+
     // ── 프로필 사진 (FileServer 파일 그룹) ──────────────────────
     //
     // 올리는 것은 여기 없다 — 브라우저가 `DxUpload` 으로 셸의

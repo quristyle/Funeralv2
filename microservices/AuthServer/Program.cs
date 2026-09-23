@@ -89,6 +89,13 @@ builder.Services.AddScoped<AccessTokenFactory>();
 builder.Services.AddScoped<LoginCompletion>();
 // 패스키(지문·얼굴). 도전값 보관에 IMemoryCache 를 쓴다(위 AddMemoryCache).
 builder.Services.AddScoped<WebAuthnService>();
+
+// 소셜 로그인(구글·네이버·카카오). 공급자 주소와 응답 칸 이름까지 설정에서 읽는다 —
+// 그래야 공급자를 하나 더 붙일 때 appsettings 한 덩이로 끝난다(SocialProviderOptions).
+// 비밀 열쇠는 secrets.env / appsettings.Local.json 으로만 들어온다.
+builder.Services.Configure<AuthServer.DTOs.SocialLoginOptions>(
+    builder.Configuration.GetSection("Auth:Social"));
+builder.Services.AddScoped<SocialLoginService>();
 builder.Services.AddScoped<IRoleService, RoleService>();
 builder.Services.AddScoped<IDepartmentService, DepartmentService>();
 builder.Services.AddScoped<ISystemMenuService, SystemMenuService>();
@@ -234,6 +241,10 @@ app.MapSignupEndpoints();
 
 // 패스키(지문·얼굴). 로그인 경로 둘만 익명이고 나머지는 로그인한 사람만 부른다.
 app.MapWebAuthnEndpoints();
+
+// 소셜 로그인(구글·네이버·카카오). 공급자 목록·인가 주소·로그인 셋이 익명이고,
+// 연결·끊기는 로그인한 사람만 부른다.
+app.MapSocialLoginEndpoints();
 
 
 app.MapUserEndpoints();

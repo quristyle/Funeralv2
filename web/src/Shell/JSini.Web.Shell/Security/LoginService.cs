@@ -4,6 +4,7 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using JSini.Web.Components.Security;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace JSini.Web.Shell.Security;
 
@@ -18,10 +19,44 @@ namespace JSini.Web.Shell.Security;
 /// 화면은 이 값을 보고 곧바로 비밀번호 변경으로 안내해야 한다. 안 그러면
 /// 사용자는 아무 화면이나 열 때마다 403 만 보게 된다.
 /// </param>
+/// <param name="PendingApproval">
+/// 로그인이 아니라 <b>가입 신청이 접수된</b> 상태인가.
+///
+/// <para>
+/// 소셜(구글·네이버·카카오)로 <b>처음</b> 들어온 사람에게만 참이 된다. 그때
+/// 서버는 승인 대기 계정을 만들어 두고 <c>202 Accepted</c> 로 답한다 —
+/// 성공도 실패도 아니라서 갈래가 하나 더 필요하다. 이것을 실패로 뭉뚱그리면
+/// 화면이 「인증에 실패했습니다」라고 말하게 되고, 사용자는 자기 신청이
+/// 접수됐다는 것을 모른 채 단추를 계속 누른다.
+/// </para>
+///
+/// <para>
+/// 아이디·비밀번호 로그인과 패스키 로그인에서는 <b>언제나 거짓</b>이다 —
+/// 그 길에는 계정이 저절로 만들어지는 자리가 없다.
+/// </para>
+/// </param>
+/// <param name="Blocked">
+/// 신원은 맞았는데 <b>쓸 수 없는 계정</b>인가 (승인 대기 · 정지).
+///
+/// <para>
+/// 서버가 403 으로 답한 경우다. 아이디·비밀번호가 틀린 401 과 갈라 두는 이유는
+/// <b>사용자가 할 일이 다르기</b> 때문이다 — 401 은 다시 쳐 보면 되고, 이쪽은
+/// 아무리 다시 눌러도 관리자가 승인하기 전까지 들어올 수 없다.
+/// </para>
+///
+/// <para>
+/// 화면이 폼 위에 <see cref="Message"/> 를 그대로 띄우면 이 값을 볼 일이 없다.
+/// 주소로 갈래만 넘기는 소셜 흐름(<c>SocialLoginFlow</c>)에서만 쓴다 —
+/// 거기서는 문구를 주소에 실을 수 없어서(남이 아무 말이나 띄우는 길이 된다)
+/// 갈래를 알아야 제 문구를 고를 수 있다.
+/// </para>
+/// </param>
 public readonly record struct LoginResult(
     bool Succeeded,
     string? Message = null,
-    bool PasswordExpired = false);
+    bool PasswordExpired = false,
+    bool PendingApproval = false,
+    bool Blocked = false);
 
 /// <summary>
 /// 로그인·로그아웃. 게이트웨이에 물어보고, 그 결과로 셸의 인증 쿠키를 굽는다.
@@ -43,6 +78,7 @@ public readonly record struct LoginResult(
 public sealed class LoginService(
     IHttpClientFactory httpClientFactory,
     IConfiguration configuration,
+    IMemoryCache cache,
     ILogger<LoginService> logger)
 {
     /// <summary>이 서비스가 쓰는 HttpClient 이름. Program.cs 에서 등록한다.</summary>
@@ -191,6 +227,188 @@ public sealed class LoginService(
         }
     }
 
+    // ── 소셜 (구글 · 네이버 · 카카오) ───────────────────────────
+
+    /// <summary>소셜 공급자 목록을 담아 두는 자리. 사람마다 다르지 않아 한 통을 같이 쓴다.</summary>
+    private const string SocialProvidersCacheKey = "JSini.Web.Shell.SocialProviders";
+
+    /// <summary>
+    /// 담아 두는 시간. <b>짧게 둔다</b> — 공급자 열쇠를 넣고 나서 단추가 설
+    /// 때까지 기다리는 시간이 이 값이고, 그동안 「왜 안 나오지」를 겪게 된다.
+    /// </summary>
+    private static readonly TimeSpan SocialProvidersCacheLifetime = TimeSpan.FromMinutes(5);
+
+    /// <summary>
+    /// 담아 둔 공급자 목록을 버린다. <b>실패한 뒤에 부른다</b> — 게이트웨이가
+    /// 잠깐 답하지 않아 빈 목록을 담아 두면 5분 동안 단추가 사라진다.
+    /// </summary>
+    public void ForgetSocialProviders() => cache.Remove(SocialProvidersCacheKey);
+
+    /// <summary>
+    /// 로그인 화면에 그릴 소셜 단추 목록. <b>설정된 공급자만</b> 온다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 목록을 화면에 박아 두지 않는 이유는, 열쇠를 아직 받지 못한 공급자의
+    /// 단추가 그려지면 <b>눌러 본 사람이 고장으로 신고하기</b> 때문이다.
+    /// 어느 것이 설정됐는지는 AuthServer 만 안다(비밀 열쇠가 거기 있다).
+    /// </para>
+    /// <para>
+    /// <b>실패해도 예외를 던지지 않는다.</b> 소셜 단추를 못 그리는 것이
+    /// 로그인 화면 전체를 못 여는 이유가 되어서는 안 된다 — 아이디·비밀번호는
+    /// 그대로 되어야 한다.
+    /// </para>
+    /// </remarks>
+    public async Task<IReadOnlyList<SocialProvider>> GetSocialProvidersAsync(
+        CancellationToken cancellationToken = default)
+    {
+        // **로그인 화면이 뜰 때마다 부르는 값이라 잠깐 담아 둔다.**
+        //
+        // 이 화면은 모두가 가장 먼저 받는 화면이고(회로도 DevExpress 도 없앤
+        // 자리다), 여기에 게이트웨이 왕복을 하나 더 얹으면 그 일이 헛것이 된다.
+        // 담는 것은 **설정에서 온 값**이라 사람마다 다르지 않고 자주 바뀌지도
+        // 않는다 — 공급자를 새로 켜면 5분 안에 단추가 선다.
+        if (cache.TryGetValue(SocialProvidersCacheKey, out IReadOnlyList<SocialProvider>? cached)
+            && cached is not null)
+        {
+            return cached;
+        }
+
+        var client = httpClientFactory.CreateClient(HttpClientName);
+
+        try
+        {
+            using var response = await client.GetAsync("auth/social/providers", cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                logger.LogWarning("소셜 공급자 목록을 받지 못했다 ({Status}).", (int)response.StatusCode);
+                return [];
+            }
+
+            using var document = await response.Content
+                .ReadFromJsonAsync<JsonDocument>(cancellationToken);
+
+            if (document?.RootElement.TryGetProperty("data", out var data) is not true
+                || !data.TryGetProperty("result", out var result)
+                || result.ValueKind != JsonValueKind.Array)
+            {
+                return [];
+            }
+
+            var providers = new List<SocialProvider>();
+            foreach (var item in result.EnumerateArray())
+            {
+                var key = item.TryGetProperty("provider", out var p) ? p.GetString() : null;
+                var name = item.TryGetProperty("displayName", out var d) ? d.GetString() : null;
+
+                if (!string.IsNullOrWhiteSpace(key))
+                {
+                    providers.Add(new SocialProvider(key, name ?? key));
+                }
+            }
+
+            cache.Set(SocialProvidersCacheKey, (IReadOnlyList<SocialProvider>)providers,
+                SocialProvidersCacheLifetime);
+
+            return providers;
+        }
+        catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException)
+        {
+            logger.LogError(ex, "소셜 공급자 목록을 받아 오지 못했다.");
+            return [];
+        }
+    }
+
+    /// <summary>
+    /// 공급자의 인가 화면 주소를 받아 온다. 못 받으면 <c>null</c>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>주소를 여기서 짓지 않는 까닭.</b> 주소에는 <c>client_id</c> 가 들어가고
+    /// 그 값은 비밀 열쇠와 한 벌로 AuthServer 설정에 있다. 셸이 지으려면 그
+    /// 값을 프론트 설정에 한 벌 더 두어야 하고, 그러면 <b>둘이 어긋나는 날</b>이
+    /// 온다 — 그때 증상은 공급자가 던지는 <c>invalid_client</c> 하나다.
+    /// </para>
+    /// <para>
+    /// 반대로 <paramref name="redirectUri"/> 는 <b>셸이 정한다.</b> AuthServer 는
+    /// 게이트웨이 뒤라 포털의 바깥 주소(도메인·스킴)를 모른다.
+    /// </para>
+    /// </remarks>
+    public async Task<string?> GetSocialAuthorizeUrlAsync(
+        string provider, string redirectUri, string state,
+        CancellationToken cancellationToken = default)
+    {
+        var client = httpClientFactory.CreateClient(HttpClientName);
+
+        try
+        {
+            using var response = await client.PostAsJsonAsync(
+                "auth/social/authorize",
+                new { provider, redirectUri, state },
+                JsonOptions,
+                cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                logger.LogWarning(
+                    "{Provider} 인가 주소를 받지 못했다 ({Status}).", provider, (int)response.StatusCode);
+                return null;
+            }
+
+            using var document = await response.Content
+                .ReadFromJsonAsync<JsonDocument>(cancellationToken);
+
+            if (document?.RootElement.TryGetProperty("data", out var data) is not true
+                || !data.TryGetProperty("result", out var result)
+                || result.ValueKind != JsonValueKind.Array
+                || result.GetArrayLength() == 0)
+            {
+                return null;
+            }
+
+            return result[0].TryGetProperty("url", out var url) ? url.GetString() : null;
+        }
+        catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException)
+        {
+            logger.LogError(ex, "{Provider} 인가 주소를 받아 오지 못했다.", provider);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// 공급자가 되돌려 준 인가 코드로 로그인하고 셸의 인증 쿠키를 굽는다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>코드를 브라우저가 게이트웨이로 직접 보내지 않는다.</b> 그렇게 하면
+    /// 토큰이 브라우저까지 내려가 BFF 가 아니게 된다(web/CLAUDE.md 「인증 — BFF」).
+    /// 브라우저가 하는 일은 공급자에게 다녀와 코드를 <b>셸의 콜백 주소로
+    /// 들고 오는</b> 것까지고, 그 뒤는 여느 로그인과 똑같이 여기서 처리한다.
+    /// </para>
+    /// <para>
+    /// 처음 온 사람이면 계정이 <b>승인 대기</b>로 만들어지고 결과의
+    /// <see cref="LoginResult.PendingApproval"/> 가 참으로 온다. 쿠키는 굽지 않는다.
+    /// </para>
+    /// </remarks>
+    public Task<LoginResult> SignInWithSocialAsync(
+        HttpContext httpContext,
+        string provider,
+        string code,
+        string redirectUri,
+        string? state,
+        bool keepSignedIn = false,
+        CancellationToken cancellationToken = default)
+        => SendAndBakeAsync(
+            httpContext,
+            "auth/social/login",
+            new { provider, code, redirectUri, state },
+            // 아이디를 치지 않고 들어오는 길이라 여기서는 이름을 모른다.
+            // 발급된 토큰에서 꺼낸다(BakeAsync).
+            fallbackName: null,
+            keepSignedIn,
+            "소셜 계정으로 로그인하지 못했습니다. 잠시 뒤 다시 시도해 주세요.",
+            cancellationToken);
+
     /// <summary>인증 쿠키를 지운다.</summary>
     public static Task SignOutAsync(HttpContext httpContext) =>
         httpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
@@ -230,9 +448,48 @@ public sealed class LoginService(
                 // 그건 속도만 늦출 뿐 구분 자체를 막지는 못한다.
                 logger.LogInformation("로그인 실패 ({Status}) — {Path}", (int)response.StatusCode, path);
 
-                return new LoginResult(false, (int)response.StatusCode == 429
-                    ? "로그인 시도가 너무 잦습니다. 잠시 뒤 다시 시도해 주세요."
-                    : failureMessage);
+                if ((int)response.StatusCode == 429)
+                {
+                    return new LoginResult(false, "로그인 시도가 너무 잦습니다. 잠시 뒤 다시 시도해 주세요.");
+                }
+
+                // ── 403 은 서버가 지어 준 말을 그대로 옮긴다 ─────────
+                //
+                // **401 과 갈라 두는 것이 요점이다.** 401 은 신원 확인이 실패한
+                // 것이라 까닭을 말하면 안 된다(위 주석). 403 은 **신원이 이미
+                // 밝혀진 뒤**에 나온다 — 「승인 대기 중」 · 「정지된 계정」이고,
+                // 그 사실은 본인에게 숨길 것이 아니다(AuthServer 의
+                // `RejectIfNotActiveAsync` 가 그 판단으로 문구를 짓는다).
+                //
+                // 뭉뚱그리면 소셜로 두 번째 누른 사람이 「로그인하지
+                // 못했습니다」만 보고 **자기 신청이 어디까지 갔는지 모른 채**
+                // 단추를 계속 누른다.
+                if ((int)response.StatusCode == 403)
+                {
+                    var reason = await ReadMessageAsync(response, cancellationToken);
+                    return new LoginResult(false, reason ?? failureMessage, Blocked: true);
+                }
+
+                return new LoginResult(false, failureMessage);
+            }
+
+            // ── 202 = 「가입 신청을 받았다」 ─────────────────────
+            //
+            // **200 과 갈라 둔 것이 요점이다.** 202 는 계정이 만들어졌지만 아직
+            // 쓸 수 없다는 뜻이라 토큰이 없다. 여기서 가르지 않으면 아래
+            // `accessToken` 찾기가 실패해서 「응답을 해석하지 못했습니다」가
+            // 뜨고, 그 문구는 **사실과 다르다** — 해석은 됐고 신청이 접수된 것이다.
+            //
+            // 소셜 로그인에서만 나온다(AuthServer 의 `SocialLoginEndpoints`).
+            if (response.StatusCode == System.Net.HttpStatusCode.Accepted)
+            {
+                logger.LogInformation("소셜 가입 신청이 접수됐다 — {Path}", path);
+
+                var notice = await ReadMessageAsync(response, cancellationToken);
+                return new LoginResult(
+                    Succeeded: false,
+                    notice ?? "가입 신청을 받았습니다. 관리자 승인 뒤에 로그인하실 수 있습니다.",
+                    PendingApproval: true);
             }
 
             var payload = await ReadLoginPayloadAsync(response, cancellationToken);
@@ -442,5 +699,32 @@ public sealed class LoginService(
         return null;
     }
 
+    /// <summary>
+    /// 봉투의 <c>message</c> 한 줄만 꺼낸다. 서버가 지어 준 안내를 화면이
+    /// 그대로 말하게 하려는 것이고, 없으면 부르는 쪽이 제 문구를 쓴다.
+    /// </summary>
+    private static async Task<string?> ReadMessageAsync(
+        HttpResponseMessage response, CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var document = await response.Content
+                .ReadFromJsonAsync<JsonDocument>(cancellationToken);
+
+            return document?.RootElement.TryGetProperty("message", out var message) is true
+                ? message.GetString()
+                : null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
     private sealed record LoginPayload(string? AccessToken, bool PasswordExpired);
 }
+
+/// <summary>로그인 화면에 그릴 소셜 단추 하나.</summary>
+/// <param name="Key">공급자 열쇠 (<c>google</c> · <c>naver</c> · <c>kakao</c>). 시작 주소에 들어간다.</param>
+/// <param name="DisplayName">단추에 적을 이름.</param>
+public sealed record SocialProvider(string Key, string DisplayName);

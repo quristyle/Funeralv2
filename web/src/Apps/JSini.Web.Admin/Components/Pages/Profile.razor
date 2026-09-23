@@ -671,6 +671,83 @@
                             }
 
                             @*
+                                ── 연결된 소셜 계정 ───────────────────────
+
+                                구글 · 네이버 · 카카오. 붙여 두면 로그인 화면의
+                                그 단추로 아이디를 치지 않고 들어올 수 있다.
+
+                                **이 자리가 없으면 계정이 둘로 갈린다.** 이미
+                                계정이 있는 사람이 로그인 화면에서 구글을 누르면
+                                서버는 그것을 처음 보는 사람으로 읽고 **승인
+                                대기 계정을 새로 만든다.** 승인하는 사람은 그것이
+                                같은 사람인지 알 길이 없다. 그래서 「이미 들어와
+                                있는 내가 붙인다」가 정상 경로다.
+
+                                **붙이기가 단추가 아니라 이동이다.** 공급자에
+                                다녀와야 하는데 그 왕복은 브라우저가 실제로
+                                움직여야 하는 일이라 API 호출로는 할 수 없다.
+                                돌아오면 셸이 게이트웨이를 대신 부르고
+                                (`SocialLoginFlow`) 이 화면으로 되돌려 보낸다 —
+                                그때 `?social=linked` 가 붙고 아래 코드가 읽는다.
+
+                                목록이 비면 이 판이 통째로 없다. 열쇠를 받지 못한
+                                공급자의 단추를 그려 두면 눌러 본 사람이 고장으로
+                                신고한다 — 로그인 화면과 같은 규칙이다.
+                            *@
+                            @if (_socialProviders.Count > 0)
+                            {
+                                <div class="ad-setting">
+                                    <div>
+                                        <div class="ad-setting__name">소셜 계정으로 로그인</div>
+                                        <div class="ad-setting__desc">@SocialSummary</div>
+                                    </div>
+                                </div>
+
+                                @if (_socialLinks.Count > 0)
+                                {
+                                    @* 패스키 목록과 같은 모양이다 — 둘 다 「다른
+                                       길로 들어오는 수단」이라 나란히 읽혀야 한다. *@
+                                    <ul class="ad-passkeys">
+                                        @foreach (var link in _socialLinks)
+                                        {
+                                            <li class="ad-passkey">
+                                                <div class="ad-passkey__who">
+                                                    <div class="ad-passkey__name">@link.DisplayName</div>
+                                                    <div class="ad-passkey__meta">
+                                                        @SocialWho(link)
+                                                        · 연결 @Dt(link.LinkedAt)
+                                                        · @LastUsedText(link.LastLoginAt)
+                                                    </div>
+                                                </div>
+                                                <div class="ad-passkey__acts">
+                                                    <DxButton Text="끊기"
+                                                              RenderStyle="ButtonRenderStyle.Danger"
+                                                              Click="@(() => UnlinkSocialAsync(link))" />
+                                                </div>
+                                            </li>
+                                        }
+                                    </ul>
+                                }
+
+                                @if (UnlinkedProviders.Count > 0)
+                                {
+                                    <div class="ad-social-add">
+                                        @foreach (var provider in UnlinkedProviders)
+                                        {
+                                            <DxButton Text="@($"{provider.DisplayName} 연결")"
+                                                      RenderStyle="ButtonRenderStyle.Secondary"
+                                                      Click="@(() => StartSocialLink(provider))" />
+                                        }
+                                    </div>
+                                }
+
+                                <p class="jsini-hint">
+                                    끊으면 그 소셜 계정으로는 더 들어올 수 없습니다.
+                                    아이디·비밀번호 로그인은 그대로입니다.
+                                </p>
+                            }
+
+                            @*
                                 ── 로그인 방식 우선순위 ───────────────────
 
                                 로그인 화면이 **무엇을 먼저 묻는지**를 정한다.
@@ -1229,6 +1306,11 @@
         RebuildScreens();
 
         await ReloadAsync();
+
+        // 소셜 연결에서 되돌아온 참이면 그 결과를 말한다. **읽기가 끝난
+        // 뒤에 부른다** — 앞에서 부르면 목록을 다시 읽는 동안 안내가 먼저
+        // 뜨고, 「연결했다」고 해 놓고 목록에 없는 순간이 생긴다.
+        SaySocialResult();
     }
 
     /// <summary>
@@ -1352,7 +1434,10 @@
         // 등록된 기기. 못 읽어도 나머지를 막지 않는다 — 접속 기록과 같은 규칙이다.
         var passkeys = LoadPasskeysAsync();
 
-        await Task.WhenAll(info, activity, favorites, passkeys);
+        // 연결된 소셜 계정. 같은 규칙이다.
+        var social = LoadSocialAsync();
+
+        await Task.WhenAll(info, activity, favorites, passkeys, social);
 
         _info = info.Result;
         _activity = activity.Result;
@@ -1711,6 +1796,123 @@
         catch (ApiException)
         {
             _passkeys = [];
+        }
+    }
+
+    // ── 연결된 소셜 계정 (구글 · 네이버 · 카카오) ────────────
+
+    /// <summary>내 계정에 붙어 있는 것들.</summary>
+    private IReadOnlyList<SocialLinkDto> _socialLinks = [];
+
+    /// <summary>붙일 수 있는 공급자. 설정된 것만 서버가 알려 준다.</summary>
+    private IReadOnlyList<SocialProviderDto> _socialProviders = [];
+
+    /// <summary>
+    /// 아직 안 붙인 공급자. <b>이미 붙인 것에 「연결」 단추를 또 세우지 않는다</b> —
+    /// 눌러 봐야 서버가 「이미 자기 것」이라며 같은 줄을 돌려줄 뿐이라, 무엇이
+    /// 달라지는지 알 수 없는 단추가 된다.
+    /// </summary>
+    private IReadOnlyList<SocialProviderDto> UnlinkedProviders =>
+        [.. _socialProviders.Where(p => !_socialLinks.Any(l =>
+            string.Equals(l.Provider, p.Provider, StringComparison.OrdinalIgnoreCase)))];
+
+    private string SocialSummary => _socialLinks.Count switch
+    {
+        0 => "연결해 두면 아이디를 치지 않고 그 계정으로 들어올 수 있습니다.",
+        1 => $"{_socialLinks[0].DisplayName} 계정 하나가 연결되어 있습니다.",
+        var n => $"{n}개 계정이 연결되어 있습니다.",
+    };
+
+    /// <summary>
+    /// 목록에서 어느 줄인지 알아보는 단서. 공급자가 이름도 이메일도 안 주는
+    /// 경우가 있어(카카오에서 동의 항목을 안 켠 경우) 그때는 말을 아낀다.
+    /// </summary>
+    private static string SocialWho(SocialLinkDto link) =>
+        (link.AccountName, link.Email) switch
+        {
+            ({ Length: > 0 } name, { Length: > 0 } email) => $"{name} ({email})",
+            ({ Length: > 0 } name, _) => name,
+            (_, { Length: > 0 } email) => email,
+            _ => "계정 정보 없음",
+        };
+
+    /// <summary>
+    /// 연결하러 공급자에 다녀온다.
+    /// </summary>
+    /// <remarks>
+    /// <b><c>forceLoad</c> 가 있어야 한다.</b> 가는 곳이 Blazor 화면이 아니라
+    /// 셸의 엔드포인트라, 회로 안에서 이동하면 라우터가 「그런 화면이 없다」로
+    /// 읽고 404 를 그린다.
+    /// </remarks>
+    private void StartSocialLink(SocialProviderDto provider) =>
+        Navigation.NavigateTo(
+            $"/social/{provider.Provider}/start?mode=link", forceLoad: true);
+
+    private async Task UnlinkSocialAsync(SocialLinkDto link)
+    {
+        if (!await RunAsync(
+            () => Api.UnlinkSocialAsync(link.Id),
+            $"{link.DisplayName} 연결을 끊었습니다.",
+            "연결을 끊지 못했습니다"))
+        {
+            return;
+        }
+
+        await LoadSocialAsync();
+    }
+
+    /// <summary>
+    /// 연결 목록과 공급자 목록을 함께 읽는다. <b>못 읽어도 나머지를 막지
+    /// 않는다</b> — 접속 기록·패스키와 같은 규칙이다.
+    /// </summary>
+    private async Task LoadSocialAsync()
+    {
+        try
+        {
+            var links = Api.GetSocialLinksAsync();
+            var providers = Api.GetSocialProvidersAsync();
+
+            await Task.WhenAll(links, providers);
+
+            _socialLinks = links.Result;
+            _socialProviders = providers.Result;
+        }
+        catch (ApiException)
+        {
+            _socialLinks = [];
+            _socialProviders = [];
+        }
+    }
+
+    /// <summary>
+    /// 소셜 연결에서 되돌아온 표시를 읽는다 — <c>/admin/profile?social=linked</c>.
+    /// </summary>
+    /// <remarks>
+    /// <b>짧은 표시만 주고받는다.</b> 문구를 주소에 그대로 실으면 남이 만든
+    /// 링크로 이 화면에 아무 말이나 띄울 수 있다.
+    /// </remarks>
+    private void SaySocialResult()
+    {
+        var query = new Uri(Navigation.Uri).Query;
+
+        if (string.IsNullOrEmpty(query)
+            || !QueryHelpers.ParseQuery(query).TryGetValue("social", out var values))
+        {
+            return;
+        }
+
+        switch (values.ToString())
+        {
+            case "linked":
+                Say("소셜 계정을 연결했습니다.", NoticeTone.Info);
+                break;
+
+            case "linkfailed":
+                // 까닭이 여럿이다(남의 계정에 이미 붙었다 · 인증이 만료됐다 ·
+                // 공급자가 답하지 않았다). 사용자가 할 수 있는 일은 어느 쪽이든
+                // 「다시 눌러 본다」라 갈라 말하지 않는다.
+                Say("소셜 계정을 연결하지 못했습니다. 다시 시도해 주세요.", NoticeTone.Error);
+                break;
         }
     }
 

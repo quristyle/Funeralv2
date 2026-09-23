@@ -183,6 +183,13 @@ app.MapPost("/passkey/options", async (
         : Results.Json(new { error = "지금은 기기 인증을 쓸 수 없습니다." }, statusCode: 503);
 }).AllowAnonymous();
 
+// ── 소셜 로그인 (구글 · 네이버 · 카카오) ─────────────────────────
+//
+// 브라우저가 지나가는 두 자리를 건다 — 공급자로 보내는 곳과 되돌아오는 곳.
+// **왜 게이트웨이가 아니라 셸에 있어야 하는지**는 그 클래스 머리말에 있다
+// (공급자는 사람을 화면으로 돌려보내야 하는데 게이트웨이의 답은 JSON 이다).
+app.MapSocialLoginFlow();
+
 // 로그아웃은 POST 다. GET 으로 두면 이미지 태그 하나로 남을 로그아웃시킬 수 있고
 // (CSRF), 브라우저가 미리 읽어 보는 것만으로도 로그아웃된다.
 app.MapPost("/logout", async (HttpContext context) =>

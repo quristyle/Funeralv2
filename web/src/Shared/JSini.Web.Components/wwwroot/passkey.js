@@ -358,7 +358,10 @@
         // 1. 실패 안내가 떠 있다 — 방금 폼이 되돌아온 것이다(정적 SSR 이라
         //    문서가 새로 로드된다). 그 위에 기기 창을 덮으면 **무엇이 틀렸는지
         //    읽지도 못하고** 비밀번호를 고쳐 칠 수도 없다.
-        if (document.querySelector('.jsini-login__error')) return false;
+        //    소셜 로그인에서 되돌아온 안내(`__notice`)도 같다 — 「가입 신청을
+        //    받았다」를 읽어야 할 자리에 기기 창이 덮이면 왜 못 들어가는지를
+        //    영영 모른 채 단추만 다시 누르게 된다.
+        if (document.querySelector('.jsini-login__error, .jsini-login__notice')) return false;
 
         // 2. `?noauto=1` — 개발 자동 로그인을 건너뛰는 그 표시다. 「이번에는
         //    로그인 화면을 그대로 보고 싶다」는 뜻이라 여기에도 듣게 한다.
