@@ -208,7 +208,7 @@
   border: 0;
   border-radius: 0.3rem;
   background: transparent;
-  color: var(--jsini-accent);
+  color: var(--jsini-accent-text);
   cursor: pointer;
 }
 
@@ -377,7 +377,7 @@
 
 .ad-ai-suggest__label {
   font-weight: 600;
-  color: var(--jsini-accent);
+  color: var(--jsini-accent-text);
 }
 
 .ad-ai-suggest__hint {

@@ -681,7 +681,7 @@ body {
 
 .jsini-header__login {
   padding: 0 0.6rem;
-  color: var(--jsini-accent);
+  color: var(--jsini-accent-text);
   text-decoration: none;
 }
 
@@ -1070,7 +1070,7 @@ body {
 
 .jsini-sidebar__tab.is-on {
   border-bottom-color: var(--jsini-accent);
-  color: var(--jsini-accent);
+  color: var(--jsini-accent-text);
 }
 
 /* 담아 둔 개수. 탭 이름과 같은 크기면 어느 쪽이 이름인지 헷갈린다. */
@@ -2680,7 +2680,7 @@ button.jsini-crumbs__item:hover { opacity: 1; }
 
 /* 켜진 토글과, 걸린 조건을 지우는 단추. 색으로만 구분한다 — 모양까지 바꾸면
    아이콘을 두 벌 관리하게 된다. */
-.commgrd__icon--on { color: var(--jsini-accent); }
+.commgrd__icon--on { color: var(--jsini-accent-text); }
 .commgrd__icon--warn { color: #d9534f; }
 
 /* ── 줄무늬 ──────────────────────────────────────────────
@@ -2921,7 +2921,7 @@ button.jsini-crumbs__item:hover { opacity: 1; }
 }
 
 /* 켜진 토글과, 걸린 조건을 지우는 단추. 색으로만 구분한다. */
-.commtree__icon--on { color: var(--jsini-accent); }
+.commtree__icon--on { color: var(--jsini-accent-text); }
 .commtree__icon--warn { color: #d9534f; }
 
 /* 줄무늬. 고정색을 쓰지 않는 이유와, 선택 줄을 이기지 않게 규칙을 낮게 두는
@@ -4234,7 +4234,7 @@ button.jsini-crumbs__item:hover { opacity: 1; }
 }
 
 .jsini-notice-popup__body a {
-  color: var(--jsini-accent);
+  color: var(--jsini-accent-text);
   text-decoration: underline;
 }
 
@@ -4327,7 +4327,7 @@ button.jsini-crumbs__item:hover { opacity: 1; }
 
 .jsini-notice-popup__file:hover {
   border-color: var(--jsini-accent);
-  color: var(--jsini-accent);
+  color: var(--jsini-accent-text);
 }
 
 .jsini-notice-popup__file-name {
@@ -5237,7 +5237,7 @@ button.jsini-crumbs__item:hover { opacity: 1; }
    테두리 색 하나보다 확실하다. */
 .commsch__item:has(> .commsch__label):focus-within > .commsch__label,
 .dxbl-fl-item:has(.dxbl-text-edit):focus-within > .dxbl-fl-cpt {
-  color: var(--jsini-accent);
+  color: var(--jsini-accent-text);
 }
 
 /* 라벨이 들어갈 만큼 칸을 키운다. */
@@ -5700,8 +5700,9 @@ html {
   --jsini-text-muted: #708096;
   --jsini-accent: var(--jsini-theme-primary, #206bc4);
 
-  /* 강조색을 **글자로 쓸 때**의 색. 밝은 바탕에서는 강조색 그대로다 —
-     까닭은 어두운 쪽(`:root[data-theme='dark']`)에 적어 두었다. */
+  /* 강조색을 **앞에 세울 때**(글자 · 아이콘 · 밑줄 · 표시선)의 색.
+     밝은 바탕에서는 강조색 그대로다 — 까닭은 어두운 쪽
+     (`:root[data-theme='dark']`)에 적어 두었다. */
   --jsini-accent-text: var(--jsini-accent);
 
   --jsini-surface-raised: #ffffff;
@@ -5736,13 +5737,23 @@ html {
      **열넷이 하나도 4.5 를 넘지 못한다.** 기본 테마(Fluent Dark + Blue)가
      2.67 이라 아무 설정도 안 건드린 사람이 바로 이것을 본다.
 
-     그래서 글자로 쓸 때만 흰색을 반씩 섞어 띄운다. 섞은 뒤에는 가장 낮은
-     것(tables)이 4.89 이고 나머지는 5.5~7.5 다. 색조는 그대로 남으므로
+     그래서 **앞에 세울 때만** 흰색을 반씩 섞어 띄운다. 섞은 뒤에는 가장 낮은
+     것(tables)이 4.5 를 넘고 나머지는 5.4~7.3 이다. 색조는 그대로 남으므로
      「고른 색」이라는 느낌은 잃지 않는다.
 
      **강조색 자체(`--jsini-accent`)를 바꾸지 않는다.** 그것은 바탕·테두리·
      옅은 칠(`color-mix(… 8%, transparent)`)에도 쓰이는데, 거기서는 낮은
-     밝기가 오히려 맞다 — 띄운 색으로 8% 를 깔면 그 자국이 안 보인다. */
+     밝기가 오히려 맞다 — 띄운 색으로 8% 를 깔면 그 자국이 안 보인다.
+
+     [쓰는 자리 — 「앞에 세운다」의 뜻]
+
+     `color:` 로 적는 모든 자리와, 선택을 말하는 얇은 표시(탭 밑줄 · 트리
+     왼쪽 3px 선)다. 한동안 사이드바 탭 하나에만 걸려 있어서 **나머지가 다
+     원래 강조색으로 남아 있었다** — 고른 탭 글자, 고른 메뉴 항목, 누르고
+     있는 칸의 라벨, 표 머리글이 전부 그 1.00~3.83 이다.
+
+     **새 규칙을 적을 때의 가름**: 글자·아이콘·얇은 선이면 이것,
+     바탕·옅은 칠·굵은 테두리면 `--jsini-accent`. */
   --jsini-accent-text: color-mix(in srgb, var(--jsini-accent), #ffffff 50%);
 
   --jsini-surface-raised: #1e3048;
@@ -5843,7 +5854,7 @@ body {
 
 .jsini-sidebar__tree .dxbl-treeview-item-container.dxbl-active {
   background: color-mix(in srgb, var(--jsini-accent) 16%, transparent);
-  color: var(--jsini-accent);
+  color: var(--jsini-accent-text);
   font-weight: 600;
 }
 
@@ -5866,9 +5877,16 @@ body {
   background: color-mix(in srgb, var(--jsini-accent) 8%, transparent);
 }
 
+/* 켜진 탭. **밑줄에도 띄운 강조색을 쓴다** — 사이드바 탭과 같은 까닭이다
+   (`.jsini-sidebar__tab.is-on` 머리말). 이 띠의 바탕(`--jsini-surface`) 위에서
+   원래 강조색은 대비가 1.06(tables)~3.64(ubuntu)라, 글자만 띄우면 **선택을
+   말하는 표시가 둘인데 하나만 보인다.**
+
+   바탕의 9% 칠은 원래 강조색 그대로 둔다. 옅은 칠은 밝기가 낮은 쪽이 맞다 —
+   띄운 색으로 9% 를 깔면 그 자국이 안 보인다. */
 .jsini-tab--active {
   background: color-mix(in srgb, var(--jsini-accent) 9%, transparent);
-  border-bottom-color: var(--jsini-accent);
+  border-bottom-color: var(--jsini-accent-text);
 }
 
 /* **좁은 화면은 건드리지 않는다.** 이 규칙은 파일 위쪽의
@@ -6127,7 +6145,7 @@ body {
 
 .commgrd .dxbl-grid-bottom-panel :is(button, a, .dxbl-btn):hover {
   background: color-mix(in srgb, var(--jsini-accent) 10%, transparent);
-  color: var(--jsini-accent);
+  color: var(--jsini-accent-text);
 }
 
 .commgrd .dxbl-grid-bottom-panel :is(.dxbl-pager-page-item-active, .dxbl-pager-active, [aria-current='page']) {
@@ -6356,10 +6374,13 @@ body {
   color: var(--jsini-text-muted);
 }
 
-/* 셸의 링크와 탭은 파란색만으로 선택을 표현하지 않고 표면도 함께 바꾼다. */
+/* 셸의 링크와 탭은 파란색만으로 선택을 표현하지 않고 표면도 함께 바꾼다.
+
+   왼쪽 표시선도 글자와 같이 띄운 강조색이다. 3px 밖에 안 되는 선이라
+   어두운 바탕에서 원래 강조색으로 그으면 있는지조차 모른다. */
 .jsini-sidebar__tree .dxbl-treeview-item-container.dxbl-active,
 .jsini-sidebar__tree .dxbl-treeview-item-container[aria-current='page'] {
-  box-shadow: inset 3px 0 0 var(--jsini-accent);
+  box-shadow: inset 3px 0 0 var(--jsini-accent-text);
 }
 
 .jsini-tab__link {
@@ -6367,7 +6388,7 @@ body {
 }
 
 .jsini-tab--active .jsini-tab__link {
-  color: var(--jsini-accent);
+  color: var(--jsini-accent-text);
 }
 
 .jsini-tab__close {
@@ -6602,7 +6623,7 @@ body {
 
 .commgrd .dxbl-grid-header-content {
   /* Tabler: 헤더 텍스트는 주색 계열 중간 톤 */
-  color: color-mix(in srgb, var(--jsini-accent) 65%, var(--jsini-text-muted));
+  color: color-mix(in srgb, var(--jsini-accent-text) 65%, var(--jsini-text-muted));
 }
 
 .commgrd .dxbl-grid-table > tbody > tr.dxbl-grid-focused-row,
@@ -6648,7 +6669,7 @@ body {
 
 .jsini-bottom-nav__item:hover,
 .jsini-bottom-nav__item:active {
-    color: var(--jsini-accent, #007bff);
+    color: var(--jsini-accent-text, #007bff);
 }
 
 .jsini-bottom-nav__icon {
