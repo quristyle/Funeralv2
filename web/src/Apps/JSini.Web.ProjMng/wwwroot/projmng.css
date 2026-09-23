@@ -3956,3 +3956,63 @@
   font-size: var(--jsini-fs-md);
   margin-left: var(--jsini-sp-xs);
 }
+
+/* ── 개발자 정보 — 목차와 문서 ────────────────────────────── */
+
+/* 목차. 제목만 세운다 — 긴 제목은 잘라서 한 줄로 둔다. 두 줄로 흐르면
+   쪽이 열몇일 때 목차가 본문만큼 길어진다. */
+.pm-toc {
+  display: flex;
+  flex-direction: column;
+  gap: var(--jsini-sp-3xs, 2px);
+}
+
+.pm-toc__item {
+  display: block;
+  width: 100%;
+  padding: var(--jsini-sp-2xs) var(--jsini-sp-xs);
+  border: 0;
+  border-radius: var(--jsini-radius-sm);
+  background: transparent;
+  color: var(--jsini-text);
+  font-size: var(--jsini-fs-sm);
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.pm-toc__item:hover {
+  background: var(--jsini-surface-2);
+}
+
+/* 고른 쪽. 색만으로 가르지 않고 굵기도 준다 — 색을 못 가르는 눈에도
+   어느 쪽을 보고 있는지 남아야 한다. */
+.pm-toc__item.is-on {
+  background: var(--jsini-surface-2);
+  color: var(--jsini-accent);
+  font-weight: 600;
+}
+
+/* 문서 머리 줄 — 제목 · 고친 때 · 단추들이 한 줄에 앉는다. */
+.pm-doc-head {
+  display: flex;
+  align-items: center;
+  gap: var(--jsini-sp-xs);
+  margin-bottom: var(--jsini-sp-sm);
+}
+
+.pm-doc-title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: var(--jsini-fs-md);
+  font-weight: 600;
+}
+
+.pm-doc-when {
+  font-size: var(--jsini-fs-xs);
+  color: var(--jsini-text-2);
+  white-space: nowrap;
+}

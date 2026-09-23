@@ -2,25 +2,43 @@
 @attribute [RouteKey("projmng.wbs.docs")]
 
 @*
-    [WBS 개발자 정보]
+    [개발자 정보]
 
     이력: 사내망 WBS 대시보드(Vue) `views/Docs.vue` + `components/RichEditor.vue`
           → **여기**
+          2026-09-23 에 원본과 다시 대조해 화면을 통째로 다시 만들었다(아래).
     API: `projmng/wbs-board/docs`
 
-    팀이 나눠 보는 문서다 — 계정 정보, 환경 설정 요령 같은 것이 쪽마다 하나씩
-    들어 있다. 본문은 **HTML** 이라 서식 편집기로 쓰고 그대로 그린다.
+    팀이 나눠 보는 **문서**다. 계정 정보, 환경 설정 요령 같은 것이 쪽마다
+    하나씩 들어 있고 본문은 HTML 이다.
 
-    [손으로 만든 편집기를 옮기지 않았다]
+    ────────────────────────────────────────────────────────────
+    [처음에는 목록 관리 화면으로 만들었었다 — 그것이 틀렸다]
 
-    원본은 `contenteditable` 로 만든 경량 편집기였다. 포털에는 이미
-    `DxHtmlEditor` 를 쓰는 화면이 둘 있어서(FAQ · 문의) 그쪽에 맞췄다 —
-    편집기가 둘이면 붙여넣은 그림·표가 화면마다 다르게 저장된다.
+    표에 줄을 세우고 창을 띄워 고치게 했는데, 원본은 **목차(왼쪽) + 문서
+    (오른쪽)** 2단이고 **그 자리에서** 고친다. 둘의 차이는 겉모습이 아니다 —
+    이 화면의 일은 **읽고 쓰는 것**이지 줄을 관리하는 것이 아니다.
 
-    [그리기 전에 정화한다]
+    표로 두면 이렇게 어긋난다.
+
+      · 본문이 표의 한 칸이 되어 읽을 수 없다. 읽으려면 창을 열어야 한다.
+      · 고치려고 창을 열면 **옆 쪽을 볼 수 없다.** 문서를 쓰는 동안 다른
+        쪽을 참고하는 것이 이 화면에서 가장 잦은 일이다.
+      · 쪽이 열몇이면 표가 한 쪽을 넘어가 목차 노릇을 못 한다.
+
+    [그래서 옮긴 것 다섯]
+
+    1. **목차 + 문서 2단.** 목차는 제목만 세우고, 고른 쪽만 오른쪽에 크게 편다.
+    2. **그 자리에서 편집.** 「편집」을 누르면 제목칸과 편집기로 바뀐다.
+    3. **편집 중에 다른 쪽을 누르면 묻는다.** 안 물으면 쓰던 것이 말없이 사라진다.
+    4. **새 쪽은 만들자마자 편집으로 들어간다.** 제목만 받고 본문은 빈 채로
+       시작하는 것이 이 화면의 쓰임이다.
+    5. **지운 뒤에는 이웃 쪽을 고른다.** 빈 화면으로 떨어뜨리지 않는다.
+
+    [본문을 그리기 전에 정화한다]
 
     담긴 것이 HTML 이라 `MarkupString` 으로 그려야 서식이 산다. 그 말은
-    **담긴 글자가 그대로 실행될 수 있다**는 뜻이라, 공지와 같은 정화기를
+    담긴 글자가 **그대로 실행될 수 있다**는 뜻이라 공지와 같은 정화기를
     거친다(`NoticeHtml.Sanitize`).
 *@
 
@@ -37,124 +55,294 @@
     </Fields>
 </CommSch>
 
-<CommCont Hint="@Hint">
-    <CommGrd TItem="WbsDocDto"
-             Data="@_rows"
-             EditFormTitle="문서"
-             ExportName="개발자 정보"
-             EmptyText="문서가 없습니다."
-             PageSize="20"
-             SelectedItem="@_selected"
-             SelectedItemChanged="@OnSelectedAsync"
-             OnNew="@FillNew"
-             OnSave="@SaveAsync"
-             OnDelete="@DeleteAsync"
-             DeleteConfirm="@(d => $"「{d.Title}」 을(를) 지웁니다.\n되돌릴 수 없습니다.")"
-             Reload="@SearchAsync">
-        <Columns>
-            <DxGridDataColumn FieldName="@nameof(WbsDocDto.SortOrder)" Caption="차례" Width="80" />
-            <DxGridDataColumn FieldName="@nameof(WbsDocDto.Title)" Caption="제목" MinWidth="220"
-                              TextAlignment="GridTextAlignment.Left" />
-            <DxGridDataColumn FieldName="@nameof(WbsDocDto.UpdatedBy)" Caption="고친이" Width="120" />
-            <DxGridDataColumn FieldName="@nameof(WbsDocDto.UpdatedAt)" Caption="고친 때" Width="140" />
-        </Columns>
+<div class="pm-split">
+    <CommCont Title="목차" Hint="@($"{_docs.Count}쪽")" CssClass="pm-split__side">
+        @if (_docs.Count == 0)
+        {
+            <PageNotice Tone="NoticeTone.Info"
+                        Text="쪽이 없습니다. 아래 [쪽 추가] 로 시작하십시오." />
+        }
+        else
+        {
+            <nav class="pm-toc">
+                @foreach (var doc in _docs)
+                {
+                    <button type="button"
+                            class="pm-toc__item @(doc.Id == _selectedId ? "is-on" : null)"
+                            title="@doc.Title"
+                            @onclick="@(() => SelectAsync(doc.Id))">
+                        @doc.Title
+                    </button>
+                }
+            </nav>
+        }
 
-        <EditFormTemplate Context="edit">
-            @{
-                var d = (WbsDocDto)edit.EditModel;
-            }
-            <DxFormLayout CssClass="pm-editform">
-                <DxFormLayoutItem Caption="제목" ColSpanMd="9">
-                    <DxTextBox @bind-Text="d.Title" />
-                </DxFormLayoutItem>
-
-                <DxFormLayoutItem Caption="차례" ColSpanMd="3">
-                    <DxSpinEdit @bind-Value="d.SortOrder" />
-                    <div class="jsini-hint">비우면(0) 맨 뒤로 갑니다.</div>
-                </DxFormLayoutItem>
-
-                <DxFormLayoutItem Caption="본문" ColSpanMd="12">
-                    <DxHtmlEditor @bind-Markup="d.Content"
-                                  BindMarkupMode="HtmlEditorBindMarkupMode.OnDelayedInput"
-                                  CssClass="pm-doc-editor" />
-                </DxFormLayoutItem>
-            </DxFormLayout>
-        </EditFormTemplate>
-    </CommGrd>
-</CommCont>
-
-@if (_selected is not null)
-{
-    <CommCont Title="@_selected.Title" Hint="@($"{_selected.UpdatedBy} · {_selected.UpdatedAt}")">
-        <div class="pm-doc">
-            @((MarkupString)NoticeHtml.Sanitize(_selected.Content))
+        <div class="jsini-toolbar">
+            <PermissionView Action="MenuAction.Create">
+                <DxButton Text="쪽 추가"
+                          RenderStyle="ButtonRenderStyle.Secondary"
+                          Enabled="@(ProjectRid is not null)"
+                          Click="@StartNew" />
+            </PermissionView>
         </div>
     </CommCont>
-}
-else
-{
-    <PageNotice Tone="NoticeTone.Info" Text="위에서 문서를 고르면 본문이 여기에 보입니다." />
-}
+
+    <CommCont CssClass="pm-split__main">
+        @if (Current is null)
+        {
+            <PageNotice Tone="NoticeTone.Info"
+                        Text="@(_docs.Count == 0
+                                ? "등록된 문서가 없습니다. 왼쪽 [쪽 추가] 로 시작하십시오."
+                                : "왼쪽 목차에서 쪽을 고르십시오.")" />
+        }
+        else
+        {
+            <div class="pm-doc-head">
+                @if (_editing)
+                {
+                    <DxTextBox @bind-Text="_draftTitle" CssClass="pm-doc-title" />
+                }
+                else
+                {
+                    <h3 class="pm-doc-title">@Current.Title</h3>
+                }
+
+                <span class="pm-doc-when">@Current.UpdatedBy · @Current.UpdatedAt</span>
+
+                @if (_editing)
+                {
+                    <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Primary" Click="@SaveAsync" />
+                    <DxButton Text="취소" RenderStyle="ButtonRenderStyle.Secondary" Click="@CancelEdit" />
+                }
+                else
+                {
+                    <PermissionView Action="MenuAction.Update">
+                        <DxButton Text="편집" RenderStyle="ButtonRenderStyle.Secondary" Click="@StartEdit" />
+                    </PermissionView>
+
+                    <PermissionView Action="MenuAction.Delete">
+                        <DxButton Text="삭제" RenderStyle="ButtonRenderStyle.Secondary" Click="@DeleteAsync" />
+                    </PermissionView>
+                }
+            </div>
+
+            @if (_editing)
+            {
+                @* 붙여넣은 그림은 편집기가 본문에 심는다. 원본은 그것을 서버에
+                   올리고 주소만 남겼는데, 그 통로(`/api/upload`)는 안 옮겼다 —
+                   그림이 많아지면 본문이 무거워진다. *@
+                <DxHtmlEditor @bind-Markup="_draftContent"
+                              BindMarkupMode="HtmlEditorBindMarkupMode.OnDelayedInput"
+                              CssClass="pm-doc-editor" />
+            }
+            else if (string.IsNullOrWhiteSpace(Current.Content))
+            {
+                <PageNotice Tone="NoticeTone.Info" Text="내용이 없습니다. [편집] 을 눌러 적으십시오." />
+            }
+            else
+            {
+                <div class="pm-doc">
+                    @((MarkupString)NoticeHtml.Sanitize(Current.Content))
+                </div>
+            }
+        }
+    </CommCont>
+</div>
+
+<CommPopup @bind-Visible="_newOpen" HeaderText="쪽 추가" Width="420px">
+    <BodyContentTemplate Context="popup">
+        <DxFormLayout CssClass="pm-editform">
+            <DxFormLayoutItem Caption="제목" ColSpanMd="12">
+                <DxTextBox @bind-Text="_newTitle" />
+                <div class="jsini-hint">만들면 바로 편집으로 들어갑니다. 본문은 그때 적습니다.</div>
+            </DxFormLayoutItem>
+        </DxFormLayout>
+    </BodyContentTemplate>
+
+    <FooterContentTemplate Context="popup">
+        <DxButton Text="만들기" RenderStyle="ButtonRenderStyle.Primary" Click="@CreateAsync" />
+        <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary"
+                  Click="@(() => _newOpen = false)" />
+    </FooterContentTemplate>
+</CommPopup>
+
+<ConfirmDialog @ref="_confirm" />
 
 @code {
     private string? _projectCode;
-    private IReadOnlyList<WbsDocDto> _rows = [];
-    private WbsDocDto? _selected;
+
+    private IReadOnlyList<WbsDocDto> _docs = [];
+    private int? _selectedId;
+
+    private bool _editing;
+    private string? _draftTitle;
+    private string? _draftContent;
+
+    private bool _newOpen;
+    private string? _newTitle;
+
+    private ConfirmDialog? _confirm;
 
     private int? ProjectRid => int.TryParse(_projectCode, out var rid) ? rid : null;
 
-    private string Hint => $"{_rows.Count}쪽";
+    private WbsDocDto? Current => _docs.FirstOrDefault(d => d.Id == _selectedId);
+
+    /// <summary>
+    /// 고치던 것이 남아 있나. <b>제목과 본문을 둘 다 본다</b> — 제목만 고치고
+    /// 옮기는 일이 실제로 잦다.
+    /// </summary>
+    private bool IsDirty =>
+        _editing && Current is { } doc
+        && (doc.Title != _draftTitle || (doc.Content ?? "") != (_draftContent ?? ""));
 
     private Task SearchAsync() => LoadAsync(async () =>
     {
         if (ProjectRid is not int rid)
         {
-            _rows = [];
-            _selected = null;
+            _docs = [];
+            _selectedId = null;
             return 0;
         }
 
-        _rows = await Api.ListAsync(rid);
+        _docs = await Api.ListAsync(rid);
 
-        // 고르고 있던 쪽을 다시 잡아 준다. 저장하고 목록을 다시 읽을 때마다
-        // 아래 본문이 사라지면, 고친 결과를 눈으로 확인할 수 없다.
-        _selected = _selected is null
-            ? _rows.FirstOrDefault()
-            : _rows.FirstOrDefault(d => d.Id == _selected.Id) ?? _rows.FirstOrDefault();
+        // 보던 쪽이 아직 있으면 그대로 둔다. 저장할 때마다 첫 쪽으로
+        // 튕기면 고친 결과를 눈으로 확인할 수 없다.
+        if (!_docs.Any(d => d.Id == _selectedId))
+        {
+            _selectedId = _docs.FirstOrDefault()?.Id;
+        }
 
-        return _rows.Count;
+        return _docs.Count;
     }, "문서가 없습니다.", "문서를 읽지 못했습니다");
 
-    private Task OnSelectedAsync(WbsDocDto? doc)
+    /// <summary>
+    /// 다른 쪽으로 옮긴다. <b>고치던 것이 있으면 먼저 묻는다</b> —
+    /// 안 물으면 쓰던 글이 말없이 사라진다.
+    /// </summary>
+    private async Task SelectAsync(int id)
     {
-        _selected = doc;
-        return Task.CompletedTask;
+        if (id == _selectedId) return;
+
+        if (IsDirty && _confirm is not null)
+        {
+            var ok = await _confirm.AskAsync(
+                "고치던 내용이 저장되지 않았습니다. 그래도 옮길까요?",
+                "저장하지 않고 옮기기", "옮긴다", ButtonRenderStyle.Secondary);
+
+            if (!ok) return;
+        }
+
+        _editing = false;
+        _selectedId = id;
     }
 
-    /// <summary>새 쪽은 맨 뒤에 붙는다.</summary>
-    private void FillNew(WbsDocDto doc) =>
-        doc.SortOrder = _rows.Count == 0 ? 100 : _rows.Max(d => d.SortOrder) + 10;
+    private void StartEdit()
+    {
+        if (Current is not { } doc) return;
 
-    private async Task SaveAsync((WbsDocDto Item, bool IsNew) e)
+        _draftTitle = doc.Title;
+        _draftContent = doc.Content;
+        _editing = true;
+    }
+
+    private void CancelEdit() => _editing = false;
+
+    private async Task SaveAsync()
+    {
+        if (ProjectRid is not int rid || Current is not { } doc) return;
+
+        if (string.IsNullOrWhiteSpace(_draftTitle))
+        {
+            Say("제목은 필수입니다.", NoticeTone.Warning);
+            return;
+        }
+
+        var saved = await RunAsync(
+            () => Api.UpdateAsync(rid, new WbsDocDto
+            {
+                Id = doc.Id,
+                Title = _draftTitle,
+                Content = _draftContent ?? "",
+                SortOrder = doc.SortOrder,
+            }),
+            "저장했습니다.", "저장하지 못했습니다");
+
+        if (!saved) return;
+
+        _editing = false;
+        await SearchAsync();
+    }
+
+    private void StartNew()
+    {
+        _newTitle = null;
+        _newOpen = true;
+    }
+
+    /// <summary>
+    /// 제목만 받아 만들고 <b>바로 편집으로 들어간다.</b> 본문이 빈 쪽을
+    /// 만들어 두고 나중에 찾아오게 하지 않는다.
+    /// </summary>
+    private async Task CreateAsync()
     {
         if (ProjectRid is not int rid) return;
 
-        if (e.IsNew)
+        if (string.IsNullOrWhiteSpace(_newTitle))
         {
-            await Api.CreateAsync(rid, e.Item);
+            Say("제목을 넣으십시오.", NoticeTone.Warning);
+            return;
         }
-        else
+
+        var title = _newTitle.Trim();
+
+        var made = await RunAsync(
+            () => Api.CreateAsync(rid, new WbsDocDto
+            {
+                Title = title,
+                Content = "",
+
+                // 맨 뒤에 붙인다. 0 으로 두면 서버가 100 을 주는데, 이미
+                // 100 짜리가 있으면 차례가 겹쳐 목차 순서가 흔들린다.
+                SortOrder = _docs.Count == 0 ? 100 : _docs.Max(d => d.SortOrder) + 10,
+            }),
+            "만들었습니다.", "만들지 못했습니다");
+
+        if (!made) return;
+
+        _newOpen = false;
+        await SearchAsync();
+
+        var created = _docs.FirstOrDefault(d => d.Title == title);
+
+        if (created is not null)
         {
-            await Api.UpdateAsync(rid, e.Item);
+            _selectedId = created.Id;
+            StartEdit();
         }
     }
 
-    private async Task DeleteAsync(WbsDocDto doc)
+    /// <summary>지운 뒤에는 <b>이웃 쪽</b>을 고른다. 빈 화면으로 떨어뜨리지 않는다.</summary>
+    private async Task DeleteAsync()
     {
-        if (ProjectRid is not int rid) return;
+        if (ProjectRid is not int rid || Current is not { } doc || _confirm is null) return;
 
-        await Api.DeleteAsync(rid, doc.Id);
+        var ok = await _confirm.AskAsync(
+            $"「{doc.Title}」 쪽을 지웁니다.\n되돌릴 수 없습니다.", "쪽 삭제");
 
-        if (_selected?.Id == doc.Id) _selected = null;
+        if (!ok) return;
+
+        var index = _docs.ToList().FindIndex(d => d.Id == doc.Id);
+        var next = _docs.ElementAtOrDefault(index + 1) ?? _docs.ElementAtOrDefault(index - 1);
+
+        var gone = await RunAsync(
+            () => Api.DeleteAsync(rid, doc.Id), "지웠습니다.", "지우지 못했습니다");
+
+        if (!gone) return;
+
+        _editing = false;
+        _selectedId = next?.Id;
+
+        await SearchAsync();
     }
 }
