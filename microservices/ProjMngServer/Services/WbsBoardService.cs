@@ -311,28 +311,11 @@ public sealed class WbsBoardService(IConfiguration configuration)
                  , {FinishLate}            as FinishLate
                  , case when {StartLate}  then current_date - w.plan_sdt end as StartDays
                  , case when {FinishLate} then current_date - w.plan_edt end as FinishDays
-                 , p.pv_finish_rate        as PvFinishRate
-                 , p.pv_actual_sdt::text   as PvActualSdt
-                 , p.pv_actual_edt::text   as PvActualEdt
-                 , p.pv_snapshot_at::text  as PvSnapshotAt
-                 , pt.task_cnt::int        as PvTaskCnt
-                 , pt.node_cnt::int        as PvNodeCnt
-                 , pt.node_empty::int      as PvNodeEmpty
-                 , pt.task_edt::text       as PvTaskEdt
-                 , pt.workers              as PvWorkers
-                 , pt.status               as PvStatus
-                 , pt.status_at::text      as PvStatusAt
-                 , pt.status_cnt::int      as PvStatusCnt
-                 , pt.task_code            as PvTaskCode
               from projmng.wbs_work w
               left join projmng.wbs_user u
                      on u.prj_rid = w.prj_rid and upper(u.bp_id) = upper(w.user_bp_id)
               left join projmng.wbs_user ru
                      on ru.prj_rid = w.prj_rid and upper(ru.bp_id) = upper(w.user_real_id)
-              left join projmng.wbs_pv p
-                     on p.prj_rid = w.prj_rid and p.activity_id = w.activity_id
-              left join {TaskRollup} pt
-                     on pt.prj_rid = w.prj_rid and pt.activity_id = w.activity_id
              where w.prj_rid = @prjRid
                and {DevWhere(query.Scope, "w")}
                and (@month::text is null

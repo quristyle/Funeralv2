@@ -270,10 +270,6 @@ public sealed class WbsBoardDelayRow
 /// <summary>
 /// 상세 목록 한 줄. 화면이 가장 많이 읽는 자료다.
 /// </summary>
-/// <remarks>
-/// 뒤쪽 <c>Pv*</c> 는 ProjectView 캐시라 <b>없으면 전부 <c>null</c></b> 이고,
-/// 그래도 목록은 그대로 나온다 — 수집을 한 번도 안 돌린 프로젝트가 정상이다.
-/// </remarks>
 public sealed class WbsBoardRow
 {
     public string? ActivityId { get; set; }
@@ -318,20 +314,6 @@ public sealed class WbsBoardRow
     public int? StartDays { get; set; }
     public int? FinishDays { get; set; }
 
-    public decimal? PvFinishRate { get; set; }
-    public string? PvActualSdt { get; set; }
-    public string? PvActualEdt { get; set; }
-    public string? PvSnapshotAt { get; set; }
-
-    public int? PvTaskCnt { get; set; }
-    public int? PvNodeCnt { get; set; }
-    public int? PvNodeEmpty { get; set; }
-    public string? PvTaskEdt { get; set; }
-    public string? PvWorkers { get; set; }
-    public string? PvStatus { get; set; }
-    public string? PvStatusAt { get; set; }
-    public int? PvStatusCnt { get; set; }
-    public string? PvTaskCode { get; set; }
 }
 
 /// <summary>화면별 일감 건수. 상세 목록의 「일감」 칸이 읽는다.</summary>

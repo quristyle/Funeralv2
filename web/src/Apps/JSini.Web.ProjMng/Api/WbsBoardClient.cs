@@ -411,10 +411,6 @@ public sealed class WbsBoardDelayRowDto
 }
 
 /// <summary>상세 목록 한 줄.</summary>
-/// <remarks>
-/// 뒤쪽 <c>Pv*</c> 는 ProjectView 캐시라 <b>없으면 전부 비어 있다</b> — 수집을
-/// 한 번도 안 돌린 프로젝트가 정상이다.
-/// </remarks>
 public sealed class WbsBoardRowDto
 {
     public string? ActivityId { get; set; }
@@ -455,20 +451,6 @@ public sealed class WbsBoardRowDto
     public bool FinishLate { get; set; }
     public int? StartDays { get; set; }
     public int? FinishDays { get; set; }
-
-    public decimal? PvFinishRate { get; set; }
-    public string? PvActualSdt { get; set; }
-    public string? PvActualEdt { get; set; }
-    public string? PvSnapshotAt { get; set; }
-    public int? PvTaskCnt { get; set; }
-    public int? PvNodeCnt { get; set; }
-    public int? PvNodeEmpty { get; set; }
-    public string? PvTaskEdt { get; set; }
-    public string? PvWorkers { get; set; }
-    public string? PvStatus { get; set; }
-    public string? PvStatusAt { get; set; }
-    public int? PvStatusCnt { get; set; }
-    public string? PvTaskCode { get; set; }
 
     // 원장의 표시 칸은 'o' 아니면 빈 값이다. 편집 폼은 `@bind-` 로만 묶을 수
     // 있고(`EditFormBindingTests`) 확인칸은 참·거짓을 받으므로, 그 사이를

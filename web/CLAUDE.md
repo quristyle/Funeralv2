@@ -1316,7 +1316,7 @@ ERD 화면과 업무 흐름 화면은 **`db_pkey='erd'` 한 줄만** 읽는다. 
 그림을 열지 알게 되기 때문이고, 순서를 뒤집으면 **ERD 를 열 때 왕복이 둘로
 늘어난다** — 그쪽이 훨씬 잦다.
 
-#### WBS 대시보드 — 사내망에서 통째로 들여온 화면 열넷 (2026-09-23)
+#### WBS 대시보드 — 사내망에서 통째로 들여왔다 (2026-09-23)
 
 사내망에서 **따로 돌던 물건**이다(`move_re` 꾸러미 — .NET 9 Minimal API +
 Vue3, 약 16,700줄). 프로젝트관리 안으로 들여왔다.
@@ -1324,8 +1324,8 @@ Vue3, 약 16,700줄). 프로젝트관리 안으로 들여왔다.
 ```
 DB      deploy/sql/projmng-wbs-2026-09-23.sql      표 15 · 뷰 4 (projmng 스키마)
 메뉴    deploy/sql/portal-menu-wbs-board-2026-09-23.sql   PM_WBS 묶음 + 화면 14
-백엔드  ProjMngServer/Controllers/WbsBoard*·Interfaces*·Git*·Pv*
-프론트  Components/Pages/Wbs*Board·WbsRowList·InterfaceList·Git*·Pv*
+백엔드  ProjMngServer/Controllers/WbsBoard*·Interfaces*·Git*
+프론트  Components/Pages/Wbs*Board·WbsRowList·InterfaceList·Git*
 ```
 
 **`/projmng/wbs` 와 `/projmng/proj/wbs` 는 다른 물건이다.** 앞엣것이 들여온
@@ -1342,61 +1342,25 @@ DB      deploy/sql/projmng-wbs-2026-09-23.sql      표 15 · 뷰 4 (projmng 스�
 | 메뉴 권한 | 자기 표 둘(`dev_menu`·`dev_user_menu`) | `scom.role_menus`. 표도 화면도 안 옮겼다 |
 | 표 이름 | `hhip_wbs_*` | `wbs_*` (고객사 이름을 뗐다) |
 
-##### 옮길 수 없었던 것 — ProjectView 의 엑셀 경로
+##### ProjectView 는 통째로 걷어냈다 (2026-09-23)
 
-원본은 ProjectView 값을 받는 길이 둘이었다. ① Excel Export 파일 ② 콘솔에서
-걷어 붙여넣은 JSON. **①은 성립하지 않는다** — 그 엑셀이 HHI DRM 으로 잠겨
-있어 프로그램이 직접 못 열고, 원본은 Windows 의 Excel COM
-(`tools/export2csv.ps1`)으로 CSV 를 만든 뒤 `%USERPROFILE%\Downloads` 를
-뒤졌다. 포털은 리눅스 컨테이너에서 돌고 브라우저 내려받기 폴더가 없다.
+들여올 때는 화면 둘([ProjectView 동기화]·[워크플로 채우기])과 콘솔 스크립트
+2,595줄을 함께 옮겼는데, **쓰지 않기로 해서 같은 날 지웠다**(사용자 결정).
+화면·`PvController`·`PvCacheService`·`PvSyncService`·`PvClient`·
+`wwwroot/js/pv-*.js` 셋이 함께 없어졌다.
 
-②만 남겼고 그것이 [수집]·[워크플로 채우기]가 이미 쓰던 길이라, 화면에서
-달라지는 것은 「파일로 읽기」 단추가 없다는 것뿐이다.
+상세 목록의 PV 칸 둘(진척·단계)도 뺐다 — 캐시를 채울 곳이 없어졌으므로
+남기면 **늘 비어 있는 칸**이 되고, 빈 값을 「아직 안 걷었나 보다」로 읽는다.
 
-##### 콘솔 스크립트 2,595줄은 **고치지 않고** 들여왔다
+표 셋(`wbs_pv`·`wbs_pv_task`·`wbs_pv_node`)은 **그대로 두었다.** 읽는 코드는
+없지만 지우는 것은 운영 DDL 이라 사람이 정할 일이다
+(`deploy/sql/portal-menu-wbs-pv-remove-2026-09-23.sql` 머리말에 지우는 한 줄이
+적혀 있다).
 
-`wwwroot/js/pv-script-core.js`(1,592) · `pv-flow-core.js`(1,003)는 원본 파일
-그대로다. 고친 것은 모듈 경로 한 줄뿐이고, 화면은 `pv-console.js` 한 곳을
-거쳐 부른다. 그 안의 fetch 가 전부 **상대 주소**라 ProjectView 탭 안에서
-돌기만 하면 우리 주소를 알 필요가 없다 — 그래서 손댈 것이 없었다.
-
-##### GitLab 을 GitHub 로 갈아탔다 (2026-09-23)
-
-사내에서는 GitLab 이었고 볼 저장소를 `pmm001`…`pmm018` × `be`/`fe` 규칙으로
-**계산해서** 서른여섯 곳을 훑었다. GitHub 로 오면서 그 규칙이 뜻을 잃어
-(저장소가 하나다) **설정이 목록을 준다** — `Git:Projects:{프로젝트번호}:Repos`.
-
-```
-/projmng/wbs/gitlab  →  /projmng/wbs/git      (메뉴 제목도 「Git 모니터링」)
-/api/gitlab/*        →  /api/git/*
-Gitlab*(서비스·모델·DTO)  →  Git*
-```
-
-`route_key` 는 「한 번 정하면 안 바꾼다」가 규칙인데 여기서는 바꿨다 —
-그 열쇠가 **하루짜리**였고(같은 날 만들었다) 화면과 DB 를 한 변경에 함께
-옮겼기 때문이다(`deploy/sql/portal-menu-wbs-git-2026-09-23.sql`). 굳어진
-뒤였다면 이름이 어긋난 채로 두는 편이 맞다.
-
-**토큰은 없어도 된다.** 공개 저장소는 그대로 읽히고 시간당 60회라는 한도가
-붙을 뿐이다(토큰을 넣으면 5,000회). 그래서 「설정됐나」의 기준이 토큰이 아니라
-**저장소 목록**이다.
-
-###### GitHub 이 안 주는 것 둘 — 화면이 밝힌다
-
-| | 사정 | 화면 |
-|---|---|---|
-| 가지의 마지막 커밋 날짜 | 가지 목록에 없다. 가지마다 한 번씩 더 불러야 한다 | 보이는 만큼만 묻고 「8개 중」을 함께 적는다 |
-| 7일 커밋의 총 건수 | 한 쪽에 100건까지다 | 꽉 차면 `100+` 로 적는다 |
-
-**잘린 값을 말없이 보여 주면 「7일에 딱 100건」·「묵은 가지 0」처럼 있을 법한
-숫자로 읽혀 아무도 의심하지 않는다.**
-
-###### 남은 한도는 **캐시에 같이 담는다** (실제로 밟음)
-
-`GitHubClient` 가 요청마다 새로 생기므로(scoped) 캐시로 답하는 요청은 호출을
-한 번도 안 해 한도를 모른다. 그대로 두면 화면의 「남은 한도」가 **캐시가 듣는
-동안 내내 비어 있고**, 하필 그 칸은 「왜 갑자기 안 보이나」를 보려고 만든
-자리다. 캐시 줄에 함께 담는다.
+옮길 때 알아낸 것 하나는 적어 둘 만하다 — **ProjectView 의 Excel Export 는
+HHI DRM 으로 잠겨 있어 프로그램이 직접 못 연다.** 원본은 Windows 의 Excel COM
+으로 CSV 를 만든 뒤 브라우저 내려받기 폴더를 뒤졌고, 그 길은 리눅스 컨테이너
+에서 성립하지 않는다. 다시 붙일 일이 생기면 그것부터 걸린다.
 
 ##### 옮기면서 밟은 것 셋
 

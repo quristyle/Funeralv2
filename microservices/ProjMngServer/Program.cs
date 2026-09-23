@@ -59,11 +59,6 @@ builder.Services.AddScoped<WbsDocsService>();
 builder.Services.AddScoped<InterfaceService>();
 builder.Services.AddScoped<InterfaceFileService>();
 
-// ProjectView 캐시와 원장 반영. **엑셀 경로는 옮기지 않았다** —
-// 그 파일이 DRM 으로 잠겨 있어 Windows 의 Excel COM 없이는 못 연다
-// (PvSyncService 머리말).
-builder.Services.AddScoped<PvCacheService>();
-builder.Services.AddScoped<PvSyncService>();
 
 // Git(GitHub). 저장소 목록이 비면 아무것도 부르지 않고 빈 결과를 준다.
 // **토큰은 없어도 된다** — 공개 저장소는 그대로 읽히고 한도만 낮다.

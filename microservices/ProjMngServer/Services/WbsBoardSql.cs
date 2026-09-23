@@ -81,38 +81,6 @@ internal static class WbsBoardSql
         "(w.plan_edt is not null and w.plan_edt <= current_date and w.plan_edt_c is null)";
 
     /// <summary>
-    /// 액티비티별 ProjectView 일감 집계. 상세 목록이 원장에 이것을 붙여 읽는다.
-    /// </summary>
-    /// <remarks>
-    /// 한 액티비티에 일감이 여럿이면 <b>가장 나중에 바뀐 것</b>을 현재단계로 삼는다.
-    /// 여럿이 섞여 있다는 사실 자체는 <c>status_cnt</c> 로 함께 내려보낸다 —
-    /// 대표 하나만 보이면 「왜 저 단계지」를 뒤지게 된다.
-    /// </remarks>
-    public const string TaskRollup = """
-        (select t.prj_rid
-              , t.activity_id
-              , count(*)                          as task_cnt
-              , sum(coalesce(t.pv_node_cnt, 0))   as node_cnt
-              , sum(coalesce(t.pv_node_empty, 0)) as node_empty
-              , max(t.pv_plan_edt)                as task_edt
-              , (array_agg(t.pv_status order by t.pv_status_at desc nulls last)
-                   filter (where t.pv_status is not null))[1] as status
-              , (array_agg(t.pv_task_code order by t.pv_status_at desc nulls last)
-                   filter (where t.pv_task_code is not null))[1] as task_code
-              , max(t.pv_status_at)               as status_at
-              , count(distinct t.pv_status)       as status_cnt
-              , (select string_agg(distinct n.worker_nm, ', ')
-                   from projmng.wbs_pv_node n
-                   join projmng.wbs_pv_task t2
-                     on t2.prj_rid = n.prj_rid and t2.pv_task_id = n.pv_task_id
-                  where t2.prj_rid = t.prj_rid
-                    and t2.activity_id = t.activity_id
-                    and n.worker_nm is not null) as workers
-           from projmng.wbs_pv_task t
-          group by t.prj_rid, t.activity_id)
-        """;
-
-    /// <summary>
     /// 상세 목록에서 고칠 수 있는 칸.
     /// </summary>
     /// <remarks>
