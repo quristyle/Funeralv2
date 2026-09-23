@@ -1,11 +1,30 @@
 @*
     상단 오른쪽 도구 묶음. vben 헤더에 있던 것들을 옮겼다.
 
-      · 빠른 지시 — AI 에게 한 줄 던지는 화면으로 바로 간다
+      · 빠른 지시 — AI 에게 한 줄 던진다 (책상에서는 옆 서랍, 휴대폰은 화면)
       · 즐겨찾기 — 지금 화면을 담고 뺀다 (백엔드에 표가 그대로 남아 있었다)
       · 새로 고침 — 화면만 다시 그린다
       · 전체화면 — 상황판에 띄워 두는 화면에서 쓴다
       · 알림      — 안 읽은 것이 있으면 점이 붙는다
+
+    [빠른 지시는 **책상에서 서랍으로 열린다** (2026-09-24)]
+
+    ⚡ 를 누르면 화면이 통째로 옮겨 갔다. 그런데 거기서 하는 일은 대개
+    **보던 것을 두고 한 줄 던지는 것**이라, 옮겨 가는 순간 무엇을 보다가
+    시키려던 것인지가 사라졌다. AI 대화가 먼저 같은 이유로 서랍이 되었다.
+
+    가르는 것은 **화면 크기 하나**다.
+
+      · 책상(≥768px) — 오른쪽에서 판이 밀려 들어온다(`QuickAskDrawer`).
+      · 휴대폰        — 하던 대로 화면으로 옮겨 간다. 360px 에서 밀어 넣는
+                        판은 곧 화면 전체라 서랍이라 부를 것이 없다.
+
+    그 크기는 레이아웃이 내려 준다(`IsPhone`) — 브레드크럼이 맨 끝 칸의 일을
+    가를 때와 같은 값이고, 여기서도 **마크업을 갈아 끼우지는 않는다.**
+    단추는 하나 그대로고 누르면 하는 일만 갈린다.
+
+    알맹이를 못 찾으면(프로젝트관리 모듈을 뺀 셸) 책상에서도 화면으로 간다 —
+    빈 서랍을 열어 보여 주지 않는다(`QuickAskReveal.CanDock`).
 
     [「지금 화면에 대한 도구」 묶음인데 왜 가는 단추가 둘이나 있나]
 
@@ -43,6 +62,7 @@
 @inject IMenuProvider Menus
 @inject NavigationManager Navigation
 @inject IJSRuntime Js
+@inject QuickAskReveal Ask
 @* 껍데기 크기를 캡에서 멈추려고 받는다 — `ThemeSize.Chrome` 머리말 참고. *@
 @inject ThemeSize Size
 
@@ -66,8 +86,8 @@
     {
         <DxButton RenderStyle="ButtonRenderStyle.Link"
                   IconCssClass="jsini-icon-bolt"
-                  Title="@($"{ask.Title} — AI 에게 한 줄 보내기")"
-                  Click="@(() => Navigation.NavigateTo(ask.LinkTarget))" />
+                  Title="@AskTitle(ask)"
+                  Click="@(() => OpenAsk(ask))" />
     }
 
     <DxButton RenderStyle="ButtonRenderStyle.Link"
@@ -115,7 +135,39 @@
     /// <summary><c>route_key</c> 를 아직 안 채운 DB 를 위한 대비책.</summary>
     private const string AskPath = "/projmng/ai/ask";
 
+    /// <summary>
+    /// 휴대폰인가. <b>⚡ 가 서랍을 여는지 화면으로 가는지</b>를 이 값이 가른다
+    /// (위 머리말). 레이아웃이 내려 준다 — 브레드크럼이 받는 것과 같은 값이다.
+    /// </summary>
+    [Parameter] public bool IsPhone { get; set; }
+
     private bool IsFavorite => Favorites.Contains(MenuPath);
+
+    /// <summary>서랍으로 열리나. 휴대폰이거나 알맹이가 없으면 거짓이다.</summary>
+    private bool AskDocks => !IsPhone && Ask.CanDock;
+
+    /// <summary>
+    /// ⚡ 에 얹는 글. <b>누르면 무엇이 일어나는지를 적는다</b> — 같은 단추가
+    /// 자리에 따라 서랍을 열기도 하고 화면을 옮기기도 해서, 글자까지 같으면
+    /// 어느 쪽인지 눌러 봐야 안다.
+    /// </summary>
+    private string AskTitle(MenuNode ask) => AskDocks
+        ? $"{ask.Title} — 옆에서 한 줄 보내기"
+        : $"{ask.Title} — AI 에게 한 줄 보내기";
+
+    /// <summary>
+    /// ⚡ 를 눌렀다. <b>책상이면 서랍, 휴대폰이면 화면</b>이다(위 머리말).
+    /// </summary>
+    private void OpenAsk(MenuNode ask)
+    {
+        if (AskDocks)
+        {
+            Ask.Toggle();
+            return;
+        }
+
+        Navigation.NavigateTo(ask.LinkTarget);
+    }
 
     /// <summary>
     /// 권한과 화면 크기로 걸러진 목록에서 찾는다. <b>원본(<c>AllMenus</c>)이 아니다</b> —
@@ -149,6 +201,11 @@
         // 메뉴는 로그인 직후·권한 갱신 때 뒤늦게 실린다. 안 듣고 있으면
         // **처음 그린 뒤로 단추가 영영 안 나타난다.**
         Menus.MenusChanged += OnFavoritesChanged;
+
+        // 서랍을 닫는 길이 셋이다 — ⚡ 다시 누르기 · 서랍의 ✕ · 화면 옮기기.
+        // 뒤의 둘은 여기를 거치지 않아서, 안 듣고 있으면 ⚡ 에 얹히는 글만
+        // 옛 상태에 남는다.
+        Ask.Changed += OnFavoritesChanged;
     }
 
     private void OnFavoritesChanged() => InvokeAsync(StateHasChanged);
@@ -177,5 +234,6 @@
     {
         Favorites.Changed -= OnFavoritesChanged;
         Menus.MenusChanged -= OnFavoritesChanged;
+        Ask.Changed -= OnFavoritesChanged;
     }
 }

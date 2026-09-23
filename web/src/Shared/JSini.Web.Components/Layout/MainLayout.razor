@@ -158,13 +158,24 @@
 
         <div class="jsini-header__spacer"></div>
 
-        <HeaderTools MenuPath="@_menuPath" />
+        @* `_isPhone` 을 함께 내려 주는 이유는 **⚡(빠른 지시)가 하는 일이
+           갈리기 때문이다.** 책상에서는 오른쪽 서랍을 여닫고, 휴대폰에서는
+           하던 대로 화면으로 옮겨 간다(`HeaderTools` 머리말). *@
+        <HeaderTools MenuPath="@_menuPath" IsPhone="@_isPhone" />
 
         @* AI 대화 서랍 (D11). 단추가 헤더에 있고 판은 본문 오른쪽에 겹친다.
            헤더 안에 두는 이유: 서랍이 헤더의 형제여야 본문 위로 온전히
            덮인다. HeaderTools 에 넣지 않은 것은 그쪽이 「지금 화면에 대한
            도구」 묶음이기 때문이다 — 이것은 화면과 무관하다. *@
         <AiChatDrawer />
+
+        @* 「빠른 지시」 서랍. 자리를 잡는 까닭은 바로 위와 같다.
+
+           **단추는 여기 없다** — ⚡ 는 `HeaderTools` 안에 있고(권한이 있는
+           사람에게만 보여야 해서 메뉴를 찾아야 한다) 둘을 잇는 것은
+           `QuickAskReveal` 이다. 알맹이는 프로젝트관리 모듈이 등록한 것을
+           받아 그린다 — 공용 레이아웃은 업무 모듈을 참조할 수 없다. *@
+        <QuickAskDrawer />
 
         <ThemeToggle />
         <UserMenu />

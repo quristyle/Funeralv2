@@ -1,4 +1,5 @@
 using JSini.Web.Abstractions;
+using JSini.Web.Components.Layout;
 using JSini.Web.ProjMng.Api;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -88,6 +89,12 @@ public sealed class ProjMngModule : IPortalModule
         // 같은 이유로 화면 밖에 둔다 — 탭을 옮겨도 기억이 남아야 한다.
         services.AddScoped<Components.Shared.AiAskPrefs>();
         services.AddScoped<BizOptions>();
+
+        // 「빠른 지시」 알맹이를 **헤더 서랍에도** 실어 준다(책상 화면에서만).
+        // 셸·레이아웃은 이 부품을 이름으로 알지 못한다 — 업무 모듈을 참조할
+        // 수 없어서, 여기서 타입을 건네고 서랍이 그것을 그린다.
+        // 까닭은 `QuickAskContent` 머리말에.
+        services.AddSingleton(new QuickAskContent(typeof(Components.Shared.AiAskPanel)));
 
         // 이 앱 전용 서비스만 여기 등록한다.
         // 게이트웨이 클라이언트·권한·알림은 셸이 이미 올려 두었다.
