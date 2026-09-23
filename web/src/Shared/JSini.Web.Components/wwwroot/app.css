@@ -4409,7 +4409,11 @@ button.jsini-crumbs__item:hover { opacity: 1; }
   max-height: 86vh;
   display: flex;
   flex-direction: column;
-  background: var(--jsini-surface);
+
+  /* 창의 표면이다 — 본문 카드(`--jsini-surface`)가 아니라 **한 단 떠 있는**
+     쪽을 쓴다. 로그인 뒤 팝업이 같은 값으로 그려지므로(DevExpress 토큰),
+     여기만 다른 색이면 같은 공지가 로그인 앞뒤로 달라 보인다. */
+  background: var(--jsini-surface-raised);
   color: var(--jsini-text);
   border-radius: 8px;
   box-shadow:
@@ -4571,7 +4575,8 @@ button.jsini-crumbs__item:hover { opacity: 1; }
   padding: 2rem 1.75rem;
   border: 1px solid var(--jsini-border);
   border-radius: 0.75rem;
-  background: var(--jsini-surface);
+  /* 다른 창과 같은 표면. 이 판은 바탕막 위에 떠 있으므로 본문 카드가 아니다. */
+  background: var(--jsini-surface-raised);
   box-shadow: 0 1.5rem 3rem rgb(0 0 0 / 25%);
   text-align: center;
 }
@@ -5456,8 +5461,12 @@ button.jsini-crumbs__item:hover { opacity: 1; }
   border: 1px solid var(--jsini-border, #e3e5e8);
   border-radius: var(--jsini-radius-lg, 0.5rem);
 
-  /* **둘 다 못 박는다**(머리말). */
-  background: var(--jsini-bg, #ffffff);
+  /* **둘 다 못 박는다**(머리말).
+
+     바탕은 **창의 표면**이다. 한동안 본문 바탕(`--jsini-bg`)이었는데, 그것은
+     이 상자 뒤에 깔린 화면의 색이라 어두운 쪽에서 상자가 배경에 잠겼다
+     (`#182433` 대 `#182433`). 다른 창과 같은 값으로 띄운다. */
+  background: var(--jsini-surface-raised, #ffffff);
   color: var(--jsini-text, #1f2328);
 
   box-shadow: var(--jsini-shadow-lg, 0 8px 16px rgb(0 0 0 / 28%));
@@ -6075,19 +6084,19 @@ body {
    자리에는 `dxbl-popup-portal` 이라는 빈 껍데기만 남는다).
 
    그래서 `.jsini-shell__content …` 로 적은 규칙은 **어느 창에도 닿지 않는다.**
-   창 껍데기(머리·본문·바닥)는 자릿수를 안 타는 `.jsini-popup …` 으로 이미
-   칠하고 있어서 Tabler 색인데, 그 안의 편집기·단추만 DevExpress 테마 색으로
-   남았다. 기본 테마(Fluent Dark)에서 그 차이가 그대로 보인다 —
-   창은 남색(`--jsini-surface-raised` = `#1e3048`)인데 안의 입력 칸은
-   Fluent 의 중성 회색(`--dxds-neutral-230` = `#252525`)이다. **한 창에
-   색 계열이 둘**이고, 칸이 스물 남짓인 메뉴 수정 창에서 가장 크게 보인다.
+   모서리·굵기 같은 이 마감이 창 안에서만 빠져서, 창은 남색
+   (`--jsini-surface-raised` = `#1e3048`)인데 안의 입력 칸만 각지고 초점 테가
+   달랐다. 칸이 스물 남짓인 메뉴 수정 창에서 가장 크게 보인다.
 
    그래서 본문과 **우리 창 둘**을 함께 적는다. `:is()` 한 마디로 묶지 않는
    이유는 이 파일의 다른 규칙들과 읽는 모양을 맞추기 위해서다.
 
-   DevExpress 자신의 드롭다운(`dxbl-dropdown-popup`)은 건드리지 않는다 —
-   그쪽 표면은 이미 아래 「팝업·토스트·드롭다운」 규칙이 칠하고 있고,
-   목록 칸까지 이 마감을 얹으면 고른 줄 표시가 눌린다.
+   **바탕색은 여기서 다루지 않는다.** 그쪽은 선택자로는 이길 수 없어서
+   DevExpress 변수로 덮는다 — 아래 「창·판의 바탕색은 선택자가 아니라
+   토큰으로 준다」.
+
+   DevExpress 자신의 드롭다운 목록 칸에는 이 마감을 얹지 않는다 —
+   고른 줄 표시가 눌린다.
    ---------------------------------------------------------- */
 
 /* 버튼·입력·선택 상자 */
@@ -6343,34 +6352,152 @@ body {
   color: var(--jsini-danger);
 }
 
-/* 공통 팝업·드롭다운 */
+/* ── 창·판의 바탕색은 **선택자가 아니라 토큰**으로 준다 ────────
+
+   [증상 — 시스템 색을 쓰는 창이 하나도 없었다]
+
+   창 껍데기를 우리 색으로 칠하는 규칙이 여기 있었다.
+
+       .jsini-popup .dxbl-modal-content { background: var(--jsini-surface-raised) }
+       .jsini-popup .dxbl-modal-header  { background: var(--jsini-surface-raised) }
+       .jsini-popup .dxbl-modal-footer  { background: var(--jsini-surface-muted) }
+
+   **한 줄도 먹지 않았다.** 겨누는 힘(specificity)에서 진다 —
+   DevExpress 테마(26.1)가 같은 자리를 이렇게 적어 둔다.
+
+       .dxbl-modal > .dxbl-modal-root > .dxbl-popup > .dxbl-modal-content
+       { background-color: var(--dxbl-popup-bg) }                       (0,4,0)
+
+       … > .dxbl-modal-content > .dxbl-modal-header                     (0,5,0)
+       … > .dxbl-modal-content > .dxbl-modal-body                       (0,5,0)
+       … > .dxbl-modal-content > .dxbl-modal-footer                     (0,5,0)
+
+   우리 쪽은 클래스 둘(0,2,0)이다. app.css 가 테마보다 뒤에 실려도
+   **힘이 다르면 순서는 보지 않는다.** 그래서 포털의 창은 전부 —
+   `CommPopup` 마흔몇 개도, 표의 편집 창도, 지움 확인 창도 —
+   DevExpress 테마 색 그대로였다. 기본 테마(Fluent Dark)에서
+   창은 중성 회색(`#252525`)인데 그 뒤의 화면은 남색(`#182433`)이다.
+
+   드롭다운은 사정이 하나 더 나빴다. `.dxbl-dropdown-popup` 과
+   `.dxbl-toast-container` 로 겨누고 있었는데 **26.1 에는 그런 클래스가
+   아예 없다**(옛 판의 이름이다). 힘을 따질 것도 없이 아무것도 안 맞았다.
+
+   [고치는 법 — 겨누기를 이기려 하지 않는다]
+
+   선택자를 길게 늘여 이길 수도 있지만, 그러면 DevExpress 가 다음 판에서
+   마크업을 한 겹 바꾸는 순간 말없이 풀린다(`jsini-gridpopup` 의 `!important`
+   주석에 같은 이야기가 있다).
+
+   **색은 전부 변수에서 나온다.** 위 규칙들이 읽는 `--dxbl-popup-bg` 를
+   DevExpress 자신이 `.dxbl-modal`(0,1,0)에 세워 두므로, 같은 자리에 같은
+   힘으로 우리 값을 적으면 **뒤에 실린 쪽이 이긴다.** 그러면 그 변수를 읽는
+   모든 창이 한꺼번에 따라온다 — 우리가 만든 창뿐 아니라 DevExpress 가 스스로
+   그리는 창(표의 지움 확인 · 열 고르기 · 일정 편집 · HtmlEditor 대화상자)까지.
+
+   **이름이 테마 무리마다 같다**(재어 확인했다). Fluent 22가지는
+   `--dxbl-popups-*` 를 거쳐 `--dxbl-popup-*` 로 내려오고 Classic·Bootstrap
+   여섯은 `--dxbl-popup-*` 를 바로 쓴다. 우리는 **아래쪽 이름**만 덮으므로
+   스물둘 중 무엇을 골라도 같게 걸린다.
+
+   [재어 본 것 — 창 하나를 네 테마에 띄우고 계산된 색을 읽었다]
+
+   기본 테마(Fluent Dark)의 메뉴 수정 창:
+
+     | | 고치기 전 | 고친 뒤 |
+     |---|---|---|
+     | 껍데기(`.dxbl-popup`) | `#1e3048` | `#1e3048` |
+     | 본문판(`.dxbl-modal-content`) | **`#252525`** | `#1e3048` |
+     | 머리·본문 | **`#252525`** | `#1e3048` |
+     | 바닥 띠 | **`#252525`** | `#142032` |
+     | 드롭다운 목록 · 달력 | **`#252525`** | `#1e3048` |
+
+   껍데기만 우리 색이고 **안은 전부 DevExpress 회색**이었다는 뜻이다.
+   Fluent Light · Classic(blazing-dark) · Classic(office-white) 도 같은
+   방법으로 확인했고, 넷 다 창·목록·달력이 한 표면으로 모인다.
+
+   [색만 덮고 여백·모서리는 두지 않는다]
+
+   지운 규칙에는 `padding` 과 `border-bottom` 도 있었지만 되살리지 않는다.
+   그쪽은 DevExpress 의 크기 사다리(`--dxds-spacing-*`)가 쥐고 있고, 이 파일은
+   맨 앞에서 그 사다리를 따르기로 해 두었다 — 여기서만 다른 여백을 박으면
+   창 안의 폼과 그리드가 서로 어긋난다.
+   ------------------------------------------------------------ */
+
+.dxbl-modal,
+.dxbl-window {
+  --dxbl-popup-bg: var(--jsini-surface-raised);
+  --dxbl-popup-color: var(--jsini-text);
+  --dxbl-popup-border-color: var(--jsini-border);
+  --dxbl-popup-header-bg: var(--jsini-surface-raised);
+  --dxbl-popup-header-color: var(--jsini-text);
+  --dxbl-popup-body-bg: var(--jsini-surface-raised);
+  --dxbl-popup-body-color: var(--jsini-text);
+
+  /* 바닥 띠만 한 단 눌러 앉는다. 단추가 서는 자리를 본문과 갈라 놓는
+     것이고, 아이콘 고르개의 펼친 판이 같은 이유로 같은 값을 쓴다. */
+  --dxbl-popup-footer-bg: var(--jsini-surface-muted);
+  --dxbl-popup-footer-color: var(--jsini-text);
+
+  /* DxWindow 는 아직 쓰는 화면이 없다. 그래도 함께 적어 두는 이유는,
+     창을 하나 띄우는 순간 **그것만 회색으로 남는** 것이 이 작업 전의
+     모습이기 때문이다. 값은 위와 같다. */
+  --dxbl-window-bg: var(--jsini-surface-raised);
+  --dxbl-window-color: var(--jsini-text);
+  --dxbl-window-border-color: var(--jsini-border);
+  --dxbl-window-header-bg: var(--jsini-surface-raised);
+  --dxbl-window-header-color: var(--jsini-text);
+  --dxbl-window-body-bg: var(--jsini-surface-raised);
+  --dxbl-window-body-color: var(--jsini-text);
+  --dxbl-window-footer-bg: var(--jsini-surface-muted);
+  --dxbl-window-footer-color: var(--jsini-text);
+}
+
+/* 눌러서 펼치는 판도 창이다 — 목록(`DxComboBox` 161군데 · `DxTagBox`),
+   달력(`DxDateEdit` 52군데), 오른쪽 단추 메뉴가 전부 여기로 뜬다.
+
+   **창과 같은 표면을 쓴다.** 하나만 남겨 두면 그 화면에서 색 계열이 둘이
+   된다 — 남색 창 위에 회색 목록이 뜨는 모양이다.
+
+   달력을 함께 적는 이유: 달력은 자기 바탕(`--dxbl-calendar-bg`)을 따로
+   갖고 있어서, 감싼 드롭다운만 바꾸면 **판 안에 회색 네모**가 남는다. */
+.dxbl-dropdown,
+.dxbl-itemlist-dropdown,
+.dxbl-edit-dropdown,
+.dxbl-context-menu,
+.dxbl-context-menu-submenu,
+.dxbl-menu,
+.dxbl-menu-dropdown,
+.dxbl-calendar {
+  --dxbl-dropdown-bg: var(--jsini-surface-raised);
+  --dxbl-edit-dropdown-bg: var(--jsini-surface-raised);
+  --dxbl-edit-dropdown-color: var(--jsini-text);
+  --dxbl-edit-dropdown-border-color: var(--jsini-border);
+  --dxbl-context-menu-bg: var(--jsini-surface-raised);
+  --dxbl-context-menu-color: var(--jsini-text);
+  --dxbl-menu-bg: var(--jsini-surface-raised);
+  --dxbl-menu-color: var(--jsini-text);
+  --dxbl-calendar-bg: var(--jsini-surface-raised);
+  --dxbl-calendar-color: var(--jsini-text);
+  --dxbl-calendar-border-color: var(--jsini-border);
+}
+
+/* 창 바깥 껍데기(테두리·모서리·그림자). 이쪽은 DevExpress 가 `.dxbl-popup`
+   하나(0,1,0)로만 적어 두어 **선택자로 이긴다** — 위 토큰과 달리 그대로 둔다.
+
+   `--jsini-field-label-bg` 는 떠오르는 라벨이 테두리를 파고들 때 뒤에 까는
+   색이다. 창 안에서는 본문 바탕(`--jsini-bg`)이 아니라 창의 표면이어야
+   글자가 지워 낸 자리에 맞는다. */
 .jsini-popup .dxbl-modal-content,
 .jsini-gridpopup .dxbl-modal-content,
-.dxbl-popup:not(.dxbl-dropdown-popup) {
+.dxbl-popup {
+  --jsini-field-label-bg: var(--jsini-surface-raised);
+}
+
+.dxbl-popup {
   border: 1px solid var(--jsini-border);
   border-radius: var(--jsini-radius-lg);
   background: var(--jsini-surface-raised);
-  --jsini-field-label-bg: var(--jsini-surface-raised);
   box-shadow: 0 18px 48px rgb(0 0 0 / 24%);
-}
-
-.jsini-popup .dxbl-modal-header,
-.jsini-gridpopup .dxbl-modal-header {
-  padding: 1rem 1.25rem;
-  border-bottom: 1px solid var(--jsini-border);
-  background: var(--jsini-surface-raised);
-}
-
-.jsini-popup .dxbl-modal-body,
-.jsini-gridpopup .dxbl-modal-body {
-  padding: 1.25rem;
-}
-
-.jsini-popup .dxbl-modal-footer,
-.jsini-gridpopup .dxbl-modal-footer {
-  padding: 0.85rem 1.25rem;
-  border-top: 1px solid var(--jsini-border);
-  background: var(--jsini-surface-muted);
 }
 
 /* ── Tabler 마감 레이어 ─────────────────────────────────────
@@ -6605,24 +6732,18 @@ body {
   color: var(--jsini-text-muted);
 }
 
-/* 팝업·토스트·드롭다운도 본문 카드와 같은 표면 계층을 사용한다. */
-.jsini-popup .dxbl-modal-content,
-.jsini-gridpopup .dxbl-modal-content,
-.dxbl-toast-container .dxbl-toast,
-.dxbl-dropdown-popup {
-  border-color: var(--jsini-border);
-  border-radius: var(--jsini-radius-lg);
-  background: var(--jsini-surface-raised);
-  --jsini-field-label-bg: var(--jsini-surface-raised);
-  color: var(--jsini-text);
-  box-shadow: 0 18px 48px rgb(0 0 0 / 28%);
-}
+/* 창·판의 표면 계층은 **위 토큰 블록**이 쥔다(「창·판의 바탕색은 선택자가
+   아니라 토큰으로 준다」). 여기 있던 같은 뜻의 규칙은 지웠다 — 힘에서 져서
+   한 줄도 안 먹었고, 겨누던 `.dxbl-dropdown-popup` · `.dxbl-toast-container`
+   는 26.1 에 없는 옛 이름이었다.
 
+   **토스트는 일부러 두었다.** 알림 막대의 색은 표면이 아니라 뜻이다
+   (알림 · 성공 · 경고 · 오류). 한 표면으로 칠하면 그 구분이 사라진다. */
+
+/* 바닥 띠의 단추 사이 틈. 나머지(`display: flex` · 오른쪽 정렬)는
+   DevExpress 가 이미 같은 값으로 적어 두어 다시 적지 않는다. */
 .jsini-popup .dxbl-modal-footer,
 .jsini-gridpopup .dxbl-modal-footer {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
   gap: 0.5rem;
 }
 
