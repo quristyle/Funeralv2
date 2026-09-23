@@ -317,10 +317,12 @@
 
      · `StickToViewport` — 화면에 붙여 둔다. 긴 표의 아래쪽에서 지웠을 때
        결과가 안 보이던 것이 안내 줄을 걷어낸 이유 중 하나였다(`Toasts` 머리말).
-     · `MaxToastCount`  — 넷까지만. 실패는 스스로 안 걷히므로 상한이 없으면
-       서버가 죽어 있을 때 화면이 통째로 덮인다.
-     · `FreezeOnClick`  — 누르고 있는 동안 시계를 멈춘다. 서버가 준 실패 이유가
-       붙는 문구는 한 줄을 넘는 일이 잦다. *@
+     · `MaxToastCount`  — 넷까지만. 실패가 1분을 남으므로(`Toasts.Failure`)
+       상한이 없으면 서버가 죽어 있을 때 화면이 통째로 덮인다.
+     · `FreezeOnClick`  — **한 번 누르면 그 토스트는 걷히지 않는다.** 서버가 준
+       실패 이유가 붙는 문구는 한 줄을 넘는 일이 잦고, 적어 두거나 옮겨 붙이는
+       데 1분이 모자랄 수 있다. 누른 뒤에는 남은 시간 표시도 함께 멈춘다
+       (theme.js) — 안 멈추면 0 초가 된 뒤에도 남아 있어 그림이 거짓말을 한다. *@
 <DxToastProvider StickToViewport="true"
                  MaxToastCount="4"
                  FreezeOnClick="true" />

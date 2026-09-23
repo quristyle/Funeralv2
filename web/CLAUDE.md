@@ -1576,7 +1576,9 @@ BlazorMonaco 는 스크립트 세 장이 전역에 있기를 기대한다. 없�
   `RunAsync`·`LoadAsync`·`Say` 에서 알아서 띄운다(`Toasts`). **화면이 그릴 것이
   없다.** 한동안 화면 132개가 `<PageNotice Text="@Notice" Tone="@Tone" />` 한 줄을
   똑같이 들고 있었는데 전부 걷어냈고, `ToastTests` 가 되돌아오는 것을 막는다.
-  실패는 **사람이 닫을 때까지 남는다**(`DisplayTime = TimeSpan.MaxValue`).
+  뜬 토스트는 **언제 걷히는지를 막대와 초로 보여 준다**(app.css 「토스트의 남은
+  시간」). 알림·주의는 5초, 실패는 **60초**다(`Toasts.Brief` · `Toasts.Failure`) —
+  더 봐야 하면 토스트를 한 번 누르면 걷히지 않고 표시도 함께 멈춘다.
 - **토스트를 손으로 만들지 않는다.** `DxToastProvider` + `IToastNotificationService`
   를 쓴다 — `AddDevExpressBlazor()` 가 그 서비스를 이미 등록하므로 붙일 것이 없다.
   한 번 직접 그렸다가 걷어냈는데, 손으로 만든 판은 **테마 스물둘의 색과 서랍에서

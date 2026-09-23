@@ -1533,6 +1533,31 @@
   }
 
   /**
+   * 토스트를 누르면 **남은 시간 표시도 함께 멈춘다.**
+   *
+   * [왜 필요한가]
+   *
+   * 토스트는 저절로 걷히고(알림 5초 · 실패 60초) 그때까지 남은 시간을
+   * 막대와 초로 보여 준다(app.css 의 「토스트의 남은 시간」). 그런데
+   * DevExpress 는 **한 번 눌린 토스트를 닫지 않는다**(`FreezeOnClick`) —
+   * 더 봐야 할 때 붙들어 두라고 있는 장치다. 그림만 계속 줄면 0 초가 된
+   * 뒤에도 토스트가 그대로 있어 **화면이 거짓말을 한다.**
+   *
+   * [잡는 자리]
+   *
+   * 토스트는 회로가 그때그때 만들어 넣으므로 **문서에서 받는다.** 붙이는
+   * 일은 클래스 하나뿐이고, 멈추는 것은 CSS 가 한다. 잡기(capture)로 듣는
+   * 것은 부품이 도중에 사건을 삼켜도 이 표시는 붙어야 하기 때문이다.
+   */
+  document.addEventListener('click', function (e) {
+    var toast = e.target && e.target.closest
+      ? e.target.closest('.jsini-toast-time')
+      : null;
+
+    if (toast) toast.classList.add('jsini-toast-time--held');
+  }, true);
+
+  /**
    * 창 안에서 초점이 갈 수 있는 것들. 감춰 둔 공지의 첨부 링크는 뺀다 —
    * 넣으면 Tab 이 보이지 않는 링크를 지나간다.
    */

@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using JSini.Web.Components.Layout;
 using Xunit;
 
 namespace JSini.Web.Architecture.Tests;
@@ -93,17 +94,73 @@ public sealed class ToastTests
     /// 한 번 직접 만들었다가 걷어냈다 — DevExpress 가 테마 스물둘의 색과
     /// 고른 크기를 이미 따라가는데, 손으로 만든 판은 그것을 따로 좇아야 하고
     /// 테마를 올릴 때 <b>토스트만 옛 색으로 남는</b> 쪽으로 어긋난다.
-    /// 흔적(옛 CSS 이름)이 되살아나는 것을 막는다.
+    /// </para>
+    ///
+    /// <para>
+    /// [「<c>jsini-toast</c>」 라는 글자를 통째로 막지 않는다]
+    /// </para>
+    ///
+    /// <para>
+    /// 한동안 app.css 에 그 글자가 <b>한 자도 없어야</b> 통과했다. 그런데
+    /// 남은 시간 표시(막대와 초)를 얹으려면 우리 클래스가 하나 필요하다 —
+    /// <c>ToastOptions</c> 로 실어 보낼 수 있는 것이 클래스뿐이기 때문이다
+    /// (<c>Toasts.CountdownClass</c>).
+    /// </para>
+    ///
+    /// <para>
+    /// 그래서 막는 것을 <b>혼자 서는 규칙</b>으로 좁혔다. 우리 이름은 언제나
+    /// DevExpress 가 그린 요소(<c>.dxbl-toast</c>)에 <b>붙어서만</b> 나온다 —
+    /// 그 조건이면 판은 그쪽이 그린 것이고 우리는 덧그리기만 한 것이다.
+    /// 손으로 만든 판은 그 이름 없이 혼자 서므로 여기서 걸린다.
     /// </para>
     /// </summary>
     [Fact]
     public void 토스트를_손으로_그리지_않는다()
     {
-        var css = Path.Combine(
-            SolutionRoot(), "src", "Shared", "JSini.Web.Components", "wwwroot", "app.css");
+        var offenders = File.ReadLines(AppCss())
+            .Select(line => line.Trim())
+            .Where(line => line.StartsWith('.')
+                        && line.Contains("jsini-toast", StringComparison.Ordinal)
+                        && !line.Contains("dxbl-toast", StringComparison.Ordinal))
+            .ToArray();
 
-        Assert.DoesNotContain("jsini-toast", File.ReadAllText(css), StringComparison.Ordinal);
+        Assert.True(
+            offenders.Length == 0,
+            "토스트 판은 DevExpress 가 그린다. 우리 규칙은 그 요소(`.dxbl-toast`)에 "
+            + "붙여서만 적는다 — 혼자 서는 `.jsini-toast…` 규칙은 판을 손으로 "
+            + "만들기 시작했다는 뜻이다(`Toasts` 머리말).\n  "
+            + string.Join("\n  ", offenders));
     }
+
+    /// <summary>
+    /// 떠 있는 시간마다 CSS 에 칸이 있어야 한다.
+    ///
+    /// <para>
+    /// 초를 정하는 곳은 <see cref="Toasts"/> 하나이고 app.css 는 그 값에 맞는
+    /// 칸(<c>--jsini-toast-span</c> · <c>--jsini-toast-secs</c>)을 갖고 있을
+    /// 뿐이다. <b>새 시간을 만들고 CSS 를 잊으면</b> 그 토스트만 남은 시간이
+    /// 안 그려지는데, 오류가 아니라 <b>표시가 없는 것</b>이라 눈에 띄지 않는다.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void 남은_시간표가_CSS_에도_있다()
+    {
+        var css = File.ReadAllText(AppCss());
+
+        var missing = Toasts.DisplayTimes
+            .Select(span => $".jsini-toast-time--{(int)span.TotalSeconds}s")
+            .Where(marker => !css.Contains(marker, StringComparison.Ordinal))
+            .ToArray();
+
+        Assert.True(
+            missing.Length == 0,
+            "`Toasts` 가 쓰는 시간 중 app.css 에 칸이 없는 것이 있다. "
+            + "「토스트의 남은 시간」 절에 그 초짜리 규칙을 더한다.\n  "
+            + string.Join("\n  ", missing));
+    }
+
+    private static string AppCss() => Path.Combine(
+        SolutionRoot(), "src", "Shared", "JSini.Web.Components", "wwwroot", "app.css");
 
     private static string Relative(string path) =>
         Path.GetRelativePath(SolutionRoot(), path).Replace(Path.DirectorySeparatorChar, '/');

@@ -66,14 +66,23 @@ namespace JSini.Web.Components.Layout;
 /// </para>
 ///
 /// <para>
-/// [실패는 저절로 사라지지 않는다]
+/// [실패도 걷힌다 — 다만 훨씬 오래 남는다]
 /// </para>
 ///
 /// <para>
-/// 알림과 주의는 판이 정한 시간에 걷힌다. <b>실패는 사람이 닫을 때까지
-/// 남는다</b>(<c>DisplayTime = TimeSpan.MaxValue</c>) — 실패를 못 보고
-/// 지나가면 「저장한 줄 알았는데 안 된」 상태가 되고, 그것은 안내 줄 시절에도
-/// 제일 비싼 실수였다. 닫기 단추와 쌓이는 수의 상한은 판이 갖고 있다.
+/// 한동안 <b>실패는 사람이 닫을 때까지</b> 남겼다(<c>TimeSpan.MaxValue</c>).
+/// 실패를 못 보고 지나가면 「저장한 줄 알았는데 안 된」 상태가 되고, 그것이
+/// 안내 줄 시절에도 제일 비싼 실수였기 때문이다. 그런데 그렇게 두면 반대쪽이
+/// 생긴다 — 서버가 한 번 흔들린 자국이 <b>화면 구석에 종일 붙어</b> 있고,
+/// 넷까지 쌓이면(<c>MaxToastCount</c>) 그 아래 것이 가려진다.
+/// </para>
+///
+/// <para>
+/// 그래서 실패도 걷히게 하되 <b>읽고 옮겨 적을 만큼</b>(<see cref="Failure"/>)
+/// 남긴다. 못 보고 지나가는 것은 <b>언제 걷히는지를 보여 주어</b> 막는다 —
+/// 남은 시간이 토스트 아래에 막대와 초로 뜬다(app.css 의 「토스트의 남은
+/// 시간」). 급하면 닫기 단추가 그대로 있고, 더 봐야 하면 토스트를 한 번 누르면
+/// 된다(<c>MainLayout</c> 의 <c>FreezeOnClick</c> — 그때는 표시도 함께 멈춘다).
 /// </para>
 ///
 /// <para>
@@ -94,14 +103,43 @@ namespace JSini.Web.Components.Layout;
 public sealed class Toasts(IToastNotificationService service)
 {
     /// <summary>
-    /// 실패가 스스로 걷히지 않게 하는 값. DevExpress 가 이것을
-    /// 「사람이 닫을 때까지」로 읽는다.
+    /// 알림과 주의가 떠 있는 시간. DevExpress 판의 기본값과 같은 5초다.
+    ///
+    /// <para>
+    /// <b>기본값에 기대지 않고 적어 둔다.</b> 남은 시간을 그리려면 그 시간을
+    /// <b>알고 있어야</b> 하는데, <c>null</c> 로 두면 얼마인지 여기서 알 수 없다.
+    /// </para>
     /// </summary>
-    private static readonly TimeSpan UntilClosed = TimeSpan.MaxValue;
+    public static readonly TimeSpan Brief = TimeSpan.FromSeconds(5);
+
+    /// <summary>
+    /// 실패가 떠 있는 시간. 알림의 열두 배다.
+    ///
+    /// <para>
+    /// 실패 문구에는 서버가 준 이유가 붙어 두 줄이 되는 일이 잦고, 읽고 나서
+    /// <b>적어 두거나 옮겨 붙일</b> 시간까지 있어야 한다. 5초는 그것을 못 한다.
+    /// </para>
+    /// </summary>
+    public static readonly TimeSpan Failure = TimeSpan.FromSeconds(60);
+
+    /// <summary>
+    /// app.css 가 칸을 갖고 있어야 하는 시간들. <b>테스트가 이 목록으로
+    /// 대조한다</b>(<c>ToastTests</c>) — 여기에 초를 하나 더 만들고 CSS 를
+    /// 잊으면 그 토스트만 남은 시간이 안 그려진다.
+    /// </summary>
+    public static IEnumerable<TimeSpan> DisplayTimes => [Brief, Failure];
+
+    /// <summary>
+    /// 남은 시간을 그리게 하는 클래스. 초를 <b>이름에 실어</b> 넘긴다 —
+    /// <c>ToastOptions</c> 로는 클래스 말고 아무것도 실어 보낼 수 없다.
+    /// </summary>
+    /// <param name="span">떠 있는 시간.</param>
+    public static string CountdownClass(TimeSpan span) =>
+        $"jsini-toast-time jsini-toast-time--{(int)span.TotalSeconds}s";
 
     /// <summary>한 장 띄운다. 빈 문구는 아무 일도 하지 않는다.</summary>
     /// <param name="text">보여 줄 문구.</param>
-    /// <param name="tone">성격. 색과 <b>저절로 걷히는지</b>가 여기서 갈린다.</param>
+    /// <param name="tone">성격. 색과 <b>얼마나 남는지</b>가 여기서 갈린다.</param>
     public void Show(string? text, NoticeTone tone = NoticeTone.Info)
     {
         if (string.IsNullOrWhiteSpace(text))
@@ -109,14 +147,17 @@ public sealed class Toasts(IToastNotificationService service)
             return;
         }
 
+        var span = tone == NoticeTone.Error ? Failure : Brief;
+
         service.ShowToast(new ToastOptions
         {
             Text = text,
             RenderStyle = Style(tone),
+            DisplayTime = span,
 
-            // 실패만 시간을 덮는다. 나머지는 `null` 로 두어 **판이 정한 값**을
-            // 따른다 — 화면마다 초를 적으면 그 값이 갈린다.
-            DisplayTime = tone == NoticeTone.Error ? UntilClosed : null,
+            // 남은 시간 표시. 그리는 일은 app.css 가 하고 여기서 넘기는 것은
+            // **몇 초짜리인가** 하나뿐이다.
+            CssClass = CountdownClass(span),
         });
     }
 
