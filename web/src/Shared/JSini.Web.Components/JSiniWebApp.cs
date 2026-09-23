@@ -300,6 +300,12 @@ public static class JSiniWebApp
         // 여기 둔다 — 창은 `Settings/NotifySendPopup` 이 그린다.
         services.AddScoped<Settings.NotifySender>();
 
+        // 쪽지 — **사람에게서 사람에게로 가는 짧은 글.** 위의 `NotifySender` 가
+        // 「고른 사람들에게 두드림 한 번」이라면 이쪽은 아이디·이메일을 적어
+        // 보내고 글이 쪽지함에 남는다. 여기 있는 까닭은 **쪽지 쓰기가 상단 띠에
+        // 있기 때문**이다 — 헤더는 레이아웃이라 업무 모듈을 이름으로 알지 못한다.
+        services.AddScoped<Settings.NoteClient>();
+
         // 그중 **공개 공지만** 회로 바깥에서 잠깐 들고 있는 통.
         //
         // **싱글턴이어야 한다.** 로그인 화면 HTML 을 만드는 길 위에 있는

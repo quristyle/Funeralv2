@@ -1,0 +1,83 @@
+@*
+    [쪽지 쓰기 창] — 상단 띠의 ✉ 가 어디서나 이것을 연다.
+
+    ────────────────────────────────────────────────────────────
+    [화면으로 옮기지 않고 창으로 연다]
+
+    쪽지를 쓰려는 순간 사람이 하던 일은 **보던 화면**이다. 화면을 통째로
+    옮기면 「무엇을 보다가 쓰려고 했는지」가 사라진다 — ⚡(빠른 지시)가 같은
+    까닭으로 서랍이 되었다(`HeaderTools` 머리말).
+
+    서랍이 아니라 창인 것은, 쪽지가 **한 번 쓰고 닫는 일**이기 때문이다.
+    서랍은 열어 둔 채 화면을 오가는 것(AI 대화·빠른 지시)에 맞는 그릇이다.
+
+    ────────────────────────────────────────────────────────────
+    [알맹이는 화면과 나눠 쓴다]
+
+    같은 판을 메뉴의 「쪽지 쓰기」(`/admin/note/write`)도 그린다. 나눠 쓰는
+    알맹이에는 `@@page` 와 `<PageTitle>` 을 두지 않는다 — 창은 한 번 열면
+    계속 살아 있어서, 제목을 알맹이에 걸면 브라우저 탭 이름이 거기 붙박인다
+    (web/CLAUDE.md 의 `AiAsk` ↔ `AiAskPanel` 항목).
+*@
+
+<CommPopup Visible="@Visible"
+           VisibleChanged="@OnVisibleChangedAsync"
+           HeaderText="쪽지 쓰기"
+           Width="min(34rem, calc(100vw - 2rem))"
+           ShowFooter="false"
+           CssClass="jsini-note-popup">
+
+    <BodyContentTemplate>
+        @* 창은 좁으니 내용 칸을 줄인다. 화면(`/admin/note/write`)은 기본값을 쓴다. *@
+        <NoteWritePanel BodyRows="6"
+                        DefaultTo="@DefaultTo"
+                        ShowCancel="true"
+                        OnCancel="@(() => OnVisibleChangedAsync(false))"
+                        OnSent="@OnSentAsync" />
+    </BodyContentTemplate>
+
+</CommPopup>
+
+@code {
+    /// <summary>창이 열려 있는가. <c>@@bind-Visible</c> 로 묶는다.</summary>
+    [Parameter] public bool Visible { get; set; }
+
+    /// <inheritdoc cref="Visible"/>
+    [Parameter] public EventCallback<bool> VisibleChanged { get; set; }
+
+    /// <summary>
+    /// 보내고 난 뒤. 상단 띠의 안 읽은 수를 다시 세는 쪽이 받는다.
+    /// </summary>
+    [Parameter] public EventCallback<NoteSendResultDto> OnSent { get; set; }
+
+    /// <summary>
+    /// 받는 사람 칸에 미리 넣어 둘 아이디들. 「답장」이 쓴다.
+    /// </summary>
+    /// <remarks>
+    /// <b>판은 이 값을 처음 만들어질 때 한 번만 읽는다</b>(<c>OnInitialized</c>).
+    /// 창을 하나 두고 상대만 바꿔 열면 두 번째부터 옛 사람이 그대로 남으므로,
+    /// 답장처럼 상대가 매번 달라지는 자리는 <b>창 자체를 새로 만든다</b>
+    /// (<c>@@if</c> 로 감싸거나 <c>@@key</c> 를 준다).
+    /// </remarks>
+    [Parameter] public IReadOnlyList<string>? DefaultTo { get; set; }
+
+    private Task OnVisibleChangedAsync(bool visible)
+    {
+        Visible = visible;
+        return VisibleChanged.InvokeAsync(visible);
+    }
+
+    /// <summary>
+    /// 보냈으면 창을 닫는다.
+    /// </summary>
+    /// <remarks>
+    /// <b>결과는 토스트가 이미 말했다.</b> 창을 열어 둔 채로 두면 사람은 같은
+    /// 쪽지를 한 번 더 보낸다 — `NotifySendPopup` 이 막힌 경우에도 닫는 것과
+    /// 같은 까닭이다.
+    /// </remarks>
+    private async Task OnSentAsync(NoteSendResultDto result)
+    {
+        await OnVisibleChangedAsync(false);
+        await OnSent.InvokeAsync(result);
+    }
+}

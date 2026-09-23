@@ -1,0 +1,35 @@
+@page "/admin/note/write"
+@attribute [RouteKey("admin.note.write")]
+
+@*
+    [쪽지 쓰기] — 알림관리 › 쪽지 쓰기.
+
+    받는 사람의 **아이디나 이메일을 적어** 쪽지를 보낸다. 보내면 상대의 쪽지함에
+    들어가고, 앱 푸시와 메일로 두드린다 — 푸시 아이콘은 **보낸 사람의 얼굴**이다.
+
+    [알맹이는 상단 띠의 ✉ 와 나눠 쓴다]
+
+    같은 판(`NoteWritePanel`)을 헤더의 창도 그린다. 화면 쪽이 더 넓으니 내용
+    칸만 길게 잡는다 — 그 밖의 규칙은 전부 판이 갖고 있다.
+
+    `@@page` 와 `<PageTitle>` 은 **여기 남긴다.** 창은 한 번 열면 계속 살아
+    있어서, 제목을 판에 걸면 브라우저 탭 이름이 이 화면에 붙박인다
+    (web/CLAUDE.md 의 `AiAsk` ↔ `AiAskPanel` 항목).
+
+    [「메시지 발송」과 무엇이 다른가]
+
+    그쪽(`/admin/push/send`)은 **명단을 골라** 서식 편집기와 첨부까지 싣는
+    발송 콘솔이고 관리자의 도구다. 이쪽은 **아는 사람에게 한 통**이라 누구나
+    쓰고, 글이 상대의 쪽지함에 남는다.
+*@
+
+@inject NavigationManager Navigation
+
+<PageTitle>쪽지 쓰기 · 포털관리</PageTitle>
+
+<CommCont Title="쪽지 쓰기"
+          Hint="받는 사람의 아이디나 이메일을 적으십시오. 보내면 상대의 쪽지함에 들어가고, 고른 길로 알림이 갑니다.">
+    @* 보내고 나면 쪽지함으로 옮긴다. **보낸 것을 눈으로 확인하는 자리**가
+       거기라, 화면에 그대로 두면 「갔나」를 확인할 길이 토스트 한 줄뿐이다. *@
+    <NoteWritePanel OnSent="@(_ => Navigation.NavigateTo("/admin/note/box"))" />
+</CommCont>

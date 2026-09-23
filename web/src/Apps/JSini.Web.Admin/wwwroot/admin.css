@@ -2311,3 +2311,48 @@
   width: 11rem;
   max-width: 45vw;
 }
+
+/* ── 쪽지함 (`NoteBoxPage`) ───────────────────────────────────
+
+   쓰는 판(`NoteWritePanel`)은 상단 띠에서도 열려서 공용 `app.css` 에 있다.
+   여기 있는 것은 **읽는 창**뿐이다 — 그 창은 이 화면에만 있다.
+   ---------------------------------------------------------- */
+
+/* 안 읽은 쪽지의 제목. 받은함에서 눈이 먼저 가야 하는 줄이다. */
+.ad-note__title--unread {
+  font-weight: 700;
+}
+
+/* 보낸 이·받는 이·때. 이름표와 값이 두 칸으로 선다 — 한 줄로 이어 두면
+   이름이 길 때 어디까지가 값인지 안 갈린다. */
+.ad-note__meta {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.15rem 0.7rem;
+  margin: 0 0 0.8rem;
+  padding-bottom: 0.7rem;
+  border-bottom: 1px solid var(--jsini-border);
+  font-size: var(--jsini-fs-sm);
+}
+
+.ad-note__meta dt {
+  color: var(--jsini-text-muted);
+}
+
+.ad-note__meta dd {
+  margin: 0;
+}
+
+.ad-note__subject {
+  margin: 0 0 0.5rem;
+  font-size: var(--jsini-fs-lg);
+  font-weight: 600;
+}
+
+/* 본문은 평문이다. 줄바꿈을 살리고, 긴 주소가 창을 밀지 않게 끊는다 —
+   HTML 로 그리지 않는 까닭은 화면에 적어 두었다(남이 보낸 글자다). */
+.ad-note__body {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

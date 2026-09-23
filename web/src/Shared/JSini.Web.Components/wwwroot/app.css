@@ -1897,7 +1897,8 @@ button.jsini-crumbs__item:hover { opacity: 1; }
    eye=visibility_eye · lock=lock · pin=pin · home=home · check=checkmark ·
    close=cancel · undo=arrow_undo · more=dots_horizontal · fold=text_collapse_all ·
    unfold=text_expand_all · expand=full_screen_maximize ·
-   child-plus=add_expand_square · copy=copy · chevron-down=chevron_down
+   child-plus=add_expand_square · copy=copy · chevron-down=chevron_down ·
+   mail=mail
 
    **`jsini-icon-blank` · `jsini-icon-robot` · `jsini-icon-bolt` 만 우리 것이다** —
    첫째는 자리만 차지하는 빈칸이고, 나머지 둘에 맞는 그림이 그 라이브러리에 없다.
@@ -1936,6 +1937,12 @@ button.jsini-crumbs__item:hover { opacity: 1; }
 .jsini-icon-bell {
   -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 2a4.5 4.5 0 0 0-4.5 4.5v2.401l-.964 2.414A.5.5 0 0 0 3 12h3c0 1.108.892 2 2 2s2-.892 2-2h3a.5.5 0 0 0 .464-.685L12.5 8.9V6.5A4.5 4.5 0 0 0 8 2m1 10c0 .556-.444 1-1 1s-1-.444-1-1zM4.5 6.5a3.5 3.5 0 1 1 7 0v2.498a.5.5 0 0 0 .036.185L12.262 11H3.738l.726-1.817a.5.5 0 0 0 .036-.185z'/%3E%3C/svg%3E");
   mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 2a4.5 4.5 0 0 0-4.5 4.5v2.401l-.964 2.414A.5.5 0 0 0 3 12h3c0 1.108.892 2 2 2s2-.892 2-2h3a.5.5 0 0 0 .464-.685L12.5 8.9V6.5A4.5 4.5 0 0 0 8 2m1 10c0 .556-.444 1-1 1s-1-.444-1-1zM4.5 6.5a3.5 3.5 0 1 1 7 0v2.498a.5.5 0 0 0 .036.185L12.262 11H3.738l.726-1.817a.5.5 0 0 0 .036-.185z'/%3E%3C/svg%3E");
+}
+
+/* 상단 띠의 「쪽지 쓰기」 단추. DevExpress 이름표로는 `mail` 이다. */
+.jsini-icon-mail {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 3A2.5 2.5 0 0 0 1 5.5v5A2.5 2.5 0 0 0 3.5 13h9a2.5 2.5 0 0 0 2.5-2.5v-5A2.5 2.5 0 0 0 12.5 3zM2 5.5A1.5 1.5 0 0 1 3.5 4h9A1.5 1.5 0 0 1 14 5.5v.24l-6 3.2-6-3.2zm0 1.374 5.765 3.075a.5.5 0 0 0 .47 0L14 6.874V10.5a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 2 10.5z'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 3A2.5 2.5 0 0 0 1 5.5v5A2.5 2.5 0 0 0 3.5 13h9a2.5 2.5 0 0 0 2.5-2.5v-5A2.5 2.5 0 0 0 12.5 3zM2 5.5A1.5 1.5 0 0 1 3.5 4h9A1.5 1.5 0 0 1 14 5.5v.24l-6 3.2-6-3.2zm0 1.374 5.765 3.075a.5.5 0 0 0 .47 0L14 6.874V10.5a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 2 10.5z'/%3E%3C/svg%3E");
 }
 
 .jsini-icon-user {
@@ -7357,4 +7364,168 @@ body {
 .dxbl-toast.jsini-toast-time--60s {
   --jsini-toast-span: 60s;
   --jsini-toast-secs: 60;
+}
+
+/* ── 쪽지 (`NoteWritePanel` · `NoteWritePopup`) ────────────────
+
+   상단 띠의 ✉ 가 어디서나 여는 판이고 메뉴의 「쪽지 쓰기」 화면도 같은 것을
+   그린다. **모듈 CSS 가 아니라 여기** 있는 까닭은 알림 보내기 창과 같다 —
+   헤더는 레이아웃이라 업무 모듈의 스타일시트를 물지 않는다.
+
+   `jsini-notify__*`(알림 보내기 창)와 이름을 나눈다. 생긴 것이 닮았지만
+   하는 일이 다르고, 한 벌을 나눠 쓰면 한쪽을 손볼 때마다 다른 쪽이 따라
+   움직인다 — 그쪽은 **고른 사람들**에게 한 통, 이쪽은 **적어서 보내는** 글이다.
+   ---------------------------------------------------------- */
+
+.jsini-note__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-bottom: 0.7rem;
+}
+
+.jsini-note__label {
+  font-size: var(--jsini-fs-xs);
+  font-weight: 600;
+  color: var(--jsini-text-muted);
+}
+
+/* 입력 칸은 판 폭을 그대로 쓴다. DevExpress 가 제 내용만큼만 넓히므로
+   적어 두지 않으면 짧은 칸들이 왼쪽에 붙어 버린다. */
+.jsini-note__input {
+  width: 100%;
+}
+
+/* 받는 사람 딱지들이 놓이는 자리. 비어 있어도 높이를 남긴다 —
+   딱지가 처음 생길 때 아래 칸들이 통째로 밀리지 않게 한다. */
+.jsini-note__to {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 1.9rem;
+}
+
+/* 딱지 하나 = 받는 사람 하나. 글자로 쉼표를 이어 두면 쉼표를 빠뜨렸을 때
+   두 사람이 한 사람으로 뭉치는데, 그것이 화면에서는 안 보인다. */
+.jsini-note__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.1rem;
+  padding: 0.1rem 0.15rem 0.1rem 0.55rem;
+  border: 1px solid var(--jsini-border);
+  border-radius: 999px;
+  background: var(--jsini-bg);
+  font-size: var(--jsini-fs-sm);
+}
+
+.jsini-note__pick {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.35rem;
+}
+
+/* 찾기 칸이 「추가」 단추보다 훨씬 넓어야 한다. flex 기본은 내용 크기라
+   적어 두지 않으면 둘이 반반이 된다. */
+.jsini-note__pick .jsini-note__input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* 찾은 사람들. 목록이 길어지면 판이 통째로 늘어나 보내기 단추가 화면
+   밖으로 나가므로 여기서 구른다. */
+.jsini-note__matches {
+  max-height: 11rem;
+  margin: 0.35rem 0 0;
+  padding: 0;
+  overflow-y: auto;
+  border: 1px solid var(--jsini-border);
+  border-radius: 0.3rem;
+  list-style: none;
+}
+
+.jsini-note__match {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.3rem 0.55rem;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.jsini-note__match:hover,
+.jsini-note__match:focus-visible {
+  background: var(--jsini-surface-muted, rgba(127, 127, 127, 0.12));
+}
+
+.jsini-note__match-name {
+  font-size: var(--jsini-fs-sm);
+}
+
+/* 부서와 메일 주소. 이름보다 작고 흐리게 — 고르는 눈이 이름에 먼저 가야 한다. */
+.jsini-note__match-sub {
+  font-size: var(--jsini-fs-2xs);
+  color: var(--jsini-text-muted);
+}
+
+.jsini-note__empty {
+  margin: 0.2rem 0 0;
+  font-size: var(--jsini-fs-sm);
+  color: var(--jsini-text-muted);
+}
+
+/* 보낼 길. 체크 둘이라 한 줄이면 충분하다. */
+.jsini-note__ways {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+  padding-bottom: 0.6rem;
+  margin-bottom: 0.6rem;
+  border-bottom: 1px solid var(--jsini-border);
+}
+
+.jsini-note__send {
+  display: flex;
+  gap: 0.4rem;
+}
+
+/* ── 상단 띠의 숫자 배지 (`HeaderTools`) ──────────────────────
+
+   ✉ 에 안 읽은 쪽지 수를 얹는다. 단추 안에 넣을 수 없어(아이콘 자리를
+   DevExpress 가 쥔다) **단추를 감싼 자리에 절대 배치**한다.
+
+   감싼 자리는 `inline-flex` 다 — `inline-block` 으로 두면 단추가 줄 바닥선에
+   앉아 띠 안에서 아래로 처진다.
+   ---------------------------------------------------------- */
+
+.jsini-header__badged {
+  position: relative;
+  display: inline-flex;
+}
+
+.jsini-header__badge {
+  position: absolute;
+  top: 0;
+  right: 0;
+  min-width: 1rem;
+  padding: 0 0.2rem;
+  border-radius: 999px;
+  background: var(--jsini-danger, #d13438);
+  color: #fff;
+  font-size: var(--jsini-fs-2xs);
+  font-weight: 700;
+  line-height: 1rem;
+  text-align: center;
+
+  /* 숫자를 누르면 단추가 아니라 배지가 먹는다. 그러면 ✉ 가 「가끔 안 눌리는
+     단추」가 된다 — 안 읽은 쪽지가 있을 때만 그러니 재현도 어렵다. */
+  pointer-events: none;
 }

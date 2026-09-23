@@ -35,12 +35,21 @@ public class AppDbContext : DbContext
     /// </summary>
     public DbSet<PushSendLog> PushSendLogs { get; set; } = null!;
 
+    /// <summary>
+    /// 쪽지. <b>발송 기록과 갈래가 다르다</b> — 두드림(푸시·메일)이 다 막혀도
+    /// 남아야 하는 글이라 표를 따로 둔다(<see cref="Note"/> 머리말).
+    /// </summary>
+    public DbSet<Note> Notes { get; set; } = null!;
+
     // ── scom 계정·역할 (읽기 전용) ──────────────────────────
     // "이 역할 사용자들의 이메일" 을 풀기 위한 조회 전용 매핑이다.
     // 정본은 AuthServer 이고 여기서는 절대 쓰지 않는다 (ScomIdentityRows.cs 머리말).
     public DbSet<RoleAccountRow> RoleAccounts => Set<RoleAccountRow>();
     public DbSet<AccountRow> Accounts => Set<AccountRow>();
     public DbSet<AccountProfileDetailRow> AccountProfileDetails => Set<AccountProfileDetailRow>();
+
+    /// <summary>부서 이름. 쪽지 받는 사람을 고를 때 같은 이름을 가른다.</summary>
+    public DbSet<DepartmentRow> Departments => Set<DepartmentRow>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -68,6 +77,14 @@ public class AppDbContext : DbContext
         // 「이 사람에게 무엇이 갔나」도 자주 묻는다.
         modelBuilder.Entity<PushSendLog>()
             .HasIndex(l => new { l.OwnerType, l.OwnerKey });
+
+        // 쪽지는 **받은함과 보낸함**으로만 훑는다. 둘 다 사람 한 명 + 시간순이라
+        // 색인이 둘 필요하다 — 하나로 두면 보낸함이 표를 통째로 읽는다.
+        modelBuilder.Entity<Note>()
+            .HasIndex(n => new { n.ReceiverKey, n.SentAt });
+
+        modelBuilder.Entity<Note>()
+            .HasIndex(n => new { n.SenderKey, n.SentAt });
 
         // ── 컬럼명을 snake_case 로 맞춘다 ──────────────────────
         //

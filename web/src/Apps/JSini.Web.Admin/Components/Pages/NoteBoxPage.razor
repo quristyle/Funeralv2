@@ -1,0 +1,314 @@
+@page "/admin/note/box"
+@attribute [RouteKey("admin.note.box")]
+
+@*
+    [쪽지함] — 알림관리 › 쪽지함.
+
+    받은 쪽지와 보낸 쪽지를 본다. 앱 푸시·메일의 「쪽지가 왔습니다」가 데려오는
+    자리도 여기다(`NoteEndpoints.InboxUrl`).
+
+    [탭이 아니라 조건이다]
+
+    받은함·보낸함을 `DxTabs` 로 가르지 않았다. 그러면 표와 조건줄이 두 벌이
+    되고, 기간을 바꾼 뒤 탭을 옮기면 **한쪽만 옛 기간으로 남는다.** 두 함은
+    같은 표에 같은 칸을 쓰고 「누구」의 뜻만 갈리므로, 조건 한 칸으로 가른다 —
+    화면 백 개가 조건을 같은 자리에 두고 있는 것도 이유다(web/CLAUDE.md).
+
+    갈리는 것은 그 칸의 **머릿글**뿐이다(받은함이면 「보낸 사람」, 보낸함이면
+    「받는 사람」). 칸 자체를 갈아 끼우면 정렬·검색 상태가 옮길 때마다 풀린다.
+
+    [읽음은 **여는 순간** 찍힌다]
+
+    「읽음 처리」 단추를 따로 두지 않는다. 쪽지는 열어서 읽는 것이라, 열고도
+    안 읽음으로 남아 있으면 상단 띠의 숫자가 사람의 기억과 어긋난다.
+    서버가 받은 사람만 찍게 막는다.
+
+    [지우기는 **내 쪽만**이다]
+
+    보낸 사람이 자기 보낸함에서 치워도 받은 사람의 쪽지는 남는다 — 편지를
+    부친 사람이 남의 우편함을 비울 수는 없다(`scom.notes` 머리말).
+*@
+
+@inherits DataPage
+@inject NoteClient Notes
+
+<PageTitle>쪽지함 · 포털관리</PageTitle>
+
+<CommSch OnSearch="@ReloadAsync" Busy="@Loading" MobileSummary="@ConditionSummary">
+    <Fields>
+        <CommSchItem Label="구분">
+            @* 받은함 ↔ 보낸함. 고르는 즉시 다시 읽는다 — 서버가 다른 길을
+               주는 값이라 「조회」를 한 번 더 누르게 할 이유가 없다. *@
+            <DxComboBox Data="@Boxes" Value="@_box"
+                        TextFieldName="@nameof(SchOption.Text)"
+                        ValueFieldName="@nameof(SchOption.Value)"
+                        ValueChanged="@(async (string v) => { _box = v; await ReloadAsync(); })"
+                        Style="width: 110px" />
+        </CommSchItem>
+
+        <CommSchItem Label="기간">
+            <DxDateEdit @bind-Date="_from" Style="width: 140px" />
+        </CommSchItem>
+        <CommSchItem Label="~">
+            <DxDateEdit @bind-Date="_to" Style="width: 140px" />
+        </CommSchItem>
+
+        <CommSchItem>
+            @* 라벨을 안 붙인다. 스위치 옆 글자가 이미 무엇인지 말한다.
+
+               **서버에 보내지 않는다.** 받아 둔 것에서 거르므로 누르는 즉시
+               반영된다 — 서버로 보내면 「조회」를 한 번 더 눌러야 한다. *@
+            <DxCheckBox @bind-Checked="_unreadOnly">안 읽은 것만</DxCheckBox>
+        </CommSchItem>
+    </Fields>
+
+    <Actions>
+        <DxButton Text="쪽지 쓰기" RenderStyle="ButtonRenderStyle.Primary"
+                  IconCssClass="jsini-icon-mail"
+                  Click="@(() => OpenWrite(null))" />
+    </Actions>
+</CommSch>
+
+<CommCont>
+    <CommGrd TItem="NoteDto"
+             Data="@Shown"
+             PageSize="30"
+             EmptyText="@EmptyText"
+             ExportName="쪽지함"
+             SelectedItem="@_opened"
+             AutoSelectFirstRow="false"
+             Reload="@ReloadAsync">
+        <Columns>
+            @* 서버가 주는 것은 UTC 라 그대로 그리면 아홉 시간 전으로 보인다. *@
+            <DxGridDataColumn FieldName="@nameof(NoteDto.SentAt)" Caption="@TimeCaption" Width="150">
+                <CellDisplayTemplate Context="cell">
+                    @(((NoteDto)cell.DataItem).SentAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm"))
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            @* 「누구」 칸. 받은함이면 보낸 사람, 보낸함이면 받는 사람이다 —
+               **칸은 하나고 머릿글과 내용만 갈린다**(위 머리말). *@
+            <DxGridDataColumn Caption="@WhoCaption" Width="150"
+                              TextAlignment="GridTextAlignment.Left">
+                <CellDisplayTemplate Context="cell">
+                    @Who((NoteDto)cell.DataItem)
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn FieldName="@nameof(NoteDto.Title)" Caption="제목" MinWidth="200"
+                              TextAlignment="GridTextAlignment.Left">
+                <CellDisplayTemplate Context="cell">
+                    @{ var row = (NoteDto)cell.DataItem; }
+                    @* 안 읽은 것은 굵게. 받은함에서 눈이 먼저 가야 하는 줄이다. *@
+                    <span class="@(Inbox && !row.IsRead ? "ad-note__title--unread" : null)">@row.Title</span>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn Caption="@ReadCaption" Width="110">
+                <CellDisplayTemplate Context="cell">
+                    @{ var row = (NoteDto)cell.DataItem; }
+                    @if (row.IsRead)
+                    {
+                        <span class="jsini-badge jsini-badge--off">읽음</span>
+                    }
+                    else
+                    {
+                        <span class="jsini-badge">안 읽음</span>
+                    }
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            @* 두드림이 어디까지 갔나. **다 갔으면 아무것도 적지 않는다** —
+               정상에 딱지를 붙이면 눈이 거기로 간다. *@
+            <DxGridDataColumn Caption="알림" Width="160">
+                <CellDisplayTemplate Context="cell">
+                    @{ var row = (NoteDto)cell.DataItem; }
+                    @if (row.NotifyNote is { Length: > 0 } why)
+                    {
+                        <span class="jsini-badge jsini-badge--warn" title="@why">@why</span>
+                    }
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+        </Columns>
+
+        <RowActions Context="row">
+            <DxButton Text="열기" RenderStyle="ButtonRenderStyle.Secondary"
+                      Click="@(() => OpenAsync(row))" />
+            <DxButton Text="지우기" RenderStyle="ButtonRenderStyle.Secondary"
+                      Click="@(() => DeleteAsync(row))" />
+        </RowActions>
+    </CommGrd>
+</CommCont>
+
+@* ── 읽는 창 ─────────────────────────────────────────────── *@
+<CommPopup Visible="@(_opened is not null)"
+           VisibleChanged="@(v => { if (!v) _opened = null; })"
+           HeaderText="쪽지"
+           Width="min(34rem, calc(100vw - 2rem))">
+    <BodyContentTemplate>
+        @if (_opened is { } note)
+        {
+            <dl class="ad-note__meta">
+                <dt>보낸 사람</dt>
+                <dd>@Name(note.SenderName, note.SenderKey)</dd>
+                <dt>받는 사람</dt>
+                <dd>@Name(note.ReceiverName, note.ReceiverKey)</dd>
+                <dt>보낸 때</dt>
+                <dd>@note.SentAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</dd>
+            </dl>
+
+            <h3 class="ad-note__subject">@note.Title</h3>
+
+            @* 본문은 평문이다. `white-space: pre-wrap` 이 줄바꿈을 살린다 —
+               HTML 로 그리면 남이 보낸 글자가 화면을 짤 수 있다. *@
+            <p class="ad-note__body">@note.Body</p>
+        }
+    </BodyContentTemplate>
+
+    <FooterContentTemplate>
+        @if (_opened is { } note)
+        {
+            @* 답장은 **보낸 사람에게** 간다. 보낸함에서 열었으면 내가 보낸
+               쪽지라 받는 사람에게 다시 쓰는 것이 맞다. *@
+            <DxButton Text="답장" RenderStyle="ButtonRenderStyle.Primary"
+                      IconCssClass="jsini-icon-mail"
+                      Click="@(() => OpenWrite(Inbox ? note.SenderKey : note.ReceiverKey))" />
+        }
+        <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary"
+                  Click="@(() => _opened = null)" />
+    </FooterContentTemplate>
+</CommPopup>
+
+@* ── 쓰는 창 ─────────────────────────────────────────────── *@
+@*
+   **창을 통째로 새로 만든다.** 판은 받는 사람을 처음 만들어질 때 한 번만
+   읽으므로(`NoteWritePanel.OnInitialized`), 창을 하나 두고 상대만 바꿔 열면
+   두 번째 답장부터 옛 사람이 그대로 남는다.
+*@
+@if (_writing)
+{
+    <NoteWritePopup Visible="true"
+                    DefaultTo="@_writeTo"
+                    VisibleChanged="@(v => { if (!v) _writing = false; })"
+                    OnSent="@(_ => ReloadAsync())" />
+}
+
+@code {
+    /// <summary>받은함 · 보낸함. 값이 주소의 갈래가 된다.</summary>
+    private static readonly SchOption[] Boxes =
+    [
+        new("inbox", "받은 쪽지"),
+        new("sent", "보낸 쪽지"),
+    ];
+
+    private string _box = "inbox";
+
+    /// <summary>지금 받은함을 보고 있나. 머릿글 셋이 이 값으로 갈린다.</summary>
+    private bool Inbox => _box == "inbox";
+
+    private string WhoCaption => Inbox ? "보낸 사람" : "받는 사람";
+
+    private string TimeCaption => Inbox ? "받은 때" : "보낸 때";
+
+    /// <summary>
+    /// 읽음 칸의 머릿글. 보낸함에서는 <b>상대가</b> 읽었는지다 — 같은 값인데
+    /// 묻는 사람이 달라서, 글자를 안 바꾸면 자기가 읽은 것으로 읽힌다.
+    /// </summary>
+    private string ReadCaption => Inbox ? "상태" : "상대가";
+
+    private string EmptyText => Inbox ? "받은 쪽지가 없습니다." : "보낸 쪽지가 없습니다.";
+
+    /// <summary>
+    /// 조회 기간. <b>기본이 최근 한 달이다.</b> 쪽지는 지우지 않으면 자라기만
+    /// 하고, 자기 쪽지함은 드물게 열어 보므로 이레로는 짧다.
+    /// </summary>
+    private DateTime? _from = DateTime.Today.AddMonths(-1);
+    private DateTime? _to = DateTime.Today;
+
+    private bool _unreadOnly;
+
+    private IReadOnlyList<NoteDto> _all = [];
+
+    /// <summary>지금 열어 보고 있는 쪽지. <c>null</c> 이면 창이 닫혀 있다.</summary>
+    private NoteDto? _opened;
+
+    private bool _writing;
+    private IReadOnlyList<string>? _writeTo;
+
+    /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
+    private string ConditionSummary => SchSummary.Of(
+        SchSummary.NameOf(Boxes, o => o.Value, o => o.Text, _box),
+        SchSummary.Period(_from, _to),
+        SchSummary.On(_unreadOnly, "안 읽은 것만"));
+
+    private IReadOnlyList<NoteDto> Shown =>
+        _unreadOnly ? [.. _all.Where(n => !n.IsRead)] : _all;
+
+    protected override Task OnInitializedAsync() => ReloadAsync();
+
+    private Task ReloadAsync() => LoadAsync(async () =>
+    {
+        _all = Inbox
+            ? await Notes.GetInboxAsync(_from, _to)
+            : await Notes.GetSentAsync(_from, _to);
+
+        return _all.Count;
+    }, EmptyText, "쪽지를 읽지 못했습니다");
+
+    /// <summary>
+    /// 쪽지를 연다. <b>받은함에서 열면 그 자리에서 읽음으로 찍는다.</b>
+    /// </summary>
+    /// <remarks>
+    /// 찍기가 막혀도 창은 연다 — 읽는 것이 사람의 목적이고, 표시는 다음에
+    /// 다시 열 때 또 시도된다.
+    /// </remarks>
+    private async Task OpenAsync(NoteDto note)
+    {
+        _opened = note;
+
+        if (!Inbox || note.IsRead)
+        {
+            return;
+        }
+
+        try
+        {
+            await Notes.MarkReadAsync(note.Id);
+            note.IsRead = true;
+            note.ReadAt = DateTime.UtcNow;
+        }
+        catch (ApiException)
+        {
+            // 표시만 못 남겼다. 글은 이미 화면에 있다.
+        }
+    }
+
+    /// <summary>쓰는 창을 연다. 답장이면 상대가 미리 들어간다.</summary>
+    private void OpenWrite(string? to)
+    {
+        _writeTo = to is { Length: > 0 } ? [to] : null;
+        _opened = null;
+        _writing = true;
+    }
+
+    /// <summary>
+    /// 내 쪽지함에서 치운다. <b>상대의 것은 남는다</b>(서버가 쪽을 가른다).
+    /// </summary>
+    private async Task DeleteAsync(NoteDto note)
+    {
+        if (await RunAsync(() => Notes.DeleteAsync(note.Id),
+                "쪽지를 치웠습니다.", "치우지 못했습니다"))
+        {
+            await ReloadAsync();
+        }
+    }
+
+    /// <summary>「누구」 칸에 적을 글. 받은함이면 보낸 사람이다.</summary>
+    private string Who(NoteDto note) => Inbox
+        ? Name(note.SenderName, note.SenderKey)
+        : Name(note.ReceiverName, note.ReceiverKey);
+
+    /// <summary>이름이 있으면 이름, 없으면 아이디.</summary>
+    private static string Name(string? name, string loginId) =>
+        string.IsNullOrWhiteSpace(name) ? loginId : $"{name} ({loginId})";
+}

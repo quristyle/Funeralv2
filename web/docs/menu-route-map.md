@@ -109,6 +109,12 @@
 
 (그룹 노드: /system /common /auth /company /system/push /system/status → /admin 아래로 정규화)
 
+> **이 뒤에 들인 메뉴는 이 표에 없다.** 위 목록은 2026-09-05 에 실측한 **Vue 시절
+> 메뉴**의 옛→새 대조표라, 옮길 옛 경로가 없는 새 메뉴는 적을 칸이 없다. 새 메뉴는
+> `path` 를 처음부터 새 정규 경로로 넣는다 — 「메시지 발송」(`/admin/push/send`)이
+> 그 첫 줄이고, 「쪽지 쓰기」(`/admin/note/write`) · 「쪽지함」(`/admin/note/box`)도
+> 그렇다. 그래야 `RouteAliases` 를 타지 않고 권한표 열쇠와 화면 주소가 같아진다.
+
 ## Site (:5564, /site) — 옛 path → 새 정규 경로
 
 | 옛 path (DB) | 새 정규 경로 | Vue component |

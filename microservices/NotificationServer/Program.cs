@@ -92,6 +92,10 @@ builder.Services.AddScoped<INotificationPreferenceService, NotificationPreferenc
 builder.Services.AddSingleton<IAvatarIconTokenFactory, AvatarIconTokenFactory>();
 builder.Services.AddScoped<IAvatarIconResolver, AvatarIconResolver>();
 builder.Services.AddScoped<IPushSender, PushSender>();
+
+// 쪽지의 받는 사람을 아이디·이메일로 푼다. 이메일을 푸는 것(EmailEndpoints)과
+// 같은 자리이고 scom 을 읽기만 한다 (NoteRecipientResolver 머리말).
+builder.Services.AddScoped<INoteRecipientResolver, NoteRecipientResolver>();
 builder.Services.AddScoped<IEmailQueueSender, EmailQueueSender>();
 
 // 배포 알림 — 배포 파이프라인이 「반영 끝」을 알려 오면 슈퍼관리자에게 푸시한다.
@@ -144,6 +148,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapNotificationEndpoints();
+app.MapNoteEndpoints();       // 쪽지 — 사람에게서 사람에게로 가는 짧은 글
 app.MapEmailEndpoints();
 app.MapWeatherEventEndpoints(); // 기상 이벤트 발송 (D-G1a) — LifeEnvServer 가 부른다
 app.MapDeployEventEndpoints();  // 배포 반영 알림 — GitHub Actions 의 deploy 잡이 부른다

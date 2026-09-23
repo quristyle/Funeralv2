@@ -5,7 +5,22 @@
       · 즐겨찾기 — 지금 화면을 담고 뺀다 (백엔드에 표가 그대로 남아 있었다)
       · 새로 고침 — 화면만 다시 그린다
       · 전체화면 — 상황판에 띄워 두는 화면에서 쓴다
+      · 쪽지      — 어디서나 한 통 쓴다. 안 읽은 것이 있으면 숫자가 붙는다
       · 알림      — 안 읽은 것이 있으면 점이 붙는다
+
+    [쪽지는 **창으로 열린다** (2026-09-24)]
+
+    ✉ 를 누르면 화면을 옮기지 않고 그 자리에서 창이 뜬다(`NoteWritePopup`).
+    ⚡ 가 서랍이 된 것과 같은 까닭이다 — 쪽지를 쓰려는 순간 사람이 하던 일은
+    **보던 화면**이고, 옮겨 가면 무엇을 보다가 쓰려 했는지가 사라진다.
+
+    서랍이 아니라 창인 것은 쪽지가 **한 번 쓰고 닫는 일**이어서다. 서랍은
+    열어 둔 채 화면을 오가는 것(AI 대화·빠른 지시)에 맞는 그릇이다.
+
+    ✉ 에 붙는 숫자는 **안 읽은 쪽지 수**다. 화면을 옮길 때마다 다시 센다 —
+    쪽지함에서 읽고 나왔는데 숫자가 그대로면 그것이 고장으로 보인다.
+    세는 길은 숫자만 받는 따로 난 길이라(`notes/unread-count`) 받은함을
+    통째로 읽지 않는다.
 
     [빠른 지시는 **책상에서 서랍으로 열린다** (2026-09-24)]
 
@@ -43,7 +58,7 @@
       · 즐겨찾기 · 새로 고침 · 전체화면 은 뺀다. 화면을 오래 붙들고 다듬는
         일이라 책상에서 하고, 새로 고침·전체화면은 휴대폰 브라우저가 이미
         제 것을 가지고 있다.
-      · 빠른 지시 · 알림 은 남긴다. 둘 다 **밖에서 급할 때** 쓰는 것이다.
+      · 빠른 지시 · 쪽지 · 알림 은 남긴다. 셋 다 **밖에서 급할 때** 쓰는 것이다.
 
     감추는 일은 CSS 가 한다(`app.css` 의 `.jsini-header__tool--wide`).
     화면 크기로 마크업을 갈아 끼우지 않는 이유는 레이아웃과 같다 — 경계를
@@ -63,6 +78,7 @@
 @inject NavigationManager Navigation
 @inject IJSRuntime Js
 @inject QuickAskReveal Ask
+@inject NoteClient Notes
 @* 껍데기 크기를 캡에서 멈추려고 받는다 — `ThemeSize.Chrome` 머리말 참고. *@
 @inject ThemeSize Size
 
@@ -109,11 +125,32 @@
               Title="전체화면"
               Click="@ToggleFullScreenAsync" />
 
+    @* 쪽지 쓰기. **권한을 보지 않는다** — 알림 설정처럼 누구나 제 것을 쓰는
+       일이고, 받는 사람을 적는 칸이라 남의 자료가 딸려 나오지도 않는다.
+
+       숫자는 안 읽은 쪽지 수다. 0 이면 붙이지 않는다 — 빈 동그라미가 붙어
+       있으면 「안 읽은 것이 있다」로 읽힌다. *@
+    <span class="jsini-header__badged">
+        <DxButton RenderStyle="ButtonRenderStyle.Link"
+                  IconCssClass="jsini-icon-mail"
+                  Title="@NoteTitle"
+                  Click="@(() => _writing = true)" />
+
+        @if (_unread > 0)
+        {
+            <span class="jsini-header__badge">@(_unread > 99 ? "99+" : _unread)</span>
+        }
+    </span>
+
     <DxButton RenderStyle="ButtonRenderStyle.Link"
               IconCssClass="jsini-icon-bell"
               Title="알림"
               Click="@(() => Navigation.NavigateTo("/admin/push/history"))" />
 </CascadingValue>
+
+@* 창은 단추 바로 옆에 둔다. `CommPopup` 은 뜨는 판이라 헤더의 높이·넘침에
+   걸리지 않는다 — 서랍(`QuickAskDrawer`)이 헤더의 형제여야 했던 것과 다르다. *@
+<NoteWritePopup @bind-Visible="@_writing" OnSent="@OnNoteSentAsync" />
 
 @code {
     /// <summary>
@@ -142,6 +179,20 @@
     [Parameter] public bool IsPhone { get; set; }
 
     private bool IsFavorite => Favorites.Contains(MenuPath);
+
+    /// <summary>쪽지 쓰기 창이 열려 있나.</summary>
+    private bool _writing;
+
+    /// <summary>안 읽은 쪽지 수. 0 이면 숫자를 안 붙인다.</summary>
+    private int _unread;
+
+    /// <summary>
+    /// ✉ 에 얹는 글. <b>안 읽은 것이 있으면 그 수를 함께 적는다</b> — 작은
+    /// 숫자만으로는 그것이 무엇을 세는 값인지 알 수 없다.
+    /// </summary>
+    private string NoteTitle => _unread > 0
+        ? $"쪽지 쓰기 — 안 읽은 쪽지 {_unread}통"
+        : "쪽지 쓰기";
 
     /// <summary>서랍으로 열리나. 휴대폰이거나 알맹이가 없으면 거짓이다.</summary>
     private bool AskDocks => !IsPhone && Ask.CanDock;
@@ -198,6 +249,12 @@
     {
         Favorites.Changed += OnFavoritesChanged;
 
+        // 화면을 옮길 때마다 안 읽은 수를 다시 센다. **쪽지함에서 읽고 나왔는데
+        // 숫자가 그대로면 그것이 고장으로 보인다** — 이 부품은 레이아웃에 붙어
+        // 있어 화면이 바뀌어도 다시 만들어지지 않으므로, 안 듣고 있으면 숫자가
+        // 로그인한 그 순간의 값에 붙박인다.
+        Navigation.LocationChanged += OnLocationChanged;
+
         // 메뉴는 로그인 직후·권한 갱신 때 뒤늦게 실린다. 안 듣고 있으면
         // **처음 그린 뒤로 단추가 영영 안 나타난다.**
         Menus.MenusChanged += OnFavoritesChanged;
@@ -209,6 +266,59 @@
     }
 
     private void OnFavoritesChanged() => InvokeAsync(StateHasChanged);
+
+    /// <summary>
+    /// 첫 그림 뒤에 한 번 센다.
+    /// </summary>
+    /// <remarks>
+    /// <b>프리렌더에서는 세지 않는다.</b> 거기서 부르면 첫 진입마다 게이트웨이를
+    /// 두 번 타고(정적 SSR 한 번, 회로가 붙고 또 한 번) 숫자가 떴다 사라졌다
+    /// 한다 — <c>DataPage.CanLoad</c> 가 막는 것과 같은 자리다.
+    /// <c>OnAfterRenderAsync</c> 는 회로 안에서만 돈다.
+    /// </remarks>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await CountUnreadAsync();
+        }
+    }
+
+    /// <summary>
+    /// 화면을 옮겼다. <b><c>async void</c> 로 두지 않는다</b> — 그러면 여기서
+    /// 새는 예외를 아무도 못 잡아 회로가 통째로 끊어진다.
+    /// </summary>
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+        => _ = InvokeAsync(CountUnreadAsync);
+
+    /// <summary>
+    /// 안 읽은 쪽지를 센다. <b>못 세면 조용히 지나간다</b> — 숫자 하나 때문에
+    /// 상단 띠에 오류를 띄우지 않는다. 그때는 직전 값이 그대로 남는다.
+    /// </summary>
+    private async Task CountUnreadAsync()
+    {
+        try
+        {
+            var count = (await Notes.GetUnreadCountAsync())?.Unread ?? 0;
+
+            if (count != _unread)
+            {
+                _unread = count;
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (ApiException)
+        {
+            // 로그인 전이거나 서비스가 잠깐 없다. 다음 이동에서 다시 센다.
+        }
+        catch (ObjectDisposedException)
+        {
+            // 회로가 닫히는 중이다(화면을 옮기는 순간 등).
+        }
+    }
+
+    /// <summary>보내고 난 뒤. 내가 나에게 보낼 수도 있으므로 다시 센다.</summary>
+    private Task OnNoteSentAsync(NoteSendResultDto result) => CountUnreadAsync();
 
     private async Task ToggleFavoriteAsync()
     {
@@ -235,5 +345,6 @@
         Favorites.Changed -= OnFavoritesChanged;
         Menus.MenusChanged -= OnFavoritesChanged;
         Ask.Changed -= OnFavoritesChanged;
+        Navigation.LocationChanged -= OnLocationChanged;
     }
 }

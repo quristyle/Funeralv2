@@ -39,6 +39,33 @@ public class AccountRow
     [Column("user_id")]
     public string UserId { get; set; } = string.Empty;
 
+    /// <summary>사람이 읽는 이름. 쪽지의 보낸 이·받는 이에 적는다.</summary>
+    [Column("user_name")]
+    public string? UserName { get; set; }
+
+    /// <summary>실명. <see cref="UserName"/> 이 비어 있을 때만 쓴다.</summary>
+    [Column("real_name")]
+    public string? RealName { get; set; }
+
+    /// <summary>소속 부서. 같은 이름이 둘일 때 사람을 가르는 값이다.</summary>
+    [Column("department_id")]
+    public string? DepartmentId { get; set; }
+
+    [Column("is_deleted")]
+    public bool IsDeleted { get; set; }
+}
+
+/// <summary>scom 부서 (읽기 전용 — 이름만 본다. <see cref="RoleAccountRow"/> 머리말 참조)</summary>
+[Table("departments", Schema = "scom")]
+public class DepartmentRow
+{
+    [Key]
+    [Column("id")]
+    public string Id { get; set; } = string.Empty;
+
+    [Column("name")]
+    public string Name { get; set; } = string.Empty;
+
     [Column("is_deleted")]
     public bool IsDeleted { get; set; }
 }
