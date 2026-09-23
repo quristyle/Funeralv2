@@ -3948,3 +3948,11 @@
   font-size: var(--jsini-fs-sm);
   line-height: 1.8;
 }
+
+/* 상세 모드의 제목. 목록으로 돌아가는 단추 옆에 어느 건을 보고 있는지 적는다
+   — 구역이 다섯이라 아래로 내려가면 무엇을 고치고 있었는지 잊는다. */
+.pm-detail-title {
+  font-weight: 600;
+  font-size: var(--jsini-fs-md);
+  margin-left: var(--jsini-sp-xs);
+}

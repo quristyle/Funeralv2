@@ -1,3 +1,4 @@
+using JSini.Web.Components.Data;
 using JSini.Web.Http;
 
 namespace JSini.Web.ProjMng.Api;
@@ -125,6 +126,50 @@ public sealed class InterfaceClient(GatewayClient gateway)
     public Task<IReadOnlyList<IfFileDto>> FilesAsync(
         int prjRid, int ifId, CancellationToken ct = default)
         => gateway.GetListAsync<IfFileDto>($"{Url}/{ifId}/files?prjRid={prjRid}", ct);
+
+    /// <summary>
+    /// 첨부를 올린다. 서버가 <c>multipart/form-data</c> 로 받는다.
+    /// </summary>
+    /// <remarks>
+    /// 고른 파일은 이미 셸이 임시 자리에 받아 두었다(<see cref="PickedFile"/>).
+    /// 여기서는 그 바이트를 게이트웨이로 흘려 보내기만 한다 — 메모리에
+    /// 통째로 올리지 않는다.
+    /// </remarks>
+    public async Task<IReadOnlyList<IfFileDto>> UploadFilesAsync(
+        int prjRid, int ifId, IReadOnlyList<PickedFile> files, CancellationToken ct = default)
+    {
+        using var form = new MultipartFormDataContent();
+        var streams = new List<Stream>(files.Count);
+
+        try
+        {
+            foreach (var file in files)
+            {
+                var stream = file.OpenRead();
+                streams.Add(stream);
+
+                var part = new StreamContent(stream);
+                part.Headers.ContentType =
+                    new System.Net.Http.Headers.MediaTypeHeaderValue(
+                        string.IsNullOrWhiteSpace(file.ContentType)
+                            ? "application/octet-stream"
+                            : file.ContentType);
+
+                form.Add(part, "files", file.Name);
+            }
+
+            using var response = await gateway.SendRawAsync(
+                HttpMethod.Post, $"{Url}/{ifId}/files?prjRid={prjRid}", form, cancellationToken: ct);
+
+            response.EnsureSuccessStatusCode();
+        }
+        finally
+        {
+            foreach (var stream in streams) await stream.DisposeAsync();
+        }
+
+        return await FilesAsync(prjRid, ifId, ct);
+    }
 
     public Task DeleteFileAsync(int prjRid, int ifId, string fileId, CancellationToken ct = default)
         => gateway.DeleteAsync($"{Url}/{ifId}/files/{Uri.EscapeDataString(fileId)}?prjRid={prjRid}", ct);
