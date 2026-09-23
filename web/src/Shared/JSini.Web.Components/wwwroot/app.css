@@ -1483,12 +1483,18 @@ body {
 
 .jsini-iconpick__text { flex: 1; min-width: 0; }
 
+/* 펼친 판. **창 바탕보다 한 단 눌러 앉은 색**이라야 「창 안의 판」으로 읽힌다.
+
+   `--jsini-surface` 였다. 그 값은 밝은 쪽에서 창 바탕과 **똑같은 흰색**이라
+   (둘 다 `#ffffff`) 판이 1px 선만 남고 사라졌다. 창의 바닥 띠가 쓰는 것과
+   같은 눌린 표면(`--jsini-surface-muted`)으로 바꾼다 — 밝은 쪽에서도
+   어두운 쪽에서도 창과 갈라진다. */
 .jsini-iconpick__panel {
   margin-top: 0.5rem;
   padding: 0.6rem;
   border: 1px solid var(--jsini-border);
-  border-radius: 0.25rem;
-  background: var(--jsini-surface);
+  border-radius: var(--jsini-radius-md);
+  background: var(--jsini-surface-muted);
 }
 
 .jsini-iconpick__search { width: 100%; }
@@ -1528,10 +1534,17 @@ body {
 .jsini-iconpick__cell:hover { background: var(--jsini-theme-hover); }
 
 /* 고른 칸은 **면으로** 칠한다. 테두리만 두르면 그 칸이 1px 커져 격자가
-   들썩인다 — 테마 서랍에서 같은 이유로 같은 선택을 했다. */
+   들썩인다 — 테마 서랍에서 같은 이유로 같은 선택을 했다.
+
+   **면 색은 강조색이다.** 처음에는 테마 서랍과 같은 회색
+   (`--jsini-theme-picked`)을 썼는데, 그 회색은 서랍에서만 옳다 — 거기서는
+   **고르는 대상이 강조색 자신**이라 강조색으로 칠할 수가 없다. 여기는
+   그럴 이유가 없고, 표의 고른 줄이 쓰는 값
+   (`color-mix(… 18%, var(--jsini-surface-raised))`)과 같아야 포털 안에서
+   「고른 것」이 늘 같은 색으로 읽힌다. */
 .jsini-iconpick__cell.is-on {
-  background: var(--jsini-theme-picked);
-  border-color: var(--jsini-border);
+  background: color-mix(in srgb, var(--jsini-accent) 18%, var(--jsini-surface-raised));
+  border-color: var(--jsini-accent);
 }
 
 .jsini-iconpick__empty,
@@ -5940,7 +5953,10 @@ body {
   overflow: hidden;
 }
 
-.jsini-shell__content :is(button, a, input, textarea, select):focus-visible {
+/* 창 안에서도 같다 — 까닭은 아래 「창은 `.jsini-shell__content` 밖에 있다」. */
+.jsini-shell__content :is(button, a, input, textarea, select):focus-visible,
+.jsini-popup :is(button, a, input, textarea, select):focus-visible,
+.jsini-gridpopup :is(button, a, input, textarea, select):focus-visible {
   outline: 2px solid var(--jsini-focus);
   outline-offset: 2px;
 }
@@ -5968,28 +5984,81 @@ body {
   --jsini-grid-hover: #243b57;
 }
 
+/* ── 창은 `.jsini-shell__content` 밖에 있다 (실제로 확인) ───────
+
+   이 마감 규칙들이 한동안 **본문에만** 걸려 있었다. 그런데 DevExpress 의
+   창은 선언한 자리에 남지 않는다 — `dx-blazor-all.js` 를 뜯어 보면
+
+       _createPopupElement() {
+         const e = document.createElement('dxbl-popup-root');
+         document.body.appendChild(e); …
+       }
+
+   창을 `<body>` 바로 밑의 `dxbl-popup-root` 로 **옮겨 담는다**(선언한
+   자리에는 `dxbl-popup-portal` 이라는 빈 껍데기만 남는다).
+
+   그래서 `.jsini-shell__content …` 로 적은 규칙은 **어느 창에도 닿지 않는다.**
+   창 껍데기(머리·본문·바닥)는 자릿수를 안 타는 `.jsini-popup …` 으로 이미
+   칠하고 있어서 Tabler 색인데, 그 안의 편집기·단추만 DevExpress 테마 색으로
+   남았다. 기본 테마(Fluent Dark)에서 그 차이가 그대로 보인다 —
+   창은 남색(`--jsini-surface-raised` = `#1e3048`)인데 안의 입력 칸은
+   Fluent 의 중성 회색(`--dxds-neutral-230` = `#252525`)이다. **한 창에
+   색 계열이 둘**이고, 칸이 스물 남짓인 메뉴 수정 창에서 가장 크게 보인다.
+
+   그래서 본문과 **우리 창 둘**을 함께 적는다. `:is()` 한 마디로 묶지 않는
+   이유는 이 파일의 다른 규칙들과 읽는 모양을 맞추기 위해서다.
+
+   DevExpress 자신의 드롭다운(`dxbl-dropdown-popup`)은 건드리지 않는다 —
+   그쪽 표면은 이미 아래 「팝업·토스트·드롭다운」 규칙이 칠하고 있고,
+   목록 칸까지 이 마감을 얹으면 고른 줄 표시가 눌린다.
+   ---------------------------------------------------------- */
+
 /* 버튼·입력·선택 상자 */
 .jsini-shell__content .dxbl-btn:not(.dxbl-btn-link),
 .jsini-shell__content .dxbl-btn-group,
 .jsini-shell__content .dxbl-text-edit,
 .jsini-shell__content .dxbl-combobox,
 .jsini-shell__content .dxbl-spin-edit,
-.jsini-shell__content .dxbl-date-edit {
+.jsini-shell__content .dxbl-date-edit,
+.jsini-popup .dxbl-btn:not(.dxbl-btn-link),
+.jsini-popup .dxbl-btn-group,
+.jsini-popup .dxbl-text-edit,
+.jsini-popup .dxbl-combobox,
+.jsini-popup .dxbl-spin-edit,
+.jsini-popup .dxbl-date-edit,
+.jsini-gridpopup .dxbl-btn:not(.dxbl-btn-link),
+.jsini-gridpopup .dxbl-btn-group,
+.jsini-gridpopup .dxbl-text-edit,
+.jsini-gridpopup .dxbl-combobox,
+.jsini-gridpopup .dxbl-spin-edit,
+.jsini-gridpopup .dxbl-date-edit {
   border-radius: var(--jsini-radius-md);
 }
 
-.jsini-shell__content .dxbl-btn:not(.dxbl-btn-link) {
+.jsini-shell__content .dxbl-btn:not(.dxbl-btn-link),
+.jsini-popup .dxbl-btn:not(.dxbl-btn-link),
+.jsini-gridpopup .dxbl-btn:not(.dxbl-btn-link) {
   font-weight: 600;
 }
 
-.jsini-shell__content .dxbl-btn:not(.dxbl-btn-link):hover {
+.jsini-shell__content .dxbl-btn:not(.dxbl-btn-link):hover,
+.jsini-popup .dxbl-btn:not(.dxbl-btn-link):hover,
+.jsini-gridpopup .dxbl-btn:not(.dxbl-btn-link):hover {
   filter: brightness(1.04);
 }
 
 .jsini-shell__content .dxbl-text-edit:focus-within,
 .jsini-shell__content .dxbl-combobox:focus-within,
 .jsini-shell__content .dxbl-spin-edit:focus-within,
-.jsini-shell__content .dxbl-date-edit:focus-within {
+.jsini-shell__content .dxbl-date-edit:focus-within,
+.jsini-popup .dxbl-text-edit:focus-within,
+.jsini-popup .dxbl-combobox:focus-within,
+.jsini-popup .dxbl-spin-edit:focus-within,
+.jsini-popup .dxbl-date-edit:focus-within,
+.jsini-gridpopup .dxbl-text-edit:focus-within,
+.jsini-gridpopup .dxbl-combobox:focus-within,
+.jsini-gridpopup .dxbl-spin-edit:focus-within,
+.jsini-gridpopup .dxbl-date-edit:focus-within {
   box-shadow: 0 0 0 0.2rem var(--jsini-focus);
 }
 
@@ -6403,8 +6472,13 @@ body {
   color: var(--jsini-danger);
 }
 
-/* 공용 폼은 DevExpress 편집기와 네이티브 입력이 섞여도 같은 높이·초점 표현을 쓴다. */
-.jsini-shell__content :is(input:not([type='checkbox']):not([type='radio']), textarea, select) {
+/* 공용 폼은 DevExpress 편집기와 네이티브 입력이 섞여도 같은 높이·초점 표현을 쓴다.
+
+   **창 안에서도 같아야 한다**(`jsini-popup`·`jsini-gridpopup`) — 까닭은
+   위 「창은 `.jsini-shell__content` 밖에 있다」에 적었다. */
+.jsini-shell__content :is(input:not([type='checkbox']):not([type='radio']), textarea, select),
+.jsini-popup :is(input:not([type='checkbox']):not([type='radio']), textarea, select),
+.jsini-gridpopup :is(input:not([type='checkbox']):not([type='radio']), textarea, select) {
   max-width: 100%;
   border-radius: var(--jsini-radius-md);
   border-color: var(--jsini-border);
@@ -6412,12 +6486,16 @@ body {
   color: var(--jsini-text);
 }
 
-.jsini-shell__content :is(input:not([type='checkbox']):not([type='radio']), textarea, select)::placeholder {
+.jsini-shell__content :is(input:not([type='checkbox']):not([type='radio']), textarea, select)::placeholder,
+.jsini-popup :is(input:not([type='checkbox']):not([type='radio']), textarea, select)::placeholder,
+.jsini-gridpopup :is(input:not([type='checkbox']):not([type='radio']), textarea, select)::placeholder {
   color: var(--jsini-text-muted);
   opacity: 0.8;
 }
 
-.jsini-shell__content :is(input:not([type='checkbox']):not([type='radio']), textarea, select):focus {
+.jsini-shell__content :is(input:not([type='checkbox']):not([type='radio']), textarea, select):focus,
+.jsini-popup :is(input:not([type='checkbox']):not([type='radio']), textarea, select):focus,
+.jsini-gridpopup :is(input:not([type='checkbox']):not([type='radio']), textarea, select):focus {
   border-color: var(--jsini-accent);
   box-shadow: 0 0 0 0.2rem var(--jsini-focus);
   outline: 0;
