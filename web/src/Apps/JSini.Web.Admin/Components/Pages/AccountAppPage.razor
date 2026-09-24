@@ -1,0 +1,579 @@
+@page "/admin/system/account/{LoginId}/app"
+@attribute [RouteKey("admin.system.account.app")]
+
+@*
+    [계정 앱 현황] — 계정 하나의 앱·구독·주고받은 기록.
+
+    들어오는 길은 [계정 관리]의 줄마다 있는 🔔 단추다. DB 메뉴에 없다 —
+    목록에서 사람을 골라야 비로소 뜻이 생기는 화면이라 사이드바에 세우면
+    누구의 것인지 없는 주소가 된다(운송관리의 거래처 상세와 같은 자리다).
+
+    ────────────────────────────────────────────────────────────
+    [무엇에 답하는 화면인가]
+
+    「저 사람만 알림이 안 온다」 하나다. 까닭은 늘 몇 가지뿐인데,
+    **그 몇 가지가 서로 다른 표에 흩어져 있어서** 여태 계정마다 로그인해
+    보는 수밖에 없었다.
+
+      · 서버에 VAPID 가 없다        → 이 사람만이 아니라 아무도 못 받는다
+      · 구독한 기기가 0 대다        → 켜 두어도 도착할 곳이 없다
+      · 본인이 스위치를 껐다        → 발송 직전에 서버가 거른다
+      · 보냈는데 실패했다           → 기기가 죽었다(연속 실패)
+      · 아예 보낸 적이 없다         → 알림 문제가 아니다
+
+    다섯이 **서로 배타적이 아니라서** 하나씩 확인하면 틀린 답에 먼저 닿는다.
+    그래서 나란히 놓고, 걸리는 것이 있으면 맨 위에 문장으로 적는다.
+
+    [구독(기기)과 스위치(뜻)를 섞지 않는다]
+
+    계정 관리 목록의 칸 넷이 이미 그렇게 갈라져 있다(그 화면 머리말).
+    여기서는 한 걸음 더 나가 **기기 한 대씩** 보여 준다 — 「두 대 중 한 대만
+    못 받는다」는 수로는 절대 안 보인다.
+
+    [앱 설치는 구독에 적힌 것을 읽는다]
+
+    따로 세는 표가 없다. 브라우저가 구독할 때 실어 보낸 `isStandalone` ·
+    `displayMode` 가 그 기기의 실행 방식이고, 그것이 **앱으로 깔아 쓰는가**의
+    답이다. 옛 구독에는 그 칸이 비어 있어 「모름」으로 둔다 —
+    모르는 것을 「안 깔았다」로 그리면 옛 기기가 전부 그렇게 보인다.
+
+    [수신과 발신을 한 줄기로 본다]
+
+    받은 것만 보면 「이 사람이 못 받는다」까지는 알아도 「이 사람이 보낸 것도
+    안 나간다」는 못 본다. 둘은 고치는 곳이 다르다(앞은 그 사람의 기기·설정,
+    뒤는 메일 서버·권한). 같은 표를 방향만 바꿔 읽으면 되므로 함께 낸다.
+
+    [기간은 집계와 기록에만 걸린다]
+
+    기기 목록과 수신 설정은 **지금 모습**이다. 기간을 좁혔다고 어제 지운 기기가
+    되살아나지 않는다 — 그 둘에 기간을 걸면 「기기가 없다」가 두 가지 뜻이 된다.
+*@
+
+@inherits DataPage
+@inject AdminClient Api
+@inject NavigationManager Navigation
+
+<PageTitle>@(_status?.UserName ?? LoginId) 앱 현황 · 포털관리</PageTitle>
+
+<CommSch OnSearch="@ReloadAsync" MobileSummary="@ConditionSummary">
+    <Fields>
+        <CommSchItem Label="아이디">
+            <span class="ad-appstat__who">
+                <strong>@LoginId</strong>
+                @if (!string.IsNullOrWhiteSpace(_status?.UserName))
+                {
+                    <span class="jsini-text-muted">@_status!.UserName</span>
+                }
+            </span>
+        </CommSchItem>
+
+        <CommSchItem Label="기간">
+            <DxComboBox Data="@DayOptions" @bind-Value="_days" Style="width: 130px">
+                <ItemTemplate>최근 @context 일</ItemTemplate>
+            </DxComboBox>
+        </CommSchItem>
+    </Fields>
+
+    <Actions>
+        <DxButton Text="계정 관리" RenderStyle="ButtonRenderStyle.Secondary"
+                  Click="@(() => Navigation.NavigateTo("/admin/system/account"))" />
+    </Actions>
+</CommSch>
+
+@* ── 걸리는 것부터 말한다 ──────────────────────────────────────
+
+   이 화면에 오는 사람은 이미 「안 온다」를 알고 왔다. 표를 읽어 스스로
+   원인을 맞추게 하지 않고, 걸리는 것이 있으면 **문장으로** 먼저 적는다.
+   막는 힘이 센 것부터 — 서버 전체(VAPID) → 도착할 곳(기기) → 본인의 뜻(스위치). *@
+
+@if (_status is not null && !_status.AccountFound)
+{
+    <PageNotice Tone="NoticeTone.Warning"
+                Text="@($"「{LoginId}」 는 지금 계정 목록에 없습니다. 지워진 계정의 구독·기록만 남아 있을 수 있습니다.")" />
+}
+
+@if (_status is { PushAvailable: false })
+{
+    <PageNotice Tone="NoticeTone.Error"
+                Text="서버에 VAPID 키가 없어 푸시가 한 건도 나가지 않습니다. 이 사람만의 문제가 아닙니다 — 서버 설정을 먼저 확인하십시오." />
+}
+else if (_status is { Devices.Count: 0 })
+{
+    <PageNotice Tone="NoticeTone.Warning"
+                Text="구독한 기기가 없습니다. 푸시를 켜 두어도 도착할 곳이 없습니다 — 본인이 쓰는 브라우저에서 「환경설정 → 이 브라우저에서 알림 받기」를 눌러야 합니다." />
+}
+else if (_status is { Preference.PushEnabled: false })
+{
+    <PageNotice Tone="NoticeTone.Warning"
+                Text="본인이 푸시 수신을 꺼 두었습니다. 기기는 등록돼 있지만 서버가 발송 직전에 거릅니다." />
+}
+else if (DeadDevices > 0)
+{
+    <PageNotice Tone="NoticeTone.Warning"
+                Text="@($"기기 {DeadDevices}대가 연달아 실패하고 있습니다. 그 기기는 지금 못 받는 중이며, 본인이 그 브라우저에서 다시 등록해야 합니다.")" />
+}
+
+@* 타일은 **지금 모습**이다. 기간을 바꿔도 안 변한다 — 그래서 기간을 쓰는
+   아래 집계와 줄을 나눠 둔다. *@
+@if (_status is not null)
+{
+    <div class="jsini-stats">
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">구독 기기</div>
+            <div class="jsini-stat__value">@_status.Devices.Count</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">앱으로 설치</div>
+            <div class="jsini-stat__value">@InstalledDevices</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">푸시 수신(@(_status.Days)일)</div>
+            <div class="jsini-stat__value">@Stat("push", "received").Success</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">메일 수신(@(_status.Days)일)</div>
+            <div class="jsini-stat__value">@Stat("email", "received").Success</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">안 읽은 쪽지</div>
+            <div class="jsini-stat__value">@_status.Notes.UnreadTotal</div>
+        </div>
+    </div>
+}
+
+<h2 class="ad-subhead">계정</h2>
+
+@if (_status is not null)
+{
+    <dl class="jsini-facts">
+        <div class="jsini-fact">
+            <dt>로그인 아이디</dt>
+            <dd>@_status.OwnerKey</dd>
+        </div>
+        <div class="jsini-fact">
+            <dt>이름</dt>
+            <dd>@(_status.UserName ?? "-")</dd>
+        </div>
+        <div class="jsini-fact">
+            <dt>부서</dt>
+            <dd>@(_status.DeptName ?? "-")</dd>
+        </div>
+        <div class="jsini-fact">
+            <dt>이메일</dt>
+            <dd>
+                @if (string.IsNullOrWhiteSpace(_status.Email))
+                {
+                    @* 메일이 안 가는 까닭의 첫째다. 스위치를 아무리 켜도
+                       보낼 주소가 없으면 그 사람은 명단에서 빠진다. *@
+                    <span class="jsini-badge jsini-badge--warn"
+                          title="이메일이 등록돼 있지 않아 역할·아이디로 보내는 메일에서 빠집니다.">없음</span>
+                }
+                else
+                {
+                    @_status.Email
+                }
+            </dd>
+        </div>
+    </dl>
+}
+
+<h2 class="ad-subhead">수신 설정</h2>
+
+@* **저장한 적이 없으면 흐리게 그린다.** 계정 관리 목록과 같은 규칙이다 —
+   한 번도 안 건드린 것과 일부러 켜 둔 것은 다른 일이고, 앞엣것은 「본인이
+   그렇게 정했다」고 말할 수 없다. *@
+@if (_status is not null)
+{
+    <dl class="jsini-facts">
+        <div class="jsini-fact">
+            <dt>푸시 알림</dt>
+            <dd>@Switch(_status.Preference.PushEnabled)</dd>
+        </div>
+        <div class="jsini-fact">
+            <dt>이메일 알림</dt>
+            <dd>@Switch(_status.Preference.EmailEnabled)</dd>
+        </div>
+        <div class="jsini-fact">
+            <dt>쪽지 메일 전달</dt>
+            <dd>@Switch(_status.Preference.NoteEmailEnabled)</dd>
+        </div>
+        <div class="jsini-fact">
+            <dt>기상특보</dt>
+            <dd>@Switch(_status.Preference.WeatherEnabled)</dd>
+        </div>
+        <div class="jsini-fact">
+            <dt>내 위치 날씨</dt>
+            <dd>
+                @Switch(_status.Preference.WeatherLocalEnabled)
+                @if (_status.Preference.WeatherLocalEnabled && _status.Preference.WeatherLat is null)
+                {
+                    @* 켜져 있는데 좌표가 없으면 한 건도 안 나간다. 스위치만
+                       보면 다 된 것으로 읽히는 자리라 그 자리에서 말한다. *@
+                    <span class="jsini-badge jsini-badge--warn" title="위치를 한 번도 잡지 않아 보낼 곳이 없습니다.">위치 없음</span>
+                }
+            </dd>
+        </div>
+        <div class="jsini-fact">
+            <dt>설정 저장</dt>
+            <dd>
+                @if (_status.Preference.Saved)
+                {
+                    <span title="본인이 정한 값입니다.">@Stamp(_status.Preference.UpdatedAt)</span>
+                }
+                else
+                {
+                    <span class="jsini-text-muted" title="한 번도 저장한 적이 없어 위 값은 전부 기본값입니다.">한 적 없음(기본값)</span>
+                }
+            </dd>
+        </div>
+    </dl>
+}
+
+<h2 class="ad-subhead">앱 설치·구독 기기 (@Devices.Count)</h2>
+
+<CommGrd TItem="PushDeviceDto" Data="@Devices"
+         EmptyText="구독한 기기가 없습니다. 이 사람에게는 푸시가 도착할 곳이 없습니다."
+         ExportName="구독 기기"
+         PageSizeSelectorVisible="false" PagerVisible="false">
+    <Columns>
+        <DxGridDataColumn FieldName="@nameof(PushDeviceDto.UserAgent)" Caption="기기" MinWidth="300">
+            <CellDisplayTemplate Context="cell">
+                @{ var device = (PushDeviceDto)cell.DataItem; }
+                <span title="@device.UserAgent">
+                    <strong>@PushDeviceLabel.Name(device)</strong>
+                    <br />
+                    <span class="jsini-text-muted">@PushDeviceLabel.Details(device)</span>
+                </span>
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+
+        @* 이 화면의 「앱설치」가 여기다. 따로 세는 표가 없고, 구독할 때
+           브라우저가 적어 보낸 실행 방식이 곧 답이다(화면 머리말). *@
+        <DxGridDataColumn Caption="실행 방식" Width="130">
+            <CellDisplayTemplate Context="cell">
+                @{ var installed = PushDeviceLabel.Installed((PushDeviceDto)cell.DataItem); }
+                @if (installed is true)
+                {
+                    <span class="jsini-badge jsini-badge--on" title="홈 화면·시작 메뉴의 아이콘으로 여는 기기입니다.">앱(PWA)</span>
+                }
+                else if (installed is false)
+                {
+                    <span class="jsini-badge jsini-badge--off" title="브라우저 탭으로 엽니다. 창을 닫으면 알림이 늦을 수 있습니다.">브라우저 탭</span>
+                }
+                else
+                {
+                    <span class="jsini-text-muted" title="이 칸이 생기기 전에 등록한 구독이라 알 수 없습니다.">모름</span>
+                }
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+
+        <DxGridDataColumn FieldName="@nameof(PushDeviceDto.Source)" Caption="구독 경로" Width="110" />
+
+        <DxGridDataColumn FieldName="@nameof(PushDeviceDto.CreatedAt)" Caption="등록" Width="150"
+                          DisplayFormat="yyyy-MM-dd HH:mm" />
+
+        @* **「마지막 발송」이다.** 서버가 아는 것은 보낸 때까지고 그 기기가
+           받았는지는 모른다 — 「최근 사용」으로 적으면 안 온 알림도 온 것처럼 읽힌다. *@
+        <DxGridDataColumn FieldName="@nameof(PushDeviceDto.LastSentAt)" Caption="마지막 발송" Width="150"
+                          DisplayFormat="yyyy-MM-dd HH:mm" />
+
+        <DxGridDataColumn FieldName="@nameof(PushDeviceDto.FailureCount)" Caption="연속 실패" Width="100"
+                          TextAlignment="GridTextAlignment.Center">
+            <CellDisplayTemplate Context="cell">
+                @{ var fails = ((PushDeviceDto)cell.DataItem).FailureCount; }
+                @if (fails > 0)
+                {
+                    <span class="jsini-badge jsini-badge--err"
+                          title="연달아 실패한 횟수입니다. 이 기기는 지금 알림을 못 받고 있습니다.">@fails</span>
+                }
+                else
+                {
+                    <span class="jsini-text-muted">-</span>
+                }
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+    </Columns>
+</CommGrd>
+
+<h2 class="ad-subhead">주고받은 것 (최근 @(_status?.Days ?? _days)일)</h2>
+
+@* **줄 수는 사람·기기 단위다.** 한 번 보낸 알림이 기기 두 대로 가면 둘이고,
+   메일 한 통을 셋에게 보내면 셋이다 — 「몇 번 보냈나」가 아니라 「몇 군데에
+   닿으려 했나」를 센다. 안 닿은 까닭을 찾는 자리라 그쪽이 맞다. *@
+<CommGrd TItem="AppChannelStatDto" Data="@Channels"
+         EmptyText="집계할 것이 없습니다."
+         ExportName="주고받은 것"
+         PageSizeSelectorVisible="false" PagerVisible="false">
+    <Columns>
+        <DxGridDataColumn Caption="길" Width="100">
+            <CellDisplayTemplate Context="cell">
+                @ChannelText(((AppChannelStatDto)cell.DataItem).Channel)
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+
+        <DxGridDataColumn Caption="방향" Width="100">
+            <CellDisplayTemplate Context="cell">
+                @DirectionText(((AppChannelStatDto)cell.DataItem).Direction)
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+
+        <DxGridDataColumn FieldName="@nameof(AppChannelStatDto.Total)" Caption="시도" Width="90" />
+        <DxGridDataColumn FieldName="@nameof(AppChannelStatDto.Success)" Caption="성공" Width="90" />
+
+        <DxGridDataColumn Caption="실패" Width="90">
+            <CellDisplayTemplate Context="cell">
+                @{ var stat = (AppChannelStatDto)cell.DataItem; }
+                @if (stat.Failure > 0)
+                {
+                    <span class="jsini-badge jsini-badge--err">@stat.Failure</span>
+                }
+                else
+                {
+                    <span class="jsini-text-muted">0</span>
+                }
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+
+        @* 메일에는 읽음이 없다. 0 으로 두면 「아무도 안 읽었다」로 읽히므로
+           그 줄만 「-」로 적는다 — 셀 수 없는 것과 세어서 0인 것은 다르다. *@
+        <DxGridDataColumn Caption="읽음" Width="90">
+            <CellDisplayTemplate Context="cell">
+                @{ var stat = (AppChannelStatDto)cell.DataItem; }
+                @if (stat.Channel == "email")
+                {
+                    <span class="jsini-text-muted" title="메일은 읽었는지 알 길이 없습니다.">-</span>
+                }
+                else
+                {
+                    @stat.Read
+                }
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+
+        <DxGridDataColumn FieldName="@nameof(AppChannelStatDto.LastAt)" Caption="마지막" Width="150"
+                          DisplayFormat="yyyy-MM-dd HH:mm" />
+    </Columns>
+</CommGrd>
+
+<h2 class="ad-subhead">쪽지</h2>
+
+@if (_status is not null)
+{
+    <dl class="jsini-facts">
+        <div class="jsini-fact">
+            <dt>받은 쪽지(@(_status.Days)일)</dt>
+            <dd>@_status.Notes.Received</dd>
+        </div>
+        <div class="jsini-fact">
+            <dt>보낸 쪽지(@(_status.Days)일)</dt>
+            <dd>@_status.Notes.Sent</dd>
+        </div>
+        <div class="jsini-fact">
+            <dt>메일로도 전달</dt>
+            <dd>@_status.Notes.MailForwarded</dd>
+        </div>
+        <div class="jsini-fact">
+            <dt>안 읽은 쪽지(전체)</dt>
+            <dd>
+                @if (_status.Notes.UnreadTotal > 0)
+                {
+                    <span class="jsini-badge jsini-badge--warn">@_status.Notes.UnreadTotal</span>
+                }
+                else
+                {
+                    <span class="jsini-text-muted">0</span>
+                }
+            </dd>
+        </div>
+        <div class="jsini-fact">
+            <dt>마지막 수신</dt>
+            <dd>@Stamp(_status.Notes.LastReceivedAt)</dd>
+        </div>
+        <div class="jsini-fact">
+            <dt>마지막 발신</dt>
+            <dd>@Stamp(_status.Notes.LastSentAt)</dd>
+        </div>
+    </dl>
+}
+
+<h2 class="ad-subhead">최근 기록</h2>
+
+<CommGrd TItem="AppDeliveryRowDto" Data="@Deliveries"
+         EmptyText="그 기간에 주고받은 기록이 없습니다."
+         ExportName="앱 기록">
+    <Columns>
+        <DxGridDataColumn FieldName="@nameof(AppDeliveryRowDto.SentAt)" Caption="시각" Width="150"
+                          DisplayFormat="yyyy-MM-dd HH:mm" />
+
+        <DxGridDataColumn Caption="길" Width="90">
+            <CellDisplayTemplate Context="cell">
+                @ChannelText(((AppDeliveryRowDto)cell.DataItem).Channel)
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+
+        <DxGridDataColumn Caption="방향" Width="90">
+            <CellDisplayTemplate Context="cell">
+                @{ var row = (AppDeliveryRowDto)cell.DataItem; }
+                <span class="jsini-badge @(row.Direction == "sent" ? "ad-appstat--sent" : "ad-appstat--recv")">
+                    @DirectionText(row.Direction)
+                </span>
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+
+        @* 상대가 없는 줄이 많다 — 시스템이 보낸 것(배포 알림·기상 특보)에는
+           보낸 사람이 없다. 빈칸으로 두면 자료가 빠진 것으로 읽혀 그렇게 적는다. *@
+        <DxGridDataColumn FieldName="@nameof(AppDeliveryRowDto.Counterpart)" Caption="상대" Width="150">
+            <CellDisplayTemplate Context="cell">
+                @{ var who = ((AppDeliveryRowDto)cell.DataItem).Counterpart; }
+                @if (string.IsNullOrWhiteSpace(who))
+                {
+                    <span class="jsini-text-muted" title="시스템이 보낸 알림입니다.">시스템</span>
+                }
+                else
+                {
+                    @who
+                }
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+
+        <DxGridDataColumn FieldName="@nameof(AppDeliveryRowDto.Title)" Caption="제목" MinWidth="220">
+            <CellDisplayTemplate Context="cell">
+                @{ var row = (AppDeliveryRowDto)cell.DataItem; }
+                <span title="@row.Body">@(string.IsNullOrWhiteSpace(row.Title) ? "(제목 없음)" : row.Title)</span>
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+
+        <DxGridDataColumn Caption="결과" Width="160">
+            <CellDisplayTemplate Context="cell">
+                @{ var row = (AppDeliveryRowDto)cell.DataItem; }
+                @if (!row.Success)
+                {
+                    <span class="jsini-badge jsini-badge--err" title="@row.FailureReason">
+                        @(row.FailureReason ?? "실패")
+                    </span>
+                }
+                else if (row.ReadAt is not null)
+                {
+                    <span class="jsini-badge jsini-badge--on" title="@Stamp(row.ReadAt)">읽음</span>
+                }
+                else if (row.Channel == "email")
+                {
+                    @* 메일은 여기까지가 아는 전부다. 「안 읽음」으로 적으면
+                       읽었는지 알아본 것처럼 들린다. *@
+                    <span class="jsini-badge jsini-badge--on">보냄</span>
+                }
+                else
+                {
+                    <span class="jsini-badge">안 읽음</span>
+                }
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+    </Columns>
+</CommGrd>
+
+@code {
+    /// <summary>볼 사람의 로그인 아이디. 계정 관리 목록이 줄마다 실어 보낸다.</summary>
+    [Parameter] public string LoginId { get; set; } = string.Empty;
+
+    /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
+    private string ConditionSummary => $"{LoginId} · 최근 {_days} 일";
+
+    private static readonly int[] DayOptions = [7, 30, 90, 365];
+
+    private int _days = 30;
+
+    /// <summary>이미 읽어 둔 사람. 매개변수가 안 바뀌었으면 다시 읽지 않는다.</summary>
+    private string? _loadedFor;
+
+    private AccountAppStatusDto? _status;
+
+    // 표 셋이 읽는 자리. **아직 안 읽었을 때 빈 목록**이어야 하므로 화면에서
+    // 직접 `?? []` 를 적지 않는다 — 그 꼴은 대상 형이 없어 Razor 가 거절한다.
+    private IReadOnlyList<PushDeviceDto> Devices => _status?.Devices ?? [];
+
+    private IReadOnlyList<AppChannelStatDto> Channels => _status?.Channels ?? [];
+
+    private IReadOnlyList<AppDeliveryRowDto> Deliveries => _status?.Deliveries ?? [];
+
+    /// <summary>
+    /// 앱으로 깔아 쓰는 기기 수.
+    ///
+    /// <para>
+    /// <b>「모름」은 안 센다.</b> 옛 구독에는 실행 방식 칸이 비어 있는데, 그것을
+    /// 설치로도 미설치로도 셀 수 없다 — 세면 어느 쪽이든 틀린 수가 된다.
+    /// </para>
+    /// </summary>
+    private int InstalledDevices =>
+        _status?.Devices.Count(d => PushDeviceLabel.Installed(d) is true) ?? 0;
+
+    /// <summary>연달아 실패 중인 기기 수. 맨 위 안내가 이 값으로 갈린다.</summary>
+    private int DeadDevices => _status?.Devices.Count(d => d.FailureCount > 0) ?? 0;
+
+    /// <summary>
+    /// 길 × 방향 한 칸. <b>없으면 0 짜리를 만들어 준다</b> — 서버가 빈 칸도
+    /// 채워 보내지만, 응답을 못 받았을 때도 타일이 그려져야 한다.
+    /// </summary>
+    private AppChannelStatDto Stat(string channel, string direction) =>
+        _status?.Channels.FirstOrDefault(c => c.Channel == channel && c.Direction == direction)
+        ?? new AppChannelStatDto { Channel = channel, Direction = direction };
+
+    /// <summary>
+    /// 매개변수가 바뀌면 다시 읽는다.
+    ///
+    /// <para>
+    /// 같은 사람으로 다시 들어온 것(기간 고르개를 만진 뒤 다시 그려지는 것)은
+    /// 걸러 낸다 — 안 걸면 고른 기간이 매번 기본값으로 되돌아간다.
+    /// </para>
+    /// </summary>
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_loadedFor == LoginId)
+        {
+            return;
+        }
+
+        _loadedFor = LoginId;
+        _days = 30;
+        await ReloadAsync();
+    }
+
+    private Task ReloadAsync() => LoadAsync(async () =>
+    {
+        _status = await Api.GetAccountAppStatusAsync(LoginId, _days);
+
+        // 건수를 세어 돌려주면 「없습니다」가 뜬다. 이 화면은 **기록이 없는
+        // 것 자체가 답**인 경우가 많아(아예 보낸 적이 없다) 그것을 빈 결과로
+        // 말하지 않는다 — 표마다 자기 자리에 빈 안내가 이미 있다.
+        return _status is null ? 0 : -1;
+    }, "그 계정의 앱 현황을 찾지 못했습니다.", "앱 현황을 읽지 못했습니다");
+
+    /// <summary>
+    /// 스위치 한 칸. <b>여기서는 「저장한 적 없음」을 흐리게 그리지 않는다</b> —
+    /// 그 사실은 아래 「설정 저장」 칸이 한 번만 말한다. 칸마다 되풀이하면
+    /// 여섯 칸이 전부 흐려져 무엇이 켜졌는지 안 보인다.
+    /// </summary>
+    private static RenderFragment Switch(bool on) => builder =>
+    {
+        builder.OpenElement(0, "span");
+        builder.AddAttribute(1, "class", $"jsini-badge {(on ? "jsini-badge--on" : "jsini-badge--off")}");
+        builder.AddContent(2, on ? "받음" : "안 받음");
+        builder.CloseElement();
+    };
+
+    private static string ChannelText(string? channel) => channel switch
+    {
+        "push" => "앱 푸시",
+        "email" => "메일",
+        _ => channel ?? "-",
+    };
+
+    private static string DirectionText(string? direction) => direction switch
+    {
+        "received" => "수신",
+        "sent" => "발신",
+        _ => direction ?? "-",
+    };
+
+    private static string Stamp(DateTime? at) =>
+        at is null ? "-" : at.Value.ToLocalTime().ToString("yyyy-MM-dd HH:mm");
+}

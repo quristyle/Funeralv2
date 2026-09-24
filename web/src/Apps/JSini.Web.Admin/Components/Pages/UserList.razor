@@ -176,6 +176,19 @@
             </DxGridDataColumn>
         </Columns>
 
+        @* 줄마다 [앱 현황]으로 가는 길. **칸 넷이 답하지 못하는 것을 그쪽이 답한다** —
+           여기 딱지는 「몇 대 · 켜짐/꺼짐」까지고, 「두 대 중 어느 한 대가 못 받는가 ·
+           무엇을 보냈는데 왜 실패했는가」는 기기와 기록을 줄 단위로 봐야 나온다.
+
+           **관리 칸에 둔다.** 칸이 열몇 개라 화면이 가로로 구르는데, 관리 칸은
+           오른쪽에 붙박여 있어 굴러도 늘 같은 자리다(`CommGrd` 의 그 칸 주석).
+           딱지 옆에 두면 스크롤 저편으로 사라진다. *@
+        <RowActions Context="a">
+            <DxButton IconCssClass="jsini-icon-bell" Title="앱 현황"
+                      RenderStyle="ButtonRenderStyle.Link"
+                      Click="@(() => Navigation.NavigateTo($"/admin/system/account/{Uri.EscapeDataString(a.LoginId)}/app"))" />
+        </RowActions>
+
         <EditFormTemplate Context="edit">
             @{
                 var a = (AccountDto)edit.EditModel;

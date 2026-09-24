@@ -564,6 +564,33 @@ public sealed class AdminClient(GatewayClient gateway)
         => gateway.GetListAsync<OwnerNotificationStateDto>(
             "notification/notifications/preferences?ownerType=jsini", ct);
 
+    /// <summary>
+    /// 계정 <b>하나</b>의 앱 현황 — 구독한 기기 · 수신 설정 · 주고받은 기록.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 위의 <see cref="GetNotificationStatesAsync"/> 와 짝이다. 그쪽은 목록
+    /// 화면이 <b>여럿을 훑는</b> 자리라 기기를 수 하나로 줄이고, 이쪽은
+    /// <b>한 사람을 파는</b> 자리라 기기 목록과 실제 기록까지 받는다.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>표 넷을 한 번에 받는다.</b> 구독 · 설정 · 발송 기록 · 쪽지를 따로
+    /// 부르면 화면이 넷을 맞춰야 하고 왕복도 넷이다 — 그런데 「왜 저 사람만
+    /// 못 받나」의 답은 거의 언제나 그 넷의 <b>관계</b>에 있다.
+    /// </para>
+    ///
+    /// <para>
+    /// <paramref name="days"/> 는 집계·기록의 기간이다. 기기 목록과 수신 설정은
+    /// 기간과 무관하게 <b>지금 모습</b>이 온다.
+    /// </para>
+    /// </remarks>
+    public Task<AccountAppStatusDto?> GetAccountAppStatusAsync(
+        string loginId, int days = 30, int take = 100, CancellationToken ct = default)
+        => gateway.GetOneAsync<AccountAppStatusDto>(
+            $"notification/notifications/owners/{Uri.EscapeDataString(loginId)}/app-status"
+            + Query(("ownerType", "jsini"), ("days", days), ("take", take)), ct);
+
     // ── 내 알림 설정은 여기 없다 ───────────────────────────────
     //
     // 내 알림 설정과 웹푸시 구독은 **공용 클라이언트**가 다룬다

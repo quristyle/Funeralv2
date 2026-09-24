@@ -227,6 +227,14 @@ public static class EmailEndpoints
 
                 logger.LogInformation("이메일 직발송 완료. to={To} role={Role} files={Files} by={By}",
                     string.Join(",", recipients), request.ToRole, request.Attachments.Count, user.UserId);
+
+                // **보낸 것을 표에도 남긴다.** 로그 파일만으로는 「이 사람에게
+                // 무엇이 나갔나」에 답할 수 없다 — 그것을 묻는 자리가 계정
+                // 앱 현황 화면이다(EmailSendLog 머리말).
+                await EmailSendLog.WriteAsync(
+                    db, logger, recipients, request.Subject, request.Body, request.Html,
+                    user.UserId, success: true, failureReason: null, ct);
+
                 return Results.Ok(ApiResponse<bool>.Ok(true, "메일을 보냈습니다."));
             }
             catch (Exception ex)
@@ -234,6 +242,14 @@ public static class EmailEndpoints
                 // 실패를 성공으로 말하지 않는다 — 부르는 쪽이 재시도 여부를 정한다.
                 logger.LogError(ex, "이메일 직발송 실패. to={To} by={By}",
                     string.Join(",", recipients), user.UserId);
+
+                // **못 보낸 것도 남긴다.** 푸시 기록이 그러는 까닭과 같다 —
+                // 안 남기면 「그 시각에 아무 일도 없었다」로 보이고, 그것이
+                // 「보낸 적 없다」와 구분되지 않는다.
+                await EmailSendLog.WriteAsync(
+                    db, logger, recipients, request.Subject, request.Body, request.Html,
+                    user.UserId, success: false, failureReason: "메일 서버가 받지 않음", ct);
+
                 return Results.Json(
                     ApiResponse<bool>.Fail("메일 발송에 실패했습니다.", "EMAIL_SEND_FAILED"),
                     statusCode: StatusCodes.Status502BadGateway);

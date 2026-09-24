@@ -28,6 +28,18 @@ namespace NotificationServer.Endpoints;
 /// </remarks>
 public static class NotificationEndpoints
 {
+    /// <summary>포털 계정의 주인 종류. 게이트웨이가 주는 <c>X-User-Id</c> 가 곧 주인 키다.</summary>
+    private const string OwnerTypePortal = "jsini";
+
+    private const string ChannelPush = Entities.PushSendLog.ChannelPush;
+    private const string ChannelEmail = Entities.PushSendLog.ChannelEmail;
+
+    /// <summary>이 사람에게 온 줄.</summary>
+    private const string DirectionReceived = "received";
+
+    /// <summary>이 사람이 보낸 줄.</summary>
+    private const string DirectionSent = "sent";
+
     public static void MapNotificationEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/notifications").WithTags("Notifications");
@@ -196,7 +208,7 @@ public static class NotificationEndpoints
         {
             if (user is null) return Results.Unauthorized();
 
-            var list = await MyDevicesAsync(db, user.UserId);
+            var list = await DevicesAsync(db, OwnerTypePortal, user.UserId);
             return Results.Ok(ApiResponse<object>.Ok(new { items = list, count = list.Count }));
         })
         .WithName("GetMySubscriptions");
@@ -289,6 +301,233 @@ public static class NotificationEndpoints
         })
         .WithName("GetNotificationPreferences");
 
+        // ── 계정 하나의 앱 현황 (관리 화면) ─────────────────
+        //
+        // 위의 `/preferences` 와 짝이다. 그쪽은 **여러 사람을 훑는** 자리라
+        // 기기를 수 하나로 줄이고, 이쪽은 **한 사람을 파는** 자리라 기기 목록과
+        // 실제 주고받은 기록까지 싣는다.
+        //
+        // **표 넷을 한 번에 읽는다.** 구독 · 설정 · 발송 기록 · 쪽지가
+        // 따로따로는 답을 못 준다 — 「기기가 0 대인가 · 스위치를 껐는가 ·
+        // 보냈는데 실패했는가 · 아예 보낸 적이 없는가」는 넷을 나란히 놓아야
+        // 갈린다. 화면이 넷을 따로 부르면 그 맞추는 일을 화면이 하게 되고,
+        // 왕복도 넷이 된다.
+        //
+        // **자기 것이라고 특별대접하지 않는다.** 남의 설정을 읽는 자리라
+        // 관리 화면에서만 부른다 — 게이트웨이가 로그인 여부를 보고, 화면은
+        // 포털관리 메뉴 권한 안에 있다.
+        group.MapGet("/owners/{ownerKey}/app-status", async (
+            string ownerKey,
+            UserContext? user,
+            [FromServices] AppDbContext db,
+            [FromServices] INotificationPreferenceService prefs,
+            [FromServices] IOptions<VapidOptions> vapid,
+            [FromQuery] string? ownerType = null,
+            [FromQuery] int days = 30,
+            [FromQuery] int take = 100,
+            CancellationToken ct = default) =>
+        {
+            if (user is null) return Results.Unauthorized();
+
+            if (string.IsNullOrWhiteSpace(ownerKey))
+            {
+                return Results.BadRequest(ApiResponse<bool>.Fail(
+                    message: "누구의 현황인지 주지 않았습니다.", code: "INVALID"));
+            }
+
+            var type = string.IsNullOrWhiteSpace(ownerType) ? OwnerTypePortal : ownerType.Trim();
+            var key = ownerKey.Trim();
+            var from = Since(days);
+            var rows = Math.Clamp(take, 1, 500);
+
+            var status = new OwnerAppStatusDto
+            {
+                OwnerType = type,
+                OwnerKey = key,
+                Days = Math.Max(1, days),
+                PushAvailable = vapid.Value.IsConfigured,
+                Preference = await prefs.GetAsync(type, key, ct),
+                Devices = await DevicesAsync(db, type, key),
+            };
+
+            // ── 계정 요약 ────────────────────────────────
+            //
+            // **없을 수 있다.** 계정을 지워도 구독·기록은 남으므로, 그때는
+            // 「없는 아이디」라고 말해 준다 — 빈칸으로 두면 이름이 안 들어온
+            // 것으로 읽힌다.
+            var account = await db.Accounts
+                .AsNoTracking()
+                .Where(a => a.UserId == key && !a.IsDeleted)
+                .Select(a => new { a.Id, a.UserName, a.RealName, a.DepartmentId })
+                .FirstOrDefaultAsync(ct);
+
+            if (account is not null)
+            {
+                status.AccountFound = true;
+                status.UserName = string.IsNullOrWhiteSpace(account.RealName)
+                    ? account.UserName
+                    : account.RealName;
+
+                status.Email = await db.AccountProfileDetails
+                    .AsNoTracking()
+                    .Where(d => d.AccountId == account.Id && d.DetailType == "Email"
+                                && !d.IsDeleted && d.Content != "")
+                    .OrderByDescending(d => d.IsPrimary)
+                    .Select(d => d.Content)
+                    .FirstOrDefaultAsync(ct);
+
+                if (!string.IsNullOrWhiteSpace(account.DepartmentId))
+                {
+                    status.DeptName = await db.Departments
+                        .AsNoTracking()
+                        .Where(d => d.Id == account.DepartmentId && !d.IsDeleted)
+                        .Select(d => d.Name)
+                        .FirstOrDefaultAsync(ct);
+                }
+            }
+
+            // ── 길 × 방향 집계 ───────────────────────────
+            //
+            // 받은 것은 주인 칸(`owner_key`), 보낸 것은 보낸이 칸(`sent_by`)으로
+            // 가른다. **한 줄이 사람·기기 하나**라 「몇 번 눌렀나」가 아니라
+            // 「몇 군데에 닿으려 했나」를 센다(DTO 머리말).
+            var received = await db.PushSendLogs
+                .AsNoTracking()
+                .Where(l => l.SentAt >= from && l.OwnerType == type && l.OwnerKey == key)
+                .GroupBy(l => l.Channel)
+                .Select(g => new
+                {
+                    Channel = g.Key,
+                    Total = g.Count(),
+                    Success = g.Count(x => x.IsSuccess),
+                    Read = g.Count(x => x.ReadAt != null),
+                    LastAt = g.Max(x => (DateTime?)x.SentAt),
+                })
+                .ToListAsync(ct);
+
+            var sent = await db.PushSendLogs
+                .AsNoTracking()
+                .Where(l => l.SentAt >= from && l.SentBy == key)
+                .GroupBy(l => l.Channel)
+                .Select(g => new
+                {
+                    Channel = g.Key,
+                    Total = g.Count(),
+                    Success = g.Count(x => x.IsSuccess),
+                    Read = g.Count(x => x.ReadAt != null),
+                    LastAt = g.Max(x => (DateTime?)x.SentAt),
+                })
+                .ToListAsync(ct);
+
+            // **줄이 없는 칸도 0 으로 세운다.** 빼 버리면 화면이 「푸시 수신」
+            // 칸을 아예 못 그리고, 그러면 「한 건도 없다」와 「그런 칸이 없다」가
+            // 같은 그림이 된다 — 여기서 찾는 답이 대개 앞엣것이다.
+            foreach (var channel in new[] { ChannelPush, ChannelEmail })
+            {
+                foreach (var (direction, source) in new[]
+                         {
+                             (DirectionReceived, received),
+                             (DirectionSent, sent),
+                         })
+                {
+                    var hit = source.FirstOrDefault(r => r.Channel == channel);
+
+                    status.Channels.Add(new AppChannelStatDto
+                    {
+                        Channel = channel,
+                        Direction = direction,
+                        Total = hit?.Total ?? 0,
+                        Success = hit?.Success ?? 0,
+                        Failure = (hit?.Total ?? 0) - (hit?.Success ?? 0),
+                        Read = hit?.Read ?? 0,
+                        LastAt = hit?.LastAt,
+                    });
+                }
+            }
+
+            // ── 최근 기록 ────────────────────────────────
+            //
+            // 양쪽을 따로 읽어 섞는다. `owner_key = ? or sent_by = ?` 한 벌로
+            // 읽으면 **자기가 자기에게 보낸 줄**이 하나로 뭉쳐 방향을 잃는다.
+            var receivedRows = await db.PushSendLogs
+                .AsNoTracking()
+                .Where(l => l.SentAt >= from && l.OwnerType == type && l.OwnerKey == key)
+                .OrderByDescending(l => l.SentAt)
+                .Take(rows)
+                .Select(l => new AppDeliveryRowDto
+                {
+                    Id = l.Id,
+                    SentAt = l.SentAt,
+                    Channel = l.Channel,
+                    Direction = DirectionReceived,
+                    Counterpart = l.SentBy,
+                    Title = l.Title,
+                    Body = l.Body,
+                    Url = l.Url,
+                    Success = l.IsSuccess,
+                    FailureReason = l.FailureReason,
+                    ReadAt = l.ReadAt,
+                })
+                .ToListAsync(ct);
+
+            var sentRows = await db.PushSendLogs
+                .AsNoTracking()
+                .Where(l => l.SentAt >= from && l.SentBy == key)
+                .OrderByDescending(l => l.SentAt)
+                .Take(rows)
+                .Select(l => new AppDeliveryRowDto
+                {
+                    Id = l.Id,
+                    SentAt = l.SentAt,
+                    Channel = l.Channel,
+                    Direction = DirectionSent,
+                    Counterpart = l.OwnerKey,
+                    Title = l.Title,
+                    Body = l.Body,
+                    Url = l.Url,
+                    Success = l.IsSuccess,
+                    FailureReason = l.FailureReason,
+                    ReadAt = l.ReadAt,
+                })
+                .ToListAsync(ct);
+
+            status.Deliveries = receivedRows
+                .Concat(sentRows)
+                .OrderByDescending(r => r.SentAt)
+                .Take(rows)
+                .ToList();
+
+            // ── 쪽지 ─────────────────────────────────────
+            //
+            // 포털 계정끼리만 주고받으므로 주인 종류를 보지 않는다
+            // (`scom.notes` 머리말). 포털 계정이 아닌 주인에게는 셀 것이 없다.
+            if (type == OwnerTypePortal)
+            {
+                var inbox = db.Notes.AsNoTracking()
+                    .Where(n => n.ReceiverKey == key && !n.IsDeleted && !n.ReceiverDeleted);
+
+                var outbox = db.Notes.AsNoTracking()
+                    .Where(n => n.SenderKey == key && !n.IsDeleted && !n.SenderDeleted);
+
+                status.Notes = new AppNoteStatDto
+                {
+                    Received = await inbox.CountAsync(n => n.SentAt >= from, ct),
+                    Sent = await outbox.CountAsync(n => n.SentAt >= from, ct),
+                    MailForwarded = await inbox.CountAsync(n => n.SentAt >= from && n.EmailSent, ct),
+
+                    // 안 읽은 것만 기간을 안 건다 — 오래된 것일수록 문제라
+                    // 기간으로 자르면 가장 중요한 것이 먼저 사라진다.
+                    UnreadTotal = await inbox.CountAsync(n => n.ReadAt == null, ct),
+
+                    LastReceivedAt = await inbox.MaxAsync(n => (DateTime?)n.SentAt, ct),
+                    LastSentAt = await outbox.MaxAsync(n => (DateTime?)n.SentAt, ct),
+                };
+            }
+
+            return Results.Ok(ApiResponse<OwnerAppStatusDto>.Ok(status));
+        })
+        .WithName("GetOwnerAppStatus");
+
         // ── 내 알림 설정 화면이 한 번에 받는 상태 ───────────
         //
         // 공개 키 · 스위치 셋 · 기기 목록을 따로 부르면 순서에 따라 화면이 깜빡인다.
@@ -310,7 +549,7 @@ public static class NotificationEndpoints
                 PushAvailable = v.IsConfigured,
                 // 공개 키는 비밀이 아니다 — 브라우저가 구독을 만들 때 쓰는 값이다.
                 VapidPublicKey = v.IsConfigured ? v.PublicKey : null,
-                Devices = await MyDevicesAsync(db, user.UserId)
+                Devices = await DevicesAsync(db, OwnerTypePortal, user.UserId)
             };
 
             return Results.Ok(ApiResponse<MyNotificationStateDto>.Ok(state));
@@ -449,13 +688,17 @@ public static class NotificationEndpoints
             [FromQuery] bool? isSuccess = null,
             [FromQuery] string? failureReason = null,
             [FromQuery] string? ownerKey = null,
+            [FromQuery] string? channel = null,
             [FromQuery] DateTime? startDate = null,
             [FromQuery] DateTime? endDate = null,
             CancellationToken ct = default) =>
         {
             if (user is null) return Results.Unauthorized();
 
-            var query = LogQuery(db, startDate, endDate);
+            // 갈래를 주지 않으면 푸시만 본다 — 이 주소를 부르는 화면이
+            // 「푸시 발송 이력」이다. `channel=email` 로 메일 줄도 볼 수 있다.
+            var query = LogQuery(db, startDate, endDate,
+                string.IsNullOrWhiteSpace(channel) ? ChannelPush : channel.Trim());
 
             if (isSuccess.HasValue) query = query.Where(l => l.IsSuccess == isSuccess.Value);
 
@@ -517,7 +760,7 @@ public static class NotificationEndpoints
 
             var from = Since(days);
             var rows = await db.PushSendLogs
-                .Where(l => l.SentAt >= from)
+                .Where(l => l.SentAt >= from && l.Channel == ChannelPush)
                 .GroupBy(l => l.IsSuccess)
                 .Select(g => new { Success = g.Key, Count = g.Count() })
                 .ToListAsync(ct);
@@ -563,7 +806,7 @@ public static class NotificationEndpoints
             // **날짜로 묶는 일을 DB 에 시킨다.** 줄을 다 받아 와서 세면 기간이
             // 길어질수록 그대로 무거워진다.
             var grouped = await db.PushSendLogs
-                .Where(l => l.SentAt >= from)
+                .Where(l => l.SentAt >= from && l.Channel == ChannelPush)
                 .GroupBy(l => l.SentAt.Date)
                 .Select(g => new
                 {
@@ -597,7 +840,7 @@ public static class NotificationEndpoints
 
             var from = Since(days);
             var rows = await db.PushSendLogs
-                .Where(l => l.SentAt >= from && !l.IsSuccess)
+                .Where(l => l.SentAt >= from && !l.IsSuccess && l.Channel == ChannelPush)
                 .GroupBy(l => l.FailureReason)
                 .Select(g => new { reason = g.Key ?? "(사유 없음)", count = g.Count() })
                 .OrderByDescending(g => g.count)
@@ -758,9 +1001,18 @@ public static class NotificationEndpoints
     /// 칸이라 그대로 비교하면 마지막 날이 통째로 빠진다.
     /// </remarks>
     private static IQueryable<Entities.PushSendLog> LogQuery(
-        AppDbContext db, DateTime? startDate, DateTime? endDate)
+        AppDbContext db, DateTime? startDate, DateTime? endDate, string? channel = ChannelPush)
     {
         var query = db.PushSendLogs.AsQueryable();
+
+        // **길을 안 거르면 메일이 푸시 통계에 섞인다.** 한동안 이 표에 쓰는
+        // 것이 푸시뿐이라 거를 것이 없었는데, 메일 직발송도 자기 줄을 남기게
+        // 되면서 「푸시 현황」의 건수가 메일만큼 부풀게 됐다. 갈래를 주지
+        // 않으면 푸시만 본다 — 부르는 자리 대부분이 푸시 화면이다.
+        if (!string.IsNullOrWhiteSpace(channel))
+        {
+            query = query.Where(l => l.Channel == channel);
+        }
 
         if (startDate.HasValue)
         {
@@ -780,16 +1032,24 @@ public static class NotificationEndpoints
         DateTime.UtcNow.Date.AddDays(-Math.Max(1, days) + 1);
 
     /// <summary>
-    /// 내 기기(구독) 목록. 최근 등록한 것이 위다.
+    /// 한 사람의 기기(구독) 목록. 최근 등록한 것이 위다.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// <c>/subscriptions/me</c> 와 <c>/preferences/me</c> 가 같은 목록을 준다.
     /// 두 곳에 같은 질의를 적으면 한쪽만 고치는 일이 생기므로 한 곳으로 모았다.
+    /// </para>
+    /// <para>
+    /// <b>주인을 인자로 받는다.</b> 한동안 로그인한 본인으로 못박혀 있었는데,
+    /// 계정 앱 현황(<c>/owners/{ownerKey}/app-status</c>)이 남의 기기 목록을
+    /// 보여 준다 — 같은 질의를 한 벌 더 적으면 칸이 갈라진다.
+    /// </para>
     /// </remarks>
-    private static async Task<List<PushDeviceDto>> MyDevicesAsync(AppDbContext db, string userId)
+    private static async Task<List<PushDeviceDto>> DevicesAsync(
+        AppDbContext db, string ownerType, string ownerKey)
     {
         return await db.PushSubscriptions
-            .Where(s => s.OwnerType == "jsini" && s.OwnerKey == userId)
+            .Where(s => s.OwnerType == ownerType && s.OwnerKey == ownerKey)
             .OrderByDescending(s => s.CreatedAt)
             .Select(s => new PushDeviceDto
             {

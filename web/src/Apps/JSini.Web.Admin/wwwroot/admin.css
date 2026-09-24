@@ -2565,3 +2565,29 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+
+/* ============================================================
+   계정 앱 현황 (`AccountAppPage`)
+   ============================================================ */
+
+/* 조회줄 첫 칸은 고르는 값이 아니라 **누구를 보고 있는가**다. 편집기
+   높이에 맞춰 두어야 옆의 기간 고르개와 글자 밑선이 어긋나지 않는다. */
+.ad-appstat__who {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  min-height: 2rem;
+}
+
+/* 수신·발신을 **색으로도** 가른다. 표에서 둘이 한 줄기로 섞여 내려오므로
+   글자만으로는 눈이 방향을 따라가지 못한다 — 받은 것이 대부분인 목록에서
+   드문 발신 줄을 찾는 것이 이 화면의 쓰임 중 하나다. */
+.jsini-badge.ad-appstat--recv {
+  border-color: var(--jsini-accent);
+  color: var(--jsini-accent);
+}
+
+.jsini-badge.ad-appstat--sent {
+  border-color: #6a4bb2;
+  color: #6a4bb2;
+}

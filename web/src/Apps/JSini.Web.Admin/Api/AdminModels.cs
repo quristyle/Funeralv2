@@ -1,3 +1,5 @@
+using JSini.Web.Models;
+
 namespace JSini.Web.Admin.Api;
 
 // 공지 DTO 는 여기 없다. **레이아웃과 로그인 화면도 쓰기 때문에**
@@ -2158,4 +2160,127 @@ public sealed class SocialProviderConfigDto
 
     /// <summary>이 공급자로 연결된 계정 수.</summary>
     public int LinkedCount { get; set; }
+}
+
+// ============================================================
+// 계정 앱 현황 — 계정 하나의 앱·구독·주고받은 기록.
+//
+// 알림 서비스(NotificationServer)의 `OwnerAppStatusDto` 와 짝이다.
+// 기기(`PushDeviceDto`)와 수신 설정(`NotificationPreferenceDto`)은
+// **여기 다시 적지 않는다** — 그 둘은 이미 `JSini.Web.Models` 에 있고
+// 내 환경설정 화면(`NotificationPanel`)이 쓰는 것과 같은 모양이다.
+// 사본을 하나 더 두면 서버가 칸을 늘렸을 때 한쪽만 따라간다.
+// ============================================================
+
+/// <summary>
+/// 계정 하나의 앱 관련 현황 한 벌.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>계정 관리 목록의 칸 넷과 갈래가 다르다.</b> 그쪽(<see cref="OwnerNotificationStateDto"/>)은
+/// 여러 사람을 훑느라 기기를 수 하나로 줄이지만, 이쪽은 한 사람을 파는 자리라
+/// 기기 목록과 실제로 주고받은 기록까지 들고 온다.
+/// </para>
+/// </remarks>
+public sealed class AccountAppStatusDto
+{
+    public string OwnerType { get; set; } = string.Empty;
+
+    /// <summary>주인 식별자 — 포털 계정이면 <b>로그인 아이디</b>다.</summary>
+    public string OwnerKey { get; set; } = string.Empty;
+
+    /// <summary>집계 기간(일). <see cref="Channels"/> · <see cref="Deliveries"/> 가 이 기간의 것이다.</summary>
+    public int Days { get; set; }
+
+    /// <summary>
+    /// 실제 계정인가. 거짓이면 <b>지워졌거나 없는 아이디</b>다 — 구독·기록만
+    /// 남아 있을 수 있어 가려 말한다.
+    /// </summary>
+    public bool AccountFound { get; set; }
+
+    public string? UserName { get; set; }
+    public string? Email { get; set; }
+    public string? DeptName { get; set; }
+
+    /// <summary>
+    /// 서버가 푸시를 보낼 수 있는 상태인가(VAPID 키). <b>거짓이면 이 사람이
+    /// 무엇을 해도 푸시가 안 온다</b> — 기기와 스위치만 봐서는 안 보이는 갈래다.
+    /// </summary>
+    public bool PushAvailable { get; set; }
+
+    /// <summary>수신 설정. <c>Saved</c> 가 거짓이면 한 번도 저장한 적 없는 기본값이다.</summary>
+    public NotificationPreferenceDto Preference { get; set; } = new();
+
+    /// <summary>구독한 기기들. 비어 있으면 푸시를 켜 두어도 도착할 곳이 없다.</summary>
+    public List<PushDeviceDto> Devices { get; set; } = [];
+
+    /// <summary>길(푸시·메일) × 방향(수신·발신)마다 한 줄. 서버가 빈 칸도 0 으로 채워 준다.</summary>
+    public List<AppChannelStatDto> Channels { get; set; } = [];
+
+    public AppNoteStatDto Notes { get; set; } = new();
+
+    /// <summary>최근 주고받은 기록. 수신·발신이 한 줄기로 섞여 시각 역순으로 온다.</summary>
+    public List<AppDeliveryRowDto> Deliveries { get; set; } = [];
+}
+
+/// <summary>
+/// 길 하나 × 방향 하나의 집계.
+/// </summary>
+/// <remarks>
+/// <b>줄 수는 사람·기기 단위다.</b> 한 번 보낸 알림이 기기 두 대로 가면 둘이고,
+/// 메일 한 통을 셋에게 보내면 셋이다 — 「몇 번 보냈나」가 아니라 <b>「몇 군데에
+/// 닿으려 했나」</b>를 센다.
+/// </remarks>
+public sealed class AppChannelStatDto
+{
+    /// <summary><c>push</c> · <c>email</c>.</summary>
+    public string Channel { get; set; } = string.Empty;
+
+    /// <summary><c>received</c> · <c>sent</c>.</summary>
+    public string Direction { get; set; } = string.Empty;
+
+    public int Total { get; set; }
+    public int Success { get; set; }
+    public int Failure { get; set; }
+
+    /// <summary>읽음이 찍힌 줄. <b>메일은 읽음을 알 길이 없어 늘 0</b> 이다.</summary>
+    public int Read { get; set; }
+
+    public DateTime? LastAt { get; set; }
+}
+
+/// <summary>주고받은 기록 한 줄.</summary>
+public sealed class AppDeliveryRowDto
+{
+    public string Id { get; set; } = string.Empty;
+    public DateTime SentAt { get; set; }
+    public string Channel { get; set; } = string.Empty;
+    public string Direction { get; set; } = string.Empty;
+
+    /// <summary>상대. 수신이면 보낸 사람, 발신이면 받은 사람. 시스템이 보낸 것은 비어 있다.</summary>
+    public string? Counterpart { get; set; }
+
+    public string? Title { get; set; }
+    public string? Body { get; set; }
+    public string? Url { get; set; }
+
+    public bool Success { get; set; }
+    public string? FailureReason { get; set; }
+    public DateTime? ReadAt { get; set; }
+}
+
+/// <summary>쪽지 현황. 쪽지는 발송 기록과 다른 표라(글 자체가 본체다) 칸을 갈라 둔다.</summary>
+public sealed class AppNoteStatDto
+{
+    public int Received { get; set; }
+    public int Sent { get; set; }
+
+    /// <summary>받은 것 중 <b>메일로도 전달된</b> 것. 본인이 그 스위치를 켰을 때만 는다.</summary>
+    public int MailForwarded { get; set; }
+
+    /// <summary>아직 안 읽은 쪽지. <b>기간과 무관한 전체</b>다.</summary>
+    public int UnreadTotal { get; set; }
+
+    public DateTime? LastReceivedAt { get; set; }
+    public DateTime? LastSentAt { get; set; }
 }

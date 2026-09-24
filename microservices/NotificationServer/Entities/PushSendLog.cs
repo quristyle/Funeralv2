@@ -49,6 +49,14 @@ namespace NotificationServer.Entities;
 [Table("push_send_logs", Schema = "scom")]
 public class PushSendLog
 {
+    /// <summary>웹푸시로 간 줄.</summary>
+    public const string ChannelPush = "push";
+
+    /// <summary>
+    /// 메일로 간 줄. <b>받는 사람 하나가 한 줄</b>이다 — 한 통을 셋에게 보내면 셋이다.
+    /// </summary>
+    public const string ChannelEmail = "email";
+
     public PushSendLog()
     {
         Id = Guid.NewGuid().ToString();
