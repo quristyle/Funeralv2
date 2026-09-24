@@ -29,6 +29,10 @@
 
 <PageTitle>Git 모니터링 · 프로젝트관리</PageTitle>
 
+@* **덩어리로 감싸는 데 뜻이 있다.** `pm-gitmon` 머리말 참고 —
+   이것이 없으면 저장소를 고르는 순간 아래쪽이 굴러도 안 나온다. *@
+<div class="pm-gitmon">
+
 <CommSch OnSearch="@SearchAsync" Busy="@Loading" MobileSummary="@ConditionSummary">
     <Fields>
         <CommSchItem Label="프로젝트">
@@ -433,6 +437,8 @@ else
 {
     <PageNotice Tone="NoticeTone.Info" Text="위에서 저장소를 고르면 가지와 풀 리퀘스트가 여기에 보입니다." />
 }
+
+</div>
 
 @code {
     /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
