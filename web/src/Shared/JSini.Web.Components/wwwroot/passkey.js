@@ -59,6 +59,27 @@
     // 개발과 운영을 같은 브라우저로 오간다.
     const PREFERENCE_KEY = 'AUTH_PRIORITY_' + location.hostname;
 
+    // ── 이 브라우저에서 패스키를 쓰는 아이디 ────────────────────
+    //
+    // 로그인 화면은 **누가 오는지 모른 채** 도전값을 받아 와야 한다. 서버는
+    // 아이디를 받으면 그 사람의 열쇠 목록(`allowCredentials`)을 함께 주고,
+    // 못 받으면 빈 목록을 준다 — 그때는 **기기가 스스로 들고 있는 열쇠**
+    // (discoverable)만 쓸 수 있다.
+    //
+    // [빈 목록으로는 못 들어가는 기기가 있다]
+    //
+    // 등록할 때 `residentKey: "preferred"` 로 부탁하는데, **부탁이지 약속이
+    // 아니다.** 윈도우 Hello 처럼 기기가 열쇠를 들고 있지 않기로 정하면
+    // 아이디 없이 여는 길이 그 기기에서는 통째로 막힌다. 증상은
+    // 「지문을 댔는데 등록된 기기가 아니라고 한다」다.
+    //
+    // 그래서 **패스키로 들어간 아이디를 이 브라우저에 적어 둔다.** 아이디
+    // 칸이 비어 있거나 남의 아이디가 채워져 있어도 그것으로 열쇠를 찾는다.
+    //
+    // 계정이 아니라 브라우저에 적는 까닭은 위 `PREFERENCE_KEY` 와 같고,
+    // 호스트마다 따로 두는 까닭도 같다.
+    const PASSKEY_USER_KEY = 'PASSKEY_USERNAME_' + location.hostname;
+
     /** 지문·얼굴을 먼저 묻는다. */
     const PASSKEY_FIRST = 'passkey';
 
@@ -101,6 +122,63 @@
         }
 
         return preference();
+    }
+
+    /**
+     * 이 브라우저가 패스키로 들어가던 아이디. 없으면 `null`.
+     *
+     * 사생활 보호 모드에서는 읽기부터 던진다 — 그때는 **모르는 것으로** 본다.
+     */
+    function rememberedUser() {
+        try {
+            const saved = window.localStorage.getItem(PASSKEY_USER_KEY);
+            return saved ? saved : null;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    /**
+     * 패스키를 쓰는 아이디를 적어 둔다.
+     *
+     * 부르는 자리가 둘이다 — **이 기기에 패스키를 등록했을 때**(내 정보 →
+     * 보안 설정)와 **그 열쇠로 실제 서명을 받아냈을 때**(아래 `start`).
+     * 앞의 것만으로는 이 화면을 고치기 전에 등록해 둔 사람이 영영 빠지고,
+     * 뒤의 것만으로는 등록하자마자 한 번은 아이디를 쳐야 한다.
+     *
+     * @param {string|null} username 적어 둘 아이디. 비면 지운다.
+     */
+    function rememberUser(username) {
+        const value = typeof username === 'string' ? username.trim() : '';
+
+        try {
+            if (value) {
+                window.localStorage.setItem(PASSKEY_USER_KEY, value);
+            } else {
+                window.localStorage.removeItem(PASSKEY_USER_KEY);
+            }
+        } catch (e) {
+            // 사생활 보호 모드다. 이번 창에서만 못 기억한다.
+        }
+
+        return rememberedUser();
+    }
+
+    /**
+     * 적어 둔 아이디를 지운다. <b>그 사람 것일 때만</b> 지운다 —
+     * 한 브라우저를 여럿이 쓰는 자리에서 남의 기억까지 지우면, 지운 적 없는
+     * 사람이 다음에 아이디를 쳐야 한다.
+     *
+     * @param {string|null} username 지울 아이디. 비면 무엇이든 지운다.
+     */
+    function forgetUser(username) {
+        const value = typeof username === 'string' ? username.trim() : '';
+
+        if (value && rememberedUser() !== value) {
+            return rememberedUser();
+        }
+
+        return rememberUser(null);
     }
 
     // ── base64url ↔ 바이트 ──────────────────────────────────────
@@ -291,14 +369,29 @@
             say(note, null);
             button.disabled = true;
 
+            // 이 판이 어떤 아이디로 열쇠를 찾았는가. 오류 문구와 기억해 둘
+            // 값이 둘 다 여기에 딸려 있다.
+            let asked = null;
+            let candidates = 0;
+
             try {
-                const username = readUsername();
-                const options = await fetchOptions(username);
+                const picked = await pickOptions();
+
+                asked = picked.username;
+                candidates = picked.candidates;
+
+                const options = picked.options;
                 const credential = await navigator.credentials.get({
                     publicKey: decodeRequestOptions(options.publicKey),
                 });
 
                 if (!credential) throw new Error('기기가 응답하지 않았습니다.');
+
+                // 이 아이디로 열쇠를 찾아냈다. **다음부터는 아이디 칸이
+                // 비어 있어도 이 사람의 열쇠를 찾는다** — 기기가 열쇠를
+                // 스스로 들고 있지 않은 경우(위 `PASSKEY_USER_KEY`)에도
+                // 지문만으로 들어올 수 있게 하는 것이 이 한 줄이다.
+                if (asked) rememberUser(asked);
 
                 // 감춘 칸에 담고 제출한다. **여기서 게이트웨이를 부르지 않는다** —
                 // 서버가 받아 넘겨야 쿠키를 구울 수 있다(머리말).
@@ -319,8 +412,65 @@
                 form.requestSubmit();
             } catch (error) {
                 button.disabled = false;
-                say(note, explain(error, false, auto));
+
+                // 후보를 하나도 못 주고 물은 경우다. 기기가 거절한 까닭이
+                // 「취소」가 아니라 **맞는 열쇠가 없어서**일 수 있고, 규격상
+                // 둘을 구분할 수 없다. 그래서 여기서도 **할 일만 적는다** —
+                // 「취소되었거나 시간이 지났습니다」로만 말하면 취소한 적 없는
+                // 사람이 그 글을 읽고 같은 단추를 다시 누르게 된다.
+                //
+                // 아이디를 한 번 쳐서 들어오면 그 아이디가 이 브라우저에
+                // 남으므로(위 `rememberUser`) 다음부터는 칠 일이 없다.
+                const nothingToTry = candidates === 0
+                    && error && error.name === 'NotAllowedError';
+
+                say(note, nothingToTry
+                    ? '기기 확인을 마치지 못했습니다. 이 기기에 등록된 지문이 없을 수 있습니다 — 아이디를 입력한 뒤 다시 눌러 주세요.'
+                    : explain(error, false, auto));
             }
+        }
+
+        /**
+         * 도전값을 받아 온다. <b>누구의 열쇠를 찾을지 여기서 정한다.</b>
+         *
+         * <pre>
+         *   1. 사람이 직접 친 아이디
+         *   2. 이 브라우저가 패스키로 들어가던 아이디
+         *   3. 아이디 없이 — 기기가 스스로 들고 있는 열쇠에 맡긴다
+         * </pre>
+         *
+         * **「아이디 기억하기」가 채워 둔 값은 여기에 없다.** 그 값은 지난번에
+         * *비밀번호로* 들어온 사람의 것이라, 다른 사람이 잠깐 로그인하고 나간
+         * 브라우저에서는 **내 지문이 아니라 그 사람의 열쇠를 찾게 된다.**
+         * 그 사람에게 패스키가 없으면 후보가 비어 **반드시 실패한다.**
+         *
+         * 1·2 로 물어 후보가 비면 3 으로 한 번 더 묻는다. 왕복이 하나 늘지만
+         * **실패하는 경우에만** 늘고, 그 한 번이 「기기가 스스로 들고 있는
+         * 열쇠」를 살린다. 그리고 2 가 빈손이었으면 **적어 둔 것을 지운다** —
+         * 계정에서 그 열쇠를 지운 뒤라는 뜻이고, 안 지우면 로그인 화면이
+         * 그때부터 늘 왕복을 둘씩 쓴다(게이트웨이가 이 경로도 분당 10회로
+         * 조인다 — `auth-attempts`).
+         *
+         * @returns {Promise<{options: object, username: string|null, candidates: number}>}
+         */
+        async function pickOptions() {
+            const typed = typedUsername();
+            const username = typed || rememberedUser();
+            const options = await fetchOptions(username);
+            const candidates = countCandidates(options);
+
+            if (username && candidates === 0) {
+                if (!typed) forgetUser(username);
+
+                const fallback = await fetchOptions(null);
+                return {
+                    options: fallback,
+                    username: null,
+                    candidates: countCandidates(fallback),
+                };
+            }
+
+            return { options: options, username: username, candidates: candidates };
         }
 
         button.addEventListener('click', function () { start(false); });
@@ -382,10 +532,35 @@
         return document.visibilityState !== 'hidden';
     }
 
-    /** 아이디 칸에 적힌 값. 비어 있으면 기기가 스스로 열쇠를 고른다. */
-    function readUsername() {
+    /**
+     * **사람이 직접 친** 아이디. 없으면 `null`.
+     *
+     * 「아이디 기억하기」가 채워 둔 값은 세지 않는다(`theme.js` 가 그 값에
+     * `data-jsini-autofilled` 를 붙이고, 사람이 칸을 건드리면 뗀다).
+     *
+     * [왜 가리나]
+     *
+     * 그 값은 **지난번에 비밀번호로 들어온 사람**의 것이다. 한 브라우저에서
+     * 잠깐 다른 사람이 로그인하고 나가면 그 뒤로 지문 단추가 **그 사람의
+     * 열쇠**를 찾게 되고, 그 사람에게 패스키가 없으면 후보가 비어 **반드시
+     * 실패한다.** 증상은 「어제까지 되던 지문이 안 된다」다.
+     */
+    function typedUsername() {
         const input = document.querySelector('#username');
-        return input && input.value ? input.value.trim() : null;
+
+        if (!input || !input.value) return null;
+        if (input.dataset.jsiniAutofilled === '1') return null;
+
+        return input.value.trim() || null;
+    }
+
+    /** 서버가 준 후보 열쇠의 수. 0 이면 기기가 스스로 고르는 수밖에 없다. */
+    function countCandidates(options) {
+        const list = options
+            && options.publicKey
+            && options.publicKey.allowCredentials;
+
+        return list ? list.length : 0;
     }
 
     async function fetchOptions(username) {
@@ -526,6 +701,10 @@
         // 없어 위 `initLogin` 이 안에서 바로 읽는다.
         preference: preference,
         setPreference: setPreference,
+        // 등록·삭제한 자리가 이 브라우저의 기억을 갱신한다. 로그인 화면은
+        // 회로가 없어 위 `start` 가 안에서 바로 적는다.
+        rememberUser: rememberUser,
+        forgetUser: forgetUser,
     };
 
     // ── 스스로 붙는다 ───────────────────────────────────────────

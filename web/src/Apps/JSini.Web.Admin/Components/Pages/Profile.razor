@@ -1619,6 +1619,7 @@
                 "이 기기를 등록했습니다. 다음부터 로그인 화면에서 지문·얼굴로 들어올 수 있습니다.",
                 "기기를 등록하지 못했습니다"))
             {
+                await RememberPasskeyUserAsync();
                 await LoadPasskeysAsync();
             }
         }
@@ -1690,6 +1691,72 @@
         if (_passkeys.Count == 0 && _browser.Priority == PasskeyPriority.Passkey)
         {
             await SetAuthPriorityAsync(PasskeyPriority.Password, quiet: true);
+        }
+
+        if (_passkeys.Count == 0)
+        {
+            await ForgetPasskeyUserAsync();
+        }
+    }
+
+    /// <summary>
+    /// <b>이 브라우저가 패스키로 들어갈 아이디</b>를 적어 둔다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 로그인 화면은 아직 누구인지 모르는 채로 도전값을 받아 와야 한다.
+    /// 아이디를 못 주면 서버가 후보 열쇠를 줄 수 없고, 그때는 <b>기기가 스스로
+    /// 들고 있는 열쇠</b>(discoverable)만 쓸 수 있다. 등록할 때
+    /// <c>residentKey: "preferred"</c> 로 부탁하지만 <b>부탁이지 약속이 아니라</b>
+    /// 윈도우 Hello 처럼 안 들고 있기로 하는 기기가 있고, 그런 기기에서는
+    /// 아이디 없이 여는 길이 통째로 막힌다.
+    /// </para>
+    ///
+    /// <para>
+    /// 그래서 등록한 그 자리에서 적어 둔다. <b>계정이 아니라 브라우저에</b>
+    /// 적는 까닭은 우선순위와 같다 — 패스키 자체가 기기마다 따로다.
+    /// </para>
+    /// </remarks>
+    private async Task RememberPasskeyUserAsync()
+    {
+        var id = _info?.UserId ?? _info?.Username;
+
+        if (string.IsNullOrWhiteSpace(id))
+        {
+            return;
+        }
+
+        try
+        {
+            await JS.InvokeVoidAsync("jsiniPasskey.rememberUser", id);
+        }
+        catch (JSException)
+        {
+            // 못 적어도 로그인은 아이디를 한 번 치는 것으로 된다.
+            // 등록은 이미 끝났으므로 여기서 실패를 말할 일이 아니다.
+        }
+    }
+
+    /// <summary>
+    /// 마지막 기기를 지웠다. 적어 둔 아이디도 지운다 —
+    /// <b>그 아이디일 때만</b> 지운다(`passkey.js` 의 <c>forgetUser</c>).
+    /// </summary>
+    private async Task ForgetPasskeyUserAsync()
+    {
+        var id = _info?.UserId ?? _info?.Username;
+
+        if (string.IsNullOrWhiteSpace(id))
+        {
+            return;
+        }
+
+        try
+        {
+            await JS.InvokeVoidAsync("jsiniPasskey.forgetUser", id);
+        }
+        catch (JSException)
+        {
+            // 남아 있어도 후보가 비어 올 뿐이라 로그인 화면이 알아서 넘어간다.
         }
     }
 
