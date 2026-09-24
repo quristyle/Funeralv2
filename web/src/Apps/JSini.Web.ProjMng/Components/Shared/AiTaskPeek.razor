@@ -26,6 +26,12 @@
       - 머리에 제목을 적는다
       - 바닥 띠에 단추를 세운다
 
+    [작성중인 건을 지우면 창을 닫는다 (2026-09-24)]
+
+    삭제 단추와 묻는 창은 `AiTaskActions` 에 있다(작성중인 건에만 선다).
+    여기가 할 일은 **지운 뒤에 창을 닫는 것**이다 — 열어 둔 채로 두면
+    「그 건을 목록에서 놓쳤습니다」만 남는다. 사용자확인과 같은 길이다.
+
     ────────────────────────────────────────────────────────────
     [창은 휴대폰의 길이다]
 
@@ -49,7 +55,8 @@
     <FooterContentTemplate Context="popupContext">
         <AiTaskActions Item="@Item"
                        OnChanged="@OnChangedAsync"
-                       OnConfirmed="@OnConfirmedAsync" />
+                       OnConfirmed="@OnConfirmedAsync"
+                       OnDeleted="@OnConfirmedAsync" />
 
         <DxButton RenderStyle="ButtonRenderStyle.Secondary" Click="@CloseAsync">
             닫기
@@ -70,7 +77,7 @@
     /// <inheritdoc cref="Visible"/>
     [Parameter] public EventCallback<bool> VisibleChanged { get; set; }
 
-    /// <summary>재시도·이어서 지시·확인이 일어났을 때 부모에게 알린다.</summary>
+    /// <summary>재시도·이어서 지시·확인·삭제가 일어났을 때 부모에게 알린다.</summary>
     [Parameter] public EventCallback<AiTaskDto> OnRetried { get; set; }
 
     private string HeadText => Item?.Title is { Length: > 0 } title ? title : "보낸 것";
@@ -78,7 +85,7 @@
     private Task OnChangedAsync(AiTaskDto task) => OnRetried.InvokeAsync(task);
 
     /// <summary>
-    /// 확인을 마쳤다. <b>창을 닫는다</b> — 확인한 건은 목록에서 빠지므로
+    /// 확인을 마쳤거나 지웠다. <b>창을 닫는다</b> — 그 건은 목록에서 빠지므로
     /// 그대로 열어 두면 「그 건을 놓쳤습니다」만 남는다.
     /// </summary>
     private async Task OnConfirmedAsync(AiTaskDto task)
