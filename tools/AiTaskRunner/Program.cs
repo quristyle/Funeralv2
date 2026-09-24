@@ -32,13 +32,17 @@ builder.Services.Configure<RunnerOptions>(builder.Configuration.GetSection("Runn
 builder.Services.AddSingleton(sp =>
     sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<RunnerOptions>>().Value);
 
-// 서버로 나가는 통로. 타임아웃을 넉넉히 둔다 — 로그 묶음이 클 수 있다.
+// 서버로 나가는 통로. 타임아웃을 넉넉히 둔다 — 로그 묶음이 클 수 있고,
+// **첨부도 이 통로로 내려온다**(`ServerClient.DownloadFileAsync`). 첨부 한 장
+// 상한이 100MB 라(`AiTaskFileService.MaxBytes`) 30초로는 한 장에 3MB/s 가
+// 필요하다. 지금은 같은 장비의 127.0.0.1 이라 남지만, 그 전제가 바뀌는 날
+// 증상은 「첨부만 가끔 안 붙는다」라 원인이 타임아웃으로 안 보인다.
 builder.Services.AddHttpClient<ServerClient>((sp, client) =>
 {
     var options = sp.GetRequiredService<RunnerOptions>();
 
     client.BaseAddress = new Uri(options.ServerUrl);
-    client.Timeout = TimeSpan.FromSeconds(30);
+    client.Timeout = TimeSpan.FromMinutes(2);
 });
 
 // 한도 주소를 두드릴 통로. **CLI 로 못 묻는 것만 여기를 탄다**(지금은

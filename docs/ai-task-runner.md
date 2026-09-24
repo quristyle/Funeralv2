@@ -1772,10 +1772,26 @@ AIAgentServer `/chat`). 받는 것은 **한 문장 + 항목 서넛 + 확인할 �
 | `InterfaceFileService` | ProjMngServer 컨테이너의 파일 시스템 | **그 컨테이너에 붙은 디스크가 없다.** `docker-compose.prod.yml` 의 `projmng` 는 appsettings 한 장만 마운트한다 — 배포는 곧 새 컨테이너고, **다음 배포에 통째로 사라진다** |
 | FileServer | `/srv/jsini/files` (볼륨) | 살아남기는 한다. 그런데 이 파일을 실제로 읽어야 하는 것은 **실행기**이고, 실행기가 아는 곳은 ProjMngServer 하나뿐이다(장비 토큰·run 토큰). 게이트웨이를 지나게 하려면 장비에 포털 계정을 쥐여 줘야 하는데, 그것은 9장이 세운 전제를 지운다 |
 
-그래서 `projmng.ai_task_file.content` 에 `bytea` 로 담는다. 여기 들어오는
-것은 휴대폰으로 찍은 화면 사진 몇 장이고 **한 장 10MB · 한 건 5장**으로
-막는다(`AiTaskFileService.MaxBytes` · `MaxCount`). 이 크기가 커지면 그때
-FileServer 로 옮기고 이 표에는 아이디만 남긴다.
+그래서 `projmng.ai_task_file.content` 에 `bytea` 로 담는다. 상한은
+**한 장 100MB · 한 건 5장**이다(`AiTaskFileService.MaxBytes` · `MaxCount`).
+이보다 커지면 그때 FileServer 로 옮기고 이 표에는 아이디만 남긴다
+(`bytea` 한 칸의 한도는 1GB 다).
+
+> **처음에는 한 장 10MB 였다.** 「이 화면이 이렇게 나온다」를 보여 주는 사진
+> 몇 장만 생각한 값이었는데, 휴대폰으로 찍은 사진은 **한 장이 그것을 넘는
+> 일이 흔하고** 붙는 것이 사진만도 아니었다(로그 묶음 · 화면 녹화 · 내려받은
+> 자료). 2026-09-25 에 100MB 로 올렸다.
+
+**이 값은 혼자 서 있지 않다.** 한 군데만 올리면 고르기는 되는데 올리다
+끊기고, 그때 나는 것은 어느 층이 막았는지 밖에서 안 보이는 413/400 이다.
+
+| 어디 | 무엇 |
+|---|---|
+| `AiAskPanel.MaxFileBytes` | 화면이 고르는 순간 막는 값. 서버와 같아야 한다 |
+| `FilePicker.MaxTotalBytes` | 모두 합쳐. 이 화면은 `MaxFileBytes × 5` 를 준다 |
+| `ApiGateway/Program.cs` 의 `MaxRequestBodySize` | 게이트웨이 본문 상한(1GB) |
+| `AiTaskFilesController.StageBodyLimit` | 창구의 `RequestSizeLimit` · `RequestFormLimits`. Kestrel 기본 30MB 와 multipart 기본 128MB 를 **둘 다** 밀어내야 한다 |
+| `AiTaskFileService.MaxBytes` | 실제로 거절하는 자리 |
 
 > DDL: `deploy/sql/projmng-ai-task-file-2026-09-25.sql` (운영 반영 완료)
 

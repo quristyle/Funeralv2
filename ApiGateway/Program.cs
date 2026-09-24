@@ -21,17 +21,26 @@ var builder = WebApplication.CreateBuilder(args);
 // "잘 알려진 키를 못 쓰게 한다" 는 목적 자체가 조용히 깨진다.
 builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: true);
 
-// Kestrel 요청 본문 크기 제한 해제 (예: 500MB)
+// 요청 본문 크기 상한 (대용량 비디오 · 첨부 업로드 대응)
+//
+// **500MB 로는 모자란 자리가 생겼다.** AI 작업 첨부가 한 장 100MB · 한 건
+// 5장이라(`AiTaskFileService`), 다섯 장을 한 번에 고르면 본문이 정확히
+// 500MB 에 multipart 경계선 몫이 더 붙어 **딱 그만큼 넘친다.** 그때 나는 것은
+// 413 이고, 뒤쪽 서비스의 상한을 아무리 올려도 여기서 이미 끊긴 뒤다.
+//
+// 게이트웨이는 본문을 모아 두지 않고 흘려보내므로(YARP), 이 값을 올린다고
+// 메모리가 그만큼 열리지는 않는다. 실제로 막는 자리는 각 서비스의 창구다.
+const long MaxBodyBytes = 1024L * 1024 * 1024; // 1GB
+
 builder.WebHost.ConfigureKestrel(options =>
 {
-    options.Limits.MaxRequestBodySize = 500 * 1024 * 1024; // 500MB
+    options.Limits.MaxRequestBodySize = MaxBodyBytes;
 });
 
-// Multipart Form 제한 해제 (대용량 비디오 업로드 대응)
 builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(options =>
 {
-    options.MultipartBodyLengthLimit = 500 * 1024 * 1024; // 500MB
-    options.ValueLengthLimit = 500 * 1024 * 1024;
+    options.MultipartBodyLengthLimit = MaxBodyBytes;
+    options.ValueLengthLimit = int.MaxValue;
 });
 
 

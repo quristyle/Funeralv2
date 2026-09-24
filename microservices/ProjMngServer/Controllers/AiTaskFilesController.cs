@@ -39,6 +39,12 @@ public sealed class AiTaskFilesController(AiTaskFileService files) : ControllerB
             ? id.ToString()
             : "system";
 
+    /// <summary>
+    /// 담아 두기 한 번에 받아 줄 본문 크기. <b>한 장 상한 × 장수 + 여유</b>다.
+    /// </summary>
+    private const long StageBodyLimit =
+        (AiTaskFileService.MaxBytes * AiTaskFileService.MaxCount) + (16L * 1024 * 1024);
+
     /// <summary>작업 하나에 붙은 첨부 목록. <b>바이트는 오지 않는다.</b></summary>
     [HttpGet("{taskKey:long}/files")]
     public async Task<IActionResult> ListAsync(long taskKey)
@@ -54,8 +60,23 @@ public sealed class AiTaskFilesController(AiTaskFileService files) : ControllerB
     /// <summary>
     /// <b>고른 파일을 미리 담아 둔다.</b> 아직 어느 작업에도 안 묶인다.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>본문 상한을 두 군데에 건다.</b> <c>RequestSizeLimit</c> 은 Kestrel 의
+    /// 기본값(30MB)을 이 창구에서만 밀어내고, <c>RequestFormLimits</c> 는
+    /// <c>ReadFormAsync</c> 가 따로 들고 있는 multipart 상한(기본 128MB)을
+    /// 밀어낸다. <b>둘 중 하나만 올리면 나머지가 막는다</b> — 증상은 같은
+    /// 413/400 이라 어느 쪽이 막았는지 밖에서는 안 보인다.
+    /// </para>
+    /// <para>
+    /// 값은 <c>MaxBytes × MaxCount</c> 에 여유를 더한 것이다. 여유는 multipart
+    /// 의 경계선·헤더 몫이라 상한을 딱 맞추면 <b>마지막 한 장이 규격 안인데도
+    /// 거절된다.</b>
+    /// </para>
+    /// </remarks>
     [HttpPost("files")]
-    [RequestSizeLimit(60L * 1024 * 1024)]
+    [RequestSizeLimit(StageBodyLimit)]
+    [RequestFormLimits(MultipartBodyLengthLimit = StageBodyLimit)]
     public async Task<IActionResult> StageAsync(CancellationToken ct)
     {
         if (!Request.HasFormContentType)

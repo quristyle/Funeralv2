@@ -21,15 +21,27 @@ namespace ProjMngServer.Services;
 /// 게이트웨이를 못 지나는 <b>실행기</b>라는 것이다.
 /// </para>
 /// <para>
-/// 그래서 <b>크기를 좁게 막는다.</b> 한 장 <see cref="MaxBytes"/> · 한 건
-/// <see cref="MaxCount"/> 장이다. 여기 담기는 것은 「이 화면이 이렇게 나온다」를
-/// 보여 주는 사진 몇 장이지 자료 보관이 아니다.
+/// 상한은 한 장 <see cref="MaxBytes"/> · 한 건 <see cref="MaxCount"/> 장이다.
+/// </para>
+/// <para>
+/// <b>처음에는 한 장 10MB 였다.</b> 「이 화면이 이렇게 나온다」를 보여 주는
+/// 사진 몇 장만 생각한 값이었는데, 실제로 붙는 것은 그것만이 아니었다 —
+/// 로그 묶음 · 화면 녹화 · 내려받은 자료가 함께 온다. 10MB 는 휴대폰으로
+/// 찍은 사진 <b>한 장</b>에도 걸리는 크기라, 붙이려던 것이 자주 거절당했다.
+/// </para>
+/// <para>
+/// 그래서 100MB 로 올렸다. 이 값은 <b>혼자 서 있지 않다</b> — 게이트웨이의
+/// 본문 상한(<c>ApiGateway/Program.cs</c>)과 이 창구의
+/// <c>RequestSizeLimit</c>·<c>RequestFormLimits</c>
+/// (<c>AiTaskFilesController.StageAsync</c>), 그리고 화면의
+/// <c>AiAskPanel.MaxFileBytes</c> 가 같이 올라가야 한다. 한 군데만 올리면
+/// <b>고르기는 되는데 올리다 끊긴다.</b>
 /// </para>
 /// </remarks>
 public sealed class AiTaskFileService(IConfiguration configuration, ILogger<AiTaskFileService> logger)
 {
     /// <summary>파일 한 개의 최대 크기.</summary>
-    public const long MaxBytes = 10L * 1024 * 1024;
+    public const long MaxBytes = 100L * 1024 * 1024;
 
     /// <summary>작업 한 건에 붙일 수 있는 개수.</summary>
     public const int MaxCount = 5;
@@ -139,12 +151,22 @@ public sealed class AiTaskFileService(IConfiguration configuration, ILogger<AiTa
                 continue;
             }
 
-            // **메모리에 한 장씩만 올린다.** 상한이 10MB 라 스트림으로 흘릴
-            // 이득이 크지 않고, Npgsql 에 넘기려면 어차피 배열이 필요하다.
-            using var buffer = new MemoryStream();
+            // **메모리에 한 장씩만 올린다.** Npgsql 에 `bytea` 로 넘기려면
+            // 어차피 배열 하나가 통째로 필요해서, 스트림으로 흘려도 여기서
+            // 다시 모으게 된다.
+            //
+            // **담을 크기를 미리 잡아 둔다.** 안 잡으면 MemoryStream 이 두 배씩
+            // 늘리며 옮겨 담아, 100MB 한 장에 그 세 배 가까운 메모리가 잠깐씩
+            // 뜬다. 길이는 IFormFile 이 이미 알고 있다 — 상한을 넘는 것은
+            // 이 반복문에 닿기 전에 걸러졌다.
+            using var buffer = new MemoryStream(checked((int)file.Length));
             await file.CopyToAsync(buffer, ct);
 
-            var bytes = buffer.ToArray();
+            // 잡아 둔 만큼 정확히 찼으면 그 배열을 그대로 넘긴다 — ToArray() 는
+            // 같은 것을 한 벌 더 만든다(100MB 한 장에 100MB 를 더 쓴다).
+            var bytes = buffer.TryGetBuffer(out var seg) && seg.Offset == 0 && seg.Count == seg.Array!.Length
+                ? seg.Array!
+                : buffer.ToArray();
             var name = SafeName(file.FileName);
             var type = SafeType(file.ContentType);
 
