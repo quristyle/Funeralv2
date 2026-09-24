@@ -32,6 +32,29 @@ namespace JSini.Web.Components.Layout;
 /// </param>
 public sealed class QuickAskReveal(IServiceProvider services)
 {
+    /// <summary>
+    /// 서랍이 <b>지금 펴져 있는지를 알맹이에게 흘려 주는 이름</b>
+    /// (<see cref="Microsoft.AspNetCore.Components.CascadingValue{TValue}"/>).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 값은 <c>bool?</c> 다 — <b>서랍 안이 아니면 아예 안 내려간다.</b> 같은
+    /// 알맹이가 화면(<c>/projmng/ai/ask</c>)으로도 뜨는데, 그쪽에서 이 값을
+    /// <c>false</c> 로 받으면 「안 보이는 중」으로 오해해 목록 따라가기를
+    /// 통째로 멈춘다. 못 받았으면(<c>null</c>) 언제나 보이는 자리다.
+    /// </para>
+    /// <para>
+    /// 알맹이(<c>AiAskPanel</c>)는 이 값이 거짓→참으로 갈리는 순간 목록을
+    /// 다시 읽는다. <b>서랍은 닫아도 알맹이를 안 지우므로</b>(그쪽 머리말)
+    /// 안 그러면 처음 열었을 때의 카드가 그대로 앉아 있다.
+    /// </para>
+    /// <para>
+    /// 파라미터로 못 넘기는 이유는 <see cref="QuickAskContent"/> 와 같다 —
+    /// 서랍은 알맹이의 타입조차 컴파일 시점에 모른다.
+    /// </para>
+    /// </remarks>
+    public const string OpenCascade = "QuickAskOpen";
+
     /// <summary>지금 펴져 있나.</summary>
     public bool IsOpen { get; private set; }
 

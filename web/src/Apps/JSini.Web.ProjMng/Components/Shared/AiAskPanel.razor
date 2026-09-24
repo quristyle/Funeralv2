@@ -156,6 +156,31 @@
     (`AiTaskDto.IsRetrying` · `IsUnclaimed`). 가르는 값은 **끝난 시각**이다 —
     보낼 때 서버가 지우므로, 대기인데 그 시각이 있으면 한 번은 돌았다는 뜻이다.
 
+    [카드는 **보이는 동안 계속** 다시 읽는다 (2026-09-24)]
+
+    「상태가 바뀌었는데 카드가 그대로다」가 오래 있었다. 따라가기가
+    **돌고 있는 건이 있을 때만** 돌고 하나도 없으면 스스로 꺼졌기 때문이다.
+    그 뒤로 이 판을 다시 읽는 자리는 「보내기」와 「다시 시키기」뿐이라,
+    보지 않고 있는 동안 서버에서 일어난 일은 아무것도 따라오지 않았다.
+
+    실제로 어긋나는 길이 셋이다.
+
+      · **서랍은 닫아도 알맹이를 안 지운다**(`QuickAskDrawer`). 아침에 한 번
+        열어 본 카드가 저녁에 다시 열어도 그대로 앉아 있었다.
+      · 다른 자리에서 손댄 건 — 「AI 작업」 화면의 다시 시키기 · 취소,
+        남이 보낸 건, 서버가 나중에 지어 주는 제목(`AiTaskTitler`).
+      · 끝난 뒤 한참 있다 서버가 다시 넣는 것(자동 재시도 · 감시자의 판정).
+
+    이제 **보이는 동안에는 늘 따라간다.** 간격만 갈린다 —
+
+      · 돌고 있는 건이 있으면 5초 (하던 그대로)
+      · 하나도 없으면 20초
+
+    「열어 두고 잊기 쉬운 자리라 꺼야 한다」던 걱정은 **가려졌을 때 끄는 것**
+    으로 갚는다. 서랍이 닫히면 그 자리에서 멈추고, 다시 펴지는 순간 한 번
+    읽고 다시 따라간다(`QuickAskReveal.OpenCascade`). 화면(`AiAsk`)으로 열린
+    쪽은 가려질 일이 없으므로 늘 보이는 것으로 친다.
+
     [누르면 창이 뜬다 — 펼치지 않는다]
 
     예전에는 카드 아래가 펼쳐져 결과문이 거기 깔렸다. 반 폭 카드 밑에
@@ -571,8 +596,40 @@
 
     private bool Busy;
 
-    /// <summary>돌고 있는 건이 있는 동안만 도는 타이머.</summary>
+    /// <summary>보이는 동안 도는 타이머. <b>가려지면 멈춘다.</b></summary>
     private CancellationTokenSource? _poll;
+
+    /// <summary>돌고 있는 건이 있을 때의 간격.</summary>
+    /// <remarks>
+    /// 로그를 따라가는 화면이 아니다. 5초면 넉넉하다 — 2초로 두면 열어 둔
+    /// 판마다 서버를 그만큼 더 부른다.
+    /// </remarks>
+    private static readonly TimeSpan FollowBusy = TimeSpan.FromSeconds(5);
+
+    /// <summary>하나도 안 도는 동안의 간격.</summary>
+    /// <remarks>
+    /// <b>여기서 아예 끄지 않는다.</b> 끄면 다른 자리에서 손댄 건과 서버가
+    /// 나중에 지어 주는 제목이 영영 안 따라온다(머리말). 대신 넷 중 하나로
+    /// 늦춰 값을 갚고, 가려진 동안에는 통째로 멈춘다.
+    /// </remarks>
+    private static readonly TimeSpan FollowIdle = TimeSpan.FromSeconds(20);
+
+    /// <summary>
+    /// 서랍이 펴져 있나. <b>화면(<c>AiAsk</c>)으로 열렸으면 안 내려온다</b> —
+    /// 그때는 <c>null</c> 이고 「늘 보인다」는 뜻이다
+    /// (<see cref="QuickAskReveal.OpenCascade"/>).
+    /// </summary>
+    [CascadingParameter(Name = QuickAskReveal.OpenCascade)]
+    private bool? DrawerOpen { get; set; }
+
+    /// <summary>지금 사람 눈에 보이는 자리인가. 따라갈지 말지를 이 값이 가른다.</summary>
+    private bool Shown => DrawerOpen is not false;
+
+    /// <summary>
+    /// 마지막으로 본 <see cref="Shown"/>. <b>첫 판은 <c>null</c> 이다</b> —
+    /// 그때는 <see cref="OnInitializedAsync"/> 가 이미 읽었으므로 또 읽지 않는다.
+    /// </summary>
+    private bool? _shown;
 
     /// <summary>고른 대상이 허용한 AI 만 고르게 한다(「AI 작업」 화면과 같은 규칙).</summary>
     private IReadOnlyList<PickOption> AllowedKinds
@@ -760,6 +817,55 @@
         await LoadModelsAsync();
         await LoadTargetsAsync();
         await LoadRecentAsync();
+    }
+
+    /// <summary>
+    /// 서랍이 여닫혔다. <b>펴지면 그 자리에서 한 번 읽고 다시 따라간다.</b>
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 서랍은 닫아도 이 알맹이를 지우지 않아서(<c>QuickAskDrawer</c>) 다시
+    /// 열어도 아무도 목록을 읽지 않았다 — 처음 열었을 때의 카드가 그대로
+    /// 앉아 있었다. 그것이 이 갈고리를 둔 이유다.
+    /// </para>
+    /// <para>
+    /// <b>읽는 데 <see cref="LoadRecentAsync"/> 를 쓰지 않는다.</b> 그쪽은
+    /// <see cref="DataPage.LoadAsync"/> 를 거치므로 화면 전환 표시를 잡고
+    /// 실패하면 토스트를 띄운다 — 서랍을 여는 손짓마다 그것이 뜨면 방해다.
+    /// </para>
+    /// </remarks>
+    protected override void OnParametersSet()
+    {
+        var shown = Shown;
+
+        if (_shown == shown)
+        {
+            return;
+        }
+
+        var first = _shown is null;
+        _shown = shown;
+
+        // 첫 판은 `OnInitializedAsync` 가 이미 읽고 따라가기까지 걸어 두었다.
+        if (first)
+        {
+            return;
+        }
+
+        if (!shown)
+        {
+            StopPoll();
+            return;
+        }
+
+        _ = ReopenAsync();
+    }
+
+    /// <summary>다시 펴졌다. 한 번 읽고 따라가기를 건다.</summary>
+    private async Task ReopenAsync()
+    {
+        await RefreshAsync(CancellationToken.None);
+        Follow();
     }
 
     private async Task LoadModelsAsync()
@@ -1223,14 +1329,70 @@
     }
 
     /// <summary>
-    /// 도는 것이 있으면 따라간다. <b>없으면 타이머를 끈다</b> —
-    /// 이 화면은 열어 두고 잊기 쉬운 자리라, 끄지 않으면 회로가 계속 일한다.
+    /// 목록을 <b>조용히</b> 다시 읽는다 — 화면 전환 표시도 토스트도 없다.
     /// </summary>
+    /// <remarks>
+    /// 따라가기(<see cref="Follow"/>)와 서랍이 다시 펴질 때
+    /// (<see cref="ReopenAsync"/>)가 같은 이것을 쓴다. 자르는 규칙은
+    /// <see cref="Show"/> 하나뿐이라 두 자리가 갈릴 일이 없다.
+    /// <para>
+    /// <b>못 읽으면 조용히 지나간다.</b> 다음 바퀴에 다시 본다 — 몇 초마다
+    /// 도는 일로 토스트를 쌓으면 화면이 오류로 뒤덮인다.
+    /// </para>
+    /// </remarks>
+    private async Task RefreshAsync(CancellationToken ct)
+    {
+        try
+        {
+            var rows = await Api.ListAsync(userConfirmed: false, ct: ct);
+
+            if (ct.IsCancellationRequested)
+            {
+                return;
+            }
+
+            Show(rows);
+
+            // 따라가는 동안 **남이 보낸 건이 끼어든다.** 첫 조회 때와 같이
+            // 모르는 아이디만 묻는다 — 아는 것은 들고 있으므로 이 고리가
+            // 왕복을 늘리지 않는다.
+            await Faces.EnsureAsync(_all.Select(t => t.CreId), ct);
+
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (OperationCanceledException)
+        {
+            // 판을 닫았거나 화면을 떠났다. 정상이다.
+        }
+        catch (ObjectDisposedException)
+        {
+            // 회로가 닫히는 중이다.
+        }
+        catch (ApiException)
+        {
+            // 게이트웨이가 잠깐 없다. 다음 바퀴에 다시 본다.
+        }
+    }
+
+    /// <summary>
+    /// <b>보이는 동안 목록을 계속 따라간다.</b> 가려지면 멈춘다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 간격이 둘이다 — 돌고 있는 건이 있으면 <see cref="FollowBusy"/>,
+    /// 하나도 없으면 <see cref="FollowIdle"/> 다. <b>안 돈다고 꺼 버리지
+    /// 않는다</b>: 이 판이 답해야 하는 것 중 절반은 다른 자리에서 일어난
+    /// 일이라(머리말) 꺼 두면 그것이 영영 안 따라온다.
+    /// </para>
+    /// <para>
+    /// 대신 <b>가려졌을 때 끈다.</b> 서랍은 닫아도 알맹이를 안 지우므로,
+    /// 이것이 없으면 ⚡ 를 한 번 누른 사람의 모든 화면이 닫아 둔 판의
+    /// 왕복을 계속 치른다.
+    /// </para>
+    /// </remarks>
     private void Follow()
     {
-        var busy = _recent.Any(t => t.IsBusy || t.TitlePending);
-
-        if (!busy)
+        if (!Shown)
         {
             StopPoll();
             return;
@@ -1250,36 +1412,23 @@
             {
                 while (!cts.IsCancellationRequested)
                 {
-                    // 로그를 따라가는 화면이 아니다. 5초면 넉넉하다 —
-                    // 2초로 두면 열어 둔 창마다 서버를 그만큼 더 부른다.
-                    await Task.Delay(TimeSpan.FromSeconds(5), cts.Token);
+                    // **잰 다음에 잔다.** 자고 일어나서 재면 방금 끝난 건을
+                    // 한 바퀴 더 5초 간격으로 쫓는다.
+                    var busy = _recent.Any(t => t.IsBusy || t.TitlePending);
 
-                    var rows = await Api.ListAsync(userConfirmed: false, ct: cts.Token);
+                    await Task.Delay(busy ? FollowBusy : FollowIdle, cts.Token);
 
                     if (cts.IsCancellationRequested)
                     {
                         return;
                     }
 
-                    Show(rows);
-
-                    // 따라가는 동안 **남이 보낸 건이 끼어든다.** 첫 조회 때와
-                    // 같이 모르는 아이디만 묻는다 — 아는 것은 들고 있으므로
-                    // 5초마다 도는 이 고리가 왕복을 늘리지 않는다.
-                    await Faces.EnsureAsync(_all.Select(t => t.CreId), cts.Token);
-
-                    await InvokeAsync(StateHasChanged);
-
-                    if (!_recent.Any(t => t.IsBusy || t.TitlePending))
-                    {
-                        StopPoll();
-                        return;
-                    }
+                    await RefreshAsync(cts.Token);
                 }
             }
             catch (OperationCanceledException)
             {
-                // 화면을 떠났다. 정상이다.
+                // 판을 닫았거나 화면을 떠났다. 정상이다.
             }
             catch
             {

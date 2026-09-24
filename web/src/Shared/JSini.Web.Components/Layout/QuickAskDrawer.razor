@@ -39,6 +39,13 @@
     만들면 목록을 매번 새로 읽고 따라가던 타이머가 끊긴다. 적던 글은 어느
     쪽이든 남는다 — 그것은 브라우저에 적어 두고 있다(`ask-draft.js`).
 
+    [닫아 둔 사이에 바뀐 것은 다시 열 때 읽는다]
+
+    알맹이를 안 지우므로 **다시 열어도 아무도 목록을 다시 읽지 않았다** —
+    아침에 한 번 열어 본 카드가 저녁까지 그대로 앉아 있었고, 그 사이에 끝난
+    건도 「실행중」으로 남았다. 여닫힘을 `CascadingValue` 로 내려 주어
+    알맹이가 그 순간을 알아채게 한다(`QuickAskReveal.OpenCascade`).
+
     [화면을 옮기면 닫는다]
 
     카드를 누르면 그 건의 탭이 열리는데(`/projmng/ai/task/…`), 서랍이 그대로
@@ -61,8 +68,15 @@
                       Text="✕" Title="닫기" Click="@Ask.Close" />
         </header>
 
+        @* 알맹이에게 **지금 펴져 있는지**를 흘려 준다(`QuickAskReveal.OpenCascade`).
+           닫아도 안 지우는 판이라(위 머리말) 이것이 없으면 알맹이는 제가 가려진
+           줄을 모른다 — 처음 열었을 때 읽은 카드가 그대로 앉아 있고, 닫아 둔
+           동안에도 목록을 계속 따라간다. 값이 거짓→참으로 갈리는 순간 알맹이가
+           목록을 다시 읽는다. *@
         <div class="jsini-quick-drawer__body">
-            <DynamicComponent Type="@panel" />
+            <CascadingValue Name="@QuickAskReveal.OpenCascade" TValue="bool?" Value="@Ask.IsOpen">
+                <DynamicComponent Type="@panel" />
+            </CascadingValue>
         </div>
     </aside>
 }
