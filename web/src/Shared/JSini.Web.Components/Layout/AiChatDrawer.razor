@@ -1,5 +1,7 @@
 @* 껍데기 크기를 캡에서 멈추려고 받는다 — `ThemeSize.Chrome` 머리말 참고. *@
 @inject ThemeSize Size
+@inject CurrentUser Me
+@implements IDisposable
 @*
     헤더에서 여는 AI 대화 서랍 (D11).
 
@@ -24,7 +26,16 @@
 
     새로고침하면 사라진다 — 서버에 대화를 저장하는 통로가 아직 없다.
     옛 포털도 그랬다.
+
+    [시스템관리자에게만 보인다 — 2026-09-24]
+
+    단추와 판을 함께 감춘다(`CurrentUser.IsSystemAdmin`). 내 정보를 읽기 전에는
+    감춰 둔다 — 잠깐 떴다 사라지는 것보다 늦게 나타나는 편이 낫다.
+    이 판정은 단추 노출만 정한다. AI 경로 자체를 막는 것은 서버 몫이다.
 *@
+
+@if (Me.IsSystemAdmin)
+{
 
 @* 아이콘 단추의 **좌우 여백**을 「조금작게」에서 멈춘다 —
    이유는 `ThemeSize.Chrome` 머리말에. **여기만 감싼다.** *@
@@ -54,9 +65,17 @@
         <a href="/site/ai/chat">AI 에이전트 대화</a> 화면에서 이어가세요.
     </p>
 </aside>
+}
 
 @code {
     private bool _open;
 
     private void Toggle() => _open = !_open;
+
+    protected override void OnInitialized() => Me.Changed += OnMeChanged;
+
+    /// <summary>내 정보가 늦게 오면 그때 단추를 세운다.</summary>
+    private void OnMeChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Me.Changed -= OnMeChanged;
 }
