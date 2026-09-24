@@ -99,6 +99,33 @@
     거기에 손가락 과녁이 작았다 — 탭 한 줄 28px, 사진 카드의 단추 24px.
     권장값은 44px 다. 크기는 CSS 가 키운다.
 
+    [그러고도 쓰기 어려웠다 — 탭 일곱이 남은 문제였다]
+
+    위로 올린 탭 머리는 폭을 **일곱이 나눠 쓴다.** 360px 에서 한 칸이 51px
+    라 이름을 짧게 줄여도 서넛만 보이고 나머지는 쓸어 넘겨야 닿는다.
+    무엇이 있는지 보이지 않는 차림표고, 지금 어디에 서 있는지도 흐리다.
+
+    그래서 휴대폰에서는 탭을 걷고 **두 층으로 나눈다** — 휴대폰의 설정 앱이
+    모두 쓰는 모양이다.
+
+      · `?tab=` 이 없으면 → 일곱 줄짜리 **목록**(`ad-hub`). 줄마다 지금 값을
+        한 줄로 요약한다(「12개 고정됨」·「사진 3장」·「45일 남음」). 무엇이
+        있는지와 그것이 어떤 상태인지가 굴리지 않고 한 화면에 들어온다.
+      · `?tab=` 이 있으면 → 그 조각 하나만. 위에 「← 내 정보」 줄이 선다.
+
+    탭 머리는 CSS 가 감춘다(admin.css). `DxTabs` 자체는 그대로 둔다 — 일곱
+    조각의 내용이 `DxTabPage` 안에 있어서, 그것을 밖으로 꺼내면 같은 마크업을
+    데스크톱·휴대폰 두 벌로 유지하게 된다.
+
+    **목록에서 조각으로 들어갈 때만 방문 기록을 쌓는다**(`replace: false`).
+    휴대폰에는 뒤로 가기가 기기에 달려 있어서, 그것이 목록으로 돌아오지
+    않으면 한 번에 화면을 통째로 벗어난다. 데스크톱은 그대로 `replace` 다 —
+    거기는 탭 머리가 보이므로 뒤로 가기로 탭을 옮기지 않는다.
+
+    얼굴의 「사진 관리」 덮개도 휴대폰에서는 **모서리의 작은 연필**로 바꿨다.
+    동그라미의 아래 4할을 검게 덮는 띠라 사진이 있는 계정일수록 얼굴이 가려
+    졌는데, 눌린다는 것을 말하는 데 그만한 자리가 필요하지 않다.
+
     [경계 767px 를 두 곳에 적는다]
 
     화면은 `DxLayoutBreakpoint MaxWidth="767"` 로 알고, CSS 는 같은 값의
@@ -183,24 +210,40 @@
     @* ══ 왼쪽 판: 얼굴 · 이름 ══════════════════════════════
        DevExpress 에 이미지·카드 부품이 없어 이 조각만 손으로 그린다. *@
     <aside class="ad-profile__side">
-        <button type="button" class="ad-profile__photo"
-                title="프로필 사진 관리"
-                @onclick="@(() => Go(Tab.Avatar))">
-            @if (Me.AvatarUrl is { Length: > 0 } avatar)
-            {
-                @* 못 받아 오면 깨진 그림 대신 첫 글자로 돌아간다
-                   (CurrentUser.MarkAvatarUnavailable 참고). *@
-                <img class="ad-profile__photo-img" src="@avatar" alt="프로필 사진"
-                     @onerror="@(() => Me.MarkAvatarUnavailable())" />
-            }
-            else
-            {
-                @* 사진이 없는 계정이 훨씬 많다. **없는 것이 오류처럼 보이면
-                   안 된다** — 사람롤의 대상 목록과 같은 방식으로 첫 글자를 쓴다. *@
-                <span class="ad-profile__photo-initial">@Initial</span>
-            }
-            <span class="ad-profile__photo-veil">사진 관리</span>
-        </button>
+        @* 동그라미를 감싼 자리. **단추 밖에 있어야 하는 것이 하나 있어서**
+           생겼다 — 아래의 연필 딱지는 동그라미 모서리에 반쯤 걸치는데,
+           단추는 `overflow: hidden` 이라(사진을 원으로 자른다) 안에 두면
+           잘려 나간다. *@
+        <div class="ad-profile__avatar">
+            <button type="button" class="ad-profile__photo"
+                    title="프로필 사진 관리"
+                    @onclick="@(() => Go(Tab.Avatar))">
+                @if (Me.AvatarUrl is { Length: > 0 } avatar)
+                {
+                    @* 못 받아 오면 깨진 그림 대신 첫 글자로 돌아간다
+                       (CurrentUser.MarkAvatarUnavailable 참고). *@
+                    <img class="ad-profile__photo-img" src="@avatar" alt="프로필 사진"
+                         @onerror="@(() => Me.MarkAvatarUnavailable())" />
+                }
+                else
+                {
+                    @* 사진이 없는 계정이 훨씬 많다. **없는 것이 오류처럼 보이면
+                       안 된다** — 사람롤의 대상 목록과 같은 방식으로 첫 글자를 쓴다. *@
+                    <span class="ad-profile__photo-initial">@Initial</span>
+                }
+                <span class="ad-profile__photo-veil">사진 관리</span>
+            </button>
+
+            @* 휴대폰에서만 보인다(admin.css). 손가락에는 얹기가 없어 위의
+               덮개가 뜨지 않으므로, 눌리는 자리라는 것을 이것이 말한다.
+
+               **누름을 받지 않는다**(`pointer-events: none`) — 단추 밖의
+               형제라 여기를 누르면 아무 일도 일어나지 않는데, 사람은 이
+               딱지를 과녁으로 읽는다. 누름을 아래 단추로 흘려 보낸다. *@
+            <span class="ad-profile__photo-badge" aria-hidden="true">
+                <span class="jsini-icon-edit"></span>
+            </span>
+        </div>
 
         <div class="ad-profile__who">
             <div class="ad-profile__name">@(_info?.RealName ?? "-")</div>
@@ -223,8 +266,63 @@
                         IndicatorAreaVisible="false"
                         Text="내 정보를 읽는 중입니다…">
 
-            @if (_info is not null)
+            @* ── 휴대폰의 위층: 일곱 줄짜리 목록 ─────────────────
+
+               탭 머리 대신 선다. **줄마다 지금 값을 한 줄로 요약한다** —
+               「고정탭 관리」라고만 적어 두면 몇 개가 고정되어 있는지 보려고
+               들어갔다 나와야 한다. 일곱 줄을 훑는 것만으로 계정의 상태를
+               다 읽을 수 있게 두는 편이 화면 하나를 아낀다.
+
+               DevExpress 에 이 모양의 부품이 없다. `DxListBox` 는 한 줄에
+               글자 하나뿐이고(두 줄 + 딱지 + 화살표를 넣을 수 없다),
+               `DxAccordion` 은 펼치는 것이라 주소(`?tab=`)와 짝이 안 맞는다.
+               — 얼굴 동그라미·사진 격자와 같은 사유다. *@
+            @if (_info is not null && ShowHub)
             {
+                <nav class="ad-hub" aria-label="내 정보 항목">
+                    @foreach (var row in HubRows)
+                    {
+                        <button type="button" class="ad-hub__row" @onclick="@(() => Go(row.Tab))">
+                            <span class="ad-hub__icon @row.Icon" aria-hidden="true"></span>
+
+                            <span class="ad-hub__text">
+                                <span class="ad-hub__name">@row.Name</span>
+                                <span class="ad-hub__desc">@row.Summary</span>
+                            </span>
+
+                            @if (row.Badge is { Length: > 0 } badge)
+                            {
+                                <span class="jsini-badge @row.BadgeClass ad-hub__badge">@badge</span>
+                            }
+
+                            @* 화살표는 따로 없다 — `chevron-down` 을 눕힌다. *@
+                            <span class="ad-hub__go jsini-icon-chevron-down" aria-hidden="true"></span>
+                        </button>
+                    }
+                </nav>
+
+                <p class="jsini-hint">
+                    항목을 고르면 그 자리만 펼쳐집니다. 뒤로 가기로 이 목록에
+                    돌아옵니다.
+                </p>
+            }
+
+            @if (_info is not null && !ShowHub)
+            {
+                @* 휴대폰의 아래층 머리. 탭 머리가 감춰져 있어 **지금 어디에
+                   서 있는지와 나가는 길을 이 줄이 혼자 말한다.** 굴러도
+                   남아 있어야 해서 붙여 둔다(admin.css 의 `position: sticky`). *@
+                @if (_isPhone)
+                {
+                    <div class="ad-crumb">
+                        <button type="button" class="ad-crumb__back" @onclick="@BackToHub">
+                            <span class="ad-crumb__arrow jsini-icon-chevron-down" aria-hidden="true"></span>
+                            <span>내 정보</span>
+                        </button>
+                        <span class="ad-crumb__here">@LongTabText(_tab)</span>
+                    </div>
+                }
+
                 @*
                     `DxTabs` 에는 `CssClass` 가 없다(26.1 에서 확인). 남는 속성은
                     `Attributes` 로 흘러가므로 `class` 를 그대로 적는다.
@@ -1063,32 +1161,156 @@
     private bool _isPinsStacked;
 
     /// <summary>
-    /// 탭 이름. 휴대폰에서는 짧은 쪽을 쓴다.
+    /// <c>DxTabs</c> 의 탭 머리에 적는 이름. 휴대폰에서는 짧은 쪽을 쓴다.
     ///
     /// <para>
     /// 위로 올라간 탭 머리는 폭을 일곱이 나눠 쓴다. 「프로필 사진 관리」를
     /// 그대로 두면 한 탭이 화면 절반을 차지하고 나머지 여섯은 쓸어 넘겨야만
     /// 닿는다 — <b>지금 어느 탭에 있는지조차 안 보인다.</b>
     /// </para>
+    ///
+    /// <para>
+    /// 그 줄을 결국 통째로 감추고 목록(<c>ad-hub</c>)으로 바꿨으므로
+    /// (이 파일 머리말) 휴대폰에서 이 이름이 보이는 자리는 지금 없다.
+    /// 지우지 않는 이유는 <see cref="ShortTabText"/> 에 적어 두었다.
+    /// </para>
     /// </summary>
-    private string TabText(Tab tab) => (_isPhone, tab) switch
-    {
-        (false, Tab.Basic) => "기본 설정",
-        (false, Tab.Account) => "계정 정보",
-        (false, Tab.FixedTabs) => "고정탭 관리",
-        (false, Tab.Security) => "보안 설정",
-        (false, Tab.Password) => "비밀번호 변경",
-        (false, Tab.Notice) => "새 메시지 알림",
-        (false, Tab.Avatar) => "프로필 사진 관리",
+    private string TabText(Tab tab) => _isPhone ? ShortTabText(tab) : LongTabText(tab);
 
-        (true, Tab.Basic) => "기본",
-        (true, Tab.Account) => "계정",
-        (true, Tab.FixedTabs) => "고정탭",
-        (true, Tab.Security) => "보안",
-        (true, Tab.Password) => "비밀번호",
-        (true, Tab.Notice) => "알림",
+    /// <summary>제 이름. 목록(<c>ad-hub</c>)과 되돌아가는 줄도 이것을 쓴다.</summary>
+    private static string LongTabText(Tab tab) => tab switch
+    {
+        Tab.Basic => "기본 설정",
+        Tab.Account => "계정 정보",
+        Tab.FixedTabs => "고정탭 관리",
+        Tab.Security => "보안 설정",
+        Tab.Password => "비밀번호 변경",
+        Tab.Notice => "새 메시지 알림",
+        _ => "프로필 사진 관리",
+    };
+
+    /// <summary>
+    /// 줄인 이름. 휴대폰에서는 탭 머리를 감추므로(admin.css) 지금은 보이는
+    /// 자리가 없지만, <b>CSS 가 안 실렸을 때를 위해 남겨 둔다</b> — 그때
+    /// 드러나는 것은 위로 올라간 탭 머리고 거기서는 긴 이름이 안 들어간다.
+    /// </summary>
+    private static string ShortTabText(Tab tab) => tab switch
+    {
+        Tab.Basic => "기본",
+        Tab.Account => "계정",
+        Tab.FixedTabs => "고정탭",
+        Tab.Security => "보안",
+        Tab.Password => "비밀번호",
+        Tab.Notice => "알림",
         _ => "사진",
     };
+
+    // ── 휴대폰 목록(ad-hub) ─────────────────────────────────
+
+    /// <summary>
+    /// 목록을 보이고 있는가. <b>휴대폰이고 주소에 <c>?tab=</c> 이 없을 때</b>다.
+    ///
+    /// <para>
+    /// 상태를 따로 들지 않고 주소로 판정한다 — 들고 있으면 사용자 메뉴가
+    /// <c>?tab=avatar</c> 로 보냈을 때 목록과 조각 중 어느 쪽을 보일지가
+    /// 두 곳에서 갈린다.
+    /// </para>
+    /// </summary>
+    private bool ShowHub => _isPhone && !_tabInUrl;
+
+    /// <summary>주소에 <c>?tab=</c> 이 있었는가.</summary>
+    private bool _tabInUrl;
+
+    /// <param name="Tab">눌렀을 때 열리는 조각.</param>
+    /// <param name="Icon">
+    /// 줄 왼쪽의 그림. 사용자 메뉴(<c>UserMenu</c>)가 같은 자리에 쓰는 것과
+    /// 맞춰 둔다 — 두 곳이 같은 일곱을 가리키는데 그림이 다르면 같은 것인 줄
+    /// 모른다.
+    /// </param>
+    /// <param name="Name">줄 이름. 탭의 제 이름과 같다.</param>
+    /// <param name="Summary">지금 값 한 줄. 들어가 보지 않아도 알아야 하는 것.</param>
+    /// <param name="Badge">눈에 띄어야 하는 것만. 없으면 <c>null</c>.</param>
+    /// <param name="BadgeClass">딱지의 색 (<c>jsini-badge--*</c>).</param>
+    private sealed record HubRow(
+        Tab Tab, string Icon, string Name, string Summary,
+        string? Badge = null, string? BadgeClass = null);
+
+    private IReadOnlyList<HubRow> HubRows
+    {
+        get
+        {
+            var noticeOn = NoticeRows.Count(row => row.Value);
+
+            return
+            [
+                new(Tab.Basic, "jsini-icon-user", "기본 설정", BasicSummary),
+
+                new(Tab.Account, "jsini-icon-eye", "계정 정보", AccountSummary,
+                    _activity is { RecentFailCount: > 0 } ? $"실패 {_activity.RecentFailCount}" : null,
+                    "jsini-badge--warn"),
+
+                new(Tab.FixedTabs, "jsini-icon-star", "고정탭 관리",
+                    Pinned.Count == 0 ? "사이드바에 고정한 메뉴가 없습니다" : $"{Pinned.Count}개 고정됨"),
+
+                new(Tab.Security, "jsini-icon-lock", "보안 설정", SecuritySummary),
+
+                new(Tab.Password, "jsini-icon-refresh", "비밀번호 변경",
+                    $"마지막 변경 {Dt(_info!.PasswordChangedAt)}",
+                    _info.PasswordPolicyOn ? RemainText : null,
+                    RemainBadge),
+
+                new(Tab.Notice, "jsini-icon-bell", "새 메시지 알림",
+                    noticeOn == 0 ? "받는 알림이 없습니다" : $"{noticeOn}개 켬"),
+
+                new(Tab.Avatar, "jsini-icon-image", "프로필 사진 관리",
+                    _photos.Count == 0 ? "올려 둔 사진이 없습니다" : $"{_photos.Count}장 · 최대 {PhotoLimit}장"),
+            ];
+        }
+    }
+
+    /// <summary>
+    /// 기본 설정 줄의 요약. <b>이름을 쓰지 않는다</b> — 바로 위 얼굴 판이
+    /// 이미 이름을 크게 적고 있어서 같은 글자가 두 번 보인다.
+    /// </summary>
+    private string BasicSummary
+    {
+        get
+        {
+            var parts = new[] { _info!.Email, _info.Phone }
+                .Where(p => !string.IsNullOrWhiteSpace(p))
+                .ToArray();
+
+            return parts.Length == 0 ? "이메일 · 전화번호 · 생년월일" : string.Join(" · ", parts);
+        }
+    }
+
+    private string AccountSummary => _info!.LastLoginAt is null
+        ? $"가입 {Dt(_info.CreatedAt)}"
+        : $"최근 로그인 {Dt(_info.LastLoginAt)}";
+
+    /// <summary>
+    /// 보안 줄의 요약. <b>없는 것을 세지 않고 있는 것만 말한다</b> — 「지문 0 ·
+    /// 소셜 0」은 읽는 사람에게 셈이 아니라 잔소리다.
+    /// </summary>
+    private string SecuritySummary
+    {
+        get
+        {
+            var parts = new List<string>(2);
+
+            if (_passkeys.Count > 0)
+            {
+                parts.Add($"지문 · 얼굴 {_passkeys.Count}개");
+            }
+
+            if (_socialLinks.Count > 0)
+            {
+                parts.Add($"소셜 {_socialLinks.Count}개");
+            }
+
+            return parts.Count == 0 ? "지문 · 얼굴 · 소셜 계정을 붙일 수 있습니다" : string.Join(" · ", parts);
+        }
+    }
 
     private UserInfoDto? _info;
     private AccountActivityDto? _activity;
@@ -1374,21 +1596,48 @@
         StateHasChanged();
     });
 
+    /// <summary>
+    /// 주소에서 탭을 읽는다.
+    ///
+    /// <para>
+    /// <b>「없다」도 하나의 답이다.</b> 휴대폰에서 그것이 「목록을 보인다」라서
+    /// (<see cref="ShowHub"/>) 못 읽었을 때 <c>_tabInUrl</c> 을 내려 둔다 —
+    /// 안 그러면 목록에서 조각으로 한 번 들어간 뒤로는 되돌아올 수 없다.
+    /// </para>
+    /// </summary>
     private void ReadTabFromUrl()
     {
         var query = new Uri(Navigation.Uri).Query;
 
         if (string.IsNullOrEmpty(query))
         {
+            _tabInUrl = false;
             return;
         }
 
-        if (QueryHelpers.ParseQuery(query).TryGetValue("tab", out var values)
+        var parsed = QueryHelpers.ParseQuery(query);
+
+        if (parsed.TryGetValue("tab", out var values)
             && values.ToString() is { Length: > 0 } name
             && TabNames.TryGetValue(name, out var tab))
         {
             _tab = tab;
+            _tabInUrl = true;
+            return;
         }
+
+        // 소셜 공급자에 다녀오면 `?social=linked` 만 붙어 돌아온다
+        // (`SocialLoginFlow`). 그 결과를 말하는 자리가 보안 설정이라
+        // **휴대폰에서 목록으로 떨어뜨리면 안 된다** — 붙였다는 안내는 뜨는데
+        // 붙은 것이 어디에도 안 보인다.
+        if (parsed.ContainsKey("social"))
+        {
+            _tab = Tab.Security;
+            _tabInUrl = true;
+            return;
+        }
+
+        _tabInUrl = false;
     }
 
     /// <summary>
@@ -1409,12 +1658,31 @@
     private void Go(Tab tab)
     {
         _tab = tab;
+        _tabInUrl = true;
 
         var name = TabNames.First(pair => pair.Value == tab).Key;
 
-        // replace 로 바꾼다. 탭을 일곱 번 눌렀다고 뒤로 가기를 일곱 번 해야
+        // 데스크톱은 replace 다. 탭을 일곱 번 눌렀다고 뒤로 가기를 일곱 번 해야
         // 화면을 벗어나는 것은 브라우저 사용에 어긋난다.
-        Navigation.NavigateTo($"/admin/profile?tab={name}", replace: true);
+        //
+        // **휴대폰만 쌓는다.** 거기서 이 한 걸음은 탭 옮기기가 아니라 목록에서
+        // 한 층 들어가는 것이고, 기기에 달린 뒤로 가기가 그 목록으로 돌아오지
+        // 않으면 화면을 통째로 벗어난다.
+        Navigation.NavigateTo($"/admin/profile?tab={name}", replace: !_isPhone);
+    }
+
+    /// <summary>
+    /// 목록으로 되돌아간다(휴대폰).
+    ///
+    /// <para>
+    /// <b>replace 로 되돌린다.</b> 쌓으면 「목록 → 조각 → 목록」이 되어, 여기서
+    /// 기기의 뒤로 가기를 누른 사람이 방금 나온 조각으로 다시 들어간다.
+    /// </para>
+    /// </summary>
+    private void BackToHub()
+    {
+        _tabInUrl = false;
+        Navigation.NavigateTo("/admin/profile", replace: true);
     }
 
     // ── 조회 ────────────────────────────────────────────────

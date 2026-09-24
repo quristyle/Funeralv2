@@ -19,9 +19,13 @@
         <span class="jsini-icon-palette jsini-bottom-nav__icon"></span>
         <span>설정</span>
     </button>
-    <button class="jsini-bottom-nav__item" @onclick="@(() => Navigation.NavigateTo("/admin/profile?tab=basic"))">
+    @* `?tab=` 을 붙이지 않는다. 휴대폰의 그 화면은 주소에 탭이 없으면
+       일곱 항목의 **목록**을 보이고, 붙이면 그 조각 하나로 바로 들어간다
+       (`Profile.razor`). 여기는 「내 정보로 간다」는 뜻이라 목록이 맞다 —
+       탭 하나를 찍어 두면 나머지 여섯은 한 번 되돌아 나와야 닿는다. *@
+    <button class="jsini-bottom-nav__item" @onclick="@(() => Navigation.NavigateTo("/admin/profile"))">
         <span class="jsini-icon-user jsini-bottom-nav__icon"></span>
-        <span>아바타</span>
+        <span>내 정보</span>
     </button>
 </div>
 
