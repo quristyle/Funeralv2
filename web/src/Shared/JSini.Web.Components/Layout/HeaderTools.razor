@@ -105,6 +105,28 @@
                   Title="@AskTitle(ask)"
                   Click="@(() => OpenAsk(ask))" />
     }
+    else if (RequestMenu is { } request)
+    {
+        @* 「빠른 지시 요청」 — ⚡ 를 못 쓰는 사람의 자리다(2026-09-24).
+
+           ⚡ 는 관리자 몫이다. 적는 순간 대상과 AI 가 실려 돌고 배포까지 간다.
+           그 밖의 사람에게는 **적어 두기만 하는** 화면(`/projmng/ai/request`)이
+           있는데, 메뉴 깊숙이 있어 쓰는 사람이 없었다. 같은 자리에 같은 번개를
+           두되 **노란색**으로 갈라 「이것은 요청이다」를 모양으로 말한다.
+
+           **둘 중 하나만 뜬다.** 관리자는 요청 화면 권한도 함께 갖고 있어서,
+           둘 다 띄우면 색만 다른 번개 둘이 나란히 서고 어느 쪽인지 눌러 봐야
+           안다. 관리자에게는 ⚡ 가 요청까지 품는 윗길이다.
+
+           서랍으로 열지 않는다. 서랍의 알맹이(`AiAskPanel`)는 ⚡ 의 것이라,
+           여기서는 화면으로 옮겨 간다. 주소는 ⚡ 와 같은 까닭으로 메뉴가 쥔
+           링크를 따른다. *@
+        <DxButton RenderStyle="ButtonRenderStyle.Link"
+                  IconCssClass="jsini-icon-bolt"
+                  CssClass="jsini-header__tool--request"
+                  Title="@($"{request.Title} — 빠른 지시 요청 (관리자가 확인해 실행합니다)")"
+                  Click="@(() => Navigation.NavigateTo(request.LinkTarget))" />
+    }
 
     <DxButton RenderStyle="ButtonRenderStyle.Link"
               IconCssClass="@(IsFavorite ? "jsini-icon-star-on" : "jsini-icon-star")"
@@ -224,19 +246,31 @@
     /// 권한과 화면 크기로 걸러진 목록에서 찾는다. <b>원본(<c>AllMenus</c>)이 아니다</b> —
     /// 그쪽에서 찾으면 볼 권한이 없는 사람에게도 단추가 나온다.
     /// </summary>
-    private MenuNode? AskMenu => FindAsk(Menus.VisibleMenus);
+    private MenuNode? AskMenu => FindMenu(Menus.VisibleMenus, AskRouteKey, AskPath);
 
-    private static MenuNode? FindAsk(IReadOnlyList<MenuNode> nodes)
+    /// <summary>「AI 작업 요청」 화면의 열쇠. ⚡ 를 못 쓰는 사람의 노란 번개가 간다.</summary>
+    private const string RequestRouteKey = "projmng.ai.request";
+
+    /// <summary><c>route_key</c> 를 아직 안 채운 DB 를 위한 대비책.</summary>
+    private const string RequestPath = "/projmng/ai/request";
+
+    /// <summary>
+    /// 요청 화면 메뉴. <see cref="AskMenu"/> 와 같은 까닭으로 <b>걸러진 목록</b>에서
+    /// 찾는다 — 볼 권한이 없는 사람에게는 노란 번개도 안 뜬다.
+    /// </summary>
+    private MenuNode? RequestMenu => FindMenu(Menus.VisibleMenus, RequestRouteKey, RequestPath);
+
+    private static MenuNode? FindMenu(IReadOnlyList<MenuNode> nodes, string routeKey, string path)
     {
         foreach (var node in nodes)
         {
-            if (string.Equals(node.RouteKey, AskRouteKey, StringComparison.OrdinalIgnoreCase)
-                || string.Equals(node.Path, AskPath, StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(node.RouteKey, routeKey, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(node.Path, path, StringComparison.OrdinalIgnoreCase))
             {
                 return node;
             }
 
-            if (FindAsk(node.Children) is { } hit)
+            if (FindMenu(node.Children, routeKey, path) is { } hit)
             {
                 return hit;
             }
