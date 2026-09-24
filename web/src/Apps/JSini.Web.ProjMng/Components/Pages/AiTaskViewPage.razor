@@ -50,12 +50,30 @@
     `AiTaskView`(지시·결과·로그)와 `AiTaskActions`(단추)를 창과 똑같이 쓴다.
     이 화면이 따로 하는 일은 **한 건을 스스로 받아 오고 따라가는 것**뿐이다 —
     창은 부모(「빠른 지시」 화면)가 넘겨 주지만 여기는 부모가 없다.
+
+    [작성중인 건은 여기서 지운다 (2026-09-24)]
+
+    적어만 두고 요청하지 않은 건(`AiTaskDto.IsDraft`)은 「빠른 지시」 아래 카드에
+    계속 남는데, 지우려면 「AI 작업」 화면으로 가서 목록에서 다시 찾아야 했다.
+    그 건을 열어 둔 이 자리에 삭제 단추를 둔다.
+
+    **작성중일 때만 선다.** 한 번이라도 요청한 건은 실행 이력·결과가 딸려 있어
+    이 화면에서 가볍게 지울 것이 아니다 — 그것은 「AI 작업」 화면의 몫이다.
+    지우는 경로는 그 화면과 같다(`AiTaskClient.DeleteAsync`) — 「빠른 지시」가
+    이미 관리자 목록으로 남의 건까지 보여 주므로 권한도 같다. 남의 건이면
+    묻는 창에 **누구의 것인지** 적는다.
+
+    지운 뒤에는 이 탭을 닫고 「빠른 지시」로 돌아간다. 이 주소는 이제 가리킬
+    것이 없다. 이 브라우저에 적어 둔 임시본(`AiTaskDraftStore`)도 함께 버린다 —
+    남겨 두면 「AI 작업」 화면이 없는 건을 이어서 쓰려 든다.
 *@
 
 @inherits DataPage
 @implements IDisposable
 @inject AiTaskClient Api
 @inject PortalTabs Tabs
+@inject AiTaskDraftStore Drafts
+@inject NavigationManager Nav
 
 <PageTitle>@(TabTitle) · 프로젝트관리</PageTitle>
 
@@ -78,16 +96,34 @@
                 <AiTaskActions Item="@_item"
                                OnChanged="@OnChangedAsync"
                                OnConfirmed="@OnChangedAsync" />
+
+                @if (_item.IsDraft)
+                {
+                    <DxButton Text="삭제"
+                              IconCssClass="jsini-icon-trash"
+                              RenderStyle="ButtonRenderStyle.Danger"
+                              RenderStyleMode="ButtonRenderStyleMode.Outline"
+                              Enabled="@(!_deleting)"
+                              Click="@AskDeleteAsync" />
+                }
             </div>
         }
     </CommCont>
 </div>
+
+<ConfirmDialog @ref="_confirm" />
 
 @code {
     /// <summary>주소에 실려 온 지시 번호.</summary>
     [Parameter] public long TaskKey { get; set; }
 
     private AiTaskDto? _item;
+
+    [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
+
+    private ConfirmDialog? _confirm;
+
+    private bool _deleting;
 
     /// <summary>지금 그리고 있는 건. 주소가 바뀌었는지 보는 값이다.</summary>
     private long _shown;
@@ -144,6 +180,70 @@
         await LoadAsync();
 
         StateHasChanged();
+    }
+
+    /// <summary>
+    /// 작성중인 건을 지운다. <b>묻고 나서</b> 지운다 — 되돌릴 방법이 화면에 없다.
+    /// </summary>
+    private async Task AskDeleteAsync()
+    {
+        if (_item is not { IsDraft: true } t || _confirm is null || _deleting)
+        {
+            return;
+        }
+
+        var me = AuthState is null ? null : (await AuthState).User.Identity?.Name;
+
+        // 남의 건이면 누구 것인지 적는다. 「빠른 지시」는 모두의 카드를 보여 주므로
+        // 내 것인 줄 알고 누르는 일이 생긴다.
+        var owner = !string.IsNullOrWhiteSpace(t.CreId)
+                    && !string.Equals(t.CreId, me, StringComparison.OrdinalIgnoreCase)
+            ? $"\n{t.CreId} 님이 적은 건입니다."
+            : string.Empty;
+
+        var ok = await _confirm.AskAsync(
+            $"「{TabTitle}」 을(를) 지웁니다.{owner}\n아직 요청하지 않은 건이라 적어 둔 글만 사라집니다.",
+            title: "작성중인 지시 삭제");
+
+        if (!ok)
+        {
+            return;
+        }
+
+        _deleting = true;
+
+        try
+        {
+            var done = await RunAsync(
+                () => Api.DeleteAsync(t.TaskKey),
+                "지웠습니다.", "지우지 못했습니다");
+
+            if (!done)
+            {
+                return;
+            }
+
+            StopPoll();
+
+            try
+            {
+                Drafts.Use(me);
+                await Drafts.ReadAsync();
+                await Drafts.RemoveAsync(t.TaskKey);
+            }
+            catch
+            {
+                // 임시본을 못 치워도 지운 것은 지운 것이다 — 이 한 조각 때문에
+                // 「지웠습니다」를 뒤집지 않는다.
+            }
+
+            Tabs.Close(Href);
+            Nav.NavigateTo("/projmng/ai/ask");
+        }
+        finally
+        {
+            _deleting = false;
+        }
     }
 
     /// <summary>

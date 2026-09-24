@@ -381,6 +381,17 @@ public sealed class AiTaskDto
     /// <summary>지금 도는 중인가. 편집과 삭제를 막는 기준이다.</summary>
     public bool IsBusy => TaskStatus is "queued" or "preparing" or "running";
 
+    /// <summary>
+    /// <b>적어만 두고 한 번도 요청하지 않은 건</b>(「작성중」). 지워도 잃는 것이
+    /// 글뿐이라 상세 화면이 삭제 단추를 준다(<c>AiTaskViewPage</c>).
+    /// </summary>
+    /// <remarks>
+    /// 서버가 사용자의 「내 요청 거둬들이기」에 거는 조건과 같다
+    /// (<c>AiTaskService.DeleteUserRequestAsync</c> — <c>request_flag = 'none'</c>
+    /// · <c>task_status = 'idle'</c>).
+    /// </remarks>
+    public bool IsDraft => TaskStatus == "idle" && RequestFlag == "none";
+
     /// <summary>더 움직이지 않는 상태인가.</summary>
     public bool IsFinal => TaskStatus is "succeeded" or "failed" or "timeout" or "canceled" or "interrupted";
 
