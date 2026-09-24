@@ -417,14 +417,12 @@ public static class DashboardEndpoints {
               RequestCount = db.Requests.Count(r => r.Customer!.CompanyId == c.Id)
             }).ToListAsync()));
 
-    // 각 팀별 할당된 요청 수를 조회합니다.
-    group.MapGet("/teams/workload", (AppDbContext db) => ApiResponseBuilder.CreateAsync(
-        () => db.Teams
-            .Select(t => new {
-              t.Id,
-              t.Name,
-              AssignedRequests = db.Requests.Count(r => r.Admin != null && r.Admin.AdminTeams.Any(at => at.TeamId == t.Id))
-            }).ToListAsync()));
+    // 팀별 부하(/teams/workload)는 제거했다.
+    //
+    // 「조직 관리」 메뉴의 팀·팀-고객사 화면만 부르던 통계인데, 조직 관리를
+    // JSini 관리 포털(AuthServer)에 넘기면서 그 두 화면을 걷어냈다.
+    // 담당자별 부하(/admins/workload)는 남는다 — 운영 리포트의
+    // 용량 계획 화면이 쓴다.
 
     // 각 관리자별 할당된 요청 및 완료한 요청 수를 조회합니다.
     group.MapGet("/admins/workload", (AppDbContext db) => ApiResponseBuilder.CreateAsync(

@@ -182,12 +182,6 @@ UPDATE scom.system_menus SET route_key = 'helpdesk.monitor.maintenance'
  WHERE path IN ('/helpdesk/monitor/maintenance') AND route_key IS DISTINCT FROM 'helpdesk.monitor.maintenance';
 UPDATE scom.system_menus SET route_key = 'helpdesk.monitor.sm'
  WHERE path IN ('/helpdesk/monitor/sm') AND route_key IS DISTINCT FROM 'helpdesk.monitor.sm';
-UPDATE scom.system_menus SET route_key = 'helpdesk.org.admin'
- WHERE path IN ('/helpdesk/org/admin') AND route_key IS DISTINCT FROM 'helpdesk.org.admin';
-UPDATE scom.system_menus SET route_key = 'helpdesk.org.team'
- WHERE path IN ('/helpdesk/org/team') AND route_key IS DISTINCT FROM 'helpdesk.org.team';
-UPDATE scom.system_menus SET route_key = 'helpdesk.org.team-company'
- WHERE path IN ('/helpdesk/org/team-company') AND route_key IS DISTINCT FROM 'helpdesk.org.team-company';
 UPDATE scom.system_menus SET route_key = 'helpdesk.project.gantt'
  WHERE path IN ('/helpdesk/project/gantt') AND route_key IS DISTINCT FROM 'helpdesk.project.gantt';
 UPDATE scom.system_menus SET route_key = 'helpdesk.project.info'
