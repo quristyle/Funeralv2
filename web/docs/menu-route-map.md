@@ -14,7 +14,7 @@
 
 | 앱 | DB 일치 | 처리 |
 |---|---|---|
-| HelpDesk 54 · ProjMng 38 · LifeEnv 15 | 접두사 일치 | DB path 그대로, `@page` 는 접두사 제거분 |
+| HelpDesk 46 · ProjMng 38 · LifeEnv 15 | 접두사 일치 | DB path 그대로, `@page` 는 접두사 제거분 |
 | Funeral 37 · Admin 29 · Site 3 | **전면 불일치** | Blazor 는 새 정규 경로로 선언, 옛→새 별칭표 운용, 컷오버 때 DB 일괄 UPDATE |
 | 목적지 불명 3 (/dashboard /analytics /workspace) | vben 대시보드 | 인벤토리 확인 후 결정 |
 
@@ -22,14 +22,16 @@
 
 /helpdesk/dashboard, /helpdesk/dashboard/customer, /helpdesk/request/{list,manage,new,monitor,my-comments},
 /helpdesk/request/detail/{id}, /helpdesk/request/edit/{id},
-/helpdesk/project/{manage,wbs,wbs-gantt,gantt,wbs-readonly,info}, /helpdesk/schedule/{all,my},
 /helpdesk/monitor/{sm,maintenance}, /helpdesk/util/{ascii-parser,binary-parser,mc-model,diagram},
 /helpdesk/hanju/{health-check,collection-status,equipment-log,fms-log,procedure-result},
 /helpdesk/report/{monitoring,weekly,monthly,prediction,io-deep-dive,availability,capacity-planning,root-cause},
 /helpdesk/system/{account-link,user-properties}, /helpdesk/contact-us
-(그룹 노드: /helpdesk, /helpdesk/{request,project,schedule,monitor,util,hanju,report,system})
+(그룹 노드: /helpdesk, /helpdesk/{request,monitor,util,hanju,report,system})
 ※ 조직 관리(`/helpdesk/org/*`)는 2026-09-25 에 통째로 걷어냈다 — 조직과 계정은
   JSini 관리 포털(AuthServer)이 단독으로 맡는다.
+※ 프로젝트(`/helpdesk/project/*`)와 일정(`/helpdesk/schedule/*`)도 같은 날
+  걷어냈다. `/helpdesk/util/diagram`(다이어그램)은 이름만 WBS 고 「도구」
+  묶음이라 남는다 — 그 화면만 `GET /api/wbs` 를 계속 쓴다.
 
 ## ProjMng (:5566, /projmng) — DB path 그대로
 

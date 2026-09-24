@@ -114,7 +114,7 @@ builder.Services.AddSwaggerGen(c => {
   c.SwaggerDoc("v1", new Microsoft.OpenApi.OpenApiInfo {
     Title = "HelpDesk API",
     Version = "v1",
-    Description = "헬프데스크(요청/WBS/일정/공지) 마이크로서비스 API"
+    Description = "헬프데스크(요청/공지/리포트) 마이크로서비스 API"
   });
 });
 
@@ -244,12 +244,11 @@ app.MapRegistEndpoints();
 
 app.MapCompanyEndpoints();
 app.MapCustomerEndpoints();
-app.MapTeamEndpoints();
-// 조직 관리 엔드포인트(/api/admins 전부, /api/teams 의 등록·수정·삭제·검색·팀고객사)는
-// 제거했다. 조직과 계정은 JSini 관리 포털(AuthServer)이 단독으로 맡는다 —
-// 헬프데스크 쪽 「조직 관리」 메뉴(HD_ORG 와 팀·팀-고객사·담당자)를 함께 걷어냈다.
-// 담당자·팀 레코드 자체는 남는다(요청 배정이 참조한다). 읽기만 남긴 것이
-// `GET /api/teams` 인데, 프로젝트 관리 화면이 팀을 고르는 데 쓴다.
+// 조직 관리 엔드포인트(/api/admins · /api/teams)는 제거했다. 조직과 계정은
+// JSini 관리 포털(AuthServer)이 단독으로 맡는다 — 헬프데스크 쪽 「조직 관리」
+// 메뉴(HD_ORG 와 팀·팀-고객사·담당자)를 함께 걷어냈다. `GET /api/teams` 만
+// 한동안 남겨 두었는데, 그것을 쓰던 프로젝트 관리 화면마저 아래 「프로젝트」
+// 묶음과 함께 사라져 이제 부르는 곳이 없다.
 // 헬프데스크 자체 메뉴·역할·권한 엔드포인트(/api/menus, /api/roles)는 제거했다 (결정 Q4).
 // 메뉴와 권한은 JSini 관리 포털이 일원 관리한다 (scom.system_menus / scom.roles / scom.role_menus).
 // jsini.menu · approle · menurole · rolemenupermission 테이블은 그대로 두었다(DB 는 건드리지 않는다).
@@ -259,10 +258,13 @@ app.MapAttachmentEndpoints();
 app.MapDashboardEndpoints();
 app.MapNoticeEndpoints();
 app.MapFileUploadEndpoints();
+// 「프로젝트」·「일정」 메뉴 묶음을 2026-09-25 에 걷어내면서 그 화면들만 부르던
+// 길도 지웠다 — /api/project 묶음 전부, /api/schedules 묶음 전부,
+// /api/wbs 의 평탄화·단건·등록·수정·삭제, /api/wbslink 묶음 전부다.
+// 남은 `GET /api/wbs` 는 「도구 > 다이어그램」 화면이 항목을 고르는 데 쓴다.
+// 프로젝트·WBS·일정 **레코드**와 표는 그대로다.
 app.MapWbsEndpoints();
 app.MapWbsDiagramEndpoints();
-app.MapProjectEndpoints();
-app.MapWbsLinkEndpoints();
 app.MapContactEndpoints();
 app.MapAuthLinkEndpoints();
 
@@ -270,7 +272,6 @@ app.MapAuthLinkEndpoints();
 app.MapPushEndpoints();
 app.MapUserPropertyEndpoints();
 app.MapUserEndpoints();
-app.MapScheduleEndpoints();
 app.MapUtilEndpoints();
 
 string GetServerName() {

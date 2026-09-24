@@ -89,6 +89,11 @@ public sealed class ProjMngModule : IPortalModule
         // 것이 화면이기 때문이다 — 적어 둔 곳은 그것보다 오래 남아야 한다.
         services.AddScoped<Components.Shared.AiTaskDraftStore>();
 
+        // 「이어서 지시」 창에 적다 만 글. 위와 따로 두는 것은 담는 모양이
+        // 다르기 때문이다 — 그쪽은 「AI 작업」 편집 화면의 한 벌이고, 이쪽은
+        // 창에 덧붙여 적는 글 한 줄이라 섞으면 되살릴 때 서로의 본문을 덮는다.
+        services.AddScoped<Components.Shared.AiContinueDraftStore>();
+
         // 「빠른 지시」에서 마지막에 고른 것(대상 · AI · 올리기 · 메일).
         // 같은 이유로 화면 밖에 둔다 — 탭을 옮겨도 기억이 남아야 한다.
         services.AddScoped<Components.Shared.AiAskPrefs>();

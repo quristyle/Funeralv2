@@ -31,12 +31,12 @@
 | 21 | ☑ | `/helpdesk/dashboard` | HelpDeskDashboard.razor | 대시보드 · 도구줄2 |
 | 22 | ☑ | `/helpdesk/monitor/maintenance` | MaintenanceMonitor.razor | 대시보드 · 도구줄1 |
 | 23 | ☑ | `/helpdesk/monitor/sm` | SmMonitor.razor | 대시보드 · 도구줄1 |
-| 24 | ☑ | `/helpdesk/project/manage` | ProjectManage.razor | 도구줄3 · 관리칸1 · 팝업1 |
-| 25 | ☑ | `/helpdesk/project/wbs` | WbsList.razor | 도구줄3 · 관리칸1 · 팝업1 |
+| 24 | — | ~~`/helpdesk/project/manage`~~ | — | **2026-09-25 화면 제거** (「프로젝트」 묶음 철거) |
+| 25 | — | ~~`/helpdesk/project/wbs`~~ | — | **2026-09-25 화면 제거** (「프로젝트」 묶음 철거) |
 | 26 | ☑ | `/helpdesk/request/list` | RequestList.razor | 도구줄2 |
 | 27 | ☑ | `/helpdesk/request/manage` | RequestManage.razor | 도구줄1 |
-| 28 | ☑ | `/helpdesk/schedule/all` | ScheduleAll.razor | 도구줄3 · 관리칸1 · 팝업1 |
-| 29 | ☑ | `/helpdesk/schedule/my` | ScheduleMy.razor | 도구줄3 · 관리칸1 · 팝업1 |
+| 28 | — | ~~`/helpdesk/schedule/all`~~ | — | **2026-09-25 화면 제거** (「일정」 묶음 철거) |
+| 29 | — | ~~`/helpdesk/schedule/my`~~ | — | **2026-09-25 화면 제거** (「일정」 묶음 철거) |
 | 30 | ☑ | `/helpdesk/system/account-link` | AccountLink.razor | 도구줄3 · 팝업2 |
 | 31 | — | ~~`/helpdesk/system/checklist`~~ | — | **2026-09-23 화면 제거** (안 쓰는 화면) |
 | 32 | ☑ | `/helpdesk/system/user-properties` | UserProperties.razor | 도구줄2 |

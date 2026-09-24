@@ -569,7 +569,9 @@ Blazor 쪽이 대체로 더 길다(권한·실패 처리·엑셀을 부품이 �
 | `monitor/sm` | 479 | SmMonitor | 44 | 실시간 갱신 · 상세 |
 | `util/binary-parser` | 496 | BinaryParser | — | 전문 파싱 입력 |
 
-### 96. `/helpdesk/schedule/all` — 전체 일정 · **다시 씀**
+### 96. ~~`/helpdesk/schedule/all`~~ — 전체 일정 · **2026-09-25 제거**
+
+> 「일정」 묶음(HD_SCHEDULE)을 통째로 걷어냈다. 아래는 지우기 전까지의 기록이다.
 
 원본: `helpdesk/schedule/index.vue` (845줄)
 
@@ -589,7 +591,7 @@ Blazor 쪽이 대체로 더 길다(권한·실패 처리·엑셀을 부품이 �
 **500** 으로 떨어졌다. DxScheduler 는 약속을 만들 때 그 칸에 값을 **써 넣는다** —
 get 만 있으면 그 자리에서 죽는다. 빌드는 통과한다(반사로 접근한다).
 
-### 97. `/helpdesk/schedule/my` — 내 일정 · **다시 씀**
+### 97. ~~`/helpdesk/schedule/my`~~ — 내 일정 · **2026-09-25 제거**
 
 원본도 전체 일정과 **한 파일**이었다(`myOnly` 하나로 갈랐다). 여기서도 같은
 화면을 쓰고 조회에 회사 조건만 붙인다. `schedules/my` 는 서버에 없다 — 일정을
@@ -709,7 +711,9 @@ SM 은 「밀린 것이 몇 건인가」보다 **「누가 몰려 있고 무엇�
 - 인자는 글자로 보낸다. `DataType` 은 힌트로만 보여 준다 — 화면에서 형을 따지면
   DB 가 형을 바꿀 때마다 화면이 틀린다
 
-### 106. `/helpdesk/project/wbs` — WBS · **다시 씀**
+### 106. ~~`/helpdesk/project/wbs`~~ — WBS · **2026-09-25 제거**
+
+> 「프로젝트」 묶음(HD_PRJ)을 통째로 걷어냈다. 아래는 지우기 전까지의 기록이다.
 
 원본: `helpdesk/project/wbs.vue` (331줄)
 
@@ -724,7 +728,7 @@ SM 은 「밀린 것이 몇 건인가」보다 **「누가 몰려 있고 무엇�
 - 하위 작업은 그 줄의 「하위 추가」로 만든다. 등록 폼에서 상위를 찾아 고르게
   하면 작업이 수십 개일 때 자리를 잃는다
 
-### 107. `/helpdesk/project/manage` — 프로젝트 관리 · **다시 씀**
+### 107. ~~`/helpdesk/project/manage`~~ — 프로젝트 관리 · **2026-09-25 제거**
 
 원본: `helpdesk/project/manage.vue` (97줄)
 
@@ -743,6 +747,7 @@ SM 은 「밀린 것이 몇 건인가」보다 **「누가 몰려 있고 무엇�
 | 요청 목록 · 상세 · 등록 · 수정 | **손으로 적은 화면들**이다(칸·상태 딱지·필터). 재배정과 첨부만 남았다(아래) |
 | 요청 관리 | 담당자·상태·고객사 필터와 딱지가 있다. **재배정**은 알림이 나가는 동작이라 아직 없다 |
 | 내 댓글 | 표로 충분한 화면. 원본도 목록이 전부다 |
+| ~~프로젝트 관리 · WBS · WBS 간트 · 간트 보기 · WBS 읽기전용 · 프로젝트 정보 · 전체 일정 · 내 일정~~ | **2026-09-25 제거.** 「프로젝트」(HD_PRJ)와 「일정」(HD_SCHEDULE) 묶음을 통째로 걷어냈다 — 헬프데스크에서 쓰지 않기로 했다. 화면 여덟과 포털 DB 의 메뉴 열·권한 쉰 줄을 `deploy/sql/portal-menu-helpdesk-project-schedule-remove-2026-09-25.sql` 로 지웠다. 백엔드도 `/api/project` · `/api/schedules` · `/api/wbslink` 묶음 전부와 `/api/wbs` 의 평탄화·단건·쓰기, `dashboard/project-stats/{projectId}` 를 함께 걷어냈다. 마지막 손님이 사라진 `/api/teams` 도 여기서 지웠다. 남긴 것은 `GET /api/wbs`(트리) 하나 — 「도구 > 다이어그램」 화면이 항목을 고르는 데 쓴다 |
 | ~~팀 · 팀-고객사 · 담당자~~ | **2026-09-25 제거.** 「조직 관리」(HD_ORG) 묶음을 통째로 걷어냈다 — 조직과 계정은 JSini 관리 포털(AuthServer)이 단독으로 맡으므로 헬프데스크가 같은 것을 또 보여 줄 까닭이 없다. 화면 셋(`TeamList`·`TeamCompany`·`AdminList`)과 포털 DB 의 메뉴 넷·권한 스무 줄을 `deploy/sql/portal-menu-helpdesk-org-remove-2026-09-25.sql` 로 지웠다. 백엔드도 `/api/admins` 묶음 전부와 `/api/teams` 의 쓰기·검색·팀고객사, `dashboard/teams/workload` 을 함께 걷어냈다. 남긴 것은 `GET /api/teams` 하나 — 프로젝트 관리 화면이 팀을 고르는 데 쓴다 |
 | ~~조직 프로필~~ · 사용자 속성 · 계정 연결 | 손으로 적었다. 계정 연결은 Blazor 가 더 갖췄다. **조직 프로필(`/helpdesk/org/profile`)은 2026-09-25 제거** — 안 쓰는 화면이라 `OrgProfile.razor` 와 포털 DB 의 메뉴 `HD_PROFILE`·권한 다섯 줄을 `deploy/sql/portal-menu-helpdesk-profile-remove-2026-09-25.sql` 로 지웠다. 포털 계정과 헬프데스크 계정을 나란히 보는 일은 계정 연결 화면이 이어받는다 |
 | 헬프데스크 대시보드 | 원본 27줄(껍데기) → Blazor 398줄. 차트까지 갖췄다 |
@@ -799,7 +804,6 @@ SM 은 「밀린 것이 몇 건인가」보다 **「누가 몰려 있고 무엇�
 
 | 화면 | 무엇이 없나 |
 |---|---|
-| `/helpdesk/project/info` | 프로젝트 상세 편집(관리 화면에서 등록·수정은 된다) |
 | `/helpdesk/util/mc-model` | 해석 항목 아래의 **태그** 층(모델·해석 규칙은 붙였다) |
 | `/funeral/deceased` | 호실 배정 **이력** 편집(시설 사용은 붙였다) |
 | `/helpdesk/request/*` | 담당자 재배정 · 첨부(알림·되돌림 때문에 미룬 것, D2) |

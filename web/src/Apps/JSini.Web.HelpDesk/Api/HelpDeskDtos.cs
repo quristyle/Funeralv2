@@ -22,13 +22,6 @@ public sealed class Company : HdEntity
     public string Name { get; set; } = string.Empty;
 }
 
-/// <summary>팀.</summary>
-public sealed class Team : HdEntity
-{
-    public string Name { get; set; } = string.Empty;
-    public string? Remark { get; set; }
-}
-
 /// <summary>관리자(담당자).</summary>
 public sealed class Admin : HdEntity
 {
@@ -37,15 +30,6 @@ public sealed class Admin : HdEntity
     public string? Email { get; set; }
     public string? Photo { get; set; }
     public bool? IsDeleted { get; set; }
-    public List<AdminTeam>? AdminTeams { get; set; }
-}
-
-/// <summary>관리자-팀 매핑.</summary>
-public sealed class AdminTeam
-{
-    public int AdminId { get; set; }
-    public int TeamId { get; set; }
-    public Team? Team { get; set; }
 }
 
 /// <summary>고객.</summary>
@@ -120,82 +104,11 @@ public sealed class Attachment : HdEntity
     public int? EntityId { get; set; }
 }
 
-/// <summary>프로젝트.</summary>
-public sealed class Project : HdEntity
-{
-    public string Name { get; set; } = string.Empty;
-    public int? CompanyId { get; set; }
-    public int? TeamId { get; set; }
-    public Team? Team { get; set; }
-    public DateTime? ProjectStart { get; set; }
-    public DateTime? ProjectEnd { get; set; }
-    public string? Remark { get; set; }
-}
-
-/// <summary>WBS 작업 항목. 기본키가 <c>wbsRid</c> 다.</summary>
-public sealed class Wbs
-{
-    public int WbsRid { get; set; }
-    public int ProjectId { get; set; }
-    public string WbsName { get; set; } = string.Empty;
-    public string? WbsCode { get; set; }
-    public int? WbsLevel { get; set; }
-    public string? WbsType { get; set; }
-    public int? ParentWbsId { get; set; }
-    public string? Status { get; set; }
-    public string? Priority { get; set; }
-    public double? Progress { get; set; }
-    public string? RiskLevel { get; set; }
-    public int? ManagerId { get; set; }
-    public int? ResponsibleUserId { get; set; }
-    public DateTime? PlanStart { get; set; }
-    public DateTime? PlanEnd { get; set; }
-    public DateTime? ActualStart { get; set; }
-    public DateTime? ActualEnd { get; set; }
-}
-
-/// <summary>
-/// 서버가 내려주는 WBS 트리 노드.
-/// 원본이 PrimeVue TreeTable 구조 그대로다 — 실제 값은 <see cref="Data"/> 안에 있다.
-/// </summary>
-public sealed class WbsTreeNode
-{
-    public string Key { get; set; } = string.Empty;
-    public Wbs Data { get; set; } = new();
-    public List<WbsTreeNode>? Children { get; set; }
-}
-
-/// <summary>WBS 선후행 연결.</summary>
-public sealed class WbsLink
-{
-    public int Id { get; set; }
-    public int Source { get; set; }
-    public int Target { get; set; }
-    public string? Type { get; set; }
-}
-
 /// <summary>WBS 다이어그램. <c>diagramData</c> 에 그래프 정의가 문자열로 들어 있다.</summary>
 public sealed class WbsDiagram
 {
     public int WbsRid { get; set; }
     public string? DiagramData { get; set; }
-}
-
-/// <summary>일정. <b>기본키만 uuid(문자열)다</b> — jsini.schedules.id 가 uuid 타입.</summary>
-public sealed class Schedule
-{
-    public string Id { get; set; } = string.Empty;
-    public string Title { get; set; } = string.Empty;
-    public string? Description { get; set; }
-    public DateTime? StartDate { get; set; }
-    public DateTime? EndDate { get; set; }
-    public int? CompanyId { get; set; }
-    /// <summary>특정 회사에 묶이지 않은 공통 일정인지.</summary>
-    public bool? IsCommon { get; set; }
-    public bool? IsCompleted { get; set; }
-    public DateTime? CompletedDate { get; set; }
-    public DateTime? CreatedAt { get; set; }
-    public string? CreatedBy { get; set; }
 }
 
 /// <summary>funeralv2 계정 ↔ 헬프데스크 계정 매핑.</summary>
@@ -336,48 +249,6 @@ public sealed class BinarySample
     public string? Content { get; set; }
     public int? MC_ModelsId { get; set; }
     public DateTime? CreatedAt { get; set; }
-}
-
-/// <summary>
-/// 일정 한 건. HelpDeskServer 의 <c>Schedule</c> 과 짝이다.
-/// </summary>
-/// <remarks>
-/// <b>날짜만 있고 시각이 없다.</b> 서버가 <c>DateTime</c> 으로 들고 있지만
-/// 실제로 쓰는 것은 날짜뿐이라, 달력에는 종일 일정으로 그린다 —
-/// 시간표로 그리면 모든 일정이 자정에 붙어 한 줄로 겹친다.
-/// </remarks>
-public sealed class ScheduleDto
-{
-    public Guid? Id { get; set; }
-
-    public string Title { get; set; } = string.Empty;
-
-    public string? Description { get; set; }
-
-    public DateTime StartDate { get; set; }
-
-    public DateTime EndDate { get; set; }
-
-    /// <summary>공통 일정인가. 참이면 모든 고객사에 보인다.</summary>
-    public bool IsCommon { get; set; }
-
-    /// <summary>공통이 아닐 때의 대상 고객사.</summary>
-    public int? CompanyId { get; set; }
-
-    public bool IsCompleted { get; set; }
-
-    public DateTime? CompletedDate { get; set; }
-
-    /// <summary>
-    /// 달력 부품에 넘길 「종일」 표시.
-    ///
-    /// <para>
-    /// <b>읽기 전용으로 두면 안 된다.</b> DxScheduler 는 약속을 만들 때 이 칸에
-    /// 값을 <b>써 넣는다</b> — get 만 있으면 그 자리에서 500 이 난다(실제로 밟았다).
-    /// 기본값이 참이고 서버는 이 칸을 모른다.
-    /// </para>
-    /// </summary>
-    public bool AllDay { get; set; } = true;
 }
 
 /// <summary>

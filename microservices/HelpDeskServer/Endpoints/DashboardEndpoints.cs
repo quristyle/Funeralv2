@@ -1,4 +1,4 @@
-using HelpDeskServer.Models;
+﻿using HelpDeskServer.Models;
 using HelpDeskServer.Services;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
@@ -453,45 +453,11 @@ public static class DashboardEndpoints {
             .Select(g => new { EntityType = g.Key, Count = g.Count() })
             .ToListAsync()));
 
-    // 특정 프로젝트의 WBS 통계를 조회합니다.
-    group.MapGet("/project-stats/{projectId}", async (AppDbContext db, int projectId) => {
-      return await ApiResponseBuilder.CreateAsync(async () => {
-        var project = await db.Projects
-                            .Include(p => p.Team)
-                            .FirstOrDefaultAsync(p => p.Id == projectId);
-
-        if (project == null) {
-          // Throwing an exception that will be caught by ApiResponseBuilder
-          throw new Exception($"Project with ID {projectId} not found.");
-        }
-
-        var wbsStats = await db.Wbs
-            .Where(w => w.ProjectId == projectId)
-            .GroupBy(w => 1) // Group all wbs for the project
-            .Select(g => new {
-              TotalWbsCount = g.Count(),
-              InProgressWbsCount = g.Count(w => w.Progress > 0 && w.Progress < 100),
-              CompletedWbsCount = g.Count(w => w.Progress == 100),
-              PendingWbsCount = g.Count(w => w.Progress == 0),
-              OverallProgress = (double)g.Average(w => w.Progress)
-            })
-            .FirstOrDefaultAsync();
-
-        var stats = new ProjectDashboardStatsDto {
-          ProjectName = project.Name,
-          TeamName = project.Team?.Name ?? string.Empty,
-          StartDate = project.ProjectStart,
-          EndDate = project.ProjectEnd,
-          TotalWbsCount = wbsStats?.TotalWbsCount ?? 0,
-          InProgressWbsCount = wbsStats?.InProgressWbsCount ?? 0,
-          CompletedWbsCount = wbsStats?.CompletedWbsCount ?? 0,
-          PendingWbsCount = wbsStats?.PendingWbsCount ?? 0,
-          OverallProgress = wbsStats != null ? Math.Round(wbsStats.OverallProgress, 2) : 0
-        };
-
-        return stats;
-      });
-    });
+    // 프로젝트 WBS 통계(/project-stats/{projectId})는 제거했다.
+    //
+    // 「프로젝트」 메뉴 묶음과 함께 사라진 통계다. 부르는 화면이 원래도
+    // 없었고(이관하면서 프로젝트 정보 화면이 목록만 쓰게 됐다), 묶음을
+    // 걷어낸 뒤로는 되살릴 자리조차 없다.
 
     // 푸시 알림 발송 성공률 통계를 조회합니다.
     group.MapGet("/push-stats", (AppDbContext db, [FromQuery] int days = 7) => ApiResponseBuilder.CreateAsync(async () => {

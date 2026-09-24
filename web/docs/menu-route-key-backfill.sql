@@ -182,18 +182,6 @@ UPDATE scom.system_menus SET route_key = 'helpdesk.monitor.maintenance'
  WHERE path IN ('/helpdesk/monitor/maintenance') AND route_key IS DISTINCT FROM 'helpdesk.monitor.maintenance';
 UPDATE scom.system_menus SET route_key = 'helpdesk.monitor.sm'
  WHERE path IN ('/helpdesk/monitor/sm') AND route_key IS DISTINCT FROM 'helpdesk.monitor.sm';
-UPDATE scom.system_menus SET route_key = 'helpdesk.project.gantt'
- WHERE path IN ('/helpdesk/project/gantt') AND route_key IS DISTINCT FROM 'helpdesk.project.gantt';
-UPDATE scom.system_menus SET route_key = 'helpdesk.project.info'
- WHERE path IN ('/helpdesk/project/info') AND route_key IS DISTINCT FROM 'helpdesk.project.info';
-UPDATE scom.system_menus SET route_key = 'helpdesk.project.manage'
- WHERE path IN ('/helpdesk/project/manage') AND route_key IS DISTINCT FROM 'helpdesk.project.manage';
-UPDATE scom.system_menus SET route_key = 'helpdesk.project.wbs'
- WHERE path IN ('/helpdesk/project/wbs') AND route_key IS DISTINCT FROM 'helpdesk.project.wbs';
-UPDATE scom.system_menus SET route_key = 'helpdesk.project.wbs-gantt'
- WHERE path IN ('/helpdesk/project/wbs-gantt') AND route_key IS DISTINCT FROM 'helpdesk.project.wbs-gantt';
-UPDATE scom.system_menus SET route_key = 'helpdesk.project.wbs-readonly'
- WHERE path IN ('/helpdesk/project/wbs-readonly') AND route_key IS DISTINCT FROM 'helpdesk.project.wbs-readonly';
 UPDATE scom.system_menus SET route_key = 'helpdesk.report.availability'
  WHERE path IN ('/helpdesk/report/availability') AND route_key IS DISTINCT FROM 'helpdesk.report.availability';
 UPDATE scom.system_menus SET route_key = 'helpdesk.report.capacity-planning'
@@ -224,10 +212,6 @@ UPDATE scom.system_menus SET route_key = 'helpdesk.request.my-comments'
  WHERE path IN ('/helpdesk/request/my-comments') AND route_key IS DISTINCT FROM 'helpdesk.request.my-comments';
 UPDATE scom.system_menus SET route_key = 'helpdesk.request.new'
  WHERE path IN ('/helpdesk/request/new') AND route_key IS DISTINCT FROM 'helpdesk.request.new';
-UPDATE scom.system_menus SET route_key = 'helpdesk.schedule.all'
- WHERE path IN ('/helpdesk/schedule/all') AND route_key IS DISTINCT FROM 'helpdesk.schedule.all';
-UPDATE scom.system_menus SET route_key = 'helpdesk.schedule.my'
- WHERE path IN ('/helpdesk/schedule/my') AND route_key IS DISTINCT FROM 'helpdesk.schedule.my';
 UPDATE scom.system_menus SET route_key = 'helpdesk.system.account-link'
  WHERE path IN ('/helpdesk/system/account-link') AND route_key IS DISTINCT FROM 'helpdesk.system.account-link';
 UPDATE scom.system_menus SET route_key = 'helpdesk.system.user-properties'

@@ -376,7 +376,7 @@ null 구간(실측에 없는 강수·습도)이 빈 점으로 건너뛰는지.
 **참고** — 프로젝트관리(ProjMng)에도 WBS 가 있는데 그쪽은 애초에 간트가
 없었다. 헬프데스크만의 요구다.
 
-- 화면: [`WbsGantt.razor`](../src/Apps/JSini.Web.HelpDesk/Components/Pages/WbsGantt.razor)
+- 화면: `WbsGantt.razor` (2026-09-25 삭제)
 
 **결정:DevExpress `DxScheduler` 의 타임라인 뷰로 흉내낸다**
 — 2026-09-06, 사용자.
@@ -392,6 +392,10 @@ null 구간(실측에 없는 강수·습도)이 빈 점으로 건너뛰는지.
 
 옛 자작 간트의 드래그 저장·선후행 연결선은 옮기지 않았다(편집은 범위 밖,
 화면 주석에 명시).
+
+**뒷이야기** (2026-09-25) — 「프로젝트」 메뉴 묶음을 통째로 걷어내면서 간트 두
+화면도 함께 사라졌다. 이 결정으로 만든 것은 더 이상 없지만, 같은 요구가 다시
+오면 여기 적힌 길(타임라인 뷰)을 그대로 쓰면 된다.
 
 ---
 
@@ -539,7 +543,6 @@ FileServer 의 `PublicFileAccessFilter` 가 판정한다 — 익명이면 `is_pu
 |---|---|
 | `/helpdesk/request/manage` 요청 처리 | 563 |
 | `/helpdesk/request/monitor` 요청 모니터 | 503 |
-| `/helpdesk/schedule/all` 전체 일정 | 846 |
 | `/helpdesk/monitor/sm` SM 모니터링 | 480 |
 | `/helpdesk/util/mc-model` MC 모델 관리 | 874 |
 
