@@ -2289,6 +2289,84 @@
 .pm-ask__item--err { --pm-ask-tone: #d32f2f; }
 .pm-ask__item--off { --pm-ask-tone: var(--jsini-text-muted); }
 
+/* ── 오른쪽으로 밀면 확인 완료 ────────────────────────────
+
+   움직이는 값을 **전부 인라인 사용자 지정 속성으로** 받는다. 클래스로 받지
+   않는 이유는 목록이 5초마다 다시 그려지기 때문이다 — Blazor 가 카드의
+   `class` 를 제 손으로 쥐고 있어서, 손짓 중에 그 갱신이 한 번 끼면
+   **JS 가 붙인 클래스가 소리 없이 지워지고 카드가 밀린 자리에 굳는다.**
+   `style` 은 Blazor 가 아예 그리지 않으므로(카드에 `style` 속성이 없다)
+   그 자리는 건드리지 않는다. 대는 쪽은 `js/ask-swipe.js`.
+
+     --pm-ask-swipe     밀린 거리. 본문이 그만큼 가고 띠가 그만큼 열린다
+     --pm-ask-swipe-ms  그 둘의 전환 시간. 끄는 동안은 0
+     --pm-ask-ready     문턱을 넘었나(0/1)
+     --pm-ask-alive     살아 있나(1) 스러지는 중인가(0)
+
+   **단 수와 무관하다.** 미는 거리도 문턱도 카드 제 폭(`clientWidth`)에서
+   재므로 한 단이든 세 단이든 같은 비율로 열린다 — 세 단의 좁은 카드에서는
+   띠에 ✓ 만 남고 「확인」 글자가 잘리는데, 그 상태로도 무슨 일이 일어나는지는
+   초록과 ✓ 가 이미 말한다. */
+.pm-ask__item[data-swipe] {
+  --pm-ask-swipe: 0px;
+  --pm-ask-swipe-ms: 0ms;
+  --pm-ask-ready: 0;
+  --pm-ask-alive: 1;
+
+  position: relative;
+  opacity: var(--pm-ask-alive);
+  transition: opacity 180ms ease;
+}
+
+/* 카드 **왼쪽**에서 열리는 띠. 가만히 있을 때 폭이 0 이라 보이지 않는다.
+
+   카드 밑에 깔아 두고 본문으로 덮는 흔한 방법을 쓰지 않았다 — 그러려면
+   본문에 불투명한 바탕을 깔아야 하는데, 이 판의 바탕은 테마가 정하는 값이라
+   스물둘 중 어긋나는 쪽이 반드시 나온다. 미는 만큼만 넓어지면 덮을 일이 없다.
+
+   초록은 「완료」 카드의 띠 색 그대로다(`--on`). 확인은 완료된 건에 하는
+   일이므로 같은 뜻의 색이 두 가지면 안 된다.
+
+   **이 띠에는 안쪽 여백을 주지 않는다.** 여백을 주면 폭이 0 이어도 상자가
+   그만큼은 남아(`width` 는 여백 아래로 못 내려간다 — `border-box` 로 해도
+   마찬가지다) 밀 수 있는 카드마다 왼쪽에 **초록 실오라기**가 늘 서 있다.
+   밀기 전에는 이 띠가 화면에 **한 픽셀도 없어야** 한다. 글자를 안쪽으로
+   들이는 일은 안의 ✓ 가 제 바깥 여백으로 한다. */
+.pm-ask__ack {
+  position: absolute;
+  inset-block: 0;
+  left: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  width: var(--pm-ask-swipe);
+  overflow: hidden;
+  background: #2e7d32;
+  color: #fff;
+  font-size: var(--jsini-fs-2xs);
+  white-space: nowrap;
+  pointer-events: none;
+  transition: width var(--pm-ask-swipe-ms) ease;
+}
+
+/* 문턱을 넘으면 ✓ 가 커지고 글자가 또렷해진다. **손을 떼기 전에**
+   「놓으면 처리된다」를 알려 주는 것이 이 둘의 일이다 — 넘기 전에 놓으면
+   카드는 제자리로 돌아간다. */
+.pm-ask__ack-mark {
+  flex: 0 0 auto;
+  margin-left: 0.5rem;
+  font-size: var(--jsini-fs-sm);
+  line-height: 1;
+  transform: scale(calc(0.7 + (0.3 * var(--pm-ask-ready))));
+  transition: transform 120ms ease;
+}
+
+.pm-ask__ack-text {
+  opacity: calc(0.45 + (0.55 * var(--pm-ask-ready)));
+  transition: opacity 120ms ease;
+}
+
 /* 카드 전체가 누르는 자리다. 표가 아니라 단추 목록인 이유는 **모바일에서
    표의 가로 스크롤이 최악**이기 때문이다.
 
@@ -2316,6 +2394,34 @@
 
 .pm-ask__head:hover {
   background: color-mix(in srgb, var(--jsini-text) 6%, transparent);
+}
+
+/* 밀 수 있는 카드의 본문. **띠 위에 놓인다**(`z-index`) — 띠가 절대 자리라
+   그대로 두면 문서에서 뒤인 띠가 본문을 덮어 제목이 초록에 가린다.
+
+   `touch-action: pan-y` 가 이 기능의 핵심 한 줄이다. 세로 끌기는 브라우저가
+   제 스크롤로 가져가고 **가로 끌기만 우리에게 온다** — 안 걸면 손가락을
+   옆으로 밀어도 브라우저가 스크롤로 삼켜 아무 일도 일어나지 않거나,
+   막아 버리면 이번엔 카드 위에서 목록을 위아래로 굴릴 수 없다. */
+.pm-ask__item[data-swipe] > .pm-ask__head {
+  position: relative;
+  z-index: 2;
+  touch-action: pan-y;
+  transform: translateX(var(--pm-ask-swipe));
+  transition: transform var(--pm-ask-swipe-ms) ease;
+}
+
+/* 움직임을 줄여 달라고 한 사람에게는 **결과만** 준다. 카드는 그 자리에서
+   바로 사라지고 띠는 열리지 않는다 — 확인이 됐다는 것은 카드가 목록에서
+   빠지는 것으로 이미 말한다. */
+@media (prefers-reduced-motion: reduce) {
+  .pm-ask__item[data-swipe],
+  .pm-ask__item[data-swipe] > .pm-ask__head,
+  .pm-ask__ack,
+  .pm-ask__ack-mark,
+  .pm-ask__ack-text {
+    transition: none;
+  }
 }
 
 /* 두 층이 들어가는 칸. **`min-width: 0` 이 있어야 한다** — 없으면 안쪽

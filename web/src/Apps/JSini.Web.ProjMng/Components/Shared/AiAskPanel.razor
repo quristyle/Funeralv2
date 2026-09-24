@@ -539,7 +539,49 @@
                        받아 오는 일은 여전히 이 화면 몫이다(`LoadRecentAsync`) —
                        카드마다 묻게 두면 화면 하나가 게이트웨이를 넉 장만큼
                        두드린다. *@
-                    <li class="pm-ask__item pm-ask__item--@t.StatusTone">
+                    @* ── 오른쪽으로 밀면 사용자 확인 완료 (2026-09-25) ──
+
+                       이 목록은 **아직 확인 안 한 것만** 받아 온다
+                       (`userConfirmed: false`). 그러니 카드가 쌓이는 것을
+                       줄이는 길은 하나뿐인데, 여태 그 길이 **카드를 열고 →
+                       창이 뜨기를 기다리고 → 「확인」을 누르고 → 창을 닫는**
+                       네 걸음이었다(`AiTaskActions`). 끝난 건 열 장을 치우면
+                       마흔 번이다.
+
+                       밀어서 치우는 것은 그 넷을 **손짓 하나**로 줄인다.
+                       휴대폰에서 목록을 정리하는 흔한 방법이기도 하다.
+
+                       **끝난 건에만 붙인다**(`IsFinal`). 아직 도는 건은
+                       확인할 결과가 없고, 밀려 사라지면 **그 건을 다시 볼
+                       길이 이 화면에서 없어진다.**
+
+                       `@@key` 를 여기 두는 것이 이 기능의 전제다. 없으면
+                       Blazor 가 카드를 차례로 대조해서, 가운데 한 장이 빠질 때
+                       **맨 끝 것을 지우고 나머지 글자만 밀어 올린다** —
+                       손짓이 붙어 있던 그 DOM 이 다른 건의 카드가 되어
+                       스러지는 중이던 모습 그대로 굳는다.
+
+                       밀 수 없는 자리(키보드 · 화면 낭독기)를 위해 카드를
+                       열면 나오는 「사용자확인완료」 단추는 그대로 둔다.
+                       손짓은 **빠른 길**이지 유일한 길이 아니다. *@
+                    <li @key="t.TaskKey"
+                        class="pm-ask__item pm-ask__item--@t.StatusTone"
+                        data-task="@t.TaskKey" data-swipe="@(t.IsFinal ? "1" : null)">
+
+                        @if (t.IsFinal)
+                        {
+                            @* 카드 **왼쪽**에서 열리는 띠. 미는 만큼만 넓어지므로
+                               (`--pm-ask-swipe`) 가만히 있을 때는 폭이 0 이라
+                               보이지 않는다 — 카드 밑에 깔아 두고 덮는 방식이
+                               아니라서 **카드에 불투명한 바탕을 깔 필요가 없다**
+                               (바탕을 깔면 테마 스물둘에서 판 색과 어긋나는 쪽이
+                               반드시 나온다). *@
+                            <span class="pm-ask__ack" aria-hidden="true">
+                                <span class="pm-ask__ack-mark">✓</span>
+                                <span class="pm-ask__ack-text">확인</span>
+                            </span>
+                        }
+
                         <button type="button" class="pm-ask__head"
                                 @onclick="@(() => Peek(t.TaskKey))">
                             <UserFaceMark LoginId="@t.CreId" />
@@ -752,6 +794,15 @@
 
     /// <summary>DOM 레벨 실시간 임시저장 JS 모듈.</summary>
     private IJSObjectReference? _draftModule;
+
+    /// <summary>카드 밀기를 받는 JS 모듈.</summary>
+    private IJSObjectReference? _swipeModule;
+
+    /// <summary>
+    /// 그 모듈이 되부를 때 쥐는 손잡이. <b>반드시 치운다</b> — 안 치우면
+    /// 회로가 닫혀도 이 부품이 JS 쪽 참조에 매달려 남는다.
+    /// </summary>
+    private DotNetObjectReference<AiAskPanel>? _swipeRef;
 
     /// <summary>
     /// 이 부품이 그린 상자의 id. <b>같은 알맹이가 화면과 서랍에 동시에 뜰 수
@@ -1198,6 +1249,9 @@
 
         // 브라우저 측 실시간 입력 감지기 부착 (네트워크 단절 중 타자도 localStorage 에 즉시 보존)
         await AttachDraftListenerAsync();
+
+        // 카드 밀어서 확인하기.
+        await AttachSwipeAsync();
     }
 
     private async Task AttachDraftListenerAsync()
@@ -1209,6 +1263,70 @@
         }
         catch (Exception ex) when (ex is JSException or JSDisconnectedException)
         {
+        }
+    }
+
+    /// <summary>
+    /// 카드를 오른쪽으로 밀면 확인 완료가 되게 한다.
+    /// </summary>
+    /// <remarks>
+    /// <b>거는 자리가 목록(<c>ul</c>)이 아니라 이 판의 뿌리 상자다.</b> 목록은
+    /// 카드가 하나도 없으면 아예 안 그려지고(그 자리에 「아직 보낸 것이
+    /// 없습니다」가 선다), 다시 생길 때는 **다른 DOM** 이라 걸어 둔 것이
+    /// 사라진다 — 첫 건을 보낸 사람은 그 뒤로 못 민다.
+    /// <para>
+    /// 뿌리는 이 부품이 사는 내내 그대로이므로 <b>한 번만 건다.</b> 카드마다
+    /// 거는 길도 있지만 목록이 5초마다 다시 그려져 그때마다 왕복이 생긴다 —
+    /// 손짓은 눌린 카드를 <c>closest</c> 로 거슬러 찾는다.
+    /// </para>
+    /// </remarks>
+    private async Task AttachSwipeAsync()
+    {
+        try
+        {
+            _swipeModule ??= await JS.InvokeAsync<IJSObjectReference>("import", "./_content/JSini.Web.ProjMng/js/ask-swipe.js");
+            _swipeRef ??= DotNetObjectReference.Create(this);
+
+            await _swipeModule.InvokeVoidAsync("attachSwipe", $"#{_domId}", _swipeRef);
+        }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException)
+        {
+        }
+    }
+
+    /// <summary>
+    /// <b>민 카드를 확인 완료로 넘긴다.</b> 브라우저가 띠를 다 열고 카드를
+    /// 스러뜨린 뒤에 부른다.
+    /// </summary>
+    /// <remarks>
+    /// <b>화면에서 먼저 빼고 서버에 간다.</b> 반대로 하면 게이트웨이 왕복
+    /// 동안 스러진 카드가 제자리에 그대로 있다가 사라지는데, 그 몇 백 ms 가
+    /// 「민 것이 안 먹었나」로 읽혀 한 번 더 밀게 된다.
+    /// <para>
+    /// 서버가 못 받으면 <b>목록을 다시 읽어 되돌린다.</b> 확인되지 않은 건이
+    /// 화면에서만 사라지면 그 건은 아무 데서도 안 보인다 — 이 목록이
+    /// 「아직 확인 안 한 것」을 보는 유일한 자리다.
+    /// </para>
+    /// </remarks>
+    [JSInvokable]
+    public async Task ConfirmSwipedAsync(long taskKey)
+    {
+        if (!_all.Any(t => t.TaskKey == taskKey))
+        {
+            return;
+        }
+
+        Show([.. _all.Where(t => t.TaskKey != taskKey)]);
+        await InvokeAsync(StateHasChanged);
+
+        try
+        {
+            await Api.ConfirmAsync(taskKey);
+        }
+        catch (ApiException ex)
+        {
+            Say($"확인 처리하지 못했습니다 — {ex.Message}", NoticeTone.Error);
+            await RefreshAsync(CancellationToken.None);
         }
     }
 
@@ -1761,6 +1879,9 @@
     {
         StopPoll();
         CancelDraftDelay();
+
+        _swipeRef?.Dispose();
+        _swipeRef = null;
     }
 
     public async ValueTask DisposeAsync()
@@ -1768,11 +1889,25 @@
         StopPoll();
         CancelDraftDelay();
 
+        _swipeRef?.Dispose();
+        _swipeRef = null;
+
         if (_draftModule is not null)
         {
             try
             {
                 await _draftModule.DisposeAsync();
+            }
+            catch (Exception ex) when (ex is JSException or JSDisconnectedException)
+            {
+            }
+        }
+
+        if (_swipeModule is not null)
+        {
+            try
+            {
+                await _swipeModule.DisposeAsync();
             }
             catch (Exception ex) when (ex is JSException or JSDisconnectedException)
             {
