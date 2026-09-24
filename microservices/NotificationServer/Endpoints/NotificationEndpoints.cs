@@ -40,6 +40,31 @@ public static class NotificationEndpoints
     /// <summary>이 사람이 보낸 줄.</summary>
     private const string DirectionSent = "sent";
 
+    /// <summary>
+    /// 계정 하나의 <b>앱 현황</b> 화면 주소를 만든다 (포털관리 → 계정 앱 현황).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 구독 알림이 이 주소를 달고 간다. 관리자가 알림을 받고 나서 하는 일이 늘
+    /// 같기 때문이다 — <b>누가 · 무슨 기기로 · 제대로 닿는가</b>를 본다. 알림창만
+    /// 띄우고 주소를 비워 두면 포털을 열어 계정 관리에서 그 사람을 찾아 🔔 를
+    /// 누르는 세 걸음을 사람이 대신 걷는다.
+    /// </para>
+    /// <para>
+    /// 화면 쪽 <c>@page</c> 는 <c>/admin/system/account/{LoginId}/app</c> 이다
+    /// (<c>web/src/Apps/JSini.Web.Admin/Components/Pages/AccountAppPage.razor</c>).
+    /// 주소 조각이라 로그인 아이디를 <see cref="Uri.EscapeDataString(string)"/> 로 감싼다 —
+    /// 아이디에 <c>/</c> 나 <c>?</c> 가 들어가면 경로가 어긋난다.
+    /// </para>
+    /// <para>
+    /// 상대 경로로 둔다. 서비스워커가 창의 출처에 붙여 열고(<c>push-sw.js</c>),
+    /// 그래야 알림함의 읽음 표시(<c>?pushId=</c>)도 같은 출처로 남는다 —
+    /// 쪽지함·날씨 알림이 쓰는 방식과 같다.
+    /// </para>
+    /// </remarks>
+    private static string AccountAppUrl(string loginId) =>
+        $"/admin/system/account/{Uri.EscapeDataString(loginId)}/app";
+
     public static void MapNotificationEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/notifications").WithTags("Notifications");
@@ -150,6 +175,10 @@ public static class NotificationEndpoints
                         {
                             Title = "새로운 알림 구독",
                             Body = $"{user.UserId} 님이 새 기기에서 알림을 구독했습니다.",
+                            // 누른 자리에서 바로 그 사람의 [앱 현황]으로 간다.
+                            // 알림이 말하는 것과 화면이 답하는 것이 같은 물음이다 —
+                            // 「누가 어느 기기로 구독했고 그것이 제대로 닿는가」.
+                            Url = AccountAppUrl(user.UserId),
                             // 지나고 나면 알림함에서 봐도 되는 소식이다. 하루 뒤에
                             // 배달돼 봐야 관리자 알림창만 채운다.
                             TtlSeconds = 3600,
