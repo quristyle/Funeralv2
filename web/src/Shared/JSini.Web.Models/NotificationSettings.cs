@@ -57,10 +57,22 @@ public sealed class NotificationPreferenceDto
     public string? WeatherHours { get; set; }
 
     /// <summary>
-    /// 위치를 마지막으로 잡은 때. <b>화면이 이것을 보여 준다</b> — 자리가 바뀌어도
-    /// 저장된 좌표는 그대로라, 언제 잡은 것인지 알아야 다시 잡을 판단이 선다.
+    /// 위치를 마지막으로 <b>잡은</b> 때 — <b>좌표가 실제로 달라진 때</b>다.
+    /// 자리가 안 바뀐 사람은 이 값이 오래 그대로다.
     /// </summary>
     public DateTime? WeatherLocatedAt { get; set; }
+
+    /// <summary>
+    /// 위치를 마지막으로 <b>확인한</b> 때. 브라우저가 저절로 다시 재어 보고
+    /// <b>그대로였을 때도</b> 찍힌다(<see cref="JSini.Web.Models.GeoPermissionResult"/> 가
+    /// <c>granted</c> 인 브라우저에서만 돈다).
+    /// </summary>
+    /// <remarks>
+    /// 화면이 둘을 갈라 보여 준다. 위의 「잡은 때」만 있으면 <b>한자리에 사는
+    /// 사람</b>의 위치가 늘 묵어 보이고, 이것만 있으면 <b>이사한 사람</b>이
+    /// 옛 동네 날씨를 받는 것을 눈치채지 못한다.
+    /// </remarks>
+    public DateTime? WeatherSyncedAt { get; set; }
 
     /// <summary>
     /// 저장된 설정인가. 거짓이면 서버가 준 <b>기본값</b>이라는 뜻이다.
@@ -308,6 +320,73 @@ public sealed class GeoResult
 
     /// <summary>실패했을 때 사람이 읽을 이유.</summary>
     public string? Error { get; set; }
+
+    /// <summary>
+    /// <b>재어 보지도 않았다.</b> 조용한 확인(<c>jsiniGeo.quiet</c>)에서만 참이
+    /// 되고, 권한이 아직 <c>granted</c> 가 아니라는 뜻이다.
+    /// </summary>
+    /// <remarks>
+    /// 실패와 가른다 — 실패는 <b>말해야 하는 것</b>이고(사람이 단추를 눌렀다)
+    /// 이것은 <b>말하면 안 되는 것</b>이다(아무도 시키지 않았다).
+    /// </remarks>
+    public bool Skipped { get; set; }
+}
+
+/// <summary>
+/// <c>jsiniGeo.permission</c> 이 돌려주는 것 — 브라우저가 위치를 내줄 사정인가.
+/// </summary>
+/// <remarks>
+/// <see cref="State"/> 는 <c>granted</c> · <c>denied</c> · <c>prompt</c> ·
+/// <c>unknown</c> · <c>unsupported</c> · <c>insecure</c> 중 하나다.
+/// <b><c>unknown</c> 은 「모른다」이지 「안 된다」가 아니다</b> — Permissions API
+/// 가 없는 브라우저(옛 iOS 사파리)라, 물어보면 될 수도 있다.
+/// </remarks>
+public sealed class GeoPermissionResult
+{
+    public bool Supported { get; set; }
+
+    /// <summary>보안 컨텍스트(HTTPS · localhost)인가. 아니면 브라우저가 아예 거절한다.</summary>
+    public bool Secure { get; set; }
+
+    public string State { get; set; } = "unknown";
+
+    /// <summary>물음창 없이 지금 잴 수 있는가.</summary>
+    public bool Granted => Supported && Secure && State == "granted";
+
+    /// <summary>물어볼 수는 있는가. 거절로 굳었으면 창을 띄워도 소용이 없다.</summary>
+    public bool CanAsk => Supported && Secure && State is "prompt" or "unknown";
+}
+
+/// <summary>
+/// 좌표만 따로 저장할 때 보내는 것.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>설정 전체를 보내지 않는다.</b> 설정 화면은 스위치 하나에도 전체를 보내지만
+/// (사람이 보고 있는 한 벌이다) 이쪽은 <b>뒤에서 도는 저장</b>이라, 전체를 보내면
+/// 다른 탭에서 방금 바꾼 스위치를 조용히 되돌린다.
+/// </para>
+/// <para>
+/// <see cref="WeatherLocated"/> 가 <c>true</c> 인 것이 이 모양의 요점이다 —
+/// 서버는 그것을 보고 「확인한 때」를 찍는다.
+/// </para>
+/// </remarks>
+public sealed class LocationUpdateDto
+{
+    public double WeatherLat { get; set; }
+    public double WeatherLon { get; set; }
+
+    /// <summary>알아낸 지역 이름. 아직 모르면 <c>null</c> 이다.</summary>
+    public string? WeatherPlace { get; set; }
+
+    /// <summary>
+    /// 「내 위치 날씨」를 함께 켤지. <b>권유 창에서 위치를 처음 잡을 때만</b>
+    /// 참이다 — 설정 화면에서 다시 잡는 것은 스위치를 만지는 일이 아니다.
+    /// </summary>
+    public bool? WeatherLocalEnabled { get; set; }
+
+    /// <summary>브라우저가 <b>방금 재어</b> 보낸 것이라는 표시. 늘 참이다.</summary>
+    public bool WeatherLocated { get; set; } = true;
 }
 
 /// <summary>

@@ -295,6 +295,12 @@ public static class JSiniWebApp
         // 틀리면 조용히 깨지는 대목이 셋이라 한 벌만 둔다(PushEnroll 머리말).
         services.AddScoped<Settings.PushEnroll>();
 
+        // 위치를 잡아 저장하는 **절차 한 벌**. 위와 같은 까닭으로 하나만 둔다 —
+        // 부르는 자리가 셋이다(알림 판의 단추 · 로그인 뒤에 뜨는 위치 권유 창 ·
+        // 그 창이 뒤에서 도는 조용한 확인). 순서를 틀리면 좌표가 날아가거나
+        // 다른 탭의 스위치를 되돌린다(GeoLocator 머리말).
+        services.AddScoped<Settings.GeoLocator>();
+
         // **남에게** 알림 한 통 보내기(앱 푸시 · 메일). 위 둘이 「내가 받을 것」
         // 이라면 이쪽은 「내가 보내는 것」이다. 업무 화면 어디서나 생기는 일이라
         // 여기 둔다 — 창은 `Settings/NotifySendPopup` 이 그린다.

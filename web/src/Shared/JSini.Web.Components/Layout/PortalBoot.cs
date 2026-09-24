@@ -104,6 +104,45 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
     public const string PushAskNeverKey = "jsini-push-ask-never";
 
     /// <summary>
+    /// 위치 권유 창을 <b>이 탭에서 닫았다</b>(<c>LocationAskPopup</c>).
+    /// 「나중에」의 뜻이 그것이다 — 다음에 새로 열면 다시 묻는다.
+    /// </summary>
+    public const string GeoAskClosedKey = "jsini-geo-ask-closed";
+
+    /// <summary>
+    /// 그 창에서 <b>「다시 묻지 않기」</b>를 눌렀다. 영영 안 묻는다.
+    ///
+    /// <para>
+    /// 알림 권유와 같은 까닭으로 <b>기기에 남는다</b>(<see cref="PushAskNeverKey"/>) —
+    /// 회사 컴퓨터에서는 위치를 안 주고 휴대폰에서는 주고 싶을 수 있다.
+    /// 게다가 위치 권한 자체가 브라우저마다 따로다.
+    /// </para>
+    /// </summary>
+    public const string GeoAskNeverKey = "jsini-geo-ask-never";
+
+    /// <summary>
+    /// 이 브라우저에서 <b>위치 일을 마지막으로 다룬</b> 때(UTC, <c>o</c> 꼴).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>「조용히 쟀다」만 뜻하지 않는다.</b> 저장했든, 물어보고 닫혔든,
+    /// 「이미 줬더라」를 알아냈든 다 찍는다 — 이 표시가 묻는 것은 「지금 또
+    /// 해야 하나」 하나뿐이다.
+    /// </para>
+    /// <para>
+    /// <b>서버에도 확인 시각이 있는데 왜 브라우저에 또 두나.</b> 이 판단을
+    /// <b>서버를 부르기 전에</b> 내리려고 있다 — 포털은 업무를 넘나들 때마다
+    /// 레이아웃을 새로 만들고, 그때마다 설정을 읽어 확인하면 재지도 않으면서
+    /// 왕복만 는다.
+    /// </para>
+    /// <para>
+    /// 기기의 것이라는 뜻도 맞다. 조용한 확인은 <b>권한을 허용해 둔 이 브라우저</b>
+    /// 에서만 도는 일이다.
+    /// </para>
+    /// </remarks>
+    public const string GeoSyncedAtKey = "jsini-geo-synced-at";
+
+    /// <summary>
     /// 끌어 넓혀 둔 사이드바 폭(px). <b>이 브라우저의 것이다</b> —
     /// 화면 크기에 따라 알맞은 폭이 다르므로 사용자가 아니라 기기에 남는다.
     /// </summary>
@@ -121,6 +160,7 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
         ScreenLockedKey,
         NoticeClosedUserKey,
         PushAskClosedKey,
+        GeoAskClosedKey,
     ];
 
     private static readonly string[] LocalKeys =
@@ -129,6 +169,8 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
         PinnedTabsKey,
         SidebarWidthKey,
         PushAskNeverKey,
+        GeoAskNeverKey,
+        GeoSyncedAtKey,
         FabPositionKey,
         ToastPositionKey,
     ];
@@ -436,6 +478,18 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
         /// <summary>그 창을 이 브라우저에서 영영 안 보기로 했는가.</summary>
         public bool PushAskNever { get; private init; }
 
+        /// <summary>위치 권유 창을 이 탭에서 닫았는가(「나중에」).</summary>
+        public bool GeoAskClosed { get; private init; }
+
+        /// <summary>그 창을 이 브라우저에서 영영 안 보기로 했는가.</summary>
+        public bool GeoAskNever { get; private init; }
+
+        /// <summary>
+        /// 이 브라우저에서 위치 일을 마지막으로 다룬 때(UTC). 없거나 읽을 수
+        /// 없으면 <c>null</c> 이고, 그때는 <b>한 번도 안 한 것</b>으로 본다.
+        /// </summary>
+        public DateTime? GeoSyncedAt { get; private init; }
+
         /// <summary>고정해 둔 탭. 날것 JSON 이고 없으면 <c>null</c>.</summary>
         public string? PinnedTabsJson { get; private init; }
 
@@ -474,12 +528,33 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
             NoticeDismissedJson = Get(wire.Local, NoticeDismissedKey),
             PushAskClosed = Has(wire.Session, PushAskClosedKey),
             PushAskNever = Has(wire.Local, PushAskNeverKey),
+            GeoAskClosed = Has(wire.Session, GeoAskClosedKey),
+            GeoAskNever = Has(wire.Local, GeoAskNeverKey),
+            GeoSyncedAt = Moment(Get(wire.Local, GeoSyncedAtKey)),
             PinnedTabsJson = Get(wire.Local, PinnedTabsKey),
             SidebarWidthPx = Pixels(Get(wire.Local, SidebarWidthKey)),
             Theme = wire.Theme,
             FabPosition = NormalizeFabPosition(Get(wire.Local, FabPositionKey)),
             ToastPosition = NormalizeToastPosition(Get(wire.Local, ToastPositionKey)),
         };
+
+        /// <summary>
+        /// 저장해 둔 시각을 <b>UTC</b> 로. 이상한 값이면 <c>null</c> 이다.
+        ///
+        /// <para>
+        /// <c>AdjustToUniversal</c> 을 빠뜨리면 안 된다 — 적어 둔 글자는 UTC 인데
+        /// 파서는 기본으로 <b>기기 시간대의 시각</b>으로 풀어 놓는다. 그것을 UTC
+        /// 「지금」과 빼면 <b>시차만큼(우리는 9시간) 어긋난다</b> — 세 시간 문턱이
+        /// 하루에 한 번이 되거나 아예 매번 지난 것이 된다.
+        /// (<c>RoundtripKind</c> 와는 함께 못 쓴다. 그 짝은 예외를 던진다.)
+        /// </para>
+        /// </summary>
+        private static DateTime? Moment(string? value) =>
+            DateTime.TryParse(value, System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.AdjustToUniversal
+                | System.Globalization.DateTimeStyles.AssumeUniversal, out var at)
+                ? at
+                : null;
 
         /// <summary>저장해 둔 폭을 숫자로. 이상한 값이면 <c>null</c>.</summary>
         private static int? Pixels(string? value) =>

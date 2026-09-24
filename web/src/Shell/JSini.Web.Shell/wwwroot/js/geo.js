@@ -17,6 +17,19 @@
  * 사람이 다시 눌러 줘야 한다 — 설정 화면이 마지막으로 잡은 날짜를
  * 보여 주는 것이 그 때문이다.
  *
+ * ── 그래도 다시 잡는 일은 저절로 된다 ─────────────────────────
+ *
+ * **화면이 열려 있는 동안에는** 다시 잴 수 있다. 권한을 이미 허용해 둔
+ * 브라우저는 `getCurrentPosition` 을 물음창 없이 그대로 돌려주므로,
+ * 포털을 열어 두기만 하면 사람이 단추를 누르지 않아도 좌표가 따라온다
+ * (`quiet`). 그 판단을 브라우저에게 물어 두는 것이 `permission` 이다 —
+ * 상태를 모르는 채로 재면 **아무도 부르지 않은 물음창**이 튀어나온다.
+ *
+ * 되는 곳과 안 되는 곳이 갈린다. Permissions API 가 없는 브라우저
+ * (옛 iOS 사파리)에서는 `state` 가 `unknown` 이고, 그때는 조용히 재지
+ * 않는다 — 물음창이 뜰지 어떨지 알 수 없어서다. 그 브라우저의 사람은
+ * 설정 화면의 단추로 다시 잡는다.
+ *
  * ── 실패를 삼키지 않는다 ───────────────────────────────────────
  *
  * 사람이 단추를 눌러 부른 것이므로 까닭을 담아 돌려준다. 「위치를 받지
@@ -33,7 +46,7 @@
      * http://localhost 는 보안 컨텍스트로 쳐 주지만, 사설 IP(http://192.168.x.x)로
      * 열면 안 된다. 운영은 HTTPS 라 문제가 없고, 그 구분을 먼저 말해 준다.
      */
-    async function locate() {
+    async function locate(options) {
         if (!('geolocation' in navigator)) {
             return { ok: false, error: '이 브라우저는 위치 기능을 지원하지 않습니다.' };
         }
@@ -59,9 +72,66 @@
                     timeout: 10000,
                     // 10분 안에 잡아 둔 값이 있으면 그것을 쓴다.
                     maximumAge: 600000,
+                    // 조용한 확인은 더 느슨하게 부른다(`quiet`).
+                    ...(options || {}),
                 },
             );
         });
+    }
+
+    /**
+     * **물음창 없이** 지금 위치. 권한이 이미 허용된 경우에만 실제로 잰다.
+     *
+     * 사람이 시킨 일이 아니므로 <b>조건이 안 맞으면 조용히 물러난다</b> —
+     * `{ ok: false, skipped: true }` 다. 실패(`skipped: false`)와 가르는
+     * 이유는 부르는 쪽이 말을 할지 말지를 그것으로 정하기 때문이다.
+     */
+    async function quiet() {
+        const state = await permission();
+
+        if (state.state !== 'granted') {
+            return { ok: false, skipped: true, error: state.state };
+        }
+
+        const got = await locate({
+            // 이미 있는 값이면 그대로 쓴다. 조용한 확인 하나 때문에 휴대폰이
+            // GPS 를 켜면 배터리가 눈에 띄게 준다 — 동네 날씨에 30분 전 좌표는
+            // 충분하다(기상청 격자가 5km 칸이다).
+            maximumAge: 1800000,
+            timeout: 8000,
+        });
+
+        return got.ok ? got : { ...got, skipped: false };
+    }
+
+    /**
+     * 브라우저가 위치를 내줄 사정인가. `{ supported, secure, state }` 이고
+     * `state` 는 `granted` · `denied` · `prompt` · `unknown` 중 하나다.
+     *
+     * **`unknown` 은 「모른다」이지 「안 된다」가 아니다.** Permissions API 가
+     * 없는 브라우저라, 물어보면 될 수도 있다 — 권유 창은 띄우되 조용한
+     * 재측정만 건너뛴다.
+     */
+    async function permission() {
+        if (!('geolocation' in navigator)) {
+            return { supported: false, secure: false, state: 'unsupported' };
+        }
+
+        if (!window.isSecureContext) {
+            return { supported: true, secure: false, state: 'insecure' };
+        }
+
+        if (!navigator.permissions || !navigator.permissions.query) {
+            return { supported: true, secure: true, state: 'unknown' };
+        }
+
+        try {
+            const status = await navigator.permissions.query({ name: 'geolocation' });
+            return { supported: true, secure: true, state: status.state || 'unknown' };
+        } catch {
+            // 이름을 모르는 브라우저는 던진다. 모르는 것으로 본다.
+            return { supported: true, secure: true, state: 'unknown' };
+        }
     }
 
     /**
@@ -83,5 +153,7 @@
         }
     }
 
-    window.jsiniGeo = { locate };
+    // **`locate` 는 인자 없이 부른다.** C# 쪽은 `jsiniGeo.locate` 를 그대로
+    // 부르고(인자를 안 넘긴다), 옵션은 이 파일 안의 `quiet` 만 쓴다.
+    window.jsiniGeo = { locate, quiet, permission };
 })();

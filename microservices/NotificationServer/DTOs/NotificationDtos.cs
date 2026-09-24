@@ -348,8 +348,19 @@ public class NotificationPreferenceDto
     /// <summary>받을 시각들(KST, 쉼표로 나눈 0~23). 비면 <c>7,18</c> 이다.</summary>
     public string? WeatherHours { get; set; }
 
-    /// <summary>위치를 마지막으로 잡은 때.</summary>
+    /// <summary>위치를 마지막으로 <b>잡은</b> 때 — 좌표가 실제로 달라진 때다.</summary>
     public DateTime? WeatherLocatedAt { get; set; }
+
+    /// <summary>
+    /// 위치를 마지막으로 <b>확인한</b> 때. 위의 것과 다르다 — 브라우저가 저절로
+    /// 다시 재어 보고 <b>그대로였을 때도</b> 찍힌다.
+    /// </summary>
+    /// <remarks>
+    /// 이것이 없으면 자동 재수집은 <b>보이지 않는다.</b> 자리가 안 바뀐 사람에게는
+    /// 「잡은 때」가 몇 달 전 그대로라, 위치가 묵은 것인지 그동안 계속 확인해 온
+    /// 것인지 화면이 구분해 말할 수 없다.
+    /// </remarks>
+    public DateTime? WeatherSyncedAt { get; set; }
 
     /// <summary>
     /// 저장한 적이 있나. 거짓이면 아래 값은 <b>기본값</b>이고 표에는 행이 없다.
@@ -383,6 +394,23 @@ public class UpdateNotificationPreferenceDto
     public string? WeatherPlace { get; set; }
 
     public string? WeatherHours { get; set; }
+
+    /// <summary>
+    /// 이 저장이 <b>브라우저가 방금 위치를 재어 보낸 것</b>인가.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 좌표가 실려 있다고 해서 「방금 쟀다」가 아니다. 설정 화면은 스위치 하나를
+    /// 눌러도 <b>설정 전체</b>를 보내므로(<c>ToggleAsync</c>) 위경도가 늘 함께
+    /// 온다 — 그것으로 「확인한 때」를 찍으면 푸시 스위치를 만질 때마다 위치를
+    /// 방금 확인한 것이 된다. 「잡은 때」에서 이미 한 번 밟은 함정이다.
+    /// </para>
+    /// <para>
+    /// 그래서 <b>재어 보낸 쪽만</b> 이것을 참으로 준다(위치 배관
+    /// <c>GeoLocator</c>). 참일 때만 <c>weather_synced_at</c> 을 찍는다.
+    /// </para>
+    /// </remarks>
+    public bool? WeatherLocated { get; set; }
 }
 
 /// <summary>

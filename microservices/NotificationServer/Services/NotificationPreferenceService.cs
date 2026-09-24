@@ -134,9 +134,18 @@ public class NotificationPreferenceService : INotificationPreferenceService
 
             row.WeatherLat = request.WeatherLat.Value;
             row.WeatherLon = request.WeatherLon.Value;
-            row.WeatherPlace = request.WeatherPlace;
+
+            // **자리가 안 바뀌었으면 이름을 지우지 않는다.** 저절로 다시 재는 쪽은
+            // (`GeoLocator` 의 조용한 확인) 좌표만 보내는데, 무조건 덮으면 그때마다
+            // 지역 이름이 사라져 설정 화면이 위경도 숫자만 보여 준다. 자리가 바뀌었을
+            // 때는 반대로 **지워야 한다** — 옛 동네 이름이 새 좌표에 붙어 남는다.
+            if (moved || request.WeatherPlace is not null) row.WeatherPlace = request.WeatherPlace;
 
             if (moved || row.WeatherLocatedAt is null) row.WeatherLocatedAt = DateTime.UtcNow;
+
+            // **「확인한 때」는 재어 보낸 쪽만 찍는다.** 좌표가 실려 있다고 찍으면
+            // 스위치 하나를 눌러도(설정 전체가 간다) 방금 확인한 것이 된다.
+            if (request.WeatherLocated == true) row.WeatherSyncedAt = DateTime.UtcNow;
         }
         else if (request.WeatherPlace is not null)
         {
@@ -282,6 +291,7 @@ public class NotificationPreferenceService : INotificationPreferenceService
         WeatherPlace = row.WeatherPlace,
         WeatherHours = row.WeatherHours,
         WeatherLocatedAt = row.WeatherLocatedAt,
+        WeatherSyncedAt = row.WeatherSyncedAt,
         Saved = true,
         UpdatedAt = row.UpdatedAt ?? row.CreatedAt
     };

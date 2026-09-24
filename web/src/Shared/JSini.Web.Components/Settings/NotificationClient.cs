@@ -44,6 +44,25 @@ public sealed class NotificationClient(GatewayClient gateway)
     public Task SaveMyPreferencesAsync(NotificationPreferenceDto pref, CancellationToken ct = default)
         => gateway.PutAsync("notification/notifications/preferences/me", pref, ct);
 
+    /// <summary>
+    /// <b>좌표만</b> 저장한다. 설정 전체를 보내는 위 <see cref="SaveMyPreferencesAsync"/>
+    /// 와 주소는 같고 <b>싣는 것이 다르다</b>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 서버는 「준 것만 바꾼다」라서 실은 것 밖의 스위치는 그대로 남는다. 위치를
+    /// 저장하는 길이 <b>뒤에서도 돌기 때문에</b>(포털을 열어 두면 세 시간마다
+    /// 조용히 다시 잰다) 이 구분이 필요하다 — 전체를 보내면 다른 탭에서 방금
+    /// 바꾼 스위치를 그 저장이 되돌린다.
+    /// </para>
+    /// <para>
+    /// 실린 <c>weatherLocated</c> 가 서버에게 「방금 잰 것」임을 알린다.
+    /// 그것이 있어야 「확인한 때」가 찍힌다.
+    /// </para>
+    /// </remarks>
+    public Task SaveMyLocationAsync(LocationUpdateDto update, CancellationToken ct = default)
+        => gateway.PutAsync("notification/notifications/preferences/me", update, ct);
+
     /// <summary>등록된 기기 목록. <b>배열이 아니라 <c>{ items, count }</c></b> 다.</summary>
     public Task<PushSubscriptionListDto?> GetMySubscriptionsAsync(CancellationToken ct = default)
         => gateway.GetOneAsync<PushSubscriptionListDto>("notification/notifications/subscriptions/me", ct);

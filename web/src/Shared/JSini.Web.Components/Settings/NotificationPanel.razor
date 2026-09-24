@@ -45,6 +45,7 @@
 @inherits DataPage
 @inject NotificationClient Api
 @inject PushEnroll Enroll
+@inject GeoLocator Geo
 @inject IJSRuntime JS
 
 <div class="jsini-npanel">
@@ -163,10 +164,32 @@
                     <dd>
                         @* **자리가 바뀌어도 좌표는 그대로다.** 언제 잡은 것인지
                            보여 주지 않으면 이사·출장 뒤에도 옛 동네 날씨가 오는
-                           까닭을 알 길이 없다. *@
+                           까닭을 알 길이 없다.
+
+                           **이것은 「좌표가 달라진 때」다.** 한자리에 사는 사람은
+                           몇 달 전 그대로인데, 그렇다고 위치가 묵은 것은 아니다 —
+                           그것은 아래 「확인한 때」가 말한다. *@
                         @(_settings.Preference.WeatherLocatedAt is { } located
                             ? located.ToLocalTime().ToString("yyyy-MM-dd HH:mm")
                             : "-")
+                    </dd>
+                </div>
+
+                @* **자동 재수집이 도는지를 보여 주는 유일한 자리다.** 저절로
+                   다시 재는 일은 화면에 아무 자국을 남기지 않으므로(토스트를
+                   띄우면 화면을 옮길 때마다 뜬다) 이 값이 없으면 사람은 그것이
+                   도는지 멈췄는지 알 수 없다. *@
+                <div class="jsini-fact">
+                    <dt>확인한 때</dt>
+                    <dd>
+                        @if (_settings.Preference.WeatherSyncedAt is { } synced)
+                        {
+                            @synced.ToLocalTime().ToString("yyyy-MM-dd HH:mm")
+                        }
+                        else
+                        {
+                            <span class="jsini-text-muted">아직 없음</span>
+                        }
                     </dd>
                 </div>
 
@@ -201,6 +224,17 @@
                 @* 본문은 줄바꿈이 있는 한 덩이 글이다 — 알림창에 뜨는 모양 그대로. *@
                 <div class="jsini-weather-preview__body">@_preview.Summary</div>
             </div>
+        }
+
+        @* **저절로 따라간다는 것을 말해 둔다.** 말하지 않으면 사람은 이사할
+           때마다 이 단추를 눌러야 하는 줄 알고, 실제로 그렇게 적혀 있었다.
+           되는 조건까지 함께 적는 이유는 **안 되는 브라우저가 있기 때문**이다 —
+           권한을 허용해 둔 곳에서만, 포털을 열어 둔 동안만 돈다(창을 닫으면
+           웹은 위치를 읽을 길이 아예 없다). *@
+        @if (HasSavedLocation)
+        {
+            <PageNotice Tone="NoticeTone.Info"
+                        Text="위치 권한을 허용해 둔 브라우저에서는 포털을 열어 둔 동안 세 시간마다 위치를 저절로 다시 확인합니다. 300m 넘게 움직였으면 새 자리로 갈아 끼웁니다 — 이사·출장 때 이 단추를 다시 누르지 않아도 됩니다." />
         }
 
         <div class="jsini-toolbar">
@@ -644,38 +678,35 @@ else
         _locating = true;
         try
         {
-            GeoResult? geo;
+            var geo = await Geo.LocateAsync();
 
-            try
+            if (!geo.Ok)
             {
-                geo = await JS.InvokeAsync<GeoResult>("jsiniGeo.locate");
-            }
-            catch (Exception ex)
-            {
-                Say($"위치를 받지 못했습니다: {ex.Message}", NoticeTone.Warning);
+                Say(geo.Error ?? "위치를 받지 못했습니다.", NoticeTone.Warning);
                 return;
             }
 
-            if (geo is not { Ok: true })
+            // **스위치는 건드리지 않는다.** 여기서 하는 일은 좌표를 갈아 끼우는
+            // 것뿐이고, 「내 위치 날씨」를 켜고 끄는 것은 바로 위 체크의 몫이다
+            // (로그인 뒤에 뜨는 권유 창은 반대로 함께 켠다 — 거기서는 위치를
+            // 내주는 뜻이 곧 그것이기 때문이다).
+            var result = await Geo.SaveAsync(_settings.Preference, geo, enableLocalWeather: false);
+
+            Say(result.Message, result.Tone);
+
+            if (!result.Ok) return;
+
+            // 자리가 그대로면 절차가 날씨를 안 받아 온다(기상청을 부를 까닭이
+            // 없다). 그때는 저장된 좌표로 미리보기만 따로 받아 보여 준다 —
+            // 사람이 단추를 눌렀으므로 화면에 뭔가는 나와야 한다.
+            if (result.Point is { } point)
             {
-                Say(geo?.Error ?? "위치를 받지 못했습니다.", NoticeTone.Warning);
-                return;
+                _preview = point;
             }
-
-            _settings.Preference.WeatherLat = geo.Latitude;
-            _settings.Preference.WeatherLon = geo.Longitude;
-            _settings.Preference.WeatherPlace = null;
-            _settings.Preference.WeatherLocatedAt = DateTime.UtcNow;
-
-            if (!await RunAsync(() => Api.SaveMyPreferencesAsync(_settings.Preference),
-                                "위치를 저장했습니다.", "위치를 저장하지 못했습니다"))
+            else
             {
-                return;
+                await LoadPreviewAsync(geo.Latitude, geo.Longitude);
             }
-
-            _settings.Preference.Saved = true;
-
-            await LoadPreviewAsync(geo.Latitude, geo.Longitude, savePlace: true);
         }
         finally
         {
@@ -691,7 +722,7 @@ else
         _locating = true;
         try
         {
-            await LoadPreviewAsync(lat, lon, savePlace: false);
+            await LoadPreviewAsync(lat, lon);
         }
         finally
         {
@@ -700,15 +731,12 @@ else
     }
 
     /// <summary>
-    /// 한 지점의 날씨를 받아 미리보기에 담는다.
+    /// 한 지점의 날씨를 받아 미리보기에 담는다. <b>좌표도 이름도 건드리지 않는다</b> —
+    /// 저장하는 일은 절차(<see cref="GeoLocator" />)가 한다.
     /// </summary>
     /// <param name="lat">위도(10진 도)</param>
     /// <param name="lon">경도(10진 도)</param>
-    /// <param name="savePlace">
-    /// 알아낸 지역 이름을 설정에도 적어 둘지. 위치를 새로 잡은 직후에만 참이다 —
-    /// 그때 설정의 이름 칸이 비어 있기 때문이다.
-    /// </param>
-    private async Task LoadPreviewAsync(double lat, double lon, bool savePlace)
+    private async Task LoadPreviewAsync(double lat, double lon)
     {
         PointWeatherDto? point = null;
 
@@ -721,15 +749,6 @@ else
         if (!ok || point is null) return;
 
         _preview = point;
-
-        if (savePlace && !string.IsNullOrWhiteSpace(point.Place) && _settings is not null)
-        {
-            _settings.Preference.WeatherPlace = point.Place;
-
-            // 이름만 마저 적는 저장이다. 실패해도 알림은 이미 갈 수 있고
-            // (좌표가 있으므로) 서버 발송기가 다음 발송에서 채워 넣는다.
-            await Api.SaveMyPreferencesAsync(_settings.Preference);
-        }
     }
 
     /// <summary>

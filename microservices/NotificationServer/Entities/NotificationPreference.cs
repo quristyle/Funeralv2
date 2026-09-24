@@ -134,9 +134,27 @@ public class NotificationPreference : BaseEntity<string>
     [Column("weather_hours")]
     public string? WeatherHours { get; set; }
 
-    /// <summary>위치를 마지막으로 잡은 때.</summary>
+    /// <summary>위치를 마지막으로 <b>잡은</b> 때 — 좌표가 실제로 달라진 때다.</summary>
     [Column("weather_located_at")]
     public DateTime? WeatherLocatedAt { get; set; }
+
+    /// <summary>
+    /// 위치를 마지막으로 <b>확인한</b> 때. 위의 것과 갈래가 다르다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 브라우저는 포털이 열려 있는 동안 <b>권한이 이미 허용된 경우에만</b> 조용히
+    /// 위치를 다시 재어 보낸다(<c>GeoLocator</c>). 자리가 안 바뀌었으면 위의
+    /// <see cref="WeatherLocatedAt"/> 은 그대로 두고 이 칸만 찍는다 — 그래야
+    /// 「옛 동네 날씨가 오는가」와 「그동안 확인은 했는가」를 갈라 말할 수 있다.
+    /// </para>
+    /// <para>
+    /// 좌표가 실려 왔다고 찍지 않는다. 설정 화면은 스위치 하나에도 설정 전체를
+    /// 보내므로 <c>WeatherLocated</c> 가 참일 때만 찍는다(그 DTO 머리말).
+    /// </para>
+    /// </remarks>
+    [Column("weather_synced_at")]
+    public DateTime? WeatherSyncedAt { get; set; }
 
     /// <summary>
     /// 마지막으로 보낸 때. <b>같은 시각 칸에 두 번 보내지 않으려고 본다</b> —
