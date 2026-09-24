@@ -379,9 +379,9 @@
                 ? (_isPhone ? "jsini-shell jsini-shell--nav-open" : "jsini-shell")
                 : "jsini-shell jsini-shell--collapsed";
 
-            // 떠다니는 단추를 감춘 사람에게는 **헤더의 ☰ 를 되돌려 준다.**
-            // 휴대폰에서는 그 ☰ 를 빼고 이 단추만 남겨 두었기 때문에, 둘을
-            // 함께 빼면 메뉴를 열 길이 하나도 없어진다(app.css 의 같은 이름).
+            // 떠다니는 단추를 감춘 사람에게 붙는 표시. 감추는 일만 하고
+            // **헤더의 ☰ 를 되돌리지는 않는다** — 휴대폰에서 메뉴를 여는 일은
+            // 로고가 이미 한다(`OnBrandClick`, app.css 의 같은 이름).
             return _fabHidden ? css + " jsini-shell--fab-hidden" : css;
         }
     }
@@ -448,7 +448,10 @@
     /// <summary>모바일 화면의 떠다니는 메뉴 단추(FAB) 위치.</summary>
     private string _fabPosition = "bottom-left";
 
-    /// <summary>그 단추를 감춰 두었는가. 감추면 헤더의 ☰ 가 휴대폰에서 되살아난다.</summary>
+    /// <summary>
+    /// 그 단추를 감춰 두었는가. 감춰도 <b>헤더의 ☰ 는 되살리지 않는다</b> —
+    /// 휴대폰에서 메뉴를 여는 일은 로고가 한다(<see cref="OnBrandClick"/>).
+    /// </summary>
     private bool _fabHidden;
     private string _toastPosition = "bottom-right";
     private HorizontalAlignment _toastHorizontal = HorizontalAlignment.Right;
@@ -824,6 +827,14 @@
         }
     }
 
+    /// <summary>
+    /// 로고를 누르면 <b>휴대폰에서는 메뉴를 여닫는다</b>(넓은 화면에서는 하던
+    /// 대로 <c>/</c> 로 간다 — 기본 이동을 막는 것도 휴대폰일 때뿐이다).
+    /// </summary>
+    /// <remarks>
+    /// <b>떠다니는 단추를 감춘 사람에게는 이것이 유일하게 여는 길이다.</b>
+    /// 그래서 감출 때 헤더의 ☰ 를 되돌리지 않는다(<c>_fabHidden</c>).
+    /// </remarks>
     private Task OnBrandClick(Microsoft.AspNetCore.Components.Web.MouseEventArgs e)
     {
         if (_isPhone)
