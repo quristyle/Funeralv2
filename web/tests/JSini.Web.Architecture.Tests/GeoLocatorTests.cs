@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using JSini.Web.Components.Layout;
 using JSini.Web.Components.Settings;
 using Xunit;
 
@@ -134,6 +135,69 @@ public class GeoLocatorTests
 
         Assert.Contains("permission()", quiet, StringComparison.Ordinal);
         Assert.Contains("'granted'", quiet, StringComparison.Ordinal);
+    }
+
+    // ── 고를 수 있는 확인 간격 ────────────────────────────────
+    //
+    // 간격을 사람이 고르게 되면서(환경설정의 「위치 확인 간격」) 값이 두 곳에
+    // 생겼다 — 화면이 고른 값과 판정하는 쪽이 보는 값. **어긋나도 예외가 나지
+    // 않고** 「고른 간격과 실제로 도는 간격이 다르다」로만 나타난다.
+
+    /// <summary>
+    /// 모르는 값은 기본값으로 떨어진다. 사람이 저장소를 손으로 고쳤거나
+    /// 고를 수 있는 값이 줄어든 뒤에 옛 값이 남은 경우다.
+    /// </summary>
+    [Fact]
+    public void 모르는_확인_간격은_기본값으로_본다()
+    {
+        Assert.Equal(PortalBoot.DefaultGeoSyncMinutes, PortalBoot.NormalizeGeoSyncMinutes(null));
+        Assert.Equal(PortalBoot.DefaultGeoSyncMinutes, PortalBoot.NormalizeGeoSyncMinutes(7));
+        Assert.Equal(PortalBoot.DefaultGeoSyncMinutes, PortalBoot.NormalizeGeoSyncMinutes(0));
+        Assert.Equal(PortalBoot.DefaultGeoSyncMinutes, PortalBoot.NormalizeGeoSyncMinutes(-60));
+    }
+
+    /// <summary>고를 수 있는 값은 그대로 남는다.</summary>
+    [Fact]
+    public void 고를_수_있는_확인_간격은_그대로_남는다()
+    {
+        foreach (var minutes in PortalBoot.GeoSyncMinuteChoices)
+        {
+            Assert.Equal(minutes, PortalBoot.NormalizeGeoSyncMinutes(minutes));
+        }
+    }
+
+    /// <summary>
+    /// <b>기본값이 고를 수 있는 목록 안에 있어야 한다.</b> 없으면 고르개가
+    /// 빈 칸으로 열리고, 사람은 간격이 정해져 있지 않다고 읽는다.
+    /// </summary>
+    [Fact]
+    public void 기본_확인_간격은_고르개_목록에_있다()
+    {
+        Assert.Contains(PortalBoot.DefaultGeoSyncMinutes, PortalBoot.GeoSyncMinuteChoices);
+    }
+
+    /// <summary>
+    /// <b>고른 적이 없을 때의 간격 하나를 두 곳이 적고 있다.</b>
+    /// <c>GeoLocator.SyncInterval</c>(머리말이 설명하는 값)과
+    /// <c>PortalBoot.DefaultGeoSyncMinutes</c>(고르개의 기본값)이 같아야 한다.
+    /// </summary>
+    [Fact]
+    public void 기본_간격은_두_곳에서_같다()
+    {
+        Assert.Equal(
+            GeoLocator.SyncInterval,
+            TimeSpan.FromMinutes(PortalBoot.DefaultGeoSyncMinutes));
+    }
+
+    /// <summary>
+    /// 한 시간 칸이 있어야 한다. 사람이 고를 수 있는 가장 촘촘한 발송 간격이
+    /// 세 시간이라, 그보다 촘촘한 확인이 없으면 낮에 자리를 옮긴 좌표가
+    /// 다음 발송에 못 댄다(<c>GeoLocator.SyncInterval</c> 머리말).
+    /// </summary>
+    [Fact]
+    public void 한_시간_칸이_있다()
+    {
+        Assert.Contains(60, PortalBoot.GeoSyncMinuteChoices);
     }
 
     private static string WebRoot()

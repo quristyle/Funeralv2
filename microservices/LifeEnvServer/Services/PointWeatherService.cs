@@ -30,11 +30,39 @@ public class PointWeatherService
         _logger = logger;
     }
 
+    /// <summary>
+    /// <b>이름과 격자만</b>. 기상청을 부르지 않는다.
+    /// </summary>
+    /// <remarks>
+    /// 설정 화면이 <b>열릴 때마다</b> 저장해 둔 좌표가 어디인지 보여 주려고 부른다.
+    /// 거기서 <see cref="GetAsync"/> 를 부르면 실황·단기예보 두 왕복이 매번 붙고,
+    /// 기상청이 느린 날에는 <b>지역 이름조차 안 뜬다</b> — 이름은 우리 표에만
+    /// 있으므로 바깥 없이 답한다.
+    /// </remarks>
+    public async Task<PointPlaceDto> GetPlaceAsync(double lat, double lon, CancellationToken ct = default)
+    {
+        var (nx, ny) = GridConverter.ToGrid(lat, lon);
+        var found = await ResolvePlaceAsync(lat, lon, ct);
+
+        return new PointPlaceDto
+        {
+            Lat = lat,
+            Lon = lon,
+            Nx = nx,
+            Ny = ny,
+            Place = found?.Name,
+            Region1 = found?.Region1,
+            Region2 = found?.Region2,
+            Region3 = found?.Region3,
+        };
+    }
+
     /// <summary>한 지점의 날씨. 기상청이 답하지 않아도 지역 이름과 격자는 채워 돌려준다.</summary>
     public async Task<PointWeatherDto> GetAsync(double lat, double lon, CancellationToken ct = default)
     {
         var (nx, ny) = GridConverter.ToGrid(lat, lon);
-        var place = await ResolvePlaceAsync(lat, lon, ct);
+        var found = await ResolvePlaceAsync(lat, lon, ct);
+        var place = found?.Name;
 
         var result = new PointWeatherDto
         {
@@ -43,6 +71,9 @@ public class PointWeatherService
             Nx = nx,
             Ny = ny,
             Place = place,
+            Region1 = found?.Region1,
+            Region2 = found?.Region2,
+            Region3 = found?.Region3,
         };
 
         var now = await _api.GetPointNowcastAsync(nx, ny, place ?? "내 위치");
@@ -86,7 +117,7 @@ public class PointWeatherService
     /// 되고 후보들이 다 가까이 모여 있어 그 비율이 순서를 바꾸지 않는다.
     /// </para>
     /// </remarks>
-    private async Task<string?> ResolvePlaceAsync(double lat, double lon, CancellationToken ct)
+    private async Task<PlaceName?> ResolvePlaceAsync(double lat, double lon, CancellationToken ct)
     {
         try
         {
@@ -94,7 +125,7 @@ public class PointWeatherService
             // 상자가 비면(바다 한가운데) 이름 없이 간다.
             const double box = 0.5;
 
-            var nearest = await _db.GridCoordinates
+            var near = await _db.GridCoordinates
                 .Where(g => g.LatitudeSecond100 != null && g.LongitudeSecond100 != null
                             && g.LatitudeSecond100 != 0 && g.LongitudeSecond100 != 0
                             && g.LatitudeSecond100 >= (decimal)(lat - box)
@@ -111,15 +142,37 @@ public class PointWeatherService
                 })
                 .OrderBy(g => (g.Lat - (decimal)lat) * (g.Lat - (decimal)lat)
                               + (g.Lon - (decimal)lon) * (g.Lon - (decimal)lon))
-                .FirstOrDefaultAsync(ct);
+                .Take(NearbyRows)
+                .ToListAsync(ct);
 
-            if (nearest is null) return null;
+            if (near.Count == 0) return null;
 
-            var parts = new[] { nearest.Region1, nearest.Region2, nearest.Region3 }
-                .Where(p => !string.IsNullOrWhiteSpace(p));
+            // **읍·면·동이 있는 줄을 먼저 고른다.** 표에는 시·군·구까지만 적힌
+            // 줄(구청 자리)이 섞여 있고, 그 줄이 하필 제일 가까운 경우가 있다 —
+            // 그러면 「울산광역시 동구」에서 끝나 동네 이름이 영영 안 나온다.
+            // 실제로 그랬다(울산 동구 35.5086,129.4215).
+            var pick = near.FirstOrDefault(g => !string.IsNullOrWhiteSpace(g.Region3)) ?? near[0];
+
+            var region1 = Trimmed(pick.Region1);
+            var region2 = Trimmed(pick.Region2);
+            var region3 = Trimmed(pick.Region3);
+
+            // **세종시는 1단계와 2단계가 같은 글자다**(표에 그렇게 들어 있다).
+            // 그대로 이으면 「세종특별자치시 세종특별자치시 보람동」이 되고,
+            // 시·도 칸과 시·군·구 칸에 같은 이름이 두 번 적힌다.
+            if (string.Equals(region1, region2, StringComparison.Ordinal))
+            {
+                region2 = null;
+            }
+
+            var parts = new[] { region1, region2, region3 }
+                .Where(p => !string.IsNullOrWhiteSpace(p))
+                .ToArray();
 
             var name = string.Join(" ", parts);
-            return string.IsNullOrWhiteSpace(name) ? null : name;
+            if (string.IsNullOrWhiteSpace(name)) return null;
+
+            return new PlaceName(name, region1, region2, region3);
         }
         catch (Exception ex)
         {
@@ -128,6 +181,25 @@ public class PointWeatherService
             return null;
         }
     }
+
+    /// <summary>
+    /// 읍·면·동이 있는 줄을 찾으려고 <b>몇 줄까지 들춰 보나</b>.
+    /// </summary>
+    /// <remarks>
+    /// 도심에서는 이 스무 줄이 반경 2km 안에 다 들어오고, 시골에서도 같은 군을
+    /// 벗어나지 않는다. 더 늘리면 <b>옆 동네 이름</b>을 끌어올 수 있고, 줄이면
+    /// 구청 자리만 있는 곳에서 동 이름을 못 찾는다.
+    /// </remarks>
+    private const int NearbyRows = 20;
+
+    private static string? Trimmed(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    /// <summary>
+    /// 찾아낸 행정구역 한 줄. <b>이어 붙인 이름과 세 단계를 함께</b> 들고 다닌다 —
+    /// 화면은 단계별로 보여 주고 알림 본문은 이어 붙인 것을 쓴다.
+    /// </summary>
+    private sealed record PlaceName(string Name, string? Region1, string? Region2, string? Region3);
 
     /// <summary>
     /// 단기예보(시간별)를 <b>하루 단위로</b> 접는다.

@@ -408,6 +408,15 @@ public sealed class PointWeatherDto
     /// <summary>가장 가까운 행정구역 이름. 못 찾으면 비어 있다.</summary>
     public string? Place { get; set; }
 
+    /// <summary>시·도 (예: <c>울산광역시</c>).</summary>
+    public string? Region1 { get; set; }
+
+    /// <summary>시·군·구 (예: <c>남구</c>).</summary>
+    public string? Region2 { get; set; }
+
+    /// <summary>읍·면·동 (예: <c>삼산동</c>).</summary>
+    public string? Region3 { get; set; }
+
     public PointWeatherNowDto? Now { get; set; }
 
     public List<PointWeatherDayDto> Days { get; set; } = [];
@@ -417,6 +426,42 @@ public sealed class PointWeatherDto
     /// 실제로 오는 알림의 말이 다르면 사람은 둘 중 하나를 믿지 못한다.
     /// </summary>
     public string? Summary { get; set; }
+}
+
+/// <summary>
+/// 좌표 하나가 <b>어느 동네인가</b> — 생활과환경의 <c>GET /life/weather/place</c> 응답.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <see cref="PointWeatherDto"/> 와 갈라 둔 까닭은 <b>기상청을 안 부른다</b>는 것이다.
+/// 설정 화면은 열릴 때마다 저장된 좌표의 시·도·동을 보여 주는데, 날씨까지 받아 오면
+/// 기상청이 느린 날에 <b>이름조차 안 뜬다</b>.
+/// </para>
+/// <para>
+/// <b>좌표만 저장된 사람이 실제로 있다.</b> 좌표는 저장됐는데 그 뒤 날씨 조회가
+/// 실패하면 이름이 비는데(<c>GeoLocator.SaveAsync</c> 의 순서), 그때 화면에는
+/// 숫자 두 개만 남았다. 이 길이 그것을 메운다.
+/// </para>
+/// </remarks>
+public sealed class PointPlaceDto
+{
+    public double Lat { get; set; }
+    public double Lon { get; set; }
+
+    public int Nx { get; set; }
+    public int Ny { get; set; }
+
+    /// <summary>세 단계를 공백으로 이은 이름. 못 찾으면 비어 있다.</summary>
+    public string? Place { get; set; }
+
+    /// <summary>시·도.</summary>
+    public string? Region1 { get; set; }
+
+    /// <summary>시·군·구.</summary>
+    public string? Region2 { get; set; }
+
+    /// <summary>읍·면·동.</summary>
+    public string? Region3 { get; set; }
 }
 
 /// <summary>지금 실황.</summary>

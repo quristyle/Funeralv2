@@ -153,7 +153,37 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
     /// <c>bottom-left</c>(기본), <c>top-left</c>, <c>bottom-right</c>, <c>top-right</c>.
     /// </summary>
     public const string FabPositionKey = "jsini-fab-position";
+
+    /// <summary>
+    /// 토스트(화면에 뜨는 알림) 위치.
+    /// <c>bottom-right</c>(기본) 외 여섯 자리 중 하나다.
+    /// </summary>
+    /// <remarks>
+    /// <b>이 브라우저의 것이다.</b> 알맞은 자리가 화면 크기와 쓰는 손에 따라
+    /// 다르고, 계정에 저장하면 큰 모니터에서 고른 자리가 휴대폰까지 따라온다.
+    /// </remarks>
     public const string ToastPositionKey = "jsini-toast-position";
+
+    /// <summary>
+    /// 위치를 <b>저절로 다시 확인하는 간격</b>(분). 없으면
+    /// <see cref="DefaultGeoSyncMinutes"/> 다.
+    /// </summary>
+    /// <remarks>
+    /// 기기에 남기는 것이 맞다 — 재는 일도, 그 값이 드는 배터리도 이 브라우저의
+    /// 것이다. 휴대폰에서는 넓게, 자리에 앉아 쓰는 컴퓨터에서는 촘촘하게 두는
+    /// 것이 자연스럽다.
+    /// </remarks>
+    public const string GeoSyncIntervalKey = "jsini-geo-sync-interval";
+
+    /// <summary>
+    /// 고르지 않았을 때의 확인 간격 — <b>한 시간</b>이다.
+    /// </summary>
+    /// <remarks>
+    /// 사람이 고를 수 있는 가장 촘촘한 발송 간격이 세 시간이므로, 한 시간이면
+    /// 어느 쪽이든 발송 전에 적어도 두 번은 확인한다
+    /// (<c>GeoLocator.SyncInterval</c> 의 머리말).
+    /// </remarks>
+    public const int DefaultGeoSyncMinutes = 60;
 
     private static readonly string[] SessionKeys =
     [
@@ -173,6 +203,7 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
         GeoSyncedAtKey,
         FabPositionKey,
         ToastPositionKey,
+        GeoSyncIntervalKey,
     ];
 
     /// <summary>
@@ -346,8 +377,11 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
 
         try
         {
-            await js.InvokeVoidAsync("localStorage.setItem", FabPositionKey,
-        ToastPositionKey, normalized);
+            // **열쇠와 값 둘뿐이다.** 한동안 그 사이에 토스트 열쇠가 끼어 있어
+            // (인자 셋) 저장되는 값이 `jsini-toast-position` 이라는 **글자**였다 —
+            // 다음에 읽으면 아는 자리가 아니라서 기본값으로 되돌아갔고, 고른
+            // 자리가 새로고침마다 사라졌다.
+            await js.InvokeVoidAsync("localStorage.setItem", FabPositionKey, normalized);
         }
         catch (Exception ex) when (ex is JSException or InvalidOperationException)
         {
@@ -357,11 +391,6 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
         FabPositionChanged?.Invoke(normalized);
     }
 
-    /// <summary>
-    /// 모바일 메뉴 단추 위치 식별자를 검증하고 표준화한다.
-    /// 알 수 없는 값이면 기본값인 <c>bottom-left</c> 다.
-    /// </summary>
-    
     /// <summary>토스트 알림 위치가 바뀌었을 때 알린다.</summary>
     public event Action<string>? ToastPositionChanged;
 
@@ -399,6 +428,59 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
         _ => "bottom-right",
     };
 
+    /// <summary>위치 확인 간격이 바뀌었을 때 알린다.</summary>
+    /// <remarks>
+    /// <b>듣는 쪽이 아직 없다.</b> 간격을 보는 곳(<c>LocationAskPopup</c>)은 화면을
+    /// 옮길 때마다 새로 생겨 그때 읽으므로, 고친 값은 <b>다음 확인부터</b> 듣는다.
+    /// 그래도 알림은 남겨 둔다 — 같은 화면에 간격을 보여 주는 자리가 생기면
+    /// 그때 이것을 듣는다.
+    /// </remarks>
+    public event Action<int>? GeoSyncIntervalChanged;
+
+    /// <summary>
+    /// 위치를 저절로 다시 확인하는 간격(분)을 저장한다.
+    /// </summary>
+    public async Task SetGeoSyncIntervalAsync(int minutes)
+    {
+        var normalized = NormalizeGeoSyncMinutes(minutes);
+
+        try
+        {
+            await js.InvokeVoidAsync("localStorage.setItem", GeoSyncIntervalKey,
+                normalized.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        }
+        catch (Exception ex) when (ex is JSException or InvalidOperationException)
+        {
+            logger.LogDebug(ex, "위치 확인 간격을 브라우저에 저장하지 못했다.");
+        }
+
+        GeoSyncIntervalChanged?.Invoke(normalized);
+    }
+
+    /// <summary>
+    /// 고를 수 있는 확인 간격(분). <b>화면과 판정이 같은 목록을 본다</b> —
+    /// 갈라 두면 화면에만 있는 값을 골랐을 때 조용히 기본값으로 돌아간다.
+    /// </summary>
+    /// <remarks>
+    /// 30분보다 촘촘하게는 두지 않는다. 확인 한 번마다 게이트웨이 왕복과 GPS 가
+    /// 붙고, 휴대폰에서는 그때마다 배터리를 쓴다. 반대 끝을 여섯 시간으로 둔 것은
+    /// <b>하루에 두어 번이면 되는 사람</b>(한자리에서 일하는 사람)이 있기 때문이다.
+    /// </remarks>
+    public static readonly int[] GeoSyncMinuteChoices = [30, 60, 120, 180, 360];
+
+    /// <summary>
+    /// 확인 간격을 고를 수 있는 값으로 다듬는다. 모르는 값이면
+    /// <see cref="DefaultGeoSyncMinutes"/> 다.
+    /// </summary>
+    public static int NormalizeGeoSyncMinutes(int? minutes) =>
+        minutes is { } m && Array.IndexOf(GeoSyncMinuteChoices, m) >= 0
+            ? m
+            : DefaultGeoSyncMinutes;
+
+    /// <summary>
+    /// 모바일 메뉴 단추 위치 식별자를 검증하고 표준화한다.
+    /// 알 수 없는 값이면 기본값인 <c>bottom-left</c> 다.
+    /// </summary>
     public static string NormalizeFabPosition(string? position) => position switch
     {
         "top-left" => "top-left",
@@ -514,9 +596,18 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
         public string FabPosition { get; private init; } = "bottom-left";
 
         /// <summary>
-        /// 토스트 알림 위치.
+        /// 토스트 알림 위치. 없거나 잘못된 값이면 <c>bottom-right</c> 다.
         /// </summary>
         public string ToastPosition { get; private init; } = "bottom-right";
+
+        /// <summary>
+        /// 위치를 저절로 다시 확인하는 간격(분). 고른 적이 없으면
+        /// <see cref="DefaultGeoSyncMinutes"/> 다.
+        /// </summary>
+        public int GeoSyncMinutes { get; private init; } = DefaultGeoSyncMinutes;
+
+        /// <summary>그 간격을 <see cref="TimeSpan"/> 으로. 판정하는 쪽이 이것을 쓴다.</summary>
+        public TimeSpan GeoSyncInterval => TimeSpan.FromMinutes(GeoSyncMinutes);
 
         internal static BrowserState From(BootWire wire) => new()
         {
@@ -536,6 +627,7 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
             Theme = wire.Theme,
             FabPosition = NormalizeFabPosition(Get(wire.Local, FabPositionKey)),
             ToastPosition = NormalizeToastPosition(Get(wire.Local, ToastPositionKey)),
+            GeoSyncMinutes = NormalizeGeoSyncMinutes(Minutes(Get(wire.Local, GeoSyncIntervalKey))),
         };
 
         /// <summary>
@@ -554,6 +646,16 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
                 System.Globalization.DateTimeStyles.AdjustToUniversal
                 | System.Globalization.DateTimeStyles.AssumeUniversal, out var at)
                 ? at
+                : null;
+
+        /// <summary>
+        /// 저장해 둔 간격을 숫자로. 이상한 값이면 <c>null</c> 이고, 그때는
+        /// <see cref="NormalizeGeoSyncMinutes"/> 가 기본값으로 되돌린다.
+        /// </summary>
+        private static int? Minutes(string? value) =>
+            int.TryParse(value, System.Globalization.NumberStyles.Integer,
+                System.Globalization.CultureInfo.InvariantCulture, out var minutes)
+                ? minutes
                 : null;
 
         /// <summary>저장해 둔 폭을 숫자로. 이상한 값이면 <c>null</c>.</summary>

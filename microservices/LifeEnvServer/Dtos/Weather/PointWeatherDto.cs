@@ -26,6 +26,20 @@ public class PointWeatherDto
     /// </summary>
     public string? Place { get; set; }
 
+    /// <summary>시·도 (예: <c>울산광역시</c>).</summary>
+    /// <remarks>
+    /// <b><see cref="Place"/> 를 쪼갠 것이 아니라 표에서 그대로 온 것이다.</b>
+    /// 화면이 「시·도 / 시·군·구 / 읍·면·동」을 따로 보여 주는데, 붙여 놓은
+    /// 글을 다시 공백으로 가르면 이름 안에 공백이 든 행정구역에서 어긋난다.
+    /// </remarks>
+    public string? Region1 { get; set; }
+
+    /// <summary>시·군·구 (예: <c>남구</c>). 세종시처럼 없는 곳도 있다.</summary>
+    public string? Region2 { get; set; }
+
+    /// <summary>읍·면·동 (예: <c>삼산동</c>).</summary>
+    public string? Region3 { get; set; }
+
     /// <summary>지금 날씨. 기상청 실황이 없으면 비어 있다.</summary>
     public PointWeatherNowDto? Now { get; set; }
 
@@ -69,4 +83,38 @@ public class PointWeatherDayDto
 
     /// <summary>하늘 상태 요약 — <c>맑음</c> · <c>구름많음</c> · <c>흐림</c> · <c>비</c> · <c>눈</c></summary>
     public string? Condition { get; set; }
+}
+
+/// <summary>
+/// <b>날씨 없이 「여기가 어디인가」만</b> — 설정 화면이 저장된 좌표를 열 때 쓴다.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <see cref="PointWeatherDto"/> 와 갈라 둔 까닭은 <b>기상청을 안 부른다</b>는 것
+/// 하나다. 설정 화면은 열릴 때마다 저장된 좌표의 시·도·동을 보여 줘야 하는데,
+/// 그때마다 실황·단기예보를 받아 오면 왕복이 둘 늘고 <b>기상청이 느린 날에는
+/// 지역 이름조차 안 뜬다</b> — 실제로 그랬다. 이름은 우리 표(<c>grid_coordinates</c>)에만
+/// 있으므로 바깥을 안 부르고 답할 수 있다.
+/// </para>
+/// </remarks>
+public class PointPlaceDto
+{
+    public double Lat { get; set; }
+    public double Lon { get; set; }
+
+    /// <summary>기상청 격자. 위경도에서 계산한 값이다.</summary>
+    public int Nx { get; set; }
+    public int Ny { get; set; }
+
+    /// <summary>세 단계를 공백으로 이은 이름. 못 찾으면 <c>null</c>.</summary>
+    public string? Place { get; set; }
+
+    /// <summary>시·도.</summary>
+    public string? Region1 { get; set; }
+
+    /// <summary>시·군·구.</summary>
+    public string? Region2 { get; set; }
+
+    /// <summary>읍·면·동.</summary>
+    public string? Region3 { get; set; }
 }

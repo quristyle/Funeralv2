@@ -85,7 +85,7 @@ public sealed class GeoLocator(
     public const double MoveThresholdMeters = 300;
 
     /// <summary>
-    /// 조용한 확인 사이의 간격. <b>이보다 자주 재지 않는다.</b>
+    /// 조용한 확인 사이의 <b>기본</b> 간격. 이보다 자주 재지 않는다.
     /// </summary>
     /// <remarks>
     /// <b>한 시간이다.</b> 처음에는 세 시간이었다 — 알림이 가는 시각이 보통
@@ -102,6 +102,13 @@ public sealed class GeoLocator(
     /// <para>
     /// 실제로 재는 것은 이보다 드물다 — 300m 을 안 움직였으면
     /// (<see cref="MoveThresholdMeters"/>) 기상청을 부르지 않고 돌아선다.
+    /// </para>
+    /// <para>
+    /// <b>사람이 고치면 그쪽을 따른다.</b> 환경설정에서 고른 값이 브라우저에
+    /// 남고(<c>PortalBoot.GeoSyncIntervalKey</c>), 판정하는 쪽은 그것을 본다
+    /// (<c>LocationAskPopup.IsDue</c>). 여기 값은 <b>고른 적이 없을 때</b>의
+    /// 것이고, <c>PortalBoot.DefaultGeoSyncMinutes</c> 와 같아야 한다 —
+    /// 어긋나면 화면에 보이는 간격과 실제로 도는 간격이 달라진다.
     /// </para>
     /// </remarks>
     public static readonly TimeSpan SyncInterval = TimeSpan.FromHours(1);
@@ -238,7 +245,26 @@ public sealed class GeoLocator(
             logger.LogDebug(ex, "저장한 좌표의 날씨를 받지 못했다.");
         }
 
-        if (point is { Place: { Length: > 0 } place })
+        var place = point?.Place;
+
+        // **날씨가 안 와도 이름은 따로 물어 본다.** 기상청이 답하지 않은 날에
+        // 잡으면 이름 칸이 빈 채로 남았는데(운영에 그런 줄이 실제로 있다),
+        // 그러면 설정 화면에는 숫자 두 개만 남고 알림 제목도 「내 위치 날씨」로
+        // 나간다. 이 길은 우리 표만 훑으므로 기상청과 무관하게 답한다.
+        if (string.IsNullOrWhiteSpace(place))
+        {
+            try
+            {
+                var found = await api.GetPointPlaceAsync(geo.Latitude, geo.Longitude);
+                place = found?.Place;
+            }
+            catch (Exception ex)
+            {
+                logger.LogDebug(ex, "저장한 좌표의 지역 이름을 받지 못했다.");
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(place))
         {
             pref.WeatherPlace = place;
 

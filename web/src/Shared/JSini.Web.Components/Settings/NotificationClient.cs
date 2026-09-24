@@ -153,4 +153,17 @@ public sealed class NotificationClient(GatewayClient gateway)
         double lat, double lon, CancellationToken ct = default)
         => gateway.GetOneAsync<PointWeatherDto>(
             FormattableString.Invariant($"life/weather/point?lat={lat}&lon={lon}"), ct);
+
+    /// <summary>
+    /// 좌표 하나가 <b>어느 동네인가</b>. 위 <see cref="GetPointWeatherAsync"/> 와
+    /// 달리 <b>기상청을 거치지 않는다</b> — 표 한 번 훑는 일이다.
+    /// </summary>
+    /// <remarks>
+    /// 설정 화면이 <b>열릴 때마다</b> 부른다. 날씨까지 받아 오면 기상청이 느린
+    /// 날에 이름이 안 뜨고, 사람은 저장해 둔 좌표가 어디인지 끝내 모른다.
+    /// </remarks>
+    public Task<PointPlaceDto?> GetPointPlaceAsync(
+        double lat, double lon, CancellationToken ct = default)
+        => gateway.GetOneAsync<PointPlaceDto>(
+            FormattableString.Invariant($"life/weather/place?lat={lat}&lon={lon}"), ct);
 }

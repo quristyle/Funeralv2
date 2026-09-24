@@ -55,6 +55,25 @@ public static class WeatherEndpoints {
     .WithName("GetPointWeather")
     .WithSummary("위경도 한 지점의 현재 날씨와 예보 (내 위치 날씨)");
 
+    // 0-1. 그 지점이 **어디인가**만 (시·도 / 시·군·구 / 읍·면·동)
+    //
+    // 위 /point 와 달리 **기상청을 부르지 않는다.** 설정 화면은 열릴 때마다
+    // 저장해 둔 좌표가 어느 동네인지 보여 줘야 하는데, 그때마다 실황·단기예보를
+    // 받아 오면 왕복이 둘 늘고 기상청이 느린 날에는 이름조차 안 뜬다.
+    //
+    // **국내 좌표인지를 막지 않는다.** 이름을 못 찾으면 비워서 돌려주면 될 뿐이고,
+    // 화면은 그때 좌표를 그대로 보여 준다 — 400 을 주면 「저장은 됐는데 화면이
+    // 빨갛다」가 된다.
+    group.MapGet("/place", async (double? lat, double? lon, PointWeatherService points) => {
+      if (lat is not { } latitude || lon is not { } longitude) {
+        return Results.BadRequest("위도(lat)와 경도(lon)가 필요합니다.");
+      }
+
+      return Results.Ok(await points.GetPlaceAsync(latitude, longitude));
+    })
+    .WithName("GetPointPlace")
+    .WithSummary("위경도 한 지점의 행정구역 이름 (시·도 / 시·군·구 / 읍·면·동)");
+
     // 1. 관측 지역 관리 (CRUD)
     var locationGroup = group.MapGroup("/locations");
 

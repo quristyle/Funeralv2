@@ -46,6 +46,7 @@
 @inject NotificationClient Api
 @inject PushEnroll Enroll
 @inject GeoLocator Geo
+@inject PortalBoot Boot
 @inject IJSRuntime JS
 
 <div class="jsini-npanel">
@@ -142,21 +143,46 @@
     <div class="jsini-weather-loc">
         @if (HasSavedLocation)
         {
+            @* **이름을 맨 위에 한 줄로 둔다.** 아래 칸들은 단계별로 갈라 놓은
+               것이라 한눈에 「어디인가」를 말해 주지 못한다 — 시·도 칸과
+               읍·면·동 칸을 눈으로 이어 붙이게 만드는 셈이다.
+
+               이름을 못 찾는 경우가 실제로 있다(바다 위 · 표에 없는 좌표).
+               그때 빈 줄로 두면 저장이 안 된 줄 아므로 그렇게 적어 준다 —
+               좌표와 지도는 아래에 그대로 있다. *@
+            <div class="jsini-weather-loc__place">
+                @if (PlaceText is { Length: > 0 } placeName)
+                {
+                    <strong>@placeName</strong>
+                }
+                else
+                {
+                    <span class="jsini-text-muted">지역 이름을 찾지 못했습니다</span>
+                }
+            </div>
+
             <dl class="jsini-facts">
+                @* **좌표만 보여 주던 자리다.** 숫자 둘로는 저장된 자리가 맞는지
+                   아무도 판단하지 못한다 — 소수점 넷째 자리가 달라도 사람 눈에는
+                   같아 보인다. 행정구역을 단계별로 갈라 적고 좌표는 그 옆에 둔다. *@
                 <div class="jsini-fact">
-                    <dt>저장된 위치</dt>
-                    <dd>
-                        @if (!string.IsNullOrWhiteSpace(_settings.Preference.WeatherPlace))
-                        {
-                            <strong>@_settings.Preference.WeatherPlace</strong>
-                        }
-                        else
-                        {
-                            @* 이름을 못 찾았어도 **무엇을 저장했는지는 보여 준다.**
-                               빈 칸으로 두면 사람은 저장이 안 된 줄 안다. *@
-                            <strong>@CoordText</strong>
-                        }
-                    </dd>
+                    <dt>시·도</dt>
+                    <dd>@RegionText(1)</dd>
+                </div>
+
+                <div class="jsini-fact">
+                    <dt>시·군·구</dt>
+                    <dd>@RegionText(2)</dd>
+                </div>
+
+                <div class="jsini-fact">
+                    <dt>읍·면·동</dt>
+                    <dd>@RegionText(3)</dd>
+                </div>
+
+                <div class="jsini-fact">
+                    <dt>좌표</dt>
+                    <dd>@CoordText</dd>
                 </div>
 
                 <div class="jsini-fact">
@@ -203,7 +229,29 @@
                                     TextFieldName="@nameof(HourPreset.Label)" />
                     </dd>
                 </div>
+
+                @* **위 「받는 시각」과 다른 것이다.** 저쪽은 알림이 나가는 시각이고
+                   이쪽은 브라우저가 내 자리를 다시 재는 간격이다. 한 칸에 얹으면
+                   촘촘히 받고 싶은 사람이 배터리까지 함께 쓰게 된다.
+
+                   **이 브라우저에만 남는다** — 재는 일도 그 값이 드는 배터리도
+                   이 기기의 것이다. *@
+                <div class="jsini-fact">
+                    <dt>위치 확인 간격</dt>
+                    <dd>
+                        <DxComboBox Data="@IntervalChoices" Style="width: 200px"
+                                    Value="@CurrentInterval"
+                                    ValueChanged="@((IntervalChoice? v) => ChangeIntervalAsync(v))"
+                                    ValueExpression="@(() => CurrentInterval)"
+                                    TextFieldName="@nameof(IntervalChoice.Label)" />
+                    </dd>
+                </div>
             </dl>
+
+            @* **지도는 좌표 아래에 둔다.** 이름과 숫자가 맞는지 판단하는 마지막
+               단서이고, 그 판단은 그림이 제일 빠르다. *@
+            <LocationMap Lat="@_settings.Preference.WeatherLat!.Value"
+                         Lon="@_settings.Preference.WeatherLon!.Value" />
         }
         else
         {
@@ -559,6 +607,11 @@ else
         _settings = settings.Result ?? new NotificationSettingsDto();
         _subscriptions = subs.Result;
 
+        // **좌표를 알았으니 그것이 어디인지도 묻는다.** 저장된 이름이 비어 있는
+        // 사람이 실제로 있어(위 「여기가 어디인가」), 안 물으면 화면에 숫자
+        // 두 개만 남는다. 실패해도 이 조회를 실패로 만들지 않는다.
+        await LoadPlaceAsync();
+
         // 설정을 읽었으면 화면은 채워진 것이다. 기기가 없다고 「없습니다」를
         // 띄우면 설정을 못 읽은 것처럼 보인다.
         return 1;
@@ -607,11 +660,126 @@ else
     private bool HasSavedLocation =>
         _settings?.Preference is { WeatherLat: not null, WeatherLon: not null };
 
-    /// <summary>지역 이름을 못 찾았을 때 대신 보여 줄 좌표.</summary>
+    /// <summary>저장된 좌표. <b>이름을 찾았어도 함께 보여 준다</b>.</summary>
     private string CoordText =>
         _settings?.Preference is { WeatherLat: { } lat, WeatherLon: { } lon }
             ? FormattableString.Invariant($"{lat:0.####}, {lon:0.####}")
             : "-";
+
+    // ── 여기가 어디인가 ─────────────────────────────────────────
+    //
+    // **좌표만 저장된 사람이 실제로 있다.** 좌표를 먼저 저장하고 이름은 날씨와
+    // 함께 받아 채우는 순서라(`GeoLocator.SaveAsync`), 기상청이 답하지 않은
+    // 날에 잡으면 이름 칸이 빈 채로 남는다. 그때 화면에는 숫자 두 개뿐이었다.
+    //
+    // 그래서 **화면이 열릴 때 이름을 따로 물어 본다.** 날씨를 거치지 않는
+    // 길이라(`life/weather/place`) 기상청이 느려도 이름은 뜬다.
+
+    /// <summary>물어서 받아 둔 행정구역. 아직 못 받았으면 <c>null</c>.</summary>
+    private PointPlaceDto? _place;
+
+    /// <summary>
+    /// 머리에 한 줄로 적을 이름. <b>물어서 받은 것이 먼저</b>다 — 저장된 이름은
+    /// 자리가 바뀌면 지워지므로(그쪽이 옛 동네일 수 있다) 새로 받은 쪽을 믿는다.
+    /// </summary>
+    private string? PlaceText =>
+        string.IsNullOrWhiteSpace(_place?.Place)
+            ? _settings?.Preference.WeatherPlace
+            : _place!.Place;
+
+    /// <summary>
+    /// 단계별 이름. 못 찾았으면 <c>-</c> 다.
+    /// </summary>
+    /// <remarks>
+    /// <b>물어서 받은 것이 정본이다.</b> 그것을 못 받았을 때만 저장된 이름을
+    /// 공백으로 가른다 — 정확하지 않을 수 있지만(이름에 공백이 든 행정구역),
+    /// 세 칸을 통째로 비워 두는 것보다 낫다. 서버가 같은 공백으로 이어 붙인다.
+    /// </remarks>
+    private string RegionText(int level)
+    {
+        if (_place is { } found)
+        {
+            var name = level switch
+            {
+                1 => found.Region1,
+                2 => found.Region2,
+                _ => found.Region3,
+            };
+
+            return string.IsNullOrWhiteSpace(name) ? "-" : name!;
+        }
+
+        var saved = _settings?.Preference.WeatherPlace;
+
+        if (string.IsNullOrWhiteSpace(saved))
+        {
+            return "-";
+        }
+
+        var parts = saved.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        return parts.Length >= level ? parts[level - 1] : "-";
+    }
+
+    /// <summary>
+    /// 저장된 좌표가 어디인지 물어 온다. <b>실패해도 아무 말도 하지 않는다</b> —
+    /// 곁들이는 값이고, 못 받으면 저장된 이름으로 되돌아간다.
+    /// </summary>
+    private async Task LoadPlaceAsync()
+    {
+        if (_settings?.Preference is not { WeatherLat: { } lat, WeatherLon: { } lon })
+        {
+            _place = null;
+            return;
+        }
+
+        // 같은 자리를 다시 묻지 않는다. 스위치를 누를 때마다 부르면 표를
+        // 훑는 일이 스위치 수만큼 는다.
+        if (_place is { } had
+            && Math.Abs(had.Lat - lat) < 1e-9
+            && Math.Abs(had.Lon - lon) < 1e-9)
+        {
+            return;
+        }
+
+        try
+        {
+            _place = await Api.GetPointPlaceAsync(lat, lon);
+        }
+        catch (Exception)
+        {
+            _place = null;
+        }
+    }
+
+    // ── 위치 확인 간격 ──────────────────────────────────────────
+    //
+    // **이 브라우저의 값이다**(`PortalBoot.GeoSyncIntervalKey`). 계정에 두면
+    // 큰 모니터 앞에서 고른 촘촘한 간격이 휴대폰까지 따라가 배터리를 쓴다.
+
+    /// <summary>고르개에 놓을 한 칸.</summary>
+    private sealed record IntervalChoice(int Minutes, string Label);
+
+    private static readonly IntervalChoice[] IntervalChoices =
+        [.. PortalBoot.GeoSyncMinuteChoices.Select(m => new IntervalChoice(m, IntervalLabel(m)))];
+
+    /// <summary>분을 사람이 읽는 말로. 60분 미만은 분으로, 그 위는 시간으로.</summary>
+    private static string IntervalLabel(int minutes) =>
+        minutes < 60 ? $"{minutes}분마다" : $"{minutes / 60}시간마다";
+
+    /// <summary>지금 고른 간격. 브라우저에서 읽어 둔 값이다.</summary>
+    private int _intervalMinutes = PortalBoot.DefaultGeoSyncMinutes;
+
+    private IntervalChoice? CurrentInterval =>
+        IntervalChoices.FirstOrDefault(c => c.Minutes == _intervalMinutes);
+
+    private async Task ChangeIntervalAsync(IntervalChoice? choice)
+    {
+        if (choice is null) return;
+
+        _intervalMinutes = choice.Minutes;
+        await Boot.SetGeoSyncIntervalAsync(choice.Minutes);
+    }
 
     /// <summary>
     /// 받는 시각을 고르는 칸. <b>시각을 낱낱이 고르게 하지 않는다</b> —
@@ -631,6 +799,12 @@ else
         new("아침 7시 · 저녁 6시", "7,18"),
         new("아침 7시 · 낮 12시 · 저녁 6시", "7,12,18"),
         new("세 시간마다 (6~21시)", "6,9,12,15,18,21"),
+
+        // **가장 촘촘한 칸이다.** 하루 열여섯 통이라 모두에게 권할 것은
+        // 아니지만, 날씨를 따라 움직이는 일(현장·운행)을 하는 사람에게는
+        // 세 시간이 너무 성글다. 위치 확인 간격을 한 시간으로 두면 이 칸의
+        // 발송마다 좌표가 한 번은 확인된 뒤에 나간다.
+        new("한 시간마다 (6~21시)", "6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21"),
     ];
 
     /// <summary>
@@ -707,6 +881,10 @@ else
             {
                 await LoadPreviewAsync(geo.Latitude, geo.Longitude);
             }
+
+            // 좌표가 갈렸으면 지역 이름도 갈린다. 여기서 안 물으면 화면이
+            // 새 좌표에 옛 동네 이름을 붙여 보여 준다.
+            await LoadPlaceAsync();
         }
         finally
         {
@@ -809,6 +987,11 @@ else
         if (!firstRender) return;
 
         await RefreshBrowserAsync();
+
+        // 고른 위치 확인 간격도 여기서 읽는다 — 브라우저 저장소라 같은 사정이다.
+        // 레이아웃이 이미 내는 왕복에 실려 온다(`PortalBoot` 머리말).
+        _intervalMinutes = (await Boot.ReadAsync()).GeoSyncMinutes;
+
         StateHasChanged();
     }
 
