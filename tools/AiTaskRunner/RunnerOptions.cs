@@ -172,6 +172,9 @@ public sealed class RunnerOptions
 
     public QueueOptions Queue { get; set; } = new();
 
+    /// <summary>「한 줄 물어보기」 — <see cref="QuickAskWorker"/>.</summary>
+    public QuickAskOptions QuickAsk { get; set; } = new();
+
     /// <summary>CLI 어댑터. <b>플래그는 코드가 아니라 여기에 적는다.</b></summary>
     public Dictionary<string, AdapterOptions> Adapters { get; set; } = [];
 }
@@ -321,4 +324,34 @@ public sealed class AdapterOptions
 
     /// <summary>사용량 조회의 제한 시간(초). 곁들이는 일이라 오래 기다리지 않는다.</summary>
     public int UsageTimeoutSeconds { get; set; } = 60;
+}
+
+/// <summary>
+/// 「한 줄 물어보기」 설정. 설명은 <see cref="QuickAskWorker"/> 머리말.
+/// </summary>
+public sealed class QuickAskOptions
+{
+    public bool Enabled { get; set; } = true;
+
+    /// <summary>
+    /// 듣는 큐. <b>AIAgentServer 의 <c>AI:CliRelay:QueueName</c> 과 같아야 한다.</b>
+    /// 브로커 주소는 <see cref="QueueOptions.Host"/> 를 같이 쓴다.
+    /// </summary>
+    public string QueueName { get; set; } = "ai_quick";
+
+    /// <summary>어느 어댑터의 실행 파일을 쓸지. 실행 파일 경로만 빌려 오고 인자는 아래 것을 쓴다.</summary>
+    public string Adapter { get; set; } = "antigravity";
+
+    /// <summary>
+    /// CLI 에 줄 인자. <b>작업 실행용 <c>Args</c> 를 쓰지 않는다</b> — 그쪽에는
+    /// <c>--dangerously-skip-permissions</c> 가 들어 있다.
+    /// </summary>
+    public string[] Args { get; set; } = [];
+
+    public int TimeoutSeconds { get; set; } = 60;
+
+    public int MaxParallel { get; set; } = 2;
+
+    /// <summary>들어오는 질문의 길이 상한. 한 줄 추천에는 수백 자면 넉넉하다.</summary>
+    public int MaxPromptChars { get; set; } = 2000;
 }

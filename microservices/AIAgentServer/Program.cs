@@ -46,6 +46,12 @@ builder.Services.AddSingleton<FreeModelGuard>();
 // HttpClient 가 들어 있어서 요청마다 새로 만들면 소켓이 쌓인다 — 싱글턴으로 둔다.
 builder.Services.AddSingleton<AnthropicTransport>();
 
+// [마지막 대체 — 안티그래비티 CLI]
+//
+// 무료 공급자가 전부 막혔을 때 한 줄 추천만 호스트의 AI 작업 실행기에 맡긴다.
+// 부를 때마다 브로커 연결을 새로 여는 것이라 상태가 없지만, 설정을 한 번만 읽으려고 싱글턴이다.
+builder.Services.AddSingleton<CliRelay>();
+
 // [AI 호출용 HttpClient]
 //
 // 대기 시간을 두 가지로 나눠 잡는다. 하나로 두면 둘 중 하나가 반드시 망가진다.

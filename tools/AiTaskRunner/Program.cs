@@ -74,6 +74,10 @@ builder.Services.AddHostedService<TargetStatusWorker>();
 // 이것이 오래된 것만 치운다.
 builder.Services.AddHostedService<WorkspaceSweeper>();
 
+// AI 서버의 무료 공급자가 전부 막혔을 때 한 줄 추천을 대신 받는 자리.
+// **본업과 갈라 둔다** — 10초짜리 질문이 30분짜리 작업의 자리를 잡지 않는다.
+builder.Services.AddHostedService<QuickAskWorker>();
+
 var host = builder.Build();
 
 await host.RunAsync();
