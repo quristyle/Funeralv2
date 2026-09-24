@@ -25,12 +25,15 @@
 |---|---|---|
 | `deploy/sql/cargotrust-database-2026-09-24.sql` | superuser | **적용함** — 역할·DB·스키마 |
 | `deploy/sql/cargotrust-schema-2026-09-24.sql` | cargotrust | **적용함** — 테이블 9 + pg_trgm |
-| `deploy/sql/portal-menu-cargotrust-2026-09-24.sql` | jsiniportal/scom | **아직** — 메뉴 21줄 + 역할 권한 |
+| `deploy/sql/portal-menu-cargotrust-2026-09-24.sql` | jsiniportal/scom | **적용함** — 메뉴 21줄 + 역할 권한(관리자 두 역할만 켬) |
 
-## 운영 배포 전에
+## 운영 배치 (2026-09-24 끝남, 커밋 fd623895)
 
-1. 운영 서버에 `/srv/jsini/config/CargoTrustServer/appsettings.Local.json` 을 놓는다
-   (`ConnectionStrings:cargotrust`, Host 는 `host.docker.internal`, Port 31015). 없으면 컨테이너가 DB 에 못 붙는다.
-2. 메뉴 SQL 을 돌린다. 안 돌리면 화면은 떠도 사이드바에 안 보인다.
-3. `main` 에 올리면 `deploy.yml` 이 `funeralv2-cargo` 이미지까지 열셋을 올린다.
-4. 로그인해서 `/cargotrust` → 거래처 등록 → 거래 등록 → 결제 등록 → 상세 통계를 한 번 지나 본다.
+1. `/srv/jsini/config/CargoTrustServer/appsettings.Local.json` — `ConnectionStrings:cargotrust`
+   (Host `host.docker.internal`, Port 31015). 없으면 컨테이너가 DB 에 못 붙는다.
+2. `/srv/jsini/config/ApiGateway/appsettings.Local.json` 에 `cargotrust-cluster` →
+   `http://cargo:8080` 을 더하고 **gateway 를 재시작**했다. 빠뜨리면 전 경로가 502 다
+   (compose 머리 주석 참고 — 환경변수로는 먹지 않았다). 고치기 전 사본은 같은 폴더의
+   `appsettings.Local.json.bak-20260924-cargo`.
+3. 메뉴 SQL 적용. 다른 역할에 열려면 권한 화면(`/admin/auth`)에서 켠다.
+4. 남은 확인: 로그인해서 `/cargotrust` → 거래처 등록 → 거래 등록 → 결제 등록 → 상세 통계를 한 번 지나 본다.

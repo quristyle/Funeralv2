@@ -33,13 +33,17 @@ services:
       <<: *common-env
       ASPNETCORE_URLS: http://0.0.0.0:8080
 
-      # 운송관리(CargoTrustServer)로 가는 길. 저장소 appsettings.json 의 주소는 개발 장비
-      # 기준(localhost:5500)이라 컨테이너 안에서는 게이트웨이 자신을 가리킨다.
-      # 다른 클러스터들은 서버의 ApiGateway Local.json 에서 컨테이너 이름으로 덮여 있는데,
-      # 새 서비스를 그 파일에 손으로 더하는 일을 잊으면 **운송관리 전 경로가 502** 가 된다 —
-      # 그래서 여기 적어 둔다. (Local.json 이 환경변수보다 나중에 읽히므로 그 파일에
-      # 같은 키가 생기면 그쪽이 이긴다.)
-      ReverseProxy__Clusters__cargotrust-cluster__Destinations__destination1__Address: http://cargo:8080
+      # 클러스터 주소(http://<서비스>:8080)는 여기가 아니라 서버의
+      # /srv/jsini/config/ApiGateway/appsettings.Local.json 이 덮는다. 저장소
+      # appsettings.json 의 주소는 개발 장비 기준(localhost:…)이라, **새 서비스를
+      # 붙이면 그 파일에 클러스터를 손으로 더하고 gateway 를 재시작해야 한다.**
+      # 빠뜨리면 그 서비스의 전 경로가 502 다.
+      #
+      # 운송관리(2026-09-24) 때 이 자리에 환경변수
+      # (ReverseProxy__Clusters__cargotrust-cluster__…)로 넣어 봤지만 운영 컨테이너에서
+      # 먹지 않았다 — printenv 에는 보이는데 게이트웨이는 localhost:5500 을 불렀다.
+      # 그래서 다른 클러스터와 같은 길(Local.json)로 돌렸다. Local.json 은 고쳐도
+      # 컨테이너 안에서 다시 읽히지 않으니 재시작까지가 한 묶음이다.
     volumes:
       - /srv/jsini/config/ApiGateway/appsettings.Local.json:/app/appsettings.Local.json:ro
     depends_on: [auth, file, site, notify, life, cargo, funeral, helpdesk, projmng, ai]
