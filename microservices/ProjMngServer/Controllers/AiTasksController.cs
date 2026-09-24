@@ -31,6 +31,25 @@ public sealed class AiTasksController(AiTaskService service, AiRunService runs) 
             ? id.ToString()
             : "system";
 
+    /// <summary>
+    /// 요청을 보낸 사람의 <b>이름</b>. 없으면 <c>null</c> — 그때는 아이디로 적는다.
+    /// </summary>
+    /// <remarks>
+    /// 이름은 한글이라 게이트웨이가 URL 인코딩해서 보낸다(<c>ApiGateway/Program.cs</c>).
+    /// 되돌리지 않으면 알림 본문에 <c>%ED%99%8D...</c> 이 그대로 실린다.
+    /// </remarks>
+    private string? UserName
+    {
+        get
+        {
+            var raw = Request.Headers["X-User-Name"].ToString();
+            if (string.IsNullOrWhiteSpace(raw)) return null;
+
+            try { return Uri.UnescapeDataString(raw); }
+            catch (UriFormatException) { return raw; }
+        }
+    }
+
     [HttpGet]
     public async Task<IActionResult> ListAsync(
         [FromQuery] string? status, [FromQuery] string? flag,
@@ -75,7 +94,7 @@ public sealed class AiTasksController(AiTaskService service, AiRunService runs) 
             return BadRequest(ApiResponse<AiTask>.Fail(message: "내용이 필요합니다.", code: "INVALID"));
         }
 
-        var created = await service.CreateUserRequestAsync(item, UserId);
+        var created = await service.CreateUserRequestAsync(item, UserId, UserName);
         return Ok(ApiResponse<AiTask>.Ok(created));
     }
 

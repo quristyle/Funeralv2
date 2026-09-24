@@ -19,7 +19,8 @@ namespace ProjMngServer.Services;
 /// </para>
 /// </remarks>
 public sealed class AiTaskService(
-    IConfiguration configuration, AiTargetService targets, AiTaskQueue queue)
+    IConfiguration configuration, AiTargetService targets, AiTaskQueue queue,
+    AiRequestAlerter alerts)
 {
     private readonly string _connectionString =
         configuration.GetConnectionString("jsini")
@@ -177,7 +178,7 @@ public sealed class AiTaskService(
     /// 작업 대상 · push · 알림이 그것이다. 대상과 AI 는 나중에 관리자가
     /// 「AI 작업」 화면에서 채운다.
     /// </remarks>
-    public async Task<AiTask?> CreateUserRequestAsync(AiTask item, string? userId)
+    public async Task<AiTask?> CreateUserRequestAsync(AiTask item, string? userId, string? userName = null)
     {
         // **대상을 비운다.** 대상이 있으면 관리자가 요청만 누르면 되는데,
         // 일반 사용자가 고른 자리에서 그대로 돌아가는 것이 이 화면의 전제와
@@ -200,7 +201,14 @@ public sealed class AiTaskService(
 
         item.IsUserRequest = true;
 
-        return await CreateAsync(item, userId);
+        var created = await CreateAsync(item, userId);
+
+        // **관리자에게 알린다.** 이 건은 저장만 되고 아무 데서도 안 돌므로,
+        // 알려 주지 않으면 관리자가 화면을 스스로 열어 볼 때까지 그대로 쌓인다
+        // (`AiRequestAlerter` 머리말). 기다리지 않고, 못 보내도 요청은 살아 있다.
+        alerts.Fire(created, userName);
+
+        return created;
     }
 
     /// <summary>

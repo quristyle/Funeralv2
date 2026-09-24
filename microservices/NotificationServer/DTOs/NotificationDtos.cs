@@ -106,10 +106,44 @@ public class PushMessageDto
 /// <remarks>
 /// <b>누구에게 보낼지는 부르는 쪽이 정한다.</b> 이 서비스는 팀도 회사도 모른다 —
 /// 헬프데스크가 자기 DB 에서 대상을 고른 뒤 그 주인 키 목록을 넘긴다.
+///
+/// <para>
+/// 다만 <b>역할(<see cref="Roles"/>)만은 예외</b>다. 역할표(<c>scom.role_accounts</c>)는
+/// 이 서비스가 원래 접속하는 DB 에 있고 다른 서비스에는 없다 — 메일이 이미 같은
+/// 까닭으로 <see cref="SendEmailDto.ToRole"/> 을 받는다.
+/// </para>
 /// </remarks>
 public class SendPushDto
 {
     public List<OwnerRefDto> Owners { get; set; } = new();
+
+    /// <summary>
+    /// 받는 <b>역할</b>(예: <c>SYSTEM_ADMINISTRATOR</c>). 그 역할인 포털 계정
+    /// 전원이 <see cref="Owners"/> 에 더해진다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>주소를 모르는 부르는 쪽을 위해 있다.</b> 다른 서비스는 자기 DB 만 보므로
+    /// 「관리자에게 알려라」를 사람 목록으로 풀지 못한다 — 실제로 프로젝트관리 DB
+    /// (<c>projmng</c>)와 포털 계정 DB(<c>jsiniportal</c>)는 아예 다른 데이터베이스다.
+    /// </para>
+    /// <para>
+    /// <see cref="Owners"/> 와 겹쳐도, 한 사람이 역할 여럿에 걸려도 <b>한 번만</b> 간다.
+    /// </para>
+    /// </remarks>
+    public List<string>? Roles { get; set; }
+
+    /// <summary>
+    /// 이 주인 키는 <b>빼고</b> 보낸다. 역할로 편 목록에서 특정 사람을 덜어 낼 때 쓴다.
+    /// </summary>
+    /// <remarks>
+    /// <b>「내가 한 일을 나에게 알리지 않는다」가 이 칸의 쓰임이다.</b> 관리자가
+    /// 스스로 올린 요청까지 자기 휴대폰을 울리면, 받는 사람은 알림을 끄게 된다.
+    /// 부르는 쪽이 대상에서 미리 빼려면 역할이 누구를 뜻하는지 알아야 하는데
+    /// (<see cref="Roles"/> 머리말) 그것을 아는 곳이 여기뿐이다.
+    /// </remarks>
+    public List<string>? ExcludeOwnerKeys { get; set; }
+
     public PushMessageDto Message { get; set; } = new();
 }
 

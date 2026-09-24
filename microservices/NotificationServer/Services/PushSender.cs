@@ -61,6 +61,9 @@ public class PushSender : IPushSender
         _logger = logger;
     }
 
+    /// <summary>포털 계정을 가리키는 주인 종류. 구독도 설정도 이 값으로 저장된다.</summary>
+    private const string OwnerTypePortal = "jsini";
+
     // ── 못 보낸 까닭 ──────────────────────────────────────────
     //
     // **글자를 상수로 둔다.** 화면이 이 값으로 거르고 묶어 세므로(실패 사유별
@@ -71,6 +74,78 @@ public class PushSender : IPushSender
     private const string ReasonExpired = "구독 만료(정리함)";
     private const string ReasonDeliveryFailed = "전달 실패";
     private const string ReasonNoVapid = "서버에 VAPID 설정 없음";
+
+    /// <summary>
+    /// 보낼 사람 목록을 확정한다 — <b>역할을 사람으로 펴고, 뺄 사람을 덜고,
+    /// 겹치는 사람을 하나로 줄인다.</b>
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>부르는 쪽이 아니라 여기서 한다.</b> 엔드포인트에서 풀면 이 클래스를 직접
+    /// 부르는 자리(배포 알림 · 구독 알림 · 앞으로 생길 것들)가 역할 칸을 조용히
+    /// 흘린다 — 보낸 쪽은 보냈다고 믿는데 아무도 못 받는 갈래다.
+    /// </para>
+    /// <para>
+    /// 역할표는 <c>accounts.id</c> 를 가리키고 구독·설정의 주인 키는
+    /// <c>accounts.user_id</c>(로그인 아이디)라 둘을 이어서 꺼낸다 —
+    /// <c>EmailEndpoints.ResolveRoleEmailsAsync</c> 와 같은 이음이다.
+    /// </para>
+    /// <para>
+    /// <b>푸시를 끈 사람은 여기서 빼지 않는다.</b> 그 판정은 아래 한 곳
+    /// (<c>GetPushDisabledAsync</c>)에 있어야 「왜 안 왔나」가 기록에 남는다.
+    /// </para>
+    /// </remarks>
+    private async Task<List<OwnerRefDto>> ExpandOwnersAsync(
+        SendPushDto request, CancellationToken ct)
+    {
+        var owners = (request.Owners ?? new List<OwnerRefDto>())
+            .Where(o => !string.IsNullOrWhiteSpace(o.OwnerType) && !string.IsNullOrWhiteSpace(o.OwnerKey))
+            .ToList();
+
+        var roles = (request.Roles ?? new List<string>())
+            .Where(r => !string.IsNullOrWhiteSpace(r))
+            .Select(r => r.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (roles.Count > 0)
+        {
+            var loginIds = await (
+                from ra in _db.RoleAccounts
+                where roles.Contains(ra.RoleId) && !ra.IsDeleted
+                join a in _db.Accounts on ra.AccountId equals a.Id
+                where !a.IsDeleted
+                select a.UserId
+            ).Distinct().ToListAsync(ct);
+
+            if (loginIds.Count == 0)
+            {
+                // 오류가 아니다 — 그 역할인 사람이 없는 것뿐이다. 다만 조용히 0 명이
+                // 되는 상황은 알아챌 수 있어야 한다(배포 알림이 같은 자리에 로그를 남긴다).
+                _logger.LogWarning(
+                    "역할 {Roles} 인 계정이 없어 푸시 대상이 늘지 않았습니다.", string.Join(",", roles));
+            }
+
+            owners.AddRange(loginIds.Select(id => new OwnerRefDto
+            {
+                OwnerType = OwnerTypePortal,
+                OwnerKey = id
+            }));
+        }
+
+        var excluded = (request.ExcludeOwnerKeys ?? new List<string>())
+            .Where(k => !string.IsNullOrWhiteSpace(k))
+            .Select(k => k.Trim())
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        // **주인 종류는 보지 않고 키만 대조한다.** 뺄 사람은 언제나 포털 계정
+        // 아이디로 오고, 같은 아이디가 다른 종류로도 등록돼 있다면 그 역시
+        // 같은 사람이다.
+        return owners
+            .Where(o => !excluded.Contains(o.OwnerKey))
+            .DistinctBy(o => (o.OwnerType, o.OwnerKey))
+            .ToList();
+    }
 
     /// <inheritdoc />
     public async Task<SendPushResultDto> SendAsync(
@@ -85,8 +160,7 @@ public class PushSender : IPushSender
             // **이것도 기록에 남긴다.** 화면에서는 「보냈는데 아무 일도 없었다」로
             // 보이는 갈래라, 남기지 않으면 나중에 그 시각에 무슨 일이 있었는지
             // 되짚을 방법이 없다.
-            await LogAsync(request, sentBy, batchId, (request.Owners ?? new List<OwnerRefDto>())
-                .Where(o => !string.IsNullOrWhiteSpace(o.OwnerType) && !string.IsNullOrWhiteSpace(o.OwnerKey))
+            await LogAsync(request, sentBy, batchId, (await ExpandOwnersAsync(request, ct))
                 .Select(o => (o.OwnerType, o.OwnerKey))
                 .ToList(), ReasonNoVapid, ct);
 
@@ -98,9 +172,9 @@ public class PushSender : IPushSender
             };
         }
 
-        var owners = (request.Owners ?? new List<OwnerRefDto>())
-            .Where(o => !string.IsNullOrWhiteSpace(o.OwnerType) && !string.IsNullOrWhiteSpace(o.OwnerKey))
-            .ToList();
+        // **역할로 적어 온 대상을 사람으로 편다.** 부르는 쪽이 아니라 여기서 푸는
+        // 까닭은 `SendPushDto.Roles` 머리말에 있다.
+        var owners = await ExpandOwnersAsync(request, ct);
 
         if (owners.Count == 0)
         {

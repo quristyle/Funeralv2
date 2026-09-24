@@ -89,6 +89,12 @@ builder.Services.AddScoped<AiUsageService>();
 builder.Services.AddHttpClient();
 builder.Services.AddScoped<AiTaskNotifier>();
 
+// 올라온 「AI 작업 요청」을 관리자에게 앱 푸시로 알린다.
+// **Singleton 이다** — 저장 응답을 기다리게 하지 않으려고 뒤로 띄워 보내는데,
+// 그 일이 응답보다 오래 살아야 하므로 요청 수명(Scoped)에 매달면 안 된다.
+// 무는 것은 설정·HttpClient 공장·로거뿐이라 함께 살아도 안전하다.
+builder.Services.AddSingleton<AiRequestAlerter>();
+
 // 결과 요약을 AI 에게 다시 쓰게 한다(AIAgentServer 를 부른다).
 // **실패하면 null 을 주고 끝난다** — 메일은 옛 방식으로 그대로 나간다.
 builder.Services.AddScoped<AiResultSummarizer>();
