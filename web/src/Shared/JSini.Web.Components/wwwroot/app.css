@@ -7363,12 +7363,55 @@ body {
 .jsini-bottom-nav__icon {
     font-size: 20px;
     margin-bottom: 4px;
+
+    /* 아이콘 집안이 둘이다. 띠에 박아 둔 것은 `jsini-icon-*`(크기를
+       `--jsini-icon-size` 로 잰다)이고, 사람이 고른 칸은 메뉴에서 온
+       `jsini-mi--*`(크기를 `em` 으로 잰다)다. 둘을 같은 20px 로 맞춰 둔다 —
+       안 맞추면 고른 칸만 미묘하게 크거나 작아 띠가 들쭉날쭉해 보인다. */
+    --jsini-icon-size: 20px;
+}
+
+.jsini-bottom-nav__icon.jsini-mi {
+    width: 20px;
+    height: 20px;
+}
+
+/* 띠의 글자는 한 줄로 자른다. 이름을 사람이 짓는 자리라(환경설정) 길게
+   적으면 칸 하나가 두 줄이 되고, 그 칸만 높아져 띠가 어긋난다. */
+.jsini-bottom-nav__item > span:last-child {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding: 0 2px;
 }
 
 @media (max-width: 767px) {
     .jsini-bottom-nav {
         display: flex;
     }
+
+    /* 환경설정에서 **띠를 쓰지 않기로 한 사람**(`jsini-bottomnav-hidden`).
+       표시를 붙이는 쪽은 `MainLayout.ShellCss` 다.
+
+       띠 자체는 레이아웃이 안 그리므로 여기서 감출 것이 없다. **되돌릴 것은
+       띠가 비켜 달라고 만들어 둔 자리**다 — 본문 아래 여백, 떠다니는 단추를
+       76px 위로 올린 것, 사이드바 트리 아래 여백 셋. 안 되돌리면 띠는
+       사라졌는데 화면 아래 60px 이 빈 채로 남고, 그 자리에서 사람은
+       「안 없어졌다」로 읽는다. */
+    .jsini-shell--bottomnav-hidden .jsini-shell__content {
+        padding-bottom: calc(0.75rem + env(safe-area-inset-bottom)) !important;
+    }
+
+    .jsini-shell--bottomnav-hidden .jsini-shell__fab--bottom-left,
+    .jsini-shell--bottomnav-hidden .jsini-shell__fab--bottom-right {
+        bottom: calc(0.75rem + env(safe-area-inset-bottom)) !important;
+    }
+
+    .jsini-shell--bottomnav-hidden .jsini-sidebar__tree .dxbl-scroll-viewer {
+        padding-bottom: calc(60px + env(safe-area-inset-bottom)) !important;
+    }
+
     
     /* 위 본문 여백 규칙과 같은 값이다. 여기 것이 뒤에 있어 실제로 쓰이는 쪽이라
        둘을 어긋나게 두면 한쪽만 고쳤을 때 조용히 옛 값으로 돌아간다. */

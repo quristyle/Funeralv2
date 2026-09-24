@@ -762,3 +762,70 @@
     margin-top: 0.5rem;
   }
 }
+
+/* ── 환경설정: 휴대폰 아래 띠 고르기 (`fn-bnav`) ────────────
+
+   줄 하나가 「아이콘 · 메뉴 · 이름 · 빼기」 넷이다. **가로로 붙여 두지
+   않는다** — 이 판이 앉는 자리가 환경설정의 셋째 칸(넓은 화면에서 320px
+   남짓)이고, 휴대폰에서는 화면 폭 그대로다. 넷을 한 줄에 두면 메뉴
+   고르개가 60px 이 되어 무엇을 골랐는지 읽을 수 없다.
+
+   그래서 **감싼다**(`flex-wrap`). 넓으면 한 줄, 좁으면 메뉴가 한 줄을
+   차지하고 이름과 빼기가 그 아래로 내려온다. 아이콘은 늘 맨 앞이다 —
+   고른 메뉴가 무슨 그림으로 띠에 설지를 그 자리에서 보여 주는 것이
+   이 줄의 첫째 일이다.
+   ---------------------------------------------------------- */
+
+.fn-bnav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+/* 「쓰지 않기」로 둔 동안. 조작은 부품마다 `Enabled` 로 이미 잠갔고,
+   여기서 하는 일은 **잠겼다는 것을 보이게** 하는 것뿐이다 — 잠긴 판이
+   멀쩡한 낯으로 있으면 사람은 눌러 보고 나서야 안다. */
+.fn-bnav--off {
+  opacity: 0.55;
+}
+
+.fn-bnav__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+/* 아이콘 집안이 둘이라 크기를 양쪽 다 맞춰 둔다(app.css 의 띠 규칙과 같다). */
+.fn-bnav__icon {
+  --jsini-icon-size: 18px;
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  color: var(--jsini-text-muted);
+}
+
+/* 메뉴 고르개가 남는 폭을 다 먹는다. `min-width` 를 0 으로 안 두면
+   flex 항목의 기본 최소 폭(내용 폭)이 버텨서 줄이 안 감긴다. */
+.fn-bnav__menu {
+  flex: 1 1 11rem;
+  min-width: 0;
+}
+
+.fn-bnav__name {
+  flex: 0 1 7rem;
+  min-width: 0;
+}
+
+.fn-bnav__drop {
+  flex: 0 0 auto;
+}
+
+.fn-bnav__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.25rem;
+}

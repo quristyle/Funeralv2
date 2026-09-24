@@ -301,7 +301,16 @@
               aria-hidden="true"></span>
     </button>
 
-    <MobileBottomNav />
+    @* 휴대폰 화면 아래의 띠. **쓰지 않기로 한 사람에게는 아예 안 그린다** —
+       CSS 로만 감추면 회로가 붙어 있는 내내 안 보이는 단추 다섯이 살아 있고,
+       그중 하나는 테마 서랍을 여는 진짜 조작이다.
+
+       칸에 무엇을 놓을지는 그 부품이 정한다(`BottomNav`). 여기서 아는 것은
+       **쓰는가 마는가** 하나뿐이다. *@
+    @if (!_bottomNavHidden)
+    {
+        <MobileBottomNav />
+    }
 </div>
 
 @* 잠금 덮개 (D7). 격자 **바깥**에 둔다 — 안에 두면 격자 칸 하나를 차지해
@@ -382,7 +391,15 @@
             // 떠다니는 단추를 감춘 사람에게 붙는 표시. 감추는 일만 하고
             // **헤더의 ☰ 를 되돌리지는 않는다** — 휴대폰에서 메뉴를 여는 일은
             // 로고가 이미 한다(`OnBrandClick`, app.css 의 같은 이름).
-            return _fabHidden ? css + " jsini-shell--fab-hidden" : css;
+            if (_fabHidden)
+            {
+                css += " jsini-shell--fab-hidden";
+            }
+
+            // 아래 띠를 쓰지 않기로 한 사람에게 붙는 표시. 띠 자체는 아래에서
+            // 안 그리지만, **본문 아래 여백과 단추 자리 올림**은 CSS 가 들고
+            // 있어서 이 표시로만 걷을 수 있다(app.css 의 같은 이름).
+            return _bottomNavHidden ? css + " jsini-shell--bottomnav-hidden" : css;
         }
     }
 
@@ -453,6 +470,13 @@
     /// 휴대폰에서 메뉴를 여는 일은 로고가 한다(<see cref="OnBrandClick"/>).
     /// </summary>
     private bool _fabHidden;
+
+    /// <summary>
+    /// 휴대폰 아래 띠를 <b>쓰지 않기로</b> 했는가. 기본은 <c>false</c> — 쓴다.
+    /// 읽어 오기 전에도 그 값이라 한 번도 안 고친 사람에게 띠가 깜빡이지 않는다.
+    /// </summary>
+    private bool _bottomNavHidden;
+
     private string _toastPosition = "bottom-right";
     private HorizontalAlignment _toastHorizontal = HorizontalAlignment.Right;
     private VerticalEdge _toastVertical = VerticalEdge.Bottom;
@@ -481,6 +505,7 @@
         // 환경설정 등에서 모바일 메뉴 단추 위치가 바뀌면 즉시 화면에 반영한다.
         Boot.FabPositionChanged += OnFabPositionChanged;
         Boot.FabHiddenChanged += OnFabHiddenChanged;
+        Boot.BottomNavHiddenChanged += OnBottomNavHiddenChanged;
         Boot.ToastPositionChanged += OnToastPositionChanged;
     }
 
@@ -511,6 +536,12 @@
     private void OnFabHiddenChanged(bool hidden)
     {
         _fabHidden = hidden;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void OnBottomNavHiddenChanged(bool hidden)
+    {
+        _bottomNavHidden = hidden;
         InvokeAsync(StateHasChanged);
     }
 
@@ -723,6 +754,12 @@
         if (state.FabHidden != _fabHidden)
         {
             _fabHidden = state.FabHidden;
+            changed = true;
+        }
+
+        if (state.BottomNavHidden != _bottomNavHidden)
+        {
+            _bottomNavHidden = state.BottomNavHidden;
             changed = true;
         }
         
@@ -1228,6 +1265,7 @@
         Me.Changed -= OnMeChanged;
         Boot.FabPositionChanged -= OnFabPositionChanged;
         Boot.FabHiddenChanged -= OnFabHiddenChanged;
+        Boot.BottomNavHiddenChanged -= OnBottomNavHiddenChanged;
         Boot.ToastPositionChanged -= OnToastPositionChanged;
         _watermarkWatch?.Dispose();
     }

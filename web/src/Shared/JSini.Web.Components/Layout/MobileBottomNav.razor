@@ -1,67 +1,125 @@
+@implements IDisposable
 @inject NavigationManager Navigation
 @inject ThemeDrawer Theme
 @inject IMenuProvider Menus
+@inject PortalBoot Boot
+
+@*
+    [휴대폰 화면 아래에 붙는 띠]
+
+    보이고 안 보이고는 CSS 가 정한다(≤767px). 이 파일은 **무엇을 놓을지**만
+    다룬다.
+
+    [칸 다섯이 코드에 박혀 있었다]
+
+    홈·빠른지시·알림·설정·내 정보 다섯을 마크업에 적어 두었다. 그런데 업무가
+    여덟이고 사람마다 하루 종일 붙어 있는 화면이 다르다 — 장례식장만 쓰는
+    사람에게 「빠른지시」는 한 번도 안 누르는 칸이다.
+
+    이제 **환경설정에서 고른다.** 고른 적이 없으면 그 다섯 그대로다
+    (`BottomNav.Defaults`). 무엇을 어디에 저장하고 아이콘을 어떻게 고르는지는
+    전부 `BottomNav` 의 머리말에 있다.
+
+    [띠 자체를 끄는 것은 여기가 아니다]
+
+    「쓰지 않기」로 한 사람에게는 **레이아웃이 이 부품을 아예 안 그린다**
+    (`MainLayout`). 여기서 `@if` 로 감추면 표시(`jsini-shell--bottomnav-hidden`)
+    를 붙이는 쪽과 판정하는 쪽이 갈라지고, 그러면 **띠는 사라졌는데 본문
+    아래 여백만 남는** 상태가 생긴다 — 그 여백은 CSS 가 그 표시로 걷는다.
+*@
 
 <div class="jsini-bottom-nav">
-    <button class="jsini-bottom-nav__item" @onclick="@(() => Navigation.NavigateTo("/"))">
-        <span class="jsini-icon-home jsini-bottom-nav__icon"></span>
-        <span>홈</span>
-    </button>
-    <button class="jsini-bottom-nav__item" @onclick="@GoToAsk">
-        <span class="jsini-icon-bolt jsini-bottom-nav__icon"></span>
-        <span>빠른지시</span>
-    </button>
-    <button class="jsini-bottom-nav__item" @onclick="@(() => Navigation.NavigateTo("/admin/push/history"))">
-        <span class="jsini-icon-bell jsini-bottom-nav__icon"></span>
-        <span>알림</span>
-    </button>
-    <button class="jsini-bottom-nav__item" @onclick="@Theme.Open">
-        <span class="jsini-icon-palette jsini-bottom-nav__icon"></span>
-        <span>설정</span>
-    </button>
-    @* `?tab=` 을 붙이지 않는다. 휴대폰의 그 화면은 주소에 탭이 없으면
-       일곱 항목의 **목록**을 보이고, 붙이면 그 조각 하나로 바로 들어간다
-       (`Profile.razor`). 여기는 「내 정보로 간다」는 뜻이라 목록이 맞다 —
-       탭 하나를 찍어 두면 나머지 여섯은 한 번 되돌아 나와야 닿는다. *@
-    <button class="jsini-bottom-nav__item" @onclick="@(() => Navigation.NavigateTo("/admin/profile"))">
-        <span class="jsini-icon-user jsini-bottom-nav__icon"></span>
-        <span>내 정보</span>
-    </button>
+    @foreach (var item in _items)
+    {
+        <button type="button" class="jsini-bottom-nav__item" @onclick="@(() => Go(item))">
+            <span class="@BottomNav.IconClass(item, Menus.AllMenus) jsini-bottom-nav__icon"
+                  aria-hidden="true"></span>
+            <span>@item.Title</span>
+        </button>
+    }
 </div>
 
 @code {
-    private const string AskRouteKey = "projmng.ai.ask";
-    private const string AskPath = "/projmng/ai/ask";
+    /// <summary>
+    /// 지금 띠에 선 칸들. 읽기 전에는 기본 다섯이다 — 비워 두면 첫 그림에서
+    /// 띠가 빈 채로 한 번 지나간다.
+    /// </summary>
+    private IReadOnlyList<BottomNavItem> _items = BottomNav.Defaults;
 
-    private void GoToAsk()
+    private bool _loaded;
+
+    protected override void OnInitialized()
     {
-        var askMenu = FindAsk(Menus.VisibleMenus);
-        if (askMenu is not null)
+        // 환경설정에서 고친 것이 **같은 회로**라 바로 들어온다. 안 듣고 있으면
+        // 고친 사람이 화면을 한 번 옮겨야 띠가 바뀐다.
+        Boot.BottomNavItemsChanged += OnItemsChanged;
+
+        // 아이콘을 메뉴에서 찾으므로(`BottomNav.IconClass`) 메뉴가 늦게 오면
+        // 그때 다시 그려야 한다 — 안 그러면 고른 칸이 임의 아이콘으로 남는다.
+        Menus.MenusChanged += OnMenusChanged;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || _loaded)
         {
-            Navigation.NavigateTo(askMenu.LinkTarget);
+            return;
         }
-        else
+
+        _loaded = true;
+
+        // `PortalBoot` 의 단일 왕복에 얹혀 간다. 우리 때문에 왕복이 늘지 않는다.
+        var json = (await Boot.ReadAsync()).BottomNavItemsJson;
+        var items = BottomNav.Parse(json);
+
+        if (!SameItems(items, _items))
         {
-            Navigation.NavigateTo(AskPath);
+            _items = items;
+            StateHasChanged();
         }
     }
 
-    private static MenuNode? FindAsk(IReadOnlyList<MenuNode> nodes)
+    private void OnItemsChanged(string? json)
     {
-        foreach (var node in nodes)
-        {
-            if (string.Equals(node.RouteKey, AskRouteKey, StringComparison.OrdinalIgnoreCase)
-                || string.Equals(node.Path, AskPath, StringComparison.OrdinalIgnoreCase))
-            {
-                return node;
-            }
+        _items = BottomNav.Parse(json);
+        InvokeAsync(StateHasChanged);
+    }
 
-            if (FindAsk(node.Children) is { } hit)
-            {
-                return hit;
-            }
+    private void OnMenusChanged() => InvokeAsync(StateHasChanged);
+
+    /// <summary>
+    /// 칸을 눌렀다. 테마 서랍만 주소가 아니고, 나머지는 <b>메뉴를 한 번
+    /// 거쳐</b> 간다(<see cref="BottomNav.Resolve"/>) — 적어 둔 경로가 옛
+    /// 경로일 수 있다.
+    /// </summary>
+    private void Go(BottomNavItem item)
+    {
+        if (string.Equals(item.Path, BottomNav.ThemePath, StringComparison.OrdinalIgnoreCase))
+        {
+            Theme.Open();
+            return;
         }
 
-        return null;
+        Navigation.NavigateTo(BottomNav.Resolve(item, Menus.AllMenus));
+    }
+
+    /// <summary>
+    /// 두 목록이 같은가. 목록끼리는 통째로 비교하면 <b>참조만 본다</b> —
+    /// 읽어 온 것이 기본값과 똑같을 때 쓸데없이 한 번 더 그리게 된다.
+    ///
+    /// <para>
+    /// 이름을 <c>Equals</c> 로 두지 않는다 — 인자 둘짜리 <c>Equals</c> 는
+    /// <see cref="object.Equals(object, object)"/> 를 가려서 경고가 난다.
+    /// </para>
+    /// </summary>
+    private static bool SameItems(
+        IReadOnlyList<BottomNavItem> left, IReadOnlyList<BottomNavItem> right) =>
+        ReferenceEquals(left, right)
+        || (left.Count == right.Count && left.SequenceEqual(right));
+
+    public void Dispose()
+    {
+        Boot.BottomNavItemsChanged -= OnItemsChanged;
+        Menus.MenusChanged -= OnMenusChanged;
     }
 }

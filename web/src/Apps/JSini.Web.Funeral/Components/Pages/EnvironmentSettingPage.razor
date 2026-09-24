@@ -77,6 +77,29 @@
     (`.jsini-shell--fab-hidden`) 표시를 붙이는 쪽은 `MainLayout.ShellCss` 다.
     저장되는 곳은 위치와 같은 갈래다 — 브라우저의 `jsini-fab-hidden`.
 
+    [휴대폰 아래 띠도 여기서 다룬다]
+
+    휴대폰에서 화면 아래에 붙는 띠(홈 · 빠른지시 · 알림 · 설정 · 내 정보)는
+    칸 다섯이 **코드에 박혀** 있었다. 그런데 업무가 여덟이고 사람마다 하루
+    종일 붙어 있는 화면이 다르다 — 장례식장만 쓰는 사람에게 「빠른지시」는
+    한 번도 안 누르는 칸이고, 정작 자주 여는 빈소 현황은 메뉴를 열어야 닿는다.
+
+    그래서 **쓸지 말지**와 **무엇을 놓을지**를 여기서 정한다.
+
+    | | 어떻게 |
+    |---|---|
+    | 쓸지 | 스위치 하나. 끄면 띠도 자리도 사라진다 |
+    | 무엇을 | 메뉴에서 고른다(최대 다섯) |
+    | 아이콘 | **고른 메뉴에 달린 것**을 따라간다. 없으면 경로로 정한 아무 그림 |
+    | 이름 | 사람이 적는다 — 메뉴 이름이 길면 72px 칸에서 끊긴다 |
+
+    **쓰지 않기로 하면 고르개를 잠근다.** 위 「모바일 메뉴 단추」와 같은
+    까닭이다 — 아무 일도 일어나지 않는 조작을 두면 사람은 「안 먹는다」고 읽는다.
+
+    저장되는 곳도 같은 갈래다(브라우저의 `jsini-bottomnav-hidden` ·
+    `jsini-bottomnav-items`). 띠는 767px 아래에서만 보이므로 계정에 담아 봐야
+    큰 모니터에서는 쓰이지 않는다. 자세한 것은 `BottomNav` 의 머리말.
+
     [저장 위치가 아직 정해지지 않았다 — 결정 D8]
 
     고른 테마는 **브라우저에만** 남는다(`localStorage`). 다른 기기에서 열면
@@ -114,6 +137,7 @@
 
 @inherits DataPage
 @inject PortalBoot Boot
+@inject IMenuProvider Menus
 
 <PageTitle>환경설정 · 장례식장</PageTitle>
 
@@ -237,6 +261,85 @@
     </div>
 </section>
 
+@* ── 휴대폰 아래 띠 ──────────────────────────────────────────
+
+   제목을 따로 다는 이유는 이것이 스위치 하나가 아니라 **판**이기 때문이다 —
+   위 묶음의 「이름 · 조작」 두 칸짜리 줄에 칸 다섯짜리 고르개를 끼우면
+   오른쪽 칸만 세로로 길어져 줄이 무너진다.
+
+   **위 묶음 바로 아래에 둔다.** 저 안의 「모바일 메뉴 단추」 둘과 같은
+   갈래(휴대폰에서만 보이는 것 · 브라우저에만 남는 것)라, 떨어뜨려 놓으면
+   휴대폰 설정을 찾는 사람이 화면을 두 번 훑어야 한다. *@
+<h2 class="jsini-subhead">모바일 하단 네비게이션</h2>
+
+<section class="jsini-settings">
+    <div class="jsini-setting">
+        <div>
+            <div class="jsini-setting__name">하단 네비게이션 사용</div>
+            <div class="jsini-setting__desc">
+                휴대폰에서 화면 아래에 붙는 띠입니다. 끄면 띠와 그 자리가 함께
+                사라집니다. <b>이 브라우저에만 남습니다</b>.
+            </div>
+        </div>
+
+        <DxCheckBox Checked="@(!_bottomNavHidden)"
+                    CheckedChanged="@((bool v) => OnBottomNavUsedChangedAsync(v))" />
+    </div>
+</section>
+
+@* 끈 동안에는 통째로 잠근다. 값은 지우지 않아 다시 켜면 고르던 그대로다. *@
+<div class="fn-bnav @(_bottomNavHidden ? "fn-bnav--off" : "")">
+    <p class="jsini-hint">
+        띠에 놓을 메뉴를 최대 @BottomNav.MaxItems 개까지 고릅니다.
+        아이콘은 <b>고른 메뉴에 달린 것</b>을 씁니다 — 없으면 임의의 그림이
+        붙고, 이름은 짧게 고쳐 적을 수 있습니다.
+    </p>
+
+    @for (var i = 0; i < _navItems.Count; i++)
+    {
+        var index = i;
+        var item = _navItems[index];
+
+        <div class="fn-bnav__row">
+            <span class="@BottomNav.IconClass(item, Menus.AllMenus) fn-bnav__icon"
+                  aria-hidden="true"></span>
+
+            <DxComboBox Data="@NavChoices"
+                        TextFieldName="@nameof(BottomNavChoice.Label)"
+                        ValueFieldName="@nameof(BottomNavChoice.Path)"
+                        Value="@item.Path"
+                        ValueChanged="@((string? path) => OnNavMenuChangedAsync(index, path))"
+                        AllowUserInput="true"
+                        SearchMode="ListSearchMode.AutoSearch"
+                        SearchFilterCondition="ListSearchFilterCondition.Contains"
+                        Enabled="@(!_bottomNavHidden)"
+                        CssClass="fn-bnav__menu" />
+
+            <DxTextBox Text="@item.Title"
+                       TextChanged="@((string? text) => OnNavTitleChangedAsync(index, text))"
+                       BindValueMode="BindValueMode.OnLostFocus"
+                       Enabled="@(!_bottomNavHidden)"
+                       CssClass="fn-bnav__name" />
+
+            <DxButton Text="빼기" RenderStyle="ButtonRenderStyle.Secondary"
+                      Enabled="@(!_bottomNavHidden)"
+                      Click="@(() => OnNavRemoveAsync(index))"
+                      CssClass="fn-bnav__drop" />
+        </div>
+    }
+
+    <div class="fn-bnav__actions">
+        <DxButton Text="항목 추가" IconCssClass="jsini-icon-plus"
+                  RenderStyle="ButtonRenderStyle.Secondary"
+                  Enabled="@(!_bottomNavHidden && _navItems.Count < BottomNav.MaxItems)"
+                  Click="@OnNavAddAsync" />
+
+        <DxButton Text="기본값으로" RenderStyle="ButtonRenderStyle.Link"
+                  Enabled="@(!_bottomNavHidden)"
+                  Click="@OnNavResetAsync" />
+    </div>
+</div>
+
 <h2 class="jsini-subhead">찾으시는 것이 여기 없다면</h2>
 
 <section class="jsini-settings">
@@ -335,6 +438,8 @@
         _selectedFabPosition = state.FabPosition;
         _fabHidden = state.FabHidden;
         _selectedToastPosition = state.ToastPosition;
+        _bottomNavHidden = state.BottomNavHidden;
+        _navItems = [.. BottomNav.Parse(state.BottomNavItemsJson)];
         StateHasChanged();
     }
 
@@ -348,5 +453,179 @@
     {
         _fabHidden = value;
         await Boot.SetFabHiddenAsync(value);
+    }
+
+    // ── 휴대폰 아래 띠 ──────────────────────────────────────────
+
+    /// <summary>띠를 <b>쓰지 않기로</b> 했는가. 화면의 스위치는 이것을 뒤집어 보인다.</summary>
+    private bool _bottomNavHidden;
+
+    /// <summary>띠에 세워 둔 칸들. 고치는 자리라 <b>읽기 전용이 아니다.</b></summary>
+    private List<BottomNavItem> _navItems = [.. BottomNav.Defaults];
+
+    /// <summary>이 목록을 만들 때 본 메뉴 트리. 참조로 비교한다.</summary>
+    private IReadOnlyList<MenuNode>? _choiceSource;
+
+    private IReadOnlyList<BottomNavChoice> _navChoices = [];
+
+    /// <summary>
+    /// 고르개에 놓을 것들.
+    /// </summary>
+    /// <remarks>
+    /// <b>메뉴 트리가 실제로 바뀌었을 때만 다시 만든다.</b> 렌더마다 만들면
+    /// 179건을 훑은 결과가 매번 새 참조가 되고, DevExpress 고르개는 자료가
+    /// 다른 것으로 바뀌면 열어 둔 목록을 닫고 친 글자를 버린다 — 사이드바
+    /// 트리에서 이미 밟은 함정이다(web/CLAUDE.md).
+    ///
+    /// <para>
+    /// 속성으로 둔 이유는 <b>메뉴가 늦게 올 수 있어서</b>다. 부트스트랩이
+    /// 끝나기 전에 그리면 고를 것이 홈과 설정 둘뿐인 목록이 굳는다.
+    /// </para>
+    /// </remarks>
+    private IReadOnlyList<BottomNavChoice> NavChoices
+    {
+        get
+        {
+            if (!ReferenceEquals(_choiceSource, Menus.VisibleMenus))
+            {
+                _choiceSource = Menus.VisibleMenus;
+                _navChoices = BottomNav.Choices(_choiceSource);
+            }
+
+            return _navChoices;
+        }
+    }
+
+    private async Task OnBottomNavUsedChangedAsync(bool used)
+    {
+        _bottomNavHidden = !used;
+        await Boot.SetBottomNavHiddenAsync(_bottomNavHidden);
+    }
+
+    /// <summary>
+    /// 이 줄이 가리킬 메뉴를 바꿨다. <b>이름도 함께 갈아 준다</b> — 메뉴를
+    /// 바꾸는 사람은 그 메뉴의 이름을 바라지, 앞 메뉴에 붙여 둔 이름을
+    /// 바라지 않는다. 마음에 안 들면 옆 칸에서 고친다.
+    /// </summary>
+    /// <remarks>
+    /// 아이콘은 <b>비운다.</b> 기본 다섯이 들고 있던 것(<c>jsini-icon-*</c>)을
+    /// 그대로 두면 메뉴를 바꿔도 옛 그림이 남는다 — 비워 두면 그릴 때마다
+    /// 고른 메뉴에서 찾는다(<see cref="BottomNav.IconClass"/>).
+    /// </remarks>
+    private async Task OnNavMenuChangedAsync(int index, string? path)
+    {
+        if (index >= _navItems.Count || string.IsNullOrWhiteSpace(path))
+        {
+            return;
+        }
+
+        var choice = NavChoices.FirstOrDefault(c =>
+            string.Equals(c.Path, path, StringComparison.OrdinalIgnoreCase));
+
+        _navItems[index] = new BottomNavItem
+        {
+            Path = path,
+            RouteKey = choice?.RouteKey,
+            Title = LeafOf(choice?.Label) ?? _navItems[index].Title,
+        };
+
+        await SaveNavAsync();
+    }
+
+    private async Task OnNavTitleChangedAsync(int index, string? text)
+    {
+        if (index >= _navItems.Count)
+        {
+            return;
+        }
+
+        var title = (text ?? string.Empty).Trim();
+
+        // 비우면 저장할 때 걸러진다(`BottomNav.Parse`) — 그러면 지운 적 없는
+        // 칸이 다음 새로고침에 조용히 사라진다. 빈 이름은 그냥 무른다.
+        if (title.Length == 0 || title == _navItems[index].Title)
+        {
+            StateHasChanged();
+            return;
+        }
+
+        _navItems[index] = _navItems[index] with { Title = title };
+        await SaveNavAsync();
+    }
+
+    private async Task OnNavRemoveAsync(int index)
+    {
+        if (index >= _navItems.Count)
+        {
+            return;
+        }
+
+        _navItems.RemoveAt(index);
+
+        // **다 빼면 기본값으로 되돌린다.** 빈 목록을 적어 두면 화면 아래에
+        // 빈 띠만 남고(`BottomNav.Parse` 가 그래서 기본값을 돌려준다), 화면과
+        // 저장된 것이 갈라진다. 띠를 없애는 길은 위 스위치다.
+        if (_navItems.Count == 0)
+        {
+            await OnNavResetAsync();
+            return;
+        }
+
+        await SaveNavAsync();
+    }
+
+    /// <summary>
+    /// 칸을 하나 더한다. <b>아직 안 쓴 것 중 첫 번째</b>로 채워 둔다 —
+    /// 빈 줄로 두면 고르기 전까지 저장할 수 없는 줄이 하나 생기고, 그 자리에서
+    /// 사람은 「추가가 안 먹는다」고 읽는다.
+    /// </summary>
+    private async Task OnNavAddAsync()
+    {
+        if (_navItems.Count >= BottomNav.MaxItems)
+        {
+            return;
+        }
+
+        var used = _navItems.Select(i => i.Path).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var pick = NavChoices.FirstOrDefault(c => !used.Contains(c.Path)) ?? NavChoices.FirstOrDefault();
+
+        if (pick is null)
+        {
+            return;
+        }
+
+        _navItems.Add(new BottomNavItem
+        {
+            Path = pick.Path,
+            RouteKey = pick.RouteKey,
+            Title = LeafOf(pick.Label) ?? pick.Label,
+        });
+
+        await SaveNavAsync();
+    }
+
+    /// <summary>
+    /// 고른 것을 버리고 기본 다섯으로. <b>열쇠를 지운다</b> — 기본값을 글자로
+    /// 적어 두면 나중에 기본이 바뀌어도 그 사람만 옛 다섯에 묶인다.
+    /// </summary>
+    private async Task OnNavResetAsync()
+    {
+        _navItems = [.. BottomNav.Defaults];
+        await Boot.SetBottomNavItemsAsync(null);
+    }
+
+    private Task SaveNavAsync() => Boot.SetBottomNavItemsAsync(BottomNav.Serialize(_navItems));
+
+    /// <summary>줄기를 뗀 끝 이름. 「포털관리 › 알림 이력」 → 「알림 이력」.</summary>
+    private static string? LeafOf(string? label)
+    {
+        if (string.IsNullOrWhiteSpace(label))
+        {
+            return null;
+        }
+
+        var cut = label.LastIndexOf('›');
+
+        return cut < 0 ? label.Trim() : label[(cut + 1)..].Trim();
     }
 }

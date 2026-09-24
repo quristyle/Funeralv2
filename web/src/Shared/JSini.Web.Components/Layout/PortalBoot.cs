@@ -172,6 +172,34 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
     public const string FabHiddenKey = "jsini-fab-hidden";
 
     /// <summary>
+    /// 휴대폰 화면 아래의 띠(<c>MobileBottomNav</c>)를 <b>쓰지 않을 것인가</b>.
+    /// 열쇠가 있으면 안 쓴다 — 즉 <b>없는 것이 기본이고, 기본은 쓴다</b>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>「쓴다」가 아니라 「안 쓴다」를 적어 두는 이유</b>가 있다. 읽는 쪽의
+    /// 판정이 「열쇠가 있으면 그렇다는 뜻」(<see cref="BrowserState.From"/>)이라
+    /// 「쓴다」를 적으면 <b>한 번도 안 고친 사람에게 띠가 사라진다.</b>
+    /// 떠다니는 단추 숨김(<see cref="FabHiddenKey"/>)과 같은 꼴이다.
+    /// </para>
+    /// <para>
+    /// <b>이 브라우저의 것이다</b> — 띠는 767px 아래에서만 보이므로 계정에
+    /// 담아 봐야 큰 모니터에서는 쓰이지 않는다.
+    /// </para>
+    /// </remarks>
+    public const string BottomNavHiddenKey = "jsini-bottomnav-hidden";
+
+    /// <summary>
+    /// 그 띠에 놓을 칸들(JSON). 없으면 <c>BottomNav.Defaults</c> 다.
+    /// </summary>
+    /// <remarks>
+    /// 모양과 기본값은 <see cref="BottomNav"/> 가 갖는다 — 여기는 <b>열쇠
+    /// 이름만</b> 안다. 읽어 온 글자를 그대로 넘기는 이유는 이 통이 화면의
+    /// 말(<c>BottomNavItem</c>)을 모르게 두려는 것이다.
+    /// </remarks>
+    public const string BottomNavItemsKey = "jsini-bottomnav-items";
+
+    /// <summary>
     /// 토스트(화면에 뜨는 알림) 위치.
     /// <c>bottom-right</c>(기본) 외 여섯 자리 중 하나다.
     /// </summary>
@@ -220,6 +248,8 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
         GeoSyncedAtKey,
         FabPositionKey,
         FabHiddenKey,
+        BottomNavHiddenKey,
+        BottomNavItemsKey,
         ToastPositionKey,
         GeoSyncIntervalKey,
     ];
@@ -441,6 +471,72 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
         FabHiddenChanged?.Invoke(hidden);
     }
 
+    /// <summary>아래 띠를 쓸지가 바뀌었을 때 알린다.</summary>
+    public event Action<bool>? BottomNavHiddenChanged;
+
+    /// <summary>
+    /// 휴대폰 아래 띠를 <b>쓰지 않을지</b>를 저장하고 화면에 알린다.
+    /// </summary>
+    /// <remarks>
+    /// 다시 쓰기로 할 때는 <b>열쇠를 지운다.</b> <c>"0"</c> 을 적으면 읽는 쪽의
+    /// 「있으면 그렇다는 뜻」 판정에 걸려 <b>쓰기로 한 것이 안 쓰는 것으로
+    /// 읽힌다</b>(<see cref="BottomNavHiddenKey"/>).
+    /// </remarks>
+    public async Task SetBottomNavHiddenAsync(bool hidden)
+    {
+        try
+        {
+            if (hidden)
+            {
+                await js.InvokeVoidAsync("localStorage.setItem", BottomNavHiddenKey, "1");
+            }
+            else
+            {
+                await js.InvokeVoidAsync("localStorage.removeItem", BottomNavHiddenKey);
+            }
+        }
+        catch (Exception ex) when (ex is JSException or InvalidOperationException)
+        {
+            logger.LogDebug(ex, "하단 네비게이션 사용 여부를 브라우저에 저장하지 못했다.");
+        }
+
+        BottomNavHiddenChanged?.Invoke(hidden);
+    }
+
+    /// <summary>띠에 놓을 칸이 바뀌었을 때 알린다. 날것 JSON 을 그대로 준다.</summary>
+    public event Action<string?>? BottomNavItemsChanged;
+
+    /// <summary>
+    /// 띠에 놓을 칸들을 저장하고 화면에 알린다.
+    /// </summary>
+    /// <remarks>
+    /// <paramref name="json"/> 이 비면 <b>열쇠를 지운다</b> — 「기본값으로
+    /// 되돌리기」가 그 길이다. 빈 배열(<c>[]</c>)을 적어 두면 칸이 하나도 없는
+    /// 빈 띠가 남고, 그 자리에서 사람은 고장으로 읽는다.
+    /// </remarks>
+    public async Task SetBottomNavItemsAsync(string? json)
+    {
+        var value = string.IsNullOrWhiteSpace(json) ? null : json;
+
+        try
+        {
+            if (value is null)
+            {
+                await js.InvokeVoidAsync("localStorage.removeItem", BottomNavItemsKey);
+            }
+            else
+            {
+                await js.InvokeVoidAsync("localStorage.setItem", BottomNavItemsKey, value);
+            }
+        }
+        catch (Exception ex) when (ex is JSException or InvalidOperationException)
+        {
+            logger.LogDebug(ex, "하단 네비게이션 항목을 브라우저에 저장하지 못했다.");
+        }
+
+        BottomNavItemsChanged?.Invoke(value);
+    }
+
     /// <summary>토스트 알림 위치가 바뀌었을 때 알린다.</summary>
     public event Action<string>? ToastPositionChanged;
 
@@ -652,6 +748,18 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
         public bool FabHidden { get; private init; }
 
         /// <summary>
+        /// 휴대폰 아래 띠를 <b>쓰지 않기로</b> 했는가. 고른 적이 없으면
+        /// <c>false</c> — 즉 쓴다.
+        /// </summary>
+        public bool BottomNavHidden { get; private init; }
+
+        /// <summary>
+        /// 그 띠에 놓을 칸들. 날것 JSON 이고 고른 적이 없으면 <c>null</c> 이다.
+        /// 옮겨 담는 일은 <see cref="BottomNav.Parse"/> 가 한다.
+        /// </summary>
+        public string? BottomNavItemsJson { get; private init; }
+
+        /// <summary>
         /// 토스트 알림 위치. 없거나 잘못된 값이면 <c>bottom-right</c> 다.
         /// </summary>
         public string ToastPosition { get; private init; } = "bottom-right";
@@ -683,6 +791,8 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
             Theme = wire.Theme,
             FabPosition = NormalizeFabPosition(Get(wire.Local, FabPositionKey)),
             FabHidden = Has(wire.Local, FabHiddenKey),
+            BottomNavHidden = Has(wire.Local, BottomNavHiddenKey),
+            BottomNavItemsJson = Get(wire.Local, BottomNavItemsKey),
             ToastPosition = NormalizeToastPosition(Get(wire.Local, ToastPositionKey)),
             GeoSyncMinutes = NormalizeGeoSyncMinutes(Minutes(Get(wire.Local, GeoSyncIntervalKey))),
         };
