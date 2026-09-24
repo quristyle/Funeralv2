@@ -102,6 +102,10 @@
     **카드의 색**으로 말한다 — 반 폭짜리 카드에 배지까지 얹으면 제목이 잘리고,
     무엇을 시켰는지가 사라지면 상태만 남아도 소용이 없다.
 
+    **둘씩은 이제 기본값일 뿐이다 (2026-09-25).** 목록 위 오른쪽의 고르개로
+    한 단 · 두 단 · 세 단을 고르고, 고른 것은 기억한다. 까닭과 고르개를 그
+    자리에 둔 이유는 그 마크업 바로 위에 적었다.
+
     [넉 장이 모자랄 때 — 「더보기」 (2026-09-19)]
 
     넉 장은 「방금 보낸 것이 갔나」에 답하는 수다. 그런데 하루에 여남은 건을
@@ -383,7 +387,48 @@
         }
         else
         {
-            <ul class="pm-ask__list">
+            @* ── 몇 단으로 깔 것인가 (2026-09-25) ───────────────
+
+               한동안 **둘씩** 하나뿐이었다. 그런데 같은 알맹이가 뜨는 자리가
+               셋이다 — 세로로 쥔 휴대폰 · 헤더에서 여는 서랍(좁고 길다) ·
+               책상의 넓은 화면. 한 벌의 수로는 그 셋을 다 맞출 수 없다.
+
+                 · 휴대폰에서 반 폭이면 제목이 **두어 낱말 만에** 잘린다.
+                   무엇을 시킨 건인지가 사라지면 상태만 남아도 소용이 없다.
+                 · 넓은 화면에서 두 장은 한 줄을 다 못 쓴다. 카드가 옆으로
+                   늘어져 오른쪽이 허옇게 남고, 그만큼 세로로 길어진다.
+
+               그래서 **사람이 고른다.** 고른 것은 기억한다
+               (`AiAskPrefs.ListCols`, 브라우저) — 기기마다 다른 것이 맞는
+               값이라 서버가 아니다. 왜 브라우저인지는 그 파일 머리말에.
+
+               자리는 목록 **위 오른쪽**이다. 아래 「더보기」 줄에 붙이면
+               **카드가 적을 때 그 줄이 아예 안 서서** 고르는 길이 사라진다.
+
+               글자는 숫자뿐이다. 카드 한 층도 안 되는 높이에 「1단·2단·3단」
+               여섯 글자를 밀어 넣을 이유가 없고, 무엇을 고르는 줄인지는
+               왼쪽의 「단」이 말한다. 화면 낭독기에는 `title` 이 온 말을
+               읽어 준다.
+
+               **좁다고 되돌리지 않는다.** 휴대폰에서 셋을 고른 사람은 제목이
+               잘리는 것을 알고 고른 것이다(한눈에 몇 장 보는 쪽을 택했다).
+               화면 폭이 그 선택을 말없이 덮으면 「눌렀는데 안 바뀐다」가 된다. *@
+            <div class="pm-ask__cols" role="group" aria-label="카드 단 수">
+                <span class="pm-ask__cols-label">단</span>
+
+                @foreach (var n in ColChoices)
+                {
+                    <button type="button" class="pm-ask__col"
+                            aria-pressed="@(_cols == n ? "true" : "false")"
+                            title="@($"가로 {n}단으로 깔기")"
+                            @onclick="@(() => SetCols(n))">@n</button>
+                }
+            </div>
+
+            @* 단 수는 **격자에 실어 내린다**(`--pm-ask-cols`). 단마다 클래스를
+               따로 두면 CSS 가 같은 규칙을 셋으로 베끼고, 넷째 단을 더하는
+               날 고칠 자리가 또 둘이 된다. *@
+            <ul class="pm-ask__list" style="--pm-ask-cols: @_cols">
                 @foreach (var t in _recent)
                 {
                     @* 카드 한 장이 건 하나고 **얼굴 하나 + 두 층**이다.
@@ -495,15 +540,54 @@
     private IReadOnlyList<PickOption> AllKinds = [];
 
     /// <summary>
-    /// 처음 보이는 건수이자 <b>「더보기」가 한 번에 늘리는 수</b>다. 목록
-    /// 화면이 아니므로 짧게 둔다.
-    /// <b>가로 두 장씩 다섯 줄</b>이다.
+    /// 처음 보이는 건수이자 <b>「더보기」가 한 번에 늘리는 수</b>의 <b>밑값</b>이다.
+    /// 목록 화면이 아니므로 짧게 둔다 — 기본인 두 단에서 <b>가로 두 장씩
+    /// 다섯 줄</b>이다.
     /// <para>
-    /// 10이 <b>둘로 나누어떨어진다</b>는 것도 이 값의 일부다. 홀수로 두면
-    /// 마지막 줄에 빈 칸이 하나 남는다.
+    /// 실제로 쓰는 수는 <see cref="PageCount"/> 다. 단 수가 사람 손에 달려
+    /// 있으므로 <b>여기 적힌 10이 늘 그대로 나가지 않는다</b> — 세 단이면
+    /// 12로 올라간다. 까닭은 그 속성에.
     /// </para>
     /// </summary>
     private const int RecentMax = 10;
+
+    /// <summary>고를 수 있는 단 수. 화면의 고르개가 이 차례로 선다.</summary>
+    private static readonly int[] ColChoices = [1, 2, 3];
+
+    /// <summary>
+    /// 기억이 없을 때의 단 수. <b>한동안 이 값 하나뿐이었다</b> — 고르개가
+    /// 생기기 전에 쓰던 사람은 아무것도 안 바뀐 화면을 본다.
+    /// </summary>
+    private const int ColsDefault = 2;
+
+    /// <summary>
+    /// 카드를 몇 단으로 까는가. 격자에 그대로 실린다(<c>--pm-ask-cols</c>).
+    /// </summary>
+    private int _cols = ColsDefault;
+
+    /// <summary>
+    /// 한 번에 까는 장수이자 「더보기」가 한 번에 늘리는 수.
+    /// <b><see cref="RecentMax"/> 이상이면서 단 수로 나누어떨어지는 가장 작은 수</b>다
+    /// (한 단 10 · 두 단 10 · 세 단 12).
+    /// </summary>
+    /// <remarks>
+    /// 10을 그대로 쓰면 세 단에서 <b>마지막 줄에 빈 칸이 하나</b> 남는다.
+    /// 「더보기」를 누를 때마다 그 구멍이 같은 자리에 다시 생기므로 한 번
+    /// 어긋나고 마는 것이 아니다.
+    /// <para>
+    /// <b>깔린 장수를 이 값에 맞추지는 못한다.</b> 안 끝난 것은 몇이든 전부
+    /// 깔리기 때문이다(<see cref="Show"/>) — 여기서 고르게 두는 것은
+    /// <b>채움분</b>뿐이다.
+    /// </para>
+    /// </remarks>
+    private int PageCount => ((RecentMax + _cols - 1) / _cols) * _cols;
+
+    /// <summary>
+    /// 적어 둔 단 수를 화면이 쓸 수 있는 값으로 맞춘다. <b>범위를 벗어나면
+    /// 기본값으로 돌린다</b> — 0을 그대로 쓰면 <c>repeat(0, …)</c> 이 되어
+    /// 카드가 통째로 안 그려지고, 그 화면에는 아무 오류도 안 뜬다.
+    /// </summary>
+    private static int PickCols(int n) => ColChoices.Contains(n) ? n : ColsDefault;
 
     private IReadOnlyList<AiTargetDto> _targets = [];
 
@@ -889,6 +973,13 @@
             _mail = pref.NotifyEmail;
             _pwa = pref.NotifyPwa;
 
+            // 단 수는 **얹고 나서 다시 잘라야 한다.** 첫 판은 기본인 두 단으로
+            // 깔렸고 채움분이 그 수(10)로 계산되어 있어서, 세 단을 기억한
+            // 사람은 여기서 다시 세지 않으면 **마지막 줄에 빈 칸 하나를 둔
+            // 채로** 화면이 선다.
+            _cols = PickCols(pref.ListCols);
+            Show(_all);
+
             // 작성 중이던 임시본이 있으면 복원한다
             if (!string.IsNullOrWhiteSpace(pref.DraftText))
             {
@@ -931,6 +1022,7 @@
         AutoPush = true,
         NotifyEmail = _mail,
         NotifyPwa = _pwa,
+        ListCols = _cols,
         DraftText = _text,
         DraftSavedAt = _draftSavedAt ?? (_text is not null ? DateTime.Now : null),
     });
@@ -1062,11 +1154,41 @@
         _open = _all.Where(t => !IsDone(t)).ToList();
         _done = _all.Where(IsDone).ToList();
 
-        // 안 끝난 것이 넷을 넘으면 채움은 0이다 — **깎지는 않는다.**
+        // 안 끝난 것이 한 판을 넘으면 채움은 0이다 — **깎지는 않는다.**
         // 아홉이면 아홉 장이 다 깔린다.
-        var fill = Math.Max(0, RecentMax - _open.Count) + (_more * RecentMax);
+        var page = PageCount;
+        var fill = Math.Max(0, page - _open.Count) + (_more * page);
 
         _recent = _open.Concat(_done.Take(fill)).ToList();
+    }
+
+    /// <summary>
+    /// 단 수를 바꾼다. <b>서버를 부르지 않는다</b> — 목록은 이미 다 받아 두었고
+    /// 바뀌는 것은 같은 자료를 몇 줄로 늘어놓느냐뿐이다.
+    /// </summary>
+    /// <remarks>
+    /// <b>「더보기」를 몇 번 눌렀는지(<see cref="_more"/>)는 그대로 둔다.</b>
+    /// 되돌리면 펼쳐 놓고 보던 것이 단을 바꾸는 순간 접힌다 — 5초마다 도는
+    /// 타이머가 그 값을 건드리지 않는 것과 같은 까닭이다.
+    /// <para>
+    /// 다만 <b>한 판의 장수가 함께 바뀌므로</b>(<see cref="PageCount"/>)
+    /// 깔린 장수는 조금 달라진다. 세 단으로 옮기면 열 장이 열두 장이 된다.
+    /// </para>
+    /// </remarks>
+    private void SetCols(int n)
+    {
+        n = PickCols(n);
+
+        if (_cols == n)
+        {
+            return;
+        }
+
+        _cols = n;
+
+        // 채움분이 단 수의 배수라 여기서 다시 센다.
+        Show(_all);
+        Remember();
     }
 
     /// <summary>
