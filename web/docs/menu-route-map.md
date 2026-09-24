@@ -100,7 +100,7 @@
 | /system/push/dashboard | /admin/push/dashboard | portal/system/push/dashboard |
 | /system/push/logs | /admin/push/logs | portal/system/push/logs |
 | /system/push/history | /admin/push/history | portal/system/push/history |
-| /system/push/setting | /admin/push/setting | portal/system/push/setting |
+| ~~/system/push/setting~~ | (지움 — `/funeral/setting/environment` 로 합침) | portal/system/push/setting |
 | /system/server-status | /admin/status/server | portal/system/server-status/index |
 | /system/server-status/jin114 | /admin/status/jin114 | EMBEDDED iframe https://sec.jin114.co.kr/ |
 | /system/deploy-status | /admin/status/deploy | portal/system/deploy-status/index |

@@ -13,6 +13,12 @@
 
     이행이 끝나면 이 컴포넌트와 각 모듈의 포괄 라우트를 함께 지운다.
     **그때까지 남은 화면 수를 세는 자리이기도 하다.**
+
+    [합쳐서 없어진 화면도 여기서 받는다]
+
+    끼워 넣기(EMBEDDED)뿐 아니라, 중복을 걷어내며 **지운 화면의 옛 주소**도
+    이리로 온다(`Moved`). 그 주소는 즐겨찾기·띄워 둔 탭·이미 보낸 푸시에 남아
+    있으므로 안내 대신 새 자리로 보낸다.
 *@
 
 @inject IReadOnlyList<IPortalModule> Modules
@@ -55,11 +61,48 @@
     /// </summary>
     protected override void OnParametersSet()
     {
+        if (Moved.TryGetValue(CurrentPath, out var moved))
+        {
+            Navigation.NavigateTo(moved, replace: true);
+            return;
+        }
+
         if (Embedded(Menus.AllMenus) is { } node)
         {
             Navigation.NavigateTo(EmbeddedRoute.HrefFor(node.Path), replace: true);
         }
     }
+
+    /// <summary>
+    /// <b>합쳐서 없어진 화면</b>의 옛 주소 → 지금 그 일을 하는 화면.
+    ///
+    /// <para>
+    /// 화면을 지우면 그 주소가 사람들 즐겨찾기 · 띄워 둔 탭 · <b>이미 보낸
+    /// 푸시</b>에 그대로 남는다. 알림을 눌러서 「페이지를 찾을 수 없습니다」가
+    /// 뜨면 지운 화면인지 고장인지 구분할 길이 없다.
+    /// </para>
+    ///
+    /// <para>
+    /// 여기 두는 이유는 여덟 모듈의 포괄 라우트가 모두 이 부품으로 떨어지기
+    /// 때문이다(위 EMBEDDED 와 같은 판단). 지운 화면 자리에 리다이렉트만 하는
+    /// 껍데기 라우트를 남기면 <b>그 열쇠를 메뉴가 다시 가리킬 수 있게</b> 되고,
+    /// 지웠다는 사실이 코드에서 사라진다.
+    /// </para>
+    ///
+    /// <para>
+    /// 대소문자를 가리지 않고 찾는다(<c>OrdinalIgnoreCase</c>). 물어보는 값은
+    /// <c>CurrentPath</c> 라 <c>?</c>·<c>#</c> 뒤는 이미 떨어져 있다 — 알림이
+    /// 물음표를 붙여 보내도 걸린다.
+    /// </para>
+    /// </summary>
+    private static readonly IReadOnlyDictionary<string, string> Moved =
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            // 포털관리의 「알림 설정」. 장례식장 「환경설정」이 같은 판을 열고
+            // 있어서 사이드바 「설정」 묶음에 거의 같은 화면 둘이 나란히 걸려
+            // 있었다 — 환경설정 하나로 합쳤다(2026-09-25).
+            ["/admin/push/setting"] = "/funeral/setting/environment",
+        };
 
     /// <summary>지금 주소를 자기 경로로 가진 끼워 넣기 메뉴. 없으면 <c>null</c>.</summary>
     private MenuNode? Embedded(IReadOnlyList<MenuNode> nodes)

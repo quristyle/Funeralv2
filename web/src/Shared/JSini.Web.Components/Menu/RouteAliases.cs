@@ -110,6 +110,12 @@ public static class RouteAliases
         ["/system/push/dashboard"] = "/admin/push/dashboard",
         ["/system/push/logs"] = "/admin/push/logs",
         ["/system/push/history"] = "/admin/push/history",
+        // **이 줄이 가리키는 화면은 지웠다.** 장례식장 「환경설정」이 같은
+        // 판을 열고 있어서 그쪽 하나로 합쳤다(2026-09-25). 줄을 남겨 두는 것은
+        // 띄워 둔 탭 때문이다 — 사이드바가 이 주소를 걸고 있었고,
+        // `MigrationPending.Moved` 가 거기서 환경설정으로 보낸다.
+        // DB 메뉴(`HD_PUSH_SETTING`)는 함께 지웠으므로 앞으로 가는 길로는
+        // 이 줄을 타지 않는다.
         ["/system/push/setting"] = "/admin/push/setting",
         ["/system/status"] = "/admin/status",
         ["/system/server-status"] = "/admin/status/server",

@@ -396,7 +396,9 @@ public static class NotificationEndpoints
             var message = request ?? new PushMessageDto();
             if (string.IsNullOrWhiteSpace(message.Title)) message.Title = "JSini 포털 시험 알림";
             if (string.IsNullOrWhiteSpace(message.Body)) message.Body = "이 알림이 보이면 설정이 정상입니다.";
-            if (string.IsNullOrWhiteSpace(message.Url)) message.Url = "/admin/push/setting";
+            // 누르면 설정 화면으로. **장례식장 「환경설정」이다** — 포털관리에
+            // 있던 「알림 설정」은 같은 판을 열던 중복이라 걷어냈다(2026-09-25).
+            if (string.IsNullOrWhiteSpace(message.Url)) message.Url = "/funeral/setting/environment";
 
             // **시험 알림은 5분이다.** 「눌렀는데 안 온다」를 확인하려고 보내는 것이라
             // 30분 뒤에 도착하면 시험의 뜻이 없다. 그때는 안 오는 것이 맞는 답이다.

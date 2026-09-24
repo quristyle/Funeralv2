@@ -1,0 +1,64 @@
+-- ============================================================
+-- 「알림 설정」 메뉴를 걷어낸다 (2026-09-25)
+--
+-- 왜: 사이드바 「설정」 묶음에 거의 같은 화면 둘이 나란히 걸려 있었다 —
+--     장례식장 「환경설정」(ENV_SETTING, /setting/environment)과
+--     포털관리 「알림 설정」(HD_PUSH_SETTING, /system/push/setting).
+--     둘 다 같은 공용 판(NotificationPanel)을 열고 있었고, 다른 것은
+--     보이는 조각 둘(시험 발송 · 등록된 기기)뿐이었다. 그 둘을 환경설정이
+--     늘 그리게 하고 알림 설정 화면(NotificationSetting.razor)은 지웠다.
+--
+-- 이 파일은 **이미 운영 DB 에 반영했다.** 돌린 기록으로 남긴다
+--     (scom.system_menus 222줄 → 221줄, scom.role_menus 5줄 줄어듦).
+--
+-- 지운 주소로 들어오면 셸이 환경설정으로 보낸다
+--     (MigrationPending.Moved — 보낸 푸시 열한 건이 아직 그 주소를 들고 있다).
+-- ============================================================
+
+-- ── 반영한 것 ────────────────────────────────────────────────
+--
+-- role_menus · menu_favorites 의 외래키가 ON DELETE CASCADE 라
+-- 역할 권한 다섯 줄은 함께 지워진다(즐겨찾기는 걸린 것이 없었다).
+
+DELETE FROM scom.system_menus WHERE id = 'HD_PUSH_SETTING';
+
+-- 확인
+--   SELECT id, title, path FROM scom.system_menus WHERE pid = 'SETTING' ORDER BY order_no;
+--     → ENV_SETTING(환경설정) · WORK_OPTIONS(업무 설정) · …(Profile) 셋만 남는다
+--   SELECT count(*) FROM scom.role_menus WHERE menu_id = 'HD_PUSH_SETTING';  → 0
+
+-- ── 되돌리기 ─────────────────────────────────────────────────
+--
+-- 화면 파일은 git 이력에서 꺼낸다(NotificationSetting.razor). 메뉴는 아래로
+-- 되살린다 — 지우기 전 값 그대로다. **hide_in_menu 는 false 로 되돌려야**
+-- 사이드바에 다시 보인다(지우기 전에 true 로 먼저 감췄다).
+--
+-- INSERT INTO scom.system_menus (
+--     id, name, path, component, pid, type, title, icon, order_no,
+--     hide_in_menu, status, created_at, created_by, affix_tab, dom_cached,
+--     keep_alive, menu_visible_with_forbidden, is_deleted,
+--     use_view, use_search, use_create, use_delete, use_update, use_print, use_excel,
+--     use_cust1, use_cust2, use_cust3, use_cust4, use_cust5, use_cust6, use_cust7, use_cust8,
+--     use_mobile, use_tablet, hide_children_in_menu, hide_in_breadcrumb, hide_in_tab, route_key)
+-- VALUES (
+--     'HD_PUSH_SETTING', 'HelpDeskPushSetting', '/system/push/setting',
+--     '#/views/portal/system/push/setting.vue', 'SETTING', 'MENU', '알림 설정',
+--     'lucide:settings-2', 3, false, 1, now(), 'helpdesk-migration',
+--     false, false, true, false, false,
+--     true, true, true, true, true, true, true,
+--     false, false, false, false, false, false, false, false,
+--     true, true, false, false, false, 'admin.push.setting');
+--
+-- INSERT INTO scom.role_menus (role_id, menu_id, can_view, can_search, can_create,
+--                              can_delete, can_update, can_print, can_excel, created_at,
+--                              created_by, is_deleted)
+-- SELECT r, 'HD_PUSH_SETTING', true, true, true, true, true, true, true, now(),
+--        'push-setting-merge-rollback', false
+--   FROM (VALUES ('ADMINISTRATOR'), ('SYSTEM_ADMINISTRATOR'),
+--                ('PARTNER'), ('PARTNER_ADMINISTRATOR')) AS v(r);
+--
+-- INSERT INTO scom.role_menus (role_id, menu_id, can_view, can_search, can_create,
+--                              can_delete, can_update, can_print, can_excel, created_at,
+--                              created_by, is_deleted)
+-- VALUES ('FUNERAL_OPERATOR', 'HD_PUSH_SETTING', false, false, false, false, false,
+--         false, false, now(), 'push-setting-merge-rollback', false);

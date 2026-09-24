@@ -28,9 +28,9 @@
 
     [모듈 경로를 글자로 적는다]
 
-    `/admin/profile` · `/admin/push/setting` 은 포털관리 모듈의 라우트다.
-    셸은 업무 모듈을 이름으로 알지 못하므로(web/CLAUDE.md) 타입을 참조해서
-    가져올 길이 없고, 여기서는 주소를 글자로 적는 수밖에 없다.
+    `/admin/profile` 은 포털관리, `/funeral/setting/environment` 는 장례식장
+    모듈의 라우트다. 셸은 업무 모듈을 이름으로 알지 못하므로(web/CLAUDE.md)
+    타입을 참조해서 가져올 길이 없고, 여기서는 주소를 글자로 적는 수밖에 없다.
     **모듈 쪽 `@@page` 를 옮기면 이 파일도 함께 고쳐야 한다.**
     `RouteInventory` 가 기동 때 라우트 목록을 들고 있으므로, 나중에 이 글자들이
     실제로 있는 라우트인지 대조하는 편이 낫다.
@@ -197,7 +197,10 @@
 
     private static readonly Item[] NoticeItems =
     [
-        new("알림 설정 (푸시 · 이메일)", "/admin/push/setting", "jsini-icon-bell"),
+        // **장례식장 모듈의 화면이다.** 포털관리에 같은 판을 여는 「알림 설정」이
+        // 따로 있었는데, 사이드바 「설정」 묶음에 거의 같은 화면 둘이 나란히
+        // 걸려 있어 환경설정 하나로 합쳤다(그 화면 머리말).
+        new("알림 설정 (푸시 · 이메일)", "/funeral/setting/environment", "jsini-icon-bell"),
         new("새 메시지 알림", "/admin/profile?tab=notice", "jsini-icon-bell"),
     ];
 

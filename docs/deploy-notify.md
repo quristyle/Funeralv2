@@ -69,7 +69,9 @@ main 푸시
 (`DeployNotify:RoleId` 로 바꿀 수 있다).
 
 * 알림을 받으려면 그 사람이 포털에서 **PWA 알림을 구독**해 두어야 한다
-  (포털관리 &gt; 알림 &gt; 내 알림 설정, `/admin/push/setting`).
+  (장례식장 &gt; 설정 &gt; 환경설정, `/funeral/setting/environment`) —
+  2026-09-25 까지는 포털관리의 「알림 설정」(`/admin/push/setting`)이 같은 판을
+  열고 있었고, 그 화면을 걷어내고 환경설정 하나로 합쳤다.
 * 푸시를 끈 사람은 `PushSender` 가 알아서 거른다.
 * 못 보낸 것도 `scom.push_send_logs` 에 사유와 함께 남는다 — 「저 사람만 왜 안 왔나」의
   답이 거기 있다 (포털관리 &gt; 알림 &gt; 발송 이력).

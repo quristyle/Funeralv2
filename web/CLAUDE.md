@@ -1028,7 +1028,8 @@ Blazor Server 에서 **JS 호출 하나는 브라우저까지 갔다 오는 왕�
 | `Shell/wwwroot/manifest.webmanifest` | 설치 정보(이름·아이콘·`id`) |
 | `Shell/wwwroot/push-sw.js` | 서비스워커 — 푸시 수신 · 알림 클릭 |
 | `Shell/wwwroot/js/pwa.js` | 등록 · 구독 · 해제 (JS interop 창구) |
-| `Admin/…/NotificationSetting.razor` | 그것을 부르고 서버에 옮기는 화면 |
+| `Components/Settings/NotificationPanel.razor` | 그것을 부르고 서버에 옮기는 공용 판 |
+| `Funeral/…/EnvironmentSettingPage.razor` | 그 판을 여는 화면 — 「환경설정」 하나다(2026-09-25에 포털관리의 「알림 설정」을 걷어내고 합쳤다) |
 
 ### 반드시 셸의 `wwwroot` 에 둔다
 
