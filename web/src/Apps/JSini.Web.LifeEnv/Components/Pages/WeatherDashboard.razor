@@ -35,6 +35,14 @@
     한다(옛 화면과 같다). 옛 화면의 NOW 주황 점선은 상수선 대신 실측→예보가
     갈리는 칸의 X 라벨을 「지금」으로 바꿔 표시한다 — 뜻은 같고 부품은 적다.
 
+    [차트가 점투성이였다]
+
+    21칸 추이에 둥근 점을 다 찍어 놓아, 선이 아니라 점이 먼저 보였다.
+    점을 감추고 곡선 2px 한 줄로 바꿨다 — 「어느 시각인가」는 십자선이,
+    값은 말풍선이 준다. 항목마다 색을 따로 주고(기온 주황 · 강수 파랑 ·
+    바람 청록 · 습도 보라) 그 넷은 밝고 어두운 두 테마에서 모두 재어
+    골랐다. 자세한 것은 아래 색 상수 옆에 적어 두었다.
+
     [어제 대비를 색만으로 보이지 않는다]
 
     오르내림에 화살표를 함께 쓴다. 색만으로 가르면 색약인 사람에게는 두 값이
@@ -208,52 +216,99 @@ else
                     <span class="jsini-hint">지난 10시간 실측 · 「지금」 칸부터 예보</span>
                 </div>
 
+                @*
+                    [둥근 점을 걷어냈다]
+
+                    21칸짜리 추이에 점을 다 찍으면 선보다 점이 먼저 보인다.
+                    점은 감추고(`DxChartSeriesPoint Visible="false"`) 「어느
+                    시각을 보고 있나」는 십자선이 준다 — 값은 말풍선이 그대로
+                    준다. 곡선(spline)은 시간당 한 칸인 기상값에 맞고, 점이
+                    없어도 흐름이 끊겨 보이지 않는다.
+
+                    X 축의 눈금·세로 격자도 지웠다. 21칸이 전부 줄이 되면
+                    자료보다 바탕이 시끄럽다. 가로 격자(값 축)만 남긴다.
+                *@
                 <DxChart Data="@_trend" Width="100%" Height="280px">
                     <DxChartLegend Visible="false" />
+
+                    <DxChartArgumentAxis>
+                        <DxChartAxisGridLines Visible="false" />
+                        <DxChartAxisTick Visible="false" />
+                        <DxChartAxisLabel Overlap="ChartAxisLabelOverlap.Hide" />
+                    </DxChartArgumentAxis>
+
+                    @* 세로 한 줄만. 가로선까지 따라다니면 격자가 두 벌이 된다. *@
+                    <DxChartCrosshair Enabled="true" Width="1" Opacity="0.7"
+                                      DashStyle="ChartDashStyle.Dot" Color="#8a93a5">
+                        <DxChartCrosshairHorizontalLine Visible="false" />
+                    </DxChartCrosshair>
+
                     @switch (_metric)
                     {
                         case TrendMetric.Rain:
                             @* 강수량만 막대로 — 옛 화면과 같다. 강수확률(%)은 단위가
-                               달라 같은 축에 못 올린다. 주간 예보 줄이 이미 보여 준다. *@
+                               달라 같은 축에 못 올린다. 주간 예보 줄이 이미 보여 준다.
+                               막대는 끝만 둥글리고(4px) 사이에 여백을 둔다. *@
                             <DxChartBarSeries T="TrendPoint" TArgument="string" TValue="double?"
                                               ArgumentField="p => p.Label"
                                               ValueField="p => p.Rain"
+                                              Color="@RainColor"
+                                              CornerRadius="4"
+                                              BarPadding="0.3"
                                               Name="강수량(mm)" />
                             <DxChartValueAxis>
                                 <DxChartAxisTitle Text="강수량(mm)" />
                             </DxChartValueAxis>
                             break;
                         case TrendMetric.Wind:
-                            <DxChartLineSeries T="TrendPoint" TArgument="string" TValue="double"
-                                               ArgumentField="p => p.Label"
-                                               ValueField="p => p.WindSpeed"
-                                               Name="풍속(m/s)" />
+                            <DxChartSplineSeries T="TrendPoint" TArgument="string" TValue="double"
+                                                 ArgumentField="p => p.Label"
+                                                 ValueField="p => p.WindSpeed"
+                                                 Color="@WindColor"
+                                                 Width="2"
+                                                 Name="풍속(m/s)">
+                                <DxChartSeriesPoint Visible="false" />
+                            </DxChartSplineSeries>
                             <DxChartValueAxis>
                                 <DxChartAxisTitle Text="풍속(m/s)" />
                             </DxChartValueAxis>
                             break;
                         case TrendMetric.Humid:
-                            <DxChartLineSeries T="TrendPoint" TArgument="string" TValue="double?"
-                                               ArgumentField="p => p.Label"
-                                               ValueField="p => p.Humidity"
-                                               Name="습도(%)" />
+                            <DxChartSplineSeries T="TrendPoint" TArgument="string" TValue="double?"
+                                                 ArgumentField="p => p.Label"
+                                                 ValueField="p => p.Humidity"
+                                                 Color="@HumidColor"
+                                                 Width="2"
+                                                 Name="습도(%)">
+                                <DxChartSeriesPoint Visible="false" />
+                            </DxChartSplineSeries>
                             <DxChartValueAxis>
                                 <DxChartAxisRange StartValue="@(0)" EndValue="@(100)" />
                                 <DxChartAxisTitle Text="습도(%)" />
                             </DxChartValueAxis>
                             break;
                         default:
-                            <DxChartLineSeries T="TrendPoint" TArgument="string" TValue="double"
-                                               ArgumentField="p => p.Label"
-                                               ValueField="p => p.Temp"
-                                               Name="기온(°C)" />
+                            <DxChartSplineSeries T="TrendPoint" TArgument="string" TValue="double"
+                                                 ArgumentField="p => p.Label"
+                                                 ValueField="p => p.Temp"
+                                                 Color="@TempColor"
+                                                 Width="2"
+                                                 Name="기온(°C)">
+                                <DxChartSeriesPoint Visible="false" />
+                            </DxChartSplineSeries>
                             <DxChartValueAxis>
                                 <DxChartAxisTitle Text="기온(°C)" />
                             </DxChartValueAxis>
                             break;
                     }
+
+                    @* 값을 앞에 크게, 무엇인지는 뒤에 작게 — 말풍선을 볼 때는
+                       이미 무엇을 보는지 알고 숫자를 찾는다. *@
                     <DxChartTooltip Enabled="true">
-                        <div class="jsini-tip">@context.Point.Argument · @context.Point.SeriesName @context.Point.Value</div>
+                        <div class="le-trend__tip">
+                            <span class="le-trend__tip-value">@TipValue(context.Point.Value)</span>
+                            <span class="le-trend__tip-meta">@context.Point.SeriesName · @context.Point.Argument</span>
+                        </div>
                     </DxChartTooltip>
                 </DxChart>
             </div>
@@ -356,6 +411,30 @@ else
 
     private ButtonRenderStyle MetricStyle(TrendMetric metric)
         => _metric == metric ? ButtonRenderStyle.Primary : ButtonRenderStyle.Secondary;
+
+    /*  ── 항목별 선 색 ────────────────────────────────────────
+
+        차트 색은 여기 C# 에서 정해지는데 **테마는 브라우저가 바꾼다**
+        (theme.js 가 `data-theme` 을 세운다 — 서버 쪽에는 그 신호가 없다).
+        그래서 한쪽 바탕에만 맞춘 색을 쓰면 다른 쪽에서 묻힌다.
+
+        네 값은 **밝은 카드(#ffffff)와 어두운 카드(#1e3048) 양쪽에서 재어**
+        고른 것이다 — 밝기 띠(OKLCH L)·채도 바닥·바탕 대비(WCAG ≥ 3:1)
+        셋을 두 바탕에서 모두 통과한다. 색을 바꿀 일이 생기면 두 바탕에서
+        다시 재고 바꾼다. 항목이 한 번에 하나만 그려지므로 색맹 구분(색끼리의
+        거리)은 따지지 않아도 되고, 무엇을 보고 있는지는 누른 단추와 축 제목이
+        말해 준다 — 색만으로 가르지 않는다. */
+    private static readonly System.Drawing.Color TempColor = System.Drawing.ColorTranslator.FromHtml("#d95926");
+    private static readonly System.Drawing.Color RainColor = System.Drawing.ColorTranslator.FromHtml("#2a78d6");
+    private static readonly System.Drawing.Color WindColor = System.Drawing.ColorTranslator.FromHtml("#199e70");
+    private static readonly System.Drawing.Color HumidColor = System.Drawing.ColorTranslator.FromHtml("#9085e9");
+
+    /// <summary>
+    /// 말풍선에 쓰는 값. 소수점이 길게 붙으면(18.200000000000003) 숫자가
+    /// 읽히지 않으므로 한 자리까지만 남긴다.
+    /// </summary>
+    private static string TipValue(object? value)
+        => value is double d ? d.ToString("0.#") : value?.ToString() ?? "-";
 
     /// <summary>
     /// 타임라인을 차트 점으로 옮긴다.

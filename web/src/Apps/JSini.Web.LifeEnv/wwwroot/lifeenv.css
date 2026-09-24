@@ -649,6 +649,30 @@
 /* 추이 차트 위의 단추줄. 차트와 붙어 있으면 차트 제목처럼 읽힌다. */
 .le-trend__head { margin-bottom: 0.5rem; }
 
+/* 추이 차트의 말풍선. 값이 먼저 크게, 무엇인지는 뒤에 작게 온다.
+
+   **글자색을 여기서 정하지 않는다** — 말풍선 바탕은 DevExpress 테마가 칠하고
+   그 색이 밝고 어두운 두 테마에서 뒤집힌다. `--jsini-text` 를 박으면 한쪽에서
+   바탕과 같은 색이 된다. 흐리게 하는 것은 `opacity` 로 해서 어느 바탕에서나
+   맞게 둔다. */
+.le-trend__tip {
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+  padding: 0.2rem 0.15rem;
+  line-height: 1.25;
+}
+
+.le-trend__tip-value {
+  font-size: var(--jsini-fs-lg);
+  font-weight: 700;
+}
+
+.le-trend__tip-meta {
+  font-size: var(--jsini-fs-2xs);
+  opacity: 0.72;
+}
+
 /* ── 주간 예보 ────────────────────────────────────────────
    열흘이 한 줄에 늘어선다. 좁으면 그 줄만 가로로 구른다 —
    쪽 전체가 구르면 위 그래프가 화면 밖으로 나간다. */
