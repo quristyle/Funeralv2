@@ -7533,18 +7533,6 @@ body {
   background: var(--jsini-surface-muted, rgba(127, 127, 127, 0.12));
 }
 
-/* 푸시를 꺼 두어 쪽지를 못 받는 사람. 목록에서 지우지 않고 **흐리게 두고
-   못 고르게** 한다 — 없으면 「아이디가 틀렸나」를 한참 의심하게 된다. */
-.jsini-note__match--off {
-  cursor: not-allowed;
-  opacity: 0.55;
-}
-
-.jsini-note__match--off:hover,
-.jsini-note__match--off:focus-visible {
-  background: none;
-}
-
 .jsini-note__match-name {
   font-size: var(--jsini-fs-sm);
 }

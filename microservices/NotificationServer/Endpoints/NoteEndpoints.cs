@@ -59,10 +59,11 @@ namespace NotificationServer.Endpoints;
 /// </para>
 ///
 /// <list type="bullet">
-///   <item><description><b>앱 푸시는 늘 간다.</b> 그리고 <b>푸시를 꺼 둔 사람은
-///   아예 받지 못한다</b> — 쪽지함에만 쌓이면 본인은 왔다는 것조차 모르는데
-///   보낸 쪽은 보냈다고 믿게 되기 때문이다. 그런 사람은 결과의
-///   <c>Blocked</c> 에 담아 이름을 짚어 돌려준다.</description></item>
+///   <item><description><b>앱 푸시는 닿는 사람에게 늘 간다</b>(끄지 않았고 기기가
+///   있다). 그리고 <b>앱 푸시도 쪽지 메일도 닿지 않는 사람은 아예 받지 못한다</b>
+///   — 쪽지함에만 쌓이면 본인은 왔다는 것조차 모르는데 보낸 쪽은 보냈다고 믿게
+///   되기 때문이다. 그런 사람은 결과의 <c>Blocked</c> 에 담아 이름을 짚어
+///   돌려준다(<c>NoteRecipientDto.CanReceive</c>, 2026-09-24).</description></item>
 ///   <item><description><b>메일은 받는 사람이 켜 둔 경우에만</b> 간다
 ///   (개인설정의 「쪽지 메일받기」 — 기본은 꺼짐). 본문은 회사 메일 틀을 입힌
 ///   HTML 이다(<c>NoticeEmailTemplate</c>).</description></item>
@@ -160,11 +161,14 @@ public static class NoteEndpoints
 
             var (resolved, unknown) = await resolver.ResolveAsync(tokens, ct);
 
-            // **푸시를 꺼 둔 사람은 받지 못한다.** 쪽지함에만 넣어 두면 본인은
-            // 왔다는 것조차 모르는데 보낸 쪽은 보냈다고 믿는다 — 그 조용한
-            // 어긋남이 「없는 아이디」보다 나쁘다.
-            var found = resolved.Where(r => r.PushEnabled).ToList();
-            var blocked = resolved.Where(r => !r.PushEnabled).Select(Display).ToList();
+            // **받을 길이 없는 사람은 받지 못한다.** 앱 푸시(기기가 있고 끄지 않았다)도
+            // 쪽지 메일(켜 두었고 주소가 있다)도 없으면, 쪽지함에만 쌓여 본인은 왔다는
+            // 것조차 모르는데 보낸 쪽은 보냈다고 믿는다 — 그 조용한 어긋남이
+            // 「없는 아이디」보다 나쁘다. 찾기 목록이 같은 값으로 거른다
+            // (`NoteRecipientDto.CanReceive`, 2026-09-24). 전에는 푸시 설정만 보아서,
+            // 기기가 없는 사람에게도 들어가고 메일만 켠 사람은 막혔다.
+            var found = resolved.Where(r => r.CanReceive).ToList();
+            var blocked = resolved.Where(r => !r.CanReceive).Select(Display).ToList();
 
             if (found.Count == 0)
             {
@@ -173,7 +177,7 @@ public static class NoteEndpoints
                 var why = new List<string>();
 
                 if (unknown.Count > 0) why.Add($"그런 아이디·이메일이 없습니다: {string.Join(", ", unknown)}");
-                if (blocked.Count > 0) why.Add($"푸시 알림을 꺼 두어 쪽지를 받지 못합니다: {string.Join(", ", blocked)}");
+                if (blocked.Count > 0) why.Add($"앱 푸시도 쪽지 메일도 받지 않아 쪽지가 닿지 않습니다: {string.Join(", ", blocked)}");
                 if (why.Count == 0) why.Add("받는 사람을 적으십시오");
 
                 return Results.BadRequest(ApiResponse<SendNoteResultDto>.Fail(
@@ -219,42 +223,47 @@ public static class NoteEndpoints
 
             // ── 앱 푸시 ─────────────────────────────────────
             //
-            // **늘 보낸다.** 받을지 말지는 이미 위에서 갈렸다(푸시를 끈 사람은
-            // 여기까지 오지 않는다). 아이콘은 **보낸 사람의 얼굴**이다
-            // (`PushMessageDto.IconOwnerKey`) — 받은 쪽이 먼저 묻는 것이
-            // 「누가 보냈나」라서다.
+            // **앱 푸시가 닿는 사람에게만 보낸다.** 메일로만 받는 사람(푸시를 껐거나
+            // 기기가 없다)까지 넣으면 「기기 없음」이 두드림 실패로 적히고, 그 사람들만
+            // 받는 쪽지면 멀쩡히 메일로 간 것이 실패처럼 보인다. 아이콘은 **보낸
+            // 사람의 얼굴**이다(`PushMessageDto.IconOwnerKey`) — 받은 쪽이 먼저 묻는
+            // 것이 「누가 보냈나」라서다.
             var pushDevices = 0;
+            var pushTargets = found.Where(r => r.PushReachable).ToList();
 
-            try
+            if (pushTargets.Count > 0)
             {
-                var result = await push.SendAsync(new SendPushDto
+                try
                 {
-                    Owners = [.. found.Select(r => new OwnerRefDto
+                    var result = await push.SendAsync(new SendPushDto
                     {
-                        OwnerType = "jsini",
-                        OwnerKey = r.LoginId,
-                    })],
-                    Message = new PushMessageDto
+                        Owners = [.. pushTargets.Select(r => new OwnerRefDto
+                        {
+                            OwnerType = "jsini",
+                            OwnerKey = r.LoginId,
+                        })],
+                        Message = new PushMessageDto
+                        {
+                            Title = $"쪽지 · {senderName}",
+                            Body = title,
+                            Url = InboxUrl,
+                            IconOwnerKey = user.UserId,
+                        },
+                    }, user.UserId, ct);
+
+                    pushDevices = result.Sent;
+
+                    if (result.Sent == 0)
                     {
-                        Title = $"쪽지 · {senderName}",
-                        Body = title,
-                        Url = InboxUrl,
-                        IconOwnerKey = user.UserId,
-                    },
-                }, user.UserId, ct);
-
-                pushDevices = result.Sent;
-
-                if (result.Sent == 0)
-                {
-                    trouble.Add(result.Message ?? "앱 알림이 가지 않았습니다");
+                        trouble.Add(result.Message ?? "앱 알림이 가지 않았습니다");
+                    }
                 }
-            }
-            catch (Exception ex)
-            {
-                // **쪽지는 이미 들어갔다.** 두드림 하나 때문에 실패로 답하지 않는다.
-                logger.LogWarning(ex, "쪽지 앱 알림을 보내지 못했습니다. by={By}", user.UserId);
-                trouble.Add("앱 알림을 보내지 못했습니다");
+                catch (Exception ex)
+                {
+                    // **쪽지는 이미 들어갔다.** 두드림 하나 때문에 실패로 답하지 않는다.
+                    logger.LogWarning(ex, "쪽지 앱 알림을 보내지 못했습니다. by={By}", user.UserId);
+                    trouble.Add("앱 알림을 보내지 못했습니다");
+                }
             }
 
             // ── 메일 ────────────────────────────────────────

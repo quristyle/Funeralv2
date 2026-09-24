@@ -38,6 +38,18 @@ public sealed class NoteRecipientDto
     /// </remarks>
     public bool PushEnabled { get; set; } = true;
 
+    /// <summary>앱 푸시가 실제로 닿는가 — 끄지 않았고 등록한 기기가 있다.</summary>
+    public bool PushReachable { get; set; }
+
+    /// <summary>쪽지 메일이 닿는가 — 「쪽지 메일받기」를 켰고 주소가 있다.</summary>
+    public bool EmailReachable { get; set; }
+
+    /// <summary>
+    /// 쪽지를 받을 길이 있는가. 둘 중 하나면 된다. <b>찾기 목록은 서버가 이미 이
+    /// 값으로 걸러서 준다</b>(2026-09-24) — 화면은 한 번 더 거를 뿐이다.
+    /// </summary>
+    public bool CanReceive => PushReachable || EmailReachable;
+
     /// <summary>목록에 적는 한 줄. 이름이 없으면 아이디를 쓴다.</summary>
     public string Display => string.IsNullOrWhiteSpace(Name) ? LoginId : $"{Name} ({LoginId})";
 }

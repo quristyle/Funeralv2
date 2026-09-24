@@ -20,9 +20,9 @@ public interface INoteRecipientResolver
     ///
     /// <para>
     /// 찾은 사람 중에도 <b>쪽지를 받을 수 없는 사람</b>이 있다
-    /// (<see cref="NoteRecipientDto.PushEnabled"/> 가 거짓). 여기서 빼지 않고
-    /// 표시만 해 준다 — 「없는 아이디」와 「푸시를 꺼 둔 사람」은 보내는 쪽이
-    /// 할 일이 서로 달라서다.
+    /// (<see cref="NoteRecipientDto.CanReceive"/> 가 거짓 — 앱 푸시도 쪽지 메일도
+    /// 닿지 않는다). 여기서 빼지 않고 표시만 해 준다 — 「없는 아이디」와 「받을
+    /// 길이 없는 사람」은 보내는 쪽이 할 일이 서로 달라서다.
     /// </para>
     /// </returns>
     Task<(List<NoteRecipientDto> Found, List<string> Unknown)> ResolveAsync(
@@ -30,7 +30,8 @@ public interface INoteRecipientResolver
 
     /// <summary>
     /// 아이디 · 이름 · 이메일 어느 것으로 쳐도 걸리는 찾기. 보내기 전에 화면이
-    /// 「이 사람이 맞나」를 확인하는 자리에 쓴다.
+    /// 「이 사람이 맞나」를 확인하는 자리에 쓴다. <b>쪽지를 받을 길이 있는 사람만</b>
+    /// 돌려준다(<see cref="NoteRecipientDto.CanReceive"/>).
     /// </summary>
     Task<List<NoteRecipientDto>> SearchAsync(string? query, int take, CancellationToken ct = default);
 }
@@ -141,10 +142,32 @@ public sealed class NoteRecipientResolver(AppDbContext db, INotificationPreferen
             .Take(limit)
             .ToListAsync(ct);
 
+        // **쪽지를 받을 길이 있는 사람만 찾는다 (2026-09-24).** 앱 푸시(기기가
+        // 있고 끄지 않았다) 또는 쪽지 메일(켜 두었고 주소가 있다) 중 하나는 있어야
+        // 한다 — 둘 다 없으면 쪽지함에만 쌓이고 본인은 왔다는 것조차 모른다.
+        //
+        // 예전에는 푸시를 끈 사람만 회색으로 잠그고 나머지는 다 보였다. 그런데
+        // 사람 대부분이 **기기를 등록한 적이 없어서**(설정 행이 없으면 「켜짐」이다)
+        // 거의 모두가 고를 수 있게 보였고, 보내면 두드림이 한 군데도 안 갔다.
+        //
+        // 거르는 일은 **질의 안에서** 한다. 읽은 뒤에 거르면 `take` 가 먼저
+        // 잘라서, 받을 수 있는 사람이 뒤에 있으면 목록이 비어 보인다.
+        // 판정식은 `LoadAsync` 가 매기는 `PushReachable` · `EmailReachable` 과 같다.
         var rows = await LoadAsync(
-            a => a.UserId.ToLower().Contains(lowered)
-                 || (a.UserName != null && a.UserName.ToLower().Contains(lowered))
-                 || emailAccountIds.Contains(a.Id),
+            a => (a.UserId.ToLower().Contains(lowered)
+                  || (a.UserName != null && a.UserName.ToLower().Contains(lowered))
+                  || emailAccountIds.Contains(a.Id))
+                 && ((db.PushSubscriptions.Any(s => s.OwnerType == "jsini" && s.OwnerKey == a.UserId)
+                      && !db.NotificationPreferences.Any(p => p.OwnerType == "jsini"
+                                                              && p.OwnerKey == a.UserId
+                                                              && !p.PushEnabled))
+                     || (db.NotificationPreferences.Any(p => p.OwnerType == "jsini"
+                                                             && p.OwnerKey == a.UserId
+                                                             && p.NoteEmailEnabled)
+                         && db.AccountProfileDetails.Any(d => d.AccountId == a.Id
+                                                              && d.DetailType == "Email"
+                                                              && !d.IsDeleted
+                                                              && d.Content != ""))),
             ct,
             limit);
 
@@ -214,15 +237,38 @@ public sealed class NoteRecipientResolver(AppDbContext db, INotificationPreferen
             [.. accounts.Select(a => new OwnerRefDto { OwnerType = "jsini", OwnerKey = a.UserId })],
             ct);
 
-        return [.. accounts.Select(a => new NoteRecipientDto
+        // **기기가 있어야 앱 푸시가 닿는다.** 설정이 「켜짐」이어도 구독이 없으면
+        // 보낼 곳이 없다. 죽은 구독은 발송 때 지워지므로(`PushSender`) 남은 줄은
+        // 살아 있는 기기로 본다.
+        var loginIds = accounts.Select(a => a.UserId).Distinct().ToList();
+
+        var withDevice = (await db.PushSubscriptions
+                .Where(s => s.OwnerType == "jsini" && loginIds.Contains(s.OwnerKey))
+                .Select(s => s.OwnerKey)
+                .Distinct()
+                .ToListAsync(ct))
+            .ToHashSet(StringComparer.Ordinal);
+
+        // 쪽지 메일은 받는 사람이 켠 경우에만 간다(기본 꺼짐).
+        var noteMailOn = await prefs.GetNoteEmailEnabledLoginIdsAsync(loginIds, ct);
+
+        return [.. accounts.Select(a =>
         {
-            LoginId = a.UserId,
-            Name = Pick(a.UserName, a.RealName, a.UserId),
-            Affiliation = a.DepartmentId is { Length: > 0 } dept && deptOf.TryGetValue(dept, out var name)
-                ? name
-                : null,
-            Email = emailOf.GetValueOrDefault(a.Id),
-            PushEnabled = !pushOff.Contains(("jsini", a.UserId)),
+            var email = emailOf.GetValueOrDefault(a.Id);
+            var pushEnabled = !pushOff.Contains(("jsini", a.UserId));
+
+            return new NoteRecipientDto
+            {
+                LoginId = a.UserId,
+                Name = Pick(a.UserName, a.RealName, a.UserId),
+                Affiliation = a.DepartmentId is { Length: > 0 } dept && deptOf.TryGetValue(dept, out var name)
+                    ? name
+                    : null,
+                Email = email,
+                PushEnabled = pushEnabled,
+                PushReachable = pushEnabled && withDevice.Contains(a.UserId),
+                EmailReachable = noteMailOn.Contains(a.UserId) && !string.IsNullOrWhiteSpace(email),
+            };
         })];
     }
 

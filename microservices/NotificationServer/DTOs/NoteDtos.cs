@@ -73,6 +73,25 @@ public class NoteRecipientDto
     /// 말해 준다(지워 버리면 「아이디가 틀렸나」를 한참 의심하게 된다).
     /// </remarks>
     public bool PushEnabled { get; set; } = true;
+
+    /// <summary>
+    /// 앱 푸시가 <b>실제로 닿는가</b> — 끄지 않았고(<see cref="PushEnabled"/>)
+    /// 등록한 기기가 있다.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="PushEnabled"/> 만으로는 모른다. 설정 행이 없으면 「켜짐」이라
+    /// 기기를 한 번도 등록하지 않은 사람도 참이 된다.
+    /// </remarks>
+    public bool PushReachable { get; set; }
+
+    /// <summary>쪽지 메일이 닿는가 — 「쪽지 메일받기」를 켰고 주소가 있다.</summary>
+    public bool EmailReachable { get; set; }
+
+    /// <summary>
+    /// 쪽지를 받을 길이 있는가. <b>둘 중 하나면 된다</b> — 보내기와 찾기가 같은
+    /// 값으로 가른다(2026-09-24).
+    /// </summary>
+    public bool CanReceive => PushReachable || EmailReachable;
 }
 
 /// <summary>쪽지 한 통(목록·읽기가 함께 쓴다).</summary>
