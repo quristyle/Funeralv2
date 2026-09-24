@@ -18,7 +18,8 @@ public sealed class AiTaskClient(GatewayClient gateway)
 
     public Task<IReadOnlyList<AiTaskDto>> ListAsync(
         string? status = null, string? flag = null, long? targetKey = null,
-        string? keyword = null, bool? userConfirmed = null, CancellationToken ct = default)
+        string? keyword = null, bool? userConfirmed = null, bool? userRequest = null,
+        CancellationToken ct = default)
     {
         var query = new List<string>();
 
@@ -27,10 +28,42 @@ public sealed class AiTaskClient(GatewayClient gateway)
         if (targetKey is not null) query.Add($"targetKey={targetKey}");
         if (!string.IsNullOrWhiteSpace(keyword)) query.Add($"keyword={Uri.EscapeDataString(keyword)}");
         if (userConfirmed is not null) query.Add($"userConfirmed={userConfirmed}");
+        if (userRequest is not null) query.Add($"userRequest={userRequest}");
 
         return gateway.GetListAsync<AiTaskDto>(
             query.Count == 0 ? Url : $"{Url}?{string.Join('&', query)}", ct);
     }
+
+    // ── 「AI 작업 요청」 — 일반 사용자의 입구 ──────────────────
+    //
+    // 화면: Components/Pages/AiRequestList.razor
+    //
+    // **위의 것들과 갈라 둔 넷이다.** 서버가 여기서만 <c>cre_id = 보낸 사람</c>
+    // 을 조건에 넣는다 — 위의 경로를 그대로 쓰면 로그인한 누구든 번호만 바꿔
+    // 남의 작업을 고치고 지울 수 있다(그 컨트롤러 머리말).
+
+    /// <summary><b>내가 올린 요청만.</b> 남의 것은 한 건도 오지 않는다.</summary>
+    public Task<IReadOnlyList<AiTaskDto>> MineAsync(
+        string? keyword = null, CancellationToken ct = default)
+        => gateway.GetListAsync<AiTaskDto>(
+            string.IsNullOrWhiteSpace(keyword)
+                ? $"{Url}/mine"
+                : $"{Url}/mine?keyword={Uri.EscapeDataString(keyword)}", ct);
+
+    /// <summary>
+    /// <b>지시를 적어 둔다.</b> 저장만 되고 아무 데서도 안 돈다 —
+    /// 작업 대상과 AI 는 관리자가 나중에 채운다.
+    /// </summary>
+    public Task<AiTaskDto?> CreateMineAsync(AiTaskDto item, CancellationToken ct = default)
+        => gateway.PostAsync<AiTaskDto>($"{Url}/mine", item, ct);
+
+    /// <summary><b>내가 올린 요청을 고친다.</b> 관리자가 손대기 전까지만.</summary>
+    public Task<AiTaskDto?> UpdateMineAsync(AiTaskDto item, CancellationToken ct = default)
+        => gateway.PutAsync<AiTaskDto>($"{Url}/mine/{item.TaskKey}", item, ct);
+
+    /// <summary><b>내가 올린 요청을 거둬들인다.</b> 관리자가 손대기 전까지만.</summary>
+    public Task DeleteMineAsync(long taskKey, CancellationToken ct = default)
+        => gateway.DeleteAsync($"{Url}/mine/{taskKey}", ct);
 
     public Task<AiTaskDto?> GetAsync(long taskKey, CancellationToken ct = default)
         => gateway.GetOneAsync<AiTaskDto>($"{Url}/{taskKey}", ct);
@@ -230,6 +263,21 @@ public sealed class AiTaskDto
     public string? NotifyWhen { get; set; } = "always";
     public string? NotifyError { get; set; }
     public bool UserConfirmed { get; set; }
+
+    /// <summary>
+    /// <b>일반 사용자가 「AI 작업 요청」 화면에서 올린 건인가.</b>
+    /// </summary>
+    /// <remarks>
+    /// 관리자 화면(「AI 작업」)이 이 값으로 <b>「시켜 달라고 올라온 것」을
+    /// 가려낸다.</b> 그 건은 요청여부 <c>none</c> · 상태 <c>idle</c> · 대상 없음이라
+    /// 관리자가 쓰다 만 제 글과 값이 하나도 다르지 않다 — 이 칸이 없으면 둘이
+    /// 섞여 영영 안 돌아간다.
+    /// <para>
+    /// <b>돌고 난 뒤에도 남는다.</b> 「누가 부탁한 일이었나」는 사라지면 안 되는
+    /// 사실이라, 관리자가 대상·AI 를 채워 실제로 시켜도 값이 바뀌지 않는다.
+    /// </para>
+    /// </remarks>
+    public bool IsUserRequest { get; set; }
 
     public DateTime? RequestedAt { get; set; }
     public DateTime? StartedAt { get; set; }

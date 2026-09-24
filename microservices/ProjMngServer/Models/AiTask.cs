@@ -159,6 +159,22 @@ public sealed class AiTask
 
     /// <summary>사용자가 확인 완료했는지 여부</summary>
     public bool UserConfirmed { get; set; }
+
+    /// <summary>
+    /// <b>일반 사용자가 「AI 작업 요청」 화면에서 올린 건인가.</b>
+    /// </summary>
+    /// <remarks>
+    /// 이 건은 저장만 되어 있고 <b>아무 데서도 안 돈다</b> — 요청여부 <c>none</c>,
+    /// 상태 <c>idle</c>, 작업 대상 없음이다. 그런데 그 셋은 관리자가 「AI 작업」
+    /// 화면에서 <b>쓰다 만 건</b>과 글자 하나 다르지 않다. 가르지 못하면
+    /// 「시켜 달라고 올라온 것」이 쓰다 만 제 글 사이에 섞여 영영 안 돌아간다.
+    /// <para>
+    /// 값은 <b>등록할 때 한 번만 정해진다.</b> 관리자가 내용을 고치고 대상·AI 를
+    /// 채워 실제로 시켜도 이 값은 그대로 남는다 — 「누가 부탁한 일이었나」는
+    /// 돌고 난 뒤에도 사라지면 안 되는 사실이다.
+    /// </para>
+    /// </remarks>
+    public bool IsUserRequest { get; set; }
 }
 
 /// <summary>작업요청여부.</summary>

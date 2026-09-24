@@ -35,11 +35,66 @@ public sealed class AiTasksController(AiTaskService service, AiRunService runs) 
     public async Task<IActionResult> ListAsync(
         [FromQuery] string? status, [FromQuery] string? flag,
         [FromQuery] long? targetKey, [FromQuery] string? keyword,
-        [FromQuery] bool? userConfirmed)
+        [FromQuery] bool? userConfirmed, [FromQuery] bool? userRequest)
     {
-        var rows = await service.ListAsync(status, flag, targetKey, keyword, userConfirmed: userConfirmed);
+        var rows = await service.ListAsync(
+            status, flag, targetKey, keyword,
+            userConfirmed: userConfirmed, userRequest: userRequest);
+
         return Ok(ApiResponse<List<AiTask>>.Ok(rows));
     }
+
+    // ── 「AI 작업 요청」 — 일반 사용자의 입구 ──────────────────
+    //
+    // 화면: web/src/Apps/JSini.Web.ProjMng/Components/Pages/AiRequestList.razor
+    //
+    // **위의 것들과 입구를 갈라 둔다.** 이 경로는 게이트웨이가 신원만 확인하고
+    // 역할은 보지 않으므로, 관리자용 경로를 그대로 쓰게 두면 <b>로그인한 누구든
+    // 번호만 바꿔 남의 작업을 고치고 지울 수 있다.</b> 여기 넷은 전부
+    // <c>cre_id = 보낸 사람</c> 을 조건에 넣는다.
+
+    /// <summary>
+    /// <b>내가 올린 요청 목록.</b> 남의 것은 한 건도 오지 않는다.
+    /// </summary>
+    [HttpGet("mine")]
+    public async Task<IActionResult> MineAsync([FromQuery] string? keyword)
+    {
+        var rows = await service.ListAsync(keyword: keyword, creId: UserId);
+        return Ok(ApiResponse<List<AiTask>>.Ok(rows));
+    }
+
+    /// <summary>
+    /// <b>지시를 적어 둔다.</b> 저장만 되고 아무 데서도 안 돈다 —
+    /// 작업 대상과 AI 는 관리자가 나중에 채운다.
+    /// </summary>
+    [HttpPost("mine")]
+    public async Task<IActionResult> CreateMineAsync([FromBody] AiTask item)
+    {
+        if (string.IsNullOrWhiteSpace(item.Contents))
+        {
+            return BadRequest(ApiResponse<AiTask>.Fail(message: "내용이 필요합니다.", code: "INVALID"));
+        }
+
+        var created = await service.CreateUserRequestAsync(item, UserId);
+        return Ok(ApiResponse<AiTask>.Ok(created));
+    }
+
+    /// <summary><b>내가 올린 요청을 고친다.</b> 관리자가 손대기 전까지만.</summary>
+    [HttpPut("mine/{taskKey:long}")]
+    public async Task<IActionResult> UpdateMineAsync(long taskKey, [FromBody] AiTask item)
+    {
+        if (string.IsNullOrWhiteSpace(item.Contents))
+        {
+            return BadRequest(ApiResponse<AiTask>.Fail(message: "내용이 필요합니다.", code: "INVALID"));
+        }
+
+        return Respond(await service.UpdateUserRequestAsync(taskKey, item, UserId));
+    }
+
+    /// <summary><b>내가 올린 요청을 거둬들인다.</b> 관리자가 손대기 전까지만.</summary>
+    [HttpDelete("mine/{taskKey:long}")]
+    public async Task<IActionResult> DeleteMineAsync(long taskKey)
+        => Respond(await service.DeleteUserRequestAsync(taskKey, UserId));
 
     [HttpGet("{taskKey:long}")]
     public async Task<IActionResult> GetAsync(long taskKey)

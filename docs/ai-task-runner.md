@@ -2261,7 +2261,7 @@ CLI 가 구독을 태운다. **하루 실행 수 상한**과 건별 타임아웃
 컨트롤러 이름은 그 서비스의 관례대로 kebab 이다(`[Route("api/ai-tasks")]`).
 
 ```
-GET    /api/projmng/ai-tasks?status=&flag=&q=&from=&to=&page=
+GET    /api/projmng/ai-tasks?status=&flag=&q=&from=&to=&page=&userRequest=
 GET    /api/projmng/ai-tasks/{id}
 POST   /api/projmng/ai-tasks                 생성
 PUT    /api/projmng/ai-tasks/{id}            수정 (row_version 으로 낙관적 잠금)
@@ -2269,6 +2269,11 @@ POST   /api/projmng/ai-tasks/{id}/request    요청 켜기  → flag=requested, 
 POST   /api/projmng/ai-tasks/{id}/cancel     취소 요청  → flag=cancel_requested
 GET    /api/projmng/ai-tasks/{id}/runs
 GET    /api/projmng/ai-runs/{runId}/logs?fromSeq=   꼬리 읽기 (증분)
+
+GET    /api/projmng/ai-tasks/mine            내가 올린 요청만 (11.8)
+POST   /api/projmng/ai-tasks/mine            지시를 적어 둔다 — 안 돈다
+PUT    /api/projmng/ai-tasks/mine/{id}       내 요청 고치기 (관리자가 손대기 전까지)
+DELETE /api/projmng/ai-tasks/mine/{id}       내 요청 거둬들이기 (같은 조건)
 
 GET    /api/projmng/ai-targets               대상 목록 (고르기용)
 POST   /api/projmng/ai-targets               대상 등록 (관리자. 경로 검사 — 9.5)
@@ -2287,6 +2292,14 @@ GET    /api/projmng/ai-dashboard?from=&to=   현황 한 판 (11.5)
 
 등록·수정자는 **게이트웨이가 붙여 주는 `X-User-Id`** 로 채운다. 본문으로 받지
 않는다 — `ProjMngServer` 의 다른 컨트롤러가 전부 그렇게 한다.
+
+**`mine` 넷을 위의 것들과 갈라 둔 이유가 이 문단의 연장이다.** 게이트웨이는
+이 경로에서 **신원만 확인하고 역할은 보지 않는다.** 관리자용 `PUT /ai-tasks/{id}`
+를 일반 사용자 화면이 그대로 쓰면, 로그인한 누구든 번호만 바꿔 **남의 작업을,
+그것도 도는 중인 것을** 고치고 지울 수 있다. `mine` 넷은 전부 `cre_id = 보낸 사람`
+을 **`WHERE` 에 넣는다** — 읽고 판단한 뒤 고치는 두 걸음으로 나누면 그 사이가
+비고, 「없는 건」과 「남의 건」을 가르려다 오히려 그 번호에 무엇이 있다는 사실을
+알려 주게 된다. 남의 건은 **404 다.**
 
 ### 실행기용 (run 별 1회용 토큰 · `X-AiTask-Token`)
 
@@ -2337,6 +2350,7 @@ run 토큰으로 인증한다. **장비에 계정 정보를 두지 않는다.**
 | 자리 | 무엇을 한다 |
 |---|---|
 | `Components/Pages/AiTaskList.razor` | 목록 + 편집 화면. `@page "/projmng/ai/tasks"` |
+| `Components/Pages/AiRequestList.razor` | **일반 사용자의 요청** — `@page "/projmng/ai/request"` (11.8) |
 | `Components/Pages/AiTargetList.razor` | **대상 관리** — `@page "/projmng/ai/targets"` |
 | `Components/Pages/AiTargetStatusList.razor` | **대상 git 상태** — `@page "/projmng/ai/target-status"` (11.7) |
 | `Components/Pages/AiTaskRunView.razor` | 실행 이력·로그 (4단계에서) |
@@ -2766,6 +2780,100 @@ Current week (Fable): 0% used · resets Sep 24, 11pm (Asia/Seoul)
 되돌리기 어렵다. **보는 것과 고치는 것을 가른다.** 고칠 일은 지시로 보낸다.
 
 ---
+
+## 11.8 「AI 작업 요청」 — **일반 사용자가 적어 두는 자리** (2026-09-24)
+
+화면: `Components/Pages/AiRequestList.razor` · `@page "/projmng/ai/request"`
+열쇠: `projmng.ai.request` · 메뉴 SQL: `deploy/sql/portal-menu-ai-request-2026-09-24.sql`
+스키마: `deploy/sql/projmng-ai-user-request-2026-09-24.sql`
+
+지금까지 이 기능에 글을 넣는 자리는 둘(「AI 작업 지시」·「빠른 지시」)이었고
+**둘 다 관리자의 것**이었다. 어디에서 돌릴지(대상)와 누구에게 시킬지(AI)를
+고르는 칸이 있고, 저장이 곧 실행이며, 올리기를 켜면 운영 배포까지 간다.
+
+그런데 **시켜야 할 일을 아는 사람과 시킬 수 있는 사람이 다르다.** 화면을
+쓰다가 「이건 이렇게 고쳐야 한다」를 아는 것은 그 화면을 쓰는 사람인데,
+그 사람에게 줄 수 있는 자리가 없어 말로 전해졌다. 말로 전해진 것은 **글로
+남지 않으므로 대기열에 들어가지 못한다.**
+
+이 화면은 그 앞 단계다 — **적고 저장할 뿐 아무것도 돌지 않는다.**
+
+### 11.8.1 셋을 갈라 적으면
+
+| | AI 작업 지시 | 빠른 지시 | **AI 작업 요청** |
+|---|---|---|---|
+| 쓰는 사람 | 관리자 | 관리자 | **누구나** |
+| 자리 | 책상(좌우 분할·Monaco) | 길(세로 한 줄) | 책상(세로 한 판) |
+| 대상·AI | 화면에서 고른다 | 화면에서 고른다 | **칸이 없다.** 관리자가 채운다 |
+| 저장하면 | 쌓인다(요청은 따로) | **그 자리에서 돈다** | **쌓인다** |
+| 올리기(배포) | 켤 수 있다 | 켤 수 있다 | **없다** |
+
+**대상·AI 칸을 회색으로 띄워 두지 않았다.** 그러면 「고를 수는 있는데 안 먹는
+칸」이 되고, 사람은 그것을 고장으로 읽는다. 이 화면을 쓰는 사람이 정할 수
+있는 것이 지시문 하나뿐이라는 사실을 **자리로 말한다.**
+
+### 11.8.2 칸 하나를 더한 이유 — `is_user_request`
+
+올라온 요청은 요청여부 `none` · 상태 `idle` · 대상 없음이다. 그런데 그 셋은
+**관리자가 「AI 작업」 화면에서 쓰다 만 건**과 글자 하나 다르지 않다.
+가르지 못하면 「시켜 달라고 올라온 것」이 쓰다 만 제 글 사이에 섞여
+**영영 안 돌아간다.**
+
+그래서 `projmng.ai_task.is_user_request` 한 칸을 더하고, 「AI 작업」 화면에
+**출처 조건**(전체 · 사용자 요청 · 직접 작성)과 **제목 옆 「요청」 배지**를 붙였다.
+값은 **등록할 때 한 번만 정해지고 돌고 난 뒤에도 남는다** — 「누가 부탁한
+일이었나」는 끝난 뒤에 더 자주 찾는다.
+
+### 11.8.3 고칠 수 있는 동안 — 경계가 **넷**이다
+
+올린 뒤에도 관리자가 손대기 전까지는 고치고 거둬들일 수 있다. 그 경계는
+
+```
+request_flag = 'none'  ·  task_status = 'idle'
+  ·  target_key IS NULL  ·  last_run_key IS NULL
+```
+
+**상태만 보지 않는 이유**가 셋째다. 관리자가 대상을 채워 두었으면 시키기
+직전이라는 뜻이고, 그때 본문이 바뀌면 **관리자가 읽고 판단한 글과 실제로
+도는 글이 달라진다.**
+
+판정이 두 곳에 있다 — 화면의 `AiRequestStage.Editable` 과 서버의
+`AiTaskService.IsStillEditable`. **둘이 같아야 한다.** 화면이 더 너그러우면
+단추는 보이는데 눌러도 409 가 돌아오고, 더 빡빡하면 고칠 수 있는 건이 잠긴
+것처럼 보인다. 둘 다 사람이 이유를 알 수 없는 모양이다.
+
+### 11.8.4 상태를 **올린 사람의 말로** 바꿔 적는다
+
+`AiTaskDto.StatusText` 를 그대로 쓰지 않는다. 그것은 기계의 현재 위치를 적는
+말이라 「작성중」·「대기」가 나오는데, 다 적어 저장한 사람에게 「작성중」은
+**거짓말에 가깝다** — 본인은 *내가 뭘 덜 했나*를 찾게 된다.
+
+이 화면이 답하는 물음은 셋뿐이라(`AiRequestStage`) 상태값 아홉을 다섯으로 접는다.
+
+| 보이는 말 | 실제 상태 | 사람이 할 일 |
+|---|---|---|
+| 접수 대기 | `idle`, 대상 없음 | 고칠 수 있다 |
+| 관리자 확인 | `idle`, 대상이 채워졌거나 한 번 돎 | 기다린다 |
+| 작업 진행중 | `queued`·`preparing`·`running` | 기다린다 |
+| 작업 완료 | `succeeded` | — |
+| 작업 실패 | `failed`·`timeout`·`interrupted` | 관리자에게 알린다 |
+
+### 11.8.5 따라가기(자동 새로고침)를 걸지 않았다
+
+「빠른 지시」는 5초·20초로 목록을 다시 읽는다(8-4). 그쪽은 **방금 보낸 것이
+지금 도는 화면**이라 그래야 한다. 여기서 올린 건은 관리자가 볼 때까지 몇
+시간이고 그대로라, 같은 주기로 두들기면 얻는 것 없이 왕복만 는다.
+판 머리에 「새로고침」 단추 하나를 둔다.
+
+### 11.8.6 권한
+
+「AI 작업」 묶음의 다른 화면 넷은 전부 관리자 전용이고 이 화면만 일반
+사용자의 자리다. 그래서 관리자 셋 외에 **프로젝트관리 업무 역할 둘**
+(`PROJMNG_JSINITEAM` · `PROJMNG_MNM_SMG`)에도 준다. 관리자 셋만 주면
+이 화면을 만든 뜻이 없어진다.
+
+묶음(`PM_AI`)에는 권한을 따로 주지 않는다 — 사이드바는 자식이 하나라도
+남으면 부모를 남긴다(`MenuFilter.Filter`).
 
 ---
 

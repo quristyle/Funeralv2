@@ -64,6 +64,7 @@ public sealed class AiTaskService(
         a.row_version     AS RowVersion,
         a.title_auto      AS TitleAuto,
         a.title_run_key   AS TitleRunKey,
+        a.is_user_request AS IsUserRequest,
         a.cre_id          AS CreId,
         a.cre_dt          AS CreDt,
         a.mod_id          AS ModId,
@@ -80,7 +81,8 @@ public sealed class AiTaskService(
     /// </remarks>
     public async Task<List<AiTask>> ListAsync(
         string? taskStatus = null, string? requestFlag = null, long? targetKey = null,
-        string? keyword = null, long? taskKey = null, bool? userConfirmed = null)
+        string? keyword = null, long? taskKey = null, bool? userConfirmed = null,
+        string? creId = null, bool? userRequest = null)
     {
         using var db = Open();
 
@@ -97,6 +99,11 @@ public sealed class AiTaskService(
                AND (@requestFlag = '' OR a.request_flag = @requestFlag)
                AND (@targetKey::bigint IS NULL OR a.target_key = @targetKey)
                AND (@userConfirmed::boolean IS NULL OR a.user_confirmed = @userConfirmed)
+               -- **올린 사람으로 좁힌다.** 「내가 올린 요청」 화면이 이 조건
+               -- 하나로 남의 건을 못 보게 한다 — 화면에서 거르면 자료는 이미
+               -- 브라우저까지 다 간 뒤다.
+               AND (@creId = '' OR a.cre_id = @creId)
+               AND (@userRequest::boolean IS NULL OR a.is_user_request = @userRequest)
                AND (@keyword = '' OR a.title ILIKE '%' || @keyword || '%'
                                   OR a.contents ILIKE '%' || @keyword || '%')
              ORDER BY a.task_key DESC
@@ -108,6 +115,8 @@ public sealed class AiTaskService(
             targetKey,
             keyword = keyword ?? string.Empty,
             userConfirmed,
+            creId = creId ?? string.Empty,
+            userRequest,
         });
 
         return [.. rows];
@@ -131,22 +140,194 @@ public sealed class AiTaskService(
                    runner_kind, request_flag, task_status, priority,
                    timeout_minutes, attempt_max, auto_push,
                    notify_email, notify_pwa, notify_to, notify_when,
-                   row_version, cre_id, cre_dt )
+                   is_user_request, row_version, cre_id, cre_dt )
             VALUES ( @Title, @TitleAuto, NULL, @Contents, @ContentFormat, @TargetKey, @TargetRef,
                      @RunnerKind, 'none', 'idle', @Priority,
                      @TimeoutMinutes, @AttemptMax, @AutoPush,
                      @NotifyEmail, @NotifyPwa, @NotifyTo, @NotifyWhen,
-                     1, @userId, now() )
+                     @IsUserRequest, 1, @userId, now() )
             RETURNING task_key
             """, new
         {
             item.Title, item.TitleAuto, item.Contents, item.ContentFormat, item.TargetKey, item.TargetRef,
             item.RunnerKind, item.Priority, item.TimeoutMinutes, item.AttemptMax,
-            item.AutoPush, item.NotifyEmail, item.NotifyPwa, item.NotifyTo, item.NotifyWhen, userId,
+            item.AutoPush, item.NotifyEmail, item.NotifyPwa, item.NotifyTo, item.NotifyWhen,
+            item.IsUserRequest, userId,
         });
 
         return await GetAsync(key);
     }
+
+    // ── 일반 사용자가 올리는 요청 ───────────────────────────
+    //
+    // 「AI 작업 요청」 화면(`AiRequestList`)만 쓰는 넷이다. 관리자용
+    // 등록·수정·삭제와 **입구를 갈라 둔 이유는 이 화면을 쓰는 사람이
+    // 관리자가 아니기 때문**이다 — 같은 입구를 쓰면 번호만 바꿔 보내서
+    // 남의 작업을, 그것도 도는 중인 것을 고칠 수 있다.
+    //
+    // 셋 다 `cre_id = 올린 사람` 을 **WHERE 에 넣는다.** 읽고 판단한 뒤
+    // 고치는 두 걸음으로 나누면 그 사이가 비고, 「없는 건」과 「남의 건」을
+    // 가르려다 오히려 남의 건이 있다는 사실을 알려 주게 된다.
+
+    /// <summary>
+    /// <b>일반 사용자가 지시를 적어 둔다.</b> 저장만 되고 아무 데서도 안 돈다.
+    /// </summary>
+    /// <remarks>
+    /// 화면이 무엇을 보내든 <b>돌게 하는 값은 서버가 전부 지운다</b> —
+    /// 작업 대상 · push · 알림이 그것이다. 대상과 AI 는 나중에 관리자가
+    /// 「AI 작업」 화면에서 채운다.
+    /// </remarks>
+    public async Task<AiTask?> CreateUserRequestAsync(AiTask item, string? userId)
+    {
+        // **대상을 비운다.** 대상이 있으면 관리자가 요청만 누르면 되는데,
+        // 일반 사용자가 고른 자리에서 그대로 돌아가는 것이 이 화면의 전제와
+        // 어긋난다(어디서 돌릴지는 관리자가 정한다).
+        item.TargetKey = null;
+        item.TargetRef = null;
+        item.AutoPush = false;
+
+        // **AI 도 고르지 않는다.** 화면에는 그 칸이 없지만 이 경로는 로그인한
+        // 누구에게나 열려 있어 본문에 실어 보낼 수 있다. 남겨 두면 관리자가
+        // 고른 대상이 그 AI 를 허용하지 않을 때 **요청 단계에서야** 막힌다.
+        // 기본값은 `NormalizeAsync` 가 채운다.
+        item.RunnerKind = null;
+
+        // 알림도 끈다. 이 건이 끝나는 시점은 관리자가 실제로 시킨 뒤이고,
+        // 그때의 알림 설정은 관리자가 정한다.
+        item.NotifyEmail = false;
+        item.NotifyPwa = false;
+        item.NotifyTo = null;
+
+        item.IsUserRequest = true;
+
+        return await CreateAsync(item, userId);
+    }
+
+    /// <summary>
+    /// <b>자기가 올린 요청을 고친다.</b> 아직 아무도 안 건드린 것만.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 제목과 본문만 바뀐다. 대상 · AI · 알림은 관리자의 칸이라 여기서
+    /// 실어 보내도 반영하지 않는다.
+    /// </para>
+    /// <para>
+    /// <b><c>row_version</c> 도 조건에 넣는다.</b> 관리자가 대상을 채우지 않은 채
+    /// 글만 다듬어 둔 사이에 올린 사람이 저장하면 <b>그 손질이 소리 없이
+    /// 덮인다</b> — 관리자 쪽 수정(<see cref="UpdateAsync"/>)도 같은 것을 본다.
+    /// </para>
+    /// </remarks>
+    public async Task<AiTaskEditResult> UpdateUserRequestAsync(
+        long taskKey, AiTask item, string? userId)
+    {
+        var current = await FindOwnAsync(taskKey, userId);
+
+        if (current is null)
+        {
+            return AiTaskEditResult.NotFound();
+        }
+
+        if (!IsStillEditable(current))
+        {
+            return AiTaskEditResult.Conflict(
+                "관리자가 이미 처리를 시작한 요청입니다. 더 고칠 수 없습니다.");
+        }
+
+        item.TitleAuto = string.IsNullOrWhiteSpace(item.Title);
+        item.Title = string.IsNullOrWhiteSpace(item.Title)
+            ? MakeTitle(item.Contents)
+            : item.Title.Trim();
+
+        if (item.Title.Length > 200)
+        {
+            item.Title = item.Title[..200];
+        }
+
+        using var db = Open();
+
+        var affected = await db.ExecuteAsync("""
+            UPDATE projmng.ai_task
+               SET title      = @Title,
+                   title_auto = @TitleAuto,
+                   contents   = @Contents,
+                   row_version = row_version + 1,
+                   mod_id     = @userId,
+                   mod_dt     = now()
+             WHERE task_key     = @taskKey
+               AND is_deleted   = false
+               AND cre_id       = @userId
+               AND request_flag = 'none'
+               AND task_status  = 'idle'
+               AND row_version  = @RowVersion
+            """, new { taskKey, item.Title, item.TitleAuto, item.Contents, item.RowVersion, userId });
+
+        return affected == 0
+            ? AiTaskEditResult.Conflict("다른 사람이 먼저 고쳤습니다. 다시 읽은 뒤 저장하십시오.")
+            : AiTaskEditResult.Ok(await GetAsync(taskKey));
+    }
+
+    /// <summary>
+    /// <b>자기가 올린 요청을 거둬들인다.</b> 아직 아무도 안 건드린 것만.
+    /// </summary>
+    public async Task<AiTaskEditResult> DeleteUserRequestAsync(long taskKey, string? userId)
+    {
+        var current = await FindOwnAsync(taskKey, userId);
+
+        if (current is null)
+        {
+            return AiTaskEditResult.NotFound();
+        }
+
+        if (!IsStillEditable(current))
+        {
+            return AiTaskEditResult.Conflict(
+                "관리자가 이미 처리를 시작한 요청입니다. 지울 수 없습니다.");
+        }
+
+        using var db = Open();
+
+        var affected = await db.ExecuteAsync("""
+            UPDATE projmng.ai_task
+               SET is_deleted = true, mod_id = @userId, mod_dt = now()
+             WHERE task_key     = @taskKey
+               AND is_deleted   = false
+               AND cre_id       = @userId
+               AND request_flag = 'none'
+               AND task_status  = 'idle'
+            """, new { taskKey, userId });
+
+        return affected == 0
+            ? AiTaskEditResult.Conflict("그 사이에 상태가 바뀌었습니다. 다시 읽으십시오.")
+            : AiTaskEditResult.Ok(null);
+    }
+
+    /// <summary>
+    /// 내가 올린 그 건인가. <b>남의 건은 「없다」로 답한다</b> —
+    /// 「당신 것이 아닙니다」는 <b>그 번호에 무엇이 있다는 사실</b>을 알려 준다.
+    /// </summary>
+    private async Task<AiTask?> FindOwnAsync(long taskKey, string? userId)
+    {
+        var current = await GetAsync(taskKey);
+
+        return current is not null
+               && !string.IsNullOrWhiteSpace(userId)
+               && string.Equals(current.CreId, userId, StringComparison.Ordinal)
+            ? current
+            : null;
+    }
+
+    /// <summary>
+    /// 올린 사람이 아직 고칠 수 있나. <b>관리자가 손대기 전까지</b>다.
+    /// </summary>
+    /// <remarks>
+    /// 상태만 보지 않는다. 관리자가 대상을 채워 두었으면 요청 직전이라는 뜻이고,
+    /// 그때 본문이 바뀌면 <b>관리자가 읽고 판단한 글과 실제로 도는 글이 달라진다.</b>
+    /// </remarks>
+    private static bool IsStillEditable(AiTask t) =>
+        t.RequestFlag == AiTaskFlag.None
+        && t.TaskStatus == AiTaskStatus.Idle
+        && t.TargetKey is null
+        && t.LastRunKey is null;
 
     /// <summary>
     /// 고친다. <b>도는 중에는 본문을 고칠 수 없다</b>(<see cref="AiTaskEditResult"/>).

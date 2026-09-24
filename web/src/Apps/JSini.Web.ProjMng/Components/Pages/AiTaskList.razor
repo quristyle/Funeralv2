@@ -142,6 +142,20 @@
                                 Style="width: 200px" />
                 </CommSchItem>
 
+                @* 일반 사용자가 올린 요청만 뽑아 보는 칸이다.
+
+                   **그 건은 조건으로 좁히지 않으면 안 보인다.** 요청여부
+                   `none` · 상태 `idle` · 대상 없음이라 관리자가 쓰다 만 제
+                   글과 값이 하나도 다르지 않고, 목록은 번호 내림차순이라
+                   며칠 지나면 아래로 밀린다. *@
+                <CommSchItem Label="출처">
+                    <DxComboBox Data="@SourceFilters" @bind-Value="_source"
+                                TextFieldName="@nameof(PickOption.Text)"
+                                ValueFieldName="@nameof(PickOption.Value)"
+                                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto"
+                                CssClass="pm-code-select" />
+                </CommSchItem>
+
                 <CommSchItem Label="검색어">
                     <DxTextBox @bind-Text="_keyword" Style="width: 200px" />
                 </CommSchItem>
@@ -205,6 +219,14 @@
                         <div class="pm-ai-row">
                             <span class="pm-ai-row__title">
                                 <span class="pm-ai-title__text">@t.Title</span>
+                                @* 일반 사용자가 「AI 작업 요청」 화면에서 올린 건.
+                                   **돌고 난 뒤에도 남는 표시다** — 「누가 부탁한
+                                   일이었나」는 끝난 뒤에 더 자주 찾는다. *@
+                                @if (t.IsUserRequest)
+                                {
+                                    <span class="jsini-badge jsini-badge--on"
+                                          title="@($"사용자 요청 — {t.CreId} 님이 올렸습니다")">요청</span>
+                                }
                                 @if (Drafts.Items.ContainsKey(t.TaskKey))
                                 {
                                     <span class="jsini-badge jsini-badge--warn" title="저장하지 않은 임시본이 있습니다">임시</span>
@@ -610,6 +632,7 @@
         SchSummary.NameOf(StatusFilters, o => o.Value, o => o.Text, _status),
         SchSummary.NameOf(FlagFilters, o => o.Value, o => o.Text, _flag),
         _targets.FirstOrDefault(t => t.TargetKey == _targetKey)?.TargetNm,
+        SchSummary.NameOf(SourceFilters, o => o.Value, o => o.Text, _source),
         _keyword);
 
     /// <summary>고르는 칸 한 줄. 공통코드에 없는 값들이라 화면이 들고 있다.</summary>
@@ -634,6 +657,20 @@
     [
         new("", "전체"),
         new("none", "안 함"), new("requested", "요청"), new("cancel_requested", "취소요청"),
+    ];
+
+    /// <summary>
+    /// 누가 올린 건인가 — <c>ai_task.is_user_request</c>.
+    /// </summary>
+    /// <remarks>
+    /// 값이 글자인 이유는 <c>DxComboBox</c> 가 「전체」를 고를 자리를 가져야
+    /// 하기 때문이다. <c>bool?</c> 로 두면 세 상태를 표현할 수는 있지만
+    /// 「전체」가 <c>null</c> 이 되어 <b>지우기 단추와 구별되지 않는다.</b>
+    /// </remarks>
+    private static readonly PickOption[] SourceFilters =
+    [
+        new("", "전체"),
+        new("user", "사용자 요청"), new("admin", "직접 작성"),
     ];
 
     private IReadOnlyList<PickOption> RunnerKinds = [];
@@ -893,6 +930,7 @@
             _flag = null;
             _targetKey = null;
             _keyword = null;
+            _source = null;
 
             // 그리드 칸별 필터도 함께 지운다.
             _statusFilterValues = [];
@@ -971,7 +1009,7 @@
 
     private Task SearchAsync() => LoadAsync(async () =>
     {
-        _rows = await Api.ListAsync(_status, _flag, _targetKey, _keyword);
+        _rows = await Api.ListAsync(_status, _flag, _targetKey, _keyword, userRequest: UserRequestFilter);
 
         // 고른 것이 목록에서 빠졌으면 오른쪽을 비운다 — 없는 건을 고치고
         // 있다고 믿게 두지 않는다.
@@ -995,6 +1033,15 @@
     private string? _flag;
     private long? _targetKey;
     private string? _keyword;
+    private string? _source;
+
+    /// <summary>고른 출처를 서버가 알아듣는 값으로. 「전체」는 조건 없음이다.</summary>
+    private bool? UserRequestFilter => _source switch
+    {
+        "user" => true,
+        "admin" => false,
+        _ => null,
+    };
 
     /// <summary>
     /// 그리드 칸별 필터 행 — 상태 다중 선택.
