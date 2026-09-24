@@ -465,6 +465,15 @@
         var passkeySubmitted = Passkey is not null;
         Passkey ??= new PasskeyLoginInput();
 
+        // [두 폼의 모델을 **첫 await 전에** 채운다 — 2026-09-24]
+        //
+        // 아래 소셜 단추 조회가 실제로 기다리면(값이 캐시에 없을 때) 그 자리에서
+        // 화면이 한 번 먼저 그려진다. 그때 `Input` 이 비어 있으면 EditForm 이
+        // 「Model 이 없다」로 던져 **로그인 화면이 500** 이 된다. 캐시가 찬 뒤로는
+        // 멀쩡해서 가끔만 났다(운영에서 500 → 200 을 번갈아 봤다).
+        var loginSubmitted = Input is not null;
+        Input ??= new LoginInput();
+
         // 소셜에서 되돌아온 안내를 먼저 읽는다. **폼 제출로 들어온 요청에도
         // 읽어야 한다** — 안 그러면 되돌아온 직후 화면에서만 보이고, 그 자리에서
         // 비밀번호를 한 번 틀리면 왜 못 들어갔는지가 사라진다.
@@ -476,12 +485,10 @@
         _socialProviders = await Auth.GetSocialProvidersAsync();
 
         // 폼 제출로 들어온 요청이면 사용자가 친 값이 들어 있다. 손대지 않는다.
-        if (Input is not null)
+        if (loginSubmitted)
         {
             return;
         }
-
-        Input = new LoginInput();
 
         if (!Env.IsDevelopment())
         {
