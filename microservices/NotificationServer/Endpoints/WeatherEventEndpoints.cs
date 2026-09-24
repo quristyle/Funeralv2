@@ -148,6 +148,94 @@ public static class WeatherEventEndpoints
         })
         .WithName("SendWeatherWarning")
         .WithTags("Weather");
+
+        // ── 내 위치 날씨 ──────────────────────────────────────────────
+        //
+        // 위의 둘과 또 다른 갈래다. 저 둘은 **사건**이다(기준을 넘었다 · 특보가
+        // 떴다). 이것은 사건이 없어도 **정해진 시각마다** 가는, 사람마다 다른
+        // 지점의 현재 날씨와 예보다.
+        //
+        // **대상을 여기서 고르지 않는다.** 누가 켰는지는 이 서비스가 알지만,
+        // 「지금 이 사람에게 보낼 시각인가」와 「그 지점 날씨가 어떤가」는 전부
+        // 생활과환경의 판단이다. 그래서 목록을 내주고(아래 첫 번째) 결과를
+        // 받는다(두 번째) — 방향은 기존 기상 이벤트와 같다.
+
+        // **이 하나만 신원을 더 본다.** 나가는 것이 사람들의 위경도 목록이라,
+        // 게이트웨이를 지난 보통 계정에게 열어 두면 로그인한 누구나 동료가 어디
+        // 사는지 받아 갈 수 있다. 부르는 쪽은 같은 장비의 생활과환경뿐이고
+        // 그쪽은 `X-User-Id: system:weather` 로 온다 — 바깥에서 보낸 같은 헤더는
+        // 게이트웨이가 먼저 지우므로 사람이 이 이름을 쓸 수 없다.
+        app.MapGet("/weather-local/subscribers", async (
+            UserContext? user,
+            [FromServices] INotificationPreferenceService prefs,
+            CancellationToken ct) =>
+        {
+            if (user is null) return Results.Unauthorized();
+            if (!user.UserId.StartsWith("system:", StringComparison.Ordinal))
+            {
+                return Results.Json(
+                    ApiResponse<object>.Fail("시스템 호출만 받습니다.", "E403"), statusCode: 403);
+            }
+
+            var items = await prefs.GetLocalWeatherSubscribersAsync(ct);
+            return Results.Ok(ApiResponse<List<LocalWeatherSubscriberDto>>.Ok(items));
+        })
+        .WithName("GetLocalWeatherSubscribers")
+        .WithTags("Weather");
+
+        app.MapPost("/weather-local", async (
+            [FromBody] SendLocalWeatherDto request,
+            UserContext? user,
+            [FromServices] IPushSender push,
+            [FromServices] INotificationPreferenceService prefs,
+            [FromServices] ILoggerFactory loggerFactory,
+            CancellationToken ct) =>
+        {
+            var logger = loggerFactory.CreateLogger("LocalWeather");
+            if (user is null) return Results.Unauthorized();
+
+            if (string.IsNullOrWhiteSpace(request.OwnerKey))
+            {
+                return Results.BadRequest(ApiResponse<object>.Fail("받는 사람이 필요합니다.", "INVALID"));
+            }
+
+            var ownerType = string.IsNullOrWhiteSpace(request.OwnerType) ? "jsini" : request.OwnerType;
+
+            var message = new PushMessageDto
+            {
+                Title = string.IsNullOrWhiteSpace(request.Title) ? "내 위치 날씨" : request.Title,
+                Body = request.Body,
+                Url = "/life/weather/dashboard",
+                // 같은 사람의 날씨 알림은 **한 줄로 겹쳐 보이는 편이 낫다.** 아침에
+                // 받은 것을 안 지우고 저녁 것을 받으면 알림창에 같은 모양이 쌓인다.
+                Tag = "weather-local",
+            };
+
+            var result = await push.SendAsync(
+                new SendPushDto
+                {
+                    Owners = [new OwnerRefDto { OwnerType = ownerType, OwnerKey = request.OwnerKey }],
+                    Message = message,
+                },
+                sentBy: null, ct);
+
+            // **보낸 것이 없어도 시각을 찍는다.** 기기가 없거나 본인이 푸시를 꺼 둔
+            // 사람을 안 찍고 두면, 발송기가 5분마다 그 사람을 다시 집어 같은 시각
+            // 칸에 열두 번 헛발송을 시도하고 기록에도 열두 줄이 남는다.
+            await prefs.MarkLocalWeatherSentAsync(ownerType, request.OwnerKey, request.Place, ct);
+
+            logger.LogInformation(
+                "내 위치 날씨 발송: {Owner} ({Place}) · 푸시 {Sent}건 {Detail}",
+                request.OwnerKey, request.Place, result.Sent, result.Message);
+
+            return Results.Ok(ApiResponse<object>.Ok(new
+            {
+                pushSent = result.Sent,
+                detail = result.Message,
+            }));
+        })
+        .WithName("SendLocalWeather")
+        .WithTags("Weather");
     }
 
     /// <summary>

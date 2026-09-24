@@ -31,6 +31,30 @@ public static class WeatherEndpoints {
         .WithTags("Weather")
         .AddApiResponseWrapper();
 
+    // 0. 내 위치 한 지점의 날씨
+    //
+    // **등록된 관측 지역이 아니다.** 브라우저가 Geolocation 으로 받아 온 위경도
+    // 한 쌍을 그대로 받아, 격자로 바꾸고 가장 가까운 행정구역 이름을 붙여
+    // 지금 날씨와 사흘치 예보를 만들어 준다.
+    //
+    // 부르는 곳이 둘이다 — 알림 설정 화면의 미리보기(「여기가 맞나」)와
+    // 「내 위치 날씨」 발송기(LocalWeatherNotifyService). 둘이 같은 말을 해야 한다.
+    group.MapGet("/point", async (double? lat, double? lon, PointWeatherService points) => {
+      if (lat is not { } latitude || lon is not { } longitude) {
+        return Results.BadRequest("위도(lat)와 경도(lon)가 필요합니다.");
+      }
+
+      // 한반도 밖이면 기상청에 물어도 자료가 없다. 브라우저가 위치를 못 잡았을 때
+      // 0,0 이 오는 일이 실제로 있어, 그것을 「자료 없음」이 아니라 여기서 말한다.
+      if (!GridConverter.IsInKorea(latitude, longitude)) {
+        return Results.BadRequest("국내 좌표가 아닙니다. 기상청 예보가 닿지 않는 지점입니다.");
+      }
+
+      return Results.Ok(await points.GetAsync(latitude, longitude));
+    })
+    .WithName("GetPointWeather")
+    .WithSummary("위경도 한 지점의 현재 날씨와 예보 (내 위치 날씨)");
+
     // 1. 관측 지역 관리 (CRUD)
     var locationGroup = group.MapGroup("/locations");
 

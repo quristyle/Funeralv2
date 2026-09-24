@@ -301,6 +301,26 @@ public class NotificationPreferenceDto
     public bool NoteEmailEnabled { get; set; }
 
     /// <summary>
+    /// <b>내 위치 날씨</b>를 받는가. 위 <see cref="WeatherEnabled"/>(기상 특보)와
+    /// 다른 스위치다 — 그쪽은 사건이 있을 때만, 이쪽은 시각마다 온다.
+    /// </summary>
+    public bool WeatherLocalEnabled { get; set; }
+
+    /// <summary>저장된 위경도. 없으면 <see cref="WeatherLocalEnabled"/> 를 켜도 보낼 곳이 없다.</summary>
+    public double? WeatherLat { get; set; }
+
+    public double? WeatherLon { get; set; }
+
+    /// <summary>보여 줄 지역 이름. 표시 전용이다.</summary>
+    public string? WeatherPlace { get; set; }
+
+    /// <summary>받을 시각들(KST, 쉼표로 나눈 0~23). 비면 <c>7,18</c> 이다.</summary>
+    public string? WeatherHours { get; set; }
+
+    /// <summary>위치를 마지막으로 잡은 때.</summary>
+    public DateTime? WeatherLocatedAt { get; set; }
+
+    /// <summary>
     /// 저장한 적이 있나. 거짓이면 아래 값은 <b>기본값</b>이고 표에는 행이 없다.
     /// 화면이 "아직 설정하지 않았습니다" 를 말할 수 있게 내려 준다.
     /// </summary>
@@ -319,6 +339,72 @@ public class UpdateNotificationPreferenceDto
     public bool? EmailEnabled { get; set; }
     public bool? WeatherEnabled { get; set; }
     public bool? NoteEmailEnabled { get; set; }
+    public bool? WeatherLocalEnabled { get; set; }
+
+    /// <summary>
+    /// 새로 잡은 위치. <b>둘을 함께 줘야 바뀐다</b> — 위도만 바꾸면 경도와
+    /// 짝이 맞지 않는 지점이 되어 엉뚱한 곳의 날씨가 간다.
+    /// </summary>
+    public double? WeatherLat { get; set; }
+
+    public double? WeatherLon { get; set; }
+
+    public string? WeatherPlace { get; set; }
+
+    public string? WeatherHours { get; set; }
+}
+
+/// <summary>
+/// 「내 위치 날씨」를 켠 사람 하나 — <b>생활과환경(LifeEnvServer)이 가져간다.</b>
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>왜 보내는 쪽이 아니라 받아 가는 모양인가.</b> 날씨를 아는 것은 저쪽이다
+/// (기상청 인증키도 격자 변환도 예보 해석도 전부 거기 있다). 이쪽은 누가 켰는지만
+/// 안다. 그래서 저쪽이 시각마다 이 목록을 받아 가 자기 일을 하고, 만든 문장을
+/// <c>POST /weather-local</c> 로 되돌려 준다 — 기존 기상 이벤트와 같은 방향이다
+/// (LifeEnv → Notification). 방향을 뒤집으면 알림 서비스가 기상청을 알게 된다.
+/// </para>
+/// </remarks>
+public class LocalWeatherSubscriberDto
+{
+    public string OwnerType { get; set; } = string.Empty;
+    public string OwnerKey { get; set; } = string.Empty;
+
+    public double Lat { get; set; }
+    public double Lon { get; set; }
+
+    /// <summary>표시용 지역 이름. 비어 있으면 저쪽이 격자표에서 찾아 채워 보낸다.</summary>
+    public string? Place { get; set; }
+
+    /// <summary>받기로 한 시각들(KST). 비었으면 저쪽이 기본값 <c>7,18</c> 로 읽는다.</summary>
+    public string? Hours { get; set; }
+
+    /// <summary>마지막으로 보낸 때(UTC). 같은 시각 칸을 두 번 울리지 않으려고 함께 보낸다.</summary>
+    public DateTime? LastSentAt { get; set; }
+}
+
+/// <summary>
+/// 생활과환경이 만들어 보내는 「내 위치 날씨」 한 통.
+/// </summary>
+/// <remarks>
+/// 본문을 <b>저쪽이 만든다.</b> 기온·하늘상태·강수확률을 어떻게 한 줄로 줄일지는
+/// 날씨를 아는 쪽의 판단이고, 여기서 하면 알림 서비스가 기상청 코드값
+/// (<c>SKY</c>·<c>PTY</c>)을 알아야 한다.
+/// </remarks>
+public class SendLocalWeatherDto
+{
+    public string OwnerType { get; set; } = "jsini";
+    public string OwnerKey { get; set; } = string.Empty;
+
+    public string Title { get; set; } = string.Empty;
+    public string? Body { get; set; }
+
+    /// <summary>
+    /// 찾아낸 지역 이름. 주면 설정에 적어 둔다 — 사람이 처음 위치를 잡을 때는
+    /// 이름을 모르는 채로 저장될 수 있고, 그때 화면에 좌표만 남는다.
+    /// </summary>
+    public string? Place { get; set; }
 }
 
 /// <summary>내 기기(구독) 한 대.</summary>

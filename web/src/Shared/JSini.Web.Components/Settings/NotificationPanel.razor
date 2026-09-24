@@ -111,7 +111,110 @@
             <DxCheckBox Checked="@_settings.Preference.WeatherEnabled"
                         CheckedChanged="@((bool v) => ToggleAsync(p => p.WeatherEnabled = v))" />
         </div>
+
+        @* **위 「기상 특보」와 다른 스위치다.** 저쪽은 회사가 등록해 둔 지점에
+           특보가 걸렸을 때만 울리는 사건 알림이고, 이쪽은 내가 선 자리의 날씨를
+           사건이 없어도 시각마다 보낸다. 한 칸에 얹으면 특보만 받고 싶은 사람이
+           매일 아침 알림을 함께 받게 된다.
+
+           **위치를 잡기 전에는 켤 수 없다.** 웹은 뒤에서 위치를 못 읽으므로
+           (`geo.js` 머리말) 좌표가 없으면 보낼 곳 자체가 없다 — 켜지는데 아무
+           알림도 안 오는 상태를 만들지 않으려고 체크를 잠근다. *@
+        <div class="jsini-setting">
+            <div>
+                <div class="jsini-setting__name">내 위치 날씨</div>
+                <div class="jsini-setting__desc">
+                    저장해 둔 내 위치의 지금 날씨와 예보를 정해진 시각에 보냅니다.
+                </div>
+            </div>
+            <DxCheckBox Checked="@_settings.Preference.WeatherLocalEnabled"
+                        Enabled="@HasSavedLocation"
+                        CheckedChanged="@((bool v) => ToggleAsync(p => p.WeatherLocalEnabled = v))" />
+        </div>
     </section>
+
+    @* ── 내 위치 ──────────────────────────────────────────────
+
+       스위치 목록 안에 넣지 않는다. 여기는 켜고 끄는 것이 아니라 **좌표 하나를
+       잡아 두는 일**이고, 잡은 뒤에 「여기가 맞나」를 되물어야 해서 줄 하나로는
+       안 된다. 목록 바로 아래 두어 위 체크와의 관계는 남긴다. *@
+    <div class="jsini-weather-loc">
+        @if (HasSavedLocation)
+        {
+            <dl class="jsini-facts">
+                <div class="jsini-fact">
+                    <dt>저장된 위치</dt>
+                    <dd>
+                        @if (!string.IsNullOrWhiteSpace(_settings.Preference.WeatherPlace))
+                        {
+                            <strong>@_settings.Preference.WeatherPlace</strong>
+                        }
+                        else
+                        {
+                            @* 이름을 못 찾았어도 **무엇을 저장했는지는 보여 준다.**
+                               빈 칸으로 두면 사람은 저장이 안 된 줄 안다. *@
+                            <strong>@CoordText</strong>
+                        }
+                    </dd>
+                </div>
+
+                <div class="jsini-fact">
+                    <dt>잡은 때</dt>
+                    <dd>
+                        @* **자리가 바뀌어도 좌표는 그대로다.** 언제 잡은 것인지
+                           보여 주지 않으면 이사·출장 뒤에도 옛 동네 날씨가 오는
+                           까닭을 알 길이 없다. *@
+                        @(_settings.Preference.WeatherLocatedAt is { } located
+                            ? located.ToLocalTime().ToString("yyyy-MM-dd HH:mm")
+                            : "-")
+                    </dd>
+                </div>
+
+                <div class="jsini-fact">
+                    <dt>받는 시각</dt>
+                    <dd>
+                        <DxComboBox Data="@HourPresets" Style="width: 200px"
+                                    Value="@CurrentHourPreset"
+                                    ValueChanged="@((HourPreset? v) => ChangeHoursAsync(v))"
+                                    ValueExpression="@(() => CurrentHourPreset)"
+                                    TextFieldName="@nameof(HourPreset.Label)" />
+                    </dd>
+                </div>
+            </dl>
+        }
+        else
+        {
+            <PageNotice Tone="NoticeTone.Info"
+                        Text="아직 위치를 잡지 않았습니다. 「내 위치 잡기」를 누르면 브라우저가 위치를 묻고, 그 좌표를 저장해 둡니다. 저장한 뒤에야 「내 위치 날씨」를 켤 수 있습니다." />
+        }
+
+        @* **미리보기를 바로 보여 준다.** 좌표만 저장해 두면 사람은 자기가 무엇을
+           저장했는지 알 수 없고, 엉뚱한 동네 날씨가 와도 까닭을 못 찾는다.
+           여기 뜨는 글이 실제 알림 본문과 **같은 글**이다(서버가 만든다). *@
+        @if (_preview is not null)
+        {
+            <div class="jsini-weather-preview">
+                <div class="jsini-setting__name">알림 미리보기</div>
+                <div class="jsini-weather-preview__title">
+                    @(string.IsNullOrWhiteSpace(_preview.Place) ? "내 위치 날씨" : $"[날씨] {_preview.Place}")
+                </div>
+                @* 본문은 줄바꿈이 있는 한 덩이 글이다 — 알림창에 뜨는 모양 그대로. *@
+                <div class="jsini-weather-preview__body">@_preview.Summary</div>
+            </div>
+        }
+
+        <div class="jsini-toolbar">
+            <DxButton Text="@(HasSavedLocation ? "내 위치 다시 잡기" : "내 위치 잡기")"
+                      RenderStyle="ButtonRenderStyle.Primary"
+                      Enabled="@(!_locating)" Click="@LocateAsync" />
+
+            @if (HasSavedLocation)
+            {
+                <DxButton Text="지금 날씨 보기" RenderStyle="ButtonRenderStyle.Secondary"
+                          Enabled="@(!_locating)" Click="@PreviewSavedAsync" />
+            }
+        </div>
+    </div>
 
     @if (_settings.Preference.UpdatedAt is { } at)
     {
@@ -446,6 +549,186 @@ else
             // 저장했으니 「아직 정한 적 없음」 안내를 내린다.
             _settings.Preference.Saved = true;
             _settings.Preference.UpdatedAt = DateTime.UtcNow;
+        }
+    }
+
+    // ── 내 위치 날씨 ────────────────────────────────────────────
+    //
+    // **웹은 뒤에서 위치를 못 읽는다.** 서비스워커에는 geolocation 이 없고,
+    // 탭이 닫힌 뒤에 묻는 길도 없다. 그래서 여기서 한 번 받아 **서버에
+    // 저장해 두고**, 알림은 서버가 그 저장된 좌표로 만들어 보낸다. 자리가
+    // 바뀌면 사람이 다시 눌러야 하고, 「잡은 때」를 보여 주는 것이 그 때문이다.
+
+    /// <summary>위치를 잡거나 미리보기를 받아 오는 동안 단추를 잠근다.</summary>
+    private bool _locating;
+
+    /// <summary>미리 보여 줄 날씨. 아직 안 받았으면 <c>null</c> 이다.</summary>
+    private PointWeatherDto? _preview;
+
+    /// <summary>
+    /// 좌표를 저장해 두었나. <b>스위치를 켤 수 있는지가 여기 달려 있다</b> —
+    /// 좌표가 없으면 켜도 보낼 곳이 없고, 그러면 켜졌는데 아무 알림도 안 오는
+    /// 상태가 된다.
+    /// </summary>
+    private bool HasSavedLocation =>
+        _settings?.Preference is { WeatherLat: not null, WeatherLon: not null };
+
+    /// <summary>지역 이름을 못 찾았을 때 대신 보여 줄 좌표.</summary>
+    private string CoordText =>
+        _settings?.Preference is { WeatherLat: { } lat, WeatherLon: { } lon }
+            ? FormattableString.Invariant($"{lat:0.####}, {lon:0.####}")
+            : "-";
+
+    /// <summary>
+    /// 받는 시각을 고르는 칸. <b>시각을 낱낱이 고르게 하지 않는다</b> —
+    /// 스물네 개의 체크는 고르는 일이 되고, 사람이 실제로 원하는 것은
+    /// 「아침에」·「아침저녁으로」 정도다.
+    /// </summary>
+    /// <remarks>
+    /// 값은 <c>7,18</c> 꼴의 문자열로 저장한다. 서버가 그것을 다듬어(범위를
+    /// 벗어난 값·중복을 버린다) 두므로, 여기서 고르지 않은 값이 들어와도
+    /// 아래 <see cref="CurrentHourPreset"/> 이 목록에서 못 찾고 빈 칸이 될 뿐이다.
+    /// </remarks>
+    private sealed record HourPreset(string Label, string Hours);
+
+    private static readonly HourPreset[] HourPresets =
+    [
+        new("아침 7시", "7"),
+        new("아침 7시 · 저녁 6시", "7,18"),
+        new("아침 7시 · 낮 12시 · 저녁 6시", "7,12,18"),
+        new("세 시간마다 (6~21시)", "6,9,12,15,18,21"),
+    ];
+
+    /// <summary>
+    /// 지금 고른 시각 묶음. 저장된 값이 없으면 기본값(<c>7,18</c>)으로 본다 —
+    /// 서버의 발송기가 같은 기본값을 쓴다.
+    /// </summary>
+    private HourPreset? CurrentHourPreset
+    {
+        get
+        {
+            var hours = string.IsNullOrWhiteSpace(_settings?.Preference.WeatherHours)
+                ? "7,18"
+                : _settings!.Preference.WeatherHours!;
+
+            return HourPresets.FirstOrDefault(p => p.Hours == hours);
+        }
+    }
+
+    private async Task ChangeHoursAsync(HourPreset? preset)
+    {
+        if (preset is null || _settings is null) return;
+
+        await ToggleAsync(p => p.WeatherHours = preset.Hours);
+    }
+
+    /// <summary>
+    /// 브라우저에게 위치를 묻고, 받은 좌표를 저장한 뒤 그 지점의 날씨를 보여 준다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>순서가 중요하다.</b> 좌표를 먼저 서버에 저장하고 그 다음에 날씨를
+    /// 받는다 — 반대로 하면 날씨 조회가 실패했을 때(기상청이 느릴 때가 실제로
+    /// 있다) 위치도 함께 날아가고, 사람은 단추를 다시 눌러야 한다.
+    /// </para>
+    /// <para>
+    /// <b>지역 이름은 날씨와 함께 온다.</b> 좌표를 저장하는 시점에는 아직
+    /// 모르므로 이름 없이 저장하고, 날씨를 받아 이름을 알게 되면 한 번 더
+    /// 저장한다. 서버 쪽 발송기도 같은 이름을 채워 넣는다.
+    /// </para>
+    /// </remarks>
+    private async Task LocateAsync()
+    {
+        if (_locating || _settings is null) return;
+
+        _locating = true;
+        try
+        {
+            GeoResult? geo;
+
+            try
+            {
+                geo = await JS.InvokeAsync<GeoResult>("jsiniGeo.locate");
+            }
+            catch (Exception ex)
+            {
+                Say($"위치를 받지 못했습니다: {ex.Message}", NoticeTone.Warning);
+                return;
+            }
+
+            if (geo is not { Ok: true })
+            {
+                Say(geo?.Error ?? "위치를 받지 못했습니다.", NoticeTone.Warning);
+                return;
+            }
+
+            _settings.Preference.WeatherLat = geo.Latitude;
+            _settings.Preference.WeatherLon = geo.Longitude;
+            _settings.Preference.WeatherPlace = null;
+            _settings.Preference.WeatherLocatedAt = DateTime.UtcNow;
+
+            if (!await RunAsync(() => Api.SaveMyPreferencesAsync(_settings.Preference),
+                                "위치를 저장했습니다.", "위치를 저장하지 못했습니다"))
+            {
+                return;
+            }
+
+            _settings.Preference.Saved = true;
+
+            await LoadPreviewAsync(geo.Latitude, geo.Longitude, savePlace: true);
+        }
+        finally
+        {
+            _locating = false;
+        }
+    }
+
+    /// <summary>저장해 둔 좌표의 날씨를 다시 받아 본다. 좌표는 건드리지 않는다.</summary>
+    private async Task PreviewSavedAsync()
+    {
+        if (_locating || _settings?.Preference is not { WeatherLat: { } lat, WeatherLon: { } lon }) return;
+
+        _locating = true;
+        try
+        {
+            await LoadPreviewAsync(lat, lon, savePlace: false);
+        }
+        finally
+        {
+            _locating = false;
+        }
+    }
+
+    /// <summary>
+    /// 한 지점의 날씨를 받아 미리보기에 담는다.
+    /// </summary>
+    /// <param name="lat">위도(10진 도)</param>
+    /// <param name="lon">경도(10진 도)</param>
+    /// <param name="savePlace">
+    /// 알아낸 지역 이름을 설정에도 적어 둘지. 위치를 새로 잡은 직후에만 참이다 —
+    /// 그때 설정의 이름 칸이 비어 있기 때문이다.
+    /// </param>
+    private async Task LoadPreviewAsync(double lat, double lon, bool savePlace)
+    {
+        PointWeatherDto? point = null;
+
+        var ok = await RunAsync(
+            async () => point = await Api.GetPointWeatherAsync(lat, lon),
+            // 여기서는 아무 말도 하지 않는다 — 좌표 저장이 이미 말했고,
+            // 날씨는 아래에서 그림으로 보인다.
+            okMessage: string.Empty, "날씨를 받지 못했습니다");
+
+        if (!ok || point is null) return;
+
+        _preview = point;
+
+        if (savePlace && !string.IsNullOrWhiteSpace(point.Place) && _settings is not null)
+        {
+            _settings.Preference.WeatherPlace = point.Place;
+
+            // 이름만 마저 적는 저장이다. 실패해도 알림은 이미 갈 수 있고
+            // (좌표가 있으므로) 서버 발송기가 다음 발송에서 채워 넣는다.
+            await Api.SaveMyPreferencesAsync(_settings.Preference);
         }
     }
 

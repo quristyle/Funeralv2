@@ -46,11 +46,18 @@ builder.Services.AddHttpClient<WeatherApiService>(client =>
     client.Timeout = TimeSpan.FromSeconds(20);
 });
 builder.Services.AddScoped<IWeatherMonitoringService, WeatherMonitoringService>();
+// 위경도 한 쌍으로 그 지점의 날씨를 만든다 — 「내 위치 날씨」의 속.
+// 설정 화면의 미리보기(GET /weather/point)와 아래 발송기가 함께 쓴다.
+builder.Services.AddScoped<PointWeatherService>();
 // 기상 이벤트를 NotificationServer 로 넘긴다 (D-G1a). 주소는 Notify:BaseUrl (기본 :5460).
 builder.Services.AddHttpClient<WeatherNotifyClient>();
 
 // 30분 주기 수집(실황 · 특보 · 중기 · 초단기 · 단기). 키가 없으면 로그만 남기고 쉰다.
 builder.Services.AddHostedService<WeatherCollectionService>();
+
+// 「내 위치 날씨」 발송기. 5분마다 깨어나 사람이 고른 시각에만 보낸다.
+// 켠 사람이 없으면 아무 일도 하지 않으므로 늘 띄워 둔다.
+builder.Services.AddHostedService<LocalWeatherNotifyService>();
 
 // ============================================================
 // 4. Swagger

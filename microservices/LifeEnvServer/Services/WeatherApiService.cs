@@ -209,6 +209,100 @@ public class WeatherApiService {
   }
 
   /// <summary>
+  /// <b>등록되지 않은 한 지점</b>의 초단기 실황. 위경도로 바꾼 격자를 그대로 받는다.
+  /// </summary>
+  /// <remarks>
+  /// <para>
+  /// <see cref="GetRealTimeWeatherAsync"/> 와 나눠 둔 까닭은 그쪽이 <b>등록된 관측
+  /// 지역</b>(<see cref="WeatherLocation"/>)의 것이기 때문이다. 캐시 열쇠도 어제 기온
+  /// 조회도 전부 <c>WeatherLocationId</c> 를 탄다 — 「내 위치 날씨」는 사람마다 다른
+  /// 지점이고 표에 행이 없으므로 그 길로는 갈 수 없다. 억지로 <c>Id = 0</c> 인 가짜
+  /// 지역을 만들어 넘기면 <b>모든 사람이 캐시 한 칸을 나눠 쓰게 되어</b> 첫 사람의
+  /// 동네 날씨가 나머지 전원에게 간다.
+  /// </para>
+  /// <para>
+  /// 캐시는 격자 기준이다 — 같은 동네에 여럿이 살면 기상청을 한 번만 부른다.
+  /// </para>
+  /// </remarks>
+  public async Task<WeatherInfo?> GetPointNowcastAsync(int nx, int ny, string placeName) {
+    string cacheKey = $"WeatherPoint_{nx}_{ny}";
+    if (_cache.TryGetValue(cacheKey, out WeatherInfo? cached) && cached != null) {
+      // 캐시에 담긴 것은 격자의 날씨다. 보여 줄 이름만 부르는 쪽 것으로 갈아 준다.
+      return new WeatherInfo {
+        Location = placeName,
+        ObservationTime = cached.ObservationTime,
+        TemperatureC = cached.TemperatureC,
+        Condition = cached.Condition,
+        Humidity = cached.Humidity,
+        WindSpeed = cached.WindSpeed,
+        Rainfall = cached.Rainfall,
+        PTY = cached.PTY,
+        SensibleTemp = cached.SensibleTemp,
+        NX = nx,
+        NY = ny
+      };
+    }
+
+    if (KeyMissing("초단기 실황(getUltraSrtNcst)")) return null;
+
+    try {
+      var now = Kst.Now;
+      var baseTime = now.Minute < 45 ? now.AddHours(-1) : now;
+      string dateStr = baseTime.ToString("yyyyMMdd");
+      string timeStr = baseTime.ToString("HH") + "00";
+
+      string url = $"http://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getUltraSrtNcst?serviceKey={_encodedKey}&pageNo=1&numOfRows=10&dataType=JSON&base_date={dateStr}&base_time={timeStr}&nx={nx}&ny={ny}";
+
+      var response = await _httpClient.GetAsync(url);
+      if (!response.IsSuccessStatusCode) return null;
+
+      var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+      var items = json.GetProperty("response").GetProperty("body").GetProperty("items").GetProperty("item");
+
+      var weather = new WeatherInfo {
+        Location = placeName,
+        ObservationTime = DateTimeOffset.UtcNow,
+        NX = nx,
+        NY = ny
+      };
+
+      foreach (var item in items.EnumerateArray()) {
+        string category = item.GetProperty("category").GetString() ?? "";
+        var obsrProp = item.GetProperty("obsrValue");
+        string obsValue = obsrProp.ValueKind == JsonValueKind.String ? (obsrProp.GetString() ?? "0") : obsrProp.GetRawText();
+
+        switch (category) {
+          case "T1H": if (double.TryParse(obsValue, out var t)) weather.TemperatureC = t; break;
+          case "REH": if (double.TryParse(obsValue, out var reh)) weather.Humidity = (int)reh; break;
+          case "WSD": if (double.TryParse(obsValue, out var wsd)) weather.WindSpeed = wsd; break;
+          case "RN1": if (double.TryParse(obsValue, out var rn1)) weather.Rainfall = rn1; break;
+          case "PTY":
+            if (int.TryParse(obsValue, out int pty)) weather.PTY = pty;
+            weather.Condition = GetConditionFromPty(obsValue);
+            break;
+        }
+      }
+
+      // 비도 눈도 아니면 하늘 상태로 말한다. 초단기 예보가 그것을 준다.
+      if (string.IsNullOrEmpty(weather.Condition)) {
+        var forecast = await GetUltraSrtForecastAsync(placeName, nx, ny);
+        weather.Condition = forecast != null && forecast.TryGetValue("SKY", out var sky)
+          ? sky switch { "1" => "맑음", "3" => "구름많음", "4" => "흐림", _ => "맑음" }
+          : "맑음";
+      }
+
+      weather.SensibleTemp = CalculateSensibleTemp(weather.TemperatureC, weather.Humidity, weather.WindSpeed);
+
+      _cache.Set(cacheKey, weather, TimeSpan.FromMinutes(10));
+      return weather;
+    }
+    catch (Exception ex) {
+      _logger.LogError(ex, "지점 실황 조회 중 오류 (nx={Nx}, ny={Ny})", nx, ny);
+      return null;
+    }
+  }
+
+  /// <summary>
   /// 초단기 예보 조회 (SKY, PTY 등)
   /// </summary>
   public async Task<Dictionary<string, string>?> GetUltraSrtForecastAsync(string locationName, int nx, int ny) {

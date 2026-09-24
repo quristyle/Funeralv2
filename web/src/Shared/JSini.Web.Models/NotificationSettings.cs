@@ -37,6 +37,32 @@ public sealed class NotificationPreferenceDto
     public bool NoteEmailEnabled { get; set; }
 
     /// <summary>
+    /// <b>내 위치 날씨</b>를 받는가. 위 <see cref="WeatherEnabled"/>(기상 특보)와
+    /// 다른 스위치다 — 그쪽은 특보가 떴을 때만, 이쪽은 <b>고른 시각마다</b> 온다.
+    /// </summary>
+    public bool WeatherLocalEnabled { get; set; }
+
+    /// <summary>
+    /// 저장해 둔 좌표. <b>없으면 스위치를 켜도 보낼 곳이 없다</b> — 웹은 뒤에서
+    /// 위치를 못 읽으므로 화면이 한 번 받아 저장해 둬야 한다.
+    /// </summary>
+    public double? WeatherLat { get; set; }
+
+    public double? WeatherLon { get; set; }
+
+    /// <summary>보여 줄 지역 이름(예: <c>울산광역시 남구 삼산동</c>).</summary>
+    public string? WeatherPlace { get; set; }
+
+    /// <summary>받을 시각들(KST, 쉼표로 나눈 0~23). 비면 <c>7,18</c> 이다.</summary>
+    public string? WeatherHours { get; set; }
+
+    /// <summary>
+    /// 위치를 마지막으로 잡은 때. <b>화면이 이것을 보여 준다</b> — 자리가 바뀌어도
+    /// 저장된 좌표는 그대로라, 언제 잡은 것인지 알아야 다시 잡을 판단이 선다.
+    /// </summary>
+    public DateTime? WeatherLocatedAt { get; set; }
+
+    /// <summary>
     /// 저장된 설정인가. 거짓이면 서버가 준 <b>기본값</b>이라는 뜻이다.
     ///
     /// 화면이 이것을 구별해야 「아직 정한 적 없음」과 「전부 꺼 둠」이
@@ -251,4 +277,94 @@ public sealed class PushSendResultDto
 
     /// <summary>보낸 것이 없을 때 그 까닭. 화면이 그대로 옮긴다.</summary>
     public string? Message { get; set; }
+}
+
+
+// ============================================================
+// 내 위치 날씨.
+//
+// 브라우저에게 좌표를 묻고(GeoResult), 그 좌표의 날씨를 서버에서
+// 받아 온다(PointWeatherDto). 둘 다 **설정 화면이 「여기가 맞나」를
+// 되묻기 위해** 있다 — 좌표만 저장해 두면 사람은 자기가 무엇을
+// 저장했는지 알 수 없고, 엉뚱한 동네 날씨가 와도 까닭을 못 찾는다.
+// ============================================================
+
+/// <summary>
+/// <c>jsiniGeo.locate</c> 가 돌려주는 것.
+/// </summary>
+/// <remarks>
+/// 실패를 <c>false</c> 하나로 뭉개지 않는다 — 권한을 거절한 것과 기기가 못 잡은
+/// 것과 HTTPS 가 아니라 막힌 것은 사람이 할 일이 전혀 다르다.
+/// </remarks>
+public sealed class GeoResult
+{
+    public bool Ok { get; set; }
+
+    public double Latitude { get; set; }
+    public double Longitude { get; set; }
+
+    /// <summary>오차 반경(m). 브라우저가 주는 값이고 참고용이다.</summary>
+    public double? Accuracy { get; set; }
+
+    /// <summary>실패했을 때 사람이 읽을 이유.</summary>
+    public string? Error { get; set; }
+}
+
+/// <summary>
+/// 한 지점의 날씨 — 생활과환경의 <c>GET /life/weather/point</c> 응답.
+/// </summary>
+/// <remarks>
+/// <b>칸 이름을 서버의 <c>PointWeatherDto</c> 와 글자까지 맞춘다.</b> 어긋나도
+/// 예외가 나지 않고 값만 조용히 사라진다 — 기기 목록에서 이미 겪은 일이다.
+/// </remarks>
+public sealed class PointWeatherDto
+{
+    public double Lat { get; set; }
+    public double Lon { get; set; }
+
+    /// <summary>기상청 격자. 서버가 위경도에서 계산한다.</summary>
+    public int Nx { get; set; }
+    public int Ny { get; set; }
+
+    /// <summary>가장 가까운 행정구역 이름. 못 찾으면 비어 있다.</summary>
+    public string? Place { get; set; }
+
+    public PointWeatherNowDto? Now { get; set; }
+
+    public List<PointWeatherDayDto> Days { get; set; } = [];
+
+    /// <summary>
+    /// 알림 본문으로 나갈 글. <b>화면은 이것을 그대로 보여 준다</b> — 미리 본 것과
+    /// 실제로 오는 알림의 말이 다르면 사람은 둘 중 하나를 믿지 못한다.
+    /// </summary>
+    public string? Summary { get; set; }
+}
+
+/// <summary>지금 실황.</summary>
+public sealed class PointWeatherNowDto
+{
+    public double TemperatureC { get; set; }
+    public double? SensibleTemp { get; set; }
+    public string? Condition { get; set; }
+    public int? Humidity { get; set; }
+    public double? WindSpeed { get; set; }
+    public double? Rainfall { get; set; }
+    public DateTimeOffset ObservedAt { get; set; }
+}
+
+/// <summary>하루치 예보 요약.</summary>
+public sealed class PointWeatherDayDto
+{
+    public string Date { get; set; } = string.Empty;
+
+    /// <summary>사람이 읽는 이름 — <c>오늘</c> · <c>내일</c> · <c>9/26</c></summary>
+    public string Label { get; set; } = string.Empty;
+
+    public double? MinC { get; set; }
+    public double? MaxC { get; set; }
+
+    /// <summary>그 날 시간별 강수확률 중 가장 큰 값.</summary>
+    public int? RainProbability { get; set; }
+
+    public string? Condition { get; set; }
 }

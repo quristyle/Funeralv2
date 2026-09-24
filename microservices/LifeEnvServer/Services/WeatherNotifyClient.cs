@@ -1,3 +1,4 @@
+using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 
@@ -134,4 +135,123 @@ public class WeatherNotifyClient
             _logger.LogWarning(ex, "기상 특보 알림 발송 요청 예외 — NotificationServer 가 꺼져 있을 수 있다");
         }
     }
+
+    // ── 내 위치 날씨 ──────────────────────────────────────────────
+    //
+    // 위의 둘과 방향이 하나 더 있다. 저 둘은 **보내기만** 하지만 이쪽은 먼저
+    // **받아 온다** — 누가 켰고 좌표가 어디인지는 알림 서비스만 알기 때문이다.
+    // 그 목록으로 날씨를 만들어 다시 보낸다.
+
+    /// <summary>
+    /// 「내 위치 날씨」를 켜고 위치까지 잡아 둔 사람들. 못 받아 오면 <b>빈 목록</b>이다.
+    /// </summary>
+    /// <remarks>
+    /// 던지지 않는다. 알림 서비스가 잠깐 내려가 있는 것과 「켠 사람이 없다」는
+    /// 발송기 입장에서 같은 일이다 — 다음 바퀴에 다시 묻는다.
+    /// </remarks>
+    public async Task<List<LocalWeatherSubscriber>> GetLocalSubscribersAsync(CancellationToken ct = default)
+    {
+        if (!_enabled) return [];
+
+        try
+        {
+            using var response = await _http.GetAsync("/weather-local/subscribers", ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning("내 위치 날씨 대상 조회 실패: HTTP {Status}", (int)response.StatusCode);
+                return [];
+            }
+
+            var envelope = await response.Content
+                .ReadFromJsonAsync<SubscriberEnvelope>(JsonOptions, ct);
+
+            return envelope?.Data?.Result ?? [];
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "내 위치 날씨 대상 조회 예외 — NotificationServer 가 꺼져 있을 수 있다");
+            return [];
+        }
+    }
+
+    /// <summary>한 사람에게 「내 위치 날씨」 한 통을 보내 달라고 한다.</summary>
+    /// <param name="place">
+    /// 찾아낸 지역 이름. 설정에 이름이 비어 있으면 알림 서비스가 이것을 적어 둔다 —
+    /// 사람이 처음 위치를 잡을 때는 이름을 모르는 채 저장될 수 있다.
+    /// </param>
+    public async Task NotifyLocalAsync(
+        string ownerType, string ownerKey, string title, string? body, string? place,
+        CancellationToken ct = default)
+    {
+        if (!_enabled) return;
+
+        try
+        {
+            var payload = JsonSerializer.Serialize(new { ownerType, ownerKey, title, body, place });
+            using var content = new StringContent(payload, Encoding.UTF8, "application/json");
+            using var response = await _http.PostAsync("/weather-local", content, ct);
+
+            if (response.IsSuccessStatusCode)
+            {
+                _logger.LogInformation("내 위치 날씨 발송 요청 완료: {Owner} ({Place})", ownerKey, place);
+            }
+            else
+            {
+                _logger.LogWarning("내 위치 날씨 발송 요청 실패: HTTP {Status} — 대상 {Owner}",
+                    (int)response.StatusCode, ownerKey);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "내 위치 날씨 발송 요청 예외 — 대상 {Owner}", ownerKey);
+        }
+    }
+
+    /// <summary>
+    /// 서비스들이 쓰는 표준 봉투에서 목록을 꺼낸다.
+    /// </summary>
+    /// <remarks>
+    /// <b><c>data</c> 가 배열이 아니다.</b> 공용 봉투(<c>JSini.Shared.DTOs.ApiResponse</c>)는
+    /// 목록을 내보낼 때 <c>data</c> 를 <c>{ result: [...], page: { total } }</c> 로 한 겹 더
+    /// 싼다. 처음에 <c>data</c> 를 바로 배열로 읽게 해 두었더니 역직렬화가 통째로 던졌고,
+    /// 로그에는 「NotificationServer 가 꺼져 있을 수 있다」만 남아 <b>서버가 멀쩡히 200 을
+    /// 주고 있는데도 꺼진 것처럼 보였다.</b>
+    /// </remarks>
+    private class SubscriberEnvelope
+    {
+        public SubscriberPayload? Data { get; set; }
+    }
+
+    private class SubscriberPayload
+    {
+        public List<LocalWeatherSubscriber>? Result { get; set; }
+    }
+
+    /// <summary>
+    /// 응답의 칸 이름이 camelCase 라 그대로 읽는다. 이것을 빠뜨리면 값이 예외 없이
+    /// <b>전부 기본값</b>으로 채워져, 좌표 <c>0,0</c> 인 사람이 잔뜩 생긴 것처럼 보인다.
+    /// </summary>
+    private static readonly JsonSerializerOptions JsonOptions =
+        new() { PropertyNameCaseInsensitive = true };
+}
+
+/// <summary>
+/// 「내 위치 날씨」를 켠 사람 하나 (알림 서비스가 주는 모양).
+/// </summary>
+public class LocalWeatherSubscriber
+{
+    public string OwnerType { get; set; } = "jsini";
+    public string OwnerKey { get; set; } = string.Empty;
+
+    public double Lat { get; set; }
+    public double Lon { get; set; }
+
+    /// <summary>설정에 적혀 있던 지역 이름. 발송기가 다시 찾으므로 참고용이다.</summary>
+    public string? Place { get; set; }
+
+    /// <summary>받기로 한 시각들(KST, 쉼표). 비면 기본값 <c>7,18</c>.</summary>
+    public string? Hours { get; set; }
+
+    /// <summary>마지막으로 보낸 때(UTC). 같은 시각 칸을 두 번 울리지 않는 데 쓴다.</summary>
+    public DateTime? LastSentAt { get; set; }
 }

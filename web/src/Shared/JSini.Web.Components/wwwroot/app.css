@@ -3995,6 +3995,41 @@ button.jsini-crumbs__item:hover { opacity: 1; }
 
 .jsini-fact dd { margin: 0; }
 
+/* ── 내 위치 날씨 (`NotificationPanel` 의 위치 칸) ──────────────
+
+   스위치 목록(`.jsini-settings`)과 **선 하나로 가른다.** 여기서 하는 일은
+   켜고 끄는 것이 아니라 좌표 하나를 잡아 두는 일이고, 잡은 뒤에 「여기가
+   맞나」를 되묻는 자리라 줄 하나로는 안 된다. 선이 없으면 위 체크들과
+   같은 목록의 연장으로 읽힌다.
+   ---------------------------------------------------------- */
+.jsini-weather-loc {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--jsini-border);
+}
+
+/* 알림창에 뜰 모양 그대로 보여 주는 자리. **바탕을 깔아 둘러싼다** —
+   이것이 화면의 설명이 아니라 **밖에서 올 알림**이라는 것이 보여야 한다. */
+.jsini-weather-preview {
+  margin: 0.75rem 0;
+  padding: 0.75rem 0.9rem;
+  background: var(--jsini-surface-alt, rgba(127, 127, 127, 0.08));
+  border: 1px solid var(--jsini-border);
+}
+
+.jsini-weather-preview__title {
+  margin-top: 0.35rem;
+  font-weight: 600;
+}
+
+/* 본문은 줄바꿈이 있는 한 덩이 글이다(서버가 `\n` 으로 만든다).
+   `pre-line` 이 아니면 두세 줄이 한 줄로 붙어 알림과 다른 모양이 된다. */
+.jsini-weather-preview__body {
+  white-space: pre-line;
+  font-size: var(--jsini-fs-sm);
+  color: var(--jsini-text-muted);
+}
+
 /* 「마지막 저장 …」처럼 작게 덧붙이는 한 줄. */
 .jsini-stamp {
   font-size: var(--jsini-fs-sm);

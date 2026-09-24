@@ -325,9 +325,17 @@ public static class NotificationEndpoints
         {
             if (user is null) return Results.Unauthorized();
 
+            // **NoteEmailEnabled 가 이 검사에 빠져 있었다.** 쪽지 메일 스위치만 눌러도
+            // 「바꿀 항목이 없습니다」로 400 이 났다 — 스위치는 도로 튕겨 나오고
+            // 화면에는 까닭이 안 뜬다. 칸을 늘릴 때마다 여기도 함께 늘려야 한다.
             if (request.PushEnabled is null &&
                 request.EmailEnabled is null &&
-                request.WeatherEnabled is null)
+                request.WeatherEnabled is null &&
+                request.NoteEmailEnabled is null &&
+                request.WeatherLocalEnabled is null &&
+                request.WeatherHours is null &&
+                request.WeatherPlace is null &&
+                (request.WeatherLat is null || request.WeatherLon is null))
             {
                 return Results.BadRequest(ApiResponse<bool>.Fail(
                     message: "바꿀 항목이 없습니다.", code: "INVALID"));

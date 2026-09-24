@@ -109,4 +109,29 @@ public sealed class NotificationClient(GatewayClient gateway)
     public Task RemovePushSubscriptionAsync(string endpoint, CancellationToken ct = default)
         => gateway.DeleteAsync(
             $"notification/notifications/subscriptions?endpoint={Uri.EscapeDataString(endpoint)}", ct);
+
+    /// <summary>
+    /// 한 지점의 지금 날씨와 예보. <b>알림 서비스가 아니라 생활과환경이 답한다</b>
+    /// (<c>life/weather/point</c>).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// [왜 날씨를 알림 클라이언트가 부르나]
+    /// </para>
+    /// <para>
+    /// 「내 위치 날씨」 설정이 알림 설정 화면에 있기 때문이다. 위치를 잡은 직후
+    /// <b>「여기가 맞나」를 그 자리에서 보여 줘야</b> 하는데, 그러려면 좌표를
+    /// 지역 이름으로 풀어 줄 쪽이 필요하고 그것을 아는 것은 생활과환경뿐이다
+    /// (격자표도 기상청 인증키도 거기 있다).
+    /// </para>
+    /// <para>
+    /// <b>업무 모듈을 참조하는 것이 아니다.</b> 게이트웨이 주소 한 줄이라
+    /// 생활과환경 화면(<c>JSini.Web.LifeEnv</c>)과는 아무 관계가 없다 — 이 판은
+    /// 포털관리와 장례식장 두 화면이 쓰고, 둘 다 그 모듈을 참조하지 않는다.
+    /// </para>
+    /// </remarks>
+    public Task<PointWeatherDto?> GetPointWeatherAsync(
+        double lat, double lon, CancellationToken ct = default)
+        => gateway.GetOneAsync<PointWeatherDto>(
+            FormattableString.Invariant($"life/weather/point?lat={lat}&lon={lon}"), ct);
 }
