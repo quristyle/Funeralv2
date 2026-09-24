@@ -371,9 +371,20 @@
     /// 그리게 해 두면(app.css) 그 깜빡임이 없어진다.
     /// </para>
     /// </summary>
-    private string ShellCss => _sidebarOpen
-        ? (_isPhone ? "jsini-shell jsini-shell--nav-open" : "jsini-shell")
-        : "jsini-shell jsini-shell--collapsed";
+    private string ShellCss
+    {
+        get
+        {
+            var css = _sidebarOpen
+                ? (_isPhone ? "jsini-shell jsini-shell--nav-open" : "jsini-shell")
+                : "jsini-shell jsini-shell--collapsed";
+
+            // 떠다니는 단추를 감춘 사람에게는 **헤더의 ☰ 를 되돌려 준다.**
+            // 휴대폰에서는 그 ☰ 를 빼고 이 단추만 남겨 두었기 때문에, 둘을
+            // 함께 빼면 메뉴를 열 길이 하나도 없어진다(app.css 의 같은 이름).
+            return _fabHidden ? css + " jsini-shell--fab-hidden" : css;
+        }
+    }
 
     private bool _sidebarOpen = true;
     private bool _isPhone;
@@ -436,6 +447,9 @@
 
     /// <summary>모바일 화면의 떠다니는 메뉴 단추(FAB) 위치.</summary>
     private string _fabPosition = "bottom-left";
+
+    /// <summary>그 단추를 감춰 두었는가. 감추면 헤더의 ☰ 가 휴대폰에서 되살아난다.</summary>
+    private bool _fabHidden;
     private string _toastPosition = "bottom-right";
     private HorizontalAlignment _toastHorizontal = HorizontalAlignment.Right;
     private VerticalEdge _toastVertical = VerticalEdge.Bottom;
@@ -463,6 +477,7 @@
 
         // 환경설정 등에서 모바일 메뉴 단추 위치가 바뀌면 즉시 화면에 반영한다.
         Boot.FabPositionChanged += OnFabPositionChanged;
+        Boot.FabHiddenChanged += OnFabHiddenChanged;
         Boot.ToastPositionChanged += OnToastPositionChanged;
     }
 
@@ -487,6 +502,12 @@
     private void OnFabPositionChanged(string position)
     {
         _fabPosition = position;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void OnFabHiddenChanged(bool hidden)
+    {
+        _fabHidden = hidden;
         InvokeAsync(StateHasChanged);
     }
 
@@ -695,6 +716,12 @@
         var state = await Boot.ReadAsync();
         var pos = state.FabPosition;
         var changed = false;
+
+        if (state.FabHidden != _fabHidden)
+        {
+            _fabHidden = state.FabHidden;
+            changed = true;
+        }
         
         var tpos = state.ToastPosition;
         if (tpos != _toastPosition)
@@ -1189,6 +1216,7 @@
         _navigating?.Dispose();
         Me.Changed -= OnMeChanged;
         Boot.FabPositionChanged -= OnFabPositionChanged;
+        Boot.FabHiddenChanged -= OnFabHiddenChanged;
         Boot.ToastPositionChanged -= OnToastPositionChanged;
         _watermarkWatch?.Dispose();
     }

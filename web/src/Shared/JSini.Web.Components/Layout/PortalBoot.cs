@@ -155,6 +155,23 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
     public const string FabPositionKey = "jsini-fab-position";
 
     /// <summary>
+    /// 모바일 메뉴 단추(FAB)를 <b>아예 감출 것인가</b>. 열쇠가 있으면 감춘다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>이 브라우저의 것이다</b> — 단추가 무엇을 가리는지는 화면 크기와
+    /// 그 사람이 그 기기로 하는 일에 달렸다. 계정에 저장하면 휴대폰에서
+    /// 감춘 것이 큰 모니터까지 따라온다(위치 열쇠와 같은 갈래다).
+    /// </para>
+    /// <para>
+    /// <b>감추면 헤더의 ☰ 가 휴대폰에서 되살아난다</b>(app.css). 휴대폰에서는
+    /// 하는 일이 똑같다는 이유로 그 ☰ 를 빼고 이 단추만 남겨 두었기 때문에,
+    /// 그냥 감추기만 하면 <b>메뉴를 열 길이 하나도 없어진다.</b>
+    /// </para>
+    /// </remarks>
+    public const string FabHiddenKey = "jsini-fab-hidden";
+
+    /// <summary>
     /// 토스트(화면에 뜨는 알림) 위치.
     /// <c>bottom-right</c>(기본) 외 여섯 자리 중 하나다.
     /// </summary>
@@ -202,6 +219,7 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
         GeoAskNeverKey,
         GeoSyncedAtKey,
         FabPositionKey,
+        FabHiddenKey,
         ToastPositionKey,
         GeoSyncIntervalKey,
     ];
@@ -389,6 +407,38 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
         }
 
         FabPositionChanged?.Invoke(normalized);
+    }
+
+    /// <summary>모바일 메뉴 단추를 감출지가 바뀌었을 때 알린다.</summary>
+    public event Action<bool>? FabHiddenChanged;
+
+    /// <summary>
+    /// 모바일 메뉴 단추(FAB)를 감출지를 저장하고 화면에 알린다.
+    /// </summary>
+    /// <remarks>
+    /// <b>끌 때는 열쇠를 지운다.</b> <c>"0"</c> 을 적어 두면 읽는 쪽의
+    /// 「있으면 그렇다는 뜻」 판정(<see cref="BrowserState.From"/>)에 걸려
+    /// <b>꺼 둔 것이 켜 둔 것으로 읽힌다.</b>
+    /// </remarks>
+    public async Task SetFabHiddenAsync(bool hidden)
+    {
+        try
+        {
+            if (hidden)
+            {
+                await js.InvokeVoidAsync("localStorage.setItem", FabHiddenKey, "1");
+            }
+            else
+            {
+                await js.InvokeVoidAsync("localStorage.removeItem", FabHiddenKey);
+            }
+        }
+        catch (Exception ex) when (ex is JSException or InvalidOperationException)
+        {
+            logger.LogDebug(ex, "모바일 메뉴 단추 숨김 여부를 브라우저에 저장하지 못했다.");
+        }
+
+        FabHiddenChanged?.Invoke(hidden);
     }
 
     /// <summary>토스트 알림 위치가 바뀌었을 때 알린다.</summary>
@@ -596,6 +646,12 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
         public string FabPosition { get; private init; } = "bottom-left";
 
         /// <summary>
+        /// 모바일 메뉴 단추를 감춰 두었는가. 고른 적이 없으면 <c>false</c> —
+        /// 즉 보인다.
+        /// </summary>
+        public bool FabHidden { get; private init; }
+
+        /// <summary>
         /// 토스트 알림 위치. 없거나 잘못된 값이면 <c>bottom-right</c> 다.
         /// </summary>
         public string ToastPosition { get; private init; } = "bottom-right";
@@ -626,6 +682,7 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
             SidebarWidthPx = Pixels(Get(wire.Local, SidebarWidthKey)),
             Theme = wire.Theme,
             FabPosition = NormalizeFabPosition(Get(wire.Local, FabPositionKey)),
+            FabHidden = Has(wire.Local, FabHiddenKey),
             ToastPosition = NormalizeToastPosition(Get(wire.Local, ToastPositionKey)),
             GeoSyncMinutes = NormalizeGeoSyncMinutes(Minutes(Get(wire.Local, GeoSyncIntervalKey))),
         };
