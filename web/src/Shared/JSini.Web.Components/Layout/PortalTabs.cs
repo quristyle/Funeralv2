@@ -50,6 +50,59 @@ public sealed class PortalTabs
     public event Action? Changed;
 
     /// <summary>
+    /// <b>이 주소를 탭으로 둬도 되는가</b> — 볼 권한이 있는 화면인가. 레이아웃이 채운다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// [왜 여기서 거르나 — 2026-09-24]
+    /// </para>
+    /// <para>
+    /// 고정 탭은 <b>브라우저에 적어 둔 주소</b>에서 되살아난다(<see cref="RestorePinned"/>).
+    /// 그 목록은 권한과 무관하게 남으므로, 고정해 둔 뒤 권한이 빠지거나 같은 브라우저를
+    /// 다른 사람이 쓰면 <b>볼 수 없는 화면이 탭 줄에 그대로 섰다.</b> 실제로 조직도 권한이
+    /// 없는 사용자에게 「조직도」 고정 탭이 보였다.
+    /// </para>
+    /// <para>
+    /// 판정 규칙은 이 클래스가 모른다(메뉴·권한표는 레이아웃 쪽 서비스다).
+    /// 비어 있으면 거르지 않는다.
+    /// </para>
+    /// </remarks>
+    public Func<string, bool>? CanShow { get; set; }
+
+    private bool Allowed(string href) => CanShow?.Invoke(href) ?? true;
+
+    /// <summary>
+    /// 볼 수 없게 된 탭을 걷는다. <b>고정한 탭도 걷는다</b> — 고정은 「늘 열어 둔다」는
+    /// 뜻이지 권한을 넘는다는 뜻이 아니다.
+    /// </summary>
+    /// <remarks>
+    /// 권한표·메뉴가 늦게 도착하므로 되살린 뒤에도 한 번 더 불러야 한다
+    /// (레이아웃의 <c>Track</c>). 걷은 고정 탭은 저장본에서도 빠진다(<see cref="PinsChanged"/>).
+    /// </remarks>
+    public void Prune()
+    {
+        if (CanShow is null)
+        {
+            return;
+        }
+
+        var removed = _tabs.RemoveAll(t => !Allowed(t.Href));
+
+        if (removed == 0)
+        {
+            return;
+        }
+
+        if (ActiveHref is not null && !_tabs.Any(t => Same(t.Href, ActiveHref)))
+        {
+            ActiveHref = null;
+        }
+
+        Changed?.Invoke();
+        PinsChanged?.Invoke();
+    }
+
+    /// <summary>
     /// 지금 주소를 탭으로 만든다. 이미 있으면 그것을 켠다.
     /// </summary>
     /// <param name="href">전체 경로 (<c>/projmng/proj/wbs</c>). 질의 문자열은 뗀 것.</param>
@@ -181,11 +234,19 @@ public sealed class PortalTabs
     public void RestorePinned(IEnumerable<PinnedTab> pinned)
     {
         var at = 0;
+        var skipped = false;
 
         foreach (var item in pinned)
         {
             if (string.IsNullOrWhiteSpace(item.Href))
             {
+                continue;
+            }
+
+            // 볼 권한이 없는 화면은 되살리지 않는다(위 CanShow 머리말).
+            if (!Allowed(item.Href))
+            {
+                skipped = true;
                 continue;
             }
 
@@ -213,6 +274,13 @@ public sealed class PortalTabs
         }
 
         Changed?.Invoke();
+
+        // 건너뛴 것은 저장본에서도 뺀다. 남겨 두면 새로고침마다 다시 걸러야 하고,
+        // 다른 고정을 바꾸는 순간에야 빠져 저장본과 화면이 한동안 어긋난다.
+        if (skipped)
+        {
+            PinsChanged?.Invoke();
+        }
     }
 
     /// <summary>지금 탭만 남기고 닫는다. 고정한 탭은 남는다.</summary>

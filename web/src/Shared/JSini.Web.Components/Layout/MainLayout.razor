@@ -230,7 +230,20 @@
                            탭 줄·길잡이는 덮지 않아야 어디로 가는 중인지 읽힌다. *@
                         <PageSpinner />
 
-                        @Body
+                        @* 메뉴에 있는 화면인데 볼 권한이 없으면 **화면을 만들지 않는다.**
+                           주소를 직접 치거나 고정 탭·옛 즐겨찾기로 들어오는 길이 있어서,
+                           사이드바에서 감추는 것만으로는 막히지 않았다(`Track` 머리말). *@
+                        @if (_denied)
+                        {
+                            <div class="jsini-pending">
+                                <h2 class="jsini-pending__title">이 화면을 열 권한이 없습니다.</h2>
+                                <p class="jsini-pending__lead">필요하다면 관리자에게 요청하세요.</p>
+                            </div>
+                        }
+                        else
+                        {
+                            @Body
+                        }
                     </main>
                 </div>
             </DxSplitterPane>
@@ -424,6 +437,12 @@
 
     protected override void OnInitialized()
     {
+        // 탭 줄이 볼 수 없는 화면을 세우지 않게 한다 — 고정 탭을 되살릴 때와
+        // 이미 열린 탭을 걷을 때 같은 판정을 쓴다(`PortalTabs.CanShow`).
+        // 레이아웃은 업무를 옮길 때마다 새로 생기지만 서비스는 회로마다 하나라
+        // 누가 채워도 같은 판정이다. 그래서 치울 때 비우지 않는다.
+        Tabs.CanShow = CanShowHref;
+
         Menus.MenusChanged += OnMenusChanged;
         Navigation.LocationChanged += OnLocationChanged;
         _navigating = Navigation.RegisterLocationChangingHandler(OnNavigating);
@@ -1022,20 +1041,77 @@
         InvokeAsync(StateHasChanged);
     }
 
-    /// <summary>지금 주소를 보고 탭·브레드크럼·즐겨찾기 열쇠를 맞춘다.</summary>
+    /// <summary>지금 화면이 메뉴에 있는데 볼 권한이 없다. 본문 대신 안내를 그린다.</summary>
+    private bool _denied;
+
+    /// <summary>
+    /// 지금 주소를 보고 탭·브레드크럼·즐겨찾기 열쇠를 맞춘다.
+    /// <b>볼 권한이 없는 화면이면 탭을 열지 않고 본문을 막는다.</b>
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// [2026-09-24 — 권한 없는 화면이 열려 있었다]
+    /// </para>
+    /// <para>
+    /// 권한은 사이드바를 거를 때만 봤다(<c>MenuFilter</c>). 그런데 <see cref="MenuProvider.Trail"/>
+    /// 은 <b>거르기 전</b> 메뉴를 훑으므로, 주소로 들어오면 권한이 없어도 메뉴를 찾아
+    /// 탭을 열고 화면을 그렸다. 브라우저에 적어 둔 고정 탭이 그 길로 매번 되살아났다
+    /// (조직도 권한이 없는 사용자에게 「조직도」 고정 탭).
+    /// </para>
+    /// <para>
+    /// 메뉴에 없는 화면(탭으로 여는 상세 화면 · 진단 화면)은 권한표에 줄이 없으므로
+    /// 여기서 막지 않는다. 그런 화면은 <c>[Authorize]</c> 와 서버가 지킨다.
+    /// </para>
+    /// </remarks>
     private void Track()
     {
         var href = CurrentHref();
 
         _trail = Menus.Trail(href);
         _menuPath = _trail.Count > 0 ? _trail[^1].Path : null;
+        _denied = _trail.Count > 0 && !MayOpen(_trail[^1]);
+
+        if (_denied)
+        {
+            // 브레드크럼도 비운다 — 볼 수 없는 메뉴의 이름과 자리를 알려 줄 까닭이 없다.
+            _trail = [];
+            _menuPath = null;
+        }
 
         // 로그인·오류 화면은 탭으로 만들지 않는다. 메뉴에 없는 화면도 마찬가지다 —
         // 진단 화면과 "준비 중" 안내가 탭을 채우면 정작 업무 탭이 밀려난다.
-        if (_trail.Count > 0)
+        if (_trail.Count > 0 && !_denied)
         {
             Tabs.Open(href, _trail[^1].Title);
         }
+
+        // 권한표·메뉴는 늦게 오므로 이미 되살아난 고정 탭이 있을 수 있다.
+        Tabs.Prune();
+    }
+
+    /// <summary>
+    /// 이 메뉴의 화면을 열 수 있는가. 사이드바를 거르는 규칙(<c>MenuFilter.IsOwnScreen</c>)과 같다.
+    /// </summary>
+    /// <remarks>
+    /// <b>권한표를 받기 전에는 막지 않는다</b>(<see cref="IPermissionContext.IsLoaded"/>) —
+    /// 막으면 새로고침할 때마다 「권한이 없습니다」가 한 번 스친다. 받고 나면 다시 따진다
+    /// (<see cref="OnMenusChanged"/>).
+    /// </remarks>
+    private bool MayOpen(MenuNode node)
+    {
+        if (!Permissions.IsLoaded || node.IsCatalog || node.IsExternalLink || string.IsNullOrEmpty(node.Path))
+        {
+            return true;
+        }
+
+        return Permissions.CanView(node.Path);
+    }
+
+    /// <summary>탭 줄에 둬도 되는 주소인가. 메뉴에 없는 화면은 막지 않는다(<see cref="Track"/> 머리말).</summary>
+    private bool CanShowHref(string href)
+    {
+        var trail = Menus.Trail(href);
+        return trail.Count == 0 || MayOpen(trail[^1]);
     }
 
     /// <summary>브라우저에 떠 있는 경로. 질의 문자열과 조각은 뗀다.</summary>
