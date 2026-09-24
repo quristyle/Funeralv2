@@ -38,6 +38,34 @@ public sealed class AiTask
     /// <summary>본문 형식. 지금은 <c>markdown</c> 하나다.</summary>
     public string? ContentFormat { get; set; } = "markdown";
 
+    // ── 함께 보낸 파일 ──────────────────────────────────────
+
+    /// <summary>
+    /// 붙은 첨부 개수. 조인해 온다 — <b>읽기 전용</b>.
+    /// </summary>
+    /// <remarks>
+    /// 화면이 이 값 하나로 클립 배지를 세운다. 건마다 첨부 목록을 따로 묻게
+    /// 두면 카드 열 장을 그리는 「빠른 지시」가 게이트웨이를 열 번 더 두드린다.
+    /// </remarks>
+    public int FileCount { get; set; }
+
+    /// <summary>
+    /// <b>등록할 때만 쓰는 값</b> — 미리 올려 둔 첨부의 번호들.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 「빠른 지시」는 <b>고르는 순간 올린다.</b> 그때는 작업 번호가 아직
+    /// 없으므로 첨부가 주인 없이 담기고(<c>ai_task_file.task_key IS NULL</c>),
+    /// 보낼 때 이 칸에 그 번호들을 실어 보내 묶는다
+    /// (<c>AiTaskFileService.BindAsync</c>).
+    /// </para>
+    /// <para>
+    /// <b>조회로는 오지 않는다.</b> 붙은 것을 읽는 길은 첨부 목록 조회
+    /// 하나뿐이고, 여기는 언제나 비어 있다.
+    /// </para>
+    /// </remarks>
+    public long[]? FileKeys { get; set; }
+
     // ── 대상 ────────────────────────────────────────────────
 
     /// <summary>어디에서 일할 것인가(<c>ai_target</c>). 화면에서 고른다.</summary>

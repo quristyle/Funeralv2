@@ -73,6 +73,53 @@ public sealed class ServerClient(HttpClient http, RunnerOptions options, ILogger
     }
 
     /// <summary>
+    /// 지시에 붙어 온 파일 하나를 받아 <paramref name="path"/> 에 적는다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>run 토큰으로 연다.</b> 집어갈 때 받은 그 토큰이고, 서버는 그 실행의
+    /// 작업에 붙은 파일만 내준다(<c>AiRunService.RunFileAsync</c>).
+    /// </para>
+    /// <para>
+    /// <b>못 받아도 작업은 계속한다.</b> 이 창구의 다른 갈래와 같은 규칙이다
+    /// (머리말) — 파일 한 장을 못 받았다고 지시 자체를 버리면, AI 가 글만
+    /// 보고도 할 수 있는 일까지 못 하게 된다. 대신 <b>지시문에 못 받았다고
+    /// 적는다</b>(<c>RunnerWorker</c>) — 없는 파일을 있는 것처럼 말하면 AI 가
+    /// 그것을 찾느라 헤맨다.
+    /// </para>
+    /// </remarks>
+    public async Task<bool> DownloadFileAsync(
+        long runKey, string token, long fileKey, string path, CancellationToken ct)
+    {
+        try
+        {
+            using var req = new HttpRequestMessage(
+                HttpMethod.Get, $"/api/ai-runner/runs/{runKey}/files/{fileKey}");
+
+            req.Headers.Add("X-AiTask-Token", token);
+
+            using var res = await http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
+
+            if (!res.IsSuccessStatusCode)
+            {
+                logger.LogWarning(
+                    "첨부 {FileKey} 를 받지 못했습니다: HTTP {Code}", fileKey, (int)res.StatusCode);
+                return false;
+            }
+
+            await using var target = File.Create(path);
+            await res.Content.CopyToAsync(target, ct);
+
+            return true;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
+        {
+            logger.LogWarning("첨부 {FileKey} 를 받지 못했습니다: {Message}", fileKey, ex.Message);
+            return false;
+        }
+    }
+
+    /// <summary>
     /// 이 장비가 들여다볼 대상 목록. 「대상 git 상태」 화면이 쓰는 값이다.
     /// </summary>
     /// <remarks>
@@ -317,6 +364,22 @@ public sealed class ServerClient(HttpClient http, RunnerOptions options, ILogger
         public bool AutoPush { get; set; }
         public string? TargetRef { get; set; }
         public Target? Target { get; set; }
+
+        /// <summary>
+        /// 지시에 함께 올라온 파일들. <b>이름과 크기뿐이다</b> — 바이트는
+        /// <see cref="ServerClient.DownloadFileAsync"/> 로 하나씩 받는다.
+        /// </summary>
+        public List<ClaimFile> Files { get; set; } = [];
+    }
+
+    /// <summary>지시에 붙어 온 파일 한 개.</summary>
+    public sealed class ClaimFile
+    {
+        public long FileKey { get; set; }
+        public string FileNm { get; set; } = string.Empty;
+        public string ContentType { get; set; } = string.Empty;
+        public long ByteSize { get; set; }
+        public bool IsImage { get; set; }
     }
 
     /// <summary>들여다볼 대상 한 줄. <b>경로 말고는 거의 안 온다.</b></summary>

@@ -1995,6 +1995,151 @@
 }
 
 
+/* ── 함께 보내는 파일 (`pm-ask__files`) ──────────────────────
+
+   글상자와 단추 줄 사이다. 여기에 들어가는 높이는 **자판이 올라온 화면에서
+   단추를 그만큼 밀어내므로** 인색하게 쓴다 — 붙인 것이 없으면 고르개 한
+   덩이뿐이고, 붙이면 칩이 줄줄이 늘어서는 대신 **줄바꿈으로 흐른다.**
+   ---------------------------------------------------------- */
+
+.pm-ask__files {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0.6rem 0 0;
+}
+
+/* 붙인 것. **격자가 아니라 흐름이다** — 이름 길이가 제각각이라 칸을 맞추면
+   짧은 이름 옆이 통째로 빈다. */
+.pm-ask__clips {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+}
+
+/* 칩 한 개. 그림 · 이름 · 크기 · 떼기 넷이 한 줄이다.
+
+   **폭을 묶는다.** 안 묶으면 휴대폰 사진의 긴 이름
+   (`Screenshot_20260925-093012_Chrome.jpg`) 하나가 줄을 통째로 먹어
+   두 개째부터 아래로 쌓인다. */
+.pm-ask__clip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  max-width: 16rem;
+  padding: 0.25rem 0.3rem 0.25rem 0.25rem;
+  border: 1px solid var(--jsini-border, rgba(0, 0, 0, 0.14));
+  border-radius: 999px;
+  font-size: 0.85em;
+  line-height: 1.4;
+}
+
+/* 미리보기. **네모로 잘라 채운다**(`cover`) — 비율대로 두면 세로 사진과
+   가로 사진이 섞일 때 칩 높이가 줄마다 달라진다. */
+.pm-ask__clipimg {
+  width: 1.6rem;
+  height: 1.6rem;
+  flex: 0 0 auto;
+  object-fit: cover;
+  border-radius: 50%;
+  background: var(--jsini-bg-subtle, rgba(0, 0, 0, 0.04));
+}
+
+/* 그림이 아닌 것. 글자 대신 **클립 모양**을 세운다 — 확장자를 적으면
+   `.xlsx` 와 `.pptx` 가 같은 폭을 먹으면서 이름이 그만큼 잘린다. */
+.pm-ask__clipicon,
+.pm-peek__fileicon {
+  width: 1.6rem;
+  height: 1.6rem;
+  flex: 0 0 auto;
+
+  /* **바탕을 깔지 않는다.** 마스크가 그림 모양 밖을 전부 잘라 내므로
+     둥근 바탕을 줘 봐야 함께 잘린다 — 그림만 남는다. 색은 글자색에서
+     받아 테마 스물둘을 그대로 따라간다(app.css 의 아이콘 묶음과 같다). */
+  background: var(--jsini-text-muted, currentColor);
+  mask: var(--jsini-clip-svg) center / 0.9rem 0.9rem no-repeat;
+  -webkit-mask: var(--jsini-clip-svg) center / 0.9rem 0.9rem no-repeat;
+}
+
+/* 클립 그림 한 장. **파일로 두지 않는다** — 세 자리에만 쓰는 것이라
+   요청을 하나 더 내면서까지 밖에 둘 이유가 없다.
+
+   **조상이 아니라 쓰는 요소 자신에 둔다.** 상세는 휴대폰에서만 `.pm-peek`
+   창 안이고 넓은 화면에서는 탭(`AiTaskViewPage`)이라 감싸는 상자가 갈린다 —
+   조상에 두면 **탭으로 열었을 때만 그림이 사라진다.** */
+.pm-ask__clipicon,
+.pm-peek__fileicon,
+.pm-ask__clipmark::before {
+  --jsini-clip-svg: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48'/%3E%3C/svg%3E");
+}
+
+/* 이름. **꼬리를 자른다** — 앞이 잘리면 무슨 파일인지 알 수 없다. */
+.pm-ask__clipname {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pm-ask__clipsize {
+  flex: 0 0 auto;
+  color: var(--jsini-text-muted);
+  font-size: 0.9em;
+}
+
+/* 떼기. **손가락이 겨누는 폭을 글자보다 크게 둔다** — 칩이 촘촘히 붙어
+   있어서 작으면 옆 칩을 누른다. */
+.pm-ask__clipx {
+  flex: 0 0 auto;
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: 50%;
+  color: var(--jsini-text-muted);
+  font-size: 1.1em;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.pm-ask__clipx:hover:not(:disabled) {
+  background: var(--jsini-bg-subtle, rgba(0, 0, 0, 0.08));
+  color: var(--jsini-danger, #c62828);
+}
+
+.pm-ask__clipx:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* 고르개는 이 화면에서 **작게** 쓴다. 공용 부품의 기본 여백은 문서 폼
+   기준이라, 세로로 세운 이 판에서는 그것이 단추를 자판 밖으로 민다. */
+.pm-ask__files .jsini-picker {
+  font-size: 0.9em;
+}
+
+/* 카드의 클립 표시. 개수만 적는다 — 위 razor 주석 참고. */
+.pm-ask__clipmark {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  color: var(--jsini-text-muted);
+  font-size: 0.9em;
+}
+
+.pm-ask__clipmark::before {
+  content: "";
+  width: 0.75rem;
+  height: 0.75rem;
+  background: currentColor;
+  mask: var(--jsini-clip-svg) center / contain no-repeat;
+  -webkit-mask: var(--jsini-clip-svg) center / contain no-repeat;
+}
+
 /* 글상자 아래 한 줄 — 올리기 · 메일 · 보내기.
 
    예전에는 올리기가 제 줄을, 단추가 또 제 줄을 가졌다. 칸이 둘로 늘면서
@@ -2708,6 +2853,67 @@
    필요 없다. 탭 몸통이 이미 띄워 준다. */
 .pm-peek__pane > .pm-peek__head:first-child {
   margin-top: 0;
+}
+
+/* ── 함께 보낸 파일 (`pm-peek__files`) ───────────────────────
+
+   지시와 결과 사이다. **줄로 쌓는다** — 「빠른 지시」의 칩은 적는 중에
+   곁눈으로 보는 것이라 작고 촘촘하지만, 여기는 「무엇을 보고 시킨
+   건이었나」를 되짚는 자리라 이름이 잘리면 안 된다.
+
+   그림을 크게 깔지 않는다. 이 판에는 지시·결과·로그가 함께 있어서,
+   사진 다섯 장을 펴 놓으면 정작 결과가 화면 밖으로 밀린다 — 원본은
+   눌러서 새 탭으로 연다.
+   ---------------------------------------------------------- */
+
+.pm-peek__files {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin: 0 0 0.5rem;
+  padding: 0;
+}
+
+.pm-peek__file > a {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--jsini-border, rgba(0, 0, 0, 0.12));
+  border-radius: 4px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.pm-peek__file > a:hover {
+  background: var(--jsini-bg-subtle, rgba(0, 0, 0, 0.04));
+}
+
+/* 미리보기. 칩보다 크게 두되 줄 높이를 지배하지 않을 만큼만 —
+   「어느 화면이었나」가 떠오르면 그것으로 제 몫을 한다. */
+.pm-peek__fileimg {
+  width: 2.5rem;
+  height: 2.5rem;
+  flex: 0 0 auto;
+  object-fit: cover;
+  border-radius: 3px;
+  background: var(--jsini-bg-subtle, rgba(0, 0, 0, 0.04));
+}
+
+/* 이름이 자리를 다 쓰고 크기가 오른쪽 끝에 붙는다. */
+.pm-peek__filename {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pm-peek__filesize {
+  flex: 0 0 auto;
+  color: var(--jsini-text-muted);
+  font-size: var(--jsini-fs-xs);
 }
 
 /* 처리 요약 — 판의 맨 위.

@@ -75,6 +75,11 @@ builder.Services.AddScoped<AiTargetService>();
 // 호스트 경로를 볼 수 없어서, 실행기가 들여다보고 적어 둔 것을 받아 두었다가
 // 화면에 내주는 자리다(설계 11.7).
 builder.Services.AddScoped<AiTargetStatusService>();
+// 지시에 함께 올린 그림·파일. **바이트가 DB 에 있다** — 이 컨테이너에는
+// 붙은 디스크가 없어서, 파일 시스템에 담으면 다음 배포에 사라진다
+// (deploy/sql/projmng-ai-task-file-2026-09-25.sql 머리말).
+builder.Services.AddScoped<AiTaskFileService>();
+
 builder.Services.AddScoped<AiTaskService>();
 builder.Services.AddScoped<AiRunService>();
 

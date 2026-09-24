@@ -1,3 +1,4 @@
+using JSini.Web.Components.Data;
 using JSini.Web.Http;
 
 namespace JSini.Web.ProjMng.Api;
@@ -111,6 +112,84 @@ public sealed class AiTaskClient(GatewayClient gateway)
     public Task DeleteAsync(long taskKey, CancellationToken ct = default)
         => gateway.DeleteAsync($"{Url}/{taskKey}", ct);
 
+    // ──────────────────────────────────────────── 함께 보내는 파일
+    //
+    // 설계는 `docs/ai-task-runner.md` 의 「함께 보내는 파일」.
+    //
+    // **올리기와 묶기가 갈려 있다.** 「빠른 지시」는 고르는 순간 올리는데
+    // (`StageFilesAsync`) 그때는 작업 번호가 없다. 번호는 보낼 때 생기므로,
+    // 받아 둔 번호들을 `AiTaskDto.FileKeys` 에 실어 보내면 서버가 묶는다.
+    // 왜 「단추를 누를 때 한꺼번에」가 아닌지는 `AiAskPanel` 머리말에 있다.
+
+    /// <summary>
+    /// <b>고른 파일을 미리 올려 둔다.</b> 아직 어느 작업에도 안 묶인다.
+    /// </summary>
+    /// <remarks>
+    /// 고른 파일은 이미 셸이 임시 자리에 받아 두었다(<see cref="PickedFile"/>).
+    /// 여기서는 그 바이트를 게이트웨이로 흘려 보내기만 한다 — 메모리에 통째로
+    /// 올리지 않는다(<c>InterfaceClient.UploadFilesAsync</c> 와 같은 길이다).
+    /// </remarks>
+    public async Task<IReadOnlyList<AiTaskFileDto>> StageFilesAsync(
+        IReadOnlyList<PickedFile> files, CancellationToken ct = default)
+    {
+        if (files.Count == 0)
+        {
+            return [];
+        }
+
+        using var form = new MultipartFormDataContent();
+        var streams = new List<Stream>(files.Count);
+
+        try
+        {
+            foreach (var file in files)
+            {
+                var stream = file.OpenRead();
+                streams.Add(stream);
+
+                var part = new StreamContent(stream);
+                part.Headers.ContentType =
+                    new System.Net.Http.Headers.MediaTypeHeaderValue(
+                        string.IsNullOrWhiteSpace(file.ContentType)
+                            ? "application/octet-stream"
+                            : file.ContentType);
+
+                form.Add(part, "files", file.Name);
+            }
+
+            return await gateway.PostFormListAsync<AiTaskFileDto>($"{Url}/files", form, ct);
+        }
+        finally
+        {
+            foreach (var stream in streams)
+            {
+                await stream.DisposeAsync();
+            }
+        }
+    }
+
+    /// <summary>
+    /// <b>내가 붙여 두고 아직 안 보낸 것.</b> 화면이 다시 열릴 때 읽는다.
+    /// </summary>
+    /// <remarks>
+    /// 번호를 브라우저에 적어 두지 않는다 — 서버가 하루 지난 것을 치우므로
+    /// 적어 두면 <b>없는 첨부가 붙어 보인다.</b>
+    /// </remarks>
+    public Task<IReadOnlyList<AiTaskFileDto>> MyStagedFilesAsync(CancellationToken ct = default)
+        => gateway.GetListAsync<AiTaskFileDto>($"{Url}/files/mine", ct);
+
+    /// <summary>작업 하나에 붙은 첨부. <b>바이트는 오지 않는다.</b></summary>
+    public Task<IReadOnlyList<AiTaskFileDto>> FilesAsync(
+        long taskKey, CancellationToken ct = default)
+        => gateway.GetListAsync<AiTaskFileDto>($"{Url}/{taskKey}/files", ct);
+
+    /// <summary>
+    /// 붙여 둔 것을 뗀다. <b>보내기 전까지만</b> — 이미 보낸 지시에 붙은 것은
+    /// 서버가 거절한다(돌고 난 실행이 무엇을 보고 일했는지가 사라지면 안 된다).
+    /// </summary>
+    public Task DeleteFileAsync(long fileKey, CancellationToken ct = default)
+        => gateway.DeleteAsync($"{Url}/files/{fileKey}", ct);
+
     /// <summary>실행 이력. 최근 것이 앞이다.</summary>
     public Task<IReadOnlyList<AiTaskRunDto>> RunsAsync(long taskKey, CancellationToken ct = default)
         => gateway.GetListAsync<AiTaskRunDto>($"{Url}/{taskKey}/runs", ct);
@@ -201,6 +280,40 @@ public sealed class AiLogLineDto
     public DateTime? LogAt { get; set; }
 }
 
+/// <summary>지시에 함께 올린 파일 한 개.</summary>
+/// <remarks>
+/// <b>바이트는 없다.</b> 화면이 쓰는 것은 이름·크기·그림이냐 셋이고, 실제
+/// 바이트는 <see cref="FileDownload.AiTaskUrlFor"/> 가 가리키는 셸 중계로 받는다.
+/// </remarks>
+public sealed class AiTaskFileDto
+{
+    public long FileKey { get; set; }
+
+    /// <summary>묶인 작업. <b>널이면 아직 안 보낸 것</b>이다.</summary>
+    public long? TaskKey { get; set; }
+
+    public string? FileNm { get; set; }
+    public string? ContentType { get; set; }
+    public long ByteSize { get; set; }
+
+    /// <summary>
+    /// 미리보기를 그릴 수 있는 그림인가. <b>서버가 판정한 값이다</b> —
+    /// 브라우저가 준 형식을 그대로 믿지 않는다(SVG 는 그림으로 안 친다).
+    /// </summary>
+    public bool IsImage { get; set; }
+
+    public string? CreId { get; set; }
+    public DateTime? CreDt { get; set; }
+
+    /// <summary>사람이 읽는 크기.</summary>
+    public string SizeText => ByteSize switch
+    {
+        >= 1024 * 1024 => $"{ByteSize / 1024.0 / 1024:0.#} MB",
+        >= 1024 => $"{ByteSize / 1024.0:0.#} KB",
+        _ => $"{ByteSize} B",
+    };
+}
+
 /// <summary>AI 작업 한 건.</summary>
 /// <remarks>
 /// <b>요청여부와 상태가 따로 있다.</b> 앞엣것은 사람의 의사이고 뒤엣것은
@@ -221,6 +334,26 @@ public sealed class AiTaskDto
 
     public string? Contents { get; set; }
     public string? ContentFormat { get; set; } = "markdown";
+
+    // ── 함께 보낸 파일 ──────────────────────────────────────
+
+    /// <summary>
+    /// 붙은 첨부 개수. 읽기 전용 — 서버가 세어 준다.
+    /// </summary>
+    /// <remarks>
+    /// 「빠른 지시」의 카드가 이 값 하나로 클립 배지를 세운다. 건마다 첨부
+    /// 목록을 따로 물으면 카드 열 장에 왕복이 열 번 더 난다.
+    /// </remarks>
+    public int FileCount { get; set; }
+
+    /// <summary>
+    /// <b>등록할 때만 싣는 값</b> — 미리 올려 둔 첨부의 번호들.
+    /// </summary>
+    /// <remarks>
+    /// 고르는 순간 올려 두고(<see cref="AiTaskClient.StageFilesAsync"/>) 보낼
+    /// 때 그 번호를 여기 실으면 서버가 작업에 묶는다. <b>조회로는 오지 않는다.</b>
+    /// </remarks>
+    public long[]? FileKeys { get; set; }
 
     public long? TargetKey { get; set; }
 

@@ -20,7 +20,7 @@ namespace ProjMngServer.Services;
 /// </remarks>
 public sealed class AiTaskService(
     IConfiguration configuration, AiTargetService targets, AiTaskQueue queue,
-    AiRequestAlerter alerts)
+    AiRequestAlerter alerts, AiTaskFileService files)
 {
     private readonly string _connectionString =
         configuration.GetConnectionString("jsini")
@@ -33,6 +33,11 @@ public sealed class AiTaskService(
         a.title           AS Title,
         a.contents        AS Contents,
         a.content_format  AS ContentFormat,
+        -- 붙은 첨부 개수. **목록이 배지 하나를 세우는 값**이라 개수만 센다 —
+        -- 이름까지 끌고 오면 카드 열 장을 그리는 조회가 그만큼 무거워지고,
+        -- 정작 이름은 눌러서 여는 자리에서만 쓴다.
+        ( SELECT COUNT(*)::int FROM projmng.ai_task_file f
+           WHERE f.task_key = a.task_key ) AS FileCount,
         a.target_key      AS TargetKey,
         b.target_nm       AS TargetNm,
         b.target_path     AS TargetPath,
@@ -155,6 +160,18 @@ public sealed class AiTaskService(
             item.AutoPush, item.NotifyEmail, item.NotifyPwa, item.NotifyTo, item.NotifyWhen,
             item.IsUserRequest, userId,
         });
+
+        // 미리 올려 둔 첨부를 이 작업에 묶는다. **번호가 생긴 뒤라야 한다** —
+        // 「빠른 지시」는 고르는 순간 올리므로 그때는 묶을 곳이 없다
+        // (`AiTaskFileService` 머리말).
+        //
+        // 못 묶은 것이 있어도 **여기서 되돌리지 않는다.** 사진 한 장 때문에
+        // 지시 자체가 안 나가는 쪽이 더 나쁘고, 몇 장이 붙었는지는 바로 아래
+        // 조회가 `FileCount` 로 돌려준다.
+        if (item.FileKeys is { Length: > 0 } fileKeys)
+        {
+            await files.BindAsync(key, fileKeys, userId);
+        }
 
         return await GetAsync(key);
     }

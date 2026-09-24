@@ -124,6 +124,33 @@ public sealed class AiRunnerController(
             : Ok(ApiResponse<AiHeartbeat>.Ok(beat));
     }
 
+    /// <summary>
+    /// <b>지시에 붙어 온 파일 하나를 실행기가 받아 간다.</b>
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 집어갈 때 온 목록(<c>AiClaim.Files</c>)에는 이름과 크기뿐이다. 바이트를
+    /// 거기 실으면 <b>비어 있어도 1초마다 도는 집어가기</b>가 사진 몇 장을
+    /// 매번 끌고 온다.
+    /// </para>
+    /// <para>
+    /// 여는 열쇠는 <b>run 토큰</b>이고, 나가는 것은 <b>그 실행의 작업에 붙은
+    /// 것</b>뿐이다 — 판정은 서비스에 있다(<c>AiRunService.RunFileAsync</c>).
+    /// </para>
+    /// </remarks>
+    [HttpGet("runs/{runKey:long}/files/{fileKey:long}")]
+    public async Task<IActionResult> RunFileAsync(long runKey, long fileKey)
+    {
+        var found = await runs.RunFileAsync(runKey, RunToken ?? string.Empty, fileKey);
+
+        // **무엇이 틀렸는지 갈라 말하지 않는다.** 토큰이 다른 것과 그 실행의
+        // 파일이 아닌 것이 같은 답을 받는다 — 가르면 토큰 하나로 남의 첨부
+        // 번호를 훑을 수 있다.
+        return found is null
+            ? StatusCode(403, ApiResponse<object>.Fail(message: "끝났거나 토큰이 다릅니다.", code: "GONE"))
+            : File(found.Value.Bytes, "application/octet-stream", found.Value.FileNm);
+    }
+
     [HttpPost("runs/{runKey:long}/logs")]
     public async Task<IActionResult> LogsAsync(long runKey, [FromBody] LogsRequest req)
     {

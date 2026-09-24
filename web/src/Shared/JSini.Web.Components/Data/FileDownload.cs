@@ -79,6 +79,30 @@ public static class FileDownload
     }
 
     /// <summary>
+    /// <b>AI 작업 지시에 함께 올린 파일</b> 하나의 주소.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 다른 갈래와 달리 <b>FileServer 가 아니라 ProjMngServer</b> 로 간다.
+    /// 그 바이트는 <c>projmng.ai_task_file</c> 에 들어 있고, 왜 파일 서버가
+    /// 아닌지는 <c>deploy/sql/projmng-ai-task-file-2026-09-25.sql</c> 머리말에
+    /// 적었다 — 요지는 <b>실행기가 게이트웨이를 못 지난다</b>는 것이다.
+    /// </para>
+    /// <para>
+    /// 열쇠가 GUID 가 아니라 <b>번호</b>라 자리가 갈린다. 같은 <c>{fileId}</c>
+    /// 자리에 두면 「AI 첨부 12번」과 「파일 GUID」를 라우팅이 가를 수 없다.
+    /// </para>
+    /// </remarks>
+    public static string AiTaskUrlFor(long fileKey, string? fileName = null)
+    {
+        var url = $"{Path}/ai-task/{fileKey}";
+
+        return string.IsNullOrWhiteSpace(fileName)
+            ? url
+            : $"{url}?name={Uri.EscapeDataString(fileName)}";
+    }
+
+    /// <summary>
     /// 첨부 하나의 썸네일(150x150 WebP) 주소.
     /// 레이아웃 아바타나 목록의 작은 미리보기처럼 작은 그림을 그릴 때 쓴다.
     /// </summary>
@@ -300,6 +324,15 @@ public static class FileDownload
             .AllowAnonymous()
             .WithName("JSiniAvatarIcon");
 
+        // AI 작업 지시에 함께 올린 파일. **파일 서버가 아니라 프로젝트관리**로
+        // 간다(`AiTaskUrlFor` 머리말). 리터럴 `ai-task` 가 있어 `{fileId}` 와
+        // 겹치지 않는다.
+        endpoints.MapGet($"{Path}/ai-task/{{fileKey:long}}", HandleAiTaskAsync)
+            // **로그인해야 한다.** 이 갈래에는 「공개 파일」이라는 개념이 없다 —
+            // 지시에 붙은 화면 사진은 언제나 사내 자료다.
+            .RequireAuthorization()
+            .WithName("JSiniAiTaskFile");
+
         // 자료실·플레이어. 횟수를 세는 경로를 거친다.
         //
         // **리터럴 `archive` 가 있어 위의 `{fileId}` 와 겹치지 않는다** —
@@ -343,6 +376,31 @@ public static class FileDownload
             // 않아 숫자가 멈춘다. 자료실 화면의 「내려받기」 칸이 그 숫자다.
             cacheable: false);
     }
+
+    /// <summary>
+    /// AI 작업 첨부를 중계한다. 그림이면 <c>&lt;img&gt;</c> 가, 그 밖에는
+    /// 내려받기 링크가 이 주소를 부른다.
+    /// </summary>
+    /// <remarks>
+    /// <b>무엇을 어떤 형식으로 내보낼지는 위쪽이 정한다</b>
+    /// (<c>AiTaskFilesController.ContentAsync</c>) — 그림만 제 형식으로 나가고
+    /// 나머지는 <c>application/octet-stream</c> 이다. 여기서 또 가르면 두
+    /// 판정이 갈라지고, 갈라지는 쪽은 늘 「실행되어서는 안 되는데 실행되는」
+    /// 쪽이다.
+    /// </remarks>
+    private static Task HandleAiTaskAsync(
+        long fileKey,
+        string? name,
+        HttpContext http,
+        GatewayClient gateway,
+        ILoggerFactory loggers,
+        CancellationToken cancellationToken)
+        => RelayAsync(
+            $"projmng/ai-tasks/files/{fileKey}/content",
+            $"ai-task-{fileKey}", name, http, gateway, loggers, cancellationToken,
+            // 그림이면 캐시한다 — 판정은 위쪽이 준 형식이 한다(`Cacheable`).
+            // 이 번호의 바이트는 덧쓰이지 않으므로 검증표를 우리가 만들어도 된다.
+            cacheable: true);
 
     private static Task HandleThumbnailAsync(
         string fileId,
@@ -478,9 +536,39 @@ public static class FileDownload
     /// 자료실 갈래는 <c>false</c> 이고 이유는 그쪽 호출부 주석에 있다.
     /// </para>
     /// </summary>
-    private static async Task RelayAsync(
+    /// <summary>파일 아이디가 GUID 인 갈래. <b>대부분이 이쪽이다.</b></summary>
+    private static Task RelayAsync(
         string upstreamPath,
         Guid id,
+        string? name,
+        HttpContext http,
+        GatewayClient gateway,
+        ILoggerFactory loggers,
+        CancellationToken cancellationToken,
+        bool cacheable,
+        string? fallbackPath = null)
+        => RelayAsync(
+            upstreamPath, id.ToString(), name, http, gateway, loggers,
+            cancellationToken, cacheable, fallbackPath);
+
+    /// <summary>
+    /// 중계 본체.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <c>tag</c> 는 이 바이트를 가리키는 <b>변하지 않는 이름</b>이다.
+    /// 검증표(<c>ETag</c>)와 로그가 그것을 쓴다.
+    /// </para>
+    /// <para>
+    /// GUID 가 아닌 갈래가 생겨서 글자로 받는다 — AI 작업 첨부는 열쇠가
+    /// <c>bigint</c> 다. <b>갈래끼리 겹치지 않게</b> 접두사를 붙여 만든다
+    /// (<c>ai-task-12</c>) — 안 붙이면 GUID 갈래의 캐시본과 같은 검증표가 나올
+    /// 수 있고, 그러면 브라우저가 엉뚱한 바이트를 들고 304 를 받는다.
+    /// </para>
+    /// </remarks>
+    private static async Task RelayAsync(
+        string upstreamPath,
+        string tag,
         string? name,
         HttpContext http,
         GatewayClient gateway,
@@ -515,7 +603,7 @@ public static class FileDownload
             // `Storage:FallbackUrl`(운영 호스트)로 302 를 주는데, 그 호스트가
             // 개발망에서 안 풀린다. 운영에서는 풀리므로 정상 동작한다.
             // (루트 CLAUDE.md 의 「개발 장비에서 올린 파일은 운영에 바이트가 없다」)
-            logger.LogWarning(ex, "첨부 {FileId} 를 가져오지 못했습니다 (게이트웨이 연결).", id);
+            logger.LogWarning(ex, "첨부 {FileId} 를 가져오지 못했습니다 (게이트웨이 연결).", tag);
 
             http.Response.StatusCode = StatusCodes.Status502BadGateway;
             return;
@@ -529,7 +617,7 @@ public static class FileDownload
 
             logger.LogInformation(
                 "첨부 {FileId} 를 내려주지 못했습니다 ({Status}). 로그인 여부: {Auth}",
-                id, (int)upstream.StatusCode, authenticated);
+                tag, (int)upstream.StatusCode, authenticated);
 
             // **모든 실패를 404 로 뭉개면 안 된다** (실제로 밟음).
             //
@@ -574,14 +662,14 @@ public static class FileDownload
         if (Cacheable(cacheable, http.Response.ContentType))
         {
             // 이 아이디의 바이트는 절대 바뀌지 않으므로 검증표를 우리가 만들어도 된다.
-            http.Response.Headers.ETag = $"\"{id}\"";
+            http.Response.Headers.ETag = $"\"{tag}\"";
             http.Response.Headers.CacheControl = $"private, max-age={ImageMaxAgeSeconds}";
 
             // **위쪽을 부른 뒤에 따진다.** 앞에서 끊으면 판정(FileServer)을 건너뛰게
             // 되고, 비공개로 되돌린 파일에 계속 304 를 주어 브라우저가 캐시본을
             // 계속 쓴다 — 틀리는 방향이 「열려서는 안 되는데 열린」 쪽이다.
             // 여기서 아끼는 것은 판정이 아니라 **바이트 전송**뿐이다.
-            if (NoneMatch(http.Request, id))
+            if (NoneMatch(http.Request, tag))
             {
                 http.Response.StatusCode = StatusCodes.Status304NotModified;
                 http.Response.ContentLength = null;
@@ -651,13 +739,23 @@ public static class FileDownload
     /// 나올 수 있는 것은 그 아이디의 바이트 하나뿐이라 언제나 같다.
     /// </remarks>
     internal static bool NoneMatch(HttpRequest request, Guid id)
+        => NoneMatch(request, id.ToString());
+
+    /// <summary>
+    /// 브라우저가 들고 있는 것이 이 바이트와 같은가 (<c>If-None-Match</c>).
+    /// </summary>
+    /// <remarks>
+    /// <c>*</c> 도 받아 준다 — 「무엇이든 들고 있다」는 뜻이고, 이 주소에서
+    /// 나올 수 있는 것은 그 이름의 바이트 하나뿐이라 언제나 같다.
+    /// </remarks>
+    internal static bool NoneMatch(HttpRequest request, string tag)
     {
         if (request.Headers.IfNoneMatch.Count == 0)
         {
             return false;
         }
 
-        var mine = $"\"{id}\"";
+        var mine = $"\"{tag}\"";
 
         foreach (var header in request.Headers.IfNoneMatch)
         {
@@ -666,9 +764,9 @@ public static class FileDownload
                 continue;
             }
 
-            foreach (var tag in header.Split(','))
+            foreach (var candidate in header.Split(','))
             {
-                var trimmed = tag.Trim();
+                var trimmed = candidate.Trim();
 
                 // 약한 검증표(`W/"…"`)로 돌아오는 경우가 있다. 앞의 표시만 뗀다.
                 if (trimmed.StartsWith("W/", StringComparison.Ordinal))

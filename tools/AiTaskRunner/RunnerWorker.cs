@@ -284,17 +284,21 @@ public sealed class RunnerWorker(
 
             var promptPath = Path.Combine(promptDir, $"task-{claim.TaskKey}-run-{claim.RunKey}.md");
 
+            // 지시에 함께 올라온 파일을 내려 받아 **지시문 끝에 경로로 적는다.**
+            // 안 적으면 파일은 디스크에 있는데 AI 는 그것이 있는 줄도 모른다.
+            var instruction = await WithAttachmentsAsync(claim, promptDir, SayAsync, ct);
+
             // BOM 을 붙이지 않는다. 붙이면 프롬프트 첫 글자가 보이지 않는
             // 문자로 시작한다.
             await File.WriteAllTextAsync(
-                promptPath, claim.Instruction ?? string.Empty, new UTF8Encoding(false), ct);
+                promptPath, instruction, new UTF8Encoding(false), ct);
 
             await SayAsync($"[시작] {adapter.Executable} · {prepared.Path}");
 
             var result = await cli.RunAsync(
                 adapter,
                 prepared.Path,
-                claim.Instruction ?? string.Empty,
+                instruction,
                 promptPath,
                 TimeSpan.FromMinutes(claim.TimeoutMinutes > 0 ? claim.TimeoutMinutes : adapter.TimeoutMinutes),
                 async line =>
@@ -498,6 +502,129 @@ public sealed class RunnerWorker(
                 string.Join(",", off));
         }
     }
+
+    /// <summary>
+    /// 지시에 붙어 온 파일을 작업공간 <b>밖</b>에 내려 받고, 그 경로를 지시문
+    /// 끝에 적어 돌려준다. 붙은 것이 없으면 지시문 그대로다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// [왜 작업공간 밖인가]
+    /// </para>
+    /// <para>
+    /// 지시문 파일을 밖에 두는 것과 <b>똑같은 이유</b>다 — 안에 두면
+    /// <c>git add -A</c> 가 사람이 찍은 화면 사진까지 집어 커밋에 섞는다.
+    /// 그래서 지시문 옆(<c>prompts/</c>)에 건마다 폴더를 하나 판다.
+    /// </para>
+    /// <para>
+    /// [이름이 겹치면 번호를 앞에 붙인다]
+    /// </para>
+    /// <para>
+    /// 휴대폰에서 고른 사진은 이름이 <c>image.jpg</c> 로 다 같은 일이 흔하다.
+    /// 그대로 적으면 뒤엣것이 앞엣것을 덮어 <b>둘을 붙였는데 한 장만 남는다.</b>
+    /// </para>
+    /// <para>
+    /// [못 받은 것도 적는다]
+    /// </para>
+    /// <para>
+    /// 서버가 잠깐 없거나 토큰이 죽었을 수 있다. 그때 그 줄을 지우면 AI 는
+    /// 애초에 파일이 없었던 것으로 읽고, 사람은 <b>붙여 보냈는데 안 봤다</b>고
+    /// 읽는다. 그래서 「못 받았다」고 그대로 적는다.
+    /// </para>
+    /// </remarks>
+    private async Task<string> WithAttachmentsAsync(
+        ServerClient.Claim claim, string promptDir, Func<string, Task> say, CancellationToken ct)
+    {
+        var instruction = claim.Instruction ?? string.Empty;
+
+        if (claim.Files.Count == 0)
+        {
+            return instruction;
+        }
+
+        var dir = Path.Combine(promptDir, $"task-{claim.TaskKey}-run-{claim.RunKey}-files");
+        Directory.CreateDirectory(dir);
+
+        var lines = new StringBuilder();
+        var taken = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var got = 0;
+
+        foreach (var file in claim.Files)
+        {
+            var name = SafeLocalName(file.FileNm);
+
+            // 같은 이름이 두 번 오면 번호를 앞에 붙인다. 위 머리말 참고.
+            if (!taken.Add(name))
+            {
+                name = $"{file.FileKey}-{name}";
+                taken.Add(name);
+            }
+
+            var path = Path.Combine(dir, name);
+
+            if (await server.DownloadFileAsync(claim.RunKey, claim.Token, file.FileKey, path, ct))
+            {
+                got++;
+                lines.AppendLine(
+                    $"- `{path}` — {(file.IsImage ? "그림" : "파일")} · 원래 이름 `{file.FileNm}` · {Human(file.ByteSize)}");
+            }
+            else
+            {
+                lines.AppendLine($"- (받지 못함) 원래 이름 `{file.FileNm}` · {Human(file.ByteSize)}");
+            }
+        }
+
+        await say($"[첨부] {claim.Files.Count}개 중 {got}개를 받았습니다 · {dir}");
+
+        return $"""
+            {instruction}
+
+            ---
+
+            ## 함께 올라온 파일
+
+            아래 파일이 이 지시와 함께 올라왔다. **필요하면 읽어서 참고한다** —
+            그림이면 그대로 보고, 문서면 열어 본다. 작업공간 안이 아니라 밖에
+            있으므로 커밋에 섞이지 않는다.
+
+            {lines.ToString().TrimEnd()}
+            """;
+    }
+
+    /// <summary>
+    /// 내려 받을 이름을 안전하게 만든다. <b>서버도 한 번 걸렀다</b>
+    /// (<c>AiTaskFileService.SafeName</c>) — 여기서 또 보는 것은 이 값이
+    /// 그대로 <c>Path.Combine</c> 에 들어가기 때문이다.
+    /// </summary>
+    private static string SafeLocalName(string? name)
+    {
+        var n = Path.GetFileName(name ?? string.Empty).Trim();
+
+        if (string.IsNullOrWhiteSpace(n))
+        {
+            return "file";
+        }
+
+        var bad = Path.GetInvalidFileNameChars().ToHashSet();
+        var sb = new StringBuilder(n.Length);
+
+        foreach (var c in n)
+        {
+            sb.Append(bad.Contains(c) || char.IsControl(c) ? '_' : c);
+        }
+
+        n = sb.ToString().TrimStart('.');
+
+        return n.Length == 0 ? "file" : n;
+    }
+
+    /// <summary>사람이 읽는 크기.</summary>
+    private static string Human(long bytes) => bytes switch
+    {
+        >= 1024 * 1024 => $"{bytes / 1024.0 / 1024:0.#} MB",
+        >= 1024 => $"{bytes / 1024.0:0.#} KB",
+        _ => $"{bytes} B",
+    };
 
     private Task FailAsync(ServerClient.Claim claim, string message, CancellationToken ct)
         => server.CompleteAsync(claim.RunKey, claim.Token, new

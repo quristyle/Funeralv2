@@ -132,6 +132,81 @@ public sealed class GatewayClient(HttpClient http)
         return payload?.Result ?? [];
     }
 
+    /// <summary>
+    /// <b>파일을 올리고</b> 담긴 목록을 받는다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <see cref="PostListAsync{T}"/> 는 본문을 JSON 으로 굳혀 보내므로 첨부에
+    /// 쓸 수 없고, <see cref="SendRawAsync"/> 는 봉투를 벗기지 않는다 —
+    /// 올린 결과(붙은 번호 같은 것)가 필요하면 그 둘 사이가 빈다.
+    /// </para>
+    /// <para>
+    /// <b>바이트를 메모리에 통째로 올리지 않는다.</b> 부르는 쪽이
+    /// <see cref="MultipartFormDataContent"/> 에 스트림을 담고, 그것을
+    /// <c>Dispose</c> 하는 것도 부르는 쪽이다.
+    /// </para>
+    /// </remarks>
+    public async Task<IReadOnlyList<T>> PostFormListAsync<T>(
+        string path,
+        MultipartFormDataContent form,
+        CancellationToken cancellationToken = default)
+    {
+        HttpResponseMessage response;
+
+        using (var request = new HttpRequestMessage(HttpMethod.Post, path) { Content = form })
+        {
+            try
+            {
+                response = await http.SendAsync(request, cancellationToken);
+            }
+            catch (HttpRequestException ex)
+            {
+                throw new ApiException(
+                    "서버에 연결하지 못했습니다.", statusCode: null, innerException: ex);
+            }
+            finally
+            {
+                // 부르는 쪽이 들고 있는 것을 우리가 죽이지 않는다
+                // (`SendRawAsync` 와 같은 이유).
+                request.Content = null;
+            }
+        }
+
+        using (response)
+        {
+            await EnsureHttpSuccessAsync(response, path, cancellationToken);
+
+            if (response.Content.Headers.ContentLength == 0)
+            {
+                return [];
+            }
+
+            ApiEnvelope<T>? envelope;
+
+            try
+            {
+                envelope = await response.Content
+                    .ReadFromJsonAsync<ApiEnvelope<T>>(JsonOptions, cancellationToken);
+            }
+            catch (JsonException ex)
+            {
+                throw new ApiException(
+                    "응답을 해석하지 못했습니다.", statusCode: response.StatusCode, innerException: ex);
+            }
+
+            if (envelope is { Success: false })
+            {
+                throw new ApiException(
+                    envelope.Message ?? "요청이 거절되었습니다.",
+                    statusCode: response.StatusCode,
+                    code: envelope.Code);
+            }
+
+            return envelope?.Data?.Result ?? [];
+        }
+    }
+
     /// <summary>고치고 <b>바뀐 목록 전체</b>를 받는다. 이유는 <see cref="PostListAsync{T}"/> 와 같다.</summary>
     public async Task<IReadOnlyList<T>> PutListAsync<T>(
         string path,

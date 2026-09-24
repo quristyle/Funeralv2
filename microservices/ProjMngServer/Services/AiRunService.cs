@@ -190,6 +190,18 @@ public sealed class AiRunService(
                 AutoPush = task.AutoPush,
                 TargetRef = task.TargetRef,
                 Target = target,
+
+                // 붙은 파일의 **목록만** 싣는다. 바이트는 실행기가 따로 받는다.
+                Files = [.. await db.QueryAsync<AiClaimFile>("""
+                    SELECT file_key     AS FileKey,
+                           file_nm      AS FileNm,
+                           content_type AS ContentType,
+                           byte_size    AS ByteSize,
+                           is_image     AS IsImage
+                      FROM projmng.ai_task_file
+                     WHERE task_key = @TaskKey
+                     ORDER BY file_key
+                    """, new { task.TaskKey }, tx)],
             });
         }
 
@@ -606,6 +618,52 @@ public sealed class AiRunService(
     /// 이 토큰이 그 실행의 것인가. <b>끝난 실행은 거절한다</b> —
     /// 그러면 늦게 온 보고가 끝난 기록을 덮지 않는다.
     /// </summary>
+    /// <summary>
+    /// 실행기가 <b>이 실행에 붙은 파일 하나</b>를 받아 간다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 실행기는 게이트웨이를 지나지 않으므로(<c>AiRunnerController</c> 머리말)
+    /// 포털 계정이 없다. 그래서 이미 들고 있는 <b>run 토큰</b>으로 연다 —
+    /// 로그를 올리고 심장 소리를 보내는 그 토큰이다.
+    /// </para>
+    /// <para>
+    /// <b>그 실행의 작업에 붙은 것만 나간다.</b> 조건을 <c>file_key</c> 하나로
+    /// 두면 토큰 하나로 <b>남의 지시에 붙은 사진을 전부</b> 받아 갈 수 있다.
+    /// </para>
+    /// </remarks>
+    /// <returns>토큰이 다르거나 그 실행의 파일이 아니면 <c>null</c>.</returns>
+    public async Task<(string FileNm, string ContentType, byte[] Bytes)?> RunFileAsync(
+        long runKey, string token, long fileKey)
+    {
+        using var db = Open();
+
+        if (!await AuthorizeAsync(db, runKey, token))
+        {
+            return null;
+        }
+
+        var row = await db.QuerySingleOrDefaultAsync<RunFile>("""
+            SELECT f.file_nm      AS FileNm,
+                   f.content_type AS ContentType,
+                   f.content      AS Content
+              FROM projmng.ai_task_file f
+              JOIN projmng.ai_task_run  r ON r.task_key = f.task_key
+             WHERE r.run_key  = @runKey
+               AND f.file_key = @fileKey
+            """, new { runKey, fileKey });
+
+        return row is null ? null : (row.FileNm, row.ContentType, row.Content ?? []);
+    }
+
+    /// <summary>실행기에게 내보낼 파일 한 줄. 이 서비스 안에서만 쓴다.</summary>
+    private sealed class RunFile
+    {
+        public string FileNm { get; set; } = string.Empty;
+        public string ContentType { get; set; } = "application/octet-stream";
+        public byte[]? Content { get; set; }
+    }
+
     private static async Task<bool> AuthorizeAsync(IDbConnection db, long runKey, string token)
     {
         var hash = await db.ExecuteScalarAsync<string?>("""
@@ -644,6 +702,26 @@ public sealed class AiClaim
     public string? TargetRef { get; set; }
 
     public AiTarget? Target { get; set; }
+
+    /// <summary>
+    /// 지시에 함께 올라온 파일들. <b>바이트는 여기 없다</b> — 실행기가 번호로
+    /// 하나씩 받아 간다(<c>/api/ai-runner/runs/{runKey}/files/{fileKey}</c>).
+    /// </summary>
+    /// <remarks>
+    /// 실어 보내면 집어가기 한 번이 사진 몇 장을 통째로 끌고 온다 —
+    /// 집어가기는 실행기가 <b>비어 있어도 1초마다 부르는</b> 자리다.
+    /// </remarks>
+    public List<AiClaimFile> Files { get; set; } = [];
+}
+
+/// <summary>집어 간 일에 붙어 온 파일 한 개.</summary>
+public sealed class AiClaimFile
+{
+    public long FileKey { get; set; }
+    public string FileNm { get; set; } = string.Empty;
+    public string ContentType { get; set; } = "application/octet-stream";
+    public long ByteSize { get; set; }
+    public bool IsImage { get; set; }
 }
 
 public sealed class AiHeartbeat
