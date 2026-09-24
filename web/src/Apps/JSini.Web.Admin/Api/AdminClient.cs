@@ -494,7 +494,7 @@ public sealed class AdminClient(GatewayClient gateway)
     /// 달라는 뜻이다. 코드 값에는 축약형이 맞아서 기본이 <c>false</c> 다.
     /// </para>
     ///
-    /// <para><b>돈이 드는 호출이다.</b> 사람이 이름을 다 친 뒤에만 나가게 한다.</para>
+    /// <para><b>한도가 드는 호출이다.</b> 사람이 「AI 추천」 단추를 누를 때만 나가게 한다.</para>
     /// </summary>
     public Task<string?> SuggestCodeAsync(string word, bool natural = false, CancellationToken ct = default)
         => gateway.GetOneAsync<string>(

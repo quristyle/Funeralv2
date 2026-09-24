@@ -13,30 +13,38 @@
     수정 화면에서는 코드가 이미 정해져 있고 바꿀 수도 없다(참조가 끊긴다).
     거기에 추천을 띄우면 누르라는 뜻으로 읽힌다. `Enabled` 로 끈다.
 
-    [디바운스는 여기서 하지 않는다]
+    [누를 때만 묻는다 — 2026-09-24]
 
-    `DxTextBox` 의 `BindValueMode="OnDelayedInput"` + `InputDelay` 가
-    **브라우저 안에서** 멈춘다. Blazor Server 라 그 편이 낫다 — 여기서 타이머를
-    돌리면 글자마다 회로를 한 번씩 왕복한 뒤에야 멈추게 된다.
+    예전에는 이름을 치다가 멈추면(`OnDelayedInput` 500ms) 저절로 물었다. 그러면
+    「운송」·「운송사용」·「운송사용자」처럼 **치는 도중의 이름마다 한 번씩** 나가서,
+    무료 한도가 하루 수십 번뿐인 공급자(Gemini 는 모델당 20번)를 금세 태웠다.
+    실제로 운영 로그에 그 모양이 남았다. 이제는 아이콘 단추를 **누를 때 한 번** 묻는다.
 
-    그래서 이 부품이 할 일은 「값이 바뀌었으면 한 번 물어본다」뿐이다.
+    무료 공급자가 전부 막히면 서버가 안티그래비티 CLI 로 대신 받는데, 그때는
+    10초 넘게 걸린다. 사람이 누르고 기다리는 자리라 그 정도는 견딜 수 있다.
 
-    [늦게 온 답을 버린다]
+    [이름이 바뀌면 받은 추천을 걷는다]
 
-    AI 응답은 초 단위라 이름을 고쳐 치면 이전 요청이 나중에 도착할 수 있다.
-    그러면 지금 이름과 안 맞는 코드가 남는다. 물어볼 때마다 번호를 매기고
-    **마지막 번호의 답만** 받는다.
+    추천은 **물어본 이름**의 것이다. 이름을 고쳤는데 옛 추천이 남아 있으면
+    지금 이름과 안 맞는 코드를 누르게 된다. 늦게 온 답도 같은 이유로 버린다 —
+    물어볼 때마다 번호를 매기고 **마지막 번호의 답만** 받는다.
 *@
 
 @inject AdminClient Api
 
-@if (Enabled && !string.IsNullOrWhiteSpace(Word))
+@if (Enabled)
 {
     <div class="ad-ai-suggest">
-        @* 아이콘이 먼저 선다 — 「이 줄은 사람이 쓴 것이 아니라 AI 가 고른 것」
+        @* 아이콘이 곧 단추다 — 「이 줄은 사람이 쓴 것이 아니라 AI 가 고른 것」
            이라고 글자보다 빨리 읽힌다. 옛 Vue 부품의 💡 자리다. *@
-        <span class="jsini-icon-robot ad-ai-suggest__icon" aria-hidden="true"></span>
-        <span class="ad-ai-suggest__label">AI 추천</span>
+        <DxButton IconCssClass="jsini-icon-robot"
+                  Text="AI 추천"
+                  Title="이름을 보고 AI 가 코드를 하나 골라 줍니다"
+                  RenderStyle="ButtonRenderStyle.Secondary"
+                  RenderStyleMode="ButtonRenderStyleMode.Outline"
+                  SizeMode="SizeMode.Small"
+                  Enabled="@(!_asking)"
+                  Click="@AskClickedAsync" />
 
         @if (_asking)
         {
@@ -61,7 +69,7 @@
     /// <summary>고른 코드를 받는 곳.</summary>
     [Parameter] public EventCallback<string> OnPick { get; set; }
 
-    /// <summary>등록 중일 때만 켠다. 꺼져 있으면 묻지도 않는다.</summary>
+    /// <summary>등록 중일 때만 켠다. 꺼져 있으면 단추도 없다.</summary>
     [Parameter] public bool Enabled { get; set; } = true;
 
     /// <summary>축약형(<c>USE_YN</c>) 대신 풀어 쓴 영문을 받고 싶을 때.</summary>
@@ -71,24 +79,38 @@
     private string? _failed;
     private bool _asking;
 
-    /// <summary>마지막으로 물어본 이름. 같은 값에 두 번 묻지 않는다.</summary>
+    /// <summary>지금 보이는 추천(또는 실패)이 어느 이름의 것인가.</summary>
     private string? _asked;
 
     /// <summary>물어본 차례. 마지막 것의 답만 받는다.</summary>
     private int _turn;
 
-    protected override async Task OnParametersSetAsync()
+    protected override void OnParametersSet()
     {
-        var word = Word?.Trim();
-
-        if (!Enabled || string.IsNullOrEmpty(word))
+        if (!Enabled)
         {
             Clear();
             return;
         }
 
-        if (word == _asked)
+        // 이름이 바뀌었으면 옛 이름의 추천을 걷는다. **묻지는 않는다** — 누를 때 묻는다.
+        if (_asked is not null && (Word?.Trim() ?? "") != _asked)
         {
+            Clear();
+        }
+    }
+
+    private async Task AskClickedAsync()
+    {
+        var word = Word?.Trim();
+
+        if (string.IsNullOrEmpty(word))
+        {
+            _code = null;
+            _failed = "이름을 먼저 적으세요.";
+
+            // 빈 이름에 대한 안내다. 이름을 적기 시작하면 위 OnParametersSet 이 걷는다.
+            _asked = "";
             return;
         }
 
@@ -163,6 +185,8 @@
 
     private void Clear()
     {
+        // 가는 중인 답도 버린다.
+        _turn++;
         _asked = null;
         _code = null;
         _failed = null;

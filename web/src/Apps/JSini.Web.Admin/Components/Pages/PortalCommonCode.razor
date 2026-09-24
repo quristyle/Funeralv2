@@ -26,7 +26,7 @@
 
     [옛 화면에 있다가 빠졌던 것 넷 — 되살렸다]
 
-    · **AI 코드 추천** — 이름을 치면 영문 코드를 하나 제안한다(`AiCodeSuggest`).
+    · **AI 코드 추천** — 이름을 적고 단추를 누르면 영문 코드를 하나 제안한다(`AiCodeSuggest`).
       묶음 코드와 코드 값 두 자리 모두. 등록할 때만 뜬다.
     · **코드 값은 수정할 때 잠근다** — 묶음 코드와 같은 이유다. 화면과 저장
       프로시저가 그 값을 **이름으로** 부르므로, 바꾸면 참조가 조용히 끊긴다.
@@ -142,11 +142,8 @@
                     </DxFormLayoutItem>
 
                     <DxFormLayoutItem Caption="묶음 이름" ColSpanMd="12">
-                        @* 다 치고 잠깐 멈추면 그때 AI 에게 묻는다. 멈추는 일은 브라우저가
-                           한다(`OnDelayedInput`) — 글자마다 회로를 왕복하지 않는다. *@
-                        <DxTextBox @bind-Text="grp.GroupName"
-                                   BindValueMode="BindValueMode.OnDelayedInput"
-                                   InputDelay="500" />
+                        @* AI 추천은 아래 단추를 누를 때 묻는다(`AiCodeSuggest`). *@
+                        <DxTextBox @bind-Text="grp.GroupName" />
                     </DxFormLayoutItem>
 
                     <DxFormLayoutItem ColSpanMd="12" CaptionPosition="CaptionPosition.Vertical">
@@ -650,9 +647,7 @@
         </DxFormLayoutItem>
 
         <DxFormLayoutItem Caption="이름" ColSpanMd="6">
-            <DxTextBox @bind-Text="c.CodeName"
-                       BindValueMode="BindValueMode.OnDelayedInput"
-                       InputDelay="500" />
+            <DxTextBox @bind-Text="c.CodeName" />
         </DxFormLayoutItem>
 
         <DxFormLayoutItem ColSpanMd="12" CaptionPosition="CaptionPosition.Vertical">

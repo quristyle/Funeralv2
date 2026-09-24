@@ -375,18 +375,6 @@
   min-height: 1.9rem;
 }
 
-.ad-ai-suggest__label {
-  font-weight: 600;
-  color: var(--jsini-accent-text);
-}
-
-/* 아이콘도 글자와 같은 색으로 둔다 — `jsini-icon-*` 은 마스크라
-   `background-color` 가 곧 색이고, 기본값은 `currentColor` 다. */
-.ad-ai-suggest__icon {
-  flex: none;
-  background-color: var(--jsini-accent-text);
-}
-
 .ad-ai-suggest__hint {
   color: var(--jsini-text-muted);
 }
