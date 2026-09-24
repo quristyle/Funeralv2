@@ -185,3 +185,79 @@ public class SocialLinkDto
     /// <summary>마지막으로 이것으로 들어온 시각 (UTC).</summary>
     public DateTime? LastLoginAt { get; set; }
 }
+
+// ── 설정 점검 ───────────────────────────────────────────────
+//
+// [왜 이 두 줄이 따로 있나]
+//
+// `SocialProviderDto` 는 **쓸 수 있는 것만** 내보낸다 — 로그인 화면은 그것만
+// 알면 되고, 못 쓰는 공급자까지 알려 주면 없는 길로 가는 단추가 그려진다.
+//
+// 그런데 그 「없는 셈 친다」가 운영하는 사람에게는 **증상이 조용하다.**
+// 열쇠를 안 넣으면 가입 화면에 단추가 한 개도 안 서고, 화면은 멀쩡히 200 을
+// 주며, 헬스체크도 전부 초록이다. AI 공급자에서 이미 겪은 것과 같은 자리라
+// (`AiProviderDto.Configured`) 같은 방식으로 푼다 — **못 쓰는 공급자까지
+// 전부 내보내고, 왜 못 쓰는지를 함께 적는다.**
+
+/// <summary>소셜 로그인 설정이 지금 어떤 상태인가. [MSA 서버 상태] 가 읽는다.</summary>
+public sealed class SocialConfigStatusDto
+{
+    /// <summary>기능 스위치(<c>Auth:Social:Enabled</c>). 거짓이면 공급자를 다 채워도 단추가 안 선다.</summary>
+    public bool Enabled { get; set; }
+
+    /// <summary>처음 들어온 소셜 계정을 바로 쓰게 하는가. 기본은 거짓(승인제).</summary>
+    public bool AutoApprove { get; set; }
+
+    /// <summary>확인된 이메일로 기존 계정에 자동으로 붙이는가. 기본은 거짓.</summary>
+    public bool LinkByVerifiedEmail { get; set; }
+
+    /// <summary>지금 실제로 단추가 서는 공급자 수. <b>0 이면 가입 화면에 소셜 칸이 통째로 없다.</b></summary>
+    public int UsableCount { get; set; }
+
+    /// <summary>지금까지 연결된 소셜 계정 수. 0 이면 아직 아무도 이 길로 들어오지 않았다.</summary>
+    public int LinkedCount { get; set; }
+
+    /// <summary>설정에 적힌 공급자 전부. <b>못 쓰는 것도 들어 있다.</b></summary>
+    public List<SocialProviderConfigDto> Providers { get; set; } = [];
+}
+
+/// <summary>공급자 하나의 설정 상태. <b>열쇠 값은 절대 담지 않는다</b> — 있는지 없는지만 적는다.</summary>
+public sealed class SocialProviderConfigDto
+{
+    /// <summary>공급자 열쇠 (<c>google</c> …).</summary>
+    public string Provider { get; set; } = string.Empty;
+
+    /// <summary>화면에 띄울 이름.</summary>
+    public string DisplayName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// 지금 쓸 수 있는가(<see cref="SocialProviderOptions.IsUsable"/>).
+    /// <b>거짓이면 그 공급자는 가입·로그인 화면에 아예 안 나온다.</b>
+    /// </summary>
+    public bool Usable { get; set; }
+
+    /// <summary><c>ClientId</c> 가 채워져 있는가. 이것이 비어서 못 쓰는 경우가 거의 전부다.</summary>
+    public bool HasClientId { get; set; }
+
+    /// <summary>
+    /// <c>ClientSecret</c> 이 채워져 있는가.
+    /// <para>
+    /// <b>이것이 비어도 <see cref="Usable"/> 은 참일 수 있다</b> — 단추는 서고, 공급자
+    /// 화면까지 다녀온 뒤 토큰을 바꾸는 마지막 걸음에서만 깨진다. 증상이 가장 늦게
+    /// 나타나는 자리라 따로 적는다.
+    /// </para>
+    /// </summary>
+    public bool HasClientSecret { get; set; }
+
+    /// <summary>
+    /// 공급자 콘솔에 등록해야 하는 콜백 <b>경로</b>.
+    /// <para>
+    /// 경로만 준다. 앞에 붙일 origin 은 포털이 안다 — AuthServer 는 게이트웨이 뒤라
+    /// 바깥 주소(도메인·스킴)를 모른다. <c>SocialLoginFlow.CallbackUri</c> 와 같은 규칙이다.
+    /// </para>
+    /// </summary>
+    public string CallbackPath { get; set; } = string.Empty;
+
+    /// <summary>이 공급자로 연결된 계정 수.</summary>
+    public int LinkedCount { get; set; }
+}

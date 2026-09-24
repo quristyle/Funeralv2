@@ -2109,3 +2109,53 @@ public static class PasskeyPriority
     /// <summary>로그인 화면이 열리는 순간 지문·얼굴을 묻는다.</summary>
     public const string Passkey = "passkey";
 }
+
+// ── 소셜 로그인 설정 점검 ───────────────────────────────────
+//
+// AuthServer 의 `SocialConfigStatusDto` · `SocialProviderConfigDto` 와 짝이다.
+// **열쇠 값은 오지 않는다** — 있는지 없는지만 온다.
+
+/// <summary>소셜 로그인 설정이 지금 어떤 상태인가 (<c>auth/social/config-status</c>).</summary>
+public sealed class SocialConfigStatusDto
+{
+    /// <summary>기능 스위치. 거짓이면 공급자를 다 채워도 단추가 안 선다.</summary>
+    public bool Enabled { get; set; }
+
+    /// <summary>처음 들어온 소셜 계정을 바로 쓰게 하는가.</summary>
+    public bool AutoApprove { get; set; }
+
+    /// <summary>확인된 이메일로 기존 계정에 자동으로 붙이는가.</summary>
+    public bool LinkByVerifiedEmail { get; set; }
+
+    /// <summary>지금 실제로 단추가 서는 공급자 수. <b>0 이면 가입 화면에 소셜 칸이 없다.</b></summary>
+    public int UsableCount { get; set; }
+
+    /// <summary>지금까지 연결된 소셜 계정 수.</summary>
+    public int LinkedCount { get; set; }
+
+    /// <summary>설정에 적힌 공급자 전부. 못 쓰는 것도 들어 있다.</summary>
+    public List<SocialProviderConfigDto> Providers { get; set; } = [];
+}
+
+/// <summary>공급자 하나의 설정 상태.</summary>
+public sealed class SocialProviderConfigDto
+{
+    public string Provider { get; set; } = string.Empty;
+
+    public string DisplayName { get; set; } = string.Empty;
+
+    /// <summary>지금 쓸 수 있는가. 거짓이면 가입·로그인 화면에 안 나온다.</summary>
+    public bool Usable { get; set; }
+
+    /// <summary><c>ClientId</c> 가 채워져 있는가.</summary>
+    public bool HasClientId { get; set; }
+
+    /// <summary><c>ClientSecret</c> 이 채워져 있는가.</summary>
+    public bool HasClientSecret { get; set; }
+
+    /// <summary>공급자 콘솔에 등록할 콜백 경로. 앞의 origin 은 화면이 붙인다.</summary>
+    public string CallbackPath { get; set; } = string.Empty;
+
+    /// <summary>이 공급자로 연결된 계정 수.</summary>
+    public int LinkedCount { get; set; }
+}

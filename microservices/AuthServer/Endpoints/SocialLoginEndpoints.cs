@@ -5,6 +5,7 @@ using AuthServer.Services;
 using JSini.Shared.DTOs;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 namespace AuthServer.Endpoints;
 
@@ -71,6 +72,68 @@ public static class SocialLoginEndpoints
             Results.Ok(ApiResponse<IReadOnlyList<SocialProviderDto>>.Ok(social.UsableProviders())))
         .AllowAnonymous()
         .WithName("GetSocialProviders");
+
+        // ── 설정 점검 (로그인한 사람) ────────────────────────────
+        //
+        // **`/providers` 로는 「왜 안 되는지」를 볼 수 없다.** 그쪽은 쓸 수 있는
+        // 것만 내보내므로, 열쇠를 안 넣은 상태와 기능을 끈 상태와 공급자를 아예
+        // 안 적은 상태가 **똑같이 빈 목록**으로 보인다. 셋은 할 일이 전혀 다르다.
+        //
+        // 그 조용함이 실제로 사람을 잡는다 — 가입 화면에 단추가 안 서는데 서비스는
+        // 전부 초록이라, 「기능이 아직 없다」로 읽히고 만다. 여기서 갈라 말한다.
+        //
+        // 나가는 값에 **비밀이 없다.** 열쇠가 있는지 없는지(`bool`)만 적고 값은
+        // 담지 않는다. 그래도 설정 상태라 익명에게는 열지 않는다.
+        group.MapGet("/config-status", async (
+            UserContext? user, AppDbContext db, SocialLoginService social,
+            IOptions<SocialLoginOptions> options, CancellationToken ct) =>
+        {
+            if (user is null)
+            {
+                return Results.Json(ApiResponse<object>.Fail("인증 정보가 없습니다.", "401"), statusCode: 401);
+            }
+
+            var opts = options.Value;
+
+            // 공급자별 연결 수를 한 번에 센다. 공급자마다 따로 세면 표 하나에
+            // 질의가 셋이 되고, 그 셋이 서로 다른 시점을 본다.
+            var counts = await db.AccountSocialLogins
+                .Where(l => !l.IsDeleted)
+                .GroupBy(l => l.Provider)
+                .Select(g => new { Provider = g.Key, Count = g.Count() })
+                .ToDictionaryAsync(g => g.Provider, g => g.Count, ct);
+
+            var providers = opts.Providers
+                .Select(p => new SocialProviderConfigDto
+                {
+                    Provider = p.Key.ToLowerInvariant(),
+                    DisplayName = string.IsNullOrWhiteSpace(p.Value.DisplayName)
+                        ? p.Key
+                        : p.Value.DisplayName,
+                    Usable = p.Value.IsUsable,
+                    HasClientId = !string.IsNullOrWhiteSpace(p.Value.ClientId),
+                    HasClientSecret = !string.IsNullOrWhiteSpace(p.Value.ClientSecret),
+                    CallbackPath = $"/social/{p.Key.ToLowerInvariant()}/callback",
+                    LinkedCount = counts.GetValueOrDefault(p.Key.ToLowerInvariant()),
+                })
+                .OrderBy(p => p.DisplayName, StringComparer.Ordinal)
+                .ToList();
+
+            return Results.Ok(ApiResponse<SocialConfigStatusDto>.Ok(new SocialConfigStatusDto
+            {
+                Enabled = opts.Enabled,
+                AutoApprove = opts.AutoApprove,
+                LinkByVerifiedEmail = opts.LinkByVerifiedEmail,
+
+                // 화면이 다시 세지 않게 **서버가 센 값**을 준다. `UsableProviders()`
+                // 와 같은 판정을 써야 「단추 수」와 이 숫자가 어긋나지 않는다.
+                UsableCount = social.UsableProviders().Count,
+                LinkedCount = counts.Values.Sum(),
+                Providers = providers,
+            }));
+        })
+        .RequireAuthorization()
+        .WithName("GetSocialConfigStatus");
 
         // ── 인가 화면 주소 (익명) ────────────────────────────────
         //

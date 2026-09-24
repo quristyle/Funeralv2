@@ -193,7 +193,7 @@ dev.bat auth blazor
 |---|---|
 | 공급자 설정 (주소 · 응답 칸 이름) | `microservices/AuthServer/appsettings.json` 의 `Auth:Social` |
 | 인가 코드 → 신원, 계정 찾기·만들기 | `AuthServer/Services/SocialLoginService.cs` |
-| API 다섯 (목록 · 인가 주소 · 로그인 · 연결 · 끊기) | `AuthServer/Endpoints/SocialLoginEndpoints.cs` |
+| API 여섯 (목록 · 설정 점검 · 인가 주소 · 로그인 · 연결 · 끊기) | `AuthServer/Endpoints/SocialLoginEndpoints.cs` |
 | 연결 표 | `scom.account_social_logins` |
 | 시도 제한 | `ApiGateway/appsettings.json` 의 `auth-social-*-route` |
 | 브라우저가 지나가는 두 자리 | `web/.../Shell/Security/SocialLoginFlow.cs` |
@@ -233,6 +233,25 @@ dev.bat auth blazor
 | 「가입 신청을 받았습니다」가 계속 뜬다 | 정상이다. 관리자가 [계정 관리 → 가입 신청] 에서 승인해야 한다 |
 | 승인했는데 이메일이 안 온다 | 공급자에서 이메일 동의 항목을 안 켰다. 계정 관리에서 직접 넣어 준다 |
 | 「이미 다른 계정에 연결된 소셜 계정입니다」 | 그 소셜 계정이 다른 포털 계정에 붙어 있다. 그쪽에서 먼저 끊는다 |
+
+### 먼저 볼 곳 — [MSA 서버 상태] 의 「소셜 로그인」
+
+**`/admin/status/server` 를 연다.** 공급자 카드가 셋 다 있고, 각각에
+`ClientId 있음/없음` · `ClientSecret 있음/없음` · 콘솔에 등록할 콜백 주소가
+그대로 적혀 있다. 열쇠 값은 안 나온다 — 있는지 없는지만 나온다.
+
+이 구역이 따로 있는 까닭은 **증상이 조용해서**다. 열쇠를 안 넣으면
+가입 화면에 단추가 한 개도 안 서는데, 화면은 멀쩡히 200 을 주고 헬스체크도
+전부 초록이다. 그래서 「아직 안 만든 기능」으로 읽히기 쉽다 — 실제로 그렇게
+읽힌 적이 있다. 갈래는 셋이고 할 일이 서로 다르다.
+
+| 카드가 말하는 것 | 할 일 |
+|---|---|
+| 「소셜 로그인이 꺼져 있습니다」 | `Auth:Social:Enabled` 가 `false` 다 |
+| 「쓸 수 있는 공급자가 없어 …」 | `ClientId` 를 넣는다 (위 3장) |
+| `ClientId 있음` · `ClientSecret 없음` | **단추는 선다.** 다녀온 뒤 토큰 교환에서만 깨진다 |
+
+읽어 오는 곳은 `GET /api/auth/social/config-status` 이고 로그인한 사람만 볼 수 있다.
 
 로그는 AuthServer 쪽에 남는다 — `{Provider} 토큰 교환에 실패했다` ·
 `{Provider} 프로필에서 사용자 번호(...)를 찾지 못했다` 가 설정을 짚어 주는 두 줄이다.

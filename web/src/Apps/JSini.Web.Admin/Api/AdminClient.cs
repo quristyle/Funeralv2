@@ -453,6 +453,18 @@ public sealed class AdminClient(GatewayClient gateway)
     public Task<AiProviderStatusDto?> GetAiProvidersAsync(CancellationToken ct = default)
         => gateway.GetOneAsync<AiProviderStatusDto>("ai/providers", ct);
 
+    /// <summary>
+    /// 소셜 로그인(구글 · 네이버 · 카카오) 설정 상태.
+    ///
+    /// <para>
+    /// AI 제공자와 <b>같은 성격의 고장</b>을 본다 — 서비스가 다 떠 있고 응답도
+    /// 하는데 <b>열쇠가 없으면</b> 가입 화면에 단추가 한 개도 서지 않는다.
+    /// 화면은 멀쩡히 200 을 주므로 응답 확인으로는 절대 안 잡힌다.
+    /// </para>
+    /// </summary>
+    public Task<SocialConfigStatusDto?> GetSocialConfigStatusAsync(CancellationToken ct = default)
+        => gateway.GetOneAsync<SocialConfigStatusDto>("auth/social/config-status", ct);
+
     /// <summary>제공자별로 고를 수 있는 모델 목록.</summary>
     public Task<IReadOnlyList<AiProviderModelsDto>> GetAiModelsAsync(CancellationToken ct = default)
         => gateway.GetListAsync<AiProviderModelsDto>("ai/models", ct);
