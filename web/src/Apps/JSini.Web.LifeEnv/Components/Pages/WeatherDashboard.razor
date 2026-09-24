@@ -50,6 +50,19 @@
     옆 항목으로 넘어간다 — 단추는 그대로 두었다. 쓸기는 덤이고, 지금 무엇을
     보는지는 눌린 단추와 축 제목이 계속 말해 준다.
 
+    [쓸기와 말풍선이 같은 손짓을 두고 다퉜다]
+
+    손가락뿐인 화면에는 「얹기(hover)」가 없어서 말풍선을 보려면 차트를
+    짚어야 하는데, **그 짚는 손짓이 곧 쓸기다.** 둘이 같은 손짓을 두고 다투니
+    쓸기가 자주 안 먹었고, 쓸기를 이어 하다 보면 화면이 멈춘 듯하다가 아래에
+    노란 띠와 「새로고침」이 떴다(회로가 내려갔다는 뜻이다).
+
+    손가락으로 보는 화면에서는 말풍선과 십자선을 **아예 달지 않는다** —
+    기준과 잃는 것은 아래 `_touchOnly` 에 적어 두었다. 쓸기가 먹은 뒤 잠깐은
+    다음 쓸기를 받지 않아(`SwipeGap`) 다시 그리기가 밀려 쌓이지 않게 했고,
+    차트는 담장(`ErrorBoundary`) 안에 넣어 그래도 무엇이 터지면 이 칸만
+    안내로 바뀌고 나머지 화면은 살아 있게 했다.
+
     [어제 대비를 색만으로 보이지 않는다]
 
     오르내림에 화살표를 함께 쓴다. 색만으로 가르면 색약인 사람에게는 두 값이
@@ -58,6 +71,7 @@
 
 @inherits DataPage
 @inject LifeEnvClient Client
+@inject IJSRuntime Js
 
 <PageTitle>기상 현황판 · 생활과환경</PageTitle>
 
@@ -247,89 +261,130 @@ else
                 <div class="le-trend__view"
                      @ontouchstart="@OnTouchStart"
                      @ontouchend="@OnTouchEnd">
-                    <DxChart Data="@_trend" Width="100%" Height="280px">
-                        <DxChartLegend Visible="false" />
+                    @*
+                        [차트가 회로를 끌어내리지 않게 한다]
 
-                        <DxChartArgumentAxis>
-                            <DxChartAxisGridLines Visible="false" />
-                            <DxChartAxisTick Visible="false" />
-                            <DxChartAxisLabel Overlap="ChartAxisLabelOverlap.Hide" />
-                        </DxChartArgumentAxis>
+                        쓸기로 항목을 몇 번 갈아 끼우다 보면 화면 아래에
+                        **노란 띠와 「새로고침」**이 떴다. 그것은 통신 문제가
+                        아니라 `#blazor-error-ui` 다 — 어딘가에서 예외가 밖으로
+                        나가 **탭 전체의 회로가 내려간 것**이고, 그때부터는
+                        차트만이 아니라 사이드바도 헤더도 안 눌린다.
 
-                        @* 세로 한 줄만. 가로선까지 따라다니면 격자가 두 벌이 된다. *@
-                        <DxChartCrosshair Enabled="true" Width="1" Opacity="0.7"
-                                          DashStyle="ChartDashStyle.Dot" Color="#8a93a5">
-                            <DxChartCrosshairHorizontalLine Visible="false" />
-                        </DxChartCrosshair>
+                        차트를 담장 안에 넣는다. 여기서 무엇이 터지든 이 칸만
+                        안내로 바뀌고 나머지 화면은 살아 있다 — 노란 띠가 뜨는
+                        일도 없다. 다시 그리기는 새로고침이 아니라
+                        <see cref="ErrorBoundary.Recover"/> 라서, 고른 지역과
+                        받아 둔 자료를 그대로 두고 차트만 새로 짓는다.
+                    *@
+                    <ErrorBoundary @ref="_chartGuard">
+                        <ChildContent>
+                            <DxChart Data="@_trend" Width="100%" Height="280px">
+                                <DxChartLegend Visible="false" />
 
-                        @switch (_metric)
-                        {
-                            case TrendMetric.Rain:
-                                @* 강수량만 막대로 — 옛 화면과 같다. 강수확률(%)은 단위가
-                                   달라 같은 축에 못 올린다. 주간 예보 줄이 이미 보여 준다.
-                                   막대는 끝만 둥글리고(4px) 사이에 여백을 둔다. *@
-                                <DxChartBarSeries T="TrendPoint" TArgument="string" TValue="double?"
-                                                  ArgumentField="p => p.Label"
-                                                  ValueField="p => p.Rain"
-                                                  Color="@RainColor"
-                                                  CornerRadius="4"
-                                                  BarPadding="0.3"
-                                                  Name="강수량(mm)" />
-                                <DxChartValueAxis>
-                                    <DxChartAxisTitle Text="강수량(mm)" />
-                                </DxChartValueAxis>
-                                break;
-                            case TrendMetric.Wind:
-                                <DxChartSplineSeries T="TrendPoint" TArgument="string" TValue="double"
-                                                     ArgumentField="p => p.Label"
-                                                     ValueField="p => p.WindSpeed"
-                                                     Color="@WindColor"
-                                                     Width="2"
-                                                     Name="풍속(m/s)">
-                                    <DxChartSeriesPoint Visible="false" />
-                                </DxChartSplineSeries>
-                                <DxChartValueAxis>
-                                    <DxChartAxisTitle Text="풍속(m/s)" />
-                                </DxChartValueAxis>
-                                break;
-                            case TrendMetric.Humid:
-                                <DxChartSplineSeries T="TrendPoint" TArgument="string" TValue="double?"
-                                                     ArgumentField="p => p.Label"
-                                                     ValueField="p => p.Humidity"
-                                                     Color="@HumidColor"
-                                                     Width="2"
-                                                     Name="습도(%)">
-                                    <DxChartSeriesPoint Visible="false" />
-                                </DxChartSplineSeries>
-                                <DxChartValueAxis>
-                                    <DxChartAxisRange StartValue="@(0)" EndValue="@(100)" />
-                                    <DxChartAxisTitle Text="습도(%)" />
-                                </DxChartValueAxis>
-                                break;
-                            default:
-                                <DxChartSplineSeries T="TrendPoint" TArgument="string" TValue="double"
-                                                     ArgumentField="p => p.Label"
-                                                     ValueField="p => p.Temp"
-                                                     Color="@TempColor"
-                                                     Width="2"
-                                                     Name="기온(°C)">
-                                    <DxChartSeriesPoint Visible="false" />
-                                </DxChartSplineSeries>
-                                <DxChartValueAxis>
-                                    <DxChartAxisTitle Text="기온(°C)" />
-                                </DxChartValueAxis>
-                                break;
-                        }
+                                <DxChartArgumentAxis>
+                                    <DxChartAxisGridLines Visible="false" />
+                                    <DxChartAxisTick Visible="false" />
+                                    <DxChartAxisLabel Overlap="ChartAxisLabelOverlap.Hide" />
+                                </DxChartArgumentAxis>
 
-                        @* 값을 앞에 크게, 무엇인지는 뒤에 작게 — 말풍선을 볼 때는
-                           이미 무엇을 보는지 알고 숫자를 찾는다. *@
-                        <DxChartTooltip Enabled="true">
-                            <div class="le-trend__tip">
-                                <span class="le-trend__tip-value">@TipValue(context.Point.Value)</span>
-                                <span class="le-trend__tip-meta">@context.Point.SeriesName · @context.Point.Argument</span>
+                                @* 세로 한 줄만. 가로선까지 따라다니면 격자가 두 벌이 된다.
+
+                                   손가락으로 보는 화면에서는 **아예 달지 않는다.**
+                                   까닭은 아래 말풍선 자리와 <see cref="_touchOnly"/> 에
+                                   적어 두었다. *@
+                                @if (!_touchOnly)
+                                {
+                                    <DxChartCrosshair Enabled="true" Width="1" Opacity="0.7"
+                                                      DashStyle="ChartDashStyle.Dot" Color="#8a93a5">
+                                        <DxChartCrosshairHorizontalLine Visible="false" />
+                                    </DxChartCrosshair>
+                                }
+
+                                @switch (_metric)
+                                {
+                                    case TrendMetric.Rain:
+                                        @* 강수량만 막대로 — 옛 화면과 같다. 강수확률(%)은 단위가
+                                           달라 같은 축에 못 올린다. 주간 예보 줄이 이미 보여 준다.
+                                           막대는 끝만 둥글리고(4px) 사이에 여백을 둔다. *@
+                                        <DxChartBarSeries T="TrendPoint" TArgument="string" TValue="double?"
+                                                          ArgumentField="p => p.Label"
+                                                          ValueField="p => p.Rain"
+                                                          Color="@RainColor"
+                                                          CornerRadius="4"
+                                                          BarPadding="0.3"
+                                                          Name="강수량(mm)" />
+                                        <DxChartValueAxis>
+                                            <DxChartAxisTitle Text="강수량(mm)" />
+                                        </DxChartValueAxis>
+                                        break;
+                                    case TrendMetric.Wind:
+                                        <DxChartSplineSeries T="TrendPoint" TArgument="string" TValue="double"
+                                                             ArgumentField="p => p.Label"
+                                                             ValueField="p => p.WindSpeed"
+                                                             Color="@WindColor"
+                                                             Width="2"
+                                                             Name="풍속(m/s)">
+                                            <DxChartSeriesPoint Visible="false" />
+                                        </DxChartSplineSeries>
+                                        <DxChartValueAxis>
+                                            <DxChartAxisTitle Text="풍속(m/s)" />
+                                        </DxChartValueAxis>
+                                        break;
+                                    case TrendMetric.Humid:
+                                        <DxChartSplineSeries T="TrendPoint" TArgument="string" TValue="double?"
+                                                             ArgumentField="p => p.Label"
+                                                             ValueField="p => p.Humidity"
+                                                             Color="@HumidColor"
+                                                             Width="2"
+                                                             Name="습도(%)">
+                                            <DxChartSeriesPoint Visible="false" />
+                                        </DxChartSplineSeries>
+                                        <DxChartValueAxis>
+                                            <DxChartAxisRange StartValue="@(0)" EndValue="@(100)" />
+                                            <DxChartAxisTitle Text="습도(%)" />
+                                        </DxChartValueAxis>
+                                        break;
+                                    default:
+                                        <DxChartSplineSeries T="TrendPoint" TArgument="string" TValue="double"
+                                                             ArgumentField="p => p.Label"
+                                                             ValueField="p => p.Temp"
+                                                             Color="@TempColor"
+                                                             Width="2"
+                                                             Name="기온(°C)">
+                                            <DxChartSeriesPoint Visible="false" />
+                                        </DxChartSplineSeries>
+                                        <DxChartValueAxis>
+                                            <DxChartAxisTitle Text="기온(°C)" />
+                                        </DxChartValueAxis>
+                                        break;
+                                }
+
+                                @* 값을 앞에 크게, 무엇인지는 뒤에 작게 — 말풍선을 볼 때는
+                                   이미 무엇을 보는지 알고 숫자를 찾는다.
+
+                                   **손가락으로 보는 화면에는 달지 않는다.** 마우스가 없는
+                                   화면에서 말풍선을 띄우려면 차트를 짚어야 하는데, 그
+                                   짚는 손짓이 곧 쓸기다 — 둘이 같은 손짓을 두고 다툰다.
+                                   자세한 것은 <see cref="_touchOnly"/>. *@
+                                @if (!_touchOnly)
+                                {
+                                    <DxChartTooltip Enabled="true">
+                                        <div class="le-trend__tip">
+                                            <span class="le-trend__tip-value">@TipValue(context.Point.Value)</span>
+                                            <span class="le-trend__tip-meta">@context.Point.SeriesName · @context.Point.Argument</span>
+                                        </div>
+                                    </DxChartTooltip>
+                                }
+                            </DxChart>
+                        </ChildContent>
+                        <ErrorContent>
+                            <div class="le-today__empty">
+                                추이 차트를 그리지 못했습니다.
+                                <DxButton Text="다시 그리기" RenderStyle="ButtonRenderStyle.Link"
+                                          Click="@(() => _chartGuard?.Recover())" />
                             </div>
-                        </DxChartTooltip>
-                    </DxChart>
+                        </ErrorContent>
+                    </ErrorBoundary>
                 </div>
             </div>
         }
@@ -347,7 +402,88 @@ else
     private TrendMetric _metric = TrendMetric.Temp;
     private bool _detailError;
 
+    /// <summary>추이 차트를 감싼 담장. 여기서 터진 것이 회로를 끌어내리지 않게 막는다.</summary>
+    private ErrorBoundary? _chartGuard;
+
+    /// <summary>
+    /// <b>손가락으로 보는 화면인가.</b> 참이면 차트의 말풍선과 십자선을
+    /// 아예 달지 않는다.
+    ///
+    /// <para>
+    /// 마우스가 있는 화면에서 말풍선은 <b>덧붙는 것</b>이다 — 얹으면 뜨고,
+    /// 치우면 사라지고, 다른 손짓과 겹치지 않는다. 손가락뿐인 화면에는
+    /// 「얹기」가 없어서 <b>짚어야</b> 뜨는데, 그 짚는 손짓이 곧 쓸기다.
+    /// 차트를 쓸면 DevExpress 가 그 손짓을 말풍선·십자선 추적으로 먼저 집어,
+    /// 우리 쓸기는 자주 안 먹었다.
+    /// </para>
+    ///
+    /// <para>
+    /// 더 나쁜 것은 <b>멈추는 것</b>이었다. Blazor Server 에서 이 말풍선은
+    /// <b>서버가 그린다</b> — 짚은 점이 바뀔 때마다 회로를 한 번씩 왕복한다.
+    /// 쓸면서 21칸을 훑으면 그 왕복이 줄줄이 쌓이고, 그 사이에 항목이 갈려
+    /// 계열이 통째로 갈려 끼워지면 이미 없어진 점을 가리키는 갱신이 남는다.
+    /// 화면이 멈춘 듯하다가 노란 띠와 「새로고침」이 뜬 것이 그것이다
+    /// (회로가 내려갔다는 뜻이다). 말풍선을 달지 않으면 그 왕복 자체가 없다.
+    /// </para>
+    ///
+    /// <para>
+    /// 잃는 것은 손가락 화면의 <b>값 읽기</b>다. 축의 눈금이 남아 대략은
+    /// 읽히고, 정확한 숫자가 필요한 사람은 마우스가 있는 화면에서 본다 —
+    /// 쓸기가 열에 둘만 먹던 것과 바꿀 만하다.
+    /// </para>
+    ///
+    /// <para>
+    /// 기준은 <c>(hover: none)</c> 하나다. 차트 옆 「옆으로 쓸면 항목이
+    /// 바뀝니다」 안내가 css 에서 쓰는 것과 <b>같은 질의</b>여서, 안내가
+    /// 보이는 화면과 쓸기가 사는 화면이 어긋나지 않는다. <b>너비로 가르지
+    /// 않는다</b> — 창을 좁힌 PC 는 마우스가 있고 넓은 태블릿은 없다.
+    /// </para>
+    /// </summary>
+    private bool _touchOnly;
+
     protected override Task OnInitializedAsync() => LoadDataAsync();
+
+    /// <summary>
+    /// 손가락으로 보는 화면인지 <b>한 번만</b> 묻는다. 프리렌더 중에는 JS 를
+    /// 부를 수 없으므로 첫 그림 뒤다.
+    ///
+    /// <para>
+    /// 못 물어봐도(회로가 이미 끊겼거나 JS 가 막혔거나) 조용히 넘어간다 —
+    /// 그때는 마우스가 있는 것으로 보고 말풍선을 남긴다. 이것 하나 때문에
+    /// 화면을 세우지 않는다.
+    /// </para>
+    /// </summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        try
+        {
+            await using var module = await Js.InvokeAsync<IJSObjectReference>(
+                "import", "./_content/JSini.Web.LifeEnv/js/weather-trend.js");
+
+            var touchOnly = await module.InvokeAsync<bool>("isTouchOnly");
+
+            if (touchOnly != _touchOnly)
+            {
+                _touchOnly = touchOnly;
+                StateHasChanged();
+            }
+        }
+        catch (JSException)
+        {
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (InvalidOperationException)
+        {
+            // 프리렌더 중이거나 회로가 아직/이미 없다.
+        }
+    }
 
     /// <summary>
     /// 전 지역 실황과 지역 목록.
@@ -441,16 +577,45 @@ else
     /// </summary>
     private const double SwipeMin = 48;
 
+    /// <summary>
+    /// 앞 쓸기가 먹은 뒤 이만큼은 다음 쓸기를 받지 않는다.
+    ///
+    /// <para>
+    /// 한 번 먹을 때마다 계열과 값 축이 통째로 갈려 끼워지고, DevExpress 는
+    /// 그때마다 차트를 <b>새로 그린다</b>(브라우저에서 도는 일이다). 쓸기를
+    /// 쉬지 않고 이어 하면 그 다시 그리기가 밀려 쌓여, 화면이 굳은 것처럼
+    /// 보이다가 한꺼번에 따라온다.
+    /// </para>
+    ///
+    /// <para>
+    /// 사람 손으로 0.3초 안에 두 번 쓸 수는 있어도 <b>두 번 다 읽을 수는
+    /// 없다</b> — 어차피 눈이 따라가지 못하는 전환이므로 버리는 편이 낫다.
+    /// 단추 넷은 이 제한을 받지 않는다.
+    /// </para>
+    /// </summary>
+    private static readonly TimeSpan SwipeGap = TimeSpan.FromMilliseconds(300);
+
+    private DateTime _lastSwipe = DateTime.MinValue;
+
     private double _touchX;
     private double _touchY;
 
+    /// <summary>지금 세고 있는 쓸기가 있는가. 손가락 둘로 시작한 손짓은 세지 않는다.</summary>
+    private bool _tracking;
+
+    /// <summary>
+    /// 쓸기가 시작될 자리. <b>손가락이 둘 이상이면 시작하지 않는다</b> —
+    /// 그것은 집는(확대) 손짓이고, 첫 손가락만 보면 확대하려다 항목이 바뀐다.
+    /// </summary>
     private void OnTouchStart(TouchEventArgs e)
     {
-        if (e.Touches.Length == 0)
+        if (e.Touches.Length != 1)
         {
+            _tracking = false;
             return;
         }
 
+        _tracking = true;
         _touchX = e.Touches[0].ClientX;
         _touchY = e.Touches[0].ClientY;
     }
@@ -470,10 +635,12 @@ else
     /// </summary>
     private void OnTouchEnd(TouchEventArgs e)
     {
-        if (e.ChangedTouches.Length == 0)
+        if (!_tracking || e.ChangedTouches.Length == 0)
         {
             return;
         }
+
+        _tracking = false;
 
         var dx = e.ChangedTouches[0].ClientX - _touchX;
         var dy = e.ChangedTouches[0].ClientY - _touchY;
@@ -482,6 +649,15 @@ else
         {
             return;
         }
+
+        var now = DateTime.UtcNow;
+
+        if (now - _lastSwipe < SwipeGap)
+        {
+            return;
+        }
+
+        _lastSwipe = now;
 
         // 왼쪽으로 쓸면 오른쪽 단추로 간다 — 종이를 넘기는 쪽과 같다.
         ShiftMetric(dx < 0 ? 1 : -1);
