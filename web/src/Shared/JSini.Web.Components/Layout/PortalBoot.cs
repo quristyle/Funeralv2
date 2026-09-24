@@ -544,8 +544,8 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
         /// <para>
         /// <c>AdjustToUniversal</c> 을 빠뜨리면 안 된다 — 적어 둔 글자는 UTC 인데
         /// 파서는 기본으로 <b>기기 시간대의 시각</b>으로 풀어 놓는다. 그것을 UTC
-        /// 「지금」과 빼면 <b>시차만큼(우리는 9시간) 어긋난다</b> — 세 시간 문턱이
-        /// 하루에 한 번이 되거나 아예 매번 지난 것이 된다.
+        /// 「지금」과 빼면 <b>시차만큼(우리는 9시간) 어긋난다</b> — 한 시간 문턱이
+        /// 아예 안 오거나 매번 지난 것이 된다.
         /// (<c>RoundtripKind</c> 와는 함께 못 쓴다. 그 짝은 예외를 던진다.)
         /// </para>
         /// </summary>
