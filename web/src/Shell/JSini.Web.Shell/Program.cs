@@ -192,10 +192,17 @@ app.MapSocialLoginFlow();
 
 // 로그아웃은 POST 다. GET 으로 두면 이미지 태그 하나로 남을 로그아웃시킬 수 있고
 // (CSRF), 브라우저가 미리 읽어 보는 것만으로도 로그아웃된다.
+//
+// **`?noauto=1` 을 붙여 보낸다 (2026-09-24).** 개발 장비에서는 로그인 화면이
+// `DevLogin` 계정으로 저절로 들어가므로, 맨 `/login` 으로 보내면 로그아웃하자마자
+// 다시 로그인되어 **「로그아웃을 눌렀더니 새로 고침만 된다」**로 보였다.
+// 같은 표시가 패스키 자동 열기도 멈춘다(passkey.js `shouldAutoStart`) — 방금
+// 스스로 나간 사람에게 곧바로 기기 확인을 들이미는 것도 붙잡는 것이다.
+// 둘 다 이 한 번만이고, 다음에 로그인 화면을 열 때는 원래대로 돈다.
 app.MapPost("/logout", async (HttpContext context) =>
 {
     await LoginService.SignOutAsync(context);
-    return Results.Redirect("/login");
+    return Results.Redirect("/login?noauto=1");
 }).RequireAuthorization();
 
 app.Run();
