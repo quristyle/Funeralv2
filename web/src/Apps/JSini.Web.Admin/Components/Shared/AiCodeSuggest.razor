@@ -33,6 +33,9 @@
 @if (Enabled && !string.IsNullOrWhiteSpace(Word))
 {
     <div class="ad-ai-suggest">
+        @* 아이콘이 먼저 선다 — 「이 줄은 사람이 쓴 것이 아니라 AI 가 고른 것」
+           이라고 글자보다 빨리 읽힌다. 옛 Vue 부품의 💡 자리다. *@
+        <span class="jsini-icon-robot ad-ai-suggest__icon" aria-hidden="true"></span>
         <span class="ad-ai-suggest__label">AI 추천</span>
 
         @if (_asking)

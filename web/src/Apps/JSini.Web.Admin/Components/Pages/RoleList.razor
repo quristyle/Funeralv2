@@ -129,7 +129,29 @@
                     </DxFormLayoutItem>
 
                     <DxFormLayoutItem Caption="역할 이름" ColSpanMd="6">
-                        <DxTextBox @bind-Text="r.Name" />
+                        @* 다 치고 잠깐 멈추면 그때 AI 에게 묻는다. 멈추는 일은
+                           브라우저가 한다(`OnDelayedInput`) — 글자마다 회로를
+                           왕복하지 않는다. 공통코드 화면과 같은 방식이다. *@
+                        <DxTextBox @bind-Text="r.Name"
+                                   BindValueMode="BindValueMode.OnDelayedInput"
+                                   InputDelay="500" />
+                    </DxFormLayoutItem>
+
+                    @* 이름을 한글로 적으면 식별자로 쓸 영문을 하나 제안한다.
+                       옛 Vue 등록 창(`system/role/modules/form.vue`)에 있던
+                       `AiCodeSuggester` 자리다 — Blazor 로 옮기면서 빠졌다.
+
+                       **등록할 때만 뜬다.** 수정에서는 식별자가 이미 잠겨
+                       있어서(위 칸의 `ReadOnly`) 추천을 띄우면 누르라는 뜻으로
+                       읽히는데 눌러도 아무 일이 없다.
+
+                       `Natural` 을 켜지 않는다 — 운영의 역할 식별자가
+                       `SYSTEM_ADMINISTRATOR` · `FUNERAL_HOME_OPERATION` 처럼
+                       대문자 스네이크라 기본값(축약형)이 그 모양을 준다. *@
+                    <DxFormLayoutItem ColSpanMd="12" CaptionPosition="CaptionPosition.Vertical">
+                        <AiCodeSuggest Word="@r.Name"
+                                       Enabled="@_isNew"
+                                       OnPick="@(code => r.Id = code)" />
                     </DxFormLayoutItem>
 
                     <DxFormLayoutItem Caption="설명" ColSpanMd="12">
