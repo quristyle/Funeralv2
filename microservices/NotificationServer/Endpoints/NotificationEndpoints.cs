@@ -137,7 +137,10 @@ public static class NotificationEndpoints
                         Message = new PushMessageDto
                         {
                             Title = "새로운 알림 구독",
-                            Body = $"{user.UserId} 님이 새 기기에서 알림을 구독했습니다."
+                            Body = $"{user.UserId} 님이 새 기기에서 알림을 구독했습니다.",
+                            // 지나고 나면 알림함에서 봐도 되는 소식이다. 하루 뒤에
+                            // 배달돼 봐야 관리자 알림창만 채운다.
+                            TtlSeconds = 3600,
                         }
                     };
                     
@@ -394,6 +397,12 @@ public static class NotificationEndpoints
             if (string.IsNullOrWhiteSpace(message.Title)) message.Title = "JSini 포털 시험 알림";
             if (string.IsNullOrWhiteSpace(message.Body)) message.Body = "이 알림이 보이면 설정이 정상입니다.";
             if (string.IsNullOrWhiteSpace(message.Url)) message.Url = "/admin/push/setting";
+
+            // **시험 알림은 5분이다.** 「눌렀는데 안 온다」를 확인하려고 보내는 것이라
+            // 30분 뒤에 도착하면 시험의 뜻이 없다. 그때는 안 오는 것이 맞는 답이다.
+            // 여러 번 눌러도 줄에는 마지막 하나만 남게 열쇠를 준다.
+            message.TtlSeconds ??= 300;
+            message.Topic ??= "push-test";
 
             var result = await sender.SendAsync(new SendPushDto
             {

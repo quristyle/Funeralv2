@@ -96,6 +96,37 @@ public class PushMessageDto
     /// </summary>
     public string? Tag { get; set; }
 
+    /// <summary>
+    /// <b>푸시 서비스의 대기줄</b>에서 앞의 것을 밀어낼 열쇠 (RFC 8030 <c>Topic</c>).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <see cref="Tag"/> 와 <b>하는 일이 다르다.</b> 태그는 브라우저가 <b>이미 받은</b>
+    /// 알림창을 겹쳐 그리는 것이고, 이것은 브라우저가 꺼져 있는 동안 <b>푸시 서비스가
+    /// 들고 기다리는 줄</b>에서 같은 값끼리 하나로 줄여 준다. 오래 안 켠 사람에게
+    /// 같은 종류가 스무 건 쏟아지는 것을 막는 쪽은 이쪽이다.
+    /// </para>
+    /// <para>
+    /// 그래서 둘을 따로 둔다 — 배포 알림처럼 <b>켜져 있을 때는 각각 보이는 편이 낫고
+    /// 밀려 있을 때는 마지막 하나면 되는</b> 알림이 있다. 비워 두면 <see cref="Tag"/>
+    /// 를 대신 쓴다(태그로 겹치는 알림은 줄에서도 겹쳐서 곤란할 일이 없다).
+    /// </para>
+    /// <para>
+    /// 규격이 글자를 가린다(base64url 32자 이내). 맞지 않는 값은
+    /// <c>PushSender</c> 가 해시로 접어 보내므로 여기서는 읽을 수 있게 적으면 된다.
+    /// </para>
+    /// </remarks>
+    public string? Topic { get; set; }
+
+    /// <summary>
+    /// 이 알림의 <b>수명</b>(초). 브라우저가 이 시간 안에 안 켜지면 푸시 서비스가 버린다.
+    /// </summary>
+    /// <remarks>
+    /// 비우면 서버 기본값(<c>Push:DefaultTtlSeconds</c>, 6시간)을 쓴다. 지나고 나면
+    /// 의미가 없는 알림일수록 짧게 준다 — 까닭은 <c>PushDeliveryOptions</c> 머리말에 있다.
+    /// </remarks>
+    public int? TtlSeconds { get; set; }
+
     /// <summary>화면이 알아서 쓰는 부가 값.</summary>
     public Dictionary<string, string>? Data { get; set; }
 }

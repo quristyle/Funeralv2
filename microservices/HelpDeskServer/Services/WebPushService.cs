@@ -241,8 +241,24 @@ public sealed class WebPushService : IWebPushService {
     var client = new WebPushClient();
     var vapid = GetVapid();
 
-    await client.SendNotificationAsync(subscription, payload, vapid, ct);
+    // **수명을 주지 않으면 라이브러리 기본값이 28일이다.** 그동안 브라우저를
+    // 안 켜면 푸시 서비스가 알림을 줄줄이 들고 기다리다 다시 켜는 순간 한꺼번에
+    // 내려보낸다 — 「오래 안 쓰다 켜면 알림이 몰려 온다」의 원인이다.
+    // 포털 쪽과 같은 값이고, 그쪽 사정은 NotificationServer 의
+    // PushDeliveryOptions 머리말에 적어 두었다.
+    await client.SendNotificationAsync(subscription, payload, new Dictionary<string, object> {
+      ["vapidDetails"] = vapid,
+      ["TTL"] = DefaultTtlSeconds,
+      // 안드로이드 절전(Doze) 중에도 모아 두지 말고 바로 깨우라는 뜻이다.
+      ["headers"] = new Dictionary<string, object> { ["Urgency"] = "high" },
+    }, ct);
   }
+
+  /// <summary>
+  /// 푸시 수명(초). 여섯 시간이 지나면 푸시 서비스가 버린다 — 반나절 지난
+  /// 알림을 굳이 배달해 봐야 소음이고, 내용은 헬프데스크 화면에 남아 있다.
+  /// </summary>
+  private const int DefaultTtlSeconds = 21600;
 
 
   private static string StripHtml(string? html) {

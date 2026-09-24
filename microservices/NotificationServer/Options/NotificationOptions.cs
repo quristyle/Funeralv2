@@ -118,3 +118,94 @@ public sealed class DeployNotifyOptions
     public bool IsConfigured =>
         !string.IsNullOrWhiteSpace(Token) && !Token.StartsWith("__", StringComparison.Ordinal);
 }
+
+/// <summary>
+/// 푸시를 <b>언제까지 배달할 것인가</b>를 정하는 설정.
+/// </summary>
+/// <remarks>
+/// <para>
+/// [왜 필요한가 — 오래 안 쓰다 켜면 알림이 한꺼번에 쏟아진다]
+/// </para>
+/// <para>
+/// 웹푸시는 서버가 브라우저로 바로 꽂는 것이 아니다. 우리가 보내는 곳은 브라우저
+/// 제조사의 푸시 서비스(크롬이면 FCM, 파이어폭스면 Mozilla autopush)이고, 그쪽이
+/// <b>브라우저와의 연결이 살아날 때까지 들고 기다린다.</b> 브라우저를 며칠 닫아 두면
+/// 그동안의 알림이 거기 줄을 서 있다가 다시 켜는 순간 <b>한 번에 전부</b> 내려온다.
+/// </para>
+/// <para>
+/// 줄을 못 서게 하는 손잡이가 규격(RFC 8030)에 둘 있다.
+/// <list type="bullet">
+///   <item><description>
+///     <b>TTL</b> — 이 시간이 지나면 푸시 서비스가 <b>버린다</b>. 받는 사람에게
+///     닿지 않고 사라지므로, 지나고 나면 의미 없는 알림(날씨·배포)은 짧을수록 좋다.
+///     라이브러리 기본값은 <b>28일</b>이라 사실상 「영원히 들고 있어라」에 가깝다 —
+///     지금 겪는 홍수의 직접적인 원인이다.
+///   </description></item>
+///   <item><description>
+///     <b>Topic</b> — 같은 값으로 보낸 알림은 <b>줄 안에서 앞의 것을 밀어낸다.</b>
+///     같은 종류가 스무 건 밀려 있어도 최신 한 건만 남는다.
+///   </description></item>
+/// </list>
+/// </para>
+/// <para>
+/// <b>버려도 되는 까닭</b>은 이 포털에 「내 알림함」(<c>/admin/push/history</c>)이
+/// 있기 때문이다. 푸시는 <b>지금 알려 주는 길</b>일 뿐이고 기록은 알림함에 남는다 —
+/// 반나절 지난 알림을 굳이 배달해 봐야 알림함에 이미 있는 것을 창으로 한 번 더
+/// 보는 것이고, 그것이 스무 개면 그냥 소음이다.
+/// </para>
+/// </remarks>
+public sealed class PushDeliveryOptions
+{
+    public const string SectionName = "Push";
+
+    /// <summary>
+    /// 보내는 쪽이 따로 정하지 않았을 때 쓰는 수명(초). 기본 6시간.
+    /// </summary>
+    /// <remarks>
+    /// 반나절을 고른 까닭: 아침에 온 쪽지를 점심에 열어도 받아야 하지만, 어제 것까지
+    /// 받을 필요는 없다(알림함에 있다). 값을 0 이하로 두면 <see cref="FallbackTtlSeconds"/>
+    /// 로 되돌린다 — 0 은 「닿지 않으면 즉시 버려라」라서 설정 실수로 그 값이 들어가면
+    /// 알림이 통째로 사라진다.
+    /// </remarks>
+    public int DefaultTtlSeconds { get; set; } = FallbackTtlSeconds;
+
+    /// <summary>설정이 비었거나 말이 안 될 때 쓰는 값(6시간).</summary>
+    public const int FallbackTtlSeconds = 21600;
+
+    /// <summary>보내는 쪽이 아무리 길게 잡아도 이보다는 짧게 자른다(기본 1일).</summary>
+    public int MaxTtlSeconds { get; set; } = 86400;
+
+    /// <summary>
+    /// 긴급도(RFC 8030 <c>Urgency</c>). <c>very-low · low · normal · high</c>.
+    /// </summary>
+    /// <remarks>
+    /// 안드로이드는 화면이 꺼진 기기를 절전(Doze)에 넣고 그 안에서는 낮은 긴급도의
+    /// 푸시를 <b>모아 두었다가 기기가 깰 때</b> 함께 내보낸다. 이것도 「한꺼번에」의
+    /// 한 갈래다. 우리 알림은 사람이 바로 봐야 하는 것들이라 <c>high</c> 로 보낸다.
+    /// </remarks>
+    public string Urgency { get; set; } = "high";
+
+    /// <summary>실제로 쓸 기본 수명. 설정이 비거나 범위를 벗어나면 되돌린다.</summary>
+    public int ResolveDefaultTtl() =>
+        DefaultTtlSeconds > 0 && DefaultTtlSeconds <= MaxTtl()
+            ? DefaultTtlSeconds
+            : Math.Min(FallbackTtlSeconds, MaxTtl());
+
+    /// <summary>실제로 쓸 상한. 설정이 말이 안 되면 하루로 본다.</summary>
+    public int MaxTtl() => MaxTtlSeconds > 0 ? MaxTtlSeconds : 86400;
+
+    /// <summary>보내는 쪽이 준 값을 상한 안으로 자른다. 안 줬으면 기본값.</summary>
+    public int ClampTtl(int? requested) =>
+        requested is null or <= 0
+            ? ResolveDefaultTtl()
+            : Math.Min(requested.Value, MaxTtl());
+
+    /// <summary>규격에 있는 값만 통과시킨다. 아무거나 보내면 푸시 서비스가 400 을 준다.</summary>
+    public string ResolveUrgency() => Urgency?.Trim().ToLowerInvariant() switch
+    {
+        "very-low" => "very-low",
+        "low" => "low",
+        "normal" => "normal",
+        _ => "high",
+    };
+}

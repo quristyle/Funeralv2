@@ -82,6 +82,10 @@ builder.Services.AddAuthorization();
 //
 // VAPID 키가 **이제 한 곳에만** 있다. 이 서비스를 만든 이유 중 하나다.
 builder.Services.Configure<VapidOptions>(builder.Configuration.GetSection("Vapid"));
+// 푸시 수명·겹침 설정. 없어도 기본값(6시간·high)으로 돈다 — 「오래 안 켜다 켜면
+// 한꺼번에 쏟아진다」를 막는 값들이라 사정은 PushDeliveryOptions 머리말에 있다.
+builder.Services.Configure<PushDeliveryOptions>(
+    builder.Configuration.GetSection(PushDeliveryOptions.SectionName));
 builder.Services.Configure<EmailQueueOptions>(builder.Configuration.GetSection("EmailQueue"));
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
 builder.Services.AddTransient<IEmailSender, SmtpEmailSender>();

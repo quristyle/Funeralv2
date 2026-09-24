@@ -43,6 +43,7 @@ public class PushSender : IPushSender
 {
     private readonly AppDbContext _db;
     private readonly VapidOptions _vapid;
+    private readonly PushDeliveryOptions _delivery;
     private readonly INotificationPreferenceService _preferences;
     private readonly IAvatarIconResolver _avatars;
     private readonly ILogger<PushSender> _logger;
@@ -50,12 +51,14 @@ public class PushSender : IPushSender
     public PushSender(
         AppDbContext db,
         IOptions<VapidOptions> vapid,
+        IOptions<PushDeliveryOptions> delivery,
         INotificationPreferenceService preferences,
         IAvatarIconResolver avatars,
         ILogger<PushSender> logger)
     {
         _db = db;
         _vapid = vapid.Value;
+        _delivery = delivery.Value;
         _preferences = preferences;
         _avatars = avatars;
         _logger = logger;
@@ -260,9 +263,27 @@ public class PushSender : IPushSender
         // 풀면 같은 사람의 사진을 기기 수만큼 조회하게 된다.
         await FillIconAsync(request.Message, ct);
 
-        var payload = BuildPayload(request.Message, batchId);
+        // **언제까지 배달할 것인가.** 이 두 값이 「오래 안 켜다 켜면 한꺼번에 쏟아진다」
+        // 를 막는 손잡이다 — 자세한 사정은 PushDeliveryOptions 머리말에 있다.
+        var ttl = _delivery.ClampTtl(request.Message.TtlSeconds);
+        var topic = BuildTopic(request.Message);
+
+        var payload = BuildPayload(request.Message, batchId, ttl);
         var client = new WebPushClient();
         var vapid = new VapidDetails(_vapid.Subject, _vapid.PublicKey, _vapid.PrivateKey);
+
+        // 라이브러리 기본 TTL 은 28일이라 **반드시 덮어야 한다.** 옵션 이름은
+        // WebPushClient 가 정한 것이고(headers · vapidDetails · TTL), 모르는 이름을
+        // 넣으면 ArgumentException 으로 튕긴다.
+        var headers = new Dictionary<string, object> { ["Urgency"] = _delivery.ResolveUrgency() };
+        if (topic is not null) headers["Topic"] = topic;
+
+        var sendOptions = new Dictionary<string, object>
+        {
+            ["vapidDetails"] = vapid,
+            ["TTL"] = ttl,
+            ["headers"] = headers,
+        };
 
         var sent = 0;
         var failed = 0;
@@ -275,7 +296,7 @@ public class PushSender : IPushSender
             try
             {
                 var target = new WebPush.PushSubscription(sub.Endpoint, sub.P256dh, sub.Auth);
-                await client.SendNotificationAsync(target, payload, vapid, ct);
+                await client.SendNotificationAsync(target, payload, sendOptions, ct);
 
                 sub.LastSentAt = DateTime.UtcNow;
                 sub.FailureCount = 0;
@@ -408,6 +429,41 @@ public class PushSender : IPushSender
     }
 
     /// <summary>
+    /// 푸시 서비스의 대기줄에서 겹칠 열쇠(<c>Topic</c>)를 규격에 맞게 만든다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// RFC 8030 은 이 값을 <b>base64url 글자 32자 이내</b>로 가둔다. 우리 태그는
+    /// 사람이 읽는 글자라(<c>weather-warning:2026-001</c>) 그대로는 못 쓴다.
+    /// </para>
+    /// <para>
+    /// 맞으면 그대로 쓰고, 안 맞으면 <b>해시로 접는다.</b> 글자만 걸러 내는 방식은
+    /// 쓰지 않는다 — 구분 기호를 떼면 서로 다른 태그가 같은 값이 되어(<c>a:1b</c> 와
+    /// <c>a1:b</c>) <b>남의 알림을 밀어내는</b> 사고가 난다.
+    /// </para>
+    /// </remarks>
+    private static string? BuildTopic(PushMessageDto? message)
+    {
+        var raw = message?.Topic;
+        if (string.IsNullOrWhiteSpace(raw)) raw = message?.Tag;
+        if (string.IsNullOrWhiteSpace(raw)) return null;
+
+        raw = raw.Trim();
+
+        var safe = raw.Length <= 32 && raw.All(
+            c => char.IsAsciiLetterOrDigit(c) || c == '-' || c == '_');
+        if (safe) return raw;
+
+        var hash = System.Security.Cryptography.SHA256.HashData(
+            System.Text.Encoding.UTF8.GetBytes(raw));
+
+        // base64url 로 접고 32자로 자른다. 24바이트면 32자가 정확히 나온다.
+        return Convert.ToBase64String(hash, 0, 24)
+            .Replace('+', '-')
+            .Replace('/', '_');
+    }
+
+    /// <summary>
     /// 브라우저의 서비스워커가 읽는 모양으로 만든다.
     /// </summary>
     /// <remarks>
@@ -434,8 +490,10 @@ public class PushSender : IPushSender
     /// 서비스워커가 한다(<c>push-sw.js</c>).
     /// </para>
     /// </remarks>
-    private static string BuildPayload(PushMessageDto message, string batchId)
+    private static string BuildPayload(PushMessageDto message, string batchId, int ttlSeconds)
     {
+        var now = DateTimeOffset.UtcNow;
+
         var payload = new Dictionary<string, object?>
         {
             ["title"] = message.Title,
@@ -443,7 +501,18 @@ public class PushSender : IPushSender
             ["url"] = message.Url,
             ["icon"] = message.Icon,
             ["tag"] = message.Tag,
-            ["nid"] = batchId
+            ["nid"] = batchId,
+            // [sentAt · expiresAt — 늦게 도착한 것을 서비스워커가 알아보게 한다]
+            //
+            // TTL 은 푸시 서비스에게 「이때까지만 들고 있어라」고 부탁하는 값이지
+            // 지켜진다는 보장이 아니다. 실제로 FCM 은 기기가 절전에서 깨는 순간
+            // **줄에 남은 것을 한꺼번에** 흘려 보내고, 그중에는 이미 시효가 지난
+            // 것도 섞인다. 브라우저는 우리가 언제 보냈는지 알려 주지 않으므로
+            // (push 이벤트에 시각이 없다) **보낸 시각을 페이로드에 실어 준다** —
+            // 그것이 있어야 워커가 「지금 알림」과 「밀려 있던 알림」을 가른다
+            // (push-sw.js 의 지난 알림 묶음).
+            ["sentAt"] = now.ToUnixTimeMilliseconds(),
+            ["expiresAt"] = now.AddSeconds(ttlSeconds).ToUnixTimeMilliseconds(),
         };
 
         if (message.Data is { Count: > 0 })

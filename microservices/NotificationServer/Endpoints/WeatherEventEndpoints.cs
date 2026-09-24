@@ -67,6 +67,14 @@ public static class WeatherEventEndpoints
                 Title = $"[기상] {request.StandardName}",
                 Body = $"{request.Location} · 측정 {valueText} — 기준 충족",
                 Url = "/life/weather/events",
+                // **한 시간 지난 실황은 알릴 값이 없다.** 브라우저를 안 켜 두면
+                // 푸시 서비스가 들고 기다리는데, 그 줄이 길어진 채로 나중에
+                // 쏟아지는 것이 「알림이 한꺼번에 온다」의 정체다. 기록은
+                // 「내 알림함」에 남으니 배달을 포기해도 잃는 것이 없다.
+                TtlSeconds = 3600,
+                // 같은 기준이 반복해서 걸리면 줄에서는 최신 한 건만 남긴다.
+                // 화면에서 겹치지는 않게 Tag 는 주지 않는다(둘의 차이는 PushMessageDto.Topic).
+                Topic = $"weather-standard:{request.StandardName}",
             };
 
             var pushResult = owners.Count > 0
@@ -129,6 +137,9 @@ public static class WeatherEventEndpoints
                 // 같은 특보 번호의 발표 → 변경 → 해제는 한 줄로 겹쳐 보이는 편이 낫다.
                 // 번호가 없으면 태그를 주지 않는다 — 빈 태그로 묶으면 서로 다른 특보가 합쳐진다.
                 Tag = string.IsNullOrWhiteSpace(request.WarningNum) ? null : $"weather-warning:{request.WarningNum}",
+                // 특보도 한 시간이면 낡는다 — 위 기준 알림과 같은 까닭이다.
+                // 태그가 있으면 그것이 그대로 줄에서의 겹침 열쇠가 된다.
+                TtlSeconds = 3600,
             };
 
             var pushResult = owners.Count > 0
@@ -209,6 +220,9 @@ public static class WeatherEventEndpoints
                 // 같은 사람의 날씨 알림은 **한 줄로 겹쳐 보이는 편이 낫다.** 아침에
                 // 받은 것을 안 지우고 저녁 것을 받으면 알림창에 같은 모양이 쌓인다.
                 Tag = "weather-local",
+                // 정해진 시각에 한 번 보내는 것이라 **그 시간대를 넘기면 버린다.**
+                // 저녁에 브라우저를 켰는데 아침 날씨가 뜨는 것은 알림이 아니라 소음이다.
+                TtlSeconds = 10800,
             };
 
             var result = await push.SendAsync(

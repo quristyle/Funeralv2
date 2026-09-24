@@ -4,8 +4,9 @@
  * 이력: Vue 시절에는 워크박스가 만든 sw.js 가 이 파일을 importScripts 로
  * 실어 왔다(vite-plugin-pwa). 그 껍데기가 사라졌으므로 **여기가 서비스워커
  * 자체**다. 푸시 처리 부분은 옛 public/push-sw.js 를 그대로 옮긴 것이고,
- * 페이로드 키(title · body · url · icon · tag · nid)는 NotificationServer 의
- * PushSender.BuildPayload 와의 약속이다 — **바꾸면 알림이 빈 채로 뜬다.**
+ * 페이로드 키(title · body · url · icon · tag · nid · sentAt · expiresAt)는
+ * NotificationServer 의 PushSender.BuildPayload 와의 약속이다 —
+ * **바꾸면 알림이 빈 채로 뜬다.**
  *
  * ── 캐시를 하지 않는다 ──────────────────────────────────────────
  *
@@ -35,6 +36,71 @@ self.addEventListener('activate', (event) => {
 // 설치 요건용. 위 머리말 참조 — 일부러 아무것도 하지 않는다.
 self.addEventListener('fetch', () => { });
 
+/**
+ * ── 밀려 있던 알림은 한 줄로 묶는다 ────────────────────────────
+ *
+ * 웹푸시는 서버가 브라우저로 바로 꽂는 것이 아니다. 우리가 보낸 것은 브라우저
+ * 제조사의 푸시 서비스(크롬이면 FCM)가 받아 두고 **브라우저와의 연결이 살아날
+ * 때까지 들고 기다린다.** 그래서 며칠 안 켠 사람이 브라우저를 여는 순간 그동안의
+ * 알림이 한 번에 내려온다 — 서버가 그때 보낸 것이 아니라 **그때 배달된** 것이다.
+ *
+ * 서버는 이제 수명(TTL)을 짧게 줘서 그 줄 자체를 짧게 만든다
+ * (NotificationServer 의 PushDeliveryOptions). 다만 TTL 은 **부탁이지 보장이
+ * 아니라서**, 기기가 절전에서 깰 때 시효가 지난 것이 섞여 오는 일이 남는다.
+ * 여기가 그 마지막 그물이다.
+ *
+ * **버리지 않고 한 건으로 묶는 까닭**: push 이벤트를 받고 알림을 하나도 안 띄우면
+ * 크롬이 대신 "이 사이트가 백그라운드에서 갱신되었습니다" 를 띄우고, 그것이 반복되면
+ * 구독 자체를 끊는다. 묶음 하나는 그 규칙을 지키면서도 창을 하나만 쓴다.
+ */
+const STALE_TAG = 'jsini-stale-digest';
+
+/** 「내 알림함」 — 묶음을 누르면 여기로 간다. 낱낱의 내용은 여기에 다 있다. */
+const INBOX_URL = '/admin/push/history';
+
+/**
+ * 기기 시계가 서버보다 앞서 있을 수 있다. 2분은 그 여유다 —
+ * 이것이 없으면 방금 온 알림이 시계 차이만큼 「지난 것」으로 접힌다.
+ */
+const CLOCK_SKEW_MS = 2 * 60 * 1000;
+
+/** 서버가 정한 시효(expiresAt)를 넘겨 도착했나. 값이 없으면 판정하지 않는다. */
+function isStale(data) {
+    const expiresAt = Number(data && data.expiresAt);
+    if (!Number.isFinite(expiresAt) || expiresAt <= 0) return false;
+    return Date.now() > expiresAt + CLOCK_SKEW_MS;
+}
+
+/**
+ * 지난 알림을 한 줄로 센다.
+ *
+ * 세는 값은 **화면에 떠 있는 묶음 자신**에게서 가져온다(getNotifications).
+ * 서비스워커는 푸시 사이에 죽었다 살아나므로 변수에 들고 있으면 0 으로 돌아간다.
+ * 사람이 묶음을 지웠으면 다시 1부터 세는 것이 맞다 — 그것이 「본 것」이다.
+ */
+async function showStaleDigest() {
+    let count = 1;
+    try {
+        const shown = await self.registration.getNotifications({ tag: STALE_TAG });
+        const before = Number(shown[0] && shown[0].data && shown[0].data.count);
+        if (Number.isFinite(before) && before > 0) count = before + 1;
+    } catch {
+        // 못 세면 한 건으로 둔다. 묶음이 안 뜨는 것보다는 낫다.
+    }
+
+    await self.registration.showNotification(`지난 알림 ${count}건`, {
+        body: '자리를 비운 사이에 온 알림입니다. 눌러서 알림함에서 확인하세요.',
+        icon: '/pwa-icon-192.png',
+        badge: '/pwa-icon-192.png',
+        tag: STALE_TAG,
+        // 이미 떠 있는 묶음을 조용히 고쳐 쓴다. 한 건 들어올 때마다 울리면
+        // 창만 하나일 뿐 소리는 그대로 쏟아지는 것이라 뜻이 없다.
+        renotify: false,
+        silent: true,
+        data: { url: INBOX_URL, nid: null, count },
+    });
+}
+
 self.addEventListener('push', (event) => {
     // 페이로드가 JSON 이 아니거나 비어 있어도 알림 자체는 띄운다 —
     // 조용히 버리면 푸시 권한이 있는데 아무 일도 없는 것처럼 보인다.
@@ -43,6 +109,12 @@ self.addEventListener('push', (event) => {
         data = event.data ? event.data.json() : {};
     } catch {
         data = { body: event.data ? event.data.text() : '' };
+    }
+
+    // 시효가 지나 도착한 것은 낱낱이 띄우지 않는다. 위 머리말 참조.
+    if (isStale(data)) {
+        event.waitUntil(showStaleDigest());
+        return;
     }
 
     const title = data.title || 'JSini 포털';
