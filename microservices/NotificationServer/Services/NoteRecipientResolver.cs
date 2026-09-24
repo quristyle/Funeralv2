@@ -17,6 +17,13 @@ public interface INoteRecipientResolver
     /// 찾은 사람들과, <b>못 찾은 값 그대로</b>. 뒤엣것을 조용히 버리지 않는 것이
     /// 이 메서드의 요점이다 — 「열 명에게 보냈는데 여덟만 받았다」를 그 자리에서
     /// 말할 수 있어야 한다.
+    ///
+    /// <para>
+    /// 찾은 사람 중에도 <b>쪽지를 받을 수 없는 사람</b>이 있다
+    /// (<see cref="NoteRecipientDto.PushEnabled"/> 가 거짓). 여기서 빼지 않고
+    /// 표시만 해 준다 — 「없는 아이디」와 「푸시를 꺼 둔 사람」은 보내는 쪽이
+    /// 할 일이 서로 달라서다.
+    /// </para>
     /// </returns>
     Task<(List<NoteRecipientDto> Found, List<string> Unknown)> ResolveAsync(
         IEnumerable<string> tokens, CancellationToken ct = default);
@@ -47,7 +54,8 @@ public interface INoteRecipientResolver
 /// 사람이 적은 글자에서 다시 푼다 — 같은 규칙이므로 결과는 늘 같다.
 /// </para>
 /// </remarks>
-public sealed class NoteRecipientResolver(AppDbContext db) : INoteRecipientResolver
+public sealed class NoteRecipientResolver(AppDbContext db, INotificationPreferenceService prefs)
+    : INoteRecipientResolver
 {
     /// <summary>
     /// 한 번에 풀 수 있는 값의 수. 넘으면 앞에서 자른다.
@@ -199,6 +207,13 @@ public sealed class NoteRecipientResolver(AppDbContext db) : INoteRecipientResol
                 .Where(d => deptIds.Contains(d.Id) && !d.IsDeleted)
                 .ToDictionaryAsync(d => d.Id, d => d.Name, ct);
 
+        // **푸시를 끈 사람은 쪽지를 받지 못한다.** 판정은 설정 서비스가 한다 —
+        // 「행이 없으면 켜짐」이라는 규칙이 거기 한 곳에만 있어야 새지 않는다
+        // (`NotificationPreferenceService.GetPushDisabledAsync` 머리말).
+        var pushOff = await prefs.GetPushDisabledAsync(
+            [.. accounts.Select(a => new OwnerRefDto { OwnerType = "jsini", OwnerKey = a.UserId })],
+            ct);
+
         return [.. accounts.Select(a => new NoteRecipientDto
         {
             LoginId = a.UserId,
@@ -207,6 +222,7 @@ public sealed class NoteRecipientResolver(AppDbContext db) : INoteRecipientResol
                 ? name
                 : null,
             Email = emailOf.GetValueOrDefault(a.Id),
+            PushEnabled = !pushOff.Contains(("jsini", a.UserId)),
         })];
     }
 

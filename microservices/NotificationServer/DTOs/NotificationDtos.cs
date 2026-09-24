@@ -253,12 +253,18 @@ public class VapidPublicKeyDto
     public bool Enabled { get; set; }
 }
 
-/// <summary>내 알림 설정 (스위치 셋).</summary>
+/// <summary>내 알림 설정 (스위치 넷).</summary>
 public class NotificationPreferenceDto
 {
     public bool PushEnabled { get; set; } = true;
     public bool EmailEnabled { get; set; } = true;
     public bool WeatherEnabled { get; set; }
+
+    /// <summary>
+    /// 쪽지를 메일로도 받을지. <b>기본은 꺼짐이다</b>
+    /// (<c>Entities/NotificationPreference.NoteEmailEnabled</c> 머리말).
+    /// </summary>
+    public bool NoteEmailEnabled { get; set; }
 
     /// <summary>
     /// 저장한 적이 있나. 거짓이면 아래 값은 <b>기본값</b>이고 표에는 행이 없다.
@@ -271,13 +277,14 @@ public class NotificationPreferenceDto
 
 /// <summary>
 /// 알림 설정 변경 요청. <b>비운 항목은 건드리지 않는다</b> — 스위치 하나만 눌러도
-/// 나머지를 덮어쓰지 않도록 세 값을 모두 nullable 로 둔다.
+/// 나머지를 덮어쓰지 않도록 모든 값을 nullable 로 둔다.
 /// </summary>
 public class UpdateNotificationPreferenceDto
 {
     public bool? PushEnabled { get; set; }
     public bool? EmailEnabled { get; set; }
     public bool? WeatherEnabled { get; set; }
+    public bool? NoteEmailEnabled { get; set; }
 }
 
 /// <summary>내 기기(구독) 한 대.</summary>
@@ -322,7 +329,10 @@ public class OwnerNotificationStateDto
     public bool EmailEnabled { get; set; } = true;
     public bool WeatherEnabled { get; set; }
 
-    /// <summary>저장한 적이 있나. 거짓이면 위 셋은 기본값이다.</summary>
+    /// <summary>쪽지를 메일로도 받는가. 기본은 꺼짐이다.</summary>
+    public bool NoteEmailEnabled { get; set; }
+
+    /// <summary>저장한 적이 있나. 거짓이면 위 넷은 기본값이다.</summary>
     public bool Saved { get; set; }
 
     /// <summary>

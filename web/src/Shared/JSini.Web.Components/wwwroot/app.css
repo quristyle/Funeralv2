@@ -7533,6 +7533,18 @@ body {
   background: var(--jsini-surface-muted, rgba(127, 127, 127, 0.12));
 }
 
+/* 푸시를 꺼 두어 쪽지를 못 받는 사람. 목록에서 지우지 않고 **흐리게 두고
+   못 고르게** 한다 — 없으면 「아이디가 틀렸나」를 한참 의심하게 된다. */
+.jsini-note__match--off {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.jsini-note__match--off:hover,
+.jsini-note__match--off:focus-visible {
+  background: none;
+}
+
 .jsini-note__match-name {
   font-size: var(--jsini-fs-sm);
 }
@@ -7549,7 +7561,18 @@ body {
   color: var(--jsini-text-muted);
 }
 
-/* 보낼 길. 체크 둘이라 한 줄이면 충분하다. */
+/* 접어 둔 제목 칸을 펴는 줄. 단추와 안내가 한 줄에 나란히 선다 —
+   안내를 아래로 내리면 접힌 상태가 펴진 상태보다 키가 커진다. */
+.jsini-note__more {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin-bottom: 0.6rem;
+}
+
+/* 어떻게 전해지는지 알려 주는 줄. 고르는 자리가 아니라 읽는 자리다 —
+   두드림은 받는 사람이 자기 설정에서 정한다(`NoteWritePanel` 머리말). */
 .jsini-note__ways {
   display: flex;
   flex-wrap: wrap;

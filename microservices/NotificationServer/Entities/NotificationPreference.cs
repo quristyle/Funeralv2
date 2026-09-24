@@ -62,6 +62,26 @@ public class NotificationPreference : BaseEntity<string>
     public bool EmailEnabled { get; set; } = true;
 
     /// <summary>
+    /// <b>쪽지를 메일로도 받을지.</b> 기본은 꺼짐이다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <see cref="EmailEnabled"/> 와 갈래가 다르다. 그쪽은 <b>업무 알림</b>(역할로
+    /// 보내는 메일)이고, 이쪽은 <b>사람이 나에게 쓴 글</b>이다. 쪽지는 이미 쪽지함에
+    /// 남고 앱 푸시로 두드리므로, 메일까지 받으면 받는 쪽에 <b>지워야 할 것이 하나
+    /// 더 생긴다</b> — 그래서 원하는 사람만 켠다.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>보내는 사람이 정하지 않는다.</b> 한동안 쪽지 쓰기 화면에 「메일」 체크가
+    /// 있었는데, 메일을 하나 더 받을지는 <b>받는 사람의 사정</b>이지 보내는 사람이
+    /// 고를 일이 아니다.
+    /// </para>
+    /// </remarks>
+    [Column("note_email_enabled")]
+    public bool NoteEmailEnabled { get; set; }
+
+    /// <summary>
     /// 날씨(기상 특보 · 임계치) 알림을 받을지. <b>기본은 꺼짐이다.</b>
     /// </summary>
     /// <remarks>

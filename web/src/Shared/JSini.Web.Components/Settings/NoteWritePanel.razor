@@ -28,11 +28,28 @@
     (`NoteClient.SearchRecipientsAsync` 머리말).
 
     ────────────────────────────────────────────────────────────
-    [메일은 꺼져 있고, 앱 푸시는 켜져 있다]
+    [제목 칸은 **접혀 있다**]
 
-    쪽지는 이미 쪽지함에 남는다. 메일까지 기본으로 켜면 **받는 쪽에 지워야 할
-    것이 하나 늘어난다.** 둘 다 꺼도 된다 — 그때는 조용히 쪽지함에만 들어가고,
-    화면이 그 사실을 미리 말한다.
+    쪽지 대부분은 한두 줄이라 제목이 내용과 같은 말이 된다. 그것을 받아야만
+    보낼 수 있게 두면 **같은 글자를 두 번 치게** 만드는 셈이다. 그래서 평소에는
+    내용 칸 하나만 보이고, 제목이 필요한 사람만 「제목 넣기」로 편다.
+
+    안 적으면 **서버가 「누가 언제 보냈다」로 지어 넣는다.** 빈 채로 두지 않는
+    까닭은 쪽지함 목록과 앱 푸시의 본문이 그 글자를 쓰기 때문이다 — 비우면
+    목록이 통째로 빈 줄이 된다.
+
+    ────────────────────────────────────────────────────────────
+    [두드림을 **여기서 고르지 않는다**]
+
+    한동안 「앱 푸시」·「메일」 체크가 여기 있었다. 그런데 그것은 **받는 사람의
+    사정**이다 — 메일을 한 통 더 받을지는 받는 쪽이 자기 설정에서 정할 일이지
+    보내는 쪽이 매번 고를 일이 아니다.
+
+    - **앱 푸시는 늘 간다.** 그리고 푸시를 꺼 둔 사람은 **아예 받지 못한다** —
+      쪽지함에만 쌓이면 본인은 왔다는 것조차 모르는데 보낸 쪽은 보냈다고 믿는다.
+      찾기 목록에서 그런 사람은 고를 수 없게 하고, 그래도 아이디를 손으로 적어
+      보내면 서버가 이름을 짚어 돌려준다.
+    - **메일은 받는 사람이 켜 두었을 때만** 간다(개인설정 › 쪽지 메일받기).
 
     ────────────────────────────────────────────────────────────
     [결과를 두 갈래로 말한다]
@@ -94,17 +111,30 @@
                 @foreach (var hit in _matches)
                 {
                     <li>
-                        <button type="button" class="jsini-note__match" @onclick="@(() => Add(hit.LoginId))">
+                        @* **푸시를 꺼 둔 사람은 고를 수 없다.** 목록에서 지우지
+                           않는 것은, 없으면 「아이디가 틀렸나」를 한참 의심하게
+                           되기 때문이다 — 보이되 못 고르는 편이 답이 빠르다. *@
+                        <button type="button"
+                                class="jsini-note__match @(hit.PushEnabled ? null : "jsini-note__match--off")"
+                                disabled="@(!hit.PushEnabled)"
+                                @onclick="@(() => Add(hit.LoginId))">
                             <span class="jsini-note__match-name">@hit.Display</span>
                             @if (hit.Affiliation is { Length: > 0 } dept)
                             {
                                 <span class="jsini-note__match-sub">@dept</span>
                             }
-                            @* 메일 주소가 없으면 그 자리에서 말한다 — 「메일도
-                               보내기」를 켜 놓고 나중에 빠진 것을 알게 하지 않는다. *@
-                            <span class="jsini-note__match-sub">
-                                @(string.IsNullOrWhiteSpace(hit.Email) ? "메일 없음" : hit.Email)
-                            </span>
+                            @if (hit.PushEnabled)
+                            {
+                                @* 메일 주소가 없으면 그 자리에서 말한다 — 그 사람이
+                                   쪽지 메일받기를 켜 두어도 보낼 데가 없다. *@
+                                <span class="jsini-note__match-sub">
+                                    @(string.IsNullOrWhiteSpace(hit.Email) ? "메일 없음" : hit.Email)
+                                </span>
+                            }
+                            else
+                            {
+                                <span class="jsini-note__match-sub">푸시 꺼짐 · 쪽지를 받지 못합니다</span>
+                            }
                         </button>
                     </li>
                 }
@@ -116,29 +146,44 @@
         }
     </div>
 
-    @* ── 내용 ──────────────────────────────────────────────── *@
-    <div class="jsini-note__field">
-        <span class="jsini-note__label">제목</span>
-        <DxTextBox @bind-Text="@_title" NullText="쪽지 제목" CssClass="jsini-note__input" />
-    </div>
+    @* ── 제목 ──────────────────────────────────────────────────
 
+       평소에는 접혀 있고 「제목 넣기」로 편다. 접혀 있다는 것과 「제목이
+       필요 없다」는 것은 다르므로, 접힌 줄에 **안 적으면 무엇이 들어가는지**를
+       적어 둔다 — 그래야 펴 볼지 말지를 그 자리에서 정할 수 있다. *@
+    @if (_showTitle)
+    {
+        <div class="jsini-note__field">
+            <span class="jsini-note__label">제목</span>
+            <DxTextBox @bind-Text="@_title" ValidationEnabled="false"
+                       CssClass="jsini-note__input" />
+        </div>
+    }
+    else
+    {
+        <div class="jsini-note__more">
+            <DxButton Text="제목 넣기" RenderStyle="ButtonRenderStyle.Link"
+                      IconCssClass="jsini-icon-plus"
+                      Click="@ShowTitle" />
+            <span class="jsini-note__empty">안 적으면 「누가 언제 보냈다」가 제목이 됩니다.</span>
+        </div>
+    }
+
+    @* ── 내용 ──────────────────────────────────────────────── *@
     <div class="jsini-note__field">
         <span class="jsini-note__label">내용</span>
         <DxMemo @bind-Text="@_body" Rows="@BodyRows"
                 NullText="보낼 말을 적으십시오." CssClass="jsini-note__input" />
     </div>
 
-    @* ── 두드림 ────────────────────────────────────────────── *@
-    <div class="jsini-note__ways">
-        <DxCheckBox @bind-Checked="@_push">앱 푸시</DxCheckBox>
-        <DxCheckBox @bind-Checked="@_email">메일</DxCheckBox>
+    @* ── 두드림 ──────────────────────────────────────────────
 
-        @if (!_push && !_email)
-        {
-            @* 막지 않는다. 쪽지함에 남는 것이 본체라 두드림 없이 보내는 것도
-               뜻이 있다 — 다만 그 사실을 말해 준다. *@
-            <span class="jsini-note__empty">알림 없이 쪽지함에만 넣습니다.</span>
-        }
+       고르는 것이 아니라 **알려 주는 줄**이다. 받는 사람이 정한다(머리말). *@
+    <div class="jsini-note__ways">
+        <span class="jsini-note__empty">
+            앱 알림으로 전해집니다. 메일은 받는 사람이 개인설정에서 「쪽지 메일받기」를
+            켜 둔 경우에만 갑니다.
+        </span>
     </div>
 
     <div class="jsini-note__send">
@@ -183,8 +228,12 @@
     private string? _title;
     private string? _body;
 
-    private bool _push = true;
-    private bool _email;
+    /// <summary>제목 칸을 폈나. <b>한 번 펴면 보내고 나서도 접지 않는다.</b></summary>
+    /// <remarks>
+    /// 제목을 쓰는 사람은 이어 보낼 때도 쓴다. 보낼 때마다 도로 접으면 매번
+    /// 같은 단추를 다시 눌러야 한다 — 값만 비운다.
+    /// </remarks>
+    private bool _showTitle;
 
     private bool _sending;
 
@@ -203,9 +252,16 @@
     /// </remarks>
     private string? _inFlight;
 
-    /// <summary>보낼 수 있는가 — 사람과 제목이 있어야 한다.</summary>
+    /// <summary>
+    /// 보낼 수 있는가 — <b>사람과 내용</b>이 있어야 한다.
+    /// </summary>
+    /// <remarks>
+    /// 한동안 제목을 봤는데, 제목은 이제 비워도 서버가 지어 넣는다. 대신 내용이
+    /// 비면 막는다 — 지어 줄 것이 없고, 빈 쪽지는 받는 사람에게 알림 한 번일 뿐
+    /// 아무 말도 아니다.
+    /// </remarks>
     private bool CanSend =>
-        !_sending && _picked.Count > 0 && !string.IsNullOrWhiteSpace(_title);
+        !_sending && _picked.Count > 0 && !string.IsNullOrWhiteSpace(_body);
 
     protected override void OnInitialized()
     {
@@ -214,6 +270,9 @@
             Add(who);
         }
     }
+
+    /// <summary>제목 칸을 편다. 한 번 펴면 이 판이 살아 있는 동안 그대로 있다.</summary>
+    private void ShowTitle() => _showTitle = true;
 
     /// <summary>
     /// 받는 사람 칸에서 Enter · 쉼표를 누르면 딱지가 된다.
@@ -331,8 +390,7 @@
         try
         {
             result = await Notes.SendAsync(
-                string.Join(",", _picked), _title!.Trim(), (_body ?? string.Empty).Trim(),
-                _push, _email);
+                string.Join(",", _picked), _title?.Trim(), (_body ?? string.Empty).Trim());
         }
         catch (ApiException ex)
         {
@@ -351,9 +409,11 @@
             return;
         }
 
-        Toasts.Show(Describe(result), result.Unknown.Count > 0 || result.NotifyNote is not null
-            ? NoticeTone.Warning
-            : NoticeTone.Info);
+        Toasts.Show(
+            Describe(result),
+            result.Unknown.Count > 0 || result.Blocked.Count > 0 || result.NotifyNote is not null
+                ? NoticeTone.Warning
+                : NoticeTone.Info);
 
         // 보냈으면 칸을 비운다. 받는 사람은 남긴다 — 같은 사람에게 이어 보내는
         // 일이 흔하고, 딱지는 한 번 더 지우면 그만이다.
@@ -384,6 +444,13 @@
         if (r.Unknown.Count > 0)
         {
             parts.Add($"찾지 못한 값: {string.Join(", ", r.Unknown)}");
+        }
+
+        // **못 찾은 것과 갈라 적는다.** 아이디가 틀린 것은 다시 칠 일이고,
+        // 푸시를 꺼 둔 것은 다른 길로 연락할 일이다.
+        if (r.Blocked.Count > 0)
+        {
+            parts.Add($"푸시를 꺼 두어 못 받는 사람: {string.Join(", ", r.Blocked)}");
         }
 
         return string.Join(" · ", parts) + ".";

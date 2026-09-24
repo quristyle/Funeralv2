@@ -27,18 +27,18 @@ public class SendNoteDto
     /// </remarks>
     public string To { get; set; } = string.Empty;
 
+    /// <summary>
+    /// 제목. <b>비워도 된다</b> — 그러면 서버가 「누가 언제 보냈다」로 지어 넣는다
+    /// (<c>NoteEndpoints.DefaultTitle</c>).
+    /// </summary>
+    /// <remarks>
+    /// 대부분의 쪽지는 한두 줄이라 제목이 내용과 같은 말이 된다. 제목을 받아야만
+    /// 보낼 수 있게 두면 <b>같은 글자를 두 번 치게</b> 만드는 셈이라, 쓰는 화면도
+    /// 이 칸을 접어 두고 필요한 사람만 펼친다.
+    /// </remarks>
     public string Title { get; set; } = string.Empty;
 
     public string Body { get; set; } = string.Empty;
-
-    /// <summary>앱 푸시로도 두드릴까. 기본은 참이다.</summary>
-    public bool Push { get; set; } = true;
-
-    /// <summary>
-    /// 메일로도 두드릴까. <b>기본은 거짓이다</b> — 메일은 받는 쪽에 지워야 할
-    /// 것이 하나 늘어나는 일이고, 쪽지는 이미 쪽지함에 남는다.
-    /// </summary>
-    public bool Email { get; set; }
 }
 
 /// <summary>쪽지를 받을 수 있는 사람 하나.</summary>
@@ -62,6 +62,17 @@ public class NoteRecipientDto
     /// 말해 주라고 내려 준다.
     /// </summary>
     public string? Email { get; set; }
+
+    /// <summary>
+    /// 푸시 알림을 켜 두었나. <b>거짓이면 이 사람에게는 쪽지를 보낼 수 없다.</b>
+    /// </summary>
+    /// <remarks>
+    /// 쪽지는 <b>적어도 앱 푸시로는 닿아야</b> 성립한다. 푸시를 꺼 둔 사람에게
+    /// 넣어 두면 쪽지함에만 쌓이고 본인은 왔다는 것조차 모른다 — 보낸 쪽은
+    /// 보냈다고 믿는다. 그래서 목록에서 지우지 않고 <b>못 보낸다고 미리</b>
+    /// 말해 준다(지워 버리면 「아이디가 틀렸나」를 한참 의심하게 된다).
+    /// </remarks>
+    public bool PushEnabled { get; set; } = true;
 }
 
 /// <summary>쪽지 한 통(목록·읽기가 함께 쓴다).</summary>
@@ -122,6 +133,16 @@ public class SendNoteResultDto
 
     /// <summary>실제로 받은 사람들(표시용).</summary>
     public List<string> Recipients { get; set; } = [];
+
+    /// <summary>
+    /// 찾기는 했으나 <b>푸시를 꺼 두어 쪽지를 받을 수 없는</b> 사람들.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="Unknown"/> 과 갈라 담는다. 「그런 아이디가 없다」면 보내는 쪽이
+    /// 다시 칠 일이고, 「그 사람이 푸시를 껐다」면 <b>다른 길로 연락할 일</b>이다 —
+    /// 한 자루에 담으면 둘을 구분할 수 없다.
+    /// </remarks>
+    public List<string> Blocked { get; set; } = [];
 
     /// <summary>두드림이 막힌 까닭. 다 갔으면 <c>null</c>.</summary>
     public string? NotifyNote { get; set; }

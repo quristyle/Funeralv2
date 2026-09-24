@@ -60,22 +60,26 @@ public sealed class NoteClient(GatewayClient gateway)
     /// <param name="to">
     /// 받는 사람. <b>로그인 아이디와 이메일 주소를 섞어</b> 쉼표로 이어 적는다.
     /// </param>
-    /// <param name="title">제목. 비면 서버가 막는다.</param>
-    /// <param name="body">내용.</param>
-    /// <param name="push">앱 푸시로도 두드릴까.</param>
-    /// <param name="email">메일로도 두드릴까.</param>
+    /// <param name="title">
+    /// 제목. <b>비워도 된다</b> — 서버가 「누가 언제 보냈다」로 지어 넣는다.
+    /// </param>
+    /// <param name="body">내용. <b>이쪽이 비면 서버가 막는다.</b></param>
     /// <param name="ct">그만두기.</param>
     /// <returns>
     /// 서버가 준 결과. <b><c>PushDevices</c> 가 0 이어도 실패가 아니다</b> —
     /// 쪽지는 이미 상대의 쪽지함에 있다.
     /// </returns>
+    /// <remarks>
+    /// <b>두드림을 고르는 값이 없다.</b> 앱 푸시는 늘 가고(푸시를 꺼 둔 사람은
+    /// 아예 받지 못한다), 메일은 <b>받는 사람이 개인설정에서 켜 두었을 때만</b>
+    /// 간다 — 보내는 사람이 정할 일이 아니라서다.
+    /// </remarks>
     public Task<NoteSendResultDto?> SendAsync(
-        string to, string title, string? body,
-        bool push = true, bool email = false,
+        string to, string? title, string? body,
         CancellationToken ct = default)
         => gateway.PostAsync<NoteSendResultDto>(
             "notification/notes",
-            new { to, title, body, push, email },
+            new { to, title, body },
             ct);
 
     /// <summary>받은 쪽지함.</summary>

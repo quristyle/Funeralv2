@@ -32,6 +32,17 @@ public interface INotificationPreferenceService
     /// <summary>이메일을 <b>끈</b> 포털 로그인 아이디들.</summary>
     Task<HashSet<string>> GetEmailDisabledLoginIdsAsync(
         IEnumerable<string> loginIds, CancellationToken ct = default);
+
+    /// <summary>
+    /// 쪽지 메일받기를 <b>켠</b> 포털 로그인 아이디들.
+    /// </summary>
+    /// <remarks>
+    /// 위의 둘과 방향이 반대다. 푸시·업무 메일은 <b>행이 없으면 켜짐</b>이라 "끈
+    /// 사람" 을 물어야 하지만, 쪽지 메일은 <b>행이 없으면 꺼짐</b>이다 — 일부러
+    /// 켠 사람에게만 간다.
+    /// </remarks>
+    Task<HashSet<string>> GetNoteEmailEnabledLoginIdsAsync(
+        IEnumerable<string> loginIds, CancellationToken ct = default);
 }
 
 /// <inheritdoc cref="INotificationPreferenceService" />
@@ -55,7 +66,7 @@ public class NotificationPreferenceService : INotificationPreferenceService
         var row = await _db.NotificationPreferences
             .FirstOrDefaultAsync(p => p.OwnerType == ownerType && p.OwnerKey == ownerKey, ct);
 
-        // 행이 없으면 엔티티의 기본값(푸시·이메일 켜짐, 날씨 꺼짐)을 그대로 쓴다.
+        // 행이 없으면 엔티티의 기본값(푸시·이메일 켜짐, 날씨·쪽지 메일 꺼짐)을 그대로 쓴다.
         return row is null
             ? new NotificationPreferenceDto { Saved = false }
             : ToDto(row);
@@ -90,6 +101,7 @@ public class NotificationPreferenceService : INotificationPreferenceService
         if (request.PushEnabled.HasValue) row.PushEnabled = request.PushEnabled.Value;
         if (request.EmailEnabled.HasValue) row.EmailEnabled = request.EmailEnabled.Value;
         if (request.WeatherEnabled.HasValue) row.WeatherEnabled = request.WeatherEnabled.Value;
+        if (request.NoteEmailEnabled.HasValue) row.NoteEmailEnabled = request.NoteEmailEnabled.Value;
 
         await _db.SaveChangesAsync(ct);
         return ToDto(row);
@@ -136,11 +148,27 @@ public class NotificationPreferenceService : INotificationPreferenceService
         return rows.ToHashSet(StringComparer.Ordinal);
     }
 
+    /// <inheritdoc />
+    public async Task<HashSet<string>> GetNoteEmailEnabledLoginIdsAsync(
+        IEnumerable<string> loginIds, CancellationToken ct = default)
+    {
+        var keys = loginIds.Where(k => !string.IsNullOrWhiteSpace(k)).Distinct().ToList();
+        if (keys.Count == 0) return new HashSet<string>(StringComparer.Ordinal);
+
+        var rows = await _db.NotificationPreferences
+            .Where(p => p.OwnerType == "jsini" && keys.Contains(p.OwnerKey) && p.NoteEmailEnabled)
+            .Select(p => p.OwnerKey)
+            .ToListAsync(ct);
+
+        return rows.ToHashSet(StringComparer.Ordinal);
+    }
+
     private static NotificationPreferenceDto ToDto(Entities.NotificationPreference row) => new()
     {
         PushEnabled = row.PushEnabled,
         EmailEnabled = row.EmailEnabled,
         WeatherEnabled = row.WeatherEnabled,
+        NoteEmailEnabled = row.NoteEmailEnabled,
         Saved = true,
         UpdatedAt = row.UpdatedAt ?? row.CreatedAt
     };

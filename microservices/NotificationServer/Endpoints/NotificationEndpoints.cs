@@ -231,6 +231,7 @@ public static class NotificationEndpoints
                     p.PushEnabled,
                     p.EmailEnabled,
                     p.WeatherEnabled,
+                    p.NoteEmailEnabled,
                     p.UpdatedAt,
                 })
                 .ToListAsync(ct);
@@ -259,6 +260,7 @@ public static class NotificationEndpoints
                     PushEnabled = p.PushEnabled,
                     EmailEnabled = p.EmailEnabled,
                     WeatherEnabled = p.WeatherEnabled,
+                    NoteEmailEnabled = p.NoteEmailEnabled,
                     Saved = true,
                     UpdatedAt = p.UpdatedAt,
                 };

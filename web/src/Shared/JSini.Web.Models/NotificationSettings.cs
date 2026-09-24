@@ -26,6 +26,17 @@ public sealed class NotificationPreferenceDto
     public bool WeatherEnabled { get; set; }
 
     /// <summary>
+    /// <b>쪽지를 메일로도 받는가.</b> 기본은 꺼짐이다.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="EmailEnabled"/> 와 갈래가 다르다. 그쪽은 업무 알림(역할로 오는
+    /// 메일)이고 이쪽은 <b>사람이 나에게 쓴 글</b>이다. 쪽지는 이미 쪽지함에 남고
+    /// 앱 푸시로 두드리므로, 메일까지 받을지는 <b>받는 사람이 정한다</b> —
+    /// 보내는 화면에는 그 체크가 없다.
+    /// </remarks>
+    public bool NoteEmailEnabled { get; set; }
+
+    /// <summary>
     /// 저장된 설정인가. 거짓이면 서버가 준 <b>기본값</b>이라는 뜻이다.
     ///
     /// 화면이 이것을 구별해야 「아직 정한 적 없음」과 「전부 꺼 둠」이

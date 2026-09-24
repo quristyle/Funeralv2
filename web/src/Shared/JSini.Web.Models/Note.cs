@@ -27,6 +27,17 @@ public sealed class NoteRecipientDto
     /// </summary>
     public string? Email { get; set; }
 
+    /// <summary>
+    /// 푸시 알림을 켜 두었나. <b>거짓이면 이 사람에게는 쪽지를 보낼 수 없다.</b>
+    /// </summary>
+    /// <remarks>
+    /// 쪽지는 적어도 앱 푸시로는 닿아야 성립한다 — 쪽지함에만 쌓이면 본인은 왔다는
+    /// 것조차 모르는데 보낸 쪽은 보냈다고 믿는다. 찾기 목록에서 지우지 않고
+    /// <b>못 보낸다고 미리</b> 말해 준다(지워 버리면 「아이디가 틀렸나」를 한참
+    /// 의심하게 된다).
+    /// </remarks>
+    public bool PushEnabled { get; set; } = true;
+
     /// <summary>목록에 적는 한 줄. 이름이 없으면 아이디를 쓴다.</summary>
     public string Display => string.IsNullOrWhiteSpace(Name) ? LoginId : $"{Name} ({LoginId})";
 }
@@ -85,6 +96,13 @@ public sealed class NoteSendResultDto
 
     /// <summary>실제로 받은 사람들(표시용).</summary>
     public List<string> Recipients { get; set; } = [];
+
+    /// <summary>
+    /// 찾기는 했으나 <b>푸시를 꺼 두어 쪽지를 받을 수 없는</b> 사람들.
+    /// <see cref="Unknown"/> 과 갈라 담는다 — 「아이디가 틀렸다」와 「그 사람이
+    /// 껐다」는 보내는 쪽이 할 일이 서로 다르다.
+    /// </summary>
+    public List<string> Blocked { get; set; } = [];
 
     /// <summary>두드림이 막힌 까닭. 다 갔으면 <c>null</c>.</summary>
     public string? NotifyNote { get; set; }
