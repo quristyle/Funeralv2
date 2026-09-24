@@ -4986,6 +4986,35 @@ button.jsini-crumbs__item:hover { opacity: 1; }
   gap: 0.6rem;
 }
 
+/* ── 푸는 길이 둘이다 (비밀번호 · 지문) ──────────────────────
+   **마크업을 두 벌 두지 않는다.** 차례만 바뀌고 안에 든 것은 같다 —
+   로그인 화면의 `.jsini-login__methods` 와 같은 수법이다. */
+.jsini-lock__methods {
+  display: grid;
+  gap: 1rem;
+}
+
+/* 갈라 주는 줄. 두 길이 붙어 있으면 아래 단추가 위 단추의 짝으로 읽힌다.
+   기본 차례(비밀번호 먼저)에서는 지문이 아래라 **위쪽**에 줄을 긋는다. */
+.jsini-lock__passkey {
+  padding-top: 1rem;
+  border-top: 1px solid var(--jsini-border);
+}
+
+.jsini-lock__passkey-btn {
+  width: 100%;
+}
+
+/* 지문을 먼저 묻는 기기. 단추가 위로 올라가므로 줄도 **아래쪽**으로 옮긴다.
+   안 옮기면 카드 맨 위에 걸린 줄 하나가 제목과 단추를 갈라놓는다. */
+.jsini-lock__methods--passkey-first .jsini-lock__passkey {
+  order: -1;
+  padding-top: 0;
+  padding-bottom: 1rem;
+  border-top: 0;
+  border-bottom: 1px solid var(--jsini-border);
+}
+
 .jsini-lock__hint {
   margin: 1.25rem 0 0.25rem;
   color: var(--jsini-text-muted);

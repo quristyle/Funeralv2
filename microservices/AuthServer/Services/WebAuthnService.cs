@@ -355,14 +355,96 @@ public sealed class WebAuthnService(
     }
 
     /// <summary>
+    /// <b>이미 로그인한 사람</b>이 자기 기기를 다시 대는 자리에 넘길 설정
+    /// (잠금화면).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 로그인용(<see cref="CreateLoginOptionsAsync"/>)과 두 군데가 다르다.
+    /// </para>
+    ///
+    /// <list type="number">
+    ///   <item><b>후보를 숨기지 않는다.</b> 누구인지 이미 아는 자리라
+    ///   「그 계정이 있는지」가 샐 걱정이 없다. 오히려 후보를 줘야
+    ///   윈도우 Hello 처럼 열쇠를 스스로 들고 있지 않는 기기에서도 열린다.</item>
+    ///   <item><b>도전값에 주인을 적어 둔다.</b> 그래야 받아 둔 도전값을
+    ///   남에게 건네 <b>남의 지문으로 내 잠금을 푸는</b> 길이 막힌다
+    ///   (검증에서 <see cref="VerifyAssertionAsync"/> 가 대조한다).</item>
+    /// </list>
+    /// </remarks>
+    /// <param name="account">지금 로그인해 있는 사람</param>
+    /// <param name="cancellationToken">취소 토큰</param>
+    public async Task<WebAuthnOptionsDto> CreateVerifyOptionsAsync(
+        Account account, CancellationToken cancellationToken = default)
+    {
+        var challenge = RandomNumberGenerator.GetBytes(32);
+        var sessionId = Remember(challenge, account.Id);
+
+        var allowed = await db.Set<AccountWebAuthnCredential>()
+            .Where(c => c.AccountId == account.Id && !c.IsDeleted)
+            .Select(c => c.CredentialId)
+            .ToListAsync(cancellationToken);
+
+        return new WebAuthnOptionsDto
+        {
+            SessionId = sessionId,
+            PublicKey = new Dictionary<string, object?>
+            {
+                ["challenge"] = Base64Url.Encode(challenge),
+                ["rpId"] = RelyingPartyId,
+                ["timeout"] = (int)ChallengeLifetime.TotalMilliseconds,
+                ["userVerification"] = RequireUserVerification ? "required" : "preferred",
+                ["allowCredentials"] = allowed
+                    .Select(id => new Dictionary<string, object?>
+                    {
+                        ["type"] = "public-key",
+                        ["id"] = id,
+                    })
+                    .ToArray(),
+            },
+        };
+    }
+
+    /// <summary>
     /// 로그인 응답을 검증한다. 통과하면 그 패스키를 돌려준다.
     /// </summary>
-    public async Task<WebAuthnResult> VerifyLoginAsync(
+    public Task<WebAuthnResult> VerifyLoginAsync(
         WebAuthnLoginDto request, CancellationToken cancellationToken = default)
+        => VerifyAssertionAsync(request, expectedAccountId: null, cancellationToken);
+
+    /// <summary>
+    /// 기기 서명을 검증한다. 로그인과 <b>잠금 해제</b>가 같은 코드를 쓴다.
+    /// </summary>
+    /// <param name="request">브라우저의 <c>navigator.credentials.get()</c> 결과</param>
+    /// <param name="expectedAccountId">
+    /// <b>누구의 기기여야 하는가.</b> 로그인은 <c>null</c> 이다 — 누구인지를
+    /// 이 검증이 <i>알아내는</i> 자리라 미리 정해 둘 수 없다.
+    ///
+    /// <para>
+    /// 잠금 해제는 여기에 지금 로그인한 사람을 넣는다. 안 넣으면 <b>옆 사람이
+    /// 자기 지문으로 내 잠금을 풀 수 있다</b> — 서명 자체는 멀쩡히 통과하기
+    /// 때문에 어디에도 실패로 남지 않는다.
+    /// </para>
+    /// </param>
+    /// <param name="cancellationToken">취소 토큰</param>
+    public async Task<WebAuthnResult> VerifyAssertionAsync(
+        WebAuthnLoginDto request, string? expectedAccountId,
+        CancellationToken cancellationToken = default)
     {
         if (Recall(request.SessionId) is not { } pending)
         {
-            return new WebAuthnResult(false, "로그인 시간이 지났습니다. 다시 시도해 주세요.");
+            return new WebAuthnResult(false, expectedAccountId is null
+                ? "로그인 시간이 지났습니다. 다시 시도해 주세요."
+                : "확인 시간이 지났습니다. 다시 시도해 주세요.");
+        }
+
+        // 도전값에 주인이 적혀 있으면(잠금 해제) 그 사람에게 낸 것이어야 한다.
+        // 등록(`RegisterAsync`)이 같은 자리를 같은 이유로 본다.
+        if (pending.AccountId is not null
+            && expectedAccountId is not null
+            && pending.AccountId != expectedAccountId)
+        {
+            return new WebAuthnResult(false, "확인 요청이 계정과 맞지 않습니다.");
         }
 
         var credential = await db.Set<AccountWebAuthnCredential>()
@@ -375,6 +457,14 @@ public sealed class WebAuthnService(
             // 구분해 주면 등록된 기기를 골라내는 데 쓰인다.
             logger.LogInformation("등록되지 않은 패스키로 로그인 시도가 있었다.");
             return new WebAuthnResult(false, "등록된 기기가 아닙니다.");
+        }
+
+        // **잠금 해제의 알맹이가 이 세 줄이다.** 서명은 맞지만 주인이 다른
+        // 열쇠를 여기서 거른다 — 없으면 옆 사람의 지문으로도 내 화면이 열린다.
+        if (expectedAccountId is not null && credential.AccountId != expectedAccountId)
+        {
+            logger.LogWarning("남의 패스키로 잠금을 풀려는 시도가 있었다: credential={Id}", credential.Id);
+            return new WebAuthnResult(false, "이 계정에 등록된 기기가 아닙니다.");
         }
 
         // 인증기가 계정 손잡이를 줬으면 그것도 맞춰 본다. 자격 증명 아이디만

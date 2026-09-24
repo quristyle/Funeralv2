@@ -1,12 +1,16 @@
 /**
- * 패스키(WebAuthn) 배관 — 지문 · 얼굴 · 윈도우 Hello 로 로그인한다.
+ * 패스키(WebAuthn) 배관 — 지문 · 얼굴 · 윈도우 Hello 로 들어가고, 잠금을 푼다.
  *
- * ── 손님이 둘이고 부르는 방식이 다르다 ────────────────────────
+ * ── 손님이 셋이고 부르는 방식이 다르다 ────────────────────────
  *
  *  1. **로그인 화면**(정적 SSR, 회로 없음) — 스스로 문서를 훑어 붙는다.
  *     JS interop 을 쓸 수 없는 화면이라 다른 길이 없다.
  *  2. **내 정보 → 보안 설정**(회로 있음) — `IJSRuntime` 으로 `register` 를
  *     부른다. 결과를 C# 으로 돌려주고 서버에 올리는 일은 그쪽이 한다.
+ *  3. **잠금화면**(회로 있음) — `verify` 를 부른다. 2 와 같은 구도지만
+ *     **새 토큰이 나오지 않는 길**이라는 것이 요점이다. 1 로 다시 들어가면
+ *     잠금 해제가 조용히 재로그인이 되고, 그쪽은 익명이라 **잠근 사람이
+ *     아닌 옆 사람의 지문으로도 열린다.**
  *
  * ── 무엇을 먼저 묻는가는 **이 기기에 적혀 있다** ──────────────
  *
@@ -678,6 +682,65 @@
         };
     }
 
+    // ── 본인 확인 (잠금화면 — 회로에서 부른다) ──────────────────
+
+    /**
+     * 이미 로그인한 사람에게 **기기를 다시 대게** 한다. 잠금화면이 쓴다.
+     *
+     * 위 `initLogin` 의 `start` 와 하는 일이 닮았지만 **끝이 다르다.**
+     * 그쪽은 받은 서명을 감춘 폼에 담아 진짜 POST 로 내보내고(쿠키를 구워야
+     * 하니까), 이쪽은 서명을 그대로 C# 에게 돌려준다 — 잠금 해제는 쿠키를
+     * 건드리지 않는 일이라 회로 안에서 끝난다.
+     *
+     * **누구의 열쇠를 찾을지 고르지 않는다.** 로그인 화면은 아이디 칸과
+     * 브라우저 기억과 「아이디 없이」를 놓고 셋 중 하나를 골라야 했지만,
+     * 여기는 서버가 이미 누구인지 안다. 후보 목록이 곧 답이고, 그것이 비면
+     * **기기를 부르지 않는다** — 불러 봐야 반드시 실패하고, 그 실패는
+     * 규격상 「취소」와 구분되지 않아 사람에게 할 말이 없어진다.
+     *
+     * @param {object} options 서버가 준 `{ sessionId, publicKey }`
+     * @returns {Promise<object>} `{ ok, error?, empty?, ...서버로 보낼 값 }`
+     */
+    async function verify(options) {
+        if (!supported()) {
+            return { ok: false, error: '이 브라우저는 기기 인증(패스키)을 지원하지 않습니다.' };
+        }
+
+        if (countCandidates(options) === 0) {
+            return {
+                ok: false,
+                empty: true,
+                error: '이 계정에 등록된 기기가 없습니다. 비밀번호로 잠금을 풀어 주세요.',
+            };
+        }
+
+        let credential;
+
+        try {
+            credential = await navigator.credentials.get({
+                publicKey: decodeRequestOptions(options.publicKey),
+            });
+        } catch (error) {
+            // 취소·시간 초과일 때만 문구를 갈아 끼운다. `explain` 이 그 자리에
+            // 적어 둔 「아이디와 비밀번호로 들어갈 수 있습니다」는 로그인
+            // 화면의 말이라, 잠긴 화면 앞에서는 있지도 않은 아이디 칸을
+            // 찾게 만든다. 나머지 까닭(지원 안 함 · 도메인 불일치)은 자리와
+            // 무관하므로 그대로 쓴다.
+            return {
+                ok: false,
+                error: error && error.name === 'NotAllowedError'
+                    ? '기기 확인이 취소되었거나 시간이 지났습니다. 비밀번호로도 풀 수 있습니다.'
+                    : explain(error, false),
+            };
+        }
+
+        if (!credential) {
+            return { ok: false, error: '기기가 응답하지 않았습니다.' };
+        }
+
+        return Object.assign({ ok: true }, packAssertion(options.sessionId, credential));
+    }
+
     /**
      * 화면이 「쓸 수 있는가」를 묻는 자리. 예외를 삼키고 거짓으로 답한다.
      *
@@ -696,6 +759,8 @@
     window.jsiniPasskey = {
         initLogin: initLogin,
         register: register,
+        // 잠금화면(`LockScreen`)이 회로에서 부른다.
+        verify: verify,
         status: status,
         // 「내 정보 → 보안 설정」이 회로에서 부른다. 로그인 화면은 회로가
         // 없어 위 `initLogin` 이 안에서 바로 읽는다.

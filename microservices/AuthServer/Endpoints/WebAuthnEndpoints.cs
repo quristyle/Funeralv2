@@ -26,7 +26,9 @@ namespace AuthServer.Endpoints;
 ///   <item>
 ///     <term>나머지</term>
 ///     <description>로그인한 사람만. <b>내 계정에만</b> 붙이고 뗄 수 있다 —
-///     계정 아이디를 요청에서 받지 않고 신원 헤더에서만 읽는 이유가 그것이다.</description>
+///     계정 아이디를 요청에서 받지 않고 신원 헤더에서만 읽는 이유가 그것이다.
+///     잠금화면이 쓰는 <c>/webauthn/verify*</c> 도 여기 속한다. 그쪽은 시도
+///     제한만 로그인과 같은 통(<c>auth-attempts</c>)으로 받는다.</description>
 ///   </item>
 /// </list>
 ///
@@ -213,6 +215,75 @@ public static class WebAuthnEndpoints
         })
         .AllowAnonymous()
         .WithName("LoginWithWebAuthn");
+
+        // ── 본인 확인 (잠금화면) ─────────────────────────────────
+        //
+        // **아무것도 바꾸지 않는다.** 지금 로그인한 사람의 기기가 맞는지만
+        // 보고 참·거짓을 준다. `/user/verify-password` 의 지문판이고,
+        // 그 경로가 왜 그렇게 생겼는지가 여기에도 그대로 적용된다.
+        //
+        // **로그인(`/login`)을 다시 부르면 안 된다.** 그러면 새 토큰이
+        // 발급되어 기존 세션과 섞인다 — 잠금을 푸는 일이 조용히 재로그인이
+        // 된다. 게다가 그 경로는 익명이라 **누구의 지문이든** 통과하고,
+        // 잠근 사람이 아닌 옆 사람의 화면이 열린다.
+        //
+        // **실패해도 401 이 아니라 200 + false 다.** 401 을 주면 프런트의
+        // `AuthTokenHandler` 가 세션이 죽은 것으로 읽고 토큰을 버려서,
+        // 지문 한 번 잘못 대면 **화면 전체가 로그아웃된다.**
+
+        group.MapPost("/verify/options", async (
+            UserContext? user, AppDbContext db, WebAuthnService webAuthn, CancellationToken ct) =>
+        {
+            if (user is null)
+            {
+                return Results.Json(ApiResponse<object>.Fail("인증 정보가 없습니다.", "401"), statusCode: 401);
+            }
+
+            var account = await db.Accounts.FirstOrDefaultAsync(a => a.UserId == user.UserId, ct);
+            if (account is null)
+            {
+                return Results.Json(ApiResponse<object>.Fail("사용자를 찾을 수 없습니다.", "404"), statusCode: 404);
+            }
+
+            var options = await webAuthn.CreateVerifyOptionsAsync(account, ct);
+            return Results.Ok(ApiResponse<WebAuthnOptionsDto>.Ok(options));
+        })
+        .RequireAuthorization()
+        .WithName("CreateWebAuthnVerifyOptions");
+
+        group.MapPost("/verify", async (
+            UserContext? user, [FromBody] WebAuthnLoginDto request,
+            AppDbContext db, WebAuthnService webAuthn,
+            ILogger<Account> logger, CancellationToken ct) =>
+        {
+            if (user is null)
+            {
+                return Results.Json(ApiResponse<object>.Fail("인증 정보가 없습니다.", "401"), statusCode: 401);
+            }
+
+            var account = await db.Accounts.FirstOrDefaultAsync(a => a.UserId == user.UserId, ct);
+            if (account is null)
+            {
+                return Results.Json(ApiResponse<object>.Fail("사용자를 찾을 수 없습니다.", "404"), statusCode: 404);
+            }
+
+            var verified = await webAuthn.VerifyAssertionAsync(request, account.Id, ct);
+
+            if (!verified.Ok)
+            {
+                // 까닭은 **기록에만** 남긴다. 화면에는 거짓만 준다 —
+                // 「등록된 기기가 아니다」와 「서명이 틀렸다」를 갈라 주면
+                // 잠긴 화면 앞에서 남의 기기를 골라내는 데 쓰인다.
+                logger.LogInformation(
+                    "패스키 잠금 해제 실패: {Username} ({Reason})", account.UserId, verified.Message);
+
+                return Results.Ok(ApiResponse<bool>.Ok(false));
+            }
+
+            return Results.Ok(ApiResponse<bool>.Ok(true));
+        })
+        .RequireAuthorization()
+        .WithName("VerifyWebAuthn");
     }
 
     /// <summary>
