@@ -43,6 +43,13 @@
     바람 청록 · 습도 보라) 그 넷은 밝고 어두운 두 테마에서 모두 재어
     골랐다. 자세한 것은 아래 색 상수 옆에 적어 두었다.
 
+    [항목을 바꾸려면 단추까지 가야 했다]
+
+    휴대폰에서 이 차트는 화면을 거의 다 차지하는데, 기온에서 강수로 가려면
+    위쪽 단추 넉 줄 중 하나를 정확히 눌러야 했다. 차트 위를 좌우로 쓸면
+    옆 항목으로 넘어간다 — 단추는 그대로 두었다. 쓸기는 덤이고, 지금 무엇을
+    보는지는 눌린 단추와 축 제목이 계속 말해 준다.
+
     [어제 대비를 색만으로 보이지 않는다]
 
     오르내림에 화살표를 함께 쓴다. 색만으로 가르면 색약인 사람에게는 두 값이
@@ -213,7 +220,13 @@ else
                                   RenderStyle="@MetricStyle(TrendMetric.Humid)"
                                   Click="@(() => _metric = TrendMetric.Humid)" />
                     </div>
-                    <span class="jsini-hint">지난 10시간 실측 · 「지금」 칸부터 예보</span>
+                    <span class="jsini-hint">
+                        지난 10시간 실측 · 「지금」 칸부터 예보
+                        @* 쓸기 안내는 손가락으로 보는 화면에만 나온다(css).
+                           마우스로 여는 화면에 적어 두면 할 수 없는 일을
+                           알려 주는 셈이 된다. *@
+                        <span class="le-trend__swipe">· 옆으로 쓸면 항목이 바뀝니다</span>
+                    </span>
                 </div>
 
                 @*
@@ -228,89 +241,96 @@ else
                     X 축의 눈금·세로 격자도 지웠다. 21칸이 전부 줄이 되면
                     자료보다 바탕이 시끄럽다. 가로 격자(값 축)만 남긴다.
                 *@
-                <DxChart Data="@_trend" Width="100%" Height="280px">
-                    <DxChartLegend Visible="false" />
+                @* 좌우로 쓸면 옆 항목으로 넘어간다(머리말). `touch-action: pan-y`
+                   는 css 에 있다 — 그것이 없으면 가로 손짓을 브라우저가 먼저
+                   집어 뒤로가기가 된다. *@
+                <div class="le-trend__view"
+                     @ontouchstart="@OnTouchStart"
+                     @ontouchend="@OnTouchEnd">
+                    <DxChart Data="@_trend" Width="100%" Height="280px">
+                        <DxChartLegend Visible="false" />
 
-                    <DxChartArgumentAxis>
-                        <DxChartAxisGridLines Visible="false" />
-                        <DxChartAxisTick Visible="false" />
-                        <DxChartAxisLabel Overlap="ChartAxisLabelOverlap.Hide" />
-                    </DxChartArgumentAxis>
+                        <DxChartArgumentAxis>
+                            <DxChartAxisGridLines Visible="false" />
+                            <DxChartAxisTick Visible="false" />
+                            <DxChartAxisLabel Overlap="ChartAxisLabelOverlap.Hide" />
+                        </DxChartArgumentAxis>
 
-                    @* 세로 한 줄만. 가로선까지 따라다니면 격자가 두 벌이 된다. *@
-                    <DxChartCrosshair Enabled="true" Width="1" Opacity="0.7"
-                                      DashStyle="ChartDashStyle.Dot" Color="#8a93a5">
-                        <DxChartCrosshairHorizontalLine Visible="false" />
-                    </DxChartCrosshair>
+                        @* 세로 한 줄만. 가로선까지 따라다니면 격자가 두 벌이 된다. *@
+                        <DxChartCrosshair Enabled="true" Width="1" Opacity="0.7"
+                                          DashStyle="ChartDashStyle.Dot" Color="#8a93a5">
+                            <DxChartCrosshairHorizontalLine Visible="false" />
+                        </DxChartCrosshair>
 
-                    @switch (_metric)
-                    {
-                        case TrendMetric.Rain:
-                            @* 강수량만 막대로 — 옛 화면과 같다. 강수확률(%)은 단위가
-                               달라 같은 축에 못 올린다. 주간 예보 줄이 이미 보여 준다.
-                               막대는 끝만 둥글리고(4px) 사이에 여백을 둔다. *@
-                            <DxChartBarSeries T="TrendPoint" TArgument="string" TValue="double?"
-                                              ArgumentField="p => p.Label"
-                                              ValueField="p => p.Rain"
-                                              Color="@RainColor"
-                                              CornerRadius="4"
-                                              BarPadding="0.3"
-                                              Name="강수량(mm)" />
-                            <DxChartValueAxis>
-                                <DxChartAxisTitle Text="강수량(mm)" />
-                            </DxChartValueAxis>
-                            break;
-                        case TrendMetric.Wind:
-                            <DxChartSplineSeries T="TrendPoint" TArgument="string" TValue="double"
-                                                 ArgumentField="p => p.Label"
-                                                 ValueField="p => p.WindSpeed"
-                                                 Color="@WindColor"
-                                                 Width="2"
-                                                 Name="풍속(m/s)">
-                                <DxChartSeriesPoint Visible="false" />
-                            </DxChartSplineSeries>
-                            <DxChartValueAxis>
-                                <DxChartAxisTitle Text="풍속(m/s)" />
-                            </DxChartValueAxis>
-                            break;
-                        case TrendMetric.Humid:
-                            <DxChartSplineSeries T="TrendPoint" TArgument="string" TValue="double?"
-                                                 ArgumentField="p => p.Label"
-                                                 ValueField="p => p.Humidity"
-                                                 Color="@HumidColor"
-                                                 Width="2"
-                                                 Name="습도(%)">
-                                <DxChartSeriesPoint Visible="false" />
-                            </DxChartSplineSeries>
-                            <DxChartValueAxis>
-                                <DxChartAxisRange StartValue="@(0)" EndValue="@(100)" />
-                                <DxChartAxisTitle Text="습도(%)" />
-                            </DxChartValueAxis>
-                            break;
-                        default:
-                            <DxChartSplineSeries T="TrendPoint" TArgument="string" TValue="double"
-                                                 ArgumentField="p => p.Label"
-                                                 ValueField="p => p.Temp"
-                                                 Color="@TempColor"
-                                                 Width="2"
-                                                 Name="기온(°C)">
-                                <DxChartSeriesPoint Visible="false" />
-                            </DxChartSplineSeries>
-                            <DxChartValueAxis>
-                                <DxChartAxisTitle Text="기온(°C)" />
-                            </DxChartValueAxis>
-                            break;
-                    }
+                        @switch (_metric)
+                        {
+                            case TrendMetric.Rain:
+                                @* 강수량만 막대로 — 옛 화면과 같다. 강수확률(%)은 단위가
+                                   달라 같은 축에 못 올린다. 주간 예보 줄이 이미 보여 준다.
+                                   막대는 끝만 둥글리고(4px) 사이에 여백을 둔다. *@
+                                <DxChartBarSeries T="TrendPoint" TArgument="string" TValue="double?"
+                                                  ArgumentField="p => p.Label"
+                                                  ValueField="p => p.Rain"
+                                                  Color="@RainColor"
+                                                  CornerRadius="4"
+                                                  BarPadding="0.3"
+                                                  Name="강수량(mm)" />
+                                <DxChartValueAxis>
+                                    <DxChartAxisTitle Text="강수량(mm)" />
+                                </DxChartValueAxis>
+                                break;
+                            case TrendMetric.Wind:
+                                <DxChartSplineSeries T="TrendPoint" TArgument="string" TValue="double"
+                                                     ArgumentField="p => p.Label"
+                                                     ValueField="p => p.WindSpeed"
+                                                     Color="@WindColor"
+                                                     Width="2"
+                                                     Name="풍속(m/s)">
+                                    <DxChartSeriesPoint Visible="false" />
+                                </DxChartSplineSeries>
+                                <DxChartValueAxis>
+                                    <DxChartAxisTitle Text="풍속(m/s)" />
+                                </DxChartValueAxis>
+                                break;
+                            case TrendMetric.Humid:
+                                <DxChartSplineSeries T="TrendPoint" TArgument="string" TValue="double?"
+                                                     ArgumentField="p => p.Label"
+                                                     ValueField="p => p.Humidity"
+                                                     Color="@HumidColor"
+                                                     Width="2"
+                                                     Name="습도(%)">
+                                    <DxChartSeriesPoint Visible="false" />
+                                </DxChartSplineSeries>
+                                <DxChartValueAxis>
+                                    <DxChartAxisRange StartValue="@(0)" EndValue="@(100)" />
+                                    <DxChartAxisTitle Text="습도(%)" />
+                                </DxChartValueAxis>
+                                break;
+                            default:
+                                <DxChartSplineSeries T="TrendPoint" TArgument="string" TValue="double"
+                                                     ArgumentField="p => p.Label"
+                                                     ValueField="p => p.Temp"
+                                                     Color="@TempColor"
+                                                     Width="2"
+                                                     Name="기온(°C)">
+                                    <DxChartSeriesPoint Visible="false" />
+                                </DxChartSplineSeries>
+                                <DxChartValueAxis>
+                                    <DxChartAxisTitle Text="기온(°C)" />
+                                </DxChartValueAxis>
+                                break;
+                        }
 
-                    @* 값을 앞에 크게, 무엇인지는 뒤에 작게 — 말풍선을 볼 때는
-                       이미 무엇을 보는지 알고 숫자를 찾는다. *@
-                    <DxChartTooltip Enabled="true">
-                        <div class="le-trend__tip">
-                            <span class="le-trend__tip-value">@TipValue(context.Point.Value)</span>
-                            <span class="le-trend__tip-meta">@context.Point.SeriesName · @context.Point.Argument</span>
-                        </div>
-                    </DxChartTooltip>
-                </DxChart>
+                        @* 값을 앞에 크게, 무엇인지는 뒤에 작게 — 말풍선을 볼 때는
+                           이미 무엇을 보는지 알고 숫자를 찾는다. *@
+                        <DxChartTooltip Enabled="true">
+                            <div class="le-trend__tip">
+                                <span class="le-trend__tip-value">@TipValue(context.Point.Value)</span>
+                                <span class="le-trend__tip-meta">@context.Point.SeriesName · @context.Point.Argument</span>
+                            </div>
+                        </DxChartTooltip>
+                    </DxChart>
+                </div>
             </div>
         }
     }
@@ -412,6 +432,78 @@ else
     private ButtonRenderStyle MetricStyle(TrendMetric metric)
         => _metric == metric ? ButtonRenderStyle.Primary : ButtonRenderStyle.Secondary;
 
+    // ── 좌우로 쓸어 항목 바꾸기 ─────────────────────────────
+
+    /// <summary>
+    /// 쓸기로 칠 최소 거리(px). 작게 두면 <b>말풍선을 보려고 짚은 손짓이
+    /// 쓸기로 새서</b> 값을 읽으려다 항목이 바뀐다. 이 저장소의 다른 쓸기
+    /// (프로젝트 일정 달력)와 같은 값이다.
+    /// </summary>
+    private const double SwipeMin = 48;
+
+    private double _touchX;
+    private double _touchY;
+
+    private void OnTouchStart(TouchEventArgs e)
+    {
+        if (e.Touches.Length == 0)
+        {
+            return;
+        }
+
+        _touchX = e.Touches[0].ClientX;
+        _touchY = e.Touches[0].ClientY;
+    }
+
+    /// <summary>
+    /// 좌우로 쓸면 옆 항목(기온 · 강수 · 바람 · 습도)으로 간다.
+    ///
+    /// <para>
+    /// <b>세로로 더 많이 움직였으면 아무 일도 하지 않는다.</b> 차트는 화면
+    /// 아래쪽에 넓게 누워 있어서 쪽을 굴리는 손짓이 여기서 시작한다 — 가로만
+    /// 보고 넘기면 <b>아래를 보려고 내릴 때마다 항목이 바뀐다.</b>
+    /// </para>
+    ///
+    /// <para>
+    /// 쓸기는 <b>덤</b>이다. 안 먹어도 위 단추 넷이 같은 일을 한다.
+    /// </para>
+    /// </summary>
+    private void OnTouchEnd(TouchEventArgs e)
+    {
+        if (e.ChangedTouches.Length == 0)
+        {
+            return;
+        }
+
+        var dx = e.ChangedTouches[0].ClientX - _touchX;
+        var dy = e.ChangedTouches[0].ClientY - _touchY;
+
+        if (Math.Abs(dx) < SwipeMin || Math.Abs(dy) >= Math.Abs(dx))
+        {
+            return;
+        }
+
+        // 왼쪽으로 쓸면 오른쪽 단추로 간다 — 종이를 넘기는 쪽과 같다.
+        ShiftMetric(dx < 0 ? 1 : -1);
+    }
+
+    /// <summary>
+    /// 단추가 놓인 차례대로 한 칸 옮긴다.
+    ///
+    /// <b>끝에서는 돌지 않는다</b> — 단추 넷이 한 줄로 보이는 화면이라
+    /// 습도에서 한 번 더 쓸었을 때 기온으로 튀면 어디로 갔는지 알 수 없다.
+    /// 맨 끝이라는 것은 눌린 단추의 자리가 말해 준다.
+    /// </summary>
+    private void ShiftMetric(int step)
+    {
+        var next = (int)_metric + step;
+
+        if (next >= 0 && next <= (int)TrendMetric.Humid)
+        {
+            _metric = (TrendMetric)next;
+        }
+    }
+
     /*  ── 항목별 선 색 ────────────────────────────────────────
 
         차트 색은 여기 C# 에서 정해지는데 **테마는 브라우저가 바꾼다**
@@ -475,6 +567,7 @@ else
     private static string HourLabel(string time)
         => time.Length >= 2 ? $"{time[..2]}시" : time;
 
+    /// <summary>차트에 그릴 항목. <b>차례가 단추가 놓인 차례이자 쓸기 차례다</b> — 값을 섞으면 쓸기가 단추 줄과 어긋난다.</summary>
     private enum TrendMetric { Temp, Rain, Wind, Humid }
 
     /// <summary>차트 한 점. 습도는 실측 구간에 빈 칸이 있을 수 있어 nullable — DxChart 는 null 을 빈 칸으로 건너뛴다.</summary>
