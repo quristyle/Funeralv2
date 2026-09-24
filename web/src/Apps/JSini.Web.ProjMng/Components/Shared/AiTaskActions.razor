@@ -94,11 +94,11 @@
            Width="min(36rem, calc(100vw - 2rem))"
            CloseOnOutsideClick="false">
     <BodyContentTemplate>
-        <PageNotice Tone="NoticeTone.Info"
-                    Text="실패한 작업을 다시 요청합니다. 추가 지시사항이 있으면 적으십시오. (비워두면 기존 지시 그대로 다시 시도합니다)" />
-
+@* 안내 줄을 두지 않는다 — 창 제목이 「수동 재시도」고, 비워도 된다는 것은
+           글상자의 자리글이 말한다. 좁은 화면에서 그 한 줄은 글상자를 그만큼
+           밀어 올린다. *@
         <DxMemo @bind-Text="_retryAddition" Rows="5"
-                NullText="추가 지시사항 (선택사항)"
+                NullText="더 시킬 일 — 비우면 기존 지시 그대로 다시 시도합니다"
                 CssClass="pm-peek__memo" />
 
         @if (!string.IsNullOrWhiteSpace(_retryError))
@@ -122,9 +122,8 @@
            Width="min(36rem, calc(100vw - 2rem))"
            CloseOnOutsideClick="false">
     <BodyContentTemplate>
-        <PageNotice Tone="NoticeTone.Info"
-                    Text="지난 진행(요약과 바뀐 파일)은 서버가 앞에 붙입니다. 여기에는 이번에 더 시킬 일만 적으십시오." />
-
+@* 「지난 진행은 서버가 앞에 붙인다」를 안내 줄로 두지 않는다 — 창 제목이
+           「이어서 지시」고 글상자 자리글이 무엇을 적는 자리인지 말한다. *@
         @* 이 회차를 맡을 AI. **표제를 단다** — 글상자 위에 이름만 적힌 칸이
            덩그러니 있으면 그것이 무엇을 고르는 칸인지 알 수 없다. 라벨은
            `<span>` 이다(조회 조건 칸 `CommSchItem` 과 같은 모양) — `<label for>`
@@ -151,7 +150,7 @@
            값이 비어 있는 것으로 보여 단추가 죽은 채로 있었다. *@
         <DxMemo @bind-Text="_continueAddition" Rows="5"
                 BindValueMode="BindValueMode.OnInput"
-                NullText="이번에 더 시킬 일"
+                NullText="이번에 더 시킬 일 — 지난 진행은 서버가 앞에 붙입니다"
                 CssClass="pm-peek__memo" />
 
         @if (!string.IsNullOrWhiteSpace(_continueError))

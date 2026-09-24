@@ -297,7 +297,7 @@
             @if (_draftAt is { } at)
             {
                 <PageNotice Tone="NoticeTone.Info"
-                            Text="@($"임시저장 {at:MM-dd HH:mm:ss} — 이 브라우저에만 적어 둔 것입니다. 「저장」을 눌러야 서버에 들어갑니다.")" />
+                            Text="@($"임시저장 {at:MM-dd HH:mm:ss} — 「저장」을 눌러야 서버에 들어갑니다.")" />
             }
 
             @* 저장소를 막아 둔 브라우저(사생활 보호 모드)이거나 가득 찼다.
@@ -527,12 +527,12 @@
                             else if (openResult.IsRunning)
                             {
                                 <PageNotice Tone="NoticeTone.Info"
-                                            Text="@($"{openResult.Seq}차 작업이 실행 중입니다. 실행이 완료되면 결과가 여기에 표시됩니다. 진행 로그는 「로그」 탭에서 확인할 수 있습니다.")" />
+                                            Text="@($"{openResult.Seq}차 작업이 실행 중입니다.")" />
                             }
                             else
                             {
                                 <PageNotice Tone="NoticeTone.Info"
-                                            Text="@($"{openResult.Seq}차 실행 결과 텍스트가 없습니다. 상세 내용은 「로그」 탭을 확인하십시오.")" />
+                                            Text="@($"{openResult.Seq}차 실행 결과가 없습니다.")" />
                             }
                         }
                         else if (_runs.Count == 0)
@@ -586,13 +586,11 @@
    단추는 `FooterContentTemplate` 이 판을 그려 준다. *@
 <CommPopup @bind-Visible="_continueOpen" HeaderText="이어서 지시" Width="640px">
     <BodyContentTemplate>
-        <PageNotice Tone="NoticeTone.Info"
-                    Text="지난 진행(요약과 바뀐 파일)은 서버가 앞에 붙입니다. 여기에는 이번에 더 시킬 일만 적으십시오." />
-
         @* **한 글자 칠 때마다 값이 올라와야** 아래 「이어서 지시」가 깨어난다.
            `DxMemo` 의 기본값은 `OnLostFocus` 라 글상자를 빠져나가기 전에는
            값이 비어 있는 것으로 보여 단추가 죽은 채로 있었다. *@
-        <DxMemo @bind-Text="_addition" Rows="8" NullText="이번에 더 시킬 일"
+        <DxMemo @bind-Text="_addition" Rows="8"
+                NullText="이번에 더 시킬 일 — 지난 진행은 서버가 앞에 붙입니다"
                 BindValueMode="BindValueMode.OnInput"
                 CssClass="pm-ai-addition" />
     </BodyContentTemplate>

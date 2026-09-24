@@ -178,8 +178,11 @@
             @* ── 웹푸시 ─────────────────────────────────────────────── *@
             <DxTabPage Text="PWA 발송">
                 <div class="ad-sendform">
+@* 「브라우저·휴대폰 알림으로 간다」는 탭 이름이 이미 말한다. 남기는 것은
+                       **받는 쪽이 등록해야 도착한다**는 것 하나다 — 그것이 「보냈는데
+                       안 왔다」의 거의 모든 원인이고 화면 어디에도 안 적혀 있다. *@
                     <PageNotice Tone="NoticeTone.Info"
-                                Text="브라우저·휴대폰 알림으로 갑니다. 받는 사람이 이 포털을 알림 설정에서 등록해 두어야 도착합니다." />
+                                Text="받는 사람이 이 포털을 알림 설정에서 등록해 두어야 도착합니다." />
 
                     <div class="ad-field">
                         <label class="ad-field__label">제목 <span class="ad-field__must">*</span></label>
@@ -243,10 +246,12 @@
                 <div class="ad-sendform">
                     @* **큐가 아니라 SMTP 직발송이다.** 서식 본문과 첨부를 붙이면서
                        길을 옮겼다 — 큐의 스풀 JSON 은 제목·본문·받는이 셋만 담는
-                       규약이라 그 둘을 실을 자리가 없다(`AdminClient` 머리말). *@
-                    <PageNotice Tone="NoticeTone.Info"
-                                Text="메일 서버로 바로 보냅니다. 보내고 나서 성공·실패를 알려 드립니다." />
+                       규약이라 그 둘을 실을 자리가 없다(`AdminClient` 머리말).
 
+                       그 사실을 **화면에 적지 않는다.** 큐냐 SMTP 냐는 보내는
+                       사람이 할 일을 바꾸지 않고, 성공·실패는 보낸 뒤 토스트가
+                       말한다 — 미리 적어 두면 아래 「고른 N 명 중…」 같은
+                       **정말 봐야 하는 주의**가 그 틈에 묻힌다. *@
                     @if (_picked.Count > 0 && NoEmail.Count > 0)
                     {
                         <PageNotice Tone="NoticeTone.Warning"
