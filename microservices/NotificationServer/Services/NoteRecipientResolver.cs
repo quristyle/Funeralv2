@@ -34,6 +34,27 @@ public interface INoteRecipientResolver
     /// 돌려준다(<see cref="NoteRecipientDto.CanReceive"/>).
     /// </summary>
     Task<List<NoteRecipientDto>> SearchAsync(string? query, int take, CancellationToken ct = default);
+
+    /// <summary>
+    /// 로그인 아이디로 곧바로 읽는다. <b>사람이 적은 글자가 아니라 이미 아는
+    /// 아이디</b>를 푸는 자리다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <see cref="ResolveAsync"/> 와 갈래가 다르다. 그쪽은 사람이 손으로 적은
+    /// 값이라 이메일로도 걸리게 하고 <b>서른 개에서 자른다</b>
+    /// (<c>NoteRecipientResolver.MaxRecipients</c> — 쪽지는 「아는 몇 사람에게
+    /// 한 통」이다). 이쪽은 화면이 이미 갖고 있는 명단에 <b>「쪽지가 닿는가」를
+    /// 덧붙이는</b> 자리라 자르면 안 된다 — 서른한 번째 사람만 조용히 못 받는
+    /// 것으로 그려진다.
+    /// </para>
+    /// <para>
+    /// <b>못 찾은 아이디는 돌려주지 않는다.</b> 부르는 쪽이 이미 명단을 들고
+    /// 있어서 빠진 것을 스스로 안다 — 지워진 계정이 그렇다.
+    /// </para>
+    /// </remarks>
+    Task<List<NoteRecipientDto>> LoadByLoginIdsAsync(
+        IEnumerable<string> loginIds, CancellationToken ct = default);
 }
 
 /// <inheritdoc cref="INoteRecipientResolver" />
@@ -172,6 +193,24 @@ public sealed class NoteRecipientResolver(AppDbContext db, INotificationPreferen
             limit);
 
         return [.. rows.OrderBy(r => r.Name ?? r.LoginId, StringComparer.CurrentCulture)];
+    }
+
+    /// <inheritdoc />
+    public async Task<List<NoteRecipientDto>> LoadByLoginIdsAsync(
+        IEnumerable<string> loginIds, CancellationToken ct = default)
+    {
+        var keys = loginIds
+            .Where(k => !string.IsNullOrWhiteSpace(k))
+            .Select(k => k.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (keys.Count == 0)
+        {
+            return [];
+        }
+
+        return await LoadAsync(a => keys.Contains(a.UserId), ct);
     }
 
     /// <summary>

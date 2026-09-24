@@ -2591,3 +2591,220 @@
   border-color: #6a4bb2;
   color: #6a4bb2;
 }
+
+/* ============================================================
+   위치 지도 (`LocationMapPage`)
+
+   타일과 점은 JS 가 붙이고(`js/geo-map.js`) 여기서는 자리와 색만 정한다.
+   ============================================================ */
+
+/* 지도 상자. **자리를 잘라 내는 쪽**이라 `overflow: hidden` 이 있어야
+   타일이 판 밖으로 새지 않고, `position: relative` 가 있어야 안쪽 것들이
+   이 상자를 기준으로 놓인다. */
+.ad-geomap {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--jsini-border);
+  border-radius: var(--jsini-radius-md);
+  background: var(--jsini-surface);
+
+  /* 좁은 화면에서는 판이 위아래로 쌓여 남은 높이가 없다. 지도는 **높이가
+     0 이면 아무것도 안 그려지므로**(타일 범위가 비어 버린다) 바닥을 둔다. */
+  min-height: 360px;
+
+  /* 손가락 끌기를 브라우저의 쪽 스크롤에 뺏기지 않는다 — 조직도 캔버스와
+     같은 자리다. 이것이 없으면 휴대폰에서 지도가 안 움직인다. */
+  touch-action: none;
+  cursor: grab;
+}
+
+.ad-geomap.is-grabbing {
+  cursor: grabbing;
+}
+
+/* 넓은 화면에서는 판이 본문 높이를 채운다. `.ad-split > .commcont` 규칙이
+   본문을 세로 flex 로 만들어 두므로 여기서 남은 높이를 다 먹으면 된다. */
+@media (min-width: 992px) {
+  .ad-split .ad-geomap {
+    flex: 1;
+    min-height: 0;
+  }
+}
+
+/* 타일과 점은 같은 자리에 겹쳐 깔린다. 점이 위다. */
+.ad-geomap__stage,
+.ad-geomap__tiles,
+.ad-geomap__pins {
+  position: absolute;
+  inset: 0;
+}
+
+.ad-geomap__pins {
+  /* 판은 점을 안 가로챈다 — 끌기는 아래 타일 층이 받는다. 점만 되살린다. */
+  pointer-events: none;
+}
+
+/* 타일 한 장. `transform` 으로 놓으므로 왼쪽 위에 붙여 둔다. */
+.ad-geomap__tile {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 256px;
+  height: 256px;
+
+  /* 끌 때 브라우저의 그림 끌기가 먼저 걸리면 지도가 안 움직인다. */
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+/* 점 하나. 가운데가 좌표에 오도록 자기 크기의 절반만큼 당긴다. */
+.ad-geomap__pin {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  pointer-events: auto;
+
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+
+  padding: 0.15rem 0.5rem 0.15rem 0.2rem;
+  border: 1px solid var(--jsini-accent);
+  border-radius: var(--jsini-radius-full);
+  background: var(--jsini-bg);
+  color: var(--jsini-text);
+  font-size: var(--jsini-fs-2xs);
+  line-height: 1.5;
+  white-space: nowrap;
+  cursor: pointer;
+
+  /* 타일 위에 떠 있는 것으로 읽혀야 한다. 테두리만으로는 지도 무늬에 묻힌다. */
+  box-shadow: 0 1px 4px rgb(0 0 0 / 28%);
+}
+
+/* 이름 앞의 동그라미. `::before` 로 두어 DOM 을 늘리지 않는다. */
+.ad-geomap__pin::before {
+  content: "";
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 50%;
+  background: var(--jsini-accent);
+  flex: none;
+}
+
+.ad-geomap__pin:hover {
+  z-index: 3;
+}
+
+/* 고른 점은 **커지지 않고 색이 찬다.** 커지면 그 순간 가리키는 자리가
+   미세하게 달라 보이고, 겹쳐 벌려 둔 이웃을 밀어낸 것처럼 읽힌다. */
+.ad-geomap__pin.is-picked {
+  z-index: 4;
+  background: var(--jsini-accent);
+  color: #fff;
+  font-weight: 600;
+}
+
+.ad-geomap__pin.is-picked::before {
+  background: #fff;
+}
+
+/* 쪽지가 안 닿는 사람. **지우지 않고 흐리게 둔다** — 까닭은 화면 머리말에. */
+.ad-geomap__pin.is-muted {
+  border-color: var(--jsini-text-muted);
+  color: var(--jsini-text-muted);
+}
+
+.ad-geomap__pin.is-muted::before {
+  background: var(--jsini-text-muted);
+}
+
+/* 같은 자리에서 벌려 놓은 점이 원래 자리를 가리키는 선. */
+.ad-geomap__link {
+  position: absolute;
+  height: 1px;
+  transform-origin: 0 50%;
+  background: var(--jsini-text-muted);
+  opacity: 0.55;
+}
+
+/* 확대·축소 단추. 오른쪽 위 — 지도 판의 관례다. */
+.ad-geomap__zoom {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+/* 타일을 내주는 쪽이 요구하는 표시. 오른쪽 아래에 작게. */
+.ad-geomap__credit {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  z-index: 5;
+  padding: 0.05rem 0.35rem;
+  border-radius: var(--jsini-radius-sm) 0 0 0;
+  background: color-mix(in srgb, var(--jsini-bg) 82%, transparent);
+  font-size: var(--jsini-fs-2xs);
+}
+
+.ad-geomap__credit a {
+  color: var(--jsini-text-muted);
+  text-decoration: none;
+}
+
+/* 고른 사람의 카드. **지도 위에 얹는다** — 아래에 두면 점을 누를 때마다
+   눈이 지도 밖으로 내려갔다 올라온다. */
+.ad-geomap__card {
+  position: absolute;
+  left: 0.5rem;
+  bottom: 0.5rem;
+  z-index: 5;
+  width: min(17rem, calc(100% - 1rem));
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--jsini-border);
+  border-radius: var(--jsini-radius-md);
+  background: var(--jsini-bg);
+  box-shadow: 0 2px 10px rgb(0 0 0 / 22%);
+}
+
+.ad-geomap__who {
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+}
+
+/* 이름표와 값이 두 칸으로 선다 — 쪽지 읽기 창의 `ad-note__meta` 와 같은 꼴. */
+.ad-geomap__facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.1rem 0.6rem;
+  margin: 0 0 0.5rem;
+  font-size: var(--jsini-fs-sm);
+}
+
+.ad-geomap__facts dt {
+  color: var(--jsini-text-muted);
+}
+
+.ad-geomap__facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.ad-geomap__acts {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.ad-geomap__out {
+  font-size: var(--jsini-fs-sm);
+  color: var(--jsini-text-muted);
+}
+
+/* 목록에서 쪽지가 안 닿는 사람. 점의 흐림과 같은 뜻을 같은 색으로 말한다. */
+.ad-geomap__off {
+  color: var(--jsini-text-muted);
+}

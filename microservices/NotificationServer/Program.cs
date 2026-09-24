@@ -153,6 +153,7 @@ app.UseAuthorization();
 
 app.MapNotificationEndpoints();
 app.MapNoteEndpoints();       // 쪽지 — 사람에게서 사람에게로 가는 짧은 글
+app.MapLocationEndpoints();   // 위치를 허용한 계정들 — 좌표가 이 서비스에 있다
 app.MapEmailEndpoints();
 app.MapWeatherEventEndpoints(); // 기상 이벤트 발송 (D-G1a) — LifeEnvServer 가 부른다
 app.MapDeployEventEndpoints();  // 배포 반영 알림 — GitHub Actions 의 deploy 잡이 부른다

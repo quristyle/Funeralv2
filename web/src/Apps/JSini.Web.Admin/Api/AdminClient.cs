@@ -591,6 +591,27 @@ public sealed class AdminClient(GatewayClient gateway)
             $"notification/notifications/owners/{Uri.EscapeDataString(loginId)}/app-status"
             + Query(("ownerType", "jsini"), ("days", days), ("take", take)), ct);
 
+    /// <summary>
+    /// <b>위치를 허용한 계정들</b> — 좌표 · 지역 이름 · 마지막으로 잡힌 때,
+    /// 그리고 「쪽지가 닿는가」.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 좌표는 「내 위치 날씨」를 보내려고 받아 둔 것이다. 위치 지도 화면
+    /// (<c>/admin/location/map</c>)이 그 값을 점으로 찍는다 — <b>새로 받지
+    /// 않는다.</b> 사람의 자리를 적는 칸을 하나 더 만들면 한쪽만 갱신되는 날이
+    /// 반드시 온다.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>좌표가 없는 사람은 오지 않는다.</b> 「허용한 계정」이 목록의 뜻이라
+    /// 서버가 거른다 — 화면이 거르면 그 규칙이 화면마다 갈라진다.
+    /// </para>
+    /// </remarks>
+    public Task<IReadOnlyList<AccountLocationDto>> GetAccountLocationsAsync(
+        CancellationToken ct = default)
+        => gateway.GetListAsync<AccountLocationDto>("notification/locations", ct);
+
     // ── 내 알림 설정은 여기 없다 ───────────────────────────────
     //
     // 내 알림 설정과 웹푸시 구독은 **공용 클라이언트**가 다룬다
