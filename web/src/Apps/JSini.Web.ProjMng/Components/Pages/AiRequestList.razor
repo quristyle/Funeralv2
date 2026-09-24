@@ -50,6 +50,26 @@
     거르는 일은 서버가 한다(`cre_id = 보낸 사람`). 화면에서 거르면 남의
     지시문이 이미 브라우저까지 다 온 뒤다.
 
+    [목록은 최근 다섯 건만 깔고 나머지는 「더보기」로 꺼낸다 (2026-09-24)]
+
+    받은 것을 전부 깔고 있었다. 이 화면을 가장 많이 쓰는 자리가 **휴대폰**인데
+    (헤더의 노란 번개가 그리로 들어가는 유일한 입구다) 요청이 스물이면 스무
+    줄이 그대로 깔려, 새로 적는 판이 화면 맨 위로 밀려나고 **아래로 끝없이
+    긁어야** 바닥에 닿는다. 정작 여기서 자주 보는 것은 방금 올린 몇 건이다.
+
+    그래서 다섯 줄만 깔고 나머지는 단추 하나 뒤에 둔다. 다섯은 휴대폰 한
+    화면에 목록 판이 통째로 들어가는 수다.
+
+    자르는 일은 **화면이 한다.** 서버는 이미 전부 주고 있고(`mine`), 「더보기」는
+    그 자르는 수를 늘리는 일뿐이라 다시 다녀오지 않는다. 남은 건수를 단추에
+    적어(「더보기 7건」) 몇 줄이 더 있는지를 누르기 전에 알게 하고, 한 번이라도
+    늘렸으면 「접기」가 옆에 선다 — 「빠른 지시」의 카드 목록이 같은 규칙이다.
+
+    **새로고침해도 펼친 만큼은 그대로 둔다.** 펼쳐 놓고 하나 고쳐 저장하면
+    목록을 다시 읽는데, 그때 접히면 보고 있던 줄이 눈앞에서 사라진다.
+    고치는 중인 건이 잘리는 자리 밖이면 **보일 때까지 늘려서** 연다 — 위 판은
+    「고치는 중」인데 목록에는 그 줄이 없는 자리가 되지 않게 한다.
+
     [따라가기(자동 새로고침)를 걸지 않았다]
 
     「빠른 지시」는 몇 초마다 목록을 다시 읽는다. 그쪽은 **방금 보낸 것이
@@ -170,7 +190,7 @@
             else
             {
                 <ul class="pm-req__list">
-                    @foreach (var t in _rows)
+                    @foreach (var t in Shown)
                     {
                         @* 줄 하나가 요청 하나다. 왼쪽 띠와 상태 배지가 같은
                            색을 쓰므로 **훑을 때는 색으로, 확인할 때는 글자로**
@@ -198,6 +218,29 @@
                         </li>
                     }
                 </ul>
+
+                @* 잘려 나간 줄을 여기서 꺼낸다. 서버를 다시 부르지 않는다 —
+                   목록은 어차피 전부 받아 놓고 화면에서 다섯만 자르고 있었다. *@
+                @if (Rest > 0 || _more > 0)
+                {
+                    <div class="pm-req__more">
+                        @if (Rest > 0)
+                        {
+                            <DxButton Text="@($"더보기 {Rest}건")"
+                                      RenderStyle="ButtonRenderStyle.Secondary"
+                                      CssClass="pm-req__morego"
+                                      Click="@ShowMore" />
+                        }
+
+                        @if (_more > 0)
+                        {
+                            <DxButton Text="접기"
+                                      RenderStyle="ButtonRenderStyle.Secondary"
+                                      CssClass="pm-req__fold"
+                                      Click="@Fold" />
+                        }
+                    </div>
+                }
             }
         </ChildContent>
     </CommCont>
@@ -207,8 +250,29 @@
 </div>
 
 @code {
-    /// <summary>올려 둔 것. <b>서버가 내 것만 준다.</b></summary>
+    /// <summary>
+    /// 처음 깔리는 줄 수이자 <b>「더보기」가 한 번에 늘리는 수</b>다.
+    /// 휴대폰 한 화면에 목록 판이 통째로 들어가는 수로 잡았다 — 위 머리말 참고.
+    /// </summary>
+    private const int RecentMax = 5;
+
+    /// <summary>
+    /// 올려 둔 것 <b>전부</b>. <b>서버가 내 것만 준다.</b>
+    /// 서버가 잘라 주지 않으므로 한 번에 다 온다 — 「더보기」는 여기서 몇 줄을
+    /// 꺼내 보이느냐의 문제다(<see cref="Shown"/>).
+    /// </summary>
+    /// <remarks>
+    /// <b>최근이 앞이다</b>(<c>ORDER BY task_key DESC</c>). 앞에서 자르는 것이
+    /// 곧 「최근 몇 건」인 것은 그 정렬에 기댄 것이다.
+    /// </remarks>
     private IReadOnlyList<AiTaskDto> _rows = [];
+
+    /// <summary>
+    /// 「더보기」를 몇 번 눌렀나. 한 번에 <see cref="RecentMax"/> 줄씩 더 꺼낸다.
+    /// <b>다시 읽어도 유지된다</b> — 고쳐 저장하면 목록을 다시 읽는데, 그때
+    /// 접히면 펼쳐 놓고 보던 줄이 눈앞에서 사라진다.
+    /// </summary>
+    private int _more;
 
     /// <summary>
     /// 지금 고치는 중인 건. <c>null</c> 이면 새로 적는 중이다.
@@ -254,9 +318,28 @@
         ? "이미 처리가 시작된 요청입니다. 내용만 볼 수 있습니다."
         : "적어서 올려 두면 관리자가 내용을 확인하고 작업 위치와 AI 를 정해 실행합니다.";
 
+    /// <summary>
+    /// 지금 깔리는 줄. <b>앞에서부터 자른다</b> — 목록이 최근 순이라 그것이
+    /// 곧 「최근 몇 건」이다.
+    /// </summary>
+    private IEnumerable<AiTaskDto> Shown => _rows.Take(ShownCount);
+
+    private int ShownCount => Math.Min(_rows.Count, RecentMax * (_more + 1));
+
+    /// <summary>잘려 나가 안 보이는 줄 수. 「더보기」 단추에 적힌다.</summary>
+    private int Rest => _rows.Count - ShownCount;
+
     private string ListHint => _rows.Count == 0
         ? string.Empty
-        : $"{_rows.Count}건 · 「접수 대기」인 것만 고치거나 거둬들일 수 있습니다.";
+        : Rest > 0
+            ? $"전체 {_rows.Count}건 중 최근 {ShownCount}건 · 「접수 대기」인 것만 고치거나 거둬들일 수 있습니다."
+            : $"{_rows.Count}건 · 「접수 대기」인 것만 고치거나 거둬들일 수 있습니다.";
+
+    /// <summary>자른 자리를 <see cref="RecentMax"/> 줄만큼 늘린다.</summary>
+    private void ShowMore() => _more++;
+
+    /// <summary>처음 다섯 줄로 되돌린다.</summary>
+    private void Fold() => _more = 0;
 
     protected override Task OnInitializedAsync() => LoadMineAsync();
 
@@ -278,7 +361,32 @@
             {
                 ResetForm();
             }
+            else
+            {
+                Reveal(_editing);
+            }
         }
+    }
+
+    /// <summary>
+    /// 그 줄이 <b>잘리는 자리 밖이면 보일 때까지 늘린다.</b>
+    /// </summary>
+    /// <remarks>
+    /// 위 판은 「고치는 중」인데 목록에는 그 줄이 없는 자리가 되지 않게 한다 —
+    /// 어느 것을 고치는 중인지는 목록의 <c>pm-req__head--picked</c> 가 말한다.
+    /// </remarks>
+    private void Reveal(AiTaskDto t)
+    {
+        var at = _rows.ToList().FindIndex(r => r.TaskKey == t.TaskKey);
+
+        if (at < 0)
+        {
+            return;
+        }
+
+        // at 이 0부터이므로 at + 1 번째 줄이다. 그 줄이 들어가려면 한 뭉치를
+        // 몇 번 늘려야 하는지가 그대로 `_more` 다.
+        _more = Math.Max(_more, at / RecentMax);
     }
 
     /// <summary>목록에서 하나를 집었다. 위 판에 싣는다.</summary>
