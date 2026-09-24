@@ -1,0 +1,211 @@
+@page "/cargoadmin/disputes"
+@attribute [RouteKey("cargoadmin.disputes")]
+
+@*
+    [이의제기 관리] — 설계안 CTA-007 · 14절.
+
+    거래처(운송사/주선사) 쪽이 「그 거래는 사실과 다르다」고 올린 것이다. 신고와
+    다른 점은 **양쪽이 있다**는 것 — 이의를 낸 사람과 그 거래를 등록한 사람이 따로라
+    둘을 나란히 적는다(`requesterName` · `transactionOwnerName`). 한쪽 이름만 보이면
+    관리자가 누구의 말을 듣고 있는지 헷갈린다.
+
+    [인용 · 기각]
+
+    처리 창의 상태는 접수 · 검토중 · 인용 · 기각 넷이다. 「거래 숨김」은 **인용일 때만**
+    듣는다(계약서 `AdminResolve` — 서버가 ACCEPTED 일 때만 그 거래를 통계에서 뺀다).
+    그래서 인용이 아니면 체크칸을 잠근다 — 켜 둔 채 기각으로 저장하면 사람은 숨겼다고
+    믿는데 서버는 아무것도 안 한다.
+*@
+
+@inherits DataPage
+@inject CargoAdminClient Api
+
+<PageTitle>이의제기 관리 · 운송관리 관리자</PageTitle>
+
+<CommSch OnSearch="@ReloadAsync" Busy="@Loading" MobileSummary="@ConditionSummary">
+    <Fields>
+        <CommSchItem Label="상태">
+            <DxComboBox Data="@CargoAdminCodes.DisputeStatus.Filter" @bind-Value="_status"
+                        TextFieldName="@nameof(SchOption.Text)" ValueFieldName="@nameof(SchOption.Value)"
+                        Style="width: 120px" />
+        </CommSchItem>
+    </Fields>
+</CommSch>
+
+<CommCont>
+    <CommGrd TItem="AdminDispute"
+             Data="@_rows"
+             ExportName="운송관리이의제기"
+             PageSize="20"
+             Reload="@ReloadAsync">
+        <RowActions Context="row">
+            <PermissionView Action="MenuAction.Update">
+                <DxButton IconCssClass="jsini-icon-check-circle"
+                          Title="처리"
+                          RenderStyle="ButtonRenderStyle.Link"
+                          Click="@(() => Open(row))" />
+            </PermissionView>
+        </RowActions>
+
+        <Columns>
+            <DxGridDataColumn FieldName="@nameof(AdminDispute.CreatedAt)" Caption="접수" Width="140"
+                              DisplayFormat="yyyy-MM-dd HH:mm" />
+
+            <DxGridDataColumn FieldName="@nameof(AdminDispute.Status)" Caption="상태" Width="80">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var d = (AdminDispute)cell.DataItem;
+                    }
+                    <span class="@CargoAdminCodes.DisputeStatus.BadgeOf(d.Status)">@CargoAdminCodes.DisputeStatus.NameOf(d.Status)</span>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn FieldName="@nameof(AdminDispute.CompanyName)" Caption="거래처" Width="170" />
+            <DxGridDataColumn FieldName="@nameof(AdminDispute.TransactionId)" Caption="거래 번호" Width="90" />
+            <DxGridDataColumn FieldName="@nameof(AdminDispute.TransportDate)" Caption="운송일" Width="100"
+                              DisplayFormat="yyyy-MM-dd" />
+            <DxGridDataColumn FieldName="@nameof(AdminDispute.Amount)" Caption="운송료" Width="110"
+                              DisplayFormat="#,0" TextAlignment="GridTextAlignment.Right" />
+
+            <DxGridDataColumn FieldName="@nameof(AdminDispute.Reason)" Caption="사유" Width="120">
+                <CellDisplayTemplate Context="cell">
+                    @CargoAdminCodes.DisputeReason.NameOf(((AdminDispute)cell.DataItem).Reason)
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn FieldName="@nameof(AdminDispute.Content)" Caption="내용" MinWidth="220"
+                              TextAlignment="GridTextAlignment.Left">
+                <CellDisplayTemplate Context="cell">
+                    <div class="ca-clamp">@(((AdminDispute)cell.DataItem).Content)</div>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn FieldName="@nameof(AdminDispute.RequesterName)" Caption="신청자" Width="110" />
+            <DxGridDataColumn FieldName="@nameof(AdminDispute.TransactionOwnerName)" Caption="거래 등록자" Width="110" />
+            <DxGridDataColumn FieldName="@nameof(AdminDispute.Resolution)" Caption="처리 내용" MinWidth="160" />
+            <DxGridDataColumn FieldName="@nameof(AdminDispute.ResolvedAt)" Caption="처리" Width="140"
+                              DisplayFormat="yyyy-MM-dd HH:mm" />
+        </Columns>
+
+        <DetailRowTemplate Context="detail">
+            <p class="ca-text">@(((AdminDispute)detail.DataItem).Content)</p>
+        </DetailRowTemplate>
+    </CommGrd>
+</CommCont>
+
+<CommPopup @bind-Visible="_editing" HeaderText="이의제기 처리" Width="560px">
+    <BodyContentTemplate Context="popup">
+        @if (_target is not null)
+        {
+            <div class="ca-subject">
+                <div>
+                    <b>@_target.CompanyName</b> · @CargoAdminFormat.Day(_target.TransportDate) ·
+                    @CargoAdminFormat.Won(_target.Amount)
+                </div>
+                <div class="jsini-hint">
+                    신청 @_target.RequesterName · 거래 등록 @_target.TransactionOwnerName ·
+                    @CargoAdminCodes.DisputeReason.NameOf(_target.Reason)
+                </div>
+                <p class="ca-text jsini-hint">@_target.Content</p>
+            </div>
+
+            <DxFormLayout>
+                <DxFormLayoutItem Caption="상태" ColSpanMd="6">
+                    <DxComboBox Data="@CargoAdminCodes.DisputeStatus.Options"
+                                TextFieldName="@nameof(SchOption.Text)" ValueFieldName="@nameof(SchOption.Value)"
+                                @bind-Value="_form.Status" />
+                </DxFormLayoutItem>
+                <DxFormLayoutItem Caption="거래 숨김" ColSpanMd="6">
+                    <DxCheckBox @bind-Checked="_form.HideTarget" Enabled="@IsAccepted">이 거래를 통계에서 뺀다</DxCheckBox>
+                </DxFormLayoutItem>
+                <DxFormLayoutItem Caption="처리 내용" ColSpanMd="12">
+                    <DxMemo @bind-Text="_form.Resolution" Rows="4" />
+                </DxFormLayoutItem>
+            </DxFormLayout>
+        }
+    </BodyContentTemplate>
+
+    <FooterContentTemplate Context="popup">
+        <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Primary"
+                  Enabled="@(!Loading)" Click="@SaveAsync" />
+        <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary"
+                  Click="@(() => _editing = false)" />
+    </FooterContentTemplate>
+</CommPopup>
+
+@code {
+    [SupplyParameterFromQuery(Name = "status")] public string? StatusQuery { get; set; }
+
+    /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
+    private string ConditionSummary =>
+        SchSummary.NameOf(CargoAdminCodes.DisputeStatus.Filter, o => o.Value, o => o.Text, _status);
+
+    private IReadOnlyList<AdminDispute> _rows = [];
+
+    private string? _status;
+
+    private bool _editing;
+    private AdminDispute? _target;
+    private AdminResolve _form = new();
+
+    private bool IsAccepted => string.Equals(_form.Status, "ACCEPTED", StringComparison.OrdinalIgnoreCase);
+
+    protected override Task OnInitializedAsync()
+    {
+        _status = CargoAdminCodes.DisputeStatus.Options
+            .FirstOrDefault(o => string.Equals(o.Value, StatusQuery, StringComparison.OrdinalIgnoreCase))?.Value;
+
+        return ReloadAsync();
+    }
+
+    private Task ReloadAsync() => LoadAsync(async () =>
+    {
+        _rows = await Api.GetDisputesAsync(_status);
+        return _rows.Count;
+    }, "조건에 맞는 이의제기가 없습니다.", "이의제기를 읽지 못했습니다");
+
+    private void Open(AdminDispute row)
+    {
+        _target = row;
+
+        // 접수된 채로 열면 「검토중」으로 올려 둔다(신고 처리와 같은 까닭).
+        _form = new AdminResolve
+        {
+            Status = string.Equals(row.Status, "RECEIVED", StringComparison.OrdinalIgnoreCase) ? "REVIEWING" : row.Status,
+            Resolution = row.Resolution,
+            HideTarget = false,
+        };
+        _editing = true;
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_target is null)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_form.Status))
+        {
+            Say("상태를 고르십시오.", NoticeTone.Warning);
+            return;
+        }
+
+        var id = _target.DisputeId;
+
+        // 인용이 아니면 숨김을 싣지 않는다 — 체크칸은 잠겨 있지만, 인용으로 켜 둔 뒤
+        // 상태만 기각으로 바꾸면 켜진 값이 그대로 남는다.
+        var body = new AdminResolve
+        {
+            Status = _form.Status,
+            Resolution = _form.Resolution,
+            HideTarget = IsAccepted && _form.HideTarget,
+        };
+
+        if (await RunAsync(() => Api.ResolveDisputeAsync(id, body), "처리했습니다.", "처리하지 못했습니다"))
+        {
+            _editing = false;
+            await ReloadAsync();
+        }
+    }
+}

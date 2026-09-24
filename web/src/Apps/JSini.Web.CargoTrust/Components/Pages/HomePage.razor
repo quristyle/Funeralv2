@@ -1,0 +1,119 @@
+@page "/cargotrust"
+@attribute [RouteKey("cargotrust")]
+
+@*
+    운송관리 홈(CT-001, 설계안 24).
+
+    [핵심은 검색이다]
+
+    차주가 이 서비스를 여는 순간은 대개 「이 회사, 돈 제때 주나?」를 묻는 때다.
+    그래서 맨 위가 검색칸이고, 엔터든 단추든 거래처 검색 화면으로 **검색어를 실어**
+    넘긴다(`?q=`). 홈에서 결과를 직접 그리지 않는 이유는 검색 화면에 기준 고르기와
+    거래처 등록이 있기 때문이다 — 두 곳에 결과를 그리면 한쪽만 등록 길이 생긴다.
+
+    그 아래는 **다시 볼 것**(최근 본 거래처)과 **받을 것**(내 미수금 합계)이다.
+    최근 본 거래처는 서버가 상세를 열 때마다 적어 둔 것이라 따로 저장하지 않는다.
+
+    [메뉴 경로와 주소가 다르다]
+
+    DB 메뉴의 path 는 `/cargotrust/home` 이고 이 화면은 `/cargotrust` 다. 사이드바는
+    path 가 아니라 열쇠(`cargotrust`)로 주소를 푸므로 열린다(web/CLAUDE.md 「연결 고리는
+    URL 이 아니라 열쇠다」). path 는 권한표의 열쇠라 맞추려고 바꾸지 않는다.
+
+    대시보드처럼 조각이 여럿이라 CommCont 로 본문을 채우지 않고 쪽이 구르게 둔다.
+*@
+
+@inherits DataPage
+@inject CargoTrustClient Api
+@inject NavigationManager Navigation
+
+<PageTitle>운송관리</PageTitle>
+
+<div class="ct-page">
+    @if (_home?.Me.IsBlocked == true)
+    {
+        <PageNotice Tone="NoticeTone.Warning"
+                    Text="이용이 제한된 계정입니다. 조회는 할 수 있지만 거래 등록·결제 등록·신고는 할 수 없습니다." />
+    }
+
+    <section class="ct-hero">
+        <div class="ct-hero__title">거래처를 검색하십시오</div>
+        <div class="ct-hero__search" @onkeydown="@OnSearchKeyAsync">
+            <DxTextBox @bind-Text="_q" BindValueMode="BindValueMode.OnInput"
+                       NullText="회사명 · 사업자번호 · 대표자"
+                       CssClass="ct-hero__input" />
+            <DxButton Text="검색" RenderStyle="ButtonRenderStyle.Primary"
+                      IconCssClass="jsini-icon-search" Click="@Search" />
+        </div>
+    </section>
+
+    <div class="ct-home-row">
+        <a class="jsini-stat ct-home-stat" href="/cargotrust/receivables">
+            <div class="jsini-stat__label">내 미수금</div>
+            <div class="jsini-stat__value">@CargoCodes.Won(_home?.Receivable.Total ?? 0)</div>
+            <div class="jsini-hint">
+                @SchSummary.Of(
+                    $"{_home?.Receivable.Count ?? 0}건",
+                    (_home?.Receivable.Delayed ?? 0) > 0 ? $"지급 지연 {CargoCodes.Won(_home!.Receivable.Delayed)}" : null,
+                    (_home?.Receivable.Unpaid ?? 0) > 0 ? $"미지급 {CargoCodes.Won(_home!.Receivable.Unpaid)}" : null)
+            </div>
+        </a>
+
+        <div class="ct-home-actions">
+            <DxButton Text="거래 등록" RenderStyle="ButtonRenderStyle.Primary" IconCssClass="jsini-icon-plus"
+                      Click="@(() => Navigation.NavigateTo("/cargotrust/transactions/new"))" />
+            <DxButton Text="결제 등록" RenderStyle="ButtonRenderStyle.Secondary"
+                      Click="@(() => Navigation.NavigateTo("/cargotrust/payments"))" />
+        </div>
+    </div>
+
+    <CommCont Title="최근 본 거래처" Hint="@(_home is null ? null : $"{_home.RecentCompanies.Count}곳")">
+        @if (_home is { RecentCompanies.Count: > 0 })
+        {
+            <div class="ct-cards">
+                @foreach (var c in _home.RecentCompanies)
+                {
+                    <CompanyCard Company="@c" />
+                }
+            </div>
+        }
+        else if (!Loading)
+        {
+            <PageNotice Text="아직 본 거래처가 없습니다. 위에서 검색해 거래처 상세를 열면 여기 남습니다." />
+        }
+    </CommCont>
+</div>
+
+@code {
+    private HomeInfo? _home;
+
+    /// <summary>
+    /// 검색칸. 라벨이 없는 칸이라 자리표시 글이 라벨 노릇을 한다(web/CLAUDE.md
+    /// 「라벨을 붙인 칸에는 자리표시 글을 두지 않는다」의 예외 쪽).
+    /// </summary>
+    private string? _q;
+
+    protected override Task OnInitializedAsync() => LoadOneAsync(
+        () => Api.GetHomeAsync(),
+        h => _home = h,
+        emptyMessage: string.Empty,
+        failMessage: "홈을 읽지 못했습니다");
+
+    private async Task OnSearchKeyAsync(KeyboardEventArgs e)
+    {
+        // 한 칸짜리라 Enter 의 뜻이 「검색」 하나뿐이다.
+        if (e.Key == "Enter")
+        {
+            await Task.Yield();
+            Search();
+        }
+    }
+
+    private void Search()
+    {
+        var q = _q?.Trim();
+        Navigation.NavigateTo(string.IsNullOrEmpty(q)
+            ? "/cargotrust/companies"
+            : $"/cargotrust/companies?q={Uri.EscapeDataString(q)}");
+    }
+}

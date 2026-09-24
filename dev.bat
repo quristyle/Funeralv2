@@ -97,9 +97,9 @@ if exist "%SECRETS_FILE%" (
 :: Every service starts with %START_CMD%. The front end is .NET now too -
 :: the Vue/pnpm portal is gone and the Blazor shell (:5557) took its place.
 ::
-::   blazor  work portal shell (:5557). Six work MFEs live in this one process.
+::   blazor  work portal shell (:5557). Eight work MFEs live in this one process.
 ::   web     public site (:5556). Separate site, unrelated to the portal.
-set "SVC_KEYS=gateway auth funeral ai file helpdesk projmng site notify life blazor web"
+set "SVC_KEYS=gateway auth funeral ai file helpdesk projmng site notify life cargo blazor web"
 
 :: What `dev.bat all` starts = everything.
 ::
@@ -107,7 +107,7 @@ set "SVC_KEYS=gateway auth funeral ai file helpdesk projmng site notify life bla
 :: its own process and starting all of them opened nineteen windows. There is
 :: one shell now, and since the Vue portal is gone, leaving it out means the
 :: portal does not come up at all.
-set "SVC_KEYS_DEFAULT=gateway auth funeral ai file helpdesk projmng site notify life blazor web"
+set "SVC_KEYS_DEFAULT=gateway auth funeral ai file helpdesk projmng site notify life cargo blazor web"
 
 :: Group alias. `mfe` is muscle memory, kept alive - it now means the shell.
 set "GROUP_mfe=blazor"
@@ -124,6 +124,8 @@ set "SVC_site=Site Server|microservices\SiteServer|5480|SITE_API|%START_CMD%"
 set "SVC_notify=Notification Server|microservices\NotificationServer|5460|NOTIFY|%START_CMD%"
 :: LifeEnv (weather / birthdays). Ported from GHUB.
 set "SVC_life=LifeEnv Server|microservices\LifeEnvServer|5490|LIFEENV|%START_CMD%"
+:: CargoTrust (JSini transport - freight client trust info).
+set "SVC_cargo=CargoTrust Server|microservices\CargoTrustServer|5500|CARGOTRUST|%START_CMD%"
 
 :: ------------------------------------------------------------
 :: Front end (web\)

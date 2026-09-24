@@ -84,6 +84,8 @@
   -->
   <ItemGroup Label="업무 MFE 모듈">
     <ProjectReference Include="..\..\Apps\JSini.Web.Admin\JSini.Web.Admin.csproj" />
+    <ProjectReference Include="..\..\Apps\JSini.Web.CargoTrust\JSini.Web.CargoTrust.csproj" />
+    <ProjectReference Include="..\..\Apps\JSini.Web.CargoTrust.Admin\JSini.Web.CargoTrust.Admin.csproj" />
     <ProjectReference Include="..\..\Apps\JSini.Web.Funeral\JSini.Web.Funeral.csproj" />
     <ProjectReference Include="..\..\Apps\JSini.Web.HelpDesk\JSini.Web.HelpDesk.csproj" />
     <ProjectReference Include="..\..\Apps\JSini.Web.LifeEnv\JSini.Web.LifeEnv.csproj" />

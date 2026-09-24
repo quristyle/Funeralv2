@@ -1,0 +1,251 @@
+@page "/cargotrust/companies/{CompanyId:long}"
+@attribute [RouteKey("cargotrust.companies.detail")]
+
+@*
+    거래처 상세(CT-004, 설계안 7 · 12).
+
+    [별점이 아니라 거래 데이터다]
+
+    이 화면은 거래처를 한 단어로 부르지 않는다. 「악성」「위험」 같은 이름표를 달면
+    그것은 사실이 아니라 서비스의 판정이 되고, 틀렸을 때 책임질 방법이 없다
+    (설계안 12 · 33-1). 대신 **몇 건 중 몇 건이 어땠는지**와 **그것이 어느 기간의
+    어떤 기준인지**를 함께 보여 주고, 판단은 보는 사람에게 맡긴다.
+
+    [기간을 고른다 — 기본은 최근 90일]
+
+    오래전에 정상이던 회사가 요즘 늦어졌을 수 있다. 전체만 보이면 그 변화가 평균에
+    묻힌다. 고른 기간은 타일에, 다섯 기간을 나란히 놓은 것은 「기간별 변화」 표에
+    둔다(설계안 7.4). 표는 늘 다섯 줄이라 기간을 바꿔도 달라지지 않는다.
+
+    [누가 등록했는지는 없다]
+
+    최근 거래 · 최근 미지급 · 후기 어디에도 등록한 사람이 없다(서버가 싣지 않는다 —
+    설계안 29). 신고는 그 줄 자체를 대상으로 받는다.
+
+    조각이 여럿 쌓인 화면이라 쪽이 구르게 둔다(CommCont 가 본문을 채우지 않게
+    `ct-page` 로 감싼다).
+*@
+
+@inherits DataPage
+@inject CargoTrustClient Api
+@inject NavigationManager Navigation
+
+<PageTitle>@(_detail?.Company.CompanyName ?? "거래처 상세") · 운송관리</PageTitle>
+
+<div class="ct-page">
+    @if (_detail is { } d)
+    {
+        var c = d.Company;
+
+        <section class="ct-panel">
+            <div class="ct-panel__head">
+                <div class="ct-panel__name">
+                    @c.CompanyName
+                    @if (c.Status != "ACTIVE")
+                    {
+                        <span class="@CargoCodes.CompanyStatusBadge(c.Status)">@CargoCodes.CompanyStatusName(c.Status)</span>
+                    }
+                </div>
+                <div class="jsini-actions ct-panel__actions">
+                    <DxButton Text="이 거래처와 거래 등록" RenderStyle="ButtonRenderStyle.Primary" IconCssClass="jsini-icon-plus"
+                              Click="@(() => Navigation.NavigateTo($"/cargotrust/transactions/new?companyId={c.CompanyId}"))" />
+                    <DxButton Text="신고" RenderStyle="ButtonRenderStyle.Secondary"
+                              Click="@(() => _report?.Open("COMPANY", c.CompanyId, $"{c.CompanyName} ({c.BusinessNumber})"))" />
+                </div>
+            </div>
+
+            <dl class="ct-facts">
+                <div><dt>사업자등록번호</dt><dd>@c.BusinessNumber</dd></div>
+                <div><dt>대표자</dt><dd>@(c.CeoName ?? "-")</dd></div>
+                <div><dt>업종</dt><dd>@(c.BusinessType ?? "-")</dd></div>
+                <div><dt>지역</dt><dd>@(c.Region ?? "-")</dd></div>
+                <div class="ct-facts__wide"><dt>사업장 주소</dt><dd>@(c.Address ?? "-")</dd></div>
+                <div><dt>등록일</dt><dd>@(c.CreatedAt?.ToLocalTime().ToString("yyyy-MM-dd") ?? "-")</dd></div>
+                <div>
+                    <dt>내가 등록한 거래</dt>
+                    <dd>
+                        @if (d.MyTransactionCount > 0)
+                        {
+                            <a href="@($"/cargotrust/transactions?companyId={c.CompanyId}")">@(d.MyTransactionCount)건</a>
+                        }
+                        else
+                        {
+                            <span>없음</span>
+                        }
+                    </dd>
+                </div>
+            </dl>
+        </section>
+
+        <div class="ct-segment" role="group" aria-label="기간">
+            @foreach (var p in Periods)
+            {
+                <DxButton Text="@p.Text"
+                          RenderStyle="@(p.Days == _period ? ButtonRenderStyle.Primary : ButtonRenderStyle.Secondary)"
+                          RenderStyleMode="@(p.Days == _period ? ButtonRenderStyleMode.Contained : ButtonRenderStyleMode.Outline)"
+                          Enabled="@(!Loading)"
+                          Click="@(() => ChangePeriodAsync(p.Days))" />
+            }
+        </div>
+
+        <StatsTiles Stats="@d.Stats" />
+
+        <CommCont Title="기간별 변화" Hint="운송일 기준 · 기간마다 따로 센 값">
+            <CommGrd TItem="CompanyStats" Data="@d.Periods" ShowFooter="false" ShowRowNumber="false"
+                     ExportName="기간별변화">
+                <Columns>
+                    <DxGridDataColumn FieldName="@nameof(CompanyStats.PeriodLabel)" Caption="기간" Width="110" />
+                    <DxGridDataColumn FieldName="@nameof(CompanyStats.TotalCount)" Caption="전체" Width="70" />
+                    <DxGridDataColumn FieldName="@nameof(CompanyStats.NormalCount)" Caption="정상" Width="70" />
+                    <DxGridDataColumn FieldName="@nameof(CompanyStats.DelayedCount)" Caption="지연" Width="70" />
+                    <DxGridDataColumn FieldName="@nameof(CompanyStats.PartialCount)" Caption="일부" Width="70" />
+                    <DxGridDataColumn FieldName="@nameof(CompanyStats.UnpaidCount)" Caption="미지급" Width="70" />
+                    <DxGridDataColumn FieldName="@nameof(CompanyStats.DisputeCount)" Caption="분쟁" Width="70" />
+                    <DxGridDataColumn FieldName="@nameof(CompanyStats.NormalRate)" Caption="정상률" Width="90">
+                        <CellDisplayTemplate Context="cell">@CargoCodes.Rate(((CompanyStats)cell.DataItem).NormalRate)</CellDisplayTemplate>
+                    </DxGridDataColumn>
+                    <DxGridDataColumn FieldName="@nameof(CompanyStats.AverageDelayDays)" Caption="평균 지연" Width="90">
+                        <CellDisplayTemplate Context="cell">@CargoCodes.Days(((CompanyStats)cell.DataItem).AverageDelayDays)</CellDisplayTemplate>
+                    </DxGridDataColumn>
+                    <DxGridDataColumn FieldName="@nameof(CompanyStats.Confidence)" Caption="데이터 규모" MinWidth="150">
+                        <CellDisplayTemplate Context="cell">
+                            @{ var s = (CompanyStats)cell.DataItem; }
+                            <span class="@CargoCodes.ConfidenceBadge(s.Confidence)">@CargoCodes.ConfidenceName(s.Confidence, s.ConfidenceLabel)</span>
+                        </CellDisplayTemplate>
+                    </DxGridDataColumn>
+                </Columns>
+            </CommGrd>
+        </CommCont>
+
+        <CommCont Title="최근 미지급" Hint="최근 5건 · 기간과 무관">
+            @if (d.RecentUnpaid.Count > 0)
+            {
+                <CommGrd TItem="PublicTransaction" Data="@d.RecentUnpaid" ShowFooter="false" ExportName="최근미지급"
+                         RowActions="@ReportTransaction">
+                    <Columns>@PublicColumns</Columns>
+                </CommGrd>
+            }
+            else
+            {
+                <div class="jsini-hint">미지급으로 등록된 거래가 없습니다.</div>
+            }
+        </CommCont>
+
+        <CommCont Title="최근 거래" Hint="최근 20건">
+            <CommGrd TItem="PublicTransaction" Data="@d.RecentTransactions" ExportName="최근거래"
+                     RowActions="@ReportTransaction">
+                <Columns>@PublicColumns</Columns>
+            </CommGrd>
+        </CommCont>
+
+        <CommCont Title="거래 후기" Hint="@($"{_reviews.Count}건 · 실제 거래에 붙은 것만")">
+            @if (_reviews.Count == 0)
+            {
+                <div class="jsini-hint">아직 후기가 없습니다.</div>
+            }
+            else
+            {
+                <ul class="ct-reviews">
+                    @foreach (var r in _reviews)
+                    {
+                        <li class="ct-review">
+                            <div class="ct-review__meta">
+                                <span>거래일 @CargoCodes.Day(r.TransportDate)</span>
+                                <span>운송료 @CargoCodes.Won(r.Amount)</span>
+                                <PayBadge Code="@r.PaymentStatus" />
+                                <span class="jsini-hint">@CargoCodes.Moment(r.CreatedAt)</span>
+                                <DxButton Text="신고" RenderStyle="ButtonRenderStyle.Link" CssClass="ct-review__report"
+                                          Click="@(() => _report?.Open("REVIEW", r.ReviewId, $"{CargoCodes.Day(r.TransportDate)} 거래의 후기"))" />
+                            </div>
+                            <div class="ct-review__body">@r.Content</div>
+                        </li>
+                    }
+                </ul>
+            }
+        </CommCont>
+    }
+    else if (!Loading)
+    {
+        <PageNotice Tone="NoticeTone.Warning" Text="거래처를 찾지 못했습니다. 숨김 처리되었거나 없는 번호일 수 있습니다." />
+    }
+</div>
+
+<ReportPopup @ref="_report" />
+
+@code {
+    [Parameter] public long CompanyId { get; set; }
+
+    private sealed record PeriodOption(int? Days, string Text);
+
+    /// <summary>기간 고르개. <c>null</c> 이 전체다(서버에는 <c>all</c> 로 간다).</summary>
+    private static readonly PeriodOption[] Periods =
+    [
+        new(30, "30일"),
+        new(90, "90일"),
+        new(180, "180일"),
+        new(365, "1년"),
+        new(null, "전체"),
+    ];
+
+    private int? _period = 90;
+    private long _loadedFor;
+    private CompanyDetail? _detail;
+    private IReadOnlyList<PublicReview> _reviews = [];
+    private ReportPopup? _report;
+
+    /// <summary>
+    /// 공개 거래 표의 칸. 최근 거래와 최근 미지급이 같은 칸을 쓴다 — 두 벌로 적으면
+    /// 한쪽에만 칸이 더해져 같은 거래가 두 표에서 다르게 보인다.
+    /// </summary>
+    private static readonly RenderFragment PublicColumns =
+        @<text>
+            <DxGridDataColumn FieldName="@nameof(PublicTransaction.TransportDate)" Caption="운송일" Width="110" DisplayFormat="yyyy-MM-dd" />
+            <DxGridDataColumn FieldName="@nameof(PublicTransaction.Route)" Caption="구간" Width="130" />
+            <DxGridDataColumn FieldName="@nameof(PublicTransaction.TransportType)" Caption="유형" Width="100" />
+            <DxGridDataColumn FieldName="@nameof(PublicTransaction.Amount)" Caption="운송료" Width="110"
+                              DisplayFormat="#,0" TextAlignment="GridTextAlignment.Right" />
+            <DxGridDataColumn FieldName="@nameof(PublicTransaction.ExpectedPaymentDate)" Caption="예정 지급일" Width="110" DisplayFormat="yyyy-MM-dd" />
+            <DxGridDataColumn FieldName="@nameof(PublicTransaction.ActualPaymentDate)" Caption="실제 지급일" Width="110" DisplayFormat="yyyy-MM-dd" />
+            <DxGridDataColumn FieldName="@nameof(PublicTransaction.PaymentStatus)" Caption="결과" Width="100">
+                <CellDisplayTemplate Context="cell"><PayBadge Code="@(((PublicTransaction)cell.DataItem).PaymentStatus)" /></CellDisplayTemplate>
+            </DxGridDataColumn>
+            <DxGridDataColumn FieldName="@nameof(PublicTransaction.DelayDays)" Caption="지연일" Width="80">
+                <CellDisplayTemplate Context="cell">@CargoCodes.Days(((PublicTransaction)cell.DataItem).DelayDays)</CellDisplayTemplate>
+            </DxGridDataColumn>
+        </text>;
+
+    /// <summary>줄마다 「신고」. 사실과 다른 거래를 본 사람이 그 줄을 대상으로 올린다.</summary>
+    private RenderFragment<PublicTransaction> ReportTransaction => t =>
+        @<DxButton Text="신고" RenderStyle="ButtonRenderStyle.Link"
+                   Click="@(() => _report?.Open("TRANSACTION", t.TransactionId,
+                       $"{_detail?.Company.CompanyName} · {CargoCodes.Day(t.TransportDate)} · {CargoCodes.Won(t.Amount)}"))" />;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_loadedFor == CompanyId)
+        {
+            return;
+        }
+
+        _loadedFor = CompanyId;
+        _period = 90;
+        await ReloadAsync(withReviews: true);
+    }
+
+    private Task ChangePeriodAsync(int? days)
+    {
+        _period = days;
+        return ReloadAsync(withReviews: false);
+    }
+
+    private Task ReloadAsync(bool withReviews) => LoadAsync(async () =>
+    {
+        // 후기는 기간과 무관하다 — 기간을 바꿀 때마다 다시 읽지 않는다.
+        var detail = Api.GetCompanyAsync(CompanyId, _period);
+        var reviews = withReviews ? Api.GetCompanyReviewsAsync(CompanyId) : Task.FromResult(_reviews);
+
+        _detail = await detail;
+        _reviews = await reviews;
+        return _detail is null ? 0 : -1;
+    }, "거래처를 찾지 못했습니다.", "거래처를 읽지 못했습니다");
+}

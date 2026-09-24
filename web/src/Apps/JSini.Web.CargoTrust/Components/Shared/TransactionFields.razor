@@ -1,0 +1,62 @@
+@*
+    거래 칸 묶음(설계안 8). 거래 등록 화면과 거래 수정 팝업이 같은 칸을 쓴다.
+
+    [결제 상태 · 실제 지급일은 여기 없다]
+
+    설계안 8 의 입력 항목에는 둘이 들어 있지만 계약(TransactionSaveRequest)에는 없다.
+    받은 일은 결제 등록(CT-006)이 따로 적는다 — 운송과 결제를 별도 사건으로 두어야
+    예정일과 실제 날의 차이가 기록에서 계산된다(설계안 9). 여기서 상태를 고르게 하면
+    같은 거래가 두 길로 상태를 얻어 서로 어긋난다.
+
+    [칸은 부모가 가진 Draft 를 그대로 고친다]
+
+    저장은 부르는 쪽(등록 화면 · 수정 팝업)이 한다. 두 쪽이 저장 뒤에 하는 일이
+    달라서다 — 등록은 그 거래의 상세로 옮기고, 수정은 목록을 다시 읽는다.
+*@
+
+<DxFormLayout CssClass="ct-form">
+    <DxFormLayoutItem Caption="거래처" ColSpanMd="12">
+        <CompanyPicker Value="@Draft.Company" ValueChanged="@OnCompanyChanged" AllowCreate="@AllowCreateCompany" />
+    </DxFormLayoutItem>
+
+    <DxFormLayoutItem Caption="운송일" ColSpanMd="6">
+        <DxDateEdit @bind-Date="Draft.TransportDate" />
+    </DxFormLayoutItem>
+    <DxFormLayoutItem Caption="예정 지급일" ColSpanMd="6">
+        <DxDateEdit @bind-Date="Draft.ExpectedPaymentDate" ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+    </DxFormLayoutItem>
+
+    <DxFormLayoutItem Caption="출발지" ColSpanMd="6">
+        <DxTextBox @bind-Text="Draft.Origin" />
+    </DxFormLayoutItem>
+    <DxFormLayoutItem Caption="도착지" ColSpanMd="6">
+        <DxTextBox @bind-Text="Draft.Destination" />
+    </DxFormLayoutItem>
+
+    @* 운송 유형은 자유 입력이다(계약의 권장값만 목록에 둔다). 목록에 없는 값을
+       막으면 「탑차」「윙바디」처럼 현장에서 쓰는 말을 적을 곳이 없다. *@
+    <DxFormLayoutItem Caption="운송 유형" ColSpanMd="6">
+        <DxComboBox TData="string" TValue="string" Data="@CargoCodes.TransportTypes" @bind-Text="Draft.TransportType" AllowUserInput="true"
+                    ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+    </DxFormLayoutItem>
+    <DxFormLayoutItem Caption="배차 경로" ColSpanMd="6">
+        <DxTextBox @bind-Text="Draft.DispatchChannel" />
+    </DxFormLayoutItem>
+
+    <DxFormLayoutItem Caption="운송료(원)" ColSpanMd="6">
+        <DxSpinEdit @bind-Value="Draft.Amount" MinValue="0m" Increment="10000m" DisplayFormat="#,0" />
+    </DxFormLayoutItem>
+
+    <DxFormLayoutItem Caption="메모" ColSpanMd="12">
+        <DxMemo @bind-Text="Draft.Memo" Rows="3" />
+    </DxFormLayoutItem>
+</DxFormLayout>
+
+@code {
+    [Parameter, EditorRequired] public TransactionDraft Draft { get; set; } = default!;
+
+    /// <summary>못 찾은 거래처를 그 자리에서 등록하게 할지. 팝업 안에서는 끈다.</summary>
+    [Parameter] public bool AllowCreateCompany { get; set; } = true;
+
+    private void OnCompanyChanged(CompanyPick? pick) => Draft.Company = pick;
+}

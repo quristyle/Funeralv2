@@ -1,0 +1,216 @@
+@page "/cargotrust/transactions/{TransactionId:long}"
+@attribute [RouteKey("cargotrust.transactions.detail")]
+
+@*
+    거래 상세(CT-007). 등록자 본인과 관리자만 열 수 있다 — 서버가 403 으로 막는다.
+
+    [거래 · 결제 기록 · 후기 · 이의제기를 한 화면에]
+
+    한 거래에 붙는 것이 넷이다. 결제는 **받을 때마다 한 줄**씩 쌓이고(나눠 받은 것이
+    보여야 「일부 지급」이 왜 그런지 읽힌다), 후기는 거래당 하나, 이의제기는 그 거래의
+    회사(운송사)가 낸 것이다. 이의제기가 여기 보이는 이유는 등록한 사람도 **자기
+    기록에 누가 어떤 사실관계를 다투는지** 알아야 하기 때문이다(05-api 의 조회 권한:
+    신청자 · 관리자 · 그 거래의 등록자).
+
+    결제 등록 · 후기 · 신고는 공용 부품(Components/Shared)의 팝업이다 — 내 거래
+    목록에서 여는 것과 같은 창이다.
+*@
+
+@inherits DataPage
+@inject CargoTrustClient Api
+@inject NavigationManager Navigation
+
+<PageTitle>거래 상세 · 운송관리</PageTitle>
+
+<div class="ct-page">
+    @if (_detail?.Transaction is { } t)
+    {
+        <section class="ct-panel">
+            <div class="ct-panel__head">
+                <div class="ct-panel__name">
+                    <a href="@($"/cargotrust/companies/{t.CompanyId}")">@t.CompanyName</a>
+                    <PayBadge Code="@t.PaymentStatus" />
+                    @if (t.ReviewStatus != "NORMAL")
+                    {
+                        <span class="@CargoCodes.ReviewStatusBadge(t.ReviewStatus)">@CargoCodes.ReviewStatusName(t.ReviewStatus)</span>
+                    }
+                </div>
+                <div class="jsini-actions ct-panel__actions">
+                    @if (t.CanPay)
+                    {
+                        <DxButton Text="결제 등록" RenderStyle="ButtonRenderStyle.Primary"
+                                  Click="@(() => _payment?.Open(PaymentTarget.From(t)))" />
+                    }
+                    <DxButton Text="@(_detail.Review is null ? "후기 작성" : "후기 고치기")" RenderStyle="ButtonRenderStyle.Secondary"
+                              Click="@(() => _review?.Open(t.TransactionId, Summary(t), _detail.Review?.Content))" />
+                    <DxButton Text="수정" RenderStyle="ButtonRenderStyle.Secondary" IconCssClass="jsini-icon-edit"
+                              Click="@(() => _edit?.Open(t))" />
+                    <DxButton Text="삭제" RenderStyle="ButtonRenderStyle.Secondary" IconCssClass="jsini-icon-trash"
+                              Click="@(() => DeleteAsync(t))" />
+                    <DxButton Text="신고" RenderStyle="ButtonRenderStyle.Link"
+                              Click="@(() => _report?.Open("TRANSACTION", t.TransactionId, Summary(t)))" />
+                </div>
+            </div>
+
+            <dl class="ct-facts">
+                <div><dt>사업자등록번호</dt><dd>@(t.BusinessNumber ?? "-")</dd></div>
+                <div><dt>운송일</dt><dd>@CargoCodes.Day(t.TransportDate)</dd></div>
+                <div><dt>출발지</dt><dd>@(t.Origin ?? "-")</dd></div>
+                <div><dt>도착지</dt><dd>@(t.Destination ?? "-")</dd></div>
+                <div><dt>운송 유형</dt><dd>@(t.TransportType ?? "-")</dd></div>
+                <div><dt>배차 경로</dt><dd>@(t.DispatchChannel ?? "-")</dd></div>
+                <div><dt>운송료</dt><dd>@CargoCodes.Won(t.Amount)</dd></div>
+                <div><dt>받은 금액</dt><dd>@CargoCodes.Won(t.PaidAmount)</dd></div>
+                <div><dt>미수금</dt><dd class="@(t.Outstanding > 0 ? "ct-num--err" : null)">@CargoCodes.Won(t.Outstanding)</dd></div>
+                <div><dt>예정 지급일</dt><dd>@CargoCodes.Day(t.ExpectedPaymentDate)</dd></div>
+                <div><dt>실제 지급일</dt><dd>@CargoCodes.Day(t.ActualPaymentDate)</dd></div>
+                <div>
+                    <dt>지연</dt>
+                    <dd>
+                        @if (t.OverdueDays is > 0)
+                        {
+                            <span class="ct-num--err">현재 @(t.OverdueDays)일 지남</span>
+                        }
+                        else
+                        {
+                            @CargoCodes.Days(t.DelayDays)
+                        }
+                    </dd>
+                </div>
+                <div class="ct-facts__wide"><dt>메모</dt><dd class="ct-pre">@(t.Memo ?? "-")</dd></div>
+                <div><dt>등록</dt><dd>@CargoCodes.Moment(t.CreatedAt)</dd></div>
+                <div><dt>마지막 수정</dt><dd>@CargoCodes.Moment(t.UpdatedAt)</dd></div>
+            </dl>
+        </section>
+
+        <CommCont Title="결제 기록" Hint="받을 때마다 한 줄씩 쌓인다">
+            @if (_detail.Payments.Count == 0)
+            {
+                <div class="jsini-hint">아직 적은 결제 결과가 없습니다.</div>
+            }
+            else
+            {
+                <CommGrd TItem="PaymentRecord" Data="@_detail.Payments" ShowFooter="false" ExportName="결제기록">
+                    <Columns>
+                        <DxGridDataColumn FieldName="@nameof(PaymentRecord.PaidDate)" Caption="받은 날" Width="110" DisplayFormat="yyyy-MM-dd" />
+                        <DxGridDataColumn FieldName="@nameof(PaymentRecord.PaidAmount)" Caption="받은 금액" Width="120"
+                                          DisplayFormat="#,0" TextAlignment="GridTextAlignment.Right" />
+                        <DxGridDataColumn FieldName="@nameof(PaymentRecord.ResultStatus)" Caption="그때 상태" Width="100">
+                            <CellDisplayTemplate Context="cell"><PayBadge Code="@(((PaymentRecord)cell.DataItem).ResultStatus)" /></CellDisplayTemplate>
+                        </DxGridDataColumn>
+                        <DxGridDataColumn FieldName="@nameof(PaymentRecord.DelayDays)" Caption="지연일" Width="80">
+                            <CellDisplayTemplate Context="cell">@CargoCodes.Days(((PaymentRecord)cell.DataItem).DelayDays)</CellDisplayTemplate>
+                        </DxGridDataColumn>
+                        <DxGridDataColumn FieldName="@nameof(PaymentRecord.Memo)" Caption="메모" MinWidth="160" />
+                        <DxGridDataColumn FieldName="@nameof(PaymentRecord.CreatedAt)" Caption="적은 때" Width="140">
+                            <CellDisplayTemplate Context="cell">@CargoCodes.Moment(((PaymentRecord)cell.DataItem).CreatedAt)</CellDisplayTemplate>
+                        </DxGridDataColumn>
+                    </Columns>
+                </CommGrd>
+            }
+        </CommCont>
+
+        <CommCont Title="거래 후기">
+            @if (_detail.Review is { } r)
+            {
+                <div class="ct-review">
+                    <div class="ct-review__meta">
+                        <span class="jsini-hint">@CargoCodes.Moment(r.UpdatedAt ?? r.CreatedAt)</span>
+                        @if (r.Status == "HIDDEN")
+                        {
+                            <span class="jsini-badge jsini-badge--off">공개 안 됨</span>
+                        }
+                    </div>
+                    <div class="ct-review__body">@r.Content</div>
+                </div>
+            }
+            else
+            {
+                <div class="jsini-hint">아직 쓰지 않았습니다. 이 거래의 경험을 적으면 거래처 상세에 거래 요약과 함께 뜹니다.</div>
+            }
+        </CommCont>
+
+        @if (_detail.Disputes.Count > 0)
+        {
+            <CommCont Title="이의제기" Hint="이 거래의 회사가 사실관계를 다툰 것">
+                <CommGrd TItem="DisputeInfo" Data="@_detail.Disputes" ShowFooter="false" ExportName="이의제기">
+                    <Columns>
+                        <DxGridDataColumn FieldName="@nameof(DisputeInfo.Reason)" Caption="사유" Width="130">
+                            <CellDisplayTemplate Context="cell">@CargoCodes.DisputeReasonName(((DisputeInfo)cell.DataItem).Reason)</CellDisplayTemplate>
+                        </DxGridDataColumn>
+                        <DxGridDataColumn FieldName="@nameof(DisputeInfo.Content)" Caption="내용" MinWidth="200" />
+                        <DxGridDataColumn FieldName="@nameof(DisputeInfo.Status)" Caption="상태" Width="90">
+                            <CellDisplayTemplate Context="cell">
+                                @{ var x = (DisputeInfo)cell.DataItem; }
+                                <span class="@CargoCodes.DisputeStatusBadge(x.Status)">@CargoCodes.DisputeStatusName(x.Status)</span>
+                            </CellDisplayTemplate>
+                        </DxGridDataColumn>
+                        <DxGridDataColumn FieldName="@nameof(DisputeInfo.Resolution)" Caption="처리 결과" MinWidth="160" />
+                        <DxGridDataColumn FieldName="@nameof(DisputeInfo.CreatedAt)" Caption="접수" Width="140">
+                            <CellDisplayTemplate Context="cell">@CargoCodes.Moment(((DisputeInfo)cell.DataItem).CreatedAt)</CellDisplayTemplate>
+                        </DxGridDataColumn>
+                    </Columns>
+                </CommGrd>
+            </CommCont>
+        }
+    }
+    else if (!Loading)
+    {
+        <PageNotice Tone="NoticeTone.Warning" Text="거래를 찾지 못했습니다. 지운 거래이거나 내가 등록한 거래가 아닐 수 있습니다." />
+    }
+</div>
+
+<PaymentPopup @ref="_payment" OnSaved="@(_ => ReloadAsync())" />
+<ReviewPopup @ref="_review" OnSaved="@(_ => ReloadAsync())" />
+<TransactionEditPopup @ref="_edit" OnSaved="@(_ => ReloadAsync())" />
+<ReportPopup @ref="_report" />
+<ConfirmDialog @ref="_confirm" />
+
+@code {
+    [Parameter] public long TransactionId { get; set; }
+
+    private long _loadedFor;
+    private TransactionDetail? _detail;
+
+    private PaymentPopup? _payment;
+    private ReviewPopup? _review;
+    private TransactionEditPopup? _edit;
+    private ReportPopup? _report;
+    private ConfirmDialog? _confirm;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_loadedFor == TransactionId)
+        {
+            return;
+        }
+
+        _loadedFor = TransactionId;
+        await ReloadAsync();
+    }
+
+    private Task ReloadAsync() => LoadOneAsync(
+        () => Api.GetTransactionAsync(TransactionId),
+        d => _detail = d,
+        "거래를 찾지 못했습니다.",
+        "거래를 읽지 못했습니다");
+
+    private static string Summary(MyTransaction t) =>
+        $"{t.CompanyName} · {CargoCodes.Day(t.TransportDate)} · {CargoCodes.Won(t.Amount)}";
+
+    private async Task DeleteAsync(MyTransaction t)
+    {
+        var ok = await _confirm!.AskAsync(
+            $"{Summary(t)} 거래를 지웁니다.\n지운 거래는 거래처 통계에서도 빠집니다.");
+
+        if (!ok)
+        {
+            return;
+        }
+
+        if (await RunAsync(() => Api.DeleteTransactionAsync(t.TransactionId), "거래를 지웠습니다.", "거래를 지우지 못했습니다"))
+        {
+            Navigation.NavigateTo("/cargotrust/transactions");
+        }
+    }
+}

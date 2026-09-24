@@ -1,0 +1,72 @@
+@page "/cargotrust/reports"
+@attribute [RouteKey("cargotrust.reports")]
+
+@*
+    내 신고(설계안 15). 신고는 거래처 상세 · 거래 상세 · 후기에서 올리고, 여기서는
+    **어떻게 처리됐는지**를 본다.
+
+    서버가 주는 목록은 내 것 전부라(`/reports/mine`, 조건 없음) 상태 거르기는 화면에서
+    한다. 신고가 한 사람에게 수천 건 쌓일 일은 없다.
+*@
+
+@inherits DataPage
+@inject CargoTrustClient Api
+
+<PageTitle>내 신고 · 운송관리</PageTitle>
+
+<CommSch OnSearch="@ReloadAsync" Busy="@Loading" MobileSummary="@ConditionSummary">
+    <Fields>
+        <CommSchItem Label="상태">
+            <DxComboBox Data="@CargoCodes.ReportStatusOptions" @bind-Value="_status"
+                        TextFieldName="@nameof(SchOption.Text)" ValueFieldName="@nameof(SchOption.Value)"
+                        Style="width: 140px" />
+        </CommSchItem>
+    </Fields>
+</CommSch>
+
+<CommCont>
+    <CommGrd TItem="ReportInfo" Data="@Shown" ExportName="내신고" Reload="@ReloadAsync">
+        <Columns>
+            <DxGridDataColumn FieldName="@nameof(ReportInfo.CreatedAt)" Caption="접수" Width="140">
+                <CellDisplayTemplate Context="cell">@CargoCodes.Moment(((ReportInfo)cell.DataItem).CreatedAt)</CellDisplayTemplate>
+            </DxGridDataColumn>
+            <DxGridDataColumn FieldName="@nameof(ReportInfo.TargetType)" Caption="대상" Width="80">
+                <CellDisplayTemplate Context="cell">@CargoCodes.ReportTargetName(((ReportInfo)cell.DataItem).TargetType)</CellDisplayTemplate>
+            </DxGridDataColumn>
+            <DxGridDataColumn FieldName="@nameof(ReportInfo.TargetSummary)" Caption="대상 요약" MinWidth="200" />
+            <DxGridDataColumn FieldName="@nameof(ReportInfo.Reason)" Caption="사유" Width="110">
+                <CellDisplayTemplate Context="cell">@CargoCodes.ReportReasonName(((ReportInfo)cell.DataItem).Reason)</CellDisplayTemplate>
+            </DxGridDataColumn>
+            <DxGridDataColumn FieldName="@nameof(ReportInfo.Content)" Caption="설명" MinWidth="180" />
+            <DxGridDataColumn FieldName="@nameof(ReportInfo.Status)" Caption="상태" Width="95">
+                <CellDisplayTemplate Context="cell">
+                    @{ var r = (ReportInfo)cell.DataItem; }
+                    <span class="@CargoCodes.ReportStatusBadge(r.Status)">@CargoCodes.ReportStatusName(r.Status)</span>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+            <DxGridDataColumn FieldName="@nameof(ReportInfo.Resolution)" Caption="처리 결과" MinWidth="180" />
+            <DxGridDataColumn FieldName="@nameof(ReportInfo.ResolvedAt)" Caption="처리" Width="140">
+                <CellDisplayTemplate Context="cell">@CargoCodes.Moment(((ReportInfo)cell.DataItem).ResolvedAt)</CellDisplayTemplate>
+            </DxGridDataColumn>
+        </Columns>
+    </CommGrd>
+</CommCont>
+
+@code {
+    private string ConditionSummary =>
+        SchSummary.NameOf(CargoCodes.ReportStatusOptions, o => o.Value, o => o.Text, _status);
+
+    private string? _status;
+    private IReadOnlyList<ReportInfo> _all = [];
+
+    private IReadOnlyList<ReportInfo> Shown =>
+        string.IsNullOrEmpty(_status) ? _all : [.. _all.Where(r => r.Status == _status)];
+
+    protected override Task OnInitializedAsync() => ReloadAsync();
+
+    private Task ReloadAsync() => LoadAsync(async () =>
+    {
+        _all = await Api.GetMyReportsAsync();
+        return Shown.Count;
+    }, "신고한 것이 없습니다.", "내 신고를 읽지 못했습니다");
+}

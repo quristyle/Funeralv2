@@ -1,0 +1,131 @@
+@page "/cargotrust/receivables"
+@attribute [RouteKey("cargotrust.receivables")]
+
+@*
+    미수금(CT-008, 설계안 10). 내 거래 중 아직 다 받지 못한 것의 **남은 금액**이다.
+
+    [합계는 칸으로 가른다 — 상태와 한 곳이 다르다]
+
+    서버가 거래마다 칸(bucket)을 정해 준다. 상태와 같은데 하나가 다르다 —
+    예정일이 **지난** 예정 거래는 「정상 예정」이 아니라 「지급 지연」 칸으로 간다.
+    그래서 이 화면은 상태가 아니라 칸의 이름을 쓴다(PayBadge Bucket).
+
+    [거래별은 카드다]
+
+    설계안 10 의 모양 그대로 「회사 · 남은 금액 · 예정 지급일 · 현재 N일 지연」을
+    한 덩어리로 보인다. 휴대폰에서 이 화면을 여는 일이 가장 잦다(받을 돈을 확인하러).
+    늦은 것부터 늘어놓는다.
+*@
+
+@inherits DataPage
+@inject CargoTrustClient Api
+
+<PageTitle>미수금 · 운송관리</PageTitle>
+
+<div class="ct-page">
+    @{ var s = _data?.Summary ?? new ReceivableSummary(); }
+
+    <div class="jsini-stats ct-stats">
+        <div class="jsini-stat ct-stat--total">
+            <div class="jsini-stat__label">전체 미수금</div>
+            <div class="jsini-stat__value">@CargoCodes.Won(s.Total)</div>
+            <div class="jsini-hint">@(s.Count)건 · 남은 금액 기준</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">정상 예정</div>
+            <div class="jsini-stat__value">@CargoCodes.Won(s.Scheduled)</div>
+            <div class="jsini-hint">예정일 전</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">지급 지연</div>
+            <div class="jsini-stat__value">@CargoCodes.Won(s.Delayed)</div>
+            <div class="jsini-hint">예정일이 지났는데 아직 못 받음</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">미지급</div>
+            <div class="jsini-stat__value">@CargoCodes.Won(s.Unpaid)</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">일부 지급</div>
+            <div class="jsini-stat__value">@CargoCodes.Won(s.Partial)</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">분쟁</div>
+            <div class="jsini-stat__value">@CargoCodes.Won(s.Dispute)</div>
+        </div>
+    </div>
+
+    <CommCont Title="거래별" Hint="늦은 것부터">
+        @if (_items.Count > 0)
+        {
+            <div class="ct-cards">
+                @foreach (var r in _items)
+                {
+                    <div class="ct-card ct-card--static">
+                        <div class="ct-card__head">
+                            <a class="ct-card__name" href="@($"/cargotrust/companies/{r.CompanyId}")">@r.CompanyName</a>
+                            <PayBadge Code="@r.Bucket" Bucket="true" />
+                        </div>
+                        <div class="ct-card__amount">@CargoCodes.Won(r.Outstanding)</div>
+                        <dl class="ct-card__rows">
+                            <div><dt>운송일</dt><dd>@CargoCodes.Day(r.TransportDate)</dd></div>
+                            <div><dt>운송료</dt><dd>@CargoCodes.Won(r.Amount)</dd></div>
+                            <div><dt>받은 금액</dt><dd>@CargoCodes.Won(r.PaidAmount)</dd></div>
+                            <div><dt>예정 지급일</dt><dd>@CargoCodes.Day(r.ExpectedPaymentDate)</dd></div>
+                        </dl>
+                        <div class="ct-card__foot">
+                            @if (r.OverdueDays is > 0)
+                            {
+                                <span class="ct-num--err">현재 @(r.OverdueDays)일 지연</span>
+                            }
+                            else if (r.ExpectedPaymentDate is { } due)
+                            {
+                                <span class="jsini-hint">@DaysLeft(due)</span>
+                            }
+                            else
+                            {
+                                <span class="jsini-hint">예정 지급일 없음</span>
+                            }
+                            <span class="jsini-actions">
+                                <DxButton Text="결제 등록" RenderStyle="ButtonRenderStyle.Link"
+                                          Click="@(() => _payment?.Open(PaymentTarget.From(r)))" />
+                                <a href="@($"/cargotrust/transactions/{r.TransactionId}")">상세</a>
+                            </span>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+        else if (!Loading)
+        {
+            <PageNotice Text="받을 돈이 남은 거래가 없습니다." />
+        }
+    </CommCont>
+</div>
+
+<PaymentPopup @ref="_payment" OnSaved="@(_ => ReloadAsync())" />
+
+@code {
+    private ReceivablesInfo? _data;
+    private IReadOnlyList<ReceivableItem> _items = [];
+    private PaymentPopup? _payment;
+
+    protected override Task OnInitializedAsync() => ReloadAsync();
+
+    private Task ReloadAsync() => LoadAsync(async () =>
+    {
+        _data = await Api.GetReceivablesAsync();
+        _items = [.. (_data?.Items ?? [])
+            .OrderByDescending(r => r.OverdueDays ?? -1)
+            .ThenBy(r => r.ExpectedPaymentDate ?? DateOnly.MaxValue)];
+
+        // 비어 있으면 안내 줄이 말한다.
+        return -1;
+    }, failMessage: "미수금을 읽지 못했습니다");
+
+    private static string DaysLeft(DateOnly due)
+    {
+        var left = due.DayNumber - DateOnly.FromDateTime(DateTime.Today).DayNumber;
+        return left <= 0 ? "오늘이 예정 지급일" : $"예정일까지 {left}일";
+    }
+}

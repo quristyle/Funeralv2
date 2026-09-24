@@ -1,0 +1,122 @@
+@*
+    결제 결과 등록(CT-006). 내 거래 · 거래 상세 · 결제 등록 · 미수금 네 화면이 연다.
+
+    [운송과 결제는 따로 적는다 — 설계안 9]
+
+    거래를 등록할 때는 「언제 받기로 했나」까지만 적고, 받은 일은 받을 때 여기서
+    적는다. 그래야 예정일과 실제 날의 차이가 **사람의 기억이 아니라 두 기록의
+    차이**로 계산된다.
+
+    [상태를 사람이 고르지 않는다]
+
+    「정상 지급」·「지연 지급」·「일부 지급」은 받은 날과 금액으로 서버가 정한다
+    (05-api-design.md 「결제 판정」). 사람이 고르면 같은 사실이 사람마다 다른
+    상태로 쌓여 통계가 흔들린다. 여기서 고르는 것은 **받았다 · 미지급으로 확정 ·
+    분쟁** 셋뿐이고, 받았을 때 어느 상태가 될지는 미리 보여만 준다.
+
+    받은 금액은 **쌓인다.** 두 번에 나눠 받으면 두 번 적는다 — 그래서 기본값이
+    운송료가 아니라 남은 금액이다.
+*@
+
+@inherits DataPage
+@inject CargoTrustClient Api
+
+<CommPopup @bind-Visible="_visible" HeaderText="결제 결과 등록" Width="560px">
+    <BodyContentTemplate Context="popup">
+        @if (_target is not null)
+        {
+            <dl class="ct-facts">
+                <div><dt>거래처</dt><dd>@_target.CompanyName</dd></div>
+                <div><dt>운송일</dt><dd>@CargoCodes.Day(_target.TransportDate)</dd></div>
+                <div><dt>운송료</dt><dd>@CargoCodes.Won(_target.Amount)</dd></div>
+                <div><dt>이미 받은 금액</dt><dd>@CargoCodes.Won(_target.PaidAmount)</dd></div>
+                <div><dt>예정 지급일</dt><dd>@CargoCodes.Day(_target.ExpectedPaymentDate)</dd></div>
+                <div><dt>지금 상태</dt><dd><PayBadge Code="@_target.PaymentStatus" /></dd></div>
+            </dl>
+
+            <DxFormLayout CssClass="ct-form">
+                <DxFormLayoutItem Caption="결과" ColSpanMd="12">
+                    <DxRadioGroup Items="@PaymentDraft.Outcomes" @bind-Value="_draft.Outcome"
+                                  TextFieldName="@nameof(SchOption.Text)" ValueFieldName="@nameof(SchOption.Value)"
+                                  Layout="RadioGroupLayout.Horizontal" />
+                </DxFormLayoutItem>
+
+                @if (_draft.IsReceived)
+                {
+                    <DxFormLayoutItem Caption="받은 날" ColSpanMd="6">
+                        <DxDateEdit @bind-Date="_draft.PaidDate" />
+                    </DxFormLayoutItem>
+                    <DxFormLayoutItem Caption="받은 금액(원)" ColSpanMd="6">
+                        <DxSpinEdit @bind-Value="_draft.PaidAmount" MinValue="0m" Increment="10000m"
+                                    DisplayFormat="#,0" />
+                    </DxFormLayoutItem>
+                }
+
+                <DxFormLayoutItem Caption="메모" ColSpanMd="12">
+                    <DxMemo @bind-Text="_draft.Memo" Rows="3" />
+                </DxFormLayoutItem>
+            </DxFormLayout>
+
+            <div class="ct-preview">
+                <span class="jsini-hint">등록하면</span>
+                <PayBadge Code="@_draft.Preview(_target)" />
+                @if (_draft.DelayDays(_target) > 0)
+                {
+                    <span class="jsini-hint">예정일보다 @(_draft.DelayDays(_target))일 늦음</span>
+                }
+            </div>
+        }
+    </BodyContentTemplate>
+
+    <FooterContentTemplate Context="popup">
+        <DxButton Text="등록" RenderStyle="ButtonRenderStyle.Primary" Enabled="@(!Loading)" Click="@SaveAsync" />
+        <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary" Click="@(() => _visible = false)" />
+    </FooterContentTemplate>
+</CommPopup>
+
+@code {
+    /// <summary>등록한 뒤 서버가 돌려준 거래(바뀐 상태가 담겨 있다).</summary>
+    [Parameter] public EventCallback<MyTransaction> OnSaved { get; set; }
+
+    private bool _visible;
+    private PaymentTarget? _target;
+    private PaymentDraft _draft = new();
+
+    public void Open(PaymentTarget target)
+    {
+        _target = target;
+        _draft = new PaymentDraft { PaidAmount = target.Outstanding };
+        _visible = true;
+        StateHasChanged();
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_target is null)
+        {
+            return;
+        }
+
+        if (_draft.Problem() is { } problem)
+        {
+            Say(problem, NoticeTone.Warning);
+            return;
+        }
+
+        MyTransaction? saved = null;
+        if (await RunAsync(async () => saved = await Api.RegisterPaymentAsync(_target.TransactionId, _draft.ToRequest()),
+                okMessage: string.Empty, failMessage: "결제 결과를 등록하지 못했습니다"))
+        {
+            // 결과 상태는 서버가 정한 것을 말한다 — 미리 보여 준 짐작과 다를 수 있다.
+            Say(saved is null
+                ? "결제 결과를 등록했습니다."
+                : $"결제 결과를 등록했습니다 — {CargoCodes.PaymentStatusName(saved.PaymentStatus)}");
+
+            _visible = false;
+            if (saved is not null)
+            {
+                await OnSaved.InvokeAsync(saved);
+            }
+        }
+    }
+}

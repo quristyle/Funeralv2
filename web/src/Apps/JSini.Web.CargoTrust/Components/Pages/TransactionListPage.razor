@@ -1,0 +1,234 @@
+@page "/cargotrust/transactions"
+@attribute [RouteKey("cargotrust.transactions")]
+
+@*
+    내 거래(CT-009). 내가 등록한 것만 나온다 — 서버가 신원으로 거른다.
+
+    [줄마다 할 일을 관리 칸에 둔다]
+
+    결제 등록 · 후기 · 수정 · 삭제 · 상세 다섯이다. 결제 등록은 **아직 다 받지 않은
+    거래에만** 뜬다(정상·지연 지급은 이미 받은 것이다). CommGrd 의 수정·삭제 단추를
+    쓰지 않는 이유는 그 둘이 메뉴 권한(use_update · use_delete)으로 감춰지기 때문이다 —
+    이 화면의 수정·삭제는 **내 거래에 대한** 것이라 서버가 등록자인지로 따진다.
+    메뉴 권한을 걸면 권한표를 켜지 않은 역할에게서 자기 거래를 고칠 길이 사라진다.
+
+    [거래처 고르개는 내 거래에서 모은다]
+
+    서버 조건은 companyId 하나다. 전체 거래처를 내려받아 콤보에 담는 대신, 이 화면이
+    읽어 온 내 거래에서 거래처를 모아 고르개를 채운다 — 내가 거래한 적이 없는 곳으로
+    거를 일은 없다. 거래처 상세의 「내가 등록한 거래 N건」은 `?companyId=` 로 넘어온다.
+*@
+
+@inherits DataPage
+@inject CargoTrustClient Api
+@inject NavigationManager Navigation
+
+<PageTitle>내 거래 · 운송관리</PageTitle>
+
+<CommSch OnSearch="@ReloadAsync" OnReset="@ResetAsync" Busy="@Loading" MobileSummary="@ConditionSummary">
+    <Fields>
+        <CommSchItem Label="상태">
+            <DxComboBox Data="@CargoCodes.PaymentStatusOptions" @bind-Value="_status"
+                        TextFieldName="@nameof(SchOption.Text)" ValueFieldName="@nameof(SchOption.Value)"
+                        Style="width: 130px" />
+        </CommSchItem>
+        <CommSchItem Label="운송일(부터)">
+            <DxDateEdit @bind-Date="_from" ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" Style="width: 150px" />
+        </CommSchItem>
+        <CommSchItem Label="운송일(까지)">
+            <DxDateEdit @bind-Date="_to" ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" Style="width: 150px" />
+        </CommSchItem>
+        <CommSchItem Label="거래처">
+            <DxComboBox Data="@_companies" @bind-Value="_companyId"
+                        TextFieldName="@nameof(SchOption.Text)" ValueFieldName="@nameof(SchOption.Value)"
+                        SearchMode="ListSearchMode.AutoSearch" Style="width: 200px" />
+        </CommSchItem>
+    </Fields>
+    <Actions>
+        <DxButton Text="거래 등록" RenderStyle="ButtonRenderStyle.Secondary" IconCssClass="jsini-icon-plus"
+                  Click="@(() => Navigation.NavigateTo("/cargotrust/transactions/new"))" />
+    </Actions>
+</CommSch>
+
+<CommCont>
+    <CommGrd TItem="MyTransaction" Data="@_rows" ExportName="내거래"
+             Reload="@ReloadAsync" RowActions="@Actions" ActionsWidth="280">
+        <Columns>
+            <DxGridDataColumn FieldName="@nameof(MyTransaction.TransportDate)" Caption="운송일" Width="105" DisplayFormat="yyyy-MM-dd" />
+            <DxGridDataColumn FieldName="@nameof(MyTransaction.CompanyName)" Caption="거래처" MinWidth="150">
+                <CellDisplayTemplate Context="cell">
+                    @{ var t = (MyTransaction)cell.DataItem; }
+                    <a href="@($"/cargotrust/companies/{t.CompanyId}")">@t.CompanyName</a>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+            <DxGridDataColumn FieldName="@nameof(MyTransaction.Route)" Caption="구간" MinWidth="160" />
+            <DxGridDataColumn FieldName="@nameof(MyTransaction.Amount)" Caption="운송료" Width="105"
+                              DisplayFormat="#,0" TextAlignment="GridTextAlignment.Right" />
+            <DxGridDataColumn FieldName="@nameof(MyTransaction.PaidAmount)" Caption="받은 금액" Width="105"
+                              DisplayFormat="#,0" TextAlignment="GridTextAlignment.Right" />
+            <DxGridDataColumn FieldName="@nameof(MyTransaction.Outstanding)" Caption="미수금" Width="105"
+                              DisplayFormat="#,0" TextAlignment="GridTextAlignment.Right" />
+            <DxGridDataColumn FieldName="@nameof(MyTransaction.ExpectedPaymentDate)" Caption="예정 지급일" Width="105" DisplayFormat="yyyy-MM-dd" />
+            <DxGridDataColumn FieldName="@nameof(MyTransaction.ActualPaymentDate)" Caption="실제 지급일" Width="105" DisplayFormat="yyyy-MM-dd" />
+            <DxGridDataColumn FieldName="@nameof(MyTransaction.PaymentStatus)" Caption="상태" Width="95">
+                <CellDisplayTemplate Context="cell"><PayBadge Code="@(((MyTransaction)cell.DataItem).PaymentStatus)" /></CellDisplayTemplate>
+            </DxGridDataColumn>
+            <DxGridDataColumn FieldName="@nameof(MyTransaction.OverdueDays)" Caption="지연" Width="95">
+                <CellDisplayTemplate Context="cell">@DelayText((MyTransaction)cell.DataItem)</CellDisplayTemplate>
+            </DxGridDataColumn>
+            <DxGridDataColumn FieldName="@nameof(MyTransaction.HasReview)" Caption="후기" Width="60">
+                <CellDisplayTemplate Context="cell">@(((MyTransaction)cell.DataItem).HasReview ? "있음" : "-")</CellDisplayTemplate>
+            </DxGridDataColumn>
+            <DxGridDataColumn FieldName="@nameof(MyTransaction.ReviewStatus)" Caption="검증" Width="95">
+                <CellDisplayTemplate Context="cell">
+                    @{ var t = (MyTransaction)cell.DataItem; }
+                    @if (t.ReviewStatus != "NORMAL")
+                    {
+                        <span class="@CargoCodes.ReviewStatusBadge(t.ReviewStatus)">@CargoCodes.ReviewStatusName(t.ReviewStatus)</span>
+                    }
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+        </Columns>
+    </CommGrd>
+</CommCont>
+
+<PaymentPopup @ref="_payment" OnSaved="@(_ => ReloadAsync())" />
+<ReviewPopup @ref="_review" OnSaved="@(_ => ReloadAsync())" />
+<TransactionEditPopup @ref="_edit" OnSaved="@(_ => ReloadAsync())" />
+<ConfirmDialog @ref="_confirm" />
+
+@code {
+    /// <summary>거래처 상세의 「내가 등록한 거래」에서 넘어올 때.</summary>
+    [Parameter, SupplyParameterFromQuery(Name = "companyId")]
+    public long? CompanyIdQuery { get; set; }
+
+    private string ConditionSummary => SchSummary.Of(
+        SchSummary.NameOf(CargoCodes.PaymentStatusOptions, o => o.Value, o => o.Text, _status),
+        SchSummary.Period(_from, _to),
+        _companyId is null ? null : SchSummary.NameOf(_companies, o => o.Value, o => o.Text, _companyId, empty: string.Empty));
+
+    private string? _status;
+    private DateTime? _from;
+    private DateTime? _to;
+    private string? _companyId;
+
+    private List<SchOption> _companies = [new(null, SchSummary.Any)];
+    private IReadOnlyList<MyTransaction> _rows = [];
+
+    private PaymentPopup? _payment;
+    private ReviewPopup? _review;
+    private TransactionEditPopup? _edit;
+    private ConfirmDialog? _confirm;
+
+    private RenderFragment<MyTransaction> Actions => t =>
+        @<div class="jsini-actions">
+            @if (t.CanPay)
+            {
+                <DxButton Text="결제" RenderStyle="ButtonRenderStyle.Link" Title="결제 결과 등록"
+                          Click="@(() => _payment?.Open(PaymentTarget.From(t)))" />
+            }
+            <DxButton Text="후기" RenderStyle="ButtonRenderStyle.Link" Title="@(t.HasReview ? "후기 고치기" : "후기 작성")"
+                      Click="@(() => OpenReviewAsync(t))" />
+            <DxButton IconCssClass="jsini-icon-edit" RenderStyle="ButtonRenderStyle.Link" Title="수정"
+                      Click="@(() => _edit?.Open(t))" />
+            <DxButton IconCssClass="jsini-icon-trash" RenderStyle="ButtonRenderStyle.Link" Title="삭제"
+                      CssClass="commgrd__icon--warn" Click="@(() => DeleteAsync(t))" />
+            <DxButton Text="상세" RenderStyle="ButtonRenderStyle.Link"
+                      Click="@(() => Navigation.NavigateTo($"/cargotrust/transactions/{t.TransactionId}"))" />
+        </div>;
+
+    protected override Task OnInitializedAsync()
+    {
+        if (CompanyIdQuery is not null)
+        {
+            _companyId = CompanyIdQuery.Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        }
+
+        return ReloadAsync();
+    }
+
+    private Task ResetAsync()
+    {
+        _status = null;
+        _from = null;
+        _to = null;
+        _companyId = null;
+        return ReloadAsync();
+    }
+
+    private Task ReloadAsync() => LoadAsync(async () =>
+    {
+        _rows = await Api.GetMyTransactionsAsync(
+            _status,
+            _from is null ? null : DateOnly.FromDateTime(_from.Value),
+            _to is null ? null : DateOnly.FromDateTime(_to.Value),
+            long.TryParse(_companyId, out var id) ? id : null);
+
+        CollectCompanies(_rows);
+        return _rows.Count;
+    }, "조건에 맞는 거래가 없습니다.", "내 거래를 읽지 못했습니다");
+
+    /// <summary>
+    /// 읽어 온 거래에서 거래처를 모아 고르개에 **보탠다**. 거른 결과로 갈아 끼우면
+    /// 한 거래처로 거른 순간 고르개에 그 하나만 남아 다른 곳으로 옮길 수 없다.
+    /// </summary>
+    private void CollectCompanies(IEnumerable<MyTransaction> rows)
+    {
+        foreach (var t in rows)
+        {
+            var value = t.CompanyId.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            if (_companies.All(c => c.Value != value))
+            {
+                _companies.Add(new SchOption(value, t.CompanyName));
+            }
+        }
+
+        // 콤보가 새 목록을 알아채도록 참조를 바꾼다.
+        _companies = [.. _companies];
+    }
+
+    private static string DelayText(MyTransaction t) =>
+        t.OverdueDays is > 0 ? $"{t.OverdueDays}일 지남"
+        : t.DelayDays is > 0 ? $"{t.DelayDays}일 늦음"
+        : "-";
+
+    /// <summary>
+    /// 후기를 연다. 이미 쓴 것이 있으면 그 글을 채워야 하는데 목록에는 유무만 있어서
+    /// 상세를 한 번 읽는다. 없으면 읽지 않는다.
+    /// </summary>
+    private async Task OpenReviewAsync(MyTransaction t)
+    {
+        var summary = $"{t.CompanyName} · {CargoCodes.Day(t.TransportDate)} · {CargoCodes.Won(t.Amount)}";
+
+        if (!t.HasReview)
+        {
+            _review?.Open(t.TransactionId, summary);
+            return;
+        }
+
+        TransactionDetail? detail = null;
+        if (await RunAsync(async () => detail = await Api.GetTransactionAsync(t.TransactionId),
+                okMessage: string.Empty, failMessage: "후기를 읽지 못했습니다"))
+        {
+            _review?.Open(t.TransactionId, summary, detail?.Review?.Content);
+        }
+    }
+
+    private async Task DeleteAsync(MyTransaction t)
+    {
+        // 무엇이 함께 사라지는지 적는다 — 이 거래가 거래처 통계에서 빠진다.
+        var ok = await _confirm!.AskAsync(
+            $"{t.CompanyName} · {CargoCodes.Day(t.TransportDate)} · {CargoCodes.Won(t.Amount)} 거래를 지웁니다."
+            + "\n지운 거래는 거래처 통계에서도 빠집니다.");
+
+        if (!ok)
+        {
+            return;
+        }
+
+        if (await RunAsync(() => Api.DeleteTransactionAsync(t.TransactionId), "거래를 지웠습니다.", "거래를 지우지 못했습니다"))
+        {
+            await ReloadAsync();
+        }
+    }
+}

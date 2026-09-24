@@ -1,0 +1,221 @@
+@page "/cargoadmin/reports"
+@attribute [RouteKey("cargoadmin.reports")]
+
+@*
+    [신고 관리] — 설계안 CTA-006 · 15절.
+
+    신고는 거래처 · 거래 · 후기 셋 중 하나를 가리킨다(`targetType` · `targetId`).
+    대상 자체를 여기서 고치지 않는다 — 처리 창에서 **상태 · 처리 내용**을 적고,
+    필요하면 「대상 숨김」 하나로 치운다. 숨기는 것은 서버가 대상 종류에 맞게 한다
+    (거래 → 통계 제외 · 후기 → 숨김 · 거래처 → 숨김, 계약서 `AdminResolve`).
+    대상을 종류마다 다른 화면으로 찾아가 고치게 하면, 신고와 조치가 따로 남아 「이 신고를
+    어떻게 처리했나」가 감사 기록을 뒤져야 나온다.
+
+    [처리 대기를 먼저 연다]
+
+    대시보드의 「미처리 신고」는 `?status=RECEIVED` 로 건너온다. 검토중은 사람이
+    이미 손을 댄 것이라 따로 고를 수 있게 두었다.
+
+    [같은 신고를 두 번 처리하지 않게]
+
+    처리 창은 끝난 신고(반려 · 삭제 · 처리 완료)도 연다 — 잘못 처리한 것을 되돌려야
+    할 때가 있다. 서버는 상태가 접수 · 검토중이 아니면 처리 시각을 새로 채운다.
+*@
+
+@inherits DataPage
+@inject CargoAdminClient Api
+
+<PageTitle>신고 관리 · 운송관리 관리자</PageTitle>
+
+<CommSch OnSearch="@ReloadAsync" Busy="@Loading" MobileSummary="@ConditionSummary">
+    <Fields>
+        <CommSchItem Label="상태">
+            <DxComboBox Data="@CargoAdminCodes.ReportStatus.Filter" @bind-Value="_status"
+                        TextFieldName="@nameof(SchOption.Text)" ValueFieldName="@nameof(SchOption.Value)"
+                        Style="width: 130px" />
+        </CommSchItem>
+    </Fields>
+</CommSch>
+
+<CommCont>
+    <CommGrd TItem="AdminReport"
+             Data="@_rows"
+             ExportName="운송관리신고"
+             PageSize="20"
+             Reload="@ReloadAsync">
+        <RowActions Context="row">
+            <PermissionView Action="MenuAction.Update">
+                <DxButton IconCssClass="jsini-icon-check-circle"
+                          Title="처리"
+                          RenderStyle="ButtonRenderStyle.Link"
+                          Click="@(() => Open(row))" />
+            </PermissionView>
+        </RowActions>
+
+        <Columns>
+            <DxGridDataColumn FieldName="@nameof(AdminReport.CreatedAt)" Caption="접수" Width="140"
+                              DisplayFormat="yyyy-MM-dd HH:mm" />
+
+            <DxGridDataColumn FieldName="@nameof(AdminReport.Status)" Caption="상태" Width="90">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var r = (AdminReport)cell.DataItem;
+                    }
+                    <span class="@CargoAdminCodes.ReportStatus.BadgeOf(r.Status)">@CargoAdminCodes.ReportStatus.NameOf(r.Status)</span>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn FieldName="@nameof(AdminReport.TargetType)" Caption="대상" Width="80">
+                <CellDisplayTemplate Context="cell">
+                    @CargoAdminCodes.ReportTarget.NameOf(((AdminReport)cell.DataItem).TargetType)
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn FieldName="@nameof(AdminReport.TargetSummary)" Caption="대상 요약" MinWidth="200"
+                              TextAlignment="GridTextAlignment.Left" />
+
+            <DxGridDataColumn FieldName="@nameof(AdminReport.Reason)" Caption="사유" Width="110">
+                <CellDisplayTemplate Context="cell">
+                    @CargoAdminCodes.ReportReason.NameOf(((AdminReport)cell.DataItem).Reason)
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn FieldName="@nameof(AdminReport.Content)" Caption="내용" MinWidth="220"
+                              TextAlignment="GridTextAlignment.Left">
+                <CellDisplayTemplate Context="cell">
+                    <div class="ca-clamp">@(((AdminReport)cell.DataItem).Content)</div>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn FieldName="@nameof(AdminReport.ReporterName)" Caption="신고자" Width="110" />
+            <DxGridDataColumn FieldName="@nameof(AdminReport.Resolution)" Caption="처리 내용" MinWidth="160" />
+            <DxGridDataColumn FieldName="@nameof(AdminReport.ResolvedAt)" Caption="처리" Width="140"
+                              DisplayFormat="yyyy-MM-dd HH:mm" />
+        </Columns>
+
+        <DetailRowTemplate Context="detail">
+            @{
+                var r = (AdminReport)detail.DataItem;
+            }
+            <p class="ca-text">@r.Content</p>
+            <div class="jsini-hint">신고자 아이디 @r.ReporterExternalId · 대상 #@r.TargetId</div>
+        </DetailRowTemplate>
+    </CommGrd>
+</CommCont>
+
+<CommPopup @bind-Visible="_editing" HeaderText="신고 처리" Width="560px">
+    <BodyContentTemplate Context="popup">
+        @if (_target is not null)
+        {
+            <div class="ca-subject">
+                <div>
+                    <b>@CargoAdminCodes.ReportTarget.NameOf(_target.TargetType)</b> ·
+                    @CargoAdminCodes.ReportReason.NameOf(_target.Reason)
+                </div>
+                <div>@_target.TargetSummary</div>
+                <p class="ca-text jsini-hint">@_target.Content</p>
+            </div>
+
+            <DxFormLayout>
+                <DxFormLayoutItem Caption="상태" ColSpanMd="6">
+                    <DxComboBox Data="@CargoAdminCodes.ReportStatus.Options"
+                                TextFieldName="@nameof(SchOption.Text)" ValueFieldName="@nameof(SchOption.Value)"
+                                @bind-Value="_form.Status" />
+                </DxFormLayoutItem>
+                <DxFormLayoutItem Caption="대상 숨김" ColSpanMd="6">
+                    <DxCheckBox @bind-Checked="_form.HideTarget">@HideLabel</DxCheckBox>
+                </DxFormLayoutItem>
+                <DxFormLayoutItem Caption="처리 내용" ColSpanMd="12">
+                    <DxMemo @bind-Text="_form.Resolution" Rows="4" />
+                </DxFormLayoutItem>
+            </DxFormLayout>
+        }
+    </BodyContentTemplate>
+
+    <FooterContentTemplate Context="popup">
+        <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Primary"
+                  Enabled="@(!Loading)" Click="@SaveAsync" />
+        <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary"
+                  Click="@(() => _editing = false)" />
+    </FooterContentTemplate>
+</CommPopup>
+
+@code {
+    [SupplyParameterFromQuery(Name = "status")] public string? StatusQuery { get; set; }
+
+    /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
+    private string ConditionSummary =>
+        SchSummary.NameOf(CargoAdminCodes.ReportStatus.Filter, o => o.Value, o => o.Text, _status);
+
+    private IReadOnlyList<AdminReport> _rows = [];
+
+    private string? _status;
+
+    private bool _editing;
+    private AdminReport? _target;
+    private AdminResolve _form = new();
+
+    /// <summary>
+    /// 체크칸 옆 글자. 대상 종류에 따라 **무엇이 숨는지**를 말한다 — 「대상 숨김」만으로는
+    /// 거래를 숨기면 통계에서 빠진다는 것이 안 보인다.
+    /// </summary>
+    private string HideLabel => _target?.TargetType?.ToUpperInvariant() switch
+    {
+        "TRANSACTION" => "이 거래를 통계에서 뺀다",
+        "REVIEW" => "이 후기를 숨긴다",
+        "COMPANY" => "이 거래처를 검색에서 숨긴다",
+        _ => "대상을 숨긴다",
+    };
+
+    protected override Task OnInitializedAsync()
+    {
+        _status = CargoAdminCodes.ReportStatus.Options
+            .FirstOrDefault(o => string.Equals(o.Value, StatusQuery, StringComparison.OrdinalIgnoreCase))?.Value;
+
+        return ReloadAsync();
+    }
+
+    private Task ReloadAsync() => LoadAsync(async () =>
+    {
+        _rows = await Api.GetReportsAsync(_status);
+        return _rows.Count;
+    }, "조건에 맞는 신고가 없습니다.", "신고를 읽지 못했습니다");
+
+    private void Open(AdminReport row)
+    {
+        _target = row;
+
+        // 접수된 채로 열면 「검토중」으로 올려 둔다 — 창을 연 것 자체가 검토를 시작했다는
+        // 뜻이고, 처리 내용만 적고 상태를 안 바꾼 채 저장하는 실수를 줄인다.
+        _form = new AdminResolve
+        {
+            Status = string.Equals(row.Status, "RECEIVED", StringComparison.OrdinalIgnoreCase) ? "REVIEWING" : row.Status,
+            Resolution = row.Resolution,
+            HideTarget = false,
+        };
+        _editing = true;
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_target is null)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_form.Status))
+        {
+            Say("상태를 고르십시오.", NoticeTone.Warning);
+            return;
+        }
+
+        var id = _target.ReportId;
+        var body = _form;
+
+        if (await RunAsync(() => Api.ResolveReportAsync(id, body), "처리했습니다.", "처리하지 못했습니다"))
+        {
+            _editing = false;
+            await ReloadAsync();
+        }
+    }
+}

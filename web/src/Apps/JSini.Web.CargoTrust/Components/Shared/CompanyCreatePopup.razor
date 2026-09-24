@@ -1,0 +1,175 @@
+@*
+    거래처 등록 팝업(설계안 6 · 33-3). 검색 화면과 거래 등록의 거래처 고르개가 함께 쓴다.
+
+    [사업자번호를 먼저 묻는다]
+
+    이 서비스에서 거래처를 가르는 열쇠는 이름이 아니라 사업자번호다. 이름부터 받으면
+    「○○물류」와 「(주)○○물류」가 두 회사로 따로 쌓여 **같은 회사의 거래가 둘로
+    쪼개진다** — 통계가 절반씩이 되고 데이터 규모 표시까지 틀린다.
+
+    그래서 번호를 넣고 「확인」을 누르면 먼저 `by-number` 로 묻는다. 이미 있으면
+    나머지 칸을 열지 않고 **그 회사를 쓰게** 한다. 없을 때만 이름·대표자 칸이 열린다.
+    번호를 고치면 확인을 다시 받는다 — 확인한 번호와 저장할 번호가 달라지면 안 된다.
+
+    서버도 같은 번호를 409 로 막는다(「이미 등록된 사업자번호입니다」). 여기서 먼저
+    묻는 것은 그 409 를 사람이 칸을 다 채운 뒤에야 듣지 않게 하려는 것이다.
+*@
+
+@inherits DataPage
+@inject CargoTrustClient Api
+@inject NavigationManager Navigation
+
+<CommPopup @bind-Visible="_visible" HeaderText="거래처 등록" Width="560px">
+    <BodyContentTemplate Context="popup">
+        <DxFormLayout CssClass="ct-form">
+            <DxFormLayoutItem Caption="사업자등록번호" ColSpanMd="12">
+                <div class="ct-inline-field">
+                    <DxTextBox Text="@_number" TextChanged="@OnNumberChanged"
+                               BindValueMode="BindValueMode.OnInput" />
+                    <DxButton Text="확인" RenderStyle="ButtonRenderStyle.Secondary"
+                              Enabled="@(!Loading)" Click="@CheckAsync" />
+                </div>
+            </DxFormLayoutItem>
+
+            @if (_existing is not null)
+            {
+                <DxFormLayoutItem ColSpanMd="12">
+                    <PageNotice Tone="NoticeTone.Info">
+                        이미 등록된 거래처입니다 — <b>@_existing.CompanyName</b>
+                        (@_existing.BusinessNumber@(string.IsNullOrWhiteSpace(_existing.CeoName) ? null : $" · 대표 {_existing.CeoName}"))
+                    </PageNotice>
+                </DxFormLayoutItem>
+            }
+            else if (_checked)
+            {
+                <DxFormLayoutItem Caption="회사명" ColSpanMd="12">
+                    <DxTextBox @bind-Text="_form.CompanyName" />
+                </DxFormLayoutItem>
+                <DxFormLayoutItem Caption="대표자" ColSpanMd="6">
+                    <DxTextBox @bind-Text="_form.CeoName" />
+                </DxFormLayoutItem>
+                <DxFormLayoutItem Caption="전화번호" ColSpanMd="6">
+                    <DxTextBox @bind-Text="_form.Phone" />
+                </DxFormLayoutItem>
+                <DxFormLayoutItem Caption="지역" ColSpanMd="6">
+                    <DxTextBox @bind-Text="_form.Region" />
+                </DxFormLayoutItem>
+                <DxFormLayoutItem Caption="업종" ColSpanMd="6">
+                    <DxTextBox @bind-Text="_form.BusinessType" />
+                </DxFormLayoutItem>
+                <DxFormLayoutItem Caption="사업장 주소" ColSpanMd="12">
+                    <DxTextBox @bind-Text="_form.Address" />
+                </DxFormLayoutItem>
+            }
+        </DxFormLayout>
+    </BodyContentTemplate>
+
+    <FooterContentTemplate Context="popup">
+        @if (_existing is not null)
+        {
+            <DxButton Text="@(OnPicked.HasDelegate ? "이 거래처로" : "상세 보기")"
+                      RenderStyle="ButtonRenderStyle.Primary" Click="@UseExistingAsync" />
+        }
+        else if (_checked)
+        {
+            <DxButton Text="등록" RenderStyle="ButtonRenderStyle.Primary"
+                      Enabled="@(!Loading)" Click="@SaveAsync" />
+        }
+        <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary" Click="@(() => _visible = false)" />
+    </FooterContentTemplate>
+</CommPopup>
+
+@code {
+    /// <summary>
+    /// 거래처가 정해졌을 때(새로 등록했거나, 이미 있던 것을 쓰기로 했을 때).
+    /// 안 주면 이미 있던 것은 그 회사 상세로 옮겨 간다.
+    /// </summary>
+    [Parameter] public EventCallback<CompanyInfo> OnPicked { get; set; }
+
+    private bool _visible;
+    private string? _number;
+    private bool _checked;
+    private CompanyInfo? _existing;
+    private CompanyCreateRequest _form = new();
+
+    /// <summary>연다. 검색칸에 번호를 쳐 둔 채 눌렀으면 그 번호를 받아 둔다.</summary>
+    public void Open(string? number = null)
+    {
+        _number = BusinessNumber.Digits(number).Length == 10 ? BusinessNumber.Format(number) : null;
+        _checked = false;
+        _existing = null;
+        _form = new CompanyCreateRequest();
+        _visible = true;
+        StateHasChanged();
+    }
+
+    private void OnNumberChanged(string? value)
+    {
+        _number = value;
+
+        // 확인한 번호와 저장할 번호가 달라지지 않게 — 고치면 처음부터 다시 묻는다.
+        _checked = false;
+        _existing = null;
+    }
+
+    private async Task CheckAsync()
+    {
+        if (!BusinessNumber.IsValid(_number))
+        {
+            Say("사업자등록번호가 올바르지 않습니다. 숫자 10자리를 확인하십시오.", NoticeTone.Warning);
+            return;
+        }
+
+        CompanyInfo? found = null;
+        if (await RunAsync(async () => found = await Api.GetCompanyByNumberAsync(_number!),
+                okMessage: string.Empty, failMessage: "사업자번호를 확인하지 못했습니다"))
+        {
+            _existing = found;
+            _checked = true;
+            _number = BusinessNumber.Format(_number);
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_form.CompanyName))
+        {
+            Say("회사명을 넣으십시오.", NoticeTone.Warning);
+            return;
+        }
+
+        _form.BusinessNumber = BusinessNumber.Digits(_number);
+
+        CompanyInfo? created = null;
+        if (await RunAsync(async () => created = await Api.CreateCompanyAsync(_form),
+                $"「{_form.CompanyName}」 을 등록했습니다.", "거래처를 등록하지 못했습니다")
+            && created is not null)
+        {
+            _visible = false;
+            await DeliverAsync(created);
+        }
+    }
+
+    private async Task UseExistingAsync()
+    {
+        if (_existing is null)
+        {
+            return;
+        }
+
+        _visible = false;
+        await DeliverAsync(_existing);
+    }
+
+    private async Task DeliverAsync(CompanyInfo company)
+    {
+        if (OnPicked.HasDelegate)
+        {
+            await OnPicked.InvokeAsync(company);
+        }
+        else
+        {
+            Navigation.NavigateTo($"/cargotrust/companies/{company.CompanyId}");
+        }
+    }
+}

@@ -1,0 +1,164 @@
+@page "/cargoadmin/statistics"
+@attribute [RouteKey("cargoadmin.statistics")]
+
+@*
+    [통계] — 설계안 CTA-009 · 26절.
+
+    세 조각이다 — 월별 거래(차트 + 표) · 지연 · 미지급 건수가 많은 거래처 10 ·
+    의심 표시가 붙은 거래를 올린 사용자.
+
+    [이름이 `Statistics` 가 아니라 `StatisticsPage` 인 까닭]
+
+    자료 타입에 `AdminStatistics` 가 있다. 지금은 이름이 달라 겹치지 않지만, 화면
+    이름을 「통계」 그대로 두면 누군가 자료 타입 이름을 줄이는 순간 화면이 타입을
+    가린다(web/CLAUDE.md 「화면 이름이 자료 타입 이름을 가리면 안 된다」).
+
+    [기준을 함께 적는다]
+
+    설계안 26 마지막 줄 — 통계 옆에 기간과 기준을 반드시 적는다. 이 숫자는
+    **운송일 기준**이고 삭제 · 통계 제외 거래를 뺀 것이다(계약서 「통계 계산」).
+    기준이 안 보이면 거래 화면의 건수와 달라 보여 「통계가 틀렸다」는 신고가 온다.
+
+    [판정어를 쓰지 않는다]
+
+    「지연 많은 거래처」는 건수로 줄 세운 것이지 순위표가 아니다. 머리글도
+    「지연 · 미지급 건수가 많은 거래처」로 적는다(설계안 12).
+
+    [차트는 쌓인 막대다]
+
+    한 달의 거래가 상태별로 어떻게 나뉘는지가 요점이라 달마다 한 막대에 쌓는다.
+    선으로 그리면 상태 다섯이 서로 겹쳐 읽히지 않는다. 정확한 값은 아래 표가 빠르다.
+    DevExpress 26.1.4 에 들어 있는 `DxChart` 라 라이브러리를 더하지 않는다.
+
+    대시보드처럼 조각이 쌓인 화면이라 `CommCont` 로 감싸지 않는다.
+*@
+
+@inherits DataPage
+@inject CargoAdminClient Api
+
+<PageTitle>통계 · 운송관리 관리자</PageTitle>
+
+<CommSch OnSearch="@ReloadAsync" Busy="@Loading" MobileSummary="@ConditionSummary">
+    <Fields>
+        <CommSchItem Label="기간">
+            <DxComboBox Data="@MonthOptions" @bind-Value="_months" Style="width: 130px">
+                <ItemTemplate>최근 @context 개월</ItemTemplate>
+            </DxComboBox>
+        </CommSchItem>
+    </Fields>
+</CommSch>
+
+@* 고르개의 값이 아니라 **지금 보이는 숫자의 기간**을 적는다. 고르고 조회를 안 누른
+   사이에 고르개 값을 적으면 표와 기준이 어긋난다. *@
+<div class="jsini-hint">
+    최근 @_shownMonths 개월 · 운송일 기준 · 삭제되었거나 통계에서 뺀 거래는 세지 않습니다.
+</div>
+
+<h2 class="ca-subhead">월별 거래</h2>
+
+@if (Monthly.Count > 0)
+{
+    <div class="jsini-card">
+        <DxChart Data="@Monthly" Width="100%" Height="260px">
+            <DxChartLegend Position="RelativePosition.Outside" />
+            <DxChartStackedBarSeries T="AdminMonthly" TArgument="string" TValue="int"
+                                     ArgumentField="m => m.Month" ValueField="m => m.NormalCount"
+                                     Name="정상 지급" />
+            <DxChartStackedBarSeries T="AdminMonthly" TArgument="string" TValue="int"
+                                     ArgumentField="m => m.Month" ValueField="m => m.DelayedCount"
+                                     Name="지연 지급" />
+            <DxChartStackedBarSeries T="AdminMonthly" TArgument="string" TValue="int"
+                                     ArgumentField="m => m.Month" ValueField="m => m.PartialCount"
+                                     Name="일부 지급" />
+            <DxChartStackedBarSeries T="AdminMonthly" TArgument="string" TValue="int"
+                                     ArgumentField="m => m.Month" ValueField="m => m.UnpaidCount"
+                                     Name="미지급" />
+            <DxChartStackedBarSeries T="AdminMonthly" TArgument="string" TValue="int"
+                                     ArgumentField="m => m.Month" ValueField="m => m.DisputeCount"
+                                     Name="분쟁" />
+            <DxChartTooltip Enabled="true">
+                <div class="jsini-tip">@context.Point.Argument — @context.Point.SeriesName @(context.Point.Value)건</div>
+            </DxChartTooltip>
+        </DxChart>
+    </div>
+}
+
+<div class="ca-section">
+    <CommGrd TItem="AdminMonthly" Data="@Monthly" ExportName="운송관리월별거래" PagerVisible="false" PageSize="36">
+        <Columns>
+            <DxGridDataColumn FieldName="@nameof(AdminMonthly.Month)" Caption="달" Width="90" />
+            <DxGridDataColumn FieldName="@nameof(AdminMonthly.Count)" Caption="거래" Width="80" />
+            <DxGridDataColumn FieldName="@nameof(AdminMonthly.Amount)" Caption="운송료" Width="130"
+                              DisplayFormat="#,0" TextAlignment="GridTextAlignment.Right" />
+            <DxGridDataColumn FieldName="@nameof(AdminMonthly.NormalCount)" Caption="정상 지급" Width="90" />
+            <DxGridDataColumn FieldName="@nameof(AdminMonthly.DelayedCount)" Caption="지연 지급" Width="90" />
+            <DxGridDataColumn FieldName="@nameof(AdminMonthly.PartialCount)" Caption="일부 지급" Width="90" />
+            <DxGridDataColumn FieldName="@nameof(AdminMonthly.UnpaidCount)" Caption="미지급" Width="80" />
+            <DxGridDataColumn FieldName="@nameof(AdminMonthly.DisputeCount)" Caption="분쟁" Width="80" />
+        </Columns>
+    </CommGrd>
+</div>
+
+<h2 class="ca-subhead">지연 · 미지급 건수가 많은 거래처</h2>
+
+<div class="ca-section">
+    <CommGrd TItem="AdminDelayCompany" Data="@TopDelay" ExportName="운송관리지연거래처" PagerVisible="false">
+        <Columns>
+            <DxGridDataColumn FieldName="@nameof(AdminDelayCompany.CompanyName)" Caption="거래처" MinWidth="180" />
+            <DxGridDataColumn FieldName="@nameof(AdminDelayCompany.BusinessNumber)" Caption="사업자번호" Width="130" />
+            <DxGridDataColumn FieldName="@nameof(AdminDelayCompany.TotalCount)" Caption="거래" Width="80" />
+            <DxGridDataColumn FieldName="@nameof(AdminDelayCompany.DelayedCount)" Caption="지연 지급" Width="90" />
+            <DxGridDataColumn FieldName="@nameof(AdminDelayCompany.UnpaidCount)" Caption="미지급" Width="80" />
+            <DxGridDataColumn FieldName="@nameof(AdminDelayCompany.AverageDelayDays)" Caption="평균 지연일" Width="100"
+                              DisplayFormat="0.0" />
+        </Columns>
+    </CommGrd>
+</div>
+
+<h2 class="ca-subhead">의심 표시가 붙은 거래를 올린 사용자</h2>
+
+<div class="ca-section">
+    <CommGrd TItem="AdminFlaggedUser" Data="@Flagged" ExportName="운송관리의심등록사용자">
+        <Columns>
+            <DxGridDataColumn FieldName="@nameof(AdminFlaggedUser.DisplayName)" Caption="이름" Width="130" />
+            <DxGridDataColumn FieldName="@nameof(AdminFlaggedUser.ExternalUserId)" Caption="포털 아이디" Width="140" />
+            <DxGridDataColumn FieldName="@nameof(AdminFlaggedUser.FlaggedCount)" Caption="의심 표시" Width="90" />
+            <DxGridDataColumn FieldName="@nameof(AdminFlaggedUser.TransactionCount)" Caption="전체 거래" Width="90" />
+        </Columns>
+        <FooterRight>
+            <a class="jsini-hint" href="/cargoadmin/transactions?reviewStatus=FLAGGED">의심 표시 거래 보기</a>
+        </FooterRight>
+    </CommGrd>
+</div>
+
+@code {
+    private static readonly int[] MonthOptions = [6, 12, 24];
+
+    /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
+    private string ConditionSummary => $"최근 {_months}개월";
+
+    private int _months = 12;
+    private int _shownMonths = 12;
+    private AdminStatistics? _stats;
+
+    private IReadOnlyList<AdminMonthly> Monthly => _stats?.Monthly ?? [];
+    private IReadOnlyList<AdminDelayCompany> TopDelay => _stats?.TopDelayCompanies ?? [];
+    private IReadOnlyList<AdminFlaggedUser> Flagged => _stats?.FlaggedUsers ?? [];
+
+    protected override Task OnInitializedAsync() => ReloadAsync();
+
+    private Task ReloadAsync()
+    {
+        var months = _months;
+
+        return LoadOneAsync(
+            () => Api.GetStatisticsAsync(months),
+            stats =>
+            {
+                _stats = stats;
+                _shownMonths = months;
+            },
+            "통계 자료를 받지 못했습니다.",
+            "통계를 읽지 못했습니다");
+    }
+}

@@ -1,0 +1,28 @@
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.AspNetCore.Components.Routing
+@using Microsoft.AspNetCore.Components.Web
+@using Microsoft.JSInterop
+@using static Microsoft.AspNetCore.Components.Web.RenderMode
+
+@using DevExpress.Blazor
+
+@using JSini.Web.Abstractions
+@using JSini.Web.Http
+@using JSini.Web.Models
+@using JSini.Web.Components
+@using JSini.Web.Components.Data
+@using JSini.Web.Components.Layout
+@using JSini.Web.Components.Security
+@using JSini.Web.Components.Settings
+
+@using JSini.Web.CargoTrust.Admin
+@using JSini.Web.CargoTrust.Admin.Api
+@using JSini.Web.CargoTrust.Admin.Components
+
+@* 이 폴더의 모든 화면은 로그인해야 볼 수 있다.
+   화면마다 [Authorize] 를 붙이면 새 화면에서 반드시 빠뜨리고, 그 화면만 조용히
+   공개된다. 관리자인지는 여기서 가리지 않는다 — 메뉴 권한이 가리고, 게이트웨이
+   뒤의 서버가 한 번 더 가린다(`/admin/*` 는 관리자가 아니면 403). *@
+@attribute [Authorize]

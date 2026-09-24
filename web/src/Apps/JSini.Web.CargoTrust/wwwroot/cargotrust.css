@@ -1,0 +1,450 @@
+/* ============================================================
+   운송관리(CargoTrust) 모듈 전용 스타일.
+
+   모듈 안에서만 쓰이므로 Blazor Common 으로 올리지 않는다 — 올리면 이 스타일이
+   모든 모듈의 결합 지점이 된다. 관리자 모듈이 같은 모양을 쓰게 되면 그쪽이
+   베끼고, 세 번째가 생기면 그때 app.css 로 올린다.
+
+   색은 전부 테마 토큰(--jsini-*)에서 얻는다. 값으로 박으면 테마 스물둘 중
+   어두운 것에서 카드만 하얗게 남는다.
+
+   [휴대폰 폭(≤767px)]
+
+   이 서비스는 차주가 길에서 휴대폰으로 여는 일이 많다. 카드·타일은 격자
+   (`auto-fill` + `minmax`)라 폭이 줄면 한 줄에 하나로 쌓이고, 두 칸짜리
+   사실 목록(`ct-facts`)은 한 칸으로 접힌다. 가로 스크롤이 생기는 자리는 표뿐이다.
+   ============================================================ */
+
+/* 조각이 여럿 쌓이는 화면의 뿌리. CommCont 를 바로 본문에 두면 셸이 그 판에
+   남은 높이를 다 먹이는데(app.css 「본문 높이를 꽉 채운다」), 대시보드 모양의
+   화면은 아래가 잘린다. 한 겹 감싸 그 규칙을 비껴가고 쪽이 구르게 둔다. */
+.ct-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--jsini-sp-lg);
+  min-width: 0;
+}
+
+.ct-page > .commcont + .commcont {
+  margin-top: 0;
+}
+
+/* ── 홈 검색 ─────────────────────────────────────────────── */
+
+.ct-hero {
+  display: flex;
+  flex-direction: column;
+  gap: var(--jsini-sp-sm);
+  padding: var(--jsini-sp-xl) var(--jsini-sp-lg);
+  border: 1px solid var(--jsini-border);
+  border-radius: var(--jsini-radius-lg);
+  background: var(--jsini-surface-raised, var(--jsini-surface));
+}
+
+.ct-hero__title {
+  font-size: var(--jsini-fs-xl);
+  font-weight: 700;
+}
+
+.ct-hero__search {
+  display: flex;
+  gap: var(--jsini-sp-sm);
+  align-items: center;
+}
+
+.ct-hero__search > .ct-hero__input,
+.ct-hero__search > .dxbl-text-edit {
+  flex: 1;
+  min-width: 0;
+}
+
+.ct-home-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--jsini-sp-md);
+  align-items: stretch;
+}
+
+/* 미수금 타일은 통째로 링크다 — 누르면 미수금 화면. 글자색이 링크색이 되지 않게 한다. */
+.ct-home-stat {
+  flex: 1 1 260px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.ct-home-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--jsini-sp-sm);
+  align-items: center;
+}
+
+/* ── 카드 (검색 결과 · 최근 본 거래처 · 미수금 거래별) ────── */
+
+.ct-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: var(--jsini-sp-md);
+}
+
+.ct-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--jsini-sp-sm);
+  min-width: 0;
+  padding: var(--jsini-sp-md) var(--jsini-sp-lg);
+  border: 1px solid var(--jsini-border);
+  border-radius: var(--jsini-radius-lg);
+  background: var(--jsini-surface-raised, var(--jsini-surface));
+  box-shadow: var(--jsini-shadow-card, none);
+  color: inherit;
+  text-decoration: none;
+  transition: border-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+a.ct-card:hover,
+a.ct-card:focus-visible {
+  border-color: color-mix(in srgb, var(--jsini-accent) 45%, var(--jsini-border));
+  box-shadow: 0 6px 18px rgb(0 0 0 / 10%);
+}
+
+.ct-card__head {
+  display: flex;
+  gap: var(--jsini-sp-sm);
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+/* 긴 회사명이 배지를 밀어내지 않게 이름만 줄인다. */
+.ct-card__name {
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--jsini-fs-lg);
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ct-card__sub {
+  font-size: var(--jsini-fs-sm);
+  color: var(--jsini-text-muted);
+}
+
+.ct-card__amount {
+  font-size: var(--jsini-fs-xl);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.ct-card__rows {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.25rem var(--jsini-sp-md);
+  margin: 0;
+}
+
+.ct-card__rows > div {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--jsini-sp-sm);
+  min-width: 0;
+}
+
+.ct-card__rows dt {
+  color: var(--jsini-text-muted);
+  font-size: var(--jsini-fs-sm);
+  font-weight: 400;
+}
+
+.ct-card__rows dd {
+  margin: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.ct-card__foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--jsini-sp-sm);
+  align-items: center;
+  justify-content: space-between;
+  padding-top: var(--jsini-sp-xs);
+  border-top: 1px solid var(--jsini-border);
+}
+
+.ct-confidence {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--jsini-sp-xs);
+  align-items: center;
+}
+
+.ct-num--err {
+  color: var(--jsini-danger, #d32f2f);
+  font-weight: 700;
+}
+
+.ct-result-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--jsini-sp-sm);
+  align-items: baseline;
+  font-weight: 600;
+}
+
+/* ── 상세 판 (거래처 · 거래 · 내 정보) ────────────────────── */
+
+.ct-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--jsini-sp-md);
+  padding: var(--jsini-sp-lg);
+  border: 1px solid var(--jsini-border);
+  border-radius: var(--jsini-radius-lg);
+  background: var(--jsini-surface-raised, var(--jsini-surface));
+}
+
+.ct-panel--form {
+  max-width: 960px;
+}
+
+.ct-panel__head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--jsini-sp-md);
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ct-panel__name {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--jsini-sp-sm);
+  align-items: center;
+  font-size: var(--jsini-fs-xl);
+  font-weight: 700;
+}
+
+.ct-panel__actions {
+  gap: var(--jsini-sp-sm);
+}
+
+/* 사실 목록. 넓으면 세 칸, 좁으면 한 칸. 주소·메모처럼 긴 값은 한 줄을 다 쓴다. */
+.ct-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--jsini-sp-sm) var(--jsini-sp-lg);
+  margin: 0;
+}
+
+.ct-facts > div {
+  min-width: 0;
+}
+
+.ct-facts__wide {
+  grid-column: 1 / -1;
+}
+
+.ct-facts dt {
+  font-size: var(--jsini-fs-xs);
+  color: var(--jsini-text-muted);
+  font-weight: 600;
+}
+
+.ct-facts dd {
+  margin: 0.1rem 0 0;
+  overflow-wrap: anywhere;
+}
+
+.ct-pre {
+  white-space: pre-wrap;
+}
+
+/* 기간 고르개. 단추 다섯을 한 덩어리로 붙인다 — 떨어져 있으면 무엇끼리 한 묶음인지 흐리다. */
+.ct-segment {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+/* ── 통계 타일 ───────────────────────────────────────────── */
+
+.ct-tiles {
+  display: flex;
+  flex-direction: column;
+  gap: var(--jsini-sp-sm);
+}
+
+.ct-tiles__head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--jsini-sp-sm);
+  align-items: baseline;
+}
+
+.ct-tiles__title {
+  font-size: var(--jsini-fs-lg);
+  font-weight: 700;
+}
+
+/* 금액은 자리를 많이 먹어 기본 150px 칸에서 넘친다. 조금 넓히고 글자를 한 단 내린다. */
+.ct-stats {
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  margin-bottom: 0;
+}
+
+.ct-stats .jsini-stat__value {
+  font-size: var(--jsini-fs-2xl, var(--jsini-fs-xl));
+  overflow-wrap: anywhere;
+}
+
+.ct-stat--total {
+  border-color: color-mix(in srgb, var(--jsini-accent) 40%, var(--jsini-border));
+}
+
+/* ── 후기 ────────────────────────────────────────────────── */
+
+.ct-reviews {
+  display: flex;
+  flex-direction: column;
+  gap: var(--jsini-sp-sm);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ct-review {
+  padding: var(--jsini-sp-sm) var(--jsini-sp-md);
+  border: 1px solid var(--jsini-border);
+  border-radius: var(--jsini-radius-md);
+}
+
+.ct-review__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--jsini-sp-sm);
+  align-items: center;
+  font-size: var(--jsini-fs-sm);
+}
+
+.ct-review__report {
+  margin-left: auto;
+}
+
+.ct-review__body {
+  margin-top: var(--jsini-sp-xs);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* ── 폼 · 고르개 ─────────────────────────────────────────── */
+
+.ct-inline-field {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--jsini-sp-sm);
+  align-items: center;
+}
+
+.ct-inline-field > .dxbl-text-edit {
+  flex: 1 1 200px;
+  min-width: 0;
+}
+
+.ct-picked {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--jsini-sp-sm);
+  align-items: center;
+}
+
+.ct-picked__name {
+  font-weight: 700;
+}
+
+.ct-picklist {
+  display: flex;
+  flex-direction: column;
+  max-height: 260px;
+  margin: var(--jsini-sp-xs) 0 0;
+  padding: 0;
+  overflow-y: auto;
+  border: 1px solid var(--jsini-border);
+  border-radius: var(--jsini-radius-md);
+  list-style: none;
+}
+
+.ct-picklist__item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  width: 100%;
+  padding: var(--jsini-sp-xs) var(--jsini-sp-md);
+  border: 0;
+  border-bottom: 1px solid var(--jsini-border);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ct-picklist li:last-child .ct-picklist__item {
+  border-bottom: 0;
+}
+
+.ct-picklist__item:hover,
+.ct-picklist__item:focus-visible {
+  background: color-mix(in srgb, var(--jsini-text) 6%, transparent);
+}
+
+.ct-form-actions {
+  gap: var(--jsini-sp-sm);
+}
+
+.ct-popup-lead {
+  margin-bottom: var(--jsini-sp-sm);
+}
+
+.ct-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--jsini-sp-sm);
+  align-items: center;
+  margin-top: var(--jsini-sp-sm);
+}
+
+/* ── 휴대폰 ──────────────────────────────────────────────── */
+
+@media (max-width: 767px) {
+  .ct-hero {
+    padding: var(--jsini-sp-md);
+  }
+
+  .ct-cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* 타일은 두 칸으로 — 한 칸이면 여섯 타일이 화면 셋을 먹는다. */
+  .ct-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .ct-facts {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ct-panel {
+    padding: var(--jsini-sp-md);
+  }
+
+  .ct-panel__actions {
+    width: 100%;
+  }
+
+  .ct-card__rows {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

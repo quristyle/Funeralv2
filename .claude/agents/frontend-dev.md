@@ -11,7 +11,7 @@ description: web/ 프론트엔드(.NET 10 + Blazor + DevExpress) 작업 전문. 
 ## 담당 영역
 
 - `web/src/Shell/JSini.Web.Shell` (:5557) — 셸. 로그인·레이아웃·모듈 등록만 한다. **업무 화면을 그리지 않는다.**
-- `web/src/Apps/JSini.Web.{Funeral,HelpDesk,Admin,Site,LifeEnv,ProjMng}` — 업무 MFE 모듈. 각자 `/funeral` `/helpdesk` `/admin` `/site` `/life` `/projmng` 를 소유한다.
+- `web/src/Apps/JSini.Web.{Funeral,HelpDesk,Admin,Site,LifeEnv,ProjMng,CargoTrust,CargoTrust.Admin}` — 업무 MFE 모듈. 각자 `/funeral` `/helpdesk` `/admin` `/site` `/life` `/projmng` `/cargotrust` `/cargoadmin` 를 소유한다.
 - `web/src/Shared/JSini.Web.{Abstractions,Models,Http,Components}` — 계약 · DTO · 게이트웨이 클라이언트 · 공용 화면
 - `web/src/Site/JSini.PublicSite` (:5556) — 회사 소개 사이트. 정적 SSR 전용이고 포털과 무관하다.
 

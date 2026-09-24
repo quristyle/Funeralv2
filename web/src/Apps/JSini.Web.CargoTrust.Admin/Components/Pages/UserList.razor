@@ -1,0 +1,222 @@
+@page "/cargoadmin/users"
+@attribute [RouteKey("cargoadmin.users")]
+
+@*
+    [사용자 관리] — 설계안 CTA-008 · 5절.
+
+    운송관리의 사용자 줄은 **포털 계정이 처음 들어올 때 서버가 만든다**(계약서
+    「사용자 줄은 서버가 만든다」 — 기본 유형은 차주). 그래서 여기에는 등록이 없고,
+    관리자가 하는 일은 넷이다 — 유형 · 연결 회사 · 차단 · 메모.
+
+    [연결 회사가 곧 이의제기 권한이다]
+
+    운송사/주선사 유형에 거래처를 이어 주면 그 사람이 **자기 회사에 관한 거래**를 보고
+    이의를 낼 수 있다(계약서 `/company-transactions` · `/disputes`). 잘못 이으면 남의
+    회사 거래를 보게 되므로 고르개에 회사명과 사업자번호를 함께 적는다 — 이름만으로는
+    동명 업체를 가를 수 없다.
+
+    거래처 목록은 처음 창을 열 때 한 번 읽는다. 화면을 열 때마다 읽으면 사용자 목록만
+    보러 온 사람도 거래처 500건을 받는다.
+
+    [차단]
+
+    차단된 사람은 조회는 되고 등록 · 수정 · 신고 · 이의제기가 403 이다(계약서). 지우지
+    않는다 — 그 사람이 올린 거래는 이미 거래처 통계의 일부다. 통계에서 빼야 하면 거래
+    화면에서 「통계 제외」로 한다.
+*@
+
+@inherits DataPage
+@inject CargoAdminClient Api
+
+<PageTitle>사용자 관리 · 운송관리 관리자</PageTitle>
+
+<CommSch OnSearch="@ReloadAsync" Busy="@Loading" MobileSummary="@ConditionSummary">
+    <Fields>
+        <CommSchItem Label="검색어">
+            <DxTextBox @bind-Text="_keyword" Style="width: 200px"
+                       ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        </CommSchItem>
+
+        <CommSchItem Label="유형">
+            <DxComboBox Data="@CargoAdminCodes.UserType.Filter" @bind-Value="_type"
+                        TextFieldName="@nameof(SchOption.Text)" ValueFieldName="@nameof(SchOption.Value)"
+                        Style="width: 140px" />
+        </CommSchItem>
+    </Fields>
+</CommSch>
+
+<CommCont>
+    <CommGrd TItem="AdminUser"
+             Data="@_rows"
+             ExportName="운송관리사용자"
+             PageSize="20"
+             Reload="@ReloadAsync">
+        <RowActions Context="row">
+            <PermissionView Action="MenuAction.Update">
+                <DxButton IconCssClass="jsini-icon-edit"
+                          Title="수정"
+                          RenderStyle="ButtonRenderStyle.Link"
+                          Click="@(() => OpenAsync(row))" />
+            </PermissionView>
+        </RowActions>
+
+        <Columns>
+            <DxGridDataColumn FieldName="@nameof(AdminUser.DisplayName)" Caption="이름" Width="120" />
+            <DxGridDataColumn FieldName="@nameof(AdminUser.ExternalUserId)" Caption="포털 아이디" Width="130" />
+
+            <DxGridDataColumn FieldName="@nameof(AdminUser.UserType)" Caption="유형" Width="110">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var u = (AdminUser)cell.DataItem;
+                    }
+                    <span class="@CargoAdminCodes.UserType.BadgeOf(u.UserType)">@CargoAdminCodes.UserType.NameOf(u.UserType)</span>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn FieldName="@nameof(AdminUser.CompanyName)" Caption="연결 회사" MinWidth="160" />
+
+            <DxGridDataColumn FieldName="@nameof(AdminUser.Status)" Caption="상태" Width="80">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var u = (AdminUser)cell.DataItem;
+                    }
+                    <span class="@CargoAdminCodes.UserStatus.BadgeOf(u.Status)">@CargoAdminCodes.UserStatus.NameOf(u.Status)</span>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn FieldName="@nameof(AdminUser.TransactionCount)" Caption="거래" Width="70" />
+            <DxGridDataColumn FieldName="@nameof(AdminUser.ReportCount)" Caption="신고" Width="70" />
+            <DxGridDataColumn FieldName="@nameof(AdminUser.CreatedAt)" Caption="처음" Width="110"
+                              DisplayFormat="yyyy-MM-dd" />
+            <DxGridDataColumn FieldName="@nameof(AdminUser.LastSeenAt)" Caption="최근" Width="140"
+                              DisplayFormat="yyyy-MM-dd HH:mm" />
+            <DxGridDataColumn FieldName="@nameof(AdminUser.AdminMemo)" Caption="관리자 메모" MinWidth="160" />
+        </Columns>
+    </CommGrd>
+</CommCont>
+
+<CommPopup @bind-Visible="_editing" HeaderText="사용자 수정" Width="560px">
+    <BodyContentTemplate Context="popup">
+        @if (_target is not null)
+        {
+            <div class="ca-subject">
+                <b>@_target.DisplayName</b> <span class="jsini-hint">@_target.ExternalUserId</span>
+            </div>
+
+            <DxFormLayout>
+                <DxFormLayoutItem Caption="유형" ColSpanMd="6">
+                    <DxComboBox Data="@CargoAdminCodes.UserType.Options"
+                                TextFieldName="@nameof(SchOption.Text)" ValueFieldName="@nameof(SchOption.Value)"
+                                @bind-Value="_form.UserType" />
+                </DxFormLayoutItem>
+                <DxFormLayoutItem Caption="상태" ColSpanMd="6">
+                    <DxComboBox Data="@CargoAdminCodes.UserStatus.Options"
+                                TextFieldName="@nameof(SchOption.Text)" ValueFieldName="@nameof(SchOption.Value)"
+                                @bind-Value="_form.Status" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="연결 회사" ColSpanMd="12">
+                    <DxComboBox Data="@_companies"
+                                TextFieldName="@nameof(AdminCompany.PickText)"
+                                ValueFieldName="@nameof(AdminCompany.CompanyId)"
+                                @bind-Value="_form.CompanyId"
+                                SearchMode="ListSearchMode.AutoSearch"
+                                SearchFilterCondition="ListSearchFilterCondition.Contains"
+                                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="관리자 메모" ColSpanMd="12">
+                    <DxMemo @bind-Text="_form.AdminMemo" Rows="3" />
+                </DxFormLayoutItem>
+            </DxFormLayout>
+
+            @* 칸 안의 자리표시 글이 아니라 아래 줄에 적는다 — 라벨이 붙은 칸이다.
+               화면 어디에도 없는 사실(이으면 무엇이 열리는가)이라 지우지 않는다. *@
+            <div class="jsini-hint">운송사/주선사에 회사를 이으면 그 회사에 관한 거래를 보고 이의제기를 할 수 있습니다.</div>
+        }
+    </BodyContentTemplate>
+
+    <FooterContentTemplate Context="popup">
+        <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Primary"
+                  Enabled="@(!Loading)" Click="@SaveAsync" />
+        <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary"
+                  Click="@(() => _editing = false)" />
+    </FooterContentTemplate>
+</CommPopup>
+
+@code {
+    /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
+    private string ConditionSummary => SchSummary.Of(
+        SchSummary.Or(_keyword),
+        SchSummary.NameOf(CargoAdminCodes.UserType.Filter, o => o.Value, o => o.Text, _type));
+
+    private IReadOnlyList<AdminUser> _rows = [];
+    private IReadOnlyList<AdminCompany> _companies = [];
+    private bool _companiesLoaded;
+
+    private string? _keyword;
+    private string? _type;
+
+    private bool _editing;
+    private AdminUser? _target;
+    private AdminUserUpdate _form = new();
+
+    protected override Task OnInitializedAsync() => ReloadAsync();
+
+    private Task ReloadAsync() => LoadAsync(async () =>
+    {
+        _rows = await Api.GetUsersAsync(_keyword, _type);
+        return _rows.Count;
+    }, "조건에 맞는 사용자가 없습니다.", "사용자를 읽지 못했습니다");
+
+    private async Task OpenAsync(AdminUser row)
+    {
+        _target = row;
+        _form = new AdminUserUpdate
+        {
+            UserType = row.UserType,
+            CompanyId = row.CompanyId,
+            Status = row.Status,
+            AdminMemo = row.AdminMemo,
+        };
+        _editing = true;
+
+        if (!_companiesLoaded)
+        {
+            try
+            {
+                _companies = await Api.GetCompaniesAsync();
+                _companiesLoaded = true;
+            }
+            catch (ApiException ex)
+            {
+                // 창은 그대로 둔다 — 회사를 못 읽어도 유형 · 차단 · 메모는 고칠 수 있다.
+                // 다음에 창을 열 때 다시 읽는다.
+                Say($"거래처 목록을 읽지 못했습니다 — {ex.Message}", NoticeTone.Error);
+            }
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_target is null)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_form.UserType) || string.IsNullOrWhiteSpace(_form.Status))
+        {
+            Say("유형과 상태를 고르십시오.", NoticeTone.Warning);
+            return;
+        }
+
+        var id = _target.UserId;
+        var body = _form;
+
+        if (await RunAsync(() => Api.UpdateUserAsync(id, body), "저장했습니다.", "저장하지 못했습니다"))
+        {
+            _editing = false;
+            await ReloadAsync();
+        }
+    }
+}

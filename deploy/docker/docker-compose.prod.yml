@@ -32,9 +32,17 @@ services:
     environment:
       <<: *common-env
       ASPNETCORE_URLS: http://0.0.0.0:8080
+
+      # 운송관리(CargoTrustServer)로 가는 길. 저장소 appsettings.json 의 주소는 개발 장비
+      # 기준(localhost:5500)이라 컨테이너 안에서는 게이트웨이 자신을 가리킨다.
+      # 다른 클러스터들은 서버의 ApiGateway Local.json 에서 컨테이너 이름으로 덮여 있는데,
+      # 새 서비스를 그 파일에 손으로 더하는 일을 잊으면 **운송관리 전 경로가 502** 가 된다 —
+      # 그래서 여기 적어 둔다. (Local.json 이 환경변수보다 나중에 읽히므로 그 파일에
+      # 같은 키가 생기면 그쪽이 이긴다.)
+      ReverseProxy__Clusters__cargotrust-cluster__Destinations__destination1__Address: http://cargo:8080
     volumes:
       - /srv/jsini/config/ApiGateway/appsettings.Local.json:/app/appsettings.Local.json:ro
-    depends_on: [auth, file, site, notify, life, funeral, helpdesk, projmng, ai]
+    depends_on: [auth, file, site, notify, life, cargo, funeral, helpdesk, projmng, ai]
 
   auth:
     <<: *common
@@ -101,6 +109,16 @@ services:
       Notify__BaseUrl: http://notify:8080
     volumes:
       - /srv/jsini/config/LifeEnvServer/appsettings.Local.json:/app/appsettings.Local.json:ro
+
+  # JSini 운송관리(화물 거래처 신뢰정보). 접속 문자열의 Host 는 host.docker.internal.
+  cargo:
+    <<: *common
+    image: ghcr.io/quristyle/funeralv2-cargo:${TAG:-latest}
+    environment:
+      <<: *common-env
+      Kestrel__Endpoints__Http__Url: http://0.0.0.0:8080
+    volumes:
+      - /srv/jsini/config/CargoTrustServer/appsettings.Local.json:/app/appsettings.Local.json:ro
 
   funeral:
     <<: *common

@@ -1,0 +1,179 @@
+@page "/cargoadmin/companies"
+@attribute [RouteKey("cargoadmin.companies")]
+
+@*
+    [거래처 관리] — 설계안 CTA-002.
+
+    [사업자번호를 가리지 않는다]
+
+    관리자 응답은 번호 전체를 준다(계약서 「관리자 엔드포인트」 · 설계안 29).
+    동명 업체 · 번호 오류(설계안 13.1)를 가려내는 것이 이 화면의 일이라,
+    가리면 할 일을 못 한다. 대신 이 화면 밖으로는 번호가 나가지 않는다 —
+    사용자 모듈은 이 모듈을 참조하지 않는다.
+
+    [지우는 단추가 없다]
+
+    계약서에 삭제가 없다. 거래처를 지우면 그 회사에 걸린 거래 · 후기의 통계가
+    통째로 사라져 「이 회사는 거래 0건」으로 보인다. 치우는 것은 상태의
+    「숨김」이고, 숨긴 회사는 사용자 검색에서 빠진다.
+
+    [조회는 서버가 거른다]
+
+    검색어 · 상태를 서버로 보낸다(`q` · `status`). 거래처는 사용자가 계속 등록하므로
+    받아 두고 화면에서 거르면 상한(500) 뒤의 회사는 영영 못 찾는다.
+*@
+
+@inherits DataPage
+@inject CargoAdminClient Api
+
+<PageTitle>거래처 관리 · 운송관리 관리자</PageTitle>
+
+<CommSch OnSearch="@ReloadAsync" Busy="@Loading" MobileSummary="@ConditionSummary">
+    <Fields>
+        <CommSchItem Label="검색어">
+            <DxTextBox @bind-Text="_keyword" Style="width: 220px"
+                       ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        </CommSchItem>
+
+        <CommSchItem Label="상태">
+            <DxComboBox Data="@CargoAdminCodes.CompanyStatus.Filter" @bind-Value="_status"
+                        TextFieldName="@nameof(SchOption.Text)" ValueFieldName="@nameof(SchOption.Value)"
+                        Style="width: 120px" />
+        </CommSchItem>
+    </Fields>
+</CommSch>
+
+<CommCont>
+    <CommGrd TItem="AdminCompany"
+             Data="@_rows"
+             EditFormTitle="거래처"
+             ExportName="운송관리거래처"
+             PageSize="20"
+             OnNew="@FillNew"
+             OnSave="@SaveAsync"
+             Reload="@ReloadAsync">
+        <Columns>
+            <DxGridDataColumn FieldName="@nameof(AdminCompany.BusinessNumber)" Caption="사업자번호" Width="130" />
+            <DxGridDataColumn FieldName="@nameof(AdminCompany.CompanyName)" Caption="회사명" MinWidth="180" />
+            <DxGridDataColumn FieldName="@nameof(AdminCompany.CeoName)" Caption="대표자" Width="100" />
+            <DxGridDataColumn FieldName="@nameof(AdminCompany.Region)" Caption="지역" Width="80" />
+            <DxGridDataColumn FieldName="@nameof(AdminCompany.BusinessType)" Caption="업종" Width="130" />
+            <DxGridDataColumn FieldName="@nameof(AdminCompany.Phone)" Caption="전화" Width="130" />
+
+            <DxGridDataColumn FieldName="@nameof(AdminCompany.Status)" Caption="상태" Width="80">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var c = (AdminCompany)cell.DataItem;
+                    }
+                    <span class="@CargoAdminCodes.CompanyStatus.BadgeOf(c.Status)">@CargoAdminCodes.CompanyStatus.NameOf(c.Status)</span>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn FieldName="@nameof(AdminCompany.TransactionCount)" Caption="거래 수" Width="80" />
+
+            @* 메모는 **관리자끼리만** 보는 값이다(설계안 29 「내부 관리자 메모」).
+               표에 두는 이유는 「이 회사를 왜 숨겼나」를 열어 보지 않고 알게 하려는 것이다. *@
+            <DxGridDataColumn FieldName="@nameof(AdminCompany.AdminMemo)" Caption="관리자 메모" MinWidth="160" />
+
+            <DxGridDataColumn FieldName="@nameof(AdminCompany.UpdatedAt)" Caption="수정" Width="140"
+                              DisplayFormat="yyyy-MM-dd HH:mm" />
+        </Columns>
+
+        <EditFormTemplate Context="edit">
+            @{
+                var company = (AdminCompany)edit.EditModel;
+            }
+
+            <DxFormLayout>
+                <DxFormLayoutItem Caption="사업자번호" ColSpanMd="6">
+                    <DxTextBox @bind-Text="company.BusinessNumber" />
+                </DxFormLayoutItem>
+                <DxFormLayoutItem Caption="회사명" ColSpanMd="6">
+                    <DxTextBox @bind-Text="company.CompanyName" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="대표자" ColSpanMd="6">
+                    <DxTextBox @bind-Text="company.CeoName" />
+                </DxFormLayoutItem>
+                <DxFormLayoutItem Caption="전화" ColSpanMd="6">
+                    <DxTextBox @bind-Text="company.Phone" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="지역" ColSpanMd="4">
+                    <DxTextBox @bind-Text="company.Region" />
+                </DxFormLayoutItem>
+                <DxFormLayoutItem Caption="업종" ColSpanMd="8">
+                    <DxTextBox @bind-Text="company.BusinessType" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="주소" ColSpanMd="12">
+                    <DxTextBox @bind-Text="company.Address" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="상태" ColSpanMd="4">
+                    <DxComboBox Data="@CargoAdminCodes.CompanyStatus.Options"
+                                TextFieldName="@nameof(SchOption.Text)" ValueFieldName="@nameof(SchOption.Value)"
+                                @bind-Value="company.Status" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="관리자 메모" ColSpanMd="12">
+                    <DxMemo @bind-Text="company.AdminMemo" Rows="3" />
+                </DxFormLayoutItem>
+            </DxFormLayout>
+
+            @* 번호는 서버가 하이픈을 걷고 검증 숫자까지 본다. 틀리면 저장이 400 으로
+               돌아오고 창은 닫히지 않는다(쓴 것이 남는다). 화면이 같은 검사를 또 두면
+               서버의 규칙과 언젠가 갈라진다. *@
+            <div class="jsini-hint">사업자번호는 하이픈 없이 적어도 됩니다.</div>
+        </EditFormTemplate>
+    </CommGrd>
+</CommCont>
+
+@code {
+    /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
+    private string ConditionSummary => SchSummary.Of(
+        SchSummary.Or(_keyword),
+        SchSummary.NameOf(CargoAdminCodes.CompanyStatus.Filter, o => o.Value, o => o.Text, _status));
+
+    private IReadOnlyList<AdminCompany> _rows = [];
+
+    private string? _keyword;
+    private string? _status;
+
+    protected override Task OnInitializedAsync() => ReloadAsync();
+
+    private Task ReloadAsync() => LoadAsync(async () =>
+    {
+        _rows = await Api.GetCompaniesAsync(_keyword, _status);
+        return _rows.Count;
+    }, "조건에 맞는 거래처가 없습니다.", "거래처를 읽지 못했습니다");
+
+    private void FillNew(AdminCompany company) => company.Status = "ACTIVE";
+
+    private async Task SaveAsync((AdminCompany Item, bool IsNew) e)
+    {
+        var c = e.Item;
+
+        var body = new AdminCompanySave
+        {
+            BusinessNumber = c.BusinessNumber,
+            CompanyName = c.CompanyName,
+            CeoName = c.CeoName,
+            Address = c.Address,
+            Region = c.Region,
+            Phone = c.Phone,
+            BusinessType = c.BusinessType,
+            Status = string.IsNullOrWhiteSpace(c.Status) ? "ACTIVE" : c.Status,
+            AdminMemo = c.AdminMemo,
+        };
+
+        if (e.IsNew)
+        {
+            await Api.CreateCompanyAsync(body);
+        }
+        else
+        {
+            await Api.UpdateCompanyAsync(c.CompanyId, body);
+        }
+    }
+}

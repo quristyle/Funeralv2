@@ -1,0 +1,65 @@
+@page "/cargotrust/me"
+@attribute [RouteKey("cargotrust.me")]
+
+@*
+    내 정보 — 이 서비스에서의 나(`/me`).
+
+    포털 계정과 별개의 줄이다. CargoTrustServer 가 처음 부를 때 포털 아이디로 줄을
+    만들고(사용자 유형은 차주), 이름은 부를 때마다 포털 이름으로 맞춘다. 그래서 이
+    화면에는 고칠 칸이 없다 — 이름은 포털 「내 정보」에서, 사용자 유형 · 회사 연결 ·
+    이용 제한은 관리자가 정한다. 그 사정을 화면 어디에도 적어 두지 않으면 운송사가
+    이의제기를 하려다 길을 못 찾으므로 한 줄 남긴다.
+*@
+
+@inherits DataPage
+@inject CargoTrustClient Api
+
+<PageTitle>내 정보 · 운송관리</PageTitle>
+
+<div class="ct-page">
+    @if (_me is { } me)
+    {
+        @if (me.IsBlocked)
+        {
+            <PageNotice Tone="NoticeTone.Warning"
+                        Text="이용이 제한된 계정입니다. 조회는 할 수 있지만 거래 등록·결제 등록·신고·이의제기는 할 수 없습니다." />
+        }
+
+        <section class="ct-panel">
+            <dl class="ct-facts">
+                <div><dt>이름</dt><dd>@(me.DisplayName ?? "-")</dd></div>
+                <div><dt>사용자 유형</dt><dd>@CargoCodes.UserTypeName(me.UserType)@(me.IsAdmin && me.UserType != "ADMIN" ? " · 관리자 권한" : null)</dd></div>
+                <div>
+                    <dt>연결 회사</dt>
+                    <dd>
+                        @if (me.CompanyId is { } companyId)
+                        {
+                            <a href="@($"/cargotrust/companies/{companyId}")">@(me.CompanyName ?? $"#{companyId}")</a>
+                        }
+                        else
+                        {
+                            <span>없음</span>
+                        }
+                    </dd>
+                </div>
+                <div><dt>상태</dt><dd>@CargoCodes.UserStatusName(me.Status)</dd></div>
+                <div>
+                    <dt>등록한 거래</dt>
+                    <dd><a href="/cargotrust/transactions">@(me.TransactionCount)건</a></dd>
+                </div>
+                <div><dt>처음 사용</dt><dd>@CargoCodes.Moment(me.CreatedAt)</dd></div>
+            </dl>
+            <div class="jsini-hint">사용자 유형과 연결 회사는 관리자가 정합니다. 운송사로 이의제기를 하려면 관리자에게 회사 연결을 요청하십시오.</div>
+        </section>
+    }
+</div>
+
+@code {
+    private MeInfo? _me;
+
+    protected override Task OnInitializedAsync() => LoadOneAsync(
+        () => Api.GetMeAsync(),
+        m => _me = m,
+        "내 정보를 찾지 못했습니다.",
+        "내 정보를 읽지 못했습니다");
+}

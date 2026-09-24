@@ -1,0 +1,36 @@
+# CargoTrust — JSini 운송관리 (화물 거래처 신뢰정보)
+
+거래 전에 거래처의 **실제 결제 이력**을 보고, 거래 후 결제 결과를 남겨 다음 사람이 참고하게 한다.
+블랙리스트가 아니다 — 판정어 없이 숫자와 기간만 보여 준다.
+
+| 문서 | |
+|---|---|
+| [01-service-overview.md](01-service-overview.md) | 상위 설계안(원본) |
+| [05-api-design.md](05-api-design.md) | **API 계약** — 백엔드와 두 MFE 의 약속 |
+
+## 구성
+
+| | 자리 | 주소 |
+|---|---|---|
+| MSA | `microservices/CargoTrustServer` | :5500 (루프백), 게이트웨이 `/api/cargotrust/*` |
+| 사용자 MFE | `web/src/Apps/JSini.Web.CargoTrust` | 포털 `/cargotrust` · 열쇠 `cargotrust.*` |
+| 관리자 MFE | `web/src/Apps/JSini.Web.CargoTrust.Admin` | 포털 `/cargoadmin` · 열쇠 `cargoadmin.*` |
+| DB | `cargotrust` DB · `cargotrust` 스키마 · `cargotrust` 역할 | jin114.co.kr:31015 |
+
+`dev.bat cargo` 로 띄운다. 스키마는 EF 가 아니라 SQL 이 만든다(마이그레이션 없음).
+
+## SQL — 순서대로
+
+| 파일 | DB | 상태 (2026-09-24) |
+|---|---|---|
+| `deploy/sql/cargotrust-database-2026-09-24.sql` | superuser | **적용함** — 역할·DB·스키마 |
+| `deploy/sql/cargotrust-schema-2026-09-24.sql` | cargotrust | **적용함** — 테이블 9 + pg_trgm |
+| `deploy/sql/portal-menu-cargotrust-2026-09-24.sql` | jsiniportal/scom | **아직** — 메뉴 21줄 + 역할 권한 |
+
+## 운영 배포 전에
+
+1. 운영 서버에 `/srv/jsini/config/CargoTrustServer/appsettings.Local.json` 을 놓는다
+   (`ConnectionStrings:cargotrust`, Host 는 `host.docker.internal`, Port 31015). 없으면 컨테이너가 DB 에 못 붙는다.
+2. 메뉴 SQL 을 돌린다. 안 돌리면 화면은 떠도 사이드바에 안 보인다.
+3. `main` 에 올리면 `deploy.yml` 이 `funeralv2-cargo` 이미지까지 열셋을 올린다.
+4. 로그인해서 `/cargotrust` → 거래처 등록 → 거래 등록 → 결제 등록 → 상세 통계를 한 번 지나 본다.

@@ -1,0 +1,19 @@
+@*
+    데이터 규모 표시(설계안 27).
+
+    거래 2건 중 2건 정상과 2,000건 중 1,700건 정상은 정상률만 보면 앞엣것이
+    낫다. 그래서 통계 옆에는 **그 숫자가 몇 건에서 나왔는지**를 늘 붙인다.
+    건수가 적으면(NONE·LOW) 주의 한 줄을 더한다 — 판정이 아니라 해석의 주의다.
+*@
+
+<span class="ct-confidence">
+    <span class="@CargoCodes.ConfidenceBadge(Stats?.Confidence)">@CargoCodes.ConfidenceName(Stats?.Confidence, Stats?.ConfidenceLabel)</span>
+    @if (CargoCodes.IsThin(Stats?.Confidence))
+    {
+        <span class="jsini-hint">거래 경험이 적어 통계를 해석할 때 주의하십시오.</span>
+    }
+</span>
+
+@code {
+    [Parameter] public CompanyStats? Stats { get; set; }
+}

@@ -1,0 +1,86 @@
+@page "/cargoadmin/payments"
+@attribute [RouteKey("cargoadmin.payments")]
+
+@*
+    [결제 기록] — 설계안 CTA-004.
+
+    사용자가 「받았다 · 못 받았다」를 적을 때마다 한 줄씩 남는 기록이다(계약서
+    「결제 판정」 — 매번 `payment_record` 한 줄). **조회만 한다.** 결제 상태를 고치는
+    것은 거래 화면의 검토 창이고, 거기서 고친 것은 이 기록에 남지 않고 감사 기록에
+    남는다 — 이 표는 「사용자가 적은 그대로」를 보여 주는 자리라 섞지 않는다.
+
+    받은 금액은 **쌓인다**(부분 지급이 여러 줄로 온다). 그래서 한 거래가 여러 줄로
+    보일 수 있고, 거래 번호를 함께 적어 둔다.
+
+    기간은 처음에 최근 30일로 연다. 비워 두면 서버 상한(500)까지 한꺼번에 온다.
+*@
+
+@inherits DataPage
+@inject CargoAdminClient Api
+
+<PageTitle>결제 기록 · 운송관리 관리자</PageTitle>
+
+<CommSch OnSearch="@ReloadAsync" Busy="@Loading" MobileSummary="@ConditionSummary">
+    <Fields>
+        <CommSchItem Label="지급일">
+            <DxDateEdit @bind-Date="_from" Style="width: 140px"
+                        ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        </CommSchItem>
+        <CommSchItem Label="~">
+            <DxDateEdit @bind-Date="_to" Style="width: 140px"
+                        ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        </CommSchItem>
+    </Fields>
+</CommSch>
+
+<CommCont>
+    <CommGrd TItem="AdminPayment"
+             Data="@_rows"
+             ExportName="운송관리결제기록"
+             PageSize="20"
+             Reload="@ReloadAsync">
+        <Columns>
+            <DxGridDataColumn FieldName="@nameof(AdminPayment.PaidDate)" Caption="지급일" Width="100"
+                              DisplayFormat="yyyy-MM-dd" />
+            <DxGridDataColumn FieldName="@nameof(AdminPayment.TransactionId)" Caption="거래 번호" Width="90" />
+            <DxGridDataColumn FieldName="@nameof(AdminPayment.CompanyName)" Caption="거래처" MinWidth="180" />
+            <DxGridDataColumn FieldName="@nameof(AdminPayment.UserName)" Caption="등록자" Width="110" />
+            <DxGridDataColumn FieldName="@nameof(AdminPayment.Amount)" Caption="운송료" Width="110"
+                              DisplayFormat="#,0" TextAlignment="GridTextAlignment.Right" />
+            <DxGridDataColumn FieldName="@nameof(AdminPayment.PaidAmount)" Caption="이번에 받은 금액" Width="130"
+                              DisplayFormat="#,0" TextAlignment="GridTextAlignment.Right" />
+
+            <DxGridDataColumn FieldName="@nameof(AdminPayment.ResultStatus)" Caption="결과" Width="90">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var p = (AdminPayment)cell.DataItem;
+                    }
+                    <span class="@CargoAdminCodes.PaymentStatus.BadgeOf(p.ResultStatus)">@CargoAdminCodes.PaymentStatus.NameOf(p.ResultStatus)</span>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn FieldName="@nameof(AdminPayment.DelayDays)" Caption="지연일" Width="70" />
+            <DxGridDataColumn FieldName="@nameof(AdminPayment.Memo)" Caption="메모" MinWidth="160" />
+            <DxGridDataColumn FieldName="@nameof(AdminPayment.CreatedAt)" Caption="기록" Width="140"
+                              DisplayFormat="yyyy-MM-dd HH:mm" />
+        </Columns>
+    </CommGrd>
+</CommCont>
+
+@code {
+    /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
+    private string ConditionSummary => SchSummary.Or(SchSummary.Period(_from, _to));
+
+    private IReadOnlyList<AdminPayment> _rows = [];
+
+    private DateTime? _from = DateTime.Today.AddDays(-30);
+    private DateTime? _to = DateTime.Today;
+
+    protected override Task OnInitializedAsync() => ReloadAsync();
+
+    private Task ReloadAsync() => LoadAsync(async () =>
+    {
+        _rows = await Api.GetPaymentsAsync(_from, _to);
+        return _rows.Count;
+    }, "기간 안에 결제 기록이 없습니다.", "결제 기록을 읽지 못했습니다");
+}

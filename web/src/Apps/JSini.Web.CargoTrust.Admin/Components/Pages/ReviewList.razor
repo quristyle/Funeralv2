@@ -1,0 +1,126 @@
+@page "/cargoadmin/reviews"
+@attribute [RouteKey("cargoadmin.reviews")]
+
+@*
+    [후기 관리] — 설계안 CTA-005 · 11절.
+
+    후기는 거래에 딸린 글이다(거래당 하나). 관리자가 하는 일은 **숨기거나 되살리는
+    것** 하나다 — 고치지 않는다. 남이 쓴 경험을 관리자가 고치면 그것은 더 이상 그
+    사람의 경험이 아니다. 지우지도 않는다(계약서에 삭제가 없다). 숨김은 되돌릴 수 있다.
+
+    줄마다 단추 하나로 뒤집는다. 묻지 않는다 — 되돌릴 수 있는 일을 매번 물으면
+    신고가 몰린 날 확인 창만 수십 번 누른다. 무엇을 했는지는 토스트와 감사 기록이 남긴다.
+
+    신고가 걸린 후기(`reportCount`)를 함께 보인다. 신고 처리 창에서 「대상 숨김」으로
+    숨길 수도 있는데, 신고 없이 눈에 띈 것을 바로 치우는 자리가 여기다.
+*@
+
+@inherits DataPage
+@inject CargoAdminClient Api
+
+<PageTitle>후기 관리 · 운송관리 관리자</PageTitle>
+
+<CommSch OnSearch="@ReloadAsync" Busy="@Loading" MobileSummary="@ConditionSummary">
+    <Fields>
+        <CommSchItem Label="상태">
+            <DxComboBox Data="@CargoAdminCodes.ReviewVisibility.Filter" @bind-Value="_status"
+                        TextFieldName="@nameof(SchOption.Text)" ValueFieldName="@nameof(SchOption.Value)"
+                        Style="width: 120px" />
+        </CommSchItem>
+    </Fields>
+</CommSch>
+
+<CommCont>
+    <CommGrd TItem="AdminReview"
+             Data="@_rows"
+             ExportName="운송관리후기"
+             PageSize="20"
+             Reload="@ReloadAsync">
+        <RowActions Context="row">
+            <PermissionView Action="MenuAction.Update">
+                @if (IsHidden(row))
+                {
+                    <DxButton IconCssClass="jsini-icon-eye"
+                              Title="다시 보이기"
+                              RenderStyle="ButtonRenderStyle.Link"
+                              Enabled="@(!Loading)"
+                              Click="@(() => ToggleAsync(row))" />
+                }
+                else
+                {
+                    <DxButton IconCssClass="jsini-icon-eye-off"
+                              Title="숨기기"
+                              RenderStyle="ButtonRenderStyle.Link"
+                              Enabled="@(!Loading)"
+                              Click="@(() => ToggleAsync(row))" />
+                }
+            </PermissionView>
+        </RowActions>
+
+        <Columns>
+            <DxGridDataColumn FieldName="@nameof(AdminReview.CreatedAt)" Caption="작성" Width="140"
+                              DisplayFormat="yyyy-MM-dd HH:mm" />
+            <DxGridDataColumn FieldName="@nameof(AdminReview.CompanyName)" Caption="거래처" Width="170" />
+            <DxGridDataColumn FieldName="@nameof(AdminReview.UserName)" Caption="작성자" Width="110" />
+            <DxGridDataColumn FieldName="@nameof(AdminReview.TransportDate)" Caption="운송일" Width="100"
+                              DisplayFormat="yyyy-MM-dd" />
+
+            <DxGridDataColumn FieldName="@nameof(AdminReview.Content)" Caption="내용" MinWidth="260"
+                              TextAlignment="GridTextAlignment.Left">
+                <CellDisplayTemplate Context="cell">
+                    <div class="ca-clamp">@(((AdminReview)cell.DataItem).Content)</div>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn FieldName="@nameof(AdminReview.ReportCount)" Caption="신고" Width="70" />
+
+            <DxGridDataColumn FieldName="@nameof(AdminReview.Status)" Caption="상태" Width="80">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var r = (AdminReview)cell.DataItem;
+                    }
+                    <span class="@CargoAdminCodes.ReviewVisibility.BadgeOf(r.Status)">@CargoAdminCodes.ReviewVisibility.NameOf(r.Status)</span>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+        </Columns>
+
+        <DetailRowTemplate Context="detail">
+            <p class="ca-text">@(((AdminReview)detail.DataItem).Content)</p>
+        </DetailRowTemplate>
+    </CommGrd>
+</CommCont>
+
+@code {
+    /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
+    private string ConditionSummary =>
+        SchSummary.NameOf(CargoAdminCodes.ReviewVisibility.Filter, o => o.Value, o => o.Text, _status);
+
+    private IReadOnlyList<AdminReview> _rows = [];
+
+    private string? _status;
+
+    protected override Task OnInitializedAsync() => ReloadAsync();
+
+    private static bool IsHidden(AdminReview r) =>
+        string.Equals(r.Status, "HIDDEN", StringComparison.OrdinalIgnoreCase);
+
+    private Task ReloadAsync() => LoadAsync(async () =>
+    {
+        _rows = await Api.GetReviewsAsync(_status);
+        return _rows.Count;
+    }, "조건에 맞는 후기가 없습니다.", "후기를 읽지 못했습니다");
+
+    private async Task ToggleAsync(AdminReview row)
+    {
+        var hide = !IsHidden(row);
+        var id = row.ReviewId;
+
+        if (await RunAsync(
+                () => Api.SetReviewStatusAsync(id, hide ? "HIDDEN" : "VISIBLE"),
+                hide ? "후기를 숨겼습니다." : "후기를 다시 보이게 했습니다.",
+                "바꾸지 못했습니다"))
+        {
+            await ReloadAsync();
+        }
+    }
+}

@@ -8,7 +8,7 @@ description: .NET 10 마이크로서비스(microservices/, ApiGateway/) 관련 �
 ## 담당 영역
 
 - `ApiGateway/` — 게이트웨이 (:5265)
-- `microservices/` — AuthServer, funeralv2Api, AIAgentServer, FileServer, HelpDeskServer, ProjMngServer, SiteServer, NotificationServer, LifeEnvServer, Common(공유 코드)
+- `microservices/` — AuthServer, funeralv2Api, AIAgentServer, FileServer, HelpDeskServer, ProjMngServer, SiteServer, NotificationServer, LifeEnvServer, CargoTrustServer, Common(공유 코드)
 
 ## 작업 원칙
 

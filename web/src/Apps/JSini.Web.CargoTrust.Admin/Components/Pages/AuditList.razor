@@ -1,0 +1,109 @@
+@page "/cargoadmin/audit"
+@attribute [RouteKey("cargoadmin.audit")]
+
+@*
+    [시스템 관리 · 감사 기록] — 설계안 22 「System」 · 30절.
+
+    설계안 30 — **모든 관리자 변경은 감사 기록을 남긴다.** 이 서비스의 자산은
+    사용자가 올린 거래 데이터라, 관리자가 그것을 숨기거나 상태를 바꾼 흔적이 없으면
+    「누가 왜 우리 회사 통계를 바꿨나」에 답할 수 없다. 이 화면이 그 답을 찾는 자리다.
+
+    [전·후를 줄 안에서 편다]
+
+    `beforeData` · `afterData` 는 JSON 이다. 표 칸에 그대로 두면 한 줄에 수백 자가
+    붙어 표가 가로로 끝없이 늘어난다. 줄을 펴면(상세 줄) 들여 쓴 JSON 을 나란히
+    보인다 — 나란히 놓아야 어디가 바뀌었는지 눈으로 대조된다. 휴대폰에서는 위아래로
+    쌓인다(cargoadmin.css `.ca-json`).
+
+    [조회만 한다]
+
+    감사 기록은 고치거나 지우는 길이 없다. 있으면 감사 기록이 아니다.
+
+    기간은 처음에 최근 7일로 연다 — 비워 두면 서버 상한(500)까지 한 번에 온다.
+*@
+
+@inherits DataPage
+@inject CargoAdminClient Api
+
+<PageTitle>감사 기록 · 운송관리 관리자</PageTitle>
+
+<CommSch OnSearch="@ReloadAsync" Busy="@Loading" MobileSummary="@ConditionSummary">
+    <Fields>
+        <CommSchItem Label="대상">
+            <DxComboBox Data="@CargoAdminCodes.AuditTarget.Filter" @bind-Value="_target"
+                        TextFieldName="@nameof(SchOption.Text)" ValueFieldName="@nameof(SchOption.Value)"
+                        Style="width: 120px" />
+        </CommSchItem>
+
+        <CommSchItem Label="기간">
+            <DxDateEdit @bind-Date="_from" Style="width: 140px"
+                        ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        </CommSchItem>
+        <CommSchItem Label="~">
+            <DxDateEdit @bind-Date="_to" Style="width: 140px"
+                        ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        </CommSchItem>
+    </Fields>
+</CommSch>
+
+<CommCont>
+    <CommGrd TItem="AdminAuditEntry"
+             Data="@_rows"
+             ExportName="운송관리감사기록"
+             PageSize="20"
+             Reload="@ReloadAsync">
+        <Columns>
+            <DxGridDataColumn FieldName="@nameof(AdminAuditEntry.CreatedAt)" Caption="시각" Width="150"
+                              DisplayFormat="yyyy-MM-dd HH:mm:ss" />
+            <DxGridDataColumn FieldName="@nameof(AdminAuditEntry.ActorName)" Caption="처리자" Width="120" />
+            <DxGridDataColumn FieldName="@nameof(AdminAuditEntry.Action)" Caption="동작" MinWidth="180" />
+
+            <DxGridDataColumn FieldName="@nameof(AdminAuditEntry.TargetType)" Caption="대상" Width="100">
+                <CellDisplayTemplate Context="cell">
+                    @CargoAdminCodes.AuditTarget.NameOf(((AdminAuditEntry)cell.DataItem).TargetType)
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn FieldName="@nameof(AdminAuditEntry.TargetId)" Caption="대상 번호" Width="90" />
+        </Columns>
+
+        <DetailRowTemplate Context="detail">
+            @{
+                var a = (AdminAuditEntry)detail.DataItem;
+                var before = CargoAdminJson.Format(a.BeforeData);
+                var after = CargoAdminJson.Format(a.AfterData);
+            }
+            <div class="ca-json">
+                <div>
+                    <div class="ca-json__label">바뀌기 전</div>
+                    <pre>@(before ?? "(없음 — 새로 만든 것)")</pre>
+                </div>
+                <div>
+                    <div class="ca-json__label">바뀐 뒤</div>
+                    <pre>@(after ?? "(없음 — 지운 것)")</pre>
+                </div>
+            </div>
+        </DetailRowTemplate>
+    </CommGrd>
+</CommCont>
+
+@code {
+    /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
+    private string ConditionSummary => SchSummary.Of(
+        SchSummary.NameOf(CargoAdminCodes.AuditTarget.Filter, o => o.Value, o => o.Text, _target),
+        SchSummary.Period(_from, _to));
+
+    private IReadOnlyList<AdminAuditEntry> _rows = [];
+
+    private string? _target;
+    private DateTime? _from = DateTime.Today.AddDays(-7);
+    private DateTime? _to = DateTime.Today;
+
+    protected override Task OnInitializedAsync() => ReloadAsync();
+
+    private Task ReloadAsync() => LoadAsync(async () =>
+    {
+        _rows = await Api.GetAuditAsync(_target, _from, _to);
+        return _rows.Count;
+    }, "조건에 맞는 감사 기록이 없습니다.", "감사 기록을 읽지 못했습니다");
+}

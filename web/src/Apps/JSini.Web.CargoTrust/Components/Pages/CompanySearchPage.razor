@@ -1,0 +1,175 @@
+@page "/cargotrust/companies"
+@attribute [RouteKey("cargotrust.companies")]
+
+@*
+    거래처 검색(CT-002 · CT-003, 설계안 6).
+
+    [결과는 표가 아니라 카드다]
+
+    한 회사를 판단하는 데 필요한 숫자가 여섯(거래 경험 · 정상 · 지연 · 미지급 ·
+    평균 지연 · 최근 거래)이고, 이 화면은 휴대폰에서 가장 많이 열린다. 표로 두면
+    휴대폰에서 두 칸만 보이고 나머지는 가로로 굴려야 한다. 카드는 한 회사를 한
+    덩어리로 읽게 하고, 폭이 좁아지면 한 줄에 하나로 쌓인다.
+
+    [검색어는 주소에 싣는다]
+
+    `?q=` · `?field=` 로 들고 다닌다. 홈에서 넘겨받는 것도 이 길이고, 상세를 봤다가
+    뒤로 오면 **같은 결과로 돌아온다** — 주소에 없으면 뒤로 가기가 빈 검색칸으로
+    떨어진다.
+
+    [사업자번호로 찾으면 정확히 맞는 것이 맨 앞이다]
+
+    서버가 그렇게 준다(05-api-design.md). 그래서 기준을 「전체」로 두어도 번호
+    검색이 이름 검색 결과에 묻히지 않는다.
+
+    Enter 로 찾는다. 이 판의 드롭다운(기준)은 Enter 를 목록 고르기로 쓰지만 검색어
+    칸은 한 칸짜리 글자라 뜻이 하나다 — 그래서 그 칸에만 건다(CommSch 머리말).
+*@
+
+@inherits DataPage
+@inject CargoTrustClient Api
+@inject NavigationManager Navigation
+
+<PageTitle>거래처 검색 · 운송관리</PageTitle>
+
+<CommSch OnSearch="@SearchAsync" Busy="@Loading" SearchText="검색" MobileSummary="@ConditionSummary">
+    <Fields>
+        <CommSchItem Label="기준">
+            <DxComboBox Data="@Fields" @bind-Value="_field"
+                        TextFieldName="@nameof(SchOption.Text)" ValueFieldName="@nameof(SchOption.Value)"
+                        Style="width: 130px" />
+        </CommSchItem>
+        <CommSchItem Label="검색어">
+            <div @onkeydown="@OnKeyAsync">
+                <DxTextBox @bind-Text="_q" BindValueMode="BindValueMode.OnInput" Style="width: 260px" />
+            </div>
+        </CommSchItem>
+    </Fields>
+    <Actions>
+        <DxButton Text="거래처 등록" RenderStyle="ButtonRenderStyle.Secondary" IconCssClass="jsini-icon-plus"
+                  Click="@(() => _create?.Open(_q))" />
+    </Actions>
+</CommSch>
+
+<div class="ct-page">
+    @if (_searched is null)
+    {
+        <PageNotice Text="회사명 · 사업자번호 · 대표자 · 전화 · 주소로 찾습니다. 찾는 거래처가 없으면 「거래처 등록」으로 올릴 수 있습니다." />
+    }
+    else
+    {
+        <div class="ct-result-head">
+            <span>「@_searched」 @_results.Count 곳</span>
+            <span class="jsini-hint">통계는 전체 기간 · 운송일 기준</span>
+        </div>
+
+        @if (_results.Count > 0)
+        {
+            <div class="ct-cards">
+                @foreach (var c in _results)
+                {
+                    <CompanyCard Company="@c" />
+                }
+            </div>
+        }
+        else if (!Loading)
+        {
+            <PageNotice Text="찾은 거래처가 없습니다. 사업자번호를 알면 「거래처 등록」으로 올릴 수 있습니다." />
+        }
+    }
+</div>
+
+<CompanyCreatePopup @ref="_create" />
+
+@code {
+    [Parameter, SupplyParameterFromQuery(Name = "q")]
+    public string? Q { get; set; }
+
+    [Parameter, SupplyParameterFromQuery(Name = "field")]
+    public string? Field { get; set; }
+
+    /// <summary>검색 기준. 값은 서버의 <c>field</c> 그대로다.</summary>
+    private static readonly IReadOnlyList<SchOption> Fields =
+    [
+        new("all", SchSummary.Any),
+        new("name", "회사명"),
+        new("bizno", "사업자번호"),
+        new("ceo", "대표자"),
+        new("phone", "전화"),
+        new("address", "주소"),
+    ];
+
+    private string ConditionSummary => SchSummary.Of(
+        SchSummary.NameOf(Fields, f => f.Value, f => f.Text, _field),
+        _q);
+
+    private string? _field = "all";
+    private string? _q;
+
+    /// <summary>마지막으로 찾은 검색어. <c>null</c> 이면 아직 찾지 않았다.</summary>
+    private string? _searched;
+
+    private IReadOnlyList<CompanySummary> _results = [];
+    private CompanyCreatePopup? _create;
+
+    /// <summary>주소에서 읽은 마지막 조건. 같은 주소로 다시 그려질 때 또 부르지 않으려고 든다.</summary>
+    private (string? Q, string? Field)? _loaded;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_loaded == (Q, Field))
+        {
+            return;
+        }
+
+        _loaded = (Q, Field);
+        _q = Q;
+        _field = Fields.Any(f => f.Value == Field) ? Field : "all";
+
+        if (!string.IsNullOrWhiteSpace(Q))
+        {
+            await LoadResultsAsync();
+        }
+    }
+
+    private async Task OnKeyAsync(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await SearchAsync();
+        }
+    }
+
+    /// <summary>
+    /// 조건을 주소에 싣고 옮긴다. 같은 주소면 옮겨도 파라미터가 안 바뀌어 다시 부르지
+    /// 않으므로 그때만 직접 부른다(「같은 검색어로 다시 찾기」).
+    /// </summary>
+    private async Task SearchAsync()
+    {
+        var q = _q?.Trim();
+        if (string.IsNullOrEmpty(q))
+        {
+            Say("검색어를 넣으십시오.", NoticeTone.Warning);
+            return;
+        }
+
+        if (q == Q && _field == (Field ?? "all"))
+        {
+            await LoadResultsAsync();
+            return;
+        }
+
+        Navigation.NavigateTo(
+            $"/cargotrust/companies?q={Uri.EscapeDataString(q)}&field={Uri.EscapeDataString(_field ?? "all")}");
+    }
+
+    private Task LoadResultsAsync() => LoadAsync(async () =>
+    {
+        var q = (_q ?? string.Empty).Trim();
+        _results = await Api.SearchCompaniesAsync(q, _field);
+        _searched = q;
+
+        // 「없습니다」는 안내 줄이 이미 말한다 — 토스트까지 띄우면 같은 말이 두 번이다.
+        return -1;
+    }, failMessage: "거래처를 찾지 못했습니다");
+}

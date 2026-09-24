@@ -50,6 +50,8 @@ SERVICES=(
   "notify|Notification Server|microservices/NotificationServer|5460|NOTIFY"
   # 생활과환경(기상·생일). GHUB(SK가스 지허브)에서 이식했다.
   "life|LifeEnv Server|microservices/LifeEnvServer|5490|LIFEENV"
+  # JSini 운송관리(화물 거래처 신뢰정보).
+  "cargo|CargoTrust Server|microservices/CargoTrustServer|5500|CARGOTRUST"
   # ── 프론트 ────────────────────────────────────────────────
   # 이제 프론트도 .NET 이다. Vue/pnpm 포털을 걷어내면서 pnpm 전용 처리(FRONTS 표 ·
   # 의존성 설치 · vite 기동)가 통째로 사라졌고, 두 프론트가 나머지 서비스와

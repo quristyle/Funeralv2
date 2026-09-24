@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+  <!--
+    운송관리(CargoTrust — 화물 거래처 신뢰정보) 업무 Piral MFE 모듈. 차주가 쓰는 쪽이다.
+    단일 셸에서 동적으로 로드되는 Razor Class Library (Pilet) 모듈이다.
+  -->
+
+  <PropertyGroup>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <UserSecretsId>jsini-web-cargotrust</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Piral.Blazor.Shared" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Shared\JSini.Web.Abstractions\JSini.Web.Abstractions.csproj" />
+    <ProjectReference Include="..\..\Shared\JSini.Web.Components\JSini.Web.Components.csproj" />
+    <ProjectReference Include="..\..\Shared\JSini.Web.Http\JSini.Web.Http.csproj" />
+    <ProjectReference Include="..\..\Shared\JSini.Web.Models\JSini.Web.Models.csproj" />
+  </ItemGroup>
+
+</Project>

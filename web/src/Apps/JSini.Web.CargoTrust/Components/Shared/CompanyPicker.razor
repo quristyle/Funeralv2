@@ -1,0 +1,119 @@
+@*
+    거래처 고르개. 거래 등록·수정이 쓴다.
+
+    [드롭다운이 아니라 「찾기」다]
+
+    거래처는 수천이 될 수 있고, 차주가 고르려는 회사는 대개 **처음 거래하는
+    곳**이다. 전부 내려받아 콤보에 담는 방식은 목록이 커질수록 느려지고, 무엇보다
+    「없으면 등록」으로 이어지는 길이 없다. 그래서 검색 화면과 같은 서버 검색을
+    부르고, 못 찾으면 그 자리에서 거래처 등록 팝업을 연다.
+
+    Enter 로 찾는다 — 이 칸은 콤보가 섞이지 않은 한 칸짜리라 Enter 의 뜻이 하나다
+    (CommSch 가 Enter 를 안 받는 이유는 그 판에 드롭다운이 섞이기 때문이다).
+*@
+
+@inherits DataPage
+@inject CargoTrustClient Api
+
+@if (Value is not null)
+{
+    <div class="ct-picked">
+        <span class="ct-picked__name">@Value.CompanyName</span>
+        @if (!string.IsNullOrWhiteSpace(Value.BusinessNumber))
+        {
+            <span class="jsini-hint">@Value.BusinessNumber</span>
+        }
+        <DxButton Text="바꾸기" RenderStyle="ButtonRenderStyle.Link" Click="@ClearAsync" />
+    </div>
+}
+else
+{
+    <div class="ct-inline-field" @onkeydown="@OnKeyAsync">
+        <DxTextBox @bind-Text="_q" BindValueMode="BindValueMode.OnInput" />
+        <DxButton Text="찾기" RenderStyle="ButtonRenderStyle.Secondary"
+                  IconCssClass="jsini-icon-search" Enabled="@(!Loading)" Click="@SearchAsync" />
+        @if (AllowCreate)
+        {
+            <DxButton Text="새 거래처" RenderStyle="ButtonRenderStyle.Link"
+                      IconCssClass="jsini-icon-plus" Click="@(() => _create?.Open(_q))" />
+        }
+    </div>
+
+    @if (_results.Count > 0)
+    {
+        <ul class="ct-picklist">
+            @foreach (var c in _results)
+            {
+                <li>
+                    <button type="button" class="ct-picklist__item" @onclick="@(() => PickAsync(CompanyPick.From(c)))">
+                        <span class="ct-picked__name">@c.CompanyName</span>
+                        <span class="jsini-hint">
+                            @SchSummary.Of(c.BusinessNumber, c.Region, c.CeoName is null ? null : $"대표 {c.CeoName}", $"거래 {c.Stats.TotalCount}건")
+                        </span>
+                    </button>
+                </li>
+            }
+        </ul>
+    }
+    else if (_searched)
+    {
+        <div class="jsini-hint">찾은 거래처가 없습니다.@(AllowCreate ? " 「새 거래처」로 등록할 수 있습니다." : null)</div>
+    }
+}
+
+@if (AllowCreate)
+{
+    <CompanyCreatePopup @ref="_create" OnPicked="@(c => PickAsync(CompanyPick.From(c)))" />
+}
+
+@code {
+    [Parameter] public CompanyPick? Value { get; set; }
+
+    [Parameter] public EventCallback<CompanyPick?> ValueChanged { get; set; }
+
+    /// <summary>못 찾으면 그 자리에서 등록하게 할지. 수정 팝업 안에서는 끈다 — 팝업 위에 팝업이 겹친다.</summary>
+    [Parameter] public bool AllowCreate { get; set; } = true;
+
+    private string? _q;
+    private bool _searched;
+    private IReadOnlyList<CompanySummary> _results = [];
+    private CompanyCreatePopup? _create;
+
+    private async Task OnKeyAsync(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await SearchAsync();
+        }
+    }
+
+    private async Task SearchAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_q))
+        {
+            Say("회사명이나 사업자번호를 넣으십시오.", NoticeTone.Warning);
+            return;
+        }
+
+        IReadOnlyList<CompanySummary> found = [];
+        if (await RunAsync(async () => found = await Api.SearchCompaniesAsync(_q.Trim()),
+                okMessage: string.Empty, failMessage: "거래처를 찾지 못했습니다"))
+        {
+            _results = found;
+            _searched = true;
+        }
+    }
+
+    private async Task PickAsync(CompanyPick pick)
+    {
+        _results = [];
+        _searched = false;
+        await ValueChanged.InvokeAsync(pick);
+    }
+
+    private async Task ClearAsync()
+    {
+        _q = null;
+        await ValueChanged.InvokeAsync(null);
+    }
+}

@@ -30,7 +30,7 @@ REMOTE
 - `config/<서비스명>/appsettings.Local.json` — **비밀값이 여기 있다.** 컨테이너에 읽기 전용으로 마운트된다
 - `files/` — 업로드 파일 실체 · `portal/` · `site/` — 프론트 정적 산출물 · `runner/` — GitHub Actions self-hosted 러너
 
-컨테이너는 `jsini-<이름>-1` 형식으로 10개 뜬다: gateway auth file site notify life funeral helpdesk projmng ai.
+컨테이너는 `jsini-<이름>-1` 형식으로 13개 뜬다 — 백엔드 11(gateway auth file site notify life cargo funeral helpdesk projmng ai)과 프론트 2(portal web).
 게이트웨이만 호스트 `127.0.0.1:5265` 에 열려 있고 nginx 가 그 앞에 선다.
 
 ## 권한

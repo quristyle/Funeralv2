@@ -1,0 +1,56 @@
+@*
+    거래처 한 칸(설계안 6절 검색 결과 모양). 검색 화면과 홈의 「최근 본 거래처」가
+    같이 쓴다.
+
+    [카드 전체가 링크다]
+
+    휴대폰에서 작은 「상세」 단추를 찾아 누르게 하지 않는다. `<a>` 로 감싸 두면
+    Blazor 의 이동이 그대로 받고, 새 탭으로 여는 것(가운데 단추·길게 누르기)도 된다.
+
+    [기준을 카드 아래에 적는다]
+
+    숫자는 **전체 기간 · 운송일 기준**이다(검색 결과의 stats 가 그렇다). 상세 화면은
+    기간을 고를 수 있어서, 카드에 기준이 안 적혀 있으면 두 화면의 숫자가 왜
+    다른지 읽을 수 없다(설계안 26).
+*@
+
+<a class="ct-card" href="@($"/cargotrust/companies/{Company.CompanyId}")">
+    <div class="ct-card__head">
+        <div class="ct-card__name">@Company.CompanyName</div>
+        @if (Company.Status != "ACTIVE")
+        {
+            <span class="@CargoCodes.CompanyStatusBadge(Company.Status)">@CargoCodes.CompanyStatusName(Company.Status)</span>
+        }
+    </div>
+    <div class="ct-card__sub">
+        사업자번호 @Company.BusinessNumber
+        @if (!string.IsNullOrWhiteSpace(Company.CeoName))
+        {
+            <span> · 대표 @Company.CeoName</span>
+        }
+        @if (!string.IsNullOrWhiteSpace(Company.Region))
+        {
+            <span> · @Company.Region</span>
+        }
+    </div>
+
+    <dl class="ct-card__rows">
+        <div><dt>거래 경험</dt><dd>@S.TotalCount 건</dd></div>
+        <div><dt>정상 지급</dt><dd>@S.NormalCount 건</dd></div>
+        <div><dt>지연 지급</dt><dd>@S.DelayedCount 건</dd></div>
+        <div><dt>미지급</dt><dd class="@(S.UnpaidCount > 0 ? "ct-num--err" : null)">@S.UnpaidCount 건</dd></div>
+        <div><dt>평균 지급 지연</dt><dd>@CargoCodes.Days(S.AverageDelayDays)</dd></div>
+        <div><dt>최근 거래</dt><dd>@(S.LastTransactionDate?.ToString("yyyy-MM") ?? "-")</dd></div>
+    </dl>
+
+    <div class="ct-card__foot">
+        <ConfidenceNote Stats="@S" />
+        <span class="jsini-hint">@(S.PeriodLabel ?? "전체") · 운송일 기준</span>
+    </div>
+</a>
+
+@code {
+    [Parameter, EditorRequired] public CompanySummary Company { get; set; } = default!;
+
+    private CompanyStats S => Company.Stats ?? new CompanyStats();
+}

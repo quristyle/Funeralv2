@@ -1,0 +1,106 @@
+@page "/cargotrust/transactions/new"
+@attribute [RouteKey("cargotrust.transactions.new")]
+
+@*
+    거래 등록(CT-005, 설계안 8 · 13.2).
+
+    [거래처는 검색해서 고른다]
+
+    이름을 손으로 적게 하면 같은 회사가 표기만 다른 여러 줄이 되어 통계가 쪼개진다.
+    반드시 등록된 거래처를 고르고, 없으면 그 자리에서 사업자번호로 등록한다
+    (CompanyPicker → CompanyCreatePopup). 거래처 상세의 「이 거래처와 거래 등록」은
+    `?companyId=` 를 실어 와 거래처를 채운 채로 연다.
+
+    [저장하면 그 거래의 상세로 간다]
+
+    운송과 결제는 따로 적는다(설계안 9). 등록하는 날 이미 받았다면 곧바로 상세에서
+    결제 결과를 적으면 된다 — 그래서 목록이 아니라 상세로 옮긴다.
+
+    [검토 대상이 되어도 막지 않는다]
+
+    같은 날 같은 거래처로 열 건을 넘게 올리거나 운송일이 오늘보다 뒤면 서버가
+    거절하지 않고 「검토 대상」으로 표시한다(13.2 의 5번). 조용히 표시만 되면 본인은
+    모르므로 그때는 한마디 한다. 중복(같은 날·금액·구간)은 서버가 409 로 막는다.
+*@
+
+@inherits DataPage
+@inject CargoTrustClient Api
+@inject NavigationManager Navigation
+
+<PageTitle>거래 등록 · 운송관리</PageTitle>
+
+<div class="ct-page">
+    <section class="ct-panel ct-panel--form">
+        <TransactionFields Draft="@_draft" />
+
+        <div class="jsini-actions ct-form-actions">
+            <DxButton Text="등록" RenderStyle="ButtonRenderStyle.Primary" Enabled="@(!Loading)" Click="@SaveAsync" />
+            <DxButton Text="다시 쓰기" RenderStyle="ButtonRenderStyle.Secondary" IconCssClass="jsini-icon-undo"
+                      Click="@Reset" />
+        </div>
+    </section>
+</div>
+
+@code {
+    /// <summary>거래처 상세에서 넘어올 때 채울 거래처.</summary>
+    [Parameter, SupplyParameterFromQuery(Name = "companyId")]
+    public long? CompanyId { get; set; }
+
+    private TransactionDraft _draft = new();
+    private long? _prefilled;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (CompanyId is null || CompanyId == _prefilled)
+        {
+            return;
+        }
+
+        _prefilled = CompanyId;
+
+        // 거래처 정보만 필요하지만 한 건 조회 통로가 상세뿐이다. 기간은 가장 짧게 준다 —
+        // 통계는 여기서 쓰지 않는다.
+        await LoadOneAsync(
+            () => Api.GetCompanyAsync(CompanyId.Value, 30),
+            d =>
+            {
+                if (d is not null)
+                {
+                    _draft.Company = CompanyPick.From(d.Company);
+                }
+            },
+            "거래처를 찾지 못했습니다. 검색해서 고르십시오.",
+            "거래처를 읽지 못했습니다");
+    }
+
+    private void Reset()
+    {
+        // 거래처는 남긴다 — 같은 곳과 여러 건을 잇달아 올리는 일이 흔하다.
+        _draft = new TransactionDraft { Company = _draft.Company };
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_draft.Problem() is { } problem)
+        {
+            Say(problem, NoticeTone.Warning);
+            return;
+        }
+
+        MyTransaction? saved = null;
+        if (!await RunAsync(async () => saved = await Api.CreateTransactionAsync(_draft.ToRequest()),
+                "거래를 등록했습니다.", "거래를 등록하지 못했습니다")
+            || saved is null)
+        {
+            return;
+        }
+
+        if (saved.ReviewStatus == "FLAGGED")
+        {
+            Say("등록했지만 검토 대상으로 표시되었습니다 — 운송일이 오늘보다 뒤이거나 "
+                + "같은 날 같은 거래처로 등록한 건이 많을 때 그렇게 됩니다.", NoticeTone.Warning);
+        }
+
+        Navigation.NavigateTo($"/cargotrust/transactions/{saved.TransactionId}");
+    }
+}

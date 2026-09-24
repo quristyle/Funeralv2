@@ -1,0 +1,15 @@
+@*
+    결제 상태 배지. 이름과 색은 CargoCodes 한 곳에서 푼다 — 같은 상태가 화면마다
+    다른 글자·다른 색으로 뜨면 같은 사실이 다른 무게로 읽힌다.
+
+    `Bucket` 을 켜면 미수금 칸 이름으로 읽는다. 거기서 DELAYED 는 「늦게 받았다」가
+    아니라 「예정일이 지났는데 아직 못 받았다」라 이름이 다르다.
+*@
+
+<span class="@(Bucket ? CargoCodes.BucketBadge(Code) : CargoCodes.PaymentStatusBadge(Code))">@(Bucket ? CargoCodes.BucketName(Code) : CargoCodes.PaymentStatusName(Code))</span>
+
+@code {
+    [Parameter] public string? Code { get; set; }
+
+    [Parameter] public bool Bucket { get; set; }
+}

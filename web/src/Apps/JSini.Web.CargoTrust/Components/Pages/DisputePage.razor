@@ -1,0 +1,180 @@
+@page "/cargotrust/disputes"
+@attribute [RouteKey("cargotrust.disputes")]
+
+@*
+    이의제기(설계안 14) — **운송사 쪽** 화면이다.
+
+    [누가 쓰나]
+
+    거래처 정보의 대상이 되는 회사(운송사/주선사)가 자기 회사에 관한 거래 중
+    사실과 다른 것을 다툰다. 그래서 회사에 연결된 CARRIER 계정만 쓸 수 있고
+    (서버의 company-transactions 가 그 밖에는 403), 사용자 유형과 회사 연결은
+    관리자가 정한다. 그 계정이 아니면 목록을 부르지 않고 그 사정을 적어 둔다 —
+    부르면 403 토스트만 뜨고 무엇을 해야 하는지는 알 수 없다.
+
+    [사유는 하나를 고른다]
+
+    설계안 14 는 체크칸(여럿)이지만 서버(DisputeRequest.reason)는 하나를 받는다.
+    여러 사유가 겹치면 가장 앞선 것을 고르고 나머지는 내용에 적는다. 증빙 첨부는
+    이번에 빠졌다(계약에 파일 칸이 없다).
+
+    [고르는 표에 등록자가 없다]
+
+    운송사가 보는 것은 공개 거래 모양(PublicTransaction)이다 — 누가 등록했는지는
+    싣지 않는다(설계안 29). 다투는 대상은 사람이 아니라 기록이다.
+*@
+
+@inherits DataPage
+@inject CargoTrustClient Api
+
+<PageTitle>이의제기 · 운송관리</PageTitle>
+
+<div class="ct-page">
+    @if (_me is not null && !_me.CanDispute)
+    {
+        <PageNotice Tone="NoticeTone.Warning"
+                    Text="운송사 계정만 이의제기를 할 수 있습니다 — 관리자에게 회사 연결을 요청하십시오." />
+    }
+    else if (_me is not null)
+    {
+        <CommCont Title="@($"{_me.CompanyName ?? "우리 회사"}에 관한 거래")" Hint="다툴 거래를 고르십시오">
+            <CommGrd TItem="PublicTransaction" Data="@_transactions" ExportName="회사거래"
+                     RowActions="@DisputeButton" ActionsWidth="100">
+                <Columns>
+                    <DxGridDataColumn FieldName="@nameof(PublicTransaction.TransportDate)" Caption="운송일" Width="110" DisplayFormat="yyyy-MM-dd" />
+                    <DxGridDataColumn FieldName="@nameof(PublicTransaction.Route)" Caption="구간" MinWidth="130" />
+                    <DxGridDataColumn FieldName="@nameof(PublicTransaction.TransportType)" Caption="유형" Width="100" />
+                    <DxGridDataColumn FieldName="@nameof(PublicTransaction.Amount)" Caption="운송료" Width="110"
+                                      DisplayFormat="#,0" TextAlignment="GridTextAlignment.Right" />
+                    <DxGridDataColumn FieldName="@nameof(PublicTransaction.ExpectedPaymentDate)" Caption="예정 지급일" Width="110" DisplayFormat="yyyy-MM-dd" />
+                    <DxGridDataColumn FieldName="@nameof(PublicTransaction.ActualPaymentDate)" Caption="실제 지급일" Width="110" DisplayFormat="yyyy-MM-dd" />
+                    <DxGridDataColumn FieldName="@nameof(PublicTransaction.PaymentStatus)" Caption="결과" Width="100">
+                        <CellDisplayTemplate Context="cell"><PayBadge Code="@(((PublicTransaction)cell.DataItem).PaymentStatus)" /></CellDisplayTemplate>
+                    </DxGridDataColumn>
+                </Columns>
+            </CommGrd>
+        </CommCont>
+
+        <CommCont Title="내 이의제기">
+            <CommGrd TItem="DisputeInfo" Data="@_disputes" ExportName="내이의제기">
+                <Columns>
+                    <DxGridDataColumn FieldName="@nameof(DisputeInfo.CreatedAt)" Caption="접수" Width="140">
+                        <CellDisplayTemplate Context="cell">@CargoCodes.Moment(((DisputeInfo)cell.DataItem).CreatedAt)</CellDisplayTemplate>
+                    </DxGridDataColumn>
+                    <DxGridDataColumn FieldName="@nameof(DisputeInfo.TransportDate)" Caption="운송일" Width="110" DisplayFormat="yyyy-MM-dd" />
+                    <DxGridDataColumn FieldName="@nameof(DisputeInfo.Amount)" Caption="운송료" Width="110"
+                                      DisplayFormat="#,0" TextAlignment="GridTextAlignment.Right" />
+                    <DxGridDataColumn FieldName="@nameof(DisputeInfo.Reason)" Caption="사유" Width="120">
+                        <CellDisplayTemplate Context="cell">@CargoCodes.DisputeReasonName(((DisputeInfo)cell.DataItem).Reason)</CellDisplayTemplate>
+                    </DxGridDataColumn>
+                    <DxGridDataColumn FieldName="@nameof(DisputeInfo.Content)" Caption="내용" MinWidth="180" />
+                    <DxGridDataColumn FieldName="@nameof(DisputeInfo.Status)" Caption="상태" Width="90">
+                        <CellDisplayTemplate Context="cell">
+                            @{ var x = (DisputeInfo)cell.DataItem; }
+                            <span class="@CargoCodes.DisputeStatusBadge(x.Status)">@CargoCodes.DisputeStatusName(x.Status)</span>
+                        </CellDisplayTemplate>
+                    </DxGridDataColumn>
+                    <DxGridDataColumn FieldName="@nameof(DisputeInfo.Resolution)" Caption="처리 결과" MinWidth="160" />
+                </Columns>
+            </CommGrd>
+        </CommCont>
+    }
+</div>
+
+<CommPopup @bind-Visible="_open" HeaderText="이의제기" Width="560px">
+    <BodyContentTemplate Context="popup">
+        @if (_target is not null)
+        {
+            <dl class="ct-facts">
+                <div><dt>대상 거래</dt><dd>@CargoCodes.Day(_target.TransportDate)</dd></div>
+                <div><dt>운송료</dt><dd>@CargoCodes.Won(_target.Amount)</dd></div>
+                <div><dt>구간</dt><dd>@_target.Route</dd></div>
+                <div><dt>등록된 결과</dt><dd><PayBadge Code="@_target.PaymentStatus" /></dd></div>
+            </dl>
+        }
+        <DxFormLayout CssClass="ct-form">
+            <DxFormLayoutItem Caption="이의 사유" ColSpanMd="12">
+                <DxRadioGroup Items="@CargoCodes.DisputeReasonOptions" @bind-Value="_reason"
+                              TextFieldName="@nameof(SchOption.Text)" ValueFieldName="@nameof(SchOption.Value)"
+                              Layout="RadioGroupLayout.Vertical" />
+            </DxFormLayoutItem>
+            <DxFormLayoutItem Caption="내용" ColSpanMd="12">
+                <DxMemo @bind-Text="_content" Rows="5" />
+            </DxFormLayoutItem>
+        </DxFormLayout>
+    </BodyContentTemplate>
+
+    <FooterContentTemplate Context="popup">
+        <DxButton Text="이의제기 제출" RenderStyle="ButtonRenderStyle.Primary" Enabled="@(!Loading)" Click="@SubmitAsync" />
+        <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary" Click="@(() => _open = false)" />
+    </FooterContentTemplate>
+</CommPopup>
+
+@code {
+    private MeInfo? _me;
+    private IReadOnlyList<PublicTransaction> _transactions = [];
+    private IReadOnlyList<DisputeInfo> _disputes = [];
+
+    private bool _open;
+    private PublicTransaction? _target;
+    private string? _reason;
+    private string? _content;
+
+    private RenderFragment<PublicTransaction> DisputeButton => t =>
+        @<DxButton Text="이의제기" RenderStyle="ButtonRenderStyle.Link" Click="@(() => Open(t))" />;
+
+    protected override Task OnInitializedAsync() => ReloadAsync();
+
+    private Task ReloadAsync() => LoadAsync(async () =>
+    {
+        _me = await Api.GetMeAsync();
+
+        // 운송사가 아니면 목록을 부르지 않는다 — 403 토스트만 남고 할 일은 안내 줄이 말한다.
+        if (_me is not { CanDispute: true })
+        {
+            return -1;
+        }
+
+        var transactions = Api.GetCompanyTransactionsAsync();
+        var disputes = Api.GetMyDisputesAsync();
+        _transactions = await transactions;
+        _disputes = await disputes;
+        return _transactions.Count;
+    }, "우리 회사에 관해 등록된 거래가 없습니다.", "이의제기 화면을 읽지 못했습니다");
+
+    private void Open(PublicTransaction t)
+    {
+        _target = t;
+        _reason = null;
+        _content = null;
+        _open = true;
+    }
+
+    private async Task SubmitAsync()
+    {
+        if (_target is null)
+        {
+            return;
+        }
+
+        if (string.IsNullOrEmpty(_reason))
+        {
+            Say("이의 사유를 고르십시오.", NoticeTone.Warning);
+            return;
+        }
+
+        var request = new DisputeRequest
+        {
+            TransactionId = _target.TransactionId,
+            Reason = _reason,
+            Content = string.IsNullOrWhiteSpace(_content) ? null : _content.Trim(),
+        };
+
+        if (await RunAsync(() => Api.CreateDisputeAsync(request),
+                "이의제기를 접수했습니다. 관리자가 검토합니다.", "이의제기를 접수하지 못했습니다"))
+        {
+            _open = false;
+            _disputes = await Api.GetMyDisputesAsync();
+        }
+    }
+}

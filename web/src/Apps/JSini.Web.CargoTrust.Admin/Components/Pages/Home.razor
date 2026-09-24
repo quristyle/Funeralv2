@@ -1,0 +1,160 @@
+@page "/cargoadmin"
+@attribute [RouteKey("cargoadmin")]
+
+@*
+    [운송관리 대시보드] — 설계안 CTA-001.
+
+    관리자가 들어와서 **오늘 처리할 것이 있는가**를 먼저 보게 한다. 그래서
+    숫자 타일 가운데 처리 대기(의심 거래 · 미처리 신고 · 미처리 이의제기)는
+    누르면 그 목록으로 **거른 채** 건너간다(`?reviewStatus=FLAGGED` ·
+    `?status=RECEIVED`). 타일만 두고 링크를 안 걸면 사람이 목록 화면에 가서 같은
+    조건을 다시 고른다.
+
+    [판정어를 쓰지 않는다]
+
+    설계안 12 — 「의심」은 서버가 비정상 패턴(하루 10건 초과 · 미래 운송일)으로
+    걸어 둔 **검토 표시**이지 업체나 사람에 대한 판정이 아니다. 그 이상의 말을
+    화면이 덧붙이지 않는다.
+
+    자료 판(`CommCont`)으로 감싸지 않는다 — 타일 · 건수 · 표가 쌓인 화면이라
+    감싸면 남은 높이를 그 판이 다 먹어 아래가 잘린다.
+*@
+
+@inherits DataPage
+@inject CargoAdminClient Api
+
+<PageTitle>대시보드 · 운송관리 관리자</PageTitle>
+
+@if (_board is not null)
+{
+    <div class="jsini-stats">
+        <a class="jsini-stat ca-stat-link" href="/cargoadmin/companies">
+            <div class="jsini-stat__label">거래처</div>
+            <div class="jsini-stat__value">@_board.CompanyCount.ToString("#,0")</div>
+        </a>
+        <a class="jsini-stat ca-stat-link" href="/cargoadmin/users">
+            <div class="jsini-stat__label">사용자</div>
+            <div class="jsini-stat__value">@_board.UserCount.ToString("#,0")</div>
+        </a>
+        <a class="jsini-stat ca-stat-link" href="/cargoadmin/transactions">
+            <div class="jsini-stat__label">거래 전체</div>
+            <div class="jsini-stat__value">@_board.TransactionCount.ToString("#,0")</div>
+        </a>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">최근 30일 거래</div>
+            <div class="jsini-stat__value">@_board.TransactionsLast30.ToString("#,0")</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">운송료 합계</div>
+            <div class="jsini-stat__value">@CargoAdminFormat.Won(_board.TotalAmount)</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">받지 못한 금액</div>
+            <div class="jsini-stat__value">@CargoAdminFormat.Won(_board.OutstandingAmount)</div>
+        </div>
+    </div>
+
+    <h2 class="ca-subhead">처리 대기</h2>
+
+    <div class="jsini-stats">
+        <a class="@DueClass(_board.FlaggedCount)" href="/cargoadmin/transactions?reviewStatus=FLAGGED">
+            <div class="jsini-stat__label">의심 표시 거래</div>
+            <div class="jsini-stat__value">@_board.FlaggedCount.ToString("#,0")</div>
+        </a>
+        <a class="@DueClass(_board.OpenReports)" href="/cargoadmin/reports?status=RECEIVED">
+            <div class="jsini-stat__label">미처리 신고</div>
+            <div class="jsini-stat__value">@_board.OpenReports.ToString("#,0")</div>
+        </a>
+        <a class="@DueClass(_board.OpenDisputes)" href="/cargoadmin/disputes?status=RECEIVED">
+            <div class="jsini-stat__label">미처리 이의제기</div>
+            <div class="jsini-stat__value">@_board.OpenDisputes.ToString("#,0")</div>
+        </a>
+    </div>
+
+    <h2 class="ca-subhead">결제 상태별 거래</h2>
+
+    <div class="jsini-card">
+        @if (_board.StatusCounts.Count == 0)
+        {
+            <span class="jsini-hint">등록된 거래가 없습니다.</span>
+        }
+        else
+        {
+            <div class="ca-counts">
+                @foreach (var row in OrderedCounts)
+                {
+                    <a class="ca-counts__item ca-stat-link" href="@($"/cargoadmin/transactions?paymentStatus={row.Status}")">
+                        <span class="@CargoAdminCodes.PaymentStatus.BadgeOf(row.Status)">@CargoAdminCodes.PaymentStatus.NameOf(row.Status)</span>
+                        <span>@row.Count.ToString("#,0") 건</span>
+                    </a>
+                }
+            </div>
+        }
+    </div>
+}
+
+<h2 class="ca-subhead">최근 감사 기록</h2>
+
+<div class="ca-section">
+    <CommGrd TItem="AdminAuditEntry" Data="@Recent"
+             ExportName="최근감사기록"
+             PagerVisible="false"
+             Reload="@ReloadAsync">
+        <Columns>
+            <DxGridDataColumn Caption="시각" Width="150">
+                <CellDisplayTemplate Context="cell">
+                    @CargoAdminFormat.Moment(((AdminAuditEntry)cell.DataItem).CreatedAt)
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+            <DxGridDataColumn FieldName="@nameof(AdminAuditEntry.ActorName)" Caption="처리자" Width="120" />
+            <DxGridDataColumn FieldName="@nameof(AdminAuditEntry.Action)" Caption="동작" MinWidth="160" />
+            <DxGridDataColumn Caption="대상" Width="140">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var a = (AdminAuditEntry)cell.DataItem;
+                    }
+                    @CargoAdminCodes.AuditTarget.NameOf(a.TargetType) @(a.TargetId is { } id ? $"#{id}" : null)
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+        </Columns>
+        <FooterRight>
+            <a class="jsini-hint" href="/cargoadmin/audit">감사 기록 전체</a>
+        </FooterRight>
+    </CommGrd>
+</div>
+
+@code {
+    private AdminDashboard? _board;
+
+    private IReadOnlyList<AdminAuditEntry> Recent => _board?.RecentAudit ?? [];
+
+    /// <summary>
+    /// 결제 상태를 **코드표의 차례로** 늘어놓는다. 서버가 준 차례(건수순일 수도,
+    /// 알파벳순일 수도 있다)를 따르면 새로 읽을 때마다 딱지 자리가 바뀌어
+    /// 「미지급이 어디 있었나」를 매번 찾는다. 코드표에 없는 것은 뒤에 붙인다.
+    /// </summary>
+    private IEnumerable<AdminStatusCount> OrderedCounts
+    {
+        get
+        {
+            var order = CargoAdminCodes.PaymentStatus.All
+                .Select((c, i) => (c.Code, i))
+                .ToDictionary(x => x.Code, x => x.i, StringComparer.OrdinalIgnoreCase);
+
+            return (_board?.StatusCounts ?? [])
+                .OrderBy(r => order.TryGetValue(r.Status, out var i) ? i : int.MaxValue);
+        }
+    }
+
+    /// <summary>할 일이 남은 타일만 색을 바꾼다. 0 인데 색이 있으면 늘 경보처럼 보여 무뎌진다.</summary>
+    private static string DueClass(int count) =>
+        count > 0 ? "jsini-stat ca-stat-link ca-stat--due" : "jsini-stat ca-stat-link";
+
+    protected override Task OnInitializedAsync() => ReloadAsync();
+
+    private Task ReloadAsync() => LoadOneAsync(
+        () => Api.GetDashboardAsync(),
+        board => _board = board,
+        "대시보드 자료를 받지 못했습니다.",
+        "대시보드를 읽지 못했습니다");
+}

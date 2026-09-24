@@ -37,6 +37,8 @@
 
   <ItemGroup Label="업무 MFE — 규칙 검사 대상">
     <ProjectReference Include="..\..\src\Apps\JSini.Web.Admin\JSini.Web.Admin.csproj" />
+    <ProjectReference Include="..\..\src\Apps\JSini.Web.CargoTrust\JSini.Web.CargoTrust.csproj" />
+    <ProjectReference Include="..\..\src\Apps\JSini.Web.CargoTrust.Admin\JSini.Web.CargoTrust.Admin.csproj" />
     <ProjectReference Include="..\..\src\Apps\JSini.Web.Funeral\JSini.Web.Funeral.csproj" />
     <ProjectReference Include="..\..\src\Apps\JSini.Web.HelpDesk\JSini.Web.HelpDesk.csproj" />
     <ProjectReference Include="..\..\src\Apps\JSini.Web.LifeEnv\JSini.Web.LifeEnv.csproj" />

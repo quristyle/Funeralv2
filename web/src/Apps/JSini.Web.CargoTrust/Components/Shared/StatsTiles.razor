@@ -1,0 +1,86 @@
+@*
+    거래처 상세의 통계 타일 두 묶음(설계안 7.2 거래 통계 · 7.3 지급 통계).
+
+    [묶음마다 기간과 기준을 적는다]
+
+    「정상 지급 36건」만 떠 있으면 무엇의 36건인지 알 수 없다. 묶음 제목 옆에
+    **고른 기간 · 운송일 기준**을, 정상률 아래에 **분모(예정을 뺀 정산 건수)**를
+    적는다 — 설계안 26 의 마지막 줄이 요구하는 것이 그것이다.
+
+    「최근 미지급」만 기간을 따르지 않는다(서버가 늘 최근 90일로 센다).
+    그 타일에는 그렇게 적는다. 안 적으면 「최근 30일」을 골랐는데 30일 밖의
+    미지급이 세어져 숫자가 틀린 것처럼 보인다.
+*@
+
+<div class="ct-tiles">
+    <div class="ct-tiles__head">
+        <span class="ct-tiles__title">거래 통계</span>
+        <span class="jsini-hint">@Basis</span>
+        <ConfidenceNote Stats="@Stats" />
+    </div>
+    <div class="jsini-stats ct-stats">
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">전체 거래</div>
+            <div class="jsini-stat__value">@Stats.TotalCount</div>
+            <div class="jsini-hint">예정 @(Stats.ScheduledCount)건 포함</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">정상 지급</div>
+            <div class="jsini-stat__value">@Stats.NormalCount</div>
+            <div class="jsini-hint">정상률 @CargoCodes.Rate(Stats.NormalRate) · 정산 @(Stats.SettledCount)건 중</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">지연 지급</div>
+            <div class="jsini-stat__value">@Stats.DelayedCount</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">일부 지급</div>
+            <div class="jsini-stat__value">@Stats.PartialCount</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">미지급</div>
+            <div class="jsini-stat__value">@Stats.UnpaidCount</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">분쟁</div>
+            <div class="jsini-stat__value">@Stats.DisputeCount</div>
+        </div>
+    </div>
+
+    <div class="ct-tiles__head">
+        <span class="ct-tiles__title">지급 통계</span>
+        <span class="jsini-hint">@Basis</span>
+    </div>
+    <div class="jsini-stats ct-stats">
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">평균 약속 지급일</div>
+            <div class="jsini-stat__value">@CargoCodes.Days(Stats.AveragePromisedDays)</div>
+            <div class="jsini-hint">운송일부터 예정 지급일까지</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">평균 실제 지급일</div>
+            <div class="jsini-stat__value">@CargoCodes.Days(Stats.AverageActualDays)</div>
+            <div class="jsini-hint">운송일부터 받은 날까지 · 받은 거래만</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">평균 지연일</div>
+            <div class="jsini-stat__value">@CargoCodes.Days(Stats.AverageDelayDays)</div>
+            <div class="jsini-hint">지연 지급 거래만</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">최장 지연일</div>
+            <div class="jsini-stat__value">@CargoCodes.Days(Stats.MaxDelayDays)</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">최근 미지급</div>
+            <div class="jsini-stat__value">@Stats.RecentUnpaidCount</div>
+            <div class="jsini-hint">고른 기간과 무관하게 최근 90일</div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public CompanyStats Stats { get; set; } = default!;
+
+    private string Basis => $"{Stats.PeriodLabel ?? "전체"} · 운송일 기준 · 통계 제외·삭제 거래 뺌";
+}

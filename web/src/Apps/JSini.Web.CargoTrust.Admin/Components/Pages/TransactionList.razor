@@ -1,0 +1,310 @@
+@page "/cargoadmin/transactions"
+@attribute [RouteKey("cargoadmin.transactions")]
+
+@*
+    [거래 데이터 관리] — 설계안 CTA-003 · 13.2 「신고/검토」.
+
+    사용자가 올린 거래를 **검증하는** 자리다. 관리자는 거래를 새로 만들지 않는다 —
+    거래는 운송을 한 사람이 올리는 것이고, 관리자가 만든 거래는 누구의 경험도 아니다.
+    그래서 표 아래 띠에 ＋ 가 없고(`OnSave` 를 주지 않는다), 줄마다 「검토」만 있다.
+    `CommGrd` 의 편집 창을 쓰지 않는 까닭도 그것이다 — 그 창을 쓰면 ＋ 가 함께 생긴다.
+
+    [의심(FLAGGED)을 눈에 걸리게 한다]
+
+    서버가 비정상 패턴(같은 회사에 하루 10건 초과 · 미래 운송일)을 거절하지 않고
+    `FLAGGED` 로 걸어 둔다(계약서 「거래 등록 검사」 5). 걸어 둔 것을 관리자가
+    못 보면 거절한 것만 못하다. 회사명 칸 앞에 딱지를 달고 그 아래에 까닭을 적는다 —
+    줄 색을 바꾸는 길(`CustomizeElement`)은 `CommGrd` 가 이미 쓰고 있어 화면이
+    덮으면 줄무늬 · 선택 색이 깨진다.
+
+    [고칠 수 있는 것은 셋이다]
+
+    검증 상태 · 결제 상태 · 관리자 메모(계약서 `AdminTransactionUpdate`). 결제 상태는
+    **비워 두면 안 바꾼다** — 서버가 null 을 그렇게 읽는다. 검증만 하러 들어온 사람이
+    결제 상태를 건드리지 않게 기본값을 「그대로」로 둔다.
+
+    `HIDDEN`(통계 제외)으로 두면 그 거래는 거래처 통계에서 빠진다(계약서 「통계 계산」).
+    지우는 것이 아니므로 되돌릴 수 있다.
+
+    [대시보드에서 거른 채 건너온다]
+
+    `?reviewStatus=FLAGGED` · `?paymentStatus=UNPAID` 를 받아 조건의 첫 값으로 쓴다.
+*@
+
+@inherits DataPage
+@inject CargoAdminClient Api
+
+<PageTitle>거래 관리 · 운송관리 관리자</PageTitle>
+
+<CommSch OnSearch="@ReloadAsync" Busy="@Loading" MobileSummary="@ConditionSummary">
+    <Fields>
+        <CommSchItem Label="검색어">
+            <DxTextBox @bind-Text="_keyword" Style="width: 200px"
+                       ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        </CommSchItem>
+
+        <CommSchItem Label="결제 상태">
+            <DxComboBox Data="@CargoAdminCodes.PaymentStatus.Filter" @bind-Value="_payment"
+                        TextFieldName="@nameof(SchOption.Text)" ValueFieldName="@nameof(SchOption.Value)"
+                        Style="width: 130px" />
+        </CommSchItem>
+
+        <CommSchItem Label="검증 상태">
+            <DxComboBox Data="@CargoAdminCodes.ReviewStatus.Filter" @bind-Value="_review"
+                        TextFieldName="@nameof(SchOption.Text)" ValueFieldName="@nameof(SchOption.Value)"
+                        Style="width: 120px" />
+        </CommSchItem>
+
+        <CommSchItem Label="운송일">
+            <DxDateEdit @bind-Date="_from" Style="width: 140px"
+                        ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        </CommSchItem>
+        <CommSchItem Label="~">
+            <DxDateEdit @bind-Date="_to" Style="width: 140px"
+                        ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        </CommSchItem>
+    </Fields>
+</CommSch>
+
+<CommCont>
+    <CommGrd TItem="AdminTransaction"
+             Data="@_rows"
+             ExportName="운송관리거래"
+             PageSize="20"
+             Reload="@ReloadAsync">
+        <RowActions Context="row">
+            <PermissionView Action="MenuAction.Update">
+                <DxButton IconCssClass="jsini-icon-edit"
+                          Title="검토"
+                          RenderStyle="ButtonRenderStyle.Link"
+                          Click="@(() => Open(row))" />
+            </PermissionView>
+        </RowActions>
+
+        <Columns>
+            <DxGridDataColumn FieldName="@nameof(AdminTransaction.TransportDate)" Caption="운송일" Width="100"
+                              DisplayFormat="yyyy-MM-dd" />
+
+            <DxGridDataColumn FieldName="@nameof(AdminTransaction.CompanyName)" Caption="거래처" MinWidth="200">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var t = (AdminTransaction)cell.DataItem;
+                    }
+                    <div class="jsini-tags">
+                        @if (IsFlagged(t))
+                        {
+                            <span class="@CargoAdminCodes.ReviewStatus.BadgeOf(t.ReviewStatus)">@CargoAdminCodes.ReviewStatus.NameOf(t.ReviewStatus)</span>
+                        }
+                        @if (t.IsDeleted)
+                        {
+                            <span class="jsini-badge jsini-badge--off">삭제됨</span>
+                        }
+                        <span>@t.CompanyName</span>
+                    </div>
+                    <div class="jsini-hint">@t.BusinessNumber</div>
+                    @if (IsFlagged(t) && !string.IsNullOrWhiteSpace(t.FlagReason))
+                    {
+                        <div class="ca-flag">@t.FlagReason</div>
+                    }
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn FieldName="@nameof(AdminTransaction.UserName)" Caption="등록자" Width="110" />
+            <DxGridDataColumn FieldName="@nameof(AdminTransaction.Route)" Caption="구간" MinWidth="160" />
+            <DxGridDataColumn FieldName="@nameof(AdminTransaction.TransportType)" Caption="종류" Width="90" />
+
+            <DxGridDataColumn FieldName="@nameof(AdminTransaction.Amount)" Caption="운송료" Width="110"
+                              DisplayFormat="#,0" TextAlignment="GridTextAlignment.Right" />
+            <DxGridDataColumn FieldName="@nameof(AdminTransaction.Outstanding)" Caption="미수" Width="100"
+                              DisplayFormat="#,0" TextAlignment="GridTextAlignment.Right" />
+            <DxGridDataColumn FieldName="@nameof(AdminTransaction.ExpectedPaymentDate)" Caption="예정 지급일" Width="100"
+                              DisplayFormat="yyyy-MM-dd" />
+
+            <DxGridDataColumn FieldName="@nameof(AdminTransaction.PaymentStatus)" Caption="결제" Width="90">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var t = (AdminTransaction)cell.DataItem;
+                    }
+                    <span class="@CargoAdminCodes.PaymentStatus.BadgeOf(t.PaymentStatus)">@CargoAdminCodes.PaymentStatus.NameOf(t.PaymentStatus)</span>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn FieldName="@nameof(AdminTransaction.DelayDays)" Caption="지연일" Width="70" />
+
+            <DxGridDataColumn FieldName="@nameof(AdminTransaction.ReviewStatus)" Caption="검증" Width="90">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var t = (AdminTransaction)cell.DataItem;
+                    }
+                    <span class="@CargoAdminCodes.ReviewStatus.BadgeOf(t.ReviewStatus)">@CargoAdminCodes.ReviewStatus.NameOf(t.ReviewStatus)</span>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn Caption="신고 · 이의" Width="90" AllowSort="false">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var t = (AdminTransaction)cell.DataItem;
+                    }
+                    @t.ReportCount · @t.DisputeCount
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn FieldName="@nameof(AdminTransaction.AdminMemo)" Caption="관리자 메모" MinWidth="140" />
+        </Columns>
+
+        <DetailRowTemplate Context="detail">
+            @{
+                var t = (AdminTransaction)detail.DataItem;
+            }
+            <DxFormLayout>
+                <DxFormLayoutItem Caption="출발지" ColSpanMd="6">@t.Origin</DxFormLayoutItem>
+                <DxFormLayoutItem Caption="도착지" ColSpanMd="6">@t.Destination</DxFormLayoutItem>
+                <DxFormLayoutItem Caption="배차 경로" ColSpanMd="6">@t.DispatchChannel</DxFormLayoutItem>
+                <DxFormLayoutItem Caption="등록자 아이디" ColSpanMd="6">@t.ExternalUserId</DxFormLayoutItem>
+                <DxFormLayoutItem Caption="받은 금액" ColSpanMd="6">@CargoAdminFormat.Won(t.PaidAmount)</DxFormLayoutItem>
+                <DxFormLayoutItem Caption="실제 지급일" ColSpanMd="6">@CargoAdminFormat.Day(t.ActualPaymentDate)</DxFormLayoutItem>
+                <DxFormLayoutItem Caption="등록" ColSpanMd="6">@CargoAdminFormat.Moment(t.CreatedAt)</DxFormLayoutItem>
+                <DxFormLayoutItem Caption="후기" ColSpanMd="6">@(t.HasReview ? "있음" : "없음")</DxFormLayoutItem>
+                <DxFormLayoutItem Caption="등록자 메모" ColSpanMd="12">
+                    <p class="ca-text">@t.Memo</p>
+                </DxFormLayoutItem>
+            </DxFormLayout>
+        </DetailRowTemplate>
+    </CommGrd>
+</CommCont>
+
+<CommPopup @bind-Visible="_editing" HeaderText="거래 검토" Width="560px">
+    <BodyContentTemplate Context="popup">
+        @if (_target is not null)
+        {
+            <div class="ca-subject">
+                <div><b>@_target.CompanyName</b> <span class="jsini-hint">@_target.BusinessNumber</span></div>
+                <div class="jsini-hint">
+                    @CargoAdminFormat.Day(_target.TransportDate) · @_target.Route ·
+                    @CargoAdminFormat.Won(_target.Amount) · 등록 @_target.UserName
+                </div>
+                @if (!string.IsNullOrWhiteSpace(_target.FlagReason))
+                {
+                    <div class="ca-flag">@_target.FlagReason</div>
+                }
+            </div>
+
+            <DxFormLayout>
+                <DxFormLayoutItem Caption="검증 상태" ColSpanMd="6">
+                    <DxComboBox Data="@CargoAdminCodes.ReviewStatus.Options"
+                                TextFieldName="@nameof(SchOption.Text)" ValueFieldName="@nameof(SchOption.Value)"
+                                @bind-Value="_form.ReviewStatus" />
+                </DxFormLayoutItem>
+                <DxFormLayoutItem Caption="결제 상태" ColSpanMd="6">
+                    <DxComboBox Data="@PaymentChoices"
+                                TextFieldName="@nameof(SchOption.Text)" ValueFieldName="@nameof(SchOption.Value)"
+                                @bind-Value="_form.PaymentStatus" />
+                </DxFormLayoutItem>
+                <DxFormLayoutItem Caption="관리자 메모" ColSpanMd="12">
+                    <DxMemo @bind-Text="_form.AdminMemo" Rows="4" />
+                </DxFormLayoutItem>
+            </DxFormLayout>
+        }
+    </BodyContentTemplate>
+
+    <FooterContentTemplate Context="popup">
+        <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Primary"
+                  Enabled="@(!Loading)" Click="@SaveAsync" />
+        <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary"
+                  Click="@(() => _editing = false)" />
+    </FooterContentTemplate>
+</CommPopup>
+
+@code {
+    /// <summary>대시보드 바로가기가 싣고 오는 첫 조건.</summary>
+    [SupplyParameterFromQuery(Name = "reviewStatus")] public string? ReviewStatusQuery { get; set; }
+
+    /// <inheritdoc cref="ReviewStatusQuery"/>
+    [SupplyParameterFromQuery(Name = "paymentStatus")] public string? PaymentStatusQuery { get; set; }
+
+    /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
+    private string ConditionSummary => SchSummary.Of(
+        SchSummary.Or(_keyword),
+        SchSummary.NameOf(CargoAdminCodes.PaymentStatus.Filter, o => o.Value, o => o.Text, _payment),
+        SchSummary.NameOf(CargoAdminCodes.ReviewStatus.Filter, o => o.Value, o => o.Text, _review),
+        SchSummary.Period(_from, _to));
+
+    /// <summary>
+    /// 결제 상태 고르개. 맨 앞이 「그대로」(null)다 — 서버가 null 을 「안 바꾼다」로 읽는다.
+    /// 「전체」라고 부르지 않는 이유는 여기가 조건이 아니라 **바꿀 값**이라서다.
+    /// </summary>
+    private static readonly IReadOnlyList<SchOption> PaymentChoices =
+        [new SchOption(null, "그대로"), .. CargoAdminCodes.PaymentStatus.Options];
+
+    private IReadOnlyList<AdminTransaction> _rows = [];
+
+    private string? _keyword;
+    private string? _payment;
+    private string? _review;
+    private DateTime? _from;
+    private DateTime? _to;
+
+    private bool _editing;
+    private AdminTransaction? _target;
+    private AdminTransactionUpdate _form = new();
+
+    protected override Task OnInitializedAsync()
+    {
+        _review = Known(CargoAdminCodes.ReviewStatus.Options, ReviewStatusQuery);
+        _payment = Known(CargoAdminCodes.PaymentStatus.Options, PaymentStatusQuery);
+
+        return ReloadAsync();
+    }
+
+    /// <summary>
+    /// 주소로 들어온 코드가 고르개에 있는 것일 때만 받는다. 모르는 글자를 그대로 실으면
+    /// 고르개는 빈칸인데 서버는 그 글자로 걸러 빈 목록을 준다 — 왜 비었는지 안 보인다.
+    /// </summary>
+    private static string? Known(IReadOnlyList<SchOption> options, string? code) =>
+        options.FirstOrDefault(o => string.Equals(o.Value, code, StringComparison.OrdinalIgnoreCase))?.Value;
+
+    private static bool IsFlagged(AdminTransaction t) =>
+        string.Equals(t.ReviewStatus, "FLAGGED", StringComparison.OrdinalIgnoreCase);
+
+    private Task ReloadAsync() => LoadAsync(async () =>
+    {
+        _rows = await Api.GetTransactionsAsync(_keyword, _payment, _review, _from, _to);
+        return _rows.Count;
+    }, "조건에 맞는 거래가 없습니다.", "거래를 읽지 못했습니다");
+
+    private void Open(AdminTransaction row)
+    {
+        _target = row;
+        _form = new AdminTransactionUpdate
+        {
+            ReviewStatus = row.ReviewStatus,
+            PaymentStatus = null,
+            AdminMemo = row.AdminMemo,
+        };
+        _editing = true;
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_target is null)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_form.ReviewStatus))
+        {
+            Say("검증 상태를 고르십시오.", NoticeTone.Warning);
+            return;
+        }
+
+        var id = _target.TransactionId;
+        var body = _form;
+
+        if (await RunAsync(() => Api.UpdateTransactionAsync(id, body), "저장했습니다.", "저장하지 못했습니다"))
+        {
+            // 닫는 것은 성공했을 때만이다 — 실패했는데 닫으면 적은 메모가 사라진다.
+            _editing = false;
+            await ReloadAsync();
+        }
+    }
+}

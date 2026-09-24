@@ -2,6 +2,8 @@
   <Folder Name="/src/" />
   <Folder Name="/src/Apps/">
     <Project Path="src/Apps/JSini.Web.Admin/JSini.Web.Admin.csproj" />
+    <Project Path="src/Apps/JSini.Web.CargoTrust/JSini.Web.CargoTrust.csproj" />
+    <Project Path="src/Apps/JSini.Web.CargoTrust.Admin/JSini.Web.CargoTrust.Admin.csproj" />
     <Project Path="src/Apps/JSini.Web.Funeral/JSini.Web.Funeral.csproj" />
     <Project Path="src/Apps/JSini.Web.HelpDesk/JSini.Web.HelpDesk.csproj" />
     <Project Path="src/Apps/JSini.Web.LifeEnv/JSini.Web.LifeEnv.csproj" />

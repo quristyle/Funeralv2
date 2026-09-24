@@ -26,6 +26,8 @@
      │ │ Site           │ │
      │ │ LifeEnv        │ │  각 모듈이 게이트웨이를 **직접** 부른다
      │ │ ProjMng        │ │  (BFF — 토큰은 브라우저로 안 내려간다)
+     │ │ CargoTrust     │ │
+     │ │ CargoTrust.Adm │ │
      │ └────────────────┘ │
      └────────────────────┘
      ┌────────────────────┐
@@ -51,6 +53,8 @@ web/
       JSini.Web.Site/               /site
       JSini.Web.LifeEnv/            /life
       JSini.Web.ProjMng/            /projmng
+      JSini.Web.CargoTrust/         /cargotrust  운송관리 (차주·운송사 — 거래처 신뢰정보)
+      JSini.Web.CargoTrust.Admin/   /cargoadmin  운송관리 관리자
     Site/JSini.PublicSite/          :5556  회사 소개 사이트 (정적 SSR)
   docs/
     menu-route-map.md               DB 메뉴 179건 ↔ Blazor 라우트 정본 표
@@ -292,7 +296,9 @@ _info = await Api.GetMyInfoAsync();   // ← 형식이 안 맞는다
 않는다. 앞엣것은 기다리면 되는 일이고 뒤엣것은 신고할 일인데, 화면이 같으면
 둘 다 신고가 들어온다.
 
-**이행이 끝나면 이 여섯 파일을 지운다. 남아 있다는 것 자체가 표시다.**
+**이행이 끝나면 모듈마다 하나씩인 이 파일들을 지운다. 남아 있다는 것 자체가 표시다.**
+운송관리 둘(`cargotrust` · `cargoadmin`)은 옮겨 온 것이 아니라 새로 세운 모듈이지만
+같은 파일을 둔다 — 메뉴 SQL 이 화면보다 먼저 돌면 빈 404 대신 안내가 떠야 한다.
 
 ## 인증 — BFF
 

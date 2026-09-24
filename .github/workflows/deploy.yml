@@ -1,4 +1,4 @@
-# 전체 배포 — main 에 올라가면 백엔드 10 · 프론트 2, 이미지 열둘을 GHCR 에
+# 전체 배포 — main 에 올라가면 백엔드 11 · 프론트 2, 이미지 열셋을 GHCR 에
 # 올리고 서버 러너가 pull·up 한다. 서버 쪽 구조는
 # docs/analysis/39-jsini-deploy-setup-guide.md 참조.
 #
@@ -11,7 +11,7 @@
 #
 # ── 왜 경로 필터를 잡별로 걸지 않나 ──────────────────────────────
 #
-# 배포는 열두 이미지를 **같은 TAG 로** 끌어온다. 바뀐 것만 빌드하면 나머지
+# 배포는 열세 이미지를 **같은 TAG 로** 끌어온다. 바뀐 것만 빌드하면 나머지
 # `funeralv2-*:<sha>` 가 GHCR 에 없어 `docker compose pull` 이 그 자리에서
 # 죽는다. 안 바뀐 이미지는 레이어 캐시가 거의 그대로 통과하므로 다 만든다.
 # 문서만 고친 커밋은 아래 워크플로 수준 필터가 통째로 걸러 낸다.
@@ -59,6 +59,7 @@ jobs:
           - { name: site,    dir: microservices/SiteServer,        proj: SiteServer }
           - { name: notify,  dir: microservices/NotificationServer, proj: NotificationServer }
           - { name: life,    dir: microservices/LifeEnvServer,     proj: LifeEnvServer }
+          - { name: cargo,   dir: microservices/CargoTrustServer,  proj: CargoTrustServer }
           - { name: funeral, dir: microservices/funeralv2Api,       proj: funeralv2Api }
           - { name: helpdesk, dir: microservices/HelpDeskServer,    proj: HelpDeskServer }
           - { name: projmng, dir: microservices/ProjMngServer,      proj: ProjMngServer }

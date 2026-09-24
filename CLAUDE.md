@@ -16,10 +16,12 @@
   - `ProjMngServer` (:5450) · `SiteServer` (:5480) 회사 소개 사이트 백엔드
   - `NotificationServer` (:5460) 푸시·이메일 알림 (포털·장례식장·헬프데스크 공용)
   - `LifeEnvServer` (:5490) 생활과환경(기상·생일)
+  - `CargoTrustServer` (:5500) JSini 운송관리 — 화물 거래처 신뢰정보. 계약은 [docs/cargotrust/05-api-design.md](docs/cargotrust/05-api-design.md)
   - `Common/` — 서비스 간 공유 코드
 - `web/` — .NET 10 + Blazor + DevExpress 프론트. 옛 Vue 포털을 대체한다.
-  - **업무 포털 셸** (:5557) — Piral.Blazor MFE. 업무 모듈 여섯(장례식장·헬프데스크·
-    포털관리·소개사이트·생활과환경·프로젝트관리)이 **한 프로세스 안에** 실린다.
+  - **업무 포털 셸** (:5557) — Piral.Blazor MFE. 업무 모듈 여덟(장례식장·헬프데스크·
+    포털관리·소개사이트·생활과환경·프로젝트관리·운송관리·운송관리 관리자)이
+    **한 프로세스 안에** 실린다.
     모듈은 빌드 시점에 합성되고(셸 csproj 의 ProjectReference) 셸이 어셈블리를 훑어
     `IPortalModule` 로 등록한다. 게이트웨이는 각 모듈이 직접 부른다(BFF).
   - **회사 소개 사이트** (:5556, `src/Site/JSini.PublicSite`) — 정적 SSR 전용.
@@ -44,7 +46,7 @@ dev.bat status          # 떠 있는 서비스 확인
 dev.bat list            # 서비스 이름 목록
 ```
 
-서비스 이름: `gateway auth funeral ai file helpdesk projmng site notify life blazor web`
+서비스 이름: `gateway auth funeral ai file helpdesk projmng site notify life cargo blazor web`
 (`blazor` 가 업무 포털 :5557, `web` 이 소개 사이트 :5556. `front`·`portal`·`mfe` 는 `blazor` 의 옛 이름이라 그대로 받아 준다.)
 
 프론트도 이제 dotnet 서비스라 나머지와 똑같이 다룬다:
@@ -59,8 +61,8 @@ dev.bat site web          소개 사이트 백엔드(:5480)와 프론트(:5556)
 
 ## 배포
 
-`main` 에 올라가면 `.github/workflows/deploy.yml` 이 **이미지 열둘**을 GHCR 에
-올리고(백엔드 10 · 프론트 2) 운영 서버의 self-hosted 러너가 `docker compose pull`
+`main` 에 올라가면 `.github/workflows/deploy.yml` 이 **이미지 열셋**을 GHCR 에
+올리고(백엔드 11 · 프론트 2) 운영 서버의 self-hosted 러너가 `docker compose pull`
 후 `up -d` 한다. 태그는 커밋 SHA 이고 `/srv/jsini/.env` 의 `TAG` 가 그것을 가리킨다 —
 **롤백은 그 값을 이전 SHA 로 되돌리고 `up` 하는 것**이다.
 
