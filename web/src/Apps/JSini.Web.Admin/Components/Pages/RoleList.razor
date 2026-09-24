@@ -58,10 +58,24 @@
     단추 둘을 둔다 — **이 메뉴만**, **이 메뉴와 하위 전체**. 누를 때마다
     켜기↔끄기가 바뀐다. **잠긴 칸은 건너뛴다** — 켜 두면 저장 결과와
     화면이 어긋난다(서버가 꺼서 저장한다).
+
+    [누르면 바로 저장된다 (2026-09-24)]
+
+    「권한 저장」 단추가 표 아래 띠에 있었다. 메뉴가 백칠십 줄이라 그 띠까지
+    내려가는 사람이 없었고, 탭 안에서는 띠가 판 밖으로 밀려 **아예 안 보이는**
+    일도 있었다(web/CLAUDE.md 「DxTabs 안에 표·나무를 넣으면」). 체크하고
+    다른 역할을 누르면 고친 것이 말없이 사라졌다 — 화면은 켜진 채로 보였으니
+    저장된 줄 알았다.
+
+    그래서 단추를 걷고 **바뀐 메뉴만** 곧바로 보낸다. 서버는 받은 메뉴만
+    upsert 하고 나머지는 건드리지 않으므로(`RolePermissionService.SaveRoleMenusAsync`)
+    한 줄씩 보내도 다른 줄이 지워지지 않는다. 자세한 규칙은 `SaveRowsAsync`.
 *@
 
 @inherits DataPage
 @inject AdminClient Api
+@inject IPermissionContext Permissions
+@inject NavigationManager Navigation
 
 <PageTitle>역할 관리 · 포털관리</PageTitle>
 
@@ -227,12 +241,13 @@
                                   EmptyText="메뉴가 없습니다."
                                   Reload="@(() => LoadMenusAsync())">
                             <FooterLeft>
-                                <PermissionView Action="MenuAction.Update">
-                                    <DxButton Text="권한 저장"
-                                              RenderStyle="ButtonRenderStyle.Primary"
-                                              Enabled="@(!_savingMenus)"
-                                              Click="@SaveMenusAsync" />
-                                </PermissionView>
+                                @* 저장 단추 자리. 누르는 즉시 저장되므로 단추 대신
+                                   지금 보내는 중인지만 적는다 — 끝나기 전에 다른 역할로
+                                   옮겨도 되는지를 사람이 알 수 있어야 한다. *@
+                                @if (_pendingSaves > 0)
+                                {
+                                    <span class="ad-stamp">저장 중…</span>
+                                }
                             </FooterLeft>
 
                             <Columns>
@@ -249,13 +264,13 @@
                                                 <span class="jsini-actions">
                                                     <DxButton Text="행" RenderStyle="ButtonRenderStyle.Link"
                                                               Title="이 메뉴의 권한을 한 번에 켜고 끕니다"
-                                                              Click="@(() => Toggle([row]))" />
+                                                              Click="@(() => ToggleAsync([row]))" />
 
                                                     @if (row.Children.Count > 0)
                                                     {
                                                         <DxButton Text="하위" RenderStyle="ButtonRenderStyle.Link"
                                                                   Title="이 메뉴와 하위 전체의 권한을 한 번에 켜고 끕니다"
-                                                                  Click="@(() => Toggle(Subtree(row)))" />
+                                                                  Click="@(() => ToggleAsync(Subtree(row)))" />
                                                     }
                                                 </span>
                                             </PermissionView>
@@ -273,10 +288,13 @@
                                             }
                                             @* 메뉴가 안 쓰는 항목은 잠근다. 켜도 아무 일이
                                                없는 칸을 열어 두면 「켰는데 왜 안 되지」가 된다. *@
+                                            @* 고칠 권한이 없으면 보기만 한다 — 누르는 순간
+                                               저장되는 칸이라 막는 자리가 여기다(옛 단추는
+                                               `PermissionView` 안에 있었다). *@
                                             <span title="@item.Hint(row, used)">
                                                 <DxCheckBox Checked="@item.Get(row.Source)"
-                                                            CheckedChanged="@((bool v) => item.Set(row.Source, v))"
-                                                            Enabled="@used" />
+                                                            CheckedChanged="@((bool v) => SetAsync(row, item, v))"
+                                                            Enabled="@(used && _canEdit)" />
                                             </span>
                                         </CellDisplayTemplate>
                                     </DxTreeListDataColumn>
@@ -367,7 +385,18 @@
     // ── 메뉴 권한 ──────────────────────────────────────────
     private IReadOnlyList<RoleMenuDto> _menus = [];
     private IReadOnlyList<RoleMenuRow> _menuTree = [];
-    private bool _savingMenus;
+
+    /// <summary>이 화면에서 권한을 고칠 수 있는가. 체크박스를 열지 정한다.</summary>
+    private bool _canEdit;
+
+    /// <summary>
+    /// 저장을 <b>한 줄로 세운다.</b> 빨리 여러 번 누르면 요청이 동시에 나가고,
+    /// 먼저 보낸 것이 나중에 닿으면 옛 값이 마지막으로 남는다.
+    /// </summary>
+    private readonly SemaphoreSlim _saveGate = new(1, 1);
+
+    /// <summary>보내는 중이거나 차례를 기다리는 저장 수. 아래 띠의 「저장 중…」.</summary>
+    private int _pendingSaves;
 
     /// <summary>
     /// 나무 한 줄. <b>원본(<see cref="RoleMenuDto"/>)을 그대로 들고 있는다</b> —
@@ -509,7 +538,14 @@
         </PermissionView>
     </text>;
 
-    protected override Task OnInitializedAsync() => ReloadAsync();
+    protected override Task OnInitializedAsync()
+    {
+        // `PermissionView` 와 **똑같이** 묻는다. 체크박스는 그릴지 말지가 아니라
+        // 켜고 끌 수 있는지를 정하는 것이라 직접 판정한다.
+        _canEdit = Permissions.Can(PermissionPath.Current(Navigation), MenuAction.Update);
+
+        return ReloadAsync();
+    }
 
     private Task ReloadAsync() => LoadAsync(async () =>
     {
@@ -703,8 +739,7 @@
     ///
     /// <para>
     /// 모두 켜져 있으면 끄고, 아니면 켠다 — 단추 하나로 둘을 다 하려는 것이다.
-    /// <b>저장하지는 않는다.</b> 다른 체크박스와 똑같이 「권한 저장」을 눌러야
-    /// 반영된다.
+    /// 바꾼 줄을 <b>한 번에 모아</b> 곧바로 저장한다.
     /// </para>
     ///
     /// <para>
@@ -712,7 +747,7 @@
     /// 어긋난다.
     /// </para>
     /// </summary>
-    private void Toggle(IReadOnlyList<RoleMenuRow> rows)
+    private Task ToggleAsync(IReadOnlyList<RoleMenuRow> rows)
     {
         var items = ShownItems;
 
@@ -732,50 +767,105 @@
             }
         }
 
-        var next = usable == 0 || on != usable;
+        if (!_canEdit || usable == 0)
+        {
+            return Task.CompletedTask;
+        }
+
+        var next = on != usable;
+        var changed = new List<RoleMenuDto>();
 
         foreach (var row in rows)
         {
+            var touched = false;
+
             foreach (var item in items.Where(i => i.Used(row.Source)))
             {
-                item.Set(row.Source, next);
+                if (item.Get(row.Source) != next)
+                {
+                    item.Set(row.Source, next);
+                    touched = true;
+                }
+            }
+
+            if (touched)
+            {
+                changed.Add(row.Source);
             }
         }
+
+        return SaveRowsAsync(changed);
+    }
+
+    /// <summary>체크박스 하나를 바꾸고 그 메뉴를 곧바로 저장한다.</summary>
+    private Task SetAsync(RoleMenuRow row, PermItem item, bool value)
+    {
+        if (!_canEdit || item.Get(row.Source) == value)
+        {
+            return Task.CompletedTask;
+        }
+
+        item.Set(row.Source, value);
+        return SaveRowsAsync([row.Source]);
     }
 
     /// <summary>
-    /// 메뉴 권한을 저장한다.
+    /// 바뀐 메뉴만 저장한다.
     ///
     /// <para>
-    /// <b>목록을 통째로 덮어쓴다.</b> 그래서 화면에 안 그린 칸이 있으면 그
-    /// 값이 꺼져서 나간다 — 사용자 정의 여덟 개를 <see cref="RoleMenuDto"/> 가
-    /// 들고 있는 이유이고, 칸을 감출 때도 <b>값은 그대로 실어 보내는</b> 이유다.
+    /// <b>바뀐 줄만 보내도 된다.</b> 서버는 받은 메뉴만 upsert 하고 목록에
+    /// 없는 메뉴는 건드리지 않는다. 한 줄을 보낼 때는 그 줄의 <b>열다섯 칸을
+    /// 전부</b> 싣는다 — 사용자 정의 여덟 개를 <see cref="RoleMenuDto"/> 가 들고
+    /// 있는 이유이고, 칸을 감출 때도 값은 그대로 실어 보내는 이유다.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>보내는 값은 차례가 왔을 때의 값이다.</b> 줄 객체를 그대로 싣기 때문에
+    /// 기다리는 동안 사람이 또 눌렀으면 그 값이 나간다. 빨리 켰다 끄면 요청이
+    /// 둘 나가지만 마지막에 남는 것은 화면에 보이는 값이다.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>실패하면 서버의 값으로 되돌린다.</b> 누르기 전 값을 기억해 두었다가
+    /// 되돌리는 방식은 그 사이에 다른 칸이 저장된 경우를 못 맞춘다. 역할이
+    /// 이미 바뀌었으면 되돌릴 화면이 없으므로 알리기만 한다.
+    /// </para>
+    ///
+    /// <para>
+    /// 성공은 토스트로 알리지 않는다 — 칸마다 뜨면 백 번 누르는 동안 토스트가
+    /// 쌓인다. 아래 띠의 「저장 중…」 이 사라지는 것으로 끝났음을 안다.
     /// </para>
     /// </summary>
-    private async Task SaveMenusAsync()
+    private async Task SaveRowsAsync(IReadOnlyList<RoleMenuDto> rows)
     {
-        if (_role is null)
+        if (_role is null || rows.Count == 0)
         {
             return;
         }
 
-        _savingMenus = true;
+        var role = _role;
+        _pendingSaves++;
+        StateHasChanged();
+
+        await _saveGate.WaitAsync();
 
         try
         {
-            var saved = await RunAsync(
-                () => Api.SaveRoleMenusAsync(_role.Id, _menus),
-                $"「{_role.Name}」 의 메뉴 권한을 저장했습니다.",
-                "메뉴 권한을 저장하지 못했습니다");
+            await Api.SaveRoleMenusAsync(role.Id, rows);
+        }
+        catch (ApiException ex)
+        {
+            Say($"「{role.Name}」 의 메뉴 권한을 저장하지 못했습니다 — {ex.Message}", NoticeTone.Error);
 
-            if (saved)
+            if (_role?.Id == role.Id)
             {
                 await LoadMenusAsync();
             }
         }
         finally
         {
-            _savingMenus = false;
+            _saveGate.Release();
+            _pendingSaves--;
         }
     }
 
