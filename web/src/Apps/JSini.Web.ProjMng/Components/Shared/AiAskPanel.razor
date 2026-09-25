@@ -606,6 +606,22 @@
                                               title="@($"파일 {t.FileCount}개가 함께 갔습니다")">@t.FileCount</span>
                                     }
 
+                                    @* 관리자가 답을 달았는데 아직 안 읽은 건.
+                                       **상태 배지로는 답할 수 없는 물음이다** —
+                                       관리자가 말만 남기고 대상·AI 를 아직 안
+                                       채웠으면 상태는 그대로 「작성중」이다.
+
+                                       **내가 올린 요청에만 적는다.** 이 목록은
+                                       남이 보낸 것도 함께 깔리는데(`LoadRecentAsync`),
+                                       「안 읽음」은 **그 건을 올린 사람이
+                                       읽었나**라서 남의 카드에 세우면 거짓말이
+                                       된다. *@
+                                    @if (t.IsUserRequest && t.UnreadNoteCount > 0 && IsMine(t))
+                                    {
+                                        <span class="pm-ask__new"
+                                              title="관리자가 남긴 말이 있습니다">새 남긴말 @t.UnreadNoteCount</span>
+                                    }
+
                                     <span class="pm-ask__title">@t.Title</span>
                                 </span>
                             </span>
@@ -1044,6 +1060,17 @@
     /// <summary>기억을 사람마다 갈라 두려고 본다. 로그인 아이디만 쓴다.</summary>
     [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
 
+    /// <summary>로그인 아이디. 못 읽었으면 <c>null</c> 이다.</summary>
+    private string? _me;
+
+    /// <summary>
+    /// <b>내가 올린 건인가.</b> 「새 남긴말」 배지를 내 카드에만 세우는 데
+    /// 쓴다 — 이 목록에는 남이 보낸 것도 함께 깔린다.
+    /// </summary>
+    private bool IsMine(AiTaskDto t) =>
+        _me is { Length: > 0 } me
+        && string.Equals(me, t.CreId?.Trim(), StringComparison.OrdinalIgnoreCase);
+
     protected override async Task OnInitializedAsync()
     {
         // **기억은 사람마다 갈라 둔다.** 공용 PC 에서 남이 고른 대상이 내
@@ -1051,7 +1078,12 @@
         if (AuthState is not null)
         {
             var state = await AuthState;
-            Prefs.Use(state.User.Identity?.Name);
+
+            // **기억을 가르는 데도, 카드를 가르는 데도 같은 아이디를 쓴다**
+            // (`IsMine` — 「새 남긴말」 배지가 내 건에만 서게 한다).
+            _me = state.User.Identity?.Name?.Trim();
+
+            Prefs.Use(_me);
         }
 
         await LoadModelsAsync();

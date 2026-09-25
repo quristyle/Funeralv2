@@ -134,6 +134,24 @@
 
     「빠른 지시」로 관리자가 스스로 적은 건에는 두지 않는다 — 거기서 말을
     걸 상대는 자기 자신이다. 설계는 그 부품의 머리말과 11.8.8.
+
+    [「내가 올린 건인가」를 여기서 가른다 (2026-09-25)]
+
+    같은 판이 **두 사람 앞에 선다.** 「빠른 지시」 화면에서 제가 올린 요청
+    카드를 누른 사람에게도 서고, 앱푸시를 눌러 들어온 관리자에게도 선다.
+    그래서 로그인한 아이디를 요청의 `CreId` 와 견줘 `Mine` 을 넘긴다.
+
+    갈라야 하는 것은 셋이다 —
+
+      - **부르는 경로**. 올린 사람은 `…/mine/{번호}/notes` 를 쓴다. 서버가
+        그 요청의 주인인지 먼저 보는 길이다
+      - **읽음 찍기**. 그 경로로 펴야 「새 남긴말 N」 배지가 꺼진다. 관리자
+        경로로 펴면 올린 사람이 제 손으로 열어 놓고도 배지가 남는다
+      - **적는 자리의 안내말**. 「관리자에게 덧붙일 말」과 「요청한 사람에게
+        남길 말」은 서로 반대다
+
+    아이디를 못 읽었으면 거짓이다 — 관리자 경로는 누구에게나 열려 있어
+    거짓 쪽으로 틀려도 판이 죽지 않는다.
 *@
 
 @implements IDisposable
@@ -347,7 +365,10 @@
                        거기서 말을 걸 상대는 자기 자신이다. *@
                     @if (t.IsUserRequest)
                     {
-                        <AiTaskNotes Item="@t" />
+                        @* `Mine` 은 **로그인한 사람이 올린 건인가**다. 참이면
+                           `mine/…` 경로를 쓰고 펴는 순간 읽은 것으로 찍는다 —
+                           위 머리말 참고. *@
+                        <AiTaskNotes Item="@t" Mine="@IsMine(t)" />
                     }
                 </div>
             </DxTabPage>
@@ -431,6 +452,15 @@ else
 
     /// <summary>볼 건이 없을 때 적을 말. 창과 화면이 다음에 할 일이 다르다.</summary>
     [Parameter] public string MissingText { get; set; } = "그 건을 찾지 못했습니다.";
+
+    /// <summary>
+    /// 지금 로그인한 사람. <b>「내가 올린 건인가」를 가리는 데만 쓴다</b>
+    /// (<see cref="IsMine"/>).
+    /// </summary>
+    [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
+
+    /// <summary>로그인 아이디. 못 읽었으면 <c>null</c> 이다.</summary>
+    private string? _me;
 
     /// <summary>지금 보고 있는 건. 이것이 바뀔 때만 받아 온 것을 버린다.</summary>
     private long? _key;
@@ -614,6 +644,36 @@ else
         "preparing" or "running" => TabLog,
         _ => TabAsk,
     };
+
+    /// <summary>
+    /// <b>로그인한 사람이 올린 건인가.</b> 남긴 말을 어느 경로로 주고받을지가
+    /// 이 값으로 갈린다(위 머리말).
+    /// </summary>
+    /// <remarks>
+    /// <b>아이디를 못 읽었으면 거짓이다.</b> 그때는 관리자 경로로 도는데,
+    /// 그 길은 누구에게나 열려 있어 판이 죽지 않는다 — 읽음이 안 찍히는
+    /// 것뿐이고 그것은 다음에 제 화면에서 펴면 찍힌다.
+    /// </remarks>
+    private bool IsMine(AiTaskDto t) =>
+        _me is { Length: > 0 } me
+        && string.Equals(me, t.CreId?.Trim(), StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// 로그인 아이디를 한 번 읽어 둔다. <b>첫 그림 전이다</b> — 그린 뒤에
+    /// 바뀌면 남긴 말 부품이 이미 관리자 경로로 한 번 읽은 뒤가 된다
+    /// (그 부품은 번호가 그대로면 다시 읽지 않는다).
+    /// </summary>
+    protected override async Task OnInitializedAsync()
+    {
+        if (AuthState is null)
+        {
+            return;
+        }
+
+        var state = await AuthState;
+
+        _me = state.User.Identity?.Name?.Trim();
+    }
 
     protected override async Task OnParametersSetAsync()
     {
