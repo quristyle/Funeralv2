@@ -59,7 +59,14 @@
     else
     {
         <div class="ct-result-head">
-            <span>「@_searched」 @_results.Count 곳</span>
+            @if (string.IsNullOrEmpty(_searched))
+            {
+                <span>전체 @_results.Count 곳</span>
+            }
+            else
+            {
+                <span>「@_searched」 @_results.Count 곳</span>
+            }
             <span class="jsini-hint">통계는 전체 기간 · 운송일 기준</span>
         </div>
 
@@ -126,7 +133,7 @@
         _q = Q;
         _field = Fields.Any(f => f.Value == Field) ? Field : "all";
 
-        if (!string.IsNullOrWhiteSpace(Q))
+        if (Q != null)
         {
             await LoadResultsAsync();
         }
@@ -146,14 +153,14 @@
     /// </summary>
     private async Task SearchAsync()
     {
-        var q = _q?.Trim();
-        if (string.IsNullOrEmpty(q))
+        var q = _q?.Trim() ?? string.Empty;
+        if (string.IsNullOrEmpty(q) && _field == "bizno")
         {
-            Say("검색어를 넣으십시오.", NoticeTone.Warning);
+            Say("사업자번호를 입력하십시오.", NoticeTone.Warning);
             return;
         }
 
-        if (q == Q && _field == (Field ?? "all"))
+        if (q == (Q ?? string.Empty) && _field == (Field ?? "all"))
         {
             await LoadResultsAsync();
             return;
