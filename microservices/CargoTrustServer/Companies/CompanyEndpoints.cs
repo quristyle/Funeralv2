@@ -30,59 +30,72 @@ public static class CompanyEndpoints
         string? q, string? field, CancellationToken ct)
     {
         var text = Check.Clean(q);
-        if (text is null) return Results.Ok(Array.Empty<CompanySummaryDto>());
-
         field = string.IsNullOrWhiteSpace(field) ? "all" : field.Trim().ToLowerInvariant();
-        var bizKey = BusinessNumber.AsSearchKey(text);
-        var pattern = "%" + EscapeLike(text) + "%";
-        // 전화번호는 하이픈을 섞어 적기도 안 적기도 한다 — 숫자만 맞대어 본다.
-        var phoneDigits = new string(text.Where(char.IsAsciiDigit).ToArray());
-        var phonePattern = phoneDigits.Length >= 3 ? "%" + phoneDigits + "%" : null;
 
         var query = db.Companies.AsNoTracking();
         if (!me.IsAdmin) query = query.Where(c => c.Status != CompanyStatus.HIDDEN);
 
-        switch (field)
+        string? bizKey = null;
+        string? startsWith = null;
+
+        if (text != null)
         {
-            case "name":
-                query = query.Where(c => EF.Functions.ILike(c.CompanyName, pattern, "\\"));
-                break;
-            case "bizno":
-                // 번호는 **전체로만** 찾는다. 앞자리 몇 개로 찾게 두면 가린 뒤 5자리를
-                // 검색을 되풀이해 알아낼 수 있다(설계안 29).
-                if (bizKey is null) return ApiError.BadRequest("사업자번호 검색은 10자리 전체로 합니다.");
-                query = query.Where(c => c.BusinessNumber == bizKey);
-                break;
-            case "ceo":
-                query = query.Where(c => c.CeoName != null && EF.Functions.ILike(c.CeoName, pattern, "\\"));
-                break;
-            case "phone":
-                query = phonePattern is null
-                    ? query.Where(c => c.Phone != null && EF.Functions.ILike(c.Phone, pattern, "\\"))
-                    : query.Where(c => c.Phone != null && EF.Functions.ILike(c.Phone.Replace("-", "").Replace(" ", ""), phonePattern));
-                break;
-            case "address":
-                query = query.Where(c => c.Address != null && EF.Functions.ILike(c.Address, pattern, "\\"));
-                break;
-            case "all":
-                query = query.Where(c =>
-                    (bizKey != null && c.BusinessNumber == bizKey)
-                    || EF.Functions.ILike(c.CompanyName, pattern, "\\")
-                    || (c.CeoName != null && EF.Functions.ILike(c.CeoName, pattern, "\\"))
-                    || (c.Address != null && EF.Functions.ILike(c.Address, pattern, "\\"))
-                    || (c.Phone != null && EF.Functions.ILike(c.Phone, pattern, "\\"))
-                    || (phonePattern != null && c.Phone != null
-                        && EF.Functions.ILike(c.Phone.Replace("-", "").Replace(" ", ""), phonePattern)));
-                break;
-            default:
+            bizKey = BusinessNumber.AsSearchKey(text);
+            var pattern = "%" + EscapeLike(text) + "%";
+            // 전화번호는 하이픈을 섞어 적기도 안 적기도 한다 — 숫자만 맞대어 본다.
+            var phoneDigits = new string(text.Where(char.IsAsciiDigit).ToArray());
+            var phonePattern = phoneDigits.Length >= 3 ? "%" + phoneDigits + "%" : null;
+
+            switch (field)
+            {
+                case "name":
+                    query = query.Where(c => EF.Functions.ILike(c.CompanyName, pattern, "\\"));
+                    break;
+                case "bizno":
+                    // 번호는 **전체로만** 찾는다. 앞자리 몇 개로 찾게 두면 가린 뒤 5자리를
+                    // 검색을 되풀이해 알아낼 수 있다(설계안 29).
+                    if (bizKey is null) return ApiError.BadRequest("사업자번호 검색은 10자리 전체로 합니다.");
+                    query = query.Where(c => c.BusinessNumber == bizKey);
+                    break;
+                case "ceo":
+                    query = query.Where(c => c.CeoName != null && EF.Functions.ILike(c.CeoName, pattern, "\\"));
+                    break;
+                case "phone":
+                    query = phonePattern is null
+                        ? query.Where(c => c.Phone != null && EF.Functions.ILike(c.Phone, pattern, "\\"))
+                        : query.Where(c => c.Phone != null && EF.Functions.ILike(c.Phone.Replace("-", "").Replace(" ", ""), phonePattern));
+                    break;
+                case "address":
+                    query = query.Where(c => c.Address != null && EF.Functions.ILike(c.Address, pattern, "\\"));
+                    break;
+                case "all":
+                    query = query.Where(c =>
+                        (bizKey != null && c.BusinessNumber == bizKey)
+                        || EF.Functions.ILike(c.CompanyName, pattern, "\\")
+                        || (c.CeoName != null && EF.Functions.ILike(c.CeoName, pattern, "\\"))
+                        || (c.Address != null && EF.Functions.ILike(c.Address, pattern, "\\"))
+                        || (c.Phone != null && EF.Functions.ILike(c.Phone, pattern, "\\"))
+                        || (phonePattern != null && c.Phone != null
+                            && EF.Functions.ILike(c.Phone.Replace("-", "").Replace(" ", ""), phonePattern)));
+                    break;
+                default:
+                    return ApiError.BadRequest("field 는 all · name · bizno · ceo · phone · address 중 하나입니다.");
+            }
+            
+            startsWith = EscapeLike(text) + "%";
+        }
+        else
+        {
+            if (field == "bizno")
+                return ApiError.BadRequest("사업자번호 검색은 10자리 전체로 합니다.");
+            if (field != "all" && field != "name" && field != "ceo" && field != "phone" && field != "address")
                 return ApiError.BadRequest("field 는 all · name · bizno · ceo · phone · address 중 하나입니다.");
         }
 
         // 번호가 정확히 맞은 곳을 맨 앞에, 그다음 이름이 검색어로 시작하는 곳.
-        var startsWith = EscapeLike(text) + "%";
         var companies = await query
             .OrderByDescending(c => bizKey != null && c.BusinessNumber == bizKey)
-            .ThenByDescending(c => EF.Functions.ILike(c.CompanyName, startsWith, "\\"))
+            .ThenByDescending(c => startsWith != null && EF.Functions.ILike(c.CompanyName, startsWith, "\\"))
             .ThenBy(c => c.CompanyName)
             .ThenBy(c => c.CompanyId)
             .Take(SearchLimit)
