@@ -467,6 +467,31 @@ public static class RequestEndpoints {
           ? me.HelpdeskUserId.Value
           : formCustomerId;
 
+      // [요청자를 못 정하면 여기서 끝낸다]
+      //
+      // `improvementrequest.customerid` 는 `customer` 를 가리키는 **NOT NULL 외래키**다.
+      // 값이 0 이거나 없는 고객을 가리키면 `SaveChangesAsync` 가 `DbUpdateException` 을
+      // 던지고, 화면에는 그것이 그대로 나갔다 —
+      // 「An error occurred while saving the entity changes.」 한 줄이다.
+      // 글을 다 쓰고 「등록」을 누른 사람은 **무엇이 잘못됐는지 알 길이 없었다.**
+      //
+      // 실제로 그 자리에 빠진 계정이 둘이다.
+      //
+      //   · 연결이 없는 담당자(포털 역할만으로 담당자인 계정) — 화면이 보내 줄
+      //     헬프데스크 ID 자체가 없어 0 이 온다. 포털 계정 46 개 중 연결된 것은
+      //     하나뿐이라 **사실상 거의 모두**가 여기에 걸렸다.
+      //   · 담당자로 연결된 계정 — 화면이 자기 `admin.id` 를 고객 번호로 보냈다.
+      //     그 번호의 고객이 우연히 있으면 **남의 이름으로 요청이 들어갔다.**
+      //     오류보다 나쁜 쪽이라, 화면도 함께 고쳤다(RequestNew.razor).
+      //
+      // 그래서 저장하기 전에 실재를 확인하고, 사람이 알아들을 말로 막는다.
+      if (customerId <= 0 || !await db.Customers.AnyAsync(c => c.Id == customerId)) {
+        return ApiResponseBuilder.Fail(
+            me.IsCustomer
+                ? "요청자(고객) 정보를 찾지 못했습니다. 헬프데스크 관리자에게 계정 연결을 확인해 주십시오."
+                : "요청자(고객)를 고른 뒤 등록하십시오.");
+      }
+
       var requestDto = new RequestCreateDto(
               Title: form["Title"].ToString(),
               Description: form["Description"],

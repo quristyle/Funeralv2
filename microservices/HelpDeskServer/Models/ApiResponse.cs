@@ -89,6 +89,25 @@ namespace HelpDeskServer.Models {
         };
 
     private const int MaxTraverseDepth = 7;
+
+    /// <summary>
+    /// 업무 규칙으로 <b>미리 알고 막은 것</b>을 같은 봉투에 담아 돌려줍니다.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="CreateAsync{T}"/> 안에서 예외를 던져도 400 이 나가기는 합니다.
+    /// 그런데 그 길은 「An error occurred: 」 를 앞에 붙여 <b>예외 글귀를 그대로</b>
+    /// 내보내므로, 사람이 읽을 안내와 프로그램이 터진 흔적이 한 문장에 섞입니다.
+    /// 화면은 그 문장을 그대로 띄우므로(프론트 <c>RunAsync</c>), 미리 알고 막은
+    /// 것은 이쪽으로 돌려 안내만 남깁니다.
+    /// </remarks>
+    /// <param name="message">화면에 그대로 나갈 안내 문구</param>
+    /// <param name="statusCode">HTTP 상태 코드 (기본 400)</param>
+    public static IResult Fail(string message, int statusCode = 400) {
+      var now = DateTime.UtcNow;
+      var response = new ApiResponse<object>(false, message, null, CreateMetadata(now, now, 0));
+      return Results.Json(response, statusCode: statusCode);
+    }
+
     /// <summary>
     /// 비동기 작업을 실행하고 결과를 표준 API 응답 형식으로 래핑합니다.
     /// </summary>

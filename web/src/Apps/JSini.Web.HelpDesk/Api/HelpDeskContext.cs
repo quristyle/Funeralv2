@@ -29,6 +29,24 @@ public sealed class HelpDeskContext(HelpDeskApi api, BizOptionService bizOptions
     /// <summary>헬프데스크 내부 레코드에 이어져 있는가.</summary>
     public bool IsLinked => Identity?.HelpdeskUserId is not null;
 
+    /// <summary>
+    /// <b>고객</b>으로 연결된 계정인가. 서버의 <c>HelpdeskPrincipal.IsCustomer</c> 와
+    /// 같은 판정이다.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="HelpdeskUserId"/> 만 보고 「내 고객 번호」로 쓰면 안 된다 —
+    /// <b>담당자로 연결된 계정은 그 값이 <c>admin.id</c></b> 다. 실제로 요청 등록
+    /// 화면이 그것을 고객 번호로 보내, 번호가 겹치는 <b>남의 이름으로 요청이
+    /// 들어갔다.</b> 고객 번호로 쓸 수 있는지는 이 값으로 가른다.
+    /// </remarks>
+    public bool IsCustomer =>
+        string.Equals(Identity?.LoginType, "customer", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// 고객으로 연결된 계정의 <b>고객 번호</b>. 담당자이거나 연결이 없으면 null.
+    /// </summary>
+    public int? CustomerId => IsCustomer ? Identity?.HelpdeskUserId : null;
+
     /// <summary>담당자 권한은 있으나 연결이 없는 상태. '내 것' 기능만 못 쓴다.</summary>
     public bool IsUnlinkedAdmin => IsAdmin && !IsLinked;
 
