@@ -33,6 +33,15 @@
     **맨 위 한 사람만 누를 수 있고** 나머지는 그 아래 영원히 묻힌다. 겹치는
     점은 작은 원으로 벌려 놓는다(`spread`) — 자리가 조금 틀어지지만, 못 누르는
     것보다는 낫다. 벌린 것은 색이 아니라 **줄을 그어** 원래 자리를 가리킨다.
+
+    ────────────────────────────────────────────────────────────
+    [판이 감춰져 있는 동안에는 아무것도 셀 수 없다]
+
+    휴대폰에서는 지도와 목록이 한 번에 하나씩만 선다(`ad-split--list` 가
+    지도 판을 `display: none` 으로 접는다). 그동안 `clientWidth` 는 0 이라
+    **「전부 보이게 맞춰라」를 지금 셈하면 지구 전체가 나온다.** 그래서
+    자리가 없으면 맞추기를 하지 않고 `pendingFit` 에 적어 두었다가, 판이
+    다시 서는 순간(`show` 또는 `ResizeObserver`)에 그때의 크기로 셈한다.
 */
 
 /** 타일 한 장의 변. OSM 표준이다. */
@@ -88,6 +97,15 @@ export function create(host, dotnet) {
     /** 지금 고른 점의 열쇠. 목록에서 고른 것도 여기로 온다. */
     let picked = null;
 
+    /**
+     * 자리가 없어 미뤄 둔 맞추기. 판이 감춰진 동안 「전부 보기」가 불리면
+     * 여기에 적어 두었다가 판이 다시 설 때 셈한다(머리말).
+     */
+    let pendingFit = false;
+
+    /** 떼어 냈나. 뗀 뒤에 불리면 <b>떼어 낸 노드에 타일을 붙인다.</b> */
+    let disposed = false;
+
     const tiles = document.createElement('div');
     tiles.className = 'ad-geomap__tiles';
     host.appendChild(tiles);
@@ -103,7 +121,16 @@ export function create(host, dotnet) {
     */
     const tileCache = new Map();
 
+    /**
+     * 셈할 만한 자리가 있나. 감춰진 판(`display: none`)은 0 × 0 이다.
+     */
+    function hasBox() {
+        return host.clientWidth >= 20 && host.clientHeight >= 20;
+    }
+
     function render() {
+        if (disposed) return;
+
         const w = host.clientWidth;
         const h = host.clientHeight;
 
@@ -348,7 +375,13 @@ export function create(host, dotnet) {
     host.addEventListener('pointerup', onPointerUp);
     host.addEventListener('pointercancel', onPointerUp);
 
-    const resizes = new ResizeObserver(() => render());
+    // 판이 다시 서면(휴대폰에서 「지도」로 돌아오면) 여기가 먼저 불린다.
+    // 미뤄 둔 맞추기가 있으면 그것부터 갚는다 — 그냥 그리면 감추기 직전
+    // 자리에 멈춰 있는 것으로 보인다.
+    const resizes = new ResizeObserver(() => {
+        if (pendingFit) fitAll();
+        else render();
+    });
     resizes.observe(host);
 
     render();
@@ -391,6 +424,21 @@ export function create(host, dotnet) {
         /** 전부 보이게 맞춘다. 단추가 부른다. */
         fit: fitAll,
 
+        /**
+         * 감춰져 있던 판이 다시 섰다. 미뤄 둔 맞추기가 있으면 갚고, 없으면
+         * 다시 그린다.
+         *
+         * `ResizeObserver` 가 같은 일을 하지만 **그것 하나에 기대지 않는다** —
+         * 접기가 `display: none` 이 아니라 폭만 같은 경우(형제 판이 사라져
+         * 높이만 늘어나는 식)에는 관찰자가 이 순간을 못 잡을 수 있고, 그러면
+         * 지도가 감추기 직전 그림에 멈춘다.
+         */
+        show() {
+            if (disposed) return;
+            if (pendingFit) fitAll();
+            else render();
+        },
+
         /** 한 단계씩 확대·축소. 화면 가운데를 붙잡는다. */
         zoomBy(step) {
             const rect = host.getBoundingClientRect();
@@ -398,6 +446,7 @@ export function create(host, dotnet) {
         },
 
         dispose() {
+            disposed = true;
             resizes.disconnect();
             host.removeEventListener('wheel', onWheel);
             host.removeEventListener('pointerdown', onPointerDown);
@@ -417,6 +466,18 @@ export function create(host, dotnet) {
      * 그때는 동네가 읽히는 단계로 못박는다.
      */
     function fitAll() {
+        if (disposed) return;
+
+        // **자리가 없으면 셈하지 않는다.** 감춰진 판은 0 × 0 이라 여기서
+        // 억지로 셈하면 `best` 가 최소 단계로 떨어져 지구 전체가 나온다.
+        // 적어 두었다가 판이 다시 설 때 갚는다(머리말).
+        if (!hasBox()) {
+            pendingFit = true;
+            return;
+        }
+
+        pendingFit = false;
+
         if (markers.length === 0) {
             render();
             return;
