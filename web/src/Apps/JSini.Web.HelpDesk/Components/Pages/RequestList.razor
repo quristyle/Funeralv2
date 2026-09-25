@@ -127,7 +127,7 @@
                         var r = (ImprovementRequest)cell.DataItem;
                     }
                     <DxButton Text="상세" RenderStyle="ButtonRenderStyle.Link"
-                              Click="@(() => { Navigation.NavigateTo($"/helpdesk/request/{r.Id}"); })" />
+                              Click="@(() => { Navigation.NavigateTo($"/helpdesk/request/detail/{r.Id}"); })" />
                 </CellDisplayTemplate>
             </DxGridDataColumn>
         </Columns>
