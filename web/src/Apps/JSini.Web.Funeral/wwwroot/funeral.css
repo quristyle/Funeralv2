@@ -822,6 +822,19 @@
   flex: 0 0 auto;
 }
 
+/* 순서 바꾸기 단추 둘 — 글자 없이 꺾쇠만 쓴다(줄이 이미 넷이다).
+
+   **그림은 하나뿐이다.** 위를 보는 꺾쇠를 따로 두지 않고 뒤집어 쓴다 —
+   둘을 따로 두면 각도가 갈린다(app.css 의 `jsini-icon-chevron-down` 머리말이
+   접는 판에서 같은 말을 한다). */
+.fn-bnav__move {
+  flex: 0 0 auto;
+}
+
+.fn-bnav__move--up .jsini-icon-chevron-down {
+  transform: rotate(180deg);
+}
+
 .fn-bnav__actions {
   display: flex;
   flex-wrap: wrap;

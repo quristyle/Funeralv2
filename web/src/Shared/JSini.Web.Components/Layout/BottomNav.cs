@@ -158,6 +158,58 @@ public static class BottomNav
         JsonSerializer.Serialize(items.Take(MaxItems).ToArray(), Json);
 
     /// <summary>
+    /// 칸 하나를 <paramref name="delta"/> 만큼 옮긴다. 옮겼으면 <c>true</c>.
+    /// </summary>
+    /// <param name="items">고칠 목록. <b>이 자리에서 바뀐다.</b></param>
+    /// <param name="index">옮길 칸의 지금 자리.</param>
+    /// <param name="delta">몇 칸을 옮길지. 음수면 앞으로(띠에서 왼쪽으로).</param>
+    /// <remarks>
+    /// <para>
+    /// [순서가 곧 띠의 차례다]
+    /// </para>
+    /// <para>
+    /// 이 목록의 <b>위에 있는 칸이 띠에서 왼쪽</b>에 선다
+    /// (<see cref="MobileBottomNav"/> 가 목록을 그 차례대로 그린다). 그래서
+    /// 「무엇을 놓을지」만 고르게 해 두면, 자주 누르는 칸이 엄지가 닿지 않는
+    /// 오른쪽 끝에 남아도 사람이 손쓸 길이 없다 — 빼고 다시 넣어 가며
+    /// 차례를 맞추는 것이 유일한 방법이었다.
+    /// </para>
+    /// <para>
+    /// [자리를 맞바꾸지 않고 뽑아서 끼운다]
+    /// </para>
+    /// <para>
+    /// 한 칸씩 옮길 때는 둘이 같지만, 두 칸 넘게 옮기면 <b>맞바꾸기는 사이에
+    /// 있던 칸까지 흐트러뜨린다.</b> 뽑아서 끼우면 나머지 차례는 그대로다.
+    /// </para>
+    /// <para>
+    /// <b>목록 밖으로는 나가지 않는다.</b> 맨 위에서 더 위로, 맨 아래에서 더
+    /// 아래로 누르면 아무 일도 없이 <c>false</c> 다 — 화면은 그 끝에서 단추를
+    /// 잠그지만, 저장된 것이 사람 손을 탄 뒤에도 자리가 어긋나지 않아야 한다.
+    /// </para>
+    /// </remarks>
+    public static bool Move(IList<BottomNavItem> items, int index, int delta)
+    {
+        if (delta == 0 || index < 0 || index >= items.Count)
+        {
+            return false;
+        }
+
+        var target = index + delta;
+
+        if (target < 0 || target >= items.Count)
+        {
+            return false;
+        }
+
+        var item = items[index];
+
+        items.RemoveAt(index);
+        items.Insert(target, item);
+
+        return true;
+    }
+
+    /// <summary>
     /// 이 칸이 실제로 갈 주소. 못 찾으면 적어 둔 값 그대로다.
     /// </summary>
     /// <remarks>

@@ -274,4 +274,77 @@ public sealed class BottomNavTests
             Assert.DoesNotContain(' ', css);
         }
     }
+
+    // ── 차례 바꾸기(`BottomNav.Move`) ──────────────────────────
+
+    /// <summary>
+    /// 목록의 차례가 곧 띠의 차례다(위가 왼쪽). 한 칸씩 옮기는 것이
+    /// 화면의 꺾쇠 단추 둘이다.
+    /// </summary>
+    [Theory]
+    [InlineData(0, 1, "1,0,2,3")]
+    [InlineData(3, -1, "0,1,3,2")]
+    [InlineData(1, -1, "1,0,2,3")]
+    [InlineData(2, 1, "0,1,3,2")]
+    public void 한_칸씩_옮긴다(int index, int delta, string expected)
+    {
+        var items = Four();
+
+        Assert.True(BottomNav.Move(items, index, delta));
+        Assert.Equal(expected, Titles(items));
+    }
+
+    /// <summary>
+    /// 여러 칸을 건너뛰어도 <b>사이에 있던 것들의 차례는 그대로다.</b>
+    /// 자리를 맞바꾸는 방식이면 여기서 0 과 3 이 뒤집힌다.
+    /// </summary>
+    [Fact]
+    public void 건너뛰어_옮겨도_사이는_그대로다()
+    {
+        var items = Four();
+
+        Assert.True(BottomNav.Move(items, 3, -3));
+        Assert.Equal("3,0,1,2", Titles(items));
+    }
+
+    /// <summary>
+    /// <b>목록 밖으로는 나가지 않는다.</b> 화면이 양 끝에서 단추를 잠그지만,
+    /// 저장된 것이 사람 손을 탄 뒤에도 자리가 어긋나면 안 된다.
+    /// </summary>
+    [Theory]
+    [InlineData(0, -1)]
+    [InlineData(3, 1)]
+    [InlineData(0, -5)]
+    [InlineData(1, 0)]
+    [InlineData(-1, 1)]
+    [InlineData(4, -1)]
+    public void 밖으로_나가는_것은_아무_일도_없다(int index, int delta)
+    {
+        var items = Four();
+
+        Assert.False(BottomNav.Move(items, index, delta));
+        Assert.Equal("0,1,2,3", Titles(items));
+    }
+
+    /// <summary>
+    /// 옮긴 것이 <b>저장을 거쳐도 그 차례다.</b> 화면은 옮긴 즉시
+    /// <see cref="BottomNav.Serialize"/> 로 적고, 다음에 열 때
+    /// <see cref="BottomNav.Parse"/> 로 읽는다.
+    /// </summary>
+    [Fact]
+    public void 옮긴_차례가_저장을_거쳐도_남는다()
+    {
+        var items = Four();
+
+        BottomNav.Move(items, 0, 3);
+
+        Assert.Equal("1,2,3,0", Titles([.. BottomNav.Parse(BottomNav.Serialize(items))]));
+    }
+
+    private static List<BottomNavItem> Four() =>
+        [.. Enumerable.Range(0, 4)
+            .Select(i => new BottomNavItem { Path = $"/x{i}", Title = $"{i}" })];
+
+    private static string Titles(IEnumerable<BottomNavItem> items) =>
+        string.Join(',', items.Select(i => i.Title));
 }
