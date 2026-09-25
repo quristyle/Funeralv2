@@ -140,6 +140,10 @@
 
         if (string.Equals(item.Path, BottomNav.MenuPath, StringComparison.OrdinalIgnoreCase))
         {
+            // **여닫이다.** 펴져 있으면 이 부탁이 판을 접는다 —
+            // 접는 판정은 상태를 든 쪽에 있다(`MainLayout.OnMenuRevealRequested`).
+            // 여기서 여닫으려면 띠가 `_sidebarOpen` 을 알아야 하고, 그러면
+            // 같은 상태를 두 곳이 나눠 들게 된다.
             Reveal.Request(BottomNav.MenuPath);
             return;
         }
