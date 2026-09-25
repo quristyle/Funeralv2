@@ -38,8 +38,34 @@
     가로채 숨겨 둔 `InputFile` 로 넘기고, 여기서 `POST files/image` 로 올린 뒤
     받은 주소로 `<img>` 를 꽂는다. 본문에 남는 것은 주소 한 줄이다.
 
-    가로채지 못하는 길이 남아 있다(편집기 도구줄의 「그림」 단추, 다른 글에서
-    서식째 복사). 그래서 **등록 직전에 한 번 더 훑어** 남은 data URI 를 올린다
+    [도구줄의 「그림」 단추도 같은 길로 보낸다 — 휴대폰에서 터지던 자리]
+
+    그 단추는 편집기가 제 판을 띄워 고른 파일을 **base64 로 만들어 본문에
+    꽂는다.** 휴대폰에서 그것을 누르면 오류가 났다.
+
+    **재어 본 값이다**(헤드리스 크롬 · 390px 폭 · DevExpress 26.1.4 로 띄운
+    편집기). 4.3MB 짜리 사진을 그 판으로 고르면 본문이 **5,762,175 글자**가
+    된다 — 바로 위에 적은 회로 한도 4MB 의 한 배 반이다. 화면 캡처와 달리
+    휴대폰 사진은 으레 그 크기라, **휴대폰에서만 나는 것처럼 보인다.**
+
+    한 가지가 더 있다. DevExpress 는 그림을 꽂을 자리를 `d.index` 로 **비었는지
+    보지 않고** 읽는다(`applyPicture` — 같은 파일의 다른 명령들은 본다).
+    휴대폰은 글칸을 한 번도 안 짚은 채 도구줄을 누르는 것이 보통이라 그 자리가
+    빌 수 있고, 그러면 브라우저 쪽 예외라 회로가 끊긴다. 재현해 보지는
+    못했다 — 고치는 길이 어차피 같아서 적어만 둔다.
+
+    그래서 **그 단추가 하는 일을 갈아 끼운다.** 생김새·아이콘·자리는 그대로
+    두고(`CustomizeToolbar` 로 이름표만 붙인다) 누르는 것을 브라우저 쪽에서
+    가로채 붙여넣기와 **같은 길**로 보낸다 — 숨겨 둔 `InputFile` 을 열고,
+    고른 사진을 `POST files/image` 로 올리고, 주소로 `<img>` 를 꽂는다.
+    편집기의 판은 뜨지 않으므로 위 둘 다 일어나지 않는다.
+
+    **서버 쪽에서 열지 않는다.** 파일 고르개는 사람이 누른 그 손짓 안에서
+    열어야 브라우저가 열어 준다. 회로를 한 바퀴 돌아 여는 방식은 그 손짓이
+    끝난 뒤라 휴대폰에서 조용히 막힌다.
+
+    아직 가로채지 못하는 길이 하나 남아 있다(다른 글에서 서식째 복사).
+    그래서 **등록 직전에 한 번 더 훑어** 남은 data URI 를 올린다
     (`RequestContentHtml.PendingImages`).
 
     [첨부는 등록한 뒤에 따로 올린다 — D5]
@@ -92,11 +118,13 @@ else
             <DxHtmlEditor Markup="@_content"
                           MarkupChanged="@(v => _content = v ?? string.Empty)"
                           BindMarkupMode="HtmlEditorBindMarkupMode.OnDelayedInput"
+                          CustomizeToolbar="@MarkPictureButton"
                           CssClass="hd-content-editor" />
 
             <span class="jsini-hint">
                 증상 화면은 <b>복사해서 그대로 붙여넣으십시오(Ctrl+V)</b> —
                 붙이는 즉시 파일로 보관되고 글 안에 그림으로 남습니다.
+                휴대폰에서는 도구줄의 <b>그림</b> 단추로 사진을 고르십시오.
             </span>
 
             @if (_pasting > 0)
@@ -144,6 +172,13 @@ else
     private const string PasteInputId = "hd-paste-input";
 
     /// <summary>
+    /// 도구줄 「그림」 단추에 붙이는 이름표. <b>JS 가 이 이름으로 그 단추를
+    /// 알아본다</b> — 좁은 화면에서는 그 단추가 넘침 메뉴로 옮겨 가 편집기
+    /// 바깥에 그려지므로, 자리로 찾을 수가 없다.
+    /// </summary>
+    private const string PictureButtonClass = "hd-pick-image";
+
+    /// <summary>
     /// 본문에 붙이는 그림 한 장의 상한. <b>서버와 같은 값이다</b>
     /// (<c>FileUploadEndpoints.MaxImageBytes</c>) — 여기서 막는 것은 먼저
     /// 말해 주려는 것이고, 정작 막는 쪽은 서버다.
@@ -171,6 +206,28 @@ else
     protected override Task OnInitializedAsync() => Context.LoadIdentityAsync();
 
     /// <summary>
+    /// 도구줄의 「그림」 단추에 이름표를 붙인다. <b>바꾸는 것은 이름표뿐이다</b> —
+    /// 아이콘·설명·자리는 편집기가 정한 그대로 두고, 누를 때 하는 일만
+    /// <c>request-editor.js</c> 가 브라우저 쪽에서 갈아 끼운다.
+    /// </summary>
+    /// <remarks>
+    /// 단추를 빼고 우리 것을 새로 다는 길도 있지만 그러지 않는다. 아이콘이
+    /// <c>ImageSource</c> 라 CSS 이름으로 옮겨 붙일 수 없어 도구줄에 글자
+    /// 단추 하나만 튄다. 그리고 <b>가로채기가 어느 브라우저에서 안 걸려도
+    /// 단추가 죽지는 않는다</b> — 그때는 편집기 제 판이 열려 예전 그대로다.
+    /// </remarks>
+    private static void MarkPictureButton(DevExpress.Blazor.Office.IToolbar toolbar)
+    {
+        var picture = toolbar.Groups[HtmlEditorToolbarGroupNames.InsertElement]
+            ?.Items[HtmlEditorToolbarItemNames.ShowInsertPictureDialog];
+
+        if (picture is not null)
+        {
+            picture.CssClass = PictureButtonClass;
+        }
+    }
+
+    /// <summary>
     /// 편집기에 붙여넣기 처리기를 건다.
     /// </summary>
     /// <remarks>
@@ -193,7 +250,8 @@ else
                 "import", "./_content/JSini.Web.HelpDesk/js/request-editor.js");
 
             // 거짓이면 편집기가 아직 화면에 없다는 뜻이다. 다음 그리기에 다시 본다.
-            _bound = await _editorJs.InvokeAsync<bool>("bind", EditorSelector, PasteInputId);
+            _bound = await _editorJs.InvokeAsync<bool>(
+                "bind", EditorSelector, PasteInputId, "." + PictureButtonClass);
         }
         catch (JSException)
         {
@@ -212,9 +270,13 @@ else
     /// 가로챈 그림이 도착했다. 올리고 그 자리에 <c>&lt;img&gt;</c> 를 꽂는다.
     /// </summary>
     /// <remarks>
-    /// <b>한 장이 실패해도 나머지는 올린다.</b> 여러 장을 한 번에 붙여넣는 일이
+    /// 들어오는 길이 셋이다 — 붙여넣기 · 끌어놓기 · <b>도구줄의 「그림」 단추</b>.
+    /// 셋 다 <c>request-editor.js</c> 가 같은 파일 칸으로 몰아 주므로 여기는
+    /// 어느 길로 왔는지 알 필요가 없다.
+    ///
+    /// <b>한 장이 실패해도 나머지는 올린다.</b> 여러 장을 한 번에 넣는 일이
     /// 있고, 그때 첫 장이 크다는 이유로 나머지까지 버리면 사람은 무엇이 들어갔는지
-    /// 모른 채 다시 붙여넣는다.
+    /// 모른 채 다시 넣는다.
     /// </remarks>
     private async Task OnPastedAsync(InputFileChangeEventArgs e)
     {
@@ -226,7 +288,7 @@ else
         }
         catch (InvalidOperationException)
         {
-            Say($"한 번에 그림 {MaxPastedImages}장까지 붙여넣을 수 있습니다.", NoticeTone.Warning);
+            Say($"한 번에 그림 {MaxPastedImages}장까지 넣을 수 있습니다.", NoticeTone.Warning);
             return;
         }
 
@@ -337,7 +399,7 @@ else
         }
     }
 
-    /// <summary>올린 그림을 편집기의 <b>붙여넣던 자리</b>에 꽂는다.</summary>
+    /// <summary>올린 그림을 편집기의 <b>고르던 자리</b>에 꽂는다.</summary>
     private async Task InsertImageAsync(string url, string alt)
     {
         try
