@@ -61,6 +61,12 @@ public static class BottomNav
     /// </summary>
     public const string ThemePath = "#theme";
 
+    /// <summary>전체 메뉴(사이드바)를 여는 가짜 주소.</summary>
+    public const string MenuPath = "#menu";
+
+    /// <summary>내 정보(프로필)를 여는 가짜 주소.</summary>
+    public const string ProfilePath = "#profile";
+
     /// <summary>
     /// 고른 적이 없을 때의 다섯. <b>지금 화면에 떠 있는 그대로다.</b>
     /// </summary>
@@ -218,6 +224,16 @@ public static class BottomNav
             return "jsini-icon-palette";
         }
 
+        if (Same(item.Path, MenuPath))
+        {
+            return "jsini-icon-menu";
+        }
+
+        if (Same(item.Path, ProfilePath))
+        {
+            return "jsini-icon-user";
+        }
+
         var icon = Find(item, menus)?.Icon;
 
         return MenuIcons.CssClass(string.IsNullOrWhiteSpace(icon) ? Fallback(item.Path) : icon);
@@ -238,6 +254,8 @@ public static class BottomNav
         {
             new(HomePath, null, "홈", "jsini-icon-home"),
             new(ThemePath, null, "설정 (테마 서랍 열기)", "jsini-icon-palette"),
+            new(MenuPath, null, "전체 메뉴 (사이드바 열기)", "jsini-icon-menu"),
+            new(ProfilePath, null, "내 정보 (프로필 열기)", "jsini-icon-user"),
         };
 
         Walk(menus, null);

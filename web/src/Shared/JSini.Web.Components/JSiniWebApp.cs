@@ -377,6 +377,7 @@ public static class JSiniWebApp
 
         // 테마 서랍을 사용자 메뉴에서도 열 수 있게 하는 손잡이.
         services.AddScoped<ThemeDrawer>();
+        services.AddScoped<UserMenuDrawer>();
 
         // 「빠른 지시」 서랍을 헤더 단추에서 여닫는 손잡이. 같은 이유로 scoped 다.
         // 그 안에 그릴 알맹이는 업무 모듈이 따로 등록한다(QuickAskContent).

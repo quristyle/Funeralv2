@@ -1,6 +1,8 @@
 @implements IDisposable
 @inject NavigationManager Navigation
 @inject ThemeDrawer Theme
+@inject MenuReveal Reveal
+@inject UserMenuDrawer UserDrawer
 @inject IMenuProvider Menus
 @inject PortalBoot Boot
 
@@ -97,6 +99,18 @@
         if (string.Equals(item.Path, BottomNav.ThemePath, StringComparison.OrdinalIgnoreCase))
         {
             Theme.Open();
+            return;
+        }
+
+        if (string.Equals(item.Path, BottomNav.MenuPath, StringComparison.OrdinalIgnoreCase))
+        {
+            Reveal.Request(BottomNav.MenuPath);
+            return;
+        }
+
+        if (string.Equals(item.Path, BottomNav.ProfilePath, StringComparison.OrdinalIgnoreCase))
+        {
+            UserDrawer.Open();
             return;
         }
 

@@ -44,6 +44,7 @@
 @inject NavigationManager Navigation
 @inject ScreenLock Lock
 @inject ThemeDrawer Theme
+@inject UserMenuDrawer UserDrawer
 @inject CurrentUser Me
 
 <AuthorizeView>
@@ -206,9 +207,26 @@
 
     private bool _open;
 
-    protected override void OnInitialized() => Me.Changed += OnMeChanged;
+    protected override void OnInitialized()
+    {
+        Me.Changed += OnMeChanged;
+        UserDrawer.OpenRequested += OnDrawerRequested;
+    }
 
-    public void Dispose() => Me.Changed -= OnMeChanged;
+    public void Dispose()
+    {
+        Me.Changed -= OnMeChanged;
+        UserDrawer.OpenRequested -= OnDrawerRequested;
+    }
+
+    private void OnDrawerRequested(bool open)
+    {
+        if (_open != open)
+        {
+            _open = open;
+            InvokeAsync(StateHasChanged);
+        }
+    }
 
     private void OnMeChanged() => InvokeAsync(StateHasChanged);
 
