@@ -173,7 +173,7 @@ public sealed class AiTasksController(AiTaskService service, AiRunService runs) 
     /// </summary>
     [HttpPost("{taskKey:long}/retry")]
     public async Task<IActionResult> RetryAsync(long taskKey, [FromBody] RetryRequest req)
-        => Respond(await service.RetryAsync(taskKey, req?.Addition, UserId));
+        => Respond(await service.RetryAsync(taskKey, req?.Addition, req?.Kind, UserId));
 
     /// <summary>
     /// <b>사용자 확인 완료</b> 처리한다.
@@ -213,6 +213,9 @@ public sealed class AiTasksController(AiTaskService service, AiRunService runs) 
     {
         /// <summary>재시도 시 더 시킬 일.</summary>
         public string? Addition { get; set; }
+        
+        /// <summary>재시도에 사용할 AI 모델 (선택).</summary>
+        public string? Kind { get; set; }
     }
 
     private IActionResult Respond(AiTaskEditResult result)

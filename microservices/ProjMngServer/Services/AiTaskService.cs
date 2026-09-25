@@ -695,7 +695,7 @@ public sealed class AiTaskService(
     /// <b>실패한 작업을 수동으로 다시 요청한다.</b>
     /// 추가 지시사항이 있으면 본문 뒤에 덧붙이고, attempt_count 를 0으로 되돌려 다시 queued 로 넣는다.
     /// </summary>
-    public async Task<AiTaskEditResult> RetryAsync(long taskKey, string? addition, string? userId)
+    public async Task<AiTaskEditResult> RetryAsync(long taskKey, string? addition, string? runnerKind, string? userId)
     {
         var current = await GetAsync(taskKey);
 
@@ -707,6 +707,22 @@ public sealed class AiTaskService(
         if (AiTaskStatus.IsBusy(current.TaskStatus))
         {
             return AiTaskEditResult.Conflict("이미 대기 중이거나 돌고 있습니다.");
+        }
+
+        var kind = string.IsNullOrWhiteSpace(runnerKind)
+            ? current.RunnerKind
+            : runnerKind.Trim();
+
+        if (string.IsNullOrWhiteSpace(kind))
+        {
+            kind = "claude";
+        }
+
+        if (!string.Equals(kind, current.RunnerKind, StringComparison.OrdinalIgnoreCase)
+            && !RunnerAllowed(current.TargetRunnerKinds, kind))
+        {
+            return AiTaskEditResult.Conflict(
+                $"고른 대상은 '{kind}' 실행기를 허용하지 않습니다.");
         }
 
         var newContents = current.Contents;
@@ -723,6 +739,7 @@ public sealed class AiTaskService(
         var affected = await db.ExecuteAsync("""
             UPDATE projmng.ai_task
                SET contents      = @newContents,
+                   runner_kind   = @kind,
                    request_flag  = 'requested',
                    task_status   = 'queued',
                    requested_at  = now(),
@@ -738,7 +755,7 @@ public sealed class AiTaskService(
              WHERE task_key   = @taskKey
                AND is_deleted = false
                AND task_status NOT IN ('queued', 'preparing', 'running')
-            """, new { taskKey, newContents, userId });
+            """, new { taskKey, newContents, kind, userId });
 
         if (affected == 0)
         {

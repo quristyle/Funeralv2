@@ -101,7 +101,7 @@
     {
         <DxButton RenderStyle="ButtonRenderStyle.Secondary"
                   Enabled="@(!_retrying && !_confirming && !_continuing)"
-                  Click="@OpenRetryModal">
+                  Click="@OpenRetryModalAsync">
             <span class="pm-peek__btn-text--full">재시도</span>
             <span class="pm-peek__btn-text--short">재시도</span>
         </DxButton>
@@ -151,9 +151,20 @@
            Width="min(36rem, calc(100vw - 2rem))"
            CloseOnOutsideClick="false">
     <BodyContentTemplate>
-@* 안내 줄을 두지 않는다 — 창 제목이 「수동 재시도」고, 비워도 된다는 것은
-           글상자의 자리글이 말한다. 좁은 화면에서 그 한 줄은 글상자를 그만큼
-           밀어 올린다. *@
+        <div class="pm-peek__field">
+            <span class="pm-peek__label">맡을 AI</span>
+
+            <DxComboBox Data="@RetryKinds" Value="@_retryKind"
+                        ValueChanged="@((string? v) => _retryKind = v)"
+                        ValueExpression="@(() => _retryKind)"
+                        TextFieldName="@nameof(AiModelOption.Text)"
+                        ValueFieldName="@nameof(AiModelOption.Value)"
+                        CssClass="pm-peek__kind"
+                        Enabled="@(!_retrying && RetryKinds.Count > 1)" />
+        </div>
+
+        <p class="jsini-hint">@RetryKindNote</p>
+
         <DxMemo @bind-Text="_retryAddition" Rows="5"
                 NullText="더 시킬 일 — 비우면 기존 지시 그대로 다시 시도합니다"
                 CssClass="pm-peek__memo" />
@@ -339,10 +350,20 @@
     /// <summary>지금 로그인한 사람. 남의 건인지 가리는 데 쓴다.</summary>
     [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
 
-    private void OpenRetryModal()
+    private string? _retryKind;
+
+    private async Task OpenRetryModalAsync()
     {
         _retryAddition = null;
         _retryError = null;
+        _retryKind = Item?.RunnerKind;
+
+        if (!_kindsRead)
+        {
+            _kinds = await ModelCodes.GetAsync();
+            _kindsRead = _kinds.Count > 0;
+        }
+
         _retryOpen = true;
     }
 
@@ -352,6 +373,7 @@
         _retryOpen = false;
         _retryAddition = null;
         _retryError = null;
+        _retryKind = null;
     }
 
     private async Task DoRetryAsync()
@@ -366,7 +388,7 @@
 
         try
         {
-            var updated = await Api.RetryAsync(t.TaskKey, _retryAddition);
+            var updated = await Api.RetryAsync(t.TaskKey, _retryAddition, _retryKind);
             _retryOpen = false;
 
             if (updated is not null)
@@ -403,6 +425,57 @@
     /// 「바꾸지 않고 보내기」를 할 수 없다.
     /// </para>
     /// </remarks>
+    private IReadOnlyList<AiModelOption> RetryKinds
+    {
+        get
+        {
+            var allowed = (Item?.TargetRunnerKinds ?? string.Empty)
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+            List<AiModelOption> picked = allowed.Length == 0
+                ? [.. _kinds]
+                : [.. _kinds.Where(k => allowed.Contains(k.Value, StringComparer.OrdinalIgnoreCase))];
+
+            if (picked.Count == 0)
+            {
+                picked = [.. _kinds];
+            }
+
+            if (_retryKind is { Length: > 0 } now
+                && !picked.Any(k => string.Equals(k.Value, now, StringComparison.OrdinalIgnoreCase)))
+            {
+                picked.Insert(0, new AiModelOption(
+                    now,
+                    _kinds.FirstOrDefault(
+                        k => string.Equals(k.Value, now, StringComparison.OrdinalIgnoreCase))?.Text ?? now));
+            }
+
+            return picked;
+        }
+    }
+
+    private string RetryKindNote
+    {
+        get
+        {
+            if (_kinds.Count == 0)
+            {
+                return "AI 목록을 읽지 못해 지난 회차와 같은 AI 로 갑니다.";
+            }
+
+            if (RetryKinds.Count <= 1)
+            {
+                return "이 대상은 AI 를 하나만 허용해 바꿀 수 없습니다.";
+            }
+
+            var same = string.Equals(_retryKind, Item?.RunnerKind, StringComparison.OrdinalIgnoreCase);
+
+            return same
+                ? "지난 회차와 같은 AI 로 재시도합니다."
+                : $"지난 회차({KindName(Item?.RunnerKind)})와 다른 AI 에게 맡깁니다 — 지난 진행은 그대로 전달됩니다.";
+        }
+    }
+
     private IReadOnlyList<AiModelOption> ContinueKinds
     {
         get

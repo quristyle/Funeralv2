@@ -97,8 +97,8 @@ public sealed class AiTaskClient(GatewayClient gateway)
     /// <b>실패한 작업을 수동으로 다시 요청한다.</b> 추가 지시사항이 있으면 본문 뒤에 덧붙인다.
     /// </summary>
     public Task<AiTaskDto?> RetryAsync(
-        long taskKey, string? addition = null, CancellationToken ct = default)
-        => gateway.PostAsync<AiTaskDto>($"{Url}/{taskKey}/retry", new { addition }, ct);
+        long taskKey, string? addition = null, string? kind = null, CancellationToken ct = default)
+        => gateway.PostAsync<AiTaskDto>($"{Url}/{taskKey}/retry", new { addition, kind }, ct);
 
     /// <summary>
     /// <b>사용자 확인 완료</b> 처리한다.
