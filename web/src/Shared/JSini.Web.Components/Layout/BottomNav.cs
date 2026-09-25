@@ -20,15 +20,20 @@ namespace JSini.Web.Components.Layout;
 /// </para>
 ///
 /// <para>
-/// [고르지 않으면 지금 그대로다]
+/// [고르지 않으면 홈 · 알림 · 설정 · 프로필 · 메뉴]
 /// </para>
 ///
 /// <para>
-/// 저장해 둔 것이 없으면 <see cref="Defaults"/> 다. <b>기본 다섯은 아이콘을
-/// 직접 들고 있다</b>(<see cref="BottomNavItem.Icon"/>) — 홈과 설정은 뒤에
-/// 메뉴가 없고, 나머지 셋도 지금 화면에 떠 있는 그림이 그것이라 여기서
-/// 메뉴 아이콘으로 갈아 끼우면 <b>아무것도 안 고친 사람의 띠가 바뀐다.</b>
-/// 사람이 고른 칸만 메뉴의 아이콘을 따라간다.
+/// 저장해 둔 것이 없으면 <see cref="Defaults"/> 다. 다섯 중 <b>업무 하나에
+/// 매인 화면은 하나도 없다</b> — 누가 로그인해도 뜻이 같은 칸만 남기고,
+/// 못 닿는 화면은 맨 끝 「메뉴」로 연다.
+/// </para>
+///
+/// <para>
+/// <b>기본 다섯은 아이콘을 직접 들고 있다</b>(<see cref="BottomNavItem.Icon"/>)
+/// — 넷은 뒤에 메뉴가 없고, 알림도 지금 화면에 떠 있는 그림이 그것이라
+/// 여기서 메뉴 아이콘으로 갈아 끼우면 <b>아무것도 안 고친 사람의 띠가
+/// 바뀐다.</b> 사람이 고른 칸만 메뉴의 아이콘을 따라간다.
 /// </para>
 ///
 /// <para>
@@ -68,21 +73,41 @@ public static class BottomNav
     public const string ProfilePath = "#profile";
 
     /// <summary>
-    /// 고른 적이 없을 때의 다섯. <b>지금 화면에 떠 있는 그대로다.</b>
+    /// 고른 적이 없을 때의 다섯 — <b>홈 · 알림 · 설정 · 프로필 · 메뉴</b>.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// [업무 화면을 기본값에 두지 않는다]
+    /// </para>
+    /// <para>
+    /// 한동안 둘째 칸이 「빠른지시」(<c>/projmng/ai/ask</c>)였고 끝 칸이
+    /// 「내 정보」 화면이었다. 둘 다 <b>업무 하나에 매인 화면</b>이라,
+    /// 장례식장만 쓰는 사람에게는 한 번도 안 누르는 칸이 기본으로 붙었다.
+    /// 지금 다섯은 업무를 가리지 않는 것들만 남긴다 — 홈과 알림 말고는
+    /// 아예 주소가 아니라 <b>그 자리에서 무언가를 여는 표시</b>다
+    /// (<see cref="Fixed"/>).
+    /// </para>
+    /// <para>
+    /// [메뉴가 맨 끝인 까닭]
+    /// </para>
+    /// <para>
+    /// 띠에서 못 닿는 화면은 전부 메뉴를 열어야 닿는다. 그 칸이 헤더 왼쪽
+    /// 위 햄버거와 <b>같은 서랍</b>을 여는데, 한 손으로 쥐었을 때 엄지가
+    /// 가장 멀리 닿는 자리가 오른쪽 끝이라 거기 둔다 — 자주 누르는 칸을
+    /// 앞에 두려면 사람이 차례를 바꾸면 된다(<see cref="Move"/>).
+    /// </para>
+    /// <para>
+    /// 다섯 모두 아이콘을 직접 들고 있다 — 메뉴 트리가 아직 안 왔거나
+    /// 관리자가 메뉴 아이콘을 바꿔도 <b>안 고친 사람의 띠는 그대로다.</b>
+    /// </para>
+    /// </remarks>
     public static readonly IReadOnlyList<BottomNavItem> Defaults =
     [
         new() { Path = HomePath, Title = "홈", Icon = "jsini-icon-home" },
-        new()
-        {
-            Path = "/projmng/ai/ask",
-            RouteKey = "projmng.ai.ask",
-            Title = "빠른지시",
-            Icon = "jsini-icon-bolt",
-        },
         new() { Path = "/admin/push/history", Title = "알림", Icon = "jsini-icon-bell" },
         new() { Path = ThemePath, Title = "설정", Icon = "jsini-icon-palette" },
-        new() { Path = "/admin/profile", Title = "내 정보", Icon = "jsini-icon-user" },
+        new() { Path = ProfilePath, Title = "프로필", Icon = "jsini-icon-user" },
+        new() { Path = MenuPath, Title = "메뉴", Icon = "jsini-icon-menu" },
     ];
 
     /// <summary>

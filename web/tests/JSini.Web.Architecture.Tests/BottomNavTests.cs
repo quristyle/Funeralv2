@@ -257,6 +257,51 @@ public sealed class BottomNavTests
     }
 
     /// <summary>
+    /// 고른 적이 없는 사람의 다섯은 <b>홈 · 알림 · 설정 · 프로필 · 메뉴</b> 다.
+    /// </summary>
+    /// <remarks>
+    /// 차례까지 못 박는다 — 맨 끝이 「메뉴」인 것이 이 기본값의 뜻이다.
+    /// 띠에서 못 닿는 화면은 전부 그 칸으로 열고, 한 손으로 쥔 엄지가 가장
+    /// 멀리 닿는 자리가 거기다.
+    /// </remarks>
+    [Fact]
+    public void 기본_다섯은_홈_알림_설정_프로필_메뉴다()
+    {
+        Assert.Equal(
+            ["홈", "알림", "설정", "프로필", "메뉴"],
+            BottomNav.Defaults.Select(item => item.Title));
+
+        Assert.Equal(
+            [BottomNav.HomePath, "/admin/push/history", BottomNav.ThemePath,
+                BottomNav.ProfilePath, BottomNav.MenuPath],
+            BottomNav.Defaults.Select(item => item.Path));
+    }
+
+    /// <summary>
+    /// 기본 다섯에는 <b>업무 하나에 매인 화면이 없다.</b> 누가 로그인해도
+    /// 뜻이 같은 칸만 남긴다 — 장례식장만 쓰는 사람에게 「빠른지시」가
+    /// 기본으로 붙던 것이 이 규칙을 어긴 자리였다.
+    /// </summary>
+    /// <remarks>
+    /// 알림(<c>/admin/push/history</c>)만 주소를 갖는다. 그것은 업무가 아니라
+    /// 어느 업무에서 오든 한 곳에 쌓이는 화면이다.
+    /// </remarks>
+    [Fact]
+    public void 기본_다섯에는_업무_화면이_없다()
+    {
+        foreach (var item in BottomNav.Defaults)
+        {
+            Assert.Null(item.RouteKey);
+
+            var isBusinessScreen = !item.Path.StartsWith('#')
+                && item.Path != BottomNav.HomePath
+                && item.Path != "/admin/push/history";
+
+            Assert.False(isBusinessScreen, $"업무 화면이 기본값에 있다: {item.Path}");
+        }
+    }
+
+    /// <summary>
     /// 기본 다섯은 <b>지금 화면에 떠 있는 그대로</b>여야 한다 — 한 번도 안
     /// 고친 사람의 띠가 바뀌면 안 된다. 그래서 다섯이 아이콘을 직접 들고 있고,
     /// 메뉴 트리가 비어 있어도 그 그림이 나온다.
