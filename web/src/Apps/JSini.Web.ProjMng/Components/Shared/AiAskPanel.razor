@@ -343,6 +343,14 @@
            `CanSend` 가 `_uploading` 을 본다. 안 보면 올리는 중에 누른 건이
            **번호가 덜 실린 채** 나가고, 사람은 붙인 줄 알고 있다. *@
         <div class="pm-ask__files">
+            @if (_selectedFileNames.Count > 0)
+            {
+                <div class="pm-ask__selected" aria-live="polite">
+                    <span>선택됨</span>
+                    <span>@string.Join(", ", _selectedFileNames)</span>
+                </div>
+            }
+
             @if (_attached.Count > 0)
             {
                 <ul class="pm-ask__clips">
@@ -384,6 +392,7 @@
                             MaxBytes="@MaxFileBytes"
                             MaxTotalBytes="@(MaxFileBytes * MaxFiles)"
                             Hint="@FileHint"
+                            SelectionChanged="@OnSelectionChanged"
                             FilesChanged="@OnPickedAsync" />
             }
         </div>
@@ -764,6 +773,9 @@
     /// </remarks>
     private List<AiTaskFileDto> _attached = [];
 
+    /// <summary>바이트를 받거나 임시 첨부 저장을 마치기 전, 선택 사실을 보여 주는 파일명.</summary>
+    private IReadOnlyList<string> _selectedFileNames = [];
+
     /// <summary>
     /// 지금 올리는 중인가. <b>보내기를 함께 막는다</b> — 덜 올라간 채로 나가면
     /// 사람은 붙인 줄 아는데 지시에는 안 붙는다.
@@ -966,7 +978,8 @@
     private int Rest => Math.Max(0, _all.Count - _recent.Count);
 
     private bool CanSend =>
-        !Busy && !_uploading && _targetKey is not null && !string.IsNullOrWhiteSpace(_text);
+        !Busy && !_uploading && _selectedFileNames.Count == 0
+        && _targetKey is not null && !string.IsNullOrWhiteSpace(_text);
 
     private AiTargetDto? SelectedTarget => _targets.FirstOrDefault(t => t.TargetKey == _targetKey);
 
@@ -1052,7 +1065,7 @@
     /// 설명 줄(옛 <c>SendNote</c>)을 걷어낸 뒤로 <b>올리기가 어느 쪽인지 말하는
     /// 자리가 여기와 묻는 창 둘뿐이다.</b> 글자를 흐리게 고치지 않는다.
     /// </remarks>
-    private string SendText => _uploading ? "첨부 올리는 중"
+    private string SendText => _uploading || _selectedFileNames.Count > 0 ? "첨부 올리는 중"
         : Busy ? "보내는 중"
         : PushOn ? "보내고 올리기까지"
         : "보내고 메일로 받기";
@@ -1161,6 +1174,12 @@
             _uploading = false;
             StateHasChanged();
         }
+    }
+
+    private Task OnSelectionChanged(IReadOnlyList<string> fileNames)
+    {
+        _selectedFileNames = fileNames;
+        return Task.CompletedTask;
     }
 
     /// <summary>붙인 것을 뗀다. <b>아직 안 보낸 것만</b> 떼어진다.</summary>

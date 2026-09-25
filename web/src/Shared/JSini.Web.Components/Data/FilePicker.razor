@@ -95,6 +95,9 @@
     /// <summary>고른 것이 바뀔 때마다. 화면은 이 목록을 들고 있다가 저장할 때 읽는다.</summary>
     [Parameter] public EventCallback<IReadOnlyList<PickedFile>> FilesChanged { get; set; }
 
+    /// <summary>브라우저에서 고른 파일 이름. 바이트를 받기 전의 선택 상태도 화면에 알린다.</summary>
+    [Parameter] public EventCallback<IReadOnlyList<string>> SelectionChanged { get; set; }
+
     private DxFileInput? _input;
 
     /// <summary>
@@ -170,6 +173,8 @@
             _byGuid.Remove(gone);
         }
 
+        var removedGuids = new HashSet<string>(StringComparer.Ordinal);
+
         // ── 총량 ──────────────────────────────────────────────
         if (MaxTotalBytes > 0)
         {
@@ -211,6 +216,7 @@
 
                 foreach (var file in over)
                 {
+                    removedGuids.Add(file.Guid);
                     _byGuid.Remove(file.Guid);
                 }
 
@@ -222,6 +228,8 @@
             }
         }
 
+        await SelectionChanged.InvokeAsync(
+            [.. list.Where(file => !removedGuids.Contains(file.Guid)).Select(file => file.Name)]);
         await FilesChanged.InvokeAsync(Files);
     }
 
@@ -260,6 +268,7 @@
             }
         }
 
+        await SelectionChanged.InvokeAsync([.. Files.Select(file => file.Name)]);
         await FilesChanged.InvokeAsync(Files);
     }
 
@@ -310,6 +319,7 @@
             _trimming = false;
         }
 
+        await SelectionChanged.InvokeAsync([]);
         await FilesChanged.InvokeAsync(Files);
     }
 

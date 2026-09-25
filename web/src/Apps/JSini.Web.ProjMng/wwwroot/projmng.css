@@ -2009,6 +2009,16 @@
   margin: 0.6rem 0 0;
 }
 
+/* 임시 첨부가 만들어지기 전에도 파일을 골랐다는 사실과 이름을 보여 준다. */
+.pm-ask__selected {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.5rem;
+  color: var(--jsini-text-muted);
+  font-size: var(--jsini-fs-sm);
+  overflow-wrap: anywhere;
+}
+
 /* 붙인 것. **격자가 아니라 흐름이다** — 이름 길이가 제각각이라 칸을 맞추면
    짧은 이름 옆이 통째로 빈다. */
 .pm-ask__clips {
